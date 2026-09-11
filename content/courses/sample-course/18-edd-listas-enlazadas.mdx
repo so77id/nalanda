@@ -1,0 +1,1754 @@
+---
+id: edd-listas-enlazadas
+title: Estructuras de Datos · Listas Enlazadas
+presentation: explicit
+questions: pool
+---
+
+{/* `pool`: un conjunto de preguntas sin expectativa por sección. No */}
+{/* `per-section`, porque cada <Slide> es un h2 y exigir una pregunta por */}
+{/* slide serían más de cuarenta. Lo que el pool garantiza es densidad por */}
+{/* RANGO: un control se pide sobre un rango de secciones, así que cada */}
+{/* bloque tiene que poder llenar una copia de cuatro. Hoy son 17 y NO lo */}
+{/* cumplen: 4 en la apertura (que llega hasta las invariantes), 8 en las */}
+{/* operaciones, 5 en las variantes, y ninguna en la comparación ni en los */}
+{/* ejercicios — se propusieron y Miguel las descartó, así que un control */}
+{/* pedido sobre esos dos rangos sale vacío hasta que se escriban. */}
+
+# Estructuras de Datos · Listas Enlazadas
+
+El TDA Sequence no dice dónde viven los elementos de la colección, y esa
+libertad admite dos decisiones opuestas. El arreglo los guarda juntos, y eso
+le fija los costos: llegar a una posición es una cuenta, abrir un hueco
+obliga a correr todo lo que sigue. Esta clase estudia la estructura que toma
+la decisión contraria —cada elemento por su lado, guardando dónde está el
+siguiente— y cumple el mismo contrato con los costos casi invertidos.
+
+Presentamos la lista simplemente enlazada con todas sus operaciones, sus
+cuatro variantes, la comparación completa contra el arreglo y los cinco
+ejercicios que la vuelven una herramienta de trabajo.
+
+<Slide title="El TDA Sequence">
+Una **secuencia** es una colección de elementos donde el orden lo determina
+**dónde se insertó cada uno**, y no su valor. El contrato que estudiamos en
+[[edd-introduccion|Estructuras de Datos · Introducción]] es este:
+
+<div style={{ border: '1px solid var(--color-rule)', borderRadius: '8px', overflow: 'hidden', margin: '1.25rem 0' }}>
+  <div style={{ background: 'var(--color-sunk)', padding: '0.55rem 0.9rem', borderBottom: '1px solid var(--color-rule)', fontWeight: 700 }}>Sequence <span style={{ fontWeight: 400, color: 'var(--color-ink-faint)' }}>· el contrato</span></div>
+  <div style={{ display: 'grid', gridTemplateColumns: 'max-content 1fr', columnGap: '2rem' }}>
+  <div style={{ gridColumn: '1 / -1', padding: '0.7rem 0.9rem 0.15rem', fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.08em', color: 'var(--color-ink-faint)' }}>CREAR</div>
+  <code style={{ padding: `0.15rem 0 0.7rem 0.9rem`, whiteSpace: 'nowrap' }}>build(elementos)</code>
+  <span style={{ padding: `0.15rem 0.9rem 0.7rem 0` }}>construye la secuencia con esos elementos</span>
+  <div style={{ gridColumn: '1 / -1', borderTop: '1px solid var(--color-rule)', padding: '0.7rem 0.9rem 0.15rem', fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.08em', color: 'var(--color-keep)' }}>CONSULTAR · no cambian nada</div>
+  <code style={{ padding: `0.15rem 0 0.3rem 0.9rem`, whiteSpace: 'nowrap' }}>len() → entero</code>
+  <span style={{ padding: `0.15rem 0.9rem 0.3rem 0` }}>cuántos elementos hay</span>
+  <code style={{ padding: `0.15rem 0 0.7rem 0.9rem`, whiteSpace: 'nowrap' }}>getAt(i) → elemento</code>
+  <span style={{ padding: `0.15rem 0.9rem 0.7rem 0` }}>el que está en la posición i</span>
+  <div style={{ gridColumn: '1 / -1', borderTop: '1px solid var(--color-rule)', padding: '0.7rem 0.9rem 0.15rem', fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.08em', color: 'var(--color-accent)' }}>MODIFICAR · cambian el estado</div>
+  <code style={{ padding: `0.15rem 0 0.3rem 0.9rem`, whiteSpace: 'nowrap' }}>setAt(i, x)</code>
+  <span style={{ padding: `0.15rem 0.9rem 0.3rem 0` }}>reemplaza el de la posición i · el largo no cambia</span>
+  <code style={{ padding: `0.15rem 0 0.3rem 0.9rem`, whiteSpace: 'nowrap' }}>insertAt(i, x)</code>
+  <span style={{ padding: `0.15rem 0.9rem 0.3rem 0` }}>pone x en i y corre el resto · largo + 1</span>
+  <code style={{ padding: `0.15rem 0 0.3rem 0.9rem`, whiteSpace: 'nowrap' }}>deleteAt(i) → elemento</code>
+  <span style={{ padding: `0.15rem 0.9rem 0.3rem 0` }}>saca el de i y lo devuelve · largo − 1</span>
+  <code style={{ padding: `0.15rem 0 0.3rem 0.9rem`, whiteSpace: 'nowrap' }}>insertFirst(x) · deleteFirst()</code>
+  <span style={{ padding: `0.15rem 0.9rem 0.3rem 0` }}>atajos en la posición 0</span>
+  <code style={{ padding: `0.15rem 0 0.7rem 0.9rem`, whiteSpace: 'nowrap' }}>insertLast(x) · deleteLast()</code>
+  <span style={{ padding: `0.15rem 0.9rem 0.7rem 0` }}>atajos en el final</span>
+  </div>
+  <div style={{ padding: '0.65rem 0.9rem', borderTop: '1px solid var(--color-rule)', background: 'var(--color-sunk)' }}>
+    <div style={{ fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.08em', color: 'var(--color-ink-faint)' }}>LO QUE NO DICE</div>
+    <div style={{ marginTop: '0.35rem' }}>Dónde viven los elementos, si están juntos o dispersos, ni cuánto cuesta cada operación. Toda esa libertad es de la implementación.</div>
+  </div>
+</div>
+
+El contrato fija qué se le puede pedir a la colección y qué significa cada
+pedido. No dice **cómo** se cumple, y esa libertad es la que permite que dos
+estructuras muy distintas lo cumplan igual de bien.
+
+</Slide>
+
+<Slide title="El precio de tener los elementos juntos">
+El arreglo cumple el contrato guardando los elementos en un **bloque
+consecutivo**: casillas del mismo tamaño, una al lado de la otra.
+
+<svg viewBox="0 0 700 150" style={{ width: '100%', maxWidth: '700px', height: 'auto', display: 'block', margin: '1rem auto' }} role="img" aria-label="Una tira de memoria con cuatro casillas consecutivas que guardan 7, 3, 1 y 5 en las direcciones 0x1000, 0x1004, 0x1008 y 0x100C, seguidas de dos casillas libres.">
+  <text x="0" y="16" fontSize="13" style={{ fill: 'var(--color-ink-faint)' }}>memoria</text>
+  {[0, 1, 2, 3, 4, 5].map((i) => (
+    <g key={i}>
+      <rect x={20 + i * 108} y="34" width="100" height="52" rx="3" style={{ fill: i < 4 ? 'var(--color-surface)' : 'var(--color-sunk)', stroke: i < 4 ? 'var(--color-rule-strong)' : 'var(--color-rule)' }} strokeWidth={i < 4 ? 1.6 : 1.2} strokeDasharray={i < 4 ? undefined : '4 3'} />
+      <text x={70 + i * 108} y="68" textAnchor="middle" fontSize="22" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{[7, 3, 1, 5, '', ''][i]}</text>
+      <text x={70 + i * 108} y="106" textAnchor="middle" fontSize="12" fontFamily="monospace" style={{ fill: 'var(--color-ink-faint)' }}>{['0x1000', '0x1004', '0x1008', '0x100C', '0x1010', '0x1014'][i]}</text>
+      <text x={70 + i * 108} y="126" textAnchor="middle" fontSize="12" style={{ fill: 'var(--color-ink-faint)' }}>{i < 4 ? `i = ${i}` : 'libre'}</text>
+    </g>
+  ))}
+</svg>
+
+Las direcciones suben de cuatro en cuatro, así que la posición `i` está
+siempre en `base + i × 4`. Esa cuenta es lo que hace que `getAt(i)` cueste
+$$\Theta(1)$$: no hay que buscar, hay que calcular.
+
+Y esa misma cuenta cobra su precio. Para que valga **no puede haber huecos**,
+así que insertar al principio obliga a correr los $$N$$ elementos una casilla
+a la derecha antes de escribir nada.
+
+</Slide>
+
+<Slide title="Renunciar a la memoria consecutiva">
+Si los elementos pudieran vivir en cualquier parte, insertar al principio no
+movería nada: se escribe el nuevo donde haya lugar y listo.
+
+<svg viewBox="0 0 700 130" style={{ width: '100%', maxWidth: '700px', height: 'auto', display: 'block', margin: '1rem auto' }} role="img" aria-label="La misma tira de memoria, pero ahora 7, 3, 1 y 5 están en direcciones sin relación entre sí, separados por casillas que ocupan otros datos del programa.">
+  <text x="0" y="16" fontSize="13" style={{ fill: 'var(--color-ink-faint)' }}>memoria</text>
+  {[
+    { v: '7', a: '0x1A40', own: true }, { v: '', a: '', own: false },
+    { v: '3', a: '0x0C08', own: true }, { v: '', a: '', own: false },
+    { v: '1', a: '0x3F90', own: true }, { v: '', a: '', own: false },
+    { v: '5', a: '0x2B18', own: true },
+  ].map((c, i) => (
+    <g key={i}>
+      <rect x={20 + i * 96} y="34" width="88" height="52" rx="3" style={{ fill: c.own ? 'var(--color-surface)' : 'var(--color-sunk)', stroke: c.own ? 'var(--color-rule-strong)' : 'var(--color-rule)' }} strokeWidth={c.own ? 1.6 : 1.2} strokeDasharray={c.own ? undefined : '4 3'} />
+      <text x={64 + i * 96} y="68" textAnchor="middle" fontSize="22" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{c.v}</text>
+      <text x={64 + i * 96} y="68" textAnchor="middle" fontSize="11" style={{ fill: 'var(--color-ink-faint)' }}>{c.own ? '' : 'otro dato'}</text>
+      <text x={64 + i * 96} y="106" textAnchor="middle" fontSize="11" fontFamily="monospace" style={{ fill: 'var(--color-ink-faint)' }}>{c.a}</text>
+    </g>
+  ))}
+</svg>
+
+Pero al soltar la contigüidad se rompe la cuenta. Las direcciones ya no
+guardan ninguna relación entre sí: `0x1A40` no dice nada sobre `0x0C08`. Y
+entonces aparece un problema que el arreglo no tenía.
+
+**Tenemos un elemento en la mano y no hay manera de llegar al siguiente.** Ni
+siquiera sabemos cuál es: los cuatro valores están ahí, pero como colección
+ya no existen.
+
+</Slide>
+
+<Slide title="El enlace">
+La solución es guardar, junto a cada dato, **la dirección del que sigue**.
+
+<svg viewBox="0 0 700 186" style={{ width: '100%', maxWidth: '700px', height: 'auto', display: 'block', margin: '1rem auto' }} role="img" aria-label="La misma memoria dispersa, ahora con flechas que van de cada valor al siguiente: 7 apunta a la dirección de 3, 3 a la de 1, 1 a la de 5, y 5 no apunta a ninguna.">
+  <defs>
+    <marker id="mem-punta" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto">
+      <path d="M0,0 L7,3.5 L0,7 z" style={{ fill: 'var(--color-accent)' }} />
+    </marker>
+  </defs>
+  <text x="0" y="16" fontSize="13" style={{ fill: 'var(--color-ink-faint)' }}>memoria</text>
+  {[
+    { v: '7', a: '0x1A40', own: true }, { v: '', a: '', own: false },
+    { v: '3', a: '0x0C08', own: true }, { v: '', a: '', own: false },
+    { v: '1', a: '0x3F90', own: true }, { v: '', a: '', own: false },
+    { v: '5', a: '0x2B18', own: true },
+  ].map((c, i) => (
+    <g key={i}>
+      <rect x={20 + i * 96} y="52" width="88" height="52" rx="3" style={{ fill: c.own ? 'var(--color-surface)' : 'var(--color-sunk)', stroke: c.own ? 'var(--color-rule-strong)' : 'var(--color-rule)' }} strokeWidth={c.own ? 1.6 : 1.2} strokeDasharray={c.own ? undefined : '4 3'} />
+      <text x={64 + i * 96} y="86" textAnchor="middle" fontSize="22" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{c.v}</text>
+      <text x={64 + i * 96} y="86" textAnchor="middle" fontSize="11" style={{ fill: 'var(--color-ink-faint)' }}>{c.own ? '' : 'otro dato'}</text>
+      <text x={64 + i * 96} y="124" textAnchor="middle" fontSize="11" fontFamily="monospace" style={{ fill: 'var(--color-ink-faint)' }}>{c.a}</text>
+    </g>
+  ))}
+  <path d="M 64 52 C 92 2, 228 2, 254 46" fill="none" style={{ stroke: 'var(--color-accent)' }} strokeWidth="1.8" markerEnd="url(#mem-punta)" />
+  <path d="M 292 104 C 318 164, 386 164, 410 110" fill="none" style={{ stroke: 'var(--color-accent)' }} strokeWidth="1.8" markerEnd="url(#mem-punta)" />
+  <path d="M 448 52 C 476 2, 612 2, 638 46" fill="none" style={{ stroke: 'var(--color-accent)' }} strokeWidth="1.8" markerEnd="url(#mem-punta)" />
+  <text x="640" y="146" textAnchor="middle" fontSize="11" style={{ fill: 'var(--color-ink-faint)' }}>no apunta a nadie</text>
+</svg>
+
+Con esa referencia guardada, los cuatro valores vuelven a formar una
+secuencia aunque estén desperdigados: desde el primero se llega al segundo,
+del segundo al tercero, y así hasta el último. El orden ya no lo da la
+posición en memoria, lo da el enlace.
+
+Y ahí está lo que ganamos. Cambiar el orden, o meter un elemento entre dos,
+pasa a ser cambiar a quién apunta un enlace: nada se mueve de lugar, porque
+el lugar dejó de importar.
+
+Esa referencia al siguiente se llama **`next`**.
+
+</Slide>
+
+<Slide title="El nodo">
+La pieza de la que está hecha una lista es el **nodo**: una cajita con dos
+cosas adentro, el dato que guardamos y la dirección del nodo que sigue.
+
+<svg viewBox="0 0 420 150" style={{ width: '100%', maxWidth: '420px', height: 'auto', display: 'block', margin: '1.25rem auto' }} role="img" aria-label="Un nodo dibujado como una caja de dos campos: a la izquierda el campo valor, que guarda el número 42; a la derecha el campo next, del que sale una flecha hacia el nodo siguiente.">
+  <defs>
+    <marker id="nodo-punta" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto">
+      <path d="M0,0 L7,3.5 L0,7 z" style={{ fill: 'var(--color-ink-soft)' }} />
+    </marker>
+  </defs>
+  <rect x="40" y="45" width="110" height="60" rx="4" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.6" />
+  <rect x="150" y="45" width="52" height="60" rx="4" style={{ fill: 'var(--color-sunk)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.6" />
+  <text x="95" y="85" textAnchor="middle" fontSize="26" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>42</text>
+  <circle cx="176" cy="75" r="4" style={{ fill: 'var(--color-ink-soft)' }} />
+  <text x="95" y="126" textAnchor="middle" fontSize="13" style={{ fill: 'var(--color-ink-faint)' }}>valor</text>
+  <text x="176" y="126" textAnchor="middle" fontSize="13" style={{ fill: 'var(--color-ink-faint)' }}>next</text>
+  <text x="95" y="30" textAnchor="middle" fontSize="13" style={{ fill: 'var(--color-ink-soft)' }}>el dato</text>
+  <text x="270" y="30" textAnchor="middle" fontSize="13" style={{ fill: 'var(--color-ink-soft)' }}>dónde sigue</text>
+  <line x1="176" y1="75" x2="300" y2="75" style={{ stroke: 'var(--color-ink-soft)' }} strokeWidth="1.6" markerEnd="url(#nodo-punta)" />
+  <rect x="310" y="45" width="70" height="60" rx="4" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule)' }} strokeWidth="1.4" strokeDasharray="4 3" />
+  <text x="345" y="82" textAnchor="middle" fontSize="14" style={{ fill: 'var(--color-ink-faint)' }}>otro nodo</text>
+</svg>
+
+```java
+class Node {
+    int value;
+    Node next;
+
+    Node(int value) {
+        this.value = value;
+        this.next = null;
+    }
+}
+```
+
+El campo `next` no es una copia del siguiente nodo: es una **referencia** a
+él. Un nodo recién creado tiene `next` en `null`, que es la manera de decir
+«después de mí no hay nadie».
+
+Nada obliga a que dos nodos consecutivos estén cerca en memoria. Pueden
+haberse creado en momentos distintos y quedar en direcciones sin relación
+entre sí. Lo único que los mantiene en orden es el enlace.
+
+</Slide>
+
+<Slide title="La lista enlazada">
+Un nodo que conoce al siguiente, que conoce al siguiente, hasta que alguno ya
+no apunta a nadie. Eso es una **lista enlazada**.
+
+<svg viewBox="0 0 700 150" style={{ width: '100%', maxWidth: '700px', height: 'auto', display: 'block', margin: '1.25rem auto' }} role="img" aria-label="Una lista enlazada de cuatro nodos con los valores 7, 3, 1 y 5. Una referencia llamada head apunta al primero; cada nodo tiene un campo con su valor y otro con una flecha hacia el siguiente; el último apunta a null.">
+  <defs>
+    <marker id="lista-punta" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto">
+      <path d="M0,0 L7,3.5 L0,7 z" style={{ fill: 'var(--color-ink-soft)' }} />
+    </marker>
+    <marker id="lista-punta-head" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto">
+      <path d="M0,0 L7,3.5 L0,7 z" style={{ fill: 'var(--color-accent)' }} />
+    </marker>
+  </defs>
+  <text x="34" y="34" textAnchor="middle" fontSize="15" fontWeight="700" fontFamily="monospace" style={{ fill: 'var(--color-accent)' }}>head</text>
+  <line x1="34" y1="42" x2="34" y2="72" style={{ stroke: 'var(--color-accent)' }} strokeWidth="1.8" markerEnd="url(#lista-punta-head)" />
+  {[7, 3, 1, 5].map((v, i) => (
+    <g key={i}>
+      <rect x={20 + i * 158} y="76" width="72" height="54" rx="4" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.6" />
+      <rect x={92 + i * 158} y="76" width="34" height="54" rx="4" style={{ fill: 'var(--color-sunk)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.6" />
+      <text x={56 + i * 158} y="111" textAnchor="middle" fontSize="24" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{v}</text>
+      <circle cx={109 + i * 158} cy="103" r="4" style={{ fill: 'var(--color-ink-soft)' }} />
+      <line x1={109 + i * 158} y1="103" x2={i < 3 ? 170 + i * 158 : 648} y2="103" style={{ stroke: 'var(--color-ink-soft)' }} strokeWidth="1.6" markerEnd="url(#lista-punta)" />
+    </g>
+  ))}
+  <text x="668" y="108" fontSize="15" fontFamily="monospace" style={{ fill: 'var(--color-ink-faint)' }}>null</text>
+</svg>
+
+Una sola referencia, `head`, alcanza para tener la cadena entera: desde ella
+se llega al primero, y de cada uno al que sigue. El último no apunta a
+ninguno, y ese `null` es lo que dice dónde termina.
+
+</Slide>
+
+<Slide title="La estructura en código">
+Con el nodo definido, la lista completa se sostiene con dos atributos:
+
+```java
+public class LinkedList {
+    private Node head;
+    private int size;
+
+    public LinkedList() {
+        this.head = null;
+        this.size = 0;
+    }
+}
+```
+
+`head` es la puerta de entrada: desde ahí se llega a todos los demás nodos
+siguiendo enlaces. Una lista vacía es exactamente `head == null`.
+
+`size` no es indispensable —se podría contar la cadena cada vez— pero
+contarla cuesta recorrerla entera. Guardar el número y mantenerlo al día en
+cada inserción y cada eliminación convierte `len()` en una lectura.
+
+</Slide>
+
+<Slide title="Las invariantes de la lista enlazada">
+Tres propiedades tienen que valer antes y después de cada operación. Si
+alguna se rompe, las demás operaciones dejan de funcionar aunque su código
+sea correcto.
+
+1. **`head` apunta al primer nodo, o a `null` si la lista está vacía.** Es el
+   único punto de entrada a la cadena. Si `head` queda apuntando a un nodo
+   del medio, todo lo anterior se vuelve inalcanzable: sigue en memoria y no
+   hay manera de llegar.
+
+2. **Desde `head`, siguiendo `next`, se llega a todos los nodos y se termina
+   en `null`.** La cadena no tiene cortes ni ciclos. Un corte pierde la cola;
+   un ciclo hace que cualquier recorrido no termine nunca.
+
+3. **`size` es la cantidad de nodos de esa cadena.** Cada operación que
+   agrega o saca un nodo lo actualiza. Un `size` desfasado convierte en
+   válidos índices que no existen.
+
+La segunda es la que fija los dos costos de la estructura, el barato y el
+caro, y por eso conviene tenerla a mano. Gracias a ella insertar al principio
+es cambiar un enlace, sin tocar ningún otro nodo. Y por ella misma, llegar a
+la posición `i` obliga a dar `i` saltos: la única forma de avanzar en la
+cadena es preguntarle a cada nodo por el siguiente.
+
+</Slide>
+
+<SectionBreak />
+
+## Las operaciones de la lista enlazada
+
+<Slide title="build · crear la lista">
+Crear una lista es dejarla en su estado inicial: sin ningún nodo.
+
+```java
+public LinkedList() {
+    this.head = null;
+    this.size = 0;
+}
+```
+
+<svg viewBox="0 0 360 96" style={{ width: '100%', maxWidth: '360px', height: 'auto', display: 'block', margin: '1rem auto' }} role="img" aria-label="Una lista vacía: la referencia head apunta directamente a null, y no hay ningún nodo.">
+  <defs>
+    <marker id="vacia-punta" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto">
+      <path d="M0,0 L7,3.5 L0,7 z" style={{ fill: 'var(--color-accent)' }} />
+    </marker>
+  </defs>
+  <text x="60" y="30" textAnchor="middle" fontSize="15" fontWeight="700" fontFamily="monospace" style={{ fill: 'var(--color-accent)' }}>head</text>
+  <line x1="88" y1="25" x2="168" y2="25" style={{ stroke: 'var(--color-accent)' }} strokeWidth="1.8" markerEnd="url(#vacia-punta)" />
+  <text x="196" y="30" fontSize="15" fontFamily="monospace" style={{ fill: 'var(--color-ink-faint)' }}>null</text>
+  <text x="180" y="72" textAnchor="middle" fontSize="13" style={{ fill: 'var(--color-ink-faint)' }}>ningún nodo · size = 0</text>
+</svg>
+
+Los dos valores no son arbitrarios: son lo que las invariantes exigen cuando
+no hay nodos. `head` en `null` dice que no hay primer nodo, y `size` en cero
+dice que la cadena que arranca ahí tiene largo cero. Ambas cosas son ciertas,
+y la lista queda en un estado válido antes de que nadie la use.
+
+Ese es el trabajo del constructor y todo su trabajo: dos asignaciones que no
+dependen de nada, así que crear una lista cuesta $$\Theta(1)$$.
+
+</Slide>
+
+<Slide title="La lista vacía y el largo">
+Dos operaciones que no recorren nada:
+
+```java
+public boolean isEmpty() {
+    return head == null;
+}
+
+public int len() {
+    return size;
+}
+```
+
+`isEmpty()` lee la primera invariante directamente: una lista está vacía
+exactamente cuando `head` es `null`. No hace falta contar.
+
+`len()` es $$\Theta(1)$$ porque `size` se mantiene al día en cada inserción y
+cada eliminación. Ese es el trato: pagamos una suma o una resta en cada
+operación que cambia la cadena, y a cambio preguntar el largo nunca cuesta
+recorrerla.
+
+</Slide>
+
+<Slide title="getAt · el dato de la posición $$i$$">
+Pedir el elemento de una posición no es una cuenta: es un recorrido.
+
+```java
+int getAt(int i) {
+    if (i < 0 || i >= size) {
+        throw new IndexOutOfBoundsException();
+    }
+    Node current = head;
+    for (int j = 0; j < i; j++) {
+        current = current.next;
+    }
+    return current.value;
+}
+```
+
+Cada paso del recorrido es un salto, y hay que darlos todos: no existe forma
+de adelantarse. Llegar a la posición `i` cuesta `i` saltos, y en el peor caso
+—el último nodo— son $$N - 1$$, así que la operación es $$\Theta(N)$$.
+
+Es exactamente la operación que el arreglo resuelve con una multiplicación y
+una suma. Aquí no hay ninguna cuenta posible, porque las direcciones de los
+nodos no guardan relación entre sí.
+
+</Slide>
+
+<Slide title="getAt">
+<SequenceStepper
+  eda="linked-list-singly"
+  operation="get-at"
+  values={[7, 3, 1, 5, 9, 2, 8]}
+  index={[0, 3, 6]}
+/>
+
+La misma llamada, tres posiciones: ninguna, tres y seis saltos. El costo de
+`getAt` no es un número, es la posición que se pide.
+
+</Slide>
+
+<Slide title="buscar · el recorrido hasta el valor">
+Buscar un valor recorre la cadena preguntando nodo por nodo.
+
+```java
+int search(int x) {
+    Node current = head;
+    for (int i = 0; current != null; i++) {
+        if (current.value == x) {
+            return i;
+        }
+        current = current.next;
+    }
+    return -1;
+}
+```
+
+El peor caso visita los $$N$$ nodos, y llega por dos caminos: que el valor
+esté al final, o que no esté. En los dos hay que preguntarle a todos antes de
+poder responder, así que la operación es $$\Theta(N)$$. Un arreglo
+desordenado cuesta lo mismo, y por una vez las dos estructuras empatan.
+
+El empate se rompe cuando los datos están ordenados. Sobre un arreglo
+ordenado la búsqueda binaria baja a $$\Theta(\log N)$$ porque puede saltar
+al elemento del medio con una cuenta. Sobre una lista ordenada no puede: para
+llegar al nodo del medio hay que caminar hasta él, y entonces ya se recorrió
+media cadena. La lista se queda en $$\Theta(N)$$ aunque esté ordenada.
+
+</Slide>
+
+<Slide title="buscar">
+<SequenceStepper
+  eda="linked-list-singly"
+  operation="search"
+  values={[7, 3, 1, 5, 9, 2, 8]}
+  target={[7, 8, 4]}
+/>
+
+Los tres casos que importan, en orden: el valor que está adelante y corta al
+primer nodo, el que está al final y obliga a recorrerlo todo, y el que no
+está —que también obliga a recorrerlo todo, porque solo al llegar a `null` se
+puede afirmar que no está.
+
+</Slide>
+
+<Slide title="insertFirst · insertar al comienzo">
+Insertar al principio se resuelve con tres asignaciones, y ninguna de las tres
+depende de cuántos elementos haya en la lista.
+
+```java
+void insertFirst(int x) {
+    Node fresh = new Node(x);
+    fresh.next = head;
+    head = fresh;
+    size++;
+}
+```
+
+El nodo nuevo toma el enlace que tenía `head`, y recién entonces `head` pasa a
+apuntar al nodo nuevo. El orden importa: al revés se pierde la referencia al
+resto de la cadena.
+
+Los demás nodos no se enteran. Ninguno cambia de lugar ni de contenido, y por
+eso el costo no crece con el largo: la operación es $$\Theta(1)$$. La
+invariante que restaura es la primera —`head` apunta al primer nodo— y
+restaurarla cuesta esas tres asignaciones, haya cero elementos o un millón.
+
+</Slide>
+
+<Slide title="insertFirst">
+<SequenceStepper
+  eda="linked-list-singly"
+  operation="insert-first"
+  values={[]}
+  value={[5, 1, 3, 7]}
+/>
+
+La cadena creció cuatro veces y ningún nodo se movió de su sitio. En un
+arreglo, cada una de esas cuatro inserciones habría corrido todos los
+elementos una casilla a la derecha para abrir el hueco: $$\Theta(N)$$ cada
+vez. Aquí no hay hueco que abrir, porque los nodos no están obligados a ser
+vecinos, y por eso la lista gana en $$\Theta(1)$$ — el mismo pedido, y el
+costo dejó de depender del largo.
+
+</Slide>
+
+<Slide title="insertLast · insertar al final">
+Insertar al final invierte la comparación anterior.
+
+```java
+void insertLast(int x) {
+    Node fresh = new Node(x);
+    if (head == null) {
+        head = fresh;
+    } else {
+        Node current = head;
+        while (current.next != null) {
+            current = current.next;
+        }
+        current.next = fresh;
+    }
+    size++;
+}
+```
+
+Enlazar el nodo nuevo cuesta una asignación, igual que antes. Lo caro es
+llegar: el único nodo autorizado a apuntar al nuevo es el último, y la única
+forma de saber cuál es consiste en recorrer la cadena hasta encontrar al que
+tiene `next == null`. Son $$N - 1$$ saltos, y el total queda en
+$$\Theta(N)$$.
+
+La cadena vacía es un caso aparte, y por eso el método pregunta primero: sin
+nodos no hay un último al que enlazarse, así que lo que la inserción asigna
+es `head`.
+
+</Slide>
+
+<Slide title="insertLast">
+<SequenceStepper
+  eda="linked-list-singly"
+  operation="insert-last"
+  values={[]}
+  value={[5, 1, 3, 7]}
+/>
+
+En el arreglo esta misma operación era la barata —escribir en `data[size]`, sin
+recorrer nada— así que aquí la comparación se da vuelta: la lista paga
+$$\Theta(N)$$ por llegar al final justamente porque nadie guarda dónde está.
+
+</Slide>
+
+<Slide title="insertAt · encontrar al previo">
+Insertar en una posición cualquiera se hace en dos tiempos: primero llegar,
+después enlazar.
+
+```java
+void insertAt(int i, int x) {
+    if (i < 0 || i > size) {
+        throw new IndexOutOfBoundsException();
+    }
+    if (i == 0) {
+        insertFirst(x);
+        return;
+    }
+    Node fresh = new Node(x);
+    Node prev = head;
+    for (int j = 0; j < i - 1; j++) {
+        prev = prev.next;
+    }
+    fresh.next = prev.next;
+    prev.next = fresh;
+    size++;
+}
+```
+
+El nodo que hay que modificar no es el de la posición `i`, sino el de la
+posición `i - 1`: es el que tiene que dejar de apuntar a su siguiente para
+apuntar al nodo nuevo. Por eso el recorrido se detiene un paso antes. Y en la
+posición 0 no existe ese previo, así que ahí el trabajo es el de
+`insertFirst`.
+
+El orden de las dos asignaciones no es libre. Primero el nodo nuevo toma el
+enlace del previo, y solo después el previo apunta al nuevo. Al revés se
+pierde la referencia al resto de la cadena y todo lo que venía después queda
+inalcanzable.
+
+</Slide>
+
+<Slide title="insertAt">
+<SequenceStepper
+  eda="linked-list-singly"
+  operation="insert-at"
+  values={[7, 3, 1, 5]}
+  value={[9, 4, 6]}
+  index={[2, 0, 5]}
+/>
+
+</Slide>
+
+<Slide title="deleteFirst · eliminar el primero">
+Eliminar el primer nodo es el reflejo de insertarlo.
+
+```java
+int deleteFirst() {
+    if (head == null) {
+        throw new NoSuchElementException();
+    }
+    Node old = head;
+    head = head.next;
+    size--;
+    return old.value;
+}
+```
+
+`head` pasa a apuntar al segundo nodo y la cadena queda completa desde ahí.
+El nodo que salió ya no es alcanzable desde ninguna parte, y el recolector de
+basura de Java se encarga del resto.
+
+Son dos asignaciones y ningún recorrido, haya dos nodos o dos millones: la
+operación es $$\Theta(1)$$.
+
+Sobre un arreglo la misma operación cuesta $$\Theta(N)$$: eliminar la
+posición 0 deja un hueco que la memoria consecutiva no admite, así que hay
+que copiar todo lo demás una casilla a la izquierda. Es el mismo intercambio
+que en `insertFirst`, en el otro sentido.
+
+</Slide>
+
+<Slide title="deleteFirst">
+<SequenceStepper
+  eda="linked-list-singly"
+  operation="remove-first"
+  values={[7, 3, 1, 5]}
+  times={3}
+/>
+
+</Slide>
+
+<Slide title="deleteLast · eliminar el último">
+Eliminar el último nodo es la operación que mejor muestra qué le falta a esta
+estructura.
+
+```java
+int deleteLast() {
+    if (head == null) {
+        throw new NoSuchElementException();
+    }
+    Node old;
+    if (head.next == null) {
+        old = head;
+        head = null;
+    } else {
+        Node prev = head;
+        while (prev.next.next != null) {
+            prev = prev.next;
+        }
+        old = prev.next;
+        prev.next = null;
+    }
+    size--;
+    return old.value;
+}
+```
+
+El nodo que hay que modificar es el **anteúltimo**: es quien debe pasar a
+apuntar a `null` para que la cadena vuelva a terminar bien. Y un nodo no
+guarda quién lo apunta, solo a quién apunta: desde el último no hay manera de
+retroceder un paso. La única salida es volver a `head` y recorrer.
+
+Con un solo nodo no hay anteúltimo a quien pedirle nada, y `prev.next.next`
+reventaría contra `null`. Por eso el método pregunta antes: ahí el que
+cambia es `head`.
+
+Ese recorrido es lo que se paga: $$N - 2$$ saltos para llegar al anteúltimo,
+y después una sola asignación. La operación es $$\Theta(N)$$, y lo es por
+llegar, no por borrar.
+
+Sobre un arreglo esta operación es $$\Theta(1)$$ —basta con restar uno a
+`size`—, exactamente al revés que `insertFirst`.
+
+</Slide>
+
+<Slide title="deleteLast">
+<SequenceStepper
+  eda="linked-list-singly"
+  operation="remove-last"
+  values={[7, 3, 1, 5, 9]}
+  times={3}
+/>
+
+El recorrido se acorta con la cadena, pero nunca desaparece: cada borrado
+vuelve a partir de `head` porque el último nodo no sabe quién lo apunta.
+
+</Slide>
+
+<Slide title="deleteAt · eliminar una posición">
+Eliminar una posición cualquiera repite el patrón: llegar al previo, y
+después una sola asignación.
+
+```java
+int deleteAt(int i) {
+    if (i < 0 || i >= size) {
+        throw new IndexOutOfBoundsException();
+    }
+    if (i == 0) {
+        return deleteFirst();
+    }
+    Node prev = head;
+    for (int j = 0; j < i - 1; j++) {
+        prev = prev.next;
+    }
+    Node old = prev.next;
+    prev.next = old.next;
+    size--;
+    return old.value;
+}
+```
+
+El previo pasa a apuntar al siguiente del nodo que sale, que queda fuera de
+la cadena sin haber movido ningún otro dato. La invariante que se restaura es
+la segunda: desde `head` se sigue llegando a todos los nodos y se sigue
+terminando en `null`.
+
+Las dos estructuras cuestan $$\Theta(N)$$ aquí, pero no gastan ese
+$$\Theta(N)$$ en lo mismo, y conviene ver en qué.
+
+- **El arreglo** hace $$N$$ **escrituras**: corre cada elemento posterior una
+  casilla a la izquierda para tapar el hueco. Toca la memoria $$N$$ veces.
+- **La lista** hace $$N$$ **lecturas** y una sola escritura: sigue $$N$$
+  enlaces para encontrar al previo, y recién ahí cambia un puntero.
+
+Leer es más barato que escribir, así que la lista suele ganar en el reloj
+aunque empate en la notación. Y la diferencia crece cuando el elemento es
+grande: mover un objeto de cien bytes cien veces no cuesta lo mismo que
+seguir cien punteros.
+
+</Slide>
+
+<Slide title="deleteAt">
+<SequenceStepper
+  eda="linked-list-singly"
+  operation="remove-at"
+  values={[7, 3, 1, 5, 9]}
+  index={[3, 0, 1]}
+/>
+
+</Slide>
+
+<Slide title="Los casos de borde">
+Todos los métodos de esta clase empiezan preguntando algo antes de trabajar.
+No es prolijidad: cada `if` del principio tapa un caso en el que el cuerpo
+general del método **no funciona**.
+
+| El caso | Qué pasa si el método no pregunta | El `if` que lo evita |
+| --- | --- | --- |
+| La cadena está vacía y le pedimos sacar un nodo | `head` es `null` y el método lo sigue igual | `if (head == null) throw new NoSuchElementException();` |
+| La cadena está vacía y le insertamos al final | no hay último al que enlazarse | `if (head == null) { head = fresh; }` |
+| Queda un solo nodo y borramos el último | no hay anteúltimo: `prev.next.next` revienta | `if (head.next == null) { old = head; head = null; }` |
+| La posición es 0 en `insertAt` o `deleteAt` | no hay nodo previo, y se termina modificando el nodo equivocado | `if (i == 0)`, que delega en la operación del frente |
+
+Notemos qué tienen en común: **los cuatro son el extremo de la cadena**, que
+es donde vive `head`. El cuerpo general de cada método supone que hay un nodo
+antes del que le interesa, y en los extremos ese nodo no existe.
+
+</Slide>
+
+<Slide title="Operaciones y sus costos">
+| Molde | Operación | Peor caso | Invariante que restaura |
+|---|---|---|---|
+| crear | `build()` | $$\Theta(1)$$ | Deja las invariantes en su caso base: `head` en `null`, `size` en cero |
+| consultar | `len()` | $$\Theta(1)$$ | Ninguna: `size` ya guarda el dato |
+| consultar | `getAt(i)` | $$\Theta(N)$$ | Ninguna: no cambia la cadena |
+| consultar | `search(x)` | $$\Theta(N)$$ | Ninguna: no cambia la cadena |
+| modificar | `setAt(i, x)` | $$\Theta(N)$$ | Ninguna: cambia un valor, no la forma |
+| modificar | <code style={{ color: 'var(--color-keep)' }}>insertFirst(x)</code> | <span style={{ color: 'var(--color-keep)', fontWeight: 700 }}>$$\Theta(1)$$</span> | `head` apunta al primero: el nodo nuevo enlaza al que lo era |
+| modificar | `insertLast(x)` | $$\Theta(N)$$ | La cadena termina en `null`: hay que encontrar quién lo hace |
+| modificar | `insertAt(i, x)` | $$\Theta(N)$$ | La cadena queda completa: el previo enlaza al nuevo, el nuevo al que seguía |
+| modificar | <code style={{ color: 'var(--color-keep)' }}>deleteFirst()</code> | <span style={{ color: 'var(--color-keep)', fontWeight: 700 }}>$$\Theta(1)$$</span> | `head` apunta al primero: pasa a ser el segundo |
+| modificar | `deleteLast()` | $$\Theta(N)$$ | La cadena termina en `null`: el nuevo último debe apuntar ahí |
+| modificar | `deleteAt(i)` | $$\Theta(N)$$ | La cadena no se corta: el previo salta al siguiente |
+
+Las dos destacadas son las únicas de costo constante, y las dos operan sobre
+el mismo lugar: el principio de la cadena. Es el único punto al que se llega
+sin caminar, porque `head` ya está ahí.
+
+</Slide>
+
+<Slide title="Dónde vive el costo">
+Todo lo que cuesta $$\Theta(N)$$ en esta tabla lo cuesta por la misma razón, y
+no es la operación en sí: es **llegar** al lugar donde hay que operar.
+
+Enlazar un nodo cuesta lo mismo en cualquier parte de la cadena —una
+asignación—, pero para enlazarlo en la posición `i` primero hay que tener en
+la mano el nodo `i - 1`, y para tenerlo hay que dar `i - 1` saltos desde
+`head`.
+
+De ahí sale una regla para leer la tabla entera sin memorizarla:
+**preguntemos dónde ocurre la operación, y contemos los saltos que hacen
+falta para llegar ahí**.
+
+- Si ocurre en el primer nodo, no hay saltos: `head` ya lo tiene en la mano.
+  $$\Theta(1)$$.
+- Si ocurre en cualquier otro lado, hay que caminar desde `head` hasta ahí, y
+  en el peor caso eso es toda la cadena. $$\Theta(N)$$.
+
+No hace falta recordar once costos: alcanza con saber dónde empieza el único
+camino que la lista ofrece.
+
+</Slide>
+
+<SectionBreak />
+
+## Las variantes de la lista enlazada
+
+<Slide title="La lista con tail · un puntero más">
+La primera variante agrega un solo atributo:
+
+```java
+public class LinkedList {
+    private Node head;
+    private Node tail;
+    private int size;
+}
+```
+
+`tail` guarda una referencia al último nodo. Con eso aparece una cuarta
+invariante, y mantenerla es trabajo de cada operación:
+
+4. **`tail` apunta al último nodo de la cadena, o a `null` si está vacía.**
+   Si queda apuntando a un nodo que ya salió de la lista, insertar al final
+   enlaza contra un nodo inalcanzable y lo insertado se pierde.
+
+Las tres invariantes anteriores no cambian. Lo único nuevo es esta, y todo lo
+que sigue se explica por ella.
+
+</Slide>
+
+<Slide title="insertLast con tail · llegar sin caminar">
+<SequenceStepper
+  eda="linked-list-singly"
+  operation="insert-last"
+  values={[]}
+  value={[5, 1, 3, 7, 2]}
+  tail
+/>
+
+Cinco inserciones desde la cadena vacía, y ninguna recorre nada. `tail` ya
+tiene en la mano el nodo que hay que modificar, así que enlazar el nodo nuevo
+y actualizar `tail` son dos asignaciones: la operación baja de $$\Theta(N)$$
+a $$\Theta(1)$$, y el contador lo confirma subiendo lo mismo las cinco veces.
+
+El precio fue guardar un dato de más. Con ese puntero la estructura ya no
+tiene que buscar el final: lo sabe. Cambiamos memoria —una referencia— por
+tiempo, y el cambio conviene porque el puntero se actualiza en una asignación
+mientras el recorrido crecía con la cadena.
+
+</Slide>
+
+<Slide title="deleteLast con tail · el que no baja">
+La simetría invita a esperar que eliminar al final también baje a
+$$\Theta(1)$$. No lo hace.
+
+<SequenceStepper eda="linked-list-singly" operation="remove-last" values={[7, 3, 1, 5]} tail />
+
+`tail` entrega el último nodo de inmediato, pero el nodo que hay que
+modificar es el **anteúltimo**: alguien tiene que pasar a apuntar a `null`, y
+ese alguien no es el que sale. Después de eliminar, además, `tail` tiene que
+apuntar al anteúltimo, así que hace falta igual.
+
+Un enlace apunta en una sola dirección. Desde el último nodo no se puede
+retroceder, y `tail` da acceso al final, no al camino de vuelta. La operación
+sigue costando $$\Theta(N)$$.
+
+</Slide>
+
+<Slide title="La lista doblemente enlazada · el enlace de vuelta">
+La segunda variante ataca exactamente esa carencia. Cada nodo gana un
+segundo enlace, y la cajita pasa a tener tres campos:
+
+<svg viewBox="0 0 470 190" style={{ width: '100%', maxWidth: '470px', height: 'auto', display: 'block', margin: '1.25rem auto' }} role="img" aria-label="Un nodo de una lista doblemente enlazada, dibujado como una caja de tres campos: a la izquierda el campo prev, del que sale una flecha hacia el nodo anterior; al centro el campo valor, que guarda el número 42; a la derecha el campo next, del que sale una flecha hacia el nodo siguiente.">
+  <defs>
+    <marker id="doble-punta" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto">
+      <path d="M0,0 L7,3.5 L0,7 z" style={{ fill: 'var(--color-ink-soft)' }} />
+    </marker>
+  </defs>
+  <rect x="130" y="65" width="52" height="60" rx="4" style={{ fill: 'var(--color-sunk)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.6" />
+  <rect x="182" y="65" width="106" height="60" rx="4" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.6" />
+  <rect x="288" y="65" width="52" height="60" rx="4" style={{ fill: 'var(--color-sunk)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.6" />
+  <text x="235" y="105" textAnchor="middle" fontSize="26" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>42</text>
+  <circle cx="156" cy="95" r="4" style={{ fill: 'var(--color-ink-soft)' }} />
+  <circle cx="314" cy="95" r="4" style={{ fill: 'var(--color-ink-soft)' }} />
+  <text x="156" y="146" textAnchor="middle" fontSize="13" style={{ fill: 'var(--color-ink-faint)' }}>prev</text>
+  <text x="235" y="146" textAnchor="middle" fontSize="13" style={{ fill: 'var(--color-ink-faint)' }}>valor</text>
+  <text x="314" y="146" textAnchor="middle" fontSize="13" style={{ fill: 'var(--color-ink-faint)' }}>next</text>
+  <text x="70" y="40" textAnchor="middle" fontSize="13" style={{ fill: 'var(--color-ink-soft)' }}>dónde venía</text>
+  <text x="400" y="40" textAnchor="middle" fontSize="13" style={{ fill: 'var(--color-ink-soft)' }}>dónde sigue</text>
+  <line x1="156" y1="95" x2="42" y2="95" style={{ stroke: 'var(--color-ink-soft)' }} strokeWidth="1.6" markerEnd="url(#doble-punta)" />
+  <line x1="314" y1="95" x2="428" y2="95" style={{ stroke: 'var(--color-ink-soft)' }} strokeWidth="1.6" markerEnd="url(#doble-punta)" />
+  <rect x="0" y="65" width="32" height="60" rx="4" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule)' }} strokeWidth="1.4" strokeDasharray="4 3" />
+  <rect x="438" y="65" width="32" height="60" rx="4" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule)' }} strokeWidth="1.4" strokeDasharray="4 3" />
+</svg>
+
+```java
+class Node {
+    int value;
+    Node next;
+    Node prev;
+}
+```
+
+Con eso aparece la invariante que le da sentido:
+
+5. **Si `a.next` es `b`, entonces `b.prev` es `a`.** Los dos enlaces
+   describen la misma cadena en sentidos opuestos. Si se desincronizan,
+   recorrer hacia adelante y hacia atrás da dos listas distintas, y las dos
+   parecen correctas por separado.
+
+El primer nodo tiene `prev == null` y el último `next == null`, igual que
+antes.
+
+</Slide>
+
+<Slide title="deleteLast en la doblemente enlazada">
+<SequenceStepper eda="linked-list-doubly" operation="remove-last" values={[7, 3, 1, 5]} tail />
+
+Ahora sí. `tail` da el último nodo y `tail.prev` da el anteúltimo sin
+recorrer nada: la operación baja a $$\Theta(1)$$.
+
+Lo mismo vale para eliminar cualquier nodo que ya tengamos en la mano. En una
+lista simplemente enlazada, tener el nodo no alcanza —hay que buscar quién lo
+apunta—; en una doblemente enlazada, `nodo.prev` y `nodo.next` son
+suficientes para sacarlo de la cadena con dos asignaciones.
+
+</Slide>
+
+<Slide title="El precio del enlace de vuelta">
+Nada de esto es gratis, y el costo se paga en dos monedas.
+
+- **Memoria.** Cada nodo guarda una referencia más. Sobre $$N$$ nodos son
+  $$N$$ referencias extra, así que el espacio adicional es $$\Theta(N)$$.
+- **Trabajo en cada modificación.** Toda operación que cambia la cadena tiene
+  que dejar consistentes los dos enlaces. Donde antes había una asignación
+  ahora hay dos, y olvidar una rompe la quinta invariante sin que nada avise
+  en el momento.
+
+El orden asintótico de las operaciones no empeora: siguen siendo las mismas
+constantes o los mismos recorridos. Lo que crece es el trabajo por paso y la
+cantidad de casos que hay que escribir bien.
+
+</Slide>
+
+<Slide title="La lista ordenada · una invariante en vez de un puntero">
+La tercera variante no agrega ningún campo. Agrega una promesa:
+
+6. **Recorriendo la cadena desde `head`, los valores no decrecen.** El orden
+   de la lista deja de ser el orden en que se insertó cada elemento y pasa a
+   ser el orden de los valores.
+
+Es la primera variante que cambia el **contrato** y no la representación. Una
+lista ordenada ya no cumple el TDA Sequence: `insertAt(i, x)` permitiría
+poner cualquier valor en cualquier posición, que es justamente lo que esta
+invariante prohíbe. La operación de inserción pasa a ser una sola, y no
+recibe posición.
+
+</Slide>
+
+<Slide title="insertOrdenado · la posición la decide el valor">
+La lista ordenada pierde `insertAt` y gana un método que decide solo dónde
+va cada valor.
+
+```java
+void insertOrdered(int x) {
+    if (head == null || x <= head.value) {
+        insertFirst(x);
+        return;
+    }
+    Node fresh = new Node(x);
+    Node prev = head;
+    while (prev.next != null && prev.next.value < x) {
+        prev = prev.next;
+    }
+    fresh.next = prev.next;
+    prev.next = fresh;
+    size++;
+}
+```
+
+El recorrido avanza mientras el valor del **nodo siguiente** sea menor que el
+que insertamos, y se detiene en cuanto deja de serlo: ahí está el lugar.
+Mira `prev.next` y no `prev` justamente porque lo que necesita es el nodo
+anterior al hueco, igual que `insertAt`.
+
+Y por eso mismo no puede colocar un valor que va antes del primero: `prev`
+seguiría siendo `head` y el valor caería segundo. Ese caso es del frente, y
+del frente ya sabe `insertFirst`.
+
+El costo es $$\Theta(N)$$ en el peor caso —el valor va al final—, igual que
+`insertAt`. La diferencia no está en el costo sino en quién elige la
+posición: aquí la elige el valor, y por eso la invariante se mantiene sola.
+
+</Slide>
+
+<Slide title="insertOrdenado">
+<SequenceStepper
+  eda="linked-list-singly"
+  operation="insert-ordered"
+  values={[3, 7]}
+  target={[5, 1, 9]}
+/>
+
+Tres valores y tres destinos distintos sin que nadie diga la posición: 5 al
+medio, 1 al frente por la rama del principio, 9 al final cuando `prev.next`
+llega a `null`.
+
+</Slide>
+
+<Slide title="Qué gana la lista ordenada">
+La ganancia aparece en las búsquedas que **fracasan**.
+
+Sobre una lista sin ordenar, buscar un valor que no está obliga a recorrer
+los $$N$$ nodos: hasta el último no se puede descartar. Sobre una lista
+ordenada, el recorrido puede abandonar apenas encuentra un valor mayor que el
+buscado, porque todo lo que sigue es todavía mayor.
+
+En el peor caso sigue siendo $$\Theta(N)$$ —el valor buscado podría ser mayor
+que todos—, y esa es la parte que conviene no perder de vista: el orden
+mejora el promedio, no la cota. Lo que la lista ordenada **no** consigue es
+la búsqueda binaria, porque llegar al nodo del medio sigue costando recorrer
+media cadena.
+
+</Slide>
+
+<Slide title="La lista circular · el último vuelve al primero">
+La cuarta variante cambia una sola referencia: la del último nodo, que en
+vez de `null` apunta a `head`.
+
+La invariante de terminación se reemplaza:
+
+7. **El `next` del último nodo apunta a `head`.** Ningún nodo tiene `next` en
+   `null`. Desde cualquier nodo se llega a todos los demás.
+
+Es un cambio pequeño con una consecuencia grande: **ningún recorrido termina
+solo**. Un `while (current != null)` sobre una lista circular no se detiene
+nunca. La condición de corte pasa a ser haber vuelto al punto de partida, y
+hay que escribirla a propósito en cada recorrido:
+
+```java
+Node current = head;
+do {
+    // trabajar con current
+    current = current.next;
+} while (current != head);
+```
+
+Es un `do-while` y no un `while` por el mismo motivo: entrando por `head`, la
+condición de corte ya se cumple antes del primer paso.
+
+</Slide>
+
+<Slide title="La lista circular">
+<SequenceStepper
+  eda="linked-list-circular"
+  operation="insert-first"
+  values={[7, 3, 1]}
+  value={[9, 4, 6]}
+/>
+
+El enlace de cierre no es un adorno del dibujo: es el `next` del último nodo,
+y por eso hay que reengancharlo en cada inserción. Y ahí está el precio del
+anillo: para reengancharlo hay que **encontrar** al último, y encontrarlo es
+recorrer la cadena. `insertFirst`, que en la lista simple era la operación
+barata por excelencia, aquí pasa a costar $$\Theta(N)$$.
+
+Guardar `tail` lo arreglaría de una vez —en una circular `tail.next` ya es
+`head`, así que un solo puntero da los dos extremos—, y es por eso que casi
+toda lista circular de verdad se guarda con él.
+
+</Slide>
+
+<Slide title="Dónde sirve que no haya final">
+La lista circular resuelve un problema concreto: recorrer una colección de
+manera indefinida sin tratar el final como un caso especial.
+
+- **Turnos rotativos.** Un planificador que reparte tiempo entre procesos
+  avanza un nodo por turno; cuando se acaban, ya está en el primero otra vez
+  sin ninguna comprobación.
+- **Listas de reproducción en repetición.** El siguiente del último tema es
+  el primero, y esa regla vive en la estructura en vez de en el código que la
+  usa.
+- **Buffers circulares.** Un espacio fijo donde lo nuevo sobrescribe lo más
+  viejo, como el registro de los últimos eventos de un sistema.
+
+En los tres, la alternativa sería preguntar «¿llegué al final?» en cada paso.
+La estructura hace que la pregunta no exista.
+
+</Slide>
+
+<Slide title="Las piezas se combinan">
+Las cuatro variantes son independientes y se acumulan. Lo habitual es
+encontrarlas juntas:
+
+- **Doblemente enlazada con tail** es la combinación más frecuente, y es la
+  que usa `LinkedList` de Java. Con ella, insertar y eliminar en cualquiera
+  de los dos extremos cuesta $$\Theta(1)$$.
+- **Circular y doblemente enlazada** permite recorrer en los dos sentidos sin
+  final, que es lo que quiere un carrusel.
+- **Ordenada con tail** deja insertar el máximo sin recorrer, y es útil
+  cuando los valores tienden a llegar en orden.
+
+Cada pieza se paga por separado: `tail` cuesta una referencia por lista,
+`prev` cuesta una por nodo, el orden cuesta perder `insertAt`, y el ciclo
+cuesta escribir cada recorrido con su corte explícito.
+
+</Slide>
+
+<Slide title="Insertar, por variante">
+| Operación | Simple | Con tail | Doble con tail | Ordenada |
+|---|---|---|---|---|
+| `insertFirst(x)` | $$\Theta(1)$$ | $$\Theta(1)$$ | $$\Theta(1)$$ | no aplica |
+| `insertLast(x)` | $$\Theta(N)$$ | <span style={{ color: 'var(--color-keep)', fontWeight: 700 }}>$$\Theta(1)$$</span> | <span style={{ color: 'var(--color-keep)', fontWeight: 700 }}>$$\Theta(1)$$</span> | no aplica |
+| `insertAt(i, x)` | $$\Theta(N)$$ | $$\Theta(N)$$ | $$\Theta(N)$$ | no aplica |
+| `insertOrdered(x)` | — | — | — | $$\Theta(N)$$ |
+
+La única fila que se mueve al agregar `tail` es `insertLast`, y se mueve
+porque `tail` es exactamente el nodo que esa operación necesitaba encontrar.
+`insertAt` no mejora en ninguna variante: el nodo previo a una posición
+arbitraria no lo guarda nadie.
+
+</Slide>
+
+<Slide title="Eliminar y buscar, por variante">
+| Operación | Simple | Con tail | Doble con tail | Ordenada |
+|---|---|---|---|---|
+| `deleteFirst()` | $$\Theta(1)$$ | $$\Theta(1)$$ | $$\Theta(1)$$ | $$\Theta(1)$$ |
+| `deleteLast()` | $$\Theta(N)$$ | $$\Theta(N)$$ | <span style={{ color: 'var(--color-keep)', fontWeight: 700 }}>$$\Theta(1)$$</span> | $$\Theta(N)$$ |
+| `deleteAt(i)` | $$\Theta(N)$$ | $$\Theta(N)$$ | $$\Theta(N)$$ | $$\Theta(N)$$ |
+| `search(x)` | $$\Theta(N)$$ | $$\Theta(N)$$ | $$\Theta(N)$$ | $$\Theta(N)$$ |
+
+`deleteLast` es la fila que distingue las variantes entre sí. Con `tail` no
+baja, porque lo que falta es el nodo anterior; con `prev` sí baja, porque es
+justamente el nodo anterior lo que `prev` guarda. Es la mejor prueba de que
+la pieza que hay que agregar se deduce de qué nodo necesita la operación, y
+no de dónde ocurre.
+
+</Slide>
+
+## El arreglo y la lista enlazada
+
+<Slide title="Arreglo y lista enlazada · la tabla completa">
+| Operación | Arreglo | Arreglo dinámico | Lista simple | Simple con tail | Doble con tail |
+|---|---|---|---|---|---|
+| `getAt(i)` · `setAt(i, x)` | <span style={{ color: 'var(--color-keep)', fontWeight: 700 }}>$$\Theta(1)$$</span> | <span style={{ color: 'var(--color-keep)', fontWeight: 700 }}>$$\Theta(1)$$</span> | $$\Theta(N)$$ | $$\Theta(N)$$ | $$\Theta(N)$$ |
+| `insertFirst(x)` · `deleteFirst()` | $$\Theta(N)$$ | $$\Theta(N)$$ | <span style={{ color: 'var(--color-keep)', fontWeight: 700 }}>$$\Theta(1)$$</span> | <span style={{ color: 'var(--color-keep)', fontWeight: 700 }}>$$\Theta(1)$$</span> | <span style={{ color: 'var(--color-keep)', fontWeight: 700 }}>$$\Theta(1)$$</span> |
+| `insertLast(x)` | $$\Theta(1)$$ | $$\Theta(1)$$ amortizado | $$\Theta(N)$$ | $$\Theta(1)$$ | $$\Theta(1)$$ |
+| `deleteLast()` | $$\Theta(1)$$ | $$\Theta(1)$$ amortizado | $$\Theta(N)$$ | $$\Theta(N)$$ | $$\Theta(1)$$ |
+| `insertAt(i, x)` · `deleteAt(i)` | $$\Theta(N)$$ | $$\Theta(N)$$ | $$\Theta(N)$$ | $$\Theta(N)$$ | $$\Theta(N)$$ |
+| `search(x)` | $$\Theta(N)$$ | $$\Theta(N)$$ | $$\Theta(N)$$ | $$\Theta(N)$$ | $$\Theta(N)$$ |
+| Capacidad | fija | crece | crece | crece | crece |
+
+La primera fila y la segunda son la imagen espejo, y resumen toda la
+comparación: el arreglo llega a cualquier posición con una cuenta y paga por
+abrir hueco al principio; la lista abre hueco al principio con una asignación
+y paga por llegar a cualquier posición.
+
+Las dos columnas de lista con `tail` se separan en una sola fila,
+`deleteLast`, y es la fila que dice para qué sirve cada pieza: `tail` da el
+último nodo, que es lo que `insertLast` necesitaba, y no da el anteúltimo,
+que es lo que `deleteLast` necesita. Eso solo lo da `prev`.
+
+</Slide>
+
+<Slide title="Cuándo conviene cada una">
+La elección no se hace por la estructura sino por la mezcla de operaciones
+que el programa va a pedir.
+
+**Conviene un arreglo** cuando se lee mucho por posición y se modifica poco
+la forma: una tabla que se llena una vez y después se consulta, cualquier
+recorrido por índice, cualquier algoritmo que compare `data[i]` con
+`data[j]`. La búsqueda binaria y los algoritmos de ordenamiento sobre
+arreglos viven de esta propiedad.
+
+**Conviene una lista** cuando se inserta y se elimina seguido en los
+extremos, y casi nunca se pide una posición arbitraria: una cola de tareas
+por atender, un historial al que se le agrega adelante, cualquier colección
+que crece y se achica todo el tiempo por los bordes.
+
+Cuando el programa pide de las dos cosas, la respuesta suele ser el arreglo
+dinámico: pierde solo en las inserciones al principio, y gana en todo lo que
+se lee por posición.
+
+</Slide>
+
+<Slide title="El precio de pedir cualquier posición">
+El arreglo y la lista enlazada comparten una debilidad, y es la misma fila
+de la tabla: `insertAt`, `deleteAt` y —en la lista— `getAt` cuestan
+$$\Theta(N)$$ en todas las variantes. La causa es distinta en cada una
+—correr elementos en el arreglo, caminar enlaces en la lista— y ninguna
+variante la arregla, porque el contrato exige poder operar en cualquier
+posición.
+
+**¿Y si un programa no necesita el medio?**
+
+Muchos no lo necesitan: una pila de platos solo toca el de arriba, una fila
+de espera solo toca los extremos. Un contrato que prometa menos —solo los
+bordes— se puede cumplir en $$\Theta(1)$$ **sobre las dos estructuras a la
+vez**, cada una usando justamente la punta donde es rápida.
+
+El precio es perder el acceso por posición: lo que se gana en costo se paga
+en lo que ya no se puede pedir. Esos contratos más chicos son los TDA Stack,
+Queue y Deque.
+
+</Slide>
+
+## Ejercicios
+
+Los cinco ejercicios canónicos de listas enlazadas. Cuatro se resuelven
+recorriendo la cadena una sola vez y sin memoria adicional; el quinto es el
+mismo problema del primero escrito al revés, y sirve para ver qué cambia
+cuando la pila hace el trabajo del puntero.
+
+Cada enunciado dice dónde está la dificultad. La solución está a un botón de
+distancia, y conviene mirarla después de intentarlo: lo que hay que sacar de
+ella no es el código sino por qué cada línea está donde está.
+
+<Exercise title="Invertir una lista">
+
+Escribe `reverse`, que recibe la cabeza de una lista y devuelve la cabeza de
+la lista con todos sus enlaces dados vuelta. La lista vacía se devuelve tal
+cual.
+
+Invertir no mueve datos: da vuelta el sentido de cada enlace. Ahí está la
+trampa — en cuanto `current.next` cambia, el resto de la cadena deja de ser
+alcanzable, así que hay que guardarlo **antes** de pisarlo. Con eso, el
+recorrido necesita tres referencias vivas al mismo tiempo: el nodo anterior,
+el actual y el siguiente.
+
+Una sola pasada: $$\Theta(N)$$ de tiempo y $$\Theta(1)$$ de espacio
+adicional.
+
+```java starter
+class Node {
+    int value;
+    Node next;
+    Node(int value) { this.value = value; }
+}
+
+class Solution {
+    static Node reverse(Node head) {
+        return head;
+    }
+}
+```
+
+```java test
+Node c = new Node(1);
+c.next = new Node(2);
+c.next.next = new Node(3);
+Node r = Solution.reverse(c);
+check(r.value, 3);
+check(r.next.value, 2);
+check(r.next.next.value, 1);
+check(r.next.next.next == null, true);
+check(Solution.reverse(null) == null, true);
+Node uno = new Node(7);
+check(Solution.reverse(uno).value, 7);
+```
+
+```java solution
+class Node {
+    int value;
+    Node next;
+    Node(int value) { this.value = value; }
+}
+
+class Solution {
+    // Tres referencias vivas: la de atrás, la actual y la que salva el
+    // resto de la cadena antes de que el enlace se pise.
+    static Node reverse(Node head) {
+        Node prev = null;
+        Node current = head;
+        while (current != null) {
+            Node nextNode = current.next;   // sin esta línea, lo que sigue se pierde
+            current.next = prev;            // el enlace cambia de sentido
+            prev = current;                 // las tres avanzan un lugar
+            current = nextNode;
+        }
+        return prev;                        // current quedó en null; prev es la nueva cabeza
+    }
+}
+```
+
+</Exercise>
+
+<Exercise title="Invertir con recursión">
+
+El mismo problema, escrito al revés: invertir una lista es invertir su cola
+y después enganchar la cabeza al final. Escribe `reverse` sin ningún bucle.
+
+El caso base son las listas de cero y de un nodo, que ya están invertidas.
+El paso es una sola línea, y es la que cuesta ver: cuando la cola ya está
+dada vuelta, el que era el siguiente de la cabeza es ahora el último de esa
+cola, así que es él quien tiene que pasar a apuntar a la cabeza.
+
+Ojo con el costo. El tiempo sigue siendo $$\Theta(N)$$, pero el espacio ya
+no es constante: hay $$N$$ llamadas anidadas en la pila antes de que la
+primera termine, así que el espacio adicional es $$\Theta(N)$$ — el análisis
+de ese costo está en [[complejidad-recursion|Complejidad y recursión]].
+
+```java starter
+class Node {
+    int value;
+    Node next;
+    Node(int value) { this.value = value; }
+}
+
+class Solution {
+    static Node reverse(Node head) {
+        return head;
+    }
+}
+```
+
+```java test
+Node c = new Node(1);
+c.next = new Node(2);
+c.next.next = new Node(3);
+Node r = Solution.reverse(c);
+check(r.value, 3);
+check(r.next.value, 2);
+check(r.next.next.value, 1);
+check(r.next.next.next == null, true);
+check(Solution.reverse(null) == null, true);
+Node uno = new Node(7);
+check(Solution.reverse(uno).value, 7);
+```
+
+```java solution
+class Node {
+    int value;
+    Node next;
+    Node(int value) { this.value = value; }
+}
+
+class Solution {
+    static Node reverse(Node head) {
+        if (head == null || head.next == null) {
+            return head;                 // cero y un nodo ya están invertidos
+        }
+        Node newHead = reverse(head.next);   // la cola, ya dada vuelta
+        head.next.next = head;               // el que era el siguiente apunta de vuelta
+        head.next = null;                    // y la cabeza pasa a ser el último
+        return newHead;                      // la cabeza nueva sube sin cambiar
+    }
+}
+```
+
+</Exercise>
+
+<Exercise title="Detectar un ciclo">
+
+Escribe `hasCycle`, que devuelve `true` si la cadena vuelve sobre sí misma
+y `false` si termina en `null`. Usa espacio adicional constante: no vale
+guardar los nodos visitados.
+
+Una cadena que en vez de terminar en `null` vuelve sobre sí misma hace que
+cualquier recorrido no termine. La salida es recorrerla con dos referencias
+a distinta velocidad —una de a un nodo, otra de a dos—, lo que se conoce
+como algoritmo de la liebre y la tortuga y se atribuye a Robert W. Floyd.
+
+Si la lista termina, la rápida llega al final y el recorrido corta. Si no
+termina, las dos quedan girando adentro, y como la rápida se acerca a la
+lenta un nodo por vuelta, alcanzarla es cuestión de tiempo.
+
+Cuidado con qué se compara: la pregunta es si las dos están **en el mismo
+nodo**, no si los dos nodos guardan el mismo número.
+
+Y cuidado con el intento fallido: si tu recorrido no contempla el ciclo, el
+programa no termina y la pestaña queda congelada. Recárgala — tu borrador se
+guarda antes de cada ejecución.
+
+```java starter
+class Node {
+    int value;
+    Node next;
+    Node(int value) { this.value = value; }
+}
+
+class Solution {
+    static boolean hasCycle(Node head) {
+        return false;
+    }
+}
+```
+
+```java test
+Node a = new Node(1);
+a.next = new Node(2);
+a.next.next = new Node(3);
+check(Solution.hasCycle(a), false);
+check(Solution.hasCycle(null), false);
+a.next.next.next = a.next;
+check(Solution.hasCycle(a), true);
+Node solo = new Node(5);
+solo.next = solo;
+check(Solution.hasCycle(solo), true);
+```
+
+```java solution
+class Node {
+    int value;
+    Node next;
+    Node(int value) { this.value = value; }
+}
+
+class Solution {
+    static boolean hasCycle(Node head) {
+        Node slow = head;
+        Node fast = head;
+        // La condición cubre las dos formas de llegar al final, y por eso
+        // pregunta por `fast.next` además de por `fast`.
+        while (fast != null && fast.next != null) {
+            slow = slow.next;            // uno
+            fast = fast.next.next;       // dos
+            if (slow == fast) {          // el MISMO nodo, no el mismo valor
+                return true;
+            }
+        }
+        return false;                    // la rápida llegó al final: no hay ciclo
+    }
+}
+```
+
+</Exercise>
+
+<Exercise title="El nodo del medio">
+
+Escribe `middle`, que devuelve el valor del nodo central de la lista en una
+sola pasada. Con una cantidad par de nodos, devuelve el segundo de los dos
+centrales.
+
+Es la misma idea de dos velocidades resolviendo un problema distinto: cuando
+la rápida llega al final ha avanzado el doble que la lenta, así que la lenta
+está a mitad de camino.
+
+La alternativa obvia —recorrer una vez para contar y otra hasta `size / 2`—
+también es $$\Theta(N)$$ y también es correcta. Esta versión hace una sola
+pasada, que es lo que importa cuando los datos llegan de a uno y no se
+pueden volver a leer.
+
+```java starter
+class Node {
+    int value;
+    Node next;
+    Node(int value) { this.value = value; }
+}
+
+class Solution {
+    static int middle(Node head) {
+        return 0;
+    }
+}
+```
+
+```java test
+Node a = new Node(1);
+a.next = new Node(2);
+a.next.next = new Node(3);
+check(Solution.middle(a), 2);
+a.next.next.next = new Node(4);
+check(Solution.middle(a), 3);
+Node solo = new Node(9);
+check(Solution.middle(solo), 9);
+```
+
+```java solution
+class Node {
+    int value;
+    Node next;
+    Node(int value) { this.value = value; }
+}
+
+class Solution {
+    static int middle(Node head) {
+        Node slow = head;
+        Node fast = head;
+        // Mismo recorrido que hasCycle, sin la comparación: lo que
+        // interesa acá es dónde queda la lenta cuando la rápida se acaba.
+        while (fast != null && fast.next != null) {
+            slow = slow.next;
+            fast = fast.next.next;
+        }
+        return slow.value;               // la rápida avanzó el doble: la lenta está al medio
+    }
+}
+```
+
+</Exercise>
+
+<Exercise title="Fusionar dos listas ordenadas">
+
+Escribe `merge`, que recibe las cabezas de dos listas ordenadas de menor a
+mayor y devuelve la cabeza de una sola lista ordenada con todos los
+elementos. Reutiliza los nodos que recibe: no crees uno por cada valor.
+
+Es el mismo procedimiento que combina las mitades en el ordenamiento por
+mezcla: en cada paso se comparan las dos cabezas y se engancha la menor.
+
+Sobre listas la fusión no necesita memoria adicional para los datos, porque
+reordena enlaces; sobre arreglos, la misma operación necesita un arreglo
+auxiliar.
+
+Una ayuda que conviene conocer: empezar con un **nodo de mentira** —un nodo
+descartable al que engancharle el primero— evita escribir aparte el caso del
+primer elemento. Al final se devuelve el que le sigue, no él.
+
+```java starter
+class Node {
+    int value;
+    Node next;
+    Node(int value) { this.value = value; }
+}
+
+class Solution {
+    static Node merge(Node a, Node b) {
+        return a;
+    }
+}
+```
+
+```java test
+Node a = new Node(1);
+a.next = new Node(4);
+a.next.next = new Node(6);
+Node b = new Node(2);
+b.next = new Node(3);
+Node r = Solution.merge(a, b);
+check(r.value, 1);
+check(r.next.value, 2);
+check(r.next.next.value, 3);
+check(r.next.next.next.value, 4);
+check(r.next.next.next.next.value, 6);
+check(r.next.next.next.next.next == null, true);
+Node c = new Node(5);
+check(Solution.merge(null, c).value, 5);
+check(Solution.merge(c, null).value, 5);
+```
+
+```java solution
+class Node {
+    int value;
+    Node next;
+    Node(int value) { this.value = value; }
+}
+
+class Solution {
+    static Node merge(Node a, Node b) {
+        Node dummy = new Node(0);        // nodo de mentira: nunca se devuelve
+        Node tail = dummy;               // dónde enganchar el próximo
+        while (a != null && b != null) {
+            if (a.value <= b.value) {    // <= y no < mantiene el orden de los iguales
+                tail.next = a;
+                a = a.next;
+            } else {
+                tail.next = b;
+                b = b.next;
+            }
+            tail = tail.next;
+        }
+        tail.next = (a != null) ? a : b; // la que sobró ya está ordenada: se engancha entera
+        return dummy.next;               // el primero de verdad
+    }
+}
+```
+
+</Exercise>
+
+<Questions>
+
+<Question id="lista-enlace-falta-el-comienzo" anchor="el-enlace">
+
+Cada nodo guarda su dato y la dirección del nodo siguiente. ¿Por qué eso todavía no alcanza para tener una lista?
+
+- [x] Porque nada dice por dónde empieza la cadena
+- [ ] Porque falta que cada nodo guarde también al anterior
+- [ ] Porque los nodos tendrían que estar en direcciones consecutivas
+- [ ] Porque falta guardar la cantidad de nodos
+
+</Question>
+
+<Question id="lista-nodo-que-guarda-next" anchor="el-nodo">
+
+¿Qué guarda el campo `next` de un nodo?
+
+- [x] Una referencia al nodo siguiente
+- [ ] Una copia del nodo siguiente
+- [ ] El valor del nodo siguiente
+- [ ] La posición que el nodo ocupa en la lista
+
+</Question>
+
+<Question id="lista-invariante-size" anchor="las-invariantes-de-la-lista-enlazada">
+
+¿Qué significa que `size` sea una invariante de la estructura?
+
+- [x] Que toda operación que agregue o saque un nodo tiene que dejarlo al día
+- [ ] Que `size` no cambia mientras la lista existe
+- [ ] Que `size` se recalcula recorriendo la cadena cada vez que alguien lo pide
+- [ ] Que `size` solo es correcto cuando la lista está vacía
+
+</Question>
+
+<Question id="lista-por-que-guardar-size" anchor="la-estructura-en-codigo">
+
+La clase `LinkedList` guarda `head` y `size`. ¿Por qué guarda `size` en vez de contar los nodos cuando alguien pregunta el largo?
+
+- [x] Porque contarlos obliga a recorrer la cadena entera, y guardarlo lo hace inmediato
+- [ ] Porque sin `size` la lista no sabría dónde termina
+- [ ] Porque `size` es lo que permite llegar a una posición cualquiera
+- [ ] Porque el contrato Sequence obliga a tener ese campo
+
+</Question>
+
+<Question id="lista-build-estado-inicial" anchor="build-crear-la-lista">
+
+¿En qué estado deja el constructor a una lista recién creada?
+
+- [x] `head` en `null` y `size` en cero, que es el caso base de las invariantes
+- [ ] `head` apuntando a un nodo vacío que después se reemplaza
+- [ ] `head` en `null` y `size` sin definir hasta la primera inserción
+- [ ] Con un bloque reservado para los primeros elementos
+
+</Question>
+
+<Question id="lista-getat-de-que-depende" anchor="getat-el-dato-de-la-posicion-i">
+
+¿De qué depende lo que cuesta `getAt(i)` en una lista enlazada?
+
+- [x] De la posición pedida: hay que dar tantos saltos como indique `i`
+- [ ] Del largo de la lista, y cuesta lo mismo para cualquier posición
+- [ ] Del valor guardado en esa posición
+- [ ] De nada: se llega en un paso
+
+</Question>
+
+<Question id="lista-ordenada-sin-binaria" anchor="buscar-el-recorrido-hasta-el-valor">
+
+Una lista enlazada está ordenada de menor a mayor. ¿Por qué buscar en ella igual no puede usar búsqueda binaria?
+
+- [x] Porque llegar al nodo del medio ya cuesta recorrer media cadena
+- [ ] Porque la búsqueda binaria solo funciona sobre números
+- [ ] Porque los nodos de una lista no se pueden comparar entre sí
+- [ ] Porque el orden se pierde al recorrer la lista
+
+</Question>
+
+<Question id="lista-insertfirst-no-mueve-nada" anchor="insertfirst-insertar-al-comienzo">
+
+¿Por qué insertar al comienzo cuesta lo mismo en una lista de tres nodos que en una de un millón?
+
+- [x] Porque ningún nodo se mueve: solo cambian el enlace del nodo nuevo y `head`
+- [ ] Porque la lista reserva espacio libre al principio para insertar
+- [ ] Porque `size` ya guarda cuántos nodos hay
+- [ ] Porque los nodos están ordenados por dirección de memoria
+
+</Question>
+
+<Question id="lista-insertlast-que-es-caro" anchor="insertlast-insertar-al-final">
+
+En una lista sin `tail`, ¿qué es lo caro de `insertLast`?
+
+- [x] Encontrar el último nodo, que obliga a recorrer la cadena
+- [ ] Enlazar el nodo nuevo una vez encontrado el último
+- [ ] Crear el nodo nuevo en memoria
+- [ ] Actualizar `size` después de insertar
+
+</Question>
+
+<Question id="lista-borde-un-solo-nodo" anchor="los-casos-de-borde">
+
+¿Por qué `deleteLast` pregunta si queda un solo nodo antes de ponerse a recorrer?
+
+- [x] Porque con un solo nodo no hay anteúltimo, y el recorrido lo buscaría igual
+- [ ] Porque con un solo nodo la lista no tiene `head`
+- [ ] Porque borrar el único nodo no cambia `size`
+- [ ] Porque el recorrido no sabría dónde detenerse
+
+</Question>
+
+<Question id="lista-deletelast-por-que-camina" anchor="deletelast-eliminar-el-ultimo">
+
+¿Por qué `deleteLast` obliga a recorrer la cadena y `deleteFirst` no?
+
+- [x] Porque el nodo que hay que cambiar es el anteúltimo, y no hay cómo retroceder
+- [ ] Porque el último nodo es el único que no guarda un enlace válido
+- [ ] Porque `head` permite insertar al final pero no eliminar desde ahí
+- [ ] Porque al eliminar el último hay que correr los demás una posición
+
+</Question>
+
+<Question id="lista-que-decide-el-costo" anchor="donde-vive-el-costo">
+
+En una lista simplemente enlazada, ¿qué decide que una operación sea barata o cara?
+
+- [x] El lugar donde ocurre: solo el frente se alcanza sin caminar
+- [ ] La cantidad de asignaciones que hace sobre los enlaces
+- [ ] Si la operación consulta la cadena o si la modifica
+- [ ] El tamaño del dato que cada nodo guarda en su campo valor
+
+</Question>
+
+<Question id="lista-que-gana-tail" anchor="la-lista-con-tail-un-puntero-mas">
+
+¿Qué gana una lista simplemente enlazada al guardar además un puntero `tail`?
+
+- [x] Llegar al último nodo sin recorrer la cadena
+- [ ] Eliminar el último nodo sin recorrer la cadena
+- [ ] Recorrer la lista hacia atrás
+- [ ] Saber cuántos nodos tiene sin contarlos
+
+</Question>
+
+<Question id="lista-doble-invariante-nueva" anchor="la-lista-doblemente-enlazada-el-enlace-de-vuelta">
+
+¿Qué invariante nueva aparece al darle a cada nodo un enlace `prev`?
+
+- [x] Si `a.next` es `b`, entonces `b.prev` tiene que ser `a`
+- [ ] Los nodos quedan ordenados por su valor de menor a mayor
+- [ ] El campo `prev` del primer nodo apunta al último nodo
+- [ ] La cantidad de nodos de la lista tiene que ser par
+
+</Question>
+
+<Question id="lista-circular-para-que-sirve" anchor="donde-sirve-que-no-haya-final">
+
+¿Qué problema resuelve una lista circular mejor que una lista simple?
+
+- [x] Recorrer una colección sin tratar el final como un caso especial
+- [ ] Llegar a una posición cualquiera sin recorrer la cadena entera
+- [ ] Eliminar el último nodo sin tener que recorrer la cadena
+- [ ] Mantener los elementos ordenados de menor a mayor valor
+
+</Question>
+
+<Question id="lista-ordenada-que-pierde" anchor="insertordenado-la-posicion-la-decide-el-valor">
+
+¿Qué pierde una lista ordenada respecto de una lista simple?
+
+- [x] Poder elegir la posición: `insertAt` deja de tener sentido
+- [ ] Poder insertar al comienzo en tiempo constante
+- [ ] Poder recorrerse de principio a fin una sola vez
+- [ ] Poder guardar valores repetidos dentro de la cadena
+
+</Question>
+
+<Question id="lista-deletelast-baja-con-prev" anchor="eliminar-y-buscar-por-variante">
+
+`deleteLast` baja a tiempo constante en la doblemente enlazada con `tail`, y no con `tail` solo. ¿Por qué?
+
+- [x] Porque lo que le falta es el nodo anterior, y eso es lo que guarda `prev`
+- [ ] Porque `tail` queda desactualizado apenas se elimina un nodo
+- [ ] Porque recorrer la cadena con `prev` resulta bastante más rápido
+- [ ] Porque con `tail` hay que actualizar dos enlaces en vez de uno solo
+
+</Question>
+
+</Questions>
+
+<Slide title="Lo que sigue">
+La próxima clase estudia tres contratos más chicos que Sequence —los TDA
+**Stack**, **Queue** y **Deque**—, que renuncian al acceso por posición y a
+cambio se cumplen en tiempo constante.
+
+Los tres se construyen sobre un arreglo o sobre una lista enlazada, y la
+elección vuelve a decidir qué sale barato. Un `Stack` sobre lista enlazada
+apila y desapila por el frente, donde está `head`, en $$\Theta(1)$$. Una
+`Queue` mete por un extremo y saca por el otro, así que sobre una lista
+necesita `tail` para que encolar no recorra la cadena entera.
+
+</Slide>
+

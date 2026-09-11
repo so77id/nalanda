@@ -396,6 +396,27 @@ describe('architecture: the sortstepper widget stays out of the entry chunk', ()
   });
 });
 
+describe('architecture: the sequencestepper widget stays out of the entry chunk', () => {
+  // SequenceStepper composes <CodeStepper> (CodeMirror + java grammar).
+  // Registering the real component eagerly would pull CodeMirror into the
+  // entry chunk of every reader of every page. ADR-0074. Same shape as the
+  // other heavy-component guards — a single ALLOWED entry, no per-file
+  // exemptions.
+  const ALLOWED = ['components/interactive/lazySequenceStepper.tsx'];
+
+  it('is imported only by its lazy wrapper', () => {
+    expect(
+      violations(
+        (_fileTop, _importTop, importRel, file) =>
+          importRel.toLowerCase().replace(/\.(ts|tsx|js|jsx|mjs|cjs)$/, '') ===
+            'components/interactive/sequencestepper' &&
+          !file.includes('.test.') &&
+          !ALLOWED.includes(file),
+      ),
+    ).toEqual([]);
+  });
+});
+
 describe('architecture: the mergestepper widget stays out of the entry chunk', () => {
   // MergeStepper composes <CodeStepper> (CodeMirror + java grammar). Same
   // shape as the other lazy-widget guards.

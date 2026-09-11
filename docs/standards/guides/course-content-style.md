@@ -130,6 +130,34 @@ The one place this rule bends is `## Lo que sigue`, which is a boilerplate
 closing name used across every document and reads as a fixed heading rather
 than a title of new material.
 
+## 5b. Code is in English, prose is in Spanish
+
+The prose the reader reads is Spanish; **every identifier in a listing is
+English**. Classes, methods, fields, locals, parameters — `Node`, `value`,
+`prev`, `current`, `data`, `size`, `search`, `merge`. This is the repo-wide
+language rule (root `CLAUDE.md` §Language) reaching into course content: a
+listing is code, and code in this repo is English.
+
+The course already reads that way and the reader is used to it — #277's array
+class writes `StaticArray`, `data`, `size`, `capacity`, `index`, `add`, `get`,
+with not one Spanish identifier. A class that switches to `Nodo`/`valor` makes
+the same course look like two.
+
+It is also what the student will meet outside the class: the Java library, the
+documentation and every example they will search for are in English, and a
+course that renames `next` to `siguiente` teaches a vocabulary that stops
+working the moment they leave the page.
+
+Two consequences worth spelling out, because #288 hit both:
+
+- **A widget that DRAWS an identifier draws the English one.** The pointer
+  labels of `<SequenceStepper>` come out of the listing beside them, so a
+  Spanish label would name a variable the code does not have.
+- **The narration around the code stays Spanish, and that is not the same
+  word.** «El nodo anterior apunta a 9» is prose; `prev` is the variable. A
+  blanket rename of one into the other produces sentences like «el nodo prev al
+  último», which is neither. Rename the identifiers, then read the prose back.
+
 ## 6. Where this fits with other rules
 
 - **Frontmatter, index, slides, images, formulas, exercises, wiki-links**:

@@ -33,6 +33,7 @@ import { questionsCatalogEntry } from './interactive/Questions.catalog';
 import { recursionTreeCatalogEntry } from './interactive/RecursionTree.catalog';
 import { divideCombineTreeCatalogEntry } from './interactive/DivideCombineTree.catalog';
 import { sortStepperCatalogEntry } from './interactive/SortStepper.catalog';
+import { sequenceStepperCatalogEntry } from './interactive/SequenceStepper.catalog';
 import { mergeStepperCatalogEntry } from './interactive/MergeStepper.catalog';
 import { partitionStepperCatalogEntry } from './interactive/PartitionStepper.catalog';
 import { decisionTreeSortCatalogEntry } from './interactive/DecisionTreeSort.catalog';
@@ -76,6 +77,7 @@ export const catalogEntries: CatalogEntry[] = [
   recursionTreeCatalogEntry,
   divideCombineTreeCatalogEntry,
   sortStepperCatalogEntry,
+  sequenceStepperCatalogEntry,
   mergeStepperCatalogEntry,
   partitionStepperCatalogEntry,
   decisionTreeSortCatalogEntry,

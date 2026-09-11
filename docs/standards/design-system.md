@@ -30,25 +30,26 @@ was found by looking at a screenshot.
 
 ## The tokens
 
-| Token                                 | For                                      | Notes                                                                                |
-| ------------------------------------- | ---------------------------------------- | ------------------------------------------------------------------------------------ |
-| `ground`                              | The page background                      | Painted on `html`, not on a div                                                      |
-| `surface`                             | Panels, cards, the editor shell          | Sits on `ground`                                                                     |
-| `sunk`                                | Table heads, inputs, chips, hover states | **The worst-case surface** — contrast is measured against it                         |
-| `deck-ground`                         | The slide deck only                      | Currently aliases `ground` in both themes; kept as a semantic anchor for the slide deck — see ADR-0026 addendum §Reversal |
-| `ink`                                 | Primary text, headings                   | AAA on every surface                                                                 |
-| `ink-soft`                            | Body prose, secondary text               |                                                                                      |
-| `ink-faint`                           | Labels, timings, metadata, anchors       | The smallest type in the product — held to 4.5:1, never the 3:1 large-text allowance |
-| `rule`                                | Decorative separators                    | Carries no information, so it has **no** contrast floor                              |
-| `rule-strong`                         | Borders that _are_ the signal            | ≥3:1. This is why `rule` and `rule-strong` are two tokens                            |
-| `accent`                              | Links, active state, emphasis            | AA-legal luminance of the seed hue; held to 4.5:1                                    |
-| `accent-pop`                          | Section titles, filled buttons, chips    | The raw seed hue; large-text / non-text UI floor (3:1 on `ground` and `surface`)     |
-| `flag`                                | Errors, warnings, diagnostics            | Semantic, never decorative                                                           |
-| `keep`                                | Success, passing cases, the run button   | Semantic                                                                             |
-| `accent-soft` `flag-soft` `keep-soft` | Tinted grounds for chips and callouts    | Only ever under their own foreground                                                 |
-| `on-keep`                             | The label on a filled `keep` button      | **Inverts** with the theme rather than following it                                  |
-| `on-accent`                           | The label on a filled `accent` button    | Same shape as `on-keep`: **inverts** with the theme. Used by `<Benchmark>` and `<ComplexityExercise>` (#218, added to the standard in #247) |
-| `focus`                               | The focus ring                           | One ring for the whole product                                                       |
+| Token                                             | For                                                                    | Notes                                                                                                                                                         |
+| ------------------------------------------------- | ---------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ground`                                          | The page background                                                    | Painted on `html`, not on a div                                                                                                                               |
+| `surface`                                         | Panels, cards, the editor shell                                        | Sits on `ground`                                                                                                                                              |
+| `sunk`                                            | Table heads, inputs, chips, hover states                               | **The worst-case surface** — contrast is measured against it                                                                                                  |
+| `deck-ground`                                     | The slide deck only                                                    | Currently aliases `ground` in both themes; kept as a semantic anchor for the slide deck — see ADR-0026 addendum §Reversal                                     |
+| `ink`                                             | Primary text, headings                                                 | AAA on every surface                                                                                                                                          |
+| `ink-soft`                                        | Body prose, secondary text                                             |                                                                                                                                                               |
+| `ink-faint`                                       | Labels, timings, metadata, anchors                                     | The smallest type in the product — held to 4.5:1, never the 3:1 large-text allowance                                                                          |
+| `rule`                                            | Decorative separators                                                  | Carries no information, so it has **no** contrast floor                                                                                                       |
+| `rule-strong`                                     | Borders that _are_ the signal                                          | ≥3:1. This is why `rule` and `rule-strong` are two tokens                                                                                                     |
+| `accent`                                          | Links, active state, emphasis                                          | AA-legal luminance of the seed hue; held to 4.5:1                                                                                                             |
+| `accent-pop`                                      | Section titles, filled buttons, chips                                  | The raw seed hue; large-text / non-text UI floor (3:1 on `ground` and `surface`)                                                                              |
+| `flag`                                            | Errors, warnings, diagnostics                                          | Semantic, never decorative                                                                                                                                    |
+| `mark`                                            | The element the reader should look at NOW: just inserted, just changed | Semantic, and NOT a status. `flag` says something is wrong and `keep` says something succeeded; a freshly inserted node is neither (#288, ADR-0026 §Addendum) |
+| `keep`                                            | Success, passing cases, the run button                                 | Semantic                                                                                                                                                      |
+| `accent-soft` `flag-soft` `keep-soft` `mark-soft` | Tinted grounds for chips and callouts                                  | Only ever under their own foreground                                                                                                                          |
+| `on-keep`                                         | The label on a filled `keep` button                                    | **Inverts** with the theme rather than following it                                                                                                           |
+| `on-accent`                                       | The label on a filled `accent` button                                  | Same shape as `on-keep`: **inverts** with the theme. Used by `<Benchmark>` and `<ComplexityExercise>` (#218, added to the standard in #247)                   |
+| `focus`                                           | The focus ring                                                         | One ring for the whole product                                                                                                                                |
 
 ## The pairing table
 
@@ -56,7 +57,8 @@ Contrast is a property of a **pair**, not of a token. These are the legal pairs;
 `styles/palette.test.ts` iterates them, reading the values out of `index.css`.
 
 - **Text on a surface** — `ink`, `ink-soft`, `ink-faint`, `accent`, `flag`,
-  `keep` on `ground`, `surface`, `sunk`, `deck-ground`. Floor **4.5:1**.
+  `keep`, `mark` on `ground`, `surface`, `sunk`, `deck-ground`. Floor
+  **4.5:1**.
 - **Meaning-carrying non-text** — `rule-strong`, `focus` on the same four
   surfaces. Floor **3:1**.
 - **Chrome on the page surfaces** — `accent-pop` on `ground` and `surface`
@@ -70,7 +72,8 @@ Contrast is a property of a **pair**, not of a token. These are the legal pairs;
   as text on `sunk`, mint a specific token for that use or promote
   `accent-pop` into the previous row.
 - **Tinted pairs** — `keep`/`keep-soft`, `flag`/`flag-soft`,
-  `accent`/`accent-soft`, `on-keep`/`keep`, and `on-accent`/`accent`. Floor
+  `mark`/`mark-soft`, `accent`/`accent-soft`, `on-keep`/`keep`, and
+  `on-accent`/`accent`. Floor
   **4.5:1**: a status chip is text, and small text at that. `on-accent`
   currently holds the same value as `on-keep` in each theme (see
   `--color-on-accent`'s docstring in `styles/index.css`, added in #247);

@@ -29,23 +29,33 @@ arc and its worked cases are chapters 15 and 16.
 
 ## Worked example
 
-`content/courses/sample-course/17-edd-introduccion.mdx` — *Estructuras de
-Datos · Introducción*. It establishes the vocabulary, introduces the Sequence
+`content/courses/sample-course/17-edd-introduccion.mdx` — _Estructuras de
+Datos · Introducción_. It establishes the vocabulary, introduces the Sequence
 TDA, formalises the array as its first implementation, and evolves that into
 the dynamic array. Three acts, 38 authored slides plus two act dividers and
 the cover, seven static SVG figures, ten `<StepShow>` steppers, zero new
 widgets and — deliberately — no runnable `<CodeEditor>`: every snippet in the
 class is short enough to read, and a run button on one of them would have
-implied the others were worth running too. (Counts re-derived with `grep -c '^<Slide title=' …`,
-`grep -c '<StepShow' …` and the slide counter on the built deck — an earlier
-draft of this guide carried hand-written numbers that went stale the moment
-slides were split.)
+implied the others were worth running too. (Counts re-derived with the greps named in §1 at the commit that shipped
+the document; re-run them before quoting them.)
 
 Its seven figures sit beside it in the same directory
 (`tda-eda-invariante.svg`, `arreglo-memoria.svg`, `arreglo-alocacion.svg`,
 `arreglo-invariante-valido.svg`, `arreglo-invariantes.svg`,
 `regla-del-cuarto.svg`, `costo-acumulado.svg`), per the asset rule in
 [`add-a-course-document.md`](add-a-course-document.md) §6.
+
+**Second worked example:** `content/courses/sample-course/18-edd-listas-enlazadas.mdx`
+— _Estructuras de Datos · Listas Enlazadas_. One structure and four variants
+of it, 49 authored slides plus the cover, two act dividers (a
+`<SectionBreak />` before the operations act and before the variants act; the
+comparison and the exercises are bare `h2`s — see §1), no figures, thirteen
+`<SequenceStepper>` widgets and five `<Exercise>`s. It is the class
+that settled the act mapping above and the unit's widget decision (§7,
+ADR-0074). Where #277 draws its step-by-steps as static SVG, this one derives
+them, and §6 records why both remain right. (Counts re-derived with
+`grep -c '^<Slide title=' …` and `grep -c '<SequenceStepper' …`; the deck's own
+counter reads 48, and no slide scales below 0.70 at 1440x900.)
 
 ## Step-by-step
 
@@ -54,25 +64,45 @@ Its seven figures sit beside it in the same directory
 Each act is a markdown `h2` preceded by a `<SectionBreak />`, with the act's
 slides inside it.
 
-**The act table below is a hypothesis, not yet a prescription.** It is
-generalised from a single class — and one that deviates from it — so it
-records the four questions the unit means to answer in the same order every
-time, not a mapping to `h2`s that has been observed twice. Settle the mapping
-in the WP that writes the linked-list class, where a second data point makes
-the shared shape visible; for now, follow it where it fits and say so where it
-does not.
+**The four acts are four QUESTIONS, not four `h2`s.** That was open when this
+guide was written from a single class; #288 supplied the second data point and
+settles it. The questions below are answered in this order every time, but the
+number of headings a class carries is decided by **how many structures it
+presents**, because each structure runs the cycle once:
 
-| Acto | Contenido |
-|---|---|
-| 1 | La idea — qué problema resuelve esta estructura y de qué estructura conocida se diferencia |
-| 2 | Los invariantes — qué propiedades sostiene, y por qué cada una importa |
-| 3 | Las operaciones y sus costos — cada una con el invariante que restaura |
-| 4 | Las limitaciones y la bisagra — qué NO resuelve, y qué estructura lo resuelve |
+- #277 presents two (the array, then the dynamic array) and runs the cycle
+  twice, in an opening stretch with no heading plus two `h2`s.
+- #288 presents one structure and four variants of it: an opening stretch with
+  no heading that runs the full cycle over the base list, then one
+  `h2` per group of the remaining questions — the operations in detail, the
+  variants, the comparison, the exercises.
+
+So do not count headings against the table. Check instead that the four
+questions are answered, in order, for every structure the class introduces —
+and that a variant answers only the ones it changes (§3).
+
+| Acto | Contenido                                                                                  |
+| ---- | ------------------------------------------------------------------------------------------ |
+| 1    | La idea — qué problema resuelve esta estructura y de qué estructura conocida se diferencia |
+| 2    | Los invariantes — qué propiedades sostiene, y por qué cada una importa                     |
+| 3    | Las operaciones y sus costos — cada una con el invariante que restaura                     |
+| 4    | Las limitaciones y la bisagra — qué NO resuelve, y qué estructura lo resuelve              |
 
 The chapter that opens the unit deviates and says so: #277 spends act 1 on the
 vocabulary itself, act 2 on the Sequence TDA and the array that implements it,
 act 3 on the dynamic array — running the idea/invariantes/costos/limitaciones
 cycle twice, once per array.
+
+**Both classes put the hinge in the last slide of the last act, and neither
+gives it a heading of its own.** That is now a rule rather than a coincidence:
+question 4 is a slide, not a section. The closing navigation follows it, and
+may be EITHER a book-only `## Lo que sigue` (#277) or a titled
+`<Slide title="Lo que sigue">` as the deck's last slide (#288, whose deck
+otherwise ended on a comparison table and stopped). Pick one deliberately;
+what stays forbidden is the UNCHOSEN slide — a `<SectionBreak />` before a
+loose `## Lo que sigue`, which projects the closing as an untitled divider
+(the defect #79 shipped). Either way it is book-visible,
+and says which document comes next — which is a different job (§5).
 
 **It also cut its own act 4.** An earlier draft closed with a recap act ("un
 contrato para los dos arreglos") that restated the TDA, put the two cost
@@ -102,6 +132,21 @@ would project the closing navigation as a slide — the defect #79 shipped
 stays book-only.
 
 ### 2. Define a TDA in one shape
+
+**Vocabulary note — TDA and EDA.** The unit runs on a pair of acronyms:
+**TDA** is the contract (what can be asked) and **EDA** the implementation
+(how it is stored and what each request costs). #277 introduces "tipo de dato
+abstracto (TDA)" and spells the other half out in full. **#288 planned to
+introduce EDA and did not**: the definition was drafted into its opening act
+and cut during the slide-by-slide review, and the review pipeline then
+measured the shipped document and found the acronym in no line of prose.
+
+So the rule this leaves is the one that matters: **an acronym a class puts on
+screen is an acronym that class has defined.** #288's widget chip said `eda`
+thirteen times over a document that never said the word, which is why the chip
+now reads `estructura`. Either introduce the pair in the opening act and use
+it, or use the words in full — do not let a component's chrome introduce
+vocabulary the prose never does.
 
 **Vocabulary note — "colección".** The course uses it as the general umbrella
 word ("a group of elements stored together"), which is the theory's sense and
@@ -142,7 +187,7 @@ moulds in the next class. Avoid `--color-accent-soft`: the `accent-` prefix
 trips the colour guard in `apps/web/src/architecture.test.ts`.
 
 **There is no `<TdaCard>` component — the card is copied.** Take the block
-from the slide *El TDA Sequence* in
+from the slide _El TDA Sequence_ in
 `content/courses/sample-course/17-edd-introduccion.mdx`, keep its structure
 and change only the rows. What has to survive the copy: the frame is
 `border: 1px solid var(--color-rule)` + `borderRadius: 8px` +
@@ -158,7 +203,7 @@ Costs never appear in the contract. They belong to an implementation, and
 putting them here is the single mistake that collapses the TDA/EDA distinction
 the unit is built on.
 
-Worked case: #277, slide *El TDA Sequence*, with *El contrato en Java · List*
+Worked case: #277, slide _El TDA Sequence_, with _El contrato en Java · List_
 right after it mapping every operation to its `java.util.List` name.
 
 ### 3. Declare invariants as a numbered list
@@ -184,7 +229,7 @@ Two rules:
   expensive invariant is also the one its figure illustrates. Naming it is what
   makes the cost table of the next act readable instead of memorised.
 
-Worked case: #277, slide *Las invariantes del arreglo* — three invariants, and
+Worked case: #277, slide _Las invariantes del arreglo_ — three invariants, and
 a closing paragraph naming contiguity as both the cheap and the expensive one.
 
 **A structure derived from another declares only what it adds.** #277's
@@ -192,7 +237,7 @@ dynamic array re-uses all three array invariants verbatim and adds exactly one
 (`data.length ≤ 4 × size`). Say that the old ones are untouched, then give the
 new one alone. Listing the inherited ones again reads as if they had changed —
 and worse, invites restating an old invariant as if it were new, which is the
-error the #277 draft made with `size ≤ data.length`. When a *rule* changes but
+error the #277 draft made with `size ≤ data.length`. When a _rule_ changes but
 its invariant does not, say exactly that: the static array kept
 `size ≤ data.length` by refusing, the dynamic one keeps it by growing.
 
@@ -201,10 +246,10 @@ its invariant does not, say exactly that: the static array kept
 The cost table has one row per operation and **at least three columns**:
 
 ```mdx
-| Operación | Peor caso | Invariante que restaura |
-|---|---|---|
-| `get_at(i)`, `set_at(i, x)` | $$\Theta(1)$$ | Ninguno: no cambian `size` ni el orden |
-| `insert_at(i, x)` | $$\Theta(N)$$ | Deja los válidos juntos desde 0, con `x` en `i` |
+| Operación                   | Peor caso     | Invariante que restaura                         |
+| --------------------------- | ------------- | ----------------------------------------------- |
+| `get_at(i)`, `set_at(i, x)` | $$\Theta(1)$$ | Ninguno: no cambian `size` ni el orden          |
+| `insert_at(i, x)`           | $$\Theta(N)$$ | Deja los válidos juntos desde 0, con `x` en `i` |
 ```
 
 Add a **fourth column, `Amortizado`, only when some row actually differs from
@@ -213,7 +258,7 @@ everywhere teaches that the two words are synonyms.
 
 The invariant column is the point of the format. It is what turns a table of
 memorised numbers into a table the reader can derive: `insert_first` is
-$$\Theta(N)$$ *because* leaving the valid elements contiguous from 0 forces
+$$\Theta(N)$$ _because_ leaving the valid elements contiguous from 0 forces
 $$N$$ moves.
 
 **Write it as a bare markdown table inside the `<Slide>`** — the shape chapter
@@ -257,13 +302,13 @@ made askable and deliberately does not answer. Its shape:
 5. Name the structure that makes that trade.
 
 A promise ("veremos listas") does not qualify; the reader has to be able to
-guess the answer's shape before reading it. Worked case: #277, slide *El
-precio de la memoria consecutiva* — contiguity costs $$\Theta(N)$$ at the
+guess the answer's shape before reading it. Worked case: #277, slide _El
+precio de la memoria consecutiva_ — contiguity costs $$\Theta(N)$$ at the
 front, giving it up makes `insertFirst` $$\Theta(1)$$ and `getAt` no longer
 $$\Theta(1)$$.
 
 **Title the slide after the trade, not after the device.** #277's draft called
-it *El cabo suelto*, which names the authoring technique and tells the reader
+it _El cabo suelto_, which names the authoring technique and tells the reader
 nothing; the shipped title names the cause. And do not end it with "es la
 clase que viene" — announcing the next class is `## Lo que sigue`'s job, and
 the slide is stronger closing on the trade itself.
@@ -273,7 +318,8 @@ document renders visibly broken (`add-a-course-document.md` §7). Name the next
 class in prose; the wiki-link arrives in the WP that writes it, from both
 sides.
 
-Then `## Lo que sigue` as a book-only section, which is where the reader —
+Then the closing navigation — a `## Lo que sigue` section or a slide of that
+name (§1) — which is where the reader —
 rather than the classroom — gets told what the next document covers.
 
 ### 6. Draw figures that carry their own ground
@@ -302,7 +348,7 @@ instead of naming the thing.
 first draft made the `insertAt` shift a listing plus a static three-panel SVG,
 reasoning that a figure the whole room reads at once beats a control the
 professor has to drive. The shipped class uses ten `<StepShow>` steppers
-instead, because a projected figure cannot answer *when* — the whole point of
+instead, because a projected figure cannot answer _when_ — the whole point of
 the shift is the order the copies happen in, and a static panel makes the
 reader reconstruct it. Drive the stepper in the lecture; the frames are also
 readable one by one in the book.
@@ -324,7 +370,7 @@ theme-blind rectangle inside a themed page. Both grounds still get looked at.
 
 The ten steppers of #277 share one drawing vocabulary, and a second class that
 invents its own makes the unit look like two courses. Copy the frame from the
-slide *Operación de modificación · insertar al final* and keep:
+slide _Operación de modificación · insertar al final_ and keep:
 
 - **Geometry.** `viewBox="0 0 <20 + 52·n> 144"`. Cells are `48 × 44` on a
   52 px pitch from `x=10`, `y=40`. The value sits at `fontSize 17`, the index
@@ -336,7 +382,10 @@ slide *Operación de modificación · insertar al final* and keep:
 - **A token per cell state.** Live cell: `--color-rule-strong`, solid.
   Garbage: `--color-rule`, `strokeDasharray="4 3"`, value in
   `--color-ink-faint` when it is a value nobody reads any more. Just written:
-  `--color-keep` on `--color-keep-soft`. Being moved: `--color-accent`,
+  `--color-mark` on `--color-mark-soft` — **not** `keep`, which is a status
+  and says "this succeeded" (`design-system.md` §Tokens, ADR-0026 §Addendum,
+  #288); #277's frames predate `mark` and still paint that state `keep`, so
+  do not copy that half of them. Being moved: `--color-accent`,
   `strokeWidth 2.8`.
 - **Colours go in `style={{ fill }}` / `style={{ stroke }}`**, never in a
   `fill=` attribute — an attribute cannot hold `var(--color-*)` through the
@@ -387,12 +436,60 @@ listing, their `lines` arrays must agree.** The fixed-capacity `insertAt` said
 `[8, 9]` where its dynamic twin said `[7, 8]`. Print each step's lines against
 its fence text and read the result next to the step's own caption.
 
+**What that widget is, concretely** (ADR-0074): `eda` picks the structure —
+array, dynamic array, or a singly / doubly / circular list — and `operation`
+picks which of nine operations to animate over it. The surface never changes
+between combinations, which is the point: the reader learns one visual
+vocabulary and reads every structure of the unit through it, comparing COST
+rather than re-reading a new widget.
+
+So the rule for the classes that follow is no longer "decide" but **reuse
+first**: a class of this unit that needs to show an operation running reaches
+for `<SequenceStepper>` and adds a recipe to it (a code change, with its own
+ADR — see ADR-0074 §Consequences) rather than inventing a widget of its own.
+Building a new one is still legitimate, and still needs the same argument this
+section asks for: what the whole unit wants, and why the existing widget
+cannot carry it.
+
+**It does not replace `<StepShow>` + `<MemoryVisual>`**, which stay the pair
+for author-written pictures, whose truth is the author's (ADR-0049).
+`<SequenceStepper>` DERIVES its frames from the operation, which is why it
+scales to hundreds of them and why it cannot draw something the operation does
+not actually do — and equally why it can only draw the structures it has
+recipes for. A picture outside that set is still hand-written, under §6bis.
+
+## The listings a class shows are code, not illustrations
+
+A student copies what the slide prints. So a listing a class shows — in a
+fence or inside a widget — **validates its arguments and names the exception
+it throws**, exactly as the structure's contract says it must: an index
+outside the structure is `IndexOutOfBoundsException`, an operation asked of an
+empty collection is `NoSuchElementException`, a fixed-capacity insert past the
+block is `IllegalStateException`. #277's Sequence card already stated the rule
+in prose ("pedir fuera de ese rango es un error, no un valor"); a listing that
+returns a value there contradicts the card beside it.
+
+The same stance has a second half, and it is the one that costs something:
+**a widget that cannot produce a correct listing for a combination refuses the
+combination rather than drawing it.** #288's review found the circular recipe
+showing the open-chain `insertFirst` — valid Java, for a structure the picture
+was not drawing, breaking the ring invariant the previous slide had just
+stated. The fix gave up advertised range (ADR-0074 §Amended by, the validity
+matrix) rather than shipping plausible code for the wrong structure.
+
+And the edge cases are not optional prose: the empty structure, the structure
+of one, and position zero are where the general body of a method stops
+working. A class that lists them on a slide owes listings that handle them.
+
 ## Checklist
 
-- [ ] Every act after the first is an `h2` behind a `<SectionBreak />`,
-      producing a title-only divider slide. The FIRST act carries no heading
-      at all — the class opens straight from the cover. The number of acts
-      follows §1, and a class that deviates says so.
+- [ ] Every act heading that deserves a beat in the deck is an `h2` behind a
+      `<SectionBreak />`. A break buys a title-only divider SLIDE, so it goes
+      where the lecture pauses — #288 gives one to the operations act and to
+      the variants act, and none to the comparison (which continues the
+      argument the variants act just made) or to the exercises (which are book
+      work). Deciding per act is the rule; a deviation is stated, not left to
+      be read as an oversight.
 - [ ] No recap act. Restating the contract and the cost tables at the end
       repeats what each act already carried; only the closing trade survives.
 - [ ] **No** `<SectionBreak />` before `## Lo que sigue` — check the deck, not
@@ -424,7 +521,14 @@ its fence text and read the result next to the step's own caption.
       wrong-but-in-range one survives the build, the suite, the preview and
       the `sr-only` live region alike. When two steppers share a listing,
       their `lines` arrays must agree.
-- [ ] No new widget invented for a single class of the unit.
+- [ ] No new widget invented for a single class of the unit — `<SequenceStepper>`
+      (ADR-0074) is the unit's widget for showing an operation run, and a class
+      that needs a structure it does not draw adds a RECIPE to it, with an ADR.
+- [ ] Every `<SequenceStepper>` opened in `npm run preview` and walked: the
+      frames advance, the highlighted line follows the operation, the pointers
+      land on the right nodes, and it reads in both themes in the book and on
+      its slide. The frames and the geometry are pinned by the suite; nothing
+      in the build or the suite can see the SVG.
 - [ ] Every arithmetic claim about a sequence (copies, doublings, totals,
       free cells) reproduced by simulation **including one non-power-of-two
       N** — including the claims that appear only in a stepper caption or an

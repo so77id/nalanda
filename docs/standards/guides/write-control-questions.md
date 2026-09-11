@@ -3,8 +3,8 @@
 ## When to read this
 
 You are writing the questions at the end of a course document — the pool an
-entrance control draws from. `add-a-course-document.md` step *Write the control
-questions* says how to type the block; this says whether what you typed is a good question.
+entrance control draws from. `add-a-course-document.md` step _Write the control
+questions_ says how to type the block; this says whether what you typed is a good question.
 
 Read it also before drafting questions with an agent. Every rule below carries
 its reason, and that is not decoration: a rule without its reason cannot be
@@ -40,21 +40,41 @@ Three consequences shape every rule here:
 - **The copies differ.** Two students answer different questions for the same
   grade, so no question may be much harder than its neighbours in the same pool.
 
+## No mathematics in a stem or an alternative
+
+`<Explanation>` is exempt: it never leaves the page, and the two-reader gate does not compare it. The four complexity banks all use `$$…$$` there.
+
+**Write costs in words — "costo constante", "lineal", "cuadrático" — never as
+`$$\Theta(1)$$.** A question is not prose: it leaves the page for
+`questions.json` and ends up on a printed sheet, where nothing renders LaTeX.
+
+This is enforced, but by a test whose failure does not mention mathematics:
+`app/questionReaders.test.tsx` compares what the SOURCE reader sees with what
+the RENDERED reader sees, and rehype-katex turns `$$\Theta(1)$$` in the DOM
+into `Θ(1)\Theta(1)Θ(1)` — the visual rendering, the raw LaTeX and the MathML
+concatenated. The two readers disagree and the suite reddens with a diff of two
+statements that look identical at a glance. Hit while writing #288's bank; #277
+had already avoided it by writing every cost in words, which is the convention
+this section now records.
+
+The same applies to the alternatives, and for the stronger reason: a printed
+alternative reading `Θ(1)\Theta(1)Θ(1)` is a question nobody can answer.
+
 ## The rules the suite enforces
 
 Break one and `npm run test` goes red, naming the question. They are mechanical
 because they are checkable — not because they matter more than the ones below.
 
-| Rule | Why |
-|---|---|
-| Exactly four alternatives | Uniformity, so a sheet reads the same from question to question — NOT weighting: the reading report carries each question's `max` and the caller divides by it, so a question with three alternatives weighs exactly one point like every other (ADR-0031). |
-| Between one and three marked correct | None is unanswerable. All four is "mark everything", which measures nothing: whoever knows nothing marks everything and scores. |
-| No *todas las anteriores* | If every alternative is correct, mark them — that is what a multiple is. Pinning does not save this one. |
-| No negated stem (`NO`, *excepto*, *salvo*) | Under a clock with shuffled alternatives, a negation measures hurried reading. Lowercase *no* is fine — *"¿Por qué no compila?"* is a real question, not a negated stem. The uppercase form is caught after a space or after `¿`. |
-| The correct alternative is not far longer than the rest | The most exploitable tell there is: pick the longest, be right, never study. Compared against the SECOND longest, and switched off below 15 characters — between `123` and `No compila` the ratio means nothing, and `{3, 6, 123, No compila}` is correct authoring. |
+| Rule                                                              | Why                                                                                                                                                                                                                                                                                                |
+| ----------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Exactly four alternatives                                         | Uniformity, so a sheet reads the same from question to question — NOT weighting: the reading report carries each question's `max` and the caller divides by it, so a question with three alternatives weighs exactly one point like every other (ADR-0031).                                        |
+| Between one and three marked correct                              | None is unanswerable. All four is "mark everything", which measures nothing: whoever knows nothing marks everything and scores.                                                                                                                                                                    |
+| No _todas las anteriores_                                         | If every alternative is correct, mark them — that is what a multiple is. Pinning does not save this one.                                                                                                                                                                                           |
+| No negated stem (`NO`, _excepto_, _salvo_)                        | Under a clock with shuffled alternatives, a negation measures hurried reading. Lowercase _no_ is fine — _"¿Por qué no compila?"_ is a real question, not a negated stem. The uppercase form is caught after a space or after `¿`.                                                                  |
+| The correct alternative is not far longer than the rest           | The most exploitable tell there is: pick the longest, be right, never study. Compared against the SECOND longest, and switched off below 15 characters — between `123` and `No compila` the ratio means nothing, and `{3, 6, 123, No compila}` is correct authoring.                               |
 | `id` present, kebab-case, unique across the whole `content/` tree | It is the join key from the printed sheet, through the scanner, into a grade (ADR-0031). A duplicate merges two students' answers into one column — and that one fails `npm run build`, which is the gate that must block publishing; the suite catches it too, in `content/questionBank.test.ts`. |
-| A statement, and no empty alternative | A blank stem or a blank option reaches a printed, graded sheet as a question with nothing on it. |
-| `anchor` names a real section of the document | Otherwise the question belongs to nothing and enters no control. |
+| A statement, and no empty alternative                             | A blank stem or a blank option reaches a printed, graded sheet as a question with nothing on it.                                                                                                                                                                                                   |
+| `anchor` names a real section of the document                     | Otherwise the question belongs to nothing and enters no control.                                                                                                                                                                                                                                   |
 
 ## The rules nothing can check
 
@@ -140,10 +160,10 @@ student might believe.
 - [x] Todas las anteriores
 ```
 
-Shuffled, *todas las anteriores* lands second and means nothing. It is also
+Shuffled, _todas las anteriores_ lands second and means nothing. It is also
 marked correct alongside a contradiction. The suite refuses this one.
 
-***Ninguna* de las anteriores is different, and allowed.** It says something
+**_Ninguna_ de las anteriores is different, and allowed.** It says something
 false out of last position for the same reason — but the printed sheet pins it
 there with AMC's `\lastchoices` (ADR-0033), and it is the only way to author
 the question where every option listed is wrong:
@@ -232,10 +252,10 @@ the principal fact is measured in the parent's pregunta.
 **"It is a hands-on slide" is not the test.** Because a section runs to the next
 `h2`, what follows the editor is still inside it, and that is usually where the
 teaching lives. The two Java documents differ for exactly this reason and both
-are right: `java-desde-cpp` exempts its *Ejecútalo* slides, which are followed by
+are right: `java-desde-cpp` exempts its _Ejecútalo_ slides, which are followed by
 nothing but the next heading, while `java-tipos-y-flujo` covers its lab slides,
 because the newline `nextInt()` leaves behind and the decimal point the browser's
-JVM insists on are taught in the prose *after* the editor (#144).
+JVM insists on are taught in the prose _after_ the editor (#144).
 
 **One section may owe two.** Coverage is counted per `h2`, so the gate is
 satisfied by one — but a section that swallows an `###` subsection can hold more
@@ -265,7 +285,7 @@ bank and name the ranges that do work.
 
 There is no difficulty balancing and none is planned (design C6): an entrance
 control measures whether the student read, and levelling it would hide exactly
-that. What you owe instead is questions that are all *about the same thing* —
+that. What you owe instead is questions that are all _about the same thing_ —
 the class that was taught — so a student who read is not punished by the draw.
 
 ## Who decides
@@ -396,9 +416,9 @@ completas, ¿cuántas veces se evalúa la condición?
 - [ ] 2n
 
 <Explanation>
-La condición se evalúa una vez por cada iteración que sí entra al ciclo
-(n veces) más una vez extra al final para determinar que ya no se entra
-— total n + 1.
+  La condición se evalúa una vez por cada iteración que sí entra al ciclo (n
+  veces) más una vez extra al final para determinar que ya no se entra — total n
+  + 1.
 </Explanation>
 
 </Question>
@@ -424,3 +444,24 @@ without adding weight to the control artifact. Catalog entry:
 - [ ] Each distractor is something a real student might believe.
 - [ ] `npm run test` green — the mechanical rules and the coverage gate.
 - [ ] Opened the document in a browser and answered the questions, both themes.
+
+## Two refusals worth knowing before you draft
+
+Both came out of #288, where every question was proposed to the professor one
+at a time and each was kept or dropped on its own.
+
+- **A question answerable from the PREVIOUS class is not a question about this
+  one.** The first draft asked why an array reaches any position with a single
+  calculation — true, relevant, and taught by the class before. Ask what THIS
+  document adds.
+- **A question that leans on a slide's scene does not stand on its own.** "The
+  four values scattered in memory" reads fine beside the slide and means
+  nothing on a printed control, where the question is all the student has. Say
+  the situation in the stem.
+
+And record the coverage you did NOT write. A control is requested over a RANGE
+of sections, and a range whose questions number fewer than four is refused
+(`ErrPoolTooSmall`). #288 ships with two of its five acts carrying none — the
+professor turned those down — so a control drawn over the comparison act or the
+exercises alone comes up empty. That is a legitimate state; it is not a
+legitimate surprise.
