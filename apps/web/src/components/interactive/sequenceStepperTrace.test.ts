@@ -20,22 +20,44 @@ import {
 const values = [7, 3, 1, 5];
 
 describe('sequenceStepperTrace · the valid combinations', () => {
-  it('rejects insert-ordered on the two array recipes and accepts it on every list', () => {
+  it('rejects insert-ordered on the two array recipes', () => {
     expect(isValidCombination('array', 'insert-ordered')).toBe(false);
     expect(isValidCombination('dynamic-array', 'insert-ordered')).toBe(false);
-    for (const recipe of RECIPES) {
-      if (recipe.startsWith('linked-list')) {
-        expect(isValidCombination(recipe, 'insert-ordered')).toBe(true);
+    expect(isValidCombination('linked-list-singly', 'insert-ordered')).toBe(true);
+  });
+
+  it('accepts every operation over the two arrays and the singly list', () => {
+    for (const recipe of ['array', 'dynamic-array', 'linked-list-singly'] as const) {
+      for (const operation of OPERATIONS) {
+        if (operation === 'insert-ordered' && !recipe.startsWith('linked-list')) continue;
+        expect(isValidCombination(recipe, operation), `${recipe} × ${operation}`).toBe(true);
       }
     }
   });
 
-  it('accepts every other recipe × operation pair', () => {
-    for (const recipe of RECIPES) {
-      for (const operation of OPERATIONS) {
-        if (operation === 'insert-ordered' && !recipe.startsWith('linked-list')) continue;
-        expect(isValidCombination(recipe, operation)).toBe(true);
-      }
+  // The #288 review found the circular recipe showing the open-chain
+  // `insertFirst` — valid Java for a structure the picture was not drawing.
+  // A variant recipe now accepts only the operations it has a listing FOR.
+  it('lets the ring have only the operation whose listing closes the ring', () => {
+    expect(isValidCombination('linked-list-circular', 'insert-first')).toBe(true);
+    for (const operation of OPERATIONS) {
+      if (operation === 'insert-first') continue;
+      expect(isValidCombination('linked-list-circular', operation), `circular × ${operation}`).toBe(
+        false,
+      );
+    }
+  });
+
+  it('lets the doubly list read freely and change shape only where prev is kept', () => {
+    for (const operation of ['get-at', 'search', 'insert-first', 'remove-first'] as const) {
+      expect(isValidCombination('linked-list-doubly', operation), operation).toBe(true);
+    }
+    // remove-last is the tail form the class teaches; without tail the walk
+    // is the singly listing, which never touches `prev`.
+    expect(isValidCombination('linked-list-doubly', 'remove-last', true)).toBe(true);
+    expect(isValidCombination('linked-list-doubly', 'remove-last', false)).toBe(false);
+    for (const operation of ['insert-last', 'insert-at', 'insert-ordered', 'remove-at'] as const) {
+      expect(isValidCombination('linked-list-doubly', operation), operation).toBe(false);
     }
   });
 
@@ -44,8 +66,12 @@ describe('sequenceStepperTrace · the valid combinations', () => {
   it('produces a walkable trace with a listing for every valid combination', () => {
     for (const recipe of RECIPES) {
       for (const operation of OPERATIONS) {
-        if (!isValidCombination(recipe, operation)) continue;
+        // `tail` is what makes the doubly list's remove-last legal, so the
+        // sweep asks for it and hands it over.
+        const tail = recipe === 'linked-list-doubly' && operation === 'remove-last';
+        if (!isValidCombination(recipe, operation, tail)) continue;
         const trace = traceFor(recipe, operation, {
+          tail,
           // insert-ordered is the one operation with a precondition on the
           // input, and it is the widget's job to refuse an unsorted one — so
           // this sweep hands it a sorted list rather than exempting it.
@@ -719,5 +745,62 @@ describe('sequenceStepperTrace · insertOrdered', () => {
     expect(() =>
       traceFor('linked-list-singly', 'insert-ordered', { values: [5, 1, 9], target: 3 }),
     ).toThrow(/ordenad/i);
+  });
+});
+
+describe('sequenceStepperTrace · the listing belongs to the recipe', () => {
+  /**
+   * The exhaustive sweep checks that every highlighted line EXISTS. It cannot
+   * see a listing that is valid Java for the wrong structure — and the review
+   * of this branch found one shipping: the circular recipe was handed the
+   * open-chain `insertFirst`, which leaves the last node pointing at the old
+   * head and breaks the ring the slide beside it had just defined.
+   *
+   * These cases read the listing the widget shows and ask whether it belongs
+   * to the recipe selected. They are deliberately crude — a walk that stops on
+   * `null` cannot be right on a ring, a mutation that never writes `.prev`
+   * cannot be right on a doubly-linked chain — because the class of defect is
+   * "plausible code for the wrong structure", which no amount of line-number
+   * checking reaches.
+   */
+  const walkLines = (code: string) =>
+    code.split('\n').filter((line) => /\bwhile \(|\bfor \(/.test(line));
+
+  const RING_SAFE: SequenceOperation[] = ['insert-first'];
+
+  it.each(RING_SAFE)('a circular listing never ends a walk on null (%s)', (operation) => {
+    const { code } = traceFor('linked-list-circular', operation, {
+      values: [7, 3, 1],
+      value: 9,
+      index: 1,
+      target: 3,
+    });
+    for (const line of walkLines(code)) expect(line).not.toMatch(/!= null\)/);
+  });
+
+  it('a circular insertFirst closes the ring again, and pays the walk for it', () => {
+    const { code, steps } = traceFor('linked-list-circular', 'insert-first', {
+      values: [7, 3, 1],
+      value: 9,
+    });
+    // The last node has to be told the first one changed.
+    expect(code).toContain('last.next = fresh;');
+    expect(code).toContain('while (last.next != head)');
+    // And finding it is a walk, so the operation is not constant here.
+    expect(steps.filter((f) => f.kind === 'walk').length).toBeGreaterThan(0);
+    expect(steps.at(-1)!.cells.map((c) => c.value)).toEqual([9, 7, 3, 1]);
+  });
+
+  it('the open-chain recipes keep the constant-time insertFirst', () => {
+    for (const recipe of ['linked-list-singly', 'linked-list-doubly'] as const) {
+      const { steps } = traceFor(recipe, 'insert-first', { values: [7, 3, 1], value: 9 });
+      expect(steps.filter((f) => f.kind === 'walk')).toHaveLength(0);
+    }
+  });
+
+  it('refuses more runs than a slide can show, before allocating them', () => {
+    expect(() =>
+      traceFor('linked-list-singly', 'remove-first', { values: [7, 3], times: 100_000_000 }),
+    ).toThrow(/entre 1 y/i);
   });
 });

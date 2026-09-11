@@ -46,7 +46,7 @@ was found by looking at a screenshot.
 | `flag`                                | Errors, warnings, diagnostics            | Semantic, never decorative                                                           |
 | `mark`                                | The element the reader should look at NOW: just inserted, just changed | Semantic, and NOT a status. `flag` says something is wrong and `keep` says something succeeded; a freshly inserted node is neither (#288, ADR-0026 §Addendum) |
 | `keep`                                | Success, passing cases, the run button   | Semantic                                                                             |
-| `accent-soft` `flag-soft` `keep-soft` | Tinted grounds for chips and callouts    | Only ever under their own foreground                                                 |
+| `accent-soft` `flag-soft` `keep-soft` `mark-soft` | Tinted grounds for chips and callouts    | Only ever under their own foreground                                                 |
 | `on-keep`                             | The label on a filled `keep` button      | **Inverts** with the theme rather than following it                                  |
 | `on-accent`                           | The label on a filled `accent` button    | Same shape as `on-keep`: **inverts** with the theme. Used by `<Benchmark>` and `<ComplexityExercise>` (#218, added to the standard in #247) |
 | `focus`                               | The focus ring                           | One ring for the whole product                                                       |

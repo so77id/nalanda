@@ -159,7 +159,7 @@ export function SequenceStepper({
   }
   const recipe = eda as SequenceRecipe;
   const op = operation as SequenceOperation;
-  if (!isValidCombination(recipe, op)) {
+  if (!isValidCombination(recipe, op, tail)) {
     return (
       <AuthoringError component="SequenceStepper">
         «{OPERATION_LABEL[op]}» no está definida sobre «{RECIPE_LABEL[recipe]}»: esta clase presenta
@@ -176,7 +176,11 @@ export function SequenceStepper({
   }
   // The guard has to count what the chain will GROW to, not what it starts
   // at: `value={[9, 4, 6]}` over four nodes ends at seven.
-  const inserted = op.startsWith('insert') && Array.isArray(value) ? value.length : 0;
+  // `insert-ordered` takes its values through `target`, not `value`, so
+  // counting only `value` let an ordered slide draw past the cap.
+  const grows = op.startsWith('insert');
+  const from = op === 'insert-ordered' ? target : value;
+  const inserted = grows && Array.isArray(from) ? from.length : 0;
   if (values.length + inserted > MAX_VALUES) {
     return (
       <AuthoringError component="SequenceStepper">
@@ -240,16 +244,17 @@ function Body({
   // reset key hang off a primitive-derived string rather than the array's
   // identity (`add-a-content-component.md` §2, learned in #266).
   const valuesKey = values.join(',');
-  const resetKey = [
-    recipe,
-    operation,
-    valuesKey,
-    String(value),
-    String(index),
-    String(target),
-    times,
-    tail,
-  ].join('|');
+  // Every inline-authored data prop goes through a primitive key, not only
+  // `values`: MDX re-mints each array literal on every parent render, so a
+  // memo keyed on the references recomputes the trace — and `cellsFrom` mints
+  // fresh cell ids, which remounts every node of the picture. The rule is
+  // add-a-content-component.md §2, and the multi-run props are arrays too.
+  const valueKey = String(value);
+  const indexKey = String(index);
+  const targetKey = String(target);
+  const resetKey = [recipe, operation, valuesKey, valueKey, indexKey, targetKey, times, tail].join(
+    '|',
+  );
 
   const built = useMemo((): { trace: SequenceTrace } | { error: string } => {
     try {
@@ -266,7 +271,8 @@ function Body({
     } catch (cause) {
       return { error: cause instanceof Error ? cause.message : String(cause) };
     }
-  }, [recipe, operation, valuesKey, value, index, target, times, tail]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- the keys ARE the props
+  }, [recipe, operation, valuesKey, valueKey, indexKey, targetKey, times, tail]);
 
   const trace = 'trace' in built ? built.trace : null;
   const totalSteps = trace?.steps.length ?? 0;
@@ -364,6 +370,19 @@ function Body({
                 capacidad {step.capacity}
               </div>
             )}
+            {/*
+              The running elementary-operation count — the number five of the
+              operation slides argue about. Every frame already carried it;
+              until the #288 review it was computed, asserted by the suite and
+              never shown, while ADR-0074 §Consequences claimed the reader
+              read Θ(1) against Θ(N) off it. Now they can.
+            */}
+            <div className="mt-1.5 font-mono text-3xs uppercase tracking-wide text-ink-faint">
+              ops
+            </div>
+            <div className="min-w-11 rounded border border-rule bg-sunk px-2 py-1 text-lg font-semibold leading-none text-ink">
+              {step.cost}
+            </div>
           </div>
           <div
             className="flex items-center justify-center overflow-x-auto p-3"

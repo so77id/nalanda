@@ -49,8 +49,8 @@ Its seven figures sit beside it in the same directory
 
 **Second worked example:** `content/courses/sample-course/18-edd-listas-enlazadas.mdx`
 — *Estructuras de Datos · Listas Enlazadas*. One structure and four variants
-of it, 42 authored slides plus five act dividers and the cover, no figures,
-fourteen `<SequenceStepper>` widgets and four `<Exercise>`s. It is the class
+of it, 49 authored slides plus five act dividers and the cover, no figures,
+thirteen `<SequenceStepper>` widgets and four `<Exercise>`s. It is the class
 that settled the act mapping above and the unit's widget decision (§7,
 ADR-0074). Where #277 draws its step-by-steps as static SVG, this one derives
 them, and §6 records why both remain right. (Counts re-derived with
@@ -423,7 +423,7 @@ its fence text and read the result next to the step's own caption.
 
 **What that widget is, concretely** (ADR-0074): `eda` picks the structure —
 array, dynamic array, or a singly / doubly / circular list — and `operation`
-picks which of eight operations to animate over it. The surface never changes
+picks which of nine operations to animate over it. The surface never changes
 between combinations, which is the point: the reader learns one visual
 vocabulary and reads every structure of the unit through it, comparing COST
 rather than re-reading a new widget.

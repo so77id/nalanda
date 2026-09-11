@@ -241,12 +241,69 @@ describe('<SequenceStepper> · the chrome', () => {
     expect(size).toHaveTextContent(/size\s*3/);
   });
 
+  it('shows the elementary-operation counter, and it grows with the walk', () => {
+    renderIn(
+      'book',
+      <SequenceStepper
+        eda="linked-list-singly"
+        operation="get-at"
+        values={[7, 3, 1, 5, 9]}
+        index={4}
+      />,
+    );
+    const box = screen.getByTestId('sequence-size');
+    expect(box).toHaveTextContent(/ops\s*0/);
+    const forward = () => screen.getByRole('button', { name: 'Adelante' });
+    while (forward().getAttribute('aria-disabled') !== 'true') fireEvent.click(forward());
+    // Four hops to reach position 4 — the cost the slide claims.
+    expect(box).toHaveTextContent(/ops\s*4/);
+  });
+
   it('adds the capacity beside it for a block that reserves one', () => {
     renderIn(
       'book',
       <SequenceStepper eda="array" operation="insert-last" values={[7, 3]} value={9} />,
     );
     expect(screen.getByTestId('sequence-size')).toHaveTextContent('capacidad');
+  });
+});
+
+describe('<SequenceStepper> · the combinations the document mounts', () => {
+  // The narrowing of `isValidCombination` in the #288 review broke the
+  // doubly+tail deleteLast slide, and the suite did not see it: the document
+  // render test loads the widget lazily, so jsdom paints the fallback and
+  // never reaches the guard. These mount the real component.
+  it.each([
+    ['linked-list-doubly', 'remove-last', true],
+    ['linked-list-circular', 'insert-first', false],
+    ['linked-list-singly', 'insert-ordered', false],
+  ] as const)('accepts %s × %s (tail=%s)', (eda, operation, tail) => {
+    renderIn(
+      'book',
+      <SequenceStepper
+        eda={eda}
+        operation={operation}
+        values={operation === 'insert-ordered' ? [3, 7] : [7, 3, 1, 5]}
+        value={9}
+        target={5}
+        tail={tail}
+      />,
+    );
+    expect(screen.queryByText(/no está definida/i)).not.toBeInTheDocument();
+    expect(screen.getByTestId('sequence-structure')).toBeInTheDocument();
+  });
+
+  it('refuses, in the author own words, a combination whose listing is not written', () => {
+    renderIn(
+      'book',
+      <SequenceStepper
+        eda="linked-list-circular"
+        operation="remove-at"
+        values={[7, 3, 1]}
+        index={1}
+      />,
+    );
+    expect(screen.getByText(/no está definida/i)).toBeInTheDocument();
   });
 });
 

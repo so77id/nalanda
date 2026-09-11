@@ -9,9 +9,11 @@ questions: pool
 {/* `per-section`, porque cada <Slide> es un h2 y exigir una pregunta por */}
 {/* slide serían más de cuarenta. Lo que el pool garantiza es densidad por */}
 {/* RANGO: un control se pide sobre un rango de secciones, así que cada */}
-{/* bloque tiene que poder llenar una copia de cuatro. Hoy: 6 en la apertura */}
-{/* (que llega hasta las invariantes), 7 en las operaciones, 5 en las */}
-{/* variantes, 4 en la comparación y 4 en los ejercicios. */}
+{/* bloque tiene que poder llenar una copia de cuatro. Hoy son 17 y NO lo */}
+{/* cumplen: 4 en la apertura (que llega hasta las invariantes), 8 en las */}
+{/* operaciones, 5 en las variantes, y ninguna en la comparación ni en los */}
+{/* ejercicios — se propusieron y Miguel las descartó, así que un control */}
+{/* pedido sobre esos dos rangos sale vacío hasta que se escriban. */}
 
 # Estructuras de Datos · Listas Enlazadas
 
@@ -23,7 +25,7 @@ la decisión contraria —cada elemento por su lado, guardando dónde está el
 siguiente— y cumple el mismo contrato con los costos casi invertidos.
 
 Presentamos la lista simplemente enlazada con todas sus operaciones, sus
-cuatro variantes, la comparación completa contra el arreglo y los cuatro
+cuatro variantes, la comparación completa contra el arreglo y los cinco
 ejercicios que la vuelven una herramienta de trabajo.
 
 <Slide title="El TDA Sequence">
@@ -1038,9 +1040,14 @@ condición de corte ya se cumple antes del primer paso.
 />
 
 El enlace de cierre no es un adorno del dibujo: es el `next` del último nodo,
-y por eso se reengancha en cada inserción. `insertFirst` no cambia una línea
-—sigue costando $$\Theta(1)$$—, pero ahora el nodo al que apunta el último
-es otro.
+y por eso hay que reengancharlo en cada inserción. Y ahí está el precio del
+anillo: para reengancharlo hay que **encontrar** al último, y encontrarlo es
+recorrer la cadena. `insertFirst`, que en la lista simple era la operación
+barata por excelencia, aquí pasa a costar $$\Theta(N)$$.
+
+Guardar `tail` lo arreglaría de una vez —en una circular `tail.next` ya es
+`head`, así que un solo puntero da los dos extremos—, y es por eso que casi
+toda lista circular de verdad se guarda con él.
 
 </Slide>
 
@@ -1270,7 +1277,8 @@ cola, así que es él quien tiene que pasar a apuntar a la cabeza.
 
 Ojo con el costo. El tiempo sigue siendo $$\Theta(N)$$, pero el espacio ya
 no es constante: hay $$N$$ llamadas anidadas en la pila antes de que la
-primera termine, así que el espacio adicional es $$\Theta(N)$$.
+primera termine, así que el espacio adicional es $$\Theta(N)$$ — el análisis
+de ese costo está en [[complejidad-recursion|Complejidad y recursión]].
 
 ```java starter
 class Node {
@@ -1339,6 +1347,10 @@ lenta un nodo por vuelta, alcanzarla es cuestión de tiempo.
 
 Cuidado con qué se compara: la pregunta es si las dos están **en el mismo
 nodo**, no si los dos nodos guardan el mismo número.
+
+Y cuidado con el intento fallido: si tu recorrido no contempla el ciclo, el
+programa no termina y la pestaña queda congelada. Recárgala — tu borrador se
+guarda antes de cada ejecución.
 
 ```java starter
 class Node {
@@ -1716,7 +1728,7 @@ En una lista simplemente enlazada, ¿qué decide que una operación sea barata o
 
 <Question id="lista-deletelast-baja-con-prev" anchor="eliminar-y-buscar-por-variante">
 
-`deleteLast` baja a tiempo constante con `prev` pero no con `tail`. ¿Por qué?
+`deleteLast` baja a tiempo constante en la doblemente enlazada con `tail`, y no con `tail` solo. ¿Por qué?
 
 - [x] Porque lo que le falta es el nodo anterior, y eso es lo que guarda `prev`
 - [ ] Porque `tail` queda desactualizado apenas se elimina un nodo

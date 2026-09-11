@@ -22,7 +22,7 @@ export const LINK_W = 16;
 /** Horizontal room between two nodes, where the arrow is drawn. */
 export const LIST_GAP = 34;
 /** Vertical room above the structure for the walking-pointer arrows. */
-export const POINTER_BAND = 46;
+const POINTER_BAND = 46;
 /**
  * Horizontal room to the LEFT of a chain, where `head` sits with an arrow
  * pointing across into the first node. Drawn sideways rather than from above
@@ -30,17 +30,17 @@ export const POINTER_BAND = 46;
  * over the slot it is about to occupy — at the front, which is exactly where
  * `head` used to point down.
  */
-export const HEAD_LANE = 74;
+const HEAD_LANE = 74;
 /** Vertical room below for the index rail (arrays) and the ring (circular). */
-export const FOOT_BAND = 36;
+const FOOT_BAND = 36;
 /** Extra room under a circular list, where the closing arc is drawn. */
-export const RING_BAND = 34;
+const RING_BAND = 34;
 /**
  * Room ABOVE everything for a node that exists but is not linked in yet —
  * drawn as a real node with its own `next` field, so it needs a node's height
  * plus room for the arrow that leaves it.
  */
-export const CARRY_BAND = 78;
+const CARRY_BAND = 78;
 
 export interface LayoutBox {
   /** Left edge of the VALUE half. */

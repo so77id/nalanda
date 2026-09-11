@@ -199,8 +199,45 @@ const isList = (recipe: SequenceRecipe) => recipe.startsWith('linked-list');
  * at all. Offering it over an array recipe would put a structure on the page
  * that no slide defines. Every other pair is valid.
  */
-export function isValidCombination(recipe: SequenceRecipe, operation: SequenceOperation): boolean {
-  if (operation === 'insert-ordered') return isList(recipe);
+/**
+ * Which operations each variant recipe has a listing FOR. The widget shows
+ * Java the student may copy, so a combination is only valid when the listing
+ * belongs to the structure the picture is drawing — and most of them do not:
+ *
+ * - On a ring, a walk that stops at `null` never stops. Only `insert-first`
+ *   has a circular listing (it closes the ring again, and pays a walk for
+ *   it); every other circular listing is still the open-chain one.
+ * - On a doubly-linked chain, an operation that changes the shape has to fix
+ *   BOTH links. Only `insert-first` and `remove-first` do; the read-only
+ *   operations are fine because they change nothing, and `remove-last` is
+ *   fine only in the `tail` form the class actually teaches.
+ *
+ * Refusing them is not a limitation to apologise for: it is the difference
+ * between a widget that says "not defined here" to its AUTHOR and one that
+ * prints wrong Java to a student. The review of #288 found the second.
+ */
+const CIRCULAR_OPERATIONS: readonly SequenceOperation[] = ['insert-first'];
+const DOUBLY_OPERATIONS: readonly SequenceOperation[] = [
+  'get-at',
+  'search',
+  'insert-first',
+  'remove-first',
+  'remove-last',
+];
+
+export function isValidCombination(
+  recipe: SequenceRecipe,
+  operation: SequenceOperation,
+  tail = false,
+): boolean {
+  if (operation === 'insert-ordered' && !isList(recipe)) return false;
+  if (recipe === 'linked-list-circular') return CIRCULAR_OPERATIONS.includes(operation);
+  if (recipe === 'linked-list-doubly') {
+    if (!DOUBLY_OPERATIONS.includes(operation)) return false;
+    // Without `tail` the walk to the second-to-last node is the singly
+    // listing, which never touches `prev`.
+    return operation !== 'remove-last' || tail;
+  }
   return true;
 }
 
@@ -209,7 +246,7 @@ export function traceFor(
   operation: SequenceOperation,
   input: SequenceInput,
 ): SequenceTrace {
-  if (!isValidCombination(recipe, operation)) {
+  if (!isValidCombination(recipe, operation, input.tail === true)) {
     throw new Error(`La operación «${operation}» no está definida sobre «${recipe}».`);
   }
   return isList(recipe)
@@ -423,11 +460,33 @@ function arrayCode(recipe: SequenceRecipe, operation: SequenceOperation): string
   return ARRAY_CODE[operation as Exclude<SequenceOperation, 'insert-ordered'>];
 }
 
+/**
+ * The array family animates ONE run. Its trace was written before the
+ * multi-run arguments existed and reads only the first of each — which the
+ * #288 review caught as a contract the catalog and the guide were already
+ * advertising. Refused at boot rather than silently honoured in part: a slide
+ * that asks for three runs and gets one is a slide whose cost claim is wrong.
+ */
+function refuseMultiRun(operation: SequenceOperation, input: SequenceInput): void {
+  const runs = Math.max(
+    asRuns(input.value).length,
+    asRuns(input.index).length,
+    asRuns(input.target).length,
+    input.times ?? 1,
+  );
+  if (runs > 1) {
+    throw new Error(
+      `Las recetas de arreglo animan una sola corrida; «${operation}» recibió ${runs}. Sobre una lista enlazada sí se puede.`,
+    );
+  }
+}
+
 function traceArray(
   recipe: SequenceRecipe,
   operation: SequenceOperation,
   input: SequenceInput,
 ): SequenceTrace {
+  refuseMultiRun(operation, input);
   const code = arrayCode(recipe, operation);
   const grows = recipe === 'dynamic-array';
   // The static array is drawn with room to spare — its capacity is fixed at
@@ -621,7 +680,7 @@ function traceArray(
         slots[j] = { ...cell, state: hit ? 'found' : 'active' };
         push(
           'compare',
-          [2, 3],
+          [lineOf(code, 'for (int i = 0'), lineOf(code, 'if (data[i] == x')],
           `¿data[${j}] = ${cell.value} es ${target}? ${hit ? 'Sí.' : 'No.'}`,
           {
             pointers: [{ name: 'j', index: j }],
@@ -715,8 +774,11 @@ function runArgs(operation: SequenceOperation, input: SequenceInput): string[] {
     case 'search':
       return asRuns(input.target).map(String);
     case 'remove-first':
-    case 'remove-last':
-      return Array.from({ length: input.times ?? 1 }, () => '');
+    case 'remove-last': {
+      const times = input.times ?? 1;
+      requireRuns(times);
+      return Array.from({ length: times }, () => '');
+    }
     case 'insert-ordered':
       return asRuns(input.target).map(String);
   }
@@ -729,6 +791,28 @@ function listCode(recipe: SequenceRecipe, operation: SequenceOperation, tail: bo
 
   switch (operation) {
     case 'insert-first':
+      // The circular recipe cannot share the open-chain listing: the node
+      // that used to point at `head` is the LAST one, and on a ring it still
+      // exists. Left unchanged it points at the old first node and the ring
+      // is broken — the invariant the slide introducing the variant states.
+      // Finding it is a walk, so the ring costs this operation its Θ(1).
+      if (circular) {
+        return `void insertFirst(int x) {
+    Node fresh = new Node(x);
+    if (head == null) {
+        fresh.next = fresh;
+    } else {
+        Node last = head;
+        while (last.next != head) {
+            last = last.next;
+        }
+        fresh.next = head;
+        last.next = fresh;
+    }
+    head = fresh;
+    size++;
+}`;
+      }
       return doubly
         ? `void insertFirst(int x) {
     Node fresh = new Node(x);
@@ -919,6 +1003,22 @@ function listCode(recipe: SequenceRecipe, operation: SequenceOperation, tail: bo
   }
 }
 
+/**
+ * The most times an author may ask for one operation. The chain-length guard
+ * in the component counts cells, not RUNS, so `times={1e8}` used to allocate
+ * its driving program before any guard could refuse it — measured: a heap
+ * exhaustion that takes the tab down instead of printing an authoring error.
+ */
+const MAX_RUNS = 12;
+
+function requireRuns(runs: number): void {
+  if (!Number.isInteger(runs) || runs < 1 || runs > MAX_RUNS) {
+    throw new Error(
+      `La operación se ejecuta ${runs} veces. Entre 1 y ${MAX_RUNS}: más pasos de los que nadie sigue en una slide.`,
+    );
+  }
+}
+
 function traceList(
   recipe: SequenceRecipe,
   operation: SequenceOperation,
@@ -934,6 +1034,12 @@ function traceList(
   // that is running, and the reader can see which run they are watching.
   const base = listCode(recipe, operation, tail);
   const args = runArgs(operation, input);
+  requireRuns(args.length);
+  // A zero-length argument list traces nothing, and `steps.at(-1)!` at the
+  // settle step turns that into an English JS message rendered to the page.
+  if (args.length === 0) {
+    throw new Error('La operación no se ejecuta ninguna vez: falta el argumento que la corre.');
+  }
   const many = args.length > 1;
   const fresh = input.values.length === 0;
   const code = many ? base + callingProgram(args, METHOD_NAME[operation], fresh) : base;
@@ -941,6 +1047,9 @@ function traceList(
   // the SAME call line twice, and `lineOf` would hand both the first one.
   const runLine = (run: number): number[] =>
     many ? [base.split('\n').length + (fresh ? 1 : 0) + run + 1] : [];
+  // How wide the drawing will get, so an operation that grows at the FRONT
+  // can park its floating node over the slot it is about to occupy.
+  const maxSlots = input.values.length + (operation.startsWith('insert') ? args.length : 0);
   const cells = cellsFrom(input.values);
   const steps: SequenceStep[] = [];
   let cost = 0;
@@ -1008,6 +1117,85 @@ function traceList(
       requireValues(input).forEach((x, run) => {
         const wasFirst = cells.length > 0 ? cells[0]!.value : null;
         const callLine = runLine(run);
+        if (circular) {
+          // Same four-frame discipline, with the walk the ring forces in the
+          // middle: the last node has to be found before it can be told the
+          // first one changed.
+          const held = { value: x, label: 'fresh', slot: Math.max(maxSlots - cells.length - 1, 0) };
+          cost += 1;
+          push('build', [...callLine, lineOf(code, 'new Node(x)')], `Creamos el nodo ${x}.`, {
+            carry: held,
+          });
+          if (cells.length === 0) {
+            cost += 1;
+            push(
+              'link',
+              [...callLine, lineOf(code, 'fresh.next = fresh')],
+              `La cadena estaba vacía: ${x} se apunta a sí mismo y el anillo tiene un solo nodo.`,
+              { carry: held },
+            );
+          } else {
+            cost += 1;
+            push(
+              'start',
+              [...callLine, lineOf(code, 'Node last = head')],
+              `last parte en head, sobre el nodo ${cells[0]!.value}.`,
+              { carry: held, pointers: basePointers([{ name: 'last', index: 0 }]) },
+            );
+            for (let j = 1; j < cells.length; j += 1) {
+              cost += 1;
+              cells[j] = { ...cells[j]!, state: 'active' };
+              push(
+                'walk',
+                [
+                  ...callLine,
+                  lineOf(code, 'while (last.next != head)'),
+                  lineOf(code, 'last = last.next'),
+                ],
+                `last.next todavía no es head: avanzamos al nodo ${cells[j]!.value}.`,
+                { carry: held, pointers: basePointers([{ name: 'last', index: j }]) },
+              );
+              cells[j] = { ...cells[j]!, state: 'idle' };
+            }
+            cost += 1;
+            push(
+              'link',
+              [...callLine, lineOf(code, 'fresh.next = head')],
+              `${x} apunta a ${wasFirst}, que era el primero.`,
+              {
+                carry: { ...held, next: 0 },
+                pointers: basePointers([{ name: 'last', index: cells.length - 1 }]),
+              },
+            );
+            cost += 1;
+            push(
+              'link',
+              [...callLine, lineOf(code, 'last.next = fresh')],
+              `El último cierra el anillo sobre ${x} en vez de sobre ${wasFirst}.`,
+              {
+                carry: { ...held, next: 0 },
+                linkToCarry: cells.length - 1,
+                pointers: basePointers([{ name: 'last', index: cells.length - 1 }]),
+              },
+            );
+          }
+          cost += 1;
+          push(
+            'link',
+            [...callLine, lineOf(code, 'head = fresh')],
+            `head pasa a apuntar al nodo ${x}.`,
+            { carry: { ...held, next: cells.length > 0 ? 0 : null }, headToCarry: true },
+          );
+          cells.unshift({ id: (nextId += 1), value: x, state: 'new' });
+          cost += 1;
+          push(
+            'done',
+            [...callLine, lineOf(code, 'size++')],
+            `El nodo ${x} queda primero y el anillo está cerrado. El largo pasa a ${cells.length}.`,
+          );
+          cells[0] = { ...cells[0]!, state: 'idle' };
+          return;
+        }
         cost += 1;
         push(
           'build',
@@ -1403,7 +1591,9 @@ function traceList(
         const callLine = runLine(run);
         const removed = cells[cells.length - 1]!;
         const alone = cells.length === 1;
-        if (doubly && tail) {
+        // Checked first: with one node `tail.prev` is null, so the tail
+        // shortcut below would light `tail.next = null` over a null.
+        if (doubly && tail && !alone) {
           // The only O(1) delete-last in the family: `prev` is already there.
           cost += 1;
           push(
@@ -1421,7 +1611,10 @@ function traceList(
           cost += 1;
           push(
             'compare',
-            [...callLine, lineOf(code, 'if (head.next == null)')],
+            [
+              ...callLine,
+              lineOf(code, doubly && tail ? 'if (head == tail)' : 'if (head.next == null)'),
+            ],
             `Queda un solo nodo: no hay anteúltimo a quien pedirle que apunte a null.`,
           );
         } else {
@@ -1451,7 +1644,7 @@ function traceList(
             ...callLine,
             lineOf(
               code,
-              doubly && tail ? 'tail.next = null' : alone ? 'head = null' : 'prev.next = null',
+              alone ? 'head = null' : doubly && tail ? 'tail.next = null' : 'prev.next = null',
             ),
           ],
           alone
