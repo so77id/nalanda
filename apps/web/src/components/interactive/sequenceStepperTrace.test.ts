@@ -610,3 +610,46 @@ describe('sequenceStepperTrace · one operation, several runs', () => {
     expect([...lit].sort((a, b) => a - b)).toEqual(calls);
   });
 });
+
+describe('sequenceStepperTrace · the guards the edge-case slide claims', () => {
+  // 18-edd-listas-enlazadas.mdx §Los casos de borde names four cases and the
+  // line that handles each. The slide is only true if the listings the widget
+  // shows carry those lines, so it is checked here rather than read.
+  const singly = 'linked-list-singly' as const;
+
+  it('every removal refuses an empty chain', () => {
+    for (const operation of ['remove-first', 'remove-last'] as const) {
+      const { code } = traceFor(singly, operation, { values: [7, 3] });
+      expect(code).toContain('if (head == null)');
+      expect(code).toContain('throw new NoSuchElementException();');
+    }
+  });
+
+  it('insertLast handles the empty chain rather than dereferencing head', () => {
+    const { code } = traceFor(singly, 'insert-last', { values: [], value: 9 });
+    expect(code).toContain('if (head == null)');
+    expect(code).toContain('head = fresh;');
+  });
+
+  it('deleteLast handles a chain of one, where there is no second-to-last', () => {
+    const { code } = traceFor(singly, 'remove-last', { values: [7], times: 1 });
+    expect(code).toContain('if (head.next == null)');
+    // And the trace TAKES that branch rather than walking to a node that is
+    // not there: `prev.next.next` would be a null dereference.
+    const trace = traceFor(singly, 'remove-last', { values: [7, 3], times: 2 });
+    expect(trace.steps.at(-1)!.cells).toEqual([]);
+    expect(trace.steps.some((f) => f.description.includes('Queda un solo nodo'))).toBe(true);
+  });
+
+  it('insertAt and deleteAt handle position 0, where there is no previous', () => {
+    expect(traceFor(singly, 'insert-at', { values: [7], value: 9, index: 0 }).code).toContain(
+      'if (i == 0)',
+    );
+    expect(traceFor(singly, 'remove-at', { values: [7], index: 0 }).code).toContain('if (i == 0)');
+  });
+
+  it('insertAt accepts the position past the end, which means "at the end"', () => {
+    const trace = traceFor(singly, 'insert-at', { values: [7, 3], value: 9, index: 2 });
+    expect(trace.steps.at(-1)!.cells.map((c) => c.value)).toEqual([7, 3, 9]);
+  });
+});

@@ -827,14 +827,24 @@ function listCode(recipe: SequenceRecipe, operation: SequenceOperation, tail: bo
     return old.value;
 }`;
     case 'remove-last':
+      // A chain of ONE has no second-to-last node, and both bodies below
+      // assume there is one: `prev.next.next` dereferences `null`, and
+      // `tail.prev` walks off the front. The branch is the guard, and one
+      // `size--` at the end keeps every fragment of the listing unique —
+      // `lineOf` names lines by text.
       return doubly && tail
         ? `int deleteLast() {
     if (head == null) {
         throw new NoSuchElementException();
     }
     Node old = tail;
-    tail = tail.prev;
-    tail.next = null;
+    if (head == tail) {
+        head = null;
+        tail = null;
+    } else {
+        tail = tail.prev;
+        tail.next = null;
+    }
     size--;
     return old.value;
 }`
@@ -842,12 +852,18 @@ function listCode(recipe: SequenceRecipe, operation: SequenceOperation, tail: bo
     if (head == null) {
         throw new NoSuchElementException();
     }
-    Node prev = head;
-    while (prev.next.next != null) {
-        prev = prev.next;
+    Node old;
+    if (head.next == null) {
+        old = head;
+        head = null;
+    } else {
+        Node prev = head;
+        while (prev.next.next != null) {
+            prev = prev.next;
+        }
+        old = prev.next;
+        prev.next = null;
     }
-    Node old = prev.next;
-    prev.next = null;
     size--;
     return old.value;
 }`;
@@ -1163,6 +1179,9 @@ function traceList(
           return;
         }
         const held = { value: x, label: 'fresh', slot: at };
+        // Inserting AT `size` is legal and means "at the end": there is no
+        // node to displace, and what the new node's `next` takes is `null`.
+        const displaced = cells[at];
         cost += 1;
         push(
           'build',
@@ -1178,9 +1197,11 @@ function traceList(
         push(
           'link',
           [...callLine, lineOf(code, 'fresh.next = prev.next')],
-          `${x} apunta al nodo que ocupaba la posición ${at}.`,
+          displaced === undefined
+            ? `${x} toma el enlace del previo, que era null: va a quedar último.`
+            : `${x} apunta al nodo que ocupaba la posición ${at}.`,
           {
-            carry: { ...held, next: at },
+            carry: { ...held, next: displaced === undefined ? null : at },
             pointers: basePointers([{ name: 'prev', index: at - 1 }]),
           },
         );
@@ -1191,9 +1212,11 @@ function traceList(
         push(
           'link',
           [...callLine, lineOf(code, 'prev.next = fresh')],
-          `El nodo anterior deja de apuntar a ${cells[at]!.value} y pasa a apuntar a ${x}.`,
+          displaced === undefined
+            ? `El último nodo deja de apuntar a null y pasa a apuntar a ${x}.`
+            : `El nodo anterior deja de apuntar a ${displaced.value} y pasa a apuntar a ${x}.`,
           {
-            carry: { ...held, next: at },
+            carry: { ...held, next: displaced === undefined ? null : at },
             linkToCarry: at - 1,
             pointers: basePointers([{ name: 'prev', index: at - 1 }]),
           },
@@ -1295,6 +1318,7 @@ function traceList(
       args.forEach((_, run) => {
         const callLine = runLine(run);
         const removed = cells[cells.length - 1]!;
+        const alone = cells.length === 1;
         if (doubly && tail) {
           // The only O(1) delete-last in the family: `prev` is already there.
           cost += 1;
@@ -1309,11 +1333,18 @@ function traceList(
             [...callLine, lineOf(code, 'tail = tail.prev')],
             `tail retrocede por prev — sin recorrer la cadena.`,
           );
+        } else if (alone) {
+          cost += 1;
+          push(
+            'compare',
+            [...callLine, lineOf(code, 'if (head.next == null)')],
+            `Queda un solo nodo: no hay anteúltimo a quien pedirle que apunte a null.`,
+          );
         } else {
           // Every other recipe needs the node BEFORE the last one, and only a
           // walk can produce it: `tail` alone is not enough.
           walkTo(
-            Math.max(cells.length - 2, 0),
+            cells.length - 2,
             [lineOf(code, 'while (prev.next.next'), lineOf(code, 'prev = prev.next')],
             'prev',
             { lead: callLine },
@@ -1321,10 +1352,10 @@ function traceList(
           cost += 1;
           push(
             'start',
-            [...callLine, lineOf(code, 'Node old = prev.next')],
+            [...callLine, lineOf(code, 'old = prev.next')],
             `El nodo anterior al último es quien debe soltarlo.`,
             {
-              pointers: basePointers([{ name: 'prev', index: Math.max(cells.length - 2, 0) }]),
+              pointers: basePointers([{ name: 'prev', index: cells.length - 2 }]),
             },
           );
         }
@@ -1332,8 +1363,16 @@ function traceList(
         cost += 1;
         push(
           'unlink',
-          [...callLine, lineOf(code, doubly && tail ? 'tail.next = null' : 'prev.next = null')],
-          `El nuevo último apunta a ${circular ? 'head' : 'null'}. El largo pasa a ${cells.length}.`,
+          [
+            ...callLine,
+            lineOf(
+              code,
+              doubly && tail ? 'tail.next = null' : alone ? 'head = null' : 'prev.next = null',
+            ),
+          ],
+          alone
+            ? `head pasa a null: la cadena queda vacía. El largo pasa a 0.`
+            : `El nuevo último apunta a ${circular ? 'head' : 'null'}. El largo pasa a ${cells.length}.`,
         );
         push(
           'done',

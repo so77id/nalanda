@@ -798,6 +798,10 @@ length instead of being told it does. `insert-at` needs one `index` per
 `value`. `insert-first` and `insert-last` also accept `values={[]}`, so a
 slide can build a chain from nothing.
 
+The widget's own chrome carries a speed selector and, in the corner of the
+structure panel, the live value of `size` — neither is an authoring choice,
+and no slide has to ask for them.
+
 The multi-run form appends the calling program under the method, and each
 frame lights both the line inside the method and the call being run. Indices
 are checked against the structure as it is BY THEN, not as it started, and a

@@ -212,3 +212,40 @@ describe('<SequenceStepper> · a chain that starts empty', () => {
     expect(screen.queryByText('el último vuelve al primero')).not.toBeInTheDocument();
   });
 });
+
+describe('<SequenceStepper> · the chrome', () => {
+  it('offers the three playback speeds the other steppers of the unit offer', () => {
+    renderIn('book', <SequenceStepper {...base} />);
+    const speed = screen.getByLabelText('Velocidad de reproducción');
+    expect([...speed.querySelectorAll('option')].map((o) => o.textContent)).toEqual([
+      'lenta',
+      'normal',
+      'rápida',
+    ]);
+  });
+
+  it('shows `size` and keeps it in step with the structure', () => {
+    renderIn(
+      'book',
+      <SequenceStepper
+        eda="linked-list-singly"
+        operation="insert-first"
+        values={[7, 3]}
+        value={9}
+      />,
+    );
+    const size = screen.getByTestId('sequence-size');
+    expect(size).toHaveTextContent('size = 2');
+    const forward = () => screen.getByRole('button', { name: 'Adelante' });
+    while (forward().getAttribute('aria-disabled') !== 'true') fireEvent.click(forward());
+    expect(size).toHaveTextContent('size = 3');
+  });
+
+  it('adds the capacity beside it for a block that reserves one', () => {
+    renderIn(
+      'book',
+      <SequenceStepper eda="array" operation="insert-last" values={[7, 3]} value={9} />,
+    );
+    expect(screen.getByTestId('sequence-size')).toHaveTextContent('capacidad');
+  });
+});

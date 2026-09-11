@@ -341,17 +341,35 @@ function Body({
             <CodeStepper code={trace.code} highlightLines={step.highlightLines} language="java" />
           </div>
         ) : null}
-        <div
-          className="flex items-center justify-center overflow-x-auto bg-surface p-3"
-          style={{ maxHeight: isPresentation ? 'min(42vh, 400px)' : '24rem' }}
-        >
-          <StructureView
-            step={step}
-            recipe={recipe}
-            maxCells={trace.maxCells}
-            align={trace.align}
-            hasCarry={trace.hasCarry}
-          />
+        <div className="relative bg-surface">
+          {/*
+            `size` is a FIELD of the structure, not a caption, so it is
+            written the way the listing writes it and it is on screen at
+            every frame — the operations that cost nothing and the ones that
+            cost the whole chain both end by changing it, and the reader
+            should be able to watch that rather than take the narration's
+            word for it. Outside the scrolling box so a wide chain cannot
+            push it off screen.
+          */}
+          <div
+            data-testid="sequence-size"
+            className="pointer-events-none absolute right-3 top-2 z-10 rounded border border-rule bg-sunk px-2 py-0.5 font-mono text-3xs text-ink-soft"
+          >
+            size = {step.cells.length}
+            {step.capacity === undefined ? null : ` · capacidad ${step.capacity}`}
+          </div>
+          <div
+            className="flex items-center justify-center overflow-x-auto p-3"
+            style={{ maxHeight: isPresentation ? 'min(42vh, 400px)' : '24rem' }}
+          >
+            <StructureView
+              step={step}
+              recipe={recipe}
+              maxCells={trace.maxCells}
+              align={trace.align}
+              hasCarry={trace.hasCarry}
+            />
+          </div>
         </div>
       </div>
 
@@ -383,6 +401,24 @@ function Body({
         <ControlButton onClick={playback.advance} disabled={atEnd} label="Adelante">
           <SkipForward className="h-3.5 w-3.5" aria-hidden />
         </ControlButton>
+        {/* Same control, same wording and same three speeds as `<MergeStepper>`
+            and `<PartitionStepper>`: a reader who learned the chrome on one
+            stepper of the course does not relearn it here. */}
+        <label className="ml-1 inline-flex items-center gap-1 rounded border border-rule bg-surface px-2 py-1 text-xs text-ink">
+          <span className="font-mono text-3xs uppercase tracking-wide text-ink-faint">
+            velocidad
+          </span>
+          <select
+            value={playback.liveSpeed}
+            onChange={(e) => playback.setLiveSpeed(e.target.value as StepSpeed)}
+            className="bg-transparent text-xs text-ink outline-none"
+            aria-label="Velocidad de reproducción"
+          >
+            <option value="slow">lenta</option>
+            <option value="normal">normal</option>
+            <option value="fast">rápida</option>
+          </select>
+        </label>
 
         <span className="ml-auto flex flex-wrap items-center gap-3 font-mono text-3xs text-ink-faint">
           <LegendSwatch swatchClass="border-mark bg-mark-soft" label="nuevo" />
@@ -554,7 +590,7 @@ function StructureView({
           nullX={nullX}
         />
       ) : null}
-      {!isList ? <ArrayPicture step={step} layout={layout} slots={slots} /> : null}
+      {!isList ? <ArrayPicture step={step} layout={layout} /> : null}
       <Pointers
         step={step}
         layout={layout}
@@ -580,11 +616,9 @@ function StructureView({
 function ArrayPicture({
   step,
   layout,
-  slots,
 }: {
   step: SequenceStep;
   layout: SequenceLayout;
-  slots: number;
 }) {
   return (
     <g>
@@ -633,12 +667,6 @@ function ArrayPicture({
           </g>
         );
       })}
-      <text
-        x={0}
-        y={layout.footY + 10}
-        fontSize="10"
-        fill="var(--color-ink-faint)"
-      >{`largo ${step.cells.length} · capacidad ${slots}`}</text>
     </g>
   );
 }

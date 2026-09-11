@@ -65,6 +65,17 @@ slide had used position 0. They now branch to `insertFirst` / `deleteFirst`,
 which is also how the reader should think of that case, and the widget shows
 the branch taken.
 
+**Amended by:** #288, slide-by-slide review (2026-09-11) — two additions to
+the chrome, both because the widget is watched rather than read. The speed
+selector is the one `<MergeStepper>` and `<PartitionStepper>` already carry,
+with the same wording and the same three speeds: a reader who learned the
+chrome on one stepper of the course should not relearn it here. And `size` is
+on screen at every frame, written the way the listing writes it — it is a
+FIELD of the structure, every operation ends by changing it, and the reader
+should watch that instead of taking the narration's word for it. It replaces
+the array recipe's in-drawing `largo · capacidad` caption, which said the
+same thing and scaled with the SVG.
+
 **Source:** Issue #288 — Course document "Estructuras de Datos · Listas
 Enlazadas". The class shows nine operations over five structures, and
 `teach-a-data-structure.md` §7 defers the unit's widget decision to exactly

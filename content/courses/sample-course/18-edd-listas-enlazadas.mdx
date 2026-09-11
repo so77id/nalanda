@@ -569,7 +569,7 @@ inalcanzable.
 
 </Slide>
 
-<Slide title="deleteFirst · soltar la puerta de entrada">
+<Slide title="deleteFirst · eliminar el primero">
 Eliminar el primer nodo es el reflejo de insertarlo.
 
 ```java
@@ -588,9 +588,13 @@ int deleteFirst() {
 El nodo que salió ya no es alcanzable desde ninguna parte, y el recolector de
 basura de Java se encarga del resto.
 
+Son dos asignaciones y ningún recorrido, haya dos nodos o dos millones: la
+operación es $$\Theta(1)$$.
+
 Sobre un arreglo la misma operación cuesta $$\Theta(N)$$: eliminar la
 posición 0 deja un hueco que la memoria consecutiva no admite, así que hay
-que copiar todo lo demás una casilla a la izquierda.
+que copiar todo lo demás una casilla a la izquierda. Es el mismo intercambio
+que en `insertFirst`, en el otro sentido.
 
 </Slide>
 
@@ -602,12 +606,9 @@ que copiar todo lo demás una casilla a la izquierda.
   times={3}
 />
 
-Tres veces la misma operación sobre una cadena cada vez más corta, y el
-contador sube siempre lo mismo: el largo no entra en la cuenta.
-
 </Slide>
 
-<Slide title="deleteLast · el costo de no mirar atrás">
+<Slide title="deleteLast · eliminar el último">
 Eliminar el último nodo es la operación que mejor muestra qué le falta a esta
 estructura.
 
@@ -616,12 +617,18 @@ int deleteLast() {
     if (head == null) {
         throw new NoSuchElementException();
     }
-    Node prev = head;
-    while (prev.next.next != null) {
-        prev = prev.next;
+    Node old;
+    if (head.next == null) {
+        old = head;
+        head = null;
+    } else {
+        Node prev = head;
+        while (prev.next.next != null) {
+            prev = prev.next;
+        }
+        old = prev.next;
+        prev.next = null;
     }
-    Node old = prev.next;
-    prev.next = null;
     size--;
     return old.value;
 }
@@ -631,6 +638,10 @@ El nodo que hay que modificar es el **anteúltimo**: es quien debe pasar a
 apuntar a `null` para que la cadena vuelva a terminar bien. Y un nodo no
 guarda quién lo apunta, solo a quién apunta: desde el último no hay manera de
 retroceder un paso. La única salida es volver a `head` y recorrer.
+
+Con un solo nodo no hay anteúltimo a quien pedirle nada, y `prev.next.next`
+reventaría contra `null`. Por eso el método pregunta antes: ahí el que
+cambia es `head`.
 
 Sobre un arreglo esta operación es $$\Theta(1)$$ —basta con restar uno a
 `size`—, exactamente al revés que `insertFirst`.
@@ -650,7 +661,7 @@ vuelve a partir de `head` porque el último nodo no sabe quién lo apunta.
 
 </Slide>
 
-<Slide title="deleteAt · saltar por encima">
+<Slide title="deleteAt · eliminar una posición">
 Eliminar una posición cualquiera repite el patrón: llegar al previo, y
 después una sola asignación.
 
@@ -678,10 +689,18 @@ la cadena sin haber movido ningún otro dato. La invariante que se restaura es
 la segunda: desde `head` se sigue llegando a todos los nodos y se sigue
 terminando en `null`.
 
-Notemos la asimetría con el arreglo. Ahí eliminar del medio cuesta
-$$\Theta(N)$$ **copias de datos**; aquí cuesta $$\Theta(N)$$ **saltos** y una
-sola asignación. El orden asintótico coincide, pero lo que se hace $$N$$
-veces no es lo mismo.
+Las dos estructuras cuestan $$\Theta(N)$$ aquí, pero no gastan ese
+$$\Theta(N)$$ en lo mismo, y conviene ver en qué.
+
+- **El arreglo** hace $$N$$ **escrituras**: corre cada elemento posterior una
+  casilla a la izquierda para tapar el hueco. Toca la memoria $$N$$ veces.
+- **La lista** hace $$N$$ **lecturas** y una sola escritura: sigue $$N$$
+  enlaces para encontrar al previo, y recién ahí cambia un puntero.
+
+Leer es más barato que escribir, así que la lista suele ganar en el reloj
+aunque empate en la notación. Y la diferencia crece cuando el elemento es
+grande: mover un objeto de cien bytes cien veces no cuesta lo mismo que
+seguir cien punteros.
 
 </Slide>
 
@@ -696,19 +715,21 @@ veces no es lo mismo.
 </Slide>
 
 <Slide title="Los casos de borde">
-Tres situaciones rompen el código de estas operaciones si no se escriben con
-cuidado, y las tres aparecen en los extremos de la cadena.
+Todos los métodos de esta clase empiezan preguntando algo antes de trabajar.
+No es prolijidad: cada `if` del principio tapa un caso en el que el cuerpo
+general del método **no funciona**. Estos son los cuatro, y la línea que se
+hace cargo de cada uno.
 
-- **La lista vacía.** `insertFirst` sobre `head == null` funciona sin cambios:
-  el nodo nuevo apunta a `null` y pasa a ser la cadena entera. `deleteFirst`,
-  en cambio, no tiene nada que sacar y debe rechazar la llamada.
-- **Un solo nodo.** `deleteLast` no tiene anteúltimo al que pedirle que
-  apunte a `null`; lo que corresponde es dejar `head` en `null`.
-- **Insertar en la posición `size`.** Es válido —significa insertar al
-  final— y el recorrido debe detenerse en el último nodo, no pasarse.
+| El caso | Qué pasa sin la guarda | La guarda |
+| --- | --- | --- |
+| La cadena está vacía y le pedimos sacar un nodo | `head` es `null` y el método lo sigue igual | `if (head == null) throw new NoSuchElementException();` |
+| La cadena está vacía y le insertamos al final | no hay último al que enlazarse | `if (head == null) { head = fresh; }` |
+| Queda un solo nodo y borramos el último | no hay anteúltimo: `prev.next.next` revienta | `if (head.next == null) { old = head; head = null; }` |
+| La posición es 0 en `insertAt` o `deleteAt` | no hay nodo previo, y se termina modificando el nodo equivocado | `if (i == 0)`, que delega en la operación del frente |
 
-En los tres, quien se rompe primero es una invariante, no el programa: el
-error aparece más tarde, en una operación que sí confiaba en ella.
+Notemos qué tienen en común: **los cuatro son el extremo de la cadena**, que
+es donde vive `head`. El cuerpo general de cada método supone que hay un nodo
+antes del que le interesa, y en los extremos ese nodo no existe.
 
 </Slide>
 
@@ -1665,7 +1686,7 @@ Al insertar al final de una lista sin `tail`, ¿qué es lo caro?
 
 </Question>
 
-<Question id="lista-deletelast-que-nodo" anchor="deletelast-el-costo-de-no-mirar-atras">
+<Question id="lista-deletelast-que-nodo" anchor="deletelast-eliminar-el-ultimo">
 
 Para eliminar el último nodo, ¿qué nodo hay que modificar?
 
