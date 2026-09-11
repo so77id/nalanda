@@ -1157,150 +1157,9 @@ se lee por posición.
 
 </Slide>
 
-## Los ejercicios canónicos
-
-### Invertir la lista · dar vuelta cada enlace
-
-Invertir una lista no mueve datos: da vuelta el sentido de cada enlace. El
-recorrido necesita tres referencias al mismo tiempo.
-
-```java
-Node reverse(Node head) {
-    Node prev = null;
-    Node current = head;
-    while (current != null) {
-        Node nextNode = current.next;
-        current.next = prev;
-        prev = current;
-        current = nextNode;
-    }
-    return prev;
-}
-```
-
-`nextNode` es la que hace posible el resto: en cuanto `current.next` cambia,
-el acceso al resto de la cadena se pierde, así que hay que guardarlo antes.
-
-Una pasada, $$\Theta(N)$$ tiempo y $$\Theta(1)$$ espacio adicional. Al
-terminar, `current` es `null` y `prev` es la nueva cabeza.
-
-### Invertir con recursión
-
-La misma operación admite una escritura recursiva, sobre la idea de que
-invertir una lista es invertir su cola y después enganchar la cabeza al
-final.
-
-```java
-Node reverse(Node head) {
-    if (head == null || head.next == null) {
-        return head;
-    }
-    Node newHead = reverse(head.next);
-    head.next.next = head;
-    head.next = null;
-    return newHead;
-}
-```
-
-El caso base son las listas de cero y de un nodo, que ya están invertidas.
-La línea `head.next.next = head` es el paso: el que era el siguiente pasa a
-apuntar de vuelta.
-
-El tiempo sigue siendo $$\Theta(N)$$, pero el espacio ya no es constante: hay
-$$N$$ llamadas anidadas en la pila antes de que la primera termine, así que
-el espacio adicional es $$\Theta(N)$$. El análisis de ese costo está en
-[[complejidad-recursion|Complejidad y recursión]].
-
-### Detectar un ciclo · dos velocidades
-
-Una cadena que en vez de terminar en `null` vuelve sobre sí misma hace que
-cualquier recorrido no termine. Detectarlo con dos punteros que avanzan a
-distinta velocidad se conoce como algoritmo de la liebre y la tortuga, y se
-atribuye a Robert W. Floyd.
-
-```java
-boolean hasCycle(Node head) {
-    Node slow = head;
-    Node fast = head;
-    while (fast != null && fast.next != null) {
-        slow = slow.next;
-        fast = fast.next.next;
-        if (slow == fast) {
-            return true;
-        }
-    }
-    return false;
-}
-```
-
-Si la lista termina, el rápido llega al final y el ciclo del `while` corta.
-Si no termina, los dos quedan girando dentro del ciclo, y como el rápido se
-acerca al lento un nodo por vuelta, alcanzarlo es cuestión de tiempo.
-
-Comparamos `slow == fast`, que pregunta si son **el mismo nodo**, y no
-`slow.value == fast.value`, que preguntaría si guardan el mismo número.
-
-### El nodo del medio en una pasada
-
-La misma idea de dos velocidades resuelve un problema distinto: encontrar el
-nodo del medio sin saber cuántos hay.
-
-```java
-Node middle(Node head) {
-    Node slow = head;
-    Node fast = head;
-    while (fast != null && fast.next != null) {
-        slow = slow.next;
-        fast = fast.next.next;
-    }
-    return slow;
-}
-```
-
-Cuando el rápido llega al final, ha avanzado el doble que el lento, así que
-el lento está a mitad de camino.
-
-La alternativa obvia —recorrer una vez para contar y otra hasta `size / 2`—
-también es $$\Theta(N)$$ y también es correcta. Esta versión hace una sola
-pasada, que es lo que importa cuando los datos llegan de a uno y no se pueden
-volver a leer.
-
-### Fusionar dos listas ordenadas
-
-Dadas dos listas ordenadas, producir una sola ordenada con todos los
-elementos es el mismo procedimiento que combina las mitades en el
-ordenamiento por mezcla.
-
-```java
-Node merge(Node a, Node b) {
-    Node dummy = new Node(0);
-    Node tail = dummy;
-    while (a != null && b != null) {
-        if (a.value <= b.value) {
-            tail.next = a;
-            a = a.next;
-        } else {
-            tail.next = b;
-            b = b.next;
-        }
-        tail = tail.next;
-    }
-    tail.next = (a != null) ? a : b;
-    return dummy.next;
-}
-```
-
-En cada paso se compara la cabeza de cada lista y se engancha la menor. El
-`nodo dummy` es un nodo de mentira que evita escribir aparte el caso del
-primer elemento; al final se devuelve el que le sigue.
-
-Sobre listas la fusión no necesita memoria adicional para los datos: reordena
-enlaces. Sobre arreglos, la misma operación necesita un arreglo auxiliar.
-
-### El precio de pedir cualquier posición
-
-Las dos estructuras de esta unidad comparten una debilidad, y es la misma
-fila de la tabla: `insertAt`, `deleteAt` y —en la lista— `getAt` cuestan
+<Slide title="El precio de pedir cualquier posición">
+El arreglo y la lista enlazada comparten una debilidad, y es la misma fila
+de la tabla: `insertAt`, `deleteAt` y —en la lista— `getAt` cuestan
 $$\Theta(N)$$ en todas las variantes. La causa es distinta en cada una
 —correr elementos en el arreglo, caminar enlaces en la lista— y ninguna
 variante la arregla, porque el contrato exige poder operar en cualquier
@@ -1317,16 +1176,101 @@ El precio es perder el acceso por posición: lo que se gana en costo se paga
 en lo que ya no se puede pedir. Esos contratos más chicos son los TDA Stack,
 Queue y Deque.
 
+</Slide>
+
 ## Ejercicios
 
-Los cuatro ejercicios canónicos de listas enlazadas. Cada uno se resuelve
-recorriendo la cadena una sola vez.
+Los cinco ejercicios canónicos de listas enlazadas. Cuatro se resuelven
+recorriendo la cadena una sola vez y sin memoria adicional; el quinto es el
+mismo problema del primero escrito al revés, y sirve para ver qué cambia
+cuando la pila hace el trabajo del puntero.
+
+Cada enunciado dice dónde está la dificultad. La solución está a un botón de
+distancia, y conviene mirarla después de intentarlo: lo que hay que sacar de
+ella no es el código sino por qué cada línea está donde está.
 
 <Exercise title="Invertir una lista">
 
 Escribe `reverse`, que recibe la cabeza de una lista y devuelve la cabeza de
 la lista con todos sus enlaces dados vuelta. La lista vacía se devuelve tal
 cual.
+
+Invertir no mueve datos: da vuelta el sentido de cada enlace. Ahí está la
+trampa — en cuanto `current.next` cambia, el resto de la cadena deja de ser
+alcanzable, así que hay que guardarlo **antes** de pisarlo. Con eso, el
+recorrido necesita tres referencias vivas al mismo tiempo: el nodo anterior,
+el actual y el siguiente.
+
+Una sola pasada: $$\Theta(N)$$ de tiempo y $$\Theta(1)$$ de espacio
+adicional.
+
+```java starter
+class Node {
+    int value;
+    Node next;
+    Node(int value) { this.value = value; }
+}
+
+class Solution {
+    static Node reverse(Node head) {
+        return head;
+    }
+}
+```
+
+```java test
+Node c = new Node(1);
+c.next = new Node(2);
+c.next.next = new Node(3);
+Node r = Solution.reverse(c);
+check(r.value, 3);
+check(r.next.value, 2);
+check(r.next.next.value, 1);
+check(r.next.next.next == null, true);
+check(Solution.reverse(null) == null, true);
+Node uno = new Node(7);
+check(Solution.reverse(uno).value, 7);
+```
+
+```java solution
+class Node {
+    int value;
+    Node next;
+    Node(int value) { this.value = value; }
+}
+
+class Solution {
+    // Tres referencias vivas: la de atrás, la actual y la que salva el
+    // resto de la cadena antes de que el enlace se pise.
+    static Node reverse(Node head) {
+        Node prev = null;
+        Node current = head;
+        while (current != null) {
+            Node nextNode = current.next;   // sin esta línea, lo que sigue se pierde
+            current.next = prev;            // el enlace cambia de sentido
+            prev = current;                 // las tres avanzan un lugar
+            current = nextNode;
+        }
+        return prev;                        // current quedó en null; prev es la nueva cabeza
+    }
+}
+```
+
+</Exercise>
+
+<Exercise title="Invertir con recursión">
+
+El mismo problema, escrito al revés: invertir una lista es invertir su cola
+y después enganchar la cabeza al final. Escribe `reverse` sin ningún bucle.
+
+El caso base son las listas de cero y de un nodo, que ya están invertidas.
+El paso es una sola línea, y es la que cuesta ver: cuando la cola ya está
+dada vuelta, el que era el siguiente de la cabeza es ahora el último de esa
+cola, así que es él quien tiene que pasar a apuntar a la cabeza.
+
+Ojo con el costo. El tiempo sigue siendo $$\Theta(N)$$, pero el espacio ya
+no es constante: hay $$N$$ llamadas anidadas en la pila antes de que la
+primera termine, así que el espacio adicional es $$\Theta(N)$$.
 
 ```java starter
 class Node {
@@ -1365,15 +1309,13 @@ class Node {
 
 class Solution {
     static Node reverse(Node head) {
-        Node prev = null;
-        Node current = head;
-        while (current != null) {
-            Node nextNode = current.next;
-            current.next = prev;
-            prev = current;
-            current = nextNode;
+        if (head == null || head.next == null) {
+            return head;                 // cero y un nodo ya están invertidos
         }
-        return prev;
+        Node newHead = reverse(head.next);   // la cola, ya dada vuelta
+        head.next.next = head;               // el que era el siguiente apunta de vuelta
+        head.next = null;                    // y la cabeza pasa a ser el último
+        return newHead;                      // la cabeza nueva sube sin cambiar
     }
 }
 ```
@@ -1385,6 +1327,18 @@ class Solution {
 Escribe `hasCycle`, que devuelve `true` si la cadena vuelve sobre sí misma
 y `false` si termina en `null`. Usa espacio adicional constante: no vale
 guardar los nodos visitados.
+
+Una cadena que en vez de terminar en `null` vuelve sobre sí misma hace que
+cualquier recorrido no termine. La salida es recorrerla con dos referencias
+a distinta velocidad —una de a un nodo, otra de a dos—, lo que se conoce
+como algoritmo de la liebre y la tortuga y se atribuye a Robert W. Floyd.
+
+Si la lista termina, la rápida llega al final y el recorrido corta. Si no
+termina, las dos quedan girando adentro, y como la rápida se acerca a la
+lenta un nodo por vuelta, alcanzarla es cuestión de tiempo.
+
+Cuidado con qué se compara: la pregunta es si las dos están **en el mismo
+nodo**, no si los dos nodos guardan el mismo número.
 
 ```java starter
 class Node {
@@ -1424,14 +1378,16 @@ class Solution {
     static boolean hasCycle(Node head) {
         Node slow = head;
         Node fast = head;
+        // La condición cubre las dos formas de llegar al final, y por eso
+        // pregunta por `fast.next` además de por `fast`.
         while (fast != null && fast.next != null) {
-            slow = slow.next;
-            fast = fast.next.next;
-            if (slow == fast) {
+            slow = slow.next;            // uno
+            fast = fast.next.next;       // dos
+            if (slow == fast) {          // el MISMO nodo, no el mismo valor
                 return true;
             }
         }
-        return false;
+        return false;                    // la rápida llegó al final: no hay ciclo
     }
 }
 ```
@@ -1443,6 +1399,15 @@ class Solution {
 Escribe `middle`, que devuelve el valor del nodo central de la lista en una
 sola pasada. Con una cantidad par de nodos, devuelve el segundo de los dos
 centrales.
+
+Es la misma idea de dos velocidades resolviendo un problema distinto: cuando
+la rápida llega al final ha avanzado el doble que la lenta, así que la lenta
+está a mitad de camino.
+
+La alternativa obvia —recorrer una vez para contar y otra hasta `size / 2`—
+también es $$\Theta(N)$$ y también es correcta. Esta versión hace una sola
+pasada, que es lo que importa cuando los datos llegan de a uno y no se
+pueden volver a leer.
 
 ```java starter
 class Node {
@@ -1480,11 +1445,13 @@ class Solution {
     static int middle(Node head) {
         Node slow = head;
         Node fast = head;
+        // Mismo recorrido que hasCycle, sin la comparación: lo que
+        // interesa acá es dónde queda la lenta cuando la rápida se acaba.
         while (fast != null && fast.next != null) {
             slow = slow.next;
             fast = fast.next.next;
         }
-        return slow.value;
+        return slow.value;               // la rápida avanzó el doble: la lenta está al medio
     }
 }
 ```
@@ -1496,6 +1463,17 @@ class Solution {
 Escribe `merge`, que recibe las cabezas de dos listas ordenadas de menor a
 mayor y devuelve la cabeza de una sola lista ordenada con todos los
 elementos. Reutiliza los nodos que recibe: no crees uno por cada valor.
+
+Es el mismo procedimiento que combina las mitades en el ordenamiento por
+mezcla: en cada paso se comparan las dos cabezas y se engancha la menor.
+
+Sobre listas la fusión no necesita memoria adicional para los datos, porque
+reordena enlaces; sobre arreglos, la misma operación necesita un arreglo
+auxiliar.
+
+Una ayuda que conviene conocer: empezar con un **nodo de mentira** —un nodo
+descartable al que engancharle el primero— evita escribir aparte el caso del
+primer elemento. Al final se devuelve el que le sigue, no él.
 
 ```java starter
 class Node {
@@ -1538,10 +1516,10 @@ class Node {
 
 class Solution {
     static Node merge(Node a, Node b) {
-        Node dummy = new Node(0);
-        Node tail = dummy;
+        Node dummy = new Node(0);        // nodo de mentira: nunca se devuelve
+        Node tail = dummy;               // dónde enganchar el próximo
         while (a != null && b != null) {
-            if (a.value <= b.value) {
+            if (a.value <= b.value) {    // <= y no < mantiene el orden de los iguales
                 tail.next = a;
                 a = a.next;
             } else {
@@ -1550,8 +1528,8 @@ class Solution {
             }
             tail = tail.next;
         }
-        tail.next = (a != null) ? a : b;
-        return dummy.next;
+        tail.next = (a != null) ? a : b; // la que sobró ya está ordenada: se engancha entera
+        return dummy.next;               // el primero de verdad
     }
 }
 ```
@@ -1823,7 +1801,7 @@ Un bucle que llama a `getAt(i)` para cada posición resulta cuadrático sobre un
 
 </Question>
 
-<Question id="lista-invertir-tercera-referencia" anchor="los-ejercicios-canonicos">
+<Question id="lista-invertir-tercera-referencia" anchor="ejercicios">
 
 Al invertir una lista con tres referencias, ¿para qué sirve la que guarda el siguiente?
 
@@ -1834,7 +1812,7 @@ Al invertir una lista con tres referencias, ¿para qué sirve la que guarda el s
 
 </Question>
 
-<Question id="lista-floyd-que-compara" anchor="los-ejercicios-canonicos">
+<Question id="lista-floyd-que-compara" anchor="ejercicios">
 
 En la detección de ciclos con dos velocidades, ¿qué compara `slow == fast`?
 
@@ -1845,7 +1823,7 @@ En la detección de ciclos con dos velocidades, ¿qué compara `slow == fast`?
 
 </Question>
 
-<Question id="lista-medio-en-una-pasada" anchor="los-ejercicios-canonicos">
+<Question id="lista-medio-en-una-pasada" anchor="ejercicios">
 
 ¿Por qué el puntero lento queda en el medio cuando el rápido llega al final?
 
@@ -1856,7 +1834,7 @@ En la detección de ciclos con dos velocidades, ¿qué compara `slow == fast`?
 
 </Question>
 
-<Question id="lista-fusionar-nodo-de-mentira" anchor="los-ejercicios-canonicos">
+<Question id="lista-fusionar-nodo-de-mentira" anchor="ejercicios">
 
 Al fusionar dos listas ordenadas, ¿para qué sirve el nodo de mentira del principio?
 
