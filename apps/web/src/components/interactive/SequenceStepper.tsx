@@ -353,10 +353,17 @@ function Body({
           */}
           <div
             data-testid="sequence-size"
-            className="pointer-events-none absolute right-3 top-2 z-10 rounded border border-rule bg-sunk px-2 py-0.5 font-mono text-3xs text-ink-soft"
+            className="pointer-events-none absolute right-3 top-2 z-10 text-center"
           >
-            size = {step.cells.length}
-            {step.capacity === undefined ? null : ` · capacidad ${step.capacity}`}
+            <div className="font-mono text-3xs uppercase tracking-wide text-ink-faint">size</div>
+            <div className="min-w-11 rounded border border-rule bg-sunk px-2 py-1 text-lg font-semibold leading-none text-ink">
+              {step.cells.length}
+            </div>
+            {step.capacity === undefined ? null : (
+              <div className="mt-0.5 font-mono text-3xs text-ink-faint">
+                capacidad {step.capacity}
+              </div>
+            )}
           </div>
           <div
             className="flex items-center justify-center overflow-x-auto p-3"
@@ -758,7 +765,23 @@ function ListPicture({
             >
               {cell.value}
             </text>
-            <CellNote cell={cell} x={box.x} y={box.y + box.h + 14} />
+            {/* The same rail the array draws, in the same place, so the two
+                pictures can be read side by side. On a chain it is a
+                POSITION the reader counts, not something a node stores —
+                which is the whole difference: the array jumps to it, the
+                chain walks to it. It renumbers itself after every insertion
+                and every deletion, and watching that happen is half of what
+                `insertAt` teaches. */}
+            <text
+              x={box.centerX}
+              y={box.y + box.h + 14}
+              textAnchor="middle"
+              fontSize="10"
+              fill="var(--color-ink-faint)"
+            >
+              {i - offset}
+            </text>
+            <CellNote cell={cell} x={box.x} y={box.y + box.h + 26} />
 
             {/* next arrow — to the following node, or to the null marker */}
             {i === linking ? (

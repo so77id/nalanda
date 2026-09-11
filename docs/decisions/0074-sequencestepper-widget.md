@@ -74,7 +74,15 @@ on screen at every frame, written the way the listing writes it — it is a
 FIELD of the structure, every operation ends by changing it, and the reader
 should watch that instead of taking the narration's word for it. It replaces
 the array recipe's in-drawing `largo · capacidad` caption, which said the
-same thing and scaled with the SVG.
+same thing and scaled with the SVG, and it is drawn at a node's size — a
+caption-sized one was read as chrome rather than as state.
+
+The chain also gains the index rail the array already had, in the same place
+and the same faint ink, so the two pictures can be read side by side. On a
+chain the number is a POSITION the reader counts, not something a node
+stores, and that is exactly the contrast: the array jumps to it, the chain
+walks to it. It renumbers itself after every insertion and deletion, which is
+half of what `insertAt` teaches.
 
 **Source:** Issue #288 — Course document "Estructuras de Datos · Listas
 Enlazadas". The class shows nine operations over five structures, and

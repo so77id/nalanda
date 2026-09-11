@@ -235,10 +235,10 @@ describe('<SequenceStepper> · the chrome', () => {
       />,
     );
     const size = screen.getByTestId('sequence-size');
-    expect(size).toHaveTextContent('size = 2');
+    expect(size).toHaveTextContent(/size\s*2/);
     const forward = () => screen.getByRole('button', { name: 'Adelante' });
     while (forward().getAttribute('aria-disabled') !== 'true') fireEvent.click(forward());
-    expect(size).toHaveTextContent('size = 3');
+    expect(size).toHaveTextContent(/size\s*3/);
   });
 
   it('adds the capacity beside it for a block that reserves one', () => {

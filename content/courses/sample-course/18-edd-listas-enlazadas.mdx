@@ -643,6 +643,10 @@ Con un solo nodo no hay anteúltimo a quien pedirle nada, y `prev.next.next`
 reventaría contra `null`. Por eso el método pregunta antes: ahí el que
 cambia es `head`.
 
+Ese recorrido es lo que se paga: $$N - 2$$ saltos para llegar al anteúltimo,
+y después una sola asignación. La operación es $$\Theta(N)$$, y lo es por
+llegar, no por borrar.
+
 Sobre un arreglo esta operación es $$\Theta(1)$$ —basta con restar uno a
 `size`—, exactamente al revés que `insertFirst`.
 
@@ -717,10 +721,9 @@ seguir cien punteros.
 <Slide title="Los casos de borde">
 Todos los métodos de esta clase empiezan preguntando algo antes de trabajar.
 No es prolijidad: cada `if` del principio tapa un caso en el que el cuerpo
-general del método **no funciona**. Estos son los cuatro, y la línea que se
-hace cargo de cada uno.
+general del método **no funciona**.
 
-| El caso | Qué pasa sin la guarda | La guarda |
+| El caso | Qué pasa si el método no pregunta | El `if` que lo evita |
 | --- | --- | --- |
 | La cadena está vacía y le pedimos sacar un nodo | `head` es `null` y el método lo sigue igual | `if (head == null) throw new NoSuchElementException();` |
 | La cadena está vacía y le insertamos al final | no hay último al que enlazarse | `if (head == null) { head = fresh; }` |
@@ -730,30 +733,6 @@ hace cargo de cada uno.
 Notemos qué tienen en común: **los cuatro son el extremo de la cadena**, que
 es donde vive `head`. El cuerpo general de cada método supone que hay un nodo
 antes del que le interesa, y en los extremos ese nodo no existe.
-
-</Slide>
-
-<Slide title="El contrato, implementado">
-Las operaciones del TDA Sequence se escriben sobre esta EDA sin cambiar sus
-nombres ni su significado:
-
-```java
-public class LinkedList implements Sequence {
-    public int len()                     { ... }
-    public int getAt(int i)              { ... }
-    public void setAt(int i, int x)      { ... }
-    public void insertAt(int i, int x)   { ... }
-    public int deleteAt(int i)           { ... }
-    public void insertFirst(int x)       { ... }
-    public void insertLast(int x)        { ... }
-    public int deleteFirst()             { ... }
-    public int deleteLast()              { ... }
-}
-```
-
-El contrato es idéntico al que cumple el arreglo. Un método que reciba un
-`Sequence` funciona con cualquiera de las dos sin enterarse de cuál recibió.
-Lo que cambia por completo es cuánto tarda cada llamada.
 
 </Slide>
 
@@ -787,10 +766,17 @@ asignación—, pero para enlazarlo en la posición `i` primero hay que tener en
 la mano el nodo `i - 1`, y para tenerlo hay que dar `i - 1` saltos desde
 `head`.
 
-El vocabulario asintótico que ordena estas cifras está en
-[[complejidad-de-hilbert-al-big-o|De Hilbert al Big O]]. Aquí interesa una
-sola lectura: en una lista, el costo de una operación se mide en **cuántos
-enlaces hay que seguir antes de poder trabajar**.
+De ahí sale una regla para leer la tabla entera sin memorizarla: **preguntá
+dónde ocurre la operación, y contá los saltos que hacen falta para llegar
+ahí**.
+
+- Si ocurre en el primer nodo, no hay saltos: `head` ya lo tiene en la mano.
+  $$\Theta(1)$$.
+- Si ocurre en cualquier otro lado, hay que caminar desde `head` hasta ahí, y
+  en el peor caso eso es toda la cadena. $$\Theta(N)$$.
+
+No hace falta recordar once costos: alcanza con saber dónde empieza el único
+camino que la lista ofrece.
 
 </Slide>
 
