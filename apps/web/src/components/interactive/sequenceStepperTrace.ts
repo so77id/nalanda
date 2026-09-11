@@ -985,10 +985,15 @@ function traceList(
     for (let j = 0; j < stop; j += 1) {
       cost += 1;
       cells[j] = { ...cells[j]!, state: 'active' };
-      push('walk', [...lead, ...lines], `${label} avanza al nodo ${cells[j]!.value} (paso ${j + 1}).`, {
-        ...rest,
-        pointers: basePointers([{ name: label, index: j }]),
-      });
+      push(
+        'walk',
+        [...lead, ...lines],
+        `${label} avanza al nodo ${cells[j]!.value} (paso ${j + 1}).`,
+        {
+          ...rest,
+          pointers: basePointers([{ name: label, index: j }]),
+        },
+      );
       cells[j] = { ...cells[j]!, state: 'idle' };
     }
   };
@@ -1099,7 +1104,10 @@ function traceList(
                 ? [...callLine, lineOf(code, 'Node current = head')]
                 : [
                     ...callLine,
-                    lineOf(code, `while (${circular ? 'current.next != head' : 'current.next != null'}`),
+                    lineOf(
+                      code,
+                      `while (${circular ? 'current.next != head' : 'current.next != null'}`,
+                    ),
                     lineOf(code, 'current = current.next'),
                   ],
               j === 0
@@ -1266,10 +1274,15 @@ function traceList(
             slot: 0,
           };
           cost += 1;
-          push('link', [...callLine, lineOf(code, 'insertFirst(x)')], `head pasa a apuntar a ${x}.`, {
-            carry: held,
-            headToCarry: true,
-          });
+          push(
+            'link',
+            [...callLine, lineOf(code, 'insertFirst(x)')],
+            `head pasa a apuntar a ${x}.`,
+            {
+              carry: held,
+              headToCarry: true,
+            },
+          );
           cells.unshift({ id: (nextId += 1), value: x, state: 'new' });
           push(
             'done',

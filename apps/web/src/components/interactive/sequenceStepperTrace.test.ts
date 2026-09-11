@@ -606,7 +606,9 @@ describe('sequenceStepperTrace · one operation, several runs', () => {
       .map((line, i) => (line.includes('list.deleteFirst();') ? i + 1 : 0))
       .filter(Boolean);
     expect(calls).toHaveLength(3);
-    const lit = new Set(trace.steps.flatMap((s) => s.highlightLines.filter((l) => calls.includes(l))));
+    const lit = new Set(
+      trace.steps.flatMap((s) => s.highlightLines.filter((l) => calls.includes(l))),
+    );
     expect([...lit].sort((a, b) => a - b)).toEqual(calls);
   });
 });
