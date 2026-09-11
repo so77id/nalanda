@@ -937,20 +937,52 @@ recibe posición.
 </Slide>
 
 <Slide title="insertOrdenado · la posición la decide el valor">
-<SequenceStepper
-  eda="linked-list-singly"
-  operation="insert-ordered"
-  values={[1, 3, 7, 9]}
-  target={5}
-/>
+La lista ordenada pierde `insertAt` y gana un método que decide solo dónde
+va cada valor.
 
-El recorrido avanza mientras el valor del nodo siguiente sea menor que el que
-insertamos, y se detiene en cuanto deja de serlo: ahí está el lugar. Enlazar
-es lo de siempre, dos asignaciones.
+```java
+void insertOrdered(int x) {
+    if (head == null || x <= head.value) {
+        insertFirst(x);
+        return;
+    }
+    Node fresh = new Node(x);
+    Node prev = head;
+    while (prev.next != null && prev.next.value < x) {
+        prev = prev.next;
+    }
+    fresh.next = prev.next;
+    prev.next = fresh;
+    size++;
+}
+```
+
+El recorrido avanza mientras el valor del **nodo siguiente** sea menor que el
+que insertamos, y se detiene en cuanto deja de serlo: ahí está el lugar.
+Mira `prev.next` y no `prev` justamente porque lo que necesita es el nodo
+anterior al hueco, igual que `insertAt`.
+
+Y por eso mismo no puede colocar un valor que va antes del primero: `prev`
+seguiría siendo `head` y el valor caería segundo. Ese caso es del frente, y
+del frente ya sabe `insertFirst`.
 
 El costo es $$\Theta(N)$$ en el peor caso —el valor va al final—, igual que
 `insertAt`. La diferencia no está en el costo sino en quién elige la
 posición: aquí la elige el valor, y por eso la invariante se mantiene sola.
+
+</Slide>
+
+<Slide title="insertOrdenado">
+<SequenceStepper
+  eda="linked-list-singly"
+  operation="insert-ordered"
+  values={[3, 7]}
+  target={[5, 1, 9]}
+/>
+
+Tres valores y tres destinos distintos sin que nadie diga la posición: 5 al
+medio, 1 al frente por la rama del principio, 9 al final cuando `prev.next`
+llega a `null`.
 
 </Slide>
 
@@ -974,13 +1006,6 @@ media cadena.
 La cuarta variante cambia una sola referencia: la del último nodo, que en
 vez de `null` apunta a `head`.
 
-<SequenceStepper
-  eda="linked-list-circular"
-  operation="insert-first"
-  values={[7, 3, 1, 5]}
-  value={9}
-/>
-
 La invariante de terminación se reemplaza:
 
 7. **El `next` del último nodo apunta a `head`.** Ningún nodo tiene `next` en
@@ -988,8 +1013,34 @@ La invariante de terminación se reemplaza:
 
 Es un cambio pequeño con una consecuencia grande: **ningún recorrido termina
 solo**. Un `while (current != null)` sobre una lista circular no se detiene
-nunca. La condición de corte pasa a ser haber vuelto al punto de partida,
-`current.next != head`, y hay que escribirla a propósito en cada recorrido.
+nunca. La condición de corte pasa a ser haber vuelto al punto de partida, y
+hay que escribirla a propósito en cada recorrido:
+
+```java
+Node current = head;
+do {
+    // trabajar con current
+    current = current.next;
+} while (current != head);
+```
+
+Es un `do-while` y no un `while` por el mismo motivo: entrando por `head`, la
+condición de corte ya se cumple antes del primer paso.
+
+</Slide>
+
+<Slide title="La lista circular">
+<SequenceStepper
+  eda="linked-list-circular"
+  operation="insert-first"
+  values={[7, 3, 1]}
+  value={[9, 4, 6]}
+/>
+
+El enlace de cierre no es un adorno del dibujo: es el `next` del último nodo,
+y por eso se reengancha en cada inserción. `insertFirst` no cambia una línea
+—sigue costando $$\Theta(1)$$—, pero ahora el nodo al que apunta el último
+es otro.
 
 </Slide>
 

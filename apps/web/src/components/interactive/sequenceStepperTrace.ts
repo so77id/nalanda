@@ -795,7 +795,15 @@ function listCode(recipe: SequenceRecipe, operation: SequenceOperation, tail: bo
     size++;
 }`;
     case 'insert-ordered':
+      // The walk looks at `prev.next`, so it can never place a value that
+      // belongs BEFORE the first node: `prev` would still be `head` and the
+      // value would land second. The front is a case of its own, and it is
+      // the operation the front already has.
       return `void insertOrdered(int x) {
+    if (head == null || x <= head.value) {
+        insertFirst(x);
+        return;
+    }
     Node fresh = new Node(x);
     Node prev = head;
     while (prev.next != null && prev.next.value < x) {
@@ -1233,55 +1241,118 @@ function traceList(
       break;
     }
     case 'insert-ordered': {
-      const x = requireTarget(input);
       const sorted = input.values.every((v, i) => i === 0 || input.values[i - 1]! <= v);
       if (!sorted) {
         throw new Error('La lista de partida debe venir ordenada para insertar en orden.');
       }
-      cost += 1;
-      push(
-        'build',
-        [lineOf(code, 'new Node(x)')],
-        `Creamos el nodo ${x} y buscamos dónde va sin romper el orden.`,
-        {
-          carry: { value: x, label: 'fresh' },
-        },
-      );
-      let at = 0;
-      while (at < cells.length && cells[at]!.value < x) {
+      asRuns(input.target).forEach((x, run) => {
+        const callLine = runLine(run);
+        const first = cells.length === 0 ? null : cells[0]!.value;
         cost += 1;
-        cells[at] = { ...cells[at]!, state: 'active' };
         push(
           'compare',
-          [lineOf(code, 'while (prev.next'), lineOf(code, 'prev = prev.next')],
-          `¿${cells[at]!.value} < ${x}? Sí: ${x} va más adelante.`,
+          [...callLine, lineOf(code, 'if (head == null || x <= head.value)')],
+          first === null
+            ? `La cadena está vacía: ${x} es el primero.`
+            : first >= x
+              ? `¿${x} es menor o igual que ${first}, el primero? Sí: va al frente, y de eso ya sabe insertFirst.`
+              : `¿${x} es menor o igual que ${first}, el primero? No: hay que buscarle lugar más adelante.`,
+        );
+        if (first === null || first >= x) {
+          const held = {
+            value: x,
+            label: 'fresh',
+            next: cells.length > 0 ? 0 : null,
+            slot: 0,
+          };
+          cost += 1;
+          push('link', [...callLine, lineOf(code, 'insertFirst(x)')], `head pasa a apuntar a ${x}.`, {
+            carry: held,
+            headToCarry: true,
+          });
+          cells.unshift({ id: (nextId += 1), value: x, state: 'new' });
+          push(
+            'done',
+            [...callLine, lineOf(code, 'insertFirst(x)')],
+            `El nodo ${x} queda primero y el orden se mantiene. El largo pasa a ${cells.length}.`,
+          );
+          cells[0] = { ...cells[0]!, state: 'idle' };
+          return;
+        }
+        cost += 1;
+        // `prev` walks the node BEFORE the gap, exactly as the listing does:
+        // the comparison is always against `prev.next`, never against `prev`.
+        let prev = 0;
+        const held = { value: x, label: 'fresh', slot: 1 };
+        push(
+          'build',
+          [...callLine, lineOf(code, 'new Node(x)')],
+          `Creamos el nodo ${x} y buscamos entre qué dos nodos va.`,
+          { carry: held },
+        );
+        push(
+          'start',
+          [...callLine, lineOf(code, 'Node prev = head')],
+          `prev parte en head, sobre el nodo ${cells[0]!.value}.`,
+          { carry: held, pointers: basePointers([{ name: 'prev', index: 0 }]) },
+        );
+        for (;;) {
+          const nextCell = cells[prev + 1];
+          const goes = nextCell !== undefined && nextCell.value < x;
+          cost += 1;
+          push(
+            'compare',
+            goes
+              ? [...callLine, lineOf(code, 'while (prev.next'), lineOf(code, 'prev = prev.next')]
+              : [...callLine, lineOf(code, 'while (prev.next')],
+            nextCell === undefined
+              ? `prev.next es null: ${x} es mayor que todos y va al final.`
+              : goes
+                ? `¿${nextCell.value} < ${x}? Sí: ${x} va más adelante.`
+                : `¿${nextCell.value} < ${x}? No: el lugar de ${x} es entre ${cells[prev]!.value} y ${nextCell.value}.`,
+            {
+              carry: { ...held, slot: prev + 1 },
+              pointers: basePointers([{ name: 'prev', index: prev }]),
+            },
+          );
+          if (!goes) break;
+          prev += 1;
+        }
+        const at = prev + 1;
+        const displaced = cells[at];
+        const parked = { ...held, slot: at };
+        cost += 1;
+        push(
+          'link',
+          [...callLine, lineOf(code, 'fresh.next = prev.next')],
+          displaced === undefined
+            ? `${x} toma el enlace del previo, que era null: va a quedar último.`
+            : `${x} apunta a ${displaced.value}, el nodo que seguía.`,
           {
-            carry: { value: x, label: 'fresh' },
-            pointers: basePointers([{ name: 'prev', index: at }]),
+            carry: { ...parked, next: displaced === undefined ? null : at },
+            pointers: basePointers([{ name: 'prev', index: prev }]),
           },
+        );
+        cost += 1;
+        push(
+          'link',
+          [...callLine, lineOf(code, 'prev.next = fresh')],
+          `${cells[prev]!.value} deja de apuntar a ${displaced === undefined ? 'null' : displaced.value} y pasa a apuntar a ${x}.`,
+          {
+            carry: { ...parked, next: displaced === undefined ? null : at },
+            linkToCarry: prev,
+            pointers: basePointers([{ name: 'prev', index: prev }]),
+          },
+        );
+        cells.splice(at, 0, { id: (nextId += 1), value: x, state: 'new' });
+        cost += 1;
+        push(
+          'done',
+          [...callLine, lineOf(code, 'size++')],
+          `${x} queda en la posición ${at} y el orden se mantiene. El largo pasa a ${cells.length}.`,
         );
         cells[at] = { ...cells[at]!, state: 'idle' };
-        at += 1;
-      }
-      if (at < cells.length) {
-        cost += 1;
-        push(
-          'compare',
-          [lineOf(code, 'while (prev.next')],
-          `¿${cells[at]!.value} < ${x}? No: ${x} va justo aquí.`,
-          {
-            carry: { value: x, label: 'fresh' },
-            pointers: basePointers([{ name: 'prev', index: at }]),
-          },
-        );
-      }
-      cells.splice(at, 0, { id: (nextId += 1), value: x, state: 'new' });
-      cost += 1;
-      push(
-        'link',
-        [lineOf(code, 'fresh.next = prev.next'), lineOf(code, 'prev.next = fresh')],
-        `Enlazamos ${x} en la posición ${at}. El orden se mantiene.`,
-      );
+      });
       break;
     }
     case 'remove-first': {

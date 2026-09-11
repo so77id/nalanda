@@ -653,3 +653,69 @@ describe('sequenceStepperTrace · the guards the edge-case slide claims', () => 
     expect(trace.steps.at(-1)!.cells.map((c) => c.value)).toEqual([7, 3, 9]);
   });
 });
+
+describe('sequenceStepperTrace · insertOrdered', () => {
+  // The one operation whose position nobody passes in. Three runs, three
+  // different destinations, and the two assignments that link the node are
+  // two frames — the same discipline every other insertion follows.
+  const start = [3, 7];
+
+  it('sends each value where its own value puts it', () => {
+    const trace = traceFor('linked-list-singly', 'insert-ordered', {
+      values: start,
+      target: [5, 1, 9],
+    });
+    expect(trace.steps.at(-1)!.cells.map((c) => c.value)).toEqual([1, 3, 5, 7, 9]);
+  });
+
+  it('hands the front to insertFirst, because the walk cannot reach it', () => {
+    const { code, steps } = traceFor('linked-list-singly', 'insert-ordered', {
+      values: start,
+      target: 1,
+    });
+    expect(code).toContain('if (head == null || x <= head.value)');
+    expect(code).toContain('insertFirst(x);');
+    expect(steps.some((f) => f.headToCarry === true)).toBe(true);
+    expect(steps.at(-1)!.cells.map((c) => c.value)).toEqual([1, 3, 7]);
+  });
+
+  it('compares against prev.next, never against prev', () => {
+    // `prev` stands on the node BEFORE the one being compared, which is what
+    // makes it the node the insertion will modify.
+    const { steps } = traceFor('linked-list-singly', 'insert-ordered', {
+      values: [1, 3, 7, 9],
+      target: 5,
+    });
+    const asked = steps.filter((f) => f.description.includes(' < '));
+    expect(asked.map((f) => f.description)).toEqual([
+      '¿3 < 5? Sí: 5 va más adelante.',
+      '¿7 < 5? No: el lugar de 5 es entre 3 y 7.',
+    ]);
+  });
+
+  it('gives each of the two assignments a frame of its own', () => {
+    const { steps } = traceFor('linked-list-singly', 'insert-ordered', {
+      values: start,
+      target: 5,
+    });
+    // `fresh.next = prev.next` shows the floating node's link; then
+    // `prev.next = fresh` shows the chain's, before the node moves.
+    expect(steps.filter((f) => f.carry?.next !== undefined)).not.toHaveLength(0);
+    expect(steps.filter((f) => f.linkToCarry !== undefined)).toHaveLength(1);
+  });
+
+  it('walks to the end when the value is bigger than everything', () => {
+    const { steps } = traceFor('linked-list-singly', 'insert-ordered', {
+      values: start,
+      target: 9,
+    });
+    expect(steps.some((f) => f.description.includes('prev.next es null'))).toBe(true);
+    expect(steps.at(-1)!.cells.map((c) => c.value)).toEqual([3, 7, 9]);
+  });
+
+  it('still refuses a starting list that is not sorted', () => {
+    expect(() =>
+      traceFor('linked-list-singly', 'insert-ordered', { values: [5, 1, 9], target: 3 }),
+    ).toThrow(/ordenad/i);
+  });
+});

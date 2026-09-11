@@ -882,27 +882,51 @@ function ListPicture({
         </text>
       ) : null}
       {circular && layout.ringY !== null && step.cells.length > 0 ? (
-        <>
-          <path
-            d={`M ${layout.boxes[last]!.linkX! + LINK_W / 2} ${layout.top + BOX_H}
-                L ${layout.boxes[last]!.linkX! + LINK_W / 2} ${layout.ringY}
-                L ${layout.boxes[0]!.centerX} ${layout.ringY}
-                L ${layout.boxes[0]!.centerX} ${layout.top + BOX_H + 3}`}
-            fill="none"
-            stroke="var(--color-ink-soft)"
-            strokeWidth={1.2}
-            markerEnd="url(#seq-arrow)"
-          />
-          <text
-            x={(layout.boxes[last]!.centerX + layout.boxes[0]!.centerX) / 2}
-            y={layout.ringY - 4}
-            textAnchor="middle"
-            fontSize="9"
-            fill="var(--color-ink-faint)"
-          >
-            el último vuelve al primero
-          </text>
-        </>
+        // The closing link, drawn between the two nodes that actually hold
+        // it. It used to start at the last SLOT and land on slot 0, so on a
+        // chain that does not fill the layout it left one node and arrived
+        // at an empty box — and it stayed there while the chain grew past
+        // it. Both ends are read off the live cells now, so the ring
+        // re-anchors itself on every frame.
+        (() => {
+          const from = layout.boxes[last]!;
+          const to = layout.boxes[offset]!;
+          const x1 = from.linkX! + LINK_W / 2;
+          // Off the node's centre on purpose: the index rail and the state
+          // note are written under it, both anchored left of centre, and a
+          // line rising through them crosses both.
+          const x2 = to.x + BOX_W - 8;
+          const y0 = layout.top + BOX_H;
+          const y = layout.ringY!;
+          const r = Math.min(10, Math.abs(x1 - x2) / 2);
+          return (
+            <>
+              <path
+                d={`M ${x1} ${y0}
+                    L ${x1} ${y - r}
+                    Q ${x1} ${y} ${x1 - r} ${y}
+                    L ${x2 + r} ${y}
+                    Q ${x2} ${y} ${x2} ${y - r}
+                    L ${x2} ${y0 + 4}`}
+                fill="none"
+                stroke="var(--color-ink-soft)"
+                strokeWidth={1.6}
+                strokeLinecap="round"
+                markerEnd="url(#seq-arrow)"
+              />
+              <text
+                x={(x1 + x2) / 2}
+                y={y - 6}
+                textAnchor="middle"
+                fontSize="10"
+                fontFamily="monospace"
+                fill="var(--color-ink-faint)"
+              >
+                el último vuelve al primero
+              </text>
+            </>
+          );
+        })()
       ) : null}
     </g>
   );

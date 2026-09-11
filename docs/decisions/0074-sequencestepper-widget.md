@@ -93,6 +93,23 @@ reserves the third box, `LayoutBox.prevX` names it, and everything aimed at
 "the left edge of the node" — the arrow from the previous node, `head` — now
 means that field.
 
+**Amended by:** #288, slide-by-slide review (2026-09-11) — `insert-ordered`
+joins the multi-run operations and gets the frame discipline the rest
+already had: its two assignments were collapsed into one frame, so the
+reader saw the node floating and then standing in the chain. Its listing
+gained the front branch for the same reason `insertAt`'s did — the walk
+compares `prev.next`, so it can never place a value that belongs before the
+first node. And the trace now compares against `prev.next` rather than
+against `prev`, which is what the listing does: the two disagreed by one
+node.
+
+The circular recipe's closing link was drawn from the last SLOT to slot 0.
+On a chain that does not fill the layout — every frame of a chain that
+grows — it left one node and arrived at an empty box, and it stayed there
+while the chain grew past it. Both ends are read off the live cells now, and
+the path is drawn with rounded corners, at the weight of a real link, landing
+clear of the index rail rather than through it.
+
 **Source:** Issue #288 — Course document "Estructuras de Datos · Listas
 Enlazadas". The class shows nine operations over five structures, and
 `teach-a-data-structure.md` §7 defers the unit's widget decision to exactly

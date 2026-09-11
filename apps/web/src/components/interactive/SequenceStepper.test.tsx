@@ -249,3 +249,43 @@ describe('<SequenceStepper> · the chrome', () => {
     expect(screen.getByTestId('sequence-size')).toHaveTextContent('capacidad');
   });
 });
+
+describe('<SequenceStepper> · the circular recipe', () => {
+  const ring = () =>
+    [...document.querySelectorAll('[data-testid="sequence-structure"] path')].find((el) =>
+      (el.getAttribute('d') ?? '').includes('Q'),
+    );
+
+  it('re-anchors the closing link as the chain grows', () => {
+    // It used to run from the last SLOT to slot 0, so on a chain that does
+    // not fill the layout it left one node, arrived at an empty box, and
+    // stayed there while the chain grew past it.
+    renderIn(
+      'book',
+      <SequenceStepper
+        eda="linked-list-circular"
+        operation="insert-first"
+        values={[7, 3, 1]}
+        value={[9, 4]}
+      />,
+    );
+    const first = ring()?.getAttribute('d');
+    expect(first).toBeDefined();
+    const forward = () => screen.getByRole('button', { name: 'Adelante' });
+    while (forward().getAttribute('aria-disabled') !== 'true') fireEvent.click(forward());
+    expect(ring()?.getAttribute('d')).not.toBe(first);
+  });
+
+  it('draws no closing link over a chain with nothing in it', () => {
+    renderIn(
+      'book',
+      <SequenceStepper
+        eda="linked-list-circular"
+        operation="insert-first"
+        values={[]}
+        value={[4, 2]}
+      />,
+    );
+    expect(ring()).toBeUndefined();
+  });
+});
