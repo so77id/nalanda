@@ -738,6 +738,29 @@ function ListPicture({
               stroke={CELL_STROKE[cell.state]}
               strokeWidth={active ? 2.5 : 1.2}
             />
+            {/* prev field, doubly only — the back link has to leave from
+                somewhere, and on this recipe that somewhere is a field of
+                the node like any other */}
+            {doubly ? (
+              <>
+                <rect
+                  x={box.prevX!}
+                  y={box.y}
+                  width={LINK_W}
+                  height={box.h}
+                  rx={3}
+                  fill="var(--color-sunk)"
+                  stroke={CELL_STROKE[cell.state]}
+                  strokeWidth={active ? 2.5 : 1.2}
+                />
+                <circle
+                  cx={box.prevX! + LINK_W / 2}
+                  cy={box.y + box.h / 2}
+                  r={2.5}
+                  fill="var(--color-ink-soft)"
+                />
+              </>
+            ) : null}
             {/* next field */}
             <rect
               x={box.linkX!}
@@ -822,10 +845,12 @@ function ListPicture({
               />
             ) : null}
 
-            {/* prev arrow, doubly only — back to the previous node */}
-            {doubly && i > 0 ? (
+            {/* prev arrow, doubly only — out of the `prev` field, back to
+                the previous node. Lower than the next arrow so the two
+                cross the same gap without sharing a line. */}
+            {doubly && i - offset > 0 ? (
               <line
-                x1={box.x - 3}
+                x1={box.prevX! + LINK_W / 2}
                 y1={box.y + box.h * 0.72}
                 x2={layout.boxes[i - 1]!.linkX! + LINK_W + 3}
                 y2={box.y + box.h * 0.72}
@@ -917,7 +942,11 @@ function Pointers({
           // moved yet; the first node of the chain; and — when the chain is
           // empty — the one `null` the structure already draws at its end,
           // rather than a second null of head's own.
-          const toX = headToCarry ? carryX + BOX_W / 2 : box ? box.x - 4 : nullX - 6;
+          const toX = headToCarry
+            ? carryX + BOX_W / 2
+            : box
+              ? (box.prevX ?? box.x) - 4
+              : nullX - 6;
           return (
             <g key={pointer.name}>
               <text

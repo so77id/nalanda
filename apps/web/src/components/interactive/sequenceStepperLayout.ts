@@ -43,8 +43,14 @@ export const RING_BAND = 34;
 export const CARRY_BAND = 78;
 
 export interface LayoutBox {
-  /** Left edge of the whole node (value half for a list). */
+  /** Left edge of the VALUE half. */
   x: number;
+  /**
+   * Left edge of the `prev` field, for the doubly-linked recipe: a node
+   * there has three fields, and the back link is one of them rather than an
+   * arrow with nothing to leave from. `null` for every other recipe.
+   */
+  prevX: number | null;
   /** Top edge. */
   y: number;
   /** Width of the value half. */
@@ -87,22 +93,27 @@ export function layoutSequence(
   hasCarry = false,
 ): SequenceLayout {
   const list = isList(recipe);
+  const doubly = recipe === 'linked-list-doubly';
   const drawn = Math.max(list ? count : Math.max(count, slots), 0);
-  const nodeW = list ? BOX_W + LINK_W : BOX_W;
+  const nodeW = list ? BOX_W + LINK_W * (doubly ? 2 : 1) : BOX_W;
   const gap = list ? LIST_GAP : 0;
   const top = POINTER_BAND + (hasCarry ? CARRY_BAND : 0);
 
   const lane = list ? HEAD_LANE : 0;
   const boxes: LayoutBox[] = [];
   for (let i = 0; i < drawn; i += 1) {
-    const x = lane + i * (nodeW + gap);
+    // `x` stays the VALUE half's left edge, which is what every arrow and
+    // every pointer is aimed at; the `prev` field is reserved to its left.
+    const left = lane + i * (nodeW + gap);
+    const x = left + (doubly ? LINK_W : 0);
     boxes.push({
       x,
+      prevX: doubly ? left : null,
       y: top,
       w: BOX_W,
       h: BOX_H,
       linkX: list ? x + BOX_W : null,
-      centerX: x + nodeW / 2,
+      centerX: left + nodeW / 2,
     });
   }
 
@@ -136,6 +147,8 @@ export function linkArrow(
   const y = layout.top + BOX_H / 2;
   if (!from) return { x1: 0, x2: 0, y };
   const x1 = (from.linkX ?? from.x) + LINK_W;
-  const x2 = to ? to.x : x1 + LIST_GAP;
+  // The next node's LEFT EDGE, which on a doubly-linked node is its `prev`
+  // field rather than its value half.
+  const x2 = to ? (to.prevX ?? to.x) : x1 + LIST_GAP;
   return { x1, x2, y };
 }

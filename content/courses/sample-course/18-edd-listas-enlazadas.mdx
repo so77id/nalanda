@@ -847,7 +847,30 @@ sigue costando $$\Theta(N)$$.
 
 <Slide title="La lista doblemente enlazada · el enlace de vuelta">
 La segunda variante ataca exactamente esa carencia. Cada nodo gana un
-segundo enlace:
+segundo enlace, y la cajita pasa a tener tres campos:
+
+<svg viewBox="0 0 470 190" style={{ width: '100%', maxWidth: '470px', height: 'auto', display: 'block', margin: '1.25rem auto' }} role="img" aria-label="Un nodo de una lista doblemente enlazada, dibujado como una caja de tres campos: a la izquierda el campo prev, del que sale una flecha hacia el nodo anterior; al centro el campo valor, que guarda el número 42; a la derecha el campo next, del que sale una flecha hacia el nodo siguiente.">
+  <defs>
+    <marker id="doble-punta" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto">
+      <path d="M0,0 L7,3.5 L0,7 z" style={{ fill: 'var(--color-ink-soft)' }} />
+    </marker>
+  </defs>
+  <rect x="130" y="65" width="52" height="60" rx="4" style={{ fill: 'var(--color-sunk)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.6" />
+  <rect x="182" y="65" width="106" height="60" rx="4" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.6" />
+  <rect x="288" y="65" width="52" height="60" rx="4" style={{ fill: 'var(--color-sunk)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.6" />
+  <text x="235" y="105" textAnchor="middle" fontSize="26" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>42</text>
+  <circle cx="156" cy="95" r="4" style={{ fill: 'var(--color-ink-soft)' }} />
+  <circle cx="314" cy="95" r="4" style={{ fill: 'var(--color-ink-soft)' }} />
+  <text x="156" y="146" textAnchor="middle" fontSize="13" style={{ fill: 'var(--color-ink-faint)' }}>prev</text>
+  <text x="235" y="146" textAnchor="middle" fontSize="13" style={{ fill: 'var(--color-ink-faint)' }}>valor</text>
+  <text x="314" y="146" textAnchor="middle" fontSize="13" style={{ fill: 'var(--color-ink-faint)' }}>next</text>
+  <text x="70" y="40" textAnchor="middle" fontSize="13" style={{ fill: 'var(--color-ink-soft)' }}>dónde venía</text>
+  <text x="400" y="40" textAnchor="middle" fontSize="13" style={{ fill: 'var(--color-ink-soft)' }}>dónde sigue</text>
+  <line x1="156" y1="95" x2="42" y2="95" style={{ stroke: 'var(--color-ink-soft)' }} strokeWidth="1.6" markerEnd="url(#doble-punta)" />
+  <line x1="314" y1="95" x2="428" y2="95" style={{ stroke: 'var(--color-ink-soft)' }} strokeWidth="1.6" markerEnd="url(#doble-punta)" />
+  <rect x="0" y="65" width="32" height="60" rx="4" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule)' }} strokeWidth="1.4" strokeDasharray="4 3" />
+  <rect x="438" y="65" width="32" height="60" rx="4" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule)' }} strokeWidth="1.4" strokeDasharray="4 3" />
+</svg>
 
 ```java
 class Node {

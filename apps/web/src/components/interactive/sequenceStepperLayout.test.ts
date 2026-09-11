@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { BOX_H, BOX_W, layoutSequence, linkArrow } from './sequenceStepperLayout';
+import { BOX_H, BOX_W, LINK_W, LIST_GAP, layoutSequence, linkArrow } from './sequenceStepperLayout';
 
 /**
  * The layout is checked here EXACTLY so that jsdom never has to fake a
@@ -81,5 +81,40 @@ describe('linkArrow', () => {
     const arrow = linkArrow(layout, 1);
     expect(arrow.x2).toBeGreaterThan(arrow.x1);
     expect(arrow.x2).toBeLessThanOrEqual(layout.width);
+  });
+});
+
+describe('layoutSequence · the doubly-linked node', () => {
+  // Its back link leaves from a FIELD, not from the edge of the value half,
+  // so the node reserves three boxes instead of two and everything aimed at
+  // "the left edge of the node" has to mean the `prev` field.
+  it('reserves a prev field and leaves the value half between the two links', () => {
+    const { boxes } = layoutSequence(3, 'linked-list-doubly');
+    for (const box of boxes) {
+      expect(box.prevX).not.toBeNull();
+      expect(box.prevX! + LINK_W).toBe(box.x);
+      expect(box.linkX).toBe(box.x + BOX_W);
+    }
+  });
+
+  it('gives no other recipe a prev field', () => {
+    for (const recipe of ['linked-list-singly', 'linked-list-circular', 'array'] as const) {
+      for (const box of layoutSequence(3, recipe).boxes) expect(box.prevX).toBeNull();
+    }
+  });
+
+  it('still leaves the arrow gap between two nodes, measured edge to edge', () => {
+    const layout = layoutSequence(3, 'linked-list-doubly');
+    const { x1, x2 } = linkArrow(layout, 0);
+    expect(x1).toBe(layout.boxes[0]!.linkX! + LINK_W);
+    // The arrow lands on the NEXT node's leftmost field, not on its value.
+    expect(x2).toBe(layout.boxes[1]!.prevX);
+    expect(x2 - x1).toBe(LIST_GAP);
+  });
+
+  it('keeps the canvas wide enough for the extra field', () => {
+    const doubly = layoutSequence(3, 'linked-list-doubly');
+    const singly = layoutSequence(3, 'linked-list-singly');
+    expect(doubly.width).toBe(singly.width + 3 * LINK_W);
   });
 });

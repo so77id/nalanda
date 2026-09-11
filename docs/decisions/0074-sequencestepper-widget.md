@@ -84,6 +84,15 @@ stores, and that is exactly the contrast: the array jumps to it, the chain
 walks to it. It renumbers itself after every insertion and deletion, which is
 half of what `insertAt` teaches.
 
+**Amended by:** #288, slide-by-slide review (2026-09-11) — the
+doubly-linked node is drawn with THREE fields. Its back link used to be an
+arrow leaving the left edge of the value half, which is nowhere: `prev` is a
+field of the node exactly as `next` is, and a picture that gives one a box
+and the other none says the two are different kinds of thing. The layout
+reserves the third box, `LayoutBox.prevX` names it, and everything aimed at
+"the left edge of the node" — the arrow from the previous node, `head` — now
+means that field.
+
 **Source:** Issue #288 — Course document "Estructuras de Datos · Listas
 Enlazadas". The class shows nine operations over five structures, and
 `teach-a-data-structure.md` §7 defers the unit's widget decision to exactly
