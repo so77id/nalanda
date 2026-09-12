@@ -218,8 +218,39 @@ Run this after §6, with a real scanned batch for the same course.
 **Record here:** the date, the commit, the course, the batch size, and the
 matched / unmatched counts from step 3.
 
-Last run: **NOT RUN.** Issue #272 shipped without it; its S10 is the slice
-that owes it.
+Last run: **2026-09-07, PARTIAL**, on the Jetson at commit `78f155e`
+(#272), against the professor's real `CIT2006_CA01` course.
+
+**What was measured, and it is the number this section exists for:**
+
+| | |
+|---|---|
+| Course | `CIT2006_CA01 · ESTRUCTURAS DE DATOS Y ALGORITMOS` |
+| Roster | 25 students imported from the real Canvas |
+| Controls | 6, all corrected before #272 existed, all with `course_id` NULL |
+| Copies carrying a RUT | 116 |
+| **Copies matched after assigning courses + one rematch pass** | **116** |
+
+**116 of 116.** The eight digits AMC reads off the real printed sheet and
+the eight digits `user.sisId` yields for the same person agree, on a real
+class, with no exceptions — which is exactly what neither ADR-0069's
+measurement nor any test in this repository could establish on its own.
+
+Also confirmed by hand on the same run: the matrix, the per-student page,
+the review pages and the annotated PDFs all render against the real data,
+and a second rematch pass reported no changes (the idempotence).
+
+**WHAT THIS RUN DID NOT COVER — steps 1 and 2 above.** No new control was
+created and no new batch was printed, marked and scanned. The 116 copies
+were read by AMC BEFORE #272, so what is proven is the retroactive path
+(`POST /courses/{id}/rematch`) over readings that already existed. The
+forward path — a scan uploaded to a control that already has a course,
+matching during `/analyse` — is covered by the suite against fixtures and
+by nothing against paper.
+
+The next run of this section should start at step 1 and close that half.
+It is cheap once a control is due anyway: create it on the course, print,
+mark, scan, and read the matched count off the Resultados table.
 
 ## 7 · A past-term course (the case that found the bug)
 

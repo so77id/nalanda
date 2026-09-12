@@ -444,6 +444,28 @@ the `avisoNo*` / `flash.Set(…)` string literals in `internal/app/web/handler/`
   withdraw the entire class — the silent version of this whole bullet.
   Same rule shape and same reason as the UploadScan-survives and
   LiveBank-survives bullets.
+- **A page that is a redirect TARGET consumes the flash (issue #279).**
+  `flash.Set` writes a cookie; nothing renders it until a handler calls
+  `flash.Consume` and puts it on the page. A handler that sets a flash and
+  redirects to a page which does not consume produces a button that works
+  in total silence — and leaves the cookie to reappear on some unrelated
+  page later.
+
+  It shipped that way: `Courses.Show`, `Courses.List`, `Courses.Students`
+  and `Profile.render` never consumed, so EVERY message on `/profile`,
+  `/courses` and `/courses/{id}` had been invisible since #271 — the
+  roster import's "Lista importada: N estudiantes" included. Miguel found
+  it in production by pressing "Reasociar controles" three times and
+  getting nothing; the three redirected GETs were byte-identical.
+
+  **Assert the PAGE, not the cookie.** The reason six review lenses and
+  ~25 tests missed it is that every flash assertion on this surface used a
+  helper reading the cookie off the POST response, which is green whether
+  or not a human is ever told. `TestEveryFlashOnTheCourseScreensReaches
+  ThePage` is the shape that catches it: POST, follow the redirect
+  carrying the cookie a browser would carry, and look for the words in the
+  HTML. The other flash tests in this package still measure the cookie
+  ([#281](https://github.com/so77id/nalanda/issues/281)).
 - **Matching never guesses, and an unanswerable lookup is not an absence
   (issue #272, ADR-0071).** Three parts, one reason each:
   1. `matching.MatchByRUT` returns `(nil, nil)` for everything it cannot
