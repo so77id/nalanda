@@ -102,7 +102,438 @@ está haciendo el trabajo.
 
 ## Stack · la torre de platos
 
-PLACEHOLDER — contrato, arreglo, lista, comparación, dos ejercicios del arco.
+<Slide title="El contrato · push, pop, top, empty">
+Una **pila** es una colección donde sólo se trabaja en un extremo, llamado
+**cima**. Se pone encima y se saca de encima, y por eso lo último que entró
+es lo primero que sale.
+
+<div style={{ border: '1px solid var(--color-rule)', borderRadius: '8px', overflow: 'hidden', margin: '1.25rem 0' }}>
+  <div style={{ background: 'var(--color-sunk)', padding: '0.55rem 0.9rem', borderBottom: '1px solid var(--color-rule)', fontWeight: 700 }}>Stack <span style={{ fontWeight: 400, color: 'var(--color-ink-faint)' }}>· el contrato</span></div>
+  <div style={{ display: 'grid', gridTemplateColumns: 'max-content 1fr', columnGap: '2rem' }}>
+  <div style={{ gridColumn: '1 / -1', padding: '0.7rem 0.9rem 0.15rem', fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.08em', color: 'var(--color-ink-faint)' }}>CREAR</div>
+  <code style={{ padding: `0.15rem 0 0.7rem 0.9rem`, whiteSpace: 'nowrap' }}>build()</code>
+  <span style={{ padding: `0.15rem 0.9rem 0.7rem 0` }}>construye la pila sin elementos</span>
+  <div style={{ gridColumn: '1 / -1', borderTop: '1px solid var(--color-rule)', padding: '0.7rem 0.9rem 0.15rem', fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.08em', color: 'var(--color-keep)' }}>CONSULTAR · no cambian nada</div>
+  <code style={{ padding: `0.15rem 0 0.3rem 0.9rem`, whiteSpace: 'nowrap' }}>top() → elemento</code>
+  <span style={{ padding: `0.15rem 0.9rem 0.3rem 0` }}>el que está en la cima · la pila no cambia</span>
+  <code style={{ padding: `0.15rem 0 0.7rem 0.9rem`, whiteSpace: 'nowrap' }}>empty() → booleano</code>
+  <span style={{ padding: `0.15rem 0.9rem 0.7rem 0` }}>si no hay ningún elemento</span>
+  <div style={{ gridColumn: '1 / -1', borderTop: '1px solid var(--color-rule)', padding: '0.7rem 0.9rem 0.15rem', fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.08em', color: 'var(--color-accent)' }}>MODIFICAR · cambian el estado</div>
+  <code style={{ padding: `0.15rem 0 0.3rem 0.9rem`, whiteSpace: 'nowrap' }}>push(x)</code>
+  <span style={{ padding: `0.15rem 0.9rem 0.3rem 0` }}>pone x en la cima · largo + 1</span>
+  <code style={{ padding: `0.15rem 0 0.7rem 0.9rem`, whiteSpace: 'nowrap' }}>pop() → elemento</code>
+  <span style={{ padding: `0.15rem 0.9rem 0.7rem 0` }}>saca el de la cima y lo devuelve · largo − 1</span>
+  </div>
+  <div style={{ padding: '0.65rem 0.9rem', borderTop: '1px solid var(--color-rule)', background: 'var(--color-sunk)' }}>
+    <div style={{ fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.08em', color: 'var(--color-ink-faint)' }}>LO QUE NO DICE</div>
+    <div style={{ marginTop: '0.35rem' }}>Dónde viven los elementos, si están juntos o sueltos, ni cuánto cuesta cada operación. Tampoco hay manera de pedir el segundo, ni el de más abajo: la cima es el único elemento visible.</div>
+  </div>
+</div>
+
+Cuatro operaciones y ninguna recibe una posición. Esa ausencia es el
+contrato entero: **LIFO**, del inglés _last in, first out_.
+
+Pedirle la cima a una pila vacía es un error, no un valor. `top()` y `pop()`
+tienen sentido únicamente cuando `empty()` es falso, y una implementación
+que devuelva cualquier cosa en ese caso está mintiendo sobre el contrato.
+
+</Slide>
+
+<Slide title="Un caso · el historial de acciones">
+Un editor de texto que ofrece deshacer guarda cada cambio en el momento en
+que ocurre. Cuando el usuario pide deshacer, el cambio que corresponde
+revertir es **el último**, y después el anterior a ése.
+
+Nada en ese uso necesita la tercera acción, ni la décima. Sólo la de más
+arriba, una a una, en el orden inverso al que entraron. Un contrato que
+ofreciera acceso por posición ofrecería permisos que el editor no usa, y
+tendría que pagar por sostenerlos.
+
+Lo mismo pasa en una torre de platos: el que se apoya último es el único
+que se puede levantar sin mover el resto. Y lo mismo, con consecuencias más
+serias, en la pila de llamadas de un programa: cuando un método termina, el
+que retoma la ejecución es siempre el que lo llamó, que es el último que
+quedó esperando.
+
+Tres situaciones distintas, un solo contrato. Vale la pena reconocerlo
+cuando aparece, porque reconocerlo es lo que permite elegir la estructura
+correcta.
+
+</Slide>
+
+<Slide title="Sobre el arreglo · la idea">
+La primera implementación guarda los elementos en un bloque consecutivo y
+reserva una casilla para todos ellos desde el principio. La cima es el
+último elemento escrito, así que alcanza con recordar **cuántos hay**: la
+cima está siempre en `data[size - 1]`.
+
+<svg viewBox="0 0 700 196" style={{ width: '100%', maxWidth: '700px', height: 'auto', display: 'block', margin: '1.25rem auto' }} role="img" aria-label="Un bloque de seis casillas. Las tres primeras guardan 42, 7 y 15; las tres siguientes están libres y dibujadas con borde punteado. Una flecha rotulada top baja hasta la casilla de índice 2, que guarda el 15.">
+  <defs>
+    <marker id="stack-arr-punta" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto">
+      <path d="M0,0 L7,3.5 L0,7 z" style={{ fill: 'var(--color-accent)' }} />
+    </marker>
+  </defs>
+  <text x="286" y="26" textAnchor="middle" fontSize="15" fontWeight="700" fontFamily="monospace" style={{ fill: 'var(--color-accent)' }}>top</text>
+  <text x="286" y="44" textAnchor="middle" fontSize="12" style={{ fill: 'var(--color-ink-faint)' }}>data[size − 1]</text>
+  <line x1="286" y1="52" x2="286" y2="78" style={{ stroke: 'var(--color-accent)' }} strokeWidth="1.8" markerEnd="url(#stack-arr-punta)" />
+  {[0, 1, 2, 3, 4, 5].map((i) => (
+    <g key={i}>
+      <rect x={20 + i * 108} y="86" width="100" height="52" rx="3" style={{ fill: i < 3 ? 'var(--color-surface)' : 'var(--color-sunk)', stroke: i < 3 ? 'var(--color-rule-strong)' : 'var(--color-rule)' }} strokeWidth={i < 3 ? 1.6 : 1.2} strokeDasharray={i < 3 ? undefined : '4 3'} />
+      <text x={70 + i * 108} y="120" textAnchor="middle" fontSize="22" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{['42', '7', '15', '', '', ''][i]}</text>
+      <text x={70 + i * 108} y="158" textAnchor="middle" fontSize="12" style={{ fill: 'var(--color-ink-faint)' }}>{i}</text>
+      <text x={70 + i * 108} y="180" textAnchor="middle" fontSize="12" style={{ fill: 'var(--color-ink-faint)' }}>{i < 3 ? '' : 'libre'}</text>
+    </g>
+  ))}
+</svg>
+
+Tres propiedades sostienen la estructura, y cada operación las deja como las
+encontró:
+
+1. **`0 ≤ size ≤ data.length`.** Nunca hay menos de cero elementos ni más de
+   los que caben. Si se rompe, escribir el siguiente sale del bloque.
+2. **Los elementos ocupan `data[0]` hasta `data[size - 1]`, sin huecos.** Lo
+   que está más allá de `size` es basura que nadie lee.
+3. **La cima es `data[size - 1]`.** Es la traducción del contrato a esta
+   estructura: cuando `size` es cero no hay cima, y eso es exactamente una
+   pila vacía.
+
+La tercera es la que hace barata a esta implementación. La cima no hay que
+buscarla: es una resta.
+
+</Slide>
+
+<Slide title="push sobre arreglo">
+Apilar escribe en la primera casilla libre y sube `size` en uno. Es la
+operación que el arreglo ya hacía barata —insertar al final—, y aquí es la
+única que la pila pide.
+
+<SequenceStepper
+  eda="array"
+  operation="insert-last"
+  values={[42, 7]}
+  value={15}
+  showCode={false}
+/>
+
+Ningún elemento se mueve de su casilla. Cada `push` siguiente repite estos
+mismos dos pasos sobre la casilla de más a la derecha, así que el costo no
+depende de cuántos elementos haya guardados: es $$\Theta(1)$$.
+
+</Slide>
+
+<Slide title="pop sobre arreglo">
+Desapilar devuelve lo que hay en `data[size - 1]` y baja `size` en uno.
+
+<SequenceStepper
+  eda="array"
+  operation="remove-last"
+  values={[42, 7, 15]}
+  showCode={false}
+/>
+
+El valor que sale queda físicamente donde estaba: la casilla no se borra,
+deja de contar. La invariante que dice que los elementos válidos llegan
+hasta `size - 1` es la que convierte esa casilla en basura, y bajar `size`
+es todo el trabajo que hace falta para restaurarla. También $$\Theta(1)$$.
+
+</Slide>
+
+<Slide title="Costos y problemas del arreglo">
+| Molde | Operación | Peor caso | Invariante que restaura |
+|---|---|---|---|
+| crear | `build()` | $$\Theta(1)$$ | Deja `size` en cero: una pila sin cima |
+| consultar | `top()` | $$\Theta(1)$$ | Ninguna: lee `data[size - 1]` y no cambia nada |
+| consultar | `empty()` | $$\Theta(1)$$ | Ninguna: `size` ya guarda el dato |
+| modificar | `push(x)` | $$\Theta(1)$$ | La cima es `data[size - 1]`: `x` se escribe en `data[size]` y `size` sube |
+| modificar | `pop()` | $$\Theta(1)$$ | La cima es `data[size - 1]`: `size` baja y la casilla deja de contar |
+
+Las cuatro operaciones son constantes, y por la misma razón: todas ocurren
+en la casilla que `size` señala, y llegar ahí es una resta.
+
+El problema no está en los costos, está en la primera invariante. **La
+capacidad se fija al reservar el bloque**, y `push` sobre una pila llena no
+tiene dónde escribir: el contrato no contempla ese caso, porque un contrato
+no habla de memoria. Una implementación honesta lanza
+`IllegalStateException` en vez de escribir fuera del bloque.
+
+La salida conocida es reservar un bloque más grande y copiar cuando el
+actual se llena, duplicando la capacidad cada vez. Eso convierte a `push` en
+$$\Theta(N)$$ en el peor caso —la corrida que copia— y lo deja en
+$$\Theta(1)$$ amortizado, porque cada copia se paga con las inserciones
+baratas que la siguieron. La pila hereda ese comportamiento tal cual: no es
+una decisión del contrato, es una decisión de la estructura de abajo.
+
+</Slide>
+
+<Slide title="Sobre la lista enlazada · la idea">
+La segunda implementación guarda cada elemento en un nodo suelto que apunta
+al siguiente, con una referencia `head` al primero de la cadena.
+
+La decisión que la hace funcionar es una sola: **la cima es la cabeza**.
+
+<svg viewBox="0 0 700 170" style={{ width: '100%', maxWidth: '700px', height: 'auto', display: 'block', margin: '1.25rem auto' }} role="img" aria-label="Una lista enlazada de tres nodos con los valores 15, 7 y 42. La referencia head apunta al primero y está rotulada como la cima; cada nodo apunta al siguiente y el último apunta a null.">
+  <defs>
+    <marker id="stack-lista-punta" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto">
+      <path d="M0,0 L7,3.5 L0,7 z" style={{ fill: 'var(--color-ink-soft)' }} />
+    </marker>
+    <marker id="stack-lista-punta-head" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto">
+      <path d="M0,0 L7,3.5 L0,7 z" style={{ fill: 'var(--color-accent)' }} />
+    </marker>
+  </defs>
+  <text x="46" y="30" textAnchor="middle" fontSize="15" fontWeight="700" fontFamily="monospace" style={{ fill: 'var(--color-accent)' }}>head</text>
+  <text x="46" y="50" textAnchor="middle" fontSize="12" style={{ fill: 'var(--color-ink-faint)' }}>= la cima</text>
+  <line x1="46" y1="58" x2="46" y2="88" style={{ stroke: 'var(--color-accent)' }} strokeWidth="1.8" markerEnd="url(#stack-lista-punta-head)" />
+  {[15, 7, 42].map((v, i) => (
+    <g key={i}>
+      <rect x={20 + i * 190} y="92" width="86" height="54" rx="4" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.6" />
+      <rect x={106 + i * 190} y="92" width="38" height="54" rx="4" style={{ fill: 'var(--color-sunk)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.6" />
+      <text x={63 + i * 190} y="127" textAnchor="middle" fontSize="24" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{v}</text>
+      <circle cx={125 + i * 190} cy="119" r="4" style={{ fill: 'var(--color-ink-soft)' }} />
+      <line x1={125 + i * 190} y1="119" x2={i < 2 ? 200 + i * 190 : 620} y2="119" style={{ stroke: 'var(--color-ink-soft)' }} strokeWidth="1.6" markerEnd="url(#stack-lista-punta)" />
+    </g>
+  ))}
+  <text x="638" y="124" fontSize="15" fontFamily="monospace" style={{ fill: 'var(--color-ink-faint)' }}>null</text>
+</svg>
+
+Con esa decisión, las dos operaciones que la pila pide caen sobre el
+principio de la cadena, que es el único lugar al que `head` llega sin
+caminar. Una pila vacía es `head == null`, y el dibujo de arriba, leído al
+revés, es el orden en que los tres elementos entraron: 42 primero, 15 al
+final.
+
+</Slide>
+
+<Slide title="push · insertFirst en la cabeza">
+Apilar es **insertar al principio de la cadena**: el par que hay que
+retener es `push` = `insertFirst`.
+
+```java
+void push(int x) {
+    Node fresh = new Node(x);
+    fresh.next = head;
+    head = fresh;
+    size++;
+}
+```
+
+El nodo nuevo toma el enlace que tenía `head`, y recién entonces `head` pasa
+a apuntar al nodo nuevo. El orden importa: al revés se pierde la referencia
+al resto de la pila.
+
+Ningún otro nodo se entera, y ninguno cambia de lugar. El costo es el de la
+operación de abajo —insertar al principio— y por lo tanto $$\Theta(1)$$, con
+cero elementos o con un millón. Tampoco hay capacidad que se acabe: cada
+`push` reserva su propio nodo.
+
+</Slide>
+
+<Slide title="push">
+<SequenceStepper
+  eda="linked-list-singly"
+  operation="insert-first"
+  values={[]}
+  value={[42, 7, 15]}
+/>
+
+Tres `push` sobre una pila que empezó vacía. El widget nombra la operación
+de la estructura, `insertFirst`, que es la que efectivamente corre; la pila
+la expone con otro nombre y sin dejar elegir dónde. Cada corrida enlaza un
+nodo y mueve `head` un lugar a la izquierda, y ninguna toca los nodos que ya
+estaban.
+
+</Slide>
+
+<Slide title="pop · deleteFirst desde la cabeza">
+Desapilar es **eliminar el primero de la cadena**: `pop` = `deleteFirst`.
+
+```java
+int pop() {
+    if (head == null) {
+        throw new NoSuchElementException();
+    }
+    int x = head.value;
+    head = head.next;
+    size--;
+    return x;
+}
+```
+
+La guarda es el contrato escrito en Java: una pila vacía no tiene cima, así
+que `pop()` no puede devolver un valor. Devolver cero, o `-1`, sería
+inventar un elemento que nadie apiló.
+
+El resto son tres líneas que no dependen del largo: guardar el valor, correr
+`head` al siguiente nodo y bajar `size`. El nodo que sale queda sin nadie
+apuntándolo y la máquina virtual lo recoge más tarde. $$\Theta(1)$$.
+
+</Slide>
+
+<Slide title="pop">
+<SequenceStepper
+  eda="linked-list-singly"
+  operation="remove-first"
+  values={[15, 7, 42]}
+  times={3}
+/>
+
+La misma pila del widget anterior, vaciándose. Los elementos salen en el
+orden inverso al que entraron —15, 7, 42— sin que eso sea una decisión del
+código: es lo único que se puede hacer si sólo se toca la cabeza.
+
+</Slide>
+
+<Slide title="top · leer sin sacar">
+Consultar la cima es leer el valor de la cabeza sin tocar ningún enlace.
+
+```java
+int top() {
+    if (head == null) {
+        throw new NoSuchElementException();
+    }
+    return head.value;
+}
+
+boolean empty() {
+    return size == 0;
+}
+```
+
+`top()` repite la guarda de `pop()` por la misma razón, y ésa es la
+diferencia entre las dos: `pop` devuelve la cima **y** la saca, `top`
+devuelve la cima y deja la pila como estaba. Un algoritmo que necesita mirar
+antes de decidir usa `top`; uno que ya decidió usa `pop`.
+
+`empty()` es la operación que vuelve seguras a las otras dos: preguntarla
+antes es lo que evita la excepción.
+
+</Slide>
+
+<Slide title="Costos de Stack sobre lista">
+| Molde | Operación | Peor caso | Invariante que restaura |
+|---|---|---|---|
+| crear | `build()` | $$\Theta(1)$$ | Deja `head` en `null` y `size` en cero |
+| consultar | `top()` | $$\Theta(1)$$ | Ninguna: lee `head.value` y no cambia la cadena |
+| consultar | `empty()` | $$\Theta(1)$$ | Ninguna: `size` ya guarda el dato |
+| modificar | `push(x)` | $$\Theta(1)$$ | `head` apunta a la cima: el nodo nuevo enlaza al que lo era |
+| modificar | `pop()` | $$\Theta(1)$$ | `head` apunta a la cima: pasa a ser el segundo |
+
+Las cuatro son constantes otra vez, y otra vez por una sola razón: las
+cuatro operan sobre el primer nodo, que es el único al que se llega sin
+caminar.
+
+Y hay algo que esta tabla no tiene: ninguna fila dice
+$$\Theta(N)$$ y ninguna necesita una columna de costo amortizado. La lista
+nunca copia nada, porque no hay bloque que se llene.
+
+</Slide>
+
+<Slide title="Arreglo vs lista · dónde vive el costo">
+| | Sobre arreglo | Sobre lista con `head` |
+|---|---|---|
+| `push(x)` | $$\Theta(1)$$ · $$\Theta(N)$$ la corrida que copia | $$\Theta(1)$$ siempre |
+| `pop()` | $$\Theta(1)$$ | $$\Theta(1)$$ |
+| `top()`, `empty()` | $$\Theta(1)$$ | $$\Theta(1)$$ |
+| memoria por elemento | el valor | el valor **y** un enlace |
+| capacidad | fija, o copias al crecer | sin límite previo |
+| los elementos en memoria | juntos | sueltos |
+
+Las dos implementaciones cumplen el contrato con los mismos costos
+constantes, así que la elección no se decide ahí. Se decide en las tres
+filas de abajo.
+
+El arreglo gana cuando se conoce una cota del tamaño: reserva una vez, no
+paga un enlace por elemento y guarda los valores juntos, que es lo que el
+procesador prefiere leer. Con capacidad variable paga copias, baratas en
+promedio pero no en el instante en que ocurren.
+
+La lista gana cuando el tamaño es imprevisible o cuando ninguna corrida
+puede permitirse la pausa de una copia. Paga un enlace por elemento y
+esparce los valores, y a cambio ninguna operación tiene un peor caso
+distinto de su caso típico.
+
+</Slide>
+
+<Slide title="Ejercicio · paréntesis balanceados">
+Una expresión está balanceada si cada paréntesis, corchete o llave que se
+abre se cierra después, y en el orden correcto: `({[]})` lo está, `([)]` no,
+aunque tenga la misma cantidad de cada símbolo.
+
+La pila resuelve el problema casi sin pensarlo, porque el símbolo que un
+cierre tiene que corresponder es siempre **el último que quedó abierto**.
+Recorremos la expresión una vez: cada apertura se apila; cada cierre desapila
+y compara.
+
+```java
+boolean balanced(String s) {
+    Stack pendientes = new Stack();
+    for (int i = 0; i < s.length(); i++) {
+        char c = s.charAt(i);
+        if (c == '(' || c == '[' || c == '{') {
+            pendientes.push(c);
+        } else if (pendientes.empty() || pendientes.pop() != pareja(c)) {
+            return false;
+        }
+    }
+    return pendientes.empty();
+}
+```
+
+`pareja(c)` es un auxiliar de tres líneas que devuelve el símbolo de
+apertura que le corresponde a un cierre: `(` para `)`, `[` para `]`, `{`
+para `}`.
+
+Dos casos de borde deciden la solución. Un cierre con la pila vacía no tiene
+con qué corresponderse, y por eso `empty()` se pregunta antes de `pop()`. Y
+una expresión que termina con la pila no vacía dejó aperturas sin cerrar, y
+por eso el resultado es la última pregunta y no `true`.
+
+Una sola pasada, y la pila crece a lo más hasta la cantidad de aperturas:
+$$\Theta(N)$$ de tiempo y $$\Theta(N)$$ de espacio adicional en el peor
+caso.
+
+</Slide>
+
+<Slide title="Ejercicio · evaluación en notación polaca">
+En la notación polaca inversa el operador va **después** de sus dos
+operandos: `3 4 + 5 *` significa `(3 + 4) × 5`, y vale 35. Escrita así, una
+expresión no necesita paréntesis ni reglas de precedencia, y por eso fue la
+forma en que las primeras calculadoras y varias máquinas virtuales
+resolvieron el problema de evaluar.
+
+Con una pila se evalúa de izquierda a derecha en una sola pasada: los
+números se apilan, y cada operador desapila dos y apila el resultado.
+
+```java
+int evalRPN(String[] tokens) {
+    Stack valores = new Stack();
+    for (String t : tokens) {
+        if (esOperador(t)) {
+            int b = valores.pop();
+            int a = valores.pop();
+            valores.push(aplicar(a, b, t));
+        } else {
+            valores.push(Integer.parseInt(t));
+        }
+    }
+    return valores.pop();
+}
+```
+
+Los dos auxiliares son directos: `esOperador(t)` responde si el token es uno
+de los cuatro símbolos, y `aplicar(a, b, t)` devuelve el resultado de
+aplicarle a `a` y `b` el operador `t`.
+
+El detalle que decide la corrección está en dos líneas consecutivas: el
+primer `pop()` entrega el operando **derecho**, porque fue el último que se
+apiló. Invertir esas dos líneas da el mismo resultado en la suma y en la
+multiplicación, y el resultado equivocado en la resta y en la división.
+
+La notación se debe a Jan Łukasiewicz, que en 1924 propuso poner el
+operador adelante; la variante inversa, con el operador al final, se
+atribuye a Charles Hamblin y a Friedrich Bauer hacia fines de los años
+cincuenta, ya pensando en cómo evaluar expresiones con una máquina.
+
+</Slide>
 
 <SectionBreak />
 

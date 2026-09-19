@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 
 import { ModeProvider } from '../../presentation';
-import { SequenceStepper } from './SequenceStepper';
+import { SequenceStepper, type SequenceStepperProps } from './SequenceStepper';
 
 /**
  * jsdom mocks CodeMirror and lays nothing out, so these cases assert the
@@ -291,6 +291,66 @@ describe('<SequenceStepper> · the combinations the document mounts', () => {
     );
     expect(screen.queryByText(/no está definida/i)).not.toBeInTheDocument();
     expect(screen.getByTestId('sequence-structure')).toBeInTheDocument();
+  });
+
+  // #294 mounts the widget over BOTH families for the first time: the Stack
+  // and Queue class runs the same operations over an array and over a chain,
+  // which is what the array recipes were carried for (ADR-0074
+  // §Consequences). Each entry is a tag the document actually ships.
+  // The act is part of the name because both acts mount some of the same
+  // pairs with different arguments, and two cases called the same thing hide
+  // which one broke.
+  const mounted: { act: string; props: SequenceStepperProps }[] = [
+    {
+      act: 'Stack',
+      props: {
+        eda: 'array',
+        operation: 'insert-last',
+        values: [42, 7],
+        value: 15,
+        showCode: false,
+      },
+    },
+    {
+      act: 'Stack',
+      props: { eda: 'array', operation: 'remove-last', values: [42, 7, 15], showCode: false },
+    },
+    {
+      act: 'Stack',
+      props: {
+        eda: 'linked-list-singly',
+        operation: 'insert-first',
+        values: [],
+        value: [42, 7, 15],
+      },
+    },
+    {
+      act: 'Stack',
+      props: {
+        eda: 'linked-list-singly',
+        operation: 'remove-first',
+        values: [15, 7, 42],
+        times: 3,
+      },
+    },
+  ];
+
+  it.each(mounted)('accepts $act · $props.eda × $props.operation', ({ props }) => {
+    renderIn('book', <SequenceStepper {...props} />);
+    expect(document.querySelector('[data-authoring-error]')).toBeNull();
+    expect(screen.getByTestId('sequence-structure')).toBeInTheDocument();
+  });
+
+  // The constraint that decided the shape of every array slide in #294, and
+  // the red that opened the slice. It is invisible to
+  // `app/contentRenders.test.tsx` (the widget is lazy there), so a slide
+  // asking an array for three runs would publish a red box past a green suite.
+  it('refuses an array recipe asked for several runs, and points at the lists', () => {
+    renderIn(
+      'book',
+      <SequenceStepper eda="array" operation="insert-last" values={[42]} value={[7, 15]} />,
+    );
+    expect(screen.getByText(/animan una sola corrida/i)).toBeInTheDocument();
   });
 
   it('refuses, in the author own words, a combination whose listing is not written', () => {
