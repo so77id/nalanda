@@ -539,8 +539,431 @@ cincuenta, ya pensando en cómo evaluar expresiones con una máquina.
 
 ## Queue · la fila de la vida
 
-PLACEHOLDER — contrato, arreglo con corrimiento y cola circular, lista con
-`tail`, comparación, dos ejercicios del arco.
+<Slide title="El contrato · enqueue, dequeue, front, empty">
+Una **cola** es una colección con dos extremos, cada uno con un solo
+sentido: se entra por el **final** y se sale por el **frente**. Por eso lo
+primero que entró es lo primero que sale.
+
+<div style={{ border: '1px solid var(--color-rule)', borderRadius: '8px', overflow: 'hidden', margin: '1.25rem 0' }}>
+  <div style={{ background: 'var(--color-sunk)', padding: '0.55rem 0.9rem', borderBottom: '1px solid var(--color-rule)', fontWeight: 700 }}>Queue <span style={{ fontWeight: 400, color: 'var(--color-ink-faint)' }}>· el contrato</span></div>
+  <div style={{ display: 'grid', gridTemplateColumns: 'max-content 1fr', columnGap: '2rem' }}>
+  <div style={{ gridColumn: '1 / -1', padding: '0.7rem 0.9rem 0.15rem', fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.08em', color: 'var(--color-ink-faint)' }}>CREAR</div>
+  <code style={{ padding: `0.15rem 0 0.7rem 0.9rem`, whiteSpace: 'nowrap' }}>build()</code>
+  <span style={{ padding: `0.15rem 0.9rem 0.7rem 0` }}>construye la cola sin elementos</span>
+  <div style={{ gridColumn: '1 / -1', borderTop: '1px solid var(--color-rule)', padding: '0.7rem 0.9rem 0.15rem', fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.08em', color: 'var(--color-keep)' }}>CONSULTAR · no cambian nada</div>
+  <code style={{ padding: `0.15rem 0 0.3rem 0.9rem`, whiteSpace: 'nowrap' }}>front() → elemento</code>
+  <span style={{ padding: `0.15rem 0.9rem 0.3rem 0` }}>el que está en el frente · la cola no cambia</span>
+  <code style={{ padding: `0.15rem 0 0.7rem 0.9rem`, whiteSpace: 'nowrap' }}>empty() → booleano</code>
+  <span style={{ padding: `0.15rem 0.9rem 0.7rem 0` }}>si no hay ningún elemento</span>
+  <div style={{ gridColumn: '1 / -1', borderTop: '1px solid var(--color-rule)', padding: '0.7rem 0.9rem 0.15rem', fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.08em', color: 'var(--color-accent)' }}>MODIFICAR · cambian el estado</div>
+  <code style={{ padding: `0.15rem 0 0.3rem 0.9rem`, whiteSpace: 'nowrap' }}>enqueue(x)</code>
+  <span style={{ padding: `0.15rem 0.9rem 0.3rem 0` }}>pone x al final · largo + 1</span>
+  <code style={{ padding: `0.15rem 0 0.7rem 0.9rem`, whiteSpace: 'nowrap' }}>dequeue() → elemento</code>
+  <span style={{ padding: `0.15rem 0.9rem 0.7rem 0` }}>saca el del frente y lo devuelve · largo − 1</span>
+  </div>
+  <div style={{ padding: '0.65rem 0.9rem', borderTop: '1px solid var(--color-rule)', background: 'var(--color-sunk)' }}>
+    <div style={{ fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.08em', color: 'var(--color-ink-faint)' }}>LO QUE NO DICE</div>
+    <div style={{ marginTop: '0.35rem' }}>Dónde viven los elementos, si están juntos o sueltos, ni cuánto cuesta cada operación. Tampoco hay manera de mirar el último que entró, ni de adelantar a nadie: el frente es el único elemento visible.</div>
+  </div>
+</div>
+
+Cuatro operaciones, ninguna con posición, igual que antes. Lo que cambia es
+**por dónde** se entra y se sale: **FIFO**, del inglés _first in, first
+out_.
+
+Pedirle el frente a una cola vacía es un error, no un valor. `front()` y
+`dequeue()` tienen sentido únicamente cuando `empty()` es falso.
+
+</Slide>
+
+<Slide title="Un caso · la impresora, la boletería, el buffer">
+Una impresora compartida recibe trabajos de varias personas a la vez y los
+imprime de a uno. El orden justo es el de llegada, y es exactamente lo que
+una cola sostiene sin que nadie tenga que ordenar nada: cada trabajo se
+encola al llegar y se saca cuando el anterior terminó.
+
+La boletería es el mismo contrato con personas: el que llega se pone atrás,
+el que atienden es el de adelante, y ningún cliente necesita saber cuántos
+hay ni en qué lugar está.
+
+Y el caso que aparece en cada programa que habla con otro: un **búfer**
+entre algo que produce datos y algo que los consume. El teclado produce
+pulsaciones más rápido de lo que el programa las procesa, la tarjeta de red
+entrega paquetes cuando llegan y no cuando conviene. Entre los dos hay una
+cola, y su trabajo es que ninguno tenga que esperar al otro.
+
+La justicia del orden de llegada es la propiedad que los tres comparten, y
+es la razón para elegir este contrato y no otro.
+
+</Slide>
+
+<Slide title="Sobre el arreglo · el problema del corrimiento">
+La primera idea es la directa: guardar los elementos en un bloque
+consecutivo desde la casilla cero, con el frente en `data[0]` y el final en
+`data[size - 1]`.
+
+Con esa disposición, encolar es escribir en la primera casilla libre y subir
+`size`, que es la operación barata del arreglo. Pero desencolar saca el de
+`data[0]`, y para que el frente vuelva a estar en la casilla cero hay que
+**correr todos los demás una casilla a la izquierda**.
+
+Ese corrimiento cuesta $$\Theta(N)$$, y no es un detalle de implementación
+que se pueda pulir: es la consecuencia directa de haber decidido que el
+frente vive en una casilla fija. Una cola que se usa de verdad desencola
+tantas veces como encola, así que la mitad de sus operaciones serían caras.
+
+El contrato no pide nada de esto. Pide sacar el del frente, no sacar el de
+la casilla cero. La diferencia entre las dos frases es toda la solución.
+
+</Slide>
+
+<Slide title="enqueue sobre arreglo">
+Encolar escribe en la primera casilla libre y sube `size`.
+
+<SequenceStepper
+  eda="array"
+  operation="insert-last"
+  values={[3, 8]}
+  value={5}
+  showCode={false}
+/>
+
+Ningún elemento se mueve, y el costo no depende de cuántos haya guardados:
+$$\Theta(1)$$, mientras quede capacidad en el bloque.
+
+</Slide>
+
+<Slide title="dequeue sobre arreglo · el corrimiento">
+Desencolar saca el de la casilla cero, y ahí aparece el precio.
+
+<SequenceStepper
+  eda="array"
+  operation="remove-first"
+  values={[3, 8, 5]}
+  showCode={false}
+/>
+
+El contador de operaciones del widget es lo que hay que mirar: sacar el
+primer elemento fue una lectura, y todo lo demás fue mover a los que
+quedaban. Con $$N$$ elementos en la cola son $$N - 1$$ copias, así que
+desencolar cuesta $$\Theta(N)$$ mientras el frente esté obligado a vivir en
+la casilla cero.
+
+</Slide>
+
+<Slide title="La cola circular · dos punteros sobre el mismo espacio">
+La salida es dejar de mover los elementos y mover el frente. Guardamos dos
+índices —`front`, dónde empieza la cola, y `rear`, dónde termina— y cuando
+alguno llega al final del bloque **vuelve a empezar por el principio**.
+
+<svg viewBox="0 0 700 226" style={{ width: '100%', maxWidth: '700px', height: 'auto', display: 'block', margin: '1.25rem auto' }} role="img" aria-label="Un bloque de seis casillas usado en forma circular. Las casillas 4, 5, 0 y 1 guardan 9, 4, 6 y 2; las casillas 2 y 3 están libres. Una flecha rotulada front señala la casilla 4 y otra rotulada rear señala la casilla 1. Una curva sale del extremo derecho del bloque y vuelve a entrar por el extremo izquierdo, rotulada módulo la capacidad.">
+  <defs>
+    <marker id="cola-circ-punta" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto">
+      <path d="M0,0 L7,3.5 L0,7 z" style={{ fill: 'var(--color-accent)' }} />
+    </marker>
+    <marker id="cola-circ-punta-wrap" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto">
+      <path d="M0,0 L7,3.5 L0,7 z" style={{ fill: 'var(--color-ink-soft)' }} />
+    </marker>
+  </defs>
+  <text x="502" y="26" textAnchor="middle" fontSize="15" fontWeight="700" fontFamily="monospace" style={{ fill: 'var(--color-accent)' }}>front</text>
+  <text x="502" y="44" textAnchor="middle" fontSize="12" style={{ fill: 'var(--color-ink-faint)' }}>sale por aquí</text>
+  <line x1="502" y1="52" x2="502" y2="78" style={{ stroke: 'var(--color-accent)' }} strokeWidth="1.8" markerEnd="url(#cola-circ-punta)" />
+  <text x="178" y="26" textAnchor="middle" fontSize="15" fontWeight="700" fontFamily="monospace" style={{ fill: 'var(--color-accent)' }}>rear</text>
+  <text x="178" y="44" textAnchor="middle" fontSize="12" style={{ fill: 'var(--color-ink-faint)' }}>entra por aquí</text>
+  <line x1="178" y1="52" x2="178" y2="78" style={{ stroke: 'var(--color-accent)' }} strokeWidth="1.8" markerEnd="url(#cola-circ-punta)" />
+  {[0, 1, 2, 3, 4, 5].map((i) => (
+    <g key={i}>
+      <rect x={20 + i * 108} y="86" width="100" height="52" rx="3" style={{ fill: [true, true, false, false, true, true][i] ? 'var(--color-surface)' : 'var(--color-sunk)', stroke: [true, true, false, false, true, true][i] ? 'var(--color-rule-strong)' : 'var(--color-rule)' }} strokeWidth={[true, true, false, false, true, true][i] ? 1.6 : 1.2} strokeDasharray={[true, true, false, false, true, true][i] ? undefined : '4 3'} />
+      <text x={70 + i * 108} y="120" textAnchor="middle" fontSize="22" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{['6', '2', '', '', '9', '4'][i]}</text>
+      <text x={70 + i * 108} y="158" textAnchor="middle" fontSize="12" style={{ fill: 'var(--color-ink-faint)' }}>{i}</text>
+      <text x={70 + i * 108} y="178" textAnchor="middle" fontSize="12" style={{ fill: 'var(--color-ink-faint)' }}>{[true, true, false, false, true, true][i] ? '' : 'libre'}</text>
+    </g>
+  ))}
+  <path d="M 645 140 C 672 206, 48 206, 70 144" fill="none" style={{ stroke: 'var(--color-ink-soft)' }} strokeWidth="1.8" strokeDasharray="5 4" markerEnd="url(#cola-circ-punta-wrap)" />
+  <text x="358" y="214" textAnchor="middle" fontSize="13" fontFamily="monospace" style={{ fill: 'var(--color-ink-soft)' }}>(i + 1) % capacidad</text>
+</svg>
+
+Leída en el orden de la cola, la secuencia empieza en la casilla 4 y termina
+en la casilla 1: 9, 4, 6, 2. El bloque es el mismo de antes; lo que cambió
+es que dejó de tener un principio fijo.
+
+Avanzar cualquiera de los dos índices es sumarle uno y tomar el resto de
+dividir por la capacidad. Desencolar pasa a ser leer `data[front]` y avanzar
+`front`, sin mover ningún elemento: $$\Theta(1)$$.
+
+</Slide>
+
+<Slide title="Costos con y sin cola circular">
+| Operación | Frente fijo | Circular | Invariante que restaura |
+|---|---|---|---|
+| `front()`, `empty()` | $$\Theta(1)$$ | $$\Theta(1)$$ | Ninguna: no cambian nada |
+| `enqueue(x)` | $$\Theta(1)$$ | $$\Theta(1)$$ | Los elementos ocupan `size` casillas desde `front`: `rear` avanza y escribe |
+| `dequeue()` | $$\Theta(N)$$ | <span style={{ color: 'var(--color-keep)', fontWeight: 700 }}>$$\Theta(1)$$</span> | La misma: con frente fijo se restaura corriendo todo, circular se restaura avanzando `front` |
+
+La fila destacada es toda la diferencia, y la columna de la derecha explica
+por qué: **las dos versiones sostienen la misma invariante**, y lo que
+cambia es cuánto cuesta restaurarla. Fijar el frente en la casilla cero
+obliga a mover $$N - 1$$ elementos; dejarlo flotar obliga a mover un índice.
+
+El precio existe y conviene nombrarlo. En la cola circular `data[i]` ya no
+es el elemento `i`-ésimo: el `i`-ésimo está en `data[(front + i) %
+capacidad]`. La lectura directa por posición, que era la gracia del arreglo,
+deja de valer — y no se echa de menos, porque el contrato de la cola nunca
+la ofreció.
+
+Queda en pie el problema que el bloque trae consigo: la capacidad se fija al
+reservarlo, y encolar en una cola llena no tiene dónde escribir. La salida
+es la misma de siempre —reservar un bloque más grande y copiar—, que deja a
+`enqueue` en $$\Theta(1)$$ amortizado.
+
+</Slide>
+
+<Slide title="Sobre la lista enlazada · la cabeza y la cola">
+La segunda implementación vuelve a los nodos sueltos, y aquí la cola pide
+algo que la pila no pedía: **los dos extremos**. Se saca por el frente y se
+entra por el final, así que hay que poder llegar a los dos sin caminar.
+
+Una referencia no alcanza. La estructura guarda dos: `head` al primer nodo
+—el frente— y `tail` al último —el final.
+
+<svg viewBox="0 0 700 182" style={{ width: '100%', maxWidth: '700px', height: 'auto', display: 'block', margin: '1.25rem auto' }} role="img" aria-label="Una lista enlazada de tres nodos con los valores 3, 8 y 5. La referencia head apunta al primero y está rotulada como el frente; la referencia tail apunta al último y está rotulada como el final; el último nodo apunta a null.">
+  <defs>
+    <marker id="cola-lista-punta" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto">
+      <path d="M0,0 L7,3.5 L0,7 z" style={{ fill: 'var(--color-ink-soft)' }} />
+    </marker>
+    <marker id="cola-lista-punta-ref" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto">
+      <path d="M0,0 L7,3.5 L0,7 z" style={{ fill: 'var(--color-accent)' }} />
+    </marker>
+  </defs>
+  <text x="46" y="30" textAnchor="middle" fontSize="15" fontWeight="700" fontFamily="monospace" style={{ fill: 'var(--color-accent)' }}>head</text>
+  <text x="46" y="50" textAnchor="middle" fontSize="12" style={{ fill: 'var(--color-ink-faint)' }}>el frente</text>
+  <line x1="46" y1="58" x2="46" y2="88" style={{ stroke: 'var(--color-accent)' }} strokeWidth="1.8" markerEnd="url(#cola-lista-punta-ref)" />
+  <text x="426" y="30" textAnchor="middle" fontSize="15" fontWeight="700" fontFamily="monospace" style={{ fill: 'var(--color-accent)' }}>tail</text>
+  <text x="426" y="50" textAnchor="middle" fontSize="12" style={{ fill: 'var(--color-ink-faint)' }}>el final</text>
+  <line x1="426" y1="58" x2="426" y2="88" style={{ stroke: 'var(--color-accent)' }} strokeWidth="1.8" markerEnd="url(#cola-lista-punta-ref)" />
+  {[3, 8, 5].map((v, i) => (
+    <g key={i}>
+      <rect x={20 + i * 190} y="92" width="86" height="54" rx="4" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.6" />
+      <rect x={106 + i * 190} y="92" width="38" height="54" rx="4" style={{ fill: 'var(--color-sunk)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.6" />
+      <text x={63 + i * 190} y="127" textAnchor="middle" fontSize="24" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{v}</text>
+      <circle cx={125 + i * 190} cy="119" r="4" style={{ fill: 'var(--color-ink-soft)' }} />
+      <line x1={125 + i * 190} y1="119" x2={i < 2 ? 200 + i * 190 : 620} y2="119" style={{ stroke: 'var(--color-ink-soft)' }} strokeWidth="1.6" markerEnd="url(#cola-lista-punta)" />
+    </g>
+  ))}
+  <text x="638" y="124" fontSize="15" fontFamily="monospace" style={{ fill: 'var(--color-ink-faint)' }}>null</text>
+  <text x="358" y="172" textAnchor="middle" fontSize="13" style={{ fill: 'var(--color-ink-faint)' }}>3 entró primero · 5 entró último</text>
+</svg>
+
+`tail` no agrega información nueva: el último nodo ya estaba ahí, y se podía
+encontrar caminando. Lo que agrega es **llegar sin caminar**, y eso es lo
+que convierte a `enqueue` en una operación constante.
+
+La contraparte es que ahora hay dos referencias que mantener al día, y cada
+operación que toca un extremo tiene que dejarlas a las dos consistentes —
+incluida la cola de un solo nodo, donde `head` y `tail` señalan el mismo.
+
+</Slide>
+
+<Slide title="enqueue · insertLast con tail">
+Encolar es **insertar al final de la cadena**: `enqueue` = `insertLast`.
+
+```java
+void enqueue(int x) {
+    Node fresh = new Node(x);
+    if (head == null) {
+        head = fresh;
+    } else {
+        tail.next = fresh;
+    }
+    tail = fresh;
+    size++;
+}
+```
+
+Sin `tail` esta operación tendría que recorrer la cadena entera para
+encontrar al último, y costaría $$\Theta(N)$$. Con `tail` el último ya está
+en la mano: una asignación lo enlaza, otra actualiza la referencia.
+$$\Theta(1)$$.
+
+La cola vacía es el caso aparte, y la rama lo dice: sin nodos no hay un
+último al que enlazarse, así que lo que la inserción asigna es `head`. En
+las dos ramas el nodo nuevo termina siendo el último, y por eso `tail = fresh`
+está afuera y se escribe una sola vez.
+
+</Slide>
+
+<Slide title="enqueue">
+<SequenceStepper
+  eda="linked-list-singly"
+  operation="insert-last"
+  values={[]}
+  value={[3, 8, 5]}
+  tail
+/>
+
+Tres `enqueue` sobre una cola que empezó vacía. `tail` sigue al último nodo
+en cada corrida, y ninguna de las tres recorre la cadena: el contador de
+operaciones se queda quieto mientras la cola crece, que es lo que
+$$\Theta(1)$$ significa.
+
+</Slide>
+
+<Slide title="dequeue · deleteFirst desde la cabeza">
+Desencolar es **eliminar el primero de la cadena**: `dequeue` =
+`deleteFirst`.
+
+```java
+int dequeue() {
+    if (head == null) {
+        throw new NoSuchElementException();
+    }
+    int x = head.value;
+    head = head.next;
+    if (head == null) {
+        tail = null;
+    }
+    size--;
+    return x;
+}
+```
+
+Es la misma operación que la pila usa para `pop`, con una línea más. Cuando
+sale el único nodo que quedaba, `head` queda en `null` y `tail` tiene que
+acompañarlo: si se lo deja apuntando al nodo que acaba de salir, el
+siguiente `enqueue` lo enlazaría a un nodo que ya no pertenece a la cola, y
+el elemento nuevo nacería inalcanzable.
+
+Fuera de esa línea, nada depende del largo. $$\Theta(1)$$.
+
+</Slide>
+
+<Slide title="dequeue">
+<SequenceStepper
+  eda="linked-list-singly"
+  operation="remove-first"
+  values={[3, 8, 5]}
+  times={3}
+  tail
+/>
+
+La misma cola del widget anterior, vaciándose. Los elementos salen en el
+orden en que entraron —3, 8, 5—, que es el orden inverso al de la pila
+sobre la misma estructura. La diferencia entera está en por qué extremo
+entraron.
+
+</Slide>
+
+<Slide title="Arreglo circular vs lista con tail · comparación">
+| | Arreglo circular | Lista con `head` y `tail` |
+|---|---|---|
+| `enqueue(x)` | $$\Theta(1)$$ · $$\Theta(N)$$ la corrida que copia | $$\Theta(1)$$ siempre |
+| `dequeue()` | $$\Theta(1)$$ | $$\Theta(1)$$ |
+| `front()`, `empty()` | $$\Theta(1)$$ | $$\Theta(1)$$ |
+| memoria por elemento | el valor | el valor **y** un enlace |
+| capacidad | fija, o copias al crecer | sin límite previo |
+| los elementos en memoria | juntos | sueltos |
+| lo que hay que sostener | dos índices y una aritmética | dos referencias y el caso de un nodo |
+
+Las dos llegan a costos constantes, y ninguna lo consigue con la versión
+ingenua: el arreglo necesitó la idea de la circularidad, la lista necesitó
+la referencia `tail`. Esa simetría es el resultado que conviene llevarse
+—no hay una estructura que sirva para todo, hay una idea que falta en cada
+una.
+
+La elección práctica repite la de la pila, con un matiz. El arreglo circular
+sirve cuando se conoce una cota del tamaño, y es el que usa un búfer de
+verdad: memoria reservada una vez, elementos juntos, ningún costo por
+enlace. La lista sirve cuando el tamaño no tiene cota, y es la que evita la
+pausa de una copia justo en el momento en que la cola está más llena, que es
+el peor momento posible para pausar.
+
+</Slide>
+
+<Slide title="Ejercicio · problema de Josefo">
+Hay $$n$$ personas en círculo, numeradas de 1 a $$n$$. Se cuenta de a $$k$$
+y la $$k$$-ésima sale; el conteo sigue desde la siguiente, dando vueltas,
+hasta que queda una sola. La pregunta es qué número sobrevive.
+
+Una cola representa el círculo de manera casi literal: el frente es la
+persona a la que le toca contar, y **volver al círculo es encolarse
+de nuevo atrás**. Con eso, contar de a `k` es desencolar y volver a encolar
+`k - 1` veces, y la `k`-ésima simplemente no vuelve.
+
+```java
+int josefo(int n, int k) {
+    Queue ronda = new Queue();
+    for (int i = 1; i <= n; i++) {
+        ronda.enqueue(i);
+    }
+    int vivos = n;
+    while (vivos > 1) {
+        for (int i = 1; i < k; i++) {
+            ronda.enqueue(ronda.dequeue());
+        }
+        ronda.dequeue();
+        vivos--;
+    }
+    return ronda.front();
+}
+```
+
+La línea que resuelve el problema es `ronda.enqueue(ronda.dequeue())`:
+saca del frente y devuelve al final, que es exactamente "pasar de largo".
+Cada eliminación cuesta $$k$$ operaciones de cola, y hay $$n - 1$$
+eliminaciones, así que el total es $$\Theta(nk)$$.
+
+El relato viene de Flavio Josefo, historiador judío del siglo I, que lo
+cuenta como una situación vivida durante la guerra contra Roma. El planteo
+como problema matemático es muy posterior, y lo que aquí importa es que su
+estructura es una cola circular.
+
+</Slide>
+
+<Slide title="Ejercicio · promedio móvil">
+Llegan números de a uno, sin que se sepa cuántos serán. Después de cada
+número hay que responder el promedio de los últimos $$K$$, y hay que
+hacerlo sin recorrer nada.
+
+La cola es la ventana: cada número entra por el final, y cuando la ventana
+ya tiene $$K$$ elementos el más viejo sale por el frente. Como la suma se
+mantiene al día sumando el que entra y restando el que sale, el promedio es
+una división.
+
+```java
+class PromedioMovil {
+    private Queue ventana = new Queue();
+    private int capacidad;
+    private int suma = 0;
+    private int largo = 0;
+
+    PromedioMovil(int k) {
+        this.capacidad = k;
+    }
+
+    double siguiente(int x) {
+        ventana.enqueue(x);
+        suma += x;
+        largo++;
+        if (largo > capacidad) {
+            suma -= ventana.dequeue();
+            largo--;
+        }
+        return (double) suma / largo;
+    }
+}
+```
+
+Lo que hace constante a `siguiente` es que el elemento que hay que restar es
+siempre el más viejo, y el contrato de la cola entrega exactamente ése. Con
+cualquier otra colección habría que buscarlo.
+
+Dos decisiones de borde valen la pena. La ventana devuelve el promedio de lo
+que tenga mientras no haya llegado al tamaño $$K$$, en vez de negarse a
+responder. Y `suma` se mantiene como entero para que la división sea la
+única operación con decimales, que es donde el error de redondeo no se
+acumula.
+
+</Slide>
 
 <SectionBreak />
 

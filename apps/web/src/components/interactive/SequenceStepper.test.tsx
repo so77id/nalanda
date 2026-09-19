@@ -333,6 +333,36 @@ describe('<SequenceStepper> · the combinations the document mounts', () => {
         times: 3,
       },
     },
+    // The Queue act. The other pair of ends, and the list side carries
+    // `tail` — which is what makes its `enqueue` constant.
+    {
+      act: 'Queue',
+      props: { eda: 'array', operation: 'insert-last', values: [3, 8], value: 5, showCode: false },
+    },
+    {
+      act: 'Queue',
+      props: { eda: 'array', operation: 'remove-first', values: [3, 8, 5], showCode: false },
+    },
+    {
+      act: 'Queue',
+      props: {
+        eda: 'linked-list-singly',
+        operation: 'insert-last',
+        values: [],
+        value: [3, 8, 5],
+        tail: true,
+      },
+    },
+    {
+      act: 'Queue',
+      props: {
+        eda: 'linked-list-singly',
+        operation: 'remove-first',
+        values: [3, 8, 5],
+        times: 3,
+        tail: true,
+      },
+    },
   ];
 
   it.each(mounted)('accepts $act · $props.eda × $props.operation', ({ props }) => {
