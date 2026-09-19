@@ -12,9 +12,91 @@ questions: none
 
 # Estructuras de Datos · Stack y Queue
 
-PLACEHOLDER — párrafo de entrada.
+El TDA Sequence deja pedirle cualquier posición a la colección, y esa
+libertad tiene un precio: una implementación que la cumpla entera termina
+con alguna operación cara. Hay contratos que renuncian a esa libertad a
+propósito. Exponen pocas operaciones, todas en un extremo fijo, y a cambio
+pueden cumplirlas siempre en tiempo constante.
 
-PLACEHOLDER — apertura, tres slides.
+Esta clase estudia dos de ellos —**Stack** y **Queue**—, los monta sobre las
+dos estructuras que el curso ya tiene a mano, y compara. Al final nombra un
+tercero, **Deque**, que generaliza a los dos.
+
+<Slide title="Los tres contratos">
+Una **secuencia** admite pedirle cualquier cosa en cualquier posición:
+leer la quinta, insertar en la tercera, eliminar la última. Tres contratos
+más chicos restringen ese permiso, cada uno a su manera:
+
+- **Stack** sólo trabaja en un extremo. Lo último que entró es lo primero
+  que sale.
+- **Queue** trabaja en los dos extremos, pero cada uno con un solo sentido:
+  se entra por atrás y se sale por adelante. Lo primero que entró es lo
+  primero que sale.
+- **Deque** abre los dos extremos en los dos sentidos.
+
+Los tres son TDA: fijan **qué se les puede pedir y qué significa cada
+pedido**, y no dicen nada sobre cómo se guardan los elementos ni cuánto
+cuesta cada operación. Esa parte la decide la estructura que los implemente,
+y es la que vamos a mirar dos veces por contrato.
+
+Restringir no es perder. Es lo que permite prometer un costo: mientras el
+único lugar donde se opera sea un extremo conocido, no hay nada que
+recorrer para llegar.
+
+</Slide>
+
+<Slide title="Las dos estructuras que ya tenemos">
+Las implementaciones de esta clase se construyen sobre dos estructuras
+conocidas, y conviene tener presente qué sale barato en cada una.
+
+El **arreglo** guarda los elementos en un bloque consecutivo de casillas del
+mismo tamaño. La posición `i` está en `base + i × ancho`, así que llegar a
+ella es una cuenta. A cambio, no puede haber huecos: abrir uno al principio
+obliga a correr todo lo que sigue.
+
+La **lista enlazada** guarda cada elemento en un nodo suelto que apunta al
+siguiente, con una referencia `head` al primero. Enlazar un nodo cuesta una
+asignación en cualquier parte de la cadena, pero llegar a la posición `i`
+obliga a dar `i` saltos, porque no hay otra manera de avanzar.
+
+| Operación | Arreglo | Lista con `head` | Por qué |
+|---|---|---|---|
+| leer la posición `i` | $$\Theta(1)$$ | $$\Theta(i)$$ | juntos se calcula la dirección; sueltos hay que saltar |
+| insertar al principio | $$\Theta(N)$$ | $$\Theta(1)$$ | correr todo para abrir el hueco, contra cambiar un enlace |
+| eliminar el primero | $$\Theta(N)$$ | $$\Theta(1)$$ | correr todo para cerrarlo, contra mover `head` |
+| insertar al final | $$\Theta(1)$$ | $$\Theta(N)$$ | escribir en la primera casilla libre, contra caminar hasta el último |
+| eliminar el último | $$\Theta(1)$$ | $$\Theta(N)$$ | bajar el largo, contra caminar hasta el anteúltimo |
+
+Los costos del arreglo suponen que queda capacidad en el bloque; cuando no
+queda, insertar al final obliga a reservar uno más grande y copiar. Los de
+la lista suponen que la única referencia guardada es `head`.
+
+Las dos columnas están casi invertidas, y ésa es toda la materia prima que
+esta clase necesita.
+
+</Slide>
+
+<Slide title="El recorrido de cada contrato">
+Stack y Queue se presentan con la misma estructura, y la repetición es
+deliberada: lo que cambia entre un contrato y el otro queda a la vista
+porque todo lo demás está en el mismo lugar.
+
+1. **El contrato.** Las operaciones que expone, con su significado. Sin
+   código y sin costos: un TDA no los tiene.
+2. **Sobre arreglo.** La idea, la operación animada, y la tabla de costos
+   que resulta —con el problema que el arreglo trae consigo.
+3. **Sobre lista enlazada.** Cada operación en dos tiempos: primero el
+   código que la resuelve, después la misma operación corriendo.
+4. **La comparación.** Las dos implementaciones lado a lado, y la elección
+   leída en la tabla.
+
+El hilo que atraviesa los cuatro pasos es un solo mapeo. Cada operación del
+contrato se cumple llamando a una operación de la estructura de abajo, y
+nombrar ese par —`push` es `insertFirst`, `dequeue` es `deleteFirst`— es lo
+que hace que el costo no haya que memorizarlo: es el de la operación que
+está haciendo el trabajo.
+
+</Slide>
 
 <SectionBreak />
 
