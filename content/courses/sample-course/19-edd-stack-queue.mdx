@@ -969,7 +969,76 @@ acumula.
 
 ## Deque · dos puntas abiertas
 
-PLACEHOLDER — la generalización nombrada, y tres usos reales.
+<Slide title="Las cuatro operaciones de un deque">
+Un **deque** —de _double-ended queue_— abre los dos extremos en los dos
+sentidos: se puede entrar y salir tanto por el frente como por el final.
+
+<svg viewBox="0 0 700 200" style={{ width: '100%', maxWidth: '700px', height: 'auto', display: 'block', margin: '1.25rem auto' }} role="img" aria-label="Cuatro elementos en fila, 7, 3, 1 y 5. A la izquierda, una flecha rotulada pushFront entra por el frente y otra rotulada popFront sale por el frente. A la derecha, una flecha rotulada pushBack entra por el final y otra rotulada popBack sale por el final.">
+  <defs>
+    <marker id="deque-punta" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto">
+      <path d="M0,0 L7,3.5 L0,7 z" style={{ fill: 'var(--color-accent)' }} />
+    </marker>
+  </defs>
+  {[7, 3, 1, 5].map((v, i) => (
+    <g key={i}>
+      <rect x={177 + i * 90} y="84" width="76" height="56" rx="4" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.6" />
+      <text x={215 + i * 90} y="120" textAnchor="middle" fontSize="24" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{v}</text>
+    </g>
+  ))}
+  <text x="100" y="72" textAnchor="middle" fontSize="14" fontWeight="700" fontFamily="monospace" style={{ fill: 'var(--color-accent)' }}>pushFront</text>
+  <line x1="46" y1="100" x2="170" y2="100" style={{ stroke: 'var(--color-accent)' }} strokeWidth="1.8" markerEnd="url(#deque-punta)" />
+  <line x1="170" y1="126" x2="46" y2="126" style={{ stroke: 'var(--color-accent)' }} strokeWidth="1.8" markerEnd="url(#deque-punta)" />
+  <text x="100" y="152" textAnchor="middle" fontSize="14" fontWeight="700" fontFamily="monospace" style={{ fill: 'var(--color-accent)' }}>popFront</text>
+  <text x="600" y="72" textAnchor="middle" fontSize="14" fontWeight="700" fontFamily="monospace" style={{ fill: 'var(--color-accent)' }}>pushBack</text>
+  <line x1="654" y1="100" x2="530" y2="100" style={{ stroke: 'var(--color-accent)' }} strokeWidth="1.8" markerEnd="url(#deque-punta)" />
+  <line x1="530" y1="126" x2="654" y2="126" style={{ stroke: 'var(--color-accent)' }} strokeWidth="1.8" markerEnd="url(#deque-punta)" />
+  <text x="600" y="152" textAnchor="middle" fontSize="14" fontWeight="700" fontFamily="monospace" style={{ fill: 'var(--color-accent)' }}>popBack</text>
+  <text x="350" y="184" textAnchor="middle" fontSize="13" style={{ fill: 'var(--color-ink-faint)' }}>ningún acceso por posición</text>
+</svg>
+
+Con esas cuatro operaciones, los dos contratos anteriores quedan adentro.
+Una pila es un deque del que sólo se usan `pushFront` y `popFront`; una cola
+es un deque del que sólo se usan `pushBack` y `popFront`. Lo que un deque
+sigue sin ofrecer es acceso por posición: sus dos extremos son visibles, y
+nada entre ellos.
+
+La implementación no trae ideas nuevas. Sobre una lista doblemente enlazada
+con `head` y `tail`, las cuatro operaciones son constantes, porque cada
+extremo está en la mano y cada nodo sabe quién viene antes. Sobre un arreglo
+circular, también: son los mismos dos índices moviéndose ahora en los dos
+sentidos.
+
+</Slide>
+
+<Slide title="Deque en el mundo real">
+El deque aparece menos como protagonista que como pieza, y conviene saber
+dónde.
+
+**`std::deque`, en la biblioteca estándar de C++.** Lo interesante es cómo
+está hecho: no es un arreglo dinámico ni una lista enlazada, sino un arreglo
+de bloques. Los elementos viven juntos de a bloques y los bloques se
+indexan aparte, lo que le permite crecer por los dos extremos sin copiar
+todo y conservar buena parte de la localidad del arreglo.
+
+**El deque monótono**, una técnica de programación competitiva. Sobre una
+ventana que se desplaza por una secuencia, mantiene un deque cuyos valores
+quedan siempre ordenados: lo que entra por atrás expulsa a los que ya no
+pueden ser máximo, y lo que sale por adelante es lo que quedó fuera de la
+ventana. Sirve para responder el máximo de cada ventana en tiempo constante
+amortizado, y es el ejemplo más claro de un algoritmo que necesita las dos
+puntas al mismo tiempo.
+
+**Los planificadores con robo de trabajo**, en bibliotecas de paralelismo.
+Cada hilo tiene su propio deque de tareas: trabaja en su extremo, y un hilo
+que se quedó sin trabajo roba del extremo contrario. Los dos extremos son lo
+que hace que el dueño y el ladrón casi nunca se estorben.
+
+Los tres usos son especializados, y cada uno pediría su propia maquinaria
+para desarrollarse en serio. Por eso esta clase lo nombra y no lo desarrolla:
+lo que hay que llevarse es el contrato —dos puntas abiertas— y la capacidad
+de reconocerlo cuando aparezca.
+
+</Slide>
 
 ## Ejercicios con solución
 
