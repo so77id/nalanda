@@ -49,13 +49,18 @@ Its seven figures sit beside it in the same directory
 — _Estructuras de Datos · Listas Enlazadas_. One structure and four variants
 of it, 49 authored slides plus the cover, two act dividers (a
 `<SectionBreak />` before the operations act and before the variants act; the
-comparison and the exercises are bare `h2`s — see §1), no figures, thirteen
+comparison and the exercises are bare `h2`s — see §1), no sibling `.svg`
+assets but seven figures written INLINE in the slides
+(`add-a-course-document.md` §6e-ter), thirteen
 `<SequenceStepper>` widgets and five `<Exercise>`s. It is the class
 that settled the act mapping above and the unit's widget decision (§7,
 ADR-0074). Where #277 draws its step-by-steps as static SVG, this one derives
 them, and §6 records why both remain right. (Counts re-derived with
 `grep -c '^<Slide title=' …` and `grep -c '<SequenceStepper' …`; the deck's own
-counter reads 48, and no slide scales below 0.70 at 1440x900.)
+counter reads **52** — 49 authored slides, two act dividers and the cover —
+and no slide scales below 0.70 at 1440x900. It said 48 here through two
+PRs; #294's review measured it, which is the thing this parenthesis asks
+every reader to do.)
 
 ## Step-by-step
 
@@ -109,9 +114,10 @@ book one.** #294's exercise act carries a deck slide of its own (an index of
 the five exercises), and its hinge sits after the `<Exercise>` blocks — so
 in the book outline the hinge is filed under the exercises heading, while in
 the deck it is the penultimate slide, immediately before `Lo que sigue`,
-exactly where a lecture wants it. #277 and #288 never had to weigh this
-because their exercise acts were entirely book-only: `<Exercise>` renders no
-slide, and a heading with no `<SectionBreak />` renders none either. So a
+exactly where a lecture wants it. #277 has no exercise act at all and
+#288's was entirely book-only, so neither had to weigh this: `<Exercise>`
+renders no slide, and a heading with no `<SectionBreak />` renders none
+either. So a
 class whose exercise act DOES carry a deck slide may place the hinge after
 it, keeping hinge and closing adjacent where it counts. What stays wrong is
 a hinge the deck separates from its closing.
@@ -412,10 +418,23 @@ slide _Operación de modificación · insertar al final_ and keep:
   do not copy that half of them. Being moved: `--color-accent`,
   `strokeWidth 2.8`.
 - **Colours go in `style={{ fill }}` / `style={{ stroke }}`**, never in a
-  `fill=` attribute — an attribute cannot hold `var(--color-*)` through the
-  MDX pipeline the way the style object can.
+  `fill=` attribute. The reason this guide gave until #294 was that "an
+  attribute cannot hold `var(--color-*)` through the MDX pipeline" — and
+  that is **false**, falsified by #294's review: the pipeline passes
+  `fill="var(--color-ink)"` through verbatim and the browser resolves it to
+  exactly the same colour as the style object. The true reason is
+  specificity: a presentation attribute has **zero** specificity and loses
+  to any stylesheet rule that ever targets `svg`, while the style object
+  always wins. Today no rule in `styles/index.css` targets one, so this is
+  robustness rather than a live bug — but the whole unit is written the
+  style-object way, and consistency is what a review reads.
 - **JSX means camelCase**: `textAnchor`, `strokeWidth`, `strokeDasharray`,
-  `markerEnd`. A kebab-case attribute is silently dropped.
+  `markerEnd`. This guide said until #294 that a kebab-case attribute is
+  "silently dropped"; it is **neither**. React renders it to the DOM, it
+  paints, and React logs `Invalid DOM property \`stroke-width\`. Did you
+  mean \`strokeWidth\`?` on every render. What is true is that no GATE sees
+  it — oxlint does not cover `content/**`, so the only witness is a browser
+  console that stops being usable for real errors.
 - **Every frame carries `role="img"` and a Spanish `aria-label`** that says
   what the caption says. Nothing in the build or the suite checks this —
   `contentRenders` enforces `alt` on `<Figure>`, not on a raw `<svg>`.
@@ -536,8 +555,15 @@ working. A class that lists them on a slide owes listings that handle them.
       slide rather than measured.
 - [ ] The class closes on a named trade, not a promise, and
       no forward wiki-link to a document that does not exist.
-- [ ] Every figure has an opaque panel, all text on it, a second signal beside
-      colour, and was rendered over `#f8f2ef` and `#0d1117` and looked at.
+- [ ] Every figure served through `<img>` has an opaque panel, all text on
+      it, a second signal beside colour, and was rendered over `#f8f2ef` and
+      `#0d1117` and looked at (`add-a-course-document.md` §6e-bis).
+- [ ] Every figure written INLINE in a slide takes the opposite rules
+      (`add-a-course-document.md` §6e-ter): palette tokens only and never the
+      two hex grounds, **no** opaque panel and no contrast arithmetic,
+      `role="img"` plus a Spanish `aria-label` on the `<svg>` itself, and
+      every `id` prefixed per figure. Nothing enforces any of it — and it
+      was looked at over both grounds anyway.
 - [ ] Every `<Step lines={[…]}>` read back against its own fence — counting
       from 1, blank lines included — and against the step's caption AND its
       drawing: the line lit must be the line the caption says just ran.
@@ -574,6 +600,15 @@ working. A class that lists them on a slide owes listings that handle them.
       `[data-testid="slide-stage"]` (`presentation/SlideDeck.tsx`) — in
       Playwright, `getComputedStyle(el).transform` and read the first number of
       the `matrix(...)`; `none` or `matrix(1, 0, 0, 1, 0, 0)` means 1.0.
+      **`?slide=` is 1-INDEXED, and out of range it clamps in silence**
+      (`SlideDeck.tsx`: `requested - 1`, then
+      `Math.min(Math.max(preferred, 0), slides.length - 1)`). So `?slide=0`
+      and `?slide=1` both render the cover, and the last slide is reachable
+      only as `?slide=N`. A zero-based sweep therefore measures the first
+      slide twice, never reaches the last, and reports a COMPLETE
+      measurement — past every gate. Sweep `1..N` with N from the deck's own
+      counter, and assert the last URL rendered the slide you expected.
+      #294 shipped that mistake and caught it by re-reading its own output.
 - [ ] The checklists of [`add-a-course-document.md`](add-a-course-document.md)
       and [`course-content-style.md`](course-content-style.md) both pass — this
       guide adds to them and replaces neither.

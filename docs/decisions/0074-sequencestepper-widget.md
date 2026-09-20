@@ -147,6 +147,74 @@ fragment a frame highlights must be unique inside its listing — hence one
 `size++` at the end of a branching method rather than one per branch — and
 the call line of a repeated multi-run call is COMPUTED, not searched.
 
+**Amended by:** #294, review pipeline Round B (2026-09-19) — **the array
+recipes got their first reader, and the deferred question below came due.**
+§Consequences said the array recipes ship ahead of their first document,
+named the Stack/Queue/Deque class as that reader, and set a trigger: _"if it
+does not use them they should be removed rather than re-justified"_. That
+class has now shipped, so the trigger fired. Four dispositions, recorded
+here because the alternative was leaving them in a commit message.
+
+**`array` stays, but only its PICTURE has a reader.** #294 mounts it four
+times (`19-edd-stack-queue.mdx`) and every one of those tags carries
+`showCode={false}`, because the class deliberately shows no Java for the
+array implementation. So the recipe's drawings are read and its LISTINGS
+still are not, one class after this ADR flagged them unread. That is a
+narrower outcome than "it has a consumer" suggests, and the next class that
+wants array code should know the listings arrive unproofread by any reader.
+
+**`dynamic-array` survives its own trigger, with a new deadline rather than
+a reprieve.** `grep -rn "dynamic-array" content/` returns nothing, before
+and after #294. It is kept because the structure it draws is owed to the
+unit by its own roadmap — the heap of the priority-queue class is an array
+that grows, and any class that teaches amortised growth mounts it. That
+class is the new deadline; if it ships without the recipe, remove the recipe
+rather than write this paragraph again.
+
+**The single-run asymmetry was NOT closed — it was worked around, and the
+workaround is now pinned.** §Consequences called it "one asymmetry to close
+first". #294 instead authored around it: every array slide passes a scalar
+over a pre-populated structure and narrates the repetition, while every list
+slide passes an array or `times`. `SequenceStepper.test.tsx` now pins the
+refusal (`refuses an array recipe asked for several runs`). The reason the
+workaround is acceptable rather than a debt: three runs of a $$\Theta(1)$$
+operation draw the same frame three times, so the multi-run form buys a
+course slide nothing on the array side — unlike `getAt` over a chain, where
+several runs ARE the lesson. Closing it stays a separate WP; what this
+records is that the first consumer shipped without it and why.
+
+So §Consequences' _"Stack over a list and Stack over an array are two tags
+of the same widget"_ is **qualified, not fulfilled**: today they are two
+tags of different SHAPES, and the class's Queue act is the worked case —
+`eda="array"` with a single `value` against `eda="linked-list-singly"` with
+`value={[3, 8, 5]} tail`.
+
+**Amended by:** #294, review pipeline Round B (2026-09-19) — **a listing
+that is blind to a prop the picture obeys.** `remove-first` over a singly
+list with `tail` is the first combination where the `tail` prop changes the
+DRAWING and not the LISTING: `listCode` branches on `tail` for `insert-last`
+and `remove-last` but not for `remove-first`, while the layout drops the
+`tail` pointer when the chain empties. So the widget draws a queue and
+prints a bare chain's `deleteFirst`, without the `if (head == null) tail =
+null;` the class itself ships one slide earlier.
+
+**This does not violate the validity matrix above** — that matrix grants
+`linked-list-singly` "las nueve" unqualified, and `tail` qualifies only the
+`doubly` row, where it decides which listing a recipe belongs to. The
+principle _"a widget that shows Java a student may copy refuses a
+combination rather than printing plausible code for the wrong structure"_ is
+stated there as the rationale for the ENGINE's narrowing, not as a gate
+authors must clear. The review verifier ruled on exactly that reading.
+
+The rule this leaves, for the next author who hits a tail-blind listing:
+**disclose it in the prose beside the widget, naming the missing line and
+the slide that carries it.** #294 does that, and #288 had already done the
+same for its own twin (`deleteLast con tail`, whose listing is likewise
+`tail`-free). Teaching `listCode` the missing branch is the better answer
+and remains available — it is what #288 did for four other listings — but it
+is a code change with its own tests, and neither class was willing to buy
+widget surgery inside a course-document WP.
+
 **Source:** Issue #288 — Course document "Estructuras de Datos · Listas
 Enlazadas". The class shows nine operations over five structures, and
 `teach-a-data-structure.md` §7 defers the unit's widget decision to exactly

@@ -268,7 +268,7 @@ describe('<SequenceStepper> · the chrome', () => {
   });
 });
 
-describe('<SequenceStepper> · the combinations the document mounts', () => {
+describe('<SequenceStepper> · the combinations the documents mount', () => {
   // The narrowing of `isValidCombination` in the #288 review broke the
   // doubly+tail deleteLast slide, and the suite did not see it: the document
   // render test loads the widget lazily, so jsdom paints the fallback and

@@ -128,10 +128,21 @@ SPA fallback and the `vite preview` gotcha). One home per fact, per
 
      Pin every combination the content mounts in the component's OWN test,
      which renders the real component. Worked case: `<SequenceStepper> · the
-combinations the document mounts` (`SequenceStepper.test.tsx`), written
+combinations the documents mount` (`SequenceStepper.test.tsx`), written
      after #288's review narrowed `isValidCombination` and broke a published
      slide past a green suite — caught by walking the deck in a browser, which
      is the only thing that saw it.
+
+     It holds two documents' cases since #294, so **name each case for the
+     document and the act it comes from**: two classes mount the same pair
+     with different arguments (`array × insert-last` is in both), and a
+     failure line that says only the pair does not say which slide broke.
+
+     Pinning the mount is the floor, not the ceiling. A case that only
+     renders proves the combination is legal; it cannot see a frame that
+     throws or paints wrong halfway through a walk. Step the shapes no other
+     case reaches — #294's empty chain WITH `tail` is one — the way the
+     `insertLast from empty` case does.
 
      State this class by what the TEST fails to reach, never by the widget
      that happened to expose it.

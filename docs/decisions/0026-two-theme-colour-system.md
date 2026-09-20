@@ -295,10 +295,19 @@ both, so figure text drawn on the page ground is wrong in one theme by
 construction. (`add-a-course-document.md` §6e's existing rule asks only for 3:1,
 which is the _graphical_ floor and is satisfiable — it does not cover text.)
 
-**Decision.** Every standalone figure under `content/` **paints its own opaque
-panel and draws all of its text on that panel**. The `var(--token, #fallback)`
+**Decision.** Every standalone figure under `content/` **served through an
+`<img>`** — a sibling `.svg` or raster asset — **paints its own opaque panel
+and draws all of its text on that panel**. The `var(--token, #fallback)`
 pattern is retired for these assets: it promises a theme response an `<img>`
-cannot deliver. Colour remains never the only signal (§Decision 3) — dashed
+cannot deliver.
+
+The `<img>` qualifier is load-bearing and was added in #294, which found the
+unqualified sentence pointing the wrong way for the other kind of standalone
+figure. A figure written **inline** in the `.mdx` is in the page's own DOM,
+so it DOES see `--color-*` and the reason above evaporates: those take
+palette tokens, no panel and no contrast arithmetic. The normative rule for
+them is `add-a-course-document.md` §6e-ter, as §6e-bis is for this one — the
+same delegation §Consequences already makes below. Colour remains never the only signal (§Decision 3) — dashed
 borders, a `✗`/`✓`, and a word in every region.
 
 The palette #277 uses, measured against its own panel: panel `#fdfbf9` with a

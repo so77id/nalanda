@@ -93,6 +93,16 @@ the frontmatter `id`, never the path. v0.1 supports exactly ONE course directory
    `none` says; `none` means deliberately none, and it is the honest value for a
    document whose questions are not written yet.
 
+   **A `none` carries a one-line MDX comment saying WHICH none it is** — a
+   decision, or a not-yet — and for a not-yet, who owes the bank and when.
+   The value is honest either way, and the word alone cannot tell the two
+   apart: `04-planificacion.mdx` means "this document is a spreadsheet, it
+   teaches nothing to ask about" and `19-edd-stack-queue.mdx` means "the bank
+   is a separate WP after the material closes, so the questions measure what
+   the document ended up saying". `14-complejidad-recursion.mdx` declares
+   `none` with no comment, and a reader cannot tell which of the two it is —
+   which is the case this rule exists to stop repeating (#294 review).
+
    The point is to force a decision, not to force writing. A rule demanding one
    question per section produces filler for a section that teaches nothing of
    its own, and filler measures noise and then lands in a real control. Which
@@ -817,7 +827,11 @@ are checked against the structure as it is BY THEN, not as it started, and a
 removal asked for more times than the chain has nodes is refused at boot —
 the listing throws there. `tail` draws a tail pointer on a list, and on
 `linked-list-doubly` it is what makes `remove-last` legal at all;
-`showCode={false}` hides the listing when the slide already carries it, and
+`showCode={false}` hides the listing for either of two reasons — the slide
+already carries it, or the class deliberately shows no code for that
+structure at all (the array acts of `19-edd-stack-queue.mdx`, where printing
+the widget's `insertLast` would introduce a listing the class chose not to
+teach, under a name the slide teaches as `push`) — and
 `autoplay` / `speed` behave as in every other stepper.
 
 Six things worth knowing before you write one:
@@ -825,7 +839,12 @@ Six things worth knowing before you write one:
 - **Showing the same operation over two structures is two nearly identical
   tags.** That is what the widget is for; the surface does not change between
   combinations, so the reader compares the COST rather than re-reading a new
-  widget.
+  widget. **Within a family.** A pair that crosses families is two tags of
+  different SHAPES today, because of the single-run restriction three bullets
+  down: the array side takes one run, the list side takes arrays plus
+  `times`/`tail`. Worked case, the Queue act of `19-edd-stack-queue.mdx`:
+  `eda="array"` with a single `value` against `eda="linked-list-singly"` with
+  `value={[3, 8, 5]} tail` (ADR-0074 §Amended by — #294).
 - **Not every recipe takes every operation.** The widget prints Java a student
   may copy, so a pair is valid only when the listing belongs to the structure
   the picture draws. `array`, `dynamic-array` and `linked-list-singly` take all
@@ -1023,9 +1042,17 @@ the page, and inline SVG is the page.
   happen to be identical. #294 uses `stack-arr-punta`, `cola-circ-punta`,
   `deque-punta`.
 - Colours go in the `style` object and never in a `fill=` / `stroke=`
-  attribute (an attribute cannot hold `var(--color-*)` through the MDX
-  pipeline), and every attribute is camelCase (`textAnchor`, `strokeWidth`)
-  — a kebab-case one is silently dropped.
+  attribute — **not** because the attribute fails (it does not: the MDX
+  pipeline passes `var(--color-*)` through verbatim and the browser resolves
+  it identically), but because a presentation attribute has zero specificity
+  and loses to any stylesheet rule that ever targets `svg`, while the style
+  object always wins. Consistency with the rest of the unit is the other
+  half of the reason.
+- Every attribute is camelCase (`textAnchor`, `strokeWidth`). A kebab-case
+  one is not dropped and not silent — React renders it, it paints, and React
+  logs `Invalid DOM property` on every render. What is true is that no gate
+  sees it: oxlint does not cover `content/**`, so the only witness is the
+  browser console, which stops being usable for real errors.
 
 Both grounds still get looked at. The same rules for a `<Step>` frame, with
 the reasoning, are in
@@ -1439,9 +1466,16 @@ last block, so no stale copies accumulate.
       green build and a green suite (#109, #119). Sizes differ by view on purpose:
       the book keeps the drawn dimensions, a mosaic cell fills its column on a
       slide.
-- [ ] Every image has Spanish `alt` text, and every `<Mosaic>` a `description`.
-      The components refuse to render without them, so this is really a check that
+- [ ] Every `<Figure>` and markdown image has Spanish `alt` text, and every
+      `<Mosaic>` a `description`. The components refuse to render without them,
+      so this is really a check that
       you did not paper over the error by emptying the string.
+- [ ] Every INLINE `<svg>` figure (§6e-ter) carries `role="img"` and a
+      Spanish `aria-label`, palette tokens instead of hex, an `id` prefix per
+      figure, camelCase attributes — and was looked at. **Nothing here is
+      enforced.** The line above is true of `<Figure>` and false of a raw
+      `<svg>`: `contentRenders` never asserts on one, so an inline figure with
+      no accessible name ships green.
 - [ ] Every formula looked at on the rendered page. A malformed one publishes in
       KaTeX's error colour and an unclosed `$$` swallows the rest of the
       document, both past a green build. Check the page still ends where you
