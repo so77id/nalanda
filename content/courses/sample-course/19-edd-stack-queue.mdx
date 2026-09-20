@@ -1393,4 +1393,47 @@ class Solution {
 
 </Exercise>
 
-PLACEHOLDER — la bisagra y la navegación al documento siguiente.
+<Slide title="El precio de decidir por orden de llegada">
+Los dos contratos de esta clase deciden quién sale con el mismo criterio:
+**cuándo entró**. La pila saca al último, la cola saca al primero, y ninguno
+de los dos mira lo que el elemento trae adentro.
+
+Esa es la regla que compra los costos constantes. El elemento que sale está
+siempre en un extremo conocido, así que no hay que buscarlo. Y es también la
+única cosa que estos contratos no pueden hacer: si lo que hay que sacar es
+**el más urgente**, ningún extremo lo tiene garantizado, y encontrarlo
+obligaría a mirar los $$N$$ elementos — que es justamente lo que el contrato
+no permite.
+
+¿Qué pasa si renunciamos al orden de llegada? Si el que sale es el de mayor
+prioridad, la colección deja de poder prometer que el elemento a sacar está
+en un extremo, y entonces tiene que sostener algo más fuerte: un orden
+parcial entre sus elementos, mantenido en cada inserción.
+
+El intercambio es concreto. Consultar al más urgente sigue costando
+$$\Theta(1)$$, pero insertar y sacar dejan de ser constantes y pasan a
+costar $$\Theta(\log N)$$ cada uno: hay que reacomodar. A cambio, la
+pregunta que ni la pila ni la cola podían responder se responde sin recorrer
+nada.
+
+Ese contrato existe y se llama **cola con prioridad**.
+
+</Slide>
+
+<Slide title="Lo que sigue">
+La próxima clase estudia la **cola con prioridad**: el mismo contrato de una
+cola —se encola, se desencola, se consulta el frente— con una sola regla
+cambiada. El frente no es el que llegó primero, es el de mayor prioridad.
+
+El cambio se nota apenas se mira dónde importa. En una urgencia médica la
+atención no se reparte por orden de llegada sino por gravedad. En un sistema
+operativo, entre todos los procesos que esperan turno de procesador, el
+planificador elige por prioridad y no por antigüedad. En los dos casos el
+contrato de esta clase se queda corto, y por la misma razón.
+
+La estructura que lo cumple bien es el **montículo**, un árbol guardado
+dentro de un arreglo, donde cada elemento es mayor que sus hijos. Es la
+primera estructura del curso que no es una secuencia, y con ella empieza la
+parte de la unidad donde la forma deja de ser una fila.
+
+</Slide>
