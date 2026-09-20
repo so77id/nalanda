@@ -878,7 +878,7 @@ justifica es la de la lámina anterior.
 
 </Slide>
 
-<Slide title="front · mirar sin sacar">
+<Slide title="front · leer sin sacar">
 Consultar el frente es leer el valor de la cabeza sin tocar ningún enlace.
 
 ```java
@@ -894,9 +894,10 @@ boolean empty() {
 }
 ```
 
-Las dos consultas caen sobre `head`, igual que en la pila, y por la misma
-razón: es la única referencia que se tiene sin caminar. Lo que cambia entre
-un contrato y el otro no son estas dos operaciones sino **dónde entra lo
+`front()` cae sobre `head`, igual que `top()` en la pila, y por la misma
+razón: es la única referencia que se tiene sin caminar. `empty()` no mira la
+cadena en absoluto —`size` ya guarda el dato. Lo que cambia entre un
+contrato y el otro no son estas dos operaciones sino **dónde entra lo
 nuevo** —`tail` en vez de `head`—, y eso es exactamente lo que separa FIFO
 de LIFO.
 
