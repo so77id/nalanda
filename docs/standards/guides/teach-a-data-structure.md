@@ -104,6 +104,18 @@ loose `## Lo que sigue`, which projects the closing as an untitled divider
 (the defect #79 shipped). Either way it is book-visible,
 and says which document comes next — which is a different job (§5).
 
+**The third data point qualifies "the last act" as a DECK position, not a
+book one.** #294's exercise act carries a deck slide of its own (an index of
+the five exercises), and its hinge sits after the `<Exercise>` blocks — so
+in the book outline the hinge is filed under the exercises heading, while in
+the deck it is the penultimate slide, immediately before `Lo que sigue`,
+exactly where a lecture wants it. #277 and #288 never had to weigh this
+because their exercise acts were entirely book-only: `<Exercise>` renders no
+slide, and a heading with no `<SectionBreak />` renders none either. So a
+class whose exercise act DOES carry a deck slide may place the hinge after
+it, keeping hinge and closing adjacent where it counts. What stays wrong is
+a hinge the deck separates from its closing.
+
 **It also cut its own act 4.** An earlier draft closed with a recap act ("un
 contrato para los dos arreglos") that restated the TDA, put the two cost
 tables side by side and named the trade. Every one of those was already on the
@@ -198,6 +210,18 @@ the groups; each mould label is a `gridColumn: '1 / -1'` row at
 from the group above by `borderTop: 1px solid var(--color-rule)`; signature
 cells are `<code>` with `whiteSpace: 'nowrap'`. Extract a component at the
 third copy, not before, and record it here when you do.
+
+**The threshold is crossed and the extraction is owed.** #294 ships the
+third AND fourth copy (one per contract, Stack and Queue), so the count is
+now four: #277 §_El TDA Sequence_, #288, and two in #294. Its review left
+them copied deliberately rather than by oversight — extracting means the
+six-step protocol of
+[`add-a-content-component.md`](add-a-content-component.md) (component,
+registry in `mdxComponents.ts` and `components/index.ts`, a catalog entry
+with Spanish live examples, per-mode tests) PLUS rewriting two already
+published documents and re-verifying three classes in a browser, which is a
+WP of its own and not a slice of a course-document WP. The next class that
+needs a TDA card should do the extraction rather than make it five.
 
 Costs never appear in the contract. They belong to an implementation, and
 putting them here is the single mistake that collapses the TDA/EDA distinction

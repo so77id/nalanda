@@ -55,6 +55,7 @@ content/courses/sample-course/
 ├── 16-diseno-algoritmos-ordenamiento.mdx           # presentation: explicit, questions: pool — <SortStepper> (bubble/selection/insertion/merge/quick) + <MergeStepper> + <PartitionStepper> + <DivideCombineTree> + <DecisionTreeSort> + <PresentationWide> + <Exercise> with the new `solution` fence
 ├── 17-edd-introduccion.mdx    # presentation: explicit, questions: pool — <StepShow> (ten steppers, hand-written inline SVG frames) + <Figure>
 ├── 18-edd-listas-enlazadas.mdx  # presentation: explicit, questions: pool — <SequenceStepper> ×13 (the worked case) + <Exercise> ×5 with the `solution` fence
+├── 19-edd-stack-queue.mdx     # presentation: explicit, questions: none — <SequenceStepper> ×8 over BOTH families (array + singly, the array recipes' first consumer) + <Exercise> ×5 + five standalone inline SVG figures + two TDA cards
 ├── tda-eda-invariante.svg, arreglo-memoria.svg, arreglo-alocacion.svg, arreglo-invariante-valido.svg, arreglo-invariantes.svg, regla-del-cuarto.svg, costo-acumulado.svg   # assets for chapter 17
 └── index.yaml                 # the ordered teaching path
 ```
@@ -999,6 +1000,36 @@ the pre-existing figures do not yet follow it are ADR-0026 §Addendum — #277.
 Worked cases: the seven figures of chapter 17. **Nothing in the build or the
 suite can see a figure**, so the check is rendering it over both grounds and
 looking at it.
+
+6e-ter. **A drawn figure with no raster content may be written INLINE in the
+`<Slide>` instead, and then none of 6e-bis applies.** This is a third
+category, and it was in use for two classes before anyone wrote it down
+(#294 review, ARQ-10): #288 ships seven and #294 five, all standalone
+`<svg>` in slide bodies rather than `<Step>` frames or sibling assets. The
+rules invert, and the reason is the same one 6e gives: an `<img>` cannot see
+the page, and inline SVG is the page.
+
+- **Palette tokens, always** — `style={{ fill: 'var(--color-ink)' }}`, never
+  the `#fdfbf9` / `#2b221d` values 6e-bis licenses for an `<img>`. Those
+  paint a theme-blind rectangle inside a themed page.
+- **No opaque panel and no contrast arithmetic.** The tokens are already
+  correct in both themes, which is the whole reason to author inline.
+- **`role="img"` and a Spanish `aria-label`** on the `<svg>` itself.
+  `contentRenders` enforces `alt` on `<Figure>`; nothing enforces anything on
+  a raw `<svg>`, so this one is on you.
+- **Prefix every `id` per figure.** All the figures of a page live in one
+  DOM, so a repeated `<marker id="punta">` makes every `url(#punta)` resolve
+  to whichever came first — silently correct only while the definitions
+  happen to be identical. #294 uses `stack-arr-punta`, `cola-circ-punta`,
+  `deque-punta`.
+- Colours go in the `style` object and never in a `fill=` / `stroke=`
+  attribute (an attribute cannot hold `var(--color-*)` through the MDX
+  pipeline), and every attribute is camelCase (`textAnchor`, `strokeWidth`)
+  — a kebab-case one is silently dropped.
+
+Both grounds still get looked at. The same rules for a `<Step>` frame, with
+the reasoning, are in
+[`teach-a-data-structure.md`](teach-a-data-structure.md) §6bis.
 
 6f. **An authoring error does not fail the build**, on purpose: writing the
 slides before drawing the diagrams is a real order of work, and gating the
