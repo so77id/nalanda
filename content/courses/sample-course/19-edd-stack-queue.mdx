@@ -240,16 +240,20 @@ para restaurarla. También $$\Theta(1)$$.
 </Slide>
 
 <Slide title="Costos y problemas del arreglo">
-| Molde | Operación | Peor caso | Invariante que restaura |
-|---|---|---|---|
-| crear | `build()` | $$\Theta(1)$$ | Deja `size` en cero: una pila sin cima |
-| consultar | `top()` | $$\Theta(1)$$ | Ninguna: lee `data[size - 1]` y no cambia nada |
-| consultar | `empty()` | $$\Theta(1)$$ | Ninguna: `size` ya guarda el dato |
-| modificar | `push(x)` | $$\Theta(1)$$ | La cima es `data[size - 1]`: `x` se escribe en `data[size]` y `size` sube |
-| modificar | `pop()` | $$\Theta(1)$$ | La cima es `data[size - 1]`: `size` baja y la casilla deja de contar |
+| Molde | Operación | Peor caso · capacidad fija | Con bloque que crece | Invariante que restaura |
+|---|---|---|---|---|
+| crear | `build()` | $$\Theta(1)$$ | $$\Theta(1)$$ | Deja `size` en cero: una pila sin cima |
+| consultar | `top()` | $$\Theta(1)$$ | $$\Theta(1)$$ | Ninguna: lee `data[size - 1]` y no cambia nada |
+| consultar | `empty()` | $$\Theta(1)$$ | $$\Theta(1)$$ | Ninguna: `size` ya guarda el dato |
+| modificar | `push(x)` | $$\Theta(1)$$ | <span style={{ color: 'var(--color-mark)', fontWeight: 700 }}>$$\Theta(N)$$</span> peor caso · $$\Theta(1)$$ amortizado | La cima es `data[size - 1]`: `x` se escribe en `data[size]` y `size` sube |
+| modificar | `pop()` | $$\Theta(1)$$ | $$\Theta(1)$$ | La cima es `data[size - 1]`: `size` baja y la casilla deja de contar |
 
-Las cuatro operaciones son constantes, y por la misma razón: todas ocurren
-en la casilla que `size` señala, y llegar ahí es una resta.
+La única fila con dos columnas distintas es `push`, y es exactamente la fila
+de la que habla el resto de la lámina.
+
+Con capacidad fija las cuatro operaciones son constantes, y por la misma
+razón: todas ocurren en la casilla que `size` señala, y llegar ahí es una
+resta.
 
 El problema no está en los costos, está en la primera invariante. **La
 capacidad se fija al reservar el bloque**, y `push` sobre una pila llena no
@@ -258,11 +262,15 @@ no habla de memoria. Una implementación honesta lanza
 `IllegalStateException` en vez de escribir fuera del bloque.
 
 La salida conocida es reservar un bloque más grande y copiar cuando el
-actual se llena, duplicando la capacidad cada vez. Eso convierte a `push` en
-$$\Theta(N)$$ en el peor caso —la corrida que copia— y lo deja en
-$$\Theta(1)$$ amortizado, porque cada copia se paga con las inserciones
-baratas que la siguieron. La pila hereda ese comportamiento tal cual: no es
-una decisión del contrato, es una decisión de la estructura de abajo.
+actual se llena, duplicando la capacidad cada vez. Ésa es la segunda columna
+de la tabla: `push` pasa a costar $$\Theta(N)$$ **en el peor caso** —la
+corrida que copia— y $$\Theta(1)$$ **amortizado**, porque cada copia se
+reparte entre las inserciones baratas que la siguen. Las dos cifras son
+ciertas y responden preguntas distintas: la primera, cuánto puede tardar una
+llamada; la segunda, cuánto cuestan $$N$$ llamadas divididas por $$N$$.
+
+La pila hereda ese comportamiento tal cual: no es una decisión del contrato,
+es una decisión de la estructura de abajo.
 
 </Slide>
 
@@ -715,24 +723,30 @@ dividir por la capacidad. Desencolar pasa a ser leer `data[front]` y avanzar
 | Operación | Frente fijo | Circular | Invariante que restaura |
 |---|---|---|---|
 | `front()`, `empty()` | $$\Theta(1)$$ | $$\Theta(1)$$ | Ninguna: no cambian nada |
-| `enqueue(x)` | $$\Theta(1)$$ | $$\Theta(1)$$ | Los elementos ocupan `size` casillas desde `front`: `rear` avanza y escribe |
-| `dequeue()` | $$\Theta(N)$$ | <span style={{ color: 'var(--color-keep)', fontWeight: 700 }}>$$\Theta(1)$$</span> | La misma: con frente fijo se restaura corriendo todo, circular se restaura avanzando `front` |
+| `enqueue(x)` | $$\Theta(1)$$ | $$\Theta(1)$$ | Los elementos ocupan `size` casillas seguidas: `rear` avanza y escribe |
+| `dequeue()` | $$\Theta(N)$$ | <span style={{ color: 'var(--color-keep)', fontWeight: 700 }}>$$\Theta(1)$$</span> | Frente fijo restaura **además** que la primera sea `data[0]`, y eso cuesta correr todo. Circular sólo avanza `front` |
 
-La fila destacada es toda la diferencia, y la columna de la derecha explica
-por qué: **las dos versiones sostienen la misma invariante**, y lo que
-cambia es cuánto cuesta restaurarla. Fijar el frente en la casilla cero
-obliga a mover $$N - 1$$ elementos; dejarlo flotar obliga a mover un índice.
+Las dos versiones **no** sostienen las mismas invariantes, y ahí está toda
+la diferencia. Las dos prometen que los elementos ocupan `size` casillas
+seguidas. La de frente fijo promete **una cosa más**: que la primera de
+ellas es la casilla cero.
 
-El precio existe y conviene nombrarlo. En la cola circular `data[i]` ya no
-es el elemento `i`-ésimo: el `i`-ésimo está en `data[(front + i) %
-capacidad]`. La lectura directa por posición, que era la gracia del arreglo,
-deja de valer — y no se echa de menos, porque el contrato de la cola nunca
-la ofreció.
+Esa promesa de más es la que cobra los $$N - 1$$ corrimientos. La cola
+circular no es más rápida porque restaure mejor la misma invariante: es más
+rápida porque **renuncia a una**. Es el mismo trato que atraviesa toda la
+unidad — una propiedad que se suelta compra un costo.
+
+Lo que se paga por soltarla conviene nombrarlo. En la cola circular
+`data[i]` ya no es el elemento `i`-ésimo: el `i`-ésimo está en
+`data[(front + i) % capacidad]`. La lectura directa por posición, que era la
+gracia del arreglo, deja de valer — y no se echa de menos, porque el
+contrato de la cola nunca la ofreció.
 
 Queda en pie el problema que el bloque trae consigo: la capacidad se fija al
 reservarlo, y encolar en una cola llena no tiene dónde escribir. La salida
 es la misma de siempre —reservar un bloque más grande y copiar—, que deja a
-`enqueue` en $$\Theta(1)$$ amortizado.
+`enqueue` en $$\Theta(1)$$ amortizado y en $$\Theta(N)$$ la corrida que
+copia.
 
 </Slide>
 
@@ -1489,18 +1503,25 @@ siempre en un extremo conocido, así que no hay que buscarlo. Y es también la
 obligaría a mirar los $$N$$ elementos — que es justamente lo que el contrato
 no permite.
 
-¿Qué pasa si renunciamos al orden de llegada? Si el que sale es el de mayor
-prioridad, la colección deja de poder prometer que el elemento a sacar está
-en un extremo, y entonces tiene que sostener algo más fuerte: un orden
-parcial entre sus elementos, mantenido en cada inserción.
+**¿Y si renunciamos al orden de llegada?**
 
-El intercambio es concreto. Consultar al más urgente sigue costando
-$$\Theta(1)$$, pero insertar y sacar dejan de ser constantes y pasan a
-costar $$\Theta(\log N)$$ cada uno: hay que reacomodar. A cambio, la
-pregunta que ni la pila ni la cola podían responder se responde sin recorrer
-nada.
+Si el que sale es el de mayor prioridad, la colección deja de poder prometer
+que el elemento que hay que sacar está en un extremo, y entonces tiene que
+sostener algo más fuerte: un orden parcial entre sus elementos, mantenido en
+cada inserción.
 
 Ese contrato existe y se llama **cola con prioridad**.
+
+El intercambio conviene contarlo desde donde estamos, no desde donde vamos.
+Hoy, con una pila o una cola, sacar al más urgente cuesta $$\Theta(N)$$:
+hay que mirarlos todos. Una implementación buena de la cola con prioridad lo
+deja en $$\Theta(\log N)$$, y cobra $$\Theta(\log N)$$ por insertar, que
+hasta ahora era gratis. Se paga en la inserción lo que se gana en la
+extracción — y se gana mucho más de lo que se paga en cuanto las
+extracciones importan.
+
+Los costos, eso sí, no son del contrato: un TDA sigue sin tenerlos. Son de
+la estructura que lo cumple, y ésa es la clase siguiente.
 
 </Slide>
 
