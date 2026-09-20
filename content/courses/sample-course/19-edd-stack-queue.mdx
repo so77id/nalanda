@@ -34,9 +34,9 @@ más chicos restringen ese permiso, cada uno a su manera:
   primero que sale.
 - **Deque** abre los dos extremos en los dos sentidos.
 
-Los tres son TDA: fijan **qué se les puede pedir y qué significa cada
-pedido**, y no dicen nada sobre cómo se guardan los elementos ni cuánto
-cuesta cada operación. Esa parte la decide la estructura que los implemente,
+Los tres son **tipos de dato abstracto** (TDA): fijan **qué se les puede
+pedir y qué significa cada pedido**, y no dicen nada sobre cómo se guardan
+los elementos ni cuánto cuesta cada operación. Esa parte la decide la estructura que los implemente,
 y es la que vamos a mirar dos veces por contrato.
 
 Restringir no es perder. Es lo que permite prometer un costo: mientras el
@@ -231,10 +231,11 @@ Desapilar devuelve lo que hay en `data[size - 1]` y baja `size` en uno.
   showCode={false}
 />
 
-El valor que sale queda físicamente donde estaba: la casilla no se borra,
-deja de contar. La invariante que dice que los elementos válidos llegan
-hasta `size - 1` es la que convierte esa casilla en basura, y bajar `size`
-es todo el trabajo que hace falta para restaurarla. También $$\Theta(1)$$.
+El widget dibuja la casilla libre porque dejó de contar. En la memoria el
+valor sigue ahí: nadie lo borra, y nadie lo va a leer. La invariante que
+dice que los elementos válidos llegan hasta `size - 1` es la que convierte
+esa casilla en basura, y bajar `size` es todo el trabajo que hace falta
+para restaurarla. También $$\Theta(1)$$.
 
 </Slide>
 
@@ -470,8 +471,10 @@ boolean balanced(String s) {
         char c = s.charAt(i);
         if (c == '(' || c == '[' || c == '{') {
             pendientes.push(c);
-        } else if (pendientes.empty() || pendientes.pop() != pareja(c)) {
-            return false;
+        } else if (c == ')' || c == ']' || c == '}') {
+            if (pendientes.empty() || pendientes.pop() != pareja(c)) {
+                return false;
+            }
         }
     }
     return pendientes.empty();
@@ -482,10 +485,24 @@ boolean balanced(String s) {
 apertura que le corresponde a un cierre: `(` para `)`, `[` para `]`, `{`
 para `}`.
 
-Dos casos de borde deciden la solución. Un cierre con la pila vacía no tiene
-con qué corresponderse, y por eso `empty()` se pregunta antes de `pop()`. Y
-una expresión que termina con la pila no vacía dejó aperturas sin cerrar, y
-por eso el resultado es la última pregunta y no `true`.
+</Slide>
+
+<Slide title="Paréntesis balanceados · los tres bordes">
+Tres detalles deciden si la solución es correcta, y ninguno está en la idea
+central.
+
+**La segunda rama pregunta explícitamente por los tres cierres** en vez de
+quedarse con un `else`. Con un `else`, cualquier carácter que no fuera una
+apertura —una letra, un espacio— entraría como si cerrara algo, y
+`balanced("(a)")` daría falso.
+
+**Un cierre con la pila vacía no tiene con qué corresponderse**, y por eso
+`empty()` se pregunta antes de `pop()`. Sin esa pregunta, la primera
+expresión que empiece cerrando lanza la excepción en vez de responder que no
+está balanceada.
+
+**Una expresión que termina con la pila no vacía dejó aperturas sin
+cerrar**, y por eso el resultado es la última pregunta y no `true`.
 
 Una sola pasada, y la pila crece a lo más hasta la cantidad de aperturas:
 $$\Theta(N)$$ de tiempo y $$\Theta(N)$$ de espacio adicional en el peor
@@ -804,8 +821,8 @@ está afuera y se escribe una sola vez.
 
 Tres `enqueue` sobre una cola que empezó vacía. `tail` sigue al último nodo
 en cada corrida, y ninguna de las tres recorre la cadena: el contador de
-operaciones se queda quieto mientras la cola crece, que es lo que
-$$\Theta(1)$$ significa.
+operaciones sube lo mismo en las tres, sin importar cuántos nodos haya ya.
+No crecer con la cola es lo que $$\Theta(1)$$ significa.
 
 </Slide>
 
@@ -851,6 +868,59 @@ La misma cola del widget anterior, vaciándose. Los elementos salen en el
 orden en que entraron —3, 8, 5—, que es el orden inverso al de la pila
 sobre la misma estructura. La diferencia entera está en por qué extremo
 entraron.
+
+Una advertencia sobre el listado que el widget muestra: es el
+`deleteFirst` de la **estructura**, que no conoce `tail`. Por eso no
+aparece ahí la línea que sí lleva la cola —`if (head == null) tail = null;`—
+y, sin embargo, el dibujo suelta el puntero `tail` cuando sale el último
+nodo. El dibujo tiene razón y el listado está incompleto: la línea que lo
+justifica es la de la lámina anterior.
+
+</Slide>
+
+<Slide title="front · mirar sin sacar">
+Consultar el frente es leer el valor de la cabeza sin tocar ningún enlace.
+
+```java
+int front() {
+    if (head == null) {
+        throw new NoSuchElementException();
+    }
+    return head.value;
+}
+
+boolean empty() {
+    return size == 0;
+}
+```
+
+Las dos consultas caen sobre `head`, igual que en la pila, y por la misma
+razón: es la única referencia que se tiene sin caminar. Lo que cambia entre
+un contrato y el otro no son estas dos operaciones sino **dónde entra lo
+nuevo** —`tail` en vez de `head`—, y eso es exactamente lo que separa FIFO
+de LIFO.
+
+`front()` repite la guarda de `dequeue()`: una cola vacía no tiene frente,
+así que devolver un valor sería inventar un elemento que nadie encoló.
+
+</Slide>
+
+<Slide title="Costos de Queue sobre lista">
+| Molde | Operación | Peor caso | Invariante que restaura |
+|---|---|---|---|
+| crear | `build()` | $$\Theta(1)$$ | Deja `head` y `tail` en `null` y `size` en cero |
+| consultar | `front()` | $$\Theta(1)$$ | Ninguna: lee `head.value` y no cambia la cadena |
+| consultar | `empty()` | $$\Theta(1)$$ | Ninguna: `size` ya guarda el dato |
+| modificar | `enqueue(x)` | $$\Theta(1)$$ | `tail` apunta al último: el que lo era enlaza al nuevo, y `tail` lo sigue |
+| modificar | `dequeue()` | $$\Theta(1)$$ | `head` apunta al frente: pasa a ser el segundo, y si no queda ninguno `tail` lo acompaña |
+
+Las cuatro son constantes, y la columna de la derecha dice por qué cada una
+puede serlo: las dos referencias dejan los dos extremos en la mano, así que
+ninguna operación tiene que caminar para llegar a donde opera.
+
+La última fila es la que cobra la referencia de más. Mantener `tail` al día
+no cuesta tiempo, cuesta **cuidado**: es una línea extra en `dequeue` que no
+hace nada en el caso normal y lo es todo en el caso de un solo nodo.
 
 </Slide>
 
@@ -910,8 +980,11 @@ int josefo(int n, int k) {
 
 La línea que resuelve el problema es `ronda.enqueue(ronda.dequeue())`:
 saca del frente y devuelve al final, que es exactamente "pasar de largo".
-Cada eliminación cuesta $$k$$ operaciones de cola, y hay $$n - 1$$
-eliminaciones, así que el total es $$\Theta(nk)$$.
+
+Contemos lo que cuesta. Cada eliminación da $$k - 1$$ pases, y cada pase son
+**dos** operaciones de cola —un `dequeue` y un `enqueue`—, más el `dequeue`
+que efectivamente saca: $$2k - 1$$ operaciones. Hay $$n - 1$$ eliminaciones,
+así que el total es $$(n-1)(2k-1)$$, es decir $$\Theta(nk)$$.
 
 El relato viene de Flavio Josefo, historiador judío del siglo I, que lo
 cuenta como una situación vivida durante la guerra contra Roma. El planteo
@@ -938,6 +1011,9 @@ class PromedioMovil {
     private int largo = 0;
 
     PromedioMovil(int k) {
+        if (k <= 0) {
+            throw new IllegalArgumentException();
+        }
         this.capacidad = k;
     }
 
@@ -958,11 +1034,13 @@ Lo que hace constante a `siguiente` es que el elemento que hay que restar es
 siempre el más viejo, y el contrato de la cola entrega exactamente ése. Con
 cualquier otra colección habría que buscarlo.
 
-Dos decisiones de borde valen la pena. La ventana devuelve el promedio de lo
-que tenga mientras no haya llegado al tamaño $$K$$, en vez de negarse a
-responder. Y `suma` se mantiene como entero para que la división sea la
-única operación con decimales, que es donde el error de redondeo no se
-acumula.
+Tres decisiones de borde valen la pena. La ventana devuelve el promedio de
+lo que tenga mientras no haya llegado al tamaño $$K$$, en vez de negarse a
+responder. `suma` se mantiene como entero para que la división sea la única
+operación con decimales, que es donde el error de redondeo no se acumula. Y
+el constructor rechaza un $$K$$ que no sea positivo: sin esa guarda, una
+ventana de tamaño cero divide cero por cero y devuelve `NaN` en cada
+llamada, que es la peor manera de fallar — sin ruido.
 
 </Slide>
 
@@ -1086,7 +1164,7 @@ La solución ingenua mira, para cada posición, todo lo que sigue: $$\Theta(N^2)
 La pila la reduce a $$\Theta(N)$$ con una observación. Recorriendo de
 izquierda a derecha, cuando llega un elemento grande, **resuelve de una vez
 a todos los que estaban esperando y son menores que él** — y los que
-esperan, si se guardan en una pila, quedan en orden decreciente, así que
+esperan, si se guardan en una pila, quedan en orden no creciente, así que
 alcanza con sacar desde la cima hasta encontrar uno mayor.
 
 Guarda en la pila **posiciones**, no valores: al resolver una hay que saber
@@ -1110,7 +1188,9 @@ check(Solution.nextGreater(new int[]{}), new int[]{});
 
 ```java solution
 class Solution {
-    // La pila guarda POSICIONES cuyos valores quedan en orden decreciente.
+    // La pila guarda POSICIONES cuyos valores quedan en orden no creciente:
+    // la comparación es estricta, así que dos iguales conviven — y por eso
+    // [3, 3] responde -1 dos veces.
     // Cada posición entra una vez y sale una vez: el ciclo de adentro no
     // multiplica el costo, lo reparte.
     static int[] nextGreater(int[] a) {
@@ -1225,7 +1305,9 @@ check(Solution.binarios(0).length, 0);
 ```java solution
 class Solution {
     // La cola es un arreglo con dos índices: `front` por donde sale,
-    // `rear` por donde entra. Se sacan n y se encolan 1 + 2n, así que
+    // `rear` por donde entra. Aquí `rear` es la próxima casilla LIBRE —se
+    // escribe y después se avanza—, y no la última ocupada como en la
+    // lámina de la cola circular. Se sacan n y se encolan 1 + 2n, así que
     // 2n + 2 casillas alcanzan y sobran.
     static String[] binarios(int n) {
         String[] res = new String[n];
