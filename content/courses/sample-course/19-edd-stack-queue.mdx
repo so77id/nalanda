@@ -656,7 +656,7 @@ La salida es dejar de mover los elementos y mover el frente. Guardamos dos
 índices —`front`, dónde empieza la cola, y `rear`, dónde termina— y cuando
 alguno llega al final del bloque **vuelve a empezar por el principio**.
 
-<svg viewBox="0 0 700 226" style={{ width: '100%', maxWidth: '700px', height: 'auto', display: 'block', margin: '1.25rem auto' }} role="img" aria-label="Un bloque de seis casillas usado en forma circular. Las casillas 4, 5, 0 y 1 guardan 9, 4, 6 y 2; las casillas 2 y 3 están libres. Una flecha rotulada front señala la casilla 4 y otra rotulada rear señala la casilla 1. Una curva sale del extremo derecho del bloque y vuelve a entrar por el extremo izquierdo, rotulada módulo la capacidad.">
+<svg viewBox="0 0 700 240" style={{ width: '100%', maxWidth: '700px', height: 'auto', display: 'block', margin: '1.25rem auto' }} role="img" aria-label="Un bloque de seis casillas usado en forma circular. Las casillas 4, 5, 0 y 1 guardan 9, 4, 6 y 2; las casillas 2 y 3 están libres. Una flecha rotulada front señala la casilla 4 y otra rotulada rear señala la casilla 1. Una curva sale del extremo derecho del bloque y vuelve a entrar por el borde izquierdo de la casilla cero, rotulada módulo la capacidad.">
   <defs>
     <marker id="cola-circ-punta" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto">
       <path d="M0,0 L7,3.5 L0,7 z" style={{ fill: 'var(--color-accent)' }} />
@@ -679,8 +679,9 @@ alguno llega al final del bloque **vuelve a empezar por el principio**.
       <text x={70 + i * 108} y="178" textAnchor="middle" fontSize="12" style={{ fill: 'var(--color-ink-faint)' }}>{[true, true, false, false, true, true][i] ? '' : 'libre'}</text>
     </g>
   ))}
-  <path d="M 645 140 C 672 206, 48 206, 70 144" fill="none" style={{ stroke: 'var(--color-ink-soft)' }} strokeWidth="1.8" strokeDasharray="5 4" markerEnd="url(#cola-circ-punta-wrap)" />
-  <text x="358" y="214" textAnchor="middle" fontSize="13" fontFamily="monospace" style={{ fill: 'var(--color-ink-soft)' }}>(i + 1) % capacidad</text>
+  {/* Sale por el borde derecho del bloque y vuelve a entrar por el IZQUIERDO de la casilla 0. Pasa por debajo del riel de índices: si termina bajo la casilla, la punta tapa la etiqueta «0». */}
+  <path d="M 666 112 C 702 142, 700 198, 358 198 C 40 198, 0 158, 6 112 L 16 112" fill="none" style={{ stroke: 'var(--color-ink-soft)' }} strokeWidth="1.8" strokeDasharray="5 4" markerEnd="url(#cola-circ-punta-wrap)" />
+  <text x="358" y="224" textAnchor="middle" fontSize="13" fontFamily="monospace" style={{ fill: 'var(--color-ink-soft)' }}>(i + 1) % capacidad</text>
 </svg>
 
 Leída en el orden de la cola, la secuencia empieza en la casilla 4 y termina
