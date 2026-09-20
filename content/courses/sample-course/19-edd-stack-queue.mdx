@@ -240,16 +240,20 @@ para restaurarla. También $$\Theta(1)$$.
 </Slide>
 
 <Slide title="Costos y problemas del arreglo">
-| Molde | Operación | Peor caso · capacidad fija | Con bloque que crece | Invariante que restaura |
-|---|---|---|---|---|
-| crear | `build()` | $$\Theta(1)$$ | $$\Theta(1)$$ | Deja `size` en cero: una pila sin cima |
-| consultar | `top()` | $$\Theta(1)$$ | $$\Theta(1)$$ | Ninguna: lee `data[size - 1]` y no cambia nada |
-| consultar | `empty()` | $$\Theta(1)$$ | $$\Theta(1)$$ | Ninguna: `size` ya guarda el dato |
-| modificar | `push(x)` | $$\Theta(1)$$ | <span style={{ color: 'var(--color-mark)', fontWeight: 700 }}>$$\Theta(N)$$</span> peor caso · $$\Theta(1)$$ amortizado | La cima es `data[size - 1]`: `x` se escribe en `data[size]` y `size` sube |
-| modificar | `pop()` | $$\Theta(1)$$ | $$\Theta(1)$$ | La cima es `data[size - 1]`: `size` baja y la casilla deja de contar |
+Con la **capacidad fija**, que es la estructura que la lámina anterior
+dibujó:
 
-La única fila con dos columnas distintas es `push`, y es exactamente la fila
-de la que habla el resto de la lámina.
+| Molde | Operación | Peor caso | Invariante que restaura |
+|---|---|---|---|
+| crear | `build()` | $$\Theta(1)$$ | Deja `size` en cero: una pila sin cima |
+| consultar | `top()` | $$\Theta(1)$$ | Ninguna: lee `data[size - 1]` y no cambia nada |
+| consultar | `empty()` | $$\Theta(1)$$ | Ninguna: `size` ya guarda el dato |
+| modificar | `push(x)` | $$\Theta(1)$$ | La cima es `data[size - 1]`: `x` se escribe en `data[size]` y `size` sube |
+| modificar | `pop()` | $$\Theta(1)$$ | La cima es `data[size - 1]`: `size` baja y la casilla deja de contar |
+
+El encabezado dice **capacidad fija** y no es un detalle: en cuanto el
+bloque pueda crecer, la fila de `push` deja de ser cierta, y eso es lo que
+viene a continuación.
 
 Con capacidad fija las cuatro operaciones son constantes, y por la misma
 razón: todas ocurren en la casilla que `size` señala, y llegar ahí es una
@@ -262,12 +266,32 @@ no habla de memoria. Una implementación honesta lanza
 `IllegalStateException` en vez de escribir fuera del bloque.
 
 La salida conocida es reservar un bloque más grande y copiar cuando el
-actual se llena, duplicando la capacidad cada vez. Ésa es la segunda columna
-de la tabla: `push` pasa a costar $$\Theta(N)$$ **en el peor caso** —la
-corrida que copia— y $$\Theta(1)$$ **amortizado**, porque cada copia se
-reparte entre las inserciones baratas que la siguen. Las dos cifras son
-ciertas y responden preguntas distintas: la primera, cuánto puede tardar una
-llamada; la segunda, cuánto cuestan $$N$$ llamadas divididas por $$N$$.
+actual se llena, duplicando la capacidad cada vez. Y eso cambia una fila de
+la tabla.
+
+</Slide>
+
+<Slide title="El bloque que crece · peor caso y amortizado">
+Con un bloque que se duplica al llenarse, `push` deja de tener una sola
+cifra:
+
+| `push(x)` sobre bloque que crece | Costo |
+|---|---|
+| la corrida que encuentra el bloque lleno | <span style={{ color: 'var(--color-mark)', fontWeight: 700 }}>$$\Theta(N)$$</span> — reserva el doble y copia los $$N$$ |
+| cualquier otra corrida | $$\Theta(1)$$ — escribe y sube `size` |
+| **peor caso** | $$\Theta(N)$$ |
+| **amortizado** | $$\Theta(1)$$ |
+
+Las dos últimas filas son ciertas a la vez, y responden preguntas
+distintas. El **peor caso** dice cuánto puede tardar *una* llamada: si te
+importa que ninguna se pase de un límite —un videojuego, un sistema de
+tiempo real— es la cifra que manda. El **amortizado** dice cuánto cuestan
+$$N$$ llamadas divididas por $$N$$: si te importa el total de un programa
+que hace millones de inserciones, es la que manda.
+
+Confundirlas es lo que hace creer que un arreglo dinámico «a veces es
+lento». No es a veces: es **una de cada $$N$$ veces**, y las otras $$N-1$$
+ya pagaron por ella.
 
 La pila hereda ese comportamiento tal cual: no es una decisión del contrato,
 es una decisión de la estructura de abajo.
@@ -553,12 +577,16 @@ primer `pop()` entrega el operando **derecho**, porque fue el último que se
 apiló. Invertir esas dos líneas da el mismo resultado en la suma y en la
 multiplicación, y el resultado equivocado en la resta y en la división.
 
+</Slide>
+
+{/* Book-only: el contexto histórico se lee, no se proyecta. Sacarlo del */}
+{/* <Slide> es lo que lo deja fuera del deck en modo explicit, y es lo que */}
+{/* devuelve esta lámina a una escala legible (#294, revisión visual). */}
+
 La notación se debe a Jan Łukasiewicz, que en 1924 propuso poner el
 operador adelante; la variante inversa, con el operador al final, se
 atribuye a Charles Hamblin y a Friedrich Bauer hacia fines de los años
 cincuenta, ya pensando en cómo evaluar expresiones con una máquina.
-
-</Slide>
 
 <SectionBreak />
 
@@ -1001,12 +1029,16 @@ Contemos lo que cuesta. Cada eliminación da $$k - 1$$ pases, y cada pase son
 que efectivamente saca: $$2k - 1$$ operaciones. Hay $$n - 1$$ eliminaciones,
 así que el total es $$(n-1)(2k-1)$$, es decir $$\Theta(nk)$$.
 
+</Slide>
+
+{/* Book-only, misma razón que el párrafo de Łukasiewicz. */}
+
 El relato viene de Flavio Josefo, historiador judío del siglo I, que lo
 cuenta como una situación vivida durante la guerra contra Roma. El planteo
 como problema matemático es muy posterior, y lo que aquí importa es que su
-estructura es una cola circular.
-
-</Slide>
+estructura es una cola que da vueltas sobre sí misma — no la «cola
+circular» de la lámina del arreglo, que es una implementación concreta con
+módulo, sino un círculo de personas que la cola representa.
 
 <Slide title="Ejercicio · promedio móvil">
 Llegan números de a uno, sin que se sepa cuántos serán. Después de cada
@@ -1017,6 +1049,9 @@ La cola es la ventana: cada número entra por el final, y cuando la ventana
 ya tiene $$K$$ elementos el más viejo sale por el frente. Como la suma se
 mantiene al día sumando el que entra y restando el que sale, el promedio es
 una división.
+
+Lo que la estructura guarda son cuatro cosas: la ventana, su tamaño máximo,
+la suma de lo que hay dentro y cuántos son.
 
 ```java
 class PromedioMovil {
@@ -1031,17 +1066,29 @@ class PromedioMovil {
         }
         this.capacidad = k;
     }
+}
+```
 
-    double siguiente(int x) {
-        ventana.enqueue(x);
-        suma += x;
-        largo++;
-        if (largo > capacidad) {
-            suma -= ventana.dequeue();
-            largo--;
-        }
-        return (double) suma / largo;
+El constructor rechaza un $$K$$ que no sea positivo. Sin esa guarda una
+ventana de tamaño cero divide cero por cero y devuelve `NaN` en cada
+llamada, que es la peor manera de fallar — sin ruido.
+
+</Slide>
+
+<Slide title="Promedio móvil · la actualización constante">
+Cada número que llega entra por el final. Si con él la ventana se pasa de
+$$K$$, el más viejo sale por el frente y se descuenta de la suma.
+
+```java
+double siguiente(int x) {
+    ventana.enqueue(x);
+    suma += x;
+    largo++;
+    if (largo > capacidad) {
+        suma -= ventana.dequeue();
+        largo--;
     }
+    return (double) suma / largo;
 }
 ```
 
@@ -1049,13 +1096,11 @@ Lo que hace constante a `siguiente` es que el elemento que hay que restar es
 siempre el más viejo, y el contrato de la cola entrega exactamente ése. Con
 cualquier otra colección habría que buscarlo.
 
-Tres decisiones de borde valen la pena. La ventana devuelve el promedio de
-lo que tenga mientras no haya llegado al tamaño $$K$$, en vez de negarse a
-responder. `suma` se mantiene como entero para que la división sea la única
-operación con decimales, que es donde el error de redondeo no se acumula. Y
-el constructor rechaza un $$K$$ que no sea positivo: sin esa guarda, una
-ventana de tamaño cero divide cero por cero y devuelve `NaN` en cada
-llamada, que es la peor manera de fallar — sin ruido.
+Las otras dos decisiones de borde: la ventana devuelve el promedio de lo que
+tenga mientras no haya llegado al tamaño $$K$$, en vez de negarse a
+responder; y `suma` se mantiene como entero para que la división sea la
+única operación con decimales, que es donde el error de redondeo no se
+acumula.
 
 </Slide>
 
