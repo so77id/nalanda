@@ -1042,6 +1042,355 @@ de reconocerlo cuando aparezca.
 
 ## Ejercicios con solución
 
-PLACEHOLDER — cinco ejercicios, book-only.
+Cinco ejercicios para resolver en el navegador. Los dos primeros son el
+mismo patrón visto desde dos lados —una **pila monótona**, que resuelve
+pendientes en cuanto llega el elemento que los responde— y los tres
+siguientes usan la cola, dos de ellos con una pila al lado.
+
+Ninguno necesita más estructuras que las de esta clase, y las soluciones
+están escritas con arreglos y dos índices, sin bibliotecas. Conviene mirar
+la solución después de intentarlo: lo que hay que sacar de ella no es el
+código, sino por qué cada línea está donde está.
+
+<Slide title="Los ejercicios de esta clase">
+Cinco problemas, y cada uno existe por el patrón que enseña.
+
+**Next Greater Element** y **Stock Span** son el mismo patrón —una **pila
+monótona**— desde dos ángulos opuestos. En los dos, la pila guarda
+posiciones que todavía esperan respuesta, y cada elemento nuevo resuelve de
+una vez a todos los que ya no pueden esperar más. Cada posición entra y sale
+exactamente una vez, y por eso los dos son $$\Theta(N)$$ aunque tengan un
+ciclo adentro de otro.
+
+**Generar los binarios de 1 a N** es la cola sola, y es el más corto de los
+cinco: cada número sacado del frente genera dos nuevos por el final.
+
+**Invertir los primeros K de una cola** e **intercalar las dos mitades**
+combinan los dos contratos. La pila aporta lo único que la cola no tiene
+—dar vuelta un tramo— y la cola aporta la rotación que deja cada elemento
+donde corresponde.
+
+Los enunciados completos, con casos de prueba y solución, están en el texto
+de esta clase.
+
+</Slide>
+
+<Exercise title="Next Greater Element">
+
+Escribe `nextGreater`, que recibe un arreglo y devuelve otro del mismo
+largo: en cada posición, el primer elemento **estrictamente mayor** que
+aparece a su derecha, o `-1` si no hay ninguno.
+
+La solución ingenua mira, para cada posición, todo lo que sigue: $$\Theta(N^2)$$.
+La pila la reduce a $$\Theta(N)$$ con una observación. Recorriendo de
+izquierda a derecha, cuando llega un elemento grande, **resuelve de una vez
+a todos los que estaban esperando y son menores que él** — y los que
+esperan, si se guardan en una pila, quedan en orden decreciente, así que
+alcanza con sacar desde la cima hasta encontrar uno mayor.
+
+Guarda en la pila **posiciones**, no valores: al resolver una hay que saber
+en qué casilla del resultado escribir. Las que quedan en la pila al terminar
+son las que nadie superó.
+
+```java starter
+class Solution {
+    static int[] nextGreater(int[] a) {
+        return new int[a.length];
+    }
+}
+```
+
+```java test
+check(Solution.nextGreater(new int[]{4, 5, 2, 25}), new int[]{5, 25, 25, -1});
+check(Solution.nextGreater(new int[]{13, 7, 6, 12}), new int[]{-1, 12, 12, -1});
+check(Solution.nextGreater(new int[]{3, 3}), new int[]{-1, -1});
+check(Solution.nextGreater(new int[]{}), new int[]{});
+```
+
+```java solution
+class Solution {
+    // La pila guarda POSICIONES cuyos valores quedan en orden decreciente.
+    // Cada posición entra una vez y sale una vez: el ciclo de adentro no
+    // multiplica el costo, lo reparte.
+    static int[] nextGreater(int[] a) {
+        int[] res = new int[a.length];
+        int[] pila = new int[a.length];
+        int cima = 0;
+        for (int i = 0; i < a.length; i++) {
+            while (cima > 0 && a[pila[cima - 1]] < a[i]) {
+                res[pila[--cima]] = a[i];   // a[i] es el primer mayor del que esperaba
+            }
+            pila[cima++] = i;
+        }
+        while (cima > 0) {
+            res[pila[--cima]] = -1;         // nadie los superó
+        }
+        return res;
+    }
+}
+```
+
+</Exercise>
+
+<Exercise title="Stock Span">
+
+Escribe `span`, que recibe los precios de una acción día a día y devuelve,
+para cada día, cuántos días consecutivos hacia atrás —contando el día
+mismo— el precio fue **menor o igual** que el de hoy.
+
+Es el problema anterior mirado al revés: en vez de preguntar quién me supera
+a la derecha, pregunta hasta dónde llego hacia la izquierda sin encontrar a
+nadie mayor. La pila vuelve a guardar posiciones, y el precio de hoy expulsa
+a todas las que no lo superan —ninguna de ellas podrá volver a cortar a
+nadie, porque hoy está más a la derecha y es mayor.
+
+Cuando la pila queda vacía, hoy es el máximo de todo lo visto y el span son
+los `i + 1` días. Si no, el que quedó en la cima es el primer día anterior
+con precio mayor, y ahí se corta.
+
+```java starter
+class Solution {
+    static int[] span(int[] precios) {
+        return new int[precios.length];
+    }
+}
+```
+
+```java test
+check(Solution.span(new int[]{100, 80, 60, 70, 60, 75, 85}), new int[]{1, 1, 1, 2, 1, 4, 6});
+check(Solution.span(new int[]{10, 4, 5, 90, 120, 80}), new int[]{1, 1, 2, 4, 5, 1});
+check(Solution.span(new int[]{5}), new int[]{1});
+check(Solution.span(new int[]{}), new int[]{});
+```
+
+```java solution
+class Solution {
+    // La misma pila monótona de posiciones, con la comparación dada vuelta:
+    // hoy expulsa a todos los días anteriores que no lo superan.
+    static int[] span(int[] precios) {
+        int[] res = new int[precios.length];
+        int[] pila = new int[precios.length];
+        int cima = 0;
+        for (int i = 0; i < precios.length; i++) {
+            while (cima > 0 && precios[pila[cima - 1]] <= precios[i]) {
+                cima--;
+            }
+            // pila vacía: hoy es el máximo hasta aquí. Si no, la cima es el
+            // primer día anterior con precio mayor, y el span llega hasta él.
+            res[i] = (cima == 0) ? i + 1 : i - pila[cima - 1];
+            pila[cima++] = i;
+        }
+        return res;
+    }
+}
+```
+
+</Exercise>
+
+<Exercise title="Los binarios de 1 a N">
+
+Escribe `binarios`, que devuelve la representación binaria de los números de
+1 a `n`, en orden, como un arreglo de `String`.
+
+Se puede resolver convirtiendo cada número por separado, pero hay una
+solución más corta y es de cola. Los binarios de 1 a `n`, leídos en orden,
+forman un árbol: de `"1"` salen `"10"` y `"11"`; de `"10"` salen `"100"` y
+`"101"`. Recorrer ese árbol por niveles es exactamente lo que hace una cola.
+
+Encola `"1"`. Después, `n` veces: saca uno del frente, guárdalo en el
+resultado, y encola sus dos hijos —el mismo texto con un `0` y con un `1` al
+final.
+
+```java starter
+class Solution {
+    static String[] binarios(int n) {
+        return new String[n];
+    }
+}
+```
+
+```java test
+String[] r = Solution.binarios(5);
+check(r.length, 5);
+check(r[0], "1");
+check(r[1], "10");
+check(r[2], "11");
+check(r[3], "100");
+check(r[4], "101");
+check(Solution.binarios(1).length, 1);
+check(Solution.binarios(0).length, 0);
+```
+
+```java solution
+class Solution {
+    // La cola es un arreglo con dos índices: `front` por donde sale,
+    // `rear` por donde entra. Se sacan n y se encolan 1 + 2n, así que
+    // 2n + 2 casillas alcanzan y sobran.
+    static String[] binarios(int n) {
+        String[] res = new String[n];
+        String[] cola = new String[2 * n + 2];
+        int front = 0;
+        int rear = 0;
+        cola[rear++] = "1";
+        for (int i = 0; i < n; i++) {
+            String s = cola[front++];
+            res[i] = s;
+            cola[rear++] = s + "0";
+            cola[rear++] = s + "1";
+        }
+        return res;
+    }
+}
+```
+
+</Exercise>
+
+<Exercise title="Invertir los primeros K de una cola">
+
+Escribe `reverseFirstK`, que recibe una cola —dada como arreglo, con el
+frente en la posición 0— y devuelve la cola resultante de invertir sus
+primeros `k` elementos, dejando el resto en su orden. Con `[1, 2, 3, 4, 5]`
+y `k = 3` el resultado es `[3, 2, 1, 4, 5]`.
+
+La cola sola no puede: sacar por el frente y meter por el final nunca
+invierte nada. Lo que falta lo aporta la pila, que es exactamente la
+estructura que devuelve las cosas al revés.
+
+Son tres fases, y la tercera es la que sorprende. Los primeros `k` salen de
+la cola y entran a la pila; vuelven a la cola desde la pila, y como entran
+por el final quedan invertidos **pero atrás**; entonces hay que rotar los
+`n - k` que no se tocaron —sacarlos del frente y volver a encolarlos— para
+que el tramo invertido vuelva a quedar adelante.
+
+```java starter
+class Solution {
+    static int[] reverseFirstK(int[] entrada, int k) {
+        return entrada;
+    }
+}
+```
+
+```java test
+check(Solution.reverseFirstK(new int[]{1, 2, 3, 4, 5}, 3), new int[]{3, 2, 1, 4, 5});
+check(Solution.reverseFirstK(new int[]{1, 2, 3, 4, 5}, 5), new int[]{5, 4, 3, 2, 1});
+check(Solution.reverseFirstK(new int[]{1, 2, 3, 4, 5}, 0), new int[]{1, 2, 3, 4, 5});
+check(Solution.reverseFirstK(new int[]{7}, 1), new int[]{7});
+```
+
+```java solution
+class Solution {
+    // La cola vive en un arreglo con `front` y `rear`, sin dar la vuelta: se
+    // encolan n + k + (n - k) = 2n elementos en total, así que 2n casillas
+    // alcanzan y no hace falta el módulo.
+    static int[] reverseFirstK(int[] entrada, int k) {
+        int n = entrada.length;
+        int[] cola = new int[2 * n];
+        int front = 0;
+        int rear = 0;
+        for (int x : entrada) {
+            cola[rear++] = x;
+        }
+
+        int[] pila = new int[k];
+        int cima = 0;
+        for (int i = 0; i < k; i++) {       // los primeros k salen de la cola
+            pila[cima++] = cola[front++];
+        }
+        while (cima > 0) {                   // y vuelven al final, invertidos
+            cola[rear++] = pila[--cima];
+        }
+        for (int i = 0; i < n - k; i++) {   // los intactos rotan una vuelta
+            cola[rear++] = cola[front++];
+        }
+
+        int[] res = new int[n];
+        for (int i = 0; i < n; i++) {
+            res[i] = cola[front++];
+        }
+        return res;
+    }
+}
+```
+
+</Exercise>
+
+<Exercise title="Intercalar las dos mitades de una cola">
+
+Escribe `interleave`, que recibe una cola con una cantidad **par** de
+elementos y devuelve la cola con las dos mitades intercaladas: el primero de
+la primera mitad, el primero de la segunda, el segundo de la primera, y así.
+Con `[1, 2, 3, 4, 5, 6]` el resultado es `[1, 4, 2, 5, 3, 6]`.
+
+Es el ejercicio más largo de los cinco y el que mejor muestra para qué sirve
+tener las dos estructuras a mano. La primera mitad hay que poder
+adelantarla; la segunda hay que poder dejarla quieta. Ninguna de las dos
+cosas la hace un solo contrato.
+
+El plan tiene cuatro movimientos. La primera mitad va a la pila y vuelve a
+la cola, con lo que queda invertida al final; una rotación de media vuelta
+la devuelve adelante, ahora al derecho. Después la primera mitad vuelve a la
+pila, y esta vez se intercala: por cada elemento que sale de la pila, uno
+sale del frente de la cola y vuelve al final.
+
+```java starter
+class Solution {
+    static int[] interleave(int[] entrada) {
+        return entrada;
+    }
+}
+```
+
+```java test
+check(Solution.interleave(new int[]{1, 2, 3, 4, 5, 6}), new int[]{1, 4, 2, 5, 3, 6});
+check(Solution.interleave(new int[]{1, 2, 3, 4}), new int[]{1, 3, 2, 4});
+check(Solution.interleave(new int[]{9, 8}), new int[]{9, 8});
+check(Solution.interleave(new int[]{1, 2, 3, 4, 5, 6, 7, 8}), new int[]{1, 5, 2, 6, 3, 7, 4, 8});
+```
+
+```java solution
+class Solution {
+    // Cuántas casillas hacen falta: se encolan n al principio, mitad al
+    // volver de la pila, mitad al rotar y 2 × mitad al intercalar. Son
+    // n + 4 × (n/2) = 3n encoladas en total, así que 3n + 1 alcanza.
+    static int[] interleave(int[] entrada) {
+        int n = entrada.length;
+        int mitad = n / 2;
+        int[] cola = new int[3 * n + 1];
+        int front = 0;
+        int rear = 0;
+        for (int x : entrada) {
+            cola[rear++] = x;
+        }
+
+        int[] pila = new int[mitad];
+        int cima = 0;
+        for (int i = 0; i < mitad; i++) {   // la primera mitad a la pila
+            pila[cima++] = cola[front++];
+        }
+        while (cima > 0) {                   // vuelve al final, invertida
+            cola[rear++] = pila[--cima];
+        }
+        for (int i = 0; i < mitad; i++) {   // media vuelta: queda adelante
+            cola[rear++] = cola[front++];
+        }
+
+        for (int i = 0; i < mitad; i++) {   // otra vez a la pila
+            pila[cima++] = cola[front++];
+        }
+        while (cima > 0) {                   // y se intercalan de a uno
+            cola[rear++] = pila[--cima];
+            cola[rear++] = cola[front++];
+        }
+
+        int[] res = new int[n];
+        for (int i = 0; i < n; i++) {
+            res[i] = cola[front++];
+        }
+        return res;
+    }
+}
+```
+
+</Exercise>
 
 PLACEHOLDER — la bisagra y la navegación al documento siguiente.
