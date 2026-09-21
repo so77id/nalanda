@@ -139,6 +139,32 @@ que devuelva cualquier cosa en ese caso está mintiendo sobre el contrato.
 
 </Slide>
 
+<Slide title="El contrato en Java · Deque, y por qué no Stack">
+Java tiene una clase que se llama `Stack`, y **no es la que hay que usar**.
+Es de las primeras versiones del lenguaje, extiende `Vector`, y por
+extenderla hereda `get(i)`: se le puede pedir el tercer elemento desde
+abajo, que es exactamente lo que el contrato de arriba prohíbe. Su propio
+manual recomienda otra cosa.
+
+La que hay que usar es `ArrayDeque`, y los nombres cambian:
+
+| Stack | Java `Deque` |
+|---|---|
+| `push(x)` | `push(x)` · `addFirst(x)` |
+| `pop()` | `pop()` · `removeFirst()` |
+| `top()` | `peek()` |
+| `empty()` | `isEmpty()` |
+
+```java
+Deque<Integer> pila = new ArrayDeque<>();
+```
+
+El tipo de la variable es la **interfaz** y no la clase: así el código
+depende del contrato y no de quién lo cumple. Es la misma idea que la
+clase del arreglo mostró con `List`, aplicada aquí.
+
+</Slide>
+
 <Slide title="Un caso · el historial de acciones">
 Un editor de texto que ofrece deshacer guarda cada cambio en el momento en
 que ocurre. Cuando el usuario pide deshacer, el cambio que corresponde
@@ -333,6 +359,18 @@ principio de la cadena, que es el único lugar al que `head` llega sin
 caminar. Una pila vacía es `head == null`, y el dibujo de arriba, leído al
 revés, es el orden en que los tres elementos entraron: 42 primero, 15 al
 final.
+
+La estructura entera son dos atributos, y los cuatro métodos que vienen a
+continuación van adentro de esta clase:
+
+```java
+class Stack {
+    private Node head;
+    private int size;
+
+    // push, pop, top y empty
+}
+```
 
 </Slide>
 
@@ -651,6 +689,33 @@ Pedirle el frente a una cola vacía es un error, no un valor. `front()` y
 
 </Slide>
 
+<Slide title="El contrato en Java · Queue">
+Aquí Java sí tiene la interfaz con el nombre esperado, `Queue`, y otra vez
+los nombres de las operaciones son propios:
+
+| Queue | Java `Queue` |
+|---|---|
+| `enqueue(x)` | `offer(x)` · `add(x)` |
+| `dequeue()` | `poll()` · `remove()` |
+| `front()` | `peek()` · `element()` |
+| `empty()` | `isEmpty()` |
+
+Los pares no son sinónimos y la diferencia importa: **`offer`, `poll` y
+`peek` devuelven un valor especial cuando no pueden** —`false` o `null`—,
+mientras que `add`, `remove` y `element` lanzan una excepción. Los primeros
+son para cuando quedarse sin elementos es parte del funcionamiento normal;
+los segundos, para cuando es un error. Los listados de esta clase lanzan,
+así que la columna que les corresponde es la segunda.
+
+```java
+Queue<Integer> cola = new ArrayDeque<>();
+```
+
+`ArrayDeque` otra vez, que cumple los dos contratos a la vez. `LinkedList`
+también los cumple, y es la otra implementación que Java trae.
+
+</Slide>
+
 <Slide title="Un caso · la impresora, la boletería, el buffer">
 Una impresora compartida recibe trabajos de varias personas a la vez y los
 imprime de a uno. El orden justo es el de llegada, y es exactamente lo que
@@ -946,6 +1011,16 @@ que convierte a `enqueue` en una operación constante.
 La contraparte es que ahora hay dos referencias que mantener al día, y cada
 operación que toca un extremo tiene que dejarlas a las dos consistentes —
 incluida la cola de un solo nodo, donde `head` y `tail` señalan el mismo.
+
+```java
+class Queue {
+    private Node head;
+    private Node tail;
+    private int size;
+
+    // enqueue, dequeue, front y empty
+}
+```
 
 </Slide>
 
@@ -1361,6 +1436,26 @@ Ninguno necesita más estructuras que las de esta clase, y las soluciones
 están escritas con arreglos y dos índices, sin bibliotecas. Conviene mirar
 la solución después de intentarlo: lo que hay que sacar de ella no es el
 código, sino por qué cada línea está donde está.
+
+**Cómo se lee una pila escrita a mano.** Las soluciones no llaman a
+`push` y `pop`: los escriben directamente sobre un arreglo con un índice
+`cima` que marca cuántos hay. La correspondencia es esta, y conviene
+tenerla a mano al leer:
+
+| El contrato | Escrito a mano |
+|---|---|
+| `push(x)` | `pila[cima++] = x` |
+| `pop()` | `pila[--cima]` |
+| `top()` | `pila[cima - 1]` |
+| `empty()` | `cima == 0` |
+
+El `++` después del índice escribe y **luego** avanza; el `--` antes
+retrocede y **luego** lee. Es la misma pila de la clase, sin la clase.
+
+Para la cola, igual con dos índices: `cola[rear++] = x` encola y
+`cola[front++]` desencola. Ahí `rear` es la próxima casilla **libre**, que
+es la otra convención posible de las dos que la lámina de la cola circular
+nombró.
 
 <Slide title="Los ejercicios de esta clase">
 Cinco problemas, y cada uno existe por el patrón que enseña.
