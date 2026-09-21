@@ -279,19 +279,20 @@ copian nada.
 | `push(x)` | <span style={{ color: 'var(--color-mark)', fontWeight: 700 }}>$$\Theta(N)$$</span> | $$\Theta(1)$$ | La cima es `data[size - 1]`, y `size ≤ data.length` obliga a crecer |
 | `pop()` | <span style={{ color: 'var(--color-mark)', fontWeight: 700 }}>$$\Theta(N)$$</span> | $$\Theta(1)$$ | La cima es `data[size - 1]`, y `data.length ≤ 4 × size` obliga a achicar |
 
-**Lo que gana.** Los elementos viven juntos, así que la pila no paga un
-enlace por elemento y el procesador lee el bloque de corrido. Y las cuatro
-operaciones terminan siendo una cuenta sobre `size`.
+**Lo que gana.** Las cuatro operaciones son aritmética sobre `size`: no hay
+nada que recorrer ni ningún enlace que seguir. Y los valores quedan uno al
+lado del otro en memoria, que es como el procesador los lee más rápido.
 
-**Lo que paga.** Las dos columnas de `push` y `pop` no coinciden. Una de
-cada $$N$$ llamadas copia el bloque entero, y no se sabe cuál: el
-amortizado promete que el total sale constante, y el peor caso avisa que
-alguna llamada, alguna vez, va a tardar $$N$$.
+**Lo que paga.** `push` y `pop` casi siempre cuestan un paso, pero cada
+tanto copian el arreglo entero. En promedio sale constante; una llamada
+suelta puede tardar $$N$$, y no se sabe cuál va a ser.
 
-Eso está bien si lo que importa es el total —un programa que hace millones
-de operaciones—, y no está bien si ninguna llamada puede pasarse de un
-límite: un videojuego, un sistema de tiempo real. Ahí hace falta una
-implementación donde las dos columnas sean iguales, y la que sigue lo es.
+Si lo que importa es el tiempo total de un programa, manda el promedio y
+esto es una buena elección. Si lo que importa es cuánto puede tardar **una**
+operación —un videojuego que dibuja 60 cuadros por segundo, un sistema de
+tiempo real—, manda el peor caso, y esas copias son un problema.
+
+La lista enlazada no las tiene: nunca copia nada.
 
 </Slide>
 
