@@ -139,16 +139,14 @@ El **Stack** es una colección donde sólo se trabaja en un extremo, la
   </div>
 </div>
 
-Ninguna de las cuatro operaciones recibe una posición, y eso no es un olvido:
-es la única puerta del dibujo, escrita como lista de pedidos. Por eso LIFO no
-hay que imponerlo por separado —no existe la operación que podría romperlo.
+Esas cuatro operaciones son todo el contrato, y **LIFO es parte del
+contrato**: `pop()` no devuelve un elemento cualquiera, devuelve el último
+que entró. Ninguna operación recibe una posición, así que tampoco hay forma
+de pedir otro.
 
-Falta decir qué pasa cuando la pila está vacía: no hay cima/top, así que
-`top()` y `pop()` no tienen a qué referirse. Pedirlos ahí es un **error**, no
-una consulta que devuelve algo raro —cualquier valor que saliera sería un
-elemento que nadie apiló. Para eso está `empty()`: preguntar antes es trabajo
-de quien usa la pila, y fallar cuando no preguntó es trabajo de quien la
-implementa.
+Para eso está `empty()`. El protocolo es: **`top()` y `pop()` sólo se pueden
+llamar cuando `empty()` es falso.** Sobre una pila vacía no hay nada que
+devolver, así que llamarlas ahí queda fuera del contrato.
 
 </Slide>
 
