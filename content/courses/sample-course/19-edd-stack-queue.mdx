@@ -577,6 +577,9 @@ boolean balanced(String s) {
 apertura que le corresponde a un cierre: `(` para `)`, `[` para `]`, `{`
 para `}`.
 
+</Slide>
+
+<Slide title="Paréntesis balanceados · las dos corridas">
 Las dos expresiones del enunciado, corridas:
 
 | `({[]})` | pila antes | acción | pila después |
@@ -653,6 +656,9 @@ Los dos auxiliares son directos: `esOperador(t)` responde si el token es uno
 de los cuatro símbolos, y `aplicar(a, b, t)` devuelve el resultado de
 aplicarle a `a` y `b` el operador `t`.
 
+</Slide>
+
+<Slide title="Notación polaca · la corrida y el contraejemplo">
 `3 4 + 5 *`, token a token:
 
 | token | pila antes | acción | pila después |
@@ -845,11 +851,12 @@ Desencolar saca el de la casilla cero, y ahí aparece el precio.
   showCode={false}
 />
 
-El contador de operaciones del widget es lo que hay que mirar: sacar el
-primer elemento fue una lectura, y todo lo demás fue mover a los que
-quedaban. Con $$N$$ elementos en la cola son $$N - 1$$ copias, así que
-desencolar cuesta $$\Theta(N)$$ mientras el frente esté obligado a vivir en
-la casilla cero.
+Lo que hay que contar son los cuadros: sacar el primer elemento fue **un**
+paso, y los dos siguientes fueron mover a los que quedaban. Con tres
+elementos, dos copias; con $$N$$, son $$N - 1$$. Por eso desencolar cuesta
+$$\Theta(N)$$ mientras el frente esté obligado a vivir en la casilla cero —
+y por eso el bloque dibuja el valor copiado **dos veces** en cada paso: la
+copia lo deja escrito en los dos lados hasta que el siguiente lo pisa.
 
 </Slide>
 
@@ -1124,9 +1131,9 @@ está afuera y se escribe una sola vez.
 />
 
 Tres `enqueue` sobre una cola que empezó vacía. `tail` sigue al último nodo
-en cada corrida, y ninguna de las tres recorre la cadena: el contador de
-operaciones sube lo mismo en las tres, sin importar cuántos nodos haya ya.
-No crecer con la cola es lo que $$\Theta(1)$$ significa.
+en cada corrida, y **ninguna de las tres recorre la cadena**: las tres tardan
+los mismos cuadros, con cero nodos guardados y con dos. No crecer con la cola
+es lo que $$\Theta(1)$$ significa.
 
 </Slide>
 
@@ -1309,6 +1316,9 @@ int josefo(int n, int k) {
 La línea que resuelve el problema es `ronda.enqueue(ronda.dequeue())`:
 saca del frente y devuelve al final, que es exactamente "pasar de largo".
 
+</Slide>
+
+<Slide title="Josefo · una ronda completa">
 Con $$n = 5$$ y $$k = 2$$, una ronda entera:
 
 | la cola es | pasa de largo | sale | queda |
@@ -1391,6 +1401,9 @@ double siguiente(int x) {
 }
 ```
 
+</Slide>
+
+<Slide title="Promedio móvil · la ventana, paso a paso">
 Con $$K = 3$$ y la secuencia 1, 2, 3, 4:
 
 | entra | ventana | suma | largo | promedio |

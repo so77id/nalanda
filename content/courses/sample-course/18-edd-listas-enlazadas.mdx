@@ -821,7 +821,8 @@ que sigue se explica por ella.
 Cinco inserciones desde la cadena vacía, y ninguna recorre nada. `tail` ya
 tiene en la mano el nodo que hay que modificar, así que enlazar el nodo nuevo
 y actualizar `tail` son dos asignaciones: la operación baja de $$\Theta(N)$$
-a $$\Theta(1)$$, y el contador lo confirma subiendo lo mismo las cinco veces.
+a $$\Theta(1)$$, y las cinco corridas lo confirman tardando lo mismo, con la
+cadena vacía y con cuatro nodos guardados.
 
 El precio fue guardar un dato de más. Con ese puntero la estructura ya no
 tiene que buscar el final: lo sabe. Cambiamos memoria —una referencia— por

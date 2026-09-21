@@ -355,6 +355,20 @@ describe('sequenceStepperTrace · get-at, the operation that shows the price', (
     expect(last.pointers.find((p) => p.name === 'current')!.index).toBe(2);
   });
 
+  // The cost is no longer on screen (#294, ADR-0074 §Amended by): a single
+  // run shows a single number, and one number is not a growth rate. It is
+  // still the trace's own arithmetic and still worth pinning HERE, which is
+  // where a claim about cost can be checked exactly.
+  it.each([0, 1, 2, 3])('charges exactly the i hops to reach position %i', (i) => {
+    const trace = traceFor('linked-list-singly', 'get-at', { values, index: i });
+    // The hops and nothing else: the chain charges `i`, where the array
+    // charges a flat 1 for the multiplication (the case below). So at i = 0
+    // the chain reads 0 and the array 1 — the two recipes do not count the
+    // same unit, which cost nothing while the number was on screen and costs
+    // nothing now that it is not. Pinned as it IS rather than as it reads.
+    expect(trace.steps.at(-1)!.cost).toBe(i);
+  });
+
   it('costs one step on an array, whatever the position — that is the contrast', () => {
     for (const i of [0, 1, 2, 3]) {
       const trace = traceFor('array', 'get-at', { values, index: i });

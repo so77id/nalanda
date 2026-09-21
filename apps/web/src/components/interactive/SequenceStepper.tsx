@@ -401,21 +401,21 @@ function Body({
               </div>
             )}
             {/*
-              The running elementary-operation count — the number five of the
-              operation slides argue about. Every frame already carried it;
-              until the #288 review it was computed, asserted by the suite and
-              never shown, while ADR-0074 §Consequences claimed the reader
-              read Θ(1) against Θ(N) off it. Now they can.
+              The elementary-operation count is NOT on screen, and that is a
+              decision rather than an omission — #294, ADR-0074 §Amended by.
+              `step.cost` is still computed and still asserted by the suite:
+              it is the trace's own arithmetic, and the tests that read it are
+              the reason the frame counts can be trusted.
+
+              What it could not do is the job ADR-0074 §Consequences gave it,
+              "the reader reads Θ(1) against Θ(N) off the widget". A single
+              run shows a single number, and one number is not a growth rate:
+              on the slide that pointed at it, `enqueue` read 1 and `dequeue`
+              read 3 over three elements — a factor of three that any constant
+              explains as well as N does. Seven of the eight slides that
+              mounted the widget never referred to it at all, so on those it
+              was chrome that reset between runs with nothing to say.
             */}
-            <div className="mt-1.5 font-mono text-3xs uppercase tracking-wide text-ink-faint">
-              ops
-            </div>
-            <div
-              data-testid="sequence-cost"
-              className="min-w-11 rounded border border-rule bg-sunk px-2 py-1 text-lg font-semibold leading-none text-ink"
-            >
-              {step.cost}
-            </div>
           </div>
           <div
             className="flex items-center justify-center overflow-x-auto p-3"

@@ -241,7 +241,13 @@ describe('<SequenceStepper> · the chrome', () => {
     expect(size).toHaveTextContent(/size\s*3/);
   });
 
-  it('shows the elementary-operation counter, and it grows with the walk', () => {
+  // The counter came off in #294 (ADR-0074 §Amended by): a single run shows a
+  // single number, which is not a growth rate, and seven of the eight slides
+  // that mounted the widget never referred to it. The arithmetic it displayed
+  // is still computed and still pinned — in `sequenceStepperTrace.test.ts`,
+  // where a claim about cost can be checked exactly instead of read off a
+  // painted box. This case is here so that putting it back is a decision.
+  it('keeps the operation counter off the screen', () => {
     renderIn(
       'book',
       <SequenceStepper
@@ -252,11 +258,11 @@ describe('<SequenceStepper> · the chrome', () => {
       />,
     );
     const box = screen.getByTestId('sequence-size');
-    expect(box).toHaveTextContent(/ops\s*0/);
+    expect(box).toHaveTextContent(/size/i);
+    expect(box).not.toHaveTextContent(/ops/i);
     const forward = () => screen.getByRole('button', { name: 'Adelante' });
     while (forward().getAttribute('aria-disabled') !== 'true') fireEvent.click(forward());
-    // Four hops to reach position 4 — the cost the slide claims.
-    expect(box).toHaveTextContent(/ops\s*4/);
+    expect(box).not.toHaveTextContent(/ops/i);
   });
 
   it('adds the capacity beside it for a block that reserves one', () => {
