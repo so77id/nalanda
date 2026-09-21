@@ -1145,7 +1145,72 @@ cincuenta, ya pensando en cómo evaluar expresiones con una máquina.
 
 <SectionBreak />
 
-## Queue · la fila de la vida
+## Queue · Cola
+
+<Slide title="Una cola">
+Una **cola** es una colección con dos puertas, y cada una en un solo
+sentido: se entra por el **final** y se sale por el **frente**. Los
+elementos de adentro no se tocan.
+
+<svg viewBox="70 20 560 150" style={{ width: '100%', maxWidth: '680px', height: 'auto', display: 'block', margin: '1.25rem auto' }} role="img" aria-label="Una cola de tres elementos, 3, 8 y 5, abierta por los dos extremos. Por la izquierda, rotulada frente, una flecha saca el 3: es dequeue. Por la derecha, rotulada final, otra flecha mete un 9 que espera afuera: es enqueue. Los dos extremos tienen un solo sentido.">
+  <defs>
+    <marker id="cola-intro-punta" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+      <path d="M0,0 L8,4 L0,8 z" style={{ fill: 'var(--color-accent)' }} />
+    </marker>
+  </defs>
+
+  <text x="150" y="48" textAnchor="middle" fontSize="14" fontWeight="700" fontFamily="monospace" style={{ fill: 'var(--color-accent)' }}>dequeue() → 3</text>
+  <line x1="200" y1="96" x2="112" y2="96" style={{ stroke: 'var(--color-accent)' }} strokeWidth="2.2" markerEnd="url(#cola-intro-punta)" />
+
+  {[3, 8, 5].map((v, i) => (
+    <g key={i}>
+      <rect x={210 + i * 64} y="72" width="58" height="48" rx="3" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.6" />
+      <text x={239 + i * 64} y="104" textAnchor="middle" fontSize="21" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{v}</text>
+    </g>
+  ))}
+  <text x="239" y="62" textAnchor="middle" fontSize="12" fontFamily="monospace" style={{ fill: 'var(--color-ink-faint)' }}>frente</text>
+  <text x="367" y="62" textAnchor="middle" fontSize="12" fontFamily="monospace" style={{ fill: 'var(--color-ink-faint)' }}>final</text>
+  <text x="303" y="146" textAnchor="middle" fontSize="12" style={{ fill: 'var(--color-ink-faint)' }}>se sale por aquí · se entra por allá</text>
+
+  <text x="530" y="48" textAnchor="middle" fontSize="14" fontWeight="700" fontFamily="monospace" style={{ fill: 'var(--color-accent)' }}>enqueue(9)</text>
+  <line x1="496" y1="96" x2="410" y2="96" style={{ stroke: 'var(--color-accent)' }} strokeWidth="2.2" markerEnd="url(#cola-intro-punta)" />
+  <rect x="502" y="72" width="58" height="48" rx="3" style={{ fill: 'var(--color-accent)', stroke: 'var(--color-accent)' }} strokeWidth="1.8" />
+  <text x="531" y="104" textAnchor="middle" fontSize="21" fontWeight="600" style={{ fill: 'var(--color-on-accent)' }}>9</text>
+</svg>
+
+Las dos operaciones trabajan en extremos opuestos. `enqueue` (encolar) pone
+un elemento nuevo en el final; `dequeue` (desencolar) saca el del frente y
+lo devuelve. No hay otra forma de acceder a los elementos: si quieres sacar
+el que está en el tercer lugar, tienes que sacar antes los dos que tiene
+adelante.
+
+Los elementos salen, entonces, en el mismo orden en que entraron. Esa regla
+se llama **FIFO**, del inglés _first in, first out_: **el primero en entrar
+es el primero en salir**.
+
+</Slide>
+
+<Slide title="Colas en la vida real">
+Una cola tampoco es una idea de la programación. Es la forma de cualquier
+espera donde se atiende por orden de llegada.
+
+- **La fila de una boletería.** El que llega se pone atrás, el que atienden
+  es el de adelante, y nadie necesita saber cuántos hay ni en qué lugar
+  está.
+- **La cola de impresión.** Una impresora compartida recibe trabajos de
+  varias personas a la vez e imprime de a uno, en el orden en que llegaron.
+- **El búfer entre quien produce y quien consume.** El teclado genera
+  pulsaciones más rápido de lo que el programa las procesa, y la tarjeta de
+  red entrega paquetes cuando llegan y no cuando conviene. Entre los dos hay
+  una cola, y su trabajo es que ninguno espere al otro.
+- **Los pedidos de un servidor.** Llegan más rápido de lo que se atienden,
+  y responderlos en desorden sería tratar distinto a dos clientes iguales.
+
+Los cuatro hacen lo mismo con palabras distintas: poner atrás y atender
+adelante. Ese comportamiento está definido con precisión en un **tipo de
+dato abstracto** (TDA) llamado **Queue**.
+
+</Slide>
 
 <Slide title="El TDA Queue">
 Una **cola** es una colección con dos extremos, cada uno con un solo
@@ -1184,51 +1249,23 @@ Pedirle el frente a una cola vacía es un error, no un valor. `front()` y
 
 </Slide>
 
-<Slide title="Queue en Java">
-Aquí Java sí tiene una interfaz con el nombre esperado, `Queue`, pero los
-nombres de las operaciones son propios:
+<Slide title="Cómo se implementa este TDA">
+Otra vez el contrato no dice dónde viven los elementos. Pero esta vez pide
+algo que la pila no pedía: **los dos extremos**, cada uno barato.
 
-| Queue | Java `Queue` |
-|---|---|
-| `enqueue(x)` | `offer(x)` · `add(x)` |
-| `dequeue()` | `poll()` · `remove()` |
-| `front()` | `peek()` · `element()` |
-| `empty()` | `isEmpty()` |
+La cola se puede construir utilizando una de las dos estructuras de datos:
 
-Los pares no son sinónimos y la diferencia importa: **`offer`, `poll` y
-`peek` devuelven un valor especial cuando no pueden** —`false` o `null`—,
-mientras que `add`, `remove` y `element` lanzan una excepción. Los primeros
-son para cuando quedarse sin elementos es parte del funcionamiento normal;
-los segundos, para cuando es un error. Los listados de esta clase lanzan,
-así que la columna que les corresponde es la segunda.
+| Queue | Sobre arreglo circular | Sobre lista simple con `tail` |
+|---|---|---|
+| `enqueue(x)` | escribir en `data[(front + size) % data.length]`, subir `size` | `insertLast(x)` |
+| `dequeue()` | leer `data[front]`, avanzar `front`, bajar `size` | `deleteFirst()` |
+| `front()` | leer `data[front]` | leer el valor de `head` |
+| `empty()` | `size == 0` | `head == null` |
 
-```java
-Queue<Integer> queue = new ArrayDeque<>();
-```
-
-`ArrayDeque` es la implementación habitual de `Queue`, y `LinkedList` es la
-otra que Java trae.
-
-</Slide>
-
-<Slide title="La impresora, la boletería, el buffer">
-Una impresora compartida recibe trabajos de varias personas a la vez y los
-imprime de a uno. El orden justo es el de llegada, y es exactamente lo que
-una cola sostiene sin que nadie tenga que ordenar nada: cada trabajo se
-encola al llegar y se saca cuando el anterior terminó.
-
-La boletería es el mismo contrato con personas: el que llega se pone atrás,
-el que atienden es el de adelante, y ningún cliente necesita saber cuántos
-hay ni en qué lugar está.
-
-Y el caso que aparece en cada programa que habla con otro: un **búfer**
-entre algo que produce datos y algo que los consume. El teclado produce
-pulsaciones más rápido de lo que el programa las procesa, la tarjeta de red
-entrega paquetes cuando llegan y no cuando conviene. Entre los dos hay una
-cola, y su trabajo es que ninguno tenga que esperar al otro.
-
-La justicia del orden de llegada es la propiedad que los tres comparten, y
-es la razón para elegir este contrato y no otro.
+Y ahí está el precio de pedir dos extremos: el arreglo tiene que **dar la
+vuelta** para que el frente pueda avanzar sin dejar un hueco, y la lista
+tiene que llevar **una referencia de más** para llegar al final sin
+caminarla. Las dos láminas que siguen son eso.
 
 </Slide>
 
@@ -1794,6 +1831,38 @@ verdad: memoria reservada una vez, elementos juntos, ningún costo por
 enlace. La lista sirve cuando el tamaño no tiene cota, y es la que evita la
 pausa de una copia justo en el momento en que la cola está más llena, que es
 el peor momento posible para pausar.
+
+</Slide>
+
+<Slide title="Queue en Java">
+Java no trae una clase `Queue`: trae una **interfaz** con ese nombre, y dos
+implementaciones que la cumplen. Los nombres cambian:
+
+| El TDA | Java |
+|---|---|
+| `enqueue(x)` | `add(x)` |
+| `dequeue()` | `remove()` |
+| `front()` | `element()` |
+| `empty()` | `isEmpty()` |
+| `size()` | `size()` |
+
+```java
+Queue<Integer> queue = new LinkedList<>();
+queue.add(3);
+queue.add(8);
+
+int frente = queue.element();  // 3, y la cola queda igual
+int x = queue.remove();        // 3, y ahora la cola sólo tiene el 8
+```
+
+Sobre una cola vacía, `remove()` y `element()` lanzan
+`NoSuchElementException`, igual que los listados de esta clase. Existe un
+segundo trío —`offer`, `poll` y `peek`— que en vez de lanzar devuelve
+`false` o `null`: sirve cuando quedarse sin elementos es parte del
+funcionamiento normal, y no cuando es un error.
+
+`LinkedList` es la lista con `tail` de esta clase; `ArrayDeque` es el
+arreglo circular. Las dos cumplen la interfaz.
 
 </Slide>
 
