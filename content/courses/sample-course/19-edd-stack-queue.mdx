@@ -83,29 +83,9 @@ Las dos operaciones son la misma flecha en sentidos opuestos. **Apilar**
 levanta el de la cima y lo devuelve. No hay una tercera puerta: para llegar
 al 42 hay que sacar antes todo lo que se apoyó encima de él.
 
-</Slide>
-
-<Slide title="LIFO · lo último que entra es lo primero que sale">
-Esa única puerta tiene una consecuencia, y la consecuencia es toda la regla
-de la pila. Si lo único que se puede sacar es lo de más arriba, entonces el
-orden en que salen los elementos es exactamente el inverso del orden en que
-entraron.
-
-| Operación | La pila queda | Devuelve |
-|---|---|---|
-| `push(42)` | 42 | — |
-| `push(7)` | 42, 7 | — |
-| `push(15)` | 42, 7, 15 | — |
-| `pop()` | 42, 7 | 15 |
-| `pop()` | 42 | 7 |
-| `pop()` | vacía | 42 |
-
-Entraron 42, 7, 15 y salieron 15, 7, 42. A esa regla se la llama **LIFO**,
-del inglés _last in, first out_: el último en entrar es el primero en salir.
-
-Lo que conviene guardar es la otra cara: **una pila da vuelta el orden**, y
-lo hace sin recorrer nada y sin comparar nada. No es un algoritmo, es un
-efecto de la forma.
+De esa única puerta sale toda la regla: los elementos salen en el orden
+inverso al que entraron. Se la llama **LIFO**, del inglés _last in, first
+out_ —el último en entrar es el primero en salir.
 
 </Slide>
 
