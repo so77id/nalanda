@@ -6,6 +6,7 @@ import { useMode } from '../../presentation';
 import { AuthoringError } from '../AuthoringError';
 import { CodeStepper } from './CodeStepper';
 import { Step } from './Step';
+import { ControlButton } from './stepperShell';
 import type { StepProps } from './Step';
 import { useViewportBreakout } from '../useViewportBreakout';
 
@@ -235,26 +236,37 @@ export function StepShow({
       </div>
 
       {/*
-        Controls row — same shape as `<SortStepper>`: skip-back, skip-forward,
-        play/pause, reset, speed, counter. `aria-disabled` rather than
-        `disabled`, at both ends (a `disabled` button loses focus, so walking
-        to the last step with the keyboard threw focus to the body and the
-        reader could no longer walk back — the control that stranded them
-        being the one they had just used). Announced as unavailable, still
-        focusable, inert on click. Earned in #116.
+        Controls row — the SAME four buttons, in the same order and with the
+        same words, as `<SequenceStepper>`, `<MergeStepper>` and
+        `<PartitionStepper>`: they share `stepperShell`'s `ControlButton`, so
+        a reader who learned the chrome on one stepper of the course does not
+        relearn it here (#294). This one used to keep a private copy that drew
+        the icon alone, which made it the only stepper whose controls had no
+        words on them.
+
+        `aria-disabled` rather than `disabled`, at both ends (a `disabled`
+        button loses focus, so walking to the last step with the keyboard
+        threw focus to the body and the reader could no longer walk back — the
+        control that stranded them being the one they had just used).
+        Announced as unavailable, still focusable, inert on click. Earned in
+        #116, and now an invariant of the shared button.
       */}
       <footer className="flex flex-wrap items-center gap-2 border-t border-rule bg-sunk px-3 py-2">
-        <ControlButton onClick={retreat} disabled={first} label="Paso anterior">
-          <SkipBack size={14} aria-hidden />
+        <ControlButton onClick={reset} disabled={first} label="Reiniciar">
+          <RotateCcw className="h-3.5 w-3.5" aria-hidden />
         </ControlButton>
-        <ControlButton onClick={advance} disabled={last} label="Paso siguiente">
-          <SkipForward size={14} aria-hidden />
+        <ControlButton onClick={retreat} disabled={first} label="Atrás">
+          <SkipBack className="h-3.5 w-3.5" aria-hidden />
         </ControlButton>
         <ControlButton onClick={togglePlay} label={isPlaying ? 'Pausar' : 'Reproducir'}>
-          {isPlaying ? <Pause size={14} aria-hidden /> : <Play size={14} aria-hidden />}
+          {isPlaying ? (
+            <Pause className="h-3.5 w-3.5" aria-hidden />
+          ) : (
+            <Play className="h-3.5 w-3.5" aria-hidden />
+          )}
         </ControlButton>
-        <ControlButton onClick={reset} label="Reiniciar">
-          <RotateCcw size={13} aria-hidden />
+        <ControlButton onClick={advance} disabled={last} label="Adelante">
+          <SkipForward className="h-3.5 w-3.5" aria-hidden />
         </ControlButton>
         <label className="ml-1 inline-flex items-center gap-1 rounded border border-rule bg-surface px-2 py-1 text-xs text-ink">
           <span className="font-mono text-3xs text-ink-faint uppercase tracking-wide">
@@ -287,32 +299,6 @@ export function StepShow({
         </span>
       </footer>
     </div>
-  );
-}
-
-function ControlButton({
-  onClick,
-  disabled = false,
-  label,
-  children,
-}: {
-  onClick: () => void;
-  disabled?: boolean;
-  label: string;
-  children: ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      aria-label={label}
-      aria-disabled={disabled}
-      onClick={disabled ? undefined : onClick}
-      className={`inline-flex items-center rounded border border-rule bg-surface p-1 text-ink-soft hover:bg-surface ${
-        disabled ? 'opacity-40' : ''
-      }`}
-    >
-      {children}
-    </button>
   );
 }
 

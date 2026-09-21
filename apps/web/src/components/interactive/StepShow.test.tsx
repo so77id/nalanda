@@ -100,15 +100,15 @@ describe('StepShow', () => {
       </StepShow>,
     );
 
-    fireEvent.click(screen.getByRole('button', { name: /siguiente/i }));
+    fireEvent.click(screen.getByRole('button', { name: /adelante/i }));
     expect(screen.getByText('b')).toBeTruthy();
     expect(highlightedLines(container)).toEqual([7]);
 
-    fireEvent.click(screen.getByRole('button', { name: /siguiente/i }));
+    fireEvent.click(screen.getByRole('button', { name: /adelante/i }));
     expect(screen.getByText('c')).toBeTruthy();
     expect(highlightedLines(container)).toEqual([8]);
 
-    fireEvent.click(screen.getByRole('button', { name: /anterior/i }));
+    fireEvent.click(screen.getByRole('button', { name: /atrás/i }));
     expect(screen.getByText('b')).toBeTruthy();
     expect(highlightedLines(container)).toEqual([7]);
 
@@ -133,8 +133,8 @@ describe('StepShow', () => {
       </StepShow>,
     );
 
-    const prev = screen.getByRole('button', { name: /anterior/i });
-    const next = screen.getByRole('button', { name: /siguiente/i });
+    const prev = screen.getByRole('button', { name: /atrás/i });
+    const next = screen.getByRole('button', { name: /adelante/i });
 
     expect(prev.getAttribute('aria-disabled')).toBe('true');
     expect(prev.hasAttribute('disabled')).toBe(false);
@@ -261,7 +261,7 @@ describe('StepShow', () => {
     expect(live?.textContent).toMatch(/Paso 1 de 2/);
     expect(live?.textContent).toMatch(/línea 6/);
 
-    fireEvent.click(screen.getByRole('button', { name: /siguiente/i }));
+    fireEvent.click(screen.getByRole('button', { name: /adelante/i }));
     expect(live?.textContent).toMatch(/Paso 2 de 2/);
     expect(live?.textContent).toMatch(/líneas 7 y 8/);
   });
@@ -309,7 +309,7 @@ describe('StepShow', () => {
       </div>,
     );
 
-    const nexts = screen.getAllByRole('button', { name: /siguiente/i });
+    const nexts = screen.getAllByRole('button', { name: /adelante/i });
     fireEvent.click(nexts[0]!);
 
     // A moved, B did not.
