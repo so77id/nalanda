@@ -328,21 +328,24 @@ La decisión que la hace funcionar es una sola: **la cima es la cabeza**.
 
 Con esa decisión, las dos operaciones que la pila pide caen sobre el
 principio de la cadena, que es el único lugar al que `head` llega sin
-caminar. Una pila vacía es `head == null`, y el dibujo de arriba, leído al
-revés, es el orden en que los tres elementos entraron: 42 primero, 15 al
-final.
+caminar. Una pila vacía es `head == null`.
 
-La estructura entera son dos atributos, y los cuatro métodos que vienen a
-continuación van adentro de esta clase:
+La estructura entera son dos atributos y sus cuatro métodos, para respetar
+la implementación del TDA:
 
 ```java
 class Stack {
-    private Node head;
-    private int size;
+    private Node head;  // el primer nodo de la cadena: la cima
+    private int size;   // cuántos elementos hay
 
-    // push, pop, top y empty
+    void push(int x)    // pone x en la cima
+    int pop()           // saca el de la cima y lo devuelve
+    int top()           // el de la cima, sin sacarlo
+    boolean empty()     // si la pila no tiene ningún elemento
 }
 ```
+
+Las cuatro láminas que siguen escriben el cuerpo de cada uno.
 
 </Slide>
 
@@ -365,6 +368,10 @@ como las encontró.
 La tercera es la que hace barata a esta implementación, igual que en el
 arreglo lo era «la cima es `data[size - 1]`». Cambia la estructura, no el
 papel que juega la invariante.
+
+Lo que sí cambia es el trabajo que hay que hacer para llegar a la cima. En
+el arreglo era una resta, `size - 1`, y después ir a esa casilla. Acá no hay
+nada que calcular: `head` **es** la cima, y basta con mirarla.
 
 </Slide>
 
