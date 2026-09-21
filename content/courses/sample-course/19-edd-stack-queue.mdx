@@ -37,7 +37,7 @@ más chicos restringen ese permiso, cada uno a su manera:
 Los tres son **tipos de dato abstracto** (TDA): fijan **qué se les puede
 pedir y qué significa cada pedido**, y no dicen nada sobre cómo se guardan
 los elementos ni cuánto cuesta cada operación. Esa parte la decide la estructura que los implemente,
-y es la que vamos a mirar dos veces por contrato.
+y es la que vamos a mirar dos veces para cada uno de los dos primeros.
 
 Restringir no es perder. Es lo que permite prometer un costo: mientras el
 único lugar donde se opera sea un extremo conocido, no hay nada que
@@ -525,7 +525,7 @@ nunca copia nada, porque no hay bloque que se llene.
 <Slide title="Arreglo vs lista · dónde vive el costo">
 | | Sobre arreglo | Sobre lista con `head` |
 |---|---|---|
-| `push(x)` | $$\Theta(1)$$ · $$\Theta(N)$$ la corrida que copia | $$\Theta(1)$$ siempre |
+| `push(x)` | $$\Theta(1)$$ amortizado — $$\Theta(N)$$ la corrida que copia | $$\Theta(1)$$ siempre |
 | `pop()` | $$\Theta(1)$$ | $$\Theta(1)$$ |
 | `top()`, `empty()` | $$\Theta(1)$$ | $$\Theta(1)$$ |
 | memoria por elemento | el valor | el valor **y** un enlace |
@@ -554,7 +554,7 @@ abre se cierra después, y en el orden correcto: `({[]})` lo está, `([)]` no,
 aunque tenga la misma cantidad de cada símbolo.
 
 La pila resuelve el problema casi sin pensarlo, porque el símbolo que un
-cierre tiene que corresponder es siempre **el último que quedó abierto**.
+cierre tiene que corresponderse es siempre **el último que quedó abierto**.
 Recorremos la expresión una vez: cada apertura se apila; cada cierre desapila
 y compara.
 
@@ -994,7 +994,7 @@ posición; paga el $$\Theta(1)$$ de desencolar.
 | `enqueue(x)` | $$\Theta(1)$$ | $$\Theta(1)$$ | Los elementos ocupan `size` casillas seguidas: `rear` avanza y escribe |
 | `dequeue()` | $$\Theta(N)$$ | <span style={{ color: 'var(--color-keep)', fontWeight: 700 }}>$$\Theta(1)$$</span> | Frente fijo restaura **además** que la primera sea `data[0]`, y eso cuesta correr todo. Circular sólo avanza `front` |
 
-Las dos versiones **no** sostienen las mismas invariantes, y ahí está toda
+La celda destacada es toda la diferencia. Las dos versiones **no** sostienen las mismas invariantes, y ahí está toda
 la diferencia. Las dos prometen que los elementos ocupan `size` casillas
 seguidas. La de frente fijo promete **una cosa más**: que la primera de
 ellas es la casilla cero.
@@ -1266,7 +1266,7 @@ cambio aparece la suya —lleno contra vacío— que la lista no tiene.
 <Slide title="Arreglo circular vs lista con tail · comparación">
 | | Arreglo circular | Lista con `head` y `tail` |
 |---|---|---|
-| `enqueue(x)` | $$\Theta(1)$$ · $$\Theta(N)$$ la corrida que copia | $$\Theta(1)$$ siempre |
+| `enqueue(x)` | $$\Theta(1)$$ amortizado — $$\Theta(N)$$ la corrida que copia | $$\Theta(1)$$ siempre |
 | `dequeue()` | $$\Theta(1)$$ | $$\Theta(1)$$ |
 | `front()`, `empty()` | $$\Theta(1)$$ | $$\Theta(1)$$ |
 | memoria por elemento | el valor | el valor **y** un enlace |
@@ -1441,7 +1441,7 @@ acumula.
 Un **deque** —de _double-ended queue_— abre los dos extremos en los dos
 sentidos: se puede entrar y salir tanto por el frente como por el final.
 
-<svg viewBox="0 0 700 200" style={{ width: '100%', maxWidth: '700px', height: 'auto', display: 'block', margin: '1.25rem auto' }} role="img" aria-label="Cuatro elementos en fila, 7, 3, 1 y 5. A la izquierda, una flecha rotulada pushFront entra por el frente y otra rotulada popFront sale por el frente. A la derecha, una flecha rotulada pushBack entra por el final y otra rotulada popBack sale por el final.">
+<svg viewBox="0 0 700 200" style={{ width: '100%', maxWidth: '700px', height: 'auto', display: 'block', margin: '1.25rem auto' }} role="img" aria-label="Cuatro elementos en fila, 7, 3, 1 y 5. A la izquierda, una flecha rotulada pushFront entra por el frente y otra rotulada popFront sale por el frente. A la derecha, una flecha rotulada pushBack entra por el final y otra rotulada popBack sale por el final. El extremo izquierdo está rotulado «el frente» y el derecho «el final».">
   <defs>
     <marker id="deque-punta" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto">
       <path d="M0,0 L7,3.5 L0,7 z" style={{ fill: 'var(--color-accent)' }} />
@@ -1461,7 +1461,9 @@ sentidos: se puede entrar y salir tanto por el frente como por el final.
   <line x1="654" y1="100" x2="530" y2="100" style={{ stroke: 'var(--color-accent)' }} strokeWidth="1.8" markerEnd="url(#deque-punta)" />
   <line x1="530" y1="126" x2="654" y2="126" style={{ stroke: 'var(--color-accent)' }} strokeWidth="1.8" markerEnd="url(#deque-punta)" />
   <text x="600" y="152" textAnchor="middle" fontSize="14" fontWeight="700" fontFamily="monospace" style={{ fill: 'var(--color-accent)' }}>popBack</text>
-  <text x="350" y="184" textAnchor="middle" fontSize="13" style={{ fill: 'var(--color-ink-faint)' }}>ningún acceso por posición</text>
+  <text x="215" y="166" textAnchor="middle" fontSize="12" fontWeight="600" style={{ fill: 'var(--color-ink-soft)' }}>el frente</text>
+  <text x="485" y="166" textAnchor="middle" fontSize="12" fontWeight="600" style={{ fill: 'var(--color-ink-soft)' }}>el final</text>
+  <text x="350" y="190" textAnchor="middle" fontSize="13" style={{ fill: 'var(--color-ink-faint)' }}>ningún acceso por posición</text>
 </svg>
 
 Con esas cuatro operaciones, los dos contratos anteriores quedan adentro.
@@ -1475,6 +1477,11 @@ con `head` y `tail`, las cuatro operaciones son constantes, porque cada
 extremo está en la mano y cada nodo sabe quién viene antes. Sobre un arreglo
 circular, también: son los mismos dos índices moviéndose ahora en los dos
 sentidos.
+
+Con una trampa, porque retroceder no es simétrico de avanzar. Avanzar es
+`(i + 1) % capacidad`; retroceder **no** es `(i - 1) % capacidad`, porque en
+Java el resto de un negativo es negativo y `(0 - 1) % 6` da `-1` y no `5`.
+Hay que escribir `(i - 1 + capacidad) % capacidad`.
 
 </Slide>
 
@@ -2087,7 +2094,7 @@ planificador elige por prioridad y no por antigüedad. En los dos casos el
 contrato de esta clase se queda corto, y por la misma razón.
 
 La estructura que lo cumple bien es el **montículo**, un árbol guardado
-dentro de un arreglo, donde cada elemento es mayor que sus hijos. Es la
+dentro de un arreglo, donde cada elemento es mayor o igual que sus hijos. Es la
 primera estructura del curso que no es una secuencia, y con ella empieza la
 parte de la unidad donde la forma deja de ser una fila.
 
