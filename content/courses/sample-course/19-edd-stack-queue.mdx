@@ -782,6 +782,11 @@ Cada apertura se apila; cada cierre desapila y compara. La cima es siempre
 **el último símbolo que quedó abierto**, que es exactamente con el que un
 cierre tiene que corresponderse.
 
+Tres auxiliares de una línea hacen el resto: `isOpener(c)` e `isCloser(c)`
+dicen si el carácter abre o cierra, y `openerFor(c)` devuelve la apertura
+que le toca a un cierre —`(` para `)`, `[` para `]`, `{` para `}`—. Los
+escribimos completos al final.
+
 <StepShow
   language="java"
   code={`for (char c : s.toCharArray()) {
@@ -860,6 +865,58 @@ atrapa lo que quedó abierto al final.
 Una sola pasada, y la pila crece a lo más hasta la cantidad de aperturas:
 $$\Theta(N)$$ de tiempo y $$\Theta(N)$$ de espacio en el peor caso.
 
+</Slide>
+
+<Slide title="El código completo">
+<Exercise title="Paréntesis balanceados">
+
+El algoritmo entero, con los tres auxiliares. Los casos de prueba son las
+cuatro expresiones de la primera lámina, más la cadena vacía. Presiona
+**Comprobar** para correrlo, y después cambia lo que quieras.
+
+```java starter
+import java.util.Stack;
+
+class Solution {
+
+    static boolean balanced(String s) {
+        Stack<Character> pending = new Stack<>();
+        for (char c : s.toCharArray()) {
+            if (isOpener(c)) {
+                pending.push(c);
+            } else if (isCloser(c)) {
+                if (pending.empty()) return false;
+                if (pending.pop() != openerFor(c)) return false;
+            }
+        }
+        return pending.empty();
+    }
+
+    static boolean isOpener(char c) {
+        return c == '(' || c == '[' || c == '{';
+    }
+
+    static boolean isCloser(char c) {
+        return c == ')' || c == ']' || c == '}';
+    }
+
+    static char openerFor(char c) {
+        if (c == ')') return '(';
+        if (c == ']') return '[';
+        return '{';
+    }
+}
+```
+
+```java test
+check(Solution.balanced("({[]})"), true);
+check(Solution.balanced("([)]"), false);
+check(Solution.balanced("(()"), false);
+check(Solution.balanced("())"), false);
+check(Solution.balanced(""), true);
+```
+
+</Exercise>
 </Slide>
 
 <Slide title="Evaluación en notación polaca">
