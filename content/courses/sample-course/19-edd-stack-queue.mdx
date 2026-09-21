@@ -660,6 +660,29 @@ Con esa disposición, encolar es escribir en la primera casilla libre y subir
 `data[0]`, y para que el frente vuelva a estar en la casilla cero hay que
 **correr todos los demás una casilla a la izquierda**.
 
+<svg viewBox="0 0 700 208" style={{ width: '100%', maxWidth: '700px', height: 'auto', display: 'block', margin: '1.25rem auto' }} role="img" aria-label="Un bloque de seis casillas con 3, 8 y 5 en las tres primeras. El 3 sale por arriba desde la casilla cero. Dos flechas curvas debajo del bloque llevan el 8 de la casilla uno a la cero y el 5 de la casilla dos a la uno.">
+  <defs>
+    <marker id="corrim-punta" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto">
+      <path d="M0,0 L7,3.5 L0,7 z" style={{ fill: 'var(--color-accent)' }} />
+    </marker>
+    <marker id="corrim-punta-sale" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto">
+      <path d="M0,0 L7,3.5 L0,7 z" style={{ fill: 'var(--color-ink-soft)' }} />
+    </marker>
+  </defs>
+  <text x="70" y="20" textAnchor="middle" fontSize="13" style={{ fill: 'var(--color-ink-soft)' }}>sale el 3</text>
+  <line x1="70" y1="54" x2="70" y2="30" style={{ stroke: 'var(--color-ink-soft)' }} strokeWidth="1.8" markerEnd="url(#corrim-punta-sale)" />
+  {[0, 1, 2, 3, 4, 5].map((i) => (
+    <g key={i}>
+      <rect x={20 + i * 108} y="60" width="100" height="52" rx="3" style={{ fill: i < 3 ? 'var(--color-surface)' : 'var(--color-sunk)', stroke: i < 3 ? 'var(--color-rule-strong)' : 'var(--color-rule)' }} strokeWidth={i < 3 ? 1.6 : 1.2} strokeDasharray={i < 3 ? undefined : '4 3'} />
+      <text x={70 + i * 108} y="94" textAnchor="middle" fontSize="22" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{['3', '8', '5', '', '', ''][i]}</text>
+      <text x={70 + i * 108} y="132" textAnchor="middle" fontSize="12" style={{ fill: 'var(--color-ink-faint)' }}>{i}</text>
+    </g>
+  ))}
+  <path d="M 178 144 C 178 176, 70 176, 70 148" fill="none" style={{ stroke: 'var(--color-accent)' }} strokeWidth="1.8" markerEnd="url(#corrim-punta)" />
+  <path d="M 286 144 C 286 176, 178 176, 178 148" fill="none" style={{ stroke: 'var(--color-accent)' }} strokeWidth="1.8" markerEnd="url(#corrim-punta)" />
+  <text x="350" y="198" textAnchor="middle" fontSize="13" style={{ fill: 'var(--color-ink-faint)' }}>una copia por cada elemento que queda · N − 1 en total</text>
+</svg>
+
 Ese corrimiento cuesta $$\Theta(N)$$, y no es un detalle de implementación
 que se pueda pulir: es la consecuencia directa de haber decidido que el
 frente vive en una casilla fija. Una cola que se usa de verdad desencola
@@ -709,7 +732,7 @@ La salida es dejar de mover los elementos y mover el frente. Guardamos dos
 índices —`front`, dónde empieza la cola, y `rear`, dónde termina— y cuando
 alguno llega al final del bloque **vuelve a empezar por el principio**.
 
-<svg viewBox="0 0 700 240" style={{ width: '100%', maxWidth: '700px', height: 'auto', display: 'block', margin: '1.25rem auto' }} role="img" aria-label="Un bloque de seis casillas usado en forma circular. Las casillas 4, 5, 0 y 1 guardan 9, 4, 6 y 2; las casillas 2 y 3 están libres. Una flecha rotulada front señala la casilla 4 y otra rotulada rear señala la casilla 1. Una curva sale del extremo derecho del bloque y vuelve a entrar por el borde izquierdo de la casilla cero, rotulada módulo la capacidad.">
+<svg viewBox="0 0 700 240" style={{ width: '100%', maxWidth: '700px', height: 'auto', display: 'block', margin: '1.25rem auto' }} role="img" aria-label="Un bloque de seis casillas usado en forma circular. Las casillas 4, 5, 0 y 1 guardan 9, 4, 6 y 2; las casillas 2 y 3 están libres. Una flecha rotulada front señala la casilla 4, el próximo que sale; otra rotulada rear señala la casilla 1, el último que entró; y una tercera punteada señala la casilla 2, donde entrará el próximo. Una curva sale del extremo derecho del bloque y vuelve a entrar por el borde izquierdo de la casilla cero, rotulada módulo la capacidad.">
   <defs>
     <marker id="cola-circ-punta" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto">
       <path d="M0,0 L7,3.5 L0,7 z" style={{ fill: 'var(--color-accent)' }} />
@@ -719,11 +742,15 @@ alguno llega al final del bloque **vuelve a empezar por el principio**.
     </marker>
   </defs>
   <text x="502" y="26" textAnchor="middle" fontSize="15" fontWeight="700" fontFamily="monospace" style={{ fill: 'var(--color-accent)' }}>front</text>
-  <text x="502" y="44" textAnchor="middle" fontSize="12" style={{ fill: 'var(--color-ink-faint)' }}>sale por aquí</text>
+  <text x="502" y="44" textAnchor="middle" fontSize="12" style={{ fill: 'var(--color-ink-faint)' }}>el próximo que sale</text>
   <line x1="502" y1="52" x2="502" y2="78" style={{ stroke: 'var(--color-accent)' }} strokeWidth="1.8" markerEnd="url(#cola-circ-punta)" />
   <text x="178" y="26" textAnchor="middle" fontSize="15" fontWeight="700" fontFamily="monospace" style={{ fill: 'var(--color-accent)' }}>rear</text>
-  <text x="178" y="44" textAnchor="middle" fontSize="12" style={{ fill: 'var(--color-ink-faint)' }}>entra por aquí</text>
+  <text x="178" y="44" textAnchor="middle" fontSize="12" style={{ fill: 'var(--color-ink-faint)' }}>el último que entró</text>
   <line x1="178" y1="52" x2="178" y2="78" style={{ stroke: 'var(--color-accent)' }} strokeWidth="1.8" markerEnd="url(#cola-circ-punta)" />
+  {/* Dónde cae el PRÓXIMO enqueue. Sin esto, «rear» sobre una casilla ocupada se lee como «aquí se escribe», que es la confusión que la revisión de alumno reportó. */}
+  <text x="286" y="26" textAnchor="middle" fontSize="12" style={{ fill: 'var(--color-ink-soft)' }}>aquí entra</text>
+  <text x="286" y="44" textAnchor="middle" fontSize="12" style={{ fill: 'var(--color-ink-soft)' }}>el próximo</text>
+  <line x1="286" y1="52" x2="286" y2="78" style={{ stroke: 'var(--color-ink-soft)' }} strokeWidth="1.6" strokeDasharray="4 3" markerEnd="url(#cola-circ-punta-wrap)" />
   {[0, 1, 2, 3, 4, 5].map((i) => (
     <g key={i}>
       <rect x={20 + i * 108} y="86" width="100" height="52" rx="3" style={{ fill: [true, true, false, false, true, true][i] ? 'var(--color-surface)' : 'var(--color-sunk)', stroke: [true, true, false, false, true, true][i] ? 'var(--color-rule-strong)' : 'var(--color-rule)' }} strokeWidth={[true, true, false, false, true, true][i] ? 1.6 : 1.2} strokeDasharray={[true, true, false, false, true, true][i] ? undefined : '4 3'} />
@@ -744,6 +771,59 @@ es que dejó de tener un principio fijo.
 Avanzar cualquiera de los dos índices es sumarle uno y tomar el resto de
 dividir por la capacidad. Desencolar pasa a ser leer `data[front]` y avanzar
 `front`, sin mover ningún elemento: $$\Theta(1)$$.
+
+</Slide>
+
+<Slide title="La cola circular · en código">
+Con `front` apuntando al próximo que sale y `size` diciendo cuántos hay, las
+dos operaciones caben en pocas líneas. Ninguna recorre nada.
+
+```java
+void enqueue(int x) {
+    if (size == data.length) {
+        throw new IllegalStateException();
+    }
+    int libre = (front + size) % data.length;
+    data[libre] = x;
+    size++;
+}
+
+int dequeue() {
+    if (size == 0) {
+        throw new NoSuchElementException();
+    }
+    int x = data[front];
+    front = (front + 1) % data.length;
+    size--;
+    return x;
+}
+```
+
+La cuenta `(front + size) % data.length` es la casilla libre que sigue al
+último: no hace falta guardar `rear`, porque `front` y `size` ya lo dicen.
+
+</Slide>
+
+<Slide title="Cuándo está llena y cuándo vacía">
+Hay una pregunta que esta estructura obliga a responder y que el arreglo de
+frente fijo no tenía. Si sólo guardáramos `front` y `rear`, **la cola llena
+y la cola vacía se verían igual**: en las dos, `rear` estaría justo detrás
+de `front`. Dos estados opuestos, el mismo dibujo.
+
+Hay dos maneras conocidas de deshacer el empate, y las dos aparecen en
+código real:
+
+1. **Guardar `size`**, que es lo que hace el listado anterior. Vacía es
+   `size == 0`, llena es `size == data.length`, y no hay ambigüedad posible.
+   Cuesta un entero.
+2. **Sacrificar una casilla**: no dejar nunca que la cola use la última
+   libre, de modo que llena sea `(rear + 1) % capacidad == front` y vacía
+   sea `rear == front`. Cuesta una casilla de cada `capacidad`.
+
+Este material usa la primera porque `size` ya hacía falta para `empty()`, y
+porque un entero es más barato que una casilla cuando la capacidad es
+chica. La segunda es la que se encuentra en implementaciones que no quieren
+mantener un contador más.
 
 </Slide>
 
