@@ -903,3 +903,23 @@ describe('sequenceStepperTrace · the block a slide asks for', () => {
     );
   });
 });
+
+describe('sequenceStepperTrace · what `capacity` refuses', () => {
+  // The second pipeline pass measured the guard's holes: 3.7 allocated three
+  // slots in silence, NaN allocated a zero-width block, and 1e7 allocated ten
+  // million. None is reachable by a reader (MDX is bundled at build time) but
+  // all three are authoring mistakes the file refuses everywhere else.
+  it.each([3.7, Number.NaN, 0, 1e7])('refuses a capacity of %p', (capacity) => {
+    expect(() => traceFor('array', 'remove-last', { values: [7, 3], capacity })).toThrow(
+      /no es un entero/i,
+    );
+  });
+
+  it('tells a dynamic array author that the recipe owns its capacity', () => {
+    // It used to ignore the value AND still throw when it was too small,
+    // which is the worst of both.
+    expect(() =>
+      traceFor('dynamic-array', 'insert-last', { values: [7, 3], value: 9, capacity: 6 }),
+    ).toThrow(/maneja su propia capacidad/i);
+  });
+});

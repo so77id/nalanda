@@ -514,18 +514,36 @@ function traceArray(
   // The static array is drawn with room to spare — its capacity is fixed at
   // creation and the class's point is that it can run out. The dynamic array
   // is drawn FULL, so that a single insertion shows the resize it exists for.
-  if (input.capacity !== undefined && input.capacity < input.values.length) {
-    throw new Error(
-      `La capacidad ${input.capacity} no alcanza para los ${input.values.length} elementos iniciales.`,
-    );
+  if (input.capacity !== undefined) {
+    // The dynamic array owns its capacity — it starts full so that one
+    // insertion shows the resize it exists for — so an author who passes one
+    // gets told. Before, the value was ignored AND a too-small one still
+    // threw, which is the worst of both (#294 pipeline, second pass).
+    if (grows) {
+      throw new Error(
+        'El arreglo dinámico maneja su propia capacidad: arranca lleno para que una inserción muestre el resize. Quitá la prop `capacity`.',
+      );
+    }
+    // Refuse what cannot be drawn rather than degrading quietly: a fractional
+    // capacity was truncated in silence and `NaN` produced a zero-width block.
+    if (!Number.isInteger(input.capacity) || input.capacity < 1 || input.capacity > MAX_CAPACITY) {
+      throw new Error(`La capacidad ${input.capacity} no es un entero entre 1 y ${MAX_CAPACITY}.`);
+    }
+    if (input.capacity < input.values.length) {
+      throw new Error(
+        `La capacidad ${input.capacity} no alcanza para los ${input.values.length} elementos iniciales.`,
+      );
+    }
   }
   let capacity = grows
     ? Math.max(input.values.length, 1)
     : (input.capacity ?? input.values.length + 2);
 
-  // The block, slot by slot. A move empties the slot it came from, so the
-  // reader watches the hole travel and counts the copies — which is the whole
-  // lesson of an array insertion.
+  // The block, slot by slot. A copy leaves its source written where it was
+  // until the next one overwrites it, so the reader sees the value in two
+  // cells at once and counts the copies — which is the whole lesson of an
+  // array insertion. (It used to vacate the source, which drew a MOVE and a
+  // hole travelling through the middle of the block — #294 review.)
   const slots: (SequenceCell | null)[] = Array.from({ length: capacity }, () => null);
   cellsFrom(input.values).forEach((cell, i) => {
     slots[i] = cell;
@@ -1049,6 +1067,13 @@ function listCode(recipe: SequenceRecipe, operation: SequenceOperation, tail: bo
  * exhaustion that takes the tab down instead of printing an authoring error.
  */
 const MAX_RUNS = 12;
+
+/**
+ * The widest block a slide can still show, in the same spirit as MAX_RUNS:
+ * past this nobody reads the cells projected, and an author who asks for it
+ * has almost certainly typed a number they did not mean.
+ */
+const MAX_CAPACITY = 40;
 
 function requireRuns(runs: number): void {
   if (!Number.isInteger(runs) || runs < 1 || runs > MAX_RUNS) {
