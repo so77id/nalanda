@@ -69,7 +69,7 @@ export const sequenceStepperCatalogEntry: CatalogEntry = {
       name: 'receiver',
       type: 'string',
       description:
-        'The variable the driving program operates on, shown only when a slide runs the operation several times. Default `list` for the chains and `arreglo` for the arrays.',
+        'The variable the driving program operates on, shown only when a slide runs the operation several times. Default `list` for the chains and `arreglo` for the arrays. Pair it with `receiverType`, the class the program constructs — without it a slide that renamed `insertFirst` to `push` still printed `LinkedList pila = new LinkedList();`, contradicting the `class Stack` it had declared.',
     },
     {
       name: 'pointer',

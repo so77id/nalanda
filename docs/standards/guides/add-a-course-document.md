@@ -867,8 +867,10 @@ Six things worth knowing before you write one:
   names.** A class that has just taught `pop` = `deleteFirst` and then mounts
   the widget gets a listing saying `deleteFirst`, three times, over a
   variable called `list` — the pila's own method, wearing the chain's name.
-  `method="pop" receiver="pila"` renames the signature and every call
-  together. The body does not change, so use it only where the two really
+  `method="pop" receiver="pila" receiverType="Stack"` renames the
+  signature, every call and the line that constructs the object, together —
+  all three, or the program says `LinkedList pila = new LinkedList();` and
+  calls `push` on it. The body does not change, so use it only where the two really
   are the same method (which is what the mapping table of the class asserts).
 - **`pointer` keeps a field of the structure on screen.** The two array
   recipes only. `pointer="top"` draws a named arrow on EVERY frame, aimed at

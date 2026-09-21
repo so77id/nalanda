@@ -212,6 +212,13 @@ export interface SequenceInput {
   /** The variable the calling program operates on. Default `list`. */
   receiver?: string;
   /**
+   * The class the calling program constructs. Goes with `method` and
+   * `receiver`: a slide that renamed `insertFirst` to `push` over a `pila`
+   * still printed `LinkedList pila = new LinkedList();`, which contradicts
+   * the `class Stack` the same document declared (#294).
+   */
+  receiverType?: string;
+  /**
    * Arrays only: a named arrow kept on EVERY frame, aimed at the end the
    * operation works on — the last live slot for the `*-last` operations, the
    * first for the rest, and at nothing when the block is empty. The `i`/`j`
@@ -551,7 +558,7 @@ function traceArray(
     ? base +
       callingProgram(args, shown, false, {
         name: input.receiver ?? 'arreglo',
-        type: grows ? 'DynamicArray' : 'StaticArray',
+        type: input.receiverType ?? (grows ? 'DynamicArray' : 'StaticArray'),
       })
     : base;
   const runLine = (run: number): number[] => (many ? [base.split('\n').length + run + 1] : []);
@@ -1053,7 +1060,14 @@ function listCode(recipe: SequenceRecipe, operation: SequenceOperation, tail: bo
         throw new NoSuchElementException();
     }
     Node old = head;
-    head = head.next;
+    head = head.next;${
+      tail
+        ? `
+    if (head == null) {
+        tail = null;
+    }`
+        : ''
+    }
     size--;
     return old.value;
 }`;
@@ -1086,14 +1100,24 @@ function listCode(recipe: SequenceRecipe, operation: SequenceOperation, tail: bo
     Node old;
     if (head.next == null) {
         old = head;
-        head = null;
+        head = null;${
+          tail
+            ? `
+        tail = null;`
+            : ''
+        }
     } else {
         Node prev = head;
         while (prev.next.next != null) {
             prev = prev.next;
         }
         old = prev.next;
-        prev.next = null;
+        prev.next = null;${
+          tail
+            ? `
+        tail = prev;`
+            : ''
+        }
     }
     size--;
     return old.value;
@@ -1193,7 +1217,7 @@ function traceList(
     ? base +
       callingProgram(args, shown, fresh, {
         name: input.receiver ?? 'list',
-        type: 'LinkedList',
+        type: input.receiverType ?? 'LinkedList',
       })
     : base;
   // Computed, not searched: two runs of a method that takes no argument write

@@ -340,6 +340,7 @@ describe('<SequenceStepper> · the combinations the documents mount', () => {
         value: [42, 7, 15],
         method: 'push',
         receiver: 'pila',
+        receiverType: 'Stack',
       },
     },
     {
@@ -351,6 +352,7 @@ describe('<SequenceStepper> · the combinations the documents mount', () => {
         times: 3,
         method: 'pop',
         receiver: 'pila',
+        receiverType: 'Stack',
       },
     },
     // The Queue act. The other pair of ends, and the list side carries
@@ -363,6 +365,7 @@ describe('<SequenceStepper> · the combinations the documents mount', () => {
         operation: 'insert-last',
         values: [3, 8],
         value: 5,
+        pointer: 'rear',
         showCode: false,
       },
     },
@@ -373,6 +376,7 @@ describe('<SequenceStepper> · the combinations the documents mount', () => {
         capacity: 6,
         operation: 'remove-first',
         values: [3, 8, 5],
+        pointer: 'front',
         showCode: false,
       },
     },
@@ -384,6 +388,9 @@ describe('<SequenceStepper> · the combinations the documents mount', () => {
         values: [],
         value: [3, 8, 5],
         tail: true,
+        method: 'enqueue',
+        receiver: 'cola',
+        receiverType: 'Queue',
       },
     },
     {
@@ -394,6 +401,9 @@ describe('<SequenceStepper> · the combinations the documents mount', () => {
         values: [3, 8, 5],
         times: 3,
         tail: true,
+        method: 'dequeue',
+        receiver: 'cola',
+        receiverType: 'Queue',
       },
     },
   ];

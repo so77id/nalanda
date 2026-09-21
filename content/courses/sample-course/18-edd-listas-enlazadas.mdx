@@ -837,14 +837,9 @@ $$\Theta(1)$$. No lo hace.
 
 <SequenceStepper eda="linked-list-singly" operation="remove-last" values={[7, 3, 1, 5]} tail />
 
-`tail` entrega el último nodo de inmediato, pero el nodo que hay que
-modificar es el **anteúltimo**: alguien tiene que pasar a apuntar a `null`, y
-ese alguien no es el que sale. Después de eliminar, además, `tail` tiene que
-apuntar al anteúltimo, así que hace falta igual.
-
-Un enlace apunta en una sola dirección. Desde el último nodo no se puede
-retroceder, y `tail` da acceso al final, no al camino de vuelta. La operación
-sigue costando $$\Theta(N)$$.
+`tail` entrega el último de inmediato, pero el que hay que modificar es el
+**anteúltimo** — y un enlace apunta en una sola dirección, así que desde el
+último no se puede retroceder. Hay que caminar igual: $$\Theta(N)$$.
 
 </Slide>
 

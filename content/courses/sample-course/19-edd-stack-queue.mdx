@@ -470,6 +470,7 @@ grande ni copiar lo que ya tenía.
   value={[42, 7, 15]}
   method="push"
   receiver="pila"
+  receiverType="Stack"
 />
 
 </Slide>
@@ -541,6 +542,7 @@ recupera más tarde.
   times={3}
   method="pop"
   receiver="pila"
+  receiverType="Stack"
 />
 
 </Slide>
@@ -1282,6 +1284,7 @@ Encolar escribe en la primera casilla libre y sube `size`.
   operation="insert-last"
   values={[3, 8]}
   value={5}
+  pointer="rear"
   showCode={false}
 />
 
@@ -1298,6 +1301,7 @@ Desencolar saca el de la casilla cero, y ahí aparece el precio.
   capacity={6}
   operation="remove-first"
   values={[3, 8, 5]}
+  pointer="front"
   showCode={false}
 />
 
@@ -1510,13 +1514,19 @@ incluida la cola de un solo nodo, donde `head` y `tail` señalan el mismo.
 
 ```java
 class Queue {
-    private Node head;
-    private Node tail;
-    private int size;
+    private Node head;  // el primer nodo: el frente
+    private Node tail;  // el último nodo: el final
+    private int size;   // cuántos elementos hay
 
-    // enqueue, dequeue, front y empty
+    void enqueue(int x)  // pone x en el final
+    int dequeue()        // saca el del frente y lo devuelve
+    int front()          // el del frente, sin sacarlo
+    boolean empty()      // si la cola no tiene ningún elemento
+    int size()           // cuántos elementos tiene
 }
 ```
+
+Las cuatro láminas que siguen escriben el cuerpo de cada uno.
 
 </Slide>
 
@@ -1543,8 +1553,70 @@ olvidarla en un solo caso de borde rompe la estructura en silencio.
 
 </Slide>
 
-<Slide title="enqueue = insertLast">
-Encolar es **insertar al final de la cadena**: `enqueue` = `insertLast`.
+<Slide title="Las consultas">
+Las tres operaciones que no cambian la cola salen de los atributos, sin
+tocar la cadena.
+
+```java
+boolean empty() {
+    return size == 0;
+}
+
+int size() {
+    return size;
+}
+
+int front() {
+    if (head == null) {
+        throw new NoSuchElementException();
+    }
+    return head.value;
+}
+```
+
+- **`empty()`** dice si la cola no tiene elementos. Lee un campo: $$\Theta(1)$$.
+- **`size()`** devuelve cuántos hay. También un campo, mantenido en cada
+  `enqueue` y cada `dequeue`, así que nunca hay que recorrer la cadena para
+  contarlo: $$\Theta(1)$$.
+- **`front()`** devuelve el valor del frente sin sacarlo. `head` ya apunta
+  ahí: $$\Theta(1)$$.
+
+`front()` cae sobre `head`, igual que `top()` en la pila y por la misma
+razón. **Lo que separa a los dos contratos no son las consultas sino dónde
+entra lo nuevo** —`tail` en vez de `head`—, y eso es lo que separa FIFO de
+LIFO.
+
+</Slide>
+
+<Slide title="Enqueue">
+Implementar `enqueue` es **usar `insertLast` sobre la misma lista**: poner el
+elemento nuevo al final y mover `tail` hasta él.
+
+<svg viewBox="30 76 600 150" style={{ width: '100%', maxWidth: '660px', height: 'auto', display: 'block', margin: '1.25rem auto' }} role="img" aria-label="Dos dibujos de la misma cola, abierta por los dos extremos: se sale por el frente, a la izquierda, y se entra por el final, a la derecha. A la izquierda, antes: 3, 8 y 5. Una flecha rotulada enqueue de 9 lleva al de la derecha, después, donde el 9 quedó al final, resaltado, y el frente sigue siendo el 3.">
+  <defs>
+    <marker id="cola-enq-flecha" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+      <path d="M0,0 L8,4 L0,8 z" style={{ fill: 'var(--color-accent)' }} />
+    </marker>
+  </defs>
+  {[
+    { x0: 40, vals: [3, 8, 5], nuevo: -1, cap: 'antes' },
+    { x0: 372, vals: [3, 8, 5, 9], nuevo: 3, cap: 'después' },
+  ].map(({ x0, vals, nuevo, cap }) => (
+    <g key={x0}>
+      {vals.map((v, i) => (
+        <g key={i}>
+          <rect x={x0 + i * 52} y="110" width="48" height="44" rx="3" style={{ fill: i === nuevo ? 'var(--color-accent)' : 'var(--color-surface)', stroke: i === nuevo ? 'var(--color-accent)' : 'var(--color-rule-strong)' }} strokeWidth={i === nuevo ? 1.8 : 1.6} />
+          <text x={x0 + i * 52 + 24} y="140" textAnchor="middle" fontSize="20" fontWeight="600" style={{ fill: i === nuevo ? 'var(--color-on-accent)' : 'var(--color-ink)' }}>{v}</text>
+        </g>
+      ))}
+      <text x={x0 + 24} y="102" textAnchor="middle" fontSize="11" fontFamily="monospace" style={{ fill: 'var(--color-ink-faint)' }}>frente</text>
+      <text x={x0 + (vals.length - 1) * 52 + 24} y="102" textAnchor="middle" fontSize="11" fontFamily="monospace" style={{ fill: 'var(--color-ink-faint)' }}>final</text>
+      <text x={x0 + (vals.length * 52 - 4) / 2} y="176" textAnchor="middle" fontSize="12" style={{ fill: 'var(--color-ink-faint)' }}>{cap}</text>
+    </g>
+  ))}
+  <text x="316" y="124" textAnchor="middle" fontSize="14" fontWeight="700" fontFamily="monospace" style={{ fill: 'var(--color-accent)' }}>enqueue(9)</text>
+  <line x1="248" y1="136" x2="362" y2="136" style={{ stroke: 'var(--color-accent)' }} strokeWidth="2.2" markerEnd="url(#cola-enq-flecha)" />
+</svg>
 
 ```java
 void enqueue(int x) {
@@ -1559,37 +1631,62 @@ void enqueue(int x) {
 }
 ```
 
-Sin `tail` esta operación tendría que recorrer la cadena entera para
-encontrar al último, y costaría $$\Theta(N)$$. Con `tail` el último ya está
-en la mano: una asignación lo enlaza, otra actualiza la referencia.
-$$\Theta(1)$$.
+Sin `tail` habría que recorrer la cadena entera para encontrar al último, y
+`enqueue` costaría $$\Theta(N)$$. Con `tail` el último ya está en la mano:
+una asignación lo enlaza y otra mueve la referencia, y eso no depende de
+cuántos elementos haya. $$\Theta(1)$$.
 
 La cola vacía es el caso aparte, y la rama lo dice: sin nodos no hay un
-último al que enlazarse, así que lo que la inserción asigna es `head`. En
-las dos ramas el nodo nuevo termina siendo el último, y por eso `tail = fresh`
-está afuera y se escribe una sola vez.
+último al que enlazarse, así que lo que se asigna es `head`. En las dos
+ramas el nodo nuevo termina siendo el último, y por eso `tail = fresh` está
+afuera y se escribe una sola vez.
 
 </Slide>
 
-<Slide title="enqueue">
+<Slide title="Enqueue">
 <SequenceStepper
   eda="linked-list-singly"
   operation="insert-last"
   values={[]}
   value={[3, 8, 5]}
   tail
+  method="enqueue"
+  receiver="cola"
+  receiverType="Queue"
 />
-
-Tres `enqueue` sobre una cola que empezó vacía. `tail` sigue al último nodo
-en cada corrida, y **ninguna de las tres recorre la cadena**: las tres tardan
-los mismos cuadros, con cero nodos guardados y con dos. No crecer con la cola
-es lo que $$\Theta(1)$$ significa.
 
 </Slide>
 
-<Slide title="dequeue = deleteFirst">
-Desencolar es **eliminar el primero de la cadena**: `dequeue` =
-`deleteFirst`.
+<Slide title="Dequeue">
+Implementar `dequeue` es **usar `deleteFirst`**: sacar el primer nodo de la
+cadena y devolver su valor. Es la misma operación que la pila usa para
+`pop`, con una línea más.
+
+<svg viewBox="30 76 600 150" style={{ width: '100%', maxWidth: '660px', height: 'auto', display: 'block', margin: '1.25rem auto' }} role="img" aria-label="Dos dibujos de la misma cola. A la izquierda, antes: 3, 8, 5 y 9, con el 3 en el frente dibujado atenuado y punteado porque es el que sale. Una flecha rotulada dequeue devuelve 3 lleva al de la derecha, después, donde quedan 8, 5 y 9 y el frente pasó a ser el 8.">
+  <defs>
+    <marker id="cola-deq-flecha" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+      <path d="M0,0 L8,4 L0,8 z" style={{ fill: 'var(--color-accent)' }} />
+    </marker>
+  </defs>
+  {[
+    { x0: 40, vals: [3, 8, 5, 9], sale: 0, cap: 'antes' },
+    { x0: 372, vals: [8, 5, 9], sale: -1, cap: 'después' },
+  ].map(({ x0, vals, sale, cap }) => (
+    <g key={x0}>
+      {vals.map((v, i) => (
+        <g key={i}>
+          <rect x={x0 + i * 52} y="110" width="48" height="44" rx="3" opacity={i === sale ? 0.55 : 1} style={{ fill: i === sale ? 'var(--color-sunk)' : 'var(--color-surface)', stroke: i === sale ? 'var(--color-rule)' : 'var(--color-rule-strong)' }} strokeWidth="1.6" strokeDasharray={i === sale ? '5 4' : undefined} />
+          <text x={x0 + i * 52 + 24} y="140" textAnchor="middle" fontSize="20" fontWeight="600" opacity={i === sale ? 0.55 : 1} style={{ fill: 'var(--color-ink)' }}>{v}</text>
+        </g>
+      ))}
+      <text x={x0 + (sale === 0 ? 52 : 0) + 24} y="102" textAnchor="middle" fontSize="11" fontFamily="monospace" style={{ fill: 'var(--color-ink-faint)' }}>frente</text>
+      <text x={x0 + (vals.length - 1) * 52 + 24} y="102" textAnchor="middle" fontSize="11" fontFamily="monospace" style={{ fill: 'var(--color-ink-faint)' }}>final</text>
+      <text x={x0 + (vals.length * 52 - 4) / 2} y="176" textAnchor="middle" fontSize="12" style={{ fill: 'var(--color-ink-faint)' }}>{cap}</text>
+    </g>
+  ))}
+  <text x="316" y="124" textAnchor="middle" fontSize="14" fontWeight="700" fontFamily="monospace" style={{ fill: 'var(--color-accent)' }}>dequeue() → 3</text>
+  <line x1="300" y1="136" x2="362" y2="136" style={{ stroke: 'var(--color-accent)' }} strokeWidth="2.2" markerEnd="url(#cola-deq-flecha)" />
+</svg>
 
 ```java
 int dequeue() {
@@ -1606,78 +1703,43 @@ int dequeue() {
 }
 ```
 
-Es la misma operación que la pila usa para `pop`, con una línea más. Cuando
-sale el único nodo que quedaba, `head` queda en `null` y `tail` tiene que
-acompañarlo: si se lo deja apuntando al nodo que acaba de salir, el
-siguiente `enqueue` lo enlazaría a un nodo que ya no pertenece a la cola, y
-el elemento nuevo nacería inalcanzable.
+Esa línea de más es la que cobra la segunda referencia. Cuando sale el único
+nodo que quedaba, `head` queda en `null` y `tail` tiene que acompañarlo: si
+se lo deja apuntando al nodo que acaba de salir, el siguiente `enqueue` lo
+enlazaría a un nodo que ya no pertenece a la cola y el elemento nuevo
+nacería inalcanzable.
 
-Fuera de esa línea, nada depende del largo. $$\Theta(1)$$.
+Fuera de esa línea nada depende del largo: `dequeue` toca `head`, `tail` y
+`size`, y no recorre nada. $$\Theta(1)$$.
 
 </Slide>
 
-<Slide title="dequeue">
+<Slide title="Dequeue">
 <SequenceStepper
   eda="linked-list-singly"
   operation="remove-first"
   values={[3, 8, 5]}
   times={3}
   tail
+  method="dequeue"
+  receiver="cola"
+  receiverType="Queue"
 />
-
-La misma cola del widget anterior, vaciándose. Los elementos salen en el
-orden en que entraron —3, 8, 5—, que es el orden inverso al de la pila
-sobre la misma estructura. La diferencia entera está en por qué extremo
-entraron.
-
-Una advertencia sobre el listado que el widget muestra: es el
-`deleteFirst` de la **estructura**, que no conoce `tail`. Por eso no
-aparece ahí la línea que sí lleva la cola —`if (head == null) tail = null;`—
-y, sin embargo, el dibujo suelta el puntero `tail` cuando sale el último
-nodo. El dibujo tiene razón y el listado está incompleto: la línea que lo
-justifica es la de la lámina anterior.
-
-</Slide>
-
-<Slide title="front">
-Consultar el frente es leer el valor de la cabeza sin tocar ningún enlace.
-
-```java
-int front() {
-    if (head == null) {
-        throw new NoSuchElementException();
-    }
-    return head.value;
-}
-
-boolean empty() {
-    return size == 0;
-}
-```
-
-`front()` cae sobre `head`, igual que `top()` en la pila, y por la misma
-razón: es la única referencia que se tiene sin caminar. `empty()` no mira la
-cadena en absoluto —`size` ya guarda el dato. Lo que cambia entre un
-contrato y el otro no son estas dos operaciones sino **dónde entra lo
-nuevo** —`tail` en vez de `head`—, y eso es exactamente lo que separa FIFO
-de LIFO.
-
-`front()` repite la guarda de `dequeue()`: una cola vacía no tiene frente,
-así que devolver un valor sería inventar un elemento que nadie encoló.
 
 </Slide>
 
 <Slide title="Costos de Queue sobre lista">
-| Molde | Operación | Peor caso | Invariante que restaura |
-|---|---|---|---|
-| crear | `build()` | $$\Theta(1)$$ | Deja `head` y `tail` en `null` y `size` en cero |
-| consultar | `front()` | $$\Theta(1)$$ | Ninguna: lee `head.value` y no cambia la cadena |
-| consultar | `empty()` | $$\Theta(1)$$ | Ninguna: `size` ya guarda el dato |
-| modificar | `enqueue(x)` | $$\Theta(1)$$ | `tail` apunta al último: el que lo era enlaza al nuevo, y `tail` lo sigue |
-| modificar | `dequeue()` | $$\Theta(1)$$ | `head` apunta al frente: pasa a ser el segundo, y si no queda ninguno `tail` lo acompaña |
+| Operación | Peor caso | Invariante que restaura |
+|---|---|---|
+| `build()` | $$\Theta(1)$$ | Deja `head` y `tail` en `null` y `size` en cero |
+| `front()` | $$\Theta(1)$$ | Ninguna: lee `head.value` y no cambia la cadena |
+| `empty()` | $$\Theta(1)$$ | Ninguna: `size` ya guarda el dato |
+| `size()` | $$\Theta(1)$$ | Ninguna: devuelve el campo que las otras mantienen |
+| `enqueue(x)` | $$\Theta(1)$$ | `tail` apunta al último: el que lo era enlaza al nuevo, y `tail` lo sigue |
+| `dequeue()` | $$\Theta(1)$$ | `head` apunta al frente: pasa a ser el segundo, y si no queda ninguno `tail` lo acompaña |
 
-Las cuatro son constantes, y la columna de la derecha dice por qué cada una
-puede serlo: las dos referencias dejan los dos extremos en la mano, así que
+Todo constante, y la columna de la derecha dice por qué cada una puede
+serlo: las dos referencias dejan los dos extremos en la mano, así que
 ninguna operación tiene que caminar para llegar a donde opera.
 
 La última fila es la que cobra la referencia de más. Mantener `tail` al día

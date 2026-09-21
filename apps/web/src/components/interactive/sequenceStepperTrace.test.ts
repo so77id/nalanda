@@ -933,6 +933,38 @@ describe('sequenceStepperTrace · what `capacity` refuses', () => {
   });
 });
 
+describe('sequenceStepperTrace · a listing that obeys the props the picture obeys', () => {
+  // ADR-0074 recorded this as "a listing that is blind to a prop the picture
+  // obeys": with `tail`, the singly-linked removals DRAW the tail pointer
+  // moving — `remove-first` releases it when the chain empties, `remove-last`
+  // has to walk it back — and the listing beside them never mentions `tail`.
+  // A student copying it writes a queue whose `tail` dangles.
+  it('maintains `tail` in deleteFirst when the chain can empty', () => {
+    const conTail = traceFor('linked-list-singly', 'remove-first', {
+      values: [7],
+      times: 1,
+      tail: true,
+    });
+    expect(conTail.code).toContain('tail = null');
+    // and the picture it is beside: the chain empties, so tail points nowhere
+    expect(conTail.steps.at(-1)!.pointers.find((p) => p.name === 'tail')!.index).toBeNull();
+  });
+
+  it('maintains `tail` in deleteLast, which has to walk it back', () => {
+    const conTail = traceFor('linked-list-singly', 'remove-last', {
+      values: [3, 8, 5],
+      times: 1,
+      tail: true,
+    });
+    expect(conTail.code).toContain('tail = ');
+  });
+
+  it('says nothing about `tail` when the slide did not ask for one', () => {
+    const sinTail = traceFor('linked-list-singly', 'remove-first', { values: [7], times: 1 });
+    expect(sinTail.code).not.toContain('tail');
+  });
+});
+
 describe('sequenceStepperTrace · the name the listing is shown under', () => {
   // A class that has just taught `pop` = `deleteFirst` then mounts the widget
   // and the widget says `deleteFirst`, three times, in a calling program that
@@ -949,6 +981,22 @@ describe('sequenceStepperTrace · the name the listing is shown under', () => {
     expect(trace.code).not.toContain('deleteFirst');
     expect(trace.code).toContain('pila.pop();');
     expect(trace.code).not.toContain('list.');
+  });
+
+  // The constructor line of the driving program printed the STRUCTURE's class
+  // whatever the method was called, so a slide that had declared `class Stack`
+  // four slides earlier got `LinkedList pila = new LinkedList();` with a
+  // `push` on it (#294, caught by reading the slide).
+  it('names the class the document declared, not the structure', () => {
+    const trace = traceFor('linked-list-singly', 'insert-first', {
+      values: [],
+      value: [42, 7],
+      method: 'push',
+      receiver: 'pila',
+      receiverType: 'Stack',
+    });
+    expect(trace.code).toContain('Stack pila = new Stack();');
+    expect(trace.code).not.toContain('LinkedList');
   });
 
   it('keeps the structure own names when nobody renames them', () => {

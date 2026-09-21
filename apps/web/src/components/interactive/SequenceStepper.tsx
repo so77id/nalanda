@@ -82,6 +82,8 @@ export interface SequenceStepperProps {
   method?: string;
   /** The variable the calling program operates on. Default `list`. */
   receiver?: string;
+  /** The class the calling program constructs. Goes with `method`. */
+  receiverType?: string;
   /**
    * Arrays only: a named arrow kept on every frame, aimed at the end the
    * operation works on — `top` for a stack, `front` or `rear` for a queue.
@@ -174,6 +176,7 @@ export function SequenceStepper({
   capacity,
   method,
   receiver,
+  receiverType,
   pointer,
   tail = false,
   autoplay = false,
@@ -255,6 +258,7 @@ export function SequenceStepper({
       capacity={capacity}
       method={method}
       receiver={receiver}
+      receiverType={receiverType}
       pointer={pointer}
       tail={tail}
       autoplay={autoplay}
@@ -276,6 +280,7 @@ interface BodyProps {
   capacity?: number;
   method?: string;
   receiver?: string;
+  receiverType?: string;
   pointer?: string;
   tail: boolean;
   autoplay: boolean;
@@ -295,6 +300,7 @@ function Body({
   capacity,
   method,
   receiver,
+  receiverType,
   pointer,
   tail,
   autoplay,
@@ -329,6 +335,7 @@ function Body({
     capacity,
     method,
     receiver,
+    receiverType,
     pointer,
     tail,
   ].join('|');
@@ -345,6 +352,7 @@ function Body({
           capacity,
           method,
           receiver,
+          receiverType,
           pointer,
           tail,
         }),
@@ -364,6 +372,7 @@ function Body({
     capacity,
     method,
     receiver,
+    receiverType,
     pointer,
     tail,
   ]);
