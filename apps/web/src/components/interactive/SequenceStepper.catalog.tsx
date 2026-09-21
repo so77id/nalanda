@@ -63,7 +63,7 @@ export const sequenceStepperCatalogEntry: CatalogEntry = {
       name: 'pointer',
       type: 'string',
       description:
-        "The two ARRAY recipes only — a named arrow kept on every frame, aimed at the end the operation works on: the last live slot for the `*-last` operations, the first for the rest, and at nothing when the block is empty. `top` for a stack, `front` or `rear` for a queue. The `i` / `j` cursors a frame already carries belong to the OPERATION and vanish between runs; this one is the structure's own field, and the two are drawn on separate rows.",
+        "The two ARRAY recipes only — a named arrow kept on every frame, aimed at the end the operation works on: the last live slot for the `*-last` operations, the first for the rest, and at nothing when the block is empty. `top` for a stack, `front` or `rear` for a queue. The `i` / `j` cursors belong to the OPERATION and vanish between runs; this one is the structure's own field, and naming it stands them down — `i` would land on the same cell and say the same thing with a second arrow.",
     },
     {
       name: 'tail',

@@ -956,6 +956,23 @@ describe('sequenceStepperTrace · the pointer a slide keeps on screen', () => {
     expect(trace.steps.at(-1)!.pointers.find((p) => p.name === 'top')!.index).toBe(3);
   });
 
+  // Naming a pointer is the author saying what the reader should follow. The
+  // operation's own cursor then adds a second arrow to the same cell saying
+  // the same thing, so the slide that asked for `top` gets `top` alone.
+  it('drops the operation cursor when the slide named a pointer', () => {
+    const named = traceFor('dynamic-array', 'insert-last', {
+      values: [42, 7],
+      value: 15,
+      capacity: 4,
+      pointer: 'top',
+    });
+    expect(named.steps.flatMap((s) => s.pointers).map((p) => p.name)).not.toContain('i');
+
+    // and keeps it when nobody did — the Queue act reads `j` through a shift.
+    const bare = traceFor('array', 'remove-first', { values: [3, 8, 5], capacity: 6 });
+    expect(bare.steps.flatMap((s) => s.pointers).map((p) => p.name)).toContain('j');
+  });
+
   it('aims the pointer at the front when the operation works there', () => {
     const trace = traceFor('array', 'remove-first', {
       values: [3, 8, 5],

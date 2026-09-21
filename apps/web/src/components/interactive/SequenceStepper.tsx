@@ -76,8 +76,9 @@ export interface SequenceStepperProps {
   /**
    * Arrays only: a named arrow kept on every frame, aimed at the end the
    * operation works on — `top` for a stack, `front` or `rear` for a queue.
-   * The `i`/`j` cursors a frame carries are the operation's own and vanish
-   * between runs; this one is the structure's field.
+   * This one is the structure's field; naming it stands down the `i`/`j`
+   * cursors, which belong to the operation and would draw a second arrow at
+   * the same cell.
    */
   pointer?: string;
   /** Lists only: draw a `tail` pointer, and let the operations use it. */

@@ -867,10 +867,12 @@ Six things worth knowing before you write one:
   recipes only. `pointer="top"` draws a named arrow on EVERY frame, aimed at
   the end the operation works on — the last live slot for the `*-last`
   operations, the first for the rest, and at nothing when the block is empty.
-  The `i` / `j` cursors a frame already carries belong to the OPERATION and
-  vanish between runs; this one is the structure's own field, which is what
-  the contract is written in terms of. The two are drawn on separate rows, so
-  a cursor landing on the field does not print over its label.
+  The `i` / `j` cursors belong to the OPERATION and vanish between runs; this
+  one is the structure's own field, which is what the contract is written in
+  terms of. **Naming it stands the cursors down**, because `i` lands on the
+  same cell as `top` and says the same thing with a second arrow. A slide
+  that names no pointer keeps them — the Queue act reads `j` through the
+  shift.
 - **`capacity` is the block, and only the two array recipes have one.** On
   `array` it is the fixed capacity the class's point depends on. On
   `dynamic-array` it is where the resize falls: the default starts the block

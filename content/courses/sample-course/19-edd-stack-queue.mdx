@@ -220,10 +220,6 @@ buscarla, es una resta.
 que sigue en la cima y avanzar la cima. La pila no inventa una operación
 nueva, le pone otro nombre a la que el arreglo ya tenía.
 
-Cuatro `push` sobre un bloque de cuatro casillas. La flecha `top` marca la
-cima en todo momento; el tercer `push` encuentra el bloque lleno, así que
-antes de escribir reserva uno del doble y copia lo que había:
-
 <SequenceStepper
   eda="dynamic-array"
   capacity={4}
@@ -234,14 +230,14 @@ antes de escribir reserva uno del doble y copia lo que había:
   showCode={false}
 />
 
-Tres de los cuatro escriben y listo: una operación cada uno, $$\Theta(1)$$.
-El que encontró el bloque lleno pagó cinco —las cuatro copias más la suya—,
-y con un bloque de $$N$$ elementos pagaría $$N + 1$$: ése es el **peor
-caso**, $$\Theta(N)$$.
+En el **peor caso** `push` cuesta $$\Theta(N)$$: cuando el bloque está
+lleno hay que reservar uno del doble y copiar los $$N$$ elementos antes de
+poder escribir. Cualquier otra llamada escribe en una casilla libre y sube
+`size`, que es $$\Theta(1)$$.
 
-Pero el bloque se duplica, así que esa corrida cara aparece una vez cada
-$$N$$, y las $$N-1$$ baratas que la precedieron ya pagaron por ella.
-Repartido, cada `push` cuesta constante: $$\Theta(1)$$ **amortizado**.
+El costo **amortizado** es $$\Theta(1)$$: como la capacidad se duplica,
+entre dos llamadas caras hay $$N$$ baratas, así que el precio de la copia
+repartido entre todas ellas es constante por llamada.
 
 </Slide>
 

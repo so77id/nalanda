@@ -204,10 +204,13 @@ export interface SequenceInput {
    * Arrays only: a named arrow kept on EVERY frame, aimed at the end the
    * operation works on — the last live slot for the `*-last` operations, the
    * first for the rest, and at nothing when the block is empty. The `i`/`j`
-   * cursors a frame already carries are the operation's own, and they vanish
-   * between runs; this is the structure's field, which the class writes its
-   * contract in terms of (`top`, `front`, `rear`) and the reader should watch
-   * move rather than take the narration's word for (#294).
+   * cursors a frame would otherwise carry are the operation's own, and they
+   * vanish between runs; this is the structure's field, which the class
+   * writes its contract in terms of (`top`, `front`, `rear`) and the reader
+   * should watch move rather than take the narration's word for (#294).
+   *
+   * Naming one STANDS THE CURSORS DOWN: `i` lands on the same cell as `top`
+   * and says the same thing with a second arrow.
    */
   pointer?: string;
 }
@@ -587,11 +590,16 @@ function traceArray(
     extra: Partial<SequenceStep> = {},
   ) => {
     const { pointers: extraPointers, ...rest } = extra;
+    // Naming a pointer is the author saying what the reader should follow, so
+    // the operation's own cursor stands down: `i` lands on the same cell as
+    // `top` and says the same thing with a second arrow. A slide that names
+    // none keeps the cursors — the Queue act reads `j` through the shift.
+    const cursors = input.pointer === undefined ? (extraPointers ?? []) : [];
     steps.push({
       kind,
       cells: snapshot(live()),
       slots: slots.map((s) => (s === null ? null : { ...s })),
-      pointers: [...basePointers(), ...(extraPointers ?? [])],
+      pointers: [...basePointers(), ...cursors],
       highlightLines: [...highlightLines, ...runLine(currentRun)],
       description,
       capacity,
