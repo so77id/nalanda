@@ -79,14 +79,15 @@ lugar.
   ))}
 </svg>
 
-Las dos operaciones son la misma flecha en sentidos opuestos. **Apilar**
-(`push`) apoya un elemento nuevo sobre la cima; **desapilar** (`pop`)
-levanta el de la cima y lo devuelve. No hay una tercera puerta: para llegar
-al 42 hay que sacar antes todo lo que se apoyó encima de él.
+Las dos operaciones son la misma, pero en sentidos opuestos. `push`
+(apilar) apoya un elemento nuevo sobre la cima; `pop` (desapilar) levanta el
+de la cima y lo devuelve. No hay otra forma de acceder a los elementos: si
+quieres sacar el que está en la cuarta posición desde arriba, tienes que
+sacar antes los tres que tiene encima.
 
-De esa única puerta sale toda la regla: los elementos salen en el orden
-inverso al que entraron. Se la llama **LIFO**, del inglés _last in, first
-out_: **el último en entrar es el primero en salir**.
+Los elementos salen, entonces, en el orden inverso al que entraron. Esa
+regla se llama **LIFO**, del inglés _last in, first out_: **el último en
+entrar es el primero en salir**.
 
 </Slide>
 
@@ -197,7 +198,7 @@ llamando a **una** operación de la estructura de abajo:
 | `top()` | leer `data[size - 1]` | leer el valor de `head` |
 | `empty()` | `size == 0` | `head == null` |
 
-Mirá en qué punta trabaja cada una: el arreglo por el final, la lista por la
+Mira en qué punta trabaja cada una: el arreglo por el final, la lista por la
 cabeza. Es la punta donde cada estructura ya era rápida, y por eso ninguna
 casilla de la tabla recorre nada.
 
