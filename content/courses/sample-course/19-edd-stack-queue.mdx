@@ -594,10 +594,14 @@ distinto de su caso típico.
 
 <Slide title="Stack en Java">
 Java tiene una clase que se llama `Stack`, y **no es la que hay que usar**.
-Es de las primeras versiones del lenguaje, extiende `Vector`, y por
-extenderla hereda `get(i)`: se le puede pedir el tercer elemento desde
-abajo, que es exactamente lo que el contrato del Stack prohíbe. Su propio
-manual recomienda otra cosa.
+Es de las primeras versiones del lenguaje y extiende `Vector`; por
+extenderla hereda `get(i)`, así que se le puede pedir el tercer elemento
+desde abajo —exactamente lo que el contrato de una pila prohíbe—. Una clase
+que ofrece más de lo que su contrato promete ya no es ese contrato.
+
+Su propio manual también la desaconseja, aunque por otra razón: dice que
+`Deque` ofrece «un conjunto de operaciones LIFO más completo y consistente»
+y que hay que usar ésa en su lugar.
 
 La que hay que usar es `ArrayDeque`, y los nombres cambian:
 
