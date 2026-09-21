@@ -235,6 +235,7 @@ operación que el arreglo ya hacía barata —insertar al final—, y aquí es l
 
 <SequenceStepper
   eda="array"
+  capacity={6}
   operation="insert-last"
   values={[42, 7]}
   value={15}
@@ -252,6 +253,7 @@ Desapilar devuelve lo que hay en `data[size - 1]` y baja `size` en uno.
 
 <SequenceStepper
   eda="array"
+  capacity={6}
   operation="remove-last"
   values={[42, 7, 15]}
   showCode={false}
@@ -830,6 +832,7 @@ Encolar escribe en la primera casilla libre y sube `size`.
 
 <SequenceStepper
   eda="array"
+  capacity={6}
   operation="insert-last"
   values={[3, 8]}
   value={5}
@@ -846,6 +849,7 @@ Desencolar saca el de la casilla cero, y ahí aparece el precio.
 
 <SequenceStepper
   eda="array"
+  capacity={6}
   operation="remove-first"
   values={[3, 8, 5]}
   showCode={false}

@@ -876,3 +876,30 @@ describe('sequenceStepperTrace · the listing belongs to the recipe', () => {
     ).toThrow(/entre 1 y/i);
   });
 });
+
+describe('sequenceStepperTrace · the block a slide asks for', () => {
+  // Without `capacity` the block is sized from the input, so the SAME stack
+  // came out four cells wide on the slide that pushes and five on the slide
+  // that pops — one structure at two sizes, one slide apart (#294 review).
+  it('reserves exactly the slots the author asked for', () => {
+    const push = traceFor('array', 'insert-last', { values: [42, 7], value: 15, capacity: 6 });
+    const pop = traceFor('array', 'remove-last', { values: [42, 7, 15], capacity: 6 });
+    for (const trace of [push, pop]) {
+      for (const step of trace.steps) {
+        expect(step.slots).toHaveLength(6);
+        expect(step.capacity).toBe(6);
+      }
+    }
+  });
+
+  it('still sizes itself from the input when nobody asks', () => {
+    const trace = traceFor('array', 'remove-last', { values: [42, 7, 15] });
+    expect(trace.steps[0]!.capacity).toBe(5);
+  });
+
+  it('refuses a block too small for the elements it is given', () => {
+    expect(() => traceFor('array', 'remove-last', { values: [7, 3, 1, 5], capacity: 2 })).toThrow(
+      /no alcanza/i,
+    );
+  });
+});

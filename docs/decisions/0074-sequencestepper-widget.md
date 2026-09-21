@@ -215,6 +215,52 @@ and remains available — it is what #288 did for four other listings — but it
 is a code change with its own tests, and neither class was willing to buy
 widget surgery inside a course-document WP.
 
+**Amended by:** #294, comprehension review (2026-09-20) — **the cost counter
+comes off the screen.** §Consequences above says "The cost counter is on
+screen... so the reader reads $$\Theta(1)$$ against $$\Theta(N)$$ off the
+widget instead of memorising the table". It cannot do that, and the class
+that leaned on it is what showed why: a widget animates ONE run, one run
+shows one number, and one number is not a growth rate. On the only slide
+whose prose pointed at the counter, `enqueue` read 1 and `dequeue` read 3
+over three elements — a factor of three that any constant explains as well
+as $$N$$ does. Seven of the eight slides that mounted the widget never
+referred to it, so there it was chrome that reset silently between runs.
+
+`step.cost` is still computed and still asserted by
+`sequenceStepperTrace.test.ts`; what is withdrawn is the claim that painting
+it teaches a growth rate. A claim about cost is checked exactly in the trace
+test, and taught on the slide by the cost TABLE, which can put two
+structures side by side — which is what the unit's format was already for.
+
+Writing that test surfaced something the readout had been covering: the
+chain charges exactly `i` for `get-at(i)` while the array charges a flat 1,
+so at `i = 0` they read 0 and 1. The two recipes do not count the same unit.
+Left as it is and pinned as it is; it mattered less the moment the number
+stopped being shown.
+
+**Amended by:** #294, comprehension review (2026-09-20) — **two pictures the
+trace was drawing wrong, and a prop to stop the block breathing.**
+
+The array shift emptied the source slot the instant the destination was
+written, under a narration that says "Copiamos". A copy does not empty its
+source, and what it drew for two frames was a block with a hole in the
+middle — the picture #277 teaches as the INVALID array. The source now stays
+drawn as `stale`, a state of its own rather than a reuse of `leaving`: one
+is an element on its way out of the structure, the other a value nobody will
+read again, and painting them alike labelled the leftover copy "sale". This
+also fixed the `size` readout, which is derived from the last occupied slot
+and so had been dropping two frames early.
+
+`insert-last` narrated "hay que caminar hasta él" whether or not `tail` was
+given, because the string branched only on `empty` — on the slide whose
+thesis is that `tail` is what avoids walking, and one frame before the
+widget's own "tail ya apunta al último: enlazamos sin recorrer nada".
+
+And `capacity` joins the input. Without it the block is sized from the
+input, so one structure came out four cells wide on the slide that pushes
+and five on the slide that pops. Arrays only; a value below the number of
+starting elements is refused at boot like every other authoring mistake.
+
 **Source:** Issue #288 — Course document "Estructuras de Datos · Listas
 Enlazadas". The class shows nine operations over five structures, and
 `teach-a-data-structure.md` §7 defers the unit's widget decision to exactly

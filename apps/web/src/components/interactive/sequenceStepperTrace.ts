@@ -182,6 +182,15 @@ export interface SequenceInput {
    * (`remove-first`, `remove-last`). Default one.
    */
   times?: number;
+  /**
+   * Arrays only: how many slots the block reserves. Without it the block is
+   * sized from the input (`values.length + 2`), which makes the SAME stack
+   * appear four cells wide on the slide that pushes and five on the slide
+   * that pops — two consecutive slides drawing one structure at two sizes
+   * (#294 review). Give the pair the same number and the block stops
+   * breathing between slides.
+   */
+  capacity?: number;
   /** Lists only: draw a `tail` pointer and let the operations use it. */
   tail?: boolean;
 }
@@ -505,7 +514,14 @@ function traceArray(
   // The static array is drawn with room to spare — its capacity is fixed at
   // creation and the class's point is that it can run out. The dynamic array
   // is drawn FULL, so that a single insertion shows the resize it exists for.
-  let capacity = grows ? Math.max(input.values.length, 1) : input.values.length + 2;
+  if (input.capacity !== undefined && input.capacity < input.values.length) {
+    throw new Error(
+      `La capacidad ${input.capacity} no alcanza para los ${input.values.length} elementos iniciales.`,
+    );
+  }
+  let capacity = grows
+    ? Math.max(input.values.length, 1)
+    : (input.capacity ?? input.values.length + 2);
 
   // The block, slot by slot. A move empties the slot it came from, so the
   // reader watches the hole travel and counts the copies — which is the whole

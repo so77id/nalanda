@@ -67,6 +67,12 @@ export interface SequenceStepperProps {
    * (`remove-first`, `remove-last`). Default one.
    */
   times?: number;
+  /**
+   * Arrays only: how many slots the block reserves. Pass the same number to
+   * the pair of slides that show one structure before and after an
+   * operation, or the block changes width between them.
+   */
+  capacity?: number;
   /** Lists only: draw a `tail` pointer, and let the operations use it. */
   tail?: boolean;
   /** Playback default. Off unless the author asks (rule Peli 1/2). */
@@ -148,6 +154,7 @@ export function SequenceStepper({
   index,
   target,
   times,
+  capacity,
   tail = false,
   autoplay = false,
   speed = 'normal',
@@ -225,6 +232,7 @@ export function SequenceStepper({
       index={index}
       target={target}
       times={times}
+      capacity={capacity}
       tail={tail}
       autoplay={autoplay}
       speed={speed}
@@ -242,6 +250,7 @@ interface BodyProps {
   index?: number | number[];
   target?: number | number[];
   times?: number;
+  capacity?: number;
   tail: boolean;
   autoplay: boolean;
   speed: StepSpeed;
@@ -257,6 +266,7 @@ function Body({
   index,
   target,
   times,
+  capacity,
   tail,
   autoplay,
   speed,
@@ -279,9 +289,17 @@ function Body({
   const valueKey = String(value);
   const indexKey = String(index);
   const targetKey = String(target);
-  const resetKey = [recipe, operation, valuesKey, valueKey, indexKey, targetKey, times, tail].join(
-    '|',
-  );
+  const resetKey = [
+    recipe,
+    operation,
+    valuesKey,
+    valueKey,
+    indexKey,
+    targetKey,
+    times,
+    capacity,
+    tail,
+  ].join('|');
 
   const built = useMemo((): { trace: SequenceTrace } | { error: string } => {
     try {
@@ -292,6 +310,7 @@ function Body({
           index,
           target,
           times,
+          capacity,
           tail,
         }),
       };
@@ -299,7 +318,7 @@ function Body({
       return { error: cause instanceof Error ? cause.message : String(cause) };
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- the keys ARE the props
-  }, [recipe, operation, valuesKey, valueKey, indexKey, targetKey, times, tail]);
+  }, [recipe, operation, valuesKey, valueKey, indexKey, targetKey, times, capacity, tail]);
 
   const trace = 'trace' in built ? built.trace : null;
   const totalSteps = trace?.steps.length ?? 0;
