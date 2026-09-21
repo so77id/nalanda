@@ -146,12 +146,12 @@ Ninguna de las cuatro operaciones recibe una posición, y eso no es un olvido:
 es la única puerta del dibujo, escrita como lista de pedidos. Por eso LIFO no
 hay que imponerlo por separado —no existe la operación que podría romperlo.
 
-Falta decir qué pasa cuando la pila está vacía, porque entonces no hay
-cima/top y `top()` y `pop()` no tienen nada que devolver. La respuesta
-correcta ahí no es un valor: es un error. Devolver `0`, o `null`, o el último
-elemento que quedó dando vueltas en memoria, es inventar un elemento que
-nadie apiló. Para eso está `empty()`: preguntar antes es trabajo de quien usa
-la pila, y fallar cuando no preguntó es trabajo de quien la implementa.
+Falta decir qué pasa cuando la pila está vacía: no hay cima/top, así que
+`top()` y `pop()` no tienen a qué referirse. Pedirlos ahí es un **error**, no
+una consulta que devuelve algo raro —cualquier valor que saliera sería un
+elemento que nadie apiló. Para eso está `empty()`: preguntar antes es trabajo
+de quien usa la pila, y fallar cuando no preguntó es trabajo de quien la
+implementa.
 
 </Slide>
 
