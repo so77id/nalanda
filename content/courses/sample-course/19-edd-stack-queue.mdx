@@ -10,97 +10,134 @@ questions: none
 {/* después del cierre del material, para que las preguntas midan lo que el */}
 {/* documento terminó diciendo y no lo que un borrador decía. */}
 
+
 # Estructuras de Datos · Stack y Queue
 
-El TDA Sequence deja pedirle cualquier posición a la colección, y esa
-libertad tiene un precio: una implementación que la cumpla entera termina
-con alguna operación cara. Hay contratos que renuncian a esa libertad a
-propósito. Exponen pocas operaciones, todas en un extremo fijo, y a cambio
-pueden cumplirlas siempre en tiempo constante.
-
-Esta clase estudia dos de ellos —**Stack** y **Queue**—, los monta sobre las
-dos estructuras que el curso ya tiene a mano, y compara. Al final nombra un
-tercero, **Deque**, que generaliza a los dos.
-
-<Slide title="Los tres contratos">
-Una **secuencia** admite pedirle cualquier cosa en cualquier posición:
-leer la quinta, insertar en la tercera, eliminar la última. Tres contratos
-más chicos restringen ese permiso, cada uno a su manera:
-
-- **Stack** sólo trabaja en un extremo. Lo último que entró es lo primero
-  que sale.
-- **Queue** trabaja en los dos extremos, pero cada uno con un solo sentido:
-  se entra por atrás y se sale por adelante. Lo primero que entró es lo
-  primero que sale.
-- **Deque** abre los dos extremos en los dos sentidos.
-
-Los tres son **tipos de dato abstracto** (TDA): fijan **qué se les puede
-pedir y qué significa cada pedido**, y no dicen nada sobre cómo se guardan
-los elementos ni cuánto cuesta cada operación. Esa parte la decide la estructura que los implemente,
-y es la que vamos a mirar dos veces para cada uno de los dos primeros.
+La clase anterior terminó con una colección que deja pedir cualquier
+posición, y con el precio de esa libertad: una implementación que cumpla el
+contrato entero termina con alguna operación cara. Esta clase hace lo
+contrario. Estudia dos contratos que **renuncian** a esa libertad a
+propósito —la **pila** y la **cola**—, los construye sobre el arreglo y
+sobre la lista enlazada, y compara las dos construcciones. Al final nombra
+un tercero, el **deque**, que generaliza a los dos.
 
 Restringir no es perder. Es lo que permite prometer un costo: mientras el
 único lugar donde se opera sea un extremo conocido, no hay nada que
 recorrer para llegar.
 
-</Slide>
-
-<Slide title="Las dos estructuras que ya tenemos">
-Las implementaciones de esta clase se construyen sobre dos estructuras
-conocidas, y conviene tener presente qué sale barato en cada una.
-
-El **arreglo** guarda los elementos en un bloque consecutivo de casillas del
-mismo tamaño. La posición `i` está en `base + i × ancho`, así que llegar a
-ella es una cuenta. A cambio, no puede haber huecos: abrir uno al principio
-obliga a correr todo lo que sigue.
-
-La **lista enlazada** guarda cada elemento en un nodo suelto que apunta al
-siguiente, con una referencia `head` al primero. Enlazar un nodo cuesta una
-asignación en cualquier parte de la cadena, pero llegar a la posición `i`
-obliga a dar `i` saltos, porque no hay otra manera de avanzar.
-
-| Operación | Arreglo | Lista con `head` | Por qué |
-|---|---|---|---|
-| leer la posición `i` | $$\Theta(1)$$ | $$\Theta(i)$$ | juntos se calcula la dirección; sueltos hay que saltar |
-| insertar al principio | $$\Theta(N)$$ | $$\Theta(1)$$ | correr todo para abrir el hueco, contra cambiar un enlace |
-| eliminar el primero | $$\Theta(N)$$ | $$\Theta(1)$$ | correr todo para cerrarlo, contra mover `head` |
-| insertar al final | $$\Theta(1)$$ | $$\Theta(N)$$ | escribir en la primera casilla libre, contra caminar hasta el último |
-| eliminar el último | $$\Theta(1)$$ | $$\Theta(N)$$ | bajar el largo, contra caminar hasta el anteúltimo |
-
-Los costos del arreglo suponen que queda capacidad en el bloque; cuando no
-queda, insertar al final obliga a reservar uno más grande y copiar. Los de
-la lista suponen que la única referencia guardada es `head`.
-
-Las dos columnas están casi invertidas, y ésa es toda la materia prima que
-esta clase necesita.
-
-</Slide>
-
-<Slide title="El recorrido de cada contrato">
-Stack y Queue se presentan con la misma estructura, y la repetición es
-deliberada: lo que cambia entre un contrato y el otro queda a la vista
-porque todo lo demás está en el mismo lugar.
-
-1. **El contrato.** Las operaciones que expone, con su significado. Sin
-   código y sin costos: un TDA no los tiene.
-2. **Sobre arreglo.** La idea, la operación animada, y la tabla de costos
-   que resulta —con el problema que el arreglo trae consigo.
-3. **Sobre lista enlazada.** Cada operación en dos tiempos: primero el
-   código que la resuelve, después la misma operación corriendo.
-4. **La comparación.** Las dos implementaciones lado a lado, y la elección
-   leída en la tabla.
-
-El hilo que atraviesa los cuatro pasos es un solo mapeo. Cada operación del
-contrato se cumple llamando a una operación de la estructura de abajo, y
-nombrar ese par —`push` es `insertFirst`, `dequeue` es `deleteFirst`— es lo
-que hace que el costo no haya que memorizarlo: es el de la operación que
-está haciendo el trabajo.
-
-</Slide>
-
 <SectionBreak />
 
 ## Stack · la torre de platos
+
+<Slide title="Una pila · se entra y se sale por arriba">
+Una **pila** es una colección con una sola puerta. Los elementos se apoyan
+uno sobre otro, y el único que está a la vista es el de más arriba, al que
+llamamos **cima**. Poner y sacar ocurren los dos en ese mismo lugar.
+
+<svg viewBox="0 0 700 320" style={{ width: '100%', maxWidth: '700px', height: 'auto', display: 'block', margin: '1.25rem auto' }} role="img" aria-label="Dos dibujos de la misma pila, cerrada abajo y abierta arriba, con 42 al fondo, 7 encima y una casilla libre en lo más alto. En el de la izquierda, rotulado push de 15, un cuadrado con el 15 baja por la abertura hacia esa casilla libre. En el de la derecha, rotulado pop, el mismo cuadrado sube y sale por la misma abertura. En los dos, una marca señala la cima sobre el 7.">
+  <defs>
+    <marker id="pila-puerta-baja" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+      <path d="M0,0 L8,4 L0,8 z" style={{ fill: 'var(--color-accent)' }} />
+    </marker>
+    <marker id="pila-puerta-sube" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+      <path d="M0,0 L8,4 L0,8 z" style={{ fill: 'var(--color-accent)' }} />
+    </marker>
+  </defs>
+  {[
+    { cx: 180, entra: true },
+    { cx: 520, entra: false },
+  ].map(({ cx, entra }) => (
+    <g key={cx}>
+      <text x={cx} y="22" textAnchor="middle" fontSize="16" fontWeight="700" fontFamily="monospace" style={{ fill: 'var(--color-accent)' }}>
+        {entra ? 'push(15)' : 'pop() → 15'}
+      </text>
+
+      <rect x={cx - 56} y="42" width="112" height="44" rx="3" style={{ fill: entra ? 'var(--color-accent)' : 'var(--color-surface)', stroke: 'var(--color-accent)' }} strokeWidth="1.8" strokeDasharray={entra ? undefined : '5 4'} />
+      <text x={cx} y="72" textAnchor="middle" fontSize="22" fontWeight="600" style={{ fill: entra ? 'var(--color-on-accent)' : 'var(--color-ink)' }}>15</text>
+
+      <line x1={cx} y1={entra ? 96 : 136} x2={cx} y2={entra ? 134 : 98} style={{ stroke: 'var(--color-accent)' }} strokeWidth="2.2" markerEnd={entra ? 'url(#pila-puerta-baja)' : 'url(#pila-puerta-sube)'} />
+      <text x={cx + 12} y={120} fontSize="12" style={{ fill: 'var(--color-ink-faint)' }}>{entra ? 'entra' : 'sale'}</text>
+
+      <rect x={cx - 56} y="146" width="112" height="44" rx="3" style={{ fill: 'var(--color-sunk)', stroke: 'var(--color-rule)' }} strokeWidth="1.2" strokeDasharray="4 3" />
+      <rect x={cx - 56} y="190" width="112" height="44" rx="3" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.6" />
+      <text x={cx} y="220" textAnchor="middle" fontSize="22" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>7</text>
+      <rect x={cx - 56} y="234" width="112" height="44" rx="3" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.6" />
+      <text x={cx} y="264" textAnchor="middle" fontSize="22" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>42</text>
+
+      <line x1={cx - 62} y1="136" x2={cx - 62} y2="284" style={{ stroke: 'var(--color-rule-strong)' }} strokeWidth="2.6" strokeLinecap="round" />
+      <line x1={cx + 62} y1="136" x2={cx + 62} y2="284" style={{ stroke: 'var(--color-rule-strong)' }} strokeWidth="2.6" strokeLinecap="round" />
+      <line x1={cx - 62} y1="284" x2={cx + 62} y2="284" style={{ stroke: 'var(--color-rule-strong)' }} strokeWidth="2.6" strokeLinecap="round" />
+
+      <line x1={cx - 96} y1="212" x2={cx - 60} y2="212" style={{ stroke: 'var(--color-ink-faint)' }} strokeWidth="1.2" />
+      <text x={cx - 100} y="216" textAnchor="end" fontSize="13" fontWeight="600" style={{ fill: 'var(--color-ink-faint)' }}>cima</text>
+
+      <text x={cx} y="308" textAnchor="middle" fontSize="12" style={{ fill: 'var(--color-ink-faint)' }}>
+        {entra ? 'apoya 15 sobre la cima' : 'levanta el de la cima y lo devuelve'}
+      </text>
+    </g>
+  ))}
+</svg>
+
+Las dos operaciones son la misma flecha en sentidos opuestos. **Apilar**
+(`push`) apoya un elemento nuevo sobre la cima; **desapilar** (`pop`)
+levanta el de la cima y lo devuelve. No hay una tercera puerta: para llegar
+al 42 hay que sacar antes todo lo que se apoyó encima de él.
+
+</Slide>
+
+<Slide title="LIFO · lo último que entra es lo primero que sale">
+Esa única puerta tiene una consecuencia, y la consecuencia es toda la regla
+de la pila. Si lo único que se puede sacar es lo de más arriba, entonces el
+orden en que salen los elementos es exactamente el inverso del orden en que
+entraron.
+
+| Operación | La pila queda | Devuelve |
+|---|---|---|
+| `push(42)` | 42 | — |
+| `push(7)` | 42, 7 | — |
+| `push(15)` | 42, 7, 15 | — |
+| `pop()` | 42, 7 | 15 |
+| `pop()` | 42 | 7 |
+| `pop()` | vacía | 42 |
+
+Entraron 42, 7, 15 y salieron 15, 7, 42. A esa regla se la llama **LIFO**,
+del inglés _last in, first out_: el último en entrar es el primero en salir.
+
+Lo que conviene guardar es la otra cara: **una pila da vuelta el orden**, y
+lo hace sin recorrer nada y sin comparar nada. No es un algoritmo, es un
+efecto de la forma.
+
+</Slide>
+
+<Slide title="Pilas en la vida real">
+El patrón aparece por todas partes, y reconocerlo es lo que después permite
+elegir la estructura correcta.
+
+- **Una torre de platos.** El que se apoyó último es el único que se puede
+  levantar sin mover el resto.
+- **El deshacer de un editor.** Cada cambio se guarda en el momento en que
+  ocurre; el que corresponde revertir es siempre el último, y después el
+  anterior a ése.
+- **El botón «atrás» del navegador.** Cada página visitada se apoya sobre la
+  anterior, y volver es sacar la de más arriba.
+- **La pila de llamadas de un programa.** Cuando un método termina, el que
+  retoma la ejecución es el que lo llamó, que es el último que quedó
+  esperando. De ahí el nombre, y de ahí que una recursión sin caso base la
+  desborde.
+
+Ninguno de los cuatro necesita el tercer elemento, ni el décimo. Sólo el de
+más arriba, uno a la vez, en el orden inverso al que entró. Una colección
+que además ofreciera acceso por posición estaría ofreciendo permisos que
+ninguno de los cuatro usa, y habría que pagar por sostenerlos.
+
+Así que lo primero es escribir qué **sí** se le puede pedir a una pila, y
+qué significa cada pedido —sin decir todavía dónde viven los elementos ni
+cuánto cuesta cada operación. Esa lista de pedidos con su significado es un
+**tipo de dato abstracto** (TDA), y es por donde empieza cada estructura de
+esta unidad.
+
+</Slide>
+
 
 <Slide title="El contrato · push, pop, top, empty">
 Una **pila** es una colección donde sólo se trabaja en un extremo, llamado
@@ -131,7 +168,8 @@ es lo primero que sale.
 </div>
 
 Cuatro operaciones y ninguna recibe una posición. Esa ausencia es el
-contrato entero: **LIFO**, del inglés _last in, first out_.
+contrato entero: es la única puerta del dibujo, escrita como lista de
+pedidos, y es lo que hace que la regla LIFO se cumpla sola.
 
 Pedirle la cima a una pila vacía es un error, no un valor. `top()` y `pop()`
 tienen sentido únicamente cuando `empty()` es falso, y una implementación
@@ -165,25 +203,34 @@ clase del arreglo mostró con `List`, aplicada aquí.
 
 </Slide>
 
-<Slide title="Un caso · el historial de acciones">
-Un editor de texto que ofrece deshacer guarda cada cambio en el momento en
-que ocurre. Cuando el usuario pide deshacer, el cambio que corresponde
-revertir es **el último**, y después el anterior a ése.
+<Slide title="Las dos estructuras que ya tenemos">
+Las implementaciones de esta clase se construyen sobre dos estructuras
+conocidas, y conviene tener presente qué sale barato en cada una.
 
-Nada en ese uso necesita la tercera acción, ni la décima. Sólo la de más
-arriba, una a una, en el orden inverso al que entraron. Un contrato que
-ofreciera acceso por posición ofrecería permisos que el editor no usa, y
-tendría que pagar por sostenerlos.
+El **arreglo** guarda los elementos en un bloque consecutivo de casillas del
+mismo tamaño. La posición `i` está en `base + i × ancho`, así que llegar a
+ella es una cuenta. A cambio, no puede haber huecos: abrir uno al principio
+obliga a correr todo lo que sigue.
 
-Lo mismo pasa en una torre de platos: el que se apoya último es el único
-que se puede levantar sin mover el resto. Y lo mismo, con consecuencias más
-serias, en la pila de llamadas de un programa: cuando un método termina, el
-que retoma la ejecución es siempre el que lo llamó, que es el último que
-quedó esperando.
+La **lista enlazada** guarda cada elemento en un nodo suelto que apunta al
+siguiente, con una referencia `head` al primero. Enlazar un nodo cuesta una
+asignación en cualquier parte de la cadena, pero llegar a la posición `i`
+obliga a dar `i` saltos, porque no hay otra manera de avanzar.
 
-Tres situaciones distintas, un solo contrato. Vale la pena reconocerlo
-cuando aparece, porque reconocerlo es lo que permite elegir la estructura
-correcta.
+| Operación | Arreglo | Lista con `head` | Por qué |
+|---|---|---|---|
+| leer la posición `i` | $$\Theta(1)$$ | $$\Theta(i)$$ | juntos se calcula la dirección; sueltos hay que saltar |
+| insertar al principio | $$\Theta(N)$$ | $$\Theta(1)$$ | correr todo para abrir el hueco, contra cambiar un enlace |
+| eliminar el primero | $$\Theta(N)$$ | $$\Theta(1)$$ | correr todo para cerrarlo, contra mover `head` |
+| insertar al final | $$\Theta(1)$$ | $$\Theta(N)$$ | escribir en la primera casilla libre, contra caminar hasta el último |
+| eliminar el último | $$\Theta(1)$$ | $$\Theta(N)$$ | bajar el largo, contra caminar hasta el anteúltimo |
+
+Los costos del arreglo suponen que queda capacidad en el bloque; cuando no
+queda, insertar al final obliga a reservar uno más grande y copiar. Los de
+la lista suponen que la única referencia guardada es `head`.
+
+Las dos columnas están casi invertidas. La pila se construye dos veces, una
+sobre cada una.
 
 </Slide>
 
