@@ -342,6 +342,7 @@ class Stack {
     int pop()           // saca el de la cima y lo devuelve
     int top()           // el de la cima, sin sacarlo
     boolean empty()     // si la pila no tiene ningún elemento
+    int size()          // cuántos elementos tiene
 }
 ```
 
@@ -375,9 +376,76 @@ nada que calcular: `head` **es** la cima, y basta con mirarla.
 
 </Slide>
 
-<Slide title="push = insertFirst">
-Apilar es **insertar al principio de la cadena**: el par que hay que
-retener es `push` = `insertFirst`.
+<Slide title="Las consultas">
+Las tres operaciones que no cambian la pila salen de los dos atributos, sin
+tocar la cadena.
+
+```java
+boolean empty() {
+    return size == 0;
+}
+
+int size() {
+    return size;
+}
+
+int top() {
+    if (head == null) {
+        throw new NoSuchElementException();
+    }
+    return head.value;
+}
+```
+
+- **`empty()`** dice si la pila no tiene elementos. Lee un campo: $$\Theta(1)$$.
+- **`size()`** devuelve cuántos hay. También un campo, y por eso es
+  $$\Theta(1)$$: el largo se mantiene en cada `push` y cada `pop`, así que
+  nunca hay que recorrer la cadena para contarlo.
+- **`top()`** devuelve el valor de la cima sin sacarla. `head` ya apunta ahí,
+  así que tampoco hay nada que recorrer: $$\Theta(1)$$. La guarda es el
+  contrato escrito en Java.
+
+Ésa es toda la diferencia entre `top` y `pop`: **`pop` devuelve la cima y la
+saca; `top` la devuelve y deja la pila como estaba.**
+
+</Slide>
+
+<Slide title="Push">
+Implementar `push` es **usar `insertFirst` sobre una lista enlazada simple**.
+La pila no agrega trabajo: le pone su nombre a la operación que la lista ya
+hacía, y le quita la posibilidad de elegir dónde.
+
+<svg viewBox="0 0 700 200" style={{ width: '100%', maxWidth: '700px', height: 'auto', display: 'block', margin: '1.25rem auto' }} role="img" aria-label="Una cadena de dos nodos con los valores 15 y 7, y a su izquierda un nodo nuevo con el 9. Una flecha numerada uno sale del nodo nuevo hacia el 15: el nodo nuevo toma el enlace que tenía head. Una flecha numerada dos baja desde head hasta el nodo nuevo: head pasa a apuntarlo. El último nodo apunta a null.">
+  <defs>
+    <marker id="pila-push-punta" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto">
+      <path d="M0,0 L7,3.5 L0,7 z" style={{ fill: 'var(--color-accent)' }} />
+    </marker>
+    <marker id="pila-push-gris" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto">
+      <path d="M0,0 L7,3.5 L0,7 z" style={{ fill: 'var(--color-ink-soft)' }} />
+    </marker>
+  </defs>
+  <text x="153" y="32" textAnchor="middle" fontSize="15" fontWeight="700" fontFamily="monospace" style={{ fill: 'var(--color-accent)' }}>head</text>
+  <text x="192" y="56" fontSize="14" fontWeight="700" style={{ fill: 'var(--color-accent)' }}>②</text>
+  <line x1="153" y1="42" x2="153" y2="84" style={{ stroke: 'var(--color-accent)' }} strokeWidth="1.8" markerEnd="url(#pila-push-punta)" />
+  <rect x="110" y="88" width="86" height="54" rx="4" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-accent)' }} strokeWidth="2.2" />
+  <rect x="196" y="88" width="38" height="54" rx="4" style={{ fill: 'var(--color-sunk)', stroke: 'var(--color-accent)' }} strokeWidth="2.2" />
+  <text x="153" y="123" textAnchor="middle" fontSize="24" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>9</text>
+  <text x="153" y="164" textAnchor="middle" fontSize="12" style={{ fill: 'var(--color-ink-faint)' }}>nuevo</text>
+  <circle cx="215" cy="115" r="4" style={{ fill: 'var(--color-accent)' }} />
+  <text x="248" y="104" fontSize="14" fontWeight="700" style={{ fill: 'var(--color-accent)' }}>①</text>
+  <line x1="215" y1="115" x2="284" y2="115" style={{ stroke: 'var(--color-accent)' }} strokeWidth="2" markerEnd="url(#pila-push-punta)" />
+  {[15, 7].map((v, i) => (
+    <g key={i}>
+      <rect x={290 + i * 180} y="88" width="86" height="54" rx="4" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.6" />
+      <rect x={376 + i * 180} y="88" width="38" height="54" rx="4" style={{ fill: 'var(--color-sunk)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.6" />
+      <text x={333 + i * 180} y="123" textAnchor="middle" fontSize="24" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{v}</text>
+      <circle cx={395 + i * 180} cy="115" r="4" style={{ fill: 'var(--color-ink-soft)' }} />
+      <line x1={395 + i * 180} y1="115" x2={i === 0 ? 464 : 628} y2="115" style={{ stroke: 'var(--color-ink-soft)' }} strokeWidth="1.6" markerEnd="url(#pila-push-gris)" />
+    </g>
+  ))}
+  <text x="640" y="120" fontSize="15" fontFamily="monospace" style={{ fill: 'var(--color-ink-faint)' }}>null</text>
+  <text x="350" y="190" textAnchor="middle" fontSize="12" style={{ fill: 'var(--color-ink-faint)' }}>① el nodo nuevo toma el enlace que tenía head · ② head pasa a apuntar al nodo nuevo</text>
+</svg>
 
 ```java
 void push(int x) {
@@ -388,18 +456,14 @@ void push(int x) {
 }
 ```
 
-El nodo nuevo toma el enlace que tenía `head`, y recién entonces `head` pasa
-a apuntar al nodo nuevo. El orden importa: al revés se pierde la referencia
-al resto de la pila.
-
-Ningún otro nodo se entera, y ninguno cambia de lugar. El costo es el de la
-operación de abajo —insertar al principio— y por lo tanto $$\Theta(1)$$, con
-cero elementos o con un millón. Tampoco hay capacidad que se acabe: cada
-`push` reserva su propio nodo.
+El orden de esas dos líneas importa: al revés se pierde la referencia al
+resto de la pila. Ningún otro nodo se entera y ninguno cambia de lugar, así
+que el costo es $$\Theta(1)$$ con cero elementos o con un millón. Tampoco hay
+capacidad que se acabe: cada `push` reserva su propio nodo.
 
 </Slide>
 
-<Slide title="push">
+<Slide title="Push">
 <SequenceStepper
   eda="linked-list-singly"
   operation="insert-first"
@@ -407,16 +471,44 @@ cero elementos o con un millón. Tampoco hay capacidad que se acabe: cada
   value={[42, 7, 15]}
 />
 
-Tres `push` sobre una pila que empezó vacía. El widget nombra la operación
-de la estructura, `insertFirst`, que es la que efectivamente corre; la pila
-la expone con otro nombre y sin dejar elegir dónde. Cada corrida enlaza un
-nodo y mueve `head` un lugar a la izquierda, y ninguna toca los nodos que ya
-estaban.
-
 </Slide>
 
-<Slide title="pop = deleteFirst">
-Desapilar es **eliminar el primero de la cadena**: `pop` = `deleteFirst`.
+<Slide title="Pop">
+Implementar `pop` es **usar `deleteFirst` sobre la misma lista**: sacar el
+primer nodo de la cadena y devolver su valor.
+
+<svg viewBox="0 0 700 200" style={{ width: '100%', maxWidth: '700px', height: 'auto', display: 'block', margin: '1.25rem auto' }} role="img" aria-label="Una cadena de tres nodos con los valores 9, 15 y 7. El primero está dibujado con borde punteado y atenuado: es el que sale. Una flecha numerada uno señala su valor, que se guarda antes de soltarlo. Una flecha numerada dos baja desde head hasta el segundo nodo, el 15, que pasa a ser la cima. El último nodo apunta a null.">
+  <defs>
+    <marker id="pila-pop-punta" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto">
+      <path d="M0,0 L7,3.5 L0,7 z" style={{ fill: 'var(--color-accent)' }} />
+    </marker>
+    <marker id="pila-pop-gris" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto">
+      <path d="M0,0 L7,3.5 L0,7 z" style={{ fill: 'var(--color-ink-soft)' }} />
+    </marker>
+  </defs>
+  <text x="63" y="32" textAnchor="middle" fontSize="13" fontWeight="700" fontFamily="monospace" style={{ fill: 'var(--color-accent)' }}>① x = head.value</text>
+  <line x1="63" y1="42" x2="63" y2="84" style={{ stroke: 'var(--color-accent)' }} strokeWidth="1.8" markerEnd="url(#pila-pop-punta)" />
+  <text x="333" y="32" textAnchor="middle" fontSize="15" fontWeight="700" fontFamily="monospace" style={{ fill: 'var(--color-accent)' }}>head</text>
+  <text x="372" y="56" fontSize="14" fontWeight="700" style={{ fill: 'var(--color-accent)' }}>②</text>
+  <line x1="333" y1="42" x2="333" y2="84" style={{ stroke: 'var(--color-accent)' }} strokeWidth="1.8" markerEnd="url(#pila-pop-punta)" />
+  <rect x="20" y="88" width="86" height="54" rx="4" opacity="0.55" style={{ fill: 'var(--color-sunk)', stroke: 'var(--color-rule)' }} strokeWidth="1.4" strokeDasharray="5 4" />
+  <rect x="106" y="88" width="38" height="54" rx="4" opacity="0.55" style={{ fill: 'var(--color-sunk)', stroke: 'var(--color-rule)' }} strokeWidth="1.4" strokeDasharray="5 4" />
+  <text x="63" y="123" textAnchor="middle" fontSize="24" fontWeight="600" opacity="0.55" style={{ fill: 'var(--color-ink)' }}>9</text>
+  <text x="63" y="164" textAnchor="middle" fontSize="12" style={{ fill: 'var(--color-ink-faint)' }}>sale</text>
+  <circle cx="125" cy="115" r="4" opacity="0.55" style={{ fill: 'var(--color-ink-soft)' }} />
+  <line x1="125" y1="115" x2="284" y2="115" opacity="0.45" style={{ stroke: 'var(--color-ink-soft)' }} strokeWidth="1.4" strokeDasharray="5 4" markerEnd="url(#pila-pop-gris)" />
+  {[15, 7].map((v, i) => (
+    <g key={i}>
+      <rect x={290 + i * 180} y="88" width="86" height="54" rx="4" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.6" />
+      <rect x={376 + i * 180} y="88" width="38" height="54" rx="4" style={{ fill: 'var(--color-sunk)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.6" />
+      <text x={333 + i * 180} y="123" textAnchor="middle" fontSize="24" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{v}</text>
+      <circle cx={395 + i * 180} cy="115" r="4" style={{ fill: 'var(--color-ink-soft)' }} />
+      <line x1={395 + i * 180} y1="115" x2={i === 0 ? 464 : 628} y2="115" style={{ stroke: 'var(--color-ink-soft)' }} strokeWidth="1.6" markerEnd="url(#pila-pop-gris)" />
+    </g>
+  ))}
+  <text x="640" y="120" fontSize="15" fontFamily="monospace" style={{ fill: 'var(--color-ink-faint)' }}>null</text>
+  <text x="350" y="190" textAnchor="middle" fontSize="12" style={{ fill: 'var(--color-ink-faint)' }}>① se guarda el valor de la cima · ② head pasa al segundo nodo, y el primero queda sin nadie apuntándolo</text>
+</svg>
 
 ```java
 int pop() {
@@ -431,52 +523,19 @@ int pop() {
 ```
 
 La guarda es el contrato escrito en Java: una pila vacía no tiene cima, así
-que `pop()` no puede devolver un valor. Devolver cero, o `-1`, sería
-inventar un elemento que nadie apiló.
-
-El resto son tres líneas que no dependen del largo: guardar el valor, correr
-`head` al siguiente nodo y bajar `size`. El nodo que sale queda sin nadie
-apuntándolo y la máquina virtual lo recoge más tarde. $$\Theta(1)$$.
+que `pop()` no puede devolver un valor. El resto son tres líneas que no
+dependen del largo, y el nodo que sale queda sin nadie apuntándolo: la
+máquina virtual lo recoge más tarde. $$\Theta(1)$$.
 
 </Slide>
 
-<Slide title="pop">
+<Slide title="Pop">
 <SequenceStepper
   eda="linked-list-singly"
   operation="remove-first"
   values={[15, 7, 42]}
   times={3}
 />
-
-La misma pila del widget anterior, vaciándose. Los elementos salen en el
-orden inverso al que entraron —15, 7, 42— sin que eso sea una decisión del
-código: es lo único que se puede hacer si sólo se toca la cabeza.
-
-</Slide>
-
-<Slide title="top">
-Consultar la cima es leer el valor de la cabeza sin tocar ningún enlace.
-
-```java
-int top() {
-    if (head == null) {
-        throw new NoSuchElementException();
-    }
-    return head.value;
-}
-
-boolean empty() {
-    return size == 0;
-}
-```
-
-`top()` repite la guarda de `pop()` por la misma razón, y ésa es la
-diferencia entre las dos: `pop` devuelve la cima **y** la saca, `top`
-devuelve la cima y deja la pila como estaba. Un algoritmo que necesita mirar
-antes de decidir usa `top`; uno que ya decidió usa `pop`.
-
-`empty()` es la operación que vuelve seguras a las otras dos: preguntarla
-antes es lo que evita la excepción.
 
 </Slide>
 
@@ -486,6 +545,7 @@ antes es lo que evita la excepción.
 | crear | `build()` | $$\Theta(1)$$ | Deja `head` en `null` y `size` en cero |
 | consultar | `top()` | $$\Theta(1)$$ | Ninguna: lee `head.value` y no cambia la cadena |
 | consultar | `empty()` | $$\Theta(1)$$ | Ninguna: `size` ya guarda el dato |
+| consultar | `size()` | $$\Theta(1)$$ | Ninguna: devuelve el campo que las otras mantienen |
 | modificar | `push(x)` | $$\Theta(1)$$ | `head` apunta a la cima: el nodo nuevo enlaza al que lo era |
 | modificar | `pop()` | $$\Theta(1)$$ | `head` apunta a la cima: pasa a ser el segundo |
 
