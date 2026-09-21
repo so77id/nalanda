@@ -93,7 +93,7 @@ entrar es el primero en salir**.
 
 <Slide title="Pilas en la vida real">
 Una pila no es una idea de la programación. Es la forma de cualquier montón
-donde sólo se puede tocar lo de encima, y aparece apenas uno la busca.
+donde sólo se puede tocar lo de encima.
 
 - **Una torre de platos.** El que se apoyó último es el único que se puede
   levantar sin mover el resto.
@@ -105,20 +105,18 @@ donde sólo se puede tocar lo de encima, y aparece apenas uno la busca.
   retoma la ejecución es el que lo llamó: el último que quedó esperando. De
   ahí el nombre, y de ahí que una recursión sin caso base la desborde.
 
-Los cuatro hacen lo mismo con palabras distintas —apoyar encima, levantar de
-encima—, y por eso se pueden estudiar una sola vez. Lo que falta es
-escribirlo: **qué se le puede pedir a una pila y qué significa cada pedido**,
-sin decir dónde viven los elementos ni cuánto cuesta cada operación. Esa
-lista de pedidos con su significado es un **tipo de dato abstracto** (TDA), y
-es lo que viene ahora.
+Los cuatro hacen lo mismo con palabras distintas: apoyar encima y levantar de
+encima. Ese comportamiento está definido con precisión en un **tipo de dato
+abstracto** (TDA) llamado **Stack**, que fija **qué se le puede pedir a una
+pila y qué significa cada pedido** —y nada más: ni dónde viven los elementos,
+ni cuánto cuesta cada operación. Es lo que viene ahora.
 
 </Slide>
 
 
 <Slide title="El TDA Stack · push, pop, top, empty">
-El TDA que acabamos de describir se llama **Stack**. Es una colección donde
-sólo se trabaja en un extremo, la **cima/top**: se pone encima y se saca de
-encima.
+El **Stack** es una colección donde sólo se trabaja en un extremo, la
+**cima/top**: se pone encima y se saca de encima.
 
 <div style={{ border: '1px solid var(--color-rule)', borderRadius: '8px', overflow: 'hidden', margin: '1.25rem 0' }}>
   <div style={{ background: 'var(--color-sunk)', padding: '0.55rem 0.9rem', borderBottom: '1px solid var(--color-rule)', fontWeight: 700 }}>Stack <span style={{ fontWeight: 400, color: 'var(--color-ink-faint)' }}>· el contrato</span></div>
