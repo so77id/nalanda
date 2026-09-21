@@ -336,6 +336,28 @@ final.
 
 </Slide>
 
+<Slide title="Las invariantes de la pila sobre lista">
+Tres propiedades sostienen esta implementación, y cada operación las deja
+como las encontró.
+
+1. **`head` apunta al primer nodo, o a `null` si la pila está vacía.** Es el
+   único punto de entrada a la cadena. Si `head` queda apuntando a un nodo
+   del medio, todo lo anterior se vuelve inalcanzable: sigue en memoria y no
+   hay manera de llegar.
+
+2. **Desde `head`, siguiendo `next`, se llega a todos los nodos y se termina
+   en `null`.** La cadena no tiene cortes ni ciclos.
+
+3. **La cima es el nodo al que `head` apunta.** Es la traducción del
+   contrato a esta estructura, y es la que decide todos los costos: la
+   cima es el único nodo al que se llega sin caminar.
+
+La tercera es la que hace barata a esta implementación, igual que en el
+arreglo lo era «la cima es `data[size - 1]`». Cambia la estructura, no el
+papel que juega la invariante.
+
+</Slide>
+
 <Slide title="push · insertFirst en la cabeza">
 Apilar es **insertar al principio de la cadena**: el par que hay que
 retener es `push` = `insertFirst`.
@@ -827,6 +849,29 @@ mantener un contador más.
 
 </Slide>
 
+<Slide title="Las invariantes de la cola circular">
+El bloque circular sostiene tres propiedades, y la tercera es la que la
+distingue del arreglo de frente fijo.
+
+1. **`0 ≤ size ≤ data.length`.** Nunca hay menos de cero elementos ni más de
+   los que caben.
+
+2. **Los `size` elementos ocupan casillas consecutivas empezando en
+   `front`, dando la vuelta al llegar al final.** «Consecutivas» ya no
+   significa «con índices crecientes»: significa consecutivas *en el
+   círculo*.
+
+3. **`data[i]` no es el elemento `i`-ésimo.** El `i`-ésimo está en
+   `data[(front + i) % capacidad]`. Es una invariante que dice lo que la
+   estructura **dejó** de prometer, y por eso vale la pena escribirla: es
+   justo la promesa que el arreglo de frente fijo mantenía y que cobraba
+   $$N-1$$ corrimientos.
+
+La tercera es la que cuesta y la que paga. Cuesta el acceso directo por
+posición; paga el $$\Theta(1)$$ de desencolar.
+
+</Slide>
+
 <Slide title="Costos con y sin cola circular">
 | Operación | Frente fijo | Circular | Invariante que restaura |
 |---|---|---|---|
@@ -901,6 +946,29 @@ que convierte a `enqueue` en una operación constante.
 La contraparte es que ahora hay dos referencias que mantener al día, y cada
 operación que toca un extremo tiene que dejarlas a las dos consistentes —
 incluida la cola de un solo nodo, donde `head` y `tail` señalan el mismo.
+
+</Slide>
+
+<Slide title="Las invariantes de la cola sobre lista">
+Cuatro propiedades, y la cuarta es la que `tail` trae consigo.
+
+1. **`head` apunta al primer nodo —el frente—, o a `null` si la cola está
+   vacía.**
+
+2. **Desde `head`, siguiendo `next`, se llega a todos los nodos y se
+   termina en `null`.**
+
+3. **`size` es la cantidad de nodos de esa cadena.**
+
+4. **`tail` apunta al último nodo de la cadena, o a `null` si está
+   vacía.** Si queda apuntando a un nodo que ya salió de la cola, el
+   siguiente `enqueue` enlaza contra un nodo inalcanzable y el elemento
+   nuevo nace perdido.
+
+Las tres primeras son las de cualquier lista enlazada. La cuarta es el
+precio de haber ganado el segundo extremo, y es una invariante de las que
+cuestan cuidado y no tiempo: mantenerla no alarga ninguna operación, pero
+olvidarla en un solo caso de borde rompe la estructura en silencio.
 
 </Slide>
 
@@ -1044,6 +1112,29 @@ ninguna operación tiene que caminar para llegar a donde opera.
 La última fila es la que cobra la referencia de más. Mantener `tail` al día
 no cuesta tiempo, cuesta **cuidado**: es una línea extra en `dequeue` que no
 hace nada en el caso normal y lo es todo en el caso de un solo nodo.
+
+</Slide>
+
+<Slide title="Los casos de borde">
+Las cuatro guardas que aparecieron en los listados de esta clase no son
+cuatro accidentes: son los cuatro extremos de una estructura que sólo se
+toca por los extremos.
+
+| El caso | Qué pasa si el método no pregunta | El `if` que lo evita |
+|---|---|---|
+| `pop` o `dequeue` sobre vacía | devuelve un valor que nadie apiló, o revienta con `NullPointerException` | `if (head == null) throw new NoSuchElementException();` |
+| `top` o `front` sobre vacía | lo mismo, sin siquiera cambiar la estructura | la misma guarda |
+| `enqueue` sobre vacía | no hay último al que enlazarse: `tail.next` revienta | `if (head == null) head = fresh;` |
+| `dequeue` del único nodo | `tail` queda apuntando a un nodo que ya salió | `if (head == null) tail = null;` |
+
+Los cuatro son el mismo caso mirado desde cuatro lados: **la estructura de
+cero elementos y la de un elemento son las que no tienen extremo, o lo
+tienen doble**. Por eso todos los listados de esta clase preguntan antes de
+tocar, y por eso `empty()` existe en los dos contratos.
+
+En el arreglo circular las dos últimas filas no hacen falta, porque `front`
+y `size` no son referencias a nodos: no pueden quedar apuntando a nada. A
+cambio aparece la suya —lleno contra vacío— que la lista no tiene.
 
 </Slide>
 
