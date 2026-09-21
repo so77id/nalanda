@@ -171,12 +171,11 @@ operación tiene que buscar dónde operar.
 
 </Slide>
 
-<Slide title="Sobre el arreglo dinámico · la idea">
+<Slide title="Sobre el arreglo dinámico">
 La primera implementación guarda los elementos juntos, en un bloque de
 casillas consecutivas que **puede cambiar de tamaño**: cuando se llena, la
-estructura reserva uno más grande y copia. La cima es el último elemento
-escrito, así que alcanza con recordar **cuántos hay**: la cima está siempre
-en `data[size - 1]`.
+estructura reserva uno más grande y copia. El **top/cima** es el último
+elemento escrito, y está siempre en `data[size - 1]`.
 
 <svg viewBox="0 0 700 196" style={{ width: '100%', maxWidth: '700px', height: 'auto', display: 'block', margin: '1.25rem auto' }} role="img" aria-label="Un bloque de seis casillas: la capacidad reservada. Las tres primeras guardan 42, 7 y 15 —el largo—; las tres siguientes están libres y dibujadas con borde punteado. Una flecha rotulada top baja hasta la casilla de índice 2, que guarda el 15.">
   <defs>
@@ -197,18 +196,22 @@ en `data[size - 1]`.
   ))}
 </svg>
 
-En el dibujo `size` es 3 y `data.length` es 6: tres elementos y tres casillas
-de capacidad que todavía no se usan.
-
 Las cuatro invariantes del arreglo dinámico siguen valiendo tal cual:
-`0 ≤ size ≤ data.length`; los elementos son exactamente `data[0]` hasta
-`data[size - 1]`, sin huecos; lo que está más allá de `size` es basura que
-nadie lee; y `data.length ≤ 4 × size`, la capacidad no sobra.
 
-La pila agrega una sola decisión propia: **la cima es `data[size - 1]`**.
-Cuando `size` es cero no hay cima, y eso es exactamente una pila vacía. Es
-la que hace barata a esta implementación: la cima no hay que buscarla, es
-una resta.
+1. **`0 ≤ size ≤ data.length`.** El largo nunca supera la capacidad.
+2. **Los elementos son exactamente `data[0]` hasta `data[size - 1]`.** Juntos
+   y desde la posición 0, sin huecos en el medio.
+3. **`data[size..]` es basura.** Existe, tiene algún valor, y nadie lo lee.
+4. **`data.length ≤ 4 × size`.** La capacidad no sobra: nunca hay más de
+   cuatro casillas por elemento.
+
+Y la pila agrega la suya:
+
+5. **La cima es `data[size - 1]`.** Cuando `size` es cero no hay cima, y eso
+   es exactamente una pila vacía.
+
+La quinta es la que hace barata a esta implementación: la cima no hay que
+buscarla, es una resta.
 
 </Slide>
 
@@ -275,7 +278,7 @@ cuánto cuestan $$N$$ llamadas divididas por $$N$$.
 
 </Slide>
 
-<Slide title="Peor caso y amortizado · cuál manda">
+<Slide title="Peor caso y amortizado">
 Las dos cifras de `push` y `pop` son ciertas a la vez, y cada una contesta
 una pregunta que la otra no.
 
@@ -296,7 +299,7 @@ es una decisión de la estructura de abajo.
 
 </Slide>
 
-<Slide title="Sobre la lista enlazada · la idea">
+<Slide title="Sobre la lista enlazada">
 La segunda implementación guarda cada elemento en un nodo suelto que apunta
 al siguiente, con una referencia `head` al primero de la cadena.
 
@@ -368,7 +371,7 @@ papel que juega la invariante.
 
 </Slide>
 
-<Slide title="push · insertFirst en la cabeza">
+<Slide title="push = insertFirst">
 Apilar es **insertar al principio de la cadena**: el par que hay que
 retener es `push` = `insertFirst`.
 
@@ -408,7 +411,7 @@ estaban.
 
 </Slide>
 
-<Slide title="pop · deleteFirst desde la cabeza">
+<Slide title="pop = deleteFirst">
 Desapilar es **eliminar el primero de la cadena**: `pop` = `deleteFirst`.
 
 ```java
@@ -447,7 +450,7 @@ código: es lo único que se puede hacer si sólo se toca la cabeza.
 
 </Slide>
 
-<Slide title="top · leer sin sacar">
+<Slide title="top">
 Consultar la cima es leer el valor de la cabeza sin tocar ningún enlace.
 
 ```java
@@ -492,7 +495,7 @@ nunca copia nada, porque no hay bloque que se llene.
 
 </Slide>
 
-<Slide title="Arreglo vs lista · dónde vive el costo">
+<Slide title="Arreglo vs lista">
 | | Sobre arreglo dinámico | Sobre lista simple |
 |---|---|---|
 | `push(x)` | $$\Theta(1)$$ amortizado — $$\Theta(N)$$ la corrida que copia | $$\Theta(1)$$ siempre |
@@ -516,7 +519,7 @@ distinto de su caso típico.
 
 </Slide>
 
-<Slide title="El contrato en Java · Deque, y por qué no Stack">
+<Slide title="Stack en Java">
 Java tiene una clase que se llama `Stack`, y **no es la que hay que usar**.
 Es de las primeras versiones del lenguaje, extiende `Vector`, y por
 extenderla hereda `get(i)`: se le puede pedir el tercer elemento desde
@@ -542,7 +545,7 @@ clase del arreglo mostró con `List`, aplicada aquí.
 
 </Slide>
 
-<Slide title="Ejercicio · paréntesis balanceados">
+<Slide title="Paréntesis balanceados">
 Una expresión está balanceada si cada paréntesis, corchete o llave que se
 abre se cierra después, y en el orden correcto: `({[]})` lo está, `([)]` no,
 aunque tenga la misma cantidad de cada símbolo.
@@ -575,7 +578,7 @@ para `}`.
 
 </Slide>
 
-<Slide title="Paréntesis balanceados · las dos corridas">
+<Slide title="Las dos corridas">
 Las dos expresiones del enunciado, corridas:
 
 | `({[]})` | pila antes | acción | pila después |
@@ -599,7 +602,7 @@ la rompe es el orden, y la pila lo detecta en el tercer carácter.
 
 </Slide>
 
-<Slide title="Paréntesis balanceados · los tres bordes">
+<Slide title="Los tres bordes">
 Tres detalles deciden si la solución es correcta, y ninguno está en la idea
 central.
 
@@ -622,7 +625,7 @@ caso.
 
 </Slide>
 
-<Slide title="Ejercicio · evaluación en notación polaca">
+<Slide title="Evaluación en notación polaca">
 En la notación polaca inversa el operador va **después** de sus dos
 operandos: `3 4 + 5 *` significa `(3 + 4) × 5`, y vale 35. Escrita así, una
 expresión no necesita paréntesis ni reglas de precedencia, y por eso fue la
@@ -654,7 +657,7 @@ aplicarle a `a` y `b` el operador `t`.
 
 </Slide>
 
-<Slide title="Notación polaca · la corrida y el contraejemplo">
+<Slide title="La corrida y el contraejemplo">
 `3 4 + 5 *`, token a token:
 
 | token | pila antes | acción | pila después |
@@ -693,7 +696,7 @@ cincuenta, ya pensando en cómo evaluar expresiones con una máquina.
 
 ## Queue · la fila de la vida
 
-<Slide title="El contrato · enqueue, dequeue, front, empty">
+<Slide title="El TDA Queue">
 Una **cola** es una colección con dos extremos, cada uno con un solo
 sentido: se entra por el **final** y se sale por el **frente**. Por eso lo
 primero que entró es lo primero que sale.
@@ -730,7 +733,7 @@ Pedirle el frente a una cola vacía es un error, no un valor. `front()` y
 
 </Slide>
 
-<Slide title="El contrato en Java · Queue">
+<Slide title="Queue en Java">
 Aquí Java sí tiene la interfaz con el nombre esperado, `Queue`, y otra vez
 los nombres de las operaciones son propios:
 
@@ -757,7 +760,7 @@ también los cumple, y es la otra implementación que Java trae.
 
 </Slide>
 
-<Slide title="Un caso · la impresora, la boletería, el buffer">
+<Slide title="La impresora, la boletería, el buffer">
 Una impresora compartida recibe trabajos de varias personas a la vez y los
 imprime de a uno. El orden justo es el de llegada, y es exactamente lo que
 una cola sostiene sin que nadie tenga que ordenar nada: cada trabajo se
@@ -778,7 +781,7 @@ es la razón para elegir este contrato y no otro.
 
 </Slide>
 
-<Slide title="Sobre el arreglo · el problema del corrimiento">
+<Slide title="El problema del corrimiento">
 La primera idea es la directa: guardar los elementos en un bloque
 consecutivo desde la casilla cero, con el frente en `data[0]` y el final en
 `data[size - 1]`.
@@ -838,7 +841,7 @@ $$\Theta(1)$$, mientras quede capacidad en el bloque.
 
 </Slide>
 
-<Slide title="dequeue sobre arreglo · el corrimiento">
+<Slide title="dequeue sobre arreglo">
 Desencolar saca el de la casilla cero, y ahí aparece el precio.
 
 <SequenceStepper
@@ -858,7 +861,7 @@ copia lo deja escrito en los dos lados hasta que el siguiente lo pisa.
 
 </Slide>
 
-<Slide title="La cola circular · dos punteros sobre el mismo espacio">
+<Slide title="La cola circular">
 La salida es dejar de mover los elementos y mover el frente. Guardamos dos
 índices —`front`, dónde empieza la cola, y `rear`, dónde termina— y cuando
 alguno llega al final del bloque **vuelve a empezar por el principio**.
@@ -905,7 +908,7 @@ dividir por la capacidad. Desencolar pasa a ser leer `data[front]` y avanzar
 
 </Slide>
 
-<Slide title="La cola circular · en código">
+<Slide title="La cola circular en código">
 Con `front` apuntando al próximo que sale y `size` diciendo cuántos hay, las
 dos operaciones caben en pocas líneas. Ninguna recorre nada.
 
@@ -1012,7 +1015,7 @@ copia.
 
 </Slide>
 
-<Slide title="Sobre la lista enlazada · la cabeza y la cola">
+<Slide title="La cabeza y la cola">
 La segunda implementación vuelve a los nodos sueltos, y aquí la cola pide
 algo que la pila no pedía: **los dos extremos**. Se saca por el frente y se
 entra por el final, así que hay que poder llegar a los dos sin caminar.
@@ -1091,7 +1094,7 @@ olvidarla en un solo caso de borde rompe la estructura en silencio.
 
 </Slide>
 
-<Slide title="enqueue · insertLast con tail">
+<Slide title="enqueue = insertLast">
 Encolar es **insertar al final de la cadena**: `enqueue` = `insertLast`.
 
 ```java
@@ -1135,7 +1138,7 @@ es lo que $$\Theta(1)$$ significa.
 
 </Slide>
 
-<Slide title="dequeue · deleteFirst desde la cabeza">
+<Slide title="dequeue = deleteFirst">
 Desencolar es **eliminar el primero de la cadena**: `dequeue` =
 `deleteFirst`.
 
@@ -1187,7 +1190,7 @@ justifica es la de la lámina anterior.
 
 </Slide>
 
-<Slide title="front · leer sin sacar">
+<Slide title="front">
 Consultar el frente es leer el valor de la cabeza sin tocar ningún enlace.
 
 ```java
@@ -1257,7 +1260,7 @@ cambio aparece la suya —lleno contra vacío— que la lista no tiene.
 
 </Slide>
 
-<Slide title="Arreglo circular vs lista con tail · comparación">
+<Slide title="Arreglo circular vs lista con tail">
 | | Arreglo circular | Lista con `head` y `tail` |
 |---|---|---|
 | `enqueue(x)` | $$\Theta(1)$$ amortizado — $$\Theta(N)$$ la corrida que copia | $$\Theta(1)$$ siempre |
@@ -1283,7 +1286,7 @@ el peor momento posible para pausar.
 
 </Slide>
 
-<Slide title="Ejercicio · problema de Josefo">
+<Slide title="El problema de Josefo">
 Hay $$n$$ personas en círculo, numeradas de 1 a $$n$$. Se cuenta de a $$k$$
 y la $$k$$-ésima sale; el conteo sigue desde la siguiente, dando vueltas,
 hasta que queda una sola. La pregunta es qué número sobrevive.
@@ -1316,7 +1319,7 @@ saca del frente y devuelve al final, que es exactamente "pasar de largo".
 
 </Slide>
 
-<Slide title="Josefo · una ronda completa">
+<Slide title="Una ronda completa">
 Con $$n = 5$$ y $$k = 2$$, una ronda entera:
 
 | la cola es | pasa de largo | sale | queda |
@@ -1347,7 +1350,7 @@ estructura es una cola que da vueltas sobre sí misma — no la «cola
 circular» de la lámina del arreglo, que es una implementación concreta con
 módulo, sino un círculo de personas que la cola representa.
 
-<Slide title="Ejercicio · promedio móvil">
+<Slide title="Promedio móvil">
 Llegan números de a uno, sin que se sepa cuántos serán. Después de cada
 número hay que responder el promedio de los últimos $$K$$, y hay que
 hacerlo sin recorrer nada.
@@ -1382,7 +1385,7 @@ llamada, que es la peor manera de fallar — sin ruido.
 
 </Slide>
 
-<Slide title="Promedio móvil · la actualización constante">
+<Slide title="La actualización constante">
 Cada número que llega entra por el final. Si con él la ventana se pasa de
 $$K$$, el más viejo sale por el frente y se descuenta de la suma.
 
@@ -1401,7 +1404,7 @@ double siguiente(int x) {
 
 </Slide>
 
-<Slide title="Promedio móvil · la ventana, paso a paso">
+<Slide title="La ventana, paso a paso">
 Con $$K = 3$$ y la secuencia 1, 2, 3, 4:
 
 | entra | ventana | suma | largo | promedio |
