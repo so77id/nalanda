@@ -546,22 +546,25 @@ recupera más tarde.
 </Slide>
 
 <Slide title="Costos de Stack sobre lista">
-| Molde | Operación | Peor caso | Invariante que restaura |
-|---|---|---|---|
-| crear | `build()` | $$\Theta(1)$$ | Deja `head` en `null` y `size` en cero |
-| consultar | `top()` | $$\Theta(1)$$ | Ninguna: lee `head.value` y no cambia la cadena |
-| consultar | `empty()` | $$\Theta(1)$$ | Ninguna: `size` ya guarda el dato |
-| consultar | `size()` | $$\Theta(1)$$ | Ninguna: devuelve el campo que las otras mantienen |
-| modificar | `push(x)` | $$\Theta(1)$$ | `head` apunta a la cima: el nodo nuevo enlaza al que lo era |
-| modificar | `pop()` | $$\Theta(1)$$ | `head` apunta a la cima: pasa a ser el segundo |
+| Operación | Peor caso | Invariante que restaura |
+|---|---|---|
+| `build()` | $$\Theta(1)$$ | Deja `head` en `null` y `size` en cero |
+| `top()` | $$\Theta(1)$$ | Ninguna: lee `head.value` y no cambia la cadena |
+| `empty()` | $$\Theta(1)$$ | Ninguna: `size` ya guarda el dato |
+| `size()` | $$\Theta(1)$$ | Ninguna: devuelve el campo que las otras mantienen |
+| `push(x)` | $$\Theta(1)$$ | `head` apunta a la cima: el nodo nuevo enlaza al que lo era |
+| `pop()` | $$\Theta(1)$$ | `head` apunta a la cima: pasa a ser el segundo |
 
-Las cuatro son constantes otra vez, y otra vez por una sola razón: las
-cuatro operan sobre el primer nodo, que es el único al que se llega sin
-caminar.
+Todo constante, y por una sola razón: cada operación trabaja sobre el primer
+nodo, que es el único al que se llega sin caminar la cadena.
 
-Y hay algo que esta tabla no tiene: ninguna fila dice
-$$\Theta(N)$$ y ninguna necesita una columna de costo amortizado. La lista
-nunca copia nada, porque no hay bloque que se llene.
+Y hay algo que esta tabla **no** tiene. No hay columna de amortizado, porque
+no hace falta: la lista nunca copia nada, así que el peor caso de cada
+operación es también su caso típico. No hay bloque que se pueda llenar —cada
+nodo se pide cuando hace falta y se suelta cuando sobra—, y por eso ninguna
+fila dice $$\Theta(N)$$.
+
+Es exactamente lo que el arreglo no podía prometer.
 
 </Slide>
 
