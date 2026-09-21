@@ -213,42 +213,45 @@ una resta.
 </Slide>
 
 <Slide title="push sobre arreglo dinámico">
-Apilar escribe en la primera casilla libre y sube `size` en uno. Es la
-operación que el arreglo ya hacía barata —insertar al final—, y aquí es la
-única que la pila pide.
+Apilar escribe en `data[size]` y sube `size` en uno. Es la operación que el
+arreglo ya hacía barata —insertar al final—, y aquí es la única que la pila
+pide.
 
-Salvo cuando el bloque está lleno. Ahí `push` primero reserva uno del doble
-de capacidad y copia lo que había, y recién después escribe. El widget
-muestra esa corrida, la cara:
+Cuatro `push` sobre un bloque de cuatro casillas. El tercero lo encuentra
+lleno, así que antes de escribir reserva uno del doble y copia lo que había:
 
 <SequenceStepper
   eda="dynamic-array"
+  capacity={4}
   operation="insert-last"
   values={[42, 7]}
-  value={15}
+  value={[15, 4, 9, 23]}
   showCode={false}
 />
 
-Los `push` que encuentran capacidad libre hacen sólo los dos últimos pasos,
-y ningún elemento cambia de posición.
+Tres de los cuatro escriben y listo: una operación cada uno. El que encontró
+el bloque lleno pagó cinco —las cuatro copias más la suya—, y es el mismo
+`push` que los otros tres.
 
 </Slide>
 
 <Slide title="pop sobre arreglo dinámico">
-Desapilar devuelve lo que hay en `data[size - 1]` y baja `size` en uno. No
-mueve ni borra nada.
+Desapilar lee `data[size - 1]`, lo devuelve y baja `size` en uno. No mueve
+ni borra nada.
 
 <SequenceStepper
   eda="dynamic-array"
+  capacity={8}
   operation="remove-last"
-  values={[42, 7]}
+  values={[42, 7, 15, 4, 9, 23]}
+  times={3}
   showCode={false}
 />
 
-El widget dibuja la casilla libre porque dejó de contar. En la memoria el
-valor sigue ahí: nadie lo borra, y nadie lo va a leer. La invariante que dice
-que los elementos válidos llegan hasta `size - 1` es la que convierte esa
-casilla en basura, y bajar `size` es todo el trabajo que hace falta para
+El widget dibuja las casillas libres porque dejaron de contar; en la memoria
+los valores siguen escritos, y nadie los va a leer. La invariante que dice
+que los elementos válidos llegan hasta `data[size - 1]` es la que los
+convierte en basura, y bajar `size` es todo el trabajo que hace falta para
 restaurarla.
 
 La cuarta invariante puede pedir un paso más: si al bajar `size` la capacidad

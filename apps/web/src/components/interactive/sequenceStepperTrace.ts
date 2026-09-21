@@ -313,10 +313,6 @@ function checkIndex(i: number | undefined, length: number, inclusive: boolean): 
   return i;
 }
 
-function requireIndex(input: SequenceInput, length: number, inclusive: boolean): number {
-  return checkIndex(asRuns(input.index)[0], length, inclusive);
-}
-
 /**
  * Refuses a slide that would run a removal more times than the chain has
  * nodes — the listing throws `NoSuchElementException` there, and a trace that
@@ -482,48 +478,42 @@ function arrayCode(recipe: SequenceRecipe, operation: SequenceOperation): string
   return ARRAY_CODE[operation as Exclude<SequenceOperation, 'insert-ordered'>];
 }
 
-/**
- * The array family animates ONE run. Its trace was written before the
- * multi-run arguments existed and reads only the first of each — which the
- * #288 review caught as a contract the catalog and the guide were already
- * advertising. Refused at boot rather than silently honoured in part: a slide
- * that asks for three runs and gets one is a slide whose cost claim is wrong.
- */
-function refuseMultiRun(operation: SequenceOperation, input: SequenceInput): void {
-  const runs = Math.max(
-    asRuns(input.value).length,
-    asRuns(input.index).length,
-    asRuns(input.target).length,
-    input.times ?? 1,
-  );
-  if (runs > 1) {
-    throw new Error(
-      `Las recetas de arreglo animan una sola corrida; «${operation}» recibió ${runs}. Sobre una lista enlazada sí se puede.`,
-    );
-  }
-}
-
 function traceArray(
   recipe: SequenceRecipe,
   operation: SequenceOperation,
   input: SequenceInput,
 ): SequenceTrace {
-  refuseMultiRun(operation, input);
-  const code = arrayCode(recipe, operation);
+  // How many times the author asked for the operation. The array family
+  // animated ONE run through #288 and through #294's first array slides; the
+  // push slide of the second pass needs four, with the block filling on the
+  // third. Same helper as the list side, so `insertAt` still gets one index
+  // per value and the run ceiling is one number for the whole widget.
   const grows = recipe === 'dynamic-array';
+  const args = runArgs(operation, input);
+  // Same resguardo the list family carries: a zero-length argument list
+  // traces nothing, and `steps.at(-1)!` at the settle step turns that into an
+  // English JS message rendered to the page.
+  if (args.length === 0) {
+    throw new Error('La operación no se ejecuta ninguna vez: falta el argumento que la corre.');
+  }
+  requireRuns(args.length);
+  const base = arrayCode(recipe, operation);
+  const many = args.length > 1;
+  const code = many
+    ? base +
+      callingProgram(args, METHOD_NAME[operation], false, {
+        name: 'arreglo',
+        type: grows ? 'DynamicArray' : 'StaticArray',
+      })
+    : base;
+  const runLine = (run: number): number[] => (many ? [base.split('\n').length + run + 1] : []);
   // The static array is drawn with room to spare — its capacity is fixed at
   // creation and the class's point is that it can run out. The dynamic array
-  // is drawn FULL, so that a single insertion shows the resize it exists for.
+  // DEFAULTS to full, so that a single insertion shows the resize it exists
+  // for; an author running several insertions passes `capacity` to choose
+  // which of them pays for the growth, because a first push that grows is the
+  // one place a reader least expects it.
   if (input.capacity !== undefined) {
-    // The dynamic array owns its capacity — it starts full so that one
-    // insertion shows the resize it exists for — so an author who passes one
-    // gets told. Before, the value was ignored AND a too-small one still
-    // threw, which is the worst of both (#294 pipeline, second pass).
-    if (grows) {
-      throw new Error(
-        'El arreglo dinámico maneja su propia capacidad: arranca lleno para que una inserción muestre el resize. Quitá la prop `capacity`.',
-      );
-    }
     // Refuse what cannot be drawn rather than degrading quietly: a fractional
     // capacity was truncated in silence and `NaN` produced a zero-width block.
     if (!Number.isInteger(input.capacity) || input.capacity < 1 || input.capacity > MAX_CAPACITY) {
@@ -536,7 +526,7 @@ function traceArray(
     }
   }
   let capacity = grows
-    ? Math.max(input.values.length, 1)
+    ? (input.capacity ?? Math.max(input.values.length, 1))
     : (input.capacity ?? input.values.length + 2);
 
   // The block, slot by slot. A copy leaves its source written where it was
@@ -560,6 +550,10 @@ function traceArray(
 
   const steps: SequenceStep[] = [];
   let cost = 0;
+  // Which call is running, so every frame lights BOTH the line inside the
+  // method and the call that invoked it — the two halves of "where are we"
+  // the list family already prints.
+  let currentRun = 0;
   const push = (
     kind: SequenceStepKind,
     highlightLines: number[],
@@ -571,7 +565,7 @@ function traceArray(
       cells: snapshot(live()),
       slots: slots.map((s) => (s === null ? null : { ...s })),
       pointers: [],
-      highlightLines,
+      highlightLines: [...highlightLines, ...runLine(currentRun)],
       description,
       capacity,
       cost,
@@ -600,167 +594,184 @@ function traceArray(
     return 3;
   };
 
-  switch (operation) {
-    case 'insert-first':
-    case 'insert-last':
-    case 'insert-at': {
-      const [x] = requireValues(input) as [number];
-      const at =
-        operation === 'insert-first'
-          ? 0
-          : operation === 'insert-last'
-            ? size()
-            : requireIndex(input, size(), true);
-      growIfNeeded();
-      const n = size();
-      push('start', [1], `Insertamos ${x} en la posición ${at} de un arreglo de ${n} elementos.`, {
-        carry: { value: x, label: 'x' },
-      });
-      // Copy right, from the last element down to the insertion point. The
-      // source stays drawn (stale) for its frame — see the mirror comment in
-      // the removal branch — and each is overwritten by the next copy, the
-      // last one by the value being inserted.
-      const shiftLines =
-        operation === 'insert-last'
-          ? []
-          : [lineOf(code, 'for (int j = size'), lineOf(code, 'data[j] = data[j - 1]')];
-      for (let j = n; j > at; j -= 1) {
-        cost += 1;
-        const moved = slots[j - 1]!;
-        slots[j] = { ...moved, state: 'active' };
-        slots[j - 1] = { id: (nextId += 1), value: moved.value, state: 'stale' };
-        push('shift', shiftLines, `Copiamos ${moved.value} de la posición ${j - 1} a la ${j}.`, {
-          pointers: [{ name: 'j', index: j }],
-          carry: { value: x, label: 'x' },
-        });
-        clearTransient();
-      }
-      cost += 1;
-      slots[at] = { id: (nextId += 1), value: x, state: 'new' };
-      const writeLine = lineOf(
-        code,
-        operation === 'insert-last'
-          ? 'data[size] = x'
-          : operation === 'insert-first'
-            ? 'data[0] = x'
-            : 'data[i] = x',
-      );
-      push(
-        'link',
-        [writeLine],
-        `Escribimos ${x} en la posición ${at}. El largo pasa a ${size()}.`,
-        {
-          pointers: [{ name: 'i', index: at }],
-        },
-      );
-      break;
-    }
-    case 'remove-first':
-    case 'remove-last':
-    case 'remove-at': {
-      requireNonEmpty(input.values);
-      const n = size();
-      const at =
-        operation === 'remove-first'
-          ? 0
-          : operation === 'remove-last'
-            ? n - 1
-            : requireIndex(input, n, false);
-      const removed = slots[at]!;
-      slots[at] = { ...removed, state: 'leaving' };
-      cost += 1;
-      push(
-        'start',
-        [lineOf(code, 'int x = data[')],
-        `Guardamos ${removed.value}, el elemento de la posición ${at}.`,
-        {
-          pointers: [{ name: 'i', index: at }],
-        },
-      );
-      slots[at] = null;
-      // Copy left, closing the hole the removal opened.
-      const shiftLines =
-        operation === 'remove-last'
-          ? []
-          : [lineOf(code, 'for (int j = '), lineOf(code, 'data[j] = data[j + 1]')];
-      for (let j = at; j < n - 1; j += 1) {
-        cost += 1;
-        const moved = slots[j + 1]!;
-        slots[j] = { ...moved, state: 'active' };
-        // A COPY does not empty its source. Leaving the source drawn — marked
-        // stale — is what makes the frame say "copy" instead of "move": the
-        // reader sees the value in two cells at once. The next iteration
-        // overwrites it, and the last source is nulled after the loop, which
-        // is the one that becomes garbage beyond `size`. Emptying it here
-        // drew a hole travelling through the middle of the block, which is
-        // the picture #277 teaches as the INVALID array (#294 review).
-        slots[j + 1] = { id: (nextId += 1), value: moved.value, state: 'stale' };
-        push('shift', shiftLines, `Copiamos ${moved.value} de la posición ${j + 1} a la ${j}.`, {
-          pointers: [{ name: 'j', index: j }],
-        });
-        clearTransient();
-      }
-      if (n - 1 > at) slots[n - 1] = null;
-      push(
-        'done',
-        [lineOf(code, 'size--')],
-        `El largo pasa a ${size()}. Devolvemos ${removed.value}.`,
-      );
-      break;
-    }
-    case 'get-at': {
-      const at = requireIndex(input, size(), false);
-      push('start', [lineOf(code, 'i >= size')], `Pedimos el elemento de la posición ${at}.`);
-      cost += 1;
-      slots[at] = { ...slots[at]!, state: 'found' };
-      push(
-        'found',
-        [lineOf(code, 'return data[i]')],
-        `La posición ${at} vive en base + ${at} × tamaño: una cuenta, y ya estamos ahí.`,
-        { pointers: [{ name: 'i', index: at }] },
-      );
-      break;
-    }
-    case 'search': {
-      const target = requireTarget(input);
-      const n = size();
-      push(
-        'start',
-        [lineOf(code, 'for (int i = 0')],
-        `Buscamos ${target} recorriendo el arreglo desde la posición 0.`,
-      );
-      let found = -1;
-      for (let j = 0; j < n; j += 1) {
-        cost += 1;
-        const cell = slots[j]!;
-        const hit = cell.value === target;
-        slots[j] = { ...cell, state: hit ? 'found' : 'active' };
+  // One pass per run. Everything the pass needs — `slots`, `capacity`,
+  // `cost`, `push` — is closed over, so a second run starts on the block
+  // the first one left rather than on the author's `values`. The array
+  // family animated ONE run before #294: a slide that asked for three got
+  // one, silently, which is why it was refused at boot. It is honoured now.
+  args.forEach((_arg, run) => {
+    // Each call starts its own count; see `SequenceStep.cost`.
+    currentRun = run;
+    if (run > 0) cost = 0;
+    switch (operation) {
+      case 'insert-first':
+      case 'insert-last':
+      case 'insert-at': {
+        const x = requireValues(input)[run]!;
+        const at =
+          operation === 'insert-first'
+            ? 0
+            : operation === 'insert-last'
+              ? size()
+              : checkIndex(asRuns(input.index)[run], size(), true);
+        growIfNeeded();
+        const n = size();
         push(
-          'compare',
-          [lineOf(code, 'for (int i = 0'), lineOf(code, 'if (data[i] == x')],
-          `¿data[${j}] = ${cell.value} es ${target}? ${hit ? 'Sí.' : 'No.'}`,
+          'start',
+          [1],
+          `Insertamos ${x} en la posición ${at} de un arreglo de ${n} elementos.`,
           {
-            pointers: [{ name: 'j', index: j }],
+            carry: { value: x, label: 'x' },
           },
         );
-        if (hit) {
-          found = j;
-          break;
+        // Copy right, from the last element down to the insertion point. The
+        // source stays drawn (stale) for its frame — see the mirror comment in
+        // the removal branch — and each is overwritten by the next copy, the
+        // last one by the value being inserted.
+        const shiftLines =
+          operation === 'insert-last'
+            ? []
+            : [lineOf(code, 'for (int j = size'), lineOf(code, 'data[j] = data[j - 1]')];
+        for (let j = n; j > at; j -= 1) {
+          cost += 1;
+          const moved = slots[j - 1]!;
+          slots[j] = { ...moved, state: 'active' };
+          slots[j - 1] = { id: (nextId += 1), value: moved.value, state: 'stale' };
+          push('shift', shiftLines, `Copiamos ${moved.value} de la posición ${j - 1} a la ${j}.`, {
+            pointers: [{ name: 'j', index: j }],
+            carry: { value: x, label: 'x' },
+          });
+          clearTransient();
         }
-        clearTransient();
+        cost += 1;
+        slots[at] = { id: (nextId += 1), value: x, state: 'new' };
+        const writeLine = lineOf(
+          code,
+          operation === 'insert-last'
+            ? 'data[size] = x'
+            : operation === 'insert-first'
+              ? 'data[0] = x'
+              : 'data[i] = x',
+        );
+        push(
+          'link',
+          [writeLine],
+          `Escribimos ${x} en la posición ${at}. El largo pasa a ${size()}.`,
+          {
+            pointers: [{ name: 'i', index: at }],
+          },
+        );
+        break;
       }
-      push(
-        found >= 0 ? 'found' : 'done',
-        found >= 0 ? [lineOf(code, 'return i;')] : [lineOf(code, 'return -1;')],
-        found >= 0
-          ? `Encontramos ${target} en la posición ${found}.`
-          : `Recorrimos las ${n} posiciones: ${target} no está en el arreglo.`,
-      );
-      break;
+      case 'remove-first':
+      case 'remove-last':
+      case 'remove-at': {
+        // The block as it is BY NOW, not as the author wrote it: a third
+        // removal is refused against what the two before it left.
+        requireNonEmpty(live().map((c) => c.value));
+        const n = size();
+        const at =
+          operation === 'remove-first'
+            ? 0
+            : operation === 'remove-last'
+              ? n - 1
+              : checkIndex(asRuns(input.index)[run], n, false);
+        const removed = slots[at]!;
+        slots[at] = { ...removed, state: 'leaving' };
+        cost += 1;
+        push(
+          'start',
+          [lineOf(code, 'int x = data[')],
+          `Guardamos ${removed.value}, el elemento de la posición ${at}.`,
+          {
+            pointers: [{ name: 'i', index: at }],
+          },
+        );
+        slots[at] = null;
+        // Copy left, closing the hole the removal opened.
+        const shiftLines =
+          operation === 'remove-last'
+            ? []
+            : [lineOf(code, 'for (int j = '), lineOf(code, 'data[j] = data[j + 1]')];
+        for (let j = at; j < n - 1; j += 1) {
+          cost += 1;
+          const moved = slots[j + 1]!;
+          slots[j] = { ...moved, state: 'active' };
+          // A COPY does not empty its source. Leaving the source drawn — marked
+          // stale — is what makes the frame say "copy" instead of "move": the
+          // reader sees the value in two cells at once. The next iteration
+          // overwrites it, and the last source is nulled after the loop, which
+          // is the one that becomes garbage beyond `size`. Emptying it here
+          // drew a hole travelling through the middle of the block, which is
+          // the picture #277 teaches as the INVALID array (#294 review).
+          slots[j + 1] = { id: (nextId += 1), value: moved.value, state: 'stale' };
+          push('shift', shiftLines, `Copiamos ${moved.value} de la posición ${j + 1} a la ${j}.`, {
+            pointers: [{ name: 'j', index: j }],
+          });
+          clearTransient();
+        }
+        if (n - 1 > at) slots[n - 1] = null;
+        push(
+          'done',
+          [lineOf(code, 'size--')],
+          `El largo pasa a ${size()}. Devolvemos ${removed.value}.`,
+        );
+        break;
+      }
+      case 'get-at': {
+        const at = checkIndex(asRuns(input.index)[run], size(), false);
+        push('start', [lineOf(code, 'i >= size')], `Pedimos el elemento de la posición ${at}.`);
+        cost += 1;
+        slots[at] = { ...slots[at]!, state: 'found' };
+        push(
+          'found',
+          [lineOf(code, 'return data[i]')],
+          `La posición ${at} vive en base + ${at} × tamaño: una cuenta, y ya estamos ahí.`,
+          { pointers: [{ name: 'i', index: at }] },
+        );
+        break;
+      }
+      case 'search': {
+        const target = asRuns(input.target)[run] ?? requireTarget(input);
+        const n = size();
+        push(
+          'start',
+          [lineOf(code, 'for (int i = 0')],
+          `Buscamos ${target} recorriendo el arreglo desde la posición 0.`,
+        );
+        let found = -1;
+        for (let j = 0; j < n; j += 1) {
+          cost += 1;
+          const cell = slots[j]!;
+          const hit = cell.value === target;
+          slots[j] = { ...cell, state: hit ? 'found' : 'active' };
+          push(
+            'compare',
+            [lineOf(code, 'for (int i = 0'), lineOf(code, 'if (data[i] == x')],
+            `¿data[${j}] = ${cell.value} es ${target}? ${hit ? 'Sí.' : 'No.'}`,
+            {
+              pointers: [{ name: 'j', index: j }],
+            },
+          );
+          if (hit) {
+            found = j;
+            break;
+          }
+          clearTransient();
+        }
+        push(
+          found >= 0 ? 'found' : 'done',
+          found >= 0 ? [lineOf(code, 'return i;')] : [lineOf(code, 'return -1;')],
+          found >= 0
+            ? `Encontramos ${target} en la posición ${found}.`
+            : `Recorrimos las ${n} posiciones: ${target} no está en el arreglo.`,
+        );
+        break;
+      }
+      default:
+        throw new Error(`Operación no soportada sobre un arreglo: ${operation}`);
     }
-    default:
-      throw new Error(`Operación no soportada sobre un arreglo: ${operation}`);
-  }
+  });
 
   const last = steps.at(-1)!;
   steps[steps.length - 1] = {
@@ -793,14 +804,19 @@ function traceArray(
  * frame lights the call AND the line inside the method, so both halves of
  * "where are we" are on screen.
  */
-function callingProgram(args: string[], method: string, fresh: boolean): string {
+function callingProgram(
+  args: string[],
+  method: string,
+  fresh: boolean,
+  receiver: { name: string; type: string } = { name: 'list', type: 'LinkedList' },
+): string {
   return [
     '',
-    // Only a chain that STARTS empty was built by this program. Printing the
-    // constructor over a populated `values` would be a listing that
+    // Only a structure that STARTS empty was built by this program. Printing
+    // the constructor over a populated `values` would be a listing that
     // contradicts the picture beside it.
-    ...(fresh ? ['LinkedList list = new LinkedList();'] : []),
-    ...args.map((a) => `list.${method}(${a});`),
+    ...(fresh ? [`${receiver.type} ${receiver.name} = new ${receiver.type}();`] : []),
+    ...args.map((a) => `${receiver.name}.${method}(${a});`),
   ].join('\n');
 }
 

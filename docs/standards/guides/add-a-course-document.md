@@ -839,12 +839,10 @@ Six things worth knowing before you write one:
 - **Showing the same operation over two structures is two nearly identical
   tags.** That is what the widget is for; the surface does not change between
   combinations, so the reader compares the COST rather than re-reading a new
-  widget. **Within a family.** A pair that crosses families is two tags of
-  different SHAPES today, because of the single-run restriction three bullets
-  down: the array side takes one run, the list side takes arrays plus
-  `times`/`tail`. Worked case, the Queue act of `19-edd-stack-queue.mdx`:
-  `eda="array"` with a single `value` against `eda="linked-list-singly"` with
-  `value={[3, 8, 5]} tail` (ADR-0074 §Amended by — #294).
+  widget — and since #294 closed the single-run restriction, a pair that
+  crosses families is two tags of the same shape as well. Worked case, the
+  Queue act of `19-edd-stack-queue.mdx`: `eda="array"` against
+  `eda="linked-list-singly" tail` (ADR-0074 §Amended by — #294).
 - **Not every recipe takes every operation.** The widget prints Java a student
   may copy, so a pair is valid only when the listing belongs to the structure
   the picture draws. `array`, `dynamic-array` and `linked-list-singly` take all
@@ -860,11 +858,18 @@ Six things worth knowing before you write one:
   Anything else is an `<AuthoringError>` naming the operations that recipe does
   have. Ask for one it does not and the answer tells you which to use instead.
 
-- **The array recipes animate ONE run.** Their trace predates the multi-run
-  arguments; a slide that asks an array for three runs is refused at boot
-  rather than shown one. The list recipes take arrays on `value`, `index` and
-  `target`, and `times` on the two operations that take no argument — up to
-  twelve runs, which is more steps than anyone follows on a slide.
+- **Every recipe animates as many runs as you ask for**, up to twelve —
+  more steps than anyone follows on a slide. Pass an array on `value`,
+  `index` or `target`, or `times` on the two operations that take no
+  argument. A removal is checked against the structure as the runs before it
+  left it, so three `pop` over two elements is refused at boot.
+- **`capacity` is the block, and only the two array recipes have one.** On
+  `array` it is the fixed capacity the class's point depends on. On
+  `dynamic-array` it is where the resize falls: the default starts the block
+  FULL, so a single insertion shows the growth, and an author running several
+  passes a larger one to choose which of them pays (#294's push slide runs
+  four over a block of four, and the third doubles it). The drawing shows the
+  block this frame has, so the filling and the doubling happen on screen.
 - **The widget refuses the author, not the reader.** An index outside the
   structure, an unsorted list handed to `insert-ordered`, an unknown recipe, a
   pair the recipe does not offer, or more than eight values — each renders an

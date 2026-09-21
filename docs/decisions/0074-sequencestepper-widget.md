@@ -183,23 +183,42 @@ is prose, not picture.
 `array` keeps its two consumers in the Queue act, where the block genuinely
 is fixed — the circular queue — and that is the mount `capacity` exists for.
 
-**The single-run asymmetry was NOT closed — it was worked around, and the
-workaround is now pinned.** §Consequences called it "one asymmetry to close
-first". #294 instead authored around it: every array slide passes a scalar
-over a pre-populated structure and narrates the repetition, while every list
-slide passes an array or `times`. `SequenceStepper.test.tsx` now pins the
-refusal (`refuses an array recipe asked for several runs`). The reason the
-workaround is acceptable rather than a debt: three runs of a $$\Theta(1)$$
-operation draw the same frame three times, so the multi-run form buys a
-course slide nothing on the array side — unlike `getAt` over a chain, where
-several runs ARE the lesson. Closing it stays a separate WP; what this
-records is that the first consumer shipped without it and why.
+**The single-run asymmetry is closed, and the argument for leaving it open
+was falsified by the next slide written.** §Consequences called it "one
+asymmetry to close first". #294's first pass worked around it instead, and
+wrote down why the workaround was acceptable rather than a debt: _"three
+runs of a $$\Theta(1)$$ operation draw the same frame three times, so the
+multi-run form buys a course slide nothing on the array side"_.
+
+That is true of a fixed block and false of a growing one. The push slide of
+the second pass runs four `push` over a block of four: the third finds it
+full, doubles it and copies — a frame none of the other three draw, and the
+one the amortised cost table exists to explain. One run cannot show it.
+
+So `traceArray` now loops over `runArgs` like `traceList` does, sharing
+`requireRuns` (the twelve-run ceiling is one number for the whole widget),
+`checkIndex` per run, and `callingProgram` — which grew a `receiver`
+parameter, because it had been printing `list.insertLast(...)` for every
+family and an array slide with `showCode` on would have shown a listing that
+contradicted its own picture.
+
+Two things the loop had to get right, both of them things one run never
+exercised: a removal is refused against the block **as the previous runs
+left it**, not against the author's `values`; and `cost` resets per call, so
+each run reports its own arithmetic rather than a running total.
 
 So §Consequences' _"Stack over a list and Stack over an array are two tags
-of the same widget"_ is **qualified, not fulfilled**: today they are two
-tags of different SHAPES, and the class's Queue act is the worked case —
-`eda="array"` with a single `value` against `eda="linked-list-singly"` with
-`value={[3, 8, 5]} tail`.
+of the same widget"_ is **fulfilled**: both sides now take arrays on `value`
+and `times` on the operations that take none.
+
+**And the block drawn is the block the frame HAS.** `layoutSequence` sized
+the picture at `max(maxCells, capacity)` so it would not jump between
+frames. With one run capacity never changed, so nothing showed. With four,
+the first frame drew six cells beside a readout saying `capacidad 4` — the
+block filling up, which is the lesson, never happened on screen. The canvas
+is now reserved for the widest block of the run (so nothing shifts or
+rescales) while the cells drawn are this frame's capacity, so the doubling
+is visible and the cells keep their size.
 
 **Amended by:** #294, review pipeline Round B (2026-09-19) — **a listing
 that is blind to a prop the picture obeys.** `remove-first` over a singly
@@ -267,6 +286,13 @@ and so had been dropping two frames early.
 given, because the string branched only on `empty` — on the slide whose
 thesis is that `tail` is what avoids walking, and one frame before the
 widget's own "tail ya apunta al último: enlazamos sin recorrer nada".
+
+`capacity` is accepted on `dynamic-array` too. The first pass refused it
+there, reasoning that the recipe starts FULL so that one insertion shows the
+resize — right for one run, and wrong for several, because then the FIRST
+push always grows, which is the one place a reader least expects it. An
+author running several insertions passes `capacity` to choose which of them
+pays. The default is unchanged.
 
 And `capacity` joins the input. Without it the block is sized from the
 input, so one structure came out four cells wide on the slide that pushes

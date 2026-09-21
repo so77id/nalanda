@@ -51,7 +51,13 @@ export const sequenceStepperCatalogEntry: CatalogEntry = {
       name: 'times',
       type: 'number',
       description:
-        'How many times to run an operation that takes no argument (`remove-first`, `remove-last`). Default one. Running more times than the chain has nodes is an authoring error: the listing throws there, and a trace that ran anyway would be animating an exception.',
+        'How many times to run an operation that takes no argument (`remove-first`, `remove-last`). Default one. Running more times than the structure has elements is an authoring error: the listing throws there, and a trace that ran anyway would be animating an exception.',
+    },
+    {
+      name: 'capacity',
+      type: 'number',
+      description:
+        'The two ARRAY recipes only — the block reserved, drawn as free slots past the live elements. On `array` it is the fixed capacity, and one too small for `values` is refused at boot. On `dynamic-array` it is where the resize falls: the default starts the block FULL so that a single insertion shows the growth, and a slide running several insertions passes a larger one to choose WHICH of them pays for it. The drawing shows the block the current frame has, so filling and doubling happen on screen.',
     },
     {
       name: 'tail',
@@ -149,6 +155,19 @@ export const sequenceStepperCatalogEntry: CatalogEntry = {
       code: '<SequenceStepper eda="array" operation="insert-first" values={[7, 3, 1, 5]} value={9} />',
       render: () => (
         <SequenceStepper eda="array" operation="insert-first" values={[7, 3, 1, 5]} value={9} />
+      ),
+    },
+    {
+      title: 'A dynamic array filling up and doubling — the amortised cost, drawn',
+      code: '<SequenceStepper eda="dynamic-array" capacity={4} operation="insert-last" values={[42, 7]} value={[15, 4, 9, 23]} />',
+      render: () => (
+        <SequenceStepper
+          eda="dynamic-array"
+          capacity={4}
+          operation="insert-last"
+          values={[42, 7]}
+          value={[15, 4, 9, 23]}
+        />
       ),
     },
     {

@@ -311,15 +311,23 @@ describe('<SequenceStepper> · the combinations the documents mount', () => {
       act: 'Stack',
       props: {
         eda: 'dynamic-array',
+        capacity: 4,
         operation: 'insert-last',
         values: [42, 7],
-        value: 15,
+        value: [15, 4, 9, 23],
         showCode: false,
       },
     },
     {
       act: 'Stack',
-      props: { eda: 'dynamic-array', operation: 'remove-last', values: [42, 7], showCode: false },
+      props: {
+        eda: 'dynamic-array',
+        capacity: 8,
+        operation: 'remove-last',
+        values: [42, 7, 15, 4, 9, 23],
+        times: 3,
+        showCode: false,
+      },
     },
     {
       act: 'Stack',
@@ -390,16 +398,24 @@ describe('<SequenceStepper> · the combinations the documents mount', () => {
     expect(screen.getByTestId('sequence-structure')).toBeInTheDocument();
   });
 
-  // The constraint that decided the shape of every array slide in #294, and
-  // the red that opened the slice. It is invisible to
-  // `app/contentRenders.test.tsx` (the widget is lazy there), so a slide
-  // asking an array for three runs would publish a red box past a green suite.
-  it('refuses an array recipe asked for several runs, and points at the lists', () => {
+  // The constraint that decided the shape of every array slide in #294's
+  // first pass, and that the second pass lifted: the push slide needs four
+  // pushes with the block filling on the third, which one run cannot show.
+  // Still invisible to `app/contentRenders.test.tsx` (the widget is lazy
+  // there), so the mount is pinned HERE or nowhere.
+  it('runs an array recipe as many times as the slide asked', () => {
     renderIn(
       'book',
-      <SequenceStepper eda="array" operation="insert-last" values={[42]} value={[7, 15]} />,
+      <SequenceStepper
+        eda="dynamic-array"
+        capacity={4}
+        operation="insert-last"
+        values={[42, 7]}
+        value={[15, 4, 9, 23]}
+      />,
     );
-    expect(screen.getByText(/animan una sola corrida/i)).toBeInTheDocument();
+    expect(document.querySelector('[data-authoring-error]')).toBeNull();
+    expect(screen.getByTestId('sequence-structure')).toBeInTheDocument();
   });
 
   it('refuses, in the author own words, a combination whose listing is not written', () => {

@@ -915,11 +915,67 @@ describe('sequenceStepperTrace · what `capacity` refuses', () => {
     );
   });
 
-  it('tells a dynamic array author that the recipe owns its capacity', () => {
-    // It used to ignore the value AND still throw when it was too small,
-    // which is the worst of both.
+  it('lets a dynamic array author choose where the resize falls', () => {
+    // It used to refuse this outright, on the reasoning that the recipe
+    // starts FULL so that one insertion shows the resize. That reasoning
+    // holds for a single run and fails for several: with capacity =
+    // values.length the FIRST push always grows, which is the one place a
+    // reader least expects it. #294 push slide asks for four pushes with the
+    // resize in the middle, and that is only expressible by choosing the
+    // starting block.
+    const trace = traceFor('dynamic-array', 'insert-last', {
+      values: [42, 7],
+      value: 9,
+      capacity: 4,
+    });
+    expect(trace.steps.every((s) => s.capacity === 4)).toBe(true);
+    expect(trace.steps.some((s) => s.kind === 'grow')).toBe(false);
+  });
+});
+
+describe('sequenceStepperTrace \u00b7 an array asked for several runs', () => {
+  // The array family animated ONE run, and #294 push slide needs four with
+  // the block filling on the way. ADR-0074 had called the restriction a
+  // workaround rather than a debt, on the grounds that "three runs of a
+  // Theta(1) operation draw the same frame three times". A dynamic array
+  // falsifies exactly that: the run that finds the block full draws a frame
+  // none of the others draw.
+  it('runs insert-last once per value, in order', () => {
+    const trace = traceFor('dynamic-array', 'insert-last', {
+      values: [42, 7],
+      value: [15, 4, 9],
+      capacity: 4,
+    });
+    expect(trace.steps.at(-1)!.cells.map((c) => c.value)).toEqual([42, 7, 15, 4, 9]);
+  });
+
+  it('grows exactly on the run that finds the block full', () => {
+    const trace = traceFor('dynamic-array', 'insert-last', {
+      values: [42, 7],
+      value: [15, 4, 9, 23],
+      capacity: 4,
+    });
+    const grows = trace.steps.filter((s) => s.kind === 'grow');
+    expect(grows).toHaveLength(1);
+    // Two starting elements plus 15 and 4 fill the block of four; the third
+    // push is the one that has to double it.
+    expect(grows[0]!.description).toMatch(/se copian los 4 elementos/);
+    expect(trace.steps.at(-1)!.capacity).toBe(8);
+  });
+
+  it('runs remove-last `times` times and leaves the rest of the block', () => {
+    const trace = traceFor('array', 'remove-last', {
+      values: [42, 7, 15, 4, 9],
+      times: 3,
+      capacity: 6,
+    });
+    expect(trace.steps.at(-1)!.cells.map((c) => c.value)).toEqual([42, 7]);
+    expect(trace.steps.filter((s) => s.kind === 'done')).toHaveLength(3);
+  });
+
+  it('still refuses more runs than a slide can show', () => {
     expect(() =>
-      traceFor('dynamic-array', 'insert-last', { values: [7, 3], value: 9, capacity: 6 }),
-    ).toThrow(/maneja su propia capacidad/i);
+      traceFor('array', 'remove-last', { values: [1, 2], times: 99, capacity: 40 }),
+    ).toThrow(/Entre 1 y/i);
   });
 });

@@ -102,7 +102,7 @@ function refusalReason(
     return 'esta clase presenta el orden como una variante de la lista, no del arreglo.';
   }
   if (recipe === 'linked-list-doubly' && operation === 'remove-last' && !tail) {
-    return 'sin `tail` el recorrido hasta el anteúltimo es el de la lista simple, que nunca toca `prev`. Agregá la prop `tail`.';
+    return 'sin `tail` el recorrido hasta el anteúltimo es el de la lista simple, que nunca toca `prev`. Agrega la prop `tail`.';
   }
   const allowed = recipe === 'linked-list-circular' ? CIRCULAR_OPERATIONS : DOUBLY_OPERATIONS;
   return `el listado que el widget muestra sería el de otra estructura. Sobre «${RECIPE_LABEL[recipe]}» hay listado para: ${allowed
@@ -444,6 +444,10 @@ function Body({
               step={step}
               recipe={recipe}
               maxCells={trace.maxCells}
+              maxSlots={Math.max(
+                ...trace.steps.map((f) => f.capacity ?? f.cells.length),
+                trace.maxCells,
+              )}
               align={trace.align}
               hasCarry={trace.hasCarry}
             />
@@ -564,23 +568,30 @@ function StructureView({
   step,
   recipe,
   maxCells,
+  maxSlots,
   align,
   hasCarry,
 }: {
   step: SequenceStep;
   recipe: SequenceRecipe;
   maxCells: number;
+  maxSlots: number;
   align: 'left' | 'right';
   hasCarry: boolean;
 }) {
   const isList = recipe.startsWith('linked-list');
   const slots = step.capacity ?? step.cells.length;
-  // Laid out for the WIDEST frame, so the drawing keeps one size from the
-  // first frame to the last. `offset` is how far in the current cells start:
-  // when the chain grows at the front, they sit flush right and the reserved
-  // slot is exactly where the next node will land — so it lands without
-  // moving anything already on screen.
-  const layout = layoutSequence(maxCells, recipe, slots, hasCarry);
+  // The CANVAS is sized for the widest frame, so the drawing keeps one size
+  // and one cell size from the first frame to the last; the BLOCK drawn
+  // inside it is the one this frame has, so a block that fills and doubles
+  // does it on screen (#294 — four pushes over a block of four read as six
+  // cells beside a readout saying `capacidad 4`).
+  //
+  // `offset` is how far in the current cells start: when the chain grows at
+  // the front, they sit flush right and the reserved slot is exactly where
+  // the next node will land — so it lands without moving anything already on
+  // screen.
+  const layout = layoutSequence(maxCells, recipe, slots, hasCarry, maxSlots);
   const offset = align === 'right' ? maxCells - step.cells.length : 0;
   // Where the floating node sits — computed once and shared, because `head`
   // has to be able to point AT it and a second copy of this arithmetic is a
