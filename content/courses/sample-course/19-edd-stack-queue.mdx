@@ -27,9 +27,9 @@ recorrer para llegar.
 
 <SectionBreak />
 
-## Stack · la torre de platos
+## Stack · Pila
 
-<Slide title="Una pila · se entra y se sale por arriba">
+<Slide title="Una pila">
 Una **pila** es una colección con una sola puerta. Los elementos se apoyan
 uno sobre otro, y el único que está a la vista es el de más arriba, al que
 llamamos **cima**. Poner y sacar ocurren los dos en ese mismo lugar.
@@ -85,7 +85,7 @@ al 42 hay que sacar antes todo lo que se apoyó encima de él.
 
 De esa única puerta sale toda la regla: los elementos salen en el orden
 inverso al que entraron. Se la llama **LIFO**, del inglés _last in, first
-out_ —el último en entrar es el primero en salir.
+out_: **el último en entrar es el primero en salir**.
 
 </Slide>
 
@@ -105,16 +105,22 @@ elegir la estructura correcta.
   esperando. De ahí el nombre, y de ahí que una recursión sin caso base la
   desborde.
 
-Ninguno de los cuatro necesita el tercer elemento, ni el décimo. Sólo el de
-más arriba, uno a la vez, en el orden inverso al que entró. Una colección
-que además ofreciera acceso por posición estaría ofreciendo permisos que
-ninguno de los cuatro usa, y habría que pagar por sostenerlos.
+Los cuatro usan la pila de la misma manera: piden el de más arriba, uno a la
+vez, y nunca el del medio. El editor no salta al tercer cambio sin deshacer
+antes los dos que quedaron encima, y la torre de platos no se lo permitiría
+aunque quisiera.
 
-Así que lo primero es escribir qué **sí** se le puede pedir a una pila, y
-qué significa cada pedido —sin decir todavía dónde viven los elementos ni
+Que no lo necesiten es lo que importa, porque la clase anterior ya midió lo
+que cuesta ofrecerlo: `insertAt` y `deleteAt` valen $$\Theta(N)$$ en el
+arreglo y en las cuatro variantes de lista —y en la lista se les suma
+`getAt`—, y no por un defecto de la implementación, sino porque el contrato
+obliga a poder operar en cualquier posición. **Un permiso prometido hay que
+cumplirlo siempre, lo use alguien o no.**
+
+Así que lo que falta escribir es el contrato de la pila: **qué se le puede
+pedir y qué significa cada pedido**, sin decir dónde viven los elementos ni
 cuánto cuesta cada operación. Esa lista de pedidos con su significado es un
-**tipo de dato abstracto** (TDA), y es por donde empieza cada estructura de
-esta unidad.
+**tipo de dato abstracto** (TDA), y es lo que viene ahora.
 
 </Slide>
 
