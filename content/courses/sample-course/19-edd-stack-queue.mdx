@@ -620,6 +620,248 @@ usa la pila.
 
 </Slide>
 
+export function Paso({ expr, cursor = -1, pila = [], nota, falla = false }) {
+  const CH = 40;
+  const W = 34;
+  const X = 92;
+  const marco = (malo) => (malo ? 'var(--color-flag)' : 'var(--color-mark)');
+  return (
+    <svg
+      viewBox="0 0 560 148"
+      style={{ width: '100%', maxWidth: '560px', height: 'auto', display: 'block' }}
+      role="img"
+      aria-label={`${nota} La expresión es ${expr.split('').join(' ')}. La pila contiene ${pila.length === 0 ? 'nada' : pila.join(' ')}.`}
+    >
+      <text x="8" y="32" fontSize="13" fontFamily="monospace" style={{ fill: 'var(--color-ink-faint)' }}>
+        expresión
+      </text>
+      {expr.split('').map((c, i) => (
+        <g key={i}>
+          <rect
+            x={X + i * CH}
+            y="10"
+            width={W}
+            height="34"
+            rx="3"
+            style={{
+              fill: i === cursor ? (falla ? 'var(--color-flag)' : 'var(--color-accent)') : 'var(--color-surface)',
+              stroke: i === cursor ? (falla ? 'var(--color-flag)' : 'var(--color-accent)') : 'var(--color-rule-strong)',
+            }}
+            strokeWidth="1.6"
+            opacity={i < cursor ? 0.45 : 1}
+          />
+          <text
+            x={X + i * CH + W / 2}
+            y="34"
+            textAnchor="middle"
+            fontSize="18"
+            fontWeight="600"
+            fontFamily="monospace"
+            opacity={i < cursor ? 0.45 : 1}
+            style={{ fill: i === cursor ? 'var(--color-on-accent)' : 'var(--color-ink)' }}
+          >
+            {c}
+          </text>
+        </g>
+      ))}
+      <text x="8" y="94" fontSize="13" fontFamily="monospace" style={{ fill: 'var(--color-ink-faint)' }}>
+        pila
+      </text>
+      {pila.length === 0 ? (
+        <text x={X} y="94" fontSize="14" style={{ fill: 'var(--color-ink-faint)' }}>
+          vacía
+        </text>
+      ) : (
+        pila.map((c, i) => (
+          <g key={i}>
+            <rect
+              x={X + i * CH}
+              y="72"
+              width={W}
+              height="34"
+              rx="3"
+              style={{ fill: 'var(--color-mark-soft)', stroke: marco(falla && i === pila.length - 1) }}
+              strokeWidth="1.6"
+            />
+            <text
+              x={X + i * CH + W / 2}
+              y="96"
+              textAnchor="middle"
+              fontSize="18"
+              fontWeight="600"
+              fontFamily="monospace"
+              style={{ fill: 'var(--color-ink)' }}
+            >
+              {c}
+            </text>
+          </g>
+        ))
+      )}
+      {pila.length > 0 ? (
+        <text x={X + pila.length * CH + 6} y="96" fontSize="12" style={{ fill: 'var(--color-ink-faint)' }}>
+          ← cima
+        </text>
+      ) : null}
+      <text x="8" y="136" fontSize="13" style={{ fill: falla ? 'var(--color-flag)' : 'var(--color-ink-soft)' }}>
+        {nota}
+      </text>
+    </svg>
+  );
+}
+
+<Slide title="Paréntesis balanceados">
+Una expresión está **balanceada** si cada símbolo que se abre se cierra
+después, y en el orden correcto. Dibujando un arco entre cada par se ve de
+un golpe:
+
+<svg viewBox="40 -8 580 340" style={{ width: '100%', maxWidth: '660px', height: 'auto', display: 'block', margin: '1.25rem auto' }} role="img" aria-label="Cuatro expresiones con un arco que une cada par de símbolos. En la primera, abre paréntesis llave corchete y sus tres cierres, los arcos se anidan sin cruzarse y está balanceada. En la segunda, abre paréntesis corchete cierra paréntesis cierra corchete, los dos arcos se cruzan. En la tercera, dos aperturas y un cierre, el primer paréntesis queda sin arco. En la cuarta, un par completo y un cierre final que no tiene con qué emparejarse.">
+  <g transform="translate(0, 0)">
+    <rect x={56} y="0" width="28" height="28" rx="3" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.5" />
+    <text x={70} y="20" textAnchor="middle" fontSize="17" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>{'('}</text>
+    <rect x={88} y="0" width="28" height="28" rx="3" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.5" />
+    <text x={102} y="20" textAnchor="middle" fontSize="17" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>{'{'}</text>
+    <rect x={120} y="0" width="28" height="28" rx="3" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.5" />
+    <text x={134} y="20" textAnchor="middle" fontSize="17" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>{'['}</text>
+    <rect x={152} y="0" width="28" height="28" rx="3" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.5" />
+    <text x={166} y="20" textAnchor="middle" fontSize="17" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>{']'}</text>
+    <rect x={184} y="0" width="28" height="28" rx="3" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.5" />
+    <text x={198} y="20" textAnchor="middle" fontSize="17" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>{'}'}</text>
+    <rect x={216} y="0" width="28" height="28" rx="3" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.5" />
+    <text x={230} y="20" textAnchor="middle" fontSize="17" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>{')'}</text>
+    <path d="M 70 31 C 70 75, 230 75, 230 31" fill="none" style={{ stroke: 'var(--color-keep)' }} strokeWidth="1.8" />
+    <path d="M 102 31 C 102 61, 198 61, 198 31" fill="none" style={{ stroke: 'var(--color-keep)' }} strokeWidth="1.8" />
+    <path d="M 134 31 C 134 47, 166 47, 166 31" fill="none" style={{ stroke: 'var(--color-keep)' }} strokeWidth="1.8" />
+    <text x="300" y="20" fontSize="14" fontWeight="700" style={{ fill: 'var(--color-keep)' }}>balanceada · los arcos anidan</text>
+  </g>
+  <g transform="translate(0, 90)">
+    <rect x={56} y="0" width="28" height="28" rx="3" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.5" />
+    <text x={70} y="20" textAnchor="middle" fontSize="17" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>{'('}</text>
+    <rect x={88} y="0" width="28" height="28" rx="3" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.5" />
+    <text x={102} y="20" textAnchor="middle" fontSize="17" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>{'['}</text>
+    <rect x={120} y="0" width="28" height="28" rx="3" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.5" />
+    <text x={134} y="20" textAnchor="middle" fontSize="17" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>{')'}</text>
+    <rect x={152} y="0" width="28" height="28" rx="3" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.5" />
+    <text x={166} y="20" textAnchor="middle" fontSize="17" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>{']'}</text>
+    <path d="M 70 31 C 70 51, 134 51, 134 31" fill="none" style={{ stroke: 'var(--color-flag)' }} strokeWidth="1.8" />
+    <path d="M 102 31 C 102 69, 166 69, 166 31" fill="none" style={{ stroke: 'var(--color-flag)' }} strokeWidth="1.8" />
+    <text x="300" y="20" fontSize="14" fontWeight="700" style={{ fill: 'var(--color-flag)' }}>se cruzan</text>
+  </g>
+  <g transform="translate(0, 180)">
+    <rect x={56} y="0" width="28" height="28" rx="3" style={{ fill: 'var(--color-flag-soft)', stroke: 'var(--color-flag)' }} strokeWidth="1.5" strokeDasharray="4 3" />
+    <text x={70} y="20" textAnchor="middle" fontSize="17" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>{'('}</text>
+    <rect x={88} y="0" width="28" height="28" rx="3" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.5" />
+    <text x={102} y="20" textAnchor="middle" fontSize="17" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>{'('}</text>
+    <rect x={120} y="0" width="28" height="28" rx="3" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.5" />
+    <text x={134} y="20" textAnchor="middle" fontSize="17" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>{')'}</text>
+    <path d="M 102 31 C 102 47, 134 47, 134 31" fill="none" style={{ stroke: 'var(--color-keep)' }} strokeWidth="1.8" />
+    <path d="M 66 35 l 9 10 m -9 0 l 9 -10" fill="none" style={{ stroke: 'var(--color-flag)' }} strokeWidth="1.8" strokeLinecap="round" />
+    <text x="300" y="20" fontSize="14" fontWeight="700" style={{ fill: 'var(--color-flag)' }}>quedó una sin cerrar</text>
+  </g>
+  <g transform="translate(0, 262)">
+    <rect x={56} y="0" width="28" height="28" rx="3" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.5" />
+    <text x={70} y="20" textAnchor="middle" fontSize="17" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>{'('}</text>
+    <rect x={88} y="0" width="28" height="28" rx="3" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.5" />
+    <text x={102} y="20" textAnchor="middle" fontSize="17" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>{')'}</text>
+    <rect x={120} y="0" width="28" height="28" rx="3" style={{ fill: 'var(--color-flag-soft)', stroke: 'var(--color-flag)' }} strokeWidth="1.5" strokeDasharray="4 3" />
+    <text x={134} y="20" textAnchor="middle" fontSize="17" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>{')'}</text>
+    <path d="M 70 31 C 70 47, 102 47, 102 31" fill="none" style={{ stroke: 'var(--color-keep)' }} strokeWidth="1.8" />
+    <path d="M 130 35 l 9 10 m -9 0 l 9 -10" fill="none" style={{ stroke: 'var(--color-flag)' }} strokeWidth="1.8" strokeLinecap="round" />
+    <text x="300" y="20" fontSize="14" fontWeight="700" style={{ fill: 'var(--color-flag)' }}>cierra una que nunca se abrió</text>
+  </g>
+</svg>
+
+Balanceada quiere decir que **los arcos anidan**: ninguno cruza a otro y
+ninguno queda suelto. Y de ahí salen las tres únicas formas de fallar —se
+cruzan, queda algo abierto, o cierra algo que nunca se abrió—, que son las
+tres que el algoritmo va a tener que detectar.
+
+</Slide>
+
+<Slide title="La pila lo ve">
+Cada apertura se apila; cada cierre desapila y compara. La cima es siempre
+**el último símbolo que quedó abierto**, que es exactamente con el que un
+cierre tiene que corresponderse.
+
+<StepShow
+  language="java"
+  code={`for (char c : s.toCharArray()) {
+    if (abre(c)) {
+        pendientes.push(c);
+    } else if (cierra(c)) {
+        if (pendientes.empty()) return false;
+        if (pendientes.pop() != pareja(c)) return false;
+    }
+}
+return pendientes.empty();`}
+>
+  <Step lines={[]}>
+    <Paso expr="({[]})" cursor={-1} pila={[]} nota="La pila arranca vacía y recorremos la expresión de izquierda a derecha." />
+  </Step>
+  <Step lines={[2, 3]}>
+    <Paso expr="({[]})" cursor={0} pila={['(']} nota="( es una apertura: se apila." />
+  </Step>
+  <Step lines={[2, 3]}>
+    <Paso expr="({[]})" cursor={1} pila={['(', '{']} nota="{ es una apertura: se apila encima." />
+  </Step>
+  <Step lines={[2, 3]}>
+    <Paso expr="({[]})" cursor={2} pila={['(', '{', '[']} nota="[ es una apertura: se apila encima." />
+  </Step>
+  <Step lines={[4, 6]}>
+    <Paso expr="({[]})" cursor={3} pila={['(', '{']} nota="] cierra. La cima era [, que es justo su pareja: se desapila." />
+  </Step>
+  <Step lines={[4, 6]}>
+    <Paso expr="({[]})" cursor={4} pila={['(']} nota="} cierra. La cima era {, su pareja: se desapila." />
+  </Step>
+  <Step lines={[4, 6]}>
+    <Paso expr="({[]})" cursor={5} pila={[]} nota=") cierra. La cima era (, su pareja: se desapila." />
+  </Step>
+  <Step lines={[9]}>
+    <Paso expr="({[]})" cursor={-1} pila={[]} nota="Se acabó la expresión y la pila quedó vacía: está balanceada." />
+  </Step>
+</StepShow>
+
+Los arcos de la lámina anterior son la pila: cada arco se abre cuando el
+símbolo entra y se cierra cuando sale.
+
+</Slide>
+
+<Slide title="Cuando no está balanceada">
+<StepShow
+  language="java"
+  code={`for (char c : s.toCharArray()) {
+    if (abre(c)) {
+        pendientes.push(c);
+    } else if (cierra(c)) {
+        if (pendientes.empty()) return false;
+        if (pendientes.pop() != pareja(c)) return false;
+    }
+}
+return pendientes.empty();`}
+>
+  <Step lines={[]}>
+    <Paso expr="([)]" cursor={-1} pila={[]} nota="La misma cantidad de cada símbolo que la anterior. Lo que cambia es el orden." />
+  </Step>
+  <Step lines={[2, 3]}>
+    <Paso expr="([)]" cursor={0} pila={['(']} nota="( es una apertura: se apila." />
+  </Step>
+  <Step lines={[2, 3]}>
+    <Paso expr="([)]" cursor={1} pila={['(', '[']} nota="[ es una apertura: se apila encima." />
+  </Step>
+  <Step lines={[4, 6]}>
+    <Paso expr="([)]" cursor={2} pila={['(', '[']} nota=") cierra, y su pareja es (. Pero la cima es [: el ) se cruza con él." falla />
+  </Step>
+</StepShow>
+
+La pila detecta el cruce en el tercer carácter, sin haber leído el resto.
+Y las tres formas de fallar son las tres preguntas del código: la línea 5
+atrapa el cierre que no tiene nada abierto, la 6 atrapa el cruce, y la 9
+atrapa lo que quedó abierto al final.
+
+Una sola pasada, y la pila crece a lo más hasta la cantidad de aperturas:
+$$\Theta(N)$$ de tiempo y $$\Theta(N)$$ de espacio en el peor caso.
+
+</Slide>
+
 <Slide title="Evaluación en notación polaca">
 En la notación polaca inversa el operador va **después** de sus dos
 operandos: `3 4 + 5 *` significa `(3 + 4) × 5`, y vale 35. Escrita así, una
