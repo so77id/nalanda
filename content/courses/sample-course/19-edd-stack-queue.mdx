@@ -279,30 +279,19 @@ copian nada.
 | `push(x)` | <span style={{ color: 'var(--color-mark)', fontWeight: 700 }}>$$\Theta(N)$$</span> | $$\Theta(1)$$ | La cima es `data[size - 1]`, y `size ≤ data.length` obliga a crecer |
 | `pop()` | <span style={{ color: 'var(--color-mark)', fontWeight: 700 }}>$$\Theta(N)$$</span> | $$\Theta(1)$$ | La cima es `data[size - 1]`, y `data.length ≤ 4 × size` obliga a achicar |
 
-Las dos últimas filas traen dos cifras porque responden preguntas distintas.
-El **peor caso** dice cuánto puede tardar *una* llamada; el **amortizado**,
-cuánto cuestan $$N$$ llamadas divididas por $$N$$.
+**Lo que gana.** Los elementos viven juntos, así que la pila no paga un
+enlace por elemento y el procesador lee el bloque de corrido. Y las cuatro
+operaciones terminan siendo una cuenta sobre `size`.
 
-</Slide>
+**Lo que paga.** Las dos columnas de `push` y `pop` no coinciden. Una de
+cada $$N$$ llamadas copia el bloque entero, y no se sabe cuál: el
+amortizado promete que el total sale constante, y el peor caso avisa que
+alguna llamada, alguna vez, va a tardar $$N$$.
 
-<Slide title="Peor caso y amortizado">
-Las dos cifras de `push` y `pop` son ciertas a la vez, y cada una contesta
-una pregunta que la otra no.
-
-Si te importa que **ninguna llamada** se pase de un límite —un videojuego, un
-sistema de tiempo real—, manda el peor caso: una de cada $$N$$ va a copiar
-todo el bloque, y no hay forma de saber cuál.
-
-Si te importa el **total** de un programa que hace millones de operaciones,
-manda el amortizado: esas copias, repartidas entre todas las llamadas, salen
-a constante por llamada.
-
-Confundirlas es lo que hace creer que un arreglo dinámico «a veces es lento».
-No es a veces: es una de cada $$N$$ veces, y las otras $$N-1$$ ya pagaron por
-ella.
-
-La pila hereda ese comportamiento tal cual. No es una decisión del contrato,
-es una decisión de la estructura de abajo.
+Eso está bien si lo que importa es el total —un programa que hace millones
+de operaciones—, y no está bien si ninguna llamada puede pasarse de un
+límite: un videojuego, un sistema de tiempo real. Ahí hace falta una
+implementación donde las dos columnas sean iguales, y la que sigue lo es.
 
 </Slide>
 
