@@ -620,7 +620,8 @@ usa la pila.
 
 </Slide>
 
-export function Paso({ expr, cursor = -1, pila = [], nota, falla = false }) {
+export function Paso({ expr, sep = '', cursor = -1, pila = [], nota, falla = false }) {
+  const tokens = expr.split(sep).filter((t) => t !== '');
   const CH = 40;
   const W = 34;
   const X = 92;
@@ -630,12 +631,12 @@ export function Paso({ expr, cursor = -1, pila = [], nota, falla = false }) {
       viewBox="0 0 560 148"
       style={{ width: '100%', maxWidth: '560px', height: 'auto', display: 'block' }}
       role="img"
-      aria-label={`${nota} La expresión es ${expr.split('').join(' ')}. La pila contiene ${pila.length === 0 ? 'nada' : pila.join(' ')}.`}
+      aria-label={`${nota} La expresión es ${tokens.join(' ')}. La pila contiene ${pila.length === 0 ? 'nada' : pila.join(' ')}.`}
     >
       <text x="8" y="32" fontSize="13" fontFamily="monospace" style={{ fill: 'var(--color-ink-faint)' }}>
         expresión
       </text>
-      {expr.split('').map((c, i) => (
+      {tokens.map((c, i) => (
         <g key={i}>
           <rect
             x={X + i * CH}
@@ -919,62 +920,216 @@ check(Solution.balanced(""), true);
 </Exercise>
 </Slide>
 
-<Slide title="Evaluación en notación polaca">
+<Slide title="Notación polaca inversa">
 En la notación polaca inversa el operador va **después** de sus dos
-operandos: `3 4 + 5 *` significa `(3 + 4) × 5`, y vale 35. Escrita así, una
-expresión no necesita paréntesis ni reglas de precedencia, y por eso fue la
-forma en que las primeras calculadoras y varias máquinas virtuales
-resolvieron el problema de evaluar.
+operandos. Eso suena a un detalle de escritura y no lo es: con los
+operadores al final, una expresión no necesita paréntesis ni reglas de
+precedencia, porque el orden ya dice qué se aplica a qué.
 
-Con una pila se evalúa de izquierda a derecha en una sola pasada: los
-números se apilan, y cada operador desapila dos y apila el resultado.
+<svg viewBox="0 0 660 200" style={{ width: '100%', maxWidth: '660px', height: 'auto', display: 'block', margin: '1.25rem auto' }} role="img" aria-label="A la izquierda, dos expresiones con paréntesis: abre tres más cuatro cierra por cinco, y tres más abre cuatro por cinco cierra. A la derecha, las mismas dos en polaca inversa: tres cuatro más cinco por, y tres cuatro cinco por más. Los mismos números en el mismo orden; lo único que cambia es dónde van los operadores, y no hace falta ningún paréntesis.">
+  <defs>
+    <marker id="rpn-punta" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto">
+      <path d="M0,0 L7,3.5 L0,7 z" style={{ fill: 'var(--color-ink-faint)' }} />
+    </marker>
+  </defs>
+  <text x="16" y="24" fontSize="13" fontWeight="700" style={{ fill: 'var(--color-ink-faint)' }}>con paréntesis</text>
+  <text x="330" y="24" fontSize="13" fontWeight="700" style={{ fill: 'var(--color-accent)' }}>en polaca inversa</text>
+  <text x="16" y="61" fontSize="17" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>(3 + 4) × 5</text>
+  <path d="M 150 56 l 24 0" fill="none" style={{ stroke: 'var(--color-ink-faint)' }} strokeWidth="1.5" markerEnd="url(#rpn-punta)" />
+  <rect x={330} y="40" width="34" height="30" rx="3" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.5" />
+  <text x={347} y="61" textAnchor="middle" fontSize="16" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>{'3'}</text>
+  <rect x={370} y="40" width="34" height="30" rx="3" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.5" />
+  <text x={387} y="61" textAnchor="middle" fontSize="16" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>{'4'}</text>
+  <rect x={410} y="40" width="34" height="30" rx="3" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.5" />
+  <text x={427} y="61" textAnchor="middle" fontSize="16" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>{'+'}</text>
+  <rect x={450} y="40" width="34" height="30" rx="3" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.5" />
+  <text x={467} y="61" textAnchor="middle" fontSize="16" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>{'5'}</text>
+  <rect x={490} y="40" width="34" height="30" rx="3" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.5" />
+  <text x={507} y="61" textAnchor="middle" fontSize="16" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>{'*'}</text>
+  <text x="16" y="107" fontSize="17" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>3 + (4 × 5)</text>
+  <path d="M 150 102 l 24 0" fill="none" style={{ stroke: 'var(--color-ink-faint)' }} strokeWidth="1.5" markerEnd="url(#rpn-punta)" />
+  <rect x={330} y="86" width="34" height="30" rx="3" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.5" />
+  <text x={347} y="107" textAnchor="middle" fontSize="16" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>{'3'}</text>
+  <rect x={370} y="86" width="34" height="30" rx="3" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.5" />
+  <text x={387} y="107" textAnchor="middle" fontSize="16" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>{'4'}</text>
+  <rect x={410} y="86" width="34" height="30" rx="3" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.5" />
+  <text x={427} y="107" textAnchor="middle" fontSize="16" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>{'5'}</text>
+  <rect x={450} y="86" width="34" height="30" rx="3" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.5" />
+  <text x={467} y="107" textAnchor="middle" fontSize="16" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>{'*'}</text>
+  <rect x={490} y="86" width="34" height="30" rx="3" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.5" />
+  <text x={507} y="107" textAnchor="middle" fontSize="16" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>{'+'}</text>
+  <text x="16" y="146" fontSize="13" style={{ fill: 'var(--color-ink-faint)' }}>los mismos números en el mismo orden, resultados distintos — y sin un paréntesis</text>
+</svg>
 
-```java
-int evalRPN(String[] tokens) {
-    Stack valores = new Stack();
-    for (String t : tokens) {
-        if (esOperador(t)) {
-            int b = valores.pop();
-            int a = valores.pop();
-            valores.push(aplicar(a, b, t));
-        } else {
-            valores.push(Integer.parseInt(t));
-        }
-    }
-    return valores.pop();
-}
-```
+Y evaluarla es ir reduciendo de izquierda a derecha: cada operador consume
+los **dos resultados más recientes** y deja uno en su lugar.
 
-Los dos auxiliares son directos: `esOperador(t)` responde si el token es uno
-de los cuatro símbolos, y `aplicar(a, b, t)` devuelve el resultado de
-aplicarle a `a` y `b` el operador `t`.
+<svg viewBox="0 0 660 190" style={{ width: '100%', maxWidth: '620px', height: 'auto', display: 'block', margin: '1.25rem auto' }} role="img" aria-label="La expresión tres cuatro más cinco por, reduciéndose. Una llave abarca el tres, el cuatro y el más, y baja a un siete resaltado. Otra llave abarca ese siete, el cinco y el por, y baja a treinta y cinco. Cada operador consume los dos resultados más recientes.">
+  <defs>
+    <marker id="rpn-punta-ac" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto">
+      <path d="M0,0 L7,3.5 L0,7 z" style={{ fill: 'var(--color-accent)' }} />
+    </marker>
+  </defs>
+  <rect x={40} y="20" width="34" height="30" rx="3" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.5" />
+  <text x={57} y="41" textAnchor="middle" fontSize="16" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>{'3'}</text>
+  <rect x={80} y="20" width="34" height="30" rx="3" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.5" />
+  <text x={97} y="41" textAnchor="middle" fontSize="16" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>{'4'}</text>
+  <rect x={120} y="20" width="34" height="30" rx="3" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.5" />
+  <text x={137} y="41" textAnchor="middle" fontSize="16" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>{'+'}</text>
+  <rect x={160} y="20" width="34" height="30" rx="3" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.5" />
+  <text x={177} y="41" textAnchor="middle" fontSize="16" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>{'5'}</text>
+  <rect x={200} y="20" width="34" height="30" rx="3" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.5" />
+  <text x={217} y="41" textAnchor="middle" fontSize="16" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>{'*'}</text>
+  <path d="M 44 56 l 0 10 l 112 0 l 0 -10" fill="none" style={{ stroke: 'var(--color-accent)' }} strokeWidth="1.8" />
+  <path d="M 100 66 l 0 14" fill="none" style={{ stroke: 'var(--color-accent)' }} strokeWidth="1.8" markerEnd="url(#rpn-punta-ac)" />
+  <rect x={83} y="86" width="34" height="30" rx="3" style={{ fill: 'var(--color-mark-soft)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.5" />
+  <text x={100} y="107" textAnchor="middle" fontSize="16" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>{'7'}</text>
+  <rect x={160} y="86" width="34" height="30" rx="3" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.5" />
+  <text x={177} y="107" textAnchor="middle" fontSize="16" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>{'5'}</text>
+  <rect x={200} y="86" width="34" height="30" rx="3" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.5" />
+  <text x={217} y="107" textAnchor="middle" fontSize="16" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>{'*'}</text>
+  <path d="M 87 122 l 0 10 l 190 0 l 0 -10" fill="none" style={{ stroke: 'var(--color-accent)' }} strokeWidth="1.8" />
+  <path d="M 182 132 l 0 14" fill="none" style={{ stroke: 'var(--color-accent)' }} strokeWidth="1.8" markerEnd="url(#rpn-punta-ac)" />
+  <rect x={160} y="152" width="44" height="30" rx="3" style={{ fill: 'var(--color-mark-soft)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.5" />
+  <text x={182} y="173" textAnchor="middle" fontSize="16" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>{'35'}</text>
+  <text x="240" y="174" fontSize="13" style={{ fill: 'var(--color-ink-faint)' }}>cada operador consume los dos resultados más recientes</text>
+</svg>
+
+«Los dos más recientes» es LIFO otra vez, y por eso el evaluador entero cabe
+en una pila.
 
 </Slide>
 
-<Slide title="La corrida y el contraejemplo">
-`3 4 + 5 *`, token a token:
+<Slide title="La pila lo evalúa">
+Los números se apilan; cada operador desapila dos y apila el resultado. Al
+final queda un solo valor, que es la respuesta.
 
-| token | pila antes | acción | pila después |
-|---|---|---|---|
-| `3` | — | apila 3 | `3` |
-| `4` | `3` | apila 4 | `3 4` |
-| `+` | `3 4` | saca 4 y 3, apila 3 + 4 | `7` |
-| `5` | `7` | apila 5 | `7 5` |
-| `*` | `7 5` | saca 5 y 7, apila 7 × 5 | `35` |
-| fin | `35` | desapila el resultado | **35** |
+<StepShow
+  language="java"
+  code={`for (String t : tokens) {
+    if (isOperator(t)) {
+        int b = values.pop();
+        int a = values.pop();
+        values.push(apply(a, b, t));
+    } else {
+        values.push(Integer.parseInt(t));
+    }
+}
+return values.pop();`}
+>
+  <Step lines={[]}>
+    <Paso expr="3 4 + 5 *" sep=" " cursor={-1} pila={[]} nota="La pila arranca vacía y leemos los tokens de izquierda a derecha." />
+  </Step>
+  <Step lines={[6, 7]}>
+    <Paso expr="3 4 + 5 *" sep=" " cursor={0} pila={['3']} nota="3 es un número: se apila." />
+  </Step>
+  <Step lines={[6, 7]}>
+    <Paso expr="3 4 + 5 *" sep=" " cursor={1} pila={['3', '4']} nota="4 es un número: se apila encima." />
+  </Step>
+  <Step lines={[2, 3, 4, 5]}>
+    <Paso expr="3 4 + 5 *" sep=" " cursor={2} pila={['7']} nota="+ es operador: saca 4 y 3, y apila 3 + 4 = 7." />
+  </Step>
+  <Step lines={[6, 7]}>
+    <Paso expr="3 4 + 5 *" sep=" " cursor={3} pila={['7', '5']} nota="5 es un número: se apila encima." />
+  </Step>
+  <Step lines={[2, 3, 4, 5]}>
+    <Paso expr="3 4 + 5 *" sep=" " cursor={4} pila={['35']} nota="* es operador: saca 5 y 7, y apila 7 × 5 = 35." />
+  </Step>
+  <Step lines={[10]}>
+    <Paso expr="3 4 + 5 *" sep=" " cursor={-1} pila={['35']} nota="Se acabaron los tokens y queda un solo valor: ése es el resultado." />
+  </Step>
+</StepShow>
 
-El detalle que decide la corrección está en dos líneas consecutivas: el
-primer `pop()` entrega el operando **derecho**, porque fue el último que se
-apiló. Con `5 3 -` se ve en un renglón:
+`isOperator(t)` responde si el token es uno de los cuatro símbolos, y
+`apply(a, b, t)` devuelve el resultado de aplicárselo a `a` y `b`. Los dos
+están completos al final.
 
-| orden | `b = pop()` | `a = pop()` | `aplicar(a, b, "-")` |
-|---|---|---|---|
-| como está escrito | 3 | 5 | 5 − 3 = <span style={{ color: 'var(--color-keep)', fontWeight: 700 }}>2</span> |
-| con las dos líneas invertidas | 5 | 3 | 3 − 5 = <span style={{ color: 'var(--color-flag)', fontWeight: 700 }}>−2</span> |
+</Slide>
 
-En la suma y en la multiplicación los dos órdenes dan lo mismo, y por eso
-el error sobrevive las pruebas fáciles.
+<Slide title="El orden de los dos pop">
+La corrección del evaluador se juega en dos líneas consecutivas, y con la
+resta se ve en un solo token.
 
+<StepShow
+  language="java"
+  code={`for (String t : tokens) {
+    if (isOperator(t)) {
+        int b = values.pop();
+        int a = values.pop();
+        values.push(apply(a, b, t));
+    } else {
+        values.push(Integer.parseInt(t));
+    }
+}
+return values.pop();`}
+>
+  <Step lines={[6, 7]}>
+    <Paso expr="5 3 -" sep=" " cursor={1} pila={['5', '3']} nota="5 y 3 ya están apilados, en ese orden." />
+  </Step>
+  <Step lines={[3]}>
+    <Paso expr="5 3 -" sep=" " cursor={2} pila={['5']} nota="El primer pop entrega 3: es el operando DERECHO, porque fue el último en entrar." />
+  </Step>
+  <Step lines={[4]}>
+    <Paso expr="5 3 -" sep=" " cursor={2} pila={[]} nota="El segundo pop entrega 5: el operando izquierdo." />
+  </Step>
+  <Step lines={[5]}>
+    <Paso expr="5 3 -" sep=" " cursor={2} pila={['2']} nota={'apply(5, 3, "−") apila 5 − 3 = 2.'} />
+  </Step>
+</StepShow>
+
+Invierte esas dos líneas y el evaluador calcula `3 − 5 = −2`. Con la suma y
+la multiplicación los dos órdenes dan lo mismo, así que el error sobrevive
+las pruebas fáciles y aparece recién con una resta o una división.
+
+</Slide>
+
+<Slide title="El código completo">
+<Exercise title="Notación polaca inversa">
+
+El evaluador entero, con los dos auxiliares. Presiona **Comprobar** para
+correrlo, y después cambia lo que quieras.
+
+```java starter
+import java.util.Stack;
+
+class Solution {
+
+    static int evalRPN(String[] tokens) {
+        Stack<Integer> values = new Stack<>();
+        for (String t : tokens) {
+            if (isOperator(t)) {
+                int b = values.pop();
+                int a = values.pop();
+                values.push(apply(a, b, t));
+            } else {
+                values.push(Integer.parseInt(t));
+            }
+        }
+        return values.pop();
+    }
+
+    static boolean isOperator(String t) {
+        return t.equals("+") || t.equals("-") || t.equals("*") || t.equals("/");
+    }
+
+    static int apply(int a, int b, String t) {
+        if (t.equals("+")) return a + b;
+        if (t.equals("-")) return a - b;
+        if (t.equals("*")) return a * b;
+        return a / b;
+    }
+}
+```
+
+```java test
+check(Solution.evalRPN(new String[] {"3", "4", "+", "5", "*"}), 35);
+check(Solution.evalRPN(new String[] {"3", "4", "5", "*", "+"}), 23);
+check(Solution.evalRPN(new String[] {"5", "3", "-"}), 2);
+check(Solution.evalRPN(new String[] {"8", "2", "/"}), 4);
+check(Solution.evalRPN(new String[] {"7"}), 7);
+```
+
+</Exercise>
 </Slide>
 
 {/* Book-only: el contexto histórico se lee, no se proyecta. Sacarlo del */}
