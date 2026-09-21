@@ -1493,10 +1493,12 @@ de reconocerlo cuando aparezca.
 
 ## Ejercicios con solución
 
-Cinco ejercicios para resolver en el navegador. Los dos primeros son el
-mismo patrón visto desde dos lados —una **pila monótona**, que resuelve
-pendientes en cuanto llega el elemento que los responde— y los tres
-siguientes usan la cola, dos de ellos con una pila al lado.
+Cinco ejercicios para resolver en el navegador, **en orden de dificultad**.
+Los tres primeros son de cola: uno que la usa sola y dos que le suman una
+pila para dar vuelta un tramo. Los dos últimos son el mismo patrón —la
+**pila monótona** de la lámina anterior— visto desde dos ángulos opuestos, y
+conviene dejarlos para el final porque son los que piden una idea nueva y no
+sólo aplicar un contrato.
 
 Ninguno necesita más estructuras que las de esta clase, y las soluciones
 están escritas con arreglos y dos índices, sin bibliotecas. Conviene mirar
@@ -1523,142 +1525,37 @@ Para la cola, igual con dos índices: `cola[rear++] = x` encola y
 es la otra convención posible de las dos que la lámina de la cola circular
 nombró.
 
-<Slide title="Los ejercicios de esta clase">
-Cinco problemas, y cada uno existe por el patrón que enseña.
+<Slide title="La pila monótona">
+Hay una técnica que dos de los ejercicios de esta clase necesitan y que no
+sale de ninguna lámina anterior. Vale la pena verla una vez, aquí.
 
-**Next Greater Element** y **Stock Span** son el mismo patrón —una **pila
-monótona**— desde dos ángulos opuestos. En los dos, la pila guarda
-posiciones que todavía esperan respuesta, y cada elemento nuevo resuelve de
-una vez a todos los que ya no pueden esperar más. Cada posición entra y sale
-exactamente una vez, y por eso los dos son $$\Theta(N)$$ aunque tengan un
-ciclo adentro de otro.
+El problema: para cada elemento de un arreglo, encontrar el primero a su
+derecha que sea mayor. La solución ingenua mira, por cada posición, todo lo
+que sigue: $$\Theta(N^2)$$.
 
-**Generar los binarios de 1 a N** es la cola sola, y es el más corto de los
-cinco: cada número sacado del frente genera dos nuevos por el final.
+La observación que la arregla es que **cuando llega un elemento grande,
+resuelve de una vez a todos los que estaban esperando y son menores que
+él**. Si los que esperan se guardan en una pila, quedan en orden no
+creciente, así que alcanza con sacar desde la cima hasta encontrar uno
+mayor. Con `[4, 5, 2, 25]`:
 
-**Invertir los primeros K de una cola** e **intercalar las dos mitades**
-combinan los dos contratos. La pila aporta lo único que la cola no tiene
-—dar vuelta un tramo— y la cola aporta la rotación que deja cada elemento
-donde corresponde.
+| llega | resuelve | la pila queda |
+|---|---|---|
+| `4` | a nadie | `4` |
+| `5` | al `4` → su mayor es 5 | `5` |
+| `2` | a nadie | `5 2` |
+| `25` | al `2` y al `5` → el mayor de ambos es 25 | `25` |
+| fin | el `25` no fue superado por nadie → `-1` | — |
 
-Los enunciados completos, con casos de prueba y solución, están en el texto
-de esta clase.
+Lo que hay que guardar son **posiciones** y no valores: al resolver una hay
+que saber en qué casilla del resultado escribir.
+
+Y el costo, que es la parte que sorprende: hay un ciclo dentro de otro y aun
+así es $$\Theta(N)$$. **Cada posición entra a la pila exactamente una vez y
+sale a lo más una vez**, así que el ciclo de adentro no multiplica el
+trabajo — lo reparte. Sumadas todas sus vueltas, son $$N$$ en total.
 
 </Slide>
-
-<Exercise title="Next Greater Element">
-
-Escribe `nextGreater`, que recibe un arreglo y devuelve otro del mismo
-largo: en cada posición, el primer elemento **estrictamente mayor** que
-aparece a su derecha, o `-1` si no hay ninguno.
-
-La solución ingenua mira, para cada posición, todo lo que sigue: $$\Theta(N^2)$$.
-La pila la reduce a $$\Theta(N)$$ con una observación. Recorriendo de
-izquierda a derecha, cuando llega un elemento grande, **resuelve de una vez
-a todos los que estaban esperando y son menores que él** — y los que
-esperan, si se guardan en una pila, quedan en orden no creciente, así que
-alcanza con sacar desde la cima hasta encontrar uno mayor.
-
-Guarda en la pila **posiciones**, no valores: al resolver una hay que saber
-en qué casilla del resultado escribir. Las que quedan en la pila al terminar
-son las que nadie superó.
-
-```java starter
-class Solution {
-    static int[] nextGreater(int[] a) {
-        return new int[a.length];
-    }
-}
-```
-
-```java test
-check(Solution.nextGreater(new int[]{4, 5, 2, 25}), new int[]{5, 25, 25, -1});
-check(Solution.nextGreater(new int[]{13, 7, 6, 12}), new int[]{-1, 12, 12, -1});
-check(Solution.nextGreater(new int[]{3, 3}), new int[]{-1, -1});
-check(Solution.nextGreater(new int[]{}), new int[]{});
-```
-
-```java solution
-class Solution {
-    // La pila guarda POSICIONES cuyos valores quedan en orden no creciente:
-    // la comparación es estricta, así que dos iguales conviven — y por eso
-    // [3, 3] responde -1 dos veces.
-    // Cada posición entra una vez y sale una vez: el ciclo de adentro no
-    // multiplica el costo, lo reparte.
-    static int[] nextGreater(int[] a) {
-        int[] res = new int[a.length];
-        int[] pila = new int[a.length];
-        int cima = 0;
-        for (int i = 0; i < a.length; i++) {
-            while (cima > 0 && a[pila[cima - 1]] < a[i]) {
-                res[pila[--cima]] = a[i];   // a[i] es el primer mayor del que esperaba
-            }
-            pila[cima++] = i;
-        }
-        while (cima > 0) {
-            res[pila[--cima]] = -1;         // nadie los superó
-        }
-        return res;
-    }
-}
-```
-
-</Exercise>
-
-<Exercise title="Stock Span">
-
-Escribe `span`, que recibe los precios de una acción día a día y devuelve,
-para cada día, cuántos días consecutivos hacia atrás —contando el día
-mismo— el precio fue **menor o igual** que el de hoy.
-
-Es el problema anterior mirado al revés: en vez de preguntar quién me supera
-a la derecha, pregunta hasta dónde llego hacia la izquierda sin encontrar a
-nadie mayor. La pila vuelve a guardar posiciones, y el precio de hoy expulsa
-a todas las que no lo superan —ninguna de ellas podrá volver a cortar a
-nadie, porque hoy está más a la derecha y es mayor.
-
-Cuando la pila queda vacía, hoy es el máximo de todo lo visto y el span son
-los `i + 1` días. Si no, el que quedó en la cima es el primer día anterior
-con precio mayor, y ahí se corta.
-
-```java starter
-class Solution {
-    static int[] span(int[] precios) {
-        return new int[precios.length];
-    }
-}
-```
-
-```java test
-check(Solution.span(new int[]{100, 80, 60, 70, 60, 75, 85}), new int[]{1, 1, 1, 2, 1, 4, 6});
-check(Solution.span(new int[]{10, 4, 5, 90, 120, 80}), new int[]{1, 1, 2, 4, 5, 1});
-check(Solution.span(new int[]{5}), new int[]{1});
-check(Solution.span(new int[]{}), new int[]{});
-```
-
-```java solution
-class Solution {
-    // La misma pila monótona de posiciones, con la comparación dada vuelta:
-    // hoy expulsa a todos los días anteriores que no lo superan.
-    static int[] span(int[] precios) {
-        int[] res = new int[precios.length];
-        int[] pila = new int[precios.length];
-        int cima = 0;
-        for (int i = 0; i < precios.length; i++) {
-            while (cima > 0 && precios[pila[cima - 1]] <= precios[i]) {
-                cima--;
-            }
-            // pila vacía: hoy es el máximo hasta aquí. Si no, la cima es el
-            // primer día anterior con precio mayor, y el span llega hasta él.
-            res[i] = (cima == 0) ? i + 1 : i - pila[cima - 1];
-            pila[cima++] = i;
-        }
-        return res;
-    }
-}
-```
-
-</Exercise>
 
 <Exercise title="Los binarios de 1 a N">
 
@@ -1666,9 +1563,11 @@ Escribe `binarios`, que devuelve la representación binaria de los números de
 1 a `n`, en orden, como un arreglo de `String`.
 
 Se puede resolver convirtiendo cada número por separado, pero hay una
-solución más corta y es de cola. Los binarios de 1 a `n`, leídos en orden,
-forman un árbol: de `"1"` salen `"10"` y `"11"`; de `"10"` salen `"100"` y
-`"101"`. Recorrer ese árbol por niveles es exactamente lo que hace una cola.
+solución más corta y es de cola. Cada binario produce dos: el mismo texto
+con un `0` y con un `1` al final. De `"1"` salen `"10"` y `"11"`; de `"10"`
+salen `"100"` y `"101"`. Y como la cola entrega en el orden en que se
+encoló, los va devolviendo exactamente en el orden en que hay que
+escribirlos.
 
 Encola `"1"`. Después, `n` veces: saca uno del frente, guárdalo en el
 resultado, y encola sus dos hijos —el mismo texto con un `0` y con un `1` al
@@ -2000,6 +1899,123 @@ class Solution {
         int[] res = new int[n];
         for (int i = 0; i < n; i++) {
             res[i] = cola[front++];
+        }
+        return res;
+    }
+}
+```
+
+</Exercise>
+
+<Exercise title="Next Greater Element">
+
+Escribe `nextGreater`, que recibe un arreglo y devuelve otro del mismo
+largo: en cada posición, el primer elemento **estrictamente mayor** que
+aparece a su derecha, o `-1` si no hay ninguno.
+
+La solución ingenua mira, para cada posición, todo lo que sigue: $$\Theta(N^2)$$.
+La pila la reduce a $$\Theta(N)$$ con una observación. Recorriendo de
+izquierda a derecha, cuando llega un elemento grande, **resuelve de una vez
+a todos los que estaban esperando y son menores que él** — y los que
+esperan, si se guardan en una pila, quedan en orden no creciente, así que
+alcanza con sacar desde la cima hasta encontrar uno mayor.
+
+Guarda en la pila **posiciones**, no valores: al resolver una hay que saber
+en qué casilla del resultado escribir. Las que quedan en la pila al terminar
+son las que nadie superó.
+
+```java starter
+class Solution {
+    static int[] nextGreater(int[] a) {
+        return new int[a.length];
+    }
+}
+```
+
+```java test
+check(Solution.nextGreater(new int[]{4, 5, 2, 25}), new int[]{5, 25, 25, -1});
+check(Solution.nextGreater(new int[]{13, 7, 6, 12}), new int[]{-1, 12, 12, -1});
+check(Solution.nextGreater(new int[]{3, 3}), new int[]{-1, -1});
+check(Solution.nextGreater(new int[]{}), new int[]{});
+```
+
+```java solution
+class Solution {
+    // La pila guarda POSICIONES cuyos valores quedan en orden no creciente:
+    // la comparación es estricta, así que dos iguales conviven — y por eso
+    // [3, 3] responde -1 dos veces.
+    // Cada posición entra una vez y sale una vez: el ciclo de adentro no
+    // multiplica el costo, lo reparte.
+    static int[] nextGreater(int[] a) {
+        int[] res = new int[a.length];
+        int[] pila = new int[a.length];
+        int cima = 0;
+        for (int i = 0; i < a.length; i++) {
+            while (cima > 0 && a[pila[cima - 1]] < a[i]) {
+                res[pila[--cima]] = a[i];   // a[i] es el primer mayor del que esperaba
+            }
+            pila[cima++] = i;
+        }
+        while (cima > 0) {
+            res[pila[--cima]] = -1;         // nadie los superó
+        }
+        return res;
+    }
+}
+```
+
+</Exercise>
+
+<Exercise title="Stock Span">
+
+Escribe `span`, que recibe los precios de una acción día a día y devuelve,
+para cada día, cuántos días consecutivos hacia atrás —contando el día
+mismo— el precio fue **menor o igual** que el de hoy.
+
+Es el problema anterior mirado al revés: en vez de preguntar quién me supera
+a la derecha, pregunta hasta dónde llego hacia la izquierda sin encontrar a
+nadie mayor. Y hay un segundo cambio que el enunciado esconde: aquí la
+comparación **deja de ser estricta**. El enunciado dice «menor o igual», así
+que los días con el mismo precio sí cuentan para el span — por eso el
+`while` usa `<=` donde el ejercicio anterior usaba `<`. La pila vuelve a guardar posiciones, y el precio de hoy expulsa
+a todas las que no lo superan —ninguna de ellas podrá volver a cortar a
+nadie, porque hoy está más a la derecha y es mayor.
+
+Cuando la pila queda vacía, hoy es el máximo de todo lo visto y el span son
+los `i + 1` días. Si no, el que quedó en la cima es el primer día anterior
+con precio mayor, y ahí se corta.
+
+```java starter
+class Solution {
+    static int[] span(int[] precios) {
+        return new int[precios.length];
+    }
+}
+```
+
+```java test
+check(Solution.span(new int[]{100, 80, 60, 70, 60, 75, 85}), new int[]{1, 1, 1, 2, 1, 4, 6});
+check(Solution.span(new int[]{10, 4, 5, 90, 120, 80}), new int[]{1, 1, 2, 4, 5, 1});
+check(Solution.span(new int[]{5}), new int[]{1});
+check(Solution.span(new int[]{}), new int[]{});
+```
+
+```java solution
+class Solution {
+    // La misma pila monótona de posiciones, con la comparación dada vuelta:
+    // hoy expulsa a todos los días anteriores que no lo superan.
+    static int[] span(int[] precios) {
+        int[] res = new int[precios.length];
+        int[] pila = new int[precios.length];
+        int cima = 0;
+        for (int i = 0; i < precios.length; i++) {
+            while (cima > 0 && precios[pila[cima - 1]] <= precios[i]) {
+                cima--;
+            }
+            // pila vacía: hoy es el máximo hasta aquí. Si no, la cima es el
+            // primer día anterior con precio mayor, y el span llega hasta él.
+            res[i] = (cima == 0) ? i + 1 : i - pila[cima - 1];
+            pila[cima++] = i;
         }
         return res;
     }
