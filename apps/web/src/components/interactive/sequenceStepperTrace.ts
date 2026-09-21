@@ -49,7 +49,15 @@ export type SequenceOperation = (typeof OPERATIONS)[number];
 export type SequenceStepKind =
   'start' | 'walk' | 'compare' | 'shift' | 'grow' | 'build' | 'link' | 'unlink' | 'found' | 'done';
 
-export type SequenceCellState = 'idle' | 'new' | 'active' | 'found' | 'leaving';
+/**
+ * `leaving` is an element ON ITS WAY OUT of the structure. `stale` is a
+ * different thing that looks similar and is not: the SOURCE of a copy, whose
+ * value is still written in the block and which nobody will read again. The
+ * array shift needs both words — the element that leaves, and the copies it
+ * leaves behind — and painting them the same said "move" where the narration
+ * said "copy" (#294 review).
+ */
+export type SequenceCellState = 'idle' | 'new' | 'active' | 'found' | 'leaving' | 'stale';
 
 export interface SequenceCell {
   /** Stable across frames — the view animates by identity, not by position. */
@@ -574,8 +582,10 @@ function traceArray(
       push('start', [1], `Insertamos ${x} en la posición ${at} de un arreglo de ${n} elementos.`, {
         carry: { value: x, label: 'x' },
       });
-      // Copy right, from the last element down to the insertion point. Each
-      // copy vacates its source, so a hole opens at `at`.
+      // Copy right, from the last element down to the insertion point. The
+      // source stays drawn (stale) for its frame — see the mirror comment in
+      // the removal branch — and each is overwritten by the next copy, the
+      // last one by the value being inserted.
       const shiftLines =
         operation === 'insert-last'
           ? []
@@ -584,7 +594,7 @@ function traceArray(
         cost += 1;
         const moved = slots[j - 1]!;
         slots[j] = { ...moved, state: 'active' };
-        slots[j - 1] = null;
+        slots[j - 1] = { id: (nextId += 1), value: moved.value, state: 'stale' };
         push('shift', shiftLines, `Copiamos ${moved.value} de la posición ${j - 1} a la ${j}.`, {
           pointers: [{ name: 'j', index: j }],
           carry: { value: x, label: 'x' },
@@ -643,12 +653,20 @@ function traceArray(
         cost += 1;
         const moved = slots[j + 1]!;
         slots[j] = { ...moved, state: 'active' };
-        slots[j + 1] = null;
+        // A COPY does not empty its source. Leaving the source drawn — marked
+        // stale — is what makes the frame say "copy" instead of "move": the
+        // reader sees the value in two cells at once. The next iteration
+        // overwrites it, and the last source is nulled after the loop, which
+        // is the one that becomes garbage beyond `size`. Emptying it here
+        // drew a hole travelling through the middle of the block, which is
+        // the picture #277 teaches as the INVALID array (#294 review).
+        slots[j + 1] = { id: (nextId += 1), value: moved.value, state: 'stale' };
         push('shift', shiftLines, `Copiamos ${moved.value} de la posición ${j + 1} a la ${j}.`, {
           pointers: [{ name: 'j', index: j }],
         });
         clearTransient();
       }
+      if (n - 1 > at) slots[n - 1] = null;
       push(
         'done',
         [lineOf(code, 'size--')],
@@ -1269,7 +1287,13 @@ function traceList(
           [...callLine, lineOf(code, 'if (head == null)')],
           empty
             ? 'head es null: la cadena está vacía, así que el nodo nuevo es también el primero.'
-            : 'head no es null: hay un último nodo, y hay que caminar hasta él.',
+            : // With `tail` there is nothing to walk — saying so here is the
+              // whole point of the prop, and the slide that mounts it says
+              // "ninguna de las tres recorre la cadena". The un-branched
+              // string contradicted both, twice per run (#294 review).
+              tail
+              ? 'head no es null: hay un último nodo, y tail ya lo tiene localizado.'
+              : 'head no es null: hay un último nodo, y hay que caminar hasta él.',
           { carry: held },
         );
         if (empty) {

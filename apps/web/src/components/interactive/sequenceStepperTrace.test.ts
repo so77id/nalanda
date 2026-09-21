@@ -238,17 +238,25 @@ describe('sequenceStepperTrace · the array block, slot by slot', () => {
   // The first version of this trace kept only the live elements, so a shift
   // changed nothing on screen and the Theta(N) was a claim rather than a
   // picture. These cases pin the hole.
-  it('opens a hole that travels as insert-first copies right', () => {
+  it('shows each copy as a duplicate that travels, source still drawn', () => {
     const trace = traceFor('array', 'insert-first', { values, value: 9 });
     const shifts = trace.steps.filter((s) => s.kind === 'shift');
     expect(shifts).toHaveLength(values.length);
     for (const step of shifts) {
-      // Mid-shift the block always holds exactly one hole among the occupied
-      // range — the slot the last copy vacated.
+      // The shift must stay VISIBLE — that is why this case exists, and the
+      // reason is in the block comment above. What changed in #294 is HOW:
+      // a copy does not empty its source, so mid-shift the block holds the
+      // moved value TWICE — once live at the destination, once stale at the
+      // source. Drawing a hole there instead said "move", and drew the
+      // picture #277 teaches as the invalid array.
       const occupied = step.slots!.map((s) => s !== null);
       const lastFull = occupied.lastIndexOf(true);
-      const holes = occupied.slice(0, lastFull).filter((o) => !o).length;
-      expect(holes).toBe(1);
+      expect(occupied.slice(0, lastFull).every(Boolean)).toBe(true);
+
+      const stale = step.slots!.filter((s) => s?.state === 'stale');
+      expect(stale).toHaveLength(1);
+      const active = step.slots!.find((s) => s?.state === 'active');
+      expect(active!.value).toBe(stale[0]!.value);
     }
   });
 
@@ -360,6 +368,34 @@ describe('sequenceStepperTrace · get-at, the operation that shows the price', (
 
   it('refuses a position outside the structure', () => {
     expect(() => traceFor('linked-list-singly', 'get-at', { values, index: 9 })).toThrow(/rango/i);
+  });
+});
+
+describe('sequenceStepperTrace · what `tail` changes in the narration', () => {
+  // #294's Queue act mounts `insert-last` WITH `tail` and states on the slide
+  // that "ninguna de las tres recorre la cadena" — that is the whole point of
+  // the prop. The narration said "hay que caminar hasta él" anyway, twice per
+  // run, because the string branched only on `empty`. Three reviewers found
+  // it independently and the student named it as the thing that hurt most.
+  it('does not say the chain has to be walked when `tail` is there', () => {
+    const trace = traceFor('linked-list-singly', 'insert-last', {
+      values: [],
+      value: [3, 8, 5],
+      tail: true,
+    });
+    // The claim to forbid is that walking is NEEDED. "sin recorrer nada" is
+    // the opposite claim and is welcome, so match the obligation and not the
+    // verb — the first version of this case failed on the good sentence.
+    const dicenQueHayQueCaminar = trace.steps.filter((s) =>
+      /hay que (caminar|recorrer)/i.test(s.description),
+    );
+    expect(dicenQueHayQueCaminar).toEqual([]);
+    expect(trace.steps.some((s) => /tail ya lo tiene/i.test(s.description))).toBe(true);
+  });
+
+  it('still says it when there is no `tail`, because then it is true', () => {
+    const trace = traceFor('linked-list-singly', 'insert-last', { values: [7, 3], value: 9 });
+    expect(trace.steps.some((s) => /caminar/i.test(s.description))).toBe(true);
   });
 });
 

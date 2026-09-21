@@ -500,6 +500,7 @@ const CELL_FILL: Record<SequenceCell['state'], string> = {
   active: 'var(--color-surface)',
   found: 'var(--color-keep-soft)',
   leaving: 'var(--color-sunk)',
+  stale: 'var(--color-surface)',
 };
 
 const CELL_STROKE: Record<SequenceCell['state'], string> = {
@@ -508,6 +509,7 @@ const CELL_STROKE: Record<SequenceCell['state'], string> = {
   active: 'var(--color-focus)',
   found: 'var(--color-keep)',
   leaving: 'var(--color-rule)',
+  stale: 'var(--color-rule)',
 };
 
 /**
@@ -519,6 +521,7 @@ const CELL_NOTE: Partial<Record<SequenceCell['state'], string>> = {
   new: 'nuevo',
   found: '✓ este',
   leaving: 'sale',
+  stale: 'copia vieja',
 };
 
 /**
@@ -693,7 +696,7 @@ function ArrayPicture({ step, layout }: { step: SequenceStep; layout: SequenceLa
               stroke={free ? 'var(--color-rule)' : CELL_STROKE[cell.state]}
               strokeWidth={!free && (cell.state === 'active' || cell.state === 'found') ? 2.5 : 1.2}
               strokeDasharray={free ? '3 3' : undefined}
-              opacity={!free && cell.state === 'leaving' ? 0.5 : 1}
+              opacity={!free && (cell.state === 'leaving' || cell.state === 'stale') ? 0.45 : 1}
             />
             {free ? null : (
               <text
