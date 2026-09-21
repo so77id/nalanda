@@ -216,12 +216,13 @@ buscarla, es una resta.
 </Slide>
 
 <Slide title="push sobre arreglo dinámico">
-Apilar escribe en `data[size]` y sube `size` en uno. Es la operación que el
-arreglo ya hacía barata —insertar al final—, y aquí es la única que la pila
-pide.
+`push` **es `insertLast` sobre un arreglo dinámico**: agregar el elemento
+que sigue en la cima y avanzar la cima. La pila no inventa una operación
+nueva, le pone otro nombre a la que el arreglo ya tenía.
 
-Cuatro `push` sobre un bloque de cuatro casillas. El tercero lo encuentra
-lleno, así que antes de escribir reserva uno del doble y copia lo que había:
+Cuatro `push` sobre un bloque de cuatro casillas. La flecha `top` marca la
+cima en todo momento; el tercer `push` encuentra el bloque lleno, así que
+antes de escribir reserva uno del doble y copia lo que había:
 
 <SequenceStepper
   eda="dynamic-array"
@@ -229,12 +230,18 @@ lleno, así que antes de escribir reserva uno del doble y copia lo que había:
   operation="insert-last"
   values={[42, 7]}
   value={[15, 4, 9, 23]}
+  pointer="top"
   showCode={false}
 />
 
-Tres de los cuatro escriben y listo: una operación cada uno. El que encontró
-el bloque lleno pagó cinco —las cuatro copias más la suya—, y es el mismo
-`push` que los otros tres.
+Tres de los cuatro escriben y listo: una operación cada uno, $$\Theta(1)$$.
+El que encontró el bloque lleno pagó cinco —las cuatro copias más la suya—,
+y con un bloque de $$N$$ elementos pagaría $$N + 1$$: ése es el **peor
+caso**, $$\Theta(N)$$.
+
+Pero el bloque se duplica, así que esa corrida cara aparece una vez cada
+$$N$$, y las $$N-1$$ baratas que la precedieron ya pagaron por ella.
+Repartido, cada `push` cuesta constante: $$\Theta(1)$$ **amortizado**.
 
 </Slide>
 
@@ -248,6 +255,7 @@ ni borra nada.
   operation="remove-last"
   values={[42, 7, 15, 4, 9, 23]}
   times={3}
+  pointer="top"
   showCode={false}
 />
 

@@ -933,7 +933,54 @@ describe('sequenceStepperTrace · what `capacity` refuses', () => {
   });
 });
 
-describe('sequenceStepperTrace \u00b7 an array asked for several runs', () => {
+describe('sequenceStepperTrace · the pointer a slide keeps on screen', () => {
+  // The array frames carried only the CURSOR of the operation running (`i`,
+  // `j`), which vanishes between runs. A stack slide wants `top` visible the
+  // whole time — it is the field the contract is written in terms of, and the
+  // reader should watch it move rather than take the narration's word.
+  it('keeps the named pointer on every frame, at the end the operation works on', () => {
+    const trace = traceFor('dynamic-array', 'insert-last', {
+      values: [42, 7],
+      value: [15, 4],
+      capacity: 4,
+      pointer: 'top',
+    });
+    for (const step of trace.steps) {
+      expect(
+        step.pointers.find((ptr) => ptr.name === 'top'),
+        step.description,
+      ).toBeDefined();
+    }
+    // Two elements at the start, four at the end: the pointer follows `size`.
+    expect(trace.steps[0]!.pointers.find((p) => p.name === 'top')!.index).toBe(1);
+    expect(trace.steps.at(-1)!.pointers.find((p) => p.name === 'top')!.index).toBe(3);
+  });
+
+  it('aims the pointer at the front when the operation works there', () => {
+    const trace = traceFor('array', 'remove-first', {
+      values: [3, 8, 5],
+      capacity: 6,
+      pointer: 'front',
+    });
+    expect(trace.steps[0]!.pointers.find((p) => p.name === 'front')!.index).toBe(0);
+  });
+
+  it('aims at nothing when the structure is empty', () => {
+    const trace = traceFor('array', 'remove-last', { values: [7], capacity: 4, pointer: 'top' });
+    expect(trace.steps.at(-1)!.pointers.find((p) => p.name === 'top')!.index).toBeNull();
+  });
+
+  it('leaves the list recipes alone — they name their own pointers', () => {
+    const trace = traceFor('linked-list-singly', 'insert-first', {
+      values: [7, 3],
+      value: 9,
+      pointer: 'top',
+    });
+    expect(trace.steps[0]!.pointers.some((p) => p.name === 'top')).toBe(false);
+  });
+});
+
+describe('sequenceStepperTrace · an array asked for several runs', () => {
   // The array family animated ONE run, and #294 push slide needs four with
   // the block filling on the way. ADR-0074 had called the restriction a
   // workaround rather than a debt, on the grounds that "three runs of a

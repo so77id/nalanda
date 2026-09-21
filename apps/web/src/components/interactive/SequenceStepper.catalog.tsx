@@ -60,6 +60,12 @@ export const sequenceStepperCatalogEntry: CatalogEntry = {
         'The two ARRAY recipes only — the block reserved, drawn as free slots past the live elements. On `array` it is the fixed capacity, and one too small for `values` is refused at boot. On `dynamic-array` it is where the resize falls: the default starts the block FULL so that a single insertion shows the growth, and a slide running several insertions passes a larger one to choose WHICH of them pays for it. The drawing shows the block the current frame has, so filling and doubling happen on screen.',
     },
     {
+      name: 'pointer',
+      type: 'string',
+      description:
+        "The two ARRAY recipes only — a named arrow kept on every frame, aimed at the end the operation works on: the last live slot for the `*-last` operations, the first for the rest, and at nothing when the block is empty. `top` for a stack, `front` or `rear` for a queue. The `i` / `j` cursors a frame already carries belong to the OPERATION and vanish between runs; this one is the structure's own field, and the two are drawn on separate rows.",
+    },
+    {
       name: 'tail',
       type: 'boolean',
       description:
@@ -158,8 +164,8 @@ export const sequenceStepperCatalogEntry: CatalogEntry = {
       ),
     },
     {
-      title: 'A dynamic array filling up and doubling — the amortised cost, drawn',
-      code: '<SequenceStepper eda="dynamic-array" capacity={4} operation="insert-last" values={[42, 7]} value={[15, 4, 9, 23]} />',
+      title: 'A dynamic array filling up and doubling, with `top` kept on screen',
+      code: '<SequenceStepper eda="dynamic-array" capacity={4} operation="insert-last" values={[42, 7]} value={[15, 4, 9, 23]} pointer="top" />',
       render: () => (
         <SequenceStepper
           eda="dynamic-array"
@@ -167,6 +173,7 @@ export const sequenceStepperCatalogEntry: CatalogEntry = {
           operation="insert-last"
           values={[42, 7]}
           value={[15, 4, 9, 23]}
+          pointer="top"
         />
       ),
     },

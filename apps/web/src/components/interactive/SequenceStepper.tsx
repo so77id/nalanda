@@ -73,6 +73,13 @@ export interface SequenceStepperProps {
    * operation, or the block changes width between them.
    */
   capacity?: number;
+  /**
+   * Arrays only: a named arrow kept on every frame, aimed at the end the
+   * operation works on — `top` for a stack, `front` or `rear` for a queue.
+   * The `i`/`j` cursors a frame carries are the operation's own and vanish
+   * between runs; this one is the structure's field.
+   */
+  pointer?: string;
   /** Lists only: draw a `tail` pointer, and let the operations use it. */
   tail?: boolean;
   /** Playback default. Off unless the author asks (rule Peli 1/2). */
@@ -155,6 +162,7 @@ export function SequenceStepper({
   target,
   times,
   capacity,
+  pointer,
   tail = false,
   autoplay = false,
   speed = 'normal',
@@ -233,6 +241,7 @@ export function SequenceStepper({
       target={target}
       times={times}
       capacity={capacity}
+      pointer={pointer}
       tail={tail}
       autoplay={autoplay}
       speed={speed}
@@ -251,6 +260,7 @@ interface BodyProps {
   target?: number | number[];
   times?: number;
   capacity?: number;
+  pointer?: string;
   tail: boolean;
   autoplay: boolean;
   speed: StepSpeed;
@@ -267,6 +277,7 @@ function Body({
   target,
   times,
   capacity,
+  pointer,
   tail,
   autoplay,
   speed,
@@ -298,6 +309,7 @@ function Body({
     targetKey,
     times,
     capacity,
+    pointer,
     tail,
   ].join('|');
 
@@ -311,6 +323,7 @@ function Body({
           target,
           times,
           capacity,
+          pointer,
           tail,
         }),
       };
@@ -318,7 +331,7 @@ function Body({
       return { error: cause instanceof Error ? cause.message : String(cause) };
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- the keys ARE the props
-  }, [recipe, operation, valuesKey, valueKey, indexKey, targetKey, times, capacity, tail]);
+  }, [recipe, operation, valuesKey, valueKey, indexKey, targetKey, times, capacity, pointer, tail]);
 
   const trace = 'trace' in built ? built.trace : null;
   const totalSteps = trace?.steps.length ?? 0;
@@ -1025,7 +1038,11 @@ function Pointers({
       {step.pointers.map((pointer) => {
         const box = pointer.index === null ? null : layout.boxes[pointer.index + offset];
         const isHead = pointer.name === 'head';
-        const walking = pointer.name !== 'head' && pointer.name !== 'tail';
+        // A field of the structure against a cursor of the operation — the
+        // trace says which (`SequencePointer.fixed`). It used to be a list of
+        // names, which is why an array's own field landed in the cursor row
+        // and printed its label on top of `i` (#294).
+        const walking = !isHead && pointer.fixed !== true;
         const colour = walking ? 'var(--color-focus)' : 'var(--color-accent)';
 
         // `head` points ACROSS from the lane on the left, never down from
@@ -1077,15 +1094,15 @@ function Pointers({
           );
         }
 
-        // A walking pointer standing on the same node as `tail` is nudged
-        // sideways and anchored away, or the fixed pointer's arrow runs
-        // through the walking one's label.
+        // A cursor standing on the same cell as a field is nudged sideways
+        // and anchored away, or the field's arrow runs through the cursor's
+        // label.
         const collides =
           walking &&
           pointer.index !== null &&
-          step.pointers.some((other) => other.name === 'tail' && other.index === pointer.index);
+          step.pointers.some((other) => other.fixed === true && other.index === pointer.index);
         const nudge = collides ? 26 : 0;
-        const y = pointer.name === 'tail' ? 10 : 28;
+        const y = pointer.fixed === true ? 10 : 28;
         const x = (box ? box.centerX : layout.width - 12) + nudge;
         return (
           <g key={pointer.name}>

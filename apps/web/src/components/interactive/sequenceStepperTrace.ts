@@ -71,6 +71,13 @@ export interface SequencePointer {
   name: string;
   /** Index into `cells`, or `null` for a pointer aimed past the end. */
   index: number | null;
+  /**
+   * A FIELD of the structure (`head`, `tail`, `top`), drawn on every frame,
+   * against a CURSOR of the operation running (`i`, `j`), which exists only
+   * while it runs. The view draws them on separate rows and nudges a cursor
+   * that lands on a field, so the two never share a label position.
+   */
+  fixed?: boolean;
 }
 
 export interface SequenceStep {
@@ -193,6 +200,16 @@ export interface SequenceInput {
   capacity?: number;
   /** Lists only: draw a `tail` pointer and let the operations use it. */
   tail?: boolean;
+  /**
+   * Arrays only: a named arrow kept on EVERY frame, aimed at the end the
+   * operation works on — the last live slot for the `*-last` operations, the
+   * first for the rest, and at nothing when the block is empty. The `i`/`j`
+   * cursors a frame already carries are the operation's own, and they vanish
+   * between runs; this is the structure's field, which the class writes its
+   * contract in terms of (`top`, `front`, `rear`) and the reader should watch
+   * move rather than take the narration's word for (#294).
+   */
+  pointer?: string;
 }
 
 /**
@@ -554,22 +571,32 @@ function traceArray(
   // method and the call that invoked it — the two halves of "where are we"
   // the list family already prints.
   let currentRun = 0;
+  // The persistent pointer, if the slide asked for one. Computed at each
+  // `push` rather than once, so it follows `size` through the frames instead
+  // of freezing where the structure started.
+  const atLast = operation.endsWith('-last');
+  const basePointers = (): SequencePointer[] => {
+    if (input.pointer === undefined) return [];
+    const n = size();
+    return [{ name: input.pointer, index: n === 0 ? null : atLast ? n - 1 : 0, fixed: true }];
+  };
   const push = (
     kind: SequenceStepKind,
     highlightLines: number[],
     description: string,
     extra: Partial<SequenceStep> = {},
   ) => {
+    const { pointers: extraPointers, ...rest } = extra;
     steps.push({
       kind,
       cells: snapshot(live()),
       slots: slots.map((s) => (s === null ? null : { ...s })),
-      pointers: [],
+      pointers: [...basePointers(), ...(extraPointers ?? [])],
       highlightLines: [...highlightLines, ...runLine(currentRun)],
       description,
       capacity,
       cost,
-      ...extra,
+      ...rest,
     });
   };
 
@@ -1139,8 +1166,16 @@ function traceList(
   let cost = 0;
 
   const basePointers = (extra: SequencePointer[] = []): SequencePointer[] => {
-    const pointers: SequencePointer[] = [{ name: 'head', index: cells.length > 0 ? 0 : null }];
-    if (tail) pointers.push({ name: 'tail', index: cells.length > 0 ? cells.length - 1 : null });
+    const pointers: SequencePointer[] = [
+      { name: 'head', index: cells.length > 0 ? 0 : null, fixed: true },
+    ];
+    if (tail) {
+      pointers.push({
+        name: 'tail',
+        index: cells.length > 0 ? cells.length - 1 : null,
+        fixed: true,
+      });
+    }
     return [...pointers, ...extra];
   };
 
