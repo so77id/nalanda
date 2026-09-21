@@ -310,7 +310,7 @@ describe('<SequenceStepper> · the combinations the documents mount', () => {
     {
       act: 'Stack',
       props: {
-        eda: 'array',
+        eda: 'dynamic-array',
         operation: 'insert-last',
         values: [42, 7],
         value: 15,
@@ -319,7 +319,7 @@ describe('<SequenceStepper> · the combinations the documents mount', () => {
     },
     {
       act: 'Stack',
-      props: { eda: 'array', operation: 'remove-last', values: [42, 7, 15], showCode: false },
+      props: { eda: 'dynamic-array', operation: 'remove-last', values: [42, 7], showCode: false },
     },
     {
       act: 'Stack',
@@ -343,11 +343,24 @@ describe('<SequenceStepper> · the combinations the documents mount', () => {
     // `tail` — which is what makes its `enqueue` constant.
     {
       act: 'Queue',
-      props: { eda: 'array', operation: 'insert-last', values: [3, 8], value: 5, showCode: false },
+      props: {
+        eda: 'array',
+        capacity: 6,
+        operation: 'insert-last',
+        values: [3, 8],
+        value: 5,
+        showCode: false,
+      },
     },
     {
       act: 'Queue',
-      props: { eda: 'array', operation: 'remove-first', values: [3, 8, 5], showCode: false },
+      props: {
+        eda: 'array',
+        capacity: 6,
+        operation: 'remove-first',
+        values: [3, 8, 5],
+        showCode: false,
+      },
     },
     {
       act: 'Queue',

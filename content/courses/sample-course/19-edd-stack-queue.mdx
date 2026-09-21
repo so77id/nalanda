@@ -158,26 +158,27 @@ encadenados desde `head`.
 
 La pila se puede construir utilizando una de las dos estructuras de datos:
 
-| Stack | Sobre arreglo de capacidad fija | Sobre lista simple |
+| Stack | Sobre arreglo dinámico | Sobre lista simple |
 |---|---|---|
-| `push(x)` | escribir en `data[size]`, subir `size` | `insertFirst(x)` |
+| `push(x)` | escribir en `data[size]`, subir `size` (crecer si está lleno) | `insertFirst(x)` |
 | `pop()` | leer `data[size - 1]`, bajar `size` | `deleteFirst()` |
 | `top()` | leer `data[size - 1]` | leer el valor de `head` |
 | `empty()` | `size == 0` | `head == null` |
 
 Mira en qué punta trabaja cada una: el arreglo por el final, la lista por la
 cabeza. Es la punta donde cada estructura ya era rápida, y por eso ninguna
-casilla de la tabla recorre nada.
+operación tiene que buscar dónde operar.
 
 </Slide>
 
-<Slide title="Sobre el arreglo · la idea">
-La primera implementación guarda los elementos en un bloque consecutivo y
-reserva una casilla para todos ellos desde el principio. La cima es el
-último elemento escrito, así que alcanza con recordar **cuántos hay**: la
-cima está siempre en `data[size - 1]`.
+<Slide title="Sobre el arreglo dinámico · la idea">
+La primera implementación guarda los elementos juntos, en un bloque de
+casillas consecutivas que **puede cambiar de tamaño**: cuando se llena, la
+estructura reserva uno más grande y copia. La cima es el último elemento
+escrito, así que alcanza con recordar **cuántos hay**: la cima está siempre
+en `data[size - 1]`.
 
-<svg viewBox="0 0 700 196" style={{ width: '100%', maxWidth: '700px', height: 'auto', display: 'block', margin: '1.25rem auto' }} role="img" aria-label="Un bloque de seis casillas. Las tres primeras guardan 42, 7 y 15; las tres siguientes están libres y dibujadas con borde punteado. Una flecha rotulada top baja hasta la casilla de índice 2, que guarda el 15.">
+<svg viewBox="0 0 700 196" style={{ width: '100%', maxWidth: '700px', height: 'auto', display: 'block', margin: '1.25rem auto' }} role="img" aria-label="Un bloque de seis casillas: la capacidad reservada. Las tres primeras guardan 42, 7 y 15 —el largo—; las tres siguientes están libres y dibujadas con borde punteado. Una flecha rotulada top baja hasta la casilla de índice 2, que guarda el 15.">
   <defs>
     <marker id="stack-arr-punta" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto">
       <path d="M0,0 L7,3.5 L0,7 z" style={{ fill: 'var(--color-accent)' }} />
@@ -196,116 +197,98 @@ cima está siempre en `data[size - 1]`.
   ))}
 </svg>
 
-Tres propiedades sostienen la estructura, y cada operación las deja como las
-encontró:
+En el dibujo `size` es 3 y `data.length` es 6: tres elementos y tres casillas
+de capacidad que todavía no se usan.
 
-1. **`0 ≤ size ≤ data.length`.** Nunca hay menos de cero elementos ni más de
-   los que caben. Si se rompe, escribir el siguiente sale del bloque.
-2. **Los elementos ocupan `data[0]` hasta `data[size - 1]`, sin huecos.** Lo
-   que está más allá de `size` es basura que nadie lee.
-3. **La cima es `data[size - 1]`.** Es la traducción del contrato a esta
-   estructura: cuando `size` es cero no hay cima, y eso es exactamente una
-   pila vacía.
+Las cuatro invariantes del arreglo dinámico siguen valiendo tal cual:
+`0 ≤ size ≤ data.length`; los elementos son exactamente `data[0]` hasta
+`data[size - 1]`, sin huecos; lo que está más allá de `size` es basura que
+nadie lee; y `data.length ≤ 4 × size`, la capacidad no sobra.
 
-La tercera es la que hace barata a esta implementación. La cima no hay que
-buscarla: es una resta.
+La pila agrega una sola decisión propia: **la cima es `data[size - 1]`**.
+Cuando `size` es cero no hay cima, y eso es exactamente una pila vacía. Es
+la que hace barata a esta implementación: la cima no hay que buscarla, es
+una resta.
 
 </Slide>
 
-<Slide title="push sobre arreglo">
+<Slide title="push sobre arreglo dinámico">
 Apilar escribe en la primera casilla libre y sube `size` en uno. Es la
 operación que el arreglo ya hacía barata —insertar al final—, y aquí es la
 única que la pila pide.
 
+Salvo cuando el bloque está lleno. Ahí `push` primero reserva uno del doble
+de capacidad y copia lo que había, y recién después escribe. El widget
+muestra esa corrida, la cara:
+
 <SequenceStepper
-  eda="array"
-  capacity={6}
+  eda="dynamic-array"
   operation="insert-last"
   values={[42, 7]}
   value={15}
   showCode={false}
 />
 
-Ningún elemento se mueve de su casilla. Cada `push` siguiente repite estos
-mismos dos pasos sobre la casilla de más a la derecha, así que el costo no
-depende de cuántos elementos haya guardados: es $$\Theta(1)$$.
+Los `push` que encuentran capacidad libre hacen sólo los dos últimos pasos,
+y ningún elemento cambia de posición.
 
 </Slide>
 
-<Slide title="pop sobre arreglo">
-Desapilar devuelve lo que hay en `data[size - 1]` y baja `size` en uno.
+<Slide title="pop sobre arreglo dinámico">
+Desapilar devuelve lo que hay en `data[size - 1]` y baja `size` en uno. No
+mueve ni borra nada.
 
 <SequenceStepper
-  eda="array"
-  capacity={6}
+  eda="dynamic-array"
   operation="remove-last"
-  values={[42, 7, 15]}
+  values={[42, 7]}
   showCode={false}
 />
 
 El widget dibuja la casilla libre porque dejó de contar. En la memoria el
-valor sigue ahí: nadie lo borra, y nadie lo va a leer. La invariante que
-dice que los elementos válidos llegan hasta `size - 1` es la que convierte
-esa casilla en basura, y bajar `size` es todo el trabajo que hace falta
-para restaurarla. También $$\Theta(1)$$.
+valor sigue ahí: nadie lo borra, y nadie lo va a leer. La invariante que dice
+que los elementos válidos llegan hasta `size - 1` es la que convierte esa
+casilla en basura, y bajar `size` es todo el trabajo que hace falta para
+restaurarla.
+
+La cuarta invariante puede pedir un paso más: si al bajar `size` la capacidad
+pasa a sobrar —`data.length > 4 × size`—, el bloque se achica, y achicar
+también copia.
 
 </Slide>
 
-<Slide title="Costos y problemas del arreglo">
-Con la **capacidad fija**, que es la estructura que la lámina anterior
-dibujó:
-
-| Molde | Operación | Peor caso | Invariante que restaura |
+<Slide title="Costos de Stack sobre arreglo dinámico">
+| Operación | Peor caso | Amortizado | Invariante que restaura |
 |---|---|---|---|
-| crear | `build()` | $$\Theta(1)$$ | Deja `size` en cero: una pila sin cima |
-| consultar | `top()` | $$\Theta(1)$$ | Ninguna: lee `data[size - 1]` y no cambia nada |
-| consultar | `empty()` | $$\Theta(1)$$ | Ninguna: `size` ya guarda el dato |
-| modificar | `push(x)` | $$\Theta(1)$$ | La cima es `data[size - 1]`: `x` se escribe en `data[size]` y `size` sube |
-| modificar | `pop()` | $$\Theta(1)$$ | La cima es `data[size - 1]`: `size` baja y la casilla deja de contar |
+| `build()` | $$\Theta(1)$$ | $$\Theta(1)$$ | Deja `size` en cero: una pila sin cima |
+| `top()` | $$\Theta(1)$$ | $$\Theta(1)$$ | Ninguna: lee y no cambia nada |
+| `empty()` | $$\Theta(1)$$ | $$\Theta(1)$$ | Ninguna: `size` ya guarda el dato |
+| `push(x)` | <span style={{ color: 'var(--color-mark)', fontWeight: 700 }}>$$\Theta(N)$$</span> | $$\Theta(1)$$ | La cima es `data[size - 1]`, y `size ≤ data.length` obliga a crecer |
+| `pop()` | <span style={{ color: 'var(--color-mark)', fontWeight: 700 }}>$$\Theta(N)$$</span> | $$\Theta(1)$$ | La cima es `data[size - 1]`, y `data.length ≤ 4 × size` obliga a achicar |
 
-El encabezado dice **capacidad fija** y no es un detalle: en cuanto el
-bloque pueda crecer, la fila de `push` deja de ser cierta, y eso es lo que
-viene a continuación.
-
-Con capacidad fija las cuatro operaciones son constantes, y por la misma
-razón: todas ocurren en la casilla que `size` señala, y llegar ahí es una
-resta.
-
-El problema no está en los costos, está en la primera invariante. **La
-capacidad se fija al reservar el bloque**, y `push` sobre una pila llena no
-tiene dónde escribir: el contrato no contempla ese caso, porque un contrato
-no habla de memoria. Una implementación honesta lanza
-`IllegalStateException` en vez de escribir fuera del bloque.
-
-La salida conocida es reservar un bloque más grande y copiar cuando el
-actual se llena, duplicando la capacidad cada vez. Y eso cambia una fila de
-la tabla.
+Las dos últimas filas traen dos cifras porque responden preguntas distintas.
+El **peor caso** dice cuánto puede tardar *una* llamada; el **amortizado**,
+cuánto cuestan $$N$$ llamadas divididas por $$N$$.
 
 </Slide>
 
-<Slide title="El bloque que crece · peor caso y amortizado">
-Con un bloque que se duplica al llenarse, `push` deja de tener una sola
-cifra:
+<Slide title="Peor caso y amortizado · cuál manda">
+Las dos cifras de `push` y `pop` son ciertas a la vez, y cada una contesta
+una pregunta que la otra no.
 
-| `push(x)` sobre bloque que crece | Costo |
-|---|---|
-| la corrida que encuentra el bloque lleno | <span style={{ color: 'var(--color-mark)', fontWeight: 700 }}>$$\Theta(N)$$</span> — reserva el doble y copia los $$N$$ |
-| cualquier otra corrida | $$\Theta(1)$$ — escribe y sube `size` |
-| **peor caso** | $$\Theta(N)$$ |
-| **amortizado** | $$\Theta(1)$$ |
+Si te importa que **ninguna llamada** se pase de un límite —un videojuego, un
+sistema de tiempo real—, manda el peor caso: una de cada $$N$$ va a copiar
+todo el bloque, y no hay forma de saber cuál.
 
-Las dos últimas filas son ciertas a la vez, y responden preguntas
-distintas. El **peor caso** dice cuánto puede tardar *una* llamada: si te
-importa que ninguna se pase de un límite —un videojuego, un sistema de
-tiempo real— es la cifra que manda. El **amortizado** dice cuánto cuestan
-$$N$$ llamadas divididas por $$N$$: si te importa el total de un programa
-que hace millones de inserciones, es la que manda.
+Si te importa el **total** de un programa que hace millones de operaciones,
+manda el amortizado: esas copias, repartidas entre todas las llamadas, salen
+a constante por llamada.
 
-Confundirlas es lo que hace creer que un arreglo dinámico «a veces es
-lento». No es a veces: es **una de cada $$N$$ veces**, y las otras $$N-1$$
-ya pagaron por ella.
+Confundirlas es lo que hace creer que un arreglo dinámico «a veces es lento».
+No es a veces: es una de cada $$N$$ veces, y las otras $$N-1$$ ya pagaron por
+ella.
 
-La pila hereda ese comportamiento tal cual: no es una decisión del contrato,
+La pila hereda ese comportamiento tal cual. No es una decisión del contrato,
 es una decisión de la estructura de abajo.
 
 </Slide>
@@ -507,26 +490,24 @@ nunca copia nada, porque no hay bloque que se llene.
 </Slide>
 
 <Slide title="Arreglo vs lista · dónde vive el costo">
-| | Sobre arreglo | Sobre lista con `head` |
+| | Sobre arreglo dinámico | Sobre lista simple |
 |---|---|---|
 | `push(x)` | $$\Theta(1)$$ amortizado — $$\Theta(N)$$ la corrida que copia | $$\Theta(1)$$ siempre |
-| `pop()` | $$\Theta(1)$$ | $$\Theta(1)$$ |
+| `pop()` | $$\Theta(1)$$ amortizado — $$\Theta(N)$$ la que achica | $$\Theta(1)$$ siempre |
 | `top()`, `empty()` | $$\Theta(1)$$ | $$\Theta(1)$$ |
 | memoria por elemento | el valor | el valor **y** un enlace |
-| capacidad | fija, o copias al crecer | sin límite previo |
+| capacidad | crece y se achica, copiando | sin límite previo |
 | los elementos en memoria | juntos | sueltos |
 
 Las dos implementaciones cumplen el contrato con los mismos costos
 constantes, así que la elección no se decide ahí. Se decide en las tres
 filas de abajo.
 
-El arreglo gana cuando se conoce una cota del tamaño: reserva una vez, no
-paga un enlace por elemento y guarda los valores juntos, que es lo que el
-procesador prefiere leer. Con capacidad variable paga copias, baratas en
-promedio pero no en el instante en que ocurren.
+El arreglo gana en memoria y en localidad: no paga un enlace por elemento y
+guarda los valores juntos, que es lo que el procesador prefiere leer. Lo
+paga en copias, baratas en promedio pero no en el instante en que ocurren.
 
-La lista gana cuando el tamaño es imprevisible o cuando ninguna corrida
-puede permitirse la pausa de una copia. Paga un enlace por elemento y
+La lista gana cuando ninguna corrida puede permitirse la pausa de una copia. Paga un enlace por elemento y
 esparce los valores, y a cambio ninguna operación tiene un peor caso
 distinto de su caso típico.
 

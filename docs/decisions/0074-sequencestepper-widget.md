@@ -155,21 +155,33 @@ does not use them they should be removed rather than re-justified"_. That
 class has now shipped, so the trigger fired. Four dispositions, recorded
 here because the alternative was leaving them in a commit message.
 
-**`array` stays, but only its PICTURE has a reader.** #294 mounts it four
-times (`19-edd-stack-queue.mdx`) and every one of those tags carries
+**`array` stays, but only its PICTURE has a reader.** #294 mounts it twice
+(`19-edd-stack-queue.mdx`, the Queue act) and both tags carry
 `showCode={false}`, because the class deliberately shows no Java for the
 array implementation. So the recipe's drawings are read and its LISTINGS
 still are not, one class after this ADR flagged them unread. That is a
 narrower outcome than "it has a consumer" suggests, and the next class that
 wants array code should know the listings arrive unproofread by any reader.
 
-**`dynamic-array` survives its own trigger, with a new deadline rather than
-a reprieve.** `grep -rn "dynamic-array" content/` returns nothing, before
-and after #294. It is kept because the structure it draws is owed to the
-unit by its own roadmap — the heap of the priority-queue class is an array
-that grows, and any class that teaches amortised growth mounts it. That
-class is the new deadline; if it ships without the recipe, remove the recipe
-rather than write this paragraph again.
+**`dynamic-array` has a consumer, and the paragraph that gave it a deadline
+was wrong within the same WP.** That paragraph said `grep -rn
+"dynamic-array" content/` returned nothing "before and after #294", and kept
+the recipe against the priority-queue class as a deadline. It was written
+while #294's Stack act still built the pila on a fixed block. The class then
+moved to the arreglo dinámico — the structure #277 actually ends on — and
+the grep now returns two hits, both in the Stack act: `insert-last` and
+`remove-last` over `[42, 7]`.
+
+Two facts about that recipe a future author needs, both measured here:
+`capacity` starts at `values.length`, so **every `insert-last` opens on the
+`grow` frame** — there is no way to show a cheap append with this recipe,
+and #294's slide is written around that (it narrates the expensive corrida
+and says in prose that the cheap one is the last two steps). And
+`remove-last` never shrinks, so the shrink half of `data.length ≤ 4 × size`
+is prose, not picture.
+
+`array` keeps its two consumers in the Queue act, where the block genuinely
+is fixed — the circular queue — and that is the mount `capacity` exists for.
 
 **The single-run asymmetry was NOT closed — it was worked around, and the
 workaround is now pinned.** §Consequences called it "one asymmetry to close
