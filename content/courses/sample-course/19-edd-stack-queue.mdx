@@ -150,42 +150,15 @@ devolver, así que llamarlas ahí queda fuera del contrato.
 
 </Slide>
 
-<Slide title="El contrato en Java · Deque, y por qué no Stack">
-Java tiene una clase que se llama `Stack`, y **no es la que hay que usar**.
-Es de las primeras versiones del lenguaje, extiende `Vector`, y por
-extenderla hereda `get(i)`: se le puede pedir el tercer elemento desde
-abajo, que es exactamente lo que el contrato de arriba prohíbe. Su propio
-manual recomienda otra cosa.
-
-La que hay que usar es `ArrayDeque`, y los nombres cambian:
-
-| Stack | Java `Deque` |
-|---|---|
-| `push(x)` | `push(x)` · `addFirst(x)` |
-| `pop()` | `pop()` · `removeFirst()` |
-| `top()` | `peek()` |
-| `empty()` | `isEmpty()` |
-
-```java
-Deque<Integer> pila = new ArrayDeque<>();
-```
-
-El tipo de la variable es la **interfaz** y no la clase: así el código
-depende del contrato y no de quién lo cumple. Es la misma idea que la
-clase del arreglo mostró con `List`, aplicada aquí.
-
-</Slide>
-
 <Slide title="Cómo se implementa este TDA">
 El contrato no dice dónde viven los elementos, así que hay que elegir. Las
 dos opciones ya las tenemos: el **arreglo**, que los guarda juntos en un
 bloque de casillas, y la **lista enlazada**, que los guarda sueltos y
 encadenados desde `head`.
 
-La pila se construye sobre las dos, y cada operación del contrato se cumple
-llamando a **una** operación de la estructura de abajo:
+La pila se puede construir utilizando una de las dos estructuras de datos:
 
-| Stack | Sobre arreglo | Sobre lista con `head` |
+| Stack | Sobre arreglo de capacidad fija | Sobre lista simple |
 |---|---|---|
 | `push(x)` | escribir en `data[size]`, subir `size` | `insertFirst(x)` |
 | `pop()` | leer `data[size - 1]`, bajar `size` | `deleteFirst()` |
@@ -556,6 +529,32 @@ La lista gana cuando el tamaño es imprevisible o cuando ninguna corrida
 puede permitirse la pausa de una copia. Paga un enlace por elemento y
 esparce los valores, y a cambio ninguna operación tiene un peor caso
 distinto de su caso típico.
+
+</Slide>
+
+<Slide title="El contrato en Java · Deque, y por qué no Stack">
+Java tiene una clase que se llama `Stack`, y **no es la que hay que usar**.
+Es de las primeras versiones del lenguaje, extiende `Vector`, y por
+extenderla hereda `get(i)`: se le puede pedir el tercer elemento desde
+abajo, que es exactamente lo que el contrato del Stack prohíbe. Su propio
+manual recomienda otra cosa.
+
+La que hay que usar es `ArrayDeque`, y los nombres cambian:
+
+| Stack | Java `Deque` |
+|---|---|
+| `push(x)` | `push(x)` · `addFirst(x)` |
+| `pop()` | `pop()` · `removeFirst()` |
+| `top()` | `peek()` |
+| `empty()` | `isEmpty()` |
+
+```java
+Deque<Integer> pila = new ArrayDeque<>();
+```
+
+El tipo de la variable es la **interfaz** y no la clase: así el código
+depende del contrato y no de quién lo cumple. Es la misma idea que la
+clase del arreglo mostró con `List`, aplicada aquí.
 
 </Slide>
 
