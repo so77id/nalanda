@@ -32,9 +32,10 @@ recorrer para llegar.
 <Slide title="Una pila">
 Una **pila** es una colección con una sola puerta. Los elementos se apoyan
 uno sobre otro, y el único que está a la vista es el de más arriba, al que
-llamamos **cima**. Poner y sacar ocurren los dos en ese mismo lugar.
+llamamos **cima** o **top**. Poner y sacar ocurren los dos en ese mismo
+lugar.
 
-<svg viewBox="0 0 700 320" style={{ width: '100%', maxWidth: '700px', height: 'auto', display: 'block', margin: '1.25rem auto' }} role="img" aria-label="Dos dibujos de la misma pila, cerrada abajo y abierta arriba, con 42 al fondo, 7 encima y una casilla libre en lo más alto. En el de la izquierda, rotulado push de 15, un cuadrado con el 15 baja por la abertura hacia esa casilla libre. En el de la derecha, rotulado pop, el mismo cuadrado sube y sale por la misma abertura. En los dos, una marca señala la cima sobre el 7.">
+<svg viewBox="0 0 700 320" style={{ width: '100%', maxWidth: '700px', height: 'auto', display: 'block', margin: '1.25rem auto' }} role="img" aria-label="Dos dibujos de la misma pila, cerrada abajo y abierta arriba, con 42 al fondo, 7 encima y una casilla libre en lo más alto. En el de la izquierda, rotulado push de 15, un cuadrado con el 15 baja por la abertura hacia esa casilla libre. En el de la derecha, rotulado pop, el mismo cuadrado sube y sale por la misma abertura. En los dos, una marca rotulada top señala el 7.">
   <defs>
     <marker id="pila-puerta-baja" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
       <path d="M0,0 L8,4 L0,8 z" style={{ fill: 'var(--color-accent)' }} />
@@ -69,10 +70,10 @@ llamamos **cima**. Poner y sacar ocurren los dos en ese mismo lugar.
       <line x1={cx - 62} y1="284" x2={cx + 62} y2="284" style={{ stroke: 'var(--color-rule-strong)' }} strokeWidth="2.6" strokeLinecap="round" />
 
       <line x1={cx - 96} y1="212" x2={cx - 60} y2="212" style={{ stroke: 'var(--color-ink-faint)' }} strokeWidth="1.2" />
-      <text x={cx - 100} y="216" textAnchor="end" fontSize="13" fontWeight="600" style={{ fill: 'var(--color-ink-faint)' }}>cima</text>
+      <text x={cx - 100} y="216" textAnchor="end" fontSize="13" fontWeight="600" style={{ fill: 'var(--color-ink-faint)' }} fontFamily="monospace">top</text>
 
       <text x={cx} y="308" textAnchor="middle" fontSize="12" style={{ fill: 'var(--color-ink-faint)' }}>
-        {entra ? 'apoya 15 sobre la cima' : 'levanta el de la cima y lo devuelve'}
+        {entra ? 'apoya 15 sobre el top' : 'levanta el del top y lo devuelve'}
       </text>
     </g>
   ))}
@@ -90,45 +91,33 @@ out_: **el último en entrar es el primero en salir**.
 </Slide>
 
 <Slide title="Pilas en la vida real">
-El patrón aparece por todas partes, y reconocerlo es lo que después permite
-elegir la estructura correcta.
+Una pila no es una idea de la programación. Es la forma de cualquier montón
+donde sólo se puede tocar lo de encima, y aparece apenas uno la busca.
 
 - **Una torre de platos.** El que se apoyó último es el único que se puede
   levantar sin mover el resto.
-- **El deshacer de un editor.** Cada cambio se guarda en el momento en que
-  ocurre; el que corresponde revertir es siempre el último, y después el
-  anterior a ése.
-- **El botón «atrás» del navegador.** Cada página visitada se apoya sobre la
+- **El deshacer de un editor.** Cada cambio se apila cuando ocurre, y
+  deshacer revierte el último, después el anterior a ése.
+- **El botón «atrás» del navegador.** Cada página visitada queda sobre la
   anterior, y volver es sacar la de más arriba.
 - **La pila de llamadas de un programa.** Cuando un método termina, el que
-  retoma la ejecución es el que lo llamó, que es el último que quedó
-  esperando. De ahí el nombre, y de ahí que una recursión sin caso base la
-  desborde.
+  retoma la ejecución es el que lo llamó: el último que quedó esperando. De
+  ahí el nombre, y de ahí que una recursión sin caso base la desborde.
 
-Los cuatro usan la pila de la misma manera: piden el de más arriba, uno a la
-vez, y nunca el del medio. El editor no salta al tercer cambio sin deshacer
-antes los dos que quedaron encima, y la torre de platos no se lo permitiría
-aunque quisiera.
-
-Que no lo necesiten es lo que importa, porque la clase anterior ya midió lo
-que cuesta ofrecerlo: `insertAt` y `deleteAt` valen $$\Theta(N)$$ en el
-arreglo y en las cuatro variantes de lista —y en la lista se les suma
-`getAt`—, y no por un defecto de la implementación, sino porque el contrato
-obliga a poder operar en cualquier posición. **Un permiso prometido hay que
-cumplirlo siempre, lo use alguien o no.**
-
-Así que lo que falta escribir es el contrato de la pila: **qué se le puede
-pedir y qué significa cada pedido**, sin decir dónde viven los elementos ni
-cuánto cuesta cada operación. Esa lista de pedidos con su significado es un
-**tipo de dato abstracto** (TDA), y es lo que viene ahora.
+Los cuatro hacen lo mismo con palabras distintas —apoyar encima, levantar de
+encima—, y por eso se pueden estudiar una sola vez. Lo que falta es
+escribirlo: **qué se le puede pedir a una pila y qué significa cada pedido**,
+sin decir dónde viven los elementos ni cuánto cuesta cada operación. Esa
+lista de pedidos con su significado es un **tipo de dato abstracto** (TDA), y
+es lo que viene ahora.
 
 </Slide>
 
 
-<Slide title="El contrato · push, pop, top, empty">
-Una **pila** es una colección donde sólo se trabaja en un extremo, llamado
-**cima**. Se pone encima y se saca de encima, y por eso lo último que entró
-es lo primero que sale.
+<Slide title="El TDA Stack · push, pop, top, empty">
+El TDA que acabamos de describir se llama **Stack**. Es una colección donde
+sólo se trabaja en un extremo, la **cima/top**: se pone encima y se saca de
+encima.
 
 <div style={{ border: '1px solid var(--color-rule)', borderRadius: '8px', overflow: 'hidden', margin: '1.25rem 0' }}>
   <div style={{ background: 'var(--color-sunk)', padding: '0.55rem 0.9rem', borderBottom: '1px solid var(--color-rule)', fontWeight: 700 }}>Stack <span style={{ fontWeight: 400, color: 'var(--color-ink-faint)' }}>· el contrato</span></div>
@@ -138,28 +127,31 @@ es lo primero que sale.
   <span style={{ padding: `0.15rem 0.9rem 0.7rem 0` }}>construye la pila sin elementos</span>
   <div style={{ gridColumn: '1 / -1', borderTop: '1px solid var(--color-rule)', padding: '0.7rem 0.9rem 0.15rem', fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.08em', color: 'var(--color-keep)' }}>CONSULTAR · no cambian nada</div>
   <code style={{ padding: `0.15rem 0 0.3rem 0.9rem`, whiteSpace: 'nowrap' }}>top() → elemento</code>
-  <span style={{ padding: `0.15rem 0.9rem 0.3rem 0` }}>el que está en la cima · la pila no cambia</span>
+  <span style={{ padding: `0.15rem 0.9rem 0.3rem 0` }}>el que está en la cima/top · la pila no cambia</span>
   <code style={{ padding: `0.15rem 0 0.7rem 0.9rem`, whiteSpace: 'nowrap' }}>empty() → booleano</code>
   <span style={{ padding: `0.15rem 0.9rem 0.7rem 0` }}>si no hay ningún elemento</span>
   <div style={{ gridColumn: '1 / -1', borderTop: '1px solid var(--color-rule)', padding: '0.7rem 0.9rem 0.15rem', fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.08em', color: 'var(--color-accent)' }}>MODIFICAR · cambian el estado</div>
   <code style={{ padding: `0.15rem 0 0.3rem 0.9rem`, whiteSpace: 'nowrap' }}>push(x)</code>
-  <span style={{ padding: `0.15rem 0.9rem 0.3rem 0` }}>pone x en la cima · largo + 1</span>
+  <span style={{ padding: `0.15rem 0.9rem 0.3rem 0` }}>pone x en la cima/top · largo + 1</span>
   <code style={{ padding: `0.15rem 0 0.7rem 0.9rem`, whiteSpace: 'nowrap' }}>pop() → elemento</code>
-  <span style={{ padding: `0.15rem 0.9rem 0.7rem 0` }}>saca el de la cima y lo devuelve · largo − 1</span>
+  <span style={{ padding: `0.15rem 0.9rem 0.7rem 0` }}>saca el de la cima/top y lo devuelve · largo − 1</span>
   </div>
   <div style={{ padding: '0.65rem 0.9rem', borderTop: '1px solid var(--color-rule)', background: 'var(--color-sunk)' }}>
     <div style={{ fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.08em', color: 'var(--color-ink-faint)' }}>LO QUE NO DICE</div>
-    <div style={{ marginTop: '0.35rem' }}>Dónde viven los elementos, si están juntos o sueltos, ni cuánto cuesta cada operación. Tampoco hay manera de pedir el segundo, ni el de más abajo: la cima es el único elemento visible.</div>
+    <div style={{ marginTop: '0.35rem' }}>Dónde viven los elementos, si están juntos o sueltos, ni cuánto cuesta cada operación. Tampoco hay manera de pedir el segundo, ni el de más abajo: la cima/top es el único elemento visible.</div>
   </div>
 </div>
 
-Cuatro operaciones y ninguna recibe una posición. Esa ausencia es el
-contrato entero: es la única puerta del dibujo, escrita como lista de
-pedidos, y es lo que hace que la regla LIFO se cumpla sola.
+Ninguna de las cuatro operaciones recibe una posición, y eso no es un olvido:
+es la única puerta del dibujo, escrita como lista de pedidos. Por eso LIFO no
+hay que imponerlo por separado —no existe la operación que podría romperlo.
 
-Pedirle la cima a una pila vacía es un error, no un valor. `top()` y `pop()`
-tienen sentido únicamente cuando `empty()` es falso, y una implementación
-que devuelva cualquier cosa en ese caso está mintiendo sobre el contrato.
+Falta decir qué pasa cuando la pila está vacía, porque entonces no hay
+cima/top y `top()` y `pop()` no tienen nada que devolver. La respuesta
+correcta ahí no es un valor: es un error. Devolver `0`, o `null`, o el último
+elemento que quedó dando vueltas en memoria, es inventar un elemento que
+nadie apiló. Para eso está `empty()`: preguntar antes es trabajo de quien usa
+la pila, y fallar cuando no preguntó es trabajo de quien la implementa.
 
 </Slide>
 
@@ -189,34 +181,25 @@ clase del arreglo mostró con `List`, aplicada aquí.
 
 </Slide>
 
-<Slide title="Las dos estructuras que ya tenemos">
-Las implementaciones de esta clase se construyen sobre dos estructuras
-conocidas, y conviene tener presente qué sale barato en cada una.
+<Slide title="Cómo se implementa este TDA">
+El contrato no dice dónde viven los elementos, así que hay que elegir. Las
+dos opciones ya las tenemos: el **arreglo**, que los guarda juntos en un
+bloque de casillas, y la **lista enlazada**, que los guarda sueltos y
+encadenados desde `head`.
 
-El **arreglo** guarda los elementos en un bloque consecutivo de casillas del
-mismo tamaño. La posición `i` está en `base + i × ancho`, así que llegar a
-ella es una cuenta. A cambio, no puede haber huecos: abrir uno al principio
-obliga a correr todo lo que sigue.
+La pila se construye sobre las dos, y cada operación del contrato se cumple
+llamando a **una** operación de la estructura de abajo:
 
-La **lista enlazada** guarda cada elemento en un nodo suelto que apunta al
-siguiente, con una referencia `head` al primero. Enlazar un nodo cuesta una
-asignación en cualquier parte de la cadena, pero llegar a la posición `i`
-obliga a dar `i` saltos, porque no hay otra manera de avanzar.
+| Stack | Sobre arreglo | Sobre lista con `head` |
+|---|---|---|
+| `push(x)` | escribir en `data[size]`, subir `size` | `insertFirst(x)` |
+| `pop()` | leer `data[size - 1]`, bajar `size` | `deleteFirst()` |
+| `top()` | leer `data[size - 1]` | leer el valor de `head` |
+| `empty()` | `size == 0` | `head == null` |
 
-| Operación | Arreglo | Lista con `head` | Por qué |
-|---|---|---|---|
-| leer la posición `i` | $$\Theta(1)$$ | $$\Theta(i)$$ | juntos se calcula la dirección; sueltos hay que saltar |
-| insertar al principio | $$\Theta(N)$$ | $$\Theta(1)$$ | correr todo para abrir el hueco, contra cambiar un enlace |
-| eliminar el primero | $$\Theta(N)$$ | $$\Theta(1)$$ | correr todo para cerrarlo, contra mover `head` |
-| insertar al final | $$\Theta(1)$$ | $$\Theta(N)$$ | escribir en la primera casilla libre, contra caminar hasta el último |
-| eliminar el último | $$\Theta(1)$$ | $$\Theta(N)$$ | bajar el largo, contra caminar hasta el anteúltimo |
-
-Los costos del arreglo suponen que queda capacidad en el bloque; cuando no
-queda, insertar al final obliga a reservar uno más grande y copiar. Los de
-la lista suponen que la única referencia guardada es `head`.
-
-Las dos columnas están casi invertidas. La pila se construye dos veces, una
-sobre cada una.
+Mirá en qué punta trabaja cada una: el arreglo por el final, la lista por la
+cabeza. Es la punta donde cada estructura ya era rápida, y por eso ninguna
+casilla de la tabla recorre nada.
 
 </Slide>
 
