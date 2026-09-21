@@ -109,10 +109,10 @@ export interface SequenceStep {
     label: string;
     next?: number | null;
     /**
-     * The slot the floating node is parked ABOVE. Set by an operation that
-     * grows at the BACK, so the node hovers over the place it is about to
-     * land instead of over the front of the chain. Absent for the rest,
-     * which keeps their node where it has always been.
+     * The slot the floating node is parked ABOVE, so it hovers over the
+     * place it is about to land rather than over the front of the structure.
+     * Set by the back-growing list operations and by every array insertion.
+     * Absent for the rest, which keep their node where it has always been.
      */
     slot?: number;
   };
@@ -651,13 +651,16 @@ function traceArray(
               : checkIndex(asRuns(input.index)[run], size(), true);
         growIfNeeded();
         const n = size();
+        // Parked over the slot it will land in, like the list family's
+        // back-growing operations. It used to sit at a fixed offset from the
+        // front of the block, which put it over the middle of a short block
+        // — where it crossed the `top` arrow's line (#294).
+        const floating = { value: x, label: 'x', slot: at };
         push(
           'start',
           [1],
           `Insertamos ${x} en la posición ${at} de un arreglo de ${n} elementos.`,
-          {
-            carry: { value: x, label: 'x' },
-          },
+          { carry: floating },
         );
         // Copy right, from the last element down to the insertion point. The
         // source stays drawn (stale) for its frame — see the mirror comment in
@@ -674,7 +677,7 @@ function traceArray(
           slots[j - 1] = { id: (nextId += 1), value: moved.value, state: 'stale' };
           push('shift', shiftLines, `Copiamos ${moved.value} de la posición ${j - 1} a la ${j}.`, {
             pointers: [{ name: 'j', index: j }],
-            carry: { value: x, label: 'x' },
+            carry: floating,
           });
           clearTransient();
         }

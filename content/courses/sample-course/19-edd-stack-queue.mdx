@@ -242,8 +242,10 @@ repartido entre todas ellas es constante por llamada.
 </Slide>
 
 <Slide title="pop sobre arreglo dinámico">
-Desapilar lee `data[size - 1]`, lo devuelve y baja `size` en uno. No mueve
-ni borra nada.
+`pop` **es `deleteLast` sobre un arreglo dinámico**: devolver el elemento de
+la cima y retroceder la cima. No borra nada —el valor sigue escrito donde
+estaba, y es la invariante que dice que los elementos válidos llegan hasta
+`data[size - 1]` la que lo convierte en basura que nadie va a leer.
 
 <SequenceStepper
   eda="dynamic-array"
@@ -255,15 +257,16 @@ ni borra nada.
   showCode={false}
 />
 
-El widget dibuja las casillas libres porque dejaron de contar; en la memoria
-los valores siguen escritos, y nadie los va a leer. La invariante que dice
-que los elementos válidos llegan hasta `data[size - 1]` es la que los
-convierte en basura, y bajar `size` es todo el trabajo que hace falta para
-restaurarla.
+En el **peor caso** `pop` cuesta $$\Theta(N)$$: al bajar `size` la capacidad
+puede pasar a sobrar —`data.length > 4 × size`— y entonces el bloque se
+achica, que es reservar uno más chico y copiar los elementos que quedan.
+Cualquier otra llamada lee `data[size - 1]`, baja `size` y termina:
+$$\Theta(1)$$.
 
-La cuarta invariante puede pedir un paso más: si al bajar `size` la capacidad
-pasa a sobrar —`data.length > 4 × size`—, el bloque se achica, y achicar
-también copia.
+El costo **amortizado** es $$\Theta(1)$$, por la misma razón que en `push`:
+el achique ocurre sólo cuando el largo baja al cuarto de la capacidad, y al
+achicar vuelve a quedar en la mitad. Hasta el próximo hay $$N$$ `pop` que no
+copian nada.
 
 </Slide>
 
