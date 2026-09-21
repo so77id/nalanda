@@ -933,6 +933,44 @@ describe('sequenceStepperTrace · what `capacity` refuses', () => {
   });
 });
 
+describe('sequenceStepperTrace · the name the listing is shown under', () => {
+  // A class that has just taught `pop` = `deleteFirst` then mounts the widget
+  // and the widget says `deleteFirst`, three times, in a calling program that
+  // names a `list`. The body is the pila's `pop` verbatim; only the name on
+  // it belongs to the structure rather than to the TDA the slide is about.
+  it('renames the method and the receiver when the slide asks', () => {
+    const trace = traceFor('linked-list-singly', 'remove-first', {
+      values: [15, 7, 42],
+      times: 3,
+      method: 'pop',
+      receiver: 'pila',
+    });
+    expect(trace.code).toContain('int pop()');
+    expect(trace.code).not.toContain('deleteFirst');
+    expect(trace.code).toContain('pila.pop();');
+    expect(trace.code).not.toContain('list.');
+  });
+
+  it('keeps the structure own names when nobody renames them', () => {
+    const trace = traceFor('linked-list-singly', 'remove-first', {
+      values: [15, 7, 42],
+      times: 3,
+    });
+    expect(trace.code).toContain('int deleteFirst()');
+    expect(trace.code).toContain('list.deleteFirst();');
+  });
+
+  it('renames an array listing too', () => {
+    const trace = traceFor('dynamic-array', 'insert-last', {
+      values: [42, 7],
+      value: 15,
+      method: 'push',
+    });
+    expect(trace.code).toContain('push(');
+    expect(trace.code).not.toContain('insertLast');
+  });
+});
+
 describe('sequenceStepperTrace · the pointer a slide keeps on screen', () => {
   // The array frames carried only the CURSOR of the operation running (`i`,
   // `j`), which vanishes between runs. A stack slide wants `top` visible the

@@ -74,6 +74,15 @@ export interface SequenceStepperProps {
    */
   capacity?: number;
   /**
+   * The name the LISTING shows the method under, when the document presents
+   * the structure through a TDA that calls it something else — a pila slide
+   * showing `pop` rather than the chain's `deleteFirst`. The body is the
+   * same; only the name changes, in the signature and in every call.
+   */
+  method?: string;
+  /** The variable the calling program operates on. Default `list`. */
+  receiver?: string;
+  /**
    * Arrays only: a named arrow kept on every frame, aimed at the end the
    * operation works on — `top` for a stack, `front` or `rear` for a queue.
    * This one is the structure's field; naming it stands down the `i`/`j`
@@ -163,6 +172,8 @@ export function SequenceStepper({
   target,
   times,
   capacity,
+  method,
+  receiver,
   pointer,
   tail = false,
   autoplay = false,
@@ -242,6 +253,8 @@ export function SequenceStepper({
       target={target}
       times={times}
       capacity={capacity}
+      method={method}
+      receiver={receiver}
       pointer={pointer}
       tail={tail}
       autoplay={autoplay}
@@ -261,6 +274,8 @@ interface BodyProps {
   target?: number | number[];
   times?: number;
   capacity?: number;
+  method?: string;
+  receiver?: string;
   pointer?: string;
   tail: boolean;
   autoplay: boolean;
@@ -278,6 +293,8 @@ function Body({
   target,
   times,
   capacity,
+  method,
+  receiver,
   pointer,
   tail,
   autoplay,
@@ -310,6 +327,8 @@ function Body({
     targetKey,
     times,
     capacity,
+    method,
+    receiver,
     pointer,
     tail,
   ].join('|');
@@ -324,6 +343,8 @@ function Body({
           target,
           times,
           capacity,
+          method,
+          receiver,
           pointer,
           tail,
         }),
@@ -332,7 +353,20 @@ function Body({
       return { error: cause instanceof Error ? cause.message : String(cause) };
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- the keys ARE the props
-  }, [recipe, operation, valuesKey, valueKey, indexKey, targetKey, times, capacity, pointer, tail]);
+  }, [
+    recipe,
+    operation,
+    valuesKey,
+    valueKey,
+    indexKey,
+    targetKey,
+    times,
+    capacity,
+    method,
+    receiver,
+    pointer,
+    tail,
+  ]);
 
   const trace = 'trace' in built ? built.trace : null;
   const totalSteps = trace?.steps.length ?? 0;

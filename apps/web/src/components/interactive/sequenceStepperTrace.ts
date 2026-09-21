@@ -201,6 +201,17 @@ export interface SequenceInput {
   /** Lists only: draw a `tail` pointer and let the operations use it. */
   tail?: boolean;
   /**
+   * The name the LISTING shows the method under, when the document presents
+   * the structure through a TDA that calls it something else. A class that
+   * has just taught `pop` = `deleteFirst` mounts the widget and the widget
+   * says `deleteFirst`: the body is the pila's `pop` verbatim, and only the
+   * name on it belongs to the structure rather than to the contract the
+   * slide is about. Renames the signature and every call of it (#294).
+   */
+  method?: string;
+  /** The variable the calling program operates on. Default `list`. */
+  receiver?: string;
+  /**
    * Arrays only: a named arrow kept on EVERY frame, aimed at the end the
    * operation works on — the last live slot for the `*-last` operations, the
    * first for the rest, and at nothing when the block is empty. The `i`/`j`
@@ -366,6 +377,22 @@ function requireTarget(input: SequenceInput): number {
   return t;
 }
 
+/**
+ * The name the listing is shown under: the structure's own by default, or
+ * the document's when it presents the structure through a TDA (`method`).
+ * Applied to the listing's signature and to the program that drives it, so
+ * the two never disagree.
+ */
+function shownName(operation: SequenceOperation, input: SequenceInput): string {
+  return input.method ?? METHOD_NAME[operation];
+}
+
+/** Renames the method in a listing whose signature carries the default name. */
+function renameIn(code: string, operation: SequenceOperation, shown: string): string {
+  const own = METHOD_NAME[operation];
+  return shown === own ? code : code.split(`${own}(`).join(`${shown}(`);
+}
+
 /** The Java name of each operation, for the program that drives it. */
 const METHOD_NAME: Record<SequenceOperation, string> = {
   'get-at': 'getAt',
@@ -517,12 +544,13 @@ function traceArray(
     throw new Error('La operación no se ejecuta ninguna vez: falta el argumento que la corre.');
   }
   requireRuns(args.length);
-  const base = arrayCode(recipe, operation);
+  const shown = shownName(operation, input);
+  const base = renameIn(arrayCode(recipe, operation), operation, shown);
   const many = args.length > 1;
   const code = many
     ? base +
-      callingProgram(args, METHOD_NAME[operation], false, {
-        name: 'arreglo',
+      callingProgram(args, shown, false, {
+        name: input.receiver ?? 'arreglo',
         type: grows ? 'DynamicArray' : 'StaticArray',
       })
     : base;
@@ -1150,7 +1178,8 @@ function traceList(
   // operation and the slide's prose does the talking. Several runs append the
   // calls, so every frame lights BOTH the line inside the method and the call
   // that is running, and the reader can see which run they are watching.
-  const base = listCode(recipe, operation, tail);
+  const shown = shownName(operation, input);
+  const base = renameIn(listCode(recipe, operation, tail), operation, shown);
   const args = runArgs(operation, input);
   requireRuns(args.length);
   // A zero-length argument list traces nothing, and `steps.at(-1)!` at the
@@ -1160,7 +1189,13 @@ function traceList(
   }
   const many = args.length > 1;
   const fresh = input.values.length === 0;
-  const code = many ? base + callingProgram(args, METHOD_NAME[operation], fresh) : base;
+  const code = many
+    ? base +
+      callingProgram(args, shown, fresh, {
+        name: input.receiver ?? 'list',
+        type: 'LinkedList',
+      })
+    : base;
   // Computed, not searched: two runs of a method that takes no argument write
   // the SAME call line twice, and `lineOf` would hand both the first one.
   // Each call starts its own count; see `SequenceStep.cost`.

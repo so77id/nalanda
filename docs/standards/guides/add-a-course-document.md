@@ -863,6 +863,13 @@ Six things worth knowing before you write one:
   `index` or `target`, or `times` on the two operations that take no
   argument. A removal is checked against the structure as the runs before it
   left it, so three `pop` over two elements is refused at boot.
+- **`method` and `receiver` show the listing under the document's own
+  names.** A class that has just taught `pop` = `deleteFirst` and then mounts
+  the widget gets a listing saying `deleteFirst`, three times, over a
+  variable called `list` — the pila's own method, wearing the chain's name.
+  `method="pop" receiver="pila"` renames the signature and every call
+  together. The body does not change, so use it only where the two really
+  are the same method (which is what the mapping table of the class asserts).
 - **`pointer` keeps a field of the structure on screen.** The two array
   recipes only. `pointer="top"` draws a named arrow on EVERY frame, aimed at
   the end the operation works on — the last live slot for the `*-last`

@@ -338,6 +338,8 @@ describe('<SequenceStepper> · the combinations the documents mount', () => {
         operation: 'insert-first',
         values: [],
         value: [42, 7, 15],
+        method: 'push',
+        receiver: 'pila',
       },
     },
     {
@@ -347,6 +349,8 @@ describe('<SequenceStepper> · the combinations the documents mount', () => {
         operation: 'remove-first',
         values: [15, 7, 42],
         times: 3,
+        method: 'pop',
+        receiver: 'pila',
       },
     },
     // The Queue act. The other pair of ends, and the list side carries

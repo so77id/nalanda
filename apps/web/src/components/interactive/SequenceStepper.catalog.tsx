@@ -60,6 +60,18 @@ export const sequenceStepperCatalogEntry: CatalogEntry = {
         'The two ARRAY recipes only — the block reserved, drawn as free slots past the live elements. On `array` it is the fixed capacity, and one too small for `values` is refused at boot. On `dynamic-array` it is where the resize falls: the default starts the block FULL so that a single insertion shows the growth, and a slide running several insertions passes a larger one to choose WHICH of them pays for it. The drawing shows the block the current frame has, so filling and doubling happen on screen.',
     },
     {
+      name: 'method',
+      type: 'string',
+      description:
+        "The name the LISTING shows the method under, when the document presents the structure through a TDA that calls it something else — a pila slide showing `pop` where the chain's own name is `deleteFirst`. The body is unchanged; the signature and every call in the driving program are renamed together, so the two never disagree. Pair it with `receiver`.",
+    },
+    {
+      name: 'receiver',
+      type: 'string',
+      description:
+        'The variable the driving program operates on, shown only when a slide runs the operation several times. Default `list` for the chains and `arreglo` for the arrays.',
+    },
+    {
       name: 'pointer',
       type: 'string',
       description:

@@ -468,6 +468,8 @@ grande ni copiar lo que ya tenía.
   operation="insert-first"
   values={[]}
   value={[42, 7, 15]}
+  method="push"
+  receiver="pila"
 />
 
 </Slide>
@@ -517,10 +519,17 @@ int pop() {
 }
 ```
 
-La guarda es el contrato escrito en Java: una pila vacía no tiene cima, así
-que `pop()` no puede devolver un valor. El resto son tres líneas que no
-dependen del largo, y el nodo que sale queda sin nadie apuntándolo: la
-máquina virtual lo recoge más tarde. $$\Theta(1)$$.
+Una pila vacía no tiene cima, así que `pop()` no puede devolver un valor: lo
+primero que hace es preguntar y fallar.
+
+`pop` toca dos cosas y nada más: `head` y `size`. No recorre la cadena ni
+mueve a nadie, y por eso no importa si la pila tiene tres elementos o un
+millón —el trabajo es el mismo—: $$\Theta(1)$$. Costaría $$\Theta(N)$$ si
+hubiera que buscar el nodo que sale, y no hay que buscarlo: `head` ya lo
+tiene.
+
+El nodo que sale queda sin nadie apuntándolo, y el colector de basura lo
+recupera más tarde.
 
 </Slide>
 
@@ -530,6 +539,8 @@ máquina virtual lo recoge más tarde. $$\Theta(1)$$.
   operation="remove-first"
   values={[15, 7, 42]}
   times={3}
+  method="pop"
+  receiver="pila"
 />
 
 </Slide>
