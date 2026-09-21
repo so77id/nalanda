@@ -622,22 +622,36 @@ usa la pila.
 
 </Slide>
 
-export function Paso({ expr, sep = '', cursor = -1, pila = [], nota, falla = false }) {
+export function Paso({
+  expr = '',
+  sep = '',
+  cursor = -1,
+  pila = [],
+  etiqueta = 'pila',
+  nota,
+  falla = false,
+}) {
   const tokens = expr.split(sep).filter((t) => t !== '');
+  // Sin expresión que recorrer —Josefo, la ventana móvil— la fila de arriba
+  // no existe y la estructura sube a ocupar su lugar.
+  const solo = tokens.length === 0;
+  const yEst = solo ? 10 : 72;
   const CH = 40;
   const W = 34;
   const X = 92;
   const marco = (malo) => (malo ? 'var(--color-flag)' : 'var(--color-mark)');
   return (
     <svg
-      viewBox="0 0 560 148"
+      viewBox={`0 0 560 ${solo ? 86 : 148}`}
       style={{ width: '100%', maxWidth: '560px', height: 'auto', display: 'block' }}
       role="img"
-      aria-label={`${nota} La expresión es ${tokens.join(' ')}. La pila contiene ${pila.length === 0 ? 'nada' : pila.join(' ')}.`}
+      aria-label={`${nota} ${solo ? '' : `La expresión es ${tokens.join(' ')}. `}La ${etiqueta} contiene ${pila.length === 0 ? 'nada' : pila.join(' ')}.`}
     >
-      <text x="8" y="32" fontSize="13" fontFamily="monospace" style={{ fill: 'var(--color-ink-faint)' }}>
-        expresión
-      </text>
+      {solo ? null : (
+        <text x="8" y="32" fontSize="13" fontFamily="monospace" style={{ fill: 'var(--color-ink-faint)' }}>
+          expresión
+        </text>
+      )}
       {tokens.map((c, i) => (
         <g key={i}>
           <rect
@@ -667,11 +681,11 @@ export function Paso({ expr, sep = '', cursor = -1, pila = [], nota, falla = fal
           </text>
         </g>
       ))}
-      <text x="8" y="94" fontSize="13" fontFamily="monospace" style={{ fill: 'var(--color-ink-faint)' }}>
-        pila
+      <text x="8" y={yEst + 22} fontSize="13" fontFamily="monospace" style={{ fill: 'var(--color-ink-faint)' }}>
+        {etiqueta}
       </text>
       {pila.length === 0 ? (
-        <text x={X} y="94" fontSize="14" style={{ fill: 'var(--color-ink-faint)' }}>
+        <text x={X} y={yEst + 22} fontSize="14" style={{ fill: 'var(--color-ink-faint)' }}>
           vacía
         </text>
       ) : (
@@ -679,7 +693,7 @@ export function Paso({ expr, sep = '', cursor = -1, pila = [], nota, falla = fal
           <g key={i}>
             <rect
               x={X + i * CH}
-              y="72"
+              y={yEst}
               width={W}
               height="34"
               rx="3"
@@ -688,7 +702,7 @@ export function Paso({ expr, sep = '', cursor = -1, pila = [], nota, falla = fal
             />
             <text
               x={X + i * CH + W / 2}
-              y="96"
+              y={yEst + 24}
               textAnchor="middle"
               fontSize="18"
               fontWeight="600"
@@ -701,11 +715,11 @@ export function Paso({ expr, sep = '', cursor = -1, pila = [], nota, falla = fal
         ))
       )}
       {pila.length > 0 ? (
-        <text x={X + pila.length * CH + 6} y="96" fontSize="12" style={{ fill: 'var(--color-ink-faint)' }}>
-          ← cima
+        <text x={X + pila.length * CH + 6} y={yEst + 24} fontSize="12" style={{ fill: 'var(--color-ink-faint)' }}>
+          {etiqueta === 'pila' ? '← cima' : '← final'}
         </text>
       ) : null}
-      <text x="8" y="136" fontSize="13" style={{ fill: falla ? 'var(--color-flag)' : 'var(--color-ink-soft)' }}>
+      <text x="8" y={yEst + 64} fontSize="13" style={{ fill: falla ? 'var(--color-flag)' : 'var(--color-ink-soft)' }}>
         {nota}
       </text>
     </svg>
@@ -1191,8 +1205,8 @@ es el primero en salir**.
 </Slide>
 
 <Slide title="Colas en la vida real">
-Una cola tampoco es una idea de la programación. Es la forma de cualquier
-espera donde se atiende por orden de llegada.
+Una cola no es una idea de la programación. Es la forma de cualquier espera
+donde se atiende por orden de llegada.
 
 - **La fila de una boletería.** El que llega se pone atrás, el que atienden
   es el de adelante, y nadie necesita saber cuántos hay ni en qué lugar
@@ -1240,9 +1254,9 @@ primero que entró es lo primero que sale.
   </div>
 </div>
 
-Cuatro operaciones, ninguna con posición, igual que antes. Lo que cambia es
-**por dónde** se entra y se sale: **FIFO**, del inglés _first in, first
-out_.
+Cuatro operaciones y ninguna recibe una posición. Lo que el contrato fija es
+**por dónde** se entra y por dónde se sale: **FIFO**, del inglés _first in,
+first out_.
 
 Pedirle el frente a una cola vacía es un error, no un valor. `front()` y
 `dequeue()` tienen sentido únicamente cuando `empty()` es falso.
@@ -1250,8 +1264,8 @@ Pedirle el frente a una cola vacía es un error, no un valor. `front()` y
 </Slide>
 
 <Slide title="Cómo se implementa este TDA">
-Otra vez el contrato no dice dónde viven los elementos. Pero esta vez pide
-algo que la pila no pedía: **los dos extremos**, cada uno barato.
+El contrato no dice dónde viven los elementos, pero sí pide algo exigente:
+**los dos extremos**, y los dos baratos.
 
 La cola se puede construir utilizando una de las dos estructuras de datos:
 
@@ -1506,9 +1520,9 @@ copia.
 </Slide>
 
 <Slide title="La cabeza y la cola">
-La segunda implementación vuelve a los nodos sueltos, y aquí la cola pide
-algo que la pila no pedía: **los dos extremos**. Se saca por el frente y se
-entra por el final, así que hay que poder llegar a los dos sin caminar.
+La segunda implementación guarda cada elemento en un nodo suelto. Se saca
+por el frente y se entra por el final, así que hay que poder llegar a los
+dos extremos sin caminar la cadena.
 
 Una referencia no alcanza. La estructura guarda dos: `head` al primer nodo
 —el frente— y `tail` al último —el final.
@@ -1612,16 +1626,15 @@ int front() {
 ```
 
 - **`empty()`** dice si la cola no tiene elementos. Lee un campo: $$\Theta(1)$$.
-- **`size()`** devuelve cuántos hay. También un campo, mantenido en cada
-  `enqueue` y cada `dequeue`, así que nunca hay que recorrer la cadena para
-  contarlo: $$\Theta(1)$$.
+- **`size()`** devuelve cuántos hay. Lee el campo que `enqueue` y `dequeue`
+  mantienen al día, así que nunca hay que recorrer la cadena para contarlo:
+  $$\Theta(1)$$.
 - **`front()`** devuelve el valor del frente sin sacarlo. `head` ya apunta
   ahí: $$\Theta(1)$$.
 
-`front()` cae sobre `head`, igual que `top()` en la pila y por la misma
-razón. **Lo que separa a los dos contratos no son las consultas sino dónde
-entra lo nuevo** —`tail` en vez de `head`—, y eso es lo que separa FIFO de
-LIFO.
+`front()` cae sobre `head` porque es la única referencia que se tiene sin
+caminar. **Lo que hace de esto una cola y no una pila no son las consultas
+sino dónde entra lo nuevo**: en el final, con `tail`, y no en la cabeza.
 
 </Slide>
 
@@ -1696,8 +1709,8 @@ afuera y se escribe una sola vez.
 
 <Slide title="Dequeue">
 Implementar `dequeue` es **usar `deleteFirst`**: sacar el primer nodo de la
-cadena y devolver su valor. Es la misma operación que la pila usa para
-`pop`, con una línea más.
+cadena y devolver su valor, más una línea que la cola necesita y ninguna
+otra estructura pide.
 
 <svg viewBox="30 76 600 150" style={{ width: '100%', maxWidth: '660px', height: 'auto', display: 'block', margin: '1.25rem auto' }} role="img" aria-label="Dos dibujos de la misma cola. A la izquierda, antes: 3, 8, 5 y 9, con el 3 en el frente dibujado atenuado y punteado porque es el que sale. Una flecha rotulada dequeue devuelve 3 lleva al de la derecha, después, donde quedan 8, 5 y 9 y el frente pasó a ser el 8.">
   <defs>
@@ -1825,7 +1838,7 @@ la referencia `tail`. Esa simetría es el resultado que conviene llevarse
 —no hay una estructura que sirva para todo, hay una idea que falta en cada
 una.
 
-La elección práctica repite la de la pila, con un matiz. El arreglo circular
+La elección práctica tiene un matiz propio. El arreglo circular
 sirve cuando se conoce una cota del tamaño, y es el que usa un búfer de
 verdad: memoria reservada una vez, elementos juntos, ningún costo por
 enlace. La lista sirve cuando el tamaño no tiene cota, y es la que evita la
@@ -1856,7 +1869,7 @@ int x = queue.remove();        // 3, y ahora la cola sólo tiene el 8
 ```
 
 Sobre una cola vacía, `remove()` y `element()` lanzan
-`NoSuchElementException`, igual que los listados de esta clase. Existe un
+`NoSuchElementException`, que es lo que el contrato pide. Existe un
 segundo trío —`offer`, `poll` y `peek`— que en vez de lanzar devuelve
 `false` o `null`: sirve cuando quedarse sin elementos es parte del
 funcionamiento normal, y no cuando es un error.
@@ -1871,143 +1884,287 @@ Hay $$n$$ personas en círculo, numeradas de 1 a $$n$$. Se cuenta de a $$k$$
 y la $$k$$-ésima sale; el conteo sigue desde la siguiente, dando vueltas,
 hasta que queda una sola. La pregunta es qué número sobrevive.
 
-Una cola representa el círculo de manera casi literal: el frente es la
-persona a la que le toca contar, y **volver al círculo es encolarse
-de nuevo atrás**. Con eso, contar de a `k` es desencolar y volver a encolar
-`k - 1` veces, y la `k`-ésima simplemente no vuelve.
+<svg viewBox="20 20 620 236" style={{ width: '100%', maxWidth: '660px', height: 'auto', display: 'block', margin: '1.25rem auto' }} role="img" aria-label="A la izquierda, cinco personas numeradas del 1 al 5 en círculo; se cuenta de a dos desde el 1, y el 2 queda marcado como el que sale. A la derecha, las mismas cinco en una cola: el 1 sale por el frente y vuelve a entrar por el final, y entonces el 2 queda en el frente y es el que se va. El círculo y la cola son la misma cosa.">
+  <defs>
+    <marker id="jos-punta" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+      <path d="M0,0 L8,4 L0,8 z" style={{ fill: 'var(--color-accent)' }} />
+    </marker>
+  </defs>
 
-```java
-int josefo(int n, int k) {
-    Queue ronda = new Queue();
-    for (int i = 1; i <= n; i++) {
-        ronda.enqueue(i);
-    }
-    int vivos = n;
-    while (vivos > 1) {
-        for (int i = 1; i < k; i++) {
-            ronda.enqueue(ronda.dequeue());
-        }
-        ronda.dequeue();
-        vivos--;
-    }
-    return ronda.front();
-}
-```
+  <text x="140" y="42" textAnchor="middle" fontSize="13" fontWeight="700" style={{ fill: 'var(--color-ink-faint)' }}>el círculo</text>
+  {[1, 2, 3, 4, 5].map((v, i) => {
+    const a = -Math.PI / 2 + (i * 2 * Math.PI) / 5;
+    const cx = 140 + 68 * Math.cos(a);
+    const cy = 140 + 68 * Math.sin(a);
+    const sale = v === 2;
+    return (
+      <g key={v}>
+        <circle cx={cx} cy={cy} r="21" style={{ fill: sale ? 'var(--color-flag-soft)' : 'var(--color-surface)', stroke: sale ? 'var(--color-flag)' : 'var(--color-rule-strong)' }} strokeWidth="1.8" />
+        <text x={cx} y={cy + 6} textAnchor="middle" fontSize="17" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{v}</text>
+      </g>
+    );
+  })}
+  <text x="140" y="250" textAnchor="middle" fontSize="12" style={{ fill: 'var(--color-ink-faint)' }}>se cuenta de a 2: sale el 2</text>
 
-La línea que resuelve el problema es `ronda.enqueue(ronda.dequeue())`:
-saca del frente y devuelve al final, que es exactamente "pasar de largo".
+  <text x="430" y="42" textAnchor="middle" fontSize="13" fontWeight="700" style={{ fill: 'var(--color-accent)' }}>la misma vuelta, en una cola</text>
+  {[1, 2, 3, 4, 5].map((v, i) => (
+    <g key={v}>
+      <rect x={300 + i * 54} y="112" width="48" height="44" rx="3" style={{ fill: v === 2 ? 'var(--color-flag-soft)' : 'var(--color-surface)', stroke: v === 2 ? 'var(--color-flag)' : 'var(--color-rule-strong)' }} strokeWidth="1.6" />
+      <text x={324 + i * 54} y="142" textAnchor="middle" fontSize="19" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{v}</text>
+    </g>
+  ))}
+  <text x="324" y="104" textAnchor="middle" fontSize="11" fontFamily="monospace" style={{ fill: 'var(--color-ink-faint)' }}>frente</text>
+  <text x="540" y="104" textAnchor="middle" fontSize="11" fontFamily="monospace" style={{ fill: 'var(--color-ink-faint)' }}>final</text>
+  <path d="M 316 168 l 0 26 l 232 0 l 0 -26" fill="none" style={{ stroke: 'var(--color-accent)' }} strokeWidth="2" markerEnd="url(#jos-punta)" />
+  <text x="432" y="212" textAnchor="middle" fontSize="12" style={{ fill: 'var(--color-accent)' }}>pasar de largo = salir por el frente y volver por el final</text>
+</svg>
+
+Una cola representa el círculo de manera casi literal: el frente es a quien
+le toca contar, y **volver al círculo es encolarse de nuevo atrás**. Con
+eso, contar de a `k` es pasar de largo `k - 1` veces, y la `k`-ésima
+simplemente no vuelve.
 
 </Slide>
 
 <Slide title="Una ronda completa">
-Con $$n = 5$$ y $$k = 2$$, una ronda entera:
+Con $$n = 5$$ y $$k = 2$$: cada vuelta es un `dequeue` que vuelve a encolar,
+y uno que no.
 
-| la cola es | pasa de largo | sale | queda |
-|---|---|---|---|
-| `1 2 3 4 5` | 1 | **2** | `3 4 5 1` |
-| `3 4 5 1` | 3 | **4** | `5 1 3` |
-| `5 1 3` | 5 | **1** | `3 5` |
-| `3 5` | 3 | **5** | `3` |
-| `3` | — | — | sobrevive el <span style={{ color: 'var(--color-keep)', fontWeight: 700 }}>3</span> |
+<StepShow
+  language="java"
+  code={`for (int i = 1; i < k; i++) {
+    round.enqueue(round.dequeue());
+}
+round.dequeue();`}
+>
+  <Step lines={[]}>
+    <Paso pila={['1', '2', '3', '4', '5']} etiqueta="cola" nota="Cinco en círculo, y contamos de a 2. El frente es a quien le toca." />
+  </Step>
+  <Step lines={[1, 2, 3]}>
+    <Paso pila={['2', '3', '4', '5', '1']} etiqueta="cola" nota="El 1 cuenta «uno» y vuelve al final: pasa de largo." />
+  </Step>
+  <Step lines={[4]}>
+    <Paso pila={['3', '4', '5', '1']} etiqueta="cola" nota="El 2 cuenta «dos»: sale. Quedan cuatro." />
+  </Step>
+  <Step lines={[1, 2, 3]}>
+    <Paso pila={['4', '5', '1', '3']} etiqueta="cola" nota="El 3 pasa de largo." />
+  </Step>
+  <Step lines={[4]}>
+    <Paso pila={['5', '1', '3']} etiqueta="cola" nota="El 4 sale. Quedan tres." />
+  </Step>
+  <Step lines={[1, 2, 3]}>
+    <Paso pila={['1', '3', '5']} etiqueta="cola" nota="El 5 pasa de largo." />
+  </Step>
+  <Step lines={[4]}>
+    <Paso pila={['3', '5']} etiqueta="cola" nota="El 1 sale. Quedan dos." />
+  </Step>
+  <Step lines={[1, 2, 3]}>
+    <Paso pila={['5', '3']} etiqueta="cola" nota="El 3 pasa de largo." />
+  </Step>
+  <Step lines={[4]}>
+    <Paso pila={['3']} etiqueta="cola" nota="El 5 sale. Sobrevive el 3." />
+  </Step>
+</StepShow>
 
-La primera fila es la que explica el truco: el 1 no sale, **vuelve al
-final**. Por eso el que cae es el 2 y no el 1, y por eso el círculo se
-sostiene sin que ninguna estructura sea circular.
+La línea que resuelve el problema es `round.enqueue(round.dequeue())`: saca
+del frente y devuelve al final, que es exactamente «pasar de largo».
 
-Contemos lo que cuesta. Cada eliminación da $$k - 1$$ pases, y cada pase son
-**dos** operaciones de cola —un `dequeue` y un `enqueue`—, más el `dequeue`
-que efectivamente saca: $$2k - 1$$ operaciones. Hay $$n - 1$$ eliminaciones,
-así que el total es $$(n-1)(2k-1)$$, es decir $$\Theta(nk)$$.
+Cada eliminación cuesta $$k - 1$$ pases de dos operaciones cada uno, más el
+`dequeue` que saca: $$2k - 1$$. Hay $$n - 1$$ eliminaciones, así que el
+total es $$(n-1)(2k-1)$$, es decir $$\Theta(nk)$$.
 
 </Slide>
 
-{/* Book-only, misma razón que el párrafo de Łukasiewicz. */}
+<Slide title="El conteo que se corre en uno">
+El error fácil está en el `for`: pasar de largo `k` veces en vez de
+`k - 1`. Con $$k = 2$$ se ve en la segunda vuelta.
 
-El relato viene de Flavio Josefo, historiador judío del siglo I, que lo
-cuenta como una situación vivida durante la guerra contra Roma. El planteo
-como problema matemático es muy posterior, y lo que aquí importa es que su
-estructura es una cola que da vueltas sobre sí misma — no la «cola
-circular» de la lámina del arreglo, que es una implementación concreta con
-módulo, sino un círculo de personas que la cola representa.
+<StepShow
+  language="java"
+  code={`for (int i = 1; i <= k; i++) {
+    round.enqueue(round.dequeue());
+}
+round.dequeue();`}
+>
+  <Step lines={[1, 2, 3]}>
+    <Paso pila={['1', '2', '3', '4', '5']} etiqueta="cola" nota="Con el conteo mal escrito, i va de 1 hasta k: son DOS pases, no uno." />
+  </Step>
+  <Step lines={[1, 2, 3]}>
+    <Paso pila={['2', '3', '4', '5', '1']} etiqueta="cola" nota="El 1 pasa de largo. Hasta aquí igual." />
+  </Step>
+  <Step lines={[1, 2, 3]}>
+    <Paso pila={['3', '4', '5', '1', '2']} etiqueta="cola" nota="El 2 también pasa de largo — y era el que tenía que salir." />
+  </Step>
+  <Step lines={[4]}>
+    <Paso pila={['4', '5', '1', '2']} etiqueta="cola" nota="Sale el 3. El conteo se corrió en uno y la respuesta ya es otra." falla />
+  </Step>
+</StepShow>
+
+El que sale es el 3 y tenía que ser el 2. La cuenta correcta es: para que
+salga el `k`-ésimo hay que dejar pasar a los `k - 1` que van antes.
+
+</Slide>
+
+<Slide title="El código completo">
+<Exercise title="El problema de Josefo">
+
+El algoritmo entero, con la cola escrita a mano sobre un arreglo. Los casos
+de prueba incluyen la ronda de la lámina anterior.
+
+```java starter
+class Solution {
+
+    static int josephus(int n, int k) {
+        int[] round = new int[2 * n * k + 1];
+        int front = 0;
+        int rear = 0;
+        for (int i = 1; i <= n; i++) {
+            round[rear++] = i;
+        }
+        int alive = n;
+        while (alive > 1) {
+            for (int i = 1; i < k; i++) {
+                round[rear++] = round[front++];
+            }
+            front++;
+            alive--;
+        }
+        return round[front];
+    }
+}
+```
+
+```java test
+check(Solution.josephus(5, 2), 3);
+check(Solution.josephus(1, 3), 1);
+check(Solution.josephus(7, 1), 7);
+check(Solution.josephus(4, 2), 1);
+```
+
+</Exercise>
+</Slide>
 
 <Slide title="Promedio móvil">
 Llegan números de a uno, sin que se sepa cuántos serán. Después de cada
-número hay que responder el promedio de los últimos $$K$$, y hay que
+número hay que responder el promedio de los últimos $$K$$ — y hay que
 hacerlo sin recorrer nada.
 
-La cola es la ventana: cada número entra por el final, y cuando la ventana
-ya tiene $$K$$ elementos el más viejo sale por el frente. Como la suma se
-mantiene al día sumando el que entra y restando el que sale, el promedio es
-una división.
+<svg viewBox="20 24 620 150" style={{ width: '100%', maxWidth: '660px', height: 'auto', display: 'block', margin: '1.25rem auto' }} role="img" aria-label="Una secuencia de números 1, 2, 3, 4, 5 que sigue llegando. Un recuadro abarca tres de ellos: es la ventana de tamaño K igual a 3. Al llegar el 4 la ventana se corre una posición, el 1 sale por la izquierda y el 4 entra por la derecha.">
+  <defs>
+    <marker id="pm-punta" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+      <path d="M0,0 L8,4 L0,8 z" style={{ fill: 'var(--color-accent)' }} />
+    </marker>
+  </defs>
+  {[1, 2, 3, 4, 5].map((v, i) => (
+    <g key={v}>
+      <rect x={90 + i * 66} y="70" width="56" height="46" rx="3" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.6" />
+      <text x={118 + i * 66} y="101" textAnchor="middle" fontSize="20" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{v}</text>
+    </g>
+  ))}
+  <text x="420" y="101" fontSize="20" style={{ fill: 'var(--color-ink-faint)' }}>…</text>
+  <rect x="82" y="62" width="200" height="62" rx="5" fill="none" style={{ stroke: 'var(--color-accent)' }} strokeWidth="2.4" />
+  <text x="182" y="52" textAnchor="middle" fontSize="13" fontWeight="700" style={{ fill: 'var(--color-accent)' }}>la ventana · K = 3</text>
+  <path d="M 100 134 l 0 14 l 214 0 l 0 -14" fill="none" style={{ stroke: 'var(--color-accent)' }} strokeWidth="1.8" markerEnd="url(#pm-punta)" />
+  <text x="340" y="152" fontSize="12" style={{ fill: 'var(--color-ink-faint)' }}>cuando llega el 4, la ventana se corre: sale el 1, entra el 4</text>
+</svg>
 
-Lo que la estructura guarda son cuatro cosas: la ventana, su tamaño máximo,
-la suma de lo que hay dentro y cuántos son.
+La cola **es** la ventana: cada número entra por el final, y cuando ya hay
+$$K$$ el más viejo sale por el frente. Eso es exactamente lo que el contrato
+de la cola entrega, y es lo que hace constante a la operación: el elemento
+que hay que descontar es siempre el más viejo, y no hay que buscarlo.
 
-```java
-class PromedioMovil {
-    private Queue ventana = new Queue();
-    private int capacidad;
-    private int suma = 0;
-    private int largo = 0;
+</Slide>
 
-    PromedioMovil(int k) {
+<Slide title="La ventana avanza">
+La suma se mantiene al día: se le suma el que entra y se le resta el que
+sale. Así el promedio es una división y nunca un recorrido.
+
+<StepShow
+  language="java"
+  code={`double next(int x) {
+    window.enqueue(x);
+    sum += x;
+    length++;
+    if (length > capacity) {
+        sum -= window.dequeue();
+        length--;
+    }
+    return (double) sum / length;
+}`}
+>
+  <Step lines={[]}>
+    <Paso pila={[]} etiqueta="ventana" nota="K = 3. La ventana arranca vacía, con suma 0." />
+  </Step>
+  <Step lines={[1, 2, 3, 9]}>
+    <Paso pila={['1']} etiqueta="ventana" nota="Entra 1. Suma 1, largo 1 → promedio 1,00." />
+  </Step>
+  <Step lines={[1, 2, 3, 9]}>
+    <Paso pila={['1', '2']} etiqueta="ventana" nota="Entra 2. Suma 3, largo 2 → promedio 1,50." />
+  </Step>
+  <Step lines={[1, 2, 3, 9]}>
+    <Paso pila={['1', '2', '3']} etiqueta="ventana" nota="Entra 3. Suma 6, largo 3 → promedio 2,00. La ventana está llena." />
+  </Step>
+  <Step lines={[1, 2, 3]}>
+    <Paso pila={['1', '2', '3', '4']} etiqueta="ventana" nota="Entra 4: la ventana se pasó de K." />
+  </Step>
+  <Step lines={[5, 6, 7]}>
+    <Paso pila={['2', '3', '4']} etiqueta="ventana" nota="Sale el más viejo por el frente, el 1, y la suma le resta 1. Queda 9, largo 3 → promedio 3,00." />
+  </Step>
+</StepShow>
+
+El último paso es el único interesante: la ventana ya estaba llena, así que
+la suma se ajustó en las dos direcciones —sumó 4 y restó 1— sin mirar los
+elementos de adentro.
+
+</Slide>
+
+<Slide title="El código completo">
+<Exercise title="Promedio móvil">
+
+La estructura entera. `capacity` es el $$K$$ de la ventana, y el
+constructor lo rechaza si no es positivo: una ventana de tamaño cero
+dividiría cero por cero y devolvería `NaN` en cada llamada, que es la peor
+manera de fallar —sin ruido—. Mientras la ventana no llega a $$K$$
+responde el promedio de lo que tenga, en vez de negarse.
+
+```java starter
+import java.util.LinkedList;
+import java.util.Queue;
+
+class Solution {
+
+    static double[] movingAverage(int k, int[] stream) {
         if (k <= 0) {
             throw new IllegalArgumentException();
         }
-        this.capacidad = k;
+        Queue<Integer> window = new LinkedList<>();
+        double[] out = new double[stream.length];
+        int sum = 0;
+        for (int i = 0; i < stream.length; i++) {
+            window.add(stream[i]);
+            sum += stream[i];
+            if (window.size() > k) {
+                sum -= window.remove();
+            }
+            out[i] = (double) sum / window.size();
+        }
+        return out;
     }
 }
 ```
 
-El constructor rechaza un $$K$$ que no sea positivo. Sin esa guarda una
-ventana de tamaño cero divide cero por cero y devuelve `NaN` en cada
-llamada, que es la peor manera de fallar — sin ruido.
-
-</Slide>
-
-<Slide title="La actualización constante">
-Cada número que llega entra por el final. Si con él la ventana se pasa de
-$$K$$, el más viejo sale por el frente y se descuenta de la suma.
-
-```java
-double siguiente(int x) {
-    ventana.enqueue(x);
-    suma += x;
-    largo++;
-    if (largo > capacidad) {
-        suma -= ventana.dequeue();
-        largo--;
-    }
-    return (double) suma / largo;
-}
+```java test
+double[] r = Solution.movingAverage(3, new int[] {1, 2, 3, 4});
+check(r.length, 4);
+check(r[0], 1.0);
+check(r[1], 1.5);
+check(r[2], 2.0);
+check(r[3], 3.0);
+check(Solution.movingAverage(1, new int[] {7, 9})[1], 9.0);
+check(Solution.movingAverage(5, new int[] {2, 4})[1], 3.0);
 ```
 
-</Slide>
-
-<Slide title="La ventana, paso a paso">
-Con $$K = 3$$ y la secuencia 1, 2, 3, 4:
-
-| entra | ventana | suma | largo | promedio |
-|---|---|---|---|---|
-| 1 | `1` | 1 | 1 | 1,00 |
-| 2 | `1 2` | 3 | 2 | 1,50 |
-| 3 | `1 2 3` | 6 | 3 | 2,00 |
-| 4 | `2 3 4` | <span style={{ color: 'var(--color-mark)', fontWeight: 700 }}>9</span> | 3 | 3,00 |
-
-La cuarta fila es la única interesante: la ventana ya estaba llena, así que
-el 1 salió por el frente y la suma se ajustó en las dos direcciones —sumó 4
-y restó 1— sin recorrer nada.
-
-Lo que hace constante a `siguiente` es que el elemento que hay que restar es
-siempre el más viejo, y el contrato de la cola entrega exactamente ése. Con
-cualquier otra colección habría que buscarlo.
-
-Las otras dos decisiones de borde: la ventana devuelve el promedio de lo que
-tenga mientras no haya llegado al tamaño $$K$$, en vez de negarse a
-responder; y `suma` se mantiene como entero para que la división sea la
-única operación con decimales, que es donde el error de redondeo no se
-acumula.
-
+</Exercise>
 </Slide>
 
 <SectionBreak />
