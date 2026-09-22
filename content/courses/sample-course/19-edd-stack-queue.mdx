@@ -1311,8 +1311,13 @@ Con esa disposición, encolar es escribir en la primera casilla libre y subir
       <text x={70 + i * 108} y="132" textAnchor="middle" fontSize="12" style={{ fill: 'var(--color-ink-faint)' }}>{i}</text>
     </g>
   ))}
-  <path d="M 178 144 C 178 176, 70 176, 70 148" fill="none" style={{ stroke: 'var(--color-accent)' }} strokeWidth="1.8" markerEnd="url(#corrim-punta)" />
-  <path d="M 286 144 C 286 176, 178 176, 178 148" fill="none" style={{ stroke: 'var(--color-accent)' }} strokeWidth="1.8" markerEnd="url(#corrim-punta)" />
+  {/* Las dos copias, cada una en su propio tramo. Antes compartían el punto
+      178: la segunda terminaba exactamente donde empezaba la primera, así que
+      su punta quedaba tapada y la de la primera parecía suelta. Ahora cada
+      curva sale a la izquierda del centro de su casilla y llega a la derecha
+      del centro de la siguiente, con 16px de aire entre las dos. */}
+  <path d="M 170 140 L 170 168 L 82 168 L 82 148" fill="none" style={{ stroke: 'var(--color-accent)' }} strokeWidth="1.8" strokeLinejoin="round" markerEnd="url(#corrim-punta)" />
+  <path d="M 278 140 L 278 168 L 190 168 L 190 148" fill="none" style={{ stroke: 'var(--color-accent)' }} strokeWidth="1.8" strokeLinejoin="round" markerEnd="url(#corrim-punta)" />
   <text x="350" y="198" textAnchor="middle" fontSize="13" style={{ fill: 'var(--color-ink-faint)' }}>una copia por cada elemento que queda · N − 1 en total</text>
 </svg>
 
@@ -1321,8 +1326,13 @@ que se pueda pulir: es la consecuencia directa de haber decidido que el
 frente vive en una casilla fija. Una cola que se usa de verdad desencola
 tantas veces como encola, así que la mitad de sus operaciones serían caras.
 
-El contrato no pide nada de esto. Pide sacar el del frente, no sacar el de
-la casilla cero. La diferencia entre las dos frases es toda la solución.
+Y el contrato no pide nada de esto: pide sacar **el del frente**, no sacar
+el de la casilla cero. Es guardar la cola en un bloque de casillas
+consecutivas lo que ata el frente a la casilla cero, y es esa atadura la que
+cuesta $$\Theta(N)$$ cada vez.
+
+La estructura que sigue no tiene casillas ni posiciones fijas, y por eso no
+paga nada de esto.
 
 </Slide>
 
