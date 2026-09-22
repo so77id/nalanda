@@ -1681,30 +1681,6 @@ apuntando a un nodo que ya salió de la cola.
 
 </Slide>
 
-<Slide title="Los casos de borde">
-Las cuatro guardas que aparecieron en los listados de esta clase no son
-cuatro accidentes: son los cuatro extremos de una estructura que sólo se
-toca por los extremos.
-
-| El caso | Qué pasa si el método no pregunta | El `if` que lo evita |
-|---|---|---|
-| `pop` o `dequeue` sobre vacía | devuelve un valor que nadie apiló, o revienta con `NullPointerException` | `if (head == null) throw new NoSuchElementException();` |
-| `top` o `front` sobre vacía | lo mismo, sin siquiera cambiar la estructura | la misma guarda |
-| `enqueue` sobre vacía | no hay último al que enlazarse: `tail.next` revienta | `if (head == null) head = fresh;` |
-| `dequeue` del único nodo | `tail` queda apuntando a un nodo que ya salió | `if (head == null) tail = null;` |
-
-Los cuatro son el mismo caso mirado desde cuatro lados: **la estructura de
-cero elementos y la de un elemento son las que no tienen extremo, o lo
-tienen doble**. Por eso todos los listados de esta clase preguntan antes de
-tocar, y por eso `empty()` existe en los dos contratos.
-
-Sobre un arreglo las dos últimas filas no hacen falta, porque `size` no es
-una referencia a un nodo: no puede quedar apuntando a nada. Pero el arreglo
-tiene la suya, que la lista no tiene: el bloque lleno, que obliga a reservar
-uno más grande y copiar antes de poder escribir.
-
-</Slide>
-
 <Slide title="Arreglo vs lista">
 | | Sobre arreglo dinámico | Lista con `head` y `tail` |
 |---|---|---|
@@ -1730,8 +1706,8 @@ Por eso, cuando alguien escribe una cola, la escribe sobre una lista.
 </Slide>
 
 <Slide title="Queue en Java">
-Java no trae una clase `Queue`: trae una **interfaz** con ese nombre, y dos
-implementaciones que la cumplen. Los nombres cambian:
+Java no trae una clase `Queue`: trae una **interfaz** con ese nombre, y
+varias clases la cumplen. Los nombres cambian:
 
 | El TDA | Java |
 |---|---|
@@ -1751,14 +1727,14 @@ int x = queue.remove();        // 3, y ahora la cola sólo tiene el 8
 ```
 
 Sobre una cola vacía, `remove()` y `element()` lanzan
-`NoSuchElementException`, que es lo que el contrato pide. Existe un
-segundo trío —`offer`, `poll` y `peek`— que en vez de lanzar devuelve
-`false` o `null`: sirve cuando quedarse sin elementos es parte del
-funcionamiento normal, y no cuando es un error.
+`NoSuchElementException`, que es lo que el contrato pide; el trío
+`offer`/`poll`/`peek` devuelve `false` o `null` en vez de lanzar.
 
-`LinkedList` es la lista con `tail` de esta clase. `ArrayDeque` también
-cumple la interfaz, y lo hace sobre un arreglo —resolviendo por dentro el
-problema del corrimiento, con una idea que esta clase no necesita.
+`LinkedList` es la lista enlazada con `tail`, y `ArrayDeque` está construida
+sobre un arreglo: resuelve por dentro el corrimiento del `dequeue`. Ambas se
+usan con los mismos cinco métodos y sólo cambia el `new`. `PriorityQueue`
+también cumple la interfaz, pero entrega siempre el menor de los elementos
+guardados, no el que llegó primero.
 
 </Slide>
 
