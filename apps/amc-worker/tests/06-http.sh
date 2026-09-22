@@ -230,7 +230,7 @@ esac
 # no-op. So the trap is performed rather than read off the wrapper
 # (testing-strategy.md §apps/amc-worker) — six copies from a source declaring
 # five, over the HTTP contract, where losing the flag makes the sixth copy
-# unscored and /analyse answer 500.
+# unscored and /analyse refuse the batch.
 
 printf '{"6": {"rut": "19876543", "answers": [1, 1, 1, 1]}}\n' >"$work/plan6.json"
 

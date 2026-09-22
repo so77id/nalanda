@@ -344,7 +344,7 @@ def analyse(body):
     # on every scanned copy of Miguel's first real batch.
     link_scans_to_contract_names(data, os.path.join(project, "scans"))
 
-    report = read_capture.read(data, ticked, unsure)
+    report = read_report(data, ticked, unsure)
     # Optional on the wire (CLAUDE.md): a server that predates it ignores it.
     report["batch"] = batch
     return report
@@ -383,6 +383,21 @@ def forget_corrections(data, students):
             con.commit()
         finally:
             con.close()
+
+
+def read_report(data, ticked, unsure):
+    """The reading report, or a 400 carrying the reader's own refusal.
+
+    read_capture refuses a project it cannot report on truthfully — no
+    scores, a copy captured after scoring, a photocopy-mode capture (#298)
+    — with the repair in its detail. Unhandled, that surfaced as a 500
+    naming the exception class; the caller needs the sentence instead,
+    and a refusal can never succeed on retry, so it is a 400.
+    """
+    try:
+        return read_capture.read(data, ticked, unsure)
+    except read_capture.Refused as exc:
+        raise Failed(exc.message, exc.detail)
 
 
 def batch_list_name(scan_pdf):
@@ -456,7 +471,7 @@ def reanalyse(body):
     _project, data = project_paths(body)
     ticked, unsure = parse_thresholds(body)
     amc("note", "--data", data, "--seuil", str(ticked))
-    return read_capture.read(data, ticked, unsure)
+    return read_report(data, ticked, unsure)
 
 
 def associate(body):

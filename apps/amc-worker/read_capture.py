@@ -134,7 +134,53 @@ BOX_ZONE = 4  # capture_zone.type: 4 is an answer or code box (3 is the page id)
 QUESTION_MULTIPLE = 2
 
 
-class MissingScoring(Exception):
+class Refused(Exception):
+    """The reader will not produce a report for this project.
+
+    Every refusal withholds the WHOLE report — nothing on stdout, exit 2 —
+    because a partial or silently wrong one is the half-truth this module
+    exists to prevent. Each carries the repair in `detail`.
+    """
+
+    def __init__(self, message, detail=""):
+        super().__init__(message)
+        self.message = message
+        self.detail = detail
+
+
+class PhotocopyCapture(Refused):
+    """The capture holds a sheet scanned in AMC's photocopy mode (issue #298).
+
+    `analyse --multiple` stacks a second scan of a page beside the first
+    (`capture_zone.copy` 1, 2, …), and this reader keys by student alone: it
+    would concatenate both scans' marks into duplicated RUT digits and
+    ticks. The worker captures in single mode since #298 and never produces
+    `copy > 0` again; a project captured before that is refused rather than
+    read. The repair is to reset the control's scans and upload them again.
+    """
+
+
+def check_single_capture(data_dir):
+    """Refuse a capture holding any photocopy-mode row (`copy > 0`)."""
+    path = os.path.join(data_dir, "capture.sqlite")
+    if not os.path.exists(path):
+        return
+    con = sqlite3.connect(path)
+    try:
+        stacked = con.execute(
+            "SELECT COUNT(*) FROM capture_zone WHERE copy > 0").fetchone()[0]
+    finally:
+        con.close()
+    if stacked:
+        raise PhotocopyCapture(
+            f"{data_dir} holds a photocopy-mode capture",
+            f"{stacked} boxes were captured at copy > 0, which this reader "
+            "cannot tell apart from the first scan — reset the control's "
+            "scans (Borrar escaneos) and upload them again",
+        )
+
+
+class MissingScoring(Refused):
     """The project cannot be scored as read.
 
     Raised from three places: no scoring database, one that exists and holds no
@@ -152,11 +198,6 @@ class MissingScoring(Exception):
     indistinguishable, to anything that only checks for the file, from a batch
     in which nobody scored a single point.
     """
-
-    def __init__(self, message, detail=""):
-        super().__init__(message)
-        self.message = message
-        self.detail = detail
 
 
 def check_scoring(data_dir):
@@ -318,11 +359,10 @@ def scoring_facts(data_dir):
     exists so the refusal has something to inspect, not so a guess can ship.
 
     `scoring_score` also carries a `copy` column, for a sheet scanned more than
-    once, and the two tables are collapsed by DIFFERENT rules: this one keeps
-    the last row per (copy, question), while the capture reading concatenates
-    every scan's marks. Duplicate scans are out of scope for both — and they do
-    not pass silently, because a duplicated scan also duplicates the RUT boxes,
-    so the copy comes back `rut_status: "unreadable"` (measured, #147 review).
+    once in AMC's photocopy mode, and this reader keys by student alone. It
+    never meets one: the worker captures in single mode since #298, and
+    `read()` refuses a capture holding `copy > 0` (check_single_capture)
+    before any of this runs.
     """
     con = sqlite3.connect(os.path.join(data_dir, "scoring.sqlite"))
     try:
@@ -350,6 +390,7 @@ def scoring_facts(data_dir):
 
 
 def read(data_dir, ticked, unsure):
+    check_single_capture(data_dir)
     check_scoring(data_dir)
     seuil, facts = scoring_facts(data_dir)
 
@@ -570,7 +611,7 @@ def main():
     args = ap.parse_args()
     try:
         report = read(args.data, args.ticked, args.unsure)
-    except MissingScoring as exc:
+    except Refused as exc:
         # Loudly, on stderr, with nothing on stdout: a caller piping this into
         # a file must not end up with half a report.
         sys.stderr.write(f"{exc.message}: {exc.detail}\n")

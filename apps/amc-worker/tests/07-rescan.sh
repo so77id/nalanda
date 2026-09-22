@@ -238,4 +238,46 @@ check_eq "re-scanning copy 1 reads its boxes from the pixels again" "True" \
 check_eq "with no manual mark left on it" "0" \
   "$(sql p3 'SELECT COUNT(*) FROM capture_zone WHERE student = 1 AND manual >= 0')"
 
+# --- S5: the reader refuses a photocopy-mode capture ----------------------------
+#
+# Every project the worker captured before #298 ran in photocopy mode, and a
+# re-scan there stacked (copy=1, copy=2): the reader concatenated both scans'
+# marks into duplicated RUT digits and ticks. The worker never produces such a
+# capture again, and the reader REFUSES one rather than silently reading it —
+# the same policy as MissingScoring: a half-truth is worse than a refusal.
+# Performed, not asserted: the legacy capture is made the way the old worker
+# made it.
+genl="$(post /generate '{"project":"legacy","source":"src/control-demo.tex","copies":2}')"
+check_eq "a control for the legacy capture generates" "2" "$(echo "$genl" | field 'd["copies"]')"
+check "its batch can be filled" fill legacy "$PLAN_BOTH" scan-legacy scan-legacy/lote.pdf
+legacy_capture() {
+  docker run --rm --env DISPLAY= -v "${work}:/work" -w /work "$IMAGE" bash -c '
+    set -e
+    P=/work/legacy; D=$P/data
+    for n in 1 2; do
+      auto-multiple-choice getimages --list $P/scans/old-$n.txt --vector-density 300 \
+        --copy-to $P/scans /work/scan-legacy/lote.pdf >/dev/null 2>&1
+      auto-multiple-choice analyse --data $D --projet $P --cr $P/cr --multiple \
+        --liste-fichiers $P/scans/old-$n.txt >/dev/null 2>&1
+    done
+    auto-multiple-choice prepare --mode b --with pdflatex --n-copies 2 --data $D \
+      --prefix $P /work/src/control-demo.tex >/dev/null 2>&1
+    auto-multiple-choice note --data $D --seuil 0.15 >/dev/null 2>&1
+  '
+}
+check "the old worker's capture can be reproduced (photocopy mode, scanned twice)" legacy_capture
+check_eq "and it stacked the second scan beside the first" "[(1,), (2,)]" \
+  "$(sql legacy 'SELECT DISTINCT copy FROM capture_zone ORDER BY copy')"
+
+reader() { docker run --rm -v "${work}:/work" "$IMAGE" python3 /opt/amc-worker/read_capture.py --data /work/legacy/data "$@"; }
+check_eq "the reader refuses it with the refusal exit status" "2" \
+  "$(reader >/dev/null 2>&1; echo $?)"
+check_eq "writing nothing on stdout" "" "$(reader 2>/dev/null || true)"
+refusal="$(reader 2>&1 >/dev/null || true)"
+check_contains "naming the project" "/work/legacy/data" "$refusal"
+check_contains "and the repair" "reset" "$refusal"
+
+re_legacy="$(post /reanalyse '{"project":"legacy"}')"
+check_contains "and /reanalyse answers the refusal instead of a report" "photocopy" "$re_legacy"
+
 summary
