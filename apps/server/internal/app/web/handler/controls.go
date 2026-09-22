@@ -926,6 +926,15 @@ func (h *Controls) jobBannerFor(ctx context.Context, controlID string) *view.Job
 		Error:      job.Error,
 		DismissURL: jobDismissURL(job.ID),
 	}
+	if banner.Failed && job.Kind == jobs.KindPublish {
+		// ONLY a publication's detail reaches the banner (issue #297). Its
+		// handler writes Spanish sentences for the professor — which copies
+		// did not go out, and the repair. Every other kind stores the
+		// worker's stderr or a wrapped Go error there, for whoever triages
+		// the row, and rendering that would put English paths off the
+		// shared volume in front of the professor.
+		banner.Detail = job.Detail
+	}
 	if running {
 		start := job.CreatedAt
 		if job.StartedAt != nil {

@@ -1227,3 +1227,76 @@ func TestBothScreensNameTheSameReasonForACopyFailingSeveralChecks(t *testing.T) 
 		t.Error("the review page sends the professor to the annotation before the grade")
 	}
 }
+
+// seedFailedJob records a terminal failure of the given kind on a control,
+// the way the runner would, so a case can render the banner it leaves
+// behind without driving the whole job to get there (issue #297).
+func seedFailedJob(t *testing.T, f *controlsFixture, controlID string, kind jobs.Kind, message, detail string) {
+	t.Helper()
+
+	ctx := context.Background()
+	id, err := f.jstore.Insert(ctx, jobs.NewJob{
+		ControlID: controlID, Kind: kind, Payload: []byte(`{}`),
+	}, time.Now())
+	if err != nil {
+		t.Fatalf("Insert: %v", err)
+	}
+	if err := f.jstore.MarkRunning(ctx, id, time.Now()); err != nil {
+		t.Fatalf("MarkRunning: %v", err)
+	}
+	if err := f.jstore.MarkFailed(ctx, id, message, detail, time.Now()); err != nil {
+		t.Fatalf("MarkFailed: %v", err)
+	}
+}
+
+// A failed publication's detail reaches the screen (issue #297, AC6).
+//
+// It was written to job.detail since #273 and rendered by nothing: on
+// 2026-09-22 the one sentence that said what to do — reconnect Gmail —
+// sat in the row while the banner showed a count. The detail is one line
+// per copy, so the line breaks are part of what it says.
+func TestAFailedPublicationShowsItsDetailWithItsLineBreaks(t *testing.T) {
+	f := newControlsFixture(t)
+	controlID := gradedControl(t, f)
+	seedFailedJob(t, f, controlID, jobs.KindPublish,
+		"se enviaron 1 correcciones y 2 fallaron",
+		"copia 2: no se pudo contactar a Gmail\ncopia 3: no se pudo contactar a Gmail")
+
+	body := f.detailBody(t, controlID)
+	detail := "copia 2: no se pudo contactar a Gmail\ncopia 3: no se pudo contactar a Gmail"
+	at := strings.Index(body, detail)
+	if at < 0 {
+		t.Fatalf("the banner does not render the job's detail, line breaks intact:\n%s", body)
+	}
+	// A newline inside ordinary HTML collapses to a space, so the two
+	// copies would read as one sentence. The element holding it must keep
+	// them apart.
+	opening := body[strings.LastIndex(body[:at], "<"):at]
+	if !strings.Contains(opening, "white-space:pre-line") {
+		t.Errorf("the detail sits in %q, which collapses its line breaks", opening)
+	}
+}
+
+// The banner renders a PUBLICATION's detail and no other kind's (issue
+// #297).
+//
+// The two are written for different readers. A publication's detail is
+// Spanish sentences addressed to the professor; an AMC job's is the
+// worker's stderr or a wrapped Go error — English, with paths on the
+// shared volume — kept on the row for whoever triages it
+// (failureFromAnalyzeError: "the long AMC line stays in the DB").
+func TestAFailedAMCJobKeepsItsDebugDetailOffTheBanner(t *testing.T) {
+	f := newControlsFixture(t)
+	controlID := gradedControl(t, f)
+	seedFailedJob(t, f, controlID, jobs.KindAnalyse,
+		"el motor de lectura rechazó el trabajo",
+		"ERR: /work/controls/x/scans/0001.pdf scan not recognized")
+
+	body := f.detailBody(t, controlID)
+	if !strings.Contains(body, "el motor de lectura rechazó el trabajo") {
+		t.Fatalf("the failure banner is missing:\n%s", body)
+	}
+	if strings.Contains(body, "scan not recognized") {
+		t.Error("the banner shows the worker's stderr to the professor")
+	}
+}
