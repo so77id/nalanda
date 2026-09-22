@@ -171,6 +171,11 @@ func failureFromAnalyzeError(err error) error {
 	switch {
 	case errors.Is(err, ErrControlNotFound):
 		return &jobs.Failure{Message: "ese control ya no existe", Detail: err.Error()}
+	case errors.Is(err, ErrNothingCaptured):
+		return &jobs.Failure{
+			Message: "ninguna página del lote corresponde a este control; revisa que no sea el PDF de otro control",
+			Detail:  err.Error(),
+		}
 	case errors.Is(err, ErrAnalyzerRefused):
 		return &jobs.Failure{Message: "el motor de lectura rechazó el trabajo", Detail: err.Error()}
 	case errors.Is(err, ErrAnalyzerUnavailable):

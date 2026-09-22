@@ -116,10 +116,26 @@ type ReportCopy struct {
 	Pages []int
 }
 
-// Pages counts what got in.
+// Pages counts what got in — across the whole project, every batch ever
+// uploaded. Batch is the one-run counterpart.
 type Pages struct {
 	Captured int
 	Failed   int
+}
+
+// Batch is what ONE /analyse run did (issue #298), as opposed to Pages,
+// which is the project's running total and cannot say whether the upload
+// just made read anything: AMC's capture_failed is cumulative.
+type Batch struct {
+	// Captured is how many pages of this batch AMC recognised and read.
+	// Zero means the batch changed nothing — AnalyzeBatch refuses it.
+	Captured int
+	// Failed is how many pages of this batch AMC did not recognise.
+	Failed int
+	// RecapturedCopies are the copies with at least one page this batch
+	// re-scanned over an earlier capture. Each is born again before the
+	// report is persisted (ADR-0048 §Amendment).
+	RecapturedCopies []int
 }
 
 // Scoring names the two thresholds and whether they diverge. `Stale: true`
@@ -138,6 +154,10 @@ type Report struct {
 	Scoring     Scoring
 	Copies      map[string]ReportCopy // key is the copy number as decimal string, mirroring AMC
 	NeedsReview []string
+	// Batch is what this run captured (issue #298). Nil on a /reanalyse,
+	// which captures nothing, and on a report built without the client's
+	// legacy substitution; AnalyzeBatch gates only on a batch it has.
+	Batch *Batch
 }
 
 // AnalyzeRequest is what a caller hands to Analyzer.Analyze. Every path is
@@ -189,6 +209,11 @@ var (
 	// ErrAnalyzerUnavailable wraps a transport failure — the worker is not
 	// reachable at all.
 	ErrAnalyzerUnavailable = errors.New("controls: the AMC worker is unreachable")
+
+	// ErrNothingCaptured: the worker read the batch and recognised none of
+	// its pages (issue #298). In single mode AMC exits 0 over a PDF from
+	// another control, so this is where that failure becomes loud.
+	ErrNothingCaptured = errors.New("controls: no page of the batch was recognised")
 )
 
 // AnalyzerRefusedError carries the fields the analyzer reported alongside

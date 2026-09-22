@@ -231,6 +231,9 @@ func (noMatcher) MatchByRUT(context.Context, string, int64) (*int64, error) { re
 // exactly like the old do-nothing shape.
 type fakeReadingStore struct {
 	readingsByCopy map[string]controls.Reading // key: <controlID>#<copyNumber>
+	// upserts counts UpsertReadingsFromReport calls, so a case can prove a
+	// refused analyse wrote nothing (issue #298).
+	upserts int
 }
 
 func newFakeReadingStore() *fakeReadingStore {
@@ -238,6 +241,7 @@ func newFakeReadingStore() *fakeReadingStore {
 }
 
 func (s *fakeReadingStore) UpsertReadingsFromReport(context.Context, string, controls.Report, time.Time) error {
+	s.upserts++
 	return nil
 }
 func (s *fakeReadingStore) MarkMissingAsNotPresent(context.Context, string, time.Time) error {

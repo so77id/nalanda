@@ -107,6 +107,8 @@ type SaveUploadedBatchResult struct {
 //     (apps/server/CLAUDE.md §"The uploaded scan batch survives"). The
 //     batch file is the artefact an operator inspects and what the
 //     professor cannot re-scan.
+//   - A batch the worker recognised none of → wraps ErrNothingCaptured,
+//     before any write (issue #298).
 //   - Analyzer.Analyze refused / unreachable → wraps ErrAnalyzer*. The
 //     row + files stay intact (ADR-0050 §6, amending ADR-0034 §Failure
 //     modes); the runner records the failure on job.error / job.detail
@@ -137,6 +139,12 @@ func (s *Service) AnalyzeBatch(ctx context.Context, controlID, batchName string,
 	})
 	if err != nil {
 		return Report{}, err
+	}
+	// Issue #298: a batch AMC recognised none of is refused before anything
+	// is written — the readings stay as the previous batch left them.
+	if report.Batch != nil && report.Batch.Captured == 0 {
+		return Report{}, fmt.Errorf("%w: %s: %d unrecognised pages",
+			ErrNothingCaptured, batchName, report.Batch.Failed)
 	}
 	if err := s.Store.SetControlThresholds(ctx, control.ID, ticked, unsure); err != nil {
 		return Report{}, fmt.Errorf("controls.AnalyzeBatch: persist thresholds: %w", err)
