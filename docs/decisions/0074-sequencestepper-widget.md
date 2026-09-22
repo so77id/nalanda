@@ -167,11 +167,20 @@ re-measured — the exact failure the class's own review keeps finding.
 So the condition §Consequences named — _"if it does not use them they should
 be removed rather than re-justified"_ — is met, and the honest disposition is
 that `array` is carried with no consumer at all: a recipe, its `ARRAY_CODE`
-listings, a catalog entry, a layout path and some twenty call sites in
-`sequenceStepperTrace.test.ts` and `sequenceStepperLayout.test.ts`. Removing
+listings, a catalog entry, a layout path and thirty references across
+`sequenceStepperTrace.test.ts` and `sequenceStepperLayout.test.ts`,
+twenty-five of them direct calls. Removing
 it is a WP of its own and does not belong in a course-document PR, so it is
 recorded here as owed, not as finished. **The next class of this unit either
 reads it or deletes it; a third re-justification is not available.**
+
+> **TODO — delete the `array` recipe or name its reader.**
+> Owner: Miguel Rodriguez. Deadline: the next class of the Estructuras de
+> Datos unit. Tracking issue: **#296**.
+> Written as a block rather than as prose because §"Rules for empirical
+> claims in ADRs" asks for one: a deferral with no owner, no date and no
+> number is how "measure later" becomes no measurement, which is exactly
+> how this recipe reached its second re-justification.
 
 **`dynamic-array` has a consumer, and the paragraph that gave it a deadline
 was wrong within the same WP.** That paragraph said `grep -rn
@@ -179,8 +188,9 @@ was wrong within the same WP.** That paragraph said `grep -rn
 the recipe against the priority-queue class as a deadline. It was written
 while #294's Stack act still built the pila on a fixed block. The class then
 moved to the arreglo dinámico — the structure #277 actually ends on — and
-the grep now returns four hits, two per act: `insert-last` and `remove-last`
-over `[42, 7]` in the Stack act, and two more in the Queue act. (This
+the grep now returns four hits, two per act: `insert-last` over `[42, 7]`
+and `remove-last` over `[42, 7, 15, 4, 9, 23]` in the Stack act, and two more
+in the Queue act. (This
 sentence said "two hits, both in the Stack act" before the review pipeline
 counted them.)
 

@@ -134,15 +134,21 @@ combinations the documents mount` (`SequenceStepper.test.tsx`), written
      is the only thing that saw it.
 
      It holds two documents' cases since #294, so **name each case for the
-     document and the act it comes from**: two classes mount the same pair
-     with different arguments (`array × insert-last` is in both), and a
-     failure line that says only the pair does not say which slide broke.
+     act it comes from**: #294's two acts mount the same pair with different
+     arguments — `dynamic-array × insert-last` and
+     `linked-list-singly × remove-first` are each in both — and a failure
+     line that says only the pair does not say which slide broke. (This said
+     `array × insert-last`, a pair no document mounts at all; ADR-0074's own
+     amendment says so in the same PR.)
 
      Pinning the mount is the floor, not the ceiling. A case that only
      renders proves the combination is legal; it cannot see a frame that
      throws or paints wrong halfway through a walk. Step the shapes no other
-     case reaches — #294's empty chain WITH `tail` is one — the way the
-     `insertLast from empty` case does.
+     case reaches, the way the `insertLast from empty` case does — and note
+     that #294's empty chain WITH `tail` is one it does NOT reach: the mount
+     table renders it and `sequenceStepperTrace.test.ts` covers it as a pure
+     function, but nothing steps its frames, which is a different guarantee.
+     The next class that mounts that shape owes the stepped case.
 
      State this class by what the TEST fails to reach, never by the widget
      that happened to expose it.

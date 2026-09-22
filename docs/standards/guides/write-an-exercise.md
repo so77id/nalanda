@@ -54,9 +54,19 @@ Both are `<Exercise title="…">` with ```` ```java starter ```` and
 #294 ships four worked and no posed ones — its five were cut. The posed
 shape is not hypothetical, though: eleven of them already ship, six in
 `16-diseno-algoritmos-ordenamiento.mdx` and five in
-`18-edd-listas-enlazadas.mdx`, and all eleven have the shape described here —
-a statement, a skeleton `starter`, the `test` cases and a `solution`, with no
-beats 2 to 4 on any slide.
+`18-edd-listas-enlazadas.mdx`, all with a statement, a skeleton `starter`,
+`test` cases and a `solution`, and none of them on a slide.
+
+**They are a SECOND posed shape, and it is worth naming.** The eleven do not
+"ship beat 1 and stop": every one hands the reader beat 3 inside the
+statement — «recorrerla con dos referencias a distinta velocidad», «usá
+`partition`, esquema Lomuto», «empezar con un nodo de mentira» — and several
+hand over beat 2 and beat 5 as well. #288 says so outright: _"Cada enunciado
+dice dónde está la dificultad."_ Call that shape **guided**: the idea is
+given and the writing is the work. The bare shape above — beat 1 and nothing
+else — is what a control or an exam asks for. Both are legitimate; what is
+not legitimate is drifting between them inside one bank, because the reader
+cannot tell how much thinking is expected of them.
 
 ## The five beats
 
@@ -233,8 +243,8 @@ taught.
 
 How many slides an exercise takes. It is never a goal, and never quoted as
 the cost of a decision. What *is* measured is each slide's scale (floor 0.70)
-and whether anything clips — recipe in `teach-a-data-structure.md`
-§Checklist.
+and whether anything clips — the scale recipe is in
+`teach-a-data-structure.md` §Checklist and the clipping one in §6bis.
 
 ## Checklist
 

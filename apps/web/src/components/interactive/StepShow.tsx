@@ -93,8 +93,11 @@ export function StepShow({
   // sitting them side-by-side (unlike `<SortStepper>`, which needs the extra
   // width for its tree), so the width only has to hold the code.
   //
-  // Measured (#277, 2026-09-08): 0.5 x 1440 = 720 CSS px fits ~60 monospace
-  // columns, and the longest fence chapter 17 ships is 58. That is the case
+  // Measured (#277, 2026-09-08, re-measured #294): 0.5 x 1440 gives the
+  // panel 718 px of clientWidth, of which a 33 px line-number gutter leaves
+  // 685 for text at 12.0 px per character — 57 rendered columns, not the
+  // ~60 this comment used to claim. The longest fence chapter 17 ships is 58
+  // and #294 ships one at 58 that clips by 19 px. That is the case
   // that breaks if the fraction drops further — a longer line clips at the
   // right edge and nothing in the build or the suite sees it. Chapters 08 and
   // 14, which also mount this widget, were measured at both values: widget

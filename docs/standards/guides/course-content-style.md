@@ -126,7 +126,8 @@ phrase and says nothing about its slide.
 interpunct — `{concepto central} · {precisión}` — on the argument that a
 uniform two-part shape helps the reader skim. #294 withdraws it: a title
 already has to say what its slide is about, and the subtitle is where the
-saying got deferred to. Every one of its slides is single-part.
+saying got deferred to. Every one of its slides is single-part except the
+ten that form the four exercise series below.
 
 The interpunct survives in two shapes, and only these two.
 
@@ -148,7 +149,9 @@ Anything else is the subtitle this section retired: a one-off precision hung
 on a title that already stood alone.
 
 **31 titles in `17-edd-introduccion.mdx` and `18-edd-listas-enlazadas.mdx`
-still carry a subtitle**, and they were written when the rule allowed it.
+carry an interpunct**, of which five — the `Operación de modificación · …`
+run in 17 — are a series by the test above and are licensed. The other 26
+are subtitles, written when the rule allowed them.
 They are not a defect to fix under time pressure; retire them when those
 documents are next opened for another reason.
 
@@ -208,8 +211,9 @@ Two consequences worth spelling out, because #288 hit both:
       (grep the body for _§_, _sección anterior_, _slide anterior_, _más
       adelante_, _ya vimos_, _acabamos de_, _volveremos_).
 - [ ] Every `h2` and every `<Slide title>` is a single-part noun phrase that
-      says what is on its slide — no `·` subtitle, and the deck's titles read
-      in a column say what the class covers. No imperatives, no questions, no colons + English
+      says what is on its slide — no `·` subtitle; the only interpuncts
+      allowed are a series and the contract gloss (§5) — and the deck's
+      titles read in a column say what the class covers. No imperatives, no questions, no colons + English
       labels.
 - [ ] Every `<Exercise title>` is a noun phrase in the same shape.
 - [ ] Read the document aloud in one pass. Anything that would come out of the

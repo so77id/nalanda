@@ -129,11 +129,11 @@ claimed #294 carried an exercise index slide, a hinge after the `<Exercise>`
 blocks and a `Lo que sigue`, none of which ship — because it was written
 before the cuts and never re-measured against the document.
 
-**It also cut its own act 4.** An earlier draft closed with a recap act ("un
-contrato para los dos arreglos") that restated the TDA, put the two cost
+**#277 also cut its own act 4.** An earlier draft closed with a recap act
+("un contrato para los dos arreglos") that restated the TDA, put the two cost
 tables side by side and named the trade. Every one of those was already on the
 page: the contract in act 2, each table at the end of its own act. Only the
-trade survived, as the last slide of act 3. Prefer that: a recap act is the
+trade survived, as the last slide of its act 3. Prefer that: a recap act is the
 default place for a class to repeat itself.
 
 **The first act carries no heading at all.** #277 opens straight from the
@@ -459,14 +459,31 @@ clips at the right edge and nothing in the build or the suite sees it. Wrap
 long guards BEFORE writing any `lines={[…]}` — wrapping afterwards renumbers
 every step below, which is how #277 shipped two off-by-ones.
 
-**The number used to read "~60" and that was wrong**, by enough to ship a
-clipped slide through a review that measured the other axis. #294 measured it:
-at 1440x900 the widget's code panel is 718 px and a 57-column line renders
-737 px, so it loses its last one and a half characters — in its case the `;`
-of a `return false;`. That is 12.93 px per character, so 55 columns is the
-floor with a character of margin, and #294 ships one slide at 57 that was left
-alone deliberately: every way to shorten it either renumbered the steps of two
-widgets or pushed the neighbouring `<Exercise>` slide from 0.717 to 0.655.
+**The number used to read "~60", and the first attempt to correct it invented
+its arithmetic.** Here is the measurement, taken with a `Range` over the
+widest rendered line rather than from the scroller's own width:
+
+- At 1440x900, a slide **at scale 1.0** gives the code panel `clientWidth`
+  718 px, of which a **33 px line-number gutter** leaves 685 px for text.
+- The monospace advance is **12.0 px** per character. So **57 rendered
+  columns fit**, and #294's 58-column line overflows by 19 px — one and a
+  half characters, in its case the `;` of a `return false;`.
+- **55 is the floor**, with two characters of margin.
+
+Two things that make the count subtler than it looks, and both bit the first
+correction:
+
+**Count RENDERED columns, not source columns.** A `<StepShow>` fence is
+written as a JSX-attribute template literal, and the MDX build dedents it by
+the attribute's own indentation — two columns in #294. The line that clips is
+60 characters in the `.mdx` and 58 on the screen.
+
+**The budget binds only at scale 1.0.** `<StepShow>` breaks out of the prose
+column by dividing by the slide's scale, so a slide the deck has already
+shrunk gets a proportionally WIDER panel: #294's slides 45 and 46 carry the
+identical listing, and 46 — at scale 0.835 — measures 860/860 and does not
+clip at all. A line under 55 is safe everywhere; between 55 and 57 it depends
+on how much else the slide is carrying.
 
 **Sweep the horizontal axis too, not only the scale.** A deck sweep that reads
 the `transform` on the slide stage sees a slide shrink to fit and reports it;
