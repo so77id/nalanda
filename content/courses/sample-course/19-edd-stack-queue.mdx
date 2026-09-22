@@ -1269,9 +1269,9 @@ El contrato no dice dónde viven los elementos, pero sí pide algo exigente:
 
 La cola se puede construir utilizando una de las dos estructuras de datos:
 
-| Queue | Sobre arreglo | Sobre lista simple con `tail` |
+| Queue | Sobre arreglo dinámico | Sobre lista simple con `tail` |
 |---|---|---|
-| `enqueue(x)` | escribir en `data[size]`, subir `size` | `insertLast(x)` |
+| `enqueue(x)` | escribir en `data[size]`, subir `size` (crecer si está lleno) | `insertLast(x)` |
 | `dequeue()` | leer `data[0]`, correr todo lo demás, bajar `size` | `deleteFirst()` |
 | `front()` | leer `data[0]` | leer el valor de `head` |
 | `empty()` | `size == 0` | `head == null` |
@@ -1284,9 +1284,9 @@ caminar, y lo único que le hace falta es una referencia de más.
 </Slide>
 
 <Slide title="El problema del corrimiento">
-La primera idea es la directa: guardar los elementos en un bloque
-consecutivo desde la casilla cero, con el frente en `data[0]` y el final en
-`data[size - 1]`.
+La primera idea es la directa: el mismo arreglo dinámico de la pila,
+con los elementos en un bloque consecutivo desde la casilla cero, el frente
+en `data[0]` y el final en `data[size - 1]`.
 
 Con esa disposición, encolar es escribir en la primera casilla libre y subir
 `size`, que es la operación barata del arreglo. Pero desencolar saca el de
@@ -1336,63 +1336,90 @@ paga nada de esto.
 
 </Slide>
 
-<Slide title="enqueue sobre arreglo">
-Encolar escribe en la primera casilla libre y sube `size`.
+<Slide title="enqueue sobre arreglo dinámico">
+`enqueue` **es `insertLast` sobre un arreglo dinámico**: escribir el
+elemento nuevo en la primera casilla libre y avanzar el final. En este
+extremo la cola no inventa nada, le pone otro nombre a la operación que el
+arreglo ya hacía barata.
 
 <SequenceStepper
-  eda="array"
-  capacity={6}
+  eda="dynamic-array"
+  capacity={4}
   operation="insert-last"
   values={[3, 8]}
-  value={5}
+  value={[5, 9, 4, 23]}
   pointer="rear"
   showCode={false}
 />
 
-Ningún elemento se mueve, y el costo no depende de cuántos haya guardados:
-$$\Theta(1)$$, mientras quede capacidad en el bloque.
+En el **peor caso** `enqueue` cuesta $$\Theta(N)$$: cuando el bloque está
+lleno hay que reservar uno del doble y copiar los $$N$$ elementos antes de
+poder escribir. Cualquier otra llamada escribe en una casilla libre y sube
+`size`, que es $$\Theta(1)$$.
+
+El costo **amortizado** es $$\Theta(1)$$: como la capacidad se duplica,
+entre dos llamadas caras hay $$N$$ baratas, así que el precio de la copia
+repartido entre todas ellas es constante por llamada.
 
 </Slide>
 
-<Slide title="dequeue sobre arreglo">
-Desencolar saca el de la casilla cero, y ahí aparece el precio.
+<Slide title="dequeue sobre arreglo dinámico">
+`dequeue` **es `deleteFirst` sobre un arreglo dinámico**: devolver el de la
+casilla cero y correr a todos los demás una casilla a la izquierda, para que
+el frente vuelva a estar donde estaba.
 
 <SequenceStepper
-  eda="array"
-  capacity={6}
+  eda="dynamic-array"
+  capacity={8}
   operation="remove-first"
-  values={[3, 8, 5]}
+  values={[3, 8, 5, 9, 4]}
+  times={3}
   pointer="front"
   showCode={false}
 />
 
-Lo que hay que contar son los cuadros: sacar el primer elemento fue **un**
-paso, y los dos siguientes fueron mover a los que quedaban. Con tres
-elementos, dos copias; con $$N$$, son $$N - 1$$. Por eso desencolar cuesta
-$$\Theta(N)$$ mientras el frente esté obligado a vivir en la casilla cero —
-y por eso el bloque dibuja el valor copiado **dos veces** en cada paso: la
-copia lo deja escrito en los dos lados hasta que el siguiente lo pisa.
+Mira cómo cambia el trabajo entre una llamada y la siguiente: el primer
+`dequeue` copió cuatro elementos, el segundo tres, el tercero dos. Con
+$$N$$ elementos son $$N - 1$$ copias, y por eso desencolar cuesta
+$$\Theta(N)$$.
+
+Y acá no hay amortizado que valga. En `push` la corrida cara era **una cada
+$$N$$**, y las baratas la pagaban; el corrimiento ocurre en **cada** llamada,
+así que no hay nada entre quién repartirlo: $$\Theta(N)$$ en el peor caso y
+$$\Theta(N)$$ amortizado.
 
 </Slide>
 
-<Slide title="Costos de Queue sobre arreglo">
-| Operación | Peor caso | Invariante que restaura |
-|---|---|---|
-| `front()` | $$\Theta(1)$$ | Ninguna: lee `data[0]` y no cambia nada |
-| `empty()` | $$\Theta(1)$$ | Ninguna: `size` ya guarda el dato |
-| `size()` | $$\Theta(1)$$ | Ninguna: devuelve el campo que las otras mantienen |
-| `enqueue(x)` | $$\Theta(1)$$ | Los elementos ocupan `size` casillas seguidas: se escribe en la primera libre |
-| `dequeue()` | <span style={{ color: 'var(--color-flag)', fontWeight: 700 }}>$$\Theta(N)$$</span> | **El frente vive en `data[0]`**: para restaurarla hay que correr a todos los demás |
+<Slide title="Costos de Queue sobre arreglo dinámico">
+| Operación | Peor caso | Amortizado | Invariante que restaura |
+|---|---|---|---|
+| `front()` | $$\Theta(1)$$ | $$\Theta(1)$$ | Ninguna: lee `data[0]` y no cambia nada |
+| `empty()` | $$\Theta(1)$$ | $$\Theta(1)$$ | Ninguna: `size` ya guarda el dato |
+| `size()` | $$\Theta(1)$$ | $$\Theta(1)$$ | Ninguna: devuelve el campo que las otras mantienen |
+| `enqueue(x)` | $$\Theta(N)$$ | $$\Theta(1)$$ | Los elementos ocupan `size` casillas seguidas: se escribe en la primera libre, y el bloque crece si no hay |
+| `dequeue()` | <span style={{ color: 'var(--color-flag)', fontWeight: 700 }}>$$\Theta(N)$$</span> | <span style={{ color: 'var(--color-flag)', fontWeight: 700 }}>$$\Theta(N)$$</span> | **El frente vive en `data[0]`**: para restaurarla hay que correr a todos los demás |
 
-Esa fila roja es el problema, y no es un detalle que se pueda pulir. Sale de
-una decisión: poner el frente en una casilla fija. La cola es la estructura
-que **saca por un extremo y mete por el otro**, y el arreglo sólo sabe
-crecer y achicarse por el final; el otro extremo le queda lejos.
+El $$\Theta(N)$$ de `dequeue` es el problema, y las dos columnas dicen por
+qué: **el corrimiento no se amortiza**. La llamada cara de `enqueue` ocurre
+una cada $$N$$ y las baratas la pagan; el corrimiento ocurre en **cada**
+llamada, así que no hay entre quién repartirlo. Una cola que se usa de
+verdad desencola tantas veces como encola, así que la mitad de sus
+operaciones serían caras.
 
-Una cola que se usa de verdad desencola tantas veces como encola, así que la
-mitad de sus operaciones serían caras. **El arreglo es la estructura
-equivocada para este contrato**, y la que sigue lo resuelve sin ideas de
-más.
+Se puede arreglar, y la idea tiene nombre: **el arreglo circular**. En vez
+de correr a todos, se deja que el frente avance, y cuando un índice llega al
+final del bloque vuelve a empezar por el principio —con aritmética de
+módulo—. Así `dequeue` pasa a ser avanzar un índice: $$\Theta(1)$$, sin
+copiar nada.
+
+Lo que cuesta es escribirlo. Hay que llevar dos índices en vez de uno,
+decidir cuándo el bloque está lleno y cuándo vacío —que con dos índices
+dando vueltas se confunden entre sí—, y sostener esas invariantes en cada
+operación. Es bastante más programa que el de la lámina anterior.
+
+Y aun así el peor caso sigue siendo $$\Theta(N)$$, porque el bloque es
+dinámico y alguna llamada va a ser la que copie. Lo que el arreglo circular
+compra es el **amortizado**, que baja a $$\Theta(1)$$.
 
 </Slide>
 
@@ -1694,19 +1721,19 @@ tocar, y por eso `empty()` existe en los dos contratos.
 
 Sobre un arreglo las dos últimas filas no hacen falta, porque `size` no es
 una referencia a un nodo: no puede quedar apuntando a nada. Pero el arreglo
-tiene la suya, que la lista no tiene: encolar en un bloque lleno no tiene
-dónde escribir.
+tiene la suya, que la lista no tiene: el bloque lleno, que obliga a reservar
+uno más grande y copiar antes de poder escribir.
 
 </Slide>
 
 <Slide title="Arreglo vs lista">
-| | Sobre arreglo | Lista con `head` y `tail` |
+| | Sobre arreglo dinámico | Lista con `head` y `tail` |
 |---|---|---|
-| `enqueue(x)` | $$\Theta(1)$$ | $$\Theta(1)$$ |
+| `enqueue(x)` | $$\Theta(1)$$ amortizado | $$\Theta(1)$$ siempre |
 | `dequeue()` | <span style={{ color: 'var(--color-flag)', fontWeight: 700 }}>$$\Theta(N)$$</span> | $$\Theta(1)$$ |
 | `front()`, `empty()` | $$\Theta(1)$$ | $$\Theta(1)$$ |
 | memoria por elemento | el valor | el valor **y** un enlace |
-| capacidad | fija al reservar el bloque | sin límite previo |
+| capacidad | crece copiando | sin límite previo |
 | lo que hay que sostener | un índice | dos referencias y el caso de un nodo |
 
 Acá no hay elección. La pila podía construirse igual de bien sobre las dos

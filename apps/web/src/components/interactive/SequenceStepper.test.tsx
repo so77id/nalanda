@@ -360,11 +360,11 @@ describe('<SequenceStepper> · the combinations the documents mount', () => {
     {
       act: 'Queue',
       props: {
-        eda: 'array',
-        capacity: 6,
+        eda: 'dynamic-array',
+        capacity: 4,
         operation: 'insert-last',
         values: [3, 8],
-        value: 5,
+        value: [5, 9, 4, 23],
         pointer: 'rear',
         showCode: false,
       },
@@ -372,10 +372,11 @@ describe('<SequenceStepper> · the combinations the documents mount', () => {
     {
       act: 'Queue',
       props: {
-        eda: 'array',
-        capacity: 6,
+        eda: 'dynamic-array',
+        capacity: 8,
         operation: 'remove-first',
-        values: [3, 8, 5],
+        values: [3, 8, 5, 9, 4],
+        times: 3,
         pointer: 'front',
         showCode: false,
       },
