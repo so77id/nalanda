@@ -141,6 +141,18 @@ apps/web/src/components/structure/
      the other, which nothing checked (#146 review). Worked cases: `<Mosaic>`
      splits it across rows, `<SheetEmbed>` clamps its frame to
      `min(height, SLIDE_BUDGET_VH vh)`.
+
+     **A third disposition, and #294 established it: a component whose whole
+     content must be legible takes NO cap and pays in slide scale instead.**
+     `<Exercise>` had `max-h-80`, and a capped editor on a slide that says
+     «el código completo» shows two thirds of the program and scrolls the
+     rest — on a projector, where nobody can scroll. Removing the cap makes
+     the slide shrink rather than lie, which is the trade ADR-0013 §5.1 was
+     designed for. The obligation moves rather than disappearing: the author
+     now owes the 0.70 scale floor, measured, on every slide that carries one
+     — and #294 has one at 0.717, which is what that costs. Cap when the
+     block is decoration around a point; do not cap when the block IS the
+     point.
    - **Inside `interactive/`**, reuse `Panel` (a labelled output strip),
      `useRunShortcut` (Ctrl/Cmd + Enter), `useLoadedRuntime` (loads a runtime
      module and hands back a bound `run`, `warm`, `queued` and `ready` — do NOT

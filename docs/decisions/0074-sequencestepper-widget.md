@@ -456,6 +456,13 @@ drift from the operation it claims to show.
 
 ## Consequences
 
+> **Three of the bullets below stopped being true, and #294 is where.** The
+> cost counter is no longer on screen; the `array` recipes turned out to have
+> zero consumers rather than a first reader; and the single-run asymmetry is
+> closed. Each is struck below with a pointer to the `Amended by: #294` block
+> that says why. The decision itself — one widget, two selector props — still
+> stands; only these consequences did not.
+
 - **The author writes less, and the two-structure comparison becomes trivial.**
   A slide showing the same operation over an array and a list is two nearly
   identical tags. That is the shape the comparison act of the class needs.
@@ -465,20 +472,25 @@ drift from the operation it claims to show.
 - **The complexity is concentrated.** Thirty-one combinations live in one
   module rather than spread over five. That is a real cost, and it is paid in
   one place with an exhaustive sweep over it.
-- **The cost counter is on screen.** Each frame carries a running elementary-
+- ~~**The cost counter is on screen.** Each frame carries a running elementary-
   operation count, so the reader reads $$\Theta(1)$$ against $$\Theta(N)$$ off
   the widget instead of memorising the table — the "show the construction, not
-  only the result" rule the widgets of #266 and #268 established.
+  only the result" rule the widgets of #266 and #268 established.~~
+  **Withdrawn by #294** — one run shows one number, and one number is not a
+  growth rate. See the `Amended by: #294` block above.
 - **The array recipes ship ahead of their first document.** The comparison act
   of #288 was expected to be two nearly identical tags; it shipped as a static
   cost table and prose, so `array` and `dynamic-array` have a catalog entry, an
   exhaustive trace sweep and no course-document consumer. They are carried for
   the Stack/Queue/Deque class, which mounts the same TDA over both families —
   that class is their first reader, and if it does not use them they should be
-  removed rather than re-justified. One asymmetry to close first: the array
+  removed rather than re-justified. ~~One asymmetry to close first: the array
   family animates a single run, while the list family takes arrays for every
-  argument, so "the same operation over both, side by side" is today two tags
-  of different shapes.
+  argument.~~
+  **Measured false by #294 and the trigger fired**: that class shipped as
+  Stack and Queue over the dynamic array and the list, and it mounts `array`
+  **zero** times. The asymmetry is closed — `traceArray` loops its runs like
+  the list family. Both in the `Amended by: #294` block above.
 - **The next class reuses it.** Stack over a list and Stack over an array are
   two tags of the same widget, so _"same TDA, different implementations"_ reads
   without translating between widgets.

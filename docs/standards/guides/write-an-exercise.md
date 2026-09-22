@@ -40,6 +40,15 @@ of a structure or a technique; that is `teach-a-data-structure.md`.
   answering the question. Its `<Exercise>` carries a skeleton `starter`, the
   `test` cases, and a `solution` fence.
 
+**And they differ in where the runnable block lives.** A worked exercise's
+`<Exercise>` goes INSIDE a `<Slide>`, wrapped in `<PresentationWide>`, because
+the lecture ends on "here is the whole thing, run it". A posed one stays
+book-only: a problem nobody has solved yet is not something a room reads off a
+projector. #294's four worked exercises are the first `<Exercise>`s in the
+course to ship on slides; the twelve before them were all book-only, and
+#294's own acceptance criteria forbade it before the slide-by-slide review
+reversed the call.
+
 Both are `<Exercise title="…">` with ```` ```java starter ```` and
 ```` ```java test ```` fences; only the posed one adds ```` ```java solution ````.
 #294 ships four worked and no posed ones — its five were cut. The posed

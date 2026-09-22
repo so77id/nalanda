@@ -69,7 +69,13 @@ export const sequenceStepperCatalogEntry: CatalogEntry = {
       name: 'receiver',
       type: 'string',
       description:
-        'The variable the driving program operates on, shown only when a slide runs the operation several times. Default `list` for the chains and `arreglo` for the arrays. Pair it with `receiverType`, the class the program constructs — without it a slide that renamed `insertFirst` to `push` still printed `LinkedList pila = new LinkedList();`, contradicting the `class Stack` it had declared.',
+        'The variable the driving program operates on, shown only when a slide runs the operation several times. Default `list` for the chains and `arreglo` for the arrays. Pair it with `receiverType`.',
+    },
+    {
+      name: 'receiverType',
+      type: 'string',
+      description:
+        'The class the driving program CONSTRUCTS, renamed together with `method` and `receiver`. Without it a slide that renamed `insertFirst` to `push` still printed `LinkedList pila = new LinkedList();` under a heading that had just declared `class Stack` — the listing renamed the call and left the constructor telling the truth about the wrong structure. Arrays and chains alike.',
     },
     {
       name: 'pointer',
@@ -243,6 +249,20 @@ export const sequenceStepperCatalogEntry: CatalogEntry = {
       code: '<SequenceStepper eda="array" operation="get-at" values={[7, 3, 1, 5]} index={2} />',
       render: () => (
         <SequenceStepper eda="array" operation="get-at" values={[7, 3, 1, 5]} index={2} />
+      ),
+    },
+    {
+      title: 'The same chain, presented as the pila a Stack slide declares',
+      code: '<SequenceStepper eda="linked-list-singly" operation="remove-first" values={[9, 4, 15]} method="pop" receiver="pila" receiverType="Stack" />',
+      render: () => (
+        <SequenceStepper
+          eda="linked-list-singly"
+          operation="remove-first"
+          values={[9, 4, 15]}
+          method="pop"
+          receiver="pila"
+          receiverType="Stack"
+        />
       ),
     },
     {

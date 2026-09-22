@@ -1298,11 +1298,14 @@ operation for two structures is where it happens — disambiguate in the title
      entities and produces `pair-lt-t-gt`, while the DOM reader sees the
      decoded characters and produces `pair-t` — `app/questionReaders.test.tsx`
      reddens the suite when they diverge. The remediation is to keep `<` and
-     `>` out of headings entirely: an interpunct-separated title
-     (`## Pair · T`) slugs to `pair-t` on both sides and reads cleanly in the
-     book and on a slide. This is the convention `course-content-style.md` §5
-     prescribes; the concrete failure that motivates it lives here. Hit while
-     writing `11-genericos-y-orden.mdx` (#80).
+     `>` out of headings entirely. `11-genericos-y-orden.mdx` (#80) did it
+     with an interpunct — `## Pair · T`, which slugs to `pair-t` on both
+     sides — but **`course-content-style.md` §5 has since retired that
+     shape**: the interpunct is now only a series or a gloss, and
+     `Pair · T` is neither. Spell the heading as a title that stands on its
+     own (`## El tipo Pair`) and name the parameter in the prose under it.
+     The concrete failure that motivates keeping the angle brackets out
+     lives here.
 
 - **The answer is marked in place** with `- [x]`, never named from outside.
   Naming one by position means reordering the alternatives silently changes
