@@ -135,8 +135,12 @@ see which.
   posición entra a la pila una vez y sale a lo más una vez" is the beat. A
   bare "$$\Theta(N)$$" is not.
 - Time **and** space.
-- The cost sits with the complete runnable code, where the reader has the
-  whole algorithm in front of them.
+- **The cost goes with the failure analysis, not with the runnable code.**
+  This guide said the opposite before anyone measured it: an `<Exercise>`
+  slide is mostly editor, and #294's carried the cost paragraph at scale
+  0.689 — below the floor. Beat 5 is one beat, so keeping its two halves
+  together is also the truer shape. The runnable slide keeps only what the
+  reader needs in order to press the button.
 
 ## Rules that cut across every beat
 

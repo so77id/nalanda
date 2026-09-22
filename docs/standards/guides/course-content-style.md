@@ -103,28 +103,40 @@ The `## Lo que sigue` at the end of a document is the one section that names
 another document by name (via wiki-link). That is a bridge between documents,
 not a cross-reference inside one.
 
-## 5. Titles — noun phrase + optional subtitle
+## 5. Titles — a noun phrase that says what is on the slide
 
 Every heading — the `h2` that opens a section, the `title=` of a `<Slide>`,
 the `<Exercise>` title — reads as a **noun phrase** (not an imperative, not a
-question, not a chatty label). When a subtitle helps disambiguate, join it
-with an **interpunct** ( `·` , U+00B7):
+question, not a chatty label), and it **names what the slide is about**. A
+title that is an idea, an impression or a turn of phrase fails the rule even
+when its grammar passes it: #294 shipped `La pila lo ve`, which is a noun
+phrase and says nothing about its slide.
 
-```
-{concepto central} · {precisión}
-```
+> **Test.** Read the deck's titles in a column, with no slides. Does the list
+> say what the class covers, in order? That is the job of a title.
 
-- **Do**: `Overflow en la resta`, `La interfaz Comparable · contrato de compareTo`,
-  `Pair · A, B`, `Comparaciones seguras y desempate`.
+- **Do**: `Overflow en la resta`, `Comparaciones seguras y desempate`,
+  `Costos de Stack sobre lista`, `Cuando no está balanceada`.
 - **Do not**: `Predecí antes de correr` (imperative), `¿Qué imprime?` (question),
   `Fix: Integer.compare + tie-breaking` (colon + English label +
   chattiness), `Un truco útil` (opinion word), `Cuando el compilador te frena`
-  (assumes a scene).
+  (assumes a scene), `La pila lo ve` (says nothing about the slide).
 
-The interpunct is a convention that keeps the section spine consistent — every
-title is a label of the same shape, and the reader learns to skim it once and
-know where they are. A single-part title is fine too when the concept is
-enough on its own (_Comparator lambda_, _Ejercicios_, _Lo que sigue_).
+**No subtitle.** This rule used to sanction a second half joined by an
+interpunct — `{concepto central} · {precisión}` — on the argument that a
+uniform two-part shape helps the reader skim. #294 withdraws it: a title
+already has to say what its slide is about, and the subtitle is where the
+saying got deferred to. Every one of its slides is single-part.
+
+The interpunct survives in two places that are not subtitles: a document
+`title` naming its unit (`Estructuras de Datos · Stack y Queue`) and an act
+`h2` doing the same (`## Stack · Pila`). Those name a thing inside a series,
+which is what the character is for.
+
+**31 titles in `17-edd-introduccion.mdx` and `18-edd-listas-enlazadas.mdx`
+still carry a subtitle**, and they were written when the rule allowed it.
+They are not a defect to fix under time pressure; retire them when those
+documents are next opened for another reason.
 
 The one place this rule bends is `## Lo que sigue`, which is a boilerplate
 closing name used across every document and reads as a fixed heading rather
@@ -181,8 +193,9 @@ Two consequences worth spelling out, because #288 hit both:
 - [ ] No cross-references between sections or slides of the same document
       (grep the body for _§_, _sección anterior_, _slide anterior_, _más
       adelante_, _ya vimos_, _acabamos de_, _volveremos_).
-- [ ] Every `h2` and every `<Slide title>` is a noun phrase, optionally with
-      `·` and a subtitle. No imperatives, no questions, no colons + English
+- [ ] Every `h2` and every `<Slide title>` is a single-part noun phrase that
+      says what is on its slide — no `·` subtitle, and the deck's titles read
+      in a column say what the class covers. No imperatives, no questions, no colons + English
       labels.
 - [ ] Every `<Exercise title>` is a noun phrase in the same shape.
 - [ ] Read the document aloud in one pass. Anything that would come out of the

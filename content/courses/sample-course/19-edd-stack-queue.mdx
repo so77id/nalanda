@@ -1314,9 +1314,15 @@ lanzar.
 
 
 <Slide title="Paréntesis balanceados">
-Una expresión está **balanceada** si cada símbolo que se abre se cierra
-después, y en el orden correcto. Dibujando un arco entre cada par se ve de
-un golpe:
+Escribe `boolean isBalanced(String s)`.
+
+`s` trae únicamente los seis símbolos `(`, `)`, `[`, `]`, `{` y `}`, y a lo
+más 10⁵ caracteres. Cada apertura tiene un cierre que le corresponde: `(` con
+`)`, `[` con `]`, `{` con `}`.
+
+Devuelve `true` si cada símbolo que se abre se cierra después y en el orden
+correcto, y `false` en cualquier otro caso. Dibujando un arco entre cada par
+se ve de un golpe:
 
 <svg viewBox="40 -8 580 340" style={{ width: '100%', maxWidth: '660px', height: 'auto', display: 'block', margin: '1.25rem auto' }} role="img" aria-label="Cuatro expresiones con un arco que une cada par de símbolos. En la primera, abre paréntesis llave corchete y sus tres cierres, los arcos se anidan sin cruzarse y está balanceada. En la segunda, abre paréntesis corchete cierra paréntesis cierra corchete, los dos arcos se cruzan. En la tercera, dos aperturas y un cierre, el primer paréntesis queda sin arco. En la cuarta, un par completo y un cierre final que no tiene con qué emparejarse.">
   <g transform="translate(0, 0)">
@@ -1374,22 +1380,101 @@ un golpe:
   </g>
 </svg>
 
-Balanceada quiere decir que **los arcos anidan**: ninguno cruza a otro y
-ninguno queda suelto. Y de ahí salen las tres únicas formas de fallar —se
-cruzan, queda algo abierto, o cierra algo que nunca se abrió—, que son las
-tres que el algoritmo va a tener que detectar.
+Sobre la cadena vacía devuelve `true`: no hay nada que cerrar.
 
 </Slide>
 
-<Slide title="La pila lo ve">
-Cada apertura se apila; cada cierre desapila y compara. La cima es siempre
-**el último símbolo que quedó abierto**, que es exactamente con el que un
-cierre tiene que corresponderse.
+<Slide title="La cuenta que no alcanza">
+Lo primero que se piensa es contar: si hay tantos `(` como `)`, tantos `[`
+como `]` y tantos `{` como `}`, la expresión estaría balanceada.
 
-Tres auxiliares de una línea hacen el resto: `isOpener(c)` e `isCloser(c)`
-dicen si el carácter abre o cierra, y `openerFor(c)` devuelve la apertura
-que le toca a un cierre —`(` para `)`, `[` para `]`, `{` para `}`—. Los
-escribimos completos al final.
+<svg viewBox="44 -12 390 208" style={{ width: '100%', maxWidth: '520px', height: 'auto', display: 'block', margin: '1.25rem auto' }} role="img" aria-label="Dos expresiones de cuatro símbolos. Arriba, abre paréntesis abre corchete cierra corchete cierra paréntesis: los dos arcos se anidan y está balanceada. Abajo, abre paréntesis abre corchete cierra paréntesis cierra corchete: los dos arcos se cruzan y no está balanceada. Las dos tienen exactamente la misma cuenta de símbolos.">
+  <g transform="translate(0, 0)">
+    {['(', '[', ']', ')'].map((ch, i) => (
+      <g key={i}>
+        <rect x={56 + i * 32} y="0" width="28" height="28" rx="3" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.5" />
+        <text x={70 + i * 32} y="20" textAnchor="middle" fontSize="17" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>{ch}</text>
+      </g>
+    ))}
+    <path d="M 70 31 C 70 63, 166 63, 166 31" fill="none" style={{ stroke: 'var(--color-keep)' }} strokeWidth="1.8" />
+    <path d="M 102 31 C 102 47, 134 47, 134 31" fill="none" style={{ stroke: 'var(--color-keep)' }} strokeWidth="1.8" />
+    <text x="290" y="20" fontSize="14" fontWeight="700" style={{ fill: 'var(--color-keep)' }}>balanceada</text>
+  </g>
+  <g transform="translate(0, 94)">
+    {['(', '[', ')', ']'].map((ch, i) => (
+      <g key={i}>
+        <rect x={56 + i * 32} y="0" width="28" height="28" rx="3" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.5" />
+        <text x={70 + i * 32} y="20" textAnchor="middle" fontSize="17" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>{ch}</text>
+      </g>
+    ))}
+    <path d="M 70 31 C 70 51, 134 51, 134 31" fill="none" style={{ stroke: 'var(--color-flag)' }} strokeWidth="1.8" />
+    <path d="M 102 31 C 102 69, 166 69, 166 31" fill="none" style={{ stroke: 'var(--color-flag)' }} strokeWidth="1.8" />
+    <text x="290" y="20" fontSize="14" fontWeight="700" style={{ fill: 'var(--color-flag)' }}>no balanceada</text>
+  </g>
+  <text x="56" y="188" fontSize="13" style={{ fill: 'var(--color-ink-soft)' }}>un ( , un ) , un [ , un ] — la misma cuenta en las dos</text>
+</svg>
+
+Las dos expresiones tienen exactamente los mismos cuatro símbolos, uno de
+cada uno, y sólo una está balanceada. La cuenta no las distingue porque no
+guarda el **orden**, que es lo único en que se diferencian.
+
+</Slide>
+
+<Slide title="La pila de símbolos pendientes">
+Recorremos la expresión de izquierda a derecha, y cada símbolo que abre queda
+**pendiente de cerrar**.
+
+Cuando llega uno que cierra, el único con el que puede corresponderse es el
+**último** que quedó pendiente: si se correspondiera con alguno anterior, su
+arco tendría que cruzar el de ese último, y cruzarse es justamente lo que no
+puede pasar.
+
+Entonces basta con recordar los pendientes y mirar y sacar siempre el último
+que entró. Eso es una pila.
+
+<svg viewBox="20 0 660 212" style={{ width: '100%', maxWidth: '680px', height: 'auto', display: 'block', margin: '1.25rem auto' }} role="img" aria-label="La pila de pendientes en cuatro momentos del recorrido de abre paréntesis abre llave abre corchete cierra corchete cierra llave cierra paréntesis. Tras el primer símbolo la pila tiene un abre paréntesis. Tras los tres primeros tiene abre paréntesis, abre llave y abre corchete, con el corchete arriba de todo. Tras el cierra corchete quedan dos, el paréntesis abajo y la llave arriba. Al final la pila queda vacía.">
+  {[
+    { x: 40, rotulo: 'tras (', pila: ['('], nota: '' },
+    { x: 200, rotulo: 'tras ({[', pila: ['(', '{', '['], nota: '' },
+    { x: 360, rotulo: 'tras ]', pila: ['(', '{'], nota: '' },
+    { x: 520, rotulo: 'al final', pila: [], nota: 'vacía' },
+  ].map((c, i) => (
+    <g key={i}>
+      <text x={c.x + 44} y="18" textAnchor="middle" fontSize="13" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink-soft)' }}>{c.rotulo}</text>
+      <line x1={c.x} y1="170" x2={c.x + 88} y2="170" style={{ stroke: 'var(--color-rule-strong)' }} strokeWidth="2" />
+      {c.pila.map((ch, j) => (
+        <g key={j}>
+          <rect x={c.x + 30} y={170 - (j + 1) * 34} width="28" height="30" rx="3" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.5" />
+          <text x={c.x + 44} y={170 - (j + 1) * 34 + 21} textAnchor="middle" fontSize="17" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>{ch}</text>
+        </g>
+      ))}
+      <text x={c.x + 44} y="156" textAnchor="middle" fontSize="13" style={{ fill: 'var(--color-ink-faint)' }}>{c.nota}</text>
+    </g>
+  ))}
+  <text x="240" y="204" fontSize="12" style={{ fill: 'var(--color-ink-faint)' }}>lo último que entró queda arriba, y es lo primero que sale</text>
+</svg>
+
+Al terminar la expresión la pila tiene que quedar vacía: si sobró algo
+pendiente, ese símbolo nunca se cerró.
+
+</Slide>
+
+<Slide title="El código">
+Tres funciones auxiliares, que no traen ninguna idea: son las parejas del
+enunciado escritas en Java.
+
+```java
+boolean isOpener(char c) { return c == '(' || c == '[' || c == '{'; }
+boolean isCloser(char c) { return c == ')' || c == ']' || c == '}'; }
+
+char openerFor(char c) {
+    if (c == ')') return '(';
+    if (c == ']') return '[';
+    return '{';
+}
+```
+
+Con ellas, cada apertura se apila y cada cierre desapila y compara.
 
 <StepShow
   language="java"
@@ -1429,9 +1514,6 @@ return pending.empty();`}
   </Step>
 </StepShow>
 
-Los arcos de la lámina anterior son la pila: cada arco se abre cuando el
-símbolo entra y se cierra cuando sale.
-
 </Slide>
 
 <Slide title="Cuando no está balanceada">
@@ -1461,22 +1543,27 @@ return pending.empty();`}
   </Step>
 </StepShow>
 
-La pila detecta el cruce en el tercer carácter, sin haber leído el resto.
-Y las tres formas de fallar son las tres preguntas del código: la línea 5
-atrapa el cierre que no tiene nada abierto, la 6 atrapa el cruce, y la 9
-atrapa lo que quedó abierto al final.
+El recorrido se detiene en el tercer carácter, sin leer el resto: el `)`
+pide un `(` y la cima es `[`.
 
-Una sola pasada, y la pila crece a lo más hasta la cantidad de aperturas:
-$$\Theta(N)$$ de tiempo y $$\Theta(N)$$ de espacio en el peor caso.
+`(()` falla de otra manera. Ningún cierre se equivoca, el ciclo termina
+entero, y la pila todavía tiene un `(` adentro. Por eso la última línea no
+es `return true`, es `return pending.empty()`.
+
+`())` falla de una tercera: el último `)` llega con la pila ya vacía, y no
+hay ninguna apertura con la cual compararlo.
+
+Cada carácter se mira una vez y entra y sale de la pila a lo más una vez:
+$$\Theta(N)$$ de tiempo. La pila guarda a lo más las aperturas anidadas, así
+que con `((((`… ocupa $$\Theta(N)$$.
 
 </Slide>
 
 <Slide title="El código completo">
 <Exercise title="Paréntesis balanceados">
 
-El algoritmo entero, con los tres auxiliares. Los casos de prueba son las
-cuatro expresiones de la primera lámina, más la cadena vacía. Presiona
-**Comprobar** para correrlo, y después cambia lo que quieras.
+El algoritmo entero, con sus tres auxiliares. Prueba con `({[]})`, `([)]`,
+`(()`, `())` y la cadena vacía.
 
 ```java starter
 import java.util.Stack;
@@ -1496,13 +1583,9 @@ class Solution {
         return pending.empty();
     }
 
-    static boolean isOpener(char c) {
-        return c == '(' || c == '[' || c == '{';
-    }
+    static boolean isOpener(char c) { return c == '(' || c == '[' || c == '{'; }
 
-    static boolean isCloser(char c) {
-        return c == ')' || c == ']' || c == '}';
-    }
+    static boolean isCloser(char c) { return c == ')' || c == ']' || c == '}'; }
 
     static char openerFor(char c) {
         if (c == ')') return '(';
