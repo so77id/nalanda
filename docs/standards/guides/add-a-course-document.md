@@ -1063,8 +1063,8 @@ the page, and inline SVG is the page.
 - **Prefix every `id` per figure.** All the figures of a page live in one
   DOM, so a repeated `<marker id="punta">` makes every `url(#punta)` resolve
   to whichever came first — silently correct only while the definitions
-  happen to be identical. #294 uses `stack-arr-punta`, `cola-circ-punta`,
-  `deque-punta`.
+  happen to be identical. #294 uses `stack-arr-punta`, `cola-lista-punta`,
+  `jos-punta`.
 - Colours go in the `style` object and never in a `fill=` / `stroke=`
   attribute — **not** because the attribute fails (it does not: the MDX
   pipeline passes `var(--color-*)` through verbatim and the browser resolves

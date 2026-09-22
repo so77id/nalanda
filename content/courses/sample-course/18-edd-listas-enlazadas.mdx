@@ -1176,8 +1176,8 @@ bordes— se puede cumplir en $$\Theta(1)$$ **sobre las dos estructuras a la
 vez**, cada una usando justamente la punta donde es rápida.
 
 El precio es perder el acceso por posición: lo que se gana en costo se paga
-en lo que ya no se puede pedir. Esos contratos más chicos son los TDA Stack,
-Queue y Deque.
+en lo que ya no se puede pedir. Esos contratos más chicos son los TDA Stack
+y Queue.
 
 </Slide>
 
@@ -1737,11 +1737,11 @@ En una lista simplemente enlazada, ¿qué decide que una operación sea barata o
 
 <Slide title="Lo que sigue">
 La próxima clase, [[edd-stack-queue|Estructuras de Datos · Stack y Queue]],
-estudia tres contratos más chicos que Sequence —los TDA **Stack**, **Queue**
-y **Deque**—, que renuncian al acceso por posición y a cambio se cumplen en
+estudia dos contratos más chicos que Sequence —los TDA **Stack** y
+**Queue**—, que renuncian al acceso por posición y a cambio se cumplen en
 tiempo constante.
 
-Los tres se construyen sobre un arreglo o sobre una lista enlazada, y la
+Los dos se construyen sobre un arreglo o sobre una lista enlazada, y la
 elección vuelve a decidir qué sale barato. Un `Stack` sobre lista enlazada
 apila y desapila por el frente, donde está `head`, en $$\Theta(1)$$. Una
 `Queue` mete por un extremo y saca por el otro, así que sobre una lista

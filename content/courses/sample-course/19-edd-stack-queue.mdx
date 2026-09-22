@@ -18,8 +18,7 @@ posición, y con el precio de esa libertad: una implementación que cumpla el
 contrato entero termina con alguna operación cara. Esta clase hace lo
 contrario. Estudia dos contratos que **renuncian** a esa libertad a
 propósito —la **pila** y la **cola**—, los construye sobre el arreglo y
-sobre la lista enlazada, y compara las dos construcciones. Al final nombra
-un tercero, el **deque**, que generaliza a los dos.
+sobre la lista enlazada, y compara las dos construcciones.
 
 Restringir no es perder. Es lo que permite prometer un costo: mientras el
 único lugar donde se opera sea un extremo conocido, no hay nada que
@@ -724,437 +723,6 @@ export function Paso({
   );
 }
 
-<Slide title="Paréntesis balanceados">
-Una expresión está **balanceada** si cada símbolo que se abre se cierra
-después, y en el orden correcto. Dibujando un arco entre cada par se ve de
-un golpe:
-
-<svg viewBox="40 -8 580 340" style={{ width: '100%', maxWidth: '660px', height: 'auto', display: 'block', margin: '1.25rem auto' }} role="img" aria-label="Cuatro expresiones con un arco que une cada par de símbolos. En la primera, abre paréntesis llave corchete y sus tres cierres, los arcos se anidan sin cruzarse y está balanceada. En la segunda, abre paréntesis corchete cierra paréntesis cierra corchete, los dos arcos se cruzan. En la tercera, dos aperturas y un cierre, el primer paréntesis queda sin arco. En la cuarta, un par completo y un cierre final que no tiene con qué emparejarse.">
-  <g transform="translate(0, 0)">
-    <rect x={56} y="0" width="28" height="28" rx="3" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.5" />
-    <text x={70} y="20" textAnchor="middle" fontSize="17" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>{'('}</text>
-    <rect x={88} y="0" width="28" height="28" rx="3" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.5" />
-    <text x={102} y="20" textAnchor="middle" fontSize="17" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>{'{'}</text>
-    <rect x={120} y="0" width="28" height="28" rx="3" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.5" />
-    <text x={134} y="20" textAnchor="middle" fontSize="17" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>{'['}</text>
-    <rect x={152} y="0" width="28" height="28" rx="3" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.5" />
-    <text x={166} y="20" textAnchor="middle" fontSize="17" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>{']'}</text>
-    <rect x={184} y="0" width="28" height="28" rx="3" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.5" />
-    <text x={198} y="20" textAnchor="middle" fontSize="17" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>{'}'}</text>
-    <rect x={216} y="0" width="28" height="28" rx="3" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.5" />
-    <text x={230} y="20" textAnchor="middle" fontSize="17" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>{')'}</text>
-    <path d="M 70 31 C 70 75, 230 75, 230 31" fill="none" style={{ stroke: 'var(--color-keep)' }} strokeWidth="1.8" />
-    <path d="M 102 31 C 102 61, 198 61, 198 31" fill="none" style={{ stroke: 'var(--color-keep)' }} strokeWidth="1.8" />
-    <path d="M 134 31 C 134 47, 166 47, 166 31" fill="none" style={{ stroke: 'var(--color-keep)' }} strokeWidth="1.8" />
-    <text x="300" y="20" fontSize="14" fontWeight="700" style={{ fill: 'var(--color-keep)' }}>balanceada · los arcos anidan</text>
-  </g>
-  <g transform="translate(0, 90)">
-    <rect x={56} y="0" width="28" height="28" rx="3" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.5" />
-    <text x={70} y="20" textAnchor="middle" fontSize="17" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>{'('}</text>
-    <rect x={88} y="0" width="28" height="28" rx="3" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.5" />
-    <text x={102} y="20" textAnchor="middle" fontSize="17" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>{'['}</text>
-    <rect x={120} y="0" width="28" height="28" rx="3" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.5" />
-    <text x={134} y="20" textAnchor="middle" fontSize="17" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>{')'}</text>
-    <rect x={152} y="0" width="28" height="28" rx="3" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.5" />
-    <text x={166} y="20" textAnchor="middle" fontSize="17" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>{']'}</text>
-    <path d="M 70 31 C 70 51, 134 51, 134 31" fill="none" style={{ stroke: 'var(--color-flag)' }} strokeWidth="1.8" />
-    <path d="M 102 31 C 102 69, 166 69, 166 31" fill="none" style={{ stroke: 'var(--color-flag)' }} strokeWidth="1.8" />
-    <text x="300" y="20" fontSize="14" fontWeight="700" style={{ fill: 'var(--color-flag)' }}>se cruzan</text>
-  </g>
-  <g transform="translate(0, 180)">
-    <rect x={56} y="0" width="28" height="28" rx="3" style={{ fill: 'var(--color-flag-soft)', stroke: 'var(--color-flag)' }} strokeWidth="1.5" strokeDasharray="4 3" />
-    <text x={70} y="20" textAnchor="middle" fontSize="17" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>{'('}</text>
-    <rect x={88} y="0" width="28" height="28" rx="3" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.5" />
-    <text x={102} y="20" textAnchor="middle" fontSize="17" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>{'('}</text>
-    <rect x={120} y="0" width="28" height="28" rx="3" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.5" />
-    <text x={134} y="20" textAnchor="middle" fontSize="17" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>{')'}</text>
-    <path d="M 102 31 C 102 47, 134 47, 134 31" fill="none" style={{ stroke: 'var(--color-keep)' }} strokeWidth="1.8" />
-    <path d="M 66 35 l 9 10 m -9 0 l 9 -10" fill="none" style={{ stroke: 'var(--color-flag)' }} strokeWidth="1.8" strokeLinecap="round" />
-    <text x="300" y="20" fontSize="14" fontWeight="700" style={{ fill: 'var(--color-flag)' }}>quedó una sin cerrar</text>
-  </g>
-  <g transform="translate(0, 262)">
-    <rect x={56} y="0" width="28" height="28" rx="3" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.5" />
-    <text x={70} y="20" textAnchor="middle" fontSize="17" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>{'('}</text>
-    <rect x={88} y="0" width="28" height="28" rx="3" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.5" />
-    <text x={102} y="20" textAnchor="middle" fontSize="17" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>{')'}</text>
-    <rect x={120} y="0" width="28" height="28" rx="3" style={{ fill: 'var(--color-flag-soft)', stroke: 'var(--color-flag)' }} strokeWidth="1.5" strokeDasharray="4 3" />
-    <text x={134} y="20" textAnchor="middle" fontSize="17" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>{')'}</text>
-    <path d="M 70 31 C 70 47, 102 47, 102 31" fill="none" style={{ stroke: 'var(--color-keep)' }} strokeWidth="1.8" />
-    <path d="M 130 35 l 9 10 m -9 0 l 9 -10" fill="none" style={{ stroke: 'var(--color-flag)' }} strokeWidth="1.8" strokeLinecap="round" />
-    <text x="300" y="20" fontSize="14" fontWeight="700" style={{ fill: 'var(--color-flag)' }}>cierra una que nunca se abrió</text>
-  </g>
-</svg>
-
-Balanceada quiere decir que **los arcos anidan**: ninguno cruza a otro y
-ninguno queda suelto. Y de ahí salen las tres únicas formas de fallar —se
-cruzan, queda algo abierto, o cierra algo que nunca se abrió—, que son las
-tres que el algoritmo va a tener que detectar.
-
-</Slide>
-
-<Slide title="La pila lo ve">
-Cada apertura se apila; cada cierre desapila y compara. La cima es siempre
-**el último símbolo que quedó abierto**, que es exactamente con el que un
-cierre tiene que corresponderse.
-
-Tres auxiliares de una línea hacen el resto: `isOpener(c)` e `isCloser(c)`
-dicen si el carácter abre o cierra, y `openerFor(c)` devuelve la apertura
-que le toca a un cierre —`(` para `)`, `[` para `]`, `{` para `}`—. Los
-escribimos completos al final.
-
-<StepShow
-  language="java"
-  code={`for (char c : s.toCharArray()) {
-    if (isOpener(c)) {
-        pending.push(c);
-    } else if (isCloser(c)) {
-        if (pending.empty()) return false;
-        if (pending.pop() != openerFor(c)) return false;
-    }
-}
-return pending.empty();`}
->
-  <Step lines={[]}>
-    <Paso expr="({[]})" cursor={-1} pila={[]} nota="La pila arranca vacía y recorremos la expresión de izquierda a derecha." />
-  </Step>
-  <Step lines={[2, 3]}>
-    <Paso expr="({[]})" cursor={0} pila={['(']} nota="( es una apertura: se apila." />
-  </Step>
-  <Step lines={[2, 3]}>
-    <Paso expr="({[]})" cursor={1} pila={['(', '{']} nota="{ es una apertura: se apila encima." />
-  </Step>
-  <Step lines={[2, 3]}>
-    <Paso expr="({[]})" cursor={2} pila={['(', '{', '[']} nota="[ es una apertura: se apila encima." />
-  </Step>
-  <Step lines={[4, 6]}>
-    <Paso expr="({[]})" cursor={3} pila={['(', '{']} nota="] cierra. La cima era [, que es justo su pareja: se desapila." />
-  </Step>
-  <Step lines={[4, 6]}>
-    <Paso expr="({[]})" cursor={4} pila={['(']} nota="} cierra. La cima era {, su pareja: se desapila." />
-  </Step>
-  <Step lines={[4, 6]}>
-    <Paso expr="({[]})" cursor={5} pila={[]} nota=") cierra. La cima era (, su pareja: se desapila." />
-  </Step>
-  <Step lines={[9]}>
-    <Paso expr="({[]})" cursor={-1} pila={[]} nota="Se acabó la expresión y la pila quedó vacía: está balanceada." />
-  </Step>
-</StepShow>
-
-Los arcos de la lámina anterior son la pila: cada arco se abre cuando el
-símbolo entra y se cierra cuando sale.
-
-</Slide>
-
-<Slide title="Cuando no está balanceada">
-<StepShow
-  language="java"
-  code={`for (char c : s.toCharArray()) {
-    if (isOpener(c)) {
-        pending.push(c);
-    } else if (isCloser(c)) {
-        if (pending.empty()) return false;
-        if (pending.pop() != openerFor(c)) return false;
-    }
-}
-return pending.empty();`}
->
-  <Step lines={[]}>
-    <Paso expr="([)]" cursor={-1} pila={[]} nota="La misma cantidad de cada símbolo que la anterior. Lo que cambia es el orden." />
-  </Step>
-  <Step lines={[2, 3]}>
-    <Paso expr="([)]" cursor={0} pila={['(']} nota="( es una apertura: se apila." />
-  </Step>
-  <Step lines={[2, 3]}>
-    <Paso expr="([)]" cursor={1} pila={['(', '[']} nota="[ es una apertura: se apila encima." />
-  </Step>
-  <Step lines={[4, 6]}>
-    <Paso expr="([)]" cursor={2} pila={['(', '[']} nota=") cierra, y su pareja es (. Pero la cima es [: el ) se cruza con él." falla />
-  </Step>
-</StepShow>
-
-La pila detecta el cruce en el tercer carácter, sin haber leído el resto.
-Y las tres formas de fallar son las tres preguntas del código: la línea 5
-atrapa el cierre que no tiene nada abierto, la 6 atrapa el cruce, y la 9
-atrapa lo que quedó abierto al final.
-
-Una sola pasada, y la pila crece a lo más hasta la cantidad de aperturas:
-$$\Theta(N)$$ de tiempo y $$\Theta(N)$$ de espacio en el peor caso.
-
-</Slide>
-
-<Slide title="El código completo">
-<Exercise title="Paréntesis balanceados">
-
-El algoritmo entero, con los tres auxiliares. Los casos de prueba son las
-cuatro expresiones de la primera lámina, más la cadena vacía. Presiona
-**Comprobar** para correrlo, y después cambia lo que quieras.
-
-```java starter
-import java.util.Stack;
-
-class Solution {
-
-    static boolean balanced(String s) {
-        Stack<Character> pending = new Stack<>();
-        for (char c : s.toCharArray()) {
-            if (isOpener(c)) {
-                pending.push(c);
-            } else if (isCloser(c)) {
-                if (pending.empty()) return false;
-                if (pending.pop() != openerFor(c)) return false;
-            }
-        }
-        return pending.empty();
-    }
-
-    static boolean isOpener(char c) {
-        return c == '(' || c == '[' || c == '{';
-    }
-
-    static boolean isCloser(char c) {
-        return c == ')' || c == ']' || c == '}';
-    }
-
-    static char openerFor(char c) {
-        if (c == ')') return '(';
-        if (c == ']') return '[';
-        return '{';
-    }
-}
-```
-
-```java test
-check(Solution.balanced("({[]})"), true);
-check(Solution.balanced("([)]"), false);
-check(Solution.balanced("(()"), false);
-check(Solution.balanced("())"), false);
-check(Solution.balanced(""), true);
-```
-
-</Exercise>
-</Slide>
-
-<Slide title="Notación polaca inversa">
-En la notación polaca inversa el operador va **después** de sus dos
-operandos. Eso suena a un detalle de escritura y no lo es: con los
-operadores al final, una expresión no necesita paréntesis ni reglas de
-precedencia, porque el orden ya dice qué se aplica a qué.
-
-<svg viewBox="0 0 660 200" style={{ width: '100%', maxWidth: '660px', height: 'auto', display: 'block', margin: '1.25rem auto' }} role="img" aria-label="A la izquierda, dos expresiones con paréntesis: abre tres más cuatro cierra por cinco, y tres más abre cuatro por cinco cierra. A la derecha, las mismas dos en polaca inversa: tres cuatro más cinco por, y tres cuatro cinco por más. Los mismos números en el mismo orden; lo único que cambia es dónde van los operadores, y no hace falta ningún paréntesis.">
-  <defs>
-    <marker id="rpn-punta" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto">
-      <path d="M0,0 L7,3.5 L0,7 z" style={{ fill: 'var(--color-ink-faint)' }} />
-    </marker>
-  </defs>
-  <text x="16" y="24" fontSize="13" fontWeight="700" style={{ fill: 'var(--color-ink-faint)' }}>con paréntesis</text>
-  <text x="330" y="24" fontSize="13" fontWeight="700" style={{ fill: 'var(--color-accent)' }}>en polaca inversa</text>
-  <text x="16" y="61" fontSize="17" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>(3 + 4) × 5</text>
-  <path d="M 150 56 l 24 0" fill="none" style={{ stroke: 'var(--color-ink-faint)' }} strokeWidth="1.5" markerEnd="url(#rpn-punta)" />
-  <rect x={330} y="40" width="34" height="30" rx="3" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.5" />
-  <text x={347} y="61" textAnchor="middle" fontSize="16" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>{'3'}</text>
-  <rect x={370} y="40" width="34" height="30" rx="3" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.5" />
-  <text x={387} y="61" textAnchor="middle" fontSize="16" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>{'4'}</text>
-  <rect x={410} y="40" width="34" height="30" rx="3" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.5" />
-  <text x={427} y="61" textAnchor="middle" fontSize="16" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>{'+'}</text>
-  <rect x={450} y="40" width="34" height="30" rx="3" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.5" />
-  <text x={467} y="61" textAnchor="middle" fontSize="16" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>{'5'}</text>
-  <rect x={490} y="40" width="34" height="30" rx="3" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.5" />
-  <text x={507} y="61" textAnchor="middle" fontSize="16" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>{'*'}</text>
-  <text x="16" y="107" fontSize="17" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>3 + (4 × 5)</text>
-  <path d="M 150 102 l 24 0" fill="none" style={{ stroke: 'var(--color-ink-faint)' }} strokeWidth="1.5" markerEnd="url(#rpn-punta)" />
-  <rect x={330} y="86" width="34" height="30" rx="3" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.5" />
-  <text x={347} y="107" textAnchor="middle" fontSize="16" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>{'3'}</text>
-  <rect x={370} y="86" width="34" height="30" rx="3" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.5" />
-  <text x={387} y="107" textAnchor="middle" fontSize="16" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>{'4'}</text>
-  <rect x={410} y="86" width="34" height="30" rx="3" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.5" />
-  <text x={427} y="107" textAnchor="middle" fontSize="16" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>{'5'}</text>
-  <rect x={450} y="86" width="34" height="30" rx="3" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.5" />
-  <text x={467} y="107" textAnchor="middle" fontSize="16" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>{'*'}</text>
-  <rect x={490} y="86" width="34" height="30" rx="3" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.5" />
-  <text x={507} y="107" textAnchor="middle" fontSize="16" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>{'+'}</text>
-  <text x="16" y="146" fontSize="13" style={{ fill: 'var(--color-ink-faint)' }}>los mismos números en el mismo orden, resultados distintos — y sin un paréntesis</text>
-</svg>
-
-Y evaluarla es ir reduciendo de izquierda a derecha: cada operador consume
-los **dos resultados más recientes** y deja uno en su lugar.
-
-<svg viewBox="0 0 660 190" style={{ width: '100%', maxWidth: '620px', height: 'auto', display: 'block', margin: '1.25rem auto' }} role="img" aria-label="La expresión tres cuatro más cinco por, reduciéndose. Una llave abarca el tres, el cuatro y el más, y baja a un siete resaltado. Otra llave abarca ese siete, el cinco y el por, y baja a treinta y cinco. Cada operador consume los dos resultados más recientes.">
-  <defs>
-    <marker id="rpn-punta-ac" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto">
-      <path d="M0,0 L7,3.5 L0,7 z" style={{ fill: 'var(--color-accent)' }} />
-    </marker>
-  </defs>
-  <rect x={40} y="20" width="34" height="30" rx="3" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.5" />
-  <text x={57} y="41" textAnchor="middle" fontSize="16" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>{'3'}</text>
-  <rect x={80} y="20" width="34" height="30" rx="3" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.5" />
-  <text x={97} y="41" textAnchor="middle" fontSize="16" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>{'4'}</text>
-  <rect x={120} y="20" width="34" height="30" rx="3" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.5" />
-  <text x={137} y="41" textAnchor="middle" fontSize="16" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>{'+'}</text>
-  <rect x={160} y="20" width="34" height="30" rx="3" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.5" />
-  <text x={177} y="41" textAnchor="middle" fontSize="16" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>{'5'}</text>
-  <rect x={200} y="20" width="34" height="30" rx="3" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.5" />
-  <text x={217} y="41" textAnchor="middle" fontSize="16" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>{'*'}</text>
-  <path d="M 44 56 l 0 10 l 112 0 l 0 -10" fill="none" style={{ stroke: 'var(--color-accent)' }} strokeWidth="1.8" />
-  <path d="M 100 66 l 0 14" fill="none" style={{ stroke: 'var(--color-accent)' }} strokeWidth="1.8" markerEnd="url(#rpn-punta-ac)" />
-  <rect x={83} y="86" width="34" height="30" rx="3" style={{ fill: 'var(--color-mark-soft)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.5" />
-  <text x={100} y="107" textAnchor="middle" fontSize="16" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>{'7'}</text>
-  <rect x={160} y="86" width="34" height="30" rx="3" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.5" />
-  <text x={177} y="107" textAnchor="middle" fontSize="16" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>{'5'}</text>
-  <rect x={200} y="86" width="34" height="30" rx="3" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.5" />
-  <text x={217} y="107" textAnchor="middle" fontSize="16" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>{'*'}</text>
-  <path d="M 87 122 l 0 10 l 190 0 l 0 -10" fill="none" style={{ stroke: 'var(--color-accent)' }} strokeWidth="1.8" />
-  <path d="M 182 132 l 0 14" fill="none" style={{ stroke: 'var(--color-accent)' }} strokeWidth="1.8" markerEnd="url(#rpn-punta-ac)" />
-  <rect x={160} y="152" width="44" height="30" rx="3" style={{ fill: 'var(--color-mark-soft)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.5" />
-  <text x={182} y="173" textAnchor="middle" fontSize="16" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>{'35'}</text>
-  <text x="240" y="174" fontSize="13" style={{ fill: 'var(--color-ink-faint)' }}>cada operador consume los dos resultados más recientes</text>
-</svg>
-
-«Los dos más recientes» es LIFO otra vez, y por eso el evaluador entero cabe
-en una pila.
-
-</Slide>
-
-<Slide title="La pila lo evalúa">
-Los números se apilan; cada operador desapila dos y apila el resultado. Al
-final queda un solo valor, que es la respuesta.
-
-<StepShow
-  language="java"
-  code={`for (String t : tokens) {
-    if (isOperator(t)) {
-        int b = values.pop();
-        int a = values.pop();
-        values.push(apply(a, b, t));
-    } else {
-        values.push(Integer.parseInt(t));
-    }
-}
-return values.pop();`}
->
-  <Step lines={[]}>
-    <Paso expr="3 4 + 5 *" sep=" " cursor={-1} pila={[]} nota="La pila arranca vacía y leemos los tokens de izquierda a derecha." />
-  </Step>
-  <Step lines={[6, 7]}>
-    <Paso expr="3 4 + 5 *" sep=" " cursor={0} pila={['3']} nota="3 es un número: se apila." />
-  </Step>
-  <Step lines={[6, 7]}>
-    <Paso expr="3 4 + 5 *" sep=" " cursor={1} pila={['3', '4']} nota="4 es un número: se apila encima." />
-  </Step>
-  <Step lines={[2, 3, 4, 5]}>
-    <Paso expr="3 4 + 5 *" sep=" " cursor={2} pila={['7']} nota="+ es operador: saca 4 y 3, y apila 3 + 4 = 7." />
-  </Step>
-  <Step lines={[6, 7]}>
-    <Paso expr="3 4 + 5 *" sep=" " cursor={3} pila={['7', '5']} nota="5 es un número: se apila encima." />
-  </Step>
-  <Step lines={[2, 3, 4, 5]}>
-    <Paso expr="3 4 + 5 *" sep=" " cursor={4} pila={['35']} nota="* es operador: saca 5 y 7, y apila 7 × 5 = 35." />
-  </Step>
-  <Step lines={[10]}>
-    <Paso expr="3 4 + 5 *" sep=" " cursor={-1} pila={['35']} nota="Se acabaron los tokens y queda un solo valor: ése es el resultado." />
-  </Step>
-</StepShow>
-
-`isOperator(t)` responde si el token es uno de los cuatro símbolos, y
-`apply(a, b, t)` devuelve el resultado de aplicárselo a `a` y `b`. Los dos
-están completos al final.
-
-</Slide>
-
-<Slide title="El orden de los dos pop">
-La corrección del evaluador se juega en dos líneas consecutivas, y con la
-resta se ve en un solo token.
-
-<StepShow
-  language="java"
-  code={`for (String t : tokens) {
-    if (isOperator(t)) {
-        int b = values.pop();
-        int a = values.pop();
-        values.push(apply(a, b, t));
-    } else {
-        values.push(Integer.parseInt(t));
-    }
-}
-return values.pop();`}
->
-  <Step lines={[6, 7]}>
-    <Paso expr="5 3 -" sep=" " cursor={1} pila={['5', '3']} nota="5 y 3 ya están apilados, en ese orden." />
-  </Step>
-  <Step lines={[3]}>
-    <Paso expr="5 3 -" sep=" " cursor={2} pila={['5']} nota="El primer pop entrega 3: es el operando DERECHO, porque fue el último en entrar." />
-  </Step>
-  <Step lines={[4]}>
-    <Paso expr="5 3 -" sep=" " cursor={2} pila={[]} nota="El segundo pop entrega 5: el operando izquierdo." />
-  </Step>
-  <Step lines={[5]}>
-    <Paso expr="5 3 -" sep=" " cursor={2} pila={['2']} nota={'apply(5, 3, "−") apila 5 − 3 = 2.'} />
-  </Step>
-</StepShow>
-
-Invierte esas dos líneas y el evaluador calcula `3 − 5 = −2`. Con la suma y
-la multiplicación los dos órdenes dan lo mismo, así que el error sobrevive
-las pruebas fáciles y aparece recién con una resta o una división.
-
-</Slide>
-
-<Slide title="El código completo">
-<Exercise title="Notación polaca inversa">
-
-El evaluador entero, con los dos auxiliares. Presiona **Comprobar** para
-correrlo, y después cambia lo que quieras.
-
-```java starter
-import java.util.Stack;
-
-class Solution {
-
-    static int evalRPN(String[] tokens) {
-        Stack<Integer> values = new Stack<>();
-        for (String t : tokens) {
-            if (isOperator(t)) {
-                int b = values.pop();
-                int a = values.pop();
-                values.push(apply(a, b, t));
-            } else {
-                values.push(Integer.parseInt(t));
-            }
-        }
-        return values.pop();
-    }
-
-    static boolean isOperator(String t) {
-        return t.equals("+") || t.equals("-") || t.equals("*") || t.equals("/");
-    }
-
-    static int apply(int a, int b, String t) {
-        if (t.equals("+")) return a + b;
-        if (t.equals("-")) return a - b;
-        if (t.equals("*")) return a * b;
-        return a / b;
-    }
-}
-```
-
-```java test
-check(Solution.evalRPN(new String[] {"3", "4", "+", "5", "*"}), 35);
-check(Solution.evalRPN(new String[] {"3", "4", "5", "*", "+"}), 23);
-check(Solution.evalRPN(new String[] {"5", "3", "-"}), 2);
-check(Solution.evalRPN(new String[] {"8", "2", "/"}), 4);
-check(Solution.evalRPN(new String[] {"7"}), 7);
-```
-
-</Exercise>
-</Slide>
-
-{/* Book-only: el contexto histórico se lee, no se proyecta. Sacarlo del */}
-{/* <Slide> es lo que lo deja fuera del deck en modo explicit, y es lo que */}
-{/* devuelve esta lámina a una escala legible (#294, revisión visual). */}
-
-La notación se debe a Jan Łukasiewicz, que en 1924 propuso poner el
-operador adelante; la variante inversa, con el operador al final, se
-atribuye a Charles Hamblin y a Friedrich Bauer hacia fines de los años
-cincuenta, ya pensando en cómo evaluar expresiones con una máquina.
-
 <SectionBreak />
 
 ## Queue · Cola
@@ -1740,6 +1308,446 @@ lanzar.
 
 </Slide>
 
+<SectionBreak />
+
+## Ejercicios
+
+Los cuatro primeros están desarrollados, y los cuatro siguen el mismo orden:
+el enunciado, el recorrido paso a paso, el caso que lo rompe y el código
+completo, que se ejecuta aquí mismo.
+
+
+<Slide title="Paréntesis balanceados">
+Una expresión está **balanceada** si cada símbolo que se abre se cierra
+después, y en el orden correcto. Dibujando un arco entre cada par se ve de
+un golpe:
+
+<svg viewBox="40 -8 580 340" style={{ width: '100%', maxWidth: '660px', height: 'auto', display: 'block', margin: '1.25rem auto' }} role="img" aria-label="Cuatro expresiones con un arco que une cada par de símbolos. En la primera, abre paréntesis llave corchete y sus tres cierres, los arcos se anidan sin cruzarse y está balanceada. En la segunda, abre paréntesis corchete cierra paréntesis cierra corchete, los dos arcos se cruzan. En la tercera, dos aperturas y un cierre, el primer paréntesis queda sin arco. En la cuarta, un par completo y un cierre final que no tiene con qué emparejarse.">
+  <g transform="translate(0, 0)">
+    <rect x={56} y="0" width="28" height="28" rx="3" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.5" />
+    <text x={70} y="20" textAnchor="middle" fontSize="17" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>{'('}</text>
+    <rect x={88} y="0" width="28" height="28" rx="3" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.5" />
+    <text x={102} y="20" textAnchor="middle" fontSize="17" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>{'{'}</text>
+    <rect x={120} y="0" width="28" height="28" rx="3" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.5" />
+    <text x={134} y="20" textAnchor="middle" fontSize="17" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>{'['}</text>
+    <rect x={152} y="0" width="28" height="28" rx="3" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.5" />
+    <text x={166} y="20" textAnchor="middle" fontSize="17" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>{']'}</text>
+    <rect x={184} y="0" width="28" height="28" rx="3" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.5" />
+    <text x={198} y="20" textAnchor="middle" fontSize="17" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>{'}'}</text>
+    <rect x={216} y="0" width="28" height="28" rx="3" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.5" />
+    <text x={230} y="20" textAnchor="middle" fontSize="17" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>{')'}</text>
+    <path d="M 70 31 C 70 75, 230 75, 230 31" fill="none" style={{ stroke: 'var(--color-keep)' }} strokeWidth="1.8" />
+    <path d="M 102 31 C 102 61, 198 61, 198 31" fill="none" style={{ stroke: 'var(--color-keep)' }} strokeWidth="1.8" />
+    <path d="M 134 31 C 134 47, 166 47, 166 31" fill="none" style={{ stroke: 'var(--color-keep)' }} strokeWidth="1.8" />
+    <text x="300" y="20" fontSize="14" fontWeight="700" style={{ fill: 'var(--color-keep)' }}>balanceada · los arcos anidan</text>
+  </g>
+  <g transform="translate(0, 90)">
+    <rect x={56} y="0" width="28" height="28" rx="3" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.5" />
+    <text x={70} y="20" textAnchor="middle" fontSize="17" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>{'('}</text>
+    <rect x={88} y="0" width="28" height="28" rx="3" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.5" />
+    <text x={102} y="20" textAnchor="middle" fontSize="17" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>{'['}</text>
+    <rect x={120} y="0" width="28" height="28" rx="3" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.5" />
+    <text x={134} y="20" textAnchor="middle" fontSize="17" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>{')'}</text>
+    <rect x={152} y="0" width="28" height="28" rx="3" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.5" />
+    <text x={166} y="20" textAnchor="middle" fontSize="17" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>{']'}</text>
+    <path d="M 70 31 C 70 51, 134 51, 134 31" fill="none" style={{ stroke: 'var(--color-flag)' }} strokeWidth="1.8" />
+    <path d="M 102 31 C 102 69, 166 69, 166 31" fill="none" style={{ stroke: 'var(--color-flag)' }} strokeWidth="1.8" />
+    <text x="300" y="20" fontSize="14" fontWeight="700" style={{ fill: 'var(--color-flag)' }}>se cruzan</text>
+  </g>
+  <g transform="translate(0, 180)">
+    <rect x={56} y="0" width="28" height="28" rx="3" style={{ fill: 'var(--color-flag-soft)', stroke: 'var(--color-flag)' }} strokeWidth="1.5" strokeDasharray="4 3" />
+    <text x={70} y="20" textAnchor="middle" fontSize="17" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>{'('}</text>
+    <rect x={88} y="0" width="28" height="28" rx="3" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.5" />
+    <text x={102} y="20" textAnchor="middle" fontSize="17" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>{'('}</text>
+    <rect x={120} y="0" width="28" height="28" rx="3" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.5" />
+    <text x={134} y="20" textAnchor="middle" fontSize="17" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>{')'}</text>
+    <path d="M 102 31 C 102 47, 134 47, 134 31" fill="none" style={{ stroke: 'var(--color-keep)' }} strokeWidth="1.8" />
+    <path d="M 66 35 l 9 10 m -9 0 l 9 -10" fill="none" style={{ stroke: 'var(--color-flag)' }} strokeWidth="1.8" strokeLinecap="round" />
+    <text x="300" y="20" fontSize="14" fontWeight="700" style={{ fill: 'var(--color-flag)' }}>quedó una sin cerrar</text>
+  </g>
+  <g transform="translate(0, 262)">
+    <rect x={56} y="0" width="28" height="28" rx="3" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.5" />
+    <text x={70} y="20" textAnchor="middle" fontSize="17" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>{'('}</text>
+    <rect x={88} y="0" width="28" height="28" rx="3" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.5" />
+    <text x={102} y="20" textAnchor="middle" fontSize="17" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>{')'}</text>
+    <rect x={120} y="0" width="28" height="28" rx="3" style={{ fill: 'var(--color-flag-soft)', stroke: 'var(--color-flag)' }} strokeWidth="1.5" strokeDasharray="4 3" />
+    <text x={134} y="20" textAnchor="middle" fontSize="17" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>{')'}</text>
+    <path d="M 70 31 C 70 47, 102 47, 102 31" fill="none" style={{ stroke: 'var(--color-keep)' }} strokeWidth="1.8" />
+    <path d="M 130 35 l 9 10 m -9 0 l 9 -10" fill="none" style={{ stroke: 'var(--color-flag)' }} strokeWidth="1.8" strokeLinecap="round" />
+    <text x="300" y="20" fontSize="14" fontWeight="700" style={{ fill: 'var(--color-flag)' }}>cierra una que nunca se abrió</text>
+  </g>
+</svg>
+
+Balanceada quiere decir que **los arcos anidan**: ninguno cruza a otro y
+ninguno queda suelto. Y de ahí salen las tres únicas formas de fallar —se
+cruzan, queda algo abierto, o cierra algo que nunca se abrió—, que son las
+tres que el algoritmo va a tener que detectar.
+
+</Slide>
+
+<Slide title="La pila lo ve">
+Cada apertura se apila; cada cierre desapila y compara. La cima es siempre
+**el último símbolo que quedó abierto**, que es exactamente con el que un
+cierre tiene que corresponderse.
+
+Tres auxiliares de una línea hacen el resto: `isOpener(c)` e `isCloser(c)`
+dicen si el carácter abre o cierra, y `openerFor(c)` devuelve la apertura
+que le toca a un cierre —`(` para `)`, `[` para `]`, `{` para `}`—. Los
+escribimos completos al final.
+
+<StepShow
+  language="java"
+  code={`for (char c : s.toCharArray()) {
+    if (isOpener(c)) {
+        pending.push(c);
+    } else if (isCloser(c)) {
+        if (pending.empty()) return false;
+        if (pending.pop() != openerFor(c)) return false;
+    }
+}
+return pending.empty();`}
+>
+  <Step lines={[]}>
+    <Paso expr="({[]})" cursor={-1} pila={[]} nota="La pila arranca vacía y recorremos la expresión de izquierda a derecha." />
+  </Step>
+  <Step lines={[2, 3]}>
+    <Paso expr="({[]})" cursor={0} pila={['(']} nota="( es una apertura: se apila." />
+  </Step>
+  <Step lines={[2, 3]}>
+    <Paso expr="({[]})" cursor={1} pila={['(', '{']} nota="{ es una apertura: se apila encima." />
+  </Step>
+  <Step lines={[2, 3]}>
+    <Paso expr="({[]})" cursor={2} pila={['(', '{', '[']} nota="[ es una apertura: se apila encima." />
+  </Step>
+  <Step lines={[4, 6]}>
+    <Paso expr="({[]})" cursor={3} pila={['(', '{']} nota="] cierra. La cima era [, que es justo su pareja: se desapila." />
+  </Step>
+  <Step lines={[4, 6]}>
+    <Paso expr="({[]})" cursor={4} pila={['(']} nota="} cierra. La cima era {, su pareja: se desapila." />
+  </Step>
+  <Step lines={[4, 6]}>
+    <Paso expr="({[]})" cursor={5} pila={[]} nota=") cierra. La cima era (, su pareja: se desapila." />
+  </Step>
+  <Step lines={[9]}>
+    <Paso expr="({[]})" cursor={-1} pila={[]} nota="Se acabó la expresión y la pila quedó vacía: está balanceada." />
+  </Step>
+</StepShow>
+
+Los arcos de la lámina anterior son la pila: cada arco se abre cuando el
+símbolo entra y se cierra cuando sale.
+
+</Slide>
+
+<Slide title="Cuando no está balanceada">
+<StepShow
+  language="java"
+  code={`for (char c : s.toCharArray()) {
+    if (isOpener(c)) {
+        pending.push(c);
+    } else if (isCloser(c)) {
+        if (pending.empty()) return false;
+        if (pending.pop() != openerFor(c)) return false;
+    }
+}
+return pending.empty();`}
+>
+  <Step lines={[]}>
+    <Paso expr="([)]" cursor={-1} pila={[]} nota="La misma cantidad de cada símbolo que la anterior. Lo que cambia es el orden." />
+  </Step>
+  <Step lines={[2, 3]}>
+    <Paso expr="([)]" cursor={0} pila={['(']} nota="( es una apertura: se apila." />
+  </Step>
+  <Step lines={[2, 3]}>
+    <Paso expr="([)]" cursor={1} pila={['(', '[']} nota="[ es una apertura: se apila encima." />
+  </Step>
+  <Step lines={[4, 6]}>
+    <Paso expr="([)]" cursor={2} pila={['(', '[']} nota=") cierra, y su pareja es (. Pero la cima es [: el ) se cruza con él." falla />
+  </Step>
+</StepShow>
+
+La pila detecta el cruce en el tercer carácter, sin haber leído el resto.
+Y las tres formas de fallar son las tres preguntas del código: la línea 5
+atrapa el cierre que no tiene nada abierto, la 6 atrapa el cruce, y la 9
+atrapa lo que quedó abierto al final.
+
+Una sola pasada, y la pila crece a lo más hasta la cantidad de aperturas:
+$$\Theta(N)$$ de tiempo y $$\Theta(N)$$ de espacio en el peor caso.
+
+</Slide>
+
+<Slide title="El código completo">
+<Exercise title="Paréntesis balanceados">
+
+El algoritmo entero, con los tres auxiliares. Los casos de prueba son las
+cuatro expresiones de la primera lámina, más la cadena vacía. Presiona
+**Comprobar** para correrlo, y después cambia lo que quieras.
+
+```java starter
+import java.util.Stack;
+
+class Solution {
+
+    static boolean balanced(String s) {
+        Stack<Character> pending = new Stack<>();
+        for (char c : s.toCharArray()) {
+            if (isOpener(c)) {
+                pending.push(c);
+            } else if (isCloser(c)) {
+                if (pending.empty()) return false;
+                if (pending.pop() != openerFor(c)) return false;
+            }
+        }
+        return pending.empty();
+    }
+
+    static boolean isOpener(char c) {
+        return c == '(' || c == '[' || c == '{';
+    }
+
+    static boolean isCloser(char c) {
+        return c == ')' || c == ']' || c == '}';
+    }
+
+    static char openerFor(char c) {
+        if (c == ')') return '(';
+        if (c == ']') return '[';
+        return '{';
+    }
+}
+```
+
+```java test
+check(Solution.balanced("({[]})"), true);
+check(Solution.balanced("([)]"), false);
+check(Solution.balanced("(()"), false);
+check(Solution.balanced("())"), false);
+check(Solution.balanced(""), true);
+```
+
+</Exercise>
+</Slide>
+
+<Slide title="Notación polaca inversa">
+En la notación polaca inversa el operador va **después** de sus dos
+operandos. Eso suena a un detalle de escritura y no lo es: con los
+operadores al final, una expresión no necesita paréntesis ni reglas de
+precedencia, porque el orden ya dice qué se aplica a qué.
+
+<svg viewBox="0 0 660 200" style={{ width: '100%', maxWidth: '660px', height: 'auto', display: 'block', margin: '1.25rem auto' }} role="img" aria-label="A la izquierda, dos expresiones con paréntesis: abre tres más cuatro cierra por cinco, y tres más abre cuatro por cinco cierra. A la derecha, las mismas dos en polaca inversa: tres cuatro más cinco por, y tres cuatro cinco por más. Los mismos números en el mismo orden; lo único que cambia es dónde van los operadores, y no hace falta ningún paréntesis.">
+  <defs>
+    <marker id="rpn-punta" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto">
+      <path d="M0,0 L7,3.5 L0,7 z" style={{ fill: 'var(--color-ink-faint)' }} />
+    </marker>
+  </defs>
+  <text x="16" y="24" fontSize="13" fontWeight="700" style={{ fill: 'var(--color-ink-faint)' }}>con paréntesis</text>
+  <text x="330" y="24" fontSize="13" fontWeight="700" style={{ fill: 'var(--color-accent)' }}>en polaca inversa</text>
+  <text x="16" y="61" fontSize="17" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>(3 + 4) × 5</text>
+  <path d="M 150 56 l 24 0" fill="none" style={{ stroke: 'var(--color-ink-faint)' }} strokeWidth="1.5" markerEnd="url(#rpn-punta)" />
+  <rect x={330} y="40" width="34" height="30" rx="3" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.5" />
+  <text x={347} y="61" textAnchor="middle" fontSize="16" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>{'3'}</text>
+  <rect x={370} y="40" width="34" height="30" rx="3" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.5" />
+  <text x={387} y="61" textAnchor="middle" fontSize="16" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>{'4'}</text>
+  <rect x={410} y="40" width="34" height="30" rx="3" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.5" />
+  <text x={427} y="61" textAnchor="middle" fontSize="16" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>{'+'}</text>
+  <rect x={450} y="40" width="34" height="30" rx="3" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.5" />
+  <text x={467} y="61" textAnchor="middle" fontSize="16" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>{'5'}</text>
+  <rect x={490} y="40" width="34" height="30" rx="3" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.5" />
+  <text x={507} y="61" textAnchor="middle" fontSize="16" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>{'*'}</text>
+  <text x="16" y="107" fontSize="17" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>3 + (4 × 5)</text>
+  <path d="M 150 102 l 24 0" fill="none" style={{ stroke: 'var(--color-ink-faint)' }} strokeWidth="1.5" markerEnd="url(#rpn-punta)" />
+  <rect x={330} y="86" width="34" height="30" rx="3" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.5" />
+  <text x={347} y="107" textAnchor="middle" fontSize="16" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>{'3'}</text>
+  <rect x={370} y="86" width="34" height="30" rx="3" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.5" />
+  <text x={387} y="107" textAnchor="middle" fontSize="16" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>{'4'}</text>
+  <rect x={410} y="86" width="34" height="30" rx="3" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.5" />
+  <text x={427} y="107" textAnchor="middle" fontSize="16" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>{'5'}</text>
+  <rect x={450} y="86" width="34" height="30" rx="3" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.5" />
+  <text x={467} y="107" textAnchor="middle" fontSize="16" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>{'*'}</text>
+  <rect x={490} y="86" width="34" height="30" rx="3" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.5" />
+  <text x={507} y="107" textAnchor="middle" fontSize="16" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>{'+'}</text>
+  <text x="16" y="146" fontSize="13" style={{ fill: 'var(--color-ink-faint)' }}>los mismos números en el mismo orden, resultados distintos — y sin un paréntesis</text>
+</svg>
+
+Y evaluarla es ir reduciendo de izquierda a derecha: cada operador consume
+los **dos resultados más recientes** y deja uno en su lugar.
+
+<svg viewBox="0 0 660 190" style={{ width: '100%', maxWidth: '620px', height: 'auto', display: 'block', margin: '1.25rem auto' }} role="img" aria-label="La expresión tres cuatro más cinco por, reduciéndose. Una llave abarca el tres, el cuatro y el más, y baja a un siete resaltado. Otra llave abarca ese siete, el cinco y el por, y baja a treinta y cinco. Cada operador consume los dos resultados más recientes.">
+  <defs>
+    <marker id="rpn-punta-ac" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto">
+      <path d="M0,0 L7,3.5 L0,7 z" style={{ fill: 'var(--color-accent)' }} />
+    </marker>
+  </defs>
+  <rect x={40} y="20" width="34" height="30" rx="3" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.5" />
+  <text x={57} y="41" textAnchor="middle" fontSize="16" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>{'3'}</text>
+  <rect x={80} y="20" width="34" height="30" rx="3" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.5" />
+  <text x={97} y="41" textAnchor="middle" fontSize="16" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>{'4'}</text>
+  <rect x={120} y="20" width="34" height="30" rx="3" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.5" />
+  <text x={137} y="41" textAnchor="middle" fontSize="16" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>{'+'}</text>
+  <rect x={160} y="20" width="34" height="30" rx="3" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.5" />
+  <text x={177} y="41" textAnchor="middle" fontSize="16" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>{'5'}</text>
+  <rect x={200} y="20" width="34" height="30" rx="3" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.5" />
+  <text x={217} y="41" textAnchor="middle" fontSize="16" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>{'*'}</text>
+  <path d="M 44 56 l 0 10 l 112 0 l 0 -10" fill="none" style={{ stroke: 'var(--color-accent)' }} strokeWidth="1.8" />
+  <path d="M 100 66 l 0 14" fill="none" style={{ stroke: 'var(--color-accent)' }} strokeWidth="1.8" markerEnd="url(#rpn-punta-ac)" />
+  <rect x={83} y="86" width="34" height="30" rx="3" style={{ fill: 'var(--color-mark-soft)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.5" />
+  <text x={100} y="107" textAnchor="middle" fontSize="16" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>{'7'}</text>
+  <rect x={160} y="86" width="34" height="30" rx="3" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.5" />
+  <text x={177} y="107" textAnchor="middle" fontSize="16" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>{'5'}</text>
+  <rect x={200} y="86" width="34" height="30" rx="3" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.5" />
+  <text x={217} y="107" textAnchor="middle" fontSize="16" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>{'*'}</text>
+  <path d="M 87 122 l 0 10 l 190 0 l 0 -10" fill="none" style={{ stroke: 'var(--color-accent)' }} strokeWidth="1.8" />
+  <path d="M 182 132 l 0 14" fill="none" style={{ stroke: 'var(--color-accent)' }} strokeWidth="1.8" markerEnd="url(#rpn-punta-ac)" />
+  <rect x={160} y="152" width="44" height="30" rx="3" style={{ fill: 'var(--color-mark-soft)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.5" />
+  <text x={182} y="173" textAnchor="middle" fontSize="16" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>{'35'}</text>
+  <text x="240" y="174" fontSize="13" style={{ fill: 'var(--color-ink-faint)' }}>cada operador consume los dos resultados más recientes</text>
+</svg>
+
+«Los dos más recientes» es LIFO otra vez, y por eso el evaluador entero cabe
+en una pila.
+
+</Slide>
+
+<Slide title="La pila lo evalúa">
+Los números se apilan; cada operador desapila dos y apila el resultado. Al
+final queda un solo valor, que es la respuesta.
+
+<StepShow
+  language="java"
+  code={`for (String t : tokens) {
+    if (isOperator(t)) {
+        int b = values.pop();
+        int a = values.pop();
+        values.push(apply(a, b, t));
+    } else {
+        values.push(Integer.parseInt(t));
+    }
+}
+return values.pop();`}
+>
+  <Step lines={[]}>
+    <Paso expr="3 4 + 5 *" sep=" " cursor={-1} pila={[]} nota="La pila arranca vacía y leemos los tokens de izquierda a derecha." />
+  </Step>
+  <Step lines={[6, 7]}>
+    <Paso expr="3 4 + 5 *" sep=" " cursor={0} pila={['3']} nota="3 es un número: se apila." />
+  </Step>
+  <Step lines={[6, 7]}>
+    <Paso expr="3 4 + 5 *" sep=" " cursor={1} pila={['3', '4']} nota="4 es un número: se apila encima." />
+  </Step>
+  <Step lines={[2, 3, 4, 5]}>
+    <Paso expr="3 4 + 5 *" sep=" " cursor={2} pila={['7']} nota="+ es operador: saca 4 y 3, y apila 3 + 4 = 7." />
+  </Step>
+  <Step lines={[6, 7]}>
+    <Paso expr="3 4 + 5 *" sep=" " cursor={3} pila={['7', '5']} nota="5 es un número: se apila encima." />
+  </Step>
+  <Step lines={[2, 3, 4, 5]}>
+    <Paso expr="3 4 + 5 *" sep=" " cursor={4} pila={['35']} nota="* es operador: saca 5 y 7, y apila 7 × 5 = 35." />
+  </Step>
+  <Step lines={[10]}>
+    <Paso expr="3 4 + 5 *" sep=" " cursor={-1} pila={['35']} nota="Se acabaron los tokens y queda un solo valor: ése es el resultado." />
+  </Step>
+</StepShow>
+
+`isOperator(t)` responde si el token es uno de los cuatro símbolos, y
+`apply(a, b, t)` devuelve el resultado de aplicárselo a `a` y `b`. Los dos
+están completos al final.
+
+</Slide>
+
+<Slide title="El orden de los dos pop">
+La corrección del evaluador se juega en dos líneas consecutivas, y con la
+resta se ve en un solo token.
+
+<StepShow
+  language="java"
+  code={`for (String t : tokens) {
+    if (isOperator(t)) {
+        int b = values.pop();
+        int a = values.pop();
+        values.push(apply(a, b, t));
+    } else {
+        values.push(Integer.parseInt(t));
+    }
+}
+return values.pop();`}
+>
+  <Step lines={[6, 7]}>
+    <Paso expr="5 3 -" sep=" " cursor={1} pila={['5', '3']} nota="5 y 3 ya están apilados, en ese orden." />
+  </Step>
+  <Step lines={[3]}>
+    <Paso expr="5 3 -" sep=" " cursor={2} pila={['5']} nota="El primer pop entrega 3: es el operando DERECHO, porque fue el último en entrar." />
+  </Step>
+  <Step lines={[4]}>
+    <Paso expr="5 3 -" sep=" " cursor={2} pila={[]} nota="El segundo pop entrega 5: el operando izquierdo." />
+  </Step>
+  <Step lines={[5]}>
+    <Paso expr="5 3 -" sep=" " cursor={2} pila={['2']} nota={'apply(5, 3, "−") apila 5 − 3 = 2.'} />
+  </Step>
+</StepShow>
+
+Invierte esas dos líneas y el evaluador calcula `3 − 5 = −2`. Con la suma y
+la multiplicación los dos órdenes dan lo mismo, así que el error sobrevive
+las pruebas fáciles y aparece recién con una resta o una división.
+
+</Slide>
+
+<Slide title="El código completo">
+<Exercise title="Notación polaca inversa">
+
+El evaluador entero, con los dos auxiliares. Presiona **Comprobar** para
+correrlo, y después cambia lo que quieras.
+
+```java starter
+import java.util.Stack;
+
+class Solution {
+
+    static int evalRPN(String[] tokens) {
+        Stack<Integer> values = new Stack<>();
+        for (String t : tokens) {
+            if (isOperator(t)) {
+                int b = values.pop();
+                int a = values.pop();
+                values.push(apply(a, b, t));
+            } else {
+                values.push(Integer.parseInt(t));
+            }
+        }
+        return values.pop();
+    }
+
+    static boolean isOperator(String t) {
+        return t.equals("+") || t.equals("-") || t.equals("*") || t.equals("/");
+    }
+
+    static int apply(int a, int b, String t) {
+        if (t.equals("+")) return a + b;
+        if (t.equals("-")) return a - b;
+        if (t.equals("*")) return a * b;
+        return a / b;
+    }
+}
+```
+
+```java test
+check(Solution.evalRPN(new String[] {"3", "4", "+", "5", "*"}), 35);
+check(Solution.evalRPN(new String[] {"3", "4", "5", "*", "+"}), 23);
+check(Solution.evalRPN(new String[] {"5", "3", "-"}), 2);
+check(Solution.evalRPN(new String[] {"8", "2", "/"}), 4);
+check(Solution.evalRPN(new String[] {"7"}), 7);
+```
+
+</Exercise>
+</Slide>
+
+{/* Book-only: el contexto histórico se lee, no se proyecta. Sacarlo del */}
+{/* <Slide> es lo que lo deja fuera del deck en modo explicit, y es lo que */}
+{/* devuelve esta lámina a una escala legible (#294, revisión visual). */}
+
+La notación se debe a Jan Łukasiewicz, que en 1924 propuso poner el
+operador adelante; la variante inversa, con el operador al final, se
+atribuye a Charles Hamblin y a Friedrich Bauer hacia fines de los años
+cincuenta, ya pensando en cómo evaluar expresiones con una máquina.
+
 <Slide title="El problema de Josefo">
 Hay $$n$$ personas en círculo, numeradas de 1 a $$n$$. Se cuenta de a $$k$$
 y la $$k$$-ésima sale; el conteo sigue desde la siguiente, dando vueltas,
@@ -2028,92 +2036,11 @@ check(Solution.movingAverage(5, new int[] {2, 4})[1], 3.0);
 </Exercise>
 </Slide>
 
-<SectionBreak />
-
-## Deque · dos puntas abiertas
-
-<Slide title="Las cuatro operaciones de un deque">
-Un **deque** —de _double-ended queue_— abre los dos extremos en los dos
-sentidos: se puede entrar y salir tanto por el frente como por el final.
-
-<svg viewBox="0 0 700 200" style={{ width: '100%', maxWidth: '700px', height: 'auto', display: 'block', margin: '1.25rem auto' }} role="img" aria-label="Cuatro elementos en fila, 7, 3, 1 y 5. A la izquierda, una flecha rotulada pushFront entra por el frente y otra rotulada popFront sale por el frente. A la derecha, una flecha rotulada pushBack entra por el final y otra rotulada popBack sale por el final. El extremo izquierdo está rotulado «el frente» y el derecho «el final».">
-  <defs>
-    <marker id="deque-punta" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto">
-      <path d="M0,0 L7,3.5 L0,7 z" style={{ fill: 'var(--color-accent)' }} />
-    </marker>
-  </defs>
-  {[7, 3, 1, 5].map((v, i) => (
-    <g key={i}>
-      <rect x={177 + i * 90} y="84" width="76" height="56" rx="4" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.6" />
-      <text x={215 + i * 90} y="120" textAnchor="middle" fontSize="24" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{v}</text>
-    </g>
-  ))}
-  <text x="100" y="72" textAnchor="middle" fontSize="14" fontWeight="700" fontFamily="monospace" style={{ fill: 'var(--color-accent)' }}>pushFront</text>
-  <line x1="46" y1="100" x2="170" y2="100" style={{ stroke: 'var(--color-accent)' }} strokeWidth="1.8" markerEnd="url(#deque-punta)" />
-  <line x1="170" y1="126" x2="46" y2="126" style={{ stroke: 'var(--color-accent)' }} strokeWidth="1.8" markerEnd="url(#deque-punta)" />
-  <text x="100" y="152" textAnchor="middle" fontSize="14" fontWeight="700" fontFamily="monospace" style={{ fill: 'var(--color-accent)' }}>popFront</text>
-  <text x="600" y="72" textAnchor="middle" fontSize="14" fontWeight="700" fontFamily="monospace" style={{ fill: 'var(--color-accent)' }}>pushBack</text>
-  <line x1="654" y1="100" x2="530" y2="100" style={{ stroke: 'var(--color-accent)' }} strokeWidth="1.8" markerEnd="url(#deque-punta)" />
-  <line x1="530" y1="126" x2="654" y2="126" style={{ stroke: 'var(--color-accent)' }} strokeWidth="1.8" markerEnd="url(#deque-punta)" />
-  <text x="600" y="152" textAnchor="middle" fontSize="14" fontWeight="700" fontFamily="monospace" style={{ fill: 'var(--color-accent)' }}>popBack</text>
-  <text x="215" y="166" textAnchor="middle" fontSize="12" fontWeight="600" style={{ fill: 'var(--color-ink-soft)' }}>el frente</text>
-  <text x="485" y="166" textAnchor="middle" fontSize="12" fontWeight="600" style={{ fill: 'var(--color-ink-soft)' }}>el final</text>
-  <text x="350" y="190" textAnchor="middle" fontSize="13" style={{ fill: 'var(--color-ink-faint)' }}>ningún acceso por posición</text>
-</svg>
-
-Con esas cuatro operaciones, los dos contratos anteriores quedan adentro.
-Una pila es un deque del que sólo se usan `pushFront` y `popFront`; una cola
-es un deque del que sólo se usan `pushBack` y `popFront`. Lo que un deque
-sigue sin ofrecer es acceso por posición: sus dos extremos son visibles, y
-nada entre ellos.
-
-La implementación no trae ideas nuevas. Sobre una lista doblemente enlazada
-con `head` y `tail`, las cuatro operaciones son constantes, porque cada
-extremo está en la mano y cada nodo sabe quién viene antes.
-
-Con una trampa, porque retroceder no es simétrico de avanzar. Avanzar es
-`(i + 1) % capacidad`; retroceder **no** es `(i - 1) % capacidad`, porque en
-Java el resto de un negativo es negativo y `(0 - 1) % 6` da `-1` y no `5`.
-Hay que escribir `(i - 1 + capacidad) % capacidad`.
-
-</Slide>
-
-<Slide title="Deque en el mundo real">
-El deque aparece menos como protagonista que como pieza, y conviene saber
-dónde.
-
-**`std::deque`, en la biblioteca estándar de C++.** Lo interesante es cómo
-está hecho: no es un arreglo dinámico ni una lista enlazada, sino un arreglo
-de bloques. Los elementos viven juntos de a bloques y los bloques se
-indexan aparte, lo que le permite crecer por los dos extremos sin copiar
-todo y conservar buena parte de la localidad del arreglo.
-
-**El deque monótono**, una técnica de programación competitiva. Sobre una
-ventana que se desplaza por una secuencia, mantiene un deque cuyos valores
-quedan siempre ordenados: lo que entra por atrás expulsa a los que ya no
-pueden ser máximo, y lo que sale por adelante es lo que quedó fuera de la
-ventana. Sirve para responder el máximo de cada ventana en tiempo constante
-amortizado, y es el ejemplo más claro de un algoritmo que necesita las dos
-puntas al mismo tiempo.
-
-**Los planificadores con robo de trabajo**, en bibliotecas de paralelismo.
-Cada hilo tiene su propio deque de tareas: trabaja en su extremo, y un hilo
-que se quedó sin trabajo roba del extremo contrario. Los dos extremos son lo
-que hace que el dueño y el ladrón casi nunca se estorben.
-
-Los tres usos son especializados, y cada uno pediría su propia maquinaria
-para desarrollarse en serio. Por eso esta clase lo nombra y no lo desarrolla:
-lo que hay que llevarse es el contrato —dos puntas abiertas— y la capacidad
-de reconocerlo cuando aparezca.
-
-</Slide>
-
-## Ejercicios con solución
 
 Cinco ejercicios para resolver en el navegador, **en orden de dificultad**.
 Los tres primeros son de cola: uno que la usa sola y dos que le suman una
 pila para dar vuelta un tramo. Los dos últimos son el mismo patrón —la
-**pila monótona** de la lámina anterior— visto desde dos ángulos opuestos, y
+**pila monótona**— visto desde dos ángulos opuestos, y
 conviene dejarlos para el final porque son los que piden una idea nueva y no
 sólo aplicar un contrato.
 
@@ -2640,6 +2567,7 @@ class Solution {
 ```
 
 </Exercise>
+
 
 <Slide title="El precio de decidir por orden de llegada">
 Los dos contratos de esta clase deciden quién sale con el mismo criterio:

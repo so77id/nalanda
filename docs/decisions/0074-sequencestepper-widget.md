@@ -150,7 +150,8 @@ the call line of a repeated multi-run call is COMPUTED, not searched.
 **Amended by:** #294, review pipeline Round B (2026-09-19) — **the array
 recipes got their first reader, and the deferred question below came due.**
 §Consequences said the array recipes ship ahead of their first document,
-named the Stack/Queue/Deque class as that reader, and set a trigger: _"if it
+named the Stack/Queue/Deque class as that reader (which shipped as
+Stack and Queue only — #294 dropped the deque act), and set a trigger: _"if it
 does not use them they should be removed rather than re-justified"_. That
 class has now shipped, so the trigger fired. Four dispositions, recorded
 here because the alternative was leaving them in a commit message.
