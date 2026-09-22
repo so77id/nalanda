@@ -1706,8 +1706,10 @@ Por eso, cuando alguien escribe una cola, la escribe sobre una lista.
 </Slide>
 
 <Slide title="Queue en Java">
-Java no trae una clase `Queue`: trae una **interfaz** con ese nombre, y
-varias clases la cumplen. Los nombres cambian:
+Java no trae una clase `Queue`: trae una **interfaz** con ese nombre, que
+fija las operaciones sin decir dónde se guardan los elementos. Quien escribe
+el programa elige la clase que la implementa, y aquí usaremos `LinkedList`:
+la lista enlazada con `tail`. Los nombres del contrato cambian:
 
 | El TDA | Java |
 |---|---|
@@ -1726,15 +1728,15 @@ int frente = queue.element();  // 3, y la cola queda igual
 int x = queue.remove();        // 3, y ahora la cola sólo tiene el 8
 ```
 
-Sobre una cola vacía, `remove()` y `element()` lanzan
-`NoSuchElementException`, que es lo que el contrato pide; el trío
-`offer`/`poll`/`peek` devuelve `false` o `null` en vez de lanzar.
+A la izquierda del `=` va la interfaz y a la derecha la clase: la variable se
+declara `Queue` y no `LinkedList`. Así el resto del programa sólo puede pedir
+las operaciones del contrato, y cambiar la implementación es cambiar una
+línea.
 
-`LinkedList` es la lista enlazada con `tail`, y `ArrayDeque` está construida
-sobre un arreglo: resuelve por dentro el corrimiento del `dequeue`. Ambas se
-usan con los mismos cinco métodos y sólo cambia el `new`. `PriorityQueue`
-también cumple la interfaz, pero entrega siempre el menor de los elementos
-guardados, no el que llegó primero.
+Sobre una cola vacía, `remove()` y `element()` lanzan
+`NoSuchElementException`: no devuelven cero ni ninguna otra cosa. El trío
+`offer`/`poll`/`peek` hace lo mismo devolviendo `false` o `null` en vez de
+lanzar.
 
 </Slide>
 
