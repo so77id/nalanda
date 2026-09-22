@@ -2,13 +2,29 @@
 id: edd-stack-queue
 title: Estructuras de Datos · Stack y Queue
 presentation: explicit
-questions: none
+questions: pool
 ---
 
-{/* `none`: esta clase se publica sin banco de preguntas. Es el valor honesto */}
-{/* para un banco que todavía no está escrito — se escribe como WP aparte, */}
-{/* después del cierre del material, para que las preguntas midan lo que el */}
-{/* documento terminó diciendo y no lo que un borrador decía. */}
+{/* `pool`: un conjunto sin expectativa por sección. No `per-section`, porque */}
+{/* cada <Slide> es un h2 y exigir una pregunta por lámina serían más de */}
+{/* sesenta. Lo que el pool tiene que garantizar es densidad por RANGO: un */}
+{/* control se pide sobre un rango de secciones y cada copia saca cuatro, así */}
+{/* que un rango con menos de cuatro preguntas se rechaza (ErrPoolTooSmall). */}
+
+{/* COBERTURA. 13 preguntas sobre 11 láminas, todas en los dos actos. */}
+{/* Rangos que SÍ llenan una copia de cuatro: */}
+{/*   · el acto Stack entero (Una pila → Stack en Java): 7 preguntas. */}
+{/*   · su apertura sola (Una pila → Sobre el arreglo dinámico): 6. */}
+{/*   · el acto Queue entero (Una cola → Queue en Java): 6. */}
+{/* Rangos que NO, y es deliberado: */}
+{/*   · los ejercicios, que no llevan ninguna pregunta por decisión. */}
+{/*   · las nueve láminas seguidas desde Las invariantes de la pila sobre */}
+{/*     lista hasta Stack en Java, y las cinco desde Las consultas de la cola */}
+{/*     hasta Dequeue: seis de ellas no pueden recibir una pregunta hoy */}
+{/*     porque su título se repite entre los dos actos y el generador de */}
+{/*     slugs no desambigua, así que su `anchor` sería ambiguo. */}
+{/* Por esa misma razón `como-se-implementa-este-tda` existe dos veces y la */}
+{/* pregunta anclada ahí resuelve a la del acto Stack por ser la primera. */}
 
 
 # Estructuras de Datos · Stack y Queue
@@ -2437,3 +2453,150 @@ check(Solution.movingAverage(5, new int[] {2, 4})[1], 3.0);
 </PresentationWide>
 
 </Slide>
+
+<Questions>
+
+<Question id="pila-como-se-llega-al-cuarto" anchor="una-pila">
+
+¿Cómo se llega al elemento que está en la cuarta posición desde arriba de una pila?
+
+- [x] Sacando antes los tres que tiene encima
+- [ ] Pidiéndolo por su posición, como en un arreglo
+- [ ] Entrando por el extremo del fondo, que está libre
+- [ ] Con `top()`, que recorre hasta encontrarlo
+
+</Question>
+
+<Question id="pila-cuando-se-puede-llamar-top-pop" anchor="el-tda-stack">
+
+¿Cuándo permite el contrato del TDA Stack llamar a `top()` y a `pop()`?
+
+- [x] Cuando `empty()` responde que la pila no está vacía
+- [ ] Siempre, porque sobre una pila vacía devuelven `null`
+- [ ] Siempre, porque el contrato no fija un orden de llamadas
+- [ ] Sólo si antes se consultó el tamaño con `size()`
+
+</Question>
+
+<Question id="pila-por-que-esa-punta" anchor="como-se-implementa-este-tda">
+
+¿Por qué una pila sobre arreglo trabaja por el final y una sobre lista, por la cabeza?
+
+- [x] Porque es la punta donde cada estructura ya era rápida
+- [ ] Porque el TDA Stack fija en qué extremo opera cada implementación
+- [ ] Porque en la otra punta los elementos no están accesibles
+- [ ] Porque así las dos implementaciones dan el mismo orden de salida
+
+</Question>
+
+<Question id="pila-arreglo-donde-esta-la-cima" anchor="sobre-el-arreglo-dinamico">
+
+En una pila sobre arreglo dinámico, ¿dónde está la cima?
+
+- [x] En `data[size - 1]`
+- [ ] En `data[data.length - 1]`
+- [ ] En `data[0]`
+- [ ] En la primera casilla libre después de los elementos
+
+</Question>
+
+<Question id="pila-lista-la-cima-es-la-cabeza" anchor="sobre-la-lista-enlazada">
+
+En una pila sobre lista simplemente enlazada, ¿cuál es la decisión que la hace funcionar?
+
+- [x] Que la cima sea la cabeza de la cadena
+- [ ] Que la cima sea el último nodo de la cadena
+- [ ] Que cada nodo guarde también al anterior
+- [ ] Que la cadena se mantenga ordenada por valor
+
+</Question>
+
+<Question id="pila-que-deja-abierto-el-contrato" anchor="el-tda-stack">
+
+¿Qué deja abierto el contrato del TDA Stack?
+
+- [x] Dónde viven los elementos y cuánto cuesta cada operación
+- [ ] Qué pasa si se llama a `pop()` sobre una pila vacía
+- [ ] El orden en que salen los elementos
+- [ ] Qué operaciones se le pueden pedir
+
+</Question>
+
+<Question id="pila-por-que-la-pila-de-llamadas" anchor="pilas-en-la-vida-real">
+
+¿Por qué la pila de llamadas de un programa es una pila?
+
+- [x] Porque retoma siempre el último que quedó esperando
+- [ ] Porque los métodos corren en el orden en que se escribieron
+- [ ] Porque cada método reserva la misma cantidad de memoria
+- [ ] Porque el compilador los ordena por nombre
+
+</Question>
+
+<Question id="cola-por-donde-se-entra-y-se-sale" anchor="una-cola">
+
+¿Qué dice el contrato del TDA Queue sobre los extremos de la cola?
+
+- [x] Que se entra por el final y se sale por el frente
+- [ ] Que se entra y se sale por el mismo extremo
+- [ ] Que se puede entrar y salir por cualquiera de los dos
+- [ ] Que se entra por el frente y se sale por el final
+
+</Question>
+
+<Question id="cola-lista-por-que-tail" anchor="queue-sobre-una-lista-simplemente-enlazada-con-tail">
+
+¿Por qué la cola sobre lista necesita una referencia `tail` además de `head`?
+
+- [x] Porque apunta al final y encolar queda en costo constante
+- [ ] Porque sin ella no se sabe cuántos elementos hay
+- [ ] Porque desencolar toca el final de la cadena
+- [ ] Porque la cadena tiene que recorrerse al revés
+
+</Question>
+
+<Question id="cola-arreglo-dequeue-corre-todo" anchor="dequeue-sobre-arreglo-dinamico">
+
+En una cola sobre arreglo dinámico el frente vive en `data[0]`. ¿Qué obliga a hacer eso cada vez que se desencola?
+
+- [x] Correr un lugar a todos los elementos que quedan
+- [ ] Dejar un hueco en `data[0]` que nadie vuelve a usar
+- [ ] Reservar un bloque más grande y copiar
+- [ ] Mover sólo el último elemento a la posición cero
+
+</Question>
+
+<Question id="cola-tail-apuntando-a-un-nodo-que-salio" anchor="las-invariantes-de-la-cola-sobre-lista">
+
+Si `tail` queda apuntando a un nodo que ya salió de la cola, ¿qué pasa?
+
+- [x] El siguiente elemento que se encole nace inalcanzable
+- [ ] `size` deja de coincidir con la cantidad de nodos
+- [ ] La cola se queda sin poder desencolar
+- [ ] La cadena se convierte en un ciclo
+
+</Question>
+
+<Question id="cola-que-fija-el-contrato" anchor="el-tda-queue">
+
+¿Qué es lo que fija el contrato del TDA Queue?
+
+- [x] Por cuál extremo se entra y por cuál se sale
+- [ ] En qué casilla de memoria queda cada elemento
+- [ ] Qué posición ocupa cada elemento en la cola
+- [ ] Cuántos elementos puede llegar a guardar
+
+</Question>
+
+<Question id="cola-lista-por-que-no-recorre" anchor="costos-de-queue-sobre-lista">
+
+En la cola sobre lista con `tail`, ¿por qué encolar y desencolar no recorren nada?
+
+- [x] Porque cada extremo ya está en la mano
+- [ ] Porque la cadena se recorre en los dos sentidos
+- [ ] Porque `size` dice dónde está cada extremo
+- [ ] Porque los nodos están juntos en memoria
+
+</Question>
+
+</Questions>
