@@ -156,13 +156,22 @@ does not use them they should be removed rather than re-justified"_. That
 class has now shipped, so the trigger fired. Four dispositions, recorded
 here because the alternative was leaving them in a commit message.
 
-**`array` stays, but only its PICTURE has a reader.** #294 mounts it twice
-(`19-edd-stack-queue.mdx`, the Queue act) and both tags carry
-`showCode={false}`, because the class deliberately shows no Java for the
-array implementation. So the recipe's drawings are read and its LISTINGS
-still are not, one class after this ADR flagged them unread. That is a
-narrower outcome than "it has a consumer" suggests, and the next class that
-wants array code should know the listings arrive unproofread by any reader.
+**`array` has NO reader, and the trigger fires for removal.** This block
+claimed, before the review pipeline measured it, that #294 mounted `array`
+twice in the Queue act over the circular queue. It mounts it zero times:
+`grep -rn 'eda="array"' content/` returns nothing, in this class or any
+other. The circular-queue slides the claim rested on were deleted by
+`61a9541`, and this paragraph was edited after that commit without being
+re-measured — the exact failure the class's own review keeps finding.
+
+So the condition §Consequences named — _"if it does not use them they should
+be removed rather than re-justified"_ — is met, and the honest disposition is
+that `array` is carried with no consumer at all: a recipe, its `ARRAY_CODE`
+listings, a catalog entry, a layout path and some twenty call sites in
+`sequenceStepperTrace.test.ts` and `sequenceStepperLayout.test.ts`. Removing
+it is a WP of its own and does not belong in a course-document PR, so it is
+recorded here as owed, not as finished. **The next class of this unit either
+reads it or deletes it; a third re-justification is not available.**
 
 **`dynamic-array` has a consumer, and the paragraph that gave it a deadline
 was wrong within the same WP.** That paragraph said `grep -rn
@@ -170,19 +179,29 @@ was wrong within the same WP.** That paragraph said `grep -rn
 the recipe against the priority-queue class as a deadline. It was written
 while #294's Stack act still built the pila on a fixed block. The class then
 moved to the arreglo dinámico — the structure #277 actually ends on — and
-the grep now returns two hits, both in the Stack act: `insert-last` and
-`remove-last` over `[42, 7]`.
+the grep now returns four hits, two per act: `insert-last` and `remove-last`
+over `[42, 7]` in the Stack act, and two more in the Queue act. (This
+sentence said "two hits, both in the Stack act" before the review pipeline
+counted them.)
 
-Two facts about that recipe a future author needs, both measured here:
+~~Two facts about that recipe a future author needs, both measured here:
 `capacity` starts at `values.length`, so **every `insert-last` opens on the
 `grow` frame** — there is no way to show a cheap append with this recipe,
-and #294's slide is written around that (it narrates the expensive corrida
-and says in prose that the cheap one is the last two steps). And
-`remove-last` never shrinks, so the shrink half of `data.length ≤ 4 × size`
-is prose, not picture.
+and #294's slide is written around that.~~ **Superseded inside this same WP
+by §"`capacity` is accepted on `dynamic-array` too" below**: `capacity` is a
+prop now, so an author running several insertions chooses which of them pays,
+and the shipped slide does exactly that — `capacity={4}` over two values, so
+the first appends are cheap and a later one grows. The stale half is struck
+rather than deleted because it is the reason the prop exists.
 
-`array` keeps its two consumers in the Queue act, where the block genuinely
-is fixed — the circular queue — and that is the mount `capacity` exists for.
+What still holds: `remove-last` never shrinks, so the shrink half of
+`data.length ≤ 4 × size` is prose, not picture.
+
+(An earlier draft of this block closed by saying `array` keeps two consumers
+in the Queue act "where the block genuinely is fixed — the circular queue".
+Both halves are false at the shipped document: there is no circular queue and
+no `array` mount. It is written out here rather than deleted because the same
+paragraph had already been re-justified once.)
 
 **The single-run asymmetry is closed, and the argument for leaving it open
 was falsified by the next slide written.** §Consequences called it "one

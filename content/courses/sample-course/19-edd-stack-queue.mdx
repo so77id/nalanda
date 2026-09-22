@@ -1623,9 +1623,8 @@ aperturas.
 <PresentationWide fraction={0.75}>
 <Exercise title="Paréntesis balanceados">
 
-El algoritmo entero, con sus tres auxiliares. Los casos de prueba son
-`({[]})`, `({[]()})`, `([)]`, `(()`, `())` y la cadena vacía. Presiona
-**Comprobar** para correrlo, y después cambia lo que quieras.
+El algoritmo entero, con sus tres auxiliares. Presiona **Comprobar** para
+correrlo, y después cambia lo que quieras.
 
 ```java starter
 import java.util.Stack;
@@ -1823,7 +1822,8 @@ Al terminar queda un solo valor, y ése es el resultado.
 <Slide title="Polaca inversa · funciones auxiliares">
 ```java
 static boolean isOperator(String t) {
-    return t.equals("+") || t.equals("-") || t.equals("*") || t.equals("/");
+    return t.equals("+") || t.equals("-")
+        || t.equals("*") || t.equals("/");
 }
 
 static int apply(int a, int b, String t) {
@@ -1961,7 +1961,8 @@ class Solution {
     }
 
     static boolean isOperator(String t) {
-        return t.equals("+") || t.equals("-") || t.equals("*") || t.equals("/");
+        return t.equals("+") || t.equals("-")
+            || t.equals("*") || t.equals("/");
     }
 
     static int apply(int a, int b, String t) {
@@ -2193,7 +2194,8 @@ personas: $$\Theta(n)$$ de espacio.
 <PresentationWide fraction={0.75}>
 <Exercise title="El problema de Josefo">
 
-El algoritmo entero, con la cola escrita a mano sobre un arreglo. Los casos
+El algoritmo entero, con la `Queue` de la biblioteca sobre una lista
+enlazada. Los casos
 de prueba son `josephus(5, 2)`, `josephus(1, 3)`, `josephus(7, 1)` y
 `josephus(4, 2)`. Presiona **Comprobar** para correrlo, y después cambia lo
 que quieras.

@@ -109,18 +109,25 @@ loose `## Lo que sigue`, which projects the closing as an untitled divider
 (the defect #79 shipped). Either way it is book-visible,
 and says which document comes next — which is a different job (§5).
 
-**The third data point qualifies "the last act" as a DECK position, not a
-book one.** #294's exercise act carries a deck slide of its own (an index of
-the five exercises), and its hinge sits after the `<Exercise>` blocks — so
-in the book outline the hinge is filed under the exercises heading, while in
-the deck it is the penultimate slide, immediately before `Lo que sigue`,
-exactly where a lecture wants it. #277 has no exercise act at all and
-#288's was entirely book-only, so neither had to weigh this: `<Exercise>`
-renders no slide, and a heading with no `<SectionBreak />` renders none
-either. So a
-class whose exercise act DOES carry a deck slide may place the hinge after
-it, keeping hinge and closing adjacent where it counts. What stays wrong is
-a hinge the deck separates from its closing.
+**The third data point ships with NO closing at all, and that is a deviation
+rather than a new shape.** #294 has no hinge slide and no `Lo que sigue`: the
+professor cut both during the slide-by-slide review, along with the deque act
+and the five posed exercises, and the document ends on the last exercise's
+code slide followed by its `<Questions>` block. Two things follow, and the
+next author needs both.
+
+It is defensible here and only here: #294 is last in `index.yaml`, so there
+is no next class to navigate to, and a `Lo que sigue` would have to invent
+one. What it costs is real — `18-edd-listas-enlazadas.mdx` wiki-links forward
+into a document that now dead-ends, and the trade this guide asks every class
+to close on (§5) went with the hinge.
+
+**So the rule is unchanged and #294 is the exception, stated.** A class that
+is not last on the teaching path still owes a named trade and a closing
+navigation. This paragraph described the opposite for two commits — it
+claimed #294 carried an exercise index slide, a hinge after the `<Exercise>`
+blocks and a `Lo que sigue`, none of which ship — because it was written
+before the cuts and never re-measured against the document.
 
 **It also cut its own act 4.** An earlier draft closed with a recap act ("un
 contrato para los dos arreglos") that restated the TDA, put the two cost
@@ -446,11 +453,37 @@ silently correct only while the definitions are identical. #277 shipped seven
 `<marker id="mp">` this way and had to number them per frame. Suffix them
 (`arrow1`, `arrow2`, …) and prefix them per stepper. No gate sees this.
 
-**Keep every line of a `<StepShow>` fence under ~60 columns.** In presentation
+**Keep every line of a `<StepShow>` fence to 55 columns.** In presentation
 the widget takes half the viewport and stacks code over panel; a longer line
 clips at the right edge and nothing in the build or the suite sees it. Wrap
 long guards BEFORE writing any `lines={[…]}` — wrapping afterwards renumbers
 every step below, which is how #277 shipped two off-by-ones.
+
+**The number used to read "~60" and that was wrong**, by enough to ship a
+clipped slide through a review that measured the other axis. #294 measured it:
+at 1440x900 the widget's code panel is 718 px and a 57-column line renders
+737 px, so it loses its last one and a half characters — in its case the `;`
+of a `return false;`. That is 12.93 px per character, so 55 columns is the
+floor with a character of margin, and #294 ships one slide at 57 that was left
+alone deliberately: every way to shorten it either renumbered the steps of two
+widgets or pushed the neighbouring `<Exercise>` slide from 0.717 to 0.655.
+
+**Sweep the horizontal axis too, not only the scale.** A deck sweep that reads
+the `transform` on the slide stage sees a slide shrink to fit and reports it;
+it cannot see a `.cm-scroller` whose `scrollWidth` exceeds its `clientWidth`,
+because that element scrolls instead of shrinking — and a projected slide
+cannot be scrolled. Read both:
+
+```js
+[...document.querySelectorAll('.cm-scroller')]
+  .filter((e) => e.scrollWidth > e.clientWidth + 2)
+```
+
+#294 shipped a slide whose listing cut `isOperator` at `|| t.equals(`, hiding
+the fourth operator on the slide whose prose promised four, and the pre-PR
+sweep never looked. `<PresentationWide>` does not rescue it: `<StepShow>`
+already breaks out on its own and overrides the wrapper, so the fix is always
+the listing.
 
 ### 7. Decide widgets last, and for the unit rather than the class
 

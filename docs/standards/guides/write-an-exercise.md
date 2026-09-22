@@ -42,9 +42,12 @@ of a structure or a technique; that is `teach-a-data-structure.md`.
 
 Both are `<Exercise title="…">` with ```` ```java starter ```` and
 ```` ```java test ```` fences; only the posed one adds ```` ```java solution ````.
-#294 ships four worked and no posed ones — its five were cut, so the
-posed shape is described here from the `<Exercise>` contract rather than
-from a document that currently uses it.
+#294 ships four worked and no posed ones — its five were cut. The posed
+shape is not hypothetical, though: eleven of them already ship, six in
+`16-diseno-algoritmos-ordenamiento.mdx` and five in
+`18-edd-listas-enlazadas.mdx`, and all eleven have the shape described here —
+a statement, a skeleton `starter`, the `test` cases and a `solution`, with no
+beats 2 to 4 on any slide.
 
 ## The five beats
 
@@ -143,8 +146,13 @@ appeared inside the walk under a promise to write them "al final".
 - **A helper that carries no idea says so.** It is the statement's data
   written in Java. Telling the reader where *not* to spend attention is part
   of explaining.
-- **Helpers get no slide of their own.** Plumbing with a slide of its own
-  reads as important.
+- **A helper slide comes immediately before the listing slide** when the
+  helpers and the walk do not fit together. This guide said the opposite
+  first — "helpers get no slide of their own, plumbing with a slide of its
+  own reads as important" — and both exercises of #294 that have helpers
+  broke it, because on one slide the two clip. `course-content-style.md` §5,
+  written in the same PR, then sanctioned the resulting run of titles by name
+  as a legitimate series. The document was right and the rule was wrong.
 - **The listing is the runnable exercise's listing**, character for character,
   not a paraphrase of it.
 - The walk uses beat 1's example.
@@ -195,10 +203,12 @@ see which.
   or the walk that produces it. #294 shipped "y de ahí salen las tres únicas
   formas de fallar" beside a figure showing three examples — a claim of
   exhaustiveness nobody proved.
-- **The title says what is on the slide.** #294 shipped "La pila lo ve", which
-  says nothing. The deck must be readable from its titles alone.
-- **No back-references.** "la lámina anterior", "esa fila", "la columna de la
-  derecha" — every slide states its own fact.
+- **The title says what is on the slide**, and **no slide refers to another
+  one**. Both rules and their worked cases live in
+  [`course-content-style.md`](course-content-style.md) §5 and §4; they are
+  named here only because a beat's title is the place an exercise breaks them
+  first — see beat 3, where the title is part of not naming the structure
+  early.
 
 ## The spine adapts
 
@@ -228,8 +238,9 @@ and whether anything clips — recipe in `teach-a-data-structure.md`
       is skipped in one explicit line.
 - [ ] Beat 3 contains no code and no identifier from the listing, and the
       structure is named there for the first time.
-- [ ] Every helper the listing calls is written and explained above the
-      widget, on the same slide, and none has a slide of its own.
+- [ ] Every helper the listing calls is written and explained before the
+      walk that calls it — above the widget when both fit on one slide, on
+      the slide immediately before it when they do not.
 - [ ] The listing on the slide and the listing in the `<Exercise>` are the
       same characters.
 - [ ] One example threads beats 1, 3 and 4.
