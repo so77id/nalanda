@@ -19,12 +19,10 @@ questions: pool
 {/* Rangos que NO, y es deliberado: */}
 {/*   · los ejercicios, que no llevan ninguna pregunta por decisión. */}
 {/*   · las nueve láminas seguidas desde Las invariantes de la pila sobre */}
-{/*     lista hasta Stack en Java, y las cinco desde Las consultas de la cola */}
-{/*     hasta Dequeue: seis de ellas no pueden recibir una pregunta hoy */}
-{/*     porque su título se repite entre los dos actos y el generador de */}
-{/*     slugs no desambigua, así que su `anchor` sería ambiguo. */}
-{/* Por esa misma razón `como-se-implementa-este-tda` existe dos veces y la */}
-{/* pregunta anclada ahí resuelve a la del acto Stack por ser la primera. */}
+{/*     lista hasta Stack en Java, y las cinco desde Las consultas de la */}
+{/*     cola hasta Dequeue paso a paso. No hay impedimento técnico: sus */}
+{/*     títulos son únicos y sus anchors resuelven. Simplemente no se */}
+{/*     escribieron preguntas ahí, y el pool puede crecer cuando se quiera. */}
 
 
 # Estructuras de Datos · Stack y Queue
@@ -165,7 +163,7 @@ devolver, así que llamarlas ahí queda fuera del contrato.
 
 </Slide>
 
-<Slide title="Cómo se implementa este TDA">
+<Slide title="Cómo se implementa el TDA Stack">
 El contrato no dice dónde viven los elementos, así que hay que elegir. Las
 dos opciones ya las tenemos: el **arreglo**, que los guarda juntos en un
 bloque de casillas, y la **lista enlazada**, que los guarda sueltos y
@@ -389,7 +387,7 @@ nada que calcular: `head` **es** la cima, y basta con mirarla.
 
 </Slide>
 
-<Slide title="Las consultas">
+<Slide title="Las consultas de la pila">
 Las tres operaciones que no cambian la pila salen de los dos atributos, sin
 tocar la cadena.
 
@@ -475,7 +473,7 @@ grande ni copiar lo que ya tenía.
 
 </Slide>
 
-<Slide title="Push">
+<Slide title="Push paso a paso">
 <SequenceStepper
   eda="linked-list-singly"
   operation="insert-first"
@@ -547,7 +545,7 @@ recupera más tarde.
 
 </Slide>
 
-<Slide title="Pop">
+<Slide title="Pop paso a paso">
 <SequenceStepper
   eda="linked-list-singly"
   operation="remove-first"
@@ -583,7 +581,7 @@ Es exactamente lo que el arreglo no podía prometer.
 
 </Slide>
 
-<Slide title="Arreglo vs lista">
+<Slide title="Arreglo vs lista para la pila">
 | | Sobre arreglo dinámico | Sobre lista simple |
 |---|---|---|
 | `push(x)` | $$\Theta(1)$$ amortizado — $$\Theta(N)$$ la corrida que copia | $$\Theta(1)$$ siempre |
@@ -845,7 +843,7 @@ Pedirle el frente a una cola vacía es un error, no un valor. `front()` y
 
 </Slide>
 
-<Slide title="Cómo se implementa este TDA">
+<Slide title="Cómo se implementa el TDA Queue">
 El contrato no dice dónde viven los elementos, pero sí pide algo exigente:
 **los dos extremos**, y los dos baratos.
 
@@ -1069,7 +1067,7 @@ olvidarla en un solo caso de borde rompe la estructura en silencio.
 
 </Slide>
 
-<Slide title="Las consultas">
+<Slide title="Las consultas de la cola">
 Las tres operaciones que no cambian la cola salen de los atributos, sin
 tocar la cadena.
 
@@ -1159,7 +1157,7 @@ y se escribe una sola vez.
 
 </Slide>
 
-<Slide title="Enqueue">
+<Slide title="Enqueue paso a paso">
 <SequenceStepper
   eda="linked-list-singly"
   operation="insert-last"
@@ -1230,7 +1228,7 @@ elemento nuevo a un nodo que no pertenece a la cola.
 
 </Slide>
 
-<Slide title="Dequeue">
+<Slide title="Dequeue paso a paso">
 <SequenceStepper
   eda="linked-list-singly"
   operation="remove-first"
@@ -1265,7 +1263,7 @@ apuntando a un nodo que ya salió de la cola.
 
 </Slide>
 
-<Slide title="Arreglo vs lista">
+<Slide title="Arreglo vs lista para la cola">
 | | Sobre arreglo dinámico | Lista con `head` y `tail` |
 |---|---|---|
 | `enqueue(x)` | $$\Theta(1)$$ amortizado | $$\Theta(1)$$ siempre |
@@ -1500,7 +1498,7 @@ es un símbolo que nunca se cerró.
 
 </Slide>
 
-<Slide title="Código · funciones auxiliares">
+<Slide title="Paréntesis · funciones auxiliares">
 ```java
 static boolean isOpener(char c) {
     return c == '(' || c == '[' || c == '{';
@@ -1525,7 +1523,7 @@ para `)`, `[` para `]`, `{` para `}`.
 
 </Slide>
 
-<Slide title="Código · la solución">
+<Slide title="Paréntesis · la solución">
 Cada apertura entra a la pila. Cada cierre saca la cima y la compara contra la
 apertura que le corresponde: si no coinciden, la expresión no está balanceada.
 
@@ -1621,7 +1619,7 @@ aperturas.
 
 </Slide>
 
-<Slide title="Código · el programa completo">
+<Slide title="Paréntesis · el programa completo">
 <PresentationWide fraction={0.75}>
 <Exercise title="Paréntesis balanceados">
 
@@ -1822,7 +1820,7 @@ Al terminar queda un solo valor, y ése es el resultado.
 
 </Slide>
 
-<Slide title="Código · funciones auxiliares">
+<Slide title="Polaca inversa · funciones auxiliares">
 ```java
 static boolean isOperator(String t) {
     return t.equals("+") || t.equals("-") || t.equals("*") || t.equals("/");
@@ -1843,7 +1841,7 @@ aplicarlo, con `a` como operando izquierdo y `b` como derecho.
 
 </Slide>
 
-<Slide title="Código · la solución">
+<Slide title="Polaca inversa · la solución">
 Cada número se apila. Cada operador saca dos, los opera y apila el resultado.
 
 <StepShow
@@ -1936,7 +1934,7 @@ empieza con muchos números seguidos.
 
 </Slide>
 
-<Slide title="Código · el programa completo">
+<Slide title="Polaca inversa · el programa completo">
 <PresentationWide fraction={0.75}>
 <Exercise title="Notación polaca inversa">
 
@@ -2093,7 +2091,7 @@ un extremo y se agrega por el otro es una **cola**.
 
 </Slide>
 
-<Slide title="Código · la solución">
+<Slide title="Josefo · la solución">
 Con $$n = 5$$ y $$k = 2$$, cada baja son $$k - 1$$ pasadas de largo y un
 `remove()` que saca de verdad.
 
@@ -2191,7 +2189,7 @@ personas: $$\Theta(n)$$ de espacio.
 
 </Slide>
 
-<Slide title="Código · el programa completo">
+<Slide title="Josefo · el programa completo">
 <PresentationWide fraction={0.75}>
 <Exercise title="El problema de Josefo">
 
@@ -2342,7 +2340,7 @@ en que entraron, y la colección que hace eso es una **cola**.
 
 </Slide>
 
-<Slide title="Código · la solución">
+<Slide title="Promedio móvil · la solución">
 Cada número que llega entra a la cola y se suma. Si con eso la ventana quedó
 más larga que $$K$$, sale el del frente y se resta.
 
@@ -2405,7 +2403,7 @@ espacio es $$\Theta(K)$$.
 
 </Slide>
 
-<Slide title="Código · el programa completo">
+<Slide title="Promedio móvil · el programa completo">
 <PresentationWide fraction={0.75}>
 <Exercise title="Promedio móvil">
 
@@ -2478,7 +2476,7 @@ check(Solution.movingAverage(5, new int[] {2, 4})[1], 3.0);
 
 </Question>
 
-<Question id="pila-por-que-esa-punta" anchor="como-se-implementa-este-tda">
+<Question id="pila-por-que-esa-punta" anchor="como-se-implementa-el-tda-stack">
 
 ¿Por qué una pila sobre arreglo trabaja por el final y una sobre lista, por la cabeza?
 

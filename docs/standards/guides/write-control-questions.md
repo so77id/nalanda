@@ -229,11 +229,12 @@ is satisfied by an anchor that points at the wrong act.
 
 #294 met this with ten duplicated slugs over twenty-four slides —
 `como-se-implementa-este-tda`, `las-consultas`, `push`, `pop`,
-`arreglo-vs-lista`, `enqueue`, `dequeue` — because its two acts ask the same
-four questions about two different objects and name their slides alike.
-Six slides carrying real material could not receive a question at all, and
-the one question that does sit on a duplicated slug is correct only because
-the act it belongs to happens to come first.
+`arreglo-vs-lista`, `enqueue`, `dequeue` and the three of its `Código · …`
+series — because its two acts ask the same four questions about two
+different objects and named their slides alike. Six slides carrying real
+material could not receive a question at all, and the one question that did
+sit on a duplicated slug was correct only because the act it belongs to
+comes first. It shipped with every title made unique instead.
 
 Two ways out, and the first is the author's:
 
