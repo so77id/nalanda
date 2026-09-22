@@ -300,6 +300,9 @@ def analyse(body):
 
     after = read_capture.capture_snapshot(data)
     batch = read_capture.batch_outcome(before, after)
+    # BEFORE `note`, which scores from `manual`: a re-captured copy is born
+    # again (issue #298 §C).
+    forget_corrections(data, batch["recaptured_copies"])
     if batch["captured"] == 0:
         # Nothing of this batch was read, so there is nothing to score — and
         # on a project whose first batch this is, scoring would find no
@@ -345,6 +348,41 @@ def analyse(body):
     # Optional on the wire (CLAUDE.md): a server that predates it ignores it.
     report["batch"] = batch
     return report
+
+
+def forget_corrections(data, students):
+    """Drop every correction made on the previous image of these copies.
+
+    AMC keys a box by (student, page, copy, type, id_a, id_b) and re-uses
+    the row when a page is captured again: `black` and `total` move to the
+    new pixels, `manual` stays (capture.pm's get_zoneid). The professor's
+    old correction would then be applied to an image it was never made
+    against — and note, annotate and the reading report all honour it.
+    Reset to -1, the value `apply_overrides` resets to, for the whole copy:
+    the server drops its own override rows for the same copies, so the two
+    sides of the seam agree that this copy is freshly read.
+
+    The forced association a RUT correction wrote goes too: it named whose
+    sheet the OLD image was.
+    """
+    if not students:
+        return
+    rows = [(s,) for s in students]
+    cap = sqlite3.connect(os.path.join(data, "capture.sqlite"))
+    try:
+        cap.executemany("UPDATE capture_zone SET manual = -1 WHERE student = ?", rows)
+        cap.commit()
+    finally:
+        cap.close()
+    association_db = os.path.join(data, "association.sqlite")
+    if os.path.exists(association_db):
+        con = sqlite3.connect(association_db)
+        try:
+            con.executemany(
+                "UPDATE association_association SET manual = NULL WHERE student = ?", rows)
+            con.commit()
+        finally:
+            con.close()
 
 
 def batch_list_name(scan_pdf):

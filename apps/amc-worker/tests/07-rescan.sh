@@ -220,4 +220,22 @@ mixed="$(analyse p1 6)"
 check_eq "a batch recognised in part reads what it can and counts the rest" \
   "{'captured': 2, 'failed': 2, 'recaptured_copies': [2]}" "$(echo "$mixed" | field 'd["batch"]')"
 
+# --- S4: a re-captured copy loses the corrections made on its old image -------
+#
+# AMC keys a zone by (student, page, copy, type, id_a, id_b) and re-uses the
+# row on a re-capture: black/total move, `manual` stays. The professor's old
+# correction would then be applied to a new image. Issue #298 §C: the copy
+# comes back as freshly read.
+blank_all="$(echo "$full" | field 'json.dumps({"project": "p3", "copy": 1, "overrides": {"answers": [{"question": a["name"], "marked": []} for a in d["copies"]["1"]["answers"]]}})')"
+post /annotate/copy "$blank_all" >/dev/null
+patched="$(post /reanalyse '{"project":"p3"}')"
+check_eq "a correction blanks copy 1 (so the check below is not vacuous)" "True" \
+  "$(echo "$patched" | field 'all(a["marked"] == [] for a in d["copies"]["1"]["answers"])')"
+upload p3 scan-one/lote.pdf 7
+fresh="$(analyse p3 7)"
+check_eq "re-scanning copy 1 reads its boxes from the pixels again" "True" \
+  "$(echo "$fresh" | field 'all(a["marked"] for a in d["copies"]["1"]["answers"])')"
+check_eq "with no manual mark left on it" "0" \
+  "$(sql p3 'SELECT COUNT(*) FROM capture_zone WHERE student = 1 AND manual >= 0')"
+
 summary
