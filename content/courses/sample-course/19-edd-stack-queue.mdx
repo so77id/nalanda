@@ -1669,12 +1669,12 @@ int evaluate(String[] tokens)
 división es entera y la expresión siempre está bien formada. Escribiendo las
 piezas separadas por espacios:
 
-| `tokens` | `evaluate(tokens)` |
-|---|---|
-| `3 4 + 5 *` | `35` |
-| `3 4 5 * +` | `23` |
-| `5 3 -` | `2` |
-| `7` | `7` |
+| `tokens` | con paréntesis | `evaluate(tokens)` |
+|---|---|---|
+| `3 4 + 5 *` | `(3 + 4) × 5` | `35` |
+| `3 4 5 * +` | `3 + (4 × 5)` | `23` |
+| `5 3 -` | `5 − 3` | `2` |
+| `7` | `7` | `7` |
 
 </Slide>
 
@@ -1837,9 +1837,12 @@ return values.pop();`}
 
 </Slide>
 
-<Slide title="El orden de los dos pop">
-La corrección del evaluador se juega en dos líneas consecutivas, y con la
-resta se ve en un solo token.
+<Slide title="El primer pop es el operando derecho">
+En `5 3 -` la pila tiene el `5` abajo y el `3` arriba, porque el `5` entró
+primero. Los `pop()` los devuelven al revés de como entraron: **el primero
+saca el `3`, que es el operando derecho de la resta**, y el segundo saca el
+`5`, que es el izquierdo. Por eso el código guarda el primero en `b`, el
+segundo en `a`, y llama `apply(a, b, t)`.
 
 <StepShow
   language="java"
@@ -1868,9 +1871,11 @@ return values.pop();`}
   </Step>
 </StepShow>
 
-Invierte esas dos líneas y el evaluador calcula `3 − 5 = −2`. Con la suma y
-la multiplicación los dos órdenes dan lo mismo, así que el error sobrevive
-las pruebas fáciles y aparece recién con una resta o una división.
+Con las dos líneas al revés —`int a` primero y `int b` después—, `a` recibe
+el `3` y `b` el `5`, y el evaluador calcula
+`3 − 5 = −2` en vez de `2`. Con `+` y con `*` los dos órdenes dan el mismo
+resultado, así que el error pasa cualquier prueba que sólo los use y aparece
+recién con una resta o una división.
 
 Cada pieza se mira una vez y entra y sale de la pila a lo más una vez:
 $$\Theta(N)$$ de tiempo, y $$\Theta(N)$$ de espacio cuando la expresión
