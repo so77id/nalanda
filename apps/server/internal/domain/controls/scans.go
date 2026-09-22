@@ -89,6 +89,17 @@ func (s *Service) SaveUploadedBatch(ctx context.Context, req UploadRequest) (Sav
 	}, nil
 }
 
+// AnalyzeResult is what AnalyzeBatch did: the worker's report, plus what
+// the server learned while persisting it (issue #298).
+type AnalyzeResult struct {
+	Report Report
+	// RecapturedPublished counts the copies this batch re-captured that
+	// had already been mailed to their student. Those students hold a
+	// grade the new reading may have moved — ADR-0073 then derives the
+	// copy as stale — so the job's notice names the number.
+	RecapturedPublished int
+}
+
 // SaveUploadedBatchResult is what SaveUploadedBatch returns to the HTTP
 // handler so it can then Submit an analyse job.
 type SaveUploadedBatchResult struct {
@@ -124,10 +135,10 @@ type SaveUploadedBatchResult struct {
 // committed; in operation this class of failure is a store outage and
 // the professor retries. A widened transactional shape (single-tx
 // PersistReport) is a follow-up.
-func (s *Service) AnalyzeBatch(ctx context.Context, controlID, batchName string, ticked, unsure float64) (Report, error) {
+func (s *Service) AnalyzeBatch(ctx context.Context, controlID, batchName string, ticked, unsure float64) (AnalyzeResult, error) {
 	control, err := s.Store.ControlByID(ctx, controlID)
 	if err != nil {
-		return Report{}, err
+		return AnalyzeResult{}, err
 	}
 	project := filepath.Join(projectPrefix, control.ID)
 	report, err := s.Analyzer.Analyze(ctx, AnalyzeRequest{
@@ -138,16 +149,16 @@ func (s *Service) AnalyzeBatch(ctx context.Context, controlID, batchName string,
 		Unsure:  unsure,
 	})
 	if err != nil {
-		return Report{}, err
+		return AnalyzeResult{}, err
 	}
 	// Issue #298: a batch AMC recognised none of is refused before anything
 	// is written — the readings stay as the previous batch left them.
 	if report.Batch != nil && report.Batch.Captured == 0 {
-		return Report{}, fmt.Errorf("%w: %s: %d unrecognised pages",
+		return AnalyzeResult{}, fmt.Errorf("%w: %s: %d unrecognised pages",
 			ErrNothingCaptured, batchName, report.Batch.Failed)
 	}
 	if err := s.Store.SetControlThresholds(ctx, control.ID, ticked, unsure); err != nil {
-		return Report{}, fmt.Errorf("controls.AnalyzeBatch: persist thresholds: %w", err)
+		return AnalyzeResult{}, fmt.Errorf("controls.AnalyzeBatch: persist thresholds: %w", err)
 	}
 	// Issue #298 §C: a copy this batch re-scanned is born again BEFORE the
 	// report lands — its corrections were made against an image that no
@@ -156,17 +167,20 @@ func (s *Service) AnalyzeBatch(ctx context.Context, controlID, batchName string,
 	// between the two leaves a reset copy showing its previous reading,
 	// which the next upload or re-read repairs, and never an old
 	// correction applied to the new image.
+	result := AnalyzeResult{Report: report}
 	if report.Batch != nil && len(report.Batch.RecapturedCopies) > 0 {
-		if err := s.Readings.ResetRecapturedCopies(ctx, control.ID, report.Batch.RecapturedCopies); err != nil {
-			return Report{}, fmt.Errorf("controls.AnalyzeBatch: reset re-captured copies: %w", err)
+		published, err := s.Readings.ResetRecapturedCopies(ctx, control.ID, report.Batch.RecapturedCopies)
+		if err != nil {
+			return AnalyzeResult{}, fmt.Errorf("controls.AnalyzeBatch: reset re-captured copies: %w", err)
 		}
+		result.RecapturedPublished = published
 	}
 	now := s.Now()
 	if err := s.Readings.UpsertReadingsFromReport(ctx, control.ID, report, now); err != nil {
-		return Report{}, fmt.Errorf("controls.AnalyzeBatch: persist: %w", err)
+		return AnalyzeResult{}, fmt.Errorf("controls.AnalyzeBatch: persist: %w", err)
 	}
 	if err := s.Readings.MarkMissingAsNotPresent(ctx, control.ID, now); err != nil {
-		return Report{}, fmt.Errorf("controls.AnalyzeBatch: mark missing: %w", err)
+		return AnalyzeResult{}, fmt.Errorf("controls.AnalyzeBatch: mark missing: %w", err)
 	}
 	s.annotateCleanCopies(ctx, control, report)
 	// Issue #272: every RUT this read produced is offered to the roster.
@@ -179,7 +193,7 @@ func (s *Service) AnalyzeBatch(ctx context.Context, controlID, batchName string,
 			s.Log.Warn("controls.AnalyzeBatch: state transition failed", "control", control.ID, "error", err)
 		}
 	}
-	return report, nil
+	return result, nil
 }
 
 // Reanalyze re-reads the existing captures at new thresholds. Fails cleanly

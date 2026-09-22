@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/so77id/nalanda/apps/server/internal/domain/controls"
+	"github.com/so77id/nalanda/apps/server/internal/domain/jobs"
 )
 
 // Issue #298: re-scanning a control. The worker captures in single mode, so
@@ -62,7 +63,7 @@ func TestABatchThatCapturedNothingFailsAndWritesNothing(t *testing.T) {
 }
 
 // The banner is the only thing the professor reads: it says the batch
-// changed nothing and the likeliest cause, and job.detail keeps the count.
+// changed nothing, and job.detail keeps the count.
 func TestTheAnalyseJobNamesTheUnrecognisedPages(t *testing.T) {
 	svc, _, gen, _ := newService(t)
 	control, err := createControlSync(context.Background(), svc, req(nil))
@@ -82,8 +83,8 @@ func TestTheAnalyseJobNamesTheUnrecognisedPages(t *testing.T) {
 	raw, _ := json.Marshal(controls.AnalysePayload{BatchName: save.BatchName,
 		Ticked: save.Ticked, Unsure: save.Unsure})
 	failure := failureFrom(t, controls.NewAnalyseHandler(svc)(context.Background(), control.ID, raw))
-	if !strings.Contains(failure.Message, "otro control") {
-		t.Errorf("banner %q does not name the likeliest cause", failure.Message)
+	if !strings.Contains(failure.Message, "ninguna página") {
+		t.Errorf("banner %q does not say the batch was not read", failure.Message)
 	}
 	if !strings.Contains(failure.Detail, "12") {
 		t.Errorf("detail %q does not carry the unrecognised count", failure.Detail)
@@ -145,5 +146,83 @@ func TestABatchThatRecapturedNothingResetsNothing(t *testing.T) {
 		if strings.HasPrefix(c, "reset") {
 			t.Errorf("reading store call %q on a batch that re-captured nothing", c)
 		}
+	}
+}
+
+// runAnalyseJob saves a batch and drives the analyse handler the way the
+// runner does, returning what the handler returned.
+func runAnalyseJob(t *testing.T, svc *controls.Service, controlID string) error {
+	t.Helper()
+	save, err := svc.SaveUploadedBatch(context.Background(), controls.UploadRequest{
+		ControlID: controlID, Filename: "lote.pdf",
+		Content: io.NopCloser(strings.NewReader("%PDF-fake")),
+		Ticked:  controls.DefaultTicked, Unsure: controls.DefaultUnsure,
+	})
+	if err != nil {
+		t.Fatalf("SaveUploadedBatch: %v", err)
+	}
+	raw, _ := json.Marshal(controls.AnalysePayload{BatchName: save.BatchName,
+		Ticked: save.Ticked, Unsure: save.Unsure})
+	return controls.NewAnalyseHandler(svc)(context.Background(), controlID, raw)
+}
+
+// noticeFrom unwraps the *jobs.Notice a handler returns on a success that
+// has something to say.
+func noticeFrom(t *testing.T, err error) *jobs.Notice {
+	t.Helper()
+	var notice *jobs.Notice
+	if !errors.As(err, &notice) {
+		t.Fatalf("the handler returned %v, want a *jobs.Notice", err)
+	}
+	return notice
+}
+
+// Issue #298 §D: a re-read over copies already mailed is not refused —
+// ADR-0073 owns that case per copy — but the professor is told, because
+// those students hold a grade the new reading may have moved.
+func TestAnAnalyseThatReReadPublishedCopiesSaysHowMany(t *testing.T) {
+	svc, _, gen, _ := newService(t)
+	control, err := createControlSync(context.Background(), svc, req(nil))
+	if err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+	svc.Readings.(*fakeReadingStore).publishedAmongReset = 2
+	gen.AnalyzeReports = []controls.Report{{
+		Batch: &controls.Batch{Captured: 6, RecapturedCopies: []int{1, 2, 3}},
+	}}
+
+	notice := noticeFrom(t, runAnalyseJob(t, svc, control.ID))
+	if !strings.Contains(notice.Message, "2 copias ya publicadas fueron releídas") {
+		t.Errorf("notice %q does not count the published copies re-read", notice.Message)
+	}
+}
+
+// A batch AMC read in part succeeds — and says how many of its pages it
+// did not recognise, since those sheets were not read at all.
+func TestAPartlyRecognisedBatchSucceedsAndCountsTheRest(t *testing.T) {
+	svc, _, gen, _ := newService(t)
+	control, err := createControlSync(context.Background(), svc, req(nil))
+	if err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+	gen.AnalyzeReports = []controls.Report{{Batch: &controls.Batch{Captured: 22, Failed: 2}}}
+
+	notice := noticeFrom(t, runAnalyseJob(t, svc, control.ID))
+	if !strings.Contains(notice.Message, "2 páginas del lote no se reconocieron") {
+		t.Errorf("notice %q does not count the unrecognised pages", notice.Message)
+	}
+}
+
+// And a batch with nothing to say is a plain success: no notice at all.
+func TestACleanBatchHasNoNotice(t *testing.T) {
+	svc, _, gen, _ := newService(t)
+	control, err := createControlSync(context.Background(), svc, req(nil))
+	if err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+	gen.AnalyzeReports = []controls.Report{{Batch: &controls.Batch{Captured: 6, RecapturedCopies: []int{1}}}}
+
+	if err := runAnalyseJob(t, svc, control.ID); err != nil {
+		t.Errorf("handler = %v, want nil for a batch with nothing to report", err)
 	}
 }

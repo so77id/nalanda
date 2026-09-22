@@ -955,6 +955,9 @@ func (h *Controls) jobBannerFor(ctx context.Context, controlID string, gmailConn
 			banner.ProfileURL = ProfilePath
 		}
 	}
+	if banner.Done {
+		banner.Notice = job.Notice
+	}
 	if running {
 		start := job.CreatedAt
 		if job.StartedAt != nil {

@@ -607,14 +607,23 @@ func (s *Store) ClearRUTOverride(ctx context.Context, readingID int64) error {
 // (issue #298). The two publication columns are NOT touched — see the
 // port's docstring; TestResetRecapturedCopiesForgetsCorrectionsAndKeeps
 // ThePublication is the pin.
-func (s *Store) ResetRecapturedCopies(ctx context.Context, controlID string, copies []int) error {
+func (s *Store) ResetRecapturedCopies(ctx context.Context, controlID string, copies []int) (int, error) {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
-		return fmt.Errorf("controlstore.ResetRecapturedCopies: begin: %w", err)
+		return 0, fmt.Errorf("controlstore.ResetRecapturedCopies: begin: %w", err)
 	}
 	defer func() { _ = tx.Rollback() }()
 
+	published := 0
 	for _, copyNumber := range copies {
+		var sent int
+		if err := tx.QueryRowContext(ctx,
+			`SELECT COUNT(*) FROM reading
+             WHERE control_id = ? AND copy_number = ? AND published_at IS NOT NULL`,
+			controlID, copyNumber).Scan(&sent); err != nil {
+			return 0, fmt.Errorf("controlstore.ResetRecapturedCopies %s/%d: %w", controlID, copyNumber, err)
+		}
+		published += sent
 		for _, stmt := range []string{
 			`DELETE FROM answer_override WHERE reading_id IN
                  (SELECT id FROM reading WHERE control_id = ? AND copy_number = ?)`,
@@ -625,11 +634,14 @@ func (s *Store) ResetRecapturedCopies(ctx context.Context, controlID string, cop
 			`DELETE FROM annotated_copy WHERE control_id = ? AND copy_number = ?`,
 		} {
 			if _, err := tx.ExecContext(ctx, stmt, controlID, copyNumber); err != nil {
-				return fmt.Errorf("controlstore.ResetRecapturedCopies %s/%d: %w", controlID, copyNumber, err)
+				return 0, fmt.Errorf("controlstore.ResetRecapturedCopies %s/%d: %w", controlID, copyNumber, err)
 			}
 		}
 	}
-	return tx.Commit()
+	if err := tx.Commit(); err != nil {
+		return 0, fmt.Errorf("controlstore.ResetRecapturedCopies: commit: %w", err)
+	}
+	return published, nil
 }
 
 // SetControlState updates control.state.

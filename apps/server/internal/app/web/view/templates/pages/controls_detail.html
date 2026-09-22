@@ -22,6 +22,7 @@
         </form>
       {{ else if .Done }}
         <p><strong>{{ .Kind | printf "%s" }} lista.</strong></p>
+        {{ if .Notice }}<p>{{ .Notice }}</p>{{ end }}
         <form method="post" action="{{ .DismissURL }}" style="display:inline">
           <input type="hidden" name="csrf_token" value="{{ $.CSRFToken }}">
           <button type="submit">Refrescar</button>

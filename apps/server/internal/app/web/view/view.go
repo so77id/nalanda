@@ -706,6 +706,10 @@ type JobBanner struct {
 	// connection on each render, never stored on the job, so it disappears
 	// once the professor has reconnected.
 	ProfileURL string
+	// Notice is what a DONE job had to say beyond "lista" (issue #298):
+	// an analyse that re-read copies already mailed, or that met pages it
+	// did not recognise. Only populated when Done.
+	Notice string
 	// DismissURL is POST /jobs/{id}/dismiss — the "Refrescar" (running /
 	// done) and "Cerrar aviso" (failed) button both target it. The
 	// professor re-submits the operation from the usual form after

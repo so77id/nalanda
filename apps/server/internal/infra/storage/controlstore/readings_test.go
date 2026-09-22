@@ -1230,8 +1230,13 @@ func TestResetRecapturedCopiesForgetsCorrectionsAndKeepsThePublication(t *testin
 		}
 	}
 
-	if err := store.ResetRecapturedCopies(ctx, id, []int{1}); err != nil {
+	published, err := store.ResetRecapturedCopies(ctx, id, []int{1})
+	if err != nil {
 		t.Fatalf("ResetRecapturedCopies: %v", err)
+	}
+	// The count the flash quotes: re-captured copies that had gone out.
+	if published != 1 {
+		t.Errorf("published = %d, want 1 — copy 2 went out too, but was not re-captured", published)
 	}
 
 	born, err := store.ReadingByCopy(ctx, id, 1)

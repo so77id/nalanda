@@ -211,8 +211,10 @@ var (
 	ErrAnalyzerUnavailable = errors.New("controls: the AMC worker is unreachable")
 
 	// ErrNothingCaptured: the worker read the batch and recognised none of
-	// its pages (issue #298). In single mode AMC exits 0 over a PDF from
-	// another control, so this is where that failure becomes loud.
+	// its pages (issue #298). In single mode AMC files an unrecognised page
+	// in capture_failed and exits 0, so this is where that failure becomes
+	// loud. A page from ANOTHER Nalanda control is not one of them — its
+	// marker reads as this control's — which is why nothing here names it.
 	ErrNothingCaptured = errors.New("controls: no page of the batch was recognised")
 )
 
@@ -458,7 +460,10 @@ type ReadingStore interface {
 	// ADR-0073 derives CopyStale from them, and clearing them would turn a
 	// student who already received their correction into CopyNotSent. A
 	// copy with no reading row yet is skipped.
-	ResetRecapturedCopies(ctx context.Context, controlID string, copies []int) error
+	//
+	// Returns how many of the listed copies carry published_at — the
+	// students who hold a grade this re-capture may have moved (§D).
+	ResetRecapturedCopies(ctx context.Context, controlID string, copies []int) (published int, err error)
 
 	// CopiesForStudent returns which copies one student is matched to,
 	// across every ACTIVE control, newest control first (issue #272 S8).
