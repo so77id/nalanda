@@ -1652,12 +1652,34 @@ check(Solution.balanced(""), true);
 </Slide>
 
 <Slide title="Notación polaca inversa">
-En la notación polaca inversa el operador va **después** de sus dos
-operandos. Eso suena a un detalle de escritura y no lo es: con los
-operadores al final, una expresión no necesita paréntesis ni reglas de
-precedencia, porque el orden ya dice qué se aplica a qué.
+Una calculadora HP de los años setenta no traía teclas de paréntesis, y no le
+hacían falta: se tecleaba `3 4 + 5 *`, sin abrir ninguno. Esa forma de
+escribir se llama **notación polaca inversa**, y su única regla es que el
+operador va después de sus dos operandos.
 
-<svg viewBox="0 0 660 200" style={{ width: '100%', maxWidth: '660px', height: 'auto', display: 'block', margin: '1.25rem auto' }} role="img" aria-label="A la izquierda, dos expresiones con paréntesis: abre tres más cuatro cierra por cinco, y tres más abre cuatro por cinco cierra. A la derecha, las mismas dos en polaca inversa: tres cuatro más cinco por, y tres cuatro cinco por más. Los mismos números en el mismo orden; lo único que cambia es dónde van los operadores, y no hace falta ningún paréntesis.">
+El programa recibe la expresión ya separada en piezas —cada una es un número
+entero o uno de los cuatro operadores— y tiene que devolver su valor. Eso es
+una función que toma un arreglo de `String` y devuelve un `int`:
+
+```java
+int evaluate(String[] tokens)
+```
+
+`tokens` trae a lo más 10⁴ piezas, los operadores son `+`, `-`, `*` y `/`, la
+división es entera y la expresión siempre está bien formada. Escribiendo las
+piezas separadas por espacios:
+
+| `tokens` | `evaluate(tokens)` |
+|---|---|
+| `3 4 + 5 *` | `35` |
+| `3 4 5 * +` | `23` |
+| `5 3 -` | `2` |
+| `7` | `7` |
+
+</Slide>
+
+<Slide title="Los paréntesis que no hacen falta">
+<svg viewBox="0 0 660 200" style={{ width: '100%', maxWidth: '660px', height: 'auto', display: 'block', margin: '1.25rem auto' }} role="img" aria-label="A la izquierda, dos expresiones con paréntesis: abre tres más cuatro cierra por cinco, y tres más abre cuatro por cinco cierra. A la derecha, las mismas dos en polaca inversa: tres cuatro más cinco por, y tres cuatro cinco por más. Los mismos números en el mismo orden; lo único que cambia es dónde van los operadores, y no hace falta ningún paréntesis. La primera vale 35 y la segunda 23.">
   <defs>
     <marker id="rpn-punta" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto">
       <path d="M0,0 L7,3.5 L0,7 z" style={{ fill: 'var(--color-ink-faint)' }} />
@@ -1689,51 +1711,93 @@ precedencia, porque el orden ya dice qué se aplica a qué.
   <text x={467} y="107" textAnchor="middle" fontSize="16" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>{'*'}</text>
   <rect x={490} y="86" width="34" height="30" rx="3" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.5" />
   <text x={507} y="107" textAnchor="middle" fontSize="16" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>{'+'}</text>
-  <text x="16" y="146" fontSize="13" style={{ fill: 'var(--color-ink-faint)' }}>los mismos números en el mismo orden, resultados distintos — y sin un paréntesis</text>
+  <text x="540" y="61" fontSize="16" fontWeight="700" fontFamily="monospace" style={{ fill: 'var(--color-keep)' }}>= 35</text>
+  <text x="540" y="107" fontSize="16" fontWeight="700" fontFamily="monospace" style={{ fill: 'var(--color-keep)' }}>= 23</text>
 </svg>
 
-Y evaluarla es ir reduciendo de izquierda a derecha: cada operador consume
-los **dos resultados más recientes** y deja uno en su lugar.
+`(3 + 4) × 5` y `3 + (4 × 5)` tienen los mismos tres números en el mismo
+orden y dan resultados distintos. Lo único que los separa son los paréntesis:
+sin ellos habría que acordar una regla de precedencia, y con ella habría que
+recordarla.
 
-<svg viewBox="0 0 660 190" style={{ width: '100%', maxWidth: '620px', height: 'auto', display: 'block', margin: '1.25rem auto' }} role="img" aria-label="La expresión tres cuatro más cinco por, reduciéndose. Una llave abarca el tres, el cuatro y el más, y baja a un siete resaltado. Otra llave abarca ese siete, el cinco y el por, y baja a treinta y cinco. Cada operador consume los dos resultados más recientes.">
-  <defs>
-    <marker id="rpn-punta-ac" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto">
-      <path d="M0,0 L7,3.5 L0,7 z" style={{ fill: 'var(--color-accent)' }} />
-    </marker>
-  </defs>
-  <rect x={40} y="20" width="34" height="30" rx="3" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.5" />
-  <text x={57} y="41" textAnchor="middle" fontSize="16" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>{'3'}</text>
-  <rect x={80} y="20" width="34" height="30" rx="3" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.5" />
-  <text x={97} y="41" textAnchor="middle" fontSize="16" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>{'4'}</text>
-  <rect x={120} y="20" width="34" height="30" rx="3" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.5" />
-  <text x={137} y="41" textAnchor="middle" fontSize="16" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>{'+'}</text>
-  <rect x={160} y="20" width="34" height="30" rx="3" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.5" />
-  <text x={177} y="41" textAnchor="middle" fontSize="16" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>{'5'}</text>
-  <rect x={200} y="20" width="34" height="30" rx="3" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.5" />
-  <text x={217} y="41" textAnchor="middle" fontSize="16" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>{'*'}</text>
-  <path d="M 44 56 l 0 10 l 112 0 l 0 -10" fill="none" style={{ stroke: 'var(--color-accent)' }} strokeWidth="1.8" />
-  <path d="M 100 66 l 0 14" fill="none" style={{ stroke: 'var(--color-accent)' }} strokeWidth="1.8" markerEnd="url(#rpn-punta-ac)" />
-  <rect x={83} y="86" width="34" height="30" rx="3" style={{ fill: 'var(--color-mark-soft)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.5" />
-  <text x={100} y="107" textAnchor="middle" fontSize="16" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>{'7'}</text>
-  <rect x={160} y="86" width="34" height="30" rx="3" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.5" />
-  <text x={177} y="107" textAnchor="middle" fontSize="16" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>{'5'}</text>
-  <rect x={200} y="86" width="34" height="30" rx="3" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.5" />
-  <text x={217} y="107" textAnchor="middle" fontSize="16" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>{'*'}</text>
-  <path d="M 87 122 l 0 10 l 190 0 l 0 -10" fill="none" style={{ stroke: 'var(--color-accent)' }} strokeWidth="1.8" />
-  <path d="M 182 132 l 0 14" fill="none" style={{ stroke: 'var(--color-accent)' }} strokeWidth="1.8" markerEnd="url(#rpn-punta-ac)" />
-  <rect x={160} y="152" width="44" height="30" rx="3" style={{ fill: 'var(--color-mark-soft)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.5" />
-  <text x={182} y="173" textAnchor="middle" fontSize="16" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>{'35'}</text>
-  <text x="240" y="174" fontSize="13" style={{ fill: 'var(--color-ink-faint)' }}>cada operador consume los dos resultados más recientes</text>
-</svg>
-
-«Los dos más recientes» es LIFO otra vez, y por eso el evaluador entero cabe
-en una pila.
+Las mismas dos expresiones en polaca inversa también tienen los mismos
+números en el mismo orden, y lo que las distingue es dónde cae cada operador.
+No hay paréntesis que poner ni precedencia que recordar.
 
 </Slide>
 
-<Slide title="La pila lo evalúa">
-Los números se apilan; cada operador desapila dos y apila el resultado. Al
-final queda un solo valor, que es la respuesta.
+<Slide title="Cada operador se lleva los dos últimos">
+Recorremos `3 4 + 5 *` de izquierda a derecha. Un número solo no se puede
+calcular todavía: queda guardado a la espera de un operador que lo use.
+
+Cuando llega el `+`, opera sobre el `3` y el `4` — los dos últimos que se
+guardaron. Su resultado, `7`, vuelve a quedar guardado como un número más, y
+cuando llega el `*` opera sobre el `7` y el `5`, otra vez los dos últimos.
+
+<svg viewBox="0 0 620 226" style={{ width: '100%', maxWidth: '620px', height: 'auto', display: 'block', margin: '1.25rem auto' }} role="img" aria-label="La expresión tres, cuatro, más, cinco, por, y debajo de cada pieza lo que queda guardado después de leerla. Con el tres queda un valor; con el cuatro, dos. El más retira el tres y el cuatro y deja un siete. El cinco vuelve a dejar dos valores. El por retira el siete y el cinco y deja treinta y cinco, que es el resultado.">
+  <text x="4" y="30" fontSize="12" fontFamily="monospace" style={{ fill: 'var(--color-ink-faint)' }}>expresión</text>
+  <text x="4" y="176" fontSize="12" fontFamily="monospace" style={{ fill: 'var(--color-ink-faint)' }}>guardado</text>
+  {[
+    { ch: '3', pila: ['3'], sale: [] },
+    { ch: '4', pila: ['3', '4'], sale: [] },
+    { ch: '+', pila: ['7'], sale: ['3', '4'] },
+    { ch: '5', pila: ['7', '5'], sale: [] },
+    { ch: '*', pila: ['35'], sale: ['7', '5'] },
+  ].map((m, i) => {
+    const cx = 110 + i * 106;
+    return (
+      <g key={i}>
+        <rect x={cx - 18} y="8" width="36" height="30" rx="3" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.5" />
+        <text x={cx} y="30" textAnchor="middle" fontSize="18" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>{m.ch}</text>
+        <line x1={cx - 34} y1="186" x2={cx + 34} y2="186" style={{ stroke: 'var(--color-rule-strong)' }} strokeWidth="2" />
+        {m.pila.map((v, j) => (
+          <g key={j}>
+            <rect x={cx - 19} y={186 - (j + 1) * 30} width="38" height="26" rx="3" style={{ fill: j === m.pila.length - 1 ? 'var(--color-mark-soft)' : 'var(--color-surface)', stroke: j === m.pila.length - 1 ? 'var(--color-mark)' : 'var(--color-rule-strong)' }} strokeWidth="1.5" />
+            <text x={cx} y={186 - (j + 1) * 30 + 18} textAnchor="middle" fontSize="15" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>{v}</text>
+          </g>
+        ))}
+        {m.sale.map((v, j) => (
+          <g key={`s${j}`} opacity="0.4">
+            <rect x={cx - 19} y={186 - (m.pila.length + j + 1) * 30} width="38" height="26" rx="3" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.4" strokeDasharray="4 3" />
+            <text x={cx} y={186 - (m.pila.length + j + 1) * 30 + 18} textAnchor="middle" fontSize="15" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink-faint)' }}>{v}</text>
+          </g>
+        ))}
+      </g>
+    );
+  })}
+  <text x="310" y="218" textAnchor="middle" fontSize="12" style={{ fill: 'var(--color-ink-faint)' }}>bajo cada pieza, lo guardado después de leerla — punteado, lo que esa pieza retiró</text>
+</svg>
+
+De todo lo guardado sólo se retiran los dos últimos, y lo que se produce
+vuelve al mismo lugar. Una colección que se usa así es una **pila**.
+
+Al terminar queda un solo valor, y ése es el resultado.
+
+</Slide>
+
+<Slide title="Código · funciones auxiliares">
+```java
+static boolean isOperator(String t) {
+    return t.equals("+") || t.equals("-") || t.equals("*") || t.equals("/");
+}
+
+static int apply(int a, int b, String t) {
+    if (t.equals("+")) return a + b;
+    if (t.equals("-")) return a - b;
+    if (t.equals("*")) return a * b;
+    return a / b;
+}
+```
+
+`isOperator` responde si una pieza es uno de los cuatro operadores.
+
+`apply` recibe dos números y un operador, y devuelve el resultado de
+aplicarlo, con `a` como operando izquierdo y `b` como derecho.
+
+</Slide>
+
+<Slide title="Código · la solución">
+Cada número se apila. Cada operador saca dos, los opera y apila el resultado.
 
 <StepShow
   language="java"
@@ -1770,10 +1834,6 @@ return values.pop();`}
     <Paso expr="3 4 + 5 *" sep=" " cursor={-1} pila={['35']} nota="Se acabaron los tokens y queda un solo valor: ése es el resultado." />
   </Step>
 </StepShow>
-
-`isOperator(t)` responde si el token es uno de los cuatro símbolos, y
-`apply(a, b, t)` devuelve el resultado de aplicárselo a `a` y `b`. Los dos
-están completos al final.
 
 </Slide>
 
@@ -1812,9 +1872,14 @@ Invierte esas dos líneas y el evaluador calcula `3 − 5 = −2`. Con la suma y
 la multiplicación los dos órdenes dan lo mismo, así que el error sobrevive
 las pruebas fáciles y aparece recién con una resta o una división.
 
+Cada pieza se mira una vez y entra y sale de la pila a lo más una vez:
+$$\Theta(N)$$ de tiempo, y $$\Theta(N)$$ de espacio cuando la expresión
+empieza con muchos números seguidos.
+
 </Slide>
 
-<Slide title="El código completo">
+<Slide title="Código · el programa completo">
+<PresentationWide fraction={0.75}>
 <Exercise title="Notación polaca inversa">
 
 El evaluador entero, con los dos auxiliares. Presiona **Comprobar** para
@@ -1861,11 +1926,9 @@ check(Solution.evalRPN(new String[] {"7"}), 7);
 ```
 
 </Exercise>
-</Slide>
+</PresentationWide>
 
-{/* Book-only: el contexto histórico se lee, no se proyecta. Sacarlo del */}
-{/* <Slide> es lo que lo deja fuera del deck en modo explicit, y es lo que */}
-{/* devuelve esta lámina a una escala legible (#294, revisión visual). */}
+</Slide>
 
 La notación se debe a Jan Łukasiewicz, que en 1924 propuso poner el
 operador adelante; la variante inversa, con el operador al final, se
