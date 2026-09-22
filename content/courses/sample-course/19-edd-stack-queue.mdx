@@ -346,8 +346,6 @@ class Stack {
 }
 ```
 
-Las cuatro láminas que siguen escriben el cuerpo de cada uno.
-
 </Slide>
 
 <Slide title="Las invariantes de la pila sobre lista">
@@ -1283,7 +1281,7 @@ caminar, y lo único que le hace falta es una referencia de más.
 
 </Slide>
 
-<Slide title="El problema del corrimiento">
+<Slide title="Queue sobre un arreglo dinámico">
 La primera idea es la directa: el mismo arreglo dinámico de la pila,
 con los elementos en un bloque consecutivo desde la casilla cero, el frente
 en `data[0]` y el final en `data[size - 1]`.
@@ -1330,9 +1328,6 @@ Y el contrato no pide nada de esto: pide sacar **el del frente**, no sacar
 el de la casilla cero. Es guardar la cola en un bloque de casillas
 consecutivas lo que ata el frente a la casilla cero, y es esa atadura la que
 cuesta $$\Theta(N)$$ cada vez.
-
-La estructura que sigue no tiene casillas ni posiciones fijas, y por eso no
-paga nada de esto.
 
 </Slide>
 
@@ -1399,37 +1394,21 @@ $$\Theta(N)$$ amortizado.
 | `enqueue(x)` | $$\Theta(N)$$ | $$\Theta(1)$$ | Los elementos ocupan `size` casillas seguidas: se escribe en la primera libre, y el bloque crece si no hay |
 | `dequeue()` | <span style={{ color: 'var(--color-flag)', fontWeight: 700 }}>$$\Theta(N)$$</span> | <span style={{ color: 'var(--color-flag)', fontWeight: 700 }}>$$\Theta(N)$$</span> | **El frente vive en `data[0]`**: para restaurarla hay que correr a todos los demás |
 
-El $$\Theta(N)$$ de `dequeue` es el problema, y las dos columnas dicen por
-qué: **el corrimiento no se amortiza**. La llamada cara de `enqueue` ocurre
-una cada $$N$$ y las baratas la pagan; el corrimiento ocurre en **cada**
-llamada, así que no hay entre quién repartirlo. Una cola que se usa de
-verdad desencola tantas veces como encola, así que la mitad de sus
-operaciones serían caras.
+`dequeue` cuesta $$\Theta(N)$$, y ese costo **no se amortiza**. La llamada
+cara de `enqueue` ocurre una cada $$N$$ y las $$N-1$$ baratas la pagan; el
+corrimiento ocurre en **cada** llamada, así que no hay entre quién
+repartirlo.
 
-Se puede arreglar, y la idea tiene nombre: **el arreglo circular**. En vez
-de correr a todos, se deja que el frente avance, y cuando un índice llega al
-final del bloque vuelve a empezar por el principio —con aritmética de
-módulo—. Así `dequeue` pasa a ser avanzar un índice: $$\Theta(1)$$, sin
-copiar nada.
-
-Lo que cuesta es escribirlo. Hay que llevar dos índices en vez de uno,
-decidir cuándo el bloque está lleno y cuándo vacío —que con dos índices
-dando vueltas se confunden entre sí—, y sostener esas invariantes en cada
-operación. Es bastante más programa que el de la lámina anterior.
-
-Y aun así el peor caso sigue siendo $$\Theta(N)$$, porque el bloque es
-dinámico y alguna llamada va a ser la que copie. Lo que el arreglo circular
-compra es el **amortizado**, que baja a $$\Theta(1)$$.
+Una cola que se usa de verdad desencola tantas veces como encola, así que la
+mitad de sus operaciones serían caras. **El arreglo es la estructura
+equivocada para este contrato.**
 
 </Slide>
 
-<Slide title="La cabeza y la cola">
-La segunda implementación guarda cada elemento en un nodo suelto. Se saca
-por el frente y se entra por el final, así que hay que poder llegar a los
-dos extremos sin caminar la cadena.
-
-Una referencia no alcanza. La estructura guarda dos: `head` al primer nodo
-—el frente— y `tail` al último —el final.
+<Slide title="Queue sobre una lista simplemente enlazada con tail">
+La mejor forma de implementar una cola es una **lista simplemente enlazada
+con `tail`**: se entra por `tail` y se sale por `head`, y ninguna de las dos
+operaciones recorre nada.
 
 <svg viewBox="0 0 700 182" style={{ width: '100%', maxWidth: '700px', height: 'auto', display: 'block', margin: '1.25rem auto' }} role="img" aria-label="Una lista enlazada de tres nodos con los valores 3, 8 y 5. La referencia head apunta al primero y está rotulada como el frente; la referencia tail apunta al último y está rotulada como el final; el último nodo apunta a null.">
   <defs>
@@ -1459,13 +1438,13 @@ Una referencia no alcanza. La estructura guarda dos: `head` al primer nodo
   <text x="358" y="172" textAnchor="middle" fontSize="13" style={{ fill: 'var(--color-ink-faint)' }}>3 entró primero · 5 entró último</text>
 </svg>
 
-`tail` no agrega información nueva: el último nodo ya estaba ahí, y se podía
-encontrar caminando. Lo que agrega es **llegar sin caminar**, y eso es lo
-que convierte a `enqueue` en una operación constante.
+`head` entrega el frente sin caminar, que es lo que la lista ya daba. `tail`
+entrega el final sin caminar, que es lo que la cola necesitaba: sin él,
+encolar tendría que recorrer la cadena entera para encontrar al último y
+costaría $$\Theta(N)$$.
 
-La contraparte es que ahora hay dos referencias que mantener al día, y cada
-operación que toca un extremo tiene que dejarlas a las dos consistentes —
-incluida la cola de un solo nodo, donde `head` y `tail` señalan el mismo.
+Lo que se paga son dos referencias que mantener al día en vez de una,
+incluida la cola de un solo nodo, donde las dos señalan al mismo.
 
 ```java
 class Queue {
@@ -1480,8 +1459,6 @@ class Queue {
     int size()           // cuántos elementos tiene
 }
 ```
-
-Las cuatro láminas que siguen escriben el cuerpo de cada uno.
 
 </Slide>
 
