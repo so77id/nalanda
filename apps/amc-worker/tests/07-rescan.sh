@@ -123,4 +123,72 @@ rep4="$(analyse p1 4)"
 check_eq "and the next good batch still reads" "['1', '2']" \
   "$(echo "$rep4" | field 'sorted(d["copies"])')"
 
+# --- S2: a re-scanned page REPLACES its capture --------------------------------
+#
+# Photocopy mode (`analyse --multiple`) is "the same printed copy is scanned
+# several times": a second scan of a page stacks beside the first (copy=1,
+# copy=2) and the reader concatenated both scans' marks — duplicated RUT
+# digits, duplicated ticks. Nalanda prints one distinct copy per student, so
+# the worker captures in single mode: every page at copy 0, and a page
+# captured again is OVERWRITTEN (AMC-analyse.pl, capture_page.overwritten).
+
+gen2="$(post /generate '{"project":"p2","source":"src/control-demo.tex","copies":2}')"
+check_eq "a second two-copy control generates" "2" "$(echo "$gen2" | field 'd["copies"]')"
+PLAN_BOTH='{"1": {"rut": "20123456", "answers": [1, 2, 3, 4]}, "2": {"rut": "19876543", "answers": [2, [1, 2], 1, 1]}}'
+check "both copies can be filled as one batch" fill p2 "$PLAN_BOTH" scan-full scan-full/lote.pdf
+
+upload p2 scan-full/lote.pdf 1
+first="$(analyse p2 1)"
+upload p2 scan-full/lote.pdf 2
+second="$(analyse p2 2)"
+check_eq "the first reading has both copies (so the comparison below is not vacuous)" \
+  "['1', '2']" "$(echo "$first" | field 'sorted(d["copies"])')"
+check_eq "the same batch read twice keeps one capture per page" "4" \
+  "$(sql p2 'SELECT COUNT(*) FROM capture_page')"
+check_eq "every page of it at copy 0" "0" \
+  "$(sql p2 'SELECT DISTINCT copy FROM capture_page')"
+check_eq "each page overwritten exactly once" "1" \
+  "$(sql p2 'SELECT DISTINCT overwritten FROM capture_page')"
+check_eq "and the second reading is the first one, copy for copy" \
+  "$(echo "$first" | field 'json.dumps(d["copies"], sort_keys=True)' | cksum)" \
+  "$(echo "$second" | field 'json.dumps(d["copies"], sort_keys=True)' | cksum)"
+check_eq "with every copy clean" "[]" "$(echo "$second" | field 'd["needs_review"]')"
+
+# The Control 7 shape: the first batch lost every copy's second page, the
+# professor re-scanned the whole pile. Before #298 this aborted with "You did
+# not provide the same number of copies for all pages" and stayed stuck.
+gen3="$(post /generate '{"project":"p3","source":"src/control-demo.tex","copies":2}')"
+check_eq "a third two-copy control generates" "2" "$(echo "$gen3" | field 'd["copies"]')"
+check "a batch missing every second page can be filled" \
+  fill p3 "$PLAN_BOTH" scan-half scan-half/lote.pdf "1:2,2:2"
+check "and the full re-scan" fill p3 "$PLAN_BOTH" scan-all scan-all/lote.pdf
+
+upload p3 scan-half/lote.pdf 1
+half="$(analyse p3 1)"
+check_eq "the half batch leaves both copies incomplete" "['incomplete', 'incomplete']" \
+  "$(echo "$half" | field '[d["copies"][k]["status"] for k in sorted(d["copies"])]')"
+upload p3 scan-all/lote.pdf 2
+full="$(analyse p3 2)"
+check_eq "the full re-scan over it is read" "['ok', 'ok']" \
+  "$(echo "$full" | field '[d["copies"][k]["status"] for k in sorted(d["copies"])]')"
+check_eq "with every page of every copy" "{'1': [1, 2], '2': [1, 2]}" \
+  "$(echo "$full" | field 'd["pages_per_copy"]')"
+check_eq "and no RUT read twice" "['20123456', '19876543']" \
+  "$(echo "$full" | field '[d["copies"][k]["rut"] for k in sorted(d["copies"])]')"
+
+# A batch that re-scans ONE copy replaces that copy and leaves the other alone.
+check "copy 1 alone can be re-filled" fill p3 "$PLAN_1" scan-one scan-one/lote.pdf
+upload p3 scan-one/lote.pdf 3
+analyse p3 3 >/dev/null
+check_eq "re-scanning copy 1 overwrites only copy 1's pages" "[(1, 1, 2), (1, 2, 1), (2, 1, 1), (2, 2, 0)]" \
+  "$(sql p3 'SELECT student, page, overwritten FROM capture_page ORDER BY student, page')"
+
+# The review queue's API still lands on the capture: an association injected
+# through the wrapper must name the copy index the capture carries, which in
+# single mode is 0 — the literal 1 photocopy mode used writes a row nothing
+# reads.
+inj="$(post /associate/set '{"project":"p3","copy":2,"id":"19123450"}')"
+check_eq "an injected association takes effect on a single-mode capture" "19123450" \
+  "$(echo "$inj" | field 'd["id"]')"
+
 summary

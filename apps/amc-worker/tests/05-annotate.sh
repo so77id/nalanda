@@ -49,7 +49,7 @@ pipeline() {
     auto-multiple-choice getimages --list /work/project/scans/list.txt \
       --vector-density 300 --copy-to /work/project/scans /work/scan/lote.pdf >/dev/null 2>&1
     auto-multiple-choice analyse --data $D --projet /work/project --cr /work/project/cr \
-      --multiple --liste-fichiers /work/project/scans/list.txt >/dev/null 2>&1
+      --liste-fichiers /work/project/scans/list.txt >/dev/null 2>&1
     auto-multiple-choice prepare --mode b --with pdflatex --data $D --prefix /work/project \
       /work/src/control-demo.tex >/dev/null 2>&1
     auto-multiple-choice note --data $D --seuil 0.3 >/dev/null 2>&1
@@ -103,10 +103,10 @@ done
 
 check "inject copy 4's association" \
   run auto-multiple-choice association --data /work/project/data \
-  --set --student 4 --copy 1 --id 19123450
+  --set --student 4 --copy 0 --id 19123450
 check "inject copy 5's association" \
   run auto-multiple-choice association --data /work/project/data \
-  --set --student 5 --copy 1 --id 20111110
+  --set --student 5 --copy 0 --id 20111110
 
 # Re-annotating into the SAME directory leaves the placeholder files behind:
 # AMC writes, it does not clean. The batch then holds seven files for five

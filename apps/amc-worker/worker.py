@@ -17,8 +17,9 @@ behaviours are silent traps, each measured in #138, each of which produces a
 system that looks like it works and loses a student's grade. This module is
 where they are neutralised, once, so no caller has to remember them:
 
-1. `association --set` without `--copy` exits 0, prints nothing, and writes a
-   row AMC's own listing ignores. `/associate/set` always sends `--copy`.
+1. `association --set` under the wrong `--copy` exits 0, prints nothing, and
+   writes a row nothing reads. `/associate/set` sends the copy index the
+   capture itself carries (`scan_copy`).
 
 2. `annotate` writes but never cleans, so re-running into a used directory
    leaves stale files beside the new ones. `/annotate` refuses a directory that
@@ -279,8 +280,18 @@ def analyse(body):
 
     amc("getimages", "--list", listing, "--vector-density", "300",
         "--copy-to", scans, scan_pdf)
+    # SINGLE mode, never `--multiple` (issue #298). `--multiple` is AMC's
+    # photocopy mode — "the same printed copy is scanned several times" —
+    # and it stacks a second scan of a page beside the first (copy=1,
+    # copy=2), which the reader concatenated into duplicated RUT digits and
+    # ticks, and which aborts outright when two batches disagree on how many
+    # scans each page has (Control 7, 2026-09-22). Nalanda prints one
+    # distinct copy per student: every page is captured at copy 0, and a
+    # page captured again is OVERWRITTEN (AMC-analyse.pl bumps
+    # capture_page.overwritten) — the semantics a professor re-scanning
+    # a sheet expects.
     amc("analyse", "--data", data, "--projet", project,
-        "--cr", os.path.join(project, "cr"), "--multiple",
+        "--cr", os.path.join(project, "cr"),
         "--liste-fichiers", listing)
 
     # TRAP 3: scoring AFTER capture. The other order leaves scoring_code empty
@@ -411,10 +422,10 @@ def associate_set(body):
     if not identifier:
         raise Failed("id is required")
 
-    # TRAP 1: --copy is not optional. Without it this call is a no-op that
-    # reports success.
+    # TRAP 1: --copy must name the copy index the CAPTURE carries, or this
+    # call writes a row nothing reads and reports success.
     amc("association", "--data", data, "--set",
-        "--student", copy, "--copy", 1, "--id", identifier)
+        "--student", copy, "--copy", scan_copy(data, copy), "--id", identifier)
 
     found = [a for a in _associations(data) if a["copy"] == copy]
     if not found or found[0]["id"] != identifier:
@@ -694,30 +705,63 @@ def _override_rut(cap, copy, rut, names, chars):
 def _force_association(data, copy, rut):
     """Make the corrected RUT the association's answer for this copy.
 
-    Same call as /associate/set — TRAP 1 applies here too: --copy is not
-    optional — and the read-back is what proves it took effect. The literal
-    1 is the scan-copy index the capture carries: /annotate/copy refuses a
-    copy scanned more than once, so there is exactly one index, and it is
-    the one the id-file uses (copies[0], same guard).
+    Same call as /associate/set — TRAP 1 applies here too: --copy names
+    the capture's own index — and the read-back is what proves it took
+    effect. /annotate/copy refuses a copy scanned more than once, so there
+    is exactly one index, and it is the one the id-file uses.
     """
     amc("association", "--data", data, "--set",
-        "--student", copy, "--copy", 1, "--id", rut)
+        "--student", copy, "--copy", scan_copy(data, copy), "--id", rut)
     found = [a for a in _associations(data) if a["copy"] == copy]
     if not found or found[0]["id"] != rut:
         raise Failed(f"association for copy {copy} did not take effect")
+
+
+def scan_copy(data, student):
+    """The copy index AMC captured this student's sheet at.
+
+    AMC keys a capture, its scores and its association by (student, copy),
+    and the index depends on how the sheet was captured: 0 in single mode,
+    which is how this worker captures since #298, and 1, 2, … in the
+    photocopy mode it used before. An association written under any other
+    index is a row nothing reads (TRAP 1), so the index is read off the
+    capture rather than assumed — the hardcoded 1 this replaced was the
+    photocopy-mode index, and in single mode it was the ghost.
+    """
+    cap = sqlite3.connect(os.path.join(data, "capture.sqlite"))
+    try:
+        copies = [r[0] for r in cap.execute(
+            "SELECT DISTINCT copy FROM capture_zone WHERE student=?", (student,))]
+    finally:
+        cap.close()
+    if not copies:
+        raise Failed(f"copy {student} has no captured boxes")
+    if len(copies) > 1:
+        raise Failed(f"copy {student} was scanned more than once",
+                     "a photocopy-mode capture; reset the control's scans")
+    return copies[0]
 
 
 def _associations(data):
     db = os.path.join(data, "association.sqlite")
     if not os.path.exists(db):
         return []
+    captured = set()
+    capture_db = os.path.join(data, "capture.sqlite")
+    if os.path.exists(capture_db):
+        cap = sqlite3.connect(capture_db)
+        try:
+            captured = set(cap.execute(
+                "SELECT DISTINCT student, copy FROM capture_zone"))
+        finally:
+            cap.close()
     con = sqlite3.connect(db)
     out = []
     for student, copy, manual, auto in con.execute(
         "SELECT student, copy, manual, auto FROM association_association ORDER BY student"
     ):
-        if copy == 0:
-            continue  # a ghost row: AMC's own listing ignores these
+        if (student, copy) not in captured:
+            continue  # a ghost row: keyed on no capture, so nothing reads it
         out.append({
             "copy": student,
             "id": manual or auto,

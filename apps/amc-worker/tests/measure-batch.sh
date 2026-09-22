@@ -74,7 +74,7 @@ run bash -c '
   auto-multiple-choice getimages --list /work/project/scans/list.txt \
     --vector-density 300 --copy-to /work/project/scans /work/scan/lote.pdf >/dev/null 2>&1
   auto-multiple-choice analyse --data $D --projet /work/project --cr /work/project/cr \
-    --multiple --liste-fichiers /work/project/scans/list.txt >/dev/null 2>&1
+    --liste-fichiers /work/project/scans/list.txt >/dev/null 2>&1
 ' || { fail "reading"; summary; }
 t3="$(stamp)"
 
