@@ -367,6 +367,12 @@ func (h *Controls) Detail(w http.ResponseWriter, r *http.Request) {
 			"Algo se rompió en el servidor. Vuelve a intentarlo en unos segundos.")
 		return
 	}
+	// Issue #298: the reset is offered when there is something to reset —
+	// the rule ScanSummary.HasScans states, read off what this page
+	// already loaded.
+	if c.DeletedAt == nil && (len(uploads) > 0 || len(readings) > 0) {
+		page.ScansResetURL = controlScansResetConfirmURL(c.ID)
+	}
 	if len(readings) > 0 {
 		names, err := h.studentNamesFor(r.Context(), c)
 		if err != nil {

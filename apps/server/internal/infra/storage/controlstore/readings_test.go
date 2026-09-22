@@ -1275,3 +1275,98 @@ func TestResetRecapturedCopiesForgetsCorrectionsAndKeepsThePublication(t *testin
 		t.Error("copy 2 lost its annotated row though it was not re-captured")
 	}
 }
+
+// Issue #298 §E: "Borrar escaneos" returns a control to what generation
+// left — no reading, no annotated PDF, no publication stamp, state
+// `generated` — and touches no other control.
+func TestResetScanResultsReturnsTheControlToGenerated(t *testing.T) {
+	ctx, db := migrated(t)
+	const id, other = "CTRL0298RESET0000000AAAAAA", "CTRL0298OTHER0000000AAAAAA"
+	seedControl(t, ctx, db, id, 2)
+	seedControl(t, ctx, db, other, 1)
+	store := controlstore.New(db)
+
+	now := time.Unix(1_758_500_000, 0).UTC()
+	for _, c := range []string{id, other} {
+		if err := store.UpsertReadingsFromReport(ctx, c, controls.Report{
+			Copies: map[string]controls.ReportCopy{
+				"1": sampleCopy("20123456", controls.CopyStatusOK, controls.RUTStatusOK),
+			},
+		}, now); err != nil {
+			t.Fatalf("Upsert %s: %v", c, err)
+		}
+		if err := store.RecordAnnotated(ctx, controls.AnnotatedCopy{
+			ControlID: c, CopyNumber: 1, GeneratedAt: now, Path: "x.pdf",
+		}); err != nil {
+			t.Fatalf("RecordAnnotated %s: %v", c, err)
+		}
+		if err := store.SetControlState(ctx, c, controls.Graded); err != nil {
+			t.Fatalf("SetControlState %s: %v", c, err)
+		}
+	}
+	r, _ := store.ReadingByCopy(ctx, id, 1)
+	if err := store.SetRUTOverride(ctx, r.ID, "11111111", now); err != nil {
+		t.Fatalf("SetRUTOverride: %v", err)
+	}
+	if err := store.MarkPublished(ctx, id, now, "real"); err != nil {
+		t.Fatalf("MarkPublished: %v", err)
+	}
+
+	if err := store.ResetScanResults(ctx, id); err != nil {
+		t.Fatalf("ResetScanResults: %v", err)
+	}
+
+	readings, err := store.ReadingsByControl(ctx, id)
+	if err != nil || len(readings) != 0 {
+		t.Errorf("readings after reset = %d (err %v), want none", len(readings), err)
+	}
+	var orphans int
+	_ = db.QueryRowContext(ctx, `SELECT COUNT(*) FROM rut_override`).Scan(&orphans)
+	if orphans != 0 {
+		t.Errorf("%d rut_override rows survived their reading", orphans)
+	}
+	if _, ok, _ := store.AnnotatedByCopy(ctx, id, 1); ok {
+		t.Error("the annotated row survived the reset")
+	}
+	c, err := store.ControlByID(ctx, id)
+	if err != nil {
+		t.Fatalf("ControlByID: %v", err)
+	}
+	if c.State != controls.Generated || c.PublishedAt != nil {
+		t.Errorf("control after reset: state %q published_at %v, want generated and none", c.State, c.PublishedAt)
+	}
+
+	// The other control is untouched.
+	kept, _ := store.ReadingsByControl(ctx, other)
+	if len(kept) != 1 {
+		t.Errorf("the other control has %d readings after the reset, want 1", len(kept))
+	}
+	if _, ok, _ := store.AnnotatedByCopy(ctx, other, 1); !ok {
+		t.Error("the other control lost its annotated row")
+	}
+}
+
+// The schema-level belt: an archived control is refused before a row goes.
+func TestResetScanResultsRefusesAnArchivedControl(t *testing.T) {
+	ctx, db := migrated(t)
+	const id = "CTRL0298ARCHIVED0000AAAAAA"
+	seedControl(t, ctx, db, id, 1)
+	store := controlstore.New(db)
+	if err := store.UpsertReadingsFromReport(ctx, id, controls.Report{
+		Copies: map[string]controls.ReportCopy{
+			"1": sampleCopy("20123456", controls.CopyStatusOK, controls.RUTStatusOK),
+		},
+	}, time.Unix(1_758_500_000, 0)); err != nil {
+		t.Fatalf("Upsert: %v", err)
+	}
+	if err := store.SoftDeleteControl(ctx, id, time.Unix(1_758_500_100, 0)); err != nil {
+		t.Fatalf("SoftDeleteControl: %v", err)
+	}
+
+	if err := store.ResetScanResults(ctx, id); !errors.Is(err, controls.ErrControlNotFound) {
+		t.Fatalf("ResetScanResults on an archived control = %v, want ErrControlNotFound", err)
+	}
+	if readings, _ := store.ReadingsByControl(ctx, id); len(readings) != 1 {
+		t.Errorf("an archived control lost its readings: %d left", len(readings))
+	}
+}

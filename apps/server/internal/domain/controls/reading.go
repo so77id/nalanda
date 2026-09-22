@@ -195,6 +195,12 @@ type ReanalyzeRequest struct {
 type Analyzer interface {
 	Analyze(ctx context.Context, req AnalyzeRequest) (Report, error)
 	Reanalyze(ctx context.Context, req ReanalyzeRequest) (Report, error)
+	// ResetScans removes every capture-side file of a project — AMC's
+	// capture, the scan images, the page lists and the uploaded PDFs —
+	// and keeps its layout and inputs (issue #298). A worker that
+	// predates the route refuses with ErrAnalyzerRefused, before anything
+	// is destroyed.
+	ResetScans(ctx context.Context, project string) error
 }
 
 // The failure modes callers branch on. Same shape as ErrGeneratorRefused /
@@ -464,6 +470,15 @@ type ReadingStore interface {
 	// Returns how many of the listed copies carry published_at — the
 	// students who hold a grade this re-capture may have moved (§D).
 	ResetRecapturedCopies(ctx context.Context, controlID string, copies []int) (published int, err error)
+
+	// ResetScanResults returns an ACTIVE control to `generated` with no
+	// reading at all (issue #298 §E), in one transaction: every reading
+	// (the FK cascade takes answers and overrides with it, and the
+	// per-copy publication record), every annotated_copy row, and the
+	// control-level publication stamp. The state update is guarded by
+	// `deleted_at IS NULL`; an archived or missing control is
+	// ErrControlNotFound and nothing is deleted.
+	ResetScanResults(ctx context.Context, controlID string) error
 
 	// CopiesForStudent returns which copies one student is matched to,
 	// across every ACTIVE control, newest control first (issue #272 S8).

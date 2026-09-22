@@ -374,6 +374,17 @@ func routes(deps Deps) []Route {
 			Method: http.MethodPost, Path: handler.ControlPurgePath,
 			Handler: deps.Controls.Purge,
 		},
+		// Issue #298: "Borrar escaneos y empezar de nuevo", the same
+		// destructive-confirm pair as purge. Gated by default (no Public),
+		// CSRF enforced on the POST.
+		{
+			Method: http.MethodGet, Path: handler.ControlScansResetConfirmPath,
+			Handler: deps.Controls.ScansResetConfirm,
+		},
+		{
+			Method: http.MethodPost, Path: handler.ControlScansResetPath,
+			Handler: deps.Controls.ScansReset,
+		},
 		{
 			// Issue #273. The publication routes live HERE, on the
 			// professor's surface behind the gate and CSRF, and not under

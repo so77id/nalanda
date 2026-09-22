@@ -226,3 +226,69 @@ func TestACleanBatchHasNoNotice(t *testing.T) {
 		t.Errorf("handler = %v, want nil for a batch with nothing to report", err)
 	}
 }
+
+// Issue #298 §E: the worker goes first. If it refuses — or predates the
+// route — nothing on the server side is destroyed either.
+func TestResetScansStopsWhenTheWorkerRefuses(t *testing.T) {
+	svc, _, gen, _ := newService(t)
+	control, err := createControlSync(context.Background(), svc, req(nil))
+	if err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+	if err := uploadBatch(t, svc, control.ID); err != nil {
+		t.Fatalf("upload: %v", err)
+	}
+	gen.ResetErr = &controls.AnalyzerRefusedError{Status: 404, Message: "no route for POST /scans/reset"}
+
+	err = svc.ResetScans(context.Background(), control.ID)
+	if !errors.Is(err, controls.ErrAnalyzerRefused) {
+		t.Fatalf("ResetScans = %v, want ErrAnalyzerRefused", err)
+	}
+	for _, c := range svc.Readings.(*fakeReadingStore).calls {
+		if strings.HasPrefix(c, "reset-results") {
+			t.Errorf("the database was reset (%q) although the worker refused", c)
+		}
+	}
+}
+
+func TestResetScansCallsTheWorkerThenTheDatabase(t *testing.T) {
+	svc, _, gen, _ := newService(t)
+	control, err := createControlSync(context.Background(), svc, req(nil))
+	if err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+	if err := uploadBatch(t, svc, control.ID); err != nil {
+		t.Fatalf("upload: %v", err)
+	}
+
+	if err := svc.ResetScans(context.Background(), control.ID); err != nil {
+		t.Fatalf("ResetScans: %v", err)
+	}
+	if len(gen.ResetCalls) != 1 || gen.ResetCalls[0] != "controls/"+control.ID {
+		t.Errorf("worker reset calls = %v, want one for controls/%s", gen.ResetCalls, control.ID)
+	}
+	calls := svc.Readings.(*fakeReadingStore).calls
+	if len(calls) == 0 || calls[len(calls)-1] != "reset-results "+control.ID {
+		t.Errorf("reading store calls = %v, want the reset last", calls)
+	}
+	uploads, _ := svc.UploadList(control.ID)
+	if len(uploads) != 0 {
+		t.Errorf("uploads after reset = %v, want none — the next upload is batch-1.pdf", uploads)
+	}
+}
+
+// Nothing to wipe is its own sentinel, and the worker is not bothered.
+func TestResetScansOnAControlWithNoScansIsRefused(t *testing.T) {
+	svc, _, gen, _ := newService(t)
+	control, err := createControlSync(context.Background(), svc, req(nil))
+	if err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+
+	if err := svc.ResetScans(context.Background(), control.ID); !errors.Is(err, controls.ErrNoScans) {
+		t.Fatalf("ResetScans = %v, want ErrNoScans", err)
+	}
+	if len(gen.ResetCalls) != 0 {
+		t.Errorf("the worker was asked to reset %v on a control with no scans", gen.ResetCalls)
+	}
+}

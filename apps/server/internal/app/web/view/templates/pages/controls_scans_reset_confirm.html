@@ -1,0 +1,30 @@
+{{ define "content" }}
+  <h1>Borrar los escaneos de {{ .Name }}</h1>
+
+  <section class="aviso">
+    <p><strong>Esta acción NO SE PUEDE DESHACER.</strong> Se borran {{ .Uploads }},
+      {{ .Read }} y todo lo que se hizo sobre ellas: {{ .CorrectedTxt }} y los PDFs corregidos.</p>
+    {{ if .Published }}
+      <p><strong>{{ .PublishedTxt }} a sus estudiantes.</strong> Se pierde el registro de
+        qué se envió y cuándo; los correos que ya salieron no se pueden recuperar.</p>
+    {{ end }}
+    <p>El control queda como recién generado: se puede volver a imprimir y el próximo
+      escaneo que subas será el primer lote.</p>
+  </section>
+
+  <form method="post" action="{{ .ResetURL }}" autocomplete="off">
+    <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
+    <p>
+      <label>Escribe <code>{{ .Name }}</code> para confirmar:<br>
+        <input type="text" name="confirm_name" value="{{ .Typed }}" required autocomplete="off" autofocus>
+      </label>
+    </p>
+    {{ if .NameMismatch }}
+      <p class="aviso">{{ .NameMismatch }}</p>
+    {{ end }}
+    <p>
+      <button type="submit">Borrar escaneos</button>
+      <a href="{{ .DetailURL }}">Cancelar</a>
+    </p>
+  </form>
+{{ end }}

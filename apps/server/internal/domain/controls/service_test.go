@@ -250,6 +250,10 @@ func (s *fakeReadingStore) UpsertReadingsFromReport(context.Context, string, con
 	s.calls = append(s.calls, "upsert")
 	return nil
 }
+func (s *fakeReadingStore) ResetScanResults(_ context.Context, controlID string) error {
+	s.calls = append(s.calls, "reset-results "+controlID)
+	return nil
+}
 func (s *fakeReadingStore) ResetRecapturedCopies(_ context.Context, _ string, copies []int) (int, error) {
 	s.calls = append(s.calls, fmt.Sprintf("reset %v", copies))
 	return s.publishedAmongReset, nil
