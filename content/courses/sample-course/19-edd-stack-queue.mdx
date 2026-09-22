@@ -2441,10 +2441,10 @@ check(Solution.movingAverage(5, new int[] {2, 4})[1], 3.0);
 
 Cinco ejercicios para resolver en el navegador, **en orden de dificultad**.
 Los tres primeros son de cola: uno que la usa sola y dos que le suman una
-pila para dar vuelta un tramo. Los dos últimos son el mismo patrón —la
-**pila monótona**— visto desde dos ángulos opuestos, y
-conviene dejarlos para el final porque son los que piden una idea nueva y no
-sólo aplicar un contrato.
+pila para dar vuelta un tramo. Los dos últimos son el mismo patrón —una pila
+que se mantiene ordenada mientras se recorre, la **pila monótona**— visto
+desde dos ángulos opuestos, y conviene dejarlos para el final porque son los
+que piden una idea nueva y no sólo aplicar un contrato.
 
 Ninguno necesita más estructuras que las de esta clase, y las soluciones
 están escritas con arreglos y dos índices, sin bibliotecas. Conviene mirar
@@ -2470,38 +2470,6 @@ Para la cola, igual con dos índices: `queue[rear++] = x` encola y
 `queue[front++]` desencola. Ahí `front` avanza en vez de correr a los demás,
 que es lo que el arreglo de la clase no hacía — pero para eso el bloque
 tiene que ser lo bastante grande, y cada solución dice cuánto necesita.
-
-<Slide title="La pila monótona">
-Hay una técnica que dos de los ejercicios de esta clase necesitan y que no
-sale de ninguna lámina anterior. Vale la pena verla una vez, aquí.
-
-El problema: para cada elemento de un arreglo, encontrar el primero a su
-derecha que sea mayor. La solución ingenua mira, por cada posición, todo lo
-que sigue: $$\Theta(N^2)$$.
-
-La observación que la arregla es que **cuando llega un elemento grande,
-resuelve de una vez a todos los que estaban esperando y son menores que
-él**. Si los que esperan se guardan en una pila, quedan en orden no
-creciente, así que alcanza con sacar desde la cima hasta encontrar uno
-mayor. Con `[4, 5, 2, 25]`:
-
-| llega | resuelve | la pila queda |
-|---|---|---|
-| `4` | a nadie | `4` |
-| `5` | al `4` → su mayor es 5 | `5` |
-| `2` | a nadie | `5 2` |
-| `25` | al `2` y al `5` → el mayor de ambos es 25 | `25` |
-| fin | el `25` no fue superado por nadie → `-1` | — |
-
-Lo que hay que guardar son **posiciones** y no valores: al resolver una hay
-que saber en qué casilla del resultado escribir.
-
-Y el costo, que es la parte que sorprende: hay un ciclo dentro de otro y aun
-así es $$\Theta(N)$$. **Cada posición entra a la pila exactamente una vez y
-sale a lo más una vez**, así que el ciclo de adentro no multiplica el
-trabajo — lo reparte. Sumadas todas sus vueltas, son $$N$$ en total.
-
-</Slide>
 
 <Exercise title="Los binarios de 1 a N">
 
@@ -2969,56 +2937,3 @@ class Solution {
 ```
 
 </Exercise>
-
-
-<Slide title="El precio de decidir por orden de llegada">
-Los dos contratos de esta clase deciden quién sale con el mismo criterio:
-**cuándo entró**. La pila saca al último, la cola saca al primero, y ninguno
-de los dos mira lo que el elemento trae adentro.
-
-Esa es la regla que compra los costos constantes. El elemento que sale está
-siempre en un extremo conocido, así que no hay que buscarlo. Y es también la
-única cosa que estos contratos no pueden hacer: si lo que hay que sacar es
-**el más urgente**, ningún extremo lo tiene garantizado, y encontrarlo
-obligaría a mirar los $$N$$ elementos — que es justamente lo que el contrato
-no permite.
-
-**¿Y si renunciamos al orden de llegada?**
-
-Si el que sale es el de mayor prioridad, la colección deja de poder prometer
-que el elemento que hay que sacar está en un extremo, y entonces tiene que
-sostener algo más fuerte: un orden parcial entre sus elementos, mantenido en
-cada inserción.
-
-Ese contrato existe y se llama **cola con prioridad**.
-
-El intercambio conviene contarlo desde donde estamos, no desde donde vamos.
-Hoy, con una pila o una cola, sacar al más urgente cuesta $$\Theta(N)$$:
-hay que mirarlos todos. Una implementación buena de la cola con prioridad lo
-deja en $$\Theta(\log N)$$, y cobra $$\Theta(\log N)$$ por insertar, que
-hasta ahora era gratis. Se paga en la inserción lo que se gana en la
-extracción — y se gana mucho más de lo que se paga en cuanto las
-extracciones importan.
-
-Los costos, eso sí, no son del contrato: un TDA sigue sin tenerlos. Son de
-la estructura que lo cumple, y ésa es la clase siguiente.
-
-</Slide>
-
-<Slide title="Lo que sigue">
-La próxima clase estudia la **cola con prioridad**: el mismo contrato de una
-cola —se encola, se desencola, se consulta el frente— con una sola regla
-cambiada. El frente no es el que llegó primero, es el de mayor prioridad.
-
-El cambio se nota apenas se mira dónde importa. En una urgencia médica la
-atención no se reparte por orden de llegada sino por gravedad. En un sistema
-operativo, entre todos los procesos que esperan turno de procesador, el
-planificador elige por prioridad y no por antigüedad. En los dos casos el
-contrato de esta clase se queda corto, y por la misma razón.
-
-La estructura que lo cumple bien es el **montículo**, un árbol guardado
-dentro de un arreglo, donde cada elemento es mayor o igual que sus hijos. Es la
-primera estructura del curso que no es una secuencia, y con ella empieza la
-parte de la unidad donde la forma deja de ser una fila.
-
-</Slide>
