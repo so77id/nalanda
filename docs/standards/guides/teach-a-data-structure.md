@@ -642,6 +642,8 @@ working. A class that lists them on a slide owes listings that handle them.
       measurement — past every gate. Sweep `1..N` with N from the deck's own
       counter, and assert the last URL rendered the slide you expected.
       #294 shipped that mistake and caught it by re-reading its own output.
-- [ ] The checklists of [`add-a-course-document.md`](add-a-course-document.md)
-      and [`course-content-style.md`](course-content-style.md) both pass — this
-      guide adds to them and replaces neither.
+- [ ] The checklists of [`add-a-course-document.md`](add-a-course-document.md),
+      [`course-content-style.md`](course-content-style.md) and — for every
+      solvable problem the class poses —
+      [`write-an-exercise.md`](write-an-exercise.md) all pass. This guide adds
+      to them and replaces none.

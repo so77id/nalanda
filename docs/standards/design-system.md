@@ -320,3 +320,28 @@ The card is inline JSX copied per TDA today, with no component. At the third
 copy it becomes a content component with a catalog entry (ADR-0010); the
 authoring rule lives in `guides/teach-a-data-structure.md` §2 and points here
 for the tokens rather than restating them.
+
+## The stepper chrome (#294)
+
+Every widget that walks a reader through frames — `<StepShow>`,
+`<SequenceStepper>`, `<MergeStepper>`, `<PartitionStepper>`, `<SortStepper>` —
+draws the same control row, and the reader learns it once:
+
+**Reiniciar · Atrás · Reproducir · Adelante**, in that order, each an icon
+**and** its Spanish word, all four from `stepperShell`'s `ControlButton`.
+
+The word matters as much as the order. A control that is an icon alone is
+unreadable to anyone who has not already used the widget, and #294 found
+`<StepShow>` shipping exactly that — the only stepper of the five whose
+buttons carried no text.
+
+**Four of the five do not comply yet, and this is a target rather than a
+description.** Measured at #294: `<StepShow>` and `<SequenceStepper>` read as
+above; `<MergeStepper>` and `<PartitionStepper>` read «Paso anterior» / «Paso
+siguiente» / Reproducir / Reiniciar; `<SortStepper>` reads «Atrás» / «Paso» /
+Reproducir / «Reset». So the course ships three vocabularies across five
+widgets, and #294 moved one widget onto the target without converging the
+rest — which is worth knowing before a sixth stepper invents a fourth.
+
+A new stepper starts here. An existing one converges when it is opened for
+another reason.

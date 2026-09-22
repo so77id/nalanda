@@ -237,10 +237,18 @@ export function StepShow({
 
       {/*
         Controls row — the SAME four buttons, in the same order and with the
-        same words, as `<SequenceStepper>`, `<MergeStepper>` and
-        `<PartitionStepper>`: they share `stepperShell`'s `ControlButton`, so
-        a reader who learned the chrome on one stepper of the course does not
-        relearn it here (#294). This one used to keep a private copy that drew
+        same words, as `<SequenceStepper>`: they share `stepperShell`'s
+        `ControlButton`, so a reader who learned the chrome on one of the two
+        does not relearn it on the other (#294).
+
+        This comment claimed the parity held for `<MergeStepper>` and
+        `<PartitionStepper>` too, and it does not — measured, both still read
+        «Paso anterior» / «Paso siguiente» / Reproducir / Reiniciar, and
+        `<SortStepper>` reads «Atrás» / «Paso» / Reproducir / «Reset». So
+        four steppers ship three vocabularies, and this change moved one of
+        them AWAY from the other two rather than towards a settled norm. The
+        target chrome is recorded in `design-system.md`; converging the other
+        three is not this WP's work. This one used to keep a private copy that drew
         the icon alone, which made it the only stepper whose controls had no
         words on them.
 

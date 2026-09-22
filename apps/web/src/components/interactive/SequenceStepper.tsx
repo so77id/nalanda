@@ -80,7 +80,8 @@ export interface SequenceStepperProps {
    * same; only the name changes, in the signature and in every call.
    */
   method?: string;
-  /** The variable the calling program operates on. Default `list`. */
+  /** The variable the calling program operates on. Defaults to `arreglo`
+   * on the array recipes and to `list` on the chains. */
   receiver?: string;
   /** The class the calling program constructs. Goes with `method`. */
   receiverType?: string;

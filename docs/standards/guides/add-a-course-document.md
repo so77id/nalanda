@@ -450,7 +450,15 @@ runtime code. `<Math>` earns its cost only where prose math can't reach.
 5b. **Add an exercise (optional)**: `<Exercise>` gives the reader a problem to
 solve, checked automatically in their browser. The statement is ordinary
 prose; up to three annotated fences carry the rest (`starter` and `test` are
-required, `solution` is optional):
+required, `solution` is optional).
+
+**Read [`write-an-exercise.md`](write-an-exercise.md) before drafting one.**
+This section is the mechanics — the tag and its fences. That guide is the
+shape: the five beats a worked exercise moves through, the rule that nothing
+is called before it is written, and the split between a worked exercise
+(all five beats, the finished algorithm as `starter`, and its runnable block
+ships on a slide) and a posed one (beat 1 and stop, a skeleton `starter`, a
+`solution` fence, and it stays book-only).
 
 ````mdx
 <Exercise title="¿Es par?">
@@ -883,8 +891,9 @@ Six things worth knowing before you write one:
   one is the structure's own field, which is what the contract is written in
   terms of. **Naming it stands the cursors down**, because `i` lands on the
   same cell as `top` and says the same thing with a second arrow. A slide
-  that names no pointer keeps them — the Queue act reads `j` through the
-  shift.
+  that names no pointer keeps them — though no slide of #294 does: all four
+  of its array mounts name one (`top`, `top`, `rear`, `front`), so the
+  cursors stand down everywhere and the `i` / `j` path ships with no reader.
 - **`capacity` is the block, and only the two array recipes have one.** On
   `array` it is the fixed capacity the class's point depends on. On
   `dynamic-array` it is where the resize falls: the default starts the block
@@ -1050,7 +1059,7 @@ looking at it.
 6e-ter. **A drawn figure with no raster content may be written INLINE in the
 `<Slide>` instead, and then none of 6e-bis applies.** This is a third
 category, and it was in use for two classes before anyone wrote it down
-(#294 review, ARQ-10): #288 ships seven and #294 five, all standalone
+(#294 review, ARQ-10): #288 ships seven and #294 twenty, all standalone
 `<svg>` in slide bodies rather than `<Step>` frames or sibling assets. The
 rules invert, and the reason is the same one 6e gives: an `<img>` cannot see
 the page, and inline SVG is the page.
@@ -1067,7 +1076,8 @@ the page, and inline SVG is the page.
   DOM, so a repeated `<marker id="punta">` makes every `url(#punta)` resolve
   to whichever came first — silently correct only while the definitions
   happen to be identical. #294 uses `stack-arr-punta`, `cola-lista-punta`,
-  `jos-punta`.
+  `jos-pasar-punta`. (This line named `deque-punta` and then `jos-punta`,
+  neither of which ever existed — a citation is a measurement too.)
 - Colours go in the `style` object and never in a `fill=` / `stroke=`
   attribute — **not** because the attribute fails (it does not: the MDX
   pipeline passes `var(--color-*)` through verbatim and the browser resolves
@@ -1084,6 +1094,37 @@ the page, and inline SVG is the page.
 Both grounds still get looked at. The same rules for a `<Step>` frame, with
 the reasoning, are in
 [`teach-a-data-structure.md`](teach-a-data-structure.md) §6bis.
+
+6e-quater. **A document may define its own figure component, and it stays out
+of the catalog.** When one figure shape repeats many times in a class, an
+`export function` in the `.mdx` itself is allowed: MDX compiles the file as a
+module, so the declaration is ordinary JavaScript and the tag is in scope for
+the whole document. #294 defines `<Paso>` that way and mounts it 44 times.
+
+What that costs, and the rules that follow from it:
+
+- **It is NOT a content component.** No catalog entry, no registration in
+  `mdxComponents.ts`, no per-mode test — the ADR-0010 contract exists for
+  components many documents mount, and this one has exactly one consumer. Say
+  so at the definition so the next reader does not go looking for its catalog
+  page.
+- **It stays file-local, and the SECOND document that wants it promotes it**
+  through [`add-a-content-component.md`](add-a-content-component.md). Same
+  threshold shape `teach-a-data-structure.md` §2 uses for the TDA card.
+- **§6e-ter's rules are discharged once, at the definition** rather than per
+  call site: `role="img"` with a Spanish `aria-label` composed from the props,
+  palette tokens only, prefixed `id`s, camelCase attributes. That is most of
+  the reason to extract it — forty-four hand-written figures are forty-four
+  chances to forget one.
+- **Its identifiers and props are English**, like every other identifier in
+  the repo (root `CLAUDE.md` §Language). Only the strings the reader SEES stay
+  Spanish. #294 shipped `pila`, `etiqueta`, `nota` and `falla` as prop names
+  through a full review before anyone noticed, because no rule had said it and
+  no gate covers `content/`: prettier's scanner is rooted at `apps/web`, and
+  oxlint does not read `content/**` either.
+- **Nothing lints or tests it.** It is the one piece of React in the repo with
+  no gate at all, so it is checked the way a figure is checked — in a browser,
+  over both grounds, walking every frame.
 
 6f. **An authoring error does not fail the build**, on purpose: writing the
 slides before drawing the diagrams is a real order of work, and gating the
@@ -1436,6 +1477,10 @@ last block, so no stale copies accumulate.
 
 ## Checklist
 
+- [ ] Every `<Exercise>` reviewed against
+      [`write-an-exercise.md`](write-an-exercise.md) §Checklist — the five
+      beats, one example threading them, and nothing called before it is
+      written.
 - [ ] Frontmatter has kebab-case `id` (unique) + `title` + `presentation` —
       declared even when the value is the default (`architecture.test.ts` fails
       otherwise).
