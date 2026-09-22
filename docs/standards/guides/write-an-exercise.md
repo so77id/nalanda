@@ -42,7 +42,9 @@ of a structure or a technique; that is `teach-a-data-structure.md`.
 
 Both are `<Exercise title="…">` with ```` ```java starter ```` and
 ```` ```java test ```` fences; only the posed one adds ```` ```java solution ````.
-#294 ships four worked and five posed.
+#294 ships four worked and no posed ones — its five were cut, so the
+posed shape is described here from the `<Exercise>` contract rather than
+from a document that currently uses it.
 
 ## The five beats
 
@@ -246,7 +248,7 @@ and whether anything clips — recipe in `teach-a-data-structure.md`
 
 `content/courses/sample-course/19-edd-stack-queue.mdx` — four worked exercises
 (paréntesis balanceados, notación polaca inversa, el problema de Josefo,
-promedio móvil) and five posed ones. The guide was written from them and
+promedio móvil). The guide was written from them and
 they are rewritten to it in the same WP — notación polaca is what produced
 the second form of beat 2, having no tempting wrong idea to offer.
 
