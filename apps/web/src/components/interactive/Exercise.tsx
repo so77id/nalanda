@@ -190,7 +190,7 @@ export function Exercise({ title, language = 'java', children }: ExerciseProps) 
         holds, so the listing comes out legible whole rather than a window
         onto itself.
       */}
-      <div className="overflow-auto border-t border-rule">
+      <div className="border-t border-rule">
         <CodeMirror
           value={code}
           onChange={setCode}

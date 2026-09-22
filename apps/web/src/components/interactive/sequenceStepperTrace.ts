@@ -378,12 +378,6 @@ function requireValues(input: SequenceInput): number[] {
   return list;
 }
 
-function requireTarget(input: SequenceInput): number {
-  const [t] = asRuns(input.target);
-  if (t === undefined) throw new Error('Falta el valor buscado.');
-  return t;
-}
-
 /**
  * The name the listing is shown under: the structure's own by default, or
  * the document's when it presents the structure through a TDA (`method`).
@@ -805,7 +799,9 @@ function traceArray(
         break;
       }
       case 'search': {
-        const target = asRuns(input.target)[run] ?? requireTarget(input);
+        // `runArgs` returns `asRuns(input.target)` for this operation and an
+        // empty one throws upstream, so every run has its own target.
+        const target = asRuns(input.target)[run]!;
         const n = size();
         push(
           'start',
