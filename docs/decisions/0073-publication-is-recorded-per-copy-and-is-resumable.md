@@ -1,6 +1,6 @@
 # ADR-0073: Publication is recorded per copy, and is therefore resumable
 
-**Status:** Accepted — `apps/server/GMAIL-CHECK.md` §5c/§5d outstanding
+**Status:** Accepted — `apps/server/GMAIL-CHECK.md` §5c/§5d (and §5f, for §4b) outstanding
 **Date:** 2026-09-08
 **Decision-makers:** Miguel Rodriguez
 **Source:** #287, from the first real publication to students (2026-09-08, the
@@ -9,6 +9,8 @@ it on a live class, not a review finding — except §4's rehearsal rule and §5
 retention note, which the WP's own review added (COR-1/SEC-1, SEC-2).
 **Supersedes:** ADR-0072 §5 ("Publication is async, one-way, and stamped before
 it sends"). §§1–4b and 6 of ADR-0072 stand unchanged.
+**Amended by:** #297 (2026-09-22) — §4b: a lost Gmail credential stops the
+batch at the copy that found it. The one exception to per-copy independence.
 
 ## Context
 
@@ -209,6 +211,62 @@ correction is skipped. `Service.Unpublish`, `Store.ClearPublished` and
 `POST …/unpublish` go with them — the dead end they rescued the professor
 from cannot happen any more.
 
+### 4b. One exception: a lost credential stops the batch (amended by #297)
+
+§4's loop treats every send as independent — one student's bounce does not
+stop the other thirty-nine. That holds for everything a send can fail on
+EXCEPT the professor's own credential, and the 2026-09-22 incident is what
+showed the difference. Google answered the first send of a thirty-copy
+publication with `invalid_grant`; `gmail.Service.AccessToken` cleared the
+credential, as ADR-0072 requires; and the loop asked eighteen more times,
+each answered `ErrNotConnected` and each recorded as that copy's failure. The
+banner said "19 fallaron", and eighteen of the nineteen reasons told the
+professor they had never connected an account — true only because the first
+send had just disconnected it.
+
+**Decision.** A send that fails with `gmail.ErrRejected` or
+`gmail.ErrNotConnected` stops the loop at that copy. `Service.Publish`
+returns the partial `PublishResult` TOGETHER WITH `ErrCredentialLost` (which
+wraps the dispatcher's cause), and the publish handler words it as one
+failure: the lost connection, how many corrections went out before it, and
+the repair — reconnect in the profile, press Publicar again. Every other
+send error keeps §4's per-copy behaviour: a message Gmail refuses for its
+own reasons really is one copy's problem.
+
+`ErrNotConnected` counts as a lost credential here, and not as an absent
+one, because the pre-flight already turned away a professor with no
+connected address. Inside the loop it can only be the aftermath of a
+rejection — or a disconnect on `/profile` while the job was queued, which
+has the same repair.
+
+**Why stopping is safe**: this section's own premise. Every copy that went
+out is stamped immediately after its send, so a run cut short leaves an
+accurate record, and the next Publicar sends exactly the rest — the same
+property that makes a crashed run cost nothing. The result goes back with
+the error rather than being replaced by it because "how many went out" is
+the number that tells the professor whether the next press finishes a
+publication or starts one.
+
+**Why the exception is not about the copy.** Per-copy independence exists
+because a copy's failure says nothing about the next copy. A credential's
+does: no later send can succeed, so continuing buys nothing but one call to
+Google per remaining student and one misleading line per copy.
+
+**How it reaches the screen.** The job's `Detail` column, written since
+#273 and rendered by nothing, is now shown under a failed PUBLICATION's
+banner, line breaks kept — only that kind's, because every other kind
+stores the worker's stderr there for triage. And while the professor's
+Gmail is disconnected the banner links to `/profile`. The link is derived
+from the live connection on each render rather than stored on the job row:
+a stored "action" would need a migration and would keep offering the link
+after the professor had reconnected.
+
+Deliberately NOT done (#297 §Non-goals): remembering that a credential was
+rejected — after the clear, `/profile` cannot tell "expired" from "never
+connected", and the banner carries that distinction at the moment it
+matters — and any pre-flight that exercises the token, which would cost a
+Google call per page load. Verified by `GMAIL-CHECK.md` §5f.
+
 ### 5. Two ways to send outside the batch
 
 **Per student, synchronous:** `POST /controls/{id}/copies/{n}/publish`, from
@@ -335,7 +393,8 @@ trade-off and re-introduces it.
 A run that dies leaves every sent copy on record. A copy whose send the
 provider refused is left unstamped, so the next Publicar picks it up — which
 also means the retry ADR-0050 deliberately does not automate is now one
-button rather than a manual chase.
+button rather than a manual chase. A run whose credential dies is the same case, one level up (§4b): it
+stops, and the press after reconnecting finishes it.
 
 ### The list's denominator is approximate, on purpose
 

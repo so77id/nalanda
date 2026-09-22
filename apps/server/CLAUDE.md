@@ -781,6 +781,25 @@ the `avisoNo*` / `flash.Set(…)` string literals in `internal/app/web/handler/`
   And a copy with no annotated PDF is skipped rather than sent without it:
   "adjunto la corrección" with nothing attached is worse than no message,
   because the student now has to ask.
+
+  **And one failure is not a copy's at all: a lost Gmail credential STOPS
+  the batch (issue #297, ADR-0073 §4b).** A send failing with
+  `gmail.ErrRejected` or `gmail.ErrNotConnected` makes `Service.Publish`
+  return the partial result together with `ErrCredentialLost`, and the
+  publish handler words it as ONE failure with the repair. Folding it back
+  into `Failures` is the 2026-09-22 incident: one Google call per remaining
+  copy, and eighteen lines telling the professor they had never connected
+  an account, because the first send had just cleared it. The handler must
+  test `ErrCredentialLost` BEFORE `failureFromPublishError`, whose
+  `ErrNotConnected` case matches the wrapped cause and says exactly that.
+  Stopping is safe for the reason resuming is — every sent copy is already
+  stamped. Every other send error stays per-copy.
+
+  The failure banner renders `job.detail` for a failed PUBLICATION only
+  (`jobBannerFor`): that kind's detail is Spanish written for the professor,
+  every other kind's is stderr kept for triage. Its `/profile` link is
+  derived from the LIVE connection `fillPublication` already reads — never
+  stored on the job, so it disappears once the professor reconnects.
 - **A synchronous route imposes its OWN deadline, and the transport's is
   not one (issue #287 review, ARQ-1).** `handler.copyPublishDeadline` is
   25 s against `httpserver`'s 30 s `WriteTimeout`, beside `importDeadline`'s
@@ -843,7 +862,9 @@ the `avisoNo*` / `flash.Set(…)` string literals in `internal/app/web/handler/`
   since #287, anything that decides WHICH copies go out or stamps them
   (`Service.Publish`'s resume filter, `Service.PublishOne`,
   `ResendToWholeCourse`, `controls.deliverableCopy`, and the
-  `published_at`/`published_grade` writes; §5c and §5d are their steps) — is
+  `published_at`/`published_grade` writes; §5c and §5d are their steps) — or,
+  since #297, what a run does when the credential dies mid-way and the
+  banner that reports it (§5f) — is
   unfinished while a human has not run
   [`GMAIL-CHECK.md`](GMAIL-CHECK.md). Same rule, and the same reason, as
   the Google, Canvas and paper bullets.
