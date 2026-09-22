@@ -128,10 +128,16 @@ uniform two-part shape helps the reader skim. #294 withdraws it: a title
 already has to say what its slide is about, and the subtitle is where the
 saying got deferred to. Every one of its slides is single-part.
 
-The interpunct survives in two places that are not subtitles: a document
-`title` naming its unit (`Estructuras de Datos · Stack y Queue`) and an act
-`h2` doing the same (`## Stack · Pila`). Those name a thing inside a series,
-which is what the character is for.
+The interpunct survives where it names a thing inside a **series**, which is
+what the character is for: a document `title` naming its unit
+(`Estructuras de Datos · Stack y Queue`), an act `h2` doing the same
+(`## Stack · Pila`), and a run of slides that share one job and differ only
+in which part of it they carry — `Código · funciones auxiliares`,
+`Código · la solución`, `Código · el programa completo`. The test that
+separates the two uses: in a series, the part BEFORE the interpunct repeats
+across several titles and the part after is what distinguishes them. A
+subtitle is the opposite — a one-off precision hung on a title that already
+stood alone.
 
 **31 titles in `17-edd-introduccion.mdx` and `18-edd-listas-enlazadas.mdx`
 still carry a subtitle**, and they were written when the rule allowed it.

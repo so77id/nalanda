@@ -1322,24 +1322,19 @@ correcto.
 «En el orden correcto» es lo que hace el problema interesante, y se ve
 dibujando un arco entre cada pareja:
 
-<svg viewBox="40 -8 580 340" style={{ width: '100%', maxWidth: '660px', height: 'auto', display: 'block', margin: '1.25rem auto' }} role="img" aria-label="Cuatro expresiones con un arco que une cada par de símbolos. En la primera, abre paréntesis llave corchete y sus tres cierres, los arcos se anidan sin cruzarse y está balanceada. En la segunda, abre paréntesis corchete cierra paréntesis cierra corchete, los dos arcos se cruzan. En la tercera, dos aperturas y un cierre, el primer paréntesis queda sin arco. En la cuarta, un par completo y un cierre final que no tiene con qué emparejarse.">
+<svg viewBox="40 -8 580 340" style={{ width: '100%', maxWidth: '660px', height: 'auto', display: 'block', margin: '1.25rem auto' }} role="img" aria-label="Cuatro expresiones con un arco que une cada par de símbolos. En la primera, abre paréntesis abre llave abre corchete cierra corchete abre paréntesis cierra paréntesis cierra llave cierra paréntesis: los cuatro arcos se anidan sin cruzarse y está balanceada. En la segunda, abre paréntesis corchete cierra paréntesis cierra corchete, los dos arcos se cruzan. En la tercera, dos aperturas y un cierre, el primer paréntesis queda sin arco. En la cuarta, un par completo y un cierre final que no tiene con qué emparejarse.">
   <g transform="translate(0, 0)">
-    <rect x={56} y="0" width="28" height="28" rx="3" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.5" />
-    <text x={70} y="20" textAnchor="middle" fontSize="17" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>{'('}</text>
-    <rect x={88} y="0" width="28" height="28" rx="3" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.5" />
-    <text x={102} y="20" textAnchor="middle" fontSize="17" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>{'{'}</text>
-    <rect x={120} y="0" width="28" height="28" rx="3" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.5" />
-    <text x={134} y="20" textAnchor="middle" fontSize="17" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>{'['}</text>
-    <rect x={152} y="0" width="28" height="28" rx="3" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.5" />
-    <text x={166} y="20" textAnchor="middle" fontSize="17" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>{']'}</text>
-    <rect x={184} y="0" width="28" height="28" rx="3" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.5" />
-    <text x={198} y="20" textAnchor="middle" fontSize="17" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>{'}'}</text>
-    <rect x={216} y="0" width="28" height="28" rx="3" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.5" />
-    <text x={230} y="20" textAnchor="middle" fontSize="17" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>{')'}</text>
-    <path d="M 70 31 C 70 75, 230 75, 230 31" fill="none" style={{ stroke: 'var(--color-keep)' }} strokeWidth="1.8" />
-    <path d="M 102 31 C 102 61, 198 61, 198 31" fill="none" style={{ stroke: 'var(--color-keep)' }} strokeWidth="1.8" />
+    {['(', '{', '[', ']', '(', ')', '}', ')'].map((ch, i) => (
+      <g key={i}>
+        <rect x={56 + i * 32} y="0" width="28" height="28" rx="3" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.5" />
+        <text x={70 + i * 32} y="20" textAnchor="middle" fontSize="17" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>{ch}</text>
+      </g>
+    ))}
+    <path d="M 70 31 C 70 79, 294 79, 294 31" fill="none" style={{ stroke: 'var(--color-keep)' }} strokeWidth="1.8" />
+    <path d="M 102 31 C 102 63, 262 63, 262 31" fill="none" style={{ stroke: 'var(--color-keep)' }} strokeWidth="1.8" />
     <path d="M 134 31 C 134 47, 166 47, 166 31" fill="none" style={{ stroke: 'var(--color-keep)' }} strokeWidth="1.8" />
-    <text x="300" y="20" fontSize="14" fontWeight="700" style={{ fill: 'var(--color-keep)' }}>balanceada · los arcos anidan</text>
+    <path d="M 198 31 C 198 47, 230 47, 230 31" fill="none" style={{ stroke: 'var(--color-keep)' }} strokeWidth="1.8" />
+    <text x="330" y="20" fontSize="14" fontWeight="700" style={{ fill: 'var(--color-keep)' }}>balanceada · los arcos anidan</text>
   </g>
   <g transform="translate(0, 90)">
     <rect x={56} y="0" width="28" height="28" rx="3" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.5" />
@@ -1352,7 +1347,7 @@ dibujando un arco entre cada pareja:
     <text x={166} y="20" textAnchor="middle" fontSize="17" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>{']'}</text>
     <path d="M 70 31 C 70 51, 134 51, 134 31" fill="none" style={{ stroke: 'var(--color-flag)' }} strokeWidth="1.8" />
     <path d="M 102 31 C 102 69, 166 69, 166 31" fill="none" style={{ stroke: 'var(--color-flag)' }} strokeWidth="1.8" />
-    <text x="300" y="20" fontSize="14" fontWeight="700" style={{ fill: 'var(--color-flag)' }}>se cruzan</text>
+    <text x="330" y="20" fontSize="14" fontWeight="700" style={{ fill: 'var(--color-flag)' }}>se cruzan</text>
   </g>
   <g transform="translate(0, 180)">
     <rect x={56} y="0" width="28" height="28" rx="3" style={{ fill: 'var(--color-flag-soft)', stroke: 'var(--color-flag)' }} strokeWidth="1.5" strokeDasharray="4 3" />
@@ -1363,7 +1358,7 @@ dibujando un arco entre cada pareja:
     <text x={134} y="20" textAnchor="middle" fontSize="17" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>{')'}</text>
     <path d="M 102 31 C 102 47, 134 47, 134 31" fill="none" style={{ stroke: 'var(--color-keep)' }} strokeWidth="1.8" />
     <path d="M 66 35 l 9 10 m -9 0 l 9 -10" fill="none" style={{ stroke: 'var(--color-flag)' }} strokeWidth="1.8" strokeLinecap="round" />
-    <text x="300" y="20" fontSize="14" fontWeight="700" style={{ fill: 'var(--color-flag)' }}>quedó una sin cerrar</text>
+    <text x="330" y="20" fontSize="14" fontWeight="700" style={{ fill: 'var(--color-flag)' }}>quedó una sin cerrar</text>
   </g>
   <g transform="translate(0, 262)">
     <rect x={56} y="0" width="28" height="28" rx="3" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.5" />
@@ -1374,7 +1369,7 @@ dibujando un arco entre cada pareja:
     <text x={134} y="20" textAnchor="middle" fontSize="17" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>{')'}</text>
     <path d="M 70 31 C 70 47, 102 47, 102 31" fill="none" style={{ stroke: 'var(--color-keep)' }} strokeWidth="1.8" />
     <path d="M 130 35 l 9 10 m -9 0 l 9 -10" fill="none" style={{ stroke: 'var(--color-flag)' }} strokeWidth="1.8" strokeLinecap="round" />
-    <text x="300" y="20" fontSize="14" fontWeight="700" style={{ fill: 'var(--color-flag)' }}>cierra una que nunca se abrió</text>
+    <text x="330" y="20" fontSize="14" fontWeight="700" style={{ fill: 'var(--color-flag)' }}>cierra una que nunca se abrió</text>
   </g>
 </svg>
 
@@ -1392,7 +1387,7 @@ cadena vacía está balanceada: no hay nada que cerrar.
 
 </Slide>
 
-<Slide title="La cuenta que no alcanza">
+<Slide title="Contar los símbolos">
 Lo primero que se piensa es contar: si hay tantos `(` como `)`, tantos `[`
 como `]` y tantos `{` como `}`, la expresión estaría balanceada.
 
@@ -1429,22 +1424,21 @@ lo único en que esas dos expresiones se diferencian.
 
 </Slide>
 
-<Slide title="Los símbolos que esperan cierre">
-Recorremos la expresión de izquierda a derecha. Cada símbolo que abre queda
-**esperando su cierre**, y el que abre después queda esperando adentro del
-anterior.
+<Slide title="El cierre le toca al último que abrió">
+Recorremos `({[]()})` de izquierda a derecha, y los símbolos que abren se
+acumulan a la espera de su cierre: primero el `(`, después el `{`, después el
+`[`.
 
-Por eso, cuando aparece un cierre, sólo puede cerrar al **último** que quedó
-esperando: los que abrieron antes lo tienen adentro, y ninguno puede cerrarse
-mientras siga habiendo algo abierto adentro suyo.
+Cuando llega el `]`, el que le corresponde es el `[` — y el `[` es, justamente,
+el último que quedó esperando. No es casualidad: un símbolo que abre después
+de otro queda encerrado por él, así que tiene que cerrarse antes. Si se
+cerrara después, los dos arcos se cruzarían.
 
-Sobre `({[]})`:
-
-<svg viewBox="20 0 660 212" style={{ width: '100%', maxWidth: '680px', height: 'auto', display: 'block', margin: '1.25rem auto' }} role="img" aria-label="La pila de pendientes en cuatro momentos del recorrido de abre paréntesis abre llave abre corchete cierra corchete cierra llave cierra paréntesis. Tras el primer símbolo la pila tiene un abre paréntesis. Tras los tres primeros tiene abre paréntesis, abre llave y abre corchete, con el corchete arriba de todo. Tras el cierra corchete quedan dos, el paréntesis abajo y la llave arriba. Al final la pila queda vacía.">
+<svg viewBox="20 0 660 212" style={{ width: '100%', maxWidth: '680px', height: 'auto', display: 'block', margin: '1.25rem auto' }} role="img" aria-label="La pila de pendientes en cuatro momentos del recorrido de la expresión. Tras los tres primeros símbolos tiene abre paréntesis, abre llave y abre corchete, con el corchete arriba de todo. Tras el cierra corchete quedan dos, el paréntesis abajo y la llave arriba. Tras el segundo abre paréntesis vuelve a tener tres. Al final la pila queda vacía.">
   {[
-    { x: 40, rotulo: 'tras (', pila: ['('], nota: '' },
-    { x: 200, rotulo: 'tras ({[', pila: ['(', '{', '['], nota: '' },
-    { x: 360, rotulo: 'tras ]', pila: ['(', '{'], nota: '' },
+    { x: 40, rotulo: 'tras ({[', pila: ['(', '{', '['], nota: '' },
+    { x: 200, rotulo: 'tras ({[]', pila: ['(', '{'], nota: '' },
+    { x: 360, rotulo: 'tras ({[](', pila: ['(', '{', '('], nota: '' },
     { x: 520, rotulo: 'al final', pila: [], nota: 'vacía' },
   ].map((c, i) => (
     <g key={i}>
@@ -1462,32 +1456,47 @@ Sobre `({[]})`:
   <text x="240" y="204" fontSize="12" style={{ fill: 'var(--color-ink-faint)' }}>lo último que entró queda arriba, y es lo primero que sale</text>
 </svg>
 
-De toda la lista de símbolos esperando sólo se consulta y se retira el último
-que entró. Esa es la **pila**.
+Eso vale en cada paso del recorrido. De todos los símbolos que esperan, el
+único que puede cerrarse es el último que entró, y es el único que hace falta
+consultar. Una colección que se usa así es una **pila**.
 
 Al terminar la expresión no puede quedar ninguno esperando: cada uno que sobre
 es un símbolo que nunca se cerró.
 
 </Slide>
 
-<Slide title="El código">
-Dos funciones dicen de qué lado está un símbolo, y una tercera devuelve la
-apertura que le corresponde a un cierre. Las tres son las parejas del
-enunciado, escritas en Java:
-
+<Slide title="Código · funciones auxiliares">
 ```java
-boolean isOpener(char c) { return c == '(' || c == '[' || c == '{'; }
-boolean isCloser(char c) { return c == ')' || c == ']' || c == '}'; }
+static boolean isOpener(char c) {
+    return c == '(' || c == '[' || c == '{';
+}
 
-char openerFor(char c) {
+static boolean isCloser(char c) {
+    return c == ')' || c == ']' || c == '}';
+}
+
+static char openerFor(char c) {
     if (c == ')') return '(';
     if (c == ']') return '[';
     return '{';
 }
 ```
 
-Con ellas, el recorrido: cada apertura entra a la pila, y cada cierre saca la
-cima y la compara contra la apertura que le corresponde.
+Las dos primeras **clasifican** un carácter: `isOpener` responde si es uno de
+los tres que abren, `isCloser` si es uno de los tres que cierran.
+
+`openerFor` es la única que trae algo del problema: recibe un cierre y
+devuelve la apertura que le corresponde. Es la tabla de parejas del enunciado,
+escrita en Java.
+
+Ninguna de las tres tiene idea adentro. Van primero para que el recorrido, que
+sí la tiene, se lea de una sola pasada.
+
+</Slide>
+
+<Slide title="Código · la solución">
+Cada apertura entra a la pila. Cada cierre saca la cima y la compara contra la
+apertura que le corresponde: si no coinciden, la expresión no está balanceada.
 
 <StepShow
   language="java"
@@ -1502,34 +1511,40 @@ cima y la compara contra la apertura que le corresponde.
 return pending.empty();`}
 >
   <Step lines={[]}>
-    <Paso expr="({[]})" cursor={-1} pila={[]} nota="La pila arranca vacía y recorremos la expresión de izquierda a derecha." />
+    <Paso expr="({[]()})" cursor={-1} pila={[]} nota="La pila arranca vacía y recorremos la expresión de izquierda a derecha." />
   </Step>
   <Step lines={[2, 3]}>
-    <Paso expr="({[]})" cursor={0} pila={['(']} nota="( es una apertura: se apila." />
+    <Paso expr="({[]()})" cursor={0} pila={['(']} nota="( abre: se apila." />
   </Step>
   <Step lines={[2, 3]}>
-    <Paso expr="({[]})" cursor={1} pila={['(', '{']} nota="{ es una apertura: se apila encima." />
+    <Paso expr="({[]()})" cursor={1} pila={['(', '{']} nota="{ abre: se apila encima." />
   </Step>
   <Step lines={[2, 3]}>
-    <Paso expr="({[]})" cursor={2} pila={['(', '{', '[']} nota="[ es una apertura: se apila encima." />
+    <Paso expr="({[]()})" cursor={2} pila={['(', '{', '[']} nota="[ abre: se apila encima." />
   </Step>
   <Step lines={[4, 6]}>
-    <Paso expr="({[]})" cursor={3} pila={['(', '{']} nota="] cierra. La cima era [, que es justo su pareja: se desapila." />
+    <Paso expr="({[]()})" cursor={3} pila={['(', '{']} nota="] cierra y la cima es [, su pareja: se desapila." />
+  </Step>
+  <Step lines={[2, 3]}>
+    <Paso expr="({[]()})" cursor={4} pila={['(', '{', '(']} nota="( abre: la pila vuelve a crecer." />
   </Step>
   <Step lines={[4, 6]}>
-    <Paso expr="({[]})" cursor={4} pila={['(']} nota="} cierra. La cima era {, su pareja: se desapila." />
+    <Paso expr="({[]()})" cursor={5} pila={['(', '{']} nota=") cierra y la cima es (, su pareja: se desapila." />
   </Step>
   <Step lines={[4, 6]}>
-    <Paso expr="({[]})" cursor={5} pila={[]} nota=") cierra. La cima era (, su pareja: se desapila." />
+    <Paso expr="({[]()})" cursor={6} pila={['(']} nota="} cierra y la cima es {, su pareja: se desapila." />
+  </Step>
+  <Step lines={[4, 6]}>
+    <Paso expr="({[]()})" cursor={7} pila={[]} nota=") cierra y la cima es (, su pareja: se desapila." />
   </Step>
   <Step lines={[9]}>
-    <Paso expr="({[]})" cursor={-1} pila={[]} nota="Se acabó la expresión y la pila quedó vacía: está balanceada." />
+    <Paso expr="({[]()})" cursor={-1} pila={[]} nota="Se acabó la expresión y la pila quedó vacía: está balanceada." />
   </Step>
 </StepShow>
 
 </Slide>
 
-<Slide title="Las entradas que fallan">
+<Slide title="Las expresiones que devuelven false">
 <StepShow
   language="java"
   code={`for (char c : s.toCharArray()) {
@@ -1543,7 +1558,7 @@ return pending.empty();`}
 return pending.empty();`}
 >
   <Step lines={[]}>
-    <Paso expr="([)]" cursor={-1} pila={[]} nota="La misma cantidad de cada símbolo que ({[]}), en otro orden." />
+    <Paso expr="([)]" cursor={-1} pila={[]} nota="Un símbolo de cada clase, igual que ([]), y en otro orden." />
   </Step>
   <Step lines={[2, 3]}>
     <Paso expr="([)]" cursor={0} pila={['(']} nota="( es una apertura: se apila." />
@@ -1556,30 +1571,26 @@ return pending.empty();`}
   </Step>
 </StepShow>
 
-Sobre `([)]` la función devuelve `false` en el tercer símbolo, sin llegar a
-leer el cuarto: el `)` corresponde a `(`, y la cima es `[`.
+`([)]` falla en el tercer símbolo, sin llegar a leer el cuarto.
 
-`(()` no falla en ningún cierre. El ciclo recorre la expresión entera y
-termina con un `(` todavía en la pila — por eso la última línea no es
-`return true` sino `return pending.empty()`.
+`(()` no se equivoca en ningún cierre y termina con un `(` en la pila: por eso
+la última línea es `return pending.empty()` y no `return true`. `())` llega al
+último `)` con la pila vacía, y sin esa guarda `pop()` lanzaría
+`EmptyStackException`.
 
-`())` falla al revés: el último `)` llega con la pila ya vacía, y no hay
-ninguna apertura contra la cual compararlo. Sin esa guarda, `pop()` sobre una
-pila vacía lanza `EmptyStackException`.
-
-Cada símbolo se mira una vez y entra y sale de la pila a lo más una vez, así
-que el tiempo es $$\Theta(N)$$. La pila llega a tener tantos símbolos como
-aperturas anidadas tenga la expresión, de modo que con `((((`… ocupa
-$$\Theta(N)$$ de espacio.
+Cada símbolo se mira una vez y entra y sale de la pila a lo más una vez:
+$$\Theta(N)$$ de tiempo, y $$\Theta(N)$$ de espacio cuando todo son
+aperturas.
 
 </Slide>
 
-<Slide title="El código completo">
+<Slide title="Código · el programa completo">
+<PresentationWide fraction={0.75}>
 <Exercise title="Paréntesis balanceados">
 
 El algoritmo entero, con sus tres auxiliares. Los casos de prueba son
-`({[]})`, `([)]`, `(()`, `())` y la cadena vacía. Presiona **Comprobar** para
-correrlo, y después cambia lo que quieras.
+`({[]})`, `({[]()})`, `([)]`, `(()`, `())` y la cadena vacía. Presiona
+**Comprobar** para correrlo, y después cambia lo que quieras.
 
 ```java starter
 import java.util.Stack;
@@ -1599,9 +1610,13 @@ class Solution {
         return pending.empty();
     }
 
-    static boolean isOpener(char c) { return c == '(' || c == '[' || c == '{'; }
+    static boolean isOpener(char c) {
+        return c == '(' || c == '[' || c == '{';
+    }
 
-    static boolean isCloser(char c) { return c == ')' || c == ']' || c == '}'; }
+    static boolean isCloser(char c) {
+        return c == ')' || c == ']' || c == '}';
+    }
 
     static char openerFor(char c) {
         if (c == ')') return '(';
@@ -1613,6 +1628,7 @@ class Solution {
 
 ```java test
 check(Solution.balanced("({[]})"), true);
+check(Solution.balanced("({[]()})"), true);
 check(Solution.balanced("([)]"), false);
 check(Solution.balanced("(()"), false);
 check(Solution.balanced("())"), false);
@@ -1620,6 +1636,7 @@ check(Solution.balanced(""), true);
 ```
 
 </Exercise>
+</PresentationWide>
 </Slide>
 
 <Slide title="Notación polaca inversa">
