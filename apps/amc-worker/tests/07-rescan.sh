@@ -102,11 +102,15 @@ check "copy 2's sheets can be filled as another" fill p1 "$PLAN_2" scan-b scan-b
 upload p1 scan-a/lote.pdf 1
 rep1="$(analyse p1 1)"
 check_eq "the first batch reads copy 1" "['1']" "$(echo "$rep1" | field 'sorted(d["copies"])')"
+check_eq "and says what THIS batch did: two pages read, none re-captured" \
+  "{'captured': 2, 'failed': 0, 'recaptured_copies': []}" "$(echo "$rep1" | field 'd["batch"]')"
 
 upload p1 scan-b/lote.pdf 2
 rep2="$(analyse p1 2)"
 check_eq "the second batch adds copy 2 beside it" "['1', '2']" \
   "$(echo "$rep2" | field 'sorted(d["copies"])')"
+check_eq "the second batch's own numbers are its own, not the project's" \
+  "{'captured': 2, 'failed': 0, 'recaptured_copies': []}" "$(echo "$rep2" | field 'd["batch"]')"
 check_eq "and copy 1 still holds exactly its two pages — batch 1 was not re-analysed" "2" \
   "$(sql p1 'SELECT COUNT(*) FROM capture_page WHERE student = 1')"
 check_eq "the second batch's page list names only its own two pages" "2" \
@@ -153,6 +157,8 @@ check_eq "and the second reading is the first one, copy for copy" \
   "$(echo "$first" | field 'json.dumps(d["copies"], sort_keys=True)' | cksum)" \
   "$(echo "$second" | field 'json.dumps(d["copies"], sort_keys=True)' | cksum)"
 check_eq "with every copy clean" "[]" "$(echo "$second" | field 'd["needs_review"]')"
+check_eq "the second read of the same batch re-captured both copies" "[1, 2]" \
+  "$(echo "$second" | field 'd["batch"]["recaptured_copies"]')"
 
 # The Control 7 shape: the first batch lost every copy's second page, the
 # professor re-scanned the whole pile. Before #298 this aborted with "You did
@@ -179,7 +185,9 @@ check_eq "and no RUT read twice" "['20123456', '19876543']" \
 # A batch that re-scans ONE copy replaces that copy and leaves the other alone.
 check "copy 1 alone can be re-filled" fill p3 "$PLAN_1" scan-one scan-one/lote.pdf
 upload p3 scan-one/lote.pdf 3
-analyse p3 3 >/dev/null
+one="$(analyse p3 3)"
+check_eq "a batch re-scanning copy 1 alone reports copy 1 alone" "[1]" \
+  "$(echo "$one" | field 'd["batch"]["recaptured_copies"]')"
 check_eq "re-scanning copy 1 overwrites only copy 1's pages" "[(1, 1, 2), (1, 2, 1), (2, 1, 1), (2, 2, 0)]" \
   "$(sql p3 'SELECT student, page, overwritten FROM capture_page ORDER BY student, page')"
 
@@ -190,5 +198,26 @@ check_eq "re-scanning copy 1 overwrites only copy 1's pages" "[(1, 1, 2), (1, 2,
 inj="$(post /associate/set '{"project":"p3","copy":2,"id":"19123450"}')"
 check_eq "an injected association takes effect on a single-mode capture" "19123450" \
   "$(echo "$inj" | field 'd["id"]')"
+
+# --- S3: a batch AMC recognises none of reports it, rather than ending green --
+#
+# In single mode AMC files a page it cannot place in capture_failed and exits
+# 0 — the loud abort lived inside the photocopy block. `batch` carries this
+# run's numbers so the server can fail the job (issue #298 §B). Blank pages
+# are the unrecognisable page: no marker at all.
+docker run --rm -v "${work}:/work" -w /work "$IMAGE" \
+  gs -q -dBATCH -dNOPAUSE -sDEVICE=pdfwrite -sPAPERSIZE=letter -o /work/blank.pdf \
+  -c showpage showpage >/dev/null 2>&1
+upload p1 blank.pdf 5
+blank="$(analyse p1 5)"
+check_eq "a batch of blank pages captures nothing and says how many it could not place" \
+  "{'captured': 0, 'failed': 2, 'recaptured_copies': []}" "$(echo "$blank" | field 'd["batch"]')"
+docker run --rm -v "${work}:/work" -w /work "$IMAGE" \
+  gs -q -dBATCH -dNOPAUSE -sDEVICE=pdfwrite -o /work/mixed.pdf \
+  /work/blank.pdf /work/scan-b/lote.pdf >/dev/null 2>&1
+upload p1 mixed.pdf 6
+mixed="$(analyse p1 6)"
+check_eq "a batch recognised in part reads what it can and counts the rest" \
+  "{'captured': 2, 'failed': 2, 'recaptured_copies': [2]}" "$(echo "$mixed" | field 'd["batch"]')"
 
 summary

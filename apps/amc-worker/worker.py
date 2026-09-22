@@ -278,6 +278,10 @@ def analyse(body):
         # A retry of the same batch — the list must still hold ONLY it.
         os.remove(listing)
 
+    # What the capture held before this batch, so the report can say what
+    # the batch itself did (issue #298): the project totals cannot.
+    before = read_capture.capture_snapshot(data)
+
     amc("getimages", "--list", listing, "--vector-density", "300",
         "--copy-to", scans, scan_pdf)
     # SINGLE mode, never `--multiple` (issue #298). `--multiple` is AMC's
@@ -293,6 +297,23 @@ def analyse(body):
     amc("analyse", "--data", data, "--projet", project,
         "--cr", os.path.join(project, "cr"),
         "--liste-fichiers", listing)
+
+    after = read_capture.capture_snapshot(data)
+    batch = read_capture.batch_outcome(before, after)
+    if batch["captured"] == 0:
+        # Nothing of this batch was read, so there is nothing to score — and
+        # on a project whose first batch this is, scoring would find no
+        # capture and the reader would refuse with a message about `note`
+        # that blames the wrong step. The report says what happened instead;
+        # `batch.captured == 0` is what the server fails the job on.
+        return {
+            "pages": {"captured": len(after["pages"]), "failed": len(after["failed"])},
+            "scoring": {"seuil": None, "ticked": ticked, "stale": False},
+            "copies": {},
+            "pages_per_copy": {},
+            "needs_review": [],
+            "batch": batch,
+        }
 
     # TRAP 3: scoring AFTER capture. The other order leaves scoring_code empty
     # and every association then matches nothing, indistinguishably from a
@@ -320,7 +341,10 @@ def analyse(body):
     # on every scanned copy of Miguel's first real batch.
     link_scans_to_contract_names(data, os.path.join(project, "scans"))
 
-    return read_capture.read(data, ticked, unsure)
+    report = read_capture.read(data, ticked, unsure)
+    # Optional on the wire (CLAUDE.md): a server that predates it ignores it.
+    report["batch"] = batch
+    return report
 
 
 def batch_list_name(scan_pdf):

@@ -243,6 +243,63 @@ def printed_copies(data_dir):
     return int(highest)
 
 
+def capture_snapshot(data_dir):
+    """What AMC's capture holds right now, reduced to what a batch can change.
+
+    `{"pages": {(student, page, copy): overwritten}, "failed": {filename}}`.
+    Taken before and after one `analyse`, the difference is what THAT batch
+    did (`batch_outcome`) — the project totals in the report cannot say it,
+    because both `capture_page` and `capture_failed` accumulate across every
+    batch ever uploaded (issue #298). A project with no capture yet is an
+    empty snapshot, not an error: the first batch starts from nothing.
+    """
+    path = os.path.join(data_dir, "capture.sqlite")
+    if not os.path.exists(path):
+        # Not connect-first: it would create the file (see check_scoring).
+        return {"pages": {}, "failed": set()}
+    con = sqlite3.connect(path)
+    try:
+        pages = {
+            (student, page, copy): overwritten
+            for student, page, copy, overwritten in con.execute(
+                "SELECT student, page, copy, overwritten FROM capture_page")
+        }
+        failed = {r[0] for r in con.execute("SELECT filename FROM capture_failed")}
+    finally:
+        con.close()
+    return {"pages": pages, "failed": failed}
+
+
+def batch_outcome(before, after):
+    """What one `analyse` did, from the snapshots on either side of it.
+
+    A page is CAPTURED by this batch when it is new, or when AMC overwrote it
+    (single mode bumps `capture_page.overwritten` on every re-capture). A
+    copy is RE-CAPTURED when at least one of its pages was overwritten: its
+    corrections were made against an image that is gone. A page FAILED when
+    its image appears in `capture_failed` for the first time.
+
+    >>> before = {"pages": {(1, 1, 0): 0, (2, 1, 0): 0}, "failed": {"old.png"}}
+    >>> after = {"pages": {(1, 1, 0): 1, (2, 1, 0): 0, (1, 2, 0): 0},
+    ...          "failed": {"old.png", "new.png"}}
+    >>> batch_outcome(before, after)
+    {'captured': 2, 'failed': 1, 'recaptured_copies': [1]}
+    """
+    captured, recaptured = 0, set()
+    for key, overwritten in after["pages"].items():
+        previous = before["pages"].get(key)
+        if previous is None:
+            captured += 1
+        elif overwritten > previous:
+            captured += 1
+            recaptured.add(key[0])
+    return {
+        "captured": captured,
+        "failed": len(after["failed"] - before["failed"]),
+        "recaptured_copies": sorted(recaptured),
+    }
+
+
 def scoring_facts(data_dir):
     """What AMC scored, keyed per copy because every copy draws its own questions.
 
