@@ -1562,15 +1562,16 @@ void enqueue(int x) {
 }
 ```
 
-Sin `tail` habría que recorrer la cadena entera para encontrar al último, y
-`enqueue` costaría $$\Theta(N)$$. Con `tail` el último ya está en la mano:
-una asignación lo enlaza y otra mueve la referencia, y eso no depende de
-cuántos elementos haya. $$\Theta(1)$$.
+El método crea el nodo, lo engancha al final de la cadena, mueve `tail`
+hasta él y sube `size`. Engancharlo es una sola asignación —`tail.next =
+fresh`— porque `tail` ya tenía al último en la mano; sin esa referencia
+habría que recorrer la cadena entera para encontrarlo. Nada de esto depende
+del largo: $$\Theta(1)$$.
 
-La cola vacía es el caso aparte, y la rama lo dice: sin nodos no hay un
-último al que enlazarse, así que lo que se asigna es `head`. En las dos
-ramas el nodo nuevo termina siendo el último, y por eso `tail = fresh` está
-afuera y se escribe una sola vez.
+El `if` es un **caso borde**: la cola vacía. Ahí no hay un último al que
+engancharse, así que lo que se asigna es `head`. En las dos ramas el nodo
+nuevo termina siendo el último, y por eso `tail = fresh` va afuera del `if`
+y se escribe una sola vez.
 
 </Slide>
 
@@ -1590,8 +1591,7 @@ afuera y se escribe una sola vez.
 
 <Slide title="Dequeue">
 Implementar `dequeue` es **usar `deleteFirst`**: sacar el primer nodo de la
-cadena y devolver su valor, más una línea que la cola necesita y ninguna
-otra estructura pide.
+cadena y devolver su valor.
 
 <svg viewBox="30 76 600 150" style={{ width: '100%', maxWidth: '660px', height: 'auto', display: 'block', margin: '1.25rem auto' }} role="img" aria-label="Dos dibujos de la misma cola. A la izquierda, antes: 3, 8, 5 y 9, con el 3 en el frente dibujado atenuado y punteado porque es el que sale. Una flecha rotulada dequeue devuelve 3 lleva al de la derecha, después, donde quedan 8, 5 y 9 y el frente pasó a ser el 8.">
   <defs>
@@ -1634,14 +1634,15 @@ int dequeue() {
 }
 ```
 
-Esa línea de más es la que cobra la segunda referencia. Cuando sale el único
-nodo que quedaba, `head` queda en `null` y `tail` tiene que acompañarlo: si
-se lo deja apuntando al nodo que acaba de salir, el siguiente `enqueue` lo
-enlazaría a un nodo que ya no pertenece a la cola y el elemento nuevo
-nacería inalcanzable.
+El método guarda el valor del frente, mueve `head` al segundo nodo y baja
+`size`. El que sale queda sin nadie apuntándolo, y el colector de basura lo
+recupera más tarde. Nada de esto depende del largo: $$\Theta(1)$$.
 
-Fuera de esa línea nada depende del largo: `dequeue` toca `head`, `tail` y
-`size`, y no recorre nada. $$\Theta(1)$$.
+Los dos `if` son **casos borde**. El primero es la cola vacía: no hay frente
+que devolver, así que lanza. El segundo es la cola de un solo nodo: al salir
+él, `head` queda en `null` y `tail` tiene que acompañarlo, porque si se
+queda apuntando al nodo que ya salió, el próximo `enqueue` engancharía el
+elemento nuevo a un nodo que no pertenece a la cola.
 
 </Slide>
 
@@ -1669,13 +1670,14 @@ Fuera de esa línea nada depende del largo: `dequeue` toca `head`, `tail` y
 | `enqueue(x)` | $$\Theta(1)$$ | `tail` apunta al último: el que lo era enlaza al nuevo, y `tail` lo sigue |
 | `dequeue()` | $$\Theta(1)$$ | `head` apunta al frente: pasa a ser el segundo, y si no queda ninguno `tail` lo acompaña |
 
-Todo constante, y la columna de la derecha dice por qué cada una puede
-serlo: las dos referencias dejan los dos extremos en la mano, así que
-ninguna operación tiene que caminar para llegar a donde opera.
+Todas las operaciones son constantes, y por una sola razón: `head` y `tail`
+dejan los dos extremos en la mano, así que ninguna tiene que caminar la
+cadena para llegar a donde opera.
 
-La última fila es la que cobra la referencia de más. Mantener `tail` al día
-no cuesta tiempo, cuesta **cuidado**: es una línea extra en `dequeue` que no
-hace nada en el caso normal y lo es todo en el caso de un solo nodo.
+Llevar dos referencias en vez de una no cuesta tiempo, cuesta **cuidado**.
+`dequeue` necesita un `if` que no hace nada mientras la cola tenga varios
+elementos, y que lo es todo cuando sale el último: sin él, `tail` queda
+apuntando a un nodo que ya salió de la cola.
 
 </Slide>
 
