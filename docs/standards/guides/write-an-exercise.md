@@ -146,6 +146,13 @@ appeared inside the walk under a promise to write them "al final".
 - **The listing is the runnable exercise's listing**, character for character,
   not a paraphrase of it.
 - The walk uses beat 1's example.
+- **What the widget says when driven does not count as said.** A step note
+  is read only by someone who advances to that step — in a lecture, only if
+  the professor stops there. #294's two-pops slide put its whole point
+  ("the first pop returns the right operand, because it entered last") in a
+  step note and nowhere in the prose, and the slide read as an assertion
+  about two lines it never named. The central fact goes in the prose; the
+  widget shows it happening.
 
 The widget itself, its frames and its `lines={[…]}` are governed by
 `teach-a-data-structure.md` §6bis and §7.

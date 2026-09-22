@@ -1941,17 +1941,11 @@ atribuye a Charles Hamblin y a Friedrich Bauer hacia fines de los años
 cincuenta, ya pensando en cómo evaluar expresiones con una máquina.
 
 <Slide title="El problema de Josefo">
-Hay $$n$$ personas en círculo, numeradas de 1 a $$n$$. Se cuenta de a $$k$$
-y la $$k$$-ésima sale; el conteo sigue desde la siguiente, dando vueltas,
-hasta que queda una sola. La pregunta es qué número sobrevive.
+Hay $$n$$ personas en círculo, numeradas de 1 a $$n$$. Se cuenta de a $$k$$ y
+la $$k$$-ésima sale; el conteo sigue desde la siguiente, dando vueltas, hasta
+que queda una sola.
 
-<svg viewBox="20 20 620 236" style={{ width: '100%', maxWidth: '660px', height: 'auto', display: 'block', margin: '1.25rem auto' }} role="img" aria-label="A la izquierda, cinco personas numeradas del 1 al 5 en círculo; se cuenta de a dos desde el 1, y el 2 queda marcado como el que sale. A la derecha, las mismas cinco en una cola: el 1 sale por el frente y vuelve a entrar por el final, y entonces el 2 queda en el frente y es el que se va. El círculo y la cola son la misma cosa.">
-  <defs>
-    <marker id="jos-punta" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
-      <path d="M0,0 L8,4 L0,8 z" style={{ fill: 'var(--color-accent)' }} />
-    </marker>
-  </defs>
-
+<svg viewBox="40 24 200 236" style={{ width: '100%', maxWidth: '260px', height: 'auto', display: 'block', margin: '1.25rem auto' }} role="img" aria-label="Cinco personas numeradas del 1 al 5 dispuestas en círculo, con el 1 arriba y el resto en el sentido de las agujas del reloj. Se cuenta de a dos empezando por el 1, y el 2 queda marcado en rojo como la que sale.">
   <text x="140" y="42" textAnchor="middle" fontSize="13" fontWeight="700" style={{ fill: 'var(--color-ink-faint)' }}>el círculo</text>
   {[1, 2, 3, 4, 5].map((v, i) => {
     const a = -Math.PI / 2 + (i * 2 * Math.PI) / 5;
@@ -1966,30 +1960,86 @@ hasta que queda una sola. La pregunta es qué número sobrevive.
     );
   })}
   <text x="140" y="250" textAnchor="middle" fontSize="12" style={{ fill: 'var(--color-ink-faint)' }}>se cuenta de a 2: sale el 2</text>
-
-  <text x="430" y="42" textAnchor="middle" fontSize="13" fontWeight="700" style={{ fill: 'var(--color-accent)' }}>la misma vuelta, en una cola</text>
-  {[1, 2, 3, 4, 5].map((v, i) => (
-    <g key={v}>
-      <rect x={300 + i * 54} y="112" width="48" height="44" rx="3" style={{ fill: v === 2 ? 'var(--color-flag-soft)' : 'var(--color-surface)', stroke: v === 2 ? 'var(--color-flag)' : 'var(--color-rule-strong)' }} strokeWidth="1.6" />
-      <text x={324 + i * 54} y="142" textAnchor="middle" fontSize="19" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{v}</text>
-    </g>
-  ))}
-  <text x="324" y="104" textAnchor="middle" fontSize="11" fontFamily="monospace" style={{ fill: 'var(--color-ink-faint)' }}>frente</text>
-  <text x="540" y="104" textAnchor="middle" fontSize="11" fontFamily="monospace" style={{ fill: 'var(--color-ink-faint)' }}>final</text>
-  <path d="M 316 168 l 0 26 l 232 0 l 0 -26" fill="none" style={{ stroke: 'var(--color-accent)' }} strokeWidth="2" markerEnd="url(#jos-punta)" />
-  <text x="432" y="212" textAnchor="middle" fontSize="12" style={{ fill: 'var(--color-accent)' }}>pasar de largo = salir por el frente y volver por el final</text>
 </svg>
 
-Una cola representa el círculo de manera casi literal: el frente es a quien
-le toca contar, y **volver al círculo es encolarse de nuevo atrás**. Con
-eso, contar de a `k` es pasar de largo `k - 1` veces, y la `k`-ésima
-simplemente no vuelve.
+El programa recibe cuántas personas hay y cada cuánto se cuenta, y devuelve
+el número de la que sobrevive:
+
+```java
+int josephus(int n, int k)
+```
+
+Con $$1 \le n \le 500$$ y $$1 \le k \le 500$$.
+
+| `n` | `k` | `josephus(n, k)` |
+|---|---|---|
+| `5` | `2` | `3` |
+| `4` | `2` | `1` |
+| `7` | `1` | `7` |
+| `1` | `3` | `1` |
 
 </Slide>
 
-<Slide title="Una ronda completa">
-Con $$n = 5$$ y $$k = 2$$: cada vuelta es un `dequeue` que vuelve a encolar,
-y uno que no.
+El nombre viene de Flavio Josefo, que contó cómo, cercado por los romanos en
+el año 67, quedó atrapado en una cueva con cuarenta compañeros decididos a
+morir antes que rendirse. Se pusieron en círculo para eliminarse de a uno, y
+él —que quería vivir— calculó en qué lugar había que pararse para quedar
+último.
+
+<Slide title="Cada baja corre a todos los que quedan">
+Lo primero que se piensa es un arreglo con las $$n$$ personas, del que se
+borra a la que sale. Borrar del medio obliga a correr un lugar a todos los
+que están detrás: $$\Theta(n)$$ por cada baja, y hay $$n - 1$$ bajas. Eso da
+$$\Theta(n^2)$$, y casi todo ese trabajo es tapar huecos.
+
+Pero el problema no pide borrar de cualquier lugar. Pide algo mucho más
+chico, y una sola cosa: **sacar al de adelante y ponerlo al final**, una y
+otra vez. De todos los que pasan por el frente, sólo uno de cada $$k$$ se va
+de verdad.
+
+</Slide>
+
+<Slide title="Volver al círculo es ponerse al final">
+El círculo no tiene principio, pero el conteo sí: en cada momento hay alguien
+a quien le toca contar. Si ponemos a las personas en fila con ésa adelante,
+contar «uno» es sacarla del frente y devolverla al final — que en el círculo
+es exactamente dejar pasar su turno.
+
+<svg viewBox="0 0 560 172" style={{ width: '100%', maxWidth: '560px', height: 'auto', display: 'block', margin: '1.25rem auto' }} role="img" aria-label="Dos filas de cinco casillas. Arriba, en orden uno, dos, tres, cuatro y cinco: es la fila antes de contar. Una flecha sale de debajo del uno, recorre por abajo hacia la derecha y sube hasta el final de la segunda fila, rotulada encolar lo que se desencola. Abajo, la fila después: dos, tres, cuatro, cinco y el uno resaltado al final.">
+  <defs>
+    <marker id="jos-pasar-punta" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto">
+      <path d="M0,0 L7,3.5 L0,7 z" style={{ fill: 'var(--color-accent)' }} />
+    </marker>
+  </defs>
+  <text x="8" y="36" fontSize="12" fontFamily="monospace" style={{ fill: 'var(--color-ink-faint)' }}>antes</text>
+  <text x="8" y="138" fontSize="12" fontFamily="monospace" style={{ fill: 'var(--color-ink-faint)' }}>después</text>
+  {['1', '2', '3', '4', '5'].map((v, i) => (
+    <g key={i}>
+      <rect x={80 + i * 52} y="12" width="44" height="32" rx="3" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.5" />
+      <text x={102 + i * 52} y="34" textAnchor="middle" fontSize="16" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>{v}</text>
+    </g>
+  ))}
+  {['2', '3', '4', '5', '1'].map((v, i) => (
+    <g key={i}>
+      <rect x={80 + i * 52} y="114" width="44" height="32" rx="3" style={{ fill: i === 4 ? 'var(--color-mark-soft)' : 'var(--color-surface)', stroke: i === 4 ? 'var(--color-mark)' : 'var(--color-rule-strong)' }} strokeWidth="1.5" />
+      <text x={102 + i * 52} y="136" textAnchor="middle" fontSize="16" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>{v}</text>
+    </g>
+  ))}
+  <path d="M 102 46 L 102 80 L 288 80 L 288 110" fill="none" style={{ stroke: 'var(--color-accent)' }} strokeWidth="1.8" markerEnd="url(#jos-pasar-punta)" />
+  <text x="196" y="74" textAnchor="middle" fontSize="13" fontWeight="700" fontFamily="monospace" style={{ fill: 'var(--color-accent)' }}>enqueue(dequeue())</text>
+  <text x="358" y="34" fontSize="13" style={{ fill: 'var(--color-ink-faint)' }}>el 1 cuenta «uno»</text>
+  <text x="358" y="136" fontSize="13" style={{ fill: 'var(--color-ink-faint)' }}>y vuelve al final</text>
+</svg>
+
+Contar de a $$k$$ es, entonces, pasar de largo $$k - 1$$ veces; la
+$$k$$-ésima sale del frente y no vuelve. Una colección de la que se saca por
+un extremo y se agrega por el otro es una **cola**.
+
+</Slide>
+
+<Slide title="Código · la solución">
+Con $$n = 5$$ y $$k = 2$$, cada baja son $$k - 1$$ pasadas de largo y un
+`dequeue` que saca de verdad.
 
 <StepShow
   language="java"
@@ -2030,10 +2080,6 @@ round.dequeue();`}
 La línea que resuelve el problema es `round.enqueue(round.dequeue())`: saca
 del frente y devuelve al final, que es exactamente «pasar de largo».
 
-Cada eliminación cuesta $$k - 1$$ pases de dos operaciones cada uno, más el
-`dequeue` que saca: $$2k - 1$$. Hay $$n - 1$$ eliminaciones, así que el
-total es $$(n-1)(2k-1)$$, es decir $$\Theta(nk)$$.
-
 </Slide>
 
 <Slide title="El conteo que se corre en uno">
@@ -2061,16 +2107,24 @@ round.dequeue();`}
   </Step>
 </StepShow>
 
-El que sale es el 3 y tenía que ser el 2. La cuenta correcta es: para que
-salga el `k`-ésimo hay que dejar pasar a los `k - 1` que van antes.
+El que sale es el 3 y tenía que ser el 2. Para que salga el `k`-ésimo hay que
+dejar pasar a los `k - 1` que van antes, no a `k`.
+
+Cada baja cuesta $$k - 1$$ pasadas de dos operaciones cada una, más el
+`dequeue` que saca: $$2k - 1$$. Hay $$n - 1$$ bajas, así que el total es
+$$(n-1)(2k-1)$$, es decir $$\Theta(nk)$$. La cola nunca guarda más de $$n$$
+personas: $$\Theta(n)$$ de espacio.
 
 </Slide>
 
-<Slide title="El código completo">
+<Slide title="Código · el programa completo">
+<PresentationWide fraction={0.75}>
 <Exercise title="El problema de Josefo">
 
 El algoritmo entero, con la cola escrita a mano sobre un arreglo. Los casos
-de prueba incluyen la ronda de la lámina anterior.
+de prueba son `josephus(5, 2)`, `josephus(1, 3)`, `josephus(7, 1)` y
+`josephus(4, 2)`. Presiona **Comprobar** para correrlo, y después cambia lo
+que quieras.
 
 ```java starter
 class Solution {
@@ -2103,12 +2157,14 @@ check(Solution.josephus(4, 2), 1);
 ```
 
 </Exercise>
+</PresentationWide>
+
 </Slide>
 
 <Slide title="Promedio móvil">
-Llegan números de a uno, sin que se sepa cuántos serán. Después de cada
-número hay que responder el promedio de los últimos $$K$$ — y hay que
-hacerlo sin recorrer nada.
+Un sensor entrega un número cada tanto y no se sabe cuántos serán. Después de
+cada uno hay que responder el promedio de los últimos $$K$$, que es lo que
+suaviza las subidas y bajadas sueltas sin tapar la tendencia.
 
 <svg viewBox="20 24 620 150" style={{ width: '100%', maxWidth: '660px', height: 'auto', display: 'block', margin: '1.25rem auto' }} role="img" aria-label="Una secuencia de números 1, 2, 3, 4, 5 que sigue llegando. Un recuadro abarca tres de ellos: es la ventana de tamaño K igual a 3. Al llegar el 4 la ventana se corre una posición, el 1 sale por la izquierda y el 4 entra por la derecha.">
   <defs>
@@ -2129,16 +2185,89 @@ hacerlo sin recorrer nada.
   <text x="340" y="152" fontSize="12" style={{ fill: 'var(--color-ink-faint)' }}>cuando llega el 4, la ventana se corre: sale el 1, entra el 4</text>
 </svg>
 
-La cola **es** la ventana: cada número entra por el final, y cuando ya hay
-$$K$$ el más viejo sale por el frente. Eso es exactamente lo que el contrato
-de la cola entrega, y es lo que hace constante a la operación: el elemento
-que hay que descontar es siempre el más viejo, y no hay que buscarlo.
+El programa recibe el tamaño de la ventana y la secuencia completa, y
+devuelve un promedio por cada número que llegó:
+
+```java
+double[] movingAverage(int k, int[] stream)
+```
+
+`k` es mayor que cero y `stream` trae a lo más 10⁵ números. Mientras hayan
+llegado menos de `k`, la respuesta es el promedio de los que hay.
+
+| `k` | `stream` | resultado |
+|---|---|---|
+| `3` | `1 2 3 4` | `1,00  1,50  2,00  3,00` |
+| `1` | `7 9` | `7,00  9,00` |
+| `5` | `2 4` | `2,00  3,00` |
 
 </Slide>
 
-<Slide title="La ventana avanza">
-La suma se mantiene al día: se le suma el que entra y se le resta el que
-sale. Así el promedio es una división y nunca un recorrido.
+<Slide title="Volver a sumar los K de cada ventana">
+Lo primero que se piensa es calcular cada promedio como lo dice su
+definición: recorrer los $$K$$ números de la ventana, sumarlos y dividir.
+
+Da el resultado correcto y cuesta $$K$$ operaciones por cada número que
+llega, o sea $$\Theta(NK)$$ en total. Con una ventana de mil y un millón de
+números, son mil millones de sumas para responder un millón de promedios.
+
+Y el desperdicio está a la vista: entre una ventana y la siguiente cambian
+sólo dos números —entra uno, sale otro—, y los otros $$K - 2$$ se vuelven a
+sumar idénticos a como estaban.
+
+</Slide>
+
+<Slide title="Sumar el que entra y restar el que sale">
+Si en vez del promedio guardamos la **suma**, pasar de una ventana a la
+siguiente son dos operaciones: sumarle el número que entra y restarle el que
+sale. El promedio queda como una división al final.
+
+<svg viewBox="0 0 660 184" style={{ width: '100%', maxWidth: '660px', height: 'auto', display: 'block', margin: '1.25rem auto' }} role="img" aria-label="Con K igual a tres y la secuencia uno, dos, tres, cuatro. Al llegar el uno la ventana tiene un número y la suma es uno. Al llegar el dos tiene dos y la suma es tres. Al llegar el tres se llena y la suma es seis. Al llegar el cuatro entra el cuatro y sale el uno, dibujado punteado a la izquierda: la suma pasa de seis a nueve sumando cuatro y restando uno, sin mirar los que se quedan.">
+  <text x="4" y="32" fontSize="12" fontFamily="monospace" style={{ fill: 'var(--color-ink-faint)' }}>llega</text>
+  <text x="4" y="102" fontSize="12" fontFamily="monospace" style={{ fill: 'var(--color-ink-faint)' }}>ventana</text>
+  <text x="4" y="133" fontSize="12" fontFamily="monospace" style={{ fill: 'var(--color-ink-faint)' }}>suma</text>
+  <text x="4" y="156" fontSize="12" fontFamily="monospace" style={{ fill: 'var(--color-ink-faint)' }}>promedio</text>
+  {[
+    { ch: '1', win: ['1'], sale: '', cuenta: '0 + 1 = 1', prom: '1,00' },
+    { ch: '2', win: ['1', '2'], sale: '', cuenta: '1 + 2 = 3', prom: '1,50' },
+    { ch: '3', win: ['1', '2', '3'], sale: '', cuenta: '3 + 3 = 6', prom: '2,00' },
+    { ch: '4', win: ['2', '3', '4'], sale: '1', cuenta: '6 + 4 − 1 = 9', prom: '3,00' },
+  ].map((m, i) => {
+    const cx = 140 + i * 140;
+    const x0 = cx - m.win.length * 14;
+    return (
+      <g key={i}>
+        <rect x={cx - 20} y="10" width="40" height="32" rx="3" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.5" />
+        <text x={cx} y="33" textAnchor="middle" fontSize="18" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>{m.ch}</text>
+        {m.win.map((v, j) => (
+          <g key={j}>
+            <rect x={x0 + j * 28} y="80" width="26" height="26" rx="3" style={{ fill: j === m.win.length - 1 ? 'var(--color-mark-soft)' : 'var(--color-surface)', stroke: j === m.win.length - 1 ? 'var(--color-mark)' : 'var(--color-rule-strong)' }} strokeWidth="1.5" />
+            <text x={x0 + j * 28 + 13} y="98" textAnchor="middle" fontSize="15" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>{v}</text>
+          </g>
+        ))}
+        {m.sale === '' ? null : (
+          <g opacity="0.4">
+            <rect x={x0 - 30} y="80" width="26" height="26" rx="3" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.4" strokeDasharray="4 3" />
+            <text x={x0 - 17} y="98" textAnchor="middle" fontSize="15" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink-faint)' }}>{m.sale}</text>
+          </g>
+        )}
+        <text x={cx} y="130" textAnchor="middle" fontSize="12" fontFamily="monospace" style={{ fill: 'var(--color-ink-soft)' }}>{m.cuenta}</text>
+        <text x={cx} y="156" textAnchor="middle" fontSize="12" fontFamily="monospace" style={{ fill: 'var(--color-accent)' }}>{m.prom}</text>
+      </g>
+    );
+  })}
+  <text x="330" y="178" textAnchor="middle" fontSize="11" style={{ fill: 'var(--color-ink-faint)' }}>punteado, el que sale de la ventana</text>
+</svg>
+
+Para eso hay que saber cuál es el que sale, y es siempre el más viejo de la
+ventana: el que lleva más tiempo adentro. Los números salen en el mismo orden
+en que entraron, y la colección que hace eso es una **cola**.
+
+</Slide>
+
+<Slide title="Código · la solución">
+Cada número que llega entra a la cola y se suma. Si con eso la ventana quedó
+más larga que $$K$$, sale el del frente y se resta.
 
 <StepShow
   language="java"
@@ -2173,20 +2302,31 @@ sale. Así el promedio es una división y nunca un recorrido.
   </Step>
 </StepShow>
 
-El último paso es el único interesante: la ventana ya estaba llena, así que
-la suma se ajustó en las dos direcciones —sumó 4 y restó 1— sin mirar los
-elementos de adentro.
+</Slide>
+
+<Slide title="Las ventanas que todavía no están llenas">
+Mientras han llegado menos de $$K$$ números la ventana no está completa, y el
+promedio se responde con los que hay: el primero vale el número mismo y el
+segundo el promedio de dos. Por eso la división es por el largo de la ventana
+y no por $$K$$.
+
+Con `k` en cero esa división sería cero entre cero y devolvería `NaN` en cada
+llamada, que es la peor forma de fallar: sin ruido. La función lo rechaza de
+entrada con `IllegalArgumentException`.
+
+Cada número entra y sale de la cola exactamente una vez, y la suma se ajusta
+con dos operaciones: $$\Theta(1)$$ por número y $$\Theta(N)$$ por la
+secuencia entera. La cola nunca guarda más de $$K$$ números, así que el
+espacio es $$\Theta(K)$$.
 
 </Slide>
 
-<Slide title="El código completo">
+<Slide title="Código · el programa completo">
+<PresentationWide fraction={0.75}>
 <Exercise title="Promedio móvil">
 
-La estructura entera. `capacity` es el $$K$$ de la ventana, y el
-constructor lo rechaza si no es positivo: una ventana de tamaño cero
-dividiría cero por cero y devolvería `NaN` en cada llamada, que es la peor
-manera de fallar —sin ruido—. Mientras la ventana no llega a $$K$$
-responde el promedio de lo que tenga, en vez de negarse.
+El algoritmo entero. Presiona **Comprobar** para correrlo, y después cambia
+lo que quieras.
 
 ```java starter
 import java.util.LinkedList;
@@ -2226,6 +2366,8 @@ check(Solution.movingAverage(5, new int[] {2, 4})[1], 3.0);
 ```
 
 </Exercise>
+</PresentationWide>
+
 </Slide>
 
 
