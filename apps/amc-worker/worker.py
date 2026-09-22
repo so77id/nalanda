@@ -263,7 +263,19 @@ def analyse(body):
     ticked, unsure = parse_thresholds(body)
 
     scans = os.path.join(project, "scans")
-    listing = os.path.join(scans, "list.txt")
+    # One page list PER BATCH (issue #298). `getimages --list` does not
+    # write a list, it EXTENDS one: AMC-getimages.pl reads the existing file
+    # back, puts the new pages first and rewrites it. With a single
+    # `list.txt`, every upload re-analysed every page ever uploaded — in an
+    # order where an older capture could overwrite a newer one — and a failed
+    # `analyse` left its pages in the list for the next upload to inherit.
+    # A fresh file per batch gives AMC nothing to append to: each run sees
+    # exactly the PDF just uploaded, and costs that batch rather than the
+    # project's whole history.
+    listing = os.path.join(scans, batch_list_name(scan_pdf))
+    if os.path.exists(listing):
+        # A retry of the same batch — the list must still hold ONLY it.
+        os.remove(listing)
 
     amc("getimages", "--list", listing, "--vector-density", "300",
         "--copy-to", scans, scan_pdf)
@@ -298,6 +310,16 @@ def analyse(body):
     link_scans_to_contract_names(data, os.path.join(project, "scans"))
 
     return read_capture.read(data, ticked, unsure)
+
+
+def batch_list_name(scan_pdf):
+    """The page-list file for one uploaded batch, named after it.
+
+    >>> batch_list_name("/work/controls/X/uploads/batch-2.pdf")
+    'list-batch-2.txt'
+    """
+    stem = os.path.splitext(os.path.basename(scan_pdf))[0]
+    return f"list-{stem}.txt"
 
 
 def scan_link_targets(rows):
