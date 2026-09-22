@@ -1381,9 +1381,12 @@ función que toma un `String` y devuelve un `boolean`:
 boolean isBalanced(String s)
 ```
 
-`s` contiene sólo los seis símbolos `(`, `)`, `[`, `]`, `{` y `}`, y su largo
-`N` va de 0 a 10⁵. Las parejas son `(` con `)`, `[` con `]` y `{` con `}`. La
-cadena vacía está balanceada: no hay nada que cerrar.
+**Entrada.** `s`, la expresión completa. Contiene sólo los seis símbolos
+`(`, `)`, `[`, `]`, `{` y `}`, y su largo `N` va de 0 a 10⁵. Las parejas son
+`(` con `)`, `[` con `]` y `{` con `}`.
+
+**Salida.** `true` si la expresión está balanceada y `false` si no. La cadena
+vacía está balanceada: no hay nada que cerrar.
 
 </Slide>
 
@@ -1512,44 +1515,47 @@ apertura que le corresponde: si no coinciden, la expresión no está balanceada.
 
 <StepShow
   language="java"
-  code={`for (char c : s.toCharArray()) {
-    if (isOpener(c)) {
-        pending.push(c);
-    } else if (isCloser(c)) {
-        if (pending.empty()) return false;
-        if (pending.pop() != openerFor(c)) return false;
+  code={`static boolean isBalanced(String s) {
+    Stack<Character> pending = new Stack<>();
+    for (char c : s.toCharArray()) {
+        if (isOpener(c)) {
+            pending.push(c);
+        } else if (isCloser(c)) {
+            if (pending.empty()) return false;
+            if (pending.pop() != openerFor(c)) return false;
+        }
     }
-}
-return pending.empty();`}
+    return pending.empty();
+}`}
 >
-  <Step lines={[]}>
+  <Step lines={[2]}>
     <Paso expr="({[]()})" cursor={-1} pila={[]} nota="La pila arranca vacía y recorremos la expresión de izquierda a derecha." />
   </Step>
-  <Step lines={[2, 3]}>
+  <Step lines={[4, 5]}>
     <Paso expr="({[]()})" cursor={0} pila={['(']} nota="( abre: se apila." />
   </Step>
-  <Step lines={[2, 3]}>
+  <Step lines={[4, 5]}>
     <Paso expr="({[]()})" cursor={1} pila={['(', '{']} nota="{ abre: se apila encima." />
   </Step>
-  <Step lines={[2, 3]}>
+  <Step lines={[4, 5]}>
     <Paso expr="({[]()})" cursor={2} pila={['(', '{', '[']} nota="[ abre: se apila encima." />
   </Step>
-  <Step lines={[4, 6]}>
+  <Step lines={[6, 8]}>
     <Paso expr="({[]()})" cursor={3} pila={['(', '{']} nota="] cierra y la cima es [, su pareja: se desapila." />
   </Step>
-  <Step lines={[2, 3]}>
+  <Step lines={[4, 5]}>
     <Paso expr="({[]()})" cursor={4} pila={['(', '{', '(']} nota="( abre: la pila vuelve a crecer." />
   </Step>
-  <Step lines={[4, 6]}>
+  <Step lines={[6, 8]}>
     <Paso expr="({[]()})" cursor={5} pila={['(', '{']} nota=") cierra y la cima es (, su pareja: se desapila." />
   </Step>
-  <Step lines={[4, 6]}>
+  <Step lines={[6, 8]}>
     <Paso expr="({[]()})" cursor={6} pila={['(']} nota="} cierra y la cima es {, su pareja: se desapila." />
   </Step>
-  <Step lines={[4, 6]}>
+  <Step lines={[6, 8]}>
     <Paso expr="({[]()})" cursor={7} pila={[]} nota=") cierra y la cima es (, su pareja: se desapila." />
   </Step>
-  <Step lines={[9]}>
+  <Step lines={[11]}>
     <Paso expr="({[]()})" cursor={-1} pila={[]} nota="Se acabó la expresión y la pila quedó vacía: está balanceada." />
   </Step>
 </StepShow>
@@ -1559,26 +1565,29 @@ return pending.empty();`}
 <Slide title="Las expresiones que devuelven false">
 <StepShow
   language="java"
-  code={`for (char c : s.toCharArray()) {
-    if (isOpener(c)) {
-        pending.push(c);
-    } else if (isCloser(c)) {
-        if (pending.empty()) return false;
-        if (pending.pop() != openerFor(c)) return false;
+  code={`static boolean isBalanced(String s) {
+    Stack<Character> pending = new Stack<>();
+    for (char c : s.toCharArray()) {
+        if (isOpener(c)) {
+            pending.push(c);
+        } else if (isCloser(c)) {
+            if (pending.empty()) return false;
+            if (pending.pop() != openerFor(c)) return false;
+        }
     }
-}
-return pending.empty();`}
+    return pending.empty();
+}`}
 >
-  <Step lines={[]}>
+  <Step lines={[2]}>
     <Paso expr="([)]" cursor={-1} pila={[]} nota="Un símbolo de cada clase, igual que ([]), y en otro orden." />
   </Step>
-  <Step lines={[2, 3]}>
+  <Step lines={[4, 5]}>
     <Paso expr="([)]" cursor={0} pila={['(']} nota="( es una apertura: se apila." />
   </Step>
-  <Step lines={[2, 3]}>
+  <Step lines={[4, 5]}>
     <Paso expr="([)]" cursor={1} pila={['(', '[']} nota="[ es una apertura: se apila encima." />
   </Step>
-  <Step lines={[4, 6]}>
+  <Step lines={[6, 8]}>
     <Paso expr="([)]" cursor={2} pila={['(', '[']} nota=") cierra, y su pareja es (. Pero la cima es [: el ) se cruza con él." falla />
   </Step>
 </StepShow>
@@ -1609,7 +1618,7 @@ import java.util.Stack;
 
 class Solution {
 
-    static boolean balanced(String s) {
+    static boolean isBalanced(String s) {
         Stack<Character> pending = new Stack<>();
         for (char c : s.toCharArray()) {
             if (isOpener(c)) {
@@ -1639,12 +1648,12 @@ class Solution {
 ```
 
 ```java test
-check(Solution.balanced("({[]})"), true);
-check(Solution.balanced("({[]()})"), true);
-check(Solution.balanced("([)]"), false);
-check(Solution.balanced("(()"), false);
-check(Solution.balanced("())"), false);
-check(Solution.balanced(""), true);
+check(Solution.isBalanced("({[]})"), true);
+check(Solution.isBalanced("({[]()})"), true);
+check(Solution.isBalanced("([)]"), false);
+check(Solution.isBalanced("(()"), false);
+check(Solution.isBalanced("())"), false);
+check(Solution.isBalanced(""), true);
 ```
 
 </Exercise>
@@ -1657,16 +1666,38 @@ hacían falta: se tecleaba `3 4 + 5 *`, sin abrir ninguno. Esa forma de
 escribir se llama **notación polaca inversa**, y su única regla es que el
 operador va después de sus dos operandos.
 
-El programa recibe la expresión ya separada en piezas —cada una es un número
-entero o uno de los cuatro operadores— y tiene que devolver su valor. Eso es
-una función que toma un arreglo de `String` y devuelve un `int`:
+<svg viewBox="0 0 620 132" style={{ width: '100%', maxWidth: '600px', height: 'auto', display: 'block', margin: '1.25rem auto' }} role="img" aria-label="A la izquierda, tres más cuatro escrito como se escribe normalmente. Una flecha lleva a la derecha, donde las mismas tres piezas están en casillas: primero el tres, después el cuatro y al final el más, resaltado. Una llave abarca el tres y el cuatro y los rotula los dos operandos; el más queda fuera de la llave, después de ellos.">
+  <defs>
+    <marker id="rpn-def-punta" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto">
+      <path d="M0,0 L7,3.5 L0,7 z" style={{ fill: 'var(--color-ink-faint)' }} />
+    </marker>
+  </defs>
+  <text x="40" y="64" fontSize="20" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>3 + 4</text>
+  <path d="M 122 57 L 158 57" fill="none" style={{ stroke: 'var(--color-ink-faint)' }} strokeWidth="1.5" markerEnd="url(#rpn-def-punta)" />
+  {['3', '4', '+'].map((v, i) => (
+    <g key={i}>
+      <rect x={180 + i * 54} y="36" width="46" height="40" rx="3" style={{ fill: i === 2 ? 'var(--color-accent)' : 'var(--color-surface)', stroke: i === 2 ? 'var(--color-accent)' : 'var(--color-rule-strong)' }} strokeWidth="1.6" />
+      <text x={203 + i * 54} y="63" textAnchor="middle" fontSize="20" fontWeight="600" fontFamily="monospace" style={{ fill: i === 2 ? 'var(--color-on-accent)' : 'var(--color-ink)' }}>{v}</text>
+    </g>
+  ))}
+  <path d="M 184 82 L 184 96 L 276 96 L 276 82" fill="none" style={{ stroke: 'var(--color-rule-strong)' }} strokeWidth="1.6" />
+  <text x="230" y="118" textAnchor="middle" fontSize="13" style={{ fill: 'var(--color-ink-soft)' }}>los dos operandos</text>
+  <text x="360" y="63" fontSize="14" fontWeight="700" style={{ fill: 'var(--color-accent)' }}>y después el operador</text>
+</svg>
+
+El programa recibe la expresión ya separada en piezas y tiene que devolver su
+valor. Eso es una función que toma un arreglo de `String` y devuelve un
+`int`:
 
 ```java
 int evaluate(String[] tokens)
 ```
 
-`tokens` trae a lo más 10⁴ piezas, los operadores son `+`, `-`, `*` y `/`, la
-división es entera y la expresión siempre está bien formada. Escribiendo las
+**Entrada.** `tokens`, la expresión ya separada. Cada pieza es un número
+entero escrito como texto, o uno de los cuatro operadores `+`, `-`, `*` y
+`/`. Hay a lo más 10⁴ piezas y la expresión siempre está bien formada.
+
+**Salida.** El valor de la expresión, con la división entera. Escribiendo las
 piezas separadas por espacios:
 
 | `tokens` | con paréntesis | `evaluate(tokens)` |
@@ -1801,36 +1832,39 @@ Cada número se apila. Cada operador saca dos, los opera y apila el resultado.
 
 <StepShow
   language="java"
-  code={`for (String t : tokens) {
-    if (isOperator(t)) {
-        int b = values.pop();
-        int a = values.pop();
-        values.push(apply(a, b, t));
-    } else {
-        values.push(Integer.parseInt(t));
+  code={`static int evaluate(String[] tokens) {
+    Stack<Integer> values = new Stack<>();
+    for (String t : tokens) {
+        if (isOperator(t)) {
+            int b = values.pop();
+            int a = values.pop();
+            values.push(apply(a, b, t));
+        } else {
+            values.push(Integer.parseInt(t));
+        }
     }
-}
-return values.pop();`}
+    return values.pop();
+}`}
 >
-  <Step lines={[]}>
+  <Step lines={[2]}>
     <Paso expr="3 4 + 5 *" sep=" " cursor={-1} pila={[]} nota="La pila arranca vacía y leemos los tokens de izquierda a derecha." />
   </Step>
-  <Step lines={[6, 7]}>
+  <Step lines={[8, 9]}>
     <Paso expr="3 4 + 5 *" sep=" " cursor={0} pila={['3']} nota="3 es un número: se apila." />
   </Step>
-  <Step lines={[6, 7]}>
+  <Step lines={[8, 9]}>
     <Paso expr="3 4 + 5 *" sep=" " cursor={1} pila={['3', '4']} nota="4 es un número: se apila encima." />
   </Step>
-  <Step lines={[2, 3, 4, 5]}>
+  <Step lines={[4, 5, 6, 7]}>
     <Paso expr="3 4 + 5 *" sep=" " cursor={2} pila={['7']} nota="+ es operador: saca 4 y 3, y apila 3 + 4 = 7." />
   </Step>
-  <Step lines={[6, 7]}>
+  <Step lines={[8, 9]}>
     <Paso expr="3 4 + 5 *" sep=" " cursor={3} pila={['7', '5']} nota="5 es un número: se apila encima." />
   </Step>
-  <Step lines={[2, 3, 4, 5]}>
+  <Step lines={[4, 5, 6, 7]}>
     <Paso expr="3 4 + 5 *" sep=" " cursor={4} pila={['35']} nota="* es operador: saca 5 y 7, y apila 7 × 5 = 35." />
   </Step>
-  <Step lines={[10]}>
+  <Step lines={[12]}>
     <Paso expr="3 4 + 5 *" sep=" " cursor={-1} pila={['35']} nota="Se acabaron los tokens y queda un solo valor: ése es el resultado." />
   </Step>
 </StepShow>
@@ -1846,27 +1880,30 @@ segundo en `a`, y llama `apply(a, b, t)`.
 
 <StepShow
   language="java"
-  code={`for (String t : tokens) {
-    if (isOperator(t)) {
-        int b = values.pop();
-        int a = values.pop();
-        values.push(apply(a, b, t));
-    } else {
-        values.push(Integer.parseInt(t));
+  code={`static int evaluate(String[] tokens) {
+    Stack<Integer> values = new Stack<>();
+    for (String t : tokens) {
+        if (isOperator(t)) {
+            int b = values.pop();
+            int a = values.pop();
+            values.push(apply(a, b, t));
+        } else {
+            values.push(Integer.parseInt(t));
+        }
     }
-}
-return values.pop();`}
+    return values.pop();
+}`}
 >
-  <Step lines={[6, 7]}>
+  <Step lines={[8, 9]}>
     <Paso expr="5 3 -" sep=" " cursor={1} pila={['5', '3']} nota="5 y 3 ya están apilados, en ese orden." />
   </Step>
-  <Step lines={[3]}>
+  <Step lines={[5]}>
     <Paso expr="5 3 -" sep=" " cursor={2} pila={['5']} nota="El primer pop entrega 3: es el operando DERECHO, porque fue el último en entrar." />
   </Step>
-  <Step lines={[4]}>
+  <Step lines={[6]}>
     <Paso expr="5 3 -" sep=" " cursor={2} pila={[]} nota="El segundo pop entrega 5: el operando izquierdo." />
   </Step>
-  <Step lines={[5]}>
+  <Step lines={[7]}>
     <Paso expr="5 3 -" sep=" " cursor={2} pila={['2']} nota={'apply(5, 3, "−") apila 5 − 3 = 2.'} />
   </Step>
 </StepShow>
@@ -1895,7 +1932,7 @@ import java.util.Stack;
 
 class Solution {
 
-    static int evalRPN(String[] tokens) {
+    static int evaluate(String[] tokens) {
         Stack<Integer> values = new Stack<>();
         for (String t : tokens) {
             if (isOperator(t)) {
@@ -1923,11 +1960,11 @@ class Solution {
 ```
 
 ```java test
-check(Solution.evalRPN(new String[] {"3", "4", "+", "5", "*"}), 35);
-check(Solution.evalRPN(new String[] {"3", "4", "5", "*", "+"}), 23);
-check(Solution.evalRPN(new String[] {"5", "3", "-"}), 2);
-check(Solution.evalRPN(new String[] {"8", "2", "/"}), 4);
-check(Solution.evalRPN(new String[] {"7"}), 7);
+check(Solution.evaluate(new String[] {"3", "4", "+", "5", "*"}), 35);
+check(Solution.evaluate(new String[] {"3", "4", "5", "*", "+"}), 23);
+check(Solution.evaluate(new String[] {"5", "3", "-"}), 2);
+check(Solution.evaluate(new String[] {"8", "2", "/"}), 4);
+check(Solution.evaluate(new String[] {"7"}), 7);
 ```
 
 </Exercise>
@@ -1945,7 +1982,7 @@ Hay $$n$$ personas en círculo, numeradas de 1 a $$n$$. Se cuenta de a $$k$$ y
 la $$k$$-ésima sale; el conteo sigue desde la siguiente, dando vueltas, hasta
 que queda una sola.
 
-<svg viewBox="40 24 200 236" style={{ width: '100%', maxWidth: '260px', height: 'auto', display: 'block', margin: '1.25rem auto' }} role="img" aria-label="Cinco personas numeradas del 1 al 5 dispuestas en círculo, con el 1 arriba y el resto en el sentido de las agujas del reloj. Se cuenta de a dos empezando por el 1, y el 2 queda marcado en rojo como la que sale.">
+<svg viewBox="46 30 188 226" style={{ width: '100%', maxWidth: '200px', height: 'auto', display: 'block', margin: '1.25rem auto' }} role="img" aria-label="Cinco personas numeradas del 1 al 5 dispuestas en círculo, con el 1 arriba y el resto en el sentido de las agujas del reloj. Se cuenta de a dos empezando por el 1, y el 2 queda marcado en rojo como la que sale.">
   <text x="140" y="42" textAnchor="middle" fontSize="13" fontWeight="700" style={{ fill: 'var(--color-ink-faint)' }}>el círculo</text>
   {[1, 2, 3, 4, 5].map((v, i) => {
     const a = -Math.PI / 2 + (i * 2 * Math.PI) / 5;
@@ -1969,7 +2006,10 @@ el número de la que sobrevive:
 int josephus(int n, int k)
 ```
 
-Con $$1 \le n \le 500$$ y $$1 \le k \le 500$$.
+**Entrada.** `n`, cuántas personas hay en el círculo, y `k`, cada cuánto se
+cuenta. Los dos entre 1 y 500.
+
+**Salida.** El número de la persona que queda al final.
 
 | `n` | `k` | `josephus(n, k)` |
 |---|---|---|
@@ -2005,7 +2045,7 @@ a quien le toca contar. Si ponemos a las personas en fila con ésa adelante,
 contar «uno» es sacarla del frente y devolverla al final — que en el círculo
 es exactamente dejar pasar su turno.
 
-<svg viewBox="0 0 560 172" style={{ width: '100%', maxWidth: '560px', height: 'auto', display: 'block', margin: '1.25rem auto' }} role="img" aria-label="Dos filas de cinco casillas. Arriba, en orden uno, dos, tres, cuatro y cinco: es la fila antes de contar. Una flecha sale de debajo del uno, recorre por abajo hacia la derecha y sube hasta el final de la segunda fila, rotulada encolar lo que se desencola. Abajo, la fila después: dos, tres, cuatro, cinco y el uno resaltado al final.">
+<svg viewBox="0 0 560 172" style={{ width: '100%', maxWidth: '560px', height: 'auto', display: 'block', margin: '1.25rem auto' }} role="img" aria-label="Dos filas de cinco casillas. Arriba, en orden uno, dos, tres, cuatro y cinco: es la fila antes de contar. Una flecha sale de debajo del uno, recorre por abajo hacia la derecha y sube hasta el final de la segunda fila, rotulada sale por el frente y vuelve por el final. Abajo, la fila después: dos, tres, cuatro, cinco y el uno resaltado al final.">
   <defs>
     <marker id="jos-pasar-punta" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto">
       <path d="M0,0 L7,3.5 L0,7 z" style={{ fill: 'var(--color-accent)' }} />
@@ -2026,7 +2066,7 @@ es exactamente dejar pasar su turno.
     </g>
   ))}
   <path d="M 102 46 L 102 80 L 288 80 L 288 110" fill="none" style={{ stroke: 'var(--color-accent)' }} strokeWidth="1.8" markerEnd="url(#jos-pasar-punta)" />
-  <text x="196" y="74" textAnchor="middle" fontSize="13" fontWeight="700" fontFamily="monospace" style={{ fill: 'var(--color-accent)' }}>enqueue(dequeue())</text>
+  <text x="196" y="74" textAnchor="middle" fontSize="13" fontWeight="700" style={{ fill: 'var(--color-accent)' }}>sale por el frente, vuelve por el final</text>
   <text x="358" y="34" fontSize="13" style={{ fill: 'var(--color-ink-faint)' }}>el 1 cuenta «uno»</text>
   <text x="358" y="136" fontSize="13" style={{ fill: 'var(--color-ink-faint)' }}>y vuelve al final</text>
 </svg>
@@ -2039,45 +2079,54 @@ un extremo y se agrega por el otro es una **cola**.
 
 <Slide title="Código · la solución">
 Con $$n = 5$$ y $$k = 2$$, cada baja son $$k - 1$$ pasadas de largo y un
-`dequeue` que saca de verdad.
+`remove()` que saca de verdad.
 
 <StepShow
   language="java"
-  code={`for (int i = 1; i < k; i++) {
-    round.enqueue(round.dequeue());
-}
-round.dequeue();`}
+  code={`static int josephus(int n, int k) {
+    Queue<Integer> round = new LinkedList<>();
+    for (int i = 1; i <= n; i++) {
+        round.add(i);
+    }
+    while (round.size() > 1) {
+        for (int i = 1; i < k; i++) {
+            round.add(round.remove());
+        }
+        round.remove();
+    }
+    return round.element();
+}`}
 >
-  <Step lines={[]}>
+  <Step lines={[3, 4]}>
     <Paso pila={['1', '2', '3', '4', '5']} etiqueta="cola" nota="Cinco en círculo, y contamos de a 2. El frente es a quien le toca." />
   </Step>
-  <Step lines={[1, 2, 3]}>
+  <Step lines={[7, 8]}>
     <Paso pila={['2', '3', '4', '5', '1']} etiqueta="cola" nota="El 1 cuenta «uno» y vuelve al final: pasa de largo." />
   </Step>
-  <Step lines={[4]}>
+  <Step lines={[10]}>
     <Paso pila={['3', '4', '5', '1']} etiqueta="cola" nota="El 2 cuenta «dos»: sale. Quedan cuatro." />
   </Step>
-  <Step lines={[1, 2, 3]}>
+  <Step lines={[7, 8]}>
     <Paso pila={['4', '5', '1', '3']} etiqueta="cola" nota="El 3 pasa de largo." />
   </Step>
-  <Step lines={[4]}>
+  <Step lines={[10]}>
     <Paso pila={['5', '1', '3']} etiqueta="cola" nota="El 4 sale. Quedan tres." />
   </Step>
-  <Step lines={[1, 2, 3]}>
+  <Step lines={[7, 8]}>
     <Paso pila={['1', '3', '5']} etiqueta="cola" nota="El 5 pasa de largo." />
   </Step>
-  <Step lines={[4]}>
+  <Step lines={[10]}>
     <Paso pila={['3', '5']} etiqueta="cola" nota="El 1 sale. Quedan dos." />
   </Step>
-  <Step lines={[1, 2, 3]}>
+  <Step lines={[7, 8]}>
     <Paso pila={['5', '3']} etiqueta="cola" nota="El 3 pasa de largo." />
   </Step>
-  <Step lines={[4]}>
+  <Step lines={[10]}>
     <Paso pila={['3']} etiqueta="cola" nota="El 5 sale. Sobrevive el 3." />
   </Step>
 </StepShow>
 
-La línea que resuelve el problema es `round.enqueue(round.dequeue())`: saca
+La línea que resuelve el problema es `round.add(round.remove())`: saca
 del frente y devuelve al final, que es exactamente «pasar de largo».
 
 </Slide>
@@ -2088,21 +2137,30 @@ El error fácil está en el `for`: pasar de largo `k` veces en vez de
 
 <StepShow
   language="java"
-  code={`for (int i = 1; i <= k; i++) {
-    round.enqueue(round.dequeue());
-}
-round.dequeue();`}
+  code={`static int josephus(int n, int k) {
+    Queue<Integer> round = new LinkedList<>();
+    for (int i = 1; i <= n; i++) {
+        round.add(i);
+    }
+    while (round.size() > 1) {
+        for (int i = 1; i <= k; i++) {
+            round.add(round.remove());
+        }
+        round.remove();
+    }
+    return round.element();
+}`}
 >
-  <Step lines={[1, 2, 3]}>
+  <Step lines={[7, 8]}>
     <Paso pila={['1', '2', '3', '4', '5']} etiqueta="cola" nota="Con el conteo mal escrito, i va de 1 hasta k: son DOS pases, no uno." />
   </Step>
-  <Step lines={[1, 2, 3]}>
+  <Step lines={[7, 8]}>
     <Paso pila={['2', '3', '4', '5', '1']} etiqueta="cola" nota="El 1 pasa de largo. Hasta aquí igual." />
   </Step>
-  <Step lines={[1, 2, 3]}>
+  <Step lines={[7, 8]}>
     <Paso pila={['3', '4', '5', '1', '2']} etiqueta="cola" nota="El 2 también pasa de largo — y era el que tenía que salir." />
   </Step>
-  <Step lines={[4]}>
+  <Step lines={[10]}>
     <Paso pila={['4', '5', '1', '2']} etiqueta="cola" nota="Sale el 3. El conteo se corrió en uno y la respuesta ya es otra." falla />
   </Step>
 </StepShow>
@@ -2111,7 +2169,7 @@ El que sale es el 3 y tenía que ser el 2. Para que salga el `k`-ésimo hay que
 dejar pasar a los `k - 1` que van antes, no a `k`.
 
 Cada baja cuesta $$k - 1$$ pasadas de dos operaciones cada una, más el
-`dequeue` que saca: $$2k - 1$$. Hay $$n - 1$$ bajas, así que el total es
+`remove()` que saca: $$2k - 1$$. Hay $$n - 1$$ bajas, así que el total es
 $$(n-1)(2k-1)$$, es decir $$\Theta(nk)$$. La cola nunca guarda más de $$n$$
 personas: $$\Theta(n)$$ de espacio.
 
@@ -2127,24 +2185,23 @@ de prueba son `josephus(5, 2)`, `josephus(1, 3)`, `josephus(7, 1)` y
 que quieras.
 
 ```java starter
+import java.util.LinkedList;
+import java.util.Queue;
+
 class Solution {
 
     static int josephus(int n, int k) {
-        int[] round = new int[2 * n * k + 1];
-        int front = 0;
-        int rear = 0;
+        Queue<Integer> round = new LinkedList<>();
         for (int i = 1; i <= n; i++) {
-            round[rear++] = i;
+            round.add(i);
         }
-        int alive = n;
-        while (alive > 1) {
+        while (round.size() > 1) {
             for (int i = 1; i < k; i++) {
-                round[rear++] = round[front++];
+                round.add(round.remove());
             }
-            front++;
-            alive--;
+            round.remove();
         }
-        return round[front];
+        return round.element();
     }
 }
 ```
@@ -2192,8 +2249,12 @@ devuelve un promedio por cada número que llegó:
 double[] movingAverage(int k, int[] stream)
 ```
 
-`k` es mayor que cero y `stream` trae a lo más 10⁵ números. Mientras hayan
-llegado menos de `k`, la respuesta es el promedio de los que hay.
+**Entrada.** `k`, el tamaño de la ventana, mayor que cero; y `stream`, la
+secuencia completa, con a lo más 10⁵ números.
+
+**Salida.** Un arreglo del mismo largo que `stream`: en cada posición, el
+promedio de los últimos `k` números hasta ahí. Mientras hayan llegado menos
+de `k`, el promedio de los que hay.
 
 | `k` | `stream` | resultado |
 |---|---|---|
@@ -2271,33 +2332,40 @@ más larga que $$K$$, sale el del frente y se resta.
 
 <StepShow
   language="java"
-  code={`double next(int x) {
-    window.enqueue(x);
-    sum += x;
-    length++;
-    if (length > capacity) {
-        sum -= window.dequeue();
-        length--;
+  code={`static double[] movingAverage(int k, int[] stream) {
+    if (k <= 0) {
+        throw new IllegalArgumentException();
     }
-    return (double) sum / length;
+    Queue<Integer> window = new LinkedList<>();
+    double[] out = new double[stream.length];
+    int sum = 0;
+    for (int i = 0; i < stream.length; i++) {
+        window.add(stream[i]);
+        sum += stream[i];
+        if (window.size() > k) {
+            sum -= window.remove();
+        }
+        out[i] = (double) sum / window.size();
+    }
+    return out;
 }`}
 >
-  <Step lines={[]}>
+  <Step lines={[5, 6, 7]}>
     <Paso pila={[]} etiqueta="ventana" nota="K = 3. La ventana arranca vacía, con suma 0." />
   </Step>
-  <Step lines={[1, 2, 3, 9]}>
+  <Step lines={[9, 10, 14]}>
     <Paso pila={['1']} etiqueta="ventana" nota="Entra 1. Suma 1, largo 1 → promedio 1,00." />
   </Step>
-  <Step lines={[1, 2, 3, 9]}>
+  <Step lines={[9, 10, 14]}>
     <Paso pila={['1', '2']} etiqueta="ventana" nota="Entra 2. Suma 3, largo 2 → promedio 1,50." />
   </Step>
-  <Step lines={[1, 2, 3, 9]}>
+  <Step lines={[9, 10, 14]}>
     <Paso pila={['1', '2', '3']} etiqueta="ventana" nota="Entra 3. Suma 6, largo 3 → promedio 2,00. La ventana está llena." />
   </Step>
-  <Step lines={[1, 2, 3]}>
+  <Step lines={[9, 10]}>
     <Paso pila={['1', '2', '3', '4']} etiqueta="ventana" nota="Entra 4: la ventana se pasó de K." />
   </Step>
-  <Step lines={[5, 6, 7]}>
+  <Step lines={[11, 12, 14]}>
     <Paso pila={['2', '3', '4']} etiqueta="ventana" nota="Sale el más viejo por el frente, el 1, y la suma le resta 1. Queda 9, largo 3 → promedio 3,00." />
   </Step>
 </StepShow>
