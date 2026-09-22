@@ -1269,17 +1269,17 @@ El contrato no dice dónde viven los elementos, pero sí pide algo exigente:
 
 La cola se puede construir utilizando una de las dos estructuras de datos:
 
-| Queue | Sobre arreglo circular | Sobre lista simple con `tail` |
+| Queue | Sobre arreglo | Sobre lista simple con `tail` |
 |---|---|---|
-| `enqueue(x)` | escribir en `data[(front + size) % data.length]`, subir `size` | `insertLast(x)` |
-| `dequeue()` | leer `data[front]`, avanzar `front`, bajar `size` | `deleteFirst()` |
-| `front()` | leer `data[front]` | leer el valor de `head` |
+| `enqueue(x)` | escribir en `data[size]`, subir `size` | `insertLast(x)` |
+| `dequeue()` | leer `data[0]`, correr todo lo demás, bajar `size` | `deleteFirst()` |
+| `front()` | leer `data[0]` | leer el valor de `head` |
 | `empty()` | `size == 0` | `head == null` |
 
-Y ahí está el precio de pedir dos extremos: el arreglo tiene que **dar la
-vuelta** para que el frente pueda avanzar sin dejar un hueco, y la lista
-tiene que llevar **una referencia de más** para llegar al final sin
-caminarla. Las dos láminas que siguen son eso.
+Una de esas cinco casillas no se parece a las otras. El arreglo sabe operar
+barato en **un** extremo —el final—, y la cola necesita los dos: desencolar
+le queda en el lado incómodo. La lista, en cambio, llega a los dos sin
+caminar, y lo único que le hace falta es una referencia de más.
 
 </Slide>
 
@@ -1365,157 +1365,24 @@ copia lo deja escrito en los dos lados hasta que el siguiente lo pisa.
 
 </Slide>
 
-<Slide title="La cola circular">
-La salida es dejar de mover los elementos y mover el frente. Guardamos dos
-índices —`front`, dónde empieza la cola, y `rear`, dónde termina— y cuando
-alguno llega al final del bloque **vuelve a empezar por el principio**.
+<Slide title="Costos de Queue sobre arreglo">
+| Operación | Peor caso | Invariante que restaura |
+|---|---|---|
+| `front()` | $$\Theta(1)$$ | Ninguna: lee `data[0]` y no cambia nada |
+| `empty()` | $$\Theta(1)$$ | Ninguna: `size` ya guarda el dato |
+| `size()` | $$\Theta(1)$$ | Ninguna: devuelve el campo que las otras mantienen |
+| `enqueue(x)` | $$\Theta(1)$$ | Los elementos ocupan `size` casillas seguidas: se escribe en la primera libre |
+| `dequeue()` | <span style={{ color: 'var(--color-flag)', fontWeight: 700 }}>$$\Theta(N)$$</span> | **El frente vive en `data[0]`**: para restaurarla hay que correr a todos los demás |
 
-<svg viewBox="0 0 700 240" style={{ width: '100%', maxWidth: '700px', height: 'auto', display: 'block', margin: '1.25rem auto' }} role="img" aria-label="Un bloque de seis casillas usado en forma circular. Las casillas 4, 5, 0 y 1 guardan 9, 4, 6 y 2; las casillas 2 y 3 están libres. Una flecha rotulada front señala la casilla 4, el próximo que sale; otra rotulada rear señala la casilla 1, el último que entró; y una tercera punteada señala la casilla 2, donde entrará el próximo. Una curva sale del extremo derecho del bloque y vuelve a entrar por el borde izquierdo de la casilla cero, rotulada módulo la capacidad.">
-  <defs>
-    <marker id="cola-circ-punta" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto">
-      <path d="M0,0 L7,3.5 L0,7 z" style={{ fill: 'var(--color-accent)' }} />
-    </marker>
-    <marker id="cola-circ-punta-wrap" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto">
-      <path d="M0,0 L7,3.5 L0,7 z" style={{ fill: 'var(--color-ink-soft)' }} />
-    </marker>
-  </defs>
-  <text x="502" y="26" textAnchor="middle" fontSize="15" fontWeight="700" fontFamily="monospace" style={{ fill: 'var(--color-accent)' }}>front</text>
-  <text x="502" y="44" textAnchor="middle" fontSize="12" style={{ fill: 'var(--color-ink-faint)' }}>el próximo que sale</text>
-  <line x1="502" y1="52" x2="502" y2="78" style={{ stroke: 'var(--color-accent)' }} strokeWidth="1.8" markerEnd="url(#cola-circ-punta)" />
-  <text x="178" y="26" textAnchor="middle" fontSize="15" fontWeight="700" fontFamily="monospace" style={{ fill: 'var(--color-accent)' }}>rear</text>
-  <text x="178" y="44" textAnchor="middle" fontSize="12" style={{ fill: 'var(--color-ink-faint)' }}>el último que entró</text>
-  <line x1="178" y1="52" x2="178" y2="78" style={{ stroke: 'var(--color-accent)' }} strokeWidth="1.8" markerEnd="url(#cola-circ-punta)" />
-  {/* Dónde cae el PRÓXIMO enqueue. Sin esto, «rear» sobre una casilla ocupada se lee como «aquí se escribe», que es la confusión que la revisión de alumno reportó. */}
-  <text x="286" y="26" textAnchor="middle" fontSize="12" style={{ fill: 'var(--color-ink-soft)' }}>aquí entra</text>
-  <text x="286" y="44" textAnchor="middle" fontSize="12" style={{ fill: 'var(--color-ink-soft)' }}>el próximo</text>
-  <line x1="286" y1="52" x2="286" y2="78" style={{ stroke: 'var(--color-ink-soft)' }} strokeWidth="1.6" strokeDasharray="4 3" markerEnd="url(#cola-circ-punta-wrap)" />
-  {[0, 1, 2, 3, 4, 5].map((i) => (
-    <g key={i}>
-      <rect x={20 + i * 108} y="86" width="100" height="52" rx="3" style={{ fill: [true, true, false, false, true, true][i] ? 'var(--color-surface)' : 'var(--color-sunk)', stroke: [true, true, false, false, true, true][i] ? 'var(--color-rule-strong)' : 'var(--color-rule)' }} strokeWidth={[true, true, false, false, true, true][i] ? 1.6 : 1.2} strokeDasharray={[true, true, false, false, true, true][i] ? undefined : '4 3'} />
-      <text x={70 + i * 108} y="120" textAnchor="middle" fontSize="22" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{['6', '2', '', '', '9', '4'][i]}</text>
-      <text x={70 + i * 108} y="158" textAnchor="middle" fontSize="12" style={{ fill: 'var(--color-ink-faint)' }}>{i}</text>
-      <text x={70 + i * 108} y="178" textAnchor="middle" fontSize="12" style={{ fill: 'var(--color-ink-faint)' }}>{[true, true, false, false, true, true][i] ? '' : 'libre'}</text>
-    </g>
-  ))}
-  {/* Sale por el borde derecho del bloque y vuelve a entrar por el IZQUIERDO de la casilla 0. Pasa por debajo del riel de índices: si termina bajo la casilla, la punta tapa la etiqueta «0». */}
-  <path d="M 666 112 C 702 142, 700 198, 358 198 C 40 198, 0 158, 6 112 L 16 112" fill="none" style={{ stroke: 'var(--color-ink-soft)' }} strokeWidth="1.8" strokeDasharray="5 4" markerEnd="url(#cola-circ-punta-wrap)" />
-  <text x="358" y="224" textAnchor="middle" fontSize="13" fontFamily="monospace" style={{ fill: 'var(--color-ink-soft)' }}>(i + 1) % capacidad</text>
-</svg>
+Esa fila roja es el problema, y no es un detalle que se pueda pulir. Sale de
+una decisión: poner el frente en una casilla fija. La cola es la estructura
+que **saca por un extremo y mete por el otro**, y el arreglo sólo sabe
+crecer y achicarse por el final; el otro extremo le queda lejos.
 
-Leída en el orden de la cola, la secuencia empieza en la casilla 4 y termina
-en la casilla 1: 9, 4, 6, 2. El bloque es el mismo de antes; lo que cambió
-es que dejó de tener un principio fijo.
-
-Avanzar cualquiera de los dos índices es sumarle uno y tomar el resto de
-dividir por la capacidad. Desencolar pasa a ser leer `data[front]` y avanzar
-`front`, sin mover ningún elemento: $$\Theta(1)$$.
-
-</Slide>
-
-<Slide title="La cola circular en código">
-Con `front` apuntando al próximo que sale y `size` diciendo cuántos hay, las
-dos operaciones caben en pocas líneas. Ninguna recorre nada.
-
-```java
-void enqueue(int x) {
-    if (size == data.length) {
-        throw new IllegalStateException();
-    }
-    int free = (front + size) % data.length;
-    data[free] = x;
-    size++;
-}
-
-int dequeue() {
-    if (size == 0) {
-        throw new NoSuchElementException();
-    }
-    int x = data[front];
-    front = (front + 1) % data.length;
-    size--;
-    return x;
-}
-```
-
-La cuenta `(front + size) % data.length` es la casilla libre que sigue al
-último: no hace falta guardar `rear`, porque `front` y `size` ya lo dicen.
-
-</Slide>
-
-<Slide title="Cuándo está llena y cuándo vacía">
-Hay una pregunta que esta estructura obliga a responder y que el arreglo de
-frente fijo no tenía. Si sólo guardáramos `front` y `rear`, **la cola llena
-y la cola vacía se verían igual**: en las dos, `rear` estaría justo detrás
-de `front`. Dos estados opuestos, el mismo dibujo.
-
-Hay dos maneras conocidas de deshacer el empate, y las dos aparecen en
-código real:
-
-1. **Guardar `size`**, que es lo que hace el listado anterior. Vacía es
-   `size == 0`, llena es `size == data.length`, y no hay ambigüedad posible.
-   Cuesta un entero.
-2. **Sacrificar una casilla**: no dejar nunca que la cola use la última
-   libre, de modo que llena sea `(rear + 1) % capacidad == front` y vacía
-   sea `rear == front`. Cuesta una casilla de cada `capacidad`.
-
-Este material usa la primera porque `size` ya hacía falta para `empty()`, y
-porque un entero es más barato que una casilla cuando la capacidad es
-chica. La segunda es la que se encuentra en implementaciones que no quieren
-mantener un contador más.
-
-</Slide>
-
-<Slide title="Las invariantes de la cola circular">
-El bloque circular sostiene tres propiedades, y la tercera es la que la
-distingue del arreglo de frente fijo.
-
-1. **`0 ≤ size ≤ data.length`.** Nunca hay menos de cero elementos ni más de
-   los que caben.
-
-2. **Los `size` elementos ocupan casillas consecutivas empezando en
-   `front`, dando la vuelta al llegar al final.** «Consecutivas» ya no
-   significa «con índices crecientes»: significa consecutivas *en el
-   círculo*.
-
-3. **`data[i]` no es el elemento `i`-ésimo.** El `i`-ésimo está en
-   `data[(front + i) % capacidad]`. Es una invariante que dice lo que la
-   estructura **dejó** de prometer, y por eso vale la pena escribirla: es
-   justo la promesa que el arreglo de frente fijo mantenía y que cobraba
-   $$N-1$$ corrimientos.
-
-La tercera es la que cuesta y la que paga. Cuesta el acceso directo por
-posición; paga el $$\Theta(1)$$ de desencolar.
-
-</Slide>
-
-<Slide title="Costos con y sin cola circular">
-| Operación | Frente fijo | Circular | Invariante que restaura |
-|---|---|---|---|
-| `front()`, `empty()` | $$\Theta(1)$$ | $$\Theta(1)$$ | Ninguna: no cambian nada |
-| `enqueue(x)` | $$\Theta(1)$$ | $$\Theta(1)$$ | Los elementos ocupan `size` casillas seguidas: `rear` avanza y escribe |
-| `dequeue()` | $$\Theta(N)$$ | <span style={{ color: 'var(--color-keep)', fontWeight: 700 }}>$$\Theta(1)$$</span> | Frente fijo restaura **además** que la primera sea `data[0]`, y eso cuesta correr todo. Circular sólo avanza `front` |
-
-La celda destacada es toda la diferencia. Las dos versiones **no** sostienen las mismas invariantes, y ahí está toda
-la diferencia. Las dos prometen que los elementos ocupan `size` casillas
-seguidas. La de frente fijo promete **una cosa más**: que la primera de
-ellas es la casilla cero.
-
-Esa promesa de más es la que cobra los $$N - 1$$ corrimientos. La cola
-circular no es más rápida porque restaure mejor la misma invariante: es más
-rápida porque **renuncia a una**. Es el mismo trato que atraviesa toda la
-unidad — una propiedad que se suelta compra un costo.
-
-Lo que se paga por soltarla conviene nombrarlo. En la cola circular
-`data[i]` ya no es el elemento `i`-ésimo: el `i`-ésimo está en
-`data[(front + i) % capacidad]`. La lectura directa por posición, que era la
-gracia del arreglo, deja de valer — y no se echa de menos, porque el
-contrato de la cola nunca la ofreció.
-
-Queda en pie el problema que el bloque trae consigo: la capacidad se fija al
-reservarlo, y encolar en una cola llena no tiene dónde escribir. La salida
-es la misma de siempre —reservar un bloque más grande y copiar—, que deja a
-`enqueue` en $$\Theta(1)$$ amortizado y en $$\Theta(N)$$ la corrida que
-copia.
+Una cola que se usa de verdad desencola tantas veces como encola, así que la
+mitad de sus operaciones serían caras. **El arreglo es la estructura
+equivocada para este contrato**, y la que sigue lo resuelve sin ideas de
+más.
 
 </Slide>
 
@@ -1815,35 +1682,34 @@ cero elementos y la de un elemento son las que no tienen extremo, o lo
 tienen doble**. Por eso todos los listados de esta clase preguntan antes de
 tocar, y por eso `empty()` existe en los dos contratos.
 
-En el arreglo circular las dos últimas filas no hacen falta, porque `front`
-y `size` no son referencias a nodos: no pueden quedar apuntando a nada. A
-cambio aparece la suya —lleno contra vacío— que la lista no tiene.
+Sobre un arreglo las dos últimas filas no hacen falta, porque `size` no es
+una referencia a un nodo: no puede quedar apuntando a nada. Pero el arreglo
+tiene la suya, que la lista no tiene: encolar en un bloque lleno no tiene
+dónde escribir.
 
 </Slide>
 
-<Slide title="Arreglo circular vs lista con tail">
-| | Arreglo circular | Lista con `head` y `tail` |
+<Slide title="Arreglo vs lista">
+| | Sobre arreglo | Lista con `head` y `tail` |
 |---|---|---|
-| `enqueue(x)` | $$\Theta(1)$$ amortizado — $$\Theta(N)$$ la corrida que copia | $$\Theta(1)$$ siempre |
-| `dequeue()` | $$\Theta(1)$$ | $$\Theta(1)$$ |
+| `enqueue(x)` | $$\Theta(1)$$ | $$\Theta(1)$$ |
+| `dequeue()` | <span style={{ color: 'var(--color-flag)', fontWeight: 700 }}>$$\Theta(N)$$</span> | $$\Theta(1)$$ |
 | `front()`, `empty()` | $$\Theta(1)$$ | $$\Theta(1)$$ |
 | memoria por elemento | el valor | el valor **y** un enlace |
-| capacidad | fija, o copias al crecer | sin límite previo |
-| los elementos en memoria | juntos | sueltos |
-| lo que hay que sostener | dos índices y una aritmética | dos referencias y el caso de un nodo |
+| capacidad | fija al reservar el bloque | sin límite previo |
+| lo que hay que sostener | un índice | dos referencias y el caso de un nodo |
 
-Las dos llegan a costos constantes, y ninguna lo consigue con la versión
-ingenua: el arreglo necesitó la idea de la circularidad, la lista necesitó
-la referencia `tail`. Esa simetría es el resultado que conviene llevarse
-—no hay una estructura que sirva para todo, hay una idea que falta en cada
-una.
+Acá no hay elección. La pila podía construirse igual de bien sobre las dos
+estructuras y la decisión se jugaba en memoria y localidad; la cola no: el
+arreglo pierde una fila entera, y es la fila de la operación que una cola
+hace la mitad del tiempo.
 
-La elección práctica tiene un matiz propio. El arreglo circular
-sirve cuando se conoce una cota del tamaño, y es el que usa un búfer de
-verdad: memoria reservada una vez, elementos juntos, ningún costo por
-enlace. La lista sirve cuando el tamaño no tiene cota, y es la que evita la
-pausa de una copia justo en el momento en que la cola está más llena, que es
-el peor momento posible para pausar.
+Y la razón es geométrica, no de implementación. **Una pila toca un solo
+extremo y un arreglo tiene uno barato.** Una cola toca los dos, y el arreglo
+sólo tiene barato el final. La lista paga un enlace por elemento y a cambio
+tiene los dos extremos en la mano.
+
+Por eso, cuando alguien escribe una cola, la escribe sobre una lista.
 
 </Slide>
 
@@ -1874,8 +1740,9 @@ segundo trío —`offer`, `poll` y `peek`— que en vez de lanzar devuelve
 `false` o `null`: sirve cuando quedarse sin elementos es parte del
 funcionamiento normal, y no cuando es un error.
 
-`LinkedList` es la lista con `tail` de esta clase; `ArrayDeque` es el
-arreglo circular. Las dos cumplen la interfaz.
+`LinkedList` es la lista con `tail` de esta clase. `ArrayDeque` también
+cumple la interfaz, y lo hace sobre un arreglo —resolviendo por dentro el
+problema del corrimiento, con una idea que esta clase no necesita.
 
 </Slide>
 
@@ -2208,9 +2075,7 @@ nada entre ellos.
 
 La implementación no trae ideas nuevas. Sobre una lista doblemente enlazada
 con `head` y `tail`, las cuatro operaciones son constantes, porque cada
-extremo está en la mano y cada nodo sabe quién viene antes. Sobre un arreglo
-circular, también: son los mismos dos índices moviéndose ahora en los dos
-sentidos.
+extremo está en la mano y cada nodo sabe quién viene antes.
 
 Con una trampa, porque retroceder no es simétrico de avanzar. Avanzar es
 `(i + 1) % capacidad`; retroceder **no** es `(i - 1) % capacidad`, porque en
@@ -2279,9 +2144,9 @@ El `++` después del índice escribe y **luego** avanza; el `--` antes
 retrocede y **luego** lee. Es la misma pila de la clase, sin la clase.
 
 Para la cola, igual con dos índices: `queue[rear++] = x` encola y
-`queue[front++]` desencola. Ahí `rear` es la próxima casilla **libre**, que
-es la otra convención posible de las dos que la lámina de la cola circular
-nombró.
+`queue[front++]` desencola. Ahí `front` avanza en vez de correr a los demás,
+que es lo que el arreglo de la clase no hacía — pero para eso el bloque
+tiene que ser lo bastante grande, y cada solución dice cuánto necesita.
 
 <Slide title="La pila monótona">
 Hay una técnica que dos de los ejercicios de esta clase necesitan y que no
@@ -2355,8 +2220,8 @@ check(Solution.binaries(0).length, 0);
 class Solution {
     // La cola es un arreglo con dos índices: `front` por donde sale,
     // `rear` por donde entra. Aquí `rear` es la próxima casilla LIBRE —se
-    // escribe y después se avanza—, y no la última ocupada como en la
-    // lámina de la cola circular. Se sacan n y se encolan 1 + 2n, así que
+    // escribe y después se avanza—. Aquí `front` avanza en vez de correr
+    // a los demás. Se sacan n y se encolan 1 + 2n, así que
     // 2n + 2 casillas alcanzan y sobran.
     static String[] binaries(int n) {
         String[] result = new String[n];
