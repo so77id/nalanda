@@ -1300,3 +1300,82 @@ func TestAFailedAMCJobKeepsItsDebugDetailOffTheBanner(t *testing.T) {
 		t.Error("the banner shows the worker's stderr to the professor")
 	}
 }
+
+// profileLinkText is the banner's link to /profile. The nav bar links
+// there too, so a case asks for THIS link rather than for the path.
+const profileLinkText = "Reconectar Gmail en mi perfil"
+
+// The repair is one click away while it is still needed, and not after
+// (issue #297, AC7). Derived from the LIVE connection rather than stored
+// on the job: a stored "action" would keep offering the link after the
+// professor had reconnected, and this request already reads the
+// connection for the Publicar button.
+func TestAFailedPublicationLinksToTheProfileOnlyWhileGmailIsDisconnected(t *testing.T) {
+	for _, tc := range []struct {
+		name     string
+		gmail    connectedGmail
+		wantLink bool
+	}{
+		{"disconnected", connectedGmail{disconnected: true}, true},
+		{"reconnected", connectedGmail{}, false},
+		// A lookup that blinked is not a missing account — the Publicar
+		// button's own policy, and the same reason.
+		{"the lookup failed", connectedGmail{err: errors.New("the database blinked")}, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			f := newControlsFixture(t)
+			controlID := gradedControl(t, f)
+			f.rebuildWithGmail(t, tc.gmail)
+			seedFailedJob(t, f, controlID, jobs.KindPublish,
+				"se perdió la conexión con Gmail: no se envió ninguna corrección",
+				"Vuelve a conectarla en tu perfil y aprieta Publicar otra vez.")
+
+			body := f.detailBody(t, controlID)
+			link := `<a href="/profile">` + profileLinkText + `</a>`
+			if got := strings.Contains(body, link); got != tc.wantLink {
+				t.Errorf("the banner offers the profile link = %v, want %v:\n%s", got, tc.wantLink, body)
+			}
+		})
+	}
+}
+
+// The link belongs to a FAILED PUBLICATION (issue #297, AC9). A finished
+// one has nothing to repair, and a failed analysis is not repaired in the
+// profile — a disconnected account is an ordinary state and must not put
+// a stray link on every banner.
+func TestOnlyAFailedPublicationOffersTheProfileLink(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		seed func(*testing.T, *controlsFixture, string)
+	}{
+		{"a publication that succeeded", func(t *testing.T, f *controlsFixture, controlID string) {
+			ctx := context.Background()
+			id, err := f.jstore.Insert(ctx, jobs.NewJob{
+				ControlID: controlID, Kind: jobs.KindPublish, Payload: []byte(`{}`),
+			}, time.Now())
+			if err != nil {
+				t.Fatalf("Insert: %v", err)
+			}
+			if err := f.jstore.MarkRunning(ctx, id, time.Now()); err != nil {
+				t.Fatalf("MarkRunning: %v", err)
+			}
+			if err := f.jstore.MarkDone(ctx, id, time.Now()); err != nil {
+				t.Fatalf("MarkDone: %v", err)
+			}
+		}},
+		{"a failed analysis", func(t *testing.T, f *controlsFixture, controlID string) {
+			seedFailedJob(t, f, controlID, jobs.KindAnalyse, "el motor de lectura rechazó el trabajo", "")
+		}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			f := newControlsFixture(t)
+			controlID := gradedControl(t, f)
+			f.rebuildWithGmail(t, connectedGmail{disconnected: true})
+			tc.seed(t, f, controlID)
+
+			if body := f.detailBody(t, controlID); strings.Contains(body, profileLinkText) {
+				t.Errorf("the banner offers the profile link:\n%s", body)
+			}
+		})
+	}
+}

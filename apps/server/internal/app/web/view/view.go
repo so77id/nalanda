@@ -700,6 +700,12 @@ type JobBanner struct {
 	// Empty for every other kind, whose job.detail is a debug line for an
 	// operator rather than a sentence for the professor.
 	Detail string
+	// ProfileURL, when set, renders a link to /profile under a failed
+	// publication while the professor's Gmail is disconnected (issue #297)
+	// — the repair a lost credential needs. Derived from the live
+	// connection on each render, never stored on the job, so it disappears
+	// once the professor has reconnected.
+	ProfileURL string
 	// DismissURL is POST /jobs/{id}/dismiss — the "Refrescar" (running /
 	// done) and "Cerrar aviso" (failed) button both target it. The
 	// professor re-submits the operation from the usual form after
