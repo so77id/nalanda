@@ -105,3 +105,45 @@ func TestAReportWithoutABatchIsNotRefused(t *testing.T) {
 		t.Fatalf("AnalyzeBatch = %v, want success", err)
 	}
 }
+
+// Issue #298 §C: the copies a batch re-captured are reset BEFORE the report
+// is persisted — the order matters, because the upsert is what the
+// corrections would otherwise be re-applied on top of.
+func TestARecapturedCopyIsResetBeforeTheReportLands(t *testing.T) {
+	svc, _, gen, _ := newService(t)
+	control, err := createControlSync(context.Background(), svc, req(nil))
+	if err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+	gen.AnalyzeReports = []controls.Report{{
+		Batch: &controls.Batch{Captured: 4, RecapturedCopies: []int{2, 3}},
+	}}
+
+	if err := uploadBatch(t, svc, control.ID); err != nil {
+		t.Fatalf("AnalyzeBatch: %v", err)
+	}
+	fake := svc.Readings.(*fakeReadingStore)
+	if got := fake.calls; len(got) < 2 || got[0] != "reset [2 3]" || got[1] != "upsert" {
+		t.Errorf("reading store calls = %v, want reset [2 3] then upsert", got)
+	}
+}
+
+// A batch that re-captured nothing resets nothing: every copy's
+// corrections are still valid against the image they were made on.
+func TestABatchThatRecapturedNothingResetsNothing(t *testing.T) {
+	svc, _, gen, _ := newService(t)
+	control, err := createControlSync(context.Background(), svc, req(nil))
+	if err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+	gen.AnalyzeReports = []controls.Report{{Batch: &controls.Batch{Captured: 4}}}
+
+	if err := uploadBatch(t, svc, control.ID); err != nil {
+		t.Fatalf("AnalyzeBatch: %v", err)
+	}
+	for _, c := range svc.Readings.(*fakeReadingStore).calls {
+		if strings.HasPrefix(c, "reset") {
+			t.Errorf("reading store call %q on a batch that re-captured nothing", c)
+		}
+	}
+}

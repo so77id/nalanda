@@ -142,6 +142,7 @@ func (*publishReadings) SetRUTOverride(context.Context, int64, string, time.Time
 	return nil
 }
 func (*publishReadings) ClearRUTOverride(context.Context, int64) error { return nil }
+func (*publishReadings) ResetRecapturedCopies(context.Context, string, []int) error { return nil }
 func (*publishReadings) CopiesForStudent(context.Context, int64) ([]controls.StudentCopy, error) {
 	return nil, nil
 }

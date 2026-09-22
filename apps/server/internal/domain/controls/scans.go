@@ -149,6 +149,18 @@ func (s *Service) AnalyzeBatch(ctx context.Context, controlID, batchName string,
 	if err := s.Store.SetControlThresholds(ctx, control.ID, ticked, unsure); err != nil {
 		return Report{}, fmt.Errorf("controls.AnalyzeBatch: persist thresholds: %w", err)
 	}
+	// Issue #298 §C: a copy this batch re-scanned is born again BEFORE the
+	// report lands — its corrections were made against an image that no
+	// longer exists (the worker has already cleared AMC's own `manual`
+	// column for it). Not in one transaction with the upsert: a failure
+	// between the two leaves a reset copy showing its previous reading,
+	// which the next upload or re-read repairs, and never an old
+	// correction applied to the new image.
+	if report.Batch != nil && len(report.Batch.RecapturedCopies) > 0 {
+		if err := s.Readings.ResetRecapturedCopies(ctx, control.ID, report.Batch.RecapturedCopies); err != nil {
+			return Report{}, fmt.Errorf("controls.AnalyzeBatch: reset re-captured copies: %w", err)
+		}
+	}
 	now := s.Now()
 	if err := s.Readings.UpsertReadingsFromReport(ctx, control.ID, report, now); err != nil {
 		return Report{}, fmt.Errorf("controls.AnalyzeBatch: persist: %w", err)

@@ -448,6 +448,18 @@ type ReadingStore interface {
 	// ClearRUTOverride deletes the RUT override, if any.
 	ClearRUTOverride(ctx context.Context, readingID int64) error
 
+	// ResetRecapturedCopies makes the listed copies of a control "freshly
+	// read" (issue #298): it deletes their answer and RUT overrides,
+	// clears last_edited_at and drops their annotated_copy rows, in ONE
+	// transaction. Every one of those was made against, or drawn over, an
+	// image the new capture replaced.
+	//
+	// published_at and published_grade are deliberately left alone:
+	// ADR-0073 derives CopyStale from them, and clearing them would turn a
+	// student who already received their correction into CopyNotSent. A
+	// copy with no reading row yet is skipped.
+	ResetRecapturedCopies(ctx context.Context, controlID string, copies []int) error
+
 	// CopiesForStudent returns which copies one student is matched to,
 	// across every ACTIVE control, newest control first (issue #272 S8).
 	//

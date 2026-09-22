@@ -234,6 +234,9 @@ type fakeReadingStore struct {
 	// upserts counts UpsertReadingsFromReport calls, so a case can prove a
 	// refused analyse wrote nothing (issue #298).
 	upserts int
+	// calls records the re-scan writes in order ("reset [2 3]", "upsert"),
+	// so a case can pin which comes first (issue #298).
+	calls []string
 }
 
 func newFakeReadingStore() *fakeReadingStore {
@@ -242,6 +245,11 @@ func newFakeReadingStore() *fakeReadingStore {
 
 func (s *fakeReadingStore) UpsertReadingsFromReport(context.Context, string, controls.Report, time.Time) error {
 	s.upserts++
+	s.calls = append(s.calls, "upsert")
+	return nil
+}
+func (s *fakeReadingStore) ResetRecapturedCopies(_ context.Context, _ string, copies []int) error {
+	s.calls = append(s.calls, fmt.Sprintf("reset %v", copies))
 	return nil
 }
 func (s *fakeReadingStore) MarkMissingAsNotPresent(context.Context, string, time.Time) error {

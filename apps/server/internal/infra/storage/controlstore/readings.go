@@ -602,6 +602,36 @@ func (s *Store) ClearRUTOverride(ctx context.Context, readingID int64) error {
 	return nil
 }
 
+// ResetRecapturedCopies deletes the listed copies' overrides and
+// annotated rows and clears their last_edited_at, in one transaction
+// (issue #298). The two publication columns are NOT touched — see the
+// port's docstring; TestResetRecapturedCopiesForgetsCorrectionsAndKeeps
+// ThePublication is the pin.
+func (s *Store) ResetRecapturedCopies(ctx context.Context, controlID string, copies []int) error {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("controlstore.ResetRecapturedCopies: begin: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	for _, copyNumber := range copies {
+		for _, stmt := range []string{
+			`DELETE FROM answer_override WHERE reading_id IN
+                 (SELECT id FROM reading WHERE control_id = ? AND copy_number = ?)`,
+			`DELETE FROM rut_override WHERE reading_id IN
+                 (SELECT id FROM reading WHERE control_id = ? AND copy_number = ?)`,
+			`UPDATE reading SET last_edited_at = NULL
+                 WHERE control_id = ? AND copy_number = ?`,
+			`DELETE FROM annotated_copy WHERE control_id = ? AND copy_number = ?`,
+		} {
+			if _, err := tx.ExecContext(ctx, stmt, controlID, copyNumber); err != nil {
+				return fmt.Errorf("controlstore.ResetRecapturedCopies %s/%d: %w", controlID, copyNumber, err)
+			}
+		}
+	}
+	return tx.Commit()
+}
+
 // SetControlState updates control.state.
 func (s *Store) SetControlState(ctx context.Context, controlID string, state controls.State) error {
 	result, err := s.db.ExecContext(ctx,
