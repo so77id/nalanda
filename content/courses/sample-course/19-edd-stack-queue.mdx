@@ -1434,39 +1434,42 @@ el último que quedó esperando. No es casualidad: un símbolo que abre después
 de otro queda encerrado por él, así que tiene que cerrarse antes. Si se
 cerrara después, los dos arcos se cruzarían.
 
-<svg viewBox="0 0 670 206" style={{ width: '100%', maxWidth: '670px', height: 'auto', display: 'block', margin: '1.25rem auto' }} role="img" aria-label="Tres momentos del recorrido de la expresión abre paréntesis abre llave abre corchete cierra corchete abre paréntesis cierra paréntesis cierra llave cierra paréntesis. En cada uno se ve la expresión con el símbolo recién leído marcado y, debajo, los que siguen esperando cierre. Al leer el abre corchete esperan tres: el abre paréntesis abajo, la abre llave en medio y el abre corchete arriba. Al leer el cierra corchete, el abre corchete sale de arriba de todo, dibujado atenuado y punteado, y quedan dos esperando. Al leer el segundo abre paréntesis vuelven a ser tres, con ese paréntesis arriba.">
+<svg viewBox="0 0 668 220" style={{ width: '100%', maxWidth: '670px', height: 'auto', display: 'block', margin: '1.25rem auto' }} role="img" aria-label="La expresión abre paréntesis, abre llave, abre corchete, cierra corchete, abre paréntesis, cierra paréntesis, cierra llave, cierra paréntesis, y debajo de cada símbolo lo que queda esperando cierre después de leerlo. Con el abre paréntesis espera uno; con la abre llave, dos; con el abre corchete, tres. El cierra corchete saca el abre corchete y vuelven a ser dos. El segundo abre paréntesis las deja en tres otra vez. El cierra paréntesis saca ese paréntesis y quedan dos, la cierra llave saca la llave y queda uno, y el último cierra paréntesis saca el que quedaba: la pila termina vacía.">
   <text x="4" y="30" fontSize="12" fontFamily="monospace" style={{ fill: 'var(--color-ink-faint)' }}>expresión</text>
-  <text x="4" y="160" fontSize="12" fontFamily="monospace" style={{ fill: 'var(--color-ink-faint)' }}>esperando</text>
+  <text x="4" y="168" fontSize="12" fontFamily="monospace" style={{ fill: 'var(--color-ink-faint)' }}>esperando</text>
   {[
-    { x: 86, cursor: 2, pila: ['(', '{', '['], nuevo: true, sale: '' },
-    { x: 286, cursor: 3, pila: ['(', '{'], nuevo: false, sale: '[' },
-    { x: 486, cursor: 4, pila: ['(', '{', '('], nuevo: true, sale: '' },
-  ].map((m, k) => (
-    <g key={k}>
-      {['(', '{', '[', ']', '(', ')', '}', ')'].map((ch, i) => (
-        <g key={i} opacity={i < m.cursor ? 0.35 : i > m.cursor ? 0.7 : 1}>
-          <rect x={m.x + i * 20} y="10" width="18" height="26" rx="3" style={{ fill: i === m.cursor ? 'var(--color-accent)' : 'var(--color-surface)', stroke: i === m.cursor ? 'var(--color-accent)' : 'var(--color-rule)' }} strokeWidth="1.3" />
-          <text x={m.x + i * 20 + 9} y="30" textAnchor="middle" fontSize="15" fontWeight="600" fontFamily="monospace" style={{ fill: i === m.cursor ? 'var(--color-on-accent)' : 'var(--color-ink)' }}>{ch}</text>
-        </g>
-      ))}
-      <path d={`M ${m.x + m.cursor * 20 + 9} 40 L ${m.x + m.cursor * 20 + 9} 52 L ${m.x + 79} 52 L ${m.x + 79} ${178 - (m.pila.length + (m.sale ? 1 : 0)) * 30}`} fill="none" style={{ stroke: 'var(--color-rule)' }} strokeWidth="1.2" strokeDasharray="3 3" />
-      <line x1={m.x + 40} y1="178" x2={m.x + 118} y2="178" style={{ stroke: 'var(--color-rule-strong)' }} strokeWidth="2" />
-      {m.pila.map((ch, j) => (
-        <g key={j}>
-          <rect x={m.x + 66} y={178 - (j + 1) * 30} width="26" height="26" rx="3" style={{ fill: j === m.pila.length - 1 && m.nuevo ? 'var(--color-mark-soft)' : 'var(--color-surface)', stroke: j === m.pila.length - 1 && m.nuevo ? 'var(--color-mark)' : 'var(--color-rule-strong)' }} strokeWidth="1.5" />
-          <text x={m.x + 79} y={178 - (j + 1) * 30 + 19} textAnchor="middle" fontSize="16" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>{ch}</text>
-        </g>
-      ))}
-      {m.sale === '' ? null : (
-        <g opacity="0.45">
-          <rect x={m.x + 66} y={178 - (m.pila.length + 1) * 30} width="26" height="26" rx="3" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.5" strokeDasharray="4 3" />
-          <text x={m.x + 79} y={178 - (m.pila.length + 1) * 30 + 19} textAnchor="middle" fontSize="16" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink-faint)' }}>{m.sale}</text>
-          <text x={m.x + 100} y={178 - (m.pila.length + 1) * 30 + 18} fontSize="11" fontFamily="monospace" style={{ fill: 'var(--color-ink-faint)' }}>sale</text>
-        </g>
-      )}
-    </g>
-  ))}
-  <text x="335" y="200" textAnchor="middle" fontSize="12" style={{ fill: 'var(--color-ink-faint)' }}>lo que abre se suma arriba; lo que cierra saca justo el de arriba</text>
+    { ch: '(', pila: ['('], nuevo: true, sale: '', vacia: '' },
+    { ch: '{', pila: ['(', '{'], nuevo: true, sale: '', vacia: '' },
+    { ch: '[', pila: ['(', '{', '['], nuevo: true, sale: '', vacia: '' },
+    { ch: ']', pila: ['(', '{'], nuevo: false, sale: '[', vacia: '' },
+    { ch: '(', pila: ['(', '{', '('], nuevo: true, sale: '', vacia: '' },
+    { ch: ')', pila: ['(', '{'], nuevo: false, sale: '(', vacia: '' },
+    { ch: '}', pila: ['('], nuevo: false, sale: '{', vacia: '' },
+    { ch: ')', pila: [], nuevo: false, sale: '(', vacia: 'vacía' },
+  ].map((m, i) => {
+    const cx = 100 + i * 72;
+    return (
+      <g key={i}>
+        <rect x={cx - 15} y="8" width="30" height="28" rx="3" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.5" />
+        <text x={cx} y="28" textAnchor="middle" fontSize="17" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>{m.ch}</text>
+        <line x1={cx - 30} y1="178" x2={cx + 30} y2="178" style={{ stroke: 'var(--color-rule-strong)' }} strokeWidth="2" />
+        {m.pila.map((c, j) => (
+          <g key={j}>
+            <rect x={cx - 13} y={178 - (j + 1) * 28} width="26" height="24" rx="3" style={{ fill: j === m.pila.length - 1 && m.nuevo ? 'var(--color-mark-soft)' : 'var(--color-surface)', stroke: j === m.pila.length - 1 && m.nuevo ? 'var(--color-mark)' : 'var(--color-rule-strong)' }} strokeWidth="1.5" />
+            <text x={cx} y={178 - (j + 1) * 28 + 17} textAnchor="middle" fontSize="15" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>{c}</text>
+          </g>
+        ))}
+        {m.sale === '' ? null : (
+          <g opacity="0.4">
+            <rect x={cx - 13} y={178 - (m.pila.length + 1) * 28} width="26" height="24" rx="3" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.4" strokeDasharray="4 3" />
+            <text x={cx} y={178 - (m.pila.length + 1) * 28 + 17} textAnchor="middle" fontSize="15" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink-faint)' }}>{m.sale}</text>
+          </g>
+        )}
+        <text x={cx} y="194" textAnchor="middle" fontSize="12" style={{ fill: 'var(--color-ink-faint)' }}>{m.vacia}</text>
+      </g>
+    );
+  })}
+  <text x="334" y="212" textAnchor="middle" fontSize="12" style={{ fill: 'var(--color-ink-faint)' }}>bajo cada símbolo, lo que queda esperando después de leerlo — punteado, el que ese símbolo sacó</text>
 </svg>
 
 Eso vale en cada paso del recorrido. De todos los símbolos que esperan, el
@@ -1495,15 +1498,11 @@ static char openerFor(char c) {
 }
 ```
 
-Las dos primeras **clasifican** un carácter: `isOpener` responde si es uno de
-los tres que abren, `isCloser` si es uno de los tres que cierran.
+`isOpener` responde si un carácter es una de las tres aperturas, e `isCloser`
+si es uno de los tres cierres.
 
-`openerFor` es la única que trae algo del problema: recibe un cierre y
-devuelve la apertura que le corresponde. Es la tabla de parejas del enunciado,
-escrita en Java.
-
-Ninguna de las tres tiene idea adentro. Van primero para que el recorrido, que
-sí la tiene, se lea de una sola pasada.
+`openerFor` recibe un cierre y devuelve la apertura que le corresponde: `(`
+para `)`, `[` para `]`, `{` para `}`.
 
 </Slide>
 
