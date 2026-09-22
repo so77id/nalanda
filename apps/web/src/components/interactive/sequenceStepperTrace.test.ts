@@ -238,17 +238,25 @@ describe('sequenceStepperTrace · the array block, slot by slot', () => {
   // The first version of this trace kept only the live elements, so a shift
   // changed nothing on screen and the Theta(N) was a claim rather than a
   // picture. These cases pin the hole.
-  it('opens a hole that travels as insert-first copies right', () => {
+  it('shows each copy as a duplicate that travels, source still drawn', () => {
     const trace = traceFor('array', 'insert-first', { values, value: 9 });
     const shifts = trace.steps.filter((s) => s.kind === 'shift');
     expect(shifts).toHaveLength(values.length);
     for (const step of shifts) {
-      // Mid-shift the block always holds exactly one hole among the occupied
-      // range — the slot the last copy vacated.
+      // The shift must stay VISIBLE — that is why this case exists, and the
+      // reason is in the block comment above. What changed in #294 is HOW:
+      // a copy does not empty its source, so mid-shift the block holds the
+      // moved value TWICE — once live at the destination, once stale at the
+      // source. Drawing a hole there instead said "move", and drew the
+      // picture #277 teaches as the invalid array.
       const occupied = step.slots!.map((s) => s !== null);
       const lastFull = occupied.lastIndexOf(true);
-      const holes = occupied.slice(0, lastFull).filter((o) => !o).length;
-      expect(holes).toBe(1);
+      expect(occupied.slice(0, lastFull).every(Boolean)).toBe(true);
+
+      const stale = step.slots!.filter((s) => s?.state === 'stale');
+      expect(stale).toHaveLength(1);
+      const active = step.slots!.find((s) => s?.state === 'active');
+      expect(active!.value).toBe(stale[0]!.value);
     }
   });
 
@@ -347,6 +355,20 @@ describe('sequenceStepperTrace · get-at, the operation that shows the price', (
     expect(last.pointers.find((p) => p.name === 'current')!.index).toBe(2);
   });
 
+  // The cost is no longer on screen (#294, ADR-0074 §Amended by): a single
+  // run shows a single number, and one number is not a growth rate. It is
+  // still the trace's own arithmetic and still worth pinning HERE, which is
+  // where a claim about cost can be checked exactly.
+  it.each([0, 1, 2, 3])('charges exactly the i hops to reach position %i', (i) => {
+    const trace = traceFor('linked-list-singly', 'get-at', { values, index: i });
+    // The hops and nothing else: the chain charges `i`, where the array
+    // charges a flat 1 for the multiplication (the case below). So at i = 0
+    // the chain reads 0 and the array 1 — the two recipes do not count the
+    // same unit, which cost nothing while the number was on screen and costs
+    // nothing now that it is not. Pinned as it IS rather than as it reads.
+    expect(trace.steps.at(-1)!.cost).toBe(i);
+  });
+
   it('costs one step on an array, whatever the position — that is the contrast', () => {
     for (const i of [0, 1, 2, 3]) {
       const trace = traceFor('array', 'get-at', { values, index: i });
@@ -360,6 +382,34 @@ describe('sequenceStepperTrace · get-at, the operation that shows the price', (
 
   it('refuses a position outside the structure', () => {
     expect(() => traceFor('linked-list-singly', 'get-at', { values, index: 9 })).toThrow(/rango/i);
+  });
+});
+
+describe('sequenceStepperTrace · what `tail` changes in the narration', () => {
+  // #294's Queue act mounts `insert-last` WITH `tail` and states on the slide
+  // that "ninguna de las tres recorre la cadena" — that is the whole point of
+  // the prop. The narration said "hay que caminar hasta él" anyway, twice per
+  // run, because the string branched only on `empty`. Three reviewers found
+  // it independently and the student named it as the thing that hurt most.
+  it('does not say the chain has to be walked when `tail` is there', () => {
+    const trace = traceFor('linked-list-singly', 'insert-last', {
+      values: [],
+      value: [3, 8, 5],
+      tail: true,
+    });
+    // The claim to forbid is that walking is NEEDED. "sin recorrer nada" is
+    // the opposite claim and is welcome, so match the obligation and not the
+    // verb — the first version of this case failed on the good sentence.
+    const dicenQueHayQueCaminar = trace.steps.filter((s) =>
+      /hay que (caminar|recorrer)/i.test(s.description),
+    );
+    expect(dicenQueHayQueCaminar).toEqual([]);
+    expect(trace.steps.some((s) => /tail ya lo tiene/i.test(s.description))).toBe(true);
+  });
+
+  it('still says it when there is no `tail`, because then it is true', () => {
+    const trace = traceFor('linked-list-singly', 'insert-last', { values: [7, 3], value: 9 });
+    expect(trace.steps.some((s) => /caminar/i.test(s.description))).toBe(true);
   });
 });
 
@@ -824,5 +874,258 @@ describe('sequenceStepperTrace · the listing belongs to the recipe', () => {
     expect(() =>
       traceFor('linked-list-singly', 'remove-first', { values: [7, 3], times: 100_000_000 }),
     ).toThrow(/entre 1 y/i);
+  });
+});
+
+describe('sequenceStepperTrace · the block a slide asks for', () => {
+  // Without `capacity` the block is sized from the input, so the SAME stack
+  // came out four cells wide on the slide that pushes and five on the slide
+  // that pops — one structure at two sizes, one slide apart (#294 review).
+  it('reserves exactly the slots the author asked for', () => {
+    const push = traceFor('array', 'insert-last', { values: [42, 7], value: 15, capacity: 6 });
+    const pop = traceFor('array', 'remove-last', { values: [42, 7, 15], capacity: 6 });
+    for (const trace of [push, pop]) {
+      for (const step of trace.steps) {
+        expect(step.slots).toHaveLength(6);
+        expect(step.capacity).toBe(6);
+      }
+    }
+  });
+
+  it('still sizes itself from the input when nobody asks', () => {
+    const trace = traceFor('array', 'remove-last', { values: [42, 7, 15] });
+    expect(trace.steps[0]!.capacity).toBe(5);
+  });
+
+  it('refuses a block too small for the elements it is given', () => {
+    expect(() => traceFor('array', 'remove-last', { values: [7, 3, 1, 5], capacity: 2 })).toThrow(
+      /no alcanza/i,
+    );
+  });
+});
+
+describe('sequenceStepperTrace · what `capacity` refuses', () => {
+  // The second pipeline pass measured the guard's holes: 3.7 allocated three
+  // slots in silence, NaN allocated a zero-width block, and 1e7 allocated ten
+  // million. None is reachable by a reader (MDX is bundled at build time) but
+  // all three are authoring mistakes the file refuses everywhere else.
+  it.each([3.7, Number.NaN, 0, 1e7])('refuses a capacity of %p', (capacity) => {
+    expect(() => traceFor('array', 'remove-last', { values: [7, 3], capacity })).toThrow(
+      /no es un entero/i,
+    );
+  });
+
+  it('lets a dynamic array author choose where the resize falls', () => {
+    // It used to refuse this outright, on the reasoning that the recipe
+    // starts FULL so that one insertion shows the resize. That reasoning
+    // holds for a single run and fails for several: with capacity =
+    // values.length the FIRST push always grows, which is the one place a
+    // reader least expects it. #294 push slide asks for four pushes with the
+    // resize in the middle, and that is only expressible by choosing the
+    // starting block.
+    const trace = traceFor('dynamic-array', 'insert-last', {
+      values: [42, 7],
+      value: 9,
+      capacity: 4,
+    });
+    expect(trace.steps.every((s) => s.capacity === 4)).toBe(true);
+    expect(trace.steps.some((s) => s.kind === 'grow')).toBe(false);
+  });
+});
+
+describe('sequenceStepperTrace · a listing that obeys the props the picture obeys', () => {
+  // ADR-0074 recorded this as "a listing that is blind to a prop the picture
+  // obeys": with `tail`, the singly-linked removals DRAW the tail pointer
+  // moving — `remove-first` releases it when the chain empties, `remove-last`
+  // has to walk it back — and the listing beside them never mentions `tail`.
+  // A student copying it writes a queue whose `tail` dangles.
+  it('maintains `tail` in deleteFirst when the chain can empty', () => {
+    const conTail = traceFor('linked-list-singly', 'remove-first', {
+      values: [7],
+      times: 1,
+      tail: true,
+    });
+    expect(conTail.code).toContain('tail = null');
+    // and the picture it is beside: the chain empties, so tail points nowhere
+    expect(conTail.steps.at(-1)!.pointers.find((p) => p.name === 'tail')!.index).toBeNull();
+  });
+
+  it('maintains `tail` in deleteLast, which has to walk it back', () => {
+    const conTail = traceFor('linked-list-singly', 'remove-last', {
+      values: [3, 8, 5],
+      times: 1,
+      tail: true,
+    });
+    expect(conTail.code).toContain('tail = ');
+  });
+
+  it('says nothing about `tail` when the slide did not ask for one', () => {
+    const sinTail = traceFor('linked-list-singly', 'remove-first', { values: [7], times: 1 });
+    expect(sinTail.code).not.toContain('tail');
+  });
+});
+
+describe('sequenceStepperTrace · the name the listing is shown under', () => {
+  // A class that has just taught `pop` = `deleteFirst` then mounts the widget
+  // and the widget says `deleteFirst`, three times, in a calling program that
+  // names a `list`. The body is the pila's `pop` verbatim; only the name on
+  // it belongs to the structure rather than to the TDA the slide is about.
+  it('renames the method and the receiver when the slide asks', () => {
+    const trace = traceFor('linked-list-singly', 'remove-first', {
+      values: [15, 7, 42],
+      times: 3,
+      method: 'pop',
+      receiver: 'pila',
+    });
+    expect(trace.code).toContain('int pop()');
+    expect(trace.code).not.toContain('deleteFirst');
+    expect(trace.code).toContain('pila.pop();');
+    expect(trace.code).not.toContain('list.');
+  });
+
+  // The constructor line of the driving program printed the STRUCTURE's class
+  // whatever the method was called, so a slide that had declared `class Stack`
+  // four slides earlier got `LinkedList pila = new LinkedList();` with a
+  // `push` on it (#294, caught by reading the slide).
+  it('names the class the document declared, not the structure', () => {
+    const trace = traceFor('linked-list-singly', 'insert-first', {
+      values: [],
+      value: [42, 7],
+      method: 'push',
+      receiver: 'pila',
+      receiverType: 'Stack',
+    });
+    expect(trace.code).toContain('Stack pila = new Stack();');
+    expect(trace.code).not.toContain('LinkedList');
+  });
+
+  it('keeps the structure own names when nobody renames them', () => {
+    const trace = traceFor('linked-list-singly', 'remove-first', {
+      values: [15, 7, 42],
+      times: 3,
+    });
+    expect(trace.code).toContain('int deleteFirst()');
+    expect(trace.code).toContain('list.deleteFirst();');
+  });
+
+  it('renames an array listing too', () => {
+    const trace = traceFor('dynamic-array', 'insert-last', {
+      values: [42, 7],
+      value: 15,
+      method: 'push',
+    });
+    expect(trace.code).toContain('push(');
+    expect(trace.code).not.toContain('insertLast');
+  });
+});
+
+describe('sequenceStepperTrace · the pointer a slide keeps on screen', () => {
+  // The array frames carried only the CURSOR of the operation running (`i`,
+  // `j`), which vanishes between runs. A stack slide wants `top` visible the
+  // whole time — it is the field the contract is written in terms of, and the
+  // reader should watch it move rather than take the narration's word.
+  it('keeps the named pointer on every frame, at the end the operation works on', () => {
+    const trace = traceFor('dynamic-array', 'insert-last', {
+      values: [42, 7],
+      value: [15, 4],
+      capacity: 4,
+      pointer: 'top',
+    });
+    for (const step of trace.steps) {
+      expect(
+        step.pointers.find((ptr) => ptr.name === 'top'),
+        step.description,
+      ).toBeDefined();
+    }
+    // Two elements at the start, four at the end: the pointer follows `size`.
+    expect(trace.steps[0]!.pointers.find((p) => p.name === 'top')!.index).toBe(1);
+    expect(trace.steps.at(-1)!.pointers.find((p) => p.name === 'top')!.index).toBe(3);
+  });
+
+  // Naming a pointer is the author saying what the reader should follow. The
+  // operation's own cursor then adds a second arrow to the same cell saying
+  // the same thing, so the slide that asked for `top` gets `top` alone.
+  it('drops the operation cursor when the slide named a pointer', () => {
+    const named = traceFor('dynamic-array', 'insert-last', {
+      values: [42, 7],
+      value: 15,
+      capacity: 4,
+      pointer: 'top',
+    });
+    expect(named.steps.flatMap((s) => s.pointers).map((p) => p.name)).not.toContain('i');
+
+    // and keeps it when nobody did — the Queue act reads `j` through a shift.
+    const bare = traceFor('array', 'remove-first', { values: [3, 8, 5], capacity: 6 });
+    expect(bare.steps.flatMap((s) => s.pointers).map((p) => p.name)).toContain('j');
+  });
+
+  it('aims the pointer at the front when the operation works there', () => {
+    const trace = traceFor('array', 'remove-first', {
+      values: [3, 8, 5],
+      capacity: 6,
+      pointer: 'front',
+    });
+    expect(trace.steps[0]!.pointers.find((p) => p.name === 'front')!.index).toBe(0);
+  });
+
+  it('aims at nothing when the structure is empty', () => {
+    const trace = traceFor('array', 'remove-last', { values: [7], capacity: 4, pointer: 'top' });
+    expect(trace.steps.at(-1)!.pointers.find((p) => p.name === 'top')!.index).toBeNull();
+  });
+
+  it('leaves the list recipes alone — they name their own pointers', () => {
+    const trace = traceFor('linked-list-singly', 'insert-first', {
+      values: [7, 3],
+      value: 9,
+      pointer: 'top',
+    });
+    expect(trace.steps[0]!.pointers.some((p) => p.name === 'top')).toBe(false);
+  });
+});
+
+describe('sequenceStepperTrace · an array asked for several runs', () => {
+  // The array family animated ONE run, and #294 push slide needs four with
+  // the block filling on the way. ADR-0074 had called the restriction a
+  // workaround rather than a debt, on the grounds that "three runs of a
+  // Theta(1) operation draw the same frame three times". A dynamic array
+  // falsifies exactly that: the run that finds the block full draws a frame
+  // none of the others draw.
+  it('runs insert-last once per value, in order', () => {
+    const trace = traceFor('dynamic-array', 'insert-last', {
+      values: [42, 7],
+      value: [15, 4, 9],
+      capacity: 4,
+    });
+    expect(trace.steps.at(-1)!.cells.map((c) => c.value)).toEqual([42, 7, 15, 4, 9]);
+  });
+
+  it('grows exactly on the run that finds the block full', () => {
+    const trace = traceFor('dynamic-array', 'insert-last', {
+      values: [42, 7],
+      value: [15, 4, 9, 23],
+      capacity: 4,
+    });
+    const grows = trace.steps.filter((s) => s.kind === 'grow');
+    expect(grows).toHaveLength(1);
+    // Two starting elements plus 15 and 4 fill the block of four; the third
+    // push is the one that has to double it.
+    expect(grows[0]!.description).toMatch(/se copian los 4 elementos/);
+    expect(trace.steps.at(-1)!.capacity).toBe(8);
+  });
+
+  it('runs remove-last `times` times and leaves the rest of the block', () => {
+    const trace = traceFor('array', 'remove-last', {
+      values: [42, 7, 15, 4, 9],
+      times: 3,
+      capacity: 6,
+    });
+    expect(trace.steps.at(-1)!.cells.map((c) => c.value)).toEqual([42, 7]);
+    expect(trace.steps.filter((s) => s.kind === 'done')).toHaveLength(3);
+  });
+
+  it('still refuses more runs than a slide can show', () => {
+    expect(() =>
+      traceFor('array', 'remove-last', { values: [1, 2], times: 99, capacity: 40 }),
+    ).toThrow(/Entre 1 y/i);
   });
 });

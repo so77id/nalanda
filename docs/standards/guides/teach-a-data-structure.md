@@ -49,13 +49,18 @@ Its seven figures sit beside it in the same directory
 — _Estructuras de Datos · Listas Enlazadas_. One structure and four variants
 of it, 49 authored slides plus the cover, two act dividers (a
 `<SectionBreak />` before the operations act and before the variants act; the
-comparison and the exercises are bare `h2`s — see §1), no figures, thirteen
+comparison and the exercises are bare `h2`s — see §1), no sibling `.svg`
+assets but seven figures written INLINE in the slides
+(`add-a-course-document.md` §6e-ter), thirteen
 `<SequenceStepper>` widgets and five `<Exercise>`s. It is the class
 that settled the act mapping above and the unit's widget decision (§7,
 ADR-0074). Where #277 draws its step-by-steps as static SVG, this one derives
 them, and §6 records why both remain right. (Counts re-derived with
 `grep -c '^<Slide title=' …` and `grep -c '<SequenceStepper' …`; the deck's own
-counter reads 48, and no slide scales below 0.70 at 1440x900.)
+counter reads **52** — 49 authored slides, two act dividers and the cover —
+and no slide scales below 0.70 at 1440x900. It said 48 here through two
+PRs; #294's review measured it, which is the thing this parenthesis asks
+every reader to do.)
 
 ## Step-by-step
 
@@ -104,11 +109,31 @@ loose `## Lo que sigue`, which projects the closing as an untitled divider
 (the defect #79 shipped). Either way it is book-visible,
 and says which document comes next — which is a different job (§5).
 
-**It also cut its own act 4.** An earlier draft closed with a recap act ("un
-contrato para los dos arreglos") that restated the TDA, put the two cost
+**The third data point ships with NO closing at all, and that is a deviation
+rather than a new shape.** #294 has no hinge slide and no `Lo que sigue`: the
+professor cut both during the slide-by-slide review, along with the deque act
+and the five posed exercises, and the document ends on the last exercise's
+code slide followed by its `<Questions>` block. Two things follow, and the
+next author needs both.
+
+It is defensible here and only here: #294 is last in `index.yaml`, so there
+is no next class to navigate to, and a `Lo que sigue` would have to invent
+one. What it costs is real — `18-edd-listas-enlazadas.mdx` wiki-links forward
+into a document that now dead-ends, and the trade this guide asks every class
+to close on (§5) went with the hinge.
+
+**So the rule is unchanged and #294 is the exception, stated.** A class that
+is not last on the teaching path still owes a named trade and a closing
+navigation. This paragraph described the opposite for two commits — it
+claimed #294 carried an exercise index slide, a hinge after the `<Exercise>`
+blocks and a `Lo que sigue`, none of which ship — because it was written
+before the cuts and never re-measured against the document.
+
+**#277 also cut its own act 4.** An earlier draft closed with a recap act
+("un contrato para los dos arreglos") that restated the TDA, put the two cost
 tables side by side and named the trade. Every one of those was already on the
 page: the contract in act 2, each table at the end of its own act. Only the
-trade survived, as the last slide of act 3. Prefer that: a recap act is the
+trade survived, as the last slide of its act 3. Prefer that: a recap act is the
 default place for a class to repeat itself.
 
 **The first act carries no heading at all.** #277 opens straight from the
@@ -198,6 +223,18 @@ the groups; each mould label is a `gridColumn: '1 / -1'` row at
 from the group above by `borderTop: 1px solid var(--color-rule)`; signature
 cells are `<code>` with `whiteSpace: 'nowrap'`. Extract a component at the
 third copy, not before, and record it here when you do.
+
+**The threshold is crossed and the extraction is owed.** #294 ships the
+third AND fourth copy (one per contract, Stack and Queue), so the count is
+now four: #277 §_El TDA Sequence_, #288, and two in #294. Its review left
+them copied deliberately rather than by oversight — extracting means the
+six-step protocol of
+[`add-a-content-component.md`](add-a-content-component.md) (component,
+registry in `mdxComponents.ts` and `components/index.ts`, a catalog entry
+with Spanish live examples, per-mode tests) PLUS rewriting two already
+published documents and re-verifying three classes in a browser, which is a
+WP of its own and not a slice of a course-document WP. The next class that
+needs a TDA card should do the extraction rather than make it five.
 
 Costs never appear in the contract. They belong to an implementation, and
 putting them here is the single mistake that collapses the TDA/EDA distinction
@@ -388,10 +425,23 @@ slide _Operación de modificación · insertar al final_ and keep:
   do not copy that half of them. Being moved: `--color-accent`,
   `strokeWidth 2.8`.
 - **Colours go in `style={{ fill }}` / `style={{ stroke }}`**, never in a
-  `fill=` attribute — an attribute cannot hold `var(--color-*)` through the
-  MDX pipeline the way the style object can.
+  `fill=` attribute. The reason this guide gave until #294 was that "an
+  attribute cannot hold `var(--color-*)` through the MDX pipeline" — and
+  that is **false**, falsified by #294's review: the pipeline passes
+  `fill="var(--color-ink)"` through verbatim and the browser resolves it to
+  exactly the same colour as the style object. The true reason is
+  specificity: a presentation attribute has **zero** specificity and loses
+  to any stylesheet rule that ever targets `svg`, while the style object
+  always wins. Today no rule in `styles/index.css` targets one, so this is
+  robustness rather than a live bug — but the whole unit is written the
+  style-object way, and consistency is what a review reads.
 - **JSX means camelCase**: `textAnchor`, `strokeWidth`, `strokeDasharray`,
-  `markerEnd`. A kebab-case attribute is silently dropped.
+  `markerEnd`. This guide said until #294 that a kebab-case attribute is
+  "silently dropped"; it is **neither**. React renders it to the DOM, it
+  paints, and React logs `Invalid DOM property \`stroke-width\`. Did you
+  mean \`strokeWidth\`?` on every render. What is true is that no GATE sees
+  it — oxlint does not cover `content/**`, so the only witness is a browser
+  console that stops being usable for real errors.
 - **Every frame carries `role="img"` and a Spanish `aria-label`** that says
   what the caption says. Nothing in the build or the suite checks this —
   `contentRenders` enforces `alt` on `<Figure>`, not on a raw `<svg>`.
@@ -403,11 +453,54 @@ silently correct only while the definitions are identical. #277 shipped seven
 `<marker id="mp">` this way and had to number them per frame. Suffix them
 (`arrow1`, `arrow2`, …) and prefix them per stepper. No gate sees this.
 
-**Keep every line of a `<StepShow>` fence under ~60 columns.** In presentation
+**Keep every line of a `<StepShow>` fence to 55 columns.** In presentation
 the widget takes half the viewport and stacks code over panel; a longer line
 clips at the right edge and nothing in the build or the suite sees it. Wrap
 long guards BEFORE writing any `lines={[…]}` — wrapping afterwards renumbers
 every step below, which is how #277 shipped two off-by-ones.
+
+**The number used to read "~60", and the first attempt to correct it invented
+its arithmetic.** Here is the measurement, taken with a `Range` over the
+widest rendered line rather than from the scroller's own width:
+
+- At 1440x900, a slide **at scale 1.0** gives the code panel `clientWidth`
+  718 px, of which a **33 px line-number gutter** leaves 685 px for text.
+- The monospace advance is **12.0 px** per character. So **57 rendered
+  columns fit**, and #294's 58-column line overflows by 19 px — one and a
+  half characters, in its case the `;` of a `return false;`.
+- **55 is the floor**, with two characters of margin.
+
+Two things that make the count subtler than it looks, and both bit the first
+correction:
+
+**Count RENDERED columns, not source columns.** A `<StepShow>` fence is
+written as a JSX-attribute template literal, and the MDX build dedents it by
+the attribute's own indentation — two columns in #294. The line that clips is
+60 characters in the `.mdx` and 58 on the screen.
+
+**The budget binds only at scale 1.0.** `<StepShow>` breaks out of the prose
+column by dividing by the slide's scale, so a slide the deck has already
+shrunk gets a proportionally WIDER panel: #294's slides 45 and 46 carry the
+identical listing, and 46 — at scale 0.835 — measures 860/860 and does not
+clip at all. A line under 55 is safe everywhere; between 55 and 57 it depends
+on how much else the slide is carrying.
+
+**Sweep the horizontal axis too, not only the scale.** A deck sweep that reads
+the `transform` on the slide stage sees a slide shrink to fit and reports it;
+it cannot see a `.cm-scroller` whose `scrollWidth` exceeds its `clientWidth`,
+because that element scrolls instead of shrinking — and a projected slide
+cannot be scrolled. Read both:
+
+```js
+[...document.querySelectorAll('.cm-scroller')]
+  .filter((e) => e.scrollWidth > e.clientWidth + 2)
+```
+
+#294 shipped a slide whose listing cut `isOperator` at `|| t.equals(`, hiding
+the fourth operator on the slide whose prose promised four, and the pre-PR
+sweep never looked. `<PresentationWide>` does not rescue it: `<StepShow>`
+already breaks out on its own and overrides the wrapper, so the fix is always
+the listing.
 
 ### 7. Decide widgets last, and for the unit rather than the class
 
@@ -512,8 +605,15 @@ working. A class that lists them on a slide owes listings that handle them.
       slide rather than measured.
 - [ ] The class closes on a named trade, not a promise, and
       no forward wiki-link to a document that does not exist.
-- [ ] Every figure has an opaque panel, all text on it, a second signal beside
-      colour, and was rendered over `#f8f2ef` and `#0d1117` and looked at.
+- [ ] Every figure served through `<img>` has an opaque panel, all text on
+      it, a second signal beside colour, and was rendered over `#f8f2ef` and
+      `#0d1117` and looked at (`add-a-course-document.md` §6e-bis).
+- [ ] Every figure written INLINE in a slide takes the opposite rules
+      (`add-a-course-document.md` §6e-ter): palette tokens only and never the
+      two hex grounds, **no** opaque panel and no contrast arithmetic,
+      `role="img"` plus a Spanish `aria-label` on the `<svg>` itself, and
+      every `id` prefixed per figure. Nothing enforces any of it — and it
+      was looked at over both grounds anyway.
 - [ ] Every `<Step lines={[…]}>` read back against its own fence — counting
       from 1, blank lines included — and against the step's caption AND its
       drawing: the line lit must be the line the caption says just ran.
@@ -550,6 +650,17 @@ working. A class that lists them on a slide owes listings that handle them.
       `[data-testid="slide-stage"]` (`presentation/SlideDeck.tsx`) — in
       Playwright, `getComputedStyle(el).transform` and read the first number of
       the `matrix(...)`; `none` or `matrix(1, 0, 0, 1, 0, 0)` means 1.0.
-- [ ] The checklists of [`add-a-course-document.md`](add-a-course-document.md)
-      and [`course-content-style.md`](course-content-style.md) both pass — this
-      guide adds to them and replaces neither.
+      **`?slide=` is 1-INDEXED, and out of range it clamps in silence**
+      (`SlideDeck.tsx`: `requested - 1`, then
+      `Math.min(Math.max(preferred, 0), slides.length - 1)`). So `?slide=0`
+      and `?slide=1` both render the cover, and the last slide is reachable
+      only as `?slide=N`. A zero-based sweep therefore measures the first
+      slide twice, never reaches the last, and reports a COMPLETE
+      measurement — past every gate. Sweep `1..N` with N from the deck's own
+      counter, and assert the last URL rendered the slide you expected.
+      #294 shipped that mistake and caught it by re-reading its own output.
+- [ ] The checklists of [`add-a-course-document.md`](add-a-course-document.md),
+      [`course-content-style.md`](course-content-style.md) and — for every
+      solvable problem the class poses —
+      [`write-an-exercise.md`](write-an-exercise.md) all pass. This guide adds
+      to them and replaces none.

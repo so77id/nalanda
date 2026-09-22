@@ -27,10 +27,10 @@ describe('FibMemoSteps', () => {
 
   it('walks the trace with the forward button and lands on a return step', async () => {
     render(<FibMemoSteps target={5} />);
-    const forward = screen.getByRole('button', { name: /siguiente/i });
+    const forward = screen.getByRole('button', { name: /adelante/i });
     // Walk to the end (well past any expected length).
     for (let i = 0; i < 200; i++) {
-      const btn = screen.getByRole('button', { name: /siguiente/i }) as HTMLButtonElement;
+      const btn = screen.getByRole('button', { name: /adelante/i }) as HTMLButtonElement;
       if (btn.getAttribute('aria-disabled') === 'true' || btn.disabled) break;
       await userEvent.click(forward);
     }
@@ -51,10 +51,10 @@ describe('FibMemoSteps', () => {
 
   it('surfaces at least one cache hit in the fib(5) trace', async () => {
     render(<FibMemoSteps target={5} />);
-    const forward = screen.getByRole('button', { name: /siguiente/i });
+    const forward = screen.getByRole('button', { name: /adelante/i });
     let sawHit = false;
     for (let i = 0; i < 200; i++) {
-      const btn = screen.getByRole('button', { name: /siguiente/i }) as HTMLButtonElement;
+      const btn = screen.getByRole('button', { name: /adelante/i }) as HTMLButtonElement;
       if (btn.getAttribute('aria-disabled') === 'true' || btn.disabled) break;
       await userEvent.click(forward);
       if (screen.queryAllByText(/CACHE HIT/i).length > 0) {

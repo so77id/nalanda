@@ -143,9 +143,44 @@ section, not the glyph.
 - **Slug collisions within a document** — two slide titles that slug to the
   same string — resolve to the first slide (`Array.findIndex` in `SlideDeck`
   and `Set` de-duplication in the wrapper). This is the same behaviour the
-  book's `#` anchor already had; no report is open against it, and this WP
-  did not resolve it. Recorded here so a future author looking at either
-  spine finds one story.
+  book's `#` anchor already had. Recorded here so a future author looking at
+  either spine finds one story.
+
+  > **Amended by #294.** This bullet said "no report is open against it".
+  > There is one now, and it came with two facts the bullet did not have.
+  >
+  > **The report.** #294 shipped ten colliding slugs over twenty-four slides
+  > — its two acts ask the same four questions about two different objects
+  > and named their slides alike — and the collisions cost more than a deep
+  > link: six slides could not receive a control question, because a
+  > question's `anchor` is the same string and resolves the same way. The WP
+  > fixed it by renaming every title, not by touching `slugify`: the
+  > function is pure and shared by the rendered reader and the source
+  > reader, numbering duplicates needs per-document state in both, and it
+  > would move slugs that are already published as deep links here and as
+  > question anchors under ADR-0032 — the migration ADR-0027 §8 already
+  > parks the empty-slug case behind.
+  >
+  > **The divergence nothing recorded.** The page resolves a collision to
+  > the FIRST occurrence; `apps/server/internal/domain/course/bank/bank.go`
+  > builds its `sectionIndex` by overwriting inside a loop over the
+  > document's sections, so it resolves the same string to the **LAST**.
+  > Two readers of one published string, disagreeing across the app
+  > boundary. Harmless today only because the one document still shipping
+  > collisions —`16-diseno-algoritmos-ordenamiento.mdx`, with `mergesort`
+  > and `quicksort` twice each on `main` — has no question anchored to
+  > either, and because a professor picking a control range by section has
+  > no way to notice which of the two a name resolved to.
+  >
+  > So: **uniqueness of a heading slug is an authoring obligation that
+  > nothing enforces.** A title rename breaks a book anchor (ADR-0021), a
+  > `?section=` link (this ADR) and, for a document with a bank, a question
+  > anchor (ADR-0032) — which is also why
+  > `course-content-style.md` §5's retirement of the interpunct subtitle
+  > schedules a rename of 31 published titles in two documents, at least
+  > nine of which carry live question anchors. None of that is free, and
+  > none of it is blocked; it is written down so the next author prices it
+  > before starting.
 - **A tiny extra walk per book page**: `PresentableSectionsWrapper` runs
   `computeSlides` once per document render. Same cost the deck already
   pays, on a document that would render anyway. Not measured, and did not

@@ -49,8 +49,10 @@ This file holds **monorepo-shared** instructions only. Each app has its own
   and — for a class of the **Estructuras de Datos** unit —
   `docs/standards/guides/teach-a-data-structure.md` (shape: the four acts,
   the TDA card, the invariant list, the cost table with its invariant column,
-  and the closing trade).
-  The three are read together, before drafting.
+  and the closing trade) — and, for any solvable problem the document poses,
+  `docs/standards/guides/write-an-exercise.md` (the five beats, and the rule
+  that nothing is called before it is written).
+  The four are read together, before drafting.
 
 The original POC is archived in `proof-of-concept/` (runnable, reference only —
 port pieces from it as WPs require, refactoring to current standards on entry).

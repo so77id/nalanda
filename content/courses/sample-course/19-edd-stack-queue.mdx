@@ -1,0 +1,2602 @@
+---
+id: edd-stack-queue
+title: Estructuras de Datos · Stack y Queue
+presentation: explicit
+questions: pool
+---
+
+{/* `pool`: un conjunto sin expectativa por sección. No `per-section`, porque */}
+{/* cada <Slide> es un h2 y exigir una pregunta por lámina serían más de */}
+{/* sesenta. Lo que el pool tiene que garantizar es densidad por RANGO: un */}
+{/* control se pide sobre un rango de secciones y cada copia saca cuatro, así */}
+{/* que un rango con menos de cuatro preguntas se rechaza (ErrPoolTooSmall). */}
+
+{/* COBERTURA. 13 preguntas sobre 12 láminas, todas en los dos actos. */}
+{/* Rangos que SÍ llenan una copia de cuatro: */}
+{/*   · el acto Stack entero (Una pila → Stack en Java): 7 preguntas. */}
+{/*   · su apertura sola (Una pila → Sobre el arreglo dinámico): 6. */}
+{/*   · el acto Queue entero (Una cola → Queue en Java): 6. */}
+{/* Rangos que NO, y es deliberado: */}
+{/*   · los ejercicios, que no llevan ninguna pregunta por decisión. */}
+{/*   · las nueve láminas seguidas desde Las invariantes de la pila sobre */}
+{/*     lista hasta Stack en Java, y las cinco desde Las consultas de la */}
+{/*     cola hasta Dequeue paso a paso. No hay impedimento técnico: sus */}
+{/*     títulos son únicos y sus anchors resuelven. Simplemente no se */}
+{/*     escribieron preguntas ahí, y el pool puede crecer cuando se quiera. */}
+
+
+# Estructuras de Datos · Stack y Queue
+
+La clase anterior terminó con una colección que deja pedir cualquier
+posición, y con el precio de esa libertad: una implementación que cumpla el
+contrato entero termina con alguna operación cara. Esta clase hace lo
+contrario. Estudia dos contratos que **renuncian** a esa libertad a
+propósito —la **pila** y la **cola**—, los construye sobre el arreglo y
+sobre la lista enlazada, y compara las dos construcciones.
+
+Restringir no es perder. Es lo que permite prometer un costo: mientras el
+único lugar donde se opera sea un extremo conocido, no hay nada que
+recorrer para llegar.
+
+<SectionBreak />
+
+## Stack · Pila
+
+<Slide title="Una pila">
+Una **pila** es una colección con una sola puerta. Los elementos se apoyan
+uno sobre otro, y el único que está a la vista es el de más arriba, al que
+llamamos **cima** o **top**. Poner y sacar ocurren los dos en ese mismo
+lugar.
+
+<svg viewBox="0 0 700 320" style={{ width: '100%', maxWidth: '700px', height: 'auto', display: 'block', margin: '1.25rem auto' }} role="img" aria-label="Dos dibujos de la misma pila, cerrada abajo y abierta arriba, con 42 al fondo, 7 encima y una casilla libre en lo más alto. En el de la izquierda, rotulado push de 15, un cuadrado con el 15 baja por la abertura hacia esa casilla libre. En el de la derecha, rotulado pop, el mismo cuadrado sube y sale por la misma abertura. En los dos, una marca rotulada top señala el 7.">
+  <defs>
+    <marker id="pila-puerta-baja" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+      <path d="M0,0 L8,4 L0,8 z" style={{ fill: 'var(--color-accent)' }} />
+    </marker>
+    <marker id="pila-puerta-sube" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+      <path d="M0,0 L8,4 L0,8 z" style={{ fill: 'var(--color-accent)' }} />
+    </marker>
+  </defs>
+  {[
+    { cx: 180, entra: true },
+    { cx: 520, entra: false },
+  ].map(({ cx, entra }) => (
+    <g key={cx}>
+      <text x={cx} y="22" textAnchor="middle" fontSize="16" fontWeight="700" fontFamily="monospace" style={{ fill: 'var(--color-accent)' }}>
+        {entra ? 'push(15)' : 'pop() → 15'}
+      </text>
+
+      <rect x={cx - 56} y="42" width="112" height="44" rx="3" style={{ fill: entra ? 'var(--color-accent)' : 'var(--color-surface)', stroke: 'var(--color-accent)' }} strokeWidth="1.8" strokeDasharray={entra ? undefined : '5 4'} />
+      <text x={cx} y="72" textAnchor="middle" fontSize="22" fontWeight="600" style={{ fill: entra ? 'var(--color-on-accent)' : 'var(--color-ink)' }}>15</text>
+
+      <line x1={cx} y1={entra ? 96 : 136} x2={cx} y2={entra ? 134 : 98} style={{ stroke: 'var(--color-accent)' }} strokeWidth="2.2" markerEnd={entra ? 'url(#pila-puerta-baja)' : 'url(#pila-puerta-sube)'} />
+      <text x={cx + 12} y={120} fontSize="12" style={{ fill: 'var(--color-ink-faint)' }}>{entra ? 'entra' : 'sale'}</text>
+
+      <rect x={cx - 56} y="146" width="112" height="44" rx="3" style={{ fill: 'var(--color-sunk)', stroke: 'var(--color-rule)' }} strokeWidth="1.2" strokeDasharray="4 3" />
+      <rect x={cx - 56} y="190" width="112" height="44" rx="3" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.6" />
+      <text x={cx} y="220" textAnchor="middle" fontSize="22" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>7</text>
+      <rect x={cx - 56} y="234" width="112" height="44" rx="3" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.6" />
+      <text x={cx} y="264" textAnchor="middle" fontSize="22" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>42</text>
+
+      <line x1={cx - 62} y1="136" x2={cx - 62} y2="284" style={{ stroke: 'var(--color-rule-strong)' }} strokeWidth="2.6" strokeLinecap="round" />
+      <line x1={cx + 62} y1="136" x2={cx + 62} y2="284" style={{ stroke: 'var(--color-rule-strong)' }} strokeWidth="2.6" strokeLinecap="round" />
+      <line x1={cx - 62} y1="284" x2={cx + 62} y2="284" style={{ stroke: 'var(--color-rule-strong)' }} strokeWidth="2.6" strokeLinecap="round" />
+
+      <line x1={cx - 96} y1="212" x2={cx - 60} y2="212" style={{ stroke: 'var(--color-ink-faint)' }} strokeWidth="1.2" />
+      <text x={cx - 100} y="216" textAnchor="end" fontSize="13" fontWeight="600" style={{ fill: 'var(--color-ink-faint)' }} fontFamily="monospace">top</text>
+
+      <text x={cx} y="308" textAnchor="middle" fontSize="12" style={{ fill: 'var(--color-ink-faint)' }}>
+        {entra ? 'apoya 15 sobre el top' : 'levanta el del top y lo devuelve'}
+      </text>
+    </g>
+  ))}
+</svg>
+
+Las dos operaciones son la misma, pero en sentidos opuestos. `push`
+(apilar) apoya un elemento nuevo sobre la cima; `pop` (desapilar) levanta el
+de la cima y lo devuelve. No hay otra forma de acceder a los elementos: si
+quieres sacar el que está en la cuarta posición desde arriba, tienes que
+sacar antes los tres que tiene encima.
+
+Los elementos salen, entonces, en el orden inverso al que entraron. Esa
+regla se llama **LIFO**, del inglés _last in, first out_: **el último en
+entrar es el primero en salir**.
+
+</Slide>
+
+<Slide title="Pilas en la vida real">
+Una pila no es una idea de la programación. Es la forma de cualquier montón
+donde sólo se puede tocar lo de encima.
+
+- **Una torre de platos.** El que se apoyó último es el único que se puede
+  levantar sin mover el resto.
+- **El deshacer de un editor.** Cada cambio se apila cuando ocurre, y
+  deshacer revierte el último, después el anterior a ése.
+- **El botón «atrás» del navegador.** Cada página visitada queda sobre la
+  anterior, y volver es sacar la de más arriba.
+- **La pila de llamadas de un programa.** Cuando un método termina, el que
+  retoma la ejecución es el que lo llamó: el último que quedó esperando. De
+  ahí el nombre, y de ahí que una recursión sin caso base la desborde.
+
+Los cuatro hacen lo mismo con palabras distintas: apoyar encima y levantar de
+encima. Ese comportamiento está definido con precisión en un **tipo de dato
+abstracto** (TDA) llamado **Stack**.
+
+</Slide>
+
+
+<Slide title="El TDA Stack">
+El **Stack** es una colección donde sólo se trabaja en un extremo, la
+**cima/top**: se pone encima y se saca de encima.
+
+<div style={{ border: '1px solid var(--color-rule)', borderRadius: '8px', overflow: 'hidden', margin: '1.25rem 0' }}>
+  <div style={{ background: 'var(--color-sunk)', padding: '0.55rem 0.9rem', borderBottom: '1px solid var(--color-rule)', fontWeight: 700 }}>Stack <span style={{ fontWeight: 400, color: 'var(--color-ink-faint)' }}>· el contrato</span></div>
+  <div style={{ display: 'grid', gridTemplateColumns: 'max-content 1fr', columnGap: '2rem' }}>
+  <div style={{ gridColumn: '1 / -1', padding: '0.7rem 0.9rem 0.15rem', fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.08em', color: 'var(--color-ink-faint)' }}>CREAR</div>
+  <code style={{ padding: `0.15rem 0 0.7rem 0.9rem`, whiteSpace: 'nowrap' }}>build()</code>
+  <span style={{ padding: `0.15rem 0.9rem 0.7rem 0` }}>construye la pila sin elementos</span>
+  <div style={{ gridColumn: '1 / -1', borderTop: '1px solid var(--color-rule)', padding: '0.7rem 0.9rem 0.15rem', fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.08em', color: 'var(--color-keep)' }}>CONSULTAR · no cambian nada</div>
+  <code style={{ padding: `0.15rem 0 0.3rem 0.9rem`, whiteSpace: 'nowrap' }}>top() → elemento</code>
+  <span style={{ padding: `0.15rem 0.9rem 0.3rem 0` }}>el que está en la cima/top · la pila no cambia</span>
+  <code style={{ padding: `0.15rem 0 0.7rem 0.9rem`, whiteSpace: 'nowrap' }}>empty() → booleano</code>
+  <span style={{ padding: `0.15rem 0.9rem 0.7rem 0` }}>si no hay ningún elemento</span>
+  <div style={{ gridColumn: '1 / -1', borderTop: '1px solid var(--color-rule)', padding: '0.7rem 0.9rem 0.15rem', fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.08em', color: 'var(--color-accent)' }}>MODIFICAR · cambian el estado</div>
+  <code style={{ padding: `0.15rem 0 0.3rem 0.9rem`, whiteSpace: 'nowrap' }}>push(x)</code>
+  <span style={{ padding: `0.15rem 0.9rem 0.3rem 0` }}>pone x en la cima/top · largo + 1</span>
+  <code style={{ padding: `0.15rem 0 0.7rem 0.9rem`, whiteSpace: 'nowrap' }}>pop() → elemento</code>
+  <span style={{ padding: `0.15rem 0.9rem 0.7rem 0` }}>saca el de la cima/top y lo devuelve · largo − 1</span>
+  </div>
+  <div style={{ padding: '0.65rem 0.9rem', borderTop: '1px solid var(--color-rule)', background: 'var(--color-sunk)' }}>
+    <div style={{ fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.08em', color: 'var(--color-ink-faint)' }}>LO QUE NO DICE</div>
+    <div style={{ marginTop: '0.35rem' }}>Dónde viven los elementos, si están juntos o sueltos, ni cuánto cuesta cada operación. Tampoco hay manera de pedir el segundo, ni el de más abajo: la cima/top es el único elemento visible.</div>
+  </div>
+</div>
+
+Esas cuatro operaciones son todo el contrato, y **LIFO es parte del
+contrato**: `pop()` no devuelve un elemento cualquiera, devuelve el último
+que entró. Ninguna operación recibe una posición, así que tampoco hay forma
+de pedir otro.
+
+Para eso está `empty()`. El protocolo es: **`top()` y `pop()` sólo se pueden
+llamar cuando `empty()` es falso.** Sobre una pila vacía no hay nada que
+devolver, así que llamarlas ahí queda fuera del contrato.
+
+</Slide>
+
+<Slide title="Cómo se implementa el TDA Stack">
+El contrato no dice dónde viven los elementos, así que hay que elegir. Las
+dos opciones ya las tenemos: el **arreglo**, que los guarda juntos en un
+bloque de casillas, y la **lista enlazada**, que los guarda sueltos y
+encadenados desde `head`.
+
+La pila se puede construir utilizando una de las dos estructuras de datos:
+
+| Stack | Sobre arreglo dinámico | Sobre lista simple |
+|---|---|---|
+| `push(x)` | escribir en `data[size]`, subir `size` (crecer si está lleno) | `insertFirst(x)` |
+| `pop()` | leer `data[size - 1]`, bajar `size` | `deleteFirst()` |
+| `top()` | leer `data[size - 1]` | leer el valor de `head` |
+| `empty()` | `size == 0` | `head == null` |
+
+Mira en qué punta trabaja cada una: el arreglo por el final, la lista por la
+cabeza. Es la punta donde cada estructura ya era rápida, y por eso ninguna
+operación tiene que buscar dónde operar.
+
+</Slide>
+
+<Slide title="Sobre el arreglo dinámico">
+La primera implementación guarda los elementos juntos, en un bloque de
+casillas consecutivas que **puede cambiar de tamaño**: cuando se llena, la
+estructura reserva uno más grande y copia. El **top/cima** es el último
+elemento escrito, y está siempre en `data[size - 1]`.
+
+<svg viewBox="0 0 700 196" style={{ width: '100%', maxWidth: '700px', height: 'auto', display: 'block', margin: '1.25rem auto' }} role="img" aria-label="Un bloque de seis casillas: la capacidad reservada. Las tres primeras guardan 42, 7 y 15 —el largo—; las tres siguientes están libres y dibujadas con borde punteado. Una flecha rotulada top baja hasta la casilla de índice 2, que guarda el 15.">
+  <defs>
+    <marker id="stack-arr-punta" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto">
+      <path d="M0,0 L7,3.5 L0,7 z" style={{ fill: 'var(--color-accent)' }} />
+    </marker>
+  </defs>
+  <text x="286" y="26" textAnchor="middle" fontSize="15" fontWeight="700" fontFamily="monospace" style={{ fill: 'var(--color-accent)' }}>top</text>
+  <text x="286" y="44" textAnchor="middle" fontSize="12" style={{ fill: 'var(--color-ink-faint)' }}>data[size − 1]</text>
+  <line x1="286" y1="52" x2="286" y2="78" style={{ stroke: 'var(--color-accent)' }} strokeWidth="1.8" markerEnd="url(#stack-arr-punta)" />
+  {[0, 1, 2, 3, 4, 5].map((i) => (
+    <g key={i}>
+      <rect x={20 + i * 108} y="86" width="100" height="52" rx="3" style={{ fill: i < 3 ? 'var(--color-surface)' : 'var(--color-sunk)', stroke: i < 3 ? 'var(--color-rule-strong)' : 'var(--color-rule)' }} strokeWidth={i < 3 ? 1.6 : 1.2} strokeDasharray={i < 3 ? undefined : '4 3'} />
+      <text x={70 + i * 108} y="120" textAnchor="middle" fontSize="22" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{['42', '7', '15', '', '', ''][i]}</text>
+      <text x={70 + i * 108} y="158" textAnchor="middle" fontSize="12" style={{ fill: 'var(--color-ink-faint)' }}>{i}</text>
+      <text x={70 + i * 108} y="180" textAnchor="middle" fontSize="12" style={{ fill: 'var(--color-ink-faint)' }}>{i < 3 ? '' : 'libre'}</text>
+    </g>
+  ))}
+</svg>
+
+Las cuatro invariantes del arreglo dinámico siguen valiendo tal cual:
+
+1. **`0 ≤ size ≤ data.length`.** El largo nunca supera la capacidad.
+2. **Los elementos son exactamente `data[0]` hasta `data[size - 1]`.** Juntos
+   y desde la posición 0, sin huecos en el medio.
+3. **`data[size..]` es basura.** Existe, tiene algún valor, y nadie lo lee.
+4. **`data.length ≤ 4 × size`.** La capacidad no sobra: nunca hay más de
+   cuatro casillas por elemento.
+
+Y la pila agrega la suya:
+
+5. **La cima es `data[size - 1]`.** Cuando `size` es cero no hay cima, y eso
+   es exactamente una pila vacía.
+
+La quinta es la que hace barata a esta implementación: la cima no hay que
+buscarla, es una resta.
+
+</Slide>
+
+<Slide title="push sobre arreglo dinámico">
+`push` **es `insertLast` sobre un arreglo dinámico**: agregar el elemento
+que sigue en la cima y avanzar la cima. La pila no inventa una operación
+nueva, le pone otro nombre a la que el arreglo ya tenía.
+
+<SequenceStepper
+  eda="dynamic-array"
+  capacity={4}
+  operation="insert-last"
+  values={[42, 7]}
+  value={[15, 4, 9, 23]}
+  pointer="top"
+  showCode={false}
+/>
+
+En el **peor caso** `push` cuesta $$\Theta(N)$$: cuando el bloque está
+lleno hay que reservar uno del doble y copiar los $$N$$ elementos antes de
+poder escribir. Cualquier otra llamada escribe en una casilla libre y sube
+`size`, que es $$\Theta(1)$$.
+
+El costo **amortizado** es $$\Theta(1)$$: como la capacidad se duplica,
+entre dos llamadas caras hay $$N$$ baratas, así que el precio de la copia
+repartido entre todas ellas es constante por llamada.
+
+</Slide>
+
+<Slide title="pop sobre arreglo dinámico">
+`pop` **es `deleteLast` sobre un arreglo dinámico**: devolver el elemento de
+la cima y retroceder la cima. No borra nada —el valor sigue escrito donde
+estaba, y es la invariante que dice que los elementos válidos llegan hasta
+`data[size - 1]` la que lo convierte en basura que nadie va a leer.
+
+<SequenceStepper
+  eda="dynamic-array"
+  capacity={8}
+  operation="remove-last"
+  values={[42, 7, 15, 4, 9, 23]}
+  times={3}
+  pointer="top"
+  showCode={false}
+/>
+
+En el **peor caso** `pop` cuesta $$\Theta(N)$$: al bajar `size` la capacidad
+puede pasar a sobrar —`data.length > 4 × size`— y entonces el bloque se
+achica, que es reservar uno más chico y copiar los elementos que quedan.
+Cualquier otra llamada lee `data[size - 1]`, baja `size` y termina:
+$$\Theta(1)$$.
+
+El costo **amortizado** es $$\Theta(1)$$, por la misma razón que en `push`:
+el achique ocurre sólo cuando el largo baja al cuarto de la capacidad, y al
+achicar vuelve a quedar en la mitad. Hasta el próximo hay $$N$$ `pop` que no
+copian nada.
+
+</Slide>
+
+<Slide title="Costos de Stack sobre arreglo dinámico">
+| Operación | Peor caso | Amortizado | Invariante que restaura |
+|---|---|---|---|
+| `build()` | $$\Theta(1)$$ | $$\Theta(1)$$ | Deja `size` en cero: una pila sin cima |
+| `top()` | $$\Theta(1)$$ | $$\Theta(1)$$ | Ninguna: lee y no cambia nada |
+| `empty()` | $$\Theta(1)$$ | $$\Theta(1)$$ | Ninguna: `size` ya guarda el dato |
+| `push(x)` | <span style={{ color: 'var(--color-mark)', fontWeight: 700 }}>$$\Theta(N)$$</span> | $$\Theta(1)$$ | La cima es `data[size - 1]`, y `size ≤ data.length` obliga a crecer |
+| `pop()` | <span style={{ color: 'var(--color-mark)', fontWeight: 700 }}>$$\Theta(N)$$</span> | $$\Theta(1)$$ | La cima es `data[size - 1]`, y `data.length ≤ 4 × size` obliga a achicar |
+
+**Lo que gana.** Las cuatro operaciones son aritmética sobre `size`: no hay
+nada que recorrer ni ningún enlace que seguir. Y los valores quedan uno al
+lado del otro en memoria, que es como el procesador los lee más rápido.
+
+**Lo que paga.** `push` y `pop` casi siempre cuestan un paso, pero cada
+tanto copian el arreglo entero. En promedio sale constante; una llamada
+suelta puede tardar $$N$$, y no se sabe cuál va a ser.
+
+Si lo que importa es el tiempo total de un programa, manda el promedio y
+esto es una buena elección. Si lo que importa es cuánto puede tardar **una**
+operación —un videojuego que dibuja 60 cuadros por segundo, un sistema de
+tiempo real—, manda el peor caso, y esas copias son un problema.
+
+La lista enlazada no las tiene: nunca copia nada.
+
+</Slide>
+
+<Slide title="Sobre la lista enlazada">
+La segunda implementación guarda cada elemento en un nodo suelto que apunta
+al siguiente, con una referencia `head` al primero de la cadena.
+
+La decisión que la hace funcionar es una sola: **la cima es la cabeza**.
+
+<svg viewBox="0 0 700 170" style={{ width: '100%', maxWidth: '700px', height: 'auto', display: 'block', margin: '1.25rem auto' }} role="img" aria-label="Una lista enlazada de tres nodos con los valores 15, 7 y 42. La referencia head apunta al primero y está rotulada como la cima; cada nodo apunta al siguiente y el último apunta a null.">
+  <defs>
+    <marker id="stack-lista-punta" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto">
+      <path d="M0,0 L7,3.5 L0,7 z" style={{ fill: 'var(--color-ink-soft)' }} />
+    </marker>
+    <marker id="stack-lista-punta-head" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto">
+      <path d="M0,0 L7,3.5 L0,7 z" style={{ fill: 'var(--color-accent)' }} />
+    </marker>
+  </defs>
+  <text x="46" y="30" textAnchor="middle" fontSize="15" fontWeight="700" fontFamily="monospace" style={{ fill: 'var(--color-accent)' }}>head</text>
+  <text x="46" y="50" textAnchor="middle" fontSize="12" style={{ fill: 'var(--color-ink-faint)' }}>= la cima</text>
+  <line x1="46" y1="58" x2="46" y2="88" style={{ stroke: 'var(--color-accent)' }} strokeWidth="1.8" markerEnd="url(#stack-lista-punta-head)" />
+  {[15, 7, 42].map((v, i) => (
+    <g key={i}>
+      <rect x={20 + i * 190} y="92" width="86" height="54" rx="4" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.6" />
+      <rect x={106 + i * 190} y="92" width="38" height="54" rx="4" style={{ fill: 'var(--color-sunk)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.6" />
+      <text x={63 + i * 190} y="127" textAnchor="middle" fontSize="24" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{v}</text>
+      <circle cx={125 + i * 190} cy="119" r="4" style={{ fill: 'var(--color-ink-soft)' }} />
+      <line x1={125 + i * 190} y1="119" x2={i < 2 ? 200 + i * 190 : 620} y2="119" style={{ stroke: 'var(--color-ink-soft)' }} strokeWidth="1.6" markerEnd="url(#stack-lista-punta)" />
+    </g>
+  ))}
+  <text x="638" y="124" fontSize="15" fontFamily="monospace" style={{ fill: 'var(--color-ink-faint)' }}>null</text>
+</svg>
+
+Con esa decisión, las dos operaciones que la pila pide caen sobre el
+principio de la cadena, que es el único lugar al que `head` llega sin
+caminar. Una pila vacía es `head == null`.
+
+La estructura entera son dos atributos y sus cuatro métodos, para respetar
+la implementación del TDA:
+
+```java
+class Stack {
+    private Node head;  // el primer nodo de la cadena: la cima
+    private int size;   // cuántos elementos hay
+
+    void push(int x)    // pone x en la cima
+    int pop()           // saca el de la cima y lo devuelve
+    int top()           // el de la cima, sin sacarlo
+    boolean empty()     // si la pila no tiene ningún elemento
+    int size()          // cuántos elementos tiene
+}
+```
+
+</Slide>
+
+<Slide title="Las invariantes de la pila sobre lista">
+Tres propiedades sostienen esta implementación, y cada operación las deja
+como las encontró.
+
+1. **`head` apunta al primer nodo, o a `null` si la pila está vacía.** Es el
+   único punto de entrada a la cadena. Si `head` queda apuntando a un nodo
+   del medio, todo lo anterior se vuelve inalcanzable: sigue en memoria y no
+   hay manera de llegar.
+
+2. **Desde `head`, siguiendo `next`, se llega a todos los nodos y se termina
+   en `null`.** La cadena no tiene cortes ni ciclos.
+
+3. **La cima es el nodo al que `head` apunta.** Es la traducción del
+   contrato a esta estructura, y es la que decide todos los costos: la
+   cima es el único nodo al que se llega sin caminar.
+
+La tercera es la que hace barata a esta implementación, igual que en el
+arreglo lo era «la cima es `data[size - 1]`». Cambia la estructura, no el
+papel que juega la invariante.
+
+Lo que sí cambia es el trabajo que hay que hacer para llegar a la cima. En
+el arreglo era una resta, `size - 1`, y después ir a esa casilla. Acá no hay
+nada que calcular: `head` **es** la cima, y basta con mirarla.
+
+</Slide>
+
+<Slide title="Las consultas de la pila">
+Las tres operaciones que no cambian la pila salen de los dos atributos, sin
+tocar la cadena.
+
+```java
+boolean empty() {
+    return size == 0;
+}
+
+int size() {
+    return size;
+}
+
+int top() {
+    if (head == null) {
+        throw new NoSuchElementException();
+    }
+    return head.value;
+}
+```
+
+- **`empty()`** dice si la pila no tiene elementos. Lee un campo: $$\Theta(1)$$.
+- **`size()`** devuelve cuántos hay. También un campo, y por eso es
+  $$\Theta(1)$$: el largo se mantiene en cada `push` y cada `pop`, así que
+  nunca hay que recorrer la cadena para contarlo.
+- **`top()`** devuelve el valor de la cima sin sacarla. `head` ya apunta ahí,
+  así que tampoco hay nada que recorrer: $$\Theta(1)$$.
+
+Ésa es toda la diferencia entre `top` y `pop`: **`pop` devuelve la cima y la
+saca; `top` la devuelve y deja la pila como estaba.**
+
+</Slide>
+
+<Slide title="Push">
+Implementar `push` es **usar `insertFirst` sobre una lista enlazada simple**.
+La pila no agrega trabajo: le pone su nombre a la operación que la lista ya
+hacía, y le quita la posibilidad de elegir dónde.
+
+<svg viewBox="90 82 520 192" style={{ width: '100%', maxWidth: '660px', height: 'auto', display: 'block', margin: '1.25rem auto' }} role="img" aria-label="Dos dibujos de la misma pila, cerrada abajo y abierta arriba. A la izquierda, antes: 42 al fondo, 7 encima y la casilla de la cima libre. Una flecha rotulada push de 9 lleva al de la derecha, después, donde el 9 ocupa la cima y está resaltado.">
+  <defs>
+    <marker id="pila-push-flecha" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+      <path d="M0,0 L8,4 L0,8 z" style={{ fill: 'var(--color-accent)' }} />
+    </marker>
+  </defs>
+  <rect x={104} y="100" width="112" height="44" rx="3" style={{ fill: 'var(--color-sunk)', stroke: 'var(--color-rule)' }} strokeWidth="1.2" strokeDasharray="4 3" />
+  <rect x={104} y="144" width="112" height="44" rx="3" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.6" />
+  <text x={160} y="174" textAnchor="middle" fontSize="22" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>7</text>
+  <rect x={104} y="188" width="112" height="44" rx="3" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.6" />
+  <text x={160} y="218" textAnchor="middle" fontSize="22" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>42</text>
+  <line x1={98} y1="92" x2={98} y2="238" style={{ stroke: 'var(--color-rule-strong)' }} strokeWidth="2.6" strokeLinecap="round" />
+  <line x1={222} y1="92" x2={222} y2="238" style={{ stroke: 'var(--color-rule-strong)' }} strokeWidth="2.6" strokeLinecap="round" />
+  <line x1={98} y1="238" x2={222} y2="238" style={{ stroke: 'var(--color-rule-strong)' }} strokeWidth="2.6" strokeLinecap="round" />
+  <rect x={484} y="100" width="112" height="44" rx="3" style={{ fill: 'var(--color-accent)', stroke: 'var(--color-accent)' }} strokeWidth="1.8" />
+  <text x={540} y="130" textAnchor="middle" fontSize="22" fontWeight="600" style={{ fill: 'var(--color-on-accent)' }}>9</text>
+  <rect x={484} y="144" width="112" height="44" rx="3" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.6" />
+  <text x={540} y="174" textAnchor="middle" fontSize="22" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>7</text>
+  <rect x={484} y="188" width="112" height="44" rx="3" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.6" />
+  <text x={540} y="218" textAnchor="middle" fontSize="22" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>42</text>
+  <line x1={478} y1="92" x2={478} y2="238" style={{ stroke: 'var(--color-rule-strong)' }} strokeWidth="2.6" strokeLinecap="round" />
+  <line x1={602} y1="92" x2={602} y2="238" style={{ stroke: 'var(--color-rule-strong)' }} strokeWidth="2.6" strokeLinecap="round" />
+  <line x1={478} y1="238" x2={602} y2="238" style={{ stroke: 'var(--color-rule-strong)' }} strokeWidth="2.6" strokeLinecap="round" />
+  <text x="350" y="152" textAnchor="middle" fontSize="15" fontWeight="700" fontFamily="monospace" style={{ fill: 'var(--color-accent)' }}>push(9)</text>
+  <line x1="240" y1="170" x2="458" y2="170" style={{ stroke: 'var(--color-accent)' }} strokeWidth="2.2" markerEnd="url(#pila-push-flecha)" />
+  <text x="160" y="262" textAnchor="middle" fontSize="12" style={{ fill: 'var(--color-ink-faint)' }}>antes</text>
+  <text x="540" y="262" textAnchor="middle" fontSize="12" style={{ fill: 'var(--color-ink-faint)' }}>después</text>
+</svg>
+
+```java
+void push(int x) {
+    Node fresh = new Node(x);
+    fresh.next = head;
+    head = fresh;
+    size++;
+}
+```
+
+`push` toca dos cosas y nada más: el nodo nuevo y `head`. Los que ya estaban
+no se mueven ni se enteran, así que la operación cuesta lo mismo con cero
+elementos que con un millón: $$\Theta(1)$$.
+
+Y acá no hay capacidad que se pueda acabar. Cada `push` pide su propio nodo
+cuando lo necesita, así que la pila nunca tiene que mudarse a un bloque más
+grande ni copiar lo que ya tenía.
+
+</Slide>
+
+<Slide title="Push paso a paso">
+<SequenceStepper
+  eda="linked-list-singly"
+  operation="insert-first"
+  values={[]}
+  value={[42, 7, 15]}
+  method="push"
+  receiver="pila"
+  receiverType="Stack"
+/>
+
+</Slide>
+
+<Slide title="Pop">
+Implementar `pop` es **usar `deleteFirst` sobre la misma lista**: sacar el
+primer nodo de la cadena y devolver su valor.
+
+<svg viewBox="90 82 520 192" style={{ width: '100%', maxWidth: '660px', height: 'auto', display: 'block', margin: '1.25rem auto' }} role="img" aria-label="Dos dibujos de la misma pila, cerrada abajo y abierta arriba. A la izquierda, antes: 42 al fondo, 7 encima y el 9 en la cima. Una flecha rotulada pop devuelve 9 lleva al de la derecha, después, donde la casilla de la cima quedó libre y la cima vuelve a ser el 7.">
+  <defs>
+    <marker id="pila-pop-flecha" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+      <path d="M0,0 L8,4 L0,8 z" style={{ fill: 'var(--color-accent)' }} />
+    </marker>
+  </defs>
+  <rect x={104} y="100" width="112" height="44" rx="3" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.8" />
+  <text x={160} y="130" textAnchor="middle" fontSize="22" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>9</text>
+  <rect x={104} y="144" width="112" height="44" rx="3" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.6" />
+  <text x={160} y="174" textAnchor="middle" fontSize="22" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>7</text>
+  <rect x={104} y="188" width="112" height="44" rx="3" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.6" />
+  <text x={160} y="218" textAnchor="middle" fontSize="22" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>42</text>
+  <line x1={98} y1="92" x2={98} y2="238" style={{ stroke: 'var(--color-rule-strong)' }} strokeWidth="2.6" strokeLinecap="round" />
+  <line x1={222} y1="92" x2={222} y2="238" style={{ stroke: 'var(--color-rule-strong)' }} strokeWidth="2.6" strokeLinecap="round" />
+  <line x1={98} y1="238" x2={222} y2="238" style={{ stroke: 'var(--color-rule-strong)' }} strokeWidth="2.6" strokeLinecap="round" />
+  <rect x={484} y="100" width="112" height="44" rx="3" style={{ fill: 'var(--color-sunk)', stroke: 'var(--color-rule)' }} strokeWidth="1.2" strokeDasharray="4 3" />
+  <rect x={484} y="144" width="112" height="44" rx="3" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.6" />
+  <text x={540} y="174" textAnchor="middle" fontSize="22" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>7</text>
+  <rect x={484} y="188" width="112" height="44" rx="3" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.6" />
+  <text x={540} y="218" textAnchor="middle" fontSize="22" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>42</text>
+  <line x1={478} y1="92" x2={478} y2="238" style={{ stroke: 'var(--color-rule-strong)' }} strokeWidth="2.6" strokeLinecap="round" />
+  <line x1={602} y1="92" x2={602} y2="238" style={{ stroke: 'var(--color-rule-strong)' }} strokeWidth="2.6" strokeLinecap="round" />
+  <line x1={478} y1="238" x2={602} y2="238" style={{ stroke: 'var(--color-rule-strong)' }} strokeWidth="2.6" strokeLinecap="round" />
+  <text x="350" y="152" textAnchor="middle" fontSize="15" fontWeight="700" fontFamily="monospace" style={{ fill: 'var(--color-accent)' }}>pop() → 9</text>
+  <line x1="240" y1="170" x2="458" y2="170" style={{ stroke: 'var(--color-accent)' }} strokeWidth="2.2" markerEnd="url(#pila-pop-flecha)" />
+  <text x="160" y="262" textAnchor="middle" fontSize="12" style={{ fill: 'var(--color-ink-faint)' }}>antes</text>
+  <text x="540" y="262" textAnchor="middle" fontSize="12" style={{ fill: 'var(--color-ink-faint)' }}>después</text>
+</svg>
+
+```java
+int pop() {
+    if (head == null) {
+        throw new NoSuchElementException();
+    }
+    int x = head.value;
+    head = head.next;
+    size--;
+    return x;
+}
+```
+
+Una pila vacía no tiene cima, así que `pop()` no puede devolver un valor: lo
+primero que hace es preguntar y fallar.
+
+`pop` toca dos cosas y nada más: `head` y `size`. No recorre la cadena ni
+mueve a nadie, y por eso no importa si la pila tiene tres elementos o un
+millón —el trabajo es el mismo—: $$\Theta(1)$$. Costaría $$\Theta(N)$$ si
+hubiera que buscar el nodo que sale, y no hay que buscarlo: `head` ya lo
+tiene.
+
+El nodo que sale queda sin nadie apuntándolo, y el colector de basura lo
+recupera más tarde.
+
+</Slide>
+
+<Slide title="Pop paso a paso">
+<SequenceStepper
+  eda="linked-list-singly"
+  operation="remove-first"
+  values={[15, 7, 42]}
+  times={3}
+  method="pop"
+  receiver="pila"
+  receiverType="Stack"
+/>
+
+</Slide>
+
+<Slide title="Costos de Stack sobre lista">
+| Operación | Peor caso | Invariante que restaura |
+|---|---|---|
+| `build()` | $$\Theta(1)$$ | Deja `head` en `null` y `size` en cero |
+| `top()` | $$\Theta(1)$$ | Ninguna: lee `head.value` y no cambia la cadena |
+| `empty()` | $$\Theta(1)$$ | Ninguna: `size` ya guarda el dato |
+| `size()` | $$\Theta(1)$$ | Ninguna: devuelve el campo que las otras mantienen |
+| `push(x)` | $$\Theta(1)$$ | `head` apunta a la cima: el nodo nuevo enlaza al que lo era |
+| `pop()` | $$\Theta(1)$$ | `head` apunta a la cima: pasa a ser el segundo |
+
+Todo constante, y por una sola razón: cada operación trabaja sobre el primer
+nodo, que es el único al que se llega sin caminar la cadena.
+
+Y hay algo que esta tabla **no** tiene. No hay columna de amortizado, porque
+no hace falta: la lista nunca copia nada, así que el peor caso de cada
+operación es también su caso típico. No hay bloque que se pueda llenar —cada
+nodo se pide cuando hace falta y se suelta cuando sobra—, y por eso ninguna
+fila dice $$\Theta(N)$$.
+
+Es exactamente lo que el arreglo no podía prometer.
+
+</Slide>
+
+<Slide title="Arreglo vs lista para la pila">
+| | Sobre arreglo dinámico | Sobre lista simple |
+|---|---|---|
+| `push(x)` | $$\Theta(1)$$ amortizado — $$\Theta(N)$$ la corrida que copia | $$\Theta(1)$$ siempre |
+| `pop()` | $$\Theta(1)$$ amortizado — $$\Theta(N)$$ la que achica | $$\Theta(1)$$ siempre |
+| `top()`, `empty()` | $$\Theta(1)$$ | $$\Theta(1)$$ |
+| memoria por elemento | el valor | el valor **y** un enlace |
+| capacidad | crece y se achica, copiando | sin límite previo |
+| los elementos en memoria | juntos | sueltos |
+
+Las dos implementaciones cumplen el contrato con los mismos costos
+constantes, así que la elección no se decide ahí. Se decide en las tres
+filas de abajo.
+
+El arreglo gana en memoria y en localidad: no paga un enlace por elemento y
+guarda los valores juntos, que es lo que el procesador prefiere leer. Lo
+paga en copias, baratas en promedio pero no en el instante en que ocurren.
+
+La lista gana cuando ninguna corrida puede permitirse la pausa de una copia. Paga un enlace por elemento y
+esparce los valores, y a cambio ninguna operación tiene un peor caso
+distinto de su caso típico.
+
+</Slide>
+
+<Slide title="Stack en Java">
+Java trae la pila hecha, en `java.util.Stack`, y sus nombres son casi los
+del contrato:
+
+| El TDA | Java |
+|---|---|
+| `push(x)` | `push(x)` |
+| `pop()` | `pop()` |
+| `top()` | `peek()` |
+| `empty()` | `empty()` |
+| `size()` | `size()` |
+
+```java
+Stack<Integer> stack = new Stack<>();
+stack.push(42);
+stack.push(7);
+
+int top = stack.peek();  // 7, y la pila queda igual
+int x = stack.pop();      // 7, y ahora la pila sólo tiene el 42
+```
+
+Sobre una pila vacía, `pop()` y `peek()` lanzan `EmptyStackException`: no
+devuelven cero ni ninguna otra cosa. Es el contrato de la lámina del TDA
+cumplido tal cual, y preguntar `empty()` antes sigue siendo trabajo de quien
+usa la pila.
+
+</Slide>
+
+export function Paso({
+  expr = '',
+  sep = '',
+  cursor = -1,
+  items = [],
+  label = 'pila',
+  note,
+  failed = false,
+}) {
+  const tokens = expr.split(sep).filter((t) => t !== '');
+  // Sin expresión que recorrer —Josefo, la ventana móvil— la fila de arriba
+  // no existe y la estructura sube a ocupar su lugar.
+  const solo = tokens.length === 0;
+  const yEst = solo ? 10 : 72;
+  const CH = 40;
+  const W = 34;
+  const X = 92;
+  const marco = (malo) => (malo ? 'var(--color-flag)' : 'var(--color-mark)');
+  return (
+    <svg
+      viewBox={`0 0 560 ${solo ? 86 : 148}`}
+      style={{ width: '100%', maxWidth: '560px', height: 'auto', display: 'block' }}
+      role="img"
+      aria-label={`${note} ${solo ? '' : `La expresión es ${tokens.join(' ')}. `}La ${label} contiene ${items.length === 0 ? 'nada' : items.join(' ')}.`}
+    >
+      {solo ? null : (
+        <text x="8" y="32" fontSize="13" fontFamily="monospace" style={{ fill: 'var(--color-ink-faint)' }}>
+          expresión
+        </text>
+      )}
+      {tokens.map((c, i) => (
+        <g key={i}>
+          <rect
+            x={X + i * CH}
+            y="10"
+            width={W}
+            height="34"
+            rx="3"
+            style={{
+              fill: i === cursor ? (failed ? 'var(--color-flag)' : 'var(--color-accent)') : 'var(--color-surface)',
+              stroke: i === cursor ? (failed ? 'var(--color-flag)' : 'var(--color-accent)') : 'var(--color-rule-strong)',
+            }}
+            strokeWidth="1.6"
+            opacity={i < cursor ? 0.45 : 1}
+          />
+          <text
+            x={X + i * CH + W / 2}
+            y="34"
+            textAnchor="middle"
+            fontSize="18"
+            fontWeight="600"
+            fontFamily="monospace"
+            opacity={i < cursor ? 0.45 : 1}
+            style={{ fill: i === cursor ? 'var(--color-on-accent)' : 'var(--color-ink)' }}
+          >
+            {c}
+          </text>
+        </g>
+      ))}
+      <text x="8" y={yEst + 22} fontSize="13" fontFamily="monospace" style={{ fill: 'var(--color-ink-faint)' }}>
+        {label}
+      </text>
+      {items.length === 0 ? (
+        <text x={X} y={yEst + 22} fontSize="14" style={{ fill: 'var(--color-ink-faint)' }}>
+          vacía
+        </text>
+      ) : (
+        items.map((c, i) => (
+          <g key={i}>
+            <rect
+              x={X + i * CH}
+              y={yEst}
+              width={W}
+              height="34"
+              rx="3"
+              style={{ fill: 'var(--color-mark-soft)', stroke: marco(failed && i === items.length - 1) }}
+              strokeWidth="1.6"
+            />
+            <text
+              x={X + i * CH + W / 2}
+              y={yEst + 24}
+              textAnchor="middle"
+              fontSize="18"
+              fontWeight="600"
+              fontFamily="monospace"
+              style={{ fill: 'var(--color-ink)' }}
+            >
+              {c}
+            </text>
+          </g>
+        ))
+      )}
+      {items.length > 0 ? (
+        <text x={X + items.length * CH + 6} y={yEst + 24} fontSize="12" style={{ fill: 'var(--color-ink-faint)' }}>
+          {label === 'pila' ? '← cima' : '← final'}
+        </text>
+      ) : null}
+      <text x="8" y={yEst + 64} fontSize="13" style={{ fill: failed ? 'var(--color-flag)' : 'var(--color-ink-soft)' }}>
+        {note}
+      </text>
+    </svg>
+  );
+}
+
+<SectionBreak />
+
+## Queue · Cola
+
+<Slide title="Una cola">
+Una **cola** es una colección con dos puertas, y cada una en un solo
+sentido: se entra por el **final** y se sale por el **frente**. Los
+elementos de adentro no se tocan.
+
+<svg viewBox="70 20 560 150" style={{ width: '100%', maxWidth: '680px', height: 'auto', display: 'block', margin: '1.25rem auto' }} role="img" aria-label="Una cola de tres elementos, 3, 8 y 5, abierta por los dos extremos. Por la izquierda, rotulada frente, una flecha saca el 3: es dequeue. Por la derecha, rotulada final, otra flecha mete un 9 que espera afuera: es enqueue. Los dos extremos tienen un solo sentido.">
+  <defs>
+    <marker id="cola-intro-punta" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+      <path d="M0,0 L8,4 L0,8 z" style={{ fill: 'var(--color-accent)' }} />
+    </marker>
+  </defs>
+
+  <text x="150" y="48" textAnchor="middle" fontSize="14" fontWeight="700" fontFamily="monospace" style={{ fill: 'var(--color-accent)' }}>dequeue() → 3</text>
+  <line x1="200" y1="96" x2="112" y2="96" style={{ stroke: 'var(--color-accent)' }} strokeWidth="2.2" markerEnd="url(#cola-intro-punta)" />
+
+  {[3, 8, 5].map((v, i) => (
+    <g key={i}>
+      <rect x={210 + i * 64} y="72" width="58" height="48" rx="3" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.6" />
+      <text x={239 + i * 64} y="104" textAnchor="middle" fontSize="21" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{v}</text>
+    </g>
+  ))}
+  <text x="239" y="62" textAnchor="middle" fontSize="12" fontFamily="monospace" style={{ fill: 'var(--color-ink-faint)' }}>frente</text>
+  <text x="367" y="62" textAnchor="middle" fontSize="12" fontFamily="monospace" style={{ fill: 'var(--color-ink-faint)' }}>final</text>
+  <text x="303" y="146" textAnchor="middle" fontSize="12" style={{ fill: 'var(--color-ink-faint)' }}>se sale por aquí · se entra por allá</text>
+
+  <text x="530" y="48" textAnchor="middle" fontSize="14" fontWeight="700" fontFamily="monospace" style={{ fill: 'var(--color-accent)' }}>enqueue(9)</text>
+  <line x1="496" y1="96" x2="410" y2="96" style={{ stroke: 'var(--color-accent)' }} strokeWidth="2.2" markerEnd="url(#cola-intro-punta)" />
+  <rect x="502" y="72" width="58" height="48" rx="3" style={{ fill: 'var(--color-accent)', stroke: 'var(--color-accent)' }} strokeWidth="1.8" />
+  <text x="531" y="104" textAnchor="middle" fontSize="21" fontWeight="600" style={{ fill: 'var(--color-on-accent)' }}>9</text>
+</svg>
+
+Las dos operaciones trabajan en extremos opuestos. `enqueue` (encolar) pone
+un elemento nuevo en el final; `dequeue` (desencolar) saca el del frente y
+lo devuelve. No hay otra forma de acceder a los elementos: si quieres sacar
+el que está en el tercer lugar, tienes que sacar antes los dos que tiene
+adelante.
+
+Los elementos salen, entonces, en el mismo orden en que entraron. Esa regla
+se llama **FIFO**, del inglés _first in, first out_: **el primero en entrar
+es el primero en salir**.
+
+</Slide>
+
+<Slide title="Colas en la vida real">
+Una cola no es una idea de la programación. Es la forma de cualquier espera
+donde se atiende por orden de llegada.
+
+- **La fila de una boletería.** El que llega se pone atrás, el que atienden
+  es el de adelante, y nadie necesita saber cuántos hay ni en qué lugar
+  está.
+- **La cola de impresión.** Una impresora compartida recibe trabajos de
+  varias personas a la vez e imprime de a uno, en el orden en que llegaron.
+- **El búfer entre quien produce y quien consume.** El teclado genera
+  pulsaciones más rápido de lo que el programa las procesa, y la tarjeta de
+  red entrega paquetes cuando llegan y no cuando conviene. Entre los dos hay
+  una cola, y su trabajo es que ninguno espere al otro.
+- **Los pedidos de un servidor.** Llegan más rápido de lo que se atienden,
+  y responderlos en desorden sería tratar distinto a dos clientes iguales.
+
+Los cuatro hacen lo mismo con palabras distintas: poner atrás y atender
+adelante. Ese comportamiento está definido con precisión en un **tipo de
+dato abstracto** (TDA) llamado **Queue**.
+
+</Slide>
+
+<Slide title="El TDA Queue">
+Una **cola** es una colección con dos extremos, cada uno con un solo
+sentido: se entra por el **final** y se sale por el **frente**. Por eso lo
+primero que entró es lo primero que sale.
+
+<div style={{ border: '1px solid var(--color-rule)', borderRadius: '8px', overflow: 'hidden', margin: '1.25rem 0' }}>
+  <div style={{ background: 'var(--color-sunk)', padding: '0.55rem 0.9rem', borderBottom: '1px solid var(--color-rule)', fontWeight: 700 }}>Queue <span style={{ fontWeight: 400, color: 'var(--color-ink-faint)' }}>· el contrato</span></div>
+  <div style={{ display: 'grid', gridTemplateColumns: 'max-content 1fr', columnGap: '2rem' }}>
+  <div style={{ gridColumn: '1 / -1', padding: '0.7rem 0.9rem 0.15rem', fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.08em', color: 'var(--color-ink-faint)' }}>CREAR</div>
+  <code style={{ padding: `0.15rem 0 0.7rem 0.9rem`, whiteSpace: 'nowrap' }}>build()</code>
+  <span style={{ padding: `0.15rem 0.9rem 0.7rem 0` }}>construye la cola sin elementos</span>
+  <div style={{ gridColumn: '1 / -1', borderTop: '1px solid var(--color-rule)', padding: '0.7rem 0.9rem 0.15rem', fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.08em', color: 'var(--color-keep)' }}>CONSULTAR · no cambian nada</div>
+  <code style={{ padding: `0.15rem 0 0.3rem 0.9rem`, whiteSpace: 'nowrap' }}>front() → elemento</code>
+  <span style={{ padding: `0.15rem 0.9rem 0.3rem 0` }}>el que está en el frente · la cola no cambia</span>
+  <code style={{ padding: `0.15rem 0 0.7rem 0.9rem`, whiteSpace: 'nowrap' }}>empty() → booleano</code>
+  <span style={{ padding: `0.15rem 0.9rem 0.7rem 0` }}>si no hay ningún elemento</span>
+  <div style={{ gridColumn: '1 / -1', borderTop: '1px solid var(--color-rule)', padding: '0.7rem 0.9rem 0.15rem', fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.08em', color: 'var(--color-accent)' }}>MODIFICAR · cambian el estado</div>
+  <code style={{ padding: `0.15rem 0 0.3rem 0.9rem`, whiteSpace: 'nowrap' }}>enqueue(x)</code>
+  <span style={{ padding: `0.15rem 0.9rem 0.3rem 0` }}>pone x al final · largo + 1</span>
+  <code style={{ padding: `0.15rem 0 0.7rem 0.9rem`, whiteSpace: 'nowrap' }}>dequeue() → elemento</code>
+  <span style={{ padding: `0.15rem 0.9rem 0.7rem 0` }}>saca el del frente y lo devuelve · largo − 1</span>
+  </div>
+  <div style={{ padding: '0.65rem 0.9rem', borderTop: '1px solid var(--color-rule)', background: 'var(--color-sunk)' }}>
+    <div style={{ fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.08em', color: 'var(--color-ink-faint)' }}>LO QUE NO DICE</div>
+    <div style={{ marginTop: '0.35rem' }}>Dónde viven los elementos, si están juntos o sueltos, ni cuánto cuesta cada operación. Tampoco hay manera de mirar el último que entró, ni de adelantar a nadie: el frente es el único elemento visible.</div>
+  </div>
+</div>
+
+Cuatro operaciones y ninguna recibe una posición. Lo que el contrato fija es
+**por dónde** se entra y por dónde se sale: **FIFO**, del inglés _first in,
+first out_.
+
+Pedirle el frente a una cola vacía es un error, no un valor. `front()` y
+`dequeue()` tienen sentido únicamente cuando `empty()` es falso.
+
+</Slide>
+
+<Slide title="Cómo se implementa el TDA Queue">
+El contrato no dice dónde viven los elementos, pero sí pide algo exigente:
+**los dos extremos**, y los dos baratos.
+
+La cola se puede construir utilizando una de las dos estructuras de datos:
+
+| Queue | Sobre arreglo dinámico | Sobre lista simple con `tail` |
+|---|---|---|
+| `enqueue(x)` | escribir en `data[size]`, subir `size` (crecer si está lleno) | `insertLast(x)` |
+| `dequeue()` | leer `data[0]`, correr todo lo demás, bajar `size` | `deleteFirst()` |
+| `front()` | leer `data[0]` | leer el valor de `head` |
+| `empty()` | `size == 0` | `head == null` |
+
+Una de esas cinco casillas no se parece a las otras. El arreglo sabe operar
+barato en **un** extremo —el final—, y la cola necesita los dos: desencolar
+le queda en el lado incómodo. La lista, en cambio, llega a los dos sin
+caminar, y lo único que le hace falta es una referencia de más.
+
+</Slide>
+
+<Slide title="Queue sobre un arreglo dinámico">
+La primera idea es la directa: el mismo arreglo dinámico de la pila,
+con los elementos en un bloque consecutivo desde la casilla cero, el frente
+en `data[0]` y el final en `data[size - 1]`.
+
+Con esa disposición, encolar es escribir en la primera casilla libre y subir
+`size`, que es la operación barata del arreglo. Pero desencolar saca el de
+`data[0]`, y para que el frente vuelva a estar en la casilla cero hay que
+**correr todos los demás una casilla a la izquierda**.
+
+<svg viewBox="0 0 700 208" style={{ width: '100%', maxWidth: '700px', height: 'auto', display: 'block', margin: '1.25rem auto' }} role="img" aria-label="Un bloque de seis casillas con 3, 8 y 5 en las tres primeras. El 3 sale por arriba desde la casilla cero. Dos flechas curvas debajo del bloque llevan el 8 de la casilla uno a la cero y el 5 de la casilla dos a la uno.">
+  <defs>
+    <marker id="corrim-punta" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto">
+      <path d="M0,0 L7,3.5 L0,7 z" style={{ fill: 'var(--color-accent)' }} />
+    </marker>
+    <marker id="corrim-punta-sale" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto">
+      <path d="M0,0 L7,3.5 L0,7 z" style={{ fill: 'var(--color-ink-soft)' }} />
+    </marker>
+  </defs>
+  <text x="70" y="20" textAnchor="middle" fontSize="13" style={{ fill: 'var(--color-ink-soft)' }}>sale el 3</text>
+  <line x1="70" y1="54" x2="70" y2="30" style={{ stroke: 'var(--color-ink-soft)' }} strokeWidth="1.8" markerEnd="url(#corrim-punta-sale)" />
+  {[0, 1, 2, 3, 4, 5].map((i) => (
+    <g key={i}>
+      <rect x={20 + i * 108} y="60" width="100" height="52" rx="3" style={{ fill: i < 3 ? 'var(--color-surface)' : 'var(--color-sunk)', stroke: i < 3 ? 'var(--color-rule-strong)' : 'var(--color-rule)' }} strokeWidth={i < 3 ? 1.6 : 1.2} strokeDasharray={i < 3 ? undefined : '4 3'} />
+      <text x={70 + i * 108} y="94" textAnchor="middle" fontSize="22" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{['3', '8', '5', '', '', ''][i]}</text>
+      <text x={70 + i * 108} y="132" textAnchor="middle" fontSize="12" style={{ fill: 'var(--color-ink-faint)' }}>{i}</text>
+    </g>
+  ))}
+  {/* Las dos copias, cada una en su propio tramo. Antes compartían el punto
+      178: la segunda terminaba exactamente donde empezaba la primera, así que
+      su punta quedaba tapada y la de la primera parecía suelta. Ahora cada
+      curva sale a la izquierda del centro de su casilla y llega a la derecha
+      del centro de la siguiente, con 16px de aire entre las dos. */}
+  <path d="M 170 140 L 170 168 L 82 168 L 82 148" fill="none" style={{ stroke: 'var(--color-accent)' }} strokeWidth="1.8" strokeLinejoin="round" markerEnd="url(#corrim-punta)" />
+  <path d="M 278 140 L 278 168 L 190 168 L 190 148" fill="none" style={{ stroke: 'var(--color-accent)' }} strokeWidth="1.8" strokeLinejoin="round" markerEnd="url(#corrim-punta)" />
+  <text x="350" y="198" textAnchor="middle" fontSize="13" style={{ fill: 'var(--color-ink-faint)' }}>una copia por cada elemento que queda · N − 1 en total</text>
+</svg>
+
+Ese corrimiento cuesta $$\Theta(N)$$, y no es un detalle de implementación
+que se pueda pulir: es la consecuencia directa de haber decidido que el
+frente vive en una casilla fija. Una cola que se usa de verdad desencola
+tantas veces como encola, así que la mitad de sus operaciones serían caras.
+
+Y el contrato no pide nada de esto: pide sacar **el del frente**, no sacar
+el de la casilla cero. Es guardar la cola en un bloque de casillas
+consecutivas lo que ata el frente a la casilla cero, y es esa atadura la que
+cuesta $$\Theta(N)$$ cada vez.
+
+</Slide>
+
+<Slide title="enqueue sobre arreglo dinámico">
+`enqueue` **es `insertLast` sobre un arreglo dinámico**: escribir el
+elemento nuevo en la primera casilla libre y avanzar el final. En este
+extremo la cola no inventa nada, le pone otro nombre a la operación que el
+arreglo ya hacía barata.
+
+<SequenceStepper
+  eda="dynamic-array"
+  capacity={4}
+  operation="insert-last"
+  values={[3, 8]}
+  value={[5, 9, 4, 23]}
+  pointer="rear"
+  showCode={false}
+/>
+
+En el **peor caso** `enqueue` cuesta $$\Theta(N)$$: cuando el bloque está
+lleno hay que reservar uno del doble y copiar los $$N$$ elementos antes de
+poder escribir. Cualquier otra llamada escribe en una casilla libre y sube
+`size`, que es $$\Theta(1)$$.
+
+El costo **amortizado** es $$\Theta(1)$$: como la capacidad se duplica,
+entre dos llamadas caras hay $$N$$ baratas, así que el precio de la copia
+repartido entre todas ellas es constante por llamada.
+
+</Slide>
+
+<Slide title="dequeue sobre arreglo dinámico">
+`dequeue` **es `deleteFirst` sobre un arreglo dinámico**: devolver el de la
+casilla cero y correr a todos los demás una casilla a la izquierda, para que
+el frente vuelva a estar donde estaba.
+
+<SequenceStepper
+  eda="dynamic-array"
+  capacity={8}
+  operation="remove-first"
+  values={[3, 8, 5, 9, 4]}
+  times={3}
+  pointer="front"
+  showCode={false}
+/>
+
+Mira cómo cambia el trabajo entre una llamada y la siguiente: el primer
+`dequeue` copió cuatro elementos, el segundo tres, el tercero dos. Con
+$$N$$ elementos son $$N - 1$$ copias, y por eso desencolar cuesta
+$$\Theta(N)$$.
+
+Y acá no hay amortizado que valga. En `push` la corrida cara era **una cada
+$$N$$**, y las baratas la pagaban; el corrimiento ocurre en **cada** llamada,
+así que no hay nada entre quién repartirlo: $$\Theta(N)$$ en el peor caso y
+$$\Theta(N)$$ amortizado.
+
+</Slide>
+
+<Slide title="Costos de Queue sobre arreglo dinámico">
+| Operación | Peor caso | Amortizado | Invariante que restaura |
+|---|---|---|---|
+| `front()` | $$\Theta(1)$$ | $$\Theta(1)$$ | Ninguna: lee `data[0]` y no cambia nada |
+| `empty()` | $$\Theta(1)$$ | $$\Theta(1)$$ | Ninguna: `size` ya guarda el dato |
+| `size()` | $$\Theta(1)$$ | $$\Theta(1)$$ | Ninguna: devuelve el campo que las otras mantienen |
+| `enqueue(x)` | $$\Theta(N)$$ | $$\Theta(1)$$ | Los elementos ocupan `size` casillas seguidas: se escribe en la primera libre, y el bloque crece si no hay |
+| `dequeue()` | <span style={{ color: 'var(--color-flag)', fontWeight: 700 }}>$$\Theta(N)$$</span> | <span style={{ color: 'var(--color-flag)', fontWeight: 700 }}>$$\Theta(N)$$</span> | **El frente vive en `data[0]`**: para restaurarla hay que correr a todos los demás |
+
+`dequeue` cuesta $$\Theta(N)$$, y ese costo **no se amortiza**. La llamada
+cara de `enqueue` ocurre una cada $$N$$ y las $$N-1$$ baratas la pagan; el
+corrimiento ocurre en **cada** llamada, así que no hay entre quién
+repartirlo.
+
+Una cola que se usa de verdad desencola tantas veces como encola, así que la
+mitad de sus operaciones serían caras. **El arreglo es la estructura
+equivocada para este contrato.**
+
+</Slide>
+
+<Slide title="Queue sobre una lista simplemente enlazada con tail">
+La mejor forma de implementar una cola es una **lista simplemente enlazada
+con `tail`**: se entra por `tail` y se sale por `head`, y ninguna de las dos
+operaciones recorre nada.
+
+<svg viewBox="0 0 700 182" style={{ width: '100%', maxWidth: '700px', height: 'auto', display: 'block', margin: '1.25rem auto' }} role="img" aria-label="Una lista enlazada de tres nodos con los valores 3, 8 y 5. La referencia head apunta al primero y está rotulada como el frente; la referencia tail apunta al último y está rotulada como el final; el último nodo apunta a null.">
+  <defs>
+    <marker id="cola-lista-punta" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto">
+      <path d="M0,0 L7,3.5 L0,7 z" style={{ fill: 'var(--color-ink-soft)' }} />
+    </marker>
+    <marker id="cola-lista-punta-ref" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto">
+      <path d="M0,0 L7,3.5 L0,7 z" style={{ fill: 'var(--color-accent)' }} />
+    </marker>
+  </defs>
+  <text x="46" y="30" textAnchor="middle" fontSize="15" fontWeight="700" fontFamily="monospace" style={{ fill: 'var(--color-accent)' }}>head</text>
+  <text x="46" y="50" textAnchor="middle" fontSize="12" style={{ fill: 'var(--color-ink-faint)' }}>el frente</text>
+  <line x1="46" y1="58" x2="46" y2="88" style={{ stroke: 'var(--color-accent)' }} strokeWidth="1.8" markerEnd="url(#cola-lista-punta-ref)" />
+  <text x="426" y="30" textAnchor="middle" fontSize="15" fontWeight="700" fontFamily="monospace" style={{ fill: 'var(--color-accent)' }}>tail</text>
+  <text x="426" y="50" textAnchor="middle" fontSize="12" style={{ fill: 'var(--color-ink-faint)' }}>el final</text>
+  <line x1="426" y1="58" x2="426" y2="88" style={{ stroke: 'var(--color-accent)' }} strokeWidth="1.8" markerEnd="url(#cola-lista-punta-ref)" />
+  {[3, 8, 5].map((v, i) => (
+    <g key={i}>
+      <rect x={20 + i * 190} y="92" width="86" height="54" rx="4" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.6" />
+      <rect x={106 + i * 190} y="92" width="38" height="54" rx="4" style={{ fill: 'var(--color-sunk)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.6" />
+      <text x={63 + i * 190} y="127" textAnchor="middle" fontSize="24" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{v}</text>
+      <circle cx={125 + i * 190} cy="119" r="4" style={{ fill: 'var(--color-ink-soft)' }} />
+      <line x1={125 + i * 190} y1="119" x2={i < 2 ? 200 + i * 190 : 620} y2="119" style={{ stroke: 'var(--color-ink-soft)' }} strokeWidth="1.6" markerEnd="url(#cola-lista-punta)" />
+    </g>
+  ))}
+  <text x="638" y="124" fontSize="15" fontFamily="monospace" style={{ fill: 'var(--color-ink-faint)' }}>null</text>
+  <text x="358" y="172" textAnchor="middle" fontSize="13" style={{ fill: 'var(--color-ink-faint)' }}>3 entró primero · 5 entró último</text>
+</svg>
+
+`head` entrega el frente sin caminar, que es lo que la lista ya daba. `tail`
+entrega el final sin caminar, que es lo que la cola necesitaba: sin él,
+encolar tendría que recorrer la cadena entera para encontrar al último y
+costaría $$\Theta(N)$$.
+
+Lo que se paga son dos referencias que mantener al día en vez de una,
+incluida la cola de un solo nodo, donde las dos señalan al mismo.
+
+```java
+class Queue {
+    private Node head;  // el primer nodo: el frente
+    private Node tail;  // el último nodo: el final
+    private int size;   // cuántos elementos hay
+
+    void enqueue(int x)  // pone x en el final
+    int dequeue()        // saca el del frente y lo devuelve
+    int front()          // el del frente, sin sacarlo
+    boolean empty()      // si la cola no tiene ningún elemento
+    int size()           // cuántos elementos tiene
+}
+```
+
+</Slide>
+
+<Slide title="Las invariantes de la cola sobre lista">
+Cuatro propiedades, y la cuarta es la que `tail` trae consigo.
+
+1. **`head` apunta al primer nodo —el frente—, o a `null` si la cola está
+   vacía.**
+
+2. **Desde `head`, siguiendo `next`, se llega a todos los nodos y se
+   termina en `null`.**
+
+3. **`size` es la cantidad de nodos de esa cadena.**
+
+4. **`tail` apunta al último nodo de la cadena, o a `null` si está
+   vacía.** Si queda apuntando a un nodo que ya salió de la cola, el
+   siguiente `enqueue` enlaza contra un nodo inalcanzable y el elemento
+   nuevo nace perdido.
+
+Las tres primeras son las de cualquier lista enlazada. La cuarta es el
+precio de haber ganado el segundo extremo, y es una invariante de las que
+cuestan cuidado y no tiempo: mantenerla no alarga ninguna operación, pero
+olvidarla en un solo caso de borde rompe la estructura en silencio.
+
+</Slide>
+
+<Slide title="Las consultas de la cola">
+Las tres operaciones que no cambian la cola salen de los atributos, sin
+tocar la cadena.
+
+```java
+boolean empty() {
+    return size == 0;
+}
+
+int size() {
+    return size;
+}
+
+int front() {
+    if (head == null) {
+        throw new NoSuchElementException();
+    }
+    return head.value;
+}
+```
+
+- **`empty()`** dice si la cola no tiene elementos. Lee un campo: $$\Theta(1)$$.
+- **`size()`** devuelve cuántos hay. Lee el campo que `enqueue` y `dequeue`
+  mantienen al día, así que nunca hay que recorrer la cadena para contarlo:
+  $$\Theta(1)$$.
+- **`front()`** devuelve el valor del frente sin sacarlo. `head` ya apunta
+  ahí: $$\Theta(1)$$.
+
+`front()` cae sobre `head` porque es la única referencia que se tiene sin
+caminar. **Lo que hace de esto una cola y no una pila no son las consultas
+sino dónde entra lo nuevo**: en el final, con `tail`, y no en la cabeza.
+
+</Slide>
+
+<Slide title="Enqueue">
+Implementar `enqueue` es **usar `insertLast` sobre la misma lista**: poner el
+elemento nuevo al final y mover `tail` hasta él.
+
+<svg viewBox="30 76 600 150" style={{ width: '100%', maxWidth: '660px', height: 'auto', display: 'block', margin: '1.25rem auto' }} role="img" aria-label="Dos dibujos de la misma cola, abierta por los dos extremos: se sale por el frente, a la izquierda, y se entra por el final, a la derecha. A la izquierda, antes: 3, 8 y 5. Una flecha rotulada enqueue de 9 lleva al de la derecha, después, donde el 9 quedó al final, resaltado, y el frente sigue siendo el 3.">
+  <defs>
+    <marker id="cola-enq-flecha" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+      <path d="M0,0 L8,4 L0,8 z" style={{ fill: 'var(--color-accent)' }} />
+    </marker>
+  </defs>
+  {[
+    { x0: 40, vals: [3, 8, 5], nuevo: -1, cap: 'antes' },
+    { x0: 372, vals: [3, 8, 5, 9], nuevo: 3, cap: 'después' },
+  ].map(({ x0, vals, nuevo, cap }) => (
+    <g key={x0}>
+      {vals.map((v, i) => (
+        <g key={i}>
+          <rect x={x0 + i * 52} y="110" width="48" height="44" rx="3" style={{ fill: i === nuevo ? 'var(--color-accent)' : 'var(--color-surface)', stroke: i === nuevo ? 'var(--color-accent)' : 'var(--color-rule-strong)' }} strokeWidth={i === nuevo ? 1.8 : 1.6} />
+          <text x={x0 + i * 52 + 24} y="140" textAnchor="middle" fontSize="20" fontWeight="600" style={{ fill: i === nuevo ? 'var(--color-on-accent)' : 'var(--color-ink)' }}>{v}</text>
+        </g>
+      ))}
+      <text x={x0 + 24} y="102" textAnchor="middle" fontSize="11" fontFamily="monospace" style={{ fill: 'var(--color-ink-faint)' }}>frente</text>
+      <text x={x0 + (vals.length - 1) * 52 + 24} y="102" textAnchor="middle" fontSize="11" fontFamily="monospace" style={{ fill: 'var(--color-ink-faint)' }}>final</text>
+      <text x={x0 + (vals.length * 52 - 4) / 2} y="176" textAnchor="middle" fontSize="12" style={{ fill: 'var(--color-ink-faint)' }}>{cap}</text>
+    </g>
+  ))}
+  <text x="316" y="124" textAnchor="middle" fontSize="14" fontWeight="700" fontFamily="monospace" style={{ fill: 'var(--color-accent)' }}>enqueue(9)</text>
+  <line x1="248" y1="136" x2="362" y2="136" style={{ stroke: 'var(--color-accent)' }} strokeWidth="2.2" markerEnd="url(#cola-enq-flecha)" />
+</svg>
+
+```java
+void enqueue(int x) {
+    Node fresh = new Node(x);
+    if (head == null) {
+        head = fresh;
+    } else {
+        tail.next = fresh;
+    }
+    tail = fresh;
+    size++;
+}
+```
+
+El método crea el nodo, lo engancha al final de la cadena, mueve `tail`
+hasta él y sube `size`. Engancharlo es una sola asignación —`tail.next =
+fresh`— porque `tail` ya tenía al último en la mano; sin esa referencia
+habría que recorrer la cadena entera para encontrarlo. Nada de esto depende
+del largo: $$\Theta(1)$$.
+
+El `if` es un **caso borde**: la cola vacía. Ahí no hay un último al que
+engancharse, así que lo que se asigna es `head`. En las dos ramas el nodo
+nuevo termina siendo el último, y por eso `tail = fresh` va afuera del `if`
+y se escribe una sola vez.
+
+</Slide>
+
+<Slide title="Enqueue paso a paso">
+<SequenceStepper
+  eda="linked-list-singly"
+  operation="insert-last"
+  values={[]}
+  value={[3, 8, 5]}
+  tail
+  method="enqueue"
+  receiver="cola"
+  receiverType="Queue"
+/>
+
+</Slide>
+
+<Slide title="Dequeue">
+Implementar `dequeue` es **usar `deleteFirst`**: sacar el primer nodo de la
+cadena y devolver su valor.
+
+<svg viewBox="30 76 600 150" style={{ width: '100%', maxWidth: '660px', height: 'auto', display: 'block', margin: '1.25rem auto' }} role="img" aria-label="Dos dibujos de la misma cola. A la izquierda, antes: 3, 8, 5 y 9, con el 3 en el frente dibujado atenuado y punteado porque es el que sale. Una flecha rotulada dequeue devuelve 3 lleva al de la derecha, después, donde quedan 8, 5 y 9 y el frente pasó a ser el 8.">
+  <defs>
+    <marker id="cola-deq-flecha" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+      <path d="M0,0 L8,4 L0,8 z" style={{ fill: 'var(--color-accent)' }} />
+    </marker>
+  </defs>
+  {[
+    { x0: 40, vals: [3, 8, 5, 9], sale: 0, cap: 'antes' },
+    { x0: 372, vals: [8, 5, 9], sale: -1, cap: 'después' },
+  ].map(({ x0, vals, sale, cap }) => (
+    <g key={x0}>
+      {vals.map((v, i) => (
+        <g key={i}>
+          <rect x={x0 + i * 52} y="110" width="48" height="44" rx="3" opacity={i === sale ? 0.55 : 1} style={{ fill: i === sale ? 'var(--color-sunk)' : 'var(--color-surface)', stroke: i === sale ? 'var(--color-rule)' : 'var(--color-rule-strong)' }} strokeWidth="1.6" strokeDasharray={i === sale ? '5 4' : undefined} />
+          <text x={x0 + i * 52 + 24} y="140" textAnchor="middle" fontSize="20" fontWeight="600" opacity={i === sale ? 0.55 : 1} style={{ fill: 'var(--color-ink)' }}>{v}</text>
+        </g>
+      ))}
+      <text x={x0 + (sale === 0 ? 52 : 0) + 24} y="102" textAnchor="middle" fontSize="11" fontFamily="monospace" style={{ fill: 'var(--color-ink-faint)' }}>frente</text>
+      <text x={x0 + (vals.length - 1) * 52 + 24} y="102" textAnchor="middle" fontSize="11" fontFamily="monospace" style={{ fill: 'var(--color-ink-faint)' }}>final</text>
+      <text x={x0 + (vals.length * 52 - 4) / 2} y="176" textAnchor="middle" fontSize="12" style={{ fill: 'var(--color-ink-faint)' }}>{cap}</text>
+    </g>
+  ))}
+  <text x="316" y="124" textAnchor="middle" fontSize="14" fontWeight="700" fontFamily="monospace" style={{ fill: 'var(--color-accent)' }}>dequeue() → 3</text>
+  <line x1="300" y1="136" x2="362" y2="136" style={{ stroke: 'var(--color-accent)' }} strokeWidth="2.2" markerEnd="url(#cola-deq-flecha)" />
+</svg>
+
+```java
+int dequeue() {
+    if (head == null) {
+        throw new NoSuchElementException();
+    }
+    int x = head.value;
+    head = head.next;
+    if (head == null) {
+        tail = null;
+    }
+    size--;
+    return x;
+}
+```
+
+El método guarda el valor del frente, mueve `head` al segundo nodo y baja
+`size`. El que sale queda sin nadie apuntándolo, y el colector de basura lo
+recupera más tarde. Nada de esto depende del largo: $$\Theta(1)$$.
+
+Los dos `if` son **casos borde**. El primero es la cola vacía: no hay frente
+que devolver, así que lanza. El segundo es la cola de un solo nodo: al salir
+él, `head` queda en `null` y `tail` tiene que acompañarlo, porque si se
+queda apuntando al nodo que ya salió, el próximo `enqueue` engancharía el
+elemento nuevo a un nodo que no pertenece a la cola.
+
+</Slide>
+
+<Slide title="Dequeue paso a paso">
+<SequenceStepper
+  eda="linked-list-singly"
+  operation="remove-first"
+  values={[3, 8, 5]}
+  times={3}
+  tail
+  method="dequeue"
+  receiver="cola"
+  receiverType="Queue"
+/>
+
+</Slide>
+
+<Slide title="Costos de Queue sobre lista">
+| Operación | Peor caso | Invariante que restaura |
+|---|---|---|
+| `build()` | $$\Theta(1)$$ | Deja `head` y `tail` en `null` y `size` en cero |
+| `front()` | $$\Theta(1)$$ | Ninguna: lee `head.value` y no cambia la cadena |
+| `empty()` | $$\Theta(1)$$ | Ninguna: `size` ya guarda el dato |
+| `size()` | $$\Theta(1)$$ | Ninguna: devuelve el campo que las otras mantienen |
+| `enqueue(x)` | $$\Theta(1)$$ | `tail` apunta al último: el que lo era enlaza al nuevo, y `tail` lo sigue |
+| `dequeue()` | $$\Theta(1)$$ | `head` apunta al frente: pasa a ser el segundo, y si no queda ninguno `tail` lo acompaña |
+
+Todas las operaciones son constantes, y por una sola razón: `head` y `tail`
+dejan los dos extremos en la mano, así que ninguna tiene que caminar la
+cadena para llegar a donde opera.
+
+Llevar dos referencias en vez de una no cuesta tiempo, cuesta **cuidado**.
+`dequeue` necesita un `if` que no hace nada mientras la cola tenga varios
+elementos, y que lo es todo cuando sale el último: sin él, `tail` queda
+apuntando a un nodo que ya salió de la cola.
+
+</Slide>
+
+<Slide title="Arreglo vs lista para la cola">
+| | Sobre arreglo dinámico | Lista con `head` y `tail` |
+|---|---|---|
+| `enqueue(x)` | $$\Theta(1)$$ amortizado | $$\Theta(1)$$ siempre |
+| `dequeue()` | <span style={{ color: 'var(--color-flag)', fontWeight: 700 }}>$$\Theta(N)$$</span> | $$\Theta(1)$$ |
+| `front()`, `empty()` | $$\Theta(1)$$ | $$\Theta(1)$$ |
+| memoria por elemento | el valor | el valor **y** un enlace |
+| capacidad | crece copiando | sin límite previo |
+| lo que hay que sostener | un índice | dos referencias y el caso de un nodo |
+
+Acá no hay elección. La pila podía construirse igual de bien sobre las dos
+estructuras y la decisión se jugaba en memoria y localidad; la cola no: el
+arreglo pierde una fila entera, y es la fila de la operación que una cola
+hace la mitad del tiempo.
+
+Y la razón es geométrica, no de implementación. **Una pila toca un solo
+extremo y un arreglo tiene uno barato.** Una cola toca los dos, y el arreglo
+sólo tiene barato el final. La lista paga un enlace por elemento y a cambio
+tiene los dos extremos en la mano.
+
+Por eso, cuando alguien escribe una cola, la escribe sobre una lista.
+
+</Slide>
+
+<Slide title="Queue en Java">
+Java no trae una clase `Queue`: trae una **interfaz** con ese nombre, que
+fija las operaciones sin decir dónde se guardan los elementos. Quien escribe
+el programa elige la clase que la implementa, y aquí usaremos `LinkedList`:
+la lista enlazada con `tail`. Los nombres del contrato cambian:
+
+| El TDA | Java |
+|---|---|
+| `enqueue(x)` | `add(x)` |
+| `dequeue()` | `remove()` |
+| `front()` | `element()` |
+| `empty()` | `isEmpty()` |
+| `size()` | `size()` |
+
+```java
+Queue<Integer> queue = new LinkedList<>();
+queue.add(3);
+queue.add(8);
+
+int frente = queue.element();  // 3, y la cola queda igual
+int x = queue.remove();        // 3, y ahora la cola sólo tiene el 8
+```
+
+A la izquierda del `=` va la interfaz y a la derecha la clase: la variable se
+declara `Queue` y no `LinkedList`. Así el resto del programa sólo puede pedir
+las operaciones del contrato, y cambiar la implementación es cambiar una
+línea.
+
+Sobre una cola vacía, `remove()` y `element()` lanzan
+`NoSuchElementException`: no devuelven cero ni ninguna otra cosa. El trío
+`offer`/`poll`/`peek` hace lo mismo devolviendo `false` o `null` en vez de
+lanzar.
+
+</Slide>
+
+<SectionBreak />
+
+## Ejercicios
+
+
+<Slide title="Paréntesis balanceados">
+Un editor de código marca en rojo un paréntesis que quedó sin cerrar, y lo
+hace antes de compilar nada. Lo que revisa es que la expresión esté
+**balanceada**: que cada símbolo que se abre se cierre después, y en el orden
+correcto.
+
+«En el orden correcto» es lo que hace el problema interesante, y se ve
+dibujando un arco entre cada pareja:
+
+<svg viewBox="40 -8 580 340" style={{ width: '100%', maxWidth: '660px', height: 'auto', display: 'block', margin: '1.25rem auto' }} role="img" aria-label="Cuatro expresiones con un arco que une cada par de símbolos. En la primera, abre paréntesis abre llave abre corchete cierra corchete abre paréntesis cierra paréntesis cierra llave cierra paréntesis: los cuatro arcos se anidan sin cruzarse y está balanceada. En la segunda, abre paréntesis corchete cierra paréntesis cierra corchete, los dos arcos se cruzan. En la tercera, dos aperturas y un cierre, el primer paréntesis queda sin arco. En la cuarta, un par completo y un cierre final que no tiene con qué emparejarse.">
+  <g transform="translate(0, 0)">
+    {['(', '{', '[', ']', '(', ')', '}', ')'].map((ch, i) => (
+      <g key={i}>
+        <rect x={56 + i * 32} y="0" width="28" height="28" rx="3" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.5" />
+        <text x={70 + i * 32} y="20" textAnchor="middle" fontSize="17" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>{ch}</text>
+      </g>
+    ))}
+    <path d="M 70 31 C 70 79, 294 79, 294 31" fill="none" style={{ stroke: 'var(--color-keep)' }} strokeWidth="1.8" />
+    <path d="M 102 31 C 102 63, 262 63, 262 31" fill="none" style={{ stroke: 'var(--color-keep)' }} strokeWidth="1.8" />
+    <path d="M 134 31 C 134 47, 166 47, 166 31" fill="none" style={{ stroke: 'var(--color-keep)' }} strokeWidth="1.8" />
+    <path d="M 198 31 C 198 47, 230 47, 230 31" fill="none" style={{ stroke: 'var(--color-keep)' }} strokeWidth="1.8" />
+    <text x="330" y="20" fontSize="14" fontWeight="700" style={{ fill: 'var(--color-keep)' }}>balanceada · los arcos anidan</text>
+  </g>
+  <g transform="translate(0, 90)">
+    <rect x={56} y="0" width="28" height="28" rx="3" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.5" />
+    <text x={70} y="20" textAnchor="middle" fontSize="17" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>{'('}</text>
+    <rect x={88} y="0" width="28" height="28" rx="3" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.5" />
+    <text x={102} y="20" textAnchor="middle" fontSize="17" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>{'['}</text>
+    <rect x={120} y="0" width="28" height="28" rx="3" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.5" />
+    <text x={134} y="20" textAnchor="middle" fontSize="17" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>{')'}</text>
+    <rect x={152} y="0" width="28" height="28" rx="3" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.5" />
+    <text x={166} y="20" textAnchor="middle" fontSize="17" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>{']'}</text>
+    <path d="M 70 31 C 70 51, 134 51, 134 31" fill="none" style={{ stroke: 'var(--color-flag)' }} strokeWidth="1.8" />
+    <path d="M 102 31 C 102 69, 166 69, 166 31" fill="none" style={{ stroke: 'var(--color-flag)' }} strokeWidth="1.8" />
+    <text x="330" y="20" fontSize="14" fontWeight="700" style={{ fill: 'var(--color-flag)' }}>se cruzan</text>
+  </g>
+  <g transform="translate(0, 180)">
+    <rect x={56} y="0" width="28" height="28" rx="3" style={{ fill: 'var(--color-flag-soft)', stroke: 'var(--color-flag)' }} strokeWidth="1.5" strokeDasharray="4 3" />
+    <text x={70} y="20" textAnchor="middle" fontSize="17" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>{'('}</text>
+    <rect x={88} y="0" width="28" height="28" rx="3" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.5" />
+    <text x={102} y="20" textAnchor="middle" fontSize="17" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>{'('}</text>
+    <rect x={120} y="0" width="28" height="28" rx="3" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.5" />
+    <text x={134} y="20" textAnchor="middle" fontSize="17" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>{')'}</text>
+    <path d="M 102 31 C 102 47, 134 47, 134 31" fill="none" style={{ stroke: 'var(--color-keep)' }} strokeWidth="1.8" />
+    <path d="M 66 35 l 9 10 m -9 0 l 9 -10" fill="none" style={{ stroke: 'var(--color-flag)' }} strokeWidth="1.8" strokeLinecap="round" />
+    <text x="330" y="20" fontSize="14" fontWeight="700" style={{ fill: 'var(--color-flag)' }}>quedó una sin cerrar</text>
+  </g>
+  <g transform="translate(0, 262)">
+    <rect x={56} y="0" width="28" height="28" rx="3" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.5" />
+    <text x={70} y="20" textAnchor="middle" fontSize="17" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>{'('}</text>
+    <rect x={88} y="0" width="28" height="28" rx="3" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.5" />
+    <text x={102} y="20" textAnchor="middle" fontSize="17" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>{')'}</text>
+    <rect x={120} y="0" width="28" height="28" rx="3" style={{ fill: 'var(--color-flag-soft)', stroke: 'var(--color-flag)' }} strokeWidth="1.5" strokeDasharray="4 3" />
+    <text x={134} y="20" textAnchor="middle" fontSize="17" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>{')'}</text>
+    <path d="M 70 31 C 70 47, 102 47, 102 31" fill="none" style={{ stroke: 'var(--color-keep)' }} strokeWidth="1.8" />
+    <path d="M 130 35 l 9 10 m -9 0 l 9 -10" fill="none" style={{ stroke: 'var(--color-flag)' }} strokeWidth="1.8" strokeLinecap="round" />
+    <text x="330" y="20" fontSize="14" fontWeight="700" style={{ fill: 'var(--color-flag)' }}>cierra una que nunca se abrió</text>
+  </g>
+</svg>
+
+El programa recibe la expresión completa, como una cadena de caracteres, y
+tiene que responder una sola cosa: si está balanceada o no. Eso es una
+función que toma un `String` y devuelve un `boolean`:
+
+```java
+boolean isBalanced(String s)
+```
+
+**Entrada.** `s`, la expresión completa. Contiene sólo los seis símbolos
+`(`, `)`, `[`, `]`, `{` y `}`, y su largo `N` va de 0 a 10⁵. Las parejas son
+`(` con `)`, `[` con `]` y `{` con `}`.
+
+**Salida.** `true` si la expresión está balanceada y `false` si no. La cadena
+vacía está balanceada: no hay nada que cerrar.
+
+</Slide>
+
+<Slide title="Contar los símbolos">
+Lo primero que se piensa es contar: si hay tantos `(` como `)`, tantos `[`
+como `]` y tantos `{` como `}`, la expresión estaría balanceada.
+
+<svg viewBox="44 -12 390 178" style={{ width: '100%', maxWidth: '520px', height: 'auto', display: 'block', margin: '1.25rem auto' }} role="img" aria-label="Dos expresiones de cuatro símbolos. Arriba, abre paréntesis abre corchete cierra corchete cierra paréntesis: los dos arcos se anidan y está balanceada. Abajo, abre paréntesis abre corchete cierra paréntesis cierra corchete: los dos arcos se cruzan y no está balanceada. Las dos tienen exactamente la misma cuenta de símbolos.">
+  <g transform="translate(0, 0)">
+    {['(', '[', ']', ')'].map((ch, i) => (
+      <g key={i}>
+        <rect x={56 + i * 32} y="0" width="28" height="28" rx="3" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.5" />
+        <text x={70 + i * 32} y="20" textAnchor="middle" fontSize="17" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>{ch}</text>
+      </g>
+    ))}
+    <path d="M 70 31 C 70 63, 166 63, 166 31" fill="none" style={{ stroke: 'var(--color-keep)' }} strokeWidth="1.8" />
+    <path d="M 102 31 C 102 47, 134 47, 134 31" fill="none" style={{ stroke: 'var(--color-keep)' }} strokeWidth="1.8" />
+    <text x="290" y="20" fontSize="14" fontWeight="700" style={{ fill: 'var(--color-keep)' }}>balanceada</text>
+  </g>
+  <g transform="translate(0, 94)">
+    {['(', '[', ')', ']'].map((ch, i) => (
+      <g key={i}>
+        <rect x={56 + i * 32} y="0" width="28" height="28" rx="3" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.5" />
+        <text x={70 + i * 32} y="20" textAnchor="middle" fontSize="17" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>{ch}</text>
+      </g>
+    ))}
+    <path d="M 70 31 C 70 51, 134 51, 134 31" fill="none" style={{ stroke: 'var(--color-flag)' }} strokeWidth="1.8" />
+    <path d="M 102 31 C 102 69, 166 69, 166 31" fill="none" style={{ stroke: 'var(--color-flag)' }} strokeWidth="1.8" />
+    <text x="290" y="20" fontSize="14" fontWeight="700" style={{ fill: 'var(--color-flag)' }}>no balanceada</text>
+  </g>
+</svg>
+
+`([])` y `([)]` pasan las dos esa prueba, con un `(`, un `)`, un `[` y un `]`
+cada una. Sólo la primera está balanceada.
+
+Un contador no recuerda **en qué orden** llegaron los símbolos, y el orden es
+lo único en que esas dos expresiones se diferencian.
+
+</Slide>
+
+<Slide title="El cierre le toca al último que abrió">
+Recorremos `({[]()})` de izquierda a derecha, y los símbolos que abren se
+acumulan a la espera de su cierre: primero el `(`, después el `{`, después el
+`[`.
+
+Cuando llega el `]`, el que le corresponde es el `[` — y el `[` es, justamente,
+el último que quedó esperando. No es casualidad: un símbolo que abre después
+de otro queda encerrado por él, así que tiene que cerrarse antes. Si se
+cerrara después, los dos arcos se cruzarían.
+
+<svg viewBox="0 0 668 220" style={{ width: '100%', maxWidth: '670px', height: 'auto', display: 'block', margin: '1.25rem auto' }} role="img" aria-label="La expresión abre paréntesis, abre llave, abre corchete, cierra corchete, abre paréntesis, cierra paréntesis, cierra llave, cierra paréntesis, y debajo de cada símbolo lo que queda esperando cierre después de leerlo. Con el abre paréntesis espera uno; con la abre llave, dos; con el abre corchete, tres. El cierra corchete saca el abre corchete y vuelven a ser dos. El segundo abre paréntesis las deja en tres otra vez. El cierra paréntesis saca ese paréntesis y quedan dos, la cierra llave saca la llave y queda uno, y el último cierra paréntesis saca el que quedaba: la pila termina vacía.">
+  <text x="4" y="30" fontSize="12" fontFamily="monospace" style={{ fill: 'var(--color-ink-faint)' }}>expresión</text>
+  <text x="4" y="168" fontSize="12" fontFamily="monospace" style={{ fill: 'var(--color-ink-faint)' }}>esperando</text>
+  {[
+    { ch: '(', pila: ['('], nuevo: true, sale: '', vacia: '' },
+    { ch: '{', pila: ['(', '{'], nuevo: true, sale: '', vacia: '' },
+    { ch: '[', pila: ['(', '{', '['], nuevo: true, sale: '', vacia: '' },
+    { ch: ']', pila: ['(', '{'], nuevo: false, sale: '[', vacia: '' },
+    { ch: '(', pila: ['(', '{', '('], nuevo: true, sale: '', vacia: '' },
+    { ch: ')', pila: ['(', '{'], nuevo: false, sale: '(', vacia: '' },
+    { ch: '}', pila: ['('], nuevo: false, sale: '{', vacia: '' },
+    { ch: ')', pila: [], nuevo: false, sale: '(', vacia: 'vacía' },
+  ].map((m, i) => {
+    const cx = 100 + i * 72;
+    return (
+      <g key={i}>
+        <rect x={cx - 15} y="8" width="30" height="28" rx="3" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.5" />
+        <text x={cx} y="28" textAnchor="middle" fontSize="17" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>{m.ch}</text>
+        <line x1={cx - 30} y1="178" x2={cx + 30} y2="178" style={{ stroke: 'var(--color-rule-strong)' }} strokeWidth="2" />
+        {m.pila.map((c, j) => (
+          <g key={j}>
+            <rect x={cx - 13} y={178 - (j + 1) * 28} width="26" height="24" rx="3" style={{ fill: j === m.pila.length - 1 && m.nuevo ? 'var(--color-mark-soft)' : 'var(--color-surface)', stroke: j === m.pila.length - 1 && m.nuevo ? 'var(--color-mark)' : 'var(--color-rule-strong)' }} strokeWidth="1.5" />
+            <text x={cx} y={178 - (j + 1) * 28 + 17} textAnchor="middle" fontSize="15" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>{c}</text>
+          </g>
+        ))}
+        {m.sale === '' ? null : (
+          <g opacity="0.4">
+            <rect x={cx - 13} y={178 - (m.pila.length + 1) * 28} width="26" height="24" rx="3" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.4" strokeDasharray="4 3" />
+            <text x={cx} y={178 - (m.pila.length + 1) * 28 + 17} textAnchor="middle" fontSize="15" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink-faint)' }}>{m.sale}</text>
+          </g>
+        )}
+        <text x={cx} y="194" textAnchor="middle" fontSize="12" style={{ fill: 'var(--color-ink-faint)' }}>{m.vacia}</text>
+      </g>
+    );
+  })}
+  <text x="334" y="212" textAnchor="middle" fontSize="12" style={{ fill: 'var(--color-ink-faint)' }}>bajo cada símbolo, lo que queda esperando después de leerlo — punteado, el que ese símbolo sacó</text>
+</svg>
+
+Eso vale en cada paso del recorrido. De todos los símbolos que esperan, el
+único que puede cerrarse es el último que entró, y es el único que hace falta
+consultar. Una colección que se usa así es una **pila**.
+
+Al terminar la expresión no puede quedar ninguno esperando: cada uno que sobre
+es un símbolo que nunca se cerró.
+
+</Slide>
+
+<Slide title="Paréntesis · funciones auxiliares">
+```java
+static boolean isOpener(char c) {
+    return c == '(' || c == '[' || c == '{';
+}
+
+static boolean isCloser(char c) {
+    return c == ')' || c == ']' || c == '}';
+}
+
+static char openerFor(char c) {
+    if (c == ')') return '(';
+    if (c == ']') return '[';
+    return '{';
+}
+```
+
+`isOpener` responde si un carácter es una de las tres aperturas, e `isCloser`
+si es uno de los tres cierres.
+
+`openerFor` recibe un cierre y devuelve la apertura que le corresponde: `(`
+para `)`, `[` para `]`, `{` para `}`.
+
+</Slide>
+
+<Slide title="Paréntesis · la solución">
+Cada apertura entra a la pila. Cada cierre saca la cima y la compara contra la
+apertura que le corresponde: si no coinciden, la expresión no está balanceada.
+
+<StepShow
+  language="java"
+  code={`static boolean isBalanced(String s) {
+    Stack<Character> pending = new Stack<>();
+    for (char c : s.toCharArray()) {
+        if (isOpener(c)) {
+            pending.push(c);
+        } else if (isCloser(c)) {
+            if (pending.empty()) return false;
+            if (pending.pop() != openerFor(c)) return false;
+        }
+    }
+    return pending.empty();
+}`}
+>
+  <Step lines={[2]}>
+    <Paso expr="({[]()})" cursor={-1} items={[]} note="La pila arranca vacía y recorremos la expresión de izquierda a derecha." />
+  </Step>
+  <Step lines={[4, 5]}>
+    <Paso expr="({[]()})" cursor={0} items={['(']} note="( abre: se apila." />
+  </Step>
+  <Step lines={[4, 5]}>
+    <Paso expr="({[]()})" cursor={1} items={['(', '{']} note="{ abre: se apila encima." />
+  </Step>
+  <Step lines={[4, 5]}>
+    <Paso expr="({[]()})" cursor={2} items={['(', '{', '[']} note="[ abre: se apila encima." />
+  </Step>
+  <Step lines={[6, 8]}>
+    <Paso expr="({[]()})" cursor={3} items={['(', '{']} note="] cierra y la cima es [, su pareja: se desapila." />
+  </Step>
+  <Step lines={[4, 5]}>
+    <Paso expr="({[]()})" cursor={4} items={['(', '{', '(']} note="( abre: la pila vuelve a crecer." />
+  </Step>
+  <Step lines={[6, 8]}>
+    <Paso expr="({[]()})" cursor={5} items={['(', '{']} note=") cierra y la cima es (, su pareja: se desapila." />
+  </Step>
+  <Step lines={[6, 8]}>
+    <Paso expr="({[]()})" cursor={6} items={['(']} note="} cierra y la cima es {, su pareja: se desapila." />
+  </Step>
+  <Step lines={[6, 8]}>
+    <Paso expr="({[]()})" cursor={7} items={[]} note=") cierra y la cima es (, su pareja: se desapila." />
+  </Step>
+  <Step lines={[11]}>
+    <Paso expr="({[]()})" cursor={-1} items={[]} note="Se acabó la expresión y la pila quedó vacía: está balanceada." />
+  </Step>
+</StepShow>
+
+</Slide>
+
+<Slide title="Las expresiones que devuelven false">
+<StepShow
+  language="java"
+  code={`static boolean isBalanced(String s) {
+    Stack<Character> pending = new Stack<>();
+    for (char c : s.toCharArray()) {
+        if (isOpener(c)) {
+            pending.push(c);
+        } else if (isCloser(c)) {
+            if (pending.empty()) return false;
+            if (pending.pop() != openerFor(c)) return false;
+        }
+    }
+    return pending.empty();
+}`}
+>
+  <Step lines={[2]}>
+    <Paso expr="([)]" cursor={-1} items={[]} note="Un símbolo de cada clase, igual que ([]), y en otro orden." />
+  </Step>
+  <Step lines={[4, 5]}>
+    <Paso expr="([)]" cursor={0} items={['(']} note="( es una apertura: se apila." />
+  </Step>
+  <Step lines={[4, 5]}>
+    <Paso expr="([)]" cursor={1} items={['(', '[']} note="[ es una apertura: se apila encima." />
+  </Step>
+  <Step lines={[6, 8]}>
+    <Paso expr="([)]" cursor={2} items={['(', '[']} note=") cierra, y su pareja es (. Pero la cima es [: el ) se cruza con él." failed />
+  </Step>
+</StepShow>
+
+`([)]` falla en el tercer símbolo, sin llegar a leer el cuarto.
+
+`(()` no se equivoca en ningún cierre y termina con un `(` en la pila: por eso
+la última línea es `return pending.empty()` y no `return true`. `())` llega al
+último `)` con la pila vacía, y sin esa guarda `pop()` lanzaría
+`EmptyStackException`.
+
+Cada símbolo se mira una vez y entra y sale de la pila a lo más una vez:
+$$\Theta(N)$$ de tiempo, y $$\Theta(N)$$ de espacio cuando todo son
+aperturas.
+
+</Slide>
+
+<Slide title="Paréntesis · el programa completo">
+<PresentationWide fraction={0.75}>
+<Exercise title="Paréntesis balanceados">
+
+El algoritmo entero, con sus tres auxiliares. Presiona **Comprobar** para
+correrlo, y después cambia lo que quieras.
+
+```java starter
+import java.util.Stack;
+
+class Solution {
+
+    static boolean isBalanced(String s) {
+        Stack<Character> pending = new Stack<>();
+        for (char c : s.toCharArray()) {
+            if (isOpener(c)) {
+                pending.push(c);
+            } else if (isCloser(c)) {
+                if (pending.empty()) return false;
+                if (pending.pop() != openerFor(c)) return false;
+            }
+        }
+        return pending.empty();
+    }
+
+    static boolean isOpener(char c) {
+        return c == '(' || c == '[' || c == '{';
+    }
+
+    static boolean isCloser(char c) {
+        return c == ')' || c == ']' || c == '}';
+    }
+
+    static char openerFor(char c) {
+        if (c == ')') return '(';
+        if (c == ']') return '[';
+        return '{';
+    }
+}
+```
+
+```java test
+check(Solution.isBalanced("({[]})"), true);
+check(Solution.isBalanced("({[]()})"), true);
+check(Solution.isBalanced("([)]"), false);
+check(Solution.isBalanced("(()"), false);
+check(Solution.isBalanced("())"), false);
+check(Solution.isBalanced(""), true);
+```
+
+</Exercise>
+</PresentationWide>
+</Slide>
+
+<Slide title="Notación polaca inversa">
+Una calculadora HP de los años setenta no traía teclas de paréntesis, y no le
+hacían falta: se tecleaba `3 4 + 5 *`, sin abrir ninguno. Esa forma de
+escribir se llama **notación polaca inversa**, y su única regla es que el
+operador va después de sus dos operandos.
+
+<svg viewBox="0 0 620 132" style={{ width: '100%', maxWidth: '600px', height: 'auto', display: 'block', margin: '1.25rem auto' }} role="img" aria-label="A la izquierda, tres más cuatro escrito como se escribe normalmente. Una flecha lleva a la derecha, donde las mismas tres piezas están en casillas: primero el tres, después el cuatro y al final el más, resaltado. Una llave abarca el tres y el cuatro y los rotula los dos operandos; el más queda fuera de la llave, después de ellos.">
+  <defs>
+    <marker id="rpn-def-punta" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto">
+      <path d="M0,0 L7,3.5 L0,7 z" style={{ fill: 'var(--color-ink-faint)' }} />
+    </marker>
+  </defs>
+  <text x="40" y="64" fontSize="20" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>3 + 4</text>
+  <path d="M 122 57 L 158 57" fill="none" style={{ stroke: 'var(--color-ink-faint)' }} strokeWidth="1.5" markerEnd="url(#rpn-def-punta)" />
+  {['3', '4', '+'].map((v, i) => (
+    <g key={i}>
+      <rect x={180 + i * 54} y="36" width="46" height="40" rx="3" style={{ fill: i === 2 ? 'var(--color-accent)' : 'var(--color-surface)', stroke: i === 2 ? 'var(--color-accent)' : 'var(--color-rule-strong)' }} strokeWidth="1.6" />
+      <text x={203 + i * 54} y="63" textAnchor="middle" fontSize="20" fontWeight="600" fontFamily="monospace" style={{ fill: i === 2 ? 'var(--color-on-accent)' : 'var(--color-ink)' }}>{v}</text>
+    </g>
+  ))}
+  <path d="M 184 82 L 184 96 L 276 96 L 276 82" fill="none" style={{ stroke: 'var(--color-rule-strong)' }} strokeWidth="1.6" />
+  <text x="230" y="118" textAnchor="middle" fontSize="13" style={{ fill: 'var(--color-ink-soft)' }}>los dos operandos</text>
+  <text x="360" y="63" fontSize="14" fontWeight="700" style={{ fill: 'var(--color-accent)' }}>y después el operador</text>
+</svg>
+
+El programa recibe la expresión ya separada en piezas y tiene que devolver su
+valor. Eso es una función que toma un arreglo de `String` y devuelve un
+`int`:
+
+```java
+int evaluate(String[] tokens)
+```
+
+**Entrada.** `tokens`, la expresión ya separada. Cada pieza es un número
+entero escrito como texto, o uno de los cuatro operadores `+`, `-`, `*` y
+`/`. Hay a lo más 10⁴ piezas y la expresión siempre está bien formada.
+
+**Salida.** El valor de la expresión, con la división entera. Escribiendo las
+piezas separadas por espacios:
+
+| `tokens` | con paréntesis | `evaluate(tokens)` |
+|---|---|---|
+| `3 4 + 5 *` | `(3 + 4) × 5` | `35` |
+| `3 4 5 * +` | `3 + (4 × 5)` | `23` |
+| `5 3 -` | `5 − 3` | `2` |
+| `7` | `7` | `7` |
+
+</Slide>
+
+<Slide title="Los paréntesis que no hacen falta">
+<svg viewBox="0 0 660 200" style={{ width: '100%', maxWidth: '660px', height: 'auto', display: 'block', margin: '1.25rem auto' }} role="img" aria-label="A la izquierda, dos expresiones con paréntesis: abre tres más cuatro cierra por cinco, y tres más abre cuatro por cinco cierra. A la derecha, las mismas dos en polaca inversa: tres cuatro más cinco por, y tres cuatro cinco por más. Los mismos números en el mismo orden; lo único que cambia es dónde van los operadores, y no hace falta ningún paréntesis. La primera vale 35 y la segunda 23.">
+  <defs>
+    <marker id="rpn-punta" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto">
+      <path d="M0,0 L7,3.5 L0,7 z" style={{ fill: 'var(--color-ink-faint)' }} />
+    </marker>
+  </defs>
+  <text x="16" y="24" fontSize="13" fontWeight="700" style={{ fill: 'var(--color-ink-faint)' }}>con paréntesis</text>
+  <text x="330" y="24" fontSize="13" fontWeight="700" style={{ fill: 'var(--color-accent)' }}>en polaca inversa</text>
+  <text x="16" y="61" fontSize="17" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>(3 + 4) × 5</text>
+  <path d="M 150 56 l 24 0" fill="none" style={{ stroke: 'var(--color-ink-faint)' }} strokeWidth="1.5" markerEnd="url(#rpn-punta)" />
+  <rect x={330} y="40" width="34" height="30" rx="3" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.5" />
+  <text x={347} y="61" textAnchor="middle" fontSize="16" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>{'3'}</text>
+  <rect x={370} y="40" width="34" height="30" rx="3" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.5" />
+  <text x={387} y="61" textAnchor="middle" fontSize="16" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>{'4'}</text>
+  <rect x={410} y="40" width="34" height="30" rx="3" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.5" />
+  <text x={427} y="61" textAnchor="middle" fontSize="16" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>{'+'}</text>
+  <rect x={450} y="40" width="34" height="30" rx="3" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.5" />
+  <text x={467} y="61" textAnchor="middle" fontSize="16" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>{'5'}</text>
+  <rect x={490} y="40" width="34" height="30" rx="3" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.5" />
+  <text x={507} y="61" textAnchor="middle" fontSize="16" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>{'*'}</text>
+  <text x="16" y="107" fontSize="17" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>3 + (4 × 5)</text>
+  <path d="M 150 102 l 24 0" fill="none" style={{ stroke: 'var(--color-ink-faint)' }} strokeWidth="1.5" markerEnd="url(#rpn-punta)" />
+  <rect x={330} y="86" width="34" height="30" rx="3" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.5" />
+  <text x={347} y="107" textAnchor="middle" fontSize="16" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>{'3'}</text>
+  <rect x={370} y="86" width="34" height="30" rx="3" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.5" />
+  <text x={387} y="107" textAnchor="middle" fontSize="16" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>{'4'}</text>
+  <rect x={410} y="86" width="34" height="30" rx="3" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.5" />
+  <text x={427} y="107" textAnchor="middle" fontSize="16" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>{'5'}</text>
+  <rect x={450} y="86" width="34" height="30" rx="3" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.5" />
+  <text x={467} y="107" textAnchor="middle" fontSize="16" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>{'*'}</text>
+  <rect x={490} y="86" width="34" height="30" rx="3" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.5" />
+  <text x={507} y="107" textAnchor="middle" fontSize="16" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>{'+'}</text>
+  <text x="540" y="61" fontSize="16" fontWeight="700" fontFamily="monospace" style={{ fill: 'var(--color-keep)' }}>= 35</text>
+  <text x="540" y="107" fontSize="16" fontWeight="700" fontFamily="monospace" style={{ fill: 'var(--color-keep)' }}>= 23</text>
+</svg>
+
+`(3 + 4) × 5` y `3 + (4 × 5)` tienen los mismos tres números en el mismo
+orden y dan resultados distintos. Lo único que los separa son los paréntesis:
+sin ellos habría que acordar una regla de precedencia, y con ella habría que
+recordarla.
+
+Las mismas dos expresiones en polaca inversa también tienen los mismos
+números en el mismo orden, y lo que las distingue es dónde cae cada operador.
+No hay paréntesis que poner ni precedencia que recordar.
+
+</Slide>
+
+<Slide title="Cada operador se lleva los dos últimos">
+Recorremos `3 4 + 5 *` de izquierda a derecha. Un número solo no se puede
+calcular todavía: queda guardado a la espera de un operador que lo use.
+
+Cuando llega el `+`, opera sobre el `3` y el `4` — los dos últimos que se
+guardaron. Su resultado, `7`, vuelve a quedar guardado como un número más, y
+cuando llega el `*` opera sobre el `7` y el `5`, otra vez los dos últimos.
+
+<svg viewBox="0 0 620 226" style={{ width: '100%', maxWidth: '620px', height: 'auto', display: 'block', margin: '1.25rem auto' }} role="img" aria-label="La expresión tres, cuatro, más, cinco, por, y debajo de cada pieza lo que queda guardado después de leerla. Con el tres queda un valor; con el cuatro, dos. El más retira el tres y el cuatro y deja un siete. El cinco vuelve a dejar dos valores. El por retira el siete y el cinco y deja treinta y cinco, que es el resultado.">
+  <text x="4" y="30" fontSize="12" fontFamily="monospace" style={{ fill: 'var(--color-ink-faint)' }}>expresión</text>
+  <text x="4" y="176" fontSize="12" fontFamily="monospace" style={{ fill: 'var(--color-ink-faint)' }}>guardado</text>
+  {[
+    { ch: '3', pila: ['3'], sale: [] },
+    { ch: '4', pila: ['3', '4'], sale: [] },
+    { ch: '+', pila: ['7'], sale: ['3', '4'] },
+    { ch: '5', pila: ['7', '5'], sale: [] },
+    { ch: '*', pila: ['35'], sale: ['7', '5'] },
+  ].map((m, i) => {
+    const cx = 110 + i * 106;
+    return (
+      <g key={i}>
+        <rect x={cx - 18} y="8" width="36" height="30" rx="3" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.5" />
+        <text x={cx} y="30" textAnchor="middle" fontSize="18" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>{m.ch}</text>
+        <line x1={cx - 34} y1="186" x2={cx + 34} y2="186" style={{ stroke: 'var(--color-rule-strong)' }} strokeWidth="2" />
+        {m.pila.map((v, j) => (
+          <g key={j}>
+            <rect x={cx - 19} y={186 - (j + 1) * 30} width="38" height="26" rx="3" style={{ fill: j === m.pila.length - 1 ? 'var(--color-mark-soft)' : 'var(--color-surface)', stroke: j === m.pila.length - 1 ? 'var(--color-mark)' : 'var(--color-rule-strong)' }} strokeWidth="1.5" />
+            <text x={cx} y={186 - (j + 1) * 30 + 18} textAnchor="middle" fontSize="15" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>{v}</text>
+          </g>
+        ))}
+        {m.sale.map((v, j) => (
+          <g key={`s${j}`} opacity="0.4">
+            <rect x={cx - 19} y={186 - (m.pila.length + j + 1) * 30} width="38" height="26" rx="3" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.4" strokeDasharray="4 3" />
+            <text x={cx} y={186 - (m.pila.length + j + 1) * 30 + 18} textAnchor="middle" fontSize="15" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink-faint)' }}>{v}</text>
+          </g>
+        ))}
+      </g>
+    );
+  })}
+  <text x="310" y="218" textAnchor="middle" fontSize="12" style={{ fill: 'var(--color-ink-faint)' }}>bajo cada pieza, lo guardado después de leerla — punteado, lo que esa pieza retiró</text>
+</svg>
+
+De todo lo guardado sólo se retiran los dos últimos, y lo que se produce
+vuelve al mismo lugar. Una colección que se usa así es una **pila**.
+
+Al terminar queda un solo valor, y ése es el resultado.
+
+</Slide>
+
+<Slide title="Polaca inversa · funciones auxiliares">
+```java
+static boolean isOperator(String t) {
+    return t.equals("+") || t.equals("-")
+        || t.equals("*") || t.equals("/");
+}
+
+static int apply(int a, int b, String t) {
+    if (t.equals("+")) return a + b;
+    if (t.equals("-")) return a - b;
+    if (t.equals("*")) return a * b;
+    return a / b;
+}
+```
+
+`isOperator` responde si una pieza es uno de los cuatro operadores.
+
+`apply` recibe dos números y un operador, y devuelve el resultado de
+aplicarlo, con `a` como operando izquierdo y `b` como derecho.
+
+</Slide>
+
+<Slide title="Polaca inversa · la solución">
+Cada número se apila. Cada operador saca dos, los opera y apila el resultado.
+
+<StepShow
+  language="java"
+  code={`static int evaluate(String[] tokens) {
+    Stack<Integer> values = new Stack<>();
+    for (String t : tokens) {
+        if (isOperator(t)) {
+            int b = values.pop();
+            int a = values.pop();
+            values.push(apply(a, b, t));
+        } else {
+            values.push(Integer.parseInt(t));
+        }
+    }
+    return values.pop();
+}`}
+>
+  <Step lines={[2]}>
+    <Paso expr="3 4 + 5 *" sep=" " cursor={-1} items={[]} note="La pila arranca vacía y leemos los tokens de izquierda a derecha." />
+  </Step>
+  <Step lines={[8, 9]}>
+    <Paso expr="3 4 + 5 *" sep=" " cursor={0} items={['3']} note="3 es un número: se apila." />
+  </Step>
+  <Step lines={[8, 9]}>
+    <Paso expr="3 4 + 5 *" sep=" " cursor={1} items={['3', '4']} note="4 es un número: se apila encima." />
+  </Step>
+  <Step lines={[4, 5, 6, 7]}>
+    <Paso expr="3 4 + 5 *" sep=" " cursor={2} items={['7']} note="+ es operador: saca 4 y 3, y apila 3 + 4 = 7." />
+  </Step>
+  <Step lines={[8, 9]}>
+    <Paso expr="3 4 + 5 *" sep=" " cursor={3} items={['7', '5']} note="5 es un número: se apila encima." />
+  </Step>
+  <Step lines={[4, 5, 6, 7]}>
+    <Paso expr="3 4 + 5 *" sep=" " cursor={4} items={['35']} note="* es operador: saca 5 y 7, y apila 7 × 5 = 35." />
+  </Step>
+  <Step lines={[12]}>
+    <Paso expr="3 4 + 5 *" sep=" " cursor={-1} items={['35']} note="Se acabaron los tokens y queda un solo valor: ése es el resultado." />
+  </Step>
+</StepShow>
+
+</Slide>
+
+<Slide title="El primer pop es el operando derecho">
+En `5 3 -` la pila tiene el `5` abajo y el `3` arriba, porque el `5` entró
+primero. Los `pop()` los devuelven al revés de como entraron: **el primero
+saca el `3`, que es el operando derecho de la resta**, y el segundo saca el
+`5`, que es el izquierdo. Por eso el código guarda el primero en `b`, el
+segundo en `a`, y llama `apply(a, b, t)`.
+
+<StepShow
+  language="java"
+  code={`static int evaluate(String[] tokens) {
+    Stack<Integer> values = new Stack<>();
+    for (String t : tokens) {
+        if (isOperator(t)) {
+            int b = values.pop();
+            int a = values.pop();
+            values.push(apply(a, b, t));
+        } else {
+            values.push(Integer.parseInt(t));
+        }
+    }
+    return values.pop();
+}`}
+>
+  <Step lines={[8, 9]}>
+    <Paso expr="5 3 -" sep=" " cursor={1} items={['5', '3']} note="5 y 3 ya están apilados, en ese orden." />
+  </Step>
+  <Step lines={[5]}>
+    <Paso expr="5 3 -" sep=" " cursor={2} items={['5']} note="El primer pop entrega 3: es el operando DERECHO, porque fue el último en entrar." />
+  </Step>
+  <Step lines={[6]}>
+    <Paso expr="5 3 -" sep=" " cursor={2} items={[]} note="El segundo pop entrega 5: el operando izquierdo." />
+  </Step>
+  <Step lines={[7]}>
+    <Paso expr="5 3 -" sep=" " cursor={2} items={['2']} note={'apply(5, 3, "-") apila 5 − 3 = 2.'} />
+  </Step>
+</StepShow>
+
+Con las dos líneas al revés —`int a` primero y `int b` después—, `a` recibe
+el `3` y `b` el `5`, y el evaluador calcula
+`3 − 5 = −2` en vez de `2`. Con `+` y con `*` los dos órdenes dan el mismo
+resultado, así que el error pasa cualquier prueba que sólo los use y aparece
+recién con una resta o una división.
+
+Cada pieza se mira una vez y entra y sale de la pila a lo más una vez:
+$$\Theta(N)$$ de tiempo, y $$\Theta(N)$$ de espacio cuando la expresión
+empieza con muchos números seguidos.
+
+</Slide>
+
+<Slide title="Polaca inversa · el programa completo">
+<PresentationWide fraction={0.75}>
+<Exercise title="Notación polaca inversa">
+
+El evaluador entero, con los dos auxiliares. Presiona **Comprobar** para
+correrlo, y después cambia lo que quieras.
+
+```java starter
+import java.util.Stack;
+
+class Solution {
+
+    static int evaluate(String[] tokens) {
+        Stack<Integer> values = new Stack<>();
+        for (String t : tokens) {
+            if (isOperator(t)) {
+                int b = values.pop();
+                int a = values.pop();
+                values.push(apply(a, b, t));
+            } else {
+                values.push(Integer.parseInt(t));
+            }
+        }
+        return values.pop();
+    }
+
+    static boolean isOperator(String t) {
+        return t.equals("+") || t.equals("-")
+            || t.equals("*") || t.equals("/");
+    }
+
+    static int apply(int a, int b, String t) {
+        if (t.equals("+")) return a + b;
+        if (t.equals("-")) return a - b;
+        if (t.equals("*")) return a * b;
+        return a / b;
+    }
+}
+```
+
+```java test
+check(Solution.evaluate(new String[] {"3", "4", "+", "5", "*"}), 35);
+check(Solution.evaluate(new String[] {"3", "4", "5", "*", "+"}), 23);
+check(Solution.evaluate(new String[] {"5", "3", "-"}), 2);
+check(Solution.evaluate(new String[] {"8", "2", "/"}), 4);
+check(Solution.evaluate(new String[] {"7"}), 7);
+```
+
+</Exercise>
+</PresentationWide>
+
+</Slide>
+
+La notación se debe a Jan Łukasiewicz, que en 1924 propuso poner el
+operador adelante; la variante inversa, con el operador al final, se
+atribuye a Charles Hamblin y a Friedrich Bauer hacia fines de los años
+cincuenta, ya pensando en cómo evaluar expresiones con una máquina.
+
+<Slide title="El problema de Josefo">
+Hay $$n$$ personas en círculo, numeradas de 1 a $$n$$. Se cuenta de a $$k$$ y
+la $$k$$-ésima sale; el conteo sigue desde la siguiente, dando vueltas, hasta
+que queda una sola.
+
+<svg viewBox="46 30 188 226" style={{ width: '100%', maxWidth: '200px', height: 'auto', display: 'block', margin: '1.25rem auto' }} role="img" aria-label="Cinco personas numeradas del 1 al 5 dispuestas en círculo, con el 1 arriba y el resto en el sentido de las agujas del reloj. Se cuenta de a dos empezando por el 1, y el 2 queda marcado en rojo como la que sale.">
+  <text x="140" y="42" textAnchor="middle" fontSize="13" fontWeight="700" style={{ fill: 'var(--color-ink-faint)' }}>el círculo</text>
+  {[1, 2, 3, 4, 5].map((v, i) => {
+    const a = -Math.PI / 2 + (i * 2 * Math.PI) / 5;
+    const cx = 140 + 68 * Math.cos(a);
+    const cy = 140 + 68 * Math.sin(a);
+    const sale = v === 2;
+    return (
+      <g key={v}>
+        <circle cx={cx} cy={cy} r="21" style={{ fill: sale ? 'var(--color-flag-soft)' : 'var(--color-surface)', stroke: sale ? 'var(--color-flag)' : 'var(--color-rule-strong)' }} strokeWidth="1.8" />
+        <text x={cx} y={cy + 6} textAnchor="middle" fontSize="17" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{v}</text>
+      </g>
+    );
+  })}
+  <text x="140" y="250" textAnchor="middle" fontSize="12" style={{ fill: 'var(--color-ink-faint)' }}>se cuenta de a 2: sale el 2</text>
+</svg>
+
+El programa recibe cuántas personas hay y cada cuánto se cuenta, y devuelve
+el número de la que sobrevive:
+
+```java
+int josephus(int n, int k)
+```
+
+**Entrada.** `n`, cuántas personas hay en el círculo, y `k`, cada cuánto se
+cuenta. Los dos entre 1 y 500.
+
+**Salida.** El número de la persona que queda al final.
+
+| `n` | `k` | `josephus(n, k)` |
+|---|---|---|
+| `5` | `2` | `3` |
+| `4` | `2` | `1` |
+| `7` | `1` | `7` |
+| `1` | `3` | `1` |
+
+</Slide>
+
+El nombre viene de Flavio Josefo, que contó cómo, cercado por los romanos en
+el año 67, quedó atrapado en una cueva con cuarenta compañeros decididos a
+morir antes que rendirse. Se pusieron en círculo para eliminarse de a uno, y
+él —que quería vivir— calculó en qué lugar había que pararse para quedar
+último.
+
+<Slide title="Cada baja corre a todos los que quedan">
+Lo primero que se piensa es un arreglo con las $$n$$ personas, del que se
+borra a la que sale. Borrar del medio obliga a correr un lugar a todos los
+que están detrás: $$\Theta(n)$$ por cada baja, y hay $$n - 1$$ bajas. Eso da
+$$\Theta(n^2)$$, y casi todo ese trabajo es tapar huecos.
+
+Pero el problema no pide borrar de cualquier lugar. Pide algo mucho más
+chico, y una sola cosa: **sacar al de adelante y ponerlo al final**, una y
+otra vez. De todos los que pasan por el frente, sólo uno de cada $$k$$ se va
+de verdad.
+
+</Slide>
+
+<Slide title="Volver al círculo es ponerse al final">
+El círculo no tiene principio, pero el conteo sí: en cada momento hay alguien
+a quien le toca contar. Si ponemos a las personas en fila con ésa adelante,
+contar «uno» es sacarla del frente y devolverla al final — que en el círculo
+es exactamente dejar pasar su turno.
+
+<svg viewBox="0 0 560 172" style={{ width: '100%', maxWidth: '560px', height: 'auto', display: 'block', margin: '1.25rem auto' }} role="img" aria-label="Dos filas de cinco casillas. Arriba, en orden uno, dos, tres, cuatro y cinco: es la fila antes de contar. Una flecha sale de debajo del uno, recorre por abajo hacia la derecha y sube hasta el final de la segunda fila, rotulada sale por el frente y vuelve por el final. Abajo, la fila después: dos, tres, cuatro, cinco y el uno resaltado al final.">
+  <defs>
+    <marker id="jos-pasar-punta" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto">
+      <path d="M0,0 L7,3.5 L0,7 z" style={{ fill: 'var(--color-accent)' }} />
+    </marker>
+  </defs>
+  <text x="8" y="36" fontSize="12" fontFamily="monospace" style={{ fill: 'var(--color-ink-faint)' }}>antes</text>
+  <text x="8" y="138" fontSize="12" fontFamily="monospace" style={{ fill: 'var(--color-ink-faint)' }}>después</text>
+  {['1', '2', '3', '4', '5'].map((v, i) => (
+    <g key={i}>
+      <rect x={80 + i * 52} y="12" width="44" height="32" rx="3" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.5" />
+      <text x={102 + i * 52} y="34" textAnchor="middle" fontSize="16" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>{v}</text>
+    </g>
+  ))}
+  {['2', '3', '4', '5', '1'].map((v, i) => (
+    <g key={i}>
+      <rect x={80 + i * 52} y="114" width="44" height="32" rx="3" style={{ fill: i === 4 ? 'var(--color-mark-soft)' : 'var(--color-surface)', stroke: i === 4 ? 'var(--color-mark)' : 'var(--color-rule-strong)' }} strokeWidth="1.5" />
+      <text x={102 + i * 52} y="136" textAnchor="middle" fontSize="16" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>{v}</text>
+    </g>
+  ))}
+  <path d="M 102 46 L 102 80 L 288 80 L 288 110" fill="none" style={{ stroke: 'var(--color-accent)' }} strokeWidth="1.8" markerEnd="url(#jos-pasar-punta)" />
+  <text x="196" y="74" textAnchor="middle" fontSize="13" fontWeight="700" style={{ fill: 'var(--color-accent)' }}>sale por el frente, vuelve por el final</text>
+  <text x="358" y="34" fontSize="13" style={{ fill: 'var(--color-ink-faint)' }}>el 1 cuenta «uno»</text>
+  <text x="358" y="136" fontSize="13" style={{ fill: 'var(--color-ink-faint)' }}>y vuelve al final</text>
+</svg>
+
+Contar de a $$k$$ es, entonces, pasar de largo $$k - 1$$ veces; la
+$$k$$-ésima sale del frente y no vuelve. Una colección de la que se saca por
+un extremo y se agrega por el otro es una **cola**.
+
+</Slide>
+
+<Slide title="Josefo · la solución">
+Con $$n = 5$$ y $$k = 2$$, cada baja son $$k - 1$$ pasadas de largo y un
+`remove()` que saca de verdad.
+
+<StepShow
+  language="java"
+  code={`static int josephus(int n, int k) {
+    Queue<Integer> round = new LinkedList<>();
+    for (int i = 1; i <= n; i++) {
+        round.add(i);
+    }
+    while (round.size() > 1) {
+        for (int i = 1; i < k; i++) {
+            round.add(round.remove());
+        }
+        round.remove();
+    }
+    return round.element();
+}`}
+>
+  <Step lines={[3, 4]}>
+    <Paso items={['1', '2', '3', '4', '5']} label="cola" note="Cinco en círculo, y contamos de a 2. El frente es a quien le toca." />
+  </Step>
+  <Step lines={[7, 8]}>
+    <Paso items={['2', '3', '4', '5', '1']} label="cola" note="El 1 cuenta «uno» y vuelve al final: pasa de largo." />
+  </Step>
+  <Step lines={[10]}>
+    <Paso items={['3', '4', '5', '1']} label="cola" note="El 2 cuenta «dos»: sale. Quedan cuatro." />
+  </Step>
+  <Step lines={[7, 8]}>
+    <Paso items={['4', '5', '1', '3']} label="cola" note="El 3 pasa de largo." />
+  </Step>
+  <Step lines={[10]}>
+    <Paso items={['5', '1', '3']} label="cola" note="El 4 sale. Quedan tres." />
+  </Step>
+  <Step lines={[7, 8]}>
+    <Paso items={['1', '3', '5']} label="cola" note="El 5 pasa de largo." />
+  </Step>
+  <Step lines={[10]}>
+    <Paso items={['3', '5']} label="cola" note="El 1 sale. Quedan dos." />
+  </Step>
+  <Step lines={[7, 8]}>
+    <Paso items={['5', '3']} label="cola" note="El 3 pasa de largo." />
+  </Step>
+  <Step lines={[10]}>
+    <Paso items={['3']} label="cola" note="El 5 sale. Sobrevive el 3." />
+  </Step>
+</StepShow>
+
+La línea que resuelve el problema es `round.add(round.remove())`: saca
+del frente y devuelve al final, que es exactamente «pasar de largo».
+
+</Slide>
+
+<Slide title="El conteo que se corre en uno">
+El error fácil está en el `for`: pasar de largo `k` veces en vez de
+`k - 1`. Con $$k = 2$$ se ve en la segunda vuelta.
+
+<StepShow
+  language="java"
+  code={`static int josephus(int n, int k) {
+    Queue<Integer> round = new LinkedList<>();
+    for (int i = 1; i <= n; i++) {
+        round.add(i);
+    }
+    while (round.size() > 1) {
+        for (int i = 1; i <= k; i++) {
+            round.add(round.remove());
+        }
+        round.remove();
+    }
+    return round.element();
+}`}
+>
+  <Step lines={[7, 8]}>
+    <Paso items={['1', '2', '3', '4', '5']} label="cola" note="Con el conteo mal escrito, i va de 1 hasta k: son DOS pases, no uno." />
+  </Step>
+  <Step lines={[7, 8]}>
+    <Paso items={['2', '3', '4', '5', '1']} label="cola" note="El 1 pasa de largo. Hasta aquí igual." />
+  </Step>
+  <Step lines={[7, 8]}>
+    <Paso items={['3', '4', '5', '1', '2']} label="cola" note="El 2 también pasa de largo — y era el que tenía que salir." />
+  </Step>
+  <Step lines={[10]}>
+    <Paso items={['4', '5', '1', '2']} label="cola" note="Sale el 3. El conteo se corrió en uno y la respuesta ya es otra." failed />
+  </Step>
+</StepShow>
+
+El que sale es el 3 y tenía que ser el 2. Para que salga el `k`-ésimo hay que
+dejar pasar a los `k - 1` que van antes, no a `k`.
+
+Cada baja cuesta $$k - 1$$ pasadas de dos operaciones cada una, más el
+`remove()` que saca: $$2k - 1$$. Hay $$n - 1$$ bajas, así que el total es
+$$(n-1)(2k-1)$$, es decir $$\Theta(nk)$$. La cola nunca guarda más de $$n$$
+personas: $$\Theta(n)$$ de espacio.
+
+</Slide>
+
+<Slide title="Josefo · el programa completo">
+<PresentationWide fraction={0.75}>
+<Exercise title="El problema de Josefo">
+
+El algoritmo entero, con la `Queue` de la biblioteca sobre una lista
+enlazada. Los casos
+de prueba son `josephus(5, 2)`, `josephus(1, 3)`, `josephus(7, 1)` y
+`josephus(4, 2)`. Presiona **Comprobar** para correrlo, y después cambia lo
+que quieras.
+
+```java starter
+import java.util.LinkedList;
+import java.util.Queue;
+
+class Solution {
+
+    static int josephus(int n, int k) {
+        Queue<Integer> round = new LinkedList<>();
+        for (int i = 1; i <= n; i++) {
+            round.add(i);
+        }
+        while (round.size() > 1) {
+            for (int i = 1; i < k; i++) {
+                round.add(round.remove());
+            }
+            round.remove();
+        }
+        return round.element();
+    }
+}
+```
+
+```java test
+check(Solution.josephus(5, 2), 3);
+check(Solution.josephus(1, 3), 1);
+check(Solution.josephus(7, 1), 7);
+check(Solution.josephus(4, 2), 1);
+```
+
+</Exercise>
+</PresentationWide>
+
+</Slide>
+
+<Slide title="Promedio móvil">
+Un sensor entrega un número cada tanto y no se sabe cuántos serán. Después de
+cada uno hay que responder el promedio de los últimos $$K$$, que es lo que
+suaviza las subidas y bajadas sueltas sin tapar la tendencia.
+
+<svg viewBox="20 24 620 150" style={{ width: '100%', maxWidth: '660px', height: 'auto', display: 'block', margin: '1.25rem auto' }} role="img" aria-label="Una secuencia de números 1, 2, 3, 4, 5 que sigue llegando. Un recuadro abarca tres de ellos: es la ventana de tamaño K igual a 3. Al llegar el 4 la ventana se corre una posición, el 1 sale por la izquierda y el 4 entra por la derecha.">
+  <defs>
+    <marker id="pm-punta" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+      <path d="M0,0 L8,4 L0,8 z" style={{ fill: 'var(--color-accent)' }} />
+    </marker>
+  </defs>
+  {[1, 2, 3, 4, 5].map((v, i) => (
+    <g key={v}>
+      <rect x={90 + i * 66} y="70" width="56" height="46" rx="3" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.6" />
+      <text x={118 + i * 66} y="101" textAnchor="middle" fontSize="20" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{v}</text>
+    </g>
+  ))}
+  <text x="420" y="101" fontSize="20" style={{ fill: 'var(--color-ink-faint)' }}>…</text>
+  <rect x="82" y="62" width="200" height="62" rx="5" fill="none" style={{ stroke: 'var(--color-accent)' }} strokeWidth="2.4" />
+  <text x="182" y="52" textAnchor="middle" fontSize="13" fontWeight="700" style={{ fill: 'var(--color-accent)' }}>la ventana · K = 3</text>
+  <path d="M 100 134 l 0 14 l 214 0 l 0 -14" fill="none" style={{ stroke: 'var(--color-accent)' }} strokeWidth="1.8" markerEnd="url(#pm-punta)" />
+  <text x="340" y="152" fontSize="12" style={{ fill: 'var(--color-ink-faint)' }}>cuando llega el 4, la ventana se corre: sale el 1, entra el 4</text>
+</svg>
+
+El programa recibe el tamaño de la ventana y la secuencia completa, y
+devuelve un promedio por cada número que llegó:
+
+```java
+double[] movingAverage(int k, int[] stream)
+```
+
+**Entrada.** `k`, el tamaño de la ventana, mayor que cero; y `stream`, la
+secuencia completa, con a lo más 10⁵ números.
+
+**Salida.** Un arreglo del mismo largo que `stream`: en cada posición, el
+promedio de los últimos `k` números hasta ahí. Mientras hayan llegado menos
+de `k`, el promedio de los que hay.
+
+| `k` | `stream` | resultado |
+|---|---|---|
+| `3` | `1 2 3 4` | `1,00  1,50  2,00  3,00` |
+| `1` | `7 9` | `7,00  9,00` |
+| `5` | `2 4` | `2,00  3,00` |
+
+</Slide>
+
+<Slide title="Volver a sumar los K de cada ventana">
+Lo primero que se piensa es calcular cada promedio como lo dice su
+definición: recorrer los $$K$$ números de la ventana, sumarlos y dividir.
+
+Da el resultado correcto y cuesta $$K$$ operaciones por cada número que
+llega, o sea $$\Theta(NK)$$ en total. Con una ventana de mil y un millón de
+números, son mil millones de sumas para responder un millón de promedios.
+
+Y el desperdicio está a la vista: entre una ventana y la siguiente cambian
+sólo dos números —entra uno, sale otro—, y los otros $$K - 2$$ se vuelven a
+sumar idénticos a como estaban.
+
+</Slide>
+
+<Slide title="Sumar el que entra y restar el que sale">
+Si en vez del promedio guardamos la **suma**, pasar de una ventana a la
+siguiente son dos operaciones: sumarle el número que entra y restarle el que
+sale. El promedio queda como una división al final.
+
+<svg viewBox="0 0 660 184" style={{ width: '100%', maxWidth: '660px', height: 'auto', display: 'block', margin: '1.25rem auto' }} role="img" aria-label="Con K igual a tres y la secuencia uno, dos, tres, cuatro. Al llegar el uno la ventana tiene un número y la suma es uno. Al llegar el dos tiene dos y la suma es tres. Al llegar el tres se llena y la suma es seis. Al llegar el cuatro entra el cuatro y sale el uno, dibujado punteado a la izquierda: la suma pasa de seis a nueve sumando cuatro y restando uno, sin mirar los que se quedan.">
+  <text x="4" y="32" fontSize="12" fontFamily="monospace" style={{ fill: 'var(--color-ink-faint)' }}>llega</text>
+  <text x="4" y="102" fontSize="12" fontFamily="monospace" style={{ fill: 'var(--color-ink-faint)' }}>ventana</text>
+  <text x="4" y="133" fontSize="12" fontFamily="monospace" style={{ fill: 'var(--color-ink-faint)' }}>suma</text>
+  <text x="4" y="156" fontSize="12" fontFamily="monospace" style={{ fill: 'var(--color-ink-faint)' }}>promedio</text>
+  {[
+    { ch: '1', win: ['1'], sale: '', cuenta: '0 + 1 = 1', prom: '1,00' },
+    { ch: '2', win: ['1', '2'], sale: '', cuenta: '1 + 2 = 3', prom: '1,50' },
+    { ch: '3', win: ['1', '2', '3'], sale: '', cuenta: '3 + 3 = 6', prom: '2,00' },
+    { ch: '4', win: ['2', '3', '4'], sale: '1', cuenta: '6 + 4 − 1 = 9', prom: '3,00' },
+  ].map((m, i) => {
+    const cx = 140 + i * 140;
+    const x0 = cx - m.win.length * 14;
+    return (
+      <g key={i}>
+        <rect x={cx - 20} y="10" width="40" height="32" rx="3" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.5" />
+        <text x={cx} y="33" textAnchor="middle" fontSize="18" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>{m.ch}</text>
+        {m.win.map((v, j) => (
+          <g key={j}>
+            <rect x={x0 + j * 28} y="80" width="26" height="26" rx="3" style={{ fill: j === m.win.length - 1 ? 'var(--color-mark-soft)' : 'var(--color-surface)', stroke: j === m.win.length - 1 ? 'var(--color-mark)' : 'var(--color-rule-strong)' }} strokeWidth="1.5" />
+            <text x={x0 + j * 28 + 13} y="98" textAnchor="middle" fontSize="15" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>{v}</text>
+          </g>
+        ))}
+        {m.sale === '' ? null : (
+          <g opacity="0.4">
+            <rect x={x0 - 30} y="80" width="26" height="26" rx="3" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.4" strokeDasharray="4 3" />
+            <text x={x0 - 17} y="98" textAnchor="middle" fontSize="15" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink-faint)' }}>{m.sale}</text>
+          </g>
+        )}
+        <text x={cx} y="130" textAnchor="middle" fontSize="12" fontFamily="monospace" style={{ fill: 'var(--color-ink-soft)' }}>{m.cuenta}</text>
+        <text x={cx} y="156" textAnchor="middle" fontSize="12" fontFamily="monospace" style={{ fill: 'var(--color-accent)' }}>{m.prom}</text>
+      </g>
+    );
+  })}
+  <text x="330" y="178" textAnchor="middle" fontSize="11" style={{ fill: 'var(--color-ink-faint)' }}>punteado, el que sale de la ventana</text>
+</svg>
+
+Para eso hay que saber cuál es el que sale, y es siempre el más viejo de la
+ventana: el que lleva más tiempo adentro. Los números salen en el mismo orden
+en que entraron, y la colección que hace eso es una **cola**.
+
+</Slide>
+
+<Slide title="Promedio móvil · la solución">
+Cada número que llega entra a la cola y se suma. Si con eso la ventana quedó
+más larga que $$K$$, sale el del frente y se resta.
+
+<StepShow
+  language="java"
+  code={`static double[] movingAverage(int k, int[] stream) {
+    if (k <= 0) {
+        throw new IllegalArgumentException();
+    }
+    Queue<Integer> window = new LinkedList<>();
+    double[] out = new double[stream.length];
+    int sum = 0;
+    for (int i = 0; i < stream.length; i++) {
+        window.add(stream[i]);
+        sum += stream[i];
+        if (window.size() > k) {
+            sum -= window.remove();
+        }
+        out[i] = (double) sum / window.size();
+    }
+    return out;
+}`}
+>
+  <Step lines={[5, 6, 7]}>
+    <Paso items={[]} label="ventana" note="K = 3. La ventana arranca vacía, con suma 0." />
+  </Step>
+  <Step lines={[9, 10, 14]}>
+    <Paso items={['1']} label="ventana" note="Entra 1. Suma 1, largo 1 → promedio 1,00." />
+  </Step>
+  <Step lines={[9, 10, 14]}>
+    <Paso items={['1', '2']} label="ventana" note="Entra 2. Suma 3, largo 2 → promedio 1,50." />
+  </Step>
+  <Step lines={[9, 10, 14]}>
+    <Paso items={['1', '2', '3']} label="ventana" note="Entra 3. Suma 6, largo 3 → promedio 2,00. La ventana está llena." />
+  </Step>
+  <Step lines={[9, 10]}>
+    <Paso items={['1', '2', '3', '4']} label="ventana" note="Entra 4: la ventana se pasó de K." />
+  </Step>
+  <Step lines={[11, 12, 14]}>
+    <Paso items={['2', '3', '4']} label="ventana" note="Sale el más viejo por el frente, el 1, y la suma le resta 1. Queda 9, largo 3 → promedio 3,00." />
+  </Step>
+</StepShow>
+
+</Slide>
+
+<Slide title="Las ventanas que todavía no están llenas">
+Mientras han llegado menos de $$K$$ números la ventana no está completa, y el
+promedio se responde con los que hay: el primero vale el número mismo y el
+segundo el promedio de dos. Por eso la división es por el largo de la ventana
+y no por $$K$$.
+
+Con `k` en cero esa división sería cero entre cero y devolvería `NaN` en cada
+llamada, que es la peor forma de fallar: sin ruido. La función lo rechaza de
+entrada con `IllegalArgumentException`.
+
+Cada número entra y sale de la cola exactamente una vez, y la suma se ajusta
+con dos operaciones: $$\Theta(1)$$ por número y $$\Theta(N)$$ por la
+secuencia entera. La cola nunca guarda más de $$K$$ números, así que el
+espacio es $$\Theta(K)$$.
+
+</Slide>
+
+<Slide title="Promedio móvil · el programa completo">
+<PresentationWide fraction={0.75}>
+<Exercise title="Promedio móvil">
+
+El algoritmo entero. Presiona **Comprobar** para correrlo, y después cambia
+lo que quieras.
+
+```java starter
+import java.util.LinkedList;
+import java.util.Queue;
+
+class Solution {
+
+    static double[] movingAverage(int k, int[] stream) {
+        if (k <= 0) {
+            throw new IllegalArgumentException();
+        }
+        Queue<Integer> window = new LinkedList<>();
+        double[] out = new double[stream.length];
+        int sum = 0;
+        for (int i = 0; i < stream.length; i++) {
+            window.add(stream[i]);
+            sum += stream[i];
+            if (window.size() > k) {
+                sum -= window.remove();
+            }
+            out[i] = (double) sum / window.size();
+        }
+        return out;
+    }
+}
+```
+
+```java test
+double[] r = Solution.movingAverage(3, new int[] {1, 2, 3, 4});
+check(r.length, 4);
+check(r[0], 1.0);
+check(r[1], 1.5);
+check(r[2], 2.0);
+check(r[3], 3.0);
+check(Solution.movingAverage(1, new int[] {7, 9})[1], 9.0);
+check(Solution.movingAverage(5, new int[] {2, 4})[1], 3.0);
+```
+
+</Exercise>
+</PresentationWide>
+
+</Slide>
+
+<Questions>
+
+<Question id="pila-como-se-llega-al-cuarto" anchor="una-pila">
+
+¿Cómo se llega al elemento que está en la cuarta posición desde arriba de una pila?
+
+- [x] Sacando antes los tres que tiene encima
+- [ ] Pidiéndolo por su posición, como en un arreglo
+- [ ] Entrando por el extremo del fondo, que está libre
+- [ ] Con `top()`, que recorre hasta encontrarlo
+
+</Question>
+
+<Question id="pila-cuando-se-puede-llamar-top-pop" anchor="el-tda-stack">
+
+¿Cuándo permite el contrato del TDA Stack llamar a `top()` y a `pop()`?
+
+- [x] Cuando `empty()` responde que la pila no está vacía
+- [ ] Siempre, porque sobre una pila vacía devuelven `null`
+- [ ] Siempre, porque el contrato no fija un orden de llamadas
+- [ ] Sólo si antes se consultó el tamaño con `size()`
+
+</Question>
+
+<Question id="pila-por-que-esa-punta" anchor="como-se-implementa-el-tda-stack">
+
+¿Por qué una pila sobre arreglo trabaja por el final y una sobre lista, por la cabeza?
+
+- [x] Porque es la punta donde cada estructura ya era rápida
+- [ ] Porque el TDA Stack fija en qué extremo opera cada implementación
+- [ ] Porque en la otra punta los elementos no están accesibles
+- [ ] Porque así las dos implementaciones dan el mismo orden de salida
+
+</Question>
+
+<Question id="pila-arreglo-donde-esta-la-cima" anchor="sobre-el-arreglo-dinamico">
+
+En una pila sobre arreglo dinámico, ¿dónde está la cima?
+
+- [x] En `data[size - 1]`
+- [ ] En `data[data.length - 1]`
+- [ ] En `data[0]`
+- [ ] En la primera casilla libre después de los elementos
+
+</Question>
+
+<Question id="pila-lista-la-cima-es-la-cabeza" anchor="sobre-la-lista-enlazada">
+
+En una pila sobre lista simplemente enlazada, ¿cuál es la decisión que la hace funcionar?
+
+- [x] Que la cima sea la cabeza de la cadena
+- [ ] Que la cima sea el último nodo de la cadena
+- [ ] Que cada nodo guarde también al anterior
+- [ ] Que la cadena se mantenga ordenada por valor
+
+</Question>
+
+<Question id="pila-que-deja-abierto-el-contrato" anchor="el-tda-stack">
+
+¿Qué deja abierto el contrato del TDA Stack?
+
+- [x] Dónde viven los elementos y cuánto cuesta cada operación
+- [ ] Qué pasa si se llama a `pop()` sobre una pila vacía
+- [ ] El orden en que salen los elementos
+- [ ] Qué operaciones se le pueden pedir
+
+</Question>
+
+<Question id="pila-por-que-la-pila-de-llamadas" anchor="pilas-en-la-vida-real">
+
+¿Por qué la pila de llamadas de un programa es una pila?
+
+- [x] Porque retoma siempre el último que quedó esperando
+- [ ] Porque los métodos corren en el orden en que se escribieron
+- [ ] Porque cada método reserva la misma cantidad de memoria
+- [ ] Porque el compilador los ordena por nombre
+
+</Question>
+
+<Question id="cola-por-donde-se-entra-y-se-sale" anchor="una-cola">
+
+¿Qué dice el contrato del TDA Queue sobre los extremos de la cola?
+
+- [x] Que se entra por el final y se sale por el frente
+- [ ] Que se entra y se sale por el mismo extremo
+- [ ] Que se puede entrar y salir por cualquiera de los dos
+- [ ] Que se entra por el frente y se sale por el final
+
+</Question>
+
+<Question id="cola-lista-por-que-tail" anchor="queue-sobre-una-lista-simplemente-enlazada-con-tail">
+
+¿Por qué la cola sobre lista necesita una referencia `tail` además de `head`?
+
+- [x] Porque apunta al final y encolar queda en costo constante
+- [ ] Porque sin ella no se sabe cuántos elementos hay
+- [ ] Porque desencolar toca el final de la cadena
+- [ ] Porque la cadena tiene que recorrerse al revés
+
+</Question>
+
+<Question id="cola-arreglo-dequeue-corre-todo" anchor="dequeue-sobre-arreglo-dinamico">
+
+En una cola sobre arreglo dinámico el frente vive en `data[0]`. ¿Qué obliga a hacer eso cada vez que se desencola?
+
+- [x] Correr un lugar a todos los elementos que quedan
+- [ ] Dejar un hueco en `data[0]` que nadie vuelve a usar
+- [ ] Reservar un bloque más grande y copiar
+- [ ] Mover sólo el último elemento a la posición cero
+
+</Question>
+
+<Question id="cola-tail-apuntando-a-un-nodo-que-salio" anchor="las-invariantes-de-la-cola-sobre-lista">
+
+Si `tail` queda apuntando a un nodo que ya salió de la cola, ¿qué pasa?
+
+- [x] El siguiente elemento que se encole nace inalcanzable
+- [ ] `size` deja de coincidir con la cantidad de nodos
+- [ ] La cola se queda sin poder desencolar
+- [ ] La cadena se convierte en un ciclo
+
+</Question>
+
+<Question id="cola-que-fija-el-contrato" anchor="el-tda-queue">
+
+¿Qué es lo que fija el contrato del TDA Queue?
+
+- [x] Por cuál extremo se entra y por cuál se sale
+- [ ] En qué casilla de memoria queda cada elemento
+- [ ] Qué posición ocupa cada elemento en la cola
+- [ ] Cuántos elementos puede llegar a guardar
+
+</Question>
+
+<Question id="cola-lista-por-que-no-recorre" anchor="costos-de-queue-sobre-lista">
+
+En la cola sobre lista con `tail`, ¿por qué encolar y desencolar no recorren nada?
+
+- [x] Porque cada extremo ya está en la mano
+- [ ] Porque la cadena se recorre en los dos sentidos
+- [ ] Porque `size` dice dónde está cada extremo
+- [ ] Porque los nodos están juntos en memoria
+
+</Question>
+
+</Questions>

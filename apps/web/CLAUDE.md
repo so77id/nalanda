@@ -128,10 +128,27 @@ SPA fallback and the `vite preview` gotcha). One home per fact, per
 
      Pin every combination the content mounts in the component's OWN test,
      which renders the real component. Worked case: `<SequenceStepper> · the
-combinations the document mounts` (`SequenceStepper.test.tsx`), written
+combinations the documents mount` (`SequenceStepper.test.tsx`), written
      after #288's review narrowed `isValidCombination` and broke a published
      slide past a green suite — caught by walking the deck in a browser, which
      is the only thing that saw it.
+
+     It holds two documents' cases since #294, so **name each case for the
+     act it comes from**: #294's two acts mount the same pair with different
+     arguments — `dynamic-array × insert-last` and
+     `linked-list-singly × remove-first` are each in both — and a failure
+     line that says only the pair does not say which slide broke. (This said
+     `array × insert-last`, a pair no document mounts at all; ADR-0074's own
+     amendment says so in the same PR.)
+
+     Pinning the mount is the floor, not the ceiling. A case that only
+     renders proves the combination is legal; it cannot see a frame that
+     throws or paints wrong halfway through a walk. Step the shapes no other
+     case reaches, the way the `insertLast from empty` case does — and note
+     that #294's empty chain WITH `tail` is one it does NOT reach: the mount
+     table renders it and `sequenceStepperTrace.test.ts` covers it as a pure
+     function, but nothing steps its frames, which is a different guarantee.
+     The next class that mounts that shape owes the stepped case.
 
      State this class by what the TEST fails to reach, never by the widget
      that happened to expose it.

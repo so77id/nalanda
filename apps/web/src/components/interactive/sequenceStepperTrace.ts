@@ -49,7 +49,15 @@ export type SequenceOperation = (typeof OPERATIONS)[number];
 export type SequenceStepKind =
   'start' | 'walk' | 'compare' | 'shift' | 'grow' | 'build' | 'link' | 'unlink' | 'found' | 'done';
 
-export type SequenceCellState = 'idle' | 'new' | 'active' | 'found' | 'leaving';
+/**
+ * `leaving` is an element ON ITS WAY OUT of the structure. `stale` is a
+ * different thing that looks similar and is not: the SOURCE of a copy, whose
+ * value is still written in the block and which nobody will read again. The
+ * array shift needs both words — the element that leaves, and the copies it
+ * leaves behind — and painting them the same said "move" where the narration
+ * said "copy" (#294 review).
+ */
+export type SequenceCellState = 'idle' | 'new' | 'active' | 'found' | 'leaving' | 'stale';
 
 export interface SequenceCell {
   /** Stable across frames — the view animates by identity, not by position. */
@@ -63,6 +71,13 @@ export interface SequencePointer {
   name: string;
   /** Index into `cells`, or `null` for a pointer aimed past the end. */
   index: number | null;
+  /**
+   * A FIELD of the structure (`head`, `tail`, `top`), drawn on every frame,
+   * against a CURSOR of the operation running (`i`, `j`), which exists only
+   * while it runs. The view draws them on separate rows and nudges a cursor
+   * that lands on a field, so the two never share a label position.
+   */
+  fixed?: boolean;
 }
 
 export interface SequenceStep {
@@ -94,10 +109,10 @@ export interface SequenceStep {
     label: string;
     next?: number | null;
     /**
-     * The slot the floating node is parked ABOVE. Set by an operation that
-     * grows at the BACK, so the node hovers over the place it is about to
-     * land instead of over the front of the chain. Absent for the rest,
-     * which keeps their node where it has always been.
+     * The slot the floating node is parked ABOVE, so it hovers over the
+     * place it is about to land rather than over the front of the structure.
+     * Set by the back-growing list operations and by every array insertion.
+     * Absent for the rest, which keep their node where it has always been.
      */
     slot?: number;
   };
@@ -174,8 +189,48 @@ export interface SequenceInput {
    * (`remove-first`, `remove-last`). Default one.
    */
   times?: number;
+  /**
+   * Arrays only: how many slots the block reserves. Without it the block is
+   * sized from the input (`values.length + 2`), which makes the SAME stack
+   * appear four cells wide on the slide that pushes and five on the slide
+   * that pops — two consecutive slides drawing one structure at two sizes
+   * (#294 review). Give the pair the same number and the block stops
+   * breathing between slides.
+   */
+  capacity?: number;
   /** Lists only: draw a `tail` pointer and let the operations use it. */
   tail?: boolean;
+  /**
+   * The name the LISTING shows the method under, when the document presents
+   * the structure through a TDA that calls it something else. A class that
+   * has just taught `pop` = `deleteFirst` mounts the widget and the widget
+   * says `deleteFirst`: the body is the pila's `pop` verbatim, and only the
+   * name on it belongs to the structure rather than to the contract the
+   * slide is about. Renames the signature and every call of it (#294).
+   */
+  method?: string;
+  /** The variable the calling program operates on. Default `list`. */
+  receiver?: string;
+  /**
+   * The class the calling program constructs. Goes with `method` and
+   * `receiver`: a slide that renamed `insertFirst` to `push` over a `pila`
+   * still printed `LinkedList pila = new LinkedList();`, which contradicts
+   * the `class Stack` the same document declared (#294).
+   */
+  receiverType?: string;
+  /**
+   * Arrays only: a named arrow kept on EVERY frame, aimed at the end the
+   * operation works on — the last live slot for the `*-last` operations, the
+   * first for the rest, and at nothing when the block is empty. The `i`/`j`
+   * cursors a frame would otherwise carry are the operation's own, and they
+   * vanish between runs; this is the structure's field, which the class
+   * writes its contract in terms of (`top`, `front`, `rear`) and the reader
+   * should watch move rather than take the narration's word for (#294).
+   *
+   * Naming one STANDS THE CURSORS DOWN: `i` lands on the same cell as `top`
+   * and says the same thing with a second arrow.
+   */
+  pointer?: string;
 }
 
 /**
@@ -296,10 +351,6 @@ function checkIndex(i: number | undefined, length: number, inclusive: boolean): 
   return i;
 }
 
-function requireIndex(input: SequenceInput, length: number, inclusive: boolean): number {
-  return checkIndex(asRuns(input.index)[0], length, inclusive);
-}
-
 /**
  * Refuses a slide that would run a removal more times than the chain has
  * nodes — the listing throws `NoSuchElementException` there, and a trace that
@@ -327,10 +378,20 @@ function requireValues(input: SequenceInput): number[] {
   return list;
 }
 
-function requireTarget(input: SequenceInput): number {
-  const [t] = asRuns(input.target);
-  if (t === undefined) throw new Error('Falta el valor buscado.');
-  return t;
+/**
+ * The name the listing is shown under: the structure's own by default, or
+ * the document's when it presents the structure through a TDA (`method`).
+ * Applied to the listing's signature and to the program that drives it, so
+ * the two never disagree.
+ */
+function shownName(operation: SequenceOperation, input: SequenceInput): string {
+  return input.method ?? METHOD_NAME[operation];
+}
+
+/** Renames the method in a listing whose signature carries the default name. */
+function renameIn(code: string, operation: SequenceOperation, shown: string): string {
+  const own = METHOD_NAME[operation];
+  return shown === own ? code : code.split(`${own}(`).join(`${shown}(`);
 }
 
 /** The Java name of each operation, for the program that drives it. */
@@ -465,43 +526,63 @@ function arrayCode(recipe: SequenceRecipe, operation: SequenceOperation): string
   return ARRAY_CODE[operation as Exclude<SequenceOperation, 'insert-ordered'>];
 }
 
-/**
- * The array family animates ONE run. Its trace was written before the
- * multi-run arguments existed and reads only the first of each — which the
- * #288 review caught as a contract the catalog and the guide were already
- * advertising. Refused at boot rather than silently honoured in part: a slide
- * that asks for three runs and gets one is a slide whose cost claim is wrong.
- */
-function refuseMultiRun(operation: SequenceOperation, input: SequenceInput): void {
-  const runs = Math.max(
-    asRuns(input.value).length,
-    asRuns(input.index).length,
-    asRuns(input.target).length,
-    input.times ?? 1,
-  );
-  if (runs > 1) {
-    throw new Error(
-      `Las recetas de arreglo animan una sola corrida; «${operation}» recibió ${runs}. Sobre una lista enlazada sí se puede.`,
-    );
-  }
-}
-
 function traceArray(
   recipe: SequenceRecipe,
   operation: SequenceOperation,
   input: SequenceInput,
 ): SequenceTrace {
-  refuseMultiRun(operation, input);
-  const code = arrayCode(recipe, operation);
+  // How many times the author asked for the operation. The array family
+  // animated ONE run through #288 and through #294's first array slides; the
+  // push slide of the second pass needs four, with the block filling on the
+  // third. Same helper as the list side, so `insertAt` still gets one index
+  // per value and the run ceiling is one number for the whole widget.
   const grows = recipe === 'dynamic-array';
+  const args = runArgs(operation, input);
+  // Same resguardo the list family carries: a zero-length argument list
+  // traces nothing, and `steps.at(-1)!` at the settle step turns that into an
+  // English JS message rendered to the page.
+  if (args.length === 0) {
+    throw new Error('La operación no se ejecuta ninguna vez: falta el argumento que la corre.');
+  }
+  requireRuns(args.length);
+  const shown = shownName(operation, input);
+  const base = renameIn(arrayCode(recipe, operation), operation, shown);
+  const many = args.length > 1;
+  const code = many
+    ? base +
+      callingProgram(args, shown, false, {
+        name: input.receiver ?? 'arreglo',
+        type: input.receiverType ?? (grows ? 'DynamicArray' : 'StaticArray'),
+      })
+    : base;
+  const runLine = (run: number): number[] => (many ? [base.split('\n').length + run + 1] : []);
   // The static array is drawn with room to spare — its capacity is fixed at
   // creation and the class's point is that it can run out. The dynamic array
-  // is drawn FULL, so that a single insertion shows the resize it exists for.
-  let capacity = grows ? Math.max(input.values.length, 1) : input.values.length + 2;
+  // DEFAULTS to full, so that a single insertion shows the resize it exists
+  // for; an author running several insertions passes `capacity` to choose
+  // which of them pays for the growth, because a first push that grows is the
+  // one place a reader least expects it.
+  if (input.capacity !== undefined) {
+    // Refuse what cannot be drawn rather than degrading quietly: a fractional
+    // capacity was truncated in silence and `NaN` produced a zero-width block.
+    if (!Number.isInteger(input.capacity) || input.capacity < 1 || input.capacity > MAX_CAPACITY) {
+      throw new Error(`La capacidad ${input.capacity} no es un entero entre 1 y ${MAX_CAPACITY}.`);
+    }
+    if (input.capacity < input.values.length) {
+      throw new Error(
+        `La capacidad ${input.capacity} no alcanza para los ${input.values.length} elementos iniciales.`,
+      );
+    }
+  }
+  let capacity = grows
+    ? (input.capacity ?? Math.max(input.values.length, 1))
+    : (input.capacity ?? input.values.length + 2);
 
-  // The block, slot by slot. A move empties the slot it came from, so the
-  // reader watches the hole travel and counts the copies — which is the whole
-  // lesson of an array insertion.
+  // The block, slot by slot. A copy leaves its source written where it was
+  // until the next one overwrites it, so the reader sees the value in two
+  // cells at once and counts the copies — which is the whole lesson of an
+  // array insertion. (It used to vacate the source, which drew a MOVE and a
+  // hole travelling through the middle of the block — #294 review.)
   const slots: (SequenceCell | null)[] = Array.from({ length: capacity }, () => null);
   cellsFrom(input.values).forEach((cell, i) => {
     slots[i] = cell;
@@ -518,22 +599,41 @@ function traceArray(
 
   const steps: SequenceStep[] = [];
   let cost = 0;
+  // Which call is running, so every frame lights BOTH the line inside the
+  // method and the call that invoked it — the two halves of "where are we"
+  // the list family already prints.
+  let currentRun = 0;
+  // The persistent pointer, if the slide asked for one. Computed at each
+  // `push` rather than once, so it follows `size` through the frames instead
+  // of freezing where the structure started.
+  const atLast = operation.endsWith('-last');
+  const basePointers = (): SequencePointer[] => {
+    if (input.pointer === undefined) return [];
+    const n = size();
+    return [{ name: input.pointer, index: n === 0 ? null : atLast ? n - 1 : 0, fixed: true }];
+  };
   const push = (
     kind: SequenceStepKind,
     highlightLines: number[],
     description: string,
     extra: Partial<SequenceStep> = {},
   ) => {
+    const { pointers: extraPointers, ...rest } = extra;
+    // Naming a pointer is the author saying what the reader should follow, so
+    // the operation's own cursor stands down: `i` lands on the same cell as
+    // `top` and says the same thing with a second arrow. A slide that names
+    // none keeps the cursors — the Queue act reads `j` through the shift.
+    const cursors = input.pointer === undefined ? (extraPointers ?? []) : [];
     steps.push({
       kind,
       cells: snapshot(live()),
       slots: slots.map((s) => (s === null ? null : { ...s })),
-      pointers: [],
-      highlightLines,
+      pointers: [...basePointers(), ...cursors],
+      highlightLines: [...highlightLines, ...runLine(currentRun)],
       description,
       capacity,
       cost,
-      ...extra,
+      ...rest,
     });
   };
 
@@ -558,157 +658,189 @@ function traceArray(
     return 3;
   };
 
-  switch (operation) {
-    case 'insert-first':
-    case 'insert-last':
-    case 'insert-at': {
-      const [x] = requireValues(input) as [number];
-      const at =
-        operation === 'insert-first'
-          ? 0
-          : operation === 'insert-last'
-            ? size()
-            : requireIndex(input, size(), true);
-      growIfNeeded();
-      const n = size();
-      push('start', [1], `Insertamos ${x} en la posición ${at} de un arreglo de ${n} elementos.`, {
-        carry: { value: x, label: 'x' },
-      });
-      // Copy right, from the last element down to the insertion point. Each
-      // copy vacates its source, so a hole opens at `at`.
-      const shiftLines =
-        operation === 'insert-last'
-          ? []
-          : [lineOf(code, 'for (int j = size'), lineOf(code, 'data[j] = data[j - 1]')];
-      for (let j = n; j > at; j -= 1) {
-        cost += 1;
-        const moved = slots[j - 1]!;
-        slots[j] = { ...moved, state: 'active' };
-        slots[j - 1] = null;
-        push('shift', shiftLines, `Copiamos ${moved.value} de la posición ${j - 1} a la ${j}.`, {
-          pointers: [{ name: 'j', index: j }],
-          carry: { value: x, label: 'x' },
-        });
-        clearTransient();
-      }
-      cost += 1;
-      slots[at] = { id: (nextId += 1), value: x, state: 'new' };
-      const writeLine = lineOf(
-        code,
-        operation === 'insert-last'
-          ? 'data[size] = x'
-          : operation === 'insert-first'
-            ? 'data[0] = x'
-            : 'data[i] = x',
-      );
-      push(
-        'link',
-        [writeLine],
-        `Escribimos ${x} en la posición ${at}. El largo pasa a ${size()}.`,
-        {
-          pointers: [{ name: 'i', index: at }],
-        },
-      );
-      break;
-    }
-    case 'remove-first':
-    case 'remove-last':
-    case 'remove-at': {
-      requireNonEmpty(input.values);
-      const n = size();
-      const at =
-        operation === 'remove-first'
-          ? 0
-          : operation === 'remove-last'
-            ? n - 1
-            : requireIndex(input, n, false);
-      const removed = slots[at]!;
-      slots[at] = { ...removed, state: 'leaving' };
-      cost += 1;
-      push(
-        'start',
-        [lineOf(code, 'int x = data[')],
-        `Guardamos ${removed.value}, el elemento de la posición ${at}.`,
-        {
-          pointers: [{ name: 'i', index: at }],
-        },
-      );
-      slots[at] = null;
-      // Copy left, closing the hole the removal opened.
-      const shiftLines =
-        operation === 'remove-last'
-          ? []
-          : [lineOf(code, 'for (int j = '), lineOf(code, 'data[j] = data[j + 1]')];
-      for (let j = at; j < n - 1; j += 1) {
-        cost += 1;
-        const moved = slots[j + 1]!;
-        slots[j] = { ...moved, state: 'active' };
-        slots[j + 1] = null;
-        push('shift', shiftLines, `Copiamos ${moved.value} de la posición ${j + 1} a la ${j}.`, {
-          pointers: [{ name: 'j', index: j }],
-        });
-        clearTransient();
-      }
-      push(
-        'done',
-        [lineOf(code, 'size--')],
-        `El largo pasa a ${size()}. Devolvemos ${removed.value}.`,
-      );
-      break;
-    }
-    case 'get-at': {
-      const at = requireIndex(input, size(), false);
-      push('start', [lineOf(code, 'i >= size')], `Pedimos el elemento de la posición ${at}.`);
-      cost += 1;
-      slots[at] = { ...slots[at]!, state: 'found' };
-      push(
-        'found',
-        [lineOf(code, 'return data[i]')],
-        `La posición ${at} vive en base + ${at} × tamaño: una cuenta, y ya estamos ahí.`,
-        { pointers: [{ name: 'i', index: at }] },
-      );
-      break;
-    }
-    case 'search': {
-      const target = requireTarget(input);
-      const n = size();
-      push(
-        'start',
-        [lineOf(code, 'for (int i = 0')],
-        `Buscamos ${target} recorriendo el arreglo desde la posición 0.`,
-      );
-      let found = -1;
-      for (let j = 0; j < n; j += 1) {
-        cost += 1;
-        const cell = slots[j]!;
-        const hit = cell.value === target;
-        slots[j] = { ...cell, state: hit ? 'found' : 'active' };
+  // One pass per run. Everything the pass needs — `slots`, `capacity`,
+  // `cost`, `push` — is closed over, so a second run starts on the block
+  // the first one left rather than on the author's `values`. The array
+  // family animated ONE run before #294: a slide that asked for three got
+  // one, silently, which is why it was refused at boot. It is honoured now.
+  args.forEach((_arg, run) => {
+    // Each call starts its own count; see `SequenceStep.cost`.
+    currentRun = run;
+    if (run > 0) cost = 0;
+    switch (operation) {
+      case 'insert-first':
+      case 'insert-last':
+      case 'insert-at': {
+        const x = requireValues(input)[run]!;
+        const at =
+          operation === 'insert-first'
+            ? 0
+            : operation === 'insert-last'
+              ? size()
+              : checkIndex(asRuns(input.index)[run], size(), true);
+        growIfNeeded();
+        const n = size();
+        // Parked over the slot it will land in, like the list family's
+        // back-growing operations. It used to sit at a fixed offset from the
+        // front of the block, which put it over the middle of a short block
+        // — where it crossed the `top` arrow's line (#294).
+        const floating = { value: x, label: 'x', slot: at };
         push(
-          'compare',
-          [lineOf(code, 'for (int i = 0'), lineOf(code, 'if (data[i] == x')],
-          `¿data[${j}] = ${cell.value} es ${target}? ${hit ? 'Sí.' : 'No.'}`,
-          {
+          'start',
+          [1],
+          `Insertamos ${x} en la posición ${at} de un arreglo de ${n} elementos.`,
+          { carry: floating },
+        );
+        // Copy right, from the last element down to the insertion point. The
+        // source stays drawn (stale) for its frame — see the mirror comment in
+        // the removal branch — and each is overwritten by the next copy, the
+        // last one by the value being inserted.
+        const shiftLines =
+          operation === 'insert-last'
+            ? []
+            : [lineOf(code, 'for (int j = size'), lineOf(code, 'data[j] = data[j - 1]')];
+        for (let j = n; j > at; j -= 1) {
+          cost += 1;
+          const moved = slots[j - 1]!;
+          slots[j] = { ...moved, state: 'active' };
+          slots[j - 1] = { id: (nextId += 1), value: moved.value, state: 'stale' };
+          push('shift', shiftLines, `Copiamos ${moved.value} de la posición ${j - 1} a la ${j}.`, {
             pointers: [{ name: 'j', index: j }],
+            carry: floating,
+          });
+          clearTransient();
+        }
+        cost += 1;
+        slots[at] = { id: (nextId += 1), value: x, state: 'new' };
+        const writeLine = lineOf(
+          code,
+          operation === 'insert-last'
+            ? 'data[size] = x'
+            : operation === 'insert-first'
+              ? 'data[0] = x'
+              : 'data[i] = x',
+        );
+        push(
+          'link',
+          [writeLine],
+          `Escribimos ${x} en la posición ${at}. El largo pasa a ${size()}.`,
+          {
+            pointers: [{ name: 'i', index: at }],
           },
         );
-        if (hit) {
-          found = j;
-          break;
-        }
-        clearTransient();
+        break;
       }
-      push(
-        found >= 0 ? 'found' : 'done',
-        found >= 0 ? [lineOf(code, 'return i;')] : [lineOf(code, 'return -1;')],
-        found >= 0
-          ? `Encontramos ${target} en la posición ${found}.`
-          : `Recorrimos las ${n} posiciones: ${target} no está en el arreglo.`,
-      );
-      break;
+      case 'remove-first':
+      case 'remove-last':
+      case 'remove-at': {
+        // The block as it is BY NOW, not as the author wrote it: a third
+        // removal is refused against what the two before it left.
+        requireNonEmpty(live().map((c) => c.value));
+        const n = size();
+        const at =
+          operation === 'remove-first'
+            ? 0
+            : operation === 'remove-last'
+              ? n - 1
+              : checkIndex(asRuns(input.index)[run], n, false);
+        const removed = slots[at]!;
+        slots[at] = { ...removed, state: 'leaving' };
+        cost += 1;
+        push(
+          'start',
+          [lineOf(code, 'int x = data[')],
+          `Guardamos ${removed.value}, el elemento de la posición ${at}.`,
+          {
+            pointers: [{ name: 'i', index: at }],
+          },
+        );
+        slots[at] = null;
+        // Copy left, closing the hole the removal opened.
+        const shiftLines =
+          operation === 'remove-last'
+            ? []
+            : [lineOf(code, 'for (int j = '), lineOf(code, 'data[j] = data[j + 1]')];
+        for (let j = at; j < n - 1; j += 1) {
+          cost += 1;
+          const moved = slots[j + 1]!;
+          slots[j] = { ...moved, state: 'active' };
+          // A COPY does not empty its source. Leaving the source drawn — marked
+          // stale — is what makes the frame say "copy" instead of "move": the
+          // reader sees the value in two cells at once. The next iteration
+          // overwrites it, and the last source is nulled after the loop, which
+          // is the one that becomes garbage beyond `size`. Emptying it here
+          // drew a hole travelling through the middle of the block, which is
+          // the picture #277 teaches as the INVALID array (#294 review).
+          slots[j + 1] = { id: (nextId += 1), value: moved.value, state: 'stale' };
+          push('shift', shiftLines, `Copiamos ${moved.value} de la posición ${j + 1} a la ${j}.`, {
+            pointers: [{ name: 'j', index: j }],
+          });
+          clearTransient();
+        }
+        if (n - 1 > at) slots[n - 1] = null;
+        push(
+          'done',
+          [lineOf(code, 'size--')],
+          `El largo pasa a ${size()}. Devolvemos ${removed.value}.`,
+        );
+        break;
+      }
+      case 'get-at': {
+        const at = checkIndex(asRuns(input.index)[run], size(), false);
+        push('start', [lineOf(code, 'i >= size')], `Pedimos el elemento de la posición ${at}.`);
+        cost += 1;
+        slots[at] = { ...slots[at]!, state: 'found' };
+        push(
+          'found',
+          [lineOf(code, 'return data[i]')],
+          `La posición ${at} vive en base + ${at} × tamaño: una cuenta, y ya estamos ahí.`,
+          { pointers: [{ name: 'i', index: at }] },
+        );
+        break;
+      }
+      case 'search': {
+        // `runArgs` returns `asRuns(input.target)` for this operation and an
+        // empty one throws upstream, so every run has its own target.
+        const target = asRuns(input.target)[run]!;
+        const n = size();
+        push(
+          'start',
+          [lineOf(code, 'for (int i = 0')],
+          `Buscamos ${target} recorriendo el arreglo desde la posición 0.`,
+        );
+        let found = -1;
+        for (let j = 0; j < n; j += 1) {
+          cost += 1;
+          const cell = slots[j]!;
+          const hit = cell.value === target;
+          slots[j] = { ...cell, state: hit ? 'found' : 'active' };
+          push(
+            'compare',
+            [lineOf(code, 'for (int i = 0'), lineOf(code, 'if (data[i] == x')],
+            `¿data[${j}] = ${cell.value} es ${target}? ${hit ? 'Sí.' : 'No.'}`,
+            {
+              pointers: [{ name: 'j', index: j }],
+            },
+          );
+          if (hit) {
+            found = j;
+            break;
+          }
+          clearTransient();
+        }
+        push(
+          found >= 0 ? 'found' : 'done',
+          found >= 0 ? [lineOf(code, 'return i;')] : [lineOf(code, 'return -1;')],
+          found >= 0
+            ? `Encontramos ${target} en la posición ${found}.`
+            : `Recorrimos las ${n} posiciones: ${target} no está en el arreglo.`,
+        );
+        break;
+      }
+      default:
+        throw new Error(`Operación no soportada sobre un arreglo: ${operation}`);
     }
-    default:
-      throw new Error(`Operación no soportada sobre un arreglo: ${operation}`);
-  }
+  });
 
   const last = steps.at(-1)!;
   steps[steps.length - 1] = {
@@ -741,14 +873,19 @@ function traceArray(
  * frame lights the call AND the line inside the method, so both halves of
  * "where are we" are on screen.
  */
-function callingProgram(args: string[], method: string, fresh: boolean): string {
+function callingProgram(
+  args: string[],
+  method: string,
+  fresh: boolean,
+  receiver: { name: string; type: string } = { name: 'list', type: 'LinkedList' },
+): string {
   return [
     '',
-    // Only a chain that STARTS empty was built by this program. Printing the
-    // constructor over a populated `values` would be a listing that
+    // Only a structure that STARTS empty was built by this program. Printing
+    // the constructor over a populated `values` would be a listing that
     // contradicts the picture beside it.
-    ...(fresh ? ['LinkedList list = new LinkedList();'] : []),
-    ...args.map((a) => `list.${method}(${a});`),
+    ...(fresh ? [`${receiver.type} ${receiver.name} = new ${receiver.type}();`] : []),
+    ...args.map((a) => `${receiver.name}.${method}(${a});`),
   ].join('\n');
 }
 
@@ -919,7 +1056,14 @@ function listCode(recipe: SequenceRecipe, operation: SequenceOperation, tail: bo
         throw new NoSuchElementException();
     }
     Node old = head;
-    head = head.next;
+    head = head.next;${
+      tail
+        ? `
+    if (head == null) {
+        tail = null;
+    }`
+        : ''
+    }
     size--;
     return old.value;
 }`;
@@ -952,14 +1096,24 @@ function listCode(recipe: SequenceRecipe, operation: SequenceOperation, tail: bo
     Node old;
     if (head.next == null) {
         old = head;
-        head = null;
+        head = null;${
+          tail
+            ? `
+        tail = null;`
+            : ''
+        }
     } else {
         Node prev = head;
         while (prev.next.next != null) {
             prev = prev.next;
         }
         old = prev.next;
-        prev.next = null;
+        prev.next = null;${
+          tail
+            ? `
+        tail = prev;`
+            : ''
+        }
     }
     size--;
     return old.value;
@@ -1016,6 +1170,13 @@ function listCode(recipe: SequenceRecipe, operation: SequenceOperation, tail: bo
  */
 const MAX_RUNS = 12;
 
+/**
+ * The widest block a slide can still show, in the same spirit as MAX_RUNS:
+ * past this nobody reads the cells projected, and an author who asks for it
+ * has almost certainly typed a number they did not mean.
+ */
+const MAX_CAPACITY = 40;
+
 function requireRuns(runs: number): void {
   if (!Number.isInteger(runs) || runs < 1 || runs > MAX_RUNS) {
     throw new Error(
@@ -1037,7 +1198,8 @@ function traceList(
   // operation and the slide's prose does the talking. Several runs append the
   // calls, so every frame lights BOTH the line inside the method and the call
   // that is running, and the reader can see which run they are watching.
-  const base = listCode(recipe, operation, tail);
+  const shown = shownName(operation, input);
+  const base = renameIn(listCode(recipe, operation, tail), operation, shown);
   const args = runArgs(operation, input);
   requireRuns(args.length);
   // A zero-length argument list traces nothing, and `steps.at(-1)!` at the
@@ -1047,7 +1209,13 @@ function traceList(
   }
   const many = args.length > 1;
   const fresh = input.values.length === 0;
-  const code = many ? base + callingProgram(args, METHOD_NAME[operation], fresh) : base;
+  const code = many
+    ? base +
+      callingProgram(args, shown, fresh, {
+        name: input.receiver ?? 'list',
+        type: input.receiverType ?? 'LinkedList',
+      })
+    : base;
   // Computed, not searched: two runs of a method that takes no argument write
   // the SAME call line twice, and `lineOf` would hand both the first one.
   // Each call starts its own count; see `SequenceStep.cost`.
@@ -1064,8 +1232,16 @@ function traceList(
   let cost = 0;
 
   const basePointers = (extra: SequencePointer[] = []): SequencePointer[] => {
-    const pointers: SequencePointer[] = [{ name: 'head', index: cells.length > 0 ? 0 : null }];
-    if (tail) pointers.push({ name: 'tail', index: cells.length > 0 ? cells.length - 1 : null });
+    const pointers: SequencePointer[] = [
+      { name: 'head', index: cells.length > 0 ? 0 : null, fixed: true },
+    ];
+    if (tail) {
+      pointers.push({
+        name: 'tail',
+        index: cells.length > 0 ? cells.length - 1 : null,
+        fixed: true,
+      });
+    }
     return [...pointers, ...extra];
   };
 
@@ -1269,7 +1445,13 @@ function traceList(
           [...callLine, lineOf(code, 'if (head == null)')],
           empty
             ? 'head es null: la cadena está vacía, así que el nodo nuevo es también el primero.'
-            : 'head no es null: hay un último nodo, y hay que caminar hasta él.',
+            : // With `tail` there is nothing to walk — saying so here is the
+              // whole point of the prop, and the slide that mounts it says
+              // "ninguna de las tres recorre la cadena". The un-branched
+              // string contradicted both, twice per run (#294 review).
+              tail
+              ? 'head no es null: hay un último nodo, y tail ya lo tiene localizado.'
+              : 'head no es null: hay un último nodo, y hay que caminar hasta él.',
           { carry: held },
         );
         if (empty) {

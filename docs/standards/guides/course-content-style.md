@@ -103,28 +103,57 @@ The `## Lo que sigue` at the end of a document is the one section that names
 another document by name (via wiki-link). That is a bridge between documents,
 not a cross-reference inside one.
 
-## 5. Titles — noun phrase + optional subtitle
+## 5. Titles — a noun phrase that says what is on the slide
 
 Every heading — the `h2` that opens a section, the `title=` of a `<Slide>`,
 the `<Exercise>` title — reads as a **noun phrase** (not an imperative, not a
-question, not a chatty label). When a subtitle helps disambiguate, join it
-with an **interpunct** ( `·` , U+00B7):
+question, not a chatty label), and it **names what the slide is about**. A
+title that is an idea, an impression or a turn of phrase fails the rule even
+when its grammar passes it: #294 shipped `La pila lo ve`, which is a noun
+phrase and says nothing about its slide.
 
-```
-{concepto central} · {precisión}
-```
+> **Test.** Read the deck's titles in a column, with no slides. Does the list
+> say what the class covers, in order? That is the job of a title.
 
-- **Do**: `Overflow en la resta`, `La interfaz Comparable · contrato de compareTo`,
-  `Pair · A, B`, `Comparaciones seguras y desempate`.
+- **Do**: `Overflow en la resta`, `Comparaciones seguras y desempate`,
+  `Costos de Stack sobre lista`, `Cuando no está balanceada`.
 - **Do not**: `Predecí antes de correr` (imperative), `¿Qué imprime?` (question),
   `Fix: Integer.compare + tie-breaking` (colon + English label +
   chattiness), `Un truco útil` (opinion word), `Cuando el compilador te frena`
-  (assumes a scene).
+  (assumes a scene), `La pila lo ve` (says nothing about the slide).
 
-The interpunct is a convention that keeps the section spine consistent — every
-title is a label of the same shape, and the reader learns to skim it once and
-know where they are. A single-part title is fine too when the concept is
-enough on its own (_Comparator lambda_, _Ejercicios_, _Lo que sigue_).
+**No subtitle.** This rule used to sanction a second half joined by an
+interpunct — `{concepto central} · {precisión}` — on the argument that a
+uniform two-part shape helps the reader skim. #294 withdraws it: a title
+already has to say what its slide is about, and the subtitle is where the
+saying got deferred to. Every one of its slides is single-part except the
+ten that form the four exercise series below.
+
+The interpunct survives in two shapes, and only these two.
+
+**A series**: a run of titles that share one job and differ in which part of
+it they carry. The test is mechanical — the part BEFORE the interpunct
+repeats across several titles and the part after is what distinguishes them.
+A document `title` naming its unit passes (`Estructuras de Datos · Stack y
+Queue` repeats across chapters 17, 18 and 19), and so does a run of slides
+inside one exercise (`Paréntesis · funciones auxiliares`,
+`Paréntesis · la solución`, `Paréntesis · el programa completo`).
+
+**A gloss**: the English name of a contract beside its Spanish one, as an act
+heading — `## Stack · Pila`, `## Queue · Cola`. Neither half repeats, so it
+fails the series test; it is licensed separately and only for this, because
+the unit teaches contracts whose names the literature gives in English and
+the course speaks in Spanish. #294 listed it as a series and it is not one.
+
+Anything else is the subtitle this section retired: a one-off precision hung
+on a title that already stood alone.
+
+**31 titles in `17-edd-introduccion.mdx` and `18-edd-listas-enlazadas.mdx`
+carry an interpunct**, of which five — the `Operación de modificación · …`
+run in 17 — are a series by the test above and are licensed. The other 26
+are subtitles, written when the rule allowed them.
+They are not a defect to fix under time pressure; retire them when those
+documents are next opened for another reason.
 
 The one place this rule bends is `## Lo que sigue`, which is a boilerplate
 closing name used across every document and reads as a fixed heading rather
@@ -181,8 +210,10 @@ Two consequences worth spelling out, because #288 hit both:
 - [ ] No cross-references between sections or slides of the same document
       (grep the body for _§_, _sección anterior_, _slide anterior_, _más
       adelante_, _ya vimos_, _acabamos de_, _volveremos_).
-- [ ] Every `h2` and every `<Slide title>` is a noun phrase, optionally with
-      `·` and a subtitle. No imperatives, no questions, no colons + English
+- [ ] Every `h2` and every `<Slide title>` is a single-part noun phrase that
+      says what is on its slide — no `·` subtitle; the only interpuncts
+      allowed are a series and the contract gloss (§5) — and the deck's
+      titles read in a column say what the class covers. No imperatives, no questions, no colons + English
       labels.
 - [ ] Every `<Exercise title>` is a noun phrase in the same shape.
 - [ ] Read the document aloud in one pass. Anything that would come out of the

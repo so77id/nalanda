@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 
 import { ModeProvider } from '../../presentation';
-import { SequenceStepper } from './SequenceStepper';
+import { SequenceStepper, type SequenceStepperProps } from './SequenceStepper';
 
 /**
  * jsdom mocks CodeMirror and lays nothing out, so these cases assert the
@@ -241,7 +241,13 @@ describe('<SequenceStepper> · the chrome', () => {
     expect(size).toHaveTextContent(/size\s*3/);
   });
 
-  it('shows the elementary-operation counter, and it grows with the walk', () => {
+  // The counter came off in #294 (ADR-0074 §Amended by): a single run shows a
+  // single number, which is not a growth rate, and seven of the eight slides
+  // that mounted the widget never referred to it. The arithmetic it displayed
+  // is still computed and still pinned — in `sequenceStepperTrace.test.ts`,
+  // where a claim about cost can be checked exactly instead of read off a
+  // painted box. This case is here so that putting it back is a decision.
+  it('keeps the operation counter off the screen', () => {
     renderIn(
       'book',
       <SequenceStepper
@@ -252,11 +258,11 @@ describe('<SequenceStepper> · the chrome', () => {
       />,
     );
     const box = screen.getByTestId('sequence-size');
-    expect(box).toHaveTextContent(/ops\s*0/);
+    expect(box).toHaveTextContent(/size/i);
+    expect(box).not.toHaveTextContent(/ops/i);
     const forward = () => screen.getByRole('button', { name: 'Adelante' });
     while (forward().getAttribute('aria-disabled') !== 'true') fireEvent.click(forward());
-    // Four hops to reach position 4 — the cost the slide claims.
-    expect(box).toHaveTextContent(/ops\s*4/);
+    expect(box).not.toHaveTextContent(/ops/i);
   });
 
   it('adds the capacity beside it for a block that reserves one', () => {
@@ -268,7 +274,7 @@ describe('<SequenceStepper> · the chrome', () => {
   });
 });
 
-describe('<SequenceStepper> · the combinations the document mounts', () => {
+describe('<SequenceStepper> · the combinations the documents mount', () => {
   // The narrowing of `isValidCombination` in the #288 review broke the
   // doubly+tail deleteLast slide, and the suite did not see it: the document
   // render test loads the widget lazily, so jsdom paints the fallback and
@@ -290,6 +296,142 @@ describe('<SequenceStepper> · the combinations the document mounts', () => {
       />,
     );
     expect(screen.queryByText(/no está definida/i)).not.toBeInTheDocument();
+    expect(screen.getByTestId('sequence-structure')).toBeInTheDocument();
+  });
+
+  // #294 mounts the widget over BOTH families for the first time: the Stack
+  // and Queue class runs the same operations over an array and over a chain,
+  // which is what the array recipes were carried for (ADR-0074
+  // §Consequences). Each entry is a tag the document actually ships.
+  // The act is part of the name because both acts mount some of the same
+  // pairs with different arguments, and two cases called the same thing hide
+  // which one broke.
+  const mounted: { act: string; props: SequenceStepperProps }[] = [
+    {
+      act: 'Stack',
+      props: {
+        eda: 'dynamic-array',
+        capacity: 4,
+        operation: 'insert-last',
+        values: [42, 7],
+        value: [15, 4, 9, 23],
+        pointer: 'top',
+        showCode: false,
+      },
+    },
+    {
+      act: 'Stack',
+      props: {
+        eda: 'dynamic-array',
+        capacity: 8,
+        operation: 'remove-last',
+        values: [42, 7, 15, 4, 9, 23],
+        times: 3,
+        pointer: 'top',
+        showCode: false,
+      },
+    },
+    {
+      act: 'Stack',
+      props: {
+        eda: 'linked-list-singly',
+        operation: 'insert-first',
+        values: [],
+        value: [42, 7, 15],
+        method: 'push',
+        receiver: 'pila',
+        receiverType: 'Stack',
+      },
+    },
+    {
+      act: 'Stack',
+      props: {
+        eda: 'linked-list-singly',
+        operation: 'remove-first',
+        values: [15, 7, 42],
+        times: 3,
+        method: 'pop',
+        receiver: 'pila',
+        receiverType: 'Stack',
+      },
+    },
+    // The Queue act. The other pair of ends, and the list side carries
+    // `tail` — which is what makes its `enqueue` constant.
+    {
+      act: 'Queue',
+      props: {
+        eda: 'dynamic-array',
+        capacity: 4,
+        operation: 'insert-last',
+        values: [3, 8],
+        value: [5, 9, 4, 23],
+        pointer: 'rear',
+        showCode: false,
+      },
+    },
+    {
+      act: 'Queue',
+      props: {
+        eda: 'dynamic-array',
+        capacity: 8,
+        operation: 'remove-first',
+        values: [3, 8, 5, 9, 4],
+        times: 3,
+        pointer: 'front',
+        showCode: false,
+      },
+    },
+    {
+      act: 'Queue',
+      props: {
+        eda: 'linked-list-singly',
+        operation: 'insert-last',
+        values: [],
+        value: [3, 8, 5],
+        tail: true,
+        method: 'enqueue',
+        receiver: 'cola',
+        receiverType: 'Queue',
+      },
+    },
+    {
+      act: 'Queue',
+      props: {
+        eda: 'linked-list-singly',
+        operation: 'remove-first',
+        values: [3, 8, 5],
+        times: 3,
+        tail: true,
+        method: 'dequeue',
+        receiver: 'cola',
+        receiverType: 'Queue',
+      },
+    },
+  ];
+
+  it.each(mounted)('accepts $act · $props.eda × $props.operation', ({ props }) => {
+    renderIn('book', <SequenceStepper {...props} />);
+    expect(document.querySelector('[data-authoring-error]')).toBeNull();
+    expect(screen.getByTestId('sequence-structure')).toBeInTheDocument();
+  });
+
+  // The constraint that decided the shape of every array slide in #294's
+  // first pass, and that the second pass lifted: the push slide needs four
+  // pushes with the block filling on the third, which one run cannot show.
+  // Still invisible to `app/contentRenders.test.tsx` (the widget is lazy
+  // there), so the mount is pinned HERE or nowhere.
+  it('runs an array recipe as many times as the slide asked', () => {
+    renderIn(
+      'book',
+      <SequenceStepper
+        eda="dynamic-array"
+        capacity={4}
+        operation="insert-last"
+        values={[42, 7]}
+        value={[15, 4, 9, 23]}
+      />,
+    );
+    expect(document.querySelector('[data-authoring-error]')).toBeNull();
     expect(screen.getByTestId('sequence-structure')).toBeInTheDocument();
   });
 

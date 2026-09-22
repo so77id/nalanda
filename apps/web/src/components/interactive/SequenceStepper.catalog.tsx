@@ -51,7 +51,37 @@ export const sequenceStepperCatalogEntry: CatalogEntry = {
       name: 'times',
       type: 'number',
       description:
-        'How many times to run an operation that takes no argument (`remove-first`, `remove-last`). Default one. Running more times than the chain has nodes is an authoring error: the listing throws there, and a trace that ran anyway would be animating an exception.',
+        'How many times to run an operation that takes no argument (`remove-first`, `remove-last`). Default one. Running more times than the structure has elements is an authoring error: the listing throws there, and a trace that ran anyway would be animating an exception.',
+    },
+    {
+      name: 'capacity',
+      type: 'number',
+      description:
+        'The two ARRAY recipes only — the block reserved, drawn as free slots past the live elements. On `array` it is the fixed capacity, and one too small for `values` is refused at boot. On `dynamic-array` it is where the resize falls: the default starts the block FULL so that a single insertion shows the growth, and a slide running several insertions passes a larger one to choose WHICH of them pays for it. The drawing shows the block the current frame has, so filling and doubling happen on screen.',
+    },
+    {
+      name: 'method',
+      type: 'string',
+      description:
+        "The name the LISTING shows the method under, when the document presents the structure through a TDA that calls it something else — a pila slide showing `pop` where the chain's own name is `deleteFirst`. The body is unchanged; the signature and every call in the driving program are renamed together, so the two never disagree. Pair it with `receiver`.",
+    },
+    {
+      name: 'receiver',
+      type: 'string',
+      description:
+        'The variable the driving program operates on, shown only when a slide runs the operation several times. Default `list` for the chains and `arreglo` for the arrays. Pair it with `receiverType`.',
+    },
+    {
+      name: 'receiverType',
+      type: 'string',
+      description:
+        'The class the driving program CONSTRUCTS, renamed together with `method` and `receiver`. Without it a slide that renamed `insertFirst` to `push` still printed `LinkedList pila = new LinkedList();` under a heading that had just declared `class Stack` — the listing renamed the call and left the constructor telling the truth about the wrong structure. Arrays and chains alike.',
+    },
+    {
+      name: 'pointer',
+      type: 'string',
+      description:
+        "The two ARRAY recipes only — a named arrow kept on every frame, aimed at the end the operation works on: the last live slot for the `*-last` operations, the first for the rest, and at nothing when the block is empty. `top` for a stack, `front` or `rear` for a queue. The `i` / `j` cursors belong to the OPERATION and vanish between runs; this one is the structure's own field, and naming it stands them down — `i` would land on the same cell and say the same thing with a second arrow.",
     },
     {
       name: 'tail',
@@ -152,6 +182,20 @@ export const sequenceStepperCatalogEntry: CatalogEntry = {
       ),
     },
     {
+      title: 'A dynamic array filling up and doubling, with `top` kept on screen',
+      code: '<SequenceStepper eda="dynamic-array" capacity={4} operation="insert-last" values={[42, 7]} value={[15, 4, 9, 23]} pointer="top" />',
+      render: () => (
+        <SequenceStepper
+          eda="dynamic-array"
+          capacity={4}
+          operation="insert-last"
+          values={[42, 7]}
+          value={[15, 4, 9, 23]}
+          pointer="top"
+        />
+      ),
+    },
+    {
       title: 'insertLast with a tail pointer — no walk at all',
       code: '<SequenceStepper eda="linked-list-singly" operation="insert-last" values={[7, 3, 1]} value={9} tail />',
       render: () => (
@@ -205,6 +249,20 @@ export const sequenceStepperCatalogEntry: CatalogEntry = {
       code: '<SequenceStepper eda="array" operation="get-at" values={[7, 3, 1, 5]} index={2} />',
       render: () => (
         <SequenceStepper eda="array" operation="get-at" values={[7, 3, 1, 5]} index={2} />
+      ),
+    },
+    {
+      title: 'The same chain, presented as the pila a Stack slide declares',
+      code: '<SequenceStepper eda="linked-list-singly" operation="remove-first" values={[9, 4, 15]} method="pop" receiver="pila" receiverType="Stack" />',
+      render: () => (
+        <SequenceStepper
+          eda="linked-list-singly"
+          operation="remove-first"
+          values={[9, 4, 15]}
+          method="pop"
+          receiver="pila"
+          receiverType="Stack"
+        />
       ),
     },
     {

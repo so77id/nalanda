@@ -18,9 +18,9 @@ describe('FibTabSteps', () => {
 
   it('walks to the end and lands with the full array filled and fib(5) = 5', async () => {
     render(<FibTabSteps target={5} />);
-    const forward = screen.getByRole('button', { name: /siguiente/i });
+    const forward = screen.getByRole('button', { name: /adelante/i });
     for (let i = 0; i < 40; i++) {
-      const btn = screen.getByRole('button', { name: /siguiente/i }) as HTMLButtonElement;
+      const btn = screen.getByRole('button', { name: /adelante/i }) as HTMLButtonElement;
       if (btn.getAttribute('aria-disabled') === 'true' || btn.disabled) break;
       await userEvent.click(forward);
     }

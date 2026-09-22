@@ -218,6 +218,37 @@ gets it wrong, which is the exact opposite of what an entrance control is for.
 **This is the failure mode to watch**, and only a human reading the section can
 see it.
 
+## An anchor resolves to the FIRST heading with that slug
+
+`anchor` is matched against the slug of a heading, and in a document where
+`<Slide title>` renders as an `h2`, **every slide is a section**. Two slides
+with the same title therefore produce the same slug, the page ships two
+elements with the same `id`, and a question anchored there silently belongs
+to whichever comes first. Nothing reddens: the anchor resolves, so the gate
+is satisfied by an anchor that points at the wrong act.
+
+#294 met this with ten duplicated slugs over twenty-four slides —
+`como-se-implementa-este-tda`, `las-consultas`, `push`, `pop`,
+`arreglo-vs-lista`, `enqueue`, `dequeue` and the three of its `Código · …`
+series — because its two acts ask the same four questions about two
+different objects and named their slides alike. Six slides carrying real
+material could not receive a question at all, and the one question that did
+sit on a duplicated slug was correct only because the act it belongs to
+comes first. It shipped with every title made unique instead.
+
+Two ways out, and the first is the author's:
+
+- **Give the two slides titles that differ**, which `course-content-style.md`
+  §5 already asks for on its own grounds — a title says what is on ITS
+  slide, and two identical titles cannot both be doing that.
+- Fix the slugger to disambiguate the way GitHub does (`x`, `x-1`). That is
+  a code change with its own test, and it does not move any anchor that
+  already resolves, because the first occurrence keeps its bare slug.
+
+Before anchoring, list the document's real heading ids in a browser
+(`[...document.querySelectorAll('h2[id]')].map(h => h.id)`) and check the one
+you are about to use appears exactly once.
+
 ## Only what is on the teaching path reaches a control
 
 A control covers a RANGE of the reading order, so a document with no position in

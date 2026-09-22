@@ -6,6 +6,7 @@ import { useMode } from '../../presentation';
 import { AuthoringError } from '../AuthoringError';
 import { CodeStepper } from './CodeStepper';
 import { Step } from './Step';
+import { ControlButton } from './stepperShell';
 import type { StepProps } from './Step';
 import { useViewportBreakout } from '../useViewportBreakout';
 
@@ -92,8 +93,11 @@ export function StepShow({
   // sitting them side-by-side (unlike `<SortStepper>`, which needs the extra
   // width for its tree), so the width only has to hold the code.
   //
-  // Measured (#277, 2026-09-08): 0.5 x 1440 = 720 CSS px fits ~60 monospace
-  // columns, and the longest fence chapter 17 ships is 58. That is the case
+  // Measured (#277, 2026-09-08, re-measured #294): 0.5 x 1440 gives the
+  // panel 718 px of clientWidth, of which a 33 px line-number gutter leaves
+  // 685 for text at 12.0 px per character — 57 rendered columns, not the
+  // ~60 this comment used to claim. The longest fence chapter 17 ships is 58
+  // and #294 ships one at 58 that clips by 19 px. That is the case
   // that breaks if the fraction drops further — a longer line clips at the
   // right edge and nothing in the build or the suite sees it. Chapters 08 and
   // 14, which also mount this widget, were measured at both values: widget
@@ -235,26 +239,45 @@ export function StepShow({
       </div>
 
       {/*
-        Controls row — same shape as `<SortStepper>`: skip-back, skip-forward,
-        play/pause, reset, speed, counter. `aria-disabled` rather than
-        `disabled`, at both ends (a `disabled` button loses focus, so walking
-        to the last step with the keyboard threw focus to the body and the
-        reader could no longer walk back — the control that stranded them
-        being the one they had just used). Announced as unavailable, still
-        focusable, inert on click. Earned in #116.
+        Controls row — the SAME four buttons, in the same order and with the
+        same words, as `<SequenceStepper>`: they share `stepperShell`'s
+        `ControlButton`, so a reader who learned the chrome on one of the two
+        does not relearn it on the other (#294).
+
+        This comment claimed the parity held for `<MergeStepper>` and
+        `<PartitionStepper>` too, and it does not — measured, both still read
+        «Paso anterior» / «Paso siguiente» / Reproducir / Reiniciar, and
+        `<SortStepper>` reads «Atrás» / «Paso» / Reproducir / «Reset». So
+        four steppers ship three vocabularies, and this change moved one of
+        them AWAY from the other two rather than towards a settled norm. The
+        target chrome is recorded in `design-system.md`; converging the other
+        three is not this WP's work. This one used to keep a private copy that drew
+        the icon alone, which made it the only stepper whose controls had no
+        words on them.
+
+        `aria-disabled` rather than `disabled`, at both ends (a `disabled`
+        button loses focus, so walking to the last step with the keyboard
+        threw focus to the body and the reader could no longer walk back — the
+        control that stranded them being the one they had just used).
+        Announced as unavailable, still focusable, inert on click. Earned in
+        #116, and now an invariant of the shared button.
       */}
       <footer className="flex flex-wrap items-center gap-2 border-t border-rule bg-sunk px-3 py-2">
-        <ControlButton onClick={retreat} disabled={first} label="Paso anterior">
-          <SkipBack size={14} aria-hidden />
+        <ControlButton onClick={reset} disabled={first} label="Reiniciar">
+          <RotateCcw className="h-3.5 w-3.5" aria-hidden />
         </ControlButton>
-        <ControlButton onClick={advance} disabled={last} label="Paso siguiente">
-          <SkipForward size={14} aria-hidden />
+        <ControlButton onClick={retreat} disabled={first} label="Atrás">
+          <SkipBack className="h-3.5 w-3.5" aria-hidden />
         </ControlButton>
         <ControlButton onClick={togglePlay} label={isPlaying ? 'Pausar' : 'Reproducir'}>
-          {isPlaying ? <Pause size={14} aria-hidden /> : <Play size={14} aria-hidden />}
+          {isPlaying ? (
+            <Pause className="h-3.5 w-3.5" aria-hidden />
+          ) : (
+            <Play className="h-3.5 w-3.5" aria-hidden />
+          )}
         </ControlButton>
-        <ControlButton onClick={reset} label="Reiniciar">
-          <RotateCcw size={13} aria-hidden />
+        <ControlButton onClick={advance} disabled={last} label="Adelante">
+          <SkipForward className="h-3.5 w-3.5" aria-hidden />
         </ControlButton>
         <label className="ml-1 inline-flex items-center gap-1 rounded border border-rule bg-surface px-2 py-1 text-xs text-ink">
           <span className="font-mono text-3xs text-ink-faint uppercase tracking-wide">
@@ -287,32 +310,6 @@ export function StepShow({
         </span>
       </footer>
     </div>
-  );
-}
-
-function ControlButton({
-  onClick,
-  disabled = false,
-  label,
-  children,
-}: {
-  onClick: () => void;
-  disabled?: boolean;
-  label: string;
-  children: ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      aria-label={label}
-      aria-disabled={disabled}
-      onClick={disabled ? undefined : onClick}
-      className={`inline-flex items-center rounded border border-rule bg-surface p-1 text-ink-soft hover:bg-surface ${
-        disabled ? 'opacity-40' : ''
-      }`}
-    >
-      {children}
-    </button>
   );
 }
 

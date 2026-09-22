@@ -55,6 +55,7 @@ content/courses/sample-course/
 ├── 16-diseno-algoritmos-ordenamiento.mdx           # presentation: explicit, questions: pool — <SortStepper> (bubble/selection/insertion/merge/quick) + <MergeStepper> + <PartitionStepper> + <DivideCombineTree> + <DecisionTreeSort> + <PresentationWide> + <Exercise> with the new `solution` fence
 ├── 17-edd-introduccion.mdx    # presentation: explicit, questions: pool — <StepShow> (ten steppers, hand-written inline SVG frames) + <Figure>
 ├── 18-edd-listas-enlazadas.mdx  # presentation: explicit, questions: pool — <SequenceStepper> ×13 (the worked case) + <Exercise> ×5 with the `solution` fence
+├── 19-edd-stack-queue.mdx     # presentation: explicit, questions: pool (13) — <SequenceStepper> ×8 over BOTH families (dynamic-array + singly) + <StepShow> ×7 + <Exercise> ×4 + 20 standalone inline SVG figures + a file-local <Paso> frame component + two TDA cards
 ├── tda-eda-invariante.svg, arreglo-memoria.svg, arreglo-alocacion.svg, arreglo-invariante-valido.svg, arreglo-invariantes.svg, regla-del-cuarto.svg, costo-acumulado.svg   # assets for chapter 17
 └── index.yaml                 # the ordered teaching path
 ```
@@ -91,6 +92,19 @@ the frontmatter `id`, never the path. v0.1 supports exactly ONE course directory
    expectation, and it must not be empty — an empty pool says exactly what
    `none` says; `none` means deliberately none, and it is the honest value for a
    document whose questions are not written yet.
+
+   **A `none` carries a one-line MDX comment saying WHICH none it is** — a
+   decision, or a not-yet — and for a not-yet, who owes the bank and when.
+   The value is honest either way, and the word alone cannot tell the two
+   apart: `04-planificacion.mdx` means "this document is a spreadsheet, it
+   teaches nothing to ask about", which is a decision and stays one.
+   **No document in the tree is a documented not-yet today** — #294 was going
+   to be the example and stopped being one when it shipped `pool` with
+   thirteen questions in the same PR, which is the better outcome and leaves
+   the half of this rule that covers a not-yet without a worked case.
+   `14-complejidad-recursion.mdx` declares
+   `none` with no comment, and a reader cannot tell which of the two it is —
+   which is the case this rule exists to stop repeating (#294 review).
 
    The point is to force a decision, not to force writing. A rule demanding one
    question per section produces filler for a section that teaches nothing of
@@ -436,7 +450,15 @@ runtime code. `<Math>` earns its cost only where prose math can't reach.
 5b. **Add an exercise (optional)**: `<Exercise>` gives the reader a problem to
 solve, checked automatically in their browser. The statement is ordinary
 prose; up to three annotated fences carry the rest (`starter` and `test` are
-required, `solution` is optional):
+required, `solution` is optional).
+
+**Read [`write-an-exercise.md`](write-an-exercise.md) before drafting one.**
+This section is the mechanics — the tag and its fences. That guide is the
+shape: the five beats a worked exercise moves through, the rule that nothing
+is called before it is written, and the split between a worked exercise
+(all five beats, the finished algorithm as `starter`, and its runnable block
+ships on a slide) and a posed one (beat 1 and stop, a skeleton `starter`, a
+`solution` fence, and it stays book-only).
 
 ````mdx
 <Exercise title="¿Es par?">
@@ -816,7 +838,11 @@ are checked against the structure as it is BY THEN, not as it started, and a
 removal asked for more times than the chain has nodes is refused at boot —
 the listing throws there. `tail` draws a tail pointer on a list, and on
 `linked-list-doubly` it is what makes `remove-last` legal at all;
-`showCode={false}` hides the listing when the slide already carries it, and
+`showCode={false}` hides the listing for either of two reasons — the slide
+already carries it, or the class deliberately shows no code for that
+structure at all (the array acts of `19-edd-stack-queue.mdx`, where printing
+the widget's `insertLast` would introduce a listing the class chose not to
+teach, under a name the slide teaches as `push`) — and
 `autoplay` / `speed` behave as in every other stepper.
 
 Six things worth knowing before you write one:
@@ -824,7 +850,10 @@ Six things worth knowing before you write one:
 - **Showing the same operation over two structures is two nearly identical
   tags.** That is what the widget is for; the surface does not change between
   combinations, so the reader compares the COST rather than re-reading a new
-  widget.
+  widget — and since #294 closed the single-run restriction, a pair that
+  crosses families is two tags of the same shape as well. Worked case, the
+  Queue act of `19-edd-stack-queue.mdx`: `eda="array"` against
+  `eda="linked-list-singly" tail` (ADR-0074 §Amended by — #294).
 - **Not every recipe takes every operation.** The widget prints Java a student
   may copy, so a pair is valid only when the listing belongs to the structure
   the picture draws. `array`, `dynamic-array` and `linked-list-singly` take all
@@ -840,11 +869,38 @@ Six things worth knowing before you write one:
   Anything else is an `<AuthoringError>` naming the operations that recipe does
   have. Ask for one it does not and the answer tells you which to use instead.
 
-- **The array recipes animate ONE run.** Their trace predates the multi-run
-  arguments; a slide that asks an array for three runs is refused at boot
-  rather than shown one. The list recipes take arrays on `value`, `index` and
-  `target`, and `times` on the two operations that take no argument — up to
-  twelve runs, which is more steps than anyone follows on a slide.
+- **Every recipe animates as many runs as you ask for**, up to twelve —
+  more steps than anyone follows on a slide. Pass an array on `value`,
+  `index` or `target`, or `times` on the two operations that take no
+  argument. A removal is checked against the structure as the runs before it
+  left it, so three `pop` over two elements is refused at boot.
+- **`method` and `receiver` show the listing under the document's own
+  names.** A class that has just taught `pop` = `deleteFirst` and then mounts
+  the widget gets a listing saying `deleteFirst`, three times, over a
+  variable called `list` — the pila's own method, wearing the chain's name.
+  `method="pop" receiver="pila" receiverType="Stack"` renames the
+  signature, every call and the line that constructs the object, together —
+  all three, or the program says `LinkedList pila = new LinkedList();` and
+  calls `push` on it. The body does not change, so use it only where the two really
+  are the same method (which is what the mapping table of the class asserts).
+- **`pointer` keeps a field of the structure on screen.** The two array
+  recipes only. `pointer="top"` draws a named arrow on EVERY frame, aimed at
+  the end the operation works on — the last live slot for the `*-last`
+  operations, the first for the rest, and at nothing when the block is empty.
+  The `i` / `j` cursors belong to the OPERATION and vanish between runs; this
+  one is the structure's own field, which is what the contract is written in
+  terms of. **Naming it stands the cursors down**, because `i` lands on the
+  same cell as `top` and says the same thing with a second arrow. A slide
+  that names no pointer keeps them — though no slide of #294 does: all four
+  of its array mounts name one (`top`, `top`, `rear`, `front`), so the
+  cursors stand down everywhere and the `i` / `j` path ships with no reader.
+- **`capacity` is the block, and only the two array recipes have one.** On
+  `array` it is the fixed capacity the class's point depends on. On
+  `dynamic-array` it is where the resize falls: the default starts the block
+  FULL, so a single insertion shows the growth, and an author running several
+  passes a larger one to choose which of them pays (#294's push slide runs
+  four over a block of four, and the third doubles it). The drawing shows the
+  block this frame has, so the filling and the doubling happen on screen.
 - **The widget refuses the author, not the reader.** An index outside the
   structure, an unsorted list handed to `insert-ordered`, an unknown recipe, a
   pair the recipe does not offer, or more than eight values — each renders an
@@ -999,6 +1055,76 @@ the pre-existing figures do not yet follow it are ADR-0026 §Addendum — #277.
 Worked cases: the seven figures of chapter 17. **Nothing in the build or the
 suite can see a figure**, so the check is rendering it over both grounds and
 looking at it.
+
+6e-ter. **A drawn figure with no raster content may be written INLINE in the
+`<Slide>` instead, and then none of 6e-bis applies.** This is a third
+category, and it was in use for two classes before anyone wrote it down
+(#294 review, ARQ-10): #288 ships seven and #294 twenty, all standalone
+`<svg>` in slide bodies rather than `<Step>` frames or sibling assets. The
+rules invert, and the reason is the same one 6e gives: an `<img>` cannot see
+the page, and inline SVG is the page.
+
+- **Palette tokens, always** — `style={{ fill: 'var(--color-ink)' }}`, never
+  the `#fdfbf9` / `#2b221d` values 6e-bis licenses for an `<img>`. Those
+  paint a theme-blind rectangle inside a themed page.
+- **No opaque panel and no contrast arithmetic.** The tokens are already
+  correct in both themes, which is the whole reason to author inline.
+- **`role="img"` and a Spanish `aria-label`** on the `<svg>` itself.
+  `contentRenders` enforces `alt` on `<Figure>`; nothing enforces anything on
+  a raw `<svg>`, so this one is on you.
+- **Prefix every `id` per figure.** All the figures of a page live in one
+  DOM, so a repeated `<marker id="punta">` makes every `url(#punta)` resolve
+  to whichever came first — silently correct only while the definitions
+  happen to be identical. #294 uses `stack-arr-punta`, `cola-lista-punta`,
+  `jos-pasar-punta`. (This line named `deque-punta` and then `jos-punta`,
+  neither of which ever existed — a citation is a measurement too.)
+- Colours go in the `style` object and never in a `fill=` / `stroke=`
+  attribute — **not** because the attribute fails (it does not: the MDX
+  pipeline passes `var(--color-*)` through verbatim and the browser resolves
+  it identically), but because a presentation attribute has zero specificity
+  and loses to any stylesheet rule that ever targets `svg`, while the style
+  object always wins. Consistency with the rest of the unit is the other
+  half of the reason.
+- Every attribute is camelCase (`textAnchor`, `strokeWidth`). A kebab-case
+  one is not dropped and not silent — React renders it, it paints, and React
+  logs `Invalid DOM property` on every render. What is true is that no gate
+  sees it: oxlint does not cover `content/**`, so the only witness is the
+  browser console, which stops being usable for real errors.
+
+Both grounds still get looked at. The same rules for a `<Step>` frame, with
+the reasoning, are in
+[`teach-a-data-structure.md`](teach-a-data-structure.md) §6bis.
+
+6e-quater. **A document may define its own figure component, and it stays out
+of the catalog.** When one figure shape repeats many times in a class, an
+`export function` in the `.mdx` itself is allowed: MDX compiles the file as a
+module, so the declaration is ordinary JavaScript and the tag is in scope for
+the whole document. #294 defines `<Paso>` that way and mounts it 44 times.
+
+What that costs, and the rules that follow from it:
+
+- **It is NOT a content component.** No catalog entry, no registration in
+  `mdxComponents.ts`, no per-mode test — the ADR-0010 contract exists for
+  components many documents mount, and this one has exactly one consumer. Say
+  so at the definition so the next reader does not go looking for its catalog
+  page.
+- **It stays file-local, and the SECOND document that wants it promotes it**
+  through [`add-a-content-component.md`](add-a-content-component.md). Same
+  threshold shape `teach-a-data-structure.md` §2 uses for the TDA card.
+- **§6e-ter's rules are discharged once, at the definition** rather than per
+  call site: `role="img"` with a Spanish `aria-label` composed from the props,
+  palette tokens only, prefixed `id`s, camelCase attributes. That is most of
+  the reason to extract it — forty-four hand-written figures are forty-four
+  chances to forget one.
+- **Its identifiers and props are English**, like every other identifier in
+  the repo (root `CLAUDE.md` §Language). Only the strings the reader SEES stay
+  Spanish. #294 shipped `pila`, `etiqueta`, `nota` and `falla` as prop names
+  through a full review before anyone noticed, because no rule had said it and
+  no gate covers `content/`: prettier's scanner is rooted at `apps/web`, and
+  oxlint does not read `content/**` either.
+- **Nothing lints or tests it.** It is the one piece of React in the repo with
+  no gate at all, so it is checked the way a figure is checked — in a browser,
+  over both grounds, walking every frame.
 
 6f. **An authoring error does not fail the build**, on purpose: writing the
 slides before drawing the diagrams is a real order of work, and gating the
@@ -1172,11 +1298,14 @@ operation for two structures is where it happens — disambiguate in the title
      entities and produces `pair-lt-t-gt`, while the DOM reader sees the
      decoded characters and produces `pair-t` — `app/questionReaders.test.tsx`
      reddens the suite when they diverge. The remediation is to keep `<` and
-     `>` out of headings entirely: an interpunct-separated title
-     (`## Pair · T`) slugs to `pair-t` on both sides and reads cleanly in the
-     book and on a slide. This is the convention `course-content-style.md` §5
-     prescribes; the concrete failure that motivates it lives here. Hit while
-     writing `11-genericos-y-orden.mdx` (#80).
+     `>` out of headings entirely. `11-genericos-y-orden.mdx` (#80) did it
+     with an interpunct — `## Pair · T`, which slugs to `pair-t` on both
+     sides — but **`course-content-style.md` §5 has since retired that
+     shape**: the interpunct is now only a series or a gloss, and
+     `Pair · T` is neither. Spell the heading as a title that stands on its
+     own (`## El tipo Pair`) and name the parameter in the prose under it.
+     The concrete failure that motivates keeping the angle brackets out
+     lives here.
 
 - **The answer is marked in place** with `- [x]`, never named from outside.
   Naming one by position means reordering the alternatives silently changes
@@ -1351,6 +1480,10 @@ last block, so no stale copies accumulate.
 
 ## Checklist
 
+- [ ] Every `<Exercise>` reviewed against
+      [`write-an-exercise.md`](write-an-exercise.md) §Checklist — the five
+      beats, one example threading them, and nothing called before it is
+      written.
 - [ ] Frontmatter has kebab-case `id` (unique) + `title` + `presentation` —
       declared even when the value is the default (`architecture.test.ts` fails
       otherwise).
@@ -1408,9 +1541,16 @@ last block, so no stale copies accumulate.
       green build and a green suite (#109, #119). Sizes differ by view on purpose:
       the book keeps the drawn dimensions, a mosaic cell fills its column on a
       slide.
-- [ ] Every image has Spanish `alt` text, and every `<Mosaic>` a `description`.
-      The components refuse to render without them, so this is really a check that
+- [ ] Every `<Figure>` and markdown image has Spanish `alt` text, and every
+      `<Mosaic>` a `description`. The components refuse to render without them,
+      so this is really a check that
       you did not paper over the error by emptying the string.
+- [ ] Every INLINE `<svg>` figure (§6e-ter) carries `role="img"` and a
+      Spanish `aria-label`, palette tokens instead of hex, an `id` prefix per
+      figure, camelCase attributes — and was looked at. **Nothing here is
+      enforced.** The line above is true of `<Figure>` and false of a raw
+      `<svg>`: `contentRenders` never asserts on one, so an inline figure with
+      no accessible name ships green.
 - [ ] Every formula looked at on the rendered page. A malformed one publishes in
       KaTeX's error colour and an unclosed `$$` swallows the rest of the
       document, both past a green build. Check the page still ends where you

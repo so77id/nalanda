@@ -28,3 +28,4 @@ entries:
     children:
       - docId: edd-introduccion
       - docId: edd-listas-enlazadas
+      - docId: edd-stack-queue

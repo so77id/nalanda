@@ -147,6 +147,188 @@ fragment a frame highlights must be unique inside its listing — hence one
 `size++` at the end of a branching method rather than one per branch — and
 the call line of a repeated multi-run call is COMPUTED, not searched.
 
+**Amended by:** #294, review pipeline Round B (2026-09-19) — **the array
+recipes got their first reader, and the deferred question below came due.**
+§Consequences said the array recipes ship ahead of their first document,
+named the Stack/Queue/Deque class as that reader (which shipped as
+Stack and Queue only — #294 dropped the deque act), and set a trigger: _"if it
+does not use them they should be removed rather than re-justified"_. That
+class has now shipped, so the trigger fired. Four dispositions, recorded
+here because the alternative was leaving them in a commit message.
+
+**`array` has NO reader, and the trigger fires for removal.** This block
+claimed, before the review pipeline measured it, that #294 mounted `array`
+twice in the Queue act over the circular queue. It mounts it zero times:
+`grep -rn 'eda="array"' content/` returns nothing, in this class or any
+other. The circular-queue slides the claim rested on were deleted by
+`61a9541`, and this paragraph was edited after that commit without being
+re-measured — the exact failure the class's own review keeps finding.
+
+So the condition §Consequences named — _"if it does not use them they should
+be removed rather than re-justified"_ — is met, and the honest disposition is
+that `array` is carried with no consumer at all: a recipe, its `ARRAY_CODE`
+listings, a catalog entry, a layout path and thirty references across
+`sequenceStepperTrace.test.ts` and `sequenceStepperLayout.test.ts`,
+twenty-five of them direct calls. Removing
+it is a WP of its own and does not belong in a course-document PR, so it is
+recorded here as owed, not as finished. **The next class of this unit either
+reads it or deletes it; a third re-justification is not available.**
+
+> **TODO — delete the `array` recipe or name its reader.**
+> Owner: Miguel Rodriguez. Deadline: the next class of the Estructuras de
+> Datos unit. Tracking issue: **#296**.
+> Written as a block rather than as prose because §"Rules for empirical
+> claims in ADRs" asks for one: a deferral with no owner, no date and no
+> number is how "measure later" becomes no measurement, which is exactly
+> how this recipe reached its second re-justification.
+
+**`dynamic-array` has a consumer, and the paragraph that gave it a deadline
+was wrong within the same WP.** That paragraph said `grep -rn
+"dynamic-array" content/` returned nothing "before and after #294", and kept
+the recipe against the priority-queue class as a deadline. It was written
+while #294's Stack act still built the pila on a fixed block. The class then
+moved to the arreglo dinámico — the structure #277 actually ends on — and
+the grep now returns four hits, two per act: `insert-last` over `[42, 7]`
+and `remove-last` over `[42, 7, 15, 4, 9, 23]` in the Stack act, and two more
+in the Queue act. (This
+sentence said "two hits, both in the Stack act" before the review pipeline
+counted them.)
+
+~~Two facts about that recipe a future author needs, both measured here:
+`capacity` starts at `values.length`, so **every `insert-last` opens on the
+`grow` frame** — there is no way to show a cheap append with this recipe,
+and #294's slide is written around that.~~ **Superseded inside this same WP
+by §"`capacity` is accepted on `dynamic-array` too" below**: `capacity` is a
+prop now, so an author running several insertions chooses which of them pays,
+and the shipped slide does exactly that — `capacity={4}` over two values, so
+the first appends are cheap and a later one grows. The stale half is struck
+rather than deleted because it is the reason the prop exists.
+
+What still holds: `remove-last` never shrinks, so the shrink half of
+`data.length ≤ 4 × size` is prose, not picture.
+
+(An earlier draft of this block closed by saying `array` keeps two consumers
+in the Queue act "where the block genuinely is fixed — the circular queue".
+Both halves are false at the shipped document: there is no circular queue and
+no `array` mount. It is written out here rather than deleted because the same
+paragraph had already been re-justified once.)
+
+**The single-run asymmetry is closed, and the argument for leaving it open
+was falsified by the next slide written.** §Consequences called it "one
+asymmetry to close first". #294's first pass worked around it instead, and
+wrote down why the workaround was acceptable rather than a debt: _"three
+runs of a $$\Theta(1)$$ operation draw the same frame three times, so the
+multi-run form buys a course slide nothing on the array side"_.
+
+That is true of a fixed block and false of a growing one. The push slide of
+the second pass runs four `push` over a block of four: the third finds it
+full, doubles it and copies — a frame none of the other three draw, and the
+one the amortised cost table exists to explain. One run cannot show it.
+
+So `traceArray` now loops over `runArgs` like `traceList` does, sharing
+`requireRuns` (the twelve-run ceiling is one number for the whole widget),
+`checkIndex` per run, and `callingProgram` — which grew a `receiver`
+parameter, because it had been printing `list.insertLast(...)` for every
+family and an array slide with `showCode` on would have shown a listing that
+contradicted its own picture.
+
+Two things the loop had to get right, both of them things one run never
+exercised: a removal is refused against the block **as the previous runs
+left it**, not against the author's `values`; and `cost` resets per call, so
+each run reports its own arithmetic rather than a running total.
+
+So §Consequences' _"Stack over a list and Stack over an array are two tags
+of the same widget"_ is **fulfilled**: both sides now take arrays on `value`
+and `times` on the operations that take none.
+
+**And the block drawn is the block the frame HAS.** `layoutSequence` sized
+the picture at `max(maxCells, capacity)` so it would not jump between
+frames. With one run capacity never changed, so nothing showed. With four,
+the first frame drew six cells beside a readout saying `capacidad 4` — the
+block filling up, which is the lesson, never happened on screen. The canvas
+is now reserved for the widest block of the run (so nothing shifts or
+rescales) while the cells drawn are this frame's capacity, so the doubling
+is visible and the cells keep their size.
+
+**Amended by:** #294, review pipeline Round B (2026-09-19) — **a listing
+that is blind to a prop the picture obeys.** `remove-first` over a singly
+list with `tail` is the first combination where the `tail` prop changes the
+DRAWING and not the LISTING: `listCode` branches on `tail` for `insert-last`
+and `remove-last` but not for `remove-first`, while the layout drops the
+`tail` pointer when the chain empties. So the widget draws a queue and
+prints a bare chain's `deleteFirst`, without the `if (head == null) tail =
+null;` the class itself ships one slide earlier.
+
+**This does not violate the validity matrix above** — that matrix grants
+`linked-list-singly` "las nueve" unqualified, and `tail` qualifies only the
+`doubly` row, where it decides which listing a recipe belongs to. The
+principle _"a widget that shows Java a student may copy refuses a
+combination rather than printing plausible code for the wrong structure"_ is
+stated there as the rationale for the ENGINE's narrowing, not as a gate
+authors must clear. The review verifier ruled on exactly that reading.
+
+The rule this leaves, for the next author who hits a tail-blind listing:
+**disclose it in the prose beside the widget, naming the missing line and
+the slide that carries it.** #294 does that, and #288 had already done the
+same for its own twin (`deleteLast con tail`, whose listing is likewise
+`tail`-free). Teaching `listCode` the missing branch is the better answer
+and remains available — it is what #288 did for four other listings — but it
+is a code change with its own tests, and neither class was willing to buy
+widget surgery inside a course-document WP.
+
+**Amended by:** #294, comprehension review (2026-09-20) — **the cost counter
+comes off the screen.** §Consequences above says "The cost counter is on
+screen... so the reader reads $$\Theta(1)$$ against $$\Theta(N)$$ off the
+widget instead of memorising the table". It cannot do that, and the class
+that leaned on it is what showed why: a widget animates ONE run, one run
+shows one number, and one number is not a growth rate. On the only slide
+whose prose pointed at the counter, `enqueue` read 1 and `dequeue` read 3
+over three elements — a factor of three that any constant explains as well
+as $$N$$ does. Seven of the eight slides that mounted the widget never
+referred to it, so there it was chrome that reset silently between runs.
+
+`step.cost` is still computed and still asserted by
+`sequenceStepperTrace.test.ts`; what is withdrawn is the claim that painting
+it teaches a growth rate. A claim about cost is checked exactly in the trace
+test, and taught on the slide by the cost TABLE, which can put two
+structures side by side — which is what the unit's format was already for.
+
+Writing that test surfaced something the readout had been covering: the
+chain charges exactly `i` for `get-at(i)` while the array charges a flat 1,
+so at `i = 0` they read 0 and 1. The two recipes do not count the same unit.
+Left as it is and pinned as it is; it mattered less the moment the number
+stopped being shown.
+
+**Amended by:** #294, comprehension review (2026-09-20) — **two pictures the
+trace was drawing wrong, and a prop to stop the block breathing.**
+
+The array shift emptied the source slot the instant the destination was
+written, under a narration that says "Copiamos". A copy does not empty its
+source, and what it drew for two frames was a block with a hole in the
+middle — the picture #277 teaches as the INVALID array. The source now stays
+drawn as `stale`, a state of its own rather than a reuse of `leaving`: one
+is an element on its way out of the structure, the other a value nobody will
+read again, and painting them alike labelled the leftover copy "sale". This
+also fixed the `size` readout, which is derived from the last occupied slot
+and so had been dropping two frames early.
+
+`insert-last` narrated "hay que caminar hasta él" whether or not `tail` was
+given, because the string branched only on `empty` — on the slide whose
+thesis is that `tail` is what avoids walking, and one frame before the
+widget's own "tail ya apunta al último: enlazamos sin recorrer nada".
+
+`capacity` is accepted on `dynamic-array` too. The first pass refused it
+there, reasoning that the recipe starts FULL so that one insertion shows the
+resize — right for one run, and wrong for several, because then the FIRST
+push always grows, which is the one place a reader least expects it. An
+author running several insertions passes `capacity` to choose which of them
+pays. The default is unchanged.
+
+And `capacity` joins the input. Without it the block is sized from the
+input, so one structure came out four cells wide on the slide that pushes
+and five on the slide that pops. Arrays only; a value below the number of
+starting elements is refused at boot like every other authoring mistake.
+
 **Source:** Issue #288 — Course document "Estructuras de Datos · Listas
 Enlazadas". The class shows nine operations over five structures, and
 `teach-a-data-structure.md` §7 defers the unit's widget decision to exactly
@@ -284,6 +466,13 @@ drift from the operation it claims to show.
 
 ## Consequences
 
+> **Three of the bullets below stopped being true, and #294 is where.** The
+> cost counter is no longer on screen; the `array` recipes turned out to have
+> zero consumers rather than a first reader; and the single-run asymmetry is
+> closed. Each is struck below with a pointer to the `Amended by: #294` block
+> that says why. The decision itself — one widget, two selector props — still
+> stands; only these consequences did not.
+
 - **The author writes less, and the two-structure comparison becomes trivial.**
   A slide showing the same operation over an array and a list is two nearly
   identical tags. That is the shape the comparison act of the class needs.
@@ -293,20 +482,25 @@ drift from the operation it claims to show.
 - **The complexity is concentrated.** Thirty-one combinations live in one
   module rather than spread over five. That is a real cost, and it is paid in
   one place with an exhaustive sweep over it.
-- **The cost counter is on screen.** Each frame carries a running elementary-
+- ~~**The cost counter is on screen.** Each frame carries a running elementary-
   operation count, so the reader reads $$\Theta(1)$$ against $$\Theta(N)$$ off
   the widget instead of memorising the table — the "show the construction, not
-  only the result" rule the widgets of #266 and #268 established.
+  only the result" rule the widgets of #266 and #268 established.~~
+  **Withdrawn by #294** — one run shows one number, and one number is not a
+  growth rate. See the `Amended by: #294` block above.
 - **The array recipes ship ahead of their first document.** The comparison act
   of #288 was expected to be two nearly identical tags; it shipped as a static
   cost table and prose, so `array` and `dynamic-array` have a catalog entry, an
   exhaustive trace sweep and no course-document consumer. They are carried for
   the Stack/Queue/Deque class, which mounts the same TDA over both families —
   that class is their first reader, and if it does not use them they should be
-  removed rather than re-justified. One asymmetry to close first: the array
+  removed rather than re-justified. ~~One asymmetry to close first: the array
   family animates a single run, while the list family takes arrays for every
-  argument, so "the same operation over both, side by side" is today two tags
-  of different shapes.
+  argument.~~
+  **Measured false by #294 and the trigger fired**: that class shipped as
+  Stack and Queue over the dynamic array and the list, and it mounts `array`
+  **zero** times. The asymmetry is closed — `traceArray` loops its runs like
+  the list family. Both in the `Amended by: #294` block above.
 - **The next class reuses it.** Stack over a list and Stack over an array are
   two tags of the same widget, so _"same TDA, different implementations"_ reads
   without translating between widgets.

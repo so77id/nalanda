@@ -86,15 +86,25 @@ const isList = (recipe: SequenceRecipe) => recipe.startsWith('linked-list');
  * array recipes — capacity, which may exceed the number of live cells, and is
  * what makes "the block is full" visible before a resize.
  */
+/**
+ * `slots` is the block THIS frame has — an array draws exactly that many
+ * cells, because the block filling up and then doubling is a thing the
+ * reader is meant to watch. `reserve` is the widest block the run ever
+ * reaches: the canvas is sized for it once, so a block that doubles extends
+ * into room already there instead of shifting or rescaling what is on
+ * screen. Lists ignore both (their node count is their width).
+ */
 export function layoutSequence(
   count: number,
   recipe: SequenceRecipe,
   slots: number = count,
   hasCarry = false,
+  reserve: number = slots,
 ): SequenceLayout {
   const list = isList(recipe);
   const doubly = recipe === 'linked-list-doubly';
-  const drawn = Math.max(list ? count : Math.max(count, slots), 0);
+  const drawn = Math.max(list ? count : slots, 0);
+  const reserved = Math.max(list ? drawn : Math.max(count, slots, reserve), 0);
   const nodeW = list ? BOX_W + LINK_W * (doubly ? 2 : 1) : BOX_W;
   const gap = list ? LIST_GAP : 0;
   const top = POINTER_BAND + (hasCarry ? CARRY_BAND : 0);
@@ -117,7 +127,7 @@ export function layoutSequence(
     });
   }
 
-  const contentW = lane + (drawn === 0 ? nodeW : drawn * nodeW + (drawn - 1) * gap);
+  const contentW = lane + (reserved === 0 ? nodeW : reserved * nodeW + (reserved - 1) * gap);
   const ring = recipe === 'linked-list-circular' && drawn > 0;
   const footY = top + BOX_H + FOOT_BAND;
   return {

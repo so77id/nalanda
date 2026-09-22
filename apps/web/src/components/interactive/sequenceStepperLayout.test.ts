@@ -25,6 +25,21 @@ describe('layoutSequence', () => {
     expect(spare.width).toBeGreaterThan(full.width);
   });
 
+  // #294: a slide that runs four pushes over a block of four watches it fill
+  // and then double. The block drawn has to be the block the frame HAS, or
+  // the reader sees six cells beside a readout saying `capacidad 4` and the
+  // filling — which is the whole lesson — never happens on screen.
+  it('draws the capacity of THIS frame, and reserves the canvas for the widest', () => {
+    const before = layoutSequence(6, 'array', 4, false, 8);
+    const after = layoutSequence(6, 'array', 8, false, 8);
+    expect(before.boxes).toHaveLength(4);
+    expect(after.boxes).toHaveLength(8);
+    // Same canvas, so nothing on screen shifts or rescales when it doubles.
+    expect(before.width).toBe(after.width);
+    // And the cells keep their size: the block extends into reserved room.
+    expect(before.boxes[0]!.w).toBe(after.boxes[0]!.w);
+  });
+
   it('gives every list node a link field and leaves a gap for the arrow', () => {
     const { boxes } = layoutSequence(3, 'linked-list-singly');
     expect(boxes.every((b) => b.linkX === b.x + BOX_W)).toBe(true);

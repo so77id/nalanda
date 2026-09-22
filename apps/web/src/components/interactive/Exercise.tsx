@@ -180,7 +180,17 @@ export function Exercise({ title, language = 'java', children }: ExerciseProps) 
         <div className="prose prose-sm max-w-none px-3 py-2">{statement}</div>
       )}
 
-      <div className="max-h-80 overflow-auto border-t border-rule">
+      {/*
+        No height cap. It used to be `max-h-80` — a fixed 20rem that did not
+        grow with the viewport, so a listing longer than it showed a third of
+        itself and scrolled inside, on a projector as much as on a laptop
+        (#294, measured at 900, 1200 and 1600px: 320px every time). A slide
+        that says "el código completo" has to show it. The editor is the
+        tallest thing an exercise owns and a slide scales to fit what it
+        holds, so the listing comes out legible whole rather than a window
+        onto itself.
+      */}
+      <div className="border-t border-rule">
         <CodeMirror
           value={code}
           onChange={setCode}

@@ -821,7 +821,8 @@ que sigue se explica por ella.
 Cinco inserciones desde la cadena vacía, y ninguna recorre nada. `tail` ya
 tiene en la mano el nodo que hay que modificar, así que enlazar el nodo nuevo
 y actualizar `tail` son dos asignaciones: la operación baja de $$\Theta(N)$$
-a $$\Theta(1)$$, y el contador lo confirma subiendo lo mismo las cinco veces.
+a $$\Theta(1)$$, y las cinco corridas lo confirman tardando lo mismo, con la
+cadena vacía y con cuatro nodos guardados.
 
 El precio fue guardar un dato de más. Con ese puntero la estructura ya no
 tiene que buscar el final: lo sabe. Cambiamos memoria —una referencia— por
@@ -836,14 +837,9 @@ $$\Theta(1)$$. No lo hace.
 
 <SequenceStepper eda="linked-list-singly" operation="remove-last" values={[7, 3, 1, 5]} tail />
 
-`tail` entrega el último nodo de inmediato, pero el nodo que hay que
-modificar es el **anteúltimo**: alguien tiene que pasar a apuntar a `null`, y
-ese alguien no es el que sale. Después de eliminar, además, `tail` tiene que
-apuntar al anteúltimo, así que hace falta igual.
-
-Un enlace apunta en una sola dirección. Desde el último nodo no se puede
-retroceder, y `tail` da acceso al final, no al camino de vuelta. La operación
-sigue costando $$\Theta(N)$$.
+`tail` entrega el último de inmediato, pero el que hay que modificar es el
+**anteúltimo** — y un enlace apunta en una sola dirección, así que desde el
+último no se puede retroceder. Hay que caminar igual: $$\Theta(N)$$.
 
 </Slide>
 
@@ -1180,8 +1176,8 @@ bordes— se puede cumplir en $$\Theta(1)$$ **sobre las dos estructuras a la
 vez**, cada una usando justamente la punta donde es rápida.
 
 El precio es perder el acceso por posición: lo que se gana en costo se paga
-en lo que ya no se puede pedir. Esos contratos más chicos son los TDA Stack,
-Queue y Deque.
+en lo que ya no se puede pedir. Esos contratos más chicos son los TDA Stack
+y Queue.
 
 </Slide>
 
@@ -1740,11 +1736,12 @@ En una lista simplemente enlazada, ¿qué decide que una operación sea barata o
 </Questions>
 
 <Slide title="Lo que sigue">
-La próxima clase estudia tres contratos más chicos que Sequence —los TDA
-**Stack**, **Queue** y **Deque**—, que renuncian al acceso por posición y a
-cambio se cumplen en tiempo constante.
+La próxima clase, [[edd-stack-queue|Estructuras de Datos · Stack y Queue]],
+estudia dos contratos más chicos que Sequence —los TDA **Stack** y
+**Queue**—, que renuncian al acceso por posición y a cambio se cumplen en
+tiempo constante.
 
-Los tres se construyen sobre un arreglo o sobre una lista enlazada, y la
+Los dos se construyen sobre un arreglo o sobre una lista enlazada, y la
 elección vuelve a decidir qué sale barato. Un `Stack` sobre lista enlazada
 apila y desapila por el frente, donde está `head`, en $$\Theta(1)$$. Una
 `Queue` mete por un extremo y saca por el otro, así que sobre una lista

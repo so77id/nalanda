@@ -67,6 +67,32 @@ export interface SequenceStepperProps {
    * (`remove-first`, `remove-last`). Default one.
    */
   times?: number;
+  /**
+   * Arrays only: how many slots the block reserves. Pass the same number to
+   * the pair of slides that show one structure before and after an
+   * operation, or the block changes width between them.
+   */
+  capacity?: number;
+  /**
+   * The name the LISTING shows the method under, when the document presents
+   * the structure through a TDA that calls it something else — a pila slide
+   * showing `pop` rather than the chain's `deleteFirst`. The body is the
+   * same; only the name changes, in the signature and in every call.
+   */
+  method?: string;
+  /** The variable the calling program operates on. Defaults to `arreglo`
+   * on the array recipes and to `list` on the chains. */
+  receiver?: string;
+  /** The class the calling program constructs. Goes with `method`. */
+  receiverType?: string;
+  /**
+   * Arrays only: a named arrow kept on every frame, aimed at the end the
+   * operation works on — `top` for a stack, `front` or `rear` for a queue.
+   * This one is the structure's field; naming it stands down the `i`/`j`
+   * cursors, which belong to the operation and would draw a second arrow at
+   * the same cell.
+   */
+  pointer?: string;
   /** Lists only: draw a `tail` pointer, and let the operations use it. */
   tail?: boolean;
   /** Playback default. Off unless the author asks (rule Peli 1/2). */
@@ -96,7 +122,7 @@ function refusalReason(
     return 'esta clase presenta el orden como una variante de la lista, no del arreglo.';
   }
   if (recipe === 'linked-list-doubly' && operation === 'remove-last' && !tail) {
-    return 'sin `tail` el recorrido hasta el anteúltimo es el de la lista simple, que nunca toca `prev`. Agregá la prop `tail`.';
+    return 'sin `tail` el recorrido hasta el anteúltimo es el de la lista simple, que nunca toca `prev`. Agrega la prop `tail`.';
   }
   const allowed = recipe === 'linked-list-circular' ? CIRCULAR_OPERATIONS : DOUBLY_OPERATIONS;
   return `el listado que el widget muestra sería el de otra estructura. Sobre «${RECIPE_LABEL[recipe]}» hay listado para: ${allowed
@@ -148,6 +174,11 @@ export function SequenceStepper({
   index,
   target,
   times,
+  capacity,
+  method,
+  receiver,
+  receiverType,
+  pointer,
   tail = false,
   autoplay = false,
   speed = 'normal',
@@ -225,6 +256,11 @@ export function SequenceStepper({
       index={index}
       target={target}
       times={times}
+      capacity={capacity}
+      method={method}
+      receiver={receiver}
+      receiverType={receiverType}
+      pointer={pointer}
       tail={tail}
       autoplay={autoplay}
       speed={speed}
@@ -242,6 +278,11 @@ interface BodyProps {
   index?: number | number[];
   target?: number | number[];
   times?: number;
+  capacity?: number;
+  method?: string;
+  receiver?: string;
+  receiverType?: string;
+  pointer?: string;
   tail: boolean;
   autoplay: boolean;
   speed: StepSpeed;
@@ -257,6 +298,11 @@ function Body({
   index,
   target,
   times,
+  capacity,
+  method,
+  receiver,
+  receiverType,
+  pointer,
   tail,
   autoplay,
   speed,
@@ -279,9 +325,21 @@ function Body({
   const valueKey = String(value);
   const indexKey = String(index);
   const targetKey = String(target);
-  const resetKey = [recipe, operation, valuesKey, valueKey, indexKey, targetKey, times, tail].join(
-    '|',
-  );
+  const resetKey = [
+    recipe,
+    operation,
+    valuesKey,
+    valueKey,
+    indexKey,
+    targetKey,
+    times,
+    capacity,
+    method,
+    receiver,
+    receiverType,
+    pointer,
+    tail,
+  ].join('|');
 
   const built = useMemo((): { trace: SequenceTrace } | { error: string } => {
     try {
@@ -292,6 +350,11 @@ function Body({
           index,
           target,
           times,
+          capacity,
+          method,
+          receiver,
+          receiverType,
+          pointer,
           tail,
         }),
       };
@@ -299,7 +362,21 @@ function Body({
       return { error: cause instanceof Error ? cause.message : String(cause) };
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- the keys ARE the props
-  }, [recipe, operation, valuesKey, valueKey, indexKey, targetKey, times, tail]);
+  }, [
+    recipe,
+    operation,
+    valuesKey,
+    valueKey,
+    indexKey,
+    targetKey,
+    times,
+    capacity,
+    method,
+    receiver,
+    receiverType,
+    pointer,
+    tail,
+  ]);
 
   const trace = 'trace' in built ? built.trace : null;
   const totalSteps = trace?.steps.length ?? 0;
@@ -401,21 +478,21 @@ function Body({
               </div>
             )}
             {/*
-              The running elementary-operation count — the number five of the
-              operation slides argue about. Every frame already carried it;
-              until the #288 review it was computed, asserted by the suite and
-              never shown, while ADR-0074 §Consequences claimed the reader
-              read Θ(1) against Θ(N) off it. Now they can.
+              The elementary-operation count is NOT on screen, and that is a
+              decision rather than an omission — #294, ADR-0074 §Amended by.
+              `step.cost` is still computed and still asserted by the suite:
+              it is the trace's own arithmetic, and the tests that read it are
+              the reason the frame counts can be trusted.
+
+              What it could not do is the job ADR-0074 §Consequences gave it,
+              "the reader reads Θ(1) against Θ(N) off the widget". A single
+              run shows a single number, and one number is not a growth rate:
+              on the slide that pointed at it, `enqueue` read 1 and `dequeue`
+              read 3 over three elements — a factor of three that any constant
+              explains as well as N does. Seven of the eight slides that
+              mounted the widget never referred to it at all, so on those it
+              was chrome that reset between runs with nothing to say.
             */}
-            <div className="mt-1.5 font-mono text-3xs uppercase tracking-wide text-ink-faint">
-              ops
-            </div>
-            <div
-              data-testid="sequence-cost"
-              className="min-w-11 rounded border border-rule bg-sunk px-2 py-1 text-lg font-semibold leading-none text-ink"
-            >
-              {step.cost}
-            </div>
           </div>
           <div
             className="flex items-center justify-center overflow-x-auto p-3"
@@ -425,6 +502,10 @@ function Body({
               step={step}
               recipe={recipe}
               maxCells={trace.maxCells}
+              maxSlots={Math.max(
+                ...trace.steps.map((f) => f.capacity ?? f.cells.length),
+                trace.maxCells,
+              )}
               align={trace.align}
               hasCarry={trace.hasCarry}
             />
@@ -500,6 +581,7 @@ const CELL_FILL: Record<SequenceCell['state'], string> = {
   active: 'var(--color-surface)',
   found: 'var(--color-keep-soft)',
   leaving: 'var(--color-sunk)',
+  stale: 'var(--color-surface)',
 };
 
 const CELL_STROKE: Record<SequenceCell['state'], string> = {
@@ -508,6 +590,7 @@ const CELL_STROKE: Record<SequenceCell['state'], string> = {
   active: 'var(--color-focus)',
   found: 'var(--color-keep)',
   leaving: 'var(--color-rule)',
+  stale: 'var(--color-rule)',
 };
 
 /**
@@ -519,6 +602,7 @@ const CELL_NOTE: Partial<Record<SequenceCell['state'], string>> = {
   new: 'nuevo',
   found: '✓ este',
   leaving: 'sale',
+  stale: 'copia vieja',
 };
 
 /**
@@ -542,23 +626,30 @@ function StructureView({
   step,
   recipe,
   maxCells,
+  maxSlots,
   align,
   hasCarry,
 }: {
   step: SequenceStep;
   recipe: SequenceRecipe;
   maxCells: number;
+  maxSlots: number;
   align: 'left' | 'right';
   hasCarry: boolean;
 }) {
   const isList = recipe.startsWith('linked-list');
   const slots = step.capacity ?? step.cells.length;
-  // Laid out for the WIDEST frame, so the drawing keeps one size from the
-  // first frame to the last. `offset` is how far in the current cells start:
-  // when the chain grows at the front, they sit flush right and the reserved
-  // slot is exactly where the next node will land — so it lands without
-  // moving anything already on screen.
-  const layout = layoutSequence(maxCells, recipe, slots, hasCarry);
+  // The CANVAS is sized for the widest frame, so the drawing keeps one size
+  // and one cell size from the first frame to the last; the BLOCK drawn
+  // inside it is the one this frame has, so a block that fills and doubles
+  // does it on screen (#294 — four pushes over a block of four read as six
+  // cells beside a readout saying `capacidad 4`).
+  //
+  // `offset` is how far in the current cells start: when the chain grows at
+  // the front, they sit flush right and the reserved slot is exactly where
+  // the next node will land — so it lands without moving anything already on
+  // screen.
+  const layout = layoutSequence(maxCells, recipe, slots, hasCarry, maxSlots);
   const offset = align === 'right' ? maxCells - step.cells.length : 0;
   // Where the floating node sits — computed once and shared, because `head`
   // has to be able to point AT it and a second copy of this arithmetic is a
@@ -693,7 +784,7 @@ function ArrayPicture({ step, layout }: { step: SequenceStep; layout: SequenceLa
               stroke={free ? 'var(--color-rule)' : CELL_STROKE[cell.state]}
               strokeWidth={!free && (cell.state === 'active' || cell.state === 'found') ? 2.5 : 1.2}
               strokeDasharray={free ? '3 3' : undefined}
-              opacity={!free && cell.state === 'leaving' ? 0.5 : 1}
+              opacity={!free && (cell.state === 'leaving' || cell.state === 'stale') ? 0.45 : 1}
             />
             {free ? null : (
               <text
@@ -992,7 +1083,11 @@ function Pointers({
       {step.pointers.map((pointer) => {
         const box = pointer.index === null ? null : layout.boxes[pointer.index + offset];
         const isHead = pointer.name === 'head';
-        const walking = pointer.name !== 'head' && pointer.name !== 'tail';
+        // A field of the structure against a cursor of the operation — the
+        // trace says which (`SequencePointer.fixed`). It used to be a list of
+        // names, which is why an array's own field landed in the cursor row
+        // and printed its label on top of `i` (#294).
+        const walking = !isHead && pointer.fixed !== true;
         const colour = walking ? 'var(--color-focus)' : 'var(--color-accent)';
 
         // `head` points ACROSS from the lane on the left, never down from
@@ -1044,15 +1139,15 @@ function Pointers({
           );
         }
 
-        // A walking pointer standing on the same node as `tail` is nudged
-        // sideways and anchored away, or the fixed pointer's arrow runs
-        // through the walking one's label.
+        // A cursor standing on the same cell as a field is nudged sideways
+        // and anchored away, or the field's arrow runs through the cursor's
+        // label.
         const collides =
           walking &&
           pointer.index !== null &&
-          step.pointers.some((other) => other.name === 'tail' && other.index === pointer.index);
+          step.pointers.some((other) => other.fixed === true && other.index === pointer.index);
         const nudge = collides ? 26 : 0;
-        const y = pointer.name === 'tail' ? 10 : 28;
+        const y = pointer.fixed === true ? 10 : 28;
         const x = (box ? box.centerX : layout.width - 12) + nudge;
         return (
           <g key={pointer.name}>

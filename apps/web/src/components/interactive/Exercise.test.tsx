@@ -313,6 +313,16 @@ describe('Exercise', () => {
     await waitFor(() => expect(screen.queryByText(/esperando/i)).not.toBeInTheDocument());
   });
 
+  // #294: the editor used to be capped at a fixed 20rem that did not grow
+  // with the viewport, so a listing longer than it showed a third of itself —
+  // on a projector as much as on a laptop. A slide that says "el código
+  // completo" has to show it whole.
+  it('puts no height cap on the editor, so the whole listing shows', () => {
+    renderExercise();
+    const box = screen.getByTestId('code').parentElement as HTMLElement;
+    expect(box.className).not.toMatch(/max-h-/);
+  });
+
   it('loads no runtime until the student asks for one', async () => {
     renderExercise();
     await waitFor(() => expect(screen.getByTestId('code')).toBeInTheDocument());

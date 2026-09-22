@@ -1,0 +1,289 @@
+# Guide — Write an exercise
+
+The narrative shape every worked problem of the course takes. Born with #294,
+whose four exercises are its worked cases.
+
+**The shape is content, not only an authoring convention.** The course wants
+the student to leave with a method for attacking a problem they have never
+seen — the same method they will meet again in competitive programming and in
+an interview. A method is learned by meeting it identically every time, so the
+beats below are recognisable, always in the same order, and never merged for
+room. A student who has read four exercises should be able to name the five
+questions without being told they exist.
+
+This is the fourth layer of the course-authoring stack, and it repeats none of
+the other three:
+
+- [`add-a-course-document.md`](add-a-course-document.md) — the **mechanics**:
+  frontmatter, slide markers, figures, fences, the index.
+- [`course-content-style.md`](course-content-style.md) — the **voice**.
+- [`teach-a-data-structure.md`](teach-a-data-structure.md) — the **class
+  shape**, and everything about figures, `<StepShow>` frames and widgets.
+- **This file** — the shape of **one problem** inside any class.
+
+Nothing here overrides the other three. When this guide needs a figure, a
+widget or a fence, it points at them rather than restating them.
+
+## When to use
+
+Any solvable problem presented in any class of the course — any unit, whether
+or not the class is about a data structure. Do not use it for the exposition
+of a structure or a technique; that is `teach-a-data-structure.md`.
+
+## Two kinds, and they differ by who does the work
+
+- **A worked exercise** shows all five beats. Its `<Exercise>` carries the
+  finished algorithm as `starter`, so the reader runs it, breaks it and plays
+  with it.
+- **A posed exercise** ships beat 1 and stops. Beats 2, 3 and 4 are exactly
+  the work being handed to the student, so putting them on a slide would be
+  answering the question. Its `<Exercise>` carries a skeleton `starter`, the
+  `test` cases, and a `solution` fence.
+
+**And they differ in where the runnable block lives.** A worked exercise's
+`<Exercise>` goes INSIDE a `<Slide>`, wrapped in `<PresentationWide>`, because
+the lecture ends on "here is the whole thing, run it". A posed one stays
+book-only: a problem nobody has solved yet is not something a room reads off a
+projector. #294's four worked exercises are the first `<Exercise>`s in the
+course to ship on slides; the twelve before them were all book-only, and
+#294's own acceptance criteria forbade it before the slide-by-slide review
+reversed the call.
+
+Both are `<Exercise title="…">` with ```` ```java starter ```` and
+```` ```java test ```` fences; only the posed one adds ```` ```java solution ````.
+#294 ships four worked and no posed ones — its five were cut. The posed
+shape is not hypothetical, though: eleven of them already ship, six in
+`16-diseno-algoritmos-ordenamiento.mdx` and five in
+`18-edd-listas-enlazadas.mdx`, all with a statement, a skeleton `starter`,
+`test` cases and a `solution`, and none of them on a slide.
+
+**They are a SECOND posed shape, and it is worth naming.** The eleven do not
+"ship beat 1 and stop": every one hands the reader beat 3 inside the
+statement — «recorrerla con dos referencias a distinta velocidad», «usá
+`partition`, esquema Lomuto», «empezar con un nodo de mentira» — and several
+hand over beat 2 and beat 5 as well. #288 says so outright: _"Cada enunciado
+dice dónde está la dificultad."_ Call that shape **guided**: the idea is
+given and the writing is the work. The bare shape above — beat 1 and nothing
+else — is what a control or an exam asks for. Both are legitimate; what is
+not legitimate is drifting between them inside one bank, because the reader
+cannot tell how much thinking is expected of them.
+
+## The five beats
+
+### 1. The problem
+
+**Four movements, and the signature is the last of them.**
+
+1. **What the problem is**, in one or two sentences, with something that
+   already has it — an editor marking an unclosed bracket in red.
+2. **What the hard word means**, drawn. "In the correct order" is a phrase
+   the reader can nod at and not be able to check; the arcs between each pair
+   make it checkable.
+3. **What the program receives and what it has to answer**, in Spanish.
+4. **The signature**, which is movement 3 written in Java, followed by the
+   ranges.
+
+**The signature is derived, not declared.** Opening on
+`boolean isBalanced(String s)` hands the reader an API and no problem — the
+version of this guide that said "write it as a function: the signature, what
+it receives…" produced exactly that, and it read as a specification landing
+from nowhere.
+
+**Close with solved examples** — at least one that succeeds, one that returns
+the failure value, and the degenerate input (empty, or of one element). **A
+figure that shows those examples with their verdicts IS the examples**: do
+not also table them, and do not narrate the figure back in prose. #294 wrote
+"`({[]})` devuelve `true`; las otras tres, `false`" under a figure whose own
+labels already said it.
+
+**The problem's own data is statement, not implementation help.** Which symbol
+closes which, what counts as a token, what the bounds are — all of it lives
+here, and so does the name of the size the costs will be quoted against
+(`N` is the length of `s`). This is the rule that stops a helper function
+appearing out of nowhere in beat 4.
+
+Say **nothing** about how it is solved. Not one word.
+
+> **Test.** With this slide alone, could the reader take a candidate answer
+> and decide whether it is correct? If not, the statement is incomplete.
+
+**The statement arrives complete.** This course does not teach requirements
+elicitation — #294 weighed it and ruled it out as more advanced than the
+course's objective. The student is given a closed problem on purpose.
+
+### 2. Why the problem is not free
+
+Two forms are known, and either one answers the beat:
+
+- **A tempting wrong idea and the concrete input that breaks it.** Counting
+  openers and closers is right for `([])` and right for `([)]` too, and
+  `([)]` is unbalanced — so what matters is not how many, it is the order.
+  Recomputing each window's sum is Θ(n·k). Simulating Josefo by marking the
+  dead in an array re-walks them forever.
+- **The reason the problem exists**, when the difficulty is not the algorithm
+  but seeing what it buys. Infix notation needs precedence rules and
+  parentheses to be unambiguous; postfix needs neither. Nobody has a tempting
+  wrong way to evaluate `3 4 + 2 *`, so this is the form that fits.
+
+**A third form may appear. Classify it here when it does**, so the next author
+finds it instead of re-deciding. If neither form applies, skip the beat and
+say so in one line — never invent difficulty.
+
+Why it is not optional: the class has just taught the structure, so "use a
+stack" is telegraphed. The counterexample is what turns the structure from an
+instruction into a conclusion the reader reaches.
+
+### 3. The idea
+
+Spanish and a drawing. **Zero code** — no fence, no widget, and no identifier
+from the eventual listing. Name the structure **here and not before**: it is
+the consequence of the idea, not its starting point — **and that includes the
+slide's title**, which the reader meets first of all. #294 titled this beat
+`La pila de símbolos pendientes` and answered, in the title, the question beat
+2 had just opened.
+
+**The argument has to be an argument.** Deriving the stack from "two arcs
+cannot cross" is circular: not crossing is what balanced MEANS, so the
+sentence assumes what it is explaining. What works is unpacking the
+definition into an order: a symbol opened later is nested inside the one
+before it, and nothing can close while something is still open inside it —
+so a closer can only match the most recent.
+
+Run the idea by hand, in prose, on beat 1's example.
+
+> **Test.** Can it be executed by hand on that example without writing a line
+> of Java? If explaining it needs a `for`, it is not the idea yet — it is
+> already the implementation.
+
+### 4. The code
+
+**Nothing is called before it is written.** Every helper the listing uses is
+written out and explained ABOVE the widget, on the same slide. This is the
+defect #294's first draft shipped: `isOpener`, `isCloser` and `openerFor`
+appeared inside the walk under a promise to write them "al final".
+
+- **A helper that carries no idea says so.** It is the statement's data
+  written in Java. Telling the reader where *not* to spend attention is part
+  of explaining.
+- **A helper slide comes immediately before the listing slide** when the
+  helpers and the walk do not fit together. This guide said the opposite
+  first — "helpers get no slide of their own, plumbing with a slide of its
+  own reads as important" — and both exercises of #294 that have helpers
+  broke it, because on one slide the two clip. `course-content-style.md` §5,
+  written in the same PR, then sanctioned the resulting run of titles by name
+  as a legitimate series. The document was right and the rule was wrong.
+- **The listing is the runnable exercise's listing**, character for character,
+  not a paraphrase of it.
+- The walk uses beat 1's example.
+- **What the widget says when driven does not count as said.** A step note
+  is read only by someone who advances to that step — in a lecture, only if
+  the professor stops there. #294's two-pops slide put its whole point
+  ("the first pop returns the right operand, because it entered last") in a
+  step note and nowhere in the prose, and the slide read as an assertion
+  about two lines it never named. The central fact goes in the prose; the
+  widget shows it happening.
+
+The widget itself, its frames and its `lines={[…]}` are governed by
+`teach-a-data-structure.md` §6bis and §7.
+
+### 5. Where it breaks, and what it costs
+
+**Show the failure; do not list it.** A walk that fails at a visible step
+beats a table of edge cases — before the code exists, "queda algo abierto" is
+a claim; after it exists, it is a line that returns `false` and the reader can
+see which.
+
+- **Size it to the case.** A case that deserves a full walk gets its own
+  slide; one that does not is a paragraph under beat 4.
+- Cover the shapes where a general body stops working: the empty input, the
+  input of one, and the first and last position.
+- **The cost says why, against the structure.** "$$\Theta(N)$$, porque cada
+  posición entra a la pila una vez y sale a lo más una vez" is the beat. A
+  bare "$$\Theta(N)$$" is not.
+- Time **and** space.
+- **The cost goes with the failure analysis, not with the runnable code.**
+  This guide said the opposite before anyone measured it: an `<Exercise>`
+  slide is mostly editor, and #294's carried the cost paragraph at scale
+  0.689 — below the floor. Beat 5 is one beat, so keeping its two halves
+  together is also the truer shape. The runnable slide keeps only what the
+  reader needs in order to press the button.
+
+## Rules that cut across every beat
+
+- **One example.** The same input threads all five beats. The only other
+  inputs allowed are beat 2's counterexample and beat 5's breaking input.
+  Changing example halfway costs the reader the thread.
+- **Closed vocabulary.** Nothing is used before it is defined, and nothing is
+  defined in beat 4 that beat 1 or beat 3 owed.
+- **Name the input you are talking about.** "Las dos expresiones", "el
+  recorrido se detiene en el tercer carácter" — the reader has to look at the
+  figure to find out which input that is. Write `([)]`.
+- **Show before asserting.** No count and no cost appears before the drawing
+  or the walk that produces it. #294 shipped "y de ahí salen las tres únicas
+  formas de fallar" beside a figure showing three examples — a claim of
+  exhaustiveness nobody proved.
+- **The title says what is on the slide**, and **no slide refers to another
+  one**. Both rules and their worked cases live in
+  [`course-content-style.md`](course-content-style.md) §5 and §4; they are
+  named here only because a beat's title is the place an exercise breaks them
+  first — see beat 3, where the title is part of not naming the structure
+  early.
+
+## The spine adapts
+
+It is not carved in stone. Each problem has its own structure and they are not
+all alike. A beat that does not apply is **skipped out loud**, in one line. A
+beat answered in a way this guide does not list is **classified here** by the
+author who met it, so the guide grows instead of being worked around.
+
+What never moves is the **order**, because the order is the thing being
+taught.
+
+## Not a constraint
+
+How many slides an exercise takes. It is never a goal, and never quoted as
+the cost of a decision. What *is* measured is each slide's scale (floor 0.70)
+and whether anything clips — the scale recipe is in
+`teach-a-data-structure.md` §Checklist and the clipping one in §6bis.
+
+## Checklist
+
+- [ ] Beat 1 names a function with its signature, its ranges and its return,
+      and closes on solved examples including a failing one and the degenerate
+      input.
+- [ ] Beat 1 contains no word about the solution, and carries the problem's
+      own data (pairs, tokens, bounds).
+- [ ] Beat 2 gives a counterexample **or** the problem's reason to exist — or
+      is skipped in one explicit line.
+- [ ] Beat 3 contains no code and no identifier from the listing, and the
+      structure is named there for the first time.
+- [ ] Every helper the listing calls is written and explained before the
+      walk that calls it — above the widget when both fit on one slide, on
+      the slide immediately before it when they do not.
+- [ ] The listing on the slide and the listing in the `<Exercise>` are the
+      same characters.
+- [ ] One example threads beats 1, 3 and 4.
+- [ ] Beat 5 SHOWS a failure, covers empty / one / the extremes, and states
+      time and space cost each with its reason.
+- [ ] Every slide title says what is on its slide, and no slide refers to
+      another one.
+- [ ] The `<Exercise>` runs in `npm run preview` against the real JVM and its
+      `test` fence passes — nothing in the build or the suite executes Java.
+- [ ] The checklists of [`add-a-course-document.md`](add-a-course-document.md),
+      [`course-content-style.md`](course-content-style.md) and
+      [`teach-a-data-structure.md`](teach-a-data-structure.md) all pass — this
+      guide adds to them and replaces none.
+
+## Worked cases
+
+`content/courses/sample-course/19-edd-stack-queue.mdx` — four worked exercises
+(paréntesis balanceados, notación polaca inversa, el problema de Josefo,
+promedio móvil). The guide was written from them and
+they are rewritten to it in the same WP — notación polaca is what produced
+the second form of beat 2, having no tempting wrong idea to offer.
+
+**Its sibling for the question bank already exists**:
+[`write-control-questions.md`](write-control-questions.md) governs the
+questions at the end of a document. An exercise and a question are different
+objects — one is solved, the other is answered — so neither guide defers to
+the other.
