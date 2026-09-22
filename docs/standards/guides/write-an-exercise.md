@@ -48,15 +48,35 @@ Both are `<Exercise title="…">` with ```` ```java starter ```` and
 
 ### 1. The problem
 
-Write it as a function: the signature, what it receives, in what ranges, what
-it returns. Close with solved examples — **at least one that succeeds, one
-that returns the failure value, and the degenerate input** (empty, or of one
-element).
+**Four movements, and the signature is the last of them.**
+
+1. **What the problem is**, in one or two sentences, with something that
+   already has it — an editor marking an unclosed bracket in red.
+2. **What the hard word means**, drawn. "In the correct order" is a phrase
+   the reader can nod at and not be able to check; the arcs between each pair
+   make it checkable.
+3. **What the program receives and what it has to answer**, in Spanish.
+4. **The signature**, which is movement 3 written in Java, followed by the
+   ranges.
+
+**The signature is derived, not declared.** Opening on
+`boolean isBalanced(String s)` hands the reader an API and no problem — the
+version of this guide that said "write it as a function: the signature, what
+it receives…" produced exactly that, and it read as a specification landing
+from nowhere.
+
+**Close with solved examples** — at least one that succeeds, one that returns
+the failure value, and the degenerate input (empty, or of one element). **A
+figure that shows those examples with their verdicts IS the examples**: do
+not also table them, and do not narrate the figure back in prose. #294 wrote
+"`({[]})` devuelve `true`; las otras tres, `false`" under a figure whose own
+labels already said it.
 
 **The problem's own data is statement, not implementation help.** Which symbol
 closes which, what counts as a token, what the bounds are — all of it lives
-here. This is the rule that stops a helper function appearing out of nowhere
-in beat 4.
+here, and so does the name of the size the costs will be quoted against
+(`N` is the length of `s`). This is the rule that stops a helper function
+appearing out of nowhere in beat 4.
 
 Say **nothing** about how it is solved. Not one word.
 
@@ -93,7 +113,17 @@ instruction into a conclusion the reader reaches.
 
 Spanish and a drawing. **Zero code** — no fence, no widget, and no identifier
 from the eventual listing. Name the structure **here and not before**: it is
-the consequence of the idea, not its starting point.
+the consequence of the idea, not its starting point — **and that includes the
+slide's title**, which the reader meets first of all. #294 titled this beat
+`La pila de símbolos pendientes` and answered, in the title, the question beat
+2 had just opened.
+
+**The argument has to be an argument.** Deriving the stack from "two arcs
+cannot cross" is circular: not crossing is what balanced MEANS, so the
+sentence assumes what it is explaining. What works is unpacking the
+definition into an order: a symbol opened later is nested inside the one
+before it, and nothing can close while something is still open inside it —
+so a closer can only match the most recent.
 
 Run the idea by hand, in prose, on beat 1's example.
 
@@ -149,6 +179,9 @@ see which.
   Changing example halfway costs the reader the thread.
 - **Closed vocabulary.** Nothing is used before it is defined, and nothing is
   defined in beat 4 that beat 1 or beat 3 owed.
+- **Name the input you are talking about.** "Las dos expresiones", "el
+  recorrido se detiene en el tercer carácter" — the reader has to look at the
+  figure to find out which input that is. Write `([)]`.
 - **Show before asserting.** No count and no cost appears before the drawing
   or the walk that produces it. #294 shipped "y de ahí salen las tres únicas
   formas de fallar" beside a figure showing three examples — a claim of

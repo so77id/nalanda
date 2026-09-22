@@ -1314,15 +1314,13 @@ lanzar.
 
 
 <Slide title="Paréntesis balanceados">
-Escribe `boolean isBalanced(String s)`.
+Un editor de código marca en rojo un paréntesis que quedó sin cerrar, y lo
+hace antes de compilar nada. Lo que revisa es que la expresión esté
+**balanceada**: que cada símbolo que se abre se cierre después, y en el orden
+correcto.
 
-`s` trae únicamente los seis símbolos `(`, `)`, `[`, `]`, `{` y `}`, y a lo
-más 10⁵ caracteres. Cada apertura tiene un cierre que le corresponde: `(` con
-`)`, `[` con `]`, `{` con `}`.
-
-Devuelve `true` si cada símbolo que se abre se cierra después y en el orden
-correcto, y `false` en cualquier otro caso. Dibujando un arco entre cada par
-se ve de un golpe:
+«En el orden correcto» es lo que hace el problema interesante, y se ve
+dibujando un arco entre cada pareja:
 
 <svg viewBox="40 -8 580 340" style={{ width: '100%', maxWidth: '660px', height: 'auto', display: 'block', margin: '1.25rem auto' }} role="img" aria-label="Cuatro expresiones con un arco que une cada par de símbolos. En la primera, abre paréntesis llave corchete y sus tres cierres, los arcos se anidan sin cruzarse y está balanceada. En la segunda, abre paréntesis corchete cierra paréntesis cierra corchete, los dos arcos se cruzan. En la tercera, dos aperturas y un cierre, el primer paréntesis queda sin arco. En la cuarta, un par completo y un cierre final que no tiene con qué emparejarse.">
   <g transform="translate(0, 0)">
@@ -1380,7 +1378,17 @@ se ve de un golpe:
   </g>
 </svg>
 
-Sobre la cadena vacía devuelve `true`: no hay nada que cerrar.
+El programa recibe la expresión completa, como una cadena de caracteres, y
+tiene que responder una sola cosa: si está balanceada o no. Eso es una
+función que toma un `String` y devuelve un `boolean`:
+
+```java
+boolean isBalanced(String s)
+```
+
+`s` contiene sólo los seis símbolos `(`, `)`, `[`, `]`, `{` y `}`, y su largo
+`N` va de 0 a 10⁵. Las parejas son `(` con `)`, `[` con `]` y `{` con `}`. La
+cadena vacía está balanceada: no hay nada que cerrar.
 
 </Slide>
 
@@ -1388,7 +1396,7 @@ Sobre la cadena vacía devuelve `true`: no hay nada que cerrar.
 Lo primero que se piensa es contar: si hay tantos `(` como `)`, tantos `[`
 como `]` y tantos `{` como `}`, la expresión estaría balanceada.
 
-<svg viewBox="44 -12 390 208" style={{ width: '100%', maxWidth: '520px', height: 'auto', display: 'block', margin: '1.25rem auto' }} role="img" aria-label="Dos expresiones de cuatro símbolos. Arriba, abre paréntesis abre corchete cierra corchete cierra paréntesis: los dos arcos se anidan y está balanceada. Abajo, abre paréntesis abre corchete cierra paréntesis cierra corchete: los dos arcos se cruzan y no está balanceada. Las dos tienen exactamente la misma cuenta de símbolos.">
+<svg viewBox="44 -12 390 178" style={{ width: '100%', maxWidth: '520px', height: 'auto', display: 'block', margin: '1.25rem auto' }} role="img" aria-label="Dos expresiones de cuatro símbolos. Arriba, abre paréntesis abre corchete cierra corchete cierra paréntesis: los dos arcos se anidan y está balanceada. Abajo, abre paréntesis abre corchete cierra paréntesis cierra corchete: los dos arcos se cruzan y no está balanceada. Las dos tienen exactamente la misma cuenta de símbolos.">
   <g transform="translate(0, 0)">
     {['(', '[', ']', ')'].map((ch, i) => (
       <g key={i}>
@@ -1411,26 +1419,26 @@ como `]` y tantos `{` como `}`, la expresión estaría balanceada.
     <path d="M 102 31 C 102 69, 166 69, 166 31" fill="none" style={{ stroke: 'var(--color-flag)' }} strokeWidth="1.8" />
     <text x="290" y="20" fontSize="14" fontWeight="700" style={{ fill: 'var(--color-flag)' }}>no balanceada</text>
   </g>
-  <text x="56" y="188" fontSize="13" style={{ fill: 'var(--color-ink-soft)' }}>un ( , un ) , un [ , un ] — la misma cuenta en las dos</text>
 </svg>
 
-Las dos expresiones tienen exactamente los mismos cuatro símbolos, uno de
-cada uno, y sólo una está balanceada. La cuenta no las distingue porque no
-guarda el **orden**, que es lo único en que se diferencian.
+`([])` y `([)]` pasan las dos esa prueba, con un `(`, un `)`, un `[` y un `]`
+cada una. Sólo la primera está balanceada.
+
+Un contador no recuerda **en qué orden** llegaron los símbolos, y el orden es
+lo único en que esas dos expresiones se diferencian.
 
 </Slide>
 
-<Slide title="La pila de símbolos pendientes">
-Recorremos la expresión de izquierda a derecha, y cada símbolo que abre queda
-**pendiente de cerrar**.
+<Slide title="Los símbolos que esperan cierre">
+Recorremos la expresión de izquierda a derecha. Cada símbolo que abre queda
+**esperando su cierre**, y el que abre después queda esperando adentro del
+anterior.
 
-Cuando llega uno que cierra, el único con el que puede corresponderse es el
-**último** que quedó pendiente: si se correspondiera con alguno anterior, su
-arco tendría que cruzar el de ese último, y cruzarse es justamente lo que no
-puede pasar.
+Por eso, cuando aparece un cierre, sólo puede cerrar al **último** que quedó
+esperando: los que abrieron antes lo tienen adentro, y ninguno puede cerrarse
+mientras siga habiendo algo abierto adentro suyo.
 
-Entonces basta con recordar los pendientes y mirar y sacar siempre el último
-que entró. Eso es una pila.
+Sobre `({[]})`:
 
 <svg viewBox="20 0 660 212" style={{ width: '100%', maxWidth: '680px', height: 'auto', display: 'block', margin: '1.25rem auto' }} role="img" aria-label="La pila de pendientes en cuatro momentos del recorrido de abre paréntesis abre llave abre corchete cierra corchete cierra llave cierra paréntesis. Tras el primer símbolo la pila tiene un abre paréntesis. Tras los tres primeros tiene abre paréntesis, abre llave y abre corchete, con el corchete arriba de todo. Tras el cierra corchete quedan dos, el paréntesis abajo y la llave arriba. Al final la pila queda vacía.">
   {[
@@ -1454,14 +1462,18 @@ que entró. Eso es una pila.
   <text x="240" y="204" fontSize="12" style={{ fill: 'var(--color-ink-faint)' }}>lo último que entró queda arriba, y es lo primero que sale</text>
 </svg>
 
-Al terminar la expresión la pila tiene que quedar vacía: si sobró algo
-pendiente, ese símbolo nunca se cerró.
+De toda la lista de símbolos esperando sólo se consulta y se retira el último
+que entró. Esa es la **pila**.
+
+Al terminar la expresión no puede quedar ninguno esperando: cada uno que sobre
+es un símbolo que nunca se cerró.
 
 </Slide>
 
 <Slide title="El código">
-Tres funciones auxiliares, que no traen ninguna idea: son las parejas del
-enunciado escritas en Java.
+Dos funciones dicen de qué lado está un símbolo, y una tercera devuelve la
+apertura que le corresponde a un cierre. Las tres son las parejas del
+enunciado, escritas en Java:
 
 ```java
 boolean isOpener(char c) { return c == '(' || c == '[' || c == '{'; }
@@ -1474,7 +1486,8 @@ char openerFor(char c) {
 }
 ```
 
-Con ellas, cada apertura se apila y cada cierre desapila y compara.
+Con ellas, el recorrido: cada apertura entra a la pila, y cada cierre saca la
+cima y la compara contra la apertura que le corresponde.
 
 <StepShow
   language="java"
@@ -1516,7 +1529,7 @@ return pending.empty();`}
 
 </Slide>
 
-<Slide title="Cuando no está balanceada">
+<Slide title="Las entradas que fallan">
 <StepShow
   language="java"
   code={`for (char c : s.toCharArray()) {
@@ -1530,7 +1543,7 @@ return pending.empty();`}
 return pending.empty();`}
 >
   <Step lines={[]}>
-    <Paso expr="([)]" cursor={-1} pila={[]} nota="La misma cantidad de cada símbolo que la anterior. Lo que cambia es el orden." />
+    <Paso expr="([)]" cursor={-1} pila={[]} nota="La misma cantidad de cada símbolo que ({[]}), en otro orden." />
   </Step>
   <Step lines={[2, 3]}>
     <Paso expr="([)]" cursor={0} pila={['(']} nota="( es una apertura: se apila." />
@@ -1543,27 +1556,30 @@ return pending.empty();`}
   </Step>
 </StepShow>
 
-El recorrido se detiene en el tercer carácter, sin leer el resto: el `)`
-pide un `(` y la cima es `[`.
+Sobre `([)]` la función devuelve `false` en el tercer símbolo, sin llegar a
+leer el cuarto: el `)` corresponde a `(`, y la cima es `[`.
 
-`(()` falla de otra manera. Ningún cierre se equivoca, el ciclo termina
-entero, y la pila todavía tiene un `(` adentro. Por eso la última línea no
-es `return true`, es `return pending.empty()`.
+`(()` no falla en ningún cierre. El ciclo recorre la expresión entera y
+termina con un `(` todavía en la pila — por eso la última línea no es
+`return true` sino `return pending.empty()`.
 
-`())` falla de una tercera: el último `)` llega con la pila ya vacía, y no
-hay ninguna apertura con la cual compararlo.
+`())` falla al revés: el último `)` llega con la pila ya vacía, y no hay
+ninguna apertura contra la cual compararlo. Sin esa guarda, `pop()` sobre una
+pila vacía lanza `EmptyStackException`.
 
-Cada carácter se mira una vez y entra y sale de la pila a lo más una vez:
-$$\Theta(N)$$ de tiempo. La pila guarda a lo más las aperturas anidadas, así
-que con `((((`… ocupa $$\Theta(N)$$.
+Cada símbolo se mira una vez y entra y sale de la pila a lo más una vez, así
+que el tiempo es $$\Theta(N)$$. La pila llega a tener tantos símbolos como
+aperturas anidadas tenga la expresión, de modo que con `((((`… ocupa
+$$\Theta(N)$$ de espacio.
 
 </Slide>
 
 <Slide title="El código completo">
 <Exercise title="Paréntesis balanceados">
 
-El algoritmo entero, con sus tres auxiliares. Prueba con `({[]})`, `([)]`,
-`(()`, `())` y la cadena vacía.
+El algoritmo entero, con sus tres auxiliares. Los casos de prueba son
+`({[]})`, `([)]`, `(()`, `())` y la cadena vacía. Presiona **Comprobar** para
+correrlo, y después cambia lo que quieras.
 
 ```java starter
 import java.util.Stack;
