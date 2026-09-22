@@ -662,6 +662,77 @@ func TestOneFailedCopyDoesNotStopTheOthers(t *testing.T) {
 	}
 }
 
+// A lost Gmail credential is a property of the RUN, not of the copy that
+// hit it (issue #297). On 2026-09-22 Google answered the first send of a
+// thirty-copy publication with `invalid_grant`, AccessToken cleared the
+// credential as ADR-0072 says it must, and the loop then asked Gmail
+// eighteen more times — each answer ErrNotConnected, each recorded as that
+// copy's failure, each telling the professor they had never connected an
+// account.
+//
+// Both sentinels are cases because both reach the loop: ErrRejected is the
+// copy that finds the grant dead, ErrNotConnected is every copy after it
+// (and a professor who disconnected on /profile while the job was queued).
+func TestALostCredentialStopsThePublicationAtTheCopyThatFoundIt(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		err  error
+	}{
+		{"rejected", fmt.Errorf("%w: invalid_grant", gmail.ErrRejected)},
+		{"not connected", fmt.Errorf("%w", gmail.ErrNotConnected)},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			rig := newPublishRig(t)
+			rig.dispatcher.failOn["ana@udp.cl"] = tc.err
+
+			result, err := rig.svc.Publish(context.Background(), rig.controlID,
+				controls.PublishRequest{ProfessorID: 7, Mode: controls.PublishModeReal})
+			if !errors.Is(err, controls.ErrCredentialLost) {
+				t.Fatalf("Publish returned %v, want ErrCredentialLost", err)
+			}
+			if !errors.Is(err, tc.err) {
+				t.Errorf("Publish returned %v, which hides the dispatcher's cause", err)
+			}
+			if attempts := len(rig.dispatcher.sent) + len(rig.dispatcher.refused); attempts != 1 {
+				t.Errorf("Dispatcher.Send was called %d times, want once: no later copy "+
+					"can succeed against a lost credential", attempts)
+			}
+			if result.Sent != 0 || len(result.Failures) != 0 {
+				t.Errorf("result = %+v, want nothing sent and no per-copy failure: "+
+					"the credential is the run's fault, not copy 1's", result)
+			}
+		})
+	}
+}
+
+// The partial result travels WITH the sentinel (issue #297, AC3). The
+// professor is told how many corrections made it out before the connection
+// died, and a PublishResult{} beside the error would erase exactly that —
+// while the copies already sent must keep the stamp that lets the next
+// Publicar skip them (ADR-0073).
+func TestALostCredentialMidRunKeepsWhatWentOutBeforeIt(t *testing.T) {
+	rig := newPublishRig(t)
+	rig.dispatcher.failOn["bruno@udp.cl"] = fmt.Errorf("%w: Gmail answered 401", gmail.ErrRejected)
+
+	result, err := rig.svc.Publish(context.Background(), rig.controlID,
+		controls.PublishRequest{ProfessorID: 7, Mode: controls.PublishModeReal})
+	if !errors.Is(err, controls.ErrCredentialLost) {
+		t.Fatalf("Publish returned %v, want ErrCredentialLost", err)
+	}
+	if result.Sent != 1 {
+		t.Errorf("result.Sent = %d, want the one copy that went out first", result.Sent)
+	}
+	if rig.readings.readings[0].PublishedAt == nil {
+		t.Error("copy 1 went out and lost its stamp; the next Publicar would mail it again")
+	}
+	if rig.readings.readings[1].PublishedAt != nil || rig.readings.readings[2].PublishedAt != nil {
+		t.Error("a copy that never went out was stamped; the next Publicar would skip it")
+	}
+	if n := len(rig.dispatcher.sent) + len(rig.dispatcher.refused); n != 2 {
+		t.Errorf("Dispatcher.Send was called %d times, want 2 (copy 3 never attempted)", n)
+	}
+}
+
 // The four refusals that stop a publication before anything is stamped.
 // Each has its own repair, and each must leave the control untouched.
 func TestPublishRefusesBeforeStampingWhenItCannotSend(t *testing.T) {

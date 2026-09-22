@@ -200,6 +200,20 @@ var (
 	// since `stub` is the default and the deploy document did not list the
 	// variable, that was the documented production path.
 	ErrCannotDeliver = errors.New("controls: this server is not configured to send mail")
+
+	// ErrCredentialLost is a publication that STARTED and then found the
+	// professor's Gmail credential gone (issue #297): Google refused the
+	// refresh token mid-run (gmail.ErrRejected), or the credential was
+	// already cleared by then (gmail.ErrNotConnected).
+	//
+	// Not a refusal like ErrNotGraded or ErrCannotDeliver, which Publish
+	// makes before sending anything. The pre-flight asks for the connected
+	// ADDRESS, and a dead refresh token keeps its address until the first
+	// real send discovers it — so this can only surface inside the loop,
+	// and Publish returns it BESIDE the partial result rather than instead
+	// of it: how many corrections went out before the connection died is
+	// what the professor needs to hear.
+	ErrCredentialLost = errors.New("controls: the Gmail credential was lost mid-publication")
 )
 
 // Publish sends one email per copy that needs one, and is RESUMABLE.
@@ -244,6 +258,9 @@ var (
 //
 // One student's bounce does not stop the other thirty-nine: every send is
 // attempted, failures are collected, and the run reports what happened.
+// The exception is a LOST CREDENTIAL (issue #297): that is not one
+// student's bounce but every student's, so the loop stops at the copy that
+// found it and returns the partial result together with ErrCredentialLost.
 func (s *Service) Publish(ctx context.Context, controlID string, req PublishRequest) (PublishResult, error) {
 	control, err := s.Store.ControlByID(ctx, controlID)
 	if err != nil {
@@ -376,6 +393,22 @@ func (s *Service) Publish(ctx context.Context, controlID string, req PublishRequ
 			// student out of the line.
 			s.Log.Error("controls.Publish: send failed",
 				"control", controlID, "copy", reading.CopyNumber, "error", err)
+			if credentialLost(err) {
+				// THE ONE EXCEPTION to per-copy independence (issue #297,
+				// amends ADR-0073). A lost credential is the run's fault,
+				// not this copy's: no later send can succeed, and going on
+				// recorded one failure per remaining copy, every one after
+				// the first saying the professor had never connected an
+				// account — because this send had just cleared it.
+				//
+				// Stopping is safe for the reason resuming is: every copy
+				// that went out is already stamped, above this line on an
+				// earlier iteration, so the next Publicar sends exactly
+				// the rest. And the partial result goes back WITH the
+				// error, because how many went out is what the professor
+				// needs to hear.
+				return result, fmt.Errorf("%w: %w", ErrCredentialLost, err)
+			}
 			result.Failures = append(result.Failures, PublishFailure{
 				CopyNumber: reading.CopyNumber,
 				Reason:     publishFailureReason(err),
@@ -738,6 +771,17 @@ func (s *Service) attachmentFor(record AnnotatedCopy) (Attachment, bool) {
 		ContentType: "application/pdf",
 		Content:     content,
 	}, true
+}
+
+// credentialLost reports whether a send failed because the professor's
+// Gmail credential is gone, rather than because of this one message.
+//
+// ErrNotConnected belongs here as much as ErrRejected does: mid-run it is
+// what every copy after the rejected one sees, since the rejection cleared
+// the credential — and the pre-flight already turned away a professor who
+// never connected, so inside the loop it can only mean "lost".
+func credentialLost(err error) bool {
+	return errors.Is(err, gmail.ErrRejected) || errors.Is(err, gmail.ErrNotConnected)
 }
 
 // publishFailureReason words one failed send for the professor.
