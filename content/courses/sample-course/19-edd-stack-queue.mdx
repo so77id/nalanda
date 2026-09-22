@@ -1434,26 +1434,39 @@ el último que quedó esperando. No es casualidad: un símbolo que abre después
 de otro queda encerrado por él, así que tiene que cerrarse antes. Si se
 cerrara después, los dos arcos se cruzarían.
 
-<svg viewBox="20 0 660 212" style={{ width: '100%', maxWidth: '680px', height: 'auto', display: 'block', margin: '1.25rem auto' }} role="img" aria-label="La pila de pendientes en cuatro momentos del recorrido de la expresión. Tras los tres primeros símbolos tiene abre paréntesis, abre llave y abre corchete, con el corchete arriba de todo. Tras el cierra corchete quedan dos, el paréntesis abajo y la llave arriba. Tras el segundo abre paréntesis vuelve a tener tres. Al final la pila queda vacía.">
+<svg viewBox="0 0 670 206" style={{ width: '100%', maxWidth: '670px', height: 'auto', display: 'block', margin: '1.25rem auto' }} role="img" aria-label="Tres momentos del recorrido de la expresión abre paréntesis abre llave abre corchete cierra corchete abre paréntesis cierra paréntesis cierra llave cierra paréntesis. En cada uno se ve la expresión con el símbolo recién leído marcado y, debajo, los que siguen esperando cierre. Al leer el abre corchete esperan tres: el abre paréntesis abajo, la abre llave en medio y el abre corchete arriba. Al leer el cierra corchete, el abre corchete sale de arriba de todo, dibujado atenuado y punteado, y quedan dos esperando. Al leer el segundo abre paréntesis vuelven a ser tres, con ese paréntesis arriba.">
+  <text x="4" y="30" fontSize="12" fontFamily="monospace" style={{ fill: 'var(--color-ink-faint)' }}>expresión</text>
+  <text x="4" y="160" fontSize="12" fontFamily="monospace" style={{ fill: 'var(--color-ink-faint)' }}>esperando</text>
   {[
-    { x: 40, rotulo: 'tras ({[', pila: ['(', '{', '['], nota: '' },
-    { x: 200, rotulo: 'tras ({[]', pila: ['(', '{'], nota: '' },
-    { x: 360, rotulo: 'tras ({[](', pila: ['(', '{', '('], nota: '' },
-    { x: 520, rotulo: 'al final', pila: [], nota: 'vacía' },
-  ].map((c, i) => (
-    <g key={i}>
-      <text x={c.x + 44} y="18" textAnchor="middle" fontSize="13" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink-soft)' }}>{c.rotulo}</text>
-      <line x1={c.x} y1="170" x2={c.x + 88} y2="170" style={{ stroke: 'var(--color-rule-strong)' }} strokeWidth="2" />
-      {c.pila.map((ch, j) => (
-        <g key={j}>
-          <rect x={c.x + 30} y={170 - (j + 1) * 34} width="28" height="30" rx="3" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.5" />
-          <text x={c.x + 44} y={170 - (j + 1) * 34 + 21} textAnchor="middle" fontSize="17" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>{ch}</text>
+    { x: 86, cursor: 2, pila: ['(', '{', '['], nuevo: true, sale: '' },
+    { x: 286, cursor: 3, pila: ['(', '{'], nuevo: false, sale: '[' },
+    { x: 486, cursor: 4, pila: ['(', '{', '('], nuevo: true, sale: '' },
+  ].map((m, k) => (
+    <g key={k}>
+      {['(', '{', '[', ']', '(', ')', '}', ')'].map((ch, i) => (
+        <g key={i} opacity={i < m.cursor ? 0.35 : i > m.cursor ? 0.7 : 1}>
+          <rect x={m.x + i * 20} y="10" width="18" height="26" rx="3" style={{ fill: i === m.cursor ? 'var(--color-accent)' : 'var(--color-surface)', stroke: i === m.cursor ? 'var(--color-accent)' : 'var(--color-rule)' }} strokeWidth="1.3" />
+          <text x={m.x + i * 20 + 9} y="30" textAnchor="middle" fontSize="15" fontWeight="600" fontFamily="monospace" style={{ fill: i === m.cursor ? 'var(--color-on-accent)' : 'var(--color-ink)' }}>{ch}</text>
         </g>
       ))}
-      <text x={c.x + 44} y="156" textAnchor="middle" fontSize="13" style={{ fill: 'var(--color-ink-faint)' }}>{c.nota}</text>
+      <path d={`M ${m.x + m.cursor * 20 + 9} 40 L ${m.x + m.cursor * 20 + 9} 52 L ${m.x + 79} 52 L ${m.x + 79} ${178 - (m.pila.length + (m.sale ? 1 : 0)) * 30}`} fill="none" style={{ stroke: 'var(--color-rule)' }} strokeWidth="1.2" strokeDasharray="3 3" />
+      <line x1={m.x + 40} y1="178" x2={m.x + 118} y2="178" style={{ stroke: 'var(--color-rule-strong)' }} strokeWidth="2" />
+      {m.pila.map((ch, j) => (
+        <g key={j}>
+          <rect x={m.x + 66} y={178 - (j + 1) * 30} width="26" height="26" rx="3" style={{ fill: j === m.pila.length - 1 && m.nuevo ? 'var(--color-mark-soft)' : 'var(--color-surface)', stroke: j === m.pila.length - 1 && m.nuevo ? 'var(--color-mark)' : 'var(--color-rule-strong)' }} strokeWidth="1.5" />
+          <text x={m.x + 79} y={178 - (j + 1) * 30 + 19} textAnchor="middle" fontSize="16" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>{ch}</text>
+        </g>
+      ))}
+      {m.sale === '' ? null : (
+        <g opacity="0.45">
+          <rect x={m.x + 66} y={178 - (m.pila.length + 1) * 30} width="26" height="26" rx="3" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.5" strokeDasharray="4 3" />
+          <text x={m.x + 79} y={178 - (m.pila.length + 1) * 30 + 19} textAnchor="middle" fontSize="16" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink-faint)' }}>{m.sale}</text>
+          <text x={m.x + 100} y={178 - (m.pila.length + 1) * 30 + 18} fontSize="11" fontFamily="monospace" style={{ fill: 'var(--color-ink-faint)' }}>sale</text>
+        </g>
+      )}
     </g>
   ))}
-  <text x="240" y="204" fontSize="12" style={{ fill: 'var(--color-ink-faint)' }}>lo último que entró queda arriba, y es lo primero que sale</text>
+  <text x="335" y="200" textAnchor="middle" fontSize="12" style={{ fill: 'var(--color-ink-faint)' }}>lo que abre se suma arriba; lo que cierra saca justo el de arriba</text>
 </svg>
 
 Eso vale en cada paso del recorrido. De todos los símbolos que esperan, el
