@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/so77id/nalanda/apps/server/internal/domain/controls"
+	"github.com/so77id/nalanda/apps/server/internal/domain/gmail"
 	"github.com/so77id/nalanda/apps/server/internal/domain/jobs"
 )
 
@@ -151,6 +152,83 @@ func TestEachRefusalGetsItsOwnBannerMessage(t *testing.T) {
 			}
 			if failure.Detail == "" {
 				t.Error("the refusal carries no detail saying what to do about it")
+			}
+		})
+	}
+}
+
+// A lost credential is ONE banner, naming the loss and the repair (issue
+// #297). What 2026-09-22 put on the screen instead was "se enviaron 0
+// correcciones, 11 se omitieron y 19 fallaron", with the only true sentence
+// buried in a detail nobody rendered and eighteen lines beside it saying
+// the account had never been connected.
+func TestALostCredentialIsReportedOnceWithItsRepair(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		// failOn breaks the batch; the credential dies at the copy whose
+		// entry is a gmail sentinel.
+		failOn map[string]error
+		// sent is how the message must count what went out first.
+		sent string
+		// copies is the per-copy lines the detail must still carry.
+		copies []string
+	}{
+		{
+			name:   "on the first copy",
+			failOn: map[string]error{"ana@udp.cl": gmail.ErrRejected},
+			sent:   "no se envió ninguna corrección",
+		},
+		{
+			name:   "after one copy went out",
+			failOn: map[string]error{"bruno@udp.cl": gmail.ErrRejected},
+			sent:   "alcanzó a salir 1 corrección",
+		},
+		{
+			name:   "after two copies went out",
+			failOn: map[string]error{"carla@udp.cl": gmail.ErrNotConnected},
+			sent:   "alcanzaron a salir 2 correcciones",
+		},
+		{
+			// A copy refused for its OWN reasons before the credential
+			// died is still that copy's problem, and still named.
+			name: "after a copy failed for another reason",
+			failOn: map[string]error{
+				"ana@udp.cl":   controls.ErrSendRefused,
+				"bruno@udp.cl": gmail.ErrRejected,
+			},
+			sent:   "no se envió ninguna corrección",
+			copies: []string{"copia 1"},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			rig := newPublishRig(t)
+			rig.dispatcher.failOn = tc.failOn
+
+			failure := failureFrom(t, runPublishJob(t, rig.svc, rig.controlID, controls.PublishPayload{
+				ProfessorID: 7, Mode: string(controls.PublishModeReal),
+			}))
+
+			if !strings.Contains(failure.Message, "se perdió la conexión con Gmail") {
+				t.Errorf("the banner says %q; it must name the LOST connection", failure.Message)
+			}
+			if !strings.Contains(failure.Message, tc.sent) {
+				t.Errorf("the banner says %q, want it to say %q", failure.Message, tc.sent)
+			}
+			for _, field := range []string{failure.Message, failure.Detail} {
+				if strings.Contains(field, "no hay una cuenta") {
+					t.Errorf("%q reads as 'you never connected one' — the opposite of what happened", field)
+				}
+			}
+			for _, repair := range []string{"perfil", "Publicar", "todavía no"} {
+				if !strings.Contains(failure.Detail, repair) {
+					t.Errorf("the detail %q does not carry %q: reconnect in the profile, press "+
+						"Publicar again, and only the unsent copies go", failure.Detail, repair)
+				}
+			}
+			for _, line := range tc.copies {
+				if !strings.Contains(failure.Detail, line) {
+					t.Errorf("the detail %q lost the per-copy line %q", failure.Detail, line)
+				}
 			}
 		})
 	}

@@ -218,6 +218,12 @@ func NewPublishHandler(svc *Service) jobs.Handler {
 			Mode:        PublishMode(p.Mode),
 			TestTo:      p.TestTo,
 		})
+		if errors.Is(err, ErrCredentialLost) {
+			// Before failureFromPublishError, which would match the
+			// ErrNotConnected this wraps and tell a professor whose
+			// connection just died that they never made one.
+			return credentialLostFailure(result)
+		}
 		if err != nil {
 			return failureFromPublishError(err)
 		}
@@ -291,6 +297,33 @@ func publishDetail(r PublishResult) string {
 		lines = append(lines, fmt.Sprintf("copia %d: %s", f.CopyNumber, f.Reason))
 	}
 	return strings.Join(lines, "\n")
+}
+
+// credentialLostFailure words a publication whose Gmail credential died
+// mid-run (issue #297): ONE message for the whole run, since the fault is
+// the professor's connection and not any copy.
+//
+// The message counts what went out first, because the next Publicar
+// resumes from exactly there (ADR-0073) and the professor should know
+// whether they are finishing a publication or starting one. The detail is
+// the repair. Any copy that failed for its OWN reasons before the
+// credential died keeps its line under it — that one is still a copy's
+// problem, and a resume will retry it.
+func credentialLostFailure(r PublishResult) error {
+	sent := "no se envió ninguna corrección"
+	if r.Sent > 0 {
+		sent = plural(r.Sent, "alcanzó a salir 1 corrección", "alcanzaron a salir %d correcciones")
+	}
+	detail := "Google dejó de aceptar tu cuenta. Vuelve a conectarla en tu perfil y " +
+		"aprieta Publicar otra vez: sólo se enviará a quienes todavía no recibieron " +
+		"su corrección."
+	if len(r.Failures) > 0 {
+		detail += "\n\n" + publishDetail(r)
+	}
+	return &jobs.Failure{
+		Message: "se perdió la conexión con Gmail: " + sent,
+		Detail:  detail,
+	}
 }
 
 // failureFromPublishError words the refusals that stop a publication
