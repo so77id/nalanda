@@ -5,7 +5,10 @@
 **Decision-makers:** Miguel Rodriguez
 **Source:** Issue #299. **Extends** ADR-0035 (a third-party frame is a content
 source) to a second host and a second component, `<PdfEmbed>`, and **amends**
-its grades disposition. Prefers Drive's viewer over the PDF.js that ADR-0047
+its grades disposition — an amendment rather than a supersession because what
+is withdrawn is one Consequences bullet, not a numbered decision: ADR-0035's
+§1–§6 all still hold, and the withdrawn text stays in place, marked, as the
+reasoning of its day. Prefers Drive's viewer over the PDF.js that ADR-0047
 vendored on the backoffice. Numbered 0076 to clear `0075-*`, held by an
 unmerged branch (#298).
 
@@ -114,7 +117,7 @@ index (no `levelName`: it is not a Unidad), one `.mdx` per evaluation under
 
 ## Consequences
 
-- **A fourth third-party origin at render time**: `drive.google.com`, plus
+- **Another third-party origin at render time**: `drive.google.com`, plus
   Google's static hosts it pulls (`www.gstatic.com`, `apis.google.com`). A
   future CSP must allow `drive.google.com` in `frame-src`, as ADR-0035 did for
   `docs.google.com`.
@@ -139,18 +142,22 @@ index (no `levelName`: it is not a Unidad), one `.mdx` per evaluation under
   and reads its cookies. Accepted, as ADR-0035 accepted the credentialed request.
 - **Drive paints its own dark ground** around the page in both themes — a
   second document we do not paint (`design-system.md` third exemption).
-- **A `resourcekey` in the share link is carried across, unverified.** Google
-  adds it to links of files older than its 2021 security update, and without it
-  such a file frames the request-access page. `drivePreviewUrl` keeps it, the way
-  `sheetUrl.ts` keeps a `gid`; Control 1's file has none, so nothing has yet
-  shown `/preview` honours it (#299 review).
-- **The touch drag inside the frame on a slide is not measured.** It is the
-  fifth browser check `testing-strategy.md` asks of a cross-origin frame that
-  can appear on a slide, and `<PdfEmbed>` can (it has the slide cap). Drive's
-  viewer scrolls vertically with its own touch handling, so ADR-0035's sheet
-  result does not carry over. Today's only use, `control-1`, is
-  `presentation: none`. **The first deck that carries a `<PdfEmbed>` measures
-  it** before relying on it, on a real touch context (#299 review).
 - **Grades are published whenever the professor links a grades sheet.** The
   site does not stop him and does not try; the review trigger in
   `security-notes.md` is rewritten accordingly.
+
+> **Measurements to fill in (owner: Miguel Rodriguez, deadline: before the
+> first deck that carries a `<PdfEmbed>`, tracked in #300):**
+>
+> - **`resourcekey`.** Google adds it to share links of files older than its
+>   2021 security update, and without it such a file frames the request-access
+>   page. `drivePreviewUrl` carries it into `/preview?resourcekey=…`, the way
+>   `sheetUrl.ts` carries a `gid`; Control 1's file has none, so nothing has yet
+>   shown `/preview` honours it. Measure: a pre-2021 link-shared PDF, framed
+>   with and without its key.
+> - **The touch drag inside the frame on a slide.** The fifth browser check
+>   `testing-strategy.md` asks of a cross-origin frame that can appear on a
+>   slide, and `<PdfEmbed>` can (it has the slide cap). Drive's viewer handles
+>   vertical touch scroll itself, so ADR-0035's sheet result does not carry
+>   over. Today's only use, `control-1`, is `presentation: none`. Measure: a
+>   `<PdfEmbed>` on a slide, dragged on a real touch context.

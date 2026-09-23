@@ -5,7 +5,7 @@
 **Decision-makers:** Miguel Rodriguez
 **Amended by:** ADR-0076 — a second host (`drive.google.com`, `<PdfEmbed>`),
 and the grades disposition in §Consequences is withdrawn: what a framed file
-contains is the professor's decision (#299).
+contains is the professor's decision (#299, 2026-09-22).
 **Source:** Issue #146. Extends ADR-0010 (component contract) and ADR-0029 (the
 media family); applies ADR-0013 §5.1 (a slide is fit, not reflowed) and ADR-0022
 (the reading measure); measured with ADR-0018 §7's method, whose lazy-wrapper

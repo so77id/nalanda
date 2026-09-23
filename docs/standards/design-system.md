@@ -176,7 +176,7 @@ What IS ours around it, and what it pairs with:
 Unlike `plate`, this one is not guarded by anything at all. `palette.test.ts`
 pins token values and `architecture.test.ts` greps our class names; neither can
 see a cross-origin document, and no test can. This note is the guard, and the
-check is to look at `/d/planificacion` in the dark theme.
+check is to look at `/d/planificacion` and `/d/control-1` in the dark theme.
 
 **A component-scoped categorical palette is the fourth exemption** (#78).
 `<RecursionTree>` cycles six hues over the arguments of a recursive call, so

@@ -717,7 +717,10 @@ page-only, invisible to every other gate.
   #146 (ADR-0035) and none of them visible to any test: that the frame paints at
   all; what each `sandbox` token actually permits — `allow-popups` without
   `allow-popups-to-escape-sandbox` opened a link and broke the page it opened,
-  and both spellings pass every assertion; the network weight, since one frame
+  and both spellings pass every assertion — and for a NEW provider the string
+  is measured from scratch, never copied from a sibling: `<PdfEmbed>` took
+  `<SheetEmbed>`'s and Drive's viewer never loaded until `allow-same-origin`
+  was added (#299, ADR-0076); the network weight, since one frame
   cost ~570kB against a 190kB page; and whether `loading="lazy"` defers
   anything, since on an iframe it defers nothing until roughly 4000px below the
   fold. A fifth, if the component can appear on a slide: a real touch drag

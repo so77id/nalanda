@@ -930,7 +930,7 @@ Six things worth knowing before you write one:
 Decisions behind all this: ADR-0074. Live: `/catalog/c/SequenceStepper`.
 
 6. **Show a picture, or embed a live document (optional)** — pictures in 6a–6f,
-   a spreadsheet in **6g**: the asset lives **beside the `.mdx` that uses
+   a spreadsheet in **6g**, a Drive PDF (an evaluation's pauta) in **6h**: the asset lives **beside the `.mdx` that uses
    it**, addressed relatively, and a subfolder is fine when there are several
    (`./logos/java.svg`). Both syntaxes work and get the same
    pipeline: markdown `![alt](./curva.svg)` for a picture that just needs to be

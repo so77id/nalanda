@@ -11,7 +11,7 @@ export const videoEmbedCatalogEntry: CatalogEntry = {
   whenToUse:
     'For external videos recommended alongside a class. The convention (see repo memory `feedback_videos_in_deck`) is that videos live in the deck, not only in long-form: the professor references the video in class without pressing play, and readers who want to go deeper have it right there. ' +
     'NOT for host-controlled uploads (there is no upload path in this platform — everything lives on YouTube). ' +
-    'NOT for embedding video services that are not YouTube: the URL parser and sandbox tokens are YouTube-specific.',
+    'NOT for embedding video services that are not YouTube: the URL parser is YouTube-specific, and the frame is deliberately unsandboxed for youtube.com only (see VideoEmbed.tsx).',
   props: [
     {
       name: 'src',

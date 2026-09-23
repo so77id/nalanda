@@ -20,7 +20,7 @@ export const pdfEmbedCatalogEntry: CatalogEntry = {
     'The `title` is a runtime contract rather than a type, for the same reason as <Figure>: an iframe carries no accessible name of its own. ' +
     "Unlike <SheetEmbed>, the frame is granted allow-same-origin, because Drive's viewer never finishes loading without it (measured, ADR-0076). The src check pins where the frame starts (drive.google.com only); after that only Drive's own viewer navigates it, and the grant is safe as long as it never lands on this site's origin (docs/security-notes.md). " +
     'A file that is not shared renders Google request-access page inside the rectangle — that is cross-origin and nothing here can detect it, so check the share setting yourself. ' +
-    'Prefer a <Figure> for an image, and MDX for anything you would otherwise retype: this is a third-party frame, weighed like one.',
+    'Prefer a <Figure> for an image, and MDX for anything you would otherwise retype: this is the heaviest thing the site serves — Drive’s viewer costs about 44 requests and 2.8 MB on a first visit, most of it one script (ADR-0076).',
   props: [
     {
       name: 'src',

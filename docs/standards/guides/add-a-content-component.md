@@ -139,8 +139,9 @@ apps/web/src/components/structure/
      a private copy of the number: the two current users each declared it
      privately and each claimed in a comment to be using "the same budget" as
      the other, which nothing checked (#146 review). Worked cases: `<Mosaic>`
-     splits it across rows, `<SheetEmbed>` clamps its frame to
-     `min(height, SLIDE_BUDGET_VH vh)`.
+     splits it across rows, and every third-party embed clamps its frame to
+     `min(height, SLIDE_BUDGET_VH vh)` through `media/EmbedFrame.tsx`, which
+     `<SheetEmbed>`, `<VideoEmbed>` and `<PdfEmbed>` share (#299).
 
      **A third disposition, and #294 established it: a component whose whole
      content must be legible takes NO cap and pays in slide scale instead.**
@@ -341,7 +342,11 @@ rejects the static import as a bypass.
       `/catalog` — which does not apply the reading measure.
 - [ ] If it draws something tall on a slide: capped against `SLIDE_BUDGET_VH`
       (`components/slideBudget.ts`), not a number of its own.
-- [ ] If it embeds another origin: verified in a real browser per
+- [ ] If it embeds another origin: its `<iframe>` sits inside
+      `media/EmbedFrame.tsx` (the wrapper, the placeholder and the slide cap
+      are shared; the url, the sandbox and the referrer policy are the
+      component's own), its sandbox measured for THIS provider rather than
+      copied from a sibling (ADR-0076), and verified in a real browser per
       `testing-strategy.md` §Conventions, third class — the frame paints, each
       permission re-measured, network weight from a cold profile, and a sideways
       drag on a touch context. No test at any level can see any of it.
