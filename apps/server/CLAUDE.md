@@ -322,7 +322,12 @@ the `avisoNo*` / `flash.Set(…)` string literals in `internal/app/web/handler/`
      the last being the only non-AMC one and therefore the one a new
      non-worker Kind should copy) that translates
      domain sentinels into `jobs.Failure{Message, Detail}` for the
-     banner + debug pair.
+     banner + debug pair. **Detail is debug for every kind EXCEPT
+     `publish`**, whose detail `jobBannerFor` renders to the professor
+     (#297) — so a copied `NewPublishHandler` brings its rule with it:
+     Spanish only, and an unexpected error is logged, never stored there.
+     Making another kind's detail visible means widening that gate AND
+     holding the kind to the same rule (the publication bullets below).
   4. Its registration in `cmd/server/main.go`'s `jobs.Handlers` map.
   The related operating rule, as ADR-0072 amended it: **the shape of the
   WORK decides, not who it talks to.** An AMC-worker call is async by
@@ -736,8 +741,9 @@ the `avisoNo*` / `flash.Set(…)` string literals in `internal/app/web/handler/`
   zero" mistake `00018_published_sent.sql` names, re-entered through the
   derived count (#287 review, COR-2).
 
-  **A test that only checks the end state cannot see either ordering** — the
-  loop never returns early, so every order finishes in the same place, and
+  **A test that only checks the end state cannot see either ordering** — a
+  run that completes never leaves the loop early (a lost credential, #297,
+  is the one exit), so every order finishes in the same place, and
   #273's first version of that case survived the mutation. The pin asks the
   DISPATCHER what the world looks like at the SECOND send
   (`TestEachCopyIsStampedBeforeTheNextMessageGoesOut`), by which time copy 1

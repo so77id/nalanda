@@ -74,8 +74,13 @@ jobs:
       # A gate rather than something a reviewer runs by hand. It covers the
       # dependency tree AND the stdlib of the toolchain go.mod declares, which
       # is the pair that drifted in this app's first WP (#149 review).
+      #
+      # PINNED (#297): @latest needs go >= 1.26, and under setup-go's
+      # GOTOOLCHAIN=auto it silently switches toolchain and scans the 1.26
+      # stdlib instead of go.mod's. The pin moves with go.mod's `go` line —
+      # docs/standards/testing-strategy.md §apps/server says why.
       - name: Vulnerability check
-        run: go run golang.org/x/vuln/cmd/govulncheck@latest ./...
+        run: go run golang.org/x/vuln/cmd/govulncheck@v1.7.0 ./...
 
       # The image is part of the app's deliverable and its constraints are easy
       # to break invisibly: a dependency that needs CGO makes the scratch stage

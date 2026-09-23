@@ -62,7 +62,8 @@ type capturingDispatcher struct {
 	redirects bool
 	// onFirstSend runs before the first message is accepted, so a case can
 	// observe the world AS IT IS at that instant. This is the only way to
-	// pin the stamp-before-send ordering: the loop never returns early, so
+	// pin the stamp-before-send ordering: a run that completes never
+	// leaves the loop early (a lost credential, #297, is the one exit), so
 	// a test that only looks at the end state passes over an
 	// implementation that stamps afterwards. Verified by mutation — moving
 	// MarkPublished below the loop left the previous version of that case
@@ -324,8 +325,9 @@ func TestPublishSendsOneMessagePerDeliverableCopy(t *testing.T) {
 
 // The ordering contract, measured where it is observable.
 //
-// A test that only looks at the end state CANNOT fail: the loop never
-// returns early, so an implementation that stamps afterwards ends in the
+// A test that only looks at the end state CANNOT fail: a run that
+// completes never leaves the loop early (a lost credential, #297, is the
+// one exit), so an implementation that stamps afterwards ends in the
 // same place. The first version of this case did exactly that and survived
 // the mutation. What the contract actually says is that the stamp has
 // already happened when the first message goes out — so the dispatcher is

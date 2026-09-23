@@ -110,7 +110,9 @@ type Store interface {
 	MarkDone(ctx context.Context, id int64, finishedAt time.Time) error
 
 	// MarkFailed transitions a job to `failed` with a short error message
-	// (banner-visible) and a long detail (debug), and stamps finished_at.
+	// (banner-visible) and a long detail — debug, except for KindPublish,
+	// whose detail the banner renders too (issue #297; see Failure) — and
+	// stamps finished_at.
 	MarkFailed(ctx context.Context, id int64, msg, detail string, finishedAt time.Time) error
 
 	// MarkDismissed stamps viewed_at so the banner disappears. Idempotent:

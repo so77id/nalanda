@@ -9,8 +9,9 @@ it on a live class, not a review finding — except §4's rehearsal rule and §5
 retention note, which the WP's own review added (COR-1/SEC-1, SEC-2).
 **Supersedes:** ADR-0072 §5 ("Publication is async, one-way, and stamped before
 it sends"). §§1–4b and 6 of ADR-0072 stand unchanged.
-**Amended by:** #297 (2026-09-22) — §4b: a lost Gmail credential stops the
-batch at the copy that found it. The one exception to per-copy independence.
+**Amended by:** #297 (2026-09-22) — this ADR's §4b (not ADR-0072's): a lost
+Gmail credential stops the batch at the copy that found it. The one exception
+to per-copy independence.
 
 ## Context
 
@@ -199,11 +200,12 @@ sentence when nothing is stamped.
 finds it set and leaves the date alone: re-dating it would move "Publicado
 el 8 de septiembre" forward every time a professor re-sent one copy.
 
-A test that only checks the end state cannot see this ordering — the loop
-never returns early, so stamping everything afterwards ends in the same
-place. The pin asks the dispatcher what the world looks like at the SECOND
-send, by which time copy 1 must already be stamped. Same shape, and the same
-scar, as ADR-0072 §5's own pin (#273 S9).
+A test that only checks the end state cannot see this ordering — a run that
+completes never leaves the loop early (§4b's lost credential is the one exit),
+so stamping everything afterwards ends in the same place. The pin asks the
+dispatcher what the world looks like at the SECOND send, by which time copy 1
+must already be stamped. Same shape, and the same scar, as ADR-0072 §5's own
+pin (#273 S9).
 
 **`ErrAlreadyPublished` and the 409 are removed.** Pressing Publicar twice
 is harmless by construction: every copy already holding the current
@@ -233,9 +235,14 @@ the repair — reconnect in the profile, then repeat what was pressed. For a
 real publication that is Publicar, and only the unsent copies go; for a
 rehearsal (an Envío de prueba, or Publicar in `staging`) it is the rehearsal,
 since a rehearsal stamps nothing and plain Publicar would mail the class
-(#297 review, COR-2). Every other
-send error keeps §4's per-copy behaviour: a message Gmail refuses for its
-own reasons really is one copy's problem.
+(#297 review, COR-2). Every other send error keeps §4's per-copy behaviour:
+a message Gmail refuses for its own reasons really is one copy's problem.
+
+One accepted gap in the wording: a `real` run under a deployment-wide
+redirecting transport (`NALANDA_EMAIL_MODE=staging`) stamps nothing either,
+yet gets the real-run repair, whose "only the unsent copies go" half is then
+false. It costs nothing — under that transport no press writes to a student
+— so the wording follows the request, not the dispatcher.
 
 `ErrNotConnected` counts as a lost credential here, and not as an absent
 one, because the pre-flight already turned away a professor with no
@@ -256,15 +263,15 @@ because a copy's failure says nothing about the next copy. A credential's
 does: no later send can succeed, so continuing buys nothing but one call to
 Google per remaining student and one misleading line per copy.
 
-**How it reaches the screen.** The job's `Detail` column, written since
-#273 and rendered by nothing, is now shown under a failed PUBLICATION's
-banner, line breaks kept — only that kind's, because every other kind
-stores the worker's stderr there for triage; and the publish handler
-therefore logs an unexpected error rather than storing its text there. And while the professor's
-Gmail is disconnected the banner links to `/profile`. The link is derived
-from the live connection on each render rather than stored on the job row:
-a stored "action" would need a migration and would keep offering the link
-after the professor had reconnected.
+**How it reaches the screen.** The job's `Detail` column, written since #273
+and rendered by nothing, is now shown under a failed PUBLICATION's banner,
+line breaks kept — only that kind's, because every other kind stores the
+worker's stderr there for triage; and the publish handler therefore logs an
+unexpected error rather than storing its text there. And while the professor's
+Gmail is disconnected the banner links to `/profile`. The link is derived from
+the live connection on each render rather than stored on the job row: a stored
+"action" would need a migration and would keep offering the link after the
+professor had reconnected.
 
 Deliberately NOT done (#297 §Non-goals): remembering that a credential was
 rejected — after the clear, `/profile` cannot tell "expired" from "never

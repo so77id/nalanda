@@ -89,9 +89,11 @@ apps/server (Go, added #149):
                       is NOT optional: internal/architecture_test.go reads the
                       source tree rather than importing it, and Go's build cache
                       replayed a PASS through four real violations without it.
-  go run golang.org/x/vuln/cmd/govulncheck@latest ./...
+  go run golang.org/x/vuln/cmd/govulncheck@v1.7.0 ./...
                     — security lens. Covers the dependency tree AND the stdlib of
-                      the toolchain go.mod declares.
+                      the toolchain go.mod declares. PINNED, not @latest: v1.8.0
+                      needs go >= 1.26 and, under GOTOOLCHAIN=auto, scans the
+                      wrong stdlib (testing-strategy.md §apps/server, #297).
   docker build + docker compose up -d --wait server
                     — the only way to see whether the binary starts on `scratch`
                       at all; the suite cannot.

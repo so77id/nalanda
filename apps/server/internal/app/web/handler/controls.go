@@ -940,9 +940,11 @@ func (h *Controls) jobBannerFor(ctx context.Context, controlID string, gmailConn
 		// English paths off the shared volume in front of the professor.
 		//
 		// One exception no handler controls: a PANIC. jobs.Runner records
-		// it for every kind as "panic: …" in the message AND the detail, so
-		// a publication that panics shows it twice. It is a bug report, and
-		// the message line has always carried it on every kind's banner.
+		// it for every kind, in the message ("panic: …") and in the detail
+		// ("panic while running kind=… id=… control=…"), so a publication
+		// that panics shows it twice, the second time with internal ids. It
+		// is a bug report, and the message line has always carried it on
+		// every kind's banner (docs/security-notes.md, #297 amendment).
 		banner.Detail = job.Detail
 		if !gmailConnected {
 			// The repair for a lost credential, offered for as long as it

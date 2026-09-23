@@ -10,7 +10,7 @@ publication columns, and the publication routes in
 `internal/app/web/handler/publish.go`. §5c and §5d are their steps — and,
 since #297, §5f is the step for what a run does when the credential dies
 mid-way, including the job banner that reports it
-(`templates/pages/controls_detail.html`).
+(`internal/app/web/view/templates/pages/controls_detail.html`).
 
 It is an L8 manual procedure, in the same family and for the same reason as
 [`GOOGLE-CHECK.md`](GOOGLE-CHECK.md), [`CANVAS-CHECK.md`](CANVAS-CHECK.md)
@@ -118,7 +118,7 @@ Jetson, stated once here rather than reconstructed at each step:
 ssh jetson
 cd /opt/nalanda/repo/infra/local
 sed -i 's/^NALANDA_EMAIL_MODE=.*/NALANDA_EMAIL_MODE=<mode>/' .env
-docker-compose up -d server            # v1, hyphenated — not `docker compose`
+docker-compose up -d server            # standalone v2; `docker compose` works too
 docker-compose logs server | grep 'email dispatcher'
 ```
 
@@ -337,8 +337,8 @@ anybody, but the rehearsal keeps the check free of students either way.
       access**. `/profile` still says `Conectado como …` — nothing has tried
       the credential yet, and remembering that it was refused is a non-goal
       of #297.
-- [ ] Press **Envío de prueba** to your own address, and refresh the
-      control page once the job has finished.
+- [ ] Open **Envío de prueba**, type your own address and press **Enviar
+      prueba**; refresh the control page once the job has finished.
 - [ ] The banner reads **`envío de correcciones falló: se perdió la
       conexión con Gmail: no se envió ninguna corrección`** — the lost
       connection, never `no hay una cuenta de Gmail conectada`, and ONE
@@ -349,16 +349,16 @@ anybody, but the rehearsal keeps the check free of students either way.
       — and a link **Reconectar Gmail en mi perfil**.
 - [ ] On the Jetson, the run asked Google once. Exactly one
       `controls.Publish: send failed` line for this control in
-      `docker compose logs --since 5m server`, run from the deploy
-      directory as in `DEPLOY-JETSON.md` §"Day-to-day operations" — not one
-      per copy.
+      `docker compose logs --since 5m server`, run from
+      `/opt/nalanda/repo/infra/local` (§"How to switch modes" above) — not
+      one per copy.
 - [ ] `/profile` now shows no connected account — the refresh found the
       credential dead and cleared it.
 - [ ] Follow the banner's link, reconnect, and come back **without
       dismissing the banner**. It is still there, and the link is gone:
       it is derived from the live connection, so it disappears once the
       repair is done.
-- [ ] Press **Envío de prueba** again. The batch arrives in your inbox.
+- [ ] Press **Enviar prueba** again. The batch arrives in your inbox.
 
 What this does not reach: a REAL publication whose credential dies, above
 all after some copies went out — where the banner must read `alcanzó a salir

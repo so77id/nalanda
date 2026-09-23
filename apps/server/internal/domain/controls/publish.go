@@ -121,8 +121,11 @@ type Dispatcher interface {
 //
 // Only TWO, and the absence of the other two is deliberate. "The professor
 // connected no account" and "the provider disowned the stored credential"
-// are gmail.ErrNotConnected and gmail.ErrRejected, and the publish job
-// handler branches on those directly — a domain may import a domain (the
+// are gmail.ErrNotConnected and gmail.ErrRejected, used directly — a
+// Publish loop that meets either mid-run maps both to ErrCredentialLost
+// (credentialLost, issue #297), and the job handler branches on that first
+// and on ErrNotConnected only for the pre-flight refusal. A domain may
+// import a domain (the
 // jobs precedent, apps/server/CLAUDE.md). Re-declaring them here would put
 // one fact in two packages, free to drift, and the drift would be silent:
 // a dispatcher returning one spelling and a handler testing the other

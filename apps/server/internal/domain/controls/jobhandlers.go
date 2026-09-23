@@ -313,6 +313,12 @@ func publishDetail(r PublishResult) string {
 // `staging` — stamps nothing, so "only the unsent copies will go" is false
 // for it; and sending someone who was rehearsing to plain Publicar sends
 // them to the button that mails the real class.
+//
+// An accepted gap: a `real` run under a deployment-wide REDIRECTING
+// transport (NALANDA_EMAIL_MODE=staging) also stamps nothing, and gets the
+// real-run wording, whose "only the unsent copies" half is then false. It
+// costs nothing — under that transport no student is written to by any
+// press — so the payload's two fields decide, not the dispatcher.
 func credentialLostFailure(p PublishPayload, r PublishResult) *jobs.Failure {
 	sent := "no se envió ninguna corrección"
 	if r.Sent > 0 {

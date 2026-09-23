@@ -22,7 +22,10 @@ type Handlers map[Kind]Handler
 
 // Failure is the shape a handler returns when the runner should record a
 // distinct short (banner) message and a long (debug) detail on the
-// failed row. When the handler returns a plain error, the runner uses
+// failed row. The detail is debug for every kind EXCEPT KindPublish, whose
+// detail the control page renders to the professor (issue #297) — so that
+// handler writes Spanish there and logs anything else. Note the panic
+// recovery below writes a detail for every kind, publish included. When the handler returns a plain error, the runner uses
 // err.Error() for the banner and stores no detail — a short Message +
 // optional long Detail matches the (Message, Detail) split
 // controls.AnalyzerRefusedError already carries.
