@@ -22,6 +22,7 @@
         </form>
       {{ else if .Done }}
         <p><strong>{{ .Kind | printf "%s" }} lista.</strong></p>
+        {{ if .Notice }}<p>{{ .Notice }}</p>{{ end }}
         <form method="post" action="{{ .DismissURL }}" style="display:inline">
           <input type="hidden" name="csrf_token" value="{{ $.CSRFToken }}">
           <button type="submit">Refrescar</button>
@@ -110,7 +111,7 @@
     {{ if not .Readings }}
       <p>Aún no hay escaneos subidos.</p>
     {{ else }}
-      <p>Sube otro PDF para añadir páginas al lote existente.</p>
+      <p>Sube otro PDF: las hojas que vuelvas a escanear reemplazan a las anteriores y las nuevas se añaden.</p>
     {{ end }}
     <form method="post" action="{{ .ScansURL }}" enctype="multipart/form-data">
       <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
@@ -131,6 +132,9 @@
           <li><a href="{{ $u.URL }}">{{ $u.Name }}</a></li>
         {{ end }}
       </ul>
+    {{ end }}
+    {{ if .ScansResetURL }}
+      <p><a href="{{ .ScansResetURL }}">Borrar escaneos y empezar de nuevo</a></p>
     {{ end }}
   </section>
 

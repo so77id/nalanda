@@ -152,7 +152,7 @@ func TestMarkDoneStampsFinishedAtAndFlipsStatus(t *testing.T) {
 	_ = store.MarkRunning(ctx, id, time.Unix(1_735_000_000, 0))
 
 	finishedAt := time.Unix(1_735_000_030, 0)
-	if err := store.MarkDone(ctx, id, finishedAt); err != nil {
+	if err := store.MarkDone(ctx, id, "", finishedAt); err != nil {
 		t.Fatalf("MarkDone: %v", err)
 	}
 	got, _ := store.ByID(ctx, id)
@@ -161,6 +161,36 @@ func TestMarkDoneStampsFinishedAtAndFlipsStatus(t *testing.T) {
 	}
 	if got.FinishedAt == nil || !got.FinishedAt.Equal(finishedAt) {
 		t.Errorf("FinishedAt = %v, want %v", got.FinishedAt, finishedAt)
+	}
+}
+
+// Issue #298: a job can succeed AND have something to tell the professor —
+// an analyse that re-read copies already mailed. The notice rides on the
+// done row, and a plain done row reads back with none.
+func TestMarkDoneStoresTheNotice(t *testing.T) {
+	ctx, db, controlID := migrated(t)
+	store := jobstore.New(db)
+
+	withNotice, _ := store.Insert(ctx, jobs.NewJob{
+		ControlID: controlID, Kind: jobs.KindAnalyse, Payload: []byte(`{}`),
+	}, time.Unix(1_735_000_000, 0))
+	_ = store.MarkRunning(ctx, withNotice, time.Unix(1_735_000_001, 0))
+	if err := store.MarkDone(ctx, withNotice, "1 copia ya publicada fue releída", time.Unix(1_735_000_030, 0)); err != nil {
+		t.Fatalf("MarkDone: %v", err)
+	}
+	got, _ := store.ByID(ctx, withNotice)
+	if got.Notice != "1 copia ya publicada fue releída" {
+		t.Errorf("Notice = %q, want the handler's sentence", got.Notice)
+	}
+
+	plain, _ := store.Insert(ctx, jobs.NewJob{
+		ControlID: controlID, Kind: jobs.KindAnalyse, Payload: []byte(`{}`),
+	}, time.Unix(1_735_000_100, 0))
+	_ = store.MarkRunning(ctx, plain, time.Unix(1_735_000_101, 0))
+	_ = store.MarkDone(ctx, plain, "", time.Unix(1_735_000_130, 0))
+	latest, _ := store.LatestForControl(ctx, controlID)
+	if latest.ID != plain || latest.Notice != "" {
+		t.Errorf("latest = id %d notice %q, want id %d with no notice", latest.ID, latest.Notice, plain)
 	}
 }
 
@@ -201,7 +231,7 @@ func TestMarkDismissedStampsViewedAt(t *testing.T) {
 		ControlID: controlID, Kind: jobs.KindReanalyse, Payload: []byte(`{}`),
 	}, time.Now())
 	_ = store.MarkRunning(ctx, id, time.Unix(1_735_000_000, 0))
-	_ = store.MarkDone(ctx, id, time.Unix(1_735_000_030, 0))
+	_ = store.MarkDone(ctx, id, "", time.Unix(1_735_000_030, 0))
 
 	viewedAt := time.Unix(1_735_000_500, 0)
 	if err := store.MarkDismissed(ctx, id, viewedAt); err != nil {
@@ -322,7 +352,7 @@ func TestQueuedIDsListsEveryQueuedJobOldestFirst(t *testing.T) {
 	}, time.Now())
 	// Move `second` to `done`, so it drops out of QueuedIDs.
 	_ = store.MarkRunning(ctx, second, time.Unix(1_735_000_000, 0))
-	_ = store.MarkDone(ctx, second, time.Unix(1_735_000_030, 0))
+	_ = store.MarkDone(ctx, second, "", time.Unix(1_735_000_030, 0))
 
 	ids, err := store.QueuedIDs(ctx)
 	if err != nil {
@@ -354,7 +384,7 @@ func TestFailRunningWithMessageFlipsEveryRunningRow(t *testing.T) {
 		ControlID: controlID, Kind: jobs.KindAnnotate, Payload: []byte(`{}`),
 	}, time.Now())
 	_ = store.MarkRunning(ctx, done, time.Unix(1_735_000_000, 0))
-	_ = store.MarkDone(ctx, done, time.Unix(1_735_000_030, 0))
+	_ = store.MarkDone(ctx, done, "", time.Unix(1_735_000_030, 0))
 
 	finishedAt := time.Unix(1_735_100_000, 0)
 	n, err := store.FailRunningWithMessage(ctx, jobs.RestartMidJobError, finishedAt)

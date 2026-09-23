@@ -2,6 +2,8 @@ package amctest
 
 import (
 	"context"
+	"os"
+	"path/filepath"
 
 	"github.com/so77id/nalanda/apps/server/internal/domain/controls"
 )
@@ -74,4 +76,33 @@ func (f *Fake) LastReanalyzeCall() (controls.ReanalyzeRequest, bool) {
 		return controls.ReanalyzeRequest{}, false
 	}
 	return f.ReanalyzeCalls[len(f.ReanalyzeCalls)-1], true
+}
+
+// ResetScans satisfies controls.Analyzer. Records the call and honours
+// ResetErr; on success, when WorkDir is set, it removes the project's
+// uploaded batches the way the real worker does, so a caller can see the
+// next upload numbered batch-1.pdf again.
+func (f *Fake) ResetScans(_ context.Context, project string) error {
+	f.mu.Lock()
+	f.ResetCalls = append(f.ResetCalls, project)
+	err := f.ResetErr
+	workDir := f.WorkDir
+	f.mu.Unlock()
+
+	if err != nil {
+		return err
+	}
+	if workDir == "" {
+		return nil
+	}
+	batches, globErr := filepath.Glob(filepath.Join(workDir, project, "uploads", "*.pdf"))
+	if globErr != nil {
+		return globErr
+	}
+	for _, b := range batches {
+		if rmErr := os.Remove(b); rmErr != nil {
+			return rmErr
+		}
+	}
+	return nil
 }

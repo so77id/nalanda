@@ -367,6 +367,12 @@ func (h *Controls) Detail(w http.ResponseWriter, r *http.Request) {
 			"Algo se rompió en el servidor. Vuelve a intentarlo en unos segundos.")
 		return
 	}
+	// Issue #298: the reset is offered when there is something to reset —
+	// ScanSummary.HasScans's rule (a batch on disk or any reading row),
+	// read off what this page already loaded.
+	if c.DeletedAt == nil && (len(uploads) > 0 || len(readings) > 0) {
+		page.ScansResetURL = controlScansResetConfirmURL(c.ID)
+	}
 	if len(readings) > 0 {
 		names, err := h.studentNamesFor(r.Context(), c)
 		if err != nil {
@@ -954,6 +960,9 @@ func (h *Controls) jobBannerFor(ctx context.Context, controlID string, gmailConn
 			// failure is not stored on the row.
 			banner.ProfileURL = ProfilePath
 		}
+	}
+	if banner.Done {
+		banner.Notice = job.Notice
 	}
 	if running {
 		start := job.CreatedAt

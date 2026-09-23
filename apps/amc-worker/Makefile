@@ -106,14 +106,12 @@ paper-min:
 ##   Expects the scan at tests/work/paper-min/scan/lote.pdf
 ##   Idempotent: wipes the capture/scoring state and the extracted scan
 ##   images before running, so a second call against the same lote.pdf
-##   produces the same report as the first. Without this a rerun of
-##   `read-paper-min` invokes `analyse --multiple` on top of the previous
-##   captures — the flag exists so an incremental scan APPENDS to the
-##   existing capture (worker.py TRAP for /analyse), which is what /reanalyse
-##   in WP-F relies on, and it is exactly what compounds a manual rerun.
-##   Measured: after two reruns of read-paper-min on a 3-page scan,
+##   produces the same report as the first. Before #298 the capture ran in
+##   photocopy mode (`analyse --multiple`), which STACKS a re-scanned page
+##   beside the first scan: after two reruns on a 3-page scan
 ##   pages.captured came back 18 and every digit read as marked six times
-##   (2026-08-17 min paper check, first cycle).
+##   (2026-08-17 min paper check, first cycle). Single mode overwrites
+##   instead, but the wipe stays — a paper check starts from nothing.
 ##   Only the CAPTURE-derived files are wiped; layout/scoring are kept
 ##   because `paper-min` produced them and re-running getimages does not
 ##   need them regenerated.
@@ -130,7 +128,7 @@ read-paper-min:
 		  auto-multiple-choice getimages --list /work/project/scans/list.txt \
 		    --vector-density 300 --copy-to /work/project/scans /work/scan/lote.pdf >/dev/null; \
 		  auto-multiple-choice analyse --data /work/project/data --projet /work/project \
-		    --cr /work/project/cr --multiple \
+		    --cr /work/project/cr \
 		    --liste-fichiers /work/project/scans/list.txt >/dev/null; \
 		  N=$$(python3 -c "import sys; sys.path.insert(0, sys.argv[1]); import read_capture; print(read_capture.printed_copies(sys.argv[2]))" \
 		    /opt/amc-worker /work/project/data); \
@@ -157,10 +155,11 @@ read-paper-min:
 read-paper:
 	docker run --rm --env DISPLAY= -v "$(PWD)/tests/work/paper:/work" -w /work $(IMAGE) \
 		bash -c 'set -e; \
+		  rm -f /work/project/scans/list.txt; \
 		  auto-multiple-choice getimages --list /work/project/scans/list.txt \
 		    --vector-density 300 --copy-to /work/project/scans /work/scan/lote.pdf >/dev/null; \
 		  auto-multiple-choice analyse --data /work/project/data --projet /work/project \
-		    --cr /work/project/cr --multiple \
+		    --cr /work/project/cr \
 		    --liste-fichiers /work/project/scans/list.txt >/dev/null; \
 		  N=$$(python3 -c "import sys; sys.path.insert(0, sys.argv[1]); import read_capture; print(read_capture.printed_copies(sys.argv[2]))" \
 		    /opt/amc-worker /work/project/data); \

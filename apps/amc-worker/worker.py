@@ -17,8 +17,9 @@ behaviours are silent traps, each measured in #138, each of which produces a
 system that looks like it works and loses a student's grade. This module is
 where they are neutralised, once, so no caller has to remember them:
 
-1. `association --set` without `--copy` exits 0, prints nothing, and writes a
-   row AMC's own listing ignores. `/associate/set` always sends `--copy`.
+1. `association --set` under the wrong `--copy` exits 0, prints nothing, and
+   writes a row nothing reads. `/associate/set` sends the copy index the
+   capture itself carries (`scan_copy`).
 
 2. `annotate` writes but never cleans, so re-running into a used directory
    leaves stale files beside the new ones. `/annotate` refuses a directory that
@@ -263,13 +264,75 @@ def analyse(body):
     ticked, unsure = parse_thresholds(body)
 
     scans = os.path.join(project, "scans")
-    listing = os.path.join(scans, "list.txt")
+    # One page list PER BATCH (issue #298). `getimages --list` does not
+    # write a list, it EXTENDS one: AMC-getimages.pl reads the existing file
+    # back, puts the new pages first and rewrites it. With a single
+    # `list.txt`, every upload re-analysed every page ever uploaded — in an
+    # order where an older capture could overwrite a newer one — and a failed
+    # `analyse` left its pages in the list for the next upload to inherit.
+    # A fresh file per batch gives AMC nothing to append to: each run sees
+    # exactly the PDF just uploaded, and costs that batch rather than the
+    # project's whole history.
+    listing = os.path.join(scans, batch_list_name(scan_pdf))
+    if os.path.exists(listing):
+        # A retry of the same batch — the list must still hold ONLY it.
+        os.remove(listing)
+
+    # What the capture held before this batch, so the report can say what
+    # the batch itself did (issue #298): the project totals cannot.
+    before = read_capture.capture_snapshot(data)
 
     amc("getimages", "--list", listing, "--vector-density", "300",
         "--copy-to", scans, scan_pdf)
-    amc("analyse", "--data", data, "--projet", project,
-        "--cr", os.path.join(project, "cr"), "--multiple",
-        "--liste-fichiers", listing)
+    # SINGLE mode, never `--multiple` (issue #298). `--multiple` is AMC's
+    # photocopy mode — "the same printed copy is scanned several times" —
+    # and it stacks a second scan of a page beside the first (copy=1,
+    # copy=2), which the reader concatenated into duplicated RUT digits and
+    # ticks, and which aborts outright when two batches disagree on how many
+    # scans each page has (Control 7, 2026-09-22). Nalanda prints one
+    # distinct copy per student: every page is captured at copy 0, and a
+    # page captured again is OVERWRITTEN (AMC-analyse.pl bumps
+    # capture_page.overwritten) — the semantics a professor re-scanning
+    # a sheet expects.
+    output = amc("analyse", "--data", data, "--projet", project,
+                 "--cr", os.path.join(project, "cr"),
+                 "--liste-fichiers", listing)
+    # AMC analyses pages in parallel processes that each write capture.sqlite,
+    # and when one of those writes fails it logs `SQL ERROR`, drops the page —
+    # neither captured nor in capture_failed — and still exits 0. Measured in
+    # the #298 review on a macOS bind mount: 3 of 10 fresh captures lost a
+    # page with `disk I/O error`, 0 of 20 on the container's own filesystem.
+    # A lost page reads as an `incomplete` copy with no reason given, so the
+    # batch is refused instead; re-uploading it is safe, since a re-scan
+    # replaces what it re-captures.
+    after = read_capture.capture_snapshot(data)
+    batch = read_capture.batch_outcome(before, after)
+    # BEFORE `note`, which scores from `manual`: a re-captured copy is born
+    # again (issue #298 §C). Before the refusal below too: AMC has already
+    # written the pages it DID capture, so a copy re-captured by a refused
+    # batch holds new pixels, and its old corrections must not survive on
+    # them (#298 review, COR-7).
+    forget_corrections(data, batch["recaptured_copies"])
+    errors = sql_errors(output)
+    if errors:
+        recaptured = ", ".join(str(c) for c in batch["recaptured_copies"]) or "none"
+        raise Failed("auto-multiple-choice analyse lost pages to a database error",
+                     "\n".join(errors[-5:])
+                     + f"\nre-captured copies (corrections cleared): {recaptured}")
+    if batch["captured"] == 0:
+        # Nothing of this batch was read, so there is nothing to score — and
+        # on a project whose first batch this is, scoring would find no
+        # capture and the reader would refuse with a message about `note`
+        # that blames the wrong step. The report says what happened instead;
+        # `batch.captured == 0` is what the server fails the job on.
+        return {
+            "pages": {"captured": len(after["pages"]), "failed": len(after["failed"])},
+            "scoring": {"seuil": None, "ticked": ticked, "stale": False},
+            "copies": {},
+            "pages_per_copy": {},
+            "needs_review": [],
+            "batch": batch,
+        }
 
     # TRAP 3: scoring AFTER capture. The other order leaves scoring_code empty
     # and every association then matches nothing, indistinguishably from a
@@ -297,7 +360,82 @@ def analyse(body):
     # on every scanned copy of Miguel's first real batch.
     link_scans_to_contract_names(data, os.path.join(project, "scans"))
 
-    return read_capture.read(data, ticked, unsure)
+    report = read_report(data, ticked, unsure)
+    # Optional on the wire (CLAUDE.md): a server that predates it ignores it.
+    report["batch"] = batch
+    return report
+
+
+def forget_corrections(data, students):
+    """Drop every correction made on the previous image of these copies.
+
+    AMC keys a box by (student, page, copy, type, id_a, id_b) and re-uses
+    the row when a page is captured again: `black` and `total` move to the
+    new pixels, `manual` stays (capture.pm's get_zoneid). The professor's
+    old correction would then be applied to an image it was never made
+    against — and note, annotate and the reading report all honour it.
+    Reset to -1, the value `apply_overrides` resets to, for the whole copy:
+    the server drops its own override rows for the same copies, so the two
+    sides of the seam agree that this copy is freshly read.
+
+    The forced association a RUT correction wrote goes too: it named whose
+    sheet the OLD image was.
+    """
+    if not students:
+        return
+    rows = [(s,) for s in students]
+    cap = sqlite3.connect(os.path.join(data, "capture.sqlite"))
+    try:
+        cap.executemany("UPDATE capture_zone SET manual = -1 WHERE student = ?", rows)
+        cap.commit()
+    finally:
+        cap.close()
+    association_db = os.path.join(data, "association.sqlite")
+    if os.path.exists(association_db):
+        con = sqlite3.connect(association_db)
+        try:
+            con.executemany(
+                "UPDATE association_association SET manual = NULL WHERE student = ?", rows)
+            con.commit()
+        finally:
+            con.close()
+
+
+def read_report(data, ticked, unsure):
+    """The reading report, or a 400 carrying the reader's own refusal.
+
+    read_capture refuses a project it cannot report on truthfully — no
+    scores, a copy captured after scoring, a copy captured under more than
+    one scan index (a photocopy-mode stack, #298)
+    — with the repair in its detail. Unhandled, that surfaced as a 500
+    naming the exception class; the caller needs the sentence instead,
+    and a refusal can never succeed on retry, so it is a 400.
+    """
+    try:
+        return read_capture.read(data, ticked, unsure)
+    except read_capture.Refused as exc:
+        raise Failed(exc.message, exc.detail)
+
+
+def sql_errors(output):
+    """The lines where AMC reported a failed database write.
+
+    >>> sql_errors("Analysing scan x\\nSQL ERROR: DBD::SQLite::db do failed: disk I/O error\\n")
+    ['SQL ERROR: DBD::SQLite::db do failed: disk I/O error']
+    >>> sql_errors("Analysing scan x\\n")
+    []
+    """
+    return [line.strip() for line in output.splitlines() if "SQL ERROR" in line]
+
+
+def batch_list_name(scan_pdf):
+    """The page-list file for one uploaded batch, named after it.
+
+    >>> batch_list_name("/work/controls/X/uploads/batch-2.pdf")
+    'list-batch-2.txt'
+    """
+    stem = os.path.splitext(os.path.basename(scan_pdf))[0]
+    return f"list-{stem}.txt"
 
 
 def scan_link_targets(rows):
@@ -349,6 +487,60 @@ def link_scans_to_contract_names(data, scans):
         os.symlink(original, link_path)
 
 
+# What a capture produced, and so what "Borrar escaneos" removes (issue
+# #298): AMC's capture and the two databases derived from it, the per-page
+# layout images AMC draws into cr/, every scan image, page list and contract
+# symlink, the uploaded batches, and the annotated PDFs drawn over them.
+# Everything else stays — above all data/layout.sqlite and inputs/, since
+# the paper students wrote on was printed from them.
+RESET_FILES = ("data/capture.sqlite", "data/scoring.sqlite", "data/association.sqlite")
+RESET_DIRS = ("cr", "scans", "uploads", "annotated")
+
+
+def reset_scans(body):
+    """Return a project to what generation left: printable, unread.
+
+    The worker owns every write inside /work (CLAUDE.md), so this is where a
+    control's scans are wiped; the server calls it BEFORE touching its own
+    rows, so a worker that is down or predates the route leaves everything
+    as it was. Directories are emptied rather than removed, so the next
+    /analyse finds the layout it expects.
+    """
+    project = under_work(body["project"], must_exist=True)
+    # The one route whose whole job is deleting files refuses anything that
+    # is not a project generation produced: the volume root, or a directory
+    # with no layout.
+    if project == WORK or not os.path.isfile(os.path.join(project, "data", "layout.sqlite")):
+        raise Failed(f"not a generated project: {body['project']}",
+                     "/scans/reset only empties a project /generate produced")
+    # Every target re-resolved BEFORE anything is removed: a symlinked
+    # data/, scans/ … would otherwise point the deletion outside the
+    # project, and failing halfway would leave a half-reset project.
+    for name in RESET_FILES + RESET_DIRS:
+        target = os.path.realpath(os.path.join(project, name))
+        if not target.startswith(project + os.sep):
+            raise Failed(f"{name} resolves outside the project",
+                         "refusing to reset through a symlink")
+    removed = 0
+    for name in RESET_FILES:
+        path = os.path.join(project, name)
+        if os.path.exists(path):
+            os.remove(path)
+            removed += 1
+    for name in RESET_DIRS:
+        directory = os.path.join(project, name)
+        if not os.path.isdir(directory):
+            continue
+        for entry in os.listdir(directory):
+            path = os.path.join(directory, entry)
+            if os.path.isdir(path) and not os.path.islink(path):
+                shutil.rmtree(path)
+            else:
+                os.remove(path)
+            removed += 1
+    return {"project": os.path.relpath(project, WORK), "removed": removed}
+
+
 def reanalyse(body):
     """Re-read a captured project at new thresholds, without a new capture.
 
@@ -361,7 +553,7 @@ def reanalyse(body):
     _project, data = project_paths(body)
     ticked, unsure = parse_thresholds(body)
     amc("note", "--data", data, "--seuil", str(ticked))
-    return read_capture.read(data, ticked, unsure)
+    return read_report(data, ticked, unsure)
 
 
 def associate(body):
@@ -389,10 +581,10 @@ def associate_set(body):
     if not identifier:
         raise Failed("id is required")
 
-    # TRAP 1: --copy is not optional. Without it this call is a no-op that
-    # reports success.
+    # TRAP 1: --copy must name the copy index the CAPTURE carries, or this
+    # call writes a row nothing reads and reports success.
     amc("association", "--data", data, "--set",
-        "--student", copy, "--copy", 1, "--id", identifier)
+        "--student", copy, "--copy", scan_copy(data, copy), "--id", identifier)
 
     found = [a for a in _associations(data) if a["copy"] == copy]
     if not found or found[0]["id"] != identifier:
@@ -476,21 +668,9 @@ def annotate_copy(body):
     if not os.path.isfile(os.path.join(data, "scoring.sqlite")):
         raise Failed("no scoring database in this project", "run /analyse first")
 
-    cap = sqlite3.connect(os.path.join(data, "capture.sqlite"))
-    try:
-        copies = [r[0] for r in cap.execute(
-            "SELECT DISTINCT copy FROM capture_zone WHERE student=?", (copy,)
-        )]
-        if not copies:
-            raise Failed(f"copy {copy} has no captured boxes")
-        if len(copies) > 1:
-            # Two scans of the same sheet is the one case the reading report
-            # flags as unreadable rather than resolving; annotating it would
-            # draw one scan's marks over the other's verdict.
-            raise Failed(f"copy {copy} was scanned more than once",
-                         "annotating a duplicate-scan copy needs a human decision")
-    finally:
-        cap.close()
+    # One scan index per copy, or a refusal: annotating a copy scanned more
+    # than once would draw one scan's marks over the other's verdict.
+    scan_index = scan_copy(data, copy)
 
     # Even with NO overrides this is a call: it means "converge to the raw
     # reading". The professor may have REVERTED a correction, which clears
@@ -520,7 +700,7 @@ def annotate_copy(body):
     # without it (measured against AMC 1.6.0).
     id_file = os.path.join(project, f"annotate-copy-{copy}.txt")
     with open(id_file, "w", encoding="utf-8") as f:
-        f.write(f"{copy}:{copies[0]}\n")
+        f.write(f"{copy}:{scan_index}\n")
 
     amc("annotate", "--data", data, "--project", project,
         "--cr", os.path.join(project, "cr"),
@@ -672,30 +852,63 @@ def _override_rut(cap, copy, rut, names, chars):
 def _force_association(data, copy, rut):
     """Make the corrected RUT the association's answer for this copy.
 
-    Same call as /associate/set — TRAP 1 applies here too: --copy is not
-    optional — and the read-back is what proves it took effect. The literal
-    1 is the scan-copy index the capture carries: /annotate/copy refuses a
-    copy scanned more than once, so there is exactly one index, and it is
-    the one the id-file uses (copies[0], same guard).
+    Same call as /associate/set — TRAP 1 applies here too: --copy names
+    the capture's own index — and the read-back is what proves it took
+    effect. /annotate/copy refuses a copy scanned more than once, so there
+    is exactly one index, and it is the one the id-file uses.
     """
     amc("association", "--data", data, "--set",
-        "--student", copy, "--copy", 1, "--id", rut)
+        "--student", copy, "--copy", scan_copy(data, copy), "--id", rut)
     found = [a for a in _associations(data) if a["copy"] == copy]
     if not found or found[0]["id"] != rut:
         raise Failed(f"association for copy {copy} did not take effect")
+
+
+def scan_copy(data, student):
+    """The copy index AMC captured this student's sheet at.
+
+    AMC keys a capture, its scores and its association by (student, copy),
+    and the index depends on how the sheet was captured: 0 in single mode,
+    which is how this worker captures since #298, and 1, 2, … in the
+    photocopy mode it used before. An association written under any other
+    index is a row nothing reads (TRAP 1), so the index is read off the
+    capture rather than assumed — the hardcoded 1 this replaced was the
+    photocopy-mode index, and in single mode it was the ghost.
+    """
+    cap = sqlite3.connect(os.path.join(data, "capture.sqlite"))
+    try:
+        copies = [r[0] for r in cap.execute(
+            "SELECT DISTINCT copy FROM capture_zone WHERE student=?", (student,))]
+    finally:
+        cap.close()
+    if not copies:
+        raise Failed(f"copy {student} has no captured boxes")
+    if len(copies) > 1:
+        raise Failed(f"copy {student} was scanned more than once",
+                     "a photocopy-mode capture; reset the control's scans")
+    return copies[0]
 
 
 def _associations(data):
     db = os.path.join(data, "association.sqlite")
     if not os.path.exists(db):
         return []
+    captured = set()
+    capture_db = os.path.join(data, "capture.sqlite")
+    if os.path.exists(capture_db):
+        cap = sqlite3.connect(capture_db)
+        try:
+            captured = set(cap.execute(
+                "SELECT DISTINCT student, copy FROM capture_zone"))
+        finally:
+            cap.close()
     con = sqlite3.connect(db)
     out = []
     for student, copy, manual, auto in con.execute(
         "SELECT student, copy, manual, auto FROM association_association ORDER BY student"
     ):
-        if copy == 0:
-            continue  # a ghost row: AMC's own listing ignores these
+        if (student, copy) not in captured:
+            continue  # a ghost row: keyed on no capture, so nothing reads it
         out.append({
             "copy": student,
             "id": manual or auto,
@@ -713,6 +926,7 @@ ROUTES = {
     ("POST", "/associate/set"): associate_set,
     ("POST", "/annotate"): annotate,
     ("POST", "/annotate/copy"): annotate_copy,
+    ("POST", "/scans/reset"): reset_scans,
 }
 
 

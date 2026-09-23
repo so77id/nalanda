@@ -125,10 +125,11 @@ are decisions for a human, not gates.
 
 **A wrapper that exists to neutralise a third-party trap is tested by
 PERFORMING the trap, not by reading the wrapper.** `04-associate.sh` is the
-worked case: it makes the wrong call (`association --set` without `--copy`) and
-asserts its wrong outcome in three independent channels — it prints nothing, it
-writes a `copy=0` row, the copy stays unassociated — before asserting the right
-call works. That is what makes the guard falsifiable: if a future upstream
+worked case: it makes the wrong call (`association --set` under a copy index the
+capture does not carry — `--copy 1` since #298 moved the capture to AMC's single
+mode) and asserts its wrong outcome in three independent channels — it prints
+nothing, it writes a `copy=1` row, the copy stays unassociated — before
+asserting the right call works. That is what makes the guard falsifiable: if a future upstream
 release fixes the trap, or breaks it differently, the test says which. The
 counter-example is in the same WP and was caught in review: the closed-subcommand
 guard was asserted by `grep`ping the wrapper's source for its error message,
@@ -161,6 +162,18 @@ Break the production copy, build one layer, run the script against it. In #147
 this is what found two assertions that could not fail — one that a hardcoded
 denominator satisfied, and one where the reader could emit an empty report on
 exit 0 — neither of which reading the diff had surfaced.
+
+**On a macOS host, a fresh AMC capture can lose a page to the bind mount.**
+AMC analyses pages in parallel processes that all write `capture.sqlite`, and
+over Docker Desktop's shared filesystem one of those writes sometimes fails
+with `SQL ERROR: … disk I/O error` — measured in #298's review: 3 of 10 fresh
+captures on the bind mount, 0 of 20 on the container's own filesystem. AMC
+still exits 0; since #298 the worker refuses such a batch
+(`auto-multiple-choice analyse lost pages to a database error`), so a check
+right after a first capture in `07-rescan.sh` can go red on a Mac with that
+message. It is the host, not the change: re-run the script. Production (the
+Jetson, a native Linux volume) is not exposed the same way, and the refusal is
+there so that it would be loud if it were.
 
 **A fixture added to kill a mutant names that mutant, at the fixture.** When the
 answer to "this assertion cannot fail" is a new fixture rather than a new

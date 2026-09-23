@@ -231,6 +231,14 @@ func (noMatcher) MatchByRUT(context.Context, string, int64) (*int64, error) { re
 // exactly like the old do-nothing shape.
 type fakeReadingStore struct {
 	readingsByCopy map[string]controls.Reading // key: <controlID>#<copyNumber>
+	// upserts counts UpsertReadingsFromReport calls, so a case can prove a
+	// refused analyse wrote nothing (issue #298).
+	upserts int
+	// calls records the re-scan writes in order ("reset [2 3]", "upsert"),
+	// so a case can pin which comes first (issue #298).
+	calls []string
+	// publishedAmongReset is what ResetRecapturedCopies reports back.
+	publishedAmongReset int
 }
 
 func newFakeReadingStore() *fakeReadingStore {
@@ -238,7 +246,17 @@ func newFakeReadingStore() *fakeReadingStore {
 }
 
 func (s *fakeReadingStore) UpsertReadingsFromReport(context.Context, string, controls.Report, time.Time) error {
+	s.upserts++
+	s.calls = append(s.calls, "upsert")
 	return nil
+}
+func (s *fakeReadingStore) ResetScanResults(_ context.Context, controlID string) error {
+	s.calls = append(s.calls, "reset-results "+controlID)
+	return nil
+}
+func (s *fakeReadingStore) ResetRecapturedCopies(_ context.Context, _ string, copies []int) (int, error) {
+	s.calls = append(s.calls, fmt.Sprintf("reset %v", copies))
+	return s.publishedAmongReset, nil
 }
 func (s *fakeReadingStore) MarkMissingAsNotPresent(context.Context, string, time.Time) error {
 	return nil
@@ -368,11 +386,11 @@ func uploadScanSync(ctx context.Context, svc *controls.Service, req controls.Upl
 	if err != nil {
 		return controls.SaveUploadedBatchResult{}, controls.Report{}, err
 	}
-	report, err := svc.AnalyzeBatch(ctx, req.ControlID, save.BatchName, save.Ticked, save.Unsure)
+	result, err := svc.AnalyzeBatch(ctx, req.ControlID, save.BatchName, save.Ticked, save.Unsure)
 	if err != nil {
 		return save, controls.Report{}, err
 	}
-	return save, report, nil
+	return save, result.Report, nil
 }
 
 func TestCreateWritesFilesAndPersistsTheControl(t *testing.T) {

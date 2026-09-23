@@ -116,10 +116,26 @@ type ReportCopy struct {
 	Pages []int
 }
 
-// Pages counts what got in.
+// Pages counts what got in — across the whole project, every batch ever
+// uploaded. Batch is the one-run counterpart.
 type Pages struct {
 	Captured int
 	Failed   int
+}
+
+// Batch is what ONE /analyse run did (issue #298), as opposed to Pages,
+// which is the project's running total and cannot say whether the upload
+// just made read anything: AMC's capture_failed is cumulative.
+type Batch struct {
+	// Captured is how many pages of this batch AMC recognised and read.
+	// Zero means the batch changed nothing — AnalyzeBatch refuses it.
+	Captured int
+	// Failed is how many pages of this batch AMC did not recognise.
+	Failed int
+	// RecapturedCopies are the copies with at least one page this batch
+	// re-scanned over an earlier capture. Each is born again before the
+	// report is persisted (ADR-0048 §Amendment).
+	RecapturedCopies []int
 }
 
 // Scoring names the two thresholds and whether they diverge. `Stale: true`
@@ -138,6 +154,10 @@ type Report struct {
 	Scoring     Scoring
 	Copies      map[string]ReportCopy // key is the copy number as decimal string, mirroring AMC
 	NeedsReview []string
+	// Batch is what this run captured (issue #298). Nil on a /reanalyse,
+	// which captures nothing, and on a report built without the client's
+	// legacy substitution; AnalyzeBatch gates only on a batch it has.
+	Batch *Batch
 }
 
 // AnalyzeRequest is what a caller hands to Analyzer.Analyze. Every path is
@@ -175,6 +195,12 @@ type ReanalyzeRequest struct {
 type Analyzer interface {
 	Analyze(ctx context.Context, req AnalyzeRequest) (Report, error)
 	Reanalyze(ctx context.Context, req ReanalyzeRequest) (Report, error)
+	// ResetScans removes every capture-side file of a project — AMC's
+	// capture, the scan images, the page lists and the uploaded PDFs —
+	// and keeps its layout and inputs (issue #298). A worker that
+	// predates the route refuses with ErrAnalyzerRefused, before anything
+	// is destroyed.
+	ResetScans(ctx context.Context, project string) error
 }
 
 // The failure modes callers branch on. Same shape as ErrGeneratorRefused /
@@ -189,6 +215,18 @@ var (
 	// ErrAnalyzerUnavailable wraps a transport failure — the worker is not
 	// reachable at all.
 	ErrAnalyzerUnavailable = errors.New("controls: the AMC worker is unreachable")
+
+	// ErrAnalyzerBusy: the worker is running another control's job, and a
+	// call that must not wait — the synchronous scans reset — refuses
+	// instead of queueing behind it (issue #298 review, COR-1).
+	ErrAnalyzerBusy = errors.New("controls: the AMC worker is busy with another job")
+
+	// ErrNothingCaptured: the worker read the batch and recognised none of
+	// its pages (issue #298). In single mode AMC files an unrecognised page
+	// in capture_failed and exits 0, so this is where that failure becomes
+	// loud. A page from ANOTHER Nalanda control is not one of them — its
+	// marker reads as this control's — which is why nothing here names it.
+	ErrNothingCaptured = errors.New("controls: no page of the batch was recognised")
 )
 
 // AnalyzerRefusedError carries the fields the analyzer reported alongside
@@ -422,6 +460,30 @@ type ReadingStore interface {
 
 	// ClearRUTOverride deletes the RUT override, if any.
 	ClearRUTOverride(ctx context.Context, readingID int64) error
+
+	// ResetRecapturedCopies makes the listed copies of a control "freshly
+	// read" (issue #298): it deletes their answer and RUT overrides,
+	// clears last_edited_at and drops their annotated_copy rows, in ONE
+	// transaction. Every one of those was made against, or drawn over, an
+	// image the new capture replaced.
+	//
+	// published_at and published_grade are deliberately left alone:
+	// ADR-0073 derives CopyStale from them, and clearing them would turn a
+	// student who already received their correction into CopyNotSent. A
+	// copy with no reading row yet is skipped.
+	//
+	// Returns how many of the listed copies carry published_at — the
+	// students who hold a grade this re-capture may have moved (§D).
+	ResetRecapturedCopies(ctx context.Context, controlID string, copies []int) (published int, err error)
+
+	// ResetScanResults returns an ACTIVE control to `generated` with no
+	// reading at all (issue #298 §E), in one transaction: every reading
+	// (the FK cascade takes answers and overrides with it, and the
+	// per-copy publication record), every annotated_copy row, and the
+	// control-level publication stamp. The state update is guarded by
+	// `deleted_at IS NULL`; an archived or missing control is
+	// ErrControlNotFound and nothing is deleted.
+	ResetScanResults(ctx context.Context, controlID string) error
 
 	// CopiesForStudent returns which copies one student is matched to,
 	// across every ACTIVE control, newest control first (issue #272 S8).

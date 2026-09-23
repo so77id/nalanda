@@ -70,6 +70,12 @@ type Fake struct {
 	AnnotatedPath string
 	// AnnotateErr, when set, is returned from AnnotateCopy.
 	AnnotateErr error
+
+	// ResetCalls records every ResetScans project in order (issue #298).
+	ResetCalls []string
+	// ResetErr, when set, is returned from ResetScans — the worker
+	// refusing, or one that predates the route.
+	ResetErr error
 }
 
 // Generate satisfies controls.Generator. When Err is set, it returns that;

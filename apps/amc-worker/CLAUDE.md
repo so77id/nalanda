@@ -19,7 +19,7 @@ Commands and stack live in `README.md` — one home per fact.
   two of them exist because they were violated once.
 - `docs/decisions/0030-…` (the engine and its traps) and `0031-…` (the reading
   report, which is the contract WP-F and WP-G bind to).
-- `README.md` §Four traps — the AMC behaviours that silently lose a grade.
+- `README.md` §Five traps — the AMC behaviours that silently lose a grade.
 
 ## Language
 
@@ -72,10 +72,29 @@ it — script names, test titles, the fixture's own comments.
   is absent. A worker upgraded ahead of the server must not break the
   server, and vice versa. Worked cases: `pages_per_copy` → substitute
   `[1]` per copy (#243); the per-answer `position` + `alternatives`
-  → substitute 0 / empty and iterate in bank order (#229). Adding a
+  → substitute 0 / empty and iterate in bank order (#229); `batch` →
+  `Client.Analyze` (not `toDomain`, since `/reanalyse` has none)
+  substitutes captured = `pages.captured`, nothing failed or re-captured
+  (#298). Adding a
   required field is forbidden; renaming or removing one is a wire
   break and needs its own coordination — same rule shape as
   `ADR-0031`'s "reversal test" for engine-independent fields.
+- **The worker never captures in photocopy mode (issue #298, ADR-0075).**
+  `analyse` runs WITHOUT `--multiple`, over a page list of its own per batch
+  (`scans/list-<batch>.txt`): a re-scanned page overwrites its capture at
+  `copy = 0`. `--multiple` stacks re-scans under `copy` 1, 2, … and the
+  reader keys by copy number — the Control 7 incident. Three things lean on
+  it and move with it: an association is written under the index the
+  CAPTURE carries (`scan_copy`, never a literal); a re-captured copy's
+  `manual` column is reset before `note` (`forget_corrections`); and
+  `read_capture` refuses a copy captured under MORE than one index rather
+  than concatenate it (a legacy copy at index 1 alone still reads). Driving
+  AMC by hand in a test or a Makefile target follows the same mode.
+- **`/scans/reset` empties what a capture produced and nothing else.** The
+  layout and `inputs/` are what the paper was printed from and are
+  irreplaceable once students wrote on it; `RESET_FILES` / `RESET_DIRS` in
+  `worker.py` are the whole list. The server calls it before its own
+  deletes, so this route must fail loudly rather than half-reset.
 - **Never run `apt-get install` inside the image, and never add a package
   without discussing it.** `texlive-fonts-extra` is purged with
   `--force-depends`, so the package database is deliberately inconsistent

@@ -602,6 +602,87 @@ func (s *Store) ClearRUTOverride(ctx context.Context, readingID int64) error {
 	return nil
 }
 
+// ResetRecapturedCopies deletes the listed copies' overrides and
+// annotated rows and clears their last_edited_at, in one transaction
+// (issue #298). The two publication columns are NOT touched — see the
+// port's docstring; TestResetRecapturedCopiesForgetsCorrectionsAndKeeps
+// ThePublication is the pin.
+func (s *Store) ResetRecapturedCopies(ctx context.Context, controlID string, copies []int) (int, error) {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return 0, fmt.Errorf("controlstore.ResetRecapturedCopies: begin: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	published := 0
+	for _, copyNumber := range copies {
+		var sent int
+		if err := tx.QueryRowContext(ctx,
+			`SELECT COUNT(*) FROM reading
+             WHERE control_id = ? AND copy_number = ? AND published_at IS NOT NULL`,
+			controlID, copyNumber).Scan(&sent); err != nil {
+			return 0, fmt.Errorf("controlstore.ResetRecapturedCopies %s/%d: %w", controlID, copyNumber, err)
+		}
+		published += sent
+		for _, stmt := range []string{
+			`DELETE FROM answer_override WHERE reading_id IN
+                 (SELECT id FROM reading WHERE control_id = ? AND copy_number = ?)`,
+			`DELETE FROM rut_override WHERE reading_id IN
+                 (SELECT id FROM reading WHERE control_id = ? AND copy_number = ?)`,
+			`UPDATE reading SET last_edited_at = NULL
+                 WHERE control_id = ? AND copy_number = ?`,
+			`DELETE FROM annotated_copy WHERE control_id = ? AND copy_number = ?`,
+		} {
+			if _, err := tx.ExecContext(ctx, stmt, controlID, copyNumber); err != nil {
+				return 0, fmt.Errorf("controlstore.ResetRecapturedCopies %s/%d: %w", controlID, copyNumber, err)
+			}
+		}
+	}
+	if err := tx.Commit(); err != nil {
+		return 0, fmt.Errorf("controlstore.ResetRecapturedCopies: commit: %w", err)
+	}
+	return published, nil
+}
+
+// ResetScanResults deletes every reading and annotated row of an active
+// control and returns it to `generated`, in one transaction (issue #298).
+// The UPDATE goes first and its `deleted_at IS NULL` guard decides: an
+// archived control is refused before a row is touched.
+func (s *Store) ResetScanResults(ctx context.Context, controlID string) error {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("controlstore.ResetScanResults: begin: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	result, err := tx.ExecContext(ctx,
+		`UPDATE control SET state = ?, published_at = NULL, publication_mode = NULL
+         WHERE id = ? AND deleted_at IS NULL`,
+		string(controls.Generated), controlID)
+	if err != nil {
+		return fmt.Errorf("controlstore.ResetScanResults %s: %w", controlID, err)
+	}
+	n, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("controlstore.ResetScanResults %s: rows affected: %w", controlID, err)
+	}
+	if n == 0 {
+		return fmt.Errorf("controlstore.ResetScanResults %s: %w", controlID, controls.ErrControlNotFound)
+	}
+	for _, stmt := range []string{
+		`DELETE FROM reading WHERE control_id = ?`,
+		`DELETE FROM annotated_copy WHERE control_id = ?`,
+	} {
+		if _, err := tx.ExecContext(ctx, stmt, controlID); err != nil {
+			return fmt.Errorf("controlstore.ResetScanResults %s: %w", controlID, err)
+		}
+	}
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("controlstore.ResetScanResults %s: commit: %w", controlID, err)
+	}
+	return nil
+}
+
 // SetControlState updates control.state.
 func (s *Store) SetControlState(ctx context.Context, controlID string, state controls.State) error {
 	result, err := s.db.ExecContext(ctx,

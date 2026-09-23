@@ -84,11 +84,38 @@ func NewAnalyseHandler(svc *Service) jobs.Handler {
 				Detail:  fmt.Sprintf("unmarshal payload: %v", err),
 			}
 		}
-		if _, err := svc.AnalyzeBatch(ctx, controlID, p.BatchName, p.Ticked, p.Unsure); err != nil {
+		result, err := svc.AnalyzeBatch(ctx, controlID, p.BatchName, p.Ticked, p.Unsure)
+		if err != nil {
 			return failureFromAnalyzeError(err)
+		}
+		if notice := analyseNotice(result); notice != "" {
+			return &jobs.Notice{Message: notice}
 		}
 		return nil
 	}
+}
+
+// analyseNotice words what a successful analyse has to tell the professor
+// beyond "lista" (issue #298), or "" when there is nothing.
+//
+// Two facts, each its own sentence: pages the batch carried that AMC did
+// not recognise (those sheets were not read at all), and copies re-read
+// after their student had already been mailed — refused by nobody, since
+// ADR-0073 owns re-sending per copy, but each is a student who may now
+// hold a stale grade, and the copies table is where to look.
+func analyseNotice(r AnalyzeResult) string {
+	var parts []string
+	if b := r.Report.Batch; b != nil && b.Failed > 0 {
+		parts = append(parts, plural(b.Failed,
+			"1 página del lote no se reconoció y no fue leída.",
+			"%d páginas del lote no se reconocieron y no fueron leídas."))
+	}
+	if r.RecapturedPublished > 0 {
+		parts = append(parts, plural(r.RecapturedPublished,
+			"1 copia ya publicada fue releída; su nota puede haber cambiado: revísala en la tabla de copias.",
+			"%d copias ya publicadas fueron releídas; sus notas pueden haber cambiado: revísalas en la tabla de copias."))
+	}
+	return strings.Join(parts, " ")
 }
 
 // NewGenerateHandler returns the jobs.Handler for KindGenerate (issue
@@ -171,6 +198,16 @@ func failureFromAnalyzeError(err error) error {
 	switch {
 	case errors.Is(err, ErrControlNotFound):
 		return &jobs.Failure{Message: "ese control ya no existe", Detail: err.Error()}
+	case errors.Is(err, ErrNothingCaptured):
+		return &jobs.Failure{
+			// NOT "another control's PDF": AMC recognises a page by a
+			// marker every Nalanda control prints the same way, so a
+			// wrong control's batch is READ, over this control's copies
+			// (measured, issue #298). What lands here is a page with no
+			// marker at all — a blank, a stray document, a bad scan.
+			Message: "no se reconoció ninguna página del lote como hoja de este control; revisa que el PDF sea el escaneo de las hojas impresas",
+			Detail:  err.Error(),
+		}
 	case errors.Is(err, ErrAnalyzerRefused):
 		return &jobs.Failure{Message: "el motor de lectura rechazó el trabajo", Detail: err.Error()}
 	case errors.Is(err, ErrAnalyzerUnavailable):

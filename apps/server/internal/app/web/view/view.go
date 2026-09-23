@@ -413,6 +413,29 @@ type ControlPurgeConfirmPage struct {
 	Typed string
 }
 
+// ControlScansResetConfirmPage is the confirmation screen for "Borrar
+// escaneos" (issue #298): what the reset destroys, pre-worded, and the
+// field that must hold the control's name verbatim. The handler
+// re-validates the name server-side.
+type ControlScansResetConfirmPage struct {
+	Page
+	Name      string
+	DetailURL string
+	ResetURL  string
+	// The *Txt fields are the counts already in words ("2 copias leídas");
+	// the template does no agreement. HasPublished gates the warning about
+	// copies already mailed.
+	UploadsTxt   string
+	ReadTxt      string
+	HasPublished bool
+	PublishedTxt string
+	CorrectedTxt string
+	// NameMismatch and Typed: the re-render after a wrong name, same
+	// shape as ControlPurgeConfirmPage. Empty on the first GET.
+	NameMismatch string
+	Typed        string
+}
+
 // ArchivedControl is one row of the archived listing. Same pre-formatted
 // shape as ListedControl plus the archived-at column and the two URLs the
 // two operations target.
@@ -576,6 +599,10 @@ type ControlDetailPage struct {
 	// (issue #204). Empty while nothing was uploaded — the template then
 	// renders no section at all.
 	Uploads []UploadedBatch
+	// ScansResetURL is the "Borrar escaneos" confirmation page (issue
+	// #298). Empty when the control has no scans: the link does not
+	// render, the same precondition the page itself answers 404 on.
+	ScansResetURL string
 
 	// CurrentTicked / CurrentUnsure pre-fill the reanalyze form with the
 	// last thresholds used (or the defaults for a first read).
@@ -706,6 +733,10 @@ type JobBanner struct {
 	// connection on each render, never stored on the job, so it disappears
 	// once the professor has reconnected.
 	ProfileURL string
+	// Notice is what a DONE job had to say beyond "lista" (issue #298):
+	// an analyse that re-read copies already mailed, or that met pages it
+	// did not recognise. Only populated when Done.
+	Notice string
 	// DismissURL is POST /jobs/{id}/dismiss — the "Refrescar" (running /
 	// done) and "Cerrar aviso" (failed) button both target it. The
 	// professor re-submits the operation from the usual form after
@@ -1232,6 +1263,15 @@ func RenderControlPurgeConfirm(w http.ResponseWriter, status int, page ControlPu
 		page.Title = "Eliminar " + page.Control.Name
 	}
 	return render(w, "controls_purge_confirm", status, page)
+}
+
+// RenderControlScansResetConfirm writes the "Borrar escaneos" confirmation
+// page (issue #298). status is 200 on the GET, 422 on a wrong name.
+func RenderControlScansResetConfirm(w http.ResponseWriter, status int, page ControlScansResetConfirmPage) error {
+	if page.Title == "" {
+		page.Title = "Borrar escaneos de " + page.Name
+	}
+	return render(w, "controls_scans_reset_confirm", status, page)
 }
 
 // RenderControlsForm writes the create form (S6).
