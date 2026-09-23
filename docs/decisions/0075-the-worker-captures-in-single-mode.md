@@ -144,7 +144,10 @@ button; and each run costs its own batch, not the project's history.
   rows survive and the next save of that copy re-applies them to the new
   image. A re-read does not repair it — only an upload that re-scans the same
   copies does. Named rather than engineered around (a worker-side pending-
-  reset record was the alternative).
+  reset record was the alternative). A batch refused for an AMC database
+  error lands in the same place: the worker clears `manual` for the copies it
+  did re-capture before refusing, and names them in the job's detail, but the
+  server — whose job failed — keeps its override rows for them.
 - **The deploy window.** The server merges first and its CD is minutes; the
   worker's is ~30. Every wire addition degrades to today's behaviour, and the
   reset 404s before destroying anything. One case is uncovered: a re-upload

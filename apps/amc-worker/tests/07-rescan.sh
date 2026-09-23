@@ -233,6 +233,13 @@ check_eq "a batch recognised in part reads what it can and counts the rest" \
 # comes back as freshly read.
 blank_all="$(echo "$full" | field 'json.dumps({"project": "p3", "copy": 1, "overrides": {"rut": "11111111", "answers": [{"question": a["name"], "marked": []} for a in d["copies"]["1"]["answers"]]}})')"
 post /annotate/copy "$blank_all" >/dev/null
+check_eq "the RUT correction forced an association (so its removal below is not vacuous)" "11111111" \
+  "$(docker run --rm -v "${work}:/work" "$IMAGE" python3 -c '
+import sqlite3
+c = sqlite3.connect("/work/p3/data/association.sqlite")
+row = c.execute("SELECT manual FROM association_association WHERE student = 1").fetchone()
+print(row[0] if row else "no row")
+' 2>/dev/null || echo "")"
 patched="$(post /reanalyse '{"project":"p3"}')"
 check_eq "a correction blanks copy 1 (so the check below is not vacuous)" "True" \
   "$(echo "$patched" | field 'all(a["marked"] == [] for a in d["copies"]["1"]["answers"])')"

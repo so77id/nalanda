@@ -305,16 +305,20 @@ def analyse(body):
     # A lost page reads as an `incomplete` copy with no reason given, so the
     # batch is refused instead; re-uploading it is safe, since a re-scan
     # replaces what it re-captures.
-    errors = sql_errors(output)
-    if errors:
-        raise Failed("auto-multiple-choice analyse lost pages to a database error",
-                     "\n".join(errors[-5:]))
-
     after = read_capture.capture_snapshot(data)
     batch = read_capture.batch_outcome(before, after)
     # BEFORE `note`, which scores from `manual`: a re-captured copy is born
-    # again (issue #298 §C).
+    # again (issue #298 §C). Before the refusal below too: AMC has already
+    # written the pages it DID capture, so a copy re-captured by a refused
+    # batch holds new pixels, and its old corrections must not survive on
+    # them (#298 review, COR-7).
     forget_corrections(data, batch["recaptured_copies"])
+    errors = sql_errors(output)
+    if errors:
+        recaptured = ", ".join(str(c) for c in batch["recaptured_copies"]) or "none"
+        raise Failed("auto-multiple-choice analyse lost pages to a database error",
+                     "\n".join(errors[-5:])
+                     + f"\nre-captured copies (corrections cleared): {recaptured}")
     if batch["captured"] == 0:
         # Nothing of this batch was read, so there is nothing to score — and
         # on a project whose first batch this is, scoring would find no
