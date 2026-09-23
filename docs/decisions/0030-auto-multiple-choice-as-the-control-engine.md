@@ -13,6 +13,11 @@ paper a per-control preference (radio inside `<details> Opciones avanzadas`
 in the create form). Letter stays the default; A4 is available on demand.
 "For every future generate is Letter" from the previous amendment reads:
 every future generate is Letter *by default*.
+**Amended by:** #298 (2026-09-22) — the worker captures in AMC's SINGLE mode,
+never `analyse --multiple` (ADR-0075). The capture's copy index is therefore 0,
+and TRAP 1 below inverts: the ghost row is now `--copy 1`, the index the §The
+spike table records. The table and §Not yet proven's tooling notes stay as the
+record of what was measured then.
 
 ## Context
 
@@ -121,10 +126,13 @@ the trap inside the image**, not by reading the wrapper's source. An earlier
 version asserted the fourth guard below by grepping for its error message, which
 would have passed with the guard deleted:
 
-1. **`association --set` without `--copy`** exits 0, prints nothing, and writes
-   a row AMC's own listing ignores. A review queue built on that call reports
-   success to the professor and never attributes the grade. `/associate/set`
-   sends `--copy` and reads the association back before answering.
+1. **`association --set` under the wrong `--copy`** exits 0, prints nothing,
+   and writes a row nothing reads. A review queue built on that call reports
+   success to the professor and never attributes the grade. Measured here in
+   photocopy mode, where sheets sit at copy 1 and the ghost is a call without
+   `--copy`; since #298 the capture runs in single mode, sheets sit at 0 and the
+   ghost is `--copy 1` (ADR-0075). `/associate/set` sends the index the capture
+   carries and reads the association back before answering.
 2. **`annotate` writes but never cleans.** Re-annotating into a used directory
    leaves orphans beside the new files and anything walking it sends both.
    `/annotate` refuses a non-empty directory.

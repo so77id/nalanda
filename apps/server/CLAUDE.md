@@ -353,6 +353,39 @@ the `avisoNo*` / `flash.Set(…)` string literals in `internal/app/web/handler/`
   (`Service.PrepareControl`). The banner surfaces the failure; a
   future WP adds the explicit retry button. Same rule shape as the
   UploadScan-survives bullet above.
+- **A re-captured copy loses its corrections and KEEPS its publication
+  stamp (issue #298, ADR-0075, ADR-0048 §Amendment).** `AnalyzeBatch`
+  calls `Readings.ResetRecapturedCopies` for `report.Batch.RecapturedCopies`
+  BEFORE the upsert: overrides, `last_edited_at` and the `annotated_copy`
+  row go, because each was made against an image the new capture replaced.
+  `published_at` / `published_grade` stay — ADR-0073 derives `CopyStale`
+  from them — and adding either to that statement, or to `upsertReading`'s
+  `ON CONFLICT` list, mails a student twice or loses the record that they
+  were mailed. `TestResetRecapturedCopiesForgetsCorrectionsAndKeepsThe`
+  `Publication` is the pin. And a `Batch` with `Captured == 0` is refused
+  before any write (`ErrNothingCaptured`): single-mode AMC exits 0 on a
+  batch it could not place, so this is the only loud signal. `Report.Batch`
+  is nil on `/reanalyse` and on a fake — gate on a batch you have, never on
+  its absence.
+- **"Borrar escaneos" calls the worker FIRST, and is synchronous on
+  purpose (issue #298, ADR-0075 §5).** `Service.ResetScans` asks the
+  worker to empty the capture before the database drops anything: the
+  worker owns `/work`, and an unreachable or older worker (the two CD
+  workflows drift) then refuses with nothing destroyed. Reversing the order
+  leaves readings gone over a capture the next upload would re-analyse. It
+  runs on the request goroutine under `scansResetDeadline`, refused (409)
+  while a job is in flight so the worker's lock is free — the one
+  AMC-worker call that is not a job, because it only removes files. Same
+  three gates as purge: `ResetScanResults`'s `deleted_at IS NULL`,
+  `ErrNoScans`, and the verbatim name.
+- **A done job may carry ONE sentence for the professor: return
+  `*jobs.Notice` (issue #298, ADR-0050 §Amendment).** The runner records it
+  on `job.notice` and the banner renders it under "lista". It travels
+  through the handler's error slot like `*jobs.Failure`, and it is a
+  SUCCESS — the runner, not the handler, tells the two apart. Use it rather
+  than reporting a success as a failure so the professor reads a sentence
+  (the partial publication still does the latter, from before this
+  existed).
 - **Hard-deleting a control requires an ARCHIVED row AND a typed name
   match (issue #261, ADR-0052).** Purge is a two-step gate; a hand-typed
   `/controls/{id}/purge` on an active row must not delete grades. THREE

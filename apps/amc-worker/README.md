@@ -61,12 +61,14 @@ rollback died on it, issue #193).
 ```
 GET  /health                                          → { ok, amc }
 POST /generate      { project, source, copies }       → { sujet, corrige, calage, copies }
-POST /analyse       { project, scan_pdf, source,      → { pages, scoring, copies, needs_review, pages_per_copy }
-                      [ticked], [unsure] }
+POST /analyse       { project, scan_pdf, source,      → { pages, scoring, copies, needs_review, pages_per_copy,
+                      [ticked], [unsure] }                  batch }
                     ⏱ MINUTES-CLASS — background job only, see below.
                     ticked/unsure (issue #197): the darkness verdicts AND
                     note run at the same ticked — marks, scores and any
                     downstream annotated PDF agree on one threshold.
+                    Captures in SINGLE mode, one batch at a time (#298):
+                    see "A second batch replaces what it re-scans" below.
 POST /reanalyse     { project, [ticked], [unsure] }    → { pages, scoring, copies, needs_review, pages_per_copy }
                     re-runs note at the new ticked, so the scores follow
                     the marks (issue #197).
@@ -85,6 +87,13 @@ POST /annotate/copy { project, copy, [overrides],     → { path, copy }
                     professor's corrections into AMC's capture
                     (capture_zone.manual, its own manual mechanism), re-runs
                     note, and annotates only that copy (issue #190).
+POST /scans/reset   { project }                       → { project, removed }
+                    "Borrar escaneos" (#298): empties everything a capture
+                    produced — data/capture.sqlite, scoring.sqlite and
+                    association.sqlite, and cr/, scans/, uploads/ and
+                    annotated/ — and keeps what generation produced, above
+                    all data/layout.sqlite and inputs/. The server calls it
+                    BEFORE touching its own rows.
 ```
 
 **Named files under `<project>/` that the worker produces and callers open
@@ -98,6 +107,9 @@ of promise as `/generate`'s response paths):
 <project>/scans/copy-N-page-M.png
                                 one image per scanned page, from /analyse's
                                 getimages step (N = copy number, M = page)
+<project>/scans/list-<batch>.txt
+                                the page list of ONE uploaded batch
+                                (<batch> = the PDF's stem, e.g. batch-2), #298
 ```
 
 **A refusal is not a crash.** The reader refuses a project it cannot score —
@@ -105,8 +117,9 @@ no scoring database, scoring tables that are empty, a layout that is missing,
 or a captured question with no score. On the CLI that is **exit 2**, with the
 reason and the command that repairs it on stderr and **nothing on stdout**, so
 a caller piping the report into a file never ends up with half of one; any
-other non-zero status is a crash. Over HTTP it currently surfaces as a **500**
-carrying the reason but not the repair command — see the PR's deferred items.
+other non-zero status is a crash. Over HTTP it is a **400** carrying the
+reader's own reason and repair as `{error, detail}` (since #298): a refusal can
+never succeed on retry.
 
 Every failure answers `{ error, detail }`. **400** is the caller's mistake and
 can never succeed on retry — a missing or malformed field, a path outside
@@ -148,9 +161,10 @@ not "no GUI exists" — it is "no display exists, and the CLI does not need one"
 | `01-headless.sh` | AMC runs from the CLI with no display; LaTeX resolves `automultiplechoice.sty`; every CLI tool the pipeline needs is present |
 | `02-generate.sh` | N copies from our own `.tex`, questions and alternatives shuffled per copy, an 8-digit RUT grid, a printed identifier per page, a reproducible draw |
 | `03-read.sh` | A scrambled multi-page PDF batch reads back; ambiguous marks and unreadable identifiers are reported separately; multiple-answer questions score and are not called ambiguous; a project with no scoring database is refused |
-| `04-associate.sh` | Clean copies match a roster automatically; damaged identifiers fail closed; an association can be injected from outside without the GUI |
+| `04-associate.sh` | Clean copies match a roster automatically; damaged identifiers fail closed; an association can be injected from outside without the GUI, under the copy index the capture carries |
 | `05-annotate.sh` | One annotated PDF per student, carrying their marks, the correct answers and per-question scores |
 | `06-http.sh` | The whole flow over the HTTP contract; the annotate and unknown-subcommand guards exercised by performing the trap inside the image (the association trap belongs to `04-associate.sh`); and that `/analyse` derives `--n-copies` from the layout, performed with six copies against a source declaring five |
+| `07-rescan.sh` | #298, over HTTP: each batch analysed alone; a re-scanned page replaces its capture (the Control 7 shape: a half batch, then the full one); the `batch` outcome, including blank pages AMC cannot place; a re-captured copy loses its corrections; a photocopy-mode capture is refused; `/scans/reset` starts over |
 
 **Changing the fixture's question pool moves the seeded draw.** Adding or
 removing a question — or a `\lastchoices`, which draws from the same random
@@ -199,10 +213,13 @@ wrapper refuses each; `tests/06-http.sh` asks it to do the wrong thing —
 fourth by grepping this file for its error message, which would have passed with
 the guard deleted.)
 
-**`association --set` without `--copy` does nothing.** It exits 0, prints
-nothing, and writes a row AMC's own listing ignores. A review queue built on
-that call looks like it works and the grade never lands. `/associate/set`
-always sends `--copy`, and reads the association back before reporting success.
+**`association --set` under the wrong `--copy` does nothing.** It exits 0,
+prints nothing, and writes a row nothing reads. A review queue built on that
+call looks like it works and the grade never lands. The right index is the one
+the CAPTURE carries, and it depends on the capture mode: 1 in photocopy mode,
+0 in the single mode this worker uses since #298 — where the `--copy 1` the
+wrapper used to hardcode is exactly the ghost. `/associate/set` reads the index
+off the capture, and reads the association back before reporting success.
 
 **An unassociated copy still gets an annotated PDF**, named with the literal
 placeholder `_ID_`. So counting files is not a completeness check — five copies
@@ -229,6 +246,65 @@ came back with every score null under `status: "ok"`, absent from
 it, and the reader refuses a captured question that carries no score. (In
 `worker.py`'s own comments this is TRAP 3 — that numbering is the wrapper's
 internal one and does not match the order of this list.)
+
+## A second batch replaces what it re-scans
+
+A professor uploads more than one PDF per control — a pile scanned in two
+goes, a page that jammed, a sheet re-scanned because it came out crooked. Each
+batch must **replace** the pages it re-scans and **add** the ones it does not,
+and a bad batch must never poison the next one. Three rules make that true
+(#298; the decision is ADR-0075):
+
+- **Single mode, never `--multiple`.** `analyse --multiple` is AMC's
+  *photocopy* mode — "the same printed copy is scanned several times" — and it
+  stacks a second scan of a page beside the first (`copy` 1, 2, …). Nalanda
+  prints one distinct copy per student, and the reader keys by student, so the
+  stack came back as duplicated RUT digits and ticks; and when two batches
+  disagreed on how many scans each page had, AMC aborted ("You did not provide
+  the same number of copies for all pages") and every later upload failed the
+  same way. In single mode every page sits at `copy = 0` and a page captured
+  again is overwritten (`capture_page.overwritten` counts it).
+- **One page list per batch.** `getimages --list` does not write a list, it
+  EXTENDS one — AMC reads the file back, puts the new pages first and rewrites
+  it. With one shared list every upload re-analysed every page ever uploaded,
+  and a failed analyse left its pages there for the next upload to inherit.
+  `/analyse` writes `scans/list-<batch>.txt` instead.
+- **A re-captured copy is born again.** AMC re-uses a box's row on a
+  re-capture: `black`/`total` move to the new pixels and `manual` stays, so the
+  professor's old correction would be applied to an image it was never made
+  against. For every copy the batch re-captured, `/analyse` resets `manual` to
+  -1 and drops the forced association, before `note` scores.
+
+**The report says what this batch did.** `pages` is the project's running
+total — both `capture_page` and `capture_failed` accumulate — so it cannot say
+whether an upload read anything. `batch` is this run's own numbers, taken from
+the capture before and after `analyse`:
+
+```
+"batch": {"captured": 24, "failed": 0, "recaptured_copies": [1, 2, 3]}
+```
+
+`captured` counts pages new or overwritten by this run, `failed` pages AMC
+could not place (in single mode it files them in `capture_failed` and exits 0
+— the loud abort lived inside the photocopy block), and `recaptured_copies` the
+copies with at least one page re-scanned over an earlier capture. A batch that
+captured nothing is answered with the batch alone, unscored; the server fails
+the job on `captured == 0`. Optional on the wire, like every addition to this
+report.
+
+**What a blank page is, and what another control's page is not.** A page with
+no AMC marker — a blank, a stray document — cannot be placed and counts in
+`failed`. A page from ANOTHER Nalanda control can: every control prints the
+same page markers (`+<copy>/<page>/<check>+`, measured identical across seeds),
+so AMC reads it as this control's copy of that number and overwrites it.
+Nothing in the capture tells the two controls apart. The repair is the same as
+for any bad batch — upload the right one, which replaces what the wrong one
+overwrote, or reset the scans.
+
+**A photocopy-mode capture is refused.** Every project captured before #298
+may hold one. The reader refuses a capture with any `copy > 0` box — exit 2,
+nothing on stdout, the project and the repair named — rather than concatenate
+two scans in silence. The repair is `/scans/reset` and a fresh upload.
 
 ## What the reader reports, and what it cannot
 

@@ -125,10 +125,11 @@ are decisions for a human, not gates.
 
 **A wrapper that exists to neutralise a third-party trap is tested by
 PERFORMING the trap, not by reading the wrapper.** `04-associate.sh` is the
-worked case: it makes the wrong call (`association --set` without `--copy`) and
-asserts its wrong outcome in three independent channels — it prints nothing, it
-writes a `copy=0` row, the copy stays unassociated — before asserting the right
-call works. That is what makes the guard falsifiable: if a future upstream
+worked case: it makes the wrong call (`association --set` under a copy index the
+capture does not carry — `--copy 1` since #298 moved the capture to AMC's single
+mode) and asserts its wrong outcome in three independent channels — it prints
+nothing, it writes a `copy=1` row, the copy stays unassociated — before
+asserting the right call works. That is what makes the guard falsifiable: if a future upstream
 release fixes the trap, or breaks it differently, the test says which. The
 counter-example is in the same WP and was caught in review: the closed-subcommand
 guard was asserted by `grep`ping the wrapper's source for its error message,
