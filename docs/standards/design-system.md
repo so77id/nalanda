@@ -159,6 +159,10 @@ theme a course page carries a white block, and that is accepted rather than
 worked around: the sheet's own cell colours (holidays, recess, the two solemnes)
 are the information, and they are designed for white.
 
+`<PdfEmbed>` (#299, ADR-0076) is the same exemption for Drive's PDF viewer,
+which paints a dark grey ground around white pages in both themes; the wrapper
+and placeholder around it are the same as the sheet's.
+
 What IS ours around it, and what it pairs with:
 
 - `bg-sunk` on the wrapper — the placeholder's ground, the worst-case surface

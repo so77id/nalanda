@@ -215,25 +215,66 @@ it:
   surface and shows no editing chrome, so a reader has to take the frame's `src`
   and swap `/preview` for `/edit` — a deliberate act, and a trivial one for a
   CS student. Nothing here detects it, in either direction.
-- **The grades sheet is the case this record exists ahead of.** Publishing one
-  through this component would put student names and marks — **personal data
-  under Ley 21.719**, the same classification §"The control worker is
-  unauthenticated" gives RUTs and grades — on a public page behind nothing but
-  an unguessable URL. That is exactly the material §"Everything under
-  content/courses/ is published" reserves its review trigger for. Nothing about
-  `<SheetEmbed>` decides it; the share setting on the sheet does, and that is
-  outside this repo's review. A link-shared sheet also has no expiry and no
-  deletion path once the link has travelled.
+- **A grades sheet is published by the professor's decision** (#299, ADR-0076
+  §3). Names, RUTs and marks are **personal data under Ley 21.719** — the same
+  classification §"The control worker is unauthenticated" gives them — and a
+  link-shared sheet puts whatever it carries on a public page behind nothing but
+  an unguessable URL, with no expiry and no deletion path once the link has
+  travelled. This record used to hold that disposition as "do not ship grades
+  through this component at all"; the professor chose instead to publish the
+  sheet he curates and to own what it shows. Nothing about `<SheetEmbed>`
+  decides it, and the repo no longer tries: which columns the sheet carries is
+  decided in Drive, outside this repo's review.
 
-**Review trigger**: the first sheet carrying student identifiers or marks. **The
-remedy does not exist yet, and that is the point of the trigger** — do not read
-it as "put it behind the v0.3 auth". ADR-0009 is *professor-only*: "Only
-professor logins exist… students remain anonymous spectators… no accounts", and
-`docs/design/2026-08-controles.md` repeats that none are planned. So there is no
-gate a student could pass, and the disposition until a student-identity decision
-exists is **not to ship grades through this component at all**. Also: the first
-`<SheetEmbed>` pointed at a host other than `docs.google.com`, which the
-component refuses today and which would reopen every line above.
+**Review trigger**: the first `<SheetEmbed>` pointed at a host other than
+`docs.google.com`, which the component refuses today and which would reopen
+every line above. (The earlier trigger — the first sheet carrying student
+identifiers or marks — fired with #299 and was resolved by ADR-0076.)
+
+### Drive's PDF viewer is framed with its own origin (accepted 2026-09-22, #299)
+
+`<PdfEmbed>` frames `https://drive.google.com/file/d/<id>/preview` — the
+site's second framed Google document, and the first frame of ours granted
+`allow-same-origin` for a document (`<VideoEmbed>` has it for YouTube's
+player).
+
+```
+sandbox="allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox"
+referrerpolicy="no-referrer"
+```
+
+Each token measured on 2026-09-22 against Control 1's pauta in Chromium and
+WebKit (table in ADR-0076 §2):
+
+- **`allow-same-origin` is load-bearing**: without it Drive's viewer cancels its
+  own page-image requests and the spinner never resolves. `allow-downloads` was
+  tried in its place and does not help.
+- **Why it is safe here, stated as the capability**: scripts plus same-origin
+  let a framed document lift its own sandbox **only when it is same-origin with
+  the embedding page**. The frame is always `drive.google.com` and the page is
+  `so77id.github.io`, so the case cannot arise — provided the host stays fixed.
+  That is `drivePreviewUrl`'s job: scheme and host anchored, the host closed by
+  the next `/` (`drive.google.com.evil.example` is a test case). **Loosening
+  that pattern is a security change, not a convenience.** What the token does
+  grant is Drive's real origin inside the frame: it reads its own cookies and
+  storage, so a signed-in reader is identified to Google as a viewer of the file,
+  exactly as when opening the link directly. It still cannot read this site's
+  DOM or `localStorage` (cross-origin), navigate the page (`allow-top-navigation`
+  absent), or submit forms.
+- **`allow-popups` + `allow-popups-to-escape-sandbox`**: the viewer's pop-out
+  button. Without the first the click does nothing; without the second the new
+  tab inherits the sandbox and its download button downloads nothing. The
+  capability is the same as `<SheetEmbed>`'s — an unsandboxed tab at a URL the
+  document chooses — here always Drive's own `/view` page.
+
+**What is new**: `drive.google.com` (plus `www.gstatic.com` and
+`apis.google.com`, which it loads) at render time. A future CSP must allow
+`drive.google.com` in `frame-src`. The file's content is outside PR review,
+exactly as a sheet's is.
+
+**Review trigger**: any change to the sandbox string (re-measure in a real
+browser, both directions), and any change to `DRIVE_FILE_URL` in
+`components/media/driveUrl.ts` that widens the accepted host.
 
 ### Drafts live on an origin shared with every other repo of the account (accepted 2026-08-13, #85)
 
@@ -424,9 +465,16 @@ Decisions: ADR-0019 §3b/§7, ADR-0020 §6, ADR-0028 §6/§7.
   decision. Harm is harvesting at a university mailbox. Review trigger for this
   one: any address that is not the author's own, and any student address ever
   appearing under `content/`.
-- **Review trigger**: the first time material that must not be seen (exam keys,
-  solutions, unreleased classes) needs a home. Park it OUTSIDE
-  `content/courses/` — omitting it from the index is not a control.
+- **An evaluation's pauta is published on purpose, after the evaluation**
+  (#299). It is not under `content/` at all: the evaluation document frames it
+  from Drive (`<PdfEmbed>`, ADR-0076), so it is public from the moment the
+  document merges or the Drive link is shared, whichever the professor does
+  first. The document for an evaluation is written after the evaluation, never
+  ahead of it — a merged `evaluaciones/*.mdx` pointing at a shared pauta is a
+  published key.
+- **Review trigger**: the first time material that must not be seen (exam keys
+  before their evaluation, solutions, unreleased classes) needs a home. Park it
+  OUTSIDE `content/courses/` — omitting it from the index is not a control.
 
 ### Third-party marks under content/ (recorded 2026-08-15, #120 review)
 
