@@ -459,6 +459,46 @@ def link_scans_to_contract_names(data, scans):
         os.symlink(original, link_path)
 
 
+# What a capture produced, and so what "Borrar escaneos" removes (issue
+# #298): AMC's capture and the two databases derived from it, the per-page
+# layout images AMC draws into cr/, every scan image, page list and contract
+# symlink, the uploaded batches, and the annotated PDFs drawn over them.
+# Everything else stays — above all data/layout.sqlite and inputs/, since
+# the paper students wrote on was printed from them.
+RESET_FILES = ("data/capture.sqlite", "data/scoring.sqlite", "data/association.sqlite")
+RESET_DIRS = ("cr", "scans", "uploads", "annotated")
+
+
+def reset_scans(body):
+    """Return a project to what generation left: printable, unread.
+
+    The worker owns every write inside /work (CLAUDE.md), so this is where a
+    control's scans are wiped; the server calls it BEFORE touching its own
+    rows, so a worker that is down or predates the route leaves everything
+    as it was. Directories are emptied rather than removed, so the next
+    /analyse finds the layout it expects.
+    """
+    project = under_work(body["project"], must_exist=True)
+    removed = 0
+    for name in RESET_FILES:
+        path = os.path.join(project, name)
+        if os.path.exists(path):
+            os.remove(path)
+            removed += 1
+    for name in RESET_DIRS:
+        directory = os.path.join(project, name)
+        if not os.path.isdir(directory):
+            continue
+        for entry in os.listdir(directory):
+            path = os.path.join(directory, entry)
+            if os.path.isdir(path) and not os.path.islink(path):
+                shutil.rmtree(path)
+            else:
+                os.remove(path)
+            removed += 1
+    return {"project": os.path.relpath(project, WORK), "removed": removed}
+
+
 def reanalyse(body):
     """Re-read a captured project at new thresholds, without a new capture.
 
@@ -856,6 +896,7 @@ ROUTES = {
     ("POST", "/associate/set"): associate_set,
     ("POST", "/annotate"): annotate,
     ("POST", "/annotate/copy"): annotate_copy,
+    ("POST", "/scans/reset"): reset_scans,
 }
 
 

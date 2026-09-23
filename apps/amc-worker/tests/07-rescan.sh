@@ -280,4 +280,31 @@ check_contains "and the repair" "reset" "$refusal"
 re_legacy="$(post /reanalyse '{"project":"legacy"}')"
 check_contains "and /reanalyse answers the refusal instead of a report" "photocopy" "$re_legacy"
 
+# --- S9: /scans/reset — start over without a shell ------------------------------
+#
+# Control 7 was unstuck by moving capture.sqlite, cr/* and scans/* aside over
+# ssh. The reset does that for the server: everything a capture produced goes,
+# everything generation produced stays — the layout above all, since students
+# wrote on paper printed from it.
+reset="$(post /scans/reset '{"project":"p3"}')"
+check_eq "the reset answers for the project" "p3" "$(echo "$reset" | field 'd["project"]')"
+check "the capture is gone" test ! -e "$work/p3/data/capture.sqlite"
+check_eq "and every scan image, list and link" "0" "$(ls "$work/p3/scans" | wc -l | tr -d ' ')"
+check_eq "and every uploaded batch" "0" "$(ls "$work/p3/uploads" | wc -l | tr -d ' ')"
+check "the layout stays" test -s "$work/p3/data/layout.sqlite"
+check "and the printed subject" test -s "$work/p3/out/sujet.pdf"
+
+upload p3 scan-all/lote.pdf 1
+again="$(analyse p3 1)"
+check_eq "the same batch reads from scratch after a reset" "['ok', 'ok']" \
+  "$(echo "$again" | field '[d["copies"][k]["status"] for k in sorted(d["copies"])]')"
+check_eq "as a first capture: nothing re-captured" \
+  "{'captured': 4, 'failed': 0, 'recaptured_copies': []}" "$(echo "$again" | field 'd["batch"]')"
+check_eq "and no correction survives it" "0" \
+  "$(sql p3 'SELECT COUNT(*) FROM capture_zone WHERE manual >= 0')"
+
+check_eq "a path outside the volume is refused" "400" \
+  "$(curl -s -o /dev/null -w '%{http_code}' -X POST -H 'Content-Type: application/json' \
+     -d '{"project":"../../etc"}' "http://127.0.0.1:${PORT}/scans/reset")"
+
 summary
