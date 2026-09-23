@@ -42,7 +42,7 @@ What that run does NOT cover, and what remains:
 - **§4's BODY checks** were rewritten after the 2026-09-07 run (the whole
   name, no footer) and have still not been read against a delivered
   message.
-- **§§2, 3, 5b, 5bb, 5c, 5d, 5e, 5f, 6 and 7 have not run at all.** §5c (the
+- **§§2, 3, 5b, 5bb, 5c, 5d, 5e, 5f, 5g, 6 and 7 have not run at all.** §5c (the
   resume) and §5d (the per-student send) are the two ADR-0073 names as its
   own verification, which is why that ADR's status still says outstanding.
 

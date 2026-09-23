@@ -118,8 +118,10 @@ the toolchain *is* the runtime.
 ### Four silent traps the caller must never hit
 
 Each was measured, each is silent, and each yields a system that looks like it
-works while losing a student's grade. `apps/amc-worker/README.md` §Four traps is
-the canonical list for a caller; this section is the same set. The wrapper
+works while losing a student's grade. `apps/amc-worker/README.md` §Five traps is
+the canonical list for a caller; it holds these four plus the scoring trap
+(`prepare --mode b` scores what the SOURCE declares), and since #298 its
+single-mode capture rules live in ADR-0075. The wrapper
 neutralises them and
 `tests/06-http.sh` asks it to do the wrong thing in each case — **by performing
 the trap inside the image**, not by reading the wrapper's source. An earlier

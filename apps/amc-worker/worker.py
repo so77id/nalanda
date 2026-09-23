@@ -405,7 +405,8 @@ def read_report(data, ticked, unsure):
     """The reading report, or a 400 carrying the reader's own refusal.
 
     read_capture refuses a project it cannot report on truthfully — no
-    scores, a copy captured after scoring, a photocopy-mode capture (#298)
+    scores, a copy captured after scoring, a copy captured under more than
+    one scan index (a photocopy-mode stack, #298)
     — with the repair in its detail. Unhandled, that surfaced as a 500
     naming the exception class; the caller needs the sentence instead,
     and a refusal can never succeed on retry, so it is a 400.

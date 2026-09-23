@@ -7,12 +7,12 @@
 day #273 shipped). Every item below is a defect or a gap Miguel hit while using
 it on a live class, not a review finding — except §4's rehearsal rule and §5's
 retention note, which the WP's own review added (COR-1/SEC-1, SEC-2).
-**Amended by:** #298 (2026-09-22) — two more paths through this ADR's states (ADR-0075): a RE-CAPTURED copy keeps its `published_at`/`published_grade` and derives `stale` when its grade moved; and "Borrar escaneos" is a second route that clears the per-copy record — with every reading — behind the typed-name destructive-confirm pair.
 **Supersedes:** ADR-0072 §5 ("Publication is async, one-way, and stamped before
 it sends"). §§1–4b and 6 of ADR-0072 stand unchanged.
 **Amended by:** #297 (2026-09-22) — this ADR's §4b (not ADR-0072's): a lost
 Gmail credential stops the batch at the copy that found it. The one exception
 to per-copy independence.
+**Amended by:** #298 (2026-09-22) — two more paths through this ADR's states (ADR-0075): a RE-CAPTURED copy keeps its `published_at`/`published_grade` and derives `stale` when its grade moved; and "Borrar escaneos" is a second route that clears the per-copy record — with every reading — behind the typed-name destructive-confirm pair.
 
 ## Context
 

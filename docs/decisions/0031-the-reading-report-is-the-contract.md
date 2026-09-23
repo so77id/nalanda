@@ -11,7 +11,8 @@ alternatives
 **Amended by:** #243 (2026-08-27) — per-copy captured page list, so the review
 page's raw-scan fallback iterates every page AMC captured
 **Amended by:** #298 (2026-09-22) — `/analyse` says what THIS batch did
-(`batch`), and a capture holding a photocopy-mode scan is refused
+(`batch`), and a copy captured under more than one scan index (a photocopy-mode
+stack) is refused
 
 ## Context
 
