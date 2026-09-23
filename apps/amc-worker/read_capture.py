@@ -149,34 +149,44 @@ class Refused(Exception):
 
 
 class PhotocopyCapture(Refused):
-    """The capture holds a sheet scanned in AMC's photocopy mode (issue #298).
+    """A copy was captured under more than one scan index (issue #298).
 
-    `analyse --multiple` stacks a second scan of a page beside the first
-    (`capture_zone.copy` 1, 2, …), and this reader keys by student alone: it
-    would concatenate both scans' marks into duplicated RUT digits and
-    ticks. The worker captures in single mode since #298 and never produces
-    `copy > 0` again; a project captured before that is refused rather than
-    read. The repair is to reset the control's scans and upload them again.
+    AMC keys a capture by (student, copy), and this reader keys by student
+    alone: a student captured under two indexes would come back with both
+    scans' marks concatenated — duplicated RUT digits and ticks. That is
+    what AMC's photocopy mode (`analyse --multiple`, the worker's mode before
+    #298) does to a re-scanned sheet: it stacks it at the next index. It is
+    also what a single-mode upload over such a project produces (the new
+    scan at 0 beside the old at 1).
+
+    What is NOT refused is a legacy capture scanned once: photocopy mode
+    puts even a first scan at index 1, and one index per student reads
+    exactly as it did when those controls were graded. Refusing every
+    `copy > 0` row would have refused every control captured before #298 on
+    its next re-read, with a repair that drops corrections and publication
+    stamps (#298 review, B1). The repair for a real stack is to reset the
+    control's scans and upload them again.
     """
 
 
 def check_single_capture(data_dir):
-    """Refuse a capture holding any photocopy-mode row (`copy > 0`)."""
+    """Refuse a capture holding a student under more than one scan index."""
     path = os.path.join(data_dir, "capture.sqlite")
     if not os.path.exists(path):
         return
     con = sqlite3.connect(path)
     try:
-        stacked = con.execute(
-            "SELECT COUNT(*) FROM capture_zone WHERE copy > 0").fetchone()[0]
+        stacked = [r[0] for r in con.execute(
+            "SELECT student FROM capture_zone GROUP BY student "
+            "HAVING COUNT(DISTINCT copy) > 1 ORDER BY student")]
     finally:
         con.close()
     if stacked:
         raise PhotocopyCapture(
-            f"{data_dir} holds a photocopy-mode capture",
-            f"{stacked} boxes were captured at copy > 0, which this reader "
-            "cannot tell apart from the first scan — reset the control's "
-            "scans (Borrar escaneos) and upload them again",
+            f"{data_dir} holds a copy scanned twice in photocopy mode",
+            f"copies {', '.join(map(str, stacked))} were captured under more "
+            "than one scan index, which this reader cannot tell apart — reset "
+            "the control's scans (Borrar escaneos) and upload them again",
         )
 
 
@@ -360,9 +370,9 @@ def scoring_facts(data_dir):
 
     `scoring_score` also carries a `copy` column, for a sheet scanned more than
     once in AMC's photocopy mode, and this reader keys by student alone. It
-    never meets one: the worker captures in single mode since #298, and
-    `read()` refuses a capture holding `copy > 0` (check_single_capture)
-    before any of this runs.
+    never meets two for one student: the worker captures in single mode since
+    #298, and `read()` refuses a student captured under more than one index
+    (check_single_capture) before any of this runs.
     """
     con = sqlite3.connect(os.path.join(data_dir, "scoring.sqlite"))
     try:

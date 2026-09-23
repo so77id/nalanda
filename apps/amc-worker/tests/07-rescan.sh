@@ -259,6 +259,35 @@ row = c.execute("SELECT manual FROM association_association WHERE student = 1").
 print(row[0] if row else "no row")
 ' 2>/dev/null || echo "")"
 
+# --- S5: the reader refuses a photocopy-mode STACK, not every legacy capture ---
+#
+# Photocopy mode puts even a first scan at copy 1, so every project the old
+# worker captured holds copy > 0 rows — and one scan per sheet reads exactly
+# as it did when those controls were graded. What the reader must refuse is a
+# student under TWO indexes (#298 review, B1: refusing any copy > 0 would
+# have refused every production control on its next re-read).
+genone="$(post /generate '{"project":"legacy-once","source":"src/control-demo.tex","copies":2}')"
+check_eq "a control for a legacy capture scanned once generates" "2" "$(echo "$genone" | field 'd["copies"]')"
+check "its batch can be filled" fill legacy-once "$PLAN_BOTH" scan-once scan-once/lote.pdf
+docker run --rm --env DISPLAY= -v "${work}:/work" -w /work "$IMAGE" bash -c '
+  P=/work/legacy-once; D=$P/data
+  auto-multiple-choice getimages --list $P/scans/old.txt --vector-density 300 \
+    --copy-to $P/scans /work/scan-once/lote.pdf >/dev/null 2>&1
+  auto-multiple-choice analyse --data $D --projet $P --cr $P/cr --multiple \
+    --liste-fichiers $P/scans/old.txt >/dev/null 2>&1
+  auto-multiple-choice prepare --mode b --with pdflatex --n-copies 2 --data $D \
+    --prefix $P /work/src/control-demo.tex >/dev/null 2>&1
+  auto-multiple-choice note --data $D --seuil 0.15 >/dev/null 2>&1' >/dev/null 2>&1
+check_eq "photocopy mode put the single scan at copy 1" "1" \
+  "$(sql legacy-once 'SELECT DISTINCT copy FROM capture_zone')"
+once="$(post /reanalyse '{"project":"legacy-once"}')"
+check_eq "and a re-read of it still reads, as it did before #298" "['20123456', '19876543']" \
+  "$(echo "$once" | field '[d["copies"][k]["rut"] for k in sorted(d["copies"])]')"
+upload legacy-once scan-once/lote.pdf 1
+over="$(analyse legacy-once 1)"
+check_contains "a single-mode upload over it stacks at 0 beside 1, and is refused" \
+  "scanned twice" "$over"
+
 # --- S5: the reader refuses a photocopy-mode capture ----------------------------
 #
 # Every project the worker captured before #298 ran in photocopy mode, and a
@@ -300,6 +329,7 @@ check_contains "and the repair" "reset" "$refusal"
 
 re_legacy="$(post /reanalyse '{"project":"legacy"}')"
 check_contains "and /reanalyse answers the refusal instead of a report" "photocopy" "$re_legacy"
+check_contains "naming the copies stacked" "copies 1, 2" "$re_legacy"
 
 # --- S9: /scans/reset — start over without a shell ------------------------------
 #
