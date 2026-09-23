@@ -322,7 +322,12 @@ the `avisoNo*` / `flash.Set(…)` string literals in `internal/app/web/handler/`
      the last being the only non-AMC one and therefore the one a new
      non-worker Kind should copy) that translates
      domain sentinels into `jobs.Failure{Message, Detail}` for the
-     banner + debug pair.
+     banner + debug pair. **Detail is debug for every kind EXCEPT
+     `publish`**, whose detail `jobBannerFor` renders to the professor
+     (#297) — so a copied `NewPublishHandler` brings its rule with it:
+     Spanish only, and an unexpected error is logged, never stored there.
+     Making another kind's detail visible means widening that gate AND
+     holding the kind to the same rule (the publication bullets below).
   4. Its registration in `cmd/server/main.go`'s `jobs.Handlers` map.
   The related operating rule, as ADR-0072 amended it: **the shape of the
   WORK decides, not who it talks to.** An AMC-worker call is async by
@@ -736,8 +741,9 @@ the `avisoNo*` / `flash.Set(…)` string literals in `internal/app/web/handler/`
   zero" mistake `00018_published_sent.sql` names, re-entered through the
   derived count (#287 review, COR-2).
 
-  **A test that only checks the end state cannot see either ordering** — the
-  loop never returns early, so every order finishes in the same place, and
+  **A test that only checks the end state cannot see either ordering** — a
+  run that completes never leaves the loop early (a lost credential, #297,
+  is the one exit), so every order finishes in the same place, and
   #273's first version of that case survived the mutation. The pin asks the
   DISPATCHER what the world looks like at the SECOND send
   (`TestEachCopyIsStampedBeforeTheNextMessageGoesOut`), by which time copy 1
@@ -781,6 +787,32 @@ the `avisoNo*` / `flash.Set(…)` string literals in `internal/app/web/handler/`
   And a copy with no annotated PDF is skipped rather than sent without it:
   "adjunto la corrección" with nothing attached is worse than no message,
   because the student now has to ask.
+
+  **And one failure is not a copy's at all: a lost Gmail credential STOPS
+  the batch (issue #297, ADR-0073 §4b).** A send failing with
+  `gmail.ErrRejected` or `gmail.ErrNotConnected` makes `Service.Publish`
+  return the partial result together with `ErrCredentialLost`, and the
+  publish handler words it as ONE failure with the repair — naming the
+  button the professor actually pressed, since a rehearsal stamps nothing
+  and plain Publicar mails the class. Folding it back into `Failures` is
+  the 2026-09-22 incident: one Google call per remaining copy, and eighteen
+  lines telling the professor they had never connected an account, because
+  the first send had just cleared it. `ErrCredentialLost` is the FIRST case
+  of `failureFromPublishError`, above the `ErrNotConnected` case that
+  matches the cause it wraps and says exactly that. Stopping is safe for the
+  reason resuming is — every sent copy is already stamped. Every other send
+  error stays per-copy.
+
+  The failure banner renders `job.detail` for a failed PUBLICATION only
+  (`jobBannerFor`), so every `Detail` the publish handler writes is Spanish
+  for the professor, and an unexpected error is LOGGED, never stored there —
+  `err.Error()` in that column is an internal error on screen
+  (`TestAnUnexpectedPublishFailureShowsTheProfessorSpanishNotTheError`).
+  Every other kind's detail is stderr kept for triage. The one writer no
+  handler controls is `jobs.Runner`'s panic recovery, which puts the panic
+  in both columns for every kind. The banner's `/profile` link is derived
+  from the LIVE connection `fillPublication` already reads — never stored on
+  the job, so it disappears once the professor reconnects.
 - **A synchronous route imposes its OWN deadline, and the transport's is
   not one (issue #287 review, ARQ-1).** `handler.copyPublishDeadline` is
   25 s against `httpserver`'s 30 s `WriteTimeout`, beside `importDeadline`'s
@@ -843,7 +875,9 @@ the `avisoNo*` / `flash.Set(…)` string literals in `internal/app/web/handler/`
   since #287, anything that decides WHICH copies go out or stamps them
   (`Service.Publish`'s resume filter, `Service.PublishOne`,
   `ResendToWholeCourse`, `controls.deliverableCopy`, and the
-  `published_at`/`published_grade` writes; §5c and §5d are their steps) — is
+  `published_at`/`published_grade` writes; §5c and §5d are their steps) — or,
+  since #297, what a run does when the credential dies mid-way and the
+  banner that reports it (§5f) — is
   unfinished while a human has not run
   [`GMAIL-CHECK.md`](GMAIL-CHECK.md). Same rule, and the same reason, as
   the Google, Canvas and paper bullets.

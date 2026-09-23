@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/so77id/nalanda/apps/server/internal/domain/controls"
+	"github.com/so77id/nalanda/apps/server/internal/domain/gmail"
 	"github.com/so77id/nalanda/apps/server/internal/domain/jobs"
 )
 
@@ -151,6 +152,162 @@ func TestEachRefusalGetsItsOwnBannerMessage(t *testing.T) {
 			}
 			if failure.Detail == "" {
 				t.Error("the refusal carries no detail saying what to do about it")
+			}
+		})
+	}
+}
+
+// A lost credential is ONE banner, naming the loss and the repair (issue
+// #297). What 2026-09-22 put on the screen instead was "se enviaron 0
+// correcciones, 11 se omitieron y 19 fallaron", with the only true sentence
+// buried in a detail nobody rendered and eighteen lines beside it saying
+// the account had never been connected.
+func TestALostCredentialIsReportedOnceWithItsRepair(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		// failOn breaks the batch; the credential dies at the copy whose
+		// entry is a gmail sentinel.
+		failOn map[string]error
+		// sent is how the message must count what went out first.
+		sent string
+		// copies is the per-copy lines the detail must still carry.
+		copies []string
+	}{
+		{
+			name:   "on the first copy",
+			failOn: map[string]error{"ana@udp.cl": gmail.ErrRejected},
+			sent:   "no se envió ninguna corrección",
+		},
+		{
+			name:   "after one copy went out",
+			failOn: map[string]error{"bruno@udp.cl": gmail.ErrRejected},
+			sent:   "alcanzó a salir 1 corrección",
+		},
+		{
+			name:   "after two copies went out",
+			failOn: map[string]error{"carla@udp.cl": gmail.ErrNotConnected},
+			sent:   "alcanzaron a salir 2 correcciones",
+		},
+		{
+			// A copy refused for its OWN reasons before the credential
+			// died is still that copy's problem, and still named.
+			name: "after a copy failed for another reason",
+			failOn: map[string]error{
+				"ana@udp.cl":   controls.ErrSendRefused,
+				"bruno@udp.cl": gmail.ErrRejected,
+			},
+			sent:   "no se envió ninguna corrección",
+			copies: []string{"copia 1"},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			rig := newPublishRig(t)
+			rig.dispatcher.failOn = tc.failOn
+
+			failure := failureFrom(t, runPublishJob(t, rig.svc, rig.controlID, controls.PublishPayload{
+				ProfessorID: 7, Mode: string(controls.PublishModeReal),
+			}))
+
+			if !strings.Contains(failure.Message, "se perdió la conexión con Gmail") {
+				t.Errorf("the banner says %q; it must name the LOST connection", failure.Message)
+			}
+			if !strings.Contains(failure.Message, tc.sent) {
+				t.Errorf("the banner says %q, want it to say %q", failure.Message, tc.sent)
+			}
+			for _, field := range []string{failure.Message, failure.Detail} {
+				if strings.Contains(field, "no hay una cuenta") {
+					t.Errorf("%q reads as 'you never connected one' — the opposite of what happened", field)
+				}
+			}
+			for _, repair := range []string{"perfil", "Publicar", "todavía no"} {
+				if !strings.Contains(failure.Detail, repair) {
+					t.Errorf("the detail %q does not carry %q: reconnect in the profile, press "+
+						"Publicar again, and only the unsent copies go", failure.Detail, repair)
+				}
+			}
+			for _, line := range tc.copies {
+				if !strings.Contains(failure.Detail, line) {
+					t.Errorf("the detail %q lost the per-copy line %q", failure.Detail, line)
+				}
+			}
+		})
+	}
+}
+
+// A rehearsal that loses the credential names the rehearsal as the thing to
+// repeat (#297 review, COR-2). The first wording sent everybody to
+// "aprieta Publicar otra vez: sólo se enviará a quienes todavía no…" — for
+// an Envío de prueba that is the button that mails the real class, and for
+// either kind of rehearsal the "only the unsent" half is false, since a
+// rehearsal stamps nothing. It is also the likely case: the token expires
+// on its own, and a rehearsal is often the first send after the gap.
+func TestALostCredentialOnARehearsalNamesTheRehearsalAsTheRepair(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		payload controls.PublishPayload
+		repeat  string
+	}{
+		{"an envío de prueba", controls.PublishPayload{
+			ProfessorID: 7, Mode: string(controls.PublishModeReal), TestTo: "miguel@gmail.com",
+		}, "repite el envío de prueba"},
+		{"a staging publication", controls.PublishPayload{
+			ProfessorID: 7, Mode: string(controls.PublishModeStaging),
+		}, "mi propia dirección (prueba)"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			rig := newPublishRig(t)
+			rig.dispatcher.failOn["ana@udp.cl"] = gmail.ErrRejected
+			rig.dispatcher.failOn["miguel@udp.cl"] = gmail.ErrRejected
+			rig.dispatcher.failOn["miguel@gmail.com"] = gmail.ErrRejected
+
+			failure := failureFrom(t, runPublishJob(t, rig.svc, rig.controlID, tc.payload))
+
+			if !strings.Contains(failure.Message, "se perdió la conexión con Gmail") {
+				t.Errorf("the banner says %q; it must name the LOST connection", failure.Message)
+			}
+			if !strings.Contains(failure.Detail, "perfil") || !strings.Contains(failure.Detail, tc.repeat) {
+				t.Errorf("the detail %q does not say to reconnect and %q", failure.Detail, tc.repeat)
+			}
+			if strings.Contains(failure.Detail, "todavía no recibieron") {
+				t.Errorf("the detail %q promises a resume a rehearsal does not do", failure.Detail)
+			}
+		})
+	}
+}
+
+// A failure the handler has no sentence for still reaches the banner in
+// Spanish (#297 review, ARQ-1/SEC-1). Since #297 a publication's detail is
+// RENDERED, and the default branch used to store err.Error() — a wrapped Go
+// error in English, with internal ids and driver text — where the professor
+// now reads it. The raw error belongs in the log.
+func TestAnUnexpectedPublishFailureShowsTheProfessorSpanishNotTheError(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		run  func(*publishRig) error
+	}{
+		{"a control that is gone", func(r *publishRig) error {
+			return runPublishJob(t, r.svc, "CTRLGONE00000000000000000", controls.PublishPayload{
+				ProfessorID: 7, Mode: string(controls.PublishModeReal),
+			})
+		}},
+		{"a payload that cannot be read", func(r *publishRig) error {
+			return controls.NewPublishHandler(r.svc)(context.Background(), r.controlID, []byte("{not json"))
+		}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			rig := newPublishRig(t)
+			failure := failureFrom(t, tc.run(rig))
+
+			if failure.Detail == "" {
+				t.Fatal("the failure carries no detail saying what to do")
+			}
+			// Markers of the internal text each case would otherwise store:
+			// the domain's error prefix, the control id, the JSON decoder.
+			for _, english := range []string{"controls:", "CTRLGONE", "unmarshal", "invalid character", "not found"} {
+				if strings.Contains(failure.Detail, english) {
+					t.Errorf("the detail %q carries %q: an internal error in front of the professor",
+						failure.Detail, english)
+				}
 			}
 		})
 	}

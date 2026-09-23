@@ -1195,6 +1195,20 @@ the shape of this entry in three ways:
   pair per copy — so "who received what, when, across every re-send" is not
   answerable here and would be a table rather than a column.
 
+**Amended 2026-09-22 (#297) — a job row's detail is now on screen, for one
+kind.** The control page's failure banner renders `job.detail` for a failed
+PUBLISH job (and for no other kind, whose detail is worker stderr kept for
+triage). The publish handler therefore writes only Spanish sentences and
+copy numbers there — still never a person, pinned by
+`TestThePublishFailureDetailNamesCopiesAndNeverPeople` — and LOGS an
+unexpected error instead of storing it
+(`TestAnUnexpectedPublishFailureShowsTheProfessorSpanishNotTheError`). The
+accepted residual is `jobs.Runner`'s panic recovery, which writes
+`panic while running kind=… id=… control=…` into the detail of any kind:
+on this page that is English and internal ids, shown only to an
+authenticated professor, with no student data. **Review trigger:** any
+widening of `jobBannerFor`'s gate beyond `KindPublish`.
+
 **Publication is still not scoped to the professor asking.** `control.created_by`
 exists (`00004_controls.sql`), so control-level scoping IS expressible today
 in a way the course-level scoping this entry discusses is not — and it was

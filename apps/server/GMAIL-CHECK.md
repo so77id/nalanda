@@ -7,7 +7,10 @@ transports in `internal/infra/email/`, the message builder,
 loop and the per-copy record: `internal/domain/controls/publish_service.go`,
 `publication_state.go`, `internal/infra/storage/controlstore/readings.go`'s
 publication columns, and the publication routes in
-`internal/app/web/handler/publish.go`. §5c and §5d are their steps.
+`internal/app/web/handler/publish.go`. §5c and §5d are their steps — and,
+since #297, §5f is the step for what a run does when the credential dies
+mid-way, including the job banner that reports it
+(`internal/app/web/view/templates/pages/controls_detail.html`).
 
 It is an L8 manual procedure, in the same family and for the same reason as
 [`GOOGLE-CHECK.md`](GOOGLE-CHECK.md), [`CANVAS-CHECK.md`](CANVAS-CHECK.md)
@@ -36,7 +39,7 @@ What that run does NOT cover, and what remains:
 - **§4's BODY checks** were rewritten after the 2026-09-07 run (the whole
   name, no footer) and have still not been read against a delivered
   message.
-- **§§2, 3, 5b, 5bb, 5c, 5d, 5e, 6 and 7 have not run at all.** §5c (the
+- **§§2, 3, 5b, 5bb, 5c, 5d, 5e, 5f, 6 and 7 have not run at all.** §5c (the
   resume) and §5d (the per-student send) are the two ADR-0073 names as its
   own verification, which is why that ADR's status still says outstanding.
 
@@ -115,7 +118,7 @@ Jetson, stated once here rather than reconstructed at each step:
 ssh jetson
 cd /opt/nalanda/repo/infra/local
 sed -i 's/^NALANDA_EMAIL_MODE=.*/NALANDA_EMAIL_MODE=<mode>/' .env
-docker-compose up -d server            # v1, hyphenated — not `docker compose`
+docker-compose up -d server            # standalone v2; `docker compose` works too
 docker-compose logs server | grep 'email dispatcher'
 ```
 
@@ -313,6 +316,59 @@ that has been published for real.
       the table names the reason per copy (`no está asociada a nadie del
       curso`, `no tiene su PDF corregido`) — this is the information that
       was computed and thrown away for the whole of #273's life.
+
+## 5f. A credential lost mid-run (issue #297)
+
+What 2026-09-22 looked like before #297: Google refused the refresh token on
+the first send, the server cleared the credential as ADR-0072 says it must,
+and the loop asked Gmail eighteen more times. The banner said "se enviaron 0
+correcciones, 11 se omitieron y 19 fallaron", and the one line that said to
+reconnect sat in `job.detail`, which nothing rendered. The suite proves the
+loop now stops and the banner words it; what it cannot see is a real
+`invalid_grant` arriving from Google and the page a professor then reads.
+
+Every refresh goes to Google — the server holds no access token between
+sends — so revoking the grant is enough to reproduce it. Use an **Envío de
+prueba** to your own address: with the credential dead nothing reaches
+anybody, but the rehearsal keeps the check free of students either way.
+
+- [ ] On a graded control with at least three deliverable copies, open
+      <https://myaccount.google.com/permissions> and **remove Nalanda's
+      access**. `/profile` still says `Conectado como …` — nothing has tried
+      the credential yet, and remembering that it was refused is a non-goal
+      of #297.
+- [ ] Open **Envío de prueba**, type your own address and press **Enviar
+      prueba**; refresh the control page once the job has finished.
+- [ ] The banner reads **`envío de correcciones falló: se perdió la
+      conexión con Gmail: no se envió ninguna corrección`** — the lost
+      connection, never `no hay una cuenta de Gmail conectada`, and ONE
+      sentence rather than one per copy.
+- [ ] Under it, the repair for a REHEARSAL: `Google dejó de aceptar tu
+      cuenta. Vuelve a conectarla en tu perfil y repite el envío de prueba.`
+      — never "aprieta Publicar", which is the button that mails the class
+      — and a link **Reconectar Gmail en mi perfil**.
+- [ ] On the Jetson, the run asked Google once. Exactly one
+      `controls.Publish: send failed` line for this control in
+      `docker compose logs --since 5m server`, run from
+      `/opt/nalanda/repo/infra/local` (§"How to switch modes" above) — not
+      one per copy.
+- [ ] `/profile` now shows no connected account — the refresh found the
+      credential dead and cleared it.
+- [ ] Follow the banner's link, reconnect, and come back **without
+      dismissing the banner**. It is still there, and the link is gone:
+      it is derived from the live connection, so it disappears once the
+      repair is done.
+- [ ] Press **Enviar prueba** again. The batch arrives in your inbox.
+
+What this does not reach: a REAL publication whose credential dies, above
+all after some copies went out — where the banner must read `alcanzó a salir
+1 corrección` / `alcanzaron a salir N correcciones`, the repair must say
+`aprieta Publicar otra vez`, and the next Publicar must send only the rest.
+The suite pins all three (`TestALostCredentialMidRunKeepsWhatWentOutBeforeIt`,
+`TestALostCredentialIsReportedOnceWithItsRepair`); reproducing it for real
+means revoking the grant during a real publication's first second, which
+§5c already asks of a stopped container and which is not worth mailing a
+class for twice.
 
 ## 6. The seven-day question
 

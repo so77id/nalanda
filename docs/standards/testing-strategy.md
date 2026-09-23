@@ -257,7 +257,7 @@ test -z "$(gofmt -l .)"        # see below: `gofmt -l` alone is not a gate
 go vet ./...
 go test -race -count=1 ./...   # FULL suite: unit + L4 architecture + L6
 go build ./...
-go run golang.org/x/vuln/cmd/govulncheck@latest ./...   # same gate as CI; needs network
+go run golang.org/x/vuln/cmd/govulncheck@v1.7.0 ./...   # same gate as CI; needs network; PINNED, see below
 docker build -t nalanda/server:dev .
 # then the compose path (L8), from infra/local/:
 #   docker compose up -d --build --wait server \
@@ -273,6 +273,18 @@ builder shipped 1.25.13 and the gap contained a `net/http` fix to how
 dependency (`backend-code-style.md` §Version), never by suppressing it. It is
 listed here because a contributor who ran the documented battery green must not
 then fail CI on a gate no document mentions.
+
+**Its version is PINNED, and the pin moves with `go.mod`'s `go` line**
+(2026-09-22, #297). `@latest` became `golang.org/x/vuln` v1.8.0, which
+requires go ≥ 1.26: in the pinned 1.25 image it refuses to run
+(`requires go >= 1.26.0 (running go 1.25.13; GOTOOLCHAIN=local)`), and
+wherever `GOTOOLCHAIN=auto` — which is what `setup-go` leaves CI with — it
+silently switches to go1.26.x and scans THAT standard library (`-json`
+reports `"go_version": "go1.26.8"`), which is the one gap this step exists
+to close, while going green. v1.7.0 is the newest release that runs on 1.25
+and scans `go1.25.13`. Raise it when `go.mod` moves to a toolchain the newer
+scanner supports — in this file and in `.github/workflows/server.yml`
+together.
 
 **When the Dockerfile's builder digest changes, check it against `go.mod`:**
 

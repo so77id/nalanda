@@ -413,8 +413,8 @@ func (h *Controls) Detail(w http.ResponseWriter, r *http.Request) {
 			page.Stats = &computed
 		}
 	}
-	h.fillPublication(r, &page, c, readings)
-	page.JobBanner = h.jobBannerFor(r.Context(), c.ID)
+	gmailConnected := h.fillPublication(r, &page, c, readings)
+	page.JobBanner = h.jobBannerFor(r.Context(), c.ID, gmailConnected)
 	page.PDFsReady = h.pdfsReadyFor(r.Context(), c.ID)
 	page.Flash = flash.Consume(w, r, h.secureCookie)
 
@@ -905,7 +905,11 @@ func sectionOptionsFromBank(b *bank.Bank) []view.DocumentSections {
 // dismiss a message they already saw. A store outage returns nil too:
 // the banner is an aid, not a load-bearing part of the page, and a
 // missing banner is better than a 500 on the whole detail.
-func (h *Controls) jobBannerFor(ctx context.Context, controlID string) *view.JobBanner {
+//
+// gmailConnected is the professor's live Gmail connection, as
+// fillPublication read it for the Publicar button on this same request; a
+// failed publication links to /profile only while it is false (issue #297).
+func (h *Controls) jobBannerFor(ctx context.Context, controlID string, gmailConnected bool) *view.JobBanner {
 	job, err := h.Jobs.LatestForControl(ctx, controlID)
 	if err != nil {
 		if !errors.Is(err, jobs.ErrJobNotFound) {
@@ -925,6 +929,31 @@ func (h *Controls) jobBannerFor(ctx context.Context, controlID string) *view.Job
 		Failed:     job.Status == jobs.StatusFailed,
 		Error:      job.Error,
 		DismissURL: jobDismissURL(job.ID),
+	}
+	if banner.Failed && job.Kind == jobs.KindPublish {
+		// ONLY a publication's detail reaches the banner (issue #297). Its
+		// handler writes Spanish sentences for the professor — which copies
+		// did not go out, and the repair — and logs the raw error instead
+		// (TestAnUnexpectedPublishFailureShowsTheProfessorSpanishNotTheError).
+		// Every other kind stores the worker's stderr or a wrapped Go error
+		// there, for whoever triages the row, and rendering that would put
+		// English paths off the shared volume in front of the professor.
+		//
+		// One exception no handler controls: a PANIC. jobs.Runner records
+		// it for every kind, in the message ("panic: …") and in the detail
+		// ("panic while running kind=… id=… control=…"), so a publication
+		// that panics shows it twice, the second time with internal ids. It
+		// is a bug report, and the message line has always carried it on
+		// every kind's banner (docs/security-notes.md, #297 amendment).
+		banner.Detail = job.Detail
+		if !gmailConnected {
+			// The repair for a lost credential, offered for as long as it
+			// is still needed. Any failed publication qualifies rather than
+			// only a credential loss: a disconnected account is the first
+			// thing to fix whatever else went wrong, and the kind of
+			// failure is not stored on the row.
+			banner.ProfileURL = ProfilePath
+		}
 	}
 	if running {
 		start := job.CreatedAt

@@ -28,6 +28,8 @@
         </form>
       {{ else if .Failed }}
         <p><strong>{{ .Kind | printf "%s" }} falló:</strong> {{ .Error }}</p>
+        {{ if .Detail }}<p style="white-space:pre-line">{{ .Detail }}</p>{{ end }}
+        {{ if .ProfileURL }}<p><a href="{{ .ProfileURL }}">Reconectar Gmail en mi perfil</a></p>{{ end }}
         <form method="post" action="{{ .DismissURL }}" style="display:inline">
           <input type="hidden" name="csrf_token" value="{{ $.CSRFToken }}">
           <button type="submit">Cerrar aviso</button>

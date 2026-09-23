@@ -585,12 +585,20 @@ func copySkipMessage(reason controls.CopySkipReason) string {
 // not something a professor is thinking about while copies are still under
 // review, and a permanently disabled button on every fresh control is noise
 // that teaches them to ignore disabled buttons.
-func (h *Controls) fillPublication(r *http.Request, page *view.ControlDetailPage, c controls.Control, readings []controls.Reading) {
+//
+// It returns whether the professor's Gmail is connected, so the job banner
+// can offer the repair for a lost credential without a second lookup
+// (issue #297). TRUE when the connection could not be read — the Publicar
+// button's own policy — or was not asked.
+func (h *Controls) fillPublication(r *http.Request, page *view.ControlDetailPage, c controls.Control, readings []controls.Reading) (gmailConnected bool) {
 	page.PublishURL = controlPublishURL(c.ID)
 	page.TestSendURL = controlTestSendURL(c.ID)
 
 	if c.State != controls.Graded {
-		return
+		// Not asked, so not known to be missing. Nothing is lost by not
+		// asking: POST …/publish refuses to enqueue on any other state, so
+		// no failed publication can be on this control's banner.
+		return true
 	}
 
 	connected := true
@@ -635,6 +643,7 @@ func (h *Controls) fillPublication(r *http.Request, page *view.ControlDetailPage
 	default:
 		page.CanPublish = true
 	}
+	return connected
 }
 
 // countSent is how many copies of this control have actually been written

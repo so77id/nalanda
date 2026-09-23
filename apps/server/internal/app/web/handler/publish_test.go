@@ -1227,3 +1227,152 @@ func TestBothScreensNameTheSameReasonForACopyFailingSeveralChecks(t *testing.T) 
 		t.Error("the review page sends the professor to the annotation before the grade")
 	}
 }
+
+// seedFailedJob records a terminal failure of the given kind on a control,
+// so a case can render the banner it leaves behind without driving the
+// whole job to get there (issue #297).
+func seedFailedJob(t *testing.T, f *controlsFixture, controlID string, kind jobs.Kind, message, detail string) {
+	t.Helper()
+	seedTerminalJob(t, f, controlID, kind, jobs.StatusFailed, message, detail)
+}
+
+// seedTerminalJob writes a job row ALREADY in its terminal state, in one
+// INSERT.
+//
+// Not Insert → MarkRunning → MarkFailed through the store: the fixture's
+// runner is live, and after gradedControl's own jobs it is still polling
+// for queued rows — it claimed the seeded one first often enough to fail
+// these cases about one run in thirty (#297 review, COR-1/ARQ-2). A row
+// that is never queued is a row the runner cannot see.
+func seedTerminalJob(t *testing.T, f *controlsFixture, controlID string, kind jobs.Kind, status jobs.Status, message, detail string) {
+	t.Helper()
+
+	now := time.Now().Unix()
+	if _, err := f.db.ExecContext(context.Background(),
+		`INSERT INTO job (control_id, kind, status, error, detail, payload_json,
+		                  created_at, started_at, finished_at)
+		 VALUES (?, ?, ?, ?, ?, '{}', ?, ?, ?)`,
+		controlID, string(kind), string(status), message, detail, now, now, now,
+	); err != nil {
+		t.Fatalf("seed a %s %s job: %v", status, kind, err)
+	}
+}
+
+// A failed publication's detail reaches the screen (issue #297, AC6).
+//
+// It was written to job.detail since #273 and rendered by nothing: on
+// 2026-09-22 the one sentence that said what to do — reconnect Gmail —
+// sat in the row while the banner showed a count. The detail is one line
+// per copy, so the line breaks are part of what it says.
+func TestAFailedPublicationShowsItsDetailWithItsLineBreaks(t *testing.T) {
+	f := newControlsFixture(t)
+	controlID := gradedControl(t, f)
+	seedFailedJob(t, f, controlID, jobs.KindPublish,
+		"se enviaron 1 correcciones y 2 fallaron",
+		"copia 2: no se pudo contactar a Gmail\ncopia 3: no se pudo contactar a Gmail")
+
+	body := f.detailBody(t, controlID)
+	detail := "copia 2: no se pudo contactar a Gmail\ncopia 3: no se pudo contactar a Gmail"
+	at := strings.Index(body, detail)
+	if at < 0 {
+		t.Fatalf("the banner does not render the job's detail, line breaks intact:\n%s", body)
+	}
+	// A newline inside ordinary HTML collapses to a space, so the two
+	// copies would read as one sentence. The element holding it must keep
+	// them apart.
+	opening := body[strings.LastIndex(body[:at], "<"):at]
+	if !strings.Contains(opening, "white-space:pre-line") {
+		t.Errorf("the detail sits in %q, which collapses its line breaks", opening)
+	}
+}
+
+// The banner renders a PUBLICATION's detail and no other kind's (issue
+// #297).
+//
+// The two are written for different readers. A publication's detail is
+// Spanish sentences addressed to the professor; an AMC job's is the
+// worker's stderr or a wrapped Go error — English, with paths on the
+// shared volume — kept on the row for whoever triages it
+// (failureFromAnalyzeError: "the long AMC line stays in the DB").
+func TestAFailedAMCJobKeepsItsDebugDetailOffTheBanner(t *testing.T) {
+	f := newControlsFixture(t)
+	controlID := gradedControl(t, f)
+	seedFailedJob(t, f, controlID, jobs.KindAnalyse,
+		"el motor de lectura rechazó el trabajo",
+		"ERR: /work/controls/x/scans/0001.pdf scan not recognized")
+
+	body := f.detailBody(t, controlID)
+	if !strings.Contains(body, "el motor de lectura rechazó el trabajo") {
+		t.Fatalf("the failure banner is missing:\n%s", body)
+	}
+	if strings.Contains(body, "scan not recognized") {
+		t.Error("the banner shows the worker's stderr to the professor")
+	}
+}
+
+// profileLinkText is the banner's link to /profile. The nav bar links
+// there too, so a case asks for THIS link rather than for the path.
+const profileLinkText = "Reconectar Gmail en mi perfil"
+
+// The repair is one click away while it is still needed, and not after
+// (issue #297, AC7). Derived from the LIVE connection rather than stored
+// on the job: a stored "action" would keep offering the link after the
+// professor had reconnected, and this request already reads the
+// connection for the Publicar button.
+func TestAFailedPublicationLinksToTheProfileOnlyWhileGmailIsDisconnected(t *testing.T) {
+	for _, tc := range []struct {
+		name     string
+		gmail    connectedGmail
+		wantLink bool
+	}{
+		{"disconnected", connectedGmail{disconnected: true}, true},
+		{"reconnected", connectedGmail{}, false},
+		// A lookup that blinked is not a missing account — the Publicar
+		// button's own policy, and the same reason.
+		{"the lookup failed", connectedGmail{err: errors.New("the database blinked")}, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			f := newControlsFixture(t)
+			controlID := gradedControl(t, f)
+			f.rebuildWithGmail(t, tc.gmail)
+			seedFailedJob(t, f, controlID, jobs.KindPublish,
+				"se perdió la conexión con Gmail: no se envió ninguna corrección",
+				"Vuelve a conectarla en tu perfil y aprieta Publicar otra vez.")
+
+			body := f.detailBody(t, controlID)
+			link := `<a href="/profile">` + profileLinkText + `</a>`
+			if got := strings.Contains(body, link); got != tc.wantLink {
+				t.Errorf("the banner offers the profile link = %v, want %v:\n%s", got, tc.wantLink, body)
+			}
+		})
+	}
+}
+
+// The link belongs to a FAILED PUBLICATION (issue #297, AC9). A finished
+// one has nothing to repair, and a failed analysis is not repaired in the
+// profile — a disconnected account is an ordinary state and must not put
+// a stray link on every banner.
+func TestOnlyAFailedPublicationOffersTheProfileLink(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		seed func(*testing.T, *controlsFixture, string)
+	}{
+		{"a publication that succeeded", func(t *testing.T, f *controlsFixture, controlID string) {
+			seedTerminalJob(t, f, controlID, jobs.KindPublish, jobs.StatusDone, "", "")
+		}},
+		{"a failed analysis", func(t *testing.T, f *controlsFixture, controlID string) {
+			seedFailedJob(t, f, controlID, jobs.KindAnalyse, "el motor de lectura rechazó el trabajo", "")
+		}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			f := newControlsFixture(t)
+			controlID := gradedControl(t, f)
+			f.rebuildWithGmail(t, connectedGmail{disconnected: true})
+			tc.seed(t, f, controlID)
+
+			if body := f.detailBody(t, controlID); strings.Contains(body, profileLinkText) {
+				t.Errorf("the banner offers the profile link:\n%s", body)
+			}
+		})
+	}
+}
