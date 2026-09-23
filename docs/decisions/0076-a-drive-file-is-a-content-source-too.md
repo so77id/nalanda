@@ -127,11 +127,14 @@ index (no `levelName`: it is not a Unidad), one `.mdx` per evaluation under
   bundle), 0.5 MB of stylesheet, 0.2 MB of fonts, and only ~0.3 MB of the PDF's
   own page images. That is about 16× the application's entry chunk (ADR-0035
   §Consequences records 171.5 kB gzip). A second visit is mostly cached. An
-  evaluation page carries both frames, so it is the heaviest page on the site;
+  evaluation page carries both frames, the heaviest pair of embeds on the site;
   accepted, because the alternative is not showing the pauta.
 - **`loading="lazy"` defers nothing here**: on an evaluation page the pauta is
   the first block, well inside the ~4000px Chromium threshold ADR-0035
   measured.
+- **What the frame shows is outside PR review**, like a sheet: a second
+  neighbour for `security-notes.md` §"All bundled MDX is repo-controlled
+  content", which now names both.
 - **Availability and correctness are Google's**, as with the sheet: an unshared
   file or Drive down frames Google's own page and nothing here can tell.
 - **The published pauta is whatever Drive holds now.** Not versioned in the

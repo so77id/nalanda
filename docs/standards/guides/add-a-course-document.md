@@ -930,8 +930,9 @@ Six things worth knowing before you write one:
 Decisions behind all this: ADR-0074. Live: `/catalog/c/SequenceStepper`.
 
 6. **Show a picture, or embed a live document (optional)** — pictures in 6a–6f,
-   a spreadsheet in **6g**, a Drive PDF (an evaluation's pauta) in **6h**: the asset lives **beside the `.mdx` that uses
-   it**, addressed relatively, and a subfolder is fine when there are several
+   a spreadsheet in **6g**, a Drive PDF (an evaluation's pauta) in **6h**. A
+   picture lives **beside the `.mdx` that uses it**, addressed relatively, and a
+   subfolder is fine when there are several
    (`./logos/java.svg`). Both syntaxes work and get the same
    pipeline: markdown `![alt](./curva.svg)` for a picture that just needs to be
    there, and `<Figure>` when it needs a caption or sits inside a layout.
@@ -1270,10 +1271,10 @@ published answer key (`docs/security-notes.md` §"Everything under
 content/courses/ is published").
 
 **It is heavier than the sheet**: measured cold, the viewer alone is ~2.8 MB
-over 44 requests, most of it Google's viewer script — an evaluation page is the
-heaviest page on the site. `height` defaults to 800px, most of one letter page;
-the reader scrolls inside the frame for the rest. Drive paints its own dark
-ground around the page in both themes.
+over 44 requests, most of it Google's viewer script — the heaviest embed on
+the site. `height` defaults to 800px, most of one letter page; the reader
+scrolls inside the frame for the rest. Drive paints its own dark ground around
+the page in both themes.
 
 7. **Cross-reference with wiki-links**: `[[otro-id]]` renders that document's
    link, `[[otro-id|texto visible]]` overrides the label. A target that doesn't

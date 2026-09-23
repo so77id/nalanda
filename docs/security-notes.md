@@ -277,7 +277,8 @@ WebKit (table in ADR-0076 §2):
 **What is new**: `drive.google.com` (plus `www.gstatic.com` and
 `apis.google.com`, which it loads) at render time. A future CSP must allow
 `drive.google.com` in `frame-src`. The file's content is outside PR review,
-exactly as a sheet's is.
+exactly as a sheet's is — the exception §"All bundled MDX is repo-controlled
+content" records.
 
 **Review trigger**: any change to the sandbox string (re-measure in a real
 browser, both directions); any change to `DRIVE_FILE_URL` in
@@ -477,9 +478,9 @@ Decisions: ADR-0019 §3b/§7, ADR-0020 §6, ADR-0028 §6/§7.
   (#299). It is not under `content/` at all: the evaluation document frames it
   from Drive (`<PdfEmbed>`, ADR-0076), so it is public on the site once the
   document is merged **and** the file is shared — and, to anyone holding the
-  link, from the moment it is shared. The document for an evaluation is written after the evaluation, never
-  ahead of it — a merged `evaluaciones/*.mdx` pointing at a shared pauta is a
-  published key.
+  link, from the moment it is shared. The document for an evaluation is written
+  after the evaluation, never ahead of it — a merged `evaluaciones/*.mdx`
+  pointing at a shared pauta is a published key.
 - **Review trigger**: the first time material that must not be seen (exam keys
   before their evaluation, solutions, unreleased classes) needs a home. Park it
   OUTSIDE `content/courses/` — omitting it from the index is not a control.
@@ -521,15 +522,16 @@ Decisions: ADR-0019 §3b/§7, ADR-0020 §6, ADR-0028 §6/§7.
 - **Why currently safe**: content ships exclusively via git + PR review; there is
   no runtime ingestion, no user-contributed documents, no CMS.
 - **Since #146, this is a claim about MDX only, and it needs saying.** A
-  `<SheetEmbed>` and `<PdfEmbed>` render documents this repository never sees — the trigger
-  below was considered and deliberately not fired, because a cross-origin frame
-  is not what that trigger is about: it compiles nothing, reaches no build seam,
-  and cannot inject into the MDX or KaTeX pipelines above. What it does instead
-  is put content on the page that no PR reviewed, which is its own decision with
-  its own record and its own triggers — §"The site frames a third party, and the
-  sheet decides what it exposes" with ADR-0035, which qualifies this section by
-  name, and §"Drive's PDF viewer is framed with its own origin" with ADR-0076.
-  They must stay reachable from each other.
+  `<SheetEmbed>` and `<PdfEmbed>` render documents this repository never sees —
+  the trigger below was considered and deliberately not fired, because a
+  cross-origin frame is not what that trigger is about: it compiles nothing,
+  reaches no build seam, and cannot inject into the MDX or KaTeX pipelines
+  above. What it does instead is put content on the page that no PR reviewed,
+  which is its own decision with its own record and its own triggers — §"The
+  site frames a third party, and the sheet decides what it exposes" with
+  ADR-0035, which qualifies this section by name, and §"Drive's PDF viewer is
+  framed with its own origin" with ADR-0076, which points back here. They must
+  stay reachable from each other.
 - **Review trigger**: the moment ANY non-repo-authored content path appears —
   v0.2 authoring-agent output that bypasses PR review, a future in-platform
   editor (vision phase C), or user-submitted material. At that point the MDX
