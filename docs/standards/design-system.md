@@ -159,6 +159,10 @@ theme a course page carries a white block, and that is accepted rather than
 worked around: the sheet's own cell colours (holidays, recess, the two solemnes)
 are the information, and they are designed for white.
 
+`<PdfEmbed>` (#299, ADR-0076) is the same exemption for Drive's PDF viewer,
+which paints a dark grey ground around white pages in both themes; the wrapper
+and placeholder around it are the same as the sheet's.
+
 What IS ours around it, and what it pairs with:
 
 - `bg-sunk` on the wrapper — the placeholder's ground, the worst-case surface
@@ -172,7 +176,7 @@ What IS ours around it, and what it pairs with:
 Unlike `plate`, this one is not guarded by anything at all. `palette.test.ts`
 pins token values and `architecture.test.ts` greps our class names; neither can
 see a cross-origin document, and no test can. This note is the guard, and the
-check is to look at `/d/planificacion` in the dark theme.
+check is to look at `/d/planificacion` and `/d/control-1` in the dark theme.
 
 **A component-scoped categorical palette is the fourth exemption** (#78).
 `<RecursionTree>` cycles six hues over the arguments of a recursive call, so

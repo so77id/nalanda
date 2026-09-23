@@ -215,25 +215,75 @@ it:
   surface and shows no editing chrome, so a reader has to take the frame's `src`
   and swap `/preview` for `/edit` — a deliberate act, and a trivial one for a
   CS student. Nothing here detects it, in either direction.
-- **The grades sheet is the case this record exists ahead of.** Publishing one
-  through this component would put student names and marks — **personal data
-  under Ley 21.719**, the same classification §"The control worker is
-  unauthenticated" gives RUTs and grades — on a public page behind nothing but
-  an unguessable URL. That is exactly the material §"Everything under
-  content/courses/ is published" reserves its review trigger for. Nothing about
-  `<SheetEmbed>` decides it; the share setting on the sheet does, and that is
-  outside this repo's review. A link-shared sheet also has no expiry and no
-  deletion path once the link has travelled.
+- **A grades sheet is published by the professor's decision** (#299, ADR-0076
+  §3). Names, RUTs and marks are **personal data under Ley 21.719** — the same
+  classification §"The control worker is unauthenticated" gives them — and a
+  link-shared sheet puts whatever it carries on a public page behind nothing but
+  an unguessable URL, with no expiry and no deletion path once the link has
+  travelled. This record used to hold that disposition as "do not ship grades
+  through this component at all"; the professor chose instead to publish the
+  sheet he curates and to own what it shows. Nothing about `<SheetEmbed>`
+  decides it, and the repo no longer tries: which columns the sheet carries is
+  decided in Drive, outside this repo's review.
 
-**Review trigger**: the first sheet carrying student identifiers or marks. **The
-remedy does not exist yet, and that is the point of the trigger** — do not read
-it as "put it behind the v0.3 auth". ADR-0009 is *professor-only*: "Only
-professor logins exist… students remain anonymous spectators… no accounts", and
-`docs/design/2026-08-controles.md` repeats that none are planned. So there is no
-gate a student could pass, and the disposition until a student-identity decision
-exists is **not to ship grades through this component at all**. Also: the first
-`<SheetEmbed>` pointed at a host other than `docs.google.com`, which the
-component refuses today and which would reopen every line above.
+**Review trigger**: the first `<SheetEmbed>` pointed at a host other than
+`docs.google.com`, which the component refuses today and which would reopen
+every line above. (The earlier trigger — the first sheet carrying student
+identifiers or marks — fired with #299 and was resolved by ADR-0076.)
+
+### Drive's PDF viewer is framed with its own origin (accepted 2026-09-22, #299)
+
+`<PdfEmbed>` frames `https://drive.google.com/file/d/<id>/preview` — the
+site's second framed Google document, and the first **sandboxed** frame of
+ours granted `allow-same-origin`. (`<VideoEmbed>` is framed with no `sandbox`
+at all — YouTube's player fails under one — which is more permissive, not the
+same grant.)
+
+```
+sandbox="allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox"
+referrerpolicy="no-referrer"
+```
+
+Each token measured on 2026-09-22 against Control 1's pauta in Chromium and
+WebKit (table in ADR-0076 §2):
+
+- **`allow-same-origin` is load-bearing**: without it Drive's viewer cancels its
+  own page-image requests and the spinner never resolves. `allow-downloads` was
+  tried in its place and does not help.
+- **Why it is safe here, stated as the capability**: scripts plus same-origin
+  let a framed document lift its own sandbox **only when it is same-origin with
+  the embedding page**. The frame **starts** at `drive.google.com` —
+  `drivePreviewUrl` anchors scheme and host and closes the host with the next
+  `/` (`drive.google.com.evil.example` is a test case); **loosening that
+  pattern is a security change, not a convenience.** The url check cannot pin
+  where the frame goes next: the sandbox does not stop a frame navigating
+  itself, so the real condition is that **the frame never reaches a
+  `so77id.github.io` document**, and it rests on Drive's own viewer never
+  sending it there. Not exploitable today — it needs Google's first-party
+  viewer to navigate to this site — but this origin is shared by every repo of
+  the account (§"Drafts live on an origin shared…"), so an XSS in any of them
+  would be what such a navigation lands on. What the token does
+  grant is Drive's real origin inside the frame: it reads its own cookies and
+  storage, so a signed-in reader is identified to Google as a viewer of the file,
+  exactly as when opening the link directly. It still cannot read this site's
+  DOM or `localStorage` (cross-origin), navigate the page (`allow-top-navigation`
+  absent), or submit forms.
+- **`allow-popups` + `allow-popups-to-escape-sandbox`**: the viewer's pop-out
+  button. Without the first the click does nothing; without the second the new
+  tab inherits the sandbox and its download button downloads nothing. The
+  capability is the same as `<SheetEmbed>`'s — an unsandboxed tab at a URL the
+  document chooses — here always Drive's own `/view` page.
+
+**What is new**: `drive.google.com` (plus `www.gstatic.com` and
+`apis.google.com`, which it loads) at render time. A future CSP must allow
+`drive.google.com` in `frame-src`. The file's content is outside PR review,
+exactly as a sheet's is — the exception §"All bundled MDX is repo-controlled
+content" records.
+
+**Review trigger**: any change to the sandbox string (re-measure in a real
+browser, both directions); any change to `DRIVE_FILE_URL` in
+`components/media/driveUrl.ts` that widens the accepted host; and any sign of
+the frame reaching a `so77id.github.io` document.
 
 ### Drafts live on an origin shared with every other repo of the account (accepted 2026-08-13, #85)
 
@@ -424,9 +474,16 @@ Decisions: ADR-0019 §3b/§7, ADR-0020 §6, ADR-0028 §6/§7.
   decision. Harm is harvesting at a university mailbox. Review trigger for this
   one: any address that is not the author's own, and any student address ever
   appearing under `content/`.
-- **Review trigger**: the first time material that must not be seen (exam keys,
-  solutions, unreleased classes) needs a home. Park it OUTSIDE
-  `content/courses/` — omitting it from the index is not a control.
+- **An evaluation's pauta is published on purpose, after the evaluation**
+  (#299). It is not under `content/` at all: the evaluation document frames it
+  from Drive (`<PdfEmbed>`, ADR-0076), so it is public on the site once the
+  document is merged **and** the file is shared — and, to anyone holding the
+  link, from the moment it is shared. The document for an evaluation is written
+  after the evaluation, never ahead of it — a merged `evaluaciones/*.mdx`
+  pointing at a shared pauta is a published key.
+- **Review trigger**: the first time material that must not be seen (exam keys
+  before their evaluation, solutions, unreleased classes) needs a home. Park it
+  OUTSIDE `content/courses/` — omitting it from the index is not a control.
 
 ### Third-party marks under content/ (recorded 2026-08-15, #120 review)
 
@@ -465,14 +522,16 @@ Decisions: ADR-0019 §3b/§7, ADR-0020 §6, ADR-0028 §6/§7.
 - **Why currently safe**: content ships exclusively via git + PR review; there is
   no runtime ingestion, no user-contributed documents, no CMS.
 - **Since #146, this is a claim about MDX only, and it needs saying.** A
-  `<SheetEmbed>` renders a document this repository never sees — the trigger
-  below was considered and deliberately not fired, because a cross-origin frame
-  is not what that trigger is about: it compiles nothing, reaches no build seam,
-  and cannot inject into the MDX or KaTeX pipelines above. What it does instead
-  is put content on the page that no PR reviewed, which is its own decision with
-  its own record and its own triggers — §"The site frames a third party, and the
-  sheet decides what it exposes", and ADR-0035, which qualifies this section by
-  name. The two must stay reachable from each other.
+  `<SheetEmbed>` and `<PdfEmbed>` render documents this repository never sees —
+  the trigger below was considered and deliberately not fired, because a
+  cross-origin frame is not what that trigger is about: it compiles nothing,
+  reaches no build seam, and cannot inject into the MDX or KaTeX pipelines
+  above. What it does instead is put content on the page that no PR reviewed,
+  which is its own decision with its own record and its own triggers — §"The
+  site frames a third party, and the sheet decides what it exposes" with
+  ADR-0035, which qualifies this section by name, and §"Drive's PDF viewer is
+  framed with its own origin" with ADR-0076, which points back here. They must
+  stay reachable from each other.
 - **Review trigger**: the moment ANY non-repo-authored content path appears —
   v0.2 authoring-agent output that bypasses PR review, a future in-platform
   editor (vision phase C), or user-submitted material. At that point the MDX

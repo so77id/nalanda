@@ -1,7 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 
-import { ModeProvider } from '../../presentation';
 import { SheetEmbed } from './SheetEmbed';
 
 const ID = '1_cxMUbcF9Tscd3_4Nu71HiXy-MZuaz28IapmvhS7FkM';
@@ -118,14 +117,17 @@ describe('SheetEmbed', () => {
     });
   });
 
-  describe('how tall it is', () => {
+  // The frame around the iframe — the slide cap, the placeholder under it,
+  // `not-prose` — is EmbedFrame's and pinned in EmbedFrame.test.tsx. What is
+  // left here is what this component chooses: its height and its words.
+  describe('its frame', () => {
     const heightOf = (container: HTMLElement) =>
       (container.firstElementChild as HTMLElement | null)?.style.height;
 
-    it('takes the height the author asked for, in the book', () => {
-      const { container } = render(<SheetEmbed src={SHARE} title={TITLE} height={900} />);
+    it('takes the height the author asked for', () => {
+      const { container } = render(<SheetEmbed src={SHARE} title={TITLE} height={600} />);
 
-      expect(heightOf(container)).toBe('900px');
+      expect(heightOf(container)).toBe('600px');
     });
 
     it('has a height of its own when the author gives none', () => {
@@ -135,60 +137,10 @@ describe('SheetEmbed', () => {
       expect(heightOf(container)).toBe('480px');
     });
 
-    // These assert the WHOLE string rather than parts of it. jsdom cannot
-    // evaluate `min()`, but it stores the declaration verbatim, and that is
-    // enough to pin both halves of the cap. Asserting `toContain('vh')` and
-    // `toContain('900px')` was not: `min` -> `max` (which turns the cap into a
-    // floor, guaranteeing the oversized slide it exists to prevent) and
-    // `64` -> `640` both left the file green. Same shape as Mosaic.test.tsx,
-    // which pins its per-row budget as `21vh` / `32vh` for the same reason.
-    it('caps itself against the stage on a slide', () => {
-      // A slide is fit and uniformly scaled (ADR-0013 §5.1), so a frame that
-      // asks for 900px does not get clipped — it shrinks the whole slide, text
-      // included.
-      const { container } = render(
-        <ModeProvider mode="presentation">
-          <SheetEmbed src={SHARE} title={TITLE} height={900} />
-        </ModeProvider>,
-      );
+    it('says what is loading', () => {
+      render(<SheetEmbed src={SHARE} title={TITLE} />);
 
-      expect(heightOf(container)).toBe('min(900px, 64vh)');
+      expect(screen.getByText('Cargando la planilla…')).toBeInTheDocument();
     });
-
-    it('keeps the author number on a slide when it already fits', () => {
-      const { container } = render(
-        <ModeProvider mode="presentation">
-          <SheetEmbed src={SHARE} title={TITLE} />
-        </ModeProvider>,
-      );
-
-      expect(heightOf(container)).toBe('min(480px, 64vh)');
-    });
-  });
-
-  it('says something is coming while the frame is still transparent', () => {
-    // Measured at ~1.6 Mbps: about six seconds of empty bordered box, which
-    // reads exactly like the two failures this component cannot detect (an
-    // unshared sheet, Drive down). The placeholder sits UNDER the frame and is
-    // covered when Google paints its own ground.
-    const { container } = render(<SheetEmbed src={SHARE} title={TITLE} />);
-
-    const hint = screen.getByText(/Cargando la planilla/);
-    expect(hint).toBeInTheDocument();
-    // Not content: the frame already carries the accessible name, so a screen
-    // reader must not hear a loading line that never goes away.
-    expect(hint.getAttribute('aria-hidden')).toBe('true');
-    // Under, not over — otherwise it hides the sheet it was announcing.
-    expect(hint.compareDocumentPosition(frameOf(container) as Node)).toBe(
-      Node.DOCUMENT_POSITION_FOLLOWING,
-    );
-  });
-
-  it('marks itself out of the reading measure', () => {
-    // ADR-0022: the frame is a block, not running text. Without this it is
-    // centred at 39rem in the book while the prose beside it keeps the column.
-    const { container } = render(<SheetEmbed src={SHARE} title={TITLE} />);
-
-    expect(container.firstElementChild?.className).toContain('not-prose');
   });
 });

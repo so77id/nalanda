@@ -3,6 +3,9 @@
 **Status:** Accepted
 **Date:** 2026-08-16
 **Decision-makers:** Miguel Rodriguez
+**Amended by:** ADR-0076 — a second host (`drive.google.com`, `<PdfEmbed>`),
+and the grades disposition in §Consequences is withdrawn: what a framed file
+contains is the professor's decision (#299, 2026-09-22).
 **Source:** Issue #146. Extends ADR-0010 (component contract) and ADR-0029 (the
 media family); applies ADR-0013 §5.1 (a slide is fit, not reflowed) and ADR-0022
 (the reading measure); measured with ADR-0018 §7's method, whose lazy-wrapper
@@ -153,7 +156,10 @@ whole slide with its title.
 - **The exception is narrow but real**: `security-notes.md` §"All bundled MDX is
   repo-controlled content" still holds for MDX, and now has a neighbour that does
   not. What a `<SheetEmbed>` shows is outside PR review by construction.
-- **The obvious next use is the grades, and it is blocked.** Framing a grades
+- **The obvious next use is the grades, and it is blocked.** _Withdrawn by
+  ADR-0076 §3 (#299): the professor publishes the grades sheet he curates and
+  owns what it shows; the text below is kept as the reasoning of its day._
+  Framing a grades
   sheet puts student names and marks — personal data under Ley 21.719 — on a
   public page behind an unguessable URL, and there is no student login to put in
   front of it: ADR-0009 is professor-only and no student accounts are planned.

@@ -29,3 +29,6 @@ entries:
       - docId: edd-introduccion
       - docId: edd-listas-enlazadas
       - docId: edd-stack-queue
+  - label: Evaluaciones
+    children:
+      - docId: control-1

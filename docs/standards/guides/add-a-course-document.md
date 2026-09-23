@@ -38,6 +38,8 @@ content/courses/sample-course/
 ├── logos/                     # …in a subfolder once there are several
 │   └── google.svg, java.svg, … (22, with a README recording provenance)
 ├── 04-planificacion.mdx       # presentation: none     — book-only; <SheetEmbed> around the live plan
+├── evaluaciones/              # one document per evaluation, the "Evaluaciones" group of index.yaml
+│   └── control-1.mdx          # presentation: none     — <PdfEmbed> (pauta) + <SheetEmbed> (notas), §6h
 ├── 06-java-desde-cpp.mdx      # presentation: explicit — uses <SideBySide>, plus a markdown ##
 ├── 07-java-tipos-y-flujo.mdx  # presentation: explicit — uses <Exercise> + <CodeEditor>, plus two markdown ##
 ├── 08-referencias-null-igualdad.mdx  # presentation: explicit — uses <PredictOutput> + <StepShow>/<MemoryVisual> + <Exercise> + <CodeEditor>
@@ -928,8 +930,9 @@ Six things worth knowing before you write one:
 Decisions behind all this: ADR-0074. Live: `/catalog/c/SequenceStepper`.
 
 6. **Show a picture, or embed a live document (optional)** — pictures in 6a–6f,
-   a spreadsheet in **6g**: the asset lives **beside the `.mdx` that uses
-   it**, addressed relatively, and a subfolder is fine when there are several
+   a spreadsheet in **6g**, a Drive PDF (an evaluation's pauta) in **6h**. A
+   picture lives **beside the `.mdx` that uses it**, addressed relatively, and a
+   subfolder is fine when there are several
    (`./logos/java.svg`). Both syntaxes work and get the same
    pipeline: markdown `![alt](./curva.svg)` for a picture that just needs to be
    there, and `<Figure>` when it needs a caption or sits inside a layout.
@@ -1140,10 +1143,8 @@ ADR-0029.
 6g. **Publish a spreadsheet instead of typing it out**: `<SheetEmbed>` frames a
 shared Google Sheet inside the page, read-only. You edit the spreadsheet and the
 page follows — **no commit and no deploy**. Use it for what changes on its own
-schedule and already lives in a sheet — today that is the week-by-week plan.
-**Not the grades**, and not anything else carrying student identifiers: a
-link-shared sheet is public and there is no student login to put in front of it.
-The reasoning is in `docs/security-notes.md` §"The site frames a third party".
+schedule and already lives in a sheet — today the week-by-week plan and each
+evaluation's grades (6h).
 
 ```mdx
 <SheetEmbed
@@ -1180,8 +1181,11 @@ in the other direction has no page to look at — an editable share puts a
 surface anyone can write on inside a public course page, and nothing here
 detects that either. Anyone who can read the page can read the sheet, so what a
 sheet carries is a decision you make in the spreadsheet, not here
-(`docs/security-notes.md`). **Grades are not a case for this component today**:
-there is no student login to hide them behind, and the record says why.
+(`docs/security-notes.md`). **That includes grades**: a grades sheet is
+published when you link it, and what it shows — names, RUTs, marks — is yours to
+decide (ADR-0076 §3). Names, RUTs and marks are personal data under Ley 21.719,
+and a link-shared sheet has no expiry and no way back once the link has
+travelled; choose the columns in the spreadsheet with that in mind.
 
 **`title` is required, in Spanish, and the component enforces it**, the same way
 `<Figure>` enforces `alt`. An iframe has no accessible name of its own, so a
@@ -1221,6 +1225,56 @@ because a slide is _fit and scaled_ rather than clipped (ADR-0013 §5.1) — an
 oversized frame does not get cut off, it shrinks the whole slide, your title
 with it. Measured at 1024×768: the default draws at its full 480px and the slide
 is not scaled at all.
+
+6h. **An evaluation is a document of its own, with its pauta framed from
+Drive**: `<PdfEmbed>` frames a PDF shared from Google Drive, drawn by Drive's
+own viewer — every page, the same in every browser, a phone included (the
+browsers' own PDF viewers disagree; ADR-0076). Like a sheet, you replace the
+file in Drive and the page follows with no deploy. The pattern, one document
+per evaluation under `evaluaciones/`, listed in the `Evaluaciones` group of
+`index.yaml`:
+
+```mdx
+---
+id: control-1
+title: Control 1
+presentation: none
+questions: none
+---
+
+## Pauta
+
+<PdfEmbed
+  src="https://drive.google.com/file/d/1v3B7n.../view?usp=sharing"
+  title="Pauta del Control 1"
+/>
+
+## Notas
+
+<SheetEmbed
+  src="https://docs.google.com/spreadsheets/d/1ZwBL8.../edit?usp=sharing"
+  title="Notas del Control 1"
+/>
+```
+
+**Paste the link the Compartir button gives you** for the PDF
+(`drive.google.com/file/d/…/view?usp=sharing`); the component rewrites it to
+the bare viewer. Anything that is not a `drive.google.com` file link is an
+authoring error — including a PDF url from another host, which this frame, the
+one granted `allow-same-origin`, must never hold. Share the file as
+_cualquiera con el enlace puede ver_ and look at the page, for the same reason
+as a sheet.
+
+**Write the document after the evaluation, never before.** Everything under
+`content/` is published, and a merged document pointing at a shared pauta is a
+published answer key (`docs/security-notes.md` §"Everything under
+content/courses/ is published").
+
+**It is heavier than the sheet**: measured cold, the viewer alone is ~2.8 MB
+over 44 requests, most of it Google's viewer script — the heaviest embed on
+the site. `height` defaults to 800px, most of one letter page; the reader
+scrolls inside the frame for the rest. Drive paints its own dark ground around
+the page in both themes.
 
 7. **Cross-reference with wiki-links**: `[[otro-id]]` renders that document's
    link, `[[otro-id|texto visible]]` overrides the label. A target that doesn't
@@ -1531,6 +1585,10 @@ last block, so no stale copies accumulate.
       _editar_. All of it is cross-origin: no level of the suite and no part of
       the build can see any of it, and a wrong share setting in either direction
       publishes silently.
+- [ ] Every `<PdfEmbed>` opened the same way and **looked at**: the viewer
+      shows "Página 1 de N" and scrolls to the last page — not Google's
+      request-access page, not a spinner that never resolves. The file shared
+      as _ver_, and the evaluation already taken.
 - [ ] Anything on a slide looked at in presentation mode, not only in the book.
 - [ ] `npm run test` green — `app/contentRenders.test.tsx` renders every document
       and fails on any authoring error the build cannot see (a missing alt, a

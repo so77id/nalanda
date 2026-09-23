@@ -41,6 +41,7 @@ import { memoryVisualCatalogEntry } from './interactive/MemoryVisual.catalog';
 import { stepCatalogEntry, stepShowCatalogEntry } from './interactive/StepShow.catalog';
 import { figureCatalogEntry } from './media/Figure.catalog';
 import { mathTexCatalogEntry } from './media/Math.catalog';
+import { pdfEmbedCatalogEntry } from './media/PdfEmbed.catalog';
 import { sheetEmbedCatalogEntry } from './media/SheetEmbed.catalog';
 import { videoEmbedCatalogEntry } from './media/VideoEmbed.catalog';
 import { mosaicCatalogEntry } from './structure/Mosaic.catalog';
@@ -61,6 +62,7 @@ export const catalogEntries: CatalogEntry[] = [
   figureCatalogEntry,
   mathTexCatalogEntry,
   sheetEmbedCatalogEntry,
+  pdfEmbedCatalogEntry,
   videoEmbedCatalogEntry,
   codeEditorCatalogEntry,
   exerciseCatalogEntry,

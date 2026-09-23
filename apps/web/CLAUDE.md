@@ -115,7 +115,10 @@ SPA fallback and the `vite preview` gotcha). One home per fact, per
      rendering an `<iframe>` is checked in a real browser against the built site:
      the frame paints, each permission re-measured whenever the string changes,
      weight from a cold profile, and a sideways drag on a touch context. Worked
-     case: `<SheetEmbed>` (ADR-0035).
+     case: `<SheetEmbed>` (ADR-0035). Second worked case, and the reason the
+     permissions are measured rather than copied: `<PdfEmbed>` (ADR-0076) took
+     `SheetEmbed`'s sandbox and Drive's viewer never finished loading — it
+     needs `allow-same-origin`, which only a real browser showed.
 
   4. _A guard behind a lazy boundary_: the heavy widgets register through a
      `lazy<Name>.tsx` wrapper, and `app/contentRenders.test.tsx` preloads the

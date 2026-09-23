@@ -274,7 +274,10 @@ src/
   (userinfo `@`, backslashes, `\t\n\r`, NUL, zero-width and ideographic spaces,
   U+2024 in the host, trailing dot, explicit `:443`) all produced either `null`
   or a url on `docs.google.com`, because none of the input survives into the
-  output except a `[\w-]+` id and a `\d+` tab.
+  output except a `[\w-]+` id and a `\d+` tab. Second worked case, and the one
+  where the host check carries the most: `components/media/driveUrl.ts` (#299,
+  ADR-0076) — `<PdfEmbed>`'s frame is granted `allow-same-origin`, so anything
+  that is not rebuilt as a `drive.google.com` url is refused.
 
 ## Styling
 
