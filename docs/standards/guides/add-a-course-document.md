@@ -38,6 +38,8 @@ content/courses/sample-course/
 ├── logos/                     # …in a subfolder once there are several
 │   └── google.svg, java.svg, … (22, with a README recording provenance)
 ├── 04-planificacion.mdx       # presentation: none     — book-only; <SheetEmbed> around the live plan
+├── evaluaciones/              # one document per evaluation, the "Evaluaciones" group of index.yaml
+│   └── control-1.mdx          # presentation: none     — <PdfEmbed> (pauta) + <SheetEmbed> (notas), §6h
 ├── 06-java-desde-cpp.mdx      # presentation: explicit — uses <SideBySide>, plus a markdown ##
 ├── 07-java-tipos-y-flujo.mdx  # presentation: explicit — uses <Exercise> + <CodeEditor>, plus two markdown ##
 ├── 08-referencias-null-igualdad.mdx  # presentation: explicit — uses <PredictOutput> + <StepShow>/<MemoryVisual> + <Exercise> + <CodeEditor>
