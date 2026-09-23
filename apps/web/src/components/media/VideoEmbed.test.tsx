@@ -98,4 +98,18 @@ describe('VideoEmbed', () => {
 
     expect((container.firstElementChild as HTMLElement | null)?.style.height).toBe('480px');
   });
+
+  it('takes the height the author asked for', () => {
+    const { container } = render(
+      <VideoEmbed src="https://youtu.be/S1PVPluvV9I" title="prueba" height={600} />,
+    );
+
+    expect((container.firstElementChild as HTMLElement | null)?.style.height).toBe('600px');
+  });
+
+  it('says what is loading', () => {
+    render(<VideoEmbed src="https://youtu.be/S1PVPluvV9I" title="prueba" />);
+
+    expect(screen.getByText('Cargando el video…')).toBeInTheDocument();
+  });
 });

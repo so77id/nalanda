@@ -83,9 +83,9 @@ export const mdxComponents = {
   // SheetEmbed, but with allow-same-origin, which Drive's viewer was measured
   // to need (see PdfEmbed.tsx, ADR-0076).
   PdfEmbed,
-  // Not lazy: it is one iframe pointing at YouTube. Same shape as SheetEmbed.
-  // See VideoEmbed.tsx for the sandbox rationale (allow-same-origin is
-  // required for YouTube, deliberately absent from SheetEmbed).
+  // Not lazy: it is one iframe pointing at YouTube. Same shape as SheetEmbed,
+  // but framed with no sandbox at all — YouTube's player breaks under one (see
+  // VideoEmbed.tsx).
   VideoEmbed,
   // The lazy wrapper, not the editor itself: this map is evaluated eagerly, and
   // registering the real component would put CodeMirror in the entry chunk.

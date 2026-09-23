@@ -20,8 +20,8 @@ export interface VideoEmbedProps {
 
 /**
  * The 16:9 comfort height for a YouTube frame. 480 keeps the player readable
- * without swallowing the surrounding text on a book page; the presentation
- * cap `SLIDE_BUDGET_VH` bounds it to the slide's height.
+ * without swallowing the surrounding text on a book page; on a slide
+ * `EmbedFrame` caps it to the stage.
  */
 const DEFAULT_HEIGHT = 480;
 
