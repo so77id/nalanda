@@ -1,6 +1,5 @@
 import { AuthoringError } from '../AuthoringError';
-import { SLIDE_BUDGET_VH } from '../slideBudget';
-import { useMode } from '../../presentation';
+import { EmbedFrame } from './EmbedFrame';
 import { sheetPreviewUrl } from './sheetUrl';
 
 export interface SheetEmbedProps {
@@ -55,8 +54,6 @@ const SANDBOX = 'allow-scripts allow-popups allow-popups-to-escape-sandbox';
  * That is accepted (#146) — the sheet's own cell colours are the information.
  */
 export function SheetEmbed({ src, title, height = DEFAULT_HEIGHT }: SheetEmbedProps) {
-  const mode = useMode();
-
   if (src === undefined || src === '') {
     return (
       <AuthoringError component="SheetEmbed">
@@ -84,34 +81,7 @@ export function SheetEmbed({ src, title, height = DEFAULT_HEIGHT }: SheetEmbedPr
   }
 
   return (
-    // The wrapper exists for the placeholder, not for layout: an unloaded
-    // iframe is transparent, so a sibling underneath it shows through and is
-    // covered the moment Google paints its own white ground. Measured on a
-    // ~1.6 Mbps connection, that window is about six seconds, during which the
-    // reader would otherwise be looking at an empty bordered box —
-    // indistinguishable from the two failures this component accepts as
-    // undetectable (an unshared sheet, Drive down). `aria-hidden` because the
-    // frame already has an accessible name and the placeholder is not content.
-    //
-    // `not-prose` because a framed sheet is a block, not running text: the
-    // measure would otherwise narrow it to 39rem inside the column (ADR-0022).
-    //
-    // No `overflow-x-auto`, and that is not the oversight it looks like:
-    // ADR-0013 §5.2 governs a scroller in THIS document, and the sheet's is in
-    // another one, so the deck's swipe can never see it. Measured; the numbers
-    // are in ADR-0035 §Consequences.
-    <div
-      className="not-prose relative my-6 rounded bg-sunk"
-      style={{
-        height: mode === 'presentation' ? `min(${height}px, ${SLIDE_BUDGET_VH}vh)` : `${height}px`,
-      }}
-    >
-      <p
-        aria-hidden="true"
-        className="absolute inset-0 flex items-center justify-center text-sm text-ink-faint"
-      >
-        Cargando la planilla…
-      </p>
+    <EmbedFrame height={height} placeholder="Cargando la planilla…">
       <iframe
         src={url}
         title={title}
@@ -120,6 +90,6 @@ export function SheetEmbed({ src, title, height = DEFAULT_HEIGHT }: SheetEmbedPr
         loading="lazy"
         className="relative h-full w-full rounded border border-rule"
       />
-    </div>
+    </EmbedFrame>
   );
 }

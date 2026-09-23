@@ -18,7 +18,7 @@ export const pdfEmbedCatalogEntry: CatalogEntry = {
     "Drive draws the pages, not the browser: the browsers' own PDF viewers disagree (Brave shows only the first page, ADR-0047) and Chrome on Android shows nothing inside a frame, while Drive's viewer shows every page the same everywhere, with its own zoom, page counter and a pop-out button whose tab can download the file. " +
     'It shows the file as Drive renders it and does nothing else: it does not read, check or transform the file. What the file contains is the author’s decision. ' +
     'The `title` is a runtime contract rather than a type, for the same reason as <Figure>: an iframe carries no accessible name of its own. ' +
-    "Unlike <SheetEmbed>, the frame is granted allow-same-origin, because Drive's viewer never finishes loading without it (measured, ADR-0076). That is safe only because the host is always drive.google.com, which the src check enforces. " +
+    "Unlike <SheetEmbed>, the frame is granted allow-same-origin, because Drive's viewer never finishes loading without it (measured, ADR-0076). The src check pins where the frame starts (drive.google.com only); after that only Drive's own viewer navigates it, and the grant is safe as long as it never lands on this site's origin (docs/security-notes.md). " +
     'A file that is not shared renders Google request-access page inside the rectangle — that is cross-origin and nothing here can detect it, so check the share setting yourself. ' +
     'Prefer a <Figure> for an image, and MDX for anything you would otherwise retype: this is a third-party frame, weighed like one.',
   props: [
@@ -26,7 +26,7 @@ export const pdfEmbedCatalogEntry: CatalogEntry = {
       name: 'src',
       type: 'string',
       description:
-        'The share link, exactly as the Compartir button gives it (drive.google.com/file/d/.../view?usp=sharing), or the /file/u/0/d/... url out of the address bar. Required. It is rewritten into the /preview form, the bare viewer without Drive page chrome. Anything that is not a drive.google.com file url is refused — including a PDF url from another host, which this frame would otherwise run with allow-same-origin.',
+        'The share link, exactly as the Compartir button gives it (drive.google.com/file/d/.../view?usp=sharing), or the /file/u/0/d/... url out of the address bar. Required. It is rewritten into the /preview form, the bare viewer without Drive page chrome; a resourcekey in the link (older files) is carried across, unverified. Anything that is not a drive.google.com file url is refused — including a PDF url from another host, which this frame would otherwise run with allow-same-origin.',
     },
     {
       name: 'title',

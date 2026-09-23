@@ -43,19 +43,19 @@ the author pastes the Compartir link of a Drive file, a pure
 decoupling as ADR-0035 §1: the professor replaces the file in Drive and the page
 follows with no commit and no deploy. The component does not read the file.
 
-**2. The frame is granted `allow-same-origin`, and only because the host is
+**2. The frame is granted `allow-same-origin`, and only because the host it starts at is
 fixed.** Measured on 2026-09-22 with Playwright against Control 1's pauta, in
 Chromium and WebKit, at 1440px and on emulated iPhone 13 and Pixel 7:
 
-| sandbox | result |
-|---|---|
-| `allow-scripts allow-popups allow-popups-to-escape-sandbox` (SheetEmbed's) | spinner never resolves; the viewer's own image requests are cancelled |
-| … + `allow-downloads` | same — not the missing token |
-| … + `allow-same-origin` | "Página 1 de 6", all six pages render and scroll |
-| no `sandbox` at all | renders |
-| `allow-scripts allow-same-origin` | renders; the pop-out button does nothing |
-| … + `allow-popups` | pop-out opens `/view` in a new tab; that tab's **download button downloads nothing** (it inherited the sandbox) |
-| … + `allow-popups-to-escape-sandbox` | pop-out tab downloads `EDA_Control_1_2026_02_pauta_.pdf` |
+| sandbox                                                                    | result                                                                                                          |
+| -------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| `allow-scripts allow-popups allow-popups-to-escape-sandbox` (SheetEmbed's) | spinner never resolves; the viewer's own image requests are cancelled                                           |
+| … + `allow-downloads`                                                      | same — not the missing token                                                                                    |
+| … + `allow-same-origin`                                                    | "Página 1 de 6", all six pages render and scroll                                                                |
+| no `sandbox` at all                                                        | renders                                                                                                         |
+| `allow-scripts allow-same-origin`                                          | renders; the pop-out button does nothing                                                                        |
+| … + `allow-popups`                                                         | pop-out opens `/view` in a new tab; that tab's **download button downloads nothing** (it inherited the sandbox) |
+| … + `allow-popups-to-escape-sandbox`                                       | pop-out tab downloads `EDA_Control_1_2026_02_pauta_.pdf`                                                        |
 
 So:
 
@@ -65,14 +65,21 @@ referrerpolicy="no-referrer"
 ```
 
 `allow-scripts` + `allow-same-origin` lets a framed document remove its own
-sandbox **only when it is same-origin with the embedding page**. The frame is
-always `drive.google.com` — `drivePreviewUrl` anchors scheme and host and
+sandbox **only when it is same-origin with the embedding page**. The frame
+**starts** at `drive.google.com` — `drivePreviewUrl` anchors scheme and host and
 closes the host with the next `/`, so `drive.google.com.evil.example` is
-refused — and the page is `so77id.github.io`; the case cannot arise. What the
-token does grant is the frame's real origin: Drive's viewer reads its own
-cookies and storage, as it would opened directly. `<VideoEmbed>` already carries
-the same token for the same reason (YouTube). `<SheetEmbed>`'s string does not
-change.
+refused — and the page is `so77id.github.io`. What the url check cannot pin is
+where the frame goes next: the sandbox does not stop a frame navigating itself,
+so the protection rests on Drive's own viewer never sending its frame to a
+`so77id.github.io` page. Accepted: that would take Google's first-party viewer
+navigating to this site, and the origin is the account owner's alone (though
+shared by every repo of the account, `security-notes.md` §"Drafts live on an
+origin shared…"). What the token does grant is the frame's real origin: Drive's
+viewer reads its own cookies and storage, as it would opened directly.
+`<PdfEmbed>` is the first **sandboxed** frame of ours to get the token.
+`<VideoEmbed>` is framed with no `sandbox` at all — YouTube's player breaks
+under one — which is more permissive, not the same grant. `<SheetEmbed>`'s
+string does not change.
 
 **3. What a framed file contains is the professor's decision, not the site's.**
 ADR-0035's "not to ship grades through this component at all" is **withdrawn**.
@@ -132,6 +139,18 @@ index (no `levelName`: it is not a Unidad), one `.mdx` per evaluation under
   and reads its cookies. Accepted, as ADR-0035 accepted the credentialed request.
 - **Drive paints its own dark ground** around the page in both themes — a
   second document we do not paint (`design-system.md` third exemption).
+- **A `resourcekey` in the share link is carried across, unverified.** Google
+  adds it to links of files older than its 2021 security update, and without it
+  such a file frames the request-access page. `drivePreviewUrl` keeps it, the way
+  `sheetUrl.ts` keeps a `gid`; Control 1's file has none, so nothing has yet
+  shown `/preview` honours it (#299 review).
+- **The touch drag inside the frame on a slide is not measured.** It is the
+  fifth browser check `testing-strategy.md` asks of a cross-origin frame that
+  can appear on a slide, and `<PdfEmbed>` can (it has the slide cap). Drive's
+  viewer scrolls vertically with its own touch handling, so ADR-0035's sheet
+  result does not carry over. Today's only use, `control-1`, is
+  `presentation: none`. **The first deck that carries a `<PdfEmbed>` measures
+  it** before relying on it, on a real touch context (#299 review).
 - **Grades are published whenever the professor links a grades sheet.** The
   site does not stop him and does not try; the review trigger in
   `security-notes.md` is rewritten accordingly.

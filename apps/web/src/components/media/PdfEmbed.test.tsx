@@ -1,7 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 
-import { ModeProvider } from '../../presentation';
 import { PdfEmbed } from './PdfEmbed';
 
 const ID = '1v3B7n1hAHUUXt1iUlAYTGvXVTXrmYlRT';
@@ -76,9 +75,9 @@ describe('PdfEmbed', () => {
 
       // - allow-scripts: the viewer is a script; nothing paints without it.
       // - allow-same-origin: without it the viewer's own requests are cancelled
-      //   and the spinner never resolves. Safe here only because the frame is
-      //   drive.google.com, never this site's origin — which drivePreviewUrl's
-      //   anchored host guarantees.
+      //   and the spinner never resolves. Safe only while the frame is never
+      //   this site's origin: drivePreviewUrl pins where it starts, and only
+      //   Drive's own viewer can navigate it after that.
       // - allow-popups: the viewer's pop-out button; without it the click does
       //   nothing.
       // - allow-popups-to-escape-sandbox: without it the popped-out tab
@@ -98,46 +97,30 @@ describe('PdfEmbed', () => {
     });
   });
 
-  describe('how tall it is', () => {
+  // The frame around the iframe — the slide cap, the placeholder under it,
+  // `not-prose` — is EmbedFrame's and pinned in EmbedFrame.test.tsx. What is
+  // left here is what this component chooses: its height and its words.
+  describe('its frame', () => {
     const heightOf = (container: HTMLElement) =>
       (container.firstElementChild as HTMLElement | null)?.style.height;
 
-    it('takes the height the author asked for, in the book', () => {
+    it('takes the height the author asked for', () => {
       const { container } = render(<PdfEmbed src={SHARE} title={TITLE} height={600} />);
 
       expect(heightOf(container)).toBe('600px');
     });
 
     it('has a height of its own when the author gives none', () => {
+      // An iframe has no content-driven height: unset, it is 150px of nothing.
       const { container } = render(<PdfEmbed src={SHARE} title={TITLE} />);
 
       expect(heightOf(container)).toBe('800px');
     });
 
-    it('caps itself against the stage on a slide', () => {
-      const { container } = render(
-        <ModeProvider mode="presentation">
-          <PdfEmbed src={SHARE} title={TITLE} />
-        </ModeProvider>,
-      );
+    it('says what is loading', () => {
+      render(<PdfEmbed src={SHARE} title={TITLE} />);
 
-      expect(heightOf(container)).toBe('min(800px, 64vh)');
+      expect(screen.getByText('Cargando el documento…')).toBeInTheDocument();
     });
-  });
-
-  it('says something is coming while the frame is still transparent', () => {
-    const { container } = render(<PdfEmbed src={SHARE} title={TITLE} />);
-
-    const hint = screen.getByText(/Cargando el documento/);
-    expect(hint.getAttribute('aria-hidden')).toBe('true');
-    expect(hint.compareDocumentPosition(frameOf(container) as Node)).toBe(
-      Node.DOCUMENT_POSITION_FOLLOWING,
-    );
-  });
-
-  it('marks itself out of the reading measure', () => {
-    const { container } = render(<PdfEmbed src={SHARE} title={TITLE} />);
-
-    expect(container.firstElementChild?.className).toContain('not-prose');
   });
 });

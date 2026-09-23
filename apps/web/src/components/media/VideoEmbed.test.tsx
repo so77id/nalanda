@@ -91,12 +91,11 @@ describe('VideoEmbed', () => {
     expect(allow).toContain('picture-in-picture');
   });
 
-  it('caps its height against the slide budget in presentation mode', () => {
-    const { container } = renderIn(
-      'presentation',
-      <VideoEmbed src="https://youtu.be/S1PVPluvV9I" title="prueba" height={800} />,
-    );
-    const wrapper = container.querySelector('div.not-prose') as HTMLElement | null;
-    expect(wrapper?.style.height).toContain('min(800px');
+  it('has a height of its own when the author gives none', () => {
+    // The slide cap around it is EmbedFrame's, pinned whole in
+    // EmbedFrame.test.tsx; this pins only the number this component picks.
+    const { container } = render(<VideoEmbed src="https://youtu.be/S1PVPluvV9I" title="prueba" />);
+
+    expect((container.firstElementChild as HTMLElement | null)?.style.height).toBe('480px');
   });
 });

@@ -162,6 +162,7 @@ referrerpolicy="no-referrer"
   could live in the MDX**, governed and reviewed, leaving the sheet to carry only
   the calendar, and then neither popup token is needed. That is a content
   decision this record owns, not a browser constraint.
+
 - **`allow-same-origin` is deliberately NOT granted.** The sheet renders and
   scrolls both ways without it, so the frame's document runs in an opaque origin
   and cannot **script** Google's. Verified rather than assumed: all four sandbox
@@ -178,6 +179,7 @@ referrerpolicy="no-referrer"
   would load the frame in an anonymous store and is worth measuring **before**
   adopting — a link-shared sheet may or may not still render — but it is not free
   and was not measured here.
+
 - **`allow-top-navigation` and `allow-forms` are not granted**, and nothing
   read-only needs them. The frame cannot navigate the page around it.
 - **`referrerpolicy="no-referrer"`** costs nothing measurable and stops Google
@@ -234,9 +236,10 @@ identifiers or marks — fired with #299 and was resolved by ADR-0076.)
 ### Drive's PDF viewer is framed with its own origin (accepted 2026-09-22, #299)
 
 `<PdfEmbed>` frames `https://drive.google.com/file/d/<id>/preview` — the
-site's second framed Google document, and the first frame of ours granted
-`allow-same-origin` for a document (`<VideoEmbed>` has it for YouTube's
-player).
+site's second framed Google document, and the first **sandboxed** frame of
+ours granted `allow-same-origin`. (`<VideoEmbed>` is framed with no `sandbox`
+at all — YouTube's player fails under one — which is more permissive, not the
+same grant.)
 
 ```
 sandbox="allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox"
@@ -251,11 +254,17 @@ WebKit (table in ADR-0076 §2):
   tried in its place and does not help.
 - **Why it is safe here, stated as the capability**: scripts plus same-origin
   let a framed document lift its own sandbox **only when it is same-origin with
-  the embedding page**. The frame is always `drive.google.com` and the page is
-  `so77id.github.io`, so the case cannot arise — provided the host stays fixed.
-  That is `drivePreviewUrl`'s job: scheme and host anchored, the host closed by
-  the next `/` (`drive.google.com.evil.example` is a test case). **Loosening
-  that pattern is a security change, not a convenience.** What the token does
+  the embedding page**. The frame **starts** at `drive.google.com` —
+  `drivePreviewUrl` anchors scheme and host and closes the host with the next
+  `/` (`drive.google.com.evil.example` is a test case); **loosening that
+  pattern is a security change, not a convenience.** The url check cannot pin
+  where the frame goes next: the sandbox does not stop a frame navigating
+  itself, so the real condition is that **the frame never reaches a
+  `so77id.github.io` document**, and it rests on Drive's own viewer never
+  sending it there. Not exploitable today — it needs Google's first-party
+  viewer to navigate to this site — but this origin is shared by every repo of
+  the account (§"Drafts live on an origin shared…"), so an XSS in any of them
+  would be what such a navigation lands on. What the token does
   grant is Drive's real origin inside the frame: it reads its own cookies and
   storage, so a signed-in reader is identified to Google as a viewer of the file,
   exactly as when opening the link directly. It still cannot read this site's
@@ -273,8 +282,9 @@ WebKit (table in ADR-0076 §2):
 exactly as a sheet's is.
 
 **Review trigger**: any change to the sandbox string (re-measure in a real
-browser, both directions), and any change to `DRIVE_FILE_URL` in
-`components/media/driveUrl.ts` that widens the accepted host.
+browser, both directions); any change to `DRIVE_FILE_URL` in
+`components/media/driveUrl.ts` that widens the accepted host; and any sign of
+the frame reaching a `so77id.github.io` document.
 
 ### Drafts live on an origin shared with every other repo of the account (accepted 2026-08-13, #85)
 
@@ -404,13 +414,13 @@ Original disposition (historical):
 - **The guard inspected the ENTRY class only** — closed by #123, 2026-08-16.
   Until then, "the names are now refused" was true of the class a program is run
   as and not of a secondary class declared in the same file: `public class
-  Solucion { … } class NalandaLauncher { … }` was cleared by the guard and then
+Solucion { … } class NalandaLauncher { … }` was cleared by the guard and then
   compiled, both units, into the shared directory. `instrument()` had closed the
   hole for `NalandaTrace` in a `trace` fence specifically; the other two names
   stayed shadowable. The guard now reads every **top-level** declaration —
   `class`, `interface`, `enum`, and `record` although Java 8 has none, so that
   raising `SOURCE_LEVEL` is not the quiet way this reopens — in `source` and in
-  `harness`, and the instrumenter shares it rather than restating it. A *nested*
+  `harness`, and the instrumenter shares it rather than restating it. A _nested_
   declaration is still allowed: it compiles to `Solucion$NalandaLauncher.class`
   and overwrites nothing.
 - **"Closed" was claimed once before it was true.** The first version of that
@@ -419,7 +429,7 @@ Original disposition (historical):
   line terminator inside a comment, and a raw carriage return each hid a
   top-level `NalandaLauncher` from the guard, compiled under the pinned ECJ
   3.21.0, and hijacked the launcher in real CheerpJ: `[nalanda] PASS 1 --
-  launcher secuestrado`, 2026-08-16, found by the review panel of this same PR.
+launcher secuestrado`, 2026-08-16, found by the review panel of this same PR.
   The guard now decodes escapes and stops comments where the compiler does.
   **The honest claim is not "nothing gets through" but "the scan reads what ECJ
   3.21.0 reads, on the shapes verified".** It is a MODEL of a compiler's lexer,
@@ -613,6 +623,7 @@ page origin and injects an inline `<style>`.
   escaping and the final sanitize pass — and (c) a mermaid major bump.
 
 ### The control worker is unauthenticated and trusts its only caller (accepted 2026-08-15, #138)
+
 `apps/amc-worker` serves JSON on 8080 with no authentication, no rate limiting
 and no audit trail, and it will handle RUTs and grades — personal data under
 Ley 21.719. What holds it closed is **topology, not code**: it is reachable
@@ -661,17 +672,17 @@ re-resolve the derived paths and reconsider authentication.
 
 **Trigger status after #175 (Jetson deploy of amc-worker, 2026-08-18)**:
 
-- *Loopback exposure*: NOT fired. The overlay `docker-compose.jetson.yml`
+- _Loopback exposure_: NOT fired. The overlay `docker-compose.jetson.yml`
   defines no `ports:` for `amc-worker`; the base compose file publishes it on
   `127.0.0.1:8080` (host loopback) and that inherits into prod. External
   reachability of the worker is still zero.
-- *Second component on the compose network*: fired by #162 S8/S9 (backup +
+- _Second component on the compose network_: fired by #162 S8/S9 (backup +
   monitor entered the same network on the Jetson) and by #175 (amc-worker
   finally comes up on the same host). Re-resolved: **backup and monitor do
   not call the worker** (backup reads only `/data`, monitor polls the server
   only). Only the server holds an HTTP client for it. No new caller.
-- *One course at a time*: NOT fired. Still one implicit course (V1).
-- *`apps/server` gaining a `/work`-writing path*: **fired by #166 (WP-E)** —
+- _One course at a time_: NOT fired. Still one implicit course (V1).
+- _`apps/server` gaining a `/work`-writing path_: **fired by #166 (WP-E)** —
   `internal/infra/amcworker/*` writes `/work/<control>/` and asks the worker
   to act on it. That review already covered path-escape and detail-leakage
   concerns; #175 does not add new writers.
@@ -745,13 +756,13 @@ trigger:
 ### `apps/server` joins the worker's compose network (accepted 2026-08-16, #149)
 
 WP-C1 adds a second service to `infra/local/docker-compose.yml`, which trips the
-review trigger recorded above for the worker: *"a second component gains access
-to the compose network"*. Re-resolved here rather than left implicit.
+review trigger recorded above for the worker: _"a second component gains access
+to the compose network"_. Re-resolved here rather than left implicit.
 
 **What is true today.** Nothing crosses. `apps/server` has no HTTP client for
 the worker, does not mount `amc-work`, and has no code path that names it — the
 seam is WP-E's (§C9). Compose gives both services the project default bridge, so
-the server *could* reach `amc-worker:8080` unauthenticated, but only code nobody
+the server _could_ reach `amc-worker:8080` unauthenticated, but only code nobody
 has written would do it. The server itself publishes on `127.0.0.1:8081` only,
 runs as UID 65532 from a `scratch` image whose entire filesystem is three
 entries, and its database is a named volume seeded from the image.
@@ -768,10 +779,10 @@ should decide whether the worker still needs no authentication of its own.
 
 **Trigger status (updated 2026-08-18)**: both triggers HAVE fired.
 
-- *First deploy of either service to a host*: **fired**. #162 landed
+- _First deploy of either service to a host_: **fired**. #162 landed
   `apps/server` on DocumentBuddy's Jetson; #175 landed `apps/amc-worker`
   alongside. Both share the same compose network on the same daemon.
-- *`apps/server` gains code that calls the worker*: **fired by #166 (WP-E)**.
+- _`apps/server` gains code that calls the worker_: **fired by #166 (WP-E)**.
   `internal/infra/amcworker/*` is the seam; it opens the HTTP client and
   writes into `/work`. That review kept the worker unauthenticated because
   the trust argument (topology: one caller, one network, one operator) still
@@ -841,7 +852,7 @@ container and can:
   the daily DB dump.
 - Read the S3 write credential and use it against `s3://<bucket>/backups/*`.
   The IAM policy is scoped to that prefix and carries `PutObject` but not
-  `DeleteObject`, so the blast radius is *overwriting* legitimate dumps
+  `DeleteObject`, so the blast radius is _overwriting_ legitimate dumps
   (silent sabotage of the backup chain) — never deleting them, and never
   reaching anything outside `backups/`.
 - Read `/data` from the backup container's own view — read-only mount, so
@@ -1076,10 +1087,10 @@ Not the whole roster — four people, not twenty-five — but a Chilean RUT is
 personal data under Ley 21.719, and it travelled with the name and the
 address that identify its owner.
 
-The same PR wrote the rule it broke. `CANVAS-CHECK.md` §Notes says: *"A
+The same PR wrote the rule it broke. `CANVAS-CHECK.md` §Notes says: _"A
 course id is not a secret, but a roster is: the JSON from step 3 carries real
 students' names, addresses and national identifiers. Do not paste it into an
-issue, a PR, or a chat."* It was written fifty lines below a document that
+issue, a PR, or a chat."_ It was written fifty lines below a document that
 already carried two of those identifiers.
 
 **How it was found.** Not by review of the code, and not by any test. The
@@ -1215,7 +1226,7 @@ the shape of this entry in three ways:
 - **Two new state-changing routes reach the same egress.**
   `POST /controls/{id}/copies/{copy}/publish` sends ONE student's
   correction, synchronously, from the review page; `POST
-  /controls/{id}/resend-all` clears every copy's stamp so the next Publicar
+/controls/{id}/resend-all` clears every copy's stamp so the next Publicar
   writes to the class again. Both are on the professor's surface behind the
   session gate and CSRF, and neither exists on `internal/app/api`. The
   per-student send runs the same `Delivers()` and connected-account gates as

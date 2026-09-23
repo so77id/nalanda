@@ -29,6 +29,19 @@ describe('drivePreviewUrl', () => {
     expect(drivePreviewUrl(`https://drive.google.com/file/u/1/d/${ID}/view`)).toBe(PREVIEW);
   });
 
+  it('keeps the resource key an older file needs to open', () => {
+    // Google's 2021 security update added `resourcekey` to the share links of
+    // files that existed before it; without the key such a file answers with
+    // the request-access page — inside the frame, with every test green.
+    // UNVERIFIED against a keyed file (Control 1's has none): measure one
+    // before relying on it, as sheetUrl.ts says of its `gid`.
+    expect(
+      drivePreviewUrl(
+        `https://drive.google.com/file/d/${ID}/view?usp=sharing&resourcekey=0-abc_DEF-9`,
+      ),
+    ).toBe(`${PREVIEW}?resourcekey=0-abc_DEF-9`);
+  });
+
   it('refuses a spreadsheet link, which is SheetEmbed’s to frame', () => {
     expect(
       drivePreviewUrl(

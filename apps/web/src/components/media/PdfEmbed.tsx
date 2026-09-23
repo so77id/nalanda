@@ -1,6 +1,5 @@
 import { AuthoringError } from '../AuthoringError';
-import { SLIDE_BUDGET_VH } from '../slideBudget';
-import { useMode } from '../../presentation';
+import { EmbedFrame } from './EmbedFrame';
 import { drivePreviewUrl } from './driveUrl';
 
 export interface PdfEmbedProps {
@@ -32,10 +31,12 @@ const DEFAULT_HEIGHT = 800;
  *
  * - `allow-scripts`: the viewer is a script; nothing paints without it.
  * - `allow-same-origin`: without it the viewer's own requests are cancelled and
- *   its spinner never resolves. This is the token `SheetEmbed` refuses; it is
- *   safe here because the frame is always `drive.google.com` — which
- *   `drivePreviewUrl`'s anchored host guarantees — and never this site's own
- *   origin, the one case where scripts plus same-origin could lift the sandbox.
+ *   its spinner never resolves. This is the token `SheetEmbed` refuses. Scripts
+ *   plus same-origin let a framed document lift its own sandbox only when it is
+ *   same-origin with this site. The frame STARTS at `drive.google.com` —
+ *   `drivePreviewUrl`'s anchored host guarantees that much — and afterwards only
+ *   Drive's own viewer can navigate it; the protection rests on that viewer
+ *   never sending the frame to a `so77id.github.io` page (security-notes.md).
  * - `allow-popups` + `allow-popups-to-escape-sandbox`: the viewer's pop-out
  *   button. Without the first the click does nothing; without the second the
  *   new tab inherits this sandbox and its download button downloads nothing.
@@ -54,8 +55,6 @@ const SANDBOX = 'allow-scripts allow-same-origin allow-popups allow-popups-to-es
  * It paints its own dark ground around the page, in both themes.
  */
 export function PdfEmbed({ src, title, height = DEFAULT_HEIGHT }: PdfEmbedProps) {
-  const mode = useMode();
-
   if (src === undefined || src === '') {
     return (
       <AuthoringError component="PdfEmbed">
@@ -83,21 +82,7 @@ export function PdfEmbed({ src, title, height = DEFAULT_HEIGHT }: PdfEmbedProps)
   }
 
   return (
-    // Same wrapper as `<SheetEmbed>`, for the same reasons (see there): the
-    // placeholder sits under a frame that is transparent until Drive paints,
-    // and `not-prose` keeps the block out of the reading measure.
-    <div
-      className="not-prose relative my-6 rounded bg-sunk"
-      style={{
-        height: mode === 'presentation' ? `min(${height}px, ${SLIDE_BUDGET_VH}vh)` : `${height}px`,
-      }}
-    >
-      <p
-        aria-hidden="true"
-        className="absolute inset-0 flex items-center justify-center text-sm text-ink-faint"
-      >
-        Cargando el documento…
-      </p>
+    <EmbedFrame height={height} placeholder="Cargando el documento…">
       <iframe
         src={url}
         title={title}
@@ -106,6 +91,6 @@ export function PdfEmbed({ src, title, height = DEFAULT_HEIGHT }: PdfEmbedProps)
         loading="lazy"
         className="relative h-full w-full rounded border border-rule"
       />
-    </div>
+    </EmbedFrame>
   );
 }

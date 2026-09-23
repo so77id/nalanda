@@ -15,6 +15,15 @@ const DRIVE_FILE_URL =
   /^https:\/\/drive\.google\.com\/file\/(?:u\/\d+\/)?d\/([\w-]{20,})(?:[/?#]|$)/;
 
 /**
+ * The resource key Google's 2021 security update added to the share links of
+ * files that existed before it. Without it such a file answers with the
+ * request-access page. **Carried across unverified**, like `sheetUrl.ts`'s
+ * `gid`: Control 1's file has no key, so nothing has yet shown that `/preview`
+ * honours it — measure against a keyed file before relying on it.
+ */
+const RESOURCE_KEY = /[?&]resourcekey=([\w-]+)/;
+
+/**
  * The embeddable url for a shared Drive file, or `null` if this is not one.
  *
  * Authors paste what the Compartir button gives them, a `/view?usp=sharing`
@@ -30,5 +39,8 @@ const DRIVE_FILE_URL =
 export function drivePreviewUrl(src: string): string | null {
   const match = DRIVE_FILE_URL.exec(src.trim());
   if (match === null) return null;
-  return `https://drive.google.com/file/d/${match[1]}/preview`;
+
+  const key = RESOURCE_KEY.exec(src);
+  const query = key === null ? '' : `?resourcekey=${key[1]}`;
+  return `https://drive.google.com/file/d/${match[1]}/preview${query}`;
 }

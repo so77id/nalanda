@@ -1,6 +1,5 @@
 import { AuthoringError } from '../AuthoringError';
-import { SLIDE_BUDGET_VH } from '../slideBudget';
-import { useMode } from '../../presentation';
+import { EmbedFrame } from './EmbedFrame';
 
 export interface VideoEmbedProps {
   /**
@@ -87,8 +86,6 @@ export function youtubeVideoId(src: string): string | null {
  * honest failure mode: the platform did the removal, not us.
  */
 export function VideoEmbed({ src, title, height = DEFAULT_HEIGHT }: VideoEmbedProps) {
-  const mode = useMode();
-
   if (src === undefined || src === '') {
     return (
       <AuthoringError component="VideoEmbed">
@@ -118,18 +115,7 @@ export function VideoEmbed({ src, title, height = DEFAULT_HEIGHT }: VideoEmbedPr
   const url = `https://www.youtube.com/embed/${id}`;
 
   return (
-    <div
-      className="not-prose relative my-6 rounded bg-sunk"
-      style={{
-        height: mode === 'presentation' ? `min(${height}px, ${SLIDE_BUDGET_VH}vh)` : `${height}px`,
-      }}
-    >
-      <p
-        aria-hidden="true"
-        className="absolute inset-0 flex items-center justify-center text-sm text-ink-faint"
-      >
-        Cargando el video…
-      </p>
+    <EmbedFrame height={height} placeholder="Cargando el video…">
       {/*
        * Deliberately no `sandbox`: an iframe pointing at youtube.com is
        * already in youtube.com's origin, so the browser's default cross-origin
@@ -154,6 +140,6 @@ export function VideoEmbed({ src, title, height = DEFAULT_HEIGHT }: VideoEmbedPr
         allowFullScreen
         className="relative h-full w-full rounded border border-rule"
       />
-    </div>
+    </EmbedFrame>
   );
 }
