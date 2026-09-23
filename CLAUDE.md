@@ -107,7 +107,8 @@ rules live in the plugin's `docs/defaults.md`. Engineering-practice doctrine
   unfinished until [`apps/server/GOOGLE-CHECK.md`](apps/server/GOOGLE-CHECK.md)
   runs against the https URL (its §7 observes the `Secure` flag on the
   wire). **And a change to the publication path — including which copies a
-  run sends or stamps — is unfinished until
+  run sends or stamps, or what moves a copy between sent, stale and unsent
+  (a re-scan or a scans reset since #298) — is unfinished until
   [`apps/server/GMAIL-CHECK.md`](apps/server/GMAIL-CHECK.md) runs there
   too**: its §5c stops the container mid-run and its §5d needs a real
   student's inbox, so neither can be done anywhere else (#287, ADR-0073).

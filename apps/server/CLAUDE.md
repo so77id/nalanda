@@ -340,9 +340,9 @@ the `avisoNo*` / `flash.Set(…)` string literals in `internal/app/web/handler/`
   from the async half, as `PrepareControl`/`GenerateAssets` and
   `SaveUploadedBatch`/`AnalyzeBatch` already do). ADR-0050 has the
   full reasoning. **One named exception**: `handler.ScansReset` (issue
-  #298, ADR-0075 §5), which only removes files and never WAITS on the
-  worker — see its own bullet below. A second exception needs the same
-  two properties, and an ADR.
+  #298, ADR-0075 §5) — see its own bullet below. A second exception needs
+  the same two properties (it only removes files, and it never waits on the
+  client's lock), and an ADR.
 - **A worker refusal on the async half leaves the row and files
   intact (issue #249, ADR-0050 §6 — amends ADR-0034 §Failure modes).**
   `GenerateAssets` returning `ErrGeneratorRefused` /
@@ -357,7 +357,7 @@ the `avisoNo*` / `flash.Set(…)` string literals in `internal/app/web/handler/`
   future WP adds the explicit retry button. Same rule shape as the
   UploadScan-survives bullet above.
 - **A re-captured copy loses its corrections and KEEPS its publication
-  stamp (issue #298, ADR-0075, ADR-0048 §Amendment).** `AnalyzeBatch`
+  stamp (issue #298, ADR-0075, ADR-0048 §Amendment — re-capture).** `AnalyzeBatch`
   calls `Readings.ResetRecapturedCopies` for `report.Batch.RecapturedCopies`
   BEFORE the upsert: overrides, `last_edited_at` and the `annotated_copy`
   row go, because each was made against an image the new capture replaced.
@@ -370,27 +370,26 @@ the `avisoNo*` / `flash.Set(…)` string literals in `internal/app/web/handler/`
   batch it could not place, so this is the only loud signal. `Report.Batch`
   is nil on `/reanalyse` and on a fake — gate on a batch you have, never on
   its absence.
-- **"Borrar escaneos" calls the worker FIRST, and is synchronous on
-  purpose (issue #298, ADR-0075 §5).** `Service.ResetScans` asks the
-  worker to empty the capture before the database drops anything: the
-  worker owns `/work`, and an unreachable or older worker (the two CD
-  workflows drift) then refuses with nothing destroyed. Reversing the order
-  leaves readings gone over a capture the next upload would re-analyse. It
-  runs on the request goroutine under `scansResetDeadline` — the one
-  AMC-worker call that is not a job, because it only removes files — and it
-  must never WAIT: the client's lock is one mutex for every control and
-  ignores ctx, so `Client.ResetScans` uses `TryLock` and answers
-  `ErrAnalyzerBusy` (409) when another control's job holds it, and the
-  handler refuses (409) while THIS control's own job is in flight, which
-  would otherwise write readings back over the wiped capture. Both 409s are
-  status pages and a jobs-store read error fails CLOSED — a deliberate
-  departure from add-a-backend-endpoint.md's fourth rule, argued in
-  ADR-0075 §5. Every gate runs BEFORE the worker is called: the service
-  refuses an archived control (`DeletedAt`) and `ErrNoScans`, the handler
-  checks the verbatim name; `ResetScanResults`'s `deleted_at IS NULL` is
-  the schema belt behind them, not a gate.
-- **A done job may carry ONE sentence for the professor: return
-  `*jobs.Notice` (issue #298, ADR-0050 §Amendment).** The runner records it
+- **"Borrar escaneos" (issue #298, ADR-0075 §5) — four rules:**
+  1. **The worker goes FIRST.** `Service.ResetScans` asks it to empty the
+     capture before the database drops anything: the worker owns `/work`,
+     and an unreachable or older worker (the two CD workflows drift) then
+     refuses with nothing destroyed. The reverse order leaves readings gone
+     over a capture the next upload would re-analyse.
+  2. **Synchronous, and it never WAITS.** It runs on the request goroutine
+     under `scansResetDeadline`. The client's lock is one mutex for every
+     control and ignores ctx, so `Client.ResetScans` uses `TryLock` and
+     answers `ErrAnalyzerBusy` (409) when another control's job holds it.
+  3. **Refused while THIS control's job is in flight** (409), since the job
+     would write readings back over the wiped capture — and a jobs-store
+     read error fails CLOSED. Both are status pages: a deliberate departure
+     from add-a-backend-endpoint.md's fourth rule, recorded there.
+  4. **Every gate runs before the worker is called**: the service refuses an
+     archived control (`DeletedAt`) and `ErrNoScans`, the handler checks the
+     verbatim name. `ResetScanResults`'s `deleted_at IS NULL` is the schema
+     belt behind them, not a gate.
+- **A done job may carry one short message for the professor: return
+  `*jobs.Notice` (issue #298, ADR-0050's #298 `Amended by:`).** The runner records it
   on `job.notice` and the banner renders it under "lista". It travels
   through the handler's error slot like `*jobs.Failure`, and it is a
   SUCCESS — the runner, not the handler, tells the two apart. Use it rather

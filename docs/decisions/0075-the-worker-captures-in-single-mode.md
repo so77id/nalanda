@@ -46,24 +46,31 @@ and no ADR or document justified it. Three consequences, all measured:
 is OVERWRITTEN (AMC bumps `capture_page.overwritten`). Each batch gets its own
 page list, `scans/list-<batch>.txt`, so a run sees exactly the PDF just
 uploaded. A second upload therefore **replaces** what it re-scans and **adds**
-what it does not, and a failed one leaves nothing behind for the next.
+what it does not, and a failed one leaves nothing in the next run's page list.
 
 **2. The report says what this batch did.** `/analyse` snapshots the capture
 before and after AMC runs and adds an optional `batch` field — pages captured
 (new or overwritten), pages AMC could not place, copies re-captured
-(ADR-0031 §Amendment). The server fails the job on `batch.captured == 0`.
+(ADR-0031 §"The report says what this batch did"). The server fails the job
+on `batch.captured == 0`.
 
 **3. A re-captured copy is born again** (ADR-0048 §Amendment): its
 corrections go on both sides of the seam — AMC's `manual` column and the
 server's override rows — along with its annotated PDF, and its publication
 record stays, so ADR-0073 derives it `stale` when its grade moved. The
 analyse job says how many published copies were re-read (a `jobs.Notice`,
-ADR-0050 §Amendment); it does not refuse them.
+ADR-0050's #298 `Amended by:`); it does not refuse them.
 
-**4. The reader refuses a photocopy-mode capture.** A capture holding any
-`capture_zone.copy > 0` box — every project captured before this ADR may —
-is refused like an unscored one: nothing on stdout, exit 2, the repair named.
-The worker never produces one again; the reader will not read one silently.
+**4. The reader refuses a photocopy-mode STACK.** A student captured under
+more than one scan index — a sheet re-scanned in photocopy mode, or a
+single-mode upload over a project the old worker captured (the new scan at 0
+beside the old at 1) — is refused like an unscored project: nothing on stdout,
+exit 2, the copies and the repair named. What is NOT refused is a legacy
+capture scanned once: photocopy mode puts even a first scan at index 1, so
+EVERY control captured before this ADR holds `copy > 0` rows, and one index
+per student reads exactly as it did when those controls were graded. A guard
+on any `copy > 0` row, the issue's first wording, would have refused every
+production control on its next re-read (#298 review, B1).
 
 **5. The professor can start over from the backoffice.** "Borrar escaneos"
 is a destructive-confirm pair (ADR-0052's shape): the worker empties
@@ -106,7 +113,7 @@ analyse cannot be undone, so a read failure here fails CLOSED.
   on the container's filesystem). The worker now refuses a batch whose
   analyse logged one, so a lost page is a failed job the professor re-uploads
   rather than an `incomplete` copy with no reason.
-- **TRAP 1 inverts** (ADR-0030 §Amendment). The capture's copy index is now 0,
+- **TRAP 1 inverts** (ADR-0030's #298 `Amended by:`). The capture's copy index is now 0,
   so `association --set --copy 1` — the literal the wrapper hardcoded — is the
   ghost. The wrapper reads the index off the capture.
 
@@ -132,9 +139,18 @@ batch no longer bricks a control; the one exit that used to need a shell is a
 button; and each run costs its own batch, not the project's history.
 
 **Negative / trade-offs:**
-- **A project captured before this ADR is refused**, not read, the next time
-  it is analysed or re-read. Its repair is "Borrar escaneos" and a fresh
-  upload — the price of never reading a stacked capture silently.
+- **A NEW upload over a control captured before this ADR is refused.** The
+  old capture sits at index 1 and single mode writes at 0, so the first
+  re-scan of such a control stacks and the reader refuses it; re-reading it
+  ("Re-leer con otra sensibilidad") and correcting it keep working. The
+  repair is "Borrar escaneos" and a fresh upload — which drops that control's
+  corrections and publication stamps (next bullet). An operator note says so
+  in `apps/server/README.md` §What is not here yet.
+- **Resetting a published control forgets who was mailed.** "Borrar escaneos"
+  deletes every reading, and with it the per-copy publication record, so the
+  next Publicar after a re-upload re-sends to the whole class. Accepted the
+  way ADR-0073 §5 accepts "Reenviar a todo el curso": the confirmation page
+  names how many copies went out before the professor types the name.
 - **A wrong control's PDF is overwritten in silently** (above). Accepted for
   one professor on one class at a time; revisit if controls start sharing a
   scanning session.
@@ -160,6 +176,9 @@ button; and each run costs its own batch, not the project's history.
 - An AMC upgrade that changes single-mode overwrite semantics
   (`capture_page.overwritten`, `get_zoneid` re-using rows): `07-rescan.sh`
   performs both and says which moved.
+- An AMC upgrade that changes how a failed `capture.sqlite` write is logged:
+  the worker recognises it by the `SQL ERROR` prefix (`worker.sql_errors`),
+  and a rewording turns a lost page back into a silent `incomplete` copy.
 - A second control scanned in the same session, or a report of a foreign
   batch overwriting copies: that is when a control-specific mark on the sheet
   earns its cost.

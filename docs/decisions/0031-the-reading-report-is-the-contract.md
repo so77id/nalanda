@@ -220,12 +220,12 @@ because the two apps deploy separately and the server may meet an older
 worker for a while.
 
 **And a capture the reader cannot key truthfully is refused.** The reader
-keys a sheet by copy number; AMC's photocopy mode stacks a re-scanned sheet
-under a second index (`capture_zone.copy > 0`), which the reader would
-concatenate into duplicated identifiers and marks. The worker never captures
-that way since #298 (ADR-0075), and a project that still holds such a capture
-is refused like an unscored one — nothing on stdout, exit 2, the repair
-named — not read.
+keys a sheet by copy number; AMC's photocopy mode files every scan under an
+index of 1 or more and stacks a re-scan at the next one, which the reader
+would concatenate into duplicated identifiers and marks. The worker never
+captures that way since #298 (ADR-0075), and a copy captured under MORE THAN
+ONE index is refused like an unscored project — nothing on stdout, exit 2, the
+repair named — not read. A legacy copy under one index (1) is read as before.
 
 ### The report says which threshold its scores were computed at
 

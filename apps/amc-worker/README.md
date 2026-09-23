@@ -288,8 +288,8 @@ the capture before and after `analyse`:
 could not place (in single mode it files them in `capture_failed` and exits 0
 — the loud abort lived inside the photocopy block), and `recaptured_copies` the
 copies with at least one page re-scanned over an earlier capture. A batch that
-captured nothing is answered with the batch alone, unscored; the server fails
-the job on `captured == 0`. Optional on the wire, like every addition to this
+captured nothing is answered with an empty, unscored report (no copies)
+carrying `batch`; the server fails the job on `captured == 0`. Optional on the wire, like every addition to this
 report.
 
 **What a blank page is, and what another control's page is not.** A page with
@@ -307,10 +307,13 @@ drops the page and still exits 0. `/analyse` refuses that batch (400) rather
 than report a copy `incomplete` for no visible reason — re-uploading it is
 safe. Measured on a macOS bind mount; see `docs/standards/testing-strategy.md`.
 
-**A photocopy-mode capture is refused.** Every project captured before #298
-may hold one. The reader refuses a capture with any `copy > 0` box — exit 2,
-nothing on stdout, the project and the repair named — rather than concatenate
-two scans in silence. The repair is `/scans/reset` and a fresh upload.
+**A photocopy-mode STACK is refused.** Photocopy mode put even a first
+scan at index 1, so every project captured before #298 holds `copy > 0` rows —
+and one index per copy reads exactly as it did then. What the reader refuses
+is a copy under MORE than one index: a sheet re-scanned in photocopy mode, or
+a single-mode upload over a legacy project (0 beside 1). Exit 2, nothing on
+stdout, the copies and the repair named, rather than concatenate two scans in
+silence. The repair is `/scans/reset` and a fresh upload.
 
 ## What the reader reports, and what it cannot
 

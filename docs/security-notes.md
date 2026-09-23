@@ -1253,6 +1253,14 @@ the shape of this entry in three ways:
   press. **What this app does not keep is a history** — only a last-wins
   pair per copy — so "who received what, when, across every re-send" is not
   answerable here and would be a table rather than a column.
+  **#298 adds a second route that destroys it**: "Borrar escaneos"
+  (`POST /controls/{id}/scans/reset`) deletes every reading of a control —
+  the grades, the RUTs read off the sheets and the per-copy publication
+  stamps — and the worker's copy of the scans. It sits behind the full
+  typed-name destructive-confirm pair (session + CSRF, like every professor
+  route, and unscoped to the professor like the rest of this entry), and its
+  confirmation page counts the copies already mailed. The professor still
+  holds their Sent folder and the source PDFs.
 
 **Amended 2026-09-22 (#297) — a job row's detail is now on screen, for one
 kind.** The control page's failure banner renders `job.detail` for a failed
