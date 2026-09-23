@@ -17,6 +17,9 @@ var ErrNoScans = errors.New("controls: the control has no scans")
 type ScanSummary struct {
 	// Uploads is how many batch PDFs are on disk.
 	Uploads int
+	// Readings is how many reading rows exist, not_present ones included —
+	// a row the reset would delete is a row it has to count.
+	Readings int
 	// Read is how many copies carry a reading (not_present ones excluded:
 	// nothing was read off them).
 	Read int
@@ -32,7 +35,7 @@ type ScanSummary struct {
 // analyse failed leaves an upload and no reading, and still counts:
 // starting over is exactly what that control needs.
 func (s ScanSummary) HasScans() bool {
-	return s.Uploads > 0 || s.Read > 0
+	return s.Uploads > 0 || s.Readings > 0
 }
 
 // ScanSummaryFor counts what a reset of the control would destroy.
@@ -45,7 +48,7 @@ func (s *Service) ScanSummaryFor(ctx context.Context, controlID string) (ScanSum
 	if err != nil {
 		return ScanSummary{}, fmt.Errorf("controls.ScanSummaryFor %s: %w", controlID, err)
 	}
-	summary := ScanSummary{Uploads: len(uploads)}
+	summary := ScanSummary{Uploads: len(uploads), Readings: len(readings)}
 	for _, r := range readings {
 		if r.CopyStatus != CopyStatusNotPresent {
 			summary.Read++
@@ -79,6 +82,12 @@ func (s *Service) ResetScans(ctx context.Context, controlID string) error {
 	control, err := s.Store.ControlByID(ctx, controlID)
 	if err != nil {
 		return err
+	}
+	// Before the worker, like Purge's own gate: the SQL guard in
+	// ResetScanResults also refuses an archived control, but only after
+	// the worker has already emptied its capture (#298 review, ARQ-1).
+	if control.DeletedAt != nil {
+		return fmt.Errorf("controls.ResetScans %s: archived: %w", controlID, ErrControlNotFound)
 	}
 	summary, err := s.ScanSummaryFor(ctx, controlID)
 	if err != nil {

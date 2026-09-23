@@ -43,9 +43,10 @@ func (f *Failure) Error() string { return f.Message }
 // sentence for the professor (issue #298): the runner records the row as
 // done, with Message as its notice, and the banner renders it under
 // "lista". The mirror image of Failure, returned through the same error
-// slot so no handler that has nothing to say changes shape — a typed
-// outcome the runner inspects, never a failure: extractOutcome is the one
-// place that tells the two apart.
+// slot so no handler that has nothing to say changes shape. runOne tells
+// the two apart (asNotice): only a BARE *Notice is a success — one found
+// inside a wrapped or joined error is not, so a failure can never be
+// recorded as done because a notice rode along with it.
 type Notice struct {
 	Message string
 }
@@ -237,8 +238,8 @@ func (r *Runner) runOne(ctx context.Context, id int64) {
 		return
 	}
 	handlerErr := r.callHandler(ctx, handler, job)
-	var notice *Notice
-	if errors.As(handlerErr, &notice) {
+	notice := asNotice(handlerErr)
+	if notice != nil {
 		// A success with something to say — not a failure (issue #298).
 		handlerErr = nil
 	}
@@ -260,6 +261,16 @@ func (r *Runner) runOne(ctx context.Context, id int64) {
 	}
 	r.log.Warn("jobs: job failed",
 		"id", id, "kind", string(job.Kind), "control", job.ControlID, "error", msg)
+}
+
+// asNotice returns err when it IS a *Notice, and nil otherwise — a type
+// assertion, not errors.As, on purpose: see Notice.
+func asNotice(err error) *Notice {
+	notice, ok := err.(*Notice)
+	if !ok {
+		return nil
+	}
+	return notice
 }
 
 // callHandler runs the handler with a defer/recover so a panic surfaces

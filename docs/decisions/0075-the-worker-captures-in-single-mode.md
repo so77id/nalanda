@@ -71,9 +71,17 @@ everything a capture produced (`POST /scans/reset`) FIRST, and only then the
 server drops the control's readings, annotated rows and publication stamp
 and returns it to `generated`. The layout and `inputs/` stay — the paper
 students wrote on was printed from them. The reset is **synchronous**, under
-its own 25 s deadline and refused while a job is in flight, as a bounded call
-the professor waits on (ADR-0050 §Amendment #271's rule) rather than an
-analysis-class one.
+its own 25 s deadline, as a bounded call the professor waits on (the rule
+ADR-0050's #271 amendment states) rather than an analysis-class one — and it
+never waits on the worker: the client's lock is one mutex for every control,
+so the reset refuses at once (409, `ErrAnalyzerBusy`) when another control's
+job holds it, and the handler refuses (409) while this control's own job is in
+flight. Those two refusals depart on purpose from the fourth rule of
+`add-a-backend-endpoint.md` (#287: flash + 303, never a 4xx, and a jobs-store
+read failure counts as "not in flight"): the route is a destructive-confirm
+pair whose other refusals are status pages too, and the rule's fail-open was
+weighed for a send the professor can repeat — a wipe racing this control's own
+analyse cannot be undone, so a read failure here fails CLOSED.
 
 ## What this moves, measured
 
@@ -91,6 +99,13 @@ analysis-class one.
   uploading the right batch (which replaces again) or resetting the scans.
   Detecting it would need a control-specific mark on the sheet — see
   §Consequences.
+- **AMC can drop a page and still exit 0.** Its parallel analyse processes
+  each write `capture.sqlite`; when a write fails it logs `SQL ERROR`, loses
+  the page — neither captured nor in `capture_failed` — and exits 0. Measured
+  on a macOS bind mount in the #298 review (3 of 10 fresh captures; 0 of 20
+  on the container's filesystem). The worker now refuses a batch whose
+  analyse logged one, so a lost page is a failed job the professor re-uploads
+  rather than an `incomplete` copy with no reason.
 - **TRAP 1 inverts** (ADR-0030 §Amendment). The capture's copy index is now 0,
   so `association --set --copy 1` — the literal the wrapper hardcoded — is the
   ghost. The wrapper reads the index off the capture.
@@ -123,6 +138,13 @@ button; and each run costs its own batch, not the project's history.
 - **A wrong control's PDF is overwritten in silently** (above). Accepted for
   one professor on one class at a time; revisit if controls start sharing a
   scanning session.
+- **A lost report outlives its reset.** If the worker re-captured copies and
+  cleared their `manual` column but the server never persisted the report (a
+  restart mid-job, a store failure before the upsert), the server's override
+  rows survive and the next save of that copy re-applies them to the new
+  image. A re-read does not repair it — only an upload that re-scans the same
+  copies does. Named rather than engineered around (a worker-side pending-
+  reset record was the alternative).
 - **The deploy window.** The server merges first and its CD is minutes; the
   worker's is ~30. Every wire addition degrades to today's behaviour, and the
   reset 404s before destroying anything. One case is uncovered: a re-upload

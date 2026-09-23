@@ -339,7 +339,10 @@ the `avisoNo*` / `flash.Set(…)` string literals in `internal/app/web/handler/`
   handler that calls `amcworker.Client` from the HTTP goroutine — split the sync half
   from the async half, as `PrepareControl`/`GenerateAssets` and
   `SaveUploadedBatch`/`AnalyzeBatch` already do). ADR-0050 has the
-  full reasoning.
+  full reasoning. **One named exception**: `handler.ScansReset` (issue
+  #298, ADR-0075 §5), which only removes files and never WAITS on the
+  worker — see its own bullet below. A second exception needs the same
+  two properties, and an ADR.
 - **A worker refusal on the async half leaves the row and files
   intact (issue #249, ADR-0050 §6 — amends ADR-0034 §Failure modes).**
   `GenerateAssets` returning `ErrGeneratorRefused` /
@@ -373,11 +376,19 @@ the `avisoNo*` / `flash.Set(…)` string literals in `internal/app/web/handler/`
   worker owns `/work`, and an unreachable or older worker (the two CD
   workflows drift) then refuses with nothing destroyed. Reversing the order
   leaves readings gone over a capture the next upload would re-analyse. It
-  runs on the request goroutine under `scansResetDeadline`, refused (409)
-  while a job is in flight so the worker's lock is free — the one
-  AMC-worker call that is not a job, because it only removes files. Same
-  three gates as purge: `ResetScanResults`'s `deleted_at IS NULL`,
-  `ErrNoScans`, and the verbatim name.
+  runs on the request goroutine under `scansResetDeadline` — the one
+  AMC-worker call that is not a job, because it only removes files — and it
+  must never WAIT: the client's lock is one mutex for every control and
+  ignores ctx, so `Client.ResetScans` uses `TryLock` and answers
+  `ErrAnalyzerBusy` (409) when another control's job holds it, and the
+  handler refuses (409) while THIS control's own job is in flight, which
+  would otherwise write readings back over the wiped capture. Both 409s are
+  status pages and a jobs-store read error fails CLOSED — a deliberate
+  departure from add-a-backend-endpoint.md's fourth rule, argued in
+  ADR-0075 §5. Every gate runs BEFORE the worker is called: the service
+  refuses an archived control (`DeletedAt`) and `ErrNoScans`, the handler
+  checks the verbatim name; `ResetScanResults`'s `deleted_at IS NULL` is
+  the schema belt behind them, not a gate.
 - **A done job may carry ONE sentence for the professor: return
   `*jobs.Notice` (issue #298, ADR-0050 §Amendment).** The runner records it
   on `job.notice` and the banner renders it under "lista". It travels

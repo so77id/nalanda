@@ -216,6 +216,11 @@ var (
 	// reachable at all.
 	ErrAnalyzerUnavailable = errors.New("controls: the AMC worker is unreachable")
 
+	// ErrAnalyzerBusy: the worker is running another control's job, and a
+	// call that must not wait — the synchronous scans reset — refuses
+	// instead of queueing behind it (issue #298 review, COR-1).
+	ErrAnalyzerBusy = errors.New("controls: the AMC worker is busy with another job")
+
 	// ErrNothingCaptured: the worker read the batch and recognised none of
 	// its pages (issue #298). In single mode AMC files an unrecognised page
 	// in capture_failed and exits 0, so this is where that failure becomes

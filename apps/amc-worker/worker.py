@@ -294,9 +294,21 @@ def analyse(body):
     # page captured again is OVERWRITTEN (AMC-analyse.pl bumps
     # capture_page.overwritten) — the semantics a professor re-scanning
     # a sheet expects.
-    amc("analyse", "--data", data, "--projet", project,
-        "--cr", os.path.join(project, "cr"),
-        "--liste-fichiers", listing)
+    output = amc("analyse", "--data", data, "--projet", project,
+                 "--cr", os.path.join(project, "cr"),
+                 "--liste-fichiers", listing)
+    # AMC analyses pages in parallel processes that each write capture.sqlite,
+    # and when one of those writes fails it logs `SQL ERROR`, drops the page —
+    # neither captured nor in capture_failed — and still exits 0. Measured in
+    # the #298 review on a macOS bind mount: 3 of 10 fresh captures lost a
+    # page with `disk I/O error`, 0 of 20 on the container's own filesystem.
+    # A lost page reads as an `incomplete` copy with no reason given, so the
+    # batch is refused instead; re-uploading it is safe, since a re-scan
+    # replaces what it re-captures.
+    errors = sql_errors(output)
+    if errors:
+        raise Failed("auto-multiple-choice analyse lost pages to a database error",
+                     "\n".join(errors[-5:]))
 
     after = read_capture.capture_snapshot(data)
     batch = read_capture.batch_outcome(before, after)
@@ -400,6 +412,17 @@ def read_report(data, ticked, unsure):
         raise Failed(exc.message, exc.detail)
 
 
+def sql_errors(output):
+    """The lines where AMC reported a failed database write.
+
+    >>> sql_errors("Analysing scan x\\nSQL ERROR: DBD::SQLite::db do failed: disk I/O error\\n")
+    ['SQL ERROR: DBD::SQLite::db do failed: disk I/O error']
+    >>> sql_errors("Analysing scan x\\n")
+    []
+    """
+    return [line.strip() for line in output.splitlines() if "SQL ERROR" in line]
+
+
 def batch_list_name(scan_pdf):
     """The page-list file for one uploaded batch, named after it.
 
@@ -479,6 +502,20 @@ def reset_scans(body):
     /analyse finds the layout it expects.
     """
     project = under_work(body["project"], must_exist=True)
+    # The one route whose whole job is deleting files refuses anything that
+    # is not a project generation produced: the volume root, or a directory
+    # with no layout.
+    if project == WORK or not os.path.isfile(os.path.join(project, "data", "layout.sqlite")):
+        raise Failed(f"not a generated project: {body['project']}",
+                     "/scans/reset only empties a project /generate produced")
+    # Every target re-resolved BEFORE anything is removed: a symlinked
+    # data/, scans/ … would otherwise point the deletion outside the
+    # project, and failing halfway would leave a half-reset project.
+    for name in RESET_FILES + RESET_DIRS:
+        target = os.path.realpath(os.path.join(project, name))
+        if not target.startswith(project + os.sep):
+            raise Failed(f"{name} resolves outside the project",
+                         "refusing to reset through a symlink")
     removed = 0
     for name in RESET_FILES:
         path = os.path.join(project, name)
@@ -626,21 +663,9 @@ def annotate_copy(body):
     if not os.path.isfile(os.path.join(data, "scoring.sqlite")):
         raise Failed("no scoring database in this project", "run /analyse first")
 
-    cap = sqlite3.connect(os.path.join(data, "capture.sqlite"))
-    try:
-        copies = [r[0] for r in cap.execute(
-            "SELECT DISTINCT copy FROM capture_zone WHERE student=?", (copy,)
-        )]
-        if not copies:
-            raise Failed(f"copy {copy} has no captured boxes")
-        if len(copies) > 1:
-            # Two scans of the same sheet is the one case the reading report
-            # flags as unreadable rather than resolving; annotating it would
-            # draw one scan's marks over the other's verdict.
-            raise Failed(f"copy {copy} was scanned more than once",
-                         "annotating a duplicate-scan copy needs a human decision")
-    finally:
-        cap.close()
+    # One scan index per copy, or a refusal: annotating a copy scanned more
+    # than once would draw one scan's marks over the other's verdict.
+    scan_index = scan_copy(data, copy)
 
     # Even with NO overrides this is a call: it means "converge to the raw
     # reading". The professor may have REVERTED a correction, which clears
@@ -670,7 +695,7 @@ def annotate_copy(body):
     # without it (measured against AMC 1.6.0).
     id_file = os.path.join(project, f"annotate-copy-{copy}.txt")
     with open(id_file, "w", encoding="utf-8") as f:
-        f.write(f"{copy}:{copies[0]}\n")
+        f.write(f"{copy}:{scan_index}\n")
 
     amc("annotate", "--data", data, "--project", project,
         "--cr", os.path.join(project, "cr"),

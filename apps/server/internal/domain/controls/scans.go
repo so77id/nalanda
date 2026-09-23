@@ -164,9 +164,12 @@ func (s *Service) AnalyzeBatch(ctx context.Context, controlID, batchName string,
 	// report lands — its corrections were made against an image that no
 	// longer exists (the worker has already cleared AMC's own `manual`
 	// column for it). Not in one transaction with the upsert: a failure
-	// between the two leaves a reset copy showing its previous reading,
-	// which the next upload or re-read repairs, and never an old
-	// correction applied to the new image.
+	// between the two leaves a reset copy showing its previous reading.
+	// Only an upload that re-scans the same copies repairs that — a re-read
+	// never resets anything — and the same holds when the report is lost
+	// altogether after the worker cleared `manual` (a restart mid-job): the
+	// server's overrides then outlive the image they were made on, and the
+	// next save of that copy re-applies them. ADR-0075 §Consequences.
 	result := AnalyzeResult{Report: report}
 	if report.Batch != nil && len(report.Batch.RecapturedCopies) > 0 {
 		published, err := s.Readings.ResetRecapturedCopies(ctx, control.ID, report.Batch.RecapturedCopies)

@@ -292,3 +292,26 @@ func TestResetScansOnAControlWithNoScansIsRefused(t *testing.T) {
 		t.Errorf("the worker was asked to reset %v on a control with no scans", gen.ResetCalls)
 	}
 }
+
+// #298 review, ARQ-1: an archived control is refused BEFORE the worker
+// empties its capture — the SQL guard alone would fire after.
+func TestResetScansRefusesAnArchivedControlBeforeTheWorker(t *testing.T) {
+	svc, _, gen, _ := newService(t)
+	control, err := createControlSync(context.Background(), svc, req(nil))
+	if err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+	if err := uploadBatch(t, svc, control.ID); err != nil {
+		t.Fatalf("upload: %v", err)
+	}
+	if err := svc.Archive(context.Background(), control.ID); err != nil {
+		t.Fatalf("Archive: %v", err)
+	}
+
+	if err := svc.ResetScans(context.Background(), control.ID); !errors.Is(err, controls.ErrControlNotFound) {
+		t.Fatalf("ResetScans on an archived control = %v, want ErrControlNotFound", err)
+	}
+	if len(gen.ResetCalls) != 0 {
+		t.Errorf("the worker was asked to reset %v an archived control", gen.ResetCalls)
+	}
+}

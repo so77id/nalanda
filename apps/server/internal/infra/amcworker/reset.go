@@ -20,12 +20,20 @@ import (
 // A worker that predates the route answers 404 through its dispatcher,
 // before any handler runs, and that arrives here as ErrAnalyzerRefused:
 // the caller destroys nothing on its side either.
+//
+// TryLock, not Lock: the lock is one mutex for EVERY project and does not
+// watch ctx, and the caller is a request goroutine the professor is
+// waiting on. Behind another control's minutes-long analyse, Lock would
+// hold the request far past its deadline and the server's write timeout
+// (measured in the #298 review, COR-1). A busy worker refuses at once.
 func (c *Client) ResetScans(ctx context.Context, project string) error {
 	if project == "" {
 		return fmt.Errorf("%w: project path is required", controls.ErrAnalyzerRefused)
 	}
 
-	c.generateLock.Lock()
+	if !c.generateLock.TryLock() {
+		return controls.ErrAnalyzerBusy
+	}
 	defer c.generateLock.Unlock()
 
 	body, err := json.Marshal(struct {

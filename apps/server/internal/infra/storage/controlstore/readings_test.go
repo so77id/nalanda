@@ -1370,3 +1370,66 @@ func TestResetScanResultsRefusesAnArchivedControl(t *testing.T) {
 		t.Errorf("an archived control lost its readings: %d left", len(readings))
 	}
 }
+
+// #298 review, COR-4: AC7 end to end at the store — a published copy that
+// is re-captured and re-read with a different grade derives as STALE (the
+// state that offers Reenviar), because the reset keeps its publication
+// record while dropping its corrections.
+func TestARecapturedPublishedCopyWhoseGradeMovedDerivesStale(t *testing.T) {
+	ctx, db := migrated(t)
+	const id = "CTRL0298STALE00000000AAAAA"
+	seedControl(t, ctx, db, id, 1)
+	store := controlstore.New(db)
+	control, err := store.ControlByID(ctx, id)
+	if err != nil {
+		t.Fatalf("ControlByID: %v", err)
+	}
+
+	now := time.Unix(1_758_500_000, 0).UTC()
+	first := sampleCopy("20123456", controls.CopyStatusOK, controls.RUTStatusOK)
+	first.Answers[1].Status = controls.AnswerStatusOK
+	if err := store.UpsertReadingsFromReport(ctx, id, controls.Report{
+		Copies: map[string]controls.ReportCopy{"1": first}}, now); err != nil {
+		t.Fatalf("Upsert: %v", err)
+	}
+	studentID := insertStudentRow(t, ctx, db, "canvas-298", "20123456", "5")
+	reading, _ := store.ReadingByCopy(ctx, id, 1)
+	if err := store.SetReadingStudent(ctx, reading.ID, &studentID); err != nil {
+		t.Fatalf("SetReadingStudent: %v", err)
+	}
+	reading, _ = store.ReadingByCopy(ctx, id, 1)
+	sentGrade, ok := controls.GradeFor(control.QuestionsPerCopy, reading)
+	if !ok {
+		t.Fatalf("the first reading has no grade: %+v", reading)
+	}
+	if err := store.MarkCopyPublished(ctx, reading.ID, now, sentGrade); err != nil {
+		t.Fatalf("MarkCopyPublished: %v", err)
+	}
+
+	// The re-scan: the copy is re-captured, reset, and read again with the
+	// first question now wrong.
+	if _, err := store.ResetRecapturedCopies(ctx, id, []int{1}); err != nil {
+		t.Fatalf("ResetRecapturedCopies: %v", err)
+	}
+	second := sampleCopy("20123456", controls.CopyStatusOK, controls.RUTStatusOK)
+	second.Answers[1].Status = controls.AnswerStatusOK
+	second.Answers[0].Score = 0
+	if err := store.UpsertReadingsFromReport(ctx, id, controls.Report{
+		Copies: map[string]controls.ReportCopy{"1": second}}, now.Add(time.Hour)); err != nil {
+		t.Fatalf("Upsert again: %v", err)
+	}
+	// annotateCleanCopies redraws a clean copy after the upsert.
+	if err := store.RecordAnnotated(ctx, controls.AnnotatedCopy{
+		ControlID: id, CopyNumber: 1, GeneratedAt: now.Add(time.Hour), Path: "x.pdf"}); err != nil {
+		t.Fatalf("RecordAnnotated: %v", err)
+	}
+
+	reread, _ := store.ReadingByCopy(ctx, id, 1)
+	annotated, _ := store.AnnotatedCopiesForControl(ctx, id)
+	recipients := map[int64]controls.Recipient{studentID: {Email: "ana@example.com"}}
+	got := controls.CopyPublicationFor(control, reread, recipients, annotated)
+	if got.State != controls.CopyStale {
+		t.Errorf("state = %q (sent %q, now %q), want stale — the student holds a grade the re-read moved",
+			got.State, got.SentGrade, got.Grade)
+	}
+}

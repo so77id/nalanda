@@ -27,11 +27,12 @@ const (
 // write timeout — same reasoning as copyPublishDeadline: Go's write
 // deadline neither aborts a handler nor cancels r.Context().
 //
-// SYNCHRONOUS ON PURPOSE, against the "an AMC-worker call is async"
-// rule: the worker only removes files, which is bounded, and the
-// professor is waiting to know whether the scans are gone. ScansReset
-// refuses while a job is in flight, so the worker's AMC lock is free
-// and the call does not queue behind a minutes-class analyse.
+// SYNCHRONOUS ON PURPOSE, the one exception to "an AMC-worker call is
+// async" (apps/server/CLAUDE.md, ADR-0075 §5): the worker only removes
+// files, which is bounded, and the professor is waiting to know whether
+// the scans are gone. It never waits on the worker's lock — that lock is
+// shared by every control, so the client refuses at once when another
+// control's job holds it (ErrAnalyzerBusy) rather than queueing.
 const scansResetDeadline = 25 * time.Second
 
 func controlScansResetConfirmURL(id string) string {
@@ -53,10 +54,18 @@ func (h *Controls) ScansResetConfirm(w http.ResponseWriter, r *http.Request) {
 }
 
 // ScansReset is the destructive POST. Gates, in order: the control exists,
-// is active and has scans (404 otherwise, same as the GET); no job is in
-// flight (409); the typed name equals the stored one verbatim (422 with
-// the value echoed back). Then Service.ResetScans: worker first, database
-// after.
+// is active and has scans (404 otherwise, same as the GET); no job of this
+// control is in flight (409); the typed name equals the stored one
+// verbatim (422 with the value echoed back). Then Service.ResetScans:
+// worker first, database after.
+//
+// The in-flight gate departs from add-a-backend-endpoint.md's fourth rule
+// on purpose (ADR-0075 §5): a 409 page rather than flash + 303, because the
+// route is a destructive-confirm pair whose other refusals are status pages
+// too; and a jobs-store read failure FAILS CLOSED (500, nothing deleted),
+// because the rule's "treat it as not in flight" was weighed for a send the
+// professor can repeat, and a wipe racing this control's own analyse cannot
+// be undone.
 func (h *Controls) ScansReset(w http.ResponseWriter, r *http.Request) {
 	c, summary, ok := h.scansResetTarget(w, r)
 	if !ok {
@@ -90,6 +99,11 @@ func (h *Controls) ScansReset(w http.ResponseWriter, r *http.Request) {
 		switch {
 		case errors.Is(err, controls.ErrNoScans):
 			middleware.WriteError(w, r, http.StatusNotFound, "Este control no tiene escaneos.")
+		case errors.Is(err, controls.ErrControlNotFound):
+			middleware.WriteError(w, r, http.StatusNotFound, "Ese control no existe o está archivado.")
+		case errors.Is(err, controls.ErrAnalyzerBusy):
+			middleware.WriteError(w, r, http.StatusConflict,
+				"El motor de lectura está trabajando en otro control; no se borró nada. Vuelve a intentarlo en unos minutos.")
 		case errors.Is(err, controls.ErrAnalyzerRefused), errors.Is(err, controls.ErrAnalyzerUnavailable),
 			errors.Is(err, context.DeadlineExceeded):
 			h.Log.Error("scans reset: worker", "id", c.ID, "error", err)
@@ -103,6 +117,14 @@ func (h *Controls) ScansReset(w http.ResponseWriter, r *http.Request) {
 				"Se borraron los archivos de escaneo pero no las lecturas. Vuelve a intentarlo para terminar.")
 		}
 		return
+	}
+	// The banner of the job that led here — a failed analyse, a notice about
+	// re-read copies — speaks of scans that no longer exist (#298 review,
+	// COR-6). Best-effort: the reset is done, and a banner is an aid.
+	if job, err := h.Jobs.LatestForControl(r.Context(), c.ID); err == nil && job.Status.IsTerminal() {
+		if err := h.Jobs.MarkDismissed(r.Context(), job.ID, time.Now()); err != nil {
+			h.Log.Warn("scans reset: dismissing the last banner", "id", c.ID, "error", err)
+		}
 	}
 	flash.Set(w, h.secureCookie,
 		"Escaneos de «"+c.Name+"» borrados. El control quedó como recién generado.")
@@ -154,24 +176,15 @@ func (h *Controls) renderScansResetConfirm(w http.ResponseWriter, r *http.Reques
 		Name:         c.Name,
 		DetailURL:    controlDetailURL(c.ID),
 		ResetURL:     controlScansResetURL(c.ID),
-		Uploads:      countPhrase(s.Uploads, "1 lote subido", "%d lotes subidos"),
-		Read:         countPhrase(s.Read, "1 copia leída", "%d copias leídas"),
-		Published:    s.Published,
-		PublishedTxt: countPhrase(s.Published, "1 copia ya publicada", "%d copias ya publicadas"),
-		CorrectedTxt: countPhrase(s.Corrected, "1 copia con correcciones a mano", "%d copias con correcciones a mano"),
+		UploadsTxt:   plural(s.Uploads, "1 lote subido", fmt.Sprintf("%d lotes subidos", s.Uploads)),
+		ReadTxt:      plural(s.Read, "1 copia leída", fmt.Sprintf("%d copias leídas", s.Read)),
+		HasPublished: s.Published > 0,
+		PublishedTxt: plural(s.Published, "1 copia ya publicada", fmt.Sprintf("%d copias ya publicadas", s.Published)),
+		CorrectedTxt: plural(s.Corrected, "1 copia con correcciones a mano", fmt.Sprintf("%d copias con correcciones a mano", s.Corrected)),
 		NameMismatch: mismatch,
 		Typed:        typed,
 	}
 	if err := view.RenderControlScansResetConfirm(w, status, page); err != nil {
 		h.Log.Error("rendering the scans reset confirmation page", "error", err)
 	}
-}
-
-// countPhrase is the page's number agreement: the singular sentence, or
-// the plural one with the count.
-func countPhrase(n int, one, many string) string {
-	if n == 1 {
-		return one
-	}
-	return fmt.Sprintf(many, n)
 }

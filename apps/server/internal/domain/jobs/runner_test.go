@@ -344,6 +344,30 @@ func TestRunnerRecordsANoticeAsADoneJob(t *testing.T) {
 	}
 }
 
+// #298 review, ARQ-9: only a BARE Notice is a success. A failure that
+// happens to carry one — joined or wrapped — is recorded as failed.
+func TestRunnerRecordsAFailureCarryingANoticeAsFailed(t *testing.T) {
+	store := newFakeStore()
+	handler := func(context.Context, string, []byte) error {
+		return errors.Join(&jobs.Failure{Message: "worker refused"}, &jobs.Notice{Message: "1 copia releída"})
+	}
+	runner := jobs.NewRunner(store, stubHandlers(jobs.KindAnalyse, handler),
+		silentLogger(), time.Now)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go runner.Start(ctx)
+
+	id, err := runner.Submit(ctx, "CTRL001", jobs.KindAnalyse, []byte(`{}`))
+	if err != nil {
+		t.Fatalf("Submit: %v", err)
+	}
+	final := waitForStatus(t, store, id, jobs.StatusFailed)
+	if final.Error != "worker refused" {
+		t.Errorf("Error = %q, want the failure's message", final.Error)
+	}
+}
+
 func TestRunnerRecoversFromAHandlerPanic(t *testing.T) {
 	store := newFakeStore()
 	handler := func(context.Context, string, []byte) error {

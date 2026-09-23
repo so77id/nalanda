@@ -6,7 +6,9 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/so77id/nalanda/apps/server/internal/domain/controls"
 	"github.com/so77id/nalanda/apps/server/internal/infra/amcworker"
@@ -51,5 +53,54 @@ func TestResetScansAgainstAWorkerWithoutTheRouteIsARefusal(t *testing.T) {
 	err := client.ResetScans(context.Background(), "controls/X")
 	if !errors.Is(err, controls.ErrAnalyzerRefused) {
 		t.Fatalf("ResetScans = %v, want ErrAnalyzerRefused", err)
+	}
+}
+
+// #298 review, COR-1: the client's lock is ONE mutex for every project and
+// does not watch ctx. A reset behind another control's analyse must refuse
+// at once, not hang the professor's request past its deadline.
+func TestResetScansRefusesWhileAnotherJobHoldsTheWorker(t *testing.T) {
+	analysing := make(chan struct{})
+	release := make(chan struct{})
+	var resetReached atomic.Bool
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/scans/reset" {
+			resetReached.Store(true)
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{}`))
+			return
+		}
+		close(analysing)
+		<-release
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(sampleReport))
+	}))
+	t.Cleanup(srv.Close)
+
+	client := amcworker.New(amcworker.Config{BaseURL: srv.URL})
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		_, _ = client.Analyze(context.Background(), controls.AnalyzeRequest{
+			Project: "controls/OTHER", ScanPDF: "s", Source: "t",
+			Ticked: controls.DefaultTicked, Unsure: controls.DefaultUnsure,
+		})
+	}()
+	<-analysing
+
+	start := time.Now()
+	err := client.ResetScans(context.Background(), "controls/X")
+	elapsed := time.Since(start)
+	close(release)
+	<-done
+
+	if !errors.Is(err, controls.ErrAnalyzerBusy) {
+		t.Fatalf("ResetScans during another analyse = %v, want ErrAnalyzerBusy", err)
+	}
+	if elapsed > time.Second {
+		t.Errorf("ResetScans took %v, want an immediate refusal", elapsed)
+	}
+	if resetReached.Load() {
+		t.Error("the worker received /scans/reset although the client refused")
 	}
 }

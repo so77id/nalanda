@@ -2,9 +2,9 @@
   <h1>Borrar los escaneos de {{ .Name }}</h1>
 
   <section class="aviso">
-    <p><strong>Esta acción NO SE PUEDE DESHACER.</strong> Se borran {{ .Uploads }},
-      {{ .Read }} y todo lo que se hizo sobre ellas: {{ .CorrectedTxt }} y los PDFs corregidos.</p>
-    {{ if .Published }}
+    <p><strong>Esta acción NO SE PUEDE DESHACER.</strong> Se borran {{ .UploadsTxt }},
+      {{ .ReadTxt }} y todo lo que se hizo sobre ellas: {{ .CorrectedTxt }} y los PDFs corregidos.</p>
+    {{ if .HasPublished }}
       <p><strong>{{ .PublishedTxt }} a sus estudiantes.</strong> Se pierde el registro de
         qué se envió y cuándo; los correos que ya salieron no se pueden recuperar.</p>
     {{ end }}

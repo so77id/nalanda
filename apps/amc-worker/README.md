@@ -301,6 +301,12 @@ Nothing in the capture tells the two controls apart. The repair is the same as
 for any bad batch — upload the right one, which replaces what the wrong one
 overwrote, or reset the scans.
 
+**A batch AMC half-wrote is refused.** AMC's analyse runs pages in
+parallel processes; when one's database write fails it logs `SQL ERROR`,
+drops the page and still exits 0. `/analyse` refuses that batch (400) rather
+than report a copy `incomplete` for no visible reason — re-uploading it is
+safe. Measured on a macOS bind mount; see `docs/standards/testing-strategy.md`.
+
 **A photocopy-mode capture is refused.** Every project captured before #298
 may hold one. The reader refuses a capture with any `copy > 0` box — exit 2,
 nothing on stdout, the project and the repair named — rather than concatenate

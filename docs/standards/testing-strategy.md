@@ -163,6 +163,18 @@ this is what found two assertions that could not fail — one that a hardcoded
 denominator satisfied, and one where the reader could emit an empty report on
 exit 0 — neither of which reading the diff had surfaced.
 
+**On a macOS host, a fresh AMC capture can lose a page to the bind mount.**
+AMC analyses pages in parallel processes that all write `capture.sqlite`, and
+over Docker Desktop's shared filesystem one of those writes sometimes fails
+with `SQL ERROR: … disk I/O error` — measured in #298's review: 3 of 10 fresh
+captures on the bind mount, 0 of 20 on the container's own filesystem. AMC
+still exits 0; since #298 the worker refuses such a batch
+(`auto-multiple-choice analyse lost pages to a database error`), so a check
+right after a first capture in `07-rescan.sh` can go red on a Mac with that
+message. It is the host, not the change: re-run the script. Production (the
+Jetson, a native Linux volume) is not exposed the same way, and the refusal is
+there so that it would be loud if it were.
+
 **A fixture added to kill a mutant names that mutant, at the fixture.** When the
 answer to "this assertion cannot fail" is a new fixture rather than a new
 assertion, its header says which mutant survived, that it survived the whole

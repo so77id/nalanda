@@ -83,6 +83,11 @@ analyse() { # analyse <project> <n>
 }
 
 PLAN_1='{"1": {"rut": "20123456", "answers": [1, 2, 3, 4]}}'
+
+# The pure helpers this WP added — batch_outcome, batch_list_name, sql_errors —
+# carry doctests; run them against the ARTIFACT, like everything else here.
+check "the worker's and the reader's doctests pass inside the image" \
+  docker run --rm -w /opt/amc-worker "$IMAGE" python3 -m doctest worker.py read_capture.py
 PLAN_2='{"2": {"rut": "19876543", "answers": [2, [1, 2], 1, 1]}}'
 
 # --- S1: each batch is analysed alone ------------------------------------------
@@ -226,7 +231,7 @@ check_eq "a batch recognised in part reads what it can and counts the rest" \
 # row on a re-capture: black/total move, `manual` stays. The professor's old
 # correction would then be applied to a new image. Issue #298 §C: the copy
 # comes back as freshly read.
-blank_all="$(echo "$full" | field 'json.dumps({"project": "p3", "copy": 1, "overrides": {"answers": [{"question": a["name"], "marked": []} for a in d["copies"]["1"]["answers"]]}})')"
+blank_all="$(echo "$full" | field 'json.dumps({"project": "p3", "copy": 1, "overrides": {"rut": "11111111", "answers": [{"question": a["name"], "marked": []} for a in d["copies"]["1"]["answers"]]}})')"
 post /annotate/copy "$blank_all" >/dev/null
 patched="$(post /reanalyse '{"project":"p3"}')"
 check_eq "a correction blanks copy 1 (so the check below is not vacuous)" "True" \
@@ -237,6 +242,15 @@ check_eq "re-scanning copy 1 reads its boxes from the pixels again" "True" \
   "$(echo "$fresh" | field 'all(a["marked"] for a in d["copies"]["1"]["answers"])')"
 check_eq "with no manual mark left on it" "0" \
   "$(sql p3 'SELECT COUNT(*) FROM capture_zone WHERE student = 1 AND manual >= 0')"
+# The RUT correction also forced an association (/annotate/copy's
+# _force_association): it named whose sheet the OLD image was.
+check_eq "and no association forced by the old RUT correction" "None" \
+  "$(docker run --rm -v "${work}:/work" "$IMAGE" python3 -c '
+import sqlite3
+c = sqlite3.connect("/work/p3/data/association.sqlite")
+row = c.execute("SELECT manual FROM association_association WHERE student = 1").fetchone()
+print(row[0] if row else "no row")
+' 2>/dev/null || echo "")"
 
 # --- S5: the reader refuses a photocopy-mode capture ----------------------------
 #
@@ -303,6 +317,15 @@ check_eq "as a first capture: nothing re-captured" \
 check_eq "and no correction survives it" "0" \
   "$(sql p3 'SELECT COUNT(*) FROM capture_zone WHERE manual >= 0')"
 
+status() { # status <path> <json> → the HTTP status alone
+  curl -s -o /dev/null -w '%{http_code}' -X POST -H 'Content-Type: application/json' \
+    -d "$2" "http://127.0.0.1:${PORT}$1"
+}
+check_eq "the volume root is not a project to reset" "400" "$(status /scans/reset '{"project":"."}')"
+mkdir -p "$work/not-a-project/scans" && touch "$work/not-a-project/scans/keep.png"
+check_eq "nor is a directory generation never produced" "400" \
+  "$(status /scans/reset '{"project":"not-a-project"}')"
+check "and it was left alone" test -e "$work/not-a-project/scans/keep.png"
 check_eq "a path outside the volume is refused" "400" \
   "$(curl -s -o /dev/null -w '%{http_code}' -X POST -H 'Content-Type: application/json' \
      -d '{"project":"../../etc"}' "http://127.0.0.1:${PORT}/scans/reset")"

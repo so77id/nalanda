@@ -9,8 +9,10 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/so77id/nalanda/apps/server/internal/domain/controls"
+	"github.com/so77id/nalanda/apps/server/internal/domain/jobs"
 )
 
 // Issue #298 §E — "Borrar escaneos y empezar de nuevo", the destructive-
@@ -129,6 +131,11 @@ func TestTheRightNameResetsTheScans(t *testing.T) {
 	if err != nil || c.State != controls.Generated {
 		t.Errorf("control state = %q (err %v), want generated", c.State, err)
 	}
+	// The banner of the analyse that preceded the reset speaks of scans
+	// that no longer exist (#298 review, COR-6).
+	if strings.Contains(getDetail(t, f, controlID), "análisis lista") {
+		t.Error("the detail page still shows the pre-reset analyse banner")
+	}
 
 	// The next upload is batch-1.pdf again.
 	uploadOnce(t, f, controlID)
@@ -175,5 +182,56 @@ func TestTheDetailPageLinksTheResetOnlyWithScans(t *testing.T) {
 	uploadOnce(t, f, controlID)
 	if !strings.Contains(getDetail(t, f, controlID), link) {
 		t.Error("a control with scans does not link to the reset")
+	}
+}
+
+// #298 review, COR-2: a reset while THIS control's job runs would race it —
+// the analyse writes readings back over the wiped capture. Refused, and
+// nothing reaches the worker.
+func TestTheScanResetIsRefusedWhileAJobRuns(t *testing.T) {
+	f := newControlsFixture(t)
+	controlID := f.createControl(t, "Control 298 en curso", 1)
+	f.fake.AnalyzeReports = []controls.Report{
+		{Copies: map[string]controls.ReportCopy{"1": okCopy("20100001")}},
+	}
+	uploadOnce(t, f, controlID)
+	ctx := context.Background()
+	id, err := f.jstore.Insert(ctx, jobs.NewJob{ControlID: controlID, Kind: jobs.KindReanalyse, Payload: []byte(`{}`)}, time.Now())
+	if err != nil {
+		t.Fatalf("Insert: %v", err)
+	}
+	if err := f.jstore.MarkRunning(ctx, id, time.Now()); err != nil {
+		t.Fatalf("MarkRunning: %v", err)
+	}
+
+	rec := resetPost(t, f, controlID, "Control 298 en curso")
+	if rec.Code != http.StatusConflict {
+		t.Fatalf("POST = %d, want 409", rec.Code)
+	}
+	if len(f.fake.ResetCalls) != 0 {
+		t.Errorf("the worker was asked to reset %v while a job ran", f.fake.ResetCalls)
+	}
+	if readings, _ := f.service.ReadingsFor(ctx, controlID); len(readings) != 1 {
+		t.Errorf("readings after a refused reset = %d, want 1", len(readings))
+	}
+}
+
+// #298 review, COR-1: a worker busy with ANOTHER control refuses at once;
+// the professor is told nothing was deleted.
+func TestABusyWorkerRefusesTheScanReset(t *testing.T) {
+	f := newControlsFixture(t)
+	controlID := f.createControl(t, "Control 298 motor ocupado", 1)
+	f.fake.AnalyzeReports = []controls.Report{
+		{Copies: map[string]controls.ReportCopy{"1": okCopy("20100001")}},
+	}
+	uploadOnce(t, f, controlID)
+	f.fake.ResetErr = controls.ErrAnalyzerBusy
+
+	rec := resetPost(t, f, controlID, "Control 298 motor ocupado")
+	if rec.Code != http.StatusConflict {
+		t.Fatalf("POST = %d, want 409", rec.Code)
+	}
+	if !strings.Contains(rec.Body.String(), "no se borró nada") {
+		t.Error("the page does not say nothing was deleted")
 	}
 }

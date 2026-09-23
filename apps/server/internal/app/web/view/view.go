@@ -422,11 +422,12 @@ type ControlScansResetConfirmPage struct {
 	Name      string
 	DetailURL string
 	ResetURL  string
-	// Uploads / Read / PublishedTxt / CorrectedTxt are the counts already
-	// in words ("2 copias leídas"); the template does no agreement.
-	Uploads      string
-	Read         string
-	Published    int
+	// The *Txt fields are the counts already in words ("2 copias leídas");
+	// the template does no agreement. HasPublished gates the warning about
+	// copies already mailed.
+	UploadsTxt   string
+	ReadTxt      string
+	HasPublished bool
 	PublishedTxt string
 	CorrectedTxt string
 	// NameMismatch and Typed: the re-render after a wrong name, same
