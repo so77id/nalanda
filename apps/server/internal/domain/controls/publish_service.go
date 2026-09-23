@@ -786,15 +786,15 @@ func credentialLost(err error) bool {
 
 // publishFailureReason words one failed send for the professor.
 //
-// Spanish, and specific enough to act on: the three outcomes need three
-// different actions, and "no se pudo enviar" for all of them would send a
-// professor to the wrong one.
+// Spanish, and specific enough to act on: the outcomes need different
+// actions, and "no se pudo enviar" for all of them would send a professor
+// to the wrong one.
+//
+// No credential case, on purpose: a lost credential never reaches here,
+// because the loop stops on it (credentialLost, issue #297) and the job
+// reports it once for the whole run.
 func publishFailureReason(err error) string {
 	switch {
-	case errors.Is(err, gmail.ErrNotConnected):
-		return "no hay una cuenta de Gmail conectada"
-	case errors.Is(err, gmail.ErrRejected):
-		return "se perdió la conexión con Gmail: vuelve a conectarla en tu perfil"
 	case errors.Is(err, ErrSendRefused):
 		return "Gmail rechazó el mensaje (puede ser la cuota diaria)"
 	case errors.Is(err, ErrSendUnavailable):

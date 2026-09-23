@@ -933,10 +933,16 @@ func (h *Controls) jobBannerFor(ctx context.Context, controlID string, gmailConn
 	if banner.Failed && job.Kind == jobs.KindPublish {
 		// ONLY a publication's detail reaches the banner (issue #297). Its
 		// handler writes Spanish sentences for the professor — which copies
-		// did not go out, and the repair. Every other kind stores the
-		// worker's stderr or a wrapped Go error there, for whoever triages
-		// the row, and rendering that would put English paths off the
-		// shared volume in front of the professor.
+		// did not go out, and the repair — and logs the raw error instead
+		// (TestAnUnexpectedPublishFailureShowsTheProfessorSpanishNotTheError).
+		// Every other kind stores the worker's stderr or a wrapped Go error
+		// there, for whoever triages the row, and rendering that would put
+		// English paths off the shared volume in front of the professor.
+		//
+		// One exception no handler controls: a PANIC. jobs.Runner records
+		// it for every kind as "panic: …" in the message AND the detail, so
+		// a publication that panics shows it twice. It is a bug report, and
+		// the message line has always carried it on every kind's banner.
 		banner.Detail = job.Detail
 		if !gmailConnected {
 			// The repair for a lost credential, offered for as long as it

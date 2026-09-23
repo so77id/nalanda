@@ -229,7 +229,11 @@ send had just disconnected it.
 returns the partial `PublishResult` TOGETHER WITH `ErrCredentialLost` (which
 wraps the dispatcher's cause), and the publish handler words it as one
 failure: the lost connection, how many corrections went out before it, and
-the repair — reconnect in the profile, press Publicar again. Every other
+the repair — reconnect in the profile, then repeat what was pressed. For a
+real publication that is Publicar, and only the unsent copies go; for a
+rehearsal (an Envío de prueba, or Publicar in `staging`) it is the rehearsal,
+since a rehearsal stamps nothing and plain Publicar would mail the class
+(#297 review, COR-2). Every other
 send error keeps §4's per-copy behaviour: a message Gmail refuses for its
 own reasons really is one copy's problem.
 
@@ -255,7 +259,8 @@ Google per remaining student and one misleading line per copy.
 **How it reaches the screen.** The job's `Detail` column, written since
 #273 and rendered by nothing, is now shown under a failed PUBLICATION's
 banner, line breaks kept — only that kind's, because every other kind
-stores the worker's stderr there for triage. And while the professor's
+stores the worker's stderr there for triage; and the publish handler
+therefore logs an unexpected error rather than storing its text there. And while the professor's
 Gmail is disconnected the banner links to `/profile`. The link is derived
 from the live connection on each render rather than stored on the job row:
 a stored "action" would need a migration and would keep offering the link
@@ -393,8 +398,9 @@ trade-off and re-introduces it.
 A run that dies leaves every sent copy on record. A copy whose send the
 provider refused is left unstamped, so the next Publicar picks it up — which
 also means the retry ADR-0050 deliberately does not automate is now one
-button rather than a manual chase. A run whose credential dies is the same case, one level up (§4b): it
-stops, and the press after reconnecting finishes it.
+button rather than a manual chase. A run whose credential dies is the same
+case, one level up (§4b): it stops, and the press after reconnecting
+finishes it.
 
 ### The list's denominator is approximate, on purpose
 

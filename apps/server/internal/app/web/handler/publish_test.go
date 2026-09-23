@@ -1229,23 +1229,32 @@ func TestBothScreensNameTheSameReasonForACopyFailingSeveralChecks(t *testing.T) 
 }
 
 // seedFailedJob records a terminal failure of the given kind on a control,
-// the way the runner would, so a case can render the banner it leaves
-// behind without driving the whole job to get there (issue #297).
+// so a case can render the banner it leaves behind without driving the
+// whole job to get there (issue #297).
 func seedFailedJob(t *testing.T, f *controlsFixture, controlID string, kind jobs.Kind, message, detail string) {
 	t.Helper()
+	seedTerminalJob(t, f, controlID, kind, jobs.StatusFailed, message, detail)
+}
 
-	ctx := context.Background()
-	id, err := f.jstore.Insert(ctx, jobs.NewJob{
-		ControlID: controlID, Kind: kind, Payload: []byte(`{}`),
-	}, time.Now())
-	if err != nil {
-		t.Fatalf("Insert: %v", err)
-	}
-	if err := f.jstore.MarkRunning(ctx, id, time.Now()); err != nil {
-		t.Fatalf("MarkRunning: %v", err)
-	}
-	if err := f.jstore.MarkFailed(ctx, id, message, detail, time.Now()); err != nil {
-		t.Fatalf("MarkFailed: %v", err)
+// seedTerminalJob writes a job row ALREADY in its terminal state, in one
+// INSERT.
+//
+// Not Insert → MarkRunning → MarkFailed through the store: the fixture's
+// runner is live, and after gradedControl's own jobs it is still polling
+// for queued rows — it claimed the seeded one first often enough to fail
+// these cases about one run in thirty (#297 review, COR-1/ARQ-2). A row
+// that is never queued is a row the runner cannot see.
+func seedTerminalJob(t *testing.T, f *controlsFixture, controlID string, kind jobs.Kind, status jobs.Status, message, detail string) {
+	t.Helper()
+
+	now := time.Now().Unix()
+	if _, err := f.db.ExecContext(context.Background(),
+		`INSERT INTO job (control_id, kind, status, error, detail, payload_json,
+		                  created_at, started_at, finished_at)
+		 VALUES (?, ?, ?, ?, ?, '{}', ?, ?, ?)`,
+		controlID, string(kind), string(status), message, detail, now, now, now,
+	); err != nil {
+		t.Fatalf("seed a %s %s job: %v", status, kind, err)
 	}
 }
 
@@ -1349,19 +1358,7 @@ func TestOnlyAFailedPublicationOffersTheProfileLink(t *testing.T) {
 		seed func(*testing.T, *controlsFixture, string)
 	}{
 		{"a publication that succeeded", func(t *testing.T, f *controlsFixture, controlID string) {
-			ctx := context.Background()
-			id, err := f.jstore.Insert(ctx, jobs.NewJob{
-				ControlID: controlID, Kind: jobs.KindPublish, Payload: []byte(`{}`),
-			}, time.Now())
-			if err != nil {
-				t.Fatalf("Insert: %v", err)
-			}
-			if err := f.jstore.MarkRunning(ctx, id, time.Now()); err != nil {
-				t.Fatalf("MarkRunning: %v", err)
-			}
-			if err := f.jstore.MarkDone(ctx, id, time.Now()); err != nil {
-				t.Fatalf("MarkDone: %v", err)
-			}
+			seedTerminalJob(t, f, controlID, jobs.KindPublish, jobs.StatusDone, "", "")
 		}},
 		{"a failed analysis", func(t *testing.T, f *controlsFixture, controlID string) {
 			seedFailedJob(t, f, controlID, jobs.KindAnalyse, "el motor de lectura rechazó el trabajo", "")

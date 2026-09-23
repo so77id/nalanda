@@ -786,20 +786,27 @@ the `avisoNo*` / `flash.Set(…)` string literals in `internal/app/web/handler/`
   the batch (issue #297, ADR-0073 §4b).** A send failing with
   `gmail.ErrRejected` or `gmail.ErrNotConnected` makes `Service.Publish`
   return the partial result together with `ErrCredentialLost`, and the
-  publish handler words it as ONE failure with the repair. Folding it back
-  into `Failures` is the 2026-09-22 incident: one Google call per remaining
-  copy, and eighteen lines telling the professor they had never connected
-  an account, because the first send had just cleared it. The handler must
-  test `ErrCredentialLost` BEFORE `failureFromPublishError`, whose
-  `ErrNotConnected` case matches the wrapped cause and says exactly that.
-  Stopping is safe for the reason resuming is — every sent copy is already
-  stamped. Every other send error stays per-copy.
+  publish handler words it as ONE failure with the repair — naming the
+  button the professor actually pressed, since a rehearsal stamps nothing
+  and plain Publicar mails the class. Folding it back into `Failures` is
+  the 2026-09-22 incident: one Google call per remaining copy, and eighteen
+  lines telling the professor they had never connected an account, because
+  the first send had just cleared it. `ErrCredentialLost` is the FIRST case
+  of `failureFromPublishError`, above the `ErrNotConnected` case that
+  matches the cause it wraps and says exactly that. Stopping is safe for the
+  reason resuming is — every sent copy is already stamped. Every other send
+  error stays per-copy.
 
   The failure banner renders `job.detail` for a failed PUBLICATION only
-  (`jobBannerFor`): that kind's detail is Spanish written for the professor,
-  every other kind's is stderr kept for triage. Its `/profile` link is
-  derived from the LIVE connection `fillPublication` already reads — never
-  stored on the job, so it disappears once the professor reconnects.
+  (`jobBannerFor`), so every `Detail` the publish handler writes is Spanish
+  for the professor, and an unexpected error is LOGGED, never stored there —
+  `err.Error()` in that column is an internal error on screen
+  (`TestAnUnexpectedPublishFailureShowsTheProfessorSpanishNotTheError`).
+  Every other kind's detail is stderr kept for triage. The one writer no
+  handler controls is `jobs.Runner`'s panic recovery, which puts the panic
+  in both columns for every kind. The banner's `/profile` link is derived
+  from the LIVE connection `fillPublication` already reads — never stored on
+  the job, so it disappears once the professor reconnects.
 - **A synchronous route imposes its OWN deadline, and the transport's is
   not one (issue #287 review, ARQ-1).** `handler.copyPublishDeadline` is
   25 s against `httpserver`'s 30 s `WriteTimeout`, beside `importDeadline`'s

@@ -207,9 +207,13 @@ func NewPublishHandler(svc *Service) jobs.Handler {
 	return func(ctx context.Context, controlID string, raw []byte) error {
 		var p PublishPayload
 		if err := json.Unmarshal(raw, &p); err != nil {
+			// The raw error goes to the log, not the row: since #297 a
+			// publication's detail is rendered on the banner.
+			svc.Log.Error("controls: unreadable publish payload",
+				"control", controlID, "error", err)
 			return &jobs.Failure{
 				Message: "no se pudo leer el trabajo de publicación",
-				Detail:  fmt.Sprintf("unmarshal payload: %v", err),
+				Detail:  "Vuelve a apretar el botón que usaste para enviarlas.",
 			}
 		}
 
@@ -218,14 +222,8 @@ func NewPublishHandler(svc *Service) jobs.Handler {
 			Mode:        PublishMode(p.Mode),
 			TestTo:      p.TestTo,
 		})
-		if errors.Is(err, ErrCredentialLost) {
-			// Before failureFromPublishError, which would match the
-			// ErrNotConnected this wraps and tell a professor whose
-			// connection just died that they never made one.
-			return credentialLostFailure(result)
-		}
 		if err != nil {
-			return failureFromPublishError(err)
+			return failureFromPublishError(svc, controlID, p, result, err)
 		}
 		if len(result.Failures) > 0 {
 			// A PARTIAL run is reported as a failure, and that is the
@@ -309,14 +307,29 @@ func publishDetail(r PublishResult) string {
 // the repair. Any copy that failed for its OWN reasons before the
 // credential died keeps its line under it — that one is still a copy's
 // problem, and a resume will retry it.
-func credentialLostFailure(r PublishResult) error {
+//
+// The repair names the button the professor actually pressed (#297
+// review, COR-2). A REHEARSAL — an Envío de prueba, or Publicar in
+// `staging` — stamps nothing, so "only the unsent copies will go" is false
+// for it; and sending someone who was rehearsing to plain Publicar sends
+// them to the button that mails the real class.
+func credentialLostFailure(p PublishPayload, r PublishResult) *jobs.Failure {
 	sent := "no se envió ninguna corrección"
 	if r.Sent > 0 {
 		sent = plural(r.Sent, "alcanzó a salir 1 corrección", "alcanzaron a salir %d correcciones")
 	}
-	detail := "Google dejó de aceptar tu cuenta. Vuelve a conectarla en tu perfil y " +
-		"aprieta Publicar otra vez: sólo se enviará a quienes todavía no recibieron " +
-		"su corrección."
+	var repair string
+	switch {
+	case p.TestTo != "":
+		repair = "Vuelve a conectarla en tu perfil y repite el envío de prueba."
+	case PublishMode(p.Mode) == PublishModeStaging:
+		repair = "Vuelve a conectarla en tu perfil y publica otra vez con " +
+			"«mi propia dirección (prueba)»."
+	default:
+		repair = "Vuelve a conectarla en tu perfil y aprieta Publicar otra vez: sólo se " +
+			"enviará a quienes todavía no recibieron su corrección."
+	}
+	detail := "Google dejó de aceptar tu cuenta. " + repair
 	if len(r.Failures) > 0 {
 		detail += "\n\n" + publishDetail(r)
 	}
@@ -326,12 +339,21 @@ func credentialLostFailure(r PublishResult) error {
 	}
 }
 
-// failureFromPublishError words the refusals that stop a publication
-// before it starts. Each one has a different repair, so each gets its own
-// sentence — a single "no se pudo publicar" would send the professor
-// looking in the wrong place.
-func failureFromPublishError(err error) error {
+// failureFromPublishError words the errors that stop a publication. Each
+// one has a different repair, so each gets its own sentence — a single "no
+// se pudo publicar" would send the professor looking in the wrong place.
+//
+// Every Detail here is Spanish written for the professor, and that is now
+// load-bearing: since #297 the control page RENDERS a failed publication's
+// detail (#297 review, ARQ-1/SEC-1). The default branch logs the raw error
+// rather than storing it.
+func failureFromPublishError(svc *Service, controlID string, p PublishPayload, r PublishResult, err error) error {
 	switch {
+	case errors.Is(err, ErrCredentialLost):
+		// FIRST, because it wraps gmail.ErrNotConnected and the next case
+		// would tell a professor whose connection just died that they never
+		// made one.
+		return credentialLostFailure(p, r)
 	case errors.Is(err, gmail.ErrNotConnected):
 		return &jobs.Failure{
 			Message: "no hay una cuenta de Gmail conectada",
@@ -354,9 +376,12 @@ func failureFromPublishError(err error) error {
 				"control quedó sin publicar.",
 		}
 	default:
+		svc.Log.Error("controls: publication failed",
+			"control", controlID, "error", err)
 		return &jobs.Failure{
 			Message: "no se pudo publicar",
-			Detail:  err.Error(),
+			Detail: "Algo falló en el servidor y el envío se detuvo. Vuelve a intentarlo en " +
+				"unos minutos; si se repite, avisa a quien administra el servidor.",
 		}
 	}
 }

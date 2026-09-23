@@ -731,6 +731,25 @@ func TestALostCredentialMidRunKeepsWhatWentOutBeforeIt(t *testing.T) {
 	if n := len(rig.dispatcher.sent) + len(rig.dispatcher.refused); n != 2 {
 		t.Errorf("Dispatcher.Send was called %d times, want 2 (copy 3 never attempted)", n)
 	}
+
+	// The repair the banner promises: reconnect, press Publicar, and only
+	// the copies still unsent go (#297 review, COR-4 — GMAIL-CHECK §5f
+	// cites this case for it).
+	delete(rig.dispatcher.failOn, "bruno@udp.cl")
+	rig.dispatcher.sent, rig.dispatcher.refused = nil, nil
+	second, err := rig.svc.Publish(context.Background(), rig.controlID,
+		controls.PublishRequest{ProfessorID: 7, Mode: controls.PublishModeReal})
+	if err != nil {
+		t.Fatalf("the Publish after reconnecting: %v", err)
+	}
+	if second.Sent != 2 || second.AlreadySent != 1 {
+		t.Errorf("the second run = %+v, want the two unsent copies sent and copy 1 skipped", second)
+	}
+	for _, msg := range rig.dispatcher.sent {
+		if msg.To == "ana@udp.cl" {
+			t.Error("the student who already had her correction received it a second time")
+		}
+	}
 }
 
 // The four refusals that stop a publication before anything is stamped.

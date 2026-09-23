@@ -343,9 +343,10 @@ anybody, but the rehearsal keeps the check free of students either way.
       conexión con Gmail: no se envió ninguna corrección`** — the lost
       connection, never `no hay una cuenta de Gmail conectada`, and ONE
       sentence rather than one per copy.
-- [ ] Under it, the repair: `Google dejó de aceptar tu cuenta. Vuelve a
-      conectarla en tu perfil y aprieta Publicar otra vez: …`, and a link
-      **Reconectar Gmail en mi perfil**.
+- [ ] Under it, the repair for a REHEARSAL: `Google dejó de aceptar tu
+      cuenta. Vuelve a conectarla en tu perfil y repite el envío de prueba.`
+      — never "aprieta Publicar", which is the button that mails the class
+      — and a link **Reconectar Gmail en mi perfil**.
 - [ ] On the Jetson, the run asked Google once. Exactly one
       `controls.Publish: send failed` line for this control in
       `docker compose logs --since 5m server`, run from the deploy
@@ -359,10 +360,11 @@ anybody, but the rehearsal keeps the check free of students either way.
       repair is done.
 - [ ] Press **Envío de prueba** again. The batch arrives in your inbox.
 
-What this does not reach: a credential that dies AFTER some copies went out,
-where the banner must read `alcanzó a salir 1 corrección` /
-`alcanzaron a salir N correcciones` and the next Publicar must send only the
-rest. The suite pins both (`TestALostCredentialMidRunKeepsWhatWentOutBeforeIt`,
+What this does not reach: a REAL publication whose credential dies, above
+all after some copies went out — where the banner must read `alcanzó a salir
+1 corrección` / `alcanzaron a salir N correcciones`, the repair must say
+`aprieta Publicar otra vez`, and the next Publicar must send only the rest.
+The suite pins all three (`TestALostCredentialMidRunKeepsWhatWentOutBeforeIt`,
 `TestALostCredentialIsReportedOnceWithItsRepair`); reproducing it for real
 means revoking the grant during a real publication's first second, which
 §5c already asks of a stopped container and which is not worth mailing a
