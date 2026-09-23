@@ -49,6 +49,7 @@ export { MdxPre } from './MdxPre';
 export { Figure } from './media/Figure';
 export { MathTex } from './media/Math';
 export type { MathTexProps } from './media/Math';
+export { PdfEmbed } from './media/PdfEmbed';
 export { SheetEmbed } from './media/SheetEmbed';
 export { VideoEmbed } from './media/VideoEmbed';
 export { Explanation } from './interactive/Explanation';
