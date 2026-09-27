@@ -180,6 +180,28 @@ is `apps/amc-worker/PAPER-CHECK.md` (`make paper` → print → mark → scan �
 "execution is invisible to the suite" above: a green run here is not evidence
 the thing works.
 
+### Assert what the human gets, not what the handler produced
+
+A recurring shape of "green for the wrong reason", recorded 2026-09-07
+after issue #279.
+
+The flash-message tests on `apps/server`'s course screens all read the
+one-shot cookie off the POST response. Every one passed while the message
+was invisible to the professor for four months, because no handler on the
+destination page called `flash.Consume` — the assertion proved the server
+had *said* something, never that anybody was *told*.
+
+The rule this generalises to: **when the thing under test is something a
+person perceives, the assertion goes against the artefact the person
+receives.** For a POST/redirect/GET flow that means following the
+redirect and inspecting the HTML, not inspecting the header or the cookie
+the redirect carries. It is the same reason `apps/web`'s browser check
+looks at a screenshot rather than at the DOM, and the same reason
+`PAPER-CHECK.md` exists at all.
+
+Worked case: `TestEveryFlashOnTheCourseScreensReachesThePage`
+(`internal/app/web/handler/courses_test.go`).
+
 ## Protocols — `apps/server` (Go)
 
 Born with the app in #149. Style rules for the tests themselves live in
