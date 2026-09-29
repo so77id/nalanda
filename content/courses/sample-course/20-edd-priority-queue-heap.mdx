@@ -9,7 +9,132 @@ questions: none
 
 # Estructuras de Datos · Priority Queue y Heap
 
-{/* S3 — apertura sin encabezado: el contrato Priority Queue. */}
+La cola atiende en el orden de llegada, y esa es la única regla que conoce.
+Muchos problemas necesitan otra: atender primero al **más importante**,
+llegue cuando llegue. Esta clase estudia el contrato que hace exactamente
+eso —la **cola de prioridad**— y tres formas de construirlo. Las dos
+primeras salen de la lista enlazada y cada una paga caro en una operación.
+La tercera, el **heap**, reparte el costo entre las dos, y de paso muestra
+que un mismo arreglo puede leerse como un árbol.
+
+<Slide title="Una cola de prioridad">
+Una **cola de prioridad** es una colección donde cada elemento trae una
+**prioridad**, y el que sale no es el que llegó primero sino el de
+**prioridad más alta**. En esta clase la prioridad es el propio valor: un
+número mayor es más urgente.
+
+<svg viewBox="0 0 700 250" style={{ width: '100%', maxWidth: '700px', height: 'auto', display: 'block', margin: '1.25rem auto' }} role="img" aria-label="Llegan, en este orden, 3, 8, 1 y 5. Una cola común los deja salir en el mismo orden: primero el 3. Una cola de prioridad deja salir primero el 8, el mayor, aunque llegó segundo.">
+  <defs>
+    <marker id="pq-idea-punta" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+      <path d="M0,0 L8,4 L0,8 z" style={{ fill: 'var(--color-ink-soft)' }} />
+    </marker>
+    <marker id="pq-idea-punta-sale" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+      <path d="M0,0 L8,4 L0,8 z" style={{ fill: 'var(--color-accent)' }} />
+    </marker>
+  </defs>
+  <text x="20" y="26" fontSize="14" fontWeight="700" style={{ fill: 'var(--color-ink-soft)' }}>llegan, en este orden</text>
+  {[3, 8, 1, 5].map((v, i) => (
+    <g key={v}>
+      <rect x={20 + i * 56} y="40" width="44" height="44" rx="3" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.4" />
+      <text x={42 + i * 56} y="69" textAnchor="middle" fontSize="20" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{v}</text>
+    </g>
+  ))}
+  <line x1="250" y1="62" x2="300" y2="62" style={{ stroke: 'var(--color-ink-soft)' }} strokeWidth="1.6" markerEnd="url(#pq-idea-punta)" />
+  <text x="320" y="56" fontSize="15" fontWeight="700" style={{ fill: 'var(--color-ink)' }}>Queue</text>
+  <text x="320" y="78" fontSize="13" style={{ fill: 'var(--color-ink-faint)' }}>sale el primero que llegó</text>
+  <rect x="560" y="40" width="44" height="44" rx="3" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.4" />
+  <text x="582" y="69" textAnchor="middle" fontSize="20" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>3</text>
+  <line x1="250" y1="182" x2="300" y2="182" style={{ stroke: 'var(--color-accent)' }} strokeWidth="2.2" markerEnd="url(#pq-idea-punta-sale)" />
+  <text x="320" y="176" fontSize="15" fontWeight="700" style={{ fill: 'var(--color-ink)' }}>Priority Queue</text>
+  <text x="320" y="198" fontSize="13" style={{ fill: 'var(--color-ink-faint)' }}>sale el de prioridad más alta</text>
+  <rect x="560" y="160" width="44" height="44" rx="3" style={{ fill: 'var(--color-mark-soft)', stroke: 'var(--color-accent)' }} strokeWidth="2.4" />
+  <text x="582" y="189" textAnchor="middle" fontSize="20" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>8</text>
+  <text x="582" y="226" textAnchor="middle" fontSize="12" style={{ fill: 'var(--color-ink-faint)' }}>llegó segundo</text>
+</svg>
+
+El orden de llegada deja de importar para decidir quién sale. Sólo decide
+la prioridad, y lo único visible de la colección es su máximo.
+
+</Slide>
+
+<Slide title="Colas de prioridad en la vida real">
+Una cola de prioridad aparece en cualquier lugar donde se atiende por
+urgencia y no por turno.
+
+- **El triage de una sala de urgencias.** Cada paciente recibe una
+  categoría al llegar, y el médico atiende al más grave de los que esperan,
+  no al que lleva más tiempo sentado.
+- **El planificador de un sistema operativo.** Entre los procesos listos
+  para ejecutarse, el procesador se entrega al de prioridad más alta.
+- **La simulación por eventos.** Cada evento futuro se guarda con el
+  instante en que ocurre, y la simulación avanza procesando siempre el más
+  próximo. Aquí la prioridad más alta es el tiempo **menor**: el mismo
+  contrato, con el orden invertido.
+- **Los trabajos de una impresora compartida**, cuando un trabajo urgente
+  puede pasar delante de los que ya estaban en espera.
+
+Los cuatro necesitan lo mismo: agregar cuando llega algo nuevo y sacar el
+más importante. Ese comportamiento está definido en un **tipo de dato
+abstracto** (TDA) llamado **Priority Queue**.
+
+</Slide>
+
+<Slide title="El TDA Priority Queue">
+La **Priority Queue** es una colección donde cada elemento entra con su
+prioridad y **sólo el máximo es visible**: se consulta el máximo y se saca el
+máximo.
+
+<div style={{ border: '1px solid var(--color-rule)', borderRadius: '8px', overflow: 'hidden', margin: '1.25rem 0' }}>
+  <div style={{ background: 'var(--color-sunk)', padding: '0.55rem 0.9rem', borderBottom: '1px solid var(--color-rule)', fontWeight: 700 }}>Priority Queue <span style={{ fontWeight: 400, color: 'var(--color-ink-faint)' }}>· el contrato</span></div>
+  <div style={{ display: 'grid', gridTemplateColumns: 'max-content 1fr', columnGap: '2rem' }}>
+  <div style={{ gridColumn: '1 / -1', padding: '0.7rem 0.9rem 0.15rem', fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.08em', color: 'var(--color-ink-faint)' }}>CREAR</div>
+  <code style={{ padding: `0.15rem 0 0.7rem 0.9rem`, whiteSpace: 'nowrap' }}>build()</code>
+  <span style={{ padding: `0.15rem 0.9rem 0.7rem 0` }}>construye la cola de prioridad sin elementos</span>
+  <div style={{ gridColumn: '1 / -1', borderTop: '1px solid var(--color-rule)', padding: '0.7rem 0.9rem 0.15rem', fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.08em', color: 'var(--color-keep)' }}>CONSULTAR · no cambian nada</div>
+  <code style={{ padding: `0.15rem 0 0.3rem 0.9rem`, whiteSpace: 'nowrap' }}>max() → elemento</code>
+  <span style={{ padding: `0.15rem 0.9rem 0.3rem 0` }}>el de prioridad más alta · la colección no cambia</span>
+  <code style={{ padding: `0.15rem 0 0.3rem 0.9rem`, whiteSpace: 'nowrap' }}>isEmpty() → booleano</code>
+  <span style={{ padding: `0.15rem 0.9rem 0.3rem 0` }}>si no hay ningún elemento</span>
+  <code style={{ padding: `0.15rem 0 0.7rem 0.9rem`, whiteSpace: 'nowrap' }}>size() → entero</code>
+  <span style={{ padding: `0.15rem 0.9rem 0.7rem 0` }}>cuántos elementos hay</span>
+  <div style={{ gridColumn: '1 / -1', borderTop: '1px solid var(--color-rule)', padding: '0.7rem 0.9rem 0.15rem', fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.08em', color: 'var(--color-accent)' }}>MODIFICAR · cambian el estado</div>
+  <code style={{ padding: `0.15rem 0 0.3rem 0.9rem`, whiteSpace: 'nowrap' }}>insert(x)</code>
+  <span style={{ padding: `0.15rem 0.9rem 0.3rem 0` }}>agrega x con su prioridad · largo + 1</span>
+  <code style={{ padding: `0.15rem 0 0.7rem 0.9rem`, whiteSpace: 'nowrap' }}>extractMax() → elemento</code>
+  <span style={{ padding: `0.15rem 0.9rem 0.7rem 0` }}>saca el de prioridad más alta y lo devuelve · largo − 1</span>
+  </div>
+  <div style={{ padding: '0.65rem 0.9rem', borderTop: '1px solid var(--color-rule)', background: 'var(--color-sunk)' }}>
+    <div style={{ fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.08em', color: 'var(--color-ink-faint)' }}>LO QUE NO DICE</div>
+    <div style={{ marginTop: '0.35rem' }}>Dónde viven los elementos, en qué orden están guardados, ni cuánto cuesta cada operación. Tampoco dice cuál sale entre dos de igual prioridad, ni hay manera de pedir el segundo mayor: el máximo es el único elemento visible.</div>
+  </div>
+</div>
+
+La diferencia con el TDA Queue está en una sola palabra: `extractMax` no
+devuelve el que llegó primero, devuelve **el máximo**. El orden de llegada
+no forma parte del contrato.
+
+El protocolo es el de siempre: **`max()` y `extractMax()` sólo se pueden
+llamar cuando `isEmpty()` es falso.** Sobre una colección vacía no hay
+máximo que devolver.
+
+</Slide>
+
+<Slide title="Tres formas de guardar una cola de prioridad">
+El contrato no dice dónde viven los elementos, así que hay que elegir. Esta
+clase construye tres implementaciones del mismo TDA:
+
+1. **Una lista enlazada sin orden.** Cada elemento se agrega donde es más
+   barato, y el máximo se busca sólo cuando alguien lo pide.
+2. **Una lista enlazada ordenada de mayor a menor.** El máximo queda siempre
+   al frente, y el trabajo pasa a la inserción, que busca el lugar de cada
+   elemento nuevo.
+3. **Un heap.** Un arreglo organizado como árbol, con un orden más débil que
+   el de la lista ordenada y suficiente para encontrar el máximo al instante.
+
+Las tres cumplen el mismo contrato y ninguna lo cambia. Lo que cambia es
+**dónde se paga**: al insertar, al extraer, o un poco en cada una.
+
+</Slide>
 
 <SectionBreak />
 

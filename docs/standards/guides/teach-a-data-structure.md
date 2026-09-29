@@ -238,6 +238,12 @@ published documents and re-verifying three classes in a browser, which is a
 WP of its own and not a slice of a course-document WP. The next class that
 needs a TDA card should do the extraction rather than make it five.
 
+**It did make it five, and that is a stated deviation, not a silent one.**
+#304 (Priority Queue y Heap) needed a card for its TDA, and the professor
+chose to copy it a fifth time rather than grow a course-document PR by a
+component, a catalog entry and four re-verified classes. The extraction is
+tracked in **#305**; the sixth card waits for it.
+
 Costs never appear in the contract. They belong to an implementation, and
 putting them here is the single mistake that collapses the TDA/EDA distinction
 the unit is built on.
