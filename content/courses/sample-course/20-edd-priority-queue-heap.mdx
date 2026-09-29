@@ -747,13 +747,153 @@ diferencia es entre un billón de pasos y unas decenas de millones.
 
 ## El min-heap
 
-{/* S7 — el invariante volteado y un caso. */}
+<Slide title="El orden de heap invertido">
+Un **min-heap** es un heap con la primera invariante dada vuelta: **el valor
+de cada nodo es menor o igual que los valores de sus hijos.** Siguiendo
+cualquier camino hacia arriba los valores nunca suben, así que en la raíz
+queda el **mínimo**.
+
+<HeapPicture values={[2, 5, 3, 9, 6]} view="tree" label="Un min-heap de cinco nodos. La raíz es 2; sus hijos son 5 y 3; los hijos de 5 son 9 y 6. Cada nodo es menor o igual que sus hijos." />
+
+Todo lo demás es idéntico: la forma completa, el arreglo desde 1, la
+aritmética de índices, `swim` y `sink`. Lo único que cambia es el sentido
+de las tres comparaciones que deciden si un nodo sube o baja:
+
+```java
+data[k / 2] > data[k]     // swim: sube mientras el padre sea mayor
+data[j] > data[j + 1]     // sink: j pasa al hijo menor
+data[k] <= data[j]        // sink: se detiene si k ya es menor o igual
+```
+
+El contrato cambia de nombre y no de forma: `min()` y `extractMin()` en
+lugar de `max()` y `extractMax()`, con los mismos costos.
+
+</Slide>
+
+<Slide title="Un min-heap para una simulación por eventos">
+Una simulación por eventos guarda cada evento futuro con el instante en que
+ocurre, y avanza siempre procesando **el más próximo**. La prioridad más
+alta es el tiempo **menor**, y eso es un min-heap.
+
+Si los eventos pendientes ocurren en los instantes 9, 2, 6, 3 y 5, el heap
+los guarda así:
+
+<HeapPicture values={[2, 3, 6, 9, 5]} label="Un min-heap de instantes: 2 en la raíz, 3 y 6 como sus hijos, 9 y 5 como hijos del 3. En el arreglo, data[1] a data[5] guardan 2, 3, 6, 9 y 5, y data[0] no se usa." />
+
+`extractMin()` entrega el 2, el evento que ocurre primero. Procesarlo suele
+crear eventos nuevos, más adelante en el tiempo, y cada uno entra con
+`insert` en $$O(\log N)$$. La simulación nunca ordena la lista entera de
+eventos: sólo necesita saber, en cada momento, cuál viene.
+
+</Slide>
 
 <SectionBreak />
 
 ## PriorityQueue en Java
 
-{/* S7 — java.util.PriorityQueue y Comparator. */}
+<Slide title="La clase PriorityQueue">
+Java trae una cola de prioridad en `java.util.PriorityQueue`, y es un heap
+binario guardado en un arreglo, el mismo de esta clase. Con una
+diferencia que sorprende la primera vez: **es un min-heap**. Sin más
+indicación, `poll()` devuelve el menor.
+
+```java
+PriorityQueue<Integer> pq = new PriorityQueue<>();
+pq.add(5);
+pq.add(1);
+pq.add(8);
+
+int first = pq.poll();   // 1: el menor, no el primero que entró
+```
+
+Los nombres del TDA en la clase de Java:
+
+| TDA            | `PriorityQueue`     |
+| -------------- | ------------------- |
+| `insert(x)`    | `add(x)`            |
+| `min()`        | `peek()`            |
+| `extractMin()` | `poll()`            |
+| `isEmpty()`    | `isEmpty()`         |
+| `size()`       | `size()`            |
+
+Sobre una cola vacía, `peek()` y `poll()` **no** lanzan una excepción:
+devuelven `null`. Con `Integer`, guardar ese `null` en un `int` sí la lanza,
+así que preguntar `isEmpty()` antes sigue siendo trabajo de quien usa la
+cola.
+
+</Slide>
+
+<Slide title="Un max-heap con Comparator.reverseOrder">
+Para que `poll()` devuelva el mayor, el constructor recibe un
+**`Comparator`** que invierte el orden natural:
+
+```java
+PriorityQueue<Integer> pq = new PriorityQueue<>(Comparator.reverseOrder());
+pq.add(5);
+pq.add(1);
+pq.add(8);
+
+int first = pq.poll();   // 8: ahora sale el mayor
+```
+
+La clase no cambia. `PriorityQueue` siempre saca el que el comparador
+considera menor, y `reverseOrder()` hace que el mayor de los enteros sea
+el menor para el comparador. Es la misma idea que el min-heap: el heap es
+uno solo, lo que se invierte es la comparación.
+
+</Slide>
+
+<Slide title="Prioridad según un criterio propio">
+Los elementos de una cola de prioridad casi nunca son números sueltos. Son
+objetos, y la prioridad es uno de sus campos. El comparador dice cuál de
+los campos, y en qué sentido:
+
+```java
+class Task {
+    String name;
+    int urgency;
+
+    Task(String name, int urgency) {
+        this.name = name;
+        this.urgency = urgency;
+    }
+}
+
+PriorityQueue<Task> tasks =
+    new PriorityQueue<>((a, b) -> Integer.compare(b.urgency, a.urgency));
+tasks.add(new Task("respaldo", 2));
+tasks.add(new Task("caída del servidor", 9));
+tasks.add(new Task("informe", 5));
+
+Task next = tasks.poll();   // "caída del servidor": la urgencia más alta
+```
+
+Comparar `b` con `a`, y no `a` con `b`, es lo que convierte al min-heap de
+Java en un max-heap por urgencia. Más ejemplos de comparadores sobre
+`PriorityQueue`, en
+[este gist](https://gist.github.com/so77id/b78952de9dc850446ab7d1507692cb18).
+
+</Slide>
+
+<Slide title="Costos de PriorityQueue">
+La documentación de `PriorityQueue` da los mismos costos que el heap de esta
+clase, porque es el mismo heap:
+
+| Operación                | Costo          |
+| ------------------------ | -------------- |
+| `add(x)`, `poll()`       | $$O(\log N)$$  |
+| `peek()`, `size()`       | $$\Theta(1)$$  |
+| `contains(x)`, `remove(x)` | $$\Theta(N)$$ |
+
+La última fila es la que el orden débil cobra. Buscar un elemento cualquiera
+no tiene atajo, porque el heap sólo sabe dónde está el mínimo: el resto del
+arreglo hay que recorrerlo.
+
+Por la misma razón, **imprimir una `PriorityQueue` no la muestra ordenada**.
+`System.out.println(pq)` recorre el arreglo en el orden en que está guardado,
+que es el orden de heap. Lo único garantizado es que el primero es el menor.
+
+</Slide>
 
 <SectionBreak />
 
