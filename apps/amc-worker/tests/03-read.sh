@@ -53,7 +53,7 @@ pipeline() {
     auto-multiple-choice getimages --list /work/project/scans/list.txt \
       --vector-density 300 --copy-to /work/project/scans /work/scan/lote.pdf >/dev/null 2>&1
     auto-multiple-choice analyse --data /work/project/data --projet /work/project \
-      --cr /work/project/cr --multiple --liste-fichiers /work/project/scans/list.txt >/dev/null 2>&1
+      --cr /work/project/cr --liste-fichiers /work/project/scans/list.txt >/dev/null 2>&1
   '
 }
 
@@ -404,7 +404,7 @@ damaged_pipeline() {
     auto-multiple-choice getimages --list /work/project/scans/list.txt \
       --vector-density 300 --copy-to /work/project/scans /work/scan/lote.pdf >/dev/null 2>&1
     auto-multiple-choice analyse --data $D --projet /work/project \
-      --cr /work/project/cr --multiple --liste-fichiers /work/project/scans/list.txt >/dev/null 2>&1
+      --cr /work/project/cr --liste-fichiers /work/project/scans/list.txt >/dev/null 2>&1
     # Scoring AFTER capture, always (worker.py TRAP 3). The reader needs it to
     # know the type of each question and what it was worth, and refuses to
     # read a project without it.
@@ -479,7 +479,7 @@ multiple_pipeline() {
     auto-multiple-choice getimages --list /work/project/scans/list.txt \
       --vector-density 300 --copy-to /work/project/scans /work/scan/lote.pdf >/dev/null 2>&1
     auto-multiple-choice analyse --data $D --projet /work/project \
-      --cr /work/project/cr --multiple --liste-fichiers /work/project/scans/list.txt >/dev/null 2>&1
+      --cr /work/project/cr --liste-fichiers /work/project/scans/list.txt >/dev/null 2>&1
     auto-multiple-choice prepare --mode b --with pdflatex --data $D --n-copies 5 \
       --prefix /work/project /work/src/control-demo.tex >/dev/null 2>&1
     auto-multiple-choice note --data $D --seuil 0.3 >/dev/null 2>&1
@@ -537,7 +537,7 @@ tres_pipeline() {
     auto-multiple-choice getimages --list /work/project/scans/list.txt \
       --vector-density 300 --copy-to /work/project/scans /work/scan/lote.pdf >/dev/null 2>&1
     auto-multiple-choice analyse --data $D --projet /work/project \
-      --cr /work/project/cr --multiple --liste-fichiers /work/project/scans/list.txt >/dev/null 2>&1
+      --cr /work/project/cr --liste-fichiers /work/project/scans/list.txt >/dev/null 2>&1
     auto-multiple-choice prepare --mode b --with pdflatex --data $D --n-copies 1 \
       --prefix /work/project /work/src/control-tres.tex >/dev/null 2>&1
     auto-multiple-choice note --data $D --seuil 0.3 >/dev/null 2>&1

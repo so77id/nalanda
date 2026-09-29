@@ -77,6 +77,13 @@ case: the deployed shape (#66).
    promoted course prose voice/register/titles into `course-content-style.md`
    and added the corresponding Checklist bullet to
    `add-a-course-document.md`.
+   **When a rule gains an exception, the rule's own home names it** — in
+   place, not in a bullet further down — **and states the bar the next
+   exception must clear.** Otherwise the file reads as two contradictory
+   rules and the next author copies whichever they read first. Worked case:
+   #298's synchronous scans reset, named inside `apps/server/CLAUDE.md`'s
+   "an AMC-worker call is async" rule with "a second exception needs the
+   same two properties, and an ADR".
 5. **English everywhere** in repo artifacts. Spanish for everything the _reader_
    perceives — course content, UI chrome, and accessible names — plus real-time
    conversation (root `CLAUDE.md` §Language). `/catalog` is the exception that

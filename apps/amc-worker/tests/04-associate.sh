@@ -48,7 +48,7 @@ pipeline() {
     auto-multiple-choice getimages --list /work/project/scans/list.txt \
       --vector-density 300 --copy-to /work/project/scans /work/scan/lote.pdf >/dev/null 2>&1
     auto-multiple-choice analyse --data $D --projet /work/project --cr /work/project/cr \
-      --multiple --liste-fichiers /work/project/scans/list.txt >/dev/null 2>&1
+      --liste-fichiers /work/project/scans/list.txt >/dev/null 2>&1
     auto-multiple-choice prepare --mode b --with pdflatex --data $D --prefix /work/project \
       /work/src/control-demo.tex >/dev/null 2>&1
     auto-multiple-choice note --data $D --seuil 0.3 >/dev/null 2>&1
@@ -58,17 +58,18 @@ pipeline() {
 check "the pipeline runs up to scoring" pipeline
 
 associations() { # → "<copy>:<id>:<auto|manual|none>" per line
-  # Keyed on (student, copy), which is how AMC itself keys an association. A row
-  # with copy=0 is NOT an association — see the ghost-row check below — so
-  # reading only `student` here would report the very bug this test exists to
-  # catch as a success.
+  # Keyed on (student, copy), which is how AMC itself keys an association. The
+  # batch is captured in single mode (#298), so every sheet sits at copy index
+  # 0 and a row at any other index is NOT an association — see the ghost-row
+  # check below — so reading only `student` here would report the very bug
+  # this test exists to catch as a success.
   run python3 -c "
 import sqlite3
 c = sqlite3.connect('/work/project/data/association.sqlite')
 rows = {(r[0], r[1]): (r[2], r[3])
         for r in c.execute('select student,copy,manual,auto from association_association')}
 for s in range(1, 6):
-    manual, auto = rows.get((s, 1), (None, None))
+    manual, auto = rows.get((s, 0), (None, None))
     if manual: print('%d:%s:manual' % (s, manual))
     elif auto: print('%d:%s:auto' % (s, auto))
     else: print('%d::none' % s)
@@ -122,17 +123,23 @@ check_contains "copy 3 needed review yet still associated (the two failures are 
 # --- manual injection, no GUI ------------------------------------------------
 
 # THE TRAP, pinned first because everything after it depends on avoiding it:
-# `--set` without `--copy` exits 0, prints nothing, and writes a row with
-# copy=0 that AMC's own listing ignores and that grading never reads. A review
-# queue built on that call would look like it worked — the professor types the
-# RUT, the tool reports success — and the grade would silently never land.
+# `--set` under a `--copy` the capture does not carry exits 0, prints nothing,
+# and writes a row that grading never reads. A review queue built on that call
+# would look like it worked — the professor types the RUT, the tool reports
+# success — and the grade would silently never land.
+#
+# Which index is the wrong one depends on the capture mode. In photocopy mode
+# (`analyse --multiple`, what the worker ran before #298) sheets sit at copy 1
+# and the ghost was the row `--set` writes WITHOUT `--copy`, at 0. In single
+# mode, which is what this batch and the worker use now, sheets sit at 0 and
+# the ghost is `--copy 1` — the literal the wrapper hardcoded before #298.
 ghost="$(run auto-multiple-choice association --data /work/project/data \
-  --set --student 4 --id 99999999 2>&1 || true)"
-check_eq "a --set without --copy says nothing at all" "" "$(echo "$ghost" | tr -d '[:space:]')"
+  --set --student 4 --copy 1 --id 99999999 2>&1 || true)"
+check_eq "a --set under the wrong copy index says nothing at all" "" "$(echo "$ghost" | tr -d '[:space:]')"
 ghost_rows="$(run python3 -c "
 import sqlite3
 c = sqlite3.connect('/work/project/data/association.sqlite')
-print(c.execute('select count(*) from association_association where copy=0').fetchone()[0])
+print(c.execute('select count(*) from association_association where copy=1').fetchone()[0])
 " 2>/dev/null)"
 check_eq "yet it wrote a row" "1" "$ghost_rows"
 check_contains "and the copy is STILL unassociated (the row is a ghost)" "4::none" "$(associations)"
@@ -140,11 +147,11 @@ check_contains "and the copy is STILL unassociated (the row is a ghost)" "4::non
 # The working form names the copy.
 check "an association can be injected from outside, naming the copy" \
   run auto-multiple-choice association --data /work/project/data \
-  --set --student 4 --copy 1 --id 19123450
+  --set --student 4 --copy 0 --id 19123450
 
 check "a second one, for the ambiguous-RUT copy" \
   run auto-multiple-choice association --data /work/project/data \
-  --set --student 5 --copy 1 --id 20111110
+  --set --student 5 --copy 0 --id 20111110
 
 after_manual="$(associations)"
 note "after manual injection" "$(echo "$after_manual" | tr '\n' ' ')"

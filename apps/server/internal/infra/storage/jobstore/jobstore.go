@@ -35,7 +35,7 @@ var _ jobs.Store = (*Store)(nil)
 // jobColumns is the read shape LatestForControl and ByID both share; kept
 // as a constant so a schema change touches one place. Order matches
 // scanJob below.
-const jobColumns = "id, control_id, kind, status, COALESCE(error, ''), COALESCE(detail, ''), payload_json, created_at, started_at, finished_at, viewed_at"
+const jobColumns = "id, control_id, kind, status, COALESCE(error, ''), COALESCE(detail, ''), COALESCE(notice, ''), payload_json, created_at, started_at, finished_at, viewed_at"
 
 // Insert creates a new job in `queued` and returns its id. createdAt
 // is the runner's clock (unix seconds on the wire, matching every
@@ -71,12 +71,17 @@ func (s *Store) MarkRunning(ctx context.Context, id int64, startedAt time.Time) 
 	return checkOne(res, err, id, "MarkRunning")
 }
 
-// MarkDone transitions a job from `running` to `done` and stamps
-// finished_at. Same status guard as MarkRunning; see that comment.
-func (s *Store) MarkDone(ctx context.Context, id int64, finishedAt time.Time) error {
+// MarkDone transitions a job from `running` to `done`, records its
+// notice (NULL when empty, issue #298) and stamps finished_at. Same
+// status guard as MarkRunning; see that comment.
+func (s *Store) MarkDone(ctx context.Context, id int64, notice string, finishedAt time.Time) error {
+	var noticeVal any
+	if notice != "" {
+		noticeVal = notice
+	}
 	res, err := s.db.ExecContext(ctx,
-		`UPDATE job SET status = ?, finished_at = ? WHERE id = ? AND status = ?`,
-		string(jobs.StatusDone), finishedAt.Unix(), id, string(jobs.StatusRunning),
+		`UPDATE job SET status = ?, notice = ?, finished_at = ? WHERE id = ? AND status = ?`,
+		string(jobs.StatusDone), noticeVal, finishedAt.Unix(), id, string(jobs.StatusRunning),
 	)
 	return checkOne(res, err, id, "MarkDone")
 }
@@ -192,9 +197,9 @@ func scanJob(row scanner) (jobs.Job, error) {
 		kind, status, payload           string
 		createdAt                       int64
 		startedAt, finishedAt, viewedAt sql.NullInt64
-		errMsg, detail                  string
+		errMsg, detail, notice          string
 	)
-	if err := row.Scan(&j.ID, &j.ControlID, &kind, &status, &errMsg, &detail,
+	if err := row.Scan(&j.ID, &j.ControlID, &kind, &status, &errMsg, &detail, &notice,
 		&payload, &createdAt, &startedAt, &finishedAt, &viewedAt); err != nil {
 		return jobs.Job{}, err
 	}
@@ -202,6 +207,7 @@ func scanJob(row scanner) (jobs.Job, error) {
 	j.Status = jobs.Status(status)
 	j.Error = errMsg
 	j.Detail = detail
+	j.Notice = notice
 	j.Payload = []byte(payload)
 	j.CreatedAt = time.Unix(createdAt, 0)
 	if startedAt.Valid {

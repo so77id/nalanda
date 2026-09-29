@@ -60,7 +60,7 @@ func (s *fakeStore) MarkRunning(_ context.Context, id int64, at time.Time) error
 	return nil
 }
 
-func (s *fakeStore) MarkDone(_ context.Context, id int64, at time.Time) error {
+func (s *fakeStore) MarkDone(_ context.Context, id int64, notice string, at time.Time) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	j, ok := s.jobs[id]
@@ -68,6 +68,7 @@ func (s *fakeStore) MarkDone(_ context.Context, id int64, at time.Time) error {
 		return jobs.ErrJobNotFound
 	}
 	j.Status = jobs.StatusDone
+	j.Notice = notice
 	t := at
 	j.FinishedAt = &t
 	return nil
@@ -312,6 +313,58 @@ func TestRunnerSplitsFailureIntoMessageAndDetail(t *testing.T) {
 	}
 	if final.Detail != "ERR: line 1\nERR: line 2" {
 		t.Errorf("Detail = %q, want the two-line context", final.Detail)
+	}
+}
+
+// Issue #298: a *jobs.Notice is a SUCCESS with a sentence for the banner,
+// the mirror image of *jobs.Failure. Recording it as failed would put a
+// batch that read fine under "falló".
+func TestRunnerRecordsANoticeAsADoneJob(t *testing.T) {
+	store := newFakeStore()
+	handler := func(context.Context, string, []byte) error {
+		return &jobs.Notice{Message: "2 copias ya publicadas fueron releídas"}
+	}
+	runner := jobs.NewRunner(store, stubHandlers(jobs.KindAnalyse, handler),
+		silentLogger(), time.Now)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go runner.Start(ctx)
+
+	id, err := runner.Submit(ctx, "CTRL001", jobs.KindAnalyse, []byte(`{}`))
+	if err != nil {
+		t.Fatalf("Submit: %v", err)
+	}
+	final := waitForStatus(t, store, id, jobs.StatusDone)
+	if final.Notice != "2 copias ya publicadas fueron releídas" {
+		t.Errorf("Notice = %q, want the handler's sentence", final.Notice)
+	}
+	if final.Error != "" {
+		t.Errorf("Error = %q, want empty on a done job", final.Error)
+	}
+}
+
+// #298 review, ARQ-9: only a BARE Notice is a success. A failure that
+// happens to carry one — joined or wrapped — is recorded as failed.
+func TestRunnerRecordsAFailureCarryingANoticeAsFailed(t *testing.T) {
+	store := newFakeStore()
+	handler := func(context.Context, string, []byte) error {
+		return errors.Join(&jobs.Failure{Message: "worker refused"}, &jobs.Notice{Message: "1 copia releída"})
+	}
+	runner := jobs.NewRunner(store, stubHandlers(jobs.KindAnalyse, handler),
+		silentLogger(), time.Now)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go runner.Start(ctx)
+
+	id, err := runner.Submit(ctx, "CTRL001", jobs.KindAnalyse, []byte(`{}`))
+	if err != nil {
+		t.Fatalf("Submit: %v", err)
+	}
+	final := waitForStatus(t, store, id, jobs.StatusFailed)
+	if final.Error != "worker refused" {
+		t.Errorf("Error = %q, want the failure's message", final.Error)
 	}
 }
 

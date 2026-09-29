@@ -339,7 +339,10 @@ the `avisoNo*` / `flash.Set(…)` string literals in `internal/app/web/handler/`
   handler that calls `amcworker.Client` from the HTTP goroutine — split the sync half
   from the async half, as `PrepareControl`/`GenerateAssets` and
   `SaveUploadedBatch`/`AnalyzeBatch` already do). ADR-0050 has the
-  full reasoning.
+  full reasoning. **One named exception**: `handler.ScansReset` (issue
+  #298, ADR-0075 §5) — see its own bullet below. A second exception needs
+  the same two properties (it only removes files, and it never waits on the
+  client's lock), and an ADR.
 - **A worker refusal on the async half leaves the row and files
   intact (issue #249, ADR-0050 §6 — amends ADR-0034 §Failure modes).**
   `GenerateAssets` returning `ErrGeneratorRefused` /
@@ -353,6 +356,46 @@ the `avisoNo*` / `flash.Set(…)` string literals in `internal/app/web/handler/`
   (`Service.PrepareControl`). The banner surfaces the failure; a
   future WP adds the explicit retry button. Same rule shape as the
   UploadScan-survives bullet above.
+- **A re-captured copy loses its corrections and KEEPS its publication
+  stamp (issue #298, ADR-0075, ADR-0048 §Amendment — re-capture).** `AnalyzeBatch`
+  calls `Readings.ResetRecapturedCopies` for `report.Batch.RecapturedCopies`
+  BEFORE the upsert: overrides, `last_edited_at` and the `annotated_copy`
+  row go, because each was made against an image the new capture replaced.
+  `published_at` / `published_grade` stay — ADR-0073 derives `CopyStale`
+  from them — and adding either to that statement, or to `upsertReading`'s
+  `ON CONFLICT` list, mails a student twice or loses the record that they
+  were mailed. `TestResetRecapturedCopiesForgetsCorrectionsAndKeepsThe`
+  `Publication` is the pin. And a `Batch` with `Captured == 0` is refused
+  before any write (`ErrNothingCaptured`): single-mode AMC exits 0 on a
+  batch it could not place, so this is the only loud signal. `Report.Batch`
+  is nil on `/reanalyse` and on a fake — gate on a batch you have, never on
+  its absence.
+- **"Borrar escaneos" (issue #298, ADR-0075 §5) — four rules:**
+  1. **The worker goes FIRST.** `Service.ResetScans` asks it to empty the
+     capture before the database drops anything: the worker owns `/work`,
+     and an unreachable or older worker (the two CD workflows drift) then
+     refuses with nothing destroyed. The reverse order leaves readings gone
+     over a capture the next upload would re-analyse.
+  2. **Synchronous, and it never WAITS.** It runs on the request goroutine
+     under `scansResetDeadline`. The client's lock is one mutex for every
+     control and ignores ctx, so `Client.ResetScans` uses `TryLock` and
+     answers `ErrAnalyzerBusy` (409) when another control's job holds it.
+  3. **Refused while THIS control's job is in flight** (409), since the job
+     would write readings back over the wiped capture — and a jobs-store
+     read error fails CLOSED. Both are status pages: a deliberate departure
+     from add-a-backend-endpoint.md's fourth rule, recorded there.
+  4. **Every gate runs before the worker is called**: the service refuses an
+     archived control (`DeletedAt`) and `ErrNoScans`, the handler checks the
+     verbatim name. `ResetScanResults`'s `deleted_at IS NULL` is the schema
+     belt behind them, not a gate.
+- **A done job may carry one short message for the professor: return
+  `*jobs.Notice` (issue #298, ADR-0050's #298 `Amended by:`).** The runner records it
+  on `job.notice` and the banner renders it under "lista". It travels
+  through the handler's error slot like `*jobs.Failure`, and it is a
+  SUCCESS — the runner, not the handler, tells the two apart. Use it rather
+  than reporting a success as a failure so the professor reads a sentence
+  (the partial publication still does the latter, from before this
+  existed).
 - **Hard-deleting a control requires an ARCHIVED row AND a typed name
   match (issue #261, ADR-0052).** Purge is a two-step gate; a hand-typed
   `/controls/{id}/purge` on an active row must not delete grades. THREE

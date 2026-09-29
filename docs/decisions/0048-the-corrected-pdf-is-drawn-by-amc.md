@@ -4,6 +4,7 @@
 **Date:** 2026-08-19
 **Decision-makers:** Miguel Rodriguez
 **Amended by:** #249 (2026-08-27) — the per-copy `amc annotate` call moved off the HTTP goroutine into the async job runner (`KindAnnotate`, `controls.NewAnnotateHandler`, `Service.AnnotateAllCleanCopies`), discharging §Consequences "async is a follow-up if courses grow". The runner is documented in ADR-0050.
+**Amended by:** #298 (2026-09-22) — a RE-CAPTURED copy is born again: every correction and its annotated PDF go, its publication record stays. See §Amendment — re-capture.
 **Source:** #190 (every copy ends the control cycle with an annotated PDF),
 conversation 2026-08-19 after the first real production control (#186–#189).
 
@@ -69,6 +70,37 @@ channel is AMC's own, so `note` and `annotate` honour it natively.
   the alarm, and the env-var is the rollback.
 - One `amc annotate` per copy is seconds-class and synchronous inside the
   review save. Accepted for this scale; async is a follow-up if courses grow.
+
+## Amendment — re-capture (#298, 2026-09-22)
+
+When this ADR was written a page could not be captured twice: the worker ran
+AMC in photocopy mode, and a second scan stacked beside the first. Since
+ADR-0075 a re-scanned page REPLACES its capture — and AMC re-uses each box's
+row when it does, moving `black`/`total` to the new pixels and leaving
+`manual` where it was. This ADR's promise — "the reading report honours
+`manual` too, so report, score and PDF always agree" — would then hold over a
+correction made against an image that no longer exists.
+
+So a copy the batch re-captured is born again, on both sides of the seam,
+before the new reading is persisted:
+
+| What | Where | Who |
+|---|---|---|
+| `capture_zone.manual` on its boxes, and the forced association | AMC's capture | the worker, before `note` scores |
+| `answer_override` / `rut_override` rows | server DB | `Store.ResetRecapturedCopies` |
+| `reading.last_edited_at` | server DB | same transaction |
+| the `annotated_copy` row | server DB | same transaction — the PDF was drawn over the old image |
+
+**`published_at` and `published_grade` are deliberately NOT cleared.** ADR-0073
+derives `CopyStale` by comparing the grade that went out with the grade the
+new reading produces; clearing them would turn a student who already holds a
+correction into `CopyNotSent` and erase the record that they do. The copy
+then flows through the normal path — `annotateCleanCopies` redraws it if it
+comes back clean, `rematchQuietly` re-files it if its RUT moved.
+`TestResetRecapturedCopiesForgetsCorrectionsAndKeepsThePublication` is the
+pin. A copy that comes back NOT clean has no current grade and no annotated
+PDF, so ADR-0073 still derives it as sent; the analyse job's notice tells the
+professor how many published copies were re-read either way.
 
 ## Review triggers
 

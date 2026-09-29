@@ -10,7 +10,10 @@ publication columns, and the publication routes in
 `internal/app/web/handler/publish.go`. §5c and §5d are their steps — and,
 since #297, §5f is the step for what a run does when the credential dies
 mid-way, including the job banner that reports it
-(`internal/app/web/view/templates/pages/controls_detail.html`).
+(`internal/app/web/view/templates/pages/controls_detail.html`). And since
+#298, what moves copies between those states from the SCAN side:
+`AnalyzeBatch`'s re-capture reset in `internal/domain/controls/scans.go`,
+`reset.go`, and `internal/app/web/handler/scans_reset.go` — §5g.
 
 It is an L8 manual procedure, in the same family and for the same reason as
 [`GOOGLE-CHECK.md`](GOOGLE-CHECK.md), [`CANVAS-CHECK.md`](CANVAS-CHECK.md)
@@ -39,7 +42,7 @@ What that run does NOT cover, and what remains:
 - **§4's BODY checks** were rewritten after the 2026-09-07 run (the whole
   name, no footer) and have still not been read against a delivered
   message.
-- **§§2, 3, 5b, 5bb, 5c, 5d, 5e, 5f, 6 and 7 have not run at all.** §5c (the
+- **§§2, 3, 5b, 5bb, 5c, 5d, 5e, 5f, 5g, 6 and 7 have not run at all.** §5c (the
   resume) and §5d (the per-student send) are the two ADR-0073 names as its
   own verification, which is why that ADR's status still says outstanding.
 
@@ -369,6 +372,25 @@ The suite pins all three (`TestALostCredentialMidRunKeepsWhatWentOutBeforeIt`,
 means revoking the grant during a real publication's first second, which
 §5c already asks of a stopped container and which is not worth mailing a
 class for twice.
+
+## 5g. A re-scan and a reset over a published class (issue #298)
+
+On a nominated control published for real, with a copy whose sheet you can
+re-scan so its GRADE moves (mark one answer differently on a photocopy of the
+original scan).
+
+- [ ] Upload a batch holding only that sheet. The banner reads "análisis
+      lista" and says **1 copia ya publicada fue releída**.
+- [ ] The copy's hand corrections are gone and the table reads
+      `desactualizada`, with both grades.
+- [ ] Press **Publicar**. **Only that student receives a second message**,
+      with the new grade — ask two others to confirm they got nothing.
+- [ ] On a THROW-AWAY published control only: "Borrar escaneos". The
+      confirmation page counts the copies already mailed; after typing the
+      name, every copy is gone and the control reads as freshly generated.
+      Do not press Publicar on it afterwards unless re-mailing the whole
+      class is intended — the record of who received what went with the
+      readings (ADR-0075 §Consequences).
 
 ## 6. The seven-day question
 

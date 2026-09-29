@@ -10,6 +10,9 @@ weight, and the threshold the scores were computed at
 alternatives
 **Amended by:** #243 (2026-08-27) — per-copy captured page list, so the review
 page's raw-scan fallback iterates every page AMC captured
+**Amended by:** #298 (2026-09-22) — `/analyse` says what THIS batch did
+(`batch`), and a copy captured under more than one scan index (a photocopy-mode
+stack) is refused
 
 ## Context
 
@@ -192,6 +195,38 @@ single-page render. Historical readings stored before this amendment
 converge on the same `[1]` shape through the storage-side backfill
 (`apps/server/migrations/00011_reading_pages.sql`), so a professor
 scrolling through legacy corrections sees no regression.
+
+### The report says what this batch did, beside what the project holds
+
+`pages` counts every page the project ever captured and every one it could
+not place — both of the engine's tables accumulate across uploads — so it
+cannot say whether the upload just made read anything. `/analyse` therefore
+adds `batch` (#298):
+
+```
+"batch": {"captured": 24, "failed": 0, "recaptured_copies": [1, 2, 3]}
+```
+
+`captured` is pages new or overwritten by this run, `failed` pages this run
+could not place, and `recaptured_copies` the copies with at least one page
+re-scanned over an earlier capture — each of which the consumer treats as
+freshly read, dropping every correction made on the old image (ADR-0048
+§Amendment). Any engine that reads a batch knows which pages it read this
+time, so the field passes the reversal test like `pages_per_copy`.
+
+`batch` is **optional** and exists only on `/analyse`: `/reanalyse` captures
+nothing. A consumer facing a report without it substitutes today's behaviour
+— the project total as "captured", nothing failed, nothing re-captured —
+because the two apps deploy separately and the server may meet an older
+worker for a while.
+
+**And a capture the reader cannot key truthfully is refused.** The reader
+keys a sheet by copy number; AMC's photocopy mode files every scan under an
+index of 1 or more and stacks a re-scan at the next one, which the reader
+would concatenate into duplicated identifiers and marks. The worker never
+captures that way since #298 (ADR-0075), and a copy captured under MORE THAN
+ONE index is refused like an unscored project — nothing on stdout, exit 2, the
+repair named — not read. A legacy copy under one index (1) is read as before.
 
 ### The report says which threshold its scores were computed at
 

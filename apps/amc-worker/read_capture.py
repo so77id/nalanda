@@ -134,7 +134,63 @@ BOX_ZONE = 4  # capture_zone.type: 4 is an answer or code box (3 is the page id)
 QUESTION_MULTIPLE = 2
 
 
-class MissingScoring(Exception):
+class Refused(Exception):
+    """The reader will not produce a report for this project.
+
+    Every refusal withholds the WHOLE report — nothing on stdout, exit 2 —
+    because a partial or silently wrong one is the half-truth this module
+    exists to prevent. Each carries the repair in `detail`.
+    """
+
+    def __init__(self, message, detail=""):
+        super().__init__(message)
+        self.message = message
+        self.detail = detail
+
+
+class PhotocopyCapture(Refused):
+    """A copy was captured under more than one scan index (issue #298).
+
+    AMC keys a capture by (student, copy), and this reader keys by student
+    alone: a student captured under two indexes would come back with both
+    scans' marks concatenated — duplicated RUT digits and ticks. That is
+    what AMC's photocopy mode (`analyse --multiple`, the worker's mode before
+    #298) does to a re-scanned sheet: it stacks it at the next index. It is
+    also what a single-mode upload over such a project produces (the new
+    scan at 0 beside the old at 1).
+
+    What is NOT refused is a legacy capture scanned once: photocopy mode
+    puts even a first scan at index 1, and one index per student reads
+    exactly as it did when those controls were graded. Refusing every
+    `copy > 0` row would have refused every control captured before #298 on
+    its next re-read, with a repair that drops corrections and publication
+    stamps (#298 review, B1). The repair for a real stack is to reset the
+    control's scans and upload them again.
+    """
+
+
+def check_single_capture(data_dir):
+    """Refuse a capture holding a student under more than one scan index."""
+    path = os.path.join(data_dir, "capture.sqlite")
+    if not os.path.exists(path):
+        return
+    con = sqlite3.connect(path)
+    try:
+        stacked = [r[0] for r in con.execute(
+            "SELECT student FROM capture_zone GROUP BY student "
+            "HAVING COUNT(DISTINCT copy) > 1 ORDER BY student")]
+    finally:
+        con.close()
+    if stacked:
+        raise PhotocopyCapture(
+            f"{data_dir} holds a copy scanned twice in photocopy mode",
+            f"copies {', '.join(map(str, stacked))} were captured under more "
+            "than one scan index, which this reader cannot tell apart — reset "
+            "the control's scans (Borrar escaneos) and upload them again",
+        )
+
+
+class MissingScoring(Refused):
     """The project cannot be scored as read.
 
     Raised from three places: no scoring database, one that exists and holds no
@@ -152,11 +208,6 @@ class MissingScoring(Exception):
     indistinguishable, to anything that only checks for the file, from a batch
     in which nobody scored a single point.
     """
-
-    def __init__(self, message, detail=""):
-        super().__init__(message)
-        self.message = message
-        self.detail = detail
 
 
 def check_scoring(data_dir):
@@ -243,6 +294,63 @@ def printed_copies(data_dir):
     return int(highest)
 
 
+def capture_snapshot(data_dir):
+    """What AMC's capture holds right now, reduced to what a batch can change.
+
+    `{"pages": {(student, page, copy): overwritten}, "failed": {filename}}`.
+    Taken before and after one `analyse`, the difference is what THAT batch
+    did (`batch_outcome`) — the project totals in the report cannot say it,
+    because both `capture_page` and `capture_failed` accumulate across every
+    batch ever uploaded (issue #298). A project with no capture yet is an
+    empty snapshot, not an error: the first batch starts from nothing.
+    """
+    path = os.path.join(data_dir, "capture.sqlite")
+    if not os.path.exists(path):
+        # Not connect-first: it would create the file (see check_scoring).
+        return {"pages": {}, "failed": set()}
+    con = sqlite3.connect(path)
+    try:
+        pages = {
+            (student, page, copy): overwritten
+            for student, page, copy, overwritten in con.execute(
+                "SELECT student, page, copy, overwritten FROM capture_page")
+        }
+        failed = {r[0] for r in con.execute("SELECT filename FROM capture_failed")}
+    finally:
+        con.close()
+    return {"pages": pages, "failed": failed}
+
+
+def batch_outcome(before, after):
+    """What one `analyse` did, from the snapshots on either side of it.
+
+    A page is CAPTURED by this batch when it is new, or when AMC overwrote it
+    (single mode bumps `capture_page.overwritten` on every re-capture). A
+    copy is RE-CAPTURED when at least one of its pages was overwritten: its
+    corrections were made against an image that is gone. A page FAILED when
+    its image appears in `capture_failed` for the first time.
+
+    >>> before = {"pages": {(1, 1, 0): 0, (2, 1, 0): 0}, "failed": {"old.png"}}
+    >>> after = {"pages": {(1, 1, 0): 1, (2, 1, 0): 0, (1, 2, 0): 0},
+    ...          "failed": {"old.png", "new.png"}}
+    >>> batch_outcome(before, after)
+    {'captured': 2, 'failed': 1, 'recaptured_copies': [1]}
+    """
+    captured, recaptured = 0, set()
+    for key, overwritten in after["pages"].items():
+        previous = before["pages"].get(key)
+        if previous is None:
+            captured += 1
+        elif overwritten > previous:
+            captured += 1
+            recaptured.add(key[0])
+    return {
+        "captured": captured,
+        "failed": len(after["failed"] - before["failed"]),
+        "recaptured_copies": sorted(recaptured),
+    }
+
+
 def scoring_facts(data_dir):
     """What AMC scored, keyed per copy because every copy draws its own questions.
 
@@ -261,11 +369,10 @@ def scoring_facts(data_dir):
     exists so the refusal has something to inspect, not so a guess can ship.
 
     `scoring_score` also carries a `copy` column, for a sheet scanned more than
-    once, and the two tables are collapsed by DIFFERENT rules: this one keeps
-    the last row per (copy, question), while the capture reading concatenates
-    every scan's marks. Duplicate scans are out of scope for both — and they do
-    not pass silently, because a duplicated scan also duplicates the RUT boxes,
-    so the copy comes back `rut_status: "unreadable"` (measured, #147 review).
+    once in AMC's photocopy mode, and this reader keys by student alone. It
+    never meets two for one student: the worker captures in single mode since
+    #298, and `read()` refuses a student captured under more than one index
+    (check_single_capture) before any of this runs.
     """
     con = sqlite3.connect(os.path.join(data_dir, "scoring.sqlite"))
     try:
@@ -293,6 +400,7 @@ def scoring_facts(data_dir):
 
 
 def read(data_dir, ticked, unsure):
+    check_single_capture(data_dir)
     check_scoring(data_dir)
     seuil, facts = scoring_facts(data_dir)
 
@@ -513,7 +621,7 @@ def main():
     args = ap.parse_args()
     try:
         report = read(args.data, args.ticked, args.unsure)
-    except MissingScoring as exc:
+    except Refused as exc:
         # Loudly, on stderr, with nothing on stdout: a caller piping this into
         # a file must not end up with half a report.
         sys.stderr.write(f"{exc.message}: {exc.detail}\n")

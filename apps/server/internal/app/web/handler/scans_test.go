@@ -1324,3 +1324,46 @@ func TestAStudentOnAnotherCourseNeverMatchesInAnyState(t *testing.T) {
 		t.Errorf("copy 1 student = %d — Bruno is enrolled on a DIFFERENT course and must never match", *got)
 	}
 }
+
+// Issue #298 §D, end to end: a second batch re-reads a copy that was
+// already mailed, and the "análisis lista" banner says so — the only
+// place the professor learns that a student may now hold a stale grade.
+func TestTheBannerAfterAReReadNamesThePublishedCopiesAndTheUnreadPages(t *testing.T) {
+	f := newControlsFixture(t)
+	controlID := f.createControl(t, "Control 298 re-scan", 2)
+	f.fake.AnalyzeReports = []controls.Report{
+		{Copies: map[string]controls.ReportCopy{"1": okCopy("20100001"), "2": okCopy("20100002")}},
+	}
+	uploadOnce(t, f, controlID)
+
+	ctx := context.Background()
+	reading, err := f.service.ReadingFor(ctx, controlID, 1)
+	if err != nil {
+		t.Fatalf("ReadingFor: %v", err)
+	}
+	if err := f.cstore.MarkCopyPublished(ctx, reading.ID, time.Unix(1_758_500_000, 0), "7,0"); err != nil {
+		t.Fatalf("MarkCopyPublished: %v", err)
+	}
+
+	f.fake.AnalyzeReports = []controls.Report{{
+		Copies: map[string]controls.ReportCopy{"1": okCopy("20100001")},
+		Batch:  &controls.Batch{Captured: 2, Failed: 1, RecapturedCopies: []int{1}},
+	}}
+	uploadOnce(t, f, controlID)
+
+	body := getDetail(t, f, controlID)
+	// A success, not a failure: the notice renders under "lista". Asserted
+	// apart, because a runner that recorded the notice as a failure would
+	// still put its text on the page, under "falló".
+	if !strings.Contains(body, "análisis lista") || strings.Contains(body, "falló") {
+		t.Error("the banner is not a done analyse")
+	}
+	for _, want := range []string{
+		"1 copia ya publicada fue releída",
+		"1 página del lote no se reconoció",
+	} {
+		if !strings.Contains(body, want) {
+			t.Errorf("detail page does not say %q", want)
+		}
+	}
+}

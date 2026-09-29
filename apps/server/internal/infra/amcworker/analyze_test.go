@@ -349,3 +349,84 @@ type reanalyzeSent struct {
 	Ticked  float64 `json:"ticked"`
 	Unsure  float64 `json:"unsure"`
 }
+
+// Issue #298: `batch` says what THIS /analyse run did — `pages` is the
+// project's running total, and cannot answer "did this upload read
+// anything".
+func TestAnalyzeMapsTheBatchOutcome(t *testing.T) {
+	body := strings.Replace(sampleReport, `"needs_review": ["1"]`,
+		`"needs_review": ["1"],
+		 "batch": {"captured": 24, "failed": 2, "recaptured_copies": [3, 1]}`, 1)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(body))
+	}))
+	t.Cleanup(srv.Close)
+
+	client := amcworker.New(amcworker.Config{BaseURL: srv.URL})
+	report, err := client.Analyze(context.Background(), controls.AnalyzeRequest{
+		Project: "p", ScanPDF: "s", Source: "t",
+		Ticked: controls.DefaultTicked, Unsure: controls.DefaultUnsure,
+	})
+	if err != nil {
+		t.Fatalf("Analyze: %v", err)
+	}
+	if report.Batch == nil {
+		t.Fatal("Batch = nil, want the worker's batch outcome")
+	}
+	if report.Batch.Captured != 24 || report.Batch.Failed != 2 {
+		t.Errorf("Batch = %+v, want captured 24, failed 2", *report.Batch)
+	}
+	if got := report.Batch.RecapturedCopies; len(got) != 2 || got[0] != 3 || got[1] != 1 {
+		t.Errorf("RecapturedCopies = %v, want [3 1] verbatim", got)
+	}
+}
+
+// The wire field is optional (apps/amc-worker/CLAUDE.md): the server
+// merges first, and for the ~25 minutes the two CD workflows drift it
+// talks to a worker that does not send `batch`. The legacy default is
+// exactly today's behaviour — the project total stands in for "this run
+// captured", nothing failed, nothing was re-captured.
+func TestAnalyzeFromAWorkerWithoutBatchFallsBackToTheProjectTotal(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(sampleReport))
+	}))
+	t.Cleanup(srv.Close)
+
+	client := amcworker.New(amcworker.Config{BaseURL: srv.URL})
+	report, err := client.Analyze(context.Background(), controls.AnalyzeRequest{
+		Project: "p", ScanPDF: "s", Source: "t",
+		Ticked: controls.DefaultTicked, Unsure: controls.DefaultUnsure,
+	})
+	if err != nil {
+		t.Fatalf("Analyze: %v", err)
+	}
+	if report.Batch == nil {
+		t.Fatal("Batch = nil for a legacy worker, want the substituted default")
+	}
+	if report.Batch.Captured != 4 || report.Batch.Failed != 0 || len(report.Batch.RecapturedCopies) != 0 {
+		t.Errorf("legacy Batch = %+v, want captured 4 (pages.captured), failed 0, no re-captured copies", *report.Batch)
+	}
+}
+
+// /reanalyse captures nothing, so it has no batch to report — and a
+// substituted one would be a claim about a run that did not happen.
+func TestReanalyzeReportsNoBatch(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(sampleReport))
+	}))
+	t.Cleanup(srv.Close)
+
+	client := amcworker.New(amcworker.Config{BaseURL: srv.URL})
+	report, err := client.Reanalyze(context.Background(), controls.ReanalyzeRequest{
+		Project: "p", Ticked: controls.DefaultTicked, Unsure: controls.DefaultUnsure,
+	})
+	if err != nil {
+		t.Fatalf("Reanalyze: %v", err)
+	}
+	if report.Batch != nil {
+		t.Errorf("Reanalyze Batch = %+v, want nil", *report.Batch)
+	}
+}

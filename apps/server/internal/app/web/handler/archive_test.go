@@ -206,7 +206,7 @@ func TestArchiveDoesNotDisturbAnInFlightJob(t *testing.T) {
 
 	// The runner can still transition it — the domain contract from
 	// issue #257 (MarkDone finds the row) survives the soft-delete.
-	if err := f.jstore.MarkDone(ctx, id, time.Now()); err != nil {
+	if err := f.jstore.MarkDone(ctx, id, "", time.Now()); err != nil {
 		t.Errorf("MarkDone after archive: %v, want nil", err)
 	}
 }

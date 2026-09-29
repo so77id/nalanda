@@ -90,10 +90,12 @@ make read-paper-min
 Prints the reading report as JSON.
 
 `read-paper-min` wipes the previous run's capture files before running, so a
-re-read of the same `lote.pdf` produces the same report as the first read —
-without this, `getimages --copy-to` and `analyse --multiple` append to the
-existing captures and every digit ends up counted N times (measured on the
-first pencil cycle: `pages.captured=18` on a 3-page PDF).
+re-read of the same `lote.pdf` produces the same report as the first read. It
+was written when the capture ran in AMC's photocopy mode (`analyse --multiple`),
+which stacked every re-read beside the last — every digit ended up counted N
+times (measured on the first pencil cycle: `pages.captured=18` on a 3-page PDF).
+Since #298 the capture runs in single mode and a re-read overwrites instead;
+the wipe stays, because a paper check starts from nothing.
 
 ## 5. Compare against the sheet
 

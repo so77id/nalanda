@@ -71,12 +71,16 @@ const RestartMidJobError = "server_restart_mid_job"
 
 // Job is one row of the `job` table.
 type Job struct {
-	ID         int64
-	ControlID  string
-	Kind       Kind
-	Status     Status
-	Error      string
-	Detail     string
+	ID        int64
+	ControlID string
+	Kind      Kind
+	Status    Status
+	Error     string
+	Detail    string
+	// Notice is a done job's one sentence for the professor (issue
+	// #298) — see Notice. Empty on every failed job and on a done job
+	// with nothing to say.
+	Notice     string
 	Payload    []byte
 	CreatedAt  time.Time
 	StartedAt  *time.Time
@@ -106,8 +110,10 @@ type Store interface {
 	// Returns ErrJobNotFound when no row has that id.
 	MarkRunning(ctx context.Context, id int64, startedAt time.Time) error
 
-	// MarkDone transitions a job to `done` and stamps finished_at.
-	MarkDone(ctx context.Context, id int64, finishedAt time.Time) error
+	// MarkDone transitions a job to `done`, records the handler's notice
+	// (empty when it had nothing to say, issue #298) and stamps
+	// finished_at.
+	MarkDone(ctx context.Context, id int64, notice string, finishedAt time.Time) error
 
 	// MarkFailed transitions a job to `failed` with a short error message
 	// (banner-visible) and a long detail — debug, except for KindPublish,

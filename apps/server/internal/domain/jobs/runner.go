@@ -39,6 +39,22 @@ type Failure struct {
 // `return &jobs.Failure{Message: ..., Detail: ...}`.
 func (f *Failure) Error() string { return f.Message }
 
+// Notice is what a handler returns when the job SUCCEEDED and has one
+// sentence for the professor (issue #298): the runner records the row as
+// done, with Message as its notice, and the banner renders it under
+// "lista". The mirror image of Failure, returned through the same error
+// slot so no handler that has nothing to say changes shape. runOne tells
+// the two apart (asNotice): only a BARE *Notice is a success — one found
+// inside a wrapped or joined error is not, so a failure can never be
+// recorded as done because a notice rode along with it.
+type Notice struct {
+	Message string
+}
+
+// Error satisfies the error interface so a handler can
+// `return &jobs.Notice{Message: ...}`. It is not an error.
+func (n *Notice) Error() string { return n.Message }
+
 // Runner is the single-goroutine job runner (issue #249 §Design). It
 // serialises AMC work at a level above amcworker.Client's own mutex — the
 // mutex stays as a defense in depth for any future sync caller that does
@@ -222,8 +238,17 @@ func (r *Runner) runOne(ctx context.Context, id int64) {
 		return
 	}
 	handlerErr := r.callHandler(ctx, handler, job)
+	notice := asNotice(handlerErr)
+	if notice != nil {
+		// A success with something to say — not a failure (issue #298).
+		handlerErr = nil
+	}
 	if handlerErr == nil {
-		if err := r.store.MarkDone(ctx, id, r.now()); err != nil {
+		message := ""
+		if notice != nil {
+			message = notice.Message
+		}
+		if err := r.store.MarkDone(ctx, id, message, r.now()); err != nil {
 			r.log.Error("jobs: mark done", "id", id, "error", err)
 		}
 		r.log.Info("jobs: job done",
@@ -236,6 +261,16 @@ func (r *Runner) runOne(ctx context.Context, id int64) {
 	}
 	r.log.Warn("jobs: job failed",
 		"id", id, "kind", string(job.Kind), "control", job.ControlID, "error", msg)
+}
+
+// asNotice returns err when it IS a *Notice, and nil otherwise — a type
+// assertion, not errors.As, on purpose: see Notice.
+func asNotice(err error) *Notice {
+	notice, ok := err.(*Notice)
+	if !ok {
+		return nil
+	}
+	return notice
 }
 
 // callHandler runs the handler with a defer/recover so a panic surfaces

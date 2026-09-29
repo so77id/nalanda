@@ -51,7 +51,17 @@ func (c *Client) Analyze(ctx context.Context, req controls.AnalyzeRequest) (cont
 	if err != nil {
 		return controls.Report{}, fmt.Errorf("amcworker: encode analyse request: %w", err)
 	}
-	return c.postReport(ctx, "/analyse", body)
+	report, err := c.postReport(ctx, "/analyse", body)
+	if err != nil {
+		return controls.Report{}, err
+	}
+	// Issue #298: `batch` is optional on the wire (apps/amc-worker/CLAUDE.md).
+	// A worker that predates it gets today's behaviour: the project total
+	// stands in for this run, nothing failed, nothing was re-captured.
+	if report.Batch == nil {
+		report.Batch = &controls.Batch{Captured: report.Pages.Captured}
+	}
+	return report, nil
 }
 
 // Reanalyze runs POST /reanalyse against the worker. Same lock — the read
@@ -180,6 +190,16 @@ type reportBody struct {
 	// keeps its pre-#243 single-page behaviour.
 	PagesPerCopy map[string][]int `json:"pages_per_copy"`
 	NeedsReview  []string         `json:"needs_review"`
+	// Batch is what this /analyse run did (issue #298). Absent from
+	// /reanalyse and from workers that predate the field; Analyze
+	// substitutes the legacy default, toDomain leaves it nil.
+	Batch *batchBody `json:"batch"`
+}
+
+type batchBody struct {
+	Captured         int   `json:"captured"`
+	Failed           int   `json:"failed"`
+	RecapturedCopies []int `json:"recaptured_copies"`
 }
 
 type copyBody struct {
@@ -227,6 +247,13 @@ func (b reportBody) toDomain() controls.Report {
 		},
 		Copies:      make(map[string]controls.ReportCopy, len(b.Copies)),
 		NeedsReview: append([]string(nil), b.NeedsReview...),
+	}
+	if b.Batch != nil {
+		out.Batch = &controls.Batch{
+			Captured:         b.Batch.Captured,
+			Failed:           b.Batch.Failed,
+			RecapturedCopies: append([]int(nil), b.Batch.RecapturedCopies...),
+		}
 	}
 	for k, v := range b.Copies {
 		// #243: the worker sends pages_per_copy keyed by the same
