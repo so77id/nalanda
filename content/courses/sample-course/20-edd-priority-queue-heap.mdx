@@ -536,7 +536,212 @@ no lo rompe, y se detiene ahí.
 
 ## Insertar y extraer del heap
 
-{/* S6 — insert con swim, extractMax con sink, costo por la altura. */}
+<Slide title="insert en el heap">
+Insertar tiene que conservar las dos invariantes, y conviene atender primero
+la que no admite arreglos: la **forma completa**. Hay un único lugar donde
+un nodo nuevo mantiene el árbol completo, la primera hoja libre del último
+nivel, y en el arreglo esa hoja es `data[n + 1]`.
+
+```java
+void insert(int x) {
+    if (n == data.length - 1) {
+        resize(2 * data.length);
+    }
+    data[++n] = x;
+    swim(n);
+}
+```
+
+El bloque crece como el del arreglo dinámico, con el mismo `resize` que
+duplica el tamaño y copia. La única diferencia es la condición de lleno:
+como `data[0]` no se usa, caben `data.length - 1` elementos.
+
+Escribir en `data[++n]` deja la forma intacta, pero puede romper el **orden
+de heap**: el valor nuevo puede ser mayor que su padre. Arreglarlo es
+trabajo de `swim`.
+
+</Slide>
+
+<Slide title="swim hacia la raíz">
+`swim` repara el orden de heap desde el nodo `k` hacia arriba. Mientras `k`
+no sea la raíz y su padre sea menor, los intercambia y sube:
+
+```java
+void swim(int k) {
+    while (k > 1 && data[k / 2] < data[k]) {
+        swap(k / 2, k);
+        k = k / 2;
+    }
+}
+
+void swap(int i, int j) {
+    int t = data[i];
+    data[i] = data[j];
+    data[j] = t;
+}
+```
+
+`swap` no lleva ninguna idea: intercambia dos casillas del arreglo. La idea
+está en el ciclo. Cada intercambio arregla la arista entre `k` y su padre, y
+no rompe ninguna otra: el padre que baja era mayor que su otro hijo, y el
+valor que sube es mayor que el padre que desplaza. El único lugar donde el
+orden puede seguir roto es un nivel más arriba, y ahí sigue el ciclo.
+
+Se detiene en cuanto el padre es mayor o igual, o al llegar a la raíz. Sube
+a lo más un nivel por vuelta.
+
+</Slide>
+
+<Slide title="insert paso a paso">
+El heap 10, 7, 8, 1, 3 recibe 9, 12 y 2. Cada valor entra en la primera
+hoja libre y sube mientras su padre sea menor.
+
+<SequenceStepper eda="heap-max" operation="insert" values={[10, 7, 8, 1, 3]} value={[9, 12, 2]} capacity={9} />
+
+El 9 sube un nivel y se detiene bajo el 10. El 12 sube dos niveles, hasta
+la raíz: es el nuevo máximo. El 2 sube uno, sobre el 1, y se detiene bajo
+el 7. El heap queda 12, 7, 10, 2, 3, 8, 9, 1.
+
+</Slide>
+
+<Slide title="extractMax en el heap">
+El máximo está en la raíz, así que encontrarlo no cuesta nada. Lo que cuesta
+es **sacarlo sin dejar un hueco**: la raíz no puede quedar vacía, y la forma
+completa sólo permite quitar la última hoja.
+
+```java
+int extractMax() {
+    if (n == 0) {
+        throw new NoSuchElementException();
+    }
+    int max = data[1];
+    swap(1, n);
+    n--;
+    sink(1);
+    return max;
+}
+```
+
+La solución combina las dos cosas: el máximo se intercambia con la última
+hoja, `data[n]`, y `n` baja en uno. El máximo queda fuera del heap y la
+forma sigue completa. Pero ahora en la raíz hay un valor que venía de una
+hoja, casi seguro menor que sus hijos, y el **orden de heap** está roto
+arriba. Arreglarlo es trabajo de `sink`.
+
+</Slide>
+
+<Slide title="sink hacia las hojas">
+`sink` repara el orden de heap desde el nodo `k` hacia abajo. Mientras `k`
+tenga hijos, elige al **mayor** de los dos; si `k` es menor que ese hijo,
+los intercambia y baja:
+
+```java
+void sink(int k) {
+    while (2 * k <= n) {
+        int j = 2 * k;
+        if (j < n && data[j] < data[j + 1]) j++;
+        if (data[k] >= data[j]) break;
+        swap(k, j);
+        k = j;
+    }
+}
+```
+
+`2 * k <= n` pregunta si `k` tiene al menos un hijo. `j` parte en el hijo
+izquierdo y pasa al derecho si existe (`j < n`) y es mayor.
+
+Elegir al mayor no es un detalle. El hijo que sube pasa a ser el padre del
+otro, así que tiene que ser mayor o igual que él. Si subiera el menor de los
+dos, el intercambio arreglaría una arista y rompería la de al lado.
+
+</Slide>
+
+<Slide title="extractMax paso a paso">
+El heap 12, 7, 10, 2, 3, 8, 9, 1 entrega sus dos máximos. Cada extracción
+lleva la última hoja a la raíz y la hunde por el camino de los hijos
+mayores.
+
+<SequenceStepper eda="heap-max" operation="extract-max" values={[12, 7, 10, 2, 3, 8, 9, 1]} times={2} />
+
+El 12 sale primero: el 1 baja dos niveles y el 10 queda en la raíz. El 10
+sale después: el 1 vuelve a bajar y el 9 queda en la raíz. El arreglo sigue
+guardando 12 y 10 más allá de `n`, pero ya no son parte del heap.
+
+</Slide>
+
+<Slide title="La altura de un heap">
+`swim` y `sink` hacen una cantidad fija de trabajo por nivel: una o dos
+comparaciones y a lo más un intercambio. Lo que decide su costo es **cuántos
+niveles puede recorrer**, es decir, la altura del árbol.
+
+Un árbol binario completo con $$N$$ nodos tiene **altura
+$$\lfloor \log_2 N \rfloor$$**. El primer nivel tiene 1 nodo, el segundo 2,
+el tercero 4, y cada nivel lleno duplica al anterior. Hacen falta 3 niveles
+para 4 nodos, 4 para 8, y 20 para un millón.
+
+De ahí salen las dos cotas:
+
+- `insert` sube a lo más desde una hoja hasta la raíz: a lo más
+  $$\lfloor \log_2 N \rfloor$$ comparaciones.
+- `extractMax` baja a lo más desde la raíz hasta una hoja, con dos
+  comparaciones por nivel: a lo más $$2 \lfloor \log_2 N \rfloor$$.
+
+Las dos son $$O(\log N)$$. Es la **forma completa** la que lo garantiza: el
+orden de heap solo no impediría un árbol tan alto como la lista.
+
+</Slide>
+
+<Slide title="max en el heap">
+Consultar el máximo no mueve nada. Está en la raíz, y la raíz es `data[1]`:
+
+```java
+int max() {
+    if (n == 0) {
+        throw new NoSuchElementException();
+    }
+    return data[1];
+}
+```
+
+`isEmpty()` es `n == 0` y `size()` devuelve `n`. Ninguna de las tres
+recorre nada.
+
+</Slide>
+
+<Slide title="Costos del heap">
+Cada operación que modifica el heap rompe a lo más una invariante, en un
+solo lugar, y la restaura recorriendo un camino entre la raíz y una hoja.
+
+| Molde     | Operación      | Peor caso          | Invariante que restaura                                                   |
+| --------- | -------------- | ------------------ | ------------------------------------------------------------------------- |
+| consultar | `max()`        | $$\Theta(1)$$      | Ninguna: lee `data[1]`                                                    |
+| consultar | `isEmpty()`, `size()` | $$\Theta(1)$$ | Ninguna                                                              |
+| modificar | <code style={{ color: 'var(--color-keep)' }}>insert(x)</code> | <span style={{ color: 'var(--color-keep)', fontWeight: 700 }}>$$O(\log N)$$</span> | Forma completa: escribe en la primera hoja libre. Orden de heap: `swim` |
+| modificar | <code style={{ color: 'var(--color-keep)' }}>extractMax()</code> | <span style={{ color: 'var(--color-keep)', fontWeight: 700 }}>$$O(\log N)$$</span> | Forma completa: quita la última hoja. Orden de heap: `sink` |
+
+`insert` también puede pagar un `resize`, que copia los $$N$$ elementos. Como
+en el arreglo dinámico, eso ocurre cada vez que el bloque se duplica, y
+repartido entre las inserciones que lo llenaron cuesta $$\Theta(1)$$
+amortizado.
+
+</Slide>
+
+<Slide title="Tres implementaciones de la cola de prioridad">
+Con el heap, la fila que faltaba se llena:
+
+| Implementación  | `insert(x)`    | `extractMax()` | `max()`       |
+| --------------- | -------------- | -------------- | ------------- |
+| Lista sin orden | $$\Theta(1)$$  | $$\Theta(N)$$  | $$\Theta(N)$$ |
+| Lista ordenada  | $$\Theta(N)$$  | $$\Theta(1)$$  | $$\Theta(1)$$ |
+| **Heap**        | <span style={{ color: 'var(--color-keep)', fontWeight: 700 }}>$$O(\log N)$$</span> | <span style={{ color: 'var(--color-keep)', fontWeight: 700 }}>$$O(\log N)$$</span> | $$\Theta(1)$$ |
+
+El heap no gana en ninguna columna por separado: la lista sin orden inserta
+más rápido y la ordenada extrae más rápido. Gana en la mezcla. Con $$N$$
+inserciones y $$N$$ extracciones, las dos listas pagan $$\Theta(N^2)$$ y el
+heap $$O(N \log N)$$. Para un millón de operaciones de cada tipo, la
+diferencia es entre un billón de pasos y unas decenas de millones.
+
+</Slide>
 
 <SectionBreak />
 

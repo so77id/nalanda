@@ -661,6 +661,27 @@ describe('<SequenceStepper> · the combinations 20-edd-priority-queue-heap mount
         showCode: false,
       },
     },
+    {
+      act: 'Insertar y extraer del heap',
+      slide: 'insert paso a paso',
+      props: {
+        eda: 'heap-max',
+        operation: 'insert',
+        values: [10, 7, 8, 1, 3],
+        value: [9, 12, 2],
+        capacity: 9,
+      },
+    },
+    {
+      act: 'Insertar y extraer del heap',
+      slide: 'extractMax paso a paso',
+      props: {
+        eda: 'heap-max',
+        operation: 'extract-max',
+        values: [12, 7, 10, 2, 3, 8, 9, 1],
+        times: 2,
+      },
+    },
   ];
 
   it.each(mounted)('$act · $slide', ({ props }) => {
