@@ -682,6 +682,15 @@ describe('<SequenceStepper> · the combinations 20-edd-priority-queue-heap mount
         times: 2,
       },
     },
+    {
+      act: 'HeapSort',
+      slide: 'HeapSort paso a paso',
+      props: {
+        eda: 'heap-max',
+        operation: 'heapsort',
+        values: [5, 2, 9, 1, 7, 3, 8, 4],
+      },
+    },
   ];
 
   it.each(mounted)('$act · $slide', ({ props }) => {

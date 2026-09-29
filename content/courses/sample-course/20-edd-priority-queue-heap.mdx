@@ -899,7 +899,164 @@ que es el orden de heap. Lo único garantizado es que el primero es el menor.
 
 ## HeapSort
 
-{/* S8 — construction y sortdown. */}
+<Slide title="Ordenar con un heap">
+Si a un max-heap se le pide `extractMax` $$N$$ veces, los elementos salen
+del mayor al menor: es un algoritmo de ordenamiento. Cada extracción cuesta
+$$O(\log N)$$, así que ordenar cuesta $$O(N \log N)$$.
+
+Lo que lo vuelve interesante es **dónde queda cada máximo**. `extractMax`
+lo intercambia con `data[n]` y baja `n`: el máximo queda justo después del
+heap, en una casilla que el heap ya no usa. Esa casilla es exactamente la
+que le corresponde en el arreglo ordenado de menor a mayor. Repetido, el
+arreglo se parte en dos zonas, el heap al frente y la parte ordenada al
+final, y la segunda crece mientras la primera se achica.
+
+Por eso **HeapSort** ordena el arreglo **en su lugar**, sin un segundo
+arreglo, en dos fases: primero convierte el arreglo desordenado en un heap,
+y después extrae hasta vaciarlo.
+
+</Slide>
+
+<Slide title="La fase de construcción">
+La primera fase convierte `data[1..n]` en un heap. Las hojas ya lo son,
+porque un nodo sin hijos cumple el orden de heap. Basta entonces con
+aplicar `sink` a cada nodo que tiene hijos, desde el último de ellos,
+`n / 2`, hasta la raíz:
+
+```java
+for (int k = n / 2; k >= 1; k--) {
+    sink(k);
+}
+```
+
+Recorrer de abajo hacia arriba es lo que hace funcionar el ciclo: cuando
+`sink(k)` corre, los dos subárboles de `k` ya son heaps, y sólo falta ubicar
+a `k`. Sobre 5, 2, 9, 1, 7, 3, 8, 4:
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.25rem 1rem' }}>
+<div>
+<div style={{ fontSize: '0.8rem', color: 'var(--color-ink-faint)', textAlign: 'center' }}>el arreglo tal como llega</div>
+<HeapPicture values={[5, 2, 9, 1, 7, 3, 8, 4]} view="tree" label="El arreglo 5, 2, 9, 1, 7, 3, 8, 4 dibujado como árbol, antes de construir el heap." />
+</div>
+<div>
+<div style={{ fontSize: '0.8rem', color: 'var(--color-ink-faint)', textAlign: 'center' }}>después de sink(4) y sink(3)</div>
+<HeapPicture values={[5, 2, 9, 4, 7, 3, 8, 1]} view="tree" hot={[4, 8]} label="Después de sink(4) el 1 y el 4 se intercambiaron; sink(3) no movió nada, porque 9 ya es mayor que 3 y que 8." />
+</div>
+<div>
+<div style={{ fontSize: '0.8rem', color: 'var(--color-ink-faint)', textAlign: 'center' }}>después de sink(2)</div>
+<HeapPicture values={[5, 7, 9, 4, 2, 3, 8, 1]} view="tree" hot={[2, 5]} label="Después de sink(2) el 2 bajó a la posición 5 y el 7 subió a la posición 2." />
+</div>
+<div>
+<div style={{ fontSize: '0.8rem', color: 'var(--color-ink-faint)', textAlign: 'center' }}>después de sink(1): un heap</div>
+<HeapPicture values={[9, 7, 8, 4, 2, 3, 5, 1]} view="tree" hot={[1, 3, 7]} label="Después de sink(1) el 5 bajó dos niveles, por el camino de los hijos mayores 9 y 8. El arreglo es el heap 9, 7, 8, 4, 2, 3, 5, 1." />
+</div>
+</div>
+
+</Slide>
+
+<Slide title="La fase de ordenamiento">
+La segunda fase es `extractMax` sin devolver nada. El máximo se intercambia
+con `data[n]`, `n` baja, y la nueva raíz se hunde:
+
+```java
+while (n > 1) {
+    swap(1, n);
+    n--;
+    sink(1);
+}
+```
+
+Cada vuelta deja un elemento más en su lugar definitivo, al final del
+arreglo. Cuando `n` llega a 1, el único que queda en el heap es el menor, y
+también está en su lugar.
+
+<HeapPicture values={[9, 7, 8, 4, 2, 3, 5, 1]} view="array" label="El heap entero: data[1..8] = 9, 7, 8, 4, 2, 3, 5, 1. Nada ordenado todavía." />
+<HeapPicture values={[8, 7, 5, 4, 2, 3, 1, 9]} n={7} view="array" label="Tras una vuelta: el 9 quedó en data[8], ordenado, y data[1..7] = 8, 7, 5, 4, 2, 3, 1 es de nuevo un heap." />
+<HeapPicture values={[7, 4, 5, 1, 2, 3, 8, 9]} n={6} view="array" label="Tras dos vueltas: 8 y 9 ordenados al final, y data[1..6] = 7, 4, 5, 1, 2, 3 es un heap." />
+<HeapPicture values={[1, 2, 3, 4, 5, 7, 8, 9]} n={0} view="array" label="Al terminar: el arreglo completo 1, 2, 3, 4, 5, 7, 8, 9, ordenado de menor a mayor." />
+
+La zona ordenada crece desde el final, y siempre contiene los
+mayores: cada valor que entra ahí es el máximo de lo que quedaba en el
+heap.
+
+</Slide>
+
+<Slide title="HeapSort paso a paso">
+Las dos fases, una detrás de la otra, sobre el mismo arreglo 5, 2, 9, 1, 7,
+3, 8, 4. En la construcción el árbol tiene los ocho nodos; en el
+ordenamiento pierde una hoja por vuelta, mientras el arreglo conserva todas
+sus casillas.
+
+<SequenceStepper eda="heap-max" operation="heapsort" values={[5, 2, 9, 1, 7, 3, 8, 4]} />
+
+El listado es un método del heap: usa su `n` y su `sink`, el mismo `sink`
+de `extractMax`. La versión de biblioteca recibe el arreglo como parámetro y
+hace exactamente lo mismo.
+
+</Slide>
+
+<Slide title="El costo de HeapSort">
+Las dos fases cuestan distinto.
+
+- **Construcción: $$O(N)$$.** Es menos de lo que sugiere contar $$N/2$$
+  llamadas a `sink` de costo $$O(\log N)$$: la mayoría de los nodos está
+  cerca de las hojas y baja muy poco. Sedgewick demuestra que la
+  construcción hace menos de $$2N$$ comparaciones; aquí lo usamos sin
+  demostrarlo.
+- **Ordenamiento: $$O(N \log N)$$.** Son $$N - 1$$ vueltas, y cada `sink`
+  desde la raíz recorre a lo más la altura, $$\lfloor \log_2 N \rfloor$$
+  niveles.
+
+En total, **$$O(N \log N)$$ en el peor caso**, sin excepciones. Quicksort
+es más rápido en promedio, pero su peor caso es $$\Theta(N^2)$$; HeapSort no
+tiene entrada que lo lleve ahí.
+
+La memoria extra es $$\Theta(1)$$: una variable para el intercambio y los
+índices. El heap vive dentro del mismo arreglo que se ordena.
+
+</Slide>
+
+<Slide title="HeapSort y mergesort">
+Los dos ordenan en $$O(N \log N)$$ en el peor caso. Se diferencian en lo que
+cobran por eso:
+
+| Propiedad                 | HeapSort          | Mergesort                  |
+| ------------------------- | ----------------- | -------------------------- |
+| Peor caso                 | $$O(N \log N)$$   | $$O(N \log N)$$            |
+| Memoria extra             | $$\Theta(1)$$     | $$\Theta(N)$$              |
+| Estable                   | no                | sí                         |
+
+HeapSort no necesita un segundo arreglo. Mergesort sí, y a cambio es
+**estable**: dos elementos iguales salen en el orden en que entraron.
+HeapSort no lo garantiza, porque `sink` y el intercambio con `data[n]`
+mueven elementos a lo largo de todo el arreglo sin mirar su posición
+original. Cuando los elementos son registros ordenados por un campo, esa
+diferencia decide cuál usar.
+
+</Slide>
+
+<Slide title="Lo que el orden débil no responde">
+El heap es rápido para una sola pregunta, cuál es el máximo, y lo es porque
+guarda el orden más débil que la responde. Cualquier otra pregunta sobre el
+orden le sale cara: **buscar un valor cualquiera es $$\Theta(N)$$**, y
+recorrer los elementos de menor a mayor exige desarmarlo.
+
+La causa es la **forma completa**. Obliga a que cada valor quede donde toca
+llenar el árbol, no donde lo ubicaría su valor, y por eso dos hermanos
+nunca se comparan.
+
+¿Qué pasa si se abandona? Un árbol binario que acomoda cada nodo según su
+valor —los menores hacia un lado, los mayores hacia el otro— puede
+**buscar** bajando por un solo camino, y recorrer sus valores en orden sin
+destruirlo. El precio es la altura: sin la forma completa ya nada garantiza
+$$\lfloor \log_2 N \rfloor$$ niveles, y el árbol puede degenerar en una
+fila tan larga como la lista. Tampoco cabe ya en un arreglo sin huecos:
+necesita punteros entre nodos.
+
+Esa es la estructura general de la que el heap es un caso particular: el
+**árbol binario**.
+
+</Slide>
 
 ## Ejercicios
 
