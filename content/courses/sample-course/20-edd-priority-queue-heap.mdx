@@ -1058,10 +1058,477 @@ Esa es la estructura general de la que el heap es un caso particular: el
 
 </Slide>
 
+<SectionBreak />
+
 ## Ejercicios
 
-{/* S9 — decididos con Miguel al arrancar el slice. */}
+<Slide title="Los ejercicios de esta clase">
+Dos problemas resueltos completos, cada uno en cinco pasos: el problema, por
+qué no es trivial, la idea, el código y dónde falla.
+
+- **Top-K de una secuencia**: los $$K$$ mayores de una secuencia larga, sin
+  guardarla entera.
+- **Un planificador de tareas**: atender por urgencia sin perder el orden de
+  llegada entre tareas igual de urgentes.
+
+Después, en el libro, dos problemas propuestos con su solución: el
+**k-ésimo mayor** de un arreglo y la **verificación de un max-heap**.
+
+</Slide>
+
+<Slide title="Los K mayores de una secuencia">
+Un servidor registra el tiempo de respuesta de cada solicitud, millones al
+día, y al final del día hay que informar los $$K$$ más lentos. Los tiempos
+llegan de a uno y no se pueden volver a pedir.
+
+El programa recibe $$K$$ y la secuencia, y devuelve los $$K$$ valores
+mayores ordenados de mayor a menor:
+
+```java
+int[] topK(int k, int[] stream)
+```
+
+**Entrada.** `k`, mayor que cero; `stream`, con a lo más 10⁶ números. Los
+valores se pueden repetir.
+
+**Salida.** Los `k` mayores de `stream`, de mayor a menor. Si `stream` tiene
+menos de `k` números, todos ellos, de mayor a menor.
+
+| `k` | `stream`              | resultado |
+| --- | --------------------- | --------- |
+| `3` | `5 1 9 3 7 2 8`       | `9 8 7`   |
+| `2` | `6 6 1`               | `6 6`     |
+| `2` | `4`                   | `4`       |
+| `1` | (vacío)               | (vacío)   |
+
+</Slide>
+
+<Slide title="Ordenar la secuencia entera">
+Lo primero que se piensa es guardar todos los números, ordenarlos y tomar
+los primeros $$K$$. Da el resultado correcto, y cobra dos cosas que el
+problema no necesita.
+
+Cuesta $$\Theta(N \log N)$$, cuando sólo interesan $$K$$ posiciones del
+orden. Y ocupa $$\Theta(N)$$ de memoria: con un millón de tiempos por día
+hay que tener el millón guardado al mismo tiempo, para quedarse con tres.
+
+Guardar todo en un max-heap y extraer $$K$$ veces mejora el tiempo pero no
+la memoria: el heap también tiene los $$N$$ adentro.
+
+</Slide>
+
+<Slide title="El peor de los K mejores">
+Basta con recordar, en cada momento, **los $$K$$ mejores vistos hasta
+ahora**. Cuando llega un número nuevo, la única pregunta es si merece entrar
+entre ellos, y eso depende de un solo valor: **el peor de los $$K$$**. Si el
+nuevo es mayor que ese peor, lo reemplaza; si no, se descarta sin mirar a
+los otros.
+
+Lo que hay que tener a mano es entonces el **mínimo** de un grupo de $$K$$
+números que cambia a cada rato: sacarlo, agregar otro, y volver a saber cuál
+es el mínimo. Eso es un **min-heap de tamaño $$K$$**.
+
+A mano, con $$K = 3$$ sobre `5 1 9 3 7 2 8`: los tres primeros entran sin
+preguntar, `{1, 5, 9}`. Llega 3, mayor que el peor, 1: sale 1, entra 3. Llega
+7, mayor que 3: sale 3, entra 7, y queda `{5, 7, 9}`. Llega 2, menor que 5:
+se descarta. Llega 8, mayor que 5: queda `{7, 8, 9}`.
+
+</Slide>
+
+<Slide title="Top-K · la solución">
+`PriorityQueue` sin comparador es el min-heap que la idea pide, y `peek()`
+es su peor elemento. Al final, el heap guarda los $$K$$ mayores y los
+entrega del menor al mayor, así que se escriben en el arreglo de atrás hacia
+adelante.
+
+<StepShow
+  language="java"
+  code={`static int[] topK(int k, int[] stream) {
+    if (k <= 0) {
+        throw new IllegalArgumentException();
+    }
+    PriorityQueue<Integer> best = new PriorityQueue<>();
+    for (int x : stream) {
+        if (best.size() < k) {
+            best.add(x);
+        } else if (x > best.peek()) {
+            best.poll();
+            best.add(x);
+        }
+    }
+    int[] out = new int[best.size()];
+    for (int i = out.length - 1; i >= 0; i--) {
+        out[i] = best.poll();
+    }
+    return out;
+}`}
+>
+  <Step lines={[7, 8]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>5, 1 y 9 entran sin comparar: el heap todavía no tiene tres. El peor, en la raíz, es 1.</div>
+    <HeapPicture values={[1, 5, 9]} view="tree" label="Min-heap con 1 en la raíz y 5 y 9 como hijos." />
+  </Step>
+  <Step lines={[9, 10, 11]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Llega 3, mayor que el peor: sale 1, entra 3.</div>
+    <HeapPicture values={[3, 9, 5]} view="tree" hot={[1]} label="Min-heap con 3 en la raíz y 9 y 5 como hijos." />
+  </Step>
+  <Step lines={[9, 10, 11]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Llega 7, mayor que 3: sale 3, entra 7. El peor es ahora 5.</div>
+    <HeapPicture values={[5, 9, 7]} view="tree" hot={[3]} label="Min-heap con 5 en la raíz y 9 y 7 como hijos." />
+  </Step>
+  <Step lines={[9]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Llega 2, que no supera a 5: se descarta, y el heap no cambia.</div>
+    <HeapPicture values={[5, 9, 7]} view="tree" label="El mismo min-heap: 5 en la raíz, 9 y 7 como hijos." />
+  </Step>
+  <Step lines={[9, 10, 11]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Llega 8, mayor que 5: sale 5, entra 8.</div>
+    <HeapPicture values={[7, 9, 8]} view="tree" hot={[3]} label="Min-heap con 7 en la raíz y 9 y 8 como hijos." />
+  </Step>
+  <Step lines={[14, 15, 16]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>El heap sale del menor al mayor, 7, 8, 9, y se escribe desde el final: el resultado es 9 8 7.</div>
+    <HeapPicture values={[7, 9, 8]} view="tree" label="El min-heap final, 7 en la raíz y 9 y 8 como hijos, que se vacía en el arreglo resultado." />
+  </Step>
+</StepShow>
+
+</Slide>
+
+<Slide title="Las secuencias más cortas que K">
+Si la secuencia tiene menos de $$K$$ números, la primera rama es la única que
+corre: todos entran, ninguno se compara, y el resultado tiene el largo del
+heap, no $$K$$. Con `k = 2` sobre `4` devuelve `4`; sobre la secuencia vacía
+devuelve un arreglo vacío. Los repetidos no necesitan un caso aparte: con
+`6 6 1` el segundo 6 entra por la primera rama y el 1 no supera al peor.
+
+Con `k` en cero el heap nunca tendría dónde guardar el primer número, y
+`peek()` devolvería `null` sobre un heap vacío. La función lo rechaza de
+entrada con `IllegalArgumentException`.
+
+Cada número cuesta un `peek()`, $$\Theta(1)$$, y a lo más un `poll()` y un
+`add()` sobre un heap de $$K$$, $$O(\log K)$$: **$$O(N \log K)$$** en total.
+El heap nunca guarda más de $$K$$ números, así que la memoria es
+**$$\Theta(K)$$**, sin importar cuán larga sea la secuencia.
+
+</Slide>
+
+<Slide title="Top-K · el programa completo">
+<PresentationWide fraction={0.75}>
+<Exercise title="Top-K de una secuencia">
+
+El algoritmo entero. **Comprobar** lo corre contra los casos del enunciado, y
+cualquier cambio se puede probar de la misma forma.
+
+```java starter
+import java.util.PriorityQueue;
+
+class Solution {
+
+    static int[] topK(int k, int[] stream) {
+        if (k <= 0) {
+            throw new IllegalArgumentException();
+        }
+        PriorityQueue<Integer> best = new PriorityQueue<>();
+        for (int x : stream) {
+            if (best.size() < k) {
+                best.add(x);
+            } else if (x > best.peek()) {
+                best.poll();
+                best.add(x);
+            }
+        }
+        int[] out = new int[best.size()];
+        for (int i = out.length - 1; i >= 0; i--) {
+            out[i] = best.poll();
+        }
+        return out;
+    }
+}
+```
+
+```java test
+check(Solution.topK(3, new int[] {5, 1, 9, 3, 7, 2, 8}), new int[] {9, 8, 7});
+check(Solution.topK(2, new int[] {6, 6, 1}), new int[] {6, 6});
+check(Solution.topK(2, new int[] {4}), new int[] {4});
+check(Solution.topK(1, new int[] {}), new int[] {});
+```
+
+</Exercise>
+</PresentationWide>
+
+</Slide>
+
+<Slide title="Un planificador de tareas">
+Un sistema recibe tareas con un nombre y una **urgencia**, un entero donde
+más es más urgente, y las atiende de a una. La regla del sistema tiene dos
+partes: primero la más urgente, y **entre dos igual de urgentes, la que
+llegó antes**.
+
+El programa recibe las tareas en el orden en que llegaron y devuelve el
+orden en que se atienden:
+
+```java
+String[] schedule(String[] names, int[] urgency)
+```
+
+**Entrada.** Dos arreglos del mismo largo, a lo más 10⁵: `names[i]` y
+`urgency[i]` son la tarea que llegó en el lugar `i`.
+
+**Salida.** Los nombres en el orden de atención.
+
+| `names`                                          | `urgency`   | resultado                                       |
+| ------------------------------------------------ | ----------- | ----------------------------------------------- |
+| `respaldo caída informe correo parche`           | `2 9 5 5 9` | `caída parche informe correo respaldo`          |
+| `a b`                                            | `1 1`       | `a b`                                           |
+| (vacío)                                          | (vacío)     | (vacío)                                         |
+
+</Slide>
+
+<Slide title="Comparar sólo por urgencia">
+Lo primero que se piensa es la `PriorityQueue` de tareas con un comparador
+por urgencia, la de mayor primero. Atiende bien a las urgentes, y falla en
+los empates.
+
+Sobre `respaldo caída informe correo parche`, con urgencias `2 9 5 5 9`,
+`java.util.PriorityQueue` entrega:
+
+```
+caída  parche  correo  informe  respaldo
+```
+
+`informe` y `correo` tienen la misma urgencia, e `informe` llegó antes. El
+heap los entregó al revés. No es un error de Java: el comparador dice que
+son iguales, y un heap **no es estable**. `sink` y los intercambios con la
+última hoja mueven elementos sin mirar cuándo llegaron, así que entre dos
+iguales cualquiera de los dos puede salir primero.
+
+</Slide>
+
+<Slide title="El orden de llegada como desempate">
+Si dos tareas empatan en urgencia, lo que las distingue es **cuándo
+llegaron**, y eso ya está en los datos: es su posición en la entrada. Basta
+con que el comparador lo use como segundo criterio. Primero la urgencia, de
+mayor a menor; si empatan, el número de llegada, de menor a mayor.
+
+Con ese comparador ya no hay dos tareas iguales: cada una tiene un número de
+llegada distinto. El heap sigue sin ser estable, pero ya no tiene empates
+que desordenar.
+
+A mano, sobre el ejemplo: `caída` y `parche` empatan en 9 y `caída` llegó
+en el lugar 1, antes que `parche`, en el 4; `informe` y `correo` empatan en 5
+y llegaron en los lugares 2 y 3. El orden es `caída parche informe correo
+respaldo`.
+
+</Slide>
+
+<Slide title="Planificador · la solución">
+El heap guarda **números de llegada**, no tareas. El índice `i` es a la vez
+el número de llegada y la posición de la tarea en los dos arreglos, así que
+el comparador lee la urgencia desde ahí.
+
+```java
+static String[] schedule(String[] names, int[] urgency) {
+    if (names.length != urgency.length) {
+        throw new IllegalArgumentException();
+    }
+    PriorityQueue<Integer> pending = new PriorityQueue<>(
+        (a, b) -> urgency[a] != urgency[b]
+            ? Integer.compare(urgency[b], urgency[a])
+            : Integer.compare(a, b));
+    for (int i = 0; i < names.length; i++) {
+        pending.add(i);
+    }
+    String[] order = new String[names.length];
+    for (int t = 0; t < order.length; t++) {
+        order[t] = names[pending.poll()];
+    }
+    return order;
+}
+```
+
+`Integer.compare(urgency[b], urgency[a])`, con `b` primero, ordena de mayor
+a menor; `Integer.compare(a, b)` desempata de menor a mayor. Sobre el
+ejemplo, los números de llegada salen 1, 4, 2, 3, 0, que son `caída`,
+`parche`, `informe`, `correo` y `respaldo`.
+
+</Slide>
+
+<Slide title="Los empates y la entrada vacía">
+El caso que el primer intento rompía es el que el desempate cubre: con
+`a b` y urgencias `1 1`, los dos empatan en urgencia y `a` llegó en el
+lugar 0, así que sale primero. Sin el desempate, cuál sale primero dependería
+de cómo quedó armado el heap.
+
+Con la entrada vacía ningún ciclo corre y se devuelve un arreglo vacío. Con
+arreglos de distinto largo no hay una tarea `i` bien definida, y la función
+lo rechaza con `IllegalArgumentException`.
+
+Cada una de las $$N$$ tareas entra y sale del heap una vez, a
+$$O(\log N)$$ cada operación: **$$O(N \log N)$$** en total. El heap guarda
+los $$N$$ números de llegada, y el resultado $$N$$ nombres: **$$\Theta(N)$$**
+de memoria.
+
+</Slide>
+
+<Slide title="Planificador · el programa completo">
+<PresentationWide fraction={0.75}>
+<Exercise title="Un planificador de tareas">
+
+El algoritmo entero. **Comprobar** lo corre contra los casos del enunciado.
+Sin el desempate del comparador, el primer caso falla.
+
+```java starter
+import java.util.PriorityQueue;
+
+class Solution {
+
+    static String[] schedule(String[] names, int[] urgency) {
+        if (names.length != urgency.length) {
+            throw new IllegalArgumentException();
+        }
+        PriorityQueue<Integer> pending = new PriorityQueue<>(
+            (a, b) -> urgency[a] != urgency[b]
+                ? Integer.compare(urgency[b], urgency[a])
+                : Integer.compare(a, b));
+        for (int i = 0; i < names.length; i++) {
+            pending.add(i);
+        }
+        String[] order = new String[names.length];
+        for (int t = 0; t < order.length; t++) {
+            order[t] = names[pending.poll()];
+        }
+        return order;
+    }
+}
+```
+
+```java test
+check(Solution.schedule(
+    new String[] {"respaldo", "caída", "informe", "correo", "parche"},
+    new int[] {2, 9, 5, 5, 9}),
+    new String[] {"caída", "parche", "informe", "correo", "respaldo"});
+check(Solution.schedule(new String[] {"a", "b"}, new int[] {1, 1}), new String[] {"a", "b"});
+check(Solution.schedule(new String[] {}, new int[] {}).length, 0);
+```
+
+</Exercise>
+</PresentationWide>
+
+</Slide>
+
+<Exercise title="El k-ésimo mayor">
+
+La función recibe un arreglo de enteros y un número `k`, y devuelve el
+`k`-ésimo mayor: con
+`k = 1` el máximo, con `k = 2` el segundo mayor, y así. Los repetidos cuentan
+por separado, así que en `6 6 1` el segundo mayor es 6.
+
+```java
+int kthLargest(int k, int[] data)
+```
+
+`k` está entre 1 y `data.length`; fuera de ese rango, la función lanza
+`IllegalArgumentException`. La dificultad está en no ordenar el arreglo
+entero: un min-heap de tamaño `k`, como el de Top-K, deja al final el
+`k`-ésimo mayor en su raíz. El costo esperado es $$O(N \log k)$$.
+
+```java starter
+import java.util.PriorityQueue;
+
+class Solution {
+
+    static int kthLargest(int k, int[] data) {
+        return 0;
+    }
+}
+```
+
+```java test
+check(Solution.kthLargest(1, new int[] {5, 1, 9, 3, 7}), 9);
+check(Solution.kthLargest(3, new int[] {5, 1, 9, 3, 7}), 5);
+check(Solution.kthLargest(5, new int[] {5, 1, 9, 3, 7}), 1);
+check(Solution.kthLargest(2, new int[] {6, 6, 1}), 6);
+```
+
+```java solution
+import java.util.PriorityQueue;
+
+class Solution {
+
+    static int kthLargest(int k, int[] data) {
+        if (k < 1 || k > data.length) {
+            throw new IllegalArgumentException();
+        }
+        PriorityQueue<Integer> best = new PriorityQueue<>();
+        for (int x : data) {
+            if (best.size() < k) {
+                best.add(x);
+            } else if (x > best.peek()) {
+                best.poll();
+                best.add(x);
+            }
+        }
+        return best.peek();
+    }
+}
+```
+
+</Exercise>
+
+<Exercise title="La verificación de un max-heap">
+
+La función recibe un arreglo guardado como heap desde 1 —`data[0]` sin usar
+y los elementos en `data[1..n]`— y decide si cumple el orden de max-heap.
+
+```java
+boolean isMaxHeap(int[] data, int n)
+```
+
+`n` está entre 0 y `data.length - 1`. Un heap con cero o un elemento
+siempre cumple el orden. No hace falta comparar cada nodo con sus dos hijos:
+alcanza con comparar cada posición `k`, de 2 a `n`, con su padre `k / 2`.
+El costo esperado es $$\Theta(n)$$.
+
+```java starter
+class Solution {
+
+    static boolean isMaxHeap(int[] data, int n) {
+        return false;
+    }
+}
+```
+
+```java test
+check(Solution.isMaxHeap(new int[] {0, 10, 7, 8, 1, 3}, 5), true);
+check(Solution.isMaxHeap(new int[] {0, 10, 7, 8, 1, 9}, 5), false);
+check(Solution.isMaxHeap(new int[] {0, 5, 6}, 2), false);
+check(Solution.isMaxHeap(new int[] {0, 4}, 1), true);
+check(Solution.isMaxHeap(new int[] {0}, 0), true);
+```
+
+```java solution
+class Solution {
+
+    static boolean isMaxHeap(int[] data, int n) {
+        for (int k = 2; k <= n; k++) {
+            if (data[k / 2] < data[k]) {
+                return false;
+            }
+        }
+        return true;
+    }
+}
+```
+
+</Exercise>
 
 ## Lo que sigue
 
-{/* S9 — el árbol como estructura general. */}
+El heap es un **árbol binario** con dos restricciones: la forma completa y el
+orden de heap. Gracias a ellas cabe en un arreglo y encuentra su máximo sin
+buscarlo; por ellas mismas no sirve para ninguna otra pregunta sobre el
+orden.
+
+La próxima clase estudia el árbol binario sin esas restricciones, como
+estructura general: nodos enlazados con punteros a sus hijos, las formas de
+recorrerlo —preorden, inorden, postorden— y cuánto puede crecer su altura
+cuando nada la controla. Es la base de los árboles de búsqueda, que ordenan
+los valores de izquierda a derecha para poder encontrar cualquiera de ellos,
+no sólo el máximo.
