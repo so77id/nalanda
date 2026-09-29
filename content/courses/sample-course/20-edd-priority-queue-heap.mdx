@@ -317,11 +317,220 @@ Esa jerarquía es un árbol, y la estructura que la guarda se llama **heap**.
 
 </Slide>
 
+{/* HeapPicture — a static drawing of one heap, as the tree, as the array, or both with the correspondence drawn between them. */}
+{/* File-local on purpose (add-a-course-document.md §6e-quater): one consumer, no catalog entry, not registered. The second document that wants it promotes it. */}
+{/* Same geometry as the heap-max recipe of <SequenceStepper> (sequenceStepperHeapLayout.ts), so a static figure and the widget beside it draw the same tree. */}
+
+export function HeapPicture({
+  values = [],
+  n = values.length,
+  view = 'both',
+  hot = [],
+  links = false,
+  label,
+}) {
+  const r = 17;
+  const pitch = 46;
+  const levelH = 54;
+  const pad = 14;
+  const box = 40;
+  const levels = values.length === 0 ? 1 : Math.floor(Math.log2(values.length)) + 1;
+  const leaves = 2 ** (levels - 1);
+  const treeW = 2 * pad + leaves * pitch;
+  const treeH = view === 'array' ? 0 : 2 * pad + 2 * r + (levels - 1) * levelH;
+  const arrayW = (values.length + 1) * box;
+  const width = Math.max(view === 'array' ? 0 : treeW, view === 'tree' ? 0 : arrayW + 8);
+  const treeX = (width - treeW) / 2;
+  const arrayX = (width - arrayW) / 2;
+  const arrayY = treeH + (view === 'both' ? (links ? 48 : 26) : 6);
+  const height = view === 'tree' ? treeH : arrayY + box + 40;
+  const at = (k) => {
+    const level = Math.floor(Math.log2(k));
+    const span = leaves / 2 ** level;
+    return { cx: treeX + pad + (k - 2 ** level + 0.5) * span * pitch, cy: pad + r + level * levelH };
+  };
+  const stroke = (k) => (hot.includes(k) ? 'var(--color-accent)' : k > n ? 'var(--color-keep)' : 'var(--color-rule-strong)');
+  const fill = (k) => (k > n ? 'var(--color-keep-soft)' : 'var(--color-surface)');
+  const weight = (k) => (hot.includes(k) ? 2.8 : 1.4);
+  const ks = values.map((_, i) => i + 1);
+  return (
+    <svg
+      viewBox={`0 0 ${width} ${height}`}
+      style={{ width: '100%', maxWidth: `${Math.round(width * 1.45)}px`, height: 'auto', display: 'block', margin: '1rem auto' }}
+      role="img"
+      aria-label={label}
+    >
+      {view === 'array' ? null : ks.filter((k) => k > 1 && k <= n).map((k) => {
+        const p = at(Math.floor(k / 2));
+        const c = at(k);
+        const hotEdge = hot.includes(k) && hot.includes(Math.floor(k / 2));
+        return <line key={`e${k}`} x1={p.cx} y1={p.cy} x2={c.cx} y2={c.cy} style={{ stroke: hotEdge ? 'var(--color-accent)' : 'var(--color-rule-strong)' }} strokeWidth={hotEdge ? 2.8 : 1.2} />;
+      })}
+      {view === 'both' && links ? ks.filter((k) => k <= n).map((k) => {
+        const c = at(k);
+        return <line key={`l${k}`} x1={c.cx} y1={c.cy + r} x2={arrayX + k * box + box / 2} y2={arrayY} style={{ stroke: 'var(--color-ink-faint)' }} strokeWidth="0.9" strokeDasharray="3 3" />;
+      }) : null}
+      {view === 'array' ? null : ks.filter((k) => k <= n).map((k) => {
+        const c = at(k);
+        return (
+          <g key={`n${k}`}>
+            <circle cx={c.cx} cy={c.cy} r={r} style={{ fill: fill(k), stroke: stroke(k) }} strokeWidth={weight(k)} />
+            <text x={c.cx} y={c.cy + 5} textAnchor="middle" fontSize="14" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{values[k - 1]}</text>
+            <text x={c.cx + r - 2} y={c.cy + r + 6} fontSize="9" style={{ fill: 'var(--color-ink-faint)' }}>{k}</text>
+          </g>
+        );
+      })}
+      {view === 'tree' ? null : (
+        <g>
+          <rect x={arrayX} y={arrayY} width={box} height={box} rx="3" style={{ fill: 'var(--color-sunk)', stroke: 'var(--color-rule)' }} strokeWidth="1.2" strokeDasharray="3 3" />
+          <text x={arrayX + box / 2} y={arrayY + box + 14} textAnchor="middle" fontSize="10" style={{ fill: 'var(--color-ink-faint)' }}>0</text>
+          <text x={arrayX} y={arrayY + box + 30} fontSize="9" style={{ fill: 'var(--color-ink-soft)' }}>no se usa</text>
+          {ks.map((k) => (
+            <g key={`a${k}`}>
+              <rect x={arrayX + k * box} y={arrayY} width={box} height={box} rx="3" style={{ fill: fill(k), stroke: stroke(k) }} strokeWidth={weight(k)} />
+              <text x={arrayX + k * box + box / 2} y={arrayY + box / 2 + 5} textAnchor="middle" fontSize="14" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{values[k - 1]}</text>
+              <text x={arrayX + k * box + box / 2} y={arrayY + box + 14} textAnchor="middle" fontSize="10" style={{ fill: 'var(--color-ink-faint)' }}>{k}</text>
+            </g>
+          ))}
+        </g>
+      )}
+    </svg>
+  );
+}
+
 <SectionBreak />
 
 ## El heap binario
 
-{/* S5 — árbol ordenado, completo, arreglo 1-based, aritmética de índices. */}
+<Slide title="Un árbol binario con orden de heap">
+Un **árbol binario** es una jerarquía donde cada elemento, llamado
+**nodo**, tiene a lo más dos nodos debajo: sus **hijos**, izquierdo y
+derecho. El de arriba de todo, que no es hijo de nadie, es la **raíz**. Un
+árbol binario tiene **orden de heap** cuando cumple una regla:
+
+> **el valor de cada nodo es mayor o igual que los valores de sus dos
+> hijos.**
+
+<HeapPicture values={[10, 7, 8, 1, 3]} view="tree" label="Un árbol binario con orden de heap. La raíz es 10; sus hijos son 7 y 8; los hijos de 7 son 1 y 3. Cada nodo es mayor o igual que sus hijos." />
+
+La regla sólo compara a cada nodo con sus hijos. De ahí sale lo único que
+el contrato necesita: siguiendo cualquier camino hacia arriba los valores
+nunca bajan, así que **el máximo está en la raíz**. Y de ahí sale también lo
+que no se promete: 7 y 8 están en ramas distintas y nadie los compara, igual
+que 1 y 8. Es el orden más débil que todavía deja ver el máximo.
+
+Un heap con esta regla se llama **max-heap**, y es el que construye esta
+clase.
+
+</Slide>
+
+<Slide title="Un árbol binario completo">
+Un heap exige una segunda regla, sobre la **forma** del árbol y no sobre
+sus valores: el árbol es **completo**. Todos sus niveles están llenos,
+salvo quizás el último, que se llena **de izquierda a derecha**, sin
+huecos.
+
+<Split>
+
+<HeapPicture values={[10, 7, 8, 1, 3]} view="tree" label="Un árbol completo de cinco nodos: la raíz, sus dos hijos, y en el último nivel los dos primeros lugares ocupados desde la izquierda." />
+
+<svg viewBox="0 0 212 150" style={{ width: '100%', maxWidth: '300px', height: 'auto', display: 'block', margin: '1rem auto' }} role="img" aria-label="Un árbol que no es completo: la raíz 10 tiene hijos 7 y 8, y el 3 cuelga del 8 dejando vacío el primer lugar del último nivel, bajo el 7.">
+  <line x1="106" y1="31" x2="60" y2="85" style={{ stroke: 'var(--color-rule-strong)' }} strokeWidth="1.2" />
+  <line x1="106" y1="31" x2="152" y2="85" style={{ stroke: 'var(--color-rule-strong)' }} strokeWidth="1.2" />
+  <line x1="152" y1="85" x2="129" y2="139" style={{ stroke: 'var(--color-rule-strong)' }} strokeWidth="1.2" />
+  <circle cx="106" cy="31" r="17" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.4" />
+  <text x="106" y="36" textAnchor="middle" fontSize="14" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>10</text>
+  <circle cx="60" cy="85" r="17" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.4" />
+  <text x="60" y="90" textAnchor="middle" fontSize="14" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>7</text>
+  <circle cx="152" cy="85" r="17" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.4" />
+  <text x="152" y="90" textAnchor="middle" fontSize="14" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>8</text>
+  <circle cx="37" cy="139" r="15" style={{ fill: 'var(--color-sunk)', stroke: 'var(--color-flag)' }} strokeWidth="1.6" strokeDasharray="4 3" />
+  <text x="37" y="143" textAnchor="middle" fontSize="11" style={{ fill: 'var(--color-flag)' }}>hueco</text>
+  <circle cx="129" cy="139" r="17" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.4" />
+  <text x="129" y="144" textAnchor="middle" fontSize="14" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>3</text>
+</svg>
+
+</Split>
+
+El de la izquierda es completo. El de la derecha tiene orden de heap y no
+es completo: el último nivel tiene un hueco antes de su primer nodo.
+
+Las dos reglas son las **invariantes del heap**:
+
+1. **Orden de heap: cada nodo es mayor o igual que sus hijos.** Es la que
+   pone el máximo en la raíz, y la que cada operación tiene que restaurar
+   cuando la rompe.
+2. **Forma completa: los niveles se llenan de izquierda a derecha, sin
+   huecos.** Es la que mantiene al árbol bajo —con $$N$$ nodos tiene
+   $$\lfloor \log_2 N \rfloor + 1$$ niveles— y la que permite guardarlo sin
+   punteros.
+
+La segunda es la invariante que decide el costo. Un árbol con huecos puede
+degenerar en una fila de $$N$$ niveles, y cualquier camino de la raíz a una
+hoja se vuelve tan largo como la lista.
+
+</Slide>
+
+<Slide title="El heap guardado en un arreglo">
+Un árbol completo no necesita punteros. Si se numeran sus nodos **por
+niveles, de izquierda a derecha, empezando en 1**, cada nodo tiene un número
+distinto y no queda ninguno sin usar. Ese número es su índice en un
+arreglo.
+
+<HeapPicture values={[10, 7, 8, 1, 3]} links label="El mismo heap dibujado como árbol y como arreglo. Líneas punteadas unen cada nodo con su casilla: la raíz 10 con data[1], 7 con data[2], 8 con data[3], 1 con data[4] y 3 con data[5]. La casilla data[0] está vacía y rotulada no se usa." />
+
+El arreglo `data` guarda el heap en `data[1..n]`, donde `n` es la cantidad
+de elementos. **`data[0]` queda sin usar a propósito**: empezar en 1 hace
+que la aritmética entre padres e hijos sea la más simple posible, y esa
+simplicidad es la que aprovechan todas las operaciones.
+
+El árbol es el modelo para pensar; el arreglo es lo que el programa guarda.
+Son el mismo objeto con dos representaciones, y cualquier cambio en una es
+un cambio en la otra.
+
+</Slide>
+
+<Slide title="Aritmética de índices en el heap">
+Con la numeración por niveles desde 1, los dos hijos del nodo `k` son
+`2k` y `2k + 1`, y su padre es `k / 2` redondeado hacia abajo. En Java la
+división entera ya redondea hacia abajo:
+
+```java
+int parent(int k) {
+    return k / 2;
+}
+
+int left(int k) {
+    return 2 * k;
+}
+
+int right(int k) {
+    return 2 * k + 1;
+}
+```
+
+En el heap de ejemplo, el nodo 2 guarda 7: sus hijos están en `data[4]` y
+`data[5]`, que guardan 1 y 3, y su padre en `data[1]`, que guarda 10.
+
+Con los índices desde 0, las mismas fórmulas serían `(k - 1) / 2`,
+`2k + 1` y `2k + 2`. Funcionan igual, pero cada una arrastra un ajuste. Por
+eso el heap se guarda desde 1: el costo es una casilla, y lo que se gana es
+aritmética sin correcciones.
+
+</Slide>
+
+<Slide title="Una inserción en las dos vistas">
+El heap de ejemplo recibe un 9. El widget dibuja el mismo arreglo dos veces,
+como árbol y como arreglo, y cada paso cambia las dos vistas a la vez: la
+casilla que se ilumina en el arreglo es el nodo que se ilumina en el árbol.
+
+<SequenceStepper eda="heap-max" operation="insert" values={[10, 7, 8, 1, 3]} value={9} capacity={8} showCode={false} />
+
+El 9 entra en `data[6]`, la primera hoja libre, como hijo del 8. Rompe el
+orden de heap con su padre, y los dos se intercambian. Frente a la raíz ya
+no lo rompe, y se detiene ahí.
+
+</Slide>
 
 <SectionBreak />
 

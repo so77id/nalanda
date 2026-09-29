@@ -649,6 +649,18 @@ describe('<SequenceStepper> · the combinations 20-edd-priority-queue-heap mount
         receiverType: 'OrderedPQ',
       },
     },
+    {
+      act: 'El heap binario',
+      slide: 'Una inserción en las dos vistas',
+      props: {
+        eda: 'heap-max',
+        operation: 'insert',
+        values: [10, 7, 8, 1, 3],
+        value: 9,
+        capacity: 8,
+        showCode: false,
+      },
+    },
   ];
 
   it.each(mounted)('$act · $slide', ({ props }) => {
