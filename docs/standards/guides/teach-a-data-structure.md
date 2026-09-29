@@ -116,9 +116,11 @@ and the five posed exercises, and the document ends on the last exercise's
 code slide followed by its `<Questions>` block. Two things follow, and the
 next author needs both.
 
-It is defensible here and only here: #294 is last in `index.yaml`, so there
-is no next class to navigate to, and a `Lo que sigue` would have to invent
-one. What it costs is real — `18-edd-listas-enlazadas.mdx` wiki-links forward
+It was defensible there and only there: #294 was last in `index.yaml` when
+it shipped, so there was no next class to navigate to, and a `Lo que sigue`
+would have had to invent one. #304 (Priority Queue y Heap) now follows it on
+the teaching path, so that justification has expired; #294's missing closing
+is owed the next time the document is opened for another reason. What it costs is real — `18-edd-listas-enlazadas.mdx` wiki-links forward
 into a document that now dead-ends, and the trade this guide asks every class
 to close on (§5) went with the hinge.
 
