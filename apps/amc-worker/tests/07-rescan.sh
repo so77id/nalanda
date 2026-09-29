@@ -73,9 +73,16 @@ fill() {
 }
 
 # upload <project> <pdf> <n> — put a batch where the server stores the Nth one.
+#
+# Through the container, never from the host: every request that names a
+# project hands it to UID 65532 (worker.py hand_back_project — the server's
+# UID in production), so on a Linux runner the host user cannot write inside
+# it. Docker Desktop on macOS maps bind-mount ownership and hides this; the
+# first CI run of this script died on `mkdir: Permission denied` (#298).
 upload() {
-  mkdir -p "$work/$1/uploads"
-  cp "$work/$2" "$work/$1/uploads/batch-$3.pdf"
+  docker run --rm -v "${work}:/work" "$IMAGE" sh -c \
+    'mkdir -p "/work/$1/uploads" && cp "/work/$2" "/work/$1/uploads/batch-$3.pdf"' \
+    _ "$1" "$2" "$3"
 }
 
 analyse() { # analyse <project> <n>
@@ -124,10 +131,11 @@ check_eq "the second batch's page list names only its own two pages" "2" \
 # A batch AMC cannot even rasterise fails its analyse — and must not poison the
 # next one. Before, getimages had already appended to the shared list by the
 # time analyse failed, so the next upload inherited the failure.
-printf 'not a pdf\n' >"$work/p1/uploads/batch-3.pdf"
+printf 'not a pdf\n' >"$work/not-a-pdf.pdf"
+upload p1 not-a-pdf.pdf 3
 bad="$(analyse p1 3)"
 check_contains "a broken batch is refused" "error" "$bad"
-cp "$work/scan-a/lote.pdf" "$work/p1/uploads/batch-4.pdf"
+upload p1 scan-a/lote.pdf 4
 rep4="$(analyse p1 4)"
 check_eq "and the next good batch still reads" "['1', '2']" \
   "$(echo "$rep4" | field 'sorted(d["copies"])')"

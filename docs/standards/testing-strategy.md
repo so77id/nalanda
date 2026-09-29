@@ -175,6 +175,14 @@ message. It is the host, not the change: re-run the script. Production (the
 Jetson, a native Linux volume) is not exposed the same way, and the refusal is
 there so that it would be loud if it were.
 
+**A script never writes into a project the worker has touched — it goes
+through the container.** Every request that names a project hands it to UID
+65532 (`worker.py` `hand_back_project`, the server's UID in production), so on
+a Linux runner the host user cannot create a file inside it; Docker Desktop on
+macOS maps bind-mount ownership and hides this. `07-rescan.sh` passed on a Mac
+and died in CI on `mkdir: Permission denied` (#298). Its `upload` helper is the
+shape: `docker run … sh -c 'mkdir -p … && cp …'`.
+
 **A fixture added to kill a mutant names that mutant, at the fixture.** When the
 answer to "this assertion cannot fail" is a new fixture rather than a new
 assertion, its header says which mutant survived, that it survived the whole
