@@ -2460,7 +2460,6 @@ function traceHeap(operation: SequenceOperation, input: SequenceInput): Sequence
         );
         cost += 1;
         exchange(1, n);
-        cells[n - 1] = { ...cells[n - 1]!, state: 'leaving' };
         push(
           'shift',
           [line('swap(1, n);')],

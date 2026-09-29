@@ -813,6 +813,14 @@ the controls at the foot. Two props choose what it shows:
 `linked-list-doubly` or `linked-list-circular` — and `operation` is what to
 animate: `get-at`, `insert-first`, `insert-last`, `insert-at`,
 `insert-ordered`, `remove-first`, `remove-last`, `remove-at` or `search`.
+Since #304 there is a sixth recipe, `heap-max` (ADR-0077): a binary max-heap
+drawn twice — as the complete binary tree and as the 1-based array
+`data[0..]`, side by side on a slide and stacked in the book — with four
+operations of its own and valid nowhere else: `insert` (swim), `extract-max`
+(swap root and last, `n--`, sink), `build-heap` and `heapsort` (both over
+unordered `values`). Its readout is `n`, `data[0]` is drawn as unused, and
+`capacity` is `data.length` with slot 0 included. `insert` and `extract-max`
+refuse a starting array that is not already a max-heap.
 `values` is the starting contents; `value` feeds the inserts, `index` the
 positional operations (`get-at` included), and `target` both `search` and
 `insert-ordered`.

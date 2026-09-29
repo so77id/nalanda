@@ -546,6 +546,13 @@ Building a new one is still legitimate, and still needs the same argument this
 section asks for: what the whole unit wants, and why the existing widget
 cannot carry it.
 
+**The first recipe added under this rule is the heap** (#304, ADR-0077):
+`heap-max` draws the array beside the complete binary tree it encodes, and
+the class reaches it through the same tag. It is also the first recipe that
+is not a Sequence, so its operations are its own — a reminder that "reuse
+first" is about the surface and the frame model, not about forcing every
+structure into the nine Sequence operations.
+
 **It does not replace `<StepShow>` + `<MemoryVisual>`**, which stay the pair
 for author-written pictures, whose truth is the author's (ADR-0049).
 `<SequenceStepper>` DERIVES its frames from the operation, which is why it
