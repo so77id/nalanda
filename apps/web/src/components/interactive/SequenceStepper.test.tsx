@@ -563,7 +563,7 @@ describe('<SequenceStepper> · the heap recipe (#304)', () => {
     expect(within(readout).getByText('6')).toBeInTheDocument();
     for (let i = 0; i < 40; i += 1) {
       const next = screen.getByRole('button', { name: 'Adelante' });
-      if ((next as HTMLButtonElement).disabled) break;
+      if (next.getAttribute('aria-disabled') === 'true') break;
       fireEvent.click(next);
     }
     expect(within(readout).getByText('5')).toBeInTheDocument();
@@ -597,7 +597,7 @@ describe('<SequenceStepper> · the heap recipe (#304)', () => {
     );
     for (let i = 0; i < 200; i += 1) {
       const next = screen.getByRole('button', { name: 'Adelante' });
-      if ((next as HTMLButtonElement).disabled) break;
+      if (next.getAttribute('aria-disabled') === 'true') break;
       fireEvent.click(next);
     }
     const cells = [...screen.getByTestId('heap-array').querySelectorAll('[data-state]')];
@@ -616,5 +616,54 @@ describe('<SequenceStepper> · the heap recipe (#304)', () => {
     renderIn('book', <SequenceStepper {...heap} operation="extract-max" />);
     expect(screen.getByText(/heap \(máximo\)/)).toBeInTheDocument();
     expect(screen.getByText('extraer el máximo')).toBeInTheDocument();
+  });
+});
+
+describe('<SequenceStepper> · the combinations 20-edd-priority-queue-heap mounts', () => {
+  // Pinned here because `app/contentRenders.test.tsx` never mounts the lazy
+  // widget (apps/web/CLAUDE.md §2, class 4). Named for the act they come
+  // from, and each one WALKED to its last frame, not only mounted: a frame
+  // that throws or refuses halfway is invisible to a mount.
+  const mounted: { act: string; slide: string; props: SequenceStepperProps }[] = [
+    {
+      act: 'Dos implementaciones ingenuas',
+      slide: 'Cinco inserciones en la lista sin orden',
+      props: {
+        eda: 'linked-list-singly',
+        operation: 'insert-first',
+        values: [],
+        value: [8, 3, 10, 1, 7],
+      },
+    },
+    {
+      act: 'Dos implementaciones ingenuas',
+      slide: 'Cinco inserciones en la lista ordenada',
+      props: {
+        eda: 'linked-list-singly',
+        operation: 'insert-ordered',
+        values: [],
+        target: [8, 3, 10, 1, 7],
+        descending: true,
+        method: 'insert',
+        receiver: 'pq',
+        receiverType: 'OrderedPQ',
+      },
+    },
+  ];
+
+  it.each(mounted)('$act · $slide', ({ props }) => {
+    renderIn('book', <SequenceStepper {...props} />);
+    expect(document.querySelector('[data-authoring-error]')).toBeNull();
+    for (let i = 0; i < 400; i += 1) {
+      const next = screen.getByRole('button', { name: 'Adelante' });
+      if (next.getAttribute('aria-disabled') === 'true') break;
+      fireEvent.click(next);
+    }
+    // aria-disabled, never native `disabled` (stepperShell's ControlButton).
+    expect(screen.getByRole('button', { name: 'Adelante' })).toHaveAttribute(
+      'aria-disabled',
+      'true',
+    );
+    expect(document.querySelector('[data-authoring-error]')).toBeNull();
   });
 });

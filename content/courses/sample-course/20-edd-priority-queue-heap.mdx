@@ -140,7 +140,182 @@ Las tres cumplen el mismo contrato y ninguna lo cambia. Lo que cambia es
 
 ## Dos implementaciones ingenuas
 
-{/* S4 — lista no ordenada, lista ordenada de mayor a menor, el dilema. */}
+<Slide title="La lista sin orden">
+La primera implementación no guarda ningún orden. Un elemento nuevo entra
+por donde la lista enlazada ya es más barata, el frente, y `insert` es
+exactamente el `insertFirst` de la lista:
+
+```java
+void insert(int x) {
+    insertFirst(x);
+}
+```
+
+El costo aparece al sacar. Como la lista no dice dónde está el máximo,
+`extractMax` tiene que mirar **todos** los nodos. Recorre la cadena
+recordando el mayor visto hasta ahora y el nodo que lo precede, porque para
+desenganchar un nodo de una lista simple hace falta su anterior:
+
+```java
+int extractMax() {
+    if (head == null) {
+        throw new NoSuchElementException();
+    }
+    Node before = null;
+    Node max = head;
+    Node prev = head;
+    while (prev.next != null) {
+        if (prev.next.value > max.value) {
+            before = prev;
+            max = prev.next;
+        }
+        prev = prev.next;
+    }
+    if (before == null) {
+        head = head.next;
+    } else {
+        before.next = max.next;
+    }
+    size--;
+    return max.value;
+}
+```
+
+</Slide>
+
+<Slide title="Cinco inserciones en la lista sin orden">
+Cinco prioridades llegan en el orden 8, 3, 10, 1, 7. Como `insert` es
+`insertFirst`, el listado es el de la lista. Cada inserción cuesta lo mismo,
+porque ninguna mira lo que ya estaba: el nodo nuevo se engancha adelante y
+termina.
+
+<SequenceStepper eda="linked-list-singly" operation="insert-first" values={[]} value={[8, 3, 10, 1, 7]} />
+
+La cadena queda en el orden inverso al de llegada, 7, 1, 10, 3, 8, y el
+máximo quedó en el medio. Nada en la estructura lo señala: para encontrarlo
+hay que recorrerla.
+
+</Slide>
+
+<Slide title="Costos de la lista sin orden">
+La lista sin orden no agrega ninguna invariante a las de la lista enlazada:
+**cualquier orden es válido**. Por eso insertar no tiene nada que
+restaurar, y por eso mismo extraer no tiene ninguna pista de dónde buscar.
+
+| Molde      | Operación      | Peor caso      | Invariante que restaura                                   |
+| ---------- | -------------- | -------------- | --------------------------------------------------------- |
+| consultar  | `max()`        | $$\Theta(N)$$  | Ninguna: recorre sin cambiar nada                          |
+| consultar  | `isEmpty()`, `size()` | $$\Theta(1)$$ | Ninguna                                              |
+| modificar  | <code style={{ color: 'var(--color-keep)' }}>insert(x)</code> | <span style={{ color: 'var(--color-keep)', fontWeight: 700 }}>$$\Theta(1)$$</span> | Ninguna que dependa del orden: sólo `head` y `size` |
+| modificar  | `extractMax()` | $$\Theta(N)$$  | Deja la cadena enlazada sin el nodo del máximo            |
+
+Barato para entrar, caro para salir. Todo el trabajo de encontrar el
+máximo quedó postergado hasta el momento en que alguien lo pide.
+
+</Slide>
+
+<Slide title="La lista ordenada de mayor a menor">
+La segunda implementación hace lo contrario: mantiene la cadena **ordenada
+de mayor a menor**, así que el máximo está siempre en `head`. Eso es una
+invariante nueva, y la lista la sostiene en cada inserción:
+
+1. **El valor de cada nodo es mayor o igual que el del siguiente.** Por eso
+   el máximo es el primero, y consultarlo o sacarlo no recorre nada.
+
+Sacar el máximo es exactamente el `deleteFirst` de la lista:
+
+```java
+int extractMax() {
+    return deleteFirst();
+}
+```
+
+El precio lo paga `insert`, que tiene que buscar el lugar donde el orden se
+conserva. Camina con `prev` mientras el siguiente sea mayor que `x`, y lo
+engancha ahí. Un valor que va al frente es el caso que `insertFirst` ya
+resuelve:
+
+```java
+void insert(int x) {
+    if (head == null || x >= head.value) {
+        insertFirst(x);
+        return;
+    }
+    Node fresh = new Node(x);
+    Node prev = head;
+    while (prev.next != null && prev.next.value > x) {
+        prev = prev.next;
+    }
+    fresh.next = prev.next;
+    prev.next = fresh;
+    size++;
+}
+```
+
+</Slide>
+
+<Slide title="Cinco inserciones en la lista ordenada">
+Las mismas cinco prioridades, 8, 3, 10, 1, 7, ahora sobre la lista
+ordenada. El costo de cada inserción depende de **cuántos nodos mayores**
+ya hay: el 10 entra al frente sin caminar, y el 1 recorre la cadena
+entera.
+
+<SequenceStepper eda="linked-list-singly" operation="insert-ordered" values={[]} target={[8, 3, 10, 1, 7]} descending method="insert" receiver="pq" receiverType="OrderedPQ" />
+
+La cadena queda 10, 8, 7, 3, 1. El máximo está donde la invariante dice, y
+sacarlo es desenganchar el primer nodo.
+
+</Slide>
+
+<Slide title="Costos de la lista ordenada">
+La invariante del orden es la que cuesta dinero: es la razón de que
+`extractMax` sea inmediato y la razón de que `insert` camine.
+
+| Molde      | Operación      | Peor caso      | Invariante que restaura                                         |
+| ---------- | -------------- | -------------- | --------------------------------------------------------------- |
+| consultar  | `max()`        | $$\Theta(1)$$  | Ninguna: lee `head`                                             |
+| consultar  | `isEmpty()`, `size()` | $$\Theta(1)$$ | Ninguna                                                    |
+| modificar  | `insert(x)`    | $$\Theta(N)$$  | Cada nodo mayor o igual que el siguiente, con `x` en su lugar   |
+| modificar  | <code style={{ color: 'var(--color-keep)' }}>extractMax()</code> | <span style={{ color: 'var(--color-keep)', fontWeight: 700 }}>$$\Theta(1)$$</span> | El orden se conserva: sacar el primero no desordena el resto |
+
+Caro para entrar, barato para salir. Es la lista sin orden al revés.
+
+</Slide>
+
+<Slide title="Un dilema entre insertar y extraer">
+Puestas lado a lado, cada implementación es rápida exactamente donde la otra
+es lenta:
+
+| Implementación          | `insert(x)`    | `extractMax()` | `max()`       |
+| ----------------------- | -------------- | -------------- | ------------- |
+| Lista sin orden         | $$\Theta(1)$$  | $$\Theta(N)$$  | $$\Theta(N)$$ |
+| Lista ordenada          | $$\Theta(N)$$  | $$\Theta(1)$$  | $$\Theta(1)$$ |
+| ¿?                      | $$O(\log N)$$  | $$O(\log N)$$  | $$\Theta(1)$$ |
+
+Una cola de prioridad real recibe muchas inserciones y muchas extracciones
+mezcladas. Con $$N$$ de cada una, cualquiera de las dos listas termina en
+$$\Theta(N^2)$$ en total, porque una de las dos operaciones paga
+$$\Theta(N)$$ cada vez. La tercera fila es la pregunta: **¿existe una
+estructura que no sea lenta en ninguna de las dos?**
+
+</Slide>
+
+<Slide title="Un orden más débil que el de la lista">
+La lista ordenada hace más trabajo del que el contrato pide. Mantiene a
+**todos** los elementos en su lugar exacto, cuando el contrato sólo deja ver
+uno: el máximo. Saber que el tercero va antes que el cuarto no le sirve a
+ninguna operación de la cola de prioridad.
+
+La salida es guardar un orden **más débil**: lo justo para que el máximo
+esté siempre en un lugar conocido, y no más. Un orden así no cabe en una
+fila, porque en una fila cada elemento tiene un único vecino que lo sigue.
+Cabe en una **jerarquía**, donde cada elemento sólo tiene que ser mayor que
+los que dependen de él, y dos elementos de ramas distintas no se comparan
+nunca.
+
+Esa jerarquía es un árbol, y la estructura que la guarda se llama **heap**.
+
+</Slide>
 
 <SectionBreak />
 
