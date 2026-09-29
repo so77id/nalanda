@@ -30,6 +30,11 @@ export const RECIPES = [
   'linked-list-singly',
   'linked-list-doubly',
   'linked-list-circular',
+  // A binary max-heap stored 1-based in an array (#304, ADR-0077). Not a
+  // Sequence at all — it has its own four operations and draws the array
+  // beside the complete binary tree it encodes — but it is the same widget:
+  // one listing, one structure, the same controls and the same frame model.
+  'heap-max',
 ] as const;
 export type SequenceRecipe = (typeof RECIPES)[number];
 
@@ -43,6 +48,13 @@ export const OPERATIONS = [
   'remove-last',
   'remove-at',
   'search',
+  // The heap's own operations — valid on `heap-max` and nowhere else.
+  // `swim` and `sink` are not among them: they are the INSIDE of these
+  // (their lines light up in the listing), not operations of the TDA.
+  'insert',
+  'extract-max',
+  'build-heap',
+  'heapsort',
 ] as const;
 export type SequenceOperation = (typeof OPERATIONS)[number];
 
@@ -57,7 +69,17 @@ export type SequenceStepKind =
  * leaves behind — and painting them the same said "move" where the narration
  * said "copy" (#294 review).
  */
-export type SequenceCellState = 'idle' | 'new' | 'active' | 'found' | 'leaving' | 'stale';
+export type SequenceCellState =
+  | 'idle'
+  | 'new'
+  | 'active'
+  | 'found'
+  | 'leaving'
+  | 'stale'
+  /** Heap: one of the two cells being exchanged by `swap` this frame. */
+  | 'swap'
+  /** Heapsort: in its final place, past `n` — the sorted tail. */
+  | 'sorted';
 
 export interface SequenceCell {
   /** Stable across frames — the view animates by identity, not by position. */
@@ -118,6 +140,15 @@ export interface SequenceStep {
   };
   /** Circular recipe: the chain closes back on its first node. */
   closesRing?: boolean;
+  /**
+   * Heap recipe only: the listing's `n`. `cells` is `data[1..]` in array
+   * order, and the cells past `n` are OUTSIDE the heap — the stale copy an
+   * extraction leaves in `data[n + 1]`, or heapsort's sorted tail. The tree
+   * draws the first `n`; the array draws them all.
+   */
+  heapSize?: number;
+  /** Heapsort only: which of its two phases this frame belongs to. */
+  phase?: 'construction' | 'sortdown';
   /**
    * `head` points at the FLOATING node rather than at the chain. True for the
    * one frame between `head = fresh` running and the node taking its place in
@@ -293,11 +324,21 @@ export const DOUBLY_OPERATIONS: readonly SequenceOperation[] = [
   'remove-last',
 ];
 
+export const HEAP_OPERATIONS: readonly SequenceOperation[] = [
+  'insert',
+  'extract-max',
+  'build-heap',
+  'heapsort',
+];
+
 export function isValidCombination(
   recipe: SequenceRecipe,
   operation: SequenceOperation,
   tail = false,
 ): boolean {
+  const heapOperation = HEAP_OPERATIONS.includes(operation);
+  if (recipe === 'heap-max') return heapOperation;
+  if (heapOperation) return false;
   if (operation === 'insert-ordered' && !isList(recipe)) return false;
   if (recipe === 'linked-list-circular') return CIRCULAR_OPERATIONS.includes(operation);
   if (recipe === 'linked-list-doubly') {
@@ -320,6 +361,7 @@ export function traceFor(
   if (input.descending === true && operation !== 'insert-ordered') {
     throw new Error('La prop descending solo tiene sentido con insert-ordered.');
   }
+  if (recipe === 'heap-max') return traceHeap(operation, input);
   return isList(recipe)
     ? traceList(recipe, operation, input)
     : traceArray(recipe, operation, input);
@@ -412,6 +454,10 @@ const METHOD_NAME: Record<SequenceOperation, string> = {
   'insert-last': 'insertLast',
   'insert-at': 'insertAt',
   'insert-ordered': 'insertOrdered',
+  insert: 'insert',
+  'extract-max': 'extractMax',
+  'build-heap': 'buildHeap',
+  heapsort: 'heapsort',
   'remove-first': 'deleteFirst',
   'remove-last': 'deleteLast',
   'remove-at': 'deleteAt',
@@ -420,7 +466,13 @@ const METHOD_NAME: Record<SequenceOperation, string> = {
 
 // ── the array family ──────────────────────────────────────────────────────
 
-const ARRAY_CODE: Record<Exclude<SequenceOperation, 'insert-ordered'>, string> = {
+/** The operations the two array recipes have a listing for. */
+type ArrayOperation = Exclude<
+  SequenceOperation,
+  'insert-ordered' | 'insert' | 'extract-max' | 'build-heap' | 'heapsort'
+>;
+
+const ARRAY_CODE: Record<ArrayOperation, string> = {
   'get-at': `int getAt(int i) {
     if (i < 0 || i >= size) {
         throw new IndexOutOfBoundsException();
@@ -534,7 +586,7 @@ function arrayCode(recipe: SequenceRecipe, operation: SequenceOperation): string
   if (recipe === 'dynamic-array' && operation in DYNAMIC_INSERT_CODE) {
     return DYNAMIC_INSERT_CODE[operation as keyof typeof DYNAMIC_INSERT_CODE];
   }
-  return ARRAY_CODE[operation as Exclude<SequenceOperation, 'insert-ordered'>];
+  return ARRAY_CODE[operation as ArrayOperation];
 }
 
 function traceArray(
@@ -933,7 +985,16 @@ function runArgs(operation: SequenceOperation, input: SequenceInput): string[] {
       return Array.from({ length: times }, () => '');
     }
     case 'insert-ordered':
-      return asRuns(input.target).map(String);
+    case 'insert':
+      return asRuns(operation === 'insert' ? input.value : input.target).map(String);
+    case 'extract-max': {
+      const times = input.times ?? 1;
+      requireRuns(times);
+      return Array.from({ length: times }, () => '');
+    }
+    case 'build-heap':
+    case 'heapsort':
+      return [''];
   }
 }
 
@@ -1175,6 +1236,12 @@ function listCode(
     }
     return -1;
 }`;
+    // Unreachable: `isValidCombination` never pairs a list with these.
+    case 'insert':
+    case 'extract-max':
+    case 'build-heap':
+    case 'heapsort':
+      throw new Error(`«${operation}» es una operación del heap, no de una lista.`);
   }
 }
 
@@ -2033,5 +2100,457 @@ function traceList(
     // node is about to land.
     align: operation === 'insert-first' || operation === 'remove-first' ? 'right' : 'left',
     hasCarry: steps.some((f) => f.carry !== undefined),
+  };
+}
+
+// ── the heap ──────────────────────────────────────────────────────────────
+//
+// A binary max-heap in Sedgewick's shape (#304, ADR-0077): 1-based, so the
+// parent of `k` is `k / 2` and its children `2k` and `2k + 1` with no `±1`
+// anywhere, and `data[0]` never used. The frame model is the array family's:
+// `cells` is `data[1..]` in order, `capacity` is `data.length` (slot 0
+// included), and `heapSize` is `n`. The painter draws the same cells twice —
+// as the array and as the complete binary tree the array encodes.
+//
+// `swim` and `sink` are printed under the operation that calls them, so the
+// reader never meets a call to a method the listing does not show. `sink`
+// is ONE text shared by the three operations that sink, so the lines a
+// reader learns on one slide are the lines lit on the next.
+
+const HEAP_SWIM = `void swim(int k) {
+    while (k > 1 && data[k / 2] < data[k]) {
+        swap(k / 2, k);
+        k = k / 2;
+    }
+}`;
+
+const HEAP_SINK = `void sink(int k) {
+    while (2 * k <= n) {
+        int j = 2 * k;
+        if (j < n && data[j] < data[j + 1]) j++;
+        if (data[k] >= data[j]) break;
+        swap(k, j);
+        k = j;
+    }
+}`;
+
+type HeapOperation = 'insert' | 'extract-max' | 'build-heap' | 'heapsort';
+
+const HEAP_CODE: Record<HeapOperation, string> = {
+  // Grows exactly as the dynamic array of #277 and #294 does — the same guard
+  // and the same `resize(2 * data.length)` — with the one difference 1-based
+  // storage makes: the block is full at `n == data.length - 1`, because slot
+  // 0 is reserved and holds nothing.
+  insert: `void insert(int x) {
+    if (n == data.length - 1) {
+        resize(2 * data.length);
+    }
+    data[++n] = x;
+    swim(n);
+}
+
+${HEAP_SWIM}`,
+  'extract-max': `int extractMax() {
+    if (n == 0) {
+        throw new NoSuchElementException();
+    }
+    int max = data[1];
+    swap(1, n);
+    n--;
+    sink(1);
+    return max;
+}
+
+${HEAP_SINK}`,
+  'build-heap': `void buildHeap() {
+    for (int k = n / 2; k >= 1; k--) {
+        sink(k);
+    }
+}
+
+${HEAP_SINK}`,
+  // The sortdown is `extractMax` without the return: the maximum is swapped
+  // to the end, `n` shrinks past it, and the new root sinks. Written on the
+  // heap's own `n` and `sink`, so it is the SAME sink the other two slides
+  // light — Sedgewick's static `sort(a)` threads `n` as a parameter instead.
+  heapsort: `void heapsort() {
+    for (int k = n / 2; k >= 1; k--) {
+        sink(k);
+    }
+    while (n > 1) {
+        swap(1, n);
+        n--;
+        sink(1);
+    }
+}
+
+${HEAP_SINK}`,
+};
+
+/** Whether `values` read as `data[1..]` already satisfy the max-heap order. */
+function isMaxHeap(values: number[]): boolean {
+  return values.every((v, i) => i === 0 || values[Math.floor((i + 1) / 2) - 1]! >= v);
+}
+
+function traceHeap(operation: SequenceOperation, input: SequenceInput): SequenceTrace {
+  const op = operation as HeapOperation;
+  const args = runArgs(operation, input);
+  if (args.length === 0) {
+    throw new Error('La operación no se ejecuta ninguna vez: falta el argumento que la corre.');
+  }
+  requireRuns(args.length);
+  // insert and extract-max are operations ON a heap: a starting array that
+  // is not one would animate the invariant being broken before the
+  // operation even runs. build-heap and heapsort exist to establish it.
+  if ((op === 'insert' || op === 'extract-max') && !isMaxHeap(input.values)) {
+    throw new Error(
+      `[${input.values.join(', ')}] no es un max-heap: algún padre es menor que un hijo. Usa build-heap para construirlo.`,
+    );
+  }
+  if (op === 'extract-max') {
+    requireNonEmpty(input.values);
+    if (args.length > input.values.length) {
+      throw new Error(
+        `El heap tiene ${input.values.length} elemento${input.values.length === 1 ? '' : 's'} y extractMax se ejecuta ${args.length} veces: la última correría sobre un heap vacío.`,
+      );
+    }
+  }
+  if ((op === 'build-heap' || op === 'heapsort') && input.values.length === 0) {
+    throw new Error('No hay nada que ordenar: values está vacío.');
+  }
+
+  const shown = shownName(operation, input);
+  const base = renameIn(HEAP_CODE[op], operation, shown);
+  const many = args.length > 1;
+  const fresh = input.values.length === 0;
+  const code = many
+    ? base +
+      callingProgram(args, shown, fresh, {
+        name: input.receiver ?? 'heap',
+        type: input.receiverType ?? 'MaxHeap',
+      })
+    : base;
+  const runLine = (run: number): number[] =>
+    many ? [base.split('\n').length + (fresh ? 1 : 0) + run + 1] : [];
+
+  // Default block: `data.length = n + 1`, FULL — the dynamic-array recipe's
+  // default, so a single insertion shows the growth unless the author passes
+  // a larger `capacity`.
+  let capacity = input.capacity ?? input.values.length + 1;
+  if (!Number.isInteger(capacity) || capacity < input.values.length + 1) {
+    throw new Error(
+      `capacity es data.length y el slot 0 no se usa: para ${input.values.length} valores hace falta al menos ${input.values.length + 1}.`,
+    );
+  }
+  if (capacity > MAX_CAPACITY) {
+    throw new Error(`Un bloque de ${capacity} no se lee proyectado; el máximo es ${MAX_CAPACITY}.`);
+  }
+
+  const cells = cellsFrom(input.values);
+  let n = cells.length;
+  let cost = 0;
+  let run = 0;
+  let phase: SequenceStep['phase'];
+  const steps: SequenceStep[] = [];
+
+  const push = (
+    kind: SequenceStepKind,
+    lines: number[],
+    description: string,
+    pointers: SequencePointer[] = [],
+  ) => {
+    steps.push({
+      kind,
+      cells: snapshot(cells),
+      pointers,
+      highlightLines: [...lines, ...runLine(run)],
+      description,
+      capacity,
+      heapSize: n,
+      cost,
+      ...(phase === undefined ? {} : { phase }),
+    });
+  };
+  const line = (fragment: string) => lineOf(code, fragment);
+  // `k` and `j` are 1-based slots; a pointer indexes `cells`, which is 0-based.
+  const at = (name: string, k: number): SequencePointer => ({ name, index: k - 1 });
+  const val = (k: number) => cells[k - 1]!.value;
+  const paint = (k: number, state: SequenceCellState) => {
+    cells[k - 1] = { ...cells[k - 1]!, state };
+  };
+  const calm = () => {
+    for (let k = 1; k <= n; k += 1) {
+      const c = cells[k - 1]!;
+      if (c.state === 'active' || c.state === 'swap') paint(k, 'idle');
+    }
+  };
+  const exchange = (a: number, b: number) => {
+    const ca = cells[a - 1]!;
+    cells[a - 1] = { ...cells[b - 1]!, state: 'swap' };
+    cells[b - 1] = { ...ca, state: 'swap' };
+  };
+
+  const swim = (from: number) => {
+    let k = from;
+    for (;;) {
+      calm();
+      cost += 1;
+      if (k === 1) {
+        push(
+          'compare',
+          [line('while (k > 1')],
+          `k = 1: ${val(1)} llegó a la raíz y no tiene padre con quien comparar. swim termina.`,
+          [at('k', 1)],
+        );
+        return;
+      }
+      const p = Math.floor(k / 2);
+      paint(p, 'active');
+      paint(k, 'active');
+      const up = val(p) < val(k);
+      push(
+        'compare',
+        [line('while (k > 1')],
+        up
+          ? `¿data[${p}] = ${val(p)} es menor que data[${k}] = ${val(k)}? Sí: el padre es menor, y el invariante está roto en esta arista.`
+          : `¿data[${p}] = ${val(p)} es menor que data[${k}] = ${val(k)}? No: el padre es mayor o igual, y el invariante se cumple. swim termina.`,
+        [at('k', k)],
+      );
+      if (!up) return;
+      cost += 1;
+      exchange(p, k);
+      push(
+        'shift',
+        [line('swap(k / 2, k);'), line('k = k / 2;')],
+        `Intercambiamos data[${p}] y data[${k}]: ${val(p)} sube a la posición ${p}, y k pasa a ${p}.`,
+        [at('k', p)],
+      );
+      k = p;
+    }
+  };
+
+  const sink = (from: number) => {
+    let k = from;
+    for (;;) {
+      calm();
+      cost += 1;
+      if (2 * k > n) {
+        push(
+          'compare',
+          [line('while (2 * k <= n)')],
+          `2·${k} = ${2 * k} > n = ${n}: la posición ${k} no tiene hijos. sink termina.`,
+          [at('k', k)],
+        );
+        return;
+      }
+      let j = 2 * k;
+      const right = j < n;
+      if (right && val(j) < val(j + 1)) j += 1;
+      cost += 1;
+      paint(j, 'active');
+      push(
+        'compare',
+        [line('int j = 2 * k;'), line('if (j < n && data[j] < data[j + 1]) j++;')],
+        right
+          ? `Los hijos de ${k} son data[${2 * k}] = ${val(2 * k)} y data[${2 * k + 1}] = ${val(2 * k + 1)}: j apunta al mayor, ${val(j)}.`
+          : `La posición ${k} tiene un solo hijo, data[${j}] = ${val(j)}: j apunta a él.`,
+        [at('k', k), at('j', j)],
+      );
+      paint(k, 'active');
+      cost += 1;
+      const stays = val(k) >= val(j);
+      push(
+        'compare',
+        [line('if (data[k] >= data[j]) break;')],
+        stays
+          ? `¿data[${k}] = ${val(k)} es mayor o igual que ${val(j)}? Sí: el invariante se cumple aquí. sink termina.`
+          : `¿data[${k}] = ${val(k)} es mayor o igual que ${val(j)}? No: el hijo mayor debe subir.`,
+        [at('k', k), at('j', j)],
+      );
+      if (stays) return;
+      cost += 1;
+      exchange(k, j);
+      push(
+        'shift',
+        [line('swap(k, j);'), line('k = j;')],
+        `Intercambiamos data[${k}] y data[${j}]: ${val(k)} sube y ${val(j)} baja a la posición ${j}, y k pasa a ${j}.`,
+        [at('k', j)],
+      );
+      k = j;
+    }
+  };
+
+  // Heapsort's first phase, and build-heap entire: sink every internal node,
+  // from the last one (`n / 2`) up to the root. The leaves are already heaps
+  // of one.
+  const construct = () => {
+    for (let k = Math.floor(n / 2); k >= 1; k -= 1) {
+      calm();
+      push(
+        'start',
+        [line('for (int k = n / 2;'), line('sink(k);')],
+        k === Math.floor(n / 2)
+          ? `n = ${n}: las posiciones de ${k + 1} a ${n} son hojas y ya son heaps de un elemento. Empezamos a hundir en k = n / 2 = ${k}.`
+          : `sink(${k}): el subárbol de la posición ${k}.`,
+        [at('k', k)],
+      );
+      sink(k);
+    }
+  };
+
+  switch (op) {
+    case 'insert': {
+      requireValues(input).forEach((x, r) => {
+        run = r;
+        cost = 0;
+        calm();
+        if (n === capacity - 1) {
+          const copied = n;
+          capacity *= 2;
+          cost += copied;
+          push(
+            'grow',
+            [line('n == data.length - 1'), line('resize(2 * data.length);')],
+            `El bloque está lleno (n = ${n} = data.length − 1): se reserva uno de ${capacity} y se copian los ${copied} elementos.`,
+          );
+        }
+        n += 1;
+        cost += 1;
+        cells.push({ id: (nextId += 1), value: x, state: 'new' });
+        push(
+          'build',
+          [line('data[++n] = x;')],
+          `n pasa a ${n} y ${x} ocupa data[${n}]: la primera hoja libre, así el árbol sigue completo.`,
+          [at('k', n)],
+        );
+        push('start', [line('swim(n);')], `swim(${n}): ${x} sube mientras su padre sea menor.`, [
+          at('k', n),
+        ]);
+        swim(n);
+        calm();
+        push('done', [line('swim(n);')], `${x} quedó en su lugar. El heap tiene ${n} elementos.`);
+        cells.forEach((c, i) => {
+          if (c.state === 'new') cells[i] = { ...c, state: 'idle' };
+        });
+      });
+      // The last value inserted keeps its mark on the frame that stays on
+      // screen, as every other insertion of the widget does.
+      const lastX = requireValues(input).at(-1)!;
+      const where = cells.findLastIndex((c) => c.value === lastX);
+      const last = steps.at(-1)!;
+      steps[steps.length - 1] = {
+        ...last,
+        cells: last.cells.map((c, i) => (i === where ? { ...c, state: 'new' } : c)),
+      };
+      break;
+    }
+    case 'extract-max': {
+      args.forEach((_, r) => {
+        run = r;
+        cost = 0;
+        calm();
+        const max = val(1);
+        cost += 1;
+        paint(1, 'leaving');
+        push(
+          'start',
+          [line('int max = data[1];')],
+          `El máximo siempre está en la raíz: max = ${max}.`,
+          [at('k', 1)],
+        );
+        cost += 1;
+        exchange(1, n);
+        cells[n - 1] = { ...cells[n - 1]!, state: 'leaving' };
+        push(
+          'shift',
+          [line('swap(1, n);')],
+          `Intercambiamos la raíz con el último, data[${n}]: ${max} pasa al final y ${val(1)} queda en la raíz.`,
+          [at('k', 1)],
+        );
+        n -= 1;
+        cells[n] = { ...cells[n]!, state: 'stale' };
+        push(
+          'unlink',
+          [line('n--;')],
+          `n pasa a ${n}: data[${n + 1}] sigue guardando ${max}, pero ya no es parte del heap. El árbol pierde su última hoja y sigue completo.`,
+        );
+        if (n > 0) {
+          push(
+            'start',
+            [line('sink(1);')],
+            `sink(1): ${val(1)} baja mientras algún hijo sea mayor.`,
+            [at('k', 1)],
+          );
+          sink(1);
+        }
+        calm();
+        push(
+          'done',
+          [line('return max;')],
+          `extractMax devuelve ${max}. El heap tiene ${n} elementos.`,
+        );
+      });
+      break;
+    }
+    case 'build-heap': {
+      construct();
+      calm();
+      push(
+        'done',
+        [line('for (int k = n / 2;')],
+        `k llegó a 0: cada padre es mayor o igual que sus hijos. data[1..${n}] es un heap.`,
+      );
+      break;
+    }
+    case 'heapsort': {
+      phase = 'construction';
+      construct();
+      calm();
+      push(
+        'done',
+        [line('for (int k = n / 2;')],
+        `Fin de la construcción: data[1..${n}] es un heap y el máximo, ${val(1)}, está en la raíz.`,
+      );
+      phase = 'sortdown';
+      while (n > 1) {
+        calm();
+        cost += 1;
+        const max = val(1);
+        exchange(1, n);
+        push(
+          'shift',
+          [line('while (n > 1)'), line('swap(1, n);')],
+          `El máximo, ${max}, va a data[${n}]: su lugar definitivo en el arreglo ordenado.`,
+          [at('k', 1)],
+        );
+        n -= 1;
+        cells[n] = { ...cells[n]!, state: 'sorted' };
+        push(
+          'unlink',
+          [line('n--;')],
+          `n pasa a ${n}: data[${n + 1}] = ${max} queda fuera del heap, ordenado. El árbol se achica en una hoja.`,
+        );
+        push('start', [line('sink(1);')], `sink(1): la nueva raíz, ${val(1)}, baja a su lugar.`, [
+          at('k', 1),
+        ]);
+        sink(1);
+      }
+      calm();
+      paint(1, 'sorted');
+      push(
+        'done',
+        [line('while (n > 1)')],
+        `n = 1: el que queda en data[1] es el menor, y también está en su lugar. data[1..${cells.length}] está ordenado de menor a mayor.`,
+      );
+      break;
+    }
+  }
+
+  return {
+    steps,
+    code,
+    maxCells: Math.max(...steps.map((f) => f.cells.length)),
+    align: 'left',
+    hasCarry: false,
   };
 }

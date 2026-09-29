@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   CIRCULAR_OPERATIONS,
   DOUBLY_OPERATIONS,
+  HEAP_OPERATIONS,
   OPERATIONS,
   RECIPES,
   isValidCombination,
@@ -21,6 +22,16 @@ import {
 
 const values = [7, 3, 1, 5];
 
+/**
+ * The Sequence recipes — every recipe but the heap, whose operations are its
+ * own (#304). A sweep over "the operation every structure has" iterates
+ * these; a sweep over every valid combination iterates RECIPES and feeds the
+ * heap a starting array that already is one.
+ */
+const SEQUENCE_RECIPES = RECIPES.filter((r) => r !== 'heap-max');
+const startFor = (recipe: SequenceRecipe, operation: SequenceOperation): number[] =>
+  recipe === 'heap-max' ? [7, 5, 3, 1] : operation === 'insert-ordered' ? [1, 3, 7, 9] : values;
+
 describe('sequenceStepperTrace · the valid combinations', () => {
   it('rejects insert-ordered on the two array recipes', () => {
     expect(isValidCombination('array', 'insert-ordered')).toBe(false);
@@ -31,6 +42,7 @@ describe('sequenceStepperTrace · the valid combinations', () => {
   it('accepts every operation over the two arrays and the singly list', () => {
     for (const recipe of ['array', 'dynamic-array', 'linked-list-singly'] as const) {
       for (const operation of OPERATIONS) {
+        if (HEAP_OPERATIONS.includes(operation)) continue;
         if (operation === 'insert-ordered' && !recipe.startsWith('linked-list')) continue;
         expect(isValidCombination(recipe, operation), `${recipe} × ${operation}`).toBe(true);
       }
@@ -77,7 +89,7 @@ describe('sequenceStepperTrace · the valid combinations', () => {
           // insert-ordered is the one operation with a precondition on the
           // input, and it is the widget's job to refuse an unsorted one — so
           // this sweep hands it a sorted list rather than exempting it.
-          values: operation === 'insert-ordered' ? [1, 3, 7, 9] : values,
+          values: startFor(recipe, operation),
           value: 9,
           index: 2,
           target: operation === 'insert-ordered' ? 5 : 1,
@@ -236,7 +248,7 @@ describe('sequenceStepperTrace · what the last frame is allowed to still say', 
   // cleared. Regression guard — an earlier `settle` wiped `new` too, and the
   // inserted node lost its colour the moment it landed.
   it('keeps the inserted node marked as new', () => {
-    for (const recipe of RECIPES) {
+    for (const recipe of SEQUENCE_RECIPES) {
       const trace = traceFor(recipe, 'insert-first', { values, value: 9 });
       const last = trace.steps.at(-1)!;
       expect(
@@ -258,7 +270,7 @@ describe('sequenceStepperTrace · what the last frame is allowed to still say', 
       for (const operation of OPERATIONS) {
         if (!isValidCombination(recipe, operation)) continue;
         const trace = traceFor(recipe, operation, {
-          values: operation === 'insert-ordered' ? [1, 3, 7, 9] : values,
+          values: startFor(recipe, operation),
           value: 9,
           index: 2,
           target: operation === 'insert-ordered' ? 5 : 1,
@@ -471,7 +483,7 @@ describe('sequenceStepperTrace · the narration is Spanish prose', () => {
         if (!isValidCombination(recipe, operation)) continue;
         for (const tail of [false, true]) {
           const trace = traceFor(recipe, operation, {
-            values: operation === 'insert-ordered' ? [1, 3, 7, 9] : values,
+            values: startFor(recipe, operation),
             value: 9,
             index: 2,
             target: operation === 'insert-ordered' ? 5 : 1,
@@ -540,7 +552,7 @@ describe('sequenceStepperTrace · authoring guards the widget surfaces', () => {
 describe('sequenceStepperTrace · the listings', () => {
   it('gives each recipe its own listing for the same operation', () => {
     const seen = new Map<string, SequenceRecipe>();
-    for (const recipe of RECIPES) {
+    for (const recipe of SEQUENCE_RECIPES) {
       const { code } = traceFor(recipe, 'insert-first', { values, value: 9 });
       // The array and the dynamic array legitimately share insert-first's
       // shift loop; the three list recipes must each differ from the arrays.
@@ -1167,4 +1179,274 @@ describe('sequenceStepperTrace · an array asked for several runs', () => {
       traceFor('array', 'remove-last', { values: [1, 2], times: 99, capacity: 40 }),
     ).toThrow(/Entre 1 y/i);
   });
+});
+
+// ── the heap recipe (#304) ────────────────────────────────────────────────
+//
+// `cells` is `data[1..]` in array order: cell `i` is the slot `k = i + 1`.
+// `heapSize` is the listing's `n` — the cells past it are outside the heap
+// (a stale copy after extractMax, the sorted tail during heapsort's
+// sortdown). The property checked throughout is the listing's own:
+// `data[k / 2] >= data[k]` for every `k` in `2..n`.
+
+const heapOrdered = (cells: { value: number }[], n: number): boolean =>
+  cells
+    .slice(0, n)
+    .every((c, i) => i === 0 || cells[Math.floor((i + 1) / 2) - 1]!.value >= c.value);
+
+const HEAP_OPS = ['insert', 'extract-max', 'build-heap', 'heapsort'] as const;
+
+describe('sequenceStepperTrace · heap-max · which operations it has', () => {
+  it('offers exactly the four heap operations, and nothing else', () => {
+    for (const operation of OPERATIONS) {
+      expect(isValidCombination('heap-max', operation)).toBe(
+        (HEAP_OPS as readonly string[]).includes(operation),
+      );
+    }
+  });
+
+  it('refuses the four heap operations on every sequence recipe', () => {
+    for (const recipe of RECIPES.filter((r) => r !== 'heap-max')) {
+      for (const operation of HEAP_OPS) {
+        expect(isValidCombination(recipe, operation)).toBe(false);
+      }
+    }
+  });
+});
+
+describe('sequenceStepperTrace · heap-max · insert', () => {
+  const heap = [10, 8, 9, 3, 7];
+
+  it('appends at data[++n] and swims the new value up to its place', () => {
+    const trace = traceFor('heap-max', 'insert', { values: heap, value: 12, capacity: 8 });
+    const last = trace.steps.at(-1)!;
+    expect(last.cells.map((c) => c.value)).toEqual([12, 8, 10, 3, 7, 9]);
+    expect(last.heapSize).toBe(6);
+    expect(heapOrdered(last.cells, 6)).toBe(true);
+  });
+
+  it('draws each exchange as its own frame, with exactly the two cells being swapped', () => {
+    const trace = traceFor('heap-max', 'insert', { values: heap, value: 12, capacity: 8 });
+    const swaps = trace.steps.filter((s) => s.cells.some((c) => c.state === 'swap'));
+    expect(swaps).toHaveLength(2);
+    for (const s of swaps) {
+      expect(s.cells.filter((c) => c.state === 'swap')).toHaveLength(2);
+      expect(s.highlightLines).toContain(lineNo(trace, 'swap(k / 2, k);'));
+    }
+  });
+
+  it('stops at the first parent that is not smaller, without a single swap', () => {
+    const trace = traceFor('heap-max', 'insert', { values: heap, value: 1, capacity: 8 });
+    expect(trace.steps.some((s) => s.cells.some((c) => c.state === 'swap'))).toBe(false);
+    expect(trace.steps.at(-1)!.cells.map((c) => c.value)).toEqual([10, 8, 9, 3, 7, 1]);
+  });
+
+  it('keeps the inserted value marked as new on the frame that stays on screen', () => {
+    const trace = traceFor('heap-max', 'insert', { values: heap, value: [12, 2], capacity: 8 });
+    const last = trace.steps.at(-1)!;
+    expect(last.cells.filter((c) => c.state === 'new').map((c) => c.value)).toEqual([2]);
+  });
+
+  it('climbs all the way to the root and says it got there', () => {
+    const trace = traceFor('heap-max', 'insert', { values: [5], value: 9, capacity: 4 });
+    expect(trace.steps.at(-1)!.cells.map((c) => c.value)).toEqual([9, 5]);
+    expect(trace.steps.some((s) => /raíz/.test(s.description))).toBe(true);
+  });
+
+  it('grows a full block with resize, exactly as the dynamic array does', () => {
+    // Default capacity is data.length = n + 1: the block starts FULL, like
+    // the dynamic-array recipe's default.
+    // The grow frame is the first one and already shows the doubled block,
+    // which is what the dynamic array's own grow frame does.
+    const trace = traceFor('heap-max', 'insert', { values: heap, value: 4 });
+    const grow = trace.steps[0]!;
+    expect(grow.kind).toBe('grow');
+    expect(grow.capacity).toBe(2 * (heap.length + 1));
+    expect(trace.steps.filter((s) => s.kind === 'grow')).toHaveLength(1);
+    expect(grow.highlightLines).toContain(lineNo(trace, 'resize(2 * data.length);'));
+  });
+
+  it('runs once per value over the same heap, and the calling program names each call', () => {
+    const trace = traceFor('heap-max', 'insert', {
+      values: [],
+      value: [8, 3, 10, 1, 7],
+      capacity: 8,
+    });
+    const last = trace.steps.at(-1)!;
+    expect(last.heapSize).toBe(5);
+    expect(heapOrdered(last.cells, 5)).toBe(true);
+    expect(trace.code).toContain('MaxHeap heap = new MaxHeap();');
+    expect(trace.code).toContain('heap.insert(10);');
+  });
+
+  it('prints the 1-based listing with swim written out under insert', () => {
+    const { code } = traceFor('heap-max', 'insert', { values: heap, value: 12, capacity: 8 });
+    expect(code).toContain('data[++n] = x;');
+    expect(code).toContain('swim(n);');
+    expect(code).toContain('while (k > 1 && data[k / 2] < data[k])');
+  });
+});
+
+describe('sequenceStepperTrace · heap-max · extract-max', () => {
+  const heap = [12, 8, 10, 3, 7, 9];
+
+  it('swaps the root with the last, shrinks n, and sinks the new root', () => {
+    const trace = traceFor('heap-max', 'extract-max', { values: heap });
+    const last = trace.steps.at(-1)!;
+    expect(last.heapSize).toBe(5);
+    expect(last.cells.slice(0, 5).map((c) => c.value)).toEqual([10, 8, 9, 3, 7]);
+    expect(heapOrdered(last.cells, 5)).toBe(true);
+    expect(last.description).toMatch(/12/);
+  });
+
+  it('leaves the old maximum in data[n + 1] as a copy nobody reads', () => {
+    const trace = traceFor('heap-max', 'extract-max', { values: heap });
+    const last = trace.steps.at(-1)!;
+    expect(last.cells[5]).toMatchObject({ value: 12, state: 'stale' });
+  });
+
+  it('lights the sink lines while it sinks', () => {
+    const trace = traceFor('heap-max', 'extract-max', { values: heap });
+    const lit = new Set(trace.steps.flatMap((s) => s.highlightLines));
+    expect(lit).toContain(lineNo(trace, 'if (j < n && data[j] < data[j + 1]) j++;'));
+    expect(lit).toContain(lineNo(trace, 'swap(k, j);'));
+  });
+
+  it('runs `times` extractions in a row, each on the heap the previous one left', () => {
+    const trace = traceFor('heap-max', 'extract-max', { values: heap, times: 3 });
+    const last = trace.steps.at(-1)!;
+    expect(last.heapSize).toBe(3);
+    expect(heapOrdered(last.cells, 3)).toBe(true);
+    // The three maxima sit past n, the latest first.
+    expect(last.cells.slice(3).map((c) => c.value)).toEqual([9, 10, 12]);
+  });
+
+  it('refuses more extractions than the heap has elements', () => {
+    expect(() => traceFor('heap-max', 'extract-max', { values: [3, 1], times: 3 })).toThrow();
+  });
+
+  it('refuses an extraction from an empty heap', () => {
+    expect(() => traceFor('heap-max', 'extract-max', { values: [] })).toThrow();
+  });
+
+  it('refuses a starting array that is not a max-heap', () => {
+    expect(() => traceFor('heap-max', 'extract-max', { values: [1, 5, 3] })).toThrow(/heap/);
+    expect(() => traceFor('heap-max', 'insert', { values: [1, 5], value: 2 })).toThrow(/heap/);
+  });
+});
+
+describe('sequenceStepperTrace · heap-max · build-heap and heapsort', () => {
+  const unordered = [5, 2, 9, 1, 7, 3, 8, 4];
+
+  it('build-heap sinks from n / 2 down to 1 and leaves a heap of the same values', () => {
+    const trace = traceFor('heap-max', 'build-heap', { values: unordered });
+    const last = trace.steps.at(-1)!;
+    expect(heapOrdered(last.cells, unordered.length)).toBe(true);
+    expect([...last.cells.map((c) => c.value)].sort((a, b) => a - b)).toEqual(
+      [...unordered].sort((a, b) => a - b),
+    );
+    // The first sink runs at k = n / 2 = 4: the cursor lands on cell 3.
+    const firstK = trace.steps.find((s) => s.pointers.some((p) => p.name === 'k'))!;
+    expect(firstK.pointers.find((p) => p.name === 'k')!.index).toBe(3);
+  });
+
+  it('heapsort ends with the array ascending and every cell sorted', () => {
+    const trace = traceFor('heap-max', 'heapsort', { values: unordered });
+    const last = trace.steps.at(-1)!;
+    expect(last.cells.map((c) => c.value)).toEqual([...unordered].sort((a, b) => a - b));
+    expect(last.cells.every((c) => c.state === 'sorted')).toBe(true);
+  });
+
+  it('heapsort names its two phases, construction first', () => {
+    const trace = traceFor('heap-max', 'heapsort', { values: unordered });
+    const phases = trace.steps.map((s) => s.phase);
+    const firstSort = phases.indexOf('sortdown');
+    expect(phases[0]).toBe('construction');
+    expect(firstSort).toBeGreaterThan(0);
+    expect(phases.slice(firstSort).every((p) => p === 'sortdown')).toBe(true);
+    // The construction phase hands the sortdown a heap.
+    expect(heapOrdered(trace.steps[firstSort - 1]!.cells, unordered.length)).toBe(true);
+  });
+
+  it('keeps the sorted tail sorted and never smaller than the heap in front of it', () => {
+    const trace = traceFor('heap-max', 'heapsort', { values: unordered });
+    for (const s of trace.steps.filter((f) => f.phase === 'sortdown')) {
+      const n = s.heapSize!;
+      const tail = s.cells.slice(n).map((c) => c.value);
+      expect(tail).toEqual([...tail].sort((a, b) => a - b));
+      const heapMax = Math.max(...s.cells.slice(0, n).map((c) => c.value));
+      expect(tail.every((v) => v >= heapMax)).toBe(true);
+    }
+  });
+
+  it('draws the same sink under build-heap, extract-max and heapsort', () => {
+    const sinkOf = (code: string) => code.slice(code.indexOf('void sink(int k)'));
+    const a = traceFor('heap-max', 'build-heap', { values: unordered }).code;
+    const b = traceFor('heap-max', 'extract-max', { values: [9, 5, 7] }).code;
+    const c = traceFor('heap-max', 'heapsort', { values: unordered }).code;
+    expect(sinkOf(a)).toBe(sinkOf(b));
+    expect(sinkOf(c)).toBe(sinkOf(b));
+  });
+});
+
+describe('sequenceStepperTrace · heap-max · every frame', () => {
+  const cases: [SequenceOperation, Parameters<typeof traceFor>[2]][] = [
+    ['insert', { values: [10, 8, 9, 3, 7], value: [12, 1, 11], capacity: 8 }],
+    ['extract-max', { values: [12, 8, 10, 3, 7, 9], times: 4 }],
+    ['build-heap', { values: [5, 2, 9, 1, 7, 3, 8, 4] }],
+    ['heapsort', { values: [5, 2, 9, 1, 7, 3, 8, 4] }],
+  ];
+
+  it.each(cases)('%s: n never exceeds the cells drawn, and every lit line exists', (op, input) => {
+    const trace = traceFor('heap-max', op, input);
+    const lines = trace.code.split('\n').length;
+    for (const s of trace.steps) {
+      expect(s.heapSize).toBeDefined();
+      expect(s.heapSize!).toBeLessThanOrEqual(s.cells.length);
+      expect(s.capacity!).toBeGreaterThan(s.cells.length);
+      for (const l of s.highlightLines) expect(l).toBeGreaterThanOrEqual(1);
+      for (const l of s.highlightLines) expect(l).toBeLessThanOrEqual(lines);
+    }
+  });
+
+  it.each(cases)('%s: the heap part is a heap again on the last frame', (op, input) => {
+    const last = traceFor('heap-max', op, input).steps.at(-1)!;
+    expect(heapOrdered(last.cells, last.heapSize!)).toBe(true);
+  });
+});
+
+function lineNo(trace: SequenceTrace, fragment: string): number {
+  return trace.code.split('\n').findIndex((l) => l.includes(fragment)) + 1;
+}
+
+describe('sequenceStepperTrace · heap-max · every size the widget accepts', () => {
+  // Every n from 1 to the widget's cap, several orders each — not only the
+  // powers of two the hand-picked cases happen to use
+  // (teach-a-data-structure.md §Checklist: "one non-power-of-two N").
+  // A fixed LCG keeps the orders the same on every run.
+  let seed = 304;
+  const next = () => (seed = (seed * 1103515245 + 12345) % 2 ** 31);
+  const shuffled = (n: number) => {
+    const a = Array.from({ length: n }, (_, i) => (i * 7 + 3) % 23);
+    for (let i = a.length - 1; i > 0; i -= 1) {
+      const j = next() % (i + 1);
+      [a[i], a[j]] = [a[j]!, a[i]!];
+    }
+    return a;
+  };
+
+  for (let n = 1; n <= 8; n += 1) {
+    it(`n = ${n}: build-heap makes a heap and heapsort sorts`, () => {
+      for (let round = 0; round < 5; round += 1) {
+        const input = shuffled(n);
+        const built = traceFor('heap-max', 'build-heap', { values: input }).steps.at(-1)!;
+        expect(heapOrdered(built.cells, n), `${input}`).toBe(true);
+        const sorted = traceFor('heap-max', 'heapsort', { values: input }).steps.at(-1)!;
+        expect(
+          sorted.cells.map((c) => c.value),
+          `${input}`,
+        ).toEqual([...input].sort((a, b) => a - b));
+      }
+    });
+  }
 });

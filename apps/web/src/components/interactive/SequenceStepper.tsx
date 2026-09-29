@@ -16,6 +16,7 @@ import {
 import {
   CIRCULAR_OPERATIONS,
   DOUBLY_OPERATIONS,
+  HEAP_OPERATIONS,
   OPERATIONS,
   RECIPES,
   isValidCombination,
@@ -123,6 +124,14 @@ function refusalReason(
   operation: SequenceOperation,
   tail: boolean,
 ): string {
+  if (recipe === 'heap-max') {
+    return `el heap no es una secuencia y tiene sus propias operaciones: ${HEAP_OPERATIONS.map(
+      (o) => OPERATION_LABEL[o],
+    ).join(', ')}.`;
+  }
+  if (HEAP_OPERATIONS.includes(operation)) {
+    return 'es una operación del heap. Úsala con eda="heap-max".';
+  }
   if (operation === 'insert-ordered' && !recipe.startsWith('linked-list')) {
     return 'esta clase presenta el orden como una variante de la lista, no del arreglo.';
   }
@@ -141,6 +150,7 @@ const RECIPE_LABEL: Record<SequenceRecipe, string> = {
   'linked-list-singly': 'lista simplemente enlazada',
   'linked-list-doubly': 'lista doblemente enlazada',
   'linked-list-circular': 'lista circular',
+  'heap-max': 'heap (máximo)',
 };
 
 const OPERATION_LABEL: Record<SequenceOperation, string> = {
@@ -153,6 +163,10 @@ const OPERATION_LABEL: Record<SequenceOperation, string> = {
   'remove-last': 'eliminar el último',
   'remove-at': 'eliminar una posición',
   search: 'buscar',
+  insert: 'insertar',
+  'extract-max': 'extraer el máximo',
+  'build-heap': 'construir el heap',
+  heapsort: 'heapsort',
 };
 
 /** The most elements the picture stays legible with, measured on a slide. */
@@ -594,6 +608,10 @@ const CELL_FILL: Record<SequenceCell['state'], string> = {
   found: 'var(--color-keep-soft)',
   leaving: 'var(--color-sunk)',
   stale: 'var(--color-surface)',
+  swap: 'var(--color-surface)',
+  // `keep` is a status, and heapsort's tail genuinely has one: each of these
+  // cells is in its final place and nothing will move it again.
+  sorted: 'var(--color-keep-soft)',
 };
 
 const CELL_STROKE: Record<SequenceCell['state'], string> = {
@@ -603,6 +621,10 @@ const CELL_STROKE: Record<SequenceCell['state'], string> = {
   found: 'var(--color-keep)',
   leaving: 'var(--color-rule)',
   stale: 'var(--color-rule)',
+  // Accent, the unit's "being moved" token (teach-a-data-structure.md §6bis)
+  // — Sedgewick's orange path of the element that swims or sinks.
+  swap: 'var(--color-accent)',
+  sorted: 'var(--color-keep)',
 };
 
 /**
@@ -615,6 +637,8 @@ const CELL_NOTE: Partial<Record<SequenceCell['state'], string>> = {
   found: '✓ este',
   leaving: 'sale',
   stale: 'copia vieja',
+  swap: 'intercambio',
+  sorted: 'ordenado',
 };
 
 /**

@@ -86,6 +86,31 @@ describe('<SequenceStepper> · authoring guards', () => {
     expect(screen.getByTestId('sequence-structure')).toBeInTheDocument();
   });
 
+  it('refuses a heap operation over a sequence, and points at the heap recipe', () => {
+    renderIn(
+      'book',
+      <SequenceStepper eda="linked-list-singly" operation="extract-max" values={[3, 1]} />,
+    );
+    expect(screen.getByText(/heap-max/)).toBeInTheDocument();
+  });
+
+  it('refuses a sequence operation over the heap, and names the four it has', () => {
+    renderIn(
+      'book',
+      <SequenceStepper eda="heap-max" operation="insert-first" values={[3]} value={1} />,
+    );
+    expect(screen.getByText(/extraer el máximo/)).toBeInTheDocument();
+    expect(screen.getByText(/heapsort/)).toBeInTheDocument();
+  });
+
+  it('refuses a starting array that is not a max-heap', () => {
+    renderIn(
+      'book',
+      <SequenceStepper eda="heap-max" operation="insert" values={[1, 5]} value={2} />,
+    );
+    expect(screen.getByText(/no es un max-heap/)).toBeInTheDocument();
+  });
+
   it('refuses more values than the picture can hold', () => {
     renderIn('book', <SequenceStepper {...base} values={[1, 2, 3, 4, 5, 6, 7, 8, 9]} />);
     expect(screen.getByText(/elementos/i)).toBeInTheDocument();
