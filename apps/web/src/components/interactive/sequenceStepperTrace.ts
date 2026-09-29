@@ -201,6 +201,14 @@ export interface SequenceInput {
   /** Lists only: draw a `tail` pointer and let the operations use it. */
   tail?: boolean;
   /**
+   * `insert-ordered` only: keep the chain sorted from LARGEST to smallest.
+   * The naive ordered priority queue of #304 wants its maximum at `head`, so
+   * that extracting it is `deleteFirst`; ascending would put the maximum
+   * last, which a singly linked chain reaches only by walking. Flips the two
+   * comparisons of the listing and of the trace, nothing else.
+   */
+  descending?: boolean;
+  /**
    * The name the LISTING shows the method under, when the document presents
    * the structure through a TDA that calls it something else. A class that
    * has just taught `pop` = `deleteFirst` mounts the widget and the widget
@@ -308,6 +316,9 @@ export function traceFor(
 ): SequenceTrace {
   if (!isValidCombination(recipe, operation, input.tail === true)) {
     throw new Error(`La operación «${operation}» no está definida sobre «${recipe}».`);
+  }
+  if (input.descending === true && operation !== 'insert-ordered') {
+    throw new Error('La prop descending solo tiene sentido con insert-ordered.');
   }
   return isList(recipe)
     ? traceList(recipe, operation, input)
@@ -926,7 +937,12 @@ function runArgs(operation: SequenceOperation, input: SequenceInput): string[] {
   }
 }
 
-function listCode(recipe: SequenceRecipe, operation: SequenceOperation, tail: boolean): string {
+function listCode(
+  recipe: SequenceRecipe,
+  operation: SequenceOperation,
+  tail: boolean,
+  descending = false,
+): string {
   const doubly = recipe === 'linked-list-doubly';
   const circular = recipe === 'linked-list-circular';
   const end = circular ? 'current.next != head' : 'current.next != null';
@@ -1026,13 +1042,13 @@ function listCode(recipe: SequenceRecipe, operation: SequenceOperation, tail: bo
       // value would land second. The front is a case of its own, and it is
       // the operation the front already has.
       return `void insertOrdered(int x) {
-    if (head == null || x <= head.value) {
+    if (head == null || x ${descending ? '>=' : '<='} head.value) {
         insertFirst(x);
         return;
     }
     Node fresh = new Node(x);
     Node prev = head;
-    while (prev.next != null && prev.next.value < x) {
+    while (prev.next != null && prev.next.value ${descending ? '>' : '<'} x) {
         prev = prev.next;
     }
     fresh.next = prev.next;
@@ -1199,7 +1215,11 @@ function traceList(
   // calls, so every frame lights BOTH the line inside the method and the call
   // that is running, and the reader can see which run they are watching.
   const shown = shownName(operation, input);
-  const base = renameIn(listCode(recipe, operation, tail), operation, shown);
+  const base = renameIn(
+    listCode(recipe, operation, tail, input.descending === true),
+    operation,
+    shown,
+  );
   const args = runArgs(operation, input);
   requireRuns(args.length);
   // A zero-length argument list traces nothing, and `steps.at(-1)!` at the
@@ -1631,10 +1651,19 @@ function traceList(
       break;
     }
     case 'insert-ordered': {
-      const sorted = input.values.every((v, i) => i === 0 || input.values[i - 1]! <= v);
+      // `before(a, b)`: whether `a` may stand before `b` in the chain — the
+      // one comparison the listing makes, in whichever direction it sorts.
+      const descending = input.descending === true;
+      const before = (a: number, b: number) => (descending ? a >= b : a <= b);
+      const sorted = input.values.every((v, i) => i === 0 || before(input.values[i - 1]!, v));
       if (!sorted) {
-        throw new Error('La lista de partida debe venir ordenada para insertar en orden.');
+        throw new Error(
+          descending
+            ? 'La lista de partida debe venir ordenada de mayor a menor para insertar en orden.'
+            : 'La lista de partida debe venir ordenada para insertar en orden.',
+        );
       }
+      const cmp = descending ? 'mayor' : 'menor';
       asRuns(input.target).forEach((x, run) => {
         startRun();
         const callLine = runLine(run);
@@ -1642,14 +1671,14 @@ function traceList(
         cost += 1;
         push(
           'compare',
-          [...callLine, lineOf(code, 'if (head == null || x <= head.value)')],
+          [...callLine, lineOf(code, 'if (head == null || x ')],
           first === null
             ? `La cadena está vacía: ${x} es el primero.`
-            : first >= x
-              ? `¿${x} es menor o igual que ${first}, el primero? Sí: va al frente, y de eso ya sabe insertFirst.`
-              : `¿${x} es menor o igual que ${first}, el primero? No: hay que buscarle lugar más adelante.`,
+            : before(x, first)
+              ? `¿${x} es ${cmp} o igual que ${first}, el primero? Sí: va al frente, y de eso ya sabe insertFirst.`
+              : `¿${x} es ${cmp} o igual que ${first}, el primero? No: hay que buscarle lugar más adelante.`,
         );
-        if (first === null || first >= x) {
+        if (first === null || before(x, first)) {
           const held = {
             value: x,
             label: 'fresh',
@@ -1694,7 +1723,8 @@ function traceList(
         );
         for (;;) {
           const nextCell = cells[prev + 1];
-          const goes = nextCell !== undefined && nextCell.value < x;
+          // The listing's strict comparison: equal values stop the walk.
+          const goes = nextCell !== undefined && !before(x, nextCell.value);
           cost += 1;
           push(
             'compare',
@@ -1702,10 +1732,10 @@ function traceList(
               ? [...callLine, lineOf(code, 'while (prev.next'), lineOf(code, 'prev = prev.next')]
               : [...callLine, lineOf(code, 'while (prev.next')],
             nextCell === undefined
-              ? `prev.next es null: ${x} es mayor que todos y va al final.`
+              ? `prev.next es null: ${x} es ${descending ? 'menor' : 'mayor'} que todos y va al final.`
               : goes
-                ? `¿${nextCell.value} < ${x}? Sí: ${x} va más adelante.`
-                : `¿${nextCell.value} < ${x}? No: el lugar de ${x} es entre ${cells[prev]!.value} y ${nextCell.value}.`,
+                ? `¿${nextCell.value} ${descending ? '>' : '<'} ${x}? Sí: ${x} va más adelante.`
+                : `¿${nextCell.value} ${descending ? '>' : '<'} ${x}? No: el lugar de ${x} es entre ${cells[prev]!.value} y ${nextCell.value}.`,
             {
               carry: { ...held, slot: prev + 1 },
               pointers: basePointers([{ name: 'prev', index: prev }]),

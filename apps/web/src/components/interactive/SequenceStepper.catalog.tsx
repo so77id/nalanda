@@ -90,6 +90,12 @@ export const sequenceStepperCatalogEntry: CatalogEntry = {
         'List recipes only. Draws a `tail` pointer and lets the operations use it: `insert-last` drops to constant cost, and `remove-last` deliberately does NOT — on a singly linked list the missing piece is the PREVIOUS node, which no tail supplies. Default `false`.',
     },
     {
+      name: 'descending',
+      type: 'boolean',
+      description:
+        '`insert-ordered` only. Keeps the chain sorted from LARGEST to smallest, so its maximum sits at `head` — the naive ordered priority queue, whose `extractMax` is then `deleteFirst`. Flips the two comparisons of the listing (`x >= head.value`, `prev.next.value > x`); `values` must already be descending. Refused with any other operation. Default `false`.',
+    },
+    {
       name: 'autoplay',
       type: 'boolean',
       description: 'Autoplay on mount. Off by default (rule Peli 1/2 — the reader decides when).',

@@ -162,6 +162,45 @@ describe('sequenceStepperTrace · the outcomes', () => {
     expect(trace.steps.at(-1)!.cells.map((c) => c.value)).toEqual([1, 3, 5, 7, 9]);
   });
 
+  // #304: the naive ordered priority queue keeps its MAXIMUM at `head`, so
+  // extractMax is deleteFirst. Ascending would put it last, which a singly
+  // linked chain reaches only by walking.
+  it('insert-ordered with descending keeps a chain sorted from largest to smallest', () => {
+    const trace = traceFor('linked-list-singly', 'insert-ordered', {
+      values: [9, 7, 3, 1],
+      target: [5, 10, 0],
+      descending: true,
+    });
+    expect(trace.steps.at(-1)!.cells.map((c) => c.value)).toEqual([10, 9, 7, 5, 3, 1, 0]);
+  });
+
+  it('insert-ordered with descending prints the listing with its comparisons flipped', () => {
+    const { code } = traceFor('linked-list-singly', 'insert-ordered', {
+      values: [9, 1],
+      target: 5,
+      descending: true,
+    });
+    expect(code).toContain('if (head == null || x >= head.value)');
+    expect(code).toContain('prev.next.value > x');
+    expect(code).not.toContain('x <= head.value');
+  });
+
+  it('insert-ordered with descending refuses a chain that is not descending', () => {
+    expect(() =>
+      traceFor('linked-list-singly', 'insert-ordered', {
+        values: [1, 3],
+        target: 2,
+        descending: true,
+      }),
+    ).toThrow(/mayor a menor/);
+  });
+
+  it('descending means nothing to any operation but insert-ordered, and is refused there', () => {
+    expect(() =>
+      traceFor('linked-list-singly', 'insert-first', { values, value: 2, descending: true }),
+    ).toThrow(/descending/);
+  });
+
   it('search marks the node it found and stops there', () => {
     const trace = traceFor('linked-list-singly', 'search', { values, target: 1 });
     const last = trace.steps.at(-1)!;

@@ -95,6 +95,11 @@ export interface SequenceStepperProps {
   pointer?: string;
   /** Lists only: draw a `tail` pointer, and let the operations use it. */
   tail?: boolean;
+  /**
+   * `insert-ordered` only: the chain is sorted from LARGEST to smallest, so
+   * its maximum is at `head` — the naive ordered priority queue (#304).
+   */
+  descending?: boolean;
   /** Playback default. Off unless the author asks (rule Peli 1/2). */
   autoplay?: boolean;
   /** `slow` ≈ 1200ms/step, `normal` ≈ 700ms, `fast` ≈ 300ms. */
@@ -180,6 +185,7 @@ export function SequenceStepper({
   receiverType,
   pointer,
   tail = false,
+  descending = false,
   autoplay = false,
   speed = 'normal',
   showCode = true,
@@ -262,6 +268,7 @@ export function SequenceStepper({
       receiverType={receiverType}
       pointer={pointer}
       tail={tail}
+      descending={descending}
       autoplay={autoplay}
       speed={speed}
       showCode={showCode}
@@ -284,6 +291,7 @@ interface BodyProps {
   receiverType?: string;
   pointer?: string;
   tail: boolean;
+  descending: boolean;
   autoplay: boolean;
   speed: StepSpeed;
   showCode: boolean;
@@ -304,6 +312,7 @@ function Body({
   receiverType,
   pointer,
   tail,
+  descending,
   autoplay,
   speed,
   showCode,
@@ -339,6 +348,7 @@ function Body({
     receiverType,
     pointer,
     tail,
+    descending,
   ].join('|');
 
   const built = useMemo((): { trace: SequenceTrace } | { error: string } => {
@@ -356,6 +366,7 @@ function Body({
           receiverType,
           pointer,
           tail,
+          descending,
         }),
       };
     } catch (cause) {
@@ -376,6 +387,7 @@ function Body({
     receiverType,
     pointer,
     tail,
+    descending,
   ]);
 
   const trace = 'trace' in built ? built.trace : null;

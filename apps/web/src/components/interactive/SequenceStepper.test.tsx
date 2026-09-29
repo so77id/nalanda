@@ -71,6 +71,21 @@ describe('<SequenceStepper> · authoring guards', () => {
     expect(screen.getByText(/ordenada/i)).toBeInTheDocument();
   });
 
+  it('passes descending through to the trace: a descending chain is accepted', () => {
+    renderIn(
+      'book',
+      <SequenceStepper
+        eda="linked-list-singly"
+        operation="insert-ordered"
+        values={[9, 5, 1]}
+        target={3}
+        descending
+      />,
+    );
+    expect(screen.queryByText(/ordenada/i)).not.toBeInTheDocument();
+    expect(screen.getByTestId('sequence-structure')).toBeInTheDocument();
+  });
+
   it('refuses more values than the picture can hold', () => {
     renderIn('book', <SequenceStepper {...base} values={[1, 2, 3, 4, 5, 6, 7, 8, 9]} />);
     expect(screen.getByText(/elementos/i)).toBeInTheDocument();

@@ -816,6 +816,10 @@ animate: `get-at`, `insert-first`, `insert-last`, `insert-at`,
 `values` is the starting contents; `value` feeds the inserts, `index` the
 positional operations (`get-at` included), and `target` both `search` and
 `insert-ordered`.
+`insert-ordered` sorts ascending by default; `descending` sorts from largest
+to smallest and flips the listing's two comparisons, which is the naive
+ordered priority queue of `20-edd-priority-queue-heap.mdx` — its maximum at
+`head`, so extracting it is `deleteFirst` (#304).
 
 **Every argument also takes an ARRAY, and that is the default shape for a
 slide about cost.** `value={[9, 4, 6]}`, `index={[0, 3, 6]}`,
