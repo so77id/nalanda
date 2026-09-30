@@ -923,10 +923,13 @@ function HeapView({
               >
                 {cell.value}
               </text>
+              {/* Under the node, centred: the one spot the two edges
+                  leaving for the children do not cross. Beside the rim it
+                  landed on the edge to the right child. */}
               <text
-                x={node.cx + HEAP_NODE_R - 2}
-                y={node.cy + HEAP_NODE_R + 6}
-                textAnchor="start"
+                x={node.cx}
+                y={node.cy + HEAP_NODE_R + 11}
+                textAnchor="middle"
                 fontSize="9"
                 fill="var(--color-ink-faint)"
               >

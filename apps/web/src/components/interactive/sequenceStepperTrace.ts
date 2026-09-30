@@ -2404,6 +2404,14 @@ function traceHeap(operation: SequenceOperation, input: SequenceInput): Sequence
         run = r;
         cost = 0;
         calm();
+        // The heap as the call finds it: without this frame the first thing
+        // on screen is the value already written, and the reader never sees
+        // what the insertion is about to change.
+        push(
+          'start',
+          [line('void insert(int x)')],
+          `insert(${x}): el heap tiene n = ${n} elemento${n === 1 ? '' : 's'}${n === 0 ? '' : ` y su máximo es ${val(1)}`}.`,
+        );
         if (n === capacity - 1) {
           const copied = n;
           capacity *= 2;

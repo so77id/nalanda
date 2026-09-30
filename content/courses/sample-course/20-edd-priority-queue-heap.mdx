@@ -255,17 +255,17 @@ void insert(int x) {
 </Slide>
 
 <Slide title="Cinco inserciones en la lista ordenada">
-Las mismas cinco prioridades, 8, 3, 10, 1, 7, ahora sobre la lista
-ordenada. El costo de cada inserción depende de **cuántos nodos mayores**
-ya hay: el 10 entra al frente sin caminar, y el 1 recorre la cadena
-entera.
+Las mismas prioridades, 8, 3, 10, 1, 7: cada inserción camina tantos nodos
+como **mayores** que ella ya hay.
 
 <SequenceStepper eda="linked-list-singly" operation="insert-ordered" values={[]} target={[8, 3, 10, 1, 7]} descending method="insert" receiver="pq" receiverType="OrderedPQ" />
 
-La cadena queda 10, 8, 7, 3, 1. El máximo está donde la invariante dice, y
+</Slide>
+
+El 10 entra al frente sin caminar, y el 1 recorre la cadena entera. La
+cadena queda 10, 8, 7, 3, 1: el máximo está donde la invariante dice, y
 sacarlo es desenganchar el primer nodo.
 
-</Slide>
 
 <Slide title="Costos de la lista ordenada">
 La invariante del orden es la que cuesta dinero: es la razón de que
@@ -326,7 +326,7 @@ export function HeapPicture({
   n = values.length,
   view = 'both',
   hot = [],
-  links = false,
+  levelBrackets = false,
   label,
 }) {
   const r = 17;
@@ -342,8 +342,9 @@ export function HeapPicture({
   const width = Math.max(view === 'array' ? 0 : treeW, view === 'tree' ? 0 : arrayW + 8);
   const treeX = (width - treeW) / 2;
   const arrayX = (width - arrayW) / 2;
-  const arrayY = treeH + (view === 'both' ? (links ? 48 : 26) : 6);
-  const height = view === 'tree' ? treeH : arrayY + box + 40;
+  const arrayY = treeH + (view === 'both' ? 26 : 6);
+  const height = view === 'tree' ? treeH : arrayY + box + (levelBrackets ? 66 : 40);
+  const depth = values.length === 0 ? 0 : Math.floor(Math.log2(values.length)) + 1;
   const at = (k) => {
     const level = Math.floor(Math.log2(k));
     const span = leaves / 2 ** level;
@@ -366,17 +367,13 @@ export function HeapPicture({
         const hotEdge = hot.includes(k) && hot.includes(Math.floor(k / 2));
         return <line key={`e${k}`} x1={p.cx} y1={p.cy} x2={c.cx} y2={c.cy} style={{ stroke: hotEdge ? 'var(--color-accent)' : 'var(--color-rule-strong)' }} strokeWidth={hotEdge ? 2.8 : 1.2} />;
       })}
-      {view === 'both' && links ? ks.filter((k) => k <= n).map((k) => {
-        const c = at(k);
-        return <line key={`l${k}`} x1={c.cx} y1={c.cy + r} x2={arrayX + k * box + box / 2} y2={arrayY} style={{ stroke: 'var(--color-ink-faint)' }} strokeWidth="0.9" strokeDasharray="3 3" />;
-      }) : null}
       {view === 'array' ? null : ks.filter((k) => k <= n).map((k) => {
         const c = at(k);
         return (
           <g key={`n${k}`}>
             <circle cx={c.cx} cy={c.cy} r={r} style={{ fill: fill(k), stroke: stroke(k) }} strokeWidth={weight(k)} />
             <text x={c.cx} y={c.cy + 5} textAnchor="middle" fontSize="14" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{values[k - 1]}</text>
-            <text x={c.cx + r - 2} y={c.cy + r + 6} fontSize="9" style={{ fill: 'var(--color-ink-faint)' }}>{k}</text>
+            <text x={c.cx} y={c.cy + r + 11} textAnchor="middle" fontSize="9" style={{ fill: 'var(--color-ink-faint)' }}>{k}</text>
           </g>
         );
       })}
@@ -385,6 +382,19 @@ export function HeapPicture({
           <rect x={arrayX} y={arrayY} width={box} height={box} rx="3" style={{ fill: 'var(--color-sunk)', stroke: 'var(--color-rule)' }} strokeWidth="1.2" strokeDasharray="3 3" />
           <text x={arrayX + box / 2} y={arrayY + box + 14} textAnchor="middle" fontSize="10" style={{ fill: 'var(--color-ink-faint)' }}>0</text>
           <text x={arrayX} y={arrayY + box + 30} fontSize="9" style={{ fill: 'var(--color-ink-soft)' }}>no se usa</text>
+          {levelBrackets ? Array.from({ length: depth }, (_, d) => {
+            const first = 2 ** d;
+            const last = Math.min(2 ** (d + 1) - 1, values.length);
+            const x1 = arrayX + first * box + 3;
+            const x2 = arrayX + (last + 1) * box - 3;
+            const y = arrayY + box + 40;
+            return (
+              <g key={`lv${d}`}>
+                <path d={`M ${x1} ${y - 6} L ${x1} ${y} L ${x2} ${y} L ${x2} ${y - 6}`} style={{ fill: 'none', stroke: 'var(--color-accent)' }} strokeWidth="1.4" />
+                <text x={(x1 + x2) / 2} y={y + 15} textAnchor="middle" fontSize="10" style={{ fill: 'var(--color-accent)' }}>{`nivel ${d}`}</text>
+              </g>
+            );
+          }) : null}
           {ks.map((k) => (
             <g key={`a${k}`}>
               <rect x={arrayX + k * box} y={arrayY} width={box} height={box} rx="3" style={{ fill: fill(k), stroke: stroke(k) }} strokeWidth={weight(k)} />
@@ -434,7 +444,7 @@ huecos.
 
 <HeapPicture values={[10, 7, 8, 1, 3]} view="tree" label="Un árbol completo de cinco nodos: la raíz, sus dos hijos, y en el último nivel los dos primeros lugares ocupados desde la izquierda." />
 
-<svg viewBox="0 0 212 150" style={{ width: '100%', maxWidth: '300px', height: 'auto', display: 'block', margin: '1rem auto' }} role="img" aria-label="Un árbol que no es completo: la raíz 10 tiene hijos 7 y 8, y el 3 cuelga del 8 dejando vacío el primer lugar del último nivel, bajo el 7.">
+<svg viewBox="0 0 212 168" style={{ width: '100%', maxWidth: '300px', height: 'auto', display: 'block', margin: '1rem auto' }} role="img" aria-label="Un árbol que no es completo: la raíz 10 tiene hijos 7 y 8, y el 3 cuelga del 8 dejando vacío el primer lugar del último nivel, bajo el 7.">
   <line x1="106" y1="31" x2="60" y2="85" style={{ stroke: 'var(--color-rule-strong)' }} strokeWidth="1.2" />
   <line x1="106" y1="31" x2="152" y2="85" style={{ stroke: 'var(--color-rule-strong)' }} strokeWidth="1.2" />
   <line x1="152" y1="85" x2="129" y2="139" style={{ stroke: 'var(--color-rule-strong)' }} strokeWidth="1.2" />
@@ -444,8 +454,8 @@ huecos.
   <text x="60" y="90" textAnchor="middle" fontSize="14" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>7</text>
   <circle cx="152" cy="85" r="17" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.4" />
   <text x="152" y="90" textAnchor="middle" fontSize="14" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>8</text>
-  <circle cx="37" cy="139" r="15" style={{ fill: 'var(--color-sunk)', stroke: 'var(--color-flag)' }} strokeWidth="1.6" strokeDasharray="4 3" />
-  <text x="37" y="143" textAnchor="middle" fontSize="11" style={{ fill: 'var(--color-flag)' }}>hueco</text>
+  <circle cx="37" cy="139" r="17" style={{ fill: 'var(--color-sunk)', stroke: 'var(--color-flag)' }} strokeWidth="1.6" strokeDasharray="4 3" />
+  <text x="37" y="166" textAnchor="middle" fontSize="11" fontWeight="600" style={{ fill: 'var(--color-flag)' }}>hueco</text>
   <circle cx="129" cy="139" r="17" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.4" />
   <text x="129" y="144" textAnchor="middle" fontSize="14" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>3</text>
 </svg>
@@ -475,9 +485,9 @@ hoja se vuelve tan largo como la lista.
 Un árbol completo no necesita punteros. Si se numeran sus nodos **por
 niveles, de izquierda a derecha, empezando en 1**, cada nodo tiene un número
 distinto y no queda ninguno sin usar. Ese número es su índice en un
-arreglo.
+arreglo, y cada nivel del árbol ocupa un tramo seguido del arreglo.
 
-<HeapPicture values={[10, 7, 8, 1, 3]} links label="El mismo heap dibujado como árbol y como arreglo. Líneas punteadas unen cada nodo con su casilla: la raíz 10 con data[1], 7 con data[2], 8 con data[3], 1 con data[4] y 3 con data[5]. La casilla data[0] está vacía y rotulada no se usa." />
+<HeapPicture values={[10, 7, 8, 1, 3]} levelBrackets label="El mismo heap dibujado como árbol y como arreglo. Cada nodo lleva debajo su número, que es su índice: la raíz 10 en data[1], 7 en data[2], 8 en data[3], 1 en data[4] y 3 en data[5]. Bajo el arreglo, corchetes agrupan las casillas por nivel del árbol: data[1] es el nivel 0, data[2..3] el nivel 1 y data[4..5] el nivel 2. La casilla data[0] está vacía y rotulada no se usa." />
 
 El arreglo `data` guarda el heap en `data[1..n]`, donde `n` es la cantidad
 de elementos. **`data[0]` queda sin usar a propósito**: empezar en 1 hace
@@ -657,17 +667,16 @@ dos, el intercambio arreglaría una arista y rompería la de al lado.
 </Slide>
 
 <Slide title="extractMax paso a paso">
-El heap 12, 7, 10, 2, 3, 8, 9, 1 entrega sus dos máximos. Cada extracción
-lleva la última hoja a la raíz y la hunde por el camino de los hijos
-mayores.
+El heap 12, 7, 10, 2, 3, 8, 9, 1 entrega sus dos máximos.
 
 <SequenceStepper eda="heap-max" operation="extract-max" values={[12, 7, 10, 2, 3, 8, 9, 1]} times={2} />
+
+</Slide>
 
 El 12 sale primero: el 1 baja dos niveles y el 10 queda en la raíz. El 10
 sale después: el 1 vuelve a bajar y el 9 queda en la raíz. El arreglo sigue
 guardando 12 y 10 más allá de `n`, pero ya no son parte del heap.
 
-</Slide>
 
 <Slide title="La altura de un heap">
 `swim` y `sink` hacen una cantidad fija de trabajo por nivel: una o dos
@@ -828,7 +837,8 @@ Para que `poll()` devuelva el mayor, el constructor recibe un
 **`Comparator`** que invierte el orden natural:
 
 ```java
-PriorityQueue<Integer> pq = new PriorityQueue<>(Comparator.reverseOrder());
+PriorityQueue<Integer> pq =
+    new PriorityQueue<>(Comparator.reverseOrder());
 pq.add(5);
 pq.add(1);
 pq.add(8);
@@ -859,13 +869,13 @@ class Task {
     }
 }
 
-PriorityQueue<Task> tasks =
-    new PriorityQueue<>((a, b) -> Integer.compare(b.urgency, a.urgency));
+PriorityQueue<Task> tasks = new PriorityQueue<>(
+    (a, b) -> Integer.compare(b.urgency, a.urgency));
 tasks.add(new Task("respaldo", 2));
 tasks.add(new Task("caída del servidor", 9));
 tasks.add(new Task("informe", 5));
 
-Task next = tasks.poll();   // "caída del servidor": la urgencia más alta
+Task next = tasks.poll();   // la de urgencia 9
 ```
 
 Comparar `b` con `a`, y no `a` con `b`, es lo que convierte al min-heap de
@@ -933,7 +943,7 @@ Recorrer de abajo hacia arriba es lo que hace funcionar el ciclo: cuando
 `sink(k)` corre, los dos subárboles de `k` ya son heaps, y sólo falta ubicar
 a `k`. Sobre 5, 2, 9, 1, 7, 3, 8, 4:
 
-<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.25rem 1rem' }}>
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '0.25rem 1.5rem' }}>
 <div>
 <div style={{ fontSize: '0.8rem', color: 'var(--color-ink-faint)', textAlign: 'center' }}>el arreglo tal como llega</div>
 <HeapPicture values={[5, 2, 9, 1, 7, 3, 8, 4]} view="tree" label="El arreglo 5, 2, 9, 1, 7, 3, 8, 4 dibujado como árbol, antes de construir el heap." />
@@ -982,18 +992,17 @@ heap.
 </Slide>
 
 <Slide title="HeapSort paso a paso">
-Las dos fases, una detrás de la otra, sobre el mismo arreglo 5, 2, 9, 1, 7,
-3, 8, 4. En la construcción el árbol tiene los ocho nodos; en el
-ordenamiento pierde una hoja por vuelta, mientras el arreglo conserva todas
-sus casillas.
+Las dos fases sobre 5, 2, 9, 1, 7, 3, 8, 4: el árbol pierde una hoja por
+vuelta y el arreglo conserva todas sus casillas.
 
 <SequenceStepper eda="heap-max" operation="heapsort" values={[5, 2, 9, 1, 7, 3, 8, 4]} />
+
+</Slide>
 
 El listado es un método del heap: usa su `n` y su `sink`, el mismo `sink`
 de `extractMax`. La versión de biblioteca recibe el arreglo como parámetro y
 hace exactamente lo mismo.
 
-</Slide>
 
 <Slide title="El costo de HeapSort">
 Las dos fases cuestan distinto.
@@ -1144,24 +1153,24 @@ adelante.
 <StepShow
   language="java"
   code={`static int[] topK(int k, int[] stream) {
-    if (k <= 0) {
-        throw new IllegalArgumentException();
-    }
-    PriorityQueue<Integer> best = new PriorityQueue<>();
-    for (int x : stream) {
-        if (best.size() < k) {
-            best.add(x);
-        } else if (x > best.peek()) {
-            best.poll();
-            best.add(x);
-        }
-    }
-    int[] out = new int[best.size()];
-    for (int i = out.length - 1; i >= 0; i--) {
-        out[i] = best.poll();
-    }
-    return out;
-}`}
+      if (k <= 0) {
+          throw new IllegalArgumentException();
+      }
+      PriorityQueue<Integer> best = new PriorityQueue<>();
+      for (int x : stream) {
+          if (best.size() < k) {
+              best.add(x);
+          } else if (x > best.peek()) {
+              best.poll();
+              best.add(x);
+          }
+      }
+      int[] out = new int[best.size()];
+      for (int i = out.length - 1; i >= 0; i--) {
+          out[i] = best.poll();
+      }
+      return out;
+  }`}
 >
   <Step lines={[7, 8]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>5, 1 y 9 entran sin comparar: el heap todavía no tiene tres. El peor, en la raíz, es 1.</div>

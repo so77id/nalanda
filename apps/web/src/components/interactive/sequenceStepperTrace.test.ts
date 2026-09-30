@@ -1253,13 +1253,22 @@ describe('sequenceStepperTrace · heap-max · insert', () => {
     expect(trace.steps.some((s) => /raíz/.test(s.description))).toBe(true);
   });
 
+  it('opens each run on the heap as it is, before anything is written', () => {
+    const trace = traceFor('heap-max', 'insert', { values: heap, value: [12, 1], capacity: 8 });
+    const starts = trace.steps.filter((s) => s.kind === 'start' && /^insert\(/.test(s.description));
+    expect(starts).toHaveLength(2);
+    expect(trace.steps[0]!.cells.map((c) => c.value)).toEqual(heap);
+    expect(trace.steps[0]!.heapSize).toBe(heap.length);
+  });
+
   it('grows a full block with resize, exactly as the dynamic array does', () => {
     // Default capacity is data.length = n + 1: the block starts FULL, like
     // the dynamic-array recipe's default.
-    // The grow frame is the first one and already shows the doubled block,
-    // which is what the dynamic array's own grow frame does.
+    // The run opens on the full block; the grow frame after it already
+    // shows the doubled one, which is what the dynamic array's does.
     const trace = traceFor('heap-max', 'insert', { values: heap, value: 4 });
-    const grow = trace.steps[0]!;
+    expect(trace.steps[0]!.capacity).toBe(heap.length + 1);
+    const grow = trace.steps[1]!;
     expect(grow.kind).toBe('grow');
     expect(grow.capacity).toBe(2 * (heap.length + 1));
     expect(trace.steps.filter((s) => s.kind === 'grow')).toHaveLength(1);
