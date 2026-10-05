@@ -2,6 +2,7 @@ package handler_test
 
 import (
 	"context"
+	"encoding/base64"
 	"errors"
 	"net/http"
 	"net/http/httptest"
@@ -12,6 +13,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/so77id/nalanda/apps/server/internal/app/web/flash"
 	"github.com/so77id/nalanda/apps/server/internal/app/web/handler"
 	"github.com/so77id/nalanda/apps/server/internal/app/web/middleware"
 	"github.com/so77id/nalanda/apps/server/internal/domain/jobs"
@@ -538,5 +540,35 @@ func TestARunWithNothingReadDoesNotClose(t *testing.T) {
 	rec := f.do(http.MethodPost, handler.SurveyRunClosePathFor(r.s.ID, r.run.ID), f.handler.CloseRun, url.Values{}, f.runValues(r.s, r.run)...)
 	if !strings.Contains(flashOf(t, rec), "no tiene copias leídas") {
 		t.Errorf("closing an unread run: flash %q", flashOf(t, rec))
+	}
+}
+
+// getWithFlash GETs a page carrying a flash cookie, as the browser does
+// after a POST's redirect.
+func (f *surveyFixture) getWithFlash(target string, h http.HandlerFunc, message string, pathValues ...string) string {
+	f.t.Helper()
+	req := httptest.NewRequest(http.MethodGet, target, nil)
+	req.AddCookie(&http.Cookie{Name: middleware.SessionCookieName(true), Value: f.session})
+	req.AddCookie(&http.Cookie{Name: flash.CookieName, Value: base64.URLEncoding.EncodeToString([]byte(message))})
+	for i := 0; i+1 < len(pathValues); i += 2 {
+		req.SetPathValue(pathValues[i], pathValues[i+1])
+	}
+	rec := httptest.NewRecorder()
+	f.middleware.Resolve(f.middleware.RequireProfessor(h)).ServeHTTP(rec, req)
+	return rec.Body.String()
+}
+
+// Found by the #311 browser check: screens 10 and 11 are where uploads and
+// reviews land, so they show the flash those POSTs leave.
+func TestScreensTenAndElevenShowTheirFlash(t *testing.T) {
+	f := newSurveyFixture(t)
+	r := f.reviewable()
+	if body := f.getWithFlash(handler.SurveyRunScansPathFor(r.s.ID, r.run.ID), f.handler.RunScans, "Lote batch-1.pdf subido.",
+		f.runValues(r.s, r.run)...); !strings.Contains(body, "Lote batch-1.pdf subido.") {
+		t.Error("screen 10 swallows its flash")
+	}
+	if body := f.getWithFlash(handler.SurveyRunReviewCopyPathFor(r.s.ID, r.run.ID, 2), f.handler.ReviewCopy, "Esa lectura ya estaba resuelta.",
+		f.reviewValues(r, 2)...); !strings.Contains(body, "Esa lectura ya estaba resuelta.") {
+		t.Error("screen 11 swallows its flash")
 	}
 }

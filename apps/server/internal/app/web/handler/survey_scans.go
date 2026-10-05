@@ -71,6 +71,7 @@ func (h *Surveys) RunScans(w http.ResponseWriter, r *http.Request) {
 	for _, u := range uploads {
 		page.Uploads = append(page.Uploads, view.UploadRow{Name: u.Name, Size: humanBytes(u.Bytes)})
 	}
+	page.Flash = flash.Consume(w, r, h.secureCookie)
 	if err := view.RenderSurveyRunScans(w, page); err != nil {
 		h.Log.Error("rendering a run's scans", "error", err)
 	}

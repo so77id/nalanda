@@ -268,6 +268,7 @@ func (h *Surveys) renderCopyReview(w http.ResponseWriter, r *http.Request, one s
 	for _, it := range reading.Items {
 		page.Items = append(page.Items, reviewItemView(it, questions[it.QuestionID], numbers[it.QuestionID]))
 	}
+	page.Flash = flash.Consume(w, r, h.secureCookie)
 	if err := view.RenderSurveyCopyReview(w, status, page); err != nil {
 		h.Log.Error("rendering a copy's review", "error", err)
 	}
