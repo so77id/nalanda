@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -228,5 +229,135 @@ func TestAnUploadThatIsNotAPDFOrNotForAnOpenRunWritesNothing(t *testing.T) {
 	}
 	if _, err := f.jobs.LatestByKind(context.Background(), strconv.FormatInt(r.run.ID, 10), jobs.KindSurveyAnalyse); !errors.Is(err, jobs.ErrJobNotFound) {
 		t.Errorf("a reading was queued for a refused upload: %v", err)
+	}
+}
+
+// reviewable is a run whose batch left copy 2 with two items (an
+// ambiguous single, a doubtful scale) and copy 3 with one (a doubtful
+// context question); copy 1 is clean.
+func (f *surveyFixture) reviewable() readableRun {
+	f.t.Helper()
+	r := f.readableRun()
+	f.worker.SurveyReports = []survey.Report{{
+		Batch: &survey.Batch{Captured: 3},
+		Copies: []survey.ReportCopy{
+			{CopyNumber: 1, Pages: []int{1}, Answers: []survey.ReportAnswer{answer(r.single, survey.AnswerOK, []int{1})}},
+			{CopyNumber: 2, Pages: []int{2}, Answers: []survey.ReportAnswer{
+				answer(r.single, survey.AnswerAmbiguous, []int{1, 2}),
+				answer(r.scale, survey.AnswerDoubtful, nil, 4),
+			}},
+			{CopyNumber: 3, Pages: []int{3}, Answers: []survey.ReportAnswer{answer(r.contextQ, survey.AnswerDoubtful, nil, 2)}},
+		},
+	}}
+	var notice *jobs.Notice
+	if err := f.analyse(r, "batch-1.pdf"); !errors.As(err, &notice) {
+		f.t.Fatalf("analysing: %v", err)
+	}
+	return r
+}
+
+func (f *surveyFixture) reviewValues(r readableRun, copyNumber int) []string {
+	return append(f.runValues(r.s, r.run), "copy", strconv.Itoa(copyNumber))
+}
+
+func TestTheReviewQueueStartsAtTheFirstCopyThatWaits(t *testing.T) {
+	f := newSurveyFixture(t)
+	r := f.reviewable()
+	rec := f.do(http.MethodGet, handler.SurveyRunReviewPathFor(r.s.ID, r.run.ID), f.handler.RunReview, nil, f.runValues(r.s, r.run)...)
+	if loc := rec.Header().Get("Location"); loc != handler.SurveyRunReviewCopyPathFor(r.s.ID, r.run.ID, 2) {
+		t.Fatalf("the queue starts at %q, want copy 2", loc)
+	}
+
+	body := f.do(http.MethodGet, handler.SurveyRunReviewCopyPathFor(r.s.ID, r.run.ID, 2), f.handler.ReviewCopy, nil, f.reviewValues(r, 2)...).Body.String()
+	for _, want := range []string{
+		"2 copias esperan revisión", "Copia 1 de 2",
+		"Se detectaron 2 marcas (lento y rápido) en una pregunta de una sola respuesta.",
+		"Marca dudosa en 4 (De acuerdo).", "Escala 1-5",
+		handler.SurveyRunPagePathFor(r.s.ID, r.run.ID, 2, 2), "Guardar y seguir",
+		`name="choice_`, `value="discard"`,
+	} {
+		if !strings.Contains(body, want) {
+			t.Errorf("copy 2's review lacks %q", want)
+		}
+	}
+}
+
+func TestResolvingACopyRecordsTheChoiceAndMovesToTheNextOne(t *testing.T) {
+	f := newSurveyFixture(t)
+	r := f.reviewable()
+	ctx := context.Background()
+	two, _ := f.surveys.CopyReading(ctx, r.run.ID, 2)
+	ambiguous, doubtful := two.Items[0], two.Items[1]
+	path := handler.SurveyRunReviewCopyPathFor(r.s.ID, r.run.ID, 2)
+
+	// Two alternatives on a one-answer question: refused, nothing written.
+	twoAlts := url.Values{"choice_" + strconv.FormatInt(ambiguous.ID, 10): {
+		strconv.FormatInt(r.single.Alternatives[0].ID, 10), strconv.FormatInt(r.single.Alternatives[1].ID, 10),
+	}}
+	if rec := f.do(http.MethodPost, path, f.handler.ResolveCopy, twoAlts, f.reviewValues(r, 2)...); rec.Code != http.StatusUnprocessableEntity ||
+		!strings.Contains(rec.Body.String(), "exactamente una alternativa") {
+		t.Errorf("two alternatives on a single: status %d", rec.Code)
+	}
+
+	form := url.Values{
+		"choice_" + strconv.FormatInt(ambiguous.ID, 10):  {strconv.FormatInt(r.single.Alternatives[1].ID, 10)},
+		"comment_" + strconv.FormatInt(ambiguous.ID, 10): {"  borró la primera  "},
+		"choice_" + strconv.FormatInt(doubtful.ID, 10):   {"discard"},
+	}
+	rec := f.do(http.MethodPost, path, f.handler.ResolveCopy, form, f.reviewValues(r, 2)...)
+	if loc := rec.Header().Get("Location"); loc != handler.SurveyRunReviewCopyPathFor(r.s.ID, r.run.ID, 3) {
+		t.Fatalf("after copy 2: status %d, location %q, want copy 3", rec.Code, loc)
+	}
+	two, _ = f.surveys.CopyReading(ctx, r.run.ID, 2)
+	if len(two.Marks) != 1 || two.Marks[0].AlternativeID != r.single.Alternatives[1].ID {
+		t.Errorf("copy 2's marks = %+v, want the chosen one only", two.Marks)
+	}
+	if two.Items[0].Comment != "borró la primera" || two.Items[1].Resolution != survey.ResolutionDiscarded {
+		t.Errorf("copy 2's items = %+v", two.Items)
+	}
+
+	three, _ := f.surveys.CopyReading(ctx, r.run.ID, 3)
+	last := url.Values{"choice_" + strconv.FormatInt(three.Items[0].ID, 10): {strconv.FormatInt(r.contextQ.Alternatives[1].ID, 10)}}
+	rec = f.do(http.MethodPost, handler.SurveyRunReviewCopyPathFor(r.s.ID, r.run.ID, 3), f.handler.ResolveCopy, last, f.reviewValues(r, 3)...)
+	if rec.Header().Get("Location") != handler.SurveyRunPathFor(r.s.ID, r.run.ID) || !strings.Contains(flashOf(t, rec), "Revisión completa") {
+		t.Errorf("after the last copy: location %q, flash %q", rec.Header().Get("Location"), flashOf(t, rec))
+	}
+	if counts, _ := f.surveys.ReadingCounts(ctx, r.run.ID); counts.PendingItems != 0 {
+		t.Errorf("counts = %+v after every item was decided", counts)
+	}
+}
+
+// "Saltar": a copy posted with no decision stays in the queue.
+func TestAnUndecidedItemStaysPending(t *testing.T) {
+	f := newSurveyFixture(t)
+	r := f.reviewable()
+	f.do(http.MethodPost, handler.SurveyRunReviewCopyPathFor(r.s.ID, r.run.ID, 2), f.handler.ResolveCopy, url.Values{}, f.reviewValues(r, 2)...)
+	if counts, _ := f.surveys.ReadingCounts(context.Background(), r.run.ID); counts.PendingItems != 3 {
+		t.Errorf("pending items = %d, want all 3", counts.PendingItems)
+	}
+}
+
+func TestAScannedPageIsServedOnlyForACopyTheRunRead(t *testing.T) {
+	f := newSurveyFixture(t)
+	r := f.reviewable()
+	scans := filepath.Join(f.worker.WorkDir, survey.RunProject(r.s.ID, r.run.ID), "scans")
+	if err := os.MkdirAll(scans, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(scans, "copy-2-page-2.jpg"), []byte("jpeg"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	page := func(copyNumber, n int) *httptest.ResponseRecorder {
+		return f.do(http.MethodGet, handler.SurveyRunPagePathFor(r.s.ID, r.run.ID, copyNumber, n), f.handler.RunPage, nil,
+			append(f.reviewValues(r, copyNumber), "n", strconv.Itoa(n))...)
+	}
+	if rec := page(2, 2); rec.Code != http.StatusOK || rec.Header().Get("Content-Type") != "image/jpeg" || rec.Body.String() != "jpeg" {
+		t.Errorf("copy 2 page 2: %d %q", rec.Code, rec.Header().Get("Content-Type"))
+	}
+	if rec := page(2, 1); rec.Code != http.StatusNotFound {
+		t.Errorf("a page with no image: %d, want 404", rec.Code)
+	}
+	if rec := page(9, 2); rec.Code != http.StatusNotFound {
+		t.Errorf("a copy the run never read: %d, want 404", rec.Code)
 	}
 }

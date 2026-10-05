@@ -117,3 +117,49 @@ func TestALaterBatchReplacesOnlyTheCopiesItRecaptured(t *testing.T) {
 		t.Errorf("counts = %+v, want three clean copies", counts)
 	}
 }
+
+// Issue #311 S5: resolving an item writes its marks with the stamp, once.
+func TestResolveItemsRecordsTheChoiceOnceAndOnlyOnAnOpenRun(t *testing.T) {
+	f := newFixture(t)
+	run, q1, q2 := f.readable(t)
+	if err := f.store.SaveReadings(f.ctx, run.ID, nil, []survey.CopyReading{{CopyNumber: 1, Items: []survey.ReviewItemDraft{
+		{QuestionID: q1.ID, Reason: survey.ReasonAmbiguous, Marked: []int64{q1.Alternatives[0].ID, q1.Alternatives[1].ID}},
+		{QuestionID: q2.ID, Reason: survey.ReasonDoubtful, Doubtful: []int64{q2.Alternatives[1].ID}},
+	}}}); err != nil {
+		t.Fatal(err)
+	}
+	one, _ := f.store.CopyByNumber(f.ctx, run.ID, 1)
+	items, _ := f.store.ItemsForCopy(f.ctx, one.ID)
+
+	err := f.store.ResolveItems(f.ctx, run.ID, one.ID, []survey.ItemResolution{
+		{ItemID: items[0].ID, Resolution: survey.ResolutionChosen, AlternativeIDs: []int64{q1.Alternatives[1].ID}, Comment: "borró la A"},
+		{ItemID: items[1].ID, Resolution: survey.ResolutionDiscarded},
+	}, f.userID, f.now)
+	if err != nil {
+		t.Fatalf("ResolveItems: %v", err)
+	}
+	marks, _ := f.store.MarksForCopy(f.ctx, one.ID)
+	if len(marks) != 1 || marks[0] != (survey.Mark{QuestionID: q1.ID, AlternativeID: q1.Alternatives[1].ID}) {
+		t.Errorf("marks = %+v, want only the chosen one — a discard records nothing", marks)
+	}
+	items, _ = f.store.ItemsForCopy(f.ctx, one.ID)
+	if items[0].Resolution != survey.ResolutionChosen || items[0].Comment != "borró la A" || items[0].ResolvedBy == nil ||
+		*items[0].ResolvedBy != f.userID || items[0].ResolvedAt == nil || !items[0].ResolvedAt.Equal(f.now) ||
+		items[1].Resolution != survey.ResolutionDiscarded {
+		t.Errorf("items = %+v", items)
+	}
+
+	again := []survey.ItemResolution{{ItemID: items[0].ID, Resolution: survey.ResolutionDiscarded}}
+	if err := f.store.ResolveItems(f.ctx, run.ID, one.ID, again, f.userID, f.now); !errors.Is(err, survey.ErrItemResolved) {
+		t.Errorf("resolving twice: %v, want ErrItemResolved", err)
+	}
+	if err := f.store.ResolveItems(f.ctx, run.ID, one.ID, []survey.ItemResolution{{ItemID: 999, Resolution: survey.ResolutionDiscarded}}, f.userID, f.now); !errors.Is(err, survey.ErrItemNotFound) {
+		t.Errorf("an item of no copy: %v, want ErrItemNotFound", err)
+	}
+	if err := f.store.CancelRun(f.ctx, run.SurveyID, run.ID, f.now); err != nil {
+		t.Fatal(err)
+	}
+	if err := f.store.ResolveItems(f.ctx, run.ID, one.ID, nil, f.userID, f.now); !errors.Is(err, survey.ErrRunNotOpen) {
+		t.Errorf("a cancelled run: %v, want ErrRunNotOpen", err)
+	}
+}

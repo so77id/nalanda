@@ -198,8 +198,16 @@
         grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
         gap: 2rem;
       }
+      /* Screen 11 (#311): the scanned page beside the decisions. */
+      .survey-review {
+        display: grid;
+        grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+        gap: 2rem;
+      }
+      .survey-review-pages img { max-inline-size: 100%; border: 1px solid; }
+      .survey-review-items fieldset { margin-block-end: 1rem; }
       @media (max-width: 48rem) {
-        .survey-split { grid-template-columns: minmax(0, 1fr); }
+        .survey-split, .survey-review { grid-template-columns: minmax(0, 1fr); }
       }
       ol.survey-bank { padding-inline-start: 1.5rem; }
       ol.survey-bank li { margin-block-end: 1rem; }

@@ -299,3 +299,51 @@ type UploadRow struct {
 func RenderSurveyRunScans(w http.ResponseWriter, page SurveyRunScansPage) error {
 	return render(w, "survey_run_scans", http.StatusOK, page)
 }
+
+// SurveyCopyReviewPage is what survey_review.html renders: one copy's
+// doubtful answers (issue #311, screen 11).
+type SurveyCopyReviewPage struct {
+	Page
+	RunTitle string
+	RunURL   string
+	// Position is "Copia 2 de 4" among the copies that wait; empty when
+	// this copy no longer waits.
+	Position string
+	Waiting  int
+	PrevURL  string
+	NextURL  string
+	Pages    []string
+	Action   string
+	Items    []ReviewItemView
+	// Editable is false on a run that is not open: the items are shown,
+	// never decided.
+	Editable bool
+	Errors   []string
+}
+
+// ReviewItemView is one doubtful answer.
+type ReviewItemView struct {
+	ID          int64
+	Heading     string // "Pregunta 7"
+	Statement   string
+	KindLabel   string
+	Explanation string
+	Multi       bool
+	Options     []ReviewOption
+	Comment     string
+	// Decided is the recorded decision, empty while pending.
+	Decided string
+}
+
+// ReviewOption is one alternative the professor may record.
+type ReviewOption struct {
+	Value    string
+	Label    string
+	Detected bool
+	Checked  bool
+}
+
+// RenderSurveyCopyReview writes screen 11 with the caller's status.
+func RenderSurveyCopyReview(w http.ResponseWriter, status int, page SurveyCopyReviewPage) error {
+	return render(w, "survey_review", status, page)
+}

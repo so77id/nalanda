@@ -122,6 +122,14 @@ type Store interface {
 	// PendingCopyNumbers returns, in order, the copies of the run that
 	// still have an item to review.
 	PendingCopyNumbers(ctx context.Context, runID int64) ([]int, error)
+
+	// ResolveItems records decisions on one copy's items in one
+	// transaction: the stamp, the comment, and — for a chosen one — its
+	// marks. ErrRunNotOpen unless the run is open; ErrItemNotFound for an
+	// item that is not the copy's; ErrItemResolved for one already
+	// decided. Validating the choice against the question is the
+	// service's (ResolveCopy).
+	ResolveItems(ctx context.Context, runID, copyID int64, decisions []ItemResolution, by int64, now time.Time) error
 }
 
 // RunSummary is one survey's runs, as a list page shows them.

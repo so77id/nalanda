@@ -1,0 +1,70 @@
+{{ define "content" }}
+  <p><a href="{{ .RunURL }}">‹ {{ .RunTitle }}</a></p>
+  <h1>Revisar lectura</h1>
+
+  {{ if .Waiting }}
+    <p>
+      {{ .Waiting }} copia{{ if ne .Waiting 1 }}s esperan{{ else }} espera{{ end }} revisión.
+      Resuelve cada caso para poder cerrar la pasada.
+    </p>
+  {{ end }}
+  <div class="survey-actions">
+    {{ if .Position }}<span>{{ .Position }}</span>{{ end }}
+    {{ if .PrevURL }}<a class="boton" href="{{ .PrevURL }}">‹ Anterior</a>{{ end }}
+    {{ if .NextURL }}<a class="boton" href="{{ .NextURL }}">Siguiente ›</a>{{ end }}
+  </div>
+
+  {{ with .Errors }}
+    <div class="flash"><ul>{{ range . }}<li>{{ . }}</li>{{ end }}</ul></div>
+  {{ end }}
+
+  <div class="survey-review">
+    <div class="survey-review-pages">
+      {{ range .Pages }}
+        <img src="{{ . }}" alt="Página escaneada de esta copia" loading="lazy" />
+      {{ else }}
+        <p>No se encontró la imagen escaneada de esta copia.</p>
+      {{ end }}
+    </div>
+
+    <form method="post" action="{{ .Action }}" class="survey-review-items">
+      <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}" />
+      {{ $editable := .Editable }}
+      {{ range .Items }}
+        <fieldset>
+          <legend>{{ .Heading }}</legend>
+          <p><strong>{{ .Statement }}</strong></p>
+          <p class="survey-meta">{{ .KindLabel }}</p>
+          <p>{{ .Explanation }}</p>
+          {{ if .Decided }}
+            <p>Decidido: {{ .Decided }}</p>
+            {{ if .Comment }}<p class="survey-meta">Comentario: {{ .Comment }}</p>{{ end }}
+          {{ else if $editable }}
+            {{ $id := .ID }}
+            {{ $multi := .Multi }}
+            {{ range .Options }}
+              <label>
+                <input type="{{ if $multi }}checkbox{{ else }}radio{{ end }}" name="choice_{{ $id }}" value="{{ .Value }}"{{ if .Checked }} checked{{ end }} />
+                Registrar {{ .Label }}{{ if .Detected }} <span class="survey-meta">(detectada)</span>{{ end }}
+              </label><br />
+            {{ end }}
+            <label>
+              <input type="{{ if $multi }}checkbox{{ else }}radio{{ end }}" name="choice_{{ $id }}" value="discard" />
+              Descartar (sin respuesta)
+            </label>
+            <p>
+              <label for="comment_{{ $id }}">Comentario (opcional)</label><br />
+              <input type="text" id="comment_{{ $id }}" name="comment_{{ $id }}" maxlength="500" />
+            </p>
+          {{ end }}
+        </fieldset>
+      {{ end }}
+      {{ if .Editable }}
+        <div class="survey-actions">
+          {{ if .NextURL }}<a class="boton" href="{{ .NextURL }}">Saltar</a>{{ end }}
+          <button type="submit">Guardar y seguir</button>
+        </div>
+      {{ end }}
+    </form>
+  </div>
+{{ end }}

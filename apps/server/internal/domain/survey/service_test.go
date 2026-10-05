@@ -144,6 +144,10 @@ func (m *memStore) ItemsForCopy(context.Context, int64) ([]survey.ReviewItem, er
 
 func (m *memStore) PendingCopyNumbers(context.Context, int64) ([]int, error) { return nil, nil }
 
+func (m *memStore) ResolveItems(context.Context, int64, int64, []survey.ItemResolution, int64, time.Time) error {
+	return nil
+}
+
 // noGenerator is a survey.Generator the bank's tests never reach.
 type noGenerator struct{}
 

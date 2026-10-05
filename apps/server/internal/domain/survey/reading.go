@@ -96,6 +96,15 @@ type ReadingCounts struct {
 // Clean is how many copies need nothing from the professor.
 func (c ReadingCounts) Clean() int { return c.Copies - c.PendingCopies }
 
+// ItemResolution is one decision the store records: Chosen with its
+// alternatives, or Discarded with none.
+type ItemResolution struct {
+	ItemID         int64
+	Resolution     Resolution
+	AlternativeIDs []int64
+	Comment        string
+}
+
 // Reading sentinels.
 var (
 	// ErrCopyNotFound is a copy number the run has not read.

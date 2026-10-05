@@ -221,3 +221,65 @@ func (s *Store) PendingCopyNumbers(ctx context.Context, runID int64) ([]int, err
 	}
 	return out, rows.Err()
 }
+
+// ResolveItems records one copy's decisions; the Store port's comment is
+// the contract.
+func (s *Store) ResolveItems(ctx context.Context, runID, copyID int64, decisions []survey.ItemResolution, by int64, now time.Time) error {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("surveystore.ResolveItems: begin: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	// The run's state, read in the write: a run closed or cancelled
+	// concurrently cannot take a decision after the fact.
+	var state string
+	err = tx.QueryRowContext(ctx, `
+        SELECT r.state FROM survey_run r JOIN survey_copy c ON c.run_id = r.id
+        WHERE r.id = ? AND c.id = ?`, runID, copyID).Scan(&state)
+	if errors.Is(err, sql.ErrNoRows) {
+		return fmt.Errorf("surveystore.ResolveItems: copy %d of run %d: %w", copyID, runID, survey.ErrCopyNotFound)
+	}
+	if err != nil {
+		return fmt.Errorf("surveystore.ResolveItems: %w", err)
+	}
+	if survey.RunState(state) != survey.RunOpen {
+		return fmt.Errorf("surveystore.ResolveItems: run %d: %w", runID, survey.ErrRunNotOpen)
+	}
+
+	for _, d := range decisions {
+		var questionID int64
+		var resolution sql.NullString
+		err := tx.QueryRowContext(ctx,
+			`SELECT question_id, resolution FROM survey_review_item WHERE id = ? AND copy_id = ?`, d.ItemID, copyID,
+		).Scan(&questionID, &resolution)
+		if errors.Is(err, sql.ErrNoRows) {
+			return fmt.Errorf("surveystore.ResolveItems: item %d: %w", d.ItemID, survey.ErrItemNotFound)
+		}
+		if err != nil {
+			return fmt.Errorf("surveystore.ResolveItems: item %d: %w", d.ItemID, err)
+		}
+		if resolution.Valid {
+			return fmt.Errorf("surveystore.ResolveItems: item %d: %w", d.ItemID, survey.ErrItemResolved)
+		}
+		if _, err := tx.ExecContext(ctx, `
+            UPDATE survey_review_item SET resolution = ?, comment = ?, resolved_at = ?, resolved_by = ?
+            WHERE id = ?`, string(d.Resolution), d.Comment, now.Unix(), by, d.ItemID); err != nil {
+			return fmt.Errorf("surveystore.ResolveItems: item %d: %w", d.ItemID, err)
+		}
+		if d.Resolution != survey.ResolutionChosen {
+			continue
+		}
+		for _, alt := range d.AlternativeIDs {
+			if _, err := tx.ExecContext(ctx,
+				`INSERT INTO survey_mark (copy_id, question_id, alternative_id) VALUES (?, ?, ?)`,
+				copyID, questionID, alt); err != nil {
+				return fmt.Errorf("surveystore.ResolveItems: item %d's mark: %w", d.ItemID, err)
+			}
+		}
+	}
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("surveystore.ResolveItems: commit: %w", err)
+	}
+	return nil
+}
