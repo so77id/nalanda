@@ -723,9 +723,13 @@ and `security_opt: ["no-new-privileges:true"]` in compose, `openin_any = p` in a
 
 **Trigger status after #311 (survey scans, 2026-10-05) — not pulled.** A survey
 run's batch is uploaded through the same kind of route as a control's (gated,
-CSRF, the same `NALANDA_MAX_SCAN_BYTES` limit and PDF sniff) by the same
-professor, off the same scanner, and the worker parses it with the same
-`/analyse`. No student or other system reaches it. The new page-image route
+CSRF, the same content-type/extension check — not a magic-byte sniff) by the
+same professor, off the same scanner, and the worker parses it with the same
+`/analyse`. Its size is bounded the way a control's is, which is to say by the
+reverse proxy in front of the server and not by `NALANDA_MAX_SCAN_BYTES`: the
+CSRF middleware parses the whole multipart body before the handler's
+`MaxBytesReader` runs (`middleware.go`, its own comment says so), on both
+upload routes (#311 review, SEC-1). Reachable only by a signed-in professor. No student or other system reaches it. The new page-image route
 (`/surveys/{id}/runs/{rid}/copies/{copy}/page/{n}`) builds its path from three
 integers under the run's own project and serves only a copy the run read.
 

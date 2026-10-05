@@ -29,8 +29,8 @@ import (
 // (measured in the #298 review, COR-1). A busy worker refuses at once.
 func (c *Client) ResetScans(ctx context.Context, project string) error {
 	return c.resetScans(ctx, project, resetErrors{
-		readErrors: controlsReadErrors,
-		busy:       controls.ErrAnalyzerBusy,
+		workerErrors: controlsWorkerErrors,
+		busy:         controls.ErrAnalyzerBusy,
 	})
 }
 
@@ -41,14 +41,14 @@ func (c *Client) ResetScans(ctx context.Context, project string) error {
 // removes files, it never waits on the lock) — ADR-0081.
 func (c *Client) ResetSurveyScans(ctx context.Context, project string) error {
 	return c.resetScans(ctx, project, resetErrors{
-		readErrors: surveyReadErrors,
-		busy:       survey.ErrAnalyzerBusy,
+		workerErrors: surveyWorkerErrors,
+		busy:         survey.ErrAnalyzerBusy,
 	})
 }
 
 // resetErrors are a reset's sentinels: the reading ones, plus busy.
 type resetErrors struct {
-	readErrors
+	workerErrors
 	busy error
 }
 

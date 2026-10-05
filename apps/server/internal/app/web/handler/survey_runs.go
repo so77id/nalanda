@@ -215,14 +215,14 @@ func (h *Surveys) RunDetail(w http.ResponseWriter, r *http.Request) {
 	}
 	if run.State == survey.RunOpen {
 		page.EditURL = SurveyRunEditPathFor(one.ID, run.ID)
-		summary, err := h.Service.ScanSummaryFor(r.Context(), run)
+		scans, err := h.Service.HasScans(r.Context(), run)
 		if err != nil {
 			h.Log.Warn("reading a run's scans", "run", run.ID, "error", err)
 		}
 		// A run with scans is not cancelled (#311): the button would only
 		// lead to a refusal. A failed read leaves it offered — the service
 		// refuses anyway.
-		page.CanCancel = !inFlight(latest) && !summary.HasScans()
+		page.CanCancel = !inFlight(latest) && !scans
 		page.CancelAction = SurveyRunCancelPathFor(one.ID, run.ID)
 		page.CloseAction = SurveyRunClosePathFor(one.ID, run.ID)
 		switch {
@@ -336,9 +336,7 @@ func (h *Surveys) CancelRun(w http.ResponseWriter, r *http.Request) {
 	// failed read answers "not in flight" — cancelling destroys nothing
 	// the runner could not tolerate (GenerateRunSheet refuses a run that
 	// is no longer open).
-	if latest := h.latestRunJob(r.Context(), run); inFlight(latest) {
-		flash.Set(w, h.secureCookie, "Hay una "+surveyJobLabel(latest.Kind)+" en curso sobre esta pasada. Espera a que termine y vuelve a intentarlo.")
-		http.Redirect(w, r, back, http.StatusSeeOther)
+	if h.refuseWhileInFlight(w, r, run, back) {
 		return
 	}
 	err := h.Service.CancelRun(r.Context(), one.ID, run.ID)
@@ -517,9 +515,7 @@ func (h *Surveys) CloseRun(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	back := SurveyRunPathFor(one.ID, run.ID)
-	if latest := h.latestRunJob(r.Context(), run); inFlight(latest) {
-		flash.Set(w, h.secureCookie, "Hay una "+surveyJobLabel(latest.Kind)+" en curso sobre esta pasada. Espera a que termine y vuelve a intentarlo.")
-		http.Redirect(w, r, back, http.StatusSeeOther)
+	if h.refuseWhileInFlight(w, r, run, back) {
 		return
 	}
 	err := h.Service.CloseRun(r.Context(), one.ID, run.ID)
@@ -541,4 +537,20 @@ func (h *Surveys) CloseRun(w http.ResponseWriter, r *http.Request) {
 		flash.Set(w, h.secureCookie, runTitle(run)+" cerrada: sus respuestas ya cuentan en los resultados.")
 	}
 	http.Redirect(w, r, back, http.StatusSeeOther)
+}
+
+// refuseWhileInFlight flashes and redirects to back when a job about the
+// run is queued or running — the race add-a-backend-endpoint.md's fourth
+// synchronous rule forbids — and reports whether it did. A failed jobs
+// read answers "not in flight": cancelling and closing are guarded again
+// in their own store statements.
+func (h *Surveys) refuseWhileInFlight(w http.ResponseWriter, r *http.Request, run survey.Run, back string) bool {
+	latest := h.latestRunJob(r.Context(), run)
+	if !inFlight(latest) {
+		return false
+	}
+	flash.Set(w, h.secureCookie, "Hay un trabajo en curso sobre esta pasada ("+surveyJobLabel(latest.Kind)+
+		"). Espera a que termine y vuelve a intentarlo.")
+	http.Redirect(w, r, back, http.StatusSeeOther)
+	return true
 }

@@ -28,6 +28,16 @@ func (s *Store) SaveReadings(ctx context.Context, runID int64, recaptured []int,
 	}
 	defer func() { _ = tx.Rollback() }()
 
+	// The run may have been closed while the worker read the batch (#311
+	// review, COR-4): a closed run takes no reading, decided in the write.
+	var state string
+	if err := tx.QueryRowContext(ctx, `SELECT state FROM survey_run WHERE id = ?`, runID).Scan(&state); err != nil {
+		return fmt.Errorf("surveystore.SaveReadings: run %d: %w", runID, err)
+	}
+	if survey.RunState(state) != survey.RunOpen {
+		return fmt.Errorf("surveystore.SaveReadings: run %d: %w", runID, survey.ErrRunNotOpen)
+	}
+
 	for _, n := range recaptured {
 		if _, err := tx.ExecContext(ctx,
 			`DELETE FROM survey_copy WHERE run_id = ? AND copy_number = ?`, runID, n); err != nil {
@@ -39,25 +49,50 @@ func (s *Store) SaveReadings(ctx context.Context, runID int64, recaptured []int,
 		if err != nil {
 			return fmt.Errorf("surveystore.SaveReadings: copy %d's pages: %w", c.CopyNumber, err)
 		}
-		// DO NOTHING on a copy that is already there: it was not
-		// re-captured, so it is the reading the professor already worked
-		// on.
-		result, err := tx.ExecContext(ctx, `
+		var copyID int64
+		if err := tx.QueryRowContext(ctx, `
             INSERT INTO survey_copy (run_id, copy_number, pages_json) VALUES (?, ?, ?)
-            ON CONFLICT (run_id, copy_number) DO NOTHING`, runID, c.CopyNumber, string(pages))
-		if err != nil {
+            ON CONFLICT (run_id, copy_number) DO UPDATE SET pages_json = excluded.pages_json
+            RETURNING id`, runID, c.CopyNumber, string(pages)).Scan(&copyID); err != nil {
 			return fmt.Errorf("surveystore.SaveReadings: copy %d: %w", c.CopyNumber, err)
 		}
-		if n, err := result.RowsAffected(); err != nil {
-			return fmt.Errorf("surveystore.SaveReadings: copy %d: %w", c.CopyNumber, err)
-		} else if n == 0 {
-			continue
-		}
-		copyID, err := result.LastInsertId()
+		// Every batch re-reports the whole project, and a copy can GROW
+		// between batches without being re-captured (its second page
+		// arrives later, #311 review COR-1). So what is still undecided is
+		// re-read every time; a question the professor already decided keeps
+		// its decision and its marks.
+		decided := map[int64]bool{}
+		rows, err := tx.QueryContext(ctx,
+			`SELECT question_id FROM survey_review_item WHERE copy_id = ? AND resolution IS NOT NULL`, copyID)
 		if err != nil {
-			return fmt.Errorf("surveystore.SaveReadings: copy %d's id: %w", c.CopyNumber, err)
+			return fmt.Errorf("surveystore.SaveReadings: copy %d's decisions: %w", c.CopyNumber, err)
+		}
+		for rows.Next() {
+			var q int64
+			if err := rows.Scan(&q); err != nil {
+				_ = rows.Close()
+				return fmt.Errorf("surveystore.SaveReadings: copy %d's decisions: %w", c.CopyNumber, err)
+			}
+			decided[q] = true
+		}
+		_ = rows.Close()
+		if err := rows.Err(); err != nil {
+			return fmt.Errorf("surveystore.SaveReadings: copy %d's decisions: %w", c.CopyNumber, err)
+		}
+		if _, err := tx.ExecContext(ctx, `
+            DELETE FROM survey_mark WHERE copy_id = ? AND question_id NOT IN
+                (SELECT question_id FROM survey_review_item WHERE copy_id = ? AND resolution IS NOT NULL)`,
+			copyID, copyID); err != nil {
+			return fmt.Errorf("surveystore.SaveReadings: copy %d: clearing undecided marks: %w", c.CopyNumber, err)
+		}
+		if _, err := tx.ExecContext(ctx,
+			`DELETE FROM survey_review_item WHERE copy_id = ? AND resolution IS NULL`, copyID); err != nil {
+			return fmt.Errorf("surveystore.SaveReadings: copy %d: clearing pending items: %w", c.CopyNumber, err)
 		}
 		for _, m := range c.Marks {
+			if decided[m.QuestionID] {
+				continue
+			}
 			if _, err := tx.ExecContext(ctx,
 				`INSERT INTO survey_mark (copy_id, question_id, alternative_id) VALUES (?, ?, ?)`,
 				copyID, m.QuestionID, m.AlternativeID); err != nil {
@@ -65,6 +100,9 @@ func (s *Store) SaveReadings(ctx context.Context, runID int64, recaptured []int,
 			}
 		}
 		for _, it := range c.Items {
+			if decided[it.QuestionID] {
+				continue
+			}
 			seen, err := json.Marshal(detected{Marked: nonNil(it.Marked), Doubtful: nonNil(it.Doubtful)})
 			if err != nil {
 				return fmt.Errorf("surveystore.SaveReadings: copy %d's item: %w", c.CopyNumber, err)

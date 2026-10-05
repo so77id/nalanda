@@ -4,9 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"os"
-	"path/filepath"
-	"strconv"
 )
 
 // The review queue (issue #311, screen 11): the professor decides, copy by
@@ -40,17 +37,13 @@ func (s *Service) ResolveCopy(ctx context.Context, surveyID, runID int64, copyNu
 	if run.State != RunOpen {
 		return 0, fmt.Errorf("survey: reviewing run %d: %w", runID, ErrRunNotOpen)
 	}
-	view, err := s.CopyReading(ctx, runID, copyNumber)
+	view, err := s.Copy(ctx, runID, copyNumber)
 	if err != nil {
 		return 0, err
 	}
-	printed, err := s.printedQuestions(ctx, run)
+	questions, _, err := s.QuestionsOf(ctx, run)
 	if err != nil {
 		return 0, err
-	}
-	questions := make(map[int64]Question, len(printed))
-	for _, q := range printed {
-		questions[q.ID] = q
 	}
 	items := make(map[int64]ReviewItem, len(view.Items))
 	for _, it := range view.Items {
@@ -118,11 +111,7 @@ func (s *Service) PendingCopies(ctx context.Context, runID int64) ([]int, error)
 // QuestionsOf returns the questions a run printed with their printed
 // numbers, for the review page.
 func (s *Service) QuestionsOf(ctx context.Context, run Run) (map[int64]Question, map[int64]int, error) {
-	printed, err := s.printedQuestions(ctx, run)
-	if err != nil {
-		return nil, nil, err
-	}
-	snapshot, err := s.Store.RunQuestions(ctx, run.ID)
+	printed, numbers, err := s.printedQuestions(ctx, run)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -130,24 +119,5 @@ func (s *Service) QuestionsOf(ctx context.Context, run Run) (map[int64]Question,
 	for _, q := range printed {
 		questions[q.ID] = q
 	}
-	numbers := make(map[int64]int, len(snapshot))
-	for _, p := range snapshot {
-		numbers[p.QuestionID] = p.PrintedNumber
-	}
 	return questions, numbers, nil
-}
-
-// ScanImage finds one page image of a copy in the run's project — the
-// worker's `scans/copy-<n>-page-<p>` naming, PNG before JPG (the controls'
-// rule: a raster scan comes out as JPG). ErrCopyNotFound when there is
-// none.
-func (s *Service) ScanImage(run Run, copyNumber, page int) (path, contentType string, err error) {
-	base := filepath.Join(s.WorkDir, RunProject(run.SurveyID, run.ID), "scans",
-		"copy-"+strconv.Itoa(copyNumber)+"-page-"+strconv.Itoa(page))
-	for _, ext := range []struct{ suffix, ctype string }{{".png", "image/png"}, {".jpg", "image/jpeg"}} {
-		if _, err := os.Stat(base + ext.suffix); err == nil {
-			return base + ext.suffix, ext.ctype, nil
-		}
-	}
-	return "", "", fmt.Errorf("survey: copy %d page %d of run %d: %w", copyNumber, page, run.ID, ErrCopyNotFound)
 }

@@ -35,14 +35,14 @@ func (c *Client) AnalyzeSheets(ctx context.Context, req survey.AnalyzeRequest) (
 	if err != nil {
 		return survey.Report{}, fmt.Errorf("amcworker: encode analyse request: %w", err)
 	}
-	wire, err := c.postWire(ctx, "/analyse", body, surveyReadErrors)
+	wire, err := c.postWire(ctx, "/analyse", body, surveyWorkerErrors)
 	if err != nil {
 		return survey.Report{}, err
 	}
 	return wire.toSurvey(), nil
 }
 
-var surveyReadErrors = readErrors{
+var surveyWorkerErrors = workerErrors{
 	refused:     survey.ErrAnalyzerRefused,
 	unavailable: survey.ErrAnalyzerUnavailable,
 	refusal: func(status int, message, detail string) error {
@@ -57,9 +57,9 @@ var surveyReadErrors = readErrors{
 // A worker that predates `batch` gets the legacy default Analyze applies
 // (#298): the project total stands in for this run.
 func (b reportBody) toSurvey() survey.Report {
-	out := survey.Report{Batch: &survey.Batch{Captured: b.Pages.Captured}}
+	out := survey.Report{Batch: survey.Batch{Captured: b.Pages.Captured}}
 	if b.Batch != nil {
-		out.Batch = &survey.Batch{
+		out.Batch = survey.Batch{
 			Captured: b.Batch.Captured, Failed: b.Batch.Failed,
 			RecapturedCopies: append([]int(nil), b.Batch.RecapturedCopies...),
 		}

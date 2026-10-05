@@ -35,13 +35,20 @@ they can for a control (ADR-0075 §5).
    may have erased the wrong box, and that is the professor's call. A name,
    an answer number or a status the run never printed refuses the whole
    batch (`ErrReportMismatch`) before anything is written.
-3. **A later batch replaces only what it re-captured.** AMC's report
-   covers the whole project, so every batch brings back the copies of the
-   earlier ones. `SaveReadings` deletes and re-inserts the copies in
-   `batch.recaptured_copies`, inserts new ones, and leaves every other
-   existing copy untouched — the professor's resolutions included. A batch
-   with no page of the run is refused (`ErrNothingCaptured`, the only loud
-   signal single-mode capture gives, ADR-0075).
+3. **A later batch re-reads what is undecided, and replaces what it
+   re-captured.** AMC's report covers the whole project, so every batch
+   brings back the copies of the earlier ones. `SaveReadings` deletes and
+   re-inserts the copies in `batch.recaptured_copies` (a re-scanned page
+   voids what was decided on the old image); every other copy is upserted
+   and everything still UNDECIDED on it is re-read, while a question the
+   professor already decided keeps its decision and its marks. The worker
+   lists a copy as re-captured only when a page of it was OVERWRITTEN, so
+   a copy can grow between batches — its second page, failed in batch 1,
+   rescanned in batch 2 — without appearing there (#311 review, COR-1).
+   The store also refuses a run that is no longer open, in its own
+   transaction. A batch with no page of the run is refused
+   (`ErrNothingCaptured`, the only loud signal single-mode capture gives,
+   ADR-0075).
 4. **A resolution is recorded, never edited.** The review writes the
    chosen marks (exactly one on a single or scale, at least one on a
    multi, always the question's own alternatives) or nothing for
@@ -78,8 +85,11 @@ they can for a control (ADR-0075 §5).
   most doubtful answers, and records a mark the student may have tried to
   erase. Rejected — the review shows it pre-checked on a multi, and the
   professor confirms it.
-- **Upsert every copy of every report.** Simpler, and it brings every
-  resolved item back as pending on the next batch. Rejected (§3).
+- **Leave a copy untouched unless the worker re-captured it.** The first
+  version; it silently dropped a page that arrived in a later batch
+  (#311 review, COR-1). Rejected (§3).
+- **Upsert every copy of every report, decisions included.** It brings
+  every resolved item back as pending on the next batch. Rejected (§3).
 
 ## Consequences
 

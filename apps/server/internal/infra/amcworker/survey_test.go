@@ -107,7 +107,7 @@ func TestAnalyzeSheetsReadsTheS0ReportInSurveyTerms(t *testing.T) {
 	if sent["scan_pdf"] != "surveys/3/runs/7/uploads/batch-1.pdf" || sent["ticked"] != survey.DefaultTicked {
 		t.Errorf("sent %v", sent)
 	}
-	if report.Batch == nil || report.Batch.Captured != 3 || len(report.Copies) != 3 {
+	if report.Batch.Captured != 3 || len(report.Copies) != 3 {
 		t.Fatalf("report = %+v", report)
 	}
 

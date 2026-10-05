@@ -97,12 +97,16 @@ func (h *Surveys) ScansReset(w http.ResponseWriter, r *http.Request) {
 			h.Log.Error("survey scans reset: worker", "run", run.ID, "error", err)
 			middleware.WriteError(w, r, http.StatusBadGateway,
 				"El motor de lectura no pudo borrar los escaneos; no se borró nada. Vuelve a intentarlo en unos minutos.")
-		default:
+		case errors.Is(err, survey.ErrResetHalfDone):
 			// Past the worker: its files are gone and the database write
 			// failed. Say so rather than "nothing was deleted".
 			h.Log.Error("survey scans reset: database", "run", run.ID, "error", err)
 			middleware.WriteError(w, r, http.StatusInternalServerError,
 				"Se borraron los archivos de escaneo pero no las lecturas. Vuelve a intentarlo para terminar.")
+		default:
+			// Before the worker (reading the run or its summary).
+			h.Log.Error("survey scans reset", "run", run.ID, "error", err)
+			middleware.WriteError(w, r, http.StatusInternalServerError, "Algo se rompió en el servidor. No se borró nada.")
 		}
 		return
 	}

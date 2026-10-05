@@ -19,7 +19,7 @@ import (
 
 // uploadsDir is where a run's uploaded batches live inside its project,
 // beside — never inside — AMC's own scans/.
-const uploadsDir = "uploads"
+const uploadsDirName = "uploads"
 
 // Batch files are batch-1.pdf, batch-2.pdf, … in upload order.
 const (
@@ -105,7 +105,7 @@ func (s *Service) Uploads(run Run) ([]Upload, error) {
 }
 
 func (s *Service) uploadsDir(run Run) string {
-	return filepath.Join(s.WorkDir, RunProject(run.SurveyID, run.ID), uploadsDir)
+	return filepath.Join(s.WorkDir, RunProject(run.SurveyID, run.ID), uploadsDirName)
 }
 
 func batchNumber(name string) (int, bool) {
@@ -157,7 +157,7 @@ func (s *Service) AnalyzeBatch(ctx context.Context, surveyID, runID int64, batch
 	project := RunProject(surveyID, runID)
 	report, err := s.Analyzer.AnalyzeSheets(ctx, AnalyzeRequest{
 		Project: filepath.ToSlash(project),
-		ScanPDF: filepath.ToSlash(filepath.Join(project, uploadsDir, batch)),
+		ScanPDF: filepath.ToSlash(filepath.Join(project, uploadsDirName, batch)),
 		Source:  filepath.ToSlash(runSource(surveyID, runID)),
 		Ticked:  DefaultTicked,
 		Unsure:  DefaultUnsure,
@@ -165,17 +165,13 @@ func (s *Service) AnalyzeBatch(ctx context.Context, surveyID, runID int64, batch
 	if err != nil {
 		return AnalyzeResult{}, err
 	}
-	result := AnalyzeResult{}
-	var recaptured []int
-	if report.Batch != nil {
-		if report.Batch.Captured == 0 {
-			return AnalyzeResult{}, fmt.Errorf("%w: %s: %d unrecognised pages",
-				ErrNothingCaptured, batch, report.Batch.Failed)
-		}
-		result.Captured, result.Failed = report.Batch.Captured, report.Batch.Failed
-		recaptured = report.Batch.RecapturedCopies
+	if report.Batch.Captured == 0 {
+		return AnalyzeResult{}, fmt.Errorf("%w: %s: %d unrecognised pages",
+			ErrNothingCaptured, batch, report.Batch.Failed)
 	}
-	printed, err := s.printedQuestions(ctx, run)
+	result := AnalyzeResult{Captured: report.Batch.Captured, Failed: report.Batch.Failed}
+	recaptured := report.Batch.RecapturedCopies
+	printed, _, err := s.printedQuestions(ctx, run)
 	if err != nil {
 		return AnalyzeResult{}, err
 	}
@@ -192,27 +188,28 @@ func (s *Service) AnalyzeBatch(ctx context.Context, surveyID, runID int64, batch
 	return result, nil
 }
 
-// printedQuestions are the bank's questions the run's snapshot holds.
-func (s *Service) printedQuestions(ctx context.Context, run Run) ([]Question, error) {
+// printedQuestions are the bank's questions the run's snapshot holds, and
+// the number each was printed as — one read of the snapshot for both.
+func (s *Service) printedQuestions(ctx context.Context, run Run) ([]Question, map[int64]int, error) {
 	snapshot, err := s.Store.RunQuestions(ctx, run.ID)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	bank, err := s.Store.Questions(ctx, run.SurveyID)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	inRun := make(map[int64]bool, len(snapshot))
+	numbers := make(map[int64]int, len(snapshot))
 	for _, p := range snapshot {
-		inRun[p.QuestionID] = true
+		numbers[p.QuestionID] = p.PrintedNumber
 	}
 	var out []Question
 	for _, q := range bank {
-		if inRun[q.ID] {
+		if _, ok := numbers[q.ID]; ok {
 			out = append(out, q)
 		}
 	}
-	return out, nil
+	return out, numbers, nil
 }
 
 // ReadingCounts is the run's reading at a glance.
@@ -227,8 +224,8 @@ type CopyView struct {
 	Items []ReviewItem
 }
 
-// CopyReading returns one copy of the run, or ErrCopyNotFound.
-func (s *Service) CopyReading(ctx context.Context, runID int64, copyNumber int) (CopyView, error) {
+// Copy returns one read copy of the run, or ErrCopyNotFound.
+func (s *Service) Copy(ctx context.Context, runID int64, copyNumber int) (CopyView, error) {
 	c, err := s.Store.CopyByNumber(ctx, runID, copyNumber)
 	if err != nil {
 		return CopyView{}, err
@@ -247,6 +244,11 @@ func (s *Service) CopyReading(ctx context.Context, runID int64, copyNumber int) 
 // ErrNoScans is a reset of a run with nothing to erase.
 var ErrNoScans = errors.New("survey: the run has no scans")
 
+// ErrResetHalfDone is a reset whose worker half succeeded — the files are
+// gone — and whose database half failed: the copies are still there.
+// Running the reset again finishes it (#311 review, COR-5).
+var ErrResetHalfDone = errors.New("survey: the scans were erased but not the readings")
+
 // ScanSummary is what "Borrar escaneos" puts in front of the professor
 // before they confirm: what the reset destroys.
 type ScanSummary struct {
@@ -260,6 +262,20 @@ type ScanSummary struct {
 // HasScans reports whether a reset would destroy anything. A batch whose
 // reading failed is an upload with no copy, and counts.
 func (s ScanSummary) HasScans() bool { return s.Uploads > 0 || s.Copies > 0 }
+
+// HasScans reports whether the run has scans — an uploaded batch or a
+// read copy — the one rule behind cancelling and "Borrar escaneos".
+func (s *Service) HasScans(ctx context.Context, run Run) (bool, error) {
+	uploads, err := s.Uploads(run)
+	if err != nil {
+		return false, err
+	}
+	counts, err := s.Store.ReadingCounts(ctx, run.ID)
+	if err != nil {
+		return false, err
+	}
+	return ScanSummary{Uploads: len(uploads), Copies: counts.Copies}.HasScans(), nil
+}
 
 // ScanSummaryFor counts what a reset of the run would destroy.
 func (s *Service) ScanSummaryFor(ctx context.Context, run Run) (ScanSummary, error) {
@@ -307,7 +323,25 @@ func (s *Service) ResetScans(ctx context.Context, surveyID, runID int64) error {
 		return err
 	}
 	if err := s.Store.DeleteReadings(ctx, runID); err != nil {
-		return fmt.Errorf("survey: resetting run %d's readings: %w", runID, err)
+		return fmt.Errorf("survey: resetting run %d's readings: %w: %w", runID, ErrResetHalfDone, err)
 	}
 	return nil
+}
+
+// ScanImage finds one page image of a copy the run READ — the worker's
+// `scans/copy-<n>-page-<p>` naming, PNG before JPG (the controls' rule: a
+// raster scan comes out as JPG). ErrCopyNotFound for a copy the run has
+// not read, or a page with no image.
+func (s *Service) ScanImage(ctx context.Context, run Run, copyNumber, page int) (path, contentType string, err error) {
+	if _, err := s.Store.CopyByNumber(ctx, run.ID, copyNumber); err != nil {
+		return "", "", err
+	}
+	base := filepath.Join(s.WorkDir, RunProject(run.SurveyID, run.ID), "scans",
+		"copy-"+strconv.Itoa(copyNumber)+"-page-"+strconv.Itoa(page))
+	for _, ext := range []struct{ suffix, ctype string }{{".png", "image/png"}, {".jpg", "image/jpeg"}} {
+		if _, err := os.Stat(base + ext.suffix); err == nil {
+			return base + ext.suffix, ext.ctype, nil
+		}
+	}
+	return "", "", fmt.Errorf("survey: copy %d page %d of run %d: %w", copyNumber, page, run.ID, ErrCopyNotFound)
 }

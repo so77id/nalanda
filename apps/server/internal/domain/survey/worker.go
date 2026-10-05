@@ -74,8 +74,9 @@ const (
 // Report is what a batch's /analyse read, in survey terms.
 type Report struct {
 	// Batch is what THIS run of /analyse did; the adapter fills it in for
-	// a worker that predates the field.
-	Batch  *Batch
+	// a worker that predates the field (the project total stands in), so
+	// it is always there — a value, not a pointer (#311 review, ARQ-5).
+	Batch  Batch
 	Copies []ReportCopy
 }
 

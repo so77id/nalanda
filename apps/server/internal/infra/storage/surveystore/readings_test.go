@@ -201,3 +201,45 @@ func TestCloseRunNeedsReadCopiesAndNothingPending(t *testing.T) {
 		t.Errorf("cancelling a closed run: %v, want ErrRunNotCancellable", err)
 	}
 }
+
+// #311 review, COR-1: AMC lists a copy as re-captured only when a page of
+// it was OVERWRITTEN. A copy whose second page arrives in a later batch is
+// not re-captured, and its new answers must still land — while what the
+// professor already decided stays.
+func TestALaterBatchRefreshesWhatIsStillUndecided(t *testing.T) {
+	f := newFixture(t)
+	run, q1, q2 := f.readable(t)
+	pending := survey.ReviewItemDraft{QuestionID: q1.ID, Reason: survey.ReasonDoubtful, Doubtful: []int64{q1.Alternatives[0].ID}}
+	if err := f.store.SaveReadings(f.ctx, run.ID, nil, []survey.CopyReading{{CopyNumber: 1, Pages: []int{1}, Items: []survey.ReviewItemDraft{pending}}}); err != nil {
+		t.Fatal(err)
+	}
+	one, _ := f.store.CopyByNumber(f.ctx, run.ID, 1)
+	items, _ := f.store.ItemsForCopy(f.ctx, one.ID)
+	if err := f.store.ResolveItems(f.ctx, run.ID, one.ID, []survey.ItemResolution{
+		{ItemID: items[0].ID, Resolution: survey.ResolutionChosen, AlternativeIDs: []int64{q1.Alternatives[1].ID}},
+	}, f.userID, f.now); err != nil {
+		t.Fatal(err)
+	}
+
+	// Batch 2: page 2 of copy 1 arrives; not re-captured. The report
+	// repeats page 1's reading of q1 and adds q2's sure mark.
+	second := []survey.CopyReading{{CopyNumber: 1, Pages: []int{1, 2},
+		Items: []survey.ReviewItemDraft{pending},
+		Marks: []survey.Mark{{QuestionID: q2.ID, AlternativeID: q2.Alternatives[0].ID}},
+	}}
+	if err := f.store.SaveReadings(f.ctx, run.ID, nil, second); err != nil {
+		t.Fatal(err)
+	}
+	one, _ = f.store.CopyByNumber(f.ctx, run.ID, 1)
+	if !reflect.DeepEqual(one.Pages, []int{1, 2}) {
+		t.Errorf("pages = %v, want the page the second batch brought", one.Pages)
+	}
+	marks, _ := f.store.MarksForCopy(f.ctx, one.ID)
+	want := []survey.Mark{{QuestionID: q1.ID, AlternativeID: q1.Alternatives[1].ID}, {QuestionID: q2.ID, AlternativeID: q2.Alternatives[0].ID}}
+	if !reflect.DeepEqual(marks, want) {
+		t.Errorf("marks = %+v, want the decided q1 and the new q2", marks)
+	}
+	if items, _ := f.store.ItemsForCopy(f.ctx, one.ID); len(items) != 1 || items[0].Pending() {
+		t.Errorf("items = %+v, want the decided one only — the repeated reading must not reopen it", items)
+	}
+}

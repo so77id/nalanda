@@ -59,7 +59,7 @@ func TestAnAnalysedBatchStoresMarksAndItemsAndSaysWhatItRead(t *testing.T) {
 	f := newSurveyFixture(t)
 	r := f.readableRun()
 	f.worker.SurveyReports = []survey.Report{{
-		Batch: &survey.Batch{Captured: 2, Failed: 1},
+		Batch: survey.Batch{Captured: 2, Failed: 1},
 		Copies: []survey.ReportCopy{
 			{CopyNumber: 1, Pages: []int{1}, Answers: []survey.ReportAnswer{
 				answer(r.single, survey.AnswerOK, []int{2}),
@@ -95,14 +95,14 @@ func TestAnAnalysedBatchStoresMarksAndItemsAndSaysWhatItRead(t *testing.T) {
 	if err != nil || counts != (survey.ReadingCounts{Copies: 2, PendingCopies: 1, PendingItems: 2}) {
 		t.Errorf("counts = %+v, %v", counts, err)
 	}
-	one, err := f.surveys.CopyReading(ctx, r.run.ID, 1)
+	one, err := f.surveys.Copy(ctx, r.run.ID, 1)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if len(one.Marks) != 2 || one.Marks[0].AlternativeID != r.single.Alternatives[1].ID || one.Marks[1].AlternativeID != r.scale.Alternatives[3].ID {
 		t.Errorf("copy 1's marks = %+v", one.Marks)
 	}
-	two, _ := f.surveys.CopyReading(ctx, r.run.ID, 2)
+	two, _ := f.surveys.Copy(ctx, r.run.ID, 2)
 	if len(two.Marks) != 1 || len(two.Items) != 2 {
 		t.Errorf("copy 2 = %d marks, %d items; want the context mark and two items", len(two.Marks), len(two.Items))
 	}
@@ -115,11 +115,11 @@ func TestABatchThatStoresNothingSaysWhy(t *testing.T) {
 		want   string
 	}{
 		"no page of this run": {
-			report: survey.Report{Batch: &survey.Batch{Captured: 0, Failed: 3}},
+			report: survey.Report{Batch: survey.Batch{Captured: 0, Failed: 3}},
 			want:   "Ninguna página de ese PDF es de esta pasada",
 		},
 		"a question the run never printed": {
-			report: survey.Report{Batch: &survey.Batch{Captured: 1}, Copies: []survey.ReportCopy{{CopyNumber: 1, Answers: []survey.ReportAnswer{
+			report: survey.Report{Batch: survey.Batch{Captured: 1}, Copies: []survey.ReportCopy{{CopyNumber: 1, Answers: []survey.ReportAnswer{
 				{Name: "q999", Status: survey.AnswerOK, Marked: []int{1}},
 			}}}},
 			want: "La lectura no coincide",
@@ -241,7 +241,7 @@ func (f *surveyFixture) reviewable() readableRun {
 	f.t.Helper()
 	r := f.readableRun()
 	f.worker.SurveyReports = []survey.Report{{
-		Batch: &survey.Batch{Captured: 3},
+		Batch: survey.Batch{Captured: 3},
 		Copies: []survey.ReportCopy{
 			{CopyNumber: 1, Pages: []int{1}, Answers: []survey.ReportAnswer{answer(r.single, survey.AnswerOK, []int{1})}},
 			{CopyNumber: 2, Pages: []int{2}, Answers: []survey.ReportAnswer{
@@ -288,7 +288,7 @@ func TestResolvingACopyRecordsTheChoiceAndMovesToTheNextOne(t *testing.T) {
 	f := newSurveyFixture(t)
 	r := f.reviewable()
 	ctx := context.Background()
-	two, _ := f.surveys.CopyReading(ctx, r.run.ID, 2)
+	two, _ := f.surveys.Copy(ctx, r.run.ID, 2)
 	ambiguous, doubtful := two.Items[0], two.Items[1]
 	path := handler.SurveyRunReviewCopyPathFor(r.s.ID, r.run.ID, 2)
 
@@ -310,7 +310,7 @@ func TestResolvingACopyRecordsTheChoiceAndMovesToTheNextOne(t *testing.T) {
 	if loc := rec.Header().Get("Location"); loc != handler.SurveyRunReviewCopyPathFor(r.s.ID, r.run.ID, 3) {
 		t.Fatalf("after copy 2: status %d, location %q, want copy 3", rec.Code, loc)
 	}
-	two, _ = f.surveys.CopyReading(ctx, r.run.ID, 2)
+	two, _ = f.surveys.Copy(ctx, r.run.ID, 2)
 	if len(two.Marks) != 1 || two.Marks[0].AlternativeID != r.single.Alternatives[1].ID {
 		t.Errorf("copy 2's marks = %+v, want the chosen one only", two.Marks)
 	}
@@ -318,7 +318,7 @@ func TestResolvingACopyRecordsTheChoiceAndMovesToTheNextOne(t *testing.T) {
 		t.Errorf("copy 2's items = %+v", two.Items)
 	}
 
-	three, _ := f.surveys.CopyReading(ctx, r.run.ID, 3)
+	three, _ := f.surveys.Copy(ctx, r.run.ID, 3)
 	last := url.Values{"choice_" + strconv.FormatInt(three.Items[0].ID, 10): {strconv.FormatInt(r.contextQ.Alternatives[1].ID, 10)}}
 	rec = f.do(http.MethodPost, handler.SurveyRunReviewCopyPathFor(r.s.ID, r.run.ID, 3), f.handler.ResolveCopy, last, f.reviewValues(r, 3)...)
 	if rec.Header().Get("Location") != handler.SurveyRunPathFor(r.s.ID, r.run.ID) || !strings.Contains(flashOf(t, rec), "Revisión completa") {
@@ -419,7 +419,7 @@ func TestBorrarEscaneosErasesWorkerFirstThenTheCopies(t *testing.T) {
 	}
 
 	f.upload(r, "hojas.pdf", "application/pdf", []byte("%PDF-1.4"))
-	f.worker.SurveyReports = []survey.Report{{Batch: &survey.Batch{Captured: 1}, Copies: []survey.ReportCopy{
+	f.worker.SurveyReports = []survey.Report{{Batch: survey.Batch{Captured: 1}, Copies: []survey.ReportCopy{
 		{CopyNumber: 1, Pages: []int{1}, Answers: []survey.ReportAnswer{answer(r.single, survey.AnswerOK, []int{1})}},
 	}}}
 	var notice *jobs.Notice
@@ -497,7 +497,7 @@ func TestARunClosesOnceReviewedAndThenRefusesEveryChange(t *testing.T) {
 	}
 
 	for _, n := range []int{2, 3} {
-		view, _ := f.surveys.CopyReading(ctx, r.run.ID, n)
+		view, _ := f.surveys.Copy(ctx, r.run.ID, n)
 		form := url.Values{}
 		for _, it := range view.Items {
 			form.Set("choice_"+strconv.FormatInt(it.ID, 10), "discard")
@@ -578,7 +578,7 @@ func TestScreensTenAndElevenShowTheirFlash(t *testing.T) {
 func TestADecidedItemSaysWhatWasRecorded(t *testing.T) {
 	f := newSurveyFixture(t)
 	r := f.reviewable()
-	three, _ := f.surveys.CopyReading(context.Background(), r.run.ID, 3)
+	three, _ := f.surveys.Copy(context.Background(), r.run.ID, 3)
 	form := url.Values{
 		"choice_" + strconv.FormatInt(three.Items[0].ID, 10): {strconv.FormatInt(r.contextQ.Alternatives[1].ID, 10)},
 	}
@@ -590,5 +590,122 @@ func TestADecidedItemSaysWhatWasRecorded(t *testing.T) {
 	}
 	if strings.Contains(body, "Guardar y seguir") {
 		t.Error("a copy with nothing left to decide still offers Guardar y seguir")
+	}
+}
+
+// #311 review, COR-2: the re-captured copies the WORKER names are what
+// AnalyzeBatch hands the store — a re-scanned copy loses its old reading
+// and its decisions; a copy the batch did not touch keeps its pending item.
+func TestARecapturedCopyIsReadAgainThroughTheJob(t *testing.T) {
+	f := newSurveyFixture(t)
+	r := f.reviewable()
+	ctx := context.Background()
+	two, _ := f.surveys.Copy(ctx, r.run.ID, 2)
+	form := url.Values{}
+	for _, it := range two.Items {
+		form.Set("choice_"+strconv.FormatInt(it.ID, 10), "discard")
+	}
+	f.do(http.MethodPost, handler.SurveyRunReviewCopyPathFor(r.s.ID, r.run.ID, 2), f.handler.ResolveCopy, form, f.reviewValues(r, 2)...)
+
+	// Batch 2 re-scans copy 2 cleanly; the report, as AMC's does, still
+	// carries copies 1 and 3 as they were.
+	f.worker.SurveyReports = []survey.Report{{
+		Batch: survey.Batch{Captured: 1, RecapturedCopies: []int{2}},
+		Copies: []survey.ReportCopy{
+			{CopyNumber: 1, Pages: []int{1}, Answers: []survey.ReportAnswer{answer(r.single, survey.AnswerOK, []int{1})}},
+			{CopyNumber: 2, Pages: []int{4}, Answers: []survey.ReportAnswer{answer(r.single, survey.AnswerOK, []int{2})}},
+			{CopyNumber: 3, Pages: []int{3}, Answers: []survey.ReportAnswer{answer(r.contextQ, survey.AnswerDoubtful, nil, 2)}},
+		},
+	}}
+	var notice *jobs.Notice
+	if err := f.analyse(r, "batch-2.pdf"); !errors.As(err, &notice) {
+		t.Fatalf("the second batch: %v", err)
+	}
+	two, _ = f.surveys.Copy(ctx, r.run.ID, 2)
+	if len(two.Items) != 0 || len(two.Marks) != 1 || two.Marks[0].AlternativeID != r.single.Alternatives[1].ID {
+		t.Errorf("copy 2 after its re-scan: %d items, marks %+v; want its decisions gone and the new mark", len(two.Items), two.Marks)
+	}
+	three, _ := f.surveys.Copy(ctx, r.run.ID, 3)
+	if len(three.Items) != 1 || !three.Items[0].Pending() {
+		t.Errorf("copy 3 = %+v, want its pending item untouched", three.Items)
+	}
+}
+
+// #311 review, COR-3: closing is refused while a job of the run is in
+// flight — here a reading queued by an upload.
+func TestARunDoesNotCloseUnderAQueuedReading(t *testing.T) {
+	f := newSurveyFixture(t)
+	r := f.reviewable()
+	ctx := context.Background()
+	for _, n := range []int{2, 3} {
+		view, _ := f.surveys.Copy(ctx, r.run.ID, n)
+		form := url.Values{}
+		for _, it := range view.Items {
+			form.Set("choice_"+strconv.FormatInt(it.ID, 10), "discard")
+		}
+		f.do(http.MethodPost, handler.SurveyRunReviewCopyPathFor(r.s.ID, r.run.ID, n), f.handler.ResolveCopy, form, f.reviewValues(r, n)...)
+	}
+	f.upload(r, "hojas.pdf", "application/pdf", []byte("%PDF-1.4")) // queues survey_analyse
+
+	rec := f.do(http.MethodPost, handler.SurveyRunClosePathFor(r.s.ID, r.run.ID), f.handler.CloseRun, url.Values{}, f.runValues(r.s, r.run)...)
+	if !strings.Contains(flashOf(t, rec), "lectura de los escaneos") {
+		t.Errorf("closing under a queued reading: flash %q", flashOf(t, rec))
+	}
+	if got, _ := f.surveys.Run(ctx, r.s.ID, r.run.ID); got.State != survey.RunOpen {
+		t.Errorf("the run closed under its reading: %s", got.State)
+	}
+}
+
+// #311 review, COR-6: a multi-select records several alternatives, and
+// refuses one that is not its own.
+func TestAMultiSelectRecordsSeveralAlternatives(t *testing.T) {
+	f := newSurveyFixture(t)
+	s := f.createSurvey("Banco")
+	multi := f.addQuestion(s, survey.QuestionDraft{Kind: survey.KindMulti, Statement: "¿Qué repasaste?", Labels: []string{"Árboles", "Grafos", "Hash"}})
+	other := f.addQuestion(s, survey.QuestionDraft{Kind: survey.KindSingle, Statement: "¿Ritmo?", Labels: []string{"lento", "rápido"}})
+	run := f.createRunThroughTheForm(s, "")
+	f.finishGeneration(s, run)
+	r := readableRun{s: s, run: run}
+	f.worker.SurveyReports = []survey.Report{{Batch: survey.Batch{Captured: 1}, Copies: []survey.ReportCopy{
+		{CopyNumber: 1, Pages: []int{1}, Answers: []survey.ReportAnswer{answer(multi, survey.AnswerDoubtful, []int{1}, 3)}},
+	}}}
+	var notice *jobs.Notice
+	if err := f.analyse(r, "batch-1.pdf"); !errors.As(err, &notice) {
+		t.Fatalf("analysing: %v", err)
+	}
+	ctx := context.Background()
+	one, _ := f.surveys.Copy(ctx, run.ID, 1)
+	item := "choice_" + strconv.FormatInt(one.Items[0].ID, 10)
+	path := handler.SurveyRunReviewCopyPathFor(s.ID, run.ID, 1)
+
+	foreign := url.Values{item: {strconv.FormatInt(multi.Alternatives[0].ID, 10), strconv.FormatInt(other.Alternatives[0].ID, 10)}}
+	if rec := f.do(http.MethodPost, path, f.handler.ResolveCopy, foreign, f.reviewValues(r, 1)...); rec.Code != http.StatusUnprocessableEntity {
+		t.Errorf("another question's alternative: %d, want 422", rec.Code)
+	}
+	both := url.Values{item: {strconv.FormatInt(multi.Alternatives[0].ID, 10), strconv.FormatInt(multi.Alternatives[2].ID, 10)}}
+	f.do(http.MethodPost, path, f.handler.ResolveCopy, both, f.reviewValues(r, 1)...)
+	one, _ = f.surveys.Copy(ctx, run.ID, 1)
+	if len(one.Marks) != 2 || one.Marks[0].AlternativeID != multi.Alternatives[0].ID || one.Marks[1].AlternativeID != multi.Alternatives[2].ID {
+		t.Errorf("marks = %+v, want Árboles and Hash", one.Marks)
+	}
+}
+
+// #311 review, COR-7: a stale tab posting a decision already made saves
+// nothing of the copy and shows it again — never moves past lost choices.
+func TestAStaleDecisionShowsTheCopyAgain(t *testing.T) {
+	f := newSurveyFixture(t)
+	r := f.reviewable()
+	two, _ := f.surveys.Copy(context.Background(), r.run.ID, 2)
+	path := handler.SurveyRunReviewCopyPathFor(r.s.ID, r.run.ID, 2)
+	first := url.Values{"choice_" + strconv.FormatInt(two.Items[0].ID, 10): {"discard"}}
+	f.do(http.MethodPost, path, f.handler.ResolveCopy, first, f.reviewValues(r, 2)...)
+
+	stale := url.Values{
+		"choice_" + strconv.FormatInt(two.Items[0].ID, 10): {"discard"},
+		"choice_" + strconv.FormatInt(two.Items[1].ID, 10): {"discard"},
+	}
+	rec := f.do(http.MethodPost, path, f.handler.ResolveCopy, stale, f.reviewValues(r, 2)...)
+	if rec.Code != http.StatusConflict || !strings.Contains(rec.Body.String(), "ya estaba resuelta") {
+		t.Errorf("a stale decision: %d, want 409 showing the copy again", rec.Code)
 	}
 }

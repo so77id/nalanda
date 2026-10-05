@@ -95,24 +95,25 @@ func (c *Client) Reanalyze(ctx context.Context, req controls.ReanalyzeRequest) (
 // Analyze and Reanalyze because their success and failure envelopes are the
 // same shape — only the request body differs.
 func (c *Client) postReport(ctx context.Context, path string, body []byte) (controls.Report, error) {
-	wire, err := c.postWire(ctx, path, body, controlsReadErrors)
+	wire, err := c.postWire(ctx, path, body, controlsWorkerErrors)
 	if err != nil {
 		return controls.Report{}, err
 	}
 	return wire.toDomain(), nil
 }
 
-// readErrors are the sentinels a reading call fails with — the CALLER's
-// domain's, so the survey's /analyse never answers in the controls' errors
-// (issue #311; the same split generate() makes for /generate).
-type readErrors struct {
+// workerErrors are the sentinels a worker call fails with — the CALLER's
+// domain's, so the survey's /analyse and /scans/reset never answer in the
+// controls' errors (issue #311; generate() makes the same split with two
+// plain parameters, which is all /generate needs).
+type workerErrors struct {
 	refused     error
 	unavailable error
 	// refusal builds the error for a worker that answered non-2xx.
 	refusal func(status int, message, detail string) error
 }
 
-var controlsReadErrors = readErrors{
+var controlsWorkerErrors = workerErrors{
 	refused:     controls.ErrAnalyzerRefused,
 	unavailable: controls.ErrAnalyzerUnavailable,
 	refusal: func(status int, message, detail string) error {
@@ -122,7 +123,7 @@ var controlsReadErrors = readErrors{
 
 // postWire is postReport's transport half: it returns the report as the
 // wire carries it, failing with errs.
-func (c *Client) postWire(ctx context.Context, path string, body []byte, errs readErrors) (reportBody, error) {
+func (c *Client) postWire(ctx context.Context, path string, body []byte, errs workerErrors) (reportBody, error) {
 	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, c.base+path, bytes.NewReader(body))
 	if err != nil {
 		return reportBody{}, fmt.Errorf("amcworker: build request: %w", err)

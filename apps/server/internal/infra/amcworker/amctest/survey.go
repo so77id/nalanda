@@ -54,7 +54,7 @@ func (f *Fake) AnalyzeSheets(_ context.Context, req survey.AnalyzeRequest) (surv
 		return survey.Report{}, f.SurveyAnalyzeErr
 	}
 	if len(f.SurveyReports) == 0 {
-		return survey.Report{Batch: &survey.Batch{}}, nil
+		return survey.Report{}, nil
 	}
 	report := f.SurveyReports[0]
 	if len(f.SurveyReports) > 1 {

@@ -103,9 +103,12 @@ type Store interface {
 	// SaveReadings stores what one batch read, in one transaction (issue
 	// #311). AMC's report covers the whole project, so every batch brings
 	// back the copies of the earlier ones: a copy in `recaptured` is
-	// deleted first (its marks and items cascade) and stored again; a copy
-	// that already exists and was NOT re-captured is left exactly as it is
-	// — the professor's resolutions included; a new copy is inserted.
+	// deleted first (its marks and items cascade — a re-scanned page voids
+	// what was decided on the old image) and stored again; any other copy
+	// is upserted and everything still UNDECIDED on it is re-read — a copy
+	// can grow between batches without being re-captured (#311 review,
+	// COR-1) — while a question the professor already decided keeps its
+	// decision and its marks. ErrRunNotOpen when the run is no longer open.
 	SaveReadings(ctx context.Context, runID int64, recaptured []int, copies []CopyReading) error
 
 	// ReadingCounts is the run's reading at a glance, one aggregate query.

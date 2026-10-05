@@ -126,7 +126,12 @@ func (h *Surveys) ResolveCopy(w http.ResponseWriter, r *http.Request) {
 			[]string{"Una pregunta de una sola respuesta registra exactamente una alternativa."})
 		return
 	case errors.Is(err, survey.ErrItemResolved):
-		flash.Set(w, h.secureCookie, "Esa lectura ya estaba resuelta.")
+		// All or none: nothing of this copy was saved. Show it again, as it
+		// stands now, rather than move past choices that were lost (#311
+		// review, COR-7).
+		h.renderCopyReview(w, r, one, run, copyNumber, http.StatusConflict,
+			[]string{"Una de estas lecturas ya estaba resuelta (¿otra pestaña?). No se guardó nada de esta copia: revisa y vuelve a guardar."})
+		return
 	case errors.Is(err, survey.ErrRunNotOpen):
 		flash.Set(w, h.secureCookie, "Esta pasada ya no está abierta: no se revisa.")
 		http.Redirect(w, r, SurveyRunPathFor(one.ID, run.ID), http.StatusSeeOther)
@@ -183,12 +188,7 @@ func (h *Surveys) RunPage(w http.ResponseWriter, r *http.Request) {
 		middleware.WriteError(w, r, http.StatusNotFound, "Ese archivo no existe.")
 		return
 	}
-	// Only a copy the run read has pages to show.
-	if _, err := h.Service.CopyReading(r.Context(), run.ID, copyNumber); err != nil {
-		middleware.WriteError(w, r, http.StatusNotFound, "Ese archivo no existe.")
-		return
-	}
-	path, ctype, err := h.Service.ScanImage(run, copyNumber, page)
+	path, ctype, err := h.Service.ScanImage(r.Context(), run, copyNumber, page)
 	if err != nil {
 		middleware.WriteError(w, r, http.StatusNotFound, "Ese archivo no existe.")
 		return
@@ -218,7 +218,7 @@ func pathCopy(w http.ResponseWriter, r *http.Request) (int, bool) {
 
 func (h *Surveys) renderCopyReview(w http.ResponseWriter, r *http.Request, one survey.Survey, run survey.Run, copyNumber, status int, problems []string) {
 	ctx := r.Context()
-	reading, err := h.Service.CopyReading(ctx, run.ID, copyNumber)
+	read, err := h.Service.Copy(ctx, run.ID, copyNumber)
 	if errors.Is(err, survey.ErrCopyNotFound) {
 		middleware.WriteError(w, r, http.StatusNotFound, "Esa copia no existe en esta pasada.")
 		return
@@ -262,14 +262,14 @@ func (h *Surveys) renderCopyReview(w http.ResponseWriter, r *http.Request, one s
 	if next, ok := nextAfter(pending, copyNumber); ok && next != copyNumber {
 		page.NextURL = SurveyRunReviewCopyPathFor(one.ID, run.ID, next)
 	}
-	for _, p := range reading.Copy.Pages {
+	for _, p := range read.Copy.Pages {
 		page.Pages = append(page.Pages, SurveyRunPagePathFor(one.ID, run.ID, copyNumber, p))
 	}
 	recorded := map[int64][]int64{}
-	for _, m := range reading.Marks {
+	for _, m := range read.Marks {
 		recorded[m.QuestionID] = append(recorded[m.QuestionID], m.AlternativeID)
 	}
-	for _, it := range reading.Items {
+	for _, it := range read.Items {
 		page.Items = append(page.Items, reviewItemView(it, questions[it.QuestionID], numbers[it.QuestionID], recorded[it.QuestionID]))
 		page.Undecided = page.Undecided || it.Pending()
 	}

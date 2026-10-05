@@ -13,8 +13,8 @@
 --                       the professor resolves it
 --
 -- A re-captured copy is deleted and inserted again (survey_copy's cascade
--- takes its marks and items with it); a copy the batch did not re-capture
--- is left as it is, resolutions included (surveystore.SaveReadings).
+-- takes its marks and items with it); any other copy is re-read for what
+-- is still undecided, and keeps every decision (surveystore.SaveReadings).
 --
 -- survey_mark and survey_review_item point at the bank with no ON DELETE
 -- clause (NO ACTION): the run that holds them locks those questions
