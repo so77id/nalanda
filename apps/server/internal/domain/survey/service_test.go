@@ -154,6 +154,14 @@ func (m *memStore) DecidedItems(context.Context, int64) (int, error) { return 0,
 
 func (m *memStore) CloseRun(context.Context, int64, int64, time.Time) error { return nil }
 
+func (m *memStore) RunTally(context.Context, int64, *survey.ContextFilter) (survey.Tally, error) {
+	return survey.Tally{}, nil
+}
+
+func (m *memStore) ClosedRunTallies(context.Context, int64) ([]survey.RunTally, error) {
+	return nil, nil
+}
+
 // noGenerator is a survey.Generator the bank's tests never reach.
 type noGenerator struct{}
 

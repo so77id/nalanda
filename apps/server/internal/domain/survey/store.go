@@ -150,6 +150,15 @@ type Store interface {
 	// ErrRunNotOpen, ErrNothingRead or ErrReviewPending otherwise;
 	// ErrRunNotFound as above.
 	CloseRun(ctx context.Context, surveyID, runID int64, now time.Time) error
+
+	// RunTally counts a run's copies, its marks per alternative and the
+	// copies that answered each question — in ONE aggregate query (#312),
+	// restricted by filter when it is not nil.
+	RunTally(ctx context.Context, runID int64, filter *ContextFilter) (Tally, error)
+
+	// ClosedRunTallies is RunTally for every CLOSED run of the survey, with
+	// the questions each printed, in one aggregate query (the comparison).
+	ClosedRunTallies(ctx context.Context, surveyID int64) ([]RunTally, error)
 }
 
 // RunSummary is one survey's runs, as a list page shows them.

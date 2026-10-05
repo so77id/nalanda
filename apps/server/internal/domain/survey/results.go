@@ -125,3 +125,11 @@ func scaleStats(rows []AlternativeCount) *ScaleStats {
 	}
 	return s
 }
+
+// ContextFilter restricts a run's results to the copies that marked one of
+// AlternativeIDs on the context question QuestionID. With no alternative
+// ticked the set is empty — a filter that admits nobody shows nobody.
+type ContextFilter struct {
+	QuestionID     int64
+	AlternativeIDs []int64
+}
