@@ -15,7 +15,7 @@
 -- two tables cannot carry a REFERENCES, so purging a control no longer
 -- removes its jobs by itself: controlstore.PurgeControl deletes them in its
 -- own transaction (pinned by TestPurgeControlDeletesArchivedRowAndCascades). A
--- survey run is never hard-deleted in v1 (ADR-0078 §Consequences).
+-- survey run is never hard-deleted in v1 (ADR-0080 §7).
 --
 -- Rebuild recipe (backend-code-style.md §Extending a CHECK enum): `job` is
 -- a CHILD — job.control_id → control.id — and nothing references `job`, so

@@ -176,10 +176,10 @@ func (s *Store) CancelRun(ctx context.Context, surveyID, runID int64, now time.T
 		return fmt.Errorf("surveystore.CancelRun %d: %w", runID, err)
 	}
 	if n == 1 {
-		// The snapshot goes with the cancel: its RESTRICT on the question
-		// would otherwise keep every printed question undeletable while
-		// the run that printed them counts for nothing (#310 review,
-		// COR-1).
+		// The snapshot goes with the cancel: its foreign key on the
+		// question (no ON DELETE) would otherwise keep every printed
+		// question undeletable while the run that printed them counts
+		// for nothing (#310 review, COR-1).
 		if _, err := tx.ExecContext(ctx, `DELETE FROM survey_run_question WHERE run_id = ?`, runID); err != nil {
 			return fmt.Errorf("surveystore.CancelRun %d: dropping the snapshot: %w", runID, err)
 		}
