@@ -64,6 +64,8 @@ type SurveyDetailPage struct {
 	NewQuestion   string
 	NewRunURL     string
 	Runs          []ListedRun
+	// CompareURL is screen 13, once a run is closed (#312).
+	CompareURL string
 	// Locked is true once a run that is not cancelled exists: the bank's
 	// existing questions can no longer be edited, deleted or moved.
 	Locked bool
@@ -196,6 +198,9 @@ type SurveyRunPage struct {
 	CancelAction string
 	// ScansURL is screen 10 (issue #311).
 	ScansURL string
+	// ResultsURL and CompareURL are a closed run's results (#312).
+	ResultsURL string
+	CompareURL string
 }
 
 // RunStep is one stage of a run's stepper.
@@ -212,6 +217,8 @@ type ListedRun struct {
 	URL   string
 	// Cancelled runs are listed struck through, for the record.
 	Cancelled bool
+	// ResultsURL is a closed run's results (#312).
+	ResultsURL string
 }
 
 // RunFormValues is what the run form shows.
@@ -485,4 +492,43 @@ type ResultAcrossRow struct {
 // RenderSurveyResultQuestion writes screen 6.
 func RenderSurveyResultQuestion(w http.ResponseWriter, page SurveyResultQuestionPage) error {
 	return render(w, "survey_result_question", http.StatusOK, page)
+}
+
+// SurveyComparePage is screen 13 (issue #312).
+type SurveyComparePage struct {
+	Page
+	SurveyName string
+	SurveyURL  string
+	// Summary is "3 pasadas cerradas · 48 preguntas".
+	Summary string
+	Metrics []CompareMetricLink
+	CSVURL  string
+	Columns []string
+	Groups  []CompareGroup
+}
+
+// CompareMetricLink switches what scale rows compare.
+type CompareMetricLink struct {
+	Label   string
+	URL     string
+	Current bool
+}
+
+// CompareGroup is a section's table.
+type CompareGroup struct {
+	Label string
+	Rows  []CompareRow
+}
+
+// CompareRow is one question across the runs.
+type CompareRow struct {
+	Number int
+	Label  string
+	Cells  []string
+	Delta  string
+}
+
+// RenderSurveyCompare writes screen 13.
+func RenderSurveyCompare(w http.ResponseWriter, page SurveyComparePage) error {
+	return render(w, "survey_compare", http.StatusOK, page)
 }

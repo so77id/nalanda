@@ -310,6 +310,10 @@ func (h *Surveys) Detail(w http.ResponseWriter, r *http.Request) {
 			URL:       SurveyRunPathFor(one.ID, run.ID),
 			Cancelled: run.State == survey.RunCancelled,
 		})
+		if run.State == survey.RunClosed {
+			page.Runs[len(page.Runs)-1].ResultsURL = SurveyRunResultsPathFor(one.ID, run.ID)
+			page.CompareURL = SurveyComparePathFor(one.ID)
+		}
 	}
 	for _, section := range survey.Sections(questions) {
 		rows := make([]view.SurveyQuestionRow, 0, len(section.Questions))

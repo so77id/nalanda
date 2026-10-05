@@ -1,6 +1,7 @@
 package survey
 
 import (
+	"context"
 	"sort"
 )
 
@@ -151,4 +152,37 @@ func cellValue(stats QuestionStats, ref *Alternative, metric Metric) (float64, b
 		}
 	}
 	return 0, false
+}
+
+// ComparisonSection is a run of consecutive rows sharing a section label.
+type ComparisonSection struct {
+	Label string
+	Rows  []ComparisonRow
+}
+
+// Sections groups a comparison's rows the way the bank groups questions.
+func (c Comparison) Sections() []ComparisonSection {
+	var out []ComparisonSection
+	for _, r := range c.Rows {
+		if n := len(out); n > 0 && out[n-1].Label == r.Question.Section {
+			out[n-1].Rows = append(out[n-1].Rows, r)
+			continue
+		}
+		out = append(out, ComparisonSection{Label: r.Question.Section, Rows: []ComparisonRow{r}})
+	}
+	return out
+}
+
+// Compare builds screen 13 for a survey's closed runs: two reads — the bank
+// and the one aggregate over every closed run.
+func (s *Service) Compare(ctx context.Context, surveyID int64, metric Metric) (Comparison, error) {
+	bank, err := s.Store.Questions(ctx, surveyID)
+	if err != nil {
+		return Comparison{}, err
+	}
+	tallies, err := s.Store.ClosedRunTallies(ctx, surveyID)
+	if err != nil {
+		return Comparison{}, err
+	}
+	return Compare(bank, tallies, metric), nil
 }

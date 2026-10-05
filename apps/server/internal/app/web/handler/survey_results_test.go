@@ -142,3 +142,45 @@ func TestScreenSixShowsOneQuestionAndItsClosedRuns(t *testing.T) {
 		t.Errorf("a question the run never printed: %d, want 404", rec.Code)
 	}
 }
+
+func TestScreenThirteenComparesTheClosedRuns(t *testing.T) {
+	f := newSurveyFixture(t)
+	r, first := f.resultsSurvey()
+	ok := survey.AnswerOK
+	second := f.closedRunOf(r,
+		[]survey.ReportAnswer{answer(r.contextQ, ok, []int{1}), answer(r.single, ok, []int{2}), answer(r.scale, ok, []int{5})},
+		[]survey.ReportAnswer{answer(r.contextQ, ok, []int{2}), answer(r.single, ok, []int{2}), answer(r.scale, ok, []int{4})},
+	)
+	page := handler.SurveyComparePathFor(r.s.ID)
+	body := f.do(http.MethodGet, page, f.handler.Compare, nil, f.surveyValue(r.s)...).Body.String()
+	for _, want := range []string{
+		"2 pasadas cerradas · 3 preguntas", "<th scope=\"col\">P1</th>", "<th scope=\"col\">P2</th>",
+		"¿Sección? (contexto)",
+		// Scale: mean 3.67 → 4.50, Δ +0.83.
+		"<td>3.67</td>", "<td>4.50</td>", "↑ &#43;0.83",
+		// Single: reference = most marked in the latest run (rápido, 100 %);
+		// run 1 had 1 of 3 answered = 33 %. Δ +67 pp.
+		"¿Ritmo? · % rápido", "<td>33 %</td>", "<td>100 %</td>", "↑ &#43;67 pp",
+	} {
+		if !strings.Contains(body, want) {
+			t.Errorf("screen 13 lacks %q", want)
+		}
+	}
+	median := f.do(http.MethodGet, page+"?metric=median", f.handler.Compare, nil, f.surveyValue(r.s)...).Body.String()
+	if !strings.Contains(median, "<strong>Mediana</strong>") || !strings.Contains(median, "<td>4</td><td>4.50</td>") {
+		t.Errorf("the median metric is not applied:\n%s", median[strings.Index(median, "<nav"):])
+	}
+	if table := body[strings.Index(body, "<table"):]; strings.Contains(table, "style=") || strings.Contains(table, "class=\"up") {
+		t.Error("Δ carries a colour")
+	}
+
+	// Entry points: screen 3 and the closed run's dashboard.
+	detail := f.do(http.MethodGet, handler.SurveyPathFor(r.s.ID), f.handler.Detail, nil, f.surveyValue(r.s)...).Body.String()
+	if !strings.Contains(detail, handler.SurveyRunResultsPathFor(r.s.ID, second.ID)) || !strings.Contains(detail, page) {
+		t.Error("screen 3 does not link the results and the comparison")
+	}
+	dash := f.do(http.MethodGet, handler.SurveyRunPathFor(r.s.ID, first.ID), f.handler.RunDetail, nil, f.runValues(r.s, first)...).Body.String()
+	if !strings.Contains(dash, "Ver resultados") {
+		t.Error("a closed run's dashboard does not offer its results")
+	}
+}

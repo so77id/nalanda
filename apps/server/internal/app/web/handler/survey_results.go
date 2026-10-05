@@ -245,3 +245,106 @@ func acrossSummary(st survey.QuestionStats) string {
 	}
 	return fmt.Sprintf("más marcada: %s, %s", alternativeLabel(st.Question, best.Alternative), percent(best.Percent))
 }
+
+// SurveyComparePath is screen 13.
+const SurveyComparePath = "/surveys/{id}/compare"
+
+// SurveyComparePathFor builds screen 13's URL.
+func SurveyComparePathFor(surveyID int64) string { return SurveyPathFor(surveyID) + "/compare" }
+
+// Compare renders screen 13: every question some closed run printed, one
+// column per closed run, and Δ — sign only, no colour.
+func (h *Surveys) Compare(w http.ResponseWriter, r *http.Request) {
+	one, ok := h.survey(w, r)
+	if !ok {
+		return
+	}
+	metric := survey.Metric(r.URL.Query().Get("metric"))
+	switch metric {
+	case survey.MetricMode, survey.MetricMedian:
+	default:
+		metric = survey.MetricMean
+	}
+	cmp, err := h.Service.Compare(r.Context(), one.ID, metric)
+	if err != nil {
+		h.Log.Error("comparing a survey's runs", "survey", one.ID, "error", err)
+		middleware.WriteError(w, r, http.StatusInternalServerError, surveyBroke)
+		return
+	}
+	page := view.SurveyComparePage{
+		Page:       middleware.PageFor(r, "Comparar pasadas · "+one.Name),
+		SurveyName: one.Name,
+		SurveyURL:  SurveyPathFor(one.ID),
+		Summary: fmt.Sprintf("%d %s · %d %s", len(cmp.Runs), plural(len(cmp.Runs), "pasada cerrada", "pasadas cerradas"),
+			len(cmp.Rows), plural(len(cmp.Rows), "pregunta", "preguntas")),
+	}
+	for _, m := range []struct {
+		metric survey.Metric
+		label  string
+	}{{survey.MetricMean, "Promedio"}, {survey.MetricMode, "Moda"}, {survey.MetricMedian, "Mediana"}} {
+		page.Metrics = append(page.Metrics, view.CompareMetricLink{
+			Label: m.label, URL: SurveyComparePathFor(one.ID) + "?metric=" + string(m.metric), Current: m.metric == metric,
+		})
+	}
+	for _, run := range cmp.Runs {
+		page.Columns = append(page.Columns, "P"+strconv.Itoa(run.Number))
+	}
+	for _, sec := range cmp.Sections() {
+		g := view.CompareGroup{Label: sec.Label}
+		for _, row := range sec.Rows {
+			g.Rows = append(g.Rows, compareRow(row, metric))
+		}
+		page.Groups = append(page.Groups, g)
+	}
+	page.Flash = flash.Consume(w, r, h.secureCookie)
+	if err := view.RenderSurveyCompare(w, page); err != nil {
+		h.Log.Error("rendering the comparison", "error", err)
+	}
+}
+
+// compareRow words one row: numbered by the bank (a question's printed
+// number differs between runs), its values, and Δ with its sign.
+func compareRow(row survey.ComparisonRow, metric survey.Metric) view.CompareRow {
+	q := row.Question
+	out := view.CompareRow{Number: q.Position, Label: q.Statement, Delta: "—"}
+	switch {
+	case row.Context:
+		out.Label += " (contexto)"
+	case row.Reference != nil:
+		out.Label += " · % " + alternativeLabel(q, *row.Reference)
+	}
+	for _, c := range row.Cells {
+		out.Cells = append(out.Cells, compareValue(c, row.Percent, metric))
+	}
+	if row.Delta != nil {
+		out.Delta = compareDelta(*row.Delta, row.Percent)
+	}
+	return out
+}
+
+func compareValue(c survey.ComparisonCell, isPercent bool, metric survey.Metric) string {
+	switch {
+	case !c.Present:
+		return "—"
+	case isPercent:
+		return percent(c.Value)
+	case metric == survey.MetricMean:
+		return strconv.FormatFloat(c.Value, 'f', 2, 64)
+	}
+	return decimal(c.Value)
+}
+
+// compareDelta is Δ with an arrow and its sign; points for percentages.
+func compareDelta(d float64, isPercent bool) string {
+	text := fmt.Sprintf("%+.2f", d)
+	if isPercent {
+		text = fmt.Sprintf("%+.0f pp", d)
+	}
+	switch {
+	case math.Abs(d) < 0.005:
+		return "= 0"
+	case d > 0:
+		return "↑ " + text
+	}
+	return "↓ " + strings.Replace(text, "-", "−", 1)
+}
