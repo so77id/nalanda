@@ -572,3 +572,23 @@ func TestScreensTenAndElevenShowTheirFlash(t *testing.T) {
 		t.Error("screen 11 swallows its flash")
 	}
 }
+
+// Found by the #311 browser check: a decided item says WHAT was recorded,
+// and a copy with nothing left to decide offers no "Guardar y seguir".
+func TestADecidedItemSaysWhatWasRecorded(t *testing.T) {
+	f := newSurveyFixture(t)
+	r := f.reviewable()
+	three, _ := f.surveys.CopyReading(context.Background(), r.run.ID, 3)
+	form := url.Values{
+		"choice_" + strconv.FormatInt(three.Items[0].ID, 10): {strconv.FormatInt(r.contextQ.Alternatives[1].ID, 10)},
+	}
+	f.do(http.MethodPost, handler.SurveyRunReviewCopyPathFor(r.s.ID, r.run.ID, 3), f.handler.ResolveCopy, form, f.reviewValues(r, 3)...)
+
+	body := f.do(http.MethodGet, handler.SurveyRunReviewCopyPathFor(r.s.ID, r.run.ID, 3), f.handler.ReviewCopy, nil, f.reviewValues(r, 3)...).Body.String()
+	if !strings.Contains(body, "Decidido: registrada B") {
+		t.Errorf("the decided item does not name what it recorded:\n%s", body)
+	}
+	if strings.Contains(body, "Guardar y seguir") {
+		t.Error("a copy with nothing left to decide still offers Guardar y seguir")
+	}
+}

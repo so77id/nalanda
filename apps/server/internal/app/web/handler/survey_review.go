@@ -265,8 +265,13 @@ func (h *Surveys) renderCopyReview(w http.ResponseWriter, r *http.Request, one s
 	for _, p := range reading.Copy.Pages {
 		page.Pages = append(page.Pages, SurveyRunPagePathFor(one.ID, run.ID, copyNumber, p))
 	}
+	recorded := map[int64][]int64{}
+	for _, m := range reading.Marks {
+		recorded[m.QuestionID] = append(recorded[m.QuestionID], m.AlternativeID)
+	}
 	for _, it := range reading.Items {
-		page.Items = append(page.Items, reviewItemView(it, questions[it.QuestionID], numbers[it.QuestionID]))
+		page.Items = append(page.Items, reviewItemView(it, questions[it.QuestionID], numbers[it.QuestionID], recorded[it.QuestionID]))
+		page.Undecided = page.Undecided || it.Pending()
 	}
 	page.Flash = flash.Consume(w, r, h.secureCookie)
 	if err := view.RenderSurveyCopyReview(w, status, page); err != nil {
@@ -277,7 +282,7 @@ func (h *Surveys) renderCopyReview(w http.ResponseWriter, r *http.Request, one s
 // reviewItemView words one item for the page: what was seen, and every
 // alternative the question offers — the detected ones marked, because the
 // reader may have missed the box the student meant.
-func reviewItemView(it survey.ReviewItem, q survey.Question, number int) view.ReviewItemView {
+func reviewItemView(it survey.ReviewItem, q survey.Question, number int, recorded []int64) view.ReviewItemView {
 	labels := make(map[int64]string, len(q.Alternatives))
 	for _, a := range q.Alternatives {
 		labels[a.ID] = alternativeLabel(q, a)
@@ -324,7 +329,9 @@ func reviewItemView(it survey.ReviewItem, q survey.Question, number int) view.Re
 	case survey.ResolutionDiscarded:
 		out.Decided = "descartada (sin respuesta)"
 	case survey.ResolutionChosen:
-		out.Decided = "registrada"
+		// A decided item's marks are the only marks of its question: an
+		// item writes none while it is pending.
+		out.Decided = "registrada " + names(recorded)
 	}
 	return out
 }

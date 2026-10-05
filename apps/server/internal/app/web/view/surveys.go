@@ -331,7 +331,9 @@ type SurveyCopyReviewPage struct {
 	// Editable is false on a run that is not open: the items are shown,
 	// never decided.
 	Editable bool
-	Errors   []string
+	// Undecided is whether any item of the copy still waits.
+	Undecided bool
+	Errors    []string
 }
 
 // ReviewItemView is one doubtful answer.

@@ -59,7 +59,7 @@
           {{ end }}
         </fieldset>
       {{ end }}
-      {{ if .Editable }}
+      {{ if and .Editable .Undecided }}
         <div class="survey-actions">
           {{ if .NextURL }}<a class="boton" href="{{ .NextURL }}">Saltar</a>{{ end }}
           <button type="submit">Guardar y seguir</button>
