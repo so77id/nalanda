@@ -105,7 +105,8 @@ func (s *Service) Restore(ctx context.Context, id int64) error {
 }
 
 // Questions returns the survey's bank, for a caller that already holds the
-// survey and should not read it twice.
+// survey. The store re-checks that the survey exists, so an unknown id is
+// ErrSurveyNotFound rather than an empty bank.
 func (s *Service) Questions(ctx context.Context, surveyID int64) ([]Question, error) {
 	return s.Store.Questions(ctx, surveyID)
 }

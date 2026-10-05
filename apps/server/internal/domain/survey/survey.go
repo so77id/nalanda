@@ -74,8 +74,8 @@ var (
 	// survey is created under it.
 	ErrCourseNotFound = errors.New("survey: no such course")
 
-	// ErrInvalid wraps every validation refusal; ProblemOf reads the
-	// per-field sentinels below out of it.
+	// ErrInvalid wraps every validation refusal; a caller reads the
+	// per-field sentinels below through errors.As on *ValidationError.
 	ErrInvalid = errors.New("survey: invalid draft")
 
 	ErrRequired             = errors.New("required")

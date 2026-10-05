@@ -46,8 +46,9 @@ func CourseSurveysPathFor(courseID int64) string {
 }
 
 // SurveyPathFor builds the URL of one survey's page. Every other survey
-// URL is built from it by the PathFor below — one builder per route, the
-// courses.go shape — so a route constant and its builder sit side by side.
+// URL is built from it by the PathFor below — one builder per survey-level
+// route, the courses.go shape; the question-level routes share one builder
+// that names the action (edit, delete, move, preview).
 func SurveyPathFor(id int64) string {
 	return "/surveys/" + strconv.FormatInt(id, 10)
 }
@@ -73,6 +74,12 @@ func SurveyQuestionNewPathFor(id int64, kind survey.QuestionKind) string {
 // "edit", "delete", "move" or "preview".
 func SurveyQuestionPathFor(id, questionID int64, action string) string {
 	return SurveyQuestionsPathFor(id) + "/" + strconv.FormatInt(questionID, 10) + "/" + action
+}
+
+// SurveyQuestionEditKindPathFor builds the edit form of a question
+// re-rendered in another kind.
+func SurveyQuestionEditKindPathFor(id, questionID int64, kind survey.QuestionKind) string {
+	return SurveyQuestionPathFor(id, questionID, "edit") + "?" + url.Values{"kind": {string(kind)}}.Encode()
 }
 
 // CourseSurveysNewPathFor builds the URL of the create form.

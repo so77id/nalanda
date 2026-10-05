@@ -3,7 +3,6 @@ package handler
 import (
 	"errors"
 	"net/http"
-	"net/url"
 	"strconv"
 	"strings"
 
@@ -285,7 +284,7 @@ func (h *Surveys) renderQuestionForm(w http.ResponseWriter, r *http.Request, one
 		heading = "Editar pregunta"
 		action = SurveyQuestionPathFor(one.ID, questionID, "edit")
 		kindURL = func(kind survey.QuestionKind) string {
-			return action + "?" + url.Values{"kind": {string(kind)}}.Encode()
+			return SurveyQuestionEditKindPathFor(one.ID, questionID, kind)
 		}
 		previewURL = SurveyQuestionPathFor(one.ID, questionID, "preview")
 	}

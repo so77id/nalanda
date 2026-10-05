@@ -1184,13 +1184,14 @@ here would be half a feature landing inside a WP about matching. Recorded so
 it is a decision on the record rather than something inherited without
 anyone looking.
 
-**Amended 2026-10-05 (#309) — surveys inherit the same model, and add no
-person.** `/courses/{id}/surveys` and `/surveys/{id}/…` are behind the same
+**Amended 2026-10-05 (#309), extending the #272 amendment just above — surveys
+inherit the same model, and add no person.** Placed here, out of date order,
+because it qualifies that paragraph. `/courses/{id}/surveys` and `/surveys/{id}/…` are behind the same
 shared professor session and are not scoped either: any signed-in professor
 reaches any course's surveys at sequential ids. Nothing in them is personal —
 no survey table references `student` or `enrollment` (ADR-0078 §2), and the
 only person a survey names is the professor in `created_by` — so the exposure
-is course-design text, and the decision above covers it unchanged.
+is course-design text, and #272's decision covers it unchanged.
 
 **Amended 2026-09-07 (#273) — the trigger fired, and this is what changed.**
 This entry named WP-3 as "the first WP that emails these people". It does,

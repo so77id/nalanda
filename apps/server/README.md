@@ -137,8 +137,13 @@ internal/domain/   business types and the interfaces they need — PURE
   gmail/          the professor's authorisation to send as themselves (#273, ADR-0072):
                   Complete / Disconnect / Connection / AccessToken. Only an
                   `invalid_grant` refresh clears a stored credential
+  survey/          anonymous paper surveys (issue #309, ADR-0078): Survey,
+                   Question, the three kinds, its own Store port. A SIBLING
+                   of controls — never imports it
+                   (TestTheSurveyDomainDoesNotImportControls)
 internal/app/web/  the professor's backoffice
-  handler/         the login round trip and the professor CRUD
+  handler/         one file per area: login, professors, profile, courses,
+                   controls (+ scans, review, publish…) and surveys
   middleware/      cookie → professor, the gate, CSRF, and the surface-agnostic request log
   oauthstate/      the single-use state nonces of the OAuth flow
   flash/           the one-shot POST/redirect/GET message cookie
@@ -161,6 +166,9 @@ internal/infra/    adapters: config, storage, httpserver, httpjson, selfcheck
                          matching.Store, since it owns `student` and
                          `enrollment` (issues #271, #272)
   storage/jobstore/      the SQLite side of the jobs domain (issue #249)
+  storage/secretstore/   the SQLite side of secret.Store: sealed per-professor
+                         secrets (issue #271, ADR-0068)
+  storage/surveystore/   the SQLite side of the survey domain (issue #309)
 migrations/        goose SQL migrations, embedded into the binary
 ```
 
@@ -173,6 +181,10 @@ included:
 2. `internal/infra` does not import `internal/app` — adapters sit beneath the
    surfaces, not beside them.
 3. Neither delivery surface imports the other.
+
+And one boundary between siblings: the survey subsystem never reaches the
+controls (`TestTheSurveyDomainDoesNotImportControls`, ADR-0078) — the three
+edges above say nothing about one domain package importing another.
 
 When the domain needs something from outside it declares an interface and infra
 implements it — `health.Prober`, implemented by `storage.Prober`, is the worked

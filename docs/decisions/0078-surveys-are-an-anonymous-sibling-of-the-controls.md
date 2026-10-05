@@ -40,7 +40,7 @@ the worker and the paper, never a type: when surveys need the worker
 (WP-2), they declare their own ports and `internal/infra/amcworker` grows
 methods that implement them.
 
-Its tables are prefixed `survey_*`, its store is
+Its tables are `survey` and `survey_*`, its store is
 `internal/infra/storage/surveystore`, its routes live under `/surveys` and
 `/courses/{id}/surveys`. Together these make a later extraction into its own
 app a mechanical cut — designed for, not done (#313).
@@ -114,5 +114,13 @@ alternative inputs (blank rows ignored) and ↑/↓ buttons for order.
 - A survey's numbers are only as anonymous as its distribution: AMC prints
   each copy's number on the sheet, so copies handed out in roster order are
   linkable. That is an operating note for the professor, not code.
+- **A survey is archived and restored, never purged, in v1.** That departs
+  from the controls' recorded lifecycle (ADR-0052: archive, then a
+  typed-name purge) on purpose: WP-1 holds only a bank, nothing a purge
+  would protect, and the purge pair is worth its three gates once runs and
+  readings exist (WP-2/3, revisited there; tracked in #313). Because
+  `survey.course_id` is RESTRICT, a course that has ever had a survey
+  cannot be hard-deleted — no course-delete path exists today, and the one
+  that arrives inherits this.
 - The run model, the worker integration and the job queue those need are
   WP-2's (#310) decisions and get their own ADR there.
