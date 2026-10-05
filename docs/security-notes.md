@@ -725,13 +725,17 @@ and `security_opt: ["no-new-privileges:true"]` in compose, `openin_any = p` in a
 run's batch is uploaded through the same kind of route as a control's (gated,
 CSRF, the same content-type/extension check — not a magic-byte sniff) by the
 same professor, off the same scanner, and the worker parses it with the same
-`/analyse`. Its size is bounded the way a control's is, which is to say by the
-reverse proxy in front of the server and not by `NALANDA_MAX_SCAN_BYTES`: the
-CSRF middleware parses the whole multipart body before the handler's
-`MaxBytesReader` runs (`middleware.go`, its own comment says so), on both
-upload routes (#311 review, SEC-1). Reachable only by a signed-in professor. No student or other system reaches it. The new page-image route
-(`/surveys/{id}/runs/{rid}/copies/{copy}/page/{n}`) builds its path from three
-integers under the run's own project and serves only a copy the run read.
+`/analyse`. No student or other system reaches it. Its size is bounded the way
+a control's is, which is to say NOT by `NALANDA_MAX_SCAN_BYTES` — only by
+whatever Tailscale Funnel enforces in front of the server, which nobody has
+measured (#311 review, SEC-3): the CSRF middleware parses the whole multipart
+body before the handler's `MaxBytesReader` runs (`middleware.go`, its own
+comment says so), on both upload routes (#311 review, SEC-1). Reachable only
+by a signed-in professor. The new page-image route
+(`/surveys/{id}/runs/{rid}/copies/{copy}/page/{n}`) builds its path from
+integers only — the run's stored survey and run ids, the copy number and a page
+bounded 1–99 — under the run's own project, and serves only a copy the run
+read.
 
 **Named in advance, because WP-E will pull that trigger** (#147 review): a
 control source now includes code with `\lstinputlisting{<absolute path>}` —

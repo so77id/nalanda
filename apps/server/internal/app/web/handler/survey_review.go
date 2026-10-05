@@ -125,18 +125,18 @@ func (h *Surveys) ResolveCopy(w http.ResponseWriter, r *http.Request) {
 		h.renderCopyReview(w, r, one, run, copyNumber, http.StatusUnprocessableEntity,
 			[]string{"Una pregunta de una sola respuesta registra exactamente una alternativa."})
 		return
-	case errors.Is(err, survey.ErrItemResolved):
+	case errors.Is(err, survey.ErrItemResolved), errors.Is(err, survey.ErrItemNotFound):
 		// All or none: nothing of this copy was saved. Show it again, as it
 		// stands now, rather than move past choices that were lost (#311
 		// review, COR-7).
 		h.renderCopyReview(w, r, one, run, copyNumber, http.StatusConflict,
-			[]string{"Una de estas lecturas ya estaba resuelta (¿otra pestaña?). No se guardó nada de esta copia: revisa y vuelve a guardar."})
+			[]string{"Una de estas lecturas ya estaba resuelta o cambió con un lote nuevo (¿otra pestaña?). No se guardó nada de esta copia: revisa y vuelve a guardar."})
 		return
 	case errors.Is(err, survey.ErrRunNotOpen):
 		flash.Set(w, h.secureCookie, "Esta pasada ya no está abierta: no se revisa.")
 		http.Redirect(w, r, SurveyRunPathFor(one.ID, run.ID), http.StatusSeeOther)
 		return
-	case errors.Is(err, survey.ErrCopyNotFound), errors.Is(err, survey.ErrItemNotFound):
+	case errors.Is(err, survey.ErrCopyNotFound):
 		middleware.WriteError(w, r, http.StatusNotFound, "Esa copia no existe en esta pasada.")
 		return
 	case err != nil:

@@ -17,7 +17,7 @@ import (
 // request goroutine (SaveUploadedBatch, S4), and the `survey_analyse` job
 // reads it (AnalyzeBatch).
 
-// uploadsDir is where a run's uploaded batches live inside its project,
+// uploadsDirName is where a run's uploaded batches live inside its project,
 // beside — never inside — AMC's own scans/.
 const uploadsDirName = "uploads"
 
@@ -263,18 +263,14 @@ type ScanSummary struct {
 // reading failed is an upload with no copy, and counts.
 func (s ScanSummary) HasScans() bool { return s.Uploads > 0 || s.Copies > 0 }
 
-// HasScans reports whether the run has scans — an uploaded batch or a
-// read copy — the one rule behind cancelling and "Borrar escaneos".
+// HasScans reports whether the run has scans (ScanSummary.HasScans) —
+// what the run page asks before it offers "Cancelar pasada".
 func (s *Service) HasScans(ctx context.Context, run Run) (bool, error) {
-	uploads, err := s.Uploads(run)
+	summary, err := s.ScanSummaryFor(ctx, run)
 	if err != nil {
 		return false, err
 	}
-	counts, err := s.Store.ReadingCounts(ctx, run.ID)
-	if err != nil {
-		return false, err
-	}
-	return ScanSummary{Uploads: len(uploads), Copies: counts.Copies}.HasScans(), nil
+	return summary.HasScans(), nil
 }
 
 // ScanSummaryFor counts what a reset of the run would destroy.

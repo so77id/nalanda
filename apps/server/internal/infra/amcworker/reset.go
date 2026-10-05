@@ -46,7 +46,7 @@ func (c *Client) ResetSurveyScans(ctx context.Context, project string) error {
 	})
 }
 
-// resetErrors are a reset's sentinels: the reading ones, plus busy.
+// resetErrors are a reset's sentinels: the worker ones, plus busy.
 type resetErrors struct {
 	workerErrors
 	busy error

@@ -79,15 +79,12 @@ func (s *Store) SaveReadings(ctx context.Context, runID int64, recaptured []int,
 		if err := rows.Err(); err != nil {
 			return fmt.Errorf("surveystore.SaveReadings: copy %d's decisions: %w", c.CopyNumber, err)
 		}
+		// The same predicate as `decided` above, in SQL: the two must agree.
 		if _, err := tx.ExecContext(ctx, `
             DELETE FROM survey_mark WHERE copy_id = ? AND question_id NOT IN
                 (SELECT question_id FROM survey_review_item WHERE copy_id = ? AND resolution IS NOT NULL)`,
 			copyID, copyID); err != nil {
 			return fmt.Errorf("surveystore.SaveReadings: copy %d: clearing undecided marks: %w", c.CopyNumber, err)
-		}
-		if _, err := tx.ExecContext(ctx,
-			`DELETE FROM survey_review_item WHERE copy_id = ? AND resolution IS NULL`, copyID); err != nil {
-			return fmt.Errorf("surveystore.SaveReadings: copy %d: clearing pending items: %w", c.CopyNumber, err)
 		}
 		for _, m := range c.Marks {
 			if decided[m.QuestionID] {
@@ -99,18 +96,51 @@ func (s *Store) SaveReadings(ctx context.Context, runID int64, recaptured []int,
 				return fmt.Errorf("surveystore.SaveReadings: copy %d, question %d: %w", c.CopyNumber, m.QuestionID, err)
 			}
 		}
+		// A pending item is refreshed IN PLACE, keyed by its question: its id
+		// is what a review page opened before this batch will post (#311
+		// review recheck, COR-NEW-1). One the new reading no longer flags
+		// goes.
+		flagged := map[int64]bool{}
 		for _, it := range c.Items {
 			if decided[it.QuestionID] {
 				continue
 			}
+			flagged[it.QuestionID] = true
 			seen, err := json.Marshal(detected{Marked: nonNil(it.Marked), Doubtful: nonNil(it.Doubtful)})
 			if err != nil {
 				return fmt.Errorf("surveystore.SaveReadings: copy %d's item: %w", c.CopyNumber, err)
 			}
-			if _, err := tx.ExecContext(ctx,
-				`INSERT INTO survey_review_item (copy_id, question_id, reason, detected) VALUES (?, ?, ?, ?)`,
+			if _, err := tx.ExecContext(ctx, `
+                INSERT INTO survey_review_item (copy_id, question_id, reason, detected) VALUES (?, ?, ?, ?)
+                ON CONFLICT (copy_id, question_id) DO UPDATE SET reason = excluded.reason, detected = excluded.detected
+                WHERE survey_review_item.resolution IS NULL`,
 				copyID, it.QuestionID, string(it.Reason), string(seen)); err != nil {
 				return fmt.Errorf("surveystore.SaveReadings: copy %d, item on question %d: %w", c.CopyNumber, it.QuestionID, err)
+			}
+		}
+		stale, err := tx.QueryContext(ctx,
+			`SELECT id, question_id FROM survey_review_item WHERE copy_id = ? AND resolution IS NULL`, copyID)
+		if err != nil {
+			return fmt.Errorf("surveystore.SaveReadings: copy %d's pending items: %w", c.CopyNumber, err)
+		}
+		var gone []int64
+		for stale.Next() {
+			var id, q int64
+			if err := stale.Scan(&id, &q); err != nil {
+				_ = stale.Close()
+				return fmt.Errorf("surveystore.SaveReadings: copy %d's pending items: %w", c.CopyNumber, err)
+			}
+			if !flagged[q] {
+				gone = append(gone, id)
+			}
+		}
+		_ = stale.Close()
+		if err := stale.Err(); err != nil {
+			return fmt.Errorf("surveystore.SaveReadings: copy %d's pending items: %w", c.CopyNumber, err)
+		}
+		for _, id := range gone {
+			if _, err := tx.ExecContext(ctx, `DELETE FROM survey_review_item WHERE id = ?`, id); err != nil {
+				return fmt.Errorf("surveystore.SaveReadings: copy %d: dropping item %d: %w", c.CopyNumber, id, err)
 			}
 		}
 	}

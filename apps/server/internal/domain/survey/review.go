@@ -19,9 +19,10 @@ type Decision struct {
 	Comment        string
 }
 
-// ErrBadChoice refuses a choice the question cannot record: none, more
-// than one on a single or scale question, or an alternative that is not
-// the question's.
+// ErrBadChoice refuses a choice the question cannot record: more than one
+// alternative on a single or scale question, a repeated one, or one that is
+// not the question's. (No choice at all is not an error: the item stays
+// pending.)
 var ErrBadChoice = errors.New("survey: that choice cannot be recorded for the question")
 
 // MaxCommentLength bounds a review comment.

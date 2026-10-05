@@ -243,3 +243,47 @@ func TestALaterBatchRefreshesWhatIsStillUndecided(t *testing.T) {
 		t.Errorf("items = %+v, want the decided one only — the repeated reading must not reopen it", items)
 	}
 }
+
+// #311 review recheck, COR-NEW-1: a later batch keeps a pending item's id
+// — a review page opened before it landed must still post to it — and
+// drops a pending item the new reading no longer flags.
+func TestALaterBatchKeepsPendingItemIDs(t *testing.T) {
+	f := newFixture(t)
+	run, q1, q2 := f.readable(t)
+	items := []survey.ReviewItemDraft{
+		{QuestionID: q1.ID, Reason: survey.ReasonDoubtful, Doubtful: []int64{q1.Alternatives[0].ID}},
+		{QuestionID: q2.ID, Reason: survey.ReasonDoubtful, Doubtful: []int64{q2.Alternatives[0].ID}},
+	}
+	if err := f.store.SaveReadings(f.ctx, run.ID, nil, []survey.CopyReading{{CopyNumber: 1, Items: items}}); err != nil {
+		t.Fatal(err)
+	}
+	one, _ := f.store.CopyByNumber(f.ctx, run.ID, 1)
+	before, _ := f.store.ItemsForCopy(f.ctx, one.ID)
+
+	// The next batch still flags q1 (now ambiguous), and reads q2 as sure.
+	again := []survey.CopyReading{{CopyNumber: 1,
+		Items: []survey.ReviewItemDraft{{QuestionID: q1.ID, Reason: survey.ReasonAmbiguous, Marked: []int64{q1.Alternatives[0].ID, q1.Alternatives[1].ID}}},
+		Marks: []survey.Mark{{QuestionID: q2.ID, AlternativeID: q2.Alternatives[0].ID}},
+	}}
+	if err := f.store.SaveReadings(f.ctx, run.ID, nil, again); err != nil {
+		t.Fatal(err)
+	}
+	after, _ := f.store.ItemsForCopy(f.ctx, one.ID)
+	if len(after) != 1 || after[0].ID != before[0].ID || after[0].Reason != survey.ReasonAmbiguous {
+		t.Errorf("items after = %+v; want q1's item kept under id %d, refreshed to ambiguous, and q2's gone", after, before[0].ID)
+	}
+}
+
+// #311 review recheck, COR-NEW-3: a closed run takes no reading.
+func TestSaveReadingsRefusesARunThatIsNotOpen(t *testing.T) {
+	f := newFixture(t)
+	run, _, _ := f.readable(t)
+	f.exec(t, `UPDATE survey_run SET state = 'closed' WHERE id = ?`, run.ID)
+	err := f.store.SaveReadings(f.ctx, run.ID, nil, []survey.CopyReading{{CopyNumber: 1}})
+	if !errors.Is(err, survey.ErrRunNotOpen) {
+		t.Errorf("saving into a closed run: %v, want ErrRunNotOpen", err)
+	}
+	if counts, _ := f.store.ReadingCounts(f.ctx, run.ID); counts.Copies != 0 {
+		t.Errorf("%d copies written into a closed run", counts.Copies)
+	}
+}

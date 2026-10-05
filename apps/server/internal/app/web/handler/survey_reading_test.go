@@ -709,3 +709,16 @@ func TestAStaleDecisionShowsTheCopyAgain(t *testing.T) {
 		t.Errorf("a stale decision: %d, want 409 showing the copy again", rec.Code)
 	}
 }
+
+// #311 review recheck, COR-NEW-1: a decision posted for an item that is no
+// longer there (a later batch stopped flagging it) shows the copy again,
+// as a stale resolved one does — never a 404 that loses the page.
+func TestADecisionForAVanishedItemShowsTheCopyAgain(t *testing.T) {
+	f := newSurveyFixture(t)
+	r := f.reviewable()
+	path := handler.SurveyRunReviewCopyPathFor(r.s.ID, r.run.ID, 2)
+	rec := f.do(http.MethodPost, path, f.handler.ResolveCopy, url.Values{"choice_999999": {"discard"}}, f.reviewValues(r, 2)...)
+	if rec.Code != http.StatusConflict || !strings.Contains(rec.Body.String(), "cambió con un lote nuevo") {
+		t.Errorf("a vanished item: %d, want 409 showing the copy again", rec.Code)
+	}
+}
