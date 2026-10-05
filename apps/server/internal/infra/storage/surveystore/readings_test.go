@@ -269,7 +269,8 @@ func TestALaterBatchKeepsPendingItemIDs(t *testing.T) {
 		t.Fatal(err)
 	}
 	after, _ := f.store.ItemsForCopy(f.ctx, one.ID)
-	if len(after) != 1 || after[0].ID != before[0].ID || after[0].Reason != survey.ReasonAmbiguous {
+	if len(after) != 1 || after[0].ID != before[0].ID || after[0].Reason != survey.ReasonAmbiguous ||
+		!reflect.DeepEqual(after[0].Marked, []int64{q1.Alternatives[0].ID, q1.Alternatives[1].ID}) || len(after[0].Doubtful) != 0 {
 		t.Errorf("items after = %+v; want q1's item kept under id %d, refreshed to ambiguous, and q2's gone", after, before[0].ID)
 	}
 }

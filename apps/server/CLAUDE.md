@@ -88,8 +88,8 @@ fact.
   — the reading: a copy is a sheet, never a person; marks only from `ok`
   answers, a review item (and NO mark) for an ambiguous or doubtful one;
   a later batch replaces the copies it re-captured and re-reads what is
-  still undecided on the others, keeping every decision and every pending
-  item's id; a resolution is recorded once; "Borrar escaneos" as the
+  still undecided on the others, keeping every decision and the id of
+  every pending item it still flags; a resolution is recorded once; "Borrar escaneos" as the
   second synchronous worker call; no cancel with scans; a run closes once,
   by hand, with nothing left to review. Read before touching
   `survey/scans.go`, `survey/review.go`, `survey/readreport.go`, the survey
@@ -461,12 +461,13 @@ the `avisoNo*` / `flash.Set(…)` string literals in `internal/app/web/handler/`
      archived control (`DeletedAt`) and `ErrNoScans`, the handler checks the
      verbatim name. `ResetScanResults`'s `deleted_at IS NULL` is the schema
      belt behind them, not a gate.
-  **A survey run's "Borrar escaneos" follows the same four** (#311, ADR-0081
-  §5): `survey.Service.ResetScans` through `Client.ResetSurveyScans` and the
-  survey's own `ErrAnalyzerBusy`; its gates are an OPEN run (closed or
-  cancelled → 404), `survey.ErrNoScans`, and the typed `Pasada N`; the worker
-  first, then the copies (marks and review items cascade). A failure past the
-  worker is `survey.ErrResetHalfDone` — the page says the files are gone.
+
+     **A survey run's "Borrar escaneos" follows the same four** (#311, ADR-0081
+     §5): `survey.Service.ResetScans` through `Client.ResetSurveyScans` and the
+     survey's own `ErrAnalyzerBusy`; its gates are an OPEN run (closed or
+     cancelled → 404), `survey.ErrNoScans`, and the typed `Pasada N`; the worker
+     first, then the copies (marks and review items cascade). A failure past the
+     worker is `survey.ErrResetHalfDone` — the page says the files are gone.
 - **A done job may carry one short message for the professor: return
   `*jobs.Notice` (issue #298, ADR-0050's #298 `Amended by:`).** The runner records it
   on `job.notice` and the banner renders it under "lista". It travels
