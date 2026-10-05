@@ -167,16 +167,19 @@ type SurveyRunPage struct {
 	AppliedOn     string
 	Copies        int
 	QuestionCount int
-	StateLabel    string
-	Banner        *JobBanner
-	Steps         []RunStep
-	PDFReady      bool
-	PDFURL        string
-	ReadLabel     string
-	ReviewLabel   string
-	EditURL       string
-	CanCancel     bool
-	CancelAction  string
+	// ShowQuestionCount is false for a cancelled run: cancelling drops its
+	// snapshot (#310 review, COR-1), so the count would read zero.
+	ShowQuestionCount bool
+	StateLabel        string
+	Banner            *JobBanner
+	Steps             []RunStep
+	PDFReady          bool
+	PDFURL            string
+	ReadLabel         string
+	ReviewLabel       string
+	EditURL           string
+	CanCancel         bool
+	CancelAction      string
 }
 
 // RunStep is one stage of a run's stepper.

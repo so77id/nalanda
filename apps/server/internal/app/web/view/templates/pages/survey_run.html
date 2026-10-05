@@ -27,7 +27,7 @@
   {{ end }}
 
   <h1>{{ .Title }}</h1>
-  <p>{{ .QuestionCount }} pregunta{{ if ne .QuestionCount 1 }}s{{ end }} · aplicada {{ .AppliedOn }} · {{ .Copies }} copias · {{ .StateLabel }}</p>
+  <p>{{ if .ShowQuestionCount }}{{ .QuestionCount }} pregunta{{ if ne .QuestionCount 1 }}s{{ end }} · {{ end }}aplicada {{ .AppliedOn }} · {{ .Copies }} copias · {{ .StateLabel }}</p>
 
   <div class="survey-actions">
     {{ if .EditURL }}<a class="boton" href="{{ .EditURL }}">Editar</a>{{ end }}

@@ -188,19 +188,20 @@ func (h *Surveys) RunDetail(w http.ResponseWriter, r *http.Request) {
 		title += " · " + run.Name
 	}
 	page := view.SurveyRunPage{
-		Page:          middleware.PageFor(r, title),
-		SurveyName:    one.Name,
-		SurveyURL:     SurveyPathFor(one.ID),
-		Title:         title,
-		AppliedOn:     run.AppliedOn,
-		Copies:        run.Copies,
-		QuestionCount: len(snapshot),
-		StateLabel:    runStateLabel(run.State),
-		Banner:        runBanner(latest),
-		PDFReady:      pdfReady,
-		PDFURL:        SurveyRunSheetPathFor(one.ID, run.ID),
-		ReadLabel:     "—",
-		ReviewLabel:   "—",
+		Page:              middleware.PageFor(r, title),
+		SurveyName:        one.Name,
+		SurveyURL:         SurveyPathFor(one.ID),
+		Title:             title,
+		AppliedOn:         run.AppliedOn,
+		Copies:            run.Copies,
+		QuestionCount:     len(snapshot),
+		ShowQuestionCount: run.State != survey.RunCancelled,
+		StateLabel:        runStateLabel(run.State),
+		Banner:            runBanner(latest),
+		PDFReady:          pdfReady,
+		PDFURL:            SurveyRunSheetPathFor(one.ID, run.ID),
+		ReadLabel:         "—",
+		ReviewLabel:       "—",
 	}
 	if run.State == survey.RunOpen {
 		page.EditURL = SurveyRunEditPathFor(one.ID, run.ID)

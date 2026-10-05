@@ -433,3 +433,26 @@ func TestEditingACancelledRunIsRefusedWithAFlash(t *testing.T) {
 		t.Errorf("status = %d, flash = %q", rec.Code, flashOf(t, rec))
 	}
 }
+
+// #310 review recheck, COR-R1 / COR-R2: a cancelled run's page does not
+// claim it printed zero questions, and a run whose generation was never
+// queued says so instead of "en curso".
+func TestTheDashboardOfACancelledOrNeverQueuedRun(t *testing.T) {
+	f := newSurveyFixture(t)
+	s := f.createSurvey("Banco")
+	f.bankOfThree(s)
+	run := f.createRunThroughTheForm(s, "")
+	if _, err := f.db.Exec(`DELETE FROM job`); err != nil {
+		t.Fatal(err)
+	}
+	body := f.do(http.MethodGet, handler.SurveyRunPathFor(s.ID, run.ID), f.handler.RunDetail, nil, f.runValues(s, run)...).Body.String()
+	if !strings.Contains(body, "PDF<span class=\"survey-meta\"> · no encolado") {
+		t.Error("a never-queued generation is not named")
+	}
+
+	f.do(http.MethodPost, handler.SurveyRunCancelPathFor(s.ID, run.ID), f.handler.CancelRun, url.Values{}, f.runValues(s, run)...)
+	body = f.do(http.MethodGet, handler.SurveyRunPathFor(s.ID, run.ID), f.handler.RunDetail, nil, f.runValues(s, run)...).Body.String()
+	if strings.Contains(body, "0 preguntas") || !strings.Contains(body, "cancelada") {
+		t.Errorf("the cancelled run's facts are wrong:\n%s", body)
+	}
+}
