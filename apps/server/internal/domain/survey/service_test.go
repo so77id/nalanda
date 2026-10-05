@@ -123,6 +123,27 @@ func (m *memStore) RunSummaries(context.Context, int64) (map[int64]survey.RunSum
 	return nil, nil
 }
 
+// The reading methods (#311): the bank's tests never reach them.
+func (m *memStore) SaveReadings(context.Context, int64, []int, []survey.CopyReading) error {
+	return nil
+}
+
+func (m *memStore) ReadingCounts(context.Context, int64) (survey.ReadingCounts, error) {
+	return survey.ReadingCounts{}, nil
+}
+
+func (m *memStore) CopyByNumber(context.Context, int64, int) (survey.Copy, error) {
+	return survey.Copy{}, survey.ErrCopyNotFound
+}
+
+func (m *memStore) MarksForCopy(context.Context, int64) ([]survey.Mark, error) { return nil, nil }
+
+func (m *memStore) ItemsForCopy(context.Context, int64) ([]survey.ReviewItem, error) {
+	return nil, nil
+}
+
+func (m *memStore) PendingCopyNumbers(context.Context, int64) ([]int, error) { return nil, nil }
+
 // noGenerator is a survey.Generator the bank's tests never reach.
 type noGenerator struct{}
 

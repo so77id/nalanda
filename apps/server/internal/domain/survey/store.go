@@ -97,6 +97,31 @@ type Store interface {
 	// has that are not cancelled and the latest date among them. A survey
 	// with none has no entry. One aggregate for the list page.
 	RunSummaries(ctx context.Context, courseID int64) (map[int64]RunSummary, error)
+
+	// SaveReadings stores what one batch read, in one transaction (issue
+	// #311). AMC's report covers the whole project, so every batch brings
+	// back the copies of the earlier ones: a copy in `recaptured` is
+	// deleted first (its marks and items cascade) and stored again; a copy
+	// that already exists and was NOT re-captured is left exactly as it is
+	// — the professor's resolutions included; a new copy is inserted.
+	SaveReadings(ctx context.Context, runID int64, recaptured []int, copies []CopyReading) error
+
+	// ReadingCounts is the run's reading at a glance, one aggregate query.
+	ReadingCounts(ctx context.Context, runID int64) (ReadingCounts, error)
+
+	// CopyByNumber returns one read copy, or ErrCopyNotFound.
+	CopyByNumber(ctx context.Context, runID int64, copyNumber int) (Copy, error)
+
+	// MarksForCopy returns a copy's recorded marks.
+	MarksForCopy(ctx context.Context, copyID int64) ([]Mark, error)
+
+	// ItemsForCopy returns a copy's review items, resolved ones included,
+	// in question id order.
+	ItemsForCopy(ctx context.Context, copyID int64) ([]ReviewItem, error)
+
+	// PendingCopyNumbers returns, in order, the copies of the run that
+	// still have an item to review.
+	PendingCopyNumbers(ctx context.Context, runID int64) ([]int, error)
 }
 
 // RunSummary is one survey's runs, as a list page shows them.
