@@ -240,3 +240,33 @@ func TestAQuestionOfAnotherSurveyIs404ThroughThisSurveysURL(t *testing.T) {
 		t.Errorf("the other survey's question changed: %+v", got)
 	}
 }
+
+// Screen 5 (issue #309 S7): the preview is an HTML approximation, and says
+// so; a scale lays its points out in a row with their numbers, the others
+// list lettered bubbles.
+func TestThePreviewApproximatesThePrintedQuestion(t *testing.T) {
+	f := newSurveyFixture(t)
+	s := f.createSurvey("Banco")
+	multi := f.addQuestion(s, survey.QuestionDraft{Kind: survey.KindMulti, Statement: "¿Qué estructuras te costaron?",
+		Labels: []string{"ArrayList", "Heap"}, MaxMarks: func() *int { n := 2; return &n }()})
+	scale := f.addQuestion(s, survey.QuestionDraft{Kind: survey.KindScale, Statement: "¿Qué tan clara?",
+		Labels: []string{"Nada", "", "Muy"}})
+
+	body := f.do(http.MethodGet, questionBase(s, multi)+"/preview", f.handler.PreviewQuestion, nil, f.questionValues(s, multi)...).Body.String()
+	for _, want := range []string{"Aproximación", "1. ¿Qué estructuras te costaron?", "A&nbsp;&nbsp;ArrayList", "B&nbsp;&nbsp;Heap", "(marca hasta 2)"} {
+		if !strings.Contains(body, want) {
+			t.Errorf("the multi preview lacks %q", want)
+		}
+	}
+
+	body = f.do(http.MethodGet, questionBase(s, scale)+"/preview", f.handler.PreviewQuestion, nil, f.questionValues(s, scale)...).Body.String()
+	if !strings.Contains(body, `class="survey-preview-scale"`) || !strings.Contains(body, " 1<br />Nada") || !strings.Contains(body, " 3<br />Muy") {
+		t.Errorf("the scale preview is not a numbered row:\n%s", body)
+	}
+
+	// The bank links to it.
+	page := f.do(http.MethodGet, handler.SurveyPathFor(s.ID), f.handler.Detail, nil, f.surveyValue(s)...).Body.String()
+	if !strings.Contains(page, questionBase(s, scale)+"/preview") {
+		t.Error("the bank does not link to the preview")
+	}
+}

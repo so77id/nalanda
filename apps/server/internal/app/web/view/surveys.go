@@ -84,6 +84,7 @@ type SurveyQuestionRow struct {
 	Alternatives string
 	IsContext    bool
 	EditURL      string
+	PreviewURL   string
 	DeleteAction string
 	MoveAction   string
 	// First and Last hide the ↑ / ↓ that would do nothing.
@@ -95,11 +96,14 @@ type SurveyQuestionRow struct {
 // new question and for editing one (screens 4 and 4b).
 type SurveyQuestionFormPage struct {
 	Page
-	SurveyName    string
-	Heading       string
-	Action        string
-	Submit        string
-	CancelURL     string
+	SurveyName string
+	Heading    string
+	Action     string
+	Submit     string
+	CancelURL  string
+	// PreviewURL is set on an edit: a new question has nothing stored to
+	// preview yet.
+	PreviewURL    string
 	KindLinks     []KindLink
 	PointOptions  []int
 	KnownSections []string
@@ -152,4 +156,32 @@ func RenderSurveyDetail(w http.ResponseWriter, page SurveyDetailPage) error {
 // status.
 func RenderSurveyQuestionForm(w http.ResponseWriter, status int, page SurveyQuestionFormPage) error {
 	return render(w, "survey_question_form", status, page)
+}
+
+// SurveyQuestionPreviewPage is what survey_question_preview.html renders:
+// an HTML approximation of one printed question (screen 5).
+type SurveyQuestionPreviewPage struct {
+	Page
+	SurveyName string
+	BackURL    string
+	EditURL    string
+	Number     int
+	Statement  string
+	// Horizontal lays a scale's points out in a row, as the sheet does.
+	Horizontal bool
+	Options    []PreviewOption
+	// Guide is a multi-select question's printed guidance, if any.
+	Guide string
+}
+
+// PreviewOption is one bubble: its letter (or a scale point's number) and
+// its label.
+type PreviewOption struct {
+	Letter string
+	Label  string
+}
+
+// RenderSurveyQuestionPreview writes screen 5.
+func RenderSurveyQuestionPreview(w http.ResponseWriter, page SurveyQuestionPreviewPage) error {
+	return render(w, "survey_question_preview", http.StatusOK, page)
 }

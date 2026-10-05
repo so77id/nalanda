@@ -28,11 +28,12 @@ const (
 	SurveyArchivePath    = "/surveys/{id}/archive"
 	SurveyRestorePath    = "/surveys/{id}/restore"
 
-	SurveyQuestionsPath      = "/surveys/{id}/questions"
-	SurveyQuestionNewPath    = "/surveys/{id}/questions/new"
-	SurveyQuestionEditPath   = "/surveys/{id}/questions/{qid}/edit"
-	SurveyQuestionDeletePath = "/surveys/{id}/questions/{qid}/delete"
-	SurveyQuestionMovePath   = "/surveys/{id}/questions/{qid}/move"
+	SurveyQuestionsPath       = "/surveys/{id}/questions"
+	SurveyQuestionNewPath     = "/surveys/{id}/questions/new"
+	SurveyQuestionEditPath    = "/surveys/{id}/questions/{qid}/edit"
+	SurveyQuestionDeletePath  = "/surveys/{id}/questions/{qid}/delete"
+	SurveyQuestionMovePath    = "/surveys/{id}/questions/{qid}/move"
+	SurveyQuestionPreviewPath = "/surveys/{id}/questions/{qid}/preview"
 )
 
 // archivedQuery switches the course's survey list to its archived surveys.
@@ -243,6 +244,7 @@ func (h *Surveys) Detail(w http.ResponseWriter, r *http.Request) {
 			row := questionRow(q)
 			base := questionPathFor(one.ID, q.ID)
 			row.EditURL = base + "/edit"
+			row.PreviewURL = base + "/preview"
 			row.DeleteAction = base + "/delete"
 			row.MoveAction = base + "/move"
 			row.First = q.Position == 1

@@ -55,6 +55,7 @@
                   </form>
                 {{ end }}
                 <a class="boton" href="{{ .EditURL }}">Editar</a>
+                <a class="boton" href="{{ .PreviewURL }}">Previsualizar</a>
                 <form class="inline" method="post" action="{{ .DeleteAction }}">
                   <input type="hidden" name="csrf_token" value="{{ $.CSRFToken }}" />
                   <button type="submit" aria-label="Borrar la pregunta {{ .Number }}">Borrar</button>

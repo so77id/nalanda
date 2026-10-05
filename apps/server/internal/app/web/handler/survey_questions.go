@@ -271,10 +271,12 @@ func (h *Surveys) renderQuestionForm(w http.ResponseWriter, r *http.Request, one
 	status int, values view.QuestionFormValues, errs map[string]string, notice string) {
 	heading, action, submit := "Nueva pregunta", SurveyPathFor(one.ID)+"/questions", "Guardar"
 	kindBase := SurveyPathFor(one.ID) + "/questions/new"
+	previewURL := ""
 	if questionID != 0 {
 		heading = "Editar pregunta"
 		action = questionPathFor(one.ID, questionID) + "/edit"
 		kindBase = action
+		previewURL = questionPathFor(one.ID, questionID) + "/preview"
 	}
 
 	page := view.SurveyQuestionFormPage{
@@ -284,6 +286,7 @@ func (h *Surveys) renderQuestionForm(w http.ResponseWriter, r *http.Request, one
 		Action:       action,
 		Submit:       submit,
 		CancelURL:    SurveyPathFor(one.ID),
+		PreviewURL:   previewURL,
 		PointOptions: []int{3, 4, 5, 6, 7},
 		Values:       values,
 		Errors:       errs,
@@ -389,4 +392,35 @@ func optionalInt(raw string) (*int, bool) {
 		return nil, true
 	}
 	return &n, false
+}
+
+// PreviewQuestion renders an HTML approximation of one printed question
+// (screen 5). An approximation and labelled as one: the real sheet is
+// AMC's, and it is generated with a run (WP-2) — this WP calls no worker.
+func (h *Surveys) PreviewQuestion(w http.ResponseWriter, r *http.Request) {
+	one, q, ok := h.surveyQuestion(w, r)
+	if !ok {
+		return
+	}
+	page := view.SurveyQuestionPreviewPage{
+		Page:       middleware.PageFor(r, "Previsualización"),
+		SurveyName: one.Name,
+		BackURL:    SurveyPathFor(one.ID),
+		EditURL:    questionPathFor(one.ID, q.ID) + "/edit",
+		Number:     q.Position,
+		Statement:  q.Statement,
+		Horizontal: q.Kind == survey.KindScale,
+		Guide:      marksGuide(q.MinMarks, q.MaxMarks),
+	}
+	for i, a := range q.Alternatives {
+		letter := string(rune('A' + i))
+		if q.Kind == survey.KindScale {
+			letter = strconv.Itoa(a.Position)
+		}
+		page.Options = append(page.Options, view.PreviewOption{Letter: letter, Label: a.Label})
+	}
+	if err := view.RenderSurveyQuestionPreview(w, page); err != nil {
+		h.Log.Error("rendering a question preview", "survey", one.ID, "question", q.ID, "error", err)
+		middleware.WriteError(w, r, http.StatusInternalServerError, surveyBroke)
+	}
 }

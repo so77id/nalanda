@@ -114,6 +114,7 @@
     {{ end }}
 
     <p><button type="submit">{{ .Submit }}</button>
+       {{ if .PreviewURL }}<a href="{{ .PreviewURL }}" class="boton">Previsualizar lo guardado</a>{{ end }}
        <a href="{{ .CancelURL }}" class="boton">Cancelar</a></p>
   </form>
 {{ end }}
