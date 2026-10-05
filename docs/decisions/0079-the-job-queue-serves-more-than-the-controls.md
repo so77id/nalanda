@@ -43,7 +43,7 @@ serialises every AMC call.
    two tables cannot carry a `REFERENCES`. `controlstore.PurgeControl` now
    deletes the control's jobs in the same transaction as the guarded
    `DELETE FROM control` (pinned by the purge test). A survey run is never
-   hard-deleted in v1 (ADR-0078 §Consequences), so nothing orphans its
+   hard-deleted in v1 (ADR-0080 §7), so nothing orphans its
    jobs; the purge that one day arrives inherits this obligation.
 
 ## Alternatives considered

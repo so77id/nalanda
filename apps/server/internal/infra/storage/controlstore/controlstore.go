@@ -232,8 +232,10 @@ func (s *Store) RestoreControl(ctx context.Context, id string) error {
 // PurgeControl hard-deletes an archived control (issue #261). Refuses to
 // touch an active row via the AND deleted_at IS NOT NULL guard — the
 // schema-level belt behind Service.Purge's ControlByID gate. Cascade
-// removes control_pregunta, copia, reading, answer, annotated_copy and job
-// rows (ADR-0034 §Consequences).
+// removes control_pregunta, copia, reading, answer and annotated_copy
+// (ADR-0034 §Consequences); the control's jobs, which lost their foreign
+// key in migration 00023 (ADR-0079 §5), are deleted explicitly in the same
+// transaction.
 func (s *Store) PurgeControl(ctx context.Context, id string) error {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {

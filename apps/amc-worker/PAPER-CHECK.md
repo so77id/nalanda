@@ -206,3 +206,27 @@ If it passes, that section says so and the ADR is final. If something fails,
 name which of the five broke: that is what tells WP-E and WP-F whether they are
 building on AMC or on the fallback (our own PDF generation plus OMRChecker),
 and the container boundary is what makes that a swap rather than a rewrite.
+
+## 7. The survey sheet (since #310)
+
+A survey sheet (ADR-0080) is a different document from the control above:
+its own preamble (`apps/server/internal/domain/survey/tex`, Letter only), no
+`\namefield`, no ID grid, horizontal boxes for scales. It has only been read
+synthetically (`tests/08-survey.sh`). Checking it on paper:
+
+1. In the backoffice, create a run of a survey with one question of each
+   kind (single, scale, multi) and download its `sujet.pdf` from the run
+   page once "PDF: listo". Print a few copies.
+2. Mark them the way `08-survey.sh` pins: one copy clean, one with a faint
+   mark on a scale, one with three marks on the multi-select, one blank
+   question.
+3. Scan and read them as in §3–§4, with the run's project directory under
+   `/work`. There are no RUTs on a survey, so the step-4 warning about
+   national IDs does not apply — but the answers are still not committed.
+4. Expect every copy as `needs_review` with `rut_status: unreadable` — that
+   is the absent ID grid, not a failure. The verdict is on the ANSWERS: did
+   each clean mark read `ok`, the faint one `doubtful` or `ok`, the multi
+   marks all present, the blank one blank.
+
+Record the verdict in **ADR-0080 §Not yet proven**, the same way §6 records
+the control's in ADR-0030.

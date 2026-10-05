@@ -40,8 +40,9 @@ CREATE TABLE survey_run (
 
 CREATE TABLE survey_run_question (
     run_id          INTEGER NOT NULL REFERENCES survey_run(id) ON DELETE CASCADE,
-    -- RESTRICT (the default): a question a run printed cannot be deleted,
-    -- the schema's belt behind the bank lock.
+    -- No ON DELETE clause (NO ACTION): a question a live run printed cannot be deleted,
+    -- the schema's belt behind the bank lock. Cancelling a run drops its
+    -- snapshot (surveystore.CancelRun), which releases them.
     question_id     INTEGER NOT NULL REFERENCES survey_question(id),
     printed_number  INTEGER NOT NULL CHECK (printed_number >= 1),
     PRIMARY KEY (run_id, question_id),

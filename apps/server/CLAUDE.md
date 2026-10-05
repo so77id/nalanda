@@ -75,6 +75,13 @@ fact.
   both, and no foreign key — so `PurgeControl` deletes a control's jobs
   itself. Read before touching `internal/domain/jobs`, `jobstore`, or
   adding a Kind.
+- `docs/decisions/0080-a-survey-run-snapshots-what-it-prints-and-locks-it.md`
+  — the run model: the snapshot (`survey_run_question`, the contract #311
+  and #312 read), the append-only bank lock, cancel dropping the snapshot,
+  context-first print order, runs never purged, and how an ungraded sheet
+  rides AMC (one stand-in `\correctchoice`; every copy `needs_review`, so a
+  reader keys on the ANSWER's status). Read before touching survey runs or
+  the survey sheet.
 - `docs/decisions/0078-surveys-are-an-anonymous-sibling-of-the-controls.md`
   — read before touching `internal/domain/survey`, `surveystore` or any
   `/surveys` route: why surveys are a sibling of the controls, the boundary
@@ -309,8 +316,10 @@ the `avisoNo*` / `flash.Set(…)` string literals in `internal/app/web/handler/`
   `student.rut` holds the eight digits the sheet prints and `student.rut_dv`
   the verifier Canvas attaches, and a caller that stores `sisId` whole would
   match nobody in WP-2 while looking correct on every roster screen.
-- **Nothing here can test paper, either.** The tex generator lives in
-  `internal/domain/controls/tex/**`, and the suite pins tokens
+- **Nothing here can test paper, either.** The tex generators live in
+  `internal/domain/controls/tex/**` and, since #310, in
+  `internal/domain/survey/tex/**` (the survey sheet's own preamble, Letter
+  only — PAPER-CHECK.md §7), and the suite pins tokens
   (`TestPreambleDeclaresLetterPaperWhenInputSaysLetter` and its A4/empty
   twins pin each `\documentclass` option's presence and the others'
   absence, ADR-0043) but sees no printer, no scanner and no ink. Any change
@@ -367,6 +376,11 @@ the `avisoNo*` / `flash.Set(…)` string literals in `internal/app/web/handler/`
      Making another kind's detail visible means widening that gate AND
      holding the kind to the same rule (the publication bullets below).
   4. Its registration in `cmd/server/main.go`'s `jobs.Handlers` map.
+  A survey Kind also wants its Spanish banner label in
+  `handler.surveyJobLabel` (the fallback "trabajo de la pasada" is a
+  safety net, not a name), and — if it can be in flight when the professor
+  cancels — nothing more: `CancelRun` refuses on ANY in-flight job of the
+  run.
   The related operating rule, as ADR-0072 amended it: **the shape of the
   WORK decides, not who it talks to.** An AMC-worker call is async by
   construction, and so is any loop the professor cannot wait on —

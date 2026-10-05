@@ -249,7 +249,7 @@ func TestLatestForSubjectReturnsTheMostRecentJob(t *testing.T) {
 
 	// Explicit distinct clocks: no time.Sleep needed since COR-2 moved
 	// createdAt into the Insert parameter — same shape the mark family
-	// already uses. LatestForControl orders by created_at DESC, then
+	// already uses. LatestForSubject orders by created_at DESC, then
 	// by id DESC as tie-breaker (see jobstore.go), so a same-second
 	// pair would still resolve deterministically; two visibly distinct
 	// timestamps here are the honest signal.
@@ -264,10 +264,10 @@ func TestLatestForSubjectReturnsTheMostRecentJob(t *testing.T) {
 
 	got, err := store.LatestForSubject(ctx, jobs.SubjectControl, controlID)
 	if err != nil {
-		t.Fatalf("LatestForControl: %v", err)
+		t.Fatalf("LatestForSubject: %v", err)
 	}
 	if got.ID != second {
-		t.Errorf("LatestForControl.ID = %d, want the most recent (%d), got the earlier (%d)",
+		t.Errorf("LatestForSubject.ID = %d, want the most recent (%d), got the earlier (%d)",
 			got.ID, second, first)
 	}
 }
@@ -277,15 +277,15 @@ func TestLatestForSubjectReturnsErrJobNotFoundWhenTheControlHasNoJobs(t *testing
 	store := jobstore.New(db)
 
 	if _, err := store.LatestForSubject(ctx, jobs.SubjectControl, controlID); !errors.Is(err, jobs.ErrJobNotFound) {
-		t.Errorf("LatestForControl on a control with no jobs = %v, want ErrJobNotFound", err)
+		t.Errorf("LatestForSubject on a control with no jobs = %v, want ErrJobNotFound", err)
 	}
 }
 
-// Issue #257: LatestForControlByKind ignores rows of other kinds. The
+// Issue #257: LatestByKind ignores rows of other kinds. The
 // Detail handler asks specifically for the latest KindGenerate to
 // decide whether sujet.pdf / corrige.pdf / pool.json exist yet — a
 // later reanalyse row must not muddy that answer.
-func TestLatestForControlByKindReturnsTheMostRecentJobOfThatKind(t *testing.T) {
+func TestLatestByKindReturnsTheMostRecentJobOfThatKind(t *testing.T) {
 	ctx, db, controlID := migrated(t)
 	store := jobstore.New(db)
 
@@ -310,7 +310,7 @@ func TestLatestForControlByKindReturnsTheMostRecentJobOfThatKind(t *testing.T) {
 
 	got, err := store.LatestByKind(ctx, controlID, jobs.KindGenerate)
 	if err != nil {
-		t.Fatalf("LatestForControlByKind: %v", err)
+		t.Fatalf("LatestByKind: %v", err)
 	}
 	if got.Kind != jobs.KindGenerate {
 		t.Errorf("Kind = %q, want %q — a reanalyse row leaked through the filter", got.Kind, jobs.KindGenerate)
@@ -321,7 +321,7 @@ func TestLatestForControlByKindReturnsTheMostRecentJobOfThatKind(t *testing.T) {
 	}
 }
 
-func TestLatestForControlByKindReturnsErrJobNotFoundWhenNoJobOfThatKindExists(t *testing.T) {
+func TestLatestByKindReturnsErrJobNotFoundWhenNoJobOfThatKindExists(t *testing.T) {
 	ctx, db, controlID := migrated(t)
 	store := jobstore.New(db)
 
@@ -333,7 +333,7 @@ func TestLatestForControlByKindReturnsErrJobNotFoundWhenNoJobOfThatKindExists(t 
 	}
 
 	if _, err := store.LatestByKind(ctx, controlID, jobs.KindGenerate); !errors.Is(err, jobs.ErrJobNotFound) {
-		t.Errorf("LatestForControlByKind(generate) with only reanalyse rows = %v, want ErrJobNotFound", err)
+		t.Errorf("LatestByKind(generate) with only reanalyse rows = %v, want ErrJobNotFound", err)
 	}
 }
 

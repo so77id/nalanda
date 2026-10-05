@@ -607,11 +607,11 @@ func TestPurgeControlRefusesActiveRowsAndTheRowSurvives(t *testing.T) {
 }
 
 // Issue #261: PurgeControl on an archived row hard-deletes it and every
-// dependent — the FK cascades from ADR-0034 §Consequences do their job.
-// Covers control_pregunta and copia (populated by CreateControl), plus
-// job (populated here directly against the schema) so a future migration
-// that changes the ON DELETE clause on job.control_id fails HERE rather
-// than on the Jetson (Round-A COR-3).
+// dependent — the FK cascades from ADR-0034 §Consequences, and since
+// migration 00023 the explicit job delete (ADR-0079 §5). Covers
+// control_pregunta and copia (populated by CreateControl), plus job
+// (populated here directly against the schema) so a change to how a
+// control's jobs go fails HERE rather than on the Jetson (Round-A COR-3).
 func TestPurgeControlDeletesArchivedRowAndCascades(t *testing.T) {
 	ctx, db := migrated(t)
 	userID := insertProfessor(t, ctx, db, "p@example.com")

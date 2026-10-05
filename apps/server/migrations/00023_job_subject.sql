@@ -14,7 +14,7 @@
 -- THE FOREIGN KEY GOES, and its cascade with it. A column that points at
 -- two tables cannot carry a REFERENCES, so purging a control no longer
 -- removes its jobs by itself: controlstore.PurgeControl deletes them in its
--- own transaction (pinned by TestPurgeControlRemovesTheControlsJobs). A
+-- own transaction (pinned by TestPurgeControlDeletesArchivedRowAndCascades). A
 -- survey run is never hard-deleted in v1 (ADR-0078 §Consequences).
 --
 -- Rebuild recipe (backend-code-style.md §Extending a CHECK enum): `job` is
