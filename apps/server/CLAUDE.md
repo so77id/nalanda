@@ -140,6 +140,16 @@ the `avisoNo*` / `flash.Set(…)` string literals in `internal/app/web/handler/`
 
 ## Rules for Claude
 
+- **The survey subsystem is a SIBLING of the controls (issue #309,
+  ADR-0078).** `internal/domain/survey` and `internal/infra/storage/surveystore`
+  never import `internal/domain/controls` or `controlstore`, even
+  transitively — `TestTheSurveyDomainDoesNotImportControls` fails the build
+  if they do. When a survey needs the AMC worker (#310 on), the survey
+  domain declares its own port and `internal/infra/amcworker` grows a method
+  that implements it; reusing a `controls` type is the violation. And it is
+  anonymous by construction: no survey table references `student` or
+  `enrollment`.
+
 - **The dependency rule has FOUR edges; `internal/architecture_test.go`
   enforces the first three**, transitively:
   1. `internal/domain` imports neither `internal/app` nor `internal/infra`, nor

@@ -283,6 +283,19 @@ shown only when the RUT is one the matcher could actually read — an
 illegible one is the other problem and needs the opposite fix (#272 review,
 COR-1).
 
+Since issue #309 (WP-1 of epic #308) the backoffice also holds **anonymous
+paper surveys** — a sibling subsystem of the controls, never a mode of them
+(ADR-0078): `internal/domain/survey` + `internal/infra/storage/surveystore`,
+tables `survey`, `survey_question`, `survey_alternative`, and an architecture
+test (`TestTheSurveyDomainDoesNotImportControls`) that fails the build if the
+survey side reaches the controls side. A survey belongs to one course and
+holds a bank of three question kinds — `single` (nominal, counted), `scale`
+(3–7 points, the only kind averaged) and `multi` (min/max printed as guidance,
+enforced by nothing) — grouped by a free-text section label. WP-1 authors
+banks only: runs, the printed sheet, reading and results arrive with
+#310–#312. The forms work without JavaScript (ten fixed alternative rows, ↑/↓
+buttons for order).
+
 Routes today:
 
 | Route | What |
@@ -333,6 +346,15 @@ Routes today:
 | `POST /professors/{id}/deactivate` | Flips `is_active=0` and ends every session that professor holds |
 | `POST /professors/{id}/reactivate` | Flips `is_active=1` and clears `deactivated_at` |
 | `POST /admin/bank/refresh` | Reloads the in-memory question bank from `NALANDA_QUESTIONS_JSON_URL` and redirects back to `Referer` (or `/controls` on empty / off-origin / scheme-relative-path). Session-gated + CSRF. The "Recargar banco" button on the `/controls` index posts to it (issue #230, ADR-0032 §Addendum; issue #254 moved the button out of the navbar) |
+| `GET /courses/{id}/surveys` | One course's surveys (issue #309): the active ones, each with its bank size from ONE `GROUP BY` for the page; `?archived=1` lists the archived ones instead |
+| `GET /courses/{id}/surveys/new` · `POST /courses/{id}/surveys` | Create a survey under the course (name, optional description printed on the sheet). Lands on its page |
+| `GET /surveys/{id}` | One survey: the bank grouped by consecutive section label, with ↑ ↓ Editar Previsualizar Borrar per question, and the runs card (empty until #310) |
+| `GET /surveys/{id}/edit` · `POST /surveys/{id}/edit` | Rename / re-describe a survey |
+| `POST /surveys/{id}/archive` · `POST /surveys/{id}/restore` | Soft archive (`archived_at`) and its undo. Archiving lands on the course's list, restoring on the survey |
+| `GET /surveys/{id}/questions/new?kind=` · `POST /surveys/{id}/questions` | Add a question of a kind (`single`, `scale`, `multi`); the kind is chosen by a link that re-renders the form |
+| `GET /surveys/{id}/questions/{qid}/edit` · `POST /surveys/{id}/questions/{qid}/edit` | Edit a question; `?kind=` on the GET re-renders it in another kind keeping what carries over |
+| `POST /surveys/{id}/questions/{qid}/delete` · `POST /surveys/{id}/questions/{qid}/move` | Remove a question (positions stay dense) / move it one step (`dir=up` or `dir=down`). A question of another survey is a 404 through this survey's URL |
+| `GET /surveys/{id}/questions/{qid}/preview` | An HTML approximation of the printed question, labelled as one — the real sheet is AMC's and comes with a run (#310) |
 | `GET /login` · `GET /login/google` · `GET /login/google/callback` · `POST /logout` | The login round trip — see §Signing in |
 
 Every state-changing route sits behind `middleware.RequireProfessor` AND
