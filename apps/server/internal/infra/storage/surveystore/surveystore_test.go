@@ -369,3 +369,33 @@ func TestEditingTheBankStampsTheSurvey(t *testing.T) {
 		t.Errorf("updated_at = %v, want %v", got.UpdatedAt, later)
 	}
 }
+
+// #309 review, COR-1: once a bank has been reordered, row-id order is no
+// longer position order, and a set-based `UPDATE … SET position =
+// position - 1` visits a row whose new position is still held by one it
+// has not reached yet — the UNIQUE (survey_id, position) refuses it
+// mid-statement. Only a bank in insertion order hides that, which is the
+// bank TestDeletingAQuestionClosesTheGap uses.
+func TestDeletingFromAReorderedBankClosesTheGap(t *testing.T) {
+	f := newFixture(t)
+	s := f.createSurvey(t, "Banco")
+	first := f.add(t, s.ID, single("¿1?", "A", "B"))
+	second := f.add(t, s.ID, single("¿2?", "A", "B"))
+	f.add(t, s.ID, single("¿3?", "A", "B"))
+	f.add(t, s.ID, single("¿4?", "A", "B"))
+	for i := 0; i < 3; i++ {
+		if err := f.store.MoveQuestion(f.ctx, s.ID, first.ID, +1, f.now); err != nil {
+			t.Fatalf("MoveQuestion: %v", err)
+		}
+	}
+	if got := statements(t, f, s.ID); got != "¿2?,¿3?,¿4?,¿1?" {
+		t.Fatalf("bank after the moves = %s", got)
+	}
+
+	if err := f.store.DeleteQuestion(f.ctx, s.ID, second.ID, f.now); err != nil {
+		t.Fatalf("DeleteQuestion: %v", err)
+	}
+	if got := statements(t, f, s.ID); got != "¿3?,¿4?,¿1?" {
+		t.Errorf("bank = %s, want ¿3?,¿4?,¿1? dense", got)
+	}
+}

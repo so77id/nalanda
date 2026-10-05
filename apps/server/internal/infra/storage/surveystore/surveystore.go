@@ -305,6 +305,14 @@ func (s *Store) UpdateQuestion(ctx context.Context, surveyID, questionID int64, 
 	}
 	defer func() { _ = tx.Rollback() }()
 
+	// Stamp first, in every bank write: the UPDATE takes SQLite's write lock
+	// before anything is read, so two overlapping writes on one bank (a
+	// double-clicked ↑) queue on busy_timeout instead of failing the second
+	// one's read-to-write upgrade with SQLITE_BUSY (#309 review, COR-2).
+	if err := touch(ctx, tx, surveyID, now); err != nil {
+		return fmt.Errorf("surveystore.UpdateQuestion: %w", err)
+	}
+
 	result, err := tx.ExecContext(ctx, `
         UPDATE survey_question
         SET kind = ?, statement = ?, section = ?, is_context = ?, min_marks = ?, max_marks = ?
@@ -322,9 +330,6 @@ func (s *Store) UpdateQuestion(ctx context.Context, surveyID, questionID int64, 
 	}
 	if err := insertAlternatives(ctx, tx, questionID, d.Labels); err != nil {
 		return fmt.Errorf("surveystore.UpdateQuestion %d: %w", questionID, err)
-	}
-	if err := touch(ctx, tx, surveyID, now); err != nil {
-		return fmt.Errorf("surveystore.UpdateQuestion: %w", err)
 	}
 	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("surveystore.UpdateQuestion: commit: %w", err)
@@ -346,6 +351,9 @@ func (s *Store) DeleteQuestion(ctx context.Context, surveyID, questionID int64, 
 	}
 	defer func() { _ = tx.Rollback() }()
 
+	if err := touch(ctx, tx, surveyID, now); err != nil {
+		return fmt.Errorf("surveystore.DeleteQuestion: %w", err)
+	}
 	position, err := positionOf(ctx, tx, surveyID, questionID)
 	if err != nil {
 		return fmt.Errorf("surveystore.DeleteQuestion: %w", err)
@@ -380,9 +388,6 @@ func (s *Store) DeleteQuestion(ctx context.Context, surveyID, questionID int64, 
 		}
 	}
 
-	if err := touch(ctx, tx, surveyID, now); err != nil {
-		return fmt.Errorf("surveystore.DeleteQuestion: %w", err)
-	}
 	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("surveystore.DeleteQuestion: commit: %w", err)
 	}
@@ -402,6 +407,9 @@ func (s *Store) MoveQuestion(ctx context.Context, surveyID, questionID int64, de
 	}
 	defer func() { _ = tx.Rollback() }()
 
+	if err := touch(ctx, tx, surveyID, now); err != nil {
+		return fmt.Errorf("surveystore.MoveQuestion: %w", err)
+	}
 	position, err := positionOf(ctx, tx, surveyID, questionID)
 	if err != nil {
 		return fmt.Errorf("surveystore.MoveQuestion: %w", err)
@@ -435,9 +443,6 @@ func (s *Store) MoveQuestion(ctx context.Context, surveyID, questionID int64, de
 			`UPDATE survey_question SET position = ? WHERE id = ?`, step.position, step.id); err != nil {
 			return fmt.Errorf("surveystore.MoveQuestion: placing question %d: %w", step.id, err)
 		}
-	}
-	if err := touch(ctx, tx, surveyID, now); err != nil {
-		return fmt.Errorf("surveystore.MoveQuestion: %w", err)
 	}
 	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("surveystore.MoveQuestion: commit: %w", err)

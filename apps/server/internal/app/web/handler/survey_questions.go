@@ -27,11 +27,6 @@ const (
 	defaultScalePoints  = 5
 )
 
-// questionPathFor is the base URL of one question's actions.
-func questionPathFor(surveyID, questionID int64) string {
-	return SurveyPathFor(surveyID) + "/questions/" + strconv.FormatInt(questionID, 10)
-}
-
 // NewQuestion renders an empty question form of the ?kind= kind.
 func (h *Surveys) NewQuestion(w http.ResponseWriter, r *http.Request) {
 	one, ok := h.survey(w, r)
@@ -59,7 +54,7 @@ func (h *Surveys) CreateQuestion(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if errs != nil {
-		h.renderQuestionForm(w, r, one, 0, http.StatusUnprocessableEntity, values, errs, "")
+		h.renderQuestionForm(w, r, one, 0, http.StatusUnprocessableEntity, values, withDraftProblems(errs, draft), "")
 		return
 	}
 	_, err := h.Service.AddQuestion(r.Context(), one.ID, draft)
@@ -116,7 +111,7 @@ func (h *Surveys) UpdateQuestion(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if errs != nil {
-		h.renderQuestionForm(w, r, one, q.ID, http.StatusUnprocessableEntity, values, errs, "")
+		h.renderQuestionForm(w, r, one, q.ID, http.StatusUnprocessableEntity, values, withDraftProblems(errs, draft), "")
 		return
 	}
 	err := h.Service.UpdateQuestion(r.Context(), one.ID, q.ID, draft)
@@ -228,6 +223,20 @@ func (h *Surveys) readQuestionForm(w http.ResponseWriter, r *http.Request, one s
 	return draft, values, nil, true
 }
 
+// withDraftProblems adds to a form's own parse errors every problem the
+// domain finds in the rest of the draft, so an unparsable number does not
+// hide a blank statement until the next submit (#309 review, COR-3). The
+// parse error wins on its own field: it is the more specific sentence.
+func withDraftProblems(errs map[string]string, draft survey.QuestionDraft) map[string]string {
+	_, err := draft.Normalize()
+	for field, message := range surveyFieldErrors(err) {
+		if _, taken := errs[field]; !taken {
+			errs[field] = message
+		}
+	}
+	return errs
+}
+
 // questionWriteFailed answers a refused or failed create/update and
 // reports whether it did.
 func (h *Surveys) questionWriteFailed(w http.ResponseWriter, r *http.Request, one survey.Survey, questionID int64,
@@ -269,14 +278,16 @@ func (h *Surveys) questionActionFailed(w http.ResponseWriter, r *http.Request, o
 
 func (h *Surveys) renderQuestionForm(w http.ResponseWriter, r *http.Request, one survey.Survey, questionID int64,
 	status int, values view.QuestionFormValues, errs map[string]string, notice string) {
-	heading, action, submit := "Nueva pregunta", SurveyPathFor(one.ID)+"/questions", "Guardar"
-	kindBase := SurveyPathFor(one.ID) + "/questions/new"
+	heading, action, submit := "Nueva pregunta", SurveyQuestionsPathFor(one.ID), "Guardar"
+	kindURL := func(kind survey.QuestionKind) string { return SurveyQuestionNewPathFor(one.ID, kind) }
 	previewURL := ""
 	if questionID != 0 {
 		heading = "Editar pregunta"
-		action = questionPathFor(one.ID, questionID) + "/edit"
-		kindBase = action
-		previewURL = questionPathFor(one.ID, questionID) + "/preview"
+		action = SurveyQuestionPathFor(one.ID, questionID, "edit")
+		kindURL = func(kind survey.QuestionKind) string {
+			return action + "?" + url.Values{"kind": {string(kind)}}.Encode()
+		}
+		previewURL = SurveyQuestionPathFor(one.ID, questionID, "preview")
 	}
 
 	page := view.SurveyQuestionFormPage{
@@ -287,7 +298,7 @@ func (h *Surveys) renderQuestionForm(w http.ResponseWriter, r *http.Request, one
 		Submit:       submit,
 		CancelURL:    SurveyPathFor(one.ID),
 		PreviewURL:   previewURL,
-		PointOptions: []int{3, 4, 5, 6, 7},
+		PointOptions: scalePointOptions(),
 		Values:       values,
 		Errors:       errs,
 		Notice:       notice,
@@ -295,20 +306,23 @@ func (h *Surveys) renderQuestionForm(w http.ResponseWriter, r *http.Request, one
 	for _, kind := range survey.Kinds {
 		page.KindLinks = append(page.KindLinks, view.KindLink{
 			Label:   kindName(kind),
-			URL:     kindBase + "?" + url.Values{"kind": {string(kind)}}.Encode(),
+			URL:     kindURL(kind),
 			Current: string(kind) == values.Kind,
 		})
 	}
 	// The sections already used in this bank, offered as suggestions so a
 	// label is not retyped with a different spelling — two spellings would
 	// be two headings.
-	if _, questions, err := h.Service.Bank(r.Context(), one.ID); err == nil {
-		seen := map[string]bool{}
-		for _, q := range questions {
-			if q.Section != "" && !seen[q.Section] {
-				seen[q.Section] = true
-				page.KnownSections = append(page.KnownSections, q.Section)
-			}
+	// A failed read costs only the suggestions, so the form still renders.
+	questions, err := h.Service.Questions(r.Context(), one.ID)
+	if err != nil {
+		h.Log.Warn("reading the bank for section suggestions", "survey", one.ID, "error", err)
+	}
+	seen := map[string]bool{}
+	for _, q := range questions {
+		if q.Section != "" && !seen[q.Section] {
+			seen[q.Section] = true
+			page.KnownSections = append(page.KnownSections, q.Section)
 		}
 	}
 
@@ -367,6 +381,15 @@ func kindName(kind survey.QuestionKind) string {
 	return string(kind)
 }
 
+// scalePointOptions is the points select, derived from the domain's bounds.
+func scalePointOptions() []int {
+	var out []int
+	for n := survey.MinScalePoints; n <= survey.MaxScalePoints; n++ {
+		out = append(out, n)
+	}
+	return out
+}
+
 // fillRows sets the form's fixed rows from what it has, blank-padded.
 func fillRows(values *view.QuestionFormValues, alternatives, scaleLabels []string) {
 	values.Alternatives = padTo(alternatives, formAlternativeRows)
@@ -406,7 +429,7 @@ func (h *Surveys) PreviewQuestion(w http.ResponseWriter, r *http.Request) {
 		Page:       middleware.PageFor(r, "Previsualización"),
 		SurveyName: one.Name,
 		BackURL:    SurveyPathFor(one.ID),
-		EditURL:    questionPathFor(one.ID, q.ID) + "/edit",
+		EditURL:    SurveyQuestionPathFor(one.ID, q.ID, "edit"),
 		Number:     q.Position,
 		Statement:  q.Statement,
 		Horizontal: q.Kind == survey.KindScale,

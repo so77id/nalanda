@@ -27,9 +27,9 @@ func (f *surveyFixture) questionValues(s survey.Survey, q survey.Question) []str
 
 func (f *surveyFixture) bank(s survey.Survey) []survey.Question {
 	f.t.Helper()
-	_, qs, err := f.surveys.Bank(context.Background(), s.ID)
+	qs, err := f.surveys.Questions(context.Background(), s.ID)
 	if err != nil {
-		f.t.Fatalf("Bank: %v", err)
+		f.t.Fatalf("Questions: %v", err)
 	}
 	return qs
 }
@@ -268,5 +268,23 @@ func TestThePreviewApproximatesThePrintedQuestion(t *testing.T) {
 	page := f.do(http.MethodGet, handler.SurveyPathFor(s.ID), f.handler.Detail, nil, f.surveyValue(s)...).Body.String()
 	if !strings.Contains(page, questionBase(s, scale)+"/preview") {
 		t.Error("the bank does not link to the preview")
+	}
+}
+
+// #309 review, COR-3: an unparsable number must not hide the rest of the
+// draft's problems to the next submit.
+func TestAnUnparsableNumberDoesNotHideTheOtherProblems(t *testing.T) {
+	f := newSurveyFixture(t)
+	s := f.createSurvey("Banco")
+	rec := f.do(http.MethodPost, questionsPath(s), f.handler.CreateQuestion,
+		url.Values{"kind": {"multi"}, "statement": {""}, "alternative": {"A", "B"}, "min_marks": {"dos"}}, f.surveyValue(s)...)
+	if rec.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("status = %d, want 422", rec.Code)
+	}
+	body := rec.Body.String()
+	for _, want := range []string{"Escribe un número entero", "Escribe el enunciado."} {
+		if !strings.Contains(body, want) {
+			t.Errorf("the re-render lacks %q", want)
+		}
 	}
 }

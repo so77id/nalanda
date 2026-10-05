@@ -10,6 +10,15 @@ import (
 
 func intp(n int) *int { return &n }
 
+// problemOf returns the sentinel err carries for field, or nil.
+func problemOf(err error, field string) error {
+	var v *survey.ValidationError
+	if !errors.As(err, &v) {
+		return nil
+	}
+	return v.Problems[field]
+}
+
 // validSingle is the fixture every QuestionDraft case breaks in exactly one
 // way (backend-code-style.md §Testing).
 func validSingle() survey.QuestionDraft {
@@ -35,13 +44,13 @@ func TestADraftSurveyNeedsANameAndKeepsItsDescription(t *testing.T) {
 	if !errors.Is(err, survey.ErrInvalid) {
 		t.Fatalf("a blank name: err = %v, want ErrInvalid", err)
 	}
-	if !errors.Is(survey.ProblemOf(err, survey.FieldName), survey.ErrRequired) {
-		t.Errorf("a blank name: problem = %v, want ErrRequired on %q", survey.ProblemOf(err, survey.FieldName), survey.FieldName)
+	if !errors.Is(problemOf(err, survey.FieldName), survey.ErrRequired) {
+		t.Errorf("a blank name: problem = %v, want ErrRequired on %q", problemOf(err, survey.FieldName), survey.FieldName)
 	}
 
 	_, err = survey.SurveyDraft{Name: strings.Repeat("a", survey.MaxNameLength+1)}.Normalize()
-	if !errors.Is(survey.ProblemOf(err, survey.FieldName), survey.ErrTooLong) {
-		t.Errorf("a long name: problem = %v, want ErrTooLong", survey.ProblemOf(err, survey.FieldName))
+	if !errors.Is(problemOf(err, survey.FieldName), survey.ErrTooLong) {
+		t.Errorf("a long name: problem = %v, want ErrTooLong", problemOf(err, survey.FieldName))
 	}
 }
 
@@ -79,6 +88,7 @@ func TestQuestionDraftRefusals(t *testing.T) {
 			d.Labels = strings.Split("a b c d e f g h i j k", " ")
 		}, survey.FieldAlternatives, survey.ErrTooManyAlternatives},
 		{"two equal alternatives", func(d *survey.QuestionDraft) { d.Labels = []string{"A", "B", "A"} }, survey.FieldAlternatives, survey.ErrDuplicateAlternative},
+		{"two alternatives equal but for case", func(d *survey.QuestionDraft) { d.Labels = []string{"Sí", "No", "sí"} }, survey.FieldAlternatives, survey.ErrDuplicateAlternative},
 		{"a long alternative", func(d *survey.QuestionDraft) { d.Labels = []string{"A", strings.Repeat("x", survey.MaxLabelLength+1)} }, survey.FieldAlternatives, survey.ErrTooLong},
 		{"marks on a single-choice question", func(d *survey.QuestionDraft) { d.MinMarks = intp(1) }, survey.FieldMarks, survey.ErrMarksNotAllowed},
 	}
@@ -90,7 +100,7 @@ func TestQuestionDraftRefusals(t *testing.T) {
 			if !errors.Is(err, survey.ErrInvalid) {
 				t.Fatalf("err = %v, want ErrInvalid", err)
 			}
-			if got := survey.ProblemOf(err, tc.field); !errors.Is(got, tc.want) {
+			if got := problemOf(err, tc.field); !errors.Is(got, tc.want) {
 				t.Errorf("problem on %q = %v, want %v", tc.field, got, tc.want)
 			}
 		})
@@ -113,8 +123,8 @@ func TestAScaleHasThreeToSevenPointsWhoseLabelsMayBeEmpty(t *testing.T) {
 	for _, points := range []int{2, 8} {
 		d := survey.QuestionDraft{Kind: survey.KindScale, Statement: "¿Qué tan clara?", Labels: make([]string, points)}
 		_, err := d.Normalize()
-		if !errors.Is(survey.ProblemOf(err, survey.FieldAlternatives), survey.ErrScalePoints) {
-			t.Errorf("%d points: problem = %v, want ErrScalePoints", points, survey.ProblemOf(err, survey.FieldAlternatives))
+		if !errors.Is(problemOf(err, survey.FieldAlternatives), survey.ErrScalePoints) {
+			t.Errorf("%d points: problem = %v, want ErrScalePoints", points, problemOf(err, survey.FieldAlternatives))
 		}
 	}
 }
@@ -123,8 +133,8 @@ func TestOnlyASingleChoiceQuestionCanBeAContextQuestion(t *testing.T) {
 	for _, kind := range []survey.QuestionKind{survey.KindScale, survey.KindMulti} {
 		d := survey.QuestionDraft{Kind: kind, Statement: "¿?", Labels: []string{"1", "2", "3"}, IsContext: true}
 		_, err := d.Normalize()
-		if !errors.Is(survey.ProblemOf(err, survey.FieldContext), survey.ErrContextKind) {
-			t.Errorf("%s: problem = %v, want ErrContextKind", kind, survey.ProblemOf(err, survey.FieldContext))
+		if !errors.Is(problemOf(err, survey.FieldContext), survey.ErrContextKind) {
+			t.Errorf("%s: problem = %v, want ErrContextKind", kind, problemOf(err, survey.FieldContext))
 		}
 	}
 }
@@ -166,8 +176,8 @@ func TestMultiSelectMarksAreOptionalAndBounded(t *testing.T) {
 		d := base()
 		d.MinMarks, d.MaxMarks = tc.min, tc.max
 		_, err := d.Normalize()
-		if !errors.Is(survey.ProblemOf(err, survey.FieldMarks), survey.ErrMarksRange) {
-			t.Errorf("%s: problem = %v, want ErrMarksRange", tc.name, survey.ProblemOf(err, survey.FieldMarks))
+		if !errors.Is(problemOf(err, survey.FieldMarks), survey.ErrMarksRange) {
+			t.Errorf("%s: problem = %v, want ErrMarksRange", tc.name, problemOf(err, survey.FieldMarks))
 		}
 	}
 }
@@ -193,7 +203,7 @@ func TestEveryProblemIsReportedInOneRun(t *testing.T) {
 	d := survey.QuestionDraft{Kind: survey.KindMulti, Statement: "", Labels: []string{"A"}, IsContext: true}
 	_, err := d.Normalize()
 	for _, field := range []string{survey.FieldStatement, survey.FieldAlternatives, survey.FieldContext} {
-		if survey.ProblemOf(err, field) == nil {
+		if problemOf(err, field) == nil {
 			t.Errorf("no problem reported on %q: %v", field, err)
 		}
 	}

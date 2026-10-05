@@ -107,7 +107,7 @@ const (
 // ValidationError is every problem one draft has, keyed by field, so a
 // two-problem submission reads as two messages rather than as "something
 // went wrong" (backend-code-style.md §Form / validation / errors). It
-// unwraps to ErrInvalid.
+// unwraps to ErrInvalid; a caller reads Problems through errors.As.
 type ValidationError struct {
 	Problems map[string]error
 }
@@ -127,16 +127,6 @@ func (e *ValidationError) Error() string {
 
 // Unwrap lets errors.Is(err, ErrInvalid) match.
 func (e *ValidationError) Unwrap() error { return ErrInvalid }
-
-// ProblemOf returns the sentinel err carries for field, or nil when err is
-// not a ValidationError or names nothing wrong with that field.
-func ProblemOf(err error, field string) error {
-	var v *ValidationError
-	if !errors.As(err, &v) {
-		return nil
-	}
-	return v.Problems[field]
-}
 
 // Survey is one survey, as stored. It never carries its questions: the bank
 // is read separately, so a list page does not load every bank to print a

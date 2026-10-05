@@ -104,17 +104,10 @@ func (s *Service) Restore(ctx context.Context, id int64) error {
 	return s.Store.SetArchived(ctx, id, nil, s.Now())
 }
 
-// Bank returns the survey and its questions, in bank order.
-func (s *Service) Bank(ctx context.Context, surveyID int64) (Survey, []Question, error) {
-	one, err := s.Store.SurveyByID(ctx, surveyID)
-	if err != nil {
-		return Survey{}, nil, err
-	}
-	questions, err := s.Store.Questions(ctx, surveyID)
-	if err != nil {
-		return Survey{}, nil, err
-	}
-	return one, questions, nil
+// Questions returns the survey's bank, for a caller that already holds the
+// survey and should not read it twice.
+func (s *Service) Questions(ctx context.Context, surveyID int64) ([]Question, error) {
+	return s.Store.Questions(ctx, surveyID)
 }
 
 // Question returns one question of the survey, or ErrQuestionNotFound —

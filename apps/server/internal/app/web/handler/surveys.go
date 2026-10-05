@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 
@@ -44,9 +45,34 @@ func CourseSurveysPathFor(courseID int64) string {
 	return CoursePathFor(courseID) + "/surveys"
 }
 
-// SurveyPathFor builds the URL of one survey's page.
+// SurveyPathFor builds the URL of one survey's page. Every other survey
+// URL is built from it by the PathFor below — one builder per route, the
+// courses.go shape — so a route constant and its builder sit side by side.
 func SurveyPathFor(id int64) string {
 	return "/surveys/" + strconv.FormatInt(id, 10)
+}
+
+// SurveyEditPathFor builds the URL of a survey's edit form.
+func SurveyEditPathFor(id int64) string { return SurveyPathFor(id) + "/edit" }
+
+// SurveyArchivePathFor builds the URL that archives a survey.
+func SurveyArchivePathFor(id int64) string { return SurveyPathFor(id) + "/archive" }
+
+// SurveyRestorePathFor builds the URL that restores an archived survey.
+func SurveyRestorePathFor(id int64) string { return SurveyPathFor(id) + "/restore" }
+
+// SurveyQuestionsPathFor builds the URL a new question is POSTed to.
+func SurveyQuestionsPathFor(id int64) string { return SurveyPathFor(id) + "/questions" }
+
+// SurveyQuestionNewPathFor builds the URL of the new-question form of a kind.
+func SurveyQuestionNewPathFor(id int64, kind survey.QuestionKind) string {
+	return SurveyQuestionsPathFor(id) + "/new?" + url.Values{"kind": {string(kind)}}.Encode()
+}
+
+// SurveyQuestionPathFor builds the URL of one action on one question:
+// "edit", "delete", "move" or "preview".
+func SurveyQuestionPathFor(id, questionID int64, action string) string {
+	return SurveyQuestionsPathFor(id) + "/" + strconv.FormatInt(questionID, 10) + "/" + action
 }
 
 // CourseSurveysNewPathFor builds the URL of the create form.
@@ -127,7 +153,7 @@ func (h *Surveys) ListForCourse(w http.ResponseWriter, r *http.Request) {
 	for _, listed := range rows {
 		page.Surveys = append(page.Surveys, view.ListedSurveyRow{
 			Name:    listed.Survey.Name,
-			URL:     h.landingFor(listed.Survey),
+			URL:     SurveyPathFor(listed.Survey.ID),
 			Summary: surveySummary(listed),
 		})
 	}
@@ -199,12 +225,7 @@ func (h *Surveys) Create(w http.ResponseWriter, r *http.Request) {
 	}
 
 	flash.Set(w, h.secureCookie, "Encuesta creada. Ahora agrégale preguntas.")
-	http.Redirect(w, r, h.landingFor(created), http.StatusSeeOther)
-}
-
-// landingFor is where a survey's link and its creation lead.
-func (h *Surveys) landingFor(s survey.Survey) string {
-	return SurveyPathFor(s.ID)
+	http.Redirect(w, r, SurveyPathFor(created.ID), http.StatusSeeOther)
 }
 
 // Detail renders one survey: its bank, grouped by section, and its runs
@@ -218,7 +239,7 @@ func (h *Surveys) Detail(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	_, questions, err := h.Service.Bank(r.Context(), one.ID)
+	questions, err := h.Service.Questions(r.Context(), one.ID)
 	if err != nil {
 		h.Log.Error("reading a survey's bank", "survey", one.ID, "error", err)
 		middleware.WriteError(w, r, http.StatusInternalServerError, surveyBroke)
@@ -232,21 +253,20 @@ func (h *Surveys) Detail(w http.ResponseWriter, r *http.Request) {
 		Name:          one.Name,
 		Description:   one.Description,
 		Archived:      one.Archived(),
-		EditURL:       SurveyPathFor(one.ID) + "/edit",
-		ArchiveAction: SurveyPathFor(one.ID) + "/archive",
-		RestoreAction: SurveyPathFor(one.ID) + "/restore",
-		NewQuestion:   SurveyPathFor(one.ID) + "/questions/new?kind=" + string(survey.KindSingle),
+		EditURL:       SurveyEditPathFor(one.ID),
+		ArchiveAction: SurveyArchivePathFor(one.ID),
+		RestoreAction: SurveyRestorePathFor(one.ID),
+		NewQuestion:   SurveyQuestionNewPathFor(one.ID, survey.KindSingle),
 		QuestionCount: len(questions),
 	}
 	for _, section := range survey.Sections(questions) {
 		rows := make([]view.SurveyQuestionRow, 0, len(section.Questions))
 		for _, q := range section.Questions {
 			row := questionRow(q)
-			base := questionPathFor(one.ID, q.ID)
-			row.EditURL = base + "/edit"
-			row.PreviewURL = base + "/preview"
-			row.DeleteAction = base + "/delete"
-			row.MoveAction = base + "/move"
+			row.EditURL = SurveyQuestionPathFor(one.ID, q.ID, "edit")
+			row.PreviewURL = SurveyQuestionPathFor(one.ID, q.ID, "preview")
+			row.DeleteAction = SurveyQuestionPathFor(one.ID, q.ID, "delete")
+			row.MoveAction = SurveyQuestionPathFor(one.ID, q.ID, "move")
 			row.First = q.Position == 1
 			row.Last = q.Position == len(questions)
 			rows = append(rows, row)
@@ -282,17 +302,13 @@ func questionRow(q survey.Question) view.SurveyQuestionRow {
 	return row
 }
 
-// kindLabel is the kind as the professor reads it.
+// kindLabel is a stored question's kind as the bank lists it: the kind's
+// name, and a scale's range.
 func kindLabel(q survey.Question) string {
-	switch q.Kind {
-	case survey.KindSingle:
-		return "Opción única"
-	case survey.KindScale:
+	if q.Kind == survey.KindScale {
 		return fmt.Sprintf("Escala 1-%d", len(q.Alternatives))
-	case survey.KindMulti:
-		return "Selección múltiple"
 	}
-	return string(q.Kind)
+	return kindName(q.Kind)
 }
 
 // marksGuide words a multi-select question's printed guidance, "" when it
@@ -360,41 +376,43 @@ func (h *Surveys) Update(w http.ResponseWriter, r *http.Request) {
 
 // Archive hides the survey from its course's list and lands on the list.
 func (h *Surveys) Archive(w http.ResponseWriter, r *http.Request) {
-	h.setArchived(w, r, true)
-}
-
-// Restore brings an archived survey back and lands on it.
-func (h *Surveys) Restore(w http.ResponseWriter, r *http.Request) {
-	h.setArchived(w, r, false)
-}
-
-func (h *Surveys) setArchived(w http.ResponseWriter, r *http.Request, archive bool) {
 	one, ok := h.survey(w, r)
 	if !ok {
 		return
 	}
-	var err error
-	if archive {
-		err = h.Service.Archive(r.Context(), one.ID)
-	} else {
-		err = h.Service.Restore(r.Context(), one.ID)
-	}
-	switch {
-	case errors.Is(err, survey.ErrSurveyNotFound):
-		middleware.WriteError(w, r, http.StatusNotFound, "Esa encuesta no existe.")
-		return
-	case err != nil:
-		h.Log.Error("archiving or restoring a survey", "survey", one.ID, "archive", archive, "error", err)
-		middleware.WriteError(w, r, http.StatusInternalServerError, surveyBroke)
+	if h.surveyWriteFailed(w, r, one, "archiving a survey", h.Service.Archive(r.Context(), one.ID)) {
 		return
 	}
-	if archive {
-		flash.Set(w, h.secureCookie, "Encuesta archivada: «"+one.Name+"». La encuentras en «Ver archivadas».")
-		http.Redirect(w, r, CourseSurveysPathFor(one.CourseID), http.StatusSeeOther)
+	flash.Set(w, h.secureCookie, "Encuesta archivada: «"+one.Name+"». La encuentras en «Ver archivadas».")
+	http.Redirect(w, r, CourseSurveysPathFor(one.CourseID), http.StatusSeeOther)
+}
+
+// Restore brings an archived survey back and lands on it.
+func (h *Surveys) Restore(w http.ResponseWriter, r *http.Request) {
+	one, ok := h.survey(w, r)
+	if !ok {
+		return
+	}
+	if h.surveyWriteFailed(w, r, one, "restoring a survey", h.Service.Restore(r.Context(), one.ID)) {
 		return
 	}
 	flash.Set(w, h.secureCookie, "Encuesta restaurada.")
 	http.Redirect(w, r, SurveyPathFor(one.ID), http.StatusSeeOther)
+}
+
+// surveyWriteFailed answers a failed survey-level write and reports whether
+// it did.
+func (h *Surveys) surveyWriteFailed(w http.ResponseWriter, r *http.Request, one survey.Survey, what string, err error) bool {
+	switch {
+	case err == nil:
+		return false
+	case errors.Is(err, survey.ErrSurveyNotFound):
+		middleware.WriteError(w, r, http.StatusNotFound, "Esa encuesta no existe.")
+	default:
+		h.Log.Error(what, "survey", one.ID, "error", err)
+		middleware.WriteError(w, r, http.StatusInternalServerError, surveyBroke)
+	}
+	return true
 }
 
 func (h *Surveys) renderEditForm(w http.ResponseWriter, r *http.Request, one survey.Survey, course roster.Course,
@@ -402,7 +420,7 @@ func (h *Surveys) renderEditForm(w http.ResponseWriter, r *http.Request, one sur
 	page := view.SurveyFormPage{
 		Page:        middleware.PageFor(r, "Editar encuesta"),
 		Heading:     "Editar encuesta",
-		Action:      SurveyPathFor(one.ID) + "/edit",
+		Action:      SurveyEditPathFor(one.ID),
 		Submit:      "Guardar",
 		CancelURL:   SurveyPathFor(one.ID),
 		CourseLabel: course.Code + " " + course.Term,
@@ -547,7 +565,7 @@ func surveyProblemMessage(field string, problem error) string {
 	case errors.Is(problem, survey.ErrMarksNotAllowed):
 		return "El mínimo y el máximo de marcas solo aplican a selección múltiple."
 	case errors.Is(problem, survey.ErrMarksRange):
-		return "El mínimo y el máximo deben estar entre 0 y el número de alternativas, y el mínimo no puede superar al máximo."
+		return "El mínimo va de 0 al número de alternativas, el máximo de 1 al número de alternativas, y el mínimo no puede superar al máximo."
 	}
 	return "Revisa este campo."
 }
