@@ -27,7 +27,7 @@
   {{ end }}
 
   <h1>{{ .Title }}</h1>
-  <p>{{ if .ShowQuestionCount }}{{ .QuestionCount }} pregunta{{ if ne .QuestionCount 1 }}s{{ end }} · {{ end }}aplicada {{ .AppliedOn }} · {{ .Copies }} copias · {{ .StateLabel }}</p>
+  <p>{{ if not .Cancelled }}{{ .QuestionCount }} pregunta{{ if ne .QuestionCount 1 }}s{{ end }} · {{ end }}aplicada {{ .AppliedOn }} · {{ .Copies }} copias · {{ .StateLabel }}</p>
 
   <div class="survey-actions">
     {{ if .EditURL }}<a class="boton" href="{{ .EditURL }}">Editar</a>{{ end }}
@@ -39,6 +39,9 @@
     {{ end }}
   </div>
 
+  {{ if .Cancelled }}
+  <p>Esta pasada se canceló: no se imprime ni se lee, y sus preguntas ya no bloquean el banco.</p>
+  {{ else }}
   <ol class="survey-steps" aria-label="Etapas de la pasada">
     {{ range .Steps }}
       <li class="survey-step{{ if .Done }} survey-step-done{{ end }}">
@@ -69,4 +72,5 @@
     <li><span class="boton" aria-disabled="true">Revisar lectura dudosa</span> (próximamente)</li>
     <li><span class="boton" aria-disabled="true">Cerrar pasada</span> (próximamente)</li>
   </ul>
+  {{ end }}
 {{ end }}

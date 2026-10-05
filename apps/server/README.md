@@ -388,7 +388,7 @@ Routes today:
 | `GET /surveys/{id}/questions/{qid}/preview` | An HTML approximation of the printed question, labelled as one — the real sheet is AMC's and comes with a run (#310) |
 | `GET /surveys/{id}/runs/new` · `POST /surveys/{id}/runs` | Create a run (issue #310): name, date, copies. The POST writes the row, the snapshot and the source synchronously, queues `survey_generate`, and lands on the run. An empty bank is a flash; once the run exists the bank is locked |
 | `GET /surveys/{id}/runs/{rid}` | The run's dashboard: the job banner, the stepper, the counts, the download once the PDF is generated; scans, review and closing are #311 |
-| `GET /surveys/{id}/runs/{rid}/sujet.pdf` | The printable sheet, streamed once the latest `survey_generate` is done |
+| `GET /surveys/{id}/runs/{rid}/sujet.pdf` | The printable sheet, streamed once the latest `survey_generate` is done; 404 on a cancelled run, whose dashboard offers no actions |
 | `GET /surveys/{id}/runs/{rid}/edit` · `POST /surveys/{id}/runs/{rid}/edit` | Rename / re-date a run; the printed copies are not editable |
 | `POST /surveys/{id}/runs/{rid}/cancel` | Cancel an open run — refused with a flash while a job about it is queued or running. A cancelled run stays listed and releases the bank |
 | `GET /login` · `GET /login/google` · `GET /login/google/callback` · `POST /logout` | The login round trip — see §Signing in |

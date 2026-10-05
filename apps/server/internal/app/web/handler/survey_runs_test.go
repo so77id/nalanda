@@ -456,3 +456,27 @@ func TestTheDashboardOfACancelledOrNeverQueuedRun(t *testing.T) {
 		t.Errorf("the cancelled run's facts are wrong:\n%s", body)
 	}
 }
+
+// #310 browser check: a cancelled run is printed by nobody and read by
+// nobody — its dashboard says so instead of offering the PDF and the next
+// steps, and the PDF itself is refused even though it was generated.
+func TestACancelledRunOffersNothingToPrint(t *testing.T) {
+	f := newSurveyFixture(t)
+	s := f.createSurvey("Banco")
+	f.bankOfThree(s)
+	run := f.createRunThroughTheForm(s, "")
+	f.finishGeneration(s, run)
+	page := handler.SurveyRunPathFor(s.ID, run.ID)
+	f.do(http.MethodPost, handler.SurveyRunCancelPathFor(s.ID, run.ID), f.handler.CancelRun, url.Values{}, f.runValues(s, run)...)
+
+	body := f.do(http.MethodGet, page, f.handler.RunDetail, nil, f.runValues(s, run)...).Body.String()
+	if strings.Contains(body, "Descargar PDF") || strings.Contains(body, "Subir escaneos") {
+		t.Errorf("a cancelled run still offers its actions:\n%s", body)
+	}
+	if !strings.Contains(body, "Esta pasada se canceló") {
+		t.Errorf("a cancelled run does not say it was cancelled:\n%s", body)
+	}
+	if rec := f.do(http.MethodGet, page+"/sujet.pdf", f.handler.RunSheet, nil, f.runValues(s, run)...); rec.Code != http.StatusNotFound {
+		t.Errorf("a cancelled run's PDF: status = %d, want 404", rec.Code)
+	}
+}
