@@ -474,3 +474,55 @@ func TestTheWalkSeesTheWholeModule(t *testing.T) {
 			"transitive and a violation reached through an intermediate package would go unseen", driver)
 	}
 }
+
+// The survey subsystem is a SIBLING of the controls, never a mode of them
+// (ADR-0078 §Decision 1, issue #309). The rules above forbid
+// domain → app and domain → infra, NOT domain → domain — controls itself
+// imports jobs — so this boundary needs a rule of its own: nothing the
+// survey subsystem ships may reach the controls subsystem, even
+// transitively. It is what keeps a later extraction into its own app a
+// mechanical cut, and the anonymity guarantee independent of every
+// "unless this is a survey" branch the controls code would otherwise grow.
+func TestTheSurveyDomainDoesNotImportControls(t *testing.T) {
+	packages := readPackages(t)
+
+	surveySide := []string{
+		domainPrefix + "/survey",
+		infraPrefix + "/storage/surveystore",
+	}
+	controlsSide := []string{
+		domainPrefix + "/controls",
+		infraPrefix + "/storage/controlstore",
+	}
+
+	var checked int
+	for pkg, deps := range packages {
+		isSurvey := false
+		for _, prefix := range surveySide {
+			isSurvey = isSurvey || inLayer(pkg, prefix)
+		}
+		if !isSurvey {
+			continue
+		}
+		checked++
+
+		for _, dep := range deps {
+			for _, prefix := range controlsSide {
+				if inLayer(dep, prefix) {
+					t.Errorf(
+						"%s depends on %s.\nThe survey subsystem may not reach the controls "+
+							"(ADR-0078). Share the worker through a port the survey domain "+
+							"declares, never a controls type.",
+						pkg, dep,
+					)
+				}
+			}
+		}
+	}
+
+	// Non-vacuity: both survey packages exist, so a walk that saw fewer
+	// passed by not looking.
+	if checked < len(surveySide) {
+		t.Fatalf("found %d survey packages, want at least %d — if they moved, repoint surveySide", checked, len(surveySide))
+	}
+}
