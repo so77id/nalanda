@@ -99,8 +99,8 @@ func (m *memStore) DeleteQuestion(context.Context, int64, int64, time.Time) erro
 
 func (m *memStore) MoveQuestion(context.Context, int64, int64, int, time.Time) error { return nil }
 
-func (m *memStore) CreateRun(_ context.Context, r survey.Run, _ []survey.RunQuestion) (survey.Run, error) {
-	return r, nil
+func (m *memStore) CreateRun(_ context.Context, r survey.Run) (survey.Run, []survey.Question, error) {
+	return r, nil, nil
 }
 
 func (m *memStore) Run(context.Context, int64, int64) (survey.Run, error) {

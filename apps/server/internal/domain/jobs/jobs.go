@@ -67,12 +67,20 @@ const (
 // chosen by a caller: a Kind belongs to exactly one subsystem, and a
 // `generate` filed under a survey run would be a control's job the
 // control's page can never find.
+//
+// Every Kind is listed: a Kind missing from this switch panics rather than
+// fall into either subsystem by default (#310 review, ARQ-1). It is a
+// wiring mistake, and TestEveryValidKindHasASubject finds it at the first
+// test run — the same loud-at-boot rule NewRunner applies to a Kind with
+// no handler.
 func (k Kind) Subject() SubjectKind {
 	switch k {
 	case KindGenerate, KindAnalyse, KindReanalyse, KindAnnotate, KindPublish:
 		return SubjectControl
+	case KindSurveyGenerate:
+		return SubjectSurveyRun
 	}
-	return SubjectSurveyRun
+	panic("jobs.Kind.Subject: kind " + string(k) + " belongs to no subject")
 }
 
 // Status names the four states a row can be in. Same CHECK-enum shape as

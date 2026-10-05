@@ -297,9 +297,9 @@ func TestALockedBankRefusesEditsWithAFlashAndStillTakesNewQuestions(t *testing.T
 	s := f.createSurvey("Banco")
 	q := f.addQuestion(s, survey.QuestionDraft{Kind: survey.KindSingle, Statement: "¿1?", Labels: []string{"A", "B"}})
 	f.addQuestion(s, survey.QuestionDraft{Kind: survey.KindSingle, Statement: "¿2?", Labels: []string{"A", "B"}})
-	if _, err := surveystore.New(f.db).CreateRun(context.Background(), survey.Run{
+	if _, _, err := surveystore.New(f.db).CreateRun(context.Background(), survey.Run{
 		SurveyID: s.ID, AppliedOn: "2026-10-15", Copies: 10, CreatedBy: f.professor.ID, CreatedAt: f.now,
-	}, nil); err != nil {
+	}); err != nil {
 		t.Fatalf("CreateRun: %v", err)
 	}
 

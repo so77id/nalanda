@@ -493,13 +493,28 @@ func mustLatestID(t *testing.T, s *fakeStore) int64 {
 	return s.nextID
 }
 
-// Issue #310 (ADR-0079): every Kind the controls submit is about a control.
-// A Kind that answered SubjectSurveyRun would file a control's job where
-// the control's page can never find it.
-func TestEveryControlsKindIsAboutAControl(t *testing.T) {
-	for _, kind := range []jobs.Kind{jobs.KindGenerate, jobs.KindAnalyse, jobs.KindReanalyse, jobs.KindAnnotate, jobs.KindPublish} {
-		if got := kind.Subject(); got != jobs.SubjectControl {
-			t.Errorf("%s.Subject() = %s, want %s", kind, got, jobs.SubjectControl)
+// Issue #310 (ADR-0079): every Kind the controls submit is about a control,
+// and every Kind the runner knows belongs to SOME subject. Ranging over
+// ValidKinds rather than a list is the point (#310 review, ARQ-1): a Kind
+// added to the set and forgotten in Subject() panics here.
+func TestEveryValidKindHasASubject(t *testing.T) {
+	controlsKinds := map[jobs.Kind]bool{
+		jobs.KindGenerate: true, jobs.KindAnalyse: true, jobs.KindReanalyse: true,
+		jobs.KindAnnotate: true, jobs.KindPublish: true,
+	}
+	for _, kind := range jobs.ValidKinds {
+		want := jobs.SubjectSurveyRun
+		if controlsKinds[kind] {
+			want = jobs.SubjectControl
+		}
+		if got := kind.Subject(); got != want {
+			t.Errorf("%s.Subject() = %s, want %s", kind, got, want)
 		}
 	}
+	defer func() {
+		if recover() == nil {
+			t.Error("an unclassified Kind did not panic")
+		}
+	}()
+	jobs.Kind("ranking").Subject()
 }

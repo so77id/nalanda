@@ -19,21 +19,31 @@ const runColumns = `id, survey_id, number, name, applied_on, copies, state, crea
 // snapshot, in one transaction. The survey is stamped first, which takes
 // the write lock before the max is read — two runs created at once cannot
 // both read the same max (the UNIQUE (survey_id, number) is the belt).
-func (s *Store) CreateRun(ctx context.Context, r survey.Run, printed []survey.RunQuestion) (survey.Run, error) {
+func (s *Store) CreateRun(ctx context.Context, r survey.Run) (survey.Run, []survey.Question, error) {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
-		return survey.Run{}, fmt.Errorf("surveystore.CreateRun: begin: %w", err)
+		return survey.Run{}, nil, fmt.Errorf("surveystore.CreateRun: begin: %w", err)
 	}
 	defer func() { _ = tx.Rollback() }()
 
 	if err := touch(ctx, tx, r.SurveyID, r.CreatedAt); err != nil {
-		return survey.Run{}, fmt.Errorf("surveystore.CreateRun: %w", err)
+		return survey.Run{}, nil, fmt.Errorf("surveystore.CreateRun: %w", err)
 	}
+	// The bank, read under the write lock: nothing can change it between
+	// this read and the snapshot below.
+	bank, err := questions(ctx, tx, r.SurveyID)
+	if err != nil {
+		return survey.Run{}, nil, fmt.Errorf("surveystore.CreateRun: %w", err)
+	}
+	if len(bank) == 0 {
+		return survey.Run{}, nil, fmt.Errorf("surveystore.CreateRun for survey %d: %w", r.SurveyID, survey.ErrEmptyBank)
+	}
+	printed := survey.PrintOrder(bank)
 	var number int
 	if err := tx.QueryRowContext(ctx,
 		`SELECT coalesce(max(number), 0) + 1 FROM survey_run WHERE survey_id = ?`, r.SurveyID,
 	).Scan(&number); err != nil {
-		return survey.Run{}, fmt.Errorf("surveystore.CreateRun for survey %d: %w", r.SurveyID, err)
+		return survey.Run{}, nil, fmt.Errorf("surveystore.CreateRun for survey %d: %w", r.SurveyID, err)
 	}
 	result, err := tx.ExecContext(ctx, `
         INSERT INTO survey_run (survey_id, number, name, applied_on, copies, state, created_by, created_at, updated_at)
@@ -41,23 +51,27 @@ func (s *Store) CreateRun(ctx context.Context, r survey.Run, printed []survey.Ru
 		r.SurveyID, number, r.Name, r.AppliedOn, r.Copies, string(survey.RunOpen),
 		r.CreatedBy, r.CreatedAt.Unix(), r.CreatedAt.Unix())
 	if err != nil {
-		return survey.Run{}, fmt.Errorf("surveystore.CreateRun for survey %d: %w", r.SurveyID, err)
+		return survey.Run{}, nil, fmt.Errorf("surveystore.CreateRun for survey %d: %w", r.SurveyID, err)
 	}
 	id, err := result.LastInsertId()
 	if err != nil {
-		return survey.Run{}, fmt.Errorf("surveystore.CreateRun: reading the id: %w", err)
+		return survey.Run{}, nil, fmt.Errorf("surveystore.CreateRun: reading the id: %w", err)
 	}
 	for _, q := range printed {
 		if _, err := tx.ExecContext(ctx,
 			`INSERT INTO survey_run_question (run_id, question_id, printed_number) VALUES (?, ?, ?)`,
 			id, q.QuestionID, q.PrintedNumber); err != nil {
-			return survey.Run{}, fmt.Errorf("surveystore.CreateRun: snapshotting question %d: %w", q.QuestionID, err)
+			return survey.Run{}, nil, fmt.Errorf("surveystore.CreateRun: snapshotting question %d: %w", q.QuestionID, err)
 		}
 	}
 	if err := tx.Commit(); err != nil {
-		return survey.Run{}, fmt.Errorf("surveystore.CreateRun: commit: %w", err)
+		return survey.Run{}, nil, fmt.Errorf("surveystore.CreateRun: commit: %w", err)
 	}
-	return s.Run(ctx, r.SurveyID, id)
+	run, err := s.Run(ctx, r.SurveyID, id)
+	if err != nil {
+		return survey.Run{}, nil, err
+	}
+	return run, bank, nil
 }
 
 // Run returns one run, scoped to its survey.
@@ -121,19 +135,36 @@ func (s *Store) RunQuestions(ctx context.Context, runID int64) ([]survey.RunQues
 // UpdateRun rewrites name and date.
 func (s *Store) UpdateRun(ctx context.Context, surveyID, runID int64, d survey.RunDraft, now time.Time) error {
 	result, err := s.db.ExecContext(ctx,
-		`UPDATE survey_run SET name = ?, applied_on = ?, updated_at = ? WHERE id = ? AND survey_id = ?`,
+		`UPDATE survey_run SET name = ?, applied_on = ?, updated_at = ?
+         WHERE id = ? AND survey_id = ? AND state = 'open'`,
 		d.Name, d.AppliedOn, now.Unix(), runID, surveyID)
 	if err != nil {
 		return fmt.Errorf("surveystore.UpdateRun %d: %w", runID, err)
 	}
-	return requireOneRow(result, fmt.Sprintf("surveystore.UpdateRun %d of survey %d", runID, surveyID), survey.ErrRunNotFound)
+	n, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("surveystore.UpdateRun %d: %w", runID, err)
+	}
+	if n == 1 {
+		return nil
+	}
+	if _, err := s.Run(ctx, surveyID, runID); err != nil {
+		return fmt.Errorf("surveystore.UpdateRun: %w", err)
+	}
+	return fmt.Errorf("surveystore.UpdateRun %d: %w", runID, survey.ErrRunNotOpen)
 }
 
 // CancelRun moves an open run to cancelled. The `state = 'open'` guard is
 // in the UPDATE itself, so a run closed or cancelled meanwhile is refused
 // rather than overwritten.
 func (s *Store) CancelRun(ctx context.Context, surveyID, runID int64, now time.Time) error {
-	result, err := s.db.ExecContext(ctx, `
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("surveystore.CancelRun: begin: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	result, err := tx.ExecContext(ctx, `
         UPDATE survey_run SET state = 'cancelled', updated_at = ?
         WHERE id = ? AND survey_id = ? AND state = 'open'`,
 		now.Unix(), runID, surveyID)
@@ -145,8 +176,19 @@ func (s *Store) CancelRun(ctx context.Context, surveyID, runID int64, now time.T
 		return fmt.Errorf("surveystore.CancelRun %d: %w", runID, err)
 	}
 	if n == 1 {
+		// The snapshot goes with the cancel: its RESTRICT on the question
+		// would otherwise keep every printed question undeletable while
+		// the run that printed them counts for nothing (#310 review,
+		// COR-1).
+		if _, err := tx.ExecContext(ctx, `DELETE FROM survey_run_question WHERE run_id = ?`, runID); err != nil {
+			return fmt.Errorf("surveystore.CancelRun %d: dropping the snapshot: %w", runID, err)
+		}
+		if err := tx.Commit(); err != nil {
+			return fmt.Errorf("surveystore.CancelRun %d: commit: %w", runID, err)
+		}
 		return nil
 	}
+	_ = tx.Rollback()
 	// Nothing changed: tell absence from a run in the wrong state.
 	if _, err := s.Run(ctx, surveyID, runID); err != nil {
 		return fmt.Errorf("surveystore.CancelRun: %w", err)

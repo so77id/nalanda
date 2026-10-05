@@ -46,24 +46,15 @@ func (s *Service) CreateRun(ctx context.Context, surveyID, createdBy int64, d Ru
 	if err != nil {
 		return Run{}, err
 	}
-	questions, err := s.Store.Questions(ctx, surveyID)
-	if err != nil {
-		return Run{}, err
-	}
-	if len(questions) == 0 {
-		return Run{}, ErrEmptyBank
-	}
-	printed := PrintOrder(questions)
-
-	run, err := s.Store.CreateRun(ctx, Run{
+	run, questions, err := s.Store.CreateRun(ctx, Run{
 		SurveyID: surveyID, Name: d.Name, AppliedOn: d.AppliedOn, Copies: d.Copies,
 		CreatedBy: createdBy, CreatedAt: s.Now(),
-	}, printed)
+	})
 	if err != nil {
 		return Run{}, err
 	}
 
-	if err := s.writeSource(one, questions, printed, run); err != nil {
+	if err := s.writeSource(one, questions, PrintOrder(questions), run); err != nil {
 		// Nothing was printed and nothing can be: cancel the run so it does
 		// not lock the bank for a sheet that never existed.
 		if cerr := s.Store.CancelRun(ctx, surveyID, run.ID, s.Now()); cerr != nil {
@@ -129,14 +120,14 @@ func (s *Service) GenerateRunSheet(ctx context.Context, surveyID, runID int64) e
 	if run.State != RunOpen {
 		return fmt.Errorf("survey: run %d is %s, not open", runID, run.State)
 	}
-	if _, err := s.Generator.GenerateSheet(ctx, GenerateRequest{
+	// The worker answers with the sheet's path; SheetPath derives the same
+	// one from the worker's naming contract (ADR-0037), so it is not kept.
+	_, err = s.Generator.GenerateSheet(ctx, GenerateRequest{
 		Project: RunProject(surveyID, runID),
 		Source:  runSource(surveyID, runID),
 		Copies:  run.Copies,
-	}); err != nil {
-		return err
-	}
-	return nil
+	})
+	return err
 }
 
 // SheetPath is where the server finds a run's printable PDF on the shared

@@ -10,12 +10,17 @@ import (
 
 // Runs and the bank lock (issue #310 S2), against the real schema.
 
-func (f *fixture) createRun(t *testing.T, s survey.Survey, printed ...survey.RunQuestion) survey.Run {
+// createRun creates a run of the survey's current bank, giving the bank a
+// question first when it has none (a run of an empty bank is refused).
+func (f *fixture) createRun(t *testing.T, s survey.Survey) survey.Run {
 	t.Helper()
-	r, err := f.store.CreateRun(f.ctx, survey.Run{
+	if qs, _ := f.store.Questions(f.ctx, s.ID); len(qs) == 0 {
+		f.add(t, s.ID, single("¿relleno?", "A", "B"))
+	}
+	r, _, err := f.store.CreateRun(f.ctx, survey.Run{
 		SurveyID: s.ID, Name: "Mitad", AppliedOn: "2026-10-15", Copies: 30,
 		CreatedBy: f.userID, CreatedAt: f.now,
-	}, printed)
+	})
 	if err != nil {
 		t.Fatalf("CreateRun: %v", err)
 	}
@@ -27,9 +32,9 @@ func TestRunsAreNumberedPerSurveyAndKeepTheirSnapshot(t *testing.T) {
 	s := f.createSurvey(t, "Banco")
 	other := f.createSurvey(t, "Otra")
 	q1 := f.add(t, s.ID, single("¿1?", "A", "B"))
-	q2 := f.add(t, s.ID, single("¿2?", "A", "B"))
+	q2 := f.add(t, s.ID, survey.QuestionDraft{Kind: survey.KindSingle, Statement: "¿contexto?", IsContext: true, Labels: []string{"A", "B"}})
 
-	first := f.createRun(t, s, survey.RunQuestion{QuestionID: q2.ID, PrintedNumber: 1}, survey.RunQuestion{QuestionID: q1.ID, PrintedNumber: 2})
+	first := f.createRun(t, s)
 	second := f.createRun(t, s)
 	elsewhere := f.createRun(t, other)
 	if first.Number != 1 || second.Number != 2 || elsewhere.Number != 1 {
@@ -44,7 +49,7 @@ func TestRunsAreNumberedPerSurveyAndKeepTheirSnapshot(t *testing.T) {
 		t.Fatalf("RunQuestions: %v", err)
 	}
 	if len(snapshot) != 2 || snapshot[0].QuestionID != q2.ID || snapshot[1].QuestionID != q1.ID {
-		t.Errorf("snapshot = %+v, want q2 then q1 in printed order", snapshot)
+		t.Errorf("snapshot = %+v, want the context question q2 printed before q1", snapshot)
 	}
 
 	runs, err := f.store.RunsForSurvey(f.ctx, s.ID)
@@ -128,11 +133,11 @@ func TestRunSummariesCountOnlyRunsThatAreNotCancelled(t *testing.T) {
 	s := f.createSurvey(t, "Banco")
 	none := f.createSurvey(t, "Sin pasadas")
 	f.createRun(t, s)
-	late, err := f.store.CreateRun(f.ctx, survey.Run{SurveyID: s.ID, AppliedOn: "2026-11-20", Copies: 5, CreatedBy: f.userID, CreatedAt: f.now}, nil)
+	late, _, err := f.store.CreateRun(f.ctx, survey.Run{SurveyID: s.ID, AppliedOn: "2026-11-20", Copies: 5, CreatedBy: f.userID, CreatedAt: f.now})
 	if err != nil {
 		t.Fatalf("CreateRun: %v", err)
 	}
-	cancelled, _ := f.store.CreateRun(f.ctx, survey.Run{SurveyID: s.ID, AppliedOn: "2026-12-31", Copies: 5, CreatedBy: f.userID, CreatedAt: f.now}, nil)
+	cancelled, _, _ := f.store.CreateRun(f.ctx, survey.Run{SurveyID: s.ID, AppliedOn: "2026-12-31", Copies: 5, CreatedBy: f.userID, CreatedAt: f.now})
 	if err := f.store.CancelRun(f.ctx, s.ID, cancelled.ID, f.now); err != nil {
 		t.Fatalf("CancelRun: %v", err)
 	}
@@ -146,5 +151,42 @@ func TestRunSummariesCountOnlyRunsThatAreNotCancelled(t *testing.T) {
 	}
 	if _, ok := sums[none.ID]; ok {
 		t.Error("a survey with no runs has an entry")
+	}
+}
+
+// #310 review, COR-1: a cancelled run releases the bank for DELETE too —
+// its snapshot goes with it, so the RESTRICT on the printed question no
+// longer holds it.
+func TestACancelledRunsPrintedQuestionsCanBeDeleted(t *testing.T) {
+	f := newFixture(t)
+	s := f.createSurvey(t, "Banco")
+	q := f.add(t, s.ID, single("¿impresa?", "A", "B"))
+	run := f.createRun(t, s)
+	if snap, _ := f.store.RunQuestions(f.ctx, run.ID); len(snap) != 1 {
+		t.Fatalf("the run printed %d questions, want the one", len(snap))
+	}
+
+	if err := f.store.CancelRun(f.ctx, s.ID, run.ID, f.now); err != nil {
+		t.Fatalf("CancelRun: %v", err)
+	}
+	if err := f.store.DeleteQuestion(f.ctx, s.ID, q.ID, f.now); err != nil {
+		t.Errorf("deleting a question only a cancelled run printed: %v, want it allowed", err)
+	}
+}
+
+// #310 review, COR-7: only an open run is edited.
+func TestOnlyAnOpenRunIsEdited(t *testing.T) {
+	f := newFixture(t)
+	s := f.createSurvey(t, "Banco")
+	run := f.createRun(t, s)
+	if err := f.store.CancelRun(f.ctx, s.ID, run.ID, f.now); err != nil {
+		t.Fatalf("CancelRun: %v", err)
+	}
+	err := f.store.UpdateRun(f.ctx, s.ID, run.ID, survey.RunDraft{Name: "Otra", AppliedOn: "2026-12-01"}, f.now)
+	if !errors.Is(err, survey.ErrRunNotOpen) {
+		t.Errorf("editing a cancelled run: %v, want ErrRunNotOpen", err)
+	}
+	if got, _ := f.store.Run(f.ctx, s.ID, run.ID); got.Name != "Mitad" {
+		t.Errorf("the cancelled run was renamed to %q", got.Name)
 	}
 }

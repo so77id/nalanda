@@ -31,7 +31,7 @@ func EncodeRunPayload(surveyID int64) []byte {
 // NewGenerateHandler is the `survey_generate` job: GenerateRunSheet.
 func NewGenerateHandler(s *Service) jobs.Handler {
 	return func(ctx context.Context, subjectID string, payload []byte) error {
-		runID, surveyID, err := decodeRunJob(subjectID, payload)
+		runID, surveyID, err := DecodeRunJob(subjectID, payload)
 		if err != nil {
 			return &jobs.Failure{Message: "No se pudo leer el trabajo de la pasada.", Detail: err.Error()}
 		}
@@ -57,7 +57,10 @@ func NewGenerateHandler(s *Service) jobs.Handler {
 	}
 }
 
-func decodeRunJob(subjectID string, payload []byte) (runID, surveyID int64, err error) {
+// DecodeRunJob reads a survey run job's subject id and payload back into
+// the run and its survey — the one reader of the payload's contract, for
+// the job handlers and for the page a job's banner lands on.
+func DecodeRunJob(subjectID string, payload []byte) (runID, surveyID int64, err error) {
 	runID, err = strconv.ParseInt(subjectID, 10, 64)
 	if err != nil {
 		return 0, 0, fmt.Errorf("survey run id %q: %w", subjectID, err)

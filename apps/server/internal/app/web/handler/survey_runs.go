@@ -2,7 +2,6 @@ package handler
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -102,17 +101,12 @@ func (h *Surveys) CreateRun(w http.ResponseWriter, r *http.Request) {
 		h.Log.Error("queueing a run's sheet", "survey", one.ID, "run", run.ID, "error", err)
 		flash.Set(w, h.secureCookie, "Pasada creada, pero no se pudo encolar la generación del PDF. "+
 			"Vuelve a intentarlo en unos minutos.")
-		http.Redirect(w, r, h.runLanding(one.ID, run.ID), http.StatusSeeOther)
+		http.Redirect(w, r, SurveyRunPathFor(one.ID, run.ID), http.StatusSeeOther)
 		return
 	}
 	flash.Set(w, h.secureCookie, "Pasada #"+strconv.Itoa(run.Number)+" creada. El PDF se está generando.")
-	http.Redirect(w, r, h.runLanding(one.ID, run.ID), http.StatusSeeOther)
-}
-
-// runLanding is where creating a run lands: its dashboard, where the
-// banner shows the PDF being generated.
-func (h *Surveys) runLanding(surveyID, runID int64) string {
-	return SurveyRunPathFor(surveyID, runID)
+	// Its dashboard, where the banner shows the PDF being generated.
+	http.Redirect(w, r, SurveyRunPathFor(one.ID, run.ID), http.StatusSeeOther)
 }
 
 func (h *Surveys) renderRunForm(w http.ResponseWriter, r *http.Request, one survey.Survey, status int,
@@ -142,7 +136,7 @@ func (h *Surveys) renderRunForm(w http.ResponseWriter, r *http.Request, one surv
 
 // today is the form's default date, from the service clock.
 func (h *Surveys) today() string {
-	return h.Service.Now().Format("2006-01-02")
+	return h.Service.Now().Format(time.DateOnly)
 }
 
 // The run's own routes (issue #310 S6, screen 9).
@@ -186,8 +180,8 @@ func (h *Surveys) RunDetail(w http.ResponseWriter, r *http.Request) {
 		middleware.WriteError(w, r, http.StatusInternalServerError, surveyBroke)
 		return
 	}
-	pdfReady := h.sheetReady(r.Context(), run)
-	inFlight := h.runJobInFlight(r.Context(), run)
+	pdfReady, pdfStatus := h.sheetState(r.Context(), run)
+	latest := h.latestRunJob(r.Context(), run)
 
 	title := "Pasada #" + strconv.Itoa(run.Number)
 	if run.Name != "" {
@@ -202,7 +196,7 @@ func (h *Surveys) RunDetail(w http.ResponseWriter, r *http.Request) {
 		Copies:        run.Copies,
 		QuestionCount: len(snapshot),
 		StateLabel:    runStateLabel(run.State),
-		Banner:        h.runBannerFor(r.Context(), run),
+		Banner:        runBanner(latest),
 		PDFReady:      pdfReady,
 		PDFURL:        SurveyRunSheetPathFor(one.ID, run.ID),
 		ReadLabel:     "—",
@@ -210,12 +204,8 @@ func (h *Surveys) RunDetail(w http.ResponseWriter, r *http.Request) {
 	}
 	if run.State == survey.RunOpen {
 		page.EditURL = SurveyRunEditPathFor(one.ID, run.ID)
-		page.CanCancel = !inFlight
+		page.CanCancel = !inFlight(latest)
 		page.CancelAction = SurveyRunCancelPathFor(one.ID, run.ID)
-	}
-	pdfStatus := "en curso"
-	if pdfReady {
-		pdfStatus = "listo"
 	}
 	page.Steps = []view.RunStep{
 		{Label: "PDF", Status: pdfStatus, Done: pdfReady},
@@ -237,7 +227,7 @@ func (h *Surveys) RunSheet(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	if !h.sheetReady(r.Context(), run) {
+	if ready, _ := h.sheetState(r.Context(), run); !ready {
 		middleware.WriteError(w, r, http.StatusNotFound, "El PDF de esta pasada todavía no está listo.")
 		return
 	}
@@ -272,11 +262,20 @@ func (h *Surveys) UpdateRun(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+	if err := r.ParseForm(); err != nil {
+		h.renderRunEditForm(w, r, one, run, http.StatusUnprocessableEntity, view.RunFormValues{},
+			map[string]string{survey.FieldAppliedOn: "No se pudo leer el formulario. Vuelve a intentarlo."})
+		return
+	}
 	values := view.RunFormValues{Name: r.PostFormValue("name"), AppliedOn: r.PostFormValue("applied_on")}
 	err := h.Service.UpdateRun(r.Context(), one.ID, run.ID, survey.RunDraft{Name: values.Name, AppliedOn: values.AppliedOn})
 	switch {
 	case errors.Is(err, survey.ErrInvalid):
 		h.renderRunEditForm(w, r, one, run, http.StatusUnprocessableEntity, values, surveyFieldErrors(err))
+		return
+	case errors.Is(err, survey.ErrRunNotOpen):
+		flash.Set(w, h.secureCookie, "Esta pasada ya no está abierta: no se puede editar.")
+		http.Redirect(w, r, SurveyRunPathFor(one.ID, run.ID), http.StatusSeeOther)
 		return
 	case errors.Is(err, survey.ErrRunNotFound):
 		middleware.WriteError(w, r, http.StatusNotFound, "Esa pasada no existe.")
@@ -303,7 +302,7 @@ func (h *Surveys) CancelRun(w http.ResponseWriter, r *http.Request) {
 	// failed read answers "not in flight" — cancelling destroys nothing
 	// the runner could not tolerate (GenerateRunSheet refuses a run that
 	// is no longer open).
-	if h.runJobInFlight(r.Context(), run) {
+	if inFlight(h.latestRunJob(r.Context(), run)) {
 		flash.Set(w, h.secureCookie, "El PDF de esta pasada se está generando. Espera a que termine y vuelve a intentarlo.")
 		http.Redirect(w, r, back, http.StatusSeeOther)
 		return
@@ -369,65 +368,52 @@ func (h *Surveys) surveyRun(w http.ResponseWriter, r *http.Request) (survey.Surv
 	return one, run, true
 }
 
-// sheetReady reports whether the run's latest generation finished. No
-// generation at all is NOT ready: every run queues one at creation, so a
-// missing row is a queueing that failed, and its PDF does not exist.
-func (h *Surveys) sheetReady(ctx context.Context, run survey.Run) bool {
+// sheetState is the PDF step of a run, from its latest generation (#310
+// review, COR-4): done is the only ready state; a failed or never-queued
+// generation says so instead of reading "en curso" for ever.
+func (h *Surveys) sheetState(ctx context.Context, run survey.Run) (ready bool, label string) {
 	job, err := h.Jobs.LatestByKind(ctx, strconv.FormatInt(run.ID, 10), jobs.KindSurveyGenerate)
-	if err != nil {
-		if !errors.Is(err, jobs.ErrJobNotFound) {
-			h.Log.Warn("reading a run's generation", "run", run.ID, "error", err)
-		}
-		return false
+	switch {
+	case errors.Is(err, jobs.ErrJobNotFound):
+		return false, "no encolado"
+	case err != nil:
+		h.Log.Warn("reading a run's generation", "run", run.ID, "error", err)
+		return false, "desconocido"
+	case job.Status == jobs.StatusDone:
+		return true, "listo"
+	case job.Status == jobs.StatusFailed:
+		return false, "falló"
 	}
-	return job.Status == jobs.StatusDone
+	return false, "en curso"
 }
 
-// runJobInFlight reports whether a job about the run is queued or running.
-// A read failure answers false — see CancelRun.
-func (h *Surveys) runJobInFlight(ctx context.Context, run survey.Run) bool {
-	job, err := h.Jobs.LatestForSubject(ctx, jobs.SubjectSurveyRun, strconv.FormatInt(run.ID, 10))
-	if err != nil {
-		return false
-	}
-	return !job.Status.IsTerminal()
-}
-
-// runBannerFor is the run page's banner — the controls' shape
-// (jobBannerFor), the run's subject. A failed job's Detail is debug and
-// never shown: every survey Kind writes the worker's English there.
-func (h *Surveys) runBannerFor(ctx context.Context, run survey.Run) *view.JobBanner {
+// latestRunJob is the most recent job about the run, or nil when it has
+// none or the read failed — a failed read is logged and treated as "no
+// job", the banner being an aid and the cancel gate failing open (see
+// CancelRun).
+func (h *Surveys) latestRunJob(ctx context.Context, run survey.Run) *jobs.Job {
 	job, err := h.Jobs.LatestForSubject(ctx, jobs.SubjectSurveyRun, strconv.FormatInt(run.ID, 10))
 	if err != nil {
 		if !errors.Is(err, jobs.ErrJobNotFound) {
-			h.Log.Warn("jobs: reading a run's banner", "run", run.ID, "error", err)
+			h.Log.Warn("jobs: reading a run's latest job", "run", run.ID, "error", err)
 		}
 		return nil
 	}
-	running := !job.Status.IsTerminal()
-	if !running && job.ViewedAt != nil {
+	return &job
+}
+
+// inFlight reports whether a job is queued or running.
+func inFlight(job *jobs.Job) bool { return job != nil && !job.Status.IsTerminal() }
+
+// runBanner is the run page's banner from the run's latest job — the
+// shared bannerFromJob, with the survey's label. A failed job's Detail is
+// debug and never shown: every survey Kind writes the worker's English
+// there.
+func runBanner(job *jobs.Job) *view.JobBanner {
+	if job == nil {
 		return nil
 	}
-	banner := &view.JobBanner{
-		JobID:      job.ID,
-		Kind:       surveyJobLabel(job.Kind),
-		Running:    running,
-		Done:       job.Status == jobs.StatusDone,
-		Failed:     job.Status == jobs.StatusFailed,
-		Error:      job.Error,
-		DismissURL: jobDismissURL(job.ID),
-	}
-	if banner.Done {
-		banner.Notice = job.Notice
-	}
-	if running {
-		start := job.CreatedAt
-		if job.StartedAt != nil {
-			start = *job.StartedAt
-		}
-		banner.StartedAgo = humanElapsed(time.Since(start))
-	}
-	return banner
+	return bannerFromJob(*job, surveyJobLabel(job.Kind))
 }
 
 // surveyJobLabel names a survey job on its banner.
@@ -435,7 +421,8 @@ func surveyJobLabel(k jobs.Kind) string {
 	if k == jobs.KindSurveyGenerate {
 		return "generación del PDF"
 	}
-	return string(k)
+	// Never the raw English kind on a Spanish page.
+	return "trabajo de la pasada"
 }
 
 // runStateLabel is a run's state as the professor reads it.
@@ -449,20 +436,4 @@ func runStateLabel(s survey.RunState) string {
 		return "cancelada"
 	}
 	return string(s)
-}
-
-// jobSubjectURL is the page a job's banner lives on: its control's, or —
-// since #310 — its survey run's, whose survey the payload names
-// (survey.RunPayload). An undecodable run payload falls back to the
-// backoffice root rather than to a control URL that does not exist.
-func jobSubjectURL(job jobs.Job) string {
-	if job.SubjectKind != jobs.SubjectSurveyRun {
-		return controlDetailURL(job.SubjectID)
-	}
-	var p survey.RunPayload
-	runID, err := strconv.ParseInt(job.SubjectID, 10, 64)
-	if err != nil || json.Unmarshal(job.Payload, &p) != nil || p.SurveyID <= 0 {
-		return "/"
-	}
-	return SurveyRunPathFor(p.SurveyID, runID)
 }

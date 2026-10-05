@@ -189,6 +189,11 @@ func writeQuestion(b *strings.Builder, q Question) {
 // it. A backslash first would be re-escaped by the braces after it, which
 // is why this is one Replacer (it never revisits its own output).
 var specials = strings.NewReplacer(
+	// babel's spanish makes `"` an active shorthand: `"a` prints an
+	// ordinal ª, `"e` a superscript, and a quote eats the character after
+	// it (#310 review, COR-2 / SEC-2, measured: `"este" curso` printed
+	// `.esteçurso`). \textquotedbl{} is T1's literal straight quote.
+	`"`, "\\textquotedbl{}",
 	"\\", "\\textbackslash{}",
 	"{", "\\{",
 	"}", "\\}",

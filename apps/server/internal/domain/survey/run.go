@@ -40,9 +40,12 @@ var (
 	// ErrEmptyBank refuses a run of a survey with no questions — a sheet
 	// with nothing on it.
 	ErrEmptyBank = errors.New("survey: a run needs at least one question")
-	// ErrRunNotCancellable refuses cancelling a run that is not open, or
-	// that has scans or a job in flight.
+	// ErrRunNotCancellable refuses cancelling a run that is not open. (A
+	// job in flight is refused by the handler before it asks; scans, by
+	// #311.)
 	ErrRunNotCancellable = errors.New("survey: the run cannot be cancelled")
+	// ErrRunNotOpen refuses editing a run that is closed or cancelled.
+	ErrRunNotOpen = errors.New("survey: the run is not open")
 )
 
 // Field names a run's ValidationError keys its problems by.

@@ -1652,9 +1652,9 @@ func TestTheJobSubjectRebuildKeepsEveryControlsJob(t *testing.T) {
 	userID := insertProfessor(t, ctx, db, "profesora@example.com")
 	controlID := insertControlRow(t, ctx, db, "CTRLJOBSUBJECT0000000001", userID, nil)
 	if _, err := db.ExecContext(ctx, `
-        INSERT INTO job (control_id, kind, status, error, detail, payload_json,
+        INSERT INTO job (id, control_id, kind, status, error, detail, payload_json,
                          created_at, started_at, finished_at, viewed_at, notice)
-        VALUES (?, 'analyse', 'done', NULL, NULL, '{"batch":"lote-1"}', 100, 110, 120, 130, 'releída')`,
+        VALUES (41, ?, 'analyse', 'done', 'el worker se negó', 'stderr completo', '{"batch":"lote-1"}', 100, 110, 120, 130, 'releída')`,
 		controlID); err != nil {
 		t.Fatalf("inserting the pre-migration job: %v", err)
 	}
@@ -1674,13 +1674,16 @@ func TestTheJobSubjectRebuildKeepsEveryControlsJob(t *testing.T) {
 	}
 
 	var (
-		subjectKind, subjectID, kind, status, payload, notice string
-		created, started, finished, viewed                    int64
+		subjectKind, subjectID, kind, status, payload, notice, errMsg, detail string
+		id, created, started, finished, viewed                                int64
 	)
+	// Every column, including the id a banner's dismiss URL carries and the
+	// error/detail pair seeded non-NULL so a copy that dropped them fails
+	// (#310 review, COR-7).
 	if err := reopened.QueryRowContext(ctx, `
-        SELECT subject_kind, subject_id, kind, status, payload_json, notice,
+        SELECT id, subject_kind, subject_id, kind, status, error, detail, payload_json, notice,
                created_at, started_at, finished_at, viewed_at FROM job`,
-	).Scan(&subjectKind, &subjectID, &kind, &status, &payload, &notice,
+	).Scan(&id, &subjectKind, &subjectID, &kind, &status, &errMsg, &detail, &payload, &notice,
 		&created, &started, &finished, &viewed); err != nil {
 		t.Fatalf("the job did not survive the rebuild: %v", err)
 	}
@@ -1691,6 +1694,8 @@ func TestTheJobSubjectRebuildKeepsEveryControlsJob(t *testing.T) {
 		t.Errorf("kind/status/payload/notice = %s/%s/%s/%s, want them verbatim", kind, status, payload, notice)
 	case created != 100 || started != 110 || finished != 120 || viewed != 130:
 		t.Errorf("timestamps = %d/%d/%d/%d, want 100/110/120/130", created, started, finished, viewed)
+	case id != 41 || errMsg != "el worker se negó" || detail != "stderr completo":
+		t.Errorf("id/error/detail = %d/%q/%q, want 41 and the pair verbatim", id, errMsg, detail)
 	}
 
 	var index string

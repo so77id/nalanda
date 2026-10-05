@@ -272,11 +272,6 @@ func run(logger *slog.Logger) error {
 		Log:  logger,
 	})
 
-	// Issue #249: the async job runner. One goroutine, one queue,
-	// jobs persisted so a Watchtower restart does not lose them.
-	// Handlers register per Kind as the WP migrates each operation
-	// off the sync path — this ships with KindReanalyse (S3); S4–S6
-	// add analyse, generate and annotate.
 	// Epic #308: the survey subsystem (ADR-0078). Its own store over its
 	// own tables; it shares the database handle, the worker client and the
 	// shared volume with the controls, and no type.
@@ -287,6 +282,11 @@ func run(logger *slog.Logger) error {
 		Now:       time.Now,
 	})
 
+	// Issue #249: the async job runner. One goroutine, one queue,
+	// jobs persisted so a Watchtower restart does not lose them.
+	// Handlers register per Kind as the WP migrates each operation
+	// off the sync path — this ships with KindReanalyse (S3); S4–S6
+	// add analyse, generate and annotate.
 	jobStore := jobstore.New(db)
 	jobRunner := jobs.NewRunner(jobStore, jobs.Handlers{
 		jobs.KindReanalyse: controls.NewReanalyseHandler(controlsService),

@@ -63,10 +63,14 @@ type Store interface {
 	// is not an error. ErrQuestionNotFound as above.
 	MoveQuestion(ctx context.Context, surveyID, questionID int64, delta int, now time.Time) error
 
-	// CreateRun inserts a run with the next number for its survey and its
-	// printed snapshot, in one transaction. ErrSurveyNotFound when there is
-	// no such survey.
-	CreateRun(ctx context.Context, r Run, printed []RunQuestion) (Run, error)
+	// CreateRun inserts a run with the next number for its survey and
+	// snapshots the bank it prints (PrintOrder), reading that bank INSIDE
+	// the same transaction, after the write lock — so a question edited
+	// concurrently can never be printed in one wording and locked in
+	// another (#310 review, COR-5). Returns the run and the questions it
+	// prints, for the sheet. ErrSurveyNotFound when there is no such
+	// survey; ErrEmptyBank when it has no questions.
+	CreateRun(ctx context.Context, r Run) (Run, []Question, error)
 
 	// Run returns one run of the survey, or ErrRunNotFound — including a
 	// run of ANOTHER survey reached through this one's URL.
@@ -78,11 +82,15 @@ type Store interface {
 	// RunQuestions returns a run's snapshot in printed order.
 	RunQuestions(ctx context.Context, runID int64) ([]RunQuestion, error)
 
-	// UpdateRun rewrites a run's name and date. ErrRunNotFound as above.
+	// UpdateRun rewrites an OPEN run's name and date. ErrRunNotOpen when it
+	// is closed or cancelled; ErrRunNotFound as above.
 	UpdateRun(ctx context.Context, surveyID, runID int64, d RunDraft, now time.Time) error
 
-	// CancelRun moves an OPEN run to cancelled. ErrRunNotCancellable when
-	// it is not open; ErrRunNotFound as above.
+	// CancelRun moves an OPEN run to cancelled and drops its snapshot, so
+	// the questions it printed can be deleted again — a cancelled run is
+	// excluded from everything and must not hold the bank (#310 review,
+	// COR-1). ErrRunNotCancellable when it is not open; ErrRunNotFound as
+	// above.
 	CancelRun(ctx context.Context, surveyID, runID int64, now time.Time) error
 
 	// RunSummaries returns, per survey id of one course, how many runs it

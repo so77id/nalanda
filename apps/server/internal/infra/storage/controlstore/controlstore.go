@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/so77id/nalanda/apps/server/internal/domain/controls"
+	"github.com/so77id/nalanda/apps/server/internal/domain/jobs"
 )
 
 // Store adapts SQLite to controls.Store. One type rather than three; the
@@ -259,7 +260,7 @@ func (s *Store) PurgeControl(ctx context.Context, id string) error {
 	// that cannot carry a REFERENCES, so the purge says it itself — after
 	// the guarded DELETE, so an active control's jobs are never touched.
 	if _, err := tx.ExecContext(ctx,
-		`DELETE FROM job WHERE subject_kind = 'control' AND subject_id = ?`, id,
+		`DELETE FROM job WHERE subject_kind = ? AND subject_id = ?`, string(jobs.SubjectControl), id,
 	); err != nil {
 		return fmt.Errorf("controlstore.PurgeControl %s: jobs: %w", id, err)
 	}

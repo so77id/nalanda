@@ -345,3 +345,91 @@ func TestTheSurveyPageListsItsRunsAndLocksItsBank(t *testing.T) {
 		t.Errorf("the course list does not count the run:\n%s", list)
 	}
 }
+
+// #310 review, COR-1 end to end: cancel a run, then delete a question it
+// printed, through the handlers — a flash and a smaller bank, never a 500.
+func TestDeletingAQuestionAfterCancellingItsRunWorks(t *testing.T) {
+	f := newSurveyFixture(t)
+	s := f.createSurvey("Banco")
+	single, _, _ := f.bankOfThree(s)
+	run := f.createRunThroughTheForm(s, "")
+	f.finishGeneration(s, run)
+	f.do(http.MethodPost, handler.SurveyRunCancelPathFor(s.ID, run.ID), f.handler.CancelRun, url.Values{}, f.runValues(s, run)...)
+
+	rec := f.do(http.MethodPost, questionBase(s, single)+"/delete", f.handler.DeleteQuestion, url.Values{}, f.questionValues(s, single)...)
+	if rec.Code != http.StatusSeeOther || !strings.Contains(flashOf(t, rec), "borrada") {
+		t.Errorf("delete after cancel: status = %d, flash = %q", rec.Code, flashOf(t, rec))
+	}
+	if n := len(f.bank(s)); n != 2 {
+		t.Errorf("bank has %d questions, want 2", n)
+	}
+}
+
+// #310 review, COR-3: when the source cannot be written the run is
+// cancelled, so a sheet that never existed does not lock the bank.
+func TestARunWhoseSourceCannotBeWrittenIsCancelled(t *testing.T) {
+	f := newSurveyFixture(t)
+	s := f.createSurvey("Banco")
+	single, _, _ := f.bankOfThree(s)
+	// The run directory's parent is a FILE: MkdirAll cannot make the run's.
+	blocker := filepath.Join(f.worker.WorkDir, "surveys", strconv.FormatInt(s.ID, 10))
+	if err := os.MkdirAll(filepath.Dir(blocker), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(blocker, []byte("no soy un directorio"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err := f.surveys.CreateRun(context.Background(), s.ID, f.professor.ID, survey.RunDraft{AppliedOn: "2026-10-15", Copies: 5})
+	if err == nil {
+		t.Fatal("CreateRun succeeded with an unwritable source")
+	}
+	runs, _ := f.surveys.Runs(context.Background(), s.ID)
+	if len(runs) != 1 || runs[0].State != survey.RunCancelled {
+		t.Fatalf("runs = %+v, want one cancelled run", runs)
+	}
+	if err := f.surveys.MoveQuestion(context.Background(), s.ID, single.ID, +1); err != nil {
+		t.Errorf("the bank after a failed run: %v, want it unlocked", err)
+	}
+}
+
+// #310 review, COR-4: a failed generation says so on the PDF step.
+func TestAFailedGenerationIsNamedOnTheDashboard(t *testing.T) {
+	f := newSurveyFixture(t)
+	s := f.createSurvey("Banco")
+	f.bankOfThree(s)
+	run := f.createRunThroughTheForm(s, "")
+	ctx := context.Background()
+	job, err := f.jobs.LatestByKind(ctx, strconv.FormatInt(run.ID, 10), jobs.KindSurveyGenerate)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = f.jobs.MarkRunning(ctx, job.ID, f.now)
+	_ = f.jobs.MarkFailed(ctx, job.ID, "El generador rechazó la hoja de la encuesta.", "debug", f.now)
+
+	body := f.do(http.MethodGet, handler.SurveyRunPathFor(s.ID, run.ID), f.handler.RunDetail, nil, f.runValues(s, run)...).Body.String()
+	for _, want := range []string{"PDF<span class=\"survey-meta\"> · falló", "Falló la generación del PDF:", "El generador rechazó"} {
+		if !strings.Contains(body, want) {
+			t.Errorf("the failed dashboard lacks %q", want)
+		}
+	}
+	if strings.Contains(body, "debug") {
+		t.Error("a survey job's debug detail reached the page")
+	}
+}
+
+// #310 review, COR-7: a hand-typed edit of a cancelled run is a flash.
+func TestEditingACancelledRunIsRefusedWithAFlash(t *testing.T) {
+	f := newSurveyFixture(t)
+	s := f.createSurvey("Banco")
+	f.bankOfThree(s)
+	run := f.createRunThroughTheForm(s, "Antes")
+	f.finishGeneration(s, run)
+	f.do(http.MethodPost, handler.SurveyRunCancelPathFor(s.ID, run.ID), f.handler.CancelRun, url.Values{}, f.runValues(s, run)...)
+
+	rec := f.do(http.MethodPost, handler.SurveyRunEditPathFor(s.ID, run.ID), f.handler.UpdateRun,
+		url.Values{"name": {"Después"}, "applied_on": {"2026-12-01"}}, f.runValues(s, run)...)
+	if rec.Code != http.StatusSeeOther || !strings.Contains(flashOf(t, rec), "ya no está abierta") {
+		t.Errorf("status = %d, flash = %q", rec.Code, flashOf(t, rec))
+	}
+}

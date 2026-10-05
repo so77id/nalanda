@@ -98,7 +98,7 @@ func TestProfessorTypedTextCannotEscapeIntoTeX(t *testing.T) {
 	in.Title = `Encuesta \input{/etc/passwd} 100% & #1`
 	in.Description = "línea uno\n\nlínea dos"
 	in.Questions[0].Statement = `¿\write18{rm -rf /}? {sin cerrar ^_~ $x$ <b>`
-	in.Questions[0].Labels = []string{"a ≤ b → c", "emoji 🎉", "“comillas” — y…"}
+	in.Questions[0].Labels = []string{"a ≤ b → c", "emoji 🎉", "“comillas” — y…", `"este" curso "año" ^^5c "`}
 	in.Questions[0].Section = "Sec}ción"
 
 	got, err := tex.Compile(in)
@@ -114,6 +114,9 @@ func TestProfessorTypedTextCannotEscapeIntoTeX(t *testing.T) {
 		`\textbackslash{}input\{/etc/passwd\}`, `100\%`, `\&`, `\#1`, `\textbackslash{}write18\{rm -rf /\}`,
 		`\{sin cerrar \^{}\_\~{} \$x\$ \textless{}b\textgreater{}`, `Sec\}ción`,
 		`a $\leq$ b $\rightarrow$ c`, "emoji ?", "“comillas” — y…", "línea uno  línea dos",
+		// babel spanish makes `"` active (#310 review, COR-2): a raw quote
+		// would eat the next character; `^^5c` must not form a backslash.
+		`\textquotedbl{}este\textquotedbl{} curso \textquotedbl{}año\textquotedbl{} \^{}\^{}5c \textquotedbl{}`,
 	} {
 		if !strings.Contains(got, escaped) {
 			t.Errorf("the source lacks %q", escaped)
