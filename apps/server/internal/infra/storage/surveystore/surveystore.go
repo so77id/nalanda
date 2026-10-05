@@ -312,6 +312,9 @@ func (s *Store) UpdateQuestion(ctx context.Context, surveyID, questionID int64, 
 	if err := touch(ctx, tx, surveyID, now); err != nil {
 		return fmt.Errorf("surveystore.UpdateQuestion: %w", err)
 	}
+	if err := requireUnlocked(ctx, tx, surveyID); err != nil {
+		return fmt.Errorf("surveystore.UpdateQuestion: %w", err)
+	}
 
 	result, err := tx.ExecContext(ctx, `
         UPDATE survey_question
@@ -352,6 +355,9 @@ func (s *Store) DeleteQuestion(ctx context.Context, surveyID, questionID int64, 
 	defer func() { _ = tx.Rollback() }()
 
 	if err := touch(ctx, tx, surveyID, now); err != nil {
+		return fmt.Errorf("surveystore.DeleteQuestion: %w", err)
+	}
+	if err := requireUnlocked(ctx, tx, surveyID); err != nil {
 		return fmt.Errorf("surveystore.DeleteQuestion: %w", err)
 	}
 	position, err := positionOf(ctx, tx, surveyID, questionID)
@@ -408,6 +414,9 @@ func (s *Store) MoveQuestion(ctx context.Context, surveyID, questionID int64, de
 	defer func() { _ = tx.Rollback() }()
 
 	if err := touch(ctx, tx, surveyID, now); err != nil {
+		return fmt.Errorf("surveystore.MoveQuestion: %w", err)
+	}
+	if err := requireUnlocked(ctx, tx, surveyID); err != nil {
 		return fmt.Errorf("surveystore.MoveQuestion: %w", err)
 	}
 	position, err := positionOf(ctx, tx, surveyID, questionID)

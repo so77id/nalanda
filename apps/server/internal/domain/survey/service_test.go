@@ -99,6 +99,30 @@ func (m *memStore) DeleteQuestion(context.Context, int64, int64, time.Time) erro
 
 func (m *memStore) MoveQuestion(context.Context, int64, int64, int, time.Time) error { return nil }
 
+func (m *memStore) CreateRun(_ context.Context, r survey.Run, _ []survey.RunQuestion) (survey.Run, error) {
+	return r, nil
+}
+
+func (m *memStore) Run(context.Context, int64, int64) (survey.Run, error) {
+	return survey.Run{}, survey.ErrRunNotFound
+}
+
+func (m *memStore) RunsForSurvey(context.Context, int64) ([]survey.Run, error) { return nil, nil }
+
+func (m *memStore) RunQuestions(context.Context, int64) ([]survey.RunQuestion, error) {
+	return nil, nil
+}
+
+func (m *memStore) UpdateRun(context.Context, int64, int64, survey.RunDraft, time.Time) error {
+	return nil
+}
+
+func (m *memStore) CancelRun(context.Context, int64, int64, time.Time) error { return nil }
+
+func (m *memStore) RunSummaries(context.Context, int64) (map[int64]survey.RunSummary, error) {
+	return nil, nil
+}
+
 var now = time.Date(2026, time.October, 5, 12, 0, 0, 0, time.UTC)
 
 func newService(store survey.Store) *survey.Service {

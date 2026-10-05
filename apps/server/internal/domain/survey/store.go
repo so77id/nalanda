@@ -48,7 +48,10 @@ type Store interface {
 
 	// UpdateQuestion replaces a question's fields and its alternatives with
 	// a NORMALIZED draft, keeping its position. ErrQuestionNotFound when the
-	// question is not in this survey.
+	// question is not in this survey; ErrBankLocked when a run that is not
+	// cancelled exists (checked inside the write's own transaction, so a
+	// run created concurrently cannot slip between check and write — the
+	// same holds for DeleteQuestion and MoveQuestion).
 	UpdateQuestion(ctx context.Context, surveyID, questionID int64, d QuestionDraft, now time.Time) error
 
 	// DeleteQuestion removes a question (its alternatives cascade) and closes
@@ -59,4 +62,37 @@ type Store interface {
 	// below (+1). Moving the first up or the last down changes nothing and
 	// is not an error. ErrQuestionNotFound as above.
 	MoveQuestion(ctx context.Context, surveyID, questionID int64, delta int, now time.Time) error
+
+	// CreateRun inserts a run with the next number for its survey and its
+	// printed snapshot, in one transaction. ErrSurveyNotFound when there is
+	// no such survey.
+	CreateRun(ctx context.Context, r Run, printed []RunQuestion) (Run, error)
+
+	// Run returns one run of the survey, or ErrRunNotFound — including a
+	// run of ANOTHER survey reached through this one's URL.
+	Run(ctx context.Context, surveyID, runID int64) (Run, error)
+
+	// RunsForSurvey returns the survey's runs, most recent number first.
+	RunsForSurvey(ctx context.Context, surveyID int64) ([]Run, error)
+
+	// RunQuestions returns a run's snapshot in printed order.
+	RunQuestions(ctx context.Context, runID int64) ([]RunQuestion, error)
+
+	// UpdateRun rewrites a run's name and date. ErrRunNotFound as above.
+	UpdateRun(ctx context.Context, surveyID, runID int64, d RunDraft, now time.Time) error
+
+	// CancelRun moves an OPEN run to cancelled. ErrRunNotCancellable when
+	// it is not open; ErrRunNotFound as above.
+	CancelRun(ctx context.Context, surveyID, runID int64, now time.Time) error
+
+	// RunSummaries returns, per survey id of one course, how many runs it
+	// has that are not cancelled and the latest date among them. A survey
+	// with none has no entry. One aggregate for the list page.
+	RunSummaries(ctx context.Context, courseID int64) (map[int64]RunSummary, error)
+}
+
+// RunSummary is one survey's runs, as a list page shows them.
+type RunSummary struct {
+	Runs          int
+	LastAppliedOn string
 }
