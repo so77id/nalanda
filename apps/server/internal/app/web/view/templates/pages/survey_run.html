@@ -31,8 +31,10 @@
   <table class="lista">
     <tbody>
       <tr><th>Generadas</th><td>{{ .Copies }}</td></tr>
-      <tr><th>Leídas</th><td>{{ .ReadLabel }}</td></tr>
-      <tr><th>Por revisar</th><td>{{ .ReviewLabel }}</td></tr>
+      <tr><th>Leídas</th><td>{{ .Read }}</td></tr>
+      <tr><th>Lectura limpia</th><td>{{ .Clean }}</td></tr>
+      <tr><th>Por revisar</th><td>{{ .Pending }}</td></tr>
+      <tr><th>Faltantes</th><td>{{ .Missing }}</td></tr>
     </tbody>
   </table>
 
@@ -45,9 +47,31 @@
         <span class="boton" aria-disabled="true">Descargar PDF para imprimir</span> (todavía se está generando)
       {{ end }}
     </li>
-    <li><a class="boton" href="{{ .ScansURL }}">Subir escaneos</a></li>
-    <li><span class="boton" aria-disabled="true">Revisar lectura dudosa</span> (próximamente)</li>
-    <li><span class="boton" aria-disabled="true">Cerrar pasada</span> (próximamente)</li>
+    <li>
+      <a class="boton" href="{{ .ScansURL }}">{{ if .Open }}Subir escaneos{{ else }}Ver escaneos{{ end }}</a>
+      {{ if .Read }}({{ .Read }} leída{{ if ne .Read 1 }}s{{ end }}{{ if .Missing }} · faltan {{ .Missing }}{{ end }}){{ end }}
+    </li>
+    <li>
+      {{ if .ReviewURL }}
+        <a class="boton" href="{{ .ReviewURL }}">Revisar lectura dudosa</a>
+        ({{ .Pending }} copia{{ if ne .Pending 1 }}s esperan{{ else }} espera{{ end }})
+      {{ else }}
+        <span class="boton" aria-disabled="true">Revisar lectura dudosa</span> (nada por revisar)
+      {{ end }}
+    </li>
+    {{ if .CloseAction }}
+      <li>
+        {{ if .CanClose }}
+          <form class="inline" method="post" action="{{ .CloseAction }}">
+            <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}" />
+            <button type="submit">Cerrar pasada</button>
+          </form>
+          (desde ahora sus respuestas cuentan; no se puede reabrir)
+        {{ else }}
+          <span class="boton" aria-disabled="true">Cerrar pasada</span> ({{ .CloseHint }})
+        {{ end }}
+      </li>
+    {{ end }}
   </ul>
   {{ end }}
 {{ end }}

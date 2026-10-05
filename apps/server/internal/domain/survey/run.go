@@ -48,6 +48,10 @@ var (
 	// (ADR-0080 §5) under readings that would then count nowhere. "Borrar
 	// escaneos" first.
 	ErrRunHasScans = errors.New("survey: the run has scans")
+	// ErrNothingRead refuses closing a run no copy of which was read.
+	ErrNothingRead = errors.New("survey: the run has no read copy")
+	// ErrReviewPending refuses closing a run with items left to review.
+	ErrReviewPending = errors.New("survey: the run has readings to review")
 	// ErrRunNotOpen refuses editing a run that is closed or cancelled.
 	ErrRunNotOpen = errors.New("survey: the run is not open")
 )

@@ -152,6 +152,8 @@ func (m *memStore) DeleteReadings(context.Context, int64) error { return nil }
 
 func (m *memStore) DecidedItems(context.Context, int64) (int, error) { return 0, nil }
 
+func (m *memStore) CloseRun(context.Context, int64, int64, time.Time) error { return nil }
+
 // noGenerator is a survey.Generator the bank's tests never reach.
 type noGenerator struct{}
 

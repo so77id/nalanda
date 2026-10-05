@@ -163,3 +163,41 @@ func TestResolveItemsRecordsTheChoiceOnceAndOnlyOnAnOpenRun(t *testing.T) {
 		t.Errorf("a closed run: %v, want ErrRunNotOpen", err)
 	}
 }
+
+// Issue #311 S7: a run closes with read copies and nothing pending, once.
+func TestCloseRunNeedsReadCopiesAndNothingPending(t *testing.T) {
+	f := newFixture(t)
+	run, q1, _ := f.readable(t)
+	if err := f.store.CloseRun(f.ctx, run.SurveyID, run.ID, f.now); !errors.Is(err, survey.ErrNothingRead) {
+		t.Errorf("closing an unread run: %v, want ErrNothingRead", err)
+	}
+	if err := f.store.SaveReadings(f.ctx, run.ID, nil, []survey.CopyReading{{CopyNumber: 1, Items: []survey.ReviewItemDraft{
+		{QuestionID: q1.ID, Reason: survey.ReasonDoubtful, Doubtful: []int64{q1.Alternatives[0].ID}},
+	}}}); err != nil {
+		t.Fatal(err)
+	}
+	if err := f.store.CloseRun(f.ctx, run.SurveyID, run.ID, f.now); !errors.Is(err, survey.ErrReviewPending) {
+		t.Errorf("closing with a pending item: %v, want ErrReviewPending", err)
+	}
+	one, _ := f.store.CopyByNumber(f.ctx, run.ID, 1)
+	items, _ := f.store.ItemsForCopy(f.ctx, one.ID)
+	if err := f.store.ResolveItems(f.ctx, run.ID, one.ID, []survey.ItemResolution{{ItemID: items[0].ID, Resolution: survey.ResolutionDiscarded}}, f.userID, f.now); err != nil {
+		t.Fatal(err)
+	}
+	if err := f.store.CloseRun(f.ctx, run.SurveyID, run.ID, f.now); err != nil {
+		t.Fatalf("closing a reviewed run: %v", err)
+	}
+	got, _ := f.store.Run(f.ctx, run.SurveyID, run.ID)
+	if got.State != survey.RunClosed || got.ClosedAt == nil || !got.ClosedAt.Equal(f.now) {
+		t.Errorf("after closing: %+v", got)
+	}
+	if err := f.store.CloseRun(f.ctx, run.SurveyID, run.ID, f.now); !errors.Is(err, survey.ErrRunNotOpen) {
+		t.Errorf("closing twice: %v, want ErrRunNotOpen", err)
+	}
+	if err := f.store.DeleteReadings(f.ctx, run.ID); !errors.Is(err, survey.ErrRunNotOpen) {
+		t.Errorf("erasing a closed run's readings: %v, want ErrRunNotOpen", err)
+	}
+	if err := f.store.CancelRun(f.ctx, run.SurveyID, run.ID, f.now); !errors.Is(err, survey.ErrRunNotCancellable) {
+		t.Errorf("cancelling a closed run: %v, want ErrRunNotCancellable", err)
+	}
+}

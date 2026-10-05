@@ -170,14 +170,27 @@ type SurveyRunPage struct {
 	// Cancelled hides the question count, the steps and the actions: a
 	// cancelled run is printed and read by nobody, and cancelling dropped
 	// its snapshot (#310 review, COR-1), so the count would read zero.
-	Cancelled    bool
-	StateLabel   string
-	Banner       *JobBanner
-	Steps        []RunStep
-	PDFReady     bool
-	PDFURL       string
-	ReadLabel    string
-	ReviewLabel  string
+	Cancelled  bool
+	StateLabel string
+	Banner     *JobBanner
+	Steps      []RunStep
+	PDFReady   bool
+	PDFURL     string
+	// The reading (issue #311): copies read, clean, waiting, and missing
+	// (printed but never read).
+	Read    int
+	Clean   int
+	Pending int
+	Missing int
+	// ReviewURL is the review queue, when a copy waits.
+	ReviewURL string
+	// CloseAction is "Cerrar pasada"'s target; CanClose says whether it is
+	// offered, and CloseHint why not.
+	CloseAction string
+	CanClose    bool
+	CloseHint   string
+	// Open is whether the run still takes scans.
+	Open         bool
 	EditURL      string
 	CanCancel    bool
 	CancelAction string

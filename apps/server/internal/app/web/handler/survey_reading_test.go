@@ -467,3 +467,76 @@ func TestBorrarEscaneosErasesWorkerFirstThenTheCopies(t *testing.T) {
 		t.Errorf("the first upload after a reset: %q", flashOf(t, rec))
 	}
 }
+
+// Issue #311 S7: screen 9's counts and actions follow the reading, and a
+// run closes once everything is reviewed — then refuses every mutation.
+func TestARunClosesOnceReviewedAndThenRefusesEveryChange(t *testing.T) {
+	f := newSurveyFixture(t)
+	r := f.reviewable()
+	ctx := context.Background()
+	values := f.runValues(r.s, r.run)
+	dashboard := func() string {
+		return f.do(http.MethodGet, handler.SurveyRunPathFor(r.s.ID, r.run.ID), f.handler.RunDetail, nil, values...).Body.String()
+	}
+
+	page := dashboard()
+	for _, want := range []string{
+		"<th>Leídas</th><td>3</td>", "<th>Lectura limpia</th><td>1</td>", "<th>Por revisar</th><td>2</td>",
+		"<th>Faltantes</th><td>37</td>", handler.SurveyRunReviewPathFor(r.s.ID, r.run.ID),
+		"se habilita al terminar la revisión", "2 copia(s) por revisar",
+	} {
+		if !strings.Contains(page, want) {
+			t.Errorf("the dashboard lacks %q", want)
+		}
+	}
+	closePath := handler.SurveyRunClosePathFor(r.s.ID, r.run.ID)
+	if rec := f.do(http.MethodPost, closePath, f.handler.CloseRun, url.Values{}, values...); !strings.Contains(flashOf(t, rec), "Quedan lecturas por revisar") {
+		t.Errorf("closing with pending items: flash %q", flashOf(t, rec))
+	}
+
+	for _, n := range []int{2, 3} {
+		view, _ := f.surveys.CopyReading(ctx, r.run.ID, n)
+		form := url.Values{}
+		for _, it := range view.Items {
+			form.Set("choice_"+strconv.FormatInt(it.ID, 10), "discard")
+		}
+		f.do(http.MethodPost, handler.SurveyRunReviewCopyPathFor(r.s.ID, r.run.ID, n), f.handler.ResolveCopy, form, f.reviewValues(r, n)...)
+	}
+	if page := dashboard(); !strings.Contains(page, "Cerrar pasada</button>") {
+		t.Fatal("the dashboard does not offer Cerrar pasada once everything is reviewed")
+	}
+	rec := f.do(http.MethodPost, closePath, f.handler.CloseRun, url.Values{}, values...)
+	if !strings.Contains(flashOf(t, rec), "cerrada") {
+		t.Fatalf("closing: flash %q", flashOf(t, rec))
+	}
+	if got, _ := f.surveys.Run(ctx, r.s.ID, r.run.ID); got.State != survey.RunClosed {
+		t.Fatalf("state = %s, want closed", got.State)
+	}
+
+	page = dashboard()
+	if strings.Contains(page, "Cerrar pasada") || strings.Contains(page, "Subir escaneos") || strings.Contains(page, "Cancelar pasada") ||
+		!strings.Contains(page, "Ver escaneos") {
+		t.Errorf("a closed run's dashboard still offers a change")
+	}
+	if rec := f.upload(r, "hojas.pdf", "application/pdf", []byte("%PDF")); !strings.Contains(flashOf(t, rec), "ya no está abierta") {
+		t.Errorf("uploading to a closed run: %q", flashOf(t, rec))
+	}
+	if rec := f.do(http.MethodGet, handler.SurveyRunScansResetConfirmPathFor(r.s.ID, r.run.ID), f.handler.ScansResetConfirm, nil, values...); rec.Code != http.StatusNotFound {
+		t.Errorf("Borrar escaneos on a closed run: %d, want 404", rec.Code)
+	}
+	if rec := f.do(http.MethodPost, handler.SurveyRunCancelPathFor(r.s.ID, r.run.ID), f.handler.CancelRun, url.Values{}, values...); !strings.Contains(flashOf(t, rec), "ya no se puede cancelar") {
+		t.Errorf("cancelling a closed run: %q", flashOf(t, rec))
+	}
+	if rec := f.do(http.MethodPost, closePath, f.handler.CloseRun, url.Values{}, values...); !strings.Contains(flashOf(t, rec), "ya no está abierta") {
+		t.Errorf("closing twice: %q", flashOf(t, rec))
+	}
+}
+
+func TestARunWithNothingReadDoesNotClose(t *testing.T) {
+	f := newSurveyFixture(t)
+	r := f.readableRun()
+	rec := f.do(http.MethodPost, handler.SurveyRunClosePathFor(r.s.ID, r.run.ID), f.handler.CloseRun, url.Values{}, f.runValues(r.s, r.run)...)
+	if !strings.Contains(flashOf(t, rec), "no tiene copias leídas") {
+		t.Errorf("closing an unread run: flash %q", flashOf(t, rec))
+	}
+}

@@ -140,6 +140,13 @@ type Store interface {
 
 	// DecidedItems counts the run's review items already resolved.
 	DecidedItems(ctx context.Context, runID int64) (int, error)
+
+	// CloseRun freezes an OPEN run that has read copies and nothing left
+	// to review, stamping closed_at — in one guarded statement, so a batch
+	// stored or an item reopened concurrently cannot slip under it.
+	// ErrRunNotOpen, ErrNothingRead or ErrReviewPending otherwise;
+	// ErrRunNotFound as above.
+	CloseRun(ctx context.Context, surveyID, runID int64, now time.Time) error
 }
 
 // RunSummary is one survey's runs, as a list page shows them.

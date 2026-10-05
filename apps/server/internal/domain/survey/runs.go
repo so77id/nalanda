@@ -172,6 +172,11 @@ func (s *Service) CancelRun(ctx context.Context, surveyID, runID int64) error {
 	if err != nil {
 		return err
 	}
+	if run.State != RunOpen {
+		// Before the scans: "erase them first" is no advice for a run
+		// that can no longer be erased either.
+		return fmt.Errorf("survey: cancelling run %d: %w", runID, ErrRunNotCancellable)
+	}
 	uploads, err := s.Uploads(run)
 	if err != nil {
 		return err
@@ -185,4 +190,13 @@ func (s *Service) CancelRun(ctx context.Context, surveyID, runID int64) error {
 // RunSummaries is the list page's per-survey run count and latest date.
 func (s *Service) RunSummaries(ctx context.Context, courseID int64) (map[int64]RunSummary, error) {
 	return s.Store.RunSummaries(ctx, courseID)
+}
+
+// CloseRun freezes a run (issue #311): it needs at least one read copy and
+// nothing left to review. A closed run refuses every mutation — upload,
+// review, reset, edit, cancel — and only closed runs count in the results
+// (#312). There is no reopen in v1. The caller refuses first while a job
+// about the run is in flight.
+func (s *Service) CloseRun(ctx context.Context, surveyID, runID int64) error {
+	return s.Store.CloseRun(ctx, surveyID, runID, s.Now())
 }
