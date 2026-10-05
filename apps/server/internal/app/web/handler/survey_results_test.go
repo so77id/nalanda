@@ -106,3 +106,39 @@ func TestAnOpenRunHasNoResultsYet(t *testing.T) {
 		t.Errorf("an open run's results: %d → %q, flash %q", rec.Code, rec.Header().Get("Location"), flashOf(t, rec))
 	}
 }
+
+func TestScreenSixShowsOneQuestionAndItsClosedRuns(t *testing.T) {
+	f := newSurveyFixture(t)
+	r, first := f.resultsSurvey()
+	ok := survey.AnswerOK
+	// A second closed run: the scale reads 5 and 5.
+	f.closedRunOf(r,
+		[]survey.ReportAnswer{answer(r.contextQ, ok, []int{1}), answer(r.scale, ok, []int{5})},
+		[]survey.ReportAnswer{answer(r.contextQ, ok, []int{2}), answer(r.scale, ok, []int{5})},
+	)
+	page := handler.SurveyRunResultQuestionPathFor(r.s.ID, first.ID, r.scale.ID)
+	body := f.do(http.MethodGet, page, f.handler.RunResultQuestion, nil,
+		append(f.runValues(r.s, first), "qid", strconv.FormatInt(r.scale.ID, 10))...).Body.String()
+	for _, want := range []string{
+		"¿Clara?", "Escala 1-5 · 3 respuestas de 4 copias", "Promedio 3.67",
+		"Pasada 1", "promedio 3.67 · moda 2, 4, 5 · mediana 4",
+		"Pasada 2", "promedio 5 · moda 5 · mediana 5",
+	} {
+		if !strings.Contains(body, want) {
+			t.Errorf("screen 6 lacks %q", want)
+		}
+	}
+	// Screen 7 links each block to it, keeping the filter.
+	q := url.Values{"ctx": {strconv.FormatInt(r.contextQ.ID, 10)}, "alt": {strconv.FormatInt(r.contextQ.Alternatives[0].ID, 10)}}
+	list := f.do(http.MethodGet, handler.SurveyRunResultsPathFor(r.s.ID, first.ID)+"?"+q.Encode(), f.handler.RunResults, nil, f.runValues(r.s, first)...).Body.String()
+	if !strings.Contains(list, page+"?"+strings.ReplaceAll(q.Encode(), "&", "&amp;")) {
+		t.Errorf("screen 7's block does not link screen 6 with the filter")
+	}
+	// A question the run did not print: 404.
+	other := f.addQuestion(r.s, survey.QuestionDraft{Kind: survey.KindSingle, Statement: "¿Nueva?", Labels: []string{"a", "b"}})
+	rec := f.do(http.MethodGet, handler.SurveyRunResultQuestionPathFor(r.s.ID, first.ID, other.ID), f.handler.RunResultQuestion, nil,
+		append(f.runValues(r.s, first), "qid", strconv.FormatInt(other.ID, 10))...)
+	if rec.Code != http.StatusNotFound {
+		t.Errorf("a question the run never printed: %d, want 404", rec.Code)
+	}
+}

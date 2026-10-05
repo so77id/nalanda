@@ -461,3 +461,28 @@ type ResultBar struct {
 func RenderSurveyResults(w http.ResponseWriter, page SurveyResultsPage) error {
 	return render(w, "survey_results", http.StatusOK, page)
 }
+
+// SurveyResultQuestionPage is one question in detail (issue #312, screen 6).
+type SurveyResultQuestionPage struct {
+	Page
+	RunTitle   string
+	ResultsURL string
+	Block      ResultBlock
+	Filtered   bool
+	Copies     int
+	ReadCopies int
+	// Across is one line per closed run.
+	Across []ResultAcrossRow
+}
+
+// ResultAcrossRow is the question in one closed run.
+type ResultAcrossRow struct {
+	Label   string
+	Summary string
+	Current bool
+}
+
+// RenderSurveyResultQuestion writes screen 6.
+func RenderSurveyResultQuestion(w http.ResponseWriter, page SurveyResultQuestionPage) error {
+	return render(w, "survey_result_question", http.StatusOK, page)
+}

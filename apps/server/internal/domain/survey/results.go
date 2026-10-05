@@ -255,3 +255,60 @@ func (s *Service) ClosedRuns(ctx context.Context, surveyID int64) ([]Run, error)
 	}
 	return out, nil
 }
+
+// ErrQuestionNotInRun is a question the run did not print.
+var ErrQuestionNotInRun = errors.New("survey: the run did not print that question")
+
+// QuestionAcross is one closed run's view of a question; Stats is nil when
+// that run did not print it.
+type QuestionAcross struct {
+	Run   Run
+	Stats *QuestionStats
+}
+
+// QuestionResults is screen 6.
+type QuestionResults struct {
+	Run        Run
+	Number     int
+	Stats      QuestionStats
+	Copies     int
+	ReadCopies int
+	Filter     *ContextFilter
+	// Across are the survey's closed runs, oldest first, unfiltered.
+	Across []QuestionAcross
+}
+
+// QuestionResults computes one question of a closed run, with the same
+// filter as its run page, and its values in every closed run.
+func (s *Service) QuestionResults(ctx context.Context, surveyID, runID, questionID int64, filter *ContextFilter) (QuestionResults, error) {
+	page, err := s.RunResults(ctx, surveyID, runID, filter)
+	if err != nil {
+		return QuestionResults{}, err
+	}
+	out := QuestionResults{Run: page.Run, Copies: page.Copies, ReadCopies: page.ReadCopies, Filter: filter}
+	found := false
+	for _, sec := range page.Sections {
+		for _, q := range sec.Questions {
+			if q.Stats.Question.ID == questionID {
+				out.Number, out.Stats, found = q.Number, q.Stats, true
+			}
+		}
+	}
+	if !found {
+		return QuestionResults{}, fmt.Errorf("survey: question %d of run %d: %w", questionID, runID, ErrQuestionNotInRun)
+	}
+	tallies, err := s.Store.ClosedRunTallies(ctx, surveyID)
+	if err != nil {
+		return QuestionResults{}, err
+	}
+	sort.Slice(tallies, func(i, j int) bool { return tallies[i].Run.Number < tallies[j].Run.Number })
+	for _, t := range tallies {
+		across := QuestionAcross{Run: t.Run}
+		if t.Printed[questionID] {
+			st := StatsFor(out.Stats.Question, t.Tally)
+			across.Stats = &st
+		}
+		out.Across = append(out.Across, across)
+	}
+	return out, nil
+}

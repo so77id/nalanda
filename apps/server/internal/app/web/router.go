@@ -491,6 +491,10 @@ func routes(deps Deps) []Route {
 			Method: http.MethodGet, Path: handler.SurveyRunResultsPath,
 			Handler: deps.Surveys.RunResults,
 		},
+		{
+			Method: http.MethodGet, Path: handler.SurveyRunResultQuestionPath,
+			Handler: deps.Surveys.RunResultQuestion,
+		},
 		// Issue #261: archive / restore + the archived listing. Purge is
 		// S5's addition. Gated by default (no Public), CSRF enforced
 		// because the two POST methods are POST.

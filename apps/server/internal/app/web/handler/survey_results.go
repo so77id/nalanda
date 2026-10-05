@@ -85,7 +85,9 @@ func (h *Surveys) RunResults(w http.ResponseWriter, r *http.Request) {
 	for _, sec := range results.Sections {
 		sv := view.ResultSectionView{Label: sec.Label}
 		for _, rq := range sec.Questions {
-			sv.Blocks = append(sv.Blocks, resultBlock(rq.Number, rq.Stats, results.Copies))
+			block := resultBlock(rq.Number, rq.Stats, results.Copies)
+			block.DetailURL = withFilter(SurveyRunResultQuestionPathFor(one.ID, run.ID, rq.Stats.Question.ID), filter)
+			sv.Blocks = append(sv.Blocks, block)
 		}
 		page.Sections = append(page.Sections, sv)
 	}
@@ -153,4 +155,93 @@ func joinInts(xs []int) string {
 		parts[i] = strconv.Itoa(x)
 	}
 	return strings.Join(parts, ", ")
+}
+
+// SurveyRunResultQuestionPath is screen 6.
+const SurveyRunResultQuestionPath = "/surveys/{id}/runs/{rid}/results/questions/{qid}"
+
+// SurveyRunResultQuestionPathFor builds screen 6's URL.
+func SurveyRunResultQuestionPathFor(surveyID, runID, questionID int64) string {
+	return SurveyRunResultsPathFor(surveyID, runID) + "/questions/" + strconv.FormatInt(questionID, 10)
+}
+
+// withFilter carries a filter's query onto a URL.
+func withFilter(path string, f *survey.ContextFilter) string {
+	if f == nil {
+		return path
+	}
+	q := url.Values{"ctx": {strconv.FormatInt(f.QuestionID, 10)}}
+	for _, a := range f.AlternativeIDs {
+		q.Add("alt", strconv.FormatInt(a, 10))
+	}
+	return path + "?" + q.Encode()
+}
+
+// RunResultQuestion renders screen 6.
+func (h *Surveys) RunResultQuestion(w http.ResponseWriter, r *http.Request) {
+	one, run, ok := h.surveyRun(w, r)
+	if !ok {
+		return
+	}
+	qid, err := strconv.ParseInt(r.PathValue("qid"), 10, 64)
+	if err != nil || qid <= 0 {
+		middleware.WriteError(w, r, http.StatusNotFound, "Esa pregunta no existe en esta pasada.")
+		return
+	}
+	filter := parseFilter(r.URL.Query())
+	res, err := h.Service.QuestionResults(r.Context(), one.ID, run.ID, qid, filter)
+	switch {
+	case errors.Is(err, survey.ErrRunNotClosed):
+		flash.Set(w, h.secureCookie, "Los resultados aparecen cuando la pasada se cierra.")
+		http.Redirect(w, r, SurveyRunPathFor(one.ID, run.ID), http.StatusSeeOther)
+		return
+	case errors.Is(err, survey.ErrBadFilter):
+		http.Redirect(w, r, SurveyRunResultQuestionPathFor(one.ID, run.ID, qid), http.StatusSeeOther)
+		return
+	case errors.Is(err, survey.ErrQuestionNotInRun):
+		middleware.WriteError(w, r, http.StatusNotFound, "Esa pregunta no existe en esta pasada.")
+		return
+	case err != nil:
+		h.Log.Error("computing a question's results", "run", run.ID, "question", qid, "error", err)
+		middleware.WriteError(w, r, http.StatusInternalServerError, surveyBroke)
+		return
+	}
+	page := view.SurveyResultQuestionPage{
+		Page:       middleware.PageFor(r, fmt.Sprintf("Pregunta %d · %s", res.Number, runTitle(run))),
+		RunTitle:   runTitle(run),
+		ResultsURL: withFilter(SurveyRunResultsPathFor(one.ID, run.ID), filter),
+		Block:      resultBlock(res.Number, res.Stats, res.Copies),
+		Filtered:   filter != nil,
+		Copies:     res.Copies,
+		ReadCopies: res.ReadCopies,
+	}
+	for _, a := range res.Across {
+		row := view.ResultAcrossRow{Label: fmt.Sprintf("Pasada %d", a.Run.Number), Current: a.Run.ID == run.ID, Summary: "—"}
+		if a.Stats != nil {
+			row.Summary = acrossSummary(*a.Stats)
+		}
+		page.Across = append(page.Across, row)
+	}
+	page.Flash = flash.Consume(w, r, h.secureCookie)
+	if err := view.RenderSurveyResultQuestion(w, page); err != nil {
+		h.Log.Error("rendering a question's results", "error", err)
+	}
+}
+
+// acrossSummary is a question in one run, on one line: a scale's three
+// numbers, or the most-marked alternative's share.
+func acrossSummary(st survey.QuestionStats) string {
+	if st.Scale != nil {
+		return fmt.Sprintf("promedio %s · moda %s · mediana %s", decimal(st.Scale.Mean), joinInts(st.Scale.Modes), decimal(st.Scale.Median))
+	}
+	if st.Answered == 0 {
+		return "sin respuestas"
+	}
+	best := st.Rows[0]
+	for _, r := range st.Rows {
+		if r.Count > best.Count {
+			best = r
+		}
+	}
+	return fmt.Sprintf("más marcada: %s, %s", alternativeLabel(st.Question, best.Alternative), percent(best.Percent))
 }
