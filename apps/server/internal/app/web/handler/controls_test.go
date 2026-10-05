@@ -386,7 +386,7 @@ func (f *controlsFixture) jstoreRawByControl(ctx context.Context, controlID stri
 			}
 			return nil, err
 		}
-		if j.ControlID == controlID {
+		if j.SubjectID == controlID {
 			out = append(out, j)
 		}
 	}
@@ -403,12 +403,12 @@ func (f *controlsFixture) waitLatestJobTerminal(t *testing.T, controlID string) 
 	ctx := context.Background()
 	deadline := time.Now().Add(3 * time.Second)
 	for {
-		job, err := f.jstore.LatestForControl(ctx, controlID)
+		job, err := f.jstore.LatestForSubject(ctx, jobs.SubjectControl, controlID)
 		if err == nil && job.Status.IsTerminal() {
 			return job
 		}
 		if time.Now().After(deadline) {
-			last, _ := f.jstore.LatestForControl(ctx, controlID)
+			last, _ := f.jstore.LatestForSubject(ctx, jobs.SubjectControl, controlID)
 			t.Fatalf("no terminal job for %s after 3s (last: %+v, err: %v)", controlID, last, err)
 		}
 		time.Sleep(10 * time.Millisecond)
@@ -1093,7 +1093,7 @@ func TestDetailHidesDownloadLinksWhileGenerateJobIsRunning(t *testing.T) {
 	// job — reproduce the "generation in flight" state by hand.
 	ctx := context.Background()
 	id, err := f.jstore.Insert(ctx, jobs.NewJob{
-		ControlID: controlID, Kind: jobs.KindGenerate, Payload: []byte(`{}`),
+		SubjectID: controlID, Kind: jobs.KindGenerate, Payload: []byte(`{}`),
 	}, time.Now())
 	if err != nil {
 		t.Fatalf("Insert: %v", err)
@@ -1132,7 +1132,7 @@ func TestDetailHidesDownloadLinksWhenLatestGenerateJobFailed(t *testing.T) {
 
 	ctx := context.Background()
 	id, err := f.jstore.Insert(ctx, jobs.NewJob{
-		ControlID: controlID, Kind: jobs.KindGenerate, Payload: []byte(`{}`),
+		SubjectID: controlID, Kind: jobs.KindGenerate, Payload: []byte(`{}`),
 	}, time.Now())
 	if err != nil {
 		t.Fatalf("Insert: %v", err)

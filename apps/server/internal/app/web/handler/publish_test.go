@@ -150,7 +150,7 @@ func TestPublishRefusesAModeThatIsNotOneOfTheTwo(t *testing.T) {
 			if rec.Code != http.StatusUnprocessableEntity {
 				t.Fatalf("status = %d, want 422", rec.Code)
 			}
-			if _, err := f.jstore.LatestForControlByKind(
+			if _, err := f.jstore.LatestByKind(
 				context.Background(), controlID, jobs.KindPublish); err == nil {
 				t.Error("a job was enqueued for a mode the form does not offer")
 			}
@@ -229,7 +229,7 @@ func TestPublishRefusesAProfessorWithNoConnectedAccount(t *testing.T) {
 		t.Errorf("the message does not point at the profile page, which is the only repair:\n%s",
 			rec.Body.String())
 	}
-	if _, err := f.jstore.LatestForControlByKind(
+	if _, err := f.jstore.LatestByKind(
 		context.Background(), controlID, jobs.KindPublish); err == nil {
 		t.Error("a job was enqueued for a professor who cannot send")
 	}
@@ -328,7 +328,7 @@ func TestATestSendRefusesAnAddressThatIsNotOne(t *testing.T) {
 			if rec.Code != http.StatusUnprocessableEntity {
 				t.Fatalf("status = %d, want 422", rec.Code)
 			}
-			if _, err := f.jstore.LatestForControlByKind(
+			if _, err := f.jstore.LatestByKind(
 				context.Background(), controlID, jobs.KindPublish); err == nil {
 				t.Error("a job was enqueued for an address nobody can receive at")
 			}
@@ -1164,7 +1164,7 @@ func TestThePerStudentSendRefusesWhileABatchIsRunning(t *testing.T) {
 	controlID := matchedGradedControl(t, f)
 
 	if _, err := f.jstore.Insert(context.Background(), jobs.NewJob{
-		ControlID: controlID, Kind: jobs.KindPublish,
+		SubjectID: controlID, Kind: jobs.KindPublish,
 		Payload: []byte(`{"professor_id":1,"mode":"real"}`),
 	}, time.Now()); err != nil {
 		t.Fatalf("queueing a publish job: %v", err)
@@ -1249,9 +1249,9 @@ func seedTerminalJob(t *testing.T, f *controlsFixture, controlID string, kind jo
 
 	now := time.Now().Unix()
 	if _, err := f.db.ExecContext(context.Background(),
-		`INSERT INTO job (control_id, kind, status, error, detail, payload_json,
+		`INSERT INTO job (subject_kind, subject_id, kind, status, error, detail, payload_json,
 		                  created_at, started_at, finished_at)
-		 VALUES (?, ?, ?, ?, ?, '{}', ?, ?, ?)`,
+		 VALUES ('control', ?, ?, ?, ?, ?, '{}', ?, ?, ?)`,
 		controlID, string(kind), string(status), message, detail, now, now, now,
 	); err != nil {
 		t.Fatalf("seed a %s %s job: %v", status, kind, err)

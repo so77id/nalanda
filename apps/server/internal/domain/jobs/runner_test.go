@@ -37,12 +37,13 @@ func (s *fakeStore) Insert(_ context.Context, j jobs.NewJob, at time.Time) (int6
 	s.nextID++
 	id := s.nextID
 	s.jobs[id] = &jobs.Job{
-		ID:        id,
-		ControlID: j.ControlID,
-		Kind:      j.Kind,
-		Status:    jobs.StatusQueued,
-		Payload:   append([]byte(nil), j.Payload...),
-		CreatedAt: at,
+		ID:          id,
+		SubjectKind: j.Kind.Subject(),
+		SubjectID:   j.SubjectID,
+		Kind:        j.Kind,
+		Status:      jobs.StatusQueued,
+		Payload:     append([]byte(nil), j.Payload...),
+		CreatedAt:   at,
 	}
 	return id, nil
 }
@@ -111,12 +112,12 @@ func (s *fakeStore) ByID(_ context.Context, id int64) (jobs.Job, error) {
 	return *j, nil
 }
 
-func (s *fakeStore) LatestForControl(_ context.Context, controlID string) (jobs.Job, error) {
+func (s *fakeStore) LatestForSubject(_ context.Context, subject jobs.SubjectKind, id string) (jobs.Job, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	var latest *jobs.Job
 	for _, j := range s.jobs {
-		if j.ControlID != controlID {
+		if j.SubjectKind != subject || j.SubjectID != id {
 			continue
 		}
 		if latest == nil || j.CreatedAt.After(latest.CreatedAt) ||
@@ -130,12 +131,12 @@ func (s *fakeStore) LatestForControl(_ context.Context, controlID string) (jobs.
 	return *latest, nil
 }
 
-func (s *fakeStore) LatestForControlByKind(_ context.Context, controlID string, kind jobs.Kind) (jobs.Job, error) {
+func (s *fakeStore) LatestByKind(_ context.Context, id string, kind jobs.Kind) (jobs.Job, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	var latest *jobs.Job
 	for _, j := range s.jobs {
-		if j.ControlID != controlID || j.Kind != kind {
+		if j.SubjectKind != kind.Subject() || j.SubjectID != id || j.Kind != kind {
 			continue
 		}
 		if latest == nil || j.CreatedAt.After(latest.CreatedAt) ||
@@ -411,7 +412,7 @@ func TestSweepRePushesQueuedRowsToTheRunner(t *testing.T) {
 	// Simulate a pre-existing queued row (as if the previous server
 	// wrote it but died before pushing to the in-memory channel).
 	id, err := store.Insert(context.Background(), jobs.NewJob{
-		ControlID: "CTRL001", Kind: jobs.KindReanalyse, Payload: []byte(`{}`),
+		SubjectID: "CTRL001", Kind: jobs.KindReanalyse, Payload: []byte(`{}`),
 	}, time.Now())
 	if err != nil {
 		t.Fatalf("seeding queued row: %v", err)
@@ -435,7 +436,7 @@ func TestSweepFailsRunningRowsFromABeforeCrashAsRestartMidJob(t *testing.T) {
 	store := newFakeStore()
 	// Seed a `running` row (previous server died mid-job).
 	id, err := store.Insert(context.Background(), jobs.NewJob{
-		ControlID: "CTRL001", Kind: jobs.KindAnalyse, Payload: []byte(`{}`),
+		SubjectID: "CTRL001", Kind: jobs.KindAnalyse, Payload: []byte(`{}`),
 	}, time.Now())
 	if err != nil {
 		t.Fatalf("seeding: %v", err)
@@ -490,4 +491,15 @@ func mustLatestID(t *testing.T, s *fakeStore) int64 {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return s.nextID
+}
+
+// Issue #310 (ADR-0079): every Kind the controls submit is about a control.
+// A Kind that answered SubjectSurveyRun would file a control's job where
+// the control's page can never find it.
+func TestEveryControlsKindIsAboutAControl(t *testing.T) {
+	for _, kind := range []jobs.Kind{jobs.KindGenerate, jobs.KindAnalyse, jobs.KindReanalyse, jobs.KindAnnotate, jobs.KindPublish} {
+		if got := kind.Subject(); got != jobs.SubjectControl {
+			t.Errorf("%s.Subject() = %s, want %s", kind, got, jobs.SubjectControl)
+		}
+	}
 }

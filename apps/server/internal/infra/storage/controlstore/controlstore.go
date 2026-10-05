@@ -234,7 +234,13 @@ func (s *Store) RestoreControl(ctx context.Context, id string) error {
 // removes control_pregunta, copia, reading, answer, annotated_copy and job
 // rows (ADR-0034 §Consequences).
 func (s *Store) PurgeControl(ctx context.Context, id string) error {
-	result, err := s.db.ExecContext(ctx,
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("controlstore.PurgeControl %s: begin: %w", id, err)
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	result, err := tx.ExecContext(ctx,
 		`DELETE FROM control WHERE id = ? AND deleted_at IS NOT NULL`, id,
 	)
 	if err != nil {
@@ -246,6 +252,19 @@ func (s *Store) PurgeControl(ctx context.Context, id string) error {
 	}
 	if affected == 0 {
 		return fmt.Errorf("controlstore.PurgeControl %s: %w", id, controls.ErrControlNotFound)
+	}
+	// The control's jobs, in the same transaction. Until #310 the
+	// job.control_id foreign key cascaded them away; a job's subject is now
+	// a control OR a survey run (00023_job_subject.sql, ADR-0079), a column
+	// that cannot carry a REFERENCES, so the purge says it itself — after
+	// the guarded DELETE, so an active control's jobs are never touched.
+	if _, err := tx.ExecContext(ctx,
+		`DELETE FROM job WHERE subject_kind = 'control' AND subject_id = ?`, id,
+	); err != nil {
+		return fmt.Errorf("controlstore.PurgeControl %s: jobs: %w", id, err)
+	}
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("controlstore.PurgeControl %s: commit: %w", id, err)
 	}
 	return nil
 }

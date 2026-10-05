@@ -471,7 +471,7 @@ the `avisoNo*` / `flash.Set(…)` string literals in `internal/app/web/handler/`
      Non-terminal → plain redirect (no stamp). The store's
      `MarkDismissed` stays idempotent; the policy lives on the
      handler where the professor's click happens.
-  2. `handler.pdfsReadyFor` reads `jobs.Store.LatestForControlByKind
+  2. `handler.pdfsReadyFor` reads `jobs.Store.LatestByKind
      (controlID, KindGenerate)`. The template gates the download
      section on the resulting `PDFsReady`. Fallbacks: no generate
      row → TRUE (pre-#249 rows, or direct `PrepareControl` +

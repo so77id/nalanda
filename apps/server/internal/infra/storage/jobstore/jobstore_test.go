@@ -29,7 +29,7 @@ func migrated(t *testing.T) (context.Context, *sql.DB, string) {
 		t.Fatalf("Migrate: %v", err)
 	}
 
-	// Seed one professor and one control so job.control_id has a target.
+	// Seed one professor and one control the jobs are about.
 	// The control schema demands NOT NULL name/from_/to_ etc. — spell them.
 	if _, err := db.ExecContext(ctx,
 		`INSERT INTO users (email, name) VALUES (?, ?)`,
@@ -62,7 +62,7 @@ func TestInsertAndByIDRoundTripAJob(t *testing.T) {
 	store := jobstore.New(db)
 
 	id, err := store.Insert(ctx, jobs.NewJob{
-		ControlID: controlID,
+		SubjectID: controlID,
 		Kind:      jobs.KindReanalyse,
 		Payload:   []byte(`{"ticked":0.5,"unsure":0.3}`),
 	}, time.Now())
@@ -80,8 +80,8 @@ func TestInsertAndByIDRoundTripAJob(t *testing.T) {
 	if got.ID != id {
 		t.Errorf("ID = %d, want %d", got.ID, id)
 	}
-	if got.ControlID != controlID {
-		t.Errorf("ControlID = %q, want %q", got.ControlID, controlID)
+	if got.SubjectID != controlID {
+		t.Errorf("SubjectID = %q, want %q", got.SubjectID, controlID)
 	}
 	if got.Kind != jobs.KindReanalyse {
 		t.Errorf("Kind = %q, want reanalyse", got.Kind)
@@ -120,7 +120,7 @@ func TestMarkRunningStampsStartedAtAndFlipsStatus(t *testing.T) {
 	store := jobstore.New(db)
 
 	id, err := store.Insert(ctx, jobs.NewJob{
-		ControlID: controlID, Kind: jobs.KindAnalyse, Payload: []byte(`{}`),
+		SubjectID: controlID, Kind: jobs.KindAnalyse, Payload: []byte(`{}`),
 	}, time.Now())
 	if err != nil {
 		t.Fatalf("Insert: %v", err)
@@ -147,7 +147,7 @@ func TestMarkDoneStampsFinishedAtAndFlipsStatus(t *testing.T) {
 	store := jobstore.New(db)
 
 	id, _ := store.Insert(ctx, jobs.NewJob{
-		ControlID: controlID, Kind: jobs.KindGenerate, Payload: []byte(`{}`),
+		SubjectID: controlID, Kind: jobs.KindGenerate, Payload: []byte(`{}`),
 	}, time.Now())
 	_ = store.MarkRunning(ctx, id, time.Unix(1_735_000_000, 0))
 
@@ -172,7 +172,7 @@ func TestMarkDoneStoresTheNotice(t *testing.T) {
 	store := jobstore.New(db)
 
 	withNotice, _ := store.Insert(ctx, jobs.NewJob{
-		ControlID: controlID, Kind: jobs.KindAnalyse, Payload: []byte(`{}`),
+		SubjectID: controlID, Kind: jobs.KindAnalyse, Payload: []byte(`{}`),
 	}, time.Unix(1_735_000_000, 0))
 	_ = store.MarkRunning(ctx, withNotice, time.Unix(1_735_000_001, 0))
 	if err := store.MarkDone(ctx, withNotice, "1 copia ya publicada fue releída", time.Unix(1_735_000_030, 0)); err != nil {
@@ -184,11 +184,11 @@ func TestMarkDoneStoresTheNotice(t *testing.T) {
 	}
 
 	plain, _ := store.Insert(ctx, jobs.NewJob{
-		ControlID: controlID, Kind: jobs.KindAnalyse, Payload: []byte(`{}`),
+		SubjectID: controlID, Kind: jobs.KindAnalyse, Payload: []byte(`{}`),
 	}, time.Unix(1_735_000_100, 0))
 	_ = store.MarkRunning(ctx, plain, time.Unix(1_735_000_101, 0))
 	_ = store.MarkDone(ctx, plain, "", time.Unix(1_735_000_130, 0))
-	latest, _ := store.LatestForControl(ctx, controlID)
+	latest, _ := store.LatestForSubject(ctx, jobs.SubjectControl, controlID)
 	if latest.ID != plain || latest.Notice != "" {
 		t.Errorf("latest = id %d notice %q, want id %d with no notice", latest.ID, latest.Notice, plain)
 	}
@@ -199,7 +199,7 @@ func TestMarkFailedStoresBothMessages(t *testing.T) {
 	store := jobstore.New(db)
 
 	id, _ := store.Insert(ctx, jobs.NewJob{
-		ControlID: controlID, Kind: jobs.KindAnalyse, Payload: []byte(`{}`),
+		SubjectID: controlID, Kind: jobs.KindAnalyse, Payload: []byte(`{}`),
 	}, time.Now())
 	_ = store.MarkRunning(ctx, id, time.Unix(1_735_000_000, 0))
 
@@ -228,7 +228,7 @@ func TestMarkDismissedStampsViewedAt(t *testing.T) {
 	store := jobstore.New(db)
 
 	id, _ := store.Insert(ctx, jobs.NewJob{
-		ControlID: controlID, Kind: jobs.KindReanalyse, Payload: []byte(`{}`),
+		SubjectID: controlID, Kind: jobs.KindReanalyse, Payload: []byte(`{}`),
 	}, time.Now())
 	_ = store.MarkRunning(ctx, id, time.Unix(1_735_000_000, 0))
 	_ = store.MarkDone(ctx, id, "", time.Unix(1_735_000_030, 0))
@@ -243,7 +243,7 @@ func TestMarkDismissedStampsViewedAt(t *testing.T) {
 	}
 }
 
-func TestLatestForControlReturnsTheMostRecentJob(t *testing.T) {
+func TestLatestForSubjectReturnsTheMostRecentJob(t *testing.T) {
 	ctx, db, controlID := migrated(t)
 	store := jobstore.New(db)
 
@@ -256,13 +256,13 @@ func TestLatestForControlReturnsTheMostRecentJob(t *testing.T) {
 	early := time.Unix(1_735_000_000, 0)
 	late := time.Unix(1_735_000_030, 0)
 	first, _ := store.Insert(ctx, jobs.NewJob{
-		ControlID: controlID, Kind: jobs.KindGenerate, Payload: []byte(`{}`),
+		SubjectID: controlID, Kind: jobs.KindGenerate, Payload: []byte(`{}`),
 	}, early)
 	second, _ := store.Insert(ctx, jobs.NewJob{
-		ControlID: controlID, Kind: jobs.KindReanalyse, Payload: []byte(`{}`),
+		SubjectID: controlID, Kind: jobs.KindReanalyse, Payload: []byte(`{}`),
 	}, late)
 
-	got, err := store.LatestForControl(ctx, controlID)
+	got, err := store.LatestForSubject(ctx, jobs.SubjectControl, controlID)
 	if err != nil {
 		t.Fatalf("LatestForControl: %v", err)
 	}
@@ -272,11 +272,11 @@ func TestLatestForControlReturnsTheMostRecentJob(t *testing.T) {
 	}
 }
 
-func TestLatestForControlReturnsErrJobNotFoundWhenTheControlHasNoJobs(t *testing.T) {
+func TestLatestForSubjectReturnsErrJobNotFoundWhenTheControlHasNoJobs(t *testing.T) {
 	ctx, db, controlID := migrated(t)
 	store := jobstore.New(db)
 
-	if _, err := store.LatestForControl(ctx, controlID); !errors.Is(err, jobs.ErrJobNotFound) {
+	if _, err := store.LatestForSubject(ctx, jobs.SubjectControl, controlID); !errors.Is(err, jobs.ErrJobNotFound) {
 		t.Errorf("LatestForControl on a control with no jobs = %v, want ErrJobNotFound", err)
 	}
 }
@@ -294,21 +294,21 @@ func TestLatestForControlByKindReturnsTheMostRecentJobOfThatKind(t *testing.T) {
 	late := time.Unix(1_735_000_100, 0)
 
 	generateOld, _ := store.Insert(ctx, jobs.NewJob{
-		ControlID: controlID, Kind: jobs.KindGenerate, Payload: []byte(`{}`),
+		SubjectID: controlID, Kind: jobs.KindGenerate, Payload: []byte(`{}`),
 	}, early)
 	// A more recent reanalyse — this MUST NOT be picked up when we ask
 	// for the latest generate.
 	_, _ = store.Insert(ctx, jobs.NewJob{
-		ControlID: controlID, Kind: jobs.KindReanalyse, Payload: []byte(`{}`),
+		SubjectID: controlID, Kind: jobs.KindReanalyse, Payload: []byte(`{}`),
 	}, late)
 	// A generate that landed after the reanalyse (rare in practice —
 	// the design doesn't have a "regenerate" trigger yet — but a
 	// hand-inserted row must still be honored).
 	generateLatest, _ := store.Insert(ctx, jobs.NewJob{
-		ControlID: controlID, Kind: jobs.KindGenerate, Payload: []byte(`{}`),
+		SubjectID: controlID, Kind: jobs.KindGenerate, Payload: []byte(`{}`),
 	}, mid)
 
-	got, err := store.LatestForControlByKind(ctx, controlID, jobs.KindGenerate)
+	got, err := store.LatestByKind(ctx, controlID, jobs.KindGenerate)
 	if err != nil {
 		t.Fatalf("LatestForControlByKind: %v", err)
 	}
@@ -327,12 +327,12 @@ func TestLatestForControlByKindReturnsErrJobNotFoundWhenNoJobOfThatKindExists(t 
 
 	// Only a reanalyse row for this control — no generate ever ran.
 	if _, err := store.Insert(ctx, jobs.NewJob{
-		ControlID: controlID, Kind: jobs.KindReanalyse, Payload: []byte(`{}`),
+		SubjectID: controlID, Kind: jobs.KindReanalyse, Payload: []byte(`{}`),
 	}, time.Unix(1_735_000_000, 0)); err != nil {
 		t.Fatalf("seeding reanalyse: %v", err)
 	}
 
-	if _, err := store.LatestForControlByKind(ctx, controlID, jobs.KindGenerate); !errors.Is(err, jobs.ErrJobNotFound) {
+	if _, err := store.LatestByKind(ctx, controlID, jobs.KindGenerate); !errors.Is(err, jobs.ErrJobNotFound) {
 		t.Errorf("LatestForControlByKind(generate) with only reanalyse rows = %v, want ErrJobNotFound", err)
 	}
 }
@@ -342,13 +342,13 @@ func TestQueuedIDsListsEveryQueuedJobOldestFirst(t *testing.T) {
 	store := jobstore.New(db)
 
 	first, _ := store.Insert(ctx, jobs.NewJob{
-		ControlID: controlID, Kind: jobs.KindGenerate, Payload: []byte(`{}`),
+		SubjectID: controlID, Kind: jobs.KindGenerate, Payload: []byte(`{}`),
 	}, time.Now())
 	second, _ := store.Insert(ctx, jobs.NewJob{
-		ControlID: controlID, Kind: jobs.KindReanalyse, Payload: []byte(`{}`),
+		SubjectID: controlID, Kind: jobs.KindReanalyse, Payload: []byte(`{}`),
 	}, time.Now())
 	third, _ := store.Insert(ctx, jobs.NewJob{
-		ControlID: controlID, Kind: jobs.KindAnnotate, Payload: []byte(`{}`),
+		SubjectID: controlID, Kind: jobs.KindAnnotate, Payload: []byte(`{}`),
 	}, time.Now())
 	// Move `second` to `done`, so it drops out of QueuedIDs.
 	_ = store.MarkRunning(ctx, second, time.Unix(1_735_000_000, 0))
@@ -370,18 +370,18 @@ func TestFailRunningWithMessageFlipsEveryRunningRow(t *testing.T) {
 
 	// Two `running` rows, one `queued` (untouched), one `done` (untouched).
 	running1, _ := store.Insert(ctx, jobs.NewJob{
-		ControlID: controlID, Kind: jobs.KindAnalyse, Payload: []byte(`{}`),
+		SubjectID: controlID, Kind: jobs.KindAnalyse, Payload: []byte(`{}`),
 	}, time.Now())
 	_ = store.MarkRunning(ctx, running1, time.Unix(1_735_000_000, 0))
 	running2, _ := store.Insert(ctx, jobs.NewJob{
-		ControlID: controlID, Kind: jobs.KindReanalyse, Payload: []byte(`{}`),
+		SubjectID: controlID, Kind: jobs.KindReanalyse, Payload: []byte(`{}`),
 	}, time.Now())
 	_ = store.MarkRunning(ctx, running2, time.Unix(1_735_000_000, 0))
 	queued, _ := store.Insert(ctx, jobs.NewJob{
-		ControlID: controlID, Kind: jobs.KindGenerate, Payload: []byte(`{}`),
+		SubjectID: controlID, Kind: jobs.KindGenerate, Payload: []byte(`{}`),
 	}, time.Now())
 	done, _ := store.Insert(ctx, jobs.NewJob{
-		ControlID: controlID, Kind: jobs.KindAnnotate, Payload: []byte(`{}`),
+		SubjectID: controlID, Kind: jobs.KindAnnotate, Payload: []byte(`{}`),
 	}, time.Now())
 	_ = store.MarkRunning(ctx, done, time.Unix(1_735_000_000, 0))
 	_ = store.MarkDone(ctx, done, "", time.Unix(1_735_000_030, 0))
@@ -410,5 +410,40 @@ func TestFailRunningWithMessageFlipsEveryRunningRow(t *testing.T) {
 	gotDone, _ := store.ByID(ctx, done)
 	if gotDone.Status != jobs.StatusDone {
 		t.Errorf("done row moved to %q, want it untouched", gotDone.Status)
+	}
+}
+
+// Issue #310 (ADR-0079): a control id and a survey run id are both TEXT in
+// subject_id, and nothing stops them from being the same string. The
+// "latest job" queries must answer about the subject asked for, never the
+// other subsystem's row with the same id.
+func TestLatestForSubjectNeverAnswersAboutTheOtherSubsystem(t *testing.T) {
+	ctx, db, sameID := migrated(t)
+	store := jobstore.New(db)
+
+	if _, err := store.Insert(ctx, jobs.NewJob{SubjectID: sameID, Kind: jobs.KindGenerate, Payload: []byte(`{}`)}, time.Unix(100, 0)); err != nil {
+		t.Fatalf("Insert: %v", err)
+	}
+	// A newer job about a survey run that happens to carry the same id.
+	if _, err := db.ExecContext(ctx, `
+        INSERT INTO job (subject_kind, subject_id, kind, status, payload_json, created_at)
+        VALUES ('survey_run', ?, 'survey_generate', 'queued', '{}', 200)`, sameID); err != nil {
+		t.Fatalf("inserting the run's job: %v", err)
+	}
+
+	got, err := store.LatestForSubject(ctx, jobs.SubjectControl, sameID)
+	if err != nil {
+		t.Fatalf("LatestForSubject: %v", err)
+	}
+	if got.Kind != jobs.KindGenerate || got.SubjectKind != jobs.SubjectControl {
+		t.Errorf("the control's latest job is %s about %s, want its own generate", got.Kind, got.SubjectKind)
+	}
+	got, err = store.LatestByKind(ctx, sameID, jobs.KindGenerate)
+	if err != nil || got.SubjectKind != jobs.SubjectControl {
+		t.Errorf("LatestByKind = %+v, %v; want the control's generate", got, err)
+	}
+	run, err := store.LatestForSubject(ctx, jobs.SubjectSurveyRun, sameID)
+	if err != nil || run.Kind != "survey_generate" {
+		t.Errorf("the run's latest job = %+v, %v; want its survey_generate", run, err)
 	}
 }

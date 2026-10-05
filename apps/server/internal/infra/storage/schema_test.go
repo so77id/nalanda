@@ -1148,13 +1148,25 @@ func TestACourseWithControlsCannotBeDeleted(t *testing.T) {
 // satisfying one but not the other is a silent drop of that class of work"
 // is exactly this failure.
 
+// insertLegacyJobRow adds one job in the shape `job` had BEFORE 00023
+// (control_id, #310) — for the cases that stop the migration set short of
+// it to pin an older migration.
+func insertLegacyJobRow(t *testing.T, ctx context.Context, db *sql.DB, controlID, kind string) {
+	t.Helper()
+	if _, err := db.ExecContext(ctx, `
+        INSERT INTO job (control_id, kind, status, payload_json, created_at)
+        VALUES (?, ?, 'queued', '{}', 0)`, controlID, kind); err != nil {
+		t.Fatalf("inserting a legacy %s job: %v", kind, err)
+	}
+}
+
 // insertJobRow adds one job and returns its id.
 func insertJobRow(t *testing.T, ctx context.Context, db *sql.DB, controlID, kind string) int64 {
 	t.Helper()
 
 	result, err := db.ExecContext(ctx, `
-        INSERT INTO job (control_id, kind, status, payload_json, created_at)
-        VALUES (?, ?, 'queued', '{}', 0)`,
+        INSERT INTO job (subject_kind, subject_id, kind, status, payload_json, created_at)
+        VALUES ('control', ?, ?, 'queued', '{}', 0)`,
 		controlID, kind,
 	)
 	if err != nil {
@@ -1317,8 +1329,8 @@ func TestJobKindAcceptsPublishAndStillRefusesAnUnknownKind(t *testing.T) {
 	}
 
 	_, err := db.ExecContext(ctx, `
-        INSERT INTO job (control_id, kind, status, payload_json, created_at)
-        VALUES (?, 'publicar', 'queued', '{}', 0)`, id)
+        INSERT INTO job (subject_kind, subject_id, kind, status, payload_json, created_at)
+        VALUES ('control', ?, 'publicar', 'queued', '{}', 0)`, id)
 	if err == nil {
 		t.Fatal("job.kind accepted 'publicar'; the CHECK must stay a closed set")
 	}
@@ -1366,7 +1378,11 @@ func TestTheJobKindRebuildPreservesTheRowsAndTheConstraints(t *testing.T) {
 	}
 	defer func() { _ = reopened.Close() }()
 
-	applied, err := storage.Migrate(ctx, reopened, migrations.FS)
+	// Up to 00022 and no further: what this case pins is the 00017 rebuild,
+	// and 00023 (#310) rebuilt the table again into subject columns with no
+	// foreign key — TestTheJobSubjectRebuildKeepsEveryControlsJob is that
+	// one's case.
+	applied, err := storage.Migrate(ctx, reopened, migrationsUpTo(t, "00023"))
 	if err != nil {
 		t.Fatalf("applying the rebuild over a database holding a job row: %v", err)
 	}
@@ -1510,7 +1526,7 @@ func TestDroppingPublishedSentKeepsTheControlItsChildrenAndItsCascades(t *testin
 		t.Fatalf("publishing the pre-migration control: %v", err)
 	}
 	insertReadingRow(t, ctx, db, controlID, 1, nil)
-	insertJobRow(t, ctx, db, controlID, "publish")
+	insertLegacyJobRow(t, ctx, db, controlID, "publish")
 	if _, err := db.ExecContext(ctx,
 		"INSERT INTO copia (control_id, numero) VALUES (?, 1)", controlID); err != nil {
 		t.Fatalf("inserting the copia: %v", err)
@@ -1533,7 +1549,9 @@ func TestDroppingPublishedSentKeepsTheControlItsChildrenAndItsCascades(t *testin
 	}
 	defer func() { _ = reopened.Close() }()
 
-	applied, err := storage.Migrate(ctx, reopened, migrations.FS)
+	// Up to 00022: this case pins 00020, and counts the control's children
+	// by control_id — which `job` stops having in 00023 (#310).
+	applied, err := storage.Migrate(ctx, reopened, migrationsUpTo(t, "00023"))
 	if err != nil {
 		t.Fatalf("dropping the column over a database holding a published control: %v", err)
 	}
@@ -1611,6 +1629,94 @@ func TestDroppingPublishedSentKeepsTheControlItsChildrenAndItsCascades(t *testin
 		}
 		if n != 0 {
 			t.Errorf("%d rows survived their control in %s, want the cascade to have removed them", n, table)
+		}
+	}
+}
+
+// Issue #310 S1 (ADR-0079): 00023 rebuilds `job` around a polymorphic
+// subject. Every job that existed is a control's, so it must come across
+// as subject ('control', its id) with every other column verbatim; the
+// index the banner query needs must come back under its new shape; and
+// the two CHECKs must admit the survey half and nothing else.
+func TestTheJobSubjectRebuildKeepsEveryControlsJob(t *testing.T) {
+	ctx := context.Background()
+	path := filepath.Join(t.TempDir(), "nalanda.db")
+
+	db, err := storage.Open(ctx, path)
+	if err != nil {
+		t.Fatalf("Open: %v", err)
+	}
+	if _, err := storage.Migrate(ctx, db, migrationsUpTo(t, "00023")); err != nil {
+		t.Fatalf("applying the set as it shipped before #310: %v", err)
+	}
+	userID := insertProfessor(t, ctx, db, "profesora@example.com")
+	controlID := insertControlRow(t, ctx, db, "CTRLJOBSUBJECT0000000001", userID, nil)
+	if _, err := db.ExecContext(ctx, `
+        INSERT INTO job (control_id, kind, status, error, detail, payload_json,
+                         created_at, started_at, finished_at, viewed_at, notice)
+        VALUES (?, 'analyse', 'done', NULL, NULL, '{"batch":"lote-1"}', 100, 110, 120, 130, 'releída')`,
+		controlID); err != nil {
+		t.Fatalf("inserting the pre-migration job: %v", err)
+	}
+	_ = db.Close()
+
+	reopened, err := storage.Open(ctx, path)
+	if err != nil {
+		t.Fatalf("reopening: %v", err)
+	}
+	defer func() { _ = reopened.Close() }()
+	applied, err := storage.Migrate(ctx, reopened, migrations.FS)
+	if err != nil {
+		t.Fatalf("applying 00023 over a database holding a job: %v", err)
+	}
+	if applied == 0 {
+		t.Fatal("nothing applied over the pre-#310 database, so every assertion below is vacuous")
+	}
+
+	var (
+		subjectKind, subjectID, kind, status, payload, notice string
+		created, started, finished, viewed                    int64
+	)
+	if err := reopened.QueryRowContext(ctx, `
+        SELECT subject_kind, subject_id, kind, status, payload_json, notice,
+               created_at, started_at, finished_at, viewed_at FROM job`,
+	).Scan(&subjectKind, &subjectID, &kind, &status, &payload, &notice,
+		&created, &started, &finished, &viewed); err != nil {
+		t.Fatalf("the job did not survive the rebuild: %v", err)
+	}
+	switch {
+	case subjectKind != "control" || subjectID != controlID:
+		t.Errorf("subject = %s/%s, want control/%s", subjectKind, subjectID, controlID)
+	case kind != "analyse" || status != "done" || payload != `{"batch":"lote-1"}` || notice != "releída":
+		t.Errorf("kind/status/payload/notice = %s/%s/%s/%s, want them verbatim", kind, status, payload, notice)
+	case created != 100 || started != 110 || finished != 120 || viewed != 130:
+		t.Errorf("timestamps = %d/%d/%d/%d, want 100/110/120/130", created, started, finished, viewed)
+	}
+
+	var index string
+	if err := reopened.QueryRowContext(ctx,
+		"SELECT name FROM sqlite_master WHERE type = 'index' AND name = 'idx_job_by_subject'",
+	).Scan(&index); err != nil {
+		t.Errorf("idx_job_by_subject is missing after the rebuild: %v", err)
+	}
+
+	// The survey half is admitted…
+	if _, err := reopened.ExecContext(ctx, `
+        INSERT INTO job (subject_kind, subject_id, kind, status, payload_json, created_at)
+        VALUES ('survey_run', '7', 'survey_generate', 'queued', '{}', 0)`); err != nil {
+		t.Errorf("a survey run's generate job: %v, want it admitted", err)
+	}
+	// …and the CHECKs still refuse what is neither. Each case varies one
+	// column, so the CHECK it names is the one that fired.
+	for name, sql := range map[string]string{
+		"an unknown subject": `INSERT INTO job (subject_kind, subject_id, kind, status, payload_json, created_at)
+            VALUES ('course', '1', 'generate', 'queued', '{}', 0)`,
+		"an unknown kind": `INSERT INTO job (subject_kind, subject_id, kind, status, payload_json, created_at)
+            VALUES ('control', 'X', 'ranking', 'queued', '{}', 0)`,
+	} {
+		_, err := reopened.ExecContext(ctx, sql)
+		if err == nil || !strings.Contains(err.Error(), "CHECK") {
+			t.Errorf("%s: %v, want a CHECK failure", name, err)
 		}
 	}
 }

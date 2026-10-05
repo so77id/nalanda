@@ -916,7 +916,7 @@ func sectionOptionsFromBank(b *bank.Bank) []view.DocumentSections {
 // fillPublication read it for the Publicar button on this same request; a
 // failed publication links to /profile only while it is false (issue #297).
 func (h *Controls) jobBannerFor(ctx context.Context, controlID string, gmailConnected bool) *view.JobBanner {
-	job, err := h.Jobs.LatestForControl(ctx, controlID)
+	job, err := h.Jobs.LatestForSubject(ctx, jobs.SubjectControl, controlID)
 	if err != nil {
 		if !errors.Is(err, jobs.ErrJobNotFound) {
 			h.Log.Warn("jobs: reading banner", "control", controlID, "error", err)
@@ -993,7 +993,7 @@ func (h *Controls) jobBannerFor(ctx context.Context, controlID string, gmailConn
 // as jobBannerFor: a lost jobs.Store read shouldn't hide a
 // legitimately-there download.
 func (h *Controls) pdfsReadyFor(ctx context.Context, controlID string) bool {
-	job, err := h.Jobs.LatestForControlByKind(ctx, controlID, jobs.KindGenerate)
+	job, err := h.Jobs.LatestByKind(ctx, controlID, jobs.KindGenerate)
 	if err != nil {
 		if !errors.Is(err, jobs.ErrJobNotFound) {
 			h.Log.Warn("jobs: reading generate status", "control", controlID, "error", err)
@@ -1075,7 +1075,7 @@ func (h *Controls) DismissJob(w http.ResponseWriter, r *http.Request) {
 		// "Refrescar" while the job is still working: reload the page
 		// and let the runner keep going. Stamping viewed_at here would
 		// mute the eventual terminal banner (issue #257).
-		http.Redirect(w, r, controlDetailURL(job.ControlID), http.StatusSeeOther)
+		http.Redirect(w, r, controlDetailURL(job.SubjectID), http.StatusSeeOther)
 		return
 	}
 	if err := h.Jobs.MarkDismissed(r.Context(), jobID, time.Now()); err != nil {
@@ -1084,7 +1084,7 @@ func (h *Controls) DismissJob(w http.ResponseWriter, r *http.Request) {
 			"No se pudo cerrar el aviso.")
 		return
 	}
-	http.Redirect(w, r, controlDetailURL(job.ControlID), http.StatusSeeOther)
+	http.Redirect(w, r, controlDetailURL(job.SubjectID), http.StatusSeeOther)
 }
 
 func jobDismissURL(id int64) string {

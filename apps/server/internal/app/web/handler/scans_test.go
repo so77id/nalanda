@@ -733,9 +733,9 @@ func TestReanalyzeReturns303ImmediatelyAndCreatesAJobRow(t *testing.T) {
 	}
 	// A row exists on the store IMMEDIATELY — the runner may or may
 	// not have picked it up yet, but the job is committed.
-	latest, err := f.jstore.LatestForControl(context.Background(), controlID)
+	latest, err := f.jstore.LatestForSubject(context.Background(), jobs.SubjectControl, controlID)
 	if err != nil {
-		t.Fatalf("LatestForControl right after Submit: %v", err)
+		t.Fatalf("LatestForSubject right after Submit: %v", err)
 	}
 	if latest.Kind != jobs.KindReanalyse {
 		t.Errorf("latest job Kind = %q, want reanalyse", latest.Kind)
@@ -917,7 +917,7 @@ func TestDismissJobDoesNotStampViewedAtWhileRunning(t *testing.T) {
 	// flaky. Same shape jobstore_test.go and runner_test.go already use.
 	ctx := context.Background()
 	id, err := f.jstore.Insert(ctx, jobs.NewJob{
-		ControlID: controlID, Kind: jobs.KindReanalyse, Payload: []byte(`{}`),
+		SubjectID: controlID, Kind: jobs.KindReanalyse, Payload: []byte(`{}`),
 	}, time.Now())
 	if err != nil {
 		t.Fatalf("Insert: %v", err)
@@ -958,7 +958,7 @@ func TestDismissJobDoesNotStampViewedAtWhileQueued(t *testing.T) {
 
 	ctx := context.Background()
 	id, err := f.jstore.Insert(ctx, jobs.NewJob{
-		ControlID: controlID, Kind: jobs.KindReanalyse, Payload: []byte(`{}`),
+		SubjectID: controlID, Kind: jobs.KindReanalyse, Payload: []byte(`{}`),
 	}, time.Now())
 	if err != nil {
 		t.Fatalf("Insert: %v", err)

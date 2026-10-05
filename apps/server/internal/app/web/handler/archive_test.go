@@ -179,7 +179,7 @@ func TestArchiveDoesNotDisturbAnInFlightJob(t *testing.T) {
 	ctx := context.Background()
 
 	id, err := f.jstore.Insert(ctx, jobs.NewJob{
-		ControlID: controlID, Kind: jobs.KindReanalyse, Payload: []byte(`{}`),
+		SubjectID: controlID, Kind: jobs.KindReanalyse, Payload: []byte(`{}`),
 	}, time.Now())
 	if err != nil {
 		t.Fatalf("Insert: %v", err)

@@ -9,11 +9,13 @@ import (
 )
 
 // Handler is what the runner reaches into for each Kind. Registered at
-// wiring time in cmd/server; the runner never imports the controls
-// domain itself (backend-code-style.md §The dependency rule). controlID
-// and payload are what Submit stored on the row, verbatim: the handler
-// deserialises the payload against the kind it registered for.
-type Handler func(ctx context.Context, controlID string, payload []byte) error
+// wiring time in cmd/server; the runner never imports the controls or the
+// survey domain itself (backend-code-style.md §The dependency rule).
+// subjectID and payload are what Submit stored on the row, verbatim — a
+// control's id for a control Kind, a survey run's for a survey Kind
+// (Kind.Subject) — and the handler deserialises the payload against the
+// kind it registered for.
+type Handler func(ctx context.Context, subjectID string, payload []byte) error
 
 // Handlers is the map keyed by Kind. NewRunner refuses to construct a
 // runner missing any handler — a wiring mistake is a panic at boot
@@ -116,11 +118,11 @@ func NewRunner(store Store, handlers Handlers, log *slog.Logger, now func() time
 // job's id so the caller can render "job N encolado" or redirect to a
 // page that renders the banner from the latest job. Fast — no AMC call
 // happens on this path.
-func (r *Runner) Submit(ctx context.Context, controlID string, kind Kind, payload []byte) (int64, error) {
+func (r *Runner) Submit(ctx context.Context, subjectID string, kind Kind, payload []byte) (int64, error) {
 	// No unknown-kind check here: NewRunner already refused a Handlers
 	// map missing any ValidKinds entry, and callers use the typed
 	// constants (a typo is a compile error, not a runtime one).
-	id, err := r.store.Insert(ctx, NewJob{ControlID: controlID, Kind: kind, Payload: payload}, r.now())
+	id, err := r.store.Insert(ctx, NewJob{SubjectID: subjectID, Kind: kind, Payload: payload}, r.now())
 	if err != nil {
 		return 0, fmt.Errorf("jobs.Runner.Submit: %w", err)
 	}
@@ -128,7 +130,7 @@ func (r *Runner) Submit(ctx context.Context, controlID string, kind Kind, payloa
 	case r.ch <- id:
 	default:
 		r.log.Warn("jobs: notification channel full; runner will pick this row up on its next drain",
-			"id", id, "kind", string(kind), "control", controlID)
+			"id", id, "kind", string(kind), "subject", subjectID)
 	}
 	return id, nil
 }
@@ -252,7 +254,7 @@ func (r *Runner) runOne(ctx context.Context, id int64) {
 			r.log.Error("jobs: mark done", "id", id, "error", err)
 		}
 		r.log.Info("jobs: job done",
-			"id", id, "kind", string(job.Kind), "control", job.ControlID)
+			"id", id, "kind", string(job.Kind), "subject", string(job.SubjectKind)+":"+job.SubjectID)
 		return
 	}
 	msg, detail := extractFailure(handlerErr)
@@ -260,7 +262,7 @@ func (r *Runner) runOne(ctx context.Context, id int64) {
 		r.log.Error("jobs: mark failed", "id", id, "error", err)
 	}
 	r.log.Warn("jobs: job failed",
-		"id", id, "kind", string(job.Kind), "control", job.ControlID, "error", msg)
+		"id", id, "kind", string(job.Kind), "subject", string(job.SubjectKind)+":"+job.SubjectID, "error", msg)
 }
 
 // asNotice returns err when it IS a *Notice, and nil otherwise — a type
@@ -280,11 +282,11 @@ func (r *Runner) callHandler(ctx context.Context, handler Handler, job Job) (err
 		if p := recover(); p != nil {
 			err = &Failure{
 				Message: fmt.Sprintf("panic: %v", p),
-				Detail:  fmt.Sprintf("panic while running kind=%s id=%d control=%s: %v", job.Kind, job.ID, job.ControlID, p),
+				Detail:  fmt.Sprintf("panic while running kind=%s id=%d %s=%s: %v", job.Kind, job.ID, job.SubjectKind, job.SubjectID, p),
 			}
 		}
 	}()
-	return handler(ctx, job.ControlID, job.Payload)
+	return handler(ctx, job.SubjectID, job.Payload)
 }
 
 // extractFailure pulls the (message, detail) pair the handler wanted the
