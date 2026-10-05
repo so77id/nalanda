@@ -257,6 +257,12 @@ func (h *Surveys) EditRun(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+	if run.State != survey.RunOpen {
+		// The save would be refused (ErrRunNotOpen): never draw the form.
+		flash.Set(w, h.secureCookie, "Esta pasada ya no está abierta: no se puede editar.")
+		http.Redirect(w, r, SurveyRunPathFor(one.ID, run.ID), http.StatusSeeOther)
+		return
+	}
 	h.renderRunEditForm(w, r, one, run, http.StatusOK,
 		view.RunFormValues{Name: run.Name, AppliedOn: run.AppliedOn}, nil)
 }

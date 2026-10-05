@@ -432,6 +432,11 @@ func TestEditingACancelledRunIsRefusedWithAFlash(t *testing.T) {
 	if rec.Code != http.StatusSeeOther || !strings.Contains(flashOf(t, rec), "ya no está abierta") {
 		t.Errorf("status = %d, flash = %q", rec.Code, flashOf(t, rec))
 	}
+	// Nor is its form drawn: a form whose save is refused is a dead offer.
+	rec = f.do(http.MethodGet, handler.SurveyRunEditPathFor(s.ID, run.ID), f.handler.EditRun, nil, f.runValues(s, run)...)
+	if rec.Code != http.StatusSeeOther || rec.Header().Get("Location") != handler.SurveyRunPathFor(s.ID, run.ID) {
+		t.Errorf("GET edit of a cancelled run: status = %d, location = %q", rec.Code, rec.Header().Get("Location"))
+	}
 }
 
 // #310 review recheck, COR-R1 / COR-R2: a cancelled run's page does not
