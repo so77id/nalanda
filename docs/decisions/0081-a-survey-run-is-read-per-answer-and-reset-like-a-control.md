@@ -4,7 +4,7 @@
 §Not yet proven, `apps/amc-worker/PAPER-CHECK.md` §7)
 **Date:** 2026-10-05
 **Decision-makers:** Miguel Rodriguez
-**Source:** epic #308, WP-3 #311 (S1–S6). Builds on ADR-0080 (the run
+**Source:** epic #308, WP-3 #311 (S1–S7). Builds on ADR-0080 (the run
 model) and ADR-0079 (the queue); amends ADR-0075 §5 and ADR-0050's #298
 amendment (a second synchronous worker call).
 
@@ -72,11 +72,24 @@ they can for a control (ADR-0075 §5).
    Cancelling releases the bank lock (ADR-0080 §5) under readings that
    would then count nowhere. Start over with "Borrar escaneos" first.
 
+7. **A run is closed once, by hand, and only closed runs count.** "Cerrar
+   pasada" needs at least one read copy and no pending review item, and is
+   refused while a job of the run is in flight; the store checks the first
+   two in the closing statement itself. A closed run refuses every mutation
+   — upload, review, reset, edit, cancel, a reading that was already queued
+   (`SaveReadings` checks the state in its own transaction) — and there is
+   no reopen in v1 (#313). The results (#312) count closed runs only: a
+   number never moves under a professor who already read it.
+
 ## Alternatives considered
 
 - **Reuse `Client.ResetScans`.** It returns `controls.ErrAnalyzerBusy` and
   `controls.ErrAnalyzerRefused`; the survey domain cannot name them
   (`TestTheSurveyDomainDoesNotImportControls`, ADR-0078). Rejected.
+- **Count open runs live, or let a closed run reopen.** Results that
+  change while a review is half done, or after they were presented, are
+  worse than results that wait. Reopening is #313's to weigh. Rejected for
+  v1.
 - **Make the reset an async job.** It would need no exception, but the
   professor is on a confirmation page waiting to know the scans are gone;
   the call is bounded (it deletes files) and the lock is never waited on.

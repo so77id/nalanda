@@ -165,6 +165,9 @@ internal/app/api/  the JSON/WS surface — anonymous, no middleware (§C12)
 internal/infra/    adapters: config, storage, httpserver, httpjson, selfcheck
   amcworker/       the AMC worker HTTP client (with generateLock mutex);
                    implements survey.Generator too (GenerateSheet, #310)
+                   and survey.Analyzer (AnalyzeSheets, ResetSurveyScans,
+                   #311) — one wire per route, each domain's own sentinels
+                   (postWire / resetScans take them as workerErrors)
   email/          the four transports behind controls.Dispatcher — stub, dryrun,
                   staging, gmail (#273). A fifth must answer Delivers() and
                   RedirectsToSender() honestly: the domain reads both before
