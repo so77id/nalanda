@@ -95,18 +95,46 @@ func (c *Client) Reanalyze(ctx context.Context, req controls.ReanalyzeRequest) (
 // Analyze and Reanalyze because their success and failure envelopes are the
 // same shape — only the request body differs.
 func (c *Client) postReport(ctx context.Context, path string, body []byte) (controls.Report, error) {
+	wire, err := c.postWire(ctx, path, body, controlsReadErrors)
+	if err != nil {
+		return controls.Report{}, err
+	}
+	return wire.toDomain(), nil
+}
+
+// readErrors are the sentinels a reading call fails with — the CALLER's
+// domain's, so the survey's /analyse never answers in the controls' errors
+// (issue #311; the same split generate() makes for /generate).
+type readErrors struct {
+	refused     error
+	unavailable error
+	// refusal builds the error for a worker that answered non-2xx.
+	refusal func(status int, message, detail string) error
+}
+
+var controlsReadErrors = readErrors{
+	refused:     controls.ErrAnalyzerRefused,
+	unavailable: controls.ErrAnalyzerUnavailable,
+	refusal: func(status int, message, detail string) error {
+		return &controls.AnalyzerRefusedError{Status: status, Message: message, Detail: detail}
+	},
+}
+
+// postWire is postReport's transport half: it returns the report as the
+// wire carries it, failing with errs.
+func (c *Client) postWire(ctx context.Context, path string, body []byte, errs readErrors) (reportBody, error) {
 	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, c.base+path, bytes.NewReader(body))
 	if err != nil {
-		return controls.Report{}, fmt.Errorf("amcworker: build request: %w", err)
+		return reportBody{}, fmt.Errorf("amcworker: build request: %w", err)
 	}
 	httpReq.Header.Set("Content-Type", "application/json")
 
 	resp, err := c.http.Do(httpReq)
 	if err != nil {
 		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
-			return controls.Report{}, fmt.Errorf("amcworker: %w", err)
+			return reportBody{}, fmt.Errorf("amcworker: %w", err)
 		}
-		return controls.Report{}, fmt.Errorf("%w: %v", controls.ErrAnalyzerUnavailable, err)
+		return reportBody{}, fmt.Errorf("%w: %v", errs.unavailable, err)
 	}
 	defer func() { _ = resp.Body.Close() }()
 
@@ -117,7 +145,7 @@ func (c *Client) postReport(ctx context.Context, path string, body []byte) (cont
 	const maxRead = 8 << 20
 	respBody, err := io.ReadAll(io.LimitReader(resp.Body, maxRead))
 	if err != nil {
-		return controls.Report{}, fmt.Errorf("%w: read response: %v", controls.ErrAnalyzerUnavailable, err)
+		return reportBody{}, fmt.Errorf("%w: read response: %v", errs.unavailable, err)
 	}
 
 	if resp.StatusCode != http.StatusOK {
@@ -129,27 +157,20 @@ func (c *Client) postReport(ctx context.Context, path string, body []byte) (cont
 		// Detail without re-parsing the error string.
 		var payload workerError
 		if jerr := json.Unmarshal(respBody, &payload); jerr == nil && payload.Error != "" {
-			return controls.Report{}, &controls.AnalyzerRefusedError{
-				Status:  resp.StatusCode,
-				Message: payload.Error,
-				Detail:  payload.Detail,
-			}
+			return reportBody{}, errs.refusal(resp.StatusCode, payload.Error, payload.Detail)
 		}
 		// The worker answered non-2xx with something that did not parse
 		// as its error envelope — no envelope fields to surface, so
 		// Detail stays empty and Message carries the truncated body so
 		// the log line still names what the worker returned.
-		return controls.Report{}, &controls.AnalyzerRefusedError{
-			Status:  resp.StatusCode,
-			Message: truncateForLog(respBody),
-		}
+		return reportBody{}, errs.refusal(resp.StatusCode, truncateForLog(respBody), "")
 	}
 
 	var wire reportBody
 	if err := json.Unmarshal(respBody, &wire); err != nil {
-		return controls.Report{}, fmt.Errorf("%w: decode response: %v", controls.ErrAnalyzerRefused, err)
+		return reportBody{}, fmt.Errorf("%w: decode response: %v", errs.refused, err)
 	}
-	return wire.toDomain(), nil
+	return wire, nil
 }
 
 // Assert the interface at compile time.
