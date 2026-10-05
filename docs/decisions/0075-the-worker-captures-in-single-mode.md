@@ -4,6 +4,7 @@
 (a re-read moves published copies between ADR-0073's states)
 **Date:** 2026-09-22
 **Decision-makers:** Miguel Rodriguez
+**Amended by:** #311 (2026-10-05) — §5's reset gains a survey twin: "Borrar escaneos" on a survey run calls the same `/scans/reset` through `amcworker.Client.ResetSurveyScans`, with the same two properties (it only removes files; it never waits on the lock) and the same two departures from the fourth synchronous rule. It is the second synchronous worker call; ADR-0081 §5.
 **Source:** #298, from a production incident on Control 7 (job 27,
 2026-09-22), unstuck by hand over ssh. Root cause found by reading AMC 1.6.0's
 own Perl on the Jetson; every consequence below re-measured in

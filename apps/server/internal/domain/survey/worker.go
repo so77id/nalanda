@@ -109,12 +109,20 @@ type ReportAnswer struct {
 // Analyzer reads a run's scans on the AMC worker.
 type Analyzer interface {
 	AnalyzeSheets(ctx context.Context, req AnalyzeRequest) (Report, error)
+	// ResetSurveyScans removes a run's capture, scan images, page lists
+	// and uploaded PDFs from its project, keeping the layout and inputs
+	// (the worker's /scans/reset). It never waits for the worker: a busy
+	// one answers ErrAnalyzerBusy at once.
+	ResetSurveyScans(ctx context.Context, project string) error
 }
 
 // Reader sentinels.
 var (
 	// ErrAnalyzerRefused is the worker refusing the batch or its request.
 	ErrAnalyzerRefused = errors.New("survey: the worker refused to read the scans")
+	// ErrAnalyzerBusy is the worker busy with another job; a reset does
+	// not wait for it (the professor is waiting on the request).
+	ErrAnalyzerBusy = errors.New("survey: the scan reader is busy")
 	// ErrAnalyzerUnavailable is the worker not answering.
 	ErrAnalyzerUnavailable = errors.New("survey: the scan reader is unavailable")
 	// ErrNothingCaptured is a batch AMC recognised no page of — single-mode

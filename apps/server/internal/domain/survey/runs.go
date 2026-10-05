@@ -163,8 +163,22 @@ func (s *Service) UpdateRun(ctx context.Context, surveyID, runID int64, d RunDra
 
 // CancelRun cancels an open run, releasing the bank if no other run holds
 // it. The caller refuses first while a job about the run is in flight
-// (the handler holds the jobs store); WP-3 adds "no scans".
+// (the handler holds the jobs store). A run with scans is refused
+// (ErrRunHasScans, #311): an uploaded batch here — a batch whose reading
+// failed still counts, it is what "Borrar escaneos" exists for — and a
+// read copy in the store's own statement.
 func (s *Service) CancelRun(ctx context.Context, surveyID, runID int64) error {
+	run, err := s.Store.Run(ctx, surveyID, runID)
+	if err != nil {
+		return err
+	}
+	uploads, err := s.Uploads(run)
+	if err != nil {
+		return err
+	}
+	if len(uploads) > 0 {
+		return fmt.Errorf("survey: cancelling run %d: %w", runID, ErrRunHasScans)
+	}
 	return s.Store.CancelRun(ctx, surveyID, runID, s.Now())
 }
 

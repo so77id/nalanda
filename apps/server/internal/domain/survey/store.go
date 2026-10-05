@@ -89,7 +89,9 @@ type Store interface {
 	// CancelRun moves an OPEN run to cancelled and drops its snapshot, so
 	// the questions it printed can be deleted again — a cancelled run is
 	// excluded from everything and must not hold the bank (#310 review,
-	// COR-1). ErrRunNotCancellable when it is not open; ErrRunNotFound as
+	// COR-1). ErrRunNotCancellable when it is not open; ErrRunHasScans
+	// when it has read copies (#311; checked in the same statement, so a
+	// reading stored concurrently cannot slip under it); ErrRunNotFound as
 	// above.
 	CancelRun(ctx context.Context, surveyID, runID int64, now time.Time) error
 
@@ -130,6 +132,14 @@ type Store interface {
 	// decided. Validating the choice against the question is the
 	// service's (ResolveCopy).
 	ResolveItems(ctx context.Context, runID, copyID int64, decisions []ItemResolution, by int64, now time.Time) error
+
+	// DeleteReadings removes every copy of an OPEN run — its marks and
+	// review items cascade — for "Borrar escaneos". ErrRunNotOpen
+	// otherwise.
+	DeleteReadings(ctx context.Context, runID int64) error
+
+	// DecidedItems counts the run's review items already resolved.
+	DecidedItems(ctx context.Context, runID int64) (int, error)
 }
 
 // RunSummary is one survey's runs, as a list page shows them.

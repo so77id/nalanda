@@ -347,3 +347,24 @@ type ReviewOption struct {
 func RenderSurveyCopyReview(w http.ResponseWriter, status int, page SurveyCopyReviewPage) error {
 	return render(w, "survey_review", status, page)
 }
+
+// SurveyScansResetPage is "Borrar escaneos"' confirmation (issue #311).
+type SurveyScansResetPage struct {
+	Page
+	RunTitle string
+	RunURL   string
+	BackURL  string
+	Action   string
+	// Phrase is what the professor types: "Pasada 3".
+	Phrase   string
+	Uploads  int
+	Copies   int
+	Decided  int
+	Typed    string
+	Mismatch string
+}
+
+// RenderSurveyScansReset writes the confirmation with the caller's status.
+func RenderSurveyScansReset(w http.ResponseWriter, status int, page SurveyScansResetPage) error {
+	return render(w, "survey_scans_reset_confirm", status, page)
+}

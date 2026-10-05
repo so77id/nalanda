@@ -2,6 +2,7 @@ package survey
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -241,4 +242,72 @@ func (s *Service) CopyReading(ctx context.Context, runID int64, copyNumber int) 
 		return CopyView{}, err
 	}
 	return CopyView{Copy: c, Marks: marks, Items: items}, nil
+}
+
+// ErrNoScans is a reset of a run with nothing to erase.
+var ErrNoScans = errors.New("survey: the run has no scans")
+
+// ScanSummary is what "Borrar escaneos" puts in front of the professor
+// before they confirm: what the reset destroys.
+type ScanSummary struct {
+	Uploads int
+	Copies  int
+	// Decided is how many review items the professor already resolved by
+	// hand — work the reset throws away.
+	Decided int
+}
+
+// HasScans reports whether a reset would destroy anything. A batch whose
+// reading failed is an upload with no copy, and counts.
+func (s ScanSummary) HasScans() bool { return s.Uploads > 0 || s.Copies > 0 }
+
+// ScanSummaryFor counts what a reset of the run would destroy.
+func (s *Service) ScanSummaryFor(ctx context.Context, run Run) (ScanSummary, error) {
+	uploads, err := s.Uploads(run)
+	if err != nil {
+		return ScanSummary{}, err
+	}
+	counts, err := s.Store.ReadingCounts(ctx, run.ID)
+	if err != nil {
+		return ScanSummary{}, err
+	}
+	decided, err := s.Store.DecidedItems(ctx, run.ID)
+	if err != nil {
+		return ScanSummary{}, err
+	}
+	return ScanSummary{Uploads: len(uploads), Copies: counts.Copies, Decided: decided}, nil
+}
+
+// ResetScans erases a run's scans and starts its reading over (issue #311,
+// mirroring the controls' #298): the run stays open and printable, with no
+// batch and no copy, and its next upload is batch-1.pdf.
+//
+// THE WORKER GOES FIRST: it owns the files on the shared volume, so it
+// removes AMC's capture, the scan images and the uploaded batches. If it
+// is busy, unreachable or refuses, nothing has been destroyed and the
+// caller says so. Only then are the copies deleted (their marks and items
+// cascade). The reverse order would leave AMC holding a capture the
+// database forgot, and the next batch would bring it back.
+func (s *Service) ResetScans(ctx context.Context, surveyID, runID int64) error {
+	run, err := s.Store.Run(ctx, surveyID, runID)
+	if err != nil {
+		return err
+	}
+	if run.State != RunOpen {
+		return fmt.Errorf("survey: resetting run %d: %w", runID, ErrRunNotOpen)
+	}
+	summary, err := s.ScanSummaryFor(ctx, run)
+	if err != nil {
+		return err
+	}
+	if !summary.HasScans() {
+		return fmt.Errorf("survey: resetting run %d: %w", runID, ErrNoScans)
+	}
+	if err := s.Analyzer.ResetSurveyScans(ctx, filepath.ToSlash(RunProject(surveyID, runID))); err != nil {
+		return err
+	}
+	if err := s.Store.DeleteReadings(ctx, runID); err != nil {
+		return fmt.Errorf("survey: resetting run %d's readings: %w", runID, err)
+	}
+	return nil
 }

@@ -65,6 +65,9 @@ func (h *Surveys) RunScans(w http.ResponseWriter, r *http.Request) {
 		Clean:        counts.Clean(),
 		Pending:      counts.PendingCopies,
 	}
+	if run.State == survey.RunOpen && (len(uploads) > 0 || counts.Copies > 0) {
+		page.ResetURL = SurveyRunScansResetConfirmPathFor(one.ID, run.ID)
+	}
 	for _, u := range uploads {
 		page.Uploads = append(page.Uploads, view.UploadRow{Name: u.Name, Size: humanBytes(u.Bytes)})
 	}

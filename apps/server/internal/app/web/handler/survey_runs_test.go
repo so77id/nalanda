@@ -257,7 +257,7 @@ func TestCancellingARunReleasesTheBank(t *testing.T) {
 	cancel := handler.SurveyRunCancelPathFor(s.ID, run.ID)
 
 	rec := f.do(http.MethodPost, cancel, f.handler.CancelRun, url.Values{}, f.runValues(s, run)...)
-	if !strings.Contains(flashOf(t, rec), "se está generando") {
+	if !strings.Contains(flashOf(t, rec), "generación del PDF en curso") {
 		t.Errorf("cancelling under a queued generation: flash = %q", flashOf(t, rec))
 	}
 	if got, _ := f.surveys.Run(context.Background(), s.ID, run.ID); got.State != survey.RunOpen {

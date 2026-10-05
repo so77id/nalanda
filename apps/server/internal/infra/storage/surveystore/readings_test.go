@@ -156,10 +156,10 @@ func TestResolveItemsRecordsTheChoiceOnceAndOnlyOnAnOpenRun(t *testing.T) {
 	if err := f.store.ResolveItems(f.ctx, run.ID, one.ID, []survey.ItemResolution{{ItemID: 999, Resolution: survey.ResolutionDiscarded}}, f.userID, f.now); !errors.Is(err, survey.ErrItemNotFound) {
 		t.Errorf("an item of no copy: %v, want ErrItemNotFound", err)
 	}
-	if err := f.store.CancelRun(f.ctx, run.SurveyID, run.ID, f.now); err != nil {
-		t.Fatal(err)
-	}
+	// A run with copies cannot be cancelled (#311 S6), so the run that is
+	// not open is a closed one (S7 closes it through the store).
+	f.exec(t, `UPDATE survey_run SET state = 'closed' WHERE id = ?`, run.ID)
 	if err := f.store.ResolveItems(f.ctx, run.ID, one.ID, nil, f.userID, f.now); !errors.Is(err, survey.ErrRunNotOpen) {
-		t.Errorf("a cancelled run: %v, want ErrRunNotOpen", err)
+		t.Errorf("a closed run: %v, want ErrRunNotOpen", err)
 	}
 }

@@ -361,3 +361,109 @@ func TestAScannedPageIsServedOnlyForACopyTheRunRead(t *testing.T) {
 		t.Errorf("a copy the run never read: %d, want 404", rec.Code)
 	}
 }
+
+// Issue #311 S6, AC 7b: a run with scans is not cancelled — an upload is
+// enough, a batch whose reading failed included.
+func TestARunWithScansIsNotCancelled(t *testing.T) {
+	f := newSurveyFixture(t)
+	r := f.readableRun()
+	f.upload(r, "hojas.pdf", "application/pdf", []byte("%PDF-1.4"))
+	f.worker.SurveyAnalyzeErr = survey.ErrAnalyzerRefused
+	var failure *jobs.Failure
+	if err := f.analyse(r, "batch-1.pdf"); !errors.As(err, &failure) {
+		t.Fatalf("the reading should have failed: %v", err)
+	}
+	f.finishLatestJob(r)
+
+	page := f.do(http.MethodGet, handler.SurveyRunPathFor(r.s.ID, r.run.ID), f.handler.RunDetail, nil, f.runValues(r.s, r.run)...).Body.String()
+	if strings.Contains(page, "Cancelar pasada") {
+		t.Error("the dashboard offers to cancel a run with an uploaded batch")
+	}
+	rec := f.do(http.MethodPost, handler.SurveyRunCancelPathFor(r.s.ID, r.run.ID), f.handler.CancelRun, url.Values{}, f.runValues(r.s, r.run)...)
+	if !strings.Contains(flashOf(t, rec), "Borrar escaneos") {
+		t.Errorf("cancelling a run with scans: flash %q, want it to point at Borrar escaneos", flashOf(t, rec))
+	}
+	if got, _ := f.surveys.Run(context.Background(), r.s.ID, r.run.ID); got.State != survey.RunOpen {
+		t.Errorf("the run was cancelled with its scans: %s", got.State)
+	}
+}
+
+// finishLatestJob marks the run's latest job done, the way the runner
+// would once its handler returned.
+func (f *surveyFixture) finishLatestJob(r readableRun) {
+	f.t.Helper()
+	ctx := context.Background()
+	job, err := f.jobs.LatestForSubject(ctx, jobs.SubjectSurveyRun, strconv.FormatInt(r.run.ID, 10))
+	if err != nil {
+		f.t.Fatal(err)
+	}
+	if err := f.jobs.MarkRunning(ctx, job.ID, f.now); err != nil {
+		f.t.Fatal(err)
+	}
+	if err := f.jobs.MarkDone(ctx, job.ID, "", f.now); err != nil {
+		f.t.Fatal(err)
+	}
+}
+
+func TestBorrarEscaneosErasesWorkerFirstThenTheCopies(t *testing.T) {
+	f := newSurveyFixture(t)
+	r := f.readableRun()
+	confirm := handler.SurveyRunScansResetConfirmPathFor(r.s.ID, r.run.ID)
+	reset := handler.SurveyRunScansResetPathFor(r.s.ID, r.run.ID)
+	values := f.runValues(r.s, r.run)
+
+	if rec := f.do(http.MethodGet, confirm, f.handler.ScansResetConfirm, nil, values...); rec.Code != http.StatusNotFound {
+		t.Errorf("confirming a reset of nothing: %d, want 404", rec.Code)
+	}
+
+	f.upload(r, "hojas.pdf", "application/pdf", []byte("%PDF-1.4"))
+	f.worker.SurveyReports = []survey.Report{{Batch: &survey.Batch{Captured: 1}, Copies: []survey.ReportCopy{
+		{CopyNumber: 1, Pages: []int{1}, Answers: []survey.ReportAnswer{answer(r.single, survey.AnswerOK, []int{1})}},
+	}}}
+	var notice *jobs.Notice
+	if err := f.analyse(r, "batch-1.pdf"); !errors.As(err, &notice) {
+		t.Fatalf("analysing: %v", err)
+	}
+
+	// In flight: refused, fail closed.
+	if rec := f.do(http.MethodPost, reset, f.handler.ScansReset, url.Values{"confirm_name": {"Pasada 1"}}, values...); rec.Code != http.StatusConflict {
+		t.Errorf("a reset under the queued reading: %d, want 409", rec.Code)
+	}
+	f.finishLatestJob(r)
+
+	body := f.do(http.MethodGet, confirm, f.handler.ScansResetConfirm, nil, values...).Body.String()
+	for _, want := range []string{"1 lote subido", "1 copia leída", "<code>Pasada 1</code>", "NO SE PUEDE DESHACER"} {
+		if !strings.Contains(body, want) {
+			t.Errorf("the confirmation lacks %q", want)
+		}
+	}
+	if rec := f.do(http.MethodPost, reset, f.handler.ScansReset, url.Values{"confirm_name": {"pasada 1"}}, values...); rec.Code != http.StatusUnprocessableEntity ||
+		!strings.Contains(rec.Body.String(), `value="pasada 1"`) {
+		t.Errorf("a wrong phrase: %d, want 422 with what was typed", rec.Code)
+	}
+
+	// A busy worker: nothing destroyed.
+	f.worker.SurveyResetErr = survey.ErrAnalyzerBusy
+	if rec := f.do(http.MethodPost, reset, f.handler.ScansReset, url.Values{"confirm_name": {"Pasada 1"}}, values...); rec.Code != http.StatusConflict {
+		t.Errorf("a busy worker: %d, want 409", rec.Code)
+	}
+	if counts, _ := f.surveys.ReadingCounts(context.Background(), r.run.ID); counts.Copies != 1 {
+		t.Errorf("the copies went although the worker refused: %+v", counts)
+	}
+
+	f.worker.SurveyResetErr = nil
+	rec := f.do(http.MethodPost, reset, f.handler.ScansReset, url.Values{"confirm_name": {"Pasada 1"}}, values...)
+	if rec.Code != http.StatusSeeOther || rec.Header().Get("Location") != handler.SurveyRunScansPathFor(r.s.ID, r.run.ID) {
+		t.Fatalf("the reset: %d → %q", rec.Code, rec.Header().Get("Location"))
+	}
+	if got := f.worker.SurveyResets; len(got) != 2 || got[1] != survey.RunProject(r.s.ID, r.run.ID) {
+		t.Errorf("the worker was asked to reset %v", got)
+	}
+	if counts, _ := f.surveys.ReadingCounts(context.Background(), r.run.ID); counts.Copies != 0 {
+		t.Errorf("copies left after the reset: %+v", counts)
+	}
+	// Starting over: the next upload is batch-1, and the run can be cancelled.
+	if rec := f.upload(r, "hojas.pdf", "application/pdf", []byte("%PDF-1.4")); !strings.Contains(flashOf(t, rec), "batch-1.pdf") {
+		t.Errorf("the first upload after a reset: %q", flashOf(t, rec))
+	}
+}

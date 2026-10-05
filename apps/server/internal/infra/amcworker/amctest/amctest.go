@@ -90,6 +90,10 @@ type Fake struct {
 	SurveyReports      []survey.Report
 	SurveyAnalyzeErr   error
 	SurveyAnalyzeCalls []survey.AnalyzeRequest
+	// SurveyResets / SurveyResetErr: every ResetSurveyScans project, and
+	// the error to return instead (issue #311).
+	SurveyResets   []string
+	SurveyResetErr error
 }
 
 // Generate satisfies controls.Generator. When Err is set, it returns that;

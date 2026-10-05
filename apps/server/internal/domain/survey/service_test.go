@@ -148,6 +148,10 @@ func (m *memStore) ResolveItems(context.Context, int64, int64, []survey.ItemReso
 	return nil
 }
 
+func (m *memStore) DeleteReadings(context.Context, int64) error { return nil }
+
+func (m *memStore) DecidedItems(context.Context, int64) (int, error) { return 0, nil }
+
 // noGenerator is a survey.Generator the bank's tests never reach.
 type noGenerator struct{}
 
@@ -157,6 +161,10 @@ func (noGenerator) GenerateSheet(context.Context, survey.GenerateRequest) (surve
 
 func (noGenerator) AnalyzeSheets(context.Context, survey.AnalyzeRequest) (survey.Report, error) {
 	return survey.Report{}, survey.ErrAnalyzerUnavailable
+}
+
+func (noGenerator) ResetSurveyScans(context.Context, string) error {
+	return survey.ErrAnalyzerUnavailable
 }
 
 var now = time.Date(2026, time.October, 5, 12, 0, 0, 0, time.UTC)

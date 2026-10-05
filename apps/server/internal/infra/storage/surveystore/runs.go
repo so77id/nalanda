@@ -166,7 +166,8 @@ func (s *Store) CancelRun(ctx context.Context, surveyID, runID int64, now time.T
 
 	result, err := tx.ExecContext(ctx, `
         UPDATE survey_run SET state = 'cancelled', updated_at = ?
-        WHERE id = ? AND survey_id = ? AND state = 'open'`,
+        WHERE id = ? AND survey_id = ? AND state = 'open'
+          AND NOT EXISTS (SELECT 1 FROM survey_copy WHERE run_id = survey_run.id)`,
 		now.Unix(), runID, surveyID)
 	if err != nil {
 		return fmt.Errorf("surveystore.CancelRun %d: %w", runID, err)
@@ -189,9 +190,14 @@ func (s *Store) CancelRun(ctx context.Context, surveyID, runID int64, now time.T
 		return nil
 	}
 	_ = tx.Rollback()
-	// Nothing changed: tell absence from a run in the wrong state.
-	if _, err := s.Run(ctx, surveyID, runID); err != nil {
+	// Nothing changed: tell absence from a run in the wrong state, and
+	// that from an open run that has read copies.
+	run, err := s.Run(ctx, surveyID, runID)
+	if err != nil {
 		return fmt.Errorf("surveystore.CancelRun: %w", err)
+	}
+	if run.State == survey.RunOpen {
+		return fmt.Errorf("surveystore.CancelRun %d: %w", runID, survey.ErrRunHasScans)
 	}
 	return fmt.Errorf("surveystore.CancelRun %d: %w", runID, survey.ErrRunNotCancellable)
 }

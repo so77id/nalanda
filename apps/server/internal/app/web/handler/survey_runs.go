@@ -203,7 +203,14 @@ func (h *Surveys) RunDetail(w http.ResponseWriter, r *http.Request) {
 	}
 	if run.State == survey.RunOpen {
 		page.EditURL = SurveyRunEditPathFor(one.ID, run.ID)
-		page.CanCancel = !inFlight(latest)
+		summary, err := h.Service.ScanSummaryFor(r.Context(), run)
+		if err != nil {
+			h.Log.Warn("reading a run's scans", "run", run.ID, "error", err)
+		}
+		// A run with scans is not cancelled (#311): the button would only
+		// lead to a refusal. A failed read leaves it offered — the service
+		// refuses anyway.
+		page.CanCancel = !inFlight(latest) && !summary.HasScans()
 		page.CancelAction = SurveyRunCancelPathFor(one.ID, run.ID)
 	}
 	page.Steps = []view.RunStep{
@@ -311,13 +318,17 @@ func (h *Surveys) CancelRun(w http.ResponseWriter, r *http.Request) {
 	// failed read answers "not in flight" — cancelling destroys nothing
 	// the runner could not tolerate (GenerateRunSheet refuses a run that
 	// is no longer open).
-	if inFlight(h.latestRunJob(r.Context(), run)) {
-		flash.Set(w, h.secureCookie, "El PDF de esta pasada se está generando. Espera a que termine y vuelve a intentarlo.")
+	if latest := h.latestRunJob(r.Context(), run); inFlight(latest) {
+		flash.Set(w, h.secureCookie, "Hay una "+surveyJobLabel(latest.Kind)+" en curso sobre esta pasada. Espera a que termine y vuelve a intentarlo.")
 		http.Redirect(w, r, back, http.StatusSeeOther)
 		return
 	}
 	err := h.Service.CancelRun(r.Context(), one.ID, run.ID)
 	switch {
+	case errors.Is(err, survey.ErrRunHasScans):
+		flash.Set(w, h.secureCookie, "Esta pasada ya tiene escaneos: para cancelarla, primero usa «Borrar escaneos».")
+		http.Redirect(w, r, back, http.StatusSeeOther)
+		return
 	case errors.Is(err, survey.ErrRunNotCancellable):
 		flash.Set(w, h.secureCookie, "Esta pasada ya no se puede cancelar.")
 		http.Redirect(w, r, back, http.StatusSeeOther)

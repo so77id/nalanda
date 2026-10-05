@@ -160,3 +160,30 @@ func TestAnalyzeSheetsFailuresAreSurveySentinels(t *testing.T) {
 		t.Errorf("an empty request: %v, want survey.ErrAnalyzerRefused before the wire", err)
 	}
 }
+
+// Issue #311 S6: the survey's reset speaks survey sentinels, and a busy
+// worker refuses at once.
+func TestResetSurveyScansSpeaksTheSurveyDomain(t *testing.T) {
+	var got map[string]string
+	ok := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/scans/reset" {
+			t.Errorf("worker got %s", r.URL.Path)
+		}
+		_ = json.NewDecoder(r.Body).Decode(&got)
+		respond(w, http.StatusOK, map[string]any{"reset": true})
+	}))
+	t.Cleanup(ok.Close)
+	if err := amcworker.New(amcworker.Config{BaseURL: ok.URL}).ResetSurveyScans(context.Background(), "surveys/3/runs/7"); err != nil ||
+		got["project"] != "surveys/3/runs/7" {
+		t.Errorf("reset: %v, sent %v", err, got)
+	}
+
+	refusing := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		respond(w, http.StatusNotFound, map[string]any{"error": "no such route"})
+	}))
+	t.Cleanup(refusing.Close)
+	err := amcworker.New(amcworker.Config{BaseURL: refusing.URL}).ResetSurveyScans(context.Background(), "surveys/3/runs/7")
+	if !errors.Is(err, survey.ErrAnalyzerRefused) || errors.Is(err, controls.ErrAnalyzerRefused) {
+		t.Errorf("a worker that predates the route: %v, want survey.ErrAnalyzerRefused", err)
+	}
+}

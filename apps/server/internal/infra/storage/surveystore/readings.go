@@ -283,3 +283,39 @@ func (s *Store) ResolveItems(ctx context.Context, runID, copyID int64, decisions
 	}
 	return nil
 }
+
+// DeleteReadings removes an open run's copies; marks and items cascade.
+func (s *Store) DeleteReadings(ctx context.Context, runID int64) error {
+	result, err := s.db.ExecContext(ctx, `
+        DELETE FROM survey_copy
+        WHERE run_id = ? AND (SELECT state FROM survey_run WHERE id = ?) = 'open'`, runID, runID)
+	if err != nil {
+		return fmt.Errorf("surveystore.DeleteReadings for run %d: %w", runID, err)
+	}
+	if n, err := result.RowsAffected(); err != nil {
+		return fmt.Errorf("surveystore.DeleteReadings for run %d: %w", runID, err)
+	} else if n > 0 {
+		return nil
+	}
+	// Nothing deleted: a run with no copies is fine, a run not open is not.
+	var state string
+	if err := s.db.QueryRowContext(ctx, `SELECT state FROM survey_run WHERE id = ?`, runID).Scan(&state); err != nil {
+		return fmt.Errorf("surveystore.DeleteReadings for run %d: %w", runID, err)
+	}
+	if survey.RunState(state) != survey.RunOpen {
+		return fmt.Errorf("surveystore.DeleteReadings for run %d: %w", runID, survey.ErrRunNotOpen)
+	}
+	return nil
+}
+
+// DecidedItems counts the run's resolved review items.
+func (s *Store) DecidedItems(ctx context.Context, runID int64) (int, error) {
+	var n int
+	err := s.db.QueryRowContext(ctx, `
+        SELECT count(*) FROM survey_review_item i JOIN survey_copy c ON c.id = i.copy_id
+        WHERE c.run_id = ? AND i.resolution IS NOT NULL`, runID).Scan(&n)
+	if err != nil {
+		return 0, fmt.Errorf("surveystore.DecidedItems for run %d: %w", runID, err)
+	}
+	return n, nil
+}
