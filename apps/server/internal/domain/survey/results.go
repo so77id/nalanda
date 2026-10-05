@@ -1,6 +1,9 @@
 package survey
 
 import (
+	"context"
+	"errors"
+	"fmt"
 	"sort"
 )
 
@@ -132,4 +135,123 @@ func scaleStats(rows []AlternativeCount) *ScaleStats {
 type ContextFilter struct {
 	QuestionID     int64
 	AlternativeIDs []int64
+}
+
+// Results sentinels.
+var (
+	// ErrRunNotClosed refuses the results of a run that is not closed:
+	// only closed runs count (ADR-0081 §7).
+	ErrRunNotClosed = errors.New("survey: the run is not closed")
+	// ErrBadFilter is a filter on a question that is not one of the run's
+	// context questions, or on an alternative that is not that question's.
+	ErrBadFilter = errors.New("survey: that filter does not apply to the run")
+)
+
+// ResultQuestion is one question's block on a run's page.
+type ResultQuestion struct {
+	// Number is the number the run printed it as.
+	Number int
+	Stats  QuestionStats
+}
+
+// ResultSection is a run of consecutive printed questions sharing a label.
+type ResultSection struct {
+	Label     string
+	Questions []ResultQuestion
+}
+
+// RunResults is screen 7.
+type RunResults struct {
+	Run Run
+	// ReadCopies is every copy the run read; Copies is how many the
+	// filter kept (equal without a filter).
+	ReadCopies int
+	Copies     int
+	Filter     *ContextFilter
+	// Context are the run's printed context questions, the ones a filter
+	// may use.
+	Context  []Question
+	Sections []ResultSection
+}
+
+// RunResults computes a closed run's page, maybe filtered by a context
+// answer.
+func (s *Service) RunResults(ctx context.Context, surveyID, runID int64, filter *ContextFilter) (RunResults, error) {
+	run, err := s.Store.Run(ctx, surveyID, runID)
+	if err != nil {
+		return RunResults{}, err
+	}
+	if run.State != RunClosed {
+		return RunResults{}, fmt.Errorf("survey: results of run %d: %w", runID, ErrRunNotClosed)
+	}
+	printed, numbers, err := s.printedQuestions(ctx, run)
+	if err != nil {
+		return RunResults{}, err
+	}
+	sort.Slice(printed, func(i, j int) bool { return numbers[printed[i].ID] < numbers[printed[j].ID] })
+	out := RunResults{Run: run, Filter: filter}
+	for _, q := range printed {
+		if q.IsContext {
+			out.Context = append(out.Context, q)
+		}
+	}
+	if filter != nil {
+		if err := validFilter(out.Context, *filter); err != nil {
+			return RunResults{}, err
+		}
+	}
+	all, err := s.Store.RunTally(ctx, run.ID, nil)
+	if err != nil {
+		return RunResults{}, err
+	}
+	tally := all
+	if filter != nil {
+		if tally, err = s.Store.RunTally(ctx, run.ID, filter); err != nil {
+			return RunResults{}, err
+		}
+	}
+	out.ReadCopies, out.Copies = all.Copies, tally.Copies
+	for _, sec := range Sections(printed) {
+		rs := ResultSection{Label: sec.Label}
+		for _, q := range sec.Questions {
+			rs.Questions = append(rs.Questions, ResultQuestion{Number: numbers[q.ID], Stats: StatsFor(q, tally)})
+		}
+		out.Sections = append(out.Sections, rs)
+	}
+	return out, nil
+}
+
+func validFilter(context []Question, f ContextFilter) error {
+	for _, q := range context {
+		if q.ID != f.QuestionID {
+			continue
+		}
+		own := map[int64]bool{}
+		for _, a := range q.Alternatives {
+			own[a.ID] = true
+		}
+		for _, a := range f.AlternativeIDs {
+			if !own[a] {
+				return fmt.Errorf("%w: alternative %d", ErrBadFilter, a)
+			}
+		}
+		return nil
+	}
+	return fmt.Errorf("%w: question %d", ErrBadFilter, f.QuestionID)
+}
+
+// ClosedRuns are the survey's closed runs, newest number first — the run
+// selector's choices.
+func (s *Service) ClosedRuns(ctx context.Context, surveyID int64) ([]Run, error) {
+	runs, err := s.Store.RunsForSurvey(ctx, surveyID)
+	if err != nil {
+		return nil, err
+	}
+	var out []Run
+	for _, r := range runs {
+		if r.State == RunClosed {
+			out = append(out, r)
+		}
+	}
+	return out, nil
 }

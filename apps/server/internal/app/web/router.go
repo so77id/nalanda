@@ -486,6 +486,11 @@ func routes(deps Deps) []Route {
 			Method: http.MethodPost, Path: handler.SurveyRunClosePath,
 			Handler: deps.Surveys.CloseRun,
 		},
+		// Issue #312: the results of closed runs. GETs only.
+		{
+			Method: http.MethodGet, Path: handler.SurveyRunResultsPath,
+			Handler: deps.Surveys.RunResults,
+		},
 		// Issue #261: archive / restore + the archived listing. Purge is
 		// S5's addition. Gated by default (no Public), CSRF enforced
 		// because the two POST methods are POST.

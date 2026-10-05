@@ -198,6 +198,17 @@
         grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
         gap: 2rem;
       }
+      /* Results (#312): bars are plain boxes whose length is the share;
+         the number and percent beside them are the content. */
+      .survey-result { margin-block-end: 1.5rem; }
+      ul.survey-bars { list-style: none; padding: 0; }
+      ul.survey-bars li {
+        display: grid;
+        grid-template-columns: minmax(6rem, 12rem) minmax(0, 1fr) auto;
+        gap: 0.5rem;
+        align-items: center;
+      }
+      .survey-bar { display: block; block-size: 0.9rem; background: currentColor; opacity: 0.6; min-inline-size: 1px; }
       /* Screen 11 (#311): the scanned page beside the decisions. */
       .survey-review {
         display: grid;
