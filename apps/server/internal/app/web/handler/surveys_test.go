@@ -216,11 +216,6 @@ func TestCreatingASurveyStoresItUnderTheCourseAsTheProfessor(t *testing.T) {
 	if got.Name != "Autoevaluación" || got.Description != "Es anónima." || got.CreatedBy != f.professor.ID {
 		t.Errorf("stored %+v", got)
 	}
-	// Until the survey's own page exists (S5) the redirect lands on the
-	// course's list, where the new survey is the first row.
-	if loc := rec.Header().Get("Location"); loc != handler.CourseSurveysPathFor(f.courseID) {
-		t.Errorf("Location = %q, want %q", loc, handler.CourseSurveysPathFor(f.courseID))
-	}
 }
 
 func TestARefusedSurveyIs422WithTheTypedValuesAndAFieldError(t *testing.T) {

@@ -1,0 +1,52 @@
+{{ define "content" }}
+  <p><a href="{{ .ListURL }}">‹ Encuestas de {{ .Course.Code }}</a></p>
+  <h1>{{ .Name }}</h1>
+  {{ if .Archived }}
+    <p class="aviso">Esta encuesta está archivada: no aparece en la lista del curso.</p>
+  {{ end }}
+  {{ if .Description }}<p>{{ .Description }}</p>{{ end }}
+
+  <p>
+    <a class="boton" href="{{ .EditURL }}">Editar</a>
+    {{ if .Archived }}
+      <form class="inline" method="post" action="{{ .RestoreAction }}">
+        <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}" />
+        <button type="submit">Restaurar</button>
+      </form>
+    {{ else }}
+      <form class="inline" method="post" action="{{ .ArchiveAction }}">
+        <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}" />
+        <button type="submit">Archivar</button>
+      </form>
+    {{ end }}
+  </p>
+
+  <div class="survey-split">
+    <section aria-labelledby="banco">
+      <h2 id="banco">Banco</h2>
+      <p>{{ .QuestionCount }} pregunta{{ if ne .QuestionCount 1 }}s{{ end }}</p>
+      {{ if not .Sections }}
+        <p>Todavía no hay preguntas.</p>
+      {{ end }}
+      {{ range .Sections }}
+        {{ if .Label }}<h3>{{ .Label }}</h3>{{ end }}
+        <ol class="survey-bank">
+          {{ range .Questions }}
+            <li value="{{ .Number }}">
+              <p class="survey-statement">{{ .Statement }}</p>
+              <p class="survey-meta">
+                {{ .KindLabel }}{{ if .Alternatives }} · {{ .Alternatives }}{{ end }}
+                {{ if .IsContext }}<span class="survey-tag">(contexto)</span>{{ end }}
+              </p>
+            </li>
+          {{ end }}
+        </ol>
+      {{ end }}
+    </section>
+
+    <section aria-labelledby="pasadas">
+      <h2 id="pasadas">Pasadas</h2>
+      <p>Ninguna pasada aún.</p>
+    </section>
+  </div>
+{{ end }}

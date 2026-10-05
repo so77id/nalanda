@@ -49,6 +49,40 @@ type SurveyFormValues struct {
 	Description string
 }
 
+// SurveyDetailPage is what survey_detail.html renders: one survey's bank
+// and its runs (screen 3).
+type SurveyDetailPage struct {
+	Page
+	Course        ListedCourse
+	ListURL       string
+	Name          string
+	Description   string
+	Archived      bool
+	EditURL       string
+	ArchiveAction string
+	RestoreAction string
+	// QuestionCount is the bank's size; Sections is the bank grouped by
+	// consecutive section label, in bank order.
+	QuestionCount int
+	Sections      []SurveySection
+}
+
+// SurveySection is one run of consecutive questions under one label; an
+// empty Label renders no heading.
+type SurveySection struct {
+	Label     string
+	Questions []SurveyQuestionRow
+}
+
+// SurveyQuestionRow is one question of the bank, pre-formatted.
+type SurveyQuestionRow struct {
+	Number       int
+	Statement    string
+	KindLabel    string
+	Alternatives string
+	IsContext    bool
+}
+
 // RenderSurveysList writes screen 1.
 func RenderSurveysList(w http.ResponseWriter, page SurveysListPage) error {
 	return render(w, "surveys_list", http.StatusOK, page)
@@ -58,4 +92,9 @@ func RenderSurveysList(w http.ResponseWriter, page SurveysListPage) error {
 // a GET, 422 on a refused submission.
 func RenderSurveyForm(w http.ResponseWriter, status int, page SurveyFormPage) error {
 	return render(w, "surveys_form", status, page)
+}
+
+// RenderSurveyDetail writes screen 3.
+func RenderSurveyDetail(w http.ResponseWriter, page SurveyDetailPage) error {
+	return render(w, "survey_detail", http.StatusOK, page)
 }

@@ -191,6 +191,22 @@
         font-size: 0.875rem;
       }
 
+      /* The survey screens (epic #308): the bank beside its runs on a wide
+         screen, stacked on a narrow one. Monochrome like the rest. */
+      .survey-split {
+        display: grid;
+        grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+        gap: 2rem;
+      }
+      @media (max-width: 48rem) {
+        .survey-split { grid-template-columns: minmax(0, 1fr); }
+      }
+      ol.survey-bank { padding-inline-start: 1.5rem; }
+      ol.survey-bank li { margin-block-end: 1rem; }
+      ol.survey-bank p { margin-block: 0 0.25rem; }
+      .survey-meta { font-size: 0.875rem; }
+      .survey-tag { font-style: italic; }
+
       /* The statistics panel (issue #251) sits under `#estadisticas` on
          the control detail page. Same monochrome discipline as the
          rest of the backoffice — SVG uses `currentColor` and opacity
