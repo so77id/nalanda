@@ -235,6 +235,18 @@ func (s *Service) Courses(ctx context.Context) ([]Course, error) {
 	return courses, nil
 }
 
+// Course returns one course, or ErrCourseNotFound (issue #309). Its reader
+// is a page scoped to a course that needs the name and nothing of its
+// roster — the survey list — and Enrollments would load every student to
+// print a heading.
+func (s *Service) Course(ctx context.Context, id int64) (Course, error) {
+	course, err := s.Store.CourseByID(ctx, id)
+	if err != nil {
+		return Course{}, fmt.Errorf("roster: read course %d: %w", id, err)
+	}
+	return course, nil
+}
+
 // Student returns one person (issue #272 S8).
 func (s *Service) Student(ctx context.Context, id int64) (Student, error) {
 	student, err := s.Store.StudentByID(ctx, id)

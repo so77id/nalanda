@@ -169,6 +169,8 @@ type CourseDetailPage struct {
 	// to need it (#272 review, COR-11; #271 review COR-6 is the same
 	// distinction one screen over).
 	HasRoster bool
+	// SurveysURL is the course's survey list (epic #308).
+	SurveysURL string
 }
 
 // CourseStudentsPage is what course_students.html renders: one course's

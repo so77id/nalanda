@@ -28,6 +28,7 @@ import (
 	"github.com/so77id/nalanda/apps/server/internal/domain/matching"
 	"github.com/so77id/nalanda/apps/server/internal/domain/roster"
 	"github.com/so77id/nalanda/apps/server/internal/domain/secret"
+	"github.com/so77id/nalanda/apps/server/internal/domain/survey"
 	"github.com/so77id/nalanda/apps/server/internal/infra/amcworker"
 	// Aliased because the domain package one import above owns the name:
 	// the domain is what the rest of this file talks about, and the
@@ -44,6 +45,7 @@ import (
 	"github.com/so77id/nalanda/apps/server/internal/infra/storage/coursestore"
 	"github.com/so77id/nalanda/apps/server/internal/infra/storage/jobstore"
 	"github.com/so77id/nalanda/apps/server/internal/infra/storage/secretstore"
+	"github.com/so77id/nalanda/apps/server/internal/infra/storage/surveystore"
 	"github.com/so77id/nalanda/apps/server/migrations"
 )
 
@@ -224,6 +226,14 @@ func run(logger *slog.Logger) error {
 	})
 	rosterService := roster.NewService(courseStore, roster.NewCanvasSource(canvasService))
 
+	// Epic #308: the survey subsystem (ADR-0078). Its own store over its
+	// own tables; it shares the database handle and nothing else with the
+	// controls.
+	surveyService := survey.NewService(survey.Service{
+		Store: surveystore.New(db),
+		Now:   time.Now,
+	})
+
 	// Issue #273: the mail transport, selected ONCE at boot and logged in
 	// one line — the "select don't describe" shape of DocumentBuddy's
 	// ADR-021. Nothing downstream branches on the mode, so no caller can be
@@ -362,6 +372,12 @@ func run(logger *slog.Logger) error {
 		}),
 		AdminBank: handler.NewAdminBank(handler.AdminBank{
 			Bank:      liveBank,
+			PublicURL: cfg.PublicURL,
+			Log:       logger,
+		}),
+		Surveys: handler.NewSurveys(handler.Surveys{
+			Service:   surveyService,
+			Courses:   rosterService,
 			PublicURL: cfg.PublicURL,
 			Log:       logger,
 		}),

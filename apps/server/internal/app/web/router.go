@@ -67,6 +67,10 @@ type Deps struct {
 	// Controls: the CRUD lives inside the controls domain, the bank
 	// refresh sits in an /admin/ namespace one layer up.
 	AdminBank *handler.AdminBank
+	// Surveys is the anonymous survey subsystem's screens (epic #308,
+	// ADR-0078) — its own handler struct, because the subsystem is a
+	// sibling of the controls and shares no handler with them.
+	Surveys *handler.Surveys
 	// Log is spelled the same here as in the two structs above.
 	Log *slog.Logger
 }
@@ -351,6 +355,21 @@ func routes(deps Deps) []Route {
 			Method: http.MethodPost, Path: handler.JobDismissPath,
 			Handler: deps.Controls.DismissJob,
 		},
+		// Epic #308: the survey screens (ADR-0078). Every one gated by
+		// default — a survey's bank and, later, its answers are course
+		// data — and every POST CSRF-verified by the table.
+		{
+			Method: http.MethodGet, Path: handler.CourseSurveysPath,
+			Handler: deps.Surveys.ListForCourse,
+		},
+		{
+			Method: http.MethodGet, Path: handler.CourseSurveysNewPath,
+			Handler: deps.Surveys.New,
+		},
+		{
+			Method: http.MethodPost, Path: handler.CourseSurveysPath,
+			Handler: deps.Surveys.Create,
+		},
 		// Issue #261: archive / restore + the archived listing. Purge is
 		// S5's addition. Gated by default (no Public), CSRF enforced
 		// because the two POST methods are POST.
@@ -470,6 +489,8 @@ func Router(deps Deps) http.Handler {
 		panic("web.Router: no students handler")
 	case deps.AdminBank == nil:
 		panic("web.Router: no admin bank handler")
+	case deps.Surveys == nil:
+		panic("web.Router: no surveys handlers")
 	case deps.Log == nil:
 		panic("web.Router: no logger")
 	}
