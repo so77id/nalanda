@@ -183,10 +183,7 @@ func (h *Surveys) RunDetail(w http.ResponseWriter, r *http.Request) {
 	pdfReady, pdfStatus := h.sheetState(r.Context(), run)
 	latest := h.latestRunJob(r.Context(), run)
 
-	title := "Pasada #" + strconv.Itoa(run.Number)
-	if run.Name != "" {
-		title += " · " + run.Name
-	}
+	title := runTitle(run)
 	page := view.SurveyRunPage{
 		Page:          middleware.PageFor(r, title),
 		SurveyName:    one.Name,
@@ -202,6 +199,7 @@ func (h *Surveys) RunDetail(w http.ResponseWriter, r *http.Request) {
 		PDFURL:        SurveyRunSheetPathFor(one.ID, run.ID),
 		ReadLabel:     "—",
 		ReviewLabel:   "—",
+		ScansURL:      SurveyRunScansPathFor(one.ID, run.ID),
 	}
 	if run.State == survey.RunOpen {
 		page.EditURL = SurveyRunEditPathFor(one.ID, run.ID)

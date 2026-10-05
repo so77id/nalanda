@@ -181,6 +181,8 @@ type SurveyRunPage struct {
 	EditURL      string
 	CanCancel    bool
 	CancelAction string
+	// ScansURL is screen 10 (issue #311).
+	ScansURL string
 }
 
 // RunStep is one stage of a run's stepper.
@@ -264,4 +266,36 @@ func RenderSurveyRunForm(w http.ResponseWriter, status int, page SurveyRunFormPa
 // RenderSurveyRun writes screen 9.
 func RenderSurveyRun(w http.ResponseWriter, page SurveyRunPage) error {
 	return render(w, "survey_run", http.StatusOK, page)
+}
+
+// SurveyRunScansPage is what survey_run_scans.html renders: a run's scans
+// (issue #311, screen 10).
+type SurveyRunScansPage struct {
+	Page
+	RunTitle string
+	RunURL   string
+	Banner   *JobBanner
+	// CanUpload is false on a run that is not open; the form is not drawn.
+	CanUpload    bool
+	UploadAction string
+	MaxMB        int64
+	Uploads      []UploadRow
+	// The run's reading so far.
+	Read    int
+	Clean   int
+	Pending int
+	// ResetURL is "Borrar escaneos"' confirmation page; empty when there
+	// is nothing to erase or the run is not open.
+	ResetURL string
+}
+
+// UploadRow is one batch on disk.
+type UploadRow struct {
+	Name string
+	Size string
+}
+
+// RenderSurveyRunScans writes screen 10.
+func RenderSurveyRunScans(w http.ResponseWriter, page SurveyRunScansPage) error {
+	return render(w, "survey_run_scans", http.StatusOK, page)
 }

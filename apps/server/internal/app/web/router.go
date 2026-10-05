@@ -448,6 +448,16 @@ func routes(deps Deps) []Route {
 			Method: http.MethodGet, Path: handler.SurveyRunSheetPath,
 			Handler: deps.Surveys.RunSheet,
 		},
+		// Issue #311: a run's scans. The POST writes the batch and queues
+		// its `survey_analyse`; the worker is never called from here.
+		{
+			Method: http.MethodGet, Path: handler.SurveyRunScansPath,
+			Handler: deps.Surveys.RunScans,
+		},
+		{
+			Method: http.MethodPost, Path: handler.SurveyRunScansPath,
+			Handler: deps.Surveys.UploadScans,
+		},
 		// Issue #261: archive / restore + the archived listing. Purge is
 		// S5's addition. Gated by default (no Public), CSRF enforced
 		// because the two POST methods are POST.

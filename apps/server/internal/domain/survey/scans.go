@@ -3,7 +3,12 @@ package survey
 import (
 	"context"
 	"fmt"
+	"io"
+	"os"
 	"path/filepath"
+	"sort"
+	"strconv"
+	"strings"
 )
 
 // A run's scans (issue #311), split the way the controls split them
@@ -14,6 +19,101 @@ import (
 // uploadsDir is where a run's uploaded batches live inside its project,
 // beside — never inside — AMC's own scans/.
 const uploadsDir = "uploads"
+
+// Batch files are batch-1.pdf, batch-2.pdf, … in upload order.
+const (
+	batchPrefix = "batch-"
+	batchExt    = ".pdf"
+)
+
+// SaveUploadedBatch is the sync half of an upload: it writes the scanned
+// PDF as the run's next batch-N.pdf ON THE REQUEST GOROUTINE, before the
+// caller submits the survey_analyse job, and returns the batch's name.
+// The file then survives every downstream failure (apps/server/CLAUDE.md,
+// #210): it is what the professor cannot scan again. Only an open run
+// takes scans (ErrRunNotOpen).
+func (s *Service) SaveUploadedBatch(ctx context.Context, surveyID, runID int64, content io.ReadCloser) (string, error) {
+	defer func() { _ = content.Close() }()
+	run, err := s.Store.Run(ctx, surveyID, runID)
+	if err != nil {
+		return "", err
+	}
+	if run.State != RunOpen {
+		return "", fmt.Errorf("survey: uploading to run %d: %w", runID, ErrRunNotOpen)
+	}
+	dir := s.uploadsDir(run)
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return "", fmt.Errorf("survey: preparing %s: %w", dir, err)
+	}
+	uploads, err := s.Uploads(run)
+	if err != nil {
+		return "", err
+	}
+	next := 1
+	if len(uploads) > 0 {
+		next = uploads[len(uploads)-1].Number + 1
+	}
+	name := batchPrefix + strconv.Itoa(next) + batchExt
+	path := filepath.Join(dir, name)
+	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o644)
+	if err != nil {
+		return "", fmt.Errorf("survey: creating %s: %w", path, err)
+	}
+	if _, err := io.Copy(f, content); err != nil {
+		_ = f.Close()
+		_ = os.Remove(path) // a partial batch is not a batch
+		return "", fmt.Errorf("survey: writing %s: %w", path, err)
+	}
+	if err := f.Close(); err != nil {
+		return "", fmt.Errorf("survey: closing %s: %w", path, err)
+	}
+	return name, nil
+}
+
+// Upload is one batch on disk.
+type Upload struct {
+	Number int
+	Name   string
+	Bytes  int64
+}
+
+// Uploads lists the run's batches on disk, in upload order. None yet is
+// an empty list, not an error.
+func (s *Service) Uploads(run Run) ([]Upload, error) {
+	entries, err := os.ReadDir(s.uploadsDir(run))
+	if os.IsNotExist(err) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("survey: listing run %d's uploads: %w", run.ID, err)
+	}
+	var out []Upload
+	for _, e := range entries {
+		n, ok := batchNumber(e.Name())
+		if !ok || e.IsDir() {
+			continue
+		}
+		info, err := e.Info()
+		if err != nil {
+			return nil, fmt.Errorf("survey: reading %s: %w", e.Name(), err)
+		}
+		out = append(out, Upload{Number: n, Name: e.Name(), Bytes: info.Size()})
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].Number < out[j].Number })
+	return out, nil
+}
+
+func (s *Service) uploadsDir(run Run) string {
+	return filepath.Join(s.WorkDir, RunProject(run.SurveyID, run.ID), uploadsDir)
+}
+
+func batchNumber(name string) (int, bool) {
+	if !strings.HasPrefix(name, batchPrefix) || !strings.HasSuffix(name, batchExt) {
+		return 0, false
+	}
+	n, err := strconv.Atoi(strings.TrimSuffix(strings.TrimPrefix(name, batchPrefix), batchExt))
+	return n, err == nil && n >= 1
+}
 
 // AnalyzeResult is what one batch read.
 type AnalyzeResult struct {

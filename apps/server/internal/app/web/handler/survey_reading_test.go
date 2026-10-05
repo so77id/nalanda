@@ -3,10 +3,16 @@ package handler_test
 import (
 	"context"
 	"errors"
+	"net/http"
+	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"testing"
 
+	"github.com/so77id/nalanda/apps/server/internal/app/web/handler"
+	"github.com/so77id/nalanda/apps/server/internal/app/web/middleware"
 	"github.com/so77id/nalanda/apps/server/internal/domain/jobs"
 	"github.com/so77id/nalanda/apps/server/internal/domain/survey"
 	"github.com/so77id/nalanda/apps/server/internal/domain/survey/tex"
@@ -149,5 +155,78 @@ func TestACancelledRunIsNotRead(t *testing.T) {
 	}
 	if len(f.worker.SurveyAnalyzeCalls) != 0 {
 		t.Error("the worker was asked to read a cancelled run")
+	}
+}
+
+// upload POSTs one scanned batch to the run, through the real middleware.
+func (f *surveyFixture) upload(r readableRun, filename, contentType string, body []byte) *httptest.ResponseRecorder {
+	f.t.Helper()
+	buf, ctype := buildScanUpload(f.t, filename, contentType, body)
+	req := httptest.NewRequest(http.MethodPost, handler.SurveyRunScansPathFor(r.s.ID, r.run.ID), buf)
+	req.Header.Set("Content-Type", ctype)
+	req.AddCookie(&http.Cookie{Name: middleware.SessionCookieName(true), Value: f.session})
+	for i, v := range f.runValues(r.s, r.run) {
+		if i%2 == 0 {
+			req.SetPathValue(v, f.runValues(r.s, r.run)[i+1])
+		}
+	}
+	rec := httptest.NewRecorder()
+	f.middleware.Resolve(f.middleware.RequireProfessor(http.HandlerFunc(f.handler.UploadScans))).ServeHTTP(rec, req)
+	return rec
+}
+
+func TestAnUploadWritesTheBatchBeforeQueueingItsReading(t *testing.T) {
+	f := newSurveyFixture(t)
+	r := f.readableRun()
+	scans := handler.SurveyRunScansPathFor(r.s.ID, r.run.ID)
+
+	for n := 1; n <= 2; n++ {
+		rec := f.upload(r, "hojas.pdf", "application/pdf", []byte("%PDF-1.4 lote"))
+		if rec.Code != http.StatusSeeOther || rec.Header().Get("Location") != scans {
+			t.Fatalf("upload %d: status %d, location %q", n, rec.Code, rec.Header().Get("Location"))
+		}
+		name := "batch-" + strconv.Itoa(n) + ".pdf"
+		if !strings.Contains(flashOf(t, rec), name) {
+			t.Errorf("upload %d's flash = %q, want it to name %s", n, flashOf(t, rec), name)
+		}
+		path := filepath.Join(f.worker.WorkDir, survey.RunProject(r.s.ID, r.run.ID), "uploads", name)
+		if b, err := os.ReadFile(path); err != nil || string(b) != "%PDF-1.4 lote" {
+			t.Errorf("batch %d on disk: %q, %v", n, b, err)
+		}
+		job, err := f.jobs.LatestByKind(context.Background(), strconv.FormatInt(r.run.ID, 10), jobs.KindSurveyAnalyse)
+		if err != nil || !strings.Contains(string(job.Payload), name) || job.SubjectKind != jobs.SubjectSurveyRun {
+			t.Errorf("upload %d's job = %+v, %v", n, job, err)
+		}
+	}
+
+	body := f.do(http.MethodGet, scans, f.handler.RunScans, nil, f.runValues(r.s, r.run)...).Body.String()
+	for _, want := range []string{"batch-1.pdf", "batch-2.pdf", "Procesando lectura de los escaneos", `enctype="multipart/form-data"`} {
+		if !strings.Contains(body, want) {
+			t.Errorf("screen 10 lacks %q", want)
+		}
+	}
+	run := f.do(http.MethodGet, handler.SurveyRunPathFor(r.s.ID, r.run.ID), f.handler.RunDetail, nil, f.runValues(r.s, r.run)...).Body.String()
+	if !strings.Contains(run, `href="`+scans+`"`) {
+		t.Error("the run's dashboard does not link screen 10")
+	}
+}
+
+func TestAnUploadThatIsNotAPDFOrNotForAnOpenRunWritesNothing(t *testing.T) {
+	f := newSurveyFixture(t)
+	r := f.readableRun()
+	if rec := f.upload(r, "hojas.docx", "application/msword", []byte("PK")); !strings.Contains(flashOf(t, rec), "debe ser un PDF") {
+		t.Errorf("a .docx: flash %q", flashOf(t, rec))
+	}
+	if err := f.surveys.CancelRun(context.Background(), r.s.ID, r.run.ID); err != nil {
+		t.Fatal(err)
+	}
+	if rec := f.upload(r, "hojas.pdf", "application/pdf", []byte("%PDF")); !strings.Contains(flashOf(t, rec), "ya no está abierta") {
+		t.Errorf("a cancelled run: flash %q", flashOf(t, rec))
+	}
+	if _, err := os.Stat(filepath.Join(f.worker.WorkDir, survey.RunProject(r.s.ID, r.run.ID), "uploads")); !os.IsNotExist(err) {
+		t.Errorf("an uploads directory exists after two refused uploads (%v)", err)
+	}
+	if _, err := f.jobs.LatestByKind(context.Background(), strconv.FormatInt(r.run.ID, 10), jobs.KindSurveyAnalyse); !errors.Is(err, jobs.ErrJobNotFound) {
+		t.Errorf("a reading was queued for a refused upload: %v", err)
 	}
 }

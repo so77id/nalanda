@@ -1,30 +1,7 @@
 {{ define "content" }}
   <p><a href="{{ .SurveyURL }}">‹ {{ .SurveyName }}</a></p>
 
-  {{ with .Banner }}
-    <section class="aviso" style="margin-bottom:1em">
-      {{ if .Running }}
-        <p><strong>Procesando {{ .Kind }}…</strong> ({{ .StartedAgo }}). Refresca la página cuando el aviso cambie.</p>
-        <form method="post" action="{{ .DismissURL }}" style="display:inline">
-          <input type="hidden" name="csrf_token" value="{{ $.CSRFToken }}">
-          <button type="submit">Refrescar</button>
-        </form>
-      {{ else if .Done }}
-        <p><strong>Listo: {{ .Kind }}.</strong></p>
-        {{ if .Notice }}<p>{{ .Notice }}</p>{{ end }}
-        <form method="post" action="{{ .DismissURL }}" style="display:inline">
-          <input type="hidden" name="csrf_token" value="{{ $.CSRFToken }}">
-          <button type="submit">Cerrar aviso</button>
-        </form>
-      {{ else if .Failed }}
-        <p><strong>Falló la {{ .Kind }}:</strong> {{ .Error }}</p>
-        <form method="post" action="{{ .DismissURL }}" style="display:inline">
-          <input type="hidden" name="csrf_token" value="{{ $.CSRFToken }}">
-          <button type="submit">Cerrar aviso</button>
-        </form>
-      {{ end }}
-    </section>
-  {{ end }}
+  {{ template "run_banner" . }}
 
   <h1>{{ .Title }}</h1>
   <p>{{ if not .Cancelled }}{{ .QuestionCount }} pregunta{{ if ne .QuestionCount 1 }}s{{ end }} · {{ end }}aplicada {{ .AppliedOn }} · {{ .Copies }} copias · {{ .StateLabel }}</p>
@@ -68,7 +45,7 @@
         <span class="boton" aria-disabled="true">Descargar PDF para imprimir</span> (todavía se está generando)
       {{ end }}
     </li>
-    <li><span class="boton" aria-disabled="true">Subir escaneos</span> (próximamente)</li>
+    <li><a class="boton" href="{{ .ScansURL }}">Subir escaneos</a></li>
     <li><span class="boton" aria-disabled="true">Revisar lectura dudosa</span> (próximamente)</li>
     <li><span class="boton" aria-disabled="true">Cerrar pasada</span> (próximamente)</li>
   </ul>
