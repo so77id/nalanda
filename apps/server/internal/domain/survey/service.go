@@ -11,6 +11,11 @@ import (
 // cannot serve with.
 type Service struct {
 	Store Store
+	// Generator compiles a run's sheet on the AMC worker (issue #310).
+	Generator Generator
+	// WorkDir is what the SERVER sees as the root of the worker's shared
+	// /work volume — the controls' WorkDir, the same volume.
+	WorkDir string
 	// Now is the clock; a field rather than a package so the domain stays
 	// free of infra (add-a-backend-endpoint.md §2).
 	Now func() time.Time
@@ -23,6 +28,10 @@ func NewService(deps Service) *Service {
 	switch {
 	case deps.Store == nil:
 		panic("survey.NewService: no store")
+	case deps.Generator == nil:
+		panic("survey.NewService: no generator")
+	case deps.WorkDir == "":
+		panic("survey.NewService: no work dir")
 	case deps.Now == nil:
 		panic("survey.NewService: no clock")
 	}

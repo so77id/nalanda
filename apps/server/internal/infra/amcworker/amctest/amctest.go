@@ -14,6 +14,7 @@ import (
 	"sync"
 
 	"github.com/so77id/nalanda/apps/server/internal/domain/controls"
+	"github.com/so77id/nalanda/apps/server/internal/domain/survey"
 )
 
 // Fake records every /generate call and, when WorkDir is set, writes the
@@ -76,6 +77,11 @@ type Fake struct {
 	// ResetErr, when set, is returned from ResetScans — the worker
 	// refusing, or one that predates the route.
 	ResetErr error
+
+	// SheetCalls / SheetErr are the survey half (issue #310): every
+	// GenerateSheet request, and the error to return instead.
+	SheetCalls []survey.GenerateRequest
+	SheetErr   error
 }
 
 // Generate satisfies controls.Generator. When Err is set, it returns that;

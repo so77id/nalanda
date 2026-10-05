@@ -5,7 +5,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/so77id/nalanda/apps/server/internal/domain/survey"
 	"github.com/so77id/nalanda/apps/server/internal/domain/survey/tex"
 )
 
@@ -20,16 +19,16 @@ func fixtureInput() tex.Input {
 		Title:  "Autoevaluación de conceptos",
 		Copies: 3,
 		Questions: []tex.Question{
-			{Name: "q1", Kind: survey.KindSingle, Section: "Contexto",
+			{Name: "q1", Kind: tex.Single, Section: "Contexto",
 				Statement: "¿En qué sección estás?", Labels: []string{"A", "B", "C"}},
-			{Name: "q2", Kind: survey.KindScale, Section: "Confianza en los temas",
+			{Name: "q2", Kind: tex.Scale, Section: "Confianza en los temas",
 				Statement: "¿Qué tan clara te resultó la definición de TDA?",
 				Labels:    []string{"Nada clara", "", "", "", "Muy clara"}},
-			{Name: "q3", Kind: survey.KindMulti, Section: "Confianza en los temas",
+			{Name: "q3", Kind: tex.Multi, Section: "Confianza en los temas",
 				Statement: "¿Qué estructuras te costó más entender?",
 				Labels:    []string{"ArrayList", "Lista enlazada", "Heap", "BST"},
 				Guide:     "marca entre 1 y 3"},
-			{Name: "q4", Kind: survey.KindScale, Section: "Confianza en los temas",
+			{Name: "q4", Kind: tex.Scale, Section: "Confianza en los temas",
 				Statement: "El ritmo de las clases te pareció...",
 				Labels:    []string{"lento", "adecuado", "rápido", "muy rápido"}},
 		},
@@ -127,9 +126,9 @@ func TestSectionHeadingsFollowPrintOrderRuns(t *testing.T) {
 	// Context first (printed), then the rest: two runs of "Confianza…"
 	// separated by an unlabelled question must print the heading twice.
 	in.Questions = []tex.Question{
-		{Name: "q1", Kind: survey.KindSingle, Section: "A", Statement: "1", Labels: []string{"x", "y"}},
-		{Name: "q2", Kind: survey.KindSingle, Section: "", Statement: "2", Labels: []string{"x", "y"}},
-		{Name: "q3", Kind: survey.KindSingle, Section: "A", Statement: "3", Labels: []string{"x", "y"}},
+		{Name: "q1", Kind: tex.Single, Section: "A", Statement: "1", Labels: []string{"x", "y"}},
+		{Name: "q2", Kind: tex.Single, Section: "", Statement: "2", Labels: []string{"x", "y"}},
+		{Name: "q3", Kind: tex.Single, Section: "A", Statement: "3", Labels: []string{"x", "y"}},
 	}
 	got, _ := tex.Compile(in)
 	if n := strings.Count(got, `\subsection*{A}`); n != 2 {
@@ -140,10 +139,10 @@ func TestSectionHeadingsFollowPrintOrderRuns(t *testing.T) {
 func TestCompileRefusesWhatCannotBePrinted(t *testing.T) {
 	cases := map[string]func(*tex.Input){
 		"no copies":       func(in *tex.Input) { in.Copies = 0 },
-		"too many copies": func(in *tex.Input) { in.Copies = survey.MaxCopies + 1 },
+		"too many copies": func(in *tex.Input) { in.Copies = tex.MaxCopies + 1 },
 		"no questions":    func(in *tex.Input) { in.Questions = nil },
 		"no alternatives": func(in *tex.Input) { in.Questions[0].Labels = nil },
-		"an unknown kind": func(in *tex.Input) { in.Questions[0].Kind = "ranking" },
+		"an unknown kind": func(in *tex.Input) { in.Questions[0].Kind = 99 },
 	}
 	for name, mutate := range cases {
 		in := fixtureInput()

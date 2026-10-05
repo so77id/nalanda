@@ -17,11 +17,14 @@ import (
 	"github.com/so77id/nalanda/apps/server/internal/app/web/handler"
 	"github.com/so77id/nalanda/apps/server/internal/app/web/middleware"
 	"github.com/so77id/nalanda/apps/server/internal/domain/auth"
+	"github.com/so77id/nalanda/apps/server/internal/domain/jobs"
 	"github.com/so77id/nalanda/apps/server/internal/domain/roster"
 	"github.com/so77id/nalanda/apps/server/internal/domain/survey"
+	"github.com/so77id/nalanda/apps/server/internal/infra/amcworker/amctest"
 	"github.com/so77id/nalanda/apps/server/internal/infra/storage"
 	"github.com/so77id/nalanda/apps/server/internal/infra/storage/authstore"
 	"github.com/so77id/nalanda/apps/server/internal/infra/storage/coursestore"
+	"github.com/so77id/nalanda/apps/server/internal/infra/storage/jobstore"
 	"github.com/so77id/nalanda/apps/server/internal/infra/storage/surveystore"
 	"github.com/so77id/nalanda/apps/server/migrations"
 )
@@ -42,6 +45,9 @@ type surveyFixture struct {
 	professor  auth.User
 	session    string
 	courseID   int64
+	worker     *amctest.Fake
+	jobs       *jobstore.Store
+	runner     *jobs.Runner
 }
 
 func newSurveyFixture(t *testing.T) *surveyFixture {
@@ -75,10 +81,25 @@ func newSurveyFixture(t *testing.T) *surveyFixture {
 	}
 	f.courseID = course.ID
 
-	f.surveys = survey.NewService(survey.Service{Store: surveystore.New(db), Now: func() time.Time { return f.now }})
+	f.worker = &amctest.Fake{WorkDir: t.TempDir()}
+	f.surveys = survey.NewService(survey.Service{
+		Store: surveystore.New(db), Generator: f.worker, WorkDir: f.worker.WorkDir,
+		Now: func() time.Time { return f.now },
+	})
+	f.jobs = jobstore.New(db)
+	f.runner = jobs.NewRunner(f.jobs, jobs.Handlers{
+		jobs.KindReanalyse:      func(context.Context, string, []byte) error { return nil },
+		jobs.KindAnalyse:        func(context.Context, string, []byte) error { return nil },
+		jobs.KindGenerate:       func(context.Context, string, []byte) error { return nil },
+		jobs.KindAnnotate:       func(context.Context, string, []byte) error { return nil },
+		jobs.KindPublish:        func(context.Context, string, []byte) error { return nil },
+		jobs.KindSurveyGenerate: survey.NewGenerateHandler(f.surveys),
+	}, log, func() time.Time { return f.now })
 	f.handler = handler.NewSurveys(handler.Surveys{
 		Service:   f.surveys,
 		Courses:   roster.NewService(courses, stubCourseSource{}),
+		Jobs:      f.jobs,
+		Runner:    f.runner,
 		PublicURL: publicURL,
 		Log:       log,
 	})
@@ -248,3 +269,7 @@ func TestTheCoursePageLinksToItsSurveys(t *testing.T) {
 		t.Errorf("the course page lacks %s", want)
 	}
 }
+
+// surveystoreFor reads the fixture's database directly, for the rows no
+// service method hands back whole (a run's snapshot).
+func surveystoreFor(f *surveyFixture) *surveystore.Store { return surveystore.New(f.db) }

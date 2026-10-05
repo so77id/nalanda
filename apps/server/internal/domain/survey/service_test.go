@@ -123,16 +123,27 @@ func (m *memStore) RunSummaries(context.Context, int64) (map[int64]survey.RunSum
 	return nil, nil
 }
 
+// noGenerator is a survey.Generator the bank's tests never reach.
+type noGenerator struct{}
+
+func (noGenerator) GenerateSheet(context.Context, survey.GenerateRequest) (survey.Assets, error) {
+	return survey.Assets{}, survey.ErrGeneratorUnavailable
+}
+
 var now = time.Date(2026, time.October, 5, 12, 0, 0, 0, time.UTC)
 
 func newService(store survey.Store) *survey.Service {
-	return survey.NewService(survey.Service{Store: store, Now: func() time.Time { return now }})
+	return survey.NewService(survey.Service{
+		Store: store, Generator: noGenerator{}, WorkDir: "/nonexistent", Now: func() time.Time { return now },
+	})
 }
 
 func TestNewServiceRefusesMissingDependencies(t *testing.T) {
 	for name, deps := range map[string]survey.Service{
-		"no store": {Now: time.Now},
-		"no clock": {Store: newMemStore()},
+		"no store":     {Generator: noGenerator{}, WorkDir: "/w", Now: time.Now},
+		"no generator": {Store: newMemStore(), WorkDir: "/w", Now: time.Now},
+		"no work dir":  {Store: newMemStore(), Generator: noGenerator{}, Now: time.Now},
+		"no clock":     {Store: newMemStore(), Generator: noGenerator{}, WorkDir: "/w"},
 	} {
 		t.Run(name, func(t *testing.T) {
 			defer func() {

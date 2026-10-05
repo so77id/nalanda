@@ -136,6 +136,29 @@ type QuestionFormValues struct {
 	MaxMarks     string
 }
 
+// SurveyRunFormPage is what survey_run_form.html renders: a new run
+// (screen 8) or, without the copies, a run's edit form.
+type SurveyRunFormPage struct {
+	Page
+	SurveyName    string
+	Heading       string
+	Action        string
+	Submit        string
+	CancelURL     string
+	ShowCopies    bool
+	QuestionCount int
+	Values        RunFormValues
+	Errors        map[string]string
+	Notice        string
+}
+
+// RunFormValues is what the run form shows.
+type RunFormValues struct {
+	Name      string
+	AppliedOn string
+	Copies    string
+}
+
 // RenderSurveysList writes screen 1.
 func RenderSurveysList(w http.ResponseWriter, page SurveysListPage) error {
 	return render(w, "surveys_list", http.StatusOK, page)
@@ -184,4 +207,9 @@ type PreviewOption struct {
 // RenderSurveyQuestionPreview writes screen 5.
 func RenderSurveyQuestionPreview(w http.ResponseWriter, page SurveyQuestionPreviewPage) error {
 	return render(w, "survey_question_preview", http.StatusOK, page)
+}
+
+// RenderSurveyRunForm writes the run form with the caller's status.
+func RenderSurveyRunForm(w http.ResponseWriter, status int, page SurveyRunFormPage) error {
+	return render(w, "survey_run_form", status, page)
 }

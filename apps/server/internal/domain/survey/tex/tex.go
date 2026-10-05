@@ -23,12 +23,33 @@
 package tex
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 	"unicode"
-
-	"github.com/so77id/nalanda/apps/server/internal/domain/survey"
 )
+
+// Kind is how a question prints. Its own enum rather than
+// survey.QuestionKind: the survey service is what calls Compile, so this
+// package cannot import survey without a cycle — and a sheet only needs
+// to know which of three shapes to draw.
+type Kind int
+
+const (
+	// Single is one answer among N, listed vertically.
+	Single Kind = iota + 1
+	// Scale is one answer among N points, laid out in a numbered row.
+	Scale
+	// Multi is any number of answers, listed vertically.
+	Multi
+)
+
+// MaxCopies mirrors survey.MaxCopies (the schema's CHECK); Compile refuses
+// above it rather than hand AMC a run nobody can have created.
+const MaxCopies = 200
+
+// ErrNoQuestions refuses a sheet with nothing on it.
+var ErrNoQuestions = errors.New("tex: a sheet needs at least one question")
 
 // Input is one run's sheet.
 type Input struct {
@@ -46,7 +67,7 @@ type Question struct {
 	// Name is the AMC question name, "q<question id>" (QuestionName): the
 	// key the reading report hands back (#311).
 	Name      string
-	Kind      survey.QuestionKind
+	Kind      Kind
 	Statement string
 	Section   string
 	Labels    []string
@@ -64,17 +85,17 @@ func QuestionName(questionID int64) string {
 // Compile returns the LaTeX source of the sheet.
 func Compile(in Input) (string, error) {
 	switch {
-	case in.Copies < survey.MinCopies || in.Copies > survey.MaxCopies:
-		return "", fmt.Errorf("tex.Compile: %d copies, want %d..%d", in.Copies, survey.MinCopies, survey.MaxCopies)
+	case in.Copies < 1 || in.Copies > MaxCopies:
+		return "", fmt.Errorf("tex.Compile: %d copies, want 1..%d", in.Copies, MaxCopies)
 	case len(in.Questions) == 0:
-		return "", fmt.Errorf("tex.Compile: %w", survey.ErrEmptyBank)
+		return "", fmt.Errorf("tex.Compile: %w", ErrNoQuestions)
 	}
 	for _, q := range in.Questions {
 		if len(q.Labels) == 0 {
 			return "", fmt.Errorf("tex.Compile: question %s has no alternatives", q.Name)
 		}
-		if !q.Kind.Valid() {
-			return "", fmt.Errorf("tex.Compile: question %s has kind %q", q.Name, q.Kind)
+		if q.Kind != Single && q.Kind != Scale && q.Kind != Multi {
+			return "", fmt.Errorf("tex.Compile: question %s has kind %d", q.Name, q.Kind)
 		}
 	}
 
@@ -129,11 +150,11 @@ func writeQuestion(b *strings.Builder, q Question) {
 		statement += " (" + escapeText(q.Guide) + ")"
 	}
 	choices := "choices"
-	if q.Kind == survey.KindScale {
+	if q.Kind == Scale {
 		choices = "choiceshoriz"
 	}
 
-	if q.Kind == survey.KindMulti {
+	if q.Kind == Multi {
 		fmt.Fprintf(b, "  \\begin{questionmult}{%s}\n", q.Name)
 	} else {
 		fmt.Fprintf(b, "  \\begin{question}[\\unaSymbole]{%s}\n", q.Name)
@@ -142,7 +163,7 @@ func writeQuestion(b *strings.Builder, q Question) {
 	fmt.Fprintf(b, "    \\begin{%s}[o]\n", choices)
 	for i, label := range q.Labels {
 		text := escapeText(label)
-		if q.Kind == survey.KindScale {
+		if q.Kind == Scale {
 			// A scale point prints its value, then its words if it has any.
 			text = fmt.Sprintf("%d", i+1)
 			if l := escapeText(label); l != "" {
@@ -150,14 +171,14 @@ func writeQuestion(b *strings.Builder, q Question) {
 			}
 		}
 		macro := "\\wrongchoice"
-		if i == 0 && q.Kind != survey.KindMulti {
+		if i == 0 && q.Kind != Multi {
 			// The stand-in AMC demands of a simple question (package doc).
 			macro = "\\correctchoice"
 		}
 		fmt.Fprintf(b, "      %s{%s}\n", macro, text)
 	}
 	fmt.Fprintf(b, "    \\end{%s}\n", choices)
-	if q.Kind == survey.KindMulti {
+	if q.Kind == Multi {
 		b.WriteString("  \\end{questionmult}\n\n")
 	} else {
 		b.WriteString("  \\end{question}\n\n")

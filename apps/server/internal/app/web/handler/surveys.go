@@ -13,6 +13,7 @@ import (
 	"github.com/so77id/nalanda/apps/server/internal/app/web/flash"
 	"github.com/so77id/nalanda/apps/server/internal/app/web/middleware"
 	"github.com/so77id/nalanda/apps/server/internal/app/web/view"
+	"github.com/so77id/nalanda/apps/server/internal/domain/jobs"
 	"github.com/so77id/nalanda/apps/server/internal/domain/roster"
 	"github.com/so77id/nalanda/apps/server/internal/domain/survey"
 	"github.com/so77id/nalanda/apps/server/internal/infra/config"
@@ -100,8 +101,13 @@ var _ SurveyCourses = (*roster.Service)(nil)
 
 // Surveys holds the survey screens.
 type Surveys struct {
-	Service   *survey.Service
-	Courses   SurveyCourses
+	Service *survey.Service
+	Courses SurveyCourses
+	// Jobs and Runner are the one job queue (ADR-0079): a run's page reads
+	// its banner from Jobs, and creating a run submits to Runner — the
+	// handler.Controls shape.
+	Jobs      jobs.Store
+	Runner    *jobs.Runner
 	PublicURL string
 	Log       *slog.Logger
 
@@ -118,6 +124,10 @@ func NewSurveys(deps Surveys) *Surveys {
 		panic("handler.NewSurveys: no survey service")
 	case deps.Courses == nil:
 		panic("handler.NewSurveys: no course reader")
+	case deps.Jobs == nil:
+		panic("handler.NewSurveys: no jobs store")
+	case deps.Runner == nil:
+		panic("handler.NewSurveys: no job runner")
 	case deps.PublicURL == "":
 		panic("handler.NewSurveys: no public URL — the flash cookie's Secure attribute is derived from it")
 	case deps.Log == nil:
@@ -525,6 +535,8 @@ func surveyProblemMessage(field string, problem error) string {
 			return "Escribe un nombre."
 		case survey.FieldStatement:
 			return "Escribe el enunciado."
+		case survey.FieldAppliedOn:
+			return "Elige la fecha de aplicación."
 		}
 		return "Este campo es obligatorio."
 	case errors.Is(problem, survey.ErrTooLong):
@@ -555,6 +567,10 @@ func surveyProblemMessage(field string, problem error) string {
 		return "Solo una pregunta de opción única puede ser de contexto."
 	case errors.Is(problem, survey.ErrMarksNotAllowed):
 		return "El mínimo y el máximo de marcas solo aplican a selección múltiple."
+	case errors.Is(problem, survey.ErrBadDate):
+		return "Escribe una fecha válida."
+	case errors.Is(problem, survey.ErrCopiesRange):
+		return fmt.Sprintf("Las copias van de %d a %d.", survey.MinCopies, survey.MaxCopies)
 	case errors.Is(problem, survey.ErrMarksRange):
 		return "El mínimo va de 0 al número de alternativas, el máximo de 1 al número de alternativas, y el mínimo no puede superar al máximo."
 	}

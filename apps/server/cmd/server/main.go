@@ -226,14 +226,6 @@ func run(logger *slog.Logger) error {
 	})
 	rosterService := roster.NewService(courseStore, roster.NewCanvasSource(canvasService))
 
-	// Epic #308: the survey subsystem (ADR-0078). Its own store over its
-	// own tables; it shares the database handle and nothing else with the
-	// controls.
-	surveyService := survey.NewService(survey.Service{
-		Store: surveystore.New(db),
-		Now:   time.Now,
-	})
-
 	// Issue #273: the mail transport, selected ONCE at boot and logged in
 	// one line — the "select don't describe" shape of DocumentBuddy's
 	// ADR-021. Nothing downstream branches on the mode, so no caller can be
@@ -285,6 +277,16 @@ func run(logger *slog.Logger) error {
 	// Handlers register per Kind as the WP migrates each operation
 	// off the sync path — this ships with KindReanalyse (S3); S4–S6
 	// add analyse, generate and annotate.
+	// Epic #308: the survey subsystem (ADR-0078). Its own store over its
+	// own tables; it shares the database handle, the worker client and the
+	// shared volume with the controls, and no type.
+	surveyService := survey.NewService(survey.Service{
+		Store:     surveystore.New(db),
+		Generator: amcClient,
+		WorkDir:   cfg.WorkDir,
+		Now:       time.Now,
+	})
+
 	jobStore := jobstore.New(db)
 	jobRunner := jobs.NewRunner(jobStore, jobs.Handlers{
 		jobs.KindReanalyse: controls.NewReanalyseHandler(controlsService),
@@ -292,6 +294,8 @@ func run(logger *slog.Logger) error {
 		jobs.KindGenerate:  controls.NewGenerateHandler(controlsService),
 		jobs.KindAnnotate:  controls.NewAnnotateHandler(controlsService),
 		jobs.KindPublish:   controls.NewPublishHandler(controlsService),
+		// Issue #310: the survey Kinds, from the owning domain (ADR-0079).
+		jobs.KindSurveyGenerate: survey.NewGenerateHandler(surveyService),
 	}, logger, time.Now)
 	if err := jobRunner.Sweep(ctx); err != nil {
 		return err
@@ -378,6 +382,8 @@ func run(logger *slog.Logger) error {
 		Surveys: handler.NewSurveys(handler.Surveys{
 			Service:   surveyService,
 			Courses:   rosterService,
+			Jobs:      jobStore,
+			Runner:    jobRunner,
 			PublicURL: cfg.PublicURL,
 			Log:       logger,
 		}),

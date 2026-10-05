@@ -36,10 +36,16 @@ const (
 	// they differ only in the recipient and in whether state moved, and the
 	// payload carries that. A second Kind would duplicate the loop.
 	KindPublish Kind = "publish"
+
+	// KindSurveyGenerate compiles one survey run's sheet (issue #310) — a
+	// /generate, about a survey run (Subject). Its handler lives in
+	// internal/domain/survey/jobhandlers.go, the owning domain's
+	// (ADR-0079).
+	KindSurveyGenerate Kind = "survey_generate"
 )
 
 // ValidKinds is the closed set the schema CHECK enforces.
-var ValidKinds = []Kind{KindGenerate, KindAnalyse, KindReanalyse, KindAnnotate, KindPublish}
+var ValidKinds = []Kind{KindGenerate, KindAnalyse, KindReanalyse, KindAnnotate, KindPublish, KindSurveyGenerate}
 
 // SubjectKind names what a job is ABOUT (issue #310, ADR-0079). The queue
 // started as the controls' and every job was a control's; a survey run's
