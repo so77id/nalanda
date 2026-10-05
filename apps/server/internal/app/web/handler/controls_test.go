@@ -366,10 +366,10 @@ func (f *controlsFixture) jstoreTerminalCountByKind(ctx context.Context, control
 
 // jstoreRawByControl reads every job for the control via the fixture's
 // database — jobs.Store doesn't expose "list by control" (its readers
-// are LatestForControl and ByID by design), and the test does not need
+// are LatestForSubject and ByID by design), and the test does not need
 // a new method on the domain interface for one case.
 func (f *controlsFixture) jstoreRawByControl(ctx context.Context, controlID string) ([]jobs.Job, error) {
-	// LatestForControl + walking id backwards would need extra
+	// LatestForSubject + walking id backwards would need extra
 	// interface methods. The fixture cheats by hitting the same
 	// sql.DB — jstore is a thin adapter, and no domain state hangs
 	// off the walk.
@@ -378,7 +378,7 @@ func (f *controlsFixture) jstoreRawByControl(ctx context.Context, controlID stri
 		return nil, err
 	}
 	// The list above only returns queued rows. Combine with a
-	// LatestForControl fan-out via the ByID contract: iterate
+	// LatestForSubject fan-out via the ByID contract: iterate
 	// increasing ids from 1 until ErrJobNotFound.
 	out := []jobs.Job{}
 	for id := int64(1); ; id++ {

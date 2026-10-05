@@ -1499,7 +1499,7 @@ func TestReadingPublicationColumnsAreNullableAndRoundTrip(t *testing.T) {
 // The case runs over a database that already holds a published control with
 // every child row hanging off it, because dropping a column from `control`
 // is the operation in this schema with the widest blast radius: it is the
-// PARENT of control_pregunta, copia, reading, annotated_copy and job, all
+// PARENT of control_pregunta, copia, reading, annotated_copy and (before 00023) job, all
 // ON DELETE CASCADE, and foreign keys are enforced (storage.Open sets
 // `foreign_keys(1)`). A migration that reached the same end state by
 // dropping and recreating the table would take every one of those rows with
