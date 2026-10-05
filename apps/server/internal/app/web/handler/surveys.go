@@ -303,7 +303,7 @@ func questionRow(q survey.Question) view.SurveyQuestionRow {
 		}
 		row.Alternatives = strings.Join(labels, " · ")
 	}
-	if guide := marksGuide(q.MinMarks, q.MaxMarks); guide != "" {
+	if guide := survey.MarksGuide(q.MinMarks, q.MaxMarks); guide != "" {
 		row.Alternatives += " · " + guide
 	}
 	return row
@@ -316,22 +316,6 @@ func kindLabel(q survey.Question) string {
 		return fmt.Sprintf("Escala 1-%d", len(q.Alternatives))
 	}
 	return kindName(q.Kind)
-}
-
-// marksGuide words a multi-select question's printed guidance, "" when it
-// has none.
-func marksGuide(minMarks, maxMarks *int) string {
-	switch {
-	case minMarks != nil && maxMarks != nil && *minMarks == *maxMarks:
-		return fmt.Sprintf("marca %d", *minMarks)
-	case minMarks != nil && maxMarks != nil:
-		return fmt.Sprintf("marca entre %d y %d", *minMarks, *maxMarks)
-	case minMarks != nil && *minMarks > 0:
-		return fmt.Sprintf("marca al menos %d", *minMarks)
-	case maxMarks != nil:
-		return fmt.Sprintf("marca hasta %d", *maxMarks)
-	}
-	return ""
 }
 
 // Edit renders the survey form pre-filled.

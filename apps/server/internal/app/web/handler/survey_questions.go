@@ -445,7 +445,7 @@ func (h *Surveys) PreviewQuestion(w http.ResponseWriter, r *http.Request) {
 		Number:     q.Position,
 		Statement:  q.Statement,
 		Horizontal: q.Kind == survey.KindScale,
-		Guide:      marksGuide(q.MinMarks, q.MaxMarks),
+		Guide:      survey.MarksGuide(q.MinMarks, q.MaxMarks),
 	}
 	for i, a := range q.Alternatives {
 		letter := string(rune('A' + i))

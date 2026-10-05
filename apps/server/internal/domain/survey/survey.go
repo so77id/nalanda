@@ -16,6 +16,7 @@ package survey
 
 import (
 	"errors"
+	"fmt"
 	"sort"
 	"strings"
 	"time"
@@ -328,6 +329,22 @@ func checkMarks(minMarks, maxMarks *int, alternatives int) error {
 		return ErrMarksRange
 	}
 	return nil
+}
+
+// MarksGuide words a multi-select question's printed guidance — the same
+// sentence the sheet prints and the bank lists — or "" when it has none.
+func MarksGuide(minMarks, maxMarks *int) string {
+	switch {
+	case minMarks != nil && maxMarks != nil && *minMarks == *maxMarks:
+		return fmt.Sprintf("marca %d", *minMarks)
+	case minMarks != nil && maxMarks != nil:
+		return fmt.Sprintf("marca entre %d y %d", *minMarks, *maxMarks)
+	case minMarks != nil && *minMarks > 0:
+		return fmt.Sprintf("marca al menos %d", *minMarks)
+	case maxMarks != nil:
+		return fmt.Sprintf("marca hasta %d", *maxMarks)
+	}
+	return ""
 }
 
 // DefaultScaleLabels is what a new scale of the given number of points
