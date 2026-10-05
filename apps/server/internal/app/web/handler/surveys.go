@@ -27,6 +27,12 @@ const (
 	SurveyEditPath       = "/surveys/{id}/edit"
 	SurveyArchivePath    = "/surveys/{id}/archive"
 	SurveyRestorePath    = "/surveys/{id}/restore"
+
+	SurveyQuestionsPath      = "/surveys/{id}/questions"
+	SurveyQuestionNewPath    = "/surveys/{id}/questions/new"
+	SurveyQuestionEditPath   = "/surveys/{id}/questions/{qid}/edit"
+	SurveyQuestionDeletePath = "/surveys/{id}/questions/{qid}/delete"
+	SurveyQuestionMovePath   = "/surveys/{id}/questions/{qid}/move"
 )
 
 // archivedQuery switches the course's survey list to its archived surveys.
@@ -228,12 +234,20 @@ func (h *Surveys) Detail(w http.ResponseWriter, r *http.Request) {
 		EditURL:       SurveyPathFor(one.ID) + "/edit",
 		ArchiveAction: SurveyPathFor(one.ID) + "/archive",
 		RestoreAction: SurveyPathFor(one.ID) + "/restore",
+		NewQuestion:   SurveyPathFor(one.ID) + "/questions/new?kind=" + string(survey.KindSingle),
 		QuestionCount: len(questions),
 	}
 	for _, section := range survey.Sections(questions) {
 		rows := make([]view.SurveyQuestionRow, 0, len(section.Questions))
 		for _, q := range section.Questions {
-			rows = append(rows, questionRow(q))
+			row := questionRow(q)
+			base := questionPathFor(one.ID, q.ID)
+			row.EditURL = base + "/edit"
+			row.DeleteAction = base + "/delete"
+			row.MoveAction = base + "/move"
+			row.First = q.Position == 1
+			row.Last = q.Position == len(questions)
+			rows = append(rows, row)
 		}
 		page.Sections = append(page.Sections, view.SurveySection{Label: section.Label, Questions: rows})
 	}

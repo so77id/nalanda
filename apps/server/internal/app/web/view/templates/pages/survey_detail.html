@@ -6,7 +6,7 @@
   {{ end }}
   {{ if .Description }}<p>{{ .Description }}</p>{{ end }}
 
-  <p>
+  <div class="survey-actions">
     <a class="boton" href="{{ .EditURL }}">Editar</a>
     {{ if .Archived }}
       <form class="inline" method="post" action="{{ .RestoreAction }}">
@@ -19,12 +19,13 @@
         <button type="submit">Archivar</button>
       </form>
     {{ end }}
-  </p>
+  </div>
 
   <div class="survey-split">
     <section aria-labelledby="banco">
       <h2 id="banco">Banco</h2>
-      <p>{{ .QuestionCount }} pregunta{{ if ne .QuestionCount 1 }}s{{ end }}</p>
+      <p>{{ .QuestionCount }} pregunta{{ if ne .QuestionCount 1 }}s{{ end }}
+        <a class="boton" href="{{ .NewQuestion }}">+ Agregar pregunta</a></p>
       {{ if not .Sections }}
         <p>Todavía no hay preguntas.</p>
       {{ end }}
@@ -38,6 +39,27 @@
                 {{ .KindLabel }}{{ if .Alternatives }} · {{ .Alternatives }}{{ end }}
                 {{ if .IsContext }}<span class="survey-tag">(contexto)</span>{{ end }}
               </p>
+              <div class="survey-actions">
+                {{ if not .First }}
+                  <form class="inline" method="post" action="{{ .MoveAction }}">
+                    <input type="hidden" name="csrf_token" value="{{ $.CSRFToken }}" />
+                    <input type="hidden" name="dir" value="up" />
+                    <button type="submit" aria-label="Subir la pregunta {{ .Number }}">↑</button>
+                  </form>
+                {{ end }}
+                {{ if not .Last }}
+                  <form class="inline" method="post" action="{{ .MoveAction }}">
+                    <input type="hidden" name="csrf_token" value="{{ $.CSRFToken }}" />
+                    <input type="hidden" name="dir" value="down" />
+                    <button type="submit" aria-label="Bajar la pregunta {{ .Number }}">↓</button>
+                  </form>
+                {{ end }}
+                <a class="boton" href="{{ .EditURL }}">Editar</a>
+                <form class="inline" method="post" action="{{ .DeleteAction }}">
+                  <input type="hidden" name="csrf_token" value="{{ $.CSRFToken }}" />
+                  <button type="submit" aria-label="Borrar la pregunta {{ .Number }}">Borrar</button>
+                </form>
+              </div>
             </li>
           {{ end }}
         </ol>

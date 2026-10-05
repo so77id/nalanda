@@ -61,6 +61,7 @@ type SurveyDetailPage struct {
 	EditURL       string
 	ArchiveAction string
 	RestoreAction string
+	NewQuestion   string
 	// QuestionCount is the bank's size; Sections is the bank grouped by
 	// consecutive section label, in bank order.
 	QuestionCount int
@@ -74,13 +75,61 @@ type SurveySection struct {
 	Questions []SurveyQuestionRow
 }
 
-// SurveyQuestionRow is one question of the bank, pre-formatted.
+// SurveyQuestionRow is one question of the bank, pre-formatted, with the
+// actions its row offers.
 type SurveyQuestionRow struct {
 	Number       int
 	Statement    string
 	KindLabel    string
 	Alternatives string
 	IsContext    bool
+	EditURL      string
+	DeleteAction string
+	MoveAction   string
+	// First and Last hide the ↑ / ↓ that would do nothing.
+	First bool
+	Last  bool
+}
+
+// SurveyQuestionFormPage is what survey_question_form.html renders, for a
+// new question and for editing one (screens 4 and 4b).
+type SurveyQuestionFormPage struct {
+	Page
+	SurveyName    string
+	Heading       string
+	Action        string
+	Submit        string
+	CancelURL     string
+	KindLinks     []KindLink
+	PointOptions  []int
+	KnownSections []string
+	Values        QuestionFormValues
+	Errors        map[string]string
+	Notice        string
+}
+
+// KindLink is one entry of the kind selector: a link that re-renders the
+// form for that kind.
+type KindLink struct {
+	Label   string
+	URL     string
+	Current bool
+}
+
+// QuestionFormValues is what the form shows: what the professor typed on a
+// refusal, the stored question on an edit, the defaults on a new one.
+// Alternatives always holds the form's ten rows and ScaleLabels its seven,
+// blank where unused.
+type QuestionFormValues struct {
+	Kind         string
+	Statement    string
+	Section      string
+	IsContext    bool
+	Alternatives []string
+	ScaleLabels  []string
+	Points       int
+	MinMarks     string
+	MaxMarks     string
 }
 
 // RenderSurveysList writes screen 1.
@@ -97,4 +146,10 @@ func RenderSurveyForm(w http.ResponseWriter, status int, page SurveyFormPage) er
 // RenderSurveyDetail writes screen 3.
 func RenderSurveyDetail(w http.ResponseWriter, page SurveyDetailPage) error {
 	return render(w, "survey_detail", http.StatusOK, page)
+}
+
+// RenderSurveyQuestionForm writes the question form with the caller's
+// status.
+func RenderSurveyQuestionForm(w http.ResponseWriter, status int, page SurveyQuestionFormPage) error {
+	return render(w, "survey_question_form", status, page)
 }
