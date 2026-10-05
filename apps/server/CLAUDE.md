@@ -344,7 +344,9 @@ the `avisoNo*` / `flash.Set(…)` string literals in `internal/app/web/handler/`
   coordinated places, and the runner's `NewRunner` panics at boot if
   any is missing (issue #249, ADR-0050).**
   1. A new `Kind` constant + `ValidKinds` entry in
-     `internal/domain/jobs/jobs.go`.
+     `internal/domain/jobs/jobs.go` — AND its case in `Kind.Subject()`
+     (ADR-0079), which panics on a Kind it does not classify;
+     `TestEveryValidKindHasASubject` finds the omission.
   2. A migration that ALTERs `job.kind`'s `CHECK` to include the new
      value — the SQLite `CHECK` and the Go enum enforce the same
      closed set, and a `Kind` satisfying one but not the other is a
