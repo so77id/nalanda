@@ -32,3 +32,4 @@ entries:
   - label: Evaluaciones
     children:
       - docId: control-1
+      - docId: solemne-1
