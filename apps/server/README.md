@@ -303,10 +303,22 @@ test (`TestTheSurveyDomainDoesNotImportControls`) that fails the build if the
 survey side reaches the controls side. A survey belongs to one course and
 holds a bank of three question kinds — `single` (nominal, counted), `scale`
 (3–7 points, the only kind averaged) and `multi` (min/max printed as guidance,
-enforced by nothing) — grouped by a free-text section label. WP-1 authors
-banks only: runs, the printed sheet, reading and results arrive with
-#310–#312. The forms work without JavaScript (ten fixed alternative rows, ↑/↓
-buttons for order).
+enforced by nothing) — grouped by a free-text section label. The forms work
+without JavaScript (ten fixed alternative rows, ↑/↓ buttons for order).
+
+Since issue #310 a survey is applied in **runs**. Creating one is the
+synchronous half — the row, a snapshot of which questions it prints and as
+which number (context questions first), and the sheet's `source.tex` under
+`/work/surveys/<survey>/runs/<run>/` — and a `survey_generate` job is the
+async half, one `/generate` on the same runner and worker lock as the
+controls (ADR-0079). The sheet is anonymous (no name field, no RUT grid),
+prints in authored order, and gives every one-answer question exactly one
+stand-in correct alternative, because AMC refuses a simple question with
+none or all correct (measured in the S0 spike, `apps/amc-worker/tests/
+08-survey.sh`). Every professor-typed string is TeX-escaped by
+`survey/tex` itself. Once a run that is not cancelled exists, the bank's
+existing questions are locked; new ones may be appended and only later runs
+print them. Reading and results arrive with #311–#312.
 
 Routes today:
 
@@ -367,6 +379,11 @@ Routes today:
 | `GET /surveys/{id}/questions/{qid}/edit` · `POST /surveys/{id}/questions/{qid}/edit` | Edit a question; `?kind=` on the GET re-renders it in another kind keeping what carries over |
 | `POST /surveys/{id}/questions/{qid}/delete` · `POST /surveys/{id}/questions/{qid}/move` | Remove a question (positions stay dense) / move it one step (`dir=up` or `dir=down`). A question of another survey is a 404 through this survey's URL |
 | `GET /surveys/{id}/questions/{qid}/preview` | An HTML approximation of the printed question, labelled as one — the real sheet is AMC's and comes with a run (#310) |
+| `GET /surveys/{id}/runs/new` · `POST /surveys/{id}/runs` | Create a run (issue #310): name, date, copies. The POST writes the row, the snapshot and the source synchronously, queues `survey_generate`, and lands on the run. An empty bank is a flash; once the run exists the bank is locked |
+| `GET /surveys/{id}/runs/{rid}` | The run's dashboard: the job banner, the stepper, the counts, the download once the PDF is generated; scans, review and closing are #311 |
+| `GET /surveys/{id}/runs/{rid}/sujet.pdf` | The printable sheet, streamed once the latest `survey_generate` is done |
+| `GET /surveys/{id}/runs/{rid}/edit` · `POST /surveys/{id}/runs/{rid}/edit` | Rename / re-date a run; the printed copies are not editable |
+| `POST /surveys/{id}/runs/{rid}/cancel` | Cancel an open run — refused with a flash while a job about it is queued or running. A cancelled run stays listed and releases the bank |
 | `GET /login` · `GET /login/google` · `GET /login/google/callback` · `POST /logout` | The login round trip — see §Signing in |
 
 Every state-changing route sits behind `middleware.RequireProfessor` AND

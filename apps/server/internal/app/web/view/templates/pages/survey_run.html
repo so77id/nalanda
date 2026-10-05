@@ -10,14 +10,14 @@
           <button type="submit">Refrescar</button>
         </form>
       {{ else if .Done }}
-        <p><strong>{{ .Kind }}: lista.</strong></p>
+        <p><strong>Listo: {{ .Kind }}.</strong></p>
         {{ if .Notice }}<p>{{ .Notice }}</p>{{ end }}
         <form method="post" action="{{ .DismissURL }}" style="display:inline">
           <input type="hidden" name="csrf_token" value="{{ $.CSRFToken }}">
           <button type="submit">Cerrar aviso</button>
         </form>
       {{ else if .Failed }}
-        <p><strong>{{ .Kind }} falló:</strong> {{ .Error }}</p>
+        <p><strong>Falló la {{ .Kind }}:</strong> {{ .Error }}</p>
         <form method="post" action="{{ .DismissURL }}" style="display:inline">
           <input type="hidden" name="csrf_token" value="{{ $.CSRFToken }}">
           <button type="submit">Cerrar aviso</button>
