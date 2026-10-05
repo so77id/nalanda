@@ -42,10 +42,15 @@ const (
 	// internal/domain/survey/jobhandlers.go, the owning domain's
 	// (ADR-0079).
 	KindSurveyGenerate Kind = "survey_generate"
+
+	// KindSurveyAnalyse reads one uploaded batch of a survey run's scans
+	// (issue #311) — an /analyse, about a survey run. Handler in
+	// internal/domain/survey/jobhandlers.go.
+	KindSurveyAnalyse Kind = "survey_analyse"
 )
 
 // ValidKinds is the closed set the schema CHECK enforces.
-var ValidKinds = []Kind{KindGenerate, KindAnalyse, KindReanalyse, KindAnnotate, KindPublish, KindSurveyGenerate}
+var ValidKinds = []Kind{KindGenerate, KindAnalyse, KindReanalyse, KindAnnotate, KindPublish, KindSurveyGenerate, KindSurveyAnalyse}
 
 // SubjectKind names what a job is ABOUT (issue #310, ADR-0079). The queue
 // started as the controls' and every job was a control's; a survey run's
@@ -77,7 +82,7 @@ func (k Kind) Subject() SubjectKind {
 	switch k {
 	case KindGenerate, KindAnalyse, KindReanalyse, KindAnnotate, KindPublish:
 		return SubjectControl
-	case KindSurveyGenerate:
+	case KindSurveyGenerate, KindSurveyAnalyse:
 		return SubjectSurveyRun
 	}
 	panic("jobs.Kind.Subject: kind " + string(k) + " belongs to no subject")

@@ -83,7 +83,7 @@ func newSurveyFixture(t *testing.T) *surveyFixture {
 
 	f.worker = &amctest.Fake{WorkDir: t.TempDir()}
 	f.surveys = survey.NewService(survey.Service{
-		Store: surveystore.New(db), Generator: f.worker, WorkDir: f.worker.WorkDir,
+		Store: surveystore.New(db), Generator: f.worker, Analyzer: f.worker, WorkDir: f.worker.WorkDir,
 		Now: func() time.Time { return f.now },
 	})
 	f.jobs = jobstore.New(db)
@@ -94,6 +94,7 @@ func newSurveyFixture(t *testing.T) *surveyFixture {
 		jobs.KindAnnotate:       func(context.Context, string, []byte) error { return nil },
 		jobs.KindPublish:        func(context.Context, string, []byte) error { return nil },
 		jobs.KindSurveyGenerate: survey.NewGenerateHandler(f.surveys),
+		jobs.KindSurveyAnalyse:  survey.NewAnalyseHandler(f.surveys),
 	}, log, func() time.Time { return f.now })
 	f.handler = handler.NewSurveys(handler.Surveys{
 		Service:   f.surveys,

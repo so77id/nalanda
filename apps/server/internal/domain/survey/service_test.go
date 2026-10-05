@@ -151,20 +151,25 @@ func (noGenerator) GenerateSheet(context.Context, survey.GenerateRequest) (surve
 	return survey.Assets{}, survey.ErrGeneratorUnavailable
 }
 
+func (noGenerator) AnalyzeSheets(context.Context, survey.AnalyzeRequest) (survey.Report, error) {
+	return survey.Report{}, survey.ErrAnalyzerUnavailable
+}
+
 var now = time.Date(2026, time.October, 5, 12, 0, 0, 0, time.UTC)
 
 func newService(store survey.Store) *survey.Service {
 	return survey.NewService(survey.Service{
-		Store: store, Generator: noGenerator{}, WorkDir: "/nonexistent", Now: func() time.Time { return now },
+		Store: store, Generator: noGenerator{}, Analyzer: noGenerator{}, WorkDir: "/nonexistent", Now: func() time.Time { return now },
 	})
 }
 
 func TestNewServiceRefusesMissingDependencies(t *testing.T) {
 	for name, deps := range map[string]survey.Service{
-		"no store":     {Generator: noGenerator{}, WorkDir: "/w", Now: time.Now},
-		"no generator": {Store: newMemStore(), WorkDir: "/w", Now: time.Now},
-		"no work dir":  {Store: newMemStore(), Generator: noGenerator{}, Now: time.Now},
-		"no clock":     {Store: newMemStore(), Generator: noGenerator{}, WorkDir: "/w"},
+		"no store":     {Generator: noGenerator{}, Analyzer: noGenerator{}, WorkDir: "/w", Now: time.Now},
+		"no generator": {Store: newMemStore(), Analyzer: noGenerator{}, WorkDir: "/w", Now: time.Now},
+		"no analyzer":  {Store: newMemStore(), Generator: noGenerator{}, WorkDir: "/w", Now: time.Now},
+		"no work dir":  {Store: newMemStore(), Generator: noGenerator{}, Analyzer: noGenerator{}, Now: time.Now},
+		"no clock":     {Store: newMemStore(), Generator: noGenerator{}, Analyzer: noGenerator{}, WorkDir: "/w"},
 	} {
 		t.Run(name, func(t *testing.T) {
 			defer func() {

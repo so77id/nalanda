@@ -20,12 +20,68 @@ import (
 // the store, so a payload can never disagree with the row.
 type RunPayload struct {
 	SurveyID int64 `json:"survey_id"`
+	// Batch is the uploaded file a survey_analyse reads (issue #311),
+	// e.g. "batch-2.pdf"; empty on every other kind.
+	Batch string `json:"batch,omitempty"`
 }
 
 // EncodeRunPayload is the payload Submit stores for a run's job.
 func EncodeRunPayload(surveyID int64) []byte {
 	b, _ := json.Marshal(RunPayload{SurveyID: surveyID})
 	return b
+}
+
+// EncodeAnalysePayload is the payload of a run's survey_analyse.
+func EncodeAnalysePayload(surveyID int64, batch string) []byte {
+	b, _ := json.Marshal(RunPayload{SurveyID: surveyID, Batch: batch})
+	return b
+}
+
+// NewAnalyseHandler is the `survey_analyse` job: AnalyzeBatch (issue #311).
+// A done job's notice says what the batch read; every failure leaves the
+// uploaded batch where it is (apps/server/CLAUDE.md, #210).
+func NewAnalyseHandler(s *Service) jobs.Handler {
+	return func(ctx context.Context, subjectID string, payload []byte) error {
+		runID, surveyID, err := DecodeRunJob(subjectID, payload)
+		var p RunPayload
+		if err == nil {
+			err = json.Unmarshal(payload, &p)
+		}
+		if err == nil && p.Batch == "" {
+			err = fmt.Errorf("survey run %d analyse payload names no batch", runID)
+		}
+		if err != nil {
+			return &jobs.Failure{Message: "No se pudo leer el trabajo de la pasada.", Detail: err.Error()}
+		}
+		result, err := s.AnalyzeBatch(ctx, surveyID, runID, p.Batch)
+		switch {
+		case err == nil:
+			return &jobs.Notice{Message: result.Notice()}
+		case errors.Is(err, ErrNothingCaptured):
+			return &jobs.Failure{
+				Message: "Ninguna página de ese PDF es de esta pasada: revisa que sean sus hojas.",
+				Detail:  err.Error(),
+			}
+		case errors.Is(err, ErrReportMismatch):
+			return &jobs.Failure{
+				Message: "La lectura no coincide con la hoja de esta pasada; no se guardó nada.",
+				Detail:  err.Error(),
+			}
+		case errors.Is(err, ErrAnalyzerRefused):
+			return &jobs.Failure{Message: "El lector rechazó el lote escaneado.", Detail: err.Error()}
+		case errors.Is(err, ErrAnalyzerUnavailable):
+			return &jobs.Failure{
+				Message: "El lector de escaneos no responde. Vuelve a intentarlo en unos minutos.",
+				Detail:  err.Error(),
+			}
+		case errors.Is(err, ErrRunNotOpen):
+			return &jobs.Failure{Message: "La pasada ya no está abierta: el lote no se leyó.", Detail: err.Error()}
+		case errors.Is(err, ErrRunNotFound):
+			return &jobs.Failure{Message: "Esa pasada ya no existe.", Detail: err.Error()}
+		default:
+			return &jobs.Failure{Message: "No se pudieron leer los escaneos.", Detail: err.Error()}
+		}
+	}
 }
 
 // NewGenerateHandler is the `survey_generate` job: GenerateRunSheet.

@@ -274,6 +274,7 @@ func newControlsFixtureWith(t *testing.T, annotateEnabled bool) *controlsFixture
 		jobs.KindSurveyGenerate: func(context.Context, string, []byte) error {
 			return nil // the controls fixture submits no survey job
 		},
+		jobs.KindSurveyAnalyse: func(context.Context, string, []byte) error { return nil },
 	}, log, time.Now)
 	// Start the runner in the background so the async Submit path in
 	// ReanalyzeScans reaches its handler. Cleanup cancels the context

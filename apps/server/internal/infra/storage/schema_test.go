@@ -1725,3 +1725,73 @@ func TestTheJobSubjectRebuildKeepsEveryControlsJob(t *testing.T) {
 		}
 	}
 }
+
+// Issue #311 S3: `survey_analyse` widens job.kind's CHECK — a second rebuild
+// of the child table `job`. Every row of both subjects survives verbatim,
+// the subject index is recreated, and the new kind is accepted.
+func TestTheSurveyAnalyseKindRebuildKeepsEveryJob(t *testing.T) {
+	ctx := context.Background()
+	path := filepath.Join(t.TempDir(), "nalanda.db")
+
+	db, err := storage.Open(ctx, path)
+	if err != nil {
+		t.Fatalf("Open: %v", err)
+	}
+	if _, err := storage.Migrate(ctx, db, migrationsUpTo(t, "00026")); err != nil {
+		t.Fatalf("applying the set as it shipped before #311: %v", err)
+	}
+	insert := `INSERT INTO job (id, subject_kind, subject_id, kind, status, error, detail, payload_json,
+                                created_at, started_at, finished_at, viewed_at, notice)
+               VALUES (?, ?, ?, ?, 'failed', 'se negó', 'stderr', '{"survey_id":3}', 100, 110, 120, 130, 'n')`
+	for _, row := range [][]any{{7, "control", "CTRL", "analyse"}, {8, "survey_run", "12", "survey_generate"}} {
+		if _, err := db.ExecContext(ctx, insert, row...); err != nil {
+			t.Fatalf("inserting job %v: %v", row[0], err)
+		}
+	}
+	if _, err := db.ExecContext(ctx, insert, 9, "survey_run", "12", "survey_analyse"); err == nil {
+		t.Fatal("survey_analyse was accepted BEFORE 00026, so this test proves nothing")
+	}
+	_ = db.Close()
+
+	reopened, err := storage.Open(ctx, path)
+	if err != nil {
+		t.Fatalf("reopening: %v", err)
+	}
+	defer func() { _ = reopened.Close() }()
+	if applied, err := storage.Migrate(ctx, reopened, migrations.FS); err != nil || applied == 0 {
+		t.Fatalf("applying 00026: applied %d, %v", applied, err)
+	}
+
+	rows, err := reopened.QueryContext(ctx, `
+        SELECT id || '/' || subject_kind || '/' || subject_id || '/' || kind || '/' || status || '/' ||
+               error || '/' || detail || '/' || payload_json || '/' || notice || '/' ||
+               created_at || '/' || started_at || '/' || finished_at || '/' || viewed_at
+        FROM job ORDER BY id`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got []string
+	for rows.Next() {
+		var line string
+		if err := rows.Scan(&line); err != nil {
+			t.Fatal(err)
+		}
+		got = append(got, line)
+	}
+	_ = rows.Close()
+	want := []string{
+		`7/control/CTRL/analyse/failed/se negó/stderr/{"survey_id":3}/n/100/110/120/130`,
+		`8/survey_run/12/survey_generate/failed/se negó/stderr/{"survey_id":3}/n/100/110/120/130`,
+	}
+	if strings.Join(got, "\n") != strings.Join(want, "\n") {
+		t.Errorf("jobs after the rebuild:\n%s\nwant\n%s", strings.Join(got, "\n"), strings.Join(want, "\n"))
+	}
+	if _, err := reopened.ExecContext(ctx, insert, 9, "survey_run", "12", "survey_analyse"); err != nil {
+		t.Errorf("survey_analyse after 00026: %v", err)
+	}
+	var index string
+	if err := reopened.QueryRowContext(ctx,
+		`SELECT name FROM sqlite_master WHERE type = 'index' AND name = 'idx_job_by_subject'`).Scan(&index); err != nil {
+		t.Errorf("idx_job_by_subject did not survive the rebuild: %v", err)
+	}
+}

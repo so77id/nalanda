@@ -429,8 +429,11 @@ func runBanner(job *jobs.Job) *view.JobBanner {
 
 // surveyJobLabel names a survey job on its banner.
 func surveyJobLabel(k jobs.Kind) string {
-	if k == jobs.KindSurveyGenerate {
+	switch k {
+	case jobs.KindSurveyGenerate:
 		return "generación del PDF"
+	case jobs.KindSurveyAnalyse:
+		return "lectura de los escaneos"
 	}
 	// Never the raw English kind on a Spanish page.
 	return "trabajo de la pasada"

@@ -43,3 +43,24 @@ func (f *Fake) SheetCallCount() int {
 }
 
 var _ survey.Generator = (*Fake)(nil)
+
+// AnalyzeSheets is the survey reading (issue #311): it records the call
+// and returns the next of SurveyReports, or SurveyAnalyzeErr.
+func (f *Fake) AnalyzeSheets(_ context.Context, req survey.AnalyzeRequest) (survey.Report, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.SurveyAnalyzeCalls = append(f.SurveyAnalyzeCalls, req)
+	if f.SurveyAnalyzeErr != nil {
+		return survey.Report{}, f.SurveyAnalyzeErr
+	}
+	if len(f.SurveyReports) == 0 {
+		return survey.Report{Batch: &survey.Batch{}}, nil
+	}
+	report := f.SurveyReports[0]
+	if len(f.SurveyReports) > 1 {
+		f.SurveyReports = f.SurveyReports[1:]
+	}
+	return report, nil
+}
+
+var _ survey.Analyzer = (*Fake)(nil)
