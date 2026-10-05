@@ -302,6 +302,10 @@ ADRs carry it (the count is deliberately not written down: #150 amended two more
 and would have falsified a number here, which is the drift this section exists to
 prevent); it is written down here because parallel branches otherwise
 each invent their own spelling from whichever neighbour they open first.
+Amendments are listed in date order. An amendment that renames an identifier
+earlier amendments still cite maps the old spelling to the new one in its own
+line and leaves the accepted text untouched (worked case: ADR-0050's #310 line,
+`LatestForControlByKind` → `LatestByKind`).
 
 ## References
 
