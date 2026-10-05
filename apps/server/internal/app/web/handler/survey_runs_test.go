@@ -172,3 +172,176 @@ func TestARunIsRefusedWithAnEmptyBankOrBadValues(t *testing.T) {
 		}
 	}
 }
+
+// createRunThroughTheForm posts screen 8 and returns the stored run.
+func (f *surveyFixture) createRunThroughTheForm(s survey.Survey, name string) survey.Run {
+	f.t.Helper()
+	rec := f.do(http.MethodPost, handler.SurveyRunsPathFor(s.ID), f.handler.CreateRun,
+		url.Values{"name": {name}, "applied_on": {"2026-10-15"}, "copies": {"40"}}, f.surveyValue(s)...)
+	if rec.Code != http.StatusSeeOther {
+		f.t.Fatalf("creating the run: status = %d", rec.Code)
+	}
+	runs, err := f.surveys.Runs(context.Background(), s.ID)
+	if err != nil || len(runs) == 0 {
+		f.t.Fatalf("runs = %+v, %v", runs, err)
+	}
+	if loc := rec.Header().Get("Location"); loc != handler.SurveyRunPathFor(s.ID, runs[0].ID) {
+		f.t.Errorf("creating a run landed on %q, want its dashboard", loc)
+	}
+	return runs[0]
+}
+
+// finishGeneration runs the queued survey_generate job by hand and records
+// it done, the way the runner would.
+func (f *surveyFixture) finishGeneration(s survey.Survey, run survey.Run) {
+	f.t.Helper()
+	ctx := context.Background()
+	job, err := f.jobs.LatestByKind(ctx, strconv.FormatInt(run.ID, 10), jobs.KindSurveyGenerate)
+	if err != nil {
+		f.t.Fatalf("the queued generation: %v", err)
+	}
+	if err := survey.NewGenerateHandler(f.surveys)(ctx, job.SubjectID, job.Payload); err != nil {
+		f.t.Fatalf("running the generation: %v", err)
+	}
+	if err := f.jobs.MarkRunning(ctx, job.ID, f.now); err != nil {
+		f.t.Fatal(err)
+	}
+	if err := f.jobs.MarkDone(ctx, job.ID, "", f.now); err != nil {
+		f.t.Fatal(err)
+	}
+}
+
+func (f *surveyFixture) runValues(s survey.Survey, run survey.Run) []string {
+	return []string{"id", strconv.FormatInt(s.ID, 10), "rid", strconv.FormatInt(run.ID, 10)}
+}
+
+func TestTheRunDashboardFollowsItsSheetFromQueuedToDownloadable(t *testing.T) {
+	f := newSurveyFixture(t)
+	s := f.createSurvey("Autoevaluación")
+	f.bankOfThree(s)
+	run := f.createRunThroughTheForm(s, "Mitad")
+	page := handler.SurveyRunPathFor(s.ID, run.ID)
+
+	body := f.do(http.MethodGet, page, f.handler.RunDetail, nil, f.runValues(s, run)...).Body.String()
+	for _, want := range []string{"Pasada #1 · Mitad", "Procesando generación del PDF", "(todavía se está generando)", "3 preguntas"} {
+		if !strings.Contains(body, want) {
+			t.Errorf("the queued dashboard lacks %q", want)
+		}
+	}
+	// Not while the job is in flight: cancelling under a running generation
+	// is the race the fourth synchronous rule forbids.
+	if strings.Contains(body, "Cancelar pasada") {
+		t.Error("the dashboard offers Cancelar while the generation is in flight")
+	}
+	if rec := f.do(http.MethodGet, page+"/sujet.pdf", f.handler.RunSheet, nil, f.runValues(s, run)...); rec.Code != http.StatusNotFound {
+		t.Errorf("the PDF before its generation: status = %d, want 404", rec.Code)
+	}
+
+	f.finishGeneration(s, run)
+	body = f.do(http.MethodGet, page, f.handler.RunDetail, nil, f.runValues(s, run)...).Body.String()
+	if !strings.Contains(body, handler.SurveyRunSheetPathFor(s.ID, run.ID)) || !strings.Contains(body, "Cancelar pasada") {
+		t.Errorf("the generated dashboard lacks the download or the cancel")
+	}
+	rec := f.do(http.MethodGet, page+"/sujet.pdf", f.handler.RunSheet, nil, f.runValues(s, run)...)
+	if rec.Code != http.StatusOK || rec.Header().Get("Content-Type") != "application/pdf" ||
+		!strings.Contains(rec.Header().Get("Content-Disposition"), "pasada-1.pdf") {
+		t.Errorf("the download: status = %d, headers = %v", rec.Code, rec.Header())
+	}
+}
+
+func TestCancellingARunReleasesTheBank(t *testing.T) {
+	f := newSurveyFixture(t)
+	s := f.createSurvey("Banco")
+	single, _, _ := f.bankOfThree(s)
+	run := f.createRunThroughTheForm(s, "")
+	cancel := handler.SurveyRunCancelPathFor(s.ID, run.ID)
+
+	rec := f.do(http.MethodPost, cancel, f.handler.CancelRun, url.Values{}, f.runValues(s, run)...)
+	if !strings.Contains(flashOf(t, rec), "se está generando") {
+		t.Errorf("cancelling under a queued generation: flash = %q", flashOf(t, rec))
+	}
+	if got, _ := f.surveys.Run(context.Background(), s.ID, run.ID); got.State != survey.RunOpen {
+		t.Fatalf("the run was cancelled under its generation: %s", got.State)
+	}
+
+	f.finishGeneration(s, run)
+	rec = f.do(http.MethodPost, cancel, f.handler.CancelRun, url.Values{}, f.runValues(s, run)...)
+	if rec.Code != http.StatusSeeOther || !strings.Contains(flashOf(t, rec), "cancelada") {
+		t.Fatalf("cancel: status = %d, flash = %q", rec.Code, flashOf(t, rec))
+	}
+	if err := f.surveys.MoveQuestion(context.Background(), s.ID, single.ID, +1); err != nil {
+		t.Errorf("the bank after the only run was cancelled: %v, want it unlocked", err)
+	}
+	rec = f.do(http.MethodPost, cancel, f.handler.CancelRun, url.Values{}, f.runValues(s, run)...)
+	if !strings.Contains(flashOf(t, rec), "ya no se puede cancelar") {
+		t.Errorf("cancelling twice: flash = %q", flashOf(t, rec))
+	}
+}
+
+func TestEditingARunChangesItsNameAndDateOnly(t *testing.T) {
+	f := newSurveyFixture(t)
+	s := f.createSurvey("Banco")
+	f.bankOfThree(s)
+	run := f.createRunThroughTheForm(s, "Antes")
+	edit := handler.SurveyRunEditPathFor(s.ID, run.ID)
+
+	body := f.do(http.MethodGet, edit, f.handler.EditRun, nil, f.runValues(s, run)...).Body.String()
+	if !strings.Contains(body, `value="Antes"`) || strings.Contains(body, `name="copies"`) {
+		t.Error("the edit form is not pre-filled, or offers the copies")
+	}
+	rec := f.do(http.MethodPost, edit, f.handler.UpdateRun,
+		url.Values{"name": {"Final"}, "applied_on": {"2026-12-01"}, "copies": {"999"}}, f.runValues(s, run)...)
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("status = %d", rec.Code)
+	}
+	got, _ := f.surveys.Run(context.Background(), s.ID, run.ID)
+	if got.Name != "Final" || got.AppliedOn != "2026-12-01" || got.Copies != 40 {
+		t.Errorf("after edit: %+v (copies must stay 40)", got)
+	}
+	rec = f.do(http.MethodPost, edit, f.handler.UpdateRun, url.Values{"applied_on": {"mañana"}}, f.runValues(s, run)...)
+	if rec.Code != http.StatusUnprocessableEntity {
+		t.Errorf("a bad date: status = %d, want 422", rec.Code)
+	}
+}
+
+func TestARunOfAnotherSurveyIs404(t *testing.T) {
+	f := newSurveyFixture(t)
+	mine := f.createSurvey("Mía")
+	other := f.createSurvey("Otra")
+	f.bankOfThree(other)
+	theirs := f.createRunThroughTheForm(other, "")
+	values := []string{"id", strconv.FormatInt(mine.ID, 10), "rid", strconv.FormatInt(theirs.ID, 10)}
+	for name, h := range map[string]http.HandlerFunc{"detail": f.handler.RunDetail, "sheet": f.handler.RunSheet, "edit": f.handler.EditRun} {
+		if rec := f.do(http.MethodGet, "/surveys/x/runs/y", h, nil, values...); rec.Code != http.StatusNotFound {
+			t.Errorf("%s through the wrong survey: status = %d, want 404", name, rec.Code)
+		}
+	}
+}
+
+func TestTheSurveyPageListsItsRunsAndLocksItsBank(t *testing.T) {
+	f := newSurveyFixture(t)
+	s := f.createSurvey("Autoevaluación")
+	f.bankOfThree(s)
+	before := f.do(http.MethodGet, handler.SurveyPathFor(s.ID), f.handler.Detail, nil, f.surveyValue(s)...).Body.String()
+	if !strings.Contains(before, "Ninguna pasada aún.") || !strings.Contains(before, `aria-label="Borrar la pregunta 1"`) {
+		t.Fatal("before any run the bank should be editable and the runs card empty")
+	}
+
+	run := f.createRunThroughTheForm(s, "Mitad")
+	after := f.do(http.MethodGet, handler.SurveyPathFor(s.ID), f.handler.Detail, nil, f.surveyValue(s)...).Body.String()
+	for _, want := range []string{"Pasada #1 · Mitad", handler.SurveyRunPathFor(s.ID, run.ID), "2026-10-15 · 40 copias · abierta", "ya tiene una pasada", "Previsualizar"} {
+		if !strings.Contains(after, want) {
+			t.Errorf("the locked survey page lacks %q", want)
+		}
+	}
+	for _, gone := range []string{`aria-label="Borrar la pregunta`, `aria-label="Subir la pregunta`} {
+		if strings.Contains(after, gone) {
+			t.Errorf("the locked bank still offers %s", gone)
+		}
+	}
+
+	list := f.do(http.MethodGet, handler.CourseSurveysPathFor(f.courseID), f.handler.ListForCourse, nil, f.courseValue()...).Body.String()
+	if !strings.Contains(list, "3 preguntas · 1 pasada · última: 2026-10-15") {
+		t.Errorf("the course list does not count the run:\n%s", list)
+	}
+}

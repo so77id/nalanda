@@ -145,6 +145,11 @@ func (s *Service) SheetPath(run Run) string {
 	return filepath.Join(s.WorkDir, RunProject(run.SurveyID, run.ID), "out", "sujet.pdf")
 }
 
+// RunQuestions returns a run's snapshot in printed order.
+func (s *Service) RunQuestions(ctx context.Context, runID int64) ([]RunQuestion, error) {
+	return s.Store.RunQuestions(ctx, runID)
+}
+
 // Runs returns the survey's runs, most recent first.
 func (s *Service) Runs(ctx context.Context, surveyID int64) ([]Run, error) {
 	return s.Store.RunsForSurvey(ctx, surveyID)

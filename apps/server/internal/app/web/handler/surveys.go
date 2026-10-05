@@ -152,6 +152,12 @@ func (h *Surveys) ListForCourse(w http.ResponseWriter, r *http.Request) {
 		middleware.WriteError(w, r, http.StatusInternalServerError, surveyBroke)
 		return
 	}
+	runSums, err := h.Service.RunSummaries(r.Context(), course.ID)
+	if err != nil {
+		h.Log.Error("summarising a course's runs", "course", course.ID, "error", err)
+		middleware.WriteError(w, r, http.StatusInternalServerError, surveyBroke)
+		return
+	}
 
 	showArchived := r.URL.Query().Get(archivedQuery) == "1"
 	page := view.SurveysListPage{
@@ -171,7 +177,7 @@ func (h *Surveys) ListForCourse(w http.ResponseWriter, r *http.Request) {
 		page.Surveys = append(page.Surveys, view.ListedSurveyRow{
 			Name:    listed.Survey.Name,
 			URL:     SurveyPathFor(listed.Survey.ID),
-			Summary: surveySummary(listed),
+			Summary: surveySummary(listed, runSums[listed.Survey.ID]),
 		})
 	}
 	// Archiving a survey lands here: a redirect target consumes.
@@ -183,9 +189,9 @@ func (h *Surveys) ListForCourse(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// surveySummary words one row's bank. "sin pasadas aún" is literal in WP-1:
-// runs arrive with WP-2 (#310), which replaces it with a count.
-func surveySummary(listed survey.ListedSurvey) string {
+// surveySummary words one row: its bank, and its runs that are not
+// cancelled with the latest date among them.
+func surveySummary(listed survey.ListedSurvey, runs survey.RunSummary) string {
 	questions := "sin preguntas"
 	switch listed.Questions {
 	case 0:
@@ -194,7 +200,13 @@ func surveySummary(listed survey.ListedSurvey) string {
 	default:
 		questions = fmt.Sprintf("%d preguntas", listed.Questions)
 	}
-	return questions + " · sin pasadas aún"
+	switch runs.Runs {
+	case 0:
+		return questions + " · sin pasadas aún"
+	case 1:
+		return questions + " · 1 pasada · última: " + runs.LastAppliedOn
+	}
+	return fmt.Sprintf("%s · %d pasadas · última: %s", questions, runs.Runs, runs.LastAppliedOn)
 }
 
 // New renders the empty create form (screen 2).
@@ -262,6 +274,12 @@ func (h *Surveys) Detail(w http.ResponseWriter, r *http.Request) {
 		middleware.WriteError(w, r, http.StatusInternalServerError, surveyBroke)
 		return
 	}
+	runs, err := h.Service.Runs(r.Context(), one.ID)
+	if err != nil {
+		h.Log.Error("reading a survey's runs", "survey", one.ID, "error", err)
+		middleware.WriteError(w, r, http.StatusInternalServerError, surveyBroke)
+		return
+	}
 
 	page := view.SurveyDetailPage{
 		Page:          middleware.PageFor(r, one.Name),
@@ -274,7 +292,21 @@ func (h *Surveys) Detail(w http.ResponseWriter, r *http.Request) {
 		ArchiveAction: SurveyArchivePathFor(one.ID),
 		RestoreAction: SurveyRestorePathFor(one.ID),
 		NewQuestion:   SurveyQuestionNewPathFor(one.ID, survey.KindSingle),
+		NewRunURL:     SurveyRunNewPathFor(one.ID),
 		QuestionCount: len(questions),
+	}
+	for _, run := range runs {
+		page.Locked = page.Locked || run.LocksBank()
+		label := "Pasada #" + strconv.Itoa(run.Number)
+		if run.Name != "" {
+			label += " · " + run.Name
+		}
+		page.Runs = append(page.Runs, view.ListedRun{
+			Label:     label,
+			Meta:      fmt.Sprintf("%s · %d copias · %s", run.AppliedOn, run.Copies, runStateLabel(run.State)),
+			URL:       SurveyRunPathFor(one.ID, run.ID),
+			Cancelled: run.State == survey.RunCancelled,
+		})
 	}
 	for _, section := range survey.Sections(questions) {
 		rows := make([]view.SurveyQuestionRow, 0, len(section.Questions))

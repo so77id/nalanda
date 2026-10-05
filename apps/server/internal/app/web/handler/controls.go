@@ -1071,11 +1071,12 @@ func (h *Controls) DismissJob(w http.ResponseWriter, r *http.Request) {
 			"Algo se rompió en el servidor. Vuelve a intentarlo en unos segundos.")
 		return
 	}
+	back := jobSubjectURL(job)
 	if !job.Status.IsTerminal() {
 		// "Refrescar" while the job is still working: reload the page
 		// and let the runner keep going. Stamping viewed_at here would
 		// mute the eventual terminal banner (issue #257).
-		http.Redirect(w, r, controlDetailURL(job.SubjectID), http.StatusSeeOther)
+		http.Redirect(w, r, back, http.StatusSeeOther)
 		return
 	}
 	if err := h.Jobs.MarkDismissed(r.Context(), jobID, time.Now()); err != nil {
@@ -1084,7 +1085,7 @@ func (h *Controls) DismissJob(w http.ResponseWriter, r *http.Request) {
 			"No se pudo cerrar el aviso.")
 		return
 	}
-	http.Redirect(w, r, controlDetailURL(job.SubjectID), http.StatusSeeOther)
+	http.Redirect(w, r, back, http.StatusSeeOther)
 }
 
 func jobDismissURL(id int64) string {

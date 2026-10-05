@@ -26,6 +26,13 @@
       <h2 id="banco">Banco</h2>
       <p>{{ .QuestionCount }} pregunta{{ if ne .QuestionCount 1 }}s{{ end }}
         <a class="boton" href="{{ .NewQuestion }}">+ Agregar pregunta</a></p>
+      {{ if .Locked }}
+        <p class="aviso">
+          Esta encuesta ya tiene una pasada: sus preguntas no se pueden editar,
+          borrar ni mover, para que las pasadas se puedan comparar. Las que
+          agregues ahora se imprimen desde la próxima pasada.
+        </p>
+      {{ end }}
       {{ if not .Sections }}
         <p>Todavía no hay preguntas.</p>
       {{ end }}
@@ -40,6 +47,7 @@
                 {{ if .IsContext }}<span class="survey-tag">(contexto)</span>{{ end }}
               </p>
               <div class="survey-actions">
+                {{ if not $.Locked }}
                 {{ if not .First }}
                   <form class="inline" method="post" action="{{ .MoveAction }}">
                     <input type="hidden" name="csrf_token" value="{{ $.CSRFToken }}" />
@@ -55,11 +63,14 @@
                   </form>
                 {{ end }}
                 <a class="boton" href="{{ .EditURL }}">Editar</a>
+                {{ end }}
                 <a class="boton" href="{{ .PreviewURL }}">Previsualizar</a>
+                {{ if not $.Locked }}
                 <form class="inline" method="post" action="{{ .DeleteAction }}">
                   <input type="hidden" name="csrf_token" value="{{ $.CSRFToken }}" />
                   <button type="submit" aria-label="Borrar la pregunta {{ .Number }}">Borrar</button>
                 </form>
+                {{ end }}
               </div>
             </li>
           {{ end }}
@@ -69,7 +80,16 @@
 
     <section aria-labelledby="pasadas">
       <h2 id="pasadas">Pasadas</h2>
-      <p>Ninguna pasada aún.</p>
+      {{ if not .Runs }}<p>Ninguna pasada aún.</p>{{ end }}
+      <ul class="survey-runs">
+        {{ range .Runs }}
+          <li>
+            {{ if .Cancelled }}<s>{{ end }}<a href="{{ .URL }}">{{ .Label }}</a>{{ if .Cancelled }}</s>{{ end }}
+            <br /><span class="survey-meta">{{ .Meta }}</span>
+          </li>
+        {{ end }}
+      </ul>
+      {{ if not .Archived }}<p><a class="boton" href="{{ .NewRunURL }}">+ Nueva pasada</a></p>{{ end }}
     </section>
   </div>
 {{ end }}

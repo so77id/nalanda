@@ -1,9 +1,15 @@
 package handler
 
 import (
+	"context"
+	"encoding/json"
 	"errors"
+	"fmt"
+	"io"
 	"net/http"
+	"os"
 	"strconv"
+	"time"
 
 	"github.com/so77id/nalanda/apps/server/internal/app/web/flash"
 	"github.com/so77id/nalanda/apps/server/internal/app/web/middleware"
@@ -103,9 +109,10 @@ func (h *Surveys) CreateRun(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, h.runLanding(one.ID, run.ID), http.StatusSeeOther)
 }
 
-// runLanding is where creating a run lands: the survey page's runs card.
-func (h *Surveys) runLanding(surveyID, _ int64) string {
-	return SurveyPathFor(surveyID) + "#pasadas"
+// runLanding is where creating a run lands: its dashboard, where the
+// banner shows the PDF being generated.
+func (h *Surveys) runLanding(surveyID, runID int64) string {
+	return SurveyRunPathFor(surveyID, runID)
 }
 
 func (h *Surveys) renderRunForm(w http.ResponseWriter, r *http.Request, one survey.Survey, status int,
@@ -136,4 +143,326 @@ func (h *Surveys) renderRunForm(w http.ResponseWriter, r *http.Request, one surv
 // today is the form's default date, from the service clock.
 func (h *Surveys) today() string {
 	return h.Service.Now().Format("2006-01-02")
+}
+
+// The run's own routes (issue #310 S6, screen 9).
+const (
+	SurveyRunPath       = "/surveys/{id}/runs/{rid}"
+	SurveyRunEditPath   = "/surveys/{id}/runs/{rid}/edit"
+	SurveyRunCancelPath = "/surveys/{id}/runs/{rid}/cancel"
+	SurveyRunSheetPath  = "/surveys/{id}/runs/{rid}/sujet.pdf"
+)
+
+// SurveyRunPathFor builds the URL of a run's dashboard.
+func SurveyRunPathFor(surveyID, runID int64) string {
+	return SurveyRunsPathFor(surveyID) + "/" + strconv.FormatInt(runID, 10)
+}
+
+// SurveyRunEditPathFor builds the URL of a run's edit form.
+func SurveyRunEditPathFor(surveyID, runID int64) string {
+	return SurveyRunPathFor(surveyID, runID) + "/edit"
+}
+
+// SurveyRunCancelPathFor builds the URL that cancels a run.
+func SurveyRunCancelPathFor(surveyID, runID int64) string {
+	return SurveyRunPathFor(surveyID, runID) + "/cancel"
+}
+
+// SurveyRunSheetPathFor builds the URL of a run's printable PDF.
+func SurveyRunSheetPathFor(surveyID, runID int64) string {
+	return SurveyRunPathFor(surveyID, runID) + "/sujet.pdf"
+}
+
+// RunDetail renders one run (screen 9): its banner, its steps, its counts
+// and the actions its state allows.
+func (h *Surveys) RunDetail(w http.ResponseWriter, r *http.Request) {
+	one, run, ok := h.surveyRun(w, r)
+	if !ok {
+		return
+	}
+	snapshot, err := h.Service.RunQuestions(r.Context(), run.ID)
+	if err != nil {
+		h.Log.Error("reading a run's snapshot", "run", run.ID, "error", err)
+		middleware.WriteError(w, r, http.StatusInternalServerError, surveyBroke)
+		return
+	}
+	pdfReady := h.sheetReady(r.Context(), run)
+	inFlight := h.runJobInFlight(r.Context(), run)
+
+	title := "Pasada #" + strconv.Itoa(run.Number)
+	if run.Name != "" {
+		title += " · " + run.Name
+	}
+	page := view.SurveyRunPage{
+		Page:          middleware.PageFor(r, title),
+		SurveyName:    one.Name,
+		SurveyURL:     SurveyPathFor(one.ID),
+		Title:         title,
+		AppliedOn:     run.AppliedOn,
+		Copies:        run.Copies,
+		QuestionCount: len(snapshot),
+		StateLabel:    runStateLabel(run.State),
+		Banner:        h.runBannerFor(r.Context(), run),
+		PDFReady:      pdfReady,
+		PDFURL:        SurveyRunSheetPathFor(one.ID, run.ID),
+		ReadLabel:     "—",
+		ReviewLabel:   "—",
+	}
+	if run.State == survey.RunOpen {
+		page.EditURL = SurveyRunEditPathFor(one.ID, run.ID)
+		page.CanCancel = !inFlight
+		page.CancelAction = SurveyRunCancelPathFor(one.ID, run.ID)
+	}
+	pdfStatus := "en curso"
+	if pdfReady {
+		pdfStatus = "listo"
+	}
+	page.Steps = []view.RunStep{
+		{Label: "PDF", Status: pdfStatus, Done: pdfReady},
+		{Label: "Escaneos", Status: "pendiente"},
+		{Label: "Revisión", Status: "pendiente"},
+		{Label: "Cerrada", Status: "pendiente"},
+	}
+	page.Flash = flash.Consume(w, r, h.secureCookie)
+
+	if err := view.RenderSurveyRun(w, page); err != nil {
+		h.Log.Error("rendering a run", "run", run.ID, "error", err)
+		middleware.WriteError(w, r, http.StatusInternalServerError, surveyBroke)
+	}
+}
+
+// RunSheet serves a run's printable PDF once its generation is done.
+func (h *Surveys) RunSheet(w http.ResponseWriter, r *http.Request) {
+	_, run, ok := h.surveyRun(w, r)
+	if !ok {
+		return
+	}
+	if !h.sheetReady(r.Context(), run) {
+		middleware.WriteError(w, r, http.StatusNotFound, "El PDF de esta pasada todavía no está listo.")
+		return
+	}
+	f, err := os.Open(h.Service.SheetPath(run))
+	if err != nil {
+		h.Log.Error("opening a run's sheet", "run", run.ID, "error", err)
+		middleware.WriteError(w, r, http.StatusNotFound, "No se encontró el PDF de esta pasada.")
+		return
+	}
+	defer func() { _ = f.Close() }()
+	w.Header().Set("Content-Type", "application/pdf")
+	w.Header().Set("Content-Disposition",
+		fmt.Sprintf(`attachment; filename="encuesta-%d-pasada-%d.pdf"`, run.SurveyID, run.Number))
+	if _, err := io.Copy(w, f); err != nil {
+		h.Log.Warn("streaming a run's sheet", "run", run.ID, "error", err)
+	}
+}
+
+// EditRun renders a run's name/date form; the copies are printed.
+func (h *Surveys) EditRun(w http.ResponseWriter, r *http.Request) {
+	one, run, ok := h.surveyRun(w, r)
+	if !ok {
+		return
+	}
+	h.renderRunEditForm(w, r, one, run, http.StatusOK,
+		view.RunFormValues{Name: run.Name, AppliedOn: run.AppliedOn}, nil)
+}
+
+// UpdateRun rewrites a run's name and date.
+func (h *Surveys) UpdateRun(w http.ResponseWriter, r *http.Request) {
+	one, run, ok := h.surveyRun(w, r)
+	if !ok {
+		return
+	}
+	values := view.RunFormValues{Name: r.PostFormValue("name"), AppliedOn: r.PostFormValue("applied_on")}
+	err := h.Service.UpdateRun(r.Context(), one.ID, run.ID, survey.RunDraft{Name: values.Name, AppliedOn: values.AppliedOn})
+	switch {
+	case errors.Is(err, survey.ErrInvalid):
+		h.renderRunEditForm(w, r, one, run, http.StatusUnprocessableEntity, values, surveyFieldErrors(err))
+		return
+	case errors.Is(err, survey.ErrRunNotFound):
+		middleware.WriteError(w, r, http.StatusNotFound, "Esa pasada no existe.")
+		return
+	case err != nil:
+		h.Log.Error("updating a run", "run", run.ID, "error", err)
+		middleware.WriteError(w, r, http.StatusInternalServerError, surveyBroke)
+		return
+	}
+	flash.Set(w, h.secureCookie, "Pasada actualizada.")
+	http.Redirect(w, r, SurveyRunPathFor(one.ID, run.ID), http.StatusSeeOther)
+}
+
+// CancelRun cancels an open run with no job in flight. A refusal is a
+// flash on the run's page (backend-code-style.md §Flash), never a 4xx.
+func (h *Surveys) CancelRun(w http.ResponseWriter, r *http.Request) {
+	one, run, ok := h.surveyRun(w, r)
+	if !ok {
+		return
+	}
+	back := SurveyRunPathFor(one.ID, run.ID)
+	// A job about the run is still running: cancelling under it is the
+	// race add-a-backend-endpoint.md's fourth synchronous rule forbids. A
+	// failed read answers "not in flight" — cancelling destroys nothing
+	// the runner could not tolerate (GenerateRunSheet refuses a run that
+	// is no longer open).
+	if h.runJobInFlight(r.Context(), run) {
+		flash.Set(w, h.secureCookie, "El PDF de esta pasada se está generando. Espera a que termine y vuelve a intentarlo.")
+		http.Redirect(w, r, back, http.StatusSeeOther)
+		return
+	}
+	err := h.Service.CancelRun(r.Context(), one.ID, run.ID)
+	switch {
+	case errors.Is(err, survey.ErrRunNotCancellable):
+		flash.Set(w, h.secureCookie, "Esta pasada ya no se puede cancelar.")
+		http.Redirect(w, r, back, http.StatusSeeOther)
+		return
+	case errors.Is(err, survey.ErrRunNotFound):
+		middleware.WriteError(w, r, http.StatusNotFound, "Esa pasada no existe.")
+		return
+	case err != nil:
+		h.Log.Error("cancelling a run", "run", run.ID, "error", err)
+		middleware.WriteError(w, r, http.StatusInternalServerError, surveyBroke)
+		return
+	}
+	flash.Set(w, h.secureCookie, "Pasada #"+strconv.Itoa(run.Number)+" cancelada.")
+	http.Redirect(w, r, SurveyPathFor(one.ID)+"#pasadas", http.StatusSeeOther)
+}
+
+func (h *Surveys) renderRunEditForm(w http.ResponseWriter, r *http.Request, one survey.Survey, run survey.Run,
+	status int, values view.RunFormValues, errs map[string]string) {
+	page := view.SurveyRunFormPage{
+		Page:       middleware.PageFor(r, "Editar pasada"),
+		SurveyName: one.Name,
+		Heading:    "Editar pasada #" + strconv.Itoa(run.Number),
+		Action:     SurveyRunEditPathFor(one.ID, run.ID),
+		Submit:     "Guardar",
+		CancelURL:  SurveyRunPathFor(one.ID, run.ID),
+		Values:     values,
+		Errors:     errs,
+	}
+	if err := view.RenderSurveyRunForm(w, status, page); err != nil {
+		h.Log.Error("rendering the run edit form", "run", run.ID, "error", err)
+		middleware.WriteError(w, r, http.StatusInternalServerError, surveyBroke)
+	}
+}
+
+// surveyRun reads the {id} survey and its {rid} run, answering 404 itself
+// when either is absent — including a run of ANOTHER survey.
+func (h *Surveys) surveyRun(w http.ResponseWriter, r *http.Request) (survey.Survey, survey.Run, bool) {
+	one, ok := h.survey(w, r)
+	if !ok {
+		return survey.Survey{}, survey.Run{}, false
+	}
+	rid, err := strconv.ParseInt(r.PathValue("rid"), 10, 64)
+	if err != nil || rid <= 0 {
+		middleware.WriteError(w, r, http.StatusNotFound, "Esa pasada no existe.")
+		return survey.Survey{}, survey.Run{}, false
+	}
+	run, err := h.Service.Run(r.Context(), one.ID, rid)
+	switch {
+	case errors.Is(err, survey.ErrRunNotFound):
+		middleware.WriteError(w, r, http.StatusNotFound, "Esa pasada no existe.")
+		return survey.Survey{}, survey.Run{}, false
+	case err != nil:
+		h.Log.Error("reading a run", "survey", one.ID, "run", rid, "error", err)
+		middleware.WriteError(w, r, http.StatusInternalServerError, surveyBroke)
+		return survey.Survey{}, survey.Run{}, false
+	}
+	return one, run, true
+}
+
+// sheetReady reports whether the run's latest generation finished. No
+// generation at all is NOT ready: every run queues one at creation, so a
+// missing row is a queueing that failed, and its PDF does not exist.
+func (h *Surveys) sheetReady(ctx context.Context, run survey.Run) bool {
+	job, err := h.Jobs.LatestByKind(ctx, strconv.FormatInt(run.ID, 10), jobs.KindSurveyGenerate)
+	if err != nil {
+		if !errors.Is(err, jobs.ErrJobNotFound) {
+			h.Log.Warn("reading a run's generation", "run", run.ID, "error", err)
+		}
+		return false
+	}
+	return job.Status == jobs.StatusDone
+}
+
+// runJobInFlight reports whether a job about the run is queued or running.
+// A read failure answers false — see CancelRun.
+func (h *Surveys) runJobInFlight(ctx context.Context, run survey.Run) bool {
+	job, err := h.Jobs.LatestForSubject(ctx, jobs.SubjectSurveyRun, strconv.FormatInt(run.ID, 10))
+	if err != nil {
+		return false
+	}
+	return !job.Status.IsTerminal()
+}
+
+// runBannerFor is the run page's banner — the controls' shape
+// (jobBannerFor), the run's subject. A failed job's Detail is debug and
+// never shown: every survey Kind writes the worker's English there.
+func (h *Surveys) runBannerFor(ctx context.Context, run survey.Run) *view.JobBanner {
+	job, err := h.Jobs.LatestForSubject(ctx, jobs.SubjectSurveyRun, strconv.FormatInt(run.ID, 10))
+	if err != nil {
+		if !errors.Is(err, jobs.ErrJobNotFound) {
+			h.Log.Warn("jobs: reading a run's banner", "run", run.ID, "error", err)
+		}
+		return nil
+	}
+	running := !job.Status.IsTerminal()
+	if !running && job.ViewedAt != nil {
+		return nil
+	}
+	banner := &view.JobBanner{
+		JobID:      job.ID,
+		Kind:       surveyJobLabel(job.Kind),
+		Running:    running,
+		Done:       job.Status == jobs.StatusDone,
+		Failed:     job.Status == jobs.StatusFailed,
+		Error:      job.Error,
+		DismissURL: jobDismissURL(job.ID),
+	}
+	if banner.Done {
+		banner.Notice = job.Notice
+	}
+	if running {
+		start := job.CreatedAt
+		if job.StartedAt != nil {
+			start = *job.StartedAt
+		}
+		banner.StartedAgo = humanElapsed(time.Since(start))
+	}
+	return banner
+}
+
+// surveyJobLabel names a survey job on its banner.
+func surveyJobLabel(k jobs.Kind) string {
+	if k == jobs.KindSurveyGenerate {
+		return "generación del PDF"
+	}
+	return string(k)
+}
+
+// runStateLabel is a run's state as the professor reads it.
+func runStateLabel(s survey.RunState) string {
+	switch s {
+	case survey.RunOpen:
+		return "abierta"
+	case survey.RunClosed:
+		return "cerrada"
+	case survey.RunCancelled:
+		return "cancelada"
+	}
+	return string(s)
+}
+
+// jobSubjectURL is the page a job's banner lives on: its control's, or —
+// since #310 — its survey run's, whose survey the payload names
+// (survey.RunPayload). An undecodable run payload falls back to the
+// backoffice root rather than to a control URL that does not exist.
+func jobSubjectURL(job jobs.Job) string {
+	if job.SubjectKind != jobs.SubjectSurveyRun {
+		return controlDetailURL(job.SubjectID)
+	}
+	var p survey.RunPayload
+	runID, err := strconv.ParseInt(job.SubjectID, 10, 64)
+	if err != nil || json.Unmarshal(job.Payload, &p) != nil || p.SurveyID <= 0 {
+		return "/"
+	}
+	return SurveyRunPathFor(p.SurveyID, runID)
 }
