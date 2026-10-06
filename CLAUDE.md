@@ -23,7 +23,9 @@ This file holds **monorepo-shared** instructions only. Each app has its own
 - `apps/server/CLAUDE.md` — the backend (Go + SQLite). One binary, two delivery
   surfaces, one shared domain; its dependency rule is enforced by a test. The
   professor login lives there (ADR-0009, ADR-0036) and the two surfaces
-  deliberately do not share an auth gate. **First production deploy: the
+  deliberately do not share an auth gate. Since #309 it also holds the
+  anonymous paper surveys, a sibling subsystem of the controls (ADR-0078).
+  **First production deploy: the
   Jetson (ADR-0038), operating procedure `infra/local/DEPLOY-JETSON.md`; the
   host-specific images and scripts live under `infra/deploy/jetson/`.**
 

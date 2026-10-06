@@ -203,6 +203,7 @@ func (c *Courses) Show(w http.ResponseWriter, r *http.Request) {
 		StudentsURL:   CourseStudentsPathFor(course.ID),
 		MatrixURL:     CourseMatrixPathFor(course.ID),
 		RematchAction: CourseRematchPathFor(course.ID),
+		SurveysURL:    CourseSurveysPathFor(course.ID),
 	}
 	page.EnrolledCount, page.WithdrawnCount, page.WithoutRUTCount = enrollmentTally(enrollments)
 	// A roster exists once anybody is on it in any state — see

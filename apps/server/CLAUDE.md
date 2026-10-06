@@ -25,7 +25,10 @@ correction is PUBLISHED — one mail per student, sent as the professor
 from their own Gmail account, through a fifth `jobs.Kind` (ADR-0072).
 Since #287 that publication is recorded PER COPY and is therefore
 resumable, with a per-student send beside it (ADR-0073, which supersedes
-ADR-0072 §5).
+ADR-0072 §5). Since #309 (epic #308) it also holds **anonymous paper
+surveys** — a sibling subsystem of the controls, never a mode of them
+(ADR-0078); runs, the printed sheet, reading and results arrive with
+#310–#312.
 
 Commands, stack, configuration and layout live in `README.md` — one home per
 fact.
@@ -62,6 +65,10 @@ fact.
   a transactional API, why the Gmail grant is a second authorization and
   not a wider login, the four dispatch modes, and the one question it
   could not settle (§Consequences, "the seven-day question").
+- `docs/decisions/0078-surveys-are-an-anonymous-sibling-of-the-controls.md`
+  — read before touching `internal/domain/survey`, `surveystore` or any
+  `/surveys` route: why surveys are a sibling of the controls, the boundary
+  test that keeps them one, and the anonymity they promise.
 - `docs/decisions/0073-publication-is-recorded-per-copy-and-is-resumable.md`
   — it supersedes ADR-0072 §5, and it has its own trigger: read it before
   touching anything that decides WHICH copies go out, stamps one, or
@@ -139,6 +146,22 @@ Worked cases in-tree: `internal/app/web/view/templates/pages/*.html` and
 the `avisoNo*` / `flash.Set(…)` string literals in `internal/app/web/handler/`.
 
 ## Rules for Claude
+
+- **The survey subsystem is a SIBLING of the controls (issue #309,
+  ADR-0078).** `internal/domain/survey` and `internal/infra/storage/surveystore`
+  never import `internal/domain/controls` or `controlstore`, even
+  transitively — `TestTheSurveyDomainDoesNotImportControls` fails the build
+  if they do. When a survey needs the AMC worker (#310 on), the survey
+  domain declares its own port and `internal/infra/amcworker` grows a method
+  that implements it; reusing a `controls` type is the violation. The
+  reverse edge (controls → survey) is forbidden by the same ADR and is not
+  yet tested: code both sides need goes in a neutral package they may both
+  import (`jobs`, `amcworker`, a leaf helper), never in either subsystem.
+  And it is anonymous by construction: no survey table references `student`
+  or `enrollment`. **Every `/surveys/...` route names the survey `{id}`** —
+  `handler.Surveys.survey` reads `PathValue("id")` — and nested ids are
+  `{qid}`, `{rid}`, …; a route spelled `{sid}` compiles, registers, and
+  answers every request with "Esa encuesta no existe.".
 
 - **The dependency rule has FOUR edges; `internal/architecture_test.go`
   enforces the first three**, transitively:
@@ -316,7 +339,10 @@ the `avisoNo*` / `flash.Set(…)` string literals in `internal/app/web/handler/`
      value — the SQLite `CHECK` and the Go enum enforce the same
      closed set, and a `Kind` satisfying one but not the other is a
      silent drop of that class of work.
-  3. A handler factory in `internal/domain/controls/jobhandlers.go`
+  3. A handler factory in the OWNING domain's `jobhandlers.go` —
+     `internal/domain/controls/jobhandlers.go` for a controls Kind,
+     `internal/domain/survey/jobhandlers.go` for a survey Kind (#310 on),
+     never a survey factory in `controls` (ADR-0078) —
      (mirror `controls.NewReanalyseHandler` / `NewAnalyseHandler` /
      `NewGenerateHandler` / `NewAnnotateHandler` / `NewPublishHandler`,
      the last being the only non-AMC one and therefore the one a new

@@ -25,6 +25,7 @@ import (
 	"github.com/so77id/nalanda/apps/server/internal/domain/jobs"
 	"github.com/so77id/nalanda/apps/server/internal/domain/matching"
 	"github.com/so77id/nalanda/apps/server/internal/domain/roster"
+	"github.com/so77id/nalanda/apps/server/internal/domain/survey"
 	"github.com/so77id/nalanda/apps/server/internal/infra/amcworker/amctest"
 	"github.com/so77id/nalanda/apps/server/internal/infra/email"
 	"github.com/so77id/nalanda/apps/server/internal/infra/oidc/oidctest"
@@ -33,6 +34,7 @@ import (
 	"github.com/so77id/nalanda/apps/server/internal/infra/storage/controlstore"
 	"github.com/so77id/nalanda/apps/server/internal/infra/storage/coursestore"
 	"github.com/so77id/nalanda/apps/server/internal/infra/storage/jobstore"
+	"github.com/so77id/nalanda/apps/server/internal/infra/storage/surveystore"
 	"github.com/so77id/nalanda/apps/server/migrations"
 )
 
@@ -203,6 +205,15 @@ func deps(t *testing.T, prober health.Prober) web.Deps {
 		}),
 		AdminBank: handler.NewAdminBank(handler.AdminBank{
 			Bank:      emptyBank(t),
+			PublicURL: "https://nalanda.test",
+			Log:       logger,
+		}),
+		// Epic #308: the real survey store over the same database, like
+		// the controls above — these cases are about the table the binary
+		// wires.
+		Surveys: handler.NewSurveys(handler.Surveys{
+			Service:   survey.NewService(survey.Service{Store: surveystore.New(db), Now: time.Now}),
+			Courses:   roster.NewService(coursestore.New(db), roster.NewCanvasSource(canvas.NewService(nil, unreachableCanvas{}))),
 			PublicURL: "https://nalanda.test",
 			Log:       logger,
 		}),

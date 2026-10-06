@@ -1,0 +1,34 @@
+{{ define "content" }}
+  <h1>{{ .Heading }}</h1>
+
+  {{ if .Notice }}
+    <p class="error">{{ .Notice }}</p>
+  {{ end }}
+
+  <form class="form" method="post" action="{{ .Action }}">
+    <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}" />
+
+    <p class="field">
+      <label for="name">Nombre</label>
+      <input id="name" type="text" name="name" value="{{ .Values.Name }}"
+             autocomplete="off" required maxlength="200" />
+      {{ with index .Errors "name" }}
+        <span class="error">{{ . }}</span>
+      {{ end }}
+    </p>
+
+    <p class="field">
+      <label for="description">Descripción (opcional, se imprime en la hoja)</label>
+      <textarea id="description" name="description" rows="4"
+                maxlength="2000">{{ .Values.Description }}</textarea>
+      {{ with index .Errors "description" }}
+        <span class="error">{{ . }}</span>
+      {{ end }}
+    </p>
+
+    <p>Curso: {{ .CourseLabel }}</p>
+
+    <p><button type="submit">{{ .Submit }}</button>
+       <a href="{{ .CancelURL }}" class="boton">Cancelar</a></p>
+  </form>
+{{ end }}

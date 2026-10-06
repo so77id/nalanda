@@ -1,0 +1,120 @@
+{{ define "content" }}
+  <p><a href="{{ .CancelURL }}">‹ {{ .SurveyName }}</a></p>
+  <h1>{{ .Heading }}</h1>
+
+  {{ if .Notice }}
+    <p class="error">{{ .Notice }}</p>
+  {{ end }}
+
+  {{/*
+    The kind is chosen by a link that re-renders the form rather than by a
+    radio inside it: each kind has different fields, and the backoffice
+    works without JavaScript (ADR-0078 §Decision 5). What was typed in the
+    statement before switching is kept on an edit (it comes from the
+    stored question) and not on a new one — switching first is the
+    expected order.
+  */}}
+  <p class="survey-kinds">Tipo:
+    {{ range .KindLinks }}
+      {{ if .Current }}<strong>[{{ .Label }}]</strong>{{ else }}<a href="{{ .URL }}">{{ .Label }}</a>{{ end }}
+    {{ end }}
+  </p>
+  {{ with index .Errors "kind" }}<p class="error">{{ . }}</p>{{ end }}
+
+  <form class="form" method="post" action="{{ .Action }}">
+    <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}" />
+    <input type="hidden" name="kind" value="{{ .Values.Kind }}" />
+
+    <p class="field">
+      <label for="section">Sección (opcional)</label>
+      <input id="section" type="text" name="section" value="{{ .Values.Section }}"
+             autocomplete="off" maxlength="120" list="survey-sections" />
+      {{ if .KnownSections }}
+        <datalist id="survey-sections">
+          {{ range .KnownSections }}<option value="{{ . }}"></option>{{ end }}
+        </datalist>
+      {{ end }}
+      {{ with index .Errors "section" }}<span class="error">{{ . }}</span>{{ end }}
+    </p>
+
+    <p class="field">
+      <label for="statement">Enunciado</label>
+      <textarea id="statement" name="statement" rows="3" required
+                maxlength="1000">{{ .Values.Statement }}</textarea>
+      {{ with index .Errors "statement" }}<span class="error">{{ . }}</span>{{ end }}
+    </p>
+
+    {{ if eq .Values.Kind "scale" }}
+      <p class="field">
+        <label for="points">Puntos de la escala (de 3 a 7)</label>
+        <select id="points" name="points">
+          {{ $points := .Values.Points }}
+          {{ range .PointOptions }}
+            <option value="{{ . }}" {{ if eq . $points }}selected{{ end }}>{{ . }}</option>
+          {{ end }}
+        </select>
+      </p>
+      <fieldset class="field">
+        <legend>Etiquetas (vacía = solo el número; se usan las primeras según los puntos)</legend>
+        {{ range $i, $label := .Values.ScaleLabels }}
+          <label class="survey-row">{{ add $i 1 }}
+            <input type="text" name="scale_label" value="{{ $label }}" maxlength="200"
+                   aria-label="Etiqueta del punto {{ add $i 1 }}" />
+          </label>
+        {{ end }}
+        {{ with index $.Errors "alternatives" }}<span class="error">{{ . }}</span>{{ end }}
+      </fieldset>
+    {{ else }}
+      <fieldset class="field">
+        <legend>Alternativas (hasta 10; las vacías se ignoran; el orden se respeta en la hoja)</legend>
+        {{ range $i, $label := .Values.Alternatives }}
+          <label class="survey-row">{{ add $i 1 }}
+            <input type="text" name="alternative" value="{{ $label }}" maxlength="200"
+                   aria-label="Alternativa {{ add $i 1 }}" />
+          </label>
+        {{ end }}
+        {{ with index $.Errors "alternatives" }}<span class="error">{{ . }}</span>{{ end }}
+      </fieldset>
+    {{ end }}
+
+    {{ if eq .Values.Kind "multi" }}
+      <fieldset class="field">
+        <legend>Marcas (vacío = sin límite; se imprime como guía y no se valida en papel)</legend>
+        <label class="survey-row">Mínimo
+          <input type="number" name="min_marks" min="0" max="10" value="{{ .Values.MinMarks }}" />
+        </label>
+        <label class="survey-row">Máximo
+          <input type="number" name="max_marks" min="1" max="10" value="{{ .Values.MaxMarks }}" />
+        </label>
+        {{ with index .Errors "marks" }}<span class="error">{{ . }}</span>{{ end }}
+      </fieldset>
+    {{ end }}
+
+    {{ if eq .Values.Kind "single" }}
+      <p class="field survey-check">
+        <label>
+          <input type="checkbox" name="is_context" value="1" {{ if .Values.IsContext }}checked{{ end }} />
+          Pregunta de contexto (va primero en la hoja y sirve para filtrar los resultados)
+        </label>
+        {{ with index .Errors "is_context" }}<span class="error">{{ . }}</span>{{ end }}
+      </p>
+    {{ end }}
+
+    {{/*
+      A hand-typed POST can carry a field this kind's form does not show
+      (a context multi-select, marks on a scale). Its error still has to
+      reach the professor, so it renders here rather than beside an input
+      that is not on the page.
+    */}}
+    {{ if ne .Values.Kind "single" }}
+      {{ with index .Errors "is_context" }}<p class="error">{{ . }}</p>{{ end }}
+    {{ end }}
+    {{ if ne .Values.Kind "multi" }}
+      {{ with index .Errors "marks" }}<p class="error">{{ . }}</p>{{ end }}
+    {{ end }}
+
+    <p><button type="submit">{{ .Submit }}</button>
+       {{ if .PreviewURL }}<a href="{{ .PreviewURL }}" class="boton">Previsualizar lo guardado</a>{{ end }}
+       <a href="{{ .CancelURL }}" class="boton">Cancelar</a></p>
+  </form>
+{{ end }}

@@ -1,0 +1,75 @@
+{{ define "content" }}
+  <p><a href="{{ .ListURL }}">‹ Encuestas de {{ .Course.Code }}</a></p>
+  <h1>{{ .Name }}</h1>
+  {{ if .Archived }}
+    <p class="aviso">Esta encuesta está archivada: no aparece en la lista del curso.</p>
+  {{ end }}
+  {{ if .Description }}<p>{{ .Description }}</p>{{ end }}
+
+  <div class="survey-actions">
+    <a class="boton" href="{{ .EditURL }}">Editar</a>
+    {{ if .Archived }}
+      <form class="inline" method="post" action="{{ .RestoreAction }}">
+        <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}" />
+        <button type="submit">Restaurar</button>
+      </form>
+    {{ else }}
+      <form class="inline" method="post" action="{{ .ArchiveAction }}">
+        <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}" />
+        <button type="submit">Archivar</button>
+      </form>
+    {{ end }}
+  </div>
+
+  <div class="survey-split">
+    <section aria-labelledby="banco">
+      <h2 id="banco">Banco</h2>
+      <p>{{ .QuestionCount }} pregunta{{ if ne .QuestionCount 1 }}s{{ end }}
+        <a class="boton" href="{{ .NewQuestion }}">+ Agregar pregunta</a></p>
+      {{ if not .Sections }}
+        <p>Todavía no hay preguntas.</p>
+      {{ end }}
+      {{ range .Sections }}
+        {{ if .Label }}<h3>{{ .Label }}</h3>{{ end }}
+        <ol class="survey-bank">
+          {{ range .Questions }}
+            <li value="{{ .Number }}">
+              <p class="survey-statement">{{ .Statement }}</p>
+              <p class="survey-meta">
+                {{ .KindLabel }}{{ if .Alternatives }} · {{ .Alternatives }}{{ end }}
+                {{ if .IsContext }}<span class="survey-tag">(contexto)</span>{{ end }}
+              </p>
+              <div class="survey-actions">
+                {{ if not .First }}
+                  <form class="inline" method="post" action="{{ .MoveAction }}">
+                    <input type="hidden" name="csrf_token" value="{{ $.CSRFToken }}" />
+                    <input type="hidden" name="dir" value="up" />
+                    <button type="submit" aria-label="Subir la pregunta {{ .Number }}">↑</button>
+                  </form>
+                {{ end }}
+                {{ if not .Last }}
+                  <form class="inline" method="post" action="{{ .MoveAction }}">
+                    <input type="hidden" name="csrf_token" value="{{ $.CSRFToken }}" />
+                    <input type="hidden" name="dir" value="down" />
+                    <button type="submit" aria-label="Bajar la pregunta {{ .Number }}">↓</button>
+                  </form>
+                {{ end }}
+                <a class="boton" href="{{ .EditURL }}">Editar</a>
+                <a class="boton" href="{{ .PreviewURL }}">Previsualizar</a>
+                <form class="inline" method="post" action="{{ .DeleteAction }}">
+                  <input type="hidden" name="csrf_token" value="{{ $.CSRFToken }}" />
+                  <button type="submit" aria-label="Borrar la pregunta {{ .Number }}">Borrar</button>
+                </form>
+              </div>
+            </li>
+          {{ end }}
+        </ol>
+      {{ end }}
+    </section>
+
+    <section aria-labelledby="pasadas">
+      <h2 id="pasadas">Pasadas</h2>
+      <p>Ninguna pasada aún.</p>
+    </section>
+  </div>
+{{ end }}

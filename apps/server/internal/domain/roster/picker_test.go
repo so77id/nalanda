@@ -445,3 +445,22 @@ func TestCoursesWithCountsSurfacesAStoreFailure(t *testing.T) {
 		t.Error("CoursesWithCounts returned no error for a store that failed")
 	}
 }
+
+// Issue #309: the survey list reads one course by id, and an unknown id is
+// the domain's sentinel, not the store's wording.
+func TestCourseReturnsOneCourseOrCourseNotFound(t *testing.T) {
+	store := &memStore{}
+	svc := roster.NewService(store, &fakeSource{courses: canvasCourses()})
+	added, err := store.CreateCourse(context.Background(), roster.Course{Name: "ED", Code: "CIT2006-03", CanvasCourseID: "44779"})
+	if err != nil {
+		t.Fatalf("CreateCourse: %v", err)
+	}
+
+	got, err := svc.Course(context.Background(), added.ID)
+	if err != nil || got.Code != "CIT2006-03" {
+		t.Errorf("Course = %+v, %v", got, err)
+	}
+	if _, err := svc.Course(context.Background(), added.ID+9); !errors.Is(err, roster.ErrCourseNotFound) {
+		t.Errorf("an unknown course: %v, want ErrCourseNotFound", err)
+	}
+}
