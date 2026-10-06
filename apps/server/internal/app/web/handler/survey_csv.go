@@ -176,15 +176,26 @@ func csvNumber(present bool, v float64, isPercent bool) string {
 
 // shuffled reorders a run's copies by a hash of (run, copy number): the
 // same order on every export of the run, and none that follows the copy
-// numbers - the row number must not stand in for one (#312 review, SEC-1).
+// numbers, so a row number does not READ as one (#312 review, SEC-1). The
+// hash is unkeyed and the code is public: it stops casual alignment, not a
+// determined one — which is enough because a copy number is a sheet,
+// never a person (ADR-0082 §8).
 func shuffled(runID int64, copies []survey.CopyMarks) []survey.CopyMarks {
-	out := append([]survey.CopyMarks(nil), copies...)
-	key := func(n int) uint64 {
-		h := fnv.New64a()
-		_, _ = fmt.Fprintf(h, "%d/%d", runID, n)
-		return h.Sum64()
+	type keyed struct {
+		key  uint64
+		copy survey.CopyMarks
 	}
-	sort.SliceStable(out, func(i, j int) bool { return key(out[i].CopyNumber) < key(out[j].CopyNumber) })
+	ks := make([]keyed, len(copies))
+	for i, c := range copies {
+		h := fnv.New64a()
+		_, _ = fmt.Fprintf(h, "%d/%d", runID, c.CopyNumber)
+		ks[i] = keyed{h.Sum64(), c}
+	}
+	sort.SliceStable(ks, func(i, j int) bool { return ks[i].key < ks[j].key })
+	out := make([]survey.CopyMarks, len(ks))
+	for i, k := range ks {
+		out[i] = k.copy
+	}
 	return out
 }
 

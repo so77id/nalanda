@@ -193,6 +193,7 @@ func TestScreenThirteenComparesTheClosedRuns(t *testing.T) {
 func readCSV(t *testing.T, rec *httptest.ResponseRecorder, file string) [][]string {
 	t.Helper()
 	if rec.Code != http.StatusOK || rec.Header().Get("Content-Type") != "text/csv; charset=utf-8" ||
+		rec.Header().Get("X-Content-Type-Options") != "nosniff" ||
 		!strings.Contains(rec.Header().Get("Content-Disposition"), `filename="`+file+`"`) {
 		t.Fatalf("export %s: %d %v", file, rec.Code, rec.Header())
 	}

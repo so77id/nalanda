@@ -330,15 +330,16 @@ func compareValue(c survey.ComparisonCell, isPercent bool, metric survey.Metric)
 }
 
 // compareDelta is Δ with an arrow and its sign; points for percentages.
-// "Equal" is judged at the precision shown, so a Δ that prints as 0
-// never carries an arrow (#312 review, COR-1).
+// "Equal" is decided from the text shown — so a Δ that prints as 0, even
+// one %+.0f rounds to even at exactly 0.5, never carries an arrow (#312
+// review, COR-1 and COR-6).
 func compareDelta(d float64, isPercent bool) string {
-	text, zero := fmt.Sprintf("%+.2f", d), 0.005
+	text := fmt.Sprintf("%+.2f", d)
 	if isPercent {
-		text, zero = fmt.Sprintf("%+.0f pp", d), 0.5
+		text = fmt.Sprintf("%+.0f pp", d)
 	}
-	switch {
-	case math.Abs(d) < zero:
+	switch magnitude := strings.TrimLeft(text, "+-"); {
+	case magnitude == "0 pp" || magnitude == "0.00":
 		return "= 0"
 	case d > 0:
 		return "↑ " + text

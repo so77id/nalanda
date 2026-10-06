@@ -95,3 +95,36 @@ func TestClosedRunTalliesSkipOpenRunsAndCarryWhatEachPrinted(t *testing.T) {
 		t.Errorf("closed run's tally = %+v", got)
 	}
 }
+
+// #312 review recheck, COR-7: two closed runs keep their counts apart.
+func TestClosedRunTalliesKeepEachRunApart(t *testing.T) {
+	f := newFixture(t)
+	first, ctx, q := f.closedRun(t)
+	second := f.createRun(t, survey.Survey{ID: first.SurveyID})
+	if err := f.store.SaveReadings(f.ctx, second.ID, nil, []survey.CopyReading{
+		{CopyNumber: 1, Marks: []survey.Mark{{QuestionID: q.ID, AlternativeID: q.Alternatives[1].ID}}},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err := f.store.CloseRun(f.ctx, second.SurveyID, second.ID, f.now); err != nil {
+		t.Fatal(err)
+	}
+	tallies, err := f.store.ClosedRunTallies(f.ctx, first.SurveyID)
+	if err != nil || len(tallies) != 2 {
+		t.Fatalf("tallies = %+v, %v", tallies, err)
+	}
+	by := map[int64]survey.ClosedRunTally{}
+	for _, rt := range tallies {
+		by[rt.Run.ID] = rt
+	}
+	a, b := by[first.ID].Tally, by[second.ID].Tally
+	if a.Copies != 3 || a.ReadCopies != 3 || a.Counts[q.Alternatives[1].ID] != 1 || a.Answered[ctx.ID] != 3 {
+		t.Errorf("first run = %+v", a)
+	}
+	if b.Copies != 1 || b.ReadCopies != 1 || b.Counts[q.Alternatives[1].ID] != 1 || b.Answered[ctx.ID] != 0 {
+		t.Errorf("second run = %+v", b)
+	}
+	if !by[second.ID].Printed[q.ID] || !by[first.ID].Printed[ctx.ID] {
+		t.Error("a run lost what it printed")
+	}
+}

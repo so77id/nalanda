@@ -77,18 +77,16 @@ func (s *Store) ClosedRunTallies(ctx context.Context, surveyID int64) ([]survey.
 	if err != nil {
 		return nil, err
 	}
-	byID := map[int64]*survey.ClosedRunTally{}
 	builders := map[int64]*tallyBuilder{}
-	var order []int64
+	var closed []survey.Run
 	for _, r := range runs {
 		if r.State != survey.RunClosed {
 			continue
 		}
-		byID[r.ID] = &survey.ClosedRunTally{Run: r, Printed: map[int64]bool{}, Tally: *newTally().Tally}
-		builders[r.ID] = &tallyBuilder{&byID[r.ID].Tally}
-		order = append(order, r.ID)
+		builders[r.ID] = newTally()
+		closed = append(closed, r)
 	}
-	if len(order) == 0 {
+	if len(closed) == 0 {
 		return nil, nil
 	}
 
@@ -96,6 +94,8 @@ func (s *Store) ClosedRunTallies(ctx context.Context, surveyID int64) ([]survey.
         WITH c AS (SELECT sc.id, sc.run_id FROM survey_copy sc JOIN survey_run r ON r.id = sc.run_id
                    WHERE r.survey_id = ? AND r.state = 'closed')
         SELECT c.run_id, 'copies', 0, count(*) FROM c GROUP BY c.run_id
+        UNION ALL
+        SELECT c.run_id, 'read', 0, count(*) FROM c GROUP BY c.run_id
         UNION ALL
         SELECT c.run_id, 'alt', m.alternative_id, count(*) FROM survey_mark m JOIN c ON c.id = m.copy_id
             GROUP BY c.run_id, m.alternative_id
@@ -117,36 +117,34 @@ func (s *Store) ClosedRunTallies(ctx context.Context, surveyID int64) ([]survey.
 		if err := rows.Scan(&runID, &tag, &key, &n); err != nil {
 			return nil, fmt.Errorf("surveystore.ClosedRunTallies for survey %d: %w", surveyID, err)
 		}
-		rt, ok := byID[runID]
+		b, ok := builders[runID]
 		if !ok {
 			continue // closed between the two reads; the next page shows it
 		}
-		if tag == "printed" {
-			rt.Printed[key] = true
-			continue
-		}
-		builders[runID].add(tag, key, n)
-		if tag == "copies" {
-			// Unfiltered: every read copy is in the set.
-			rt.Tally.ReadCopies = n
-		}
+		b.add(tag, key, n)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("surveystore.ClosedRunTallies for survey %d: %w", surveyID, err)
 	}
-	out := make([]survey.ClosedRunTally, 0, len(order))
-	for _, id := range order {
-		out = append(out, *byID[id])
+	out := make([]survey.ClosedRunTally, 0, len(closed))
+	for _, r := range closed {
+		b := builders[r.ID]
+		out = append(out, survey.ClosedRunTally{Run: r, Printed: b.printed, Tally: *b.Tally})
 	}
 	return out, nil
 }
 
 // tallyBuilder fills a Tally from tagged rows — the one place a tag means
 // something (#312 review, ARQ-3).
-type tallyBuilder struct{ *survey.Tally }
+type tallyBuilder struct {
+	*survey.Tally
+	// printed is ClosedRunTallies' "printed" tag: the questions a run
+	// printed.
+	printed map[int64]bool
+}
 
 func newTally() *tallyBuilder {
-	return &tallyBuilder{&survey.Tally{Counts: map[int64]int{}, Answered: map[int64]int{}}}
+	return &tallyBuilder{&survey.Tally{Counts: map[int64]int{}, Answered: map[int64]int{}}, map[int64]bool{}}
 }
 
 func (b *tallyBuilder) add(tag string, key int64, n int) {
@@ -159,6 +157,8 @@ func (b *tallyBuilder) add(tag string, key int64, n int) {
 		b.Counts[key] = n
 	case "answered":
 		b.Answered[key] = n
+	case "printed":
+		b.printed[key] = true
 	}
 }
 
