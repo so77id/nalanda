@@ -223,7 +223,8 @@ func writeCSV(w http.ResponseWriter, filename string, rows [][]string) {
 
 // text neutralises a typed string a spreadsheet would run as a formula —
 // one starting with = + - @ (or a tab or carriage return) gets a leading
-// apostrophe. Numbers this code writes never pass through it.
+// apostrophe. A scale's positions may pass through it; they are positive
+// and come out unchanged.
 func text(s string) string {
 	if s != "" && strings.ContainsRune("=+-@\t\r", rune(s[0])) {
 		return "'" + s

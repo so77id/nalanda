@@ -36,7 +36,8 @@ copies, marks and review items stored WITHOUT identity, reviewed by hand,
 and the run is closed (ADR-0081). Since #312 a closed run has results:
 per-question statistics with a context filter, a comparison across closed
 runs and three CSV exports, computed at request time from `survey_mark`
-counts — one aggregate query per page, no new table (ADR-0082).
+counts — one aggregate query per set of copies, never one per question, no
+new table (ADR-0082).
 
 Commands, stack, configuration and layout live in `README.md` — one home per
 fact.
@@ -90,7 +91,7 @@ fact.
 - `docs/decisions/0082-survey-results-count-closed-runs-from-marks.md` —
   the results: closed runs only; answered = at least one mark (blank,
   discarded and uncaptured are alike "sin respuesta"); the bases (answered
-  copies for single/scale, every read copy for multi); a scale's value is
+  copies for single/scale, every copy in the set for multi); a scale's value is
   its position; the context filter with no minimum group; the comparison's
   reference alternative and Δ = last − first with no colour; the store
   counts, the domain computes. Read before touching `survey/results.go`,

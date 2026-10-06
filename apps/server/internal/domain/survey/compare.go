@@ -56,13 +56,16 @@ type ComparisonRow struct {
 	Percent bool
 	Cells   []ComparisonCell
 	// Delta is the value in the last run with one minus the value in the
-	// first; nil with fewer than two values. Only its sign is shown: the
+	// first; nil with fewer than two values. Shown with its sign and an
+	// arrow, never a colour: the
 	// system does not know which direction is good.
 	Delta *float64
 }
 
-// ComparisonCell is one run's value; Present false shows "—" (the run did
-// not print the question, or nobody answered it).
+// ComparisonCell is one run's value; Present false shows "—": the run did
+// not print the question, or nobody answered a single or scale question.
+// A multi-select over read copies has a value even when nobody ticked it
+// (0 %, ADR-0082 §3).
 type ComparisonCell struct {
 	Value   float64
 	Present bool
@@ -185,7 +188,8 @@ func (c Comparison) Sections() []ComparisonSection {
 	return out
 }
 
-// Compare builds screen 13 for a survey's closed runs: two reads — the bank
+// Compare builds screen 13 for a survey's closed runs: the bank, the run
+// list and
 // and the one aggregate over every closed run.
 func (s *Service) Compare(ctx context.Context, surveyID int64, metric Metric) (Comparison, error) {
 	bank, err := s.Store.Questions(ctx, surveyID)

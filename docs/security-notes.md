@@ -1232,6 +1232,35 @@ no survey table references `student` or `enrollment` (ADR-0078 §2), and the
 only person a survey names is the professor in `created_by` — so the exposure
 is course-design text, and #272's decision covers it unchanged.
 
+**Amended 2026-10-05 (#312) — the answers are now readable, and leave the
+host.** The #309 sentence above stopped being complete: a closed run's
+answers are shown per question (screens 6, 7, 13) and exported as CSV —
+including `results.csv`, one row per copy with every context answer as a
+column — to any signed-in professor, at sequential ids, like everything
+else here. Still no person: a row is a sheet, never a student
+(ADR-0078 §2), and the export carries no AMC copy number. But a survey is
+only as anonymous as its distribution (ADR-0078 §Consequences), and two
+choices make a small group legible:
+
+- **The context filter has no minimum group size** (ADR-0082 §5, Miguel's
+  call): a section of one student filters to that student's answers. So
+  can the raw export, read by its context columns.
+- **The raw export's row order is an UNKEYED hash** of (run, copy): it
+  stops a row number from reading as a copy number, and nothing more —
+  anyone with the code and the run's copy numbers can rebuild it.
+
+Accepted: the professor owns the data, the classes are small, and every
+viewer is a colleague. One control is real and must be reused by any
+future CSV export: text the professor typed that a spreadsheet would run
+as a formula (`= + - @`, a tab, a carriage return) is prefixed with an
+apostrophe (`text()` in `handler/survey_csv.go`, pinned by
+`TestAFormulaLikeStatementIsExportedInert`).
+
+**Review trigger**: a second kind of viewer of survey results (a TA, a
+co-professor of another course), an export leaving the professor's hands
+by design (a share link, an email), or a survey that collects identity.
+Then the minimum group size and a keyed row order come back on the table.
+
 **Amended 2026-09-07 (#273) — the trigger fired, and this is what changed.**
 This entry named WP-3 as "the first WP that emails these people". It does,
 and the exposure it adds is a new EGRESS: until now every piece of this data

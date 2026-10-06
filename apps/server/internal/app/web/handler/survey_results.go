@@ -252,7 +252,7 @@ const SurveyComparePath = "/surveys/{id}/compare"
 func SurveyComparePathFor(surveyID int64) string { return SurveyPathFor(surveyID) + "/compare" }
 
 // Compare renders screen 13: every question some closed run printed, one
-// column per closed run, and Δ — sign only, no colour.
+// column per closed run, and Δ — with its sign and an arrow, no colour.
 func (h *Surveys) Compare(w http.ResponseWriter, r *http.Request) {
 	one, ok := h.survey(w, r)
 	if !ok {

@@ -33,10 +33,13 @@ change what the earlier WPs store.
 4. **A scale's value is its alternative's position** (1-based; the label may
    be empty). Mean, median — the mean of the two middle values when the
    count is even — and every mode tied for the top.
-5. **The context filter** restricts every block to the copies that marked one
+5. **The context filter** restricts every block of the run's page (and of
+   one question's) to the copies that marked one
    of the chosen alternatives of one of the run's printed context questions.
    **No minimum group size** (Miguel, 2026-10-05): a filter that leaves one
-   copy shows one copy.
+   copy shows one copy. A question's line "in every closed run" (screen 6)
+   is NOT filtered — a filter is defined by one run's context answers —
+   and the page says so.
 6. **The comparison** has one row per question some closed run printed,
    numbered by its BANK position (a printed number differs between runs: the
    bank grows, context prints first), one column per closed run, oldest
@@ -44,19 +47,25 @@ change what the earlier WPs store.
    so a tied mode shows its lowest value); a single or multi row shows the
    share of a **reference alternative**, the most marked in the latest closed
    run that printed the question and has a mark on it (a later run nobody
-   answered it in does not blank the earlier ones; ties go to bank order). Context rows, and runs that did not print
-   the question or where nobody answered it, show "—". **Δ = the last value
+   answered it in does not blank the earlier ones; ties go to bank order).
+   Context rows and runs that did not print the question show
+   "—", and so does a single or scale cell nobody answered; a multi-select
+   cell over read copies is a real 0 % (§3) and counts in Δ. **Δ = the last value
    − the first**, needing two, shown with its sign and an arrow and **no
    colour**: the system does not know which direction is good.
 7. **The store counts, the domain computes, at request time.** One aggregate
-   query per page — a `UNION ALL` of copies, marks per alternative and copies
-   answering per question over one set of copies (`RunTally`), or over every
-   closed run with what each printed (`ClosedRunTallies`). No cached
+   query per set of copies — a `UNION ALL` of copies, marks per alternative and
+   copies answering per question over one run's (`RunTally`, which also counts
+   the run's read copies when a filter is on), or over every closed run with
+   what each printed (`ClosedRunTallies`). Screens 7 and 13 run one; screen 6
+   runs both, never one per question. No cached
    aggregate, no new table, no migration.
 8. **Exports** are UTF-8 with a BOM, comma-separated, every field quoted. The
    raw export numbers its rows 1…N in an order hashed from (run, copy) — the
    same on every export, and never one that follows AMC's copy numbers,
-   which it does not carry either. The comparison export is for analysis:
+   which it does not carry either. The hash is unkeyed: it stops a row
+   number from reading as a copy number, not a determined reader
+   (`docs/security-notes.md`, #312 amendment). The comparison export is for analysis:
    bare numbers (a scale in the chosen metric, a percent 0–100), an empty
    cell where the page shows "—", what each row measures in its own column,
    and the metric in the file's name. Text the professor typed that a

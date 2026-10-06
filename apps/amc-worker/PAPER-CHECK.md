@@ -234,6 +234,12 @@ synthetically (`tests/08-survey.sh`). Checking it on paper:
 5. Resolve them, then scan ONE copy again and upload it as a second batch:
    only that copy's reading is replaced, every other decision survives.
    Finally **Cerrar pasada**.
+6. Open **Ver resultados** (#312): the blank question counts as "sin
+   respuesta", the multi-select's percentages are over every read copy, a
+   resolved ambiguity counts as decided and a discarded one as "sin
+   respuesta" (ADR-0082 §2–3). Filter by the context question and check
+   "N copias de M"; download `results.csv` and confirm it carries no AMC
+   copy number.
 
 Record the verdict in **ADR-0080 §Not yet proven**, the same way §6 records
 the control's in ADR-0030 — and, if a sure misread shows up (a stray mark

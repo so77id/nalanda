@@ -576,3 +576,16 @@ first:
 Both directions of (2) and (3) are pinned by tests: a login nonce cannot
 complete the second grant, and its cookie cannot complete a login. Policy:
 ADR-0072 §2.
+
+## A file export (CSV)
+
+First worked case: the survey exports (#312, ADR-0082 §8,
+`handler/survey_csv.go`). A gated GET only — never on `/api`. Reuse
+`writeCSV` (UTF-8 with a BOM, every field quoted, an ASCII
+`Content-Disposition` filename, `no-store`, `nosniff`) and pass every string a
+person typed through `text()`, the spreadsheet-formula guard; lift both to a
+shared helper when the second export arrives rather than copying them. Export
+no internal identifier (the AMC copy-number precedent). Test the BOM, the
+quoting and the guard by reading the file back with `encoding/csv`, as
+`survey_results_test.go` does.
+

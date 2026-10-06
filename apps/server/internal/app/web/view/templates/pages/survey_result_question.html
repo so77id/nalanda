@@ -21,7 +21,7 @@
     {{ if .Block.Summary }}<p>{{ .Block.Summary }}</p>{{ end }}
   </section>
 
-  <h2>En las pasadas cerradas</h2>
+  <h2>En las pasadas cerradas{{ if .Filtered }} <span class="survey-meta">(sin filtro)</span>{{ end }}</h2>
   <table class="lista">
     <tbody>
       {{ range .Across }}

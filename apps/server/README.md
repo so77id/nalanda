@@ -354,14 +354,15 @@ only closed runs count.
 
 Since issue #312 a closed run has **results** (ADR-0082): every printed
 question's distribution — single and scale over the copies that answered,
-multi-select over every read copy; a scale adds mean, median and every tied
+multi-select over every copy in the set; a scale adds mean, median and every tied
 mode, its value being the point's position — optionally restricted to the
 copies that marked chosen alternatives of a context question (no minimum
 group size); one question in detail with its value in every closed run; a
 comparison of all closed runs (a reference alternative for single and multi
 rows, the chosen metric for scales, Δ = last − first with its sign and no
 colour); and three CSV exports. All of it is computed at request time from
-one aggregate query per page; nothing is stored.
+one aggregate query per set of copies (screen 6 runs two), never one per
+question; nothing is stored.
 
 Routes today:
 

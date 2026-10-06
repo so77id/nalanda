@@ -138,6 +138,12 @@ func TestScreenSixShowsOneQuestionAndItsClosedRuns(t *testing.T) {
 	if !strings.Contains(list, page+"?"+strings.ReplaceAll(q.Encode(), "&", "&amp;")) {
 		t.Errorf("screen 7's block does not link screen 6 with the filter")
 	}
+	// Filtered, the line per closed run says it is not (#312 review, ADR-1).
+	filtered := f.do(http.MethodGet, page+"?"+q.Encode(), f.handler.RunResultQuestion, nil,
+		append(f.runValues(r.s, first), "qid", strconv.FormatInt(r.scale.ID, 10))...).Body.String()
+	if !strings.Contains(filtered, "(sin filtro)") || strings.Contains(body, "(sin filtro)") {
+		t.Error("the closed-runs line is not labelled unfiltered under a filter (and only then)")
+	}
 	// A question the run did not print: 404.
 	other := f.addQuestion(r.s, survey.QuestionDraft{Kind: survey.KindSingle, Statement: "¿Nueva?", Labels: []string{"a", "b"}})
 	rec := f.do(http.MethodGet, handler.SurveyRunResultQuestionPathFor(r.s.ID, first.ID, other.ID), f.handler.RunResultQuestion, nil,
