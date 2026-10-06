@@ -581,8 +581,8 @@ ADR-0072 §2.
 
 First worked case: the survey exports (#312, ADR-0082 §8,
 `handler/survey_csv.go`). A gated GET only — never on `/api`. Reuse
-`writeCSV` (UTF-8 with a BOM, every field quoted, an ASCII
-`Content-Disposition` filename, `no-store`, `nosniff`) and pass every string a
+`writeCSV` (UTF-8 with a BOM, every field quoted, `no-store`, `nosniff`)
+with an ASCII filename — it goes into `Content-Disposition` verbatim — and pass every string a
 person typed through `text()`, the spreadsheet-formula guard; lift both to a
 shared helper when the second export arrives rather than copying them. Export
 no internal identifier (the AMC copy-number precedent). Test the BOM, the

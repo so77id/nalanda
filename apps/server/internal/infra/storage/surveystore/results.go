@@ -9,16 +9,17 @@ import (
 	"github.com/so77id/nalanda/apps/server/internal/domain/survey"
 )
 
-// A run's results (issue #312): counts only, one aggregate query per page
-// (apps/server/CLAUDE.md, never one query per question). The arithmetic
-// is the domain's (survey.StatsFor, survey.Compare).
+// A run's results (issue #312): counts only, one aggregate query per set of
+// copies, never one per question (ADR-0082 §7). The arithmetic is the
+// domain's (survey.StatsFor, survey.Compare).
 //
-// Each query is a UNION ALL of three counts over one set of copies, tagged
-// by what they count:
+// Each query is a UNION ALL of tagged counts, read by tallyBuilder.add:
 //
+//	read      0               the run's read copies, unfiltered
 //	copies    0               how many copies are in the set
 //	alt       alternative id  copies that marked it (one mark row per copy)
 //	answered  question id     copies with at least one mark on it
+//	printed   question id     (ClosedRunTallies only) the run printed it
 
 // RunTally counts one run, maybe filtered by a context answer.
 func (s *Store) RunTally(ctx context.Context, runID int64, filter *survey.ContextFilter) (survey.Tally, error) {

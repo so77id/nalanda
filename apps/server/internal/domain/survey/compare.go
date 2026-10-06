@@ -188,9 +188,8 @@ func (c Comparison) Sections() []ComparisonSection {
 	return out
 }
 
-// Compare builds screen 13 for a survey's closed runs: the bank, the run
-// list and
-// and the one aggregate over every closed run.
+// Compare builds screen 13 for a survey's closed runs: three reads — the
+// bank, the run list and the one aggregate over every closed run.
 func (s *Service) Compare(ctx context.Context, surveyID int64, metric Metric) (Comparison, error) {
 	bank, err := s.Store.Questions(ctx, surveyID)
 	if err != nil {

@@ -56,7 +56,7 @@ change what the earlier WPs store.
 7. **The store counts, the domain computes, at request time.** One aggregate
    query per set of copies — a `UNION ALL` of copies, marks per alternative and
    copies answering per question over one run's (`RunTally`, which also counts
-   the run's read copies when a filter is on), or over every closed run with
+   the run's read copies, unfiltered), or over every closed run with
    what each printed (`ClosedRunTallies`). Screens 7 and 13 run one; screen 6
    runs both, never one per question. No cached
    aggregate, no new table, no migration.
