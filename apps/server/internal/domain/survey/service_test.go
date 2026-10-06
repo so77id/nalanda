@@ -123,6 +123,37 @@ func (m *memStore) RunSummaries(context.Context, int64) (map[int64]survey.RunSum
 	return nil, nil
 }
 
+// The reading methods (#311): the bank's tests never reach them.
+func (m *memStore) SaveReadings(context.Context, int64, []int, []survey.CopyReading) error {
+	return nil
+}
+
+func (m *memStore) ReadingCounts(context.Context, int64) (survey.ReadingCounts, error) {
+	return survey.ReadingCounts{}, nil
+}
+
+func (m *memStore) CopyByNumber(context.Context, int64, int) (survey.Copy, error) {
+	return survey.Copy{}, survey.ErrCopyNotFound
+}
+
+func (m *memStore) MarksForCopy(context.Context, int64) ([]survey.Mark, error) { return nil, nil }
+
+func (m *memStore) ItemsForCopy(context.Context, int64) ([]survey.ReviewItem, error) {
+	return nil, nil
+}
+
+func (m *memStore) PendingCopyNumbers(context.Context, int64) ([]int, error) { return nil, nil }
+
+func (m *memStore) ResolveItems(context.Context, int64, int64, []survey.ItemResolution, int64, time.Time) error {
+	return nil
+}
+
+func (m *memStore) DeleteReadings(context.Context, int64) error { return nil }
+
+func (m *memStore) DecidedItems(context.Context, int64) (int, error) { return 0, nil }
+
+func (m *memStore) CloseRun(context.Context, int64, int64, time.Time) error { return nil }
+
 // noGenerator is a survey.Generator the bank's tests never reach.
 type noGenerator struct{}
 
@@ -130,20 +161,29 @@ func (noGenerator) GenerateSheet(context.Context, survey.GenerateRequest) (surve
 	return survey.Assets{}, survey.ErrGeneratorUnavailable
 }
 
+func (noGenerator) AnalyzeSheets(context.Context, survey.AnalyzeRequest) (survey.Report, error) {
+	return survey.Report{}, survey.ErrAnalyzerUnavailable
+}
+
+func (noGenerator) ResetSurveyScans(context.Context, string) error {
+	return survey.ErrAnalyzerUnavailable
+}
+
 var now = time.Date(2026, time.October, 5, 12, 0, 0, 0, time.UTC)
 
 func newService(store survey.Store) *survey.Service {
 	return survey.NewService(survey.Service{
-		Store: store, Generator: noGenerator{}, WorkDir: "/nonexistent", Now: func() time.Time { return now },
+		Store: store, Generator: noGenerator{}, Analyzer: noGenerator{}, WorkDir: "/nonexistent", Now: func() time.Time { return now },
 	})
 }
 
 func TestNewServiceRefusesMissingDependencies(t *testing.T) {
 	for name, deps := range map[string]survey.Service{
-		"no store":     {Generator: noGenerator{}, WorkDir: "/w", Now: time.Now},
-		"no generator": {Store: newMemStore(), WorkDir: "/w", Now: time.Now},
-		"no work dir":  {Store: newMemStore(), Generator: noGenerator{}, Now: time.Now},
-		"no clock":     {Store: newMemStore(), Generator: noGenerator{}, WorkDir: "/w"},
+		"no store":     {Generator: noGenerator{}, Analyzer: noGenerator{}, WorkDir: "/w", Now: time.Now},
+		"no generator": {Store: newMemStore(), Analyzer: noGenerator{}, WorkDir: "/w", Now: time.Now},
+		"no analyzer":  {Store: newMemStore(), Generator: noGenerator{}, WorkDir: "/w", Now: time.Now},
+		"no work dir":  {Store: newMemStore(), Generator: noGenerator{}, Analyzer: noGenerator{}, Now: time.Now},
+		"no clock":     {Store: newMemStore(), Generator: noGenerator{}, Analyzer: noGenerator{}, WorkDir: "/w"},
 	} {
 		t.Run(name, func(t *testing.T) {
 			defer func() {

@@ -182,11 +182,14 @@ func (h *Surveys) RunDetail(w http.ResponseWriter, r *http.Request) {
 	}
 	pdfReady, pdfStatus := h.sheetState(r.Context(), run)
 	latest := h.latestRunJob(r.Context(), run)
-
-	title := "Pasada #" + strconv.Itoa(run.Number)
-	if run.Name != "" {
-		title += " · " + run.Name
+	counts, err := h.Service.ReadingCounts(r.Context(), run.ID)
+	if err != nil {
+		h.Log.Error("counting a run's reading", "run", run.ID, "error", err)
+		middleware.WriteError(w, r, http.StatusInternalServerError, surveyBroke)
+		return
 	}
+
+	title := runTitle(run)
 	page := view.SurveyRunPage{
 		Page:          middleware.PageFor(r, title),
 		SurveyName:    one.Name,
@@ -200,20 +203,40 @@ func (h *Surveys) RunDetail(w http.ResponseWriter, r *http.Request) {
 		Banner:        runBanner(latest),
 		PDFReady:      pdfReady,
 		PDFURL:        SurveyRunSheetPathFor(one.ID, run.ID),
-		ReadLabel:     "—",
-		ReviewLabel:   "—",
+		ScansURL:      SurveyRunScansPathFor(one.ID, run.ID),
+		Read:          counts.Copies,
+		Clean:         counts.Clean(),
+		Pending:       counts.PendingCopies,
+		Missing:       max(run.Copies-counts.Copies, 0),
+		Open:          run.State == survey.RunOpen,
+	}
+	if counts.PendingCopies > 0 {
+		page.ReviewURL = SurveyRunReviewPathFor(one.ID, run.ID)
 	}
 	if run.State == survey.RunOpen {
 		page.EditURL = SurveyRunEditPathFor(one.ID, run.ID)
-		page.CanCancel = !inFlight(latest)
+		scans, err := h.Service.HasScans(r.Context(), run)
+		if err != nil {
+			h.Log.Warn("reading a run's scans", "run", run.ID, "error", err)
+		}
+		// A run with scans is not cancelled (#311): the button would only
+		// lead to a refusal. A failed read leaves it offered — the service
+		// refuses anyway.
+		page.CanCancel = !inFlight(latest) && !scans
 		page.CancelAction = SurveyRunCancelPathFor(one.ID, run.ID)
+		page.CloseAction = SurveyRunClosePathFor(one.ID, run.ID)
+		switch {
+		case counts.Copies == 0:
+			page.CloseHint = "se habilita cuando haya copias leídas"
+		case counts.PendingCopies > 0:
+			page.CloseHint = "se habilita al terminar la revisión"
+		case inFlight(latest):
+			page.CloseHint = "espera a que termine el trabajo en curso"
+		default:
+			page.CanClose = true
+		}
 	}
-	page.Steps = []view.RunStep{
-		{Label: "PDF", Status: pdfStatus, Done: pdfReady},
-		{Label: "Escaneos", Status: "pendiente"},
-		{Label: "Revisión", Status: "pendiente"},
-		{Label: "Cerrada", Status: "pendiente"},
-	}
+	page.Steps = runSteps(run, pdfReady, pdfStatus, counts)
 	page.Flash = flash.Consume(w, r, h.secureCookie)
 
 	if err := view.RenderSurveyRun(w, page); err != nil {
@@ -313,13 +336,15 @@ func (h *Surveys) CancelRun(w http.ResponseWriter, r *http.Request) {
 	// failed read answers "not in flight" — cancelling destroys nothing
 	// the runner could not tolerate (GenerateRunSheet refuses a run that
 	// is no longer open).
-	if inFlight(h.latestRunJob(r.Context(), run)) {
-		flash.Set(w, h.secureCookie, "El PDF de esta pasada se está generando. Espera a que termine y vuelve a intentarlo.")
-		http.Redirect(w, r, back, http.StatusSeeOther)
+	if h.refuseWhileInFlight(w, r, run, back) {
 		return
 	}
 	err := h.Service.CancelRun(r.Context(), one.ID, run.ID)
 	switch {
+	case errors.Is(err, survey.ErrRunHasScans):
+		flash.Set(w, h.secureCookie, "Esta pasada ya tiene escaneos: para cancelarla, primero usa «Borrar escaneos».")
+		http.Redirect(w, r, back, http.StatusSeeOther)
+		return
 	case errors.Is(err, survey.ErrRunNotCancellable):
 		flash.Set(w, h.secureCookie, "Esta pasada ya no se puede cancelar.")
 		http.Redirect(w, r, back, http.StatusSeeOther)
@@ -429,8 +454,11 @@ func runBanner(job *jobs.Job) *view.JobBanner {
 
 // surveyJobLabel names a survey job on its banner.
 func surveyJobLabel(k jobs.Kind) string {
-	if k == jobs.KindSurveyGenerate {
+	switch k {
+	case jobs.KindSurveyGenerate:
 		return "generación del PDF"
+	case jobs.KindSurveyAnalyse:
+		return "lectura de los escaneos"
 	}
 	// Never the raw English kind on a Spanish page.
 	return "trabajo de la pasada"
@@ -447,4 +475,82 @@ func runStateLabel(s survey.RunState) string {
 		return "cancelada"
 	}
 	return string(s)
+}
+
+// SurveyRunClosePath freezes a run (issue #311).
+const SurveyRunClosePath = "/surveys/{id}/runs/{rid}/close"
+
+// SurveyRunClosePathFor builds the URL that closes a run.
+func SurveyRunClosePathFor(surveyID, runID int64) string {
+	return SurveyRunPathFor(surveyID, runID) + "/close"
+}
+
+// runSteps is the stepper of screen 9: PDF, scans, review, closed.
+func runSteps(run survey.Run, pdfReady bool, pdfStatus string, counts survey.ReadingCounts) []view.RunStep {
+	scans := view.RunStep{Label: "Escaneos", Status: "pendiente"}
+	if counts.Copies > 0 {
+		scans.Status = fmt.Sprintf("%d leída(s) de %d", counts.Copies, run.Copies)
+		scans.Done = true
+	}
+	review := view.RunStep{Label: "Revisión", Status: "pendiente"}
+	switch {
+	case counts.PendingCopies > 0:
+		review.Status = fmt.Sprintf("%d copia(s) por revisar", counts.PendingCopies)
+	case counts.Copies > 0:
+		review.Status, review.Done = "lista", true
+	}
+	closed := view.RunStep{Label: "Cerrada", Status: "pendiente"}
+	if run.State == survey.RunClosed {
+		closed.Status, closed.Done = "sí", true
+	}
+	return []view.RunStep{{Label: "PDF", Status: pdfStatus, Done: pdfReady}, scans, review, closed}
+}
+
+// CloseRun freezes the run: from now on its answers count, and nothing on
+// it changes (issue #311). Refused with a flash while a job about the run
+// is in flight, before anything was read, or while a copy waits for review.
+func (h *Surveys) CloseRun(w http.ResponseWriter, r *http.Request) {
+	one, run, ok := h.surveyRun(w, r)
+	if !ok {
+		return
+	}
+	back := SurveyRunPathFor(one.ID, run.ID)
+	if h.refuseWhileInFlight(w, r, run, back) {
+		return
+	}
+	err := h.Service.CloseRun(r.Context(), one.ID, run.ID)
+	switch {
+	case errors.Is(err, survey.ErrNothingRead):
+		flash.Set(w, h.secureCookie, "Esta pasada no tiene copias leídas: sube sus escaneos antes de cerrarla.")
+	case errors.Is(err, survey.ErrReviewPending):
+		flash.Set(w, h.secureCookie, "Quedan lecturas por revisar: resuélvelas antes de cerrar la pasada.")
+	case errors.Is(err, survey.ErrRunNotOpen):
+		flash.Set(w, h.secureCookie, "Esta pasada ya no está abierta.")
+	case errors.Is(err, survey.ErrRunNotFound):
+		middleware.WriteError(w, r, http.StatusNotFound, "Esa pasada no existe.")
+		return
+	case err != nil:
+		h.Log.Error("closing a run", "run", run.ID, "error", err)
+		middleware.WriteError(w, r, http.StatusInternalServerError, surveyBroke)
+		return
+	default:
+		flash.Set(w, h.secureCookie, runTitle(run)+" cerrada: sus respuestas ya cuentan en los resultados.")
+	}
+	http.Redirect(w, r, back, http.StatusSeeOther)
+}
+
+// refuseWhileInFlight flashes and redirects to back when a job about the
+// run is queued or running — the race add-a-backend-endpoint.md's fourth
+// synchronous rule forbids — and reports whether it did. A failed jobs
+// read answers "not in flight": cancelling and closing are guarded again
+// in their own store statements.
+func (h *Surveys) refuseWhileInFlight(w http.ResponseWriter, r *http.Request, run survey.Run, back string) bool {
+	latest := h.latestRunJob(r.Context(), run)
+	if !inFlight(latest) {
+		return false
+	}
+	flash.Set(w, h.secureCookie, "Hay un trabajo en curso sobre esta pasada ("+surveyJobLabel(latest.Kind)+
+		"). Espera a que termine y vuelve a intentarlo.")
+	http.Redirect(w, r, back, http.StatusSeeOther)
+	return true
 }

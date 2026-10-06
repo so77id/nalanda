@@ -170,17 +170,32 @@ type SurveyRunPage struct {
 	// Cancelled hides the question count, the steps and the actions: a
 	// cancelled run is printed and read by nobody, and cancelling dropped
 	// its snapshot (#310 review, COR-1), so the count would read zero.
-	Cancelled    bool
-	StateLabel   string
-	Banner       *JobBanner
-	Steps        []RunStep
-	PDFReady     bool
-	PDFURL       string
-	ReadLabel    string
-	ReviewLabel  string
+	Cancelled  bool
+	StateLabel string
+	Banner     *JobBanner
+	Steps      []RunStep
+	PDFReady   bool
+	PDFURL     string
+	// The reading (issue #311): copies read, clean, waiting, and missing
+	// (printed but never read).
+	Read    int
+	Clean   int
+	Pending int
+	Missing int
+	// ReviewURL is the review queue, when a copy waits.
+	ReviewURL string
+	// CloseAction is "Cerrar pasada"'s target; CanClose says whether it is
+	// offered, and CloseHint why not.
+	CloseAction string
+	CanClose    bool
+	CloseHint   string
+	// Open is whether the run still takes scans.
+	Open         bool
 	EditURL      string
 	CanCancel    bool
 	CancelAction string
+	// ScansURL is screen 10 (issue #311).
+	ScansURL string
 }
 
 // RunStep is one stage of a run's stepper.
@@ -264,4 +279,107 @@ func RenderSurveyRunForm(w http.ResponseWriter, status int, page SurveyRunFormPa
 // RenderSurveyRun writes screen 9.
 func RenderSurveyRun(w http.ResponseWriter, page SurveyRunPage) error {
 	return render(w, "survey_run", http.StatusOK, page)
+}
+
+// SurveyRunScansPage is what survey_run_scans.html renders: a run's scans
+// (issue #311, screen 10).
+type SurveyRunScansPage struct {
+	Page
+	RunTitle string
+	RunURL   string
+	Banner   *JobBanner
+	// CanUpload is false on a run that is not open; the form is not drawn.
+	CanUpload    bool
+	UploadAction string
+	MaxMB        int64
+	Uploads      []UploadRow
+	// The run's reading so far.
+	Read    int
+	Clean   int
+	Pending int
+	// ResetURL is "Borrar escaneos"' confirmation page; empty when there
+	// is nothing to erase or the run is not open.
+	ResetURL string
+}
+
+// UploadRow is one batch on disk.
+type UploadRow struct {
+	Name string
+	Size string
+}
+
+// RenderSurveyRunScans writes screen 10.
+func RenderSurveyRunScans(w http.ResponseWriter, page SurveyRunScansPage) error {
+	return render(w, "survey_run_scans", http.StatusOK, page)
+}
+
+// SurveyCopyReviewPage is what survey_review.html renders: one copy's
+// doubtful answers (issue #311, screen 11).
+type SurveyCopyReviewPage struct {
+	Page
+	RunTitle string
+	RunURL   string
+	// Position is "Copia 2 de 4" among the copies that wait; empty when
+	// this copy no longer waits.
+	Position string
+	Waiting  int
+	PrevURL  string
+	NextURL  string
+	Pages    []string
+	Action   string
+	Items    []ReviewItemView
+	// Editable is false on a run that is not open: the items are shown,
+	// never decided.
+	Editable bool
+	// Undecided is whether any item of the copy still waits.
+	Undecided bool
+	Errors    []string
+}
+
+// ReviewItemView is one doubtful answer.
+type ReviewItemView struct {
+	ID          int64
+	Heading     string // "Pregunta 7"
+	Statement   string
+	KindLabel   string
+	Explanation string
+	Multi       bool
+	Options     []ReviewOption
+	Comment     string
+	// Decided is the recorded decision, empty while pending.
+	Decided string
+}
+
+// ReviewOption is one alternative the professor may record.
+type ReviewOption struct {
+	Value    string
+	Label    string
+	Detected bool
+	Checked  bool
+}
+
+// RenderSurveyCopyReview writes screen 11 with the caller's status.
+func RenderSurveyCopyReview(w http.ResponseWriter, status int, page SurveyCopyReviewPage) error {
+	return render(w, "survey_review", status, page)
+}
+
+// SurveyScansResetPage is "Borrar escaneos"' confirmation (issue #311).
+type SurveyScansResetPage struct {
+	Page
+	RunTitle string
+	RunURL   string
+	BackURL  string
+	Action   string
+	// Phrase is what the professor types: "Pasada 3".
+	Phrase   string
+	Uploads  int
+	Copies   int
+	Decided  int
+	Typed    string
+	Mismatch string
+}
+
+// RenderSurveyScansReset writes the confirmation with the caller's status.
+func RenderSurveyScansReset(w http.ResponseWriter, status int, page SurveyScansResetPage) error {
+	return render(w, "survey_scans_reset_confirm", status, page)
 }

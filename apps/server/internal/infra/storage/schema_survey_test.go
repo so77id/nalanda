@@ -231,3 +231,57 @@ func TestTheRunSchemaRefusesWhatTheDomainRefuses(t *testing.T) {
 		t.Errorf("deleting a printed question: %v, want a FOREIGN KEY failure", err)
 	}
 }
+
+// Issue #311 S1: the reading tables refuse what the domain refuses, and a
+// copy takes its marks and review items with it.
+func TestTheReadingSchemaRefusesWhatTheDomainRefuses(t *testing.T) {
+	ctx, db := migrated(t)
+	userID := insertProfessor(t, ctx, db, "profesora@example.com")
+	courseID := insertCourse(t, ctx, db, "CIT2006-03", "canvas-course-1")
+	surveyID := insertSurveyRow(t, ctx, db, courseID, userID)
+	questionID := insertQuestionRow(t, ctx, db, surveyID, 1, "single")
+	var altID, runID, copyID int64
+	exec := func(query string, args ...any) int64 {
+		t.Helper()
+		result, err := db.ExecContext(ctx, query, args...)
+		if err != nil {
+			t.Fatalf("%s: %v", query, err)
+		}
+		id, _ := result.LastInsertId()
+		return id
+	}
+	altID = exec(`INSERT INTO survey_alternative (question_id, position, label) VALUES (?, 1, 'A')`, questionID)
+	runID = exec(`INSERT INTO survey_run (survey_id, number, applied_on, copies, created_by) VALUES (?, 1, '2026-10-15', 30, ?)`, surveyID, userID)
+	copyID = exec(`INSERT INTO survey_copy (run_id, copy_number) VALUES (?, 1)`, runID)
+	exec(`INSERT INTO survey_mark (copy_id, question_id, alternative_id) VALUES (?, ?, ?)`, copyID, questionID, altID)
+	item := `INSERT INTO survey_review_item (copy_id, question_id, reason, detected, resolution, resolved_at) VALUES (?, ?, ?, '{}', ?, ?)`
+	exec(item, copyID, questionID, "doubtful", nil, nil)
+
+	for name, args := range map[string][]any{
+		"an unknown reason":         {copyID, questionID, "faint", nil, nil},
+		"a resolution with no time": {copyID, questionID, "doubtful", "chosen", nil},
+		"a time with no resolution": {copyID, questionID, "doubtful", nil, 1},
+		"an unknown resolution":     {copyID, questionID, "doubtful", "ignored", 1},
+	} {
+		if _, err := db.ExecContext(ctx, item, args...); err == nil || !strings.Contains(err.Error(), "CHECK") {
+			t.Errorf("%s: %v, want a CHECK failure", name, err)
+		}
+	}
+	if _, err := db.ExecContext(ctx, `INSERT INTO survey_copy (run_id, copy_number) VALUES (?, 1)`, runID); err == nil ||
+		!strings.Contains(err.Error(), "UNIQUE") {
+		t.Errorf("a second copy 1: %v, want a UNIQUE failure", err)
+	}
+	if _, err := db.ExecContext(ctx, `INSERT INTO survey_copy (run_id, copy_number) VALUES (?, 0)`, runID); err == nil ||
+		!strings.Contains(err.Error(), "CHECK") {
+		t.Errorf("copy 0: %v, want a CHECK failure", err)
+	}
+
+	if _, err := db.ExecContext(ctx, `DELETE FROM survey_copy WHERE id = ?`, copyID); err != nil {
+		t.Fatalf("deleting the copy: %v", err)
+	}
+	var left int
+	if err := db.QueryRowContext(ctx,
+		`SELECT (SELECT count(*) FROM survey_mark) + (SELECT count(*) FROM survey_review_item)`).Scan(&left); err != nil || left != 0 {
+		t.Errorf("%d marks and items outlived their copy (%v)", left, err)
+	}
+}

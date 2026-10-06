@@ -1,0 +1,45 @@
+{{ define "content" }}
+  <p><a href="{{ .RunURL }}">‹ {{ .RunTitle }}</a></p>
+
+  {{ template "run_banner" . }}
+
+  <h1>Escaneos</h1>
+
+  {{ if .CanUpload }}
+    <p>
+      Sube el PDF escaneado de las hojas respondidas. El sistema separa cada
+      hoja y la lee automáticamente. Si vuelves a escanear una hoja, la lectura
+      nueva reemplaza a la anterior.
+    </p>
+    <form method="post" action="{{ .UploadAction }}" enctype="multipart/form-data" class="survey-upload">
+      <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}" />
+      <label for="scan">Un PDF de varias páginas, con las hojas en cualquier orden{{ if .MaxMB }} (máximo {{ .MaxMB }} MB){{ end }}</label>
+      <input type="file" id="scan" name="scan" accept="application/pdf,.pdf" required />
+      <button type="submit">Subir</button>
+    </form>
+  {{ else }}
+    <p>Esta pasada ya no está abierta: no recibe escaneos.</p>
+  {{ end }}
+
+  <h2>Lotes subidos en esta pasada</h2>
+  {{ if .Uploads }}
+    <table class="lista">
+      <tbody>
+        {{ range .Uploads }}
+          <tr><td>{{ .Name }}</td><td>{{ .Size }}</td></tr>
+        {{ end }}
+      </tbody>
+    </table>
+  {{ else }}
+    <p>Todavía no se ha subido ningún lote.</p>
+  {{ end }}
+  <p>
+    Total: {{ .Read }} copia{{ if ne .Read 1 }}s{{ end }} leída{{ if ne .Read 1 }}s{{ end }}
+    · {{ .Clean }} limpia{{ if ne .Clean 1 }}s{{ end }} · {{ .Pending }} por revisar
+  </p>
+
+  <div class="survey-actions">
+    {{ if .ResetURL }}<a class="boton" href="{{ .ResetURL }}">Borrar escaneos</a>{{ end }}
+    <a class="boton" href="{{ .RunURL }}">Volver a la pasada</a>
+  </div>
+{{ end }}

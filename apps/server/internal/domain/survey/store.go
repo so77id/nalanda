@@ -89,7 +89,9 @@ type Store interface {
 	// CancelRun moves an OPEN run to cancelled and drops its snapshot, so
 	// the questions it printed can be deleted again — a cancelled run is
 	// excluded from everything and must not hold the bank (#310 review,
-	// COR-1). ErrRunNotCancellable when it is not open; ErrRunNotFound as
+	// COR-1). ErrRunNotCancellable when it is not open; ErrRunHasScans
+	// when it has read copies (#311; checked in the same statement, so a
+	// reading stored concurrently cannot slip under it); ErrRunNotFound as
 	// above.
 	CancelRun(ctx context.Context, surveyID, runID int64, now time.Time) error
 
@@ -97,6 +99,57 @@ type Store interface {
 	// has that are not cancelled and the latest date among them. A survey
 	// with none has no entry. One aggregate for the list page.
 	RunSummaries(ctx context.Context, courseID int64) (map[int64]RunSummary, error)
+
+	// SaveReadings stores what one batch read, in one transaction (issue
+	// #311). AMC's report covers the whole project, so every batch brings
+	// back the copies of the earlier ones: a copy in `recaptured` is
+	// deleted first (its marks and items cascade — a re-scanned page voids
+	// what was decided on the old image) and stored again; any other copy
+	// is upserted and everything still UNDECIDED on it is re-read — a copy
+	// can grow between batches without being re-captured (#311 review,
+	// COR-1) — while a question the professor already decided keeps its
+	// decision and its marks. ErrRunNotOpen when the run is no longer open.
+	SaveReadings(ctx context.Context, runID int64, recaptured []int, copies []CopyReading) error
+
+	// ReadingCounts is the run's reading at a glance, one aggregate query.
+	ReadingCounts(ctx context.Context, runID int64) (ReadingCounts, error)
+
+	// CopyByNumber returns one read copy, or ErrCopyNotFound.
+	CopyByNumber(ctx context.Context, runID int64, copyNumber int) (Copy, error)
+
+	// MarksForCopy returns a copy's recorded marks.
+	MarksForCopy(ctx context.Context, copyID int64) ([]Mark, error)
+
+	// ItemsForCopy returns a copy's review items, resolved ones included,
+	// in question id order.
+	ItemsForCopy(ctx context.Context, copyID int64) ([]ReviewItem, error)
+
+	// PendingCopyNumbers returns, in order, the copies of the run that
+	// still have an item to review.
+	PendingCopyNumbers(ctx context.Context, runID int64) ([]int, error)
+
+	// ResolveItems records decisions on one copy's items in one
+	// transaction: the stamp, the comment, and — for a chosen one — its
+	// marks. ErrRunNotOpen unless the run is open; ErrItemNotFound for an
+	// item that is not the copy's; ErrItemResolved for one already
+	// decided. Validating the choice against the question is the
+	// service's (ResolveCopy).
+	ResolveItems(ctx context.Context, runID, copyID int64, decisions []ItemResolution, by int64, now time.Time) error
+
+	// DeleteReadings removes every copy of an OPEN run — its marks and
+	// review items cascade — for "Borrar escaneos". ErrRunNotOpen
+	// otherwise.
+	DeleteReadings(ctx context.Context, runID int64) error
+
+	// DecidedItems counts the run's review items already resolved.
+	DecidedItems(ctx context.Context, runID int64) (int, error)
+
+	// CloseRun freezes an OPEN run that has read copies and nothing left
+	// to review, stamping closed_at — in one guarded statement, so a batch
+	// stored or an item reopened concurrently cannot slip under it.
+	// ErrRunNotOpen, ErrNothingRead or ErrReviewPending otherwise;
+	// ErrRunNotFound as above.
+	CloseRun(ctx context.Context, surveyID, runID int64, now time.Time) error
 }
 
 // RunSummary is one survey's runs, as a list page shows them.

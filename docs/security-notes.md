@@ -721,6 +721,22 @@ PDF it did not produce. At that point take the cheap half first (`cap_drop: [ALL
 and `security_opt: ["no-new-privileges:true"]` in compose, `openin_any = p` in a
 `texmf.cnf` override) before deciding on a non-root user.
 
+**Trigger status after #311 (survey scans, 2026-10-05) — not pulled.** A survey
+run's batch is uploaded through the same kind of route as a control's (gated,
+CSRF, the same content-type/extension check — not a magic-byte sniff) by the
+same professor, off the same scanner, and the worker parses it with the same
+`/analyse`. No student or other system reaches it. Its size is bounded the way
+a control's is, which is to say NOT by `NALANDA_MAX_SCAN_BYTES` — only by
+whatever Tailscale Funnel enforces in front of the server, which nobody has
+measured (#311 review, SEC-3): the CSRF middleware parses the whole multipart
+body before the handler's `MaxBytesReader` runs (`middleware.go`, its own
+comment says so), on both upload routes (#311 review, SEC-1). Reachable only
+by a signed-in professor. The new page-image route
+(`/surveys/{id}/runs/{rid}/copies/{copy}/page/{n}`) builds its path from
+integers only — the run's stored survey and run ids, the copy number and a page
+bounded 1–99 — under the run's own project, and serves only a copy the run
+read.
+
 **Named in advance, because WP-E will pull that trigger** (#147 review): a
 control source now includes code with `\lstinputlisting{<absolute path>}` —
 that is the documented shape, because a path relative to the `.tex` does not

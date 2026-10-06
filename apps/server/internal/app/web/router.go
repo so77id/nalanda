@@ -448,6 +448,44 @@ func routes(deps Deps) []Route {
 			Method: http.MethodGet, Path: handler.SurveyRunSheetPath,
 			Handler: deps.Surveys.RunSheet,
 		},
+		// Issue #311: a run's scans. The POST writes the batch and queues
+		// its `survey_analyse`; the worker is never called from here.
+		{
+			Method: http.MethodGet, Path: handler.SurveyRunScansPath,
+			Handler: deps.Surveys.RunScans,
+		},
+		{
+			Method: http.MethodPost, Path: handler.SurveyRunScansPath,
+			Handler: deps.Surveys.UploadScans,
+		},
+		{
+			Method: http.MethodGet, Path: handler.SurveyRunReviewPath,
+			Handler: deps.Surveys.RunReview,
+		},
+		{
+			Method: http.MethodGet, Path: handler.SurveyRunReviewCopyPath,
+			Handler: deps.Surveys.ReviewCopy,
+		},
+		{
+			Method: http.MethodPost, Path: handler.SurveyRunReviewCopyPath,
+			Handler: deps.Surveys.ResolveCopy,
+		},
+		{
+			Method: http.MethodGet, Path: handler.SurveyRunPagePath,
+			Handler: deps.Surveys.RunPage,
+		},
+		{
+			Method: http.MethodGet, Path: handler.SurveyRunScansResetConfirmPath,
+			Handler: deps.Surveys.ScansResetConfirm,
+		},
+		{
+			Method: http.MethodPost, Path: handler.SurveyRunScansResetPath,
+			Handler: deps.Surveys.ScansReset,
+		},
+		{
+			Method: http.MethodPost, Path: handler.SurveyRunClosePath,
+			Handler: deps.Surveys.CloseRun,
+		},
 		// Issue #261: archive / restore + the archived listing. Purge is
 		// S5's addition. Gated by default (no Public), CSRF enforced
 		// because the two POST methods are POST.

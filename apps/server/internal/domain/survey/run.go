@@ -41,9 +41,17 @@ var (
 	// with nothing on it.
 	ErrEmptyBank = errors.New("survey: a run needs at least one question")
 	// ErrRunNotCancellable refuses cancelling a run that is not open. (A
-	// job in flight is refused by the handler before it asks; scans, by
-	// #311.)
+	// job in flight is refused by the handler before it asks.)
 	ErrRunNotCancellable = errors.New("survey: the run cannot be cancelled")
+	// ErrRunHasScans refuses cancelling a run that has scans — an uploaded
+	// batch or a read copy (#311): cancelling releases the bank lock
+	// (ADR-0080 §5) under readings that would then count nowhere. "Borrar
+	// escaneos" first.
+	ErrRunHasScans = errors.New("survey: the run has scans")
+	// ErrNothingRead refuses closing a run no copy of which was read.
+	ErrNothingRead = errors.New("survey: the run has no read copy")
+	// ErrReviewPending refuses closing a run with items left to review.
+	ErrReviewPending = errors.New("survey: the run has readings to review")
 	// ErrRunNotOpen refuses editing a run that is closed or cancelled.
 	ErrRunNotOpen = errors.New("survey: the run is not open")
 )

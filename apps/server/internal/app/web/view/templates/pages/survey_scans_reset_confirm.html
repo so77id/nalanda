@@ -1,0 +1,28 @@
+{{ define "content" }}
+  <p><a href="{{ .RunURL }}">‹ {{ .RunTitle }}</a></p>
+  <h1>Borrar los escaneos de la {{ .RunTitle }}</h1>
+
+  <section class="aviso">
+    <p><strong>Esta acción NO SE PUEDE DESHACER.</strong>
+      Se borran {{ .Uploads }} lote{{ if ne .Uploads 1 }}s{{ end }} subido{{ if ne .Uploads 1 }}s{{ end }},
+      {{ .Copies }} copia{{ if ne .Copies 1 }}s{{ end }} leída{{ if ne .Copies 1 }}s{{ end }}
+      {{ if .Decided }}y {{ .Decided }} revisión{{ if ne .Decided 1 }}es{{ end }} hecha{{ if ne .Decided 1 }}s{{ end }} a mano{{ end }}.</p>
+    <p>La pasada sigue abierta y se puede volver a imprimir; el próximo lote que subas será el primero.</p>
+  </section>
+
+  <form method="post" action="{{ .Action }}" autocomplete="off">
+    <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
+    <p>
+      <label>Escribe <code>{{ .Phrase }}</code> para confirmar:<br>
+        <input type="text" name="confirm_name" value="{{ .Typed }}" required autocomplete="off" autofocus>
+      </label>
+    </p>
+    {{ if .Mismatch }}
+      <p class="aviso">{{ .Mismatch }}</p>
+    {{ end }}
+    <p>
+      <button type="submit">Borrar escaneos</button>
+      <a href="{{ .BackURL }}">Cancelar</a>
+    </p>
+  </form>
+{{ end }}

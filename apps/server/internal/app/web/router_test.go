@@ -137,6 +137,7 @@ func deps(t *testing.T, prober health.Prober) web.Deps {
 				jobs.KindSurveyGenerate: func(context.Context, string, []byte) error {
 					return nil // this table's survey routes never reach the worker
 				},
+				jobs.KindSurveyAnalyse: func(context.Context, string, []byte) error { return nil },
 			}, logger, time.Now)
 			return handler.NewControls(handler.Controls{
 				Service: svc,
@@ -216,7 +217,7 @@ func deps(t *testing.T, prober health.Prober) web.Deps {
 		// wires.
 		Surveys: handler.NewSurveys(handler.Surveys{
 			Service: survey.NewService(survey.Service{
-				Store: surveystore.New(db), Generator: &amctest.Fake{}, WorkDir: t.TempDir(), Now: time.Now,
+				Store: surveystore.New(db), Generator: &amctest.Fake{}, Analyzer: &amctest.Fake{}, WorkDir: t.TempDir(), Now: time.Now,
 			}),
 			Jobs: jobstore.New(db),
 			Runner: jobs.NewRunner(jobstore.New(db), jobs.Handlers{
@@ -226,6 +227,7 @@ func deps(t *testing.T, prober health.Prober) web.Deps {
 				jobs.KindAnnotate:       func(context.Context, string, []byte) error { return nil },
 				jobs.KindPublish:        func(context.Context, string, []byte) error { return nil },
 				jobs.KindSurveyGenerate: func(context.Context, string, []byte) error { return nil },
+				jobs.KindSurveyAnalyse:  func(context.Context, string, []byte) error { return nil },
 			}, logger, time.Now),
 			Courses:   roster.NewService(coursestore.New(db), roster.NewCanvasSource(canvas.NewService(nil, unreachableCanvas{}))),
 			PublicURL: "https://nalanda.test",

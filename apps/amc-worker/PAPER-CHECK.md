@@ -220,13 +220,21 @@ synthetically (`tests/08-survey.sh`). Checking it on paper:
 2. Mark them the way `08-survey.sh` pins: one copy clean, one with a faint
    mark on a scale, one with three marks on the multi-select, one blank
    question.
-3. Scan and read them as in §3–§4, with the run's project directory under
-   `/work`. There are no RUTs on a survey, so the step-4 warning about
-   national IDs does not apply — but the answers are still not committed.
-4. Expect every copy as `needs_review` with `rut_status: unreadable` — that
-   is the absent ID grid, not a failure. The verdict is on the ANSWERS: did
-   each clean mark read `ok`, the faint one `doubtful` or `ok`, the multi
-   marks all present, the blank one blank.
+3. Since #311 the reading runs from the backoffice: scan the sheets into one
+   PDF and upload it on the run's **Subir escaneos** page. Mark two or three
+   deliberate ambiguities (two boxes on a one-answer question) and one faint
+   mark, so the review has work to do. There are no RUTs on a survey, so the
+   step-4 warning about national IDs does not apply — but the answers are
+   still not committed.
+4. What the reader reports underneath is every copy `needs_review` with
+   `rut_status: unreadable` — the absent ID grid, not a failure; the server
+   ignores it (ADR-0081). The verdict is on the ANSWERS: each clean mark
+   recorded, each ambiguity and the faint mark waiting on **Revisar lectura
+   dudosa** beside the right page image, the blank one recorded as nothing.
+5. Resolve them, then scan ONE copy again and upload it as a second batch:
+   only that copy's reading is replaced, every other decision survives.
+   Finally **Cerrar pasada**.
 
 Record the verdict in **ADR-0080 §Not yet proven**, the same way §6 records
-the control's in ADR-0030.
+the control's in ADR-0030 — and, if a sure misread shows up (a stray mark
+read `ok`), say how often: ADR-0081 §Consequences names it.

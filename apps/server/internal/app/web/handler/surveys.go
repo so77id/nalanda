@@ -110,6 +110,9 @@ type Surveys struct {
 	Runner    *jobs.Runner
 	PublicURL string
 	Log       *slog.Logger
+	// MaxScanBytes bounds one uploaded batch (issue #311) — the controls'
+	// limit, NALANDA_MAX_SCAN_BYTES. Zero means no limit.
+	MaxScanBytes int64
 
 	// secureCookie is DERIVED from PublicURL by NewSurveys, never passed in
 	// — same reasoning as Courses.secureCookie.

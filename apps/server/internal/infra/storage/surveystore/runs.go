@@ -166,7 +166,8 @@ func (s *Store) CancelRun(ctx context.Context, surveyID, runID int64, now time.T
 
 	result, err := tx.ExecContext(ctx, `
         UPDATE survey_run SET state = 'cancelled', updated_at = ?
-        WHERE id = ? AND survey_id = ? AND state = 'open'`,
+        WHERE id = ? AND survey_id = ? AND state = 'open'
+          AND NOT EXISTS (SELECT 1 FROM survey_copy WHERE run_id = survey_run.id)`,
 		now.Unix(), runID, surveyID)
 	if err != nil {
 		return fmt.Errorf("surveystore.CancelRun %d: %w", runID, err)
@@ -189,9 +190,14 @@ func (s *Store) CancelRun(ctx context.Context, surveyID, runID int64, now time.T
 		return nil
 	}
 	_ = tx.Rollback()
-	// Nothing changed: tell absence from a run in the wrong state.
-	if _, err := s.Run(ctx, surveyID, runID); err != nil {
+	// Nothing changed: tell absence from a run in the wrong state, and
+	// that from an open run that has read copies.
+	run, err := s.Run(ctx, surveyID, runID)
+	if err != nil {
 		return fmt.Errorf("surveystore.CancelRun: %w", err)
+	}
+	if run.State == survey.RunOpen {
+		return fmt.Errorf("surveystore.CancelRun %d: %w", runID, survey.ErrRunHasScans)
 	}
 	return fmt.Errorf("surveystore.CancelRun %d: %w", runID, survey.ErrRunNotCancellable)
 }
@@ -258,4 +264,39 @@ func scanRun(row scanner) (survey.Run, error) {
 		r.ClosedAt = &at
 	}
 	return r, nil
+}
+
+// CloseRun freezes an open run; the Store port's comment is the contract.
+func (s *Store) CloseRun(ctx context.Context, surveyID, runID int64, now time.Time) error {
+	result, err := s.db.ExecContext(ctx, `
+        UPDATE survey_run SET state = 'closed', closed_at = ?, updated_at = ?
+        WHERE id = ? AND survey_id = ? AND state = 'open'
+          AND EXISTS (SELECT 1 FROM survey_copy WHERE run_id = survey_run.id)
+          AND NOT EXISTS (SELECT 1 FROM survey_review_item i JOIN survey_copy c ON c.id = i.copy_id
+                          WHERE c.run_id = survey_run.id AND i.resolution IS NULL)`,
+		now.Unix(), now.Unix(), runID, surveyID)
+	if err != nil {
+		return fmt.Errorf("surveystore.CloseRun %d: %w", runID, err)
+	}
+	if n, err := result.RowsAffected(); err != nil {
+		return fmt.Errorf("surveystore.CloseRun %d: %w", runID, err)
+	} else if n == 1 {
+		return nil
+	}
+	// Nothing changed: say which guard held.
+	run, err := s.Run(ctx, surveyID, runID)
+	if err != nil {
+		return fmt.Errorf("surveystore.CloseRun: %w", err)
+	}
+	if run.State != survey.RunOpen {
+		return fmt.Errorf("surveystore.CloseRun %d: %w", runID, survey.ErrRunNotOpen)
+	}
+	counts, err := s.ReadingCounts(ctx, runID)
+	if err != nil {
+		return fmt.Errorf("surveystore.CloseRun %d: %w", runID, err)
+	}
+	if counts.Copies == 0 {
+		return fmt.Errorf("surveystore.CloseRun %d: %w", runID, survey.ErrNothingRead)
+	}
+	return fmt.Errorf("surveystore.CloseRun %d: %w", runID, survey.ErrReviewPending)
 }

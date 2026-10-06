@@ -278,6 +278,7 @@ func run(logger *slog.Logger) error {
 	surveyService := survey.NewService(survey.Service{
 		Store:     surveystore.New(db),
 		Generator: amcClient,
+		Analyzer:  amcClient,
 		WorkDir:   cfg.WorkDir,
 		Now:       time.Now,
 	})
@@ -296,6 +297,7 @@ func run(logger *slog.Logger) error {
 		jobs.KindPublish:   controls.NewPublishHandler(controlsService),
 		// Issue #310: the survey Kinds, from the owning domain (ADR-0079).
 		jobs.KindSurveyGenerate: survey.NewGenerateHandler(surveyService),
+		jobs.KindSurveyAnalyse:  survey.NewAnalyseHandler(surveyService),
 	}, logger, time.Now)
 	if err := jobRunner.Sweep(ctx); err != nil {
 		return err
@@ -380,12 +382,13 @@ func run(logger *slog.Logger) error {
 			Log:       logger,
 		}),
 		Surveys: handler.NewSurveys(handler.Surveys{
-			Service:   surveyService,
-			Courses:   rosterService,
-			Jobs:      jobStore,
-			Runner:    jobRunner,
-			PublicURL: cfg.PublicURL,
-			Log:       logger,
+			Service:      surveyService,
+			Courses:      rosterService,
+			Jobs:         jobStore,
+			Runner:       jobRunner,
+			PublicURL:    cfg.PublicURL,
+			Log:          logger,
+			MaxScanBytes: cfg.MaxScanBytes,
 		}),
 		Login: handler.NewAuth(handler.Auth{
 			Login: login,

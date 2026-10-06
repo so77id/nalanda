@@ -13,6 +13,8 @@ type Service struct {
 	Store Store
 	// Generator compiles a run's sheet on the AMC worker (issue #310).
 	Generator Generator
+	// Analyzer reads a run's scans on the AMC worker (issue #311).
+	Analyzer Analyzer
 	// WorkDir is what the SERVER sees as the root of the worker's shared
 	// /work volume — the controls' WorkDir, the same volume.
 	WorkDir string
@@ -30,6 +32,8 @@ func NewService(deps Service) *Service {
 		panic("survey.NewService: no store")
 	case deps.Generator == nil:
 		panic("survey.NewService: no generator")
+	case deps.Analyzer == nil:
+		panic("survey.NewService: no analyzer")
 	case deps.WorkDir == "":
 		panic("survey.NewService: no work dir")
 	case deps.Now == nil:

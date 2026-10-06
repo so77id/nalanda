@@ -43,3 +43,45 @@ func (f *Fake) SheetCallCount() int {
 }
 
 var _ survey.Generator = (*Fake)(nil)
+
+// AnalyzeSheets is the survey reading (issue #311): it records the call
+// and returns the next of SurveyReports, or SurveyAnalyzeErr.
+func (f *Fake) AnalyzeSheets(_ context.Context, req survey.AnalyzeRequest) (survey.Report, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.SurveyAnalyzeCalls = append(f.SurveyAnalyzeCalls, req)
+	if f.SurveyAnalyzeErr != nil {
+		return survey.Report{}, f.SurveyAnalyzeErr
+	}
+	if len(f.SurveyReports) == 0 {
+		return survey.Report{}, nil
+	}
+	report := f.SurveyReports[0]
+	if len(f.SurveyReports) > 1 {
+		f.SurveyReports = f.SurveyReports[1:]
+	}
+	return report, nil
+}
+
+// ResetSurveyScans records the project and, when WorkDir is set and no
+// error is configured, removes what the worker would: the run's uploads
+// and scans directories.
+func (f *Fake) ResetSurveyScans(_ context.Context, project string) error {
+	f.mu.Lock()
+	f.SurveyResets = append(f.SurveyResets, project)
+	err, work := f.SurveyResetErr, f.WorkDir
+	f.mu.Unlock()
+	if err != nil {
+		return err
+	}
+	if work != "" {
+		for _, dir := range []string{"uploads", "scans"} {
+			if err := os.RemoveAll(filepath.Join(work, project, dir)); err != nil {
+				return fmt.Errorf("amctest: reset %s: %w", dir, err)
+			}
+		}
+	}
+	return nil
+}
+
+var _ survey.Analyzer = (*Fake)(nil)
