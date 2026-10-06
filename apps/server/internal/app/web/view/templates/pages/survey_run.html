@@ -1,0 +1,76 @@
+{{ define "content" }}
+  <p><a href="{{ .SurveyURL }}">‹ {{ .SurveyName }}</a></p>
+
+  {{ with .Banner }}
+    <section class="aviso" style="margin-bottom:1em">
+      {{ if .Running }}
+        <p><strong>Procesando {{ .Kind }}…</strong> ({{ .StartedAgo }}). Refresca la página cuando el aviso cambie.</p>
+        <form method="post" action="{{ .DismissURL }}" style="display:inline">
+          <input type="hidden" name="csrf_token" value="{{ $.CSRFToken }}">
+          <button type="submit">Refrescar</button>
+        </form>
+      {{ else if .Done }}
+        <p><strong>Listo: {{ .Kind }}.</strong></p>
+        {{ if .Notice }}<p>{{ .Notice }}</p>{{ end }}
+        <form method="post" action="{{ .DismissURL }}" style="display:inline">
+          <input type="hidden" name="csrf_token" value="{{ $.CSRFToken }}">
+          <button type="submit">Cerrar aviso</button>
+        </form>
+      {{ else if .Failed }}
+        <p><strong>Falló la {{ .Kind }}:</strong> {{ .Error }}</p>
+        <form method="post" action="{{ .DismissURL }}" style="display:inline">
+          <input type="hidden" name="csrf_token" value="{{ $.CSRFToken }}">
+          <button type="submit">Cerrar aviso</button>
+        </form>
+      {{ end }}
+    </section>
+  {{ end }}
+
+  <h1>{{ .Title }}</h1>
+  <p>{{ if not .Cancelled }}{{ .QuestionCount }} pregunta{{ if ne .QuestionCount 1 }}s{{ end }} · {{ end }}aplicada {{ .AppliedOn }} · {{ .Copies }} copias · {{ .StateLabel }}</p>
+
+  <div class="survey-actions">
+    {{ if .EditURL }}<a class="boton" href="{{ .EditURL }}">Editar</a>{{ end }}
+    {{ if .CanCancel }}
+      <form class="inline" method="post" action="{{ .CancelAction }}">
+        <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}" />
+        <button type="submit">Cancelar pasada</button>
+      </form>
+    {{ end }}
+  </div>
+
+  {{ if .Cancelled }}
+  <p>Esta pasada se canceló: no se imprime ni se lee, y sus preguntas ya no bloquean el banco.</p>
+  {{ else }}
+  <ol class="survey-steps" aria-label="Etapas de la pasada">
+    {{ range .Steps }}
+      <li class="survey-step{{ if .Done }} survey-step-done{{ end }}">
+        {{ .Label }}<span class="survey-meta"> · {{ .Status }}</span>
+      </li>
+    {{ end }}
+  </ol>
+
+  <h2>Copias</h2>
+  <table class="lista">
+    <tbody>
+      <tr><th>Generadas</th><td>{{ .Copies }}</td></tr>
+      <tr><th>Leídas</th><td>{{ .ReadLabel }}</td></tr>
+      <tr><th>Por revisar</th><td>{{ .ReviewLabel }}</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Acciones</h2>
+  <ul class="survey-run-actions">
+    <li>
+      {{ if .PDFReady }}
+        <a class="boton" href="{{ .PDFURL }}">Descargar PDF para imprimir</a> ({{ .Copies }} copias)
+      {{ else }}
+        <span class="boton" aria-disabled="true">Descargar PDF para imprimir</span> (todavía se está generando)
+      {{ end }}
+    </li>
+    <li><span class="boton" aria-disabled="true">Subir escaneos</span> (próximamente)</li>
+    <li><span class="boton" aria-disabled="true">Revisar lectura dudosa</span> (próximamente)</li>
+    <li><span class="boton" aria-disabled="true">Cerrar pasada</span> (próximamente)</li>
+  </ul>
+  {{ end }}
+{{ end }}

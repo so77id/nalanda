@@ -392,8 +392,10 @@ func (s *Service) Restore(ctx context.Context, id string) error {
 //     ErrControlNotFound so the handler can render "you have to archive
 //     it first" rather than a bare 404 on a hand-typed URL.
 //  2. PurgeControl deletes the row; the FK cascades from ADR-0034
-//     §Consequences remove control_pregunta, copia, reading, answer,
-//     annotated_copy and job. This is the point of no return.
+//     §Consequences remove control_pregunta, copia, reading, answer and
+//     annotated_copy, and the control's jobs (no FK since 00023,
+//     ADR-0079 §5) are deleted explicitly in the same transaction. This
+//     is the point of no return.
 //  3. RemoveAll drops the project directory. A filesystem failure here is
 //     LOGGED and NOT returned: the row and its dependents are already
 //     gone, and forwarding a cleanup problem would leave the caller

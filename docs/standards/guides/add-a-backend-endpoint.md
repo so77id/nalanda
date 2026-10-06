@@ -510,7 +510,7 @@ route that mutates rows an async `jobs.Kind` also mutates **must refuse
 while that job is queued or running**. The runner serialises jobs against
 each other (ADR-0050); it cannot serialise them against the request
 goroutine, so both readers see the same row and both act on it. Read the
-latest job for the resource (`jobs.Store.LatestForControlByKind` +
+latest job for the resource (`jobs.Store.LatestByKind` +
 `jobs.Status.IsTerminal()`) and answer flash + 303, never a 4xx. A READ
 FAILURE answers "not in flight": a lookup that blinked must not block a
 professor standing in front of the button. Worked case:

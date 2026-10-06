@@ -183,3 +183,51 @@ func TestDeletingASurveyRemovesItsBankAndACourseWithSurveysStays(t *testing.T) {
 		}
 	}
 }
+
+// Issue #310 S2: the run tables refuse what the domain refuses, and a
+// question a run printed cannot be deleted from under it.
+func TestTheRunSchemaRefusesWhatTheDomainRefuses(t *testing.T) {
+	ctx, db := migrated(t)
+	userID := insertProfessor(t, ctx, db, "profesora@example.com")
+	courseID := insertCourse(t, ctx, db, "CIT2006-03", "canvas-course-1")
+	surveyID := insertSurveyRow(t, ctx, db, courseID, userID)
+	questionID := insertQuestionRow(t, ctx, db, surveyID, 1, "single")
+
+	insert := `INSERT INTO survey_run (survey_id, number, applied_on, copies, state, created_by) VALUES (?, ?, ?, ?, ?, ?)`
+	if _, err := db.ExecContext(ctx, insert, surveyID, 1, "2026-10-15", 30, "open", userID); err != nil {
+		t.Fatalf("a valid run: %v", err)
+	}
+	// Each case its own number, so the UNIQUE is never the one that fired.
+	cases := []struct {
+		name string
+		args []any
+	}{
+		{"an unknown state", []any{surveyID, 2, "2026-10-15", 30, "reading", userID}},
+		{"a date that is not YYYY-MM-DD", []any{surveyID, 3, "15/10/2026", 30, "open", userID}},
+		{"zero copies", []any{surveyID, 4, "2026-10-15", 0, "open", userID}},
+		{"too many copies", []any{surveyID, 5, "2026-10-15", 201, "open", userID}},
+	}
+	for _, tc := range cases {
+		_, err := db.ExecContext(ctx, insert, tc.args...)
+		if err == nil || !strings.Contains(err.Error(), "CHECK") {
+			t.Errorf("%s: %v, want a CHECK failure", tc.name, err)
+		}
+	}
+	if _, err := db.ExecContext(ctx, insert, surveyID, 1, "2026-10-16", 30, "open", userID); err == nil ||
+		!strings.Contains(err.Error(), "UNIQUE") {
+		t.Errorf("a second run number 1: %v, want a UNIQUE failure", err)
+	}
+
+	var runID int64
+	if err := db.QueryRowContext(ctx, `SELECT id FROM survey_run WHERE number = 1`).Scan(&runID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.ExecContext(ctx,
+		`INSERT INTO survey_run_question (run_id, question_id, printed_number) VALUES (?, ?, 1)`, runID, questionID); err != nil {
+		t.Fatalf("snapshotting: %v", err)
+	}
+	if _, err := db.ExecContext(ctx, `DELETE FROM survey_question WHERE id = ?`, questionID); err == nil ||
+		!strings.Contains(err.Error(), "FOREIGN KEY") {
+		t.Errorf("deleting a printed question: %v, want a FOREIGN KEY failure", err)
+	}
+}

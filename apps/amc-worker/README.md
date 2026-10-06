@@ -165,6 +165,7 @@ not "no GUI exists" — it is "no display exists, and the CLI does not need one"
 | `05-annotate.sh` | One annotated PDF per student, carrying their marks, the correct answers and per-question scores |
 | `06-http.sh` | The whole flow over the HTTP contract; the annotate and unknown-subcommand guards exercised by performing the trap inside the image (the association trap belongs to `04-associate.sh`); and that `/analyse` derives `--n-copies` from the layout, performed with six copies against a source declaring five |
 | `07-rescan.sh` | #298, over HTTP: each batch analysed alone; a re-scanned page replaces its capture (the Control 7 shape: a half batch, then the full one); the `batch` outcome, including blank pages AMC cannot place; a re-captured copy loses its corrections; a photocopy-mode stack (a copy under two indexes) is refused while a legacy capture scanned once still re-reads; `/scans/reset` starts over |
+| `08-survey.sh` | #310 S0, over HTTP: an anonymous survey sheet (no `\namefield`, no `\AMCcode`, authored order, one stand-in `\correctchoice` per simple question — zero or all is refused by AMC) generates and reads unchanged; each answer status a survey keys on (`ok`, `ambiguous`, `doubtful`, `blank`); and the trap: with no ID grid every copy reads `rut_status: unreadable` and lands in `needs_review` |
 
 **Changing the fixture's question pool moves the seeded draw.** Adding or
 removing a question — or a `\lastchoices`, which draws from the same random

@@ -249,6 +249,8 @@ func (h *Surveys) questionWriteFailed(w http.ResponseWriter, r *http.Request, on
 		middleware.WriteError(w, r, http.StatusNotFound, "Esa encuesta no existe.")
 	case errors.Is(err, survey.ErrQuestionNotFound):
 		middleware.WriteError(w, r, http.StatusNotFound, "Esa pregunta no existe.")
+	case errors.Is(err, survey.ErrBankLocked):
+		h.bankLocked(w, r, one)
 	default:
 		h.Log.Error("writing a survey question", "survey", one.ID, "question", questionID, "error", err)
 		middleware.WriteError(w, r, http.StatusInternalServerError, surveyBroke)
@@ -268,11 +270,22 @@ func (h *Surveys) questionActionFailed(w http.ResponseWriter, r *http.Request, o
 		http.Redirect(w, r, SurveyPathFor(one.ID), http.StatusSeeOther)
 	case errors.Is(err, survey.ErrSurveyNotFound):
 		middleware.WriteError(w, r, http.StatusNotFound, "Esa encuesta no existe.")
+	case errors.Is(err, survey.ErrBankLocked):
+		h.bankLocked(w, r, one)
 	default:
 		h.Log.Error("changing a survey's bank", "survey", one.ID, "error", err)
 		middleware.WriteError(w, r, http.StatusInternalServerError, surveyBroke)
 	}
 	return true
+}
+
+// bankLocked answers a write the bank lock refused (issue #310): a guard
+// refusal is a flash on the page the professor came from, never a 4xx
+// (backend-code-style.md §Flash).
+func (h *Surveys) bankLocked(w http.ResponseWriter, r *http.Request, one survey.Survey) {
+	flash.Set(w, h.secureCookie, "Esta encuesta ya tiene una pasada: sus preguntas no se pueden editar, "+
+		"borrar ni mover, para que las pasadas se puedan comparar. Sí puedes agregar preguntas nuevas al final.")
+	http.Redirect(w, r, SurveyPathFor(one.ID), http.StatusSeeOther)
 }
 
 func (h *Surveys) renderQuestionForm(w http.ResponseWriter, r *http.Request, one survey.Survey, questionID int64,
@@ -432,7 +445,7 @@ func (h *Surveys) PreviewQuestion(w http.ResponseWriter, r *http.Request) {
 		Number:     q.Position,
 		Statement:  q.Statement,
 		Horizontal: q.Kind == survey.KindScale,
-		Guide:      marksGuide(q.MinMarks, q.MaxMarks),
+		Guide:      survey.MarksGuide(q.MinMarks, q.MaxMarks),
 	}
 	for i, a := range q.Alternatives {
 		letter := string(rune('A' + i))

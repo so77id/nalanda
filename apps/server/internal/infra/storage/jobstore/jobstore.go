@@ -32,19 +32,19 @@ func New(db *sql.DB) *Store {
 // Compile-time proof the shape here is the one the domain asked for.
 var _ jobs.Store = (*Store)(nil)
 
-// jobColumns is the read shape LatestForControl and ByID both share; kept
-// as a constant so a schema change touches one place. Order matches
-// scanJob below.
-const jobColumns = "id, control_id, kind, status, COALESCE(error, ''), COALESCE(detail, ''), COALESCE(notice, ''), payload_json, created_at, started_at, finished_at, viewed_at"
+// jobColumns is the read shape LatestForSubject, LatestByKind and ByID
+// share; kept as a constant so a schema change touches one place. Order
+// matches scanJob below.
+const jobColumns = "id, subject_kind, subject_id, kind, status, COALESCE(error, ''), COALESCE(detail, ''), COALESCE(notice, ''), payload_json, created_at, started_at, finished_at, viewed_at"
 
 // Insert creates a new job in `queued` and returns its id. createdAt
 // is the runner's clock (unix seconds on the wire, matching every
 // other table).
 func (s *Store) Insert(ctx context.Context, j jobs.NewJob, createdAt time.Time) (int64, error) {
 	res, err := s.db.ExecContext(ctx, `
-        INSERT INTO job (control_id, kind, status, payload_json, created_at)
-        VALUES (?, ?, ?, ?, ?)`,
-		j.ControlID, string(j.Kind), string(jobs.StatusQueued),
+        INSERT INTO job (subject_kind, subject_id, kind, status, payload_json, created_at)
+        VALUES (?, ?, ?, ?, ?, ?)`,
+		string(j.Kind.Subject()), j.SubjectID, string(j.Kind), string(jobs.StatusQueued),
 		string(j.Payload), createdAt.Unix(),
 	)
 	if err != nil {
@@ -117,11 +117,12 @@ func (s *Store) ByID(ctx context.Context, id int64) (jobs.Job, error) {
 	return got, err
 }
 
-// LatestForControl returns the most recent job for a control.
-func (s *Store) LatestForControl(ctx context.Context, controlID string) (jobs.Job, error) {
+// LatestForSubject returns the most recent job about one subject.
+func (s *Store) LatestForSubject(ctx context.Context, subject jobs.SubjectKind, id string) (jobs.Job, error) {
 	row := s.db.QueryRowContext(ctx,
-		`SELECT `+jobColumns+` FROM job WHERE control_id = ? ORDER BY created_at DESC, id DESC LIMIT 1`,
-		controlID)
+		`SELECT `+jobColumns+` FROM job WHERE subject_kind = ? AND subject_id = ?
+         ORDER BY created_at DESC, id DESC LIMIT 1`,
+		string(subject), id)
 	got, err := scanJob(row)
 	if errors.Is(err, sql.ErrNoRows) {
 		return jobs.Job{}, jobs.ErrJobNotFound
@@ -129,14 +130,15 @@ func (s *Store) LatestForControl(ctx context.Context, controlID string) (jobs.Jo
 	return got, err
 }
 
-// LatestForControlByKind returns the most recent job of one Kind for a
-// control. Uses the same `idx_job_by_control (control_id, created_at
-// DESC)` index — SQLite scans through it and filters by kind at the
-// row level, cheap for the small per-control result set.
-func (s *Store) LatestForControlByKind(ctx context.Context, controlID string, kind jobs.Kind) (jobs.Job, error) {
+// LatestByKind returns the most recent job of one Kind about one subject;
+// the subject kind is the Kind's own. Uses `idx_job_by_subject
+// (subject_kind, subject_id, created_at DESC)` and filters by kind at the
+// row level, cheap for the small per-subject result set.
+func (s *Store) LatestByKind(ctx context.Context, id string, kind jobs.Kind) (jobs.Job, error) {
 	row := s.db.QueryRowContext(ctx,
-		`SELECT `+jobColumns+` FROM job WHERE control_id = ? AND kind = ? ORDER BY created_at DESC, id DESC LIMIT 1`,
-		controlID, string(kind))
+		`SELECT `+jobColumns+` FROM job WHERE subject_kind = ? AND subject_id = ? AND kind = ?
+         ORDER BY created_at DESC, id DESC LIMIT 1`,
+		string(kind.Subject()), id, string(kind))
 	got, err := scanJob(row)
 	if errors.Is(err, sql.ErrNoRows) {
 		return jobs.Job{}, jobs.ErrJobNotFound
@@ -194,15 +196,17 @@ type scanner interface {
 func scanJob(row scanner) (jobs.Job, error) {
 	var (
 		j                               jobs.Job
+		subjectKind                     string
 		kind, status, payload           string
 		createdAt                       int64
 		startedAt, finishedAt, viewedAt sql.NullInt64
 		errMsg, detail, notice          string
 	)
-	if err := row.Scan(&j.ID, &j.ControlID, &kind, &status, &errMsg, &detail, &notice,
+	if err := row.Scan(&j.ID, &subjectKind, &j.SubjectID, &kind, &status, &errMsg, &detail, &notice,
 		&payload, &createdAt, &startedAt, &finishedAt, &viewedAt); err != nil {
 		return jobs.Job{}, err
 	}
+	j.SubjectKind = jobs.SubjectKind(subjectKind)
 	j.Kind = jobs.Kind(kind)
 	j.Status = jobs.Status(status)
 	j.Error = errMsg

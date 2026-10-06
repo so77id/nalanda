@@ -1,0 +1,43 @@
+{{ define "content" }}
+  <p><a href="{{ .CancelURL }}">‹ {{ .SurveyName }}</a></p>
+  <h1>{{ .Heading }}</h1>
+
+  {{ if .Notice }}
+    <p class="error">{{ .Notice }}</p>
+  {{ end }}
+
+  <form class="form" method="post" action="{{ .Action }}">
+    <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}" />
+
+    <p class="field">
+      <label for="name">Nombre (opcional)</label>
+      <input id="name" type="text" name="name" value="{{ .Values.Name }}"
+             autocomplete="off" maxlength="120" placeholder="Mitad de semestre" />
+      {{ with index .Errors "name" }}<span class="error">{{ . }}</span>{{ end }}
+    </p>
+
+    <p class="field">
+      <label for="applied_on">Fecha de aplicación</label>
+      <input id="applied_on" type="date" name="applied_on" value="{{ .Values.AppliedOn }}" required />
+      {{ with index .Errors "applied_on" }}<span class="error">{{ . }}</span>{{ end }}
+    </p>
+
+    {{ if .ShowCopies }}
+      <p class="field">
+        <label for="copies">Copias a generar (alumnos esperados + margen)</label>
+        <input id="copies" type="number" name="copies" min="1" max="200" value="{{ .Values.Copies }}" required />
+        {{ with index .Errors "copies" }}<span class="error">{{ . }}</span>{{ end }}
+      </p>
+
+      <p>Preguntas: todas las del banco ({{ .QuestionCount }}).</p>
+      <p class="aviso">
+        Al crear la pasada, el PDF se genera en segundo plano. Desde que existe
+        una pasada, las preguntas actuales del banco ya no se pueden editar,
+        borrar ni mover (sí puedes agregar nuevas al final).
+      </p>
+    {{ end }}
+
+    <p><button type="submit">{{ .Submit }}</button>
+       <a href="{{ .CancelURL }}" class="boton">Cancelar</a></p>
+  </form>
+{{ end }}

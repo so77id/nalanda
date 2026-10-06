@@ -99,16 +99,51 @@ func (m *memStore) DeleteQuestion(context.Context, int64, int64, time.Time) erro
 
 func (m *memStore) MoveQuestion(context.Context, int64, int64, int, time.Time) error { return nil }
 
+func (m *memStore) CreateRun(_ context.Context, r survey.Run) (survey.Run, []survey.Question, error) {
+	return r, nil, nil
+}
+
+func (m *memStore) Run(context.Context, int64, int64) (survey.Run, error) {
+	return survey.Run{}, survey.ErrRunNotFound
+}
+
+func (m *memStore) RunsForSurvey(context.Context, int64) ([]survey.Run, error) { return nil, nil }
+
+func (m *memStore) RunQuestions(context.Context, int64) ([]survey.RunQuestion, error) {
+	return nil, nil
+}
+
+func (m *memStore) UpdateRun(context.Context, int64, int64, survey.RunDraft, time.Time) error {
+	return nil
+}
+
+func (m *memStore) CancelRun(context.Context, int64, int64, time.Time) error { return nil }
+
+func (m *memStore) RunSummaries(context.Context, int64) (map[int64]survey.RunSummary, error) {
+	return nil, nil
+}
+
+// noGenerator is a survey.Generator the bank's tests never reach.
+type noGenerator struct{}
+
+func (noGenerator) GenerateSheet(context.Context, survey.GenerateRequest) (survey.Assets, error) {
+	return survey.Assets{}, survey.ErrGeneratorUnavailable
+}
+
 var now = time.Date(2026, time.October, 5, 12, 0, 0, 0, time.UTC)
 
 func newService(store survey.Store) *survey.Service {
-	return survey.NewService(survey.Service{Store: store, Now: func() time.Time { return now }})
+	return survey.NewService(survey.Service{
+		Store: store, Generator: noGenerator{}, WorkDir: "/nonexistent", Now: func() time.Time { return now },
+	})
 }
 
 func TestNewServiceRefusesMissingDependencies(t *testing.T) {
 	for name, deps := range map[string]survey.Service{
-		"no store": {Now: time.Now},
-		"no clock": {Store: newMemStore()},
+		"no store":     {Generator: noGenerator{}, WorkDir: "/w", Now: time.Now},
+		"no generator": {Store: newMemStore(), WorkDir: "/w", Now: time.Now},
+		"no work dir":  {Store: newMemStore(), Generator: noGenerator{}, Now: time.Now},
+		"no clock":     {Store: newMemStore(), Generator: noGenerator{}, WorkDir: "/w"},
 	} {
 		t.Run(name, func(t *testing.T) {
 			defer func() {

@@ -527,8 +527,8 @@ dropped the third (issue #273).
 `ON DELETE CASCADE` children deletes every child row, and there is no escape
 under goose** (issue #287). `DROP TABLE` under enforced foreign keys performs
 an implicit `DELETE FROM` first, which fires every cascade — so rebuilding
-`control`, the parent of `control_pregunta`, `copia`, `reading`,
-`annotated_copy` and `job`, empties the database in the statement whose
+`control`, the parent of `control_pregunta`, `copia`, `reading` and
+`annotated_copy` (and, before migration `00023`, `job`), empties the database in the statement whose
 purpose was to change one column. The usual answer, `PRAGMA foreign_keys=OFF`
 around the rebuild, is **unavailable**: that pragma is a no-op inside a
 transaction and goose applies each migration inside one. Both halves were

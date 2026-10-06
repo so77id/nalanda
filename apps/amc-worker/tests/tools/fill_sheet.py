@@ -27,6 +27,8 @@ Marking plan (JSON on stdin or --plan):
     rut      8 characters, most significant first (that is AMC's rut[8] column,
              which sits leftmost). A digit fills that box; "?" leaves the column
              blank; "!" fills two boxes in the column.
+             Optional: a plan with no "rut" key is a sheet with no ID grid —
+             an anonymous survey (#310) — and fills no identity box.
     answers  one entry per real question, in question order.
              1..N       fill that alternative
              0          leave blank
@@ -120,10 +122,14 @@ def boxes_for(sheet, spec):
     """Return [(page, xmin, xmax, ymin, ymax, faint)] for one copy's plan."""
     out = []
 
-    rut = spec.get("rut", "")
-    if len(rut) != 8:
+    # A plan with no "rut" key is a sheet with no ID grid — an anonymous
+    # survey (issue #310 S0). A plan that HAS the key still owes eight
+    # characters: an empty or short RUT on a control sheet is a typo in the
+    # ground truth, not an anonymous copy.
+    rut = spec.get("rut")
+    if rut is not None and len(rut) != 8:
         raise SystemExit(f"rut must be 8 characters, got {rut!r}")
-    for col, ch in enumerate(rut):
+    for col, ch in enumerate(rut or ""):
         column = sheet["rut"].get(col, {})
         if ch == "?":
             continue  # deliberately blank — an unreadable identifier

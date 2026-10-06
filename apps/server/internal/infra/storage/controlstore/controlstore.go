@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/so77id/nalanda/apps/server/internal/domain/controls"
+	"github.com/so77id/nalanda/apps/server/internal/domain/jobs"
 )
 
 // Store adapts SQLite to controls.Store. One type rather than three; the
@@ -231,10 +232,18 @@ func (s *Store) RestoreControl(ctx context.Context, id string) error {
 // PurgeControl hard-deletes an archived control (issue #261). Refuses to
 // touch an active row via the AND deleted_at IS NOT NULL guard — the
 // schema-level belt behind Service.Purge's ControlByID gate. Cascade
-// removes control_pregunta, copia, reading, answer, annotated_copy and job
-// rows (ADR-0034 §Consequences).
+// removes control_pregunta, copia, reading, answer and annotated_copy
+// (ADR-0034 §Consequences); the control's jobs, which lost their foreign
+// key in migration 00023 (ADR-0079 §5), are deleted explicitly in the same
+// transaction.
 func (s *Store) PurgeControl(ctx context.Context, id string) error {
-	result, err := s.db.ExecContext(ctx,
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("controlstore.PurgeControl %s: begin: %w", id, err)
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	result, err := tx.ExecContext(ctx,
 		`DELETE FROM control WHERE id = ? AND deleted_at IS NOT NULL`, id,
 	)
 	if err != nil {
@@ -246,6 +255,19 @@ func (s *Store) PurgeControl(ctx context.Context, id string) error {
 	}
 	if affected == 0 {
 		return fmt.Errorf("controlstore.PurgeControl %s: %w", id, controls.ErrControlNotFound)
+	}
+	// The control's jobs, in the same transaction. Until #310 the
+	// job.control_id foreign key cascaded them away; a job's subject is now
+	// a control OR a survey run (00023_job_subject.sql, ADR-0079), a column
+	// that cannot carry a REFERENCES, so the purge says it itself — after
+	// the guarded DELETE, so an active control's jobs are never touched.
+	if _, err := tx.ExecContext(ctx,
+		`DELETE FROM job WHERE subject_kind = ? AND subject_id = ?`, string(jobs.SubjectControl), id,
+	); err != nil {
+		return fmt.Errorf("controlstore.PurgeControl %s: jobs: %w", id, err)
+	}
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("controlstore.PurgeControl %s: commit: %w", id, err)
 	}
 	return nil
 }

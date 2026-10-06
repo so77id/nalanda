@@ -48,7 +48,10 @@ type Store interface {
 
 	// UpdateQuestion replaces a question's fields and its alternatives with
 	// a NORMALIZED draft, keeping its position. ErrQuestionNotFound when the
-	// question is not in this survey.
+	// question is not in this survey; ErrBankLocked when a run that is not
+	// cancelled exists (checked inside the write's own transaction, so a
+	// run created concurrently cannot slip between check and write — the
+	// same holds for DeleteQuestion and MoveQuestion).
 	UpdateQuestion(ctx context.Context, surveyID, questionID int64, d QuestionDraft, now time.Time) error
 
 	// DeleteQuestion removes a question (its alternatives cascade) and closes
@@ -59,4 +62,45 @@ type Store interface {
 	// below (+1). Moving the first up or the last down changes nothing and
 	// is not an error. ErrQuestionNotFound as above.
 	MoveQuestion(ctx context.Context, surveyID, questionID int64, delta int, now time.Time) error
+
+	// CreateRun inserts a run with the next number for its survey and
+	// snapshots the bank it prints (PrintOrder), reading that bank INSIDE
+	// the same transaction, after the write lock — so a question edited
+	// concurrently can never be printed in one wording and locked in
+	// another (#310 review, COR-5). Returns the run and the questions it
+	// prints, for the sheet. ErrSurveyNotFound when there is no such
+	// survey; ErrEmptyBank when it has no questions.
+	CreateRun(ctx context.Context, r Run) (Run, []Question, error)
+
+	// Run returns one run of the survey, or ErrRunNotFound — including a
+	// run of ANOTHER survey reached through this one's URL.
+	Run(ctx context.Context, surveyID, runID int64) (Run, error)
+
+	// RunsForSurvey returns the survey's runs, most recent number first.
+	RunsForSurvey(ctx context.Context, surveyID int64) ([]Run, error)
+
+	// RunQuestions returns a run's snapshot in printed order.
+	RunQuestions(ctx context.Context, runID int64) ([]RunQuestion, error)
+
+	// UpdateRun rewrites an OPEN run's name and date. ErrRunNotOpen when it
+	// is closed or cancelled; ErrRunNotFound as above.
+	UpdateRun(ctx context.Context, surveyID, runID int64, d RunDraft, now time.Time) error
+
+	// CancelRun moves an OPEN run to cancelled and drops its snapshot, so
+	// the questions it printed can be deleted again — a cancelled run is
+	// excluded from everything and must not hold the bank (#310 review,
+	// COR-1). ErrRunNotCancellable when it is not open; ErrRunNotFound as
+	// above.
+	CancelRun(ctx context.Context, surveyID, runID int64, now time.Time) error
+
+	// RunSummaries returns, per survey id of one course, how many runs it
+	// has that are not cancelled and the latest date among them. A survey
+	// with none has no entry. One aggregate for the list page.
+	RunSummaries(ctx context.Context, courseID int64) (map[int64]RunSummary, error)
+}
+
+// RunSummary is one survey's runs, as a list page shows them.
+type RunSummary struct {
+	Runs          int
+	LastAppliedOn string
 }

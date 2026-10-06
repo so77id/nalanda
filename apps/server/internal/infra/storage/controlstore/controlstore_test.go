@@ -607,11 +607,11 @@ func TestPurgeControlRefusesActiveRowsAndTheRowSurvives(t *testing.T) {
 }
 
 // Issue #261: PurgeControl on an archived row hard-deletes it and every
-// dependent — the FK cascades from ADR-0034 §Consequences do their job.
-// Covers control_pregunta and copia (populated by CreateControl), plus
-// job (populated here directly against the schema) so a future migration
-// that changes the ON DELETE clause on job.control_id fails HERE rather
-// than on the Jetson (Round-A COR-3).
+// dependent — the FK cascades from ADR-0034 §Consequences, and since
+// migration 00023 the explicit job delete (ADR-0079 §5). Covers
+// control_pregunta and copia (populated by CreateControl), plus job
+// (populated here directly against the schema) so a change to how a
+// control's jobs go fails HERE rather than on the Jetson (Round-A COR-3).
 func TestPurgeControlDeletesArchivedRowAndCascades(t *testing.T) {
 	ctx, db := migrated(t)
 	userID := insertProfessor(t, ctx, db, "p@example.com")
@@ -628,8 +628,8 @@ func TestPurgeControlDeletesArchivedRowAndCascades(t *testing.T) {
 	// jobstore package is not imported here on purpose — a raw INSERT
 	// against the schema is what pins the schema itself.
 	if _, err := db.ExecContext(ctx,
-		`INSERT INTO job (control_id, kind, status, payload_json, created_at)
-		 VALUES (?, 'generate', 'queued', '{}', ?)`,
+		`INSERT INTO job (subject_kind, subject_id, kind, status, payload_json, created_at)
+		 VALUES ('control', ?, 'generate', 'queued', '{}', ?)`,
 		c.ID, time.Unix(1_787_050_000, 0).Unix(),
 	); err != nil {
 		t.Fatalf("seed job row: %v", err)
@@ -645,7 +645,7 @@ func TestPurgeControlDeletesArchivedRowAndCascades(t *testing.T) {
 	if _, err := store.ControlByID(ctx, c.ID); !errors.Is(err, controls.ErrControlNotFound) {
 		t.Errorf("ControlByID after Purge: %v, want ErrControlNotFound", err)
 	}
-	for _, table := range []string{"control_pregunta", "copia", "job"} {
+	for _, table := range []string{"control_pregunta", "copia"} {
 		var rows int
 		if err := db.QueryRowContext(ctx, "SELECT count(*) FROM "+table+" WHERE control_id = ?", c.ID).Scan(&rows); err != nil {
 			t.Fatalf("count %s: %v", table, err)
@@ -653,6 +653,17 @@ func TestPurgeControlDeletesArchivedRowAndCascades(t *testing.T) {
 		if rows != 0 {
 			t.Errorf("%s still holds %d row(s) after purge, want 0 (FK cascade)", table, rows)
 		}
+	}
+	// The jobs go too, but not by cascade: since #310 a job's subject is a
+	// control OR a survey run and carries no foreign key, so PurgeControl
+	// deletes them itself (ADR-0079).
+	var jobsLeft int
+	if err := db.QueryRowContext(ctx,
+		"SELECT count(*) FROM job WHERE subject_kind = 'control' AND subject_id = ?", c.ID).Scan(&jobsLeft); err != nil {
+		t.Fatalf("count job: %v", err)
+	}
+	if jobsLeft != 0 {
+		t.Errorf("job still holds %d row(s) after purge, want PurgeControl to delete them", jobsLeft)
 	}
 }
 

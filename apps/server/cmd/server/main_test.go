@@ -136,6 +136,9 @@ func composed(t *testing.T, prober health.Prober) (http.Handler, *authstore.Stor
 				jobs.KindGenerate:  controls.NewGenerateHandler(svc),
 				jobs.KindAnnotate:  controls.NewAnnotateHandler(svc),
 				jobs.KindPublish:   controls.NewPublishHandler(svc),
+				jobs.KindSurveyGenerate: func(context.Context, string, []byte) error {
+					return nil // this table's survey routes never reach the worker
+				},
 			}, logger, time.Now)
 			return handler.NewControls(handler.Controls{
 				Service: svc,
@@ -214,7 +217,18 @@ func composed(t *testing.T, prober health.Prober) (http.Handler, *authstore.Stor
 		// the controls above — these cases are about the table the binary
 		// wires.
 		Surveys: handler.NewSurveys(handler.Surveys{
-			Service:   survey.NewService(survey.Service{Store: surveystore.New(db), Now: time.Now}),
+			Service: survey.NewService(survey.Service{
+				Store: surveystore.New(db), Generator: &amctest.Fake{}, WorkDir: t.TempDir(), Now: time.Now,
+			}),
+			Jobs: jobstore.New(db),
+			Runner: jobs.NewRunner(jobstore.New(db), jobs.Handlers{
+				jobs.KindReanalyse:      func(context.Context, string, []byte) error { return nil },
+				jobs.KindAnalyse:        func(context.Context, string, []byte) error { return nil },
+				jobs.KindGenerate:       func(context.Context, string, []byte) error { return nil },
+				jobs.KindAnnotate:       func(context.Context, string, []byte) error { return nil },
+				jobs.KindPublish:        func(context.Context, string, []byte) error { return nil },
+				jobs.KindSurveyGenerate: func(context.Context, string, []byte) error { return nil },
+			}, logger, time.Now),
 			Courses:   roster.NewService(coursestore.New(db), roster.NewCanvasSource(canvas.NewService(nil, unreachableCanvas{}))),
 			PublicURL: "https://nalanda.test",
 			Log:       logger,

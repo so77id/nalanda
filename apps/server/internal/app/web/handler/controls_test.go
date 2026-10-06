@@ -271,6 +271,9 @@ func newControlsFixtureWith(t *testing.T, annotateEnabled bool) *controlsFixture
 		jobs.KindGenerate:  controls.NewGenerateHandler(svc),
 		jobs.KindAnnotate:  controls.NewAnnotateHandler(svc),
 		jobs.KindPublish:   controls.NewPublishHandler(svc),
+		jobs.KindSurveyGenerate: func(context.Context, string, []byte) error {
+			return nil // the controls fixture submits no survey job
+		},
 	}, log, time.Now)
 	// Start the runner in the background so the async Submit path in
 	// ReanalyzeScans reaches its handler. Cleanup cancels the context
@@ -363,10 +366,10 @@ func (f *controlsFixture) jstoreTerminalCountByKind(ctx context.Context, control
 
 // jstoreRawByControl reads every job for the control via the fixture's
 // database — jobs.Store doesn't expose "list by control" (its readers
-// are LatestForControl and ByID by design), and the test does not need
+// are LatestForSubject and ByID by design), and the test does not need
 // a new method on the domain interface for one case.
 func (f *controlsFixture) jstoreRawByControl(ctx context.Context, controlID string) ([]jobs.Job, error) {
-	// LatestForControl + walking id backwards would need extra
+	// LatestForSubject + walking id backwards would need extra
 	// interface methods. The fixture cheats by hitting the same
 	// sql.DB — jstore is a thin adapter, and no domain state hangs
 	// off the walk.
@@ -375,7 +378,7 @@ func (f *controlsFixture) jstoreRawByControl(ctx context.Context, controlID stri
 		return nil, err
 	}
 	// The list above only returns queued rows. Combine with a
-	// LatestForControl fan-out via the ByID contract: iterate
+	// LatestForSubject fan-out via the ByID contract: iterate
 	// increasing ids from 1 until ErrJobNotFound.
 	out := []jobs.Job{}
 	for id := int64(1); ; id++ {
@@ -386,7 +389,7 @@ func (f *controlsFixture) jstoreRawByControl(ctx context.Context, controlID stri
 			}
 			return nil, err
 		}
-		if j.ControlID == controlID {
+		if j.SubjectID == controlID {
 			out = append(out, j)
 		}
 	}
@@ -403,12 +406,12 @@ func (f *controlsFixture) waitLatestJobTerminal(t *testing.T, controlID string) 
 	ctx := context.Background()
 	deadline := time.Now().Add(3 * time.Second)
 	for {
-		job, err := f.jstore.LatestForControl(ctx, controlID)
+		job, err := f.jstore.LatestForSubject(ctx, jobs.SubjectControl, controlID)
 		if err == nil && job.Status.IsTerminal() {
 			return job
 		}
 		if time.Now().After(deadline) {
-			last, _ := f.jstore.LatestForControl(ctx, controlID)
+			last, _ := f.jstore.LatestForSubject(ctx, jobs.SubjectControl, controlID)
 			t.Fatalf("no terminal job for %s after 3s (last: %+v, err: %v)", controlID, last, err)
 		}
 		time.Sleep(10 * time.Millisecond)
@@ -1093,7 +1096,7 @@ func TestDetailHidesDownloadLinksWhileGenerateJobIsRunning(t *testing.T) {
 	// job — reproduce the "generation in flight" state by hand.
 	ctx := context.Background()
 	id, err := f.jstore.Insert(ctx, jobs.NewJob{
-		ControlID: controlID, Kind: jobs.KindGenerate, Payload: []byte(`{}`),
+		SubjectID: controlID, Kind: jobs.KindGenerate, Payload: []byte(`{}`),
 	}, time.Now())
 	if err != nil {
 		t.Fatalf("Insert: %v", err)
@@ -1132,7 +1135,7 @@ func TestDetailHidesDownloadLinksWhenLatestGenerateJobFailed(t *testing.T) {
 
 	ctx := context.Background()
 	id, err := f.jstore.Insert(ctx, jobs.NewJob{
-		ControlID: controlID, Kind: jobs.KindGenerate, Payload: []byte(`{}`),
+		SubjectID: controlID, Kind: jobs.KindGenerate, Payload: []byte(`{}`),
 	}, time.Now())
 	if err != nil {
 		t.Fatalf("Insert: %v", err)

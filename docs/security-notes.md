@@ -692,6 +692,13 @@ None of the four is a new failure this WP introduces. The worker moved from
 on the Jetson", but the security posture (loopback, unauthenticated, trusted
 single caller) is unchanged.
 
+**Trigger status after #310 (survey runs, 2026-10-05)**: the `/work`-writing
+trigger had already fired with #166; #310 adds a second writer of the same
+kind — `/work/surveys/<survey>/runs/<run>/inputs/source.tex`, written by the
+server itself, the path built from two integer ids and nothing typed. No new
+caller of the worker, no new network member, still one trusted single caller.
+Nothing to re-resolve.
+
 ### The control worker runs as root and parses scans there (accepted 2026-08-15, #138)
 
 `apps/amc-worker` has no `USER` directive and no `cap_drop`/`no-new-privileges`,
@@ -724,6 +731,22 @@ authored in this repo, so it is inside the accepted residual. **When WP-E
 generates the `.tex` from the question bank, every listing path must go through
 `under_work()` before it is written into the document** — otherwise a bank field
 becomes arbitrary-file-read-into-a-student's-graded-PDF, as root.
+
+**Trigger status after #310 (2026-10-05) — read literally, it fired; in
+substance, it did not.** A survey run's sheet is the first `.tex` built from
+text typed into a web form (survey name, description, statements, sections,
+labels) rather than authored in this repo. It is typed only by a signed-in
+professor (the same trust as the scanner it already accepts), and every such
+string goes through `escapeText` in `internal/domain/survey/tex` before it is
+written: TeX's specials (`\`, `{`, `}`, `$`, `&`, `%`, `#`, `_`, `^`, `~`),
+the angle brackets, and babel spanish's active `"` are escaped, so `\input`,
+`\write18`, catcode games and `^^` notation are text; control characters are
+dropped and anything pdflatex cannot print becomes `?`.
+`TestProfessorTypedTextCannotEscapeIntoTeX` pins it, and a hostile sheet was
+compiled in the real worker image and printed every character literally (#310
+S3, review COR-2). So `escapeText` is now the primary control on this input —
+the role `under_work()` plays for listing paths below — and the accepted
+residual is unchanged. The hardening step remains the cheap half above (#173).
 
 **And the cheap half is not a drop-in here**, measured: `openin_any = p` also
 refuses the LEGITIMATE listing, because the documented shape is an absolute

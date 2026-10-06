@@ -36,10 +36,52 @@ const (
 	// they differ only in the recipient and in whether state moved, and the
 	// payload carries that. A second Kind would duplicate the loop.
 	KindPublish Kind = "publish"
+
+	// KindSurveyGenerate compiles one survey run's sheet (issue #310) — a
+	// /generate, about a survey run (Subject). Its handler lives in
+	// internal/domain/survey/jobhandlers.go, the owning domain's
+	// (ADR-0079).
+	KindSurveyGenerate Kind = "survey_generate"
 )
 
 // ValidKinds is the closed set the schema CHECK enforces.
-var ValidKinds = []Kind{KindGenerate, KindAnalyse, KindReanalyse, KindAnnotate, KindPublish}
+var ValidKinds = []Kind{KindGenerate, KindAnalyse, KindReanalyse, KindAnnotate, KindPublish, KindSurveyGenerate}
+
+// SubjectKind names what a job is ABOUT (issue #310, ADR-0079). The queue
+// started as the controls' and every job was a control's; a survey run's
+// PDF and scans are minutes-class worker work too, and the one runner is
+// what serialises every call against the worker client's single lock, so
+// the queue's subject widened instead of a second queue appearing.
+type SubjectKind string
+
+const (
+	// SubjectControl is a control (internal/domain/controls); its id is
+	// the control's opaque TEXT id.
+	SubjectControl SubjectKind = "control"
+	// SubjectSurveyRun is one run of a survey (internal/domain/survey); its
+	// id is the run's INTEGER id, as decimal text.
+	SubjectSurveyRun SubjectKind = "survey_run"
+)
+
+// Subject is the kind of subject this Kind's jobs are about. Derived, never
+// chosen by a caller: a Kind belongs to exactly one subsystem, and a
+// `generate` filed under a survey run would be a control's job the
+// control's page can never find.
+//
+// Every Kind is listed: a Kind missing from this switch panics rather than
+// fall into either subsystem by default (#310 review, ARQ-1). It is a
+// wiring mistake, and TestEveryValidKindHasASubject finds it at the first
+// test run — the same loud-at-boot rule NewRunner applies to a Kind with
+// no handler.
+func (k Kind) Subject() SubjectKind {
+	switch k {
+	case KindGenerate, KindAnalyse, KindReanalyse, KindAnnotate, KindPublish:
+		return SubjectControl
+	case KindSurveyGenerate:
+		return SubjectSurveyRun
+	}
+	panic("jobs.Kind.Subject: kind " + string(k) + " belongs to no subject")
+}
 
 // Status names the four states a row can be in. Same CHECK-enum shape as
 // Kind, same reasoning.
@@ -71,12 +113,15 @@ const RestartMidJobError = "server_restart_mid_job"
 
 // Job is one row of the `job` table.
 type Job struct {
-	ID        int64
-	ControlID string
-	Kind      Kind
-	Status    Status
-	Error     string
-	Detail    string
+	ID int64
+	// SubjectKind and SubjectID say what the job is about: a control and
+	// its id, or a survey run and its id (issue #310).
+	SubjectKind SubjectKind
+	SubjectID   string
+	Kind        Kind
+	Status      Status
+	Error       string
+	Detail      string
 	// Notice is a done job's one sentence for the professor (issue
 	// #298) — see Notice. Empty on every failed job and on a done job
 	// with nothing to say.
@@ -91,7 +136,9 @@ type Job struct {
 // NewJob is what Store.Insert accepts. It carries the fields a caller
 // composes; the store fills in id, created_at, and the initial status.
 type NewJob struct {
-	ControlID string
+	// SubjectID is the control's or the run's id; the subject KIND is
+	// Kind.Subject(), so a caller cannot file a job under the wrong one.
+	SubjectID string
 	Kind      Kind
 	Payload   []byte
 }
@@ -128,17 +175,18 @@ type Store interface {
 	// ByID returns one job, or ErrJobNotFound.
 	ByID(ctx context.Context, id int64) (Job, error)
 
-	// LatestForControl returns the most recent job for a control (highest
-	// created_at). Returns ErrJobNotFound when the control has no jobs.
-	// The Detail handler renders the banner from this row.
-	LatestForControl(ctx context.Context, controlID string) (Job, error)
+	// LatestForSubject returns the most recent job about one subject
+	// (highest created_at). Returns ErrJobNotFound when it has none. A
+	// control's page renders its banner from this row; a survey run's
+	// does the same (issue #310).
+	LatestForSubject(ctx context.Context, subject SubjectKind, id string) (Job, error)
 
-	// LatestForControlByKind returns the most recent job of a specific
-	// Kind for a control (highest created_at where kind = ?). Returns
-	// ErrJobNotFound when the control has no job of that kind. Issue
-	// #257: the Detail handler asks for the latest KindGenerate to
-	// decide whether sujet.pdf / corrige.pdf / pool.json exist yet.
-	LatestForControlByKind(ctx context.Context, controlID string, kind Kind) (Job, error)
+	// LatestByKind returns the most recent job of one Kind about one
+	// subject — the subject kind is kind.Subject(). Returns ErrJobNotFound
+	// when there is none. Issue #257: a control's page asks for the latest
+	// KindGenerate to decide whether sujet.pdf / corrige.pdf / pool.json
+	// exist yet.
+	LatestByKind(ctx context.Context, id string, kind Kind) (Job, error)
 
 	// QueuedIDs returns every `queued` job's id, oldest first. Sweep calls
 	// this once at boot to re-push them onto the runner's channel.

@@ -19,6 +19,7 @@ import (
 	"github.com/so77id/nalanda/apps/server/internal/domain/course/bank"
 	"github.com/so77id/nalanda/apps/server/internal/domain/jobs"
 	"github.com/so77id/nalanda/apps/server/internal/domain/roster"
+	"github.com/so77id/nalanda/apps/server/internal/domain/survey"
 )
 
 // createControl runs the domain Service to make a real control with N
@@ -733,9 +734,9 @@ func TestReanalyzeReturns303ImmediatelyAndCreatesAJobRow(t *testing.T) {
 	}
 	// A row exists on the store IMMEDIATELY — the runner may or may
 	// not have picked it up yet, but the job is committed.
-	latest, err := f.jstore.LatestForControl(context.Background(), controlID)
+	latest, err := f.jstore.LatestForSubject(context.Background(), jobs.SubjectControl, controlID)
 	if err != nil {
-		t.Fatalf("LatestForControl right after Submit: %v", err)
+		t.Fatalf("LatestForSubject right after Submit: %v", err)
 	}
 	if latest.Kind != jobs.KindReanalyse {
 		t.Errorf("latest job Kind = %q, want reanalyse", latest.Kind)
@@ -917,7 +918,7 @@ func TestDismissJobDoesNotStampViewedAtWhileRunning(t *testing.T) {
 	// flaky. Same shape jobstore_test.go and runner_test.go already use.
 	ctx := context.Background()
 	id, err := f.jstore.Insert(ctx, jobs.NewJob{
-		ControlID: controlID, Kind: jobs.KindReanalyse, Payload: []byte(`{}`),
+		SubjectID: controlID, Kind: jobs.KindReanalyse, Payload: []byte(`{}`),
 	}, time.Now())
 	if err != nil {
 		t.Fatalf("Insert: %v", err)
@@ -958,7 +959,7 @@ func TestDismissJobDoesNotStampViewedAtWhileQueued(t *testing.T) {
 
 	ctx := context.Background()
 	id, err := f.jstore.Insert(ctx, jobs.NewJob{
-		ControlID: controlID, Kind: jobs.KindReanalyse, Payload: []byte(`{}`),
+		SubjectID: controlID, Kind: jobs.KindReanalyse, Payload: []byte(`{}`),
 	}, time.Now())
 	if err != nil {
 		t.Fatalf("Insert: %v", err)
@@ -1365,5 +1366,33 @@ func TestTheBannerAfterAReReadNamesThePublishedCopiesAndTheUnreadPages(t *testin
 		if !strings.Contains(body, want) {
 			t.Errorf("detail page does not say %q", want)
 		}
+	}
+}
+
+// Issue #310: the dismiss route is shared, and a survey run's job lands
+// back on its run, whose survey the job's payload names.
+func TestDismissingASurveyRunsJobLandsOnTheRun(t *testing.T) {
+	f := newControlsFixture(t)
+	ctx := context.Background()
+	id, err := f.jstore.Insert(ctx, jobs.NewJob{
+		SubjectID: "7", Kind: jobs.KindSurveyGenerate, Payload: survey.EncodeRunPayload(3),
+	}, time.Now())
+	if err != nil {
+		t.Fatalf("Insert: %v", err)
+	}
+	for _, mark := range []func() error{
+		func() error { return f.jstore.MarkRunning(ctx, id, time.Now()) },
+		func() error { return f.jstore.MarkDone(ctx, id, "", time.Now()) },
+	} {
+		if err := mark(); err != nil {
+			t.Fatal(err)
+		}
+	}
+	req := f.authedRequest(t, http.MethodPost, fmt.Sprintf("/jobs/%d/dismiss", id), nil)
+	req.SetPathValue("id", fmt.Sprintf("%d", id))
+	rec := httptest.NewRecorder()
+	f.handler.DismissJob(rec, req)
+	if got := rec.Header().Get("Location"); got != "/surveys/3/runs/7" {
+		t.Errorf("dismiss Location = %q, want the run's page", got)
 	}
 }

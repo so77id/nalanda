@@ -10,6 +10,7 @@ import (
 
 	"github.com/so77id/nalanda/apps/server/internal/app/web/handler"
 	"github.com/so77id/nalanda/apps/server/internal/domain/survey"
+	"github.com/so77id/nalanda/apps/server/internal/infra/storage/surveystore"
 )
 
 // Screens 4 and 4b of epic #308 (issue #309 S6): the question forms of the
@@ -286,5 +287,42 @@ func TestAnUnparsableNumberDoesNotHideTheOtherProblems(t *testing.T) {
 		if !strings.Contains(body, want) {
 			t.Errorf("the re-render lacks %q", want)
 		}
+	}
+}
+
+// Issue #310 S2: once a run exists the bank's existing questions are
+// locked, and a refused write is a flash on the survey page, not a 500.
+func TestALockedBankRefusesEditsWithAFlashAndStillTakesNewQuestions(t *testing.T) {
+	f := newSurveyFixture(t)
+	s := f.createSurvey("Banco")
+	q := f.addQuestion(s, survey.QuestionDraft{Kind: survey.KindSingle, Statement: "¿1?", Labels: []string{"A", "B"}})
+	f.addQuestion(s, survey.QuestionDraft{Kind: survey.KindSingle, Statement: "¿2?", Labels: []string{"A", "B"}})
+	if _, _, err := surveystore.New(f.db).CreateRun(context.Background(), survey.Run{
+		SurveyID: s.ID, AppliedOn: "2026-10-15", Copies: 10, CreatedBy: f.professor.ID, CreatedAt: f.now,
+	}); err != nil {
+		t.Fatalf("CreateRun: %v", err)
+	}
+
+	for name, h := range map[string]http.HandlerFunc{
+		"update": f.handler.UpdateQuestion, "delete": f.handler.DeleteQuestion, "move": f.handler.MoveQuestion,
+	} {
+		rec := f.do(http.MethodPost, questionBase(s, q)+"/"+name, h,
+			url.Values{"kind": {"single"}, "statement": {"¿cambiada?"}, "alternative": {"X", "Y"}, "dir": {"down"}},
+			f.questionValues(s, q)...)
+		if rec.Code != http.StatusSeeOther || rec.Header().Get("Location") != handler.SurveyPathFor(s.ID) {
+			t.Errorf("%s: status = %d, Location = %q; want 303 to the survey", name, rec.Code, rec.Header().Get("Location"))
+		}
+		if !strings.Contains(flashOf(t, rec), "ya tiene una pasada") {
+			t.Errorf("%s: flash = %q", name, flashOf(t, rec))
+		}
+	}
+	if got := f.bank(s); len(got) != 2 || got[0].Statement != "¿1?" {
+		t.Errorf("the locked bank changed: %+v", got)
+	}
+
+	rec := f.do(http.MethodPost, questionsPath(s), f.handler.CreateQuestion,
+		url.Values{"kind": {"single"}, "statement": {"¿3?"}, "alternative": {"A", "B"}}, f.surveyValue(s)...)
+	if rec.Code != http.StatusSeeOther || len(f.bank(s)) != 3 {
+		t.Errorf("appending to a locked bank: status = %d, bank size = %d; want it allowed", rec.Code, len(f.bank(s)))
 	}
 }

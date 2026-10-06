@@ -62,6 +62,11 @@ type SurveyDetailPage struct {
 	ArchiveAction string
 	RestoreAction string
 	NewQuestion   string
+	NewRunURL     string
+	Runs          []ListedRun
+	// Locked is true once a run that is not cancelled exists: the bank's
+	// existing questions can no longer be edited, deleted or moved.
+	Locked bool
 	// QuestionCount is the bank's size; Sections is the bank grouped by
 	// consecutive section label, in bank order.
 	QuestionCount int
@@ -136,6 +141,71 @@ type QuestionFormValues struct {
 	MaxMarks     string
 }
 
+// SurveyRunFormPage is what survey_run_form.html renders: a new run
+// (screen 8) or, without the copies, a run's edit form.
+type SurveyRunFormPage struct {
+	Page
+	SurveyName    string
+	Heading       string
+	Action        string
+	Submit        string
+	CancelURL     string
+	ShowCopies    bool
+	QuestionCount int
+	Values        RunFormValues
+	Errors        map[string]string
+	Notice        string
+}
+
+// SurveyRunPage is what survey_run.html renders: one run's dashboard
+// (screen 9).
+type SurveyRunPage struct {
+	Page
+	SurveyName    string
+	SurveyURL     string
+	Title         string
+	AppliedOn     string
+	Copies        int
+	QuestionCount int
+	// Cancelled hides the question count, the steps and the actions: a
+	// cancelled run is printed and read by nobody, and cancelling dropped
+	// its snapshot (#310 review, COR-1), so the count would read zero.
+	Cancelled    bool
+	StateLabel   string
+	Banner       *JobBanner
+	Steps        []RunStep
+	PDFReady     bool
+	PDFURL       string
+	ReadLabel    string
+	ReviewLabel  string
+	EditURL      string
+	CanCancel    bool
+	CancelAction string
+}
+
+// RunStep is one stage of a run's stepper.
+type RunStep struct {
+	Label  string
+	Status string
+	Done   bool
+}
+
+// ListedRun is one run on a survey's page.
+type ListedRun struct {
+	Label string
+	Meta  string
+	URL   string
+	// Cancelled runs are listed struck through, for the record.
+	Cancelled bool
+}
+
+// RunFormValues is what the run form shows.
+type RunFormValues struct {
+	Name      string
+	AppliedOn string
+	Copies    string
+}
+
 // RenderSurveysList writes screen 1.
 func RenderSurveysList(w http.ResponseWriter, page SurveysListPage) error {
 	return render(w, "surveys_list", http.StatusOK, page)
@@ -184,4 +254,14 @@ type PreviewOption struct {
 // RenderSurveyQuestionPreview writes screen 5.
 func RenderSurveyQuestionPreview(w http.ResponseWriter, page SurveyQuestionPreviewPage) error {
 	return render(w, "survey_question_preview", http.StatusOK, page)
+}
+
+// RenderSurveyRunForm writes the run form with the caller's status.
+func RenderSurveyRunForm(w http.ResponseWriter, status int, page SurveyRunFormPage) error {
+	return render(w, "survey_run_form", status, page)
+}
+
+// RenderSurveyRun writes screen 9.
+func RenderSurveyRun(w http.ResponseWriter, page SurveyRunPage) error {
+	return render(w, "survey_run", http.StatusOK, page)
 }

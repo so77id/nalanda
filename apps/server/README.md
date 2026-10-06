@@ -122,7 +122,8 @@ internal/domain/   business types and the interfaces they need — PURE
   course/          course + bank types (LiveBank, sections, questions)
   health/          the /health prober seam
   jobs/            the async job runner (issue #249, ADR-0050): types +
-                   single-goroutine Runner
+                   single-goroutine Runner. A job's subject is a control
+                   or a survey run, derived from its Kind (ADR-0079)
   canvas/          the Canvas policy: token custody + roster normalisation
                    (issue #271, ADR-0069/0070)
   matching/        the RUT → student seam (issue #272, ADR-0071):
@@ -140,7 +141,11 @@ internal/domain/   business types and the interfaces they need — PURE
   survey/          anonymous paper surveys (issue #309, ADR-0078): Survey,
                    Question, the three kinds, its own Store port. A SIBLING
                    of controls — never imports it
-                   (TestTheSurveyDomainDoesNotImportControls)
+                   (TestTheSurveyDomainDoesNotImportControls). Since #310
+                   also runs + their snapshot (ADR-0080), the Generator
+                   port (worker.go) and the survey_generate job handler
+    tex/           the anonymous sheet's AMC source, with its own TeX
+                   escaper (security-notes.md)
 internal/app/web/  the professor's backoffice
   handler/         one file per area: login, professors, profile, courses,
                    controls (+ scans, review, publish…) and surveys
@@ -154,7 +159,8 @@ internal/app/web/  the professor's backoffice
                    (source, version, SHA-384, upgrade recipe).
 internal/app/api/  the JSON/WS surface — anonymous, no middleware (§C12)
 internal/infra/    adapters: config, storage, httpserver, httpjson, selfcheck
-  amcworker/       the AMC worker HTTP client (with generateLock mutex)
+  amcworker/       the AMC worker HTTP client (with generateLock mutex);
+                   implements survey.Generator too (GenerateSheet, #310)
   email/          the four transports behind controls.Dispatcher — stub, dryrun,
                   staging, gmail (#273). A fifth must answer Delivers() and
                   RedirectsToSender() honestly: the domain reads both before
@@ -298,15 +304,28 @@ COR-1).
 Since issue #309 (WP-1 of epic #308) the backoffice also holds **anonymous
 paper surveys** — a sibling subsystem of the controls, never a mode of them
 (ADR-0078): `internal/domain/survey` + `internal/infra/storage/surveystore`,
-tables `survey`, `survey_question`, `survey_alternative`, and an architecture
+tables `survey`, `survey_question`, `survey_alternative` (and since #310
+`survey_run`, `survey_run_question`), and an architecture
 test (`TestTheSurveyDomainDoesNotImportControls`) that fails the build if the
 survey side reaches the controls side. A survey belongs to one course and
 holds a bank of three question kinds — `single` (nominal, counted), `scale`
 (3–7 points, the only kind averaged) and `multi` (min/max printed as guidance,
-enforced by nothing) — grouped by a free-text section label. WP-1 authors
-banks only: runs, the printed sheet, reading and results arrive with
-#310–#312. The forms work without JavaScript (ten fixed alternative rows, ↑/↓
-buttons for order).
+enforced by nothing) — grouped by a free-text section label. The forms work
+without JavaScript (ten fixed alternative rows, ↑/↓ buttons for order).
+
+Since issue #310 a survey is applied in **runs**. Creating one is the
+synchronous half — the row, a snapshot of which questions it prints and as
+which number (context questions first), and the sheet's `source.tex` under
+`/work/surveys/<survey>/runs/<run>/` — and a `survey_generate` job is the
+async half, one `/generate` on the same runner and worker lock as the
+controls (ADR-0079). The sheet is anonymous (no name field, no RUT grid),
+prints in authored order, and gives every one-answer question exactly one
+stand-in correct alternative, because AMC refuses a simple question with
+none or all correct (measured in the S0 spike, `apps/amc-worker/tests/
+08-survey.sh`). Every professor-typed string is TeX-escaped by
+`survey/tex` itself. Once a run that is not cancelled exists, the bank's
+existing questions are locked; new ones may be appended and only later runs
+print them. Reading and results arrive with #311–#312.
 
 Routes today:
 
@@ -326,12 +345,12 @@ Routes today:
 | `POST /controls/{id}/scans` | Multipart PDF upload — writes the PDF to disk synchronously, then enqueues an `analyse` job. The runner hands the file to the worker's `/analyse`, persists the report and the pair, annotates clean copies and flips the state to `in_review`. Detail page's banner surfaces the running/done/failed state (issue #249). A second batch REPLACES the sheets it re-scans and adds the rest; a copy it re-captured loses its corrections and annotated PDF and keeps its publication record. A batch the worker recognised none of fails the job; a done job's banner says how many pages it could not place and how many published copies it re-read (issue #298, ADR-0075) |
 | `POST /controls/{id}/reanalyze` | Enqueues a `reanalyse` job: the runner re-reads the stored captures at new `ticked`/`unsure` thresholds without a new capture, re-scores at them, and re-annotates the clean copies (issue #197, async since #249) |
 | `POST /controls/{id}/close` | Moves the control to `graded` when every failure kind is resolved (WP-F S8), then fires `OnCorrectionClosed` (issue #190), then enqueues an `annotate` job as a defensive re-annotate pass (issue #249) |
-| `POST /jobs/{id}/dismiss` | On a TERMINAL job (`done`/`failed`), stamps `viewed_at` and redirects back to the control's detail. On a still-running job (`queued`/`running`) it is a plain redirect — no stamp, so the eventual done/failed banner is never pre-muted (issue #249, terminal-only narrowing in #257). The "Refrescar" / "Cerrar aviso" button on the banner posts here |
+| `POST /jobs/{id}/dismiss` | On a TERMINAL job (`done`/`failed`), stamps `viewed_at` and redirects back to the page the banner lives on — the control's detail, or since #310 the survey run's dashboard. On a still-running job (`queued`/`running`) it is a plain redirect — no stamp, so the eventual done/failed banner is never pre-muted (issue #249, terminal-only narrowing in #257). The "Refrescar" / "Cerrar aviso" button on the banner posts here |
 | `POST /controls/{id}/archive` | Soft-delete: stamps `deleted_at`, redirects to `/controls`. The row disappears from `/controls`; every downstream row (readings, jobs, PDFs) stays. An in-flight async job for this control keeps running because nothing about its row moves. Reached from the "Zona peligrosa" section on the detail page (issue #261, ADR-0052) |
 | `POST /controls/{id}/restore` | Clears `deleted_at` and redirects to `/controls/{id}`. Idempotent guard: an already-active row returns "ya estaba activo" and lands on the detail anyway (issue #261, ADR-0052) |
 | `GET /controls/archived` | Lists archived controls ordered by `deleted_at DESC, created_at DESC` — most recently archived first, deterministic on same-second batches. Each row surfaces Ver / Restaurar (inline POST) / Eliminar permanentemente (link to the confirmation page) (issue #261, ADR-0052) |
 | `GET /controls/{id}/scans/reset/confirm` · `POST /controls/{id}/scans/reset` | "Borrar escaneos y empezar de nuevo", the destructive-confirm pair on the Escaneos box (issue #298). Both 404 on an archived control or one with no batch and no reading. The GET counts what goes — batches, copies read, copies with hand corrections, copies already MAILED — and asks for the control's name verbatim; the POST answers 409 while a job of this control is in flight or the worker is busy with another control's, and 422 on a wrong name (typed value echoed back), then calls the worker's `/scans/reset` FIRST and, only if it succeeded, returns the control to `generated` with no reading, no annotated row and no publication stamp in one transaction. Synchronous under a 25 s deadline (ADR-0075 §5); a worker that refuses or predates the route leaves everything as it was |
-| `GET /controls/{id}/purge/confirm` · `POST /controls/{id}/purge` | Two-step hard delete. The GET renders the confirmation page (404 on an active control — the destructive form never surfaces for anything not archived). The POST refuses unless `confirm_name` matches `control.name` verbatim, and Service.Purge then deletes the row + FK cascade + `os.RemoveAll` the project directory best-effort. 422 on a name mismatch re-renders the page with the typed value echoed back; 303 to `/controls/archived` with a flash on success. The three-gate design (schema `AND deleted_at IS NOT NULL`, Service `ErrCannotPurgeActive`, handler `confirm_name` verbatim) lives in ADR-0052 §2 (issue #261) |
+| `GET /controls/{id}/purge/confirm` · `POST /controls/{id}/purge` | Two-step hard delete. The GET renders the confirmation page (404 on an active control — the destructive form never surfaces for anything not archived). The POST refuses unless `confirm_name` matches `control.name` verbatim, and Service.Purge then deletes the row + FK cascade + the control's jobs (explicit since #310, ADR-0079 §5) + `os.RemoveAll` the project directory best-effort. 422 on a name mismatch re-renders the page with the typed value echoed back; 303 to `/controls/archived` with a flash on success. The three-gate design (schema `AND deleted_at IS NOT NULL`, Service `ErrCannotPurgeActive`, handler `confirm_name` verbatim) lives in ADR-0052 §2 (issue #261) |
 | `GET /controls/{id}/copies/{copy}/review` · `POST` | Split view — corrected PDF (or raw scan) + editable form; POST saves overrides through `answer_override` / `rut_override` and re-annotates the copy |
 | `GET /controls/{id}/copies/{copy}/page/{n}` | Streams the scanned page image from the shared volume |
 | `GET /controls/{id}/copies/{copy}/annotated.pdf` | Streams the corrected PDF from the shared volume; 404 while none exists (issue #190) |
@@ -367,6 +386,11 @@ Routes today:
 | `GET /surveys/{id}/questions/{qid}/edit` · `POST /surveys/{id}/questions/{qid}/edit` | Edit a question; `?kind=` on the GET re-renders it in another kind keeping what carries over |
 | `POST /surveys/{id}/questions/{qid}/delete` · `POST /surveys/{id}/questions/{qid}/move` | Remove a question (positions stay dense) / move it one step (`dir=up` or `dir=down`). A question of another survey is a 404 through this survey's URL |
 | `GET /surveys/{id}/questions/{qid}/preview` | An HTML approximation of the printed question, labelled as one — the real sheet is AMC's and comes with a run (#310) |
+| `GET /surveys/{id}/runs/new` · `POST /surveys/{id}/runs` | Create a run (issue #310): name, date, copies. The POST writes the row, the snapshot and the source synchronously, queues `survey_generate`, and lands on the run. An empty bank is a flash; once the run exists the bank is locked |
+| `GET /surveys/{id}/runs/{rid}` | The run's dashboard: the job banner, the stepper, the counts, the download once the PDF is generated; scans, review and closing are #311 |
+| `GET /surveys/{id}/runs/{rid}/sujet.pdf` | The printable sheet, streamed once the latest `survey_generate` is done; 404 on a cancelled run, whose dashboard offers no actions |
+| `GET /surveys/{id}/runs/{rid}/edit` · `POST /surveys/{id}/runs/{rid}/edit` | Rename / re-date a run; the printed copies are not editable |
+| `POST /surveys/{id}/runs/{rid}/cancel` | Cancel an open run — refused with a flash while a job about it is queued or running. A cancelled run stays listed and releases the bank |
 | `GET /login` · `GET /login/google` · `GET /login/google/callback` · `POST /logout` | The login round trip — see §Signing in |
 
 Every state-changing route sits behind `middleware.RequireProfessor` AND
