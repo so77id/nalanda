@@ -66,6 +66,8 @@ func (h *Surveys) RunResults(w http.ResponseWriter, r *http.Request) {
 		Filtered:   filter != nil,
 		Copies:     results.Copies,
 		ReadCopies: results.ReadCopies,
+		CSVURL:     SurveyRunCSVPathFor(one.ID, run.ID),
+		CompareURL: SurveyComparePathFor(one.ID),
 	}
 	for _, c := range closed {
 		page.Runs = append(page.Runs, view.ResultRunLink{
@@ -277,6 +279,7 @@ func (h *Surveys) Compare(w http.ResponseWriter, r *http.Request) {
 		SurveyURL:  SurveyPathFor(one.ID),
 		Summary: fmt.Sprintf("%d %s · %d %s", len(cmp.Runs), plural(len(cmp.Runs), "pasada cerrada", "pasadas cerradas"),
 			len(cmp.Rows), plural(len(cmp.Rows), "pregunta", "preguntas")),
+		CSVURL: SurveyCompareCSVPathFor(one.ID) + "?metric=" + string(metric),
 	}
 	for _, m := range []struct {
 		metric survey.Metric

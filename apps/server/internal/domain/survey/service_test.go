@@ -162,6 +162,8 @@ func (m *memStore) ClosedRunTallies(context.Context, int64) ([]survey.RunTally, 
 	return nil, nil
 }
 
+func (m *memStore) RunMarks(context.Context, int64) ([]survey.CopyMarks, error) { return nil, nil }
+
 // noGenerator is a survey.Generator the bank's tests never reach.
 type noGenerator struct{}
 

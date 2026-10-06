@@ -312,3 +312,33 @@ func (s *Service) QuestionResults(ctx context.Context, surveyID, runID, question
 	}
 	return out, nil
 }
+
+// RunAnswers is a closed run's raw answers: the questions it printed, in
+// printed order with their numbers, and every copy's marks.
+type RunAnswers struct {
+	Run       Run
+	Questions []Question
+	Numbers   map[int64]int
+	Copies    []CopyMarks
+}
+
+// RunAnswers reads a closed run's raw answers (the raw CSV).
+func (s *Service) RunAnswers(ctx context.Context, surveyID, runID int64) (RunAnswers, error) {
+	run, err := s.Store.Run(ctx, surveyID, runID)
+	if err != nil {
+		return RunAnswers{}, err
+	}
+	if run.State != RunClosed {
+		return RunAnswers{}, fmt.Errorf("survey: answers of run %d: %w", runID, ErrRunNotClosed)
+	}
+	printed, numbers, err := s.printedQuestions(ctx, run)
+	if err != nil {
+		return RunAnswers{}, err
+	}
+	sort.Slice(printed, func(i, j int) bool { return numbers[printed[i].ID] < numbers[printed[j].ID] })
+	copies, err := s.Store.RunMarks(ctx, run.ID)
+	if err != nil {
+		return RunAnswers{}, err
+	}
+	return RunAnswers{Run: run, Questions: printed, Numbers: numbers, Copies: copies}, nil
+}

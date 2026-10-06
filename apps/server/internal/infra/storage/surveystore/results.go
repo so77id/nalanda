@@ -2,6 +2,7 @@ package surveystore
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"strings"
 
@@ -152,4 +153,34 @@ func (b *tallyBuilder) add(tag string, key int64, n int) {
 
 func placeholders(n int) string {
 	return strings.TrimSuffix(strings.Repeat("?, ", n), ", ")
+}
+
+// RunMarks returns a run's copies and their marks, one query; a copy with
+// no mark at all still appears (LEFT JOIN), as a row of blanks.
+func (s *Store) RunMarks(ctx context.Context, runID int64) ([]survey.CopyMarks, error) {
+	rows, err := s.db.QueryContext(ctx, `
+        SELECT c.copy_number, m.question_id, m.alternative_id
+        FROM survey_copy c LEFT JOIN survey_mark m ON m.copy_id = c.id
+        WHERE c.run_id = ?
+        ORDER BY c.copy_number, m.question_id, m.alternative_id`, runID)
+	if err != nil {
+		return nil, fmt.Errorf("surveystore.RunMarks for run %d: %w", runID, err)
+	}
+	defer func() { _ = rows.Close() }()
+	var out []survey.CopyMarks
+	for rows.Next() {
+		var n int
+		var q, a sql.NullInt64
+		if err := rows.Scan(&n, &q, &a); err != nil {
+			return nil, fmt.Errorf("surveystore.RunMarks for run %d: %w", runID, err)
+		}
+		if len(out) == 0 || out[len(out)-1].CopyNumber != n {
+			out = append(out, survey.CopyMarks{CopyNumber: n, Marks: map[int64][]int64{}})
+		}
+		if q.Valid {
+			last := &out[len(out)-1]
+			last.Marks[q.Int64] = append(last.Marks[q.Int64], a.Int64)
+		}
+	}
+	return out, rows.Err()
 }

@@ -315,6 +315,7 @@ func (h *Surveys) Detail(w http.ResponseWriter, r *http.Request) {
 			page.CompareURL = SurveyComparePathFor(one.ID)
 		}
 	}
+	page.BankCSVURL = SurveyBankCSVPathFor(one.ID)
 	for _, section := range survey.Sections(questions) {
 		rows := make([]view.SurveyQuestionRow, 0, len(section.Questions))
 		for _, q := range section.Questions {

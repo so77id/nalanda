@@ -2,8 +2,11 @@ package handler_test
 
 import (
 	"context"
+	"encoding/csv"
 	"errors"
+	"fmt"
 	"net/http"
+	"net/http/httptest"
 	"net/url"
 	"strconv"
 	"strings"
@@ -182,5 +185,87 @@ func TestScreenThirteenComparesTheClosedRuns(t *testing.T) {
 	dash := f.do(http.MethodGet, handler.SurveyRunPathFor(r.s.ID, first.ID), f.handler.RunDetail, nil, f.runValues(r.s, first)...).Body.String()
 	if !strings.Contains(dash, "Ver resultados") {
 		t.Error("a closed run's dashboard does not offer its results")
+	}
+}
+
+// readCSV reads an export the way pandas would: BOM, then RFC 4180.
+func readCSV(t *testing.T, rec *httptest.ResponseRecorder, file string) [][]string {
+	t.Helper()
+	if rec.Code != http.StatusOK || rec.Header().Get("Content-Type") != "text/csv; charset=utf-8" ||
+		!strings.Contains(rec.Header().Get("Content-Disposition"), `filename="`+file+`"`) {
+		t.Fatalf("export %s: %d %v", file, rec.Code, rec.Header())
+	}
+	body := rec.Body.String()
+	if !strings.HasPrefix(body, "\ufeff") {
+		t.Errorf("%s has no BOM", file)
+	}
+	rows, err := csv.NewReader(strings.NewReader(strings.TrimPrefix(body, "\ufeff"))).ReadAll()
+	if err != nil {
+		t.Fatalf("%s does not parse: %v", file, err)
+	}
+	return rows
+}
+
+func TestTheThreeExports(t *testing.T) {
+	f := newSurveyFixture(t)
+	r, run := f.resultsSurvey()
+
+	bank := readCSV(t, f.do(http.MethodGet, handler.SurveyBankCSVPathFor(r.s.ID), f.handler.BankCSV, nil, f.surveyValue(r.s)...),
+		fmt.Sprintf("encuesta-%d-banco.csv", r.s.ID))
+	if len(bank) != 1+2+5+2 || bank[0][0] != "Pregunta" || bank[1][4] != "¿Ritmo?" || bank[1][8] != "lento" {
+		t.Errorf("bank export = %v", bank)
+	}
+
+	raw := readCSV(t, f.do(http.MethodGet, handler.SurveyRunCSVPathFor(r.s.ID, run.ID), f.handler.RunCSV, nil, f.runValues(r.s, run)...),
+		fmt.Sprintf("encuesta-%d-pasada-1.csv", r.s.ID))
+	want := [][]string{
+		{"Copia", "P1 · ¿Sección?", "P2 · ¿Ritmo?", "P3 · ¿Clara?"},
+		{"1", "A", "lento", "4"}, {"2", "A", "rápido", "5"}, {"3", "B", "lento", "2"}, {"4", "B", "", ""},
+	}
+	if fmt.Sprint(raw) != fmt.Sprint(want) {
+		t.Errorf("raw export =\n%v\nwant\n%v", raw, want)
+	}
+
+	cmp := readCSV(t, f.do(http.MethodGet, handler.SurveyCompareCSVPathFor(r.s.ID), f.handler.CompareCSV, nil, f.surveyValue(r.s)...),
+		fmt.Sprintf("encuesta-%d-comparacion.csv", r.s.ID))
+	if len(cmp) != 4 || fmt.Sprint(cmp[0]) != "[Pregunta P1 Δ]" || cmp[2][1] != "3.67" {
+		t.Errorf("comparison export = %v", cmp)
+	}
+}
+
+// The raw export numbers its rows; AMC's copy numbers stay inside.
+func TestTheRawExportCarriesNoCopyNumber(t *testing.T) {
+	f := newSurveyFixture(t)
+	s := f.createSurvey("Banco")
+	single, _, _ := f.bankOfThree(s)
+	run := f.createRunThroughTheForm(s, "")
+	f.finishGeneration(s, run)
+	f.worker.SurveyReports = []survey.Report{{Batch: survey.Batch{Captured: 2}, Copies: []survey.ReportCopy{
+		{CopyNumber: 17, Answers: []survey.ReportAnswer{answer(single, survey.AnswerOK, []int{1})}},
+		{CopyNumber: 23, Answers: []survey.ReportAnswer{answer(single, survey.AnswerOK, []int{2})}},
+	}}}
+	var notice *jobs.Notice
+	if err := survey.NewAnalyseHandler(f.surveys)(context.Background(), strconv.FormatInt(run.ID, 10),
+		survey.EncodeAnalysePayload(s.ID, "batch-1.pdf")); !errors.As(err, &notice) {
+		t.Fatal(err)
+	}
+	if err := f.surveys.CloseRun(context.Background(), s.ID, run.ID); err != nil {
+		t.Fatal(err)
+	}
+	rec := f.do(http.MethodGet, handler.SurveyRunCSVPathFor(s.ID, run.ID), f.handler.RunCSV, nil, f.runValues(s, run)...)
+	if body := rec.Body.String(); strings.Contains(body, "17") || strings.Contains(body, "23") {
+		t.Errorf("the raw export leaks AMC copy numbers:\n%s", body)
+	}
+}
+
+// A statement a spreadsheet would run as a formula is exported inert.
+func TestAFormulaLikeStatementIsExportedInert(t *testing.T) {
+	f := newSurveyFixture(t)
+	s := f.createSurvey("Banco")
+	f.addQuestion(s, survey.QuestionDraft{Kind: survey.KindSingle, Statement: "=HYPERLINK(\"http://x\")", Labels: []string{"@a", "b"}})
+	rows := readCSV(t, f.do(http.MethodGet, handler.SurveyBankCSVPathFor(s.ID), f.handler.BankCSV, nil, f.surveyValue(s)...),
+		fmt.Sprintf("encuesta-%d-banco.csv", s.ID))
+	if rows[1][4] != `'=HYPERLINK("http://x")` || rows[1][8] != "'@a" {
+		t.Errorf("formula-like text = %q / %q", rows[1][4], rows[1][8])
 	}
 }

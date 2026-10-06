@@ -66,6 +66,8 @@ type SurveyDetailPage struct {
 	Runs          []ListedRun
 	// CompareURL is screen 13, once a run is closed (#312).
 	CompareURL string
+	// BankCSVURL exports the bank (#312).
+	BankCSVURL string
 	// Locked is true once a run that is not cancelled exists: the bank's
 	// existing questions can no longer be edited, deleted or moved.
 	Locked bool

@@ -159,6 +159,16 @@ type Store interface {
 	// ClosedRunTallies is RunTally for every CLOSED run of the survey, with
 	// the questions each printed, in one aggregate query (the comparison).
 	ClosedRunTallies(ctx context.Context, surveyID int64) ([]RunTally, error)
+
+	// RunMarks returns every copy of a run with its marks, in copy-number
+	// order, in one query — the raw CSV (#312).
+	RunMarks(ctx context.Context, runID int64) ([]CopyMarks, error)
+}
+
+// CopyMarks is one copy's recorded alternatives, per question.
+type CopyMarks struct {
+	CopyNumber int
+	Marks      map[int64][]int64
 }
 
 // RunSummary is one survey's runs, as a list page shows them.
