@@ -33,3 +33,6 @@ entries:
     children:
       - docId: control-1
       - docId: solemne-1
+  - label: Recursos
+    children:
+      - docId: encuesta-etc
