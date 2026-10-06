@@ -147,7 +147,10 @@ internal/domain/   business types and the interfaces they need — PURE
                    Since #311 the reading (ADR-0081): the Analyzer port,
                    ReadReport (report -> marks / review items), uploads and
                    AnalyzeBatch (scans.go), the review (review.go), the
-                   survey_analyse handler, CloseRun
+                   survey_analyse handler, CloseRun. Since #312 the
+                   results (results.go: StatsFor, RunResults,
+                   QuestionResults, RunAnswers) and the comparison
+                   (compare.go), pure arithmetic over the store's counts
     tex/           the anonymous sheet's AMC source, with its own TeX
                    escaper (security-notes.md)
 internal/app/web/  the professor's backoffice
@@ -347,7 +350,19 @@ the copies it re-captured, so a decision already made survives it. The
 professor resolves items copy by copy beside the scanned page, may erase the
 whole capture ("Borrar escaneos", worker first), and closes the run once
 everything is read and reviewed — from then on it refuses every change, and
-only closed runs count. Results arrive with #312.
+only closed runs count.
+
+Since issue #312 a closed run has **results** (ADR-0082): every printed
+question's distribution — single and scale over the copies that answered,
+multi-select over every copy in the set; a scale adds mean, median and every tied
+mode, its value being the point's position — optionally restricted to the
+copies that marked chosen alternatives of a context question (no minimum
+group size); one question in detail with its value in every closed run; a
+comparison of all closed runs (a reference alternative for single and multi
+rows, the chosen metric for scales, Δ = last − first with its sign and no
+colour); and three CSV exports. All of it is computed at request time from
+one aggregate query per set of copies (screen 6 runs two), never one per
+question; nothing is stored.
 
 Routes today:
 
@@ -418,6 +433,10 @@ Routes today:
 | `GET /surveys/{id}/runs/{rid}/review` · `GET`/`POST /surveys/{id}/runs/{rid}/review/{copy}` | Screen 11 (issue #311): the queue starts at the first copy that waits; a copy's page shows its scanned pages beside each doubtful answer, every alternative offered (detected ones marked). The POST records the decisions — one alternative on a single or scale, at least one on a multi, or "Descartar"; a blank one stays pending — and moves to the next copy that waits |
 | `GET /surveys/{id}/runs/{rid}/copies/{copy}/page/{n}` | A scanned page image of a copy the run read (the worker's `scans/copy-<n>-page-<p>`, PNG before JPG) |
 | `POST /surveys/{id}/runs/{rid}/close` | "Cerrar pasada" (issue #311): refused with a flash while a job is in flight, before any copy was read, or while a copy waits. A closed run refuses every mutation and has no reopen |
+| `GET /surveys/{id}/runs/{rid}/results?ctx=&alt=…` | Screen 7 (issue #312, ADR-0082): a CLOSED run's results by section, a selector of closed runs, one filter form per printed context question ("N copias de M", "Quitar filtro"). An open or cancelled run redirects to its dashboard with a flash; a filter on anything but the run's context redirects to the unfiltered page |
+| `GET /surveys/{id}/runs/{rid}/results/questions/{qid}?ctx=…` | Screen 6: one question in detail under the same filter, with its value in every closed run; 404 for a question the run did not print |
+| `GET /surveys/{id}/compare?metric=mean\|mode\|median` | Screen 13: every question some closed run printed × the closed runs, and Δ |
+| `GET /surveys/{id}/bank.csv` · `GET /surveys/{id}/runs/{rid}/results.csv` · `GET /surveys/{id}/compare.csv` | The exports: the bank (one row per alternative), a closed run's raw answers (one row per copy, numbered 1…N in a hashed order, no AMC copy number), the comparison as bare numbers (`?metric=`, named in the file). UTF-8 with BOM, every field quoted, formula-like text prefixed with `'` |
 | `GET /login` · `GET /login/google` · `GET /login/google/callback` · `POST /logout` | The login round trip — see §Signing in |
 
 Every state-changing route sits behind `middleware.RequireProfessor` AND

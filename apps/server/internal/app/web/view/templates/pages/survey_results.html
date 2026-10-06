@@ -1,0 +1,56 @@
+{{ define "content" }}
+  <p><a href="{{ .SurveyURL }}">‹ {{ .SurveyName }}</a></p>
+  <h1>Resultados · {{ .Title }}</h1>
+
+  <nav class="survey-actions" aria-label="Pasadas cerradas">
+    Pasada:
+    {{ range .Runs }}
+      {{ if .Current }}<strong>{{ .Label }}</strong>{{ else }}<a href="{{ .URL }}">{{ .Label }}</a>{{ end }}
+    {{ end }}
+    <span class="survey-meta">(solo pasadas cerradas)</span>
+  </nav>
+
+  {{ range .Filters }}
+    <form method="get" action="{{ $.Action }}" class="survey-filter">
+      <input type="hidden" name="ctx" value="{{ .QuestionID }}" />
+      <fieldset>
+        <legend>Filtrar por: {{ .Statement }}</legend>
+        {{ range .Options }}
+          <label><input type="checkbox" name="alt" value="{{ .ID }}"{{ if .Checked }} checked{{ end }} /> {{ .Label }}</label>
+        {{ end }}
+        <button type="submit">Filtrar</button>
+      </fieldset>
+    </form>
+  {{ end }}
+  {{ if .Filtered }}
+    <p><strong>→ {{ .Copies }} copia{{ if ne .Copies 1 }}s{{ end }} de {{ .ReadCopies }}</strong> · <a href="{{ .ClearURL }}">Quitar filtro</a></p>
+  {{ else }}
+    <p>{{ .ReadCopies }} copia{{ if ne .ReadCopies 1 }}s{{ end }} leída{{ if ne .ReadCopies 1 }}s{{ end }}</p>
+  {{ end }}
+
+  <div class="survey-actions">
+    {{ if .CSVURL }}<a class="boton" href="{{ .CSVURL }}">Exportar CSV</a>{{ end }}
+    {{ if .CompareURL }}<a class="boton" href="{{ .CompareURL }}">Comparar pasadas</a>{{ end }}
+  </div>
+
+  {{ range .Sections }}
+    {{ if .Label }}<h2>{{ .Label }}</h2>{{ end }}
+    {{ range .Blocks }}
+      <section class="survey-result" aria-labelledby="q{{ .Number }}">
+        <h3 id="q{{ .Number }}">{{ .Number }} · {{ .Statement }}</h3>
+        <p class="survey-meta">{{ .KindLabel }} · {{ .Base }}</p>
+        <ul class="survey-bars" aria-label="{{ .AriaLabel }}">
+          {{ range .Bars }}
+            <li>
+              <span class="survey-bar-label">{{ .Label }}</span>
+              <span class="survey-bar" style="width: {{ .Width }}%"></span>
+              <span>{{ .Count }} ({{ .Percent }})</span>
+            </li>
+          {{ end }}
+        </ul>
+        {{ if .Summary }}<p>{{ .Summary }}</p>{{ end }}
+        {{ if .DetailURL }}<p><a href="{{ .DetailURL }}">Ver detalle</a></p>{{ end }}
+      </section>
+    {{ end }}
+  {{ end }}
+{{ end }}

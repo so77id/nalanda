@@ -64,6 +64,10 @@ type SurveyDetailPage struct {
 	NewQuestion   string
 	NewRunURL     string
 	Runs          []ListedRun
+	// CompareURL is screen 13, once a run is closed (#312).
+	CompareURL string
+	// BankCSVURL exports the bank (#312).
+	BankCSVURL string
 	// Locked is true once a run that is not cancelled exists: the bank's
 	// existing questions can no longer be edited, deleted or moved.
 	Locked bool
@@ -196,6 +200,9 @@ type SurveyRunPage struct {
 	CancelAction string
 	// ScansURL is screen 10 (issue #311).
 	ScansURL string
+	// ResultsURL and CompareURL are a closed run's results (#312).
+	ResultsURL string
+	CompareURL string
 }
 
 // RunStep is one stage of a run's stepper.
@@ -212,6 +219,8 @@ type ListedRun struct {
 	URL   string
 	// Cancelled runs are listed struck through, for the record.
 	Cancelled bool
+	// ResultsURL is a closed run's results (#312).
+	ResultsURL string
 }
 
 // RunFormValues is what the run form shows.
@@ -382,4 +391,146 @@ type SurveyScansResetPage struct {
 // RenderSurveyScansReset writes the confirmation with the caller's status.
 func RenderSurveyScansReset(w http.ResponseWriter, status int, page SurveyScansResetPage) error {
 	return render(w, "survey_scans_reset_confirm", status, page)
+}
+
+// SurveyResultsPage is what survey_results.html renders: a closed run's
+// results (issue #312, screen 7).
+type SurveyResultsPage struct {
+	Page
+	SurveyName string
+	SurveyURL  string
+	Title      string
+	// Runs are the closed runs to switch between.
+	Runs []ResultRunLink
+	// Filters are one form per context question the run printed.
+	Filters  []ResultFilterForm
+	Action   string
+	ClearURL string
+	// Filtered says a filter is on; Copies of ReadCopies remain.
+	Filtered   bool
+	Copies     int
+	ReadCopies int
+	CompareURL string
+	CSVURL     string
+	Sections   []ResultSectionView
+}
+
+// ResultRunLink is one closed run in the selector.
+type ResultRunLink struct {
+	Label   string
+	URL     string
+	Current bool
+}
+
+// ResultFilterForm filters by one context question's alternatives.
+type ResultFilterForm struct {
+	QuestionID int64
+	Statement  string
+	Options    []ResultFilterOption
+}
+
+// ResultFilterOption is one alternative of a context question.
+type ResultFilterOption struct {
+	ID      int64
+	Label   string
+	Checked bool
+}
+
+// ResultSectionView is a section heading and its blocks.
+type ResultSectionView struct {
+	Label  string
+	Blocks []ResultBlock
+}
+
+// ResultBlock is one question's results.
+type ResultBlock struct {
+	Number    int
+	Statement string
+	KindLabel string
+	// Base says what the percents are over ("8 respuestas de 10 copias").
+	Base string
+	Bars []ResultBar
+	// Summary is a scale's "Promedio · Moda · Mediana" line.
+	Summary string
+	// AriaLabel states the distribution in words, for a screen reader.
+	AriaLabel string
+	DetailURL string
+}
+
+// ResultBar is one alternative's bar; its number and percent are text.
+type ResultBar struct {
+	Label   string
+	Count   int
+	Percent string
+	// Width is the bar's length, 0–100.
+	Width int
+}
+
+// RenderSurveyResults writes screen 7.
+func RenderSurveyResults(w http.ResponseWriter, page SurveyResultsPage) error {
+	return render(w, "survey_results", http.StatusOK, page)
+}
+
+// SurveyResultQuestionPage is one question in detail (issue #312, screen 6).
+type SurveyResultQuestionPage struct {
+	Page
+	RunTitle   string
+	ResultsURL string
+	Block      ResultBlock
+	Filtered   bool
+	Copies     int
+	ReadCopies int
+	// Across is one line per closed run.
+	Across []ResultAcrossRow
+}
+
+// ResultAcrossRow is the question in one closed run.
+type ResultAcrossRow struct {
+	Label   string
+	Summary string
+	Current bool
+}
+
+// RenderSurveyResultQuestion writes screen 6.
+func RenderSurveyResultQuestion(w http.ResponseWriter, page SurveyResultQuestionPage) error {
+	return render(w, "survey_result_question", http.StatusOK, page)
+}
+
+// SurveyComparePage is screen 13 (issue #312).
+type SurveyComparePage struct {
+	Page
+	SurveyName string
+	SurveyURL  string
+	// Summary is "3 pasadas cerradas · 48 preguntas".
+	Summary string
+	Metrics []CompareMetricLink
+	CSVURL  string
+	Columns []string
+	Groups  []CompareGroup
+}
+
+// CompareMetricLink switches what scale rows compare.
+type CompareMetricLink struct {
+	Label   string
+	URL     string
+	Current bool
+}
+
+// CompareGroup is a section's table.
+type CompareGroup struct {
+	Label string
+	Rows  []CompareRow
+}
+
+// CompareRow is one question across the runs.
+type CompareRow struct {
+	Number int
+	Label  string
+	Cells  []string
+	Delta  string
+}
+
+// RenderSurveyCompare writes screen 13.
+func RenderSurveyCompare(w http.ResponseWriter, page SurveyComparePage) error {
+	return render(w, "survey_compare", http.StatusOK, page)
 }

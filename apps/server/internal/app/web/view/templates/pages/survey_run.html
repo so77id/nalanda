@@ -40,6 +40,9 @@
 
   <h2>Acciones</h2>
   <ul class="survey-run-actions">
+    {{ if .ResultsURL }}
+      <li><a class="boton" href="{{ .ResultsURL }}">Ver resultados</a> <a class="boton" href="{{ .CompareURL }}">Comparar pasadas</a></li>
+    {{ end }}
     <li>
       {{ if .PDFReady }}
         <a class="boton" href="{{ .PDFURL }}">Descargar PDF para imprimir</a> ({{ .Copies }} copias)

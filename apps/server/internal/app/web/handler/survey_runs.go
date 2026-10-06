@@ -213,6 +213,10 @@ func (h *Surveys) RunDetail(w http.ResponseWriter, r *http.Request) {
 	if counts.PendingCopies > 0 {
 		page.ReviewURL = SurveyRunReviewPathFor(one.ID, run.ID)
 	}
+	if run.State == survey.RunClosed {
+		page.ResultsURL = SurveyRunResultsPathFor(one.ID, run.ID)
+		page.CompareURL = SurveyComparePathFor(one.ID)
+	}
 	if run.State == survey.RunOpen {
 		page.EditURL = SurveyRunEditPathFor(one.ID, run.ID)
 		scans, err := h.Service.HasScans(r.Context(), run)

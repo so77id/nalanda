@@ -86,9 +86,12 @@
           <li>
             {{ if .Cancelled }}<s>{{ end }}<a href="{{ .URL }}">{{ .Label }}</a>{{ if .Cancelled }}</s>{{ end }}
             <br /><span class="survey-meta">{{ .Meta }}</span>
+            {{ if .ResultsURL }}<br /><a href="{{ .ResultsURL }}">Ver resultados</a>{{ end }}
           </li>
         {{ end }}
       </ul>
+      {{ if .CompareURL }}<p><a class="boton" href="{{ .CompareURL }}">Comparar pasadas</a></p>{{ end }}
+      <p><a href="{{ .BankCSVURL }}">Exportar el banco (CSV)</a></p>
       {{ if not .Archived }}<p><a class="boton" href="{{ .NewRunURL }}">+ Nueva pasada</a></p>{{ end }}
     </section>
   </div>
