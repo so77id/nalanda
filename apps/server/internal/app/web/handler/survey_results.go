@@ -71,7 +71,7 @@ func (h *Surveys) RunResults(w http.ResponseWriter, r *http.Request) {
 	}
 	for _, c := range closed {
 		page.Runs = append(page.Runs, view.ResultRunLink{
-			Label: fmt.Sprintf("#%d — %s — %d copias", c.Number, c.AppliedOn, c.Copies),
+			Label: fmt.Sprintf("#%d — %s — %d impresas", c.Number, c.AppliedOn, c.Copies),
 			URL:   SurveyRunResultsPathFor(one.ID, c.ID), Current: c.ID == run.ID,
 		})
 	}
