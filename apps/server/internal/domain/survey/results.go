@@ -21,6 +21,9 @@ import (
 type Tally struct {
 	// Copies is how many copies are in the set.
 	Copies int
+	// ReadCopies is how many copies the run read, whatever the filter —
+	// counted in the same query (#312 review, PERF-2).
+	ReadCopies int
 	// Counts is, per alternative id, how many copies of the set marked it.
 	Counts map[int64]int
 	// Answered is, per question id, how many copies of the set marked at
@@ -65,8 +68,7 @@ type QuestionStats struct {
 
 // StatsFor computes one question's block over a tally.
 func StatsFor(q Question, t Tally) QuestionStats {
-	alts := append([]Alternative(nil), q.Alternatives...)
-	sort.Slice(alts, func(i, j int) bool { return alts[i].Position < alts[j].Position })
+	alts := byPosition(q.Alternatives)
 
 	out := QuestionStats{Question: q, Answered: t.Answered[q.ID]}
 	out.Blank = t.Copies - out.Answered
@@ -184,11 +186,10 @@ func (s *Service) RunResults(ctx context.Context, surveyID, runID int64, filter 
 	if run.State != RunClosed {
 		return RunResults{}, fmt.Errorf("survey: results of run %d: %w", runID, ErrRunNotClosed)
 	}
-	printed, numbers, err := s.printedQuestions(ctx, run)
+	printed, numbers, err := s.printedInOrder(ctx, run)
 	if err != nil {
 		return RunResults{}, err
 	}
-	sort.Slice(printed, func(i, j int) bool { return numbers[printed[i].ID] < numbers[printed[j].ID] })
 	out := RunResults{Run: run, Filter: filter}
 	for _, q := range printed {
 		if q.IsContext {
@@ -200,17 +201,11 @@ func (s *Service) RunResults(ctx context.Context, surveyID, runID int64, filter 
 			return RunResults{}, err
 		}
 	}
-	all, err := s.Store.RunTally(ctx, run.ID, nil)
+	tally, err := s.Store.RunTally(ctx, run.ID, filter)
 	if err != nil {
 		return RunResults{}, err
 	}
-	tally := all
-	if filter != nil {
-		if tally, err = s.Store.RunTally(ctx, run.ID, filter); err != nil {
-			return RunResults{}, err
-		}
-	}
-	out.ReadCopies, out.Copies = all.Copies, tally.Copies
+	out.ReadCopies, out.Copies = tally.ReadCopies, tally.Copies
 	for _, sec := range Sections(printed) {
 		rs := ResultSection{Label: sec.Label}
 		for _, q := range sec.Questions {
@@ -331,14 +326,31 @@ func (s *Service) RunAnswers(ctx context.Context, surveyID, runID int64) (RunAns
 	if run.State != RunClosed {
 		return RunAnswers{}, fmt.Errorf("survey: answers of run %d: %w", runID, ErrRunNotClosed)
 	}
-	printed, numbers, err := s.printedQuestions(ctx, run)
+	printed, numbers, err := s.printedInOrder(ctx, run)
 	if err != nil {
 		return RunAnswers{}, err
 	}
-	sort.Slice(printed, func(i, j int) bool { return numbers[printed[i].ID] < numbers[printed[j].ID] })
 	copies, err := s.Store.RunMarks(ctx, run.ID)
 	if err != nil {
 		return RunAnswers{}, err
 	}
 	return RunAnswers{Run: run, Questions: printed, Numbers: numbers, Copies: copies}, nil
+}
+
+// printedInOrder is printedQuestions sorted by the number each was printed
+// as.
+func (s *Service) printedInOrder(ctx context.Context, run Run) ([]Question, map[int64]int, error) {
+	printed, numbers, err := s.printedQuestions(ctx, run)
+	if err != nil {
+		return nil, nil, err
+	}
+	sort.Slice(printed, func(i, j int) bool { return numbers[printed[i].ID] < numbers[printed[j].ID] })
+	return printed, numbers, nil
+}
+
+// byPosition is a copy of alts in bank order.
+func byPosition(alts []Alternative) []Alternative {
+	out := append([]Alternative(nil), alts...)
+	sort.Slice(out, func(i, j int) bool { return out[i].Position < out[j].Position })
+	return out
 }

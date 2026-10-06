@@ -158,7 +158,7 @@ func (m *memStore) RunTally(context.Context, int64, *survey.ContextFilter) (surv
 	return survey.Tally{}, nil
 }
 
-func (m *memStore) ClosedRunTallies(context.Context, int64) ([]survey.RunTally, error) {
+func (m *memStore) ClosedRunTallies(context.Context, int64) ([]survey.ClosedRunTally, error) {
 	return nil, nil
 }
 

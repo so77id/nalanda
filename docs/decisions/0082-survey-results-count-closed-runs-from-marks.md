@@ -43,7 +43,8 @@ change what the earlier WPs store.
    first. A scale row shows the chosen metric (a table cell holds one number,
    so a tied mode shows its lowest value); a single or multi row shows the
    share of a **reference alternative**, the most marked in the latest closed
-   run that printed the question. Context rows, and runs that did not print
+   run that printed the question and has a mark on it (a later run nobody
+   answered it in does not blank the earlier ones; ties go to bank order). Context rows, and runs that did not print
    the question or where nobody answered it, show "—". **Δ = the last value
    − the first**, needing two, shown with its sign and an arrow and **no
    colour**: the system does not know which direction is good.
@@ -52,10 +53,14 @@ change what the earlier WPs store.
    answering per question over one set of copies (`RunTally`), or over every
    closed run with what each printed (`ClosedRunTallies`). No cached
    aggregate, no new table, no migration.
-8. **Exports** are UTF-8 with a BOM, comma-separated, every field quoted; the
-   raw export numbers its rows 1…N and never carries an AMC copy number; text
-   the professor typed that a spreadsheet would run as a formula is prefixed
-   with an apostrophe.
+8. **Exports** are UTF-8 with a BOM, comma-separated, every field quoted. The
+   raw export numbers its rows 1…N in an order hashed from (run, copy) — the
+   same on every export, and never one that follows AMC's copy numbers,
+   which it does not carry either. The comparison export is for analysis:
+   bare numbers (a scale in the chosen metric, a percent 0–100), an empty
+   cell where the page shows "—", what each row measures in its own column,
+   and the metric in the file's name. Text the professor typed that a
+   spreadsheet would run as a formula is prefixed with an apostrophe.
 
 ## Alternatives considered
 

@@ -435,7 +435,7 @@ Routes today:
 | `GET /surveys/{id}/runs/{rid}/results?ctx=&alt=…` | Screen 7 (issue #312, ADR-0082): a CLOSED run's results by section, a selector of closed runs, one filter form per printed context question ("N copias de M", "Quitar filtro"). An open or cancelled run redirects to its dashboard with a flash; a filter on anything but the run's context redirects to the unfiltered page |
 | `GET /surveys/{id}/runs/{rid}/results/questions/{qid}?ctx=…` | Screen 6: one question in detail under the same filter, with its value in every closed run; 404 for a question the run did not print |
 | `GET /surveys/{id}/compare?metric=mean\|mode\|median` | Screen 13: every question some closed run printed × the closed runs, and Δ |
-| `GET /surveys/{id}/bank.csv` · `GET /surveys/{id}/runs/{rid}/results.csv` · `GET /surveys/{id}/compare.csv` | The exports: the bank (one row per alternative), a closed run's raw answers (one row per copy, numbered 1…N, no AMC copy number), the comparison. UTF-8 with BOM, every field quoted, formula-like text prefixed with `'` |
+| `GET /surveys/{id}/bank.csv` · `GET /surveys/{id}/runs/{rid}/results.csv` · `GET /surveys/{id}/compare.csv` | The exports: the bank (one row per alternative), a closed run's raw answers (one row per copy, numbered 1…N in a hashed order, no AMC copy number), the comparison as bare numbers (`?metric=`, named in the file). UTF-8 with BOM, every field quoted, formula-like text prefixed with `'` |
 | `GET /login` · `GET /login/google` · `GET /login/google/callback` · `POST /logout` | The login round trip — see §Signing in |
 
 Every state-changing route sits behind `middleware.RequireProfessor` AND

@@ -37,8 +37,7 @@ func (h *Surveys) RunResults(w http.ResponseWriter, r *http.Request) {
 	results, err := h.Service.RunResults(r.Context(), one.ID, run.ID, filter)
 	switch {
 	case errors.Is(err, survey.ErrRunNotClosed):
-		flash.Set(w, h.secureCookie, "Los resultados aparecen cuando la pasada se cierra.")
-		http.Redirect(w, r, SurveyRunPathFor(one.ID, run.ID), http.StatusSeeOther)
+		h.redirectNotClosed(w, r, one.ID, run.ID)
 		return
 	case errors.Is(err, survey.ErrBadFilter):
 		// A hand-edited or stale query: show the run unfiltered.
@@ -134,8 +133,7 @@ func resultBlock(number int, st survey.QuestionStats, copies int) view.ResultBlo
 	}
 	b.AriaLabel = "Distribución: " + strings.Join(spoken, "; ")
 	if st.Scale != nil {
-		b.Summary = fmt.Sprintf("Promedio %s · Moda %s · Mediana %s",
-			decimal(st.Scale.Mean), joinInts(st.Scale.Modes), decimal(st.Scale.Median))
+		b.Summary = scaleSummary(*st.Scale, "Promedio", "Moda", "Mediana")
 	}
 	return b
 }
@@ -194,8 +192,7 @@ func (h *Surveys) RunResultQuestion(w http.ResponseWriter, r *http.Request) {
 	res, err := h.Service.QuestionResults(r.Context(), one.ID, run.ID, qid, filter)
 	switch {
 	case errors.Is(err, survey.ErrRunNotClosed):
-		flash.Set(w, h.secureCookie, "Los resultados aparecen cuando la pasada se cierra.")
-		http.Redirect(w, r, SurveyRunPathFor(one.ID, run.ID), http.StatusSeeOther)
+		h.redirectNotClosed(w, r, one.ID, run.ID)
 		return
 	case errors.Is(err, survey.ErrBadFilter):
 		http.Redirect(w, r, SurveyRunResultQuestionPathFor(one.ID, run.ID, qid), http.StatusSeeOther)
@@ -234,7 +231,7 @@ func (h *Surveys) RunResultQuestion(w http.ResponseWriter, r *http.Request) {
 // numbers, or the most-marked alternative's share.
 func acrossSummary(st survey.QuestionStats) string {
 	if st.Scale != nil {
-		return fmt.Sprintf("promedio %s · moda %s · mediana %s", decimal(st.Scale.Mean), joinInts(st.Scale.Modes), decimal(st.Scale.Median))
+		return scaleSummary(*st.Scale, "promedio", "moda", "mediana")
 	}
 	if st.Answered == 0 {
 		return "sin respuestas"
@@ -261,12 +258,7 @@ func (h *Surveys) Compare(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	metric := survey.Metric(r.URL.Query().Get("metric"))
-	switch metric {
-	case survey.MetricMode, survey.MetricMedian:
-	default:
-		metric = survey.MetricMean
-	}
+	metric := survey.ParseMetric(r.URL.Query().Get("metric"))
 	cmp, err := h.Service.Compare(r.Context(), one.ID, metric)
 	if err != nil {
 		h.Log.Error("comparing a survey's runs", "survey", one.ID, "error", err)
@@ -338,16 +330,33 @@ func compareValue(c survey.ComparisonCell, isPercent bool, metric survey.Metric)
 }
 
 // compareDelta is Δ with an arrow and its sign; points for percentages.
+// "Equal" is judged at the precision shown, so a Δ that prints as 0
+// never carries an arrow (#312 review, COR-1).
 func compareDelta(d float64, isPercent bool) string {
-	text := fmt.Sprintf("%+.2f", d)
+	text, zero := fmt.Sprintf("%+.2f", d), 0.005
 	if isPercent {
-		text = fmt.Sprintf("%+.0f pp", d)
+		text, zero = fmt.Sprintf("%+.0f pp", d), 0.5
 	}
 	switch {
-	case math.Abs(d) < 0.005:
+	case math.Abs(d) < zero:
 		return "= 0"
 	case d > 0:
 		return "↑ " + text
 	}
 	return "↓ " + strings.Replace(text, "-", "−", 1)
+}
+
+// scaleSummary is a scale's three numbers on one line, in the caller's case.
+func scaleSummary(st survey.ScaleStats, mean, mode, median string) string {
+	return fmt.Sprintf("%s %s · %s %s · %s %s", mean, decimal(st.Mean), mode, joinInts(st.Modes), median, decimal(st.Median))
+}
+
+// notClosedFlash is what a results URL of an open or cancelled run says.
+const notClosedFlash = "Los resultados aparecen cuando la pasada se cierra."
+
+// redirectNotClosed sends a results request for a run that is not closed
+// back to its dashboard, with notClosedFlash.
+func (h *Surveys) redirectNotClosed(w http.ResponseWriter, r *http.Request, surveyID, runID int64) {
+	flash.Set(w, h.secureCookie, notClosedFlash)
+	http.Redirect(w, r, SurveyRunPathFor(surveyID, runID), http.StatusSeeOther)
 }

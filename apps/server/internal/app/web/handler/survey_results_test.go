@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"sort"
 	"strconv"
 	"strings"
 	"testing"
@@ -218,18 +219,42 @@ func TestTheThreeExports(t *testing.T) {
 
 	raw := readCSV(t, f.do(http.MethodGet, handler.SurveyRunCSVPathFor(r.s.ID, run.ID), f.handler.RunCSV, nil, f.runValues(r.s, run)...),
 		fmt.Sprintf("encuesta-%d-pasada-1.csv", r.s.ID))
-	want := [][]string{
-		{"Copia", "P1 · ¿Sección?", "P2 · ¿Ritmo?", "P3 · ¿Clara?"},
-		{"1", "A", "lento", "4"}, {"2", "A", "rápido", "5"}, {"3", "B", "lento", "2"}, {"4", "B", "", ""},
+	if fmt.Sprint(raw[0]) != "[Copia P1 · ¿Sección? P2 · ¿Ritmo? P3 · ¿Clara?]" || len(raw) != 5 {
+		t.Fatalf("raw export = %v", raw)
 	}
-	if fmt.Sprint(raw) != fmt.Sprint(want) {
-		t.Errorf("raw export =\n%v\nwant\n%v", raw, want)
+	// Rows are numbered 1…N in an order that does not follow the copies
+	// (#312 review, SEC-1); as a set they are the four copies.
+	var answers []string
+	for i, row := range raw[1:] {
+		if row[0] != strconv.Itoa(i+1) {
+			t.Errorf("row %d is numbered %q", i+1, row[0])
+		}
+		answers = append(answers, strings.Join(row[1:], "/"))
+	}
+	sort.Strings(answers)
+	if want := "[A/lento/4 A/rápido/5 B// B/lento/2]"; fmt.Sprint(answers) != want {
+		t.Errorf("raw answers = %v, want %s", answers, want)
 	}
 
 	cmp := readCSV(t, f.do(http.MethodGet, handler.SurveyCompareCSVPathFor(r.s.ID), f.handler.CompareCSV, nil, f.surveyValue(r.s)...),
-		fmt.Sprintf("encuesta-%d-comparacion.csv", r.s.ID))
-	if len(cmp) != 4 || fmt.Sprint(cmp[0]) != "[Pregunta P1 Δ]" || cmp[2][1] != "3.67" {
-		t.Errorf("comparison export = %v", cmp)
+		fmt.Sprintf("encuesta-%d-comparacion-mean.csv", r.s.ID))
+	// Bare numbers (#312 review, ARQ-1/COR-3): the measure in its own
+	// column, an empty cell where the page shows "—".
+	if fmt.Sprint(cmp[0]) != "[Pregunta Enunciado Medida P1 Δ]" {
+		t.Errorf("comparison header = %v", cmp[0])
+	}
+	byStatement := map[string][]string{}
+	for _, row := range cmp[1:] {
+		byStatement[row[1]] = row
+	}
+	if got := byStatement["¿Clara?"]; fmt.Sprint(got[2:]) != "[mean 3.67 ]" {
+		t.Errorf("scale row = %v", got)
+	}
+	if got := byStatement["¿Ritmo?"]; fmt.Sprint(got[2:]) != "[% lento 66.7 ]" {
+		t.Errorf("single row = %v", got)
+	}
+	if got := byStatement["¿Sección?"]; fmt.Sprint(got[2:]) != "[contexto  ]" {
+		t.Errorf("context row = %v", got)
 	}
 }
 

@@ -158,7 +158,7 @@ type Store interface {
 
 	// ClosedRunTallies is RunTally for every CLOSED run of the survey, with
 	// the questions each printed, in one aggregate query (the comparison).
-	ClosedRunTallies(ctx context.Context, surveyID int64) ([]RunTally, error)
+	ClosedRunTallies(ctx context.Context, surveyID int64) ([]ClosedRunTally, error)
 
 	// RunMarks returns every copy of a run with its marks, in copy-number
 	// order, in one query — the raw CSV (#312).

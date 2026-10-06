@@ -46,7 +46,7 @@ func TestRunTallyCountsAWholeRunOrAFilteredOne(t *testing.T) {
 	if err != nil {
 		t.Fatalf("RunTally: %v", err)
 	}
-	want := survey.Tally{Copies: 3,
+	want := survey.Tally{Copies: 3, ReadCopies: 3,
 		Counts:   map[int64]int{ctx.Alternatives[0].ID: 2, ctx.Alternatives[1].ID: 1, q.Alternatives[0].ID: 1, q.Alternatives[1].ID: 1},
 		Answered: map[int64]int{ctx.ID: 3, q.ID: 2}}
 	if !reflect.DeepEqual(all, want) {
@@ -57,8 +57,14 @@ func TestRunTallyCountsAWholeRunOrAFilteredOne(t *testing.T) {
 	if err != nil {
 		t.Fatalf("RunTally filtered: %v", err)
 	}
-	if onlyB.Copies != 1 || onlyB.Answered[q.ID] != 0 || onlyB.Counts[ctx.Alternatives[1].ID] != 1 {
+	if onlyB.Copies != 1 || onlyB.ReadCopies != 3 || onlyB.Answered[q.ID] != 0 || onlyB.Counts[ctx.Alternatives[1].ID] != 1 {
 		t.Errorf("filtered to B = %+v, want copy 3 alone, blank on the single", onlyB)
+	}
+	// Both alternatives: every copy that answered the context (#312 review,
+	// COR-5 - the IN list with more than one id).
+	both, _ := f.store.RunTally(f.ctx, run.ID, &survey.ContextFilter{QuestionID: ctx.ID, AlternativeIDs: []int64{ctx.Alternatives[0].ID, ctx.Alternatives[1].ID}})
+	if both.Copies != 3 {
+		t.Errorf("filtered to A or B = %+v, want all three copies", both)
 	}
 	none, _ := f.store.RunTally(f.ctx, run.ID, &survey.ContextFilter{QuestionID: ctx.ID})
 	if none.Copies != 0 {

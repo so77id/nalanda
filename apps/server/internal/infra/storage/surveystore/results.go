@@ -22,21 +22,28 @@ import (
 
 // RunTally counts one run, maybe filtered by a context answer.
 func (s *Store) RunTally(ctx context.Context, runID int64, filter *survey.ContextFilter) (survey.Tally, error) {
-	set := `SELECT id FROM survey_copy WHERE run_id = ?`
+	// The filter is a correlated EXISTS on the mark's primary key (copy,
+	// question, alternative): an IN over survey_mark by question scanned
+	// every mark of every survey ever (#312 review, PERF-1, measured).
+	set := `SELECT id FROM survey_copy sc WHERE run_id = ?`
 	args := []any{runID}
 	if filter != nil {
 		if len(filter.AlternativeIDs) == 0 {
 			set += ` AND 0`
 		} else {
-			set += ` AND id IN (SELECT copy_id FROM survey_mark WHERE question_id = ? AND alternative_id IN (` +
-				placeholders(len(filter.AlternativeIDs)) + `))`
+			set += ` AND EXISTS (SELECT 1 FROM survey_mark f WHERE f.copy_id = sc.id AND f.question_id = ?
+                                 AND f.alternative_id IN (` + placeholders(len(filter.AlternativeIDs)) + `))`
 			args = append(args, filter.QuestionID)
 			for _, a := range filter.AlternativeIDs {
 				args = append(args, a)
 			}
 		}
 	}
+	// The run's read copies, unfiltered, in the same query (PERF-2).
+	args = append(args, runID)
 	query := `WITH c AS (` + set + `)
+        SELECT 'read', 0, count(*) FROM survey_copy WHERE run_id = ?
+        UNION ALL
         SELECT 'copies', 0, count(*) FROM c
         UNION ALL
         SELECT 'alt', m.alternative_id, count(*) FROM survey_mark m JOIN c ON c.id = m.copy_id GROUP BY m.alternative_id
@@ -60,23 +67,25 @@ func (s *Store) RunTally(ctx context.Context, runID int64, filter *survey.Contex
 	if err := rows.Err(); err != nil {
 		return survey.Tally{}, fmt.Errorf("surveystore.RunTally for run %d: %w", runID, err)
 	}
-	return t.Tally, nil
+	return *t.Tally, nil
 }
 
 // ClosedRunTallies counts every closed run of a survey and what each
 // printed, in one query.
-func (s *Store) ClosedRunTallies(ctx context.Context, surveyID int64) ([]survey.RunTally, error) {
+func (s *Store) ClosedRunTallies(ctx context.Context, surveyID int64) ([]survey.ClosedRunTally, error) {
 	runs, err := s.RunsForSurvey(ctx, surveyID)
 	if err != nil {
 		return nil, err
 	}
-	byID := map[int64]*survey.RunTally{}
+	byID := map[int64]*survey.ClosedRunTally{}
+	builders := map[int64]*tallyBuilder{}
 	var order []int64
 	for _, r := range runs {
 		if r.State != survey.RunClosed {
 			continue
 		}
-		byID[r.ID] = &survey.RunTally{Run: r, Printed: map[int64]bool{}, Tally: newTally().Tally}
+		byID[r.ID] = &survey.ClosedRunTally{Run: r, Printed: map[int64]bool{}, Tally: *newTally().Tally}
+		builders[r.ID] = &tallyBuilder{&byID[r.ID].Tally}
 		order = append(order, r.ID)
 	}
 	if len(order) == 0 {
@@ -112,36 +121,38 @@ func (s *Store) ClosedRunTallies(ctx context.Context, surveyID int64) ([]survey.
 		if !ok {
 			continue // closed between the two reads; the next page shows it
 		}
-		switch tag {
-		case "printed":
+		if tag == "printed" {
 			rt.Printed[key] = true
-		case "copies":
-			rt.Tally.Copies = n
-		case "alt":
-			rt.Tally.Counts[key] = n
-		case "answered":
-			rt.Tally.Answered[key] = n
+			continue
+		}
+		builders[runID].add(tag, key, n)
+		if tag == "copies" {
+			// Unfiltered: every read copy is in the set.
+			rt.Tally.ReadCopies = n
 		}
 	}
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("surveystore.ClosedRunTallies for survey %d: %w", surveyID, err)
 	}
-	out := make([]survey.RunTally, 0, len(order))
+	out := make([]survey.ClosedRunTally, 0, len(order))
 	for _, id := range order {
 		out = append(out, *byID[id])
 	}
 	return out, nil
 }
 
-// tallyBuilder fills a Tally from tagged rows.
-type tallyBuilder struct{ survey.Tally }
+// tallyBuilder fills a Tally from tagged rows — the one place a tag means
+// something (#312 review, ARQ-3).
+type tallyBuilder struct{ *survey.Tally }
 
 func newTally() *tallyBuilder {
-	return &tallyBuilder{survey.Tally{Counts: map[int64]int{}, Answered: map[int64]int{}}}
+	return &tallyBuilder{&survey.Tally{Counts: map[int64]int{}, Answered: map[int64]int{}}}
 }
 
 func (b *tallyBuilder) add(tag string, key int64, n int) {
 	switch tag {
+	case "read":
+		b.ReadCopies = n
 	case "copies":
 		b.Copies = n
 	case "alt":

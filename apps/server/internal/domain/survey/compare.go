@@ -17,8 +17,17 @@ const (
 	MetricMedian Metric = "median"
 )
 
-// RunTally is one closed run's counts, and which questions it printed.
-type RunTally struct {
+// ParseMetric reads a metric's name; anything else is the mean.
+func ParseMetric(name string) Metric {
+	switch m := Metric(name); m {
+	case MetricMode, MetricMedian:
+		return m
+	}
+	return MetricMean
+}
+
+// ClosedRunTally is one closed run's counts, and which questions it printed.
+type ClosedRunTally struct {
 	Run     Run
 	Printed map[int64]bool
 	Tally   Tally
@@ -38,8 +47,9 @@ type ComparisonRow struct {
 	// Context rows compare nothing: they are what results are filtered by.
 	Context bool
 	// Reference is the alternative a single or multi row follows — the most
-	// marked in the latest run that printed the question (ties: bank
-	// order); nil on scale and context rows.
+	// marked in the latest run that printed the question AND has a mark on
+	// it (ties: bank order); nil on scale and context rows, or when no run
+	// marked it at all.
 	Reference *Alternative
 	// Percent says the values are percentages (single, multi), so Δ is in
 	// points; otherwise they are the scale metric.
@@ -60,8 +70,8 @@ type ComparisonCell struct {
 
 // Compare builds the table. A scale's mode is its lowest tied mode — a
 // table cell holds one number; the run's own page lists every tie.
-func Compare(bank []Question, runs []RunTally, metric Metric) Comparison {
-	ordered := append([]RunTally(nil), runs...)
+func Compare(bank []Question, runs []ClosedRunTally, metric Metric) Comparison {
+	ordered := append([]ClosedRunTally(nil), runs...)
 	sort.Slice(ordered, func(i, j int) bool { return ordered[i].Run.Number < ordered[j].Run.Number })
 	out := Comparison{}
 	for _, r := range ordered {
@@ -110,14 +120,14 @@ func Compare(bank []Question, runs []RunTally, metric Metric) Comparison {
 }
 
 // reference is the most-marked alternative in the latest run that printed
-// the question; nil when that run marked none of them.
-func reference(q Question, ordered []RunTally) *Alternative {
+// the question and marked it at all — a later run nobody answered it in
+// must not blank the earlier ones (#312 review, COR-2).
+func reference(q Question, ordered []ClosedRunTally) *Alternative {
+	alts := byPosition(q.Alternatives)
 	for i := len(ordered) - 1; i >= 0; i-- {
 		if !ordered[i].Printed[q.ID] {
 			continue
 		}
-		alts := append([]Alternative(nil), q.Alternatives...)
-		sort.Slice(alts, func(a, b int) bool { return alts[a].Position < alts[b].Position })
 		var best *Alternative
 		top := 0
 		for k := range alts {
@@ -125,7 +135,9 @@ func reference(q Question, ordered []RunTally) *Alternative {
 				top, best = c, &alts[k]
 			}
 		}
-		return best
+		if best != nil {
+			return best
+		}
 	}
 	return nil
 }

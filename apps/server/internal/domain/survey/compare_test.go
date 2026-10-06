@@ -8,12 +8,12 @@ import (
 
 // Issue #312 S2: the question × run comparison (screen 13).
 
-func runTally(number int, printed []int64, t survey.Tally) survey.RunTally {
+func runTally(number int, printed []int64, t survey.Tally) survey.ClosedRunTally {
 	p := map[int64]bool{}
 	for _, id := range printed {
 		p[id] = true
 	}
-	return survey.RunTally{Run: survey.Run{ID: int64(100 + number), Number: number}, Printed: p, Tally: t}
+	return survey.ClosedRunTally{Run: survey.Run{ID: int64(100 + number), Number: number}, Printed: p, Tally: t}
 }
 
 func cellValues(row survey.ComparisonRow) []any {
@@ -40,7 +40,7 @@ func TestTheComparisonFollowsTheRowRules(t *testing.T) {
 		bank[i].Position = i + 1
 	}
 
-	runs := []survey.RunTally{
+	runs := []survey.ClosedRunTally{
 		// Run 2 listed first on purpose: the comparison orders by number.
 		runTally(2, []int64{1, 2, 3, 4}, survey.Tally{Copies: 10,
 			Counts:   map[int64]int{11: 6, 12: 4, 24: 10, 31: 5, 32: 2, 43: 4},
@@ -88,7 +88,7 @@ func TestTheComparisonFollowsTheRowRules(t *testing.T) {
 
 func TestTheScaleMetricIsSelectable(t *testing.T) {
 	scale := question(2, survey.KindScale, "", "", "")
-	runs := []survey.RunTally{runTally(1, []int64{2}, survey.Tally{Copies: 3,
+	runs := []survey.ClosedRunTally{runTally(1, []int64{2}, survey.Tally{Copies: 3,
 		Counts: map[int64]int{21: 1, 23: 2}, Answered: map[int64]int{2: 3}})}
 	for metric, want := range map[survey.Metric]float64{survey.MetricMean: 7.0 / 3, survey.MetricMedian: 3, survey.MetricMode: 3} {
 		got := survey.Compare([]survey.Question{scale}, runs, metric)
@@ -97,8 +97,41 @@ func TestTheScaleMetricIsSelectable(t *testing.T) {
 		}
 	}
 	// A run where nobody answered the scale has no value.
-	empty := []survey.RunTally{runTally(1, []int64{2}, survey.Tally{Copies: 3})}
+	empty := []survey.ClosedRunTally{runTally(1, []int64{2}, survey.Tally{Copies: 3})}
 	if c := survey.Compare([]survey.Question{scale}, empty, survey.MetricMean).Rows[0].Cells[0]; c.Present {
 		t.Errorf("an unanswered scale has a value: %+v", c)
+	}
+}
+
+// #312 review, COR-2 and COR-5: the reference comes from the latest run
+// that MARKED the question (a later run nobody answered it in must not
+// blank the row); a run in the middle with no answer is skipped by Δ; a
+// tie for the reference goes to bank order.
+func TestTheReferenceSkipsARunNobodyAnswered(t *testing.T) {
+	q := question(1, survey.KindSingle, "A", "B")
+	runs := []survey.ClosedRunTally{
+		runTally(1, []int64{1}, survey.Tally{Copies: 4, Counts: map[int64]int{11: 1, 12: 3}, Answered: map[int64]int{1: 4}}),
+		runTally(2, []int64{1}, survey.Tally{Copies: 4, Counts: map[int64]int{11: 2, 12: 2}, Answered: map[int64]int{1: 4}}),
+		runTally(3, []int64{1}, survey.Tally{Copies: 3}), // printed, nobody answered
+	}
+	row := survey.Compare([]survey.Question{q}, runs, survey.MetricMean).Rows[0]
+	// Run 2 is the latest with marks, and A and B tie there: A, bank order.
+	if row.Reference == nil || row.Reference.Label != "A" {
+		t.Fatalf("reference = %+v, want A", row.Reference)
+	}
+	if got := cellValues(row); got[0] != 25.0 || got[1] != 50.0 || got[2] != "—" {
+		t.Errorf("cells = %v", got)
+	}
+	if row.Delta == nil || *row.Delta != 25 {
+		t.Errorf("Δ = %v, want +25 (run 2 − run 1; run 3 has no value)", row.Delta)
+	}
+}
+
+// ParseMetric: anything but mode or median is the mean.
+func TestParseMetricDefaultsToTheMean(t *testing.T) {
+	for in, want := range map[string]survey.Metric{"mode": survey.MetricMode, "median": survey.MetricMedian, "": survey.MetricMean, "max": survey.MetricMean} {
+		if got := survey.ParseMetric(in); got != want {
+			t.Errorf("ParseMetric(%q) = %s, want %s", in, got, want)
+		}
 	}
 }

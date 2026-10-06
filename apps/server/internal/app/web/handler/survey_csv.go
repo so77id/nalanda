@@ -3,11 +3,12 @@ package handler
 import (
 	"errors"
 	"fmt"
+	"hash/fnv"
 	"net/http"
+	"sort"
 	"strconv"
 	"strings"
 
-	"github.com/so77id/nalanda/apps/server/internal/app/web/flash"
 	"github.com/so77id/nalanda/apps/server/internal/app/web/middleware"
 	"github.com/so77id/nalanda/apps/server/internal/domain/survey"
 )
@@ -73,8 +74,7 @@ func (h *Surveys) RunCSV(w http.ResponseWriter, r *http.Request) {
 	answers, err := h.Service.RunAnswers(r.Context(), one.ID, run.ID)
 	switch {
 	case errors.Is(err, survey.ErrRunNotClosed):
-		flash.Set(w, h.secureCookie, "Los resultados aparecen cuando la pasada se cierra.")
-		http.Redirect(w, r, SurveyRunPathFor(one.ID, run.ID), http.StatusSeeOther)
+		h.redirectNotClosed(w, r, one.ID, run.ID)
 		return
 	case err != nil:
 		h.Log.Error("exporting a run", "run", run.ID, "error", err)
@@ -86,7 +86,7 @@ func (h *Surveys) RunCSV(w http.ResponseWriter, r *http.Request) {
 		header = append(header, text(fmt.Sprintf("P%d · %s", answers.Numbers[q.ID], q.Statement)))
 	}
 	rows := [][]string{header}
-	for i, c := range answers.Copies {
+	for i, c := range shuffled(answers.Run.ID, answers.Copies) {
 		row := []string{strconv.Itoa(i + 1)}
 		for _, q := range answers.Questions {
 			row = append(row, rawCell(q, c.Marks[q.ID]))
@@ -121,38 +121,71 @@ func (h *Surveys) CompareCSV(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	metric := survey.Metric(r.URL.Query().Get("metric"))
-	switch metric {
-	case survey.MetricMode, survey.MetricMedian:
-	default:
-		metric = survey.MetricMean
-	}
+	metric := survey.ParseMetric(r.URL.Query().Get("metric"))
 	cmp, err := h.Service.Compare(r.Context(), one.ID, metric)
 	if err != nil {
 		h.Log.Error("exporting the comparison", "survey", one.ID, "error", err)
 		middleware.WriteError(w, r, http.StatusInternalServerError, surveyBroke)
 		return
 	}
-	header := []string{"Pregunta"}
+	// Bare numbers, for analysis (#312 review, ARQ-1/COR-3): a scale row in
+	// the chosen metric, a single or multi row as the reference
+	// alternative's percent (0-100), an empty cell for "—"; what each row
+	// measures is its own column, and the metric names the file.
+	header := []string{"Pregunta", "Enunciado", "Medida"}
 	for _, run := range cmp.Runs {
 		header = append(header, "P"+strconv.Itoa(run.Number))
 	}
 	header = append(header, "Δ")
 	rows := [][]string{header}
 	for _, row := range cmp.Rows {
-		view := compareRow(row, metric)
-		line := []string{text(fmt.Sprintf("%d %s", view.Number, view.Label))}
-		line = append(line, view.Cells...)
+		q := row.Question
+		measure := string(metric)
+		switch {
+		case row.Context:
+			measure = "contexto"
+		case row.Percent && row.Reference != nil:
+			measure = "% " + alternativeLabel(q, *row.Reference)
+		case row.Percent:
+			measure = "%"
+		}
+		line := []string{strconv.Itoa(q.Position), text(q.Statement), text(measure)}
+		for _, c := range row.Cells {
+			line = append(line, csvNumber(c.Present, c.Value, row.Percent))
+		}
 		delta := ""
 		if row.Delta != nil {
-			delta = strconv.FormatFloat(*row.Delta, 'f', 2, 64)
-			if row.Percent {
-				delta = strconv.FormatFloat(*row.Delta, 'f', 0, 64)
-			}
+			delta = csvNumber(true, *row.Delta, row.Percent)
 		}
 		rows = append(rows, append(line, delta))
 	}
-	writeCSV(w, fmt.Sprintf("encuesta-%d-comparacion.csv", one.ID), rows)
+	writeCSV(w, fmt.Sprintf("encuesta-%d-comparacion-%s.csv", one.ID, metric), rows)
+}
+
+// csvNumber is a value as the export writes it: two decimals for a scale,
+// one for a percent, empty when there is none.
+func csvNumber(present bool, v float64, isPercent bool) string {
+	if !present {
+		return ""
+	}
+	if isPercent {
+		return strconv.FormatFloat(v, 'f', 1, 64)
+	}
+	return strconv.FormatFloat(v, 'f', 2, 64)
+}
+
+// shuffled reorders a run's copies by a hash of (run, copy number): the
+// same order on every export of the run, and none that follows the copy
+// numbers - the row number must not stand in for one (#312 review, SEC-1).
+func shuffled(runID int64, copies []survey.CopyMarks) []survey.CopyMarks {
+	out := append([]survey.CopyMarks(nil), copies...)
+	key := func(n int) uint64 {
+		h := fnv.New64a()
+		_, _ = fmt.Fprintf(h, "%d/%d", runID, n)
+		return h.Sum64()
+	}
+	sort.SliceStable(out, func(i, j int) bool { return key(out[i].CopyNumber) < key(out[j].CopyNumber) })
+	return out
 }
 
 // writeCSV writes rows as an attachment: a BOM, then every field quoted.
@@ -173,6 +206,7 @@ func writeCSV(w http.ResponseWriter, filename string, rows [][]string) {
 	w.Header().Set("Content-Type", "text/csv; charset=utf-8")
 	w.Header().Set("Content-Disposition", `attachment; filename="`+filename+`"`)
 	w.Header().Set("Cache-Control", "private, no-store")
+	w.Header().Set("X-Content-Type-Options", "nosniff")
 	_, _ = w.Write([]byte(b.String()))
 }
 
