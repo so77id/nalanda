@@ -1,0 +1,41 @@
+---
+id: encuesta-etc
+title: Encuesta ETC
+presentation: none
+questions: none
+---
+
+{/* `presentation: none` + `questions: none`: la página enmarca material */}
+{/* de la escuela — no se proyecta aquí ni hay nada que un control pueda */}
+{/* preguntar sobre ella. */}
+
+{/* El PDF vive en Drive y se enmarca, no se copia: la escuela publica una */}
+{/* diapositiva nueva cada semestre (fecha y QR distintos) y la página sigue */}
+{/* sin deploy. El src es el enlace de Compartir, pegado tal cual; el */}
+{/* componente lo reescribe. El archivo debe estar como "cualquiera con el */}
+{/* enlace puede ver" — un archivo sin compartir frama la pantalla de */}
+{/* request-access y NADA aquí lo detecta (ADR-0076 §3). */}
+
+# Encuesta ETC — Evaluación Temprana de Cursos
+
+Encuesta de la escuela: el estudiantado evalúa la marcha del curso a mitad de
+semestre para hacer ajustes formativos. Se proyecta durante los primeros 20
+minutos de una sesión — cátedra o laboratorio — en la semana que la escuela
+indique.
+
+Al proyectarla, recordar al estudiante:
+
+- Código y sección del curso.
+- Nombre del profesor y de los ayudantes, para doble corroboración.
+
+## Diapositiva
+
+<PdfEmbed
+  src="https://drive.google.com/file/d/1GszfXWVL7dloPfsmg5335OnR-b0gPOJB/view?usp=sharing"
+  title="Diapositiva de la Encuesta ETC con código QR"
+/>
+
+El QR y el enlace al formulario viven dentro de la diapositiva, para que la
+página siga sirviendo cuando la escuela los cambie al semestre siguiente. El
+botón de la esquina superior la abre en una pestaña nueva, desde donde se
+puede descargar.
