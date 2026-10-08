@@ -4,6 +4,7 @@
 **Date:** 2026-08-27
 **Decision-makers:** Miguel Rodriguez
 **Amended by:** #298 (2026-09-22) — a second destructive-confirm pair, "Borrar escaneos" (ADR-0075 §5), with its irreversible step in an EXTERNAL component called FIRST (the worker owns `/work`) and a content precondition ("has scans"); the guide records both as the pair's second worked case.
+**Amended by:** #310 (2026-10-05) — `job` is no longer a cascade child of `control`: migration `00023` made the job's subject polymorphic (`subject_kind` + `subject_id`, ADR-0079) and dropped its foreign key, so `Store.PurgeControl` deletes the control's jobs explicitly, in the same transaction as the row. §3's step 2 and §4 read with that substitution; the behaviour §4 describes (`ErrJobNotFound` for a job mid-flight, the runner logging and moving on) is unchanged, and `TestPurgeControlDeletesArchivedRowAndCascades` still pins the job rows going.
 **Source:** #261 (archive + restore + purge-with-typing endpoints), prompted
 by the 2026-08-27 incident where Miguel had to SSH the Jetson and run
 `sudo sqlite3` + `sudo rm -rf` to delete a "control borrar" test control

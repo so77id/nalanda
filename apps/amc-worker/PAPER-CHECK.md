@@ -206,3 +206,42 @@ If it passes, that section says so and the ADR is final. If something fails,
 name which of the five broke: that is what tells WP-E and WP-F whether they are
 building on AMC or on the fallback (our own PDF generation plus OMRChecker),
 and the container boundary is what makes that a swap rather than a rewrite.
+
+## 7. The survey sheet (since #310)
+
+A survey sheet (ADR-0080) is a different document from the control above:
+its own preamble (`apps/server/internal/domain/survey/tex`, Letter only), no
+`\namefield`, no ID grid, horizontal boxes for scales. It has only been read
+synthetically (`tests/08-survey.sh`). Checking it on paper:
+
+1. In the backoffice, create a run of a survey with one question of each
+   kind (single, scale, multi) and download its `sujet.pdf` from the run
+   page once "PDF: listo". Print a few copies.
+2. Mark them the way `08-survey.sh` pins: one copy clean, one with a faint
+   mark on a scale, one with three marks on the multi-select, one blank
+   question.
+3. Since #311 the reading runs from the backoffice: scan the sheets into one
+   PDF and upload it on the run's **Subir escaneos** page. Mark two or three
+   deliberate ambiguities (two boxes on a one-answer question) and one faint
+   mark, so the review has work to do. There are no RUTs on a survey, so the
+   step-4 warning about national IDs does not apply — but the answers are
+   still not committed.
+4. What the reader reports underneath is every copy `needs_review` with
+   `rut_status: unreadable` — the absent ID grid, not a failure; the server
+   ignores it (ADR-0081). The verdict is on the ANSWERS: each clean mark
+   recorded, each ambiguity and the faint mark waiting on **Revisar lectura
+   dudosa** beside the right page image, the blank one recorded as nothing.
+5. Resolve them, then scan ONE copy again and upload it as a second batch:
+   only that copy's reading is replaced, every other decision survives.
+   Finally **Cerrar pasada**.
+6. Open **Ver resultados** (#312): the blank question is left out of its
+   "N respuestas de M copias", the multi-select's percentages are over
+   every read copy, a resolved ambiguity counts as decided and a discarded
+   one as no answer (ADR-0082 §2–3). Filter by the context question and
+   check "N copias de M"; click **Exportar CSV**
+   (`encuesta-<id>-pasada-<n>.csv`) and confirm it carries no AMC copy
+   number.
+
+Record the verdict in **ADR-0080 §Not yet proven**, the same way §6 records
+the control's in ADR-0030 — and, if a sure misread shows up (a stray mark
+read `ok`), say how often: ADR-0081 §Consequences names it.

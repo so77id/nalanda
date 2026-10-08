@@ -109,6 +109,15 @@ fails on a violation, including a transitive one. It is the rule DocumentBuddy's
 ADR-005 records as violated in 13 files, which is why #149 chose to correct on
 entry rather than port the debt.
 
+**A sibling subsystem gets a boundary test of its own.** The four edges say
+nothing about one domain package importing another — `controls` imports
+`jobs`, legitimately — so when a subsystem is built as a SIBLING of an
+existing one, to stay extractable or to keep a guarantee independent of the
+other's code, the boundary is a named test in `internal/architecture_test.go`:
+the two sides as prefix lists, checked over `readPackages`'s transitive
+imports, with a non-vacuity floor on how many packages the walk saw. Worked
+case: `TestTheSurveyDomainDoesNotImportControls` (issue #309, ADR-0078).
+
 **When the domain needs something from outside, it declares the interface and
 infra implements it.** The worked example is `health.Prober`: declared in
 `internal/domain/health`, implemented by `storage.Prober`. The arrow points
@@ -269,8 +278,10 @@ then writes the body — a template that fails halfway must not arrive as a
 200 with a truncated page.
 
 **Add a page**: an HTML file under `templates/pages/`, a `Page`-embedding
-struct in `view.go`, and a `RenderXxx` that delegates to `render` with a
-status parameter. The status is a parameter because the same page (see
+struct in `view.go` — or, for a SIBLING subsystem, in that subsystem's own
+file in package `view` (`view/surveys.go`, ADR-0078: its pages are found,
+and one day moved, together) — and a `RenderXxx` that delegates to
+`render` with a status parameter. The status is a parameter because the same page (see
 below) renders both 200 and 422; a fresh render function that hard-coded
 200 would ship a validation refusal as success.
 
@@ -516,8 +527,8 @@ dropped the third (issue #273).
 `ON DELETE CASCADE` children deletes every child row, and there is no escape
 under goose** (issue #287). `DROP TABLE` under enforced foreign keys performs
 an implicit `DELETE FROM` first, which fires every cascade — so rebuilding
-`control`, the parent of `control_pregunta`, `copia`, `reading`,
-`annotated_copy` and `job`, empties the database in the statement whose
+`control`, the parent of `control_pregunta`, `copia`, `reading` and
+`annotated_copy` (and, before migration `00023`, `job`), empties the database in the statement whose
 purpose was to change one column. The usual answer, `PRAGMA foreign_keys=OFF`
 around the rebuild, is **unavailable**: that pragma is a no-op inside a
 transaction and goose applies each migration inside one. Both halves were

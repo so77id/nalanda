@@ -1,0 +1,98 @@
+{{ define "content" }}
+  <p><a href="{{ .ListURL }}">‹ Encuestas de {{ .Course.Code }}</a></p>
+  <h1>{{ .Name }}</h1>
+  {{ if .Archived }}
+    <p class="aviso">Esta encuesta está archivada: no aparece en la lista del curso.</p>
+  {{ end }}
+  {{ if .Description }}<p>{{ .Description }}</p>{{ end }}
+
+  <div class="survey-actions">
+    <a class="boton" href="{{ .EditURL }}">Editar</a>
+    {{ if .Archived }}
+      <form class="inline" method="post" action="{{ .RestoreAction }}">
+        <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}" />
+        <button type="submit">Restaurar</button>
+      </form>
+    {{ else }}
+      <form class="inline" method="post" action="{{ .ArchiveAction }}">
+        <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}" />
+        <button type="submit">Archivar</button>
+      </form>
+    {{ end }}
+  </div>
+
+  <div class="survey-split">
+    <section aria-labelledby="banco">
+      <h2 id="banco">Banco</h2>
+      <p>{{ .QuestionCount }} pregunta{{ if ne .QuestionCount 1 }}s{{ end }}
+        <a class="boton" href="{{ .NewQuestion }}">+ Agregar pregunta</a></p>
+      {{ if .Locked }}
+        <p class="aviso">
+          Esta encuesta ya tiene una pasada: sus preguntas no se pueden editar,
+          borrar ni mover, para que las pasadas se puedan comparar. Las que
+          agregues ahora se imprimen desde la próxima pasada.
+        </p>
+      {{ end }}
+      {{ if not .Sections }}
+        <p>Todavía no hay preguntas.</p>
+      {{ end }}
+      {{ range .Sections }}
+        {{ if .Label }}<h3>{{ .Label }}</h3>{{ end }}
+        <ol class="survey-bank">
+          {{ range .Questions }}
+            <li value="{{ .Number }}">
+              <p class="survey-statement">{{ .Statement }}</p>
+              <p class="survey-meta">
+                {{ .KindLabel }}{{ if .Alternatives }} · {{ .Alternatives }}{{ end }}
+                {{ if .IsContext }}<span class="survey-tag">(contexto)</span>{{ end }}
+              </p>
+              <div class="survey-actions">
+                {{ if not $.Locked }}
+                {{ if not .First }}
+                  <form class="inline" method="post" action="{{ .MoveAction }}">
+                    <input type="hidden" name="csrf_token" value="{{ $.CSRFToken }}" />
+                    <input type="hidden" name="dir" value="up" />
+                    <button type="submit" aria-label="Subir la pregunta {{ .Number }}">↑</button>
+                  </form>
+                {{ end }}
+                {{ if not .Last }}
+                  <form class="inline" method="post" action="{{ .MoveAction }}">
+                    <input type="hidden" name="csrf_token" value="{{ $.CSRFToken }}" />
+                    <input type="hidden" name="dir" value="down" />
+                    <button type="submit" aria-label="Bajar la pregunta {{ .Number }}">↓</button>
+                  </form>
+                {{ end }}
+                <a class="boton" href="{{ .EditURL }}">Editar</a>
+                {{ end }}
+                <a class="boton" href="{{ .PreviewURL }}">Previsualizar</a>
+                {{ if not $.Locked }}
+                <form class="inline" method="post" action="{{ .DeleteAction }}">
+                  <input type="hidden" name="csrf_token" value="{{ $.CSRFToken }}" />
+                  <button type="submit" aria-label="Borrar la pregunta {{ .Number }}">Borrar</button>
+                </form>
+                {{ end }}
+              </div>
+            </li>
+          {{ end }}
+        </ol>
+      {{ end }}
+    </section>
+
+    <section aria-labelledby="pasadas">
+      <h2 id="pasadas">Pasadas</h2>
+      {{ if not .Runs }}<p>Ninguna pasada aún.</p>{{ end }}
+      <ul class="survey-runs">
+        {{ range .Runs }}
+          <li>
+            {{ if .Cancelled }}<s>{{ end }}<a href="{{ .URL }}">{{ .Label }}</a>{{ if .Cancelled }}</s>{{ end }}
+            <br /><span class="survey-meta">{{ .Meta }}</span>
+            {{ if .ResultsURL }}<br /><a href="{{ .ResultsURL }}">Ver resultados</a>{{ end }}
+          </li>
+        {{ end }}
+      </ul>
+      {{ if .CompareURL }}<p><a class="boton" href="{{ .CompareURL }}">Comparar pasadas</a></p>{{ end }}
+      <p><a href="{{ .BankCSVURL }}">Exportar el banco (CSV)</a></p>
+      {{ if not .Archived }}<p><a class="boton" href="{{ .NewRunURL }}">+ Nueva pasada</a></p>{{ end }}
+    </section>
+  </div>
+{{ end }}

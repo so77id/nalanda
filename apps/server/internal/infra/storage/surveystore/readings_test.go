@@ -1,0 +1,290 @@
+package surveystore_test
+
+import (
+	"errors"
+	"reflect"
+	"testing"
+
+	"github.com/so77id/nalanda/apps/server/internal/domain/survey"
+)
+
+// What a run's scans produced (issue #311 S1), against the real schema.
+
+// readable is a survey with two single-choice questions and a run of it.
+func (f *fixture) readable(t *testing.T) (survey.Run, survey.Question, survey.Question) {
+	t.Helper()
+	s := f.createSurvey(t, "Banco")
+	q1 := f.add(t, s.ID, single("¿1?", "A", "B", "C"))
+	q2 := f.add(t, s.ID, single("¿2?", "A", "B"))
+	return f.createRun(t, s), q1, q2
+}
+
+func TestSaveReadingsStoresCopiesMarksAndItems(t *testing.T) {
+	f := newFixture(t)
+	run, q1, q2 := f.readable(t)
+
+	copies := []survey.CopyReading{
+		{CopyNumber: 1, Pages: []int{1}, Marks: []survey.Mark{
+			{QuestionID: q1.ID, AlternativeID: q1.Alternatives[0].ID},
+			{QuestionID: q2.ID, AlternativeID: q2.Alternatives[1].ID},
+		}},
+		{CopyNumber: 2, Pages: []int{2, 3}, Marks: []survey.Mark{
+			{QuestionID: q2.ID, AlternativeID: q2.Alternatives[0].ID},
+		}, Items: []survey.ReviewItemDraft{{
+			QuestionID: q1.ID, Reason: survey.ReasonAmbiguous,
+			Marked: []int64{q1.Alternatives[0].ID, q1.Alternatives[2].ID},
+		}}},
+	}
+	if err := f.store.SaveReadings(f.ctx, run.ID, nil, copies); err != nil {
+		t.Fatalf("SaveReadings: %v", err)
+	}
+
+	counts, err := f.store.ReadingCounts(f.ctx, run.ID)
+	if err != nil {
+		t.Fatalf("ReadingCounts: %v", err)
+	}
+	if counts != (survey.ReadingCounts{Copies: 2, PendingCopies: 1, PendingItems: 1}) || counts.Clean() != 1 {
+		t.Errorf("counts = %+v", counts)
+	}
+
+	two, err := f.store.CopyByNumber(f.ctx, run.ID, 2)
+	if err != nil || !reflect.DeepEqual(two.Pages, []int{2, 3}) {
+		t.Fatalf("CopyByNumber(2) = %+v, %v", two, err)
+	}
+	marks, err := f.store.MarksForCopy(f.ctx, two.ID)
+	if err != nil || len(marks) != 1 || marks[0].AlternativeID != q2.Alternatives[0].ID {
+		t.Errorf("copy 2's marks = %+v, %v; want only the sure one — an item writes none", marks, err)
+	}
+	items, err := f.store.ItemsForCopy(f.ctx, two.ID)
+	if err != nil || len(items) != 1 {
+		t.Fatalf("ItemsForCopy = %+v, %v", items, err)
+	}
+	if got := items[0]; got.Reason != survey.ReasonAmbiguous || !got.Pending() || got.CopyNumber != 2 ||
+		!reflect.DeepEqual(got.Marked, []int64{q1.Alternatives[0].ID, q1.Alternatives[2].ID}) || len(got.Doubtful) != 0 {
+		t.Errorf("item = %+v", got)
+	}
+	pending, err := f.store.PendingCopyNumbers(f.ctx, run.ID)
+	if err != nil || !reflect.DeepEqual(pending, []int{2}) {
+		t.Errorf("PendingCopyNumbers = %v, %v", pending, err)
+	}
+	if _, err := f.store.CopyByNumber(f.ctx, run.ID, 9); !errors.Is(err, survey.ErrCopyNotFound) {
+		t.Errorf("an unread copy: %v, want ErrCopyNotFound", err)
+	}
+}
+
+// AMC's report covers the whole project, so every batch brings back the
+// copies of the earlier ones. Only a RE-CAPTURED copy is replaced; one the
+// batch did not touch keeps what the professor already decided.
+func TestALaterBatchReplacesOnlyTheCopiesItRecaptured(t *testing.T) {
+	f := newFixture(t)
+	run, q1, q2 := f.readable(t)
+	item := survey.ReviewItemDraft{QuestionID: q1.ID, Reason: survey.ReasonDoubtful, Doubtful: []int64{q1.Alternatives[1].ID}}
+	first := []survey.CopyReading{
+		{CopyNumber: 1, Pages: []int{1}, Items: []survey.ReviewItemDraft{item}},
+		{CopyNumber: 2, Pages: []int{2}, Items: []survey.ReviewItemDraft{item}},
+	}
+	if err := f.store.SaveReadings(f.ctx, run.ID, nil, first); err != nil {
+		t.Fatalf("first batch: %v", err)
+	}
+	// The professor decides copy 1's item (S5 does this through the store;
+	// here the row is stamped directly).
+	f.exec(t, `UPDATE survey_review_item SET resolution = 'discarded', resolved_at = 1
+                WHERE copy_id = (SELECT id FROM survey_copy WHERE run_id = ? AND copy_number = 1)`, run.ID)
+
+	sure := survey.Mark{QuestionID: q2.ID, AlternativeID: q2.Alternatives[0].ID}
+	second := []survey.CopyReading{
+		{CopyNumber: 1, Pages: []int{1}, Items: []survey.ReviewItemDraft{item}}, // the same, untouched
+		{CopyNumber: 2, Pages: []int{4}, Marks: []survey.Mark{sure}},            // re-scanned, now clean
+		{CopyNumber: 3, Pages: []int{5}, Marks: []survey.Mark{sure}},            // new
+	}
+	if err := f.store.SaveReadings(f.ctx, run.ID, []int{2}, second); err != nil {
+		t.Fatalf("second batch: %v", err)
+	}
+
+	one, _ := f.store.CopyByNumber(f.ctx, run.ID, 1)
+	if items, _ := f.store.ItemsForCopy(f.ctx, one.ID); len(items) != 1 || items[0].Pending() {
+		t.Errorf("copy 1's decided item came back as %+v; a copy the batch did not re-capture keeps it", items)
+	}
+	two, _ := f.store.CopyByNumber(f.ctx, run.ID, 2)
+	if items, _ := f.store.ItemsForCopy(f.ctx, two.ID); len(items) != 0 || !reflect.DeepEqual(two.Pages, []int{4}) {
+		t.Errorf("copy 2 was not replaced: pages %v, items %+v", two.Pages, items)
+	}
+	if marks, _ := f.store.MarksForCopy(f.ctx, two.ID); len(marks) != 1 {
+		t.Errorf("copy 2's new reading has %d marks, want 1", len(marks))
+	}
+	counts, _ := f.store.ReadingCounts(f.ctx, run.ID)
+	if counts != (survey.ReadingCounts{Copies: 3}) {
+		t.Errorf("counts = %+v, want three clean copies", counts)
+	}
+}
+
+// Issue #311 S5: resolving an item writes its marks with the stamp, once.
+func TestResolveItemsRecordsTheChoiceOnceAndOnlyOnAnOpenRun(t *testing.T) {
+	f := newFixture(t)
+	run, q1, q2 := f.readable(t)
+	if err := f.store.SaveReadings(f.ctx, run.ID, nil, []survey.CopyReading{{CopyNumber: 1, Items: []survey.ReviewItemDraft{
+		{QuestionID: q1.ID, Reason: survey.ReasonAmbiguous, Marked: []int64{q1.Alternatives[0].ID, q1.Alternatives[1].ID}},
+		{QuestionID: q2.ID, Reason: survey.ReasonDoubtful, Doubtful: []int64{q2.Alternatives[1].ID}},
+	}}}); err != nil {
+		t.Fatal(err)
+	}
+	one, _ := f.store.CopyByNumber(f.ctx, run.ID, 1)
+	items, _ := f.store.ItemsForCopy(f.ctx, one.ID)
+
+	err := f.store.ResolveItems(f.ctx, run.ID, one.ID, []survey.ItemResolution{
+		{ItemID: items[0].ID, Resolution: survey.ResolutionChosen, AlternativeIDs: []int64{q1.Alternatives[1].ID}, Comment: "borró la A"},
+		{ItemID: items[1].ID, Resolution: survey.ResolutionDiscarded},
+	}, f.userID, f.now)
+	if err != nil {
+		t.Fatalf("ResolveItems: %v", err)
+	}
+	marks, _ := f.store.MarksForCopy(f.ctx, one.ID)
+	if len(marks) != 1 || marks[0] != (survey.Mark{QuestionID: q1.ID, AlternativeID: q1.Alternatives[1].ID}) {
+		t.Errorf("marks = %+v, want only the chosen one — a discard records nothing", marks)
+	}
+	items, _ = f.store.ItemsForCopy(f.ctx, one.ID)
+	if items[0].Resolution != survey.ResolutionChosen || items[0].Comment != "borró la A" || items[0].ResolvedBy == nil ||
+		*items[0].ResolvedBy != f.userID || items[0].ResolvedAt == nil || !items[0].ResolvedAt.Equal(f.now) ||
+		items[1].Resolution != survey.ResolutionDiscarded {
+		t.Errorf("items = %+v", items)
+	}
+
+	again := []survey.ItemResolution{{ItemID: items[0].ID, Resolution: survey.ResolutionDiscarded}}
+	if err := f.store.ResolveItems(f.ctx, run.ID, one.ID, again, f.userID, f.now); !errors.Is(err, survey.ErrItemResolved) {
+		t.Errorf("resolving twice: %v, want ErrItemResolved", err)
+	}
+	if err := f.store.ResolveItems(f.ctx, run.ID, one.ID, []survey.ItemResolution{{ItemID: 999, Resolution: survey.ResolutionDiscarded}}, f.userID, f.now); !errors.Is(err, survey.ErrItemNotFound) {
+		t.Errorf("an item of no copy: %v, want ErrItemNotFound", err)
+	}
+	// A run with copies cannot be cancelled (#311 S6), so the run that is
+	// not open is a closed one (S7 closes it through the store).
+	f.exec(t, `UPDATE survey_run SET state = 'closed' WHERE id = ?`, run.ID)
+	if err := f.store.ResolveItems(f.ctx, run.ID, one.ID, nil, f.userID, f.now); !errors.Is(err, survey.ErrRunNotOpen) {
+		t.Errorf("a closed run: %v, want ErrRunNotOpen", err)
+	}
+}
+
+// Issue #311 S7: a run closes with read copies and nothing pending, once.
+func TestCloseRunNeedsReadCopiesAndNothingPending(t *testing.T) {
+	f := newFixture(t)
+	run, q1, _ := f.readable(t)
+	if err := f.store.CloseRun(f.ctx, run.SurveyID, run.ID, f.now); !errors.Is(err, survey.ErrNothingRead) {
+		t.Errorf("closing an unread run: %v, want ErrNothingRead", err)
+	}
+	if err := f.store.SaveReadings(f.ctx, run.ID, nil, []survey.CopyReading{{CopyNumber: 1, Items: []survey.ReviewItemDraft{
+		{QuestionID: q1.ID, Reason: survey.ReasonDoubtful, Doubtful: []int64{q1.Alternatives[0].ID}},
+	}}}); err != nil {
+		t.Fatal(err)
+	}
+	if err := f.store.CloseRun(f.ctx, run.SurveyID, run.ID, f.now); !errors.Is(err, survey.ErrReviewPending) {
+		t.Errorf("closing with a pending item: %v, want ErrReviewPending", err)
+	}
+	one, _ := f.store.CopyByNumber(f.ctx, run.ID, 1)
+	items, _ := f.store.ItemsForCopy(f.ctx, one.ID)
+	if err := f.store.ResolveItems(f.ctx, run.ID, one.ID, []survey.ItemResolution{{ItemID: items[0].ID, Resolution: survey.ResolutionDiscarded}}, f.userID, f.now); err != nil {
+		t.Fatal(err)
+	}
+	if err := f.store.CloseRun(f.ctx, run.SurveyID, run.ID, f.now); err != nil {
+		t.Fatalf("closing a reviewed run: %v", err)
+	}
+	got, _ := f.store.Run(f.ctx, run.SurveyID, run.ID)
+	if got.State != survey.RunClosed || got.ClosedAt == nil || !got.ClosedAt.Equal(f.now) {
+		t.Errorf("after closing: %+v", got)
+	}
+	if err := f.store.CloseRun(f.ctx, run.SurveyID, run.ID, f.now); !errors.Is(err, survey.ErrRunNotOpen) {
+		t.Errorf("closing twice: %v, want ErrRunNotOpen", err)
+	}
+	if err := f.store.DeleteReadings(f.ctx, run.ID); !errors.Is(err, survey.ErrRunNotOpen) {
+		t.Errorf("erasing a closed run's readings: %v, want ErrRunNotOpen", err)
+	}
+	if err := f.store.CancelRun(f.ctx, run.SurveyID, run.ID, f.now); !errors.Is(err, survey.ErrRunNotCancellable) {
+		t.Errorf("cancelling a closed run: %v, want ErrRunNotCancellable", err)
+	}
+}
+
+// #311 review, COR-1: AMC lists a copy as re-captured only when a page of
+// it was OVERWRITTEN. A copy whose second page arrives in a later batch is
+// not re-captured, and its new answers must still land — while what the
+// professor already decided stays.
+func TestALaterBatchRefreshesWhatIsStillUndecided(t *testing.T) {
+	f := newFixture(t)
+	run, q1, q2 := f.readable(t)
+	pending := survey.ReviewItemDraft{QuestionID: q1.ID, Reason: survey.ReasonDoubtful, Doubtful: []int64{q1.Alternatives[0].ID}}
+	if err := f.store.SaveReadings(f.ctx, run.ID, nil, []survey.CopyReading{{CopyNumber: 1, Pages: []int{1}, Items: []survey.ReviewItemDraft{pending}}}); err != nil {
+		t.Fatal(err)
+	}
+	one, _ := f.store.CopyByNumber(f.ctx, run.ID, 1)
+	items, _ := f.store.ItemsForCopy(f.ctx, one.ID)
+	if err := f.store.ResolveItems(f.ctx, run.ID, one.ID, []survey.ItemResolution{
+		{ItemID: items[0].ID, Resolution: survey.ResolutionChosen, AlternativeIDs: []int64{q1.Alternatives[1].ID}},
+	}, f.userID, f.now); err != nil {
+		t.Fatal(err)
+	}
+
+	// Batch 2: page 2 of copy 1 arrives; not re-captured. The report
+	// repeats page 1's reading of q1 and adds q2's sure mark.
+	second := []survey.CopyReading{{CopyNumber: 1, Pages: []int{1, 2},
+		Items: []survey.ReviewItemDraft{pending},
+		Marks: []survey.Mark{{QuestionID: q2.ID, AlternativeID: q2.Alternatives[0].ID}},
+	}}
+	if err := f.store.SaveReadings(f.ctx, run.ID, nil, second); err != nil {
+		t.Fatal(err)
+	}
+	one, _ = f.store.CopyByNumber(f.ctx, run.ID, 1)
+	if !reflect.DeepEqual(one.Pages, []int{1, 2}) {
+		t.Errorf("pages = %v, want the page the second batch brought", one.Pages)
+	}
+	marks, _ := f.store.MarksForCopy(f.ctx, one.ID)
+	want := []survey.Mark{{QuestionID: q1.ID, AlternativeID: q1.Alternatives[1].ID}, {QuestionID: q2.ID, AlternativeID: q2.Alternatives[0].ID}}
+	if !reflect.DeepEqual(marks, want) {
+		t.Errorf("marks = %+v, want the decided q1 and the new q2", marks)
+	}
+	if items, _ := f.store.ItemsForCopy(f.ctx, one.ID); len(items) != 1 || items[0].Pending() {
+		t.Errorf("items = %+v, want the decided one only — the repeated reading must not reopen it", items)
+	}
+}
+
+// #311 review recheck, COR-NEW-1: a later batch keeps a pending item's id
+// — a review page opened before it landed must still post to it — and
+// drops a pending item the new reading no longer flags.
+func TestALaterBatchKeepsPendingItemIDs(t *testing.T) {
+	f := newFixture(t)
+	run, q1, q2 := f.readable(t)
+	items := []survey.ReviewItemDraft{
+		{QuestionID: q1.ID, Reason: survey.ReasonDoubtful, Doubtful: []int64{q1.Alternatives[0].ID}},
+		{QuestionID: q2.ID, Reason: survey.ReasonDoubtful, Doubtful: []int64{q2.Alternatives[0].ID}},
+	}
+	if err := f.store.SaveReadings(f.ctx, run.ID, nil, []survey.CopyReading{{CopyNumber: 1, Items: items}}); err != nil {
+		t.Fatal(err)
+	}
+	one, _ := f.store.CopyByNumber(f.ctx, run.ID, 1)
+	before, _ := f.store.ItemsForCopy(f.ctx, one.ID)
+
+	// The next batch still flags q1 (now ambiguous), and reads q2 as sure.
+	again := []survey.CopyReading{{CopyNumber: 1,
+		Items: []survey.ReviewItemDraft{{QuestionID: q1.ID, Reason: survey.ReasonAmbiguous, Marked: []int64{q1.Alternatives[0].ID, q1.Alternatives[1].ID}}},
+		Marks: []survey.Mark{{QuestionID: q2.ID, AlternativeID: q2.Alternatives[0].ID}},
+	}}
+	if err := f.store.SaveReadings(f.ctx, run.ID, nil, again); err != nil {
+		t.Fatal(err)
+	}
+	after, _ := f.store.ItemsForCopy(f.ctx, one.ID)
+	if len(after) != 1 || after[0].ID != before[0].ID || after[0].Reason != survey.ReasonAmbiguous ||
+		!reflect.DeepEqual(after[0].Marked, []int64{q1.Alternatives[0].ID, q1.Alternatives[1].ID}) || len(after[0].Doubtful) != 0 {
+		t.Errorf("items after = %+v; want q1's item kept under id %d, refreshed to ambiguous, and q2's gone", after, before[0].ID)
+	}
+}
+
+// #311 review recheck, COR-NEW-3: a closed run takes no reading.
+func TestSaveReadingsRefusesARunThatIsNotOpen(t *testing.T) {
+	f := newFixture(t)
+	run, _, _ := f.readable(t)
+	f.exec(t, `UPDATE survey_run SET state = 'closed' WHERE id = ?`, run.ID)
+	err := f.store.SaveReadings(f.ctx, run.ID, nil, []survey.CopyReading{{CopyNumber: 1}})
+	if !errors.Is(err, survey.ErrRunNotOpen) {
+		t.Errorf("saving into a closed run: %v, want ErrRunNotOpen", err)
+	}
+	if counts, _ := f.store.ReadingCounts(f.ctx, run.ID); counts.Copies != 0 {
+		t.Errorf("%d copies written into a closed run", counts.Copies)
+	}
+}

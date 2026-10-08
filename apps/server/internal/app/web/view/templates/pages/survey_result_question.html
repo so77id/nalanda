@@ -1,0 +1,32 @@
+{{ define "content" }}
+  <p><a href="{{ .ResultsURL }}">‹ {{ .RunTitle }}</a></p>
+  {{ with .Block }}
+    <h1>Pregunta {{ .Number }}</h1>
+    <p><strong>{{ .Statement }}</strong></p>
+    <p class="survey-meta">{{ .KindLabel }} · {{ .Base }}</p>
+  {{ end }}
+  {{ if .Filtered }}<p>Filtrado: {{ .Copies }} copia{{ if ne .Copies 1 }}s{{ end }} de {{ .ReadCopies }}</p>{{ end }}
+
+  <section class="survey-result" aria-labelledby="distribucion">
+    <h2 id="distribucion">Distribución</h2>
+    <ul class="survey-bars survey-bars-large" aria-label="{{ .Block.AriaLabel }}">
+      {{ range .Block.Bars }}
+        <li>
+          <span class="survey-bar-label">{{ .Label }}</span>
+          <span class="survey-bar" style="width: {{ .Width }}%"></span>
+          <span>{{ .Count }} ({{ .Percent }})</span>
+        </li>
+      {{ end }}
+    </ul>
+    {{ if .Block.Summary }}<p>{{ .Block.Summary }}</p>{{ end }}
+  </section>
+
+  <h2>En las pasadas cerradas{{ if .Filtered }} <span class="survey-meta">(sin filtro)</span>{{ end }}</h2>
+  <table class="lista">
+    <tbody>
+      {{ range .Across }}
+        <tr><th>{{ if .Current }}<strong>{{ .Label }}</strong>{{ else }}{{ .Label }}{{ end }}</th><td>{{ .Summary }}</td></tr>
+      {{ end }}
+    </tbody>
+  </table>
+{{ end }}

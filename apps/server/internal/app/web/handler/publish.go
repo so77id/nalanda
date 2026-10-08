@@ -446,7 +446,7 @@ func (h *Controls) PublishCopy(w http.ResponseWriter, r *http.Request) {
 // because a lookup blinked. Same policy, and the same reason, as
 // canSend's and jobBannerFor's.
 func (h *Controls) publishJobInFlight(ctx context.Context, controlID string) bool {
-	job, err := h.Jobs.LatestForControlByKind(ctx, controlID, jobs.KindPublish)
+	job, err := h.Jobs.LatestByKind(ctx, controlID, jobs.KindPublish)
 	if err != nil {
 		if !errors.Is(err, jobs.ErrJobNotFound) {
 			h.Log.Warn("publish copy: reading the latest publish job",

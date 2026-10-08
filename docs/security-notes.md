@@ -692,6 +692,13 @@ None of the four is a new failure this WP introduces. The worker moved from
 on the Jetson", but the security posture (loopback, unauthenticated, trusted
 single caller) is unchanged.
 
+**Trigger status after #310 (survey runs, 2026-10-05)**: the `/work`-writing
+trigger had already fired with #166; #310 adds a second writer of the same
+kind — `/work/surveys/<survey>/runs/<run>/inputs/source.tex`, written by the
+server itself, the path built from two integer ids and nothing typed. No new
+caller of the worker, no new network member, still one trusted single caller.
+Nothing to re-resolve.
+
 ### The control worker runs as root and parses scans there (accepted 2026-08-15, #138)
 
 `apps/amc-worker` has no `USER` directive and no `cap_drop`/`no-new-privileges`,
@@ -714,6 +721,22 @@ PDF it did not produce. At that point take the cheap half first (`cap_drop: [ALL
 and `security_opt: ["no-new-privileges:true"]` in compose, `openin_any = p` in a
 `texmf.cnf` override) before deciding on a non-root user.
 
+**Trigger status after #311 (survey scans, 2026-10-05) — not pulled.** A survey
+run's batch is uploaded through the same kind of route as a control's (gated,
+CSRF, the same content-type/extension check — not a magic-byte sniff) by the
+same professor, off the same scanner, and the worker parses it with the same
+`/analyse`. No student or other system reaches it. Its size is bounded the way
+a control's is, which is to say NOT by `NALANDA_MAX_SCAN_BYTES` — only by
+whatever Tailscale Funnel enforces in front of the server, which nobody has
+measured (#311 review, SEC-3): the CSRF middleware parses the whole multipart
+body before the handler's `MaxBytesReader` runs (`middleware.go`, its own
+comment says so), on both upload routes (#311 review, SEC-1). Reachable only
+by a signed-in professor. The new page-image route
+(`/surveys/{id}/runs/{rid}/copies/{copy}/page/{n}`) builds its path from
+integers only — the run's stored survey and run ids, the copy number and a page
+bounded 1–99 — under the run's own project, and serves only a copy the run
+read.
+
 **Named in advance, because WP-E will pull that trigger** (#147 review): a
 control source now includes code with `\lstinputlisting{<absolute path>}` —
 that is the documented shape, because a path relative to the `.tex` does not
@@ -724,6 +747,22 @@ authored in this repo, so it is inside the accepted residual. **When WP-E
 generates the `.tex` from the question bank, every listing path must go through
 `under_work()` before it is written into the document** — otherwise a bank field
 becomes arbitrary-file-read-into-a-student's-graded-PDF, as root.
+
+**Trigger status after #310 (2026-10-05) — read literally, it fired; in
+substance, it did not.** A survey run's sheet is the first `.tex` built from
+text typed into a web form (survey name, description, statements, sections,
+labels) rather than authored in this repo. It is typed only by a signed-in
+professor (the same trust as the scanner it already accepts), and every such
+string goes through `escapeText` in `internal/domain/survey/tex` before it is
+written: TeX's specials (`\`, `{`, `}`, `$`, `&`, `%`, `#`, `_`, `^`, `~`),
+the angle brackets, and babel spanish's active `"` are escaped, so `\input`,
+`\write18`, catcode games and `^^` notation are text; control characters are
+dropped and anything pdflatex cannot print becomes `?`.
+`TestProfessorTypedTextCannotEscapeIntoTeX` pins it, and a hostile sheet was
+compiled in the real worker image and printed every character literally (#310
+S3, review COR-2). So `escapeText` is now the primary control on this input —
+the role `under_work()` plays for listing paths below — and the accepted
+residual is unchanged. The hardening step remains the cheap half above (#173).
 
 **And the cheap half is not a drop-in here**, measured: `openin_any = p` also
 refuses the LEGITIMATE listing, because the documented shape is an absolute
@@ -1183,6 +1222,44 @@ professor's account on a tailnet (ADR-0038), and building an ownership model
 here would be half a feature landing inside a WP about matching. Recorded so
 it is a decision on the record rather than something inherited without
 anyone looking.
+
+**Amended 2026-10-05 (#309), extending the #272 amendment just above — surveys
+inherit the same model, and add no person.** Placed here, out of date order,
+because it qualifies that paragraph. `/courses/{id}/surveys` and `/surveys/{id}/…` are behind the same
+shared professor session and are not scoped either: any signed-in professor
+reaches any course's surveys at sequential ids. Nothing in them is personal —
+no survey table references `student` or `enrollment` (ADR-0078 §2), and the
+only person a survey names is the professor in `created_by` — so the exposure
+is course-design text, and #272's decision covers it unchanged.
+
+**Amended 2026-10-05 (#312) — the answers are now readable, and leave the
+host.** The #309 sentence above stopped being complete: a closed run's
+answers are shown per question (screens 6, 7, 13) and exported as CSV —
+including `results.csv`, one row per copy with every context answer as a
+column — to any signed-in professor, at sequential ids, like everything
+else here. Still no person: a row is a sheet, never a student
+(ADR-0078 §2), and the export carries no AMC copy number. But a survey is
+only as anonymous as its distribution (ADR-0078 §Consequences), and two
+choices make a small group legible:
+
+- **The context filter has no minimum group size** (ADR-0082 §5, Miguel's
+  call): a section of one student filters to that student's answers. So
+  can the raw export, read by its context columns.
+- **The raw export's row order is an UNKEYED hash** of (run, copy): it
+  stops a row number from reading as a copy number, and nothing more —
+  anyone with the code and the run's copy numbers can rebuild it.
+
+Accepted: the professor owns the data, the classes are small, and every
+viewer is a colleague. One control is real and must be reused by any
+future CSV export: text the professor typed that a spreadsheet would run
+as a formula (`= + - @`, a tab, a carriage return) is prefixed with an
+apostrophe (`text()` in `handler/survey_csv.go`, pinned by
+`TestAFormulaLikeStatementIsExportedInert`).
+
+**Review trigger**: a second kind of viewer of survey results (a TA, a
+co-professor of another course), an export leaving the professor's hands
+by design (a share link, an email), or a survey that collects identity.
+Then the minimum group size and a keyed row order come back on the table.
 
 **Amended 2026-09-07 (#273) — the trigger fired, and this is what changed.**
 This entry named WP-3 as "the first WP that emails these people". It does,

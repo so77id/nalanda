@@ -10,6 +10,7 @@ import (
 	"net/http"
 
 	"github.com/so77id/nalanda/apps/server/internal/domain/controls"
+	"github.com/so77id/nalanda/apps/server/internal/domain/survey"
 )
 
 // ResetScans runs POST /scans/reset against the worker (issue #298): it
@@ -27,12 +28,38 @@ import (
 // hold the request far past its deadline and the server's write timeout
 // (measured in the #298 review, COR-1). A busy worker refuses at once.
 func (c *Client) ResetScans(ctx context.Context, project string) error {
+	return c.resetScans(ctx, project, resetErrors{
+		workerErrors: controlsWorkerErrors,
+		busy:         controls.ErrAnalyzerBusy,
+	})
+}
+
+// ResetSurveyScans is ResetScans for a survey run's project (issue #311):
+// the same route, the same TryLock, the survey's sentinels — so the survey
+// never names a controls error (ADR-0078). The SECOND synchronous worker
+// call; it qualifies on the same two properties as the first (it only
+// removes files, it never waits on the lock) — ADR-0081.
+func (c *Client) ResetSurveyScans(ctx context.Context, project string) error {
+	return c.resetScans(ctx, project, resetErrors{
+		workerErrors: surveyWorkerErrors,
+		busy:         survey.ErrAnalyzerBusy,
+	})
+}
+
+// resetErrors are a reset's sentinels: the worker ones, plus busy.
+type resetErrors struct {
+	workerErrors
+	busy error
+}
+
+// resetScans is POST /scans/reset on the wire, for either domain.
+func (c *Client) resetScans(ctx context.Context, project string, errs resetErrors) error {
 	if project == "" {
-		return fmt.Errorf("%w: project path is required", controls.ErrAnalyzerRefused)
+		return fmt.Errorf("%w: project path is required", errs.refused)
 	}
 
 	if !c.generateLock.TryLock() {
-		return controls.ErrAnalyzerBusy
+		return errs.busy
 	}
 	defer c.generateLock.Unlock()
 
@@ -53,7 +80,7 @@ func (c *Client) ResetScans(ctx context.Context, project string) error {
 		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
 			return fmt.Errorf("amcworker: %w", err)
 		}
-		return fmt.Errorf("%w: %v", controls.ErrAnalyzerUnavailable, err)
+		return fmt.Errorf("%w: %v", errs.unavailable, err)
 	}
 	defer func() { _ = resp.Body.Close() }()
 
@@ -61,18 +88,14 @@ func (c *Client) ResetScans(ctx context.Context, project string) error {
 	const maxRead = 1 << 20
 	respBody, err := io.ReadAll(io.LimitReader(resp.Body, maxRead))
 	if err != nil {
-		return fmt.Errorf("%w: read response: %v", controls.ErrAnalyzerUnavailable, err)
+		return fmt.Errorf("%w: read response: %v", errs.unavailable, err)
 	}
 	if resp.StatusCode != http.StatusOK {
 		var payload workerError
 		if jerr := json.Unmarshal(respBody, &payload); jerr == nil && payload.Error != "" {
-			return &controls.AnalyzerRefusedError{
-				Status: resp.StatusCode, Message: payload.Error, Detail: payload.Detail,
-			}
+			return errs.refusal(resp.StatusCode, payload.Error, payload.Detail)
 		}
-		return &controls.AnalyzerRefusedError{
-			Status: resp.StatusCode, Message: truncateForLog(respBody),
-		}
+		return errs.refusal(resp.StatusCode, truncateForLog(respBody), "")
 	}
 	return nil
 }

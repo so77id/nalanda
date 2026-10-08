@@ -1,0 +1,98 @@
+% Fixture for #310 S0 — an anonymous, ungraded survey sheet, the shape
+% apps/server's survey generator (internal/domain/survey/tex) emits.
+%
+% What makes it a survey and not a control, each measured in the S0 spike:
+%
+%   * No \namefield and no \AMCcode: nothing on the sheet says who filled it.
+%     AMC then reports every copy's RUT as `unreadable` and every copy as
+%     `needs_review` — the survey reader ignores both and reads the answers.
+%   * No \element / \shufflegroup, and every choices environment is `[o]`:
+%     questions and alternatives print in authored order, so a scale reads
+%     1..N left to right.
+%   * Every SIMPLE question carries exactly ONE \correctchoice (the first).
+%     A survey has no correct answer, but AMC refuses a simple question with
+%     zero or with all correct ("0/3 good answers not coherent for a simple
+%     question", measured both ways), and `/analyse` needs the scoring tables
+%     `prepare --mode b` + `note` build. The score is computed and ignored;
+%     the marks are what the survey keeps. A questionmult accepts all
+%     \wrongchoice, so the multi-select needs no such stand-in.
+%
+% Content is Spanish because a student reads it (apps/amc-worker/CLAUDE.md
+% §Language).
+%
+% Below the comments this file is EXACTLY what the generator emits for the
+% same bank (TestTheGeneratorReproducesTheSheetTheWorkerReads), so the sheet
+% this script reads is the sheet production prints. Change one, change both.
+
+\documentclass[letterpaper,11pt]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[spanish]{babel}
+\usepackage[box,lang=ES]{automultiplechoice}
+
+\def\unaSymbole{\textsf{\small(una respuesta)}}
+\def\multiSymbole{\textsf{\small(varias respuestas)}}
+
+\AMCrandomseed{1}
+
+\begin{document}
+
+\onecopy{3}{
+
+  \noindent{\large\bf Autoevaluación de conceptos}
+
+  \smallskip
+  \noindent Encuesta anónima: no escribas tu nombre.
+
+  \smallskip
+  \noindent\textbf{Rellena por completo el cuadrado de tu respuesta.}
+
+  \subsection*{Contexto}
+
+  \begin{question}[\unaSymbole]{q1}
+    ¿En qué sección estás?
+    \begin{choices}[o]
+      \correctchoice{A}
+      \wrongchoice{B}
+      \wrongchoice{C}
+    \end{choices}
+  \end{question}
+
+  \subsection*{Confianza en los temas}
+
+  \begin{question}[\unaSymbole]{q2}
+    ¿Qué tan clara te resultó la definición de TDA?
+    \begin{choiceshoriz}[o]
+      \correctchoice{1 Nada clara}
+      \wrongchoice{2}
+      \wrongchoice{3}
+      \wrongchoice{4}
+      \wrongchoice{5 Muy clara}
+    \end{choiceshoriz}
+  \end{question}
+
+  \begin{questionmult}{q3}
+    ¿Qué estructuras te costó más entender? (marca entre 1 y 3)
+    \begin{choices}[o]
+      \wrongchoice{ArrayList}
+      \wrongchoice{Lista enlazada}
+      \wrongchoice{Heap}
+      \wrongchoice{BST}
+    \end{choices}
+  \end{questionmult}
+
+  \begin{question}[\unaSymbole]{q4}
+    El ritmo de las clases te pareció...
+    \begin{choiceshoriz}[o]
+      \correctchoice{1 lento}
+      \wrongchoice{2 adecuado}
+      \wrongchoice{3 rápido}
+      \wrongchoice{4 muy rápido}
+    \end{choiceshoriz}
+  \end{question}
+
+  \clearpage
+}
+
+\end{document}

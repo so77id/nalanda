@@ -32,6 +32,7 @@ import (
 	"github.com/so77id/nalanda/apps/server/internal/domain/jobs"
 	"github.com/so77id/nalanda/apps/server/internal/domain/matching"
 	"github.com/so77id/nalanda/apps/server/internal/domain/roster"
+	"github.com/so77id/nalanda/apps/server/internal/domain/survey"
 	"github.com/so77id/nalanda/apps/server/internal/infra/amcworker/amctest"
 	"github.com/so77id/nalanda/apps/server/internal/infra/config"
 	"github.com/so77id/nalanda/apps/server/internal/infra/email"
@@ -41,6 +42,7 @@ import (
 	"github.com/so77id/nalanda/apps/server/internal/infra/storage/controlstore"
 	"github.com/so77id/nalanda/apps/server/internal/infra/storage/coursestore"
 	"github.com/so77id/nalanda/apps/server/internal/infra/storage/jobstore"
+	"github.com/so77id/nalanda/apps/server/internal/infra/storage/surveystore"
 	"github.com/so77id/nalanda/apps/server/migrations"
 )
 
@@ -134,6 +136,10 @@ func composed(t *testing.T, prober health.Prober) (http.Handler, *authstore.Stor
 				jobs.KindGenerate:  controls.NewGenerateHandler(svc),
 				jobs.KindAnnotate:  controls.NewAnnotateHandler(svc),
 				jobs.KindPublish:   controls.NewPublishHandler(svc),
+				jobs.KindSurveyGenerate: func(context.Context, string, []byte) error {
+					return nil // this table's survey routes never reach the worker
+				},
+				jobs.KindSurveyAnalyse: func(context.Context, string, []byte) error { return nil },
 			}, logger, time.Now)
 			return handler.NewControls(handler.Controls{
 				Service: svc,
@@ -205,6 +211,27 @@ func composed(t *testing.T, prober health.Prober) (http.Handler, *authstore.Stor
 		}),
 		AdminBank: handler.NewAdminBank(handler.AdminBank{
 			Bank:      emptyBank(t),
+			PublicURL: "https://nalanda.test",
+			Log:       logger,
+		}),
+		// Epic #308: the real survey store over the same database, like
+		// the controls above — these cases are about the table the binary
+		// wires.
+		Surveys: handler.NewSurveys(handler.Surveys{
+			Service: survey.NewService(survey.Service{
+				Store: surveystore.New(db), Generator: &amctest.Fake{}, Analyzer: &amctest.Fake{}, WorkDir: t.TempDir(), Now: time.Now,
+			}),
+			Jobs: jobstore.New(db),
+			Runner: jobs.NewRunner(jobstore.New(db), jobs.Handlers{
+				jobs.KindReanalyse:      func(context.Context, string, []byte) error { return nil },
+				jobs.KindAnalyse:        func(context.Context, string, []byte) error { return nil },
+				jobs.KindGenerate:       func(context.Context, string, []byte) error { return nil },
+				jobs.KindAnnotate:       func(context.Context, string, []byte) error { return nil },
+				jobs.KindPublish:        func(context.Context, string, []byte) error { return nil },
+				jobs.KindSurveyGenerate: func(context.Context, string, []byte) error { return nil },
+				jobs.KindSurveyAnalyse:  func(context.Context, string, []byte) error { return nil },
+			}, logger, time.Now),
+			Courses:   roster.NewService(coursestore.New(db), roster.NewCanvasSource(canvas.NewService(nil, unreachableCanvas{}))),
 			PublicURL: "https://nalanda.test",
 			Log:       logger,
 		}),

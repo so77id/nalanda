@@ -916,25 +916,16 @@ func sectionOptionsFromBank(b *bank.Bank) []view.DocumentSections {
 // fillPublication read it for the Publicar button on this same request; a
 // failed publication links to /profile only while it is false (issue #297).
 func (h *Controls) jobBannerFor(ctx context.Context, controlID string, gmailConnected bool) *view.JobBanner {
-	job, err := h.Jobs.LatestForControl(ctx, controlID)
+	job, err := h.Jobs.LatestForSubject(ctx, jobs.SubjectControl, controlID)
 	if err != nil {
 		if !errors.Is(err, jobs.ErrJobNotFound) {
 			h.Log.Warn("jobs: reading banner", "control", controlID, "error", err)
 		}
 		return nil
 	}
-	running := !job.Status.IsTerminal()
-	if !running && job.ViewedAt != nil {
+	banner := bannerFromJob(job, spanishKind(job.Kind))
+	if banner == nil {
 		return nil
-	}
-	banner := &view.JobBanner{
-		JobID:      job.ID,
-		Kind:       spanishKind(job.Kind),
-		Running:    running,
-		Done:       job.Status == jobs.StatusDone,
-		Failed:     job.Status == jobs.StatusFailed,
-		Error:      job.Error,
-		DismissURL: jobDismissURL(job.ID),
 	}
 	if banner.Failed && job.Kind == jobs.KindPublish {
 		// ONLY a publication's detail reaches the banner (issue #297). Its
@@ -961,16 +952,6 @@ func (h *Controls) jobBannerFor(ctx context.Context, controlID string, gmailConn
 			banner.ProfileURL = ProfilePath
 		}
 	}
-	if banner.Done {
-		banner.Notice = job.Notice
-	}
-	if running {
-		start := job.CreatedAt
-		if job.StartedAt != nil {
-			start = *job.StartedAt
-		}
-		banner.StartedAgo = humanElapsed(time.Since(start))
-	}
 	return banner
 }
 
@@ -993,7 +974,7 @@ func (h *Controls) jobBannerFor(ctx context.Context, controlID string, gmailConn
 // as jobBannerFor: a lost jobs.Store read shouldn't hide a
 // legitimately-there download.
 func (h *Controls) pdfsReadyFor(ctx context.Context, controlID string) bool {
-	job, err := h.Jobs.LatestForControlByKind(ctx, controlID, jobs.KindGenerate)
+	job, err := h.Jobs.LatestByKind(ctx, controlID, jobs.KindGenerate)
 	if err != nil {
 		if !errors.Is(err, jobs.ErrJobNotFound) {
 			h.Log.Warn("jobs: reading generate status", "control", controlID, "error", err)
@@ -1036,15 +1017,11 @@ func humanElapsed(d time.Duration) string {
 	return fmt.Sprintf("hace %d h", int(d.Hours()))
 }
 
-// JobDismissPath is POST target for the "Refrescar" / "Cerrar aviso" button
-// on the banner (issue #249). The id lives in the URL segment; the
-// handler stamps viewed_at on TERMINAL jobs (done|failed) and redirects
-// back to the control. On a non-terminal job it just redirects — see
-// DismissJob's doc for why (issue #257).
-const JobDismissPath = "/jobs/{id}/dismiss"
-
 // DismissJob stamps viewed_at on a TERMINAL job (done | failed) and
-// redirects back to its control. A dismiss on a queued / running job
+// redirects back to the page its banner lives on — its control's, or since
+// #310 its survey run's (jobSubjectURL, handler/jobs.go): the route serves
+// every subject of the one queue (ADR-0079), and stays a Controls method
+// only because it was born here. A dismiss on a queued / running job
 // is a plain page reload: no stamp, just the redirect. The distinction
 // matters because jobBannerFor hides the banner once viewed_at is set
 // on a non-running row — stamping while the job is still working would
@@ -1071,11 +1048,12 @@ func (h *Controls) DismissJob(w http.ResponseWriter, r *http.Request) {
 			"Algo se rompió en el servidor. Vuelve a intentarlo en unos segundos.")
 		return
 	}
+	back := jobSubjectURL(job)
 	if !job.Status.IsTerminal() {
 		// "Refrescar" while the job is still working: reload the page
 		// and let the runner keep going. Stamping viewed_at here would
 		// mute the eventual terminal banner (issue #257).
-		http.Redirect(w, r, controlDetailURL(job.ControlID), http.StatusSeeOther)
+		http.Redirect(w, r, back, http.StatusSeeOther)
 		return
 	}
 	if err := h.Jobs.MarkDismissed(r.Context(), jobID, time.Now()); err != nil {
@@ -1084,11 +1062,7 @@ func (h *Controls) DismissJob(w http.ResponseWriter, r *http.Request) {
 			"No se pudo cerrar el aviso.")
 		return
 	}
-	http.Redirect(w, r, controlDetailURL(job.ControlID), http.StatusSeeOther)
-}
-
-func jobDismissURL(id int64) string {
-	return "/jobs/" + strconv.FormatInt(id, 10) + "/dismiss"
+	http.Redirect(w, r, back, http.StatusSeeOther)
 }
 
 // isValidControlID enforces the ID's shape at the URL boundary so a stray

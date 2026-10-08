@@ -1,0 +1,80 @@
+{{ define "content" }}
+  <p><a href="{{ .SurveyURL }}">‹ {{ .SurveyName }}</a></p>
+
+  {{ template "run_banner" . }}
+
+  <h1>{{ .Title }}</h1>
+  <p>{{ if not .Cancelled }}{{ .QuestionCount }} pregunta{{ if ne .QuestionCount 1 }}s{{ end }} · {{ end }}aplicada {{ .AppliedOn }} · {{ .Copies }} copias · {{ .StateLabel }}</p>
+
+  <div class="survey-actions">
+    {{ if .EditURL }}<a class="boton" href="{{ .EditURL }}">Editar</a>{{ end }}
+    {{ if .CanCancel }}
+      <form class="inline" method="post" action="{{ .CancelAction }}">
+        <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}" />
+        <button type="submit">Cancelar pasada</button>
+      </form>
+    {{ end }}
+  </div>
+
+  {{ if .Cancelled }}
+  <p>Esta pasada se canceló: no se imprime ni se lee, y sus preguntas ya no bloquean el banco.</p>
+  {{ else }}
+  <ol class="survey-steps" aria-label="Etapas de la pasada">
+    {{ range .Steps }}
+      <li class="survey-step{{ if .Done }} survey-step-done{{ end }}">
+        {{ .Label }}<span class="survey-meta"> · {{ .Status }}</span>
+      </li>
+    {{ end }}
+  </ol>
+
+  <h2>Copias</h2>
+  <table class="lista">
+    <tbody>
+      <tr><th>Generadas</th><td>{{ .Copies }}</td></tr>
+      <tr><th>Leídas</th><td>{{ .Read }}</td></tr>
+      <tr><th>Lectura limpia</th><td>{{ .Clean }}</td></tr>
+      <tr><th>Por revisar</th><td>{{ .Pending }}</td></tr>
+      <tr><th>Faltantes</th><td>{{ .Missing }}</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Acciones</h2>
+  <ul class="survey-run-actions">
+    {{ if .ResultsURL }}
+      <li><a class="boton" href="{{ .ResultsURL }}">Ver resultados</a> <a class="boton" href="{{ .CompareURL }}">Comparar pasadas</a></li>
+    {{ end }}
+    <li>
+      {{ if .PDFReady }}
+        <a class="boton" href="{{ .PDFURL }}">Descargar PDF para imprimir</a> ({{ .Copies }} copias)
+      {{ else }}
+        <span class="boton" aria-disabled="true">Descargar PDF para imprimir</span> (todavía se está generando)
+      {{ end }}
+    </li>
+    <li>
+      <a class="boton" href="{{ .ScansURL }}">{{ if .Open }}Subir escaneos{{ else }}Ver escaneos{{ end }}</a>
+      {{ if .Read }}({{ .Read }} leída{{ if ne .Read 1 }}s{{ end }}{{ if .Missing }} · faltan {{ .Missing }}{{ end }}){{ end }}
+    </li>
+    <li>
+      {{ if .ReviewURL }}
+        <a class="boton" href="{{ .ReviewURL }}">Revisar lectura dudosa</a>
+        ({{ .Pending }} copia{{ if ne .Pending 1 }}s esperan{{ else }} espera{{ end }})
+      {{ else }}
+        <span class="boton" aria-disabled="true">Revisar lectura dudosa</span> (nada por revisar)
+      {{ end }}
+    </li>
+    {{ if .CloseAction }}
+      <li>
+        {{ if .CanClose }}
+          <form class="inline" method="post" action="{{ .CloseAction }}">
+            <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}" />
+            <button type="submit">Cerrar pasada</button>
+          </form>
+          (desde ahora sus respuestas cuentan; no se puede reabrir)
+        {{ else }}
+          <span class="boton" aria-disabled="true">Cerrar pasada</span> ({{ .CloseHint }})
+        {{ end }}
+      </li>
+    {{ end }}
+  </ul>
+  {{ end }}
+{{ end }}

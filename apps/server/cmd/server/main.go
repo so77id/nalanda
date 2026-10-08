@@ -28,6 +28,7 @@ import (
 	"github.com/so77id/nalanda/apps/server/internal/domain/matching"
 	"github.com/so77id/nalanda/apps/server/internal/domain/roster"
 	"github.com/so77id/nalanda/apps/server/internal/domain/secret"
+	"github.com/so77id/nalanda/apps/server/internal/domain/survey"
 	"github.com/so77id/nalanda/apps/server/internal/infra/amcworker"
 	// Aliased because the domain package one import above owns the name:
 	// the domain is what the rest of this file talks about, and the
@@ -44,6 +45,7 @@ import (
 	"github.com/so77id/nalanda/apps/server/internal/infra/storage/coursestore"
 	"github.com/so77id/nalanda/apps/server/internal/infra/storage/jobstore"
 	"github.com/so77id/nalanda/apps/server/internal/infra/storage/secretstore"
+	"github.com/so77id/nalanda/apps/server/internal/infra/storage/surveystore"
 	"github.com/so77id/nalanda/apps/server/migrations"
 )
 
@@ -270,6 +272,17 @@ func run(logger *slog.Logger) error {
 		Log:  logger,
 	})
 
+	// Epic #308: the survey subsystem (ADR-0078). Its own store over its
+	// own tables; it shares the database handle, the worker client and the
+	// shared volume with the controls, and no type.
+	surveyService := survey.NewService(survey.Service{
+		Store:     surveystore.New(db),
+		Generator: amcClient,
+		Analyzer:  amcClient,
+		WorkDir:   cfg.WorkDir,
+		Now:       time.Now,
+	})
+
 	// Issue #249: the async job runner. One goroutine, one queue,
 	// jobs persisted so a Watchtower restart does not lose them.
 	// Handlers register per Kind as the WP migrates each operation
@@ -282,6 +295,9 @@ func run(logger *slog.Logger) error {
 		jobs.KindGenerate:  controls.NewGenerateHandler(controlsService),
 		jobs.KindAnnotate:  controls.NewAnnotateHandler(controlsService),
 		jobs.KindPublish:   controls.NewPublishHandler(controlsService),
+		// Issue #310: the survey Kinds, from the owning domain (ADR-0079).
+		jobs.KindSurveyGenerate: survey.NewGenerateHandler(surveyService),
+		jobs.KindSurveyAnalyse:  survey.NewAnalyseHandler(surveyService),
 	}, logger, time.Now)
 	if err := jobRunner.Sweep(ctx); err != nil {
 		return err
@@ -364,6 +380,15 @@ func run(logger *slog.Logger) error {
 			Bank:      liveBank,
 			PublicURL: cfg.PublicURL,
 			Log:       logger,
+		}),
+		Surveys: handler.NewSurveys(handler.Surveys{
+			Service:      surveyService,
+			Courses:      rosterService,
+			Jobs:         jobStore,
+			Runner:       jobRunner,
+			PublicURL:    cfg.PublicURL,
+			Log:          logger,
+			MaxScanBytes: cfg.MaxScanBytes,
 		}),
 		Login: handler.NewAuth(handler.Auth{
 			Login: login,

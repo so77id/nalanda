@@ -1,0 +1,399 @@
+{
+ "pages": {
+  "captured": 3,
+  "failed": 0
+ },
+ "scoring": {
+  "seuil": 0.15,
+  "ticked": 0.15,
+  "stale": false
+ },
+ "copies": {
+  "1": {
+   "rut": "________",
+   "rut_status": "unreadable",
+   "rut_columns": [
+    {
+     "column": 0,
+     "digits": []
+    },
+    {
+     "column": 1,
+     "digits": []
+    },
+    {
+     "column": 2,
+     "digits": []
+    },
+    {
+     "column": 3,
+     "digits": []
+    },
+    {
+     "column": 4,
+     "digits": []
+    },
+    {
+     "column": 5,
+     "digits": []
+    },
+    {
+     "column": 6,
+     "digits": []
+    },
+    {
+     "column": 7,
+     "digits": []
+    }
+   ],
+   "answers": [
+    {
+     "question": 1,
+     "name": "q1",
+     "type": "simple",
+     "marked": [
+      1
+     ],
+     "doubtful": [],
+     "status": "ok",
+     "score": 1.0,
+     "max": 1.0,
+     "position": 1,
+     "alternatives": [
+      1,
+      2,
+      3
+     ]
+    },
+    {
+     "question": 2,
+     "name": "q2",
+     "type": "simple",
+     "marked": [
+      3
+     ],
+     "doubtful": [],
+     "status": "ok",
+     "score": 0.0,
+     "max": 1.0,
+     "position": 2,
+     "alternatives": [
+      1,
+      2,
+      3,
+      4,
+      5
+     ]
+    },
+    {
+     "question": 3,
+     "name": "q3",
+     "type": "multiple",
+     "marked": [
+      1,
+      3
+     ],
+     "doubtful": [],
+     "status": "ok",
+     "score": 2.0,
+     "max": 0.0,
+     "position": 3,
+     "alternatives": [
+      1,
+      2,
+      3,
+      4
+     ]
+    },
+    {
+     "question": 4,
+     "name": "q4",
+     "type": "simple",
+     "marked": [
+      2
+     ],
+     "doubtful": [],
+     "status": "ok",
+     "score": 0.0,
+     "max": 1.0,
+     "position": 4,
+     "alternatives": [
+      1,
+      2,
+      3,
+      4
+     ]
+    }
+   ],
+   "expected_questions": 4,
+   "seen_questions": 4,
+   "missing_questions": [],
+   "status": "needs_review"
+  },
+  "2": {
+   "rut": "________",
+   "rut_status": "unreadable",
+   "rut_columns": [
+    {
+     "column": 0,
+     "digits": []
+    },
+    {
+     "column": 1,
+     "digits": []
+    },
+    {
+     "column": 2,
+     "digits": []
+    },
+    {
+     "column": 3,
+     "digits": []
+    },
+    {
+     "column": 4,
+     "digits": []
+    },
+    {
+     "column": 5,
+     "digits": []
+    },
+    {
+     "column": 6,
+     "digits": []
+    },
+    {
+     "column": 7,
+     "digits": []
+    }
+   ],
+   "answers": [
+    {
+     "question": 1,
+     "name": "q1",
+     "type": "simple",
+     "marked": [
+      1,
+      2
+     ],
+     "doubtful": [],
+     "status": "ambiguous",
+     "score": 0.0,
+     "max": 1.0,
+     "position": 1,
+     "alternatives": [
+      1,
+      2,
+      3
+     ]
+    },
+    {
+     "question": 2,
+     "name": "q2",
+     "type": "simple",
+     "marked": [],
+     "doubtful": [
+      {
+       "answer": 4,
+       "darkness": 0.144
+      }
+     ],
+     "status": "doubtful",
+     "score": 0.0,
+     "max": 1.0,
+     "position": 2,
+     "alternatives": [
+      1,
+      2,
+      3,
+      4,
+      5
+     ]
+    },
+    {
+     "question": 3,
+     "name": "q3",
+     "type": "multiple",
+     "marked": [],
+     "doubtful": [],
+     "status": "blank",
+     "score": 0.0,
+     "max": 0.0,
+     "position": 3,
+     "alternatives": [
+      1,
+      2,
+      3,
+      4
+     ]
+    },
+    {
+     "question": 4,
+     "name": "q4",
+     "type": "simple",
+     "marked": [
+      1
+     ],
+     "doubtful": [],
+     "status": "ok",
+     "score": 1.0,
+     "max": 1.0,
+     "position": 4,
+     "alternatives": [
+      1,
+      2,
+      3,
+      4
+     ]
+    }
+   ],
+   "expected_questions": 4,
+   "seen_questions": 4,
+   "missing_questions": [],
+   "status": "needs_review"
+  },
+  "3": {
+   "rut": "________",
+   "rut_status": "unreadable",
+   "rut_columns": [
+    {
+     "column": 0,
+     "digits": []
+    },
+    {
+     "column": 1,
+     "digits": []
+    },
+    {
+     "column": 2,
+     "digits": []
+    },
+    {
+     "column": 3,
+     "digits": []
+    },
+    {
+     "column": 4,
+     "digits": []
+    },
+    {
+     "column": 5,
+     "digits": []
+    },
+    {
+     "column": 6,
+     "digits": []
+    },
+    {
+     "column": 7,
+     "digits": []
+    }
+   ],
+   "answers": [
+    {
+     "question": 1,
+     "name": "q1",
+     "type": "simple",
+     "marked": [
+      3
+     ],
+     "doubtful": [],
+     "status": "ok",
+     "score": 0.0,
+     "max": 1.0,
+     "position": 1,
+     "alternatives": [
+      1,
+      2,
+      3
+     ]
+    },
+    {
+     "question": 2,
+     "name": "q2",
+     "type": "simple",
+     "marked": [
+      2,
+      4
+     ],
+     "doubtful": [],
+     "status": "ambiguous",
+     "score": 0.0,
+     "max": 1.0,
+     "position": 2,
+     "alternatives": [
+      1,
+      2,
+      3,
+      4,
+      5
+     ]
+    },
+    {
+     "question": 3,
+     "name": "q3",
+     "type": "multiple",
+     "marked": [
+      1,
+      2,
+      3,
+      4
+     ],
+     "doubtful": [],
+     "status": "ok",
+     "score": 0.0,
+     "max": 0.0,
+     "position": 3,
+     "alternatives": [
+      1,
+      2,
+      3,
+      4
+     ]
+    },
+    {
+     "question": 4,
+     "name": "q4",
+     "type": "simple",
+     "marked": [],
+     "doubtful": [],
+     "status": "blank",
+     "score": 0.0,
+     "max": 1.0,
+     "position": 4,
+     "alternatives": [
+      1,
+      2,
+      3,
+      4
+     ]
+    }
+   ],
+   "expected_questions": 4,
+   "seen_questions": 4,
+   "missing_questions": [],
+   "status": "needs_review"
+  }
+ },
+ "pages_per_copy": {
+  "1": [
+   1
+  ],
+  "2": [
+   1
+  ],
+  "3": [
+   1
+  ]
+ },
+ "needs_review": [
+  "1",
+  "2",
+  "3"
+ ],
+ "batch": {
+  "captured": 3,
+  "failed": 0,
+  "recaptured_copies": []
+ }
+}

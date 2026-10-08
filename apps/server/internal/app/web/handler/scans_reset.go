@@ -71,7 +71,7 @@ func (h *Controls) ScansReset(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	if job, err := h.Jobs.LatestForControl(r.Context(), c.ID); err == nil && !job.Status.IsTerminal() {
+	if job, err := h.Jobs.LatestForSubject(r.Context(), jobs.SubjectControl, c.ID); err == nil && !job.Status.IsTerminal() {
 		middleware.WriteError(w, r, http.StatusConflict,
 			"Hay un trabajo en curso sobre este control. Espera a que termine y vuelve a intentarlo.")
 		return
@@ -121,7 +121,7 @@ func (h *Controls) ScansReset(w http.ResponseWriter, r *http.Request) {
 	// The banner of the job that led here — a failed analyse, a notice about
 	// re-read copies — speaks of scans that no longer exist (#298 review,
 	// COR-6). Best-effort: the reset is done, and a banner is an aid.
-	if job, err := h.Jobs.LatestForControl(r.Context(), c.ID); err == nil && job.Status.IsTerminal() {
+	if job, err := h.Jobs.LatestForSubject(r.Context(), jobs.SubjectControl, c.ID); err == nil && job.Status.IsTerminal() {
 		if err := h.Jobs.MarkDismissed(r.Context(), job.ID, time.Now()); err != nil {
 			h.Log.Warn("scans reset: dismissing the last banner", "id", c.ID, "error", err)
 		}

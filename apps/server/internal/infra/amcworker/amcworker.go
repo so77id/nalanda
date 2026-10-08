@@ -1,7 +1,8 @@
-// Package amcworker is the HTTP adapter for apps/amc-worker's /generate route
-// (ADR-0030). It implements controls.Generator: an infra type over an interface
-// declared where the domain consumes it (backend-code-style.md §The dependency
-// rule).
+// Package amcworker is the HTTP adapter for apps/amc-worker (ADR-0030). It
+// implements controls.Generator / Analyzer / Annotator and, since #310, the
+// survey domain's ports — infra types over interfaces declared where each
+// domain consumes them (backend-code-style.md §The dependency rule). This
+// package may see both domains; neither domain sees the other (ADR-0078).
 //
 // The wrapper here does two things AMC does not do for itself. It serialises
 // calls so two concurrent generations of the same project cannot race AMC's
@@ -23,6 +24,7 @@ import (
 	"sync"
 
 	"github.com/so77id/nalanda/apps/server/internal/domain/controls"
+	"github.com/so77id/nalanda/apps/server/internal/domain/survey"
 )
 
 // Client is a controls.Generator against a running worker. Constructed once
@@ -103,36 +105,60 @@ func New(cfg Config) *Client {
 // method does not add its own timeout — a second one would be a value the
 // domain does not know about, able to overrule what the handler set.
 func (c *Client) Generate(ctx context.Context, req controls.GenerateRequest) (controls.Assets, error) {
-	if req.Copies < 1 {
+	sujet, err := c.generate(ctx, req.Project, req.Source, req.Copies,
+		controls.ErrGeneratorRefused, controls.ErrGeneratorUnavailable)
+	if err != nil {
+		return controls.Assets{}, err
+	}
+	return controls.Assets{Sujet: sujet}, nil
+}
+
+// GenerateSheet is Generate for a survey run's sheet (issue #310): the same
+// route, the same lock, the survey domain's own request type and
+// sentinels — survey never sees a controls type (ADR-0078).
+func (c *Client) GenerateSheet(ctx context.Context, req survey.GenerateRequest) (survey.Assets, error) {
+	sujet, err := c.generate(ctx, req.Project, req.Source, req.Copies,
+		survey.ErrGeneratorRefused, survey.ErrGeneratorUnavailable)
+	if err != nil {
+		return survey.Assets{}, err
+	}
+	return survey.Assets{Sujet: sujet}, nil
+}
+
+// generate is POST /generate on the wire, for either domain: refused and
+// unavailable are the CALLER's sentinels, so each domain branches on its
+// own and neither imports the other's. Returns the subject PDF's path.
+func (c *Client) generate(ctx context.Context, project, source string, copies int, refused, unavailable error) (string, error) {
+	if copies < 1 {
 		// Refused before we serialise, so a bad call does not wait behind
 		// a good one for no reason.
-		return controls.Assets{}, fmt.Errorf("%w: copies must be at least 1, got %d",
-			controls.ErrGeneratorRefused, req.Copies)
+		return "", fmt.Errorf("%w: copies must be at least 1, got %d",
+			refused, copies)
 	}
-	if req.Project == "" {
-		return controls.Assets{}, fmt.Errorf("%w: project path is required", controls.ErrGeneratorRefused)
+	if project == "" {
+		return "", fmt.Errorf("%w: project path is required", refused)
 	}
-	if req.Source == "" {
-		return controls.Assets{}, fmt.Errorf("%w: source path is required", controls.ErrGeneratorRefused)
+	if source == "" {
+		return "", fmt.Errorf("%w: source path is required", refused)
 	}
 
 	c.generateLock.Lock()
 	defer c.generateLock.Unlock()
 
 	body, err := json.Marshal(generateRequestBody{
-		Project: req.Project,
-		Source:  req.Source,
-		Copies:  req.Copies,
+		Project: project,
+		Source:  source,
+		Copies:  copies,
 	})
 	if err != nil {
 		// json.Marshal of a value with basic types cannot fail today; the
 		// branch exists because the encoder's contract does not promise so.
-		return controls.Assets{}, fmt.Errorf("amcworker: encode request: %w", err)
+		return "", fmt.Errorf("amcworker: encode request: %w", err)
 	}
 
 	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, c.base+"/generate", bytes.NewReader(body))
 	if err != nil {
-		return controls.Assets{}, fmt.Errorf("amcworker: build request: %w", err)
+		return "", fmt.Errorf("amcworker: build request: %w", err)
 	}
 	httpReq.Header.Set("Content-Type", "application/json")
 
@@ -143,9 +169,9 @@ func (c *Client) Generate(ctx context.Context, req controls.GenerateRequest) (co
 		// waiting. Report it as such so a canceled request does not read
 		// as a worker outage in the logs.
 		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
-			return controls.Assets{}, fmt.Errorf("amcworker: %w", err)
+			return "", fmt.Errorf("amcworker: %w", err)
 		}
-		return controls.Assets{}, fmt.Errorf("%w: %v", controls.ErrGeneratorUnavailable, err)
+		return "", fmt.Errorf("%w: %v", unavailable, err)
 	}
 	defer func() { _ = resp.Body.Close() }()
 
@@ -154,7 +180,7 @@ func (c *Client) Generate(ctx context.Context, req controls.GenerateRequest) (co
 	const maxRead = 1 << 20
 	respBody, err := io.ReadAll(io.LimitReader(resp.Body, maxRead))
 	if err != nil {
-		return controls.Assets{}, fmt.Errorf("%w: read response: %v", controls.ErrGeneratorUnavailable, err)
+		return "", fmt.Errorf("%w: read response: %v", unavailable, err)
 	}
 
 	if resp.StatusCode != http.StatusOK {
@@ -173,20 +199,20 @@ func (c *Client) Generate(ctx context.Context, req controls.GenerateRequest) (co
 		var payload workerError
 		if jerr := json.Unmarshal(respBody, &payload); jerr == nil && payload.Error != "" {
 			if payload.Detail != "" {
-				return controls.Assets{}, fmt.Errorf("%w: %s answered %d: %s (worker detail: %s)",
-					controls.ErrGeneratorRefused, req.Project, resp.StatusCode,
+				return "", fmt.Errorf("%w: %s answered %d: %s (worker detail: %s)",
+					refused, project, resp.StatusCode,
 					payload.Error, truncateDetail(payload.Detail))
 			}
-			return controls.Assets{}, fmt.Errorf("%w: %s answered %d: %s",
-				controls.ErrGeneratorRefused, req.Project, resp.StatusCode, payload.Error)
+			return "", fmt.Errorf("%w: %s answered %d: %s",
+				refused, project, resp.StatusCode, payload.Error)
 		}
-		return controls.Assets{}, fmt.Errorf("%w: %s answered %d: %s",
-			controls.ErrGeneratorRefused, req.Project, resp.StatusCode, truncateForLog(respBody))
+		return "", fmt.Errorf("%w: %s answered %d: %s",
+			refused, project, resp.StatusCode, truncateForLog(respBody))
 	}
 
 	var payload generateResponseBody
 	if err := json.Unmarshal(respBody, &payload); err != nil {
-		return controls.Assets{}, fmt.Errorf("%w: decode response: %v", controls.ErrGeneratorRefused, err)
+		return "", fmt.Errorf("%w: decode response: %v", refused, err)
 	}
 
 	// The wire-level completeness checks stay HERE, on the wire type,
@@ -195,15 +221,15 @@ func (c *Client) Generate(ctx context.Context, req controls.GenerateRequest) (co
 	// both reduce to ErrGeneratorRefused, which is the shape a handler
 	// renders.
 	if payload.Sujet == "" || payload.Corrige == "" || payload.Calage == "" {
-		return controls.Assets{}, fmt.Errorf("%w: worker returned an incomplete response: %+v",
-			controls.ErrGeneratorRefused, payload)
+		return "", fmt.Errorf("%w: worker returned an incomplete response: %+v",
+			refused, payload)
 	}
-	if payload.Copies != req.Copies {
-		return controls.Assets{}, fmt.Errorf("%w: worker generated %d copies, asked for %d",
-			controls.ErrGeneratorRefused, payload.Copies, req.Copies)
+	if payload.Copies != copies {
+		return "", fmt.Errorf("%w: worker generated %d copies, asked for %d",
+			refused, payload.Copies, copies)
 	}
 
-	return controls.Assets{Sujet: payload.Sujet}, nil
+	return payload.Sujet, nil
 }
 
 // truncateForLog keeps a response body short enough to log without dumping a
@@ -235,7 +261,10 @@ func truncateDetail(s string) string {
 }
 
 // Assert the interface at compile time — the storage.Prober shape.
-var _ controls.Generator = (*Client)(nil)
+var (
+	_ controls.Generator = (*Client)(nil)
+	_ survey.Generator   = (*Client)(nil)
+)
 
 // --- wire shapes -------------------------------------------------------------
 //

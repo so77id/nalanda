@@ -1,0 +1,30 @@
+{{ define "content" }}
+  <p><a href="{{ .BackURL }}">‹ {{ .SurveyName }}</a></p>
+  <h1>Previsualización · pregunta {{ .Number }} del banco</h1>
+  <p>
+    Aproximación de cómo se imprime. El PDF real se genera al crear una
+    pasada; ahí las preguntas de contexto van primero, así que el número
+    impreso puede ser otro.
+  </p>
+
+  <figure class="survey-preview" aria-label="Pregunta {{ .Number }} tal como se imprime">
+    <p class="survey-preview-statement">{{ .Number }}. {{ .Statement }}</p>
+    {{ if .Guide }}<p class="survey-meta">({{ .Guide }})</p>{{ end }}
+    {{ if .Horizontal }}
+      <ol class="survey-preview-scale">
+        {{ range .Options }}
+          <li><span class="survey-bubble" aria-hidden="true">○</span> {{ .Letter }}{{ if .Label }}<br />{{ .Label }}{{ end }}</li>
+        {{ end }}
+      </ol>
+    {{ else }}
+      <ul class="survey-preview-choices">
+        {{ range .Options }}
+          <li><span class="survey-bubble" aria-hidden="true">○</span> {{ .Letter }}&nbsp;&nbsp;{{ .Label }}</li>
+        {{ end }}
+      </ul>
+    {{ end }}
+  </figure>
+
+  <p><a class="boton" href="{{ .EditURL }}">Editar</a>
+     <a class="boton" href="{{ .BackURL }}">Volver</a></p>
+{{ end }}

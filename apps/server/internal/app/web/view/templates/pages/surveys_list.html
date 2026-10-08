@@ -1,0 +1,39 @@
+{{ define "content" }}
+  <p><a href="{{ .Course.URL }}">‹ {{ .Course.Code }}</a></p>
+  <h1>{{ if .ShowingArchived }}Encuestas archivadas{{ else }}Encuestas del curso{{ end }}</h1>
+  <p>{{ .Course.Name }} · período {{ .Course.Term }}</p>
+
+  {{ if not .ShowingArchived }}
+    <p><a class="boton" href="{{ .NewURL }}">+ Nueva encuesta</a></p>
+  {{ end }}
+
+  {{ if not .Surveys }}
+    <p>
+      {{ if .ShowingArchived }}No hay encuestas archivadas en este curso.
+      {{ else }}Todavía no hay ninguna encuesta en este curso.{{ end }}
+    </p>
+  {{ else }}
+    <table class="lista">
+      <thead>
+        <tr>
+          <th>Encuesta</th>
+          <th>Banco</th>
+        </tr>
+      </thead>
+      <tbody>
+        {{ range .Surveys }}
+          <tr>
+            <td><a href="{{ .URL }}">{{ .Name }}</a></td>
+            <td>{{ .Summary }}</td>
+          </tr>
+        {{ end }}
+      </tbody>
+    </table>
+  {{ end }}
+
+  {{ if .ShowingArchived }}
+    <p><a href="{{ .ToggleURL }}">Volver a las encuestas activas</a></p>
+  {{ else if .ArchivedCount }}
+    <p><a href="{{ .ToggleURL }}">Ver archivadas ({{ .ArchivedCount }})</a></p>
+  {{ end }}
+{{ end }}

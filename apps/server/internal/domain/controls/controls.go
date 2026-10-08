@@ -283,7 +283,9 @@ type Store interface {
 	// schema-level guard behind Service.Purge's ControlByID gate, so a
 	// hand-typed /controls/{id}/purge URL that skipped the Archive step
 	// cannot destroy grades. Cascade removes control_pregunta, copia,
-	// reading, answer, annotated_copy and job rows.
+	// reading, answer and annotated_copy rows; the control's jobs (no FK
+	// since 00023, ADR-0079 §5) go by an explicit delete in the same
+	// transaction.
 	PurgeControl(ctx context.Context, id string) error
 }
 

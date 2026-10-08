@@ -385,6 +385,10 @@ things differ from purge, both on purpose:
   archived control is refused by the service before the worker, and the
   schema's `deleted_at IS NULL` is the belt behind it, not a gate.
 
+The survey run's "Borrar escaneos" (#311, `handler.Surveys.ScansReset`) is
+the same pair a third time, with a typed `Pasada N` as its phrase and an open
+run as its precondition beside "has scans".
+
 The related soft-delete step is the same shape without the third
 gate: the state-flipping route is one POST, guarded by the schema's
 `WHERE ... AND deleted_at IS NULL` clause, and idempotent by
@@ -431,10 +435,11 @@ Three rules, each bought by a review finding:
    waiting** — but the handler imposes its OWN deadline. ADR-0050's
    async-by-construction rule is scoped to the AMC worker's minutes-class
    work (amended by #271); a handful of GraphQL round trips is not that. The
-   one synchronous AMC-worker call is `handler.ScansReset` (#298, ADR-0075
-   §5): it only removes files, and it never waits on the client's shared
-   lock (`TryLock` → `ErrAnalyzerBusy`). A second one needs both properties
-   and an ADR. The
+   synchronous AMC-worker calls are `handler.ScansReset` (#298, ADR-0075
+   §5) and its survey twin `handler.Surveys.ScansReset` (#311, ADR-0081 §5):
+   each only removes files, and never waits on the client's shared lock
+   (`TryLock` → `ErrAnalyzerBusy`, each domain its own). A third needs both
+   properties and an ADR. The
    deadline is not optional and it cannot be inherited: `http.Server`'s
    `WriteTimeout` **neither aborts a handler nor cancels `r.Context()`** —
    measured in the #271 review — so without a `context.WithTimeout` below it
@@ -510,7 +515,7 @@ route that mutates rows an async `jobs.Kind` also mutates **must refuse
 while that job is queued or running**. The runner serialises jobs against
 each other (ADR-0050); it cannot serialise them against the request
 goroutine, so both readers see the same row and both act on it. Read the
-latest job for the resource (`jobs.Store.LatestForControlByKind` +
+latest job for the resource (`jobs.Store.LatestByKind` +
 `jobs.Status.IsTerminal()`) and answer flash + 303, never a 4xx. A READ
 FAILURE answers "not in flight": a lookup that blinked must not block a
 professor standing in front of the button. Worked case:
@@ -518,9 +523,11 @@ professor standing in front of the button. Worked case:
 `publish` batch; the residual window it cannot close, and why no lock, are
 in ADR-0073 §5.
 
-**The one exception (#298, ADR-0075 §5):** a DESTRUCTIVE-confirm route whose
-race cannot be undone — `handler.ScansReset`, which wipes a capture this
-control's own analyse would write readings back over — answers a 409 status
+**The one exception (#298, ADR-0075 §5; its survey twin since #311,
+ADR-0081 §5):** a DESTRUCTIVE-confirm route whose race cannot be undone —
+`handler.ScansReset`, which wipes a capture this control's own analyse would
+write readings back over, and `handler.Surveys.ScansReset` for a survey run's
+— answers a 409 status
 page (like the pair's other refusals) and treats a read failure as IN flight:
 failing open there destroys something, where the rule's fail-open was weighed
 for a send the professor can repeat.
@@ -569,3 +576,16 @@ first:
 Both directions of (2) and (3) are pinned by tests: a login nonce cannot
 complete the second grant, and its cookie cannot complete a login. Policy:
 ADR-0072 §2.
+
+## A file export (CSV)
+
+First worked case: the survey exports (#312, ADR-0082 §8,
+`handler/survey_csv.go`). A gated GET only — never on `/api`. Reuse
+`writeCSV` (UTF-8 with a BOM, every field quoted, `no-store`, `nosniff`)
+with an ASCII filename — it goes into `Content-Disposition` verbatim — and pass every string a
+person typed through `text()`, the spreadsheet-formula guard; lift both to a
+shared helper when the second export arrives rather than copying them. Export
+no internal identifier (the AMC copy-number precedent). Test the BOM, the
+quoting and the guard by reading the file back with `encoding/csv`, as
+`survey_results_test.go` does.
+

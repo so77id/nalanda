@@ -67,6 +67,10 @@ type Deps struct {
 	// Controls: the CRUD lives inside the controls domain, the bank
 	// refresh sits in an /admin/ namespace one layer up.
 	AdminBank *handler.AdminBank
+	// Surveys is the anonymous survey subsystem's screens (epic #308,
+	// ADR-0078) — its own handler struct, because the subsystem is a
+	// sibling of the controls and shares no handler with them.
+	Surveys *handler.Surveys
 	// Log is spelled the same here as in the two structs above.
 	Log *slog.Logger
 }
@@ -351,6 +355,162 @@ func routes(deps Deps) []Route {
 			Method: http.MethodPost, Path: handler.JobDismissPath,
 			Handler: deps.Controls.DismissJob,
 		},
+		// Epic #308: the survey screens (ADR-0078). Every one gated by
+		// default — a survey's bank and, later, its answers are course
+		// data — and every POST CSRF-verified by the table.
+		{
+			Method: http.MethodGet, Path: handler.CourseSurveysPath,
+			Handler: deps.Surveys.ListForCourse,
+		},
+		{
+			Method: http.MethodGet, Path: handler.CourseSurveysNewPath,
+			Handler: deps.Surveys.New,
+		},
+		{
+			Method: http.MethodPost, Path: handler.CourseSurveysPath,
+			Handler: deps.Surveys.Create,
+		},
+		{
+			Method: http.MethodGet, Path: handler.SurveyPath,
+			Handler: deps.Surveys.Detail,
+		},
+		{
+			Method: http.MethodGet, Path: handler.SurveyEditPath,
+			Handler: deps.Surveys.Edit,
+		},
+		{
+			Method: http.MethodPost, Path: handler.SurveyEditPath,
+			Handler: deps.Surveys.Update,
+		},
+		{
+			Method: http.MethodPost, Path: handler.SurveyArchivePath,
+			Handler: deps.Surveys.Archive,
+		},
+		{
+			Method: http.MethodPost, Path: handler.SurveyRestorePath,
+			Handler: deps.Surveys.Restore,
+		},
+		{
+			Method: http.MethodGet, Path: handler.SurveyQuestionNewPath,
+			Handler: deps.Surveys.NewQuestion,
+		},
+		{
+			Method: http.MethodPost, Path: handler.SurveyQuestionsPath,
+			Handler: deps.Surveys.CreateQuestion,
+		},
+		{
+			Method: http.MethodGet, Path: handler.SurveyQuestionEditPath,
+			Handler: deps.Surveys.EditQuestion,
+		},
+		{
+			Method: http.MethodPost, Path: handler.SurveyQuestionEditPath,
+			Handler: deps.Surveys.UpdateQuestion,
+		},
+		{
+			Method: http.MethodPost, Path: handler.SurveyQuestionDeletePath,
+			Handler: deps.Surveys.DeleteQuestion,
+		},
+		{
+			Method: http.MethodPost, Path: handler.SurveyQuestionMovePath,
+			Handler: deps.Surveys.MoveQuestion,
+		},
+		{
+			Method: http.MethodGet, Path: handler.SurveyQuestionPreviewPath,
+			Handler: deps.Surveys.PreviewQuestion,
+		},
+		// Issue #310: a survey's runs. The POST queues the sheet's
+		// generation on the one runner (ADR-0079).
+		{
+			Method: http.MethodGet, Path: handler.SurveyRunNewPath,
+			Handler: deps.Surveys.NewRun,
+		},
+		{
+			Method: http.MethodPost, Path: handler.SurveyRunsPath,
+			Handler: deps.Surveys.CreateRun,
+		},
+		{
+			Method: http.MethodGet, Path: handler.SurveyRunPath,
+			Handler: deps.Surveys.RunDetail,
+		},
+		{
+			Method: http.MethodGet, Path: handler.SurveyRunEditPath,
+			Handler: deps.Surveys.EditRun,
+		},
+		{
+			Method: http.MethodPost, Path: handler.SurveyRunEditPath,
+			Handler: deps.Surveys.UpdateRun,
+		},
+		{
+			Method: http.MethodPost, Path: handler.SurveyRunCancelPath,
+			Handler: deps.Surveys.CancelRun,
+		},
+		{
+			Method: http.MethodGet, Path: handler.SurveyRunSheetPath,
+			Handler: deps.Surveys.RunSheet,
+		},
+		// Issue #311: a run's scans. The POST writes the batch and queues
+		// its `survey_analyse`; the worker is never called from here.
+		{
+			Method: http.MethodGet, Path: handler.SurveyRunScansPath,
+			Handler: deps.Surveys.RunScans,
+		},
+		{
+			Method: http.MethodPost, Path: handler.SurveyRunScansPath,
+			Handler: deps.Surveys.UploadScans,
+		},
+		{
+			Method: http.MethodGet, Path: handler.SurveyRunReviewPath,
+			Handler: deps.Surveys.RunReview,
+		},
+		{
+			Method: http.MethodGet, Path: handler.SurveyRunReviewCopyPath,
+			Handler: deps.Surveys.ReviewCopy,
+		},
+		{
+			Method: http.MethodPost, Path: handler.SurveyRunReviewCopyPath,
+			Handler: deps.Surveys.ResolveCopy,
+		},
+		{
+			Method: http.MethodGet, Path: handler.SurveyRunPagePath,
+			Handler: deps.Surveys.RunPage,
+		},
+		{
+			Method: http.MethodGet, Path: handler.SurveyRunScansResetConfirmPath,
+			Handler: deps.Surveys.ScansResetConfirm,
+		},
+		{
+			Method: http.MethodPost, Path: handler.SurveyRunScansResetPath,
+			Handler: deps.Surveys.ScansReset,
+		},
+		{
+			Method: http.MethodPost, Path: handler.SurveyRunClosePath,
+			Handler: deps.Surveys.CloseRun,
+		},
+		// Issue #312: the results of closed runs. GETs only.
+		{
+			Method: http.MethodGet, Path: handler.SurveyRunResultsPath,
+			Handler: deps.Surveys.RunResults,
+		},
+		{
+			Method: http.MethodGet, Path: handler.SurveyRunResultQuestionPath,
+			Handler: deps.Surveys.RunResultQuestion,
+		},
+		{
+			Method: http.MethodGet, Path: handler.SurveyComparePath,
+			Handler: deps.Surveys.Compare,
+		},
+		{
+			Method: http.MethodGet, Path: handler.SurveyBankCSVPath,
+			Handler: deps.Surveys.BankCSV,
+		},
+		{
+			Method: http.MethodGet, Path: handler.SurveyRunCSVPath,
+			Handler: deps.Surveys.RunCSV,
+		},
+		{
+			Method: http.MethodGet, Path: handler.SurveyCompareCSVPath,
+			Handler: deps.Surveys.CompareCSV,
+		},
 		// Issue #261: archive / restore + the archived listing. Purge is
 		// S5's addition. Gated by default (no Public), CSRF enforced
 		// because the two POST methods are POST.
@@ -470,6 +630,8 @@ func Router(deps Deps) http.Handler {
 		panic("web.Router: no students handler")
 	case deps.AdminBank == nil:
 		panic("web.Router: no admin bank handler")
+	case deps.Surveys == nil:
+		panic("web.Router: no surveys handlers")
 	case deps.Log == nil:
 		panic("web.Router: no logger")
 	}
