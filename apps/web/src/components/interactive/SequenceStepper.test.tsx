@@ -71,6 +71,46 @@ describe('<SequenceStepper> · authoring guards', () => {
     expect(screen.getByText(/ordenada/i)).toBeInTheDocument();
   });
 
+  it('passes descending through to the trace: a descending chain is accepted', () => {
+    renderIn(
+      'book',
+      <SequenceStepper
+        eda="linked-list-singly"
+        operation="insert-ordered"
+        values={[9, 5, 1]}
+        target={3}
+        descending
+      />,
+    );
+    expect(screen.queryByText(/ordenada/i)).not.toBeInTheDocument();
+    expect(screen.getByTestId('sequence-structure')).toBeInTheDocument();
+  });
+
+  it('refuses a heap operation over a sequence, and points at the heap recipe', () => {
+    renderIn(
+      'book',
+      <SequenceStepper eda="linked-list-singly" operation="extract-max" values={[3, 1]} />,
+    );
+    expect(screen.getByText(/heap-max/)).toBeInTheDocument();
+  });
+
+  it('refuses a sequence operation over the heap, and names the four it has', () => {
+    renderIn(
+      'book',
+      <SequenceStepper eda="heap-max" operation="insert-first" values={[3]} value={1} />,
+    );
+    expect(screen.getByText(/extraer el máximo/)).toBeInTheDocument();
+    expect(screen.getByText(/heapsort/)).toBeInTheDocument();
+  });
+
+  it('refuses a starting array that is not a max-heap', () => {
+    renderIn(
+      'book',
+      <SequenceStepper eda="heap-max" operation="insert" values={[1, 5]} value={2} />,
+    );
+    expect(screen.getByText(/no es un max-heap/)).toBeInTheDocument();
+  });
+
   it('refuses more values than the picture can hold', () => {
     renderIn('book', <SequenceStepper {...base} values={[1, 2, 3, 4, 5, 6, 7, 8, 9]} />);
     expect(screen.getByText(/elementos/i)).toBeInTheDocument();
@@ -486,5 +526,186 @@ describe('<SequenceStepper> · the circular recipe', () => {
       />,
     );
     expect(ring()).toBeUndefined();
+  });
+});
+
+describe('<SequenceStepper> · the heap recipe (#304)', () => {
+  const heap = { eda: 'heap-max' as const, values: [12, 8, 10, 3, 7, 9] };
+
+  it('draws the heap twice: as the tree and as the array', () => {
+    renderIn('book', <SequenceStepper {...heap} operation="extract-max" />);
+    const tree = screen.getByTestId('heap-tree');
+    const array = screen.getByTestId('heap-array');
+    expect(tree.querySelectorAll('[data-k]')).toHaveLength(6);
+    // data[0..6]: slot 0 included, and the block is exactly full.
+    expect(array.querySelectorAll('[data-slot]')).toHaveLength(7);
+  });
+
+  it('marks data[0] as unused, in words', () => {
+    renderIn('book', <SequenceStepper {...heap} operation="extract-max" />);
+    const slot0 = screen.getByTestId('heap-array').querySelector('[data-slot="0"]')!;
+    expect(slot0.getAttribute('data-unused')).toBe('true');
+    expect(within(screen.getByTestId('heap-array')).getByText('no se usa')).toBeInTheDocument();
+  });
+
+  it('stacks the two views in the book and sets them side by side on a slide', () => {
+    const { unmount } = renderIn('book', <SequenceStepper {...heap} operation="extract-max" />);
+    expect(screen.getByTestId('heap-views').getAttribute('data-arrangement')).toBe('stacked');
+    unmount();
+    renderIn('presentation', <SequenceStepper {...heap} operation="extract-max" />);
+    expect(screen.getByTestId('heap-views').getAttribute('data-arrangement')).toBe('side-by-side');
+  });
+
+  it('shows n, the listing field, and follows it as the heap shrinks', () => {
+    renderIn('book', <SequenceStepper {...heap} operation="extract-max" />);
+    const readout = screen.getByTestId('sequence-size');
+    expect(within(readout).getByText('n')).toBeInTheDocument();
+    expect(within(readout).getByText('6')).toBeInTheDocument();
+    for (let i = 0; i < 40; i += 1) {
+      const next = screen.getByRole('button', { name: 'Adelante' });
+      if (next.getAttribute('aria-disabled') === 'true') break;
+      fireEvent.click(next);
+    }
+    expect(within(readout).getByText('5')).toBeInTheDocument();
+    // The tree lost its last leaf; the array still holds the old maximum.
+    expect(screen.getByTestId('heap-tree').querySelectorAll('[data-k]')).toHaveLength(5);
+    const stale = screen.getByTestId('heap-array').querySelector('[data-slot="6"]')!;
+    expect(stale.getAttribute('data-state')).toBe('stale');
+  });
+
+  it('paints the pair being swapped the same in the tree and in the array', () => {
+    renderIn('book', <SequenceStepper {...heap} operation="extract-max" />);
+    const swapping = () =>
+      [...screen.getByTestId('heap-tree').querySelectorAll('[data-state="swap"]')].map((n) =>
+        n.getAttribute('data-k'),
+      );
+    for (let i = 0; i < 40 && swapping().length === 0; i += 1) {
+      fireEvent.click(screen.getByRole('button', { name: 'Adelante' }));
+    }
+    const ks = swapping();
+    expect(ks).toHaveLength(2);
+    const slots = [...screen.getByTestId('heap-array').querySelectorAll('[data-state="swap"]')].map(
+      (n) => n.getAttribute('data-slot'),
+    );
+    expect(slots).toEqual(ks);
+  });
+
+  it('ends heapsort with every array cell sorted', () => {
+    renderIn(
+      'book',
+      <SequenceStepper eda="heap-max" operation="heapsort" values={[5, 2, 9, 1, 7]} />,
+    );
+    for (let i = 0; i < 200; i += 1) {
+      const next = screen.getByRole('button', { name: 'Adelante' });
+      if (next.getAttribute('aria-disabled') === 'true') break;
+      fireEvent.click(next);
+    }
+    const cells = [...screen.getByTestId('heap-array').querySelectorAll('[data-state]')];
+    expect(cells).toHaveLength(5);
+    expect(cells.every((c) => c.getAttribute('data-state') === 'sorted')).toBe(true);
+  });
+
+  it('describes both views for a reader who cannot see them', () => {
+    renderIn('book', <SequenceStepper {...heap} operation="extract-max" />);
+    const label = screen.getByTestId('heap-views').getAttribute('aria-label')!;
+    expect(label).toMatch(/heap/i);
+    expect(label).toContain('12, 8, 10, 3, 7, 9');
+  });
+
+  it('names the heap in the chip and the operation in the heading', () => {
+    renderIn('book', <SequenceStepper {...heap} operation="extract-max" />);
+    expect(screen.getByText(/heap \(máximo\)/)).toBeInTheDocument();
+    expect(screen.getByText('extraer el máximo')).toBeInTheDocument();
+  });
+});
+
+describe('<SequenceStepper> · the combinations 20-edd-priority-queue-heap mounts', () => {
+  // Pinned here because `app/contentRenders.test.tsx` never mounts the lazy
+  // widget (apps/web/CLAUDE.md §2, class 4). Named for the act they come
+  // from, and each one WALKED to its last frame, not only mounted: a frame
+  // that throws or refuses halfway is invisible to a mount.
+  const mounted: { act: string; slide: string; props: SequenceStepperProps }[] = [
+    {
+      act: 'Dos implementaciones ingenuas',
+      slide: 'Cinco inserciones en la lista sin orden',
+      props: {
+        eda: 'linked-list-singly',
+        operation: 'insert-first',
+        values: [],
+        value: [8, 3, 10, 1, 7],
+      },
+    },
+    {
+      act: 'Dos implementaciones ingenuas',
+      slide: 'Cinco inserciones en la lista ordenada',
+      props: {
+        eda: 'linked-list-singly',
+        operation: 'insert-ordered',
+        values: [],
+        target: [8, 3, 10, 1, 7],
+        descending: true,
+        method: 'insert',
+        receiver: 'pq',
+        receiverType: 'OrderedPQ',
+      },
+    },
+    {
+      act: 'El heap binario',
+      slide: 'Una inserción en las dos vistas',
+      props: {
+        eda: 'heap-max',
+        operation: 'insert',
+        values: [10, 7, 8, 1, 3],
+        value: 9,
+        capacity: 8,
+        showCode: false,
+      },
+    },
+    {
+      act: 'Insertar y extraer del heap',
+      slide: 'insert paso a paso',
+      props: {
+        eda: 'heap-max',
+        operation: 'insert',
+        values: [10, 7, 8, 1, 3],
+        value: [9, 12, 2],
+        capacity: 9,
+      },
+    },
+    {
+      act: 'Insertar y extraer del heap',
+      slide: 'extractMax paso a paso',
+      props: {
+        eda: 'heap-max',
+        operation: 'extract-max',
+        values: [12, 7, 10, 2, 3, 8, 9, 1],
+        times: 2,
+      },
+    },
+    {
+      act: 'HeapSort',
+      slide: 'HeapSort paso a paso',
+      props: {
+        eda: 'heap-max',
+        operation: 'heapsort',
+        values: [5, 2, 9, 1, 7, 3, 8, 4],
+      },
+    },
+  ];
+
+  it.each(mounted)('$act · $slide', ({ props }) => {
+    renderIn('book', <SequenceStepper {...props} />);
+    expect(document.querySelector('[data-authoring-error]')).toBeNull();
+    for (let i = 0; i < 400; i += 1) {
+      const next = screen.getByRole('button', { name: 'Adelante' });
+      if (next.getAttribute('aria-disabled') === 'true') break;
+      fireEvent.click(next);
+    }
+    // aria-disabled, never native `disabled` (stepperShell's ControlButton).
+    expect(screen.getByRole('button', { name: 'Adelante' })).toHaveAttribute(
+      'aria-disabled',
+      'true',
+    );
+    expect(document.querySelector('[data-authoring-error]')).toBeNull();
   });
 });

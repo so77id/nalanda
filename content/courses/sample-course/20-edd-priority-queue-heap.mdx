@@ -1,0 +1,1543 @@
+---
+id: edd-priority-queue-heap
+title: Estructuras de Datos · Priority Queue y Heap
+presentation: explicit
+questions: none
+---
+
+{/* `none` es un TODAVÍA NO, no una decisión: el banco de esta clase lo debe un WP aparte, después del merge (#304 §Non-goals). */}
+
+# Estructuras de Datos · Priority Queue y Heap
+
+La cola atiende en el orden de llegada, y esa es la única regla que conoce.
+Muchos problemas necesitan otra: atender primero al **más importante**,
+llegue cuando llegue. Esta clase estudia el contrato que hace exactamente
+eso —la **cola de prioridad**— y tres formas de construirlo. Las dos
+primeras salen de la lista enlazada y cada una paga caro en una operación.
+La tercera, el **heap**, reparte el costo entre las dos, y de paso muestra
+que un mismo arreglo puede leerse como un árbol.
+
+<Slide title="Una cola de prioridad">
+Una **cola de prioridad** es una colección donde cada elemento trae una
+**prioridad**, y el que sale no es el que llegó primero sino el de
+**prioridad más alta**. En esta clase la prioridad es el propio valor: un
+número mayor es más urgente.
+
+<svg viewBox="0 0 700 250" style={{ width: '100%', maxWidth: '700px', height: 'auto', display: 'block', margin: '1.25rem auto' }} role="img" aria-label="Llegan, en este orden, 3, 8, 1 y 5. Una cola común los deja salir en el mismo orden: primero el 3. Una cola de prioridad deja salir primero el 8, el mayor, aunque llegó segundo.">
+  <defs>
+    <marker id="pq-idea-punta" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+      <path d="M0,0 L8,4 L0,8 z" style={{ fill: 'var(--color-ink-soft)' }} />
+    </marker>
+    <marker id="pq-idea-punta-sale" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+      <path d="M0,0 L8,4 L0,8 z" style={{ fill: 'var(--color-accent)' }} />
+    </marker>
+  </defs>
+  <text x="20" y="26" fontSize="14" fontWeight="700" style={{ fill: 'var(--color-ink-soft)' }}>llegan, en este orden</text>
+  {[3, 8, 1, 5].map((v, i) => (
+    <g key={v}>
+      <rect x={20 + i * 56} y="40" width="44" height="44" rx="3" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.4" />
+      <text x={42 + i * 56} y="69" textAnchor="middle" fontSize="20" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{v}</text>
+    </g>
+  ))}
+  <line x1="250" y1="62" x2="300" y2="62" style={{ stroke: 'var(--color-ink-soft)' }} strokeWidth="1.6" markerEnd="url(#pq-idea-punta)" />
+  <text x="320" y="56" fontSize="15" fontWeight="700" style={{ fill: 'var(--color-ink)' }}>Queue</text>
+  <text x="320" y="78" fontSize="13" style={{ fill: 'var(--color-ink-faint)' }}>sale el primero que llegó</text>
+  <rect x="560" y="40" width="44" height="44" rx="3" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.4" />
+  <text x="582" y="69" textAnchor="middle" fontSize="20" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>3</text>
+  <line x1="250" y1="182" x2="300" y2="182" style={{ stroke: 'var(--color-accent)' }} strokeWidth="2.2" markerEnd="url(#pq-idea-punta-sale)" />
+  <text x="320" y="176" fontSize="15" fontWeight="700" style={{ fill: 'var(--color-ink)' }}>Priority Queue</text>
+  <text x="320" y="198" fontSize="13" style={{ fill: 'var(--color-ink-faint)' }}>sale el de prioridad más alta</text>
+  <rect x="560" y="160" width="44" height="44" rx="3" style={{ fill: 'var(--color-mark-soft)', stroke: 'var(--color-accent)' }} strokeWidth="2.4" />
+  <text x="582" y="189" textAnchor="middle" fontSize="20" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>8</text>
+  <text x="582" y="226" textAnchor="middle" fontSize="12" style={{ fill: 'var(--color-ink-faint)' }}>llegó segundo</text>
+</svg>
+
+El orden de llegada deja de importar para decidir quién sale. Sólo decide
+la prioridad, y lo único visible de la colección es su máximo.
+
+</Slide>
+
+<Slide title="Colas de prioridad en la vida real">
+Una cola de prioridad aparece en cualquier lugar donde se atiende por
+urgencia y no por turno.
+
+- **El triage de una sala de urgencias.** Cada paciente recibe una
+  categoría al llegar, y el médico atiende al más grave de los que esperan,
+  no al que lleva más tiempo sentado.
+- **El planificador de un sistema operativo.** Entre los procesos listos
+  para ejecutarse, el procesador se entrega al de prioridad más alta.
+- **La simulación por eventos.** Cada evento futuro se guarda con el
+  instante en que ocurre, y la simulación avanza procesando siempre el más
+  próximo. Aquí la prioridad más alta es el tiempo **menor**: el mismo
+  contrato, con el orden invertido.
+- **Los trabajos de una impresora compartida**, cuando un trabajo urgente
+  puede pasar delante de los que ya estaban en espera.
+
+Los cuatro necesitan lo mismo: agregar cuando llega algo nuevo y sacar el
+más importante. Ese comportamiento está definido en un **tipo de dato
+abstracto** (TDA) llamado **Priority Queue**.
+
+</Slide>
+
+<Slide title="El TDA Priority Queue">
+La **Priority Queue** es una colección donde cada elemento entra con su
+prioridad y **sólo el máximo es visible**: se consulta el máximo y se saca el
+máximo.
+
+<div style={{ border: '1px solid var(--color-rule)', borderRadius: '8px', overflow: 'hidden', margin: '1.25rem 0' }}>
+  <div style={{ background: 'var(--color-sunk)', padding: '0.55rem 0.9rem', borderBottom: '1px solid var(--color-rule)', fontWeight: 700 }}>Priority Queue <span style={{ fontWeight: 400, color: 'var(--color-ink-faint)' }}>· el contrato</span></div>
+  <div style={{ display: 'grid', gridTemplateColumns: 'max-content 1fr', columnGap: '2rem' }}>
+  <div style={{ gridColumn: '1 / -1', padding: '0.7rem 0.9rem 0.15rem', fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.08em', color: 'var(--color-ink-faint)' }}>CREAR</div>
+  <code style={{ padding: `0.15rem 0 0.7rem 0.9rem`, whiteSpace: 'nowrap' }}>build()</code>
+  <span style={{ padding: `0.15rem 0.9rem 0.7rem 0` }}>construye la cola de prioridad sin elementos</span>
+  <div style={{ gridColumn: '1 / -1', borderTop: '1px solid var(--color-rule)', padding: '0.7rem 0.9rem 0.15rem', fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.08em', color: 'var(--color-keep)' }}>CONSULTAR · no cambian nada</div>
+  <code style={{ padding: `0.15rem 0 0.3rem 0.9rem`, whiteSpace: 'nowrap' }}>max() → elemento</code>
+  <span style={{ padding: `0.15rem 0.9rem 0.3rem 0` }}>el de prioridad más alta · la colección no cambia</span>
+  <code style={{ padding: `0.15rem 0 0.3rem 0.9rem`, whiteSpace: 'nowrap' }}>isEmpty() → booleano</code>
+  <span style={{ padding: `0.15rem 0.9rem 0.3rem 0` }}>si no hay ningún elemento</span>
+  <code style={{ padding: `0.15rem 0 0.7rem 0.9rem`, whiteSpace: 'nowrap' }}>size() → entero</code>
+  <span style={{ padding: `0.15rem 0.9rem 0.7rem 0` }}>cuántos elementos hay</span>
+  <div style={{ gridColumn: '1 / -1', borderTop: '1px solid var(--color-rule)', padding: '0.7rem 0.9rem 0.15rem', fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.08em', color: 'var(--color-accent)' }}>MODIFICAR · cambian el estado</div>
+  <code style={{ padding: `0.15rem 0 0.3rem 0.9rem`, whiteSpace: 'nowrap' }}>insert(x)</code>
+  <span style={{ padding: `0.15rem 0.9rem 0.3rem 0` }}>agrega x con su prioridad · largo + 1</span>
+  <code style={{ padding: `0.15rem 0 0.7rem 0.9rem`, whiteSpace: 'nowrap' }}>extractMax() → elemento</code>
+  <span style={{ padding: `0.15rem 0.9rem 0.7rem 0` }}>saca el de prioridad más alta y lo devuelve · largo − 1</span>
+  </div>
+  <div style={{ padding: '0.65rem 0.9rem', borderTop: '1px solid var(--color-rule)', background: 'var(--color-sunk)' }}>
+    <div style={{ fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.08em', color: 'var(--color-ink-faint)' }}>LO QUE NO DICE</div>
+    <div style={{ marginTop: '0.35rem' }}>Dónde viven los elementos, en qué orden están guardados, ni cuánto cuesta cada operación. Tampoco dice cuál sale entre dos de igual prioridad, ni hay manera de pedir el segundo mayor: el máximo es el único elemento visible.</div>
+  </div>
+</div>
+
+La diferencia con el TDA Queue está en una sola palabra: `extractMax` no
+devuelve el que llegó primero, devuelve **el máximo**. El orden de llegada
+no forma parte del contrato.
+
+El protocolo es el de siempre: **`max()` y `extractMax()` sólo se pueden
+llamar cuando `isEmpty()` es falso.** Sobre una colección vacía no hay
+máximo que devolver.
+
+</Slide>
+
+<Slide title="Tres formas de guardar una cola de prioridad">
+El contrato no dice dónde viven los elementos, así que hay que elegir. Esta
+clase construye tres implementaciones del mismo TDA:
+
+1. **Una lista enlazada sin orden.** Cada elemento se agrega donde es más
+   barato, y el máximo se busca sólo cuando alguien lo pide.
+2. **Una lista enlazada ordenada de mayor a menor.** El máximo queda siempre
+   al frente, y el trabajo pasa a la inserción, que busca el lugar de cada
+   elemento nuevo.
+3. **Un heap.** Un arreglo organizado como árbol, con un orden más débil que
+   el de la lista ordenada y suficiente para encontrar el máximo al instante.
+
+Las tres cumplen el mismo contrato y ninguna lo cambia. Lo que cambia es
+**dónde se paga**: al insertar, al extraer, o un poco en cada una.
+
+</Slide>
+
+<SectionBreak />
+
+## Dos implementaciones ingenuas
+
+<Slide title="La lista sin orden">
+La primera implementación no guarda ningún orden. Un elemento nuevo entra
+por donde la lista enlazada ya es más barata, el frente, y `insert` es
+exactamente el `insertFirst` de la lista:
+
+```java
+void insert(int x) {
+    insertFirst(x);
+}
+```
+
+El costo aparece al sacar. Como la lista no dice dónde está el máximo,
+`extractMax` tiene que mirar **todos** los nodos. Recorre la cadena
+recordando el mayor visto hasta ahora y el nodo que lo precede, porque para
+desenganchar un nodo de una lista simple hace falta su anterior:
+
+```java
+int extractMax() {
+    if (head == null) {
+        throw new NoSuchElementException();
+    }
+    Node before = null;
+    Node max = head;
+    Node prev = head;
+    while (prev.next != null) {
+        if (prev.next.value > max.value) {
+            before = prev;
+            max = prev.next;
+        }
+        prev = prev.next;
+    }
+    if (before == null) {
+        head = head.next;
+    } else {
+        before.next = max.next;
+    }
+    size--;
+    return max.value;
+}
+```
+
+</Slide>
+
+<Slide title="Cinco inserciones en la lista sin orden">
+Cinco prioridades llegan en el orden 8, 3, 10, 1, 7. Como `insert` es
+`insertFirst`, el listado es el de la lista. Cada inserción cuesta lo mismo,
+porque ninguna mira lo que ya estaba: el nodo nuevo se engancha adelante y
+termina.
+
+<SequenceStepper eda="linked-list-singly" operation="insert-first" values={[]} value={[8, 3, 10, 1, 7]} />
+
+La cadena queda en el orden inverso al de llegada, 7, 1, 10, 3, 8, y el
+máximo quedó en el medio. Nada en la estructura lo señala: para encontrarlo
+hay que recorrerla.
+
+</Slide>
+
+<Slide title="Costos de la lista sin orden">
+La lista sin orden no agrega ninguna invariante a las de la lista enlazada:
+**cualquier orden es válido**. Por eso insertar no tiene nada que
+restaurar, y por eso mismo extraer no tiene ninguna pista de dónde buscar.
+
+| Molde      | Operación      | Peor caso      | Invariante que restaura                                   |
+| ---------- | -------------- | -------------- | --------------------------------------------------------- |
+| consultar  | `max()`        | $$\Theta(N)$$  | Ninguna: recorre sin cambiar nada                          |
+| consultar  | `isEmpty()`, `size()` | $$\Theta(1)$$ | Ninguna                                              |
+| modificar  | <code style={{ color: 'var(--color-keep)' }}>insert(x)</code> | <span style={{ color: 'var(--color-keep)', fontWeight: 700 }}>$$\Theta(1)$$</span> | Ninguna que dependa del orden: sólo `head` y `size` |
+| modificar  | `extractMax()` | $$\Theta(N)$$  | Deja la cadena enlazada sin el nodo del máximo            |
+
+Barato para entrar, caro para salir. Todo el trabajo de encontrar el
+máximo quedó postergado hasta el momento en que alguien lo pide.
+
+</Slide>
+
+<Slide title="La lista ordenada de mayor a menor">
+La segunda implementación hace lo contrario: mantiene la cadena **ordenada
+de mayor a menor**, así que el máximo está siempre en `head`. Eso es una
+invariante nueva, y la lista la sostiene en cada inserción:
+
+1. **El valor de cada nodo es mayor o igual que el del siguiente.** Por eso
+   el máximo es el primero, y consultarlo o sacarlo no recorre nada.
+
+Sacar el máximo es exactamente el `deleteFirst` de la lista:
+
+```java
+int extractMax() {
+    return deleteFirst();
+}
+```
+
+El precio lo paga `insert`, que tiene que buscar el lugar donde el orden se
+conserva. Camina con `prev` mientras el siguiente sea mayor que `x`, y lo
+engancha ahí. Un valor que va al frente es el caso que `insertFirst` ya
+resuelve:
+
+```java
+void insert(int x) {
+    if (head == null || x >= head.value) {
+        insertFirst(x);
+        return;
+    }
+    Node fresh = new Node(x);
+    Node prev = head;
+    while (prev.next != null && prev.next.value > x) {
+        prev = prev.next;
+    }
+    fresh.next = prev.next;
+    prev.next = fresh;
+    size++;
+}
+```
+
+</Slide>
+
+<Slide title="Cinco inserciones en la lista ordenada">
+Las mismas prioridades, 8, 3, 10, 1, 7: cada inserción camina tantos nodos
+como **mayores** que ella ya hay.
+
+<SequenceStepper eda="linked-list-singly" operation="insert-ordered" values={[]} target={[8, 3, 10, 1, 7]} descending method="insert" receiver="pq" receiverType="OrderedPQ" />
+
+</Slide>
+
+El 10 entra al frente sin caminar, y el 1 recorre la cadena entera. La
+cadena queda 10, 8, 7, 3, 1: el máximo está donde la invariante dice, y
+sacarlo es desenganchar el primer nodo.
+
+
+<Slide title="Costos de la lista ordenada">
+La invariante del orden es la que cuesta dinero: es la razón de que
+`extractMax` sea inmediato y la razón de que `insert` camine.
+
+| Molde      | Operación      | Peor caso      | Invariante que restaura                                         |
+| ---------- | -------------- | -------------- | --------------------------------------------------------------- |
+| consultar  | `max()`        | $$\Theta(1)$$  | Ninguna: lee `head`                                             |
+| consultar  | `isEmpty()`, `size()` | $$\Theta(1)$$ | Ninguna                                                    |
+| modificar  | `insert(x)`    | $$\Theta(N)$$  | Cada nodo mayor o igual que el siguiente, con `x` en su lugar   |
+| modificar  | <code style={{ color: 'var(--color-keep)' }}>extractMax()</code> | <span style={{ color: 'var(--color-keep)', fontWeight: 700 }}>$$\Theta(1)$$</span> | El orden se conserva: sacar el primero no desordena el resto |
+
+Caro para entrar, barato para salir. Es la lista sin orden al revés.
+
+</Slide>
+
+<Slide title="Un dilema entre insertar y extraer">
+Puestas lado a lado, cada implementación es rápida exactamente donde la otra
+es lenta:
+
+| Implementación          | `insert(x)`    | `extractMax()` | `max()`       |
+| ----------------------- | -------------- | -------------- | ------------- |
+| Lista sin orden         | $$\Theta(1)$$  | $$\Theta(N)$$  | $$\Theta(N)$$ |
+| Lista ordenada          | $$\Theta(N)$$  | $$\Theta(1)$$  | $$\Theta(1)$$ |
+| ¿?                      | $$O(\log N)$$  | $$O(\log N)$$  | $$\Theta(1)$$ |
+
+Una cola de prioridad real recibe muchas inserciones y muchas extracciones
+mezcladas. Con $$N$$ de cada una, cualquiera de las dos listas termina en
+$$\Theta(N^2)$$ en total, porque una de las dos operaciones paga
+$$\Theta(N)$$ cada vez. La tercera fila es la pregunta: **¿existe una
+estructura que no sea lenta en ninguna de las dos?**
+
+</Slide>
+
+<Slide title="Un orden más débil que el de la lista">
+La lista ordenada hace más trabajo del que el contrato pide. Mantiene a
+**todos** los elementos en su lugar exacto, cuando el contrato sólo deja ver
+uno: el máximo. Saber que el tercero va antes que el cuarto no le sirve a
+ninguna operación de la cola de prioridad.
+
+La salida es guardar un orden **más débil**: lo justo para que el máximo
+esté siempre en un lugar conocido, y no más. Un orden así no cabe en una
+fila, porque en una fila cada elemento tiene un único vecino que lo sigue.
+Cabe en una **jerarquía**, donde cada elemento sólo tiene que ser mayor que
+los que dependen de él, y dos elementos de ramas distintas no se comparan
+nunca.
+
+Esa jerarquía es un árbol, y la estructura que la guarda se llama **heap**.
+
+</Slide>
+
+{/* HeapPicture — a static drawing of one heap, as the tree, as the array, or both with the correspondence drawn between them. */}
+{/* File-local on purpose (add-a-course-document.md §6e-quater): one consumer, no catalog entry, not registered. The second document that wants it promotes it. */}
+{/* Same geometry as the heap-max recipe of <SequenceStepper> (sequenceStepperHeapLayout.ts), so a static figure and the widget beside it draw the same tree. */}
+
+export function HeapPicture({
+  values = [],
+  n = values.length,
+  view = 'both',
+  hot = [],
+  levelBrackets = false,
+  label,
+}) {
+  const r = 17;
+  const pitch = 46;
+  const levelH = 54;
+  const pad = 14;
+  const box = 40;
+  const levels = values.length === 0 ? 1 : Math.floor(Math.log2(values.length)) + 1;
+  const leaves = 2 ** (levels - 1);
+  const treeW = 2 * pad + leaves * pitch;
+  const treeH = view === 'array' ? 0 : 2 * pad + 2 * r + (levels - 1) * levelH;
+  const arrayW = (values.length + 1) * box;
+  const width = Math.max(view === 'array' ? 0 : treeW, view === 'tree' ? 0 : arrayW + 8);
+  const treeX = (width - treeW) / 2;
+  const arrayX = (width - arrayW) / 2;
+  const arrayY = treeH + (view === 'both' ? 26 : 6);
+  const height = view === 'tree' ? treeH : arrayY + box + (levelBrackets ? 66 : 40);
+  const depth = values.length === 0 ? 0 : Math.floor(Math.log2(values.length)) + 1;
+  const at = (k) => {
+    const level = Math.floor(Math.log2(k));
+    const span = leaves / 2 ** level;
+    return { cx: treeX + pad + (k - 2 ** level + 0.5) * span * pitch, cy: pad + r + level * levelH };
+  };
+  const stroke = (k) => (hot.includes(k) ? 'var(--color-accent)' : k > n ? 'var(--color-keep)' : 'var(--color-rule-strong)');
+  const fill = (k) => (k > n ? 'var(--color-keep-soft)' : 'var(--color-surface)');
+  const weight = (k) => (hot.includes(k) ? 2.8 : 1.4);
+  const ks = values.map((_, i) => i + 1);
+  return (
+    <svg
+      viewBox={`0 0 ${width} ${height}`}
+      style={{ width: '100%', maxWidth: `${Math.round(width * 1.45)}px`, height: 'auto', display: 'block', margin: '1rem auto' }}
+      role="img"
+      aria-label={label}
+    >
+      {view === 'array' ? null : ks.filter((k) => k > 1 && k <= n).map((k) => {
+        const p = at(Math.floor(k / 2));
+        const c = at(k);
+        const hotEdge = hot.includes(k) && hot.includes(Math.floor(k / 2));
+        return <line key={`e${k}`} x1={p.cx} y1={p.cy} x2={c.cx} y2={c.cy} style={{ stroke: hotEdge ? 'var(--color-accent)' : 'var(--color-rule-strong)' }} strokeWidth={hotEdge ? 2.8 : 1.2} />;
+      })}
+      {view === 'array' ? null : ks.filter((k) => k <= n).map((k) => {
+        const c = at(k);
+        return (
+          <g key={`n${k}`}>
+            <circle cx={c.cx} cy={c.cy} r={r} style={{ fill: fill(k), stroke: stroke(k) }} strokeWidth={weight(k)} />
+            <text x={c.cx} y={c.cy + 5} textAnchor="middle" fontSize="14" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{values[k - 1]}</text>
+            <text x={c.cx} y={c.cy + r + 11} textAnchor="middle" fontSize="9" style={{ fill: 'var(--color-ink-faint)' }}>{k}</text>
+          </g>
+        );
+      })}
+      {view === 'tree' ? null : (
+        <g>
+          <rect x={arrayX} y={arrayY} width={box} height={box} rx="3" style={{ fill: 'var(--color-sunk)', stroke: 'var(--color-rule)' }} strokeWidth="1.2" strokeDasharray="3 3" />
+          <text x={arrayX + box / 2} y={arrayY + box + 14} textAnchor="middle" fontSize="10" style={{ fill: 'var(--color-ink-faint)' }}>0</text>
+          <text x={arrayX} y={arrayY + box + 30} fontSize="9" style={{ fill: 'var(--color-ink-soft)' }}>no se usa</text>
+          {levelBrackets ? Array.from({ length: depth }, (_, d) => {
+            const first = 2 ** d;
+            const last = Math.min(2 ** (d + 1) - 1, values.length);
+            const x1 = arrayX + first * box + 3;
+            const x2 = arrayX + (last + 1) * box - 3;
+            const y = arrayY + box + 40;
+            return (
+              <g key={`lv${d}`}>
+                <path d={`M ${x1} ${y - 6} L ${x1} ${y} L ${x2} ${y} L ${x2} ${y - 6}`} style={{ fill: 'none', stroke: 'var(--color-accent)' }} strokeWidth="1.4" />
+                <text x={(x1 + x2) / 2} y={y + 15} textAnchor="middle" fontSize="10" style={{ fill: 'var(--color-accent)' }}>{`nivel ${d}`}</text>
+              </g>
+            );
+          }) : null}
+          {ks.map((k) => (
+            <g key={`a${k}`}>
+              <rect x={arrayX + k * box} y={arrayY} width={box} height={box} rx="3" style={{ fill: fill(k), stroke: stroke(k) }} strokeWidth={weight(k)} />
+              <text x={arrayX + k * box + box / 2} y={arrayY + box / 2 + 5} textAnchor="middle" fontSize="14" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{values[k - 1]}</text>
+              <text x={arrayX + k * box + box / 2} y={arrayY + box + 14} textAnchor="middle" fontSize="10" style={{ fill: 'var(--color-ink-faint)' }}>{k}</text>
+            </g>
+          ))}
+        </g>
+      )}
+    </svg>
+  );
+}
+
+<SectionBreak />
+
+## El heap binario
+
+<Slide title="Un árbol binario con orden de heap">
+Un **árbol binario** es una jerarquía donde cada elemento, llamado
+**nodo**, tiene a lo más dos nodos debajo: sus **hijos**, izquierdo y
+derecho. El de arriba de todo, que no es hijo de nadie, es la **raíz**. Un
+árbol binario tiene **orden de heap** cuando cumple una regla:
+
+> **el valor de cada nodo es mayor o igual que los valores de sus dos
+> hijos.**
+
+<HeapPicture values={[10, 7, 8, 1, 3]} view="tree" label="Un árbol binario con orden de heap. La raíz es 10; sus hijos son 7 y 8; los hijos de 7 son 1 y 3. Cada nodo es mayor o igual que sus hijos." />
+
+La regla sólo compara a cada nodo con sus hijos. De ahí sale lo único que
+el contrato necesita: siguiendo cualquier camino hacia arriba los valores
+nunca bajan, así que **el máximo está en la raíz**. Y de ahí sale también lo
+que no se promete: 7 y 8 están en ramas distintas y nadie los compara, igual
+que 1 y 8. Es el orden más débil que todavía deja ver el máximo.
+
+Un heap con esta regla se llama **max-heap**, y es el que construye esta
+clase.
+
+</Slide>
+
+<Slide title="Un árbol binario completo">
+Un heap exige una segunda regla, sobre la **forma** del árbol y no sobre
+sus valores: el árbol es **completo**. Todos sus niveles están llenos,
+salvo quizás el último, que se llena **de izquierda a derecha**, sin
+huecos.
+
+<Split>
+
+<HeapPicture values={[10, 7, 8, 1, 3]} view="tree" label="Un árbol completo de cinco nodos: la raíz, sus dos hijos, y en el último nivel los dos primeros lugares ocupados desde la izquierda." />
+
+<svg viewBox="0 0 212 168" style={{ width: '100%', maxWidth: '300px', height: 'auto', display: 'block', margin: '1rem auto' }} role="img" aria-label="Un árbol que no es completo: la raíz 10 tiene hijos 7 y 8, y el 3 cuelga del 8 dejando vacío el primer lugar del último nivel, bajo el 7.">
+  <line x1="106" y1="31" x2="60" y2="85" style={{ stroke: 'var(--color-rule-strong)' }} strokeWidth="1.2" />
+  <line x1="106" y1="31" x2="152" y2="85" style={{ stroke: 'var(--color-rule-strong)' }} strokeWidth="1.2" />
+  <line x1="152" y1="85" x2="129" y2="139" style={{ stroke: 'var(--color-rule-strong)' }} strokeWidth="1.2" />
+  <circle cx="106" cy="31" r="17" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.4" />
+  <text x="106" y="36" textAnchor="middle" fontSize="14" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>10</text>
+  <circle cx="60" cy="85" r="17" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.4" />
+  <text x="60" y="90" textAnchor="middle" fontSize="14" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>7</text>
+  <circle cx="152" cy="85" r="17" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.4" />
+  <text x="152" y="90" textAnchor="middle" fontSize="14" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>8</text>
+  <circle cx="37" cy="139" r="17" style={{ fill: 'var(--color-sunk)', stroke: 'var(--color-flag)' }} strokeWidth="1.6" strokeDasharray="4 3" />
+  <text x="37" y="166" textAnchor="middle" fontSize="11" fontWeight="600" style={{ fill: 'var(--color-flag)' }}>hueco</text>
+  <circle cx="129" cy="139" r="17" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.4" />
+  <text x="129" y="144" textAnchor="middle" fontSize="14" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>3</text>
+</svg>
+
+</Split>
+
+El de la izquierda es completo. El de la derecha tiene orden de heap y no
+es completo: el último nivel tiene un hueco antes de su primer nodo.
+
+Las dos reglas son las **invariantes del heap**:
+
+1. **Orden de heap: cada nodo es mayor o igual que sus hijos.** Es la que
+   pone el máximo en la raíz, y la que cada operación tiene que restaurar
+   cuando la rompe.
+2. **Forma completa: los niveles se llenan de izquierda a derecha, sin
+   huecos.** Es la que mantiene al árbol bajo —con $$N$$ nodos tiene
+   $$\lfloor \log_2 N \rfloor + 1$$ niveles— y la que permite guardarlo sin
+   punteros.
+
+La segunda es la invariante que decide el costo. Un árbol con huecos puede
+degenerar en una fila de $$N$$ niveles, y cualquier camino de la raíz a una
+hoja se vuelve tan largo como la lista.
+
+</Slide>
+
+<Slide title="El heap guardado en un arreglo">
+Un árbol completo no necesita punteros. Si se numeran sus nodos **por
+niveles, de izquierda a derecha, empezando en 1**, cada nodo tiene un número
+distinto y no queda ninguno sin usar. Ese número es su índice en un
+arreglo, y cada nivel del árbol ocupa un tramo seguido del arreglo.
+
+<HeapPicture values={[10, 7, 8, 1, 3]} levelBrackets label="El mismo heap dibujado como árbol y como arreglo. Cada nodo lleva debajo su número, que es su índice: la raíz 10 en data[1], 7 en data[2], 8 en data[3], 1 en data[4] y 3 en data[5]. Bajo el arreglo, corchetes agrupan las casillas por nivel del árbol: data[1] es el nivel 0, data[2..3] el nivel 1 y data[4..5] el nivel 2. La casilla data[0] está vacía y rotulada no se usa." />
+
+El arreglo `data` guarda el heap en `data[1..n]`, donde `n` es la cantidad
+de elementos. **`data[0]` queda sin usar a propósito**: empezar en 1 hace
+que la aritmética entre padres e hijos sea la más simple posible, y esa
+simplicidad es la que aprovechan todas las operaciones.
+
+El árbol es el modelo para pensar; el arreglo es lo que el programa guarda.
+Son el mismo objeto con dos representaciones, y cualquier cambio en una es
+un cambio en la otra.
+
+</Slide>
+
+<Slide title="Aritmética de índices en el heap">
+Con la numeración por niveles desde 1, los dos hijos del nodo `k` son
+`2k` y `2k + 1`, y su padre es `k / 2` redondeado hacia abajo. En Java la
+división entera ya redondea hacia abajo:
+
+```java
+int parent(int k) {
+    return k / 2;
+}
+
+int left(int k) {
+    return 2 * k;
+}
+
+int right(int k) {
+    return 2 * k + 1;
+}
+```
+
+En el heap de ejemplo, el nodo 2 guarda 7: sus hijos están en `data[4]` y
+`data[5]`, que guardan 1 y 3, y su padre en `data[1]`, que guarda 10.
+
+Con los índices desde 0, las mismas fórmulas serían `(k - 1) / 2`,
+`2k + 1` y `2k + 2`. Funcionan igual, pero cada una arrastra un ajuste. Por
+eso el heap se guarda desde 1: el costo es una casilla, y lo que se gana es
+aritmética sin correcciones.
+
+</Slide>
+
+<Slide title="Una inserción en las dos vistas">
+El heap de ejemplo recibe un 9. El widget dibuja el mismo arreglo dos veces,
+como árbol y como arreglo, y cada paso cambia las dos vistas a la vez: la
+casilla que se ilumina en el arreglo es el nodo que se ilumina en el árbol.
+
+<SequenceStepper eda="heap-max" operation="insert" values={[10, 7, 8, 1, 3]} value={9} capacity={8} showCode={false} />
+
+El 9 entra en `data[6]`, la primera hoja libre, como hijo del 8. Rompe el
+orden de heap con su padre, y los dos se intercambian. Frente a la raíz ya
+no lo rompe, y se detiene ahí.
+
+</Slide>
+
+<SectionBreak />
+
+## Insertar y extraer del heap
+
+<Slide title="insert en el heap">
+Insertar tiene que conservar las dos invariantes, y conviene atender primero
+la que no admite arreglos: la **forma completa**. Hay un único lugar donde
+un nodo nuevo mantiene el árbol completo, la primera hoja libre del último
+nivel, y en el arreglo esa hoja es `data[n + 1]`.
+
+```java
+void insert(int x) {
+    if (n == data.length - 1) {
+        resize(2 * data.length);
+    }
+    data[++n] = x;
+    swim(n);
+}
+```
+
+El bloque crece como el del arreglo dinámico, con el mismo `resize` que
+duplica el tamaño y copia. La única diferencia es la condición de lleno:
+como `data[0]` no se usa, caben `data.length - 1` elementos.
+
+Escribir en `data[++n]` deja la forma intacta, pero puede romper el **orden
+de heap**: el valor nuevo puede ser mayor que su padre. Arreglarlo es
+trabajo de `swim`.
+
+</Slide>
+
+<Slide title="swim hacia la raíz">
+`swim` repara el orden de heap desde el nodo `k` hacia arriba. Mientras `k`
+no sea la raíz y su padre sea menor, los intercambia y sube:
+
+```java
+void swim(int k) {
+    while (k > 1 && data[k / 2] < data[k]) {
+        swap(k / 2, k);
+        k = k / 2;
+    }
+}
+
+void swap(int i, int j) {
+    int t = data[i];
+    data[i] = data[j];
+    data[j] = t;
+}
+```
+
+`swap` no lleva ninguna idea: intercambia dos casillas del arreglo. La idea
+está en el ciclo. Cada intercambio arregla la arista entre `k` y su padre, y
+no rompe ninguna otra: el padre que baja era mayor que su otro hijo, y el
+valor que sube es mayor que el padre que desplaza. El único lugar donde el
+orden puede seguir roto es un nivel más arriba, y ahí sigue el ciclo.
+
+Se detiene en cuanto el padre es mayor o igual, o al llegar a la raíz. Sube
+a lo más un nivel por vuelta.
+
+</Slide>
+
+<Slide title="insert paso a paso">
+El heap 10, 7, 8, 1, 3 recibe 9, 12 y 2. Cada valor entra en la primera
+hoja libre y sube mientras su padre sea menor.
+
+<SequenceStepper eda="heap-max" operation="insert" values={[10, 7, 8, 1, 3]} value={[9, 12, 2]} capacity={9} />
+
+El 9 sube un nivel y se detiene bajo el 10. El 12 sube dos niveles, hasta
+la raíz: es el nuevo máximo. El 2 sube uno, sobre el 1, y se detiene bajo
+el 7. El heap queda 12, 7, 10, 2, 3, 8, 9, 1.
+
+</Slide>
+
+<Slide title="extractMax en el heap">
+El máximo está en la raíz, así que encontrarlo no cuesta nada. Lo que cuesta
+es **sacarlo sin dejar un hueco**: la raíz no puede quedar vacía, y la forma
+completa sólo permite quitar la última hoja.
+
+```java
+int extractMax() {
+    if (n == 0) {
+        throw new NoSuchElementException();
+    }
+    int max = data[1];
+    swap(1, n);
+    n--;
+    sink(1);
+    return max;
+}
+```
+
+La solución combina las dos cosas: el máximo se intercambia con la última
+hoja, `data[n]`, y `n` baja en uno. El máximo queda fuera del heap y la
+forma sigue completa. Pero ahora en la raíz hay un valor que venía de una
+hoja, casi seguro menor que sus hijos, y el **orden de heap** está roto
+arriba. Arreglarlo es trabajo de `sink`.
+
+</Slide>
+
+<Slide title="sink hacia las hojas">
+`sink` repara el orden de heap desde el nodo `k` hacia abajo. Mientras `k`
+tenga hijos, elige al **mayor** de los dos; si `k` es menor que ese hijo,
+los intercambia y baja:
+
+```java
+void sink(int k) {
+    while (2 * k <= n) {
+        int j = 2 * k;
+        if (j < n && data[j] < data[j + 1]) j++;
+        if (data[k] >= data[j]) break;
+        swap(k, j);
+        k = j;
+    }
+}
+```
+
+`2 * k <= n` pregunta si `k` tiene al menos un hijo. `j` parte en el hijo
+izquierdo y pasa al derecho si existe (`j < n`) y es mayor.
+
+Elegir al mayor no es un detalle. El hijo que sube pasa a ser el padre del
+otro, así que tiene que ser mayor o igual que él. Si subiera el menor de los
+dos, el intercambio arreglaría una arista y rompería la de al lado.
+
+</Slide>
+
+<Slide title="extractMax paso a paso">
+El heap 12, 7, 10, 2, 3, 8, 9, 1 entrega sus dos máximos.
+
+<SequenceStepper eda="heap-max" operation="extract-max" values={[12, 7, 10, 2, 3, 8, 9, 1]} times={2} />
+
+</Slide>
+
+El 12 sale primero: el 1 baja dos niveles y el 10 queda en la raíz. El 10
+sale después: el 1 vuelve a bajar y el 9 queda en la raíz. El arreglo sigue
+guardando 12 y 10 más allá de `n`, pero ya no son parte del heap.
+
+
+<Slide title="La altura de un heap">
+`swim` y `sink` hacen una cantidad fija de trabajo por nivel: una o dos
+comparaciones y a lo más un intercambio. Lo que decide su costo es **cuántos
+niveles puede recorrer**, es decir, la altura del árbol.
+
+Un árbol binario completo con $$N$$ nodos tiene **altura
+$$\lfloor \log_2 N \rfloor$$**. El primer nivel tiene 1 nodo, el segundo 2,
+el tercero 4, y cada nivel lleno duplica al anterior. Hacen falta 3 niveles
+para 4 nodos, 4 para 8, y 20 para un millón.
+
+De ahí salen las dos cotas:
+
+- `insert` sube a lo más desde una hoja hasta la raíz: a lo más
+  $$\lfloor \log_2 N \rfloor$$ comparaciones.
+- `extractMax` baja a lo más desde la raíz hasta una hoja, con dos
+  comparaciones por nivel: a lo más $$2 \lfloor \log_2 N \rfloor$$.
+
+Las dos son $$O(\log N)$$. Es la **forma completa** la que lo garantiza: el
+orden de heap solo no impediría un árbol tan alto como la lista.
+
+</Slide>
+
+<Slide title="max en el heap">
+Consultar el máximo no mueve nada. Está en la raíz, y la raíz es `data[1]`:
+
+```java
+int max() {
+    if (n == 0) {
+        throw new NoSuchElementException();
+    }
+    return data[1];
+}
+```
+
+`isEmpty()` es `n == 0` y `size()` devuelve `n`. Ninguna de las tres
+recorre nada.
+
+</Slide>
+
+<Slide title="Costos del heap">
+Cada operación que modifica el heap rompe a lo más una invariante, en un
+solo lugar, y la restaura recorriendo un camino entre la raíz y una hoja.
+
+| Molde     | Operación      | Peor caso          | Invariante que restaura                                                   |
+| --------- | -------------- | ------------------ | ------------------------------------------------------------------------- |
+| consultar | `max()`        | $$\Theta(1)$$      | Ninguna: lee `data[1]`                                                    |
+| consultar | `isEmpty()`, `size()` | $$\Theta(1)$$ | Ninguna                                                              |
+| modificar | <code style={{ color: 'var(--color-keep)' }}>insert(x)</code> | <span style={{ color: 'var(--color-keep)', fontWeight: 700 }}>$$O(\log N)$$</span> | Forma completa: escribe en la primera hoja libre. Orden de heap: `swim` |
+| modificar | <code style={{ color: 'var(--color-keep)' }}>extractMax()</code> | <span style={{ color: 'var(--color-keep)', fontWeight: 700 }}>$$O(\log N)$$</span> | Forma completa: quita la última hoja. Orden de heap: `sink` |
+
+`insert` también puede pagar un `resize`, que copia los $$N$$ elementos. Como
+en el arreglo dinámico, eso ocurre cada vez que el bloque se duplica, y
+repartido entre las inserciones que lo llenaron cuesta $$\Theta(1)$$
+amortizado.
+
+</Slide>
+
+<Slide title="Tres implementaciones de la cola de prioridad">
+Con el heap, la fila que faltaba se llena:
+
+| Implementación  | `insert(x)`    | `extractMax()` | `max()`       |
+| --------------- | -------------- | -------------- | ------------- |
+| Lista sin orden | $$\Theta(1)$$  | $$\Theta(N)$$  | $$\Theta(N)$$ |
+| Lista ordenada  | $$\Theta(N)$$  | $$\Theta(1)$$  | $$\Theta(1)$$ |
+| **Heap**        | <span style={{ color: 'var(--color-keep)', fontWeight: 700 }}>$$O(\log N)$$</span> | <span style={{ color: 'var(--color-keep)', fontWeight: 700 }}>$$O(\log N)$$</span> | $$\Theta(1)$$ |
+
+El heap no gana en ninguna columna por separado: la lista sin orden inserta
+más rápido y la ordenada extrae más rápido. Gana en la mezcla. Con $$N$$
+inserciones y $$N$$ extracciones, las dos listas pagan $$\Theta(N^2)$$ y el
+heap $$O(N \log N)$$. Para un millón de operaciones de cada tipo, la
+diferencia es entre un billón de pasos y unas decenas de millones.
+
+</Slide>
+
+<SectionBreak />
+
+## El min-heap
+
+<Slide title="El orden de heap invertido">
+Un **min-heap** es un heap con la primera invariante dada vuelta: **el valor
+de cada nodo es menor o igual que los valores de sus hijos.** Siguiendo
+cualquier camino hacia arriba los valores nunca suben, así que en la raíz
+queda el **mínimo**.
+
+<HeapPicture values={[2, 5, 3, 9, 6]} view="tree" label="Un min-heap de cinco nodos. La raíz es 2; sus hijos son 5 y 3; los hijos de 5 son 9 y 6. Cada nodo es menor o igual que sus hijos." />
+
+Todo lo demás es idéntico: la forma completa, el arreglo desde 1, la
+aritmética de índices, `swim` y `sink`. Lo único que cambia es el sentido
+de las tres comparaciones que deciden si un nodo sube o baja:
+
+```java
+data[k / 2] > data[k]     // swim: sube mientras el padre sea mayor
+data[j] > data[j + 1]     // sink: j pasa al hijo menor
+data[k] <= data[j]        // sink: se detiene si k ya es menor o igual
+```
+
+El contrato cambia de nombre y no de forma: `min()` y `extractMin()` en
+lugar de `max()` y `extractMax()`, con los mismos costos.
+
+</Slide>
+
+<Slide title="Un min-heap para una simulación por eventos">
+Una simulación por eventos guarda cada evento futuro con el instante en que
+ocurre, y avanza siempre procesando **el más próximo**. La prioridad más
+alta es el tiempo **menor**, y eso es un min-heap.
+
+Si los eventos pendientes ocurren en los instantes 9, 2, 6, 3 y 5, el heap
+los guarda así:
+
+<HeapPicture values={[2, 3, 6, 9, 5]} label="Un min-heap de instantes: 2 en la raíz, 3 y 6 como sus hijos, 9 y 5 como hijos del 3. En el arreglo, data[1] a data[5] guardan 2, 3, 6, 9 y 5, y data[0] no se usa." />
+
+`extractMin()` entrega el 2, el evento que ocurre primero. Procesarlo suele
+crear eventos nuevos, más adelante en el tiempo, y cada uno entra con
+`insert` en $$O(\log N)$$. La simulación nunca ordena la lista entera de
+eventos: sólo necesita saber, en cada momento, cuál viene.
+
+</Slide>
+
+<SectionBreak />
+
+## PriorityQueue en Java
+
+<Slide title="La clase PriorityQueue">
+Java trae una cola de prioridad en `java.util.PriorityQueue`, y es un heap
+binario guardado en un arreglo, el mismo de esta clase. Con una
+diferencia que sorprende la primera vez: **es un min-heap**. Sin más
+indicación, `poll()` devuelve el menor.
+
+```java
+PriorityQueue<Integer> pq = new PriorityQueue<>();
+pq.add(5);
+pq.add(1);
+pq.add(8);
+
+int first = pq.poll();   // 1: el menor, no el primero que entró
+```
+
+Los nombres del TDA en la clase de Java:
+
+| TDA            | `PriorityQueue`     |
+| -------------- | ------------------- |
+| `insert(x)`    | `add(x)`            |
+| `min()`        | `peek()`            |
+| `extractMin()` | `poll()`            |
+| `isEmpty()`    | `isEmpty()`         |
+| `size()`       | `size()`            |
+
+Sobre una cola vacía, `peek()` y `poll()` **no** lanzan una excepción:
+devuelven `null`. Con `Integer`, guardar ese `null` en un `int` sí la lanza,
+así que preguntar `isEmpty()` antes sigue siendo trabajo de quien usa la
+cola.
+
+</Slide>
+
+<Slide title="Un max-heap con Comparator.reverseOrder">
+Para que `poll()` devuelva el mayor, el constructor recibe un
+**`Comparator`** que invierte el orden natural:
+
+```java
+PriorityQueue<Integer> pq =
+    new PriorityQueue<>(Comparator.reverseOrder());
+pq.add(5);
+pq.add(1);
+pq.add(8);
+
+int first = pq.poll();   // 8: ahora sale el mayor
+```
+
+La clase no cambia. `PriorityQueue` siempre saca el que el comparador
+considera menor, y `reverseOrder()` hace que el mayor de los enteros sea
+el menor para el comparador. Es la misma idea que el min-heap: el heap es
+uno solo, lo que se invierte es la comparación.
+
+</Slide>
+
+<Slide title="Prioridad según un criterio propio">
+Los elementos de una cola de prioridad casi nunca son números sueltos. Son
+objetos, y la prioridad es uno de sus campos. El comparador dice cuál de
+los campos, y en qué sentido:
+
+```java
+class Task {
+    String name;
+    int urgency;
+
+    Task(String name, int urgency) {
+        this.name = name;
+        this.urgency = urgency;
+    }
+}
+
+PriorityQueue<Task> tasks = new PriorityQueue<>(
+    (a, b) -> Integer.compare(b.urgency, a.urgency));
+tasks.add(new Task("respaldo", 2));
+tasks.add(new Task("caída del servidor", 9));
+tasks.add(new Task("informe", 5));
+
+Task next = tasks.poll();   // la de urgencia 9
+```
+
+Comparar `b` con `a`, y no `a` con `b`, es lo que convierte al min-heap de
+Java en un max-heap por urgencia. Más ejemplos de comparadores sobre
+`PriorityQueue`, en
+[este gist](https://gist.github.com/so77id/b78952de9dc850446ab7d1507692cb18).
+
+</Slide>
+
+<Slide title="Costos de PriorityQueue">
+La documentación de `PriorityQueue` da los mismos costos que el heap de esta
+clase, porque es el mismo heap:
+
+| Operación                | Costo          |
+| ------------------------ | -------------- |
+| `add(x)`, `poll()`       | $$O(\log N)$$  |
+| `peek()`, `size()`       | $$\Theta(1)$$  |
+| `contains(x)`, `remove(x)` | $$\Theta(N)$$ |
+
+La última fila es la que el orden débil cobra. Buscar un elemento cualquiera
+no tiene atajo, porque el heap sólo sabe dónde está el mínimo: el resto del
+arreglo hay que recorrerlo.
+
+Por la misma razón, **imprimir una `PriorityQueue` no la muestra ordenada**.
+`System.out.println(pq)` recorre el arreglo en el orden en que está guardado,
+que es el orden de heap. Lo único garantizado es que el primero es el menor.
+
+</Slide>
+
+<SectionBreak />
+
+## HeapSort
+
+<Slide title="Ordenar con un heap">
+Si a un max-heap se le pide `extractMax` $$N$$ veces, los elementos salen
+del mayor al menor: es un algoritmo de ordenamiento. Cada extracción cuesta
+$$O(\log N)$$, así que ordenar cuesta $$O(N \log N)$$.
+
+Lo que lo vuelve interesante es **dónde queda cada máximo**. `extractMax`
+lo intercambia con `data[n]` y baja `n`: el máximo queda justo después del
+heap, en una casilla que el heap ya no usa. Esa casilla es exactamente la
+que le corresponde en el arreglo ordenado de menor a mayor. Repetido, el
+arreglo se parte en dos zonas, el heap al frente y la parte ordenada al
+final, y la segunda crece mientras la primera se achica.
+
+Por eso **HeapSort** ordena el arreglo **en su lugar**, sin un segundo
+arreglo, en dos fases: primero convierte el arreglo desordenado en un heap,
+y después extrae hasta vaciarlo.
+
+</Slide>
+
+<Slide title="La fase de construcción">
+La primera fase convierte `data[1..n]` en un heap. Las hojas ya lo son,
+porque un nodo sin hijos cumple el orden de heap. Basta entonces con
+aplicar `sink` a cada nodo que tiene hijos, desde el último de ellos,
+`n / 2`, hasta la raíz:
+
+```java
+for (int k = n / 2; k >= 1; k--) {
+    sink(k);
+}
+```
+
+Recorrer de abajo hacia arriba es lo que hace funcionar el ciclo: cuando
+`sink(k)` corre, los dos subárboles de `k` ya son heaps, y sólo falta ubicar
+a `k`. Sobre 5, 2, 9, 1, 7, 3, 8, 4:
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '0.25rem 1.5rem' }}>
+<div>
+<div style={{ fontSize: '0.8rem', color: 'var(--color-ink-faint)', textAlign: 'center' }}>el arreglo tal como llega</div>
+<HeapPicture values={[5, 2, 9, 1, 7, 3, 8, 4]} view="tree" label="El arreglo 5, 2, 9, 1, 7, 3, 8, 4 dibujado como árbol, antes de construir el heap." />
+</div>
+<div>
+<div style={{ fontSize: '0.8rem', color: 'var(--color-ink-faint)', textAlign: 'center' }}>después de sink(4) y sink(3)</div>
+<HeapPicture values={[5, 2, 9, 4, 7, 3, 8, 1]} view="tree" hot={[4, 8]} label="Después de sink(4) el 1 y el 4 se intercambiaron; sink(3) no movió nada, porque 9 ya es mayor que 3 y que 8." />
+</div>
+<div>
+<div style={{ fontSize: '0.8rem', color: 'var(--color-ink-faint)', textAlign: 'center' }}>después de sink(2)</div>
+<HeapPicture values={[5, 7, 9, 4, 2, 3, 8, 1]} view="tree" hot={[2, 5]} label="Después de sink(2) el 2 bajó a la posición 5 y el 7 subió a la posición 2." />
+</div>
+<div>
+<div style={{ fontSize: '0.8rem', color: 'var(--color-ink-faint)', textAlign: 'center' }}>después de sink(1): un heap</div>
+<HeapPicture values={[9, 7, 8, 4, 2, 3, 5, 1]} view="tree" hot={[1, 3, 7]} label="Después de sink(1) el 5 bajó dos niveles, por el camino de los hijos mayores 9 y 8. El arreglo es el heap 9, 7, 8, 4, 2, 3, 5, 1." />
+</div>
+</div>
+
+</Slide>
+
+<Slide title="La fase de ordenamiento">
+La segunda fase es `extractMax` sin devolver nada. El máximo se intercambia
+con `data[n]`, `n` baja, y la nueva raíz se hunde:
+
+```java
+while (n > 1) {
+    swap(1, n);
+    n--;
+    sink(1);
+}
+```
+
+Cada vuelta deja un elemento más en su lugar definitivo, al final del
+arreglo. Cuando `n` llega a 1, el único que queda en el heap es el menor, y
+también está en su lugar.
+
+<HeapPicture values={[9, 7, 8, 4, 2, 3, 5, 1]} view="array" label="El heap entero: data[1..8] = 9, 7, 8, 4, 2, 3, 5, 1. Nada ordenado todavía." />
+<HeapPicture values={[8, 7, 5, 4, 2, 3, 1, 9]} n={7} view="array" label="Tras una vuelta: el 9 quedó en data[8], ordenado, y data[1..7] = 8, 7, 5, 4, 2, 3, 1 es de nuevo un heap." />
+<HeapPicture values={[7, 4, 5, 1, 2, 3, 8, 9]} n={6} view="array" label="Tras dos vueltas: 8 y 9 ordenados al final, y data[1..6] = 7, 4, 5, 1, 2, 3 es un heap." />
+<HeapPicture values={[1, 2, 3, 4, 5, 7, 8, 9]} n={0} view="array" label="Al terminar: el arreglo completo 1, 2, 3, 4, 5, 7, 8, 9, ordenado de menor a mayor." />
+
+La zona ordenada crece desde el final, y siempre contiene los
+mayores: cada valor que entra ahí es el máximo de lo que quedaba en el
+heap.
+
+</Slide>
+
+<Slide title="HeapSort paso a paso">
+Las dos fases sobre 5, 2, 9, 1, 7, 3, 8, 4: el árbol pierde una hoja por
+vuelta y el arreglo conserva todas sus casillas.
+
+<SequenceStepper eda="heap-max" operation="heapsort" values={[5, 2, 9, 1, 7, 3, 8, 4]} />
+
+</Slide>
+
+El listado es un método del heap: usa su `n` y su `sink`, el mismo `sink`
+de `extractMax`. La versión de biblioteca recibe el arreglo como parámetro y
+hace exactamente lo mismo.
+
+
+<Slide title="El costo de HeapSort">
+Las dos fases cuestan distinto.
+
+- **Construcción: $$O(N)$$.** Es menos de lo que sugiere contar $$N/2$$
+  llamadas a `sink` de costo $$O(\log N)$$: la mayoría de los nodos está
+  cerca de las hojas y baja muy poco. Sedgewick demuestra que la
+  construcción hace menos de $$2N$$ comparaciones; aquí lo usamos sin
+  demostrarlo.
+- **Ordenamiento: $$O(N \log N)$$.** Son $$N - 1$$ vueltas, y cada `sink`
+  desde la raíz recorre a lo más la altura, $$\lfloor \log_2 N \rfloor$$
+  niveles.
+
+En total, **$$O(N \log N)$$ en el peor caso**, sin excepciones. Quicksort
+es más rápido en promedio, pero su peor caso es $$\Theta(N^2)$$; HeapSort no
+tiene entrada que lo lleve ahí.
+
+La memoria extra es $$\Theta(1)$$: una variable para el intercambio y los
+índices. El heap vive dentro del mismo arreglo que se ordena.
+
+</Slide>
+
+<Slide title="HeapSort y mergesort">
+Los dos ordenan en $$O(N \log N)$$ en el peor caso. Se diferencian en lo que
+cobran por eso:
+
+| Propiedad                 | HeapSort          | Mergesort                  |
+| ------------------------- | ----------------- | -------------------------- |
+| Peor caso                 | $$O(N \log N)$$   | $$O(N \log N)$$            |
+| Memoria extra             | $$\Theta(1)$$     | $$\Theta(N)$$              |
+| Estable                   | no                | sí                         |
+
+HeapSort no necesita un segundo arreglo. Mergesort sí, y a cambio es
+**estable**: dos elementos iguales salen en el orden en que entraron.
+HeapSort no lo garantiza, porque `sink` y el intercambio con `data[n]`
+mueven elementos a lo largo de todo el arreglo sin mirar su posición
+original. Cuando los elementos son registros ordenados por un campo, esa
+diferencia decide cuál usar.
+
+</Slide>
+
+<Slide title="Lo que el orden débil no responde">
+El heap es rápido para una sola pregunta, cuál es el máximo, y lo es porque
+guarda el orden más débil que la responde. Cualquier otra pregunta sobre el
+orden le sale cara: **buscar un valor cualquiera es $$\Theta(N)$$**, y
+recorrer los elementos de menor a mayor exige desarmarlo.
+
+La causa es la **forma completa**. Obliga a que cada valor quede donde toca
+llenar el árbol, no donde lo ubicaría su valor, y por eso dos hermanos
+nunca se comparan.
+
+¿Qué pasa si se abandona? Un árbol binario que acomoda cada nodo según su
+valor —los menores hacia un lado, los mayores hacia el otro— puede
+**buscar** bajando por un solo camino, y recorrer sus valores en orden sin
+destruirlo. El precio es la altura: sin la forma completa ya nada garantiza
+$$\lfloor \log_2 N \rfloor$$ niveles, y el árbol puede degenerar en una
+fila tan larga como la lista. Tampoco cabe ya en un arreglo sin huecos:
+necesita punteros entre nodos.
+
+Esa es la estructura general de la que el heap es un caso particular: el
+**árbol binario**.
+
+</Slide>
+
+<SectionBreak />
+
+## Ejercicios
+
+<Slide title="Los ejercicios de esta clase">
+Dos problemas resueltos completos, cada uno en cinco pasos: el problema, por
+qué no es trivial, la idea, el código y dónde falla.
+
+- **Top-K de una secuencia**: los $$K$$ mayores de una secuencia larga, sin
+  guardarla entera.
+- **Un planificador de tareas**: atender por urgencia sin perder el orden de
+  llegada entre tareas igual de urgentes.
+
+Después, en el libro, dos problemas propuestos con su solución: el
+**k-ésimo mayor** de un arreglo y la **verificación de un max-heap**.
+
+</Slide>
+
+<Slide title="Los K mayores de una secuencia">
+Un servidor registra el tiempo de respuesta de cada solicitud, millones al
+día, y al final del día hay que informar los $$K$$ más lentos. Los tiempos
+llegan de a uno y no se pueden volver a pedir.
+
+El programa recibe $$K$$ y la secuencia, y devuelve los $$K$$ valores
+mayores ordenados de mayor a menor:
+
+```java
+int[] topK(int k, int[] stream)
+```
+
+**Entrada.** `k`, mayor que cero; `stream`, con a lo más 10⁶ números. Los
+valores se pueden repetir.
+
+**Salida.** Los `k` mayores de `stream`, de mayor a menor. Si `stream` tiene
+menos de `k` números, todos ellos, de mayor a menor.
+
+| `k` | `stream`              | resultado |
+| --- | --------------------- | --------- |
+| `3` | `5 1 9 3 7 2 8`       | `9 8 7`   |
+| `2` | `6 6 1`               | `6 6`     |
+| `2` | `4`                   | `4`       |
+| `1` | (vacío)               | (vacío)   |
+
+</Slide>
+
+<Slide title="Ordenar la secuencia entera">
+Lo primero que se piensa es guardar todos los números, ordenarlos y tomar
+los primeros $$K$$. Da el resultado correcto, y cobra dos cosas que el
+problema no necesita.
+
+Cuesta $$\Theta(N \log N)$$, cuando sólo interesan $$K$$ posiciones del
+orden. Y ocupa $$\Theta(N)$$ de memoria: con un millón de tiempos por día
+hay que tener el millón guardado al mismo tiempo, para quedarse con tres.
+
+Guardar todo en un max-heap y extraer $$K$$ veces mejora el tiempo pero no
+la memoria: el heap también tiene los $$N$$ adentro.
+
+</Slide>
+
+<Slide title="El peor de los K mejores">
+Basta con recordar, en cada momento, **los $$K$$ mejores vistos hasta
+ahora**. Cuando llega un número nuevo, la única pregunta es si merece entrar
+entre ellos, y eso depende de un solo valor: **el peor de los $$K$$**. Si el
+nuevo es mayor que ese peor, lo reemplaza; si no, se descarta sin mirar a
+los otros.
+
+Lo que hay que tener a mano es entonces el **mínimo** de un grupo de $$K$$
+números que cambia a cada rato: sacarlo, agregar otro, y volver a saber cuál
+es el mínimo. Eso es un **min-heap de tamaño $$K$$**.
+
+A mano, con $$K = 3$$ sobre `5 1 9 3 7 2 8`: los tres primeros entran sin
+preguntar, `{1, 5, 9}`. Llega 3, mayor que el peor, 1: sale 1, entra 3. Llega
+7, mayor que 3: sale 3, entra 7, y queda `{5, 7, 9}`. Llega 2, menor que 5:
+se descarta. Llega 8, mayor que 5: queda `{7, 8, 9}`.
+
+</Slide>
+
+<Slide title="Top-K · la solución">
+`PriorityQueue` sin comparador es el min-heap que la idea pide, y `peek()`
+es su peor elemento. Al final, el heap guarda los $$K$$ mayores y los
+entrega del menor al mayor, así que se escriben en el arreglo de atrás hacia
+adelante.
+
+<StepShow
+  language="java"
+  code={`static int[] topK(int k, int[] stream) {
+      if (k <= 0) {
+          throw new IllegalArgumentException();
+      }
+      PriorityQueue<Integer> best = new PriorityQueue<>();
+      for (int x : stream) {
+          if (best.size() < k) {
+              best.add(x);
+          } else if (x > best.peek()) {
+              best.poll();
+              best.add(x);
+          }
+      }
+      int[] out = new int[best.size()];
+      for (int i = out.length - 1; i >= 0; i--) {
+          out[i] = best.poll();
+      }
+      return out;
+  }`}
+>
+  <Step lines={[7, 8]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>5, 1 y 9 entran sin comparar: el heap todavía no tiene tres. El peor, en la raíz, es 1.</div>
+    <HeapPicture values={[1, 5, 9]} view="tree" label="Min-heap con 1 en la raíz y 5 y 9 como hijos." />
+  </Step>
+  <Step lines={[9, 10, 11]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Llega 3, mayor que el peor: sale 1, entra 3.</div>
+    <HeapPicture values={[3, 9, 5]} view="tree" hot={[1]} label="Min-heap con 3 en la raíz y 9 y 5 como hijos." />
+  </Step>
+  <Step lines={[9, 10, 11]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Llega 7, mayor que 3: sale 3, entra 7. El peor es ahora 5.</div>
+    <HeapPicture values={[5, 9, 7]} view="tree" hot={[3]} label="Min-heap con 5 en la raíz y 9 y 7 como hijos." />
+  </Step>
+  <Step lines={[9]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Llega 2, que no supera a 5: se descarta, y el heap no cambia.</div>
+    <HeapPicture values={[5, 9, 7]} view="tree" label="El mismo min-heap: 5 en la raíz, 9 y 7 como hijos." />
+  </Step>
+  <Step lines={[9, 10, 11]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Llega 8, mayor que 5: sale 5, entra 8.</div>
+    <HeapPicture values={[7, 9, 8]} view="tree" hot={[3]} label="Min-heap con 7 en la raíz y 9 y 8 como hijos." />
+  </Step>
+  <Step lines={[14, 15, 16]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>El heap sale del menor al mayor, 7, 8, 9, y se escribe desde el final: el resultado es 9 8 7.</div>
+    <HeapPicture values={[7, 9, 8]} view="tree" label="El min-heap final, 7 en la raíz y 9 y 8 como hijos, que se vacía en el arreglo resultado." />
+  </Step>
+</StepShow>
+
+</Slide>
+
+<Slide title="Las secuencias más cortas que K">
+Si la secuencia tiene menos de $$K$$ números, la primera rama es la única que
+corre: todos entran, ninguno se compara, y el resultado tiene el largo del
+heap, no $$K$$. Con `k = 2` sobre `4` devuelve `4`; sobre la secuencia vacía
+devuelve un arreglo vacío. Los repetidos no necesitan un caso aparte: con
+`6 6 1` el segundo 6 entra por la primera rama y el 1 no supera al peor.
+
+Con `k` en cero el heap nunca tendría dónde guardar el primer número, y
+`peek()` devolvería `null` sobre un heap vacío. La función lo rechaza de
+entrada con `IllegalArgumentException`.
+
+Cada número cuesta un `peek()`, $$\Theta(1)$$, y a lo más un `poll()` y un
+`add()` sobre un heap de $$K$$, $$O(\log K)$$: **$$O(N \log K)$$** en total.
+El heap nunca guarda más de $$K$$ números, así que la memoria es
+**$$\Theta(K)$$**, sin importar cuán larga sea la secuencia.
+
+</Slide>
+
+<Slide title="Top-K · el programa completo">
+<PresentationWide fraction={0.75}>
+<Exercise title="Top-K de una secuencia">
+
+El algoritmo entero. **Comprobar** lo corre contra los casos del enunciado, y
+cualquier cambio se puede probar de la misma forma.
+
+```java starter
+import java.util.PriorityQueue;
+
+class Solution {
+
+    static int[] topK(int k, int[] stream) {
+        if (k <= 0) {
+            throw new IllegalArgumentException();
+        }
+        PriorityQueue<Integer> best = new PriorityQueue<>();
+        for (int x : stream) {
+            if (best.size() < k) {
+                best.add(x);
+            } else if (x > best.peek()) {
+                best.poll();
+                best.add(x);
+            }
+        }
+        int[] out = new int[best.size()];
+        for (int i = out.length - 1; i >= 0; i--) {
+            out[i] = best.poll();
+        }
+        return out;
+    }
+}
+```
+
+```java test
+check(Solution.topK(3, new int[] {5, 1, 9, 3, 7, 2, 8}), new int[] {9, 8, 7});
+check(Solution.topK(2, new int[] {6, 6, 1}), new int[] {6, 6});
+check(Solution.topK(2, new int[] {4}), new int[] {4});
+check(Solution.topK(1, new int[] {}), new int[] {});
+```
+
+</Exercise>
+</PresentationWide>
+
+</Slide>
+
+<Slide title="Un planificador de tareas">
+Un sistema recibe tareas con un nombre y una **urgencia**, un entero donde
+más es más urgente, y las atiende de a una. La regla del sistema tiene dos
+partes: primero la más urgente, y **entre dos igual de urgentes, la que
+llegó antes**.
+
+El programa recibe las tareas en el orden en que llegaron y devuelve el
+orden en que se atienden:
+
+```java
+String[] schedule(String[] names, int[] urgency)
+```
+
+**Entrada.** Dos arreglos del mismo largo, a lo más 10⁵: `names[i]` y
+`urgency[i]` son la tarea que llegó en el lugar `i`.
+
+**Salida.** Los nombres en el orden de atención.
+
+| `names`                                          | `urgency`   | resultado                                       |
+| ------------------------------------------------ | ----------- | ----------------------------------------------- |
+| `respaldo caída informe correo parche`           | `2 9 5 5 9` | `caída parche informe correo respaldo`          |
+| `a b`                                            | `1 1`       | `a b`                                           |
+| (vacío)                                          | (vacío)     | (vacío)                                         |
+
+</Slide>
+
+<Slide title="Comparar sólo por urgencia">
+Lo primero que se piensa es la `PriorityQueue` de tareas con un comparador
+por urgencia, la de mayor primero. Atiende bien a las urgentes, y falla en
+los empates.
+
+Sobre `respaldo caída informe correo parche`, con urgencias `2 9 5 5 9`,
+`java.util.PriorityQueue` entrega:
+
+```
+caída  parche  correo  informe  respaldo
+```
+
+`informe` y `correo` tienen la misma urgencia, e `informe` llegó antes. El
+heap los entregó al revés. No es un error de Java: el comparador dice que
+son iguales, y un heap **no es estable**. `sink` y los intercambios con la
+última hoja mueven elementos sin mirar cuándo llegaron, así que entre dos
+iguales cualquiera de los dos puede salir primero.
+
+</Slide>
+
+<Slide title="El orden de llegada como desempate">
+Si dos tareas empatan en urgencia, lo que las distingue es **cuándo
+llegaron**, y eso ya está en los datos: es su posición en la entrada. Basta
+con que el comparador lo use como segundo criterio. Primero la urgencia, de
+mayor a menor; si empatan, el número de llegada, de menor a mayor.
+
+Con ese comparador ya no hay dos tareas iguales: cada una tiene un número de
+llegada distinto. El heap sigue sin ser estable, pero ya no tiene empates
+que desordenar.
+
+A mano, sobre el ejemplo: `caída` y `parche` empatan en 9 y `caída` llegó
+en el lugar 1, antes que `parche`, en el 4; `informe` y `correo` empatan en 5
+y llegaron en los lugares 2 y 3. El orden es `caída parche informe correo
+respaldo`.
+
+</Slide>
+
+<Slide title="Planificador · la solución">
+El heap guarda **números de llegada**, no tareas. El índice `i` es a la vez
+el número de llegada y la posición de la tarea en los dos arreglos, así que
+el comparador lee la urgencia desde ahí.
+
+```java
+static String[] schedule(String[] names, int[] urgency) {
+    if (names.length != urgency.length) {
+        throw new IllegalArgumentException();
+    }
+    PriorityQueue<Integer> pending = new PriorityQueue<>(
+        (a, b) -> urgency[a] != urgency[b]
+            ? Integer.compare(urgency[b], urgency[a])
+            : Integer.compare(a, b));
+    for (int i = 0; i < names.length; i++) {
+        pending.add(i);
+    }
+    String[] order = new String[names.length];
+    for (int t = 0; t < order.length; t++) {
+        order[t] = names[pending.poll()];
+    }
+    return order;
+}
+```
+
+`Integer.compare(urgency[b], urgency[a])`, con `b` primero, ordena de mayor
+a menor; `Integer.compare(a, b)` desempata de menor a mayor. Sobre el
+ejemplo, los números de llegada salen 1, 4, 2, 3, 0, que son `caída`,
+`parche`, `informe`, `correo` y `respaldo`.
+
+</Slide>
+
+<Slide title="Los empates y la entrada vacía">
+El caso que el primer intento rompía es el que el desempate cubre: con
+`a b` y urgencias `1 1`, los dos empatan en urgencia y `a` llegó en el
+lugar 0, así que sale primero. Sin el desempate, cuál sale primero dependería
+de cómo quedó armado el heap.
+
+Con la entrada vacía ningún ciclo corre y se devuelve un arreglo vacío. Con
+arreglos de distinto largo no hay una tarea `i` bien definida, y la función
+lo rechaza con `IllegalArgumentException`.
+
+Cada una de las $$N$$ tareas entra y sale del heap una vez, a
+$$O(\log N)$$ cada operación: **$$O(N \log N)$$** en total. El heap guarda
+los $$N$$ números de llegada, y el resultado $$N$$ nombres: **$$\Theta(N)$$**
+de memoria.
+
+</Slide>
+
+<Slide title="Planificador · el programa completo">
+<PresentationWide fraction={0.75}>
+<Exercise title="Un planificador de tareas">
+
+El algoritmo entero. **Comprobar** lo corre contra los casos del enunciado.
+Sin el desempate del comparador, el primer caso falla.
+
+```java starter
+import java.util.PriorityQueue;
+
+class Solution {
+
+    static String[] schedule(String[] names, int[] urgency) {
+        if (names.length != urgency.length) {
+            throw new IllegalArgumentException();
+        }
+        PriorityQueue<Integer> pending = new PriorityQueue<>(
+            (a, b) -> urgency[a] != urgency[b]
+                ? Integer.compare(urgency[b], urgency[a])
+                : Integer.compare(a, b));
+        for (int i = 0; i < names.length; i++) {
+            pending.add(i);
+        }
+        String[] order = new String[names.length];
+        for (int t = 0; t < order.length; t++) {
+            order[t] = names[pending.poll()];
+        }
+        return order;
+    }
+}
+```
+
+```java test
+check(Solution.schedule(
+    new String[] {"respaldo", "caída", "informe", "correo", "parche"},
+    new int[] {2, 9, 5, 5, 9}),
+    new String[] {"caída", "parche", "informe", "correo", "respaldo"});
+check(Solution.schedule(new String[] {"a", "b"}, new int[] {1, 1}), new String[] {"a", "b"});
+check(Solution.schedule(new String[] {}, new int[] {}).length, 0);
+```
+
+</Exercise>
+</PresentationWide>
+
+</Slide>
+
+<Exercise title="El k-ésimo mayor">
+
+La función recibe un arreglo de enteros y un número `k`, y devuelve el
+`k`-ésimo mayor: con
+`k = 1` el máximo, con `k = 2` el segundo mayor, y así. Los repetidos cuentan
+por separado, así que en `6 6 1` el segundo mayor es 6.
+
+```java
+int kthLargest(int k, int[] data)
+```
+
+`k` está entre 1 y `data.length`; fuera de ese rango, la función lanza
+`IllegalArgumentException`. La dificultad está en no ordenar el arreglo
+entero: un min-heap de tamaño `k`, como el de Top-K, deja al final el
+`k`-ésimo mayor en su raíz. El costo esperado es $$O(N \log k)$$.
+
+```java starter
+import java.util.PriorityQueue;
+
+class Solution {
+
+    static int kthLargest(int k, int[] data) {
+        return 0;
+    }
+}
+```
+
+```java test
+check(Solution.kthLargest(1, new int[] {5, 1, 9, 3, 7}), 9);
+check(Solution.kthLargest(3, new int[] {5, 1, 9, 3, 7}), 5);
+check(Solution.kthLargest(5, new int[] {5, 1, 9, 3, 7}), 1);
+check(Solution.kthLargest(2, new int[] {6, 6, 1}), 6);
+```
+
+```java solution
+import java.util.PriorityQueue;
+
+class Solution {
+
+    static int kthLargest(int k, int[] data) {
+        if (k < 1 || k > data.length) {
+            throw new IllegalArgumentException();
+        }
+        PriorityQueue<Integer> best = new PriorityQueue<>();
+        for (int x : data) {
+            if (best.size() < k) {
+                best.add(x);
+            } else if (x > best.peek()) {
+                best.poll();
+                best.add(x);
+            }
+        }
+        return best.peek();
+    }
+}
+```
+
+</Exercise>
+
+<Exercise title="La verificación de un max-heap">
+
+La función recibe un arreglo guardado como heap desde 1 —`data[0]` sin usar
+y los elementos en `data[1..n]`— y decide si cumple el orden de max-heap.
+
+```java
+boolean isMaxHeap(int[] data, int n)
+```
+
+`n` está entre 0 y `data.length - 1`. Un heap con cero o un elemento
+siempre cumple el orden. No hace falta comparar cada nodo con sus dos hijos:
+alcanza con comparar cada posición `k`, de 2 a `n`, con su padre `k / 2`.
+El costo esperado es $$\Theta(n)$$.
+
+```java starter
+class Solution {
+
+    static boolean isMaxHeap(int[] data, int n) {
+        return false;
+    }
+}
+```
+
+```java test
+check(Solution.isMaxHeap(new int[] {0, 10, 7, 8, 1, 3}, 5), true);
+check(Solution.isMaxHeap(new int[] {0, 10, 7, 8, 1, 9}, 5), false);
+check(Solution.isMaxHeap(new int[] {0, 5, 6}, 2), false);
+check(Solution.isMaxHeap(new int[] {0, 4}, 1), true);
+check(Solution.isMaxHeap(new int[] {0}, 0), true);
+```
+
+```java solution
+class Solution {
+
+    static boolean isMaxHeap(int[] data, int n) {
+        for (int k = 2; k <= n; k++) {
+            if (data[k / 2] < data[k]) {
+                return false;
+            }
+        }
+        return true;
+    }
+}
+```
+
+</Exercise>
+
+## Lo que sigue
+
+El heap es un **árbol binario** con dos restricciones: la forma completa y el
+orden de heap. Gracias a ellas cabe en un arreglo y encuentra su máximo sin
+buscarlo; por ellas mismas no sirve para ninguna otra pregunta sobre el
+orden.
+
+La próxima clase estudia el árbol binario sin esas restricciones, como
+estructura general: nodos enlazados con punteros a sus hijos, las formas de
+recorrerlo —preorden, inorden, postorden— y cuánto puede crecer su altura
+cuando nada la controla. Es la base de los árboles de búsqueda, que ordenan
+los valores de izquierda a derecha para poder encontrar cualquiera de ellos,
+no sólo el máximo.

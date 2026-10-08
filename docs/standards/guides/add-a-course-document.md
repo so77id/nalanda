@@ -58,6 +58,7 @@ content/courses/sample-course/
 ├── 17-edd-introduccion.mdx    # presentation: explicit, questions: pool — <StepShow> (ten steppers, hand-written inline SVG frames) + <Figure>
 ├── 18-edd-listas-enlazadas.mdx  # presentation: explicit, questions: pool — <SequenceStepper> ×13 (the worked case) + <Exercise> ×5 with the `solution` fence
 ├── 19-edd-stack-queue.mdx     # presentation: explicit, questions: pool (13) — <SequenceStepper> ×8 over BOTH families (dynamic-array + singly) + <StepShow> ×7 + <Exercise> ×4 + 20 standalone inline SVG figures + a file-local <Paso> frame component + two TDA cards
+├── 20-edd-priority-queue-heap.mdx  # presentation: explicit, questions: none (a documented not-yet, step 2)
 ├── tda-eda-invariante.svg, arreglo-memoria.svg, arreglo-alocacion.svg, arreglo-invariante-valido.svg, arreglo-invariantes.svg, regla-del-cuarto.svg, costo-acumulado.svg   # assets for chapter 17
 └── index.yaml                 # the ordered teaching path
 ```
@@ -100,10 +101,10 @@ the frontmatter `id`, never the path. v0.1 supports exactly ONE course directory
    The value is honest either way, and the word alone cannot tell the two
    apart: `04-planificacion.mdx` means "this document is a spreadsheet, it
    teaches nothing to ask about", which is a decision and stays one.
-   **No document in the tree is a documented not-yet today** — #294 was going
-   to be the example and stopped being one when it shipped `pool` with
-   thirteen questions in the same PR, which is the better outcome and leaves
-   the half of this rule that covers a not-yet without a worked case.
+   **The worked not-yet is `20-edd-priority-queue-heap.mdx`** (#304), whose
+   comment names the separate post-merge WP that owes its bank. #294 was going
+   to be the example first and stopped being one when it shipped `pool` with
+   thirteen questions in the same PR.
    `14-complejidad-recursion.mdx` declares
    `none` with no comment, and a reader cannot tell which of the two it is —
    which is the case this rule exists to stop repeating (#294 review).
@@ -812,9 +813,21 @@ the controls at the foot. Two props choose what it shows:
 `linked-list-doubly` or `linked-list-circular` — and `operation` is what to
 animate: `get-at`, `insert-first`, `insert-last`, `insert-at`,
 `insert-ordered`, `remove-first`, `remove-last`, `remove-at` or `search`.
+Since #304 there is a sixth recipe, `heap-max` (ADR-0077): a binary max-heap
+drawn twice — as the complete binary tree and as the 1-based array
+`data[0..]`, side by side on a slide and stacked in the book — with four
+operations of its own and valid nowhere else: `insert` (swim), `extract-max`
+(swap root and last, `n--`, sink), `build-heap` and `heapsort` (both over
+unordered `values`). Its readout is `n`, `data[0]` is drawn as unused, and
+`capacity` is `data.length` with slot 0 included. `insert` and `extract-max`
+refuse a starting array that is not already a max-heap.
 `values` is the starting contents; `value` feeds the inserts, `index` the
 positional operations (`get-at` included), and `target` both `search` and
 `insert-ordered`.
+`insert-ordered` sorts ascending by default; `descending` sorts from largest
+to smallest and flips the listing's two comparisons, which is the naive
+ordered priority queue of `20-edd-priority-queue-heap.mdx` — its maximum at
+`head`, so extracting it is `deleteFirst` (#304).
 
 **Every argument also takes an ARRAY, and that is the default shape for a
 slide about cost.** `value={[9, 4, 6]}`, `index={[0, 3, 6]}`,
