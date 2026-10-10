@@ -22,10 +22,18 @@ un árbol.
 <Slide title="Una cola de prioridad">
 Una **cola de prioridad** es una colección donde cada elemento trae una
 **prioridad**, y el que sale no es el que llegó primero sino el de
-**prioridad más alta**. En esta clase la prioridad es el propio valor: un
-número mayor es más urgente.
+**prioridad más alta**.
 
-<svg viewBox="0 0 700 250" style={{ width: '100%', maxWidth: '700px', height: 'auto', display: 'block', margin: '1.25rem auto' }} role="img" aria-label="Llegan, en este orden, 3, 8, 1 y 5. Una cola común los deja salir en el mismo orden: primero el 3. Una cola de prioridad deja salir primero el 8, el mayor, aunque llegó segundo.">
+La **prioridad** es el criterio que decide qué elemento es más importante
+que otro. Puede ser cualquier cosa que se pueda comparar: la gravedad de un
+paciente, la urgencia de una tarea, el instante en que ocurrirá un evento o
+el tamaño de un archivo. Lo único que el contrato exige es que, dados dos
+elementos, siempre se pueda decir cuál va primero.
+
+Para que los ejemplos se lean de un vistazo, en esta clase la prioridad es
+el propio valor de cada elemento: un número mayor es más urgente.
+
+<svg viewBox="0 0 700 250" style={{ width: '100%', maxWidth: '700px', height: 'auto', display: 'block', margin: '1.25rem auto' }} role="img" aria-label="Llegan, en este orden, 3, 8, 1 y 5, y la misma llegada se reparte en dos flechas. Hacia una cola común, sale primero el 3, el primero que llegó. Hacia una cola de prioridad, sale primero el 8, el mayor, aunque llegó segundo.">
   <defs>
     <marker id="pq-idea-punta" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
       <path d="M0,0 L8,4 L0,8 z" style={{ fill: 'var(--color-ink-soft)' }} />
@@ -34,19 +42,19 @@ número mayor es más urgente.
       <path d="M0,0 L8,4 L0,8 z" style={{ fill: 'var(--color-accent)' }} />
     </marker>
   </defs>
-  <text x="20" y="26" fontSize="14" fontWeight="700" style={{ fill: 'var(--color-ink-soft)' }}>llegan, en este orden</text>
+  <text x="20" y="96" fontSize="14" fontWeight="700" style={{ fill: 'var(--color-ink-soft)' }}>llegan, en este orden</text>
   {[3, 8, 1, 5].map((v, i) => (
     <g key={v}>
-      <rect x={20 + i * 56} y="40" width="44" height="44" rx="3" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.4" />
-      <text x={42 + i * 56} y="69" textAnchor="middle" fontSize="20" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{v}</text>
+      <rect x={20 + i * 56} y="110" width="44" height="44" rx="3" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.4" />
+      <text x={42 + i * 56} y="139" textAnchor="middle" fontSize="20" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{v}</text>
     </g>
   ))}
-  <line x1="250" y1="62" x2="300" y2="62" style={{ stroke: 'var(--color-ink-soft)' }} strokeWidth="1.6" markerEnd="url(#pq-idea-punta)" />
+  <line x1="250" y1="132" x2="300" y2="70" style={{ stroke: 'var(--color-ink-soft)' }} strokeWidth="1.6" markerEnd="url(#pq-idea-punta)" />
   <text x="320" y="56" fontSize="15" fontWeight="700" style={{ fill: 'var(--color-ink)' }}>Queue</text>
   <text x="320" y="78" fontSize="13" style={{ fill: 'var(--color-ink-faint)' }}>sale el primero que llegó</text>
   <rect x="560" y="40" width="44" height="44" rx="3" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.4" />
   <text x="582" y="69" textAnchor="middle" fontSize="20" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>3</text>
-  <line x1="250" y1="182" x2="300" y2="182" style={{ stroke: 'var(--color-accent)' }} strokeWidth="2.2" markerEnd="url(#pq-idea-punta-sale)" />
+  <line x1="250" y1="132" x2="300" y2="174" style={{ stroke: 'var(--color-accent)' }} strokeWidth="2.2" markerEnd="url(#pq-idea-punta-sale)" />
   <text x="320" y="176" fontSize="15" fontWeight="700" style={{ fill: 'var(--color-ink)' }}>Priority Queue</text>
   <text x="320" y="198" fontSize="13" style={{ fill: 'var(--color-ink-faint)' }}>sale el de prioridad más alta</text>
   <rect x="560" y="160" width="44" height="44" rx="3" style={{ fill: 'var(--color-mark-soft)', stroke: 'var(--color-accent)' }} strokeWidth="2.4" />
