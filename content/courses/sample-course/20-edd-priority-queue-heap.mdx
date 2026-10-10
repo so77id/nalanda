@@ -299,7 +299,11 @@ export function HeapPicture({
   const arrayX = (width - arrayW) / 2;
   const arcSpace = arcMode ? 74 : 0;
   const arrayY = treeH + (view === 'both' ? 26 : 6) + arcSpace;
-  const height = view === 'tree' ? treeH : arrayY + box + (levelBrackets || childBrackets ? 66 : 40);
+  // Parent arcs alternate sides by parent — those landing on 1 and 3 above
+  // the array, those landing on 2 below it — so the pairs do not overlap.
+  const arcAbove = (parent) => parent % 2 === 1;
+  const belowArcs = arcMode === 'parent' && values.length >= 4;
+  const height = view === 'tree' ? treeH : arrayY + box + (belowArcs ? 84 : levelBrackets || childBrackets ? 66 : 40);
   const at = (k) => {
     const level = levelOf(k);
     const span = leaves / 2 ** level;
@@ -385,10 +389,19 @@ export function HeapPicture({
           {arcMode === 'parent' ? ks.filter(linked).map((k) => {
             // A left child (even k) lands on the left half of its parent, a
             // right child on the right half, so two arrows never share a tip.
+            // Coloured by parent, like the tree's arrows.
+            const parent = Math.floor(k / 2);
             const from = cellX(k);
-            const to = cellX(Math.floor(k / 2)) + (k % 2 === 0 ? -8 : 8);
+            const to = cellX(parent) + (k % 2 === 0 ? -8 : 8);
             const lift = 16 + (from - to) * 0.3;
-            return <path key={`arc${k}`} d={`M ${from} ${arrayY - 2} C ${from} ${arrayY - lift}, ${to} ${arrayY - lift}, ${to} ${arrayY - 4}`} style={{ fill: 'none', stroke: 'var(--color-ink-soft)' }} strokeWidth="1.2" markerEnd={`url(#${idPrefix}-arc)`} />;
+            const style = { fill: 'none', stroke: pairColor(parent) };
+            const tip = `url(#${idPrefix}-tip${(parent - 1) % 4})`;
+            if (arcAbove(parent)) {
+              return <path key={`arc${k}`} d={`M ${from} ${arrayY - 2} C ${from} ${arrayY - lift}, ${to} ${arrayY - lift}, ${to} ${arrayY - 4}`} style={style} strokeWidth="1.6" markerEnd={tip} />;
+            }
+            // Below, under the index rail, so the numbers stay readable.
+            const base = arrayY + box + 20;
+            return <path key={`arc${k}`} d={`M ${from} ${base} C ${from} ${base + lift}, ${to} ${base + lift}, ${to} ${base + 2}`} style={style} strokeWidth="1.6" markerEnd={tip} />;
           }) : null}
           {arcMode === 'children' ? ks.filter(linked).map((k) => {
             // Leaves the left half of its parent for the left child and the
@@ -691,7 +704,7 @@ Si los hijos del nodo $$p$$ son $$2p$$ y $$2p + 1$$, ir de un hijo a su
 padre es deshacer esa cuenta: dividir por 2. Con división entera el resto se
 descarta, así que los dos hijos llegan al mismo padre.
 
-<HeapPicture values={[10, 7, 8, 1, 3, 2, 4]} edgeArrows="up" arcs="parent" idPrefix="pq-padre" label="El heap como árbol y como arreglo, con flechas de cada nodo a su padre: los nodos 2 y 3 apuntan al 1, los nodos 4 y 5 al 2, y los nodos 6 y 7 al 3. En el arreglo, las mismas flechas van de cada casilla a la de su padre." />
+<HeapPicture values={[10, 7, 8, 1, 3, 2, 4]} edgeArrows="up" arcs="parent" idPrefix="pq-padre" label="El heap como árbol y como arreglo, con flechas de cada nodo a su padre: los nodos 2 y 3 apuntan al 1, los nodos 4 y 5 al 2, y los nodos 6 y 7 al 3. En el arreglo, las mismas flechas, con los mismos colores, van de cada casilla a la de su padre: las que llegan a las casillas 1 y 3 por arriba, y las que llegan a la casilla 2 por abajo." />
 
 | Nodo `k` | 2   | 3   | 4   | 5   | 6   | 7   |
 | -------- | --- | --- | --- | --- | --- | --- |
