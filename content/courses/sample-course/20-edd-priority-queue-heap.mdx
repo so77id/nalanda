@@ -271,6 +271,7 @@ export function HeapPicture({
   childBrackets = false,
   nextSlot = false,
   brokenEdges = [],
+  minLevels = 1,
   idPrefix = 'heap-pic',
   label,
 }) {
@@ -289,7 +290,9 @@ export function HeapPicture({
   const levelOf = (k) => Math.floor(Math.log2(k));
   // The next free position, n + 1, is drawn dashed when asked for.
   const total = values.length + (nextSlot ? 1 : 0);
-  const levels = total === 0 ? 1 : levelOf(total) + 1;
+  // minLevels lets two pictures side by side reserve the same canvas, so
+  // their nodes come out the same size.
+  const levels = Math.max(total === 0 ? 1 : levelOf(total) + 1, minLevels);
   const leaves = 2 ** (levels - 1);
   const labelW = levelLines ? 58 : 0;
   const treeW = labelW + 2 * pad + leaves * pitch;
@@ -866,9 +869,21 @@ Toda operación que modifica el heap sigue el mismo guion, en dos tiempos.
    cambio afecta un solo lugar del árbol, y la reparación recorre un solo
    camino entre ese lugar y la raíz.
 
-<HeapPicture values={[10, 7, 8, 1, 3, 2, 4]} nextSlot marked={[7]} label="El heap 10, 7, 8, 1, 3, 2, 4 como árbol y como arreglo. La posición 8, punteada y rotulada n + 1, es la única por donde puede entrar un elemento: en el árbol es el hijo izquierdo del 1. La posición 7, marcada, que guarda el 4, es la última hoja: la única que puede salir sin dejar un hueco." />
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '0.25rem 1.5rem' }}>
+<div>
+<div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-ink-soft)', textAlign: 'center' }}>un elemento nuevo entra en data[n + 1]</div>
+<HeapPicture values={[10, 7, 8, 1, 3, 2, 4]} view="tree" nextSlot label="El heap de ejemplo, con n = 7. Punteada, la posición 8, rotulada n + 1: el hijo izquierdo del 1, la primera hoja libre. Es el único lugar donde un elemento nuevo mantiene la invariante de forma completa." />
+</div>
+<div>
+<div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-ink-soft)', textAlign: 'center' }}>el único que puede salir es data[n]</div>
+<HeapPicture values={[10, 7, 8, 1, 3, 2, 4]} view="tree" marked={[7]} minLevels={4} label="El mismo heap. Marcada, la posición 7, que guarda el 4: la última hoja. Es la única que puede salir sin dejar un hueco." />
+</div>
+</div>
 
-El segundo tiempo es el que cuesta: su largo depende de la altura del árbol.
+El primer tiempo cuesta $$\Theta(1)$$: escribe o mueve un solo elemento. El
+segundo es el que decide el costo de la operación, porque recorre un camino
+entre una hoja y la raíz, y ese camino tiene a lo más tantas aristas como la
+altura del árbol.
 
 </Slide>
 
