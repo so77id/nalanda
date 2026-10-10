@@ -333,7 +333,7 @@ export function HeapPicture({
             <g key={`n${k}`}>
               <circle cx={c.cx} cy={c.cy} r={r} style={{ fill: 'var(--color-sunk)', stroke: 'var(--color-flag)' }} strokeWidth="1.6" strokeDasharray="4 3" />
               <text x={c.cx} y={c.cy + 3} textAnchor="middle" fontSize="8" fontWeight="600" style={{ fill: 'var(--color-flag)' }}>hueco</text>
-              <text x={c.cx} y={c.cy + r + 11} textAnchor="middle" fontSize="9" style={{ fill: 'var(--color-ink-faint)' }}>{k}</text>
+              <text x={c.cx} y={c.cy + r + 13} textAnchor="middle" fontSize="11" fontWeight="600" style={{ fill: 'var(--color-ink-soft)' }}>{k}</text>
             </g>
           );
         }
@@ -341,7 +341,7 @@ export function HeapPicture({
           <g key={`n${k}`}>
             <circle cx={c.cx} cy={c.cy} r={r} style={{ fill: fill(k), stroke: stroke(k) }} strokeWidth={weight(k)} />
             <text x={c.cx} y={c.cy + 5} textAnchor="middle" fontSize="14" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{values[k - 1]}</text>
-            <text x={c.cx} y={c.cy + r + 11} textAnchor="middle" fontSize="9" style={{ fill: 'var(--color-ink-faint)' }}>{k}</text>
+            <text x={c.cx} y={c.cy + r + 13} textAnchor="middle" fontSize="11" fontWeight="600" style={{ fill: 'var(--color-ink-soft)' }}>{k}</text>
           </g>
         );
       })}
@@ -525,18 +525,22 @@ dicen dónde está: hay que recorrer el árbol para encontrarla.
 
 </Slide>
 
-<Slide title="Numerar el árbol por niveles">
-La invariante de forma completa permite otra cosa: numerar los nodos sin
-ambigüedad. Se recorre el árbol **por niveles, de arriba hacia abajo, y
-dentro de cada nivel de izquierda a derecha**, empezando en 1.
+<Slide title="Numerar los nodos del árbol">
+La invariante de forma completa permite darle a cada **nodo** un número, sin
+ambigüedad. La raíz recibe el **1**. Después se recorre el árbol nivel por
+nivel, de arriba hacia abajo, y dentro de cada nivel de izquierda a derecha:
+el 7 recibe el 2, el 8 el 3, y así hasta el último nodo.
 
 <HeapPicture values={[10, 7, 8, 1, 3, 2, 4]} view="tree" levelLines levelColors label="El heap 10, 7, 8, 1, 3, 2, 4 dibujado como árbol, con una línea punteada por cada nivel. El nivel 0 tiene la raíz, numerada 1; el nivel 1 tiene el 7 y el 8, numerados 2 y 3; el nivel 2 tiene el 1, el 3, el 2 y el 4, numerados del 4 al 7." />
 
-El nivel 0 tiene un nodo; el nivel 1, dos; el nivel 2, cuatro: cada nivel
-lleno tiene el doble que el anterior, y el nivel `d` empieza en el número
-$$2^d$$. Como la invariante de forma completa no deja huecos, la
-numeración **no salta ningún número**: los 7 nodos reciben del 1 al 7, y el
-nodo que llegue después recibirá el 8.
+Los números de los nodos son los que aparecen debajo de cada uno. Los
+**niveles** se cuentan aparte, desde 0: la raíz está en el nivel 0, sus
+hijos en el nivel 1, y los nodos de abajo en el nivel 2. Cada nivel lleno
+tiene el doble de nodos que el anterior: 1, 2, 4.
+
+Como la invariante de forma completa no deja huecos, la numeración de los
+nodos **no salta ningún número**: los 7 nodos reciben del 1 al 7, y el nodo
+que llegue después recibirá el 8.
 
 </Slide>
 
