@@ -825,9 +825,9 @@ refuse a starting array that is not already a max-heap.
 positional operations (`get-at` included), and `target` both `search` and
 `insert-ordered`.
 `insert-ordered` sorts ascending by default; `descending` sorts from largest
-to smallest and flips the listing's two comparisons, which is the naive
-ordered priority queue of `20-edd-priority-queue-heap.mdx` — its maximum at
-`head`, so extracting it is `deleteFirst` (#304).
+to smallest and flips the listing's two comparisons — a priority queue's
+ordered list, with its maximum at `head` (#304). **No document mounts it
+today**: the slide it was written for was cut in #304's slide review.
 
 **Every argument also takes an ARRAY, and that is the default shape for a
 slide about cost.** `value={[9, 4, 6]}`, `index={[0, 3, 6]}`,

@@ -626,30 +626,6 @@ describe('<SequenceStepper> · the combinations 20-edd-priority-queue-heap mount
   // that throws or refuses halfway is invisible to a mount.
   const mounted: { act: string; slide: string; props: SequenceStepperProps }[] = [
     {
-      act: 'Dos implementaciones ingenuas',
-      slide: 'Cinco inserciones en la lista sin orden',
-      props: {
-        eda: 'linked-list-singly',
-        operation: 'insert-first',
-        values: [],
-        value: [8, 3, 10, 1, 7],
-      },
-    },
-    {
-      act: 'Dos implementaciones ingenuas',
-      slide: 'Cinco inserciones en la lista ordenada',
-      props: {
-        eda: 'linked-list-singly',
-        operation: 'insert-ordered',
-        values: [],
-        target: [8, 3, 10, 1, 7],
-        descending: true,
-        method: 'insert',
-        receiver: 'pq',
-        receiverType: 'OrderedPQ',
-      },
-    },
-    {
       act: 'El heap binario',
       slide: 'Una inserción en las dos vistas',
       props: {
