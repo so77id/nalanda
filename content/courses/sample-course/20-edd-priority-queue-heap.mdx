@@ -858,16 +858,15 @@ el heap vacío cumple las dos invariantes.
 
 </Slide>
 
-<Slide title="Las operaciones y las dos invariantes">
-Toda operación que modifica el heap sigue el mismo guion, en dos tiempos.
+<Slide title="Las dos invariantes al modificar el heap">
+Insertar o sacar un elemento cambia el heap, y después del cambio las dos
+invariantes tienen que seguir cumpliéndose. Las dos operaciones lo logran
+de la misma manera: primero cuidan la forma y después el orden.
 
-1. **Primero mantiene la invariante de forma completa**, y para eso no hay
-   alternativa. Un elemento nuevo sólo puede entrar en `data[n + 1]`, la
-   primera hoja libre, y el único que puede salir sin dejar un hueco es
-   `data[n]`, la última hoja.
-2. **Después restaura la invariante de orden de heap**, si la rompió. El
-   cambio afecta un solo lugar del árbol, y la reparación recorre un solo
-   camino entre ese lugar y la raíz.
+**La invariante de forma completa no deja elegir el lugar.** Para que el
+árbol siga sin huecos, un elemento nuevo sólo puede ocupar la primera
+posición libre, `data[n + 1]`, y el único que puede salir sin dejar un hueco
+es el último, `data[n]`.
 
 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '0.25rem 1.5rem' }}>
 <div>
@@ -880,10 +879,15 @@ Toda operación que modifica el heap sigue el mismo guion, en dos tiempos.
 </div>
 </div>
 
-El primer tiempo cuesta $$\Theta(1)$$: escribe o mueve un solo elemento. El
-segundo es el que decide el costo de la operación, porque recorre un camino
-entre una hoja y la raíz, y ese camino tiene a lo más tantas aristas como la
-altura del árbol.
+**La invariante de orden de heap se repara después.** El lugar obligado no
+mira los valores. Al insertar, el nuevo puede quedar debajo de un padre
+menor que él; al sacar, el que pasa a la raíz puede quedar encima de hijos
+mayores. La invariante queda rota, pero en un solo punto. Repararla es
+mover ese elemento,
+intercambio a intercambio, por el único camino que une ese punto con la
+raíz. Cada intercambio cuesta $$\Theta(1)$$, así que el costo de la
+operación lo decide el largo de ese camino, que a lo más es la altura del
+árbol.
 
 </Slide>
 
