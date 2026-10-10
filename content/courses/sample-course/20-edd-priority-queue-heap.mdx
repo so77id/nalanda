@@ -923,15 +923,19 @@ Ninguna recorre ni cambia nada, así que ninguna puede romper una invariante:
 </Slide>
 
 <Slide title="Dónde entra un elemento nuevo">
-El heap de ejemplo recibe un 9. La invariante de forma completa decide
-dónde va, sin opciones: en la primera hoja libre, `data[n + 1]`. Aquí
-`n = 7`, así que el 9 entra en `data[8]`, y su padre es `parent(8) = 4`, el
-nodo que guarda el 1.
+Insertemos un 9 en el heap de ejemplo, que tiene `n = 7` elementos. El 9
+no puede ir donde quiera: para que el árbol siga sin huecos, tiene que
+ocupar la posición siguiente a la última, la `n + 1`. En el arreglo es
+`data[8]`, la casilla que sigue al último elemento.
 
 <HeapPicture values={[10, 7, 8, 1, 3, 2, 4, 9]} hot={[8]} label="El heap con el 9 recién escrito en data[8]: en el árbol es el hijo izquierdo del 1, en el último nivel." />
 
-Si el arreglo está lleno, antes de escribir hay que hacerle espacio con el
-mismo `resize` del arreglo dinámico.
+En el árbol, la posición 8 es el hijo izquierdo del nodo 4, porque
+`parent(8) = 8 / 2 = 4`: el 9 queda como hoja, debajo del 1.
+
+En el ejemplo el arreglo está lleno —`data.length` es 8, así que `data[8]`
+todavía no existe—, y antes de escribir hay que agrandarlo con el `resize`
+del arreglo dinámico.
 
 </Slide>
 
