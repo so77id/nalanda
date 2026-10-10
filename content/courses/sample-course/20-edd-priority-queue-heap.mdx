@@ -992,12 +992,20 @@ y no la rompe en ninguna de abajo:
 
 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '0.25rem 1.5rem' }}>
 <div>
-<div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-ink-soft)', textAlign: 'center' }}>antes: el 9 rompe la invariante con su padre, el 7</div>
-<HeapPicture values={[10, 7, 8, 9, 3, 2, 4, 1]} view="tree" hot={[2, 4]} brokenEdges={[4]} label="Antes del intercambio: el 9 en la posición 4, hijo del 7. La arista entre los dos está rota." />
+<div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-ink-soft)', textAlign: 'center' }}>1 · el 9 debajo del 1: rompe la invariante</div>
+<HeapPicture values={[10, 7, 8, 1, 3, 2, 4, 9]} view="tree" hot={[4, 8]} brokenEdges={[8]} label="Paso 1: el 9 recién escrito en la posición 8, debajo del 1. La arista entre los dos rompe la invariante de orden de heap." />
 </div>
 <div>
-<div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-ink-soft)', textAlign: 'center' }}>después: el 9 arriba del 7 y del 3</div>
-<HeapPicture values={[10, 9, 8, 7, 3, 2, 4, 1]} view="tree" hot={[2, 4]} label="Después del intercambio: el 9 en la posición 2, el 7 en la 4. Todas las aristas cumplen la invariante de orden de heap." />
+<div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-ink-soft)', textAlign: 'center' }}>2 · sube un nivel: ahora la rompe con el 7</div>
+<HeapPicture values={[10, 7, 8, 9, 3, 2, 4, 1]} view="tree" hot={[2, 4]} brokenEdges={[4]} label="Paso 2: después de intercambiarse con el 1, el 9 está en la posición 4 y el 1 bajó a la 8. La arista entre el 9 y su nuevo padre, el 7, rompe la invariante." />
+</div>
+<div>
+<div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-ink-soft)', textAlign: 'center' }}>3 · sube otro nivel: frente al 10 se cumple</div>
+<HeapPicture values={[10, 9, 8, 7, 3, 2, 4, 1]} view="tree" hot={[1, 2]} label="Paso 3: después de intercambiarse con el 7, el 9 está en la posición 2, debajo del 10, y el 7 bajó a la 4. Todas las aristas cumplen la invariante de orden de heap." />
+</div>
+<div>
+<div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-ink-soft)', textAlign: 'center' }}>4 · el resultado en el arreglo</div>
+<HeapPicture values={[10, 9, 8, 7, 3, 2, 4, 1]} view="array" hot={[2]} label="El resultado en el arreglo: data[1] a data[8] = 10, 9, 8, 7, 3, 2, 4, 1. El 9 quedó en data[2]." />
 </div>
 </div>
 
