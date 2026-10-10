@@ -227,21 +227,27 @@ el trabajo ni adelantarlo lo hace desaparecer.
 
 </Slide>
 
-<Slide title="Un orden más débil que el de la lista">
-La lista ordenada hace más trabajo del que el contrato pide. Mantiene a
-**todos** los elementos en su lugar exacto, cuando el contrato sólo deja ver
-uno: el de mayor prioridad. Saber que el tercero va antes que el cuarto no
-le sirve a ninguna operación de la cola de prioridad.
+<Slide title="Un orden que sólo garantiza dónde está el máximo">
+La lista ordenada paga caro al insertar porque mantiene **todos** los
+elementos en orden. Con 10, 8, 7, 3, 1 sabe que el 10 es el primero, pero
+también que el 8 va antes que el 7, el 7 antes que el 3, y el 3 antes que
+el 1. El contrato, en cambio, sólo deja ver un elemento: el de mayor
+prioridad. Que el 8 vaya antes que el 7 no le sirve a ninguna operación.
 
-La salida es guardar un orden **más débil**: lo justo para que el elemento
-de mayor prioridad esté siempre en un lugar conocido, y no más. Un orden así
-no cabe en una fila, porque en una fila cada elemento tiene un único vecino
-que lo sigue. Cabe en una **jerarquía**, donde cada elemento sólo tiene que
-ser mayor que los que dependen de él, y dos elementos de ramas distintas no
-se comparan nunca.
+La idea es guardar sólo el orden necesario para saber cuál es el mayor. Por
+ejemplo, en una jerarquía: el 10 arriba, y debajo de él dos grupos, cada
+uno con su propio mayor arriba.
 
-Esa jerarquía es un árbol, y la estructura que la guarda se llama **heap**.
-Con ella, insertar y extraer cuestan $$O(\log N)$$ las dos.
+<HeapPicture values={[10, 7, 8, 1, 3]} view="tree" label="Los mismos cinco valores en una jerarquía: el 10 arriba; debajo, el 7 y el 8; y debajo del 7, el 1 y el 3. Cada valor es mayor o igual que los que tiene debajo." />
+
+La única regla es que **cada elemento sea mayor o igual que los que tiene
+debajo**. Con eso el mayor de todos queda siempre arriba, y nadie compara
+al 7 con el 8, porque están en ramas distintas. Hay mucho menos orden que
+mantener, y por eso insertar y extraer pueden ser baratos a la vez: los dos
+cuestan $$O(\log N)$$.
+
+Esta jerarquía es un árbol, y la estructura que la guarda se llama
+**heap**.
 
 </Slide>
 
