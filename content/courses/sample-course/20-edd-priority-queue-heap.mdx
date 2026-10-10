@@ -269,6 +269,8 @@ export function HeapPicture({
   parentArcs = false,
   zeroBased = false,
   childBrackets = false,
+  nextSlot = false,
+  brokenEdges = [],
   idPrefix = 'heap-pic',
   label,
 }) {
@@ -285,14 +287,16 @@ export function HeapPicture({
   const pairColor = (parent) => PAIR[(parent - 1) % 4];
   const arcMode = arcs ?? (parentArcs ? 'parent' : undefined);
   const levelOf = (k) => Math.floor(Math.log2(k));
-  const levels = values.length === 0 ? 1 : levelOf(values.length) + 1;
+  // The next free position, n + 1, is drawn dashed when asked for.
+  const total = values.length + (nextSlot ? 1 : 0);
+  const levels = total === 0 ? 1 : levelOf(total) + 1;
   const leaves = 2 ** (levels - 1);
   const labelW = levelLines ? 58 : 0;
   const treeW = labelW + 2 * pad + leaves * pitch;
   const treeH = view === 'array' ? 0 : 2 * pad + 2 * r + (levels - 1) * levelH;
   // Zero-based storage has no unused slot: the root sits in data[0].
   const lead = zeroBased ? 0 : 1;
-  const arrayW = (values.length + lead) * box;
+  const arrayW = (total + lead) * box;
   const width = Math.max(view === 'array' ? 0 : treeW, view === 'tree' ? 0 : arrayW + 8);
   const treeX = (width - treeW) / 2;
   const arrayX = (width - arrayW) / 2;
@@ -347,6 +351,12 @@ export function HeapPicture({
           </g>
         );
       }) : null}
+      {view === 'array' ? null : ks.filter((k) => k > 1 && k <= n && (!present(k) || !present(Math.floor(k / 2)))).map((k) => {
+        // An edge touching a hole: the position exists, nobody occupies it.
+        const p = at(Math.floor(k / 2));
+        const c = at(k);
+        return <line key={`h${k}`} x1={p.cx} y1={p.cy} x2={c.cx} y2={c.cy} style={{ stroke: 'var(--color-rule)' }} strokeWidth="1.2" strokeDasharray="3 4" />;
+      })}
       {view === 'array' ? null : ks.filter(linked).map((k) => {
         const parent = Math.floor(k / 2);
         const p = at(parent);
@@ -365,8 +375,24 @@ export function HeapPicture({
             : [c.cx - ux * r, c.cy - uy * r, p.cx + ux * (r + 2), p.cy + uy * (r + 2)];
           return <line key={`e${k}`} x1={x1} y1={y1} x2={x2} y2={y2} style={{ stroke: pairColor(parent) }} strokeWidth="1.8" markerEnd={`url(#${idPrefix}-tip${(parent - 1) % 4})`} />;
         }
+        if (brokenEdges.includes(k)) {
+          // A broken invariant: red AND dashed, so colour is not the only signal.
+          return <line key={`e${k}`} x1={p.cx} y1={p.cy} x2={c.cx} y2={c.cy} style={{ stroke: 'var(--color-flag)' }} strokeWidth="2.8" strokeDasharray="6 4" />;
+        }
         return <line key={`e${k}`} x1={p.cx} y1={p.cy} x2={c.cx} y2={c.cy} style={{ stroke: hotEdge ? 'var(--color-accent)' : 'var(--color-rule-strong)' }} strokeWidth={hotEdge ? 2.8 : 1.2} />;
       })}
+      {view !== 'array' && nextSlot && present(Math.floor(total / 2)) ? (() => {
+        const p = at(Math.floor(total / 2));
+        const c = at(total);
+        return (
+          <g>
+            <line x1={p.cx} y1={p.cy} x2={c.cx} y2={c.cy} style={{ stroke: 'var(--color-mark)' }} strokeWidth="1.4" strokeDasharray="4 4" />
+            <circle cx={c.cx} cy={c.cy} r={r} style={{ fill: 'var(--color-mark-soft)', stroke: 'var(--color-mark)' }} strokeWidth="1.8" strokeDasharray="4 3" />
+            <text x={c.cx} y={c.cy + 4} textAnchor="middle" fontSize="10" fontWeight="700" style={{ fill: 'var(--color-mark)' }}>n + 1</text>
+            <text x={c.cx} y={c.cy + r + 13} textAnchor="middle" fontSize="11" fontWeight="600" style={{ fill: 'var(--color-ink-soft)' }}>{shown(total)}</text>
+          </g>
+        );
+      })() : null}
       {view === 'array' ? null : ks.filter((k) => k <= n).map((k) => {
         const c = at(k);
         if (!present(k)) {
@@ -456,6 +482,13 @@ export function HeapPicture({
               </g>
             );
           }) : null}
+          {nextSlot ? (
+            <g>
+              <rect x={cellLeft(total) + 2} y={arrayY + 2} width={box - 4} height={box - 4} rx="3" style={{ fill: 'var(--color-mark-soft)', stroke: 'var(--color-mark)' }} strokeWidth="1.8" strokeDasharray="4 3" />
+              <text x={cellX(total)} y={arrayY + box / 2 + 4} textAnchor="middle" fontSize="10" fontWeight="700" style={{ fill: 'var(--color-mark)' }}>n + 1</text>
+              <text x={cellX(total)} y={arrayY + box + 14} textAnchor="middle" fontSize="10" style={{ fill: 'var(--color-ink-faint)' }}>{shown(total)}</text>
+            </g>
+          ) : null}
           {ks.map((k) => (
             <g key={`a${k}`}>
               {present(k) ? (
@@ -798,13 +831,158 @@ son lo que cada una tiene que dejar cumplido al terminar.
 
 <SectionBreak />
 
-## Insertar y extraer del heap
+## Las operaciones del heap
 
-<Slide title="insert en el heap">
-Insertar tiene que conservar las dos invariantes, y conviene atender primero
-la que no admite arreglos: la invariante de **forma completa**. Hay un único
-lugar donde un nodo nuevo la mantiene, la primera hoja libre del último
-nivel, y en el arreglo esa hoja es `data[n + 1]`.
+<Slide title="La clase MaxHeap">
+El heap se guarda en un arreglo `data` y un entero `n`: los elementos
+ocupan `data[1..n]`, y `data[0]` no se usa.
+
+```java
+class MaxHeap {
+    private int[] data = new int[2];
+    private int n = 0;
+}
+```
+
+Un heap vacío arranca como el arreglo dinámico, con una sola casilla útil,
+`data[1]`, más la casilla 0. Cuando se llena crece con el mismo `resize`,
+que reserva un bloque del doble y copia los elementos, aquí los de
+`data[1..n]`. Las funciones `parent`, `left`, `right` y las que siguen son
+métodos de esta clase.
+
+Construir el heap vacío —el `build()` del contrato— cuesta $$\Theta(1)$$, y
+el heap vacío cumple las dos invariantes.
+
+</Slide>
+
+<Slide title="Las operaciones y las dos invariantes">
+Toda operación que modifica el heap sigue el mismo guion, en dos tiempos.
+
+1. **Primero mantiene la invariante de forma completa**, y para eso no hay
+   alternativa. Un elemento nuevo sólo puede entrar en `data[n + 1]`, la
+   primera hoja libre, y el único que puede salir sin dejar un hueco es
+   `data[n]`, la última hoja.
+2. **Después restaura la invariante de orden de heap**, si la rompió. El
+   cambio afecta un solo lugar del árbol, y la reparación recorre un solo
+   camino entre ese lugar y la raíz.
+
+<HeapPicture values={[10, 7, 8, 1, 3, 2, 4]} nextSlot marked={[7]} label="El heap 10, 7, 8, 1, 3, 2, 4 como árbol y como arreglo. La posición 8, punteada y rotulada n + 1, es la única por donde puede entrar un elemento: en el árbol es el hijo izquierdo del 1. La posición 7, marcada, que guarda el 4, es la última hoja: la única que puede salir sin dejar un hueco." />
+
+El segundo tiempo es el que cuesta: su largo depende de la altura del árbol.
+
+</Slide>
+
+<Slide title="Las consultas max, isEmpty y size">
+Las tres consultas del contrato sólo leen. La invariante de orden de heap
+pone el elemento de mayor prioridad en la raíz, y la raíz es `data[1]`:
+
+```java
+int max() {
+    if (n == 0) {
+        throw new NoSuchElementException();
+    }
+    return data[1];
+}
+
+boolean isEmpty() {
+    return n == 0;
+}
+
+int size() {
+    return n;
+}
+```
+
+Ninguna recorre ni cambia nada, así que ninguna puede romper una invariante:
+
+| Molde     | Operación             | Peor caso     | Invariante que restaura               |
+| --------- | --------------------- | ------------- | ------------------------------------- |
+| crear     | `build()`             | $$\Theta(1)$$ | Ninguna: el heap vacío cumple las dos |
+| consultar | `max()`               | $$\Theta(1)$$ | Ninguna: lee `data[1]`                |
+| consultar | `isEmpty()`, `size()` | $$\Theta(1)$$ | Ninguna                               |
+
+</Slide>
+
+<Slide title="Dónde entra un elemento nuevo">
+El heap de ejemplo recibe un 9. La invariante de forma completa decide
+dónde va, sin opciones: en la primera hoja libre, `data[n + 1]`. Aquí
+`n = 7`, así que el 9 entra en `data[8]`, y su padre es `parent(8) = 4`, el
+nodo que guarda el 1.
+
+<HeapPicture values={[10, 7, 8, 1, 3, 2, 4, 9]} hot={[8]} label="El heap con el 9 recién escrito en data[8]: en el árbol es el hijo izquierdo del 1, en el último nivel." />
+
+Si el arreglo está lleno, antes de escribir hay que hacerle espacio con el
+mismo `resize` del arreglo dinámico.
+
+</Slide>
+
+<Slide title="La invariante que el nuevo puede romper">
+Escribir en `data[8]` mantiene la invariante de forma completa, pero puede
+romper la de orden de heap. ¿Dónde? **Sólo en la arista entre el nuevo y su
+padre**: el 9 no tiene hijos, y ninguna otra arista cambió.
+
+<HeapPicture values={[10, 7, 8, 1, 3, 2, 4, 9]} hot={[8]} brokenEdges={[8]} label="El mismo heap con el 9 en data[8]. La arista entre el 9 y su padre, el 1, está en rojo y punteada: ahí se rompe la invariante de orden de heap, porque el padre es menor que el hijo. Todas las demás aristas la cumplen." />
+
+Aquí se rompe: el padre, 1, es menor que el 9. Restaurar la invariante en
+esa arista es intercambiar al nuevo con su padre.
+
+</Slide>
+
+<Slide title="Subir sin romper otra arista">
+El primer intercambio deja al 9 en la posición 4, y ahí vuelve a romper la
+invariante, ahora con el 7. Así queda el segundo intercambio:
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '0.25rem 1.5rem' }}>
+<div>
+<div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-ink-soft)', textAlign: 'center' }}>antes</div>
+<HeapPicture values={[10, 7, 8, 9, 3, 2, 4, 1]} view="tree" hot={[2, 4]} brokenEdges={[4]} label="Antes del intercambio: el 9 en la posición 4, hijo del 7. La arista entre los dos está rota." />
+</div>
+<div>
+<div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-ink-soft)', textAlign: 'center' }}>después</div>
+<HeapPicture values={[10, 9, 8, 7, 3, 2, 4, 1]} view="tree" hot={[2, 4]} label="Después del intercambio: el 9 en la posición 2, el 7 en la 4. Todas las aristas cumplen la invariante de orden de heap." />
+</div>
+</div>
+
+- **El que baja, el 7, queda arriba del 1.** Ese 1 era hijo del 7 antes de
+  que llegara el 9, así que ya era menor o igual.
+- **El que sube, el 9, queda arriba del 7 y del 3.** Es mayor que el 7, y el
+  7 ya era mayor o igual que el 3.
+
+Ninguna arista de abajo queda rota. La única que puede quedar rota es la de
+arriba, entre el que subió y su nuevo padre, y por eso el intercambio se
+repite subiendo. Frente al 10 la invariante ya se cumple, y se detiene.
+
+</Slide>
+
+<Slide title="La función auxiliar swim">
+Repetir el intercambio hacia arriba es una función auxiliar, `swim`. Recibe
+la posición del elemento que puede estar rompiendo la invariante de orden
+de heap con su padre:
+
+```java
+void swim(int k) {
+    while (k > 1 && data[parent(k)] < data[k]) {
+        swap(parent(k), k);
+        k = parent(k);
+    }
+}
+
+void swap(int i, int j) {
+    int t = data[i];
+    data[i] = data[j];
+    data[j] = t;
+}
+```
+
+Mientras `k` no sea la raíz y su padre sea menor, los intercambia y sube con
+`k = parent(k)`. Se detiene en la raíz, o en cuanto la invariante se cumple.
+`swap` no lleva ninguna idea: intercambia dos casillas del arreglo.
+
+</Slide>
+
+<Slide title="La operación insert">
+Con `swim` escrita, insertar son tres líneas, y cada una atiende una
+invariante:
 
 ```java
 void insert(int x) {
@@ -816,64 +994,134 @@ void insert(int x) {
 }
 ```
 
-El bloque crece como el del arreglo dinámico, con el mismo `resize` que
-duplica el tamaño y copia. La única diferencia es la condición de lleno:
-como `data[0]` no se usa, caben `data.length - 1` elementos.
-
-Escribir en `data[++n]` mantiene la invariante de forma completa, pero puede
-romper la de **orden de heap**: el valor nuevo puede ser mayor que su padre.
-Restaurarla es
-trabajo de `swim`.
-
-</Slide>
-
-<Slide title="swim hacia la raíz">
-`swim` restaura la invariante de orden de heap desde el nodo `k` hacia
-arriba. Mientras `k`
-no sea la raíz y su padre sea menor, los intercambia y sube:
-
-```java
-void swim(int k) {
-    while (k > 1 && data[k / 2] < data[k]) {
-        swap(k / 2, k);
-        k = k / 2;
-    }
-}
-
-void swap(int i, int j) {
-    int t = data[i];
-    data[i] = data[j];
-    data[j] = t;
-}
-```
-
-`swap` no lleva ninguna idea: intercambia dos casillas del arreglo. La idea
-está en el ciclo. Cada intercambio restaura la invariante en la arista entre `k` y
-su padre, y no la rompe en ninguna otra: el padre que baja era mayor que su otro hijo, y el
-valor que sube es mayor que el padre que desplaza. El único lugar donde el
-orden puede seguir roto es un nivel más arriba, y ahí sigue el ciclo.
-
-Se detiene en cuanto el padre es mayor o igual, o al llegar a la raíz. Sube
-a lo más un nivel por vuelta.
+- **`resize`**: si `data[1..n]` ocupa todo el arreglo, se reserva uno del
+  doble, como en el arreglo dinámico. El arreglo está lleno con
+  `n == data.length - 1`, porque `data[0]` no se usa.
+- **`data[++n] = x`**: el nuevo va a la primera hoja libre y `n` crece. La
+  invariante de forma completa se mantiene.
+- **`swim(n)`**: restaura la invariante de orden de heap desde la hoja nueva.
 
 </Slide>
 
 <Slide title="insert paso a paso">
-El heap 10, 7, 8, 1, 3 recibe 9, 12 y 2. Cada valor entra en la primera
-hoja libre y sube mientras su padre sea menor.
+El heap de ejemplo recibe el 9. Tiene 7 elementos en un arreglo de
+`data.length = 8`, así que está lleno: primero crece a 16, después el 9
+entra en `data[8]` y sube dos niveles.
 
-<SequenceStepper eda="heap-max" operation="insert" values={[10, 7, 8, 1, 3]} value={[9, 12, 2]} capacity={9} />
-
-El 9 sube un nivel y se detiene bajo el 10. El 12 sube dos niveles, hasta
-la raíz: es el nuevo máximo. El 2 sube uno, sobre el 1, y se detiene bajo
-el 7. El heap queda 12, 7, 10, 2, 3, 8, 9, 1.
+<SequenceStepper eda="heap-max" operation="insert" values={[10, 7, 8, 1, 3, 2, 4]} value={9} />
 
 </Slide>
 
-<Slide title="extractMax en el heap">
-El máximo está en la raíz, así que encontrarlo no cuesta nada. Lo que cuesta
-es **sacarlo sin dejar un hueco**: la raíz no puede quedar vacía, y la forma
-completa sólo permite quitar la última hoja.
+<Slide title="Una seguidilla de inserciones">
+Así se construye el heap de ejemplo desde vacío: los mismos siete números,
+llegando en el orden 1, 7, 2, 3, 8, 4, 10. El arreglo arranca con
+`data.length = 2` y crece cada vez que se llena.
+
+<SequenceStepper eda="heap-max" operation="insert" values={[]} value={[1, 7, 2, 3, 8, 4, 10]} showCode={false} />
+
+Cada número sube lo que su valor le permite: el 1 y el 2 no suben nada, el
+8 sube dos niveles, y el 10, que llega último, sube hasta la raíz. El
+arreglo crece dos veces: a 4 en la segunda inserción y a 8 en la cuarta.
+
+</Slide>
+
+<Slide title="El costo de insert">
+Escribir en `data[n + 1]` cuesta $$\Theta(1)$$, y `swim` sube a lo más un
+nivel por vuelta. ¿Cuántos niveles puede subir? Un árbol completo duplica
+sus nodos en cada nivel lleno —1, 2, 4, 8—, así que con $$N$$ nodos tiene
+$$\lfloor \log_2 N \rfloor + 1$$ niveles, y el camino de una hoja a la raíz
+recorre a lo más $$\lfloor \log_2 N \rfloor$$ aristas: 2 en el heap de
+ejemplo, 20 en uno de un millón.
+
+<HeapPicture values={[10, 7, 8, 1, 3, 2, 4]} view="tree" levelLines levelColors label="El heap de ejemplo con sus tres niveles marcados: 0, 1 y 2. De cualquier hoja a la raíz hay a lo más dos aristas." />
+
+| Molde     | Operación   | Peor caso     | Amortizado    | Invariante que restaura                                    |
+| --------- | ----------- | ------------- | ------------- | ---------------------------------------------------------- |
+| modificar | <code style={{ color: 'var(--color-keep)' }}>insert(x)</code> | $$\Theta(N)$$ | <span style={{ color: 'var(--color-keep)', fontWeight: 700 }}>$$O(\log N)$$</span> | Forma completa: entra en `data[n + 1]`. Orden de heap: `swim` |
+
+El peor caso es $$\Theta(N)$$ sólo cuando toca `resize`, que copia los
+$$N$$ elementos. Repartido entre las inserciones que llenaron el arreglo,
+como en el arreglo dinámico, `insert` cuesta $$O(\log N)$$ amortizado.
+
+</Slide>
+
+<Slide title="Sacar el máximo deja un hueco">
+El elemento de mayor prioridad está en la raíz, `data[1]`: encontrarlo no
+cuesta nada. Sacarlo sí, porque la raíz quedaría vacía y rompería la
+invariante de forma completa, que no admite huecos.
+
+<HeapPicture values={[null, 9, 8, 7, 3, 2, 4, 1]} marked={[8]} label="El heap después de insertar el 9, con la raíz vacía porque su máximo, el 10, salió. La última hoja, el 1 en data[8], está marcada: es la única que puede tapar el hueco sin romper la invariante de forma completa." />
+
+El único elemento que puede moverse sin dejar otro hueco es la última hoja,
+`data[n]`. Por eso se intercambia la raíz con la última hoja y `n` baja en
+uno: el máximo queda fuera del heap, y el árbol sigue completo.
+
+</Slide>
+
+<Slide title="La invariante rota en la raíz">
+Después del intercambio el 1 queda en la raíz. La invariante de forma
+completa se mantiene, pero la de orden de heap se rompe arriba: el 1 es
+menor que sus dos hijos, el 9 y el 8.
+
+<HeapPicture values={[1, 9, 8, 7, 3, 2, 4]} hot={[1]} brokenEdges={[2, 3]} label="El 1 en la raíz, con sus dos aristas, hacia el 9 y hacia el 8, en rojo y punteadas: ahí se rompe la invariante de orden de heap. El resto del árbol la cumple." />
+
+Ninguna otra arista cambió. Restaurar la invariante es bajar el 1,
+intercambiándolo con uno de sus hijos.
+
+</Slide>
+
+<Slide title="Bajar por el hijo mayor">
+¿Con cuál de los dos hijos? Con el **mayor**.
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '0.25rem 1.5rem' }}>
+<div>
+<div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-keep)', textAlign: 'center' }}>con el 9, el mayor</div>
+<HeapPicture values={[9, 1, 8, 7, 3, 2, 4]} view="tree" hot={[1, 2]} brokenEdges={[4]} label="Intercambiando el 1 con el 9: el 9 queda en la raíz, arriba del 1 y del 8, y la cumple. La única arista rota es la de abajo, entre el 1 y el 7." />
+</div>
+<div>
+<div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-flag)', textAlign: 'center' }}>con el 8, el menor</div>
+<HeapPicture values={[8, 9, 1, 7, 3, 2, 4]} view="tree" hot={[1, 3]} brokenEdges={[2]} label="Intercambiando el 1 con el 8: el 8 queda en la raíz arriba del 9, y la arista entre los dos queda rota." />
+</div>
+</div>
+
+- **Con el 9**: queda arriba del 1 y del 8, mayor que los dos. La invariante
+  se cumple en la raíz y sólo puede seguir rota abajo, donde bajó el 1.
+- **Con el 8**: queda arriba del 9, y la invariante se rompe en una arista
+  que antes no estaba rota. Bajar nunca la repara, porque está arriba.
+
+El hijo que sube pasa a ser el padre de su hermano, así que tiene que ser el
+mayor de los dos.
+
+</Slide>
+
+<Slide title="La función auxiliar sink">
+Repetir el intercambio hacia abajo es otra función auxiliar, `sink`. Recibe
+la posición del elemento que puede estar rompiendo la invariante de orden
+de heap con sus hijos:
+
+```java
+void sink(int k) {
+    while (left(k) <= n) {
+        int j = left(k);
+        if (right(k) <= n && data[right(k)] > data[j]) {
+            j = right(k);
+        }
+        if (data[k] >= data[j]) break;
+        swap(k, j);
+        k = j;
+    }
+}
+```
+
+Mientras `k` tenga al menos un hijo, `left(k) <= n`, la variable `j` apunta
+al hijo mayor: el izquierdo, o el derecho si existe y es mayor. Si
+`data[k]` ya es mayor o igual que ese hijo, la invariante se cumple y
+termina. Si no, los intercambia y baja con `k = j`.
+
+</Slide>
+
+<Slide title="La operación extractMax">
+Con `sink` escrita, cada línea de `extractMax` atiende una invariante:
 
 ```java
 int extractMax() {
@@ -884,130 +1132,79 @@ int extractMax() {
     swap(1, n);
     n--;
     sink(1);
+    shrinkIfSparse();
     return max;
 }
 ```
 
-La solución combina las dos cosas: el máximo se intercambia con la última
-hoja, `data[n]`, y `n` baja en uno. El máximo queda fuera del heap y la
-forma sigue completa. Pero ahora en la raíz hay un valor que venía de una
-hoja, casi seguro menor que sus hijos, y la invariante de **orden de heap**
-queda rota arriba. Restaurarla es trabajo de `sink`.
+- **`swap(1, n)` y `n--`**: el máximo sale por la última hoja. La invariante
+  de forma completa se mantiene.
+- **`sink(1)`**: restaura la invariante de orden de heap desde la raíz.
+- **`shrinkIfSparse()`**: la misma función del arreglo dinámico, con la
+  implementación que tiene en la clase de arreglos. Si `n` llega a un
+  cuarto de `data.length`, el arreglo se achica a la mitad, y así nunca
+  ocupa más de cuatro veces el espacio que necesita.
 
-</Slide>
-
-<Slide title="sink hacia las hojas">
-`sink` restaura la invariante de orden de heap desde el nodo `k` hacia
-abajo. Mientras `k`
-tenga hijos, elige al **mayor** de los dos; si `k` es menor que ese hijo,
-los intercambia y baja:
-
-```java
-void sink(int k) {
-    while (2 * k <= n) {
-        int j = 2 * k;
-        if (j < n && data[j] < data[j + 1]) j++;
-        if (data[k] >= data[j]) break;
-        swap(k, j);
-        k = j;
-    }
-}
-```
-
-`2 * k <= n` pregunta si `k` tiene al menos un hijo. `j` parte en el hijo
-izquierdo y pasa al derecho si existe (`j < n`) y es mayor.
-
-Elegir al mayor no es un detalle. El hijo que sube pasa a ser el padre del
-otro, así que tiene que ser mayor o igual que él. Si subiera el menor de los
-dos, el intercambio restauraría la invariante en una arista y la rompería en la de
-al lado.
+Sobre un heap vacío no hay máximo que sacar, y la guarda lo dice con
+`NoSuchElementException`.
 
 </Slide>
 
 <Slide title="extractMax paso a paso">
-El heap 12, 7, 10, 2, 3, 8, 9, 1 entrega sus dos máximos.
-
-<SequenceStepper eda="heap-max" operation="extract-max" values={[12, 7, 10, 2, 3, 8, 9, 1]} times={2} />
+<SequenceStepper eda="heap-max" operation="extract-max" values={[10, 9, 8, 7, 3, 2, 4, 1]} capacity={16} />
 
 </Slide>
 
-El 12 sale primero: el 1 baja dos niveles y el 10 queda en la raíz. El 10
-sale después: el 1 vuelve a bajar y el 9 queda en la raíz. El arreglo sigue
-guardando 12 y 10 más allá de `n`, pero ya no son parte del heap.
+El heap que dejó la inserción del 9 entrega su máximo, el 10. La última
+hoja, el 1, sube a la raíz y baja dos niveles por el camino de los hijos
+mayores: el 9 y el 7.
 
+<Slide title="Una seguidilla de extracciones">
+El mismo heap entrega sus ocho elementos, del mayor al menor. Cuando `n`
+llega a un cuarto de `data.length`, `shrinkIfSparse` achica el arreglo.
 
-<Slide title="La altura de un heap">
-`swim` y `sink` hacen una cantidad fija de trabajo por nivel: una o dos
-comparaciones y a lo más un intercambio. Lo que decide su costo es **cuántos
-niveles puede recorrer**, es decir, la altura del árbol.
+<SequenceStepper eda="heap-max" operation="extract-max" values={[10, 9, 8, 7, 3, 2, 4, 1]} capacity={16} times={8} showCode={false} />
 
-Un árbol binario completo con $$N$$ nodos tiene **altura
-$$\lfloor \log_2 N \rfloor$$**. El primer nivel tiene 1 nodo, el segundo 2,
-el tercero 4, y cada nivel lleno duplica al anterior. Hacen falta 3 niveles
-para 4 nodos, 4 para 8, y 20 para un millón.
-
-De ahí salen las dos cotas:
-
-- `insert` sube a lo más desde una hoja hasta la raíz: a lo más
-  $$\lfloor \log_2 N \rfloor$$ comparaciones.
-- `extractMax` baja a lo más desde la raíz hasta una hoja, con dos
-  comparaciones por nivel: a lo más $$2 \lfloor \log_2 N \rfloor$$.
-
-Las dos son $$O(\log N)$$. Es la invariante de **forma completa** la que lo
-garantiza: la de orden de heap sola no impediría un árbol tan alto como la
-lista.
+Los máximos salen en orden: 10, 9, 8, 7, 4, 3, 2, 1. El arreglo se achica
+tres veces: a 8 cuando quedan 4 elementos, a 4 cuando quedan 2, y a 2
+cuando queda 1.
 
 </Slide>
 
-<Slide title="max en el heap">
-Consultar el máximo no mueve nada. Está en la raíz, y la raíz es `data[1]`:
+<Slide title="El costo de extractMax">
+El intercambio con la última hoja cuesta $$\Theta(1)$$, y `sink` baja a lo
+más un nivel por vuelta, con dos comparaciones por nivel. En un árbol
+completo de $$N$$ nodos el camino de la raíz a una hoja tiene a lo más
+$$\lfloor \log_2 N \rfloor$$ aristas, así que `extractMax` cuesta
+$$O(\log N)$$. El achicamiento ocasional copia los elementos y, repartido
+como en el arreglo dinámico, no cambia ese costo amortizado.
 
-```java
-int max() {
-    if (n == 0) {
-        throw new NoSuchElementException();
-    }
-    return data[1];
-}
-```
-
-`isEmpty()` es `n == 0` y `size()` devuelve `n`. Ninguna de las tres
-recorre nada.
-
-</Slide>
-
-<Slide title="Costos del heap">
-Cada operación que modifica el heap rompe a lo más una invariante, en un
-solo lugar, y la restaura recorriendo un camino entre la raíz y una hoja.
-
-| Molde     | Operación      | Peor caso          | Invariante que restaura                                                   |
-| --------- | -------------- | ------------------ | ------------------------------------------------------------------------- |
-| consultar | `max()`        | $$\Theta(1)$$      | Ninguna: lee `data[1]`                                                    |
-| consultar | `isEmpty()`, `size()` | $$\Theta(1)$$ | Ninguna                                                              |
-| modificar | <code style={{ color: 'var(--color-keep)' }}>insert(x)</code> | <span style={{ color: 'var(--color-keep)', fontWeight: 700 }}>$$O(\log N)$$</span> | Forma completa: escribe en la primera hoja libre. Orden de heap: `swim` |
-| modificar | <code style={{ color: 'var(--color-keep)' }}>extractMax()</code> | <span style={{ color: 'var(--color-keep)', fontWeight: 700 }}>$$O(\log N)$$</span> | Forma completa: quita la última hoja. Orden de heap: `sink` |
-
-`insert` también puede pagar un `resize`, que copia los $$N$$ elementos. Como
-en el arreglo dinámico, eso ocurre cada vez que el bloque se duplica, y
-repartido entre las inserciones que lo llenaron cuesta $$\Theta(1)$$
-amortizado.
+| Molde     | Operación             | Peor caso     | Amortizado    | Invariante que restaura                                         |
+| --------- | --------------------- | ------------- | ------------- | --------------------------------------------------------------- |
+| crear     | `build()`             | $$\Theta(1)$$ | $$\Theta(1)$$ | Ninguna: el heap vacío cumple las dos                           |
+| consultar | `max()`               | $$\Theta(1)$$ | $$\Theta(1)$$ | Ninguna: lee `data[1]`                                          |
+| consultar | `isEmpty()`, `size()` | $$\Theta(1)$$ | $$\Theta(1)$$ | Ninguna                                                         |
+| modificar | <code style={{ color: 'var(--color-keep)' }}>insert(x)</code> | $$\Theta(N)$$ | <span style={{ color: 'var(--color-keep)', fontWeight: 700 }}>$$O(\log N)$$</span> | Forma completa: entra en `data[n + 1]`. Orden de heap: `swim` |
+| modificar | <code style={{ color: 'var(--color-keep)' }}>extractMax()</code> | $$\Theta(N)$$ | <span style={{ color: 'var(--color-keep)', fontWeight: 700 }}>$$O(\log N)$$</span> | Forma completa: sale `data[n]`. Orden de heap: `sink` |
 
 </Slide>
 
-<Slide title="Tres implementaciones de la cola de prioridad">
-Con el heap, la fila que faltaba se llena:
+<Slide title="El heap frente a las dos listas">
+Las dos listas obligaban a elegir qué operación sería lenta. El heap no
+elige:
 
-| Implementación  | `insert(x)`    | `extractMax()` | `max()`       |
-| --------------- | -------------- | -------------- | ------------- |
-| Lista sin orden | $$\Theta(1)$$  | $$\Theta(N)$$  | $$\Theta(N)$$ |
-| Lista ordenada  | $$\Theta(N)$$  | $$\Theta(1)$$  | $$\Theta(1)$$ |
+| Implementación  | `insert(x)`   | `extractMax()` | `max()`       |
+| --------------- | ------------- | -------------- | ------------- |
+| Lista sin orden | $$\Theta(1)$$ | $$\Theta(N)$$  | $$\Theta(N)$$ |
+| Lista ordenada  | $$\Theta(N)$$ | $$\Theta(1)$$  | $$\Theta(1)$$ |
 | **Heap**        | <span style={{ color: 'var(--color-keep)', fontWeight: 700 }}>$$O(\log N)$$</span> | <span style={{ color: 'var(--color-keep)', fontWeight: 700 }}>$$O(\log N)$$</span> | $$\Theta(1)$$ |
 
 El heap no gana en ninguna columna por separado: la lista sin orden inserta
-más rápido y la ordenada extrae más rápido. Gana en la mezcla. Con $$N$$
-inserciones y $$N$$ extracciones, las dos listas pagan $$\Theta(N^2)$$ y el
-heap $$O(N \log N)$$. Para un millón de operaciones de cada tipo, la
-diferencia es entre un billón de pasos y unas decenas de millones.
+más rápido y la ordenada extrae más rápido. Gana en la mezcla, que es como
+se usa una cola de prioridad. Con $$N$$ inserciones y $$N$$ extracciones,
+las dos listas pagan $$\Theta(N^2)$$ y el heap $$O(N \log N)$$: para un
+millón de cada una, unos quinientos mil millones de pasos contra unos
+cuarenta millones.
 
 </Slide>
 

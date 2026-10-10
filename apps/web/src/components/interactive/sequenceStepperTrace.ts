@@ -2127,17 +2127,21 @@ function traceList(
 // is ONE text shared by the three operations that sink, so the lines a
 // reader learns on one slide are the lines lit on the next.
 
+// Written on parent / left / right, the index functions the class defines
+// just before the operations, so the listing reads as the formulas it derived.
 const HEAP_SWIM = `void swim(int k) {
-    while (k > 1 && data[k / 2] < data[k]) {
-        swap(k / 2, k);
-        k = k / 2;
+    while (k > 1 && data[parent(k)] < data[k]) {
+        swap(parent(k), k);
+        k = parent(k);
     }
 }`;
 
 const HEAP_SINK = `void sink(int k) {
-    while (2 * k <= n) {
-        int j = 2 * k;
-        if (j < n && data[j] < data[j + 1]) j++;
+    while (left(k) <= n) {
+        int j = left(k);
+        if (right(k) <= n && data[right(k)] > data[j]) {
+            j = right(k);
+        }
         if (data[k] >= data[j]) break;
         swap(k, j);
         k = j;
@@ -2341,7 +2345,7 @@ function traceHeap(operation: SequenceOperation, input: SequenceInput): Sequence
       exchange(p, k);
       push(
         'shift',
-        [line('swap(k / 2, k);'), line('k = k / 2;')],
+        [line('swap(parent(k), k);'), line('k = parent(k);')],
         `Intercambiamos data[${p}] y data[${k}]: ${val(p)} sube a la posición ${p}, lo que restaura la invariante de orden de heap en esta arista. k pasa a ${p}.`,
         [at('k', p)],
       );
@@ -2357,8 +2361,8 @@ function traceHeap(operation: SequenceOperation, input: SequenceInput): Sequence
       if (2 * k > n) {
         push(
           'compare',
-          [line('while (2 * k <= n)')],
-          `2·${k} = ${2 * k} > n = ${n}: la posición ${k} no tiene hijos. sink termina.`,
+          [line('while (left(k) <= n)')],
+          `left(${k}) = ${2 * k} > n = ${n}: la posición ${k} no tiene hijos. sink termina.`,
           [at('k', k)],
         );
         return;
@@ -2370,7 +2374,11 @@ function traceHeap(operation: SequenceOperation, input: SequenceInput): Sequence
       paint(j, 'active');
       push(
         'compare',
-        [line('int j = 2 * k;'), line('if (j < n && data[j] < data[j + 1]) j++;')],
+        [
+          line('int j = left(k);'),
+          ...(right ? [line('if (right(k) <= n && data[right(k)] > data[j]) {')] : []),
+          ...(j === 2 * k + 1 ? [line('j = right(k);')] : []),
+        ],
         right
           ? `Los hijos de ${k} son data[${2 * k}] = ${val(2 * k)} y data[${2 * k + 1}] = ${val(2 * k + 1)}: j apunta al mayor, ${val(j)}.`
           : `La posición ${k} tiene un solo hijo, data[${j}] = ${val(j)}: j apunta a él.`,

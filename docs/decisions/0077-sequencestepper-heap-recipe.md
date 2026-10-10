@@ -53,6 +53,11 @@ so none of the nine Sequence operations is valid on it and none of these four
 is valid on a Sequence recipe; the refusal names the other side
 ("es una operación del heap. Úsala con eda="heap-max"").
 
+The listings are written on `parent(k)`, `left(k)` and `right(k)`, the index
+functions the class derives on the drawing just before the operations, never
+on the inline `k / 2` and `2 * k` (#304 review): the code a student reads is
+the formulas the class has just justified.
+
 `swim` and `sink` are **not** operations. They are the inside of the four —
 printed under the method that calls them, so the listing never calls a method
 it does not show, and their lines light up as they run. `sink` is **one**

@@ -1231,7 +1231,7 @@ describe('sequenceStepperTrace · heap-max · insert', () => {
     expect(swaps).toHaveLength(2);
     for (const s of swaps) {
       expect(s.cells.filter((c) => c.state === 'swap')).toHaveLength(2);
-      expect(s.highlightLines).toContain(lineNo(trace, 'swap(k / 2, k);'));
+      expect(s.highlightLines).toContain(lineNo(trace, 'swap(parent(k), k);'));
     }
   });
 
@@ -1292,7 +1292,10 @@ describe('sequenceStepperTrace · heap-max · insert', () => {
     const { code } = traceFor('heap-max', 'insert', { values: heap, value: 12, capacity: 8 });
     expect(code).toContain('data[++n] = x;');
     expect(code).toContain('swim(n);');
-    expect(code).toContain('while (k > 1 && data[k / 2] < data[k])');
+    expect(code).toContain('while (k > 1 && data[parent(k)] < data[k])');
+    // The index arithmetic is the parent / left / right functions the class
+    // has just written, never the inline k / 2 and 2 * k.
+    expect(code).not.toMatch(/k \/ 2|2 \* k/);
   });
 });
 
@@ -1317,7 +1320,9 @@ describe('sequenceStepperTrace · heap-max · extract-max', () => {
   it('lights the sink lines while it sinks', () => {
     const trace = traceFor('heap-max', 'extract-max', { values: heap });
     const lit = new Set(trace.steps.flatMap((s) => s.highlightLines));
-    expect(lit).toContain(lineNo(trace, 'if (j < n && data[j] < data[j + 1]) j++;'));
+    expect(lit).toContain(lineNo(trace, 'if (right(k) <= n && data[right(k)] > data[j]) {'));
+    expect(lit).toContain(lineNo(trace, 'j = right(k);'));
+    expect(trace.code).not.toMatch(/2 \* k/);
     expect(lit).toContain(lineNo(trace, 'swap(k, j);'));
   });
 

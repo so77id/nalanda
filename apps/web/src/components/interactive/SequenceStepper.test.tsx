@@ -626,24 +626,34 @@ describe('<SequenceStepper> · the combinations 20-edd-priority-queue-heap mount
   // that throws or refuses halfway is invisible to a mount.
   const mounted: { act: string; slide: string; props: SequenceStepperProps }[] = [
     {
-      act: 'Insertar y extraer del heap',
+      act: 'Las operaciones del heap',
       slide: 'insert paso a paso',
-      props: {
-        eda: 'heap-max',
-        operation: 'insert',
-        values: [10, 7, 8, 1, 3],
-        value: [9, 12, 2],
-        capacity: 9,
-      },
+      props: { eda: 'heap-max', operation: 'insert', values: [10, 7, 8, 1, 3, 2, 4], value: 9 },
     },
     {
-      act: 'Insertar y extraer del heap',
+      act: 'Las operaciones del heap',
+      slide: 'Una seguidilla de inserciones',
+      props: { eda: 'heap-max', operation: 'insert', values: [], value: [1, 7, 2, 3, 8, 4, 10] },
+    },
+    {
+      act: 'Las operaciones del heap',
       slide: 'extractMax paso a paso',
       props: {
         eda: 'heap-max',
         operation: 'extract-max',
-        values: [12, 7, 10, 2, 3, 8, 9, 1],
-        times: 2,
+        values: [10, 9, 8, 7, 3, 2, 4, 1],
+        capacity: 16,
+      },
+    },
+    {
+      act: 'Las operaciones del heap',
+      slide: 'Una seguidilla de extracciones',
+      props: {
+        eda: 'heap-max',
+        operation: 'extract-max',
+        values: [10, 9, 8, 7, 3, 2, 4, 1],
+        capacity: 16,
+        times: 8,
       },
     },
     {

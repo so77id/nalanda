@@ -816,9 +816,11 @@ animate: `get-at`, `insert-first`, `insert-last`, `insert-at`,
 Since #304 there is a sixth recipe, `heap-max` (ADR-0077): a binary max-heap
 drawn twice — as the complete binary tree and as the 1-based array
 `data[0..]`, side by side on a slide and stacked in the book — with four
-operations of its own and valid nowhere else: `insert` (swim), `extract-max`
-(swap root and last, `n--`, sink), `build-heap` and `heapsort` (both over
-unordered `values`). Its readout is `n`, `data[0]` is drawn as unused, and
+operations of its own and valid nowhere else: `insert` (swim, growing the
+block when full), `extract-max` (swap root and last, `n--`, sink, then the
+dynamic array's `shrinkIfSparse()`), `build-heap` and `heapsort` (both over
+unordered `values`). An empty heap starts at `new int[2]`, so `values={[]}`
+with several `value`s shows the block growing 2 → 4 → 8. Its readout is `n`, `data[0]` is drawn as unused, and
 `capacity` is `data.length` with slot 0 included. `insert` and `extract-max`
 refuse a starting array that is not already a max-heap.
 `values` is the starting contents; `value` feeds the inserts, `index` the
