@@ -260,10 +260,16 @@ export function HeapPicture({
   n = values.length,
   view = 'both',
   hot = [],
+  marked = [],
   levelBrackets = false,
   levelLines = false,
   levelColors = false,
+  edgeArrows,
+  arcs,
   parentArcs = false,
+  zeroBased = false,
+  childBrackets = false,
+  size = 1.45,
   idPrefix = 'heap-pic',
   label,
 }) {
@@ -275,38 +281,53 @@ export function HeapPicture({
   // A null value is a HOLE: a position the numbering reserves and nobody occupies.
   const present = (k) => values[k - 1] !== null && values[k - 1] !== undefined;
   const LEVEL = ['var(--color-accent)', 'var(--color-keep)', 'var(--color-focus)', 'var(--color-mark)'];
+  // One colour per PARENT, so the two arrows leaving one node read as a pair.
+  const PAIR = ['var(--color-accent)', 'var(--color-keep)', 'var(--color-focus)', 'var(--color-mark)'];
+  const pairColor = (parent) => PAIR[(parent - 1) % 4];
+  const arcMode = arcs ?? (parentArcs ? 'parent' : undefined);
   const levelOf = (k) => Math.floor(Math.log2(k));
   const levels = values.length === 0 ? 1 : levelOf(values.length) + 1;
   const leaves = 2 ** (levels - 1);
   const labelW = levelLines ? 58 : 0;
   const treeW = labelW + 2 * pad + leaves * pitch;
   const treeH = view === 'array' ? 0 : 2 * pad + 2 * r + (levels - 1) * levelH;
-  const arrayW = (values.length + 1) * box;
+  // Zero-based storage has no unused slot: the root sits in data[0].
+  const lead = zeroBased ? 0 : 1;
+  const arrayW = (values.length + lead) * box;
   const width = Math.max(view === 'array' ? 0 : treeW, view === 'tree' ? 0 : arrayW + 8);
   const treeX = (width - treeW) / 2;
   const arrayX = (width - arrayW) / 2;
-  const arcSpace = parentArcs ? 74 : 0;
+  const arcSpace = arcMode ? 74 : 0;
   const arrayY = treeH + (view === 'both' ? 26 : 6) + arcSpace;
-  const height = view === 'tree' ? treeH : arrayY + box + (levelBrackets ? 66 : 40);
+  const height = view === 'tree' ? treeH : arrayY + box + (levelBrackets || childBrackets ? 66 : 40);
   const at = (k) => {
     const level = levelOf(k);
     const span = leaves / 2 ** level;
     return { cx: treeX + labelW + pad + (k - 2 ** level + 0.5) * span * pitch, cy: pad + r + level * levelH };
   };
   const stroke = (k) =>
-    hot.includes(k) ? 'var(--color-accent)' : k > n ? 'var(--color-keep)' : levelColors ? LEVEL[levelOf(k) % 4] : 'var(--color-rule-strong)';
-  const fill = (k) => (k > n ? 'var(--color-keep-soft)' : 'var(--color-surface)');
-  const weight = (k) => (hot.includes(k) ? 2.8 : levelColors ? 2 : 1.4);
+    hot.includes(k) ? 'var(--color-accent)' : marked.includes(k) ? 'var(--color-mark)' : k > n ? 'var(--color-keep)' : levelColors ? LEVEL[levelOf(k) % 4] : 'var(--color-rule-strong)';
+  const fill = (k) => (marked.includes(k) ? 'var(--color-mark-soft)' : k > n ? 'var(--color-keep-soft)' : 'var(--color-surface)');
+  const weight = (k) => (hot.includes(k) ? 2.8 : marked.includes(k) || levelColors ? 2 : 1.4);
   const ks = values.map((_, i) => i + 1);
-  const cellX = (k) => arrayX + k * box + box / 2;
+  // The number a reader sees: the node's position, from 1 or from 0.
+  const shown = (k) => k - 1 + lead;
+  const cellLeft = (k) => arrayX + (k - 1 + lead) * box;
+  const cellX = (k) => cellLeft(k) + box / 2;
+  const linked = (k) => k > 1 && k <= n && present(k) && present(Math.floor(k / 2));
   return (
     <svg
       viewBox={`0 0 ${width} ${height}`}
-      style={{ width: '100%', maxWidth: `${Math.round(width * 1.45)}px`, height: 'auto', display: 'block', margin: '1rem auto' }}
+      style={{ width: '100%', maxWidth: `${Math.round(width * size)}px`, height: 'auto', display: 'block', margin: '1rem auto' }}
       role="img"
       aria-label={label}
     >
       <defs>
+        {PAIR.map((c, i) => (
+          <marker key={i} id={`${idPrefix}-tip${i}`} markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto">
+            <path d="M0,0 L7,3.5 L0,7 z" style={{ fill: c }} />
+          </marker>
+        ))}
         <marker id={`${idPrefix}-arc`} markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto">
           <path d="M0,0 L7,3.5 L0,7 z" style={{ fill: 'var(--color-ink-soft)' }} />
         </marker>
@@ -320,10 +341,24 @@ export function HeapPicture({
           </g>
         );
       }) : null}
-      {view === 'array' ? null : ks.filter((k) => k > 1 && k <= n && present(k) && present(Math.floor(k / 2))).map((k) => {
-        const p = at(Math.floor(k / 2));
+      {view === 'array' ? null : ks.filter(linked).map((k) => {
+        const parent = Math.floor(k / 2);
+        const p = at(parent);
         const c = at(k);
-        const hotEdge = hot.includes(k) && hot.includes(Math.floor(k / 2));
+        const hotEdge = hot.includes(k) && hot.includes(parent);
+        if (edgeArrows) {
+          // Rim to rim, so the arrowhead lands on the node's edge, not under it.
+          const dx = c.cx - p.cx;
+          const dy = c.cy - p.cy;
+          const len = Math.hypot(dx, dy);
+          const ux = dx / len;
+          const uy = dy / len;
+          const down = edgeArrows === 'down';
+          const [x1, y1, x2, y2] = down
+            ? [p.cx + ux * r, p.cy + uy * r, c.cx - ux * (r + 2), c.cy - uy * (r + 2)]
+            : [c.cx - ux * r, c.cy - uy * r, p.cx + ux * (r + 2), p.cy + uy * (r + 2)];
+          return <line key={`e${k}`} x1={x1} y1={y1} x2={x2} y2={y2} style={{ stroke: pairColor(parent) }} strokeWidth="1.8" markerEnd={`url(#${idPrefix}-tip${(parent - 1) % 4})`} />;
+        }
         return <line key={`e${k}`} x1={p.cx} y1={p.cy} x2={c.cx} y2={c.cy} style={{ stroke: hotEdge ? 'var(--color-accent)' : 'var(--color-rule-strong)' }} strokeWidth={hotEdge ? 2.8 : 1.2} />;
       })}
       {view === 'array' ? null : ks.filter((k) => k <= n).map((k) => {
@@ -333,7 +368,7 @@ export function HeapPicture({
             <g key={`n${k}`}>
               <circle cx={c.cx} cy={c.cy} r={r} style={{ fill: 'var(--color-sunk)', stroke: 'var(--color-flag)' }} strokeWidth="1.6" strokeDasharray="4 3" />
               <text x={c.cx} y={c.cy + 3} textAnchor="middle" fontSize="8" fontWeight="600" style={{ fill: 'var(--color-flag)' }}>hueco</text>
-              <text x={c.cx} y={c.cy + r + 13} textAnchor="middle" fontSize="11" fontWeight="600" style={{ fill: 'var(--color-ink-soft)' }}>{k}</text>
+              <text x={c.cx} y={c.cy + r + 13} textAnchor="middle" fontSize="11" fontWeight="600" style={{ fill: 'var(--color-ink-soft)' }}>{shown(k)}</text>
             </g>
           );
         }
@@ -341,13 +376,13 @@ export function HeapPicture({
           <g key={`n${k}`}>
             <circle cx={c.cx} cy={c.cy} r={r} style={{ fill: fill(k), stroke: stroke(k) }} strokeWidth={weight(k)} />
             <text x={c.cx} y={c.cy + 5} textAnchor="middle" fontSize="14" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{values[k - 1]}</text>
-            <text x={c.cx} y={c.cy + r + 13} textAnchor="middle" fontSize="11" fontWeight="600" style={{ fill: 'var(--color-ink-soft)' }}>{k}</text>
+            <text x={c.cx} y={c.cy + r + 13} textAnchor="middle" fontSize="11" fontWeight="600" style={{ fill: 'var(--color-ink-soft)' }}>{shown(k)}</text>
           </g>
         );
       })}
       {view === 'tree' ? null : (
         <g>
-          {parentArcs ? ks.filter((k) => k > 1 && k <= n && present(k) && present(Math.floor(k / 2))).map((k) => {
+          {arcMode === 'parent' ? ks.filter(linked).map((k) => {
             // A left child (even k) lands on the left half of its parent, a
             // right child on the right half, so two arrows never share a tip.
             const from = cellX(k);
@@ -355,14 +390,27 @@ export function HeapPicture({
             const lift = 16 + (from - to) * 0.3;
             return <path key={`arc${k}`} d={`M ${from} ${arrayY - 2} C ${from} ${arrayY - lift}, ${to} ${arrayY - lift}, ${to} ${arrayY - 4}`} style={{ fill: 'none', stroke: 'var(--color-ink-soft)' }} strokeWidth="1.2" markerEnd={`url(#${idPrefix}-arc)`} />;
           }) : null}
-          <rect x={arrayX} y={arrayY} width={box} height={box} rx="3" style={{ fill: 'var(--color-sunk)', stroke: 'var(--color-rule)' }} strokeWidth="1.2" strokeDasharray="3 3" />
-          <text x={arrayX + box / 2} y={arrayY + box + 14} textAnchor="middle" fontSize="10" style={{ fill: 'var(--color-ink-faint)' }}>0</text>
-          <text x={arrayX} y={arrayY + box + 30} fontSize="9" style={{ fill: 'var(--color-ink-soft)' }}>no se usa</text>
+          {arcMode === 'children' ? ks.filter(linked).map((k) => {
+            // Leaves the left half of its parent for the left child and the
+            // right half for the right child, coloured by parent like the tree.
+            const parent = Math.floor(k / 2);
+            const from = cellX(parent) + (k % 2 === 0 ? -8 : 8);
+            const to = cellX(k);
+            const lift = 16 + (to - from) * 0.3;
+            return <path key={`arc${k}`} d={`M ${from} ${arrayY - 2} C ${from} ${arrayY - lift}, ${to} ${arrayY - lift}, ${to} ${arrayY - 4}`} style={{ fill: 'none', stroke: pairColor(parent) }} strokeWidth="1.6" markerEnd={`url(#${idPrefix}-tip${(parent - 1) % 4})`} />;
+          }) : null}
+          {zeroBased ? null : (
+            <g>
+              <rect x={arrayX} y={arrayY} width={box} height={box} rx="3" style={{ fill: 'var(--color-sunk)', stroke: 'var(--color-rule)' }} strokeWidth="1.2" strokeDasharray="3 3" />
+              <text x={arrayX + box / 2} y={arrayY + box + 14} textAnchor="middle" fontSize="10" style={{ fill: 'var(--color-ink-faint)' }}>0</text>
+              <text x={arrayX} y={arrayY + box + 30} fontSize="9" style={{ fill: 'var(--color-ink-soft)' }}>no se usa</text>
+            </g>
+          )}
           {levelBrackets ? Array.from({ length: levels }, (_, d) => {
             const first = 2 ** d;
             const last = Math.min(2 ** (d + 1) - 1, values.length);
-            const x1 = arrayX + first * box + 3;
-            const x2 = arrayX + (last + 1) * box - 3;
+            const x1 = cellLeft(first) + 3;
+            const x2 = cellLeft(last) + box - 3;
             const y = arrayY + box + 40;
             const color = levelColors ? LEVEL[d % 4] : 'var(--color-accent)';
             return (
@@ -372,19 +420,33 @@ export function HeapPicture({
               </g>
             );
           }) : null}
+          {childBrackets ? ks.filter((k) => k <= Math.floor(n / 2) && 2 * k <= n).map((k) => {
+            // The two children of node k sit side by side, in data[2k] and
+            // data[2k + 1]: one bracket per pair, in the parent's colour.
+            const last = Math.min(2 * k + 1, n);
+            const x1 = cellLeft(2 * k) + 3;
+            const x2 = cellLeft(last) + box - 3;
+            const y = arrayY + box + 40;
+            return (
+              <g key={`cb${k}`}>
+                <path d={`M ${x1} ${y - 6} L ${x1} ${y} L ${x2} ${y} L ${x2} ${y - 6}`} style={{ fill: 'none', stroke: pairColor(k) }} strokeWidth="1.6" />
+                <text x={(x1 + x2) / 2} y={y + 15} textAnchor="middle" fontSize="10" fontWeight="600" style={{ fill: pairColor(k) }}>{`hijos de ${shown(k)}`}</text>
+              </g>
+            );
+          }) : null}
           {ks.map((k) => (
             <g key={`a${k}`}>
               {present(k) ? (
-                <rect x={arrayX + k * box} y={arrayY} width={box} height={box} rx="3" style={{ fill: fill(k), stroke: stroke(k) }} strokeWidth={weight(k)} />
+                <rect x={cellLeft(k)} y={arrayY} width={box} height={box} rx="3" style={{ fill: fill(k), stroke: stroke(k) }} strokeWidth={weight(k)} />
               ) : (
-                <rect x={arrayX + k * box + 2} y={arrayY + 2} width={box - 4} height={box - 4} rx="3" style={{ fill: 'var(--color-sunk)', stroke: 'var(--color-flag)' }} strokeWidth="1.6" strokeDasharray="4 3" />
+                <rect x={cellLeft(k) + 2} y={arrayY + 2} width={box - 4} height={box - 4} rx="3" style={{ fill: 'var(--color-sunk)', stroke: 'var(--color-flag)' }} strokeWidth="1.6" strokeDasharray="4 3" />
               )}
               {present(k) ? (
                 <text x={cellX(k)} y={arrayY + box / 2 + 5} textAnchor="middle" fontSize="14" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{values[k - 1]}</text>
               ) : (
                 <text x={cellX(k)} y={arrayY + box / 2 + 4} textAnchor="middle" fontSize="9" fontWeight="600" style={{ fill: 'var(--color-flag)' }}>vacía</text>
               )}
-              <text x={cellX(k)} y={arrayY + box + 14} textAnchor="middle" fontSize="10" style={{ fill: 'var(--color-ink-faint)' }}>{k}</text>
+              <text x={cellX(k)} y={arrayY + box + 14} textAnchor="middle" fontSize="10" style={{ fill: 'var(--color-ink-faint)' }}>{shown(k)}</text>
             </g>
           ))}
         </g>
@@ -581,10 +643,98 @@ mantenerla al insertar es fácil: el elemento nuevo va siempre a
 
 </Slide>
 
-<Slide title="Aritmética de índices en el heap">
-Con la numeración por niveles desde 1, los dos hijos del nodo `k` son
-`2k` y `2k + 1`, y su padre es `k / 2` redondeado hacia abajo. En Java la
-división entera ya redondea hacia abajo:
+<Slide title="Los hijos de un nodo">
+En el árbol numerado, cada nodo apunta a sus dos hijos. Como el nodo `k`
+vive en `data[k]`, los dos hijos de cada nodo quedan en el arreglo en
+casillas seguidas:
+
+<HeapPicture values={[10, 7, 8, 1, 3, 2, 4]} edgeArrows="down" childBrackets idPrefix="pq-hijos" label="El heap 10, 7, 8, 1, 3, 2, 4 como árbol y como arreglo. En el árbol, flechas de cada nodo a sus dos hijos, con un color por padre: del nodo 1 a los nodos 2 y 3, del nodo 2 a los nodos 4 y 5, y del nodo 3 a los nodos 6 y 7. Bajo el arreglo, corchetes del mismo color agrupan cada par de hermanos: data[2] y data[3] son los hijos de 1, data[4] y data[5] los hijos de 2, data[6] y data[7] los hijos de 3." />
+
+| Nodo `k` | Hijo izquierdo | Hijo derecho |
+| -------- | -------------- | ------------ |
+| 1        | 2              | 3            |
+| 2        | 4              | 5            |
+| 3        | 6              | 7            |
+
+El hijo izquierdo de cada nodo tiene el doble de su número, y el derecho, el
+siguiente: **los hijos del nodo `k` son `2k` y `2k + 1`**.
+
+</Slide>
+
+<Slide title="Por qué los hijos de k son 2k y 2k + 1">
+El patrón no es una casualidad del ejemplo: sale de numerar por niveles.
+Tomemos el nodo 3.
+
+<HeapPicture values={[10, 7, 8, 1, 3, 2, 4]} view="tree" levelLines hot={[3, 6, 7]} marked={[2, 4, 5]} label="El árbol numerado por niveles. El nodo 3 y sus hijos, los nodos 6 y 7, resaltados. El nodo 2, a la izquierda del 3 en el nivel 1, y sus hijos, los nodos 4 y 5, marcados aparte: ocupan los dos primeros números del nivel 2." />
+
+- El nodo 3 está en el nivel 1, y sus hijos están en el nivel 2, que empieza
+  en el número $$2^2 = 4$$.
+- Los hijos se numeran en el mismo orden que sus padres. A la izquierda del
+  3, en su nivel, sólo está el nodo 2, y sus dos hijos ocupan el 4 y el 5.
+- El siguiente número libre es el 6: ahí va el hijo izquierdo del 3, y el
+  derecho en el 7.
+
+En general, el nodo $$k$$ del nivel $$d$$ tiene $$k - 2^d$$ nodos a su
+izquierda en su nivel, y cada uno ocupa dos lugares del nivel siguiente, que
+empieza en $$2^{d+1}$$. El hijo izquierdo de $$k$$ queda en
+
+$$
+2^{d+1} + 2\,(k - 2^d) = 2k
+$$
+
+y el derecho, en el siguiente: $$2k + 1$$.
+
+</Slide>
+
+<Slide title="El padre de un nodo">
+Si los hijos del nodo $$p$$ son $$2p$$ y $$2p + 1$$, ir de un hijo a su
+padre es deshacer esa cuenta: dividir por 2. Con división entera el resto se
+descarta, así que los dos hijos llegan al mismo padre.
+
+<HeapPicture values={[10, 7, 8, 1, 3, 2, 4]} edgeArrows="up" arcs="parent" idPrefix="pq-padre" label="El heap como árbol y como arreglo, con flechas de cada nodo a su padre: los nodos 2 y 3 apuntan al 1, los nodos 4 y 5 al 2, y los nodos 6 y 7 al 3. En el arreglo, las mismas flechas van de cada casilla a la de su padre." />
+
+| Nodo `k` | 2   | 3   | 4   | 5   | 6   | 7   |
+| -------- | --- | --- | --- | --- | --- | --- |
+| `k / 2`  | 1   | 1   | 2   | 2   | 3   | 3   |
+
+**El padre del nodo `k` es `k / 2`**, con la división entera de Java. La
+raíz, el nodo 1, no tiene padre: `1 / 2` da 0, justo la casilla que no se
+usa.
+
+</Slide>
+
+<Slide title="Si el arreglo empezara en 0">
+El mismo árbol se puede numerar desde 0. La raíz va en `data[0]` y no queda
+ninguna casilla sin usar.
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '0.25rem 1.5rem' }}>
+<div>
+<div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-ink-soft)', textAlign: 'center' }}>numerado desde 1</div>
+<HeapPicture values={[10, 7, 8, 1, 3, 2, 4]} view="tree" label="El heap numerado desde 1: la raíz es el nodo 1, sus hijos los nodos 2 y 3, y el último nivel los nodos 4 a 7." />
+</div>
+<div>
+<div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-ink-soft)', textAlign: 'center' }}>numerado desde 0</div>
+<HeapPicture values={[10, 7, 8, 1, 3, 2, 4]} view="tree" zeroBased label="El mismo heap numerado desde 0: la raíz es el nodo 0, sus hijos los nodos 1 y 2, y el último nivel los nodos 3 a 6." />
+</div>
+</div>
+
+|                        | Desde 1         | Desde 0               |
+| ---------------------- | --------------- | --------------------- |
+| Hijos de `k`           | `2k`, `2k + 1`  | `2k + 1`, `2k + 2`    |
+| Padre de `k`           | `k / 2`         | `(k - 1) / 2`         |
+| El nivel `d` empieza en | $$2^d$$        | $$2^d - 1$$           |
+| Casillas sin usar      | `data[0]`       | ninguna               |
+
+Las dos numeraciones funcionan. Empezar en 0 ahorra una casilla, y a cambio
+cada fórmula carga un $$\pm 1$$, que es justo donde se cometen los errores.
+Aquí el heap se guarda desde 1; `java.util.PriorityQueue` lo guarda desde 0.
+Es una decisión de diseño, no una regla.
+
+</Slide>
+
+<Slide title="Aritmética de índices en Java">
+Las tres fórmulas, escritas en Java. La división entera de `k / 2` es la que
+hace que los dos hijos de un nodo lleguen al mismo padre:
 
 ```java
 int parent(int k) {
@@ -600,14 +750,54 @@ int right(int k) {
 }
 ```
 
-En el heap de ejemplo, el nodo 2 guarda 7: sus hijos están en `data[4]` y
-`data[5]`, que guardan 1 y 3, y su padre en `data[1]`, que guarda 10. El
-nodo 3 guarda 8, y sus hijos están en `data[6]` y `data[7]`: el 2 y el 4.
+Ninguna recorre nada: moverse entre un nodo y su padre o sus hijos cuesta
+una operación aritmética, $$\Theta(1)$$, sin referencias que seguir.
 
-Con los índices desde 0, las mismas fórmulas serían `(k - 1) / 2`,
-`2k + 1` y `2k + 2`. Funcionan igual, pero cada una arrastra un ajuste. Por
-eso el heap se guarda desde 1: el costo es una casilla, y lo que se gana es
-aritmética sin correcciones.
+</Slide>
+
+<Slide title="La aritmética de índices paso a paso">
+Cada paso calcula una posición sobre el heap de ejemplo, y el dibujo marca
+el nodo de partida y el que resulta, en el árbol y en el arreglo.
+
+<StepShow
+  language="java"
+  code={`int parent(int k) {
+      return k / 2;
+  }
+
+  int left(int k) {
+      return 2 * k;
+  }
+
+  int right(int k) {
+      return 2 * k + 1;
+  }`}
+>
+  <Step lines={[5, 6]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>left(2) = 2 · 2 = 4: el hijo izquierdo del 7 es el 1, en data[4].</div>
+    <HeapPicture size={1} values={[10, 7, 8, 1, 3, 2, 4]} hot={[2, 4]} label="El nodo 2, que guarda 7, y su hijo izquierdo, el nodo 4, que guarda 1, resaltados en el árbol y en el arreglo." />
+  </Step>
+  <Step lines={[9, 10]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>right(2) = 2 · 2 + 1 = 5: el hijo derecho del 7 es el 3, en data[5].</div>
+    <HeapPicture size={1} values={[10, 7, 8, 1, 3, 2, 4]} hot={[2, 5]} label="El nodo 2, que guarda 7, y su hijo derecho, el nodo 5, que guarda 3, resaltados." />
+  </Step>
+  <Step lines={[5, 6]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>left(3) = 2 · 3 = 6: el hijo izquierdo del 8 es el 2, en data[6].</div>
+    <HeapPicture size={1} values={[10, 7, 8, 1, 3, 2, 4]} hot={[3, 6]} label="El nodo 3, que guarda 8, y su hijo izquierdo, el nodo 6, que guarda 2, resaltados." />
+  </Step>
+  <Step lines={[1, 2]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>parent(7) = 7 / 2 = 3: el padre del 4 es el 8, en data[3].</div>
+    <HeapPicture size={1} values={[10, 7, 8, 1, 3, 2, 4]} hot={[7, 3]} label="El nodo 7, que guarda 4, y su padre, el nodo 3, que guarda 8, resaltados." />
+  </Step>
+  <Step lines={[1, 2]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>parent(6) = 6 / 2 = 3: el otro hijo llega al mismo padre, porque la división descarta el resto.</div>
+    <HeapPicture size={1} values={[10, 7, 8, 1, 3, 2, 4]} hot={[6, 3]} label="El nodo 6, que guarda 2, y su padre, el nodo 3, que guarda 8, resaltados." />
+  </Step>
+  <Step lines={[1, 2]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>parent(1) = 1 / 2 = 0: la raíz no tiene padre, y el resultado cae en la casilla que no se usa.</div>
+    <HeapPicture size={1} values={[10, 7, 8, 1, 3, 2, 4]} hot={[1]} label="La raíz, el nodo 1, resaltada. Su padre sería data[0], la casilla que no se usa." />
+  </Step>
+</StepShow>
 
 </Slide>
 
@@ -619,7 +809,8 @@ comprobar sobre el arreglo, sin dibujar el árbol.
 
 1. **Forma completa: los elementos ocupan `data[1..n]`, sin casillas vacías
    entre medio.** Aquí son los 7, de `data[1]` a `data[7]`.
-2. **Orden de heap: para cada `k` entre 2 y `n`, `data[k / 2] >= data[k]`.**
+2. **Orden de heap: para cada `k` entre 2 y `n`,
+   `data[parent(k)] >= data[k]`.**
    Cada flecha va de una casilla a la de su padre, y en todas el valor de
    llegada es mayor o igual: `data[5] = 3` apunta a `data[2] = 7`, y
    `data[7] = 4` apunta a `data[3] = 8`.
@@ -629,20 +820,6 @@ son lo que cada una tiene que dejar cumplido al terminar.
 
 </Slide>
 
-<Slide title="Una inserción en las dos vistas">
-El heap de ejemplo recibe un 9. El widget dibuja el mismo arreglo dos veces,
-como árbol y como arreglo, y cada paso cambia las dos vistas a la vez: la
-casilla que se ilumina en el arreglo es el nodo que se ilumina en el árbol.
-
-<SequenceStepper eda="heap-max" operation="insert" values={[10, 7, 8, 1, 3, 2, 4]} value={9} capacity={9} showCode={false} />
-
-El 9 entra en `data[8]`, la primera posición libre, así que la invariante
-de forma completa se mantiene: es el hijo izquierdo del 1. Con su padre
-rompe la invariante de orden de heap, y los dos se intercambian. Frente al
-7 la vuelve a romper, y suben de nuevo. Frente a la raíz, el 10, la
-invariante ya se cumple, y se detiene ahí.
-
-</Slide>
 
 <SectionBreak />
 
