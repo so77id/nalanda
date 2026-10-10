@@ -9,13 +9,15 @@ questions: none
 
 # Estructuras de Datos · Priority Queue y Heap
 
-La cola atiende en el orden de llegada, y esa es la única regla que conoce.
-Muchos problemas necesitan otra: atender primero al **más importante**,
-llegue cuando llegue. Esta clase estudia el contrato que hace exactamente
-eso —la **cola de prioridad**— y tres formas de construirlo. Las dos
-primeras salen de la lista enlazada y cada una paga caro en una operación.
-La tercera, el **heap**, reparte el costo entre las dos, y de paso muestra
-que un mismo arreglo puede leerse como un árbol.
+En una sala de urgencias no se atiende por orden de llegada: primero pasa
+el paciente más grave. Una cola común no puede expresar esa regla, porque
+sólo conoce el orden en que llegaron los elementos. Para eso existe la
+**cola de prioridad**, un contrato en el que siempre sale el elemento de
+mayor prioridad. En esta clase lo construimos de tres formas. Las dos
+primeras, sobre una lista enlazada, son rápidas para insertar o para
+extraer, pero no para ambas cosas. La tercera, el **heap**, consigue que las
+dos operaciones sean eficientes, y lo hace leyendo un arreglo como si fuera
+un árbol.
 
 <Slide title="Una cola de prioridad">
 Una **cola de prioridad** es una colección donde cada elemento trae una
