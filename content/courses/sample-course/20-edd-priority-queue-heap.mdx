@@ -209,10 +209,19 @@ es lenta:
 | Lista ordenada  | $$\Theta(N)$$ | $$\Theta(1)$$  | $$\Theta(1)$$ |
 | ¿?              | ¿?            | ¿?             | ¿?            |
 
-Una cola de prioridad real recibe muchas inserciones y muchas extracciones
-mezcladas. Con $$N$$ de cada una, las dos listas terminan en $$\Theta(N^2)$$
-en total, porque una de las dos operaciones paga $$\Theta(N)$$ cada vez. Ni
-postergar el trabajo ni adelantarlo lo hace desaparecer.
+Una cola de prioridad no hace una sola operación: recibe muchas. Si entran
+$$N$$ elementos y después se sacan todos, con la lista sin orden cada
+extracción recorre los que quedan: la primera mira $$N$$, la segunda
+$$N - 1$$, y así hasta 1. En total son
+
+$$
+N + (N - 1) + \dots + 1 = \frac{N(N + 1)}{2} \in \Theta(N^2)
+$$
+
+pasos. Con la lista ordenada la suma es la misma, pero se paga al insertar:
+el elemento número $$k$$ puede recorrer los $$k - 1$$ que ya están. Con un
+millón de elementos son unos quinientos mil millones de pasos. Ni postergar
+el trabajo ni adelantarlo lo hace desaparecer.
 
 **¿Existe una forma de hacerlo mejor?**
 
