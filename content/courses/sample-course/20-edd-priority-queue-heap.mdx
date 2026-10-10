@@ -13,11 +13,9 @@ En una sala de urgencias no se atiende por orden de llegada: primero pasa
 el paciente más grave. Una cola común no puede expresar esa regla, porque
 sólo conoce el orden en que llegaron los elementos. Para eso existe la
 **cola de prioridad**, un contrato en el que siempre sale el elemento de
-mayor prioridad. En esta clase lo construimos de tres formas. Las dos
-primeras, sobre una lista enlazada, son rápidas para insertar o para
-extraer, pero no para ambas cosas. La tercera, el **heap**, consigue que las
-dos operaciones sean eficientes, y lo hace leyendo un arreglo como si fuera
-un árbol.
+mayor prioridad. Para implementarlo estudiaremos estructuras de datos que
+ya hemos visto: cada una resulta rápida para insertar o para extraer, pero
+no para ambas cosas. Y buscaremos una que no tenga que elegir.
 
 <Slide title="Una cola de prioridad">
 Una **cola de prioridad** es una colección donde cada elemento trae una
@@ -30,8 +28,10 @@ paciente, la urgencia de una tarea, el instante en que ocurrirá un evento o
 el tamaño de un archivo. Lo único que el contrato exige es que, dados dos
 elementos, siempre se pueda decir cuál va primero.
 
-Para que los ejemplos se lean de un vistazo, en esta clase la prioridad es
-el propio valor de cada elemento: un número mayor es más urgente.
+En la mayoría de los ejemplos de esta clase, la prioridad la da el propio
+valor de los datos que se guardan: por lo general, el elemento mayor es el de
+mayor prioridad. Algunos ejemplos usan el orden inverso, y cuando ocurre se
+indica explícitamente.
 
 <svg viewBox="0 0 700 250" style={{ width: '100%', maxWidth: '700px', height: 'auto', display: 'block', margin: '1.25rem auto' }} role="img" aria-label="Llegan, en este orden, 3, 8, 1 y 5, y la misma llegada se reparte en dos flechas. Hacia una cola común, sale primero el 3, el primero que llegó. Hacia una cola de prioridad, sale primero el 8, el mayor, aunque llegó segundo.">
   <defs>
@@ -90,59 +90,69 @@ abstracto** (TDA) llamado **Priority Queue**.
 </Slide>
 
 <Slide title="El TDA Priority Queue">
-La **Priority Queue** es una colección donde cada elemento entra con su
-prioridad y **sólo el máximo es visible**: se consulta el máximo y se saca el
-máximo.
+La **Priority Queue** es una colección donde cada elemento tiene una
+prioridad, y **sólo el elemento de mayor prioridad es visible**: es el único
+que se puede consultar y el único que se puede sacar de la colección.
 
 <div style={{ border: '1px solid var(--color-rule)', borderRadius: '8px', overflow: 'hidden', margin: '1.25rem 0' }}>
   <div style={{ background: 'var(--color-sunk)', padding: '0.55rem 0.9rem', borderBottom: '1px solid var(--color-rule)', fontWeight: 700 }}>Priority Queue <span style={{ fontWeight: 400, color: 'var(--color-ink-faint)' }}>· el contrato</span></div>
   <div style={{ display: 'grid', gridTemplateColumns: 'max-content 1fr', columnGap: '2rem' }}>
   <div style={{ gridColumn: '1 / -1', padding: '0.7rem 0.9rem 0.15rem', fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.08em', color: 'var(--color-ink-faint)' }}>CREAR</div>
   <code style={{ padding: `0.15rem 0 0.7rem 0.9rem`, whiteSpace: 'nowrap' }}>build()</code>
-  <span style={{ padding: `0.15rem 0.9rem 0.7rem 0` }}>construye la cola de prioridad sin elementos</span>
+  <span style={{ padding: `0.15rem 0.9rem 0.7rem 0` }}>crea una cola de prioridad vacía</span>
   <div style={{ gridColumn: '1 / -1', borderTop: '1px solid var(--color-rule)', padding: '0.7rem 0.9rem 0.15rem', fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.08em', color: 'var(--color-keep)' }}>CONSULTAR · no cambian nada</div>
   <code style={{ padding: `0.15rem 0 0.3rem 0.9rem`, whiteSpace: 'nowrap' }}>max() → elemento</code>
-  <span style={{ padding: `0.15rem 0.9rem 0.3rem 0` }}>el de prioridad más alta · la colección no cambia</span>
+  <span style={{ padding: `0.15rem 0.9rem 0.3rem 0` }}>retorna el elemento de mayor prioridad, sin sacarlo</span>
   <code style={{ padding: `0.15rem 0 0.3rem 0.9rem`, whiteSpace: 'nowrap' }}>isEmpty() → booleano</code>
-  <span style={{ padding: `0.15rem 0.9rem 0.3rem 0` }}>si no hay ningún elemento</span>
+  <span style={{ padding: `0.15rem 0.9rem 0.3rem 0` }}>retorna verdadero si la colección no tiene elementos</span>
   <code style={{ padding: `0.15rem 0 0.7rem 0.9rem`, whiteSpace: 'nowrap' }}>size() → entero</code>
-  <span style={{ padding: `0.15rem 0.9rem 0.7rem 0` }}>cuántos elementos hay</span>
+  <span style={{ padding: `0.15rem 0.9rem 0.7rem 0` }}>retorna cuántos elementos tiene la colección</span>
   <div style={{ gridColumn: '1 / -1', borderTop: '1px solid var(--color-rule)', padding: '0.7rem 0.9rem 0.15rem', fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.08em', color: 'var(--color-accent)' }}>MODIFICAR · cambian el estado</div>
   <code style={{ padding: `0.15rem 0 0.3rem 0.9rem`, whiteSpace: 'nowrap' }}>insert(x)</code>
-  <span style={{ padding: `0.15rem 0.9rem 0.3rem 0` }}>agrega x con su prioridad · largo + 1</span>
+  <span style={{ padding: `0.15rem 0.9rem 0.3rem 0` }}>agrega x a la colección; su prioridad decide cuándo saldrá</span>
   <code style={{ padding: `0.15rem 0 0.7rem 0.9rem`, whiteSpace: 'nowrap' }}>extractMax() → elemento</code>
-  <span style={{ padding: `0.15rem 0.9rem 0.7rem 0` }}>saca el de prioridad más alta y lo devuelve · largo − 1</span>
+  <span style={{ padding: `0.15rem 0.9rem 0.7rem 0` }}>saca de la colección el elemento de mayor prioridad y lo retorna</span>
   </div>
   <div style={{ padding: '0.65rem 0.9rem', borderTop: '1px solid var(--color-rule)', background: 'var(--color-sunk)' }}>
     <div style={{ fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.08em', color: 'var(--color-ink-faint)' }}>LO QUE NO DICE</div>
-    <div style={{ marginTop: '0.35rem' }}>Dónde viven los elementos, en qué orden están guardados, ni cuánto cuesta cada operación. Tampoco dice cuál sale entre dos de igual prioridad, ni hay manera de pedir el segundo mayor: el máximo es el único elemento visible.</div>
+    <div style={{ marginTop: '0.35rem' }}>Cómo se define la prioridad: eso lo decide quien implementa y usa el TDA. Tampoco dice dónde se guardan los elementos, en qué orden, ni cuánto cuesta cada operación, y entre dos elementos de igual prioridad no dice cuál sale primero.</div>
   </div>
 </div>
 
-La diferencia con el TDA Queue está en una sola palabra: `extractMax` no
-devuelve el que llegó primero, devuelve **el máximo**. El orden de llegada
-no forma parte del contrato.
+</Slide>
 
-El protocolo es el de siempre: **`max()` y `extractMax()` sólo se pueden
-llamar cuando `isEmpty()` es falso.** Sobre una colección vacía no hay
-máximo que devolver.
+<Slide title="Las reglas del contrato Priority Queue">
+Lo que distingue a esta colección de una Queue es la **regla de salida**.
+En una Queue sale el elemento que lleva más tiempo esperando. En una
+Priority Queue sale el de mayor prioridad, sin importar cuándo llegó: un
+elemento recién insertado puede salir antes que todos los que ya estaban.
+
+Qué elemento tiene la mayor prioridad lo decide quien implementa y usa el
+TDA. A veces es el número mayor; otras, el menor, como el instante más
+próximo de un evento; otras, una propiedad de los datos, como la gravedad
+de un paciente. Por eso `max` y `extractMax` hablan de la **prioridad
+máxima**, no del número más grande.
+
+Hay una condición para usar el contrato: **`max()` y `extractMax()` sólo se
+pueden llamar si la colección tiene al menos un elemento**, es decir, si
+`isEmpty()` retorna falso. En una colección vacía no existe un elemento de
+mayor prioridad que retornar.
 
 </Slide>
 
-<Slide title="Tres formas de guardar una cola de prioridad">
-El contrato no dice dónde viven los elementos, así que hay que elegir. Esta
-clase construye tres implementaciones del mismo TDA:
+<Slide title="Formas de implementar una cola de prioridad">
+El contrato no dice dónde se guardan los elementos, así que hay que elegir
+una estructura de datos. Para implementar el TDA estudiaremos dos
+estructuras que ya hemos visto:
 
 1. **Una lista enlazada sin orden.** Cada elemento se agrega donde es más
-   barato, y el máximo se busca sólo cuando alguien lo pide.
-2. **Una lista enlazada ordenada de mayor a menor.** El máximo queda siempre
-   al frente, y el trabajo pasa a la inserción, que busca el lugar de cada
-   elemento nuevo.
-3. **Un heap.** Un arreglo organizado como árbol, con un orden más débil que
-   el de la lista ordenada y suficiente para encontrar el máximo al instante.
+   barato, y el de mayor prioridad se busca sólo cuando alguien lo pide.
+2. **Una lista enlazada ordenada de mayor a menor.** El de mayor prioridad
+   queda siempre al frente, y el trabajo pasa a la inserción, que busca el
+   lugar de cada elemento nuevo.
 
-Las tres cumplen el mismo contrato y ninguna lo cambia. Lo que cambia es
-**dónde se paga**: al insertar, al extraer, o un poco en cada una.
+Las dos cumplen el mismo contrato y ninguna lo cambia. Lo que cambia es
+**dónde se paga el trabajo**: al insertar o al extraer.
 
 </Slide>
 
@@ -439,8 +449,8 @@ nunca bajan, así que **el máximo está en la raíz**. Y de ahí sale también 
 que no se promete: 7 y 8 están en ramas distintas y nadie los compara, igual
 que 1 y 8. Es el orden más débil que todavía deja ver el máximo.
 
-Un heap con esta regla se llama **max-heap**, y es el que construye esta
-clase.
+Un heap con esta regla se llama **max-heap**: en la raíz está el elemento de
+mayor prioridad.
 
 </Slide>
 
@@ -811,10 +821,10 @@ eventos: sólo necesita saber, en cada momento, cuál viene.
 ## PriorityQueue en Java
 
 <Slide title="La clase PriorityQueue">
-Java trae una cola de prioridad en `java.util.PriorityQueue`, y es un heap
-binario guardado en un arreglo, el mismo de esta clase. Con una
-diferencia que sorprende la primera vez: **es un min-heap**. Sin más
-indicación, `poll()` devuelve el menor.
+Java trae una cola de prioridad en `java.util.PriorityQueue`: un heap
+binario guardado en un arreglo. Tiene una diferencia que sorprende la
+primera vez: **es un min-heap**. Sin más indicación, `poll()` devuelve el
+menor.
 
 ```java
 PriorityQueue<Integer> pq = new PriorityQueue<>();
@@ -1081,7 +1091,7 @@ Esa es la estructura general de la que el heap es un caso particular: el
 
 ## Ejercicios
 
-<Slide title="Los ejercicios de esta clase">
+<Slide title="Problemas resueltos y propuestos">
 Dos problemas resueltos completos, cada uno en cinco pasos: el problema, por
 qué no es trivial, la idea, el código y dónde falla.
 
