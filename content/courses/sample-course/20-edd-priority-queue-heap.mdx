@@ -272,6 +272,8 @@ export function HeapPicture({
   nextSlot = false,
   brokenEdges = [],
   minLevels = 1,
+  capacity,
+  reserveCells,
   idPrefix = 'heap-pic',
   label,
 }) {
@@ -299,7 +301,12 @@ export function HeapPicture({
   const treeH = view === 'array' ? 0 : 2 * pad + 2 * r + (levels - 1) * levelH;
   // Zero-based storage has no unused slot: the root sits in data[0].
   const lead = zeroBased ? 0 : 1;
-  const arrayW = (total + lead) * box;
+  // capacity is data.length: the empty cells past the last element are
+  // drawn too, so a full block and a grown one can be compared.
+  const cells = Math.max(total + lead, capacity ?? 0);
+  // reserveCells widens the canvas without drawing cells, left-aligned, so
+  // a small block lines up cell by cell with a larger one drawn below it.
+  const arrayW = Math.max(cells, reserveCells ?? 0) * box;
   const width = Math.max(view === 'array' ? 0 : treeW, view === 'tree' ? 0 : arrayW + 8);
   const treeX = (width - treeW) / 2;
   const arrayX = (width - arrayW) / 2;
@@ -482,6 +489,15 @@ export function HeapPicture({
               <g key={`cb${k}`}>
                 <path d={`M ${x1} ${y - 6} L ${x1} ${y} L ${x2} ${y} L ${x2} ${y - 6}`} style={{ fill: 'none', stroke: pairColor(k) }} strokeWidth="1.6" />
                 <text x={(x1 + x2) / 2} y={y + 15} textAnchor="middle" fontSize="10" fontWeight="600" style={{ fill: pairColor(k) }}>{`hijos de ${shown(k)}`}</text>
+              </g>
+            );
+          }) : null}
+          {capacity ? Array.from({ length: Math.max(capacity - lead - total, 0) }, (_, i) => {
+            const k = total + 1 + i;
+            return (
+              <g key={`free${k}`}>
+                <rect x={cellLeft(k)} y={arrayY} width={box} height={box} rx="3" style={{ fill: 'var(--color-sunk)', stroke: 'var(--color-rule)' }} strokeWidth="1.2" strokeDasharray="3 3" />
+                <text x={cellX(k)} y={arrayY + box + 14} textAnchor="middle" fontSize="10" style={{ fill: 'var(--color-ink-faint)' }}>{shown(k)}</text>
               </g>
             );
           }) : null}
@@ -922,58 +938,72 @@ Ninguna recorre ni cambia nada, así que ninguna puede romper una invariante:
 
 </Slide>
 
+<Slide title="Hacer espacio para un elemento nuevo">
+Un elemento nuevo necesita la casilla `data[n + 1]`. Si el arreglo está
+lleno —`n == data.length - 1`, porque `data[0]` no se usa—, esa casilla
+todavía no existe. Antes de escribir hay que agrandar el arreglo con el
+`resize` del arreglo dinámico: reserva un bloque del doble y copia
+`data[1..n]`. Si el arreglo tiene espacio, este paso no ocurre.
+
+<div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-ink-soft)', textAlign: 'center' }}>n = 7 en un arreglo de data.length = 8: está lleno</div>
+<HeapPicture values={[10, 7, 8, 1, 3, 2, 4]} view="array" reserveCells={16} label="El arreglo del heap de ejemplo antes de agrandarlo: data.length es 8 y los 7 elementos ocupan data[1] a data[7]. No queda ninguna casilla libre." />
+<div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-ink-soft)', textAlign: 'center' }}>después de resize(16): data[8] a data[15] quedan libres</div>
+<HeapPicture values={[10, 7, 8, 1, 3, 2, 4]} view="array" capacity={16} label="El mismo arreglo después de resize(16): los 7 elementos copiados en data[1] a data[7], y las casillas 8 a 15 libres." />
+
+</Slide>
+
 <Slide title="Dónde entra un elemento nuevo">
-Insertemos un 9 en el heap de ejemplo, que tiene `n = 7` elementos. El 9
-no puede ir donde quiera: para que el árbol siga sin huecos, tiene que
-ocupar la posición siguiente a la última, la `n + 1`. En el arreglo es
-`data[8]`, la casilla que sigue al último elemento.
+Con espacio en el arreglo, la invariante de forma completa fija el lugar:
+el elemento nuevo ocupa la posición `n + 1`, la que sigue a la última del
+último nivel. Cualquier otro lugar dejaría un hueco.
 
-<HeapPicture values={[10, 7, 8, 1, 3, 2, 4, 9]} hot={[8]} label="El heap con el 9 recién escrito en data[8]: en el árbol es el hijo izquierdo del 1, en el último nivel." />
+<div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-ink-soft)', textAlign: 'center' }}>n = 7: el 9 entra en data[8], hijo del nodo parent(8) = 4</div>
+<HeapPicture values={[10, 7, 8, 1, 3, 2, 4, 9]} hot={[8]} label="El heap de ejemplo con un 9 escrito en data[8]: en el árbol, el hijo izquierdo del nodo 4, que guarda el 1, en el último nivel." />
 
-En el árbol, la posición 8 es el hijo izquierdo del nodo 4, porque
-`parent(8) = 8 / 2 = 4`: el 9 queda como hoja, debajo del 1.
-
-En el ejemplo el arreglo está lleno —`data.length` es 8, así que `data[8]`
-todavía no existe—, y antes de escribir hay que agrandarlo con el `resize`
-del arreglo dinámico.
+En el arreglo, `n + 1` es la casilla que sigue al último elemento. En el
+árbol, es un hijo del nodo `parent(n + 1)`: el elemento nuevo siempre entra
+como hoja. Después de escribirlo, `n` crece en uno.
 
 </Slide>
 
 <Slide title="La invariante que el nuevo puede romper">
-Escribir en `data[8]` mantiene la invariante de forma completa, pero puede
-romper la de orden de heap. ¿Dónde? **Sólo en la arista entre el nuevo y su
-padre**: el 9 no tiene hijos, y ninguna otra arista cambió.
+Escribir en la posición `n + 1` mantiene la invariante de forma completa,
+pero puede romper la de orden de heap. Y sólo en un lugar: **la arista entre
+el elemento nuevo y su padre**. El nuevo es una hoja, así que no tiene hijos
+con los que compararse, y ninguna otra arista cambió.
 
+<div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-ink-soft)', textAlign: 'center' }}>el 9 es mayor que su padre, el 1: esa arista rompe la invariante</div>
 <HeapPicture values={[10, 7, 8, 1, 3, 2, 4, 9]} hot={[8]} brokenEdges={[8]} label="El mismo heap con el 9 en data[8]. La arista entre el 9 y su padre, el 1, está en rojo y punteada: ahí se rompe la invariante de orden de heap, porque el padre es menor que el hijo. Todas las demás aristas la cumplen." />
 
-Aquí se rompe: el padre, 1, es menor que el 9. Restaurar la invariante en
-esa arista es intercambiar al nuevo con su padre.
+Si el padre es mayor o igual que el nuevo, la invariante se cumple y no hay
+nada que reparar. Si es menor, hay que intercambiarlos.
 
 </Slide>
 
 <Slide title="Subir sin romper otra arista">
-El primer intercambio deja al 9 en la posición 4, y ahí vuelve a romper la
-invariante, ahora con el 7. Así queda el segundo intercambio:
+Intercambiar el elemento con su padre restaura la invariante en esa arista,
+y no la rompe en ninguna de abajo:
+
+- **El padre baja**, y queda arriba de nodos que ya estaban debajo de él
+  antes de la inserción: ya era mayor o igual que ellos.
+- **El elemento sube**, y queda arriba de su antiguo padre y del otro hijo
+  de ese padre. Es mayor que su antiguo padre, y ese padre ya era mayor o
+  igual que su otro hijo.
 
 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '0.25rem 1.5rem' }}>
 <div>
-<div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-ink-soft)', textAlign: 'center' }}>antes</div>
+<div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-ink-soft)', textAlign: 'center' }}>antes: el 9 rompe la invariante con su padre, el 7</div>
 <HeapPicture values={[10, 7, 8, 9, 3, 2, 4, 1]} view="tree" hot={[2, 4]} brokenEdges={[4]} label="Antes del intercambio: el 9 en la posición 4, hijo del 7. La arista entre los dos está rota." />
 </div>
 <div>
-<div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-ink-soft)', textAlign: 'center' }}>después</div>
+<div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-ink-soft)', textAlign: 'center' }}>después: el 9 arriba del 7 y del 3</div>
 <HeapPicture values={[10, 9, 8, 7, 3, 2, 4, 1]} view="tree" hot={[2, 4]} label="Después del intercambio: el 9 en la posición 2, el 7 en la 4. Todas las aristas cumplen la invariante de orden de heap." />
 </div>
 </div>
 
-- **El que baja, el 7, queda arriba del 1.** Ese 1 era hijo del 7 antes de
-  que llegara el 9, así que ya era menor o igual.
-- **El que sube, el 9, queda arriba del 7 y del 3.** Es mayor que el 7, y el
-  7 ya era mayor o igual que el 3.
-
-Ninguna arista de abajo queda rota. La única que puede quedar rota es la de
-arriba, entre el que subió y su nuevo padre, y por eso el intercambio se
-repite subiendo. Frente al 10 la invariante ya se cumple, y se detiene.
+La única arista que puede quedar rota es la de arriba, entre el que subió y
+su nuevo padre. Por eso el intercambio se repite subiendo, hasta que la
+invariante se cumple o el elemento llega a la raíz.
 
 </Slide>
 
