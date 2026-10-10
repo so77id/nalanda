@@ -2312,8 +2312,8 @@ function traceHeap(operation: SequenceOperation, input: SequenceInput): Sequence
         'compare',
         [line('while (k > 1')],
         up
-          ? `¿data[${p}] = ${val(p)} es menor que data[${k}] = ${val(k)}? Sí: el padre es menor, y el invariante está roto en esta arista.`
-          : `¿data[${p}] = ${val(p)} es menor que data[${k}] = ${val(k)}? No: el padre es mayor o igual, y el invariante se cumple. swim termina.`,
+          ? `¿data[${p}] = ${val(p)} es menor que data[${k}] = ${val(k)}? Sí: el padre es menor, y en esta arista se rompe la invariante de orden de heap.`
+          : `¿data[${p}] = ${val(p)} es menor que data[${k}] = ${val(k)}? No: el padre es mayor o igual, y la invariante de orden de heap se cumple. swim termina.`,
         [at('k', k)],
       );
       if (!up) return;
@@ -2322,7 +2322,7 @@ function traceHeap(operation: SequenceOperation, input: SequenceInput): Sequence
       push(
         'shift',
         [line('swap(k / 2, k);'), line('k = k / 2;')],
-        `Intercambiamos data[${p}] y data[${k}]: ${val(p)} sube a la posición ${p}, y k pasa a ${p}.`,
+        `Intercambiamos data[${p}] y data[${k}]: ${val(p)} sube a la posición ${p}, lo que restaura la invariante de orden de heap en esta arista. k pasa a ${p}.`,
         [at('k', p)],
       );
       k = p;
@@ -2363,8 +2363,8 @@ function traceHeap(operation: SequenceOperation, input: SequenceInput): Sequence
         'compare',
         [line('if (data[k] >= data[j]) break;')],
         stays
-          ? `¿data[${k}] = ${val(k)} es mayor o igual que ${val(j)}? Sí: el invariante se cumple aquí. sink termina.`
-          : `¿data[${k}] = ${val(k)} es mayor o igual que ${val(j)}? No: el hijo mayor debe subir.`,
+          ? `¿data[${k}] = ${val(k)} es mayor o igual que ${val(j)}? Sí: la invariante de orden de heap se cumple aquí. sink termina.`
+          : `¿data[${k}] = ${val(k)} es mayor o igual que ${val(j)}? No: aquí se rompe la invariante de orden de heap, y el hijo mayor debe subir.`,
         [at('k', k), at('j', j)],
       );
       if (stays) return;
@@ -2373,7 +2373,7 @@ function traceHeap(operation: SequenceOperation, input: SequenceInput): Sequence
       push(
         'shift',
         [line('swap(k, j);'), line('k = j;')],
-        `Intercambiamos data[${k}] y data[${j}]: ${val(k)} sube y ${val(j)} baja a la posición ${j}, y k pasa a ${j}.`,
+        `Intercambiamos data[${k}] y data[${j}]: ${val(k)} sube y ${val(j)} baja a la posición ${j}, lo que restaura la invariante de orden de heap en esta arista. k pasa a ${j}.`,
         [at('k', j)],
       );
       k = j;
@@ -2428,7 +2428,7 @@ function traceHeap(operation: SequenceOperation, input: SequenceInput): Sequence
         push(
           'build',
           [line('data[++n] = x;')],
-          `n pasa a ${n} y ${x} ocupa data[${n}]: la primera hoja libre, así el árbol sigue completo.`,
+          `n pasa a ${n} y ${x} ocupa data[${n}]: la primera hoja libre, así se mantiene la invariante de forma completa.`,
           [at('k', n)],
         );
         push('start', [line('swim(n);')], `swim(${n}): ${x} sube mientras su padre sea menor.`, [
@@ -2479,7 +2479,7 @@ function traceHeap(operation: SequenceOperation, input: SequenceInput): Sequence
         push(
           'unlink',
           [line('n--;')],
-          `n pasa a ${n}: data[${n + 1}] sigue guardando ${max}, pero ya no es parte del heap. El árbol pierde su última hoja y sigue completo.`,
+          `n pasa a ${n}: data[${n + 1}] sigue guardando ${max}, pero ya no es parte del heap. El árbol pierde su última hoja y mantiene la invariante de forma completa.`,
         );
         if (n > 0) {
           push(

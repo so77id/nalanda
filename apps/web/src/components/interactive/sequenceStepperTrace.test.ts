@@ -1459,3 +1459,24 @@ describe('sequenceStepperTrace · heap-max · every size the widget accepts', ()
     });
   }
 });
+
+describe('sequenceStepperTrace · heap-max · the narration speaks of invariants', () => {
+  // The course names what an operation breaks, keeps and restores as an
+  // INVARIANT, always, and in the feminine ("la invariante"), as every class
+  // of the unit does (#304, Miguel review).
+  const all = [
+    traceFor('heap-max', 'insert', { values: [10, 7, 8, 1, 3], value: [9, 12], capacity: 8 }),
+    traceFor('heap-max', 'extract-max', { values: [12, 7, 10, 2, 3, 8, 9, 1], times: 2 }),
+    traceFor('heap-max', 'heapsort', { values: [5, 2, 9, 1, 7, 3, 8, 4] }),
+  ].flatMap((t) => t.steps.map((s) => s.description));
+
+  it('never says "el invariante"', () => {
+    expect(all.filter((d) => /\bel invariante\b/.test(d))).toEqual([]);
+  });
+
+  it('names the invariant a swap restores, and the one each n change keeps', () => {
+    expect(all.some((d) => /rompe la invariante de orden de heap/.test(d))).toBe(true);
+    expect(all.some((d) => /restaura la invariante de orden de heap/.test(d))).toBe(true);
+    expect(all.some((d) => /invariante de forma completa/.test(d))).toBe(true);
+  });
+});

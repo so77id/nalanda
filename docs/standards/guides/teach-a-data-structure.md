@@ -286,6 +286,15 @@ error the #277 draft made with `size ≤ data.length`. When a _rule_ changes but
 its invariant does not, say exactly that: the static array kept
 `size ≤ data.length` by refusing, the dynamic one keeps it by growing.
 
+**Say "invariante" every time something is broken, kept or restored.** Not
+"la regla", not "el orden está roto", not "lo arregla": the operation _rompe
+la invariante de orden de heap_, _mantiene la invariante de forma completa_,
+_restaura la invariante_. The word is feminine in this course — _la
+invariante_. The same holds for a widget's narration, which the reader hears
+as part of the class; `sequenceStepperTrace.test.ts` pins the heap recipe's
+(#304, the professor's review). A rule of the CONTRACT — a TDA's exit rule —
+is not an invariant of the structure and keeps the word _regla_.
+
 ### 4. Give every operation a cost AND an invariant
 
 The cost table has one row per operation and **at least three columns**:
