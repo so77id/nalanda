@@ -70,6 +70,16 @@ one because slot 0 is reserved: the block is full at
 defaults to FULL as the dynamic-array recipe's does, so an author who does
 not want the growth on screen passes a larger one.
 
+`extract-max` shrinks the block the same way, by calling the dynamic array's
+`shrinkIfSparse()` after `sink(1)`: when `n` falls to a quarter of
+`data.length` the block halves and only `data[1..n]` is copied, so the stale
+maxima past `n` do not survive it (the trace draws a `shrink` frame; `heapsort`
+never shrinks, its sorted tail lives in the same block). An empty heap starts
+at `new int[2]` — one usable slot plus `data[0]`, the dynamic array's
+one-cell start. Both were added in the slide review of #304, so the class can
+run a widget that inserts many from empty (growing 2 → 4 → 8 → 16) and one
+that extracts many (shrinking).
+
 `insert` and `extract-max` refuse a starting array that is not a max-heap:
 an operation ON a heap that starts from a broken one would animate the
 invariant being violated before the operation ran.

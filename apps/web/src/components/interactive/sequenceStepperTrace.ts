@@ -59,7 +59,17 @@ export const OPERATIONS = [
 export type SequenceOperation = (typeof OPERATIONS)[number];
 
 export type SequenceStepKind =
-  'start' | 'walk' | 'compare' | 'shift' | 'grow' | 'build' | 'link' | 'unlink' | 'found' | 'done';
+  | 'start'
+  | 'walk'
+  | 'compare'
+  | 'shift'
+  | 'grow'
+  | 'shrink'
+  | 'build'
+  | 'link'
+  | 'unlink'
+  | 'found'
+  | 'done';
 
 /**
  * `leaving` is an element ON ITS WAY OUT of the structure. `stale` is a
@@ -2158,6 +2168,7 @@ ${HEAP_SWIM}`,
     swap(1, n);
     n--;
     sink(1);
+    shrinkIfSparse();
     return max;
 }
 
@@ -2186,6 +2197,14 @@ ${HEAP_SINK}`,
 
 ${HEAP_SINK}`,
 };
+
+/** How many elements the heap has, as a Spanish sentence. */
+const heapCount = (n: number): string =>
+  n === 0
+    ? 'El heap quedó vacío.'
+    : n === 1
+      ? 'El heap tiene 1 elemento.'
+      : `El heap tiene ${n} elementos.`;
 
 /** Whether `values` read as `data[1..]` already satisfy the max-heap order. */
 function isMaxHeap(values: number[]): boolean {
@@ -2235,8 +2254,9 @@ function traceHeap(operation: SequenceOperation, input: SequenceInput): Sequence
 
   // Default block: `data.length = n + 1`, FULL — the dynamic-array recipe's
   // default, so a single insertion shows the growth unless the author passes
-  // a larger `capacity`.
-  let capacity = input.capacity ?? input.values.length + 1;
+  // a larger `capacity`. An EMPTY heap starts at `new int[2]`: one usable slot
+  // plus `data[0]`, the dynamic array's one-cell start (#304).
+  let capacity = input.capacity ?? Math.max(input.values.length + 1, 2);
   if (!Number.isInteger(capacity) || capacity < input.values.length + 1) {
     throw new Error(
       `capacity es data.length y el slot 0 no se usa: para ${input.values.length} valores hace falta al menos ${input.values.length + 1}.`,
@@ -2410,7 +2430,9 @@ function traceHeap(operation: SequenceOperation, input: SequenceInput): Sequence
         push(
           'start',
           [line('void insert(int x)')],
-          `insert(${x}): el heap tiene n = ${n} elemento${n === 1 ? '' : 's'}${n === 0 ? '' : ` y su máximo es ${val(1)}`}.`,
+          n === 0
+            ? `insert(${x}): el heap está vacío, n = 0.`
+            : `insert(${x}): el heap tiene n = ${n} elemento${n === 1 ? '' : 's'} y su máximo es ${val(1)}.`,
         );
         if (n === capacity - 1) {
           const copied = n;
@@ -2419,7 +2441,7 @@ function traceHeap(operation: SequenceOperation, input: SequenceInput): Sequence
           push(
             'grow',
             [line('n == data.length - 1'), line('resize(2 * data.length);')],
-            `El bloque está lleno (n = ${n} = data.length − 1): se reserva uno de ${capacity} y se copian los ${copied} elementos.`,
+            `El bloque está lleno (n = ${n} = data.length − 1): se reserva uno de ${capacity} y se ${copied === 1 ? 'copia el único elemento' : `copian los ${copied} elementos`}.`,
           );
         }
         n += 1;
@@ -2436,7 +2458,7 @@ function traceHeap(operation: SequenceOperation, input: SequenceInput): Sequence
         ]);
         swim(n);
         calm();
-        push('done', [line('swim(n);')], `${x} quedó en su lugar. El heap tiene ${n} elementos.`);
+        push('done', [line('swim(n);')], `${x} quedó en su lugar. ${heapCount(n)}`);
         cells.forEach((c, i) => {
           if (c.state === 'new') cells[i] = { ...c, state: 'idle' };
         });
@@ -2491,11 +2513,26 @@ function traceHeap(operation: SequenceOperation, input: SequenceInput): Sequence
           sink(1);
         }
         calm();
-        push(
-          'done',
-          [line('return max;')],
-          `extractMax devuelve ${max}. El heap tiene ${n} elementos.`,
-        );
+        // The dynamic array's quarter rule, on n: halve the block when n
+        // has fallen to a quarter of it. The copy takes data[1..n] only, so
+        // what was past n — the stale maxima — does not survive it.
+        if (n > 0 && n === Math.floor(capacity / 4)) {
+          capacity /= 2;
+          cells.length = n;
+          cost += n;
+          push(
+            'shrink',
+            [line('shrinkIfSparse();')],
+            `n = ${n} es un cuarto de data.length = ${capacity * 2}: shrinkIfSparse achica el bloque a ${capacity} y ${n === 1 ? 'copia el único elemento del heap' : `copia los ${n} elementos del heap`}.`,
+          );
+        } else {
+          push(
+            'compare',
+            [line('shrinkIfSparse();')],
+            `n = ${n} no es un cuarto de data.length = ${capacity}: shrinkIfSparse no achica el bloque.`,
+          );
+        }
+        push('done', [line('return max;')], `extractMax devuelve ${max}. ${heapCount(n)}`);
       });
       break;
     }

@@ -1480,3 +1480,83 @@ describe('sequenceStepperTrace · heap-max · the narration speaks of invariants
     expect(all.some((d) => /invariante de forma completa/.test(d))).toBe(true);
   });
 });
+
+describe('sequenceStepperTrace · heap-max · growing and shrinking the block (#304)', () => {
+  // The heap grows and shrinks exactly as the dynamic array of
+  // 17-edd-introduccion does: double when full, halve at a quarter. Its
+  // usable capacity is data.length - 1, because data[0] is never used.
+
+  it('starts an empty heap with data.length = 2: one usable slot plus data[0]', () => {
+    const trace = traceFor('heap-max', 'insert', { values: [], value: 5 });
+    expect(trace.steps[0]!.capacity).toBe(2);
+    expect(trace.steps.some((s) => s.kind === 'grow')).toBe(false);
+  });
+
+  it('doubles the block on the 2nd, 4th and 8th insertion from empty', () => {
+    const trace = traceFor('heap-max', 'insert', {
+      values: [],
+      value: [4, 1, 8, 3, 10, 2, 7, 9],
+    });
+    const grows = trace.steps.filter((s) => s.kind === 'grow').map((s) => s.capacity);
+    expect(grows).toEqual([4, 8, 16]);
+    expect(trace.steps.at(-1)!.heapSize).toBe(8);
+  });
+
+  it('extractMax calls shrinkIfSparse after sinking', () => {
+    const { code } = traceFor('heap-max', 'extract-max', { values: [9, 5, 7], capacity: 4 });
+    const lines = code.split('\n');
+    const sink = lines.findIndex((l) => l.includes('sink(1);'));
+    const shrink = lines.findIndex((l) => l.includes('shrinkIfSparse();'));
+    expect(shrink).toBeGreaterThan(sink);
+    expect(lines.findIndex((l) => l.includes('return max;'))).toBeGreaterThan(shrink);
+  });
+
+  it('halves the block when n falls to a quarter of data.length, and drops what was past n', () => {
+    const trace = traceFor('heap-max', 'extract-max', {
+      values: [10, 9, 8, 7, 3, 2, 4, 1],
+      capacity: 16,
+      times: 6,
+    });
+    const shrinks = trace.steps.filter((s) => s.kind === 'shrink');
+    // n = 4 is a quarter of 16, n = 2 a quarter of 8.
+    expect(shrinks.map((s) => [s.heapSize, s.capacity])).toEqual([
+      [4, 8],
+      [2, 4],
+    ]);
+    for (const s of shrinks) {
+      expect(s.cells).toHaveLength(s.heapSize!);
+      expect(s.highlightLines).toContain(lineNo(trace, 'shrinkIfSparse();'));
+    }
+    const last = trace.steps.at(-1)!;
+    expect(last.capacity).toBe(4);
+    expect(last.cells.length).toBeLessThan(last.capacity!);
+  });
+
+  it('does not shrink while n stays above a quarter', () => {
+    const trace = traceFor('heap-max', 'extract-max', {
+      values: [10, 9, 8, 7, 3, 2, 4, 1],
+      capacity: 16,
+    });
+    expect(trace.steps.some((s) => s.kind === 'shrink')).toBe(false);
+  });
+
+  it('heapsort never shrinks: the sorted tail lives in the same block', () => {
+    const trace = traceFor('heap-max', 'heapsort', { values: [5, 2, 9, 1, 7, 3, 8, 4] });
+    expect(trace.steps.some((s) => s.kind === 'shrink')).toBe(false);
+    expect(trace.code).not.toContain('shrinkIfSparse');
+  });
+});
+
+describe('sequenceStepperTrace · heap-max · counts read as Spanish', () => {
+  it('never says "los 1 elementos" or "1 elementos"', () => {
+    const all = [
+      traceFor('heap-max', 'insert', { values: [], value: [1, 7, 2, 3, 8, 4, 10] }),
+      traceFor('heap-max', 'extract-max', {
+        values: [10, 9, 8, 7, 3, 2, 4, 1],
+        capacity: 16,
+        times: 8,
+      }),
+    ].flatMap((t) => t.steps.map((s) => s.description));
+    expect(all.filter((d) => /\b1 elementos\b|\blos 1\b|\b0 elementos\b/.test(d))).toEqual([]);
+  });
+});
