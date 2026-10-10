@@ -631,9 +631,9 @@ describe('<SequenceStepper> · the combinations 20-edd-priority-queue-heap mount
       props: {
         eda: 'heap-max',
         operation: 'insert',
-        values: [10, 7, 8, 1, 3],
+        values: [10, 7, 8, 1, 3, 2, 4],
         value: 9,
-        capacity: 8,
+        capacity: 9,
         showCode: false,
       },
     },

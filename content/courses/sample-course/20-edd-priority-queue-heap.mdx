@@ -261,6 +261,10 @@ export function HeapPicture({
   view = 'both',
   hot = [],
   levelBrackets = false,
+  levelLines = false,
+  levelColors = false,
+  parentArcs = false,
+  idPrefix = 'heap-pic',
   label,
 }) {
   const r = 17;
@@ -268,26 +272,33 @@ export function HeapPicture({
   const levelH = 54;
   const pad = 14;
   const box = 40;
-  const levels = values.length === 0 ? 1 : Math.floor(Math.log2(values.length)) + 1;
+  // A null value is a HOLE: a position the numbering reserves and nobody occupies.
+  const present = (k) => values[k - 1] !== null && values[k - 1] !== undefined;
+  const LEVEL = ['var(--color-accent)', 'var(--color-keep)', 'var(--color-focus)', 'var(--color-mark)'];
+  const levelOf = (k) => Math.floor(Math.log2(k));
+  const levels = values.length === 0 ? 1 : levelOf(values.length) + 1;
   const leaves = 2 ** (levels - 1);
-  const treeW = 2 * pad + leaves * pitch;
+  const labelW = levelLines ? 58 : 0;
+  const treeW = labelW + 2 * pad + leaves * pitch;
   const treeH = view === 'array' ? 0 : 2 * pad + 2 * r + (levels - 1) * levelH;
   const arrayW = (values.length + 1) * box;
   const width = Math.max(view === 'array' ? 0 : treeW, view === 'tree' ? 0 : arrayW + 8);
   const treeX = (width - treeW) / 2;
   const arrayX = (width - arrayW) / 2;
-  const arrayY = treeH + (view === 'both' ? 26 : 6);
+  const arcSpace = parentArcs ? 74 : 0;
+  const arrayY = treeH + (view === 'both' ? 26 : 6) + arcSpace;
   const height = view === 'tree' ? treeH : arrayY + box + (levelBrackets ? 66 : 40);
-  const depth = values.length === 0 ? 0 : Math.floor(Math.log2(values.length)) + 1;
   const at = (k) => {
-    const level = Math.floor(Math.log2(k));
+    const level = levelOf(k);
     const span = leaves / 2 ** level;
-    return { cx: treeX + pad + (k - 2 ** level + 0.5) * span * pitch, cy: pad + r + level * levelH };
+    return { cx: treeX + labelW + pad + (k - 2 ** level + 0.5) * span * pitch, cy: pad + r + level * levelH };
   };
-  const stroke = (k) => (hot.includes(k) ? 'var(--color-accent)' : k > n ? 'var(--color-keep)' : 'var(--color-rule-strong)');
+  const stroke = (k) =>
+    hot.includes(k) ? 'var(--color-accent)' : k > n ? 'var(--color-keep)' : levelColors ? LEVEL[levelOf(k) % 4] : 'var(--color-rule-strong)';
   const fill = (k) => (k > n ? 'var(--color-keep-soft)' : 'var(--color-surface)');
-  const weight = (k) => (hot.includes(k) ? 2.8 : 1.4);
+  const weight = (k) => (hot.includes(k) ? 2.8 : levelColors ? 2 : 1.4);
   const ks = values.map((_, i) => i + 1);
+  const cellX = (k) => arrayX + k * box + box / 2;
   return (
     <svg
       viewBox={`0 0 ${width} ${height}`}
@@ -295,7 +306,21 @@ export function HeapPicture({
       role="img"
       aria-label={label}
     >
-      {view === 'array' ? null : ks.filter((k) => k > 1 && k <= n).map((k) => {
+      <defs>
+        <marker id={`${idPrefix}-arc`} markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto">
+          <path d="M0,0 L7,3.5 L0,7 z" style={{ fill: 'var(--color-ink-soft)' }} />
+        </marker>
+      </defs>
+      {view !== 'array' && levelLines ? Array.from({ length: levels }, (_, d) => {
+        const y = pad + r + d * levelH;
+        return (
+          <g key={`ll${d}`}>
+            <line x1={treeX + 4} y1={y} x2={treeX + treeW - 4} y2={y} style={{ stroke: levelColors ? LEVEL[d % 4] : 'var(--color-rule)' }} strokeWidth="1" strokeDasharray="4 4" opacity="0.7" />
+            <text x={treeX + 4} y={y - 6} fontSize="11" fontWeight="600" style={{ fill: levelColors ? LEVEL[d % 4] : 'var(--color-ink-faint)' }}>{`nivel ${d}`}</text>
+          </g>
+        );
+      }) : null}
+      {view === 'array' ? null : ks.filter((k) => k > 1 && k <= n && present(k) && present(Math.floor(k / 2))).map((k) => {
         const p = at(Math.floor(k / 2));
         const c = at(k);
         const hotEdge = hot.includes(k) && hot.includes(Math.floor(k / 2));
@@ -303,6 +328,15 @@ export function HeapPicture({
       })}
       {view === 'array' ? null : ks.filter((k) => k <= n).map((k) => {
         const c = at(k);
+        if (!present(k)) {
+          return (
+            <g key={`n${k}`}>
+              <circle cx={c.cx} cy={c.cy} r={r} style={{ fill: 'var(--color-sunk)', stroke: 'var(--color-flag)' }} strokeWidth="1.6" strokeDasharray="4 3" />
+              <text x={c.cx} y={c.cy + 3} textAnchor="middle" fontSize="8" fontWeight="600" style={{ fill: 'var(--color-flag)' }}>hueco</text>
+              <text x={c.cx} y={c.cy + r + 11} textAnchor="middle" fontSize="9" style={{ fill: 'var(--color-ink-faint)' }}>{k}</text>
+            </g>
+          );
+        }
         return (
           <g key={`n${k}`}>
             <circle cx={c.cx} cy={c.cy} r={r} style={{ fill: fill(k), stroke: stroke(k) }} strokeWidth={weight(k)} />
@@ -313,27 +347,44 @@ export function HeapPicture({
       })}
       {view === 'tree' ? null : (
         <g>
+          {parentArcs ? ks.filter((k) => k > 1 && k <= n && present(k) && present(Math.floor(k / 2))).map((k) => {
+            // A left child (even k) lands on the left half of its parent, a
+            // right child on the right half, so two arrows never share a tip.
+            const from = cellX(k);
+            const to = cellX(Math.floor(k / 2)) + (k % 2 === 0 ? -8 : 8);
+            const lift = 16 + (from - to) * 0.3;
+            return <path key={`arc${k}`} d={`M ${from} ${arrayY - 2} C ${from} ${arrayY - lift}, ${to} ${arrayY - lift}, ${to} ${arrayY - 4}`} style={{ fill: 'none', stroke: 'var(--color-ink-soft)' }} strokeWidth="1.2" markerEnd={`url(#${idPrefix}-arc)`} />;
+          }) : null}
           <rect x={arrayX} y={arrayY} width={box} height={box} rx="3" style={{ fill: 'var(--color-sunk)', stroke: 'var(--color-rule)' }} strokeWidth="1.2" strokeDasharray="3 3" />
           <text x={arrayX + box / 2} y={arrayY + box + 14} textAnchor="middle" fontSize="10" style={{ fill: 'var(--color-ink-faint)' }}>0</text>
           <text x={arrayX} y={arrayY + box + 30} fontSize="9" style={{ fill: 'var(--color-ink-soft)' }}>no se usa</text>
-          {levelBrackets ? Array.from({ length: depth }, (_, d) => {
+          {levelBrackets ? Array.from({ length: levels }, (_, d) => {
             const first = 2 ** d;
             const last = Math.min(2 ** (d + 1) - 1, values.length);
             const x1 = arrayX + first * box + 3;
             const x2 = arrayX + (last + 1) * box - 3;
             const y = arrayY + box + 40;
+            const color = levelColors ? LEVEL[d % 4] : 'var(--color-accent)';
             return (
               <g key={`lv${d}`}>
-                <path d={`M ${x1} ${y - 6} L ${x1} ${y} L ${x2} ${y} L ${x2} ${y - 6}`} style={{ fill: 'none', stroke: 'var(--color-accent)' }} strokeWidth="1.4" />
-                <text x={(x1 + x2) / 2} y={y + 15} textAnchor="middle" fontSize="10" style={{ fill: 'var(--color-accent)' }}>{`nivel ${d}`}</text>
+                <path d={`M ${x1} ${y - 6} L ${x1} ${y} L ${x2} ${y} L ${x2} ${y - 6}`} style={{ fill: 'none', stroke: color }} strokeWidth="1.4" />
+                <text x={(x1 + x2) / 2} y={y + 15} textAnchor="middle" fontSize="10" fontWeight="600" style={{ fill: color }}>{`nivel ${d}`}</text>
               </g>
             );
           }) : null}
           {ks.map((k) => (
             <g key={`a${k}`}>
-              <rect x={arrayX + k * box} y={arrayY} width={box} height={box} rx="3" style={{ fill: fill(k), stroke: stroke(k) }} strokeWidth={weight(k)} />
-              <text x={arrayX + k * box + box / 2} y={arrayY + box / 2 + 5} textAnchor="middle" fontSize="14" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{values[k - 1]}</text>
-              <text x={arrayX + k * box + box / 2} y={arrayY + box + 14} textAnchor="middle" fontSize="10" style={{ fill: 'var(--color-ink-faint)' }}>{k}</text>
+              {present(k) ? (
+                <rect x={arrayX + k * box} y={arrayY} width={box} height={box} rx="3" style={{ fill: fill(k), stroke: stroke(k) }} strokeWidth={weight(k)} />
+              ) : (
+                <rect x={arrayX + k * box + 2} y={arrayY + 2} width={box - 4} height={box - 4} rx="3" style={{ fill: 'var(--color-sunk)', stroke: 'var(--color-flag)' }} strokeWidth="1.6" strokeDasharray="4 3" />
+              )}
+              {present(k) ? (
+                <text x={cellX(k)} y={arrayY + box / 2 + 5} textAnchor="middle" fontSize="14" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{values[k - 1]}</text>
+              ) : (
+                <text x={cellX(k)} y={arrayY + box / 2 + 4} textAnchor="middle" fontSize="9" fontWeight="600" style={{ fill: 'var(--color-flag)' }}>vacía</text>
+              )}
+              <text x={cellX(k)} y={arrayY + box + 14} textAnchor="middle" fontSize="10" style={{ fill: 'var(--color-ink-faint)' }}>{k}</text>
             </g>
           ))}
         </g>
@@ -422,22 +473,105 @@ hoja se vuelve tan largo como la lista.
 
 </Slide>
 
-<Slide title="El heap guardado en un arreglo">
-Un árbol completo no necesita punteros. Si se numeran sus nodos **por
-niveles, de izquierda a derecha, empezando en 1**, cada nodo tiene un número
-distinto y no queda ninguno sin usar. Ese número es su índice en un
-arreglo, y cada nivel del árbol ocupa un tramo seguido del arreglo.
+<Slide title="Guardar un árbol con nodos enlazados">
+La primera forma de guardar un árbol es la misma de una lista enlazada,
+con una referencia más: cada nodo guarda su valor y dos referencias, una a
+su hijo izquierdo y otra a su hijo derecho, y la estructura guarda una
+referencia a la raíz.
 
-<HeapPicture values={[10, 7, 8, 1, 3]} levelBrackets label="El mismo heap dibujado como árbol y como arreglo. Cada nodo lleva debajo su número, que es su índice: la raíz 10 en data[1], 7 en data[2], 8 en data[3], 1 en data[4] y 3 en data[5]. Bajo el arreglo, corchetes agrupan las casillas por nivel del árbol: data[1] es el nivel 0, data[2..3] el nivel 1 y data[4..5] el nivel 2. La casilla data[0] está vacía y rotulada no se usa." />
+<svg viewBox="0 0 640 214" style={{ width: '100%', maxWidth: '680px', height: 'auto', display: 'block', margin: '1rem auto' }} role="img" aria-label="El heap 10, 7, 8, 1, 3, 2, 4 guardado como nodos enlazados. Cada nodo es una caja de tres campos: referencia izquierda, valor, referencia derecha. La raíz 10 apunta al 7 y al 8; el 7 apunta al 1 y al 3; el 8 apunta al 2 y al 4. Las cuatro hojas tienen sus dos referencias en null, tachadas.">
+  <defs>
+    <marker id="pq-enl-punta" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto">
+      <path d="M0,0 L7,3.5 L0,7 z" style={{ fill: 'var(--color-ink-soft)' }} />
+    </marker>
+  </defs>
+  <text x="318" y="16" textAnchor="middle" fontSize="12" fontFamily="monospace" style={{ fill: 'var(--color-ink-faint)' }}>root</text>
+  <line x1="320" y1="20" x2="320" y2="32" style={{ stroke: 'var(--color-ink-soft)' }} strokeWidth="1.4" markerEnd="url(#pq-enl-punta)" />
+  {[
+    { v: 10, x: 320, y: 36, kids: [[160, 106], [480, 106]] },
+    { v: 7, x: 160, y: 106, kids: [[80, 176], [240, 176]] },
+    { v: 8, x: 480, y: 106, kids: [[400, 176], [560, 176]] },
+    { v: 1, x: 80, y: 176, kids: [] },
+    { v: 3, x: 240, y: 176, kids: [] },
+    { v: 2, x: 400, y: 176, kids: [] },
+    { v: 4, x: 560, y: 176, kids: [] },
+  ].map(({ v, x, y, kids }) => (
+    <g key={v}>
+      <rect x={x - 39} y={y} width="78" height="30" rx="3" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.4" />
+      <line x1={x - 13} y1={y} x2={x - 13} y2={y + 30} style={{ stroke: 'var(--color-rule-strong)' }} strokeWidth="1.2" />
+      <line x1={x + 13} y1={y} x2={x + 13} y2={y + 30} style={{ stroke: 'var(--color-rule-strong)' }} strokeWidth="1.2" />
+      <text x={x} y={y + 20} textAnchor="middle" fontSize="14" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{v}</text>
+      {kids.length === 0 ? (
+        <g>
+          <line x1={x - 36} y1={y + 27} x2={x - 16} y2={y + 3} style={{ stroke: 'var(--color-ink-faint)' }} strokeWidth="1" />
+          <line x1={x + 16} y1={y + 27} x2={x + 36} y2={y + 3} style={{ stroke: 'var(--color-ink-faint)' }} strokeWidth="1" />
+        </g>
+      ) : (
+        kids.map(([cx, cy], i) => (
+          <line key={i} x1={i === 0 ? x - 26 : x + 26} y1={y + 15} x2={cx} y2={cy - 2} style={{ stroke: 'var(--color-ink-soft)' }} strokeWidth="1.4" markerEnd="url(#pq-enl-punta)" />
+        ))
+      )}
+    </g>
+  ))}
+</svg>
 
-El arreglo `data` guarda el heap en `data[1..n]`, donde `n` es la cantidad
-de elementos. **`data[0]` queda sin usar a propósito**: empezar en 1 hace
-que la aritmética entre padres e hijos sea la más simple posible, y esa
-simplicidad es la que aprovechan todas las operaciones.
+Funciona, pero guarda información que el heap ya conoce. La invariante de
+**forma completa** dice exactamente dónde está cada nodo: los niveles se
+llenan de izquierda a derecha, sin huecos. Si la posición de cada nodo
+está determinada por la invariante, las dos referencias de cada nodo son
+datos que se podrían calcular. Y cuando hay que insertar en la primera hoja
+libre, la que mantiene la invariante de forma completa, las referencias no
+dicen dónde está: hay que recorrer el árbol para encontrarla.
 
-El árbol es el modelo para pensar; el arreglo es lo que el programa guarda.
-Son el mismo objeto con dos representaciones, y cualquier cambio en una es
-un cambio en la otra.
+</Slide>
+
+<Slide title="Numerar el árbol por niveles">
+La invariante de forma completa permite otra cosa: numerar los nodos sin
+ambigüedad. Se recorre el árbol **por niveles, de arriba hacia abajo, y
+dentro de cada nivel de izquierda a derecha**, empezando en 1.
+
+<HeapPicture values={[10, 7, 8, 1, 3, 2, 4]} view="tree" levelLines levelColors label="El heap 10, 7, 8, 1, 3, 2, 4 dibujado como árbol, con una línea punteada por cada nivel. El nivel 0 tiene la raíz, numerada 1; el nivel 1 tiene el 7 y el 8, numerados 2 y 3; el nivel 2 tiene el 1, el 3, el 2 y el 4, numerados del 4 al 7." />
+
+El nivel 0 tiene un nodo; el nivel 1, dos; el nivel 2, cuatro: cada nivel
+lleno tiene el doble que el anterior, y el nivel `d` empieza en el número
+$$2^d$$. Como la invariante de forma completa no deja huecos, la
+numeración **no salta ningún número**: los 7 nodos reciben del 1 al 7, y el
+nodo que llegue después recibirá el 8.
+
+</Slide>
+
+<Slide title="Los niveles, uno detrás del otro">
+Si se ponen los niveles uno detrás del otro, la numeración se convierte en
+los índices de un arreglo: **el nodo número `k` se guarda en `data[k]`**.
+
+<HeapPicture values={[10, 7, 8, 1, 3, 2, 4]} levelLines levelColors levelBrackets label="El mismo heap como árbol y como arreglo, con los niveles marcados por color. El nivel 0, la raíz 10, ocupa data[1]. El nivel 1, el 7 y el 8, ocupa data[2] y data[3]. El nivel 2, el 1, el 3, el 2 y el 4, ocupa data[4] a data[7]. La casilla data[0] está vacía y rotulada no se usa." />
+
+Cada nivel ocupa un tramo seguido del arreglo, en el mismo orden en que se
+lee de izquierda a derecha. El arreglo `data` guarda el heap en
+`data[1..n]`, donde `n` es la cantidad de elementos, y **`data[0]` queda
+sin usar a propósito**: empezar en 1 hace más simple la aritmética entre
+padres e hijos.
+
+Ya no hay referencias. El árbol es el modelo para pensar y el arreglo es lo
+que el programa guarda: son el mismo objeto con dos representaciones, y
+cualquier cambio en una es un cambio en la otra.
+
+</Slide>
+
+<Slide title="Un árbol con huecos en el arreglo">
+El arreglo funciona **porque** el árbol cumple la invariante de forma
+completa. Un árbol con un hueco —aquí falta el hijo izquierdo del 7— igual
+tendría que reservarle su número a esa posición, y el arreglo quedaría con
+una casilla vacía en medio:
+
+<HeapPicture values={[10, 7, 8, null, 3, 2, 4]} levelLines label="Un árbol que rompe la invariante de forma completa: falta el hijo izquierdo del 7, en la posición 4. En el arreglo, data[4] queda vacía entre data[3], que guarda 8, y data[5], que guarda 3." />
+
+Con huecos, los elementos ya no ocuparían exactamente `data[1..n]`: `n` no
+diría cuántos hay, y la primera posición libre no sería `data[n + 1]`. Por
+eso la invariante de forma completa se lee directamente en el arreglo:
+**los elementos ocupan `data[1..n]`, sin casillas vacías entre medio**. Y
+mantenerla al insertar es fácil: el elemento nuevo va siempre a
+`data[n + 1]`.
 
 </Slide>
 
@@ -461,7 +595,8 @@ int right(int k) {
 ```
 
 En el heap de ejemplo, el nodo 2 guarda 7: sus hijos están en `data[4]` y
-`data[5]`, que guardan 1 y 3, y su padre en `data[1]`, que guarda 10.
+`data[5]`, que guardan 1 y 3, y su padre en `data[1]`, que guarda 10. El
+nodo 3 guarda 8, y sus hijos están en `data[6]` y `data[7]`: el 2 y el 4.
 
 Con los índices desde 0, las mismas fórmulas serían `(k - 1) / 2`,
 `2k + 1` y `2k + 2`. Funcionan igual, pero cada una arrastra un ajuste. Por
@@ -470,16 +605,36 @@ aritmética sin correcciones.
 
 </Slide>
 
+<Slide title="Las dos invariantes leídas en el arreglo">
+Con la aritmética de índices, las dos invariantes del heap se pueden
+comprobar sobre el arreglo, sin dibujar el árbol.
+
+<HeapPicture values={[10, 7, 8, 1, 3, 2, 4]} view="array" parentArcs idPrefix="pq-inv-arr" label="El arreglo del heap, data[1] a data[7] = 10, 7, 8, 1, 3, 2, 4. Sobre él, una flecha va de cada casilla k a la casilla k dividido 2, su padre: de data[2] y data[3] a data[1]; de data[4] y data[5] a data[2]; de data[6] y data[7] a data[3]. En todas, el valor de llegada es mayor o igual." />
+
+1. **Forma completa: los elementos ocupan `data[1..n]`, sin casillas vacías
+   entre medio.** Aquí son los 7, de `data[1]` a `data[7]`.
+2. **Orden de heap: para cada `k` entre 2 y `n`, `data[k / 2] >= data[k]`.**
+   Cada flecha va de una casilla a la de su padre, y en todas el valor de
+   llegada es mayor o igual: `data[5] = 3` apunta a `data[2] = 7`, y
+   `data[7] = 4` apunta a `data[3] = 8`.
+
+Las operaciones del heap trabajan sobre el arreglo, y las dos invariantes
+son lo que cada una tiene que dejar cumplido al terminar.
+
+</Slide>
+
 <Slide title="Una inserción en las dos vistas">
 El heap de ejemplo recibe un 9. El widget dibuja el mismo arreglo dos veces,
 como árbol y como arreglo, y cada paso cambia las dos vistas a la vez: la
 casilla que se ilumina en el arreglo es el nodo que se ilumina en el árbol.
 
-<SequenceStepper eda="heap-max" operation="insert" values={[10, 7, 8, 1, 3]} value={9} capacity={8} showCode={false} />
+<SequenceStepper eda="heap-max" operation="insert" values={[10, 7, 8, 1, 3, 2, 4]} value={9} capacity={9} showCode={false} />
 
-El 9 entra en `data[6]`, la primera hoja libre, como hijo del 8. Con su
-padre rompe la invariante de orden de heap, y los dos se intercambian.
-Frente a la raíz la invariante ya se cumple, y se detiene ahí.
+El 9 entra en `data[8]`, la primera posición libre, así que la invariante
+de forma completa se mantiene: es el hijo izquierdo del 1. Con su padre
+rompe la invariante de orden de heap, y los dos se intercambian. Frente al
+7 la vuelve a romper, y suben de nuevo. Frente a la raíz, el 10, la
+invariante ya se cumple, y se detiene ahí.
 
 </Slide>
 
