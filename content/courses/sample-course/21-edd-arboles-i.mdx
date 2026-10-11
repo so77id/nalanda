@@ -175,9 +175,11 @@ en una jerarquía:
    Los nodos que cuelgan de un mismo padre son sus **hijos**.
 
 La línea que une a un padre con un hijo se llama **arista**. Un nodo puede
-tener cualquier cantidad de hijos, incluso ninguno.
+tener cualquier cantidad de hijos, incluso ninguno. Cada nodo, salvo la raíz,
+tiene exactamente una arista, la que lo une con su padre: por eso **un árbol
+de $$n$$ nodos tiene $$n - 1$$ aristas**.
 
-<HierarchyPicture tree={FOLDERS} tones={{ 'home/': 'focus', 'ramos/': 'mark', 'eda/': 'keep', 'calculo/': 'keep' }} badges={{ 'home/': 'raíz', 'ramos/': 'padre' }} notes={{ 'eda/': 'hijo', 'calculo/': 'hijo' }} label="El árbol de carpetas con la raíz home marcada, y la carpeta ramos marcada como padre de sus dos hijos, eda y calculo." caption="home/ es la raíz; ramos/ es el padre de eda/ y calculo/" />
+<HierarchyPicture tree={FOLDERS} tones={{ 'home/': 'focus', 'ramos/': 'mark', 'eda/': 'keep', 'calculo/': 'keep' }} badges={{ 'home/': 'raíz', 'ramos/': 'padre' }} notes={{ 'eda/': 'hijo', 'calculo/': 'hijo' }} label="El árbol de carpetas con la raíz home marcada, y la carpeta ramos marcada como padre de sus dos hijos, eda y calculo." caption="home/ es la raíz; ramos/ es el padre de eda/ y calculo/ · 11 nodos, 10 aristas" />
 
 </Slide>
 
@@ -203,9 +205,18 @@ un sistema de archivos, ese camino es la **ruta** del archivo.
 
 </Slide>
 
+<Slide title="Ancestros, descendientes y hermanos">
+Los nodos del camino desde la raíz hasta un nodo, sin contarlo a él, son sus
+**ancestros**, y él es **descendiente** de cada uno de ellos. Los nodos que
+tienen el mismo padre son **hermanos**.
+
+<HierarchyPicture tree={FOLDERS} tones={{ 'home/': 'focus', 'ramos/': 'focus', 'eda/': 'focus', 't1.pdf': 'mark', 't2.pdf': 'keep' }} path={['home/', 'ramos/', 'eda/', 't1.pdf']} notes={{ 'home/': 'ancestro', 'ramos/': 'ancestro', 'eda/': 'ancestro', 't2.pdf': 'hermano' }} label="Los ancestros de t1.pdf son home, ramos y eda, los nodos de su camino desde la raíz. Su hermano es t2.pdf, que tiene el mismo padre, eda." caption="ancestros de t1.pdf: home/, ramos/ y eda/ · su hermano: t2.pdf" />
+
+</Slide>
+
 <Slide title="Subárboles">
-Un nodo, junto con sus hijos, los hijos de sus hijos y así hasta abajo,
-forma un árbol que tiene a ese nodo como raíz: un **subárbol**. Cada carpeta
+Un nodo, junto con todos sus descendientes, forma un árbol que tiene a ese
+nodo como raíz: un **subárbol**. Cada carpeta
 es la raíz de un subárbol, el de todo lo que guarda.
 
 <HierarchyPicture tree={FOLDERS} tones={{ 'home/': 'faint', 'fotos/': 'faint', 'playa.jpg': 'faint', 'perro.jpg': 'faint', 'notas.txt': 'faint', 'ramos/': 'keep', 'eda/': 'keep', 't1.pdf': 'keep', 't2.pdf': 'keep', 'calculo/': 'keep', 'guia.pdf': 'keep' }} label="El subárbol que tiene raíz en ramos: ramos, eda, t1.pdf, t2.pdf, calculo y guia.pdf. El resto del árbol aparece atenuado." caption="el subárbol de ramos/: seis nodos, y ramos/ es su raíz" />
