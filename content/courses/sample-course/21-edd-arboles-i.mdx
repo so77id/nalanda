@@ -18,12 +18,13 @@ cada elemento tiene a lo más un siguiente. Muchos datos no tienen esa forma.
 {/* minWidth gives figures set side by side one canvas width, so their boxes and text come out the same size; the tree is centred in it. compact and size fit a frame of a step-through, whose box has a fixed height. A node toned "hidden" is not drawn, nor its edge, but keeps its place: a tree built node by node grows in the positions it will end in, and nothing moves between frames. fresh names the node just added; its edge is drawn in the mark colour. */}
 {/* The drawings of an order, each in its own colour, and each told by its arrows and numbers, never by colour alone. flow puts an arrowhead on every edge — "down" (focus) for what a node takes from its parent, "up" (mark) for what it takes from its children. visits numbers the nodes in "pre" (focus) or "post" (mark) order and draws an arrow from every visit to the next: along the edge when the next is a child or the parent, dashed when the walk jumps to another branch. reading numbers them level by level (keep) and draws each level as a line read left to right, with the return to the next. strip writes the sequence under the tree, the order a program would print it in. */}
 
-export function HierarchyPicture({ tree, tones = {}, badges = {}, notes = {}, numbers = {}, path = [], levels = false, queue, caption, minWidth = 0, flow, visits, reading = false, strip = false, badgeColor = 'var(--color-focus)', numbersColor = 'var(--color-keep)', compact = false, size = 1, fresh, label }) {
+export function HierarchyPicture({ tree, tones = {}, badges = {}, notes = {}, numbers = {}, path = [], levels = false, queue, caption, minWidth = 0, flow, visits, reading = false, strip = false, badgeColor = 'var(--color-focus)', numbersColor = 'var(--color-keep)', compact = false, size = 1, fresh, ruler, label }) {
   const boxH = 26;
   const levelH = compact ? 50 : 64;
   const padX = reading ? 22 : 12;
   const padTop = visits || reading ? 26 : 20;
-  const labelW = levels || reading ? 62 : 0;
+  // ruler draws the tree's height at the left: a line from the root's level to the last one, a tick per level, and its label ("h = 3").
+  const labelW = (levels || reading ? 62 : 0) + (ruler ? 48 : 0);
   const widthOf = (name) => Math.max(40, name.length * 7.6 + 16);
   const nodes = [];
   let leaves = 0;
@@ -134,11 +135,20 @@ export function HierarchyPicture({ tree, tones = {}, badges = {}, notes = {}, nu
   const edges = shown.filter((n) => n.parent !== null);
   return (
     <svg viewBox={`0 0 ${width} ${height}`} style={{ width: '100%', maxWidth: `${Math.round(width * 1.35 * size)}px`, height: 'auto', display: 'block', margin: compact ? '0.25rem auto' : '1rem auto' }} role="img" aria-label={label}>
+      {ruler ? (
+        <g>
+          <line x1={offset + 26} y1={padTop + boxH / 2} x2={offset + 26} y2={padTop + boxH / 2 + depth * levelH} style={{ stroke: 'var(--color-ink)' }} strokeWidth="1.8" />
+          {[...Array(depth + 1).keys()].map((d) => (
+            <line key={`rt${d}`} x1={offset + 20} y1={padTop + boxH / 2 + d * levelH} x2={offset + 32} y2={padTop + boxH / 2 + d * levelH} style={{ stroke: 'var(--color-ink)' }} strokeWidth="1.8" />
+          ))}
+          <text x={offset + 14} y={padTop + boxH / 2 + (depth * levelH) / 2} textAnchor="middle" fontSize="13" fontWeight="700" transform={`rotate(-90 ${offset + 14} ${padTop + boxH / 2 + (depth * levelH) / 2})`} style={{ fill: 'var(--color-ink)' }}>{ruler}</text>
+        </g>
+      ) : null}
       {levels && !reading
         ? [...new Set(nodes.map((n) => n.depth))].map((d) => (
             <g key={`lv${d}`}>
               <line x1={offset + labelW - 4} y1={padTop + boxH / 2 + d * levelH} x2={offset + drawingW - 4} y2={padTop + boxH / 2 + d * levelH} style={{ stroke: 'var(--color-rule)' }} strokeWidth="1" strokeDasharray="3 5" />
-              <text x={offset + 4} y={padTop + boxH / 2 + d * levelH + 4} fontSize="11" style={{ fill: 'var(--color-ink-faint)' }}>{`nivel ${d}`}</text>
+              <text x={offset + (ruler ? 52 : 4)} y={padTop + boxH / 2 + d * levelH + 4} fontSize="11" style={{ fill: 'var(--color-ink-faint)' }}>{`nivel ${d}`}</text>
             </g>
           ))
         : null}
@@ -511,7 +521,7 @@ más que el más alto de sus hijos.
 La **altura del árbol**, que se escribe $$h$$, es la altura de su raíz: la
 cantidad de niveles menos uno.
 
-<HierarchyPicture tree={FOLDERS} badges={{ 'home/': 'h=3', 'fotos/': 'h=1', 'playa.jpg': 'h=0', 'perro.jpg': 'h=0', 'ramos/': 'h=2', 'eda/': 'h=1', 't1.pdf': 'h=0', 't2.pdf': 'h=0', 'calculo/': 'h=1', 'guia.pdf': 'h=0', 'notas.txt': 'h=0' }} label="El árbol de carpetas con la altura de cada nodo. Las hojas tienen altura 0; fotos, eda y calculo, 1; ramos, 2; y la raíz home, 3, que es la altura del árbol." caption="la altura del árbol es 3: el camino más largo baja de home/ a un archivo de eda/" />
+<HierarchyPicture tree={FOLDERS} ruler="h = 3" badges={{ 'home/': 'h=3', 'fotos/': 'h=1', 'playa.jpg': 'h=0', 'perro.jpg': 'h=0', 'ramos/': 'h=2', 'eda/': 'h=1', 't1.pdf': 'h=0', 't2.pdf': 'h=0', 'calculo/': 'h=1', 'guia.pdf': 'h=0', 'notas.txt': 'h=0' }} label="El árbol de carpetas con la altura de cada nodo y, a la izquierda, una línea de la raíz al último nivel rotulada h = 3: tres aristas, una por nivel. Las hojas tienen altura 0; fotos, eda y calculo, 1; ramos, 2; y la raíz home, 3, que es la altura del árbol." caption="la altura del árbol es 3: el camino más largo baja de home/ al último nivel" />
 
 La altura dice cuántas aristas hay que bajar, como máximo, desde la raíz para
 llegar a cualquier nodo.
