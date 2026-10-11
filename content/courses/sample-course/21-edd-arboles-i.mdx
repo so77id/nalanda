@@ -48,9 +48,12 @@ export function HierarchyPicture({ tree, tones = {}, badges = {}, notes = {}, pa
   const treeH = padTop + boxH + depth * levelH + (hasNotes ? 18 : 6);
   const queueY = treeH + 26;
   const captionY = (queue ? queueY + boxH + 26 : treeH + 18);
-  const width = labelW + 2 * padX + leaves * pitch;
+  // A caption wider than the drawing widens the canvas, and the drawing is centred in it, so no caption is ever clipped.
+  const drawingW = labelW + 2 * padX + leaves * pitch;
+  const width = Math.max(drawingW, caption ? caption.length * 6.6 + 24 : 0);
+  const offset = (width - drawingW) / 2;
   const height = captionY + (caption ? 8 : -6);
-  const cx = (n) => labelW + padX + (n.x + 0.5) * pitch;
+  const cx = (n) => offset + labelW + padX + (n.x + 0.5) * pitch;
   const cy = (n) => padTop + boxH / 2 + n.depth * levelH;
   const onPath = new Set(path);
   const TONE = {
@@ -66,8 +69,8 @@ export function HierarchyPicture({ tree, tones = {}, badges = {}, notes = {}, pa
       {levels
         ? [...new Set(nodes.map((n) => n.depth))].map((d) => (
             <g key={`lv${d}`}>
-              <line x1={labelW - 4} y1={padTop + boxH / 2 + d * levelH} x2={width - 4} y2={padTop + boxH / 2 + d * levelH} style={{ stroke: 'var(--color-rule)' }} strokeWidth="1" strokeDasharray="3 5" />
-              <text x={4} y={padTop + boxH / 2 + d * levelH + 4} fontSize="11" style={{ fill: 'var(--color-ink-faint)' }}>{`nivel ${d}`}</text>
+              <line x1={offset + labelW - 4} y1={padTop + boxH / 2 + d * levelH} x2={offset + drawingW - 4} y2={padTop + boxH / 2 + d * levelH} style={{ stroke: 'var(--color-rule)' }} strokeWidth="1" strokeDasharray="3 5" />
+              <text x={offset + 4} y={padTop + boxH / 2 + d * levelH + 4} fontSize="11" style={{ fill: 'var(--color-ink-faint)' }}>{`nivel ${d}`}</text>
             </g>
           ))
         : null}
@@ -100,10 +103,10 @@ export function HierarchyPicture({ tree, tones = {}, badges = {}, notes = {}, pa
       })}
       {queue ? (
         <g>
-          <text x={labelW + padX} y={queueY - 8} fontSize="11" style={{ fill: 'var(--color-ink-faint)' }}>cola · sale por la izquierda</text>
+          <text x={offset + labelW + padX} y={queueY - 8} fontSize="11" style={{ fill: 'var(--color-ink-faint)' }}>cola · sale por la izquierda</text>
           {queue.map((name, i) => {
             const w = pitch - 14;
-            const x = labelW + padX + i * pitch;
+            const x = offset + labelW + padX + i * pitch;
             return (
               <g key={`q-${name}`}>
                 <rect x={x} y={queueY} width={w} height={boxH} rx="3" style={{ fill: 'var(--color-mark-soft)', stroke: 'var(--color-mark)' }} strokeWidth="1.6" />
@@ -348,7 +351,7 @@ termina un nivel antes de empezar el siguiente.
 
 {/* BinaryPicture — a static drawing of a binary tree, with the geometry of the binary-tree recipe of <SequenceStepper> (sequenceStepperTreeLayout.ts): every node in the column of its inorder position and on the row of its depth, so a figure and the widget beside it draw the same tree. File-local like HierarchyPicture (§6e-quater). A tree is { v, l, r }; values are unique within one tree, because tones, badges and notes are keyed by them. */}
 
-export function BinaryPicture({ tree, tones = {}, badges = {}, notes = {}, levels = false, caption, size = 1, minColumns = 0, compact = false, label }) {
+export function BinaryPicture({ tree, tones = {}, badges = {}, notes = {}, levels = false, strip = false, caption, size = 1, minColumns = 0, compact = false, label }) {
   const r = 17;
   // compact narrows the columns for figures set three in a row, so each fills its own column at full size.
   const pitch = compact ? 38 : 46;
@@ -369,13 +372,18 @@ export function BinaryPicture({ tree, tones = {}, badges = {}, notes = {}, level
   walk(tree, 0, null);
   const depth = Math.max(0, ...nodes.map((n) => n.depth));
   const hasNotes = Object.keys(notes).length > 0;
-  const treeH = 2 * pad + 2 * r + depth * levelH + (hasNotes ? 12 : 0);
+  // strip draws the inorder under the tree, one slot per column: each value lands under its own node.
+  const stripY = 2 * pad + 2 * r + depth * levelH + (hasNotes ? 12 : 0) + 6;
+  const treeH = strip ? stripY + 30 + pad : stripY - 6;
   // minColumns gives figures set side by side one canvas width, so their nodes come out the same size; the tree is centred in it.
   const columns = Math.max(column, minColumns, 1);
   const shift = ((columns - column) / 2) * pitch;
-  const width = labelW + 2 * pad + columns * pitch;
+  // A caption wider than the drawing widens the canvas, and the drawing is centred in it, so no caption is ever clipped.
+  const drawingW = labelW + 2 * pad + columns * pitch;
+  const width = Math.max(drawingW, caption ? caption.length * 6.6 + 24 : 0);
+  const offset = (width - drawingW) / 2;
   const height = treeH + (caption ? 20 : 0);
-  const cx = (n) => labelW + pad + shift + (n.x + 0.5) * pitch;
+  const cx = (n) => offset + labelW + pad + shift + (n.x + 0.5) * pitch;
   const cy = (n) => pad + r + n.depth * levelH;
   const TONE = {
     idle: ['var(--color-surface)', 'var(--color-rule-strong)', 1.3],
@@ -390,8 +398,8 @@ export function BinaryPicture({ tree, tones = {}, badges = {}, notes = {}, level
       {levels
         ? [...Array(depth + 1).keys()].map((d) => (
             <g key={`lv${d}`}>
-              <line x1={labelW - 4} y1={pad + r + d * levelH} x2={width - 4} y2={pad + r + d * levelH} style={{ stroke: 'var(--color-rule)' }} strokeWidth="1" strokeDasharray="3 5" />
-              <text x={4} y={pad + r + d * levelH + 4} fontSize="11" style={{ fill: 'var(--color-ink-faint)' }}>{`nivel ${d}`}</text>
+              <line x1={offset + labelW - 4} y1={pad + r + d * levelH} x2={offset + drawingW - 4} y2={pad + r + d * levelH} style={{ stroke: 'var(--color-rule)' }} strokeWidth="1" strokeDasharray="3 5" />
+              <text x={offset + 4} y={pad + r + d * levelH + 4} fontSize="11" style={{ fill: 'var(--color-ink-faint)' }}>{`nivel ${d}`}</text>
             </g>
           ))
         : null}
@@ -419,12 +427,55 @@ export function BinaryPicture({ tree, tones = {}, badges = {}, notes = {}, level
           </g>
         );
       })}
+      {strip
+        ? nodes.map((n) => (
+            <g key={`s${n.v}`}>
+              <line x1={cx(n)} y1={cy(n) + r + 3} x2={cx(n)} y2={stripY - 3} style={{ stroke: 'var(--color-rule)' }} strokeWidth="1" strokeDasharray="2 4" />
+              <rect x={cx(n) - 19} y={stripY} width="38" height="30" rx="3" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1" />
+              <text x={cx(n)} y={stripY + 20} textAnchor="middle" fontSize="14" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{n.v}</text>
+            </g>
+          ))
+        : null}
       {caption ? (
         <text x={width / 2} y={treeH + 12} textAnchor="middle" fontSize="12" style={{ fill: 'var(--color-ink-soft)' }}>{caption}</text>
       ) : null}
     </svg>
   );
 }
+
+{/* SortedRow — a sorted array drawn as a row of cells with their indices, one cell under the eye and a range set aside. File-local like HierarchyPicture (§6e-quater). */}
+
+export function SortedRow({ values, hot = -1, out = [], caption, label }) {
+  const box = 44;
+  const pad = 12;
+  // A caption wider than the row widens the canvas, and the row is centred in it.
+  const rowW = 2 * pad + values.length * box;
+  const width = Math.max(rowW, caption ? caption.length * 6.6 + 24 : 0);
+  const left = (width - rowW) / 2 + pad;
+  const height = 2 * pad + box + 18 + (caption ? 22 : 0);
+  return (
+    <svg viewBox={`0 0 ${width} ${height}`} style={{ width: '100%', maxWidth: `${Math.round(width * 1.3)}px`, height: 'auto', display: 'block', margin: '1rem auto' }} role="img" aria-label={label}>
+      {values.map((v, i) => {
+        const set = out.includes(i);
+        const isHot = i === hot;
+        return (
+          <g key={i} opacity={set ? 0.45 : undefined}>
+            <rect x={left + i * box} y={pad} width={box} height={box} rx="3" style={{ fill: isHot ? 'var(--color-surface)' : 'var(--color-surface)', stroke: isHot ? 'var(--color-focus)' : set ? 'var(--color-rule)' : 'var(--color-rule-strong)' }} strokeWidth={isHot ? 2.6 : 1.2} strokeDasharray={set ? '4 3' : undefined} />
+            <text x={left + i * box + box / 2} y={pad + box / 2 + 5} textAnchor="middle" fontSize="15" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{v}</text>
+            <text x={left + i * box + box / 2} y={pad + box + 14} textAnchor="middle" fontSize="10" style={{ fill: 'var(--color-ink-faint)' }}>{i}</text>
+          </g>
+        );
+      })}
+      {caption ? (
+        <text x={width / 2} y={height - 6} textAnchor="middle" fontSize="12" style={{ fill: 'var(--color-ink-soft)' }}>{caption}</text>
+      ) : null}
+    </svg>
+  );
+}
+
+{/* The tree the decisions of a binary search over 1..9 form: its inorder is the array itself. */}
+
+export const FROM_ARRAY = { v: 5, l: { v: 2, l: { v: 1 }, r: { v: 3, r: { v: 4 } } }, r: { v: 7, l: { v: 6 }, r: { v: 8, r: { v: 9 } } } };
 
 {/* The binary tree the class runs its operations on: the same tree the binary-tree recipe is handed in level order, [3, 9, 1, 4, 7, null, 6]. */}
 
@@ -714,5 +765,102 @@ de los dos puede estar.
 Cuando el valor no está, la búsqueda compara los $$n$$ nodos: cuesta
 $$\Theta(n)$$, lo mismo que buscar en una lista. La jerarquía organiza los
 datos, pero sola no dice dónde buscar.
+
+</Slide>
+
+<SectionBreak />
+
+## El árbol binario de búsqueda
+
+<Slide title="La búsqueda binaria en un arreglo ordenado">
+En un arreglo **ordenado** se busca sin recorrerlo: se compara con el
+elemento del medio y, según sea mayor o menor, se descarta la mitad que no
+puede contenerlo. Cada comparación parte el problema en dos, así que bastan
+$$\lfloor \log_2 n \rfloor + 1$$ comparaciones.
+
+<SortedRow values={[1, 2, 3, 4, 5, 6, 7, 8, 9]} hot={4} out={[0, 1, 2, 3]} label="El arreglo ordenado del 1 al 9. Buscando el 7, la primera comparación es con el 5, el del medio, y la mitad izquierda, del 1 al 4, queda descartada." caption="buscar 7: se compara con 5, el del medio, y la mitad izquierda se descarta" />
+
+El problema es **insertar**. Para que el arreglo siga ordenado, un valor
+nuevo tiene que entrar en su lugar, y todos los mayores se corren una
+casilla: $$\Theta(n)$$.
+
+</Slide>
+
+<Slide title="Las decisiones de la búsqueda binaria">
+Las comparaciones de una búsqueda binaria siempre siguen el mismo patrón. La
+primera es con el elemento del medio; si el buscado es menor, la segunda es
+con el medio de la mitad izquierda; si es mayor, con el medio de la derecha;
+y así. Dibujadas, esas decisiones forman un **árbol binario**: el medio es la
+raíz, y cada mitad, un subárbol.
+
+<BinaryPicture tree={FROM_ARRAY} strip label="El árbol de decisiones de una búsqueda binaria sobre el arreglo del 1 al 9. La raíz es 5; a la izquierda, 2, con hijos 1 y 3, y el 3 con un hijo derecho, 4; a la derecha, 7, con hijos 6 y 8, y el 8 con un hijo derecho, 9. Debajo, el arreglo ordenado, con cada valor exactamente bajo su nodo." caption="el arreglo ordenado es el inorden del árbol" />
+
+Si, en lugar del arreglo, se guardan esas decisiones como **nodos
+enlazados**, buscar sigue siendo comparar y bajar por un lado. E insertar ya
+no corre nada: el valor nuevo se cuelga como una hoja en el lugar donde su
+búsqueda termina.
+
+</Slide>
+
+<Slide title="El árbol binario de búsqueda">
+Un **árbol binario de búsqueda** —en inglés, *binary search tree*, o
+**BST**— es un árbol binario que cumple esta **invariante**:
+
+> **para cada nodo, todos los valores de su subárbol izquierdo son menores
+> que el suyo, y todos los de su subárbol derecho son mayores.**
+
+La palabra que importa es **todos**. No basta con que cada hijo esté del lado
+correcto de su padre: un valor tiene que estar del lado correcto de **cada**
+nodo por encima de él.
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem', alignItems: 'end' }}>
+<BinaryPicture tree={{ v: 5, l: { v: 3, l: { v: 1 }, r: { v: 4 } }, r: { v: 8 } }} minColumns={5} label="Un árbol de búsqueda: 5 con hijos 3 y 8; el 3 con hijos 1 y 4. Todo lo que está a la izquierda del 5 es menor que 5, y todo lo de la derecha, mayor." caption="cumple la invariante en cada nodo" />
+<BinaryPicture tree={{ v: 5, l: { v: 3, l: { v: 1 }, r: { v: 7 } }, r: { v: 8 } }} tones={{ 7: 'mark' }} notes={{ 7: '7 > 5' }} minColumns={5} label="Un árbol que no es de búsqueda: 5 con hijos 3 y 8; el 3 con hijos 1 y 7. Cada hijo está del lado correcto de su padre, pero el 7 está en el subárbol izquierdo del 5 y es mayor que 5." caption="7 está bien con su padre, 3, pero no con el 5" />
+</div>
+
+</Slide>
+
+<Slide title="Las invariantes del árbol de búsqueda">
+Un árbol binario de búsqueda sostiene tres propiedades:
+
+1. **Cada nodo tiene a lo más dos hijos, izquierdo y derecho.**
+2. **Cada nodo, salvo la raíz, tiene exactamente un padre.**
+3. **Todo el subárbol izquierdo de un nodo es menor que él, y todo el derecho
+   es mayor.** En particular, ningún valor se repite.
+
+Las dos primeras son las del árbol binario, sin cambios. La tercera es la
+nueva, y la que decide los costos: es la que permite descartar un subárbol
+entero en cada comparación, y la que cada inserción y cada eliminación tienen
+que dejar en pie.
+
+</Slide>
+
+<Slide title="El inorden de un árbol de búsqueda">
+**El inorden de un árbol binario de búsqueda entrega sus valores ordenados de
+menor a mayor.**
+
+La razón es la misma definición recursiva. El inorden de un nodo es el
+inorden de su subárbol izquierdo, después el nodo, y después el inorden del
+derecho. Por la invariante, todo lo de la izquierda es menor que el nodo y
+todo lo de la derecha es mayor; si cada subárbol, más pequeño, ya sale
+ordenado, el nodo queda exactamente entre los dos, y el total sale ordenado.
+
+<SequenceStepper eda="binary-tree" operation="inorder" values={[4, 2, 6, 1, 3, 5, 7]} />
+
+</Slide>
+
+<Slide title="Insertar a mano · la pregunta">
+Insertemos, en este orden, los valores 8, 5, 1, 4, 6, 7, 20 y 12 en un árbol
+de búsqueda vacío: cada valor baja desde la raíz eligiendo un lado en cada
+nodo, y se cuelga como hoja donde no hay más. Después escribamos el inorden
+del árbol que queda.
+
+</Slide>
+
+<Slide title="Insertar a mano · la respuesta">
+Cada valor quedó donde su búsqueda terminó, y el inorden, en la tira de
+abajo, sale ordenado.
+
+<SequenceStepper eda="bst" operation="insert" values={[]} value={[8, 5, 1, 4, 6, 7, 20, 12]} />
 
 </Slide>

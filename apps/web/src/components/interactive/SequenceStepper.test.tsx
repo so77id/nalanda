@@ -834,6 +834,16 @@ describe('<SequenceStepper> · the combinations 21-edd-arboles-i mounts', () => 
       slide: 'Buscar en un árbol binario',
       props: { eda: 'binary-tree', operation: 'search', values: LEVELS, target: 5 },
     },
+    {
+      act: 'El árbol binario de búsqueda',
+      slide: 'El inorden de un árbol de búsqueda',
+      props: { eda: 'binary-tree', operation: 'inorder', values: [4, 2, 6, 1, 3, 5, 7] },
+    },
+    {
+      act: 'El árbol binario de búsqueda',
+      slide: 'Insertar a mano · la respuesta',
+      props: { eda: 'bst', operation: 'insert', values: [], value: [8, 5, 1, 4, 6, 7, 20, 12] },
+    },
   ];
 
   it.each(mounted)('$act · $slide', ({ props }) => {
