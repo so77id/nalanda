@@ -320,10 +320,11 @@ not load-bearing: the group label spells the mould out in words, which is the
 second signal §Colour is never the only signal asks for, so the card survives
 a reader who cannot tell the two apart.
 
-The card is inline JSX copied per TDA today, with no component. At the third
-copy it becomes a content component with a catalog entry (ADR-0010); the
-authoring rule lives in `guides/teach-a-data-structure.md` §2 and points here
-for the tokens rather than restating them.
+The card is inline JSX copied per TDA today, with no component — five copies
+as of #304. Its extraction into a content component with a catalog entry
+(ADR-0010) is owed and tracked in #305; the threshold, its stated deviations
+and the authoring rule live in `guides/teach-a-data-structure.md` §2, which
+points here for the tokens rather than restating them.
 
 ## The stepper chrome (#294)
 

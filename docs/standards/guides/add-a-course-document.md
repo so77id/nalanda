@@ -58,6 +58,7 @@ content/courses/sample-course/
 ├── 17-edd-introduccion.mdx    # presentation: explicit, questions: pool — <StepShow> (ten steppers, hand-written inline SVG frames) + <Figure>
 ├── 18-edd-listas-enlazadas.mdx  # presentation: explicit, questions: pool — <SequenceStepper> ×13 (the worked case) + <Exercise> ×5 with the `solution` fence
 ├── 19-edd-stack-queue.mdx     # presentation: explicit, questions: pool (13) — <SequenceStepper> ×8 over BOTH families (dynamic-array + singly) + <StepShow> ×7 + <Exercise> ×4 + 20 standalone inline SVG figures + a file-local <Paso> frame component + two TDA cards
+├── 20-edd-priority-queue-heap.mdx  # presentation: explicit, questions: pool (16) — <SequenceStepper eda="heap-max"> ×4 + <StepShow> ×3 + <Exercise> ×4 (three worked on slides, one posed) + <PresentationWide> ×3 + 23 file-local figure components and LIST_COLORS (§6e-quater) + a TDA card (the fifth copy)
 ├── tda-eda-invariante.svg, arreglo-memoria.svg, arreglo-alocacion.svg, arreglo-invariante-valido.svg, arreglo-invariantes.svg, regla-del-cuarto.svg, costo-acumulado.svg   # assets for chapter 17
 └── index.yaml                 # the ordered teaching path
 ```
@@ -100,10 +101,15 @@ the frontmatter `id`, never the path. v0.1 supports exactly ONE course directory
    The value is honest either way, and the word alone cannot tell the two
    apart: `04-planificacion.mdx` means "this document is a spreadsheet, it
    teaches nothing to ask about", which is a decision and stays one.
-   **No document in the tree is a documented not-yet today** — #294 was going
-   to be the example and stopped being one when it shipped `pool` with
-   thirteen questions in the same PR, which is the better outcome and leaves
-   the half of this rule that covers a not-yet without a worked case.
+   **No document in the tree is a documented not-yet today** — #294 and then
+   #304 were each going to be the example, and each stopped being one when it
+   shipped `pool` in the same PR (thirteen questions, then sixteen), which is
+   the better outcome and leaves the half of this rule that covers a not-yet
+   without a worked case. The timing both followed: the bank is written once
+   the slide-by-slide review has closed the material, so no question is drafted
+   against a slide that is still changing — in the same PR when that happens
+   before merge, and otherwise as `none` with a not-yet comment naming the WP
+   that owes it.
    `14-complejidad-recursion.mdx` declares
    `none` with no comment, and a reader cannot tell which of the two it is —
    which is the case this rule exists to stop repeating (#294 review).
@@ -808,10 +814,22 @@ the controls at the foot. Two props choose what it shows:
 />
 ```
 
-`eda` is the structure — `array`, `dynamic-array`, `linked-list-singly`,
+`eda` is the structure — `dynamic-array`, `linked-list-singly`,
 `linked-list-doubly` or `linked-list-circular` — and `operation` is what to
 animate: `get-at`, `insert-first`, `insert-last`, `insert-at`,
 `insert-ordered`, `remove-first`, `remove-last`, `remove-at` or `search`.
+(A fixed-capacity `array` recipe existed until #304 deleted it, with no class
+having mounted it — ADR-0074 §Amended by #304.)
+Since #304 there is also `heap-max` (ADR-0077): a binary max-heap drawn
+twice — as the complete binary tree and as the 1-based array `data[0..]`,
+side by side on a slide and stacked in the book — with two operations of its
+own and valid nowhere else: `insert` (swim, growing the block when full) and
+`extract-max` (swap root and last, `n--`, sink, then the dynamic array's
+`shrinkIfSparse()`, which halves the block by integer division). An empty
+heap starts at `new int[2]`, so `values={[]}` with several `value`s shows the
+block growing 2 → 4 → 8. Its readout is `n`, `data[0]` is drawn as unused,
+and `capacity` is `data.length` with slot 0 included. `insert` and
+`extract-max` refuse a starting array that is not already a max-heap.
 `values` is the starting contents; `value` feeds the inserts, `index` the
 positional operations (`get-at` included), and `target` both `search` and
 `insert-ordered`.
@@ -819,20 +837,20 @@ positional operations (`get-at` included), and `target` both `search` and
 **Every argument also takes an ARRAY, and that is the default shape for a
 slide about cost.** `value={[9, 4, 6]}`, `index={[0, 3, 6]}`,
 `target={[7, 8, 4]}` run the operation once per element over the same
-structure, and `times={3}` does the same for the two that take no argument
-(`remove-first`, `remove-last`). **At most twelve runs** — beyond that nobody
+structure, and `times={3}` does the same for the three that take no
+argument (`remove-first`, `remove-last`, `extract-max`). **At most twelve runs** — beyond that nobody
 follows the steps on a slide, and the widget says so. One run shows what the operation DOES;
 several runs show what it COSTS, because the reader watches the walk change
 length instead of being told it does. `insert-at` needs one `index` per
-`value`. `insert-first` and `insert-last` also accept `values={[]}`, so a
-slide can build a chain from nothing.
+`value`. `insert-first`, `insert-last` and the heap's `insert` also accept
+`values={[]}`, so a slide can build a chain — or a heap — from nothing.
 
 The widget's own chrome carries a speed selector and, in the corner of the
-structure panel, three readouts: the live `size`, the `capacidad` on the two
-array recipes, and a running `ops` count — the elementary operations the
-frame has paid for, which is what a cost slide should point at rather than
-restate. None of them is an authoring choice, and no slide has to ask for
-them.
+structure panel, two readouts: the live `size` (`n` on the heap, the name its
+listing uses) and the `capacidad` on the dynamic array and the heap. The
+elementary-operation count is not on screen: #294 took it off, because one
+run shows one number and one number is not a growth rate. Neither readout is
+an authoring choice, and no slide has to ask for them.
 
 The multi-run form appends the calling program under the method, and each
 frame lights both the line inside the method and the call being run. Indices
@@ -854,26 +872,29 @@ Six things worth knowing before you write one:
   combinations, so the reader compares the COST rather than re-reading a new
   widget — and since #294 closed the single-run restriction, a pair that
   crosses families is two tags of the same shape as well. Worked case, the
-  Queue act of `19-edd-stack-queue.mdx`: `eda="array"` against
+  Queue act of `19-edd-stack-queue.mdx`: `eda="dynamic-array"` against
   `eda="linked-list-singly" tail` (ADR-0074 §Amended by — #294).
 - **Not every recipe takes every operation.** The widget prints Java a student
   may copy, so a pair is valid only when the listing belongs to the structure
-  the picture draws. `array`, `dynamic-array` and `linked-list-singly` take all
-  nine (bar `insert-ordered` on the two arrays — this course presents order as
+  the picture draws. `dynamic-array` and `linked-list-singly` take all nine
+  (bar `insert-ordered` on the dynamic array — this course presents order as
   a variant of the list and never defines an ordered array). The two VARIANT
-  recipes take less:
+  recipes take less, and the heap takes only its own two:
 
   | Receta                 | Operaciones                                                                             |
   | ---------------------- | --------------------------------------------------------------------------------------- |
   | `linked-list-doubly`   | `get-at`, `search`, `insert-first`, `remove-first`, y `remove-last` **solo con `tail`** |
   | `linked-list-circular` | `insert-first`                                                                          |
+  | `heap-max`             | `insert`, `extract-max` (y ninguna otra receta acepta estas dos)                        |
 
   Anything else is an `<AuthoringError>` naming the operations that recipe does
-  have. Ask for one it does not and the answer tells you which to use instead.
+  have; a heap operation on a Sequence recipe is refused pointing at
+  `eda="heap-max"`. Ask for one it does not and the answer tells you which to
+  use instead.
 
 - **Every recipe animates as many runs as you ask for**, up to twelve —
   more steps than anyone follows on a slide. Pass an array on `value`,
-  `index` or `target`, or `times` on the two operations that take no
+  `index` or `target`, or `times` on the three operations that take no
   argument. A removal is checked against the structure as the runs before it
   left it, so three `pop` over two elements is refused at boot.
 - **`method` and `receiver` show the listing under the document's own
@@ -885,8 +906,8 @@ Six things worth knowing before you write one:
   all three, or the program says `LinkedList pila = new LinkedList();` and
   calls `push` on it. The body does not change, so use it only where the two really
   are the same method (which is what the mapping table of the class asserts).
-- **`pointer` keeps a field of the structure on screen.** The two array
-  recipes only. `pointer="top"` draws a named arrow on EVERY frame, aimed at
+- **`pointer` keeps a field of the structure on screen.** The dynamic array
+  only. `pointer="top"` draws a named arrow on EVERY frame, aimed at
   the end the operation works on — the last live slot for the `*-last`
   operations, the first for the rest, and at nothing when the block is empty.
   The `i` / `j` cursors belong to the OPERATION and vanish between runs; this
@@ -896,17 +917,20 @@ Six things worth knowing before you write one:
   that names no pointer keeps them — though no slide of #294 does: all four
   of its array mounts name one (`top`, `top`, `rear`, `front`), so the
   cursors stand down everywhere and the `i` / `j` path ships with no reader.
-- **`capacity` is the block, and only the two array recipes have one.** On
-  `array` it is the fixed capacity the class's point depends on. On
+- **`capacity` is the block; the dynamic array and the heap have one.** On
   `dynamic-array` it is where the resize falls: the default starts the block
   FULL, so a single insertion shows the growth, and an author running several
   passes a larger one to choose which of them pays (#294's push slide runs
   four over a block of four, and the third doubles it). The drawing shows the
-  block this frame has, so the filling and the doubling happen on screen.
+  block this frame has, so the filling and the doubling happen on screen. On
+  `heap-max` it is `data.length` with slot 0 included, so at least
+  `values.length + 1`, and it defaults to full exactly as on the dynamic
+  array.
 - **The widget refuses the author, not the reader.** An index outside the
-  structure, an unsorted list handed to `insert-ordered`, an unknown recipe, a
-  pair the recipe does not offer, or more than eight values — each renders an
-  `<AuthoringError>` naming the problem.
+  structure, an unsorted list handed to `insert-ordered`, a heap that does not
+  start as a max-heap, a `capacity` that is not an integer or is too small for
+  `values`, an unknown recipe, a pair the recipe does not offer, or more than
+  eight values — each renders an `<AuthoringError>` naming the problem.
 
   **`npm run test` does NOT see these.** The widget is registered lazily, so
   `app/contentRenders.test.tsx` paints the `<Suspense>` fallback and never
@@ -927,7 +951,8 @@ Six things worth knowing before you write one:
   SVG — open it in `npm run preview`, in the book and on its slide, in both
   themes, and walk it.
 
-Decisions behind all this: ADR-0074. Live: `/catalog/c/SequenceStepper`.
+Decisions behind all this: ADR-0074, extended by ADR-0077 for the heap.
+Live: `/catalog/c/SequenceStepper`.
 
 6. **Show a picture, or embed a live document (optional)** — pictures in 6a–6f,
    a spreadsheet in **6g**, a Drive PDF (an evaluation's pauta) in **6h**. A
@@ -1127,7 +1152,19 @@ What that costs, and the rules that follow from it:
   oxlint does not read `content/**` either.
 - **Nothing lints or tests it.** It is the one piece of React in the repo with
   no gate at all, so it is checked the way a figure is checked — in a browser,
-  over both grounds, walking every frame.
+  over both grounds, walking every frame. For the same reason a prop no call
+  site passes, or a branch no call site reaches, is removed before merge: the
+  review of #304 found nine of them left over from redraws.
+- **One that copies a tested module's geometry names it, and is named back.**
+  #304 is the second worked case and the larger one — 23 exports plus
+  `LIST_COLORS` for the heap pictures and three exercises, some composing
+  others (`MergeFrame` draws `HeapPicture`, `LLNode` and `OutChain`). Its
+  `HeapPicture` draws the same tree as the `heap-max` recipe of
+  `<SequenceStepper>` and copies five of the constants of
+  `sequenceStepperHeapLayout.ts`, so a static figure and the widget beside it
+  match. The copy is the one that fails late — nothing tests it, so a moved
+  constant shows only in a browser — and both ends say so
+  (`documentation.md`, "Two shapes").
 
 6f. **An authoring error does not fail the build**, on purpose: writing the
 slides before drawing the diagrams is a real order of work, and gating the

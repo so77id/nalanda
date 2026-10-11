@@ -7,33 +7,33 @@ export const sequenceStepperCatalogEntry: CatalogEntry = {
   name: 'SequenceStepper',
   family: 'interactive',
   description:
-    'One step-through widget for the whole Sequence family. `eda` picks the structure it draws — array, dynamic array, or a singly / doubly / circular linked list — and `operation` picks the animation it replays over it. Code panel on top, the structure as a hand-written SVG below, narration and controls at the foot; the surface is identical across all combinations, so the reader learns one visual vocabulary and reads every structure of the unit through it. ADR-0074.',
+    'One step-through widget for the whole Sequence family. `eda` picks the structure it draws — a dynamic array, or a singly / doubly / circular linked list — and `operation` picks the animation it replays over it. Code panel on top, the structure as a hand-written SVG below, narration and controls at the foot; the surface is identical across all combinations, so the reader learns one visual vocabulary and reads every structure of the unit through it. ADR-0074. Since #304 it also draws a binary max-heap (`heap-max`, ADR-0077): the same array as the complete binary tree it encodes and as `data[0..]`, side by side on a slide and stacked in the book.',
   whenToUse:
-    'When a class of the Estructuras de Datos unit shows an operation running over a sequence structure — and especially when it shows the SAME operation over two structures to contrast their cost, which is two nearly identical tags. Not for sorting algorithms (`<SortStepper>`) and not for hand-authored memory pictures (`<StepShow>` + `<MemoryVisual>`).',
+    'When a class of the Estructuras de Datos unit shows an operation running over a sequence structure, or `insert` / `extract-max` running over a binary max-heap (`heap-max`) — and especially when it shows the SAME operation over two structures to contrast their cost, which is two nearly identical tags. Not for sorting algorithms (`<SortStepper>`) and not for hand-authored memory pictures (`<StepShow>` + `<MemoryVisual>`).',
   props: [
     {
       name: 'eda',
-      type: '"array" | "dynamic-array" | "linked-list-singly" | "linked-list-doubly" | "linked-list-circular"',
+      type: '"dynamic-array" | "linked-list-singly" | "linked-list-doubly" | "linked-list-circular" | "heap-max"',
       description:
         'Required. The recipe: which structure is drawn, and which Java listing is shown beside it.',
     },
     {
       name: 'operation',
-      type: '"get-at" | "insert-first" | "insert-last" | "insert-at" | "insert-ordered" | "remove-first" | "remove-last" | "remove-at" | "search"',
+      type: '"get-at" | "insert-first" | "insert-last" | "insert-at" | "insert-ordered" | "remove-first" | "remove-last" | "remove-at" | "search" | "insert" | "extract-max"',
       description:
-        'Required. Which operation to animate. `array`, `dynamic-array` and `linked-list-singly` accept all nine (bar `insert-ordered` on the two arrays — the ordered array is not a structure this unit presents). The two VARIANT recipes accept only the operations they have a Java listing FOR, because the widget shows code a student may copy: `linked-list-circular` accepts `insert-first` alone — its listing closes the ring again, and walks to do it — and `linked-list-doubly` accepts `get-at`, `search`, `insert-first`, `remove-first`, and `remove-last` only with `tail`. Anything else renders an `<AuthoringError>` naming the operations that recipe does have.',
+        'Required. Which operation to animate. `dynamic-array` and `linked-list-singly` accept all nine (bar `insert-ordered` on the dynamic array — the ordered array is not a structure this unit presents). The two VARIANT recipes accept only the operations they have a Java listing FOR, because the widget shows code a student may copy: `linked-list-circular` accepts `insert-first` alone — its listing closes the ring again, and walks to do it — and `linked-list-doubly` accepts `get-at`, `search`, `insert-first`, `remove-first`, and `remove-last` only with `tail`. `heap-max` accepts exactly its own two — `insert` (swim, growing the block like the dynamic array; `value` may be an array) and `extract-max` (sink, then `shrinkIfSparse`; `times` repeats it) — and those two are valid on no other recipe. Anything else renders an `<AuthoringError>` naming the operations that recipe does have.',
     },
     {
       name: 'values',
       type: 'number[]',
       description:
-        'Required. The starting contents in reading order. Up to 8; beyond that the nodes stop being legible when projected. May be empty for the two insert operations that do not need an existing element.',
+        'Required. The starting contents in reading order. Up to 8; beyond that the nodes stop being legible when projected. May be empty for the insert operations that need no existing element: `insert-first`, `insert-last`, and `insert` on `heap-max`, which then starts at `new int[2]`. On `heap-max` it must already be a max-heap.',
     },
     {
       name: 'value',
       type: 'number | number[]',
       description:
-        'The value inserted. Required by `insert-first`, `insert-last` and `insert-at`. An ARRAY inserts each value in turn over the same chain, so a slide can show the list growing — `value={[9, 4, 6]}` runs three insertions end to end. `insert-first` and `insert-last` also accept `values={[]}`: a chain built from nothing shows the empty-chain branch taken once and, at the back, the walk getting one hop longer every time. `insert-at` needs one `index` per value.',
+        'The value inserted. Required by `insert-first`, `insert-last` and `insert-at`, and by `insert` on `heap-max`. An ARRAY inserts each value in turn over the same chain, so a slide can show the list growing — `value={[9, 4, 6]}` runs three insertions end to end. `insert-first` and `insert-last` also accept `values={[]}`: a chain built from nothing shows the empty-chain branch taken once and, at the back, the walk getting one hop longer every time. `insert-at` needs one `index` per value.',
     },
     {
       name: 'index',
@@ -51,13 +51,13 @@ export const sequenceStepperCatalogEntry: CatalogEntry = {
       name: 'times',
       type: 'number',
       description:
-        'How many times to run an operation that takes no argument (`remove-first`, `remove-last`). Default one. Running more times than the structure has elements is an authoring error: the listing throws there, and a trace that ran anyway would be animating an exception.',
+        'How many times to run an operation that takes no argument (`remove-first`, `remove-last`, `extract-max`). Default one. Running more times than the structure has elements is an authoring error: the listing throws there, and a trace that ran anyway would be animating an exception.',
     },
     {
       name: 'capacity',
       type: 'number',
       description:
-        'The two ARRAY recipes only — the block reserved, drawn as free slots past the live elements. On `array` it is the fixed capacity, and one too small for `values` is refused at boot. On `dynamic-array` it is where the resize falls: the default starts the block FULL so that a single insertion shows the growth, and a slide running several insertions passes a larger one to choose WHICH of them pays for it. The drawing shows the block the current frame has, so filling and doubling happen on screen.',
+        '`dynamic-array` and `heap-max` only. On `dynamic-array` it is the block reserved, drawn as free slots past the live elements (one too small for `values` is refused at boot), and it is where the resize falls: the default starts the block FULL so that a single insertion shows the growth, and a slide running several insertions passes a larger one to choose WHICH of them pays for it. The drawing shows the block the current frame has, so filling and doubling happen on screen. On `heap-max` it is `data.length`, slot 0 included (so at least `values.length + 1`), and it defaults to full exactly as on `dynamic-array`.',
     },
     {
       name: 'method',
@@ -69,19 +69,19 @@ export const sequenceStepperCatalogEntry: CatalogEntry = {
       name: 'receiver',
       type: 'string',
       description:
-        'The variable the driving program operates on, shown only when a slide runs the operation several times. Default `list` for the chains and `arreglo` for the arrays. Pair it with `receiverType`.',
+        'The variable the driving program operates on, shown only when a slide runs the operation several times. Default `list` for the chains, `arreglo` for the dynamic array and `heap` for the heap. Pair it with `receiverType`.',
     },
     {
       name: 'receiverType',
       type: 'string',
       description:
-        'The class the driving program CONSTRUCTS, renamed together with `method` and `receiver`. Without it a slide that renamed `insertFirst` to `push` still printed `LinkedList pila = new LinkedList();` under a heading that had just declared `class Stack` — the listing renamed the call and left the constructor telling the truth about the wrong structure. Arrays and chains alike.',
+        'The class the driving program CONSTRUCTS, renamed together with `method` and `receiver`. Without it a slide that renamed `insertFirst` to `push` still printed `LinkedList pila = new LinkedList();` under a heading that had just declared `class Stack` — the listing renamed the call and left the constructor telling the truth about the wrong structure. Every recipe alike; the defaults are `LinkedList`, `DynamicArray` and `MaxHeap`.',
     },
     {
       name: 'pointer',
       type: 'string',
       description:
-        "The two ARRAY recipes only — a named arrow kept on every frame, aimed at the end the operation works on: the last live slot for the `*-last` operations, the first for the rest, and at nothing when the block is empty. `top` for a stack, `front` or `rear` for a queue. The `i` / `j` cursors belong to the OPERATION and vanish between runs; this one is the structure's own field, and naming it stands them down — `i` would land on the same cell and say the same thing with a second arrow.",
+        "`dynamic-array` only — a named arrow kept on every frame, aimed at the end the operation works on: the last live slot for the `*-last` operations, the first for the rest, and at nothing when the block is empty. `top` for a stack, `front` or `rear` for a queue. The `i` / `j` cursors belong to the OPERATION and vanish between runs; this one is the structure's own field, and naming it stands them down — `i` would land on the same cell and say the same thing with a second arrow.",
     },
     {
       name: 'tail',
@@ -176,9 +176,15 @@ export const sequenceStepperCatalogEntry: CatalogEntry = {
     },
     {
       title: 'The same insertion on an array — every element shifts',
-      code: '<SequenceStepper eda="array" operation="insert-first" values={[7, 3, 1, 5]} value={9} />',
+      code: '<SequenceStepper eda="dynamic-array" capacity={6} operation="insert-first" values={[7, 3, 1, 5]} value={9} />',
       render: () => (
-        <SequenceStepper eda="array" operation="insert-first" values={[7, 3, 1, 5]} value={9} />
+        <SequenceStepper
+          eda="dynamic-array"
+          capacity={6}
+          operation="insert-first"
+          values={[7, 3, 1, 5]}
+          value={9}
+        />
       ),
     },
     {
@@ -246,9 +252,9 @@ export const sequenceStepperCatalogEntry: CatalogEntry = {
     },
     {
       title: 'The same getAt on an array — one calculation, whatever the position',
-      code: '<SequenceStepper eda="array" operation="get-at" values={[7, 3, 1, 5]} index={2} />',
+      code: '<SequenceStepper eda="dynamic-array" operation="get-at" values={[7, 3, 1, 5]} index={2} />',
       render: () => (
-        <SequenceStepper eda="array" operation="get-at" values={[7, 3, 1, 5]} index={2} />
+        <SequenceStepper eda="dynamic-array" operation="get-at" values={[7, 3, 1, 5]} index={2} />
       ),
     },
     {
@@ -263,6 +269,26 @@ export const sequenceStepperCatalogEntry: CatalogEntry = {
           receiver="pila"
           receiverType="Stack"
         />
+      ),
+    },
+    {
+      title: 'A max-heap taking three insertions, each swimming up to its place',
+      code: '<SequenceStepper eda="heap-max" operation="insert" values={[10, 8, 9, 3, 7]} value={[12, 1, 11]} capacity={9} />',
+      render: () => (
+        <SequenceStepper
+          eda="heap-max"
+          operation="insert"
+          values={[10, 8, 9, 3, 7]}
+          value={[12, 1, 11]}
+          capacity={9}
+        />
+      ),
+    },
+    {
+      title: 'extractMax: the root swapped with the last leaf, n--, and the new root sinking',
+      code: '<SequenceStepper eda="heap-max" operation="extract-max" values={[12, 8, 10, 3, 7, 9]} />',
+      render: () => (
+        <SequenceStepper eda="heap-max" operation="extract-max" values={[12, 8, 10, 3, 7, 9]} />
       ),
     },
     {

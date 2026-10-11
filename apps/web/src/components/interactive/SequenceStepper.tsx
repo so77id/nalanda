@@ -4,6 +4,7 @@ import { useMemo, useRef } from 'react';
 import { useMode } from '../../presentation';
 import { AuthoringError } from '../AuthoringError';
 import { CodeStepper } from './CodeStepper';
+import { HeapView } from './sequenceStepperHeapView';
 import {
   BOX_H,
   BOX_W,
@@ -13,9 +14,11 @@ import {
   linkArrow,
   type SequenceLayout,
 } from './sequenceStepperLayout';
+import { CELL_FILL, CELL_STROKE } from './sequenceStepperPaint';
 import {
   CIRCULAR_OPERATIONS,
   DOUBLY_OPERATIONS,
+  HEAP_OPERATIONS,
   OPERATIONS,
   RECIPES,
   isValidCombination,
@@ -44,9 +47,10 @@ export interface SequenceStepperProps {
   /** The starting contents, in reading order. Six or fewer read best. */
   values?: number[];
   /**
-   * The value to insert. Required by every `insert-*` but `insert-ordered`.
-   * An ARRAY inserts each value in turn over the same chain, so a slide can
-   * show the list growing instead of one insertion in isolation.
+   * The value to insert. Required by every `insert-*` but `insert-ordered`,
+   * and by the heap's `insert`. An ARRAY inserts each value in turn over the
+   * same structure, so a slide can show it growing instead of one insertion
+   * in isolation.
    */
   value?: number | number[];
   /**
@@ -64,11 +68,12 @@ export interface SequenceStepperProps {
   target?: number | number[];
   /**
    * How many times to run an operation that takes no argument
-   * (`remove-first`, `remove-last`). Default one.
+   * (`remove-first`, `remove-last`, `extract-max`). Default one.
    */
   times?: number;
   /**
-   * Arrays only: how many slots the block reserves. Pass the same number to
+   * The dynamic array and the heap: how many slots the block reserves (on
+   * the heap, `data.length` with slot 0 included). Pass the same number to
    * the pair of slides that show one structure before and after an
    * operation, or the block changes width between them.
    */
@@ -81,12 +86,12 @@ export interface SequenceStepperProps {
    */
   method?: string;
   /** The variable the calling program operates on. Defaults to `arreglo`
-   * on the array recipes and to `list` on the chains. */
+   * on the dynamic array, `heap` on the heap and `list` on the chains. */
   receiver?: string;
   /** The class the calling program constructs. Goes with `method`. */
   receiverType?: string;
   /**
-   * Arrays only: a named arrow kept on every frame, aimed at the end the
+   * The dynamic array only: a named arrow kept on every frame, aimed at the end the
    * operation works on — `top` for a stack, `front` or `rear` for a queue.
    * This one is the structure's field; naming it stands down the `i`/`j`
    * cursors, which belong to the operation and would draw a second arrow at
@@ -118,6 +123,14 @@ function refusalReason(
   operation: SequenceOperation,
   tail: boolean,
 ): string {
+  if (recipe === 'heap-max') {
+    return `el heap no es una secuencia y tiene sus propias operaciones: ${HEAP_OPERATIONS.map(
+      (o) => OPERATION_LABEL[o],
+    ).join(', ')}.`;
+  }
+  if (HEAP_OPERATIONS.includes(operation)) {
+    return 'es una operación del heap. Úsala con eda="heap-max".';
+  }
   if (operation === 'insert-ordered' && !recipe.startsWith('linked-list')) {
     return 'esta clase presenta el orden como una variante de la lista, no del arreglo.';
   }
@@ -131,11 +144,11 @@ function refusalReason(
 }
 
 const RECIPE_LABEL: Record<SequenceRecipe, string> = {
-  array: 'arreglo',
   'dynamic-array': 'arreglo dinámico',
   'linked-list-singly': 'lista simplemente enlazada',
   'linked-list-doubly': 'lista doblemente enlazada',
   'linked-list-circular': 'lista circular',
+  'heap-max': 'heap (máximo)',
 };
 
 const OPERATION_LABEL: Record<SequenceOperation, string> = {
@@ -148,23 +161,29 @@ const OPERATION_LABEL: Record<SequenceOperation, string> = {
   'remove-last': 'eliminar el último',
   'remove-at': 'eliminar una posición',
   search: 'buscar',
+  insert: 'insertar',
+  'extract-max': 'extraer el máximo',
 };
 
 /** The most elements the picture stays legible with, measured on a slide. */
 const MAX_VALUES = 8;
 
 /**
- * `<SequenceStepper>` — the axis widget of the linked-list class (ADR-0074).
+ * `<SequenceStepper>` — the step-through widget of the Estructuras de Datos
+ * unit (ADR-0074, extended by ADR-0077).
  *
  * One widget, two props that pick what it shows: `eda` selects the structure
- * (array, dynamic array, or a singly / doubly / circular list) and `operation`
- * selects the animation. The surface never changes between combinations — code
- * panel, structure, narration, controls — so the reader learns one visual
- * vocabulary and reads every structure of the unit through it.
+ * (a dynamic array, a singly / doubly / circular list, or a binary max-heap)
+ * and `operation` selects the animation. The surface never changes between
+ * combinations — code panel, structure, narration, controls — so the reader
+ * learns one visual vocabulary and reads every structure of the unit through
+ * it.
  *
- * The structure is one hand-written SVG whose every coordinate comes from
- * `sequenceStepperLayout`; the frames come from `sequenceStepperTrace`. Both
- * are pure and pinned by the suite, which leaves the browser only the paint.
+ * A Sequence is one hand-written SVG whose every coordinate comes from
+ * `sequenceStepperLayout`; the heap is two (tree and array) from
+ * `sequenceStepperHeapLayout`. The frames come from `sequenceStepperTrace`.
+ * All three are pure and pinned by the suite, which leaves the browser only
+ * the paint.
  */
 export function SequenceStepper({
   eda,
@@ -310,6 +329,7 @@ function Body({
   title,
 }: BodyProps) {
   const mode = useMode();
+  const heap = recipe === 'heap-max';
   const isPresentation = mode === 'presentation';
   const outerRef = useRef<HTMLElement | null>(null);
 
@@ -468,9 +488,16 @@ function Body({
             data-testid="sequence-size"
             className="pointer-events-none absolute right-3 top-2 z-10 text-center"
           >
-            <div className="font-mono text-3xs uppercase tracking-wide text-ink-faint">size</div>
+            {/* The heap's listing calls the field `n`, and past it the array
+                still holds cells that are no longer in the heap — so the
+                readout is `n`, not the number of cells drawn. */}
+            <div
+              className={`font-mono text-3xs tracking-wide text-ink-faint ${heap ? '' : 'uppercase'}`}
+            >
+              {heap ? 'n' : 'size'}
+            </div>
             <div className="min-w-11 rounded border border-rule bg-sunk px-2 py-1 text-lg font-semibold leading-none text-ink">
-              {step.cells.length}
+              {step.heapSize ?? step.cells.length}
             </div>
             {step.capacity === undefined ? null : (
               <div className="mt-0.5 font-mono text-3xs text-ink-faint">
@@ -494,22 +521,31 @@ function Body({
               was chrome that reset between runs with nothing to say.
             */}
           </div>
-          <div
-            className="flex items-center justify-center overflow-x-auto p-3"
-            style={{ maxHeight: isPresentation ? 'min(42vh, 400px)' : '24rem' }}
-          >
-            <StructureView
+          {heap ? (
+            <HeapView
               step={step}
-              recipe={recipe}
               maxCells={trace.maxCells}
-              maxSlots={Math.max(
-                ...trace.steps.map((f) => f.capacity ?? f.cells.length),
-                trace.maxCells,
-              )}
-              align={trace.align}
-              hasCarry={trace.hasCarry}
+              maxSlots={Math.max(...trace.steps.map((f) => f.capacity ?? 0))}
+              sideBySide={isPresentation}
             />
-          </div>
+          ) : (
+            <div
+              className="flex items-center justify-center overflow-x-auto p-3"
+              style={{ maxHeight: isPresentation ? 'min(42vh, 400px)' : '24rem' }}
+            >
+              <StructureView
+                step={step}
+                recipe={recipe}
+                maxCells={trace.maxCells}
+                maxSlots={Math.max(
+                  ...trace.steps.map((f) => f.capacity ?? f.cells.length),
+                  trace.maxCells,
+                )}
+                align={trace.align}
+                hasCarry={trace.hasCarry}
+              />
+            </div>
+          )}
         </div>
       </div>
 
@@ -563,6 +599,9 @@ function Body({
         <span className="ml-auto flex flex-wrap items-center gap-3 font-mono text-3xs text-ink-faint">
           <LegendSwatch swatchClass="border-mark bg-mark-soft" label="nuevo" />
           <LegendSwatch swatchClass="border-focus bg-surface" label="bajo la mirada" />
+          {heap ? (
+            <LegendSwatch swatchClass="border-accent bg-surface" label="se intercambia" />
+          ) : null}
           <LegendSwatch swatchClass="border-rule bg-sunk" label="libre" />
         </span>
       </div>
@@ -572,31 +611,12 @@ function Body({
 
 // ── the picture ───────────────────────────────────────────────────────────
 
-const CELL_FILL: Record<SequenceCell['state'], string> = {
-  idle: 'var(--color-surface)',
-  // `mark`, not `keep`: a node the operation just inserted is not a SUCCESS,
-  // it is the thing to look at now. `keep` stays for the search hit, which
-  // genuinely is one. ADR-0026 §Addendum — #288.
-  new: 'var(--color-mark-soft)',
-  active: 'var(--color-surface)',
-  found: 'var(--color-keep-soft)',
-  leaving: 'var(--color-sunk)',
-  stale: 'var(--color-surface)',
-};
-
-const CELL_STROKE: Record<SequenceCell['state'], string> = {
-  idle: 'var(--color-rule)',
-  new: 'var(--color-mark)',
-  active: 'var(--color-focus)',
-  found: 'var(--color-keep)',
-  leaving: 'var(--color-rule)',
-  stale: 'var(--color-rule)',
-};
-
 /**
  * Colour is never the only signal (`design-system.md`): every state that is
  * painted also gets a word under the box, so a reader who cannot separate the
- * hues still reads what happened.
+ * hues still reads what happened. The heap view writes no word under its
+ * cells — its index sits there — and reads `swap` by stroke weight and the
+ * legend instead (ADR-0077 §4).
  */
 const CELL_NOTE: Partial<Record<SequenceCell['state'], string>> = {
   new: 'nuevo',

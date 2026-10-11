@@ -307,6 +307,18 @@ earlier amendments still cite maps the old spelling to the new one in its own
 line and leaves the accepted text untouched (worked case: ADR-0050's #310 line,
 `LatestForControlByKind` → `LatestByKind`).
 
+**`Extends:` / `Extended by:`** is for an ADR that builds on an accepted one
+without replacing it — a new recipe on an existing widget, a new kind on an
+existing runner. The new ADR carries `**Extends:** ADR-NNNN — <what it adds>`
+in its header; the extended one gains `**Extended by:** ADR-MMMM (#issue) —
+<one line>` beside its other header lines. When the extension also changes
+something the extended ADR decided, that change is an `Amended by:` on the
+extended ADR, in place, and the `Extended by:` line names it — worked case:
+ADR-0077 extends ADR-0074, which carries `Amended by: #304` for the palette
+exception and for the deleted `array` recipe. Older ADRs spell it
+`**Extends** ADR-…` or as a `> **Extended by …**` banner; new ones use this
+spelling.
+
 ## References
 
 - ADR-0005 (dev standards) · ADR-0010 (catalog) · `docs/conventions.md`

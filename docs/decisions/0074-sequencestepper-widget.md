@@ -12,6 +12,12 @@ split of the widget into two pure modules (a frame trace and a layout) plus a
 thin painter · the refusal of invalid combinations at boot, addressed to the
 author · the palette the states are painted in, and why it is not the one the
 design reference proposed
+**Extended by:** ADR-0077 (#304) — a recipe for the binary max-heap,
+`heap-max`, with its own two operations and a second picture beside the
+first. #304 amends two things below: the `array` recipe is deleted, and the
+heap's `swap` state is the one data state painted in `accent` (both
+`Amended by: #304`).
+
 **Amended by:** #288, slide-by-slide review (2026-09-10) — a ninth operation,
 `get-at`. The class needs the operation the array answers with one
 multiplication and the list answers by walking, and it is the clearest
@@ -127,7 +133,7 @@ So the widget gives up advertised range instead:
 
 | Receta                   | Operaciones válidas                                                                     |
 | ------------------------ | --------------------------------------------------------------------------------------- |
-| `array`, `dynamic-array` | las nueve, menos `insert-ordered`                                                       |
+| `dynamic-array`          | las nueve, menos `insert-ordered` (también `array`, hasta que #304 lo borró)            |
 | `linked-list-singly`     | las nueve                                                                               |
 | `linked-list-doubly`     | `get-at`, `search`, `insert-first`, `remove-first`, y `remove-last` **solo con `tail`** |
 | `linked-list-circular`   | `insert-first` (con listado propio: cierra el anillo, y camina para hacerlo)            |
@@ -174,7 +180,9 @@ it is a WP of its own and does not belong in a course-document PR, so it is
 recorded here as owed, not as finished. **The next class of this unit either
 reads it or deletes it; a third re-justification is not available.**
 
-> **TODO — delete the `array` recipe or name its reader.**
+> ~~**TODO — delete the `array` recipe or name its reader.**~~
+> **Done by #304 (2026-10-11): deleted** — see the `Amended by: #304` block
+> below.
 > Owner: Miguel Rodriguez. Deadline: the next class of the Estructuras de
 > Datos unit. Tracking issue: **#296**.
 > Written as a block rather than as prose because §"Rules for empirical
@@ -329,6 +337,44 @@ input, so one structure came out four cells wide on the slide that pushes
 and five on the slide that pops. Arrays only; a value below the number of
 starting elements is refused at boot like every other authoring mistake.
 
+**Amended by:** #304, review pipeline Round B (2026-10-11) — **the `array`
+recipe is deleted, as the TODO above required.** #304 is the next class of
+the unit; it mounts only `heap-max` (four times), and
+`grep -rn 'eda="array"' content/` still returns nothing. (This block said
+"the heap and the dynamic array" before the per-fix recheck of #304's
+review counted the mounts.) Offered the two
+options the TODO left, the professor chose deletion over naming a reader.
+Gone with it: `'array'` in `RECIPES`, the fixed-block insertion listings
+that threw `IllegalStateException("lleno")` (`ARRAY_CODE` now holds the
+dynamic array's, which `DYNAMIC_INSERT_CODE` used to override), the static
+default block (`values.length + 2`), the `StaticArray` receiver, the `grows`
+flag, the chip label, and the catalog's two `eda="array"` examples, which now
+run on `dynamic-array`. The tests that called it moved to `dynamic-array`,
+which runs the same listings except the three insertions; the two that
+pinned the static default block were rewritten for the dynamic one, which
+starts full. The validity matrix above loses its `array` row, and the counts
+this ADR states as accepted — five recipes, five structures, thirty-one valid
+pairs — are read as of 2026-09-11: the recipes the widget draws for a
+Sequence are four now (the heap, ADR-0077, is not a Sequence). Nothing else in
+this ADR changes. A class that wants a fixed-capacity block back adds the
+recipe together with the slide that mounts it. Closes #296.
+
+**Amended by:** #304, review pipeline Round B (2026-10-11) — **one data
+state is painted in `accent`: the heap's `swap`.** ADR-0077 §4 paints the two
+cells a `swap` exchanges, and the tree edge between them, in `accent` at the
+heaviest stroke, with a legend entry «se intercambia». That broke this ADR's
+"`accent` … never for data state" while ADR-0077 said nothing here was
+withdrawn; the review pipeline found the contradiction. The professor kept
+the paint and amended the rule rather than repaint, because no token this ADR
+assigns separates a swap from the frame beside it: in `swim` and `sink`
+the comparison before each swap paints the same pair in `focus`, and `mark`
+already means the cell just inserted. `accent` is the unit's "being moved" token in hand-drawn frames
+(`teach-a-data-structure.md` §6bis), which is what a swap is, and the state
+is never colour alone (stroke weight, the legend). **The bar for the next
+exception:** a data state that no assigned token can tell apart from the
+frames around it, carried by a second signal besides colour, and named here
+in the palette paragraph, not only in the ADR that adds it.
+
 **Source:** Issue #288 — Course document "Estructuras de Datos · Listas
 Enlazadas". The class shows nine operations over five structures, and
 `teach-a-data-structure.md` §7 defers the unit's widget decision to exactly
@@ -368,7 +414,8 @@ code panel, structure panel, narration strip, controls — is identical across
 every combination, which is itself the pedagogical message: _the operations
 are the same; what changes is where the cost lives._
 
-Five recipes (`array`, `dynamic-array`, `linked-list-singly`,
+Five recipes (`array` — **deleted by #304**, see its `Amended by` block —
+`dynamic-array`, `linked-list-singly`,
 `linked-list-doubly`, `linked-list-circular`) and nine operations (`get-at`,
 `insert-first`, `insert-last`, `insert-at`, `insert-ordered`, `remove-first`,
 `remove-last`, `remove-at`, `search`). Thirty-one of the forty-five pairs are
@@ -420,7 +467,8 @@ now" — with its values chosen by measurement and iterated by
 a success, so both tokens ship and they mean different things), `focus` for
 the cell under the algorithm's attention — the same token the narration chip
 and `<CodeStepper>`'s active line already use — and `accent` for the widget's
-own chrome, never for data state. The reference's full coral + emerald + amber
+own chrome, never for data state **except the heap's `swap`** (`Amended by:
+#304`, on the palette). The reference's full coral + emerald + amber
 rebrand of the unit remains the separate WP the issue files; this registers
 one token with one meaning, not a palette.
 
@@ -500,7 +548,8 @@ drift from the operation it claims to show.
   **Measured false by #294 and the trigger fired**: that class shipped as
   Stack and Queue over the dynamic array and the list, and it mounts `array`
   **zero** times. The asymmetry is closed — `traceArray` loops its runs like
-  the list family. Both in the `Amended by: #294` block above.
+  the list family. Both in the `Amended by: #294` block above. **Honoured by
+  #304**: `array` is deleted (the `Amended by: #304` block).
 - **The next class reuses it.** Stack over a list and Stack over an array are
   two tags of the same widget, so _"same TDA, different implementations"_ reads
   without translating between widgets.

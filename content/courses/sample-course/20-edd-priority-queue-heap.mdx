@@ -1,0 +1,3453 @@
+---
+id: edd-priority-queue-heap
+title: Estructuras de Datos · Priority Queue y Heap
+presentation: explicit
+questions: pool
+---
+
+{/* `pool`: un conjunto sin expectativa por sección. No `per-section`, porque */}
+{/* cada <Slide> es un h2 y exigir una pregunta por lámina serían más de */}
+{/* ochenta. Lo que el pool tiene que garantizar es densidad por RANGO: un */}
+{/* control se pide sobre un rango de secciones y cada copia saca cuatro, así */}
+{/* que un rango con menos de cuatro preguntas se rechaza (ErrPoolTooSmall). */}
+{/* COBERTURA. 16 preguntas, aprobadas una a una por el profesor (#304). */}
+{/* Rangos que SÍ llenan una copia de cuatro: */}
+{/*   · la clase entera: 16. */}
+{/*   · la apertura sola (Una cola de prioridad → Un orden que sólo garantiza */}
+{/*     dónde está el máximo): 4. */}
+{/*   · el acto El heap binario: 4. */}
+{/*   · el acto Las operaciones del heap: 7. */}
+{/* Rangos que NO, y es deliberado: */}
+{/*   · el acto Un heap para cualquier prioridad solo: 1 pregunta (El min-heap). */}
+{/*     Las propuestas sobre PriorityQueue no se incluyeron. */}
+{/*   · los ejercicios, que no llevan ninguna pregunta por decisión. */}
+
+# Estructuras de Datos · Priority Queue y Heap
+
+En una sala de urgencias no se atiende por orden de llegada: primero pasa
+el paciente más grave. Una cola común no puede expresar esa regla, porque
+sólo conoce el orden en que llegaron los elementos. Para eso existe la
+**cola de prioridad**, un contrato en el que siempre sale el elemento de
+mayor prioridad. Para implementarlo estudiaremos estructuras de datos que
+ya hemos visto: cada una resulta rápida para insertar o para extraer, pero
+no para ambas cosas. Y buscaremos una que no tenga que elegir.
+
+<Slide title="Una cola de prioridad">
+Una **cola de prioridad** es una colección donde cada elemento trae una
+**prioridad**, y el que sale no es el que llegó primero sino el de
+**prioridad más alta**.
+
+La **prioridad** es el criterio que decide qué elemento es más importante
+que otro. Puede ser cualquier cosa que se pueda comparar: la gravedad de un
+paciente, la urgencia de una tarea, el instante en que ocurrirá un evento o
+el tamaño de un archivo. Lo único que el contrato exige es que, dados dos
+elementos, siempre se pueda decir cuál va primero.
+
+En la mayoría de los ejemplos, la prioridad la da el propio valor de los
+datos que se guardan: por lo general, el elemento mayor es el de mayor
+prioridad. Algunos ejemplos usan el orden inverso, y cuando ocurre se
+indica explícitamente.
+
+<svg viewBox="0 0 700 250" style={{ width: '100%', maxWidth: '700px', height: 'auto', display: 'block', margin: '1.25rem auto' }} role="img" aria-label="Llegan, en este orden, 3, 8, 1 y 5, y la misma llegada se reparte en dos flechas. Hacia una cola común, sale primero el 3, el primero que llegó. Hacia una cola de prioridad, sale primero el 8, el mayor, aunque llegó segundo.">
+  <defs>
+    <marker id="pq-idea-punta" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+      <path d="M0,0 L8,4 L0,8 z" style={{ fill: 'var(--color-ink-soft)' }} />
+    </marker>
+    <marker id="pq-idea-punta-sale" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+      <path d="M0,0 L8,4 L0,8 z" style={{ fill: 'var(--color-accent)' }} />
+    </marker>
+  </defs>
+  <text x="20" y="96" fontSize="14" fontWeight="700" style={{ fill: 'var(--color-ink-soft)' }}>llegan, en este orden</text>
+  {[3, 8, 1, 5].map((v, i) => (
+    <g key={v}>
+      <rect x={20 + i * 56} y="110" width="44" height="44" rx="3" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.4" />
+      <text x={42 + i * 56} y="139" textAnchor="middle" fontSize="20" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{v}</text>
+    </g>
+  ))}
+  <line x1="250" y1="132" x2="300" y2="70" style={{ stroke: 'var(--color-ink-soft)' }} strokeWidth="1.6" markerEnd="url(#pq-idea-punta)" />
+  <text x="320" y="56" fontSize="15" fontWeight="700" style={{ fill: 'var(--color-ink)' }}>Queue</text>
+  <text x="320" y="78" fontSize="13" style={{ fill: 'var(--color-ink-faint)' }}>sale el primero que llegó</text>
+  <rect x="560" y="40" width="44" height="44" rx="3" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.4" />
+  <text x="582" y="69" textAnchor="middle" fontSize="20" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>3</text>
+  <line x1="250" y1="132" x2="300" y2="174" style={{ stroke: 'var(--color-accent)' }} strokeWidth="2.2" markerEnd="url(#pq-idea-punta-sale)" />
+  <text x="320" y="176" fontSize="15" fontWeight="700" style={{ fill: 'var(--color-ink)' }}>Priority Queue</text>
+  <text x="320" y="198" fontSize="13" style={{ fill: 'var(--color-ink-faint)' }}>sale el de prioridad más alta</text>
+  <rect x="560" y="160" width="44" height="44" rx="3" style={{ fill: 'var(--color-mark-soft)', stroke: 'var(--color-accent)' }} strokeWidth="2.4" />
+  <text x="582" y="189" textAnchor="middle" fontSize="20" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>8</text>
+  <text x="582" y="226" textAnchor="middle" fontSize="12" style={{ fill: 'var(--color-ink-faint)' }}>llegó segundo</text>
+</svg>
+
+El orden de llegada deja de importar para decidir quién sale. Sólo decide
+la prioridad, y lo único visible de la colección es su máximo.
+
+</Slide>
+
+<Slide title="Colas de prioridad en la vida real">
+Una cola de prioridad aparece en cualquier lugar donde se atiende por
+urgencia y no por turno.
+
+- **El triage de una sala de urgencias.** Cada paciente recibe una
+  categoría al llegar, y el médico atiende al más grave de los que esperan,
+  no al que lleva más tiempo sentado.
+- **El planificador de un sistema operativo.** Entre los procesos listos
+  para ejecutarse, el procesador se entrega al de prioridad más alta.
+- **La simulación por eventos.** Cada evento futuro se guarda con el
+  instante en que ocurre, y la simulación avanza procesando siempre el más
+  próximo. Aquí la prioridad más alta es el tiempo **menor**: el mismo
+  contrato, con el orden invertido.
+- **Los trabajos de una impresora compartida**, cuando un trabajo urgente
+  puede pasar delante de los que ya estaban en espera.
+
+Los cuatro necesitan lo mismo: agregar cuando llega algo nuevo y sacar el
+más importante. Ese comportamiento está definido en un **tipo de dato
+abstracto** (TDA) llamado **Priority Queue**.
+
+</Slide>
+
+<Slide title="El TDA Priority Queue">
+La **Priority Queue** es una colección donde cada elemento tiene una
+prioridad, y **sólo el elemento de mayor prioridad es visible**: es el único
+que se puede consultar y el único que se puede sacar de la colección.
+
+<div style={{ border: '1px solid var(--color-rule)', borderRadius: '8px', overflow: 'hidden', margin: '1.25rem 0' }}>
+  <div style={{ background: 'var(--color-sunk)', padding: '0.55rem 0.9rem', borderBottom: '1px solid var(--color-rule)', fontWeight: 700 }}>Priority Queue <span style={{ fontWeight: 400, color: 'var(--color-ink-faint)' }}>· el contrato</span></div>
+  <div style={{ display: 'grid', gridTemplateColumns: 'max-content 1fr', columnGap: '2rem' }}>
+  <div style={{ gridColumn: '1 / -1', padding: '0.7rem 0.9rem 0.15rem', fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.08em', color: 'var(--color-ink-faint)' }}>CREAR</div>
+  <code style={{ padding: `0.15rem 0 0.7rem 0.9rem`, whiteSpace: 'nowrap' }}>build()</code>
+  <span style={{ padding: `0.15rem 0.9rem 0.7rem 0` }}>crea una cola de prioridad vacía</span>
+  <div style={{ gridColumn: '1 / -1', borderTop: '1px solid var(--color-rule)', padding: '0.7rem 0.9rem 0.15rem', fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.08em', color: 'var(--color-keep)' }}>CONSULTAR · no cambian nada</div>
+  <code style={{ padding: `0.15rem 0 0.3rem 0.9rem`, whiteSpace: 'nowrap' }}>max() → elemento</code>
+  <span style={{ padding: `0.15rem 0.9rem 0.3rem 0` }}>retorna el elemento de mayor prioridad, sin sacarlo</span>
+  <code style={{ padding: `0.15rem 0 0.3rem 0.9rem`, whiteSpace: 'nowrap' }}>isEmpty() → booleano</code>
+  <span style={{ padding: `0.15rem 0.9rem 0.3rem 0` }}>retorna verdadero si la colección no tiene elementos</span>
+  <code style={{ padding: `0.15rem 0 0.7rem 0.9rem`, whiteSpace: 'nowrap' }}>size() → entero</code>
+  <span style={{ padding: `0.15rem 0.9rem 0.7rem 0` }}>retorna cuántos elementos tiene la colección</span>
+  <div style={{ gridColumn: '1 / -1', borderTop: '1px solid var(--color-rule)', padding: '0.7rem 0.9rem 0.15rem', fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.08em', color: 'var(--color-accent)' }}>MODIFICAR · cambian el estado</div>
+  <code style={{ padding: `0.15rem 0 0.3rem 0.9rem`, whiteSpace: 'nowrap' }}>insert(x)</code>
+  <span style={{ padding: `0.15rem 0.9rem 0.3rem 0` }}>agrega x a la colección; su prioridad decide cuándo saldrá</span>
+  <code style={{ padding: `0.15rem 0 0.7rem 0.9rem`, whiteSpace: 'nowrap' }}>extractMax() → elemento</code>
+  <span style={{ padding: `0.15rem 0.9rem 0.7rem 0` }}>saca de la colección el elemento de mayor prioridad y lo retorna</span>
+  </div>
+  <div style={{ padding: '0.65rem 0.9rem', borderTop: '1px solid var(--color-rule)', background: 'var(--color-sunk)' }}>
+    <div style={{ fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.08em', color: 'var(--color-ink-faint)' }}>LO QUE NO DICE</div>
+    <div style={{ marginTop: '0.35rem' }}>Cómo se define la prioridad: eso lo decide quien implementa y usa el TDA. Tampoco dice dónde se guardan los elementos, en qué orden, ni cuánto cuesta cada operación, y entre dos elementos de igual prioridad no dice cuál sale primero.</div>
+  </div>
+</div>
+
+</Slide>
+
+<Slide title="Las reglas del contrato Priority Queue">
+Lo que distingue a esta colección de una Queue es la **regla de salida**.
+En una Queue sale el elemento que lleva más tiempo esperando. En una
+Priority Queue sale el de mayor prioridad, sin importar cuándo llegó: un
+elemento recién insertado puede salir antes que todos los que ya estaban.
+
+Qué elemento tiene la mayor prioridad lo decide quien implementa y usa el
+TDA. A veces es el número mayor; otras, el menor, como el instante más
+próximo de un evento; otras, una propiedad de los datos, como la gravedad
+de un paciente. Por eso `max` y `extractMax` hablan de la **prioridad
+máxima**, no del número más grande.
+
+Hay una condición para usar el contrato: **`max()` y `extractMax()` sólo se
+pueden llamar si la colección tiene al menos un elemento**, es decir, si
+`isEmpty()` retorna falso. En una colección vacía no existe un elemento de
+mayor prioridad que retornar.
+
+</Slide>
+
+<Slide title="Formas de implementar una cola de prioridad">
+El contrato no dice dónde se guardan los elementos, así que hay que elegir
+una estructura de datos. La primera candidata es la **lista enlazada**, y
+admite dos maneras de usarla:
+
+1. **Sin orden.** Los elementos se guardan en el orden en que llegan.
+2. **Ordenada de mayor a menor prioridad.** Cada elemento nuevo se ubica en
+   su lugar.
+
+Las dos cumplen el mismo contrato. Encontrar el elemento de mayor prioridad
+cuesta trabajo en ambas; lo que cambia es **cuándo se hace ese trabajo**: al
+sacarlo, o al insertarlo.
+
+</Slide>
+
+<Slide title="La lista sin orden">
+Si la lista no guarda ningún orden, insertar es inmediato: el elemento nuevo
+se agrega al frente, sin mirar a los demás.
+
+El precio aparece al consultar o sacar. Nada indica dónde está el elemento
+de mayor prioridad, así que `max()` y `extractMax()` tienen que recorrer la
+lista completa comparando cada elemento con el mayor visto hasta ese
+momento.
+
+| Molde     | Operación             | Peor caso     | Invariante que restaura                             |
+| --------- | --------------------- | ------------- | --------------------------------------------------- |
+| consultar | `max()`               | $$\Theta(N)$$ | Ninguna: recorre sin cambiar nada                   |
+| consultar | `isEmpty()`, `size()` | $$\Theta(1)$$ | Ninguna                                             |
+| modificar | <code style={{ color: 'var(--color-keep)' }}>insert(x)</code> | <span style={{ color: 'var(--color-keep)', fontWeight: 700 }}>$$\Theta(1)$$</span> | Ninguna que dependa del orden |
+| modificar | `extractMax()`        | $$\Theta(N)$$ | La lista queda enlazada sin el elemento que salió   |
+
+**Barato para entrar, caro para salir.** Todo el trabajo de encontrar el
+elemento de mayor prioridad se posterga hasta que alguien lo pide.
+
+</Slide>
+
+<Slide title="La lista ordenada de mayor a menor">
+La alternativa es hacer ese trabajo antes. Si la lista se mantiene ordenada
+de mayor a menor prioridad, sostiene una invariante nueva:
+
+1. **El valor de cada nodo es mayor o igual que el del siguiente.** Por eso
+   el elemento de mayor prioridad está siempre en `head`.
+
+Consultarlo o sacarlo ya no recorre nada. El trabajo se traslada a
+`insert`, que tiene que avanzar por la lista hasta encontrar el lugar donde
+el elemento nuevo conserva la invariante.
+
+| Molde     | Operación             | Peor caso     | Invariante que restaura                                       |
+| --------- | --------------------- | ------------- | ------------------------------------------------------------- |
+| consultar | `max()`               | $$\Theta(1)$$ | Ninguna: lee `head`                                           |
+| consultar | `isEmpty()`, `size()` | $$\Theta(1)$$ | Ninguna                                                       |
+| modificar | `insert(x)`           | $$\Theta(N)$$ | Cada nodo mayor o igual que el siguiente, con `x` en su lugar |
+| modificar | <code style={{ color: 'var(--color-keep)' }}>extractMax()</code> | <span style={{ color: 'var(--color-keep)', fontWeight: 700 }}>$$\Theta(1)$$</span> | El orden se conserva: sacar el primero no desordena el resto |
+
+**Caro para entrar, barato para salir.** El trabajo no desapareció: se
+movió de `extractMax` a `insert`.
+
+</Slide>
+
+<Slide title="Un dilema entre insertar y extraer">
+Puestas lado a lado, cada implementación es rápida exactamente donde la otra
+es lenta:
+
+| Implementación  | `insert(x)`   | `extractMax()` | `max()`       |
+| --------------- | ------------- | -------------- | ------------- |
+| Lista sin orden | $$\Theta(1)$$ | $$\Theta(N)$$  | $$\Theta(N)$$ |
+| Lista ordenada  | $$\Theta(N)$$ | $$\Theta(1)$$  | $$\Theta(1)$$ |
+| ¿?              | ¿?            | ¿?             | ¿?            |
+
+Una cola de prioridad no hace una sola operación: recibe muchas. Si entran
+$$N$$ elementos y después se sacan todos, con la lista sin orden cada
+extracción recorre los que quedan: la primera mira $$N$$, la segunda
+$$N - 1$$, y así hasta 1. En total son
+
+$$
+N + (N - 1) + \dots + 1 = \frac{N(N + 1)}{2} \in \Theta(N^2)
+$$
+
+pasos. Con la lista ordenada la suma es la misma, pero se paga al insertar:
+el elemento número $$k$$ puede recorrer los $$k - 1$$ que ya están. Con un
+millón de elementos son unos quinientos mil millones de pasos. Ni postergar
+el trabajo ni adelantarlo lo hace desaparecer.
+
+**¿Existe una forma de hacerlo mejor?**
+
+</Slide>
+
+<Slide title="Un orden que sólo garantiza dónde está el máximo">
+La lista ordenada paga caro al insertar porque mantiene **todos** los
+elementos en orden. Con 10, 8, 7, 4, 3, 2, 1 sabe que el 10 es el primero,
+pero también que el 8 va antes que el 7, el 7 antes que el 4, y así hasta
+el 1. El contrato, en cambio, sólo deja ver un elemento: el de mayor
+prioridad. Que el 8 vaya antes que el 7 no le sirve a ninguna operación.
+
+La idea es guardar sólo el orden necesario para saber cuál es el mayor. Por
+ejemplo, en una jerarquía: el 10 arriba, y debajo de él dos grupos, cada
+uno con su propio mayor arriba.
+
+<HeapPicture values={[10, 7, 8, 1, 3, 2, 4]} view="tree" label="Los mismos siete valores en una jerarquía: el 10 arriba; debajo, el 7 y el 8; debajo del 7, el 1 y el 3; y debajo del 8, el 2 y el 4. Cada valor es mayor o igual que los que tiene debajo." />
+
+La única invariante es que **cada elemento sea mayor o igual que los que
+tiene debajo**. Con eso el mayor de todos queda siempre arriba, y nadie compara
+al 7 con el 8, porque están en ramas distintas. Hay mucho menos orden que
+mantener, y por eso insertar y extraer pueden ser baratos a la vez: los dos
+cuestan $$O(\log N)$$.
+
+Esta jerarquía es un árbol, y la estructura que la guarda se llama
+**heap**.
+
+</Slide>
+
+{/* HeapPicture — a static drawing of one heap, as the tree, as the array, or both with the correspondence drawn between them. */}
+{/* File-local on purpose (add-a-course-document.md §6e-quater): one consumer, no catalog entry, not registered. The second document that wants it promotes it. */}
+{/* COPIES the geometry of the heap-max recipe of <SequenceStepper> — the five constants of sequenceStepperHeapLayout.ts (r 17, box 40, pitch 46, level 54, pad 14) — so a static figure and the widget beside it draw the same tree. This copy fails late: nothing tests it, so a change there is carried here by hand and checked in a browser. */}
+
+export function HeapPicture({
+  values = [],
+  n = values.length,
+  view = 'both',
+  hot = [],
+  marked = [],
+  levelBrackets = false,
+  levelLines = false,
+  levelColors = false,
+  edgeArrows,
+  arcs,
+  zeroBased = false,
+  childBrackets = false,
+  nextSlot = false,
+  brokenEdges = [],
+  minLevels = 1,
+  capacity,
+  reserveCells,
+  heightRuler = false,
+  tags = {},
+  strokes = [],
+  idPrefix,
+  label,
+}) {
+  const r = 17;
+  const pitch = 46;
+  const levelH = 54;
+  const pad = 14;
+  const box = 40;
+  // A null value is a HOLE: a position the numbering reserves and nobody occupies.
+  const present = (k) => values[k - 1] !== null && values[k - 1] !== undefined;
+  // One colour per level, and one per PARENT so the two arrows leaving one
+  // node read as a pair.
+  const TONES = ['var(--color-accent)', 'var(--color-keep)', 'var(--color-focus)', 'var(--color-mark)'];
+  const pairColor = (parent) => TONES[(parent - 1) % 4];
+  const levelOf = (k) => Math.floor(Math.log2(k));
+  // The next free position, n + 1, is drawn dashed when asked for.
+  const total = values.length + (nextSlot ? 1 : 0);
+  // minLevels lets two pictures side by side reserve the same canvas, so
+  // their nodes come out the same size.
+  const levels = Math.max(total === 0 ? 1 : levelOf(total) + 1, minLevels);
+  const leaves = 2 ** (levels - 1);
+  const labelW = levelLines ? 58 : 0;
+  // A vertical ruler from the root's level to the last one, left of the
+  // level labels: the height of the tree, written as floor(log2 n).
+  const rulerW = heightRuler ? 40 : 0;
+  // A tag is a short word written beside one node ("el peor"); the canvas
+  // grows on both sides so the tree stays centred.
+  const tagW = Object.keys(tags).length > 0 ? 56 : 0;
+  const treeW = rulerW + labelW + 2 * pad + leaves * pitch + 2 * tagW;
+  const treeH = view === 'array' ? 0 : 2 * pad + 2 * r + (levels - 1) * levelH;
+  // Zero-based storage has no unused slot: the root sits in data[0].
+  const lead = zeroBased ? 0 : 1;
+  // capacity is data.length: the empty cells past the last element are
+  // drawn too, so a full block and a grown one can be compared.
+  const cells = Math.max(total + lead, capacity ?? 0);
+  // reserveCells widens the canvas without drawing cells, left-aligned, so
+  // a small block lines up cell by cell with a larger one drawn below it.
+  const arrayW = Math.max(cells, reserveCells ?? 0) * box;
+  const width = Math.max(view === 'array' ? 0 : treeW, view === 'tree' ? 0 : arrayW + 8);
+  const treeX = (width - treeW) / 2;
+  const arrayX = (width - arrayW) / 2;
+  const arcSpace = arcs ? 74 : 0;
+  const arrayY = treeH + (view === 'both' ? 26 : 6) + arcSpace;
+  // Parent arcs alternate sides by parent — those landing on 1 and 3 above
+  // the array, those landing on 2 below it — so the pairs do not overlap.
+  const arcAbove = (parent) => parent % 2 === 1;
+  const belowArcs = arcs !== undefined && values.length >= 4;
+  // Brackets sit under everything else: one row lower when arcs run below.
+  const bracketY = arrayY + box + (belowArcs ? 92 : 40);
+  const height =
+    view === 'tree' ? treeH : (levelBrackets || childBrackets ? bracketY + 26 : arrayY + box + (belowArcs ? 84 : 40));
+  const at = (k) => {
+    const level = levelOf(k);
+    const span = leaves / 2 ** level;
+    return { cx: treeX + rulerW + labelW + tagW + pad + (k - 2 ** level + 0.5) * span * pitch, cy: pad + r + level * levelH };
+  };
+  // Past n: a copy nobody reads any more — what extractMax leaves behind in
+  // data[n + 1]. Drawn dashed and faint in the array; the tree never draws it.
+  const stroke = (k) =>
+    hot.includes(k) ? 'var(--color-accent)' : marked.includes(k) ? 'var(--color-mark)' : k > n ? 'var(--color-rule)' : strokes[k - 1] ? strokes[k - 1] : levelColors ? TONES[levelOf(k) % 4] : 'var(--color-rule-strong)';
+  const fill = (k) => (marked.includes(k) ? 'var(--color-mark-soft)' : k > n ? 'var(--color-sunk)' : 'var(--color-surface)');
+  const weight = (k) => (hot.includes(k) ? 2.8 : marked.includes(k) || levelColors || strokes[k - 1] ? 2 : 1.4);
+  const ks = values.map((_, i) => i + 1);
+  // The number a reader sees: the node's position, from 1 or from 0.
+  const shown = (k) => k - 1 + lead;
+  const cellLeft = (k) => arrayX + (k - 1 + lead) * box;
+  const cellX = (k) => cellLeft(k) + box / 2;
+  const linked = (k) => k > 1 && k <= n && present(k) && present(Math.floor(k / 2));
+  return (
+    <svg
+      viewBox={`0 0 ${width} ${height}`}
+      style={{ width: '100%', maxWidth: `${Math.round(width * 1.45)}px`, height: 'auto', display: 'block', margin: '1rem auto' }}
+      role="img"
+      aria-label={label}
+    >
+      {/* Arrowheads only where something draws an arrow, and every caller that does passes its own idPrefix. */}
+      {edgeArrows || arcs ? (
+        <defs>
+          {TONES.map((c, i) => (
+            <marker key={i} id={`${idPrefix}-tip${i}`} markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto">
+              <path d="M0,0 L7,3.5 L0,7 z" style={{ fill: c }} />
+            </marker>
+          ))}
+        </defs>
+      ) : null}
+      {view !== 'array' && heightRuler ? (() => {
+        const x = treeX + 16;
+        const y1 = pad + r;
+        const y2 = pad + r + (levels - 1) * levelH;
+        return (
+          <g>
+            {/* From the top of the root to the bottom of the last level, no tips. */}
+            <line x1={x} y1={y1 - r} x2={x} y2={y2 + r} style={{ stroke: 'var(--color-ink)' }} strokeWidth="1.6" />
+            <text x={x - 6} y={(y1 + y2) / 2} textAnchor="middle" fontSize="11" fontWeight="700" transform={`rotate(-90 ${x - 6} ${(y1 + y2) / 2})`} style={{ fill: 'var(--color-ink)' }}>altura = ⌊log₂ n⌋</text>
+          </g>
+        );
+      })() : null}
+      {view !== 'array' && levelLines ? Array.from({ length: levels }, (_, d) => {
+        const y = pad + r + d * levelH;
+        return (
+          <g key={`ll${d}`}>
+            <line x1={treeX + rulerW + 4} y1={y} x2={treeX + treeW - 4} y2={y} style={{ stroke: levelColors ? TONES[d % 4] : 'var(--color-rule)' }} strokeWidth="1" strokeDasharray="4 4" opacity="0.7" />
+            <text x={treeX + rulerW + 4} y={y - 6} fontSize="11" fontWeight="600" style={{ fill: levelColors ? TONES[d % 4] : 'var(--color-ink-faint)' }}>{`nivel ${d}`}</text>
+          </g>
+        );
+      }) : null}
+      {view === 'array' ? null : ks.filter((k) => k > 1 && k <= n && (!present(k) || !present(Math.floor(k / 2)))).map((k) => {
+        // An edge touching a hole: the position exists, nobody occupies it.
+        const p = at(Math.floor(k / 2));
+        const c = at(k);
+        return <line key={`h${k}`} x1={p.cx} y1={p.cy} x2={c.cx} y2={c.cy} style={{ stroke: 'var(--color-rule)' }} strokeWidth="1.2" strokeDasharray="3 4" />;
+      })}
+      {view === 'array' ? null : ks.filter(linked).map((k) => {
+        const parent = Math.floor(k / 2);
+        const p = at(parent);
+        const c = at(k);
+        const hotEdge = hot.includes(k) && hot.includes(parent);
+        if (edgeArrows) {
+          // Rim to rim, so the arrowhead lands on the node's edge, not under it.
+          const dx = c.cx - p.cx;
+          const dy = c.cy - p.cy;
+          const len = Math.hypot(dx, dy);
+          const ux = dx / len;
+          const uy = dy / len;
+          const down = edgeArrows === 'down';
+          const [x1, y1, x2, y2] = down
+            ? [p.cx + ux * r, p.cy + uy * r, c.cx - ux * (r + 2), c.cy - uy * (r + 2)]
+            : [c.cx - ux * r, c.cy - uy * r, p.cx + ux * (r + 2), p.cy + uy * (r + 2)];
+          return <line key={`e${k}`} x1={x1} y1={y1} x2={x2} y2={y2} style={{ stroke: pairColor(parent) }} strokeWidth="1.8" markerEnd={`url(#${idPrefix}-tip${(parent - 1) % 4})`} />;
+        }
+        if (brokenEdges.includes(k)) {
+          // A broken invariant: red AND dashed, so colour is not the only signal.
+          return <line key={`e${k}`} x1={p.cx} y1={p.cy} x2={c.cx} y2={c.cy} style={{ stroke: 'var(--color-flag)' }} strokeWidth="2.8" strokeDasharray="6 4" />;
+        }
+        return <line key={`e${k}`} x1={p.cx} y1={p.cy} x2={c.cx} y2={c.cy} style={{ stroke: hotEdge ? 'var(--color-accent)' : 'var(--color-rule-strong)' }} strokeWidth={hotEdge ? 2.8 : 1.2} />;
+      })}
+      {view !== 'array' && nextSlot && present(Math.floor(total / 2)) ? (() => {
+        const p = at(Math.floor(total / 2));
+        const c = at(total);
+        return (
+          <g>
+            <line x1={p.cx} y1={p.cy} x2={c.cx} y2={c.cy} style={{ stroke: 'var(--color-mark)' }} strokeWidth="1.4" strokeDasharray="4 4" />
+            <circle cx={c.cx} cy={c.cy} r={r} style={{ fill: 'var(--color-mark-soft)', stroke: 'var(--color-mark)' }} strokeWidth="1.8" strokeDasharray="4 3" />
+            <text x={c.cx} y={c.cy + 4} textAnchor="middle" fontSize="10" fontWeight="700" style={{ fill: 'var(--color-mark)' }}>n + 1</text>
+            <text x={c.cx} y={c.cy + r + 13} textAnchor="middle" fontSize="11" fontWeight="600" style={{ fill: 'var(--color-ink-soft)' }}>{shown(total)}</text>
+          </g>
+        );
+      })() : null}
+      {view === 'array' ? null : ks.filter((k) => k <= n).map((k) => {
+        const c = at(k);
+        if (!present(k)) {
+          return (
+            <g key={`n${k}`}>
+              <circle cx={c.cx} cy={c.cy} r={r} style={{ fill: 'var(--color-sunk)', stroke: 'var(--color-flag)' }} strokeWidth="1.6" strokeDasharray="4 3" />
+              <text x={c.cx} y={c.cy + 3} textAnchor="middle" fontSize="8" fontWeight="600" style={{ fill: 'var(--color-flag)' }}>hueco</text>
+              <text x={c.cx} y={c.cy + r + 13} textAnchor="middle" fontSize="11" fontWeight="600" style={{ fill: 'var(--color-ink-soft)' }}>{shown(k)}</text>
+            </g>
+          );
+        }
+        return (
+          <g key={`n${k}`}>
+            <circle cx={c.cx} cy={c.cy} r={r} style={{ fill: fill(k), stroke: stroke(k) }} strokeWidth={weight(k)} />
+            <text x={c.cx} y={c.cy + 5} textAnchor="middle" fontSize="14" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{values[k - 1]}</text>
+            <text x={c.cx} y={c.cy + r + 13} textAnchor="middle" fontSize="11" fontWeight="600" style={{ fill: 'var(--color-ink-soft)' }}>{shown(k)}</text>
+            {tags[k] ? (
+              <text x={c.cx + r + 6} y={c.cy + 4} fontSize="11" fontWeight="700" style={{ fill: 'var(--color-mark)' }}>{tags[k]}</text>
+            ) : null}
+          </g>
+        );
+      })}
+      {view === 'tree' ? null : (
+        <g>
+          {arcs ? ks.filter(linked).map((k) => {
+            // 'parent': from each child to its parent; a left child (even k)
+            // lands on the left half of the parent's cell, a right child on
+            // the right half, so two arrows never share a tip. 'children':
+            // both arrows of a pair leave the SAME point of the parent's cell
+            // and land on their own child. Either way, on the side the
+            // parent's pair uses (1 and 3 above, 2 below), coloured by parent
+            // like the tree's arrows.
+            const parent = Math.floor(k / 2);
+            const [from, to] = arcs === 'parent' ? [cellX(k), cellX(parent) + (k % 2 === 0 ? -8 : 8)] : [cellX(parent), cellX(k)];
+            const lift = 16 + Math.abs(to - from) * 0.3;
+            const style = { fill: 'none', stroke: pairColor(parent) };
+            const tip = `url(#${idPrefix}-tip${(parent - 1) % 4})`;
+            if (arcAbove(parent)) {
+              return <path key={`arc${k}`} d={`M ${from} ${arrayY - 2} C ${from} ${arrayY - lift}, ${to} ${arrayY - lift}, ${to} ${arrayY - 4}`} style={style} strokeWidth="1.6" markerEnd={tip} />;
+            }
+            // Below, under the index rail, so the numbers stay readable.
+            const base = arrayY + box + 20;
+            return <path key={`arc${k}`} d={`M ${from} ${base} C ${from} ${base + lift}, ${to} ${base + lift}, ${to} ${base + 2}`} style={style} strokeWidth="1.6" markerEnd={tip} />;
+          }) : null}
+          {zeroBased ? null : (
+            <g>
+              <rect x={arrayX} y={arrayY} width={box} height={box} rx="3" style={{ fill: 'var(--color-sunk)', stroke: 'var(--color-rule)' }} strokeWidth="1.2" strokeDasharray="3 3" />
+              <text x={arrayX + box / 2} y={arrayY + box + 14} textAnchor="middle" fontSize="10" style={{ fill: 'var(--color-ink-faint)' }}>0</text>
+              <text x={arrayX} y={arrayY + box + 30} fontSize="9" style={{ fill: 'var(--color-ink-soft)' }}>no se usa</text>
+            </g>
+          )}
+          {levelBrackets ? Array.from({ length: levels }, (_, d) => {
+            const first = 2 ** d;
+            const last = Math.min(2 ** (d + 1) - 1, values.length);
+            const x1 = cellLeft(first) + 3;
+            const x2 = cellLeft(last) + box - 3;
+            const y = bracketY;
+            const color = levelColors ? TONES[d % 4] : 'var(--color-accent)';
+            return (
+              <g key={`lv${d}`}>
+                <path d={`M ${x1} ${y - 6} L ${x1} ${y} L ${x2} ${y} L ${x2} ${y - 6}`} style={{ fill: 'none', stroke: color }} strokeWidth="1.4" />
+                <text x={(x1 + x2) / 2} y={y + 15} textAnchor="middle" fontSize="10" fontWeight="600" style={{ fill: color }}>{`nivel ${d}`}</text>
+              </g>
+            );
+          }) : null}
+          {childBrackets ? ks.filter((k) => k <= Math.floor(n / 2) && 2 * k <= n).map((k) => {
+            // The two children of node k sit side by side, in data[2k] and
+            // data[2k + 1]: one bracket per pair, in the parent's colour.
+            const last = Math.min(2 * k + 1, n);
+            const x1 = cellLeft(2 * k) + 3;
+            const x2 = cellLeft(last) + box - 3;
+            const y = bracketY;
+            return (
+              <g key={`cb${k}`}>
+                <path d={`M ${x1} ${y - 6} L ${x1} ${y} L ${x2} ${y} L ${x2} ${y - 6}`} style={{ fill: 'none', stroke: pairColor(k) }} strokeWidth="1.6" />
+                <text x={(x1 + x2) / 2} y={y + 15} textAnchor="middle" fontSize="10" fontWeight="600" style={{ fill: pairColor(k) }}>{`hijos de ${shown(k)}`}</text>
+              </g>
+            );
+          }) : null}
+          {capacity ? Array.from({ length: Math.max(capacity - lead - total, 0) }, (_, i) => {
+            const k = total + 1 + i;
+            return (
+              <g key={`free${k}`}>
+                <rect x={cellLeft(k)} y={arrayY} width={box} height={box} rx="3" style={{ fill: 'var(--color-sunk)', stroke: 'var(--color-rule)' }} strokeWidth="1.2" strokeDasharray="3 3" />
+                <text x={cellX(k)} y={arrayY + box + 14} textAnchor="middle" fontSize="10" style={{ fill: 'var(--color-ink-faint)' }}>{shown(k)}</text>
+              </g>
+            );
+          }) : null}
+          {nextSlot ? (
+            <g>
+              <rect x={cellLeft(total) + 2} y={arrayY + 2} width={box - 4} height={box - 4} rx="3" style={{ fill: 'var(--color-mark-soft)', stroke: 'var(--color-mark)' }} strokeWidth="1.8" strokeDasharray="4 3" />
+              <text x={cellX(total)} y={arrayY + box / 2 + 4} textAnchor="middle" fontSize="10" fontWeight="700" style={{ fill: 'var(--color-mark)' }}>n + 1</text>
+              <text x={cellX(total)} y={arrayY + box + 14} textAnchor="middle" fontSize="10" style={{ fill: 'var(--color-ink-faint)' }}>{shown(total)}</text>
+            </g>
+          ) : null}
+          {ks.map((k) => (
+            <g key={`a${k}`}>
+              {present(k) ? (
+                <rect x={cellLeft(k)} y={arrayY} width={box} height={box} rx="3" style={{ fill: fill(k), stroke: stroke(k) }} strokeWidth={weight(k)} strokeDasharray={k > n && !hot.includes(k) ? '3 3' : undefined} />
+              ) : (
+                <rect x={cellLeft(k) + 2} y={arrayY + 2} width={box - 4} height={box - 4} rx="3" style={{ fill: 'var(--color-sunk)', stroke: 'var(--color-flag)' }} strokeWidth="1.6" strokeDasharray="4 3" />
+              )}
+              {present(k) ? (
+                <text x={cellX(k)} y={arrayY + box / 2 + 5} textAnchor="middle" fontSize="14" fontWeight="600" style={{ fill: k > n ? 'var(--color-ink-faint)' : 'var(--color-ink)' }}>{values[k - 1]}</text>
+              ) : (
+                <text x={cellX(k)} y={arrayY + box / 2 + 4} textAnchor="middle" fontSize="9" fontWeight="600" style={{ fill: 'var(--color-flag)' }}>vacía</text>
+              )}
+              <text x={cellX(k)} y={arrayY + box + 14} textAnchor="middle" fontSize="10" style={{ fill: 'var(--color-ink-faint)' }}>{shown(k)}</text>
+            </g>
+          ))}
+        </g>
+      )}
+    </svg>
+  );
+}
+
+{/* CompareSign — the three answers of cmp.compare(a, b) on a number line, with what each means for before(i, j). File-local like HeapPicture (§6e-quater). */}
+
+export function CompareSign({ label }) {
+  const cols = [
+    { x: 150, sign: 'negativo', meaning: 'a es menor que b', order: 'a va antes', before: 'true', on: true },
+    { x: 300, sign: 'cero', meaning: 'a y b son iguales', order: 'ninguno va antes', before: 'false', on: false },
+    { x: 450, sign: 'positivo', meaning: 'a es mayor que b', order: 'b va antes', before: 'false', on: false },
+  ];
+  const lineY = 50;
+  return (
+    <svg
+      viewBox="0 0 600 176"
+      style={{ width: '100%', maxWidth: '900px', height: 'auto', display: 'block', margin: '0.75rem auto' }}
+      role="img"
+      aria-label={label}
+    >
+      <defs>
+        <marker id="compare-sign-tip" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+          <path d="M0,0 L8,4 L0,8 z" style={{ fill: 'var(--color-ink-soft)' }} />
+        </marker>
+      </defs>
+      <text x="300" y="18" textAnchor="middle" fontSize="14" fontWeight="700" fontFamily="var(--font-mono, monospace)" style={{ fill: 'var(--color-ink)' }}>cmp.compare(a, b)</text>
+      {/* The negative half is the only one where before answers true. */}
+      <rect x="40" y={lineY - 9} width="255" height="18" rx="4" style={{ fill: 'var(--color-accent)', fillOpacity: 0.16 }} />
+      <line x1="300" y1={lineY} x2="40" y2={lineY} style={{ stroke: 'var(--color-ink-soft)' }} strokeWidth="1.6" markerEnd="url(#compare-sign-tip)" />
+      <line x1="300" y1={lineY} x2="560" y2={lineY} style={{ stroke: 'var(--color-ink-soft)' }} strokeWidth="1.6" markerEnd="url(#compare-sign-tip)" />
+      <line x1="300" y1={lineY - 10} x2="300" y2={lineY + 10} style={{ stroke: 'var(--color-ink)' }} strokeWidth="2" />
+      {cols.map((c) => (
+        <g key={c.sign}>
+          <text x={c.x} y="84" textAnchor="middle" fontSize="13" fontWeight="700" style={{ fill: c.on ? 'var(--color-accent)' : 'var(--color-ink)' }}>{c.sign}</text>
+          <text x={c.x} y="106" textAnchor="middle" fontSize="12" style={{ fill: 'var(--color-ink)' }}>{c.meaning}</text>
+          <text x={c.x} y="126" textAnchor="middle" fontSize="12" style={{ fill: 'var(--color-ink-soft)' }}>{c.order}</text>
+          <text x={c.x} y="158" textAnchor="middle" fontSize="13" fontWeight={c.on ? '700' : '500'} fontFamily="var(--font-mono, monospace)" style={{ fill: c.on ? 'var(--color-accent)' : 'var(--color-ink-soft)' }}>{`before → ${c.before}`}</text>
+        </g>
+      ))}
+    </svg>
+  );
+}
+
+{/* TaskCard, TaskRow, TaskHeap, TaskCompare — the planner exercise's drawings. A task is [name, urgency, arrival]; the card shows the urgency in its badge, then the name and the arrival number. File-local like HeapPicture (§6e-quater). */}
+
+export function TaskCard({ x, y, t, tone }) {
+  const [name, urgency, arrival] = t;
+  const stroke = tone === 'hot' ? 'var(--color-accent)' : tone === 'flag' ? 'var(--color-flag)' : tone === 'mark' ? 'var(--color-mark)' : 'var(--color-rule-strong)';
+  const fill = tone === 'flag' ? 'var(--color-flag-soft)' : tone === 'mark' ? 'var(--color-mark-soft)' : 'var(--color-surface)';
+  const weight = tone === 'hot' ? 2.6 : tone ? 2 : 1.4;
+  return (
+    <g>
+      <rect x={x} y={y} width="108" height="40" rx="6" style={{ fill, stroke }} strokeWidth={weight} />
+      <line x1={x + 32} y1={y} x2={x + 32} y2={y + 40} style={{ stroke: 'var(--color-rule)' }} strokeWidth="1" />
+      <text x={x + 16} y={y + 26} textAnchor="middle" fontSize="17" fontWeight="700" style={{ fill: 'var(--color-ink)' }}>{urgency}</text>
+      <text x={x + 70} y={y + 17} textAnchor="middle" fontSize="13" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{name}</text>
+      <text x={x + 70} y={y + 32} textAnchor="middle" fontSize="10.5" style={{ fill: 'var(--color-ink-soft)' }}>{`llegada ${arrival}`}</text>
+    </g>
+  );
+}
+
+export function TaskRow({ tasks, tones = [], label }) {
+  const width = tasks.length * 116;
+  return (
+    <svg viewBox={`0 0 ${width} 48`} style={{ width: '100%', maxWidth: `${Math.round(width * 1.25)}px`, height: 'auto', display: 'block', margin: '0.4rem auto' }} role="img" aria-label={label}>
+      {tasks.map((t, i) => (
+        <TaskCard key={t[0]} x={4 + i * 116} y={4} t={t} tone={tones[i]} />
+      ))}
+    </svg>
+  );
+}
+
+export function TaskHeap({ tasks, tones = [], out, label }) {
+  // At least three levels, so every planner heap is drawn on one canvas.
+  const levels = Math.max(3, tasks.length === 0 ? 1 : Math.floor(Math.log2(tasks.length)) + 1);
+  const slot = 116;
+  const leaves = 2 ** (levels - 1);
+  const width = leaves * slot + 8;
+  const levelH = 64;
+  const treeH = (levels - 1) * levelH + 40 + 8;
+  const outY = treeH + 22;
+  const height = out ? outY + 34 : treeH;
+  const at = (k) => {
+    const d = Math.floor(Math.log2(k));
+    const span = leaves / 2 ** d;
+    return { x: 4 + (k - 2 ** d + 0.5) * span * slot - 54, y: 4 + d * levelH };
+  };
+  const ks = tasks.map((_, i) => i + 1);
+  return (
+    <svg viewBox={`0 0 ${width} ${height}`} style={{ width: '100%', maxWidth: `${Math.round(width * 1.2)}px`, height: 'auto', display: 'block', margin: '0.5rem auto' }} role="img" aria-label={label}>
+      {ks.filter((k) => k > 1).map((k) => {
+        const p = at(Math.floor(k / 2));
+        const c = at(k);
+        return <line key={`e${k}`} x1={p.x + 54} y1={p.y + 40} x2={c.x + 54} y2={c.y} style={{ stroke: 'var(--color-rule-strong)' }} strokeWidth="1.2" />;
+      })}
+      {tasks.length === 0 ? (
+        <text x={width / 2} y="28" textAnchor="middle" fontSize="13" style={{ fill: 'var(--color-ink-faint)' }}>heap vacío</text>
+      ) : null}
+      {ks.map((k) => {
+        const p = at(k);
+        return <TaskCard key={tasks[k - 1][0]} x={p.x} y={p.y} t={tasks[k - 1]} tone={tones[k - 1]} />;
+      })}
+      {out ? (
+        <g>
+          <text x="4" y={outY + 16} fontSize="12" fontWeight="600" style={{ fill: 'var(--color-ink-soft)' }}>atendidas</text>
+          {out.length === 0 ? (
+            <text x="84" y={outY + 16} fontSize="12" style={{ fill: 'var(--color-ink-faint)' }}>ninguna todavía</text>
+          ) : null}
+          {out.map((name, i) => (
+            <g key={name}>
+              <rect x={80 + i * 76} y={outY} width="72" height="26" rx="13" style={{ fill: 'var(--color-keep-soft)', stroke: 'var(--color-keep)' }} strokeWidth="1.4" />
+              <text x={80 + i * 76 + 36} y={outY + 17} textAnchor="middle" fontSize="12" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{name}</text>
+            </g>
+          ))}
+        </g>
+      ) : null}
+    </svg>
+  );
+}
+
+export function TaskCompare({ rows, label }) {
+  // Each row: two tasks, the urgency verdict, the arrival verdict (or null when urgency already decided), and which goes first.
+  const rowH = 58;
+  return (
+    <svg viewBox={`0 0 700 ${rows.length * rowH + 28}`} style={{ width: '100%', maxWidth: '820px', height: 'auto', display: 'block', margin: '0.75rem auto' }} role="img" aria-label={label}>
+      <text x="300" y="14" textAnchor="middle" fontSize="12" fontWeight="700" style={{ fill: 'var(--color-ink-soft)' }}>urgencia</text>
+      <text x="410" y="14" textAnchor="middle" fontSize="12" fontWeight="700" style={{ fill: 'var(--color-ink-soft)' }}>llegada</text>
+      <text x="580" y="14" textAnchor="middle" fontSize="12" fontWeight="700" style={{ fill: 'var(--color-ink-soft)' }}>va antes</text>
+      {rows.map((r, i) => {
+        const y = 26 + i * rowH;
+        return (
+          <g key={i}>
+            <TaskCard x={4} y={y} t={r.a} />
+            <TaskCard x={130} y={y} t={r.b} />
+            <text x="300" y={y + 25} textAnchor="middle" fontSize="15" fontWeight="600" style={{ fill: r.arrival ? 'var(--color-ink-faint)' : 'var(--color-ink)' }}>{r.urgency}</text>
+            <text x="410" y={y + 25} textAnchor="middle" fontSize="15" fontWeight="600" style={{ fill: r.arrival ? 'var(--color-ink)' : 'var(--color-ink-faint)' }}>{r.arrival ?? 'no se mira'}</text>
+            <text x="580" y={y + 25} textAnchor="middle" fontSize="15" fontWeight="700" style={{ fill: 'var(--color-keep)' }}>{r.first}</text>
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
+
+{/* NumBox, CellRow, TopKExamples, SortAllPicture, TopKStrip, TopKFrame — the Top-K exercise's drawings. File-local like HeapPicture (§6e-quater). */}
+
+export function NumBox({ x, y, v, tone }) {
+  const size = 34;
+  const stroke = { keep: 'var(--color-keep)', mark: 'var(--color-mark)', flag: 'var(--color-flag)', hot: 'var(--color-accent)', faint: 'var(--color-rule)', empty: 'var(--color-rule)' }[tone] ?? 'var(--color-rule-strong)';
+  const fill = { keep: 'var(--color-keep-soft)', mark: 'var(--color-mark-soft)', flag: 'var(--color-flag-soft)', faint: 'var(--color-sunk)', empty: 'var(--color-sunk)' }[tone] ?? 'var(--color-surface)';
+  const weight = tone === 'hot' ? 2.6 : tone === 'keep' || tone === 'mark' || tone === 'flag' ? 2 : 1.4;
+  return (
+    <g>
+      <rect x={x} y={y} width={size} height={size} rx="4" style={{ fill, stroke }} strokeWidth={weight} strokeDasharray={tone === 'empty' ? '4 3' : undefined} />
+      {/* A discarded number is struck through, under the digit so it stays legible. */}
+      {tone === 'flag' ? (
+        <path d={`M ${x + 5} ${y + size - 5} L ${x + size - 5} ${y + 5}`} style={{ stroke: 'var(--color-flag)' }} strokeWidth="1.6" strokeLinecap="round" opacity="0.7" />
+      ) : null}
+      {v === null || v === undefined ? null : (
+        <text x={x + size / 2} y={y + size / 2 + 5} textAnchor="middle" fontSize="15" fontWeight="600" style={{ fill: tone === 'faint' ? 'var(--color-ink-faint)' : 'var(--color-ink)' }}>{v}</text>
+      )}
+    </g>
+  );
+}
+
+export function CellRow({ title, values, tones = [], label }) {
+  const width = 360;
+  return (
+    <svg viewBox={`0 0 ${width} 44`} style={{ width: '100%', maxWidth: `${Math.round(width * 1.2)}px`, height: 'auto', display: 'block', margin: '0.2rem auto' }} role="img" aria-label={label}>
+      <text x="0" y="27" fontSize="12" fontWeight="600" style={{ fill: 'var(--color-ink-soft)' }}>{title}</text>
+      {values.length === 0 ? (
+        <text x="88" y="27" fontSize="12" style={{ fill: 'var(--color-ink-faint)' }}>vacío</text>
+      ) : null}
+      {values.map((v, i) => (
+        <NumBox key={i} x={88 + i * 38} y={5} v={v} tone={v === null ? 'empty' : tones[i]} />
+      ))}
+    </svg>
+  );
+}
+
+export function TopKExamples({ rows, label }) {
+  // Each row: k, the sequence, the positions of the k largest in it, and the result.
+  const rowH = 52;
+  const resultX = 92 + 7 * 38 + 46;
+  return (
+    <svg viewBox={`0 0 ${resultX + 3 * 38 + 4} ${rows.length * rowH}`} style={{ width: '100%', maxWidth: '600px', height: 'auto', display: 'block', margin: '0.75rem auto' }} role="img" aria-label={label}>
+      {rows.map((r, i) => {
+        const y = 6 + i * rowH;
+        return (
+          <g key={i}>
+            <text x="0" y={y + 23} fontSize="14" fontWeight="700" style={{ fill: 'var(--color-ink)' }}>{`K = ${r.k}`}</text>
+            {r.stream.length === 0 ? (
+              <text x="92" y={y + 23} fontSize="13" style={{ fill: 'var(--color-ink-faint)' }}>secuencia vacía</text>
+            ) : null}
+            {r.stream.map((v, j) => (
+              <NumBox key={j} x={92 + j * 38} y={y} v={v} tone={r.chosen.includes(j) ? 'keep' : undefined} />
+            ))}
+            <text x={resultX - 24} y={y + 23} textAnchor="middle" fontSize="18" style={{ fill: 'var(--color-ink-soft)' }}>→</text>
+            {r.result.length === 0 ? (
+              <text x={resultX} y={y + 23} fontSize="13" style={{ fill: 'var(--color-ink-faint)' }}>vacío</text>
+            ) : null}
+            {r.result.map((v, j) => (
+              <NumBox key={j} x={resultX + j * 38} y={y} v={v} tone="keep" />
+            ))}
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
+
+export function SortAllPicture({ stream, sorted, k, label }) {
+  const x0 = 120;
+  const rowW = sorted.length * 38 - 4;
+  const keepW = k * 38 - 4;
+  return (
+    <svg viewBox={`0 0 ${x0 + rowW + 8} 202`} style={{ width: '100%', maxWidth: '560px', height: 'auto', display: 'block', margin: '0.75rem auto' }} role="img" aria-label={label}>
+      <text x="0" y="27" fontSize="12" fontWeight="600" style={{ fill: 'var(--color-ink-soft)' }}>la secuencia</text>
+      {stream.map((v, i) => (
+        <NumBox key={i} x={x0 + i * 38} y={6} v={v} />
+      ))}
+      <text x={x0 + rowW / 2} y="66" textAnchor="middle" fontSize="12" fontWeight="600" style={{ fill: 'var(--color-ink-soft)' }}>se guarda entera y se ordena ↓</text>
+      <text x="0" y="111" fontSize="12" fontWeight="600" style={{ fill: 'var(--color-ink-soft)' }}>ordenada</text>
+      {sorted.map((v, i) => (
+        <NumBox key={i} x={x0 + i * 38} y={90} v={v} tone={i < k ? 'keep' : 'faint'} />
+      ))}
+      <path d={`M ${x0} 130 l 0 8 l ${keepW} 0 l 0 -8`} fill="none" style={{ stroke: 'var(--color-keep)' }} strokeWidth="1.6" />
+      <text x={x0 + keepW / 2} y="155" textAnchor="middle" fontSize="12" fontWeight="700" style={{ fill: 'var(--color-keep)' }}>{`se usan ${k}`}</text>
+      <path d={`M ${x0} 166 l 0 8 l ${rowW} 0 l 0 -8`} fill="none" style={{ stroke: 'var(--color-ink-soft)' }} strokeWidth="1.4" />
+      <text x={x0 + rowW / 2} y="192" textAnchor="middle" fontSize="12" fontWeight="600" style={{ fill: 'var(--color-ink-soft)' }}>se guardan los N</text>
+    </svg>
+  );
+}
+
+export function TopKStrip({ steps, k, label }) {
+  // One column per number that arrives: the number, then the k best so far
+  // from the worst (marked, on top) down, then what happened.
+  const colW = 78;
+  const x0 = 104;
+  const groupY = 70;
+  return (
+    <svg viewBox={`0 0 ${x0 + steps.length * colW} 238`} style={{ width: '100%', maxWidth: '760px', height: 'auto', display: 'block', margin: '0.75rem auto' }} role="img" aria-label={label}>
+      <text x="0" y="27" fontSize="12" fontWeight="600" style={{ fill: 'var(--color-ink-soft)' }}>llega</text>
+      <text x="0" y={groupY + 21} fontSize="12" fontWeight="600" style={{ fill: 'var(--color-ink-soft)' }}>{`los ${k} mejores`}</text>
+      <text x="0" y={groupY + 37} fontSize="11" style={{ fill: 'var(--color-mark)' }}>el peor, arriba</text>
+      {steps.map((s, i) => {
+        const cx = x0 + i * colW + colW / 2;
+        return (
+          <g key={i}>
+            <NumBox x={cx - 17} y={6} v={s.x} tone={s.verdict === 'descarta' ? 'flag' : 'hot'} />
+            <line x1={cx} y1={44} x2={cx} y2={groupY - 6} style={{ stroke: 'var(--color-rule)' }} strokeWidth="1.2" />
+            {s.group.map((v, j) => (
+              <NumBox key={j} x={cx - 17} y={groupY + j * 38} v={v} tone={j === 0 && s.group.length === k ? 'mark' : v === s.x && s.verdict !== 'descarta' ? 'keep' : undefined} />
+            ))}
+            <text x={cx} y={groupY + k * 38 + 22} textAnchor="middle" fontSize="12" fontWeight="600" style={{ fill: s.verdict === 'descarta' ? 'var(--color-flag)' : 'var(--color-ink-soft)' }}>{s.verdict === 'descarta' ? 'se descarta' : 'entra'}</text>
+            {s.out === undefined ? null : (
+              <text x={cx} y={groupY + k * 38 + 40} textAnchor="middle" fontSize="12" style={{ fill: 'var(--color-ink-faint)' }}>{`sale ${s.out}`}</text>
+            )}
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
+
+export function TopKFrame({ stream, at = -1, discarded = false, heap, hot = [], k, result, label }) {
+  const tones = stream.map((_, i) => (i === at ? (discarded ? 'flag' : 'hot') : i < at ? 'faint' : undefined));
+  return (
+    <div>
+      <CellRow title="secuencia" values={stream} tones={tones} label={`La secuencia ${stream.join(', ')}${at >= 0 && at < stream.length ? `; se está mirando el ${stream[at]}` : ''}.`} />
+      <HeapPicture values={heap} view="tree" minLevels={2} hot={hot} tags={heap.length === k ? { 1: 'el peor' } : {}} label={label} />
+      {result ? (
+        <CellRow title="resultado" values={result} tones={result.map(() => 'keep')} label={`El resultado: ${result.map((v) => (v === null ? 'vacío' : v)).join(', ')}.`} />
+      ) : null}
+    </div>
+  );
+}
+
+{/* Arrow, LLNode, ChainRow, OutChain, MergeCase, FrontsPicture, OneFrontChanges, OutPanel, FirstPicture, RelinkPicture, MergeFrame — the merge exercise's drawings, in the linked-list class's idiom: a node is a box with its value and its next, arrows join the chain, null ends it. Each input list has its own colour and every merged node also carries its list number, so the list is never told by colour alone. File-local like HeapPicture (§6e-quater). */}
+
+export const LIST_COLORS = ['var(--color-keep)', 'var(--color-focus)', 'var(--color-mark)'];
+
+export function Arrow({ x1, y1, x2, y2, color = 'var(--color-ink-soft)', width = 1.6, faint = false }) {
+  // A line with its own arrowhead, so no marker id is shared between drawings.
+  const a = Math.atan2(y2 - y1, x2 - x1);
+  const h = 7;
+  const tip = (s) => `${x2 - h * Math.cos(a + s)},${y2 - h * Math.sin(a + s)}`;
+  const stroke = faint ? 'var(--color-rule)' : color;
+  return (
+    <g>
+      <line x1={x1} y1={y1} x2={x2 - 5 * Math.cos(a)} y2={y2 - 5 * Math.sin(a)} style={{ stroke }} strokeWidth={width} />
+      <path d={`M ${x2},${y2} L ${tip(0.42)} L ${tip(-0.42)} z`} style={{ fill: stroke }} />
+    </g>
+  );
+}
+
+export function LLNode({ x, y, v, color, state, tag }) {
+  const gone = state === 'gone';
+  const stroke = gone ? 'var(--color-rule)' : state === 'hot' ? 'var(--color-accent)' : color ?? 'var(--color-rule-strong)';
+  const w = state === 'front' || state === 'hot' ? 3.2 : gone ? 1.2 : 1.8;
+  // `target`: the node a next points to without it being drawn in place —
+  // dashed, in its list's colour.
+  const dash = gone || state === 'target' ? '4 3' : undefined;
+  return (
+    <g>
+      <rect x={x} y={y} width="30" height="30" rx="4" style={{ fill: gone ? 'var(--color-sunk)' : 'var(--color-surface)', stroke }} strokeWidth={w} strokeDasharray={dash} />
+      <rect x={x + 30} y={y} width="16" height="30" rx="3" style={{ fill: 'var(--color-sunk)', stroke }} strokeWidth={w} strokeDasharray={dash} />
+      <text x={x + 15} y={y + 20} textAnchor="middle" fontSize="14" fontWeight="600" style={{ fill: gone ? 'var(--color-ink-faint)' : 'var(--color-ink)' }}>{v}</text>
+      <circle cx={x + 38} cy={y + 15} r="2.6" style={{ fill: gone ? 'var(--color-rule)' : 'var(--color-ink-soft)' }} />
+      {tag === undefined ? null : (
+        <text x={x + 23} y={y + 44} textAnchor="middle" fontSize="10" fontWeight="700" style={{ fill: color }}>{tag}</text>
+      )}
+    </g>
+  );
+}
+
+export function ChainRow({ y, label, color, nodes }) {
+  // label → first node → … → null. nodes: [{ v, state, color?, tag? }].
+  const P = 70;
+  const nx = 84;
+  const mid = y + 15;
+  const last = nx + (nodes.length - 1) * P;
+  return (
+    <g>
+      <text x={0} y={y + 20} fontSize="12" fontWeight="700" style={{ fill: color ?? 'var(--color-ink-soft)' }}>{label}</text>
+      {nodes.length === 0 ? (
+        <g>
+          <Arrow x1={62} y1={mid} x2={nx + 4} y2={mid} />
+          <text x={nx + 10} y={y + 20} fontSize="13" fontFamily="var(--font-mono, monospace)" style={{ fill: 'var(--color-ink-faint)' }}>null</text>
+        </g>
+      ) : (
+        <Arrow x1={62} y1={mid} x2={nx - 2} y2={mid} faint={nodes[0].state === 'gone'} />
+      )}
+      {nodes.map((n, i) => (
+        <g key={i}>
+          <LLNode x={nx + i * P} y={y} v={n.v} color={n.color ?? color} state={n.state} tag={n.tag} />
+          {i < nodes.length - 1 ? (
+            <Arrow x1={nx + i * P + 38} y1={mid} x2={nx + (i + 1) * P - 2} y2={mid} faint={n.state === 'gone'} />
+          ) : null}
+        </g>
+      ))}
+      {nodes.length > 0 ? (
+        <g>
+          <Arrow x1={last + 38} y1={mid} x2={last + 66} y2={mid} faint={nodes[nodes.length - 1].state === 'gone'} />
+          <text x={last + 70} y={y + 20} fontSize="13" fontFamily="var(--font-mono, monospace)" style={{ fill: 'var(--color-ink-faint)' }}>null</text>
+        </g>
+      ) : null}
+    </g>
+  );
+}
+
+export function OutChain({ y, out, title, head = false, nextTo }) {
+  // The merged chain from head, each node in its list's colour with its list
+  // number under it. nextTo is where the last node's next points: a dashed
+  // node (value, list), null, or undefined to draw no arrow.
+  const P = 62;
+  const x = (i) => 84 + i * P;
+  const last = out.length - 1;
+  return (
+    <g>
+      {title ? (
+        <text x="0" y={y + 20} fontSize="12" fontWeight="700" style={{ fill: 'var(--color-ink-soft)' }}>{title}</text>
+      ) : null}
+      {out.map(([v, l], i) => (
+        <g key={i}>
+          {i > 0 ? <Arrow x1={x(i - 1) + 38} y1={y + 15} x2={x(i) - 2} y2={y + 15} /> : null}
+          <LLNode x={x(i)} y={y} v={v} color={LIST_COLORS[l]} tag={l} />
+        </g>
+      ))}
+      {head && out.length > 0 ? (
+        <text x={x(0) + 23} y={y - 6} textAnchor="middle" fontSize="11" fontWeight="700" fontFamily="var(--font-mono, monospace)" style={{ fill: 'var(--color-accent)' }}>head</text>
+      ) : null}
+      {out.length > 0 && nextTo !== undefined ? (
+        nextTo === null ? (
+          <g>
+            <Arrow x1={x(last) + 38} y1={y + 15} x2={x(last) + 62} y2={y + 15} />
+            <text x={x(last) + 66} y={y + 20} fontSize="13" fontFamily="var(--font-mono, monospace)" style={{ fill: 'var(--color-ink-faint)' }}>null</text>
+          </g>
+        ) : (
+          <g>
+            <Arrow x1={x(last) + 38} y1={y + 15} x2={x(last + 1) - 2} y2={y + 15} />
+            <LLNode x={x(last + 1)} y={y} v={nextTo[0]} color={LIST_COLORS[nextTo[1]]} state="target" />
+          </g>
+        )
+      ) : null}
+    </g>
+  );
+}
+
+export function MergeCase({ cases, label }) {
+  // Several inputs side by side at one scale: each its lists, then the merged list.
+  const P = 70;
+  const widthOf = (c) => 84 + Math.max(c.out.length, ...c.lists.map((l) => l.length), 1) * P + 40;
+  const rowsH = Math.max(...cases.map((c) => Math.max(c.lists.length, 1))) * 44;
+  const xs = cases.reduce((acc, c, i) => [...acc, i === 0 ? 0 : acc[i - 1] + widthOf(cases[i - 1]) + 24], []);
+  const width = xs[xs.length - 1] + widthOf(cases[cases.length - 1]);
+  return (
+    <svg viewBox={`0 0 ${width} ${rowsH + 112}`} style={{ width: '100%', maxWidth: `${Math.round(width * 1.3)}px`, height: 'auto', display: 'block', margin: '0.5rem auto' }} role="img" aria-label={label}>
+      {cases.map((c, i) => (
+        <g key={i} transform={`translate(${xs[i]}, 0)`}>
+          <text x="0" y="14" fontSize="12" fontWeight="700" style={{ fill: 'var(--color-ink-soft)' }}>{c.title}</text>
+          {c.lists.length === 0 ? (
+            <text x="0" y="48" fontSize="12" style={{ fill: 'var(--color-ink-faint)' }}>ninguna lista</text>
+          ) : null}
+          {c.lists.map((l, r) => (
+            <ChainRow key={r} y={28 + r * 44} label={`lista ${r}`} color={LIST_COLORS[r]} nodes={l.map((v) => ({ v }))} />
+          ))}
+          <text x="84" y={rowsH + 46} fontSize="12" fontWeight="600" style={{ fill: 'var(--color-ink-soft)' }}>↓ mezclar</text>
+          <ChainRow y={rowsH + 58} label="resultado" nodes={c.out.map(([v, l]) => ({ v, color: LIST_COLORS[l], tag: l }))} />
+        </g>
+      ))}
+    </svg>
+  );
+}
+
+export function FrontsPicture({ lists, gone, fronts, out, label }) {
+  // gone[r]: how many of list r already left; fronts[r]: the index of its front.
+  // Beside the lists, the fronts again, side by side, and the smallest of them.
+  const P = 70;
+  const maxLen = Math.max(...lists.map((l) => l.length));
+  const boxX = 84 + maxLen * P + 64;
+  const fr = lists.map((l, r) => [l[fronts[r]], r]).filter(([v]) => v !== undefined);
+  const min = fr.reduce((m, f) => (f[0] < m[0] ? f : m), fr[0]);
+  const boxW = 24 + fr.length * 58;
+  const boxY = (lists.length * 44) / 2 - 46;
+  const outY = lists.length * 44 + 26;
+  return (
+    <svg viewBox={`0 0 ${boxX + boxW + 4} ${outY + 52}`} style={{ width: '100%', maxWidth: '720px', height: 'auto', display: 'block', margin: '0.75rem auto' }} role="img" aria-label={label}>
+      {lists.map((l, r) => (
+        <ChainRow key={r} y={r * 44} label={`lista ${r}`} color={LIST_COLORS[r]} nodes={l.map((v, j) => ({ v, state: j < gone[r] ? 'gone' : j === fronts[r] ? 'front' : undefined }))} />
+      ))}
+      <rect x={boxX} y={boxY} width={boxW} height="92" rx="6" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.4" />
+      <text x={boxX + boxW / 2} y={boxY + 18} textAnchor="middle" fontSize="11" fontWeight="600" style={{ fill: 'var(--color-ink-soft)' }}>se comparan los frentes</text>
+      {fr.map(([v, r], i) => (
+        <LLNode key={r} x={boxX + 18 + i * 58} y={boxY + 28} v={v} color={LIST_COLORS[r]} state={v === min[0] ? 'front' : undefined} />
+      ))}
+      <text x={boxX + boxW / 2} y={boxY + 82} textAnchor="middle" fontSize="12" fontWeight="700" style={{ fill: LIST_COLORS[min[1]] }}>{`sale el ${min[0]}`}</text>
+      <OutChain y={outY} out={out} title="salida" />
+    </svg>
+  );
+}
+
+export function OneFrontChanges({ label }) {
+  // One step of the example: the 1 leaves and its next, the 4, takes its
+  // place; below, the fronts before and after — only one of them changed.
+  const before = [[1, 0], [2, 1], [5, 2]];
+  const after = [[4, 0], [2, 1], [5, 2]];
+  const gx = (x0, i) => x0 + i * 58;
+  const y = 214;
+  return (
+    <svg viewBox="0 0 560 284" style={{ width: '100%', maxWidth: '640px', height: 'auto', display: 'block', margin: '0.75rem auto' }} role="img" aria-label={label}>
+      <text x={84 + 15} y="18" textAnchor="middle" fontSize="12" fontWeight="700" style={{ fill: 'var(--color-accent)' }}>sale</text>
+      <text x={84 + 70 + 15} y="18" textAnchor="middle" fontSize="12" fontWeight="700" style={{ fill: LIST_COLORS[0] }}>entra en su lugar</text>
+      <ChainRow y={28} label="lista 0" color={LIST_COLORS[0]} nodes={[{ v: 1, state: 'hot' }, { v: 4, state: 'front' }]} />
+      <ChainRow y={72} label="lista 1" color={LIST_COLORS[1]} nodes={[{ v: 2, state: 'front' }, { v: 3 }, { v: 6 }]} />
+      <ChainRow y={116} label="lista 2" color={LIST_COLORS[2]} nodes={[{ v: 5, state: 'front' }]} />
+      <text x={gx(40, 1) + 23} y={y - 14} textAnchor="middle" fontSize="12" fontWeight="700" style={{ fill: 'var(--color-ink-soft)' }}>los frentes antes</text>
+      <text x={gx(330, 1) + 23} y={y - 14} textAnchor="middle" fontSize="12" fontWeight="700" style={{ fill: 'var(--color-ink-soft)' }}>los frentes después</text>
+      {before.map(([v, l], i) => (
+        <LLNode key={`b${i}`} x={gx(40, i)} y={y} v={v} color={LIST_COLORS[l]} state={i === 0 ? 'hot' : undefined} />
+      ))}
+      <Arrow x1={gx(40, 3) + 4} y1={y + 15} x2={326} y2={y + 15} />
+      {after.map(([v, l], i) => (
+        <g key={`a${i}`}>
+          <LLNode x={gx(330, i)} y={y} v={v} color={LIST_COLORS[l]} state={i === 0 ? 'front' : undefined} />
+          <text x={gx(330, i) + 23} y={y + 50} textAnchor="middle" fontSize="11" fontWeight={i === 0 ? 700 : 400} style={{ fill: i === 0 ? LIST_COLORS[l] : 'var(--color-ink-faint)' }}>{i === 0 ? 'nuevo' : 'igual'}</text>
+        </g>
+      ))}
+    </svg>
+  );
+}
+
+export function OutPanel({ out, nextTo, label }) {
+  const w = 84 + (out.length + 1) * 62 + 60;
+  return (
+    <svg viewBox={`0 0 ${w} 82`} style={{ width: '100%', maxWidth: `${Math.round(w * 1.2)}px`, height: 'auto', display: 'block', margin: '0.3rem auto' }} role="img" aria-label={label}>
+      <OutChain y={32} out={out} head nextTo={nextTo} />
+    </svg>
+  );
+}
+
+export function FirstPicture({ label }) {
+  // The node poll() returns: first, still hooked to its list through next.
+  return (
+    <svg viewBox="0 0 260 74" style={{ width: '100%', maxWidth: '300px', height: 'auto', display: 'block', margin: '0.5rem auto' }} role="img" aria-label={label}>
+      <text x="0" y="45" fontSize="14" fontWeight="700" fontFamily="var(--font-mono, monospace)" style={{ fill: 'var(--color-accent)' }}>first</text>
+      <Arrow x1={46} y1={40} x2={70} y2={40} color="var(--color-accent)" width={1.8} />
+      <LLNode x={72} y={25} v={1} color={LIST_COLORS[0]} state="hot" />
+      <Arrow x1={110} y1={40} x2={140} y2={40} />
+      <LLNode x={142} y={25} v={4} color={LIST_COLORS[0]} />
+      <Arrow x1={180} y1={40} x2={206} y2={40} />
+      <text x="210" y="45" fontSize="13" fontFamily="var(--font-mono, monospace)" style={{ fill: 'var(--color-ink-faint)' }}>null</text>
+      <text x={165} y="16" textAnchor="middle" fontSize="11" fontWeight="700" fontFamily="var(--font-mono, monospace)" style={{ fill: LIST_COLORS[0] }}>first.next</text>
+    </svg>
+  );
+}
+
+export function RelinkPicture({ label }) {
+  // first.next before and after `first.next = fronts.peek()`: from its list's
+  // next node to the root of the heap.
+  const row = (y, title, code, target, targetList, caption) => (
+    <g>
+      <text x="0" y={y + 20} fontSize="13" fontWeight={code ? 400 : 600} fontFamily={code ? 'var(--font-mono, monospace)' : undefined} style={{ fill: code ? 'var(--color-ink)' : 'var(--color-ink-soft)' }}>{title}</text>
+      <g transform="translate(250, 0)">
+        <text x="0" y={y + 20} fontSize="13" fontWeight="700" fontFamily="var(--font-mono, monospace)" style={{ fill: 'var(--color-accent)' }}>first</text>
+        <Arrow x1={44} y1={y + 15} x2={68} y2={y + 15} color="var(--color-accent)" width={1.8} />
+        <LLNode x={70} y={y} v={1} color={LIST_COLORS[0]} state="hot" />
+        <Arrow x1={108} y1={y + 15} x2={136} y2={y + 15} />
+        <LLNode x={138} y={y} v={target} color={LIST_COLORS[targetList]} state={code ? 'target' : undefined} />
+        <text x={200} y={y + 20} fontSize="12" style={{ fill: 'var(--color-ink-faint)' }}>{caption}</text>
+      </g>
+    </g>
+  );
+  return (
+    <svg viewBox="0 0 640 118" style={{ width: '100%', maxWidth: '720px', height: 'auto', display: 'block', margin: '0.5rem auto' }} role="img" aria-label={label}>
+      {row(8, 'antes', false, 4, 0, 'el que le seguía en la lista 0')}
+      {row(70, 'first.next = fronts.peek();', true, 2, 1, 'la raíz del heap, de la lista 1')}
+    </svg>
+  );
+}
+
+export function MergeFrame({ lists, gone, fronts, hot = -1, heap, heapHot = [], heapTags = {}, out = [], nextTo, showOut = true, noOut = false, scale = 1.3, label }) {
+  // Left: the input lists (gone nodes dashed where they were, fronts thick,
+  // the polled node in accent). Right: the heap of fronts, each node in its
+  // list's colour. Below: the merged chain from head, and where its last
+  // node's next points.
+  const P = 70;
+  const listsW = 84 + Math.max(...lists.map((l) => l.length), 1) * P + 40;
+  const listsH = Math.max(lists.length, 1) * 38 - 4;
+  const outW = 84 + 6 * 62 + 90;
+  return (
+    <div>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '1.25rem' }}>
+        <div style={{ flex: `0 1 ${Math.round(listsW * scale)}px` }}>
+          <svg viewBox={`0 0 ${listsW} ${listsH}`} style={{ width: '100%', height: 'auto', display: 'block' }} role="img" aria-label={`Las listas: ${lists.map((l, r) => `lista ${r}: ${l.length === 0 ? 'vacía' : l.join(', ')}`).join('; ')}. Punteados, los nodos que ya salieron; más gruesos, los frentes que están en el heap.`}>
+            {lists.map((l, r) => (
+              <ChainRow key={r} y={r * 38} label={`lista ${r}`} color={LIST_COLORS[r]} nodes={l.map((v, j) => ({ v, state: j < gone[r] ? (r === hot && j === gone[r] - 1 ? 'hot' : 'gone') : j === fronts[r] ? 'front' : undefined }))} />
+            ))}
+          </svg>
+        </div>
+        <div style={{ flex: `0 1 ${Math.round((Object.keys(heapTags).length > 0 ? 200 : 123) * scale)}px` }}>
+          <HeapPicture values={heap.map((e) => e[0])} strokes={heap.map((e) => LIST_COLORS[e[1]])} view="tree" minLevels={2} hot={heapHot} tags={heapTags} label={label} />
+        </div>
+      </div>
+      {noOut ? null : (
+        <svg viewBox={`0 0 ${outW} 72`} style={{ width: '100%', maxWidth: `${Math.round(outW * scale * 0.96)}px`, height: 'auto', display: 'block', margin: '0.3rem auto 0' }} role="img" aria-label={showOut ? `La salida, desde head: ${out.map((e) => e[0]).join(', ')}${nextTo === null ? ', y después null' : nextTo ? `, y su último nodo apunta al ${nextTo[0]}` : ''}.` : 'Todavía no hay salida.'}>
+          {showOut ? <OutChain y={24} out={out} head nextTo={nextTo} /> : null}
+        </svg>
+      )}
+    </div>
+  );
+}
+
+<SectionBreak />
+
+## El heap binario
+
+<Slide title="Un árbol binario con orden de heap">
+Un **árbol binario** es una jerarquía donde cada elemento, llamado
+**nodo**, tiene a lo más dos nodos debajo: sus **hijos**, izquierdo y
+derecho. El de arriba de todo, que no es hijo de nadie, es la **raíz**. Un
+árbol binario tiene **orden de heap** cuando cumple esta **invariante**:
+
+> **el valor de cada nodo es mayor o igual que los valores de sus dos
+> hijos.**
+
+<HeapPicture values={[10, 7, 8, 1, 3, 2, 4]} view="tree" label="Un árbol binario con orden de heap. La raíz es 10; sus hijos son 7 y 8; los hijos de 7 son 1 y 3, y los de 8 son 2 y 4. Cada nodo es mayor o igual que sus hijos." />
+
+Si partimos de cualquier nodo y subimos hacia la raíz, cada paso llega a un
+valor mayor o igual: desde el 1, el camino es 1, 7, 10; desde el 4, es 4, 8,
+10. Todos los caminos terminan en la raíz, así que **el valor más grande del
+árbol está siempre en la raíz**. Es lo único que el contrato necesita saber.
+
+Esta invariante, en cambio, no dice nada entre nodos que no son padre e hijo. El 7
+y el 8 están en ramas distintas y nunca se comparan; el 3 y el 4 tampoco.
+Por eso es un orden más débil que el de una lista ordenada: alcanza para
+saber cuál es el mayor, pero no ordena a los demás.
+
+Cuando cada nodo es mayor o igual que sus hijos, en la raíz queda el
+elemento mayor, y el árbol se llama **max-heap**. Si la invariante se
+invierte —cada nodo menor o igual que sus hijos—, en la raíz queda el menor, y el
+árbol se llama **min-heap**.
+
+</Slide>
+
+<Slide title="Un árbol binario completo">
+Un heap exige una segunda **invariante**, sobre la **forma** del árbol y no sobre
+sus valores: el árbol es **completo**. Todos sus niveles están llenos,
+salvo quizás el último, que se llena **de izquierda a derecha**, sin
+huecos.
+
+<Split>
+
+<HeapPicture values={[10, 7, 8, 1, 3]} view="tree" label="Un árbol completo de cinco nodos: la raíz, sus dos hijos, y en el último nivel los dos primeros lugares ocupados desde la izquierda." />
+
+<svg viewBox="0 0 212 168" style={{ width: '100%', maxWidth: '300px', height: 'auto', display: 'block', margin: '1rem auto' }} role="img" aria-label="Un árbol que no es completo: la raíz 10 tiene hijos 7 y 8, y el 3 cuelga del 8 dejando vacío el primer lugar del último nivel, bajo el 7.">
+  <line x1="106" y1="31" x2="60" y2="85" style={{ stroke: 'var(--color-rule-strong)' }} strokeWidth="1.2" />
+  <line x1="106" y1="31" x2="152" y2="85" style={{ stroke: 'var(--color-rule-strong)' }} strokeWidth="1.2" />
+  <line x1="152" y1="85" x2="129" y2="139" style={{ stroke: 'var(--color-rule-strong)' }} strokeWidth="1.2" />
+  <circle cx="106" cy="31" r="17" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.4" />
+  <text x="106" y="36" textAnchor="middle" fontSize="14" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>10</text>
+  <circle cx="60" cy="85" r="17" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.4" />
+  <text x="60" y="90" textAnchor="middle" fontSize="14" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>7</text>
+  <circle cx="152" cy="85" r="17" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.4" />
+  <text x="152" y="90" textAnchor="middle" fontSize="14" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>8</text>
+  <circle cx="37" cy="139" r="17" style={{ fill: 'var(--color-sunk)', stroke: 'var(--color-flag)' }} strokeWidth="1.6" strokeDasharray="4 3" />
+  <text x="37" y="166" textAnchor="middle" fontSize="11" fontWeight="600" style={{ fill: 'var(--color-flag)' }}>hueco</text>
+  <circle cx="129" cy="139" r="17" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.4" />
+  <text x="129" y="144" textAnchor="middle" fontSize="14" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>3</text>
+</svg>
+
+</Split>
+
+El de la izquierda cumple las dos invariantes. El de la derecha cumple la
+invariante de orden de heap y rompe la de forma completa: el último nivel
+tiene un hueco antes de su primer nodo.
+
+En resumen, las dos **invariantes del heap** son:
+
+1. **Orden de heap: cada nodo es mayor o igual que sus hijos.** Es la que
+   pone el máximo en la raíz, y la que cada operación que la rompe tiene que
+   restaurar.
+2. **Forma completa: los niveles se llenan de izquierda a derecha, sin
+   huecos.** Es la que mantiene al árbol bajo —con $$N$$ nodos tiene
+   $$\lfloor \log_2 N \rfloor + 1$$ niveles— y la que permite guardarlo sin
+   punteros.
+
+La segunda es la invariante que decide el costo. Un árbol con huecos puede
+degenerar en una fila de $$N$$ niveles, y cualquier camino de la raíz a una
+hoja se vuelve tan largo como la lista.
+
+</Slide>
+
+<Slide title="Guardar un árbol con nodos enlazados">
+La primera forma de guardar un árbol es la misma de una lista enlazada,
+con una referencia más: cada nodo guarda su valor y dos referencias, una a
+su hijo izquierdo y otra a su hijo derecho, y la estructura guarda una
+referencia a la raíz.
+
+<svg viewBox="0 0 640 214" style={{ width: '100%', maxWidth: '680px', height: 'auto', display: 'block', margin: '1rem auto' }} role="img" aria-label="El heap 10, 7, 8, 1, 3, 2, 4 guardado como nodos enlazados. Cada nodo es una caja de tres campos: referencia izquierda, valor, referencia derecha. La raíz 10 apunta al 7 y al 8; el 7 apunta al 1 y al 3; el 8 apunta al 2 y al 4. Las cuatro hojas tienen sus dos referencias en null, tachadas.">
+  <defs>
+    <marker id="pq-enl-punta" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto">
+      <path d="M0,0 L7,3.5 L0,7 z" style={{ fill: 'var(--color-ink-soft)' }} />
+    </marker>
+  </defs>
+  <text x="318" y="16" textAnchor="middle" fontSize="12" fontFamily="monospace" style={{ fill: 'var(--color-ink-faint)' }}>root</text>
+  <line x1="320" y1="20" x2="320" y2="32" style={{ stroke: 'var(--color-ink-soft)' }} strokeWidth="1.4" markerEnd="url(#pq-enl-punta)" />
+  {[
+    { v: 10, x: 320, y: 36, kids: [[160, 106], [480, 106]] },
+    { v: 7, x: 160, y: 106, kids: [[80, 176], [240, 176]] },
+    { v: 8, x: 480, y: 106, kids: [[400, 176], [560, 176]] },
+    { v: 1, x: 80, y: 176, kids: [] },
+    { v: 3, x: 240, y: 176, kids: [] },
+    { v: 2, x: 400, y: 176, kids: [] },
+    { v: 4, x: 560, y: 176, kids: [] },
+  ].map(({ v, x, y, kids }) => (
+    <g key={v}>
+      <rect x={x - 39} y={y} width="78" height="30" rx="3" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.4" />
+      <line x1={x - 13} y1={y} x2={x - 13} y2={y + 30} style={{ stroke: 'var(--color-rule-strong)' }} strokeWidth="1.2" />
+      <line x1={x + 13} y1={y} x2={x + 13} y2={y + 30} style={{ stroke: 'var(--color-rule-strong)' }} strokeWidth="1.2" />
+      <text x={x} y={y + 20} textAnchor="middle" fontSize="14" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{v}</text>
+      {kids.length === 0 ? (
+        <g>
+          <line x1={x - 36} y1={y + 27} x2={x - 16} y2={y + 3} style={{ stroke: 'var(--color-ink-faint)' }} strokeWidth="1" />
+          <line x1={x + 16} y1={y + 27} x2={x + 36} y2={y + 3} style={{ stroke: 'var(--color-ink-faint)' }} strokeWidth="1" />
+        </g>
+      ) : (
+        kids.map(([cx, cy], i) => (
+          <line key={i} x1={i === 0 ? x - 26 : x + 26} y1={y + 15} x2={cx} y2={cy - 2} style={{ stroke: 'var(--color-ink-soft)' }} strokeWidth="1.4" markerEnd="url(#pq-enl-punta)" />
+        ))
+      )}
+    </g>
+  ))}
+</svg>
+
+Funciona, pero guarda información que el heap ya conoce. La invariante de
+**forma completa** dice exactamente dónde está cada nodo: los niveles se
+llenan de izquierda a derecha, sin huecos. Si la posición de cada nodo
+está determinada por la invariante, las dos referencias de cada nodo son
+datos que se podrían calcular. Y cuando hay que insertar en la primera hoja
+libre, la que mantiene la invariante de forma completa, las referencias no
+dicen dónde está: hay que recorrer el árbol para encontrarla.
+
+</Slide>
+
+<Slide title="Numerar los nodos del árbol">
+La invariante de forma completa permite darle a cada **nodo** un número, sin
+ambigüedad. La raíz recibe el **1**. Después se recorre el árbol nivel por
+nivel, de arriba hacia abajo, y dentro de cada nivel de izquierda a derecha:
+el 7 recibe el 2, el 8 el 3, y así hasta el último nodo.
+
+<HeapPicture values={[10, 7, 8, 1, 3, 2, 4]} view="tree" levelLines levelColors label="El heap 10, 7, 8, 1, 3, 2, 4 dibujado como árbol, con una línea punteada por cada nivel. El nivel 0 tiene la raíz, numerada 1; el nivel 1 tiene el 7 y el 8, numerados 2 y 3; el nivel 2 tiene el 1, el 3, el 2 y el 4, numerados del 4 al 7." />
+
+Los números de los nodos son los que aparecen debajo de cada uno. Los
+**niveles** se cuentan aparte, desde 0. Cada nivel lleno tiene el doble de
+nodos que el anterior —1, 2, 4—, así que el **nivel $$d$$ tiene $$2^d$$
+nodos, numerados del $$2^d$$ al $$2^{d+1} - 1$$**: el nivel 1 va del 2 al
+3, y el nivel 2 del 4 al 7.
+
+Como la invariante de forma completa no deja huecos, la numeración **no
+salta ningún número**: un árbol de $$n$$ nodos usa exactamente los números
+del 1 al $$n$$, y el próximo nodo recibe el $$n + 1$$. Aquí, del 1 al 7, y
+el siguiente será el 8.
+
+</Slide>
+
+<Slide title="Los niveles, uno detrás del otro">
+Si se ponen los niveles uno detrás del otro, la numeración se convierte en
+los índices de un arreglo: **el nodo número `k` se guarda en `data[k]`**.
+
+<HeapPicture values={[10, 7, 8, 1, 3, 2, 4]} levelLines levelColors levelBrackets label="El mismo heap como árbol y como arreglo, con los niveles marcados por color. El nivel 0, la raíz 10, ocupa data[1]. El nivel 1, el 7 y el 8, ocupa data[2] y data[3]. El nivel 2, el 1, el 3, el 2 y el 4, ocupa data[4] a data[7]. La casilla data[0] está vacía y rotulada no se usa." />
+
+Cada nivel ocupa un tramo seguido del arreglo, en el mismo orden en que se
+lee de izquierda a derecha. El arreglo `data` guarda el heap en
+`data[1..n]`, donde `n` es la cantidad de elementos, y **`data[0]` queda
+sin usar a propósito**: empezar en 1 hace más simple la aritmética entre
+padres e hijos.
+
+Ya no hay referencias. El árbol es el modelo para pensar y el arreglo es lo
+que el programa guarda: son el mismo objeto con dos representaciones, y
+cualquier cambio en una es un cambio en la otra.
+
+</Slide>
+
+<Slide title="Un árbol con huecos en el arreglo">
+El arreglo funciona **porque** el árbol cumple la invariante de forma
+completa. Un árbol con un hueco —aquí falta el hijo izquierdo del 7— igual
+tendría que reservarle su número a esa posición, y el arreglo quedaría con
+una casilla vacía en medio:
+
+<HeapPicture values={[10, 7, 8, null, 3, 2, 4]} levelLines label="Un árbol que rompe la invariante de forma completa: falta el hijo izquierdo del 7, en la posición 4. En el arreglo, data[4] queda vacía entre data[3], que guarda 8, y data[5], que guarda 3." />
+
+Con huecos, los elementos ya no ocuparían exactamente `data[1..n]`: `n` no
+diría cuántos hay, y la primera posición libre no sería `data[n + 1]`. Por
+eso la invariante de forma completa se lee directamente en el arreglo:
+**los elementos ocupan `data[1..n]`, sin casillas vacías entre medio**. Y
+mantenerla al insertar es fácil: el elemento nuevo va siempre a
+`data[n + 1]`.
+
+</Slide>
+
+<Slide title="Los hijos de un nodo">
+En el árbol numerado, cada nodo apunta a sus dos hijos. Como el nodo `k`
+vive en `data[k]`, las mismas flechas unen casillas del arreglo, y los dos
+hijos de cada nodo quedan en casillas seguidas:
+
+<HeapPicture values={[10, 7, 8, 1, 3, 2, 4]} edgeArrows="down" arcs="children" childBrackets idPrefix="pq-hijos" label="El heap 10, 7, 8, 1, 3, 2, 4 como árbol y como arreglo. En el árbol, flechas de cada nodo a sus dos hijos, con un color por padre: del nodo 1 a los nodos 2 y 3, del nodo 2 a los nodos 4 y 5, y del nodo 3 a los nodos 6 y 7. En el arreglo, las mismas flechas y los mismos colores salen de la casilla de cada padre hacia las de sus hijos: las del 1 y del 3 por arriba, las del 2 por abajo. Más abajo, corchetes del mismo color agrupan cada par de hermanos: data[2] y data[3] son los hijos de 1, data[4] y data[5] los hijos de 2, data[6] y data[7] los hijos de 3." />
+
+| Nodo `k`              | 1     | 2     | 3     |
+| --------------------- | ----- | ----- | ----- |
+| Hijos (izq., der.)    | 2, 3  | 4, 5  | 6, 7  |
+
+El hijo izquierdo de cada nodo tiene el doble de su número, y el derecho, el
+siguiente: **los hijos del nodo `k` son `2k` y `2k + 1`**.
+
+</Slide>
+
+<Slide title="Por qué los hijos de k son 2k y 2k + 1">
+El patrón no es una casualidad del ejemplo: sale de numerar por niveles.
+Tomemos el nodo 3.
+
+<HeapPicture values={[10, 7, 8, 1, 3, 2, 4]} view="tree" levelLines hot={[3, 6, 7]} marked={[2, 4, 5]} label="El árbol numerado por niveles. El nodo 3 y sus hijos, los nodos 6 y 7, resaltados. El nodo 2, a la izquierda del 3 en el nivel 1, y sus hijos, los nodos 4 y 5, marcados aparte: ocupan los dos primeros números del nivel 2." />
+
+- El nodo 3 está en el nivel 1, y sus hijos están en el nivel 2, que empieza
+  en el número $$2^2 = 4$$.
+- Los hijos se numeran en el mismo orden que sus padres. A la izquierda del
+  3, en su nivel, sólo está el nodo 2, y sus dos hijos ocupan el 4 y el 5.
+- El siguiente número libre es el 6: ahí va el hijo izquierdo del 3, y el
+  derecho en el 7.
+
+En general, el nodo $$k$$ del nivel $$d$$ tiene $$k - 2^d$$ nodos a su
+izquierda en su nivel, y cada uno ocupa dos lugares del nivel siguiente, que
+empieza en $$2^{d+1}$$. El hijo izquierdo de $$k$$ queda en
+
+$$
+2^{d+1} + 2\,(k - 2^d) = 2k
+$$
+
+y el derecho, en el siguiente: $$2k + 1$$.
+
+</Slide>
+
+<Slide title="El padre de un nodo">
+Si los hijos del nodo $$p$$ son $$2p$$ y $$2p + 1$$, ir de un hijo a su
+padre es deshacer esa cuenta: dividir por 2. Con división entera el resto se
+descarta, así que los dos hijos llegan al mismo padre.
+
+<HeapPicture values={[10, 7, 8, 1, 3, 2, 4]} edgeArrows="up" arcs="parent" idPrefix="pq-padre" label="El heap como árbol y como arreglo, con flechas de cada nodo a su padre: los nodos 2 y 3 apuntan al 1, los nodos 4 y 5 al 2, y los nodos 6 y 7 al 3. En el arreglo, las mismas flechas, con los mismos colores, van de cada casilla a la de su padre: las que llegan a las casillas 1 y 3 por arriba, y las que llegan a la casilla 2 por abajo." />
+
+| Nodo `k` | 2   | 3   | 4   | 5   | 6   | 7   |
+| -------- | --- | --- | --- | --- | --- | --- |
+| `k / 2`  | 1   | 1   | 2   | 2   | 3   | 3   |
+
+**El padre del nodo `k` es `k / 2`**, con la división entera de Java. La
+raíz, el nodo 1, no tiene padre: `1 / 2` da 0, justo la casilla que no se
+usa.
+
+</Slide>
+
+<Slide title="Si el arreglo empezara en 0">
+El mismo árbol se puede numerar desde 0. La raíz va en `data[0]` y no queda
+ninguna casilla sin usar.
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '0.25rem 1.5rem' }}>
+<div>
+<div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-ink-soft)', textAlign: 'center' }}>numerado desde 1</div>
+<HeapPicture values={[10, 7, 8, 1, 3, 2, 4]} view="tree" label="El heap numerado desde 1: la raíz es el nodo 1, sus hijos los nodos 2 y 3, y el último nivel los nodos 4 a 7." />
+</div>
+<div>
+<div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-ink-soft)', textAlign: 'center' }}>numerado desde 0</div>
+<HeapPicture values={[10, 7, 8, 1, 3, 2, 4]} view="tree" zeroBased label="El mismo heap numerado desde 0: la raíz es el nodo 0, sus hijos los nodos 1 y 2, y el último nivel los nodos 3 a 6." />
+</div>
+</div>
+
+|                        | Desde 1         | Desde 0               |
+| ---------------------- | --------------- | --------------------- |
+| Hijos de `k`           | `2k`, `2k + 1`  | `2k + 1`, `2k + 2`    |
+| Padre de `k`           | `k / 2`         | `(k - 1) / 2`         |
+| El nivel `d` empieza en | $$2^d$$        | $$2^d - 1$$           |
+| Casillas sin usar      | `data[0]`       | ninguna               |
+
+Las dos numeraciones funcionan. Empezar en 0 ahorra una casilla, y a cambio
+cada fórmula carga un $$\pm 1$$, que es justo donde se cometen los errores.
+Aquí el heap se guarda desde 1; `java.util.PriorityQueue` lo guarda desde 0.
+Es una decisión de diseño, no una regla.
+
+</Slide>
+
+<Slide title="Las funciones `parent`, `left` y `right`">
+Las tres fórmulas, escritas como funciones. La división entera de `k / 2` es la que
+hace que los dos hijos de un nodo lleguen al mismo padre:
+
+```java
+int parent(int k) {
+    return k / 2;
+}
+
+int left(int k) {
+    return 2 * k;
+}
+
+int right(int k) {
+    return 2 * k + 1;
+}
+```
+
+Ninguna recorre nada: moverse entre un nodo y su padre o sus hijos cuesta
+una operación aritmética, $$\Theta(1)$$, sin referencias que seguir.
+
+</Slide>
+
+
+<Slide title="Las dos invariantes leídas en el arreglo">
+Con la aritmética de índices, las dos invariantes del heap se pueden
+comprobar sobre el arreglo, sin dibujar el árbol.
+
+<HeapPicture values={[10, 7, 8, 1, 3, 2, 4]} view="array" arcs="parent" idPrefix="pq-inv-arr" label="El arreglo del heap, data[1] a data[7] = 10, 7, 8, 1, 3, 2, 4. Sobre él, una flecha va de cada casilla k a la casilla k dividido 2, su padre: de data[2] y data[3] a data[1]; de data[4] y data[5] a data[2]; de data[6] y data[7] a data[3]. En todas, el valor de llegada es mayor o igual." />
+
+1. **Forma completa: los elementos ocupan `data[1..n]`, sin casillas vacías
+   entre medio.** Aquí son los 7, de `data[1]` a `data[7]`.
+2. **Orden de heap: para cada `k` entre 2 y `n`,
+   `data[parent(k)] >= data[k]`.**
+   Cada flecha va de una casilla a la de su padre, y en todas el valor de
+   llegada es mayor o igual: `data[5] = 3` apunta a `data[2] = 7`, y
+   `data[7] = 4` apunta a `data[3] = 8`.
+
+Las operaciones del heap trabajan sobre el arreglo, y las dos invariantes
+son lo que cada una tiene que dejar cumplido al terminar.
+
+</Slide>
+
+
+<SectionBreak />
+
+## Las operaciones del heap
+
+<Slide title="La clase MaxHeap">
+El heap se guarda en un arreglo `data` y un entero `n`: los elementos
+ocupan `data[1..n]`, y `data[0]` no se usa.
+
+```java
+class MaxHeap {
+    private int[] data = new int[2];
+    private int n = 0;
+}
+```
+
+Un heap vacío arranca como el arreglo dinámico, con una sola casilla útil,
+`data[1]`, más la casilla 0. Cuando se llena crece con el mismo `resize`,
+que reserva un bloque del doble y copia los elementos, aquí los de
+`data[1..n]`. Las funciones `parent`, `left`, `right` y las que siguen son
+métodos de esta clase.
+
+Construir el heap vacío —el `build()` del contrato— cuesta $$\Theta(1)$$, y
+el heap vacío cumple las dos invariantes.
+
+</Slide>
+
+<Slide title="Las dos invariantes al modificar el heap">
+Insertar o sacar un elemento cambia el heap, y después del cambio las dos
+invariantes tienen que seguir cumpliéndose. Las dos operaciones lo logran
+de la misma manera: primero cuidan la forma y después el orden.
+
+**La invariante de forma completa no deja elegir el lugar.** Para que el
+árbol siga sin huecos, un elemento nuevo sólo puede ocupar la primera
+posición libre, `data[n + 1]`, y el único que puede salir sin dejar un hueco
+es el último, `data[n]`.
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '0.25rem 1.5rem' }}>
+<div>
+<div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-ink-soft)', textAlign: 'center' }}>un elemento nuevo entra en data[n + 1]</div>
+<HeapPicture values={[10, 7, 8, 1, 3, 2, 4]} view="tree" nextSlot label="El heap de ejemplo, con n = 7. Punteada, la posición 8, rotulada n + 1: el hijo izquierdo del 1, la primera hoja libre. Es el único lugar donde un elemento nuevo mantiene la invariante de forma completa." />
+</div>
+<div>
+<div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-ink-soft)', textAlign: 'center' }}>el único que puede salir es data[n]</div>
+<HeapPicture values={[10, 7, 8, 1, 3, 2, 4]} view="tree" marked={[7]} minLevels={4} label="El mismo heap. Marcada, la posición 7, que guarda el 4: la última hoja. Es la única que puede salir sin dejar un hueco." />
+</div>
+</div>
+
+**La invariante de orden de heap se repara después.** El lugar obligado no
+mira los valores. Al insertar, el nuevo puede quedar debajo de un padre
+menor que él; al sacar, el que pasa a la raíz puede quedar encima de hijos
+mayores. La invariante queda rota, pero en un solo punto. Repararla es
+mover ese elemento,
+intercambio a intercambio, por el único camino que une ese punto con la
+raíz. Cada intercambio cuesta $$\Theta(1)$$, así que el costo de la
+operación lo decide el largo de ese camino, que a lo más es la altura del
+árbol.
+
+</Slide>
+
+<Slide title="Las consultas max, isEmpty y size">
+Las tres consultas del contrato sólo leen. La invariante de orden de heap
+pone el elemento de mayor prioridad en la raíz, y la raíz es `data[1]`:
+
+```java
+int max() {
+    if (n == 0) {
+        throw new NoSuchElementException();
+    }
+    return data[1];
+}
+
+boolean isEmpty() {
+    return n == 0;
+}
+
+int size() {
+    return n;
+}
+```
+
+Ninguna recorre ni cambia nada, así que ninguna puede romper una invariante:
+
+| Molde     | Operación             | Peor caso     | Invariante que restaura               |
+| --------- | --------------------- | ------------- | ------------------------------------- |
+| crear     | `build()`             | $$\Theta(1)$$ | Ninguna: el heap vacío cumple las dos |
+| consultar | `max()`               | $$\Theta(1)$$ | Ninguna: lee `data[1]`                |
+| consultar | `isEmpty()`, `size()` | $$\Theta(1)$$ | Ninguna                               |
+
+</Slide>
+
+<Slide title="Hacer espacio para un elemento nuevo">
+Un elemento nuevo necesita la casilla `data[n + 1]`. Si el arreglo está
+lleno —`n == data.length - 1`, porque `data[0]` no se usa—, esa casilla
+todavía no existe. Antes de escribir hay que agrandar el arreglo con el
+`resize` del arreglo dinámico: reserva un bloque del doble y copia
+`data[1..n]`. Si el arreglo tiene espacio, este paso no ocurre.
+
+<div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-ink-soft)', textAlign: 'center' }}>n = 7 en un arreglo de data.length = 8: está lleno</div>
+<HeapPicture values={[10, 7, 8, 1, 3, 2, 4]} view="array" reserveCells={16} label="El arreglo del heap de ejemplo antes de agrandarlo: data.length es 8 y los 7 elementos ocupan data[1] a data[7]. No queda ninguna casilla libre." />
+<div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-ink-soft)', textAlign: 'center' }}>después de resize(16): data[8] a data[15] quedan libres</div>
+<HeapPicture values={[10, 7, 8, 1, 3, 2, 4]} view="array" capacity={16} label="El mismo arreglo después de resize(16): los 7 elementos copiados en data[1] a data[7], y las casillas 8 a 15 libres." />
+
+</Slide>
+
+<Slide title="Dónde entra un elemento nuevo">
+Con espacio en el arreglo, la invariante de forma completa fija el lugar:
+el elemento nuevo ocupa la posición `n + 1`, la que sigue a la última del
+último nivel. Cualquier otro lugar dejaría un hueco.
+
+<div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-ink-soft)', textAlign: 'center' }}>n = 7: el 9 entra en data[8], hijo del nodo parent(8) = 4</div>
+<HeapPicture values={[10, 7, 8, 1, 3, 2, 4, 9]} hot={[8]} label="El heap de ejemplo con un 9 escrito en data[8]: en el árbol, el hijo izquierdo del nodo 4, que guarda el 1, en el último nivel." />
+
+En el arreglo, `n + 1` es la casilla que sigue al último elemento. En el
+árbol, es un hijo del nodo `parent(n + 1)`: el elemento nuevo siempre entra
+como hoja. Después de escribirlo, `n` crece en uno.
+
+</Slide>
+
+<Slide title="La invariante que el nuevo puede romper">
+Escribir en la posición `n + 1` mantiene la invariante de forma completa,
+pero puede romper la de orden de heap. Y sólo en un lugar: **la arista entre
+el elemento nuevo y su padre**. El nuevo es una hoja, así que no tiene hijos
+con los que compararse, y ninguna otra arista cambió.
+
+<div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-ink-soft)', textAlign: 'center' }}>el 9 es mayor que su padre, el 1: esa arista rompe la invariante</div>
+<HeapPicture values={[10, 7, 8, 1, 3, 2, 4, 9]} hot={[8]} brokenEdges={[8]} label="El mismo heap con el 9 en data[8]. La arista entre el 9 y su padre, el 1, está en rojo y punteada: ahí se rompe la invariante de orden de heap, porque el padre es menor que el hijo. Todas las demás aristas la cumplen." />
+
+Si el padre es mayor o igual que el nuevo, la invariante se cumple y no hay
+nada que reparar. Si es menor, hay que intercambiarlos.
+
+</Slide>
+
+<Slide title="Subir sin romper otra arista">
+Intercambiar el elemento con su padre restaura la invariante en esa arista,
+y no la rompe en ninguna de abajo:
+
+- **El padre baja**, y queda arriba de nodos que ya estaban debajo de él
+  antes de la inserción: ya era mayor o igual que ellos.
+- **El elemento sube**, y queda arriba de su antiguo padre y del otro hijo
+  de ese padre. Es mayor que su antiguo padre, y ese padre ya era mayor o
+  igual que su otro hijo.
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '0.25rem 1.5rem' }}>
+<div>
+<div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-ink-soft)', textAlign: 'center' }}>1 · el 9 debajo del 1: rompe la invariante</div>
+<HeapPicture values={[10, 7, 8, 1, 3, 2, 4, 9]} view="tree" hot={[4, 8]} brokenEdges={[8]} label="Paso 1: el 9 recién escrito en la posición 8, debajo del 1. La arista entre los dos rompe la invariante de orden de heap." />
+</div>
+<div>
+<div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-ink-soft)', textAlign: 'center' }}>2 · sube un nivel: ahora la rompe con el 7</div>
+<HeapPicture values={[10, 7, 8, 9, 3, 2, 4, 1]} view="tree" hot={[2, 4]} brokenEdges={[4]} label="Paso 2: después de intercambiarse con el 1, el 9 está en la posición 4 y el 1 bajó a la 8. La arista entre el 9 y su nuevo padre, el 7, rompe la invariante." />
+</div>
+<div>
+<div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-ink-soft)', textAlign: 'center' }}>3 · sube otro nivel: frente al 10 se cumple</div>
+<HeapPicture values={[10, 9, 8, 7, 3, 2, 4, 1]} view="tree" hot={[1, 2]} label="Paso 3: después de intercambiarse con el 7, el 9 está en la posición 2, debajo del 10, y el 7 bajó a la 4. Todas las aristas cumplen la invariante de orden de heap." />
+</div>
+<div>
+<div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-ink-soft)', textAlign: 'center' }}>4 · el resultado en el arreglo</div>
+<HeapPicture values={[10, 9, 8, 7, 3, 2, 4, 1]} view="array" hot={[2]} label="El resultado en el arreglo: data[1] a data[8] = 10, 9, 8, 7, 3, 2, 4, 1. El 9 quedó en data[2]." />
+</div>
+</div>
+
+La única arista que puede quedar rota es la de arriba, entre el que subió y
+su nuevo padre. Por eso el intercambio se repite subiendo, hasta que la
+invariante se cumple o el elemento llega a la raíz.
+
+</Slide>
+
+<Slide title="La función auxiliar swim">
+Repetir el intercambio hacia arriba es una función auxiliar, `swim`. Recibe
+la posición del elemento que puede estar rompiendo la invariante de orden
+de heap con su padre:
+
+```java
+void swim(int k) {
+    while (k > 1 && data[parent(k)] < data[k]) {
+        swap(parent(k), k);
+        k = parent(k);
+    }
+}
+
+void swap(int i, int j) {
+    int t = data[i];
+    data[i] = data[j];
+    data[j] = t;
+}
+```
+
+Mientras `k` no sea la raíz y su padre sea menor, los intercambia y sube con
+`k = parent(k)`. Se detiene en la raíz, o en cuanto la invariante se cumple.
+`swap` no lleva ninguna idea: intercambia dos casillas del arreglo.
+
+</Slide>
+
+<Slide title="La operación insert">
+Con `swim` escrita, insertar son tres líneas, y cada una atiende una
+invariante:
+
+```java
+void insert(int x) {
+    if (n == data.length - 1) {
+        resize(2 * data.length);
+    }
+    data[++n] = x;
+    swim(n);
+}
+```
+
+- **`resize`**: si `data[1..n]` ocupa todo el arreglo, se reserva uno del
+  doble, como en el arreglo dinámico. El arreglo está lleno con
+  `n == data.length - 1`, porque `data[0]` no se usa.
+- **`data[++n] = x`**: el nuevo va a la primera hoja libre y `n` crece. La
+  invariante de forma completa se mantiene.
+- **`swim(n)`**: restaura la invariante de orden de heap desde la hoja nueva.
+
+</Slide>
+
+<Slide title="insert paso a paso">
+El heap de ejemplo recibe el 9. Tiene 7 elementos en un arreglo de
+`data.length = 8`, así que está lleno: primero crece a 16, después el 9
+entra en `data[8]` y sube dos niveles.
+
+<SequenceStepper eda="heap-max" operation="insert" values={[10, 7, 8, 1, 3, 2, 4]} value={9} />
+
+</Slide>
+
+<Slide title="Una seguidilla de inserciones">
+Así se construye el heap de ejemplo desde vacío: los mismos siete números,
+llegando en el orden 1, 7, 2, 3, 8, 4, 10. El arreglo arranca con
+`data.length = 2` y crece cada vez que se llena.
+
+<SequenceStepper eda="heap-max" operation="insert" values={[]} value={[1, 7, 2, 3, 8, 4, 10]} showCode={false} />
+
+Cada número sube lo que su valor le permite: el 1 y el 2 no suben nada, el
+8 sube dos niveles, y el 10, que llega último, sube hasta la raíz. El
+arreglo crece dos veces: a 4 en la segunda inserción y a 8 en la cuarta.
+
+</Slide>
+
+<Slide title="El costo de insert">
+Escribir en `data[n + 1]` cuesta $$\Theta(1)$$, y `swim` sube a lo más un
+nivel por vuelta. ¿Cuántos niveles puede subir? Un árbol completo duplica
+sus nodos en cada nivel lleno —1, 2, 4, 8—, así que con $$N$$ nodos tiene
+$$\lfloor \log_2 N \rfloor + 1$$ niveles, y el camino de una hoja a la raíz
+recorre a lo más $$\lfloor \log_2 N \rfloor$$ aristas: 2 en el heap de
+ejemplo, 19 en uno de un millón.
+
+<div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-ink-soft)', textAlign: 'center' }}>n = 7: altura = ⌊log₂ 7⌋ = 2</div>
+<HeapPicture values={[10, 7, 8, 1, 3, 2, 4]} view="tree" levelLines levelColors heightRuler idPrefix="pq-alt-ins" label="El heap de ejemplo con sus tres niveles marcados: 0, 1 y 2. A la izquierda, una línea de la raíz al último nivel rotulada altura = piso de logaritmo en base 2 de n; con n = 7, la altura es 2: de cualquier hoja a la raíz hay a lo más dos aristas." />
+
+| Molde     | Operación   | Peor caso     | Amortizado    | Invariante que restaura                                    |
+| --------- | ----------- | ------------- | ------------- | ---------------------------------------------------------- |
+| modificar | <code style={{ color: 'var(--color-keep)' }}>insert(x)</code> | $$\Theta(N)$$ | <span style={{ color: 'var(--color-keep)', fontWeight: 700 }}>$$O(\log N)$$</span> | Forma completa: entra en `data[n + 1]`. Orden de heap: `swim` |
+
+El peor caso es $$\Theta(N)$$ sólo cuando toca `resize`, que copia los
+$$N$$ elementos. Repartido entre las inserciones que llenaron el arreglo,
+como en el arreglo dinámico, `insert` cuesta $$O(\log N)$$ amortizado.
+
+</Slide>
+
+<Slide title="Por dónde sale el máximo">
+El elemento de mayor prioridad está en la raíz, `data[1]`: encontrarlo no
+cuesta nada. Sacarlo sí, porque la raíz quedaría vacía y rompería la
+invariante de forma completa. El único elemento que puede salir sin dejar
+un hueco es el último, `data[n]`. Por eso son dos pasos: **se intercambia la
+raíz con el último**, y después **`n` baja en uno**. El máximo queda fuera
+del heap, en `data[n + 1]`, y el árbol sigue completo.
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '0.25rem 1.5rem' }}>
+<div>
+<div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-ink-soft)', textAlign: 'center' }}>1 · el máximo en data[1], el último en data[8]</div>
+<HeapPicture values={[10, 9, 8, 7, 3, 2, 4, 1]} view="tree" hot={[1, 8]} label="Paso 1: el heap con n = 8. El máximo, el 10, en la raíz, y el último elemento, el 1, en la posición 8, resaltados." />
+</div>
+<div>
+<div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-ink-soft)', textAlign: 'center' }}>2 · swap(1, n): el 10 y el 1 cambian de lugar</div>
+<HeapPicture values={[1, 9, 8, 7, 3, 2, 4, 10]} view="tree" hot={[1, 8]} label="Paso 2: después de intercambiar la raíz con el último, el 1 está en la raíz y el 10 en la posición 8." />
+</div>
+<div>
+<div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-ink-soft)', textAlign: 'center' }}>3 · n--: el 10 sale del heap</div>
+<HeapPicture values={[1, 9, 8, 7, 3, 2, 4, 10]} n={7} view="tree" minLevels={4} hot={[1]} label="Paso 3: n baja a 7. El árbol pierde su última hoja y sigue completo; el 1 quedó en la raíz." />
+</div>
+<div>
+<div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-ink-soft)', textAlign: 'center' }}>4 · en el arreglo, el 10 queda en data[8], fuera del heap</div>
+<HeapPicture values={[1, 9, 8, 7, 3, 2, 4, 10]} n={7} view="array" hot={[1]} label="El arreglo después de n--: data[1] a data[7] = 1, 9, 8, 7, 3, 2, 4 son el heap; data[8] todavía guarda el 10, pero ya no es parte del heap." />
+</div>
+</div>
+
+</Slide>
+
+<Slide title="La invariante que el que sube puede romper">
+El intercambio mantiene la invariante de forma completa, pero el elemento
+que llega a la raíz viene de una hoja y suele ser chico. Puede romper la
+invariante de orden de heap, y sólo en un lugar: **las aristas entre la
+raíz y sus hijos**. Debajo de ellos no cambió nada.
+
+<div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-ink-soft)', textAlign: 'center' }}>el 1 en la raíz es menor que sus dos hijos, el 9 y el 8</div>
+<HeapPicture values={[1, 9, 8, 7, 3, 2, 4]} hot={[1]} brokenEdges={[2, 3]} label="El heap después de n--, con el 1 en la raíz. Sus dos aristas, hacia el 9 y hacia el 8, en rojo y punteadas: ahí se rompe la invariante de orden de heap. El resto del árbol la cumple." />
+
+Si la raíz es mayor o igual que sus dos hijos, la invariante se cumple y no
+hay nada que reparar. Si no, hay que bajarla, intercambiándola con uno de
+sus hijos.
+
+</Slide>
+
+<Slide title="Bajar por el hijo mayor">
+¿Con cuál de los dos hijos? Con el **mayor**. El hijo que sube pasa a ser
+el padre de su hermano:
+
+- **Si sube el mayor**, queda arriba de su hermano, que es menor o igual. La
+  invariante se cumple en esa arista, y sólo puede seguir rota abajo, donde
+  bajó el elemento.
+- **Si sube el menor**, queda arriba de un hermano mayor que él, y la
+  invariante se rompe en una arista que antes no estaba rota. Bajar nunca la
+  repara, porque está arriba.
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '0.25rem 1.5rem' }}>
+<div>
+<div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-keep)', textAlign: 'center' }}>sube el 9, el mayor: arriba se cumple</div>
+<HeapPicture values={[9, 1, 8, 7, 3, 2, 4]} view="tree" hot={[1, 2]} brokenEdges={[4, 5]} label="Si sube el 9: queda en la raíz arriba del 1 y del 8, y la cumple. Las aristas rotas quedan abajo, entre el 1 y sus hijos." />
+</div>
+<div>
+<div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-flag)', textAlign: 'center' }}>sube el 8, el menor: queda arriba del 9</div>
+<HeapPicture values={[8, 9, 1, 7, 3, 2, 4]} view="tree" hot={[1, 3]} brokenEdges={[2, 6, 7]} label="Si sube el 8: queda en la raíz arriba del 9, y esa arista queda rota; abajo, el 1 sigue rompiendo la invariante con sus nuevos hijos, el 2 y el 4." />
+</div>
+</div>
+
+</Slide>
+
+<Slide title="Bajar sin romper otra arista">
+Intercambiar el elemento con su hijo mayor restaura la invariante en esa
+arista, y no la rompe en ninguna de arriba:
+
+- **El hijo mayor sube**, y queda debajo del que era su abuelo, que ya era
+  mayor o igual que él, y arriba de su hermano, que es menor o igual.
+- **El elemento baja**, y la única arista que puede seguir rota es la de
+  abajo, entre él y sus nuevos hijos.
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '0.25rem 1.5rem' }}>
+<div>
+<div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-ink-soft)', textAlign: 'center' }}>1 · el 1 en la raíz: la rompe con el 9 y el 8</div>
+<HeapPicture values={[1, 9, 8, 7, 3, 2, 4]} view="tree" hot={[1]} brokenEdges={[2, 3]} label="Paso 1: el 1 en la raíz rompe la invariante con sus dos hijos, el 9 y el 8." />
+</div>
+<div>
+<div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-ink-soft)', textAlign: 'center' }}>2 · baja por el 9: ahora la rompe con el 7 y el 3</div>
+<HeapPicture values={[9, 1, 8, 7, 3, 2, 4]} view="tree" hot={[1, 2]} brokenEdges={[4, 5]} label="Paso 2: después de intercambiarse con el 9, el 1 está en la posición 2 y rompe la invariante con sus nuevos hijos, el 7 y el 3." />
+</div>
+<div>
+<div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-ink-soft)', textAlign: 'center' }}>3 · baja por el 7: queda como hoja, se cumple</div>
+<HeapPicture values={[9, 7, 8, 1, 3, 2, 4]} view="tree" hot={[2, 4]} label="Paso 3: después de intercambiarse con el 7, el mayor de sus hijos, el 1 está en la posición 4 y es una hoja. Todas las aristas cumplen la invariante." />
+</div>
+<div>
+<div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-ink-soft)', textAlign: 'center' }}>4 · el resultado en el arreglo</div>
+<HeapPicture values={[9, 7, 8, 1, 3, 2, 4, 10]} n={7} view="array" hot={[4]} label="El resultado en el arreglo: data[1] a data[7] = 9, 7, 8, 1, 3, 2, 4. El 1 quedó en data[4], y data[8] todavía guarda el 10, fuera del heap." />
+</div>
+</div>
+
+Por eso el intercambio se repite bajando, hasta que la invariante se cumple
+o el elemento llega a una hoja.
+
+</Slide>
+
+<Slide title="Achicar el arreglo cuando sobra espacio">
+Después de sacar, el arreglo puede quedar con demasiadas casillas vacías.
+Lo resuelve `shrinkIfSparse`, la misma del arreglo dinámico: si `n` llega a
+un cuarto de `data.length`, reserva un bloque de la mitad y copia
+`data[1..n]`. Lo que quedaba fuera del heap no se copia. Si el arreglo sigue con suficiente uso,
+este paso no ocurre.
+
+<div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-ink-soft)', textAlign: 'center' }}>cuatro extracciones después: n = 4 en data.length = 16, un cuarto</div>
+<HeapPicture values={[4, 3, 2, 1, 7, 8, 9, 10]} n={4} view="array" capacity={16} label="El arreglo con n = 4 y data.length = 16: el heap ocupa data[1] a data[4] = 4, 3, 2, 1; data[5] a data[8] guardan los máximos ya extraídos, fuera del heap, y el resto está libre." />
+<div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-ink-soft)', textAlign: 'center' }}>después de resize(8): sólo se copian los 4 del heap</div>
+<HeapPicture values={[4, 3, 2, 1]} view="array" capacity={8} reserveCells={16} label="El arreglo después de resize(8): data[1] a data[4] = 4, 3, 2, 1, y las casillas 5 a 7 libres." />
+
+</Slide>
+
+<Slide title="La función auxiliar sink">
+Repetir el intercambio hacia abajo es otra función auxiliar, `sink`. Recibe
+la posición del elemento que puede estar rompiendo la invariante de orden
+de heap con sus hijos:
+
+```java
+void sink(int k) {
+    while (left(k) <= n) {
+        int j = left(k);
+        if (right(k) <= n && data[right(k)] > data[j]) {
+            j = right(k);
+        }
+        if (data[k] >= data[j]) break;
+        swap(k, j);
+        k = j;
+    }
+}
+```
+
+Mientras `k` tenga al menos un hijo, `left(k) <= n`, la variable `j` apunta
+al hijo mayor: el izquierdo, o el derecho si existe y es mayor. Si
+`data[k]` ya es mayor o igual que ese hijo, la invariante se cumple y
+termina. Si no, los intercambia y baja con `k = j`.
+
+</Slide>
+
+<Slide title="La operación extractMax">
+Con `sink` escrita, cada línea de `extractMax` atiende una invariante:
+
+```java
+int extractMax() {
+    if (n == 0) {
+        throw new NoSuchElementException();
+    }
+    int max = data[1];
+    swap(1, n);
+    n--;
+    sink(1);
+    shrinkIfSparse();
+    return max;
+}
+```
+
+- **`swap(1, n)` y `n--`**: el máximo sale por la última hoja. La invariante
+  de forma completa se mantiene.
+- **`sink(1)`**: restaura la invariante de orden de heap desde la raíz.
+- **`shrinkIfSparse()`**: la misma función del arreglo dinámico. Si `n`
+  llega a un cuarto de `data.length`, el arreglo se achica a la mitad, y así
+  nunca ocupa más de cuatro veces el espacio que necesita.
+
+Sobre un heap vacío no hay máximo que sacar, y la guarda lo dice con
+`NoSuchElementException`.
+
+</Slide>
+
+<Slide title="extractMax paso a paso">
+<SequenceStepper eda="heap-max" operation="extract-max" values={[10, 9, 8, 7, 3, 2, 4, 1]} capacity={16} />
+
+</Slide>
+
+El heap que dejó la inserción del 9 entrega su máximo, el 10. La última
+hoja, el 1, sube a la raíz y baja dos niveles por el camino de los hijos
+mayores: el 9 y el 7.
+
+<Slide title="Una seguidilla de extracciones">
+El mismo heap entrega sus ocho elementos, del mayor al menor. Cuando `n`
+llega a un cuarto de `data.length`, `shrinkIfSparse` achica el arreglo.
+
+<SequenceStepper eda="heap-max" operation="extract-max" values={[10, 9, 8, 7, 3, 2, 4, 1]} capacity={16} times={8} showCode={false} />
+
+Los máximos salen en orden: 10, 9, 8, 7, 4, 3, 2, 1. El arreglo se achica
+tres veces: a 8 cuando quedan 4 elementos, a 4 cuando quedan 2, y a 2
+cuando queda 1.
+
+</Slide>
+
+<Slide title="El costo de extractMax">
+El intercambio de la raíz con la última hoja y el `n--` cuestan
+$$\Theta(1)$$. Después, `sink` baja a lo más un nivel por vuelta, y en cada
+nivel hace una cantidad constante de trabajo: elegir el hijo mayor,
+compararlo y, si hace falta, intercambiar.
+
+<div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-ink-soft)', textAlign: 'center' }}>el 1 bajó de la raíz a una hoja: 2 aristas, la altura ⌊log₂ 7⌋ = 2</div>
+<HeapPicture values={[9, 7, 8, 1, 3, 2, 4]} view="tree" levelLines levelColors heightRuler idPrefix="pq-alt-ext" hot={[1, 2, 4]} label="A la izquierda, una línea de la raíz al último nivel rotulada altura = piso de logaritmo en base 2 de n. El heap después de extraer el 10, con sus tres niveles marcados. El camino que recorrió el 1, de la raíz a la posición 4, resaltado: dos aristas, una por nivel." />
+
+¿Cuántos niveles puede bajar? En un árbol completo de $$N$$ nodos, el
+camino de la raíz a una hoja tiene a lo más $$\lfloor \log_2 N \rfloor$$
+aristas, así que `sink` cuesta $$O(\log N)$$.
+
+Queda `shrinkIfSparse`. Cuando achica, copia los $$N$$ elementos, y esa
+extracción cuesta $$\Theta(N)$$; repartido entre las extracciones que
+dejaron vacíos tres cuartos del arreglo, como en el arreglo dinámico,
+cuesta $$\Theta(1)$$ amortizado. En total, `extractMax` cuesta
+$$\Theta(N)$$ en el peor caso y $$O(\log N)$$ amortizado.
+
+</Slide>
+
+<Slide title="Costos de las operaciones del heap">
+Las operaciones del contrato sobre el heap, cada una con la invariante que
+restaura:
+
+| Molde     | Operación             | Peor caso     | Amortizado    | Invariante que restaura                                         |
+| --------- | --------------------- | ------------- | ------------- | --------------------------------------------------------------- |
+| crear     | `build()`             | $$\Theta(1)$$ | $$\Theta(1)$$ | Ninguna: el heap vacío cumple las dos                           |
+| consultar | `max()`               | $$\Theta(1)$$ | $$\Theta(1)$$ | Ninguna: lee `data[1]`                                          |
+| consultar | `isEmpty()`, `size()` | $$\Theta(1)$$ | $$\Theta(1)$$ | Ninguna                                                         |
+| modificar | <code style={{ color: 'var(--color-keep)' }}>insert(x)</code> | $$\Theta(N)$$ | <span style={{ color: 'var(--color-keep)', fontWeight: 700 }}>$$O(\log N)$$</span> | Forma completa: entra en `data[n + 1]`. Orden de heap: `swim` |
+| modificar | <code style={{ color: 'var(--color-keep)' }}>extractMax()</code> | $$\Theta(N)$$ | <span style={{ color: 'var(--color-keep)', fontWeight: 700 }}>$$O(\log N)$$</span> | Forma completa: sale `data[n]`. Orden de heap: `sink` |
+
+Las consultas no cambian nada. Las dos operaciones que modifican el heap
+mantienen la invariante de forma completa por donde entran y salen, y
+restauran la de orden de heap recorriendo un solo camino.
+
+</Slide>
+
+<Slide title="El heap frente a las dos listas">
+Las dos listas obligaban a elegir qué operación sería lenta. El heap no
+elige:
+
+| Implementación  | `insert(x)`   | `extractMax()` | `max()`       |
+| --------------- | ------------- | -------------- | ------------- |
+| Lista sin orden | $$\Theta(1)$$ | $$\Theta(N)$$  | $$\Theta(N)$$ |
+| Lista ordenada  | $$\Theta(N)$$ | $$\Theta(1)$$  | $$\Theta(1)$$ |
+| **Heap**        | <span style={{ color: 'var(--color-keep)', fontWeight: 700 }}>$$O(\log N)$$</span> | <span style={{ color: 'var(--color-keep)', fontWeight: 700 }}>$$O(\log N)$$</span> | $$\Theta(1)$$ |
+
+El heap no es el más rápido en ninguna columna por separado:
+
+- la lista sin orden inserta más rápido, en $$\Theta(1)$$;
+- la lista ordenada extrae más rápido, también en $$\Theta(1)$$.
+
+</Slide>
+
+<Slide title="Muchas operaciones mezcladas">
+Una cola de prioridad no hace una sola operación: mezcla inserciones y
+extracciones. Con $$N$$ de cada una, el costo total es:
+
+| Implementación  | Costo total         | Con un millón de cada una |
+| --------------- | ------------------- | ------------------------- |
+| Lista sin orden | $$\Theta(N^2)$$     | unos 500 000 millones de pasos |
+| Lista ordenada  | $$\Theta(N^2)$$     | unos 500 000 millones de pasos |
+| **Heap**        | <span style={{ color: 'var(--color-keep)', fontWeight: 700 }}>$$O(N \log N)$$</span> | <span style={{ color: 'var(--color-keep)', fontWeight: 700 }}>unos 40 millones de pasos</span> |
+
+Ahí gana el heap: ninguna de sus operaciones es lenta.
+
+</Slide>
+
+<SectionBreak />
+
+## Un heap para cualquier prioridad
+
+<Slide title="El min-heap">
+Un **min-heap** es un heap con la invariante de orden de heap invertida:
+**cada nodo es menor o igual que sus hijos**. Siguiendo cualquier camino
+hacia arriba los valores nunca suben, así que en la raíz queda el
+**mínimo**. La invariante de forma completa, el arreglo desde 1 y la
+aritmética de índices no cambian.
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '0.25rem 1.5rem' }}>
+<div>
+<div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-ink-soft)', textAlign: 'center' }}>max-heap: el mayor en la raíz</div>
+<HeapPicture values={[10, 7, 8, 1, 3, 2, 4]} view="tree" hot={[1]} label="Un max-heap con 10, 7, 8, 1, 3, 2, 4: el 10, el mayor, en la raíz. Cada nodo es mayor o igual que sus hijos." />
+</div>
+<div>
+<div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-ink-soft)', textAlign: 'center' }}>min-heap: el menor en la raíz</div>
+<HeapPicture values={[1, 3, 2, 7, 10, 8, 4]} view="tree" hot={[1]} label="Un min-heap con los mismos números, 1, 3, 2, 7, 10, 8, 4: el 1, el menor, en la raíz. Cada nodo es menor o igual que sus hijos." />
+</div>
+</div>
+
+En el código sólo cambia el sentido de las comparaciones de `swim` y `sink`:
+
+|                                       | Max-heap      | Min-heap      |
+| ------------------------------------- | ------------- | ------------- |
+| `swim` sube mientras el padre sea     | menor         | mayor         |
+| `swim` se detiene cuando el padre es  | mayor o igual | menor o igual |
+| `sink` baja por                       | el hijo mayor | el hijo menor |
+| `sink` se detiene cuando ese hijo es  | menor o igual | mayor o igual |
+
+Que `swim` se detenga también al llegar a la raíz, y `sink` al llegar a una
+hoja, no cambia.
+
+</Slide>
+
+<Slide title="La comparación como parámetro">
+Un max-heap y un min-heap son dos clases casi iguales. En vez de escribir
+las dos, el heap puede recibir **cómo comparar** como parámetro: un
+`Comparator<T>`, el mismo que usa `sort`. El heap deja de preguntar «¿cuál
+es mayor?» y pregunta «¿cuál va antes?».
+
+```java
+class Heap<T> {
+    private T[] data = (T[]) new Object[2];
+    private int n = 0;
+    private final Comparator<T> cmp;
+
+    Heap(Comparator<T> cmp) {
+        this.cmp = cmp;
+    }
+
+    // ¿El elemento de la posición i va antes que el de la j?
+    private boolean before(int i, int j) {
+        return cmp.compare(data[i], data[j]) < 0;
+    }
+}
+```
+
+Java no permite crear un arreglo de `T` directamente, así que se crea uno de
+`Object` y se convierte. `before(i, j)` es la única comparación que hace el
+heap.
+
+</Slide>
+
+<Slide title="Lo que responde el comparador">
+`cmp.compare` devuelve un entero, y `before` sólo mira su signo:
+
+<div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-ink-soft)', textAlign: 'center' }}>con a = data[i] y b = data[j]</div>
+<CompareSign label="Una recta numérica con el resultado de cmp.compare(a, b), con a = data[i] y b = data[j]. Negativo: a es menor que b, a va antes, y before devuelve true. Cero: a y b son iguales, ninguno va antes, before devuelve false. Positivo: a es mayor que b, b va antes, before devuelve false." />
+
+El heap queda ordenado como un min-heap según el comparador: en la raíz
+queda el elemento que el comparador considera **menor**. Para que quede el
+mayor, se usa un comparador que invierte el orden.
+
+</Slide>
+
+<Slide title="swim y sink con la comparación">
+`swim` y `sink` hacen lo mismo que en el max-heap, pero cada comparación
+entre valores se reemplaza por una pregunta a `before`:
+
+```java
+void swim(int k) {
+    while (k > 1 && before(k, parent(k))) {
+        swap(parent(k), k);
+        k = parent(k);
+    }
+}
+void sink(int k) {
+    while (left(k) <= n) {
+        int j = left(k);
+        if (right(k) <= n && before(right(k), j)) {
+            j = right(k);
+        }
+        if (!before(j, k)) break;
+        swap(k, j);
+        k = j;
+    }
+}
+```
+
+`swim` sube mientras el elemento vaya antes que su padre. `sink` elige el
+hijo que va antes y baja mientras ese hijo vaya antes que el elemento. Las
+invariantes, los costos y el resto de la clase no cambian.
+
+</Slide>
+
+<Slide title="Una clase que sabe compararse">
+Cuando los elementos son objetos de una clase propia, la clase puede traer
+su propio orden implementando `Comparable`. Su método `compareTo` es el
+**orden natural** de la clase. Con el `Pair` de un nombre y un número,
+ordenado por el número:
+
+```java
+class Pair implements Comparable<Pair> {
+    private String first;
+    private int second;
+
+    public Pair(String first, int second) {
+        this.first = first;
+        this.second = second;
+    }
+
+    public int compareTo(Pair other) {
+        return Integer.compare(this.second, other.second);
+    }
+}
+```
+
+`Comparator.naturalOrder()` es el comparador que usa ese `compareTo`. Un
+heap construido con él saca primero el par de menor `second`.
+
+</Slide>
+
+<Slide title="Una prioridad según un campo">
+Otras veces la clase no trae un orden, o trae uno que no es la prioridad
+buscada. Entonces el comparador se escribe al construir el heap, con una
+lambda que compara el campo elegido, en el sentido elegido:
+
+```java
+class Task {
+    String name;
+    int urgency;
+
+    Task(String name, int urgency) {
+        this.name = name;
+        this.urgency = urgency;
+    }
+}
+
+Comparator<Task> byUrgency =
+    (a, b) -> Integer.compare(b.urgency, a.urgency);
+```
+
+Comparar `b` con `a`, y no `a` con `b`, invierte el sentido: va antes la
+tarea de **mayor** urgencia.
+
+</Slide>
+
+<Slide title="Un mismo heap para cada prioridad">
+Con el comparador como parámetro, una sola clase `Heap<T>` sirve para todos
+los casos. Lo único que cambia es cómo se construye:
+
+```java
+Heap<Integer> minFirst = new Heap<>(Comparator.naturalOrder());
+Heap<Integer> maxFirst = new Heap<>(Comparator.reverseOrder());
+Heap<Pair> pairs = new Heap<>(Comparator.naturalOrder());
+Heap<Task> tasks = new Heap<>(byUrgency);
+```
+
+| Heap       | Comparador                 | En la raíz queda               |
+| ---------- | -------------------------- | ------------------------------ |
+| `minFirst` | orden natural de `Integer` | el entero menor                |
+| `maxFirst` | orden natural invertido    | el entero mayor                |
+| `pairs`    | `compareTo` de `Pair`      | el par de menor `second`       |
+| `tasks`    | `byUrgency`                | la tarea de mayor urgencia     |
+
+</Slide>
+
+<Slide title="La clase PriorityQueue">
+Java trae este mismo heap en `java.util.PriorityQueue`: binario, guardado en
+un arreglo (desde 0) y con el comparador como parámetro. Sin comparador usa
+el orden natural de los elementos, así que **por defecto es un min-heap**.
+
+| TDA            | `PriorityQueue` |
+| -------------- | --------------- |
+| `insert(x)`    | `add(x)`        |
+| `max()`        | `peek()`        |
+| `extractMax()` | `poll()`        |
+| `isEmpty()`    | `isEmpty()`     |
+| `size()`       | `size()`        |
+
+Sobre una cola vacía, `peek()` y `poll()` **no** lanzan una excepción:
+devuelven `null`. Con `Integer`, guardar ese `null` en un `int` sí la lanza,
+así que preguntar `isEmpty()` antes sigue siendo trabajo de quien usa la
+cola.
+
+</Slide>
+
+<Slide title="El menor primero en una simulación por eventos">
+Una simulación por eventos guarda cada evento futuro con el instante en que
+ocurre, y procesa siempre **el más próximo**: la prioridad más alta es el
+tiempo **menor**. Es el orden por defecto de `PriorityQueue`:
+
+```java
+PriorityQueue<Integer> events = new PriorityQueue<>();
+events.add(9);
+events.add(2);
+events.add(6);
+events.add(3);
+events.add(5);
+
+int next = events.poll();   // 2: el instante más próximo
+```
+
+<div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-ink-soft)', textAlign: 'center' }}>los instantes 9, 2, 6, 3 y 5 en un min-heap</div>
+<HeapPicture values={[2, 3, 6, 9, 5]} view="tree" hot={[1]} label="Un min-heap con los instantes 9, 2, 6, 3 y 5: el 2 en la raíz, 3 y 6 como sus hijos, 9 y 5 como hijos del 3." />
+
+Procesar un evento suele crear otros más adelante en el tiempo, y cada uno
+entra con `add` en $$O(\log N)$$. La simulación nunca ordena todos los
+eventos: sólo necesita saber, en cada momento, cuál viene.
+
+</Slide>
+
+<Slide title="El mayor primero con Comparator.reverseOrder">
+Para que salga primero el mayor, el constructor recibe el comparador que
+invierte el orden natural:
+
+```java
+PriorityQueue<Integer> pq =
+    new PriorityQueue<>(Comparator.reverseOrder());
+pq.add(5);
+pq.add(1);
+pq.add(8);
+
+int first = pq.poll();   // 8: ahora sale el mayor
+```
+
+La clase no cambia: `PriorityQueue` siempre saca el que el comparador
+considera menor, y `reverseOrder()` hace que el mayor de los enteros sea el
+menor para el comparador.
+
+</Slide>
+
+<Slide title="Pares con su orden natural">
+Si la clase implementa `Comparable`, `PriorityQueue` usa su `compareTo` sin
+que haga falta pasarle un comparador:
+
+```java
+PriorityQueue<Pair> pairs = new PriorityQueue<>();
+pairs.add(new Pair("Ana", 21));
+pairs.add(new Pair("Beto", 19));
+pairs.add(new Pair("Carla", 25));
+
+Pair first = pairs.poll();   // Beto: el de menor second
+```
+
+Para sacar primero el de mayor `second`, basta con invertir ese orden:
+`new PriorityQueue<>(Comparator.reverseOrder())`.
+
+</Slide>
+
+<Slide title="Tareas por urgencia">
+Con una clase que no trae el orden buscado, el comparador se pasa al
+construir la cola:
+
+```java
+PriorityQueue<Task> tasks = new PriorityQueue<>(
+    (a, b) -> Integer.compare(b.urgency, a.urgency));
+tasks.add(new Task("respaldo", 2));
+tasks.add(new Task("caída del servidor", 9));
+tasks.add(new Task("informe", 5));
+
+Task next = tasks.poll();   // la de urgencia 9
+```
+
+Más ejemplos de comparadores sobre `PriorityQueue`, en
+[este gist](https://gist.github.com/so77id/b78952de9dc850446ab7d1507692cb18).
+
+</Slide>
+
+<Slide title="Costos de PriorityQueue">
+La documentación de `PriorityQueue` da los mismos costos que el heap
+construido aquí, porque es el mismo heap:
+
+| Operación                  | Costo          |
+| -------------------------- | -------------- |
+| `add(x)`, `poll()`         | $$O(\log N)$$  |
+| `peek()`, `size()`         | $$\Theta(1)$$  |
+| `contains(x)`, `remove(x)` | $$\Theta(N)$$  |
+
+La última fila es la que el orden débil cobra. Buscar un elemento cualquiera
+no tiene atajo, porque el heap sólo sabe dónde está el primero: el resto del
+arreglo hay que recorrerlo.
+
+Por la misma razón, **imprimir una `PriorityQueue` no la muestra ordenada**.
+`System.out.println(pq)` recorre el arreglo en el orden en que está
+guardado, que sólo cumple la invariante de orden de heap. Lo único
+garantizado es que el primero es el que va antes.
+
+</Slide>
+
+<SectionBreak />
+
+## Ejercicios
+
+<Slide title="Un planificador de tareas">
+En una sala de urgencias, cada paciente recibe un número al llegar. Se
+atiende primero al más grave, y **entre dos igual de graves, al que llegó
+antes**. Un sistema que atiende tareas sigue la misma regla: cada tarea trae
+una **urgencia**, un entero donde más es más urgente, y un **número de
+llegada**, que no se repite.
+
+<div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-ink-soft)', textAlign: 'center' }}>llegan, en este orden · cada tarjeta: urgencia, nombre y número de llegada</div>
+<TaskRow tasks={[['respaldo', 2, 1], ['caída', 9, 2], ['informe', 5, 3], ['correo', 5, 4], ['parche', 9, 5]]} label="Llegan cinco tareas, en este orden: respaldo, urgencia 2, llegada 1; caída, urgencia 9, llegada 2; informe, urgencia 5, llegada 3; correo, urgencia 5, llegada 4; parche, urgencia 9, llegada 5." />
+<div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-ink-soft)', textAlign: 'center' }}>se atienden</div>
+<TaskRow tasks={[['caída', 9, 2], ['parche', 9, 5], ['informe', 5, 3], ['correo', 5, 4], ['respaldo', 2, 1]]} label="Se atienden en este orden: caída y parche, las de urgencia 9, caída primero porque llegó antes; después informe y correo, las de urgencia 5, informe primero porque llegó antes; al final respaldo." />
+
+El programa recibe las tareas y devuelve sus nombres en el orden en que se
+atienden:
+
+```java
+class Task {
+    String name;
+    int urgency;
+    int arrival;
+}
+
+String[] schedule(Task[] tasks)
+```
+
+**Entrada.** `tasks`, a lo más 10⁵ tareas, con números de llegada distintos.
+
+**Salida.** Los nombres en el orden de atención. Sin tareas, un arreglo vacío.
+
+</Slide>
+
+<Slide title="Comparar sólo por urgencia">
+Lo primero que se piensa es una cola de prioridad con un comparador que sólo
+mira la urgencia, de mayor a menor. Atiende bien a las más urgentes, y falla
+en los empates: el heap **no es estable**. Cuando los dos hijos de un nodo
+empatan, `sink` baja por el izquierdo, y cuál quedó a la izquierda depende de
+cómo se armó el heap, no de cuál llegó antes.
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '0.25rem 1.5rem' }}>
+<div>
+<div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-ink-soft)', textAlign: 'center' }}>sale caída: correo e informe, hermanos empatados en 5</div>
+<TaskHeap tasks={[['parche', 9, 5], ['correo', 5, 4], ['informe', 5, 3], ['respaldo', 2, 1]]} tones={[undefined, 'mark', 'mark']} label="Después de atender a caída, el heap tiene a parche en la raíz, a correo como hijo izquierdo y a informe como hijo derecho, los dos con urgencia 5, y a respaldo bajo correo." />
+</div>
+<div>
+<div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-ink-soft)', textAlign: 'center' }}>sale parche: sink baja por el izquierdo y sube correo</div>
+<TaskHeap tasks={[['correo', 5, 4], ['respaldo', 2, 1], ['informe', 5, 3]]} tones={['flag', undefined, 'mark']} label="Después de atender a parche, correo quedó en la raíz, por delante de informe, aunque informe llegó antes." />
+</div>
+</div>
+
+<div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-ink-soft)', textAlign: 'center' }}>el orden que resulta</div>
+<TaskRow tasks={[['caída', 9, 2], ['parche', 9, 5], ['correo', 5, 4], ['informe', 5, 3], ['respaldo', 2, 1]]} tones={[undefined, undefined, 'flag', 'flag']} label="El orden que resulta comparando sólo por urgencia: caída, parche, correo, informe, respaldo. correo e informe salen al revés del orden de llegada." />
+
+</Slide>
+
+<Slide title="La llegada como desempate">
+Dos tareas igual de urgentes se distinguen por su número de llegada, y ese
+número ya viene en cada tarea. Basta con que la comparación lo use como
+segundo criterio: **primero la urgencia, de mayor a menor; si empatan, la
+llegada, de menor a mayor**.
+
+<TaskCompare
+  rows={[
+    { a: ['caída', 9, 2], b: ['parche', 9, 5], urgency: '9 = 9', arrival: '2 < 5', first: 'caída' },
+    { a: ['informe', 5, 3], b: ['correo', 5, 4], urgency: '5 = 5', arrival: '3 < 4', first: 'informe' },
+    { a: ['parche', 9, 5], b: ['informe', 5, 3], urgency: '9 > 5', arrival: null, first: 'parche' },
+  ]}
+  label="Tres comparaciones. caída contra parche: empatan en urgencia 9, y caída llegó antes, 2 contra 5, así que va antes caída. informe contra correo: empatan en 5, e informe llegó antes, 3 contra 4. parche contra informe: parche es más urgente, 9 contra 5, y la llegada no se mira."
+/>
+
+Con esa comparación no quedan dos tareas iguales, porque no hay dos con el
+mismo número de llegada. El heap sigue sin ser estable, pero ya no tiene
+empates que desordenar: una cola de prioridad con esta comparación atiende en
+el orden pedido.
+
+</Slide>
+
+<Slide title="Planificador · la solución">
+La comparación de dos tareas es la regla tal cual: si las urgencias son
+distintas, decide la urgencia, de mayor a menor; si son iguales, decide la
+llegada, de menor a mayor.
+
+<StepShow
+  language="java"
+  code={`static String[] schedule(Task[] tasks) {
+      PriorityQueue<Task> pending = new PriorityQueue<>((a, b) -> {
+          if (a.urgency != b.urgency) {
+              return Integer.compare(b.urgency, a.urgency);
+          }
+          return Integer.compare(a.arrival, b.arrival);
+      });
+      for (Task t : tasks) {
+          pending.add(t);
+      }
+      String[] order = new String[tasks.length];
+      for (int i = 0; i < order.length; i++) {
+          order[i] = pending.poll().name;
+      }
+      return order;
+  }`}
+>
+  <Step lines={[2, 3, 4, 5, 6, 7]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>La cola arranca vacía.</div>
+    <TaskHeap tasks={[]} out={[]} label="El heap, en orden de arreglo: nada. Atendidas: ninguna." />
+  </Step>
+  <Step lines={[8, 9]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Llega respaldo.</div>
+    <TaskHeap tasks={[['respaldo', 2, 1]]} tones={['hot']} out={[]} label="El heap, en orden de arreglo: respaldo. Atendidas: ninguna." />
+  </Step>
+  <Step lines={[8, 9]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Llega caída, más urgente que respaldo: sube a la raíz.</div>
+    <TaskHeap tasks={[['caída', 9, 2], ['respaldo', 2, 1]]} tones={['hot']} out={[]} label="El heap, en orden de arreglo: caída, respaldo. Atendidas: ninguna." />
+  </Step>
+  <Step lines={[8, 9]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Llega informe, menos urgente que caída: se queda como hoja.</div>
+    <TaskHeap tasks={[['caída', 9, 2], ['respaldo', 2, 1], ['informe', 5, 3]]} tones={[undefined, undefined, 'hot']} out={[]} label="El heap, en orden de arreglo: caída, respaldo, informe. Atendidas: ninguna." />
+  </Step>
+  <Step lines={[8, 9]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Llega correo, más urgente que respaldo: sube un nivel.</div>
+    <TaskHeap tasks={[['caída', 9, 2], ['correo', 5, 4], ['informe', 5, 3], ['respaldo', 2, 1]]} tones={[undefined, 'hot']} out={[]} label="El heap, en orden de arreglo: caída, correo, informe, respaldo. Atendidas: ninguna." />
+  </Step>
+  <Step lines={[8, 9]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Llega parche: sube sobre correo, y no sobre caída, que es igual de urgente y llegó antes.</div>
+    <TaskHeap tasks={[['caída', 9, 2], ['parche', 9, 5], ['informe', 5, 3], ['respaldo', 2, 1], ['correo', 5, 4]]} tones={[undefined, 'hot']} out={[]} label="El heap, en orden de arreglo: caída, parche, informe, respaldo, correo. Atendidas: ninguna." />
+  </Step>
+  <Step lines={[12, 13]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Sale caída, la raíz.</div>
+    <TaskHeap tasks={[['parche', 9, 5], ['correo', 5, 4], ['informe', 5, 3], ['respaldo', 2, 1]]} out={['caída']} label="El heap, en orden de arreglo: parche, correo, informe, respaldo. Atendidas: caída." />
+  </Step>
+  <Step lines={[12, 13]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Sale parche. correo e informe empatan en urgencia, e informe llegó antes: sube informe.</div>
+    <TaskHeap tasks={[['informe', 5, 3], ['correo', 5, 4], ['respaldo', 2, 1]]} tones={['hot']} out={['caída', 'parche']} label="El heap, en orden de arreglo: informe, correo, respaldo. Atendidas: caída, parche." />
+  </Step>
+  <Step lines={[12, 13]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Sale informe.</div>
+    <TaskHeap tasks={[['correo', 5, 4], ['respaldo', 2, 1]]} out={['caída', 'parche', 'informe']} label="El heap, en orden de arreglo: correo, respaldo. Atendidas: caída, parche, informe." />
+  </Step>
+  <Step lines={[12, 13]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Sale correo.</div>
+    <TaskHeap tasks={[['respaldo', 2, 1]]} out={['caída', 'parche', 'informe', 'correo']} label="El heap, en orden de arreglo: respaldo. Atendidas: caída, parche, informe, correo." />
+  </Step>
+  <Step lines={[12, 13]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Sale respaldo, y el heap queda vacío.</div>
+    <TaskHeap tasks={[]} out={['caída', 'parche', 'informe', 'correo', 'respaldo']} label="El heap, en orden de arreglo: nada. Atendidas: caída, parche, informe, correo, respaldo." />
+  </Step>
+  <Step lines={[15]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>El orden de atención: caída, parche, informe, correo, respaldo.</div>
+    <TaskHeap tasks={[]} out={['caída', 'parche', 'informe', 'correo', 'respaldo']} label="El heap, en orden de arreglo: nada. Atendidas: caída, parche, informe, correo, respaldo." />
+  </Step>
+</StepShow>
+
+</Slide>
+
+<Slide title="Los empates y la entrada vacía">
+Si todas las tareas empatan en urgencia, la llegada decide sola y el
+planificador atiende en orden de llegada, como una cola. Es también el caso
+en que comparar sólo por urgencia más se equivoca:
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '0.25rem 1.5rem' }}>
+<div>
+<div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-ink-soft)', textAlign: 'center' }}>sólo por urgencia</div>
+<TaskRow tasks={[['a', 3, 1], ['d', 3, 4], ['c', 3, 3], ['b', 3, 2]]} tones={[undefined, 'flag', 'flag', 'flag']} label="Cuatro tareas, a, b, c y d, todas de urgencia 3, que llegaron en ese orden. Comparando sólo por urgencia salen a, d, c, b." />
+</div>
+<div>
+<div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-ink-soft)', textAlign: 'center' }}>con la llegada como desempate</div>
+<TaskRow tasks={[['a', 3, 1], ['b', 3, 2], ['c', 3, 3], ['d', 3, 4]]} label="Las mismas cuatro tareas con la llegada como desempate: salen a, b, c, d, en orden de llegada." />
+</div>
+</div>
+
+Sin tareas, ningún ciclo corre y el resultado es un arreglo vacío.
+
+</Slide>
+
+<Slide title="El costo del planificador">
+**Tiempo.** El planificador recorre las tareas dos veces:
+
+- en el primer recorrido, cada una de las $$N$$ tareas entra a la cola con
+  `add`, que sube el elemento nuevo hacia la raíz;
+- en el segundo, cada una sale con `poll`, que baja desde la raíz el
+  elemento que ocupa su lugar.
+
+Ni la subida ni la bajada recorren más que la altura del heap,
+$$\lfloor \log_2 N \rfloor$$ niveles, y en cada nivel se hacen una o dos
+comparaciones. Comparar dos tareas cuesta $$\Theta(1)$$ porque mira a lo más
+dos enteros. Por eso cada `add` y cada `poll` cuesta $$O(\log N)$$ amortizado,
+como en cualquier heap. Sumando los dos recorridos:
+
+$$
+\underbrace{N \cdot O(\log N)}_{N \text{ llamadas a } \texttt{add}} + \underbrace{N \cdot O(\log N)}_{N \text{ llamadas a } \texttt{poll}} = O(N \log N)
+$$
+
+**Memoria.** Cuando termina el primer recorrido, las $$N$$ tareas están en la
+cola al mismo tiempo, y el resultado guarda además sus $$N$$ nombres. Las dos
+cosas crecen en proporción a $$N$$: la memoria es **$$\Theta(N)$$**.
+
+</Slide>
+
+<Slide title="Planificador · el programa completo">
+<PresentationWide fraction={0.75}>
+<Exercise title="Un planificador de tareas">
+
+```java starter
+import java.util.PriorityQueue;
+
+class Task {
+    String name;
+    int urgency;
+    int arrival;
+    Task(String name, int urgency, int arrival) {
+        this.name = name;
+        this.urgency = urgency;
+        this.arrival = arrival;
+    }
+}
+
+class Solution {
+    static String[] schedule(Task[] tasks) {
+        PriorityQueue<Task> pending = new PriorityQueue<>((a, b) -> {
+            if (a.urgency != b.urgency) {
+                return Integer.compare(b.urgency, a.urgency);
+            }
+            return Integer.compare(a.arrival, b.arrival);
+        });
+        for (Task t : tasks) {
+            pending.add(t);
+        }
+        String[] order = new String[tasks.length];
+        for (int i = 0; i < order.length; i++) {
+            order[i] = pending.poll().name;
+        }
+        return order;
+    }
+}
+```
+
+```java test
+check(Solution.schedule(new Task[] {
+    new Task("respaldo", 2, 1), new Task("caída", 9, 2), new Task("informe", 5, 3),
+    new Task("correo", 5, 4), new Task("parche", 9, 5)}),
+    new String[] {"caída", "parche", "informe", "correo", "respaldo"});
+check(Solution.schedule(new Task[] {
+    new Task("a", 3, 1), new Task("b", 3, 2), new Task("c", 3, 3), new Task("d", 3, 4)}),
+    new String[] {"a", "b", "c", "d"});
+check(Solution.schedule(new Task[] {}).length, 0);
+```
+
+</Exercise>
+</PresentationWide>
+
+</Slide>
+
+<Slide title="Los K mayores de una secuencia">
+Un servidor registra el tiempo de respuesta de cada solicitud, millones al
+día, y al final del día hay que informar los $$K$$ más lentos. Los tiempos
+llegan de a uno y no se pueden volver a pedir.
+
+El programa recibe $$K$$ y la secuencia, y devuelve los $$K$$ valores
+mayores, de mayor a menor. Si la secuencia tiene menos de $$K$$ números,
+devuelve todos; los valores repetidos cuentan por separado.
+
+<div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-ink-soft)', textAlign: 'center' }}>en verde, los K mayores de cada secuencia y el resultado</div>
+<TopKExamples
+  rows={[
+    { k: 3, stream: [5, 1, 9, 3, 7, 2, 8], chosen: [2, 4, 6], result: [9, 8, 7] },
+    { k: 2, stream: [6, 6, 1], chosen: [0, 1], result: [6, 6] },
+    { k: 2, stream: [4], chosen: [0], result: [4] },
+    { k: 1, stream: [], chosen: [], result: [] },
+  ]}
+  label="Cuatro ejemplos. Con K = 3 sobre 5, 1, 9, 3, 7, 2, 8, los tres mayores son 9, 7 y 8, y el resultado es 9, 8, 7. Con K = 2 sobre 6, 6, 1, el resultado es 6, 6. Con K = 2 sobre una secuencia de un solo número, 4, el resultado es 4. Con K = 1 sobre la secuencia vacía, el resultado es vacío."
+/>
+
+```java
+int[] topK(int k, int[] stream)
+```
+
+**Entrada.** `k`, mayor que cero; `stream`, con a lo más 10⁶ números.
+
+**Salida.** Los `k` mayores de `stream`, de mayor a menor.
+
+</Slide>
+
+<Slide title="Ordenar la secuencia entera">
+Lo primero que se piensa es guardar todos los números, ordenarlos de mayor a
+menor y tomar los primeros $$K$$. Da el resultado correcto, y cobra dos cosas
+que el problema no necesita:
+
+<div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-ink-soft)', textAlign: 'center' }}>K = 3 sobre la secuencia de ejemplo</div>
+<SortAllPicture stream={[5, 1, 9, 3, 7, 2, 8]} sorted={[9, 8, 7, 5, 3, 2, 1]} k={3} label="La secuencia 5, 1, 9, 3, 7, 2, 8 se guarda entera y se ordena: 9, 8, 7, 5, 3, 2, 1. Sólo los tres primeros, 9, 8 y 7, se usan; los siete se guardaron." />
+
+- **El tiempo.** Ordenar cuesta $$\Theta(N \log N)$$, y del orden completo
+  sólo interesan las primeras $$K$$ posiciones.
+- **La memoria.** Hay que tener los $$N$$ números guardados al mismo tiempo
+  para quedarse con $$K$$. Con millones de tiempos por día y $$K$$ pequeño,
+  casi todo lo guardado se descarta al final.
+
+Guardar todo en un max-heap y extraer $$K$$ veces mejora el tiempo, pero no
+la memoria: el heap también tiene los $$N$$ adentro.
+
+</Slide>
+
+<Slide title="El peor de los K mejores">
+Basta con recordar, en cada momento, **los $$K$$ mejores vistos hasta
+ahora**. Cuando llega un número nuevo, la única pregunta es si merece entrar
+entre ellos, y eso depende de un solo valor: **el peor de los $$K$$**. Si el
+nuevo es mayor que ese peor, lo reemplaza; si no, se descarta sin mirar a
+los otros.
+
+<div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-ink-soft)', textAlign: 'center' }}>K = 3 sobre 5 1 9 3 7 2 8</div>
+<TopKStrip
+  k={3}
+  steps={[
+    { x: 5, group: [5], verdict: 'entra' },
+    { x: 1, group: [1, 5], verdict: 'entra' },
+    { x: 9, group: [1, 5, 9], verdict: 'entra' },
+    { x: 3, group: [3, 5, 9], verdict: 'entra', out: 1 },
+    { x: 7, group: [5, 7, 9], verdict: 'entra', out: 3 },
+    { x: 2, group: [5, 7, 9], verdict: 'descarta' },
+    { x: 8, group: [7, 8, 9], verdict: 'entra', out: 5 },
+  ]}
+  label="Llegan 5, 1, 9, 3, 7, 2 y 8, y debajo de cada uno, los tres mejores vistos hasta ahora con el peor arriba. 5, 1 y 9 entran sin comparar, y el peor es 1. Llega 3: entra y sale el 1; el peor es 3. Llega 7: entra y sale el 3; el peor es 5. Llega 2, menor que 5: se descarta. Llega 8: entra y sale el 5. Quedan 7, 8 y 9."
+/>
+
+Lo que hay que tener a mano es entonces el **mínimo** de un grupo de $$K$$
+números que cambia a cada rato: sacarlo, agregar otro y volver a saber cuál
+es el mínimo. Eso es un **min-heap de tamaño $$K$$**.
+
+</Slide>
+
+<Slide title="Top-K · la solución">
+Una `PriorityQueue` sin comparador es el min-heap que la idea pide, y su
+raíz, `peek()`, es el peor de los $$K$$. Al final el heap entrega los $$K$$
+mayores del menor al mayor, así que se escriben en el resultado de atrás
+hacia adelante.
+
+<StepShow
+  language="java"
+  code={`static int[] topK(int k, int[] stream) {
+      PriorityQueue<Integer> best = new PriorityQueue<>();
+      for (int x : stream) {
+          if (best.size() < k) {
+              best.add(x);
+          } else if (x > best.peek()) {
+              best.poll();
+              best.add(x);
+          }
+      }
+      int[] out = new int[best.size()];
+      for (int i = out.length - 1; i >= 0; i--) {
+          out[i] = best.poll();
+      }
+      return out;
+  }`}
+>
+  <Step lines={[2]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>El heap arranca vacío.</div>
+    <TopKFrame stream={[5, 1, 9, 3, 7, 2, 8]} at={-1} heap={[]} k={3} result={[null, null, null]} label="El heap, en orden de arreglo: vacío." />
+  </Step>
+  <Step lines={[4, 5]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>5: el heap tiene menos de 3, así que entra sin comparar.</div>
+    <TopKFrame stream={[5, 1, 9, 3, 7, 2, 8]} at={0} heap={[5]} hot={[1]} k={3} result={[null, null, null]} label="El heap, en orden de arreglo: 5." />
+  </Step>
+  <Step lines={[4, 5]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>1: entra sin comparar y sube a la raíz.</div>
+    <TopKFrame stream={[5, 1, 9, 3, 7, 2, 8]} at={1} heap={[1, 5]} hot={[1]} k={3} result={[null, null, null]} label="El heap, en orden de arreglo: 1, 5." />
+  </Step>
+  <Step lines={[4, 5]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>9: entra sin comparar. Ahora el heap tiene 3, y su raíz, el 1, es el peor.</div>
+    <TopKFrame stream={[5, 1, 9, 3, 7, 2, 8]} at={2} heap={[1, 5, 9]} hot={[3]} k={3} result={[null, null, null]} label="El heap, en orden de arreglo: 1, 5, 9." />
+  </Step>
+  <Step lines={[6, 7]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>3 es mayor que el peor, 1: sale el 1.</div>
+    <TopKFrame stream={[5, 1, 9, 3, 7, 2, 8]} at={3} heap={[5, 9]} k={3} result={[null, null, null]} label="El heap, en orden de arreglo: 5, 9." />
+  </Step>
+  <Step lines={[8]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Entra el 3, y como es el menor, queda en la raíz: es el nuevo peor.</div>
+    <TopKFrame stream={[5, 1, 9, 3, 7, 2, 8]} at={3} heap={[3, 9, 5]} hot={[1]} k={3} result={[null, null, null]} label="El heap, en orden de arreglo: 3, 9, 5." />
+  </Step>
+  <Step lines={[6, 7]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>7 es mayor que el peor, 3: sale el 3.</div>
+    <TopKFrame stream={[5, 1, 9, 3, 7, 2, 8]} at={4} heap={[5, 9]} k={3} result={[null, null, null]} label="El heap, en orden de arreglo: 5, 9." />
+  </Step>
+  <Step lines={[8]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Entra el 7. El peor es ahora el 5.</div>
+    <TopKFrame stream={[5, 1, 9, 3, 7, 2, 8]} at={4} heap={[5, 9, 7]} hot={[3]} k={3} result={[null, null, null]} label="El heap, en orden de arreglo: 5, 9, 7." />
+  </Step>
+  <Step lines={[6]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>2 no es mayor que el peor, 5: se descarta y el heap no cambia.</div>
+    <TopKFrame stream={[5, 1, 9, 3, 7, 2, 8]} at={5} discarded heap={[5, 9, 7]} k={3} result={[null, null, null]} label="El heap, en orden de arreglo: 5, 9, 7." />
+  </Step>
+  <Step lines={[6, 7]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>8 es mayor que el peor, 5: sale el 5.</div>
+    <TopKFrame stream={[5, 1, 9, 3, 7, 2, 8]} at={6} heap={[7, 9]} k={3} result={[null, null, null]} label="El heap, en orden de arreglo: 7, 9." />
+  </Step>
+  <Step lines={[8]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Entra el 8. El heap guarda 7, 8 y 9: los tres mayores.</div>
+    <TopKFrame stream={[5, 1, 9, 3, 7, 2, 8]} at={6} heap={[7, 9, 8]} hot={[3]} k={3} result={[null, null, null]} label="El heap, en orden de arreglo: 7, 9, 8." />
+  </Step>
+  <Step lines={[12, 13]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>El heap sale del menor al mayor: el 7, el primero en salir, va al final del resultado.</div>
+    <TopKFrame stream={[5, 1, 9, 3, 7, 2, 8]} at={7} heap={[8, 9]} k={3} result={[null, null, 7]} label="El heap, en orden de arreglo: 8, 9." />
+  </Step>
+  <Step lines={[12, 13]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Sale el 8 y va antes del 7.</div>
+    <TopKFrame stream={[5, 1, 9, 3, 7, 2, 8]} at={7} heap={[9]} k={3} result={[null, 8, 7]} label="El heap, en orden de arreglo: 9." />
+  </Step>
+  <Step lines={[12, 13]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Sale el 9 y va primero.</div>
+    <TopKFrame stream={[5, 1, 9, 3, 7, 2, 8]} at={7} heap={[]} k={3} result={[9, 8, 7]} label="El heap, en orden de arreglo: vacío." />
+  </Step>
+  <Step lines={[15]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>El resultado: 9, 8, 7.</div>
+    <TopKFrame stream={[5, 1, 9, 3, 7, 2, 8]} at={7} heap={[]} k={3} result={[9, 8, 7]} label="El heap, en orden de arreglo: vacío." />
+  </Step>
+</StepShow>
+
+</Slide>
+
+<Slide title="Las secuencias más cortas que K">
+Si la secuencia tiene menos de $$K$$ números, la primera rama es la única
+que corre: todos entran sin compararse, el heap nunca se llena y el
+resultado tiene el largo del heap, no $$K$$. Los valores repetidos ocupan
+cada uno su lugar en el heap, como cualquier otro.
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '0.25rem 1.5rem' }}>
+<div>
+<div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-ink-soft)', textAlign: 'center' }}>K = 3 sobre 4 6: el heap nunca se llena</div>
+<TopKFrame stream={[4, 6]} at={2} heap={[4, 6]} k={3} result={[6, 4]} label="Con K = 3 sobre 4, 6, los dos entran sin comparar y el heap queda con 4 en la raíz y 6 como hijo, sin llenarse. El resultado tiene dos números: 6, 4." />
+</div>
+<div>
+<div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-ink-soft)', textAlign: 'center' }}>K = 2 sobre 6 6 1: los dos 6 cuentan</div>
+<TopKFrame stream={[6, 6, 1]} at={3} heap={[6, 6]} k={2} result={[6, 6]} label="Con K = 2 sobre 6, 6, 1, los dos 6 entran sin comparar y el 1 no es mayor que el peor, 6, así que se descarta. El resultado es 6, 6." />
+</div>
+</div>
+
+Con la secuencia vacía ningún ciclo corre y el resultado es un arreglo vacío.
+
+</Slide>
+
+<Slide title="El costo de Top-K">
+**Tiempo.** Cada número de la secuencia pasa por una de dos ramas:
+
+- mientras el heap tiene menos de $$K$$, entra con `add`;
+- después se compara con el peor, `peek()`, que cuesta $$\Theta(1)$$, y a lo
+  más sale uno con `poll` y entra otro con `add`.
+
+El heap nunca guarda más de $$K$$ números, así que su altura es a lo más
+$$\lfloor \log_2 K \rfloor$$ y cada `add` y cada `poll` cuesta
+$$O(\log K)$$. Al final se vacía el heap, que tiene a lo más $$K$$ números y
+nunca más que $$N$$:
+
+$$
+\underbrace{N \cdot O(\log K)}_{\text{recorrer la secuencia}} + \underbrace{\min(N, K) \cdot O(\log K)}_{\text{vaciar el heap}} = O(N \log K)
+$$
+
+**Memoria.** El heap y el resultado guardan a lo más $$K$$ números cada uno:
+**$$\Theta(K)$$**, sin importar cuán larga sea la secuencia. Ordenarla
+entera guardaba los $$N$$.
+
+</Slide>
+
+<Slide title="Top-K · el programa completo">
+<PresentationWide fraction={0.75}>
+<Exercise title="Top-K de una secuencia">
+
+```java starter
+import java.util.PriorityQueue;
+
+class Solution {
+
+    static int[] topK(int k, int[] stream) {
+        PriorityQueue<Integer> best = new PriorityQueue<>();
+        for (int x : stream) {
+            if (best.size() < k) {
+                best.add(x);
+            } else if (x > best.peek()) {
+                best.poll();
+                best.add(x);
+            }
+        }
+        int[] out = new int[best.size()];
+        for (int i = out.length - 1; i >= 0; i--) {
+            out[i] = best.poll();
+        }
+        return out;
+    }
+}
+```
+
+```java test
+check(Solution.topK(3, new int[] {5, 1, 9, 3, 7, 2, 8}), new int[] {9, 8, 7});
+check(Solution.topK(2, new int[] {6, 6, 1}), new int[] {6, 6});
+check(Solution.topK(2, new int[] {4}), new int[] {4});
+check(Solution.topK(1, new int[] {}), new int[] {});
+```
+
+</Exercise>
+</PresentationWide>
+
+</Slide>
+
+<Slide title="Mezclar listas ordenadas">
+Varios servidores escriben cada uno su registro de eventos, ordenado por
+hora. Para entender qué pasó hay que ver todos los eventos en **una sola
+línea de tiempo**: mezclar los registros en uno, también ordenado. Cada
+registro es una **lista enlazada** ordenada de menor a mayor, y una lista
+puede estar vacía.
+
+<div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-ink-soft)', textAlign: 'center' }}>bajo cada nodo del resultado, la lista de donde viene</div>
+<MergeCase
+  cases={[
+    { title: 'tres listas', lists: [[1, 4], [2, 3, 6], [5]], out: [[1, 0], [2, 1], [3, 1], [4, 0], [5, 2], [6, 1]] },
+    { title: 'dos listas vacías', lists: [[], [3], []], out: [[3, 1]] },
+  ]}
+  label="Dos ejemplos. La lista 0, 1 y 4; la lista 1, 2, 3 y 6; y la lista 2, sólo el 5, se mezclan en 1, 2, 3, 4, 5, 6. Tres listas de las que sólo la lista 1 tiene un nodo, el 3, dan una lista con el 3."
+/>
+
+El programa recibe las cabezas de las listas y devuelve la cabeza de una sola
+lista ordenada con todos los nodos. Reutiliza los nodos que recibe: no crea
+uno por cada valor.
+
+```java
+class Node {
+    int value;
+    Node next;
+}
+
+Node mergeK(Node[] lists)
+```
+
+**Entrada.** `lists`, las cabezas de $$K$$ listas, hasta 10⁴; una lista
+vacía es `null`. Entre todas tienen $$N$$ nodos, hasta 10⁶.
+
+**Salida.** La cabeza de la lista mezclada, de menor a mayor; `null` si no
+hay nodos.
+
+</Slide>
+
+<Slide title="Mirar todos los frentes">
+Como cada lista está ordenada, el menor de los nodos que faltan es siempre el
+**frente** de alguna lista: el primero de los que todavía no salieron. Lo
+primero que se piensa es comparar los $$K$$ frentes, enganchar el menor a la
+salida y repetir. Es correcto, y cada nodo de la salida obliga a mirar los
+$$K$$ frentes:
+
+<div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-ink-soft)', textAlign: 'center' }}>después de enganchar el 1 y el 2: se comparan los tres frentes y sale el 3</div>
+<FrontsPicture lists={[[1, 4], [2, 3, 6], [5]]} gone={[1, 1, 0]} fronts={[1, 1, 0]} out={[[1, 0], [2, 1]]} label="Las tres listas, con el 1 y el 2 ya enganchados en la salida. Los frentes son el 4 de la lista 0, el 3 de la lista 1 y el 5 de la lista 2; se comparan los tres para encontrar el menor, el 3." />
+
+Son $$N$$ nodos y $$K$$ comparaciones por cada uno: $$\Theta(N \cdot K)$$.
+Con miles de listas, cada nodo de la salida cuesta miles de comparaciones.
+Copiar todo a un arreglo y ordenarlo cuesta $$\Theta(N \log N)$$, y no
+aprovecha que las listas ya vienen ordenadas.
+
+</Slide>
+
+<Slide title="Un solo frente cambia en cada paso">
+El intento anterior compara los $$K$$ frentes en cada paso, como si todos
+pudieran haber cambiado. Pero entre un paso y el siguiente cambia **uno
+solo**: el que salió. Su lugar lo toma el nodo que le seguía en su lista, su
+`next`, y los otros $$K - 1$$ frentes son exactamente los mismos que antes.
+
+<div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-ink-soft)', textAlign: 'center' }}>el primer paso del ejemplo</div>
+<OneFrontChanges label="El primer paso del ejemplo. Los frentes son el 1 de la lista 0, el 2 de la lista 1 y el 5 de la lista 2. Sale el 1, el menor, y en su lugar entra su next, el 4. Los frentes pasan de 1, 2, 5 a 4, 2, 5: el 2 y el 5 siguen iguales." />
+
+Volver a comparar los que no cambiaron es trabajo repetido. Lo que hace
+falta es guardar los frentes de una forma que diga siempre cuál es el menor,
+y que permita cambiar uno sin mirar de nuevo a todos los demás.
+
+</Slide>
+
+<Slide title="Sacar el menor y agregar otro">
+Con los frentes, cada paso hace siempre las mismas dos cosas: **sacar el
+menor** y **agregar otro**, su `next`. Son las dos operaciones de una cola de
+prioridad. Un **min-heap de los frentes** las hace en $$O(\log K)$$ cada
+una, porque nunca guarda más de $$K$$ nodos, uno por lista.
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '0.25rem 1rem' }}>
+<div>
+<div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-ink-soft)', textAlign: 'center' }}>los frentes</div>
+<HeapPicture values={[1, 2, 5]} strokes={[LIST_COLORS[0], LIST_COLORS[1], LIST_COLORS[2]]} view="tree" minLevels={2} label="Un min-heap con los tres frentes: el 1 en la raíz, el 2 y el 5 como hijos." />
+</div>
+<div>
+<div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-ink-soft)', textAlign: 'center' }}>sale el menor, el 1</div>
+<HeapPicture values={[2, 5]} strokes={[LIST_COLORS[1], LIST_COLORS[2]]} view="tree" minLevels={2} label="Después de sacar el 1, el heap queda con el 2 en la raíz y el 5 como hijo." />
+</div>
+<div>
+<div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-ink-soft)', textAlign: 'center' }}>entra su next, el 4</div>
+<HeapPicture values={[2, 5, 4]} strokes={[LIST_COLORS[1], LIST_COLORS[2], LIST_COLORS[0]]} view="tree" minLevels={2} hot={[3]} label="Después de agregar el 4, el heap tiene el 2 en la raíz y el 5 y el 4 como hijos." />
+</div>
+</div>
+
+El heap no ordena los frentes entre sí: sólo garantiza que el menor está en
+la raíz, que es lo único que se le pregunta. Los nodos se comparan por su
+valor, y un frente no necesita guardar nada más: el que entra cuando sale es
+su `next`.
+
+</Slide>
+
+<Slide title="K listas · los primeros frentes">
+Al comienzo, los frentes son las cabezas de las listas. Una lista vacía tiene
+la cabeza en `null` y no aporta ningún frente, así que antes de agregar se
+pregunta si el nodo existe. El comparador ordena los nodos por `value`:
+
+```java
+PriorityQueue<Node> fronts = new PriorityQueue<>(
+    (a, b) -> Integer.compare(a.value, b.value));
+for (Node list : lists) {
+    if (list != null) {
+        fronts.add(list);
+    }
+}
+Node head = fronts.peek();
+```
+
+El primer nodo de la salida es el menor de todas las cabezas: la raíz del
+heap. `peek()` lo devuelve sin sacarlo, y `head` lo guarda para devolverlo al
+final. Si no hay ninguna cabeza, `peek()` devuelve `null`.
+
+<div style={{ display: 'grid', gridTemplateColumns: '3fr 2fr', gap: '0.25rem 1.5rem', alignItems: 'end' }}>
+<div>
+<div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-ink-soft)', textAlign: 'center' }}>las tres cabezas entran al heap, y la raíz es head</div>
+<MergeFrame lists={[[1, 4], [2, 3, 6], [5]]} gone={[0, 0, 0]} fronts={[0, 0, 0]} heap={[[1, 0], [2, 1], [5, 2]]} heapTags={{ 1: 'head' }} noOut scale={1} label="Las cabezas 1, 2 y 5 son los primeros frentes, y entran al heap: el 1 queda en la raíz, y head apunta a él." />
+</div>
+<div>
+<div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-ink-soft)', textAlign: 'center' }}>una cabeza null no entra</div>
+<MergeFrame lists={[[], [3], []]} gone={[0, 0, 0]} fronts={[-1, 0, -1]} heap={[[3, 1]]} noOut scale={1} label="Con la lista 0 y la lista 2 vacías, sólo entra la cabeza de la lista 1, el 3." />
+</div>
+</div>
+
+</Slide>
+
+<Slide title="K listas · sacar el menor">
+Cada paso empieza sacando el menor de los frentes con `poll()`:
+
+```java
+Node first = fronts.poll();
+```
+
+Lo que devuelve es un nodo, `first`, que sigue enganchado a su lista: su
+`next` es el nodo que le seguía, el que va a ocupar su lugar como frente.
+
+<div style={{ display: 'grid', gridTemplateColumns: '1fr 1.4fr 1fr', gap: '0.25rem 1rem', alignItems: 'center' }}>
+<div>
+<div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-ink-soft)', textAlign: 'center' }}>antes: el 1 en la raíz</div>
+<HeapPicture values={[1, 2, 5]} strokes={[LIST_COLORS[0], LIST_COLORS[1], LIST_COLORS[2]]} view="tree" minLevels={2} hot={[1]} label="El heap de frentes con el 1 en la raíz, y el 2 y el 5 como hijos." />
+</div>
+<div>
+<div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-ink-soft)', textAlign: 'center' }}>poll() devuelve el 1</div>
+<FirstPicture label="first apunta al nodo 1, que sigue enganchado a su lista: su next es el 4, y el next del 4 es null." />
+</div>
+<div>
+<div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-ink-soft)', textAlign: 'center' }}>después: el heap sin el 1</div>
+<HeapPicture values={[2, 5]} strokes={[LIST_COLORS[1], LIST_COLORS[2]]} view="tree" minLevels={2} label="El heap después de sacar el 1: el 2 en la raíz y el 5 como hijo." />
+</div>
+</div>
+
+</Slide>
+
+<Slide title="K listas · enganchar el siguiente">
+La salida no copia valores: reutiliza los mismos nodos y sólo cambia sus
+`next`. ¿Qué nodo va después de `first`? El menor de los que todavía no
+salieron, y ese es la raíz del heap, una vez que `first` repuso su frente
+con su `next`:
+
+```java
+if (first.next != null) {
+    fronts.add(first.next);
+}
+first.next = fronts.peek();
+```
+
+El orden importa: primero se repone el frente, porque al cambiar
+`first.next` se pierde el camino al resto de su lista. Y cuando el heap
+queda vacío, `peek()` devuelve `null`, que es justo lo que necesita el último
+nodo.
+
+<div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '0.25rem 1.5rem', alignItems: 'center' }}>
+<div>
+<div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-ink-soft)', textAlign: 'center' }}>después de reponer: la raíz es el 2</div>
+<HeapPicture values={[2, 5, 4]} strokes={[LIST_COLORS[1], LIST_COLORS[2], LIST_COLORS[0]]} view="tree" minLevels={2} hot={[1]} label="El heap después de que el 4 entró en lugar del 1: el 2 en la raíz, el 5 y el 4 como hijos." />
+</div>
+<div>
+<div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-ink-soft)', textAlign: 'center' }}>first.next, antes y después</div>
+<RelinkPicture label="Antes, first es el 1 y su next es el 4, el que le seguía en la lista 0. Después de first.next igual a fronts.peek(), el next del 1 es el 2, la raíz del heap, que viene de la lista 1." />
+</div>
+</div>
+
+</Slide>
+
+<Slide title="K listas · una vuelta">
+Cada vuelta junta las piezas: saca el menor de los frentes, repone su frente
+con su `next` y lo engancha al que queda como menor. Si el que salió era el
+último de su lista, su `next` es `null` y no hay nada que reponer: esa lista
+se acabó y el heap queda con un frente menos.
+
+```java
+while (!fronts.isEmpty()) {
+    Node first = fronts.poll();
+    if (first.next != null) {
+        fronts.add(first.next);
+    }
+    first.next = fronts.peek();
+}
+```
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '0.25rem 1rem', alignItems: 'end' }}>
+<div>
+<div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-ink-soft)', textAlign: 'center' }}>1. sale el menor, el 1</div>
+<HeapPicture values={[2, 5]} strokes={[LIST_COLORS[1], LIST_COLORS[2]]} view="tree" minLevels={2} label="El heap después de sacar el 1: el 2 en la raíz y el 5 como hijo." />
+</div>
+<div>
+<div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-ink-soft)', textAlign: 'center' }}>2. entra su next, el 4</div>
+<HeapPicture values={[2, 5, 4]} strokes={[LIST_COLORS[1], LIST_COLORS[2], LIST_COLORS[0]]} view="tree" minLevels={2} hot={[3]} label="El heap después de agregar el 4: el 2 en la raíz, el 5 y el 4 como hijos." />
+</div>
+<div>
+<div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-ink-soft)', textAlign: 'center' }}>3. su next pasa a ser la raíz, el 2</div>
+<OutPanel out={[[1, 0]]} nextTo={[2, 1]} label="La salida: head en el 1, y el next del 1 apunta al 2, la raíz del heap." />
+</div>
+</div>
+
+El ciclo termina cuando no quedan frentes. Para entonces cada nodo apunta al
+que le sigue en orden, y la lista mezclada empieza en `head`.
+
+</Slide>
+
+<Slide title="K listas · la solución">
+<StepShow
+  language="java"
+  code={`static Node mergeK(Node[] lists) {
+      PriorityQueue<Node> fronts = new PriorityQueue<>(
+          (a, b) -> Integer.compare(a.value, b.value));
+      for (Node list : lists) {
+          if (list != null) {
+              fronts.add(list);
+          }
+      }
+      Node head = fronts.peek();
+      while (!fronts.isEmpty()) {
+          Node first = fronts.poll();
+          if (first.next != null) {
+              fronts.add(first.next);
+          }
+          first.next = fronts.peek();
+      }
+      return head;
+  }`}
+>
+  <Step lines={[2, 3]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>La cola de frentes arranca vacía, y compara los nodos por su value.</div>
+    <MergeFrame lists={[[1, 4], [2, 3, 6], [5]]} gone={[0, 0, 0]} fronts={[-1, -1, -1]} heap={[]} out={[]} showOut={false} label="El heap de frentes, en orden de arreglo: vacío." />
+  </Step>
+  <Step lines={[4, 5, 6]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Entra la cabeza de la lista 0, el 1.</div>
+    <MergeFrame lists={[[1, 4], [2, 3, 6], [5]]} gone={[0, 0, 0]} fronts={[0, -1, -1]} heap={[[1, 0]]} heapHot={[1]} out={[]} showOut={false} label="El heap de frentes, en orden de arreglo: 1 de la lista 0." />
+  </Step>
+  <Step lines={[4, 5, 6]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Entra la cabeza de la lista 1, el 2.</div>
+    <MergeFrame lists={[[1, 4], [2, 3, 6], [5]]} gone={[0, 0, 0]} fronts={[0, 0, -1]} heap={[[1, 0], [2, 1]]} heapHot={[2]} out={[]} showOut={false} label="El heap de frentes, en orden de arreglo: 1 de la lista 0, 2 de la lista 1." />
+  </Step>
+  <Step lines={[4, 5, 6]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Entra la cabeza de la lista 2, el 5. Hay un frente por lista.</div>
+    <MergeFrame lists={[[1, 4], [2, 3, 6], [5]]} gone={[0, 0, 0]} fronts={[0, 0, 0]} heap={[[1, 0], [2, 1], [5, 2]]} heapHot={[3]} out={[]} showOut={false} label="El heap de frentes, en orden de arreglo: 1 de la lista 0, 2 de la lista 1, 5 de la lista 2." />
+  </Step>
+  <Step lines={[9]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>head = fronts.peek(): el primero de la salida es la raíz, el 1.</div>
+    <MergeFrame lists={[[1, 4], [2, 3, 6], [5]]} gone={[0, 0, 0]} fronts={[0, 0, 0]} heap={[[1, 0], [2, 1], [5, 2]]} heapTags={{ 1: 'head' }} out={[]} showOut={false} label="El heap de frentes, en orden de arreglo: 1 de la lista 0, 2 de la lista 1, 5 de la lista 2." />
+  </Step>
+  <Step lines={[11]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Sale el menor de los frentes, el 1: es first. Su next sigue apuntando al 4, en su lista.</div>
+    <MergeFrame lists={[[1, 4], [2, 3, 6], [5]]} gone={[1, 0, 0]} fronts={[-1, 0, 0]} hot={0} heap={[[2, 1], [5, 2]]} out={[[1, 0]]} nextTo={[4, 0]} label="El heap de frentes, en orden de arreglo: 2 de la lista 1, 5 de la lista 2." />
+  </Step>
+  <Step lines={[12, 13]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>first.next no es null: el 4 entra al heap y es el nuevo frente de la lista 0.</div>
+    <MergeFrame lists={[[1, 4], [2, 3, 6], [5]]} gone={[1, 0, 0]} fronts={[1, 0, 0]} heap={[[2, 1], [5, 2], [4, 0]]} heapHot={[3]} out={[[1, 0]]} nextTo={[4, 0]} label="El heap de frentes, en orden de arreglo: 2 de la lista 1, 5 de la lista 2, 4 de la lista 0." />
+  </Step>
+  <Step lines={[15]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>first.next = fronts.peek(): después del 1 va la raíz del heap, el 2.</div>
+    <MergeFrame lists={[[1, 4], [2, 3, 6], [5]]} gone={[1, 0, 0]} fronts={[1, 0, 0]} heap={[[2, 1], [5, 2], [4, 0]]} heapHot={[1]} out={[[1, 0]]} nextTo={[2, 1]} label="El heap de frentes, en orden de arreglo: 2 de la lista 1, 5 de la lista 2, 4 de la lista 0." />
+  </Step>
+  <Step lines={[11]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Sale el menor de los frentes, el 2: es first. Su next sigue apuntando al 3, en su lista.</div>
+    <MergeFrame lists={[[1, 4], [2, 3, 6], [5]]} gone={[1, 1, 0]} fronts={[1, -1, 0]} hot={1} heap={[[4, 0], [5, 2]]} out={[[1, 0], [2, 1]]} nextTo={[3, 1]} label="El heap de frentes, en orden de arreglo: 4 de la lista 0, 5 de la lista 2." />
+  </Step>
+  <Step lines={[12, 13]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>first.next no es null: el 3 entra al heap y es el nuevo frente de la lista 1.</div>
+    <MergeFrame lists={[[1, 4], [2, 3, 6], [5]]} gone={[1, 1, 0]} fronts={[1, 1, 0]} heap={[[3, 1], [5, 2], [4, 0]]} heapHot={[1]} out={[[1, 0], [2, 1]]} nextTo={[3, 1]} label="El heap de frentes, en orden de arreglo: 3 de la lista 1, 5 de la lista 2, 4 de la lista 0." />
+  </Step>
+  <Step lines={[15]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>first.next = fronts.peek(): después del 2 va la raíz del heap, el 3.</div>
+    <MergeFrame lists={[[1, 4], [2, 3, 6], [5]]} gone={[1, 1, 0]} fronts={[1, 1, 0]} heap={[[3, 1], [5, 2], [4, 0]]} heapHot={[1]} out={[[1, 0], [2, 1]]} nextTo={[3, 1]} label="El heap de frentes, en orden de arreglo: 3 de la lista 1, 5 de la lista 2, 4 de la lista 0." />
+  </Step>
+  <Step lines={[11, 12, 13]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Sale el 3, y su next, el 6, entra al heap.</div>
+    <MergeFrame lists={[[1, 4], [2, 3, 6], [5]]} gone={[1, 2, 0]} fronts={[1, 2, 0]} heap={[[4, 0], [5, 2], [6, 1]]} heapHot={[3]} out={[[1, 0], [2, 1], [3, 1]]} nextTo={[6, 1]} label="El heap de frentes, en orden de arreglo: 4 de la lista 0, 5 de la lista 2, 6 de la lista 1." />
+  </Step>
+  <Step lines={[15]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>first.next = fronts.peek(): después del 3 va la raíz del heap, el 4.</div>
+    <MergeFrame lists={[[1, 4], [2, 3, 6], [5]]} gone={[1, 2, 0]} fronts={[1, 2, 0]} heap={[[4, 0], [5, 2], [6, 1]]} heapHot={[1]} out={[[1, 0], [2, 1], [3, 1]]} nextTo={[4, 0]} label="El heap de frentes, en orden de arreglo: 4 de la lista 0, 5 de la lista 2, 6 de la lista 1." />
+  </Step>
+  <Step lines={[11, 12]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Sale el 4. Su next es null: la lista 0 se acabó y no entra nada.</div>
+    <MergeFrame lists={[[1, 4], [2, 3, 6], [5]]} gone={[2, 2, 0]} fronts={[-1, 2, 0]} heap={[[5, 2], [6, 1]]} out={[[1, 0], [2, 1], [3, 1], [4, 0]]} nextTo={null} label="El heap de frentes, en orden de arreglo: 5 de la lista 2, 6 de la lista 1." />
+  </Step>
+  <Step lines={[15]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>first.next = fronts.peek(): después del 4 va la raíz del heap, el 5.</div>
+    <MergeFrame lists={[[1, 4], [2, 3, 6], [5]]} gone={[2, 2, 0]} fronts={[-1, 2, 0]} heap={[[5, 2], [6, 1]]} heapHot={[1]} out={[[1, 0], [2, 1], [3, 1], [4, 0]]} nextTo={[5, 2]} label="El heap de frentes, en orden de arreglo: 5 de la lista 2, 6 de la lista 1." />
+  </Step>
+  <Step lines={[11, 12]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Sale el 5. Su next es null: la lista 2 se acabó y no entra nada.</div>
+    <MergeFrame lists={[[1, 4], [2, 3, 6], [5]]} gone={[2, 2, 1]} fronts={[-1, 2, -1]} heap={[[6, 1]]} out={[[1, 0], [2, 1], [3, 1], [4, 0], [5, 2]]} nextTo={null} label="El heap de frentes, en orden de arreglo: 6 de la lista 1." />
+  </Step>
+  <Step lines={[15]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>first.next = fronts.peek(): después del 5 va la raíz del heap, el 6.</div>
+    <MergeFrame lists={[[1, 4], [2, 3, 6], [5]]} gone={[2, 2, 1]} fronts={[-1, 2, -1]} heap={[[6, 1]]} heapHot={[1]} out={[[1, 0], [2, 1], [3, 1], [4, 0], [5, 2]]} nextTo={[6, 1]} label="El heap de frentes, en orden de arreglo: 6 de la lista 1." />
+  </Step>
+  <Step lines={[11, 12]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Sale el 6. Su next es null: la lista 1 se acabó y no entra nada.</div>
+    <MergeFrame lists={[[1, 4], [2, 3, 6], [5]]} gone={[2, 3, 1]} fronts={[-1, -1, -1]} heap={[]} out={[[1, 0], [2, 1], [3, 1], [4, 0], [5, 2], [6, 1]]} nextTo={null} label="El heap de frentes, en orden de arreglo: vacío." />
+  </Step>
+  <Step lines={[15]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>El heap quedó vacío: peek() devuelve null y el 6 cierra la salida.</div>
+    <MergeFrame lists={[[1, 4], [2, 3, 6], [5]]} gone={[2, 3, 1]} fronts={[-1, -1, -1]} heap={[]} out={[[1, 0], [2, 1], [3, 1], [4, 0], [5, 2], [6, 1]]} nextTo={null} label="El heap de frentes, en orden de arreglo: vacío." />
+  </Step>
+  <Step lines={[17]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Se devuelve head: 1, 2, 3, 4, 5, 6.</div>
+    <MergeFrame lists={[[1, 4], [2, 3, 6], [5]]} gone={[2, 3, 1]} fronts={[-1, -1, -1]} heap={[]} out={[[1, 0], [2, 1], [3, 1], [4, 0], [5, 2], [6, 1]]} nextTo={null} label="El heap de frentes, en orden de arreglo: vacío." />
+  </Step>
+</StepShow>
+
+</Slide>
+
+<Slide title="Las listas vacías y la que se acaba">
+La pregunta por `null` cubre los dos bordes: una lista vacía no aporta
+ningún frente al comienzo, y una lista que se acaba no repone el suyo. El
+heap guarda siempre un frente por cada lista que todavía tiene nodos.
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '0.25rem 1.5rem' }}>
+<div>
+<div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-ink-soft)', textAlign: 'center' }}>dos listas vacías: un solo frente</div>
+<MergeFrame lists={[[], [3], []]} gone={[0, 0, 0]} fronts={[-1, 0, -1]} heap={[[3, 1]]} noOut scale={0.8} label="Con la lista 0 y la lista 2 vacías, el heap empieza con un solo frente, el 3 de la lista 1." />
+</div>
+<div>
+<div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-ink-soft)', textAlign: 'center' }}>la lista 0 se acabó: dos frentes</div>
+<MergeFrame lists={[[1, 4], [2, 3, 6], [5]]} gone={[2, 2, 0]} fronts={[-1, 2, 0]} heap={[[5, 2], [6, 1]]} out={[[1, 0], [2, 1], [3, 1], [4, 0]]} nextTo={[5, 2]} scale={0.8} label="Después de sacar el 4, la lista 0 se acabó y el heap queda con dos frentes, el 5 de la lista 2 y el 6 de la lista 1; el next del 4 apunta al 5." />
+</div>
+</div>
+
+Sin listas, el heap nunca recibe nada: `head` queda en `null`, el `while` no
+corre y se devuelve `null`.
+
+</Slide>
+
+<Slide title="El costo de mezclar K listas">
+**Tiempo.** El algoritmo tiene dos partes:
+
+- primero entran las cabezas: a lo más $$K$$ llamadas a `add`;
+- después cada uno de los $$N$$ nodos sale una vez con `poll`, y por cada uno
+  que sale entra a lo más su `next`.
+
+El heap guarda a lo más un frente por lista, así que nunca tiene más de
+$$K$$ nodos: cada `add` y cada `poll` cuesta $$O(\log K)$$, y comparar dos
+nodos cuesta $$\Theta(1)$$. Sumando las dos partes:
+
+$$
+\underbrace{K \cdot O(\log K)}_{\text{las cabezas}} + \underbrace{N \cdot O(\log K)}_{\text{sacar y reponer}} = O((N + K) \log K)
+$$
+
+Si ninguna lista está vacía, $$K \le N$$ y queda $$O(N \log K)$$. Con
+$$10^4$$ listas, $$\log_2 K$$ es cerca de 13: cada nodo cuesta decenas de
+comparaciones, no diez mil.
+
+**Memoria.** El heap guarda a lo más $$K$$ nodos: $$\Theta(K)$$. La salida
+no ocupa memoria nueva, porque reutiliza los mismos nodos enganchándolos en
+otro orden: no se crea ningún nodo.
+
+</Slide>
+
+<Slide title="Cuatro formas de mezclar K listas">
+Hay una tercera forma natural de resolver el problema: mezclar las listas de
+a una, la primera con la segunda, el resultado con la tercera, y así. Usa que
+vienen ordenadas, pero cada mezcla vuelve a recorrer todo lo que ya se
+juntó: con listas del mismo largo, la última recorre casi los $$N$$ nodos, y
+las $$K$$ mezclas suman $$O(N \cdot K)$$.
+
+| Solución                              | Tiempo                  | Memoria extra      | Usa que vienen ordenadas |
+| ------------------------------------- | ----------------------- | ------------------ | ------------------------ |
+| Copiar todo a un arreglo y ordenarlo  | $$\Theta(N \log N)$$    | $$\Theta(N)$$      | no                       |
+| Mezclar las listas de a una           | $$O(N \cdot K)$$        | $$\Theta(1)$$      | sí                       |
+| Comparar los $$K$$ frentes en cada paso | $$\Theta(N \cdot K)$$ | $$\Theta(1)$$      | sí                       |
+| **Un min-heap de los frentes**        | **$$O(N \log K)$$**     | **$$\Theta(K)$$**  | **sí**                   |
+
+El min-heap es el mejor porque aprovecha las dos cosas que el problema
+regala: que cada lista ya viene ordenada, así que no hay que volver a
+ordenar nada, y que de un paso al siguiente cambia un solo frente, así que
+no hay que volver a compararlos todos. Paga $$\log K$$ por nodo en vez de
+$$K$$, y como $$K \le N$$, $$N \log K$$ nunca supera a $$N \log N$$. Con
+$$N = 10^6$$ nodos y $$K = 10^4$$ listas, comparar todos los frentes son
+unas $$10^{10}$$ comparaciones; el heap, unas $$10^6 \cdot 13 \approx 1{,}3 \cdot 10^7$$.
+
+</Slide>
+
+<Slide title="K listas · el programa completo">
+<PresentationWide fraction={0.75}>
+<Exercise title="Mezclar listas ordenadas">
+
+```java starter
+import java.util.PriorityQueue;
+
+class Node {
+    int value;
+    Node next;
+    Node(int value) { this.value = value; }
+}
+
+class Solution {
+    static Node mergeK(Node[] lists) {
+        PriorityQueue<Node> fronts = new PriorityQueue<>(
+            (a, b) -> Integer.compare(a.value, b.value));
+        for (Node list : lists) {
+            if (list != null) {
+                fronts.add(list);
+            }
+        }
+        Node head = fronts.peek();
+        while (!fronts.isEmpty()) {
+            Node first = fronts.poll();
+            if (first.next != null) {
+                fronts.add(first.next);
+            }
+            first.next = fronts.peek();
+        }
+        return head;
+    }
+}
+```
+
+```java test
+Node a = new Node(1); a.next = new Node(4);
+Node b = new Node(2); b.next = new Node(3); b.next.next = new Node(6);
+Node c = new Node(5);
+String s = "";
+for (Node p = Solution.mergeK(new Node[] {a, b, c}); p != null; p = p.next) s += p.value + " ";
+check(s, "1 2 3 4 5 6 ");
+Node d = new Node(1); d.next = new Node(3);
+Node e = new Node(1); e.next = new Node(2);
+s = "";
+for (Node p = Solution.mergeK(new Node[] {d, e}); p != null; p = p.next) s += p.value + " ";
+check(s, "1 1 2 3 ");
+check(Solution.mergeK(new Node[] {null, new Node(3), null}).value, 3);
+check(Solution.mergeK(new Node[] {}) == null, true);
+Node f = new Node(1);
+Node g = new Node(2);
+Node h = Solution.mergeK(new Node[] {g, f});
+check(h == f && h.next == g, true);
+```
+
+</Exercise>
+</PresentationWide>
+
+</Slide>
+
+<Exercise title="La verificación de un max-heap">
+
+La función recibe un arreglo guardado como heap desde 1 —`data[0]` sin usar
+y los elementos en `data[1..n]`— y decide si cumple el orden de max-heap.
+
+```java
+boolean isMaxHeap(int[] data, int n)
+```
+
+`n` está entre 0 y `data.length - 1`. Un heap con cero o un elemento
+siempre cumple el orden. No hace falta comparar cada nodo con sus dos hijos:
+alcanza con comparar cada posición `k`, de 2 a `n`, con su padre `k / 2`.
+El costo esperado es $$\Theta(n)$$.
+
+```java starter
+class Solution {
+
+    static boolean isMaxHeap(int[] data, int n) {
+        return false;
+    }
+}
+```
+
+```java test
+check(Solution.isMaxHeap(new int[] {0, 10, 7, 8, 1, 3}, 5), true);
+check(Solution.isMaxHeap(new int[] {0, 10, 7, 8, 1, 9}, 5), false);
+check(Solution.isMaxHeap(new int[] {0, 5, 6}, 2), false);
+check(Solution.isMaxHeap(new int[] {0, 4}, 1), true);
+check(Solution.isMaxHeap(new int[] {0}, 0), true);
+check(Solution.isMaxHeap(new int[] {0, 9, 7, 8, 1, 3, 2, 4, 10}, 7), true);
+check(Solution.isMaxHeap(new int[] {0, 5, 5, 5}, 3), true);
+```
+
+```java solution
+class Solution {
+
+    static boolean isMaxHeap(int[] data, int n) {
+        for (int k = 2; k <= n; k++) {
+            if (data[k / 2] < data[k]) {
+                return false;
+            }
+        }
+        return true;
+    }
+}
+```
+
+</Exercise>
+
+## Lo que sigue
+
+El heap es un **árbol binario** con dos invariantes: la forma completa y el
+orden de heap. Gracias a ellas cabe en un arreglo y encuentra su máximo sin
+buscarlo; por ellas mismas no sirve para ninguna otra pregunta sobre el
+orden.
+
+La próxima clase estudia el árbol binario sin esas restricciones, como
+estructura general: nodos enlazados con punteros a sus hijos, las formas de
+recorrerlo —preorden, inorden, postorden— y cuánto puede crecer su altura
+cuando nada la controla. Es la base de los árboles de búsqueda, que ordenan
+los valores de izquierda a derecha para poder encontrar cualquiera de ellos,
+no sólo el máximo.
+
+
+<Questions>
+
+<Question id="cola-prioridad-que-sale" anchor="una-cola-de-prioridad">
+
+¿Qué elemento sale de una cola de prioridad?
+
+- [x] El de mayor prioridad, sin importar cuándo llegó
+- [ ] El que lleva más tiempo esperando en la cola
+- [ ] El último que entró, como en una pila
+- [ ] El que quedó guardado al frente de la estructura
+
+</Question>
+
+<Question id="cola-prioridad-cuando-llamar-max" anchor="las-reglas-del-contrato-priority-queue">
+
+¿Cuándo permite el contrato del TDA Priority Queue llamar a `max()` y a `extractMax()`?
+
+- [x] Cuando `isEmpty()` retorna falso
+- [ ] Siempre: sobre una colección vacía retornan `null`
+- [ ] Siempre: sobre una colección vacía retornan 0
+- [ ] Sólo justo después de llamar a `insert(x)`
+
+</Question>
+
+<Question id="cola-prioridad-donde-paga-cada-lista" anchor="un-dilema-entre-insertar-y-extraer">
+
+Con una lista enlazada, ¿dónde paga cada versión de la cola de prioridad el trabajo de encontrar el máximo?
+
+- [x] La lista sin orden al extraer, y la ordenada al insertar
+- [ ] La lista sin orden al insertar, y la ordenada al extraer
+- [ ] Las dos al extraer, porque recorren la lista
+- [ ] Las dos lo encuentran en costo constante, en `head`
+
+</Question>
+
+<Question id="cola-prioridad-orden-necesario" anchor="un-orden-que-solo-garantiza-donde-esta-el-maximo">
+
+¿Qué orden basta guardar para que insertar y extraer sean baratos a la vez?
+
+- [x] Sólo el necesario para saber cuál es el mayor
+- [ ] El orden completo, de mayor a menor
+- [ ] El orden en que llegaron los elementos
+- [ ] Ninguno: se recorre todo al extraer
+
+</Question>
+
+<Question id="heap-que-garantiza-el-orden" anchor="un-arbol-binario-con-orden-de-heap">
+
+En un árbol con orden de heap, ¿qué se sabe con certeza?
+
+- [x] El valor más grande está siempre en la raíz
+- [ ] Por niveles, los valores quedan de mayor a menor
+- [ ] Cada hijo izquierdo es menor que el derecho
+- [ ] El valor más chico está en el último nodo
+
+</Question>
+
+<Question id="heap-para-que-sirve-la-forma-completa" anchor="un-arbol-binario-completo">
+
+¿Qué aporta la invariante de forma completa al heap?
+
+- [x] Mantiene el árbol bajo y permite guardarlo sin punteros
+- [ ] Deja el valor más grande siempre en la raíz
+- [ ] Permite buscar cualquier valor en costo logarítmico
+- [ ] Impide que el heap guarde valores repetidos
+
+</Question>
+
+<Question id="heap-hijos-de-k" anchor="los-hijos-de-un-nodo">
+
+En un heap guardado en un arreglo desde la posición 1, ¿dónde están los hijos del nodo de la posición k?
+
+- [x] En las posiciones 2k y 2k + 1
+- [ ] En las posiciones k + 1 y k + 2
+- [ ] En las posiciones 2k + 1 y 2k + 2
+- [ ] En las posiciones k / 2 y k / 2 + 1
+
+</Question>
+
+<Question id="heap-por-que-desde-1" anchor="si-el-arreglo-empezara-en-0">
+
+¿Por qué conviene guardar el heap desde la posición 1 del arreglo?
+
+- [x] Para que las fórmulas de hijos y padre no lleven ±1
+- [ ] Porque Java no permite usar la posición 0
+- [ ] Porque `data[0]` guarda la cantidad de elementos
+- [ ] Porque desde 0 el árbol deja de ser completo
+
+</Question>
+
+<Question id="heap-insert-arista-rota" anchor="la-invariante-que-el-nuevo-puede-romper">
+
+Al escribir un elemento nuevo en la posición `n + 1`, ¿dónde puede romperse la invariante de orden de heap?
+
+- [x] Sólo en la arista entre el nuevo y su padre
+- [ ] En las aristas entre el nuevo y sus hijos
+- [ ] En cualquier arista del camino hasta la raíz
+- [ ] En ninguna: el nuevo entra siempre en su lugar
+
+</Question>
+
+<Question id="heap-como-sale-el-maximo" anchor="por-donde-sale-el-maximo">
+
+¿Cómo saca el heap el elemento de mayor prioridad sin romper la invariante de forma completa?
+
+- [x] Lo intercambia con el último y después reduce `n` en uno
+- [ ] Borra la raíz y sube a su lugar el hijo mayor
+- [ ] Borra la raíz y corre el arreglo una posición
+- [ ] Lo marca como borrado y lo deja en la raíz
+
+</Question>
+
+<Question id="heap-sink-por-el-hijo-mayor" anchor="bajar-por-el-hijo-mayor">
+
+Al bajar con `sink`, ¿por qué el elemento se intercambia con el mayor de sus dos hijos?
+
+- [x] Para que el que sube no quede sobre un hermano mayor
+- [ ] Porque el hijo mayor siempre está a la izquierda
+- [ ] Porque así el elemento baja menos niveles
+- [ ] Porque el hijo menor ya está en su lugar definitivo
+
+</Question>
+
+<Question id="heap-que-limita-swim" anchor="el-costo-de-insert">
+
+¿Qué limita cuántos intercambios hace `swim` al insertar?
+
+- [x] La altura del árbol, que es logarítmica
+- [ ] La cantidad de nodos del último nivel
+- [ ] La cantidad total de elementos del heap
+- [ ] Cuántos elementos son mayores que el nuevo
+
+</Question>
+
+<Question id="heap-insert-peor-caso-lineal" anchor="el-costo-de-insert">
+
+¿Cuándo cuesta `insert` tiempo lineal en el peor caso?
+
+- [x] Cuando el arreglo está lleno y `resize` copia todo
+- [ ] Cuando el nuevo es el mayor y sube hasta la raíz
+- [ ] Cuando el nuevo es el menor de todos los elementos
+- [ ] Cuando el heap tiene valores repetidos
+
+</Question>
+
+<Question id="heap-sink-trabajo-por-nivel" anchor="el-costo-de-extractmax">
+
+Por cada nivel que baja, ¿cuánto trabajo hace `sink`?
+
+- [x] Constante: compara con sus hijos y quizás intercambia
+- [ ] Lineal: compara con todos los nodos de ese nivel
+- [ ] Lineal: compara con todos sus descendientes
+- [ ] Logarítmico: busca el mayor entre los de abajo
+
+</Question>
+
+<Question id="heap-gana-con-operaciones-mezcladas" anchor="muchas-operaciones-mezcladas">
+
+¿Por qué el heap supera a las dos listas cuando se mezclan muchas inserciones y extracciones?
+
+- [x] Porque sus dos operaciones son logarítmicas amortizadas
+- [ ] Porque inserta más rápido que la lista sin orden
+- [ ] Porque extrae más rápido que la lista ordenada
+- [ ] Porque mantiene todos sus elementos ordenados
+
+</Question>
+
+<Question id="heap-min-heap-que-cambia" anchor="el-min-heap">
+
+¿Qué cambia al pasar de un max-heap a un min-heap?
+
+- [x] Sólo el sentido de las comparaciones de `swim` y `sink`
+- [ ] La forma del árbol, que se llena de derecha a izquierda
+- [ ] Las fórmulas de hijos y padre en el arreglo
+- [ ] El arreglo, que pasa a guardarse desde la posición 0
+
+</Question>
+
+</Questions>

@@ -15,21 +15,26 @@
  * - `pointers` are the named arrows drawn under (array) or over (list) the
  *   structure. `index: null` means the pointer points at `null` — past the end
  *   of the chain, which is the terminating case every walk ends on.
- * - `cost` is the running count of elementary operations, so the reader can
- *   read $$\Theta(1)$$ against $$\Theta(N)$$ off the counter rather than
- *   memorising it.
- * - `capacity` is the reserved block, for the two array recipes only. The
- *   dynamic array's grows mid-trace; the static array's never does.
+ * - `cost` is the running count of elementary operations THIS run has spent.
+ *   The widget no longer prints it (#294: one run shows one number, and one
+ *   number is not a growth rate); the suite reads it to pin what each
+ *   operation costs.
+ * - `capacity` is the reserved block, for the dynamic array and the heap.
+ *   Both grow mid-trace, and the heap's also shrinks.
  * - `closesRing` marks the circular recipe, whose last node points back at the
  *   first rather than at `null`.
  */
 
 export const RECIPES = [
-  'array',
   'dynamic-array',
   'linked-list-singly',
   'linked-list-doubly',
   'linked-list-circular',
+  // A binary max-heap stored 1-based in an array (#304, ADR-0077). Not a
+  // Sequence at all — it has its own two operations and draws the array
+  // beside the complete binary tree it encodes — but it is the same widget:
+  // one listing, one structure, the same controls and the same frame model.
+  'heap-max',
 ] as const;
 export type SequenceRecipe = (typeof RECIPES)[number];
 
@@ -43,11 +48,26 @@ export const OPERATIONS = [
   'remove-last',
   'remove-at',
   'search',
+  // The heap's own operations — valid on `heap-max` and nowhere else.
+  // `swim` and `sink` are not among them: they are the INSIDE of these
+  // (their lines light up in the listing), not operations of the TDA.
+  'insert',
+  'extract-max',
 ] as const;
 export type SequenceOperation = (typeof OPERATIONS)[number];
 
 export type SequenceStepKind =
-  'start' | 'walk' | 'compare' | 'shift' | 'grow' | 'build' | 'link' | 'unlink' | 'found' | 'done';
+  | 'start'
+  | 'walk'
+  | 'compare'
+  | 'shift'
+  | 'grow'
+  | 'shrink'
+  | 'build'
+  | 'link'
+  | 'unlink'
+  | 'found'
+  | 'done';
 
 /**
  * `leaving` is an element ON ITS WAY OUT of the structure. `stale` is a
@@ -57,7 +77,15 @@ export type SequenceStepKind =
  * leaves behind — and painting them the same said "move" where the narration
  * said "copy" (#294 review).
  */
-export type SequenceCellState = 'idle' | 'new' | 'active' | 'found' | 'leaving' | 'stale';
+export type SequenceCellState =
+  | 'idle'
+  | 'new'
+  | 'active'
+  | 'found'
+  | 'leaving'
+  | 'stale'
+  /** Heap: one of the two cells being exchanged by `swap` this frame. */
+  | 'swap';
 
 export interface SequenceCell {
   /** Stable across frames — the view animates by identity, not by position. */
@@ -67,7 +95,10 @@ export interface SequenceCell {
 }
 
 export interface SequencePointer {
-  /** `head`, `tail`, `current`, `prev` for lists; `i`, `j` for arrays. */
+  /**
+   * `head`, `tail`, `current`, `prev` for lists; `i`, `j` for arrays; `k`,
+   * `j` for the heap, which index `data` 1-based.
+   */
   name: string;
   /** Index into `cells`, or `null` for a pointer aimed past the end. */
   index: number | null;
@@ -87,14 +118,17 @@ export interface SequenceStep {
   /** 1-based lines of `trace.code` this frame is executing. */
   highlightLines: number[];
   description: string;
-  /** Array recipes only: the reserved block size. */
+  /** The dynamic array and the heap: the reserved block size (`data.length`). */
   capacity?: number;
   /**
-   * Array recipes only: the block slot by slot, `null` where a slot holds
-   * nothing. This is what makes a shift VISIBLE — the element leaves its slot
-   * and the hole travels — and a shift the reader cannot see is a
-   * $$\Theta(N)$$ the reader has to take on faith. `cells` stays the live
-   * elements in order, so everything reading it is unaffected.
+   * The dynamic array only: the block slot by slot, `null` where a slot
+   * holds nothing. This is what makes a shift VISIBLE — the copies travel
+   * through the block — and a shift the reader cannot see is a
+   * $$\Theta(N)$$ the reader has to take on faith. `cells` is the occupied
+   * slots in order with the holes dropped (a stale copy is still a cell), so
+   * a reader that ignores the block is unaffected. The heap encodes its
+   * block differently: no `slots`, and `heapSize` marks where the live cells
+   * end (ADR-0077).
    */
   slots?: (SequenceCell | null)[];
   /**
@@ -118,6 +152,13 @@ export interface SequenceStep {
   };
   /** Circular recipe: the chain closes back on its first node. */
   closesRing?: boolean;
+  /**
+   * Heap recipe only: the listing's `n`. `cells` is `data[1..]` in array
+   * order, and the cells past `n` are OUTSIDE the heap — the stale copy an
+   * extraction leaves in `data[n + 1]`. The tree draws the first `n`; the
+   * array draws them all.
+   */
+  heapSize?: number;
   /**
    * `head` points at the FLOATING node rather than at the chain. True for the
    * one frame between `head = fresh` running and the node taking its place in
@@ -171,7 +212,8 @@ export interface SequenceTrace {
 export interface SequenceInput {
   values: number[];
   /**
-   * Required by every `insert-*` except `insert-ordered`. An ARRAY inserts
+   * Required by every `insert-*` except `insert-ordered`, and by the heap's
+   * `insert`. An ARRAY inserts
    * each value in turn over the same chain, so a slide can show the list
    * growing rather than one insertion in isolation.
    */
@@ -186,16 +228,18 @@ export interface SequenceInput {
   target?: number | number[];
   /**
    * How many times to run an operation that takes no argument
-   * (`remove-first`, `remove-last`). Default one.
+   * (`remove-first`, `remove-last`, `extract-max`). Default one.
    */
   times?: number;
   /**
-   * Arrays only: how many slots the block reserves. Without it the block is
-   * sized from the input (`values.length + 2`), which makes the SAME stack
-   * appear four cells wide on the slide that pushes and five on the slide
-   * that pops — two consecutive slides drawing one structure at two sizes
-   * (#294 review). Give the pair the same number and the block stops
-   * breathing between slides.
+   * The dynamic array and the heap: how many slots the block reserves (the
+   * heap's counts `data[0]`, which it never uses). Without it the block
+   * starts FULL — `values.length` on the dynamic array, `values.length + 1`
+   * on the heap — so a single insertion shows the growth. Sized from the
+   * input, the SAME stack came out four cells wide on the slide that pushes
+   * and five on the slide that pops — two consecutive slides drawing one
+   * structure at two sizes (#294 review). Give the pair the same number and
+   * the block stops breathing between slides.
    */
   capacity?: number;
   /** Lists only: draw a `tail` pointer and let the operations use it. */
@@ -209,7 +253,10 @@ export interface SequenceInput {
    * slide is about. Renames the signature and every call of it (#294).
    */
   method?: string;
-  /** The variable the calling program operates on. Default `list`. */
+  /**
+   * The variable the calling program operates on. Default `list` on the
+   * chains, `arreglo` on the dynamic array, `heap` on the heap.
+   */
   receiver?: string;
   /**
    * The class the calling program constructs. Goes with `method` and
@@ -219,7 +266,7 @@ export interface SequenceInput {
    */
   receiverType?: string;
   /**
-   * Arrays only: a named arrow kept on EVERY frame, aimed at the end the
+   * The dynamic array only: a named arrow kept on EVERY frame, aimed at the end the
    * operation works on — the last live slot for the `*-last` operations, the
    * first for the rest, and at nothing when the block is empty. The `i`/`j`
    * cursors a frame would otherwise carry are the operation's own, and they
@@ -256,7 +303,7 @@ const isList = (recipe: SequenceRecipe) => recipe.startsWith('linked-list');
 /**
  * `insert-ordered` is a LIST operation in this course: the ordered list is
  * presented as a variant of the list, and the ordered array is not presented
- * at all. Offering it over an array recipe would put a structure on the page
+ * at all. Offering it over the dynamic array would put a structure on the page
  * that no slide defines. Every other pair is valid.
  */
 /**
@@ -285,11 +332,18 @@ export const DOUBLY_OPERATIONS: readonly SequenceOperation[] = [
   'remove-last',
 ];
 
+const HEAP_OPERATION_NAMES = ['insert', 'extract-max'] as const;
+type HeapOperation = (typeof HEAP_OPERATION_NAMES)[number];
+export const HEAP_OPERATIONS: readonly SequenceOperation[] = HEAP_OPERATION_NAMES;
+
 export function isValidCombination(
   recipe: SequenceRecipe,
   operation: SequenceOperation,
   tail = false,
 ): boolean {
+  const heapOperation = HEAP_OPERATIONS.includes(operation);
+  if (recipe === 'heap-max') return heapOperation;
+  if (heapOperation) return false;
   if (operation === 'insert-ordered' && !isList(recipe)) return false;
   if (recipe === 'linked-list-circular') return CIRCULAR_OPERATIONS.includes(operation);
   if (recipe === 'linked-list-doubly') {
@@ -309,9 +363,8 @@ export function traceFor(
   if (!isValidCombination(recipe, operation, input.tail === true)) {
     throw new Error(`La operación «${operation}» no está definida sobre «${recipe}».`);
   }
-  return isList(recipe)
-    ? traceList(recipe, operation, input)
-    : traceArray(recipe, operation, input);
+  if (recipe === 'heap-max') return traceHeap(operation, input);
+  return isList(recipe) ? traceList(recipe, operation, input) : traceArray(operation, input);
 }
 
 // ── shared helpers ────────────────────────────────────────────────────────
@@ -401,6 +454,8 @@ const METHOD_NAME: Record<SequenceOperation, string> = {
   'insert-last': 'insertLast',
   'insert-at': 'insertAt',
   'insert-ordered': 'insertOrdered',
+  insert: 'insert',
+  'extract-max': 'extractMax',
   'remove-first': 'deleteFirst',
   'remove-last': 'deleteLast',
   'remove-at': 'deleteAt',
@@ -409,7 +464,10 @@ const METHOD_NAME: Record<SequenceOperation, string> = {
 
 // ── the array family ──────────────────────────────────────────────────────
 
-const ARRAY_CODE: Record<Exclude<SequenceOperation, 'insert-ordered'>, string> = {
+/** The operations the dynamic array has a listing for. */
+type ArrayOperation = Exclude<SequenceOperation, 'insert-ordered' | HeapOperation>;
+
+const ARRAY_CODE: Record<ArrayOperation, string> = {
   'get-at': `int getAt(int i) {
     if (i < 0 || i >= size) {
         throw new IndexOutOfBoundsException();
@@ -418,7 +476,7 @@ const ARRAY_CODE: Record<Exclude<SequenceOperation, 'insert-ordered'>, string> =
 }`,
   'insert-first': `void insertFirst(int x) {
     if (size == data.length) {
-        throw new IllegalStateException("lleno");
+        resize(2 * data.length);
     }
     for (int j = size; j > 0; j--) {
         data[j] = data[j - 1];
@@ -428,7 +486,7 @@ const ARRAY_CODE: Record<Exclude<SequenceOperation, 'insert-ordered'>, string> =
 }`,
   'insert-last': `void insertLast(int x) {
     if (size == data.length) {
-        throw new IllegalStateException("lleno");
+        resize(2 * data.length);
     }
     data[size] = x;
     size++;
@@ -438,7 +496,7 @@ const ARRAY_CODE: Record<Exclude<SequenceOperation, 'insert-ordered'>, string> =
         throw new IndexOutOfBoundsException();
     }
     if (size == data.length) {
-        throw new IllegalStateException("lleno");
+        resize(2 * data.length);
     }
     for (int j = size; j > i; j--) {
         data[j] = data[j - 1];
@@ -486,57 +544,12 @@ const ARRAY_CODE: Record<Exclude<SequenceOperation, 'insert-ordered'>, string> =
 }`,
 };
 
-const DYNAMIC_INSERT_CODE: Record<'insert-first' | 'insert-last' | 'insert-at', string> = {
-  'insert-first': `void insertFirst(int x) {
-    if (size == data.length) {
-        resize(2 * data.length);
-    }
-    for (int j = size; j > 0; j--) {
-        data[j] = data[j - 1];
-    }
-    data[0] = x;
-    size++;
-}`,
-  'insert-last': `void insertLast(int x) {
-    if (size == data.length) {
-        resize(2 * data.length);
-    }
-    data[size] = x;
-    size++;
-}`,
-  'insert-at': `void insertAt(int i, int x) {
-    if (i < 0 || i > size) {
-        throw new IndexOutOfBoundsException();
-    }
-    if (size == data.length) {
-        resize(2 * data.length);
-    }
-    for (int j = size; j > i; j--) {
-        data[j] = data[j - 1];
-    }
-    data[i] = x;
-    size++;
-}`,
-};
-
-function arrayCode(recipe: SequenceRecipe, operation: SequenceOperation): string {
-  if (recipe === 'dynamic-array' && operation in DYNAMIC_INSERT_CODE) {
-    return DYNAMIC_INSERT_CODE[operation as keyof typeof DYNAMIC_INSERT_CODE];
-  }
-  return ARRAY_CODE[operation as Exclude<SequenceOperation, 'insert-ordered'>];
-}
-
-function traceArray(
-  recipe: SequenceRecipe,
-  operation: SequenceOperation,
-  input: SequenceInput,
-): SequenceTrace {
+function traceArray(operation: SequenceOperation, input: SequenceInput): SequenceTrace {
   // How many times the author asked for the operation. The array family
   // animated ONE run through #288 and through #294's first array slides; the
   // push slide of the second pass needs four, with the block filling on the
   // third. Same helper as the list side, so `insertAt` still gets one index
   // per value and the run ceiling is one number for the whole widget.
-  const grows = recipe === 'dynamic-array';
   const args = runArgs(operation, input);
   // Same resguardo the list family carries: a zero-length argument list
   // traces nothing, and `steps.at(-1)!` at the settle step turns that into an
@@ -546,22 +559,20 @@ function traceArray(
   }
   requireRuns(args.length);
   const shown = shownName(operation, input);
-  const base = renameIn(arrayCode(recipe, operation), operation, shown);
+  const base = renameIn(ARRAY_CODE[operation as ArrayOperation], operation, shown);
   const many = args.length > 1;
   const code = many
     ? base +
       callingProgram(args, shown, false, {
         name: input.receiver ?? 'arreglo',
-        type: input.receiverType ?? (grows ? 'DynamicArray' : 'StaticArray'),
+        type: input.receiverType ?? 'DynamicArray',
       })
     : base;
   const runLine = (run: number): number[] => (many ? [base.split('\n').length + run + 1] : []);
-  // The static array is drawn with room to spare — its capacity is fixed at
-  // creation and the class's point is that it can run out. The dynamic array
-  // DEFAULTS to full, so that a single insertion shows the resize it exists
-  // for; an author running several insertions passes `capacity` to choose
-  // which of them pays for the growth, because a first push that grows is the
-  // one place a reader least expects it.
+  // The block DEFAULTS to full, so that a single insertion shows the resize
+  // the dynamic array exists for; an author running several insertions passes
+  // `capacity` to choose which of them pays for the growth, because a first
+  // push that grows is the one place a reader least expects it.
   if (input.capacity !== undefined) {
     // Refuse what cannot be drawn rather than degrading quietly: a fractional
     // capacity was truncated in silence and `NaN` produced a zero-width block.
@@ -574,9 +585,7 @@ function traceArray(
       );
     }
   }
-  let capacity = grows
-    ? (input.capacity ?? Math.max(input.values.length, 1))
-    : (input.capacity ?? input.values.length + 2);
+  let capacity = input.capacity ?? Math.max(input.values.length, 1);
 
   // The block, slot by slot. A copy leaves its source written where it was
   // until the next one overwrites it, so the reader sees the value in two
@@ -644,8 +653,8 @@ function traceArray(
   };
 
   const growIfNeeded = (): number => {
-    // Only the dynamic array grows, and only when the block is actually full.
-    if (!grows || live().length < capacity) return 0;
+    // Only when the block is actually full.
+    if (live().length < capacity) return 0;
     const copied = live().length;
     capacity = capacity * 2;
     while (slots.length < capacity) slots.push(null);
@@ -899,6 +908,7 @@ function runArgs(operation: SequenceOperation, input: SequenceInput): string[] {
   switch (operation) {
     case 'insert-first':
     case 'insert-last':
+    case 'insert':
       return asRuns(input.value).map(String);
     case 'insert-at': {
       const values = asRuns(input.value);
@@ -916,7 +926,8 @@ function runArgs(operation: SequenceOperation, input: SequenceInput): string[] {
     case 'search':
       return asRuns(input.target).map(String);
     case 'remove-first':
-    case 'remove-last': {
+    case 'remove-last':
+    case 'extract-max': {
       const times = input.times ?? 1;
       requireRuns(times);
       return Array.from({ length: times }, () => '');
@@ -1159,6 +1170,10 @@ function listCode(recipe: SequenceRecipe, operation: SequenceOperation, tail: bo
     }
     return -1;
 }`;
+    // Unreachable: `isValidCombination` never pairs a list with these.
+    case 'insert':
+    case 'extract-max':
+      throw new Error(`«${operation}» es una operación del heap, no de una lista.`);
   }
 }
 
@@ -2003,5 +2018,418 @@ function traceList(
     // node is about to land.
     align: operation === 'insert-first' || operation === 'remove-first' ? 'right' : 'left',
     hasCarry: steps.some((f) => f.carry !== undefined),
+  };
+}
+
+// ── the heap ──────────────────────────────────────────────────────────────
+//
+// A binary max-heap in Sedgewick's shape (#304, ADR-0077): 1-based, so the
+// parent of `k` is `k / 2` and its children `2k` and `2k + 1` with no `±1`
+// anywhere, and `data[0]` never used. The frame model is the widget's, with
+// one fork from the dynamic array: no `slots`; `cells` is `data[1..]` in
+// order (the stale copies past `n` included), `capacity` is `data.length`
+// (slot 0 included), and `heapSize` is `n`, where the live cells end. The painter draws the same cells twice —
+// as the array and as the complete binary tree the array encodes.
+//
+// `swim` and `sink` are printed under the operation that calls them, so the
+// reader never meets a call to either without its body. The helpers the
+// listings call without printing them are prepared before the operations:
+// `parent`, `left`, `right` and `swap` are written on the class's own slides,
+// and `resize` and `shrinkIfSparse` are named there as the dynamic array's.
+
+// Written on parent / left / right, the index functions the class defines
+// just before the operations, so the listing reads as the formulas it derived.
+const HEAP_SWIM = `void swim(int k) {
+    while (k > 1 && data[parent(k)] < data[k]) {
+        swap(parent(k), k);
+        k = parent(k);
+    }
+}`;
+
+const HEAP_SINK = `void sink(int k) {
+    while (left(k) <= n) {
+        int j = left(k);
+        if (right(k) <= n && data[right(k)] > data[j]) {
+            j = right(k);
+        }
+        if (data[k] >= data[j]) break;
+        swap(k, j);
+        k = j;
+    }
+}`;
+
+const HEAP_CODE: Record<HeapOperation, string> = {
+  // Grows exactly as the dynamic array of #277 and #294 does — the same guard
+  // and the same `resize(2 * data.length)` — with the one difference 1-based
+  // storage makes: the block is full at `n == data.length - 1`, because slot
+  // 0 is reserved and holds nothing.
+  insert: `void insert(int x) {
+    if (n == data.length - 1) {
+        resize(2 * data.length);
+    }
+    data[++n] = x;
+    swim(n);
+}
+
+${HEAP_SWIM}`,
+  'extract-max': `int extractMax() {
+    if (n == 0) {
+        throw new NoSuchElementException();
+    }
+    int max = data[1];
+    swap(1, n);
+    n--;
+    sink(1);
+    shrinkIfSparse();
+    return max;
+}
+
+${HEAP_SINK}`,
+};
+
+/** How many elements the heap has, as a Spanish sentence. */
+const heapCount = (n: number): string =>
+  n === 0
+    ? 'El heap quedó vacío.'
+    : n === 1
+      ? 'El heap tiene 1 elemento.'
+      : `El heap tiene ${n} elementos.`;
+
+/** Whether `values` read as `data[1..]` already satisfy the max-heap order. */
+function isMaxHeap(values: number[]): boolean {
+  return values.every((v, i) => i === 0 || values[Math.floor((i + 1) / 2) - 1]! >= v);
+}
+
+function traceHeap(operation: SequenceOperation, input: SequenceInput): SequenceTrace {
+  const op = operation as HeapOperation;
+  const args = runArgs(operation, input);
+  if (args.length === 0) {
+    throw new Error('La operación no se ejecuta ninguna vez: falta el argumento que la corre.');
+  }
+  requireRuns(args.length);
+  // insert and extract-max are operations ON a heap: a starting array that
+  // is not one would animate the invariant being broken before the
+  // operation even runs.
+  if (!isMaxHeap(input.values)) {
+    throw new Error(
+      `[${input.values.join(', ')}] no es un max-heap: algún padre es menor que un hijo.`,
+    );
+  }
+  if (op === 'extract-max') {
+    requireNonEmpty(input.values);
+    if (args.length > input.values.length) {
+      throw new Error(
+        `El heap tiene ${input.values.length} elemento${input.values.length === 1 ? '' : 's'} y extractMax se ejecuta ${args.length} veces: la última correría sobre un heap vacío.`,
+      );
+    }
+  }
+
+  const shown = shownName(operation, input);
+  const base = renameIn(HEAP_CODE[op], operation, shown);
+  const many = args.length > 1;
+  const fresh = input.values.length === 0;
+  const code = many
+    ? base +
+      callingProgram(args, shown, fresh, {
+        name: input.receiver ?? 'heap',
+        type: input.receiverType ?? 'MaxHeap',
+      })
+    : base;
+  const runLine = (run: number): number[] =>
+    many ? [base.split('\n').length + (fresh ? 1 : 0) + run + 1] : [];
+
+  // Default block: `data.length = n + 1`, FULL — the dynamic-array recipe's
+  // default, so a single insertion shows the growth unless the author passes
+  // a larger `capacity`. An EMPTY heap starts at `new int[2]`: one usable slot
+  // plus `data[0]`, the dynamic array's one-cell start (#304).
+  let capacity = input.capacity ?? Math.max(input.values.length + 1, 2);
+  if (!Number.isInteger(capacity)) {
+    throw new Error(`La capacidad ${capacity} no es un entero.`);
+  }
+  if (capacity < input.values.length + 1) {
+    throw new Error(
+      `capacity es data.length y el slot 0 no se usa: para ${input.values.length} valores hace falta al menos ${input.values.length + 1}.`,
+    );
+  }
+  if (capacity > MAX_CAPACITY) {
+    throw new Error(`Un bloque de ${capacity} no se lee proyectado; el máximo es ${MAX_CAPACITY}.`);
+  }
+
+  const cells = cellsFrom(input.values);
+  let n = cells.length;
+  let cost = 0;
+  let run = 0;
+  const steps: SequenceStep[] = [];
+
+  const push = (
+    kind: SequenceStepKind,
+    lines: number[],
+    description: string,
+    pointers: SequencePointer[] = [],
+  ) => {
+    steps.push({
+      kind,
+      cells: snapshot(cells),
+      pointers,
+      highlightLines: [...lines, ...runLine(run)],
+      description,
+      capacity,
+      heapSize: n,
+      cost,
+    });
+  };
+  const line = (fragment: string) => lineOf(code, fragment);
+  // `k` and `j` are 1-based slots; a pointer indexes `cells`, which is 0-based.
+  const at = (name: string, k: number): SequencePointer => ({ name, index: k - 1 });
+  const val = (k: number) => cells[k - 1]!.value;
+  const paint = (k: number, state: SequenceCellState) => {
+    cells[k - 1] = { ...cells[k - 1]!, state };
+  };
+  const calm = () => {
+    for (let k = 1; k <= n; k += 1) {
+      const c = cells[k - 1]!;
+      if (c.state === 'active' || c.state === 'swap') paint(k, 'idle');
+    }
+  };
+  const exchange = (a: number, b: number) => {
+    const ca = cells[a - 1]!;
+    cells[a - 1] = { ...cells[b - 1]!, state: 'swap' };
+    cells[b - 1] = { ...ca, state: 'swap' };
+  };
+
+  const swim = (from: number) => {
+    let k = from;
+    for (;;) {
+      calm();
+      cost += 1;
+      if (k === 1) {
+        push(
+          'compare',
+          [line('while (k > 1')],
+          `k = 1: ${val(1)} llegó a la raíz y no tiene padre con quien comparar. swim termina.`,
+          [at('k', 1)],
+        );
+        return;
+      }
+      const p = Math.floor(k / 2);
+      paint(p, 'active');
+      paint(k, 'active');
+      const up = val(p) < val(k);
+      push(
+        'compare',
+        [line('while (k > 1')],
+        up
+          ? `¿data[${p}] = ${val(p)} es menor que data[${k}] = ${val(k)}? Sí: el padre es menor, y en esta arista se rompe la invariante de orden de heap.`
+          : `¿data[${p}] = ${val(p)} es menor que data[${k}] = ${val(k)}? No: el padre es mayor o igual, y la invariante de orden de heap se cumple. swim termina.`,
+        [at('k', k)],
+      );
+      if (!up) return;
+      cost += 1;
+      exchange(p, k);
+      push(
+        'shift',
+        [line('swap(parent(k), k);'), line('k = parent(k);')],
+        `Intercambiamos data[${p}] y data[${k}]: ${val(p)} sube a la posición ${p}, lo que restaura la invariante de orden de heap en esta arista. k pasa a ${p}.`,
+        [at('k', p)],
+      );
+      k = p;
+    }
+  };
+
+  const sink = (from: number) => {
+    let k = from;
+    for (;;) {
+      calm();
+      cost += 1;
+      if (2 * k > n) {
+        push(
+          'compare',
+          [line('while (left(k) <= n)')],
+          `left(${k}) = ${2 * k} > n = ${n}: la posición ${k} no tiene hijos. sink termina.`,
+          [at('k', k)],
+        );
+        return;
+      }
+      let j = 2 * k;
+      const right = j < n;
+      if (right && val(j) < val(j + 1)) j += 1;
+      cost += 1;
+      paint(j, 'active');
+      push(
+        'compare',
+        [
+          line('int j = left(k);'),
+          ...(right ? [line('if (right(k) <= n && data[right(k)] > data[j]) {')] : []),
+          ...(j === 2 * k + 1 ? [line('j = right(k);')] : []),
+        ],
+        right
+          ? `Los hijos de ${k} son data[${2 * k}] = ${val(2 * k)} y data[${2 * k + 1}] = ${val(2 * k + 1)}: j apunta al mayor, ${val(j)}.`
+          : `La posición ${k} tiene un solo hijo, data[${j}] = ${val(j)}: j apunta a él.`,
+        [at('k', k), at('j', j)],
+      );
+      paint(k, 'active');
+      cost += 1;
+      const stays = val(k) >= val(j);
+      push(
+        'compare',
+        [line('if (data[k] >= data[j]) break;')],
+        stays
+          ? `¿data[${k}] = ${val(k)} es mayor o igual que ${val(j)}? Sí: la invariante de orden de heap se cumple aquí. sink termina.`
+          : `¿data[${k}] = ${val(k)} es mayor o igual que ${val(j)}? No: aquí se rompe la invariante de orden de heap, y el hijo mayor debe subir.`,
+        [at('k', k), at('j', j)],
+      );
+      if (stays) return;
+      cost += 1;
+      exchange(k, j);
+      push(
+        'shift',
+        [line('swap(k, j);'), line('k = j;')],
+        `Intercambiamos data[${k}] y data[${j}]: ${val(k)} sube y ${val(j)} baja a la posición ${j}, lo que restaura la invariante de orden de heap en esta arista. k pasa a ${j}.`,
+        [at('k', j)],
+      );
+      k = j;
+    }
+  };
+
+  switch (op) {
+    case 'insert': {
+      let inserted = 0;
+      requireValues(input).forEach((x, r) => {
+        run = r;
+        cost = 0;
+        calm();
+        // The heap as the call finds it: without this frame the first thing
+        // on screen is the value already written, and the reader never sees
+        // what the insertion is about to change.
+        push(
+          'start',
+          [line(`void ${shown}(int x)`)],
+          n === 0
+            ? `insert(${x}): el heap está vacío, n = 0.`
+            : `insert(${x}): el heap tiene n = ${n} elemento${n === 1 ? '' : 's'} y su máximo es ${val(1)}.`,
+        );
+        if (n === capacity - 1) {
+          const copied = n;
+          capacity *= 2;
+          cost += copied;
+          push(
+            'grow',
+            [line('n == data.length - 1'), line('resize(2 * data.length);')],
+            `El bloque está lleno (n = ${n} = data.length − 1): se reserva uno de ${capacity} y se ${copied === 1 ? 'copia el único elemento' : `copian los ${copied} elementos`}.`,
+          );
+        }
+        n += 1;
+        cost += 1;
+        inserted = nextId += 1;
+        cells.push({ id: inserted, value: x, state: 'new' });
+        push(
+          'build',
+          [line('data[++n] = x;')],
+          `n pasa a ${n} y ${x} ocupa data[${n}]: la primera hoja libre, así se mantiene la invariante de forma completa.`,
+          [at('k', n)],
+        );
+        push('start', [line('swim(n);')], `swim(${n}): ${x} sube mientras su padre sea menor.`, [
+          at('k', n),
+        ]);
+        swim(n);
+        calm();
+        push('done', [line('swim(n);')], `${x} quedó en su lugar. ${heapCount(n)}`);
+        cells.forEach((c, i) => {
+          if (c.state === 'new') cells[i] = { ...c, state: 'idle' };
+        });
+      });
+      // The last value inserted keeps its mark on the frame that stays on
+      // screen, as every other insertion of the widget does. Found by id: a
+      // value can repeat, and the copy already in the heap is not the new one.
+      const last = steps.at(-1)!;
+      steps[steps.length - 1] = {
+        ...last,
+        cells: last.cells.map((c) => (c.id === inserted ? { ...c, state: 'new' } : c)),
+      };
+      break;
+    }
+    case 'extract-max': {
+      args.forEach((_, r) => {
+        run = r;
+        cost = 0;
+        calm();
+        const max = val(1);
+        cost += 1;
+        paint(1, 'leaving');
+        push(
+          'start',
+          [line('int max = data[1];')],
+          `El máximo siempre está en la raíz: max = ${max}.`,
+          [at('k', 1)],
+        );
+        cost += 1;
+        exchange(1, n);
+        push(
+          'shift',
+          [line('swap(1, n);')],
+          n === 1
+            ? 'n = 1: la raíz es también el último, así que swap(1, 1) no mueve nada.'
+            : `Intercambiamos la raíz con el último, data[${n}]: ${max} pasa al final y ${val(1)} queda en la raíz.`,
+          [at('k', 1)],
+        );
+        n -= 1;
+        // The exchange is over: the new root is no longer being moved.
+        calm();
+        cells[n] = { ...cells[n]!, state: 'stale' };
+        push(
+          'unlink',
+          [line('n--;')],
+          `n pasa a ${n}: data[${n + 1}] sigue guardando ${max}, pero ya no es parte del heap. El árbol pierde su última hoja y mantiene la invariante de forma completa.`,
+        );
+        if (n > 0) {
+          push(
+            'start',
+            [line('sink(1);')],
+            `sink(1): ${val(1)} baja mientras algún hijo sea mayor.`,
+            [at('k', 1)],
+          );
+          sink(1);
+        }
+        calm();
+        // The dynamic array's quarter rule, on n: halve the block when n
+        // has fallen to a quarter of it. The copy takes data[1..n] only, so
+        // what was past n — the stale maxima — does not survive it.
+        // Integer division, as in the Java: a block of 5 has a quarter of 1
+        // and halves to 2, never to 2.5.
+        if (n > 0 && n === Math.floor(capacity / 4)) {
+          const before = capacity;
+          capacity = Math.floor(capacity / 2);
+          cells.length = n;
+          cost += n;
+          const quarter =
+            before % 4 === 0
+              ? `n = ${n} es un cuarto de data.length = ${before}`
+              : `n = ${n} es data.length / 4 = ${before} / 4 en división entera`;
+          push(
+            'shrink',
+            [line('shrinkIfSparse();')],
+            `${quarter}: shrinkIfSparse achica el bloque a ${capacity} y ${n === 1 ? 'copia el único elemento del heap' : `copia los ${n} elementos del heap`}.`,
+          );
+        } else {
+          push(
+            'compare',
+            [line('shrinkIfSparse();')],
+            n === 0
+              ? 'n = 0, y shrinkIfSparse sólo achica cuando quedan elementos: el bloque no cambia.'
+              : `n = ${n} no es un cuarto de data.length = ${capacity}: shrinkIfSparse no achica el bloque.`,
+          );
+        }
+        push('done', [line('return max;')], `extractMax devuelve ${max}. ${heapCount(n)}`);
+      });
+      break;
+    }
+  }
+
+  return {
+    steps,
+    code,
+    maxCells: Math.max(...steps.map((f) => f.cells.length)),
+    align: 'left',
+    hasCarry: false,
   };
 }

@@ -325,6 +325,15 @@ Claude drafts, the professor edits. A draft can satisfy every rule on this page
 and still be wrong about what the class emphasised, and the correct answer is a
 teaching judgement before it is a fact. Nothing here changes that.
 
+**How the drafts are put to the professor.** A few at a time — two, in #304 —
+each with the slide that backs it and, for every distractor, why a student
+who half-learned the class would pick it. The professor keeps, edits or drops
+each one on its own, and may ask for questions on a topic the drafts missed
+(#304's questions on the cost of `swim` and `sink` came from such a
+request). The bank is
+written once the slide-by-slide review has closed the material, so no
+question is drafted against a slide that is still changing.
+
 ## Unicode symbols
 
 A question's statement and alternatives may use Unicode math, Greek, and dash
@@ -476,10 +485,11 @@ without adding weight to the control artifact. Catalog entry:
 - [ ] `npm run test` green — the mechanical rules and the coverage gate.
 - [ ] Opened the document in a browser and answered the questions, both themes.
 
-## Two refusals worth knowing before you draft
+## Three refusals worth knowing before you draft
 
-Both came out of #288, where every question was proposed to the professor one
-at a time and each was kept or dropped on its own.
+The first two came out of #288, where every question was proposed to the
+professor one at a time and each was kept or dropped on its own; the third
+came out of #304.
 
 - **A question answerable from the PREVIOUS class is not a question about this
   one.** The first draft asked why an array reaches any position with a single
@@ -489,6 +499,12 @@ at a time and each was kept or dropped on its own.
   four values scattered in memory" reads fine beside the slide and means
   nothing on a printed control, where the question is all the student has. Say
   the situation in the stem.
+- **A question about one particular use of the structure is not a question
+  about the structure.** #304's drafts on how a program uses Java's
+  `PriorityQueue` were dropped — «es muy específico de un uso», in the
+  professor's words — and the act that teaches it ships with one question.
+  Ask about what the structure guarantees and what it costs, which holds in
+  every use.
 
 And record the coverage you did NOT write. A control is requested over a RANGE
 of sections, and a range whose questions number fewer than four is refused

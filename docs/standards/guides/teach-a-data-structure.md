@@ -89,8 +89,8 @@ and that a variant answers only the ones it changes (§3).
 | Acto | Contenido                                                                                  |
 | ---- | ------------------------------------------------------------------------------------------ |
 | 1    | La idea — qué problema resuelve esta estructura y de qué estructura conocida se diferencia |
-| 2    | Los invariantes — qué propiedades sostiene, y por qué cada una importa                     |
-| 3    | Las operaciones y sus costos — cada una con el invariante que restaura                     |
+| 2    | Las invariantes — qué propiedades sostiene, y por qué cada una importa                     |
+| 3    | Las operaciones y sus costos — cada una con la invariante que restaura                     |
 | 4    | Las limitaciones y la bisagra — qué NO resuelve, y qué estructura lo resuelve              |
 
 The chapter that opens the unit deviates and says so: #277 spends act 1 on the
@@ -116,9 +116,11 @@ and the five posed exercises, and the document ends on the last exercise's
 code slide followed by its `<Questions>` block. Two things follow, and the
 next author needs both.
 
-It is defensible here and only here: #294 is last in `index.yaml`, so there
-is no next class to navigate to, and a `Lo que sigue` would have to invent
-one. What it costs is real — `18-edd-listas-enlazadas.mdx` wiki-links forward
+It was defensible there and only there: #294 was last in `index.yaml` when
+it shipped, so there was no next class to navigate to, and a `Lo que sigue`
+would have had to invent one. #304 (Priority Queue y Heap) now follows it on
+the teaching path, so that justification has expired; #294's missing closing
+is owed, and tracked in **#323**. What it costs is real — `18-edd-listas-enlazadas.mdx` wiki-links forward
 into a document that now dead-ends, and the trade this guide asks every class
 to close on (§5) went with the hinge.
 
@@ -128,6 +130,14 @@ navigation. This paragraph described the opposite for two commits — it
 claimed #294 carried an exercise index slide, a hinge after the `<Exercise>`
 blocks and a `Lo que sigue`, none of which ship — because it was written
 before the cuts and never re-measured against the document.
+
+**#304 keeps half of it.** The professor cut its hinge slide (_Lo que el
+orden débil no responde_) in the slide review, so the deck ends on the
+exercises. The trade survives as the closing lines of the slide _Costos de
+PriorityQueue_ (a search for any element has no shortcut, because the heap
+only knows where the first one is) and as prose in the book-only `## Lo que
+sigue`, which still names the next class. That is a second stated deviation,
+not a new shape: the rule above is unchanged.
 
 **#277 also cut its own act 4.** An earlier draft closed with a recap act
 ("un contrato para los dos arreglos") that restated the TDA, put the two cost
@@ -236,6 +246,12 @@ published documents and re-verifying three classes in a browser, which is a
 WP of its own and not a slice of a course-document WP. The next class that
 needs a TDA card should do the extraction rather than make it five.
 
+**It did make it five, and that is a stated deviation, not a silent one.**
+#304 (Priority Queue y Heap) needed a card for its TDA, and the professor
+chose to copy it a fifth time rather than grow a course-document PR by a
+component, a catalog entry and four re-verified classes. The extraction is
+tracked in **#305**; the sixth card waits for it.
+
 Costs never appear in the contract. They belong to an implementation, and
 putting them here is the single mistake that collapses the TDA/EDA distinction
 the unit is built on.
@@ -278,6 +294,15 @@ error the #277 draft made with `size ≤ data.length`. When a _rule_ changes but
 its invariant does not, say exactly that: the static array kept
 `size ≤ data.length` by refusing, the dynamic one keeps it by growing.
 
+**Say "invariante" every time something is broken, kept or restored.** Not
+"la regla", not "el orden está roto", not "lo arregla": the operation _rompe
+la invariante de orden de heap_, _mantiene la invariante de forma completa_,
+_restaura la invariante_. The word is feminine in this course — _la
+invariante_. The same holds for a widget's narration, which the reader hears
+as part of the class; `sequenceStepperTrace.test.ts` pins the heap recipe's
+(#304, the professor's review). A rule of the CONTRACT — a TDA's exit rule —
+is not an invariant of the structure and keeps the word _regla_.
+
 ### 4. Give every operation a cost AND an invariant
 
 The cost table has one row per operation and **at least three columns**:
@@ -285,7 +310,7 @@ The cost table has one row per operation and **at least three columns**:
 ```mdx
 | Operación                   | Peor caso     | Invariante que restaura                         |
 | --------------------------- | ------------- | ----------------------------------------------- |
-| `get_at(i)`, `set_at(i, x)` | $$\Theta(1)$$ | Ninguno: no cambian `size` ni el orden          |
+| `get_at(i)`, `set_at(i, x)` | $$\Theta(1)$$ | Ninguna: no cambian `size` ni el orden          |
 | `insert_at(i, x)`           | $$\Theta(N)$$ | Deja los válidos juntos desde 0, con `x` en `i` |
 ```
 
@@ -352,8 +377,9 @@ the slide is stronger closing on the trade itself.
 
 **No forward wiki-link when the target does not exist yet.** A `[[id]]` with no
 document renders visibly broken (`add-a-course-document.md` §7). Name the next
-class in prose; the wiki-link arrives in the WP that writes it, from both
-sides.
+class in prose; the wiki-link arrives in the WP that writes it, from the
+previous document's `## Lo que sigue` — the one place a document names
+another (`course-content-style.md` §4b).
 
 Then the closing navigation — a `## Lo que sigue` section or a slide of that
 name (§1) — which is where the reader —
@@ -496,6 +522,20 @@ cannot be scrolled. Read both:
   .filter((e) => e.scrollWidth > e.clientWidth + 2)
 ```
 
+**And the vertical axis, where it can actually clip.** A listing
+(`CodeStepper`) has no height cap, so it grows instead of clipping; what can
+clip is a box with its own `max-height` — the frame box of a `<StepShow>`
+(`max-h-96 overflow-auto`) and the structure panel of a Sequence recipe of
+`<SequenceStepper>` (the heap's panel scales instead of scrolling)
+on a slide. A frame taller than its box scrolls, and a projected slide cannot
+be scrolled. Read every scrolling box on the stage, at every frame:
+
+```js
+[...document.querySelectorAll('[data-testid="slide-stage"] *')]
+  .filter((e) => /auto|scroll/.test(getComputedStyle(e).overflowY))
+  .filter((e) => e.scrollHeight > e.clientHeight + 2)
+```
+
 #294 shipped a slide whose listing cut `isOperator` at `|| t.equals(`, hiding
 the fourth operator on the slide whose prose promised four, and the pre-PR
 sweep never looked. `<PresentationWide>` does not rescue it: `<StepShow>`
@@ -530,8 +570,11 @@ listing, their `lines` arrays must agree.** The fixed-capacity `insertAt` said
 its fence text and read the result next to the step's own caption.
 
 **What that widget is, concretely** (ADR-0074): `eda` picks the structure —
-array, dynamic array, or a singly / doubly / circular list — and `operation`
-picks which of nine operations to animate over it. The surface never changes
+a dynamic array, a singly / doubly / circular list, or (since #304, ADR-0077)
+a binary max-heap — and `operation` picks which of the nine Sequence
+operations, or the heap's own two, to animate over it. (A fixed-capacity
+`array` recipe was deleted by #304, never having had a reader; ADR-0074
+§Amended by #304.) The surface never changes
 between combinations, which is the point: the reader learns one visual
 vocabulary and reads every structure of the unit through it, comparing COST
 rather than re-reading a new widget.
@@ -543,6 +586,13 @@ ADR — see ADR-0074 §Consequences) rather than inventing a widget of its own.
 Building a new one is still legitimate, and still needs the same argument this
 section asks for: what the whole unit wants, and why the existing widget
 cannot carry it.
+
+**The first recipe added under this rule is the heap** (#304, ADR-0077):
+`heap-max` draws the array beside the complete binary tree it encodes, and
+the class reaches it through the same tag. It is also the first recipe that
+is not a Sequence, so its operations are its own — a reminder that "reuse
+first" is about the surface and the frame model, not about forcing every
+structure into the nine Sequence operations.
 
 **It does not replace `<StepShow>` + `<MemoryVisual>`**, which stay the pair
 for author-written pictures, whose truth is the author's (ADR-0049).
@@ -574,6 +624,18 @@ And the edge cases are not optional prose: the empty structure, the structure
 of one, and position zero are where the general body of a method stops
 working. A class that lists them on a slide owes listings that handle them.
 
+**An algorithm over a list is written in the course's own list.** The node is
+`Node { int value; Node next; }`, singly linked, as the linked-list class
+(#288) wrote it — no dummy head node, and no `tail` the structure does not
+have. When the obvious solution reaches for either, look for what the
+structure already allows: #304's merge of K sorted lists links each node to
+the heap's next root (`first.next = fronts.peek()`), which needs neither, and
+the professor rejected both of the versions that used them. A `tail` that IS
+a field of the structure being taught (#294's Queue) is not this case. The
+same holds for the language: the simplest construct that states the rule
+wins — #304's planner orders its tasks with one comparator lambda and an
+`if`, not a `thenComparing` chain.
+
 ## Checklist
 
 - [ ] Every act heading that deserves a beat in the deck is an `h2` behind a
@@ -593,6 +655,9 @@ working. A class that lists them on a slide owes listings that handle them.
       same contract, if the class needs them, on the slide after.
 - [ ] Invariants as a numbered list, property first, consequence second, and
       the expensive one named as such.
+- [ ] What an operation breaks, keeps or restores is named _la invariante_
+      (feminine) — in the prose, in every widget's narration, and in the
+      templates above you copy from; a TDA's exit rule stays _regla_ (§3).
 - [ ] Every operation in the cost table carries the invariant it restores,
       and the table leads with a `Molde` column grouping the operations by
       crear / consultar / modificar. An `Amortizado` column only where a row
@@ -638,13 +703,30 @@ working. A class that lists them on a slide owes listings that handle them.
       in the browser and its output quoted in the commit. Nothing in the build or the suite executes a
       snippet, and #277 shipped a bound that held for N = 16 and failed for
       N = 1000 — a value its own widget offers the reader. **There is no JVM on
-      the dev host** (`java`/`javac` are the macOS stubs and fail), so the
-      browser widget under `npm run preview` is the only place Java actually
-      runs; do the arithmetic simulation in `python3 -c` or `node -e` instead.
+      the dev host** (`java`/`javac` are the macOS stubs and fail), **but
+      Docker is, and a real JDK runs in it**:
+      `docker run --rm -v "$PWD":/w -w /w eclipse-temurin:21 sh -c 'javac Main.java && java Main'`
+      from a scratch directory. Every Java behaviour a slide or a drawing
+      states — the order a comparator produces, a library behaviour such as
+      `PriorityQueue`'s on ties, every state a walk draws, an exercise's
+      tests against its reference and against a wrong solution — is run
+      there before it is drawn, and the output quoted in the commit (#304
+      did it for every heap state of its three exercise walks). A
+      `python3 -c` or `node -e` simulation cannot answer a question about
+      Java's semantics; keep it for plain arithmetic.
 - [ ] Every slide's scale measured in the deck at 1440x900, not eyeballed.
       A slide that fits is reported at scale 1.0; anything under ~0.7 is
       splitting into two titled `<Slide>`s, never a `<SectionBreak />`
-      (which would add an untitled slide instead). **How to read it**: under
+      (which would add an untitled slide instead). **A slide carrying a
+      `<StepShow>` or a `<SequenceStepper>` is measured at EVERY frame**,
+      stepping through with the widget's own control: the deck re-measures
+      on every resize (`SlideDeck.tsx`'s `ResizeObserver`) and a walk mounts
+      one frame at a time, so a frame that grows — a tree that gains a level —
+      can shrink the slide where the first frame did not. The floor holds per
+      frame. A walk cannot be split like a slide: compact its frame (fewer
+      rows, not smaller nodes), and never shrink the drawing until it cannot
+      be read (#304's lowest, the Top-K walk, sits at 0.714 on all fifteen
+      frames). **How to read it**: under
       `npm run build && npm run preview`, on `/nalanda/d/<id>/present?slide=<n>`,
       the scale is the `transform` on the `motion.div` inside
       `[data-testid="slide-stage"]` (`presentation/SlideDeck.tsx`) — in
