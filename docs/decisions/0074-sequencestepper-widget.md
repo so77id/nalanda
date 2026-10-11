@@ -131,7 +131,7 @@ So the widget gives up advertised range instead:
 
 | Receta                   | Operaciones válidas                                                                     |
 | ------------------------ | --------------------------------------------------------------------------------------- |
-| `array`, `dynamic-array` | las nueve, menos `insert-ordered`                                                       |
+| `dynamic-array`          | las nueve, menos `insert-ordered` (también `array`, hasta que #304 lo borró)            |
 | `linked-list-singly`     | las nueve                                                                               |
 | `linked-list-doubly`     | `get-at`, `search`, `insert-first`, `remove-first`, y `remove-last` **solo con `tail`** |
 | `linked-list-circular`   | `insert-first` (con listado propio: cierra el anillo, y camina para hacerlo)            |
@@ -178,7 +178,9 @@ it is a WP of its own and does not belong in a course-document PR, so it is
 recorded here as owed, not as finished. **The next class of this unit either
 reads it or deletes it; a third re-justification is not available.**
 
-> **TODO — delete the `array` recipe or name its reader.**
+> ~~**TODO — delete the `array` recipe or name its reader.**~~
+> **Done by #304 (2026-10-11): deleted** — see the `Amended by: #304` block
+> below.
 > Owner: Miguel Rodriguez. Deadline: the next class of the Estructuras de
 > Datos unit. Tracking issue: **#296**.
 > Written as a block rather than as prose because §"Rules for empirical
@@ -333,6 +335,23 @@ input, so one structure came out four cells wide on the slide that pushes
 and five on the slide that pops. Arrays only; a value below the number of
 starting elements is refused at boot like every other authoring mistake.
 
+**Amended by:** #304, review pipeline Round B (2026-10-11) — **the `array`
+recipe is deleted, as the TODO above required.** #304 is the next class of
+the unit; it mounts the heap and the dynamic array, and
+`grep -rn 'eda="array"' content/` still returns nothing. Offered the two
+options the TODO left, the professor chose deletion over naming a reader.
+Gone with it: `'array'` in `RECIPES`, the fixed-block insertion listings
+that threw `IllegalStateException("lleno")` (`ARRAY_CODE` now holds the
+dynamic array's, which `DYNAMIC_INSERT_CODE` used to override), the static
+default block (`values.length + 2`), the `StaticArray` receiver, the `grows`
+flag, the chip label, and the catalog's two `eda="array"` examples, which now
+run on `dynamic-array`. The tests that called it moved to `dynamic-array`,
+which runs the same listings except the three insertions; the two that
+pinned the static default block were rewritten for the dynamic one, which
+starts full. The validity matrix above loses its `array` row and nothing else
+in this ADR changes. A class that wants a fixed-capacity block back adds the
+recipe together with the slide that mounts it. Closes #296.
+
 **Source:** Issue #288 — Course document "Estructuras de Datos · Listas
 Enlazadas". The class shows nine operations over five structures, and
 `teach-a-data-structure.md` §7 defers the unit's widget decision to exactly
@@ -372,7 +391,8 @@ code panel, structure panel, narration strip, controls — is identical across
 every combination, which is itself the pedagogical message: _the operations
 are the same; what changes is where the cost lives._
 
-Five recipes (`array`, `dynamic-array`, `linked-list-singly`,
+Five recipes (`array` — **deleted by #304**, see its `Amended by` block —
+`dynamic-array`, `linked-list-singly`,
 `linked-list-doubly`, `linked-list-circular`) and nine operations (`get-at`,
 `insert-first`, `insert-last`, `insert-at`, `insert-ordered`, `remove-first`,
 `remove-last`, `remove-at`, `search`). Thirty-one of the forty-five pairs are
@@ -504,7 +524,8 @@ drift from the operation it claims to show.
   **Measured false by #294 and the trigger fired**: that class shipped as
   Stack and Queue over the dynamic array and the list, and it mounts `array`
   **zero** times. The asymmetry is closed — `traceArray` loops its runs like
-  the list family. Both in the `Amended by: #294` block above.
+  the list family. Both in the `Amended by: #294` block above. **Honoured by
+  #304**: `array` is deleted (the `Amended by: #304` block).
 - **The next class reuses it.** Stack over a list and Stack over an array are
   two tags of the same widget, so _"same TDA, different implementations"_ reads
   without translating between widgets.

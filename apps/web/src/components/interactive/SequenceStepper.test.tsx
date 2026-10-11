@@ -38,14 +38,14 @@ describe('<SequenceStepper> · authoring guards', () => {
   });
 
   it('refuses an unknown operation', () => {
-    renderIn('book', <SequenceStepper eda="array" operation="rotar" values={[1]} />);
+    renderIn('book', <SequenceStepper eda="dynamic-array" operation="rotar" values={[1]} />);
     expect(screen.getByText(/no es una operación conocida/i)).toBeInTheDocument();
   });
 
   it('refuses insert-ordered over an array, and says why', () => {
     renderIn(
       'book',
-      <SequenceStepper eda="array" operation="insert-ordered" values={[1, 2]} target={3} />,
+      <SequenceStepper eda="dynamic-array" operation="insert-ordered" values={[1, 2]} target={3} />,
     );
     expect(screen.getByText(/no está definida sobre/i)).toBeInTheDocument();
   });
@@ -293,7 +293,7 @@ describe('<SequenceStepper> · the chrome', () => {
   it('adds the capacity beside it for a block that reserves one', () => {
     renderIn(
       'book',
-      <SequenceStepper eda="array" operation="insert-last" values={[7, 3]} value={9} />,
+      <SequenceStepper eda="dynamic-array" operation="insert-last" values={[7, 3]} value={9} />,
     );
     expect(screen.getByTestId('sequence-size')).toHaveTextContent('capacidad');
   });
@@ -325,9 +325,8 @@ describe('<SequenceStepper> · the combinations the documents mount', () => {
   });
 
   // #294 mounts the widget over BOTH families for the first time: the Stack
-  // and Queue class runs the same operations over an array and over a chain,
-  // which is what the array recipes were carried for (ADR-0074
-  // §Consequences). Each entry is a tag the document actually ships.
+  // and Queue class runs the same operations over an array and over a chain.
+  // Each entry is a tag the document actually ships.
   // The act is part of the name because both acts mount some of the same
   // pairs with different arguments, and two cases called the same thing hide
   // which one broke.
@@ -445,7 +444,7 @@ describe('<SequenceStepper> · the combinations the documents mount', () => {
   // pushes with the block filling on the third, which one run cannot show.
   // Still invisible to `app/contentRenders.test.tsx` (the widget is lazy
   // there), so the mount is pinned HERE or nowhere.
-  it('runs an array recipe as many times as the slide asked', () => {
+  it('runs the dynamic array as many times as the slide asked', () => {
     renderIn(
       'book',
       <SequenceStepper

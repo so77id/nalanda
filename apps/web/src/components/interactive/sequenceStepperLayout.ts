@@ -83,7 +83,7 @@ const isList = (recipe: SequenceRecipe) => recipe.startsWith('linked-list');
 
 /**
  * Lays out `count` cells for `recipe`. `slots` is the RESERVED block for the
- * array recipes — capacity, which may exceed the number of live cells, and is
+ * dynamic array — capacity, which may exceed the number of live cells, and is
  * what makes "the block is full" visible before a resize.
  */
 /**

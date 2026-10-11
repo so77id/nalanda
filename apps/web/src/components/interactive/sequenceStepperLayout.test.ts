@@ -10,7 +10,7 @@ import { BOX_H, BOX_W, LINK_W, LIST_GAP, layoutSequence, linkArrow } from './seq
 
 describe('layoutSequence', () => {
   it('places array cells edge to edge, in reading order', () => {
-    const { boxes } = layoutSequence(4, 'array');
+    const { boxes } = layoutSequence(4, 'dynamic-array');
     expect(boxes).toHaveLength(4);
     for (let i = 1; i < boxes.length; i += 1) {
       expect(boxes[i]!.x).toBe(boxes[i - 1]!.x + BOX_W);
@@ -19,8 +19,8 @@ describe('layoutSequence', () => {
   });
 
   it('draws the reserved capacity of an array, not only its live cells', () => {
-    const full = layoutSequence(4, 'array', 4);
-    const spare = layoutSequence(4, 'array', 8);
+    const full = layoutSequence(4, 'dynamic-array', 4);
+    const spare = layoutSequence(4, 'dynamic-array', 8);
     expect(spare.boxes).toHaveLength(8);
     expect(spare.width).toBeGreaterThan(full.width);
   });
@@ -30,8 +30,8 @@ describe('layoutSequence', () => {
   // the reader sees six cells beside a readout saying `capacidad 4` and the
   // filling — which is the whole lesson — never happens on screen.
   it('draws the capacity of THIS frame, and reserves the canvas for the widest', () => {
-    const before = layoutSequence(6, 'array', 4, false, 8);
-    const after = layoutSequence(6, 'array', 8, false, 8);
+    const before = layoutSequence(6, 'dynamic-array', 4, false, 8);
+    const after = layoutSequence(6, 'dynamic-array', 8, false, 8);
     expect(before.boxes).toHaveLength(4);
     expect(after.boxes).toHaveLength(8);
     // Same canvas, so nothing on screen shifts or rescales when it doubles.
@@ -49,7 +49,7 @@ describe('layoutSequence', () => {
   });
 
   it('never lets two boxes overlap, in either family', () => {
-    for (const recipe of ['array', 'linked-list-singly', 'linked-list-doubly'] as const) {
+    for (const recipe of ['dynamic-array', 'linked-list-singly', 'linked-list-doubly'] as const) {
       const { boxes } = layoutSequence(6, recipe);
       for (let i = 1; i < boxes.length; i += 1) {
         expect(boxes[i]!.x, recipe).toBeGreaterThanOrEqual(boxes[i - 1]!.x + boxes[i - 1]!.w);
@@ -60,13 +60,13 @@ describe('layoutSequence', () => {
   it('reserves the ring band only for the circular recipe', () => {
     expect(layoutSequence(3, 'linked-list-circular').ringY).not.toBeNull();
     expect(layoutSequence(3, 'linked-list-singly').ringY).toBeNull();
-    expect(layoutSequence(3, 'array').ringY).toBeNull();
+    expect(layoutSequence(3, 'dynamic-array').ringY).toBeNull();
     // An empty circular list has no ring to close.
     expect(layoutSequence(0, 'linked-list-circular').ringY).toBeNull();
   });
 
   it('keeps the canvas big enough to hold everything it drew', () => {
-    for (const recipe of ['array', 'linked-list-singly', 'linked-list-circular'] as const) {
+    for (const recipe of ['dynamic-array', 'linked-list-singly', 'linked-list-circular'] as const) {
       const layout = layoutSequence(5, recipe);
       const last = layout.boxes.at(-1)!;
       expect(layout.width, recipe).toBeGreaterThanOrEqual(last.x + last.w);
@@ -113,7 +113,7 @@ describe('layoutSequence · the doubly-linked node', () => {
   });
 
   it('gives no other recipe a prev field', () => {
-    for (const recipe of ['linked-list-singly', 'linked-list-circular', 'array'] as const) {
+    for (const recipe of ['linked-list-singly', 'linked-list-circular', 'dynamic-array'] as const) {
       for (const box of layoutSequence(3, recipe).boxes) expect(box.prevX).toBeNull();
     }
   });

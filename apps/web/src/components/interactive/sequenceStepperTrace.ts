@@ -18,15 +18,13 @@
  * - `cost` is the running count of elementary operations, so the reader can
  *   read $$\Theta(1)$$ against $$\Theta(N)$$ off the counter rather than
  *   memorising it.
- * - `capacity` is the reserved block, for the two array recipes and the
- *   heap. The dynamic array's and the heap's grow and shrink mid-trace; the
- *   static array's never does.
+ * - `capacity` is the reserved block, for the dynamic array and the heap.
+ *   Both grow mid-trace, and the heap's also shrinks.
  * - `closesRing` marks the circular recipe, whose last node points back at the
  *   first rather than at `null`.
  */
 
 export const RECIPES = [
-  'array',
   'dynamic-array',
   'linked-list-singly',
   'linked-list-doubly',
@@ -119,14 +117,17 @@ export interface SequenceStep {
   /** 1-based lines of `trace.code` this frame is executing. */
   highlightLines: number[];
   description: string;
-  /** Array recipes and the heap: the reserved block size (`data.length`). */
+  /** The dynamic array and the heap: the reserved block size (`data.length`). */
   capacity?: number;
   /**
-   * Array recipes only: the block slot by slot, `null` where a slot holds
-   * nothing. This is what makes a shift VISIBLE — the element leaves its slot
-   * and the hole travels — and a shift the reader cannot see is a
-   * $$\Theta(N)$$ the reader has to take on faith. `cells` stays the live
-   * elements in order, so everything reading it is unaffected.
+   * The dynamic array only: the block slot by slot, `null` where a slot
+   * holds nothing. This is what makes a shift VISIBLE — the copies travel
+   * through the block — and a shift the reader cannot see is a
+   * $$\Theta(N)$$ the reader has to take on faith. `cells` is the occupied
+   * slots in order with the holes dropped (a stale copy is still a cell), so
+   * a reader that ignores the block is unaffected. The heap encodes its
+   * block differently: no `slots`, and `heapSize` marks where the live cells
+   * end (ADR-0077).
    */
   slots?: (SequenceCell | null)[];
   /**
@@ -297,7 +298,7 @@ const isList = (recipe: SequenceRecipe) => recipe.startsWith('linked-list');
 /**
  * `insert-ordered` is a LIST operation in this course: the ordered list is
  * presented as a variant of the list, and the ordered array is not presented
- * at all. Offering it over an array recipe would put a structure on the page
+ * at all. Offering it over the dynamic array would put a structure on the page
  * that no slide defines. Every other pair is valid.
  */
 /**
@@ -358,9 +359,7 @@ export function traceFor(
     throw new Error(`La operación «${operation}» no está definida sobre «${recipe}».`);
   }
   if (recipe === 'heap-max') return traceHeap(operation, input);
-  return isList(recipe)
-    ? traceList(recipe, operation, input)
-    : traceArray(recipe, operation, input);
+  return isList(recipe) ? traceList(recipe, operation, input) : traceArray(operation, input);
 }
 
 // ── shared helpers ────────────────────────────────────────────────────────
@@ -460,7 +459,7 @@ const METHOD_NAME: Record<SequenceOperation, string> = {
 
 // ── the array family ──────────────────────────────────────────────────────
 
-/** The operations the two array recipes have a listing for. */
+/** The operations the dynamic array has a listing for. */
 type ArrayOperation = Exclude<SequenceOperation, 'insert-ordered' | HeapOperation>;
 
 const ARRAY_CODE: Record<ArrayOperation, string> = {
@@ -472,7 +471,7 @@ const ARRAY_CODE: Record<ArrayOperation, string> = {
 }`,
   'insert-first': `void insertFirst(int x) {
     if (size == data.length) {
-        throw new IllegalStateException("lleno");
+        resize(2 * data.length);
     }
     for (int j = size; j > 0; j--) {
         data[j] = data[j - 1];
@@ -482,7 +481,7 @@ const ARRAY_CODE: Record<ArrayOperation, string> = {
 }`,
   'insert-last': `void insertLast(int x) {
     if (size == data.length) {
-        throw new IllegalStateException("lleno");
+        resize(2 * data.length);
     }
     data[size] = x;
     size++;
@@ -492,7 +491,7 @@ const ARRAY_CODE: Record<ArrayOperation, string> = {
         throw new IndexOutOfBoundsException();
     }
     if (size == data.length) {
-        throw new IllegalStateException("lleno");
+        resize(2 * data.length);
     }
     for (int j = size; j > i; j--) {
         data[j] = data[j - 1];
@@ -540,57 +539,12 @@ const ARRAY_CODE: Record<ArrayOperation, string> = {
 }`,
 };
 
-const DYNAMIC_INSERT_CODE: Record<'insert-first' | 'insert-last' | 'insert-at', string> = {
-  'insert-first': `void insertFirst(int x) {
-    if (size == data.length) {
-        resize(2 * data.length);
-    }
-    for (int j = size; j > 0; j--) {
-        data[j] = data[j - 1];
-    }
-    data[0] = x;
-    size++;
-}`,
-  'insert-last': `void insertLast(int x) {
-    if (size == data.length) {
-        resize(2 * data.length);
-    }
-    data[size] = x;
-    size++;
-}`,
-  'insert-at': `void insertAt(int i, int x) {
-    if (i < 0 || i > size) {
-        throw new IndexOutOfBoundsException();
-    }
-    if (size == data.length) {
-        resize(2 * data.length);
-    }
-    for (int j = size; j > i; j--) {
-        data[j] = data[j - 1];
-    }
-    data[i] = x;
-    size++;
-}`,
-};
-
-function arrayCode(recipe: SequenceRecipe, operation: SequenceOperation): string {
-  if (recipe === 'dynamic-array' && operation in DYNAMIC_INSERT_CODE) {
-    return DYNAMIC_INSERT_CODE[operation as keyof typeof DYNAMIC_INSERT_CODE];
-  }
-  return ARRAY_CODE[operation as ArrayOperation];
-}
-
-function traceArray(
-  recipe: SequenceRecipe,
-  operation: SequenceOperation,
-  input: SequenceInput,
-): SequenceTrace {
+function traceArray(operation: SequenceOperation, input: SequenceInput): SequenceTrace {
   // How many times the author asked for the operation. The array family
   // animated ONE run through #288 and through #294's first array slides; the
   // push slide of the second pass needs four, with the block filling on the
   // third. Same helper as the list side, so `insertAt` still gets one index
   // per value and the run ceiling is one number for the whole widget.
-  const grows = recipe === 'dynamic-array';
   const args = runArgs(operation, input);
   // Same resguardo the list family carries: a zero-length argument list
   // traces nothing, and `steps.at(-1)!` at the settle step turns that into an
@@ -600,22 +554,20 @@ function traceArray(
   }
   requireRuns(args.length);
   const shown = shownName(operation, input);
-  const base = renameIn(arrayCode(recipe, operation), operation, shown);
+  const base = renameIn(ARRAY_CODE[operation as ArrayOperation], operation, shown);
   const many = args.length > 1;
   const code = many
     ? base +
       callingProgram(args, shown, false, {
         name: input.receiver ?? 'arreglo',
-        type: input.receiverType ?? (grows ? 'DynamicArray' : 'StaticArray'),
+        type: input.receiverType ?? 'DynamicArray',
       })
     : base;
   const runLine = (run: number): number[] => (many ? [base.split('\n').length + run + 1] : []);
-  // The static array is drawn with room to spare — its capacity is fixed at
-  // creation and the class's point is that it can run out. The dynamic array
-  // DEFAULTS to full, so that a single insertion shows the resize it exists
-  // for; an author running several insertions passes `capacity` to choose
-  // which of them pays for the growth, because a first push that grows is the
-  // one place a reader least expects it.
+  // The block DEFAULTS to full, so that a single insertion shows the resize
+  // the dynamic array exists for; an author running several insertions passes
+  // `capacity` to choose which of them pays for the growth, because a first
+  // push that grows is the one place a reader least expects it.
   if (input.capacity !== undefined) {
     // Refuse what cannot be drawn rather than degrading quietly: a fractional
     // capacity was truncated in silence and `NaN` produced a zero-width block.
@@ -628,9 +580,7 @@ function traceArray(
       );
     }
   }
-  let capacity = grows
-    ? (input.capacity ?? Math.max(input.values.length, 1))
-    : (input.capacity ?? input.values.length + 2);
+  let capacity = input.capacity ?? Math.max(input.values.length, 1);
 
   // The block, slot by slot. A copy leaves its source written where it was
   // until the next one overwrites it, so the reader sees the value in two
@@ -698,8 +648,8 @@ function traceArray(
   };
 
   const growIfNeeded = (): number => {
-    // Only the dynamic array grows, and only when the block is actually full.
-    if (!grows || live().length < capacity) return 0;
+    // Only when the block is actually full.
+    if (live().length < capacity) return 0;
     const copied = live().length;
     capacity = capacity * 2;
     while (slots.length < capacity) slots.push(null);

@@ -83,7 +83,7 @@ export interface SequenceStepperProps {
    */
   method?: string;
   /** The variable the calling program operates on. Defaults to `arreglo`
-   * on the array recipes and to `list` on the chains. */
+   * on the dynamic array and to `list` on the chains. */
   receiver?: string;
   /** The class the calling program constructs. Goes with `method`. */
   receiverType?: string;
@@ -141,7 +141,6 @@ function refusalReason(
 }
 
 const RECIPE_LABEL: Record<SequenceRecipe, string> = {
-  array: 'arreglo',
   'dynamic-array': 'arreglo dinámico',
   'linked-list-singly': 'lista simplemente enlazada',
   'linked-list-doubly': 'lista doblemente enlazada',

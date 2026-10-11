@@ -33,14 +33,13 @@ const startFor = (recipe: SequenceRecipe, operation: SequenceOperation): number[
   recipe === 'heap-max' ? [7, 5, 3, 1] : operation === 'insert-ordered' ? [1, 3, 7, 9] : values;
 
 describe('sequenceStepperTrace · the valid combinations', () => {
-  it('rejects insert-ordered on the two array recipes', () => {
-    expect(isValidCombination('array', 'insert-ordered')).toBe(false);
+  it('rejects insert-ordered on the dynamic array', () => {
     expect(isValidCombination('dynamic-array', 'insert-ordered')).toBe(false);
     expect(isValidCombination('linked-list-singly', 'insert-ordered')).toBe(true);
   });
 
-  it('accepts every operation over the two arrays and the singly list', () => {
-    for (const recipe of ['array', 'dynamic-array', 'linked-list-singly'] as const) {
+  it('accepts every operation over the dynamic array and the singly list', () => {
+    for (const recipe of ['dynamic-array', 'linked-list-singly'] as const) {
       for (const operation of OPERATIONS) {
         if (HEAP_OPERATIONS.includes(operation)) continue;
         if (operation === 'insert-ordered' && !recipe.startsWith('linked-list')) continue;
@@ -125,7 +124,7 @@ describe('sequenceStepperTrace · what each operation costs', () => {
   });
 
   it('insert-first on an array is O(N): it shifts every element right', () => {
-    const trace = traceFor('array', 'insert-first', { values, value: 9 });
+    const trace = traceFor('dynamic-array', 'insert-first', { values, value: 9 });
     const shifts = trace.steps.filter((s) => s.kind === 'shift');
     expect(shifts).toHaveLength(values.length);
     expect(trace.steps.at(-1)!.cells.map((c) => c.value)).toEqual([9, 7, 3, 1, 5]);
@@ -162,7 +161,7 @@ describe('sequenceStepperTrace · the outcomes', () => {
   });
 
   it('remove-at closes the gap', () => {
-    const trace = traceFor('array', 'remove-at', { values, index: 1 });
+    const trace = traceFor('dynamic-array', 'remove-at', { values, index: 1 });
     expect(trace.steps.at(-1)!.cells.map((c) => c.value)).toEqual([7, 1, 5]);
   });
 
@@ -251,7 +250,7 @@ describe('sequenceStepperTrace · the array block, slot by slot', () => {
   // changed nothing on screen and the Theta(N) was a claim rather than a
   // picture. These cases pin the hole.
   it('shows each copy as a duplicate that travels, source still drawn', () => {
-    const trace = traceFor('array', 'insert-first', { values, value: 9 });
+    const trace = traceFor('dynamic-array', 'insert-first', { values, value: 9 });
     const shifts = trace.steps.filter((s) => s.kind === 'shift');
     expect(shifts).toHaveLength(values.length);
     for (const step of shifts) {
@@ -273,7 +272,7 @@ describe('sequenceStepperTrace · the array block, slot by slot', () => {
   });
 
   it('leaves no hole once the value is written', () => {
-    const trace = traceFor('array', 'insert-first', { values, value: 9 });
+    const trace = traceFor('dynamic-array', 'insert-first', { values, value: 9 });
     const slots = trace.steps.at(-1)!.slots!;
     const lastFull = slots.map((s) => s !== null).lastIndexOf(true);
     expect(slots.slice(0, lastFull + 1).every((s) => s !== null)).toBe(true);
@@ -281,14 +280,18 @@ describe('sequenceStepperTrace · the array block, slot by slot', () => {
   });
 
   it('closes the hole again when removing from the middle', () => {
-    const trace = traceFor('array', 'remove-at', { values, index: 1 });
+    const trace = traceFor('dynamic-array', 'remove-at', { values, index: 1 });
     const slots = trace.steps.at(-1)!.slots!;
     const lastFull = slots.map((s) => s !== null).lastIndexOf(true);
     expect(slots.slice(0, lastFull + 1).map((s) => s!.value)).toEqual([7, 1, 5]);
   });
 
   it('draws free capacity beyond the live elements', () => {
-    const trace = traceFor('array', 'search', { values, target: 7 });
+    const trace = traceFor('dynamic-array', 'search', {
+      values,
+      target: 7,
+      capacity: values.length + 2,
+    });
     const slots = trace.steps[0]!.slots!;
     expect(slots.length).toBeGreaterThan(values.length);
     expect(slots.at(-1)).toBeNull();
@@ -315,7 +318,7 @@ describe('sequenceStepperTrace · the counts the prose claims', () => {
 
   it.each(sizes)('insertFirst on an array copies N elements (N=%i)', (n) => {
     const values = Array.from({ length: n }, (_, i) => i + 1);
-    const trace = traceFor('array', 'insert-first', { values, value: 99 });
+    const trace = traceFor('dynamic-array', 'insert-first', { values, value: 99 });
     expect(trace.steps.filter((s) => s.kind === 'shift')).toHaveLength(n);
   });
 
@@ -383,7 +386,7 @@ describe('sequenceStepperTrace · get-at, the operation that shows the price', (
 
   it('costs one step on an array, whatever the position — that is the contrast', () => {
     for (const i of [0, 1, 2, 3]) {
-      const trace = traceFor('array', 'get-at', { values, index: i });
+      const trace = traceFor('dynamic-array', 'get-at', { values, index: i });
       expect(
         trace.steps.filter((s) => s.kind === 'walk'),
         `i=${i}`,
@@ -479,7 +482,7 @@ describe('sequenceStepperTrace · the pointers the reader follows', () => {
   });
 
   it('an array frame carries an index cursor rather than named pointers', () => {
-    const trace = traceFor('array', 'insert-at', { values, value: 9, index: 2 });
+    const trace = traceFor('dynamic-array', 'insert-at', { values, value: 9, index: 2 });
     expect(trace.steps.every((s) => s.pointers.every((p) => p.name !== 'head'))).toBe(true);
   });
 });
@@ -894,8 +897,12 @@ describe('sequenceStepperTrace · the block a slide asks for', () => {
   // came out four cells wide on the slide that pushes and five on the slide
   // that pops — one structure at two sizes, one slide apart (#294 review).
   it('reserves exactly the slots the author asked for', () => {
-    const push = traceFor('array', 'insert-last', { values: [42, 7], value: 15, capacity: 6 });
-    const pop = traceFor('array', 'remove-last', { values: [42, 7, 15], capacity: 6 });
+    const push = traceFor('dynamic-array', 'insert-last', {
+      values: [42, 7],
+      value: 15,
+      capacity: 6,
+    });
+    const pop = traceFor('dynamic-array', 'remove-last', { values: [42, 7, 15], capacity: 6 });
     for (const trace of [push, pop]) {
       for (const step of trace.steps) {
         expect(step.slots).toHaveLength(6);
@@ -904,15 +911,15 @@ describe('sequenceStepperTrace · the block a slide asks for', () => {
     }
   });
 
-  it('still sizes itself from the input when nobody asks', () => {
-    const trace = traceFor('array', 'remove-last', { values: [42, 7, 15] });
-    expect(trace.steps[0]!.capacity).toBe(5);
+  it('still sizes itself from the input when nobody asks: full', () => {
+    const trace = traceFor('dynamic-array', 'remove-last', { values: [42, 7, 15] });
+    expect(trace.steps[0]!.capacity).toBe(3);
   });
 
   it('refuses a block too small for the elements it is given', () => {
-    expect(() => traceFor('array', 'remove-last', { values: [7, 3, 1, 5], capacity: 2 })).toThrow(
-      /no alcanza/i,
-    );
+    expect(() =>
+      traceFor('dynamic-array', 'remove-last', { values: [7, 3, 1, 5], capacity: 2 }),
+    ).toThrow(/no alcanza/i);
   });
 });
 
@@ -922,7 +929,7 @@ describe('sequenceStepperTrace · what `capacity` refuses', () => {
   // million. None is reachable by a reader (MDX is bundled at build time) but
   // all three are authoring mistakes the file refuses everywhere else.
   it.each([3.7, Number.NaN, 0, 1e7])('refuses a capacity of %p', (capacity) => {
-    expect(() => traceFor('array', 'remove-last', { values: [7, 3], capacity })).toThrow(
+    expect(() => traceFor('dynamic-array', 'remove-last', { values: [7, 3], capacity })).toThrow(
       /no es un entero/i,
     );
   });
@@ -1067,12 +1074,12 @@ describe('sequenceStepperTrace · the pointer a slide keeps on screen', () => {
     expect(named.steps.flatMap((s) => s.pointers).map((p) => p.name)).not.toContain('i');
 
     // and keeps it when nobody did — the Queue act reads `j` through a shift.
-    const bare = traceFor('array', 'remove-first', { values: [3, 8, 5], capacity: 6 });
+    const bare = traceFor('dynamic-array', 'remove-first', { values: [3, 8, 5], capacity: 6 });
     expect(bare.steps.flatMap((s) => s.pointers).map((p) => p.name)).toContain('j');
   });
 
   it('aims the pointer at the front when the operation works there', () => {
-    const trace = traceFor('array', 'remove-first', {
+    const trace = traceFor('dynamic-array', 'remove-first', {
       values: [3, 8, 5],
       capacity: 6,
       pointer: 'front',
@@ -1081,7 +1088,11 @@ describe('sequenceStepperTrace · the pointer a slide keeps on screen', () => {
   });
 
   it('aims at nothing when the structure is empty', () => {
-    const trace = traceFor('array', 'remove-last', { values: [7], capacity: 4, pointer: 'top' });
+    const trace = traceFor('dynamic-array', 'remove-last', {
+      values: [7],
+      capacity: 4,
+      pointer: 'top',
+    });
     expect(trace.steps.at(-1)!.pointers.find((p) => p.name === 'top')!.index).toBeNull();
   });
 
@@ -1126,7 +1137,7 @@ describe('sequenceStepperTrace · an array asked for several runs', () => {
   });
 
   it('runs remove-last `times` times and leaves the rest of the block', () => {
-    const trace = traceFor('array', 'remove-last', {
+    const trace = traceFor('dynamic-array', 'remove-last', {
       values: [42, 7, 15, 4, 9],
       times: 3,
       capacity: 6,
@@ -1137,7 +1148,7 @@ describe('sequenceStepperTrace · an array asked for several runs', () => {
 
   it('still refuses more runs than a slide can show', () => {
     expect(() =>
-      traceFor('array', 'remove-last', { values: [1, 2], times: 99, capacity: 40 }),
+      traceFor('dynamic-array', 'remove-last', { values: [1, 2], times: 99, capacity: 40 }),
     ).toThrow(/Entre 1 y/i);
   });
 });

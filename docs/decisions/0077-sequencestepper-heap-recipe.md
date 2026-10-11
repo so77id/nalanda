@@ -105,8 +105,9 @@ at `head`. The slide review of #304 cut the HeapSort act and turned the naive
 lists into prose and drawings with no widget, which left the three with no
 reader in any document. They were removed before merge rather than kept for a
 class that might want them: a recipe or a prop with no slide to mount it is
-the `array` recipe's story again (#296), and the next class that wants
-HeapSort adds it back with its own slides and its own review.
+the `array` recipe's story again (#296 — the recipe this same PR deleted, see
+ADR-0074's `Amended by: #304`), and the next class that wants HeapSort adds it
+back with its own slides and its own review.
 
 ## Alternatives considered
 
@@ -145,4 +146,5 @@ HeapSort adds it back with its own slides and its own review.
 - `heap-min` is not built. The class shows the min-heap on one slide (the
   invariant turned over, drawn beside the max-heap) and then generalises to a
   heap that takes a `Comparator`, all in static drawings and code; a recipe
-  with no slide to mount it would be the `array` recipe's story again (#296).
+  with no slide to mount it would be the `array` recipe's story again (#296,
+  deleted by this PR).
