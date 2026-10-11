@@ -1413,11 +1413,15 @@ aritmética de índices no cambian.
 
 En el código sólo cambia el sentido de las comparaciones de `swim` y `sink`:
 
-|                            | Max-heap                 | Min-heap                 |
-| -------------------------- | ------------------------ | ------------------------ |
-| `swim` sube mientras       | el padre sea menor       | el padre sea mayor       |
-| `sink` baja por            | el hijo mayor            | el hijo menor            |
-| `sink` se detiene cuando   | `data[k] >= data[j]`     | `data[k] <= data[j]`     |
+|                                       | Max-heap      | Min-heap      |
+| ------------------------------------- | ------------- | ------------- |
+| `swim` sube mientras el padre sea     | menor         | mayor         |
+| `swim` se detiene cuando el padre es  | mayor o igual | menor o igual |
+| `sink` baja por                       | el hijo mayor | el hijo menor |
+| `sink` se detiene cuando ese hijo es  | menor o igual | mayor o igual |
+
+Que `swim` se detenga también al llegar a la raíz, y `sink` al llegar a una
+hoja, no cambia.
 
 </Slide>
 
