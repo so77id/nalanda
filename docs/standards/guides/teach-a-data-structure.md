@@ -1,7 +1,9 @@
 # Guide — Teach a data structure
 
-The shape every class of the **Estructuras de Datos** unit takes. Born with
-#277, the unit's first class, which is also its worked example.
+The shape every class of the **Estructuras de Datos** unit takes — and of
+**Estructuras de Datos Avanzadas**, the unit that continues it with the
+non-linear structures (the trees, then the heap; #321). Born with #277, the
+first unit's first class, which is also its worked example.
 
 This is the third layer of the course-authoring stack, and the three do not
 overlap:
@@ -18,8 +20,9 @@ either of the other two.
 
 ## When to use
 
-You are writing a class of the Estructuras de Datos unit — a TDA, a structure
-that implements one, or a family of variants. The unit is a sequence of
+You are writing a class of the Estructuras de Datos unit or of Estructuras de
+Datos Avanzadas — a TDA, a structure that implements one, or a family of
+variants. The two units are one sequence of
 classes that all answer the same four questions about a different object, and
 the reader learns the answers faster because the questions never move.
 
@@ -118,9 +121,11 @@ next author needs both.
 
 It was defensible there and only there: #294 was last in `index.yaml` when
 it shipped, so there was no next class to navigate to, and a `Lo que sigue`
-would have had to invent one. #304 (Priority Queue y Heap) now follows it on
-the teaching path, so that justification has expired; #294's missing closing
-is owed, and tracked in **#323**. What it costs is real — `18-edd-listas-enlazadas.mdx` wiki-links forward
+would have had to invent one. #304 (Priority Queue y Heap) followed it on the
+teaching path first, and since #321 moved the trees ahead of the heap the next
+stop is Árboles I, the first class of Estructuras de Datos Avanzadas — either
+way that justification has expired; #294's missing closing is owed, and
+tracked in **#323**. What it costs is real — `18-edd-listas-enlazadas.mdx` wiki-links forward
 into a document that now dead-ends, and the trade this guide asks every class
 to close on (§5) went with the hinge.
 
@@ -131,13 +136,19 @@ claimed #294 carried an exercise index slide, a hinge after the `<Exercise>`
 blocks and a `Lo que sigue`, none of which ship — because it was written
 before the cuts and never re-measured against the document.
 
-**#304 keeps half of it.** The professor cut its hinge slide (_Lo que el
-orden débil no responde_) in the slide review, so the deck ends on the
-exercises. The trade survives as the closing lines of the slide _Costos de
-PriorityQueue_ (a search for any element has no shortcut, because the heap
-only knows where the first one is) and as prose in the book-only `## Lo que
-sigue`, which still names the next class. That is a second stated deviation,
-not a new shape: the rule above is unchanged.
+**#304 keeps half of it, and lost the half that pointed forward.** The
+professor cut its hinge slide (_Lo que el orden débil no responde_) in the
+slide review, so the deck ends on the exercises. The trade survives as the
+closing lines of the slide _Costos de PriorityQueue_ (a search for any element
+has no shortcut, because the heap only knows where the first one is). The
+book-only `## Lo que sigue` that named the trees as the next class is gone:
+#321 moved the trees AHEAD of the heap, which made that sentence false, and
+removed the heading and its prose at the professor's call. Its `<Questions>`
+block, which sat under that heading, stays where it was. That leaves #304 last
+on the teaching path with no closing, which is where #294 stood when it
+shipped. Still a stated deviation, not a new shape: the rule above is
+unchanged, and the class that comes to follow #304 on the path is what makes
+its closing owed again.
 
 **#277 also cut its own act 4.** An earlier draft closed with a recap act
 ("un contrato para los dos arreglos") that restated the TDA, put the two cost

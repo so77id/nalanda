@@ -10,7 +10,8 @@ ADR-0013 (presentation).
 You are writing course material: a new sección/presentación, an exercise page,
 any content unit. No app code is involved — everything happens under `content/`.
 
-**If the document is a class of the Estructuras de Datos unit, read
+**If the document is a class of the Estructuras de Datos or Estructuras de
+Datos Avanzadas unit, read
 [`teach-a-data-structure.md`](teach-a-data-structure.md) BEFORE drafting.** It
 fixes the shape — the acts and the four questions they answer, the TDA card,
 the invariant list, the cost table with its invariant column, the closing
@@ -59,6 +60,7 @@ content/courses/sample-course/
 ├── 18-edd-listas-enlazadas.mdx  # presentation: explicit, questions: pool — <SequenceStepper> ×13 (the worked case) + <Exercise> ×5 with the `solution` fence
 ├── 19-edd-stack-queue.mdx     # presentation: explicit, questions: pool (13) — <SequenceStepper> ×8 over BOTH families (dynamic-array + singly) + <StepShow> ×7 + <Exercise> ×4 + 20 standalone inline SVG figures + a file-local <Paso> frame component + two TDA cards
 ├── 20-edd-priority-queue-heap.mdx  # presentation: explicit, questions: pool (16) — <SequenceStepper eda="heap-max"> ×4 + <StepShow> ×3 + <Exercise> ×4 (three worked on slides, one posed) + <PresentationWide> ×3 + 23 file-local figure components and LIST_COLORS (§6e-quater) + a TDA card (the fifth copy)
+├── 21-edd-arboles-i.mdx       # presentation: explicit, questions: none (a documented not-yet, step 2) — opens the Estructuras de Datos Avanzadas unit, ahead of chapter 20 in index.yaml
 ├── tda-eda-invariante.svg, arreglo-memoria.svg, arreglo-alocacion.svg, arreglo-invariante-valido.svg, arreglo-invariantes.svg, regla-del-cuarto.svg, costo-acumulado.svg   # assets for chapter 17
 └── index.yaml                 # the ordered teaching path
 ```
@@ -1657,7 +1659,8 @@ last block, so no stale copies accumulate.
       cross-references between sections or slides, noun-phrase titles). The
       suite cannot see any of this — a voice violation ships past a green
       build unless a human catches it here (course-content-style.md §6).
-- [ ] If the document belongs to the **Estructuras de Datos** unit, its shape
+- [ ] If the document belongs to the **Estructuras de Datos** or **Estructuras
+      de Datos Avanzadas** unit, its shape
       checked against
       [`teach-a-data-structure.md`](teach-a-data-structure.md) §Checklist —
       the act shape, the TDA card, the invariant list, the cost table with
