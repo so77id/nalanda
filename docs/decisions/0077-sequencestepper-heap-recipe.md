@@ -51,9 +51,9 @@ the formulas the class has just justified.
 `swim` and `sink` are **not** operations. They are the inside of the two —
 printed under the method that calls them, so the listing never calls either
 without showing its body, and their lines light up as they run. The helpers
-it does call without printing them (`parent`, `left`, `right`, `swap`,
-`resize`, `shrinkIfSparse`) are the ones the class writes on its own slides
-before the operations.
+it does call without printing them are prepared before the operations:
+`parent`, `left`, `right` and `swap` are written on the class's own slides,
+and `resize` and `shrinkIfSparse` are named there as the dynamic array's.
 
 ### 3. Sedgewick's listing, 1-based, growing and shrinking like the dynamic array
 
@@ -105,7 +105,11 @@ is what the reader has to see, which reads across better than down.
 - **One new cell state, `swap`**, painted in `accent` at the heavier stroke —
   the unit's "being moved" token (`teach-a-data-structure.md` §6bis) and
   Sedgewick's orange path — with the tree edge between the pair drawn the
-  same. It does not rely on colour alone (stroke weight, the legend). This is
+  same. It does not rely on colour alone (stroke weight, the legend). The
+  heap view writes no word under its cells, where the index sits, so `new`,
+  `swap` and `stale` read by stroke weight, dash and the legend rather than
+  by ADR-0074's word per state — which the Sequence recipes' `active` state
+  never had either. This is
   the one data state in `accent`, which ADR-0074 otherwise keeps for chrome;
   the exception is recorded there, in place, with the bar the next one has to
   clear.
@@ -135,7 +139,7 @@ back with its own slides and its own review.
   produces. Showing them inside the operations that call them is also what
   the listing does.
 - **Only the tree, or only the array.** Either hides half of the lesson (§4).
-- **`swap` in a token ADR-0074 already assigns.** `focus` is the pair under
+- **`swap` in a token ADR-0074 already assigns.** In `swim` and `sink`, `focus` is the pair under
   comparison, and the next frame swaps that same pair: in `focus` too, the
   swap would read as a second comparison. `mark` already means the cell just
   inserted. No assigned token separates the swap from the frame beside it,

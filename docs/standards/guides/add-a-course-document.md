@@ -1160,7 +1160,7 @@ What that costs, and the rules that follow from it:
   `LIST_COLORS` for the heap pictures and three exercises, some composing
   others (`MergeFrame` draws `HeapPicture`, `LLNode` and `OutChain`). Its
   `HeapPicture` draws the same tree as the `heap-max` recipe of
-  `<SequenceStepper>` and copies the five constants of
+  `<SequenceStepper>` and copies five of the constants of
   `sequenceStepperHeapLayout.ts`, so a static figure and the widget beside it
   match. The copy is the one that fails late — nothing tests it, so a moved
   constant shows only in a browser — and both ends say so

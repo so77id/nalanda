@@ -15,9 +15,10 @@
  * - `pointers` are the named arrows drawn under (array) or over (list) the
  *   structure. `index: null` means the pointer points at `null` — past the end
  *   of the chain, which is the terminating case every walk ends on.
- * - `cost` is the running count of elementary operations, so the reader can
- *   read $$\Theta(1)$$ against $$\Theta(N)$$ off the counter rather than
- *   memorising it.
+ * - `cost` is the running count of elementary operations THIS run has spent.
+ *   The widget no longer prints it (#294: one run shows one number, and one
+ *   number is not a growth rate); the suite reads it to pin what each
+ *   operation costs.
  * - `capacity` is the reserved block, for the dynamic array and the heap.
  *   Both grow mid-trace, and the heap's also shrinks.
  * - `closesRing` marks the circular recipe, whose last node points back at the
@@ -231,13 +232,14 @@ export interface SequenceInput {
    */
   times?: number;
   /**
-   * Arrays and the heap: how many slots the block reserves (the heap's
-   * counts `data[0]`, which it never uses). Without it an array's block is
-   * sized from the input (`values.length + 2`), which makes the SAME stack
-   * appear four cells wide on the slide that pushes and five on the slide
-   * that pops — two consecutive slides drawing one structure at two sizes
-   * (#294 review). Give the pair the same number and the block stops
-   * breathing between slides.
+   * The dynamic array and the heap: how many slots the block reserves (the
+   * heap's counts `data[0]`, which it never uses). Without it the block
+   * starts FULL — `values.length` on the dynamic array, `values.length + 1`
+   * on the heap — so a single insertion shows the growth. Sized from the
+   * input, the SAME stack came out four cells wide on the slide that pushes
+   * and five on the slide that pops — two consecutive slides drawing one
+   * structure at two sizes (#294 review). Give the pair the same number and
+   * the block stops breathing between slides.
    */
   capacity?: number;
   /** Lists only: draw a `tail` pointer and let the operations use it. */
@@ -251,7 +253,10 @@ export interface SequenceInput {
    * slide is about. Renames the signature and every call of it (#294).
    */
   method?: string;
-  /** The variable the calling program operates on. Default `list`. */
+  /**
+   * The variable the calling program operates on. Default `list` on the
+   * chains, `arreglo` on the dynamic array, `heap` on the heap.
+   */
   receiver?: string;
   /**
    * The class the calling program constructs. Goes with `method` and
@@ -261,7 +266,7 @@ export interface SequenceInput {
    */
   receiverType?: string;
   /**
-   * Arrays only: a named arrow kept on EVERY frame, aimed at the end the
+   * The dynamic array only: a named arrow kept on EVERY frame, aimed at the end the
    * operation works on — the last live slot for the `*-last` operations, the
    * first for the rest, and at nothing when the block is empty. The `i`/`j`
    * cursors a frame would otherwise carry are the operation's own, and they
@@ -2028,9 +2033,9 @@ function traceList(
 //
 // `swim` and `sink` are printed under the operation that calls them, so the
 // reader never meets a call to either without its body. The helpers the
-// listings call without printing them (`parent`, `left`, `right`, `swap`,
-// `resize`, `shrinkIfSparse`) are the ones the class writes on its own slides
-// before the operations.
+// listings call without printing them are prepared before the operations:
+// `parent`, `left`, `right` and `swap` are written on the class's own slides,
+// and `resize` and `shrinkIfSparse` are named there as the dynamic array's.
 
 // Written on parent / left / right, the index functions the class defines
 // just before the operations, so the listing reads as the formulas it derived.

@@ -377,8 +377,9 @@ the slide is stronger closing on the trade itself.
 
 **No forward wiki-link when the target does not exist yet.** A `[[id]]` with no
 document renders visibly broken (`add-a-course-document.md` §7). Name the next
-class in prose; the wiki-link arrives in the WP that writes it, from both
-sides.
+class in prose; the wiki-link arrives in the WP that writes it, from the
+previous document's `## Lo que sigue` — the one place a document names
+another (`course-content-style.md` §4b).
 
 Then the closing navigation — a `## Lo que sigue` section or a slide of that
 name (§1) — which is where the reader —
@@ -524,7 +525,8 @@ cannot be scrolled. Read both:
 **And the vertical axis, where it can actually clip.** A listing
 (`CodeStepper`) has no height cap, so it grows instead of clipping; what can
 clip is a box with its own `max-height` — the frame box of a `<StepShow>`
-(`max-h-96 overflow-auto`) and the structure panel of a `<SequenceStepper>`
+(`max-h-96 overflow-auto`) and the structure panel of a Sequence recipe of
+`<SequenceStepper>` (the heap's panel scales instead of scrolling)
 on a slide. A frame taller than its box scrolls, and a projected slide cannot
 be scrolled. Read every scrolling box on the stage, at every frame:
 
@@ -568,8 +570,11 @@ listing, their `lines` arrays must agree.** The fixed-capacity `insertAt` said
 its fence text and read the result next to the step's own caption.
 
 **What that widget is, concretely** (ADR-0074): `eda` picks the structure —
-array, dynamic array, or a singly / doubly / circular list — and `operation`
-picks which of nine operations to animate over it. The surface never changes
+a dynamic array, a singly / doubly / circular list, or (since #304, ADR-0077)
+a binary max-heap — and `operation` picks which of the nine Sequence
+operations, or the heap's own two, to animate over it. (A fixed-capacity
+`array` recipe was deleted by #304, never having had a reader; ADR-0074
+§Amended by #304.) The surface never changes
 between combinations, which is the point: the reader learns one visual
 vocabulary and reads every structure of the unit through it, comparing COST
 rather than re-reading a new widget.

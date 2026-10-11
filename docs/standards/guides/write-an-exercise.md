@@ -151,9 +151,11 @@ so a closer can only match the most recent.
 
 Run the idea by hand on beat 1's example — **in a drawing**, one state per
 step, with the values written in the drawing and its caption. The prose
-states the rule and names no values. #304's _El peor de los K mejores_ says
+states the rule and names no values (the class-wide rule is
+[`course-content-style.md`](course-content-style.md) §4c). #304's _El peor de los K mejores_ says
 in prose what happens to each number that arrives, and the `<TopKStrip>`
-under it runs `5 1 9 3 7 2 8` through the heap. The rule came out of the
+under it runs `5 1 9 3 7 2 8` through the K best so far, the worst on top;
+the min-heap is named only after it. The rule came out of the
 professor's review of #304: concrete values («el 9», `data[8]`) appear only in
 drawings and their captions, never as «insertemos un 9…» in the prose.
 An idea with several parts gets several pictures, one per part.
@@ -285,6 +287,12 @@ and whether anything clips — the scale recipe is in
       is skipped in one explicit line.
 - [ ] Beat 3 contains no code and no identifier from the listing, and the
       structure is named there for the first time.
+- [ ] Beat 3's hand run is a drawing, with the values in it and in its
+      caption; the prose states the rule and names none.
+- [ ] A listing with several moving parts is built a fragment per slide
+      before the full walk, and a helper that hides the idea is inlined.
+- [ ] The worked exercises of a class climb easy → medium → hard, and
+      nothing the reader sees names a level or counts the problems.
 - [ ] Every helper the listing calls is written and explained before the
       walk that calls it — above the widget when both fit on one slide, on
       the slide immediately before it when they do not.

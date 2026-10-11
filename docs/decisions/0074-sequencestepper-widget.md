@@ -339,8 +339,10 @@ starting elements is refused at boot like every other authoring mistake.
 
 **Amended by:** #304, review pipeline Round B (2026-10-11) — **the `array`
 recipe is deleted, as the TODO above required.** #304 is the next class of
-the unit; it mounts the heap and the dynamic array, and
-`grep -rn 'eda="array"' content/` still returns nothing. Offered the two
+the unit; it mounts only `heap-max` (four times), and
+`grep -rn 'eda="array"' content/` still returns nothing. (This block said
+"the heap and the dynamic array" before the per-fix recheck of #304's
+review counted the mounts.) Offered the two
 options the TODO left, the professor chose deletion over naming a reader.
 Gone with it: `'array'` in `RECIPES`, the fixed-block insertion listings
 that threw `IllegalStateException("lleno")` (`ARRAY_CODE` now holds the
@@ -364,9 +366,9 @@ heaviest stroke, with a legend entry «se intercambia». That broke this ADR's
 "`accent` … never for data state" while ADR-0077 said nothing here was
 withdrawn; the review pipeline found the contradiction. The professor kept
 the paint and amended the rule rather than repaint, because no token this ADR
-assigns separates a swap from the frame beside it: the comparison before it
-paints the same pair in `focus`, and `mark` already means the cell just
-inserted. `accent` is the unit's "being moved" token in hand-drawn frames
+assigns separates a swap from the frame beside it: in `swim` and `sink`
+the comparison before each swap paints the same pair in `focus`, and `mark`
+already means the cell just inserted. `accent` is the unit's "being moved" token in hand-drawn frames
 (`teach-a-data-structure.md` §6bis), which is what a swap is, and the state
 is never colour alone (stroke weight, the legend). **The bar for the next
 exception:** a data state that no assigned token can tell apart from the

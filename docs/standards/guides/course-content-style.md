@@ -122,9 +122,25 @@ whole. Three things go:
   wrote «la misma del arreglo dinámico» and dropped «con la implementación
   que tiene en la clase de arreglos». The fact the reader needs is stated in
   place, as §4 asks of sections. Only `## Lo que sigue` names another
-  document. `17-edd-introduccion.mdx` and `18-edd-listas-enlazadas.mdx`
-  still wiki-link other classes from their bodies; they are brought in line
-  the next time each is opened, not in a sweep of their own.
+  document. Eight older classes still wiki-link other classes from their
+  bodies — 07, 08, 09 and 14 to 18 — and each is brought in line the next
+  time it is opened, not in a sweep of its own. A document that is not a
+  class (the welcome page, the planning) links to classes by nature, and
+  this rule does not reach it.
+
+## 4c. The prose states the rule; the example lives in the drawing
+
+A slide's prose says what an operation does in general — which element
+moves, which comparison decides, when it stops — and names no values. The
+running example's values («el 9», `data[8]`, «visitamos el 8, luego el 3»)
+appear only in the drawings and their captions, never as «insertemos un 9…»
+in the prose. **An operation with several steps gets one drawing per step,
+and every step is drawn**: the professor's review of #304 caught a swap
+missing from one of its sequences of drawings. Worked case:
+`20-edd-priority-queue-heap.mdx`'s _Dónde entra un elemento nuevo_, whose
+prose says the new element takes position `n + 1` and whose drawing's
+caption says «n = 7: el 9 entra en data[8]». The same rule governs an exercise's hand run
+([`write-an-exercise.md`](write-an-exercise.md) beat 3).
 
 ## 5. Titles — a noun phrase that says what is on the slide
 
@@ -238,6 +254,9 @@ Two consequences worth spelling out, because #288 hit both:
       `\[\[[a-z]`, which skips a figure's `[[1, 0]]` data) outside
       `## Lo que sigue`;
       no index slide and no slide counting what follows.
+- [ ] The prose states rules and names no running-example values (§4c):
+      grep the body for the example's numbers outside drawings and their
+      captions; an operation with several steps has one drawing per step.
 - [ ] Every `h2` and every `<Slide title>` is a single-part noun phrase that
       says what is on its slide — no `·` subtitle; the only interpuncts
       allowed are a series and the contract gloss (§5) — and the deck's
