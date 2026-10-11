@@ -1910,18 +1910,19 @@ el orden pedido.
 </Slide>
 
 <Slide title="Planificador · la solución">
-Las dos comparaciones se escriben por separado y se encadenan con
-`thenComparing`: la segunda decide sólo cuando la primera devuelve cero.
+La comparación de dos tareas es la regla tal cual: si las urgencias son
+distintas, decide la urgencia, de mayor a menor; si son iguales, decide la
+llegada, de menor a mayor.
 
 <StepShow
   language="java"
   code={`static String[] schedule(Task[] tasks) {
-      Comparator<Task> byUrgency =
-          (a, b) -> Integer.compare(b.urgency, a.urgency);
-      Comparator<Task> byArrival =
-          (a, b) -> Integer.compare(a.arrival, b.arrival);
-      PriorityQueue<Task> pending =
-          new PriorityQueue<>(byUrgency.thenComparing(byArrival));
+      PriorityQueue<Task> pending = new PriorityQueue<>((a, b) -> {
+          if (a.urgency != b.urgency) {
+              return Integer.compare(b.urgency, a.urgency);
+          }
+          return Integer.compare(a.arrival, b.arrival);
+      });
       for (Task t : tasks) {
           pending.add(t);
       }
@@ -1932,7 +1933,7 @@ Las dos comparaciones se escriben por separado y se encadenan con
       return order;
   }`}
 >
-  <Step lines={[6, 7]}>
+  <Step lines={[2, 3, 4, 5, 6, 7]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>La cola arranca vacía.</div>
     <TaskHeap tasks={[]} out={[]} label="El heap, en orden de arreglo: nada. Atendidas: ninguna." />
   </Step>
@@ -2014,10 +2015,9 @@ memoria.
 <Exercise title="Un planificador de tareas">
 
 El algoritmo entero. **Comprobar** lo corre contra los casos del enunciado.
-Sin `thenComparing(byArrival)`, los dos primeros fallan.
+Sin el desempate por llegada, los dos primeros fallan.
 
 ```java starter
-import java.util.Comparator;
 import java.util.PriorityQueue;
 
 class Task {
@@ -2033,12 +2033,12 @@ class Task {
 
 class Solution {
     static String[] schedule(Task[] tasks) {
-        Comparator<Task> byUrgency =
-            (a, b) -> Integer.compare(b.urgency, a.urgency);
-        Comparator<Task> byArrival =
-            (a, b) -> Integer.compare(a.arrival, b.arrival);
-        PriorityQueue<Task> pending =
-            new PriorityQueue<>(byUrgency.thenComparing(byArrival));
+        PriorityQueue<Task> pending = new PriorityQueue<>((a, b) -> {
+            if (a.urgency != b.urgency) {
+                return Integer.compare(b.urgency, a.urgency);
+            }
+            return Integer.compare(a.arrival, b.arrival);
+        });
         for (Task t : tasks) {
             pending.add(t);
         }
