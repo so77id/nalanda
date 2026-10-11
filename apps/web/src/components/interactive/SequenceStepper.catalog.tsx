@@ -25,9 +25,9 @@ export const sequenceStepperCatalogEntry: CatalogEntry = {
     },
     {
       name: 'values',
-      type: '(number | null)[]',
+      type: '(number | string | null)[]',
       description:
-        'Required. The starting contents in reading order. Up to 8; beyond that the nodes stop being legible when projected. May be empty for the insert operations that need no existing element: `insert-first`, `insert-last`, and `insert` on `heap-max`, which then starts at `new int[2]`. On `heap-max` it must already be a max-heap. On `binary-tree` it is the tree in LEVEL ORDER, `null` where a child is missing — `[3, 9, 1, 4, 7, null, 6]` is 3 over 9 and 1, 9 over 4 and 7, 1 over a lone right child 6 — and the cap counts nodes, not gaps. A `null` on any other recipe is an authoring error.',
+        "Required. The starting contents in reading order. Up to 8; beyond that the nodes stop being legible when projected. May be empty for the insert operations that need no existing element: `insert-first`, `insert-last`, and `insert` on `heap-max`, which then starts at `new int[2]`. On `heap-max` it must already be a max-heap. On `binary-tree` it is the tree in LEVEL ORDER, `null` where a child is missing — `[3, 9, 1, 4, 7, null, 6]` is 3 over 9 and 1, 9 over 4 and 7, 1 over a lone right child 6 — and the cap counts nodes, not gaps. A value on `binary-tree` may also be a symbol, so an expression tree keeps its operators: `['*', '+', '−', 3, 4, 5, 1]` is (3 + 4) * (5 − 1). A `null` or a symbol on any other recipe is an authoring error.",
     },
     {
       name: 'value',
@@ -296,6 +296,17 @@ export const sequenceStepperCatalogEntry: CatalogEntry = {
       code: '<SequenceStepper eda="binary-tree" operation="inorder" values={[3, 9, 1, 4, 7, null, 6]} />',
       render: () => (
         <SequenceStepper eda="binary-tree" operation="inorder" values={[3, 9, 1, 4, 7, null, 6]} />
+      ),
+    },
+    {
+      title: 'An expression tree, operators as symbols: its inorder writes the expression under it',
+      code: "<SequenceStepper eda=\"binary-tree\" operation=\"inorder\" values={['*', '+', '−', 3, 4, 5, 1]} />",
+      render: () => (
+        <SequenceStepper
+          eda="binary-tree"
+          operation="inorder"
+          values={['*', '+', '−', 3, 4, 5, 1]}
+        />
       ),
     },
     {

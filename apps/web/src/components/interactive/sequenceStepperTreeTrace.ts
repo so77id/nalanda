@@ -23,14 +23,18 @@ import type {
   SequenceTrace,
   TreeFrame,
   TreeFrameNode,
+  TreeValue,
 } from './sequenceStepperTrace';
 
-interface TreeNode {
+interface TreeNode<V extends TreeValue = TreeValue> {
   id: number;
-  value: number;
-  left: TreeNode | null;
-  right: TreeNode | null;
+  value: V;
+  left: TreeNode<V> | null;
+  right: TreeNode<V> | null;
 }
+
+/** A search tree holds numbers only: its operations compare them. */
+type NumberNode = TreeNode<number>;
 
 type Traversal = 'preorder' | 'inorder' | 'postorder';
 
@@ -44,20 +48,27 @@ type Traversal = 'preorder' | 'inorder' | 'postorder';
 const CODE = {
   preorder: `void preorder(Node<T> node) {
     if (node == null) return;
+    // visita
     System.out.print(node.value + " ");
+    // recorrido
     preorder(node.left);
     preorder(node.right);
 }`,
   inorder: `void inorder(Node<T> node) {
     if (node == null) return;
+    // recorrido: primero la izquierda
     inorder(node.left);
+    // visita
     System.out.print(node.value + " ");
+    // recorrido: después la derecha
     inorder(node.right);
 }`,
   postorder: `void postorder(Node<T> node) {
     if (node == null) return;
+    // recorrido
     postorder(node.left);
     postorder(node.right);
+    // visita
     System.out.print(node.value + " ");
 }`,
   height: `int height(Node<T> node) {
@@ -154,7 +165,7 @@ const asRuns = (v: number | number[] | undefined): number[] =>
   v === undefined ? [] : Array.isArray(v) ? v : [v];
 
 let nextId = 0;
-const nodeOf = (value: number): TreeNode => ({
+const nodeOf = <V extends TreeValue>(value: V): TreeNode<V> => ({
   id: (nextId += 1),
   value,
   left: null,
@@ -166,7 +177,7 @@ const nodeOf = (value: number): TreeNode => ({
  * `[3, 9, 1, 4, 7, null, 6]` is 3 over 9 and 1, 9 over 4 and 7, and 1 over a
  * lone right child 6. Every value has to have a parent to hang from.
  */
-function fromLevelOrder(levels: (number | null)[]): TreeNode {
+function fromLevelOrder(levels: (TreeValue | null)[]): TreeNode {
   const first = levels[0];
   if (first === undefined || first === null) {
     throw new Error(
@@ -246,9 +257,9 @@ class TreeRecorder {
   depth = 0;
   private readonly code: string;
   private readonly rootOf: () => TreeNode | null;
-  private readonly stripOf: () => (number | null)[];
+  private readonly stripOf: () => (TreeValue | null)[];
 
-  constructor(code: string, rootOf: () => TreeNode | null, stripOf: () => (number | null)[]) {
+  constructor(code: string, rootOf: () => TreeNode | null, stripOf: () => (TreeValue | null)[]) {
     this.code = code;
     this.rootOf = rootOf;
     this.stripOf = stripOf;
@@ -296,7 +307,13 @@ class TreeRecorder {
       strip: this.stripOf(),
     };
     if (stripFresh !== undefined) tree.stripFresh = stripFresh;
-    const cells: SequenceCell[] = nodes.map((n) => ({ id: n.id, value: n.value, state: n.state }));
+    // On a tree, cells only count the nodes: the view draws `tree.nodes`. A
+    // symbol has no number to mirror, and nothing reads the value here.
+    const cells: SequenceCell[] = nodes.map((n) => ({
+      id: n.id,
+      value: typeof n.value === 'number' ? n.value : 0,
+      state: n.state,
+    }));
     this.steps.push({
       kind,
       cells,
@@ -358,7 +375,7 @@ function traceTraversal(root: TreeNode, traversal: Traversal): SequenceTrace {
   const name = TRAVERSAL_NAME[traversal];
   const columns = inorderColumns(root);
   const slots = nodesOf(root).length;
-  const strip: (number | null)[] = Array.from({ length: slots }, () => null);
+  const strip: (TreeValue | null)[] = Array.from({ length: slots }, () => null);
   const rec = new TreeRecorder(
     code,
     () => root,
@@ -554,8 +571,8 @@ function traceSearchAnywhere(root: TreeNode, targets: number[]): SequenceTrace {
 
 /** Inserts with no frames: the tree a `bst` slide starts from. */
 function bstOf(values: number[], columnOf: (v: number) => number, columns: Record<number, number>) {
-  let root: TreeNode | null = null;
-  const place = (v: number): TreeNode => {
+  let root: NumberNode | null = null;
+  const place = (v: number): NumberNode => {
     const fresh = nodeOf(v);
     columns[fresh.id] = columnOf(v);
     return fresh;
@@ -565,10 +582,10 @@ function bstOf(values: number[], columnOf: (v: number) => number, columns: Recor
       root = place(v);
       continue;
     }
-    let n: TreeNode = root;
+    let n: NumberNode = root;
     for (;;) {
       const side = v < n.value ? 'left' : 'right';
-      const next: TreeNode | null = n[side];
+      const next: NumberNode | null = n[side];
       if (next === null) {
         n[side] = place(v);
         break;
@@ -691,7 +708,7 @@ function traceInsert(values: number[], inserts: number[]): SequenceTrace {
       );
       continue;
     }
-    let n: TreeNode = root;
+    let n: NumberNode = root;
     for (;;) {
       rec.path.push(n.id);
       rec.settle();
@@ -708,7 +725,7 @@ function traceInsert(values: number[], inserts: number[]): SequenceTrace {
       const side = x < v ? 'left' : 'right';
       const where = side === 'left' ? 'la izquierda' : 'la derecha';
       const sign = x < v ? '<' : '>';
-      const next: TreeNode | null = n[side];
+      const next: NumberNode | null = n[side];
       if (next === null) {
         const fresh = built.place(x);
         n[side] = fresh;
@@ -743,9 +760,9 @@ function stripByNode(
   rootOf: () => TreeNode | null,
   columns: Record<number, number>,
   slots: number,
-): () => (number | null)[] {
+): () => (TreeValue | null)[] {
   return () => {
-    const out: (number | null)[] = Array.from({ length: slots }, () => null);
+    const out: (TreeValue | null)[] = Array.from({ length: slots }, () => null);
     for (const n of nodesOf(rootOf())) out[columns[n.id]!] = n.value;
     return out;
   };
@@ -816,7 +833,7 @@ function traceSuccessor(values: number[], targets: number[]): SequenceTrace {
       ['Node<T> best = null'],
       `El sucesor de ${x} es el menor valor mayor que ${x}. Se baja una sola vez desde la raíz, guardando el mejor candidato.`,
     );
-    let best: TreeNode | null = null;
+    let best: NumberNode | null = null;
     let n = root;
     while (n !== null) {
       rec.path.push(n.id);
@@ -872,7 +889,7 @@ function traceRemove(values: number[], targets: number[]): SequenceTrace {
     () => [],
   );
 
-  const remove = (n: TreeNode | null, x: number): TreeNode | null => {
+  const remove = (n: NumberNode | null, x: number): NumberNode | null => {
     if (n === null) {
       rec.push(
         'done',

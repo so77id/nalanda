@@ -14,6 +14,7 @@ import {
   type SequenceRecipe,
   type SequenceStep,
   type SequenceTrace,
+  type TreeValue,
 } from './sequenceStepperTrace';
 
 /**
@@ -1610,7 +1611,7 @@ describe('sequenceStepperTrace · heap-max · counts read as Spanish', () => {
 const LEVELS = [3, 9, 1, 4, 7, null, 6];
 const treeTrace = (operation: SequenceOperation): SequenceTrace =>
   traceFor('binary-tree', operation, { values: [], levelOrder: LEVELS });
-const valueOf = (step: SequenceStep, id: number): number =>
+const valueOf = (step: SequenceStep, id: number): TreeValue =>
   step.tree!.nodes.find((n) => n.id === id)!.value;
 
 describe('sequenceStepperTrace · binary-tree · the valid combinations', () => {
@@ -1767,6 +1768,70 @@ describe('sequenceStepperTrace · binary-tree · search', () => {
   });
 });
 
+describe('sequenceStepperTrace · binary-tree · an expression', () => {
+  // (3 + 4) * (5 − 1): operators as symbols, operands as numbers. The class's
+  // guide example — each traversal writes one notation of the same expression.
+  const EXPRESSION = ['*', '+', '−', 3, 4, 5, 1];
+  const expressionTrace = (operation: SequenceOperation, target?: number): SequenceTrace =>
+    traceFor('binary-tree', operation, { values: [], levelOrder: EXPRESSION, target });
+
+  it('writes the prefix, the infix and the postfix notation', () => {
+    expect(expressionTrace('preorder').steps.at(-1)!.tree!.strip).toEqual([
+      '*',
+      '+',
+      3,
+      4,
+      '−',
+      5,
+      1,
+    ]);
+    expect(expressionTrace('inorder').steps.at(-1)!.tree!.strip).toEqual([
+      3,
+      '+',
+      4,
+      '*',
+      5,
+      '−',
+      1,
+    ]);
+    expect(expressionTrace('postorder').steps.at(-1)!.tree!.strip).toEqual([
+      3,
+      4,
+      '+',
+      5,
+      1,
+      '−',
+      '*',
+    ]);
+  });
+
+  it('names the symbols in the narration', () => {
+    const first = expressionTrace('preorder').steps.find((s) => s.tree!.stripFresh === 0)!;
+    expect(first.description).toContain('preorder(*)');
+  });
+
+  it('measures its height and finds an operand', () => {
+    const height = expressionTrace('height').steps.at(-1)!;
+    expect(height.description).toContain('La altura del árbol es 2');
+    const found = expressionTrace('search', 5).steps.at(-1)!;
+    expect(found.tree!.nodes.find((n) => n.value === 5)!.state).toBe('found');
+  });
+});
+
+describe('sequenceStepperTrace · binary-tree · the listings mark the visit and the traversal', () => {
+  it('puts a // visita comment over the print and a // recorrido comment over the calls', () => {
+    for (const operation of TRAVERSALS) {
+      const lines = treeTrace(operation).code.split('\n');
+      const visit = lines.findIndex((l) => l.trim().startsWith('// visita'));
+      const walk = lines.findIndex((l) => l.trim().startsWith('// recorrido'));
+      expect(visit, `${operation}: visita`).toBeGreaterThan(0);
+      expect(walk, `${operation}: recorrido`).toBeGreaterThan(0);
+      expect(lines[visit + 1], operation).toContain('System.out.print');
+      expect(lines[walk + 1], operation).toContain(`${operation}(node.`);
+    }
+  });
+});
+
 describe('sequenceStepperTrace · bst · the valid combinations', () => {
   it('takes search, insert, minimum, successor and remove, and nothing else', () => {
     for (const operation of OPERATIONS) {
@@ -1800,7 +1865,7 @@ describe('sequenceStepperTrace · bst · search', () => {
     const last = search(6).steps.at(-1)!;
     const discarded = last
       .tree!.nodes.filter((n) => n.state === 'discarded')
-      .map((n) => n.value)
+      .map((n) => Number(n.value))
       .sort((a, b) => a - b);
     expect(discarded).toEqual([1, 2, 3, 9]);
   });
@@ -1871,7 +1936,7 @@ const inorderOf = (step: SequenceStep): number[] => {
     if (id === null) return;
     const n = byId.get(id)!;
     walk(n.left);
-    out.push(n.value);
+    out.push(Number(n.value));
     walk(n.right);
   };
   walk(step.tree!.root);
@@ -1890,7 +1955,7 @@ describe('sequenceStepperTrace · bst · minimum', () => {
     const last = traceFor('bst', 'minimum', { values: BALANCED }).steps.at(-1)!;
     const out = last
       .tree!.nodes.filter((n) => n.state === 'discarded')
-      .map((n) => n.value)
+      .map((n) => Number(n.value))
       .sort((a, b) => a - b);
     expect(out).toEqual([3, 6, 7, 9]);
   });

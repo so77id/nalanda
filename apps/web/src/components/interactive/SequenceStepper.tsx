@@ -31,6 +31,7 @@ import {
   type SequenceRecipe,
   type SequenceStep,
   type SequenceTrace,
+  type TreeValue,
 } from './sequenceStepperTrace';
 import {
   ControlButton,
@@ -50,9 +51,11 @@ export interface SequenceStepperProps {
   /**
    * The starting contents, in reading order. Six or fewer read best. On
    * `binary-tree` it is the tree in level order, `null` where a child is
-   * missing (`[3, 9, 1, 4, 7, null, 6]`) — the one recipe that takes a gap.
+   * missing (`[3, 9, 1, 4, 7, null, 6]`) — the one recipe that takes a gap —
+   * and a value may be a symbol, so an expression tree keeps its operators
+   * as operators: `['*', '+', '−', 3, 4, 5, 1]` is (3 + 4) * (5 − 1).
    */
-  values?: (number | null)[];
+  values?: (TreeValue | null)[];
   /**
    * The value to insert. Required by every `insert-*` but `insert-ordered`,
    * and by the heap's `insert`. An ARRAY inserts each value in turn over the
@@ -224,13 +227,12 @@ const TREE_LEGEND: Partial<Record<SequenceOperation, [string, string][]>> = {
 const MAX_VALUES = 8;
 
 /**
- * `values` read back from its key: the numbers, plus the level order with its
- * gaps when there is one — the only shape in which a `null` means anything.
+ * `values` read back from its key: the numbers, plus the level order when it
+ * has a gap or a symbol — the only shape in which either means anything.
  */
-function readValues(key: string): { values: number[]; levelOrder?: (number | null)[] } {
-  if (key === '') return { values: [] };
-  const all = key.split(',').map((s) => (s === 'null' ? null : Number(s)));
-  const values = all.filter((v): v is number => v !== null);
+function readValues(key: string): { values: number[]; levelOrder?: (TreeValue | null)[] } {
+  const all = JSON.parse(key) as (TreeValue | null)[];
+  const values = all.filter((v): v is number => typeof v === 'number');
   return all.length === values.length ? { values } : { values, levelOrder: all };
 }
 
@@ -326,6 +328,16 @@ export function SequenceStepper({
       </AuthoringError>
     );
   }
+  // A symbol only means something as an operator of an expression tree;
+  // anywhere else it would be read as a number, and `Number('+')` is NaN.
+  const symbol = values.find((v) => typeof v === 'string');
+  if (recipe !== 'binary-tree' && symbol !== undefined) {
+    return (
+      <AuthoringError component="SequenceStepper">
+        «{symbol}»: solo binary-tree acepta símbolos en <code>values</code>.
+      </AuthoringError>
+    );
+  }
   // The cap is on what is DRAWN: a gap in a level order is not a node.
   const drawn = values.filter((v) => v !== null).length;
   // The guard has to count what the chain will GROW to, not what it starts
@@ -369,7 +381,7 @@ export function SequenceStepper({
 interface BodyProps {
   recipe: SequenceRecipe;
   operation: SequenceOperation;
-  values: (number | null)[];
+  values: (TreeValue | null)[];
   value?: number | number[];
   index?: number | number[];
   target?: number | number[];
@@ -413,9 +425,10 @@ function Body({
   // MDX re-mints `values` on every parent re-render, so the memo and every
   // reset key hang off a primitive-derived string rather than the array's
   // identity (`add-a-content-component.md` §2, learned in #266).
-  // A gap is written `null` so it survives the round trip: a bare join
-  // writes it as an empty string, and `Number('')` is 0.
-  const valuesKey = values.map((v) => (v === null ? 'null' : String(v))).join(',');
+  // JSON, so a gap and a symbol both survive the round trip: a bare join
+  // writes a gap as an empty string (`Number('')` is 0) and loses the
+  // difference between the number 3 and a symbol.
+  const valuesKey = JSON.stringify(values);
   // Every inline-authored data prop goes through a primitive key, not only
   // `values`: MDX re-mints each array literal on every parent render, so a
   // memo keyed on the references recomputes the trace — and `cellsFrom` mints

@@ -735,6 +735,35 @@ describe('<SequenceStepper> · the binary-tree recipe (#321)', () => {
   });
 });
 
+describe('<SequenceStepper> · symbols in a binary-tree (#321)', () => {
+  it('draws an expression tree with its operators as symbols', () => {
+    const { container } = render(
+      <SequenceStepper
+        eda="binary-tree"
+        operation="inorder"
+        values={['*', '+', '−', 3, 4, 5, 1]}
+      />,
+    );
+    const values = [...container.querySelectorAll('[data-node]')].map((n) =>
+      n.getAttribute('data-value'),
+    );
+    expect(values.sort()).toEqual(['*', '+', '1', '3', '4', '5', '−'].sort());
+    expect(screen.queryByText(/AuthoringError|no acepta/)).not.toBeInTheDocument();
+  });
+
+  it('refuses a symbol on any other recipe', () => {
+    render(
+      <SequenceStepper
+        eda="linked-list-singly"
+        operation="search"
+        values={[1, '+', 3]}
+        target={3}
+      />,
+    );
+    expect(screen.getByText(/solo binary-tree acepta símbolos/)).toBeInTheDocument();
+  });
+});
+
 describe('<SequenceStepper> · height and search on binary-tree (#321)', () => {
   const tree = { eda: 'binary-tree' as const, values: [3, 9, 1, 4, 7, null, 6] };
 

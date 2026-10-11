@@ -111,10 +111,17 @@ export type SequenceCellState =
   /** Tree: a node the search-tree invariant has just ruled out. */
   | 'discarded';
 
+/**
+ * What a tree node holds: a number, or — on `binary-tree` only — a symbol, so
+ * an expression tree can be drawn with its operators (`'*'`, `'+'`, `'−'`) as
+ * operators and its operands as numbers.
+ */
+export type TreeValue = number | string;
+
 /** One node of a tree frame: its value, its two links and its paint. */
 export interface TreeFrameNode {
   id: number;
-  value: number;
+  value: TreeValue;
   left: number | null;
   right: number | null;
   state: SequenceCellState;
@@ -133,7 +140,7 @@ export interface TreeFrame {
   root: number | null;
   nodes: TreeFrameNode[];
   path: number[];
-  strip: (number | null)[];
+  strip: (TreeValue | null)[];
   /** The slot just written, painted as new. */
   stripFresh?: number;
 }
@@ -279,7 +286,7 @@ export interface SequenceInput {
    * missing — `[3, 9, 1, 4, 7, null, 6]`. A tree with no order cannot be
    * built by inserting, so its shape has to be written out.
    */
-  levelOrder?: (number | null)[];
+  levelOrder?: (TreeValue | null)[];
   /**
    * Required by every `insert-*` except `insert-ordered`, and by the heap's
    * `insert`. An ARRAY inserts

@@ -841,7 +841,9 @@ also takes `search` (`target`), which may have to compare every node. Its
 `values` is the tree in LEVEL ORDER with `null` for a missing child
 (`values={[3, 9, 1, 4, 7, null, 6]}`); a value with no parent is refused, a
 `null` on any other recipe is refused, and the cap of eight counts nodes, not
-gaps. A second tree recipe, `bst`, is the search tree: `values` is the
+gaps. A value may also be a symbol, so an expression tree keeps its operators
+(`values={['*', '+', '−', 3, 4, 5, 1]}` is (3 + 4) * (5 − 1)); a symbol on
+any other recipe is refused too. A second tree recipe, `bst`, is the search tree: `values` is the
 insertion order that builds it (a repeated value is refused), `search`
 chooses a side at every node and fades the one the invariant rules out,
 `insert` (`value`, an array for several) hangs each value as a leaf in a

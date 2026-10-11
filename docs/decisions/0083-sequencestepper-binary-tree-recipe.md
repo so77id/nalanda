@@ -75,6 +75,20 @@ A tree with no order cannot be built by inserting, so `values` on
 so is a `null` on any other recipe (it would otherwise be read as `0`). The
 cap of eight counts nodes, not gaps.
 
+A value on `binary-tree` may also be a **symbol** (Miguel's review of the
+binary-tree act, #321): the class's guide example is the expression
+(3 + 4) * (5 − 1), written `['*', '+', '−', 3, 4, 5, 1]`, operators as
+symbols and operands as numbers, so `search` still compares numbers and finds
+the 5. Each traversal then writes one notation of the expression into the
+strip — prefix, infix (the strip under the nodes reads the expression,
+without its parentheses), postfix — which is the reason the class uses it. A
+symbol on any other recipe is an authoring error, as `null` is; the search
+tree's values stay numbers, because its operations compare them.
+
+The three traversal listings mark their two parts, `// visita` over the print
+and `// recorrido` over the calls, the convention the general tree's code
+slides set: the traversal stays, the visit is what a problem changes.
+
 ### 5. What the picture shows, decided for the class
 
 - **The visit order as a number beside the node**, so the order reads
