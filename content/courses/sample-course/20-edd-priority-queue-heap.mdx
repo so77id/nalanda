@@ -275,6 +275,7 @@ export function HeapPicture({
   capacity,
   reserveCells,
   staleTail = false,
+  heightRuler = false,
   idPrefix = 'heap-pic',
   label,
 }) {
@@ -298,7 +299,10 @@ export function HeapPicture({
   const levels = Math.max(total === 0 ? 1 : levelOf(total) + 1, minLevels);
   const leaves = 2 ** (levels - 1);
   const labelW = levelLines ? 58 : 0;
-  const treeW = labelW + 2 * pad + leaves * pitch;
+  // A vertical ruler from the root's level to the last one, left of the
+  // level labels: the height of the tree, written as floor(log2 n).
+  const rulerW = heightRuler ? 40 : 0;
+  const treeW = rulerW + labelW + 2 * pad + leaves * pitch;
   const treeH = view === 'array' ? 0 : 2 * pad + 2 * r + (levels - 1) * levelH;
   // Zero-based storage has no unused slot: the root sits in data[0].
   const lead = zeroBased ? 0 : 1;
@@ -324,7 +328,7 @@ export function HeapPicture({
   const at = (k) => {
     const level = levelOf(k);
     const span = leaves / 2 ** level;
-    return { cx: treeX + labelW + pad + (k - 2 ** level + 0.5) * span * pitch, cy: pad + r + level * levelH };
+    return { cx: treeX + rulerW + labelW + pad + (k - 2 ** level + 0.5) * span * pitch, cy: pad + r + level * levelH };
   };
   // Past n: heapsort's sorted tail (keep), or with staleTail a copy nobody
   // reads any more — what extractMax leaves behind in data[n + 1].
@@ -354,13 +358,27 @@ export function HeapPicture({
         <marker id={`${idPrefix}-arc`} markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto">
           <path d="M0,0 L7,3.5 L0,7 z" style={{ fill: 'var(--color-ink-soft)' }} />
         </marker>
+        <marker id={`${idPrefix}-ruler`} markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto-start-reverse">
+          <path d="M0,0 L7,3.5 L0,7 z" style={{ fill: 'var(--color-ink)' }} />
+        </marker>
       </defs>
+      {view !== 'array' && heightRuler ? (() => {
+        const x = treeX + 16;
+        const y1 = pad + r;
+        const y2 = pad + r + (levels - 1) * levelH;
+        return (
+          <g>
+            <line x1={x} y1={y1 + 4} x2={x} y2={y2 - 4} style={{ stroke: 'var(--color-ink)' }} strokeWidth="1.6" markerStart={`url(#${idPrefix}-ruler)`} markerEnd={`url(#${idPrefix}-ruler)`} />
+            <text x={x - 6} y={(y1 + y2) / 2} textAnchor="middle" fontSize="11" fontWeight="700" transform={`rotate(-90 ${x - 6} ${(y1 + y2) / 2})`} style={{ fill: 'var(--color-ink)' }}>altura = ⌊log₂ n⌋</text>
+          </g>
+        );
+      })() : null}
       {view !== 'array' && levelLines ? Array.from({ length: levels }, (_, d) => {
         const y = pad + r + d * levelH;
         return (
           <g key={`ll${d}`}>
-            <line x1={treeX + 4} y1={y} x2={treeX + treeW - 4} y2={y} style={{ stroke: levelColors ? LEVEL[d % 4] : 'var(--color-rule)' }} strokeWidth="1" strokeDasharray="4 4" opacity="0.7" />
-            <text x={treeX + 4} y={y - 6} fontSize="11" fontWeight="600" style={{ fill: levelColors ? LEVEL[d % 4] : 'var(--color-ink-faint)' }}>{`nivel ${d}`}</text>
+            <line x1={treeX + rulerW + 4} y1={y} x2={treeX + treeW - 4} y2={y} style={{ stroke: levelColors ? LEVEL[d % 4] : 'var(--color-rule)' }} strokeWidth="1" strokeDasharray="4 4" opacity="0.7" />
+            <text x={treeX + rulerW + 4} y={y - 6} fontSize="11" fontWeight="600" style={{ fill: levelColors ? LEVEL[d % 4] : 'var(--color-ink-faint)' }}>{`nivel ${d}`}</text>
           </g>
         );
       }) : null}
@@ -1097,7 +1115,8 @@ $$\lfloor \log_2 N \rfloor + 1$$ niveles, y el camino de una hoja a la raíz
 recorre a lo más $$\lfloor \log_2 N \rfloor$$ aristas: 2 en el heap de
 ejemplo, 20 en uno de un millón.
 
-<HeapPicture values={[10, 7, 8, 1, 3, 2, 4]} view="tree" levelLines levelColors label="El heap de ejemplo con sus tres niveles marcados: 0, 1 y 2. De cualquier hoja a la raíz hay a lo más dos aristas." />
+<div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-ink-soft)', textAlign: 'center' }}>n = 7: altura = ⌊log₂ 7⌋ = 2</div>
+<HeapPicture values={[10, 7, 8, 1, 3, 2, 4]} view="tree" levelLines levelColors heightRuler idPrefix="pq-alt-ins" label="El heap de ejemplo con sus tres niveles marcados: 0, 1 y 2. A la izquierda, una flecha de la raíz al último nivel rotulada altura = piso de logaritmo en base 2 de n; con n = 7, la altura es 2: de cualquier hoja a la raíz hay a lo más dos aristas." />
 
 | Molde     | Operación   | Peor caso     | Amortizado    | Invariante que restaura                                    |
 | --------- | ----------- | ------------- | ------------- | ---------------------------------------------------------- |
@@ -1308,8 +1327,8 @@ $$\Theta(1)$$. Después, `sink` baja a lo más un nivel por vuelta, y en cada
 nivel hace una cantidad constante de trabajo: elegir el hijo mayor,
 compararlo y, si hace falta, intercambiar.
 
-<div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-ink-soft)', textAlign: 'center' }}>el 1 bajó de la raíz a una hoja: 2 aristas, la altura de un árbol de 7 nodos</div>
-<HeapPicture values={[9, 7, 8, 1, 3, 2, 4]} view="tree" levelLines levelColors hot={[1, 2, 4]} label="El heap después de extraer el 10, con sus tres niveles marcados. El camino que recorrió el 1, de la raíz a la posición 4, resaltado: dos aristas, una por nivel." />
+<div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-ink-soft)', textAlign: 'center' }}>el 1 bajó de la raíz a una hoja: 2 aristas, la altura ⌊log₂ 7⌋ = 2</div>
+<HeapPicture values={[9, 7, 8, 1, 3, 2, 4]} view="tree" levelLines levelColors heightRuler idPrefix="pq-alt-ext" hot={[1, 2, 4]} label="A la izquierda, una flecha de la raíz al último nivel rotulada altura = piso de logaritmo en base 2 de n. El heap después de extraer el 10, con sus tres niveles marcados. El camino que recorrió el 1, de la raíz a la posición 4, resaltado: dos aristas, una por nivel." />
 
 ¿Cuántos niveles puede bajar? En un árbol completo de $$N$$ nodos, el
 camino de la raíz a una hoja tiene a lo más $$\lfloor \log_2 N \rfloor$$
