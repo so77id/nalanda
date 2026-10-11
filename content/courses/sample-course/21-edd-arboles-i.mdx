@@ -1062,6 +1062,320 @@ trabajo en cada inserción y en cada eliminación. Ese es el compromiso de un
 
 ## Ejercicios
 
+{/* The tree the ancestor exercise threads through its beats: the class's own insertion of 8, 5, 1, 4, 6, 7, 20, 12. */}
+
+export const LCA_TREE = { v: 8, l: { v: 5, l: { v: 1, r: { v: 4 } }, r: { v: 6, r: { v: 7 } } }, r: { v: 20, l: { v: 12 } } };
+
+<Slide title="El ancestro común más bajo">
+Un **ancestro común** de dos nodos tiene a los dos en su subárbol, y un nodo
+cuenta en su propio subárbol. El **ancestro común más bajo** es el más
+profundo de todos: en un árbol genealógico, el antepasado más cercano.
+
+<BinaryPicture tree={LCA_TREE} tones={{ 4: 'mark', 7: 'mark', 5: 'keep' }} notes={{ 5: 'más bajo' }} label="El árbol de búsqueda 8, 5, 1, 4, 6, 7, 20, 12. Los valores 4 y 7 están marcados; su ancestro común más bajo es el 5." caption="4 y 7: el 8 y el 5 los tienen a los dos debajo, y el 5 es el más bajo" />
+
+El programa recibe la raíz de un árbol binario de búsqueda y dos valores que
+están en el árbol, y responde el valor de su ancestro común más bajo. Llamamos
+$$h$$ a la altura del árbol.
+
+```java
+static int lowestCommonAncestor(Node<Integer> root,
+        int a, int b)
+```
+
+| Valores  | Ancestro común más bajo |
+| -------- | ----------------------- |
+| 4 y 7    | 5                       |
+| 6 y 7    | 6                       |
+| 1 y 1    | 1                       |
+
+</Slide>
+
+<Slide title="La raíz como respuesta">
+La raíz tiene a todos los nodos en su subárbol, así que siempre es un
+ancestro común. Pero no siempre es el más bajo: para 4 y 7, el 8 es ancestro
+de los dos, y el 5, más abajo, también lo es. Una respuesta correcta tiene
+que saber **hasta dónde bajar** sin perder a ninguno de los dos.
+
+</Slide>
+
+<Slide title="Bajar mientras los dos estén del mismo lado">
+Por la invariante del árbol de búsqueda, en cada nodo se sabe de qué lado
+está cada valor. Si los dos son menores que el nodo, los dos están en su
+subárbol izquierdo, y el ancestro común más bajo también: se baja a la
+izquierda. Si los dos son mayores, a la derecha. En cuanto los dos **dejan de
+estar del mismo lado** —uno a cada lado, o uno es el nodo mismo—, ningún nodo
+de más abajo tiene a los dos: ese nodo es la respuesta.
+
+Con 4 y 7: los dos son menores que 8, así que se baja al 5. El 4 es menor que
+5 y el 7 es mayor: se separan, y el ancestro común más bajo es el 5.
+
+</Slide>
+
+<Slide title="Ancestro común · la solución">
+Una sola bajada desde la raíz, sin recursión: en cada nodo, o los dos van
+hacia el mismo lado, o se responde el nodo.
+
+<StepShow
+  language="java"
+  code={`static int lowestCommonAncestor(Node<Integer> root,
+        int a, int b) {
+    Node<Integer> node = root;
+    while (true) {
+        if (a < node.value && b < node.value) {
+            node = node.left;
+        } else if (a > node.value && b > node.value) {
+            node = node.right;
+        } else {
+            return node.value;
+        }
+    }
+}`}
+>
+  <Step lines={[3]}>
+    <BinaryPicture tree={LCA_TREE} tones={{ 8: 'focus', 4: 'mark', 7: 'mark' }} size={0.85} label="Se empieza en la raíz, el 8. Los valores buscados son 4 y 7." />
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Se empieza en la raíz, con 4 y 7.</div>
+  </Step>
+  <Step lines={[5, 6]}>
+    <BinaryPicture tree={LCA_TREE} tones={{ 8: 'done', 5: 'focus', 4: 'mark', 7: 'mark', 20: 'faint', 12: 'faint' }} size={0.85} label="4 y 7 son menores que 8: se baja al 5, y el subárbol derecho del 8 queda descartado." />
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>4 y 7 son menores que 8: los dos están a su izquierda, y se baja al 5.</div>
+  </Step>
+  <Step lines={[9, 10]}>
+    <BinaryPicture tree={LCA_TREE} tones={{ 8: 'done', 5: 'keep', 4: 'mark', 7: 'mark', 20: 'faint', 12: 'faint' }} size={0.85} label="4 es menor que 5 y 7 es mayor: se separan, y el 5 es el ancestro común más bajo." />
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>4 es menor que 5 y 7 es mayor: se separan. La respuesta es 5.</div>
+  </Step>
+</StepShow>
+
+</Slide>
+
+<Slide title="Un valor que es ancestro del otro">
+Con 6 y 7, el ciclo baja del 8 al 5 y del 5 al 6. Ahí el 6 no es menor ni
+mayor que el nodo: **es** el nodo, y la condición de bajar falla. El ciclo
+responde 6, que es correcto, porque un nodo cuenta en su propio subárbol. Con
+dos valores iguales, como 1 y 1, pasa lo mismo al llegar al 1.
+
+Como los dos valores están en el árbol, la bajada siempre se detiene en un
+nodo y nunca llega a un subárbol vacío.
+
+**Tiempo.** Cada vuelta del ciclo baja un nivel, así que hay a lo más
+$$h + 1$$ vueltas, y cada una hace a lo más cuatro comparaciones: $$O(h)$$.
+**Memoria.** Una sola referencia, `node`, sin recursión: $$\Theta(1)$$.
+
+</Slide>
+
+<Slide title="Ancestro común · el programa completo">
+<PresentationWide fraction={0.75}>
+<Exercise title="El ancestro común más bajo">
+
+```java starter
+class Node<T> {
+    T value;
+    Node<T> left;
+    Node<T> right;
+    Node(T value) { this.value = value; }
+}
+
+class Solution {
+    static int lowestCommonAncestor(Node<Integer> root,
+            int a, int b) {
+        Node<Integer> node = root;
+        while (true) {
+            if (a < node.value && b < node.value) {
+                node = node.left;
+            } else if (a > node.value && b > node.value) {
+                node = node.right;
+            } else {
+                return node.value;
+            }
+        }
+    }
+}
+```
+
+```java test
+Node<Integer> root = new Node<>(8);
+root.left = new Node<>(5);
+root.left.left = new Node<>(1);
+root.left.left.right = new Node<>(4);
+root.left.right = new Node<>(6);
+root.left.right.right = new Node<>(7);
+root.right = new Node<>(20);
+root.right.left = new Node<>(12);
+check(Solution.lowestCommonAncestor(root, 4, 7), 5);
+check(Solution.lowestCommonAncestor(root, 4, 12), 8);
+check(Solution.lowestCommonAncestor(root, 6, 7), 6);
+check(Solution.lowestCommonAncestor(root, 1, 1), 1);
+```
+
+</Exercise>
+</PresentationWide>
+
+</Slide>
+
+<Slide title="Un árbol de búsqueda de altura mínima">
+Un arreglo trae valores distintos, ya ordenados de menor a mayor, y hay que
+guardarlos en un árbol binario de búsqueda **lo más bajo posible**: con $$n$$
+valores, de altura $$\lfloor \log_2 n \rfloor$$.
+
+<BinaryPicture tree={{ v: 4, l: { v: 2, l: { v: 1 }, r: { v: 3 } }, r: { v: 6, l: { v: 5 }, r: { v: 7 } } }} strip label="Los valores del 1 al 7 en un árbol de búsqueda de altura 2: 4 en la raíz, 2 y 6 en el segundo nivel, y 1, 3, 5 y 7 abajo. Debajo, el arreglo ordenado, con cada valor bajo su nodo." caption="del 1 al 7: siete valores, altura 2" />
+
+El programa recibe el arreglo, que puede estar vacío, y devuelve la raíz del
+árbol, o `null` si no hay valores.
+
+```java
+static Node<Integer> build(int[] sorted)
+```
+
+| Arreglo            | Raíz   | Altura |
+| ------------------ | ------ | ------ |
+| 1 2 3 4 5 6 7      | 4      | 2      |
+| 1 2 3 4            | 2      | 2      |
+| 5                  | 5      | 0      |
+| vacío              | `null` | —      |
+
+</Slide>
+
+<Slide title="Insertar en orden">
+El árbol de búsqueda ya sabe insertar. Pero si los valores del arreglo se
+insertan en el orden en que vienen, cada uno es mayor que todos los
+anteriores y se cuelga siempre a la derecha: del 1 al 7 queda una cadena de
+altura 6, la **más alta** posible. El arreglo ordenado es justo el peor
+orden de llegada.
+
+<BinaryPicture tree={{ v: 1, r: { v: 2, r: { v: 3, r: { v: 4, r: { v: 5, r: { v: 6, r: { v: 7 } } } } } } }} size={0.7} label="Los valores del 1 al 7 insertados en orden: una cadena hacia la derecha de altura 6." caption="insertados en orden: altura 6" />
+
+</Slide>
+
+<Slide title="El medio como raíz">
+Para que el árbol quede bajo, la raíz tiene que dejar la mitad de los
+valores a cada lado: la raíz es el **elemento del medio**. Los menores, que
+están a su izquierda en el arreglo, forman el subárbol izquierdo, y los
+mayores, el derecho. Cada mitad es un arreglo ordenado más pequeño, y se arma
+con la misma regla: es la recursión de **dividir y conquistar**, y el árbol
+que resulta es el de las decisiones de una búsqueda binaria.
+
+Con el 1 al 7: el medio es 4. A su izquierda quedan 1, 2 y 3, con medio 2; a
+su derecha, 5, 6 y 7, con medio 6. Cada mitad que queda tiene un solo
+elemento, y es una hoja.
+
+</Slide>
+
+<Slide title="Altura mínima · la solución">
+Una versión recibe el tramo del arreglo, de `lo` a `hi`, que todavía hay que
+guardar; un tramo vacío es un subárbol vacío. La versión pública pide el
+arreglo entero.
+
+<StepShow
+  language="java"
+  code={`static Node<Integer> build(int[] sorted,
+        int lo, int hi) {
+    if (lo > hi) return null;
+    int mid = (lo + hi) / 2;
+    Node<Integer> node = new Node<>(sorted[mid]);
+    node.left = build(sorted, lo, mid - 1);
+    node.right = build(sorted, mid + 1, hi);
+    return node;
+}
+
+static Node<Integer> build(int[] sorted) {
+    return build(sorted, 0, sorted.length - 1);
+}`}
+>
+  <Step lines={[12, 4, 5]}>
+    <SortedRow values={[1, 2, 3, 4, 5, 6, 7]} hot={3} label="El tramo es el arreglo entero; el medio, en la posición 3, es el 4." />
+    <BinaryPicture tree={{ v: 4 }} size={0.7} label="La raíz, 4." />
+  </Step>
+  <Step lines={[6, 4, 5]}>
+    <SortedRow values={[1, 2, 3, 4, 5, 6, 7]} hot={1} out={[3, 4, 5, 6]} label="El tramo izquierdo, del 1 al 3; su medio es el 2." />
+    <BinaryPicture tree={{ v: 4, l: { v: 2 } }} size={0.7} label="El 2 a la izquierda del 4." />
+  </Step>
+  <Step lines={[6, 4, 5]}>
+    <SortedRow values={[1, 2, 3, 4, 5, 6, 7]} hot={0} out={[1, 2, 3, 4, 5, 6]} label="El tramo de un solo elemento, el 1." />
+    <BinaryPicture tree={{ v: 4, l: { v: 2, l: { v: 1 } } }} size={0.7} label="El 1 a la izquierda del 2." />
+  </Step>
+  <Step lines={[7, 4, 5]}>
+    <SortedRow values={[1, 2, 3, 4, 5, 6, 7]} hot={2} out={[0, 1, 3, 4, 5, 6]} label="El tramo de un solo elemento, el 3." />
+    <BinaryPicture tree={{ v: 4, l: { v: 2, l: { v: 1 }, r: { v: 3 } } }} size={0.7} label="El 3 a la derecha del 2." />
+  </Step>
+  <Step lines={[7, 4, 5]}>
+    <SortedRow values={[1, 2, 3, 4, 5, 6, 7]} hot={5} out={[0, 1, 2, 3]} label="El tramo derecho, del 5 al 7; su medio es el 6." />
+    <BinaryPicture tree={{ v: 4, l: { v: 2, l: { v: 1 }, r: { v: 3 } }, r: { v: 6 } }} size={0.7} label="El 6 a la derecha del 4." />
+  </Step>
+  <Step lines={[6, 4, 5]}>
+    <SortedRow values={[1, 2, 3, 4, 5, 6, 7]} hot={4} out={[0, 1, 2, 3, 5, 6]} label="El tramo de un solo elemento, el 5." />
+    <BinaryPicture tree={{ v: 4, l: { v: 2, l: { v: 1 }, r: { v: 3 } }, r: { v: 6, l: { v: 5 } } }} size={0.7} label="El 5 a la izquierda del 6." />
+  </Step>
+  <Step lines={[7, 4, 5]}>
+    <SortedRow values={[1, 2, 3, 4, 5, 6, 7]} hot={6} out={[0, 1, 2, 3, 4, 5]} label="El tramo de un solo elemento, el 7." />
+    <BinaryPicture tree={{ v: 4, l: { v: 2, l: { v: 1 }, r: { v: 3 } }, r: { v: 6, l: { v: 5 }, r: { v: 7 } } }} size={0.7} label="El 7 a la derecha del 6: el árbol completo, de altura 2." />
+  </Step>
+</StepShow>
+
+</Slide>
+
+<Slide title="Un arreglo de largo par y el arreglo vacío">
+Con un largo par, como 1 2 3 4, no hay un único medio: la división entera
+elige el de la izquierda, el 2. A su derecha quedan 3 y 4, que arman un
+subárbol de altura 1, y el árbol queda de altura 2, que es
+$$\lfloor \log_2 4 \rfloor$$: un lado queda un elemento más largo que el otro,
+y eso nunca suma un nivel de más. Con el arreglo vacío, `lo` es 0 y `hi` es
+$$-1$$: el primer caso devuelve `null` sin crear nada.
+
+**Tiempo.** Cada llamada con un tramo no vacío crea exactamente un nodo, y
+cada valor está en un solo tramo como medio: $$n$$ nodos, cada uno en tiempo
+constante, $$\Theta(n)$$. **Memoria.** El árbol ocupa $$\Theta(n)$$; la
+recursión, aparte, tiene la profundidad del árbol que arma,
+$$\lfloor \log_2 n \rfloor + 1$$ llamadas: $$\Theta(\log n)$$.
+
+</Slide>
+
+<Slide title="Altura mínima · el programa completo">
+<PresentationWide fraction={0.75}>
+<Exercise title="Un árbol de búsqueda de altura mínima">
+
+```java starter
+class Node<T> {
+    T value;
+    Node<T> left;
+    Node<T> right;
+    Node(T value) { this.value = value; }
+}
+
+class Solution {
+    static Node<Integer> build(int[] sorted,
+            int lo, int hi) {
+        if (lo > hi) return null;
+        int mid = (lo + hi) / 2;
+        Node<Integer> node = new Node<>(sorted[mid]);
+        node.left = build(sorted, lo, mid - 1);
+        node.right = build(sorted, mid + 1, hi);
+        return node;
+    }
+
+    static Node<Integer> build(int[] sorted) {
+        return build(sorted, 0, sorted.length - 1);
+    }
+}
+```
+
+```java test
+Node<Integer> t = Solution.build(new int[] {1, 2, 3, 4, 5, 6, 7});
+check((int) t.value, 4);
+check((int) t.left.value, 2);
+check((int) t.right.value, 6);
+check((int) t.left.left.value, 1);
+check((int) t.right.right.value, 7);
+Node<Integer> u = Solution.build(new int[] {1, 2, 3, 4});
+check((int) u.value, 2);
+check((int) u.right.right.value, 4);
+check(Solution.build(new int[] {5}).left == null, true);
+check(Solution.build(new int[] {}) == null, true);
+```
+
+</Exercise>
+</PresentationWide>
+
+</Slide>
+
 {/* TokenRow and StackRow — the calculator exercise's drawings: a row of symbols with one under the eye, and a stack laid on its side, bottom on the left. File-local like HierarchyPicture (§6e-quater). */}
 
 export function TokenRow({ tokens, at = -1, title, label }) {
@@ -1515,6 +1829,78 @@ check(Solution.calculate("(3+(4*5))"), 23);
 check(Solution.calculate("((8-2)/(1+2))"), 2);
 check(Solution.calculate("7"), 7);
 check(Solution.calculate("(12*(10-7))"), 36);
+```
+
+</Exercise>
+
+Un último ejercicio, propuesto, para resolver sin ver la respuesta:
+
+<Exercise title="Verificación de un árbol de búsqueda">
+
+Un árbol binario dice ser un árbol de búsqueda. Escribamos `isBST`, que
+recibe su raíz y responde si cumple la invariante: para cada nodo, **todos**
+los valores de su subárbol izquierdo son menores que el suyo, y **todos** los
+de su subárbol derecho son mayores. El árbol vacío la cumple.
+
+El árbol 5, con hijos 3 y 8, y con 1 y 4 debajo del 3, la cumple. El mismo
+árbol con un 7 en lugar del 4 no la cumple: el 7 es mayor que su padre, el 3,
+pero está a la izquierda del 5.
+
+```java starter
+class Node<T> {
+    T value;
+    Node<T> left;
+    Node<T> right;
+    Node(T value) { this.value = value; }
+}
+
+class Solution {
+    static boolean isBST(Node<Integer> root) {
+        return false;
+    }
+}
+```
+
+```java test
+Node<Integer> good = new Node<>(5);
+good.left = new Node<>(3);
+good.left.left = new Node<>(1);
+good.left.right = new Node<>(4);
+good.right = new Node<>(8);
+check(Solution.isBST(good), true);
+Node<Integer> trap = new Node<>(5);
+trap.left = new Node<>(3);
+trap.left.left = new Node<>(1);
+trap.left.right = new Node<>(7);
+trap.right = new Node<>(8);
+check(Solution.isBST(trap), false);
+check(Solution.isBST(null), true);
+check(Solution.isBST(new Node<>(9)), true);
+Node<Integer> twice = new Node<>(5);
+twice.left = new Node<>(5);
+check(Solution.isBST(twice), false);
+```
+
+```java solution
+class Node<T> {
+    T value;
+    Node<T> left;
+    Node<T> right;
+    Node(T value) { this.value = value; }
+}
+
+class Solution {
+    static boolean isBST(Node<Integer> root) {
+        return isBST(root, Long.MIN_VALUE, Long.MAX_VALUE);
+    }
+
+    static boolean isBST(Node<Integer> node, long min, long max) {
+        if (node == null) return true;
+        if (node.value <= min || node.value >= max) return false;
+        return isBST(node.left, min, node.value)
+            && isBST(node.right, node.value, max);
+    }
+}
 ```
 
 </Exercise>
