@@ -164,6 +164,7 @@ any other operation, and a starting chain that is not descending is refused.
   `sequenceStepperHeapLayout.test.ts`), and the component test pins which
   cells each view draws and that both paint the same state; the paint itself,
   in both themes and in both arrangements, is checked in `npm run preview`.
-- `heap-min` is not built. The class's min-heap block is two slides of prose
-  (the invariant turned over, and one case); a recipe with no slide to mount
-  it would be the `array` recipe's story again (#296).
+- `heap-min` is not built. The class shows the min-heap on one slide (the
+  invariant turned over, drawn beside the max-heap) and then generalises to a
+  heap that takes a `Comparator`, all in static drawings and code; a recipe
+  with no slide to mount it would be the `array` recipe's story again (#296).

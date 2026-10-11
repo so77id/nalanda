@@ -1391,109 +1391,129 @@ Ahí gana el heap: ninguna de sus operaciones es lenta.
 
 <SectionBreak />
 
-## El min-heap
+## Un heap para cualquier prioridad
 
-<Slide title="La invariante de orden de heap invertida">
-Un **min-heap** es un heap con la primera invariante dada vuelta: **el valor
-de cada nodo es menor o igual que los valores de sus hijos.** Siguiendo
-cualquier camino hacia arriba los valores nunca suben, así que en la raíz
-queda el **mínimo**.
+<Slide title="El min-heap">
+Un **min-heap** es un heap con la invariante de orden de heap invertida:
+**cada nodo es menor o igual que sus hijos**. Siguiendo cualquier camino
+hacia arriba los valores nunca suben, así que en la raíz queda el
+**mínimo**. La invariante de forma completa, el arreglo desde 1 y la
+aritmética de índices no cambian.
 
-<HeapPicture values={[2, 5, 3, 9, 6]} view="tree" label="Un min-heap de cinco nodos. La raíz es 2; sus hijos son 5 y 3; los hijos de 5 son 9 y 6. Cada nodo es menor o igual que sus hijos." />
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '0.25rem 1.5rem' }}>
+<div>
+<div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-ink-soft)', textAlign: 'center' }}>max-heap: el mayor en la raíz</div>
+<HeapPicture values={[10, 7, 8, 1, 3, 2, 4]} view="tree" hot={[1]} label="Un max-heap con 10, 7, 8, 1, 3, 2, 4: el 10, el mayor, en la raíz. Cada nodo es mayor o igual que sus hijos." />
+</div>
+<div>
+<div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-ink-soft)', textAlign: 'center' }}>min-heap: el menor en la raíz</div>
+<HeapPicture values={[1, 3, 2, 7, 10, 8, 4]} view="tree" hot={[1]} label="Un min-heap con los mismos números, 1, 3, 2, 7, 10, 8, 4: el 1, el menor, en la raíz. Cada nodo es menor o igual que sus hijos." />
+</div>
+</div>
 
-Todo lo demás es idéntico: la invariante de forma completa, el arreglo desde 1, la
-aritmética de índices, `swim` y `sink`. Lo único que cambia es el sentido
-de las tres comparaciones que deciden si un nodo sube o baja:
+En el código sólo cambia el sentido de las comparaciones de `swim` y `sink`:
+
+|                            | Max-heap                 | Min-heap                 |
+| -------------------------- | ------------------------ | ------------------------ |
+| `swim` sube mientras       | el padre sea menor       | el padre sea mayor       |
+| `sink` baja por            | el hijo mayor            | el hijo menor            |
+| `sink` se detiene cuando   | `data[k] >= data[j]`     | `data[k] <= data[j]`     |
+
+</Slide>
+
+<Slide title="La comparación como parámetro">
+Un max-heap y un min-heap son dos clases casi iguales. En vez de escribir
+las dos, el heap puede recibir **cómo comparar** como parámetro: un
+`Comparator<T>`, el mismo que usa `sort`. El heap deja de preguntar «¿cuál
+es mayor?» y pregunta «¿cuál va antes?».
 
 ```java
-data[k / 2] > data[k]     // swim: sube mientras el padre sea mayor
-data[j] > data[j + 1]     // sink: j pasa al hijo menor
-data[k] <= data[j]        // sink: se detiene si k ya es menor o igual
+class Heap<T> {
+    private T[] data = (T[]) new Object[2];
+    private int n = 0;
+    private final Comparator<T> cmp;
+
+    Heap(Comparator<T> cmp) {
+        this.cmp = cmp;
+    }
+
+    // ¿El elemento de la posición i va antes que el de la j?
+    private boolean before(int i, int j) {
+        return cmp.compare(data[i], data[j]) < 0;
+    }
+}
 ```
 
-El contrato cambia de nombre y no de forma: `min()` y `extractMin()` en
-lugar de `max()` y `extractMax()`, con los mismos costos.
+Java no permite crear un arreglo de `T` directamente, así que se crea uno de
+`Object` y se convierte. `before(i, j)` es la única comparación que hace el
+heap. Va antes el
+elemento que el comparador considera **menor**, así que el elemento de
+mayor prioridad queda en la raíz y `peek()` lo devuelve. Para que el mayor
+esté primero, se usa un comparador que invierte el orden.
 
 </Slide>
 
-<Slide title="Un min-heap para una simulación por eventos">
-Una simulación por eventos guarda cada evento futuro con el instante en que
-ocurre, y avanza siempre procesando **el más próximo**. La prioridad más
-alta es el tiempo **menor**, y eso es un min-heap.
-
-Si los eventos pendientes ocurren en los instantes 9, 2, 6, 3 y 5, el heap
-los guarda así:
-
-<HeapPicture values={[2, 3, 6, 9, 5]} label="Un min-heap de instantes: 2 en la raíz, 3 y 6 como sus hijos, 9 y 5 como hijos del 3. En el arreglo, data[1] a data[5] guardan 2, 3, 6, 9 y 5, y data[0] no se usa." />
-
-`extractMin()` entrega el 2, el evento que ocurre primero. Procesarlo suele
-crear eventos nuevos, más adelante en el tiempo, y cada uno entra con
-`insert` en $$O(\log N)$$. La simulación nunca ordena la lista entera de
-eventos: sólo necesita saber, en cada momento, cuál viene.
-
-</Slide>
-
-<SectionBreak />
-
-## PriorityQueue en Java
-
-<Slide title="La clase PriorityQueue">
-Java trae una cola de prioridad en `java.util.PriorityQueue`: un heap
-binario guardado en un arreglo. Tiene una diferencia que sorprende la
-primera vez: **es un min-heap**. Sin más indicación, `poll()` devuelve el
-menor.
+<Slide title="swim y sink con la comparación">
+`swim` y `sink` hacen lo mismo que en el max-heap, pero cada comparación
+entre valores se reemplaza por una pregunta a `before`:
 
 ```java
-PriorityQueue<Integer> pq = new PriorityQueue<>();
-pq.add(5);
-pq.add(1);
-pq.add(8);
-
-int first = pq.poll();   // 1: el menor, no el primero que entró
+void swim(int k) {
+    while (k > 1 && before(k, parent(k))) {
+        swap(parent(k), k);
+        k = parent(k);
+    }
+}
+void sink(int k) {
+    while (left(k) <= n) {
+        int j = left(k);
+        if (right(k) <= n && before(right(k), j)) {
+            j = right(k);
+        }
+        if (!before(j, k)) break;
+        swap(k, j);
+        k = j;
+    }
+}
 ```
 
-Los nombres del TDA en la clase de Java:
-
-| TDA            | `PriorityQueue`     |
-| -------------- | ------------------- |
-| `insert(x)`    | `add(x)`            |
-| `min()`        | `peek()`            |
-| `extractMin()` | `poll()`            |
-| `isEmpty()`    | `isEmpty()`         |
-| `size()`       | `size()`            |
-
-Sobre una cola vacía, `peek()` y `poll()` **no** lanzan una excepción:
-devuelven `null`. Con `Integer`, guardar ese `null` en un `int` sí la lanza,
-así que preguntar `isEmpty()` antes sigue siendo trabajo de quien usa la
-cola.
+`swim` sube mientras el elemento vaya antes que su padre. `sink` elige el
+hijo que va antes y baja mientras ese hijo vaya antes que el elemento. Las
+invariantes, los costos y el resto de la clase no cambian.
 
 </Slide>
 
-<Slide title="Un max-heap con Comparator.reverseOrder">
-Para que `poll()` devuelva el mayor, el constructor recibe un
-**`Comparator`** que invierte el orden natural:
+<Slide title="Una clase que sabe compararse">
+Cuando los elementos son objetos de una clase propia, la clase puede traer
+su propio orden implementando `Comparable`. Su método `compareTo` es el
+**orden natural** de la clase. Con el `Pair` de un nombre y un número,
+ordenado por el número:
 
 ```java
-PriorityQueue<Integer> pq =
-    new PriorityQueue<>(Comparator.reverseOrder());
-pq.add(5);
-pq.add(1);
-pq.add(8);
+class Pair implements Comparable<Pair> {
+    private String first;
+    private int second;
 
-int first = pq.poll();   // 8: ahora sale el mayor
+    public Pair(String first, int second) {
+        this.first = first;
+        this.second = second;
+    }
+
+    public int compareTo(Pair other) {
+        return Integer.compare(this.second, other.second);
+    }
+}
 ```
 
-La clase no cambia. `PriorityQueue` siempre saca el que el comparador
-considera menor, y `reverseOrder()` hace que el mayor de los enteros sea
-el menor para el comparador. Es la misma idea que el min-heap: el heap es
-uno solo, lo que se invierte es la comparación.
+`Comparator.naturalOrder()` es el comparador que usa ese `compareTo`. Un
+heap construido con él saca primero el par de menor `second`.
 
 </Slide>
 
-<Slide title="Prioridad según un criterio propio">
-Los elementos de una cola de prioridad casi nunca son números sueltos. Son
-objetos, y la prioridad es uno de sus campos. El comparador dice cuál de
-los campos, y en qué sentido:
+<Slide title="Una prioridad según un campo">
+Otras veces la clase no trae un orden, o trae uno que no es la prioridad
+buscada. Entonces el comparador se escribe al construir el heap, con una
+lambda que compara el campo elegido, en el sentido elegido:
 
 ```java
 class Task {
@@ -1506,6 +1526,123 @@ class Task {
     }
 }
 
+Comparator<Task> byUrgency =
+    (a, b) -> Integer.compare(b.urgency, a.urgency);
+```
+
+Comparar `b` con `a`, y no `a` con `b`, invierte el sentido: va antes la
+tarea de **mayor** urgencia.
+
+</Slide>
+
+<Slide title="Un mismo heap para cada prioridad">
+Con el comparador como parámetro, una sola clase `Heap<T>` sirve para todos
+los casos. Lo único que cambia es cómo se construye:
+
+```java
+Heap<Integer> minFirst = new Heap<>(Comparator.naturalOrder());
+Heap<Integer> maxFirst = new Heap<>(Comparator.reverseOrder());
+Heap<Pair> pairs = new Heap<>(Comparator.naturalOrder());
+Heap<Task> tasks = new Heap<>(byUrgency);
+```
+
+| Heap       | Comparador                 | `peek()` devuelve              |
+| ---------- | -------------------------- | ------------------------------ |
+| `minFirst` | orden natural de `Integer` | el entero menor                |
+| `maxFirst` | orden natural invertido    | el entero mayor                |
+| `pairs`    | `compareTo` de `Pair`      | el par de menor `second`       |
+| `tasks`    | `byUrgency`                | la tarea de mayor urgencia     |
+
+</Slide>
+
+<Slide title="La clase PriorityQueue">
+Java trae este mismo heap en `java.util.PriorityQueue`: binario, guardado en
+un arreglo (desde 0) y con el comparador como parámetro. Sin comparador usa
+el orden natural de los elementos, así que **por defecto es un min-heap**.
+
+| TDA            | `PriorityQueue` |
+| -------------- | --------------- |
+| `insert(x)`    | `add(x)`        |
+| `max()`        | `peek()`        |
+| `extractMax()` | `poll()`        |
+| `isEmpty()`    | `isEmpty()`     |
+| `size()`       | `size()`        |
+
+Sobre una cola vacía, `peek()` y `poll()` **no** lanzan una excepción:
+devuelven `null`. Con `Integer`, guardar ese `null` en un `int` sí la lanza,
+así que preguntar `isEmpty()` antes sigue siendo trabajo de quien usa la
+cola.
+
+</Slide>
+
+<Slide title="El menor primero en una simulación por eventos">
+Una simulación por eventos guarda cada evento futuro con el instante en que
+ocurre, y procesa siempre **el más próximo**: la prioridad más alta es el
+tiempo **menor**. Es el orden por defecto de `PriorityQueue`:
+
+```java
+PriorityQueue<Integer> events = new PriorityQueue<>();
+events.add(9);
+events.add(2);
+events.add(6);
+events.add(3);
+events.add(5);
+
+int next = events.poll();   // 2: el instante más próximo
+```
+
+<div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-ink-soft)', textAlign: 'center' }}>los instantes 9, 2, 6, 3 y 5 en un min-heap</div>
+<HeapPicture values={[2, 3, 6, 9, 5]} view="tree" hot={[1]} label="Un min-heap con los instantes 9, 2, 6, 3 y 5: el 2 en la raíz, 3 y 6 como sus hijos, 9 y 5 como hijos del 3." />
+
+Procesar un evento suele crear otros más adelante en el tiempo, y cada uno
+entra con `add` en $$O(\log N)$$. La simulación nunca ordena todos los
+eventos: sólo necesita saber, en cada momento, cuál viene.
+
+</Slide>
+
+<Slide title="El mayor primero con Comparator.reverseOrder">
+Para que salga primero el mayor, el constructor recibe el comparador que
+invierte el orden natural:
+
+```java
+PriorityQueue<Integer> pq =
+    new PriorityQueue<>(Comparator.reverseOrder());
+pq.add(5);
+pq.add(1);
+pq.add(8);
+
+int first = pq.poll();   // 8: ahora sale el mayor
+```
+
+La clase no cambia: `PriorityQueue` siempre saca el que el comparador
+considera menor, y `reverseOrder()` hace que el mayor de los enteros sea el
+menor para el comparador.
+
+</Slide>
+
+<Slide title="Pares con su orden natural">
+Si la clase implementa `Comparable`, `PriorityQueue` usa su `compareTo` sin
+que haga falta pasarle un comparador:
+
+```java
+PriorityQueue<Pair> pairs = new PriorityQueue<>();
+pairs.add(new Pair("Ana", 21));
+pairs.add(new Pair("Beto", 19));
+pairs.add(new Pair("Carla", 25));
+
+Pair first = pairs.poll();   // Beto: el de menor second
+```
+
+Para sacar primero el de mayor `second`, basta con invertir ese orden:
+`new PriorityQueue<>(Comparator.reverseOrder())`.
+
+</Slide>
+
+<Slide title="Tareas por urgencia">
+Con una clase que no trae el orden buscado, el comparador se pasa al
+construir la cola:
+
+```java
 PriorityQueue<Task> tasks = new PriorityQueue<>(
     (a, b) -> Integer.compare(b.urgency, a.urgency));
 tasks.add(new Task("respaldo", 2));
@@ -1515,31 +1652,29 @@ tasks.add(new Task("informe", 5));
 Task next = tasks.poll();   // la de urgencia 9
 ```
 
-Comparar `b` con `a`, y no `a` con `b`, es lo que convierte al min-heap de
-Java en un max-heap por urgencia. Más ejemplos de comparadores sobre
-`PriorityQueue`, en
+Más ejemplos de comparadores sobre `PriorityQueue`, en
 [este gist](https://gist.github.com/so77id/b78952de9dc850446ab7d1507692cb18).
 
 </Slide>
 
 <Slide title="Costos de PriorityQueue">
-La documentación de `PriorityQueue` da los mismos costos que el heap de esta
-clase, porque es el mismo heap:
+La documentación de `PriorityQueue` da los mismos costos que el heap
+construido aquí, porque es el mismo heap:
 
-| Operación                | Costo          |
-| ------------------------ | -------------- |
-| `add(x)`, `poll()`       | $$O(\log N)$$  |
-| `peek()`, `size()`       | $$\Theta(1)$$  |
-| `contains(x)`, `remove(x)` | $$\Theta(N)$$ |
+| Operación                  | Costo          |
+| -------------------------- | -------------- |
+| `add(x)`, `poll()`         | $$O(\log N)$$  |
+| `peek()`, `size()`         | $$\Theta(1)$$  |
+| `contains(x)`, `remove(x)` | $$\Theta(N)$$  |
 
 La última fila es la que el orden débil cobra. Buscar un elemento cualquiera
-no tiene atajo, porque el heap sólo sabe dónde está el mínimo: el resto del
+no tiene atajo, porque el heap sólo sabe dónde está el primero: el resto del
 arreglo hay que recorrerlo.
 
 Por la misma razón, **imprimir una `PriorityQueue` no la muestra ordenada**.
-`System.out.println(pq)` recorre el arreglo en el orden en que está guardado,
-que sólo cumple la invariante de orden de heap. Lo único garantizado es que el
-primero es el menor.
+`System.out.println(pq)` recorre el arreglo en el orden en que está
+guardado, que sólo cumple la invariante de orden de heap. Lo único
+garantizado es que el primero es el que va antes.
 
 </Slide>
 
