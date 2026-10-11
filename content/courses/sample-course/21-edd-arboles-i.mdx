@@ -254,7 +254,7 @@ export function OrderRule({ parts, tone = 'focus', label }) {
   );
 }
 
-{/* TreeMemory — a general tree as it sits in memory, in the linked-list class's idiom: a node is a box with its value and a grey compartment whose dot is the reference to its list of children; the list is a row of cells, one per child, each with the dot of its reference and an arrow to the child. A leaf's list is empty and drawn as Java prints one, [ ]. depth cuts the drawing: a node at the cut keeps its list, with short faint arrows to children not drawn. entry draws the Tree object and its root reference ("root", or "null" for the empty tree); fields names the node's two fields. A node toned "mark" is the one just added, and so is its cell. File-local like HierarchyPicture (§6e-quater). */}
+{/* TreeMemory — a general tree as it sits in memory, in the linked-list class's idiom: a node is a box with its value and a grey compartment whose dot is the reference to the sequence of its children, an ArrayList, drawn as the row of cells of the dynamic array behind it, one per child, each with the dot of its reference and an arrow to the child. A leaf's list is empty and drawn as Java prints an empty ArrayList, []. depth cuts the drawing: a node at the cut keeps its list, with short faint arrows to children not drawn. entry draws the Tree object and its root reference ("root", or "null" for the empty tree); fields names the node's two fields. A node toned "mark" is the one just added, and so is its cell. File-local like HierarchyPicture (§6e-quater). */}
 
 export function TreeMemory({ tree, depth = 99, tones = {}, entry, fields = false, size = 1, minWidth = 0, px, caption, label }) {
   const H = 28;
@@ -361,7 +361,7 @@ export function TreeMemory({ tree, depth = 99, tones = {}, entry, fields = false
                   {kids.length === 0 ? (
                     <g>
                       <rect x={p.lx} y={p.ly} width="30" height={CELL} rx="3" style={{ fill: 'var(--color-sunk)', stroke: isNew ? 'var(--color-mark)' : 'var(--color-rule)' }} strokeWidth="1.2" strokeDasharray="3 3" />
-                      <text x={p.lx + 15} y={p.ly + 15} textAnchor="middle" fontSize="11" fontFamily="var(--font-mono, monospace)" style={{ fill: 'var(--color-ink-faint)' }}>[ ]</text>
+                      <text x={p.lx + 15} y={p.ly + 15} textAnchor="middle" fontSize="11" fontFamily="var(--font-mono, monospace)" style={{ fill: 'var(--color-ink-faint)' }}>[]</text>
                     </g>
                   ) : (
                     kids.map((k, i) => {
@@ -549,11 +549,12 @@ se visitan los nodos importa.
 ## La clase árbol
 
 <Slide title="El nodo y el árbol">
-Cada nodo guarda su valor y la **lista de sus hijos**. Cada hijo es la raíz de
-un subárbol, así que la clase repite la definición recursiva: un nodo y,
-debajo, cero o más árboles. Una lista enlazada se recorre entrando por `head`;
-un árbol se entra por `root`, la **raíz**, y desde ella se llega a cualquier
-nodo bajando por las listas de hijos.
+Cada nodo guarda su valor y la **secuencia de sus hijos**: el TDA Sequence,
+que Java llama `List`, implementado con un `ArrayList`, el arreglo dinámico de
+Java. Cada hijo es la raíz de un subárbol, así que la clase repite la
+definición recursiva: un nodo y, debajo, cero o más árboles. A una lista
+enlazada se entra por `head`; a un árbol, por `root`, la **raíz**, y desde ella
+se llega a cualquier nodo.
 
 <PresentationWide fraction={0.9}>
 
@@ -572,7 +573,7 @@ class Node<T> {
 }
 ```
 
-<TreeMemory tree={{ n: 'eda/', c: [{ n: 't1.pdf' }, { n: 't2.pdf' }] }} fields label="Un nodo en memoria: una caja con su valor, eda, y su campo children, que apunta a una lista de dos celdas; cada celda apunta a un hijo, t1.pdf y t2.pdf. Los hijos son hojas: su lista de hijos está vacía." caption="un nodo: su valor y la lista de sus hijos; una hoja, la lista vacía" />
+<TreeMemory tree={{ n: 'eda/', c: [{ n: 't1.pdf' }, { n: 't2.pdf' }] }} fields label="Un nodo en memoria: una caja con su valor, eda, y su campo children, que apunta a un ArrayList de dos celdas; cada celda apunta a un hijo, t1.pdf y t2.pdf. Los hijos son hojas: su ArrayList está vacío." caption="un nodo: su valor y la secuencia de sus hijos; una hoja, la secuencia vacía" />
 
 </div>
 
@@ -584,7 +585,7 @@ class Tree<T> {
 }
 ```
 
-<TreeMemory tree={FOLDERS} depth={2} entry="root" label="Un árbol en memoria: el objeto Tree tiene un campo root que apunta a la raíz, home. home apunta a su lista de tres hijos: fotos, ramos y notas.txt. fotos y ramos tienen dos hijos cada uno, que no se dibujan; notas.txt es una hoja, con la lista vacía." caption="la entrada es root: desde la raíz se llega a todo el árbol" />
+<TreeMemory tree={FOLDERS} depth={2} entry="root" label="Un árbol en memoria: el objeto Tree tiene un campo root que apunta a la raíz, home. home apunta a la secuencia de sus tres hijos: fotos, ramos y notas.txt. fotos y ramos tienen dos hijos cada uno, que no se dibujan; notas.txt es una hoja, con la secuencia vacía." caption="la entrada es root: desde la raíz se llega a todo el árbol" />
 
 </div>
 
@@ -597,10 +598,10 @@ Un árbol vacío es un `Tree` con `root` en `null`.
 </Slide>
 
 <Slide title="Agregar un hijo">
-`add` es un método de `Node`: crea el hijo, lo pone al **final** de la lista y
-lo devuelve, para poder seguir agregando debajo de él. El orden de esa lista
-es el orden de los hijos de izquierda a derecha, el que siguen los
-recorridos. Agregar al final de un `ArrayList` cuesta $$\Theta(1)$$
+`add` es un método de `Node`: crea el hijo, lo pone al **final** de la
+secuencia y lo devuelve, para poder seguir agregando debajo de él. El orden de
+esa secuencia es el orden de los hijos de izquierda a derecha, el que siguen
+los recorridos. Agregar al final de un `ArrayList` cuesta $$\Theta(1)$$
 amortizado.
 
 ```java
@@ -614,15 +615,15 @@ Node<T> add(T value) {
 <PresentationWide fraction={0.75}>
 
 <div style={{ display: 'grid', gridTemplateColumns: 'auto auto auto', justifyContent: 'center', gap: '0 1.5rem', alignItems: 'center' }}>
-<TreeMemory tree={{ n: 'calculo/' }} px={1.05} label="Antes: calculo no tiene hijos, y su lista está vacía." caption="sin hijos: la lista vacía" />
+<TreeMemory tree={{ n: 'calculo/' }} px={1.05} label="Antes: calculo no tiene hijos, y su ArrayList está vacío." caption="sin hijos: el ArrayList vacío" />
 <div aria-hidden="true" style={{ fontFamily: 'var(--font-mono, monospace)', fontSize: '0.85rem', color: 'var(--color-mark)', textAlign: 'center' }}>add("guia.pdf")<br /><span style={{ fontSize: '1.8rem', lineHeight: 1 }}>→</span></div>
-<TreeMemory tree={{ n: 'calculo/', c: [{ n: 'guia.pdf' }] }} tones={{ 'guia.pdf': 'mark' }} px={1.05} label="Después de agregar guia.pdf: la lista de calculo tiene una celda, que apunta al nodo nuevo, una hoja con su lista vacía." caption="la lista gana su primera celda" />
+<TreeMemory tree={{ n: 'calculo/', c: [{ n: 'guia.pdf' }] }} tones={{ 'guia.pdf': 'mark' }} px={1.05} label="Después de agregar guia.pdf: el ArrayList de calculo tiene una celda, que apunta al nodo nuevo, una hoja con su ArrayList vacío." caption="el ArrayList gana su primera celda" />
 </div>
 
 <div style={{ display: 'grid', gridTemplateColumns: 'auto auto auto', justifyContent: 'center', gap: '0 1.5rem', alignItems: 'center' }}>
-<TreeMemory tree={{ n: 'home/', c: [{ n: 'fotos/', c: [{ n: 'playa.jpg' }, { n: 'perro.jpg' }] }, { n: 'ramos/', c: [{ n: 'eda/' }, { n: 'calculo/' }] }] }} depth={2} px={1.05} label="Antes: home tiene dos hijos, fotos y ramos, en una lista de dos celdas." caption="con dos hijos" />
+<TreeMemory tree={{ n: 'home/', c: [{ n: 'fotos/', c: [{ n: 'playa.jpg' }, { n: 'perro.jpg' }] }, { n: 'ramos/', c: [{ n: 'eda/' }, { n: 'calculo/' }] }] }} depth={2} px={1.05} label="Antes: home tiene dos hijos, fotos y ramos, en un ArrayList de dos celdas." caption="con dos hijos" />
 <div aria-hidden="true" style={{ fontFamily: 'var(--font-mono, monospace)', fontSize: '0.85rem', color: 'var(--color-mark)', textAlign: 'center' }}>add("notas.txt")<br /><span style={{ fontSize: '1.8rem', lineHeight: 1 }}>→</span></div>
-<TreeMemory tree={FOLDERS} depth={2} tones={{ 'notas.txt': 'mark' }} px={1.05} label="Después de agregar notas.txt: la lista de home tiene una tercera celda, al final, que apunta al nodo nuevo." caption="la celda nueva va al final" />
+<TreeMemory tree={FOLDERS} depth={2} tones={{ 'notas.txt': 'mark' }} px={1.05} label="Después de agregar notas.txt: el ArrayList de home tiene una tercera celda, al final, que apunta al nodo nuevo." caption="la celda nueva va al final" />
 </div>
 
 </PresentationWide>
@@ -658,43 +659,43 @@ tree.root.add("notas.txt");`}
   </Step>
   <Step lines={[3]}>
     <HierarchyPicture tree={FOLDERS} tones={{ 'fotos/': 'mark', 'playa.jpg': 'hidden', 'perro.jpg': 'hidden', 'ramos/': 'hidden', 'eda/': 'hidden', 't1.pdf': 'hidden', 't2.pdf': 'hidden', 'calculo/': 'hidden', 'guia.pdf': 'hidden', 'notas.txt': 'hidden' }} fresh="fotos/" compact size={0.8} label="fotos se agrega como primer hijo de home." />
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>fotos/ entra al final de la lista de home/: es su primer hijo.</div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>fotos/ entra al final de los hijos de home/: es su primer hijo.</div>
   </Step>
   <Step lines={[4]}>
     <HierarchyPicture tree={FOLDERS} tones={{ 'playa.jpg': 'mark', 'perro.jpg': 'hidden', 'ramos/': 'hidden', 'eda/': 'hidden', 't1.pdf': 'hidden', 't2.pdf': 'hidden', 'calculo/': 'hidden', 'guia.pdf': 'hidden', 'notas.txt': 'hidden' }} fresh="playa.jpg" compact size={0.8} label="playa.jpg se agrega como primer hijo de fotos." />
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>playa.jpg entra al final de la lista de fotos/: es su primer hijo.</div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>playa.jpg entra al final de los hijos de fotos/: es su primer hijo.</div>
   </Step>
   <Step lines={[5]}>
     <HierarchyPicture tree={FOLDERS} tones={{ 'perro.jpg': 'mark', 'ramos/': 'hidden', 'eda/': 'hidden', 't1.pdf': 'hidden', 't2.pdf': 'hidden', 'calculo/': 'hidden', 'guia.pdf': 'hidden', 'notas.txt': 'hidden' }} fresh="perro.jpg" compact size={0.8} label="perro.jpg se agrega como segundo hijo de fotos." />
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>perro.jpg entra al final de la lista de fotos/: es su segundo hijo.</div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>perro.jpg entra al final de los hijos de fotos/: es su segundo hijo.</div>
   </Step>
   <Step lines={[6]}>
     <HierarchyPicture tree={FOLDERS} tones={{ 'ramos/': 'mark', 'eda/': 'hidden', 't1.pdf': 'hidden', 't2.pdf': 'hidden', 'calculo/': 'hidden', 'guia.pdf': 'hidden', 'notas.txt': 'hidden' }} fresh="ramos/" compact size={0.8} label="ramos se agrega como segundo hijo de home." />
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>ramos/ entra al final de la lista de home/: es su segundo hijo.</div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>ramos/ entra al final de los hijos de home/: es su segundo hijo.</div>
   </Step>
   <Step lines={[7]}>
     <HierarchyPicture tree={FOLDERS} tones={{ 'eda/': 'mark', 't1.pdf': 'hidden', 't2.pdf': 'hidden', 'calculo/': 'hidden', 'guia.pdf': 'hidden', 'notas.txt': 'hidden' }} fresh="eda/" compact size={0.8} label="eda se agrega como primer hijo de ramos." />
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>eda/ entra al final de la lista de ramos/: es su primer hijo.</div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>eda/ entra al final de los hijos de ramos/: es su primer hijo.</div>
   </Step>
   <Step lines={[8]}>
     <HierarchyPicture tree={FOLDERS} tones={{ 't1.pdf': 'mark', 't2.pdf': 'hidden', 'calculo/': 'hidden', 'guia.pdf': 'hidden', 'notas.txt': 'hidden' }} fresh="t1.pdf" compact size={0.8} label="t1.pdf se agrega como primer hijo de eda." />
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>t1.pdf entra al final de la lista de eda/: es su primer hijo.</div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>t1.pdf entra al final de los hijos de eda/: es su primer hijo.</div>
   </Step>
   <Step lines={[9]}>
     <HierarchyPicture tree={FOLDERS} tones={{ 't2.pdf': 'mark', 'calculo/': 'hidden', 'guia.pdf': 'hidden', 'notas.txt': 'hidden' }} fresh="t2.pdf" compact size={0.8} label="t2.pdf se agrega como segundo hijo de eda." />
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>t2.pdf entra al final de la lista de eda/: es su segundo hijo.</div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>t2.pdf entra al final de los hijos de eda/: es su segundo hijo.</div>
   </Step>
   <Step lines={[10]}>
     <HierarchyPicture tree={FOLDERS} tones={{ 'calculo/': 'mark', 'guia.pdf': 'hidden', 'notas.txt': 'hidden' }} fresh="calculo/" compact size={0.8} label="calculo se agrega como segundo hijo de ramos." />
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>calculo/ entra al final de la lista de ramos/: es su segundo hijo.</div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>calculo/ entra al final de los hijos de ramos/: es su segundo hijo.</div>
   </Step>
   <Step lines={[11]}>
     <HierarchyPicture tree={FOLDERS} tones={{ 'guia.pdf': 'mark', 'notas.txt': 'hidden' }} fresh="guia.pdf" compact size={0.8} label="guia.pdf se agrega como primer hijo de calculo." />
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>guia.pdf entra al final de la lista de calculo/: es su primer hijo.</div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>guia.pdf entra al final de los hijos de calculo/: es su primer hijo.</div>
   </Step>
   <Step lines={[12]}>
     <HierarchyPicture tree={FOLDERS} tones={{ 'notas.txt': 'mark' }} fresh="notas.txt" compact size={0.8} label="notas.txt se agrega como tercer hijo de home." />
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>notas.txt entra al final de la lista de home/: es su tercer hijo.</div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>notas.txt entra al final de los hijos de home/: es su tercer hijo.</div>
   </Step>
 </StepShow>
 
