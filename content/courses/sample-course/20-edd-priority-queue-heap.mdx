@@ -586,6 +586,106 @@ export function CompareSign({ label }) {
   );
 }
 
+{/* TaskCard, TaskRow, TaskHeap, TaskCompare — the planner exercise's drawings. A task is [name, urgency, arrival]; the card shows the urgency in its badge, then the name and the arrival number. File-local like HeapPicture (§6e-quater). */}
+
+export function TaskCard({ x, y, t, tone }) {
+  const [name, urgency, arrival] = t;
+  const stroke = tone === 'hot' ? 'var(--color-accent)' : tone === 'flag' ? 'var(--color-flag)' : tone === 'mark' ? 'var(--color-mark)' : 'var(--color-rule-strong)';
+  const fill = tone === 'flag' ? 'var(--color-flag-soft)' : tone === 'mark' ? 'var(--color-mark-soft)' : 'var(--color-surface)';
+  const weight = tone === 'hot' ? 2.6 : tone ? 2 : 1.4;
+  return (
+    <g>
+      <rect x={x} y={y} width="108" height="40" rx="6" style={{ fill, stroke }} strokeWidth={weight} />
+      <line x1={x + 32} y1={y} x2={x + 32} y2={y + 40} style={{ stroke: 'var(--color-rule)' }} strokeWidth="1" />
+      <text x={x + 16} y={y + 26} textAnchor="middle" fontSize="17" fontWeight="700" style={{ fill: 'var(--color-ink)' }}>{urgency}</text>
+      <text x={x + 70} y={y + 17} textAnchor="middle" fontSize="13" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{name}</text>
+      <text x={x + 70} y={y + 32} textAnchor="middle" fontSize="10.5" style={{ fill: 'var(--color-ink-soft)' }}>{`llegada ${arrival}`}</text>
+    </g>
+  );
+}
+
+export function TaskRow({ tasks, tones = [], label }) {
+  const width = tasks.length * 116 - 8 + 8;
+  return (
+    <svg viewBox={`0 0 ${width} 48`} style={{ width: '100%', maxWidth: `${Math.round(width * 1.25)}px`, height: 'auto', display: 'block', margin: '0.4rem auto' }} role="img" aria-label={label}>
+      {tasks.map((t, i) => (
+        <TaskCard key={t[0]} x={4 + i * 116} y={4} t={t} tone={tones[i]} />
+      ))}
+    </svg>
+  );
+}
+
+export function TaskHeap({ tasks, tones = [], out, outTones = [], minLevels = 3, label }) {
+  const levels = Math.max(minLevels, tasks.length === 0 ? 1 : Math.floor(Math.log2(tasks.length)) + 1);
+  const slot = 116;
+  const leaves = 2 ** (levels - 1);
+  const width = leaves * slot + 8;
+  const levelH = 64;
+  const treeH = (levels - 1) * levelH + 40 + 8;
+  const outY = treeH + 22;
+  const height = out ? outY + 34 : treeH;
+  const at = (k) => {
+    const d = Math.floor(Math.log2(k));
+    const span = leaves / 2 ** d;
+    return { x: 4 + (k - 2 ** d + 0.5) * span * slot - 54, y: 4 + d * levelH };
+  };
+  const ks = tasks.map((_, i) => i + 1);
+  return (
+    <svg viewBox={`0 0 ${width} ${height}`} style={{ width: '100%', maxWidth: `${Math.round(width * 1.2)}px`, height: 'auto', display: 'block', margin: '0.5rem auto' }} role="img" aria-label={label}>
+      {ks.filter((k) => k > 1).map((k) => {
+        const p = at(Math.floor(k / 2));
+        const c = at(k);
+        return <line key={`e${k}`} x1={p.x + 54} y1={p.y + 40} x2={c.x + 54} y2={c.y} style={{ stroke: 'var(--color-rule-strong)' }} strokeWidth="1.2" />;
+      })}
+      {tasks.length === 0 ? (
+        <text x={width / 2} y="28" textAnchor="middle" fontSize="13" style={{ fill: 'var(--color-ink-faint)' }}>heap vacío</text>
+      ) : null}
+      {ks.map((k) => {
+        const p = at(k);
+        return <TaskCard key={tasks[k - 1][0]} x={p.x} y={p.y} t={tasks[k - 1]} tone={tones[k - 1]} />;
+      })}
+      {out ? (
+        <g>
+          <text x="4" y={outY + 16} fontSize="12" fontWeight="600" style={{ fill: 'var(--color-ink-soft)' }}>atendidas</text>
+          {out.length === 0 ? (
+            <text x="84" y={outY + 16} fontSize="12" style={{ fill: 'var(--color-ink-faint)' }}>ninguna todavía</text>
+          ) : null}
+          {out.map((name, i) => (
+            <g key={name}>
+              <rect x={80 + i * 76} y={outY} width="72" height="26" rx="13" style={{ fill: outTones[i] === 'flag' ? 'var(--color-flag-soft)' : 'var(--color-keep-soft)', stroke: outTones[i] === 'flag' ? 'var(--color-flag)' : 'var(--color-keep)' }} strokeWidth="1.4" />
+              <text x={80 + i * 76 + 36} y={outY + 17} textAnchor="middle" fontSize="12" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{name}</text>
+            </g>
+          ))}
+        </g>
+      ) : null}
+    </svg>
+  );
+}
+
+export function TaskCompare({ rows, label }) {
+  // Each row: two tasks, the urgency verdict, the arrival verdict (or null when urgency already decided), and which goes first.
+  const rowH = 58;
+  return (
+    <svg viewBox={`0 0 700 ${rows.length * rowH + 28}`} style={{ width: '100%', maxWidth: '820px', height: 'auto', display: 'block', margin: '0.75rem auto' }} role="img" aria-label={label}>
+      <text x="300" y="14" textAnchor="middle" fontSize="12" fontWeight="700" style={{ fill: 'var(--color-ink-soft)' }}>urgencia</text>
+      <text x="410" y="14" textAnchor="middle" fontSize="12" fontWeight="700" style={{ fill: 'var(--color-ink-soft)' }}>llegada</text>
+      <text x="580" y="14" textAnchor="middle" fontSize="12" fontWeight="700" style={{ fill: 'var(--color-ink-soft)' }}>va antes</text>
+      {rows.map((r, i) => {
+        const y = 26 + i * rowH;
+        return (
+          <g key={i}>
+            <TaskCard x={4} y={y} t={r.a} />
+            <TaskCard x={130} y={y} t={r.b} />
+            <text x="300" y={y + 25} textAnchor="middle" fontSize="15" fontWeight="600" style={{ fill: r.arrival ? 'var(--color-ink-faint)' : 'var(--color-ink)' }}>{r.urgency}</text>
+            <text x="410" y={y + 25} textAnchor="middle" fontSize="15" fontWeight="600" style={{ fill: r.arrival ? 'var(--color-ink)' : 'var(--color-ink-faint)' }}>{r.arrival ?? 'no se mira'}</text>
+            <text x="580" y={y + 25} textAnchor="middle" fontSize="15" fontWeight="700" style={{ fill: 'var(--color-keep)' }}>{r.first}</text>
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
+
 <SectionBreak />
 
 ## El heap binario
@@ -1737,13 +1837,247 @@ garantizado es que el primero es el que va antes.
 Dos problemas resueltos completos, cada uno en cinco pasos: el problema, por
 qué no es trivial, la idea, el código y dónde falla.
 
-- **Top-K de una secuencia**: los $$K$$ mayores de una secuencia larga, sin
-  guardarla entera.
 - **Un planificador de tareas**: atender por urgencia sin perder el orden de
   llegada entre tareas igual de urgentes.
+- **Top-K de una secuencia**: los $$K$$ mayores de una secuencia larga, sin
+  guardarla entera.
 
-Después, en el libro, dos problemas propuestos con su solución: el
-**k-ésimo mayor** de un arreglo y la **verificación de un max-heap**.
+Después, en el libro, un problema propuesto con su solución: la
+**verificación de un max-heap**.
+
+</Slide>
+
+<Slide title="Un planificador de tareas">
+En una sala de urgencias, cada paciente recibe un número al llegar. Se
+atiende primero al más grave, y **entre dos igual de graves, al que llegó
+antes**. Un sistema que atiende tareas sigue la misma regla: cada tarea trae
+una **urgencia**, un entero donde más es más urgente, y un **número de
+llegada**, que no se repite.
+
+<div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-ink-soft)', textAlign: 'center' }}>llegan, en este orden · cada tarjeta: urgencia, nombre y número de llegada</div>
+<TaskRow tasks={[['respaldo', 2, 1], ['caída', 9, 2], ['informe', 5, 3], ['correo', 5, 4], ['parche', 9, 5]]} label="Llegan cinco tareas, en este orden: respaldo, urgencia 2, llegada 1; caída, urgencia 9, llegada 2; informe, urgencia 5, llegada 3; correo, urgencia 5, llegada 4; parche, urgencia 9, llegada 5." />
+<div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-ink-soft)', textAlign: 'center' }}>se atienden</div>
+<TaskRow tasks={[['caída', 9, 2], ['parche', 9, 5], ['informe', 5, 3], ['correo', 5, 4], ['respaldo', 2, 1]]} label="Se atienden en este orden: caída y parche, las de urgencia 9, caída primero porque llegó antes; después informe y correo, las de urgencia 5, informe primero porque llegó antes; al final respaldo." />
+
+El programa recibe las tareas y devuelve sus nombres en el orden en que se
+atienden:
+
+```java
+class Task {
+    String name;
+    int urgency;
+    int arrival;
+}
+
+String[] schedule(Task[] tasks)
+```
+
+**Entrada.** `tasks`, a lo más 10⁵ tareas, con números de llegada distintos.
+
+**Salida.** Los nombres en el orden de atención. Sin tareas, un arreglo vacío.
+
+</Slide>
+
+<Slide title="Comparar sólo por urgencia">
+Lo primero que se piensa es una cola de prioridad con un comparador que sólo
+mira la urgencia, de mayor a menor. Atiende bien a las más urgentes, y falla
+en los empates: el heap **no es estable**. Cuando los dos hijos de un nodo
+empatan, `sink` baja por el izquierdo, y cuál quedó a la izquierda depende de
+cómo se armó el heap, no de cuál llegó antes.
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '0.25rem 1.5rem' }}>
+<div>
+<div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-ink-soft)', textAlign: 'center' }}>sale caída: correo e informe, hermanos empatados en 5</div>
+<TaskHeap tasks={[['parche', 9, 5], ['correo', 5, 4], ['informe', 5, 3], ['respaldo', 2, 1]]} tones={[undefined, 'mark', 'mark']} label="Después de atender a caída, el heap tiene a parche en la raíz, a correo como hijo izquierdo y a informe como hijo derecho, los dos con urgencia 5, y a respaldo bajo correo." />
+</div>
+<div>
+<div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-ink-soft)', textAlign: 'center' }}>sale parche: sink baja por el izquierdo y sube correo</div>
+<TaskHeap tasks={[['correo', 5, 4], ['respaldo', 2, 1], ['informe', 5, 3]]} tones={['flag', undefined, 'mark']} label="Después de atender a parche, correo quedó en la raíz, por delante de informe, aunque informe llegó antes." />
+</div>
+</div>
+
+<div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-ink-soft)', textAlign: 'center' }}>el orden que resulta</div>
+<TaskRow tasks={[['caída', 9, 2], ['parche', 9, 5], ['correo', 5, 4], ['informe', 5, 3], ['respaldo', 2, 1]]} tones={[undefined, undefined, 'flag', 'flag']} label="El orden que resulta comparando sólo por urgencia: caída, parche, correo, informe, respaldo. correo e informe salen al revés del orden de llegada." />
+
+</Slide>
+
+<Slide title="La llegada como desempate">
+Dos tareas igual de urgentes se distinguen por su número de llegada, y ese
+número ya viene en cada tarea. Basta con que la comparación lo use como
+segundo criterio: **primero la urgencia, de mayor a menor; si empatan, la
+llegada, de menor a mayor**.
+
+<TaskCompare
+  rows={[
+    { a: ['caída', 9, 2], b: ['parche', 9, 5], urgency: '9 = 9', arrival: '2 < 5', first: 'caída' },
+    { a: ['informe', 5, 3], b: ['correo', 5, 4], urgency: '5 = 5', arrival: '3 < 4', first: 'informe' },
+    { a: ['parche', 9, 5], b: ['informe', 5, 3], urgency: '9 > 5', arrival: null, first: 'parche' },
+  ]}
+  label="Tres comparaciones. caída contra parche: empatan en urgencia 9, y caída llegó antes, 2 contra 5, así que va antes caída. informe contra correo: empatan en 5, e informe llegó antes, 3 contra 4. parche contra informe: parche es más urgente, 9 contra 5, y la llegada no se mira."
+/>
+
+Con esa comparación no quedan dos tareas iguales, porque no hay dos con el
+mismo número de llegada. El heap sigue sin ser estable, pero ya no tiene
+empates que desordenar: una cola de prioridad con esta comparación atiende en
+el orden pedido.
+
+</Slide>
+
+<Slide title="Planificador · la solución">
+Las dos comparaciones se escriben por separado y se encadenan con
+`thenComparing`: la segunda decide sólo cuando la primera devuelve cero.
+
+<StepShow
+  language="java"
+  code={`static String[] schedule(Task[] tasks) {
+      Comparator<Task> byUrgency =
+          (a, b) -> Integer.compare(b.urgency, a.urgency);
+      Comparator<Task> byArrival =
+          (a, b) -> Integer.compare(a.arrival, b.arrival);
+      PriorityQueue<Task> pending =
+          new PriorityQueue<>(byUrgency.thenComparing(byArrival));
+      for (Task t : tasks) {
+          pending.add(t);
+      }
+      String[] order = new String[tasks.length];
+      for (int i = 0; i < order.length; i++) {
+          order[i] = pending.poll().name;
+      }
+      return order;
+  }`}
+>
+  <Step lines={[6, 7]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>La cola arranca vacía.</div>
+    <TaskHeap tasks={[]} out={[]} label="El heap, en orden de arreglo: nada. Atendidas: ninguna." />
+  </Step>
+  <Step lines={[8, 9]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Llega respaldo.</div>
+    <TaskHeap tasks={[['respaldo', 2, 1]]} tones={['hot']} out={[]} label="El heap, en orden de arreglo: respaldo. Atendidas: ninguna." />
+  </Step>
+  <Step lines={[8, 9]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Llega caída, más urgente que respaldo: sube a la raíz.</div>
+    <TaskHeap tasks={[['caída', 9, 2], ['respaldo', 2, 1]]} tones={['hot']} out={[]} label="El heap, en orden de arreglo: caída, respaldo. Atendidas: ninguna." />
+  </Step>
+  <Step lines={[8, 9]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Llega informe, menos urgente que caída: se queda como hoja.</div>
+    <TaskHeap tasks={[['caída', 9, 2], ['respaldo', 2, 1], ['informe', 5, 3]]} tones={[undefined, undefined, 'hot']} out={[]} label="El heap, en orden de arreglo: caída, respaldo, informe. Atendidas: ninguna." />
+  </Step>
+  <Step lines={[8, 9]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Llega correo, más urgente que respaldo: sube un nivel.</div>
+    <TaskHeap tasks={[['caída', 9, 2], ['correo', 5, 4], ['informe', 5, 3], ['respaldo', 2, 1]]} tones={[undefined, 'hot']} out={[]} label="El heap, en orden de arreglo: caída, correo, informe, respaldo. Atendidas: ninguna." />
+  </Step>
+  <Step lines={[8, 9]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Llega parche: sube sobre correo, y no sobre caída, que es igual de urgente y llegó antes.</div>
+    <TaskHeap tasks={[['caída', 9, 2], ['parche', 9, 5], ['informe', 5, 3], ['respaldo', 2, 1], ['correo', 5, 4]]} tones={[undefined, 'hot']} out={[]} label="El heap, en orden de arreglo: caída, parche, informe, respaldo, correo. Atendidas: ninguna." />
+  </Step>
+  <Step lines={[12, 13]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Sale caída, la raíz.</div>
+    <TaskHeap tasks={[['parche', 9, 5], ['correo', 5, 4], ['informe', 5, 3], ['respaldo', 2, 1]]} out={['caída']} label="El heap, en orden de arreglo: parche, correo, informe, respaldo. Atendidas: caída." />
+  </Step>
+  <Step lines={[12, 13]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Sale parche. correo e informe empatan en urgencia, e informe llegó antes: sube informe.</div>
+    <TaskHeap tasks={[['informe', 5, 3], ['correo', 5, 4], ['respaldo', 2, 1]]} tones={['hot']} out={['caída', 'parche']} label="El heap, en orden de arreglo: informe, correo, respaldo. Atendidas: caída, parche." />
+  </Step>
+  <Step lines={[12, 13]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Sale informe.</div>
+    <TaskHeap tasks={[['correo', 5, 4], ['respaldo', 2, 1]]} out={['caída', 'parche', 'informe']} label="El heap, en orden de arreglo: correo, respaldo. Atendidas: caída, parche, informe." />
+  </Step>
+  <Step lines={[12, 13]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Sale correo.</div>
+    <TaskHeap tasks={[['respaldo', 2, 1]]} out={['caída', 'parche', 'informe', 'correo']} label="El heap, en orden de arreglo: respaldo. Atendidas: caída, parche, informe, correo." />
+  </Step>
+  <Step lines={[12, 13]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Sale respaldo, y el heap queda vacío.</div>
+    <TaskHeap tasks={[]} out={['caída', 'parche', 'informe', 'correo', 'respaldo']} label="El heap, en orden de arreglo: nada. Atendidas: caída, parche, informe, correo, respaldo." />
+  </Step>
+  <Step lines={[15]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>El orden de atención: caída, parche, informe, correo, respaldo.</div>
+    <TaskHeap tasks={[]} out={['caída', 'parche', 'informe', 'correo', 'respaldo']} label="El heap, en orden de arreglo: nada. Atendidas: caída, parche, informe, correo, respaldo." />
+  </Step>
+</StepShow>
+
+</Slide>
+
+<Slide title="Los empates y la entrada vacía">
+Si todas las tareas empatan en urgencia, la llegada decide sola y el
+planificador atiende en orden de llegada, como una cola. Es también el caso
+en que comparar sólo por urgencia más se equivoca:
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '0.25rem 1.5rem' }}>
+<div>
+<div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-ink-soft)', textAlign: 'center' }}>sólo por urgencia</div>
+<TaskRow tasks={[['a', 3, 1], ['d', 3, 4], ['c', 3, 3], ['b', 3, 2]]} tones={[undefined, 'flag', 'flag', 'flag']} label="Cuatro tareas, a, b, c y d, todas de urgencia 3, que llegaron en ese orden. Comparando sólo por urgencia salen a, d, c, b." />
+</div>
+<div>
+<div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-ink-soft)', textAlign: 'center' }}>con la llegada como desempate</div>
+<TaskRow tasks={[['a', 3, 1], ['b', 3, 2], ['c', 3, 3], ['d', 3, 4]]} label="Las mismas cuatro tareas con la llegada como desempate: salen a, b, c, d, en orden de llegada." />
+</div>
+</div>
+
+Sin tareas, ningún ciclo corre y el resultado es un arreglo vacío.
+
+Cada una de las $$N$$ tareas entra y sale del heap una vez, a
+$$O(\log N)$$ cada operación: **$$O(N \log N)$$** en total. El heap guarda
+las $$N$$ tareas y el resultado sus $$N$$ nombres: **$$\Theta(N)$$** de
+memoria.
+
+</Slide>
+
+<Slide title="Planificador · el programa completo">
+<PresentationWide fraction={0.75}>
+<Exercise title="Un planificador de tareas">
+
+El algoritmo entero. **Comprobar** lo corre contra los casos del enunciado.
+Sin `thenComparing(byArrival)`, los dos primeros fallan.
+
+```java starter
+import java.util.Comparator;
+import java.util.PriorityQueue;
+
+class Task {
+    String name;
+    int urgency;
+    int arrival;
+    Task(String name, int urgency, int arrival) {
+        this.name = name;
+        this.urgency = urgency;
+        this.arrival = arrival;
+    }
+}
+
+class Solution {
+    static String[] schedule(Task[] tasks) {
+        Comparator<Task> byUrgency =
+            (a, b) -> Integer.compare(b.urgency, a.urgency);
+        Comparator<Task> byArrival =
+            (a, b) -> Integer.compare(a.arrival, b.arrival);
+        PriorityQueue<Task> pending =
+            new PriorityQueue<>(byUrgency.thenComparing(byArrival));
+        for (Task t : tasks) {
+            pending.add(t);
+        }
+        String[] order = new String[tasks.length];
+        for (int i = 0; i < order.length; i++) {
+            order[i] = pending.poll().name;
+        }
+        return order;
+    }
+}
+```
+
+```java test
+check(Solution.schedule(new Task[] {
+    new Task("respaldo", 2, 1), new Task("caída", 9, 2), new Task("informe", 5, 3),
+    new Task("correo", 5, 4), new Task("parche", 9, 5)}),
+    new String[] {"caída", "parche", "informe", "correo", "respaldo"});
+check(Solution.schedule(new Task[] {
+    new Task("a", 3, 1), new Task("b", 3, 2), new Task("c", 3, 3), new Task("d", 3, 4)}),
+    new String[] {"a", "b", "c", "d"});
+check(Solution.schedule(new Task[] {}).length, 0);
+```
+
+</Exercise>
+</PresentationWide>
 
 </Slide>
 
@@ -1925,223 +2259,6 @@ check(Solution.topK(1, new int[] {}), new int[] {});
 </PresentationWide>
 
 </Slide>
-
-<Slide title="Un planificador de tareas">
-Un sistema recibe tareas con un nombre y una **urgencia**, un entero donde
-más es más urgente, y las atiende de a una. La regla del sistema tiene dos
-partes: primero la más urgente, y **entre dos igual de urgentes, la que
-llegó antes**.
-
-El programa recibe las tareas en el orden en que llegaron y devuelve el
-orden en que se atienden:
-
-```java
-String[] schedule(String[] names, int[] urgency)
-```
-
-**Entrada.** Dos arreglos del mismo largo, a lo más 10⁵: `names[i]` y
-`urgency[i]` son la tarea que llegó en el lugar `i`.
-
-**Salida.** Los nombres en el orden de atención.
-
-| `names`                                          | `urgency`   | resultado                                       |
-| ------------------------------------------------ | ----------- | ----------------------------------------------- |
-| `respaldo caída informe correo parche`           | `2 9 5 5 9` | `caída parche informe correo respaldo`          |
-| `a b`                                            | `1 1`       | `a b`                                           |
-| (vacío)                                          | (vacío)     | (vacío)                                         |
-
-</Slide>
-
-<Slide title="Comparar sólo por urgencia">
-Lo primero que se piensa es la `PriorityQueue` de tareas con un comparador
-por urgencia, la de mayor primero. Atiende bien a las urgentes, y falla en
-los empates.
-
-Sobre `respaldo caída informe correo parche`, con urgencias `2 9 5 5 9`,
-`java.util.PriorityQueue` entrega:
-
-```
-caída  parche  correo  informe  respaldo
-```
-
-`informe` y `correo` tienen la misma urgencia, e `informe` llegó antes. El
-heap los entregó al revés. No es un error de Java: el comparador dice que
-son iguales, y un heap **no es estable**. `sink` y los intercambios con la
-última hoja mueven elementos sin mirar cuándo llegaron, así que entre dos
-iguales cualquiera de los dos puede salir primero.
-
-</Slide>
-
-<Slide title="El orden de llegada como desempate">
-Si dos tareas empatan en urgencia, lo que las distingue es **cuándo
-llegaron**, y eso ya está en los datos: es su posición en la entrada. Basta
-con que el comparador lo use como segundo criterio. Primero la urgencia, de
-mayor a menor; si empatan, el número de llegada, de menor a mayor.
-
-Con ese comparador ya no hay dos tareas iguales: cada una tiene un número de
-llegada distinto. El heap sigue sin ser estable, pero ya no tiene empates
-que desordenar.
-
-A mano, sobre el ejemplo: `caída` y `parche` empatan en 9 y `caída` llegó
-en el lugar 1, antes que `parche`, en el 4; `informe` y `correo` empatan en 5
-y llegaron en los lugares 2 y 3. El orden es `caída parche informe correo
-respaldo`.
-
-</Slide>
-
-<Slide title="Planificador · la solución">
-El heap guarda **números de llegada**, no tareas. El índice `i` es a la vez
-el número de llegada y la posición de la tarea en los dos arreglos, así que
-el comparador lee la urgencia desde ahí.
-
-```java
-static String[] schedule(String[] names, int[] urgency) {
-    if (names.length != urgency.length) {
-        throw new IllegalArgumentException();
-    }
-    PriorityQueue<Integer> pending = new PriorityQueue<>(
-        (a, b) -> urgency[a] != urgency[b]
-            ? Integer.compare(urgency[b], urgency[a])
-            : Integer.compare(a, b));
-    for (int i = 0; i < names.length; i++) {
-        pending.add(i);
-    }
-    String[] order = new String[names.length];
-    for (int t = 0; t < order.length; t++) {
-        order[t] = names[pending.poll()];
-    }
-    return order;
-}
-```
-
-`Integer.compare(urgency[b], urgency[a])`, con `b` primero, ordena de mayor
-a menor; `Integer.compare(a, b)` desempata de menor a mayor. Sobre el
-ejemplo, los números de llegada salen 1, 4, 2, 3, 0, que son `caída`,
-`parche`, `informe`, `correo` y `respaldo`.
-
-</Slide>
-
-<Slide title="Los empates y la entrada vacía">
-El caso que el primer intento rompía es el que el desempate cubre: con
-`a b` y urgencias `1 1`, los dos empatan en urgencia y `a` llegó en el
-lugar 0, así que sale primero. Sin el desempate, cuál sale primero dependería
-de cómo quedó armado el heap.
-
-Con la entrada vacía ningún ciclo corre y se devuelve un arreglo vacío. Con
-arreglos de distinto largo no hay una tarea `i` bien definida, y la función
-lo rechaza con `IllegalArgumentException`.
-
-Cada una de las $$N$$ tareas entra y sale del heap una vez, a
-$$O(\log N)$$ cada operación: **$$O(N \log N)$$** en total. El heap guarda
-los $$N$$ números de llegada, y el resultado $$N$$ nombres: **$$\Theta(N)$$**
-de memoria.
-
-</Slide>
-
-<Slide title="Planificador · el programa completo">
-<PresentationWide fraction={0.75}>
-<Exercise title="Un planificador de tareas">
-
-El algoritmo entero. **Comprobar** lo corre contra los casos del enunciado.
-Sin el desempate del comparador, el primer caso falla.
-
-```java starter
-import java.util.PriorityQueue;
-
-class Solution {
-
-    static String[] schedule(String[] names, int[] urgency) {
-        if (names.length != urgency.length) {
-            throw new IllegalArgumentException();
-        }
-        PriorityQueue<Integer> pending = new PriorityQueue<>(
-            (a, b) -> urgency[a] != urgency[b]
-                ? Integer.compare(urgency[b], urgency[a])
-                : Integer.compare(a, b));
-        for (int i = 0; i < names.length; i++) {
-            pending.add(i);
-        }
-        String[] order = new String[names.length];
-        for (int t = 0; t < order.length; t++) {
-            order[t] = names[pending.poll()];
-        }
-        return order;
-    }
-}
-```
-
-```java test
-check(Solution.schedule(
-    new String[] {"respaldo", "caída", "informe", "correo", "parche"},
-    new int[] {2, 9, 5, 5, 9}),
-    new String[] {"caída", "parche", "informe", "correo", "respaldo"});
-check(Solution.schedule(new String[] {"a", "b"}, new int[] {1, 1}), new String[] {"a", "b"});
-check(Solution.schedule(new String[] {}, new int[] {}).length, 0);
-```
-
-</Exercise>
-</PresentationWide>
-
-</Slide>
-
-<Exercise title="El k-ésimo mayor">
-
-La función recibe un arreglo de enteros y un número `k`, y devuelve el
-`k`-ésimo mayor: con
-`k = 1` el máximo, con `k = 2` el segundo mayor, y así. Los repetidos cuentan
-por separado, así que en `6 6 1` el segundo mayor es 6.
-
-```java
-int kthLargest(int k, int[] data)
-```
-
-`k` está entre 1 y `data.length`; fuera de ese rango, la función lanza
-`IllegalArgumentException`. La dificultad está en no ordenar el arreglo
-entero: un min-heap de tamaño `k`, como el de Top-K, deja al final el
-`k`-ésimo mayor en su raíz. El costo esperado es $$O(N \log k)$$.
-
-```java starter
-import java.util.PriorityQueue;
-
-class Solution {
-
-    static int kthLargest(int k, int[] data) {
-        return 0;
-    }
-}
-```
-
-```java test
-check(Solution.kthLargest(1, new int[] {5, 1, 9, 3, 7}), 9);
-check(Solution.kthLargest(3, new int[] {5, 1, 9, 3, 7}), 5);
-check(Solution.kthLargest(5, new int[] {5, 1, 9, 3, 7}), 1);
-check(Solution.kthLargest(2, new int[] {6, 6, 1}), 6);
-```
-
-```java solution
-import java.util.PriorityQueue;
-
-class Solution {
-
-    static int kthLargest(int k, int[] data) {
-        if (k < 1 || k > data.length) {
-            throw new IllegalArgumentException();
-        }
-        PriorityQueue<Integer> best = new PriorityQueue<>();
-        for (int x : data) {
-            if (best.size() < k) {
-                best.add(x);
-            } else if (x > best.peek()) {
-                best.poll();
-                best.add(x);
-            }
-        }
-        return best.peek();
-    }
-}
-```
-
-</Exercise>
 
 <Exercise title="La verificación de un max-heap">
 
