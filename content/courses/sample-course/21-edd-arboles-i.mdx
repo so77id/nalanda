@@ -875,7 +875,7 @@ inverso: primero el **recorrido**, después la **visita**.
 
 El comando `du` de una terminal informa cuánto ocupa cada carpeta. Una carpeta
 ocupa la suma de lo que guarda, así que se informa después de su contenido:
-en postorden. Cada nodo guarda un `File`, con su nombre y su tamaño propio.
+en postorden. Cada nodo guarda un `File`, con su nombre y su tamaño propio en MB.
 
 <StepShow
   language="java"
@@ -886,109 +886,155 @@ en postorden. Cada nodo guarda un `File`, con su nombre y su tamaño propio.
         total += size(child);
     }
     // visita: suma lo suyo y lo imprime
-    total += node.value.size;
-    System.out.println(total + " " + node.value.name);
+    File file = node.value;
+    total += file.size;
+    System.out.println(total + " MB " + file.name);
     return total;
 }`}
 >
-  <Step lines={[8, 9, 10]}>
+  <Step lines={[1]}>
     <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
     <div style={{ flex: '1 1 0', minWidth: 0 }}>
-    <HierarchyPicture tree={FOLDERS} tones={{ 'playa.jpg': 'focus' }} numbers={{ 'playa.jpg': 1 }} numbersColor="var(--color-mark)" notes={{ 'playa.jpg': '2' }} compact size={0.7} label="playa.jpg se visita con el número 1: ocupa 2. Impreso hasta ahora: 1 líneas." />
+    <HierarchyPicture tree={FOLDERS} tones={{ 'home/': 'focus' }} path={['home/']} compact size={0.7} label="Empieza la llamada de home; espera a sus hijos." />
     </div>
-    <div style={{ flex: '0 0 9rem', fontFamily: 'var(--font-mono, monospace)', padding: '0.4rem 0.6rem', fontSize: '0.8rem', lineHeight: 1.35, background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px', whiteSpace: 'pre', minHeight: '15.5rem' }}>{"2 playa.jpg"}</div>
+    <div style={{ flex: '0 0 10rem', fontFamily: 'var(--font-mono, monospace)', padding: '0.4rem 0.6rem', fontSize: '0.8rem', lineHeight: 1.35, background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px', whiteSpace: 'pre', minHeight: '15.5rem' }}>{""}</div>
     </div>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>playa.jpg es una hoja: su for no da vueltas, y responde lo suyo, 2.</div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>Se llama con la raíz, home/. Antes de responder, tiene que saber lo que ocupan sus hijos.</div>
   </Step>
-  <Step lines={[8, 9, 10]}>
+  <Step lines={[4, 5]}>
     <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
     <div style={{ flex: '1 1 0', minWidth: 0 }}>
-    <HierarchyPicture tree={FOLDERS} tones={{ 'playa.jpg': 'done', 'perro.jpg': 'focus' }} numbers={{ 'playa.jpg': 1, 'perro.jpg': 2 }} numbersColor="var(--color-mark)" notes={{ 'playa.jpg': '2', 'perro.jpg': '3' }} compact size={0.7} label="perro.jpg se visita con el número 2: ocupa 3. Impreso hasta ahora: 2 líneas." />
+    <HierarchyPicture tree={FOLDERS} tones={{ 'fotos/': 'focus' }} path={['home/', 'fotos/']} compact size={0.7} label="Empieza la llamada de fotos; espera a sus hijos." />
     </div>
-    <div style={{ flex: '0 0 9rem', fontFamily: 'var(--font-mono, monospace)', padding: '0.4rem 0.6rem', fontSize: '0.8rem', lineHeight: 1.35, background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px', whiteSpace: 'pre', minHeight: '15.5rem' }}>{"2 playa.jpg\n3 perro.jpg"}</div>
+    <div style={{ flex: '0 0 10rem', fontFamily: 'var(--font-mono, monospace)', padding: '0.4rem 0.6rem', fontSize: '0.8rem', lineHeight: 1.35, background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px', whiteSpace: 'pre', minHeight: '15.5rem' }}>{""}</div>
     </div>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>perro.jpg es una hoja: su for no da vueltas, y responde lo suyo, 3.</div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>home/ llama con su primer hijo, fotos/. Antes de responder, tiene que saber lo que ocupan sus hijos.</div>
   </Step>
-  <Step lines={[8, 9, 10]}>
+  <Step lines={[8, 9, 10, 11]}>
     <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
     <div style={{ flex: '1 1 0', minWidth: 0 }}>
-    <HierarchyPicture tree={FOLDERS} tones={{ 'playa.jpg': 'done', 'perro.jpg': 'done', 'fotos/': 'focus' }} numbers={{ 'playa.jpg': 1, 'perro.jpg': 2, 'fotos/': 3 }} numbersColor="var(--color-mark)" notes={{ 'playa.jpg': '2', 'perro.jpg': '3', 'fotos/': '5' }} compact size={0.7} label="fotos se visita con el número 3: ocupa 5. Impreso hasta ahora: 3 líneas." />
+    <HierarchyPicture tree={FOLDERS} tones={{ 'playa.jpg': 'focus' }} path={['home/', 'fotos/', 'playa.jpg']} numbers={{ 'playa.jpg': 1 }} numbersColor="var(--color-mark)" notes={{ 'playa.jpg': '2 MB' }} compact size={0.7} label="playa.jpg responde 2 MB, visita número 1." />
     </div>
-    <div style={{ flex: '0 0 9rem', fontFamily: 'var(--font-mono, monospace)', padding: '0.4rem 0.6rem', fontSize: '0.8rem', lineHeight: 1.35, background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px', whiteSpace: 'pre', minHeight: '15.5rem' }}>{"2 playa.jpg\n3 perro.jpg\n5 fotos/"}</div>
+    <div style={{ flex: '0 0 10rem', fontFamily: 'var(--font-mono, monospace)', padding: '0.4rem 0.6rem', fontSize: '0.8rem', lineHeight: 1.35, background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px', whiteSpace: 'pre', minHeight: '15.5rem' }}>{"2 MB playa.jpg"}</div>
     </div>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>Sus hijos ya respondieron, 2 + 3; fotos/ suma lo suyo, 0, y responde 5.</div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>fotos/ llama con su primer hijo, playa.jpg: es una hoja, su for no da vueltas, y responde lo suyo, 2 MB.</div>
   </Step>
-  <Step lines={[8, 9, 10]}>
+  <Step lines={[8, 9, 10, 11]}>
     <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
     <div style={{ flex: '1 1 0', minWidth: 0 }}>
-    <HierarchyPicture tree={FOLDERS} tones={{ 'playa.jpg': 'done', 'perro.jpg': 'done', 'fotos/': 'done', 't1.pdf': 'focus' }} numbers={{ 'playa.jpg': 1, 'perro.jpg': 2, 'fotos/': 3, 't1.pdf': 4 }} numbersColor="var(--color-mark)" notes={{ 'playa.jpg': '2', 'perro.jpg': '3', 'fotos/': '5', 't1.pdf': '1' }} compact size={0.7} label="t1.pdf se visita con el número 4: ocupa 1. Impreso hasta ahora: 4 líneas." />
+    <HierarchyPicture tree={FOLDERS} tones={{ 'playa.jpg': 'done', 'perro.jpg': 'focus' }} path={['home/', 'fotos/', 'perro.jpg']} numbers={{ 'playa.jpg': 1, 'perro.jpg': 2 }} numbersColor="var(--color-mark)" notes={{ 'playa.jpg': '2 MB', 'perro.jpg': '3 MB' }} compact size={0.7} label="perro.jpg responde 3 MB, visita número 2." />
     </div>
-    <div style={{ flex: '0 0 9rem', fontFamily: 'var(--font-mono, monospace)', padding: '0.4rem 0.6rem', fontSize: '0.8rem', lineHeight: 1.35, background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px', whiteSpace: 'pre', minHeight: '15.5rem' }}>{"2 playa.jpg\n3 perro.jpg\n5 fotos/\n1 t1.pdf"}</div>
+    <div style={{ flex: '0 0 10rem', fontFamily: 'var(--font-mono, monospace)', padding: '0.4rem 0.6rem', fontSize: '0.8rem', lineHeight: 1.35, background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px', whiteSpace: 'pre', minHeight: '15.5rem' }}>{"2 MB playa.jpg\n3 MB perro.jpg"}</div>
     </div>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>t1.pdf es una hoja: su for no da vueltas, y responde lo suyo, 1.</div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>fotos/ sigue con su siguiente hijo, perro.jpg: es una hoja, su for no da vueltas, y responde lo suyo, 3 MB.</div>
   </Step>
-  <Step lines={[8, 9, 10]}>
+  <Step lines={[8, 9, 10, 11]}>
     <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
     <div style={{ flex: '1 1 0', minWidth: 0 }}>
-    <HierarchyPicture tree={FOLDERS} tones={{ 'playa.jpg': 'done', 'perro.jpg': 'done', 'fotos/': 'done', 't1.pdf': 'done', 't2.pdf': 'focus' }} numbers={{ 'playa.jpg': 1, 'perro.jpg': 2, 'fotos/': 3, 't1.pdf': 4, 't2.pdf': 5 }} numbersColor="var(--color-mark)" notes={{ 'playa.jpg': '2', 'perro.jpg': '3', 'fotos/': '5', 't1.pdf': '1', 't2.pdf': '1' }} compact size={0.7} label="t2.pdf se visita con el número 5: ocupa 1. Impreso hasta ahora: 5 líneas." />
+    <HierarchyPicture tree={FOLDERS} tones={{ 'playa.jpg': 'done', 'perro.jpg': 'done', 'fotos/': 'focus' }} path={['home/', 'fotos/']} numbers={{ 'playa.jpg': 1, 'perro.jpg': 2, 'fotos/': 3 }} numbersColor="var(--color-mark)" notes={{ 'playa.jpg': '2 MB', 'perro.jpg': '3 MB', 'fotos/': '5 MB' }} compact size={0.7} label="fotos responde 5 MB, visita número 3." />
     </div>
-    <div style={{ flex: '0 0 9rem', fontFamily: 'var(--font-mono, monospace)', padding: '0.4rem 0.6rem', fontSize: '0.8rem', lineHeight: 1.35, background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px', whiteSpace: 'pre', minHeight: '15.5rem' }}>{"2 playa.jpg\n3 perro.jpg\n5 fotos/\n1 t1.pdf\n1 t2.pdf"}</div>
+    <div style={{ flex: '0 0 10rem', fontFamily: 'var(--font-mono, monospace)', padding: '0.4rem 0.6rem', fontSize: '0.8rem', lineHeight: 1.35, background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px', whiteSpace: 'pre', minHeight: '15.5rem' }}>{"2 MB playa.jpg\n3 MB perro.jpg\n5 MB fotos/"}</div>
     </div>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>t2.pdf es una hoja: su for no da vueltas, y responde lo suyo, 1.</div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>Sus hijos ya respondieron, 2 + 3 MB; fotos/ suma lo suyo, 0, y responde 5 MB.</div>
   </Step>
-  <Step lines={[8, 9, 10]}>
+  <Step lines={[4, 5]}>
     <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
     <div style={{ flex: '1 1 0', minWidth: 0 }}>
-    <HierarchyPicture tree={FOLDERS} tones={{ 'playa.jpg': 'done', 'perro.jpg': 'done', 'fotos/': 'done', 't1.pdf': 'done', 't2.pdf': 'done', 'eda/': 'focus' }} numbers={{ 'playa.jpg': 1, 'perro.jpg': 2, 'fotos/': 3, 't1.pdf': 4, 't2.pdf': 5, 'eda/': 6 }} numbersColor="var(--color-mark)" notes={{ 'playa.jpg': '2', 'perro.jpg': '3', 'fotos/': '5', 't1.pdf': '1', 't2.pdf': '1', 'eda/': '2' }} compact size={0.7} label="eda se visita con el número 6: ocupa 2. Impreso hasta ahora: 6 líneas." />
+    <HierarchyPicture tree={FOLDERS} tones={{ 'playa.jpg': 'done', 'perro.jpg': 'done', 'fotos/': 'done', 'ramos/': 'focus' }} path={['home/', 'ramos/']} numbers={{ 'playa.jpg': 1, 'perro.jpg': 2, 'fotos/': 3 }} numbersColor="var(--color-mark)" notes={{ 'playa.jpg': '2 MB', 'perro.jpg': '3 MB', 'fotos/': '5 MB' }} compact size={0.7} label="Empieza la llamada de ramos; espera a sus hijos." />
     </div>
-    <div style={{ flex: '0 0 9rem', fontFamily: 'var(--font-mono, monospace)', padding: '0.4rem 0.6rem', fontSize: '0.8rem', lineHeight: 1.35, background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px', whiteSpace: 'pre', minHeight: '15.5rem' }}>{"2 playa.jpg\n3 perro.jpg\n5 fotos/\n1 t1.pdf\n1 t2.pdf\n2 eda/"}</div>
+    <div style={{ flex: '0 0 10rem', fontFamily: 'var(--font-mono, monospace)', padding: '0.4rem 0.6rem', fontSize: '0.8rem', lineHeight: 1.35, background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px', whiteSpace: 'pre', minHeight: '15.5rem' }}>{"2 MB playa.jpg\n3 MB perro.jpg\n5 MB fotos/"}</div>
     </div>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>Sus hijos ya respondieron, 1 + 1; eda/ suma lo suyo, 0, y responde 2.</div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>home/ sigue con su siguiente hijo, ramos/. Antes de responder, tiene que saber lo que ocupan sus hijos.</div>
   </Step>
-  <Step lines={[8, 9, 10]}>
+  <Step lines={[4, 5]}>
     <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
     <div style={{ flex: '1 1 0', minWidth: 0 }}>
-    <HierarchyPicture tree={FOLDERS} tones={{ 'playa.jpg': 'done', 'perro.jpg': 'done', 'fotos/': 'done', 't1.pdf': 'done', 't2.pdf': 'done', 'eda/': 'done', 'guia.pdf': 'focus' }} numbers={{ 'playa.jpg': 1, 'perro.jpg': 2, 'fotos/': 3, 't1.pdf': 4, 't2.pdf': 5, 'eda/': 6, 'guia.pdf': 7 }} numbersColor="var(--color-mark)" notes={{ 'playa.jpg': '2', 'perro.jpg': '3', 'fotos/': '5', 't1.pdf': '1', 't2.pdf': '1', 'eda/': '2', 'guia.pdf': '2' }} compact size={0.7} label="guia.pdf se visita con el número 7: ocupa 2. Impreso hasta ahora: 7 líneas." />
+    <HierarchyPicture tree={FOLDERS} tones={{ 'playa.jpg': 'done', 'perro.jpg': 'done', 'fotos/': 'done', 'eda/': 'focus' }} path={['home/', 'ramos/', 'eda/']} numbers={{ 'playa.jpg': 1, 'perro.jpg': 2, 'fotos/': 3 }} numbersColor="var(--color-mark)" notes={{ 'playa.jpg': '2 MB', 'perro.jpg': '3 MB', 'fotos/': '5 MB' }} compact size={0.7} label="Empieza la llamada de eda; espera a sus hijos." />
     </div>
-    <div style={{ flex: '0 0 9rem', fontFamily: 'var(--font-mono, monospace)', padding: '0.4rem 0.6rem', fontSize: '0.8rem', lineHeight: 1.35, background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px', whiteSpace: 'pre', minHeight: '15.5rem' }}>{"2 playa.jpg\n3 perro.jpg\n5 fotos/\n1 t1.pdf\n1 t2.pdf\n2 eda/\n2 guia.pdf"}</div>
+    <div style={{ flex: '0 0 10rem', fontFamily: 'var(--font-mono, monospace)', padding: '0.4rem 0.6rem', fontSize: '0.8rem', lineHeight: 1.35, background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px', whiteSpace: 'pre', minHeight: '15.5rem' }}>{"2 MB playa.jpg\n3 MB perro.jpg\n5 MB fotos/"}</div>
     </div>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>guia.pdf es una hoja: su for no da vueltas, y responde lo suyo, 2.</div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>ramos/ llama con su primer hijo, eda/. Antes de responder, tiene que saber lo que ocupan sus hijos.</div>
   </Step>
-  <Step lines={[8, 9, 10]}>
+  <Step lines={[8, 9, 10, 11]}>
     <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
     <div style={{ flex: '1 1 0', minWidth: 0 }}>
-    <HierarchyPicture tree={FOLDERS} tones={{ 'playa.jpg': 'done', 'perro.jpg': 'done', 'fotos/': 'done', 't1.pdf': 'done', 't2.pdf': 'done', 'eda/': 'done', 'guia.pdf': 'done', 'calculo/': 'focus' }} numbers={{ 'playa.jpg': 1, 'perro.jpg': 2, 'fotos/': 3, 't1.pdf': 4, 't2.pdf': 5, 'eda/': 6, 'guia.pdf': 7, 'calculo/': 8 }} numbersColor="var(--color-mark)" notes={{ 'playa.jpg': '2', 'perro.jpg': '3', 'fotos/': '5', 't1.pdf': '1', 't2.pdf': '1', 'eda/': '2', 'guia.pdf': '2', 'calculo/': '2' }} compact size={0.7} label="calculo se visita con el número 8: ocupa 2. Impreso hasta ahora: 8 líneas." />
+    <HierarchyPicture tree={FOLDERS} tones={{ 'playa.jpg': 'done', 'perro.jpg': 'done', 'fotos/': 'done', 't1.pdf': 'focus' }} path={['home/', 'ramos/', 'eda/', 't1.pdf']} numbers={{ 'playa.jpg': 1, 'perro.jpg': 2, 'fotos/': 3, 't1.pdf': 4 }} numbersColor="var(--color-mark)" notes={{ 'playa.jpg': '2 MB', 'perro.jpg': '3 MB', 'fotos/': '5 MB', 't1.pdf': '1 MB' }} compact size={0.7} label="t1.pdf responde 1 MB, visita número 4." />
     </div>
-    <div style={{ flex: '0 0 9rem', fontFamily: 'var(--font-mono, monospace)', padding: '0.4rem 0.6rem', fontSize: '0.8rem', lineHeight: 1.35, background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px', whiteSpace: 'pre', minHeight: '15.5rem' }}>{"2 playa.jpg\n3 perro.jpg\n5 fotos/\n1 t1.pdf\n1 t2.pdf\n2 eda/\n2 guia.pdf\n2 calculo/"}</div>
+    <div style={{ flex: '0 0 10rem', fontFamily: 'var(--font-mono, monospace)', padding: '0.4rem 0.6rem', fontSize: '0.8rem', lineHeight: 1.35, background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px', whiteSpace: 'pre', minHeight: '15.5rem' }}>{"2 MB playa.jpg\n3 MB perro.jpg\n5 MB fotos/\n1 MB t1.pdf"}</div>
     </div>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>Sus hijos ya respondieron, 2; calculo/ suma lo suyo, 0, y responde 2.</div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>eda/ llama con su primer hijo, t1.pdf: es una hoja, su for no da vueltas, y responde lo suyo, 1 MB.</div>
   </Step>
-  <Step lines={[8, 9, 10]}>
+  <Step lines={[8, 9, 10, 11]}>
     <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
     <div style={{ flex: '1 1 0', minWidth: 0 }}>
-    <HierarchyPicture tree={FOLDERS} tones={{ 'playa.jpg': 'done', 'perro.jpg': 'done', 'fotos/': 'done', 't1.pdf': 'done', 't2.pdf': 'done', 'eda/': 'done', 'guia.pdf': 'done', 'calculo/': 'done', 'ramos/': 'focus' }} numbers={{ 'playa.jpg': 1, 'perro.jpg': 2, 'fotos/': 3, 't1.pdf': 4, 't2.pdf': 5, 'eda/': 6, 'guia.pdf': 7, 'calculo/': 8, 'ramos/': 9 }} numbersColor="var(--color-mark)" notes={{ 'playa.jpg': '2', 'perro.jpg': '3', 'fotos/': '5', 't1.pdf': '1', 't2.pdf': '1', 'eda/': '2', 'guia.pdf': '2', 'calculo/': '2', 'ramos/': '4' }} compact size={0.7} label="ramos se visita con el número 9: ocupa 4. Impreso hasta ahora: 9 líneas." />
+    <HierarchyPicture tree={FOLDERS} tones={{ 'playa.jpg': 'done', 'perro.jpg': 'done', 'fotos/': 'done', 't1.pdf': 'done', 't2.pdf': 'focus' }} path={['home/', 'ramos/', 'eda/', 't2.pdf']} numbers={{ 'playa.jpg': 1, 'perro.jpg': 2, 'fotos/': 3, 't1.pdf': 4, 't2.pdf': 5 }} numbersColor="var(--color-mark)" notes={{ 'playa.jpg': '2 MB', 'perro.jpg': '3 MB', 'fotos/': '5 MB', 't1.pdf': '1 MB', 't2.pdf': '1 MB' }} compact size={0.7} label="t2.pdf responde 1 MB, visita número 5." />
     </div>
-    <div style={{ flex: '0 0 9rem', fontFamily: 'var(--font-mono, monospace)', padding: '0.4rem 0.6rem', fontSize: '0.8rem', lineHeight: 1.35, background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px', whiteSpace: 'pre', minHeight: '15.5rem' }}>{"2 playa.jpg\n3 perro.jpg\n5 fotos/\n1 t1.pdf\n1 t2.pdf\n2 eda/\n2 guia.pdf\n2 calculo/\n4 ramos/"}</div>
+    <div style={{ flex: '0 0 10rem', fontFamily: 'var(--font-mono, monospace)', padding: '0.4rem 0.6rem', fontSize: '0.8rem', lineHeight: 1.35, background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px', whiteSpace: 'pre', minHeight: '15.5rem' }}>{"2 MB playa.jpg\n3 MB perro.jpg\n5 MB fotos/\n1 MB t1.pdf\n1 MB t2.pdf"}</div>
     </div>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>Sus hijos ya respondieron, 2 + 2; ramos/ suma lo suyo, 0, y responde 4.</div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>eda/ sigue con su siguiente hijo, t2.pdf: es una hoja, su for no da vueltas, y responde lo suyo, 1 MB.</div>
   </Step>
-  <Step lines={[8, 9, 10]}>
+  <Step lines={[8, 9, 10, 11]}>
     <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
     <div style={{ flex: '1 1 0', minWidth: 0 }}>
-    <HierarchyPicture tree={FOLDERS} tones={{ 'playa.jpg': 'done', 'perro.jpg': 'done', 'fotos/': 'done', 't1.pdf': 'done', 't2.pdf': 'done', 'eda/': 'done', 'guia.pdf': 'done', 'calculo/': 'done', 'ramos/': 'done', 'notas.txt': 'focus' }} numbers={{ 'playa.jpg': 1, 'perro.jpg': 2, 'fotos/': 3, 't1.pdf': 4, 't2.pdf': 5, 'eda/': 6, 'guia.pdf': 7, 'calculo/': 8, 'ramos/': 9, 'notas.txt': 10 }} numbersColor="var(--color-mark)" notes={{ 'playa.jpg': '2', 'perro.jpg': '3', 'fotos/': '5', 't1.pdf': '1', 't2.pdf': '1', 'eda/': '2', 'guia.pdf': '2', 'calculo/': '2', 'ramos/': '4', 'notas.txt': '1' }} compact size={0.7} label="notas.txt se visita con el número 10: ocupa 1. Impreso hasta ahora: 10 líneas." />
+    <HierarchyPicture tree={FOLDERS} tones={{ 'playa.jpg': 'done', 'perro.jpg': 'done', 'fotos/': 'done', 't1.pdf': 'done', 't2.pdf': 'done', 'eda/': 'focus' }} path={['home/', 'ramos/', 'eda/']} numbers={{ 'playa.jpg': 1, 'perro.jpg': 2, 'fotos/': 3, 't1.pdf': 4, 't2.pdf': 5, 'eda/': 6 }} numbersColor="var(--color-mark)" notes={{ 'playa.jpg': '2 MB', 'perro.jpg': '3 MB', 'fotos/': '5 MB', 't1.pdf': '1 MB', 't2.pdf': '1 MB', 'eda/': '2 MB' }} compact size={0.7} label="eda responde 2 MB, visita número 6." />
     </div>
-    <div style={{ flex: '0 0 9rem', fontFamily: 'var(--font-mono, monospace)', padding: '0.4rem 0.6rem', fontSize: '0.8rem', lineHeight: 1.35, background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px', whiteSpace: 'pre', minHeight: '15.5rem' }}>{"2 playa.jpg\n3 perro.jpg\n5 fotos/\n1 t1.pdf\n1 t2.pdf\n2 eda/\n2 guia.pdf\n2 calculo/\n4 ramos/\n1 notas.txt"}</div>
+    <div style={{ flex: '0 0 10rem', fontFamily: 'var(--font-mono, monospace)', padding: '0.4rem 0.6rem', fontSize: '0.8rem', lineHeight: 1.35, background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px', whiteSpace: 'pre', minHeight: '15.5rem' }}>{"2 MB playa.jpg\n3 MB perro.jpg\n5 MB fotos/\n1 MB t1.pdf\n1 MB t2.pdf\n2 MB eda/"}</div>
     </div>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>notas.txt es una hoja: su for no da vueltas, y responde lo suyo, 1.</div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>Sus hijos ya respondieron, 1 + 1 MB; eda/ suma lo suyo, 0, y responde 2 MB.</div>
   </Step>
-  <Step lines={[8, 9, 10]}>
+  <Step lines={[4, 5]}>
     <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
     <div style={{ flex: '1 1 0', minWidth: 0 }}>
-    <HierarchyPicture tree={FOLDERS} tones={{ 'playa.jpg': 'done', 'perro.jpg': 'done', 'fotos/': 'done', 't1.pdf': 'done', 't2.pdf': 'done', 'eda/': 'done', 'guia.pdf': 'done', 'calculo/': 'done', 'ramos/': 'done', 'notas.txt': 'done', 'home/': 'focus' }} numbers={{ 'playa.jpg': 1, 'perro.jpg': 2, 'fotos/': 3, 't1.pdf': 4, 't2.pdf': 5, 'eda/': 6, 'guia.pdf': 7, 'calculo/': 8, 'ramos/': 9, 'notas.txt': 10, 'home/': 11 }} numbersColor="var(--color-mark)" notes={{ 'playa.jpg': '2', 'perro.jpg': '3', 'fotos/': '5', 't1.pdf': '1', 't2.pdf': '1', 'eda/': '2', 'guia.pdf': '2', 'calculo/': '2', 'ramos/': '4', 'notas.txt': '1', 'home/': '10' }} compact size={0.7} label="home se visita con el número 11: ocupa 10. Impreso hasta ahora: 11 líneas." />
+    <HierarchyPicture tree={FOLDERS} tones={{ 'playa.jpg': 'done', 'perro.jpg': 'done', 'fotos/': 'done', 't1.pdf': 'done', 't2.pdf': 'done', 'eda/': 'done', 'calculo/': 'focus' }} path={['home/', 'ramos/', 'calculo/']} numbers={{ 'playa.jpg': 1, 'perro.jpg': 2, 'fotos/': 3, 't1.pdf': 4, 't2.pdf': 5, 'eda/': 6 }} numbersColor="var(--color-mark)" notes={{ 'playa.jpg': '2 MB', 'perro.jpg': '3 MB', 'fotos/': '5 MB', 't1.pdf': '1 MB', 't2.pdf': '1 MB', 'eda/': '2 MB' }} compact size={0.7} label="Empieza la llamada de calculo; espera a sus hijos." />
     </div>
-    <div style={{ flex: '0 0 9rem', fontFamily: 'var(--font-mono, monospace)', padding: '0.4rem 0.6rem', fontSize: '0.8rem', lineHeight: 1.35, background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px', whiteSpace: 'pre', minHeight: '15.5rem' }}>{"2 playa.jpg\n3 perro.jpg\n5 fotos/\n1 t1.pdf\n1 t2.pdf\n2 eda/\n2 guia.pdf\n2 calculo/\n4 ramos/\n1 notas.txt\n10 home/"}</div>
+    <div style={{ flex: '0 0 10rem', fontFamily: 'var(--font-mono, monospace)', padding: '0.4rem 0.6rem', fontSize: '0.8rem', lineHeight: 1.35, background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px', whiteSpace: 'pre', minHeight: '15.5rem' }}>{"2 MB playa.jpg\n3 MB perro.jpg\n5 MB fotos/\n1 MB t1.pdf\n1 MB t2.pdf\n2 MB eda/"}</div>
     </div>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>Sus hijos ya respondieron, 5 + 4 + 1; home/ suma lo suyo, 0, y responde 10.</div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>ramos/ sigue con su siguiente hijo, calculo/. Antes de responder, tiene que saber lo que ocupan sus hijos.</div>
+  </Step>
+  <Step lines={[8, 9, 10, 11]}>
+    <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+    <div style={{ flex: '1 1 0', minWidth: 0 }}>
+    <HierarchyPicture tree={FOLDERS} tones={{ 'playa.jpg': 'done', 'perro.jpg': 'done', 'fotos/': 'done', 't1.pdf': 'done', 't2.pdf': 'done', 'eda/': 'done', 'guia.pdf': 'focus' }} path={['home/', 'ramos/', 'calculo/', 'guia.pdf']} numbers={{ 'playa.jpg': 1, 'perro.jpg': 2, 'fotos/': 3, 't1.pdf': 4, 't2.pdf': 5, 'eda/': 6, 'guia.pdf': 7 }} numbersColor="var(--color-mark)" notes={{ 'playa.jpg': '2 MB', 'perro.jpg': '3 MB', 'fotos/': '5 MB', 't1.pdf': '1 MB', 't2.pdf': '1 MB', 'eda/': '2 MB', 'guia.pdf': '2 MB' }} compact size={0.7} label="guia.pdf responde 2 MB, visita número 7." />
+    </div>
+    <div style={{ flex: '0 0 10rem', fontFamily: 'var(--font-mono, monospace)', padding: '0.4rem 0.6rem', fontSize: '0.8rem', lineHeight: 1.35, background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px', whiteSpace: 'pre', minHeight: '15.5rem' }}>{"2 MB playa.jpg\n3 MB perro.jpg\n5 MB fotos/\n1 MB t1.pdf\n1 MB t2.pdf\n2 MB eda/\n2 MB guia.pdf"}</div>
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>calculo/ llama con su primer hijo, guia.pdf: es una hoja, su for no da vueltas, y responde lo suyo, 2 MB.</div>
+  </Step>
+  <Step lines={[8, 9, 10, 11]}>
+    <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+    <div style={{ flex: '1 1 0', minWidth: 0 }}>
+    <HierarchyPicture tree={FOLDERS} tones={{ 'playa.jpg': 'done', 'perro.jpg': 'done', 'fotos/': 'done', 't1.pdf': 'done', 't2.pdf': 'done', 'eda/': 'done', 'guia.pdf': 'done', 'calculo/': 'focus' }} path={['home/', 'ramos/', 'calculo/']} numbers={{ 'playa.jpg': 1, 'perro.jpg': 2, 'fotos/': 3, 't1.pdf': 4, 't2.pdf': 5, 'eda/': 6, 'guia.pdf': 7, 'calculo/': 8 }} numbersColor="var(--color-mark)" notes={{ 'playa.jpg': '2 MB', 'perro.jpg': '3 MB', 'fotos/': '5 MB', 't1.pdf': '1 MB', 't2.pdf': '1 MB', 'eda/': '2 MB', 'guia.pdf': '2 MB', 'calculo/': '2 MB' }} compact size={0.7} label="calculo responde 2 MB, visita número 8." />
+    </div>
+    <div style={{ flex: '0 0 10rem', fontFamily: 'var(--font-mono, monospace)', padding: '0.4rem 0.6rem', fontSize: '0.8rem', lineHeight: 1.35, background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px', whiteSpace: 'pre', minHeight: '15.5rem' }}>{"2 MB playa.jpg\n3 MB perro.jpg\n5 MB fotos/\n1 MB t1.pdf\n1 MB t2.pdf\n2 MB eda/\n2 MB guia.pdf\n2 MB calculo/"}</div>
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>Sus hijos ya respondieron, 2 MB; calculo/ suma lo suyo, 0, y responde 2 MB.</div>
+  </Step>
+  <Step lines={[8, 9, 10, 11]}>
+    <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+    <div style={{ flex: '1 1 0', minWidth: 0 }}>
+    <HierarchyPicture tree={FOLDERS} tones={{ 'playa.jpg': 'done', 'perro.jpg': 'done', 'fotos/': 'done', 't1.pdf': 'done', 't2.pdf': 'done', 'eda/': 'done', 'guia.pdf': 'done', 'calculo/': 'done', 'ramos/': 'focus' }} path={['home/', 'ramos/']} numbers={{ 'playa.jpg': 1, 'perro.jpg': 2, 'fotos/': 3, 't1.pdf': 4, 't2.pdf': 5, 'eda/': 6, 'guia.pdf': 7, 'calculo/': 8, 'ramos/': 9 }} numbersColor="var(--color-mark)" notes={{ 'playa.jpg': '2 MB', 'perro.jpg': '3 MB', 'fotos/': '5 MB', 't1.pdf': '1 MB', 't2.pdf': '1 MB', 'eda/': '2 MB', 'guia.pdf': '2 MB', 'calculo/': '2 MB', 'ramos/': '4 MB' }} compact size={0.7} label="ramos responde 4 MB, visita número 9." />
+    </div>
+    <div style={{ flex: '0 0 10rem', fontFamily: 'var(--font-mono, monospace)', padding: '0.4rem 0.6rem', fontSize: '0.8rem', lineHeight: 1.35, background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px', whiteSpace: 'pre', minHeight: '15.5rem' }}>{"2 MB playa.jpg\n3 MB perro.jpg\n5 MB fotos/\n1 MB t1.pdf\n1 MB t2.pdf\n2 MB eda/\n2 MB guia.pdf\n2 MB calculo/\n4 MB ramos/"}</div>
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>Sus hijos ya respondieron, 2 + 2 MB; ramos/ suma lo suyo, 0, y responde 4 MB.</div>
+  </Step>
+  <Step lines={[8, 9, 10, 11]}>
+    <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+    <div style={{ flex: '1 1 0', minWidth: 0 }}>
+    <HierarchyPicture tree={FOLDERS} tones={{ 'playa.jpg': 'done', 'perro.jpg': 'done', 'fotos/': 'done', 't1.pdf': 'done', 't2.pdf': 'done', 'eda/': 'done', 'guia.pdf': 'done', 'calculo/': 'done', 'ramos/': 'done', 'notas.txt': 'focus' }} path={['home/', 'notas.txt']} numbers={{ 'playa.jpg': 1, 'perro.jpg': 2, 'fotos/': 3, 't1.pdf': 4, 't2.pdf': 5, 'eda/': 6, 'guia.pdf': 7, 'calculo/': 8, 'ramos/': 9, 'notas.txt': 10 }} numbersColor="var(--color-mark)" notes={{ 'playa.jpg': '2 MB', 'perro.jpg': '3 MB', 'fotos/': '5 MB', 't1.pdf': '1 MB', 't2.pdf': '1 MB', 'eda/': '2 MB', 'guia.pdf': '2 MB', 'calculo/': '2 MB', 'ramos/': '4 MB', 'notas.txt': '1 MB' }} compact size={0.7} label="notas.txt responde 1 MB, visita número 10." />
+    </div>
+    <div style={{ flex: '0 0 10rem', fontFamily: 'var(--font-mono, monospace)', padding: '0.4rem 0.6rem', fontSize: '0.8rem', lineHeight: 1.35, background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px', whiteSpace: 'pre', minHeight: '15.5rem' }}>{"2 MB playa.jpg\n3 MB perro.jpg\n5 MB fotos/\n1 MB t1.pdf\n1 MB t2.pdf\n2 MB eda/\n2 MB guia.pdf\n2 MB calculo/\n4 MB ramos/\n1 MB notas.txt"}</div>
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>home/ sigue con su siguiente hijo, notas.txt: es una hoja, su for no da vueltas, y responde lo suyo, 1 MB.</div>
+  </Step>
+  <Step lines={[8, 9, 10, 11]}>
+    <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+    <div style={{ flex: '1 1 0', minWidth: 0 }}>
+    <HierarchyPicture tree={FOLDERS} tones={{ 'playa.jpg': 'done', 'perro.jpg': 'done', 'fotos/': 'done', 't1.pdf': 'done', 't2.pdf': 'done', 'eda/': 'done', 'guia.pdf': 'done', 'calculo/': 'done', 'ramos/': 'done', 'notas.txt': 'done', 'home/': 'focus' }} path={['home/']} numbers={{ 'playa.jpg': 1, 'perro.jpg': 2, 'fotos/': 3, 't1.pdf': 4, 't2.pdf': 5, 'eda/': 6, 'guia.pdf': 7, 'calculo/': 8, 'ramos/': 9, 'notas.txt': 10, 'home/': 11 }} numbersColor="var(--color-mark)" notes={{ 'playa.jpg': '2 MB', 'perro.jpg': '3 MB', 'fotos/': '5 MB', 't1.pdf': '1 MB', 't2.pdf': '1 MB', 'eda/': '2 MB', 'guia.pdf': '2 MB', 'calculo/': '2 MB', 'ramos/': '4 MB', 'notas.txt': '1 MB', 'home/': '10 MB' }} compact size={0.7} label="home responde 10 MB, visita número 11." />
+    </div>
+    <div style={{ flex: '0 0 10rem', fontFamily: 'var(--font-mono, monospace)', padding: '0.4rem 0.6rem', fontSize: '0.8rem', lineHeight: 1.35, background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px', whiteSpace: 'pre', minHeight: '15.5rem' }}>{"2 MB playa.jpg\n3 MB perro.jpg\n5 MB fotos/\n1 MB t1.pdf\n1 MB t2.pdf\n2 MB eda/\n2 MB guia.pdf\n2 MB calculo/\n4 MB ramos/\n1 MB notas.txt\n10 MB home/"}</div>
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>Sus hijos ya respondieron, 5 + 4 + 1 MB; home/ suma lo suyo, 0, y responde 10 MB.</div>
   </Step>
 </StepShow>
 
