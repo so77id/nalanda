@@ -89,8 +89,8 @@ and that a variant answers only the ones it changes (§3).
 | Acto | Contenido                                                                                  |
 | ---- | ------------------------------------------------------------------------------------------ |
 | 1    | La idea — qué problema resuelve esta estructura y de qué estructura conocida se diferencia |
-| 2    | Los invariantes — qué propiedades sostiene, y por qué cada una importa                     |
-| 3    | Las operaciones y sus costos — cada una con el invariante que restaura                     |
+| 2    | Las invariantes — qué propiedades sostiene, y por qué cada una importa                     |
+| 3    | Las operaciones y sus costos — cada una con la invariante que restaura                     |
 | 4    | Las limitaciones y la bisagra — qué NO resuelve, y qué estructura lo resuelve              |
 
 The chapter that opens the unit deviates and says so: #277 spends act 1 on the
@@ -120,7 +120,7 @@ It was defensible there and only there: #294 was last in `index.yaml` when
 it shipped, so there was no next class to navigate to, and a `Lo que sigue`
 would have had to invent one. #304 (Priority Queue y Heap) now follows it on
 the teaching path, so that justification has expired; #294's missing closing
-is owed the next time the document is opened for another reason. What it costs is real — `18-edd-listas-enlazadas.mdx` wiki-links forward
+is owed, and tracked in **#323**. What it costs is real — `18-edd-listas-enlazadas.mdx` wiki-links forward
 into a document that now dead-ends, and the trade this guide asks every class
 to close on (§5) went with the hinge.
 
@@ -133,7 +133,9 @@ before the cuts and never re-measured against the document.
 
 **#304 keeps half of it.** The professor cut its hinge slide (_Lo que el
 orden débil no responde_) in the slide review, so the deck ends on the
-exercises. The trade survives only as prose in the book-only `## Lo que
+exercises. The trade survives as the closing lines of the slide _Costos de
+PriorityQueue_ (a search for any element has no shortcut, because the heap
+only knows where the first one is) and as prose in the book-only `## Lo que
 sigue`, which still names the next class. That is a second stated deviation,
 not a new shape: the rule above is unchanged.
 
@@ -308,7 +310,7 @@ The cost table has one row per operation and **at least three columns**:
 ```mdx
 | Operación                   | Peor caso     | Invariante que restaura                         |
 | --------------------------- | ------------- | ----------------------------------------------- |
-| `get_at(i)`, `set_at(i, x)` | $$\Theta(1)$$ | Ninguno: no cambian `size` ni el orden          |
+| `get_at(i)`, `set_at(i, x)` | $$\Theta(1)$$ | Ninguna: no cambian `size` ni el orden          |
 | `insert_at(i, x)`           | $$\Theta(N)$$ | Deja los válidos juntos desde 0, con `x` en `i` |
 ```
 
@@ -519,6 +521,19 @@ cannot be scrolled. Read both:
   .filter((e) => e.scrollWidth > e.clientWidth + 2)
 ```
 
+**And the vertical axis, where it can actually clip.** A listing
+(`CodeStepper`) has no height cap, so it grows instead of clipping; what can
+clip is a box with its own `max-height` — the frame box of a `<StepShow>`
+(`max-h-96 overflow-auto`) and the structure panel of a `<SequenceStepper>`
+on a slide. A frame taller than its box scrolls, and a projected slide cannot
+be scrolled. Read every scrolling box on the stage, at every frame:
+
+```js
+[...document.querySelectorAll('[data-testid="slide-stage"] *')]
+  .filter((e) => /auto|scroll/.test(getComputedStyle(e).overflowY))
+  .filter((e) => e.scrollHeight > e.clientHeight + 2)
+```
+
 #294 shipped a slide whose listing cut `isOperator` at `|| t.equals(`, hiding
 the fourth operator on the slide whose prose promised four, and the pre-PR
 sweep never looked. `<PresentationWide>` does not rescue it: `<StepShow>`
@@ -604,6 +619,18 @@ And the edge cases are not optional prose: the empty structure, the structure
 of one, and position zero are where the general body of a method stops
 working. A class that lists them on a slide owes listings that handle them.
 
+**An algorithm over a list is written in the course's own list.** The node is
+`Node { int value; Node next; }`, singly linked, as the linked-list class
+(#288) wrote it — no dummy head node, and no `tail` the structure does not
+have. When the obvious solution reaches for either, look for what the
+structure already allows: #304's merge of K sorted lists links each node to
+the heap's next root (`first.next = fronts.peek()`), which needs neither, and
+the professor rejected both of the versions that used them. A `tail` that IS
+a field of the structure being taught (#294's Queue) is not this case. The
+same holds for the language: the simplest construct that states the rule
+wins — #304's planner orders its tasks with one comparator lambda and an
+`if`, not a `thenComparing` chain.
+
 ## Checklist
 
 - [ ] Every act heading that deserves a beat in the deck is an `h2` behind a
@@ -623,6 +650,9 @@ working. A class that lists them on a slide owes listings that handle them.
       same contract, if the class needs them, on the slide after.
 - [ ] Invariants as a numbered list, property first, consequence second, and
       the expensive one named as such.
+- [ ] What an operation breaks, keeps or restores is named _la invariante_
+      (feminine) — in the prose, in every widget's narration, and in the
+      templates above you copy from; a TDA's exit rule stays _regla_ (§3).
 - [ ] Every operation in the cost table carries the invariant it restores,
       and the table leads with a `Molde` column grouping the operations by
       crear / consultar / modificar. An `Amortizado` column only where a row
@@ -668,13 +698,30 @@ working. A class that lists them on a slide owes listings that handle them.
       in the browser and its output quoted in the commit. Nothing in the build or the suite executes a
       snippet, and #277 shipped a bound that held for N = 16 and failed for
       N = 1000 — a value its own widget offers the reader. **There is no JVM on
-      the dev host** (`java`/`javac` are the macOS stubs and fail), so the
-      browser widget under `npm run preview` is the only place Java actually
-      runs; do the arithmetic simulation in `python3 -c` or `node -e` instead.
+      the dev host** (`java`/`javac` are the macOS stubs and fail), **but
+      Docker is, and a real JDK runs in it**:
+      `docker run --rm -v "$PWD":/w -w /w eclipse-temurin:21 sh -c 'javac Main.java && java Main'`
+      from a scratch directory. Every Java behaviour a slide or a drawing
+      states — the order a comparator produces, a library behaviour such as
+      `PriorityQueue`'s on ties, every state a walk draws, an exercise's
+      tests against its reference and against a wrong solution — is run
+      there before it is drawn, and the output quoted in the commit (#304
+      did it for every heap state of its three exercise walks). A
+      `python3 -c` or `node -e` simulation cannot answer a question about
+      Java's semantics; keep it for plain arithmetic.
 - [ ] Every slide's scale measured in the deck at 1440x900, not eyeballed.
       A slide that fits is reported at scale 1.0; anything under ~0.7 is
       splitting into two titled `<Slide>`s, never a `<SectionBreak />`
-      (which would add an untitled slide instead). **How to read it**: under
+      (which would add an untitled slide instead). **A slide carrying a
+      `<StepShow>` or a `<SequenceStepper>` is measured at EVERY frame**,
+      stepping through with the widget's own control: the deck re-measures
+      on every resize (`SlideDeck.tsx`'s `ResizeObserver`) and a walk mounts
+      one frame at a time, so a frame that grows — a tree that gains a level —
+      can shrink the slide where the first frame did not. The floor holds per
+      frame. A walk cannot be split like a slide: compact its frame (fewer
+      rows, not smaller nodes), and never shrink the drawing until it cannot
+      be read (#304's lowest, the Top-K walk, sits at 0.714 on all fifteen
+      frames). **How to read it**: under
       `npm run build && npm run preview`, on `/nalanda/d/<id>/present?slide=<n>`,
       the scale is the `transform` on the `motion.div` inside
       `[data-testid="slide-stage"]` (`presentation/SlideDeck.tsx`) — in

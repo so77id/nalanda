@@ -4,9 +4,11 @@
 **Date:** 2026-09-29 (amended in the #304 slide review, 2026-10-11)
 **Decision-makers:** Miguel Rodriguez
 **Source:** Issue #304 (Estructuras de Datos · Priority Queue y Heap).
-**Extends** ADR-0074: a sixth recipe, `heap-max`, with two operations of its
-own and a second picture drawn beside the first. ADR-0074 still holds
-entirely; nothing in it is withdrawn.
+**Extends:** ADR-0074 — a recipe, `heap-max`, with two operations of its own
+and a second picture drawn beside the first. One rule of ADR-0074 gives way:
+its palette keeps `accent` for chrome, and §4 paints the `swap` state in it.
+ADR-0074 names that exception in place (its `Amended by: #304` on the
+palette); nothing else in it is withdrawn.
 
 ## Context
 
@@ -26,10 +28,12 @@ rather than inventing a widget. This is that ADR.
 ### 1. `heap-max` is a recipe of `<SequenceStepper>`, not a widget of its own
 
 Same props, same chrome (listing on top, structure, narration strip,
-controls, speed selector), same frame model — a pure trace in
-`sequenceStepperTrace.ts`, a pure layout in `sequenceStepperHeapLayout.ts`, a
-thin painter. The reader has watched this widget run nine operations over
-five structures; the heap is read through the same surface, which is the
+controls, speed selector), the same split of the frame model — a pure trace
+in `sequenceStepperTrace.ts`, a pure layout in `sequenceStepperHeapLayout.ts`,
+a thin painter — with one fork in how the block is encoded (`heapSize`, not
+the dynamic array's `slots`; §Consequences). The reader has watched this
+widget run nine operations over four structures (a fifth recipe, `array`,
+never had a reader, and #304 deleted it); the heap is read through the same surface, which is the
 argument ADR-0074 made for one widget and it applies unchanged.
 
 ### 2. Two operations, valid on the heap and nowhere else
@@ -45,8 +49,11 @@ on the inline `k / 2` and `2 * k` (#304 review): the code a student reads is
 the formulas the class has just justified.
 
 `swim` and `sink` are **not** operations. They are the inside of the two —
-printed under the method that calls them, so the listing never calls a method
-it does not show, and their lines light up as they run.
+printed under the method that calls them, so the listing never calls either
+without showing its body, and their lines light up as they run. The helpers
+it does call without printing them (`parent`, `left`, `right`, `swap`,
+`resize`, `shrinkIfSparse`) are the ones the class writes on its own slides
+before the operations.
 
 ### 3. Sedgewick's listing, 1-based, growing and shrinking like the dynamic array
 
@@ -66,7 +73,9 @@ maxima past `n` do not survive it (the trace draws a `shrink` frame). An
 empty heap starts at `new int[2]` — one usable slot plus `data[0]`, the
 dynamic array's one-cell start. Both came out of the slide review of #304, so
 the class can run a widget that inserts many from empty (growing
-2 → 4 → 8 → 16) and one that extracts many (shrinking).
+2 → 4 → 8 on the class's seven insertions; an eighth, the most the widget
+draws, would reach 16) and one that extracts many (shrinking). The halving is
+integer division, as in the Java: a block of 5 halves to 2.
 
 Both operations refuse a starting array that is not a max-heap: an operation
 ON a heap that starts from a broken one would animate the invariant being
@@ -78,11 +87,13 @@ The painter draws the SAME cells as the complete binary tree (node `k` on
 level `floor(log2 k)`, every parent centred over its two children) and as the
 array `data[0..]` with an index rail. Both are painted from one cell state,
 so the pair a `swap` exchanges is lit in the tree and in the array in the
-same frame. **Stacked in the book, side by side on a slide** — the reverse of
-ADR-0074's "stacked in both modes", and for the same reason read the other
-way round: a chain is wide and loses legibility when halved; a tree of eight
-is narrow and tall, and the correspondence between the two pictures is what
-the reader has to see, which reads across better than down.
+same frame. **Stacked in the book, side by side on a slide** — inside the
+structure panel; the listing stays above the structure in both modes, as
+`SequenceStepper.tsx` records for every recipe ("Stacked in BOTH modes"). The
+tree and the array go side by side for the reason that comment gives, read
+the other way round: a chain is wide and loses legibility when halved; a tree
+of eight is narrow and tall, and the correspondence between the two pictures
+is what the reader has to see, which reads across better than down.
 
 - **`data[0]`** is drawn dashed on the sunk ground with the words «no se
   usa» under it, on every frame.
@@ -94,7 +105,10 @@ the reader has to see, which reads across better than down.
 - **One new cell state, `swap`**, painted in `accent` at the heavier stroke —
   the unit's "being moved" token (`teach-a-data-structure.md` §6bis) and
   Sedgewick's orange path — with the tree edge between the pair drawn the
-  same. It does not rely on colour alone (stroke weight, the legend).
+  same. It does not rely on colour alone (stroke weight, the legend). This is
+  the one data state in `accent`, which ADR-0074 otherwise keeps for chrome;
+  the exception is recorded there, in place, with the bar the next one has to
+  clear.
 
 ### 5. Built and then removed in the same PR: `build-heap`, `heapsort`, `descending`
 
@@ -121,6 +135,11 @@ back with its own slides and its own review.
   produces. Showing them inside the operations that call them is also what
   the listing does.
 - **Only the tree, or only the array.** Either hides half of the lesson (§4).
+- **`swap` in a token ADR-0074 already assigns.** `focus` is the pair under
+  comparison, and the next frame swaps that same pair: in `focus` too, the
+  swap would read as a second comparison. `mark` already means the cell just
+  inserted. No assigned token separates the swap from the frame beside it,
+  so `accent` takes it, as an exception ADR-0074 names.
 - **An `IllegalStateException` on a full block** instead of `resize`. One
   line shorter and focused on swim/sink; the professor chose the dynamic
   array's shape so the class does not teach a second growth policy.

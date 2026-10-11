@@ -144,6 +144,11 @@ combinations the documents mount` (`SequenceStepper.test.tsx`), written
      `array × insert-last`, a pair no document mounts at all; ADR-0074's own
      amendment says so in the same PR.)
 
+     Since #304 a document may carry its own describe instead,
+     `the combinations <file> mounts`: `20-edd-priority-queue-heap`'s names
+     every case by act AND slide and walks each one to its last frame, which
+     is the shape to prefer for a new document.
+
      Pinning the mount is the floor, not the ceiling. A case that only
      renders proves the combination is legal; it cannot see a frame that
      throws or paints wrong halfway through a walk. Step the shapes no other

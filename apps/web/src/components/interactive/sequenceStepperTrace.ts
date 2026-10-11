@@ -2020,13 +2020,17 @@ function traceList(
 //
 // A binary max-heap in Sedgewick's shape (#304, ADR-0077): 1-based, so the
 // parent of `k` is `k / 2` and its children `2k` and `2k + 1` with no `±1`
-// anywhere, and `data[0]` never used. The frame model is the array family's:
-// `cells` is `data[1..]` in order, `capacity` is `data.length` (slot 0
-// included), and `heapSize` is `n`. The painter draws the same cells twice —
+// anywhere, and `data[0]` never used. The frame model is the widget's, with
+// one fork from the dynamic array: no `slots`; `cells` is `data[1..]` in
+// order (the stale copies past `n` included), `capacity` is `data.length`
+// (slot 0 included), and `heapSize` is `n`, where the live cells end. The painter draws the same cells twice —
 // as the array and as the complete binary tree the array encodes.
 //
 // `swim` and `sink` are printed under the operation that calls them, so the
-// reader never meets a call to a method the listing does not show.
+// reader never meets a call to either without its body. The helpers the
+// listings call without printing them (`parent`, `left`, `right`, `swap`,
+// `resize`, `shrinkIfSparse`) are the ones the class writes on its own slides
+// before the operations.
 
 // Written on parent / left / right, the index functions the class defines
 // just before the operations, so the listing reads as the formulas it derived.

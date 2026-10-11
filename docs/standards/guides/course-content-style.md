@@ -91,9 +91,9 @@ do the slides inside it.
   sección_, _más adelante_, _ya vimos que_, _acabamos de ver_, _volveremos
   sobre esto_.
 - **Do not link** from body prose to another section of the same document.
-  Wiki-links (`[[otro-id]]`) are for other documents — the reading order of
-  sections inside one document is a matter for the section rail, not for
-  paragraphs that reach across it.
+  Wiki-links (`[[otro-id]]`) are for other documents, and only from
+  `## Lo que sigue` (§4b) — the reading order of sections inside one document
+  is a matter for the section rail, not for paragraphs that reach across it.
 - **When a fact from an earlier section is needed**, state the fact in place.
   Repetition is cheaper than a reference the reader has to follow, and a
   self-contained section survives being read on its own — which is how the
@@ -102,6 +102,29 @@ do the slides inside it.
 The `## Lo que sigue` at the end of a document is the one section that names
 another document by name (via wiki-link). That is a bridge between documents,
 not a cross-reference inside one.
+
+## 4b. No meta-references — the text never talks about itself
+
+The professor's review of #304 extended §4 from sections to the class as a
+whole. Three things go:
+
+- **Narrating the class or the document.** No _esta clase construye_, _en
+  esta clase estudiaremos_, _en el libro_, _en cinco pasos_: the text says
+  the thing, not that it is about to say it. Nor «los ejemplos de esta
+  clase»: _los ejemplos_ says the same. (_Los métodos de esta clase_, where
+  _clase_ is a Java class, is not this case.)
+- **Slides whose content is the material's own structure.** No index slide
+  listing the problems or the acts to come, and no slide announcing how many
+  exercises follow. #304 cut its index of the three exercises and goes from
+  the last cost slide straight to the first problem.
+- **Other classes, from inside the body.** The body neither names nor
+  wiki-links another class — not even to say where a function came from: #304
+  wrote «la misma del arreglo dinámico» and dropped «con la implementación
+  que tiene en la clase de arreglos». The fact the reader needs is stated in
+  place, as §4 asks of sections. Only `## Lo que sigue` names another
+  document. `17-edd-introduccion.mdx` and `18-edd-listas-enlazadas.mdx`
+  still wiki-link other classes from their bodies; they are brought in line
+  the next time each is opened, not in a sweep of their own.
 
 ## 5. Titles — a noun phrase that says what is on the slide
 
@@ -210,6 +233,11 @@ Two consequences worth spelling out, because #288 hit both:
 - [ ] No cross-references between sections or slides of the same document
       (grep the body for _§_, _sección anterior_, _slide anterior_, _más
       adelante_, _ya vimos_, _acabamos de_, _volveremos_).
+- [ ] No meta-references (§4b): grep the body for _esta clase_, _en el
+      libro_, _pasos_, _la clase de_, and for wiki-links (the regex
+      `\[\[[a-z]`, which skips a figure's `[[1, 0]]` data) outside
+      `## Lo que sigue`;
+      no index slide and no slide counting what follows.
 - [ ] Every `h2` and every `<Slide title>` is a single-part noun phrase that
       says what is on its slide — no `·` subtitle; the only interpuncts
       allowed are a series and the contract gloss (§5) — and the deck's

@@ -149,7 +149,14 @@ definition into an order: a symbol opened later is nested inside the one
 before it, and nothing can close while something is still open inside it —
 so a closer can only match the most recent.
 
-Run the idea by hand, in prose, on beat 1's example.
+Run the idea by hand on beat 1's example — **in a drawing**, one state per
+step, with the values written in the drawing and its caption. The prose
+states the rule and names no values. #304's _El peor de los K mejores_ says
+in prose what happens to each number that arrives, and the `<TopKStrip>`
+under it runs `5 1 9 3 7 2 8` through the heap. The rule came out of the
+professor's review of #304: concrete values («el 9», `data[8]`) appear only in
+drawings and their captions, never as «insertemos un 9…» in the prose.
+An idea with several parts gets several pictures, one per part.
 
 > **Test.** Can it be executed by hand on that example without writing a line
 > of Java? If explaining it needs a `for`, it is not the idea yet — it is
@@ -164,7 +171,17 @@ appeared inside the walk under a promise to write them "al final".
 
 - **A helper that carries no idea says so.** It is the statement's data
   written in Java. Telling the reader where *not* to spend attention is part
-  of explaining.
+  of explaining. **A helper that HIDES the idea is inlined instead**: #304's
+  first merge of K lists called a `push` helper, and the review removed it,
+  because the `null` check written where it is used reads better than a call
+  that hides it.
+- **A listing whose idea has several moving parts is built in pieces before
+  the full walk.** One slide per fragment — the few lines it adds and a
+  drawing of what they do — and only then the whole listing, walked. #304
+  builds its merge on four slides (_K listas · los primeros frentes_, _sacar
+  el menor_, _enganchar el siguiente_, _una vuelta_) before _K listas · la
+  solución_; «the idea, then the whole listing» is what the review
+  rejected.
 - **A helper slide comes immediately before the listing slide** when the
   helpers and the walk do not fit together. This guide said the opposite
   first — "helpers get no slide of their own, plumbing with a slide of its
@@ -217,7 +234,8 @@ see which.
   defined in beat 4 that beat 1 or beat 3 owed.
 - **Name the input you are talking about.** "Las dos expresiones", "el
   recorrido se detiene en el tercer carácter" — the reader has to look at the
-  figure to find out which input that is. Write `([)]`.
+  figure to find out which input that is. Write `([)]` — in the figure's
+  caption or label when the run lives in a drawing (beat 3).
 - **Show before asserting.** No count and no cost appears before the drawing
   or the walk that produces it. #294 shipped "y de ahí salen las tres únicas
   formas de fallar" beside a figure showing three examples — a claim of
@@ -228,6 +246,16 @@ see which.
   named here only because a beat's title is the place an exercise breaks them
   first — see beat 3, where the title is part of not naming the structure
   early.
+
+## A class's worked exercises
+
+**They climb in difficulty, and the levels are never shown.** A class that
+works several exercises on its slides orders them easy, medium, hard — that
+is how the author picks them and the order they run in — and no title,
+caption, slide or index says «fácil», «medio» or «difícil»: the levels are
+the author's tool, not the reader's. #304 works three, a planner, Top-K and
+the merge of K sorted lists, and goes straight from the last cost slide to
+the first problem, with no slide announcing how many follow.
 
 ## The spine adapts
 
@@ -281,6 +309,12 @@ and whether anything clips — the scale recipe is in
 promedio móvil). The guide was written from them and
 they are rewritten to it in the same WP — notación polaca is what produced
 the second form of beat 2, having no tempting wrong idea to offer.
+
+`content/courses/sample-course/20-edd-priority-queue-heap.mdx` — three worked
+exercises (un planificador de tareas, Top-K, mezclar K listas ordenadas) and
+one posed (la verificación de un max-heap). They added beat 3's run in a
+drawing, beat 4's listing built in pieces, the inlined helper, and the
+hidden difficulty levels.
 
 **Its sibling for the question bank already exists**:
 [`write-control-questions.md`](write-control-questions.md) governs the

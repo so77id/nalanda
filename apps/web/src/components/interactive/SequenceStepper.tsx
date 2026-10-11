@@ -46,9 +46,10 @@ export interface SequenceStepperProps {
   /** The starting contents, in reading order. Six or fewer read best. */
   values?: number[];
   /**
-   * The value to insert. Required by every `insert-*` but `insert-ordered`.
-   * An ARRAY inserts each value in turn over the same chain, so a slide can
-   * show the list growing instead of one insertion in isolation.
+   * The value to insert. Required by every `insert-*` but `insert-ordered`,
+   * and by the heap's `insert`. An ARRAY inserts each value in turn over the
+   * same structure, so a slide can show it growing instead of one insertion
+   * in isolation.
    */
   value?: number | number[];
   /**
@@ -66,11 +67,12 @@ export interface SequenceStepperProps {
   target?: number | number[];
   /**
    * How many times to run an operation that takes no argument
-   * (`remove-first`, `remove-last`). Default one.
+   * (`remove-first`, `remove-last`, `extract-max`). Default one.
    */
   times?: number;
   /**
-   * Arrays only: how many slots the block reserves. Pass the same number to
+   * The dynamic array and the heap: how many slots the block reserves (on
+   * the heap, `data.length` with slot 0 included). Pass the same number to
    * the pair of slides that show one structure before and after an
    * operation, or the block changes width between them.
    */
@@ -83,12 +85,12 @@ export interface SequenceStepperProps {
    */
   method?: string;
   /** The variable the calling program operates on. Defaults to `arreglo`
-   * on the dynamic array and to `list` on the chains. */
+   * on the dynamic array, `heap` on the heap and `list` on the chains. */
   receiver?: string;
   /** The class the calling program constructs. Goes with `method`. */
   receiverType?: string;
   /**
-   * Arrays only: a named arrow kept on every frame, aimed at the end the
+   * The dynamic array only: a named arrow kept on every frame, aimed at the end the
    * operation works on — `top` for a stack, `front` or `rear` for a queue.
    * This one is the structure's field; naming it stands down the `i`/`j`
    * cursors, which belong to the operation and would draw a second arrow at
@@ -166,17 +168,21 @@ const OPERATION_LABEL: Record<SequenceOperation, string> = {
 const MAX_VALUES = 8;
 
 /**
- * `<SequenceStepper>` — the axis widget of the linked-list class (ADR-0074).
+ * `<SequenceStepper>` — the step-through widget of the Estructuras de Datos
+ * unit (ADR-0074, extended by ADR-0077).
  *
  * One widget, two props that pick what it shows: `eda` selects the structure
- * (array, dynamic array, or a singly / doubly / circular list) and `operation`
- * selects the animation. The surface never changes between combinations — code
- * panel, structure, narration, controls — so the reader learns one visual
- * vocabulary and reads every structure of the unit through it.
+ * (a dynamic array, a singly / doubly / circular list, or a binary max-heap)
+ * and `operation` selects the animation. The surface never changes between
+ * combinations — code panel, structure, narration, controls — so the reader
+ * learns one visual vocabulary and reads every structure of the unit through
+ * it.
  *
- * The structure is one hand-written SVG whose every coordinate comes from
- * `sequenceStepperLayout`; the frames come from `sequenceStepperTrace`. Both
- * are pure and pinned by the suite, which leaves the browser only the paint.
+ * A Sequence is one hand-written SVG whose every coordinate comes from
+ * `sequenceStepperLayout`; the heap is two (tree and array) from
+ * `sequenceStepperHeapLayout`. The frames come from `sequenceStepperTrace`.
+ * All three are pure and pinned by the suite, which leaves the browser only
+ * the paint.
  */
 export function SequenceStepper({
   eda,

@@ -12,9 +12,11 @@ split of the widget into two pure modules (a frame trace and a layout) plus a
 thin painter · the refusal of invalid combinations at boot, addressed to the
 author · the palette the states are painted in, and why it is not the one the
 design reference proposed
-**Extended by:** ADR-0077 (#304) — a sixth recipe, `heap-max`, with its own
-two operations and a second picture beside the first. Nothing here is
-withdrawn.
+**Extended by:** ADR-0077 (#304) — a recipe for the binary max-heap,
+`heap-max`, with its own two operations and a second picture beside the
+first. #304 amends two things below: the `array` recipe is deleted, and the
+heap's `swap` state is the one data state painted in `accent` (both
+`Amended by: #304`).
 
 **Amended by:** #288, slide-by-slide review (2026-09-10) — a ninth operation,
 `get-at`. The class needs the operation the array answers with one
@@ -348,9 +350,28 @@ flag, the chip label, and the catalog's two `eda="array"` examples, which now
 run on `dynamic-array`. The tests that called it moved to `dynamic-array`,
 which runs the same listings except the three insertions; the two that
 pinned the static default block were rewritten for the dynamic one, which
-starts full. The validity matrix above loses its `array` row and nothing else
-in this ADR changes. A class that wants a fixed-capacity block back adds the
+starts full. The validity matrix above loses its `array` row, and the counts
+this ADR states as accepted — five recipes, five structures, thirty-one valid
+pairs — are read as of 2026-09-11: the recipes the widget draws for a
+Sequence are four now (the heap, ADR-0077, is not a Sequence). Nothing else in
+this ADR changes. A class that wants a fixed-capacity block back adds the
 recipe together with the slide that mounts it. Closes #296.
+
+**Amended by:** #304, review pipeline Round B (2026-10-11) — **one data
+state is painted in `accent`: the heap's `swap`.** ADR-0077 §4 paints the two
+cells a `swap` exchanges, and the tree edge between them, in `accent` at the
+heaviest stroke, with a legend entry «se intercambia». That broke this ADR's
+"`accent` … never for data state" while ADR-0077 said nothing here was
+withdrawn; the review pipeline found the contradiction. The professor kept
+the paint and amended the rule rather than repaint, because no token this ADR
+assigns separates a swap from the frame beside it: the comparison before it
+paints the same pair in `focus`, and `mark` already means the cell just
+inserted. `accent` is the unit's "being moved" token in hand-drawn frames
+(`teach-a-data-structure.md` §6bis), which is what a swap is, and the state
+is never colour alone (stroke weight, the legend). **The bar for the next
+exception:** a data state that no assigned token can tell apart from the
+frames around it, carried by a second signal besides colour, and named here
+in the palette paragraph, not only in the ADR that adds it.
 
 **Source:** Issue #288 — Course document "Estructuras de Datos · Listas
 Enlazadas". The class shows nine operations over five structures, and
@@ -444,7 +465,8 @@ now" — with its values chosen by measurement and iterated by
 a success, so both tokens ship and they mean different things), `focus` for
 the cell under the algorithm's attention — the same token the narration chip
 and `<CodeStepper>`'s active line already use — and `accent` for the widget's
-own chrome, never for data state. The reference's full coral + emerald + amber
+own chrome, never for data state **except the heap's `swap`** (`Amended by:
+#304`, on the palette). The reference's full coral + emerald + amber
 rebrand of the unit remains the separate WP the issue files; this registers
 one token with one meaning, not a palette.
 

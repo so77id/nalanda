@@ -10,6 +10,13 @@
  * `2k + 1` — and the array is `data[0..]`, slot 0 included, because the
  * reason it is empty is part of the lesson. Each is its own canvas, so the
  * painter can stack them in the book and set them side by side on a slide.
+ *
+ * COPIED: the file-local `HeapPicture` of `20-edd-priority-queue-heap.mdx`
+ * draws its static trees and arrays with these same numbers (node radius,
+ * cell side, leaf pitch, level height, tree margin), so a figure and the
+ * widget beside it match. That copy is the one that fails late — nothing
+ * tests a document's own components — so a change here is carried there by
+ * hand and checked in a browser.
  */
 
 /** Radius of a tree node. */

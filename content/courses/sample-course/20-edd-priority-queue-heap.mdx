@@ -268,7 +268,7 @@ Esta jerarquía es un árbol, y la estructura que la guarda se llama
 
 {/* HeapPicture — a static drawing of one heap, as the tree, as the array, or both with the correspondence drawn between them. */}
 {/* File-local on purpose (add-a-course-document.md §6e-quater): one consumer, no catalog entry, not registered. The second document that wants it promotes it. */}
-{/* Same geometry as the heap-max recipe of <SequenceStepper> (sequenceStepperHeapLayout.ts), so a static figure and the widget beside it draw the same tree. */}
+{/* COPIES the geometry of the heap-max recipe of <SequenceStepper> — the five constants of sequenceStepperHeapLayout.ts (r 17, box 40, pitch 46, level 54, pad 14) — so a static figure and the widget beside it draw the same tree. This copy fails late: nothing tests it, so a change there is carried here by hand and checked in a browser. */}
 
 export function HeapPicture({
   values = [],

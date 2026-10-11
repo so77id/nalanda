@@ -9,7 +9,7 @@ export const sequenceStepperCatalogEntry: CatalogEntry = {
   description:
     'One step-through widget for the whole Sequence family. `eda` picks the structure it draws — a dynamic array, or a singly / doubly / circular linked list — and `operation` picks the animation it replays over it. Code panel on top, the structure as a hand-written SVG below, narration and controls at the foot; the surface is identical across all combinations, so the reader learns one visual vocabulary and reads every structure of the unit through it. ADR-0074. Since #304 it also draws a binary max-heap (`heap-max`, ADR-0077): the same array as the complete binary tree it encodes and as `data[0..]`, side by side on a slide and stacked in the book.',
   whenToUse:
-    'When a class of the Estructuras de Datos unit shows an operation running over a sequence structure — and especially when it shows the SAME operation over two structures to contrast their cost, which is two nearly identical tags. Not for sorting algorithms (`<SortStepper>`) and not for hand-authored memory pictures (`<StepShow>` + `<MemoryVisual>`).',
+    'When a class of the Estructuras de Datos unit shows an operation running over a sequence structure, or `insert` / `extract-max` running over a binary max-heap (`heap-max`) — and especially when it shows the SAME operation over two structures to contrast their cost, which is two nearly identical tags. Not for sorting algorithms (`<SortStepper>`) and not for hand-authored memory pictures (`<StepShow>` + `<MemoryVisual>`).',
   props: [
     {
       name: 'eda',
@@ -27,13 +27,13 @@ export const sequenceStepperCatalogEntry: CatalogEntry = {
       name: 'values',
       type: 'number[]',
       description:
-        'Required. The starting contents in reading order. Up to 8; beyond that the nodes stop being legible when projected. May be empty for the two insert operations that do not need an existing element.',
+        'Required. The starting contents in reading order. Up to 8; beyond that the nodes stop being legible when projected. May be empty for the insert operations that need no existing element: `insert-first`, `insert-last`, and `insert` on `heap-max`, which then starts at `new int[2]`. On `heap-max` it must already be a max-heap.',
     },
     {
       name: 'value',
       type: 'number | number[]',
       description:
-        'The value inserted. Required by `insert-first`, `insert-last` and `insert-at`. An ARRAY inserts each value in turn over the same chain, so a slide can show the list growing — `value={[9, 4, 6]}` runs three insertions end to end. `insert-first` and `insert-last` also accept `values={[]}`: a chain built from nothing shows the empty-chain branch taken once and, at the back, the walk getting one hop longer every time. `insert-at` needs one `index` per value.',
+        'The value inserted. Required by `insert-first`, `insert-last` and `insert-at`, and by `insert` on `heap-max`. An ARRAY inserts each value in turn over the same chain, so a slide can show the list growing — `value={[9, 4, 6]}` runs three insertions end to end. `insert-first` and `insert-last` also accept `values={[]}`: a chain built from nothing shows the empty-chain branch taken once and, at the back, the walk getting one hop longer every time. `insert-at` needs one `index` per value.',
     },
     {
       name: 'index',
@@ -51,7 +51,7 @@ export const sequenceStepperCatalogEntry: CatalogEntry = {
       name: 'times',
       type: 'number',
       description:
-        'How many times to run an operation that takes no argument (`remove-first`, `remove-last`). Default one. Running more times than the structure has elements is an authoring error: the listing throws there, and a trace that ran anyway would be animating an exception.',
+        'How many times to run an operation that takes no argument (`remove-first`, `remove-last`, `extract-max`). Default one. Running more times than the structure has elements is an authoring error: the listing throws there, and a trace that ran anyway would be animating an exception.',
     },
     {
       name: 'capacity',
@@ -69,13 +69,13 @@ export const sequenceStepperCatalogEntry: CatalogEntry = {
       name: 'receiver',
       type: 'string',
       description:
-        'The variable the driving program operates on, shown only when a slide runs the operation several times. Default `list` for the chains and `arreglo` for the arrays. Pair it with `receiverType`.',
+        'The variable the driving program operates on, shown only when a slide runs the operation several times. Default `list` for the chains, `arreglo` for the dynamic array and `heap` for the heap. Pair it with `receiverType`.',
     },
     {
       name: 'receiverType',
       type: 'string',
       description:
-        'The class the driving program CONSTRUCTS, renamed together with `method` and `receiver`. Without it a slide that renamed `insertFirst` to `push` still printed `LinkedList pila = new LinkedList();` under a heading that had just declared `class Stack` — the listing renamed the call and left the constructor telling the truth about the wrong structure. Arrays and chains alike.',
+        'The class the driving program CONSTRUCTS, renamed together with `method` and `receiver`. Without it a slide that renamed `insertFirst` to `push` still printed `LinkedList pila = new LinkedList();` under a heading that had just declared `class Stack` — the listing renamed the call and left the constructor telling the truth about the wrong structure. Every recipe alike; the defaults are `LinkedList`, `DynamicArray` and `MaxHeap`.',
     },
     {
       name: 'pointer',
