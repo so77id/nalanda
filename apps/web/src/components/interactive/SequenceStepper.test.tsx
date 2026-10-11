@@ -734,3 +734,71 @@ describe('<SequenceStepper> · the binary-tree recipe (#321)', () => {
     expect(screen.getByText('recorrer en inorden')).toBeInTheDocument();
   });
 });
+
+describe('<SequenceStepper> · height and search on binary-tree (#321)', () => {
+  const tree = { eda: 'binary-tree' as const, values: [3, 9, 1, 4, 7, null, 6] };
+
+  it('draws no strip for a height: it writes nothing out', () => {
+    renderIn('book', <SequenceStepper {...tree} operation="height" />);
+    expect(screen.getByTestId('tree-view').querySelectorAll('[data-slot]')).toHaveLength(0);
+  });
+
+  it('marks the node it finds, in words as well as in colour', () => {
+    renderIn('book', <SequenceStepper {...tree} operation="search" target={6} />);
+    for (let i = 0; i < 60; i += 1) {
+      const next = screen.getByRole('button', { name: 'Adelante' });
+      if (next.getAttribute('aria-disabled') === 'true') break;
+      fireEvent.click(next);
+    }
+    const six = screen.getByTestId('tree-view').querySelector('[data-node][data-value="6"]')!;
+    expect(six.getAttribute('data-state')).toBe('found');
+    expect(within(screen.getByTestId('tree-view')).getByText('✓ este')).toBeInTheDocument();
+  });
+});
+
+describe('<SequenceStepper> · the bst recipe (#321)', () => {
+  const walkToEnd = () => {
+    for (let i = 0; i < 80; i += 1) {
+      const next = screen.getByRole('button', { name: 'Adelante' });
+      if (next.getAttribute('aria-disabled') === 'true') break;
+      fireEvent.click(next);
+    }
+  };
+
+  it('fades what a search rules out', () => {
+    renderIn(
+      'book',
+      <SequenceStepper eda="bst" operation="search" values={[4, 2, 7, 1, 3, 6, 9]} target={6} />,
+    );
+    walkToEnd();
+    const faded = [
+      ...screen.getByTestId('tree-view').querySelectorAll('[data-node][data-state="discarded"]'),
+    ].map((n) => Number(n.getAttribute('data-value')));
+    expect(faded.sort((a, b) => a - b)).toEqual([1, 2, 3, 9]);
+  });
+
+  it('lands an inserted value in a column that was already there', () => {
+    renderIn(
+      'book',
+      <SequenceStepper eda="bst" operation="insert" values={[8, 5, 20]} value={12} />,
+    );
+    const slots = () => screen.getByTestId('tree-view').querySelectorAll('[data-slot]');
+    expect(slots()).toHaveLength(4);
+    walkToEnd();
+    expect(slots()).toHaveLength(4);
+    expect([...slots()].map((s) => s.getAttribute('data-value'))).toEqual(['5', '8', '12', '20']);
+  });
+
+  it('names the search tree in the chip', () => {
+    renderIn(
+      'book',
+      <SequenceStepper eda="bst" operation="search" values={[2, 1, 3]} target={3} />,
+    );
+    expect(screen.getByText(/árbol binario de búsqueda/)).toBeInTheDocument();
+  });
+
+  it('refuses a traversal on the search tree, and says which operations it has', () => {
+    renderIn('book', <SequenceStepper eda="bst" operation="inorder" values={[2, 1, 3]} />);
+    expect(screen.getByText(/buscar, insertar/)).toBeInTheDocument();
+  });
+});

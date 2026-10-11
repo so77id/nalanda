@@ -52,7 +52,7 @@ nothing on screen moves: the rule `maxCells` keeps for the chains.
 
 ### 3. The operations, in the order the class needs them
 
-- **S2 (this decision):** `preorder`, `inorder`, `postorder` on
+- **S2:** `preorder`, `inorder`, `postorder` on
   `binary-tree`, valid on no other recipe. Each listing is the recursive
   method as the class writes it.
 - **S3:** `height` and `search` on `binary-tree`; a second recipe, `bst`, with
@@ -110,8 +110,9 @@ professor reviews the recipe running in `/catalog/c/SequenceStepper`.
 
 ## Consequences
 
-- The validity matrix grows a row: `binary-tree` × {`preorder`, `inorder`,
-  `postorder`}, and those three on nothing else
+- The validity matrix grows two rows: `binary-tree` × {`preorder`,
+  `inorder`, `postorder`, `height`, `search`} and `bst` × {`search`,
+  `insert`}; the four tree-only operations are valid on nothing else
   (`add-a-course-document.md` §5h carries it).
 - `SequenceCellState` gains `visited` and `discarded`; `SequenceStep` gains
   `tree`; `SequenceTrace` gains `tree` (columns, slots, depth);

@@ -38,9 +38,11 @@ export const RECIPES = [
   // one listing, one structure, the same controls and the same frame model.
   'heap-max',
   // A linked binary tree (#321): nodes with `left` and `right`, drawn with
-  // every node in the column of its inorder position. It has no order, so its
-  // operations visit. Same widget, same frame model plus a tree.
+  // every node in the column of its inorder position. `binary-tree` has no
+  // order, so its operations visit; `bst` keeps the search-tree invariant, so
+  // its operations choose a side. Same widget, same frame model plus a tree.
   'binary-tree',
+  'bst',
 ] as const;
 export type SequenceRecipe = (typeof RECIPES)[number];
 
@@ -59,10 +61,14 @@ export const OPERATIONS = [
   // (their lines light up in the listing), not operations of the TDA.
   'insert',
   'extract-max',
-  // The tree's own operations (#321): the three ways to visit every node.
+  // The tree's own operations (#321): the three ways to visit every node, and
+  // the height. `search` and `insert` above are shared with the trees: the
+  // same tag over `binary-tree` and `bst` is how a slide contrasts visiting
+  // everything with choosing a side.
   'preorder',
   'inorder',
   'postorder',
+  'height',
 ] as const;
 export type SequenceOperation = (typeof OPERATIONS)[number];
 
@@ -255,9 +261,11 @@ export interface SequenceTrace {
    * column fixed for the whole run — its inorder position among all of them —
    * so an insertion lands in a column already reserved and nothing on screen
    * moves (the rule `maxCells` keeps for the chains). `depth` is the deepest
-   * level any frame reaches, so the canvas keeps one height too.
+   * level any frame reaches, so the canvas keeps one height too. `strip` says
+   * whether the operation writes anything out: a height or a search does not,
+   * and gets no strip at all rather than an empty one.
    */
-  tree?: { columns: Record<number, number>; slots: number; depth: number };
+  tree?: { columns: Record<number, number>; slots: number; depth: number; strip: boolean };
 }
 
 export interface SequenceInput {
@@ -393,11 +401,24 @@ const HEAP_OPERATION_NAMES = ['insert', 'extract-max'] as const;
 type HeapOperation = (typeof HEAP_OPERATION_NAMES)[number];
 export const HEAP_OPERATIONS: readonly SequenceOperation[] = HEAP_OPERATION_NAMES;
 
-/** The binary tree's own operations — valid on `binary-tree` and nowhere else (#321). */
+/** What `binary-tree` has a listing for (#321): visits, the height, a search. */
 export const BINARY_TREE_OPERATIONS: readonly SequenceOperation[] = [
   'preorder',
   'inorder',
   'postorder',
+  'height',
+  'search',
+];
+
+/** What `bst` has a listing for (#321): a search and an insertion that choose a side. */
+export const BST_OPERATIONS: readonly SequenceOperation[] = ['search', 'insert'];
+
+/** The operations only a tree has; `search` and `insert` are shared. */
+const TREE_ONLY_OPERATIONS: readonly SequenceOperation[] = [
+  'preorder',
+  'inorder',
+  'postorder',
+  'height',
 ];
 
 export function isValidCombination(
@@ -406,10 +427,10 @@ export function isValidCombination(
   tail = false,
 ): boolean {
   const heapOperation = HEAP_OPERATIONS.includes(operation);
-  const treeOperation = BINARY_TREE_OPERATIONS.includes(operation);
   if (recipe === 'heap-max') return heapOperation;
-  if (recipe === 'binary-tree') return treeOperation;
-  if (heapOperation || treeOperation) return false;
+  if (recipe === 'binary-tree') return BINARY_TREE_OPERATIONS.includes(operation);
+  if (recipe === 'bst') return BST_OPERATIONS.includes(operation);
+  if (heapOperation || TREE_ONLY_OPERATIONS.includes(operation)) return false;
   if (operation === 'insert-ordered' && !isList(recipe)) return false;
   if (recipe === 'linked-list-circular') return CIRCULAR_OPERATIONS.includes(operation);
   if (recipe === 'linked-list-doubly') {
@@ -430,7 +451,7 @@ export function traceFor(
     throw new Error(`La operación «${operation}» no está definida sobre «${recipe}».`);
   }
   if (recipe === 'heap-max') return traceHeap(operation, input);
-  if (recipe === 'binary-tree') return traceTree(operation, input);
+  if (recipe === 'binary-tree' || recipe === 'bst') return traceTree(recipe, operation, input);
   return isList(recipe) ? traceList(recipe, operation, input) : traceArray(operation, input);
 }
 
@@ -530,6 +551,7 @@ const METHOD_NAME: Record<SequenceOperation, string> = {
   preorder: 'preorder',
   inorder: 'inorder',
   postorder: 'postorder',
+  height: 'height',
 };
 
 // ── the array family ──────────────────────────────────────────────────────
@@ -537,7 +559,7 @@ const METHOD_NAME: Record<SequenceOperation, string> = {
 /** The operations the dynamic array has a listing for. */
 type ArrayOperation = Exclude<
   SequenceOperation,
-  'insert-ordered' | HeapOperation | 'preorder' | 'inorder' | 'postorder'
+  'insert-ordered' | HeapOperation | 'preorder' | 'inorder' | 'postorder' | 'height'
 >;
 
 const ARRAY_CODE: Record<ArrayOperation, string> = {
@@ -1007,10 +1029,11 @@ function runArgs(operation: SequenceOperation, input: SequenceInput): string[] {
     }
     case 'insert-ordered':
       return asRuns(input.target).map(String);
-    // A traversal runs once over the whole tree and takes no argument.
+    // A traversal or a height runs once over the whole tree and takes no argument.
     case 'preorder':
     case 'inorder':
     case 'postorder':
+    case 'height':
       return [];
   }
 }
@@ -1255,7 +1278,8 @@ function listCode(recipe: SequenceRecipe, operation: SequenceOperation, tail: bo
     case 'preorder':
     case 'inorder':
     case 'postorder':
-      throw new Error(`«${operation}» es un recorrido de árbol, no de una lista.`);
+    case 'height':
+      throw new Error(`«${operation}» es una operación de árbol, no de una lista.`);
   }
 }
 

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   BINARY_TREE_OPERATIONS,
+  BST_OPERATIONS,
   CIRCULAR_OPERATIONS,
   DOUBLY_OPERATIONS,
   HEAP_OPERATIONS,
@@ -30,7 +31,12 @@ const values = [7, 3, 1, 5];
  * structure has" iterates these; a sweep over every valid combination
  * iterates RECIPES and feeds the heap a starting array that already is one.
  */
-const SEQUENCE_RECIPES = RECIPES.filter((r) => r !== 'heap-max' && r !== 'binary-tree');
+const SEQUENCE_RECIPES = RECIPES.filter(
+  (r) => r !== 'heap-max' && r !== 'binary-tree' && r !== 'bst',
+);
+/** The tree operations no other kind of recipe has (`search` is everyone's). */
+const TRAVERSALS = ['preorder', 'inorder', 'postorder'] as const;
+const TREE_ONLY: readonly SequenceOperation[] = [...TRAVERSALS, 'height'];
 const startFor = (recipe: SequenceRecipe, operation: SequenceOperation): number[] =>
   recipe === 'heap-max' ? [7, 5, 3, 1] : operation === 'insert-ordered' ? [1, 3, 7, 9] : values;
 
@@ -44,7 +50,7 @@ describe('sequenceStepperTrace · the valid combinations', () => {
     for (const recipe of ['dynamic-array', 'linked-list-singly'] as const) {
       for (const operation of OPERATIONS) {
         if (HEAP_OPERATIONS.includes(operation)) continue;
-        if (BINARY_TREE_OPERATIONS.includes(operation)) continue;
+        if (TREE_ONLY.includes(operation)) continue;
         if (operation === 'insert-ordered' && !recipe.startsWith('linked-list')) continue;
         expect(isValidCombination(recipe, operation), `${recipe} × ${operation}`).toBe(true);
       }
@@ -1181,7 +1187,8 @@ describe('sequenceStepperTrace · heap-max · which operations it has', () => {
   });
 
   it('refuses the two heap operations on every sequence recipe', () => {
-    for (const recipe of RECIPES.filter((r) => r !== 'heap-max')) {
+    // `bst` shares `insert` (#321): the same name over a different listing.
+    for (const recipe of RECIPES.filter((r) => r !== 'heap-max' && r !== 'bst')) {
       for (const operation of HEAP_OPS) {
         expect(isValidCombination(recipe, operation)).toBe(false);
       }
@@ -1601,7 +1608,7 @@ const valueOf = (step: SequenceStep, id: number): number =>
   step.tree!.nodes.find((n) => n.id === id)!.value;
 
 describe('sequenceStepperTrace · binary-tree · the valid combinations', () => {
-  it('takes the three traversals and nothing else', () => {
+  it('takes its own operations and nothing else', () => {
     for (const operation of OPERATIONS) {
       expect(isValidCombination('binary-tree', operation), operation).toBe(
         BINARY_TREE_OPERATIONS.includes(operation),
@@ -1609,9 +1616,9 @@ describe('sequenceStepperTrace · binary-tree · the valid combinations', () => 
     }
   });
 
-  it('keeps the traversals off every recipe that is not a tree', () => {
+  it('keeps the traversals and the height off every other recipe', () => {
     for (const recipe of RECIPES.filter((r) => r !== 'binary-tree')) {
-      for (const operation of BINARY_TREE_OPERATIONS) {
+      for (const operation of TREE_ONLY) {
         expect(isValidCombination(recipe, operation), `${recipe} × ${operation}`).toBe(false);
       }
     }
@@ -1664,7 +1671,7 @@ describe('sequenceStepperTrace · binary-tree · the traversals', () => {
   });
 
   it('lights the print line on every visit, and only there', () => {
-    for (const operation of BINARY_TREE_OPERATIONS) {
+    for (const operation of TRAVERSALS) {
       const trace = treeTrace(operation);
       const print = trace.code.split('\n').findIndex((l) => l.includes('System.out.print')) + 1;
       expect(print, operation).toBeGreaterThan(0);
@@ -1678,7 +1685,7 @@ describe('sequenceStepperTrace · binary-tree · the traversals', () => {
   });
 
   it('leaves nothing in flight on the last frame', () => {
-    for (const operation of BINARY_TREE_OPERATIONS) {
+    for (const operation of TRAVERSALS) {
       const last = treeTrace(operation).steps.at(-1)!;
       expect(
         last.tree!.nodes.every((n) => n.state === 'visited'),
@@ -1704,5 +1711,148 @@ describe('sequenceStepperTrace · binary-tree · authoring guards', () => {
     expect(() => traceFor('binary-tree', 'inorder', { values: [], levelOrder: [null, 1] })).toThrow(
       /raíz/,
     );
+  });
+});
+
+describe('sequenceStepperTrace · binary-tree · height', () => {
+  it('returns from every call with the height of its subtree', () => {
+    const last = treeTrace('height').steps.at(-1)!;
+    const badges = Object.fromEntries(last.tree!.nodes.map((n) => [n.value, n.badge]));
+    expect(badges).toEqual({ 3: 'h=2', 9: 'h=1', 4: 'h=0', 7: 'h=0', 1: 'h=1', 6: 'h=0' });
+    expect(last.description).toContain('La altura del árbol es 2');
+  });
+
+  it('answers a call only after both of its sides have answered', () => {
+    const trace = treeTrace('height');
+    const returnLine =
+      trace.code.split('\n').findIndex((l) => l.includes('return 1 + Math.max')) + 1;
+    const answered = trace.steps
+      .filter((s) => s.highlightLines.includes(returnLine))
+      .map((s) => s.tree!.nodes.find((n) => n.state === 'new')!.value);
+    // postorder: a node answers after its two subtrees.
+    expect(answered).toEqual([4, 7, 9, 6, 1, 3]);
+  });
+
+  it('draws no strip: a height writes nothing out', () => {
+    expect(treeTrace('height').tree!.strip).toBe(false);
+  });
+});
+
+describe('sequenceStepperTrace · binary-tree · search', () => {
+  const search = (target: number) =>
+    traceFor('binary-tree', 'search', { values: [], levelOrder: LEVELS, target });
+
+  it('visits in preorder and stops at the value', () => {
+    const last = search(6).steps.at(-1)!;
+    expect(last.tree!.nodes.find((n) => n.value === 6)!.state).toBe('found');
+    const order = last
+      .tree!.nodes.filter((n) => n.badge !== undefined)
+      .sort((a, b) => Number(a.badge) - Number(b.badge))
+      .map((n) => n.value);
+    expect(order).toEqual([3, 9, 4, 7, 1, 6]);
+    expect(last.cost).toBe(6);
+  });
+
+  it('compares every node before saying a value is not there', () => {
+    const last = search(5).steps.at(-1)!;
+    expect(last.cost).toBe(6);
+    expect(last.tree!.nodes.some((n) => n.state === 'found')).toBe(false);
+    expect(last.description).toContain('no está');
+  });
+});
+
+describe('sequenceStepperTrace · bst · the valid combinations', () => {
+  it('takes search and insert, and nothing else', () => {
+    for (const operation of OPERATIONS) {
+      expect(isValidCombination('bst', operation), operation).toBe(
+        BST_OPERATIONS.includes(operation),
+      );
+    }
+  });
+
+  it('shares search with every structure and insert with the heap', () => {
+    expect(isValidCombination('linked-list-singly', 'search')).toBe(true);
+    expect(isValidCombination('binary-tree', 'search')).toBe(true);
+    expect(isValidCombination('heap-max', 'insert')).toBe(true);
+    expect(isValidCombination('bst', 'extract-max')).toBe(false);
+  });
+});
+
+/** Built by inserting 4, 2, 7, 1, 3, 6, 9 in that order: a tree of height 2. */
+const BALANCED = [4, 2, 7, 1, 3, 6, 9];
+
+describe('sequenceStepperTrace · bst · search', () => {
+  const search = (target: number) => traceFor('bst', 'search', { values: BALANCED, target });
+
+  it('chooses a side at every node and finds 6 in three comparisons', () => {
+    const last = search(6).steps.at(-1)!;
+    expect(last.cost).toBe(3);
+    expect(last.tree!.nodes.find((n) => n.value === 6)!.state).toBe('found');
+  });
+
+  it('rules out the whole subtree on the side it does not take', () => {
+    const last = search(6).steps.at(-1)!;
+    const discarded = last
+      .tree!.nodes.filter((n) => n.state === 'discarded')
+      .map((n) => n.value)
+      .sort((a, b) => a - b);
+    expect(discarded).toEqual([1, 2, 3, 9]);
+  });
+
+  it('says a value is not there when the side it needs is empty', () => {
+    const last = search(5).steps.at(-1)!;
+    expect(last.cost).toBe(3);
+    expect(last.description).toContain('no está');
+  });
+
+  it('names the invariant when it rules a side out', () => {
+    const trace = search(6);
+    expect(trace.steps.some((s) => s.description.includes('la invariante'))).toBe(true);
+  });
+});
+
+describe('sequenceStepperTrace · bst · insert', () => {
+  const PDF = [8, 5, 1, 4, 6, 7, 20];
+
+  it('hangs the new value as a leaf, where the search for it ends', () => {
+    const last = traceFor('bst', 'insert', { values: PDF, value: 12 }).steps.at(-1)!;
+    const twelve = last.tree!.nodes.find((n) => n.value === 12)!;
+    const twenty = last.tree!.nodes.find((n) => n.value === 20)!;
+    expect(twenty.left).toBe(twelve.id);
+    expect(twelve.left).toBeNull();
+    expect(twelve.right).toBeNull();
+    expect(twelve.state).toBe('new');
+  });
+
+  it('keeps the inorder in the strip, sorted, with the new value in its place', () => {
+    const last = traceFor('bst', 'insert', { values: PDF, value: 12 }).steps.at(-1)!;
+    expect(last.tree!.strip).toEqual([1, 4, 5, 6, 7, 8, 12, 20]);
+    expect(last.tree!.stripFresh).toBe(6);
+  });
+
+  it('reserves every column from the start, so nothing moves', () => {
+    const trace = traceFor('bst', 'insert', { values: PDF, value: 12 });
+    const first = trace.steps[0]!;
+    expect(first.tree!.strip).toEqual([1, 4, 5, 6, 7, 8, null, 20]);
+    const twenty = first.tree!.nodes.find((n) => n.value === 20)!;
+    expect(trace.tree!.columns[twenty.id]).toBe(7);
+  });
+
+  it('inserts nothing when the value is already there', () => {
+    const trace = traceFor('bst', 'insert', { values: PDF, value: 5 });
+    const last = trace.steps.at(-1)!;
+    expect(last.tree!.nodes).toHaveLength(7);
+    expect(trace.steps.some((s) => s.description.includes('ya está'))).toBe(true);
+  });
+
+  it('grows a tree from nothing, one value after another', () => {
+    const last = traceFor('bst', 'insert', { values: [], value: [2, 1, 3] }).steps.at(-1)!;
+    const root = last.tree!.nodes.find((n) => n.id === last.tree!.root)!;
+    expect(root.value).toBe(2);
+    expect(last.tree!.strip).toEqual([1, 2, 3]);
+  });
+
+  it('refuses a starting list with a repeated value', () => {
+    expect(() => traceFor('bst', 'insert', { values: [4, 2, 4], value: 1 })).toThrow(/repet/);
   });
 });

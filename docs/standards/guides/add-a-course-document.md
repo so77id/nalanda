@@ -834,8 +834,16 @@ and `capacity` is `data.length` with slot 0 included. `insert` and
 `extract-max` refuse a starting array that is not already a max-heap.
 Since #321 there is also `binary-tree` (ADR-0083): a linked binary tree
 with every node in the column of its inorder position and a strip under it,
-and three operations of its own, valid nowhere else — `preorder`, `inorder`
-and `postorder`, each filling the strip one visit at a time. Its `values` is
+and operations of its own — `preorder`, `inorder` and `postorder`, each
+filling the strip one visit at a time, and `height`, each call answering
+after both of its sides; none of the four is valid on any other recipe. It
+also takes `search` (`target`), which may have to compare every node. An
+eighth, `bst`, is the search tree: `values` is the insertion order that
+builds it (a repeated value is refused), `search` chooses a side at every
+node and fades the one the invariant rules out, and `insert` (`value`, an
+array for several) hangs each value as a leaf in a column reserved from the
+first frame, with the inorder kept sorted in the strip. `search` keeps one
+name over the chains and both trees, `insert` over the heap and `bst`. Its `values` is
 the tree in LEVEL ORDER with `null` for a missing child
 (`values={[3, 9, 1, 4, 7, null, 6]}`); a value with no parent is refused, a
 `null` on any other recipe is refused, and the cap of eight counts nodes, not

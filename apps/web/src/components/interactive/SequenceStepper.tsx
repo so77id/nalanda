@@ -18,6 +18,7 @@ import {
 import { CELL_FILL, CELL_STROKE } from './sequenceStepperPaint';
 import {
   BINARY_TREE_OPERATIONS,
+  BST_OPERATIONS,
   CIRCULAR_OPERATIONS,
   DOUBLY_OPERATIONS,
   HEAP_OPERATIONS,
@@ -142,8 +143,13 @@ function refusalReason(
       (o) => OPERATION_LABEL[o],
     ).join(', ')}.`;
   }
+  if (recipe === 'bst') {
+    return `el árbol de búsqueda tiene listado para: ${BST_OPERATIONS.map(
+      (o) => OPERATION_LABEL[o],
+    ).join(', ')}.`;
+  }
   if (BINARY_TREE_OPERATIONS.includes(operation)) {
-    return 'es un recorrido de árbol. Úsalo con eda="binary-tree".';
+    return 'es una operación de árbol. Úsala con eda="binary-tree".';
   }
   if (operation === 'insert-ordered' && !recipe.startsWith('linked-list')) {
     return 'esta clase presenta el orden como una variante de la lista, no del arreglo.';
@@ -164,6 +170,7 @@ const RECIPE_LABEL: Record<SequenceRecipe, string> = {
   'linked-list-circular': 'lista circular',
   'heap-max': 'heap (máximo)',
   'binary-tree': 'árbol binario',
+  bst: 'árbol binario de búsqueda',
 };
 
 const OPERATION_LABEL: Record<SequenceOperation, string> = {
@@ -181,6 +188,7 @@ const OPERATION_LABEL: Record<SequenceOperation, string> = {
   preorder: 'recorrer en preorden',
   inorder: 'recorrer en inorden',
   postorder: 'recorrer en postorden',
+  height: 'calcular la altura',
 };
 
 /** The most elements the picture stays legible with, measured on a slide. */
@@ -529,7 +537,7 @@ function Body({
           {/* A tree's listing has no size field to show, so it gets no readout. */}
           <div
             data-testid="sequence-size"
-            hidden={recipe === 'binary-tree'}
+            hidden={trace.tree !== undefined}
             className="pointer-events-none absolute right-3 top-2 z-10 text-center"
           >
             {/* The heap's listing calls the field `n`, and past it the array
@@ -565,8 +573,13 @@ function Body({
               was chrome that reset between runs with nothing to say.
             */}
           </div>
-          {recipe === 'binary-tree' && trace.tree !== undefined ? (
-            <TreeView step={step} meta={trace.tree} presentation={isPresentation} />
+          {trace.tree !== undefined ? (
+            <TreeView
+              step={step}
+              meta={trace.tree}
+              label={RECIPE_LABEL[recipe]}
+              presentation={isPresentation}
+            />
           ) : heap ? (
             <HeapView
               step={step}
@@ -643,11 +656,27 @@ function Body({
         </label>
 
         <span className="ml-auto flex flex-wrap items-center gap-3 font-mono text-3xs text-ink-faint">
-          {recipe === 'binary-tree' ? (
+          {trace.tree !== undefined ? (
             <>
-              <LegendSwatch swatchClass="border-mark bg-mark-soft" label="se visita" />
+              {operation === 'search' ? (
+                <LegendSwatch swatchClass="border-keep bg-keep-soft" label="encontrado" />
+              ) : (
+                <LegendSwatch
+                  swatchClass="border-mark bg-mark-soft"
+                  label={
+                    operation === 'height'
+                      ? 'acaba de responder'
+                      : operation === 'insert'
+                        ? 'nuevo'
+                        : 'se visita'
+                  }
+                />
+              )}
               <LegendSwatch swatchClass="border-focus bg-surface" label="bajo la mirada" />
               <LegendSwatch swatchClass="border-rule-strong bg-sunk" label="ya visitado" />
+              {recipe === 'bst' && operation === 'search' ? (
+                <LegendSwatch swatchClass="border-rule bg-surface" label="descartado" />
+              ) : null}
             </>
           ) : (
             <>
@@ -855,14 +884,16 @@ function StructureView({
 function TreeView({
   step,
   meta,
+  label,
   presentation,
 }: {
   step: SequenceStep;
-  meta: { columns: Record<number, number>; slots: number; depth: number };
+  meta: { columns: Record<number, number>; slots: number; depth: number; strip: boolean };
+  label: string;
   presentation: boolean;
 }) {
   const tree = step.tree!;
-  const layout = layoutTree(meta.slots, meta.depth);
+  const layout = layoutTree(meta.slots, meta.depth, meta.strip);
   const byId = new Map(tree.nodes.map((n) => [n.id, n]));
   const depthOf = new Map<number, number>();
   const walk = (id: number | null, level: number) => {
@@ -876,9 +907,11 @@ function TreeView({
   const at = (id: number) => layout.node(meta.columns[id]!, depthOf.get(id)!);
   const hot = new Set(tree.path.slice(1).map((id, i) => `${tree.path[i]}-${id}`));
   const written = tree.strip.filter((v) => v !== null);
-  const summary = `Árbol binario con raíz ${byId.get(tree.root ?? -1)?.value ?? 'vacía'} y ${tree.nodes.length} nodos.${
-    written.length > 0 ? ` Visitados en orden: ${written.join(', ')}.` : ''
-  } ${step.description}`;
+  const kind = label.charAt(0).toUpperCase() + label.slice(1);
+  const root = tree.root === null ? undefined : byId.get(tree.root);
+  const summary = `${kind} ${
+    root === undefined ? 'vacío' : `con raíz ${root.value} y ${tree.nodes.length} nodos`
+  }.${written.length > 0 ? ` En la tira: ${written.join(', ')}.` : ''} ${step.description}`;
 
   return (
     <div
@@ -898,6 +931,8 @@ function TreeView({
             if (child === null) return null;
             const e = treeEdge(at(n.id), at(child));
             const lit = hot.has(`${n.id}-${child}`);
+            // An edge into a subtree the search ruled out fades with it.
+            const out = byId.get(child)?.state === 'discarded';
             return (
               <line
                 key={`${n.id}-${child}`}
@@ -905,15 +940,23 @@ function TreeView({
                 y1={e.y1}
                 x2={e.x2}
                 y2={e.y2}
-                stroke={lit ? 'var(--color-focus)' : 'var(--color-rule-strong)'}
+                stroke={
+                  lit
+                    ? 'var(--color-focus)'
+                    : out
+                      ? 'var(--color-rule)'
+                      : 'var(--color-rule-strong)'
+                }
                 strokeWidth={lit ? 2.6 : 1.2}
+                strokeDasharray={out ? '4 3' : undefined}
               />
             );
           }),
         )}
         {tree.nodes.map((n) => {
           const { cx, cy } = at(n.id);
-          const strong = n.state !== 'idle' && n.state !== 'visited';
+          const strong = n.state !== 'idle' && n.state !== 'visited' && n.state !== 'discarded';
+          const out = n.state === 'discarded';
           return (
             <g
               key={n.id}
@@ -921,6 +964,9 @@ function TreeView({
               data-value={n.value}
               data-column={meta.columns[n.id]}
               data-state={n.state}
+              // Ruled out by the invariant: faded and dashed, so the colour is
+              // not the only signal.
+              opacity={out ? 0.45 : undefined}
             >
               <circle
                 cx={cx}
@@ -929,7 +975,19 @@ function TreeView({
                 fill={CELL_FILL[n.state]}
                 stroke={CELL_STROKE[n.state]}
                 strokeWidth={strong ? 2.4 : 1.2}
+                strokeDasharray={out ? '4 3' : undefined}
               />
+              {n.state === 'found' ? (
+                <text
+                  x={cx}
+                  y={cy + TREE_NODE_R + 12}
+                  textAnchor="middle"
+                  fontSize="9"
+                  fill="var(--color-ink-soft)"
+                >
+                  {CELL_NOTE.found}
+                </text>
+              ) : null}
               <text
                 x={cx}
                 y={cy + 5}

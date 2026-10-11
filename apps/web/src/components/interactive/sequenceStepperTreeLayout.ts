@@ -56,16 +56,19 @@ export interface TreeLayout {
  * `slots` is how many columns the run ever needs — every node it ever holds —
  * and `depth` the deepest level any frame reaches. Both come from the whole
  * run, so the canvas keeps one size from the first frame to the last.
+ * `withStrip` is false for an operation that writes nothing out, which then
+ * gets no strip and no room reserved for one.
  */
-export function layoutTree(slots: number, depth: number): TreeLayout {
+export function layoutTree(slots: number, depth: number, withStrip = true): TreeLayout {
   const columnX = (column: number) => PAD + (column + 0.5) * COLUMN_W;
   const rowY = (level: number) => PAD + TREE_NODE_R + level * LEVEL_H;
-  const stripY = rowY(depth) + TREE_NODE_R + NOTE_H + STRIP_GAP;
+  const below = rowY(depth) + TREE_NODE_R + NOTE_H;
+  const stripY = below + STRIP_GAP;
   return {
     width: 2 * PAD + slots * COLUMN_W,
-    height: stripY + SLOT_H + PAD,
+    height: withStrip ? stripY + SLOT_H + PAD : below + PAD,
     node: (column, level) => ({ cx: columnX(column), cy: rowY(level) }),
-    strip: Array.from({ length: slots }, (_, column) => ({
+    strip: Array.from({ length: withStrip ? slots : 0 }, (_, column) => ({
       cx: columnX(column),
       y: stripY,
       w: SLOT_W,

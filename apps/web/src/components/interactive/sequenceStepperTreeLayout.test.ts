@@ -61,6 +61,13 @@ describe('sequenceStepperTreeLayout · the columns', () => {
     }
   });
 
+  it('leaves no room for a strip when the operation writes none', () => {
+    const bare = layoutTree(6, 2, false);
+    expect(bare.strip).toEqual([]);
+    expect(bare.height).toBeLessThan(layoutTree(6, 2).height);
+    expect(bare.height).toBeGreaterThan(bare.node(0, 2).cy + TREE_NODE_R);
+  });
+
   it('is sized by the run, so the canvas does not jump between frames', () => {
     expect(layoutTree(8, 2).width).toBeGreaterThan(layoutTree(6, 2).width);
     expect(layoutTree(6, 4).height).toBeGreaterThan(layoutTree(6, 2).height);
