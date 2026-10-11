@@ -43,9 +43,9 @@ paciente, la urgencia de una tarea, el instante en que ocurrirá un evento o
 el tamaño de un archivo. Lo único que el contrato exige es que, dados dos
 elementos, siempre se pueda decir cuál va primero.
 
-En la mayoría de los ejemplos de esta clase, la prioridad la da el propio
-valor de los datos que se guardan: por lo general, el elemento mayor es el de
-mayor prioridad. Algunos ejemplos usan el orden inverso, y cuando ocurre se
+En la mayoría de los ejemplos, la prioridad la da el propio valor de los
+datos que se guardan: por lo general, el elemento mayor es el de mayor
+prioridad. Algunos ejemplos usan el orden inverso, y cuando ocurre se
 indica explícitamente.
 
 <svg viewBox="0 0 700 250" style={{ width: '100%', maxWidth: '700px', height: 'auto', display: 'block', margin: '1.25rem auto' }} role="img" aria-label="Llegan, en este orden, 3, 8, 1 y 5, y la misma llegada se reparte en dos flechas. Hacia una cola común, sale primero el 3, el primero que llegó. Hacia una cola de prioridad, sale primero el 8, el mayor, aunque llegó segundo.">
@@ -1785,10 +1785,9 @@ o el elemento llega a una hoja.
 
 <Slide title="Achicar el arreglo cuando sobra espacio">
 Después de sacar, el arreglo puede quedar con demasiadas casillas vacías.
-Lo resuelve `shrinkIfSparse`, la misma del arreglo dinámico, con la
-implementación que tiene en la clase de arreglos: si `n` llega a un cuarto
-de `data.length`, reserva un bloque de la mitad y copia `data[1..n]`. Lo que
-quedaba fuera del heap no se copia. Si el arreglo sigue con suficiente uso,
+Lo resuelve `shrinkIfSparse`, la misma del arreglo dinámico: si `n` llega a
+un cuarto de `data.length`, reserva un bloque de la mitad y copia
+`data[1..n]`. Lo que quedaba fuera del heap no se copia. Si el arreglo sigue con suficiente uso,
 este paso no ocurre.
 
 <div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-ink-soft)', textAlign: 'center' }}>cuatro extracciones después: n = 4 en data.length = 16, un cuarto</div>
@@ -1844,10 +1843,9 @@ int extractMax() {
 - **`swap(1, n)` y `n--`**: el máximo sale por la última hoja. La invariante
   de forma completa se mantiene.
 - **`sink(1)`**: restaura la invariante de orden de heap desde la raíz.
-- **`shrinkIfSparse()`**: la misma función del arreglo dinámico, con la
-  implementación que tiene en la clase de arreglos. Si `n` llega a un
-  cuarto de `data.length`, el arreglo se achica a la mitad, y así nunca
-  ocupa más de cuatro veces el espacio que necesita.
+- **`shrinkIfSparse()`**: la misma función del arreglo dinámico. Si `n`
+  llega a un cuarto de `data.length`, el arreglo se achica a la mitad, y así
+  nunca ocupa más de cuatro veces el espacio que necesita.
 
 Sobre un heap vacío no hay máximo que sacar, y la guarda lo dice con
 `NoSuchElementException`.
