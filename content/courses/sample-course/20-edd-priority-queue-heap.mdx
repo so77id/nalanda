@@ -358,9 +358,6 @@ export function HeapPicture({
         <marker id={`${idPrefix}-arc`} markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto">
           <path d="M0,0 L7,3.5 L0,7 z" style={{ fill: 'var(--color-ink-soft)' }} />
         </marker>
-        <marker id={`${idPrefix}-ruler`} markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto-start-reverse">
-          <path d="M0,0 L7,3.5 L0,7 z" style={{ fill: 'var(--color-ink)' }} />
-        </marker>
       </defs>
       {view !== 'array' && heightRuler ? (() => {
         const x = treeX + 16;
@@ -368,7 +365,8 @@ export function HeapPicture({
         const y2 = pad + r + (levels - 1) * levelH;
         return (
           <g>
-            <line x1={x} y1={y1 + 4} x2={x} y2={y2 - 4} style={{ stroke: 'var(--color-ink)' }} strokeWidth="1.6" markerStart={`url(#${idPrefix}-ruler)`} markerEnd={`url(#${idPrefix}-ruler)`} />
+            {/* From the top of the root to the bottom of the last level, no tips. */}
+            <line x1={x} y1={y1 - r} x2={x} y2={y2 + r} style={{ stroke: 'var(--color-ink)' }} strokeWidth="1.6" />
             <text x={x - 6} y={(y1 + y2) / 2} textAnchor="middle" fontSize="11" fontWeight="700" transform={`rotate(-90 ${x - 6} ${(y1 + y2) / 2})`} style={{ fill: 'var(--color-ink)' }}>altura = ⌊log₂ n⌋</text>
           </g>
         );
@@ -1116,7 +1114,7 @@ recorre a lo más $$\lfloor \log_2 N \rfloor$$ aristas: 2 en el heap de
 ejemplo, 20 en uno de un millón.
 
 <div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-ink-soft)', textAlign: 'center' }}>n = 7: altura = ⌊log₂ 7⌋ = 2</div>
-<HeapPicture values={[10, 7, 8, 1, 3, 2, 4]} view="tree" levelLines levelColors heightRuler idPrefix="pq-alt-ins" label="El heap de ejemplo con sus tres niveles marcados: 0, 1 y 2. A la izquierda, una flecha de la raíz al último nivel rotulada altura = piso de logaritmo en base 2 de n; con n = 7, la altura es 2: de cualquier hoja a la raíz hay a lo más dos aristas." />
+<HeapPicture values={[10, 7, 8, 1, 3, 2, 4]} view="tree" levelLines levelColors heightRuler idPrefix="pq-alt-ins" label="El heap de ejemplo con sus tres niveles marcados: 0, 1 y 2. A la izquierda, una línea de la raíz al último nivel rotulada altura = piso de logaritmo en base 2 de n; con n = 7, la altura es 2: de cualquier hoja a la raíz hay a lo más dos aristas." />
 
 | Molde     | Operación   | Peor caso     | Amortizado    | Invariante que restaura                                    |
 | --------- | ----------- | ------------- | ------------- | ---------------------------------------------------------- |
@@ -1328,7 +1326,7 @@ nivel hace una cantidad constante de trabajo: elegir el hijo mayor,
 compararlo y, si hace falta, intercambiar.
 
 <div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-ink-soft)', textAlign: 'center' }}>el 1 bajó de la raíz a una hoja: 2 aristas, la altura ⌊log₂ 7⌋ = 2</div>
-<HeapPicture values={[9, 7, 8, 1, 3, 2, 4]} view="tree" levelLines levelColors heightRuler idPrefix="pq-alt-ext" hot={[1, 2, 4]} label="A la izquierda, una flecha de la raíz al último nivel rotulada altura = piso de logaritmo en base 2 de n. El heap después de extraer el 10, con sus tres niveles marcados. El camino que recorrió el 1, de la raíz a la posición 4, resaltado: dos aristas, una por nivel." />
+<HeapPicture values={[9, 7, 8, 1, 3, 2, 4]} view="tree" levelLines levelColors heightRuler idPrefix="pq-alt-ext" hot={[1, 2, 4]} label="A la izquierda, una línea de la raíz al último nivel rotulada altura = piso de logaritmo en base 2 de n. El heap después de extraer el 10, con sus tres niveles marcados. El camino que recorrió el 1, de la raíz a la posición 4, resaltado: dos aristas, una por nivel." />
 
 ¿Cuántos niveles puede bajar? En un árbol completo de $$N$$ nodos, el
 camino de la raíz a una hoja tiene a lo más $$\lfloor \log_2 N \rfloor$$
