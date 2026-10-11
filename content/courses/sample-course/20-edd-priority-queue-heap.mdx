@@ -275,6 +275,7 @@ export function HeapPicture({
   capacity,
   reserveCells,
   heightRuler = false,
+  tags = {},
   idPrefix = 'heap-pic',
   label,
 }) {
@@ -301,7 +302,10 @@ export function HeapPicture({
   // A vertical ruler from the root's level to the last one, left of the
   // level labels: the height of the tree, written as floor(log2 n).
   const rulerW = heightRuler ? 40 : 0;
-  const treeW = rulerW + labelW + 2 * pad + leaves * pitch;
+  // A tag is a short word written beside one node ("el peor"); the canvas
+  // grows on both sides so the tree stays centred.
+  const tagW = Object.keys(tags).length > 0 ? 56 : 0;
+  const treeW = rulerW + labelW + 2 * pad + leaves * pitch + 2 * tagW;
   const treeH = view === 'array' ? 0 : 2 * pad + 2 * r + (levels - 1) * levelH;
   // Zero-based storage has no unused slot: the root sits in data[0].
   const lead = zeroBased ? 0 : 1;
@@ -327,7 +331,7 @@ export function HeapPicture({
   const at = (k) => {
     const level = levelOf(k);
     const span = leaves / 2 ** level;
-    return { cx: treeX + rulerW + labelW + pad + (k - 2 ** level + 0.5) * span * pitch, cy: pad + r + level * levelH };
+    return { cx: treeX + rulerW + labelW + tagW + pad + (k - 2 ** level + 0.5) * span * pitch, cy: pad + r + level * levelH };
   };
   // Past n: a copy nobody reads any more — what extractMax leaves behind in
   // data[n + 1]. Drawn dashed and faint in the array; the tree never draws it.
@@ -437,6 +441,9 @@ export function HeapPicture({
             <circle cx={c.cx} cy={c.cy} r={r} style={{ fill: fill(k), stroke: stroke(k) }} strokeWidth={weight(k)} />
             <text x={c.cx} y={c.cy + 5} textAnchor="middle" fontSize="14" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{values[k - 1]}</text>
             <text x={c.cx} y={c.cy + r + 13} textAnchor="middle" fontSize="11" fontWeight="600" style={{ fill: 'var(--color-ink-soft)' }}>{shown(k)}</text>
+            {tags[k] ? (
+              <text x={c.cx + r + 6} y={c.cy + 4} fontSize="11" fontWeight="700" style={{ fill: 'var(--color-mark)' }}>{tags[k]}</text>
+            ) : null}
           </g>
         );
       })}
@@ -683,6 +690,138 @@ export function TaskCompare({ rows, label }) {
         );
       })}
     </svg>
+  );
+}
+
+{/* NumBox, CellRow, TopKExamples, SortAllPicture, TopKStrip, TopKFrame — the Top-K exercise's drawings. File-local like HeapPicture (§6e-quater). */}
+
+export function NumBox({ x, y, v, tone, size = 34 }) {
+  const stroke = { keep: 'var(--color-keep)', mark: 'var(--color-mark)', flag: 'var(--color-flag)', hot: 'var(--color-accent)', faint: 'var(--color-rule)', empty: 'var(--color-rule)' }[tone] ?? 'var(--color-rule-strong)';
+  const fill = { keep: 'var(--color-keep-soft)', mark: 'var(--color-mark-soft)', flag: 'var(--color-flag-soft)', faint: 'var(--color-sunk)', empty: 'var(--color-sunk)' }[tone] ?? 'var(--color-surface)';
+  const weight = tone === 'hot' ? 2.6 : tone === 'keep' || tone === 'mark' || tone === 'flag' ? 2 : 1.4;
+  return (
+    <g>
+      <rect x={x} y={y} width={size} height={size} rx="4" style={{ fill, stroke }} strokeWidth={weight} strokeDasharray={tone === 'empty' ? '4 3' : undefined} />
+      {/* A discarded number is struck through, under the digit so it stays legible. */}
+      {tone === 'flag' ? (
+        <path d={`M ${x + 5} ${y + size - 5} L ${x + size - 5} ${y + 5}`} style={{ stroke: 'var(--color-flag)' }} strokeWidth="1.6" strokeLinecap="round" opacity="0.7" />
+      ) : null}
+      {v === null || v === undefined ? null : (
+        <text x={x + size / 2} y={y + size / 2 + 5} textAnchor="middle" fontSize="15" fontWeight="600" style={{ fill: tone === 'faint' ? 'var(--color-ink-faint)' : 'var(--color-ink)' }}>{v}</text>
+      )}
+    </g>
+  );
+}
+
+export function CellRow({ title, values, tones = [], width = 360, label }) {
+  return (
+    <svg viewBox={`0 0 ${width} 44`} style={{ width: '100%', maxWidth: `${Math.round(width * 1.2)}px`, height: 'auto', display: 'block', margin: '0.2rem auto' }} role="img" aria-label={label}>
+      <text x="0" y="27" fontSize="12" fontWeight="600" style={{ fill: 'var(--color-ink-soft)' }}>{title}</text>
+      {values.length === 0 ? (
+        <text x="88" y="27" fontSize="12" style={{ fill: 'var(--color-ink-faint)' }}>vacío</text>
+      ) : null}
+      {values.map((v, i) => (
+        <NumBox key={i} x={88 + i * 38} y={5} v={v} tone={v === null ? 'empty' : tones[i]} />
+      ))}
+    </svg>
+  );
+}
+
+export function TopKExamples({ rows, label }) {
+  // Each row: k, the sequence, the positions of the k largest in it, and the result.
+  const rowH = 52;
+  const resultX = 92 + 7 * 38 + 46;
+  return (
+    <svg viewBox={`0 0 ${resultX + 3 * 38 + 4} ${rows.length * rowH}`} style={{ width: '100%', maxWidth: '600px', height: 'auto', display: 'block', margin: '0.75rem auto' }} role="img" aria-label={label}>
+      {rows.map((r, i) => {
+        const y = 6 + i * rowH;
+        return (
+          <g key={i}>
+            <text x="0" y={y + 23} fontSize="14" fontWeight="700" style={{ fill: 'var(--color-ink)' }}>{`K = ${r.k}`}</text>
+            {r.stream.length === 0 ? (
+              <text x="92" y={y + 23} fontSize="13" style={{ fill: 'var(--color-ink-faint)' }}>secuencia vacía</text>
+            ) : null}
+            {r.stream.map((v, j) => (
+              <NumBox key={j} x={92 + j * 38} y={y} v={v} tone={r.chosen.includes(j) ? 'keep' : undefined} />
+            ))}
+            <text x={resultX - 24} y={y + 23} textAnchor="middle" fontSize="18" style={{ fill: 'var(--color-ink-soft)' }}>→</text>
+            {r.result.length === 0 ? (
+              <text x={resultX} y={y + 23} fontSize="13" style={{ fill: 'var(--color-ink-faint)' }}>vacío</text>
+            ) : null}
+            {r.result.map((v, j) => (
+              <NumBox key={j} x={resultX + j * 38} y={y} v={v} tone="keep" />
+            ))}
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
+
+export function SortAllPicture({ stream, sorted, k, label }) {
+  const x0 = 120;
+  const rowW = sorted.length * 38 - 4;
+  const keepW = k * 38 - 4;
+  return (
+    <svg viewBox={`0 0 ${x0 + rowW + 8} 202`} style={{ width: '100%', maxWidth: '560px', height: 'auto', display: 'block', margin: '0.75rem auto' }} role="img" aria-label={label}>
+      <text x="0" y="27" fontSize="12" fontWeight="600" style={{ fill: 'var(--color-ink-soft)' }}>la secuencia</text>
+      {stream.map((v, i) => (
+        <NumBox key={i} x={x0 + i * 38} y={6} v={v} />
+      ))}
+      <text x={x0 + rowW / 2} y="66" textAnchor="middle" fontSize="12" fontWeight="600" style={{ fill: 'var(--color-ink-soft)' }}>se guarda entera y se ordena ↓</text>
+      <text x="0" y="111" fontSize="12" fontWeight="600" style={{ fill: 'var(--color-ink-soft)' }}>ordenada</text>
+      {sorted.map((v, i) => (
+        <NumBox key={i} x={x0 + i * 38} y={90} v={v} tone={i < k ? 'keep' : 'faint'} />
+      ))}
+      <path d={`M ${x0} 130 l 0 8 l ${keepW} 0 l 0 -8`} fill="none" style={{ stroke: 'var(--color-keep)' }} strokeWidth="1.6" />
+      <text x={x0 + keepW / 2} y="155" textAnchor="middle" fontSize="12" fontWeight="700" style={{ fill: 'var(--color-keep)' }}>{`se usan ${k}`}</text>
+      <path d={`M ${x0} 166 l 0 8 l ${rowW} 0 l 0 -8`} fill="none" style={{ stroke: 'var(--color-ink-soft)' }} strokeWidth="1.4" />
+      <text x={x0 + rowW / 2} y="192" textAnchor="middle" fontSize="12" fontWeight="600" style={{ fill: 'var(--color-ink-soft)' }}>se guardan los N</text>
+    </svg>
+  );
+}
+
+export function TopKStrip({ steps, k, label }) {
+  // One column per number that arrives: the number, then the k best so far
+  // from the worst (marked, on top) down, then what happened.
+  const colW = 78;
+  const x0 = 104;
+  const groupY = 70;
+  return (
+    <svg viewBox={`0 0 ${x0 + steps.length * colW} 238`} style={{ width: '100%', maxWidth: '760px', height: 'auto', display: 'block', margin: '0.75rem auto' }} role="img" aria-label={label}>
+      <text x="0" y="27" fontSize="12" fontWeight="600" style={{ fill: 'var(--color-ink-soft)' }}>llega</text>
+      <text x="0" y={groupY + 21} fontSize="12" fontWeight="600" style={{ fill: 'var(--color-ink-soft)' }}>{`los ${k} mejores`}</text>
+      <text x="0" y={groupY + 37} fontSize="11" style={{ fill: 'var(--color-mark)' }}>el peor, arriba</text>
+      {steps.map((s, i) => {
+        const cx = x0 + i * colW + colW / 2;
+        return (
+          <g key={i}>
+            <NumBox x={cx - 17} y={6} v={s.x} tone={s.verdict === 'descarta' ? 'flag' : 'hot'} />
+            <line x1={cx} y1={44} x2={cx} y2={groupY - 6} style={{ stroke: 'var(--color-rule)' }} strokeWidth="1.2" />
+            {s.group.map((v, j) => (
+              <NumBox key={j} x={cx - 17} y={groupY + j * 38} v={v} tone={j === 0 && s.group.length === k ? 'mark' : v === s.x && s.verdict !== 'descarta' ? 'keep' : undefined} />
+            ))}
+            <text x={cx} y={groupY + k * 38 + 22} textAnchor="middle" fontSize="12" fontWeight="600" style={{ fill: s.verdict === 'descarta' ? 'var(--color-flag)' : 'var(--color-ink-soft)' }}>{s.verdict === 'descarta' ? 'se descarta' : 'entra'}</text>
+            {s.out === undefined ? null : (
+              <text x={cx} y={groupY + k * 38 + 40} textAnchor="middle" fontSize="12" style={{ fill: 'var(--color-ink-faint)' }}>{`sale ${s.out}`}</text>
+            )}
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
+
+export function TopKFrame({ stream, at = -1, discarded = false, heap, hot = [], k, result, label }) {
+  const tones = stream.map((_, i) => (i === at ? (discarded ? 'flag' : 'hot') : i < at ? 'faint' : undefined));
+  return (
+    <div>
+      <CellRow title="secuencia" values={stream} tones={tones} label={`La secuencia ${stream.join(', ')}${at >= 0 && at < stream.length ? `; se está mirando el ${stream[at]}` : ''}.`} />
+      <HeapPicture values={heap} view="tree" minLevels={2} hot={hot} tags={heap.length === k ? { 1: 'el peor' } : {}} label={label} />
+      {result ? (
+        <CellRow title="resultado" values={result} tones={result.map(() => 'keep')} label={`El resultado: ${result.map((v) => (v === null ? 'vacío' : v)).join(', ')}.`} />
+      ) : null}
+    </div>
   );
 }
 
@@ -2092,37 +2231,45 @@ día, y al final del día hay que informar los $$K$$ más lentos. Los tiempos
 llegan de a uno y no se pueden volver a pedir.
 
 El programa recibe $$K$$ y la secuencia, y devuelve los $$K$$ valores
-mayores ordenados de mayor a menor:
+mayores, de mayor a menor. Si la secuencia tiene menos de $$K$$ números,
+devuelve todos; los valores repetidos cuentan por separado.
+
+<div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-ink-soft)', textAlign: 'center' }}>en verde, los K mayores de cada secuencia y el resultado</div>
+<TopKExamples
+  rows={[
+    { k: 3, stream: [5, 1, 9, 3, 7, 2, 8], chosen: [2, 4, 6], result: [9, 8, 7] },
+    { k: 2, stream: [6, 6, 1], chosen: [0, 1], result: [6, 6] },
+    { k: 2, stream: [4], chosen: [0], result: [4] },
+    { k: 1, stream: [], chosen: [], result: [] },
+  ]}
+  label="Cuatro ejemplos. Con K = 3 sobre 5, 1, 9, 3, 7, 2, 8, los tres mayores son 9, 7 y 8, y el resultado es 9, 8, 7. Con K = 2 sobre 6, 6, 1, el resultado es 6, 6. Con K = 2 sobre una secuencia de un solo número, 4, el resultado es 4. Con K = 1 sobre la secuencia vacía, el resultado es vacío."
+/>
 
 ```java
 int[] topK(int k, int[] stream)
 ```
 
-**Entrada.** `k`, mayor que cero; `stream`, con a lo más 10⁶ números. Los
-valores se pueden repetir.
+**Entrada.** `k`, mayor que cero; `stream`, con a lo más 10⁶ números.
 
-**Salida.** Los `k` mayores de `stream`, de mayor a menor. Si `stream` tiene
-menos de `k` números, todos ellos, de mayor a menor.
-
-| `k` | `stream`              | resultado |
-| --- | --------------------- | --------- |
-| `3` | `5 1 9 3 7 2 8`       | `9 8 7`   |
-| `2` | `6 6 1`               | `6 6`     |
-| `2` | `4`                   | `4`       |
-| `1` | (vacío)               | (vacío)   |
+**Salida.** Los `k` mayores de `stream`, de mayor a menor.
 
 </Slide>
 
 <Slide title="Ordenar la secuencia entera">
-Lo primero que se piensa es guardar todos los números, ordenarlos y tomar
-los primeros $$K$$. Da el resultado correcto, y cobra dos cosas que el
-problema no necesita.
+Lo primero que se piensa es guardar todos los números, ordenarlos de mayor a
+menor y tomar los primeros $$K$$. Da el resultado correcto, y cobra dos cosas
+que el problema no necesita:
 
-Cuesta $$\Theta(N \log N)$$, cuando sólo interesan $$K$$ posiciones del
-orden. Y ocupa $$\Theta(N)$$ de memoria: con un millón de tiempos por día
-hay que tener el millón guardado al mismo tiempo, para quedarse con tres.
+<div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-ink-soft)', textAlign: 'center' }}>K = 3 sobre la secuencia de ejemplo</div>
+<SortAllPicture stream={[5, 1, 9, 3, 7, 2, 8]} sorted={[9, 8, 7, 5, 3, 2, 1]} k={3} label="La secuencia 5, 1, 9, 3, 7, 2, 8 se guarda entera y se ordena: 9, 8, 7, 5, 3, 2, 1. Sólo los tres primeros, 9, 8 y 7, se usan; los siete se guardaron." />
 
-Guardar todo en un max-heap y extraer $$K$$ veces mejora el tiempo pero no
+- **El tiempo.** Ordenar cuesta $$\Theta(N \log N)$$, y del orden completo
+  sólo interesan las primeras $$K$$ posiciones.
+- **La memoria.** Hay que tener los $$N$$ números guardados al mismo tiempo
+  para quedarse con $$K$$. Con millones de tiempos por día y $$K$$ pequeño,
+  casi todo lo guardado se descarta al final.
+
+Guardar todo en un max-heap y extraer $$K$$ veces mejora el tiempo, pero no
 la memoria: el heap también tiene los $$N$$ adentro.
 
 </Slide>
@@ -2134,29 +2281,36 @@ entre ellos, y eso depende de un solo valor: **el peor de los $$K$$**. Si el
 nuevo es mayor que ese peor, lo reemplaza; si no, se descarta sin mirar a
 los otros.
 
-Lo que hay que tener a mano es entonces el **mínimo** de un grupo de $$K$$
-números que cambia a cada rato: sacarlo, agregar otro, y volver a saber cuál
-es el mínimo. Eso es un **min-heap de tamaño $$K$$**.
+<div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-ink-soft)', textAlign: 'center' }}>K = 3 sobre 5 1 9 3 7 2 8</div>
+<TopKStrip
+  k={3}
+  steps={[
+    { x: 5, group: [5], verdict: 'entra' },
+    { x: 1, group: [1, 5], verdict: 'entra' },
+    { x: 9, group: [1, 5, 9], verdict: 'entra' },
+    { x: 3, group: [3, 5, 9], verdict: 'entra', out: 1 },
+    { x: 7, group: [5, 7, 9], verdict: 'entra', out: 3 },
+    { x: 2, group: [5, 7, 9], verdict: 'descarta' },
+    { x: 8, group: [7, 8, 9], verdict: 'entra', out: 5 },
+  ]}
+  label="Llegan 5, 1, 9, 3, 7, 2 y 8, y debajo de cada uno, los tres mejores vistos hasta ahora con el peor arriba. 5, 1 y 9 entran sin comparar, y el peor es 1. Llega 3: entra y sale el 1; el peor es 3. Llega 7: entra y sale el 3; el peor es 5. Llega 2, menor que 5: se descarta. Llega 8: entra y sale el 5. Quedan 7, 8 y 9."
+/>
 
-A mano, con $$K = 3$$ sobre `5 1 9 3 7 2 8`: los tres primeros entran sin
-preguntar, `{1, 5, 9}`. Llega 3, mayor que el peor, 1: sale 1, entra 3. Llega
-7, mayor que 3: sale 3, entra 7, y queda `{5, 7, 9}`. Llega 2, menor que 5:
-se descarta. Llega 8, mayor que 5: queda `{7, 8, 9}`.
+Lo que hay que tener a mano es entonces el **mínimo** de un grupo de $$K$$
+números que cambia a cada rato: sacarlo, agregar otro y volver a saber cuál
+es el mínimo. Eso es un **min-heap de tamaño $$K$$**.
 
 </Slide>
 
 <Slide title="Top-K · la solución">
-`PriorityQueue` sin comparador es el min-heap que la idea pide, y `peek()`
-es su peor elemento. Al final, el heap guarda los $$K$$ mayores y los
-entrega del menor al mayor, así que se escriben en el arreglo de atrás hacia
-adelante.
+Una `PriorityQueue` sin comparador es el min-heap que la idea pide, y su
+raíz, `peek()`, es el peor de los $$K$$. Al final el heap entrega los $$K$$
+mayores del menor al mayor, así que se escriben en el resultado de atrás
+hacia adelante.
 
 <StepShow
   language="java"
   code={`static int[] topK(int k, int[] stream) {
-      if (k <= 0) {
-          throw new IllegalArgumentException();
-      }
       PriorityQueue<Integer> best = new PriorityQueue<>();
       for (int x : stream) {
           if (best.size() < k) {
@@ -2173,49 +2327,110 @@ adelante.
       return out;
   }`}
 >
-  <Step lines={[7, 8]}>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>5, 1 y 9 entran sin comparar: el heap todavía no tiene tres. El peor, en la raíz, es 1.</div>
-    <HeapPicture values={[1, 5, 9]} view="tree" label="Min-heap con 1 en la raíz y 5 y 9 como hijos." />
+  <Step lines={[2]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>El heap arranca vacío.</div>
+    <TopKFrame stream={[5, 1, 9, 3, 7, 2, 8]} at={-1} heap={[]} k={3} result={[null, null, null]} label="El heap, en orden de arreglo: vacío." />
   </Step>
-  <Step lines={[9, 10, 11]}>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Llega 3, mayor que el peor: sale 1, entra 3.</div>
-    <HeapPicture values={[3, 9, 5]} view="tree" hot={[1]} label="Min-heap con 3 en la raíz y 9 y 5 como hijos." />
+  <Step lines={[4, 5]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>5: el heap tiene menos de 3, así que entra sin comparar.</div>
+    <TopKFrame stream={[5, 1, 9, 3, 7, 2, 8]} at={0} heap={[5]} hot={[1]} k={3} result={[null, null, null]} label="El heap, en orden de arreglo: 5." />
   </Step>
-  <Step lines={[9, 10, 11]}>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Llega 7, mayor que 3: sale 3, entra 7. El peor es ahora 5.</div>
-    <HeapPicture values={[5, 9, 7]} view="tree" hot={[3]} label="Min-heap con 5 en la raíz y 9 y 7 como hijos." />
+  <Step lines={[4, 5]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>1: entra sin comparar y sube a la raíz.</div>
+    <TopKFrame stream={[5, 1, 9, 3, 7, 2, 8]} at={1} heap={[1, 5]} hot={[1]} k={3} result={[null, null, null]} label="El heap, en orden de arreglo: 1, 5." />
   </Step>
-  <Step lines={[9]}>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Llega 2, que no supera a 5: se descarta, y el heap no cambia.</div>
-    <HeapPicture values={[5, 9, 7]} view="tree" label="El mismo min-heap: 5 en la raíz, 9 y 7 como hijos." />
+  <Step lines={[4, 5]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>9: entra sin comparar. Ahora el heap tiene 3, y su raíz, el 1, es el peor.</div>
+    <TopKFrame stream={[5, 1, 9, 3, 7, 2, 8]} at={2} heap={[1, 5, 9]} hot={[3]} k={3} result={[null, null, null]} label="El heap, en orden de arreglo: 1, 5, 9." />
   </Step>
-  <Step lines={[9, 10, 11]}>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Llega 8, mayor que 5: sale 5, entra 8.</div>
-    <HeapPicture values={[7, 9, 8]} view="tree" hot={[3]} label="Min-heap con 7 en la raíz y 9 y 8 como hijos." />
+  <Step lines={[6, 7]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>3 es mayor que el peor, 1: sale el 1.</div>
+    <TopKFrame stream={[5, 1, 9, 3, 7, 2, 8]} at={3} heap={[5, 9]} k={3} result={[null, null, null]} label="El heap, en orden de arreglo: 5, 9." />
   </Step>
-  <Step lines={[14, 15, 16]}>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>El heap sale del menor al mayor, 7, 8, 9, y se escribe desde el final: el resultado es 9 8 7.</div>
-    <HeapPicture values={[7, 9, 8]} view="tree" label="El min-heap final, 7 en la raíz y 9 y 8 como hijos, que se vacía en el arreglo resultado." />
+  <Step lines={[8]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Entra el 3, y como es el menor, queda en la raíz: es el nuevo peor.</div>
+    <TopKFrame stream={[5, 1, 9, 3, 7, 2, 8]} at={3} heap={[3, 9, 5]} hot={[1]} k={3} result={[null, null, null]} label="El heap, en orden de arreglo: 3, 9, 5." />
+  </Step>
+  <Step lines={[6, 7]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>7 es mayor que el peor, 3: sale el 3.</div>
+    <TopKFrame stream={[5, 1, 9, 3, 7, 2, 8]} at={4} heap={[5, 9]} k={3} result={[null, null, null]} label="El heap, en orden de arreglo: 5, 9." />
+  </Step>
+  <Step lines={[8]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Entra el 7. El peor es ahora el 5.</div>
+    <TopKFrame stream={[5, 1, 9, 3, 7, 2, 8]} at={4} heap={[5, 9, 7]} hot={[3]} k={3} result={[null, null, null]} label="El heap, en orden de arreglo: 5, 9, 7." />
+  </Step>
+  <Step lines={[6]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>2 no es mayor que el peor, 5: se descarta y el heap no cambia.</div>
+    <TopKFrame stream={[5, 1, 9, 3, 7, 2, 8]} at={5} discarded heap={[5, 9, 7]} k={3} result={[null, null, null]} label="El heap, en orden de arreglo: 5, 9, 7." />
+  </Step>
+  <Step lines={[6, 7]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>8 es mayor que el peor, 5: sale el 5.</div>
+    <TopKFrame stream={[5, 1, 9, 3, 7, 2, 8]} at={6} heap={[7, 9]} k={3} result={[null, null, null]} label="El heap, en orden de arreglo: 7, 9." />
+  </Step>
+  <Step lines={[8]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Entra el 8. El heap guarda 7, 8 y 9: los tres mayores.</div>
+    <TopKFrame stream={[5, 1, 9, 3, 7, 2, 8]} at={6} heap={[7, 9, 8]} hot={[3]} k={3} result={[null, null, null]} label="El heap, en orden de arreglo: 7, 9, 8." />
+  </Step>
+  <Step lines={[12, 13]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>El heap sale del menor al mayor: el 7, el primero en salir, va al final del resultado.</div>
+    <TopKFrame stream={[5, 1, 9, 3, 7, 2, 8]} at={7} heap={[8, 9]} k={3} result={[null, null, 7]} label="El heap, en orden de arreglo: 8, 9." />
+  </Step>
+  <Step lines={[12, 13]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Sale el 8 y va antes del 7.</div>
+    <TopKFrame stream={[5, 1, 9, 3, 7, 2, 8]} at={7} heap={[9]} k={3} result={[null, 8, 7]} label="El heap, en orden de arreglo: 9." />
+  </Step>
+  <Step lines={[12, 13]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Sale el 9 y va primero.</div>
+    <TopKFrame stream={[5, 1, 9, 3, 7, 2, 8]} at={7} heap={[]} k={3} result={[9, 8, 7]} label="El heap, en orden de arreglo: vacío." />
+  </Step>
+  <Step lines={[15]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>El resultado: 9, 8, 7.</div>
+    <TopKFrame stream={[5, 1, 9, 3, 7, 2, 8]} at={7} heap={[]} k={3} result={[9, 8, 7]} label="El heap, en orden de arreglo: vacío." />
   </Step>
 </StepShow>
 
 </Slide>
 
 <Slide title="Las secuencias más cortas que K">
-Si la secuencia tiene menos de $$K$$ números, la primera rama es la única que
-corre: todos entran, ninguno se compara, y el resultado tiene el largo del
-heap, no $$K$$. Con `k = 2` sobre `4` devuelve `4`; sobre la secuencia vacía
-devuelve un arreglo vacío. Los repetidos no necesitan un caso aparte: con
-`6 6 1` el segundo 6 entra por la primera rama y el 1 no supera al peor.
+Si la secuencia tiene menos de $$K$$ números, la primera rama es la única
+que corre: todos entran sin compararse, el heap nunca se llena y el
+resultado tiene el largo del heap, no $$K$$. Los valores repetidos ocupan
+cada uno su lugar en el heap, como cualquier otro.
 
-Con `k` en cero el heap nunca tendría dónde guardar el primer número, y
-`peek()` devolvería `null` sobre un heap vacío. La función lo rechaza de
-entrada con `IllegalArgumentException`.
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '0.25rem 1.5rem' }}>
+<div>
+<div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-ink-soft)', textAlign: 'center' }}>K = 3 sobre 4 6: el heap nunca se llena</div>
+<TopKFrame stream={[4, 6]} at={2} heap={[4, 6]} k={3} result={[6, 4]} label="Con K = 3 sobre 4, 6, los dos entran sin comparar y el heap queda con 4 en la raíz y 6 como hijo, sin llenarse. El resultado tiene dos números: 6, 4." />
+</div>
+<div>
+<div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-ink-soft)', textAlign: 'center' }}>K = 2 sobre 6 6 1: los dos 6 cuentan</div>
+<TopKFrame stream={[6, 6, 1]} at={3} heap={[6, 6]} k={2} result={[6, 6]} label="Con K = 2 sobre 6, 6, 1, los dos 6 entran sin comparar y el 1 no es mayor que el peor, 6, así que se descarta. El resultado es 6, 6." />
+</div>
+</div>
 
-Cada número cuesta un `peek()`, $$\Theta(1)$$, y a lo más un `poll()` y un
-`add()` sobre un heap de $$K$$, $$O(\log K)$$: **$$O(N \log K)$$** en total.
-El heap nunca guarda más de $$K$$ números, así que la memoria es
-**$$\Theta(K)$$**, sin importar cuán larga sea la secuencia.
+Con la secuencia vacía ningún ciclo corre y el resultado es un arreglo vacío.
+
+</Slide>
+
+<Slide title="El costo de Top-K">
+**Tiempo.** Cada número de la secuencia pasa por una de dos ramas:
+
+- mientras el heap tiene menos de $$K$$, entra con `add`;
+- después se compara con el peor, `peek()`, que cuesta $$\Theta(1)$$, y a lo
+  más sale uno con `poll` y entra otro con `add`.
+
+El heap nunca guarda más de $$K$$ números, así que su altura es a lo más
+$$\lfloor \log_2 K \rfloor$$ y cada `add` y cada `poll` cuesta
+$$O(\log K)$$. Al final se vacía el heap, que tiene a lo más $$K$$ números y
+nunca más que $$N$$:
+
+$$
+\underbrace{N \cdot O(\log K)}_{\text{recorrer la secuencia}} + \underbrace{\min(N, K) \cdot O(\log K)}_{\text{vaciar el heap}} = O(N \log K)
+$$
+
+**Memoria.** El heap y el resultado guardan a lo más $$K$$ números cada uno:
+**$$\Theta(K)$$**, sin importar cuán larga sea la secuencia. Ordenarla
+entera guardaba los $$N$$.
 
 </Slide>
 
@@ -2223,8 +2438,7 @@ El heap nunca guarda más de $$K$$ números, así que la memoria es
 <PresentationWide fraction={0.75}>
 <Exercise title="Top-K de una secuencia">
 
-El algoritmo entero. **Comprobar** lo corre contra los casos del enunciado, y
-cualquier cambio se puede probar de la misma forma.
+El algoritmo entero. **Comprobar** lo corre contra los casos del enunciado.
 
 ```java starter
 import java.util.PriorityQueue;
@@ -2232,9 +2446,6 @@ import java.util.PriorityQueue;
 class Solution {
 
     static int[] topK(int k, int[] stream) {
-        if (k <= 0) {
-            throw new IllegalArgumentException();
-        }
         PriorityQueue<Integer> best = new PriorityQueue<>();
         for (int x : stream) {
             if (best.size() < k) {
