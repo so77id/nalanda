@@ -89,6 +89,52 @@ const CODE = {
     }
     return node;
 }`,
+  minimum: `T min() {
+    if (root == null) {
+        throw new NoSuchElementException();
+    }
+    return minimum(root).value;
+}
+
+Node<T> minimum(Node<T> node) {
+    if (node.left == null) return node;
+    return minimum(node.left);
+}`,
+  successor: `Node<T> successor(Node<T> node, T value) {
+    Node<T> best = null;
+    while (node != null) {
+        if (value.compareTo(node.value) < 0) {
+            best = node;
+            node = node.left;
+        } else {
+            node = node.right;
+        }
+    }
+    return best;
+}`,
+  remove: `Node<T> remove(Node<T> node, T value) {
+    if (node == null) return null;
+    int c = value.compareTo(node.value);
+    if (c < 0) {
+        node.left = remove(node.left, value);
+    } else if (c > 0) {
+        node.right = remove(node.right, value);
+    } else if (node.left == null) {
+        return node.right;
+    } else if (node.right == null) {
+        return node.left;
+    } else {
+        Node<T> next = minimum(node.right);
+        node.value = next.value;
+        node.right = remove(node.right, next.value);
+    }
+    return node;
+}
+
+Node<T> minimum(Node<T> node) {
+    if (node.left == null) return node;
+    return minimum(node.left);
+}`,
 } as const;
 
 /** The traversal's name in the narration. */
@@ -285,6 +331,9 @@ export function traceTree(
     );
   }
   if (operation === 'search') return traceSearchOrdered(input.values, asRuns(input.target));
+  if (operation === 'minimum') return traceMinimum(input.values);
+  if (operation === 'successor') return traceSuccessor(input.values, asRuns(input.target));
+  if (operation === 'remove') return traceRemove(input.values, asRuns(input.target));
   return traceInsert(input.values, asRuns(input.value));
 }
 
@@ -622,12 +671,11 @@ function traceInsert(values: number[], inserts: number[]): SequenceTrace {
   const columns: Record<number, number> = {};
   const built = bstOf(values, columnOf, columns);
   let root = built.root;
-  const strip = (): (number | null)[] => {
-    const out: (number | null)[] = Array.from({ length: slots }, () => null);
-    for (const n of nodesOf(root)) out[columnOf(n.value)] = n.value;
-    return out;
-  };
-  const rec = new TreeRecorder(code, () => root, strip);
+  const rec = new TreeRecorder(
+    code,
+    () => root,
+    stripByNode(() => root, columns, slots),
+  );
 
   for (const x of inserts) {
     rec.reset();
@@ -685,6 +733,236 @@ function traceInsert(values: number[], inserts: number[]): SequenceTrace {
         `${x} ${sign} ${v}: por la invariante, ${x} va a ${where} de ${v}.`,
       );
       n = next;
+    }
+  }
+  return finish(rec, code, columns, slots, true);
+}
+
+/**
+ * The inorder strip of a search tree, read by NODE: each node writes its value
+ * in its own column. By node rather than by value, because a removal copies a
+ * successor's value into another node, and that node keeps its column.
+ */
+function stripByNode(
+  rootOf: () => TreeNode | null,
+  columns: Record<number, number>,
+  slots: number,
+): () => (number | null)[] {
+  return () => {
+    const out: (number | null)[] = Array.from({ length: slots }, () => null);
+    for (const n of nodesOf(rootOf())) out[columns[n.id]!] = n.value;
+    return out;
+  };
+}
+
+function traceMinimum(values: number[]): SequenceTrace {
+  if (values.length === 0) {
+    throw new Error(
+      'El árbol está vacío: min() lanza NoSuchElementException y no hay mínimo que mostrar.',
+    );
+  }
+  const code = CODE.minimum;
+  const columns: Record<number, number> = {};
+  const { root } = bstOf(values, columnsFor(values), columns);
+  const rec = new TreeRecorder(
+    code,
+    () => root,
+    () => [],
+  );
+  rec.push(
+    'start',
+    ['return minimum(root).value'],
+    'El mínimo está en el nodo de más a la izquierda: por la invariante, todo lo que está a la derecha de un nodo es mayor que él.',
+  );
+  let n = root!;
+  for (;;) {
+    rec.path.push(n.id);
+    rec.settle();
+    rec.cost += 1;
+    rec.badge.set(n.id, String(rec.cost));
+    const v = n.value;
+    if (n.left === null) {
+      rec.state.set(n.id, 'found');
+      rec.push(
+        'found',
+        ['if (node.left == null) return node'],
+        `${v} no tiene hijo izquierdo: es el mínimo del árbol.`,
+      );
+      break;
+    }
+    rec.state.set(n.id, 'visited');
+    discard(rec, n.right);
+    rec.push(
+      'walk',
+      ['return minimum(node.left)'],
+      `${v} tiene hijo izquierdo: por la invariante, todo lo menor que ${v} está a su izquierda, y su derecha se descarta.`,
+    );
+    n = n.left;
+  }
+  return finish(rec, code, columns, new Set(values).size, false);
+}
+
+function traceSuccessor(values: number[], targets: number[]): SequenceTrace {
+  if (targets.length === 0) throw new Error('Falta el valor cuyo sucesor se busca.');
+  const code = CODE.successor;
+  const columns: Record<number, number> = {};
+  const { root } = bstOf(values, columnsFor(values), columns);
+  const rec = new TreeRecorder(
+    code,
+    () => root,
+    () => [],
+  );
+
+  for (const x of targets) {
+    rec.reset();
+    rec.push(
+      'start',
+      ['Node<T> best = null'],
+      `El sucesor de ${x} es el menor valor mayor que ${x}. Se baja una sola vez desde la raíz, guardando el mejor candidato.`,
+    );
+    let best: TreeNode | null = null;
+    let n = root;
+    while (n !== null) {
+      rec.path.push(n.id);
+      rec.settle();
+      if (best !== null) rec.state.set(best.id, 'new');
+      rec.cost += 1;
+      rec.badge.set(n.id, String(rec.cost));
+      const v = n.value;
+      if (x < v) {
+        if (best !== null) rec.state.set(best.id, 'visited');
+        best = n;
+        rec.state.set(n.id, 'new');
+        discard(rec, n.right);
+        rec.push(
+          'walk',
+          ['best = node;'],
+          `${x} < ${v}: ${v} es mayor que ${x} y es el mejor candidato hasta ahora; uno mejor solo puede estar a su izquierda, y su derecha se descarta.`,
+        );
+        n = n.left;
+      } else {
+        discard(rec, n.left);
+        rec.state.set(n.id, 'discarded');
+        rec.push(
+          'walk',
+          ['node = node.right;'],
+          `${x} ≥ ${v}: ${v} no es mayor que ${x}, así que el sucesor solo puede estar a su derecha; ${v} y su izquierda se descartan.`,
+        );
+        n = n.right;
+      }
+    }
+    rec.settle();
+    if (best !== null) {
+      rec.state.set(best.id, 'found');
+      rec.push('found', ['return best;'], `El sucesor de ${x} es ${best.value}.`);
+    } else {
+      rec.push('done', ['return best;'], `${x} no tiene sucesor: ningún valor del árbol es mayor.`);
+    }
+  }
+  return finish(rec, code, columns, new Set(values).size, false);
+}
+
+function traceRemove(values: number[], targets: number[]): SequenceTrace {
+  if (targets.length === 0) throw new Error('Falta el valor a eliminar.');
+  const code = CODE.remove;
+  const columns: Record<number, number> = {};
+  const slots = new Set(values).size;
+  let { root } = bstOf(values, columnsFor(values), columns);
+  const rec = new TreeRecorder(
+    code,
+    () => root,
+    stripByNode(() => root, columns, slots),
+  );
+
+  const remove = (n: TreeNode | null, x: number): TreeNode | null => {
+    if (n === null) {
+      rec.push(
+        'done',
+        ['if (node == null) return null'],
+        `${x} no está en el árbol: no se elimina nada.`,
+      );
+      return null;
+    }
+    rec.path.push(n.id);
+    rec.settle();
+    rec.cost += 1;
+    rec.state.set(n.id, 'active');
+    const v = n.value;
+    rec.push('compare', ['int c = value.compareTo'], `remove(${v}): se compara ${x} con ${v}.`);
+    if (x !== v) {
+      rec.state.set(n.id, 'visited');
+      const side = x < v ? 'left' : 'right';
+      rec.push(
+        'walk',
+        [side === 'left' ? 'node.left = remove' : 'node.right = remove'],
+        `${x} ${x < v ? '<' : '>'} ${v}: por la invariante, ${x} solo puede estar a ${side === 'left' ? 'la izquierda' : 'la derecha'} de ${v}.`,
+      );
+      n[side] = remove(n[side], x);
+      rec.path.pop();
+      return n;
+    }
+    if (n.left === null || n.right === null) {
+      const child = n.left ?? n.right;
+      rec.state.set(n.id, 'leaving');
+      rec.push(
+        'found',
+        [n.left === null ? 'return node.right;' : 'return node.left;'],
+        child === null
+          ? `${x} es una hoja: se devuelve null, y su padre deja de apuntarle.`
+          : `${x} tiene un solo hijo, ${child.value}: se devuelve ese hijo y el padre de ${x} pasa a apuntarle. Todo ese subárbol estaba del mismo lado, así que la invariante se mantiene.`,
+      );
+      rec.path.pop();
+      return child;
+    }
+    rec.push(
+      'walk',
+      ['Node<T> next = minimum(node.right)'],
+      `${x} tiene dos hijos: se busca su sucesor, el menor valor de su subárbol derecho.`,
+    );
+    let next = n.right!;
+    const below = rec.path.length;
+    for (;;) {
+      rec.path.push(next.id);
+      if (next.left === null) break;
+      rec.state.set(next.id, 'visited');
+      next = next.left;
+    }
+    rec.state.set(next.id, 'swap');
+    rec.badge.set(next.id, 'sucesor');
+    rec.push(
+      'found',
+      ['if (node.left == null) return node'],
+      `El sucesor de ${x} es ${next.value}: el menor de la derecha, sin hijo izquierdo.`,
+    );
+    rec.path.length = below;
+    n.value = next.value;
+    rec.state.set(n.id, 'new');
+    rec.state.set(next.id, 'leaving');
+    rec.push(
+      'build',
+      ['node.value = next.value'],
+      `${x} toma el valor de su sucesor, ${next.value}. La invariante se mantiene: ${next.value} es mayor que todo lo de la izquierda y menor que todo lo demás de la derecha.`,
+    );
+    rec.badge.delete(next.id);
+    rec.push(
+      'walk',
+      ['node.right = remove(node.right, next.value)'],
+      `Queda borrar el sucesor de la derecha. No tiene hijo izquierdo, así que es el caso de una hoja o de un solo hijo.`,
+    );
+    n.right = remove(n.right, n.value);
+    rec.path.pop();
+    return n;
+  };
+
+  for (const x of targets) {
+    rec.reset();
+    rec.push('start', ['Node<T> remove('], `Eliminar ${x}: primero se busca, como en contains.`);
+    const before = nodesOf(root).length;
+    root = remove(root, x);
+    if (nodesOf(root).length < before) {
+      rec.settle();
+      for (const [id, s] of rec.state) if (s === 'leaving') rec.state.delete(id);
+      rec.push('done', [], `${x} ya no está en el árbol, y su inorden sigue ordenado.`);
     }
   }
   return finish(rec, code, columns, slots, true);

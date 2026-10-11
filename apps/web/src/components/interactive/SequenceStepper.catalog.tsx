@@ -19,9 +19,9 @@ export const sequenceStepperCatalogEntry: CatalogEntry = {
     },
     {
       name: 'operation',
-      type: '"get-at" | "insert-first" | "insert-last" | "insert-at" | "insert-ordered" | "remove-first" | "remove-last" | "remove-at" | "search" | "insert" | "extract-max" | "preorder" | "inorder" | "postorder" | "height"',
+      type: '"get-at" | "insert-first" | "insert-last" | "insert-at" | "insert-ordered" | "remove-first" | "remove-last" | "remove-at" | "search" | "insert" | "extract-max" | "preorder" | "inorder" | "postorder" | "height" | "minimum" | "successor" | "remove"',
       description:
-        'Required. Which operation to animate. `dynamic-array` and `linked-list-singly` accept all nine (bar `insert-ordered` on the dynamic array — the ordered array is not a structure this unit presents). The two VARIANT recipes accept only the operations they have a Java listing FOR, because the widget shows code a student may copy: `linked-list-circular` accepts `insert-first` alone — its listing closes the ring again, and walks to do it — and `linked-list-doubly` accepts `get-at`, `search`, `insert-first`, `remove-first`, and `remove-last` only with `tail`. `heap-max` accepts exactly its own two — `insert` (swim, growing the block like the dynamic array; `value` may be an array) and `extract-max` (sink, then `shrinkIfSparse`; `times` repeats it) — and those two are valid on no other recipe. `binary-tree` accepts the three traversals (`preorder`, `inorder`, `postorder`), `height` — none of the four valid on any other recipe — and `search`, which visits until the value turns up. `bst` accepts `search`, which chooses a side at every node, and `insert` (`value` may be an array), which hangs each value as a leaf; `search` thus keeps one name over the chains and both trees, and `insert` over the heap and the search tree. Anything else renders an `<AuthoringError>` naming the operations that recipe does have.',
+        'Required. Which operation to animate. `dynamic-array` and `linked-list-singly` accept all nine (bar `insert-ordered` on the dynamic array — the ordered array is not a structure this unit presents). The two VARIANT recipes accept only the operations they have a Java listing FOR, because the widget shows code a student may copy: `linked-list-circular` accepts `insert-first` alone — its listing closes the ring again, and walks to do it — and `linked-list-doubly` accepts `get-at`, `search`, `insert-first`, `remove-first`, and `remove-last` only with `tail`. `heap-max` accepts exactly its own two — `insert` (swim, growing the block like the dynamic array; `value` may be an array) and `extract-max` (sink, then `shrinkIfSparse`; `times` repeats it) — and those two are valid on no other recipe. `binary-tree` accepts the three traversals (`preorder`, `inorder`, `postorder`), `height` — none of the four valid on any other recipe — and `search`, which visits until the value turns up. `bst` accepts `search`, which chooses a side at every node; `insert` (`value` may be an array), which hangs each value as a leaf; `minimum`, which walks left only; `successor` (`target`), one walk down keeping the best candidate; and `remove` (`target`), in its three cases, the two-children one copying the value of the successor into the node and removing the successor instead; `search` thus keeps one name over the chains and both trees, and `insert` over the heap and the search tree. Anything else renders an `<AuthoringError>` naming the operations that recipe does have.',
     },
     {
       name: 'values',
@@ -347,6 +347,37 @@ export const sequenceStepperCatalogEntry: CatalogEntry = {
       code: '<SequenceStepper eda="bst" operation="insert" values={[8, 5, 1, 4, 6, 7, 20]} value={12} />',
       render: () => (
         <SequenceStepper eda="bst" operation="insert" values={[8, 5, 1, 4, 6, 7, 20]} value={12} />
+      ),
+    },
+    {
+      title: 'The minimum of a search tree: left, and left again, with every right side ruled out',
+      code: '<SequenceStepper eda="bst" operation="minimum" values={[4, 2, 7, 1, 3, 6, 9]} />',
+      render: () => (
+        <SequenceStepper eda="bst" operation="minimum" values={[4, 2, 7, 1, 3, 6, 9]} />
+      ),
+    },
+    {
+      title: 'The successor of 4: one walk down, keeping the best candidate',
+      code: '<SequenceStepper eda="bst" operation="successor" values={[4, 2, 7, 1, 3, 6, 9]} target={4} />',
+      render: () => (
+        <SequenceStepper
+          eda="bst"
+          operation="successor"
+          values={[4, 2, 7, 1, 3, 6, 9]}
+          target={4}
+        />
+      ),
+    },
+    {
+      title: "Removing a node with two children: it takes its successor's value",
+      code: '<SequenceStepper eda="bst" operation="remove" values={[8, 5, 1, 4, 6, 7, 20, 12]} target={8} />',
+      render: () => (
+        <SequenceStepper
+          eda="bst"
+          operation="remove"
+          values={[8, 5, 1, 4, 6, 7, 20, 12]}
+          target={8}
+        />
       ),
     },
     {

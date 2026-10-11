@@ -69,6 +69,10 @@ export const OPERATIONS = [
   'inorder',
   'postorder',
   'height',
+  // The search tree's own operations (#321): each walks one path down.
+  'minimum',
+  'successor',
+  'remove',
 ] as const;
 export type SequenceOperation = (typeof OPERATIONS)[number];
 
@@ -410,8 +414,14 @@ export const BINARY_TREE_OPERATIONS: readonly SequenceOperation[] = [
   'search',
 ];
 
-/** What `bst` has a listing for (#321): a search and an insertion that choose a side. */
-export const BST_OPERATIONS: readonly SequenceOperation[] = ['search', 'insert'];
+/** What `bst` has a listing for (#321): every one chooses a side at each node. */
+export const BST_OPERATIONS: readonly SequenceOperation[] = [
+  'search',
+  'insert',
+  'minimum',
+  'successor',
+  'remove',
+];
 
 /** The operations only a tree has; `search` and `insert` are shared. */
 const TREE_ONLY_OPERATIONS: readonly SequenceOperation[] = [
@@ -419,6 +429,9 @@ const TREE_ONLY_OPERATIONS: readonly SequenceOperation[] = [
   'inorder',
   'postorder',
   'height',
+  'minimum',
+  'successor',
+  'remove',
 ];
 
 export function isValidCombination(
@@ -552,6 +565,9 @@ const METHOD_NAME: Record<SequenceOperation, string> = {
   inorder: 'inorder',
   postorder: 'postorder',
   height: 'height',
+  minimum: 'min',
+  successor: 'successor',
+  remove: 'remove',
 };
 
 // ── the array family ──────────────────────────────────────────────────────
@@ -559,7 +575,15 @@ const METHOD_NAME: Record<SequenceOperation, string> = {
 /** The operations the dynamic array has a listing for. */
 type ArrayOperation = Exclude<
   SequenceOperation,
-  'insert-ordered' | HeapOperation | 'preorder' | 'inorder' | 'postorder' | 'height'
+  | 'insert-ordered'
+  | HeapOperation
+  | 'preorder'
+  | 'inorder'
+  | 'postorder'
+  | 'height'
+  | 'minimum'
+  | 'successor'
+  | 'remove'
 >;
 
 const ARRAY_CODE: Record<ArrayOperation, string> = {
@@ -1034,6 +1058,9 @@ function runArgs(operation: SequenceOperation, input: SequenceInput): string[] {
     case 'inorder':
     case 'postorder':
     case 'height':
+    case 'minimum':
+    case 'successor':
+    case 'remove':
       return [];
   }
 }
@@ -1279,6 +1306,9 @@ function listCode(recipe: SequenceRecipe, operation: SequenceOperation, tail: bo
     case 'inorder':
     case 'postorder':
     case 'height':
+    case 'minimum':
+    case 'successor':
+    case 'remove':
       throw new Error(`«${operation}» es una operación de árbol, no de una lista.`);
   }
 }

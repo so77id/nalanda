@@ -17,9 +17,11 @@ design reference proposed
 first. #304 amends two things below: the `array` recipe is deleted, and the
 heap's `swap` state is the one data state painted in `accent` (both
 `Amended by: #304`).
-**Extended by:** ADR-0083 (#321, Proposed) — a recipe for the linked binary
-tree, `binary-tree`: linked nodes, each in the column of its inorder position,
-with the three traversals as its own operations. Nothing here is withdrawn.
+**Extended by:** ADR-0083 (#321, Proposed) — two recipes for linked binary
+trees, each node in the column of its inorder position: `binary-tree`, with
+the three traversals, `height` and `search`, and `bst`, the search tree, with
+`search`, `insert`, `minimum`, `successor` and `remove`. Nothing here is
+withdrawn.
 
 **Amended by:** #288, slide-by-slide review (2026-09-10) — a ninth operation,
 `get-at`. The class needs the operation the array answers with one

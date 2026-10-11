@@ -851,3 +851,40 @@ describe('<SequenceStepper> · the combinations 21-edd-arboles-i mounts', () => 
     expect(document.querySelector('[data-authoring-error]')).toBeNull();
   });
 });
+
+describe('<SequenceStepper> · removing from the bst (#321)', () => {
+  it('copies the successor into a node with two children, and keeps the node', () => {
+    renderIn(
+      'book',
+      <SequenceStepper
+        eda="bst"
+        operation="remove"
+        values={[8, 5, 1, 4, 6, 7, 20, 12]}
+        target={8}
+      />,
+    );
+    const view = () => screen.getByTestId('tree-view');
+    const rootColumn = view()
+      .querySelector('[data-node][data-value="8"]')!
+      .getAttribute('data-column');
+    for (let i = 0; i < 80; i += 1) {
+      const next = screen.getByRole('button', { name: 'Adelante' });
+      if (next.getAttribute('aria-disabled') === 'true') break;
+      fireEvent.click(next);
+    }
+    expect(view().querySelector('[data-node][data-value="8"]')).toBeNull();
+    // The root kept its column: only its value changed, to the successor's.
+    const twelves = view().querySelectorAll('[data-node][data-value="12"]');
+    expect(twelves).toHaveLength(1);
+    expect(twelves[0]!.getAttribute('data-column')).toBe(rootColumn);
+  });
+
+  it('names the operation and the states it paints in the legend', () => {
+    renderIn(
+      'book',
+      <SequenceStepper eda="bst" operation="remove" values={[2, 1, 3]} target={1} />,
+    );
+    expect(screen.getByText('eliminar')).toBeInTheDocument();
+    expect(screen.getByText('sale')).toBeInTheDocument();
+  });
+});

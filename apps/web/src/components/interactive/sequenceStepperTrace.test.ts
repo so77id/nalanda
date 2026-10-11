@@ -36,7 +36,13 @@ const SEQUENCE_RECIPES = RECIPES.filter(
 );
 /** The tree operations no other kind of recipe has (`search` is everyone's). */
 const TRAVERSALS = ['preorder', 'inorder', 'postorder'] as const;
-const TREE_ONLY: readonly SequenceOperation[] = [...TRAVERSALS, 'height'];
+const TREE_ONLY: readonly SequenceOperation[] = [
+  ...TRAVERSALS,
+  'height',
+  'minimum',
+  'successor',
+  'remove',
+];
 const startFor = (recipe: SequenceRecipe, operation: SequenceOperation): number[] =>
   recipe === 'heap-max' ? [7, 5, 3, 1] : operation === 'insert-ordered' ? [1, 3, 7, 9] : values;
 
@@ -1616,8 +1622,8 @@ describe('sequenceStepperTrace · binary-tree · the valid combinations', () => 
     }
   });
 
-  it('keeps the traversals and the height off every other recipe', () => {
-    for (const recipe of RECIPES.filter((r) => r !== 'binary-tree')) {
+  it('keeps the tree operations off every recipe that is not a tree', () => {
+    for (const recipe of RECIPES.filter((r) => r !== 'binary-tree' && r !== 'bst')) {
       for (const operation of TREE_ONLY) {
         expect(isValidCombination(recipe, operation), `${recipe} × ${operation}`).toBe(false);
       }
@@ -1762,7 +1768,7 @@ describe('sequenceStepperTrace · binary-tree · search', () => {
 });
 
 describe('sequenceStepperTrace · bst · the valid combinations', () => {
-  it('takes search and insert, and nothing else', () => {
+  it('takes search, insert, minimum, successor and remove, and nothing else', () => {
     for (const operation of OPERATIONS) {
       expect(isValidCombination('bst', operation), operation).toBe(
         BST_OPERATIONS.includes(operation),
@@ -1854,5 +1860,114 @@ describe('sequenceStepperTrace · bst · insert', () => {
 
   it('refuses a starting list with a repeated value', () => {
     expect(() => traceFor('bst', 'insert', { values: [4, 2, 4], value: 1 })).toThrow(/repet/);
+  });
+});
+
+/** The inorder of a frame's tree, read from its links: sorted iff the invariant holds. */
+const inorderOf = (step: SequenceStep): number[] => {
+  const byId = new Map(step.tree!.nodes.map((n) => [n.id, n]));
+  const out: number[] = [];
+  const walk = (id: number | null) => {
+    if (id === null) return;
+    const n = byId.get(id)!;
+    walk(n.left);
+    out.push(n.value);
+    walk(n.right);
+  };
+  walk(step.tree!.root);
+  return out;
+};
+const sorted = (xs: number[]) => xs.every((x, i) => i === 0 || xs[i - 1]! < x);
+
+describe('sequenceStepperTrace · bst · minimum', () => {
+  it('walks left only, and finds the minimum in h + 1 comparisons', () => {
+    const last = traceFor('bst', 'minimum', { values: BALANCED }).steps.at(-1)!;
+    expect(last.tree!.nodes.find((n) => n.state === 'found')!.value).toBe(1);
+    expect(last.cost).toBe(3);
+  });
+
+  it('rules out every right subtree on the way down', () => {
+    const last = traceFor('bst', 'minimum', { values: BALANCED }).steps.at(-1)!;
+    const out = last
+      .tree!.nodes.filter((n) => n.state === 'discarded')
+      .map((n) => n.value)
+      .sort((a, b) => a - b);
+    expect(out).toEqual([3, 6, 7, 9]);
+  });
+
+  it('refuses an empty tree: min() throws there', () => {
+    expect(() => traceFor('bst', 'minimum', { values: [] })).toThrow(/vacío/);
+  });
+});
+
+describe('sequenceStepperTrace · bst · successor', () => {
+  const successorOf = (target: number) =>
+    traceFor('bst', 'successor', { values: BALANCED, target }).steps.at(-1)!;
+
+  it('finds the successor up the tree when the node has no right subtree', () => {
+    expect(successorOf(3).tree!.nodes.find((n) => n.state === 'found')!.value).toBe(4);
+  });
+
+  it('finds the successor down the right subtree when there is one', () => {
+    expect(successorOf(4).tree!.nodes.find((n) => n.state === 'found')!.value).toBe(6);
+  });
+
+  it('says the largest value has no successor', () => {
+    const last = successorOf(9);
+    expect(last.tree!.nodes.some((n) => n.state === 'found')).toBe(false);
+    expect(last.description).toContain('no tiene sucesor');
+  });
+
+  it('descends a single path: one comparison per level', () => {
+    expect(successorOf(4).cost).toBe(3);
+  });
+});
+
+describe('sequenceStepperTrace · bst · remove', () => {
+  const PDF_FULL = [8, 5, 1, 4, 6, 7, 20, 12, 23].slice(0, 8);
+  const remove = (values: number[], target: number) =>
+    traceFor('bst', 'remove', { values, target });
+
+  it('removes a leaf: its parent points at null', () => {
+    const last = remove(BALANCED, 1).steps.at(-1)!;
+    expect(inorderOf(last)).toEqual([2, 3, 4, 6, 7, 9]);
+    expect(last.tree!.nodes.find((n) => n.value === 2)!.left).toBeNull();
+  });
+
+  it('removes a node with one child: its parent adopts the child', () => {
+    const last = remove(PDF_FULL, 1).steps.at(-1)!;
+    const five = last.tree!.nodes.find((n) => n.value === 5)!;
+    const four = last.tree!.nodes.find((n) => n.value === 4)!;
+    expect(five.left).toBe(four.id);
+    expect(inorderOf(last)).toEqual([4, 5, 6, 7, 8, 12, 20]);
+  });
+
+  it('removes a node with two children by copying its successor, then removing that', () => {
+    const trace = remove(PDF_FULL, 8);
+    const last = trace.steps.at(-1)!;
+    const root = last.tree!.nodes.find((n) => n.id === last.tree!.root)!;
+    expect(root.value).toBe(12);
+    expect(inorderOf(last)).toEqual([1, 4, 5, 6, 7, 12, 20]);
+    expect(trace.steps.some((s) => s.description.includes('sucesor'))).toBe(true);
+  });
+
+  it('keeps the root node itself: only its value changes', () => {
+    const trace = remove(PDF_FULL, 8);
+    const firstRoot = trace.steps[0]!.tree!.root;
+    expect(trace.steps.at(-1)!.tree!.root).toBe(firstRoot);
+  });
+
+  it('leaves the search-tree invariant standing after every removal', () => {
+    for (const target of PDF_FULL) {
+      const last = remove(PDF_FULL, target).steps.at(-1)!;
+      expect(sorted(inorderOf(last)), `remove ${target}`).toBe(true);
+      expect(inorderOf(last)).toHaveLength(PDF_FULL.length - 1);
+    }
+  });
+
+  it('removes nothing when the value is not there', () => {
+    const last = remove(BALANCED, 5).steps.at(-1)!;
+    expect(inorderOf(last)).toEqual([1, 2, 3, 4, 6, 7, 9]);
+    expect(last.description).toContain('no está');
   });
 });

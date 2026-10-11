@@ -60,8 +60,10 @@ nothing on screen moves: the rule `maxCells` keeps for the chains.
   `bst` (and the chains), because two nearly identical tags are how a slide
   contrasts visiting everything with choosing a side. `insert` becomes shared
   between `heap-max` and `bst`.
-- **S6:** the rest of `bst` — minimum, successor and predecessor, and removal
-  in three cases, the two-children case copying the successor's value.
+- **S6:** the rest of `bst` — `minimum`, `successor` and `remove` in its
+  three cases, the two-children case copying the successor's value into the
+  node (which keeps its column) and removing the successor. Maximum and
+  predecessor are their mirror images and stay in prose: no slide mounts them.
 
 None ships without a slide that mounts it (#296, ADR-0077 §5).
 
@@ -91,8 +93,10 @@ cap of eight counts nodes, not gaps.
   the old slides did: fading reads on any shape, the triangle tangles on a
   small or lopsided subtree.
 
-These five came out of the design step of #321 and are **Proposed** until the
-professor reviews the recipe running in `/catalog/c/SequenceStepper`.
+These five came out of the design step of #321 and stay **Proposed** while the
+professor has not reviewed the recipe running in `/catalog/c/SequenceStepper`.
+The recipe is implemented in full (S2, S3, S6); its acceptance is that
+review, not the code.
 
 ## Alternatives considered
 
@@ -112,7 +116,8 @@ professor reviews the recipe running in `/catalog/c/SequenceStepper`.
 
 - The validity matrix grows two rows: `binary-tree` × {`preorder`,
   `inorder`, `postorder`, `height`, `search`} and `bst` × {`search`,
-  `insert`}; the four tree-only operations are valid on nothing else
+  `insert`, `minimum`, `successor`, `remove`}; the seven tree-only
+  operations are valid on nothing else
   (`add-a-course-document.md` §5h carries it).
 - `SequenceCellState` gains `visited` and `discarded`; `SequenceStep` gains
   `tree`; `SequenceTrace` gains `tree` (columns, slots, depth);

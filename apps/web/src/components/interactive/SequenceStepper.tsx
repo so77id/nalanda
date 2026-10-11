@@ -189,6 +189,35 @@ const OPERATION_LABEL: Record<SequenceOperation, string> = {
   inorder: 'recorrer en inorden',
   postorder: 'recorrer en postorden',
   height: 'calcular la altura',
+  minimum: 'buscar el mínimo',
+  successor: 'buscar el sucesor',
+  remove: 'eliminar',
+};
+
+/**
+ * The legend of a tree run, by operation: each names only the states that
+ * operation paints, so a traversal does not explain "descartado" and a
+ * removal does not explain "encontrado".
+ */
+const UNDER_THE_EYE: [string, string] = ['border-focus bg-surface', 'bajo la mirada'];
+const VISITED: [string, string] = ['border-rule-strong bg-sunk', 'ya visitado'];
+const RULED_OUT: [string, string] = ['border-rule bg-surface', 'descartado'];
+const FOUND: [string, string] = ['border-keep bg-keep-soft', 'encontrado'];
+const TREE_LEGEND: Partial<Record<SequenceOperation, [string, string][]>> = {
+  preorder: [['border-mark bg-mark-soft', 'se visita'], UNDER_THE_EYE, VISITED],
+  inorder: [['border-mark bg-mark-soft', 'se visita'], UNDER_THE_EYE, VISITED],
+  postorder: [['border-mark bg-mark-soft', 'se visita'], UNDER_THE_EYE, VISITED],
+  height: [['border-mark bg-mark-soft', 'acaba de responder'], UNDER_THE_EYE, VISITED],
+  search: [FOUND, UNDER_THE_EYE, VISITED, RULED_OUT],
+  insert: [['border-mark bg-mark-soft', 'nuevo'], UNDER_THE_EYE, VISITED],
+  minimum: [FOUND, VISITED, RULED_OUT],
+  successor: [['border-mark bg-mark-soft', 'mejor candidato'], FOUND, RULED_OUT],
+  remove: [
+    ['border-mark bg-mark-soft', 'toma un valor'],
+    ['border-accent bg-surface', 'sucesor'],
+    ['border-rule bg-sunk', 'sale'],
+    UNDER_THE_EYE,
+  ],
 };
 
 /** The most elements the picture stays legible with, measured on a slide. */
@@ -658,25 +687,9 @@ function Body({
         <span className="ml-auto flex flex-wrap items-center gap-3 font-mono text-3xs text-ink-faint">
           {trace.tree !== undefined ? (
             <>
-              {operation === 'search' ? (
-                <LegendSwatch swatchClass="border-keep bg-keep-soft" label="encontrado" />
-              ) : (
-                <LegendSwatch
-                  swatchClass="border-mark bg-mark-soft"
-                  label={
-                    operation === 'height'
-                      ? 'acaba de responder'
-                      : operation === 'insert'
-                        ? 'nuevo'
-                        : 'se visita'
-                  }
-                />
-              )}
-              <LegendSwatch swatchClass="border-focus bg-surface" label="bajo la mirada" />
-              <LegendSwatch swatchClass="border-rule-strong bg-sunk" label="ya visitado" />
-              {recipe === 'bst' && operation === 'search' ? (
-                <LegendSwatch swatchClass="border-rule bg-surface" label="descartado" />
-              ) : null}
+              {(TREE_LEGEND[operation] ?? []).map(([swatchClass, label]) => (
+                <LegendSwatch key={label} swatchClass={swatchClass} label={label} />
+              ))}
             </>
           ) : (
             <>
@@ -977,7 +990,7 @@ function TreeView({
                 strokeWidth={strong ? 2.4 : 1.2}
                 strokeDasharray={out ? '4 3' : undefined}
               />
-              {n.state === 'found' ? (
+              {n.state === 'found' || n.state === 'leaving' ? (
                 <text
                   x={cx}
                   y={cy + TREE_NODE_R + 12}
@@ -985,7 +998,7 @@ function TreeView({
                   fontSize="9"
                   fill="var(--color-ink-soft)"
                 >
-                  {CELL_NOTE.found}
+                  {CELL_NOTE[n.state]}
                 </text>
               ) : null}
               <text
