@@ -2,10 +2,25 @@
 id: edd-priority-queue-heap
 title: Estructuras de Datos · Priority Queue y Heap
 presentation: explicit
-questions: none
+questions: pool
 ---
 
-{/* `none` es un TODAVÍA NO, no una decisión: el banco de esta clase lo debe un WP aparte, después del merge (#304 §Non-goals). */}
+{/* `pool`: un conjunto sin expectativa por sección. No `per-section`, porque */}
+{/* cada <Slide> es un h2 y exigir una pregunta por lámina serían más de */}
+{/* ochenta. Lo que el pool tiene que garantizar es densidad por RANGO: un */}
+{/* control se pide sobre un rango de secciones y cada copia saca cuatro, así */}
+{/* que un rango con menos de cuatro preguntas se rechaza (ErrPoolTooSmall). */}
+{/* COBERTURA. 16 preguntas, aprobadas una a una por el profesor (#304). */}
+{/* Rangos que SÍ llenan una copia de cuatro: */}
+{/*   · la clase entera: 16. */}
+{/*   · la apertura sola (Una cola de prioridad → Un orden que sólo garantiza */}
+{/*     dónde está el máximo): 4. */}
+{/*   · el acto El heap binario: 4. */}
+{/*   · el acto Las operaciones del heap: 7. */}
+{/* Rangos que NO, y es deliberado: */}
+{/*   · el acto Un heap para cualquier prioridad solo: 1 pregunta (El min-heap). */}
+{/*     Las propuestas sobre PriorityQueue no se incluyeron. */}
+{/*   · los ejercicios, que no llevan ninguna pregunta por decisión. */}
 
 # Estructuras de Datos · Priority Queue y Heap
 
@@ -3267,3 +3282,184 @@ recorrerlo —preorden, inorden, postorden— y cuánto puede crecer su altura
 cuando nada la controla. Es la base de los árboles de búsqueda, que ordenan
 los valores de izquierda a derecha para poder encontrar cualquiera de ellos,
 no sólo el máximo.
+
+
+<Questions>
+
+<Question id="cola-prioridad-que-sale" anchor="una-cola-de-prioridad">
+
+¿Qué elemento sale de una cola de prioridad?
+
+- [x] El de mayor prioridad, sin importar cuándo llegó
+- [ ] El que lleva más tiempo esperando en la cola
+- [ ] El último que entró, como en una pila
+- [ ] El que quedó guardado al frente de la estructura
+
+</Question>
+
+<Question id="cola-prioridad-cuando-llamar-max" anchor="las-reglas-del-contrato-priority-queue">
+
+¿Cuándo permite el contrato del TDA Priority Queue llamar a `max()` y a `extractMax()`?
+
+- [x] Cuando `isEmpty()` retorna falso
+- [ ] Siempre: sobre una colección vacía retornan `null`
+- [ ] Siempre: sobre una colección vacía retornan 0
+- [ ] Sólo justo después de llamar a `insert(x)`
+
+</Question>
+
+<Question id="cola-prioridad-donde-paga-cada-lista" anchor="un-dilema-entre-insertar-y-extraer">
+
+Con una lista enlazada, ¿dónde paga cada versión de la cola de prioridad el trabajo de encontrar el máximo?
+
+- [x] La lista sin orden al extraer, y la ordenada al insertar
+- [ ] La lista sin orden al insertar, y la ordenada al extraer
+- [ ] Las dos al extraer, porque recorren la lista
+- [ ] Las dos lo encuentran en costo constante, en `head`
+
+</Question>
+
+<Question id="cola-prioridad-orden-necesario" anchor="un-orden-que-solo-garantiza-donde-esta-el-maximo">
+
+¿Qué orden basta guardar para que insertar y extraer sean baratos a la vez?
+
+- [x] Sólo el necesario para saber cuál es el mayor
+- [ ] El orden completo, de mayor a menor
+- [ ] El orden en que llegaron los elementos
+- [ ] Ninguno: se recorre todo al extraer
+
+</Question>
+
+<Question id="heap-que-garantiza-el-orden" anchor="un-arbol-binario-con-orden-de-heap">
+
+En un árbol con orden de heap, ¿qué se sabe con certeza?
+
+- [x] El valor más grande está siempre en la raíz
+- [ ] Por niveles, los valores quedan de mayor a menor
+- [ ] Cada hijo izquierdo es menor que el derecho
+- [ ] El valor más chico está en el último nodo
+
+</Question>
+
+<Question id="heap-para-que-sirve-la-forma-completa" anchor="un-arbol-binario-completo">
+
+¿Qué aporta la invariante de forma completa al heap?
+
+- [x] Mantiene el árbol bajo y permite guardarlo sin punteros
+- [ ] Deja el valor más grande siempre en la raíz
+- [ ] Permite buscar cualquier valor en costo logarítmico
+- [ ] Impide que el heap guarde valores repetidos
+
+</Question>
+
+<Question id="heap-hijos-de-k" anchor="los-hijos-de-un-nodo">
+
+En un heap guardado en un arreglo desde la posición 1, ¿dónde están los hijos del nodo de la posición k?
+
+- [x] En las posiciones 2k y 2k + 1
+- [ ] En las posiciones k + 1 y k + 2
+- [ ] En las posiciones 2k + 1 y 2k + 2
+- [ ] En las posiciones k / 2 y k / 2 + 1
+
+</Question>
+
+<Question id="heap-por-que-desde-1" anchor="si-el-arreglo-empezara-en-0">
+
+¿Por qué conviene guardar el heap desde la posición 1 del arreglo?
+
+- [x] Para que las fórmulas de hijos y padre no lleven ±1
+- [ ] Porque Java no permite usar la posición 0
+- [ ] Porque `data[0]` guarda la cantidad de elementos
+- [ ] Porque desde 0 el árbol deja de ser completo
+
+</Question>
+
+<Question id="heap-insert-arista-rota" anchor="la-invariante-que-el-nuevo-puede-romper">
+
+Al escribir un elemento nuevo en la posición `n + 1`, ¿dónde puede romperse la invariante de orden de heap?
+
+- [x] Sólo en la arista entre el nuevo y su padre
+- [ ] En las aristas entre el nuevo y sus hijos
+- [ ] En cualquier arista del camino hasta la raíz
+- [ ] En ninguna: el nuevo entra siempre en su lugar
+
+</Question>
+
+<Question id="heap-como-sale-el-maximo" anchor="por-donde-sale-el-maximo">
+
+¿Cómo saca el heap el elemento de mayor prioridad sin romper la invariante de forma completa?
+
+- [x] Lo intercambia con el último y después reduce `n` en uno
+- [ ] Borra la raíz y sube a su lugar el hijo mayor
+- [ ] Borra la raíz y corre el arreglo una posición
+- [ ] Lo marca como borrado y lo deja en la raíz
+
+</Question>
+
+<Question id="heap-sink-por-el-hijo-mayor" anchor="bajar-por-el-hijo-mayor">
+
+Al bajar con `sink`, ¿por qué el elemento se intercambia con el mayor de sus dos hijos?
+
+- [x] Para que el que sube no quede sobre un hermano mayor
+- [ ] Porque el hijo mayor siempre está a la izquierda
+- [ ] Porque así el elemento baja menos niveles
+- [ ] Porque el hijo menor ya está en su lugar definitivo
+
+</Question>
+
+<Question id="heap-que-limita-swim" anchor="el-costo-de-insert">
+
+¿Qué limita cuántos intercambios hace `swim` al insertar?
+
+- [x] La altura del árbol, que es logarítmica
+- [ ] La cantidad de nodos del último nivel
+- [ ] La cantidad total de elementos del heap
+- [ ] Cuántos elementos son mayores que el nuevo
+
+</Question>
+
+<Question id="heap-insert-peor-caso-lineal" anchor="el-costo-de-insert">
+
+¿Cuándo cuesta `insert` tiempo lineal en el peor caso?
+
+- [x] Cuando el arreglo está lleno y `resize` copia todo
+- [ ] Cuando el nuevo es el mayor y sube hasta la raíz
+- [ ] Cuando el nuevo es el menor de todos los elementos
+- [ ] Cuando el heap tiene valores repetidos
+
+</Question>
+
+<Question id="heap-sink-trabajo-por-nivel" anchor="el-costo-de-extractmax">
+
+Por cada nivel que baja, ¿cuánto trabajo hace `sink`?
+
+- [x] Constante: compara con sus hijos y quizás intercambia
+- [ ] Lineal: compara con todos los nodos de ese nivel
+- [ ] Lineal: compara con todos sus descendientes
+- [ ] Logarítmico: busca el mayor entre los de abajo
+
+</Question>
+
+<Question id="heap-gana-con-operaciones-mezcladas" anchor="muchas-operaciones-mezcladas">
+
+¿Por qué el heap supera a las dos listas cuando se mezclan muchas inserciones y extracciones?
+
+- [x] Porque ninguna de sus operaciones es lineal
+- [ ] Porque inserta más rápido que la lista sin orden
+- [ ] Porque extrae más rápido que la lista ordenada
+- [ ] Porque mantiene todos sus elementos ordenados
+
+</Question>
+
+<Question id="heap-min-heap-que-cambia" anchor="el-min-heap">
+
+¿Qué cambia al pasar de un max-heap a un min-heap?
+
+- [x] Sólo el sentido de las comparaciones de `swim` y `sink`
+- [ ] La forma del árbol, que se llena de derecha a izquierda
+- [ ] Las fórmulas de hijos y padre en el arreglo
+- [ ] El arreglo, que pasa a guardarse desde la posición 0
+
+</Question>
+
+</Questions>
