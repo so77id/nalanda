@@ -114,20 +114,19 @@ export function HierarchyPicture({ tree, tones = {}, badges = {}, notes = {}, nu
       </g>
     );
   };
-  // From one visit to the next: along the edge when they are parent and child; otherwise a dashed jump from the right of one to the left of the other, bending first up or down to the level it lands on.
+  // From one visit to the next: along the edge when they are parent and child; otherwise a dashed jump that leaves the right of one and enters the left of the other, both ends level, so the arrowhead points the way the line arrives.
   const step = (a, b, key) => {
     if (b.parent === a) return edgeArrow(a, b, false, seqColor, key, 2.4);
     if (a.parent === b) return edgeArrow(b, a, true, seqColor, key, 2.4);
     const sx = cx(a) + widthOf(a.name) / 2 + 2;
-    const sy = cy(a);
-    const ex = cx(b) - widthOf(b.name) / 2 - 3;
-    const ey = cy(b);
-    const qx = ey < sy ? sx + 14 : ey > sy ? ex - 14 : (sx + ex) / 2;
-    const qy = ey < sy ? ey : sy;
+    const sy = cy(a) + 3;
+    const ex = cx(b) - widthOf(b.name) / 2 - 2;
+    const ey = cy(b) + 3;
+    const d = Math.max(22, (ex - sx) / 2);
     return (
       <g key={key}>
-        <path d={`M ${sx} ${sy} Q ${qx} ${qy} ${ex} ${ey}`} fill="none" style={{ stroke: seqColor }} strokeWidth="1.8" strokeDasharray="5 4" />
-        {head(ex, ey, ey === qy ? 0 : deg(ey - qy, ex - qx), seqColor, `${key}-h`)}
+        <path d={`M ${sx} ${sy} C ${sx + d} ${sy}, ${ex - d} ${ey}, ${ex - 7} ${ey}`} fill="none" style={{ stroke: seqColor }} strokeWidth="1.8" strokeDasharray="5 4" />
+        {head(ex, ey, 0, seqColor, `${key}-h`)}
       </g>
     );
   };
