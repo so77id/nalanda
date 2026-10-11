@@ -992,29 +992,67 @@ export function FrontsPicture({ lists, gone, fronts, out, label }) {
   );
 }
 
-export function FrontsStrip({ steps, k, label }) {
-  // One column per step: the fronts from the smallest (on top, the one that
-  // leaves) down, what entered in its place, and the merged chain below.
-  const colW = 88;
-  const x0 = 104;
-  const groupH = k * 38;
-  const outY = groupH + 66;
+
+
+export function OneFrontChanges({ label }) {
+  // One step of the example: the 1 leaves and its next, the 4, takes its
+  // place; below, the fronts before and after — only one of them changed.
+  const before = [[1, 0], [2, 1], [5, 2]];
+  const after = [[4, 0], [2, 1], [5, 2]];
+  const gx = (x0, i) => x0 + i * 58;
+  const y = 214;
   return (
-    <svg viewBox={`0 0 ${x0 + steps.length * colW} ${outY + 52}`} style={{ width: '100%', maxWidth: '760px', height: 'auto', display: 'block', margin: '0.75rem auto' }} role="img" aria-label={label}>
-      <text x="0" y="20" fontSize="12" fontWeight="600" style={{ fill: 'var(--color-ink-soft)' }}>los frentes</text>
-      <text x="0" y="36" fontSize="11" style={{ fill: 'var(--color-ink-soft)' }}>el menor, arriba</text>
-      <text x="0" y={outY + 20} fontSize="12" fontWeight="600" style={{ fill: 'var(--color-ink-soft)' }}>salida</text>
-      {steps.map((s, i) => {
-        const cx = x0 + i * colW + colW / 2;
+    <svg viewBox="0 0 560 284" style={{ width: '100%', maxWidth: '640px', height: 'auto', display: 'block', margin: '0.75rem auto' }} role="img" aria-label={label}>
+      <text x={84 + 15} y="18" textAnchor="middle" fontSize="12" fontWeight="700" style={{ fill: 'var(--color-accent)' }}>sale</text>
+      <text x={84 + 70 + 15} y="18" textAnchor="middle" fontSize="12" fontWeight="700" style={{ fill: LIST_COLORS[0] }}>entra en su lugar</text>
+      <ChainRow y={28} label="lista 0" color={LIST_COLORS[0]} nodes={[{ v: 1, state: 'hot' }, { v: 4, state: 'front' }]} />
+      <ChainRow y={72} label="lista 1" color={LIST_COLORS[1]} nodes={[{ v: 2, state: 'front' }, { v: 3 }, { v: 6 }]} />
+      <ChainRow y={116} label="lista 2" color={LIST_COLORS[2]} nodes={[{ v: 5, state: 'front' }]} />
+      <text x={gx(40, 1) + 23} y={y - 14} textAnchor="middle" fontSize="12" fontWeight="700" style={{ fill: 'var(--color-ink-soft)' }}>los frentes antes</text>
+      <text x={gx(330, 1) + 23} y={y - 14} textAnchor="middle" fontSize="12" fontWeight="700" style={{ fill: 'var(--color-ink-soft)' }}>los frentes después</text>
+      {before.map(([v, l], i) => (
+        <LLNode key={`b${i}`} x={gx(40, i)} y={y} v={v} color={LIST_COLORS[l]} state={i === 0 ? 'hot' : undefined} />
+      ))}
+      <Arrow x1={gx(40, 3) + 4} y1={y + 15} x2={326} y2={y + 15} />
+      {after.map(([v, l], i) => (
+        <g key={`a${i}`}>
+          <LLNode x={gx(330, i)} y={y} v={v} color={LIST_COLORS[l]} state={i === 0 ? 'front' : undefined} />
+          <text x={gx(330, i) + 23} y={y + 50} textAnchor="middle" fontSize="11" fontWeight={i === 0 ? 700 : 400} style={{ fill: i === 0 ? LIST_COLORS[l] : 'var(--color-ink-faint)' }}>{i === 0 ? 'nuevo' : 'igual'}</text>
+        </g>
+      ))}
+    </svg>
+  );
+}
+
+export function OutPanel({ out, tailAt, ended = false, label }) {
+  const w = 84 + (out.length + 1) * 62 + 60;
+  return (
+    <svg viewBox={`0 0 ${w} 82`} style={{ width: '100%', maxWidth: `${Math.round(w * 1.2)}px`, height: 'auto', display: 'block', margin: '0.3rem auto' }} role="img" aria-label={label}>
+      <OutChain y={32} out={out} tailAt={tailAt} ended={ended} />
+    </svg>
+  );
+}
+
+export function HookSteps({ label }) {
+  // Hooking a node at the end of the output, in the two assignments that do it.
+  const rows = [
+    { code: 'al comienzo', out: [], tailAt: -1 },
+    { code: 'tail.next = first;', out: [[1, 0]], tailAt: -1, first: true },
+    { code: 'tail = first;', out: [[1, 0]], tailAt: 0 },
+  ];
+  return (
+    <svg viewBox="0 0 560 250" style={{ width: '100%', maxWidth: '640px', height: 'auto', display: 'block', margin: '0.75rem auto' }} role="img" aria-label={label}>
+      {rows.map((r, i) => {
+        const y = 44 + i * 78;
         return (
           <g key={i}>
-            {s.fronts.map(([v, l], j) => (
-              <LLNode key={j} x={cx - 23} y={j * 38} v={v} color={LIST_COLORS[l]} state={j === 0 ? 'front' : undefined} />
-            ))}
-            <text x={cx} y={groupH + 18} textAnchor="middle" fontSize="11" fontWeight="600" style={{ fill: 'var(--color-ink-soft)' }}>{`sale ${s.fronts[0][0]}`}</text>
-            <text x={cx} y={groupH + 34} textAnchor="middle" fontSize="11" style={{ fill: s.enters ? LIST_COLORS[s.enters[1]] : 'var(--color-ink-faint)' }}>{s.enters ? `entra su next, ${s.enters[0]}` : 'su next es null'}</text>
-            <LLNode x={cx - 23} y={outY} v={s.fronts[0][0]} color={LIST_COLORS[s.fronts[0][1]]} tag={s.fronts[0][1]} />
-            {i < steps.length - 1 ? <Arrow x1={cx + 15} y1={outY + 15} x2={cx + colW - 25} y2={outY + 15} /> : null}
+            <text x="0" y={y + 20} fontSize="13" fontFamily={i === 0 ? undefined : 'var(--font-mono, monospace)'} fontWeight={i === 0 ? 600 : 400} style={{ fill: i === 0 ? 'var(--color-ink-soft)' : 'var(--color-ink)' }}>{r.code}</text>
+            <g transform="translate(150, 0)">
+              <OutChain y={y} out={r.out} tailAt={r.tailAt} />
+              {r.first ? (
+                <text x={84 + 62 + 23} y={y - 6} textAnchor="middle" fontSize="11" fontWeight="700" fontFamily="var(--font-mono, monospace)" style={{ fill: LIST_COLORS[0] }}>first</text>
+              ) : null}
+            </g>
           </g>
         );
       })}
@@ -1022,30 +1060,7 @@ export function FrontsStrip({ steps, k, label }) {
   );
 }
 
-export function PushPicture({ label }) {
-  // Two calls: one with a list's head, which enters, and one with the next of
-  // a list's last node, which is null and adds nothing.
-  return (
-    <svg viewBox="0 0 680 128" style={{ width: '100%', maxWidth: '740px', height: 'auto', display: 'block', margin: '0.75rem auto' }} role="img" aria-label={label}>
-      <text x="0" y="22" fontSize="13" fontFamily="var(--font-mono, monospace)" style={{ fill: 'var(--color-ink)' }}>push(fronts, lists[0])</text>
-      <g transform="translate(210, 2)">
-        <ChainRow y={0} label="lista 0" color={LIST_COLORS[0]} nodes={[{ v: 1, state: 'front' }, { v: 4 }]} />
-      </g>
-      <text x="560" y="22" fontSize="13" fontWeight="700" style={{ fill: LIST_COLORS[0] }}>entra el 1</text>
-      <text x="0" y="96" fontSize="13" fontFamily="var(--font-mono, monospace)" style={{ fill: 'var(--color-ink)' }}>push(fronts, first.next)</text>
-      <g transform="translate(210, 76)">
-        <text x="0" y="20" fontSize="12" fontWeight="700" style={{ fill: LIST_COLORS[2] }}>first</text>
-        <Arrow x1={46} y1={15} x2={82} y2={15} />
-        <LLNode x={84} y={0} v={5} color={LIST_COLORS[2]} />
-        <Arrow x1={122} y1={15} x2={150} y2={15} color="var(--color-flag)" width={2.2} />
-        <text x="154" y="20" fontSize="13" fontWeight="700" fontFamily="var(--font-mono, monospace)" style={{ fill: 'var(--color-flag)' }}>null</text>
-      </g>
-      <text x="560" y="96" fontSize="13" fontWeight="700" style={{ fill: 'var(--color-flag)' }}>no entra nada</text>
-    </svg>
-  );
-}
-
-export function MergeFrame({ lists, gone, fronts, hot = -1, heap, heapHot = [], out, tailAt, ended = false, showOut = true, label }) {
+export function MergeFrame({ lists, gone, fronts, hot = -1, heap, heapHot = [], out = [], tailAt, ended = false, showOut = true, noOut = false, label }) {
   // Left: the input lists (gone nodes dashed where they were, fronts thick,
   // the polled node in accent). Right: the heap of fronts, each node in its
   // list's colour. Below: the merged chain from dummy, with tail.
@@ -1067,9 +1082,11 @@ export function MergeFrame({ lists, gone, fronts, hot = -1, heap, heapHot = [], 
           <HeapPicture values={heap.map((e) => e[0])} strokes={heap.map((e) => LIST_COLORS[e[1]])} view="tree" minLevels={2} hot={heapHot} label={label} />
         </div>
       </div>
-      <svg viewBox={`0 0 ${outW} 82`} style={{ width: '100%', maxWidth: `${Math.round(outW * 1.2)}px`, height: 'auto', display: 'block', margin: '0.3rem auto 0' }} role="img" aria-label={showOut ? `La salida: dummy${out.map((e) => `, ${e[0]}`).join('')}${ended ? ', null' : ''}.` : 'Todavía no hay salida.'}>
-        {showOut ? <OutChain y={32} out={out} tailAt={tailAt} ended={ended} /> : null}
-      </svg>
+      {noOut ? null : (
+        <svg viewBox={`0 0 ${outW} 82`} style={{ width: '100%', maxWidth: `${Math.round(outW * 1.2)}px`, height: 'auto', display: 'block', margin: '0.3rem auto 0' }} role="img" aria-label={showOut ? `La salida: dummy${out.map((e) => `, ${e[0]}`).join('')}${ended ? ', null' : ''}.` : 'Todavía no hay salida.'}>
+          {showOut ? <OutChain y={32} out={out} tailAt={tailAt} ended={ended} /> : null}
+        </svg>
+      )}
     </div>
   );
 }
@@ -2774,64 +2791,143 @@ aprovecha que las listas ya vienen ordenadas.
 
 </Slide>
 
-<Slide title="El menor está entre los frentes">
-Entre un paso y el siguiente, los frentes casi no cambian: sale uno, y su
-lugar lo toma **su `next`**, el nodo que le seguía en su lista. Los otros
-$$K - 1$$ siguen ahí. Si su `next` es `null`, esa lista se acabó y no entra
-nada.
+<Slide title="Un solo frente cambia en cada paso">
+El intento anterior compara los $$K$$ frentes en cada paso, como si todos
+pudieran haber cambiado. Pero entre un paso y el siguiente cambia **uno
+solo**: el que salió. Su lugar lo toma el nodo que le seguía en su lista, su
+`next`, y los otros $$K - 1$$ frentes son exactamente los mismos que antes.
 
-<div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-ink-soft)', textAlign: 'center' }}>los frentes en cada paso, del menor, arriba, al mayor</div>
-<FrontsStrip
-  k={3}
-  steps={[
-    { fronts: [[1, 0], [2, 1], [5, 2]], enters: [4, 0] },
-    { fronts: [[2, 1], [4, 0], [5, 2]], enters: [3, 1] },
-    { fronts: [[3, 1], [4, 0], [5, 2]], enters: [6, 1] },
-    { fronts: [[4, 0], [5, 2], [6, 1]], enters: null },
-    { fronts: [[5, 2], [6, 1]], enters: null },
-    { fronts: [[6, 1]], enters: null },
-  ]}
-  label="Seis pasos. Los frentes empiezan siendo 1, 2 y 5. Sale el 1 y entra su next, el 4. Sale el 2 y entra su next, el 3. Sale el 3 y entra su next, el 6. Sale el 4, cuyo next es null. Sale el 5, cuyo next es null. Sale el 6, cuyo next es null. La salida es 1, 2, 3, 4, 5, 6."
-/>
+<div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-ink-soft)', textAlign: 'center' }}>el primer paso del ejemplo</div>
+<OneFrontChanges label="El primer paso del ejemplo. Los frentes son el 1 de la lista 0, el 2 de la lista 1 y el 5 de la lista 2. Sale el 1, el menor, y en su lugar entra su next, el 4. Los frentes pasan de 1, 2, 5 a 4, 2, 5: el 2 y el 5 siguen iguales." />
 
-Lo que hay que tener a mano es el **mínimo** de un grupo de $$K$$ nodos en
-el que, a cada paso, sale el mínimo y entra otro. Eso es un **min-heap de
-los frentes**, que compara los nodos por su valor. No hace falta recordar
-nada más de cada frente: el que entra cuando sale es su `next`.
+Volver a comparar los que no cambiaron es trabajo repetido. Lo que hace
+falta es guardar los frentes de una forma que diga siempre cuál es el menor,
+y que permita cambiar uno sin mirar de nuevo a todos los demás.
 
 </Slide>
 
-<Slide title="K listas · push">
-`push` pone un nodo en el heap, salvo que sea `null`. Las dos maneras de no
-tener nodo terminan ahí: una lista vacía tiene la cabeza en `null`, y el
-`next` del último nodo de una lista es `null`.
+<Slide title="Sacar el menor y agregar otro">
+Con los frentes, cada paso hace siempre las mismas dos cosas: **sacar el
+menor** y **agregar otro**, su `next`. Son las dos operaciones de una cola de
+prioridad. Un **min-heap de los frentes** las hace en $$O(\log K)$$ cada
+una, porque nunca guarda más de $$K$$ nodos, uno por lista.
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '0.25rem 1rem' }}>
+<div>
+<div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-ink-soft)', textAlign: 'center' }}>los frentes</div>
+<HeapPicture values={[1, 2, 5]} strokes={[LIST_COLORS[0], LIST_COLORS[1], LIST_COLORS[2]]} view="tree" minLevels={2} label="Un min-heap con los tres frentes: el 1 en la raíz, el 2 y el 5 como hijos." />
+</div>
+<div>
+<div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-ink-soft)', textAlign: 'center' }}>sale el menor, el 1</div>
+<HeapPicture values={[2, 5]} strokes={[LIST_COLORS[1], LIST_COLORS[2]]} view="tree" minLevels={2} label="Después de sacar el 1, el heap queda con el 2 en la raíz y el 5 como hijo." />
+</div>
+<div>
+<div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-ink-soft)', textAlign: 'center' }}>entra su next, el 4</div>
+<HeapPicture values={[2, 5, 4]} strokes={[LIST_COLORS[1], LIST_COLORS[2], LIST_COLORS[0]]} view="tree" minLevels={2} hot={[3]} label="Después de agregar el 4, el heap tiene el 2 en la raíz y el 5 y el 4 como hijos." />
+</div>
+</div>
+
+El heap no ordena los frentes entre sí: sólo garantiza que el menor está en
+la raíz, que es lo único que se le pregunta. Los nodos se comparan por su
+valor, y un frente no necesita guardar nada más: el que entra cuando sale es
+su `next`.
+
+</Slide>
+
+<Slide title="K listas · los primeros frentes">
+Al comienzo, los frentes son las cabezas de las listas. Una lista vacía tiene
+la cabeza en `null` y no aporta ningún frente, así que antes de agregar se
+pregunta si el nodo existe. El comparador ordena los nodos por `value`:
 
 ```java
-static void push(PriorityQueue<Node> fronts, Node node) {
-    if (node != null) {
-        fronts.add(node);
+PriorityQueue<Node> fronts =
+    new PriorityQueue<>((a, b) -> Integer.compare(a.value, b.value));
+for (Node head : lists) {
+    if (head != null) {
+        fronts.add(head);
     }
 }
 ```
 
-<div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-ink-soft)', textAlign: 'center' }}>las dos llamadas que hace la solución</div>
-<PushPicture label="Dos llamadas. push con la cabeza de la lista 0 pone el 1 en el heap. push con el next del 5, el último de la lista 2, recibe null y no agrega nada." />
+<div style={{ display: 'grid', gridTemplateColumns: '3fr 2fr', gap: '0.25rem 1.5rem', alignItems: 'end' }}>
+<div>
+<div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-ink-soft)', textAlign: 'center' }}>las tres cabezas entran al heap</div>
+<MergeFrame lists={[[1, 4], [2, 3, 6], [5]]} gone={[0, 0, 0]} fronts={[0, 0, 0]} heap={[[1, 0], [2, 1], [5, 2]]} noOut label="Las cabezas 1, 2 y 5 son los primeros frentes, y entran al heap: el 1 queda en la raíz." />
+</div>
+<div>
+<div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-ink-soft)', textAlign: 'center' }}>una cabeza null no entra</div>
+<MergeFrame lists={[[], [3], []]} gone={[0, 0, 0]} fronts={[-1, 0, -1]} heap={[[3, 1]]} noOut label="Con la lista 0 y la lista 2 vacías, sólo entra la cabeza de la lista 1, el 3." />
+</div>
+</div>
+
+</Slide>
+
+<Slide title="K listas · armar la salida">
+La salida no copia valores: engancha los mismos nodos, uno detrás de otro.
+Para no tratar aparte el primero, empieza en un **nodo de mentira**, `dummy`,
+que nunca se devuelve. `tail` apunta al último nodo enganchado, para agregar
+al final sin recorrer la salida:
+
+```java
+Node dummy = new Node(0);
+Node tail = dummy;
+```
+
+Enganchar un nodo `first` son dos asignaciones: la primera lo cuelga
+después del último, y la segunda lo convierte en el nuevo último.
+
+<div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-ink-soft)', textAlign: 'center' }}>enganchar el 1</div>
+<HookSteps label="Tres momentos. Al comienzo la salida es sólo dummy, y tail apunta a él. Con tail.next igual a first, el 1 queda colgado después de dummy, y tail sigue en dummy. Con tail igual a first, tail pasa al 1." />
+
+</Slide>
+
+<Slide title="K listas · una vuelta">
+Cada vuelta junta las piezas: saca el menor de los frentes, lo engancha al
+final de la salida y repone su frente con su `next`. Si el que salió era el
+último de su lista, su `next` es `null` y no hay nada que reponer: esa lista
+se acabó y el heap queda con un frente menos.
+
+```java
+while (!fronts.isEmpty()) {
+    Node first = fronts.poll();
+    tail.next = first;
+    tail = first;
+    if (first.next != null) {
+        fronts.add(first.next);
+    }
+}
+```
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '0.25rem 1rem', alignItems: 'end' }}>
+<div>
+<div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-ink-soft)', textAlign: 'center' }}>1. sale el menor, el 1</div>
+<HeapPicture values={[2, 5]} strokes={[LIST_COLORS[1], LIST_COLORS[2]]} view="tree" minLevels={2} label="El heap después de sacar el 1: el 2 en la raíz y el 5 como hijo." />
+</div>
+<div>
+<div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-ink-soft)', textAlign: 'center' }}>2. se engancha al final</div>
+<OutPanel out={[[1, 0]]} tailAt={0} label="La salida: dummy y después el 1, con tail en el 1." />
+</div>
+<div>
+<div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-ink-soft)', textAlign: 'center' }}>3. entra su next, el 4</div>
+<HeapPicture values={[2, 5, 4]} strokes={[LIST_COLORS[1], LIST_COLORS[2], LIST_COLORS[0]]} view="tree" minLevels={2} hot={[3]} label="El heap después de agregar el 4: el 2 en la raíz, el 5 y el 4 como hijos." />
+</div>
+</div>
+
+El ciclo termina cuando no quedan frentes. Para entonces todos los nodos
+están enganchados, y la lista mezclada empieza en `dummy.next`.
 
 </Slide>
 
 <Slide title="K listas · la solución">
-El heap compara los nodos por `value`. Primero entra la cabeza de cada lista;
-después, cada vuelta saca el menor de los frentes, lo engancha al final de la
-salida y pone en su lugar su `next`. La salida empieza en un **nodo de
-mentira**, `dummy`, y `tail` apunta siempre a su último nodo.
-
 <StepShow
   language="java"
   code={`static Node mergeK(Node[] lists) {
       PriorityQueue<Node> fronts =
           new PriorityQueue<>((a, b) -> Integer.compare(a.value, b.value));
       for (Node head : lists) {
-          push(fronts, head);
+          if (head != null) {
+              fronts.add(head);
+          }
       }
       Node dummy = new Node(0);
       Node tail = dummy;
@@ -2839,7 +2935,9 @@ mentira**, `dummy`, y `tail` apunta siempre a su último nodo.
           Node first = fronts.poll();
           tail.next = first;
           tail = first;
-          push(fronts, first.next);
+          if (first.next != null) {
+              fronts.add(first.next);
+          }
       }
       return dummy.next;
   }`}
@@ -2848,79 +2946,79 @@ mentira**, `dummy`, y `tail` apunta siempre a su último nodo.
     <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>La cola de frentes arranca vacía, y compara los nodos por su value.</div>
     <MergeFrame lists={[[1, 4], [2, 3, 6], [5]]} gone={[0, 0, 0]} fronts={[-1, -1, -1]} heap={[]} out={[]} showOut={false} label="El heap de frentes, en orden de arreglo: vacío." />
   </Step>
-  <Step lines={[4, 5]}>
+  <Step lines={[4, 5, 6]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Entra la cabeza de la lista 0, el 1.</div>
     <MergeFrame lists={[[1, 4], [2, 3, 6], [5]]} gone={[0, 0, 0]} fronts={[0, -1, -1]} heap={[[1, 0]]} heapHot={[1]} out={[]} showOut={false} label="El heap de frentes, en orden de arreglo: 1 de la lista 0." />
   </Step>
-  <Step lines={[4, 5]}>
+  <Step lines={[4, 5, 6]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Entra la cabeza de la lista 1, el 2.</div>
     <MergeFrame lists={[[1, 4], [2, 3, 6], [5]]} gone={[0, 0, 0]} fronts={[0, 0, -1]} heap={[[1, 0], [2, 1]]} heapHot={[2]} out={[]} showOut={false} label="El heap de frentes, en orden de arreglo: 1 de la lista 0, 2 de la lista 1." />
   </Step>
-  <Step lines={[4, 5]}>
+  <Step lines={[4, 5, 6]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Entra la cabeza de la lista 2, el 5. Hay un frente por lista.</div>
     <MergeFrame lists={[[1, 4], [2, 3, 6], [5]]} gone={[0, 0, 0]} fronts={[0, 0, 0]} heap={[[1, 0], [2, 1], [5, 2]]} heapHot={[3]} out={[]} showOut={false} label="El heap de frentes, en orden de arreglo: 1 de la lista 0, 2 de la lista 1, 5 de la lista 2." />
   </Step>
-  <Step lines={[7, 8]}>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>dummy es el nodo de mentira, y tail apunta al último de la salida: por ahora, dummy.</div>
+  <Step lines={[9, 10]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>La salida empieza en dummy, y tail apunta a él.</div>
     <MergeFrame lists={[[1, 4], [2, 3, 6], [5]]} gone={[0, 0, 0]} fronts={[0, 0, 0]} heap={[[1, 0], [2, 1], [5, 2]]} out={[]} tailAt={-1} label="El heap de frentes, en orden de arreglo: 1 de la lista 0, 2 de la lista 1, 5 de la lista 2." />
   </Step>
-  <Step lines={[10]}>
+  <Step lines={[12]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Sale el menor de los frentes, el 1: es first.</div>
     <MergeFrame lists={[[1, 4], [2, 3, 6], [5]]} gone={[1, 0, 0]} fronts={[-1, 0, 0]} hot={0} heap={[[2, 1], [5, 2]]} out={[]} tailAt={-1} label="El heap de frentes, en orden de arreglo: 2 de la lista 1, 5 de la lista 2." />
   </Step>
-  <Step lines={[11]}>
+  <Step lines={[13]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>tail.next = first engancha el 1 después de dummy.</div>
     <MergeFrame lists={[[1, 4], [2, 3, 6], [5]]} gone={[1, 0, 0]} fronts={[-1, 0, 0]} heap={[[2, 1], [5, 2]]} out={[[1, 0]]} tailAt={-1} label="El heap de frentes, en orden de arreglo: 2 de la lista 1, 5 de la lista 2." />
   </Step>
-  <Step lines={[12]}>
+  <Step lines={[14]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>tail avanza al 1, el nuevo último de la salida.</div>
     <MergeFrame lists={[[1, 4], [2, 3, 6], [5]]} gone={[1, 0, 0]} fronts={[-1, 0, 0]} heap={[[2, 1], [5, 2]]} out={[[1, 0]]} tailAt={0} label="El heap de frentes, en orden de arreglo: 2 de la lista 1, 5 de la lista 2." />
   </Step>
-  <Step lines={[13]}>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Entra su next, el 4.</div>
+  <Step lines={[15, 16]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Su next no es null: entra el 4.</div>
     <MergeFrame lists={[[1, 4], [2, 3, 6], [5]]} gone={[1, 0, 0]} fronts={[1, 0, 0]} heap={[[2, 1], [5, 2], [4, 0]]} heapHot={[3]} out={[[1, 0]]} tailAt={0} label="El heap de frentes, en orden de arreglo: 2 de la lista 1, 5 de la lista 2, 4 de la lista 0." />
   </Step>
-  <Step lines={[10, 11, 12]}>
+  <Step lines={[12, 13, 14]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Sale el 2, se engancha al final de la salida y tail avanza a él.</div>
     <MergeFrame lists={[[1, 4], [2, 3, 6], [5]]} gone={[1, 1, 0]} fronts={[1, -1, 0]} heap={[[4, 0], [5, 2]]} out={[[1, 0], [2, 1]]} tailAt={1} label="El heap de frentes, en orden de arreglo: 4 de la lista 0, 5 de la lista 2." />
   </Step>
-  <Step lines={[13]}>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Entra su next, el 3, y sube a la raíz.</div>
+  <Step lines={[15, 16]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Su next no es null: entra el 3, y sube a la raíz.</div>
     <MergeFrame lists={[[1, 4], [2, 3, 6], [5]]} gone={[1, 1, 0]} fronts={[1, 1, 0]} heap={[[3, 1], [5, 2], [4, 0]]} heapHot={[1]} out={[[1, 0], [2, 1]]} tailAt={1} label="El heap de frentes, en orden de arreglo: 3 de la lista 1, 5 de la lista 2, 4 de la lista 0." />
   </Step>
-  <Step lines={[10, 11, 12]}>
+  <Step lines={[12, 13, 14]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Sale el 3, se engancha al final de la salida y tail avanza a él.</div>
     <MergeFrame lists={[[1, 4], [2, 3, 6], [5]]} gone={[1, 2, 0]} fronts={[1, -1, 0]} heap={[[4, 0], [5, 2]]} out={[[1, 0], [2, 1], [3, 1]]} tailAt={2} label="El heap de frentes, en orden de arreglo: 4 de la lista 0, 5 de la lista 2." />
   </Step>
-  <Step lines={[13]}>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Entra su next, el 6.</div>
+  <Step lines={[15, 16]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Su next no es null: entra el 6.</div>
     <MergeFrame lists={[[1, 4], [2, 3, 6], [5]]} gone={[1, 2, 0]} fronts={[1, 2, 0]} heap={[[4, 0], [5, 2], [6, 1]]} heapHot={[3]} out={[[1, 0], [2, 1], [3, 1]]} tailAt={2} label="El heap de frentes, en orden de arreglo: 4 de la lista 0, 5 de la lista 2, 6 de la lista 1." />
   </Step>
-  <Step lines={[10, 11, 12]}>
+  <Step lines={[12, 13, 14]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Sale el 4, se engancha al final de la salida y tail avanza a él.</div>
     <MergeFrame lists={[[1, 4], [2, 3, 6], [5]]} gone={[2, 2, 0]} fronts={[-1, 2, 0]} heap={[[5, 2], [6, 1]]} out={[[1, 0], [2, 1], [3, 1], [4, 0]]} tailAt={3} ended label="El heap de frentes, en orden de arreglo: 5 de la lista 2, 6 de la lista 1." />
   </Step>
-  <Step lines={[13]}>
+  <Step lines={[15]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>El next del 4 es null: la lista 0 se acabó y no entra nada.</div>
     <MergeFrame lists={[[1, 4], [2, 3, 6], [5]]} gone={[2, 2, 0]} fronts={[-1, 2, 0]} heap={[[5, 2], [6, 1]]} out={[[1, 0], [2, 1], [3, 1], [4, 0]]} tailAt={3} ended label="El heap de frentes, en orden de arreglo: 5 de la lista 2, 6 de la lista 1." />
   </Step>
-  <Step lines={[10, 11, 12]}>
+  <Step lines={[12, 13, 14]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Sale el 5, se engancha al final de la salida y tail avanza a él.</div>
     <MergeFrame lists={[[1, 4], [2, 3, 6], [5]]} gone={[2, 2, 1]} fronts={[-1, 2, -1]} heap={[[6, 1]]} out={[[1, 0], [2, 1], [3, 1], [4, 0], [5, 2]]} tailAt={4} ended label="El heap de frentes, en orden de arreglo: 6 de la lista 1." />
   </Step>
-  <Step lines={[13]}>
+  <Step lines={[15]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>El next del 5 es null: la lista 2 se acabó y no entra nada.</div>
     <MergeFrame lists={[[1, 4], [2, 3, 6], [5]]} gone={[2, 2, 1]} fronts={[-1, 2, -1]} heap={[[6, 1]]} out={[[1, 0], [2, 1], [3, 1], [4, 0], [5, 2]]} tailAt={4} ended label="El heap de frentes, en orden de arreglo: 6 de la lista 1." />
   </Step>
-  <Step lines={[10, 11, 12]}>
+  <Step lines={[12, 13, 14]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Sale el 6, se engancha al final de la salida y tail avanza a él.</div>
     <MergeFrame lists={[[1, 4], [2, 3, 6], [5]]} gone={[2, 3, 1]} fronts={[-1, -1, -1]} heap={[]} out={[[1, 0], [2, 1], [3, 1], [4, 0], [5, 2], [6, 1]]} tailAt={5} ended label="El heap de frentes, en orden de arreglo: vacío." />
   </Step>
-  <Step lines={[13]}>
+  <Step lines={[15]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>El next del 6 es null: la lista 1 se acabó y no entra nada; la cola queda vacía.</div>
     <MergeFrame lists={[[1, 4], [2, 3, 6], [5]]} gone={[2, 3, 1]} fronts={[-1, -1, -1]} heap={[]} out={[[1, 0], [2, 1], [3, 1], [4, 0], [5, 2], [6, 1]]} tailAt={5} ended label="El heap de frentes, en orden de arreglo: vacío." />
   </Step>
-  <Step lines={[15]}>
+  <Step lines={[19]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>El resultado es dummy.next: 1, 2, 3, 4, 5, 6. dummy nunca se devuelve.</div>
     <MergeFrame lists={[[1, 4], [2, 3, 6], [5]]} gone={[2, 3, 1]} fronts={[-1, -1, -1]} heap={[]} out={[[1, 0], [2, 1], [3, 1], [4, 0], [5, 2], [6, 1]]} ended label="El heap de frentes, en orden de arreglo: vacío." />
   </Step>
@@ -2929,9 +3027,9 @@ mentira**, `dummy`, y `tail` apunta siempre a su último nodo.
 </Slide>
 
 <Slide title="Las listas vacías y la que se acaba">
-`push` recibe `null` en los dos bordes y no agrega nada: una lista vacía no
-aporta ningún frente al comienzo, y una lista que se acaba no repone el suyo.
-El heap guarda un frente por cada lista que todavía tiene nodos.
+La pregunta por `null` cubre los dos bordes: una lista vacía no aporta
+ningún frente al comienzo, y una lista que se acaba no repone el suyo. El
+heap guarda siempre un frente por cada lista que todavía tiene nodos.
 
 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '0.25rem 1.5rem' }}>
 <div>
@@ -2952,7 +3050,7 @@ Sin listas, el heap nunca recibe nada, el `while` no corre y el resultado es
 <Slide title="El costo de mezclar K listas">
 **Tiempo.** El algoritmo tiene dos partes:
 
-- primero entra la cabeza de cada lista: $$K$$ llamadas a `push`;
+- primero entran las cabezas: a lo más $$K$$ llamadas a `add`;
 - después cada uno de los $$N$$ nodos sale una vez con `poll`, y por cada uno
   que sale entra a lo más su `next`.
 
@@ -2988,17 +3086,13 @@ class Node {
 }
 
 class Solution {
-    static void push(PriorityQueue<Node> fronts, Node node) {
-        if (node != null) {
-            fronts.add(node);
-        }
-    }
-
     static Node mergeK(Node[] lists) {
         PriorityQueue<Node> fronts =
             new PriorityQueue<>((a, b) -> Integer.compare(a.value, b.value));
         for (Node head : lists) {
-            push(fronts, head);
+            if (head != null) {
+                fronts.add(head);
+            }
         }
         Node dummy = new Node(0);
         Node tail = dummy;
@@ -3006,7 +3100,9 @@ class Solution {
             Node first = fronts.poll();
             tail.next = first;
             tail = first;
-            push(fronts, first.next);
+            if (first.next != null) {
+                fronts.add(first.next);
+            }
         }
         return dummy.next;
     }
