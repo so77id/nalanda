@@ -15,10 +15,10 @@ cada elemento tiene a lo más un siguiente. Muchos datos no tienen esa forma.
 {/* HierarchyPicture — a static drawing of a general tree (any number of children per node): the folder tree or a small hierarchy, with tones, badges, notes, level lines, an open path and an optional queue under it. */}
 {/* File-local on purpose (add-a-course-document.md §6e-quater): one consumer, no catalog entry, not registered. The second document that wants it promotes it. */}
 {/* A leaf takes the next column; a parent sits centred over its first and last child. Every node name in one tree is unique, because tones, badges and notes are keyed by it. */}
-{/* minWidth gives figures set side by side one canvas width, so their boxes and text come out the same size; the tree is centred in it. compact and size fit a frame of a step-through, whose box has a fixed height. */}
+{/* minWidth gives figures set side by side one canvas width, so their boxes and text come out the same size; the tree is centred in it. compact and size fit a frame of a step-through, whose box has a fixed height. A node toned "hidden" is not drawn, nor its edge, but keeps its place: a tree built node by node grows in the positions it will end in, and nothing moves between frames. fresh names the node just added; its edge is drawn in the mark colour. */}
 {/* The drawings of an order, each in its own colour, and each told by its arrows and numbers, never by colour alone. flow puts an arrowhead on every edge — "down" (focus) for what a node takes from its parent, "up" (mark) for what it takes from its children. visits numbers the nodes in "pre" (focus) or "post" (mark) order and draws an arrow from every visit to the next: along the edge when the next is a child or the parent, dashed when the walk jumps to another branch. reading numbers them level by level (keep) and draws each level as a line read left to right, with the return to the next. strip writes the sequence under the tree, the order a program would print it in. */}
 
-export function HierarchyPicture({ tree, tones = {}, badges = {}, notes = {}, numbers = {}, path = [], levels = false, queue, caption, minWidth = 0, flow, visits, reading = false, strip = false, badgeColor = 'var(--color-focus)', compact = false, size = 1, label }) {
+export function HierarchyPicture({ tree, tones = {}, badges = {}, notes = {}, numbers = {}, path = [], levels = false, queue, caption, minWidth = 0, flow, visits, reading = false, strip = false, badgeColor = 'var(--color-focus)', compact = false, size = 1, fresh, label }) {
   const boxH = 26;
   const levelH = compact ? 50 : 64;
   const padX = reading ? 22 : 12;
@@ -131,7 +131,8 @@ export function HierarchyPicture({ tree, tones = {}, badges = {}, notes = {}, nu
       </g>
     );
   };
-  const edges = nodes.filter((n) => n.parent !== null);
+  const shown = nodes.filter((n) => tones[n.name] !== 'hidden');
+  const edges = shown.filter((n) => n.parent !== null);
   return (
     <svg viewBox={`0 0 ${width} ${height}`} style={{ width: '100%', maxWidth: `${Math.round(width * 1.35 * size)}px`, height: 'auto', display: 'block', margin: compact ? '0.25rem auto' : '1rem auto' }} role="img" aria-label={label}>
       {levels && !reading
@@ -166,12 +167,15 @@ export function HierarchyPicture({ tree, tones = {}, badges = {}, notes = {}, nu
         : null}
       {edges.map((n) => {
         if (flow) return edgeArrow(n.parent, n, flow === 'up', flowColor, `e-${n.name}`);
-        const onIt = onPath.has(n.name) && onPath.has(n.parent.name);
-        const color = onIt ? 'var(--color-focus)' : tones[n.name] === 'faint' ? 'var(--color-rule)' : 'var(--color-rule-strong)';
+        const onIt = (onPath.has(n.name) && onPath.has(n.parent.name)) || n.name === fresh;
+        const color = n.name === fresh ? 'var(--color-mark)' : onIt ? 'var(--color-focus)' : tones[n.name] === 'faint' ? 'var(--color-rule)' : 'var(--color-rule-strong)';
         return <line key={`e-${n.name}`} x1={cx(n.parent)} y1={cy(n.parent) + boxH / 2} x2={cx(n)} y2={cy(n) - boxH / 2} style={{ stroke: color }} strokeWidth={onIt ? 2.6 : 1.2} />;
       })}
       {visits ? seq.slice(1).map((b, i) => step(seq[i], b, `s-${b.name}`)) : null}
-      {nodes.map((n) => {
+      {shown.length === 0 ? (
+        <text x={cx(nodes[0])} y={cy(nodes[0]) + 4.5} textAnchor="middle" fontSize="13" fontFamily="var(--font-mono, monospace)" style={{ fill: 'var(--color-ink-soft)' }}>root = null</text>
+      ) : null}
+      {shown.map((n) => {
         const [fill, stroke, weight] = TONE[tones[n.name] ?? 'idle'];
         const w = widthOf(n.name);
         const faint = tones[n.name] === 'faint';
@@ -476,51 +480,51 @@ calculo.add("guia.pdf");
 tree.root.add("notas.txt");`}
 >
   <Step lines={[1]}>
-    <HierarchyPicture tree={FOLDERS} tones={{ 'home/': 'faint', 'fotos/': 'faint', 'playa.jpg': 'faint', 'perro.jpg': 'faint', 'ramos/': 'faint', 'eda/': 'faint', 't1.pdf': 'faint', 't2.pdf': 'faint', 'calculo/': 'faint', 'guia.pdf': 'faint', 'notas.txt': 'faint' }} compact size={0.8} label="Todavía no hay ningún nodo: el árbol está vacío, con root en null. El dibujo muestra atenuado el árbol que se va a armar." />
+    <HierarchyPicture tree={FOLDERS} tones={{ 'home/': 'hidden', 'fotos/': 'hidden', 'playa.jpg': 'hidden', 'perro.jpg': 'hidden', 'ramos/': 'hidden', 'eda/': 'hidden', 't1.pdf': 'hidden', 't2.pdf': 'hidden', 'calculo/': 'hidden', 'guia.pdf': 'hidden', 'notas.txt': 'hidden' }} compact size={0.8} label="Todavía no hay ningún nodo: el árbol está vacío, con root en null." />
     <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Un árbol vacío: root está en null.</div>
   </Step>
   <Step lines={[2]}>
-    <HierarchyPicture tree={FOLDERS} tones={{ 'home/': 'mark', 'fotos/': 'faint', 'playa.jpg': 'faint', 'perro.jpg': 'faint', 'ramos/': 'faint', 'eda/': 'faint', 't1.pdf': 'faint', 't2.pdf': 'faint', 'calculo/': 'faint', 'guia.pdf': 'faint', 'notas.txt': 'faint' }} compact size={0.8} label="Se crea la raíz, home." />
+    <HierarchyPicture tree={FOLDERS} tones={{ 'home/': 'mark', 'fotos/': 'hidden', 'playa.jpg': 'hidden', 'perro.jpg': 'hidden', 'ramos/': 'hidden', 'eda/': 'hidden', 't1.pdf': 'hidden', 't2.pdf': 'hidden', 'calculo/': 'hidden', 'guia.pdf': 'hidden', 'notas.txt': 'hidden' }} compact size={0.8} label="Se crea la raíz, home." />
     <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Se crea la raíz, home/.</div>
   </Step>
   <Step lines={[3]}>
-    <HierarchyPicture tree={FOLDERS} tones={{ 'fotos/': 'mark', 'playa.jpg': 'faint', 'perro.jpg': 'faint', 'ramos/': 'faint', 'eda/': 'faint', 't1.pdf': 'faint', 't2.pdf': 'faint', 'calculo/': 'faint', 'guia.pdf': 'faint', 'notas.txt': 'faint' }} compact size={0.8} label="fotos se agrega como primer hijo de home." />
+    <HierarchyPicture tree={FOLDERS} tones={{ 'fotos/': 'mark', 'playa.jpg': 'hidden', 'perro.jpg': 'hidden', 'ramos/': 'hidden', 'eda/': 'hidden', 't1.pdf': 'hidden', 't2.pdf': 'hidden', 'calculo/': 'hidden', 'guia.pdf': 'hidden', 'notas.txt': 'hidden' }} fresh="fotos/" compact size={0.8} label="fotos se agrega como primer hijo de home." />
     <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>fotos/ entra al final de la lista de home/: es su primer hijo.</div>
   </Step>
   <Step lines={[4]}>
-    <HierarchyPicture tree={FOLDERS} tones={{ 'playa.jpg': 'mark', 'perro.jpg': 'faint', 'ramos/': 'faint', 'eda/': 'faint', 't1.pdf': 'faint', 't2.pdf': 'faint', 'calculo/': 'faint', 'guia.pdf': 'faint', 'notas.txt': 'faint' }} compact size={0.8} label="playa.jpg se agrega como primer hijo de fotos." />
+    <HierarchyPicture tree={FOLDERS} tones={{ 'playa.jpg': 'mark', 'perro.jpg': 'hidden', 'ramos/': 'hidden', 'eda/': 'hidden', 't1.pdf': 'hidden', 't2.pdf': 'hidden', 'calculo/': 'hidden', 'guia.pdf': 'hidden', 'notas.txt': 'hidden' }} fresh="playa.jpg" compact size={0.8} label="playa.jpg se agrega como primer hijo de fotos." />
     <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>playa.jpg entra al final de la lista de fotos/: es su primer hijo.</div>
   </Step>
   <Step lines={[5]}>
-    <HierarchyPicture tree={FOLDERS} tones={{ 'perro.jpg': 'mark', 'ramos/': 'faint', 'eda/': 'faint', 't1.pdf': 'faint', 't2.pdf': 'faint', 'calculo/': 'faint', 'guia.pdf': 'faint', 'notas.txt': 'faint' }} compact size={0.8} label="perro.jpg se agrega como segundo hijo de fotos." />
+    <HierarchyPicture tree={FOLDERS} tones={{ 'perro.jpg': 'mark', 'ramos/': 'hidden', 'eda/': 'hidden', 't1.pdf': 'hidden', 't2.pdf': 'hidden', 'calculo/': 'hidden', 'guia.pdf': 'hidden', 'notas.txt': 'hidden' }} fresh="perro.jpg" compact size={0.8} label="perro.jpg se agrega como segundo hijo de fotos." />
     <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>perro.jpg entra al final de la lista de fotos/: es su segundo hijo.</div>
   </Step>
   <Step lines={[6]}>
-    <HierarchyPicture tree={FOLDERS} tones={{ 'ramos/': 'mark', 'eda/': 'faint', 't1.pdf': 'faint', 't2.pdf': 'faint', 'calculo/': 'faint', 'guia.pdf': 'faint', 'notas.txt': 'faint' }} compact size={0.8} label="ramos se agrega como segundo hijo de home." />
+    <HierarchyPicture tree={FOLDERS} tones={{ 'ramos/': 'mark', 'eda/': 'hidden', 't1.pdf': 'hidden', 't2.pdf': 'hidden', 'calculo/': 'hidden', 'guia.pdf': 'hidden', 'notas.txt': 'hidden' }} fresh="ramos/" compact size={0.8} label="ramos se agrega como segundo hijo de home." />
     <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>ramos/ entra al final de la lista de home/: es su segundo hijo.</div>
   </Step>
   <Step lines={[7]}>
-    <HierarchyPicture tree={FOLDERS} tones={{ 'eda/': 'mark', 't1.pdf': 'faint', 't2.pdf': 'faint', 'calculo/': 'faint', 'guia.pdf': 'faint', 'notas.txt': 'faint' }} compact size={0.8} label="eda se agrega como primer hijo de ramos." />
+    <HierarchyPicture tree={FOLDERS} tones={{ 'eda/': 'mark', 't1.pdf': 'hidden', 't2.pdf': 'hidden', 'calculo/': 'hidden', 'guia.pdf': 'hidden', 'notas.txt': 'hidden' }} fresh="eda/" compact size={0.8} label="eda se agrega como primer hijo de ramos." />
     <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>eda/ entra al final de la lista de ramos/: es su primer hijo.</div>
   </Step>
   <Step lines={[8]}>
-    <HierarchyPicture tree={FOLDERS} tones={{ 't1.pdf': 'mark', 't2.pdf': 'faint', 'calculo/': 'faint', 'guia.pdf': 'faint', 'notas.txt': 'faint' }} compact size={0.8} label="t1.pdf se agrega como primer hijo de eda." />
+    <HierarchyPicture tree={FOLDERS} tones={{ 't1.pdf': 'mark', 't2.pdf': 'hidden', 'calculo/': 'hidden', 'guia.pdf': 'hidden', 'notas.txt': 'hidden' }} fresh="t1.pdf" compact size={0.8} label="t1.pdf se agrega como primer hijo de eda." />
     <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>t1.pdf entra al final de la lista de eda/: es su primer hijo.</div>
   </Step>
   <Step lines={[9]}>
-    <HierarchyPicture tree={FOLDERS} tones={{ 't2.pdf': 'mark', 'calculo/': 'faint', 'guia.pdf': 'faint', 'notas.txt': 'faint' }} compact size={0.8} label="t2.pdf se agrega como segundo hijo de eda." />
+    <HierarchyPicture tree={FOLDERS} tones={{ 't2.pdf': 'mark', 'calculo/': 'hidden', 'guia.pdf': 'hidden', 'notas.txt': 'hidden' }} fresh="t2.pdf" compact size={0.8} label="t2.pdf se agrega como segundo hijo de eda." />
     <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>t2.pdf entra al final de la lista de eda/: es su segundo hijo.</div>
   </Step>
   <Step lines={[10]}>
-    <HierarchyPicture tree={FOLDERS} tones={{ 'calculo/': 'mark', 'guia.pdf': 'faint', 'notas.txt': 'faint' }} compact size={0.8} label="calculo se agrega como segundo hijo de ramos." />
+    <HierarchyPicture tree={FOLDERS} tones={{ 'calculo/': 'mark', 'guia.pdf': 'hidden', 'notas.txt': 'hidden' }} fresh="calculo/" compact size={0.8} label="calculo se agrega como segundo hijo de ramos." />
     <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>calculo/ entra al final de la lista de ramos/: es su segundo hijo.</div>
   </Step>
   <Step lines={[11]}>
-    <HierarchyPicture tree={FOLDERS} tones={{ 'guia.pdf': 'mark', 'notas.txt': 'faint' }} compact size={0.8} label="guia.pdf se agrega como primer hijo de calculo." />
+    <HierarchyPicture tree={FOLDERS} tones={{ 'guia.pdf': 'mark', 'notas.txt': 'hidden' }} fresh="guia.pdf" compact size={0.8} label="guia.pdf se agrega como primer hijo de calculo." />
     <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>guia.pdf entra al final de la lista de calculo/: es su primer hijo.</div>
   </Step>
   <Step lines={[12]}>
-    <HierarchyPicture tree={FOLDERS} tones={{ 'notas.txt': 'mark' }} compact size={0.8} label="notas.txt se agrega como tercer hijo de home." />
+    <HierarchyPicture tree={FOLDERS} tones={{ 'notas.txt': 'mark' }} fresh="notas.txt" compact size={0.8} label="notas.txt se agrega como tercer hijo de home." />
     <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>notas.txt entra al final de la lista de home/: es su tercer hijo.</div>
   </Step>
 </StepShow>
