@@ -836,32 +836,33 @@ describe('<SequenceStepper> · the combinations 21-edd-arboles-i mounts', () => 
   // Pinned here because `app/contentRenders.test.tsx` never mounts the lazy
   // widget (apps/web/CLAUDE.md §2, class 4). Named for the act and slide they
   // come from, and each one WALKED to its last frame, not only mounted.
-  const LEVELS = [3, 9, 1, 4, 7, null, 6];
+  // The binary-tree act's guide example: (3 + 4) * (5 − 1).
+  const EXPRESSION = ['*', '+', '−', 3, 4, 5, 1];
   const mounted: { act: string; slide: string; props: SequenceStepperProps }[] = [
     {
       act: 'El árbol binario',
-      slide: 'El preorden en un árbol binario',
-      props: { eda: 'binary-tree', operation: 'preorder', values: LEVELS },
+      slide: 'El código del preorden en un árbol binario',
+      props: { eda: 'binary-tree', operation: 'preorder', values: EXPRESSION },
     },
     {
       act: 'El árbol binario',
-      slide: 'El inorden',
-      props: { eda: 'binary-tree', operation: 'inorder', values: LEVELS },
+      slide: 'El código del inorden',
+      props: { eda: 'binary-tree', operation: 'inorder', values: EXPRESSION },
     },
     {
       act: 'El árbol binario',
-      slide: 'El postorden en un árbol binario',
-      props: { eda: 'binary-tree', operation: 'postorder', values: LEVELS },
+      slide: 'El código del postorden en un árbol binario',
+      props: { eda: 'binary-tree', operation: 'postorder', values: EXPRESSION },
     },
     {
       act: 'El árbol binario',
       slide: 'La altura por recursión',
-      props: { eda: 'binary-tree', operation: 'height', values: LEVELS },
+      props: { eda: 'binary-tree', operation: 'height', values: EXPRESSION },
     },
     {
       act: 'El árbol binario',
       slide: 'Buscar en un árbol binario',
-      props: { eda: 'binary-tree', operation: 'search', values: LEVELS, target: 5 },
+      props: { eda: 'binary-tree', operation: 'search', values: EXPRESSION, target: 5 },
     },
     {
       act: 'El árbol binario de búsqueda',
