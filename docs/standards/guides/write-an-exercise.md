@@ -57,6 +57,15 @@ shape is not hypothetical, though: eleven of them already ship, six in
 `18-edd-listas-enlazadas.mdx`, all with a statement, a skeleton `starter`,
 `test` cases and a `solution`, and none of them on a slide.
 
+**A worked exercise whose program does not fit a slide keeps its runnable
+block book-only, and says so in an MDX comment.** An `<Exercise>` on a slide
+shows its whole `starter`, uncapped, and the slide scales to fit it: #321's
+calculator — tree, traversal and stack evaluation chained, about eighty lines —
+scaled to 0.34 against the 0.70 floor. Its listing slides carry every piece
+with its own walk, so the lecture loses nothing; the book keeps the program to
+run. A program the length of #304's (about thirty lines) still goes on its
+slide.
+
 **They are a SECOND posed shape, and it is worth naming.** The eleven do not
 "ship beat 1 and stop": every one hands the reader beat 3 inside the
 statement — «recorrerla con dos referencias a distinta velocidad», «usá

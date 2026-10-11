@@ -1058,6 +1058,467 @@ trabajo en cada inserción y en cada eliminación. Ese es el compromiso de un
 
 </Slide>
 
+<SectionBreak />
+
+## Ejercicios
+
+{/* TokenRow and StackRow — the calculator exercise's drawings: a row of symbols with one under the eye, and a stack laid on its side, bottom on the left. File-local like HierarchyPicture (§6e-quater). */}
+
+export function TokenRow({ tokens, at = -1, title, label }) {
+  const box = 36;
+  const pad = 8;
+  const titleW = title ? title.length * 7.2 + 16 : 0;
+  const width = titleW + 2 * pad + Math.max(tokens.length, 1) * box;
+  const height = 2 * pad + box;
+  return (
+    <svg viewBox={`0 0 ${width} ${height}`} style={{ width: '100%', maxWidth: `${Math.round(width * 1.3)}px`, height: 'auto', display: 'block', margin: '0.5rem auto' }} role="img" aria-label={label}>
+      {title ? <text x={4} y={pad + box / 2 + 5} fontSize="12" style={{ fill: 'var(--color-ink-faint)' }}>{title}</text> : null}
+      {tokens.map((t, i) => (
+        <g key={i}>
+          <rect x={titleW + pad + i * box} y={pad} width={box - 4} height={box} rx="3" style={{ fill: i === at ? 'var(--color-mark-soft)' : 'var(--color-surface)', stroke: i === at ? 'var(--color-mark)' : 'var(--color-rule-strong)' }} strokeWidth={i === at ? 2.2 : 1.1} />
+          <text x={titleW + pad + i * box + (box - 4) / 2} y={pad + box / 2 + 5} textAnchor="middle" fontSize="15" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>{t}</text>
+        </g>
+      ))}
+      {tokens.length === 0 ? <text x={titleW + pad + 4} y={pad + box / 2 + 5} fontSize="12" style={{ fill: 'var(--color-ink-faint)' }}>vacía</text> : null}
+    </svg>
+  );
+}
+
+export function StackRow({ values, fresh = -1, label }) {
+  return <TokenRow tokens={values.map(String)} at={fresh} title="pila" label={label} />;
+}
+
+{/* The calculator's example expression, as the tree it describes. */}
+
+export const CALC_TREE = { v: '*', l: { v: '+', l: { v: '3' }, r: { v: '4' } }, r: { v: '5' } };
+
+export const CALC_CHARS = ['(', '(', '3', '+', '4', ')', '*', '5', ')'];
+
+<Slide title="Una calculadora con paréntesis">
+Una calculadora recibe una expresión aritmética escrita con paréntesis y
+tiene que devolver su valor. En la expresión, **cada operación va entre
+paréntesis** con sus dos operandos, y cada operando es un número o, a su vez,
+otra operación entre paréntesis.
+
+<TokenRow tokens={CALC_CHARS} title="expresión" label="La expresión abre paréntesis, abre paréntesis, 3 más 4, cierra paréntesis, por 5, cierra paréntesis." />
+
+El programa recibe la expresión como un `String` sin espacios, con números
+enteros no negativos de uno o más dígitos y los operadores `+`, `-`, `*` y
+`/` (la división es entera), y responde el valor como un `int`. La expresión
+siempre está bien escrita. Llamamos $$N$$ a su largo.
+
+```java
+static int calculate(String expression)
+```
+
+| Expresión         | Valor |
+| ----------------- | ----- |
+| `((3+4)*5)`       | 35    |
+| `(3+(4*5))`       | 23    |
+| `((8-2)/(1+2))`   | 2     |
+| `7`               | 7     |
+
+</Slide>
+
+<Slide title="Leer de izquierda a derecha">
+`((3+4)*5)` y `(3+(4*5))` tienen los mismos números y los mismos operadores,
+en el mismo orden. Si se operara de izquierda a derecha a medida que se lee,
+las dos darían 35, y la segunda vale 23.
+
+El orden en que se hacen las operaciones no está en el orden de los
+caracteres: está en **qué paréntesis queda dentro de cuál**. Un programa que
+lee la expresión una vez, de corrido, sin guardar ese anidamiento, no tiene
+cómo saber qué operar primero.
+
+</Slide>
+
+<Slide title="Una expresión es un árbol">
+Cada operación tiene un operador y dos operandos, y cada operando es un
+número u otra operación. Es una jerarquía, y se dibuja como un **árbol
+binario**: los operadores son nodos internos y los números son hojas. Es el
+**árbol de expresión**.
+
+<BinaryPicture tree={CALC_TREE} label="El árbol de la expresión abre paréntesis abre paréntesis 3 más 4 cierra por 5 cierra. La raíz es el por; su hijo izquierdo es el más, con hojas 3 y 4; su hijo derecho es la hoja 5." caption="((3+4)*5): el + queda debajo del *" />
+
+Para armarlo se lee la expresión una vez: un paréntesis que abre anuncia un
+operando izquierdo, un operador y un operando derecho, y cada operando se lee
+con la misma regla. Lo que estaba dentro de otros paréntesis queda más abajo
+en el árbol.
+
+</Slide>
+
+<Slide title="El postorden es la notación polaca inversa">
+Para calcular un operador hace falta, antes, el valor de sus dos operandos:
+el árbol se evalúa en **postorden**. Escrito, el postorden de un árbol de
+expresión pone cada operador después de sus dos operandos, sin paréntesis: es
+la **notación polaca inversa**.
+
+<TokenRow tokens={['3', '4', '+', '5', '*']} title="postorden" label="El postorden del árbol: 3, 4, más, 5, por." />
+
+Y la polaca inversa se evalúa con una **pila**, leyendo de izquierda a
+derecha: cada número se apila, y cada operador saca los dos de arriba, los
+opera y apila el resultado. Sobre `3 4 + 5 *`: se apilan 3 y 4; el `+` los
+saca y apila 7; se apila 5; el `*` saca 7 y 5 y apila 35, que es el valor.
+
+</Slide>
+
+<Slide title="Calculadora · funciones auxiliares">
+Tres piezas sin ninguna idea propia: el nodo, que guarda un `String` porque
+un nodo puede ser un número o un operador, y dos funciones que son los datos
+del enunciado escritos en Java.
+
+```java
+class Node<T> {
+    T value;
+    Node<T> left;
+    Node<T> right;
+
+    Node(T value) {
+        this.value = value;
+    }
+}
+
+static boolean isOperator(String t) {
+    return t.equals("+") || t.equals("-")
+        || t.equals("*") || t.equals("/");
+}
+
+static int apply(int a, int b, String t) {
+    if (t.equals("+")) return a + b;
+    if (t.equals("-")) return a - b;
+    if (t.equals("*")) return a * b;
+    return a / b;
+}
+```
+
+</Slide>
+
+<Slide title="Calculadora · construir el árbol">
+`parse` lee desde la posición `pos`, que comparte con sus llamadas
+recursivas. Si no hay un paréntesis, lee los dígitos de un número y devuelve
+una hoja; si lo hay, lee el operando izquierdo, el operador y el derecho, y
+arma el nodo.
+
+<StepShow
+  language="java"
+  code={`static int pos;
+
+static Node<String> parse(String s) {
+    if (s.charAt(pos) != '(') {
+        int start = pos;
+        while (pos < s.length()
+                && Character.isDigit(s.charAt(pos))) {
+            pos++;
+        }
+        return new Node<>(s.substring(start, pos));
+    }
+    pos++;
+    Node<String> left = parse(s);
+    String op = String.valueOf(s.charAt(pos));
+    pos++;
+    Node<String> right = parse(s);
+    pos++;
+    Node<String> node = new Node<>(op);
+    node.left = left;
+    node.right = right;
+    return node;
+}`}
+>
+  <Step lines={[12]}>
+    <TokenRow tokens={CALC_CHARS} at={0} title="expresión" label="parse mira el primer carácter, un paréntesis que abre." />
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>El primer carácter es un paréntesis: se salta.</div>
+  </Step>
+  <Step lines={[13, 12]}>
+    <TokenRow tokens={CALC_CHARS} at={1} title="expresión" label="El operando izquierdo empieza con otro paréntesis." />
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>El operando izquierdo es otra operación: parse se llama a sí misma y salta el segundo paréntesis.</div>
+  </Step>
+  <Step lines={[5, 6, 7, 8, 9, 10]}>
+    <TokenRow tokens={CALC_CHARS} at={2} title="expresión" label="parse lee el número 3." />
+    <div style={{ display: 'flex', justifyContent: 'center', gap: '1rem' }}>
+      <BinaryPicture tree={{ v: '3' }} size={0.7} label="Una hoja, 3." />
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Su operando izquierdo es un número: se leen sus dígitos y queda la hoja 3.</div>
+  </Step>
+  <Step lines={[14, 15]}>
+    <TokenRow tokens={CALC_CHARS} at={3} title="expresión" label="parse lee el operador más." />
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>El operador es +.</div>
+  </Step>
+  <Step lines={[16, 10]}>
+    <TokenRow tokens={CALC_CHARS} at={4} title="expresión" label="parse lee el número 4." />
+    <div style={{ display: 'flex', justifyContent: 'center', gap: '1rem' }}>
+      <BinaryPicture tree={{ v: '3' }} size={0.7} label="Una hoja, 3." />
+      <BinaryPicture tree={{ v: '4' }} size={0.7} label="Una hoja, 4." />
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>El operando derecho es el número 4: otra hoja.</div>
+  </Step>
+  <Step lines={[17, 18, 19, 20, 21]}>
+    <TokenRow tokens={CALC_CHARS} at={5} title="expresión" label="parse salta el paréntesis que cierra y arma el nodo más." />
+    <div style={{ display: 'flex', justifyContent: 'center', gap: '1rem' }}>
+      <BinaryPicture tree={{ v: '+', l: { v: '3' }, r: { v: '4' } }} size={0.7} label="El nodo más, con 3 a la izquierda y 4 a la derecha." />
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Se salta el paréntesis que cierra y se arma el nodo +: 3 a la izquierda, 4 a la derecha.</div>
+  </Step>
+  <Step lines={[14, 15]}>
+    <TokenRow tokens={CALC_CHARS} at={6} title="expresión" label="De vuelta en la primera llamada, parse lee el operador por." />
+    <div style={{ display: 'flex', justifyContent: 'center', gap: '1rem' }}>
+      <BinaryPicture tree={{ v: '+', l: { v: '3' }, r: { v: '4' } }} size={0.7} label="El nodo más, con 3 y 4." />
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>De vuelta en la primera llamada, el operador es *.</div>
+  </Step>
+  <Step lines={[16, 10]}>
+    <TokenRow tokens={CALC_CHARS} at={7} title="expresión" label="parse lee el número 5." />
+    <div style={{ display: 'flex', justifyContent: 'center', gap: '1rem' }}>
+      <BinaryPicture tree={{ v: '+', l: { v: '3' }, r: { v: '4' } }} size={0.7} label="El nodo más, con 3 y 4." />
+      <BinaryPicture tree={{ v: '5' }} size={0.7} label="Una hoja, 5." />
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>El operando derecho es el número 5.</div>
+  </Step>
+  <Step lines={[17, 18, 19, 20, 21]}>
+    <TokenRow tokens={CALC_CHARS} at={8} title="expresión" label="parse salta el último paréntesis y arma el nodo por." />
+    <div style={{ display: 'flex', justifyContent: 'center', gap: '1rem' }}>
+      <BinaryPicture tree={CALC_TREE} size={0.8} label="El árbol completo: por en la raíz, el más con 3 y 4 a su izquierda, y 5 a su derecha." />
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Se salta el último paréntesis y se arma el nodo *: el árbol completo.</div>
+  </Step>
+</StepShow>
+
+</Slide>
+
+<Slide title="Calculadora · del árbol a la polaca inversa">
+`postorder` es el recorrido de siempre, con la visita después de las dos
+llamadas; en lugar de imprimir, agrega cada valor al final de una lista.
+
+<StepShow
+  language="java"
+  code={`static void postorder(Node<String> node,
+        List<String> out) {
+    if (node == null) return;
+    postorder(node.left, out);
+    postorder(node.right, out);
+    out.add(node.value);
+}`}
+>
+  <Step lines={[6]}>
+    <BinaryPicture tree={CALC_TREE} size={0.8} tones={{ '3': 'mark' }} badges={{ '3': '1' }} label="El postorden visita primero el 3." />
+    <TokenRow tokens={['3']} at={0} title="lista" label="La lista tiene 3." />
+  </Step>
+  <Step lines={[6]}>
+    <BinaryPicture tree={CALC_TREE} size={0.8} tones={{ '3': 'done', '4': 'mark' }} badges={{ '3': '1', '4': '2' }} label="Después el 4." />
+    <TokenRow tokens={['3', '4']} at={1} title="lista" label="La lista tiene 3 y 4." />
+  </Step>
+  <Step lines={[6]}>
+    <BinaryPicture tree={CALC_TREE} size={0.8} tones={{ '3': 'done', '4': 'done', '+': 'mark' }} badges={{ '3': '1', '4': '2', '+': '3' }} label="Después el más, cuando sus dos operandos ya están en la lista." />
+    <TokenRow tokens={['3', '4', '+']} at={2} title="lista" label="La lista tiene 3, 4 y más." />
+  </Step>
+  <Step lines={[6]}>
+    <BinaryPicture tree={CALC_TREE} size={0.8} tones={{ '3': 'done', '4': 'done', '+': 'done', '5': 'mark' }} badges={{ '3': '1', '4': '2', '+': '3', '5': '4' }} label="Después el 5." />
+    <TokenRow tokens={['3', '4', '+', '5']} at={3} title="lista" label="La lista tiene 3, 4, más y 5." />
+  </Step>
+  <Step lines={[6]}>
+    <BinaryPicture tree={CALC_TREE} size={0.8} tones={{ '3': 'done', '4': 'done', '+': 'done', '5': 'done', '*': 'mark' }} badges={{ '3': '1', '4': '2', '+': '3', '5': '4', '*': '5' }} label="Al final, el por." />
+    <TokenRow tokens={['3', '4', '+', '5', '*']} at={4} title="lista" label="La lista tiene 3, 4, más, 5 y por: la notación polaca inversa." />
+  </Step>
+</StepShow>
+
+</Slide>
+
+<Slide title="Calculadora · evaluar con una pila">
+`evaluate` recorre la lista: cada número se apila, y cada operador saca dos
+valores, los opera con `apply` y apila el resultado. El primero que sale es
+el operando **derecho**, porque entró último.
+
+<StepShow
+  language="java"
+  code={`static int evaluate(List<String> tokens) {
+    Stack<Integer> values = new Stack<>();
+    for (String t : tokens) {
+        if (isOperator(t)) {
+            int b = values.pop();
+            int a = values.pop();
+            values.push(apply(a, b, t));
+        } else {
+            values.push(Integer.parseInt(t));
+        }
+    }
+    return values.pop();
+}`}
+>
+  <Step lines={[2]}>
+    <TokenRow tokens={['3', '4', '+', '5', '*']} title="lista" label="La lista 3, 4, más, 5, por." />
+    <StackRow values={[]} label="La pila empieza vacía." />
+  </Step>
+  <Step lines={[9]}>
+    <TokenRow tokens={['3', '4', '+', '5', '*']} at={0} title="lista" label="Se lee el 3." />
+    <StackRow values={[3]} fresh={0} label="La pila tiene 3." />
+  </Step>
+  <Step lines={[9]}>
+    <TokenRow tokens={['3', '4', '+', '5', '*']} at={1} title="lista" label="Se lee el 4." />
+    <StackRow values={[3, 4]} fresh={1} label="La pila tiene 3 y 4 arriba." />
+  </Step>
+  <Step lines={[5, 6, 7]}>
+    <TokenRow tokens={['3', '4', '+', '5', '*']} at={2} title="lista" label="Se lee el más." />
+    <StackRow values={[7]} fresh={0} label="Salen 4 y 3, y entra 7." />
+  </Step>
+  <Step lines={[9]}>
+    <TokenRow tokens={['3', '4', '+', '5', '*']} at={3} title="lista" label="Se lee el 5." />
+    <StackRow values={[7, 5]} fresh={1} label="La pila tiene 7 y 5 arriba." />
+  </Step>
+  <Step lines={[5, 6, 7]}>
+    <TokenRow tokens={['3', '4', '+', '5', '*']} at={4} title="lista" label="Se lee el por." />
+    <StackRow values={[35]} fresh={0} label="Salen 5 y 7, y entra 35." />
+  </Step>
+  <Step lines={[12]}>
+    <TokenRow tokens={['3', '4', '+', '5', '*']} title="lista" label="La lista está leída." />
+    <StackRow values={[]} label="Sale 35, el valor de la expresión, y la pila queda vacía." />
+  </Step>
+</StepShow>
+
+</Slide>
+
+<Slide title="Calculadora · las tres piezas juntas">
+`calculate` encadena las tres piezas: arma el árbol leyendo la expresión
+desde la posición 0, lo recorre en postorden y evalúa la lista que queda.
+
+```java
+static int calculate(String expression) {
+    pos = 0;
+    Node<String> tree = parse(expression);
+    List<String> tokens = new ArrayList<>();
+    postorder(tree, tokens);
+    return evaluate(tokens);
+}
+```
+
+Sobre `((3+4)*5)`, el árbol tiene el `*` en la raíz, la lista es
+`3 4 + 5 *` y la pila termina en 35.
+
+</Slide>
+
+<Slide title="Un número solo y una división por cero">
+**Un número solo**, como `7`, no empieza con paréntesis: `parse` devuelve una
+hoja, el postorden es la lista `7` y la pila apila el 7 y lo devuelve. No
+hace falta ningún caso aparte.
+
+**Una división por cero**, como `(4/(2-2))`, arma su árbol sin problema y
+falla al evaluar: cuando el `/` saca 0 y 4 de la pila, `apply` divide por
+cero y Java lanza `ArithmeticException`. El enunciado no dice qué hacer en
+ese caso, así que la calculadora no lo oculta.
+
+</Slide>
+
+<Slide title="El costo de la calculadora">
+**Tiempo.** `parse` avanza `pos` sobre cada carácter una sola vez, así que
+arma el árbol en $$\Theta(N)$$. El árbol tiene a lo más $$N$$ nodos, porque
+cada nodo sale de al menos un carácter; el postorden visita cada uno una vez
+y la evaluación saca y apila cada valor de la lista una vez. Las tres piezas
+cuestan $$\Theta(N)$$, y la calculadora también.
+
+**Memoria.** El árbol, la lista y la pila guardan a lo más $$N$$ elementos
+cada uno, y la recursión de `parse` y de `postorder` se apila tan hondo como
+la altura del árbol, que no pasa de $$N$$. La memoria es $$\Theta(N)$$.
+
+</Slide>
+
+{/* Book-only on purpose: the whole program is about eighty lines, and an <Exercise> on a slide shows all of them, which scales the slide to 0.34, far under the 0.70 floor. Every piece of it is on the listing slides above (write-an-exercise.md §Two kinds). */}
+
+El programa completo, con las tres piezas y sus auxiliares, para ejecutarlo
+y modificarlo:
+
+<Exercise title="Una calculadora con paréntesis">
+
+```java starter
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Stack;
+
+class Node<T> {
+    T value;
+    Node<T> left;
+    Node<T> right;
+
+    Node(T value) {
+        this.value = value;
+    }
+}
+
+class Solution {
+    static int pos;
+
+    static boolean isOperator(String t) {
+        return t.equals("+") || t.equals("-")
+            || t.equals("*") || t.equals("/");
+    }
+
+    static int apply(int a, int b, String t) {
+        if (t.equals("+")) return a + b;
+        if (t.equals("-")) return a - b;
+        if (t.equals("*")) return a * b;
+        return a / b;
+    }
+
+    static Node<String> parse(String s) {
+        if (s.charAt(pos) != '(') {
+            int start = pos;
+            while (pos < s.length()
+                    && Character.isDigit(s.charAt(pos))) {
+                pos++;
+            }
+            return new Node<>(s.substring(start, pos));
+        }
+        pos++;
+        Node<String> left = parse(s);
+        String op = String.valueOf(s.charAt(pos));
+        pos++;
+        Node<String> right = parse(s);
+        pos++;
+        Node<String> node = new Node<>(op);
+        node.left = left;
+        node.right = right;
+        return node;
+    }
+
+    static void postorder(Node<String> node,
+            List<String> out) {
+        if (node == null) return;
+        postorder(node.left, out);
+        postorder(node.right, out);
+        out.add(node.value);
+    }
+
+    static int evaluate(List<String> tokens) {
+        Stack<Integer> values = new Stack<>();
+        for (String t : tokens) {
+            if (isOperator(t)) {
+                int b = values.pop();
+                int a = values.pop();
+                values.push(apply(a, b, t));
+            } else {
+                values.push(Integer.parseInt(t));
+            }
+        }
+        return values.pop();
+    }
+
+    static int calculate(String expression) {
+        pos = 0;
+        Node<String> tree = parse(expression);
+        List<String> tokens = new ArrayList<>();
+        postorder(tree, tokens);
+        return evaluate(tokens);
+    }
+}
+```
+
+```java test
+check(Solution.calculate("((3+4)*5)"), 35);
+check(Solution.calculate("(3+(4*5))"), 23);
+check(Solution.calculate("((8-2)/(1+2))"), 2);
+check(Solution.calculate("7"), 7);
+check(Solution.calculate("(12*(10-7))"), 36);
+```
+
+</Exercise>
+
 ## Lo que sigue
 
 Un árbol de búsqueda resuelve todas las preguntas sobre el orden con el costo
