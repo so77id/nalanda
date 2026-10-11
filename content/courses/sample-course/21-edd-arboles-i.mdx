@@ -508,8 +508,8 @@ La **altura** de un nodo es el largo del camino más largo que baja desde él
 hasta una hoja. Una hoja tiene altura 0, y un nodo interno tiene una unidad
 más que el más alto de sus hijos.
 
-La **altura del árbol** es la altura de su raíz: la cantidad de niveles menos
-uno.
+La **altura del árbol**, que se escribe $$h$$, es la altura de su raíz: la
+cantidad de niveles menos uno.
 
 <HierarchyPicture tree={FOLDERS} badges={{ 'home/': 'h=3', 'fotos/': 'h=1', 'playa.jpg': 'h=0', 'perro.jpg': 'h=0', 'ramos/': 'h=2', 'eda/': 'h=1', 't1.pdf': 'h=0', 't2.pdf': 'h=0', 'calculo/': 'h=1', 'guia.pdf': 'h=0', 'notas.txt': 'h=0' }} label="El árbol de carpetas con la altura de cada nodo. Las hojas tienen altura 0; fotos, eda y calculo, 1; ramos, 2; y la raíz home, 3, que es la altura del árbol." caption="la altura del árbol es 3: el camino más largo baja de home/ a un archivo de eda/" />
 
@@ -730,7 +730,7 @@ de él.
 
 </Slide>
 
-<Slide title="El preorden en Java">
+<Slide title="El código del preorden">
 La regla **nodo → hijos** se escribe en dos partes: primero la **visita**, lo
 que se hace con cada nodo, y después el **recorrido**, un `for` que llama al
 mismo método con cada hijo.
@@ -869,7 +869,7 @@ Es el orden de la altura: un nodo se visita después de todo lo que cuelga de
 
 </Slide>
 
-<Slide title="El postorden en Java">
+<Slide title="El código del postorden">
 La regla **hijos → nodo** tiene las dos partes del preorden en el orden
 inverso: primero el **recorrido**, después la **visita**.
 
@@ -1069,65 +1069,392 @@ que falta del nivel actual y, después, el comienzo del siguiente.
 
 </Slide>
 
-<Slide title="El recorrido por niveles en Java">
+<Slide title="El código del recorrido por niveles">
 La regla **nivel por nivel** también tiene dos partes, la **visita** y el
-**recorrido**; el recorrido ya no es una recursión, sino la cola.
+**recorrido**; el recorrido ya no es una recursión, sino la cola: se saca el
+primero, se visita, y sus hijos entran al final, uno por uno.
 
-Por niveles, lo primero que aparece es lo más cercano a la raíz: así busca un
-buscador de archivos que muestra primero lo más cercano. La visita pregunta si
-el nodo es el buscado y, apenas lo es, el recorrido se detiene. Aquí se busca
-la primera hoja, el archivo más cercano a la raíz.
+Un buscador de archivos que muestra primero lo más cercano recorre así: la
+visita muestra cada nodo, y los nodos salen ordenados por su distancia a la
+raíz.
 
 <StepShow
   language="java"
-  code={`Node<T> closestLeaf(Node<T> root) {
+  code={`void levelOrder(Node<T> root) {
     Queue<Node<T>> queue = new ArrayDeque<>();
     queue.add(root);
     while (!queue.isEmpty()) {
         Node<T> node = queue.remove();
-        // visita: ¿es una hoja?
-        if (node.children.isEmpty()) return node;
+        // visita: se muestra el nodo
+        System.out.print(node.value + " ");
         // recorrido: sus hijos, al final de la cola
-        queue.addAll(node.children);
+        for (Node<T> child : node.children) {
+            queue.add(child);
+        }
     }
-    return null;
 }`}
 >
   <Step lines={[2, 3]}>
-    <HierarchyPicture tree={FOLDERS} tones={{ 'home/': 'mark' }} queue={['home/']} compact size={0.7} label="La cola tiene solo a home, la raíz." />
+    <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+    <div style={{ flex: '1 1 0', minWidth: 0 }}>
+    <HierarchyPicture tree={FOLDERS} tones={{ 'home/': 'mark' }} compact size={0.7} label="La raíz, home, entra a la cola." />
+    <div style={{ fontFamily: 'var(--font-mono, monospace)', fontSize: '0.8rem', lineHeight: 1.35, margin: '0 auto', padding: '0.3rem 0.6rem', maxWidth: '30rem', minHeight: '3.9em', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }}>{""}</div>
+    </div>
+    <div style={{ flex: '0 0 8.5rem', display: 'flex', flexDirection: 'column', gap: '0.3rem', fontFamily: 'var(--font-mono, monospace)', fontSize: '0.8rem', minHeight: '16rem', padding: '0.4rem 0.5rem', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }}>
+      <div style={{ fontSize: '0.7rem', color: 'var(--color-ink-faint)' }}>cola · sale por arriba</div>
+      <div style={{ border: '2.5px solid var(--color-mark)', background: 'var(--color-mark-soft)', borderRadius: '4px', padding: '0.1rem 0.4rem', fontWeight: 600, color: 'var(--color-ink)' }}>home/ ←</div>
+      <div style={{ marginTop: 'auto', fontSize: '0.7rem', color: 'var(--color-ink-faint)' }}>entra por abajo</div>
+    </div>
+    </div>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>La raíz entra a la cola.</div>
   </Step>
   <Step lines={[5, 6, 7]}>
-    <HierarchyPicture tree={FOLDERS} tones={{ 'home/': 'focus' }} numbers={{ 'home/': 1 }} queue={[]} compact size={0.7} label="home sale de la cola y no es una hoja." />
-    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>Sale home/ de la cola. ¿Es una hoja? No: tiene hijos.</div>
+    <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+    <div style={{ flex: '1 1 0', minWidth: 0 }}>
+    <HierarchyPicture tree={FOLDERS} tones={{ 'home/': 'focus' }} numbers={{ 'home/': 1 }} compact size={0.7} label="home sale de la cola y se visita con el número 1." />
+    <div style={{ fontFamily: 'var(--font-mono, monospace)', fontSize: '0.8rem', lineHeight: 1.35, margin: '0 auto', padding: '0.3rem 0.6rem', maxWidth: '30rem', minHeight: '3.9em', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }}>{"home/"}</div>
+    </div>
+    <div style={{ flex: '0 0 8.5rem', display: 'flex', flexDirection: 'column', gap: '0.3rem', fontFamily: 'var(--font-mono, monospace)', fontSize: '0.8rem', minHeight: '16rem', padding: '0.4rem 0.5rem', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }}>
+      <div style={{ fontSize: '0.7rem', color: 'var(--color-ink-faint)' }}>cola · sale por arriba</div>
+      <div style={{ border: '1.5px dashed var(--color-rule)', borderRadius: '4px', padding: '0.1rem 0.4rem', color: 'var(--color-ink-faint)' }}>↑ home/</div>
+      <div style={{ marginTop: 'auto', fontSize: '0.7rem', color: 'var(--color-ink-faint)' }}>entra por abajo</div>
+    </div>
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>Sale home/ por el frente de la cola y se visita: se imprime.</div>
   </Step>
-  <Step lines={[8, 9]}>
-    <HierarchyPicture tree={FOLDERS} tones={{ 'home/': 'focus', 'fotos/': 'mark', 'ramos/': 'mark', 'notas.txt': 'mark' }} numbers={{ 'home/': 1 }} queue={['fotos/', 'ramos/', 'notas.txt']} compact size={0.7} label="Los hijos de home entran a la cola." />
-    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>Sus hijos entran al final de la cola: fotos/, ramos/ y notas.txt.</div>
+  <Step lines={[9, 10]}>
+    <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+    <div style={{ flex: '1 1 0', minWidth: 0 }}>
+    <HierarchyPicture tree={FOLDERS} tones={{ 'home/': 'focus', 'fotos/': 'mark' }} numbers={{ 'home/': 1 }} compact size={0.7} label="fotos entra al final de la cola." />
+    <div style={{ fontFamily: 'var(--font-mono, monospace)', fontSize: '0.8rem', lineHeight: 1.35, margin: '0 auto', padding: '0.3rem 0.6rem', maxWidth: '30rem', minHeight: '3.9em', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }}>{"home/"}</div>
+    </div>
+    <div style={{ flex: '0 0 8.5rem', display: 'flex', flexDirection: 'column', gap: '0.3rem', fontFamily: 'var(--font-mono, monospace)', fontSize: '0.8rem', minHeight: '16rem', padding: '0.4rem 0.5rem', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }}>
+      <div style={{ fontSize: '0.7rem', color: 'var(--color-ink-faint)' }}>cola · sale por arriba</div>
+      <div style={{ border: '2.5px solid var(--color-mark)', background: 'var(--color-mark-soft)', borderRadius: '4px', padding: '0.1rem 0.4rem', fontWeight: 600, color: 'var(--color-ink)' }}>fotos/ ←</div>
+      <div style={{ marginTop: 'auto', fontSize: '0.7rem', color: 'var(--color-ink-faint)' }}>entra por abajo</div>
+    </div>
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>Su primer hijo, fotos/, entra al final de la cola.</div>
+  </Step>
+  <Step lines={[9, 10]}>
+    <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+    <div style={{ flex: '1 1 0', minWidth: 0 }}>
+    <HierarchyPicture tree={FOLDERS} tones={{ 'home/': 'focus', 'fotos/': 'mark', 'ramos/': 'mark' }} numbers={{ 'home/': 1 }} compact size={0.7} label="ramos entra al final de la cola." />
+    <div style={{ fontFamily: 'var(--font-mono, monospace)', fontSize: '0.8rem', lineHeight: 1.35, margin: '0 auto', padding: '0.3rem 0.6rem', maxWidth: '30rem', minHeight: '3.9em', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }}>{"home/"}</div>
+    </div>
+    <div style={{ flex: '0 0 8.5rem', display: 'flex', flexDirection: 'column', gap: '0.3rem', fontFamily: 'var(--font-mono, monospace)', fontSize: '0.8rem', minHeight: '16rem', padding: '0.4rem 0.5rem', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }}>
+      <div style={{ fontSize: '0.7rem', color: 'var(--color-ink-faint)' }}>cola · sale por arriba</div>
+      <div style={{ border: '1.5px solid var(--color-mark)', background: 'var(--color-mark-soft)', borderRadius: '4px', padding: '0.1rem 0.4rem', fontWeight: 600, color: 'var(--color-ink)' }}>fotos/</div>
+      <div style={{ border: '2.5px solid var(--color-mark)', background: 'var(--color-mark-soft)', borderRadius: '4px', padding: '0.1rem 0.4rem', fontWeight: 600, color: 'var(--color-ink)' }}>ramos/ ←</div>
+      <div style={{ marginTop: 'auto', fontSize: '0.7rem', color: 'var(--color-ink-faint)' }}>entra por abajo</div>
+    </div>
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>Su segundo hijo, ramos/, entra al final de la cola.</div>
+  </Step>
+  <Step lines={[9, 10]}>
+    <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+    <div style={{ flex: '1 1 0', minWidth: 0 }}>
+    <HierarchyPicture tree={FOLDERS} tones={{ 'home/': 'focus', 'fotos/': 'mark', 'ramos/': 'mark', 'notas.txt': 'mark' }} numbers={{ 'home/': 1 }} compact size={0.7} label="notas.txt entra al final de la cola." />
+    <div style={{ fontFamily: 'var(--font-mono, monospace)', fontSize: '0.8rem', lineHeight: 1.35, margin: '0 auto', padding: '0.3rem 0.6rem', maxWidth: '30rem', minHeight: '3.9em', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }}>{"home/"}</div>
+    </div>
+    <div style={{ flex: '0 0 8.5rem', display: 'flex', flexDirection: 'column', gap: '0.3rem', fontFamily: 'var(--font-mono, monospace)', fontSize: '0.8rem', minHeight: '16rem', padding: '0.4rem 0.5rem', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }}>
+      <div style={{ fontSize: '0.7rem', color: 'var(--color-ink-faint)' }}>cola · sale por arriba</div>
+      <div style={{ border: '1.5px solid var(--color-mark)', background: 'var(--color-mark-soft)', borderRadius: '4px', padding: '0.1rem 0.4rem', fontWeight: 600, color: 'var(--color-ink)' }}>fotos/</div>
+      <div style={{ border: '1.5px solid var(--color-mark)', background: 'var(--color-mark-soft)', borderRadius: '4px', padding: '0.1rem 0.4rem', fontWeight: 600, color: 'var(--color-ink)' }}>ramos/</div>
+      <div style={{ border: '2.5px solid var(--color-mark)', background: 'var(--color-mark-soft)', borderRadius: '4px', padding: '0.1rem 0.4rem', fontWeight: 600, color: 'var(--color-ink)' }}>notas.txt ←</div>
+      <div style={{ marginTop: 'auto', fontSize: '0.7rem', color: 'var(--color-ink-faint)' }}>entra por abajo</div>
+    </div>
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>Su tercer hijo, notas.txt, entra al final de la cola.</div>
   </Step>
   <Step lines={[5, 6, 7]}>
-    <HierarchyPicture tree={FOLDERS} tones={{ 'home/': 'done', 'fotos/': 'focus', 'ramos/': 'mark', 'notas.txt': 'mark' }} numbers={{ 'home/': 1, 'fotos/': 2 }} queue={['ramos/', 'notas.txt']} compact size={0.7} label="fotos sale de la cola y no es una hoja." />
-    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>Sale fotos/ de la cola. ¿Es una hoja? No: tiene hijos.</div>
+    <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+    <div style={{ flex: '1 1 0', minWidth: 0 }}>
+    <HierarchyPicture tree={FOLDERS} tones={{ 'home/': 'done', 'fotos/': 'focus', 'ramos/': 'mark', 'notas.txt': 'mark' }} numbers={{ 'home/': 1, 'fotos/': 2 }} compact size={0.7} label="fotos sale de la cola y se visita con el número 2." />
+    <div style={{ fontFamily: 'var(--font-mono, monospace)', fontSize: '0.8rem', lineHeight: 1.35, margin: '0 auto', padding: '0.3rem 0.6rem', maxWidth: '30rem', minHeight: '3.9em', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }}>{"home/ fotos/"}</div>
+    </div>
+    <div style={{ flex: '0 0 8.5rem', display: 'flex', flexDirection: 'column', gap: '0.3rem', fontFamily: 'var(--font-mono, monospace)', fontSize: '0.8rem', minHeight: '16rem', padding: '0.4rem 0.5rem', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }}>
+      <div style={{ fontSize: '0.7rem', color: 'var(--color-ink-faint)' }}>cola · sale por arriba</div>
+      <div style={{ border: '1.5px dashed var(--color-rule)', borderRadius: '4px', padding: '0.1rem 0.4rem', color: 'var(--color-ink-faint)' }}>↑ fotos/</div>
+      <div style={{ border: '1.5px solid var(--color-mark)', background: 'var(--color-mark-soft)', borderRadius: '4px', padding: '0.1rem 0.4rem', fontWeight: 600, color: 'var(--color-ink)' }}>ramos/</div>
+      <div style={{ border: '1.5px solid var(--color-mark)', background: 'var(--color-mark-soft)', borderRadius: '4px', padding: '0.1rem 0.4rem', fontWeight: 600, color: 'var(--color-ink)' }}>notas.txt</div>
+      <div style={{ marginTop: 'auto', fontSize: '0.7rem', color: 'var(--color-ink-faint)' }}>entra por abajo</div>
+    </div>
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>Sale fotos/ por el frente de la cola y se visita: se imprime.</div>
   </Step>
-  <Step lines={[8, 9]}>
-    <HierarchyPicture tree={FOLDERS} tones={{ 'home/': 'done', 'fotos/': 'focus', 'ramos/': 'mark', 'notas.txt': 'mark', 'playa.jpg': 'mark', 'perro.jpg': 'mark' }} numbers={{ 'home/': 1, 'fotos/': 2 }} queue={['ramos/', 'notas.txt', 'playa.jpg', 'perro.jpg']} compact size={0.7} label="Los hijos de fotos entran a la cola." />
-    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>Sus hijos entran al final de la cola: playa.jpg y perro.jpg.</div>
+  <Step lines={[9, 10]}>
+    <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+    <div style={{ flex: '1 1 0', minWidth: 0 }}>
+    <HierarchyPicture tree={FOLDERS} tones={{ 'home/': 'done', 'fotos/': 'focus', 'ramos/': 'mark', 'notas.txt': 'mark', 'playa.jpg': 'mark' }} numbers={{ 'home/': 1, 'fotos/': 2 }} compact size={0.7} label="playa.jpg entra al final de la cola." />
+    <div style={{ fontFamily: 'var(--font-mono, monospace)', fontSize: '0.8rem', lineHeight: 1.35, margin: '0 auto', padding: '0.3rem 0.6rem', maxWidth: '30rem', minHeight: '3.9em', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }}>{"home/ fotos/"}</div>
+    </div>
+    <div style={{ flex: '0 0 8.5rem', display: 'flex', flexDirection: 'column', gap: '0.3rem', fontFamily: 'var(--font-mono, monospace)', fontSize: '0.8rem', minHeight: '16rem', padding: '0.4rem 0.5rem', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }}>
+      <div style={{ fontSize: '0.7rem', color: 'var(--color-ink-faint)' }}>cola · sale por arriba</div>
+      <div style={{ border: '1.5px solid var(--color-mark)', background: 'var(--color-mark-soft)', borderRadius: '4px', padding: '0.1rem 0.4rem', fontWeight: 600, color: 'var(--color-ink)' }}>ramos/</div>
+      <div style={{ border: '1.5px solid var(--color-mark)', background: 'var(--color-mark-soft)', borderRadius: '4px', padding: '0.1rem 0.4rem', fontWeight: 600, color: 'var(--color-ink)' }}>notas.txt</div>
+      <div style={{ border: '2.5px solid var(--color-mark)', background: 'var(--color-mark-soft)', borderRadius: '4px', padding: '0.1rem 0.4rem', fontWeight: 600, color: 'var(--color-ink)' }}>playa.jpg ←</div>
+      <div style={{ marginTop: 'auto', fontSize: '0.7rem', color: 'var(--color-ink-faint)' }}>entra por abajo</div>
+    </div>
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>Su primer hijo, playa.jpg, entra al final de la cola.</div>
+  </Step>
+  <Step lines={[9, 10]}>
+    <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+    <div style={{ flex: '1 1 0', minWidth: 0 }}>
+    <HierarchyPicture tree={FOLDERS} tones={{ 'home/': 'done', 'fotos/': 'focus', 'ramos/': 'mark', 'notas.txt': 'mark', 'playa.jpg': 'mark', 'perro.jpg': 'mark' }} numbers={{ 'home/': 1, 'fotos/': 2 }} compact size={0.7} label="perro.jpg entra al final de la cola." />
+    <div style={{ fontFamily: 'var(--font-mono, monospace)', fontSize: '0.8rem', lineHeight: 1.35, margin: '0 auto', padding: '0.3rem 0.6rem', maxWidth: '30rem', minHeight: '3.9em', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }}>{"home/ fotos/"}</div>
+    </div>
+    <div style={{ flex: '0 0 8.5rem', display: 'flex', flexDirection: 'column', gap: '0.3rem', fontFamily: 'var(--font-mono, monospace)', fontSize: '0.8rem', minHeight: '16rem', padding: '0.4rem 0.5rem', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }}>
+      <div style={{ fontSize: '0.7rem', color: 'var(--color-ink-faint)' }}>cola · sale por arriba</div>
+      <div style={{ border: '1.5px solid var(--color-mark)', background: 'var(--color-mark-soft)', borderRadius: '4px', padding: '0.1rem 0.4rem', fontWeight: 600, color: 'var(--color-ink)' }}>ramos/</div>
+      <div style={{ border: '1.5px solid var(--color-mark)', background: 'var(--color-mark-soft)', borderRadius: '4px', padding: '0.1rem 0.4rem', fontWeight: 600, color: 'var(--color-ink)' }}>notas.txt</div>
+      <div style={{ border: '1.5px solid var(--color-mark)', background: 'var(--color-mark-soft)', borderRadius: '4px', padding: '0.1rem 0.4rem', fontWeight: 600, color: 'var(--color-ink)' }}>playa.jpg</div>
+      <div style={{ border: '2.5px solid var(--color-mark)', background: 'var(--color-mark-soft)', borderRadius: '4px', padding: '0.1rem 0.4rem', fontWeight: 600, color: 'var(--color-ink)' }}>perro.jpg ←</div>
+      <div style={{ marginTop: 'auto', fontSize: '0.7rem', color: 'var(--color-ink-faint)' }}>entra por abajo</div>
+    </div>
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>Su segundo hijo, perro.jpg, entra al final de la cola.</div>
   </Step>
   <Step lines={[5, 6, 7]}>
-    <HierarchyPicture tree={FOLDERS} tones={{ 'home/': 'done', 'fotos/': 'done', 'ramos/': 'focus', 'notas.txt': 'mark', 'playa.jpg': 'mark', 'perro.jpg': 'mark' }} numbers={{ 'home/': 1, 'fotos/': 2, 'ramos/': 3 }} queue={['notas.txt', 'playa.jpg', 'perro.jpg']} compact size={0.7} label="ramos sale de la cola y no es una hoja." />
-    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>Sale ramos/ de la cola. ¿Es una hoja? No: tiene hijos.</div>
+    <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+    <div style={{ flex: '1 1 0', minWidth: 0 }}>
+    <HierarchyPicture tree={FOLDERS} tones={{ 'home/': 'done', 'fotos/': 'done', 'ramos/': 'focus', 'notas.txt': 'mark', 'playa.jpg': 'mark', 'perro.jpg': 'mark' }} numbers={{ 'home/': 1, 'fotos/': 2, 'ramos/': 3 }} compact size={0.7} label="ramos sale de la cola y se visita con el número 3." />
+    <div style={{ fontFamily: 'var(--font-mono, monospace)', fontSize: '0.8rem', lineHeight: 1.35, margin: '0 auto', padding: '0.3rem 0.6rem', maxWidth: '30rem', minHeight: '3.9em', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }}>{"home/ fotos/ ramos/"}</div>
+    </div>
+    <div style={{ flex: '0 0 8.5rem', display: 'flex', flexDirection: 'column', gap: '0.3rem', fontFamily: 'var(--font-mono, monospace)', fontSize: '0.8rem', minHeight: '16rem', padding: '0.4rem 0.5rem', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }}>
+      <div style={{ fontSize: '0.7rem', color: 'var(--color-ink-faint)' }}>cola · sale por arriba</div>
+      <div style={{ border: '1.5px dashed var(--color-rule)', borderRadius: '4px', padding: '0.1rem 0.4rem', color: 'var(--color-ink-faint)' }}>↑ ramos/</div>
+      <div style={{ border: '1.5px solid var(--color-mark)', background: 'var(--color-mark-soft)', borderRadius: '4px', padding: '0.1rem 0.4rem', fontWeight: 600, color: 'var(--color-ink)' }}>notas.txt</div>
+      <div style={{ border: '1.5px solid var(--color-mark)', background: 'var(--color-mark-soft)', borderRadius: '4px', padding: '0.1rem 0.4rem', fontWeight: 600, color: 'var(--color-ink)' }}>playa.jpg</div>
+      <div style={{ border: '1.5px solid var(--color-mark)', background: 'var(--color-mark-soft)', borderRadius: '4px', padding: '0.1rem 0.4rem', fontWeight: 600, color: 'var(--color-ink)' }}>perro.jpg</div>
+      <div style={{ marginTop: 'auto', fontSize: '0.7rem', color: 'var(--color-ink-faint)' }}>entra por abajo</div>
+    </div>
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>Sale ramos/ por el frente de la cola y se visita: se imprime.</div>
   </Step>
-  <Step lines={[8, 9]}>
-    <HierarchyPicture tree={FOLDERS} tones={{ 'home/': 'done', 'fotos/': 'done', 'ramos/': 'focus', 'notas.txt': 'mark', 'playa.jpg': 'mark', 'perro.jpg': 'mark', 'eda/': 'mark', 'calculo/': 'mark' }} numbers={{ 'home/': 1, 'fotos/': 2, 'ramos/': 3 }} queue={['notas.txt', 'playa.jpg', 'perro.jpg', 'eda/', 'calculo/']} compact size={0.7} label="Los hijos de ramos entran a la cola." />
-    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>Sus hijos entran al final de la cola: eda/ y calculo/.</div>
+  <Step lines={[9, 10]}>
+    <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+    <div style={{ flex: '1 1 0', minWidth: 0 }}>
+    <HierarchyPicture tree={FOLDERS} tones={{ 'home/': 'done', 'fotos/': 'done', 'ramos/': 'focus', 'notas.txt': 'mark', 'playa.jpg': 'mark', 'perro.jpg': 'mark', 'eda/': 'mark' }} numbers={{ 'home/': 1, 'fotos/': 2, 'ramos/': 3 }} compact size={0.7} label="eda entra al final de la cola." />
+    <div style={{ fontFamily: 'var(--font-mono, monospace)', fontSize: '0.8rem', lineHeight: 1.35, margin: '0 auto', padding: '0.3rem 0.6rem', maxWidth: '30rem', minHeight: '3.9em', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }}>{"home/ fotos/ ramos/"}</div>
+    </div>
+    <div style={{ flex: '0 0 8.5rem', display: 'flex', flexDirection: 'column', gap: '0.3rem', fontFamily: 'var(--font-mono, monospace)', fontSize: '0.8rem', minHeight: '16rem', padding: '0.4rem 0.5rem', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }}>
+      <div style={{ fontSize: '0.7rem', color: 'var(--color-ink-faint)' }}>cola · sale por arriba</div>
+      <div style={{ border: '1.5px solid var(--color-mark)', background: 'var(--color-mark-soft)', borderRadius: '4px', padding: '0.1rem 0.4rem', fontWeight: 600, color: 'var(--color-ink)' }}>notas.txt</div>
+      <div style={{ border: '1.5px solid var(--color-mark)', background: 'var(--color-mark-soft)', borderRadius: '4px', padding: '0.1rem 0.4rem', fontWeight: 600, color: 'var(--color-ink)' }}>playa.jpg</div>
+      <div style={{ border: '1.5px solid var(--color-mark)', background: 'var(--color-mark-soft)', borderRadius: '4px', padding: '0.1rem 0.4rem', fontWeight: 600, color: 'var(--color-ink)' }}>perro.jpg</div>
+      <div style={{ border: '2.5px solid var(--color-mark)', background: 'var(--color-mark-soft)', borderRadius: '4px', padding: '0.1rem 0.4rem', fontWeight: 600, color: 'var(--color-ink)' }}>eda/ ←</div>
+      <div style={{ marginTop: 'auto', fontSize: '0.7rem', color: 'var(--color-ink-faint)' }}>entra por abajo</div>
+    </div>
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>Su primer hijo, eda/, entra al final de la cola.</div>
+  </Step>
+  <Step lines={[9, 10]}>
+    <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+    <div style={{ flex: '1 1 0', minWidth: 0 }}>
+    <HierarchyPicture tree={FOLDERS} tones={{ 'home/': 'done', 'fotos/': 'done', 'ramos/': 'focus', 'notas.txt': 'mark', 'playa.jpg': 'mark', 'perro.jpg': 'mark', 'eda/': 'mark', 'calculo/': 'mark' }} numbers={{ 'home/': 1, 'fotos/': 2, 'ramos/': 3 }} compact size={0.7} label="calculo entra al final de la cola." />
+    <div style={{ fontFamily: 'var(--font-mono, monospace)', fontSize: '0.8rem', lineHeight: 1.35, margin: '0 auto', padding: '0.3rem 0.6rem', maxWidth: '30rem', minHeight: '3.9em', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }}>{"home/ fotos/ ramos/"}</div>
+    </div>
+    <div style={{ flex: '0 0 8.5rem', display: 'flex', flexDirection: 'column', gap: '0.3rem', fontFamily: 'var(--font-mono, monospace)', fontSize: '0.8rem', minHeight: '16rem', padding: '0.4rem 0.5rem', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }}>
+      <div style={{ fontSize: '0.7rem', color: 'var(--color-ink-faint)' }}>cola · sale por arriba</div>
+      <div style={{ border: '1.5px solid var(--color-mark)', background: 'var(--color-mark-soft)', borderRadius: '4px', padding: '0.1rem 0.4rem', fontWeight: 600, color: 'var(--color-ink)' }}>notas.txt</div>
+      <div style={{ border: '1.5px solid var(--color-mark)', background: 'var(--color-mark-soft)', borderRadius: '4px', padding: '0.1rem 0.4rem', fontWeight: 600, color: 'var(--color-ink)' }}>playa.jpg</div>
+      <div style={{ border: '1.5px solid var(--color-mark)', background: 'var(--color-mark-soft)', borderRadius: '4px', padding: '0.1rem 0.4rem', fontWeight: 600, color: 'var(--color-ink)' }}>perro.jpg</div>
+      <div style={{ border: '1.5px solid var(--color-mark)', background: 'var(--color-mark-soft)', borderRadius: '4px', padding: '0.1rem 0.4rem', fontWeight: 600, color: 'var(--color-ink)' }}>eda/</div>
+      <div style={{ border: '2.5px solid var(--color-mark)', background: 'var(--color-mark-soft)', borderRadius: '4px', padding: '0.1rem 0.4rem', fontWeight: 600, color: 'var(--color-ink)' }}>calculo/ ←</div>
+      <div style={{ marginTop: 'auto', fontSize: '0.7rem', color: 'var(--color-ink-faint)' }}>entra por abajo</div>
+    </div>
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>Su segundo hijo, calculo/, entra al final de la cola.</div>
   </Step>
   <Step lines={[5, 6, 7]}>
-    <HierarchyPicture tree={FOLDERS} tones={{ 'home/': 'done', 'fotos/': 'done', 'ramos/': 'done', 'notas.txt': 'keep', 'playa.jpg': 'mark', 'perro.jpg': 'mark', 'eda/': 'mark', 'calculo/': 'mark' }} numbers={{ 'home/': 1, 'fotos/': 2, 'ramos/': 3, 'notas.txt': 4 }} queue={['playa.jpg', 'perro.jpg', 'eda/', 'calculo/']} compact size={0.7} label="notas.txt sale de la cola y es una hoja: es la respuesta." />
-    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>Sale notas.txt. ¿Es una hoja? Sí: se devuelve, y el recorrido se detiene.</div>
+    <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+    <div style={{ flex: '1 1 0', minWidth: 0 }}>
+    <HierarchyPicture tree={FOLDERS} tones={{ 'home/': 'done', 'fotos/': 'done', 'ramos/': 'done', 'notas.txt': 'focus', 'playa.jpg': 'mark', 'perro.jpg': 'mark', 'eda/': 'mark', 'calculo/': 'mark' }} numbers={{ 'home/': 1, 'fotos/': 2, 'ramos/': 3, 'notas.txt': 4 }} compact size={0.7} label="notas.txt sale de la cola y se visita con el número 4." />
+    <div style={{ fontFamily: 'var(--font-mono, monospace)', fontSize: '0.8rem', lineHeight: 1.35, margin: '0 auto', padding: '0.3rem 0.6rem', maxWidth: '30rem', minHeight: '3.9em', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }}>{"home/ fotos/ ramos/ notas.txt"}</div>
+    </div>
+    <div style={{ flex: '0 0 8.5rem', display: 'flex', flexDirection: 'column', gap: '0.3rem', fontFamily: 'var(--font-mono, monospace)', fontSize: '0.8rem', minHeight: '16rem', padding: '0.4rem 0.5rem', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }}>
+      <div style={{ fontSize: '0.7rem', color: 'var(--color-ink-faint)' }}>cola · sale por arriba</div>
+      <div style={{ border: '1.5px dashed var(--color-rule)', borderRadius: '4px', padding: '0.1rem 0.4rem', color: 'var(--color-ink-faint)' }}>↑ notas.txt</div>
+      <div style={{ border: '1.5px solid var(--color-mark)', background: 'var(--color-mark-soft)', borderRadius: '4px', padding: '0.1rem 0.4rem', fontWeight: 600, color: 'var(--color-ink)' }}>playa.jpg</div>
+      <div style={{ border: '1.5px solid var(--color-mark)', background: 'var(--color-mark-soft)', borderRadius: '4px', padding: '0.1rem 0.4rem', fontWeight: 600, color: 'var(--color-ink)' }}>perro.jpg</div>
+      <div style={{ border: '1.5px solid var(--color-mark)', background: 'var(--color-mark-soft)', borderRadius: '4px', padding: '0.1rem 0.4rem', fontWeight: 600, color: 'var(--color-ink)' }}>eda/</div>
+      <div style={{ border: '1.5px solid var(--color-mark)', background: 'var(--color-mark-soft)', borderRadius: '4px', padding: '0.1rem 0.4rem', fontWeight: 600, color: 'var(--color-ink)' }}>calculo/</div>
+      <div style={{ marginTop: 'auto', fontSize: '0.7rem', color: 'var(--color-ink-faint)' }}>entra por abajo</div>
+    </div>
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>Sale notas.txt y se visita: se imprime. No tiene hijos: no entra nadie.</div>
   </Step>
-  <Step lines={[7]}>
-    <HierarchyPicture tree={FOLDERS} tones={{ 'home/': 'done', 'fotos/': 'done', 'ramos/': 'done', 'notas.txt': 'keep', 'playa.jpg': 'mark', 'perro.jpg': 'mark', 'eda/': 'mark', 'calculo/': 'mark' }} numbers={{ 'home/': 1, 'fotos/': 2, 'ramos/': 3, 'notas.txt': 4 }} queue={['playa.jpg', 'perro.jpg', 'eda/', 'calculo/']} compact size={0.7} label="notas.txt es el archivo más cercano a la raíz." />
-    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>notas.txt es el archivo más cercano a la raíz. El preorden habría encontrado antes playa.jpg, un nivel más abajo.</div>
+  <Step lines={[5, 6, 7]}>
+    <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+    <div style={{ flex: '1 1 0', minWidth: 0 }}>
+    <HierarchyPicture tree={FOLDERS} tones={{ 'home/': 'done', 'fotos/': 'done', 'ramos/': 'done', 'notas.txt': 'done', 'playa.jpg': 'focus', 'perro.jpg': 'mark', 'eda/': 'mark', 'calculo/': 'mark' }} numbers={{ 'home/': 1, 'fotos/': 2, 'ramos/': 3, 'notas.txt': 4, 'playa.jpg': 5 }} compact size={0.7} label="playa.jpg sale de la cola y se visita con el número 5." />
+    <div style={{ fontFamily: 'var(--font-mono, monospace)', fontSize: '0.8rem', lineHeight: 1.35, margin: '0 auto', padding: '0.3rem 0.6rem', maxWidth: '30rem', minHeight: '3.9em', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }}>{"home/ fotos/ ramos/ notas.txt playa.jpg"}</div>
+    </div>
+    <div style={{ flex: '0 0 8.5rem', display: 'flex', flexDirection: 'column', gap: '0.3rem', fontFamily: 'var(--font-mono, monospace)', fontSize: '0.8rem', minHeight: '16rem', padding: '0.4rem 0.5rem', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }}>
+      <div style={{ fontSize: '0.7rem', color: 'var(--color-ink-faint)' }}>cola · sale por arriba</div>
+      <div style={{ border: '1.5px dashed var(--color-rule)', borderRadius: '4px', padding: '0.1rem 0.4rem', color: 'var(--color-ink-faint)' }}>↑ playa.jpg</div>
+      <div style={{ border: '1.5px solid var(--color-mark)', background: 'var(--color-mark-soft)', borderRadius: '4px', padding: '0.1rem 0.4rem', fontWeight: 600, color: 'var(--color-ink)' }}>perro.jpg</div>
+      <div style={{ border: '1.5px solid var(--color-mark)', background: 'var(--color-mark-soft)', borderRadius: '4px', padding: '0.1rem 0.4rem', fontWeight: 600, color: 'var(--color-ink)' }}>eda/</div>
+      <div style={{ border: '1.5px solid var(--color-mark)', background: 'var(--color-mark-soft)', borderRadius: '4px', padding: '0.1rem 0.4rem', fontWeight: 600, color: 'var(--color-ink)' }}>calculo/</div>
+      <div style={{ marginTop: 'auto', fontSize: '0.7rem', color: 'var(--color-ink-faint)' }}>entra por abajo</div>
+    </div>
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>Sale playa.jpg y se visita: se imprime. No tiene hijos: no entra nadie.</div>
+  </Step>
+  <Step lines={[5, 6, 7]}>
+    <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+    <div style={{ flex: '1 1 0', minWidth: 0 }}>
+    <HierarchyPicture tree={FOLDERS} tones={{ 'home/': 'done', 'fotos/': 'done', 'ramos/': 'done', 'notas.txt': 'done', 'playa.jpg': 'done', 'perro.jpg': 'focus', 'eda/': 'mark', 'calculo/': 'mark' }} numbers={{ 'home/': 1, 'fotos/': 2, 'ramos/': 3, 'notas.txt': 4, 'playa.jpg': 5, 'perro.jpg': 6 }} compact size={0.7} label="perro.jpg sale de la cola y se visita con el número 6." />
+    <div style={{ fontFamily: 'var(--font-mono, monospace)', fontSize: '0.8rem', lineHeight: 1.35, margin: '0 auto', padding: '0.3rem 0.6rem', maxWidth: '30rem', minHeight: '3.9em', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }}>{"home/ fotos/ ramos/ notas.txt playa.jpg perro.jpg"}</div>
+    </div>
+    <div style={{ flex: '0 0 8.5rem', display: 'flex', flexDirection: 'column', gap: '0.3rem', fontFamily: 'var(--font-mono, monospace)', fontSize: '0.8rem', minHeight: '16rem', padding: '0.4rem 0.5rem', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }}>
+      <div style={{ fontSize: '0.7rem', color: 'var(--color-ink-faint)' }}>cola · sale por arriba</div>
+      <div style={{ border: '1.5px dashed var(--color-rule)', borderRadius: '4px', padding: '0.1rem 0.4rem', color: 'var(--color-ink-faint)' }}>↑ perro.jpg</div>
+      <div style={{ border: '1.5px solid var(--color-mark)', background: 'var(--color-mark-soft)', borderRadius: '4px', padding: '0.1rem 0.4rem', fontWeight: 600, color: 'var(--color-ink)' }}>eda/</div>
+      <div style={{ border: '1.5px solid var(--color-mark)', background: 'var(--color-mark-soft)', borderRadius: '4px', padding: '0.1rem 0.4rem', fontWeight: 600, color: 'var(--color-ink)' }}>calculo/</div>
+      <div style={{ marginTop: 'auto', fontSize: '0.7rem', color: 'var(--color-ink-faint)' }}>entra por abajo</div>
+    </div>
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>Sale perro.jpg y se visita: se imprime. No tiene hijos: no entra nadie.</div>
+  </Step>
+  <Step lines={[5, 6, 7]}>
+    <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+    <div style={{ flex: '1 1 0', minWidth: 0 }}>
+    <HierarchyPicture tree={FOLDERS} tones={{ 'home/': 'done', 'fotos/': 'done', 'ramos/': 'done', 'notas.txt': 'done', 'playa.jpg': 'done', 'perro.jpg': 'done', 'eda/': 'focus', 'calculo/': 'mark' }} numbers={{ 'home/': 1, 'fotos/': 2, 'ramos/': 3, 'notas.txt': 4, 'playa.jpg': 5, 'perro.jpg': 6, 'eda/': 7 }} compact size={0.7} label="eda sale de la cola y se visita con el número 7." />
+    <div style={{ fontFamily: 'var(--font-mono, monospace)', fontSize: '0.8rem', lineHeight: 1.35, margin: '0 auto', padding: '0.3rem 0.6rem', maxWidth: '30rem', minHeight: '3.9em', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }}>{"home/ fotos/ ramos/ notas.txt playa.jpg perro.jpg eda/"}</div>
+    </div>
+    <div style={{ flex: '0 0 8.5rem', display: 'flex', flexDirection: 'column', gap: '0.3rem', fontFamily: 'var(--font-mono, monospace)', fontSize: '0.8rem', minHeight: '16rem', padding: '0.4rem 0.5rem', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }}>
+      <div style={{ fontSize: '0.7rem', color: 'var(--color-ink-faint)' }}>cola · sale por arriba</div>
+      <div style={{ border: '1.5px dashed var(--color-rule)', borderRadius: '4px', padding: '0.1rem 0.4rem', color: 'var(--color-ink-faint)' }}>↑ eda/</div>
+      <div style={{ border: '1.5px solid var(--color-mark)', background: 'var(--color-mark-soft)', borderRadius: '4px', padding: '0.1rem 0.4rem', fontWeight: 600, color: 'var(--color-ink)' }}>calculo/</div>
+      <div style={{ marginTop: 'auto', fontSize: '0.7rem', color: 'var(--color-ink-faint)' }}>entra por abajo</div>
+    </div>
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>Sale eda/ por el frente de la cola y se visita: se imprime.</div>
+  </Step>
+  <Step lines={[9, 10]}>
+    <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+    <div style={{ flex: '1 1 0', minWidth: 0 }}>
+    <HierarchyPicture tree={FOLDERS} tones={{ 'home/': 'done', 'fotos/': 'done', 'ramos/': 'done', 'notas.txt': 'done', 'playa.jpg': 'done', 'perro.jpg': 'done', 'eda/': 'focus', 'calculo/': 'mark', 't1.pdf': 'mark' }} numbers={{ 'home/': 1, 'fotos/': 2, 'ramos/': 3, 'notas.txt': 4, 'playa.jpg': 5, 'perro.jpg': 6, 'eda/': 7 }} compact size={0.7} label="t1.pdf entra al final de la cola." />
+    <div style={{ fontFamily: 'var(--font-mono, monospace)', fontSize: '0.8rem', lineHeight: 1.35, margin: '0 auto', padding: '0.3rem 0.6rem', maxWidth: '30rem', minHeight: '3.9em', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }}>{"home/ fotos/ ramos/ notas.txt playa.jpg perro.jpg eda/"}</div>
+    </div>
+    <div style={{ flex: '0 0 8.5rem', display: 'flex', flexDirection: 'column', gap: '0.3rem', fontFamily: 'var(--font-mono, monospace)', fontSize: '0.8rem', minHeight: '16rem', padding: '0.4rem 0.5rem', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }}>
+      <div style={{ fontSize: '0.7rem', color: 'var(--color-ink-faint)' }}>cola · sale por arriba</div>
+      <div style={{ border: '1.5px solid var(--color-mark)', background: 'var(--color-mark-soft)', borderRadius: '4px', padding: '0.1rem 0.4rem', fontWeight: 600, color: 'var(--color-ink)' }}>calculo/</div>
+      <div style={{ border: '2.5px solid var(--color-mark)', background: 'var(--color-mark-soft)', borderRadius: '4px', padding: '0.1rem 0.4rem', fontWeight: 600, color: 'var(--color-ink)' }}>t1.pdf ←</div>
+      <div style={{ marginTop: 'auto', fontSize: '0.7rem', color: 'var(--color-ink-faint)' }}>entra por abajo</div>
+    </div>
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>Su primer hijo, t1.pdf, entra al final de la cola.</div>
+  </Step>
+  <Step lines={[9, 10]}>
+    <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+    <div style={{ flex: '1 1 0', minWidth: 0 }}>
+    <HierarchyPicture tree={FOLDERS} tones={{ 'home/': 'done', 'fotos/': 'done', 'ramos/': 'done', 'notas.txt': 'done', 'playa.jpg': 'done', 'perro.jpg': 'done', 'eda/': 'focus', 'calculo/': 'mark', 't1.pdf': 'mark', 't2.pdf': 'mark' }} numbers={{ 'home/': 1, 'fotos/': 2, 'ramos/': 3, 'notas.txt': 4, 'playa.jpg': 5, 'perro.jpg': 6, 'eda/': 7 }} compact size={0.7} label="t2.pdf entra al final de la cola." />
+    <div style={{ fontFamily: 'var(--font-mono, monospace)', fontSize: '0.8rem', lineHeight: 1.35, margin: '0 auto', padding: '0.3rem 0.6rem', maxWidth: '30rem', minHeight: '3.9em', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }}>{"home/ fotos/ ramos/ notas.txt playa.jpg perro.jpg eda/"}</div>
+    </div>
+    <div style={{ flex: '0 0 8.5rem', display: 'flex', flexDirection: 'column', gap: '0.3rem', fontFamily: 'var(--font-mono, monospace)', fontSize: '0.8rem', minHeight: '16rem', padding: '0.4rem 0.5rem', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }}>
+      <div style={{ fontSize: '0.7rem', color: 'var(--color-ink-faint)' }}>cola · sale por arriba</div>
+      <div style={{ border: '1.5px solid var(--color-mark)', background: 'var(--color-mark-soft)', borderRadius: '4px', padding: '0.1rem 0.4rem', fontWeight: 600, color: 'var(--color-ink)' }}>calculo/</div>
+      <div style={{ border: '1.5px solid var(--color-mark)', background: 'var(--color-mark-soft)', borderRadius: '4px', padding: '0.1rem 0.4rem', fontWeight: 600, color: 'var(--color-ink)' }}>t1.pdf</div>
+      <div style={{ border: '2.5px solid var(--color-mark)', background: 'var(--color-mark-soft)', borderRadius: '4px', padding: '0.1rem 0.4rem', fontWeight: 600, color: 'var(--color-ink)' }}>t2.pdf ←</div>
+      <div style={{ marginTop: 'auto', fontSize: '0.7rem', color: 'var(--color-ink-faint)' }}>entra por abajo</div>
+    </div>
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>Su segundo hijo, t2.pdf, entra al final de la cola.</div>
+  </Step>
+  <Step lines={[5, 6, 7]}>
+    <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+    <div style={{ flex: '1 1 0', minWidth: 0 }}>
+    <HierarchyPicture tree={FOLDERS} tones={{ 'home/': 'done', 'fotos/': 'done', 'ramos/': 'done', 'notas.txt': 'done', 'playa.jpg': 'done', 'perro.jpg': 'done', 'eda/': 'done', 'calculo/': 'focus', 't1.pdf': 'mark', 't2.pdf': 'mark' }} numbers={{ 'home/': 1, 'fotos/': 2, 'ramos/': 3, 'notas.txt': 4, 'playa.jpg': 5, 'perro.jpg': 6, 'eda/': 7, 'calculo/': 8 }} compact size={0.7} label="calculo sale de la cola y se visita con el número 8." />
+    <div style={{ fontFamily: 'var(--font-mono, monospace)', fontSize: '0.8rem', lineHeight: 1.35, margin: '0 auto', padding: '0.3rem 0.6rem', maxWidth: '30rem', minHeight: '3.9em', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }}>{"home/ fotos/ ramos/ notas.txt playa.jpg perro.jpg eda/ calculo/"}</div>
+    </div>
+    <div style={{ flex: '0 0 8.5rem', display: 'flex', flexDirection: 'column', gap: '0.3rem', fontFamily: 'var(--font-mono, monospace)', fontSize: '0.8rem', minHeight: '16rem', padding: '0.4rem 0.5rem', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }}>
+      <div style={{ fontSize: '0.7rem', color: 'var(--color-ink-faint)' }}>cola · sale por arriba</div>
+      <div style={{ border: '1.5px dashed var(--color-rule)', borderRadius: '4px', padding: '0.1rem 0.4rem', color: 'var(--color-ink-faint)' }}>↑ calculo/</div>
+      <div style={{ border: '1.5px solid var(--color-mark)', background: 'var(--color-mark-soft)', borderRadius: '4px', padding: '0.1rem 0.4rem', fontWeight: 600, color: 'var(--color-ink)' }}>t1.pdf</div>
+      <div style={{ border: '1.5px solid var(--color-mark)', background: 'var(--color-mark-soft)', borderRadius: '4px', padding: '0.1rem 0.4rem', fontWeight: 600, color: 'var(--color-ink)' }}>t2.pdf</div>
+      <div style={{ marginTop: 'auto', fontSize: '0.7rem', color: 'var(--color-ink-faint)' }}>entra por abajo</div>
+    </div>
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>Sale calculo/ por el frente de la cola y se visita: se imprime.</div>
+  </Step>
+  <Step lines={[9, 10]}>
+    <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+    <div style={{ flex: '1 1 0', minWidth: 0 }}>
+    <HierarchyPicture tree={FOLDERS} tones={{ 'home/': 'done', 'fotos/': 'done', 'ramos/': 'done', 'notas.txt': 'done', 'playa.jpg': 'done', 'perro.jpg': 'done', 'eda/': 'done', 'calculo/': 'focus', 't1.pdf': 'mark', 't2.pdf': 'mark', 'guia.pdf': 'mark' }} numbers={{ 'home/': 1, 'fotos/': 2, 'ramos/': 3, 'notas.txt': 4, 'playa.jpg': 5, 'perro.jpg': 6, 'eda/': 7, 'calculo/': 8 }} compact size={0.7} label="guia.pdf entra al final de la cola." />
+    <div style={{ fontFamily: 'var(--font-mono, monospace)', fontSize: '0.8rem', lineHeight: 1.35, margin: '0 auto', padding: '0.3rem 0.6rem', maxWidth: '30rem', minHeight: '3.9em', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }}>{"home/ fotos/ ramos/ notas.txt playa.jpg perro.jpg eda/ calculo/"}</div>
+    </div>
+    <div style={{ flex: '0 0 8.5rem', display: 'flex', flexDirection: 'column', gap: '0.3rem', fontFamily: 'var(--font-mono, monospace)', fontSize: '0.8rem', minHeight: '16rem', padding: '0.4rem 0.5rem', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }}>
+      <div style={{ fontSize: '0.7rem', color: 'var(--color-ink-faint)' }}>cola · sale por arriba</div>
+      <div style={{ border: '1.5px solid var(--color-mark)', background: 'var(--color-mark-soft)', borderRadius: '4px', padding: '0.1rem 0.4rem', fontWeight: 600, color: 'var(--color-ink)' }}>t1.pdf</div>
+      <div style={{ border: '1.5px solid var(--color-mark)', background: 'var(--color-mark-soft)', borderRadius: '4px', padding: '0.1rem 0.4rem', fontWeight: 600, color: 'var(--color-ink)' }}>t2.pdf</div>
+      <div style={{ border: '2.5px solid var(--color-mark)', background: 'var(--color-mark-soft)', borderRadius: '4px', padding: '0.1rem 0.4rem', fontWeight: 600, color: 'var(--color-ink)' }}>guia.pdf ←</div>
+      <div style={{ marginTop: 'auto', fontSize: '0.7rem', color: 'var(--color-ink-faint)' }}>entra por abajo</div>
+    </div>
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>Su primer hijo, guia.pdf, entra al final de la cola.</div>
+  </Step>
+  <Step lines={[5, 6, 7]}>
+    <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+    <div style={{ flex: '1 1 0', minWidth: 0 }}>
+    <HierarchyPicture tree={FOLDERS} tones={{ 'home/': 'done', 'fotos/': 'done', 'ramos/': 'done', 'notas.txt': 'done', 'playa.jpg': 'done', 'perro.jpg': 'done', 'eda/': 'done', 'calculo/': 'done', 't1.pdf': 'focus', 't2.pdf': 'mark', 'guia.pdf': 'mark' }} numbers={{ 'home/': 1, 'fotos/': 2, 'ramos/': 3, 'notas.txt': 4, 'playa.jpg': 5, 'perro.jpg': 6, 'eda/': 7, 'calculo/': 8, 't1.pdf': 9 }} compact size={0.7} label="t1.pdf sale de la cola y se visita con el número 9." />
+    <div style={{ fontFamily: 'var(--font-mono, monospace)', fontSize: '0.8rem', lineHeight: 1.35, margin: '0 auto', padding: '0.3rem 0.6rem', maxWidth: '30rem', minHeight: '3.9em', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }}>{"home/ fotos/ ramos/ notas.txt playa.jpg perro.jpg eda/ calculo/ t1.pdf"}</div>
+    </div>
+    <div style={{ flex: '0 0 8.5rem', display: 'flex', flexDirection: 'column', gap: '0.3rem', fontFamily: 'var(--font-mono, monospace)', fontSize: '0.8rem', minHeight: '16rem', padding: '0.4rem 0.5rem', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }}>
+      <div style={{ fontSize: '0.7rem', color: 'var(--color-ink-faint)' }}>cola · sale por arriba</div>
+      <div style={{ border: '1.5px dashed var(--color-rule)', borderRadius: '4px', padding: '0.1rem 0.4rem', color: 'var(--color-ink-faint)' }}>↑ t1.pdf</div>
+      <div style={{ border: '1.5px solid var(--color-mark)', background: 'var(--color-mark-soft)', borderRadius: '4px', padding: '0.1rem 0.4rem', fontWeight: 600, color: 'var(--color-ink)' }}>t2.pdf</div>
+      <div style={{ border: '1.5px solid var(--color-mark)', background: 'var(--color-mark-soft)', borderRadius: '4px', padding: '0.1rem 0.4rem', fontWeight: 600, color: 'var(--color-ink)' }}>guia.pdf</div>
+      <div style={{ marginTop: 'auto', fontSize: '0.7rem', color: 'var(--color-ink-faint)' }}>entra por abajo</div>
+    </div>
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>Sale t1.pdf y se visita: se imprime. No tiene hijos: no entra nadie.</div>
+  </Step>
+  <Step lines={[5, 6, 7]}>
+    <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+    <div style={{ flex: '1 1 0', minWidth: 0 }}>
+    <HierarchyPicture tree={FOLDERS} tones={{ 'home/': 'done', 'fotos/': 'done', 'ramos/': 'done', 'notas.txt': 'done', 'playa.jpg': 'done', 'perro.jpg': 'done', 'eda/': 'done', 'calculo/': 'done', 't1.pdf': 'done', 't2.pdf': 'focus', 'guia.pdf': 'mark' }} numbers={{ 'home/': 1, 'fotos/': 2, 'ramos/': 3, 'notas.txt': 4, 'playa.jpg': 5, 'perro.jpg': 6, 'eda/': 7, 'calculo/': 8, 't1.pdf': 9, 't2.pdf': 10 }} compact size={0.7} label="t2.pdf sale de la cola y se visita con el número 10." />
+    <div style={{ fontFamily: 'var(--font-mono, monospace)', fontSize: '0.8rem', lineHeight: 1.35, margin: '0 auto', padding: '0.3rem 0.6rem', maxWidth: '30rem', minHeight: '3.9em', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }}>{"home/ fotos/ ramos/ notas.txt playa.jpg perro.jpg eda/ calculo/ t1.pdf t2.pdf"}</div>
+    </div>
+    <div style={{ flex: '0 0 8.5rem', display: 'flex', flexDirection: 'column', gap: '0.3rem', fontFamily: 'var(--font-mono, monospace)', fontSize: '0.8rem', minHeight: '16rem', padding: '0.4rem 0.5rem', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }}>
+      <div style={{ fontSize: '0.7rem', color: 'var(--color-ink-faint)' }}>cola · sale por arriba</div>
+      <div style={{ border: '1.5px dashed var(--color-rule)', borderRadius: '4px', padding: '0.1rem 0.4rem', color: 'var(--color-ink-faint)' }}>↑ t2.pdf</div>
+      <div style={{ border: '1.5px solid var(--color-mark)', background: 'var(--color-mark-soft)', borderRadius: '4px', padding: '0.1rem 0.4rem', fontWeight: 600, color: 'var(--color-ink)' }}>guia.pdf</div>
+      <div style={{ marginTop: 'auto', fontSize: '0.7rem', color: 'var(--color-ink-faint)' }}>entra por abajo</div>
+    </div>
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>Sale t2.pdf y se visita: se imprime. No tiene hijos: no entra nadie.</div>
+  </Step>
+  <Step lines={[5, 6, 7]}>
+    <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+    <div style={{ flex: '1 1 0', minWidth: 0 }}>
+    <HierarchyPicture tree={FOLDERS} tones={{ 'home/': 'done', 'fotos/': 'done', 'ramos/': 'done', 'notas.txt': 'done', 'playa.jpg': 'done', 'perro.jpg': 'done', 'eda/': 'done', 'calculo/': 'done', 't1.pdf': 'done', 't2.pdf': 'done', 'guia.pdf': 'focus' }} numbers={{ 'home/': 1, 'fotos/': 2, 'ramos/': 3, 'notas.txt': 4, 'playa.jpg': 5, 'perro.jpg': 6, 'eda/': 7, 'calculo/': 8, 't1.pdf': 9, 't2.pdf': 10, 'guia.pdf': 11 }} compact size={0.7} label="guia.pdf sale de la cola y se visita con el número 11." />
+    <div style={{ fontFamily: 'var(--font-mono, monospace)', fontSize: '0.8rem', lineHeight: 1.35, margin: '0 auto', padding: '0.3rem 0.6rem', maxWidth: '30rem', minHeight: '3.9em', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }}>{"home/ fotos/ ramos/ notas.txt playa.jpg perro.jpg eda/ calculo/ t1.pdf t2.pdf guia.pdf"}</div>
+    </div>
+    <div style={{ flex: '0 0 8.5rem', display: 'flex', flexDirection: 'column', gap: '0.3rem', fontFamily: 'var(--font-mono, monospace)', fontSize: '0.8rem', minHeight: '16rem', padding: '0.4rem 0.5rem', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }}>
+      <div style={{ fontSize: '0.7rem', color: 'var(--color-ink-faint)' }}>cola · sale por arriba</div>
+      <div style={{ border: '1.5px dashed var(--color-rule)', borderRadius: '4px', padding: '0.1rem 0.4rem', color: 'var(--color-ink-faint)' }}>↑ guia.pdf</div>
+      <div style={{ marginTop: 'auto', fontSize: '0.7rem', color: 'var(--color-ink-faint)' }}>entra por abajo</div>
+    </div>
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>Sale guia.pdf y se visita: se imprime. No tiene hijos: no entra nadie.</div>
+  </Step>
+  <Step lines={[4]}>
+    <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+    <div style={{ flex: '1 1 0', minWidth: 0 }}>
+    <HierarchyPicture tree={FOLDERS} tones={{ 'home/': 'done', 'fotos/': 'done', 'ramos/': 'done', 'notas.txt': 'done', 'playa.jpg': 'done', 'perro.jpg': 'done', 'eda/': 'done', 'calculo/': 'done', 't1.pdf': 'done', 't2.pdf': 'done', 'guia.pdf': 'done' }} numbers={{ 'home/': 1, 'fotos/': 2, 'ramos/': 3, 'notas.txt': 4, 'playa.jpg': 5, 'perro.jpg': 6, 'eda/': 7, 'calculo/': 8, 't1.pdf': 9, 't2.pdf': 10, 'guia.pdf': 11 }} compact size={0.7} label="La cola está vacía: se visitaron los once nodos, por niveles." />
+    <div style={{ fontFamily: 'var(--font-mono, monospace)', fontSize: '0.8rem', lineHeight: 1.35, margin: '0 auto', padding: '0.3rem 0.6rem', maxWidth: '30rem', minHeight: '3.9em', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }}>{"home/ fotos/ ramos/ notas.txt playa.jpg perro.jpg eda/ calculo/ t1.pdf t2.pdf guia.pdf"}</div>
+    </div>
+    <div style={{ flex: '0 0 8.5rem', display: 'flex', flexDirection: 'column', gap: '0.3rem', fontFamily: 'var(--font-mono, monospace)', fontSize: '0.8rem', minHeight: '16rem', padding: '0.4rem 0.5rem', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }}>
+      <div style={{ fontSize: '0.7rem', color: 'var(--color-ink-faint)' }}>cola · sale por arriba</div>
+      <div style={{ fontSize: '0.7rem', color: 'var(--color-ink-faint)' }}>vacía</div>
+      <div style={{ marginTop: 'auto', fontSize: '0.7rem', color: 'var(--color-ink-faint)' }}>entra por abajo</div>
+    </div>
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>La cola quedó vacía y el ciclo termina: los once nodos, del más cercano a la raíz al más lejano.</div>
   </Step>
 </StepShow>
 
