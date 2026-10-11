@@ -1428,8 +1428,8 @@ hoja, no cambia.
 <Slide title="La comparación como parámetro">
 Un max-heap y un min-heap son dos clases casi iguales. En vez de escribir
 las dos, el heap puede recibir **cómo comparar** como parámetro: un
-`Comparator<T>`, el mismo que usa `sort`. El heap deja de preguntar «¿cuál
-es mayor?» y pregunta «¿cuál va antes?».
+`Comparator<T>`, el mismo que usa `sort`. El heap deja de comparar los
+valores con `<` y se lo pregunta al comparador.
 
 ```java
 class Heap<T> {
@@ -1440,50 +1440,50 @@ class Heap<T> {
     Heap(Comparator<T> cmp) {
         this.cmp = cmp;
     }
-
-    // ¿El elemento de la posición i va antes que el de la j?
-    private boolean before(int i, int j) {
-        return cmp.compare(data[i], data[j]) < 0;
-    }
 }
 ```
 
 Java no permite crear un arreglo de `T` directamente, así que se crea uno de
-`Object` y se convierte. `before(i, j)` es la única comparación que hace el
-heap. Va antes el
-elemento que el comparador considera **menor**, así que el elemento de
-mayor prioridad queda en la raíz y `peek()` lo devuelve. Para que el mayor
-esté primero, se usa un comparador que invierte el orden.
+`Object` y se convierte.
+
+`cmp.compare(a, b)` devuelve un número negativo si, para el comparador, `a`
+es menor que `b`; cero si son iguales, y positivo si es mayor. El heap se
+arma como un min-heap según ese comparador, así que en la raíz queda el
+elemento que el comparador considera **menor**. Para que quede el mayor, se
+usa un comparador que invierte el orden.
 
 </Slide>
 
 <Slide title="swim y sink con la comparación">
-`swim` y `sink` hacen lo mismo que en el max-heap, pero cada comparación
-entre valores se reemplaza por una pregunta a `before`:
+`swim` y `sink` hacen lo mismo que en el min-heap, pero cada comparación
+`a < b` entre valores se reemplaza por `cmp.compare(a, b) < 0`, y cada
+`a <= b` por `cmp.compare(a, b) <= 0`:
 
 ```java
 void swim(int k) {
-    while (k > 1 && before(k, parent(k))) {
+    while (k > 1 && cmp.compare(data[k], data[parent(k)]) < 0) {
         swap(parent(k), k);
         k = parent(k);
     }
 }
+```
+
+```java
 void sink(int k) {
     while (left(k) <= n) {
         int j = left(k);
-        if (right(k) <= n && before(right(k), j)) {
+        if (right(k) <= n
+                && cmp.compare(data[right(k)], data[j]) < 0) {
             j = right(k);
         }
-        if (!before(j, k)) break;
+        if (cmp.compare(data[k], data[j]) <= 0) break;
         swap(k, j);
         k = j;
     }
 }
 ```
 
-`swim` sube mientras el elemento vaya antes que su padre. `sink` elige el
-hijo que va antes y baja mientras ese hijo vaya antes que el elemento. Las
-invariantes, los costos y el resto de la clase no cambian.
+Las invariantes, los costos y el resto de la clase no cambian.
 
 </Slide>
 
@@ -1550,7 +1550,7 @@ Heap<Pair> pairs = new Heap<>(Comparator.naturalOrder());
 Heap<Task> tasks = new Heap<>(byUrgency);
 ```
 
-| Heap       | Comparador                 | `peek()` devuelve              |
+| Heap       | Comparador                 | En la raíz queda               |
 | ---------- | -------------------------- | ------------------------------ |
 | `minFirst` | orden natural de `Integer` | el entero menor                |
 | `maxFirst` | orden natural invertido    | el entero mayor                |
