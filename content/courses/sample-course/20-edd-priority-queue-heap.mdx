@@ -1303,12 +1303,29 @@ cuando queda 1.
 </Slide>
 
 <Slide title="El costo de extractMax">
-El intercambio con la última hoja cuesta $$\Theta(1)$$, y `sink` baja a lo
-más un nivel por vuelta, con dos comparaciones por nivel. En un árbol
-completo de $$N$$ nodos el camino de la raíz a una hoja tiene a lo más
-$$\lfloor \log_2 N \rfloor$$ aristas, así que `extractMax` cuesta
-$$O(\log N)$$. El achicamiento ocasional copia los elementos y, repartido
-como en el arreglo dinámico, no cambia ese costo amortizado.
+El intercambio de la raíz con la última hoja y el `n--` cuestan
+$$\Theta(1)$$. Después, `sink` baja a lo más un nivel por vuelta, y en cada
+nivel hace una cantidad constante de trabajo: elegir el hijo mayor,
+compararlo y, si hace falta, intercambiar.
+
+<div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-ink-soft)', textAlign: 'center' }}>el 1 bajó de la raíz a una hoja: 2 aristas, la altura de un árbol de 7 nodos</div>
+<HeapPicture values={[9, 7, 8, 1, 3, 2, 4]} view="tree" levelLines levelColors hot={[1, 2, 4]} label="El heap después de extraer el 10, con sus tres niveles marcados. El camino que recorrió el 1, de la raíz a la posición 4, resaltado: dos aristas, una por nivel." />
+
+¿Cuántos niveles puede bajar? En un árbol completo de $$N$$ nodos, el
+camino de la raíz a una hoja tiene a lo más $$\lfloor \log_2 N \rfloor$$
+aristas, así que `sink` cuesta $$O(\log N)$$.
+
+Queda `shrinkIfSparse`. Cuando achica, copia los $$N$$ elementos, y esa
+extracción cuesta $$\Theta(N)$$; repartido entre las extracciones que
+dejaron vacíos tres cuartos del arreglo, como en el arreglo dinámico,
+cuesta $$\Theta(1)$$ amortizado. En total, `extractMax` cuesta
+$$\Theta(N)$$ en el peor caso y $$O(\log N)$$ amortizado.
+
+</Slide>
+
+<Slide title="Costos de las operaciones del heap">
+Las operaciones del contrato sobre el heap, cada una con la invariante que
+restaura:
 
 | Molde     | Operación             | Peor caso     | Amortizado    | Invariante que restaura                                         |
 | --------- | --------------------- | ------------- | ------------- | --------------------------------------------------------------- |
@@ -1317,6 +1334,10 @@ como en el arreglo dinámico, no cambia ese costo amortizado.
 | consultar | `isEmpty()`, `size()` | $$\Theta(1)$$ | $$\Theta(1)$$ | Ninguna                                                         |
 | modificar | <code style={{ color: 'var(--color-keep)' }}>insert(x)</code> | $$\Theta(N)$$ | <span style={{ color: 'var(--color-keep)', fontWeight: 700 }}>$$O(\log N)$$</span> | Forma completa: entra en `data[n + 1]`. Orden de heap: `swim` |
 | modificar | <code style={{ color: 'var(--color-keep)' }}>extractMax()</code> | $$\Theta(N)$$ | <span style={{ color: 'var(--color-keep)', fontWeight: 700 }}>$$O(\log N)$$</span> | Forma completa: sale `data[n]`. Orden de heap: `sink` |
+
+Las consultas no cambian nada. Las dos operaciones que modifican el heap
+mantienen la invariante de forma completa por donde entran y salen, y
+restauran la de orden de heap recorriendo un solo camino.
 
 </Slide>
 
