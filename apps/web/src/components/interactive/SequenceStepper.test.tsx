@@ -802,3 +802,52 @@ describe('<SequenceStepper> · the bst recipe (#321)', () => {
     expect(screen.getByText(/buscar, insertar/)).toBeInTheDocument();
   });
 });
+
+describe('<SequenceStepper> · the combinations 21-edd-arboles-i mounts', () => {
+  // Pinned here because `app/contentRenders.test.tsx` never mounts the lazy
+  // widget (apps/web/CLAUDE.md §2, class 4). Named for the act and slide they
+  // come from, and each one WALKED to its last frame, not only mounted.
+  const LEVELS = [3, 9, 1, 4, 7, null, 6];
+  const mounted: { act: string; slide: string; props: SequenceStepperProps }[] = [
+    {
+      act: 'El árbol binario',
+      slide: 'El preorden en un árbol binario',
+      props: { eda: 'binary-tree', operation: 'preorder', values: LEVELS },
+    },
+    {
+      act: 'El árbol binario',
+      slide: 'El inorden',
+      props: { eda: 'binary-tree', operation: 'inorder', values: LEVELS },
+    },
+    {
+      act: 'El árbol binario',
+      slide: 'El postorden en un árbol binario',
+      props: { eda: 'binary-tree', operation: 'postorder', values: LEVELS },
+    },
+    {
+      act: 'El árbol binario',
+      slide: 'La altura por recursión',
+      props: { eda: 'binary-tree', operation: 'height', values: LEVELS },
+    },
+    {
+      act: 'El árbol binario',
+      slide: 'Buscar en un árbol binario',
+      props: { eda: 'binary-tree', operation: 'search', values: LEVELS, target: 5 },
+    },
+  ];
+
+  it.each(mounted)('$act · $slide', ({ props }) => {
+    renderIn('book', <SequenceStepper {...props} />);
+    expect(document.querySelector('[data-authoring-error]')).toBeNull();
+    for (let i = 0; i < 400; i += 1) {
+      const next = screen.getByRole('button', { name: 'Adelante' });
+      if (next.getAttribute('aria-disabled') === 'true') break;
+      fireEvent.click(next);
+    }
+    expect(screen.getByRole('button', { name: 'Adelante' })).toHaveAttribute(
+      'aria-disabled',
+      'true',
+    );
+    expect(document.querySelector('[data-authoring-error]')).toBeNull();
+  });
+});

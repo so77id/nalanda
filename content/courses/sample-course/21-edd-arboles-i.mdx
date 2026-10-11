@@ -345,3 +345,374 @@ termina un nivel antes de empezar el siguiente.
 <HierarchyPicture tree={LETTERS_ORDER} badges={{ a: '1', b: '2', c: '3', e: '4', f: '5', g: '6', d: '7' }} label="El árbol con el orden de visita en preorden: a 1, b 2, c 3, e 4, f 5, g 6, d 7." caption="el preorden, número a número: a, b, c, e, f, g, d" />
 
 </Slide>
+
+{/* BinaryPicture — a static drawing of a binary tree, with the geometry of the binary-tree recipe of <SequenceStepper> (sequenceStepperTreeLayout.ts): every node in the column of its inorder position and on the row of its depth, so a figure and the widget beside it draw the same tree. File-local like HierarchyPicture (§6e-quater). A tree is { v, l, r }; values are unique within one tree, because tones, badges and notes are keyed by them. */}
+
+export function BinaryPicture({ tree, tones = {}, badges = {}, notes = {}, levels = false, caption, size = 1, minColumns = 0, compact = false, label }) {
+  const r = 17;
+  // compact narrows the columns for figures set three in a row, so each fills its own column at full size.
+  const pitch = compact ? 38 : 46;
+  const levelH = compact ? 50 : 56;
+  const pad = 16;
+  const labelW = levels ? 58 : 0;
+  const nodes = [];
+  let column = 0;
+  const walk = (t, depth, parent) => {
+    if (!t) return;
+    const me = { v: t.v, depth, parent };
+    walk(t.l, depth + 1, me);
+    me.x = column;
+    column += 1;
+    nodes.push(me);
+    walk(t.r, depth + 1, me);
+  };
+  walk(tree, 0, null);
+  const depth = Math.max(0, ...nodes.map((n) => n.depth));
+  const hasNotes = Object.keys(notes).length > 0;
+  const treeH = 2 * pad + 2 * r + depth * levelH + (hasNotes ? 12 : 0);
+  // minColumns gives figures set side by side one canvas width, so their nodes come out the same size; the tree is centred in it.
+  const columns = Math.max(column, minColumns, 1);
+  const shift = ((columns - column) / 2) * pitch;
+  const width = labelW + 2 * pad + columns * pitch;
+  const height = treeH + (caption ? 20 : 0);
+  const cx = (n) => labelW + pad + shift + (n.x + 0.5) * pitch;
+  const cy = (n) => pad + r + n.depth * levelH;
+  const TONE = {
+    idle: ['var(--color-surface)', 'var(--color-rule-strong)', 1.3],
+    focus: ['var(--color-surface)', 'var(--color-focus)', 2.4],
+    mark: ['var(--color-mark-soft)', 'var(--color-mark)', 2.2],
+    keep: ['var(--color-keep-soft)', 'var(--color-keep)', 2.2],
+    done: ['var(--color-sunk)', 'var(--color-rule-strong)', 1.3],
+    faint: ['var(--color-surface)', 'var(--color-rule)', 1.2],
+  };
+  return (
+    <svg viewBox={`0 0 ${width} ${height}`} style={{ width: '100%', maxWidth: `${Math.round(width * 1.4 * size)}px`, height: 'auto', display: 'block', margin: '1rem auto' }} role="img" aria-label={label}>
+      {levels
+        ? [...Array(depth + 1).keys()].map((d) => (
+            <g key={`lv${d}`}>
+              <line x1={labelW - 4} y1={pad + r + d * levelH} x2={width - 4} y2={pad + r + d * levelH} style={{ stroke: 'var(--color-rule)' }} strokeWidth="1" strokeDasharray="3 5" />
+              <text x={4} y={pad + r + d * levelH + 4} fontSize="11" style={{ fill: 'var(--color-ink-faint)' }}>{`nivel ${d}`}</text>
+            </g>
+          ))
+        : null}
+      {nodes.map((n) => {
+        if (n.parent === null) return null;
+        const dx = cx(n) - cx(n.parent);
+        const dy = cy(n) - cy(n.parent);
+        const len = Math.hypot(dx, dy);
+        const faint = tones[n.v] === 'faint';
+        return <line key={`e${n.v}`} x1={cx(n.parent) + (dx / len) * r} y1={cy(n.parent) + (dy / len) * r} x2={cx(n) - (dx / len) * r} y2={cy(n) - (dy / len) * r} style={{ stroke: faint ? 'var(--color-rule)' : 'var(--color-rule-strong)' }} strokeWidth="1.3" strokeDasharray={faint ? '4 3' : undefined} />;
+      })}
+      {nodes.map((n) => {
+        const [fill, stroke, weight] = TONE[tones[n.v] ?? 'idle'];
+        const faint = tones[n.v] === 'faint';
+        return (
+          <g key={`n${n.v}`} opacity={faint ? 0.5 : undefined}>
+            <circle cx={cx(n)} cy={cy(n)} r={r} style={{ fill, stroke }} strokeWidth={weight} strokeDasharray={faint ? '4 3' : undefined} />
+            <text x={cx(n)} y={cy(n) + 5} textAnchor="middle" fontSize="14" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{n.v}</text>
+            {badges[n.v] !== undefined ? (
+              <text x={cx(n) + r - 1} y={cy(n) - r + 3} fontSize="10.5" fontWeight="700" paintOrder="stroke" strokeWidth="3" style={{ fill: 'var(--color-focus)', stroke: 'var(--color-ground)' }}>{badges[n.v]}</text>
+            ) : null}
+            {notes[n.v] !== undefined ? (
+              <text x={cx(n)} y={cy(n) + r + 12} textAnchor="middle" fontSize="10" paintOrder="stroke" strokeWidth="3" style={{ fill: 'var(--color-ink-soft)', stroke: 'var(--color-ground)' }}>{notes[n.v]}</text>
+            ) : null}
+          </g>
+        );
+      })}
+      {caption ? (
+        <text x={width / 2} y={treeH + 12} textAnchor="middle" fontSize="12" style={{ fill: 'var(--color-ink-soft)' }}>{caption}</text>
+      ) : null}
+    </svg>
+  );
+}
+
+{/* The binary tree the class runs its operations on: the same tree the binary-tree recipe is handed in level order, [3, 9, 1, 4, 7, null, 6]. */}
+
+export const BT = { v: 3, l: { v: 9, l: { v: 4 }, r: { v: 7 } }, r: { v: 1, r: { v: 6 } } };
+
+export const BT_INVERTED = { v: 3, l: { v: 1, l: { v: 6 } }, r: { v: 9, l: { v: 7 }, r: { v: 4 } } };
+
+<SectionBreak />
+
+## El árbol binario
+
+<Slide title="Dos hijos con nombre">
+Un **árbol binario** es un árbol en el que cada nodo tiene **a lo más dos
+hijos**, y cada hijo tiene un nombre: es el **izquierdo** o el **derecho**.
+Aunque un nodo tenga un solo hijo, importa de qué lado está.
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem', alignItems: 'end' }}>
+<BinaryPicture tree={{ v: 5, l: { v: 8 } }} size={1.2} label="Un árbol binario de dos nodos: la raíz 5 con un hijo izquierdo, 8." caption="8 es el hijo izquierdo de 5" />
+<BinaryPicture tree={{ v: 5, r: { v: 8 } }} size={1.2} label="Otro árbol binario de dos nodos: la raíz 5 con un hijo derecho, 8." caption="8 es el hijo derecho de 5" />
+</div>
+
+Como árboles generales, los dos son el mismo: una raíz con un hijo. Como
+árboles binarios son distintos. Nombrar los dos hijos permite decir dónde
+está cada nodo **respecto de su padre**, y con eso aparecen cosas que un
+árbol general no tiene, como visitar un nodo entre sus dos lados.
+
+</Slide>
+
+<Slide title="Una definición recursiva">
+Un árbol binario es una de dos cosas:
+
+1. **El árbol vacío**, que no tiene nodos.
+2. **Un nodo** con un valor y dos árboles binarios debajo: el subárbol
+   izquierdo y el subárbol derecho.
+
+El árbol vacío no es un detalle: es lo que hay debajo de cada hoja, y lo
+que termina la recursión. Por eso casi toda función sobre un árbol binario
+tiene la misma forma: **qué devolver con el árbol vacío**, y **cómo combinar
+el valor del nodo con lo que devuelven sus dos subárboles**.
+
+<BinaryPicture tree={BT} notes={{ 4: 'hoja', 7: 'hoja', 6: 'hoja' }} label="El árbol binario 3, con hijos 9 y 1; el 9 con hijos 4 y 7; el 1 con un solo hijo, el 6, a la derecha. Las hojas son 4, 7 y 6." caption="debajo de cada hoja, y a la izquierda del 1, hay un árbol vacío" />
+
+</Slide>
+
+<Slide title="Las invariantes del árbol binario">
+Un árbol binario sostiene dos propiedades en todo momento:
+
+1. **Cada nodo tiene a lo más dos hijos, y cada uno es el izquierdo o el
+   derecho.** Es lo que permite escribir el nodo con dos campos fijos, en
+   lugar de una lista de hijos.
+2. **Cada nodo, salvo la raíz, tiene exactamente un padre.** Por eso hay un
+   único camino desde la raíz hasta cada nodo, y por eso un recorrido que
+   baja por los dos lados de cada nodo visita cada uno una sola vez.
+
+Ninguna de las dos dice nada sobre los **valores**: un árbol binario no
+ordena lo que guarda.
+
+</Slide>
+
+<Slide title="Los nodos en Java">
+Cada nodo guarda su valor y una referencia a cada hijo; el árbol guarda una
+referencia a la raíz. Un subárbol vacío es una referencia en `null`.
+
+```java
+class Node<T> {
+    T value;
+    Node<T> left;
+    Node<T> right;
+
+    Node(T value) {
+        this.value = value;
+    }
+}
+
+class BinaryTree<T> {
+    Node<T> root;
+}
+```
+
+Un árbol vacío es un `BinaryTree` con `root` en `null`. Las operaciones
+reciben un `Node<T>`, la raíz de un subárbol, y se llaman a sí mismas con
+`node.left` y `node.right`.
+
+</Slide>
+
+<Slide title="El preorden en un árbol binario">
+Con dos hijos con nombre, cada recorrido es un método de tres líneas: la
+visita y las dos llamadas recursivas. En **preorden**, la visita va antes de
+las dos llamadas.
+
+<SequenceStepper eda="binary-tree" operation="preorder" values={[3, 9, 1, 4, 7, null, 6]} />
+
+</Slide>
+
+<Slide title="El inorden">
+El **inorden** es el recorrido que solo existe con izquierda y derecha: se
+recorre el subárbol izquierdo, se visita el nodo y después se recorre el
+derecho. La visita va **entre** las dos llamadas.
+
+<SequenceStepper eda="binary-tree" operation="inorder" values={[3, 9, 1, 4, 7, null, 6]} />
+
+Cada nodo está dibujado en la columna de su posición en el inorden, así que
+el inorden se lee de izquierda a derecha y cada valor cae justo debajo de su
+nodo.
+
+</Slide>
+
+<Slide title="El postorden en un árbol binario">
+En **postorden**, la visita va **después** de las dos llamadas: un nodo se
+visita cuando sus dos subárboles ya se recorrieron.
+
+<SequenceStepper eda="binary-tree" operation="postorder" values={[3, 9, 1, 4, 7, null, 6]} />
+
+</Slide>
+
+<Slide title="La altura por recursión">
+La altura sigue la definición recursiva al pie de la letra. El árbol vacío
+tiene altura $$-1$$, para que una hoja, con dos subárboles vacíos, tenga
+altura $$1 + \max(-1, -1) = 0$$. Un nodo tiene una unidad más que el más alto
+de sus dos subárboles, así que responde **después** de ellos: es un
+postorden.
+
+<SequenceStepper eda="binary-tree" operation="height" values={[3, 9, 1, 4, 7, null, 6]} />
+
+</Slide>
+
+<Slide title="Contar hojas · la pregunta">
+Con la misma forma de la altura —qué devolver con el árbol vacío y cómo
+combinar los dos subárboles—, escribamos un método recursivo que cuente las
+hojas de un árbol binario:
+
+```java
+int countLeaves(Node<T> node)
+```
+
+<BinaryPicture tree={BT} label="El árbol binario de la clase: 3, con hijos 9 y 1; el 9 con hijos 4 y 7; el 1 con un hijo derecho, 6." caption="en este árbol, countLeaves(root) devuelve 3" />
+
+</Slide>
+
+<Slide title="Contar hojas · la respuesta">
+El árbol vacío no tiene hojas. Un nodo sin hijos es una hoja. Cualquier otro
+nodo tiene tantas hojas como sus dos subárboles juntos.
+
+```java
+int countLeaves(Node<T> node) {
+    if (node == null) return 0;
+    if (node.left == null && node.right == null) {
+        return 1;
+    }
+    return countLeaves(node.left)
+        + countLeaves(node.right);
+}
+```
+
+Cada nodo se visita una vez, así que cuesta $$\Theta(n)$$ en un árbol de
+$$n$$ nodos.
+
+</Slide>
+
+<Slide title="Invertir un árbol · la pregunta">
+**Invertir** un árbol binario es cambiar, en cada nodo, el subárbol izquierdo
+por el derecho: el árbol queda como su imagen en un espejo. Escribamos el
+método recursivo que lo hace sobre el mismo árbol, sin crear nodos:
+
+```java
+void invert(Node<T> node)
+```
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', alignItems: 'end' }}>
+<BinaryPicture tree={BT} label="El árbol antes de invertir: 3, con hijos 9 y 1; el 9 con hijos 4 y 7; el 1 con un hijo derecho, 6." caption="antes" />
+<BinaryPicture tree={BT_INVERTED} label="El árbol después de invertir: 3, con hijos 1 y 9; el 1 con un hijo izquierdo, 6; el 9 con hijos 7 y 4." caption="después" />
+</div>
+
+</Slide>
+
+<Slide title="Invertir un árbol · la respuesta">
+El árbol vacío ya está invertido. En un nodo se intercambian sus dos
+referencias, y después se invierte cada subárbol con la misma regla.
+
+```java
+void invert(Node<T> node) {
+    if (node == null) return;
+    Node<T> saved = node.left;
+    node.left = node.right;
+    node.right = saved;
+    invert(node.left);
+    invert(node.right);
+}
+```
+
+El intercambio necesita una variable auxiliar: si se asignara `node.left`
+primero, la referencia al subárbol izquierdo se perdería. Como cada nodo se
+visita una vez, cuesta $$\Theta(n)$$.
+
+</Slide>
+
+<Slide title="Estricto, lleno y completo">
+Tres formas de árbol binario tienen nombre:
+
+- **Estricto**: cada nodo tiene cero o dos hijos, nunca uno.
+- **Lleno**: es estricto y todas sus hojas están en el último nivel; cada
+  nivel tiene todos los nodos que caben.
+- **Completo**: todos los niveles están llenos, salvo quizás el último, que
+  se llena de izquierda a derecha, sin huecos.
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: '1rem', alignItems: 'end' }}>
+<BinaryPicture tree={{ v: 1, l: { v: 2 }, r: { v: 3, l: { v: 4 }, r: { v: 5 } } }} minColumns={7} compact label="Un árbol estricto: 1 con hijos 2 y 3; 3 con hijos 4 y 5; 2 es hoja. Todos los nodos tienen cero o dos hijos." caption="estricto" />
+<BinaryPicture tree={{ v: 1, l: { v: 2, l: { v: 4 }, r: { v: 5 } }, r: { v: 3, l: { v: 6 }, r: { v: 7 } } }} minColumns={7} compact label="Un árbol lleno de altura 2: siete nodos, todos los internos con dos hijos y las cuatro hojas en el último nivel." caption="lleno" />
+<BinaryPicture tree={{ v: 1, l: { v: 2, l: { v: 4 }, r: { v: 5 } }, r: { v: 3, l: { v: 6 } } }} minColumns={7} compact label="Un árbol completo de seis nodos: los dos primeros niveles llenos y el último ocupado de izquierda a derecha, con el lugar del último nodo vacío." caption="completo" />
+</div>
+
+</Slide>
+
+<Slide title="Cuántos nodos caben en una altura">
+Cada nivel de un árbol binario tiene, a lo más, el doble de nodos que el
+anterior: el nivel $$d$$ tiene a lo más $$2^d$$. Un árbol **lleno** de altura
+$$h$$ los tiene todos:
+
+$$
+1 + 2 + 4 + \cdots + 2^h = 2^{h+1} - 1
+$$
+
+<BinaryPicture tree={{ v: 1, l: { v: 2, l: { v: 4 }, r: { v: 5 } }, r: { v: 3, l: { v: 6 }, r: { v: 7 } } }} levels label="Un árbol lleno de altura 2 con una línea por nivel: un nodo en el nivel 0, dos en el nivel 1, cuatro en el nivel 2; siete en total." caption="altura 2: 1 + 2 + 4 = 7 nodos" />
+
+Ningún árbol binario de altura $$h$$ tiene más nodos que el lleno.
+
+</Slide>
+
+<Slide title="La altura mínima y la máxima">
+Con $$n$$ nodos, la altura de un árbol binario queda entre dos extremos:
+
+- **La más baja posible es $$\lfloor \log_2 n \rfloor$$**: los nodos llenan
+  cada nivel antes de abrir el siguiente, como en un árbol completo. Como un
+  árbol de altura $$h$$ tiene a lo más $$2^{h+1} - 1$$ nodos, hacen falta
+  al menos $$\lfloor \log_2 n \rfloor$$ niveles bajo la raíz.
+- **La más alta posible es $$n - 1$$**: cada nodo tiene un solo hijo, y el
+  árbol es una cadena, una lista enlazada dibujada en diagonal.
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem', alignItems: 'end' }}>
+<BinaryPicture tree={{ v: 4, l: { v: 2, l: { v: 1 }, r: { v: 3 } }, r: { v: 6, l: { v: 5 }, r: { v: 7 } } }} label="Siete nodos en un árbol de altura 2, la mínima." caption="7 nodos, altura 2" />
+<BinaryPicture tree={{ v: 1, r: { v: 2, r: { v: 3, r: { v: 4, r: { v: 5, r: { v: 6, r: { v: 7 } } } } } } }} size={0.75} label="Los mismos siete nodos en una cadena: cada nodo tiene un solo hijo, a la derecha. Altura 6, la máxima." caption="7 nodos, altura 6" />
+</div>
+
+Todas las operaciones que bajan por el árbol pagan su altura, y entre esos
+dos extremos la diferencia es la que hay entre $$\log_2 n$$ y $$n$$.
+
+</Slide>
+
+<Slide title="La altura con $n$ nodos · la pregunta">
+Antes de pasar a la respuesta, contestemos: con 15 nodos, ¿cuál es la altura
+mínima de un árbol binario, y cuál la máxima? ¿Cuántos nodos tiene un árbol
+binario lleno de altura 4?
+
+</Slide>
+
+<Slide title="La altura con $n$ nodos · la respuesta">
+La mínima es la de un árbol que llena cada nivel, y la máxima la de una
+cadena. Un árbol lleno suma todos sus niveles.
+
+| Pregunta                               | Respuesta                                  |
+| -------------------------------------- | ------------------------------------------ |
+| Altura mínima con 15 nodos             | $$\lfloor \log_2 15 \rfloor = 3$$: un árbol lleno de cuatro niveles |
+| Altura máxima con 15 nodos             | $$15 - 1 = 14$$: una cadena                 |
+| Nodos de un árbol lleno de altura 4    | $$2^{5} - 1 = 31$$                          |
+
+</Slide>
+
+<Slide title="Costos del árbol binario">
+Cada operación recorre el árbol entero, porque sin un orden entre los
+valores no hay subárbol que pueda saltarse:
+
+| Molde     | Operación                               | Peor caso       | Invariante que restaura      |
+| --------- | --------------------------------------- | --------------- | ---------------------------- |
+| Consultar | `preorder`, `inorder`, `postorder`      | $$\Theta(n)$$   | Ninguna: no cambian el árbol |
+| Consultar | `height`, `countLeaves`                 | $$\Theta(n)$$   | Ninguna: no cambian el árbol |
+| Modificar | `invert`                                | $$\Theta(n)$$   | Ninguna: el intercambio mantiene las dos |
+
+</Slide>
+
+<Slide title="Buscar en un árbol binario">
+Para saber si un valor está en un árbol binario, la única regla posible es
+mirar el nodo y, si no es, buscar en sus **dos** subárboles: nada dice en cuál
+de los dos puede estar.
+
+<SequenceStepper eda="binary-tree" operation="search" values={[3, 9, 1, 4, 7, null, 6]} target={5} />
+
+Cuando el valor no está, la búsqueda compara los $$n$$ nodos: cuesta
+$$\Theta(n)$$, lo mismo que buscar en una lista. La jerarquía organiza los
+datos, pero sola no dice dónde buscar.
+
+</Slide>

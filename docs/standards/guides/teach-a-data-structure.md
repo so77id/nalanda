@@ -267,6 +267,16 @@ Costs never appear in the contract. They belong to an implementation, and
 putting them here is the single mistake that collapses the TDA/EDA distinction
 the unit is built on.
 
+**A class that presents structures and no contract carries no card** (#321).
+Árboles I presents the binary tree and the binary search tree as structures:
+the contract a search tree serves — Set and Map — belongs to a later class,
+which brings its own card. The four questions of §1 still run once per
+structure, the invariants are still a numbered list (§3) and the costs still
+a table with its invariant column (§4); only the card is absent, because there
+is no contract to put in it yet. Do not invent one to fill the slot: a card
+listing a tree's traversals would present the operations of a structure as if
+they were a contract.
+
 Worked case: #277, slide _El TDA Sequence_, with _El contrato en Java · List_
 right after it mapping every operation to its `java.util.List` name.
 
