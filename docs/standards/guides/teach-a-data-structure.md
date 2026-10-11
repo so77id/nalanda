@@ -605,6 +605,12 @@ is not a Sequence, so its operations are its own — a reminder that "reuse
 first" is about the surface and the frame model, not about forcing every
 structure into the nine Sequence operations.
 
+**The second is the linked binary tree** (#321, ADR-0083): `binary-tree`
+draws nodes with `left` and `right`, each in the column of its inorder
+position, over a strip a traversal fills one visit at a time. It was
+designed the way the rule asks — on the running widget, reviewed in
+`/catalog`, never as drawings outside the system.
+
 **It does not replace `<StepShow>` + `<MemoryVisual>`**, which stay the pair
 for author-written pictures, whose truth is the author's (ADR-0049).
 `<SequenceStepper>` DERIVES its frames from the operation, which is why it

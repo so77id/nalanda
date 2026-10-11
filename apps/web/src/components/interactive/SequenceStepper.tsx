@@ -5,6 +5,7 @@ import { useMode } from '../../presentation';
 import { AuthoringError } from '../AuthoringError';
 import { CodeStepper } from './CodeStepper';
 import { HeapView } from './sequenceStepperHeapView';
+import { TREE_NODE_R, layoutTree, treeEdge } from './sequenceStepperTreeLayout';
 import {
   BOX_H,
   BOX_W,
@@ -16,6 +17,7 @@ import {
 } from './sequenceStepperLayout';
 import { CELL_FILL, CELL_STROKE } from './sequenceStepperPaint';
 import {
+  BINARY_TREE_OPERATIONS,
   CIRCULAR_OPERATIONS,
   DOUBLY_OPERATIONS,
   HEAP_OPERATIONS,
@@ -44,8 +46,12 @@ export interface SequenceStepperProps {
   eda?: SequenceRecipe | string;
   /** Which operation to animate over that structure. */
   operation?: SequenceOperation | string;
-  /** The starting contents, in reading order. Six or fewer read best. */
-  values?: number[];
+  /**
+   * The starting contents, in reading order. Six or fewer read best. On
+   * `binary-tree` it is the tree in level order, `null` where a child is
+   * missing (`[3, 9, 1, 4, 7, null, 6]`) — the one recipe that takes a gap.
+   */
+  values?: (number | null)[];
   /**
    * The value to insert. Required by every `insert-*` but `insert-ordered`,
    * and by the heap's `insert`. An ARRAY inserts each value in turn over the
@@ -131,6 +137,14 @@ function refusalReason(
   if (HEAP_OPERATIONS.includes(operation)) {
     return 'es una operación del heap. Úsala con eda="heap-max".';
   }
+  if (recipe === 'binary-tree') {
+    return `el árbol binario no es una secuencia y tiene sus propias operaciones: ${BINARY_TREE_OPERATIONS.map(
+      (o) => OPERATION_LABEL[o],
+    ).join(', ')}.`;
+  }
+  if (BINARY_TREE_OPERATIONS.includes(operation)) {
+    return 'es un recorrido de árbol. Úsalo con eda="binary-tree".';
+  }
   if (operation === 'insert-ordered' && !recipe.startsWith('linked-list')) {
     return 'esta clase presenta el orden como una variante de la lista, no del arreglo.';
   }
@@ -149,6 +163,7 @@ const RECIPE_LABEL: Record<SequenceRecipe, string> = {
   'linked-list-doubly': 'lista doblemente enlazada',
   'linked-list-circular': 'lista circular',
   'heap-max': 'heap (máximo)',
+  'binary-tree': 'árbol binario',
 };
 
 const OPERATION_LABEL: Record<SequenceOperation, string> = {
@@ -163,14 +178,28 @@ const OPERATION_LABEL: Record<SequenceOperation, string> = {
   search: 'buscar',
   insert: 'insertar',
   'extract-max': 'extraer el máximo',
+  preorder: 'recorrer en preorden',
+  inorder: 'recorrer en inorden',
+  postorder: 'recorrer en postorden',
 };
 
 /** The most elements the picture stays legible with, measured on a slide. */
 const MAX_VALUES = 8;
 
 /**
+ * `values` read back from its key: the numbers, plus the level order with its
+ * gaps when there is one — the only shape in which a `null` means anything.
+ */
+function readValues(key: string): { values: number[]; levelOrder?: (number | null)[] } {
+  if (key === '') return { values: [] };
+  const all = key.split(',').map((s) => (s === 'null' ? null : Number(s)));
+  const values = all.filter((v): v is number => v !== null);
+  return all.length === values.length ? { values } : { values, levelOrder: all };
+}
+
+/**
  * `<SequenceStepper>` — the step-through widget of the Estructuras de Datos
- * unit (ADR-0074, extended by ADR-0077).
+ * unit (ADR-0074, extended by ADR-0077 and ADR-0083).
  *
  * One widget, two props that pick what it shows: `eda` selects the structure
  * (a dynamic array, a singly / doubly / circular list, or a binary max-heap)
@@ -251,6 +280,17 @@ export function SequenceStepper({
       </AuthoringError>
     );
   }
+  // A gap only means something in a tree written in level order; anywhere
+  // else `null` would be read as a value, and `Number(null)` is 0.
+  if (recipe !== 'binary-tree' && values.some((v) => v === null)) {
+    return (
+      <AuthoringError component="SequenceStepper">
+        «null» marca un hueco del árbol: solo binary-tree lo acepta en <code>values</code>.
+      </AuthoringError>
+    );
+  }
+  // The cap is on what is DRAWN: a gap in a level order is not a node.
+  const drawn = values.filter((v) => v !== null).length;
   // The guard has to count what the chain will GROW to, not what it starts
   // at: `value={[9, 4, 6]}` over four nodes ends at seven.
   // `insert-ordered` takes its values through `target`, not `value`, so
@@ -258,11 +298,11 @@ export function SequenceStepper({
   const grows = op.startsWith('insert');
   const from = op === 'insert-ordered' ? target : value;
   const inserted = grows && Array.isArray(from) ? from.length : 0;
-  if (values.length + inserted > MAX_VALUES) {
+  if (drawn + inserted > MAX_VALUES) {
     return (
       <AuthoringError component="SequenceStepper">
-        la cadena llega a {values.length + inserted} elementos. El dibujo se lee bien hasta{' '}
-        {MAX_VALUES}; con más, los nodos quedan ilegibles en la proyección.
+        la estructura llega a {drawn + inserted} elementos. El dibujo se lee bien hasta {MAX_VALUES}
+        ; con más, los nodos quedan ilegibles en la proyección.
       </AuthoringError>
     );
   }
@@ -292,7 +332,7 @@ export function SequenceStepper({
 interface BodyProps {
   recipe: SequenceRecipe;
   operation: SequenceOperation;
-  values: number[];
+  values: (number | null)[];
   value?: number | number[];
   index?: number | number[];
   target?: number | number[];
@@ -336,7 +376,9 @@ function Body({
   // MDX re-mints `values` on every parent re-render, so the memo and every
   // reset key hang off a primitive-derived string rather than the array's
   // identity (`add-a-content-component.md` §2, learned in #266).
-  const valuesKey = values.join(',');
+  // A gap is written `null` so it survives the round trip: a bare join
+  // writes it as an empty string, and `Number('')` is 0.
+  const valuesKey = values.map((v) => (v === null ? 'null' : String(v))).join(',');
   // Every inline-authored data prop goes through a primitive key, not only
   // `values`: MDX re-mints each array literal on every parent render, so a
   // memo keyed on the references recomputes the trace — and `cellsFrom` mints
@@ -365,7 +407,7 @@ function Body({
     try {
       return {
         trace: traceFor(recipe, operation, {
-          values: valuesKey === '' ? [] : valuesKey.split(',').map(Number),
+          ...readValues(valuesKey),
           value,
           index,
           target,
@@ -484,8 +526,10 @@ function Body({
             word for it. Outside the scrolling box so a wide chain cannot
             push it off screen.
           */}
+          {/* A tree's listing has no size field to show, so it gets no readout. */}
           <div
             data-testid="sequence-size"
+            hidden={recipe === 'binary-tree'}
             className="pointer-events-none absolute right-3 top-2 z-10 text-center"
           >
             {/* The heap's listing calls the field `n`, and past it the array
@@ -521,7 +565,9 @@ function Body({
               was chrome that reset between runs with nothing to say.
             */}
           </div>
-          {heap ? (
+          {recipe === 'binary-tree' && trace.tree !== undefined ? (
+            <TreeView step={step} meta={trace.tree} presentation={isPresentation} />
+          ) : heap ? (
             <HeapView
               step={step}
               maxCells={trace.maxCells}
@@ -597,12 +643,22 @@ function Body({
         </label>
 
         <span className="ml-auto flex flex-wrap items-center gap-3 font-mono text-3xs text-ink-faint">
-          <LegendSwatch swatchClass="border-mark bg-mark-soft" label="nuevo" />
-          <LegendSwatch swatchClass="border-focus bg-surface" label="bajo la mirada" />
-          {heap ? (
-            <LegendSwatch swatchClass="border-accent bg-surface" label="se intercambia" />
-          ) : null}
-          <LegendSwatch swatchClass="border-rule bg-sunk" label="libre" />
+          {recipe === 'binary-tree' ? (
+            <>
+              <LegendSwatch swatchClass="border-mark bg-mark-soft" label="se visita" />
+              <LegendSwatch swatchClass="border-focus bg-surface" label="bajo la mirada" />
+              <LegendSwatch swatchClass="border-rule-strong bg-sunk" label="ya visitado" />
+            </>
+          ) : (
+            <>
+              <LegendSwatch swatchClass="border-mark bg-mark-soft" label="nuevo" />
+              <LegendSwatch swatchClass="border-focus bg-surface" label="bajo la mirada" />
+              {heap ? (
+                <LegendSwatch swatchClass="border-accent bg-surface" label="se intercambia" />
+              ) : null}
+              <LegendSwatch swatchClass="border-rule bg-sunk" label="libre" />
+            </>
+          )}
         </span>
       </div>
     </figure>
@@ -780,6 +836,169 @@ function StructureView({
         />
       ) : null}
     </svg>
+  );
+}
+
+// ── the tree: every node in the column of its inorder position (#321) ─────
+
+/**
+ * The tree recipe draws the linked tree with each node in a column fixed for
+ * the whole run — its inorder position — and on the row of its depth, and a
+ * strip under it with one slot per column. A traversal writes its output into
+ * the strip left to right, so the inorder lands under its own nodes and the
+ * other two orders visibly do not.
+ *
+ * The calls still open are the lit edges from the root down to the node under
+ * the algorithm's eye; the number beside a node is its visit order, so the
+ * order reads without the colours.
+ */
+function TreeView({
+  step,
+  meta,
+  presentation,
+}: {
+  step: SequenceStep;
+  meta: { columns: Record<number, number>; slots: number; depth: number };
+  presentation: boolean;
+}) {
+  const tree = step.tree!;
+  const layout = layoutTree(meta.slots, meta.depth);
+  const byId = new Map(tree.nodes.map((n) => [n.id, n]));
+  const depthOf = new Map<number, number>();
+  const walk = (id: number | null, level: number) => {
+    if (id === null) return;
+    depthOf.set(id, level);
+    const n = byId.get(id)!;
+    walk(n.left, level + 1);
+    walk(n.right, level + 1);
+  };
+  walk(tree.root, 0);
+  const at = (id: number) => layout.node(meta.columns[id]!, depthOf.get(id)!);
+  const hot = new Set(tree.path.slice(1).map((id, i) => `${tree.path[i]}-${id}`));
+  const written = tree.strip.filter((v) => v !== null);
+  const summary = `Árbol binario con raíz ${byId.get(tree.root ?? -1)?.value ?? 'vacía'} y ${tree.nodes.length} nodos.${
+    written.length > 0 ? ` Visitados en orden: ${written.join(', ')}.` : ''
+  } ${step.description}`;
+
+  return (
+    <div
+      className="flex items-center justify-center overflow-x-auto p-3"
+      style={{ maxHeight: presentation ? 'min(46vh, 440px)' : undefined }}
+    >
+      <svg
+        data-testid="tree-view"
+        viewBox={`0 0 ${layout.width} ${layout.height}`}
+        className="h-auto w-full"
+        style={{ maxWidth: `${layout.width * 1.6}px`, maxHeight: '100%' }}
+        role="img"
+        aria-label={summary}
+      >
+        {tree.nodes.map((n) =>
+          [n.left, n.right].map((child) => {
+            if (child === null) return null;
+            const e = treeEdge(at(n.id), at(child));
+            const lit = hot.has(`${n.id}-${child}`);
+            return (
+              <line
+                key={`${n.id}-${child}`}
+                x1={e.x1}
+                y1={e.y1}
+                x2={e.x2}
+                y2={e.y2}
+                stroke={lit ? 'var(--color-focus)' : 'var(--color-rule-strong)'}
+                strokeWidth={lit ? 2.6 : 1.2}
+              />
+            );
+          }),
+        )}
+        {tree.nodes.map((n) => {
+          const { cx, cy } = at(n.id);
+          const strong = n.state !== 'idle' && n.state !== 'visited';
+          return (
+            <g
+              key={n.id}
+              data-node
+              data-value={n.value}
+              data-column={meta.columns[n.id]}
+              data-state={n.state}
+            >
+              <circle
+                cx={cx}
+                cy={cy}
+                r={TREE_NODE_R}
+                fill={CELL_FILL[n.state]}
+                stroke={CELL_STROKE[n.state]}
+                strokeWidth={strong ? 2.4 : 1.2}
+              />
+              <text
+                x={cx}
+                y={cy + 5}
+                textAnchor="middle"
+                fontSize="14"
+                fontWeight="600"
+                fill="var(--color-ink)"
+              >
+                {n.value}
+              </text>
+              {n.badge === undefined ? null : (
+                // A left child's badge sits on the edge arriving from its
+                // parent; the halo in the panel's own colour keeps it legible.
+                <text
+                  x={cx + TREE_NODE_R - 1}
+                  y={cy - TREE_NODE_R + 3}
+                  textAnchor="start"
+                  fontSize="10"
+                  fontWeight="700"
+                  fill="var(--color-focus)"
+                  stroke="var(--color-surface)"
+                  strokeWidth={3}
+                  paintOrder="stroke"
+                >
+                  {n.badge}
+                </text>
+              )}
+            </g>
+          );
+        })}
+        {layout.strip.map((slot, k) => {
+          const value = tree.strip[k] ?? null;
+          const fresh = tree.stripFresh === k;
+          return (
+            <g key={`slot${k}`} data-slot={k} data-value={value ?? undefined}>
+              <rect
+                x={slot.cx - slot.w / 2}
+                y={slot.y}
+                width={slot.w}
+                height={slot.h}
+                rx={3}
+                fill={fresh ? 'var(--color-mark-soft)' : 'var(--color-surface)'}
+                stroke={
+                  fresh
+                    ? 'var(--color-mark)'
+                    : value === null
+                      ? 'var(--color-rule)'
+                      : 'var(--color-rule-strong)'
+                }
+                strokeWidth={fresh ? 2.2 : 1}
+                strokeDasharray={value === null ? '3 3' : undefined}
+              />
+              {value === null ? null : (
+                <text
+                  x={slot.cx}
+                  y={slot.y + slot.h / 2 + 5}
+                  textAnchor="middle"
+                  fontSize="14"
+                  fontWeight="600"
+                  fill="var(--color-ink)"
+                >
+                  {value}
+                </text>
+              )}
+            </g>
+          );
+        })}
+      </svg>
+    </div>
   );
 }
 

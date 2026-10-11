@@ -832,6 +832,14 @@ heap starts at `new int[2]`, so `values={[]}` with several `value`s shows the
 block growing 2 → 4 → 8. Its readout is `n`, `data[0]` is drawn as unused,
 and `capacity` is `data.length` with slot 0 included. `insert` and
 `extract-max` refuse a starting array that is not already a max-heap.
+Since #321 there is also `binary-tree` (ADR-0083): a linked binary tree
+with every node in the column of its inorder position and a strip under it,
+and three operations of its own, valid nowhere else — `preorder`, `inorder`
+and `postorder`, each filling the strip one visit at a time. Its `values` is
+the tree in LEVEL ORDER with `null` for a missing child
+(`values={[3, 9, 1, 4, 7, null, 6]}`); a value with no parent is refused, a
+`null` on any other recipe is refused, and the cap of eight counts nodes, not
+gaps.
 `values` is the starting contents; `value` feeds the inserts, `index` the
 positional operations (`get-at` included), and `target` both `search` and
 `insert-ordered`.

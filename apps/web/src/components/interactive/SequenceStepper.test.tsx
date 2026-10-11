@@ -651,3 +651,86 @@ describe('<SequenceStepper> · the combinations 20-edd-priority-queue-heap mount
     expect(document.querySelector('[data-authoring-error]')).toBeNull();
   });
 });
+
+describe('<SequenceStepper> · the binary-tree recipe (#321)', () => {
+  const tree = { eda: 'binary-tree' as const, values: [3, 9, 1, 4, 7, null, 6] };
+  const walkToEnd = () => {
+    for (let i = 0; i < 60; i += 1) {
+      const next = screen.getByRole('button', { name: 'Adelante' });
+      if (next.getAttribute('aria-disabled') === 'true') break;
+      fireEvent.click(next);
+    }
+  };
+
+  it('draws one node per value, and no node for a gap', () => {
+    renderIn('book', <SequenceStepper {...tree} operation="inorder" />);
+    expect(screen.getByTestId('tree-view').querySelectorAll('[data-node]')).toHaveLength(6);
+  });
+
+  it('puts each node in the column of its inorder position', () => {
+    renderIn('book', <SequenceStepper {...tree} operation="inorder" />);
+    const columnOf = (value: number) =>
+      screen
+        .getByTestId('tree-view')
+        .querySelector(`[data-node][data-value="${value}"]`)!
+        .getAttribute('data-column');
+    expect([4, 9, 7, 3, 1, 6].map(columnOf)).toEqual(['0', '1', '2', '3', '4', '5']);
+  });
+
+  it('fills the strip with the traversal, slot by slot', () => {
+    renderIn('book', <SequenceStepper {...tree} operation="postorder" />);
+    const strip = () =>
+      [...screen.getByTestId('tree-view').querySelectorAll('[data-slot]')].map(
+        (s) => s.getAttribute('data-value') ?? '',
+      );
+    expect(strip()).toEqual(['', '', '', '', '', '']);
+    walkToEnd();
+    expect(strip()).toEqual(['4', '7', '9', '6', '1', '3']);
+  });
+
+  it('counts the cap on nodes, not on the gaps between them', () => {
+    renderIn(
+      'book',
+      <SequenceStepper
+        eda="binary-tree"
+        operation="preorder"
+        values={[1, 2, 3, null, null, 4, 5, null, null, 6, 7, 8]}
+      />,
+    );
+    expect(screen.getByTestId('tree-view')).toBeInTheDocument();
+  });
+
+  it('refuses a level order that hangs a value under a missing node', () => {
+    renderIn(
+      'book',
+      <SequenceStepper eda="binary-tree" operation="inorder" values={[3, null, null, 5]} />,
+    );
+    expect(screen.getByText(/padre/)).toBeInTheDocument();
+  });
+
+  it('refuses a gap on any recipe that is not a tree', () => {
+    renderIn(
+      'book',
+      <SequenceStepper
+        eda="linked-list-singly"
+        operation="search"
+        values={[1, null, 2]}
+        target={1}
+      />,
+    );
+    expect(screen.getByText(/solo binary-tree/)).toBeInTheDocument();
+  });
+
+  it('describes the tree for a reader who cannot see it', () => {
+    renderIn('book', <SequenceStepper {...tree} operation="inorder" />);
+    const label = screen.getByTestId('tree-view').getAttribute('aria-label')!;
+    expect(label).toMatch(/árbol/i);
+    expect(label).toContain('3');
+  });
+
+  it('names the structure in the chip and the traversal in the heading', () => {
+    renderIn('book', <SequenceStepper {...tree} operation="inorder" />);
+    expect(screen.getByText(/árbol binario/)).toBeInTheDocument();
+    expect(screen.getByText('recorrer en inorden')).toBeInTheDocument();
+  });
+});

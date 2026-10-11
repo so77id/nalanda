@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  BINARY_TREE_OPERATIONS,
   CIRCULAR_OPERATIONS,
   DOUBLY_OPERATIONS,
   HEAP_OPERATIONS,
@@ -10,6 +11,7 @@ import {
   traceFor,
   type SequenceOperation,
   type SequenceRecipe,
+  type SequenceStep,
   type SequenceTrace,
 } from './sequenceStepperTrace';
 
@@ -23,12 +25,12 @@ import {
 const values = [7, 3, 1, 5];
 
 /**
- * The Sequence recipes — every recipe but the heap, whose operations are its
- * own (#304). A sweep over "the operation every structure has" iterates
- * these; a sweep over every valid combination iterates RECIPES and feeds the
- * heap a starting array that already is one.
+ * The Sequence recipes — every recipe but the heap (#304) and the binary tree
+ * (#321), whose operations are their own. A sweep over "the operation every
+ * structure has" iterates these; a sweep over every valid combination
+ * iterates RECIPES and feeds the heap a starting array that already is one.
  */
-const SEQUENCE_RECIPES = RECIPES.filter((r) => r !== 'heap-max');
+const SEQUENCE_RECIPES = RECIPES.filter((r) => r !== 'heap-max' && r !== 'binary-tree');
 const startFor = (recipe: SequenceRecipe, operation: SequenceOperation): number[] =>
   recipe === 'heap-max' ? [7, 5, 3, 1] : operation === 'insert-ordered' ? [1, 3, 7, 9] : values;
 
@@ -42,6 +44,7 @@ describe('sequenceStepperTrace · the valid combinations', () => {
     for (const recipe of ['dynamic-array', 'linked-list-singly'] as const) {
       for (const operation of OPERATIONS) {
         if (HEAP_OPERATIONS.includes(operation)) continue;
+        if (BINARY_TREE_OPERATIONS.includes(operation)) continue;
         if (operation === 'insert-ordered' && !recipe.startsWith('linked-list')) continue;
         expect(isValidCombination(recipe, operation), `${recipe} × ${operation}`).toBe(true);
       }
@@ -1580,5 +1583,126 @@ describe('sequenceStepperTrace · heap-max · counts read as Spanish', () => {
       }),
     ].flatMap((t) => t.steps.map((s) => s.description));
     expect(all.filter((d) => /\b1 elementos\b|\blos 1\b|\b0 elementos\b/.test(d))).toEqual([]);
+  });
+});
+
+// ── binary-tree (#321) ─────────────────────────────────────────────────────
+
+/**
+ * The binary tree has no order, so its operations VISIT: they go everywhere
+ * and differ only in when each node is written. The level order below is the
+ * tree the class draws: 3 with children 9 and 1; 9 with 4 and 7; 1 with only
+ * a right child, 6.
+ */
+const LEVELS = [3, 9, 1, 4, 7, null, 6];
+const treeTrace = (operation: SequenceOperation): SequenceTrace =>
+  traceFor('binary-tree', operation, { values: [], levelOrder: LEVELS });
+const valueOf = (step: SequenceStep, id: number): number =>
+  step.tree!.nodes.find((n) => n.id === id)!.value;
+
+describe('sequenceStepperTrace · binary-tree · the valid combinations', () => {
+  it('takes the three traversals and nothing else', () => {
+    for (const operation of OPERATIONS) {
+      expect(isValidCombination('binary-tree', operation), operation).toBe(
+        BINARY_TREE_OPERATIONS.includes(operation),
+      );
+    }
+  });
+
+  it('keeps the traversals off every recipe that is not a tree', () => {
+    for (const recipe of RECIPES.filter((r) => r !== 'binary-tree')) {
+      for (const operation of BINARY_TREE_OPERATIONS) {
+        expect(isValidCombination(recipe, operation), `${recipe} × ${operation}`).toBe(false);
+      }
+    }
+  });
+});
+
+describe('sequenceStepperTrace · binary-tree · the traversals', () => {
+  it('writes each order into the strip, one value per visit', () => {
+    expect(treeTrace('preorder').steps.at(-1)!.tree!.strip).toEqual([3, 9, 4, 7, 1, 6]);
+    expect(treeTrace('inorder').steps.at(-1)!.tree!.strip).toEqual([4, 9, 7, 3, 1, 6]);
+    expect(treeTrace('postorder').steps.at(-1)!.tree!.strip).toEqual([4, 7, 9, 6, 1, 3]);
+  });
+
+  it('gives every node the column of its inorder position', () => {
+    const trace = treeTrace('inorder');
+    const last = trace.steps.at(-1)!;
+    const byColumn = last
+      .tree!.nodes.slice()
+      .sort((a, b) => trace.tree!.columns[a.id]! - trace.tree!.columns[b.id]!)
+      .map((n) => n.value);
+    expect(byColumn).toEqual([4, 9, 7, 3, 1, 6]);
+    expect(trace.tree!.slots).toBe(6);
+    expect(trace.tree!.depth).toBe(2);
+  });
+
+  it('writes every inorder value in the slot right under its own node', () => {
+    const trace = treeTrace('inorder');
+    const writes = trace.steps.filter((s) => s.tree!.stripFresh !== undefined);
+    expect(writes).toHaveLength(6);
+    for (const step of writes) {
+      const slot = step.tree!.stripFresh!;
+      const written = step.tree!.strip[slot];
+      const node = step.tree!.nodes.find((n) => n.value === written)!;
+      expect(trace.tree!.columns[node.id], `${written}`).toBe(slot);
+    }
+  });
+
+  it('numbers the visits beside the nodes, in visit order', () => {
+    const last = treeTrace('preorder').steps.at(-1)!;
+    const badges = Object.fromEntries(last.tree!.nodes.map((n) => [n.value, n.badge]));
+    expect(badges).toEqual({ 3: '1', 9: '2', 4: '3', 7: '4', 1: '5', 6: '6' });
+  });
+
+  it('keeps the calls still open on the path, root first', () => {
+    const trace = treeTrace('inorder');
+    const first = trace.steps.find((s) => s.tree!.stripFresh === 0)!;
+    expect(first.tree!.path.map((id) => valueOf(first, id))).toEqual([3, 9, 4]);
+    const last = trace.steps.at(-1)!;
+    expect(last.tree!.path).toEqual([]);
+  });
+
+  it('lights the print line on every visit, and only there', () => {
+    for (const operation of BINARY_TREE_OPERATIONS) {
+      const trace = treeTrace(operation);
+      const print = trace.code.split('\n').findIndex((l) => l.includes('System.out.print')) + 1;
+      expect(print, operation).toBeGreaterThan(0);
+      for (const step of trace.steps) {
+        const writes = step.tree!.stripFresh !== undefined;
+        expect(step.highlightLines.includes(print), `${operation}: ${step.description}`).toBe(
+          writes,
+        );
+      }
+    }
+  });
+
+  it('leaves nothing in flight on the last frame', () => {
+    for (const operation of BINARY_TREE_OPERATIONS) {
+      const last = treeTrace(operation).steps.at(-1)!;
+      expect(
+        last.tree!.nodes.every((n) => n.state === 'visited'),
+        operation,
+      ).toBe(true);
+    }
+  });
+
+  it('reads a plain values array as a level order with no gaps', () => {
+    const trace = traceFor('binary-tree', 'inorder', { values: [7, 3, 1, 5] });
+    expect(trace.steps.at(-1)!.tree!.strip).toEqual([5, 3, 7, 1]);
+  });
+});
+
+describe('sequenceStepperTrace · binary-tree · authoring guards', () => {
+  it('refuses a level order that hangs a value under a missing node', () => {
+    expect(() =>
+      traceFor('binary-tree', 'inorder', { values: [], levelOrder: [3, null, null, 5] }),
+    ).toThrow(/padre/);
+  });
+
+  it('refuses a level order with no root', () => {
+    expect(() => traceFor('binary-tree', 'inorder', { values: [], levelOrder: [null, 1] })).toThrow(
+      /raíz/,
+    );
   });
 });

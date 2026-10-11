@@ -1,10 +1,11 @@
 import type { SequenceCell } from './sequenceStepperTrace';
 
 /**
- * The colour of every cell state, shared by the two painters of
- * `<SequenceStepper>`: the Sequence picture (`SequenceStepper.tsx`) and the
- * heap's (`sequenceStepperHeapView.tsx`). One table, so a state cannot read as
- * one thing in a chain and another in a heap.
+ * The colour of every cell state, shared by the painters of
+ * `<SequenceStepper>`: the Sequence picture and the tree's (both in
+ * `SequenceStepper.tsx`) and the heap's (`sequenceStepperHeapView.tsx`). One
+ * table, so a state cannot read as one thing in a chain and another in a heap
+ * or a tree.
  */
 export const CELL_FILL: Record<SequenceCell['state'], string> = {
   idle: 'var(--color-surface)',
@@ -17,6 +18,8 @@ export const CELL_FILL: Record<SequenceCell['state'], string> = {
   leaving: 'var(--color-sunk)',
   stale: 'var(--color-surface)',
   swap: 'var(--color-surface)',
+  visited: 'var(--color-sunk)',
+  discarded: 'var(--color-surface)',
 };
 
 export const CELL_STROKE: Record<SequenceCell['state'], string> = {
@@ -29,4 +32,6 @@ export const CELL_STROKE: Record<SequenceCell['state'], string> = {
   // Accent, the unit's "being moved" token (teach-a-data-structure.md §6bis)
   // — Sedgewick's orange path of the element that swims or sinks.
   swap: 'var(--color-accent)',
+  visited: 'var(--color-rule-strong)',
+  discarded: 'var(--color-rule)',
 };
