@@ -1368,12 +1368,24 @@ elige:
 | Lista ordenada  | $$\Theta(N)$$ | $$\Theta(1)$$  | $$\Theta(1)$$ |
 | **Heap**        | <span style={{ color: 'var(--color-keep)', fontWeight: 700 }}>$$O(\log N)$$</span> | <span style={{ color: 'var(--color-keep)', fontWeight: 700 }}>$$O(\log N)$$</span> | $$\Theta(1)$$ |
 
-El heap no gana en ninguna columna por separado: la lista sin orden inserta
-más rápido y la ordenada extrae más rápido. Gana en la mezcla, que es como
-se usa una cola de prioridad. Con $$N$$ inserciones y $$N$$ extracciones,
-las dos listas pagan $$\Theta(N^2)$$ y el heap $$O(N \log N)$$: para un
-millón de cada una, unos quinientos mil millones de pasos contra unos
-cuarenta millones.
+El heap no es el más rápido en ninguna columna por separado:
+
+- la lista sin orden inserta más rápido, en $$\Theta(1)$$;
+- la lista ordenada extrae más rápido, también en $$\Theta(1)$$.
+
+</Slide>
+
+<Slide title="Muchas operaciones mezcladas">
+Una cola de prioridad no hace una sola operación: mezcla inserciones y
+extracciones. Con $$N$$ de cada una, el costo total es:
+
+| Implementación  | Costo total         | Con un millón de cada una |
+| --------------- | ------------------- | ------------------------- |
+| Lista sin orden | $$\Theta(N^2)$$     | unos 500 000 millones de pasos |
+| Lista ordenada  | $$\Theta(N^2)$$     | unos 500 000 millones de pasos |
+| **Heap**        | <span style={{ color: 'var(--color-keep)', fontWeight: 700 }}>$$O(N \log N)$$</span> | <span style={{ color: 'var(--color-keep)', fontWeight: 700 }}>unos 40 millones de pasos</span> |
+
+Ahí gana el heap: ninguna de sus operaciones es lenta.
 
 </Slide>
 
