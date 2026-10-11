@@ -15,17 +15,14 @@ cada elemento tiene a lo más un siguiente. Muchos datos no tienen esa forma.
 {/* HierarchyPicture — a static drawing of a general tree (any number of children per node): the folder tree or a small hierarchy, with tones, badges, notes, level lines, an open path and an optional queue under it. */}
 {/* File-local on purpose (add-a-course-document.md §6e-quater): one consumer, no catalog entry, not registered. The second document that wants it promotes it. */}
 {/* A leaf takes the next column; a parent sits centred over its first and last child. Every node name in one tree is unique, because tones, badges and notes are keyed by it. */}
-{/* minWidth gives figures set side by side one canvas width, so their boxes and text come out the same size; the tree is centred in it. */}
-{/* Three drawings of an order, each in its own colour, so a traversal is told by its arrows and numbers and not by colour alone. flow puts an arrowhead on every edge — "down" (focus) for what a node takes from its parent, "up" (mark) for what it takes from its children. tour draws the line that runs around the whole tree, down the left of every node and up its right, and numbers each node where the line meets it: on its left for "pre" (focus), on its right for "post" (mark). reading draws the level-order reading (keep): each level left to right, then back to the start of the next. */}
+{/* minWidth gives figures set side by side one canvas width, so their boxes and text come out the same size; the tree is centred in it. compact and size fit a frame of a step-through, whose box has a fixed height. */}
+{/* The drawings of an order, each in its own colour, and each told by its arrows and numbers, never by colour alone. flow puts an arrowhead on every edge — "down" (focus) for what a node takes from its parent, "up" (mark) for what it takes from its children. visits numbers the nodes in "pre" (focus) or "post" (mark) order and draws an arrow from every visit to the next: along the edge when the next is a child or the parent, dashed when the walk jumps to another branch. reading numbers them level by level (keep) and draws each level as a line read left to right, with the return to the next. strip writes the sequence under the tree, the order a program would print it in. */}
 
-export function HierarchyPicture({ tree, tones = {}, badges = {}, notes = {}, numbers = {}, path = [], levels = false, queue, caption, minWidth = 0, flow, tour, reading = false, badgeColor = 'var(--color-focus)', compact = false, size = 1, label }) {
+export function HierarchyPicture({ tree, tones = {}, badges = {}, notes = {}, numbers = {}, path = [], levels = false, queue, caption, minWidth = 0, flow, visits, reading = false, strip = false, badgeColor = 'var(--color-focus)', compact = false, size = 1, label }) {
   const boxH = 26;
-  // compact shortens the levels for a frame of a step-through, whose box has a fixed height.
   const levelH = compact ? 50 : 64;
-  // The tour line runs `ring` outside every box, and its numbers sit on it, so the canvas grows a margin for both.
-  const ring = 12;
-  const padX = tour ? 26 : reading ? 22 : 12;
-  const padTop = tour || reading ? 26 : 20;
+  const padX = reading ? 22 : 12;
+  const padTop = visits || reading ? 26 : 20;
   const labelW = levels || reading ? 62 : 0;
   const widthOf = (name) => Math.max(40, name.length * 7.6 + 16);
   const nodes = [];
@@ -43,15 +40,41 @@ export function HierarchyPicture({ tree, tones = {}, badges = {}, notes = {}, nu
     return me;
   };
   walk(tree, 0, null);
-  const pitch = Math.max(...nodes.map((n) => widthOf(n.name))) + (tour ? 2 * ring + 4 : 14);
+  const pitch = Math.max(...nodes.map((n) => widthOf(n.name))) + 14;
   const depth = Math.max(...nodes.map((n) => n.depth));
   const hasNotes = Object.keys(notes).length > 0;
-  const treeH = padTop + boxH + depth * levelH + (hasNotes ? 18 : 6) + (tour ? ring + 4 : 0);
-  const queueY = treeH + 26;
-  const captionY = (queue ? queueY + boxH + 26 : treeH + 18);
-  // A caption wider than the drawing widens the canvas, and the drawing is centred in it, so no caption is ever clipped.
+  const treeH = padTop + boxH + depth * levelH + (hasNotes ? 18 : 6);
+  // The visit sequence, from the recursion itself for the two orders and level by level for the reading.
+  const pre = [];
+  const post = [];
+  const recurse = (n) => {
+    pre.push(n);
+    n.kids.forEach(recurse);
+    post.push(n);
+  };
+  recurse(nodes[0]);
+  const byLevel = [...Array(depth + 1).keys()].map((d) => nodes.filter((n) => n.depth === d).sort((a, b) => a.x - b.x));
+  const seq = visits === 'pre' ? pre : visits === 'post' ? post : reading ? byLevel.flat() : [];
+  const order = {};
+  seq.forEach((n, i) => {
+    order[n.name] = i + 1;
+  });
+  const seqColor = visits === 'post' ? 'var(--color-mark)' : visits === 'pre' ? 'var(--color-focus)' : 'var(--color-keep)';
+  const flowColor = flow === 'up' ? 'var(--color-mark)' : 'var(--color-focus)';
+  // The strip is one row, or two even ones past six chips: chip, arrow, chip. A row wider than the drawing widens the canvas.
   const drawingW = labelW + 2 * padX + leaves * pitch;
-  const width = Math.max(drawingW, minWidth, caption ? caption.length * 6.6 + 24 : 0);
+  const chipW = (n) => widthOf(n.name) + 20;
+  const gap = 22;
+  const perRow = seq.length > 6 ? Math.ceil(seq.length / 2) : seq.length;
+  const rows = strip ? [seq.slice(0, perRow), seq.slice(perRow)].filter((r) => r.length > 0) : [];
+  const rowWidth = (row) => row.reduce((w, n, i) => w + chipW(n) + (i > 0 ? gap : 0), 0);
+  const stripW = Math.max(0, ...rows.map(rowWidth));
+  const stripY = treeH + 16;
+  const stripH = strip ? rows.length * (boxH + 12) : 0;
+  const queueY = treeH + 26;
+  const captionY = queue ? queueY + boxH + 26 : strip ? stripY + stripH + 10 : treeH + 18;
+  // A caption wider than the drawing widens the canvas, and the drawing is centred in it, so no caption is ever clipped.
+  const width = Math.max(drawingW, minWidth, caption ? caption.length * 6.6 + 24 : 0, stripW + 2 * padX);
   const offset = (width - drawingW) / 2;
   const height = captionY + (caption ? 8 : -6);
   const cx = (n) => offset + labelW + padX + (n.x + 0.5) * pitch;
@@ -65,25 +88,7 @@ export function HierarchyPicture({ tree, tones = {}, badges = {}, notes = {}, nu
     done: ['var(--color-sunk)', 'var(--color-rule-strong)', 1.3],
     faint: ['var(--color-surface)', 'var(--color-rule)', 1.2],
   };
-  // The order each drawing numbers the nodes in: the tour's, from the recursion itself; the reading's, level by level.
-  const order = {};
-  const pre = [];
-  const post = [];
-  const visit = (n) => {
-    pre.push(n);
-    n.kids.forEach(visit);
-    post.push(n);
-  };
-  visit(nodes[0]);
-  (tour === 'post' ? post : pre).forEach((n, i) => {
-    order[n.name] = i + 1;
-  });
-  const byLevel = [...Array(depth + 1).keys()].map((d) => nodes.filter((n) => n.depth === d).sort((a, b) => a.x - b.x));
-  if (reading) byLevel.flat().forEach((n, i) => {
-    order[n.name] = i + 1;
-  });
-  const tourColor = tour === 'post' ? 'var(--color-mark)' : 'var(--color-focus)';
-  const flowColor = flow === 'up' ? 'var(--color-mark)' : 'var(--color-focus)';
+  const deg = (dy, dx) => (Math.atan2(dy, dx) * 180) / Math.PI;
   const head = (x, y, angle, color, key) => (
     <polygon key={key} points="0,0 -8,-4.5 -8,4.5" transform={`translate(${x} ${y}) rotate(${angle})`} style={{ fill: color }} />
   );
@@ -93,6 +98,39 @@ export function HierarchyPicture({ tree, tones = {}, badges = {}, notes = {}, nu
       <text x={x} y={y + 3.8} textAnchor="middle" fontSize="11" fontWeight="700" style={{ fill: 'var(--color-ground)' }}>{k}</text>
     </g>
   );
+  // An edge with its arrowhead at the middle, pointing to the child (down) or to the parent (up).
+  const edgeArrow = (parent, child, up, color, key, width = 1.8) => {
+    const x1 = cx(parent);
+    const y1 = cy(parent) + boxH / 2;
+    const x2 = cx(child);
+    const y2 = cy(child) - boxH / 2;
+    const a = deg(y2 - y1, x2 - x1);
+    const r = (a * Math.PI) / 180;
+    const s = up ? -4 : 4;
+    return (
+      <g key={key}>
+        <line x1={x1} y1={y1} x2={x2} y2={y2} style={{ stroke: color }} strokeWidth={width} />
+        {head((x1 + x2) / 2 + s * Math.cos(r), (y1 + y2) / 2 + s * Math.sin(r), up ? a + 180 : a, color, `${key}-h`)}
+      </g>
+    );
+  };
+  // From one visit to the next: along the edge when they are parent and child; otherwise a dashed jump from the right of one to the left of the other, bending first up or down to the level it lands on.
+  const step = (a, b, key) => {
+    if (b.parent === a) return edgeArrow(a, b, false, seqColor, key, 2.4);
+    if (a.parent === b) return edgeArrow(b, a, true, seqColor, key, 2.4);
+    const sx = cx(a) + widthOf(a.name) / 2 + 2;
+    const sy = cy(a);
+    const ex = cx(b) - widthOf(b.name) / 2 - 3;
+    const ey = cy(b);
+    const qx = ey < sy ? sx + 14 : ey > sy ? ex - 14 : (sx + ex) / 2;
+    const qy = ey < sy ? ey : sy;
+    return (
+      <g key={key}>
+        <path d={`M ${sx} ${sy} Q ${qx} ${qy} ${ex} ${ey}`} fill="none" style={{ stroke: seqColor }} strokeWidth="1.8" strokeDasharray="5 4" />
+        {head(ex, ey, ey === qy ? 0 : deg(ey - qy, ex - qx), seqColor, `${key}-h`)}
+      </g>
+    );
+  };
   const edges = nodes.filter((n) => n.parent !== null);
   return (
     <svg viewBox={`0 0 ${width} ${height}`} style={{ width: '100%', maxWidth: `${Math.round(width * 1.35 * size)}px`, height: 'auto', display: 'block', margin: compact ? '0.25rem auto' : '1rem auto' }} role="img" aria-label={label}>
@@ -104,25 +142,6 @@ export function HierarchyPicture({ tree, tones = {}, badges = {}, notes = {}, nu
             </g>
           ))
         : null}
-      {/* The tour line is the outline of the tree grown by `ring`: the grown tree in the tour's colour, the grown-a-little-less tree in the page's ground over it, and what is left is a line that keeps the same distance from every box and every edge. */}
-      {tour ? (
-        <g>
-          <g opacity="0.5">
-            {edges.map((n) => (
-              <line key={`tb-${n.name}`} x1={cx(n.parent)} y1={cy(n.parent)} x2={cx(n)} y2={cy(n)} strokeLinecap="round" style={{ stroke: tourColor }} strokeWidth={2 * ring + 5} />
-            ))}
-            {nodes.map((n) => (
-              <rect key={`rb-${n.name}`} x={cx(n) - widthOf(n.name) / 2} y={cy(n) - boxH / 2} width={widthOf(n.name)} height={boxH} rx="6" style={{ fill: tourColor, stroke: tourColor }} strokeWidth={2 * ring + 5} strokeLinejoin="round" />
-            ))}
-          </g>
-          {edges.map((n) => (
-            <line key={`tg-${n.name}`} x1={cx(n.parent)} y1={cy(n.parent)} x2={cx(n)} y2={cy(n)} strokeLinecap="round" style={{ stroke: 'var(--color-ground)' }} strokeWidth={2 * ring} />
-          ))}
-          {nodes.map((n) => (
-            <rect key={`rg-${n.name}`} x={cx(n) - widthOf(n.name) / 2} y={cy(n) - boxH / 2} width={widthOf(n.name)} height={boxH} rx="6" style={{ fill: 'var(--color-ground)', stroke: 'var(--color-ground)' }} strokeWidth={2 * ring} strokeLinejoin="round" />
-          ))}
-        </g>
-      ) : null}
       {reading
         ? byLevel.map((row, d) => {
             const y = padTop + boxH / 2 + d * levelH;
@@ -146,26 +165,12 @@ export function HierarchyPicture({ tree, tones = {}, badges = {}, notes = {}, nu
           })
         : null}
       {edges.map((n) => {
+        if (flow) return edgeArrow(n.parent, n, flow === 'up', flowColor, `e-${n.name}`);
         const onIt = onPath.has(n.name) && onPath.has(n.parent.name);
-        const color = flow ? flowColor : onIt ? 'var(--color-focus)' : tones[n.name] === 'faint' ? 'var(--color-rule)' : 'var(--color-rule-strong)';
-        if (tour) {
-          // Centre to centre, under the boxes: the shape the tour line was grown from.
-          return <line key={`e-${n.name}`} x1={cx(n.parent)} y1={cy(n.parent)} x2={cx(n)} y2={cy(n)} style={{ stroke: 'var(--color-rule-strong)' }} strokeWidth="1.2" />;
-        }
-        const x1 = cx(n.parent);
-        const y1 = cy(n.parent) + boxH / 2;
-        const x2 = cx(n);
-        const y2 = cy(n) - boxH / 2;
-        const angle = (Math.atan2(y2 - y1, x2 - x1) * 180) / Math.PI;
-        return (
-          <g key={`e-${n.name}`}>
-            <line x1={x1} y1={y1} x2={x2} y2={y2} style={{ stroke: color }} strokeWidth={flow ? 1.8 : onIt ? 2.6 : 1.2} />
-            {/* Mid-edge: at the parent end the heads of all its children would pile up under it. */}
-            {flow === 'down' ? head((x1 + x2) / 2 + 4 * Math.cos((angle * Math.PI) / 180), (y1 + y2) / 2 + 4 * Math.sin((angle * Math.PI) / 180), angle, color, `h-${n.name}`) : null}
-            {flow === 'up' ? head((x1 + x2) / 2 - 4 * Math.cos((angle * Math.PI) / 180), (y1 + y2) / 2 - 4 * Math.sin((angle * Math.PI) / 180), angle + 180, color, `h-${n.name}`) : null}
-          </g>
-        );
+        const color = onIt ? 'var(--color-focus)' : tones[n.name] === 'faint' ? 'var(--color-rule)' : 'var(--color-rule-strong)';
+        return <line key={`e-${n.name}`} x1={cx(n.parent)} y1={cy(n.parent) + boxH / 2} x2={cx(n)} y2={cy(n) - boxH / 2} style={{ stroke: color }} strokeWidth={onIt ? 2.6 : 1.2} />;
       })}
+      {visits ? seq.slice(1).map((b, i) => step(seq[i], b, `s-${b.name}`)) : null}
       {nodes.map((n) => {
         const [fill, stroke, weight] = TONE[tones[n.name] ?? 'idle'];
         const w = widthOf(n.name);
@@ -188,21 +193,28 @@ export function HierarchyPicture({ tree, tones = {}, badges = {}, notes = {}, nu
           </g>
         );
       })}
-      {/* The tour's numbers sit on its line, where it meets each node: going down its left for the preorder, coming up its right for the postorder, with the line's direction beside each. */}
-      {tour
-        ? nodes.map((n) => {
-            const w = widthOf(n.name);
-            const x = tour === 'pre' ? cx(n) - w / 2 - ring - 1 : cx(n) + w / 2 + ring + 1;
-            return (
-              <g key={`t-${n.name}`}>
-                {tour === 'pre' ? head(x, cy(n) + 19, 90, tourColor, `ta-${n.name}`) : head(x, cy(n) - 19, -90, tourColor, `ta-${n.name}`)}
-                {dot(x, cy(n), order[n.name], tourColor, `td-${n.name}`)}
-              </g>
-            );
+      {seq.map((n) => dot(cx(n) - widthOf(n.name) / 2, cy(n) - boxH / 2, order[n.name], seqColor, `sd-${n.name}`))}
+      {nodes.filter((n) => numbers[n.name] !== undefined).map((n) => dot(cx(n) - widthOf(n.name) / 2, cy(n) - boxH / 2, numbers[n.name], 'var(--color-keep)', `nd-${n.name}`))}
+      {strip
+        ? rows.map((row, r) => {
+            let x = (width - rowWidth(row)) / 2;
+            const y = stripY + r * (boxH + 12);
+            return row.map((n, i) => {
+              const w = chipW(n);
+              const x0 = x + (i > 0 ? gap : 0);
+              x = x0 + w;
+              return (
+                <g key={`c-${n.name}`}>
+                  {i > 0 ? <line x1={x0 - gap + 4} y1={y + boxH / 2} x2={x0 - 6} y2={y + boxH / 2} style={{ stroke: seqColor }} strokeWidth="1.6" /> : null}
+                  {i > 0 ? head(x0 - 3, y + boxH / 2, 0, seqColor, `ch-${n.name}`) : null}
+                  <rect x={x0} y={y} width={w} height={boxH} rx="13" style={{ fill: 'var(--color-surface)', stroke: seqColor }} strokeWidth="1.6" />
+                  {dot(x0 + 13, y + boxH / 2, order[n.name], seqColor, `cd-${n.name}`)}
+                  <text x={x0 + 26 + (w - 26) / 2} y={y + boxH / 2 + 4.5} textAnchor="middle" fontSize="13" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{n.name}</text>
+                </g>
+              );
+            });
           })
         : null}
-      {reading ? nodes.map((n) => dot(cx(n) - widthOf(n.name) / 2, cy(n) - boxH / 2, order[n.name], 'var(--color-keep)', `rdot-${n.name}`)) : null}
-      {nodes.filter((n) => numbers[n.name] !== undefined).map((n) => dot(cx(n) - widthOf(n.name) / 2, cy(n) - boxH / 2, numbers[n.name], 'var(--color-keep)', `ndot-${n.name}`))}
       {queue ? (
         <g>
           <text x={offset + labelW + padX} y={queueY - 8} fontSize="11" style={{ fill: 'var(--color-ink-faint)' }}>{queue.length === 0 ? 'cola · vacía' : 'cola · sale por la izquierda'}</text>
@@ -222,6 +234,20 @@ export function HierarchyPicture({ tree, tones = {}, badges = {}, notes = {}, nu
         <text x={width / 2} y={captionY} textAnchor="middle" fontSize="12" style={{ fill: 'var(--color-ink-soft)' }}>{caption}</text>
       ) : null}
     </svg>
+  );
+}
+
+{/* OrderRule — the rule of a traversal written short, as pills joined by arrows in the traversal's colour: nodo → hijos for the preorder, the colour its drawings use. File-local like HierarchyPicture (§6e-quater). */}
+
+export function OrderRule({ parts, tone = 'focus', label }) {
+  const color = `var(--color-${tone})`;
+  return (
+    <div role="img" aria-label={label} style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', alignItems: 'center', gap: '0.6rem', margin: '1rem 0', fontWeight: 700, fontSize: '1.15em' }}>
+      {parts.flatMap((part, i) => [
+        i > 0 ? <span key={`a${i}`} aria-hidden="true" style={{ color }}>→</span> : null,
+        <span key={`p${i}`} aria-hidden="true" style={{ border: `2px solid ${color}`, borderRadius: '999px', padding: '0.1rem 0.9rem', color: 'var(--color-ink)' }}>{part}</span>,
+      ])}
+    </div>
   );
 }
 
@@ -384,38 +410,12 @@ se visitan los nodos importa.
 
 <SectionBreak />
 
-## Recorridos de un árbol
+## Un árbol en Java
 
-<Slide title="El recorrido de un árbol">
-**Recorrer** una estructura es visitar cada uno de sus elementos una vez. En
-una fila hay un orden natural: del primero al último. En un árbol no lo hay:
-después de la raíz puede seguir cualquiera de sus hijos, y después de un
-hijo, uno de sus hijos o uno de sus hermanos.
-
-Un **recorrido** es una regla que decide ese orden. Hay varias, y cada una
-responde una pregunta distinta sobre la jerarquía.
-
-</Slide>
-
-<Slide title="El preorden">
-En **preorden**, cada nodo se visita **antes** que sus subárboles, y los
-subárboles se recorren de izquierda a derecha, cada uno con la misma regla.
-Es el orden de la profundidad: cada nodo, antes que sus hijos.
-
-Para verlo, se rodea el árbol por fuera con una línea que empieza a la
-izquierda de la raíz, baja por la izquierda de cada nodo y sube por su
-derecha. El preorden visita cada nodo cuando la línea pasa por su
-**izquierda**, al bajar.
-
-<HierarchyPicture tree={FOLDERS} tour="pre" label="El árbol de carpetas rodeado por una línea que baja por la izquierda de cada nodo y sube por su derecha. En preorden, cada nodo se numera cuando la línea pasa por su izquierda: home 1, fotos 2, playa.jpg 3, perro.jpg 4, ramos 5, eda 6, t1.pdf 7, t2.pdf 8, calculo 9, guia.pdf 10 y notas.txt 11." caption="preorden: cada nodo, cuando la línea pasa por su izquierda" />
-
-</Slide>
-
-<Slide title="Un árbol en Java">
-Para escribir el preorden, el árbol tiene que existir en Java. Cada nodo
-guarda su valor y la **lista de sus hijos**. Cada hijo es la raíz de un
-subárbol, así que la clase repite la definición recursiva: un nodo y, debajo,
-cero o más árboles.
+<Slide title="El nodo y el árbol">
+Cada nodo guarda su valor y la **lista de sus hijos**. Cada hijo es la raíz de
+un subárbol, así que la clase repite la definición recursiva: un nodo y,
+debajo, cero o más árboles. El árbol guarda solo su raíz.
 
 ```java
 class Node<T> {
@@ -437,9 +437,127 @@ Una hoja es un nodo con la lista vacía, y un árbol vacío es un `Tree` con
 
 </Slide>
 
+<Slide title="Agregar un hijo">
+Un hijo nuevo entra al **final** de la lista de su padre. El orden de esa
+lista es el orden de los hijos de izquierda a derecha, y es el que siguen los
+recorridos.
+
+```java
+Node<T> add(T value) {
+    Node<T> child = new Node<>(value);
+    children.add(child);
+    return child;
+}
+```
+
+`add` es un método de `Node`: crea el hijo, lo pone al final de la lista y lo
+devuelve, para poder seguir agregando debajo de él. Agregar al final de un
+`ArrayList` cuesta $$\Theta(1)$$ amortizado.
+
+</Slide>
+
+<Slide title="Armar un árbol">
+Un árbol se arma desde la raíz hacia abajo: cada nodo nuevo se agrega como
+hijo de uno que ya está en el árbol.
+
+<StepShow
+  language="java"
+  code={`Tree<String> tree = new Tree<>();
+tree.root = new Node<>("home/");
+Node<String> fotos = tree.root.add("fotos/");
+fotos.add("playa.jpg");
+fotos.add("perro.jpg");
+Node<String> ramos = tree.root.add("ramos/");
+Node<String> eda = ramos.add("eda/");
+eda.add("t1.pdf");
+eda.add("t2.pdf");
+Node<String> calculo = ramos.add("calculo/");
+calculo.add("guia.pdf");
+tree.root.add("notas.txt");`}
+>
+  <Step lines={[1]}>
+    <HierarchyPicture tree={FOLDERS} tones={{ 'home/': 'faint', 'fotos/': 'faint', 'playa.jpg': 'faint', 'perro.jpg': 'faint', 'ramos/': 'faint', 'eda/': 'faint', 't1.pdf': 'faint', 't2.pdf': 'faint', 'calculo/': 'faint', 'guia.pdf': 'faint', 'notas.txt': 'faint' }} compact size={0.8} label="Todavía no hay ningún nodo: el árbol está vacío, con root en null. El dibujo muestra atenuado el árbol que se va a armar." />
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Un árbol vacío: root está en null.</div>
+  </Step>
+  <Step lines={[2]}>
+    <HierarchyPicture tree={FOLDERS} tones={{ 'home/': 'mark', 'fotos/': 'faint', 'playa.jpg': 'faint', 'perro.jpg': 'faint', 'ramos/': 'faint', 'eda/': 'faint', 't1.pdf': 'faint', 't2.pdf': 'faint', 'calculo/': 'faint', 'guia.pdf': 'faint', 'notas.txt': 'faint' }} compact size={0.8} label="Se crea la raíz, home." />
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Se crea la raíz, home/.</div>
+  </Step>
+  <Step lines={[3]}>
+    <HierarchyPicture tree={FOLDERS} tones={{ 'fotos/': 'mark', 'playa.jpg': 'faint', 'perro.jpg': 'faint', 'ramos/': 'faint', 'eda/': 'faint', 't1.pdf': 'faint', 't2.pdf': 'faint', 'calculo/': 'faint', 'guia.pdf': 'faint', 'notas.txt': 'faint' }} compact size={0.8} label="fotos se agrega como primer hijo de home." />
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>fotos/ entra al final de la lista de home/: es su primer hijo.</div>
+  </Step>
+  <Step lines={[4]}>
+    <HierarchyPicture tree={FOLDERS} tones={{ 'playa.jpg': 'mark', 'perro.jpg': 'faint', 'ramos/': 'faint', 'eda/': 'faint', 't1.pdf': 'faint', 't2.pdf': 'faint', 'calculo/': 'faint', 'guia.pdf': 'faint', 'notas.txt': 'faint' }} compact size={0.8} label="playa.jpg se agrega como primer hijo de fotos." />
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>playa.jpg entra al final de la lista de fotos/: es su primer hijo.</div>
+  </Step>
+  <Step lines={[5]}>
+    <HierarchyPicture tree={FOLDERS} tones={{ 'perro.jpg': 'mark', 'ramos/': 'faint', 'eda/': 'faint', 't1.pdf': 'faint', 't2.pdf': 'faint', 'calculo/': 'faint', 'guia.pdf': 'faint', 'notas.txt': 'faint' }} compact size={0.8} label="perro.jpg se agrega como segundo hijo de fotos." />
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>perro.jpg entra al final de la lista de fotos/: es su segundo hijo.</div>
+  </Step>
+  <Step lines={[6]}>
+    <HierarchyPicture tree={FOLDERS} tones={{ 'ramos/': 'mark', 'eda/': 'faint', 't1.pdf': 'faint', 't2.pdf': 'faint', 'calculo/': 'faint', 'guia.pdf': 'faint', 'notas.txt': 'faint' }} compact size={0.8} label="ramos se agrega como segundo hijo de home." />
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>ramos/ entra al final de la lista de home/: es su segundo hijo.</div>
+  </Step>
+  <Step lines={[7]}>
+    <HierarchyPicture tree={FOLDERS} tones={{ 'eda/': 'mark', 't1.pdf': 'faint', 't2.pdf': 'faint', 'calculo/': 'faint', 'guia.pdf': 'faint', 'notas.txt': 'faint' }} compact size={0.8} label="eda se agrega como primer hijo de ramos." />
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>eda/ entra al final de la lista de ramos/: es su primer hijo.</div>
+  </Step>
+  <Step lines={[8]}>
+    <HierarchyPicture tree={FOLDERS} tones={{ 't1.pdf': 'mark', 't2.pdf': 'faint', 'calculo/': 'faint', 'guia.pdf': 'faint', 'notas.txt': 'faint' }} compact size={0.8} label="t1.pdf se agrega como primer hijo de eda." />
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>t1.pdf entra al final de la lista de eda/: es su primer hijo.</div>
+  </Step>
+  <Step lines={[9]}>
+    <HierarchyPicture tree={FOLDERS} tones={{ 't2.pdf': 'mark', 'calculo/': 'faint', 'guia.pdf': 'faint', 'notas.txt': 'faint' }} compact size={0.8} label="t2.pdf se agrega como segundo hijo de eda." />
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>t2.pdf entra al final de la lista de eda/: es su segundo hijo.</div>
+  </Step>
+  <Step lines={[10]}>
+    <HierarchyPicture tree={FOLDERS} tones={{ 'calculo/': 'mark', 'guia.pdf': 'faint', 'notas.txt': 'faint' }} compact size={0.8} label="calculo se agrega como segundo hijo de ramos." />
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>calculo/ entra al final de la lista de ramos/: es su segundo hijo.</div>
+  </Step>
+  <Step lines={[11]}>
+    <HierarchyPicture tree={FOLDERS} tones={{ 'guia.pdf': 'mark', 'notas.txt': 'faint' }} compact size={0.8} label="guia.pdf se agrega como primer hijo de calculo." />
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>guia.pdf entra al final de la lista de calculo/: es su primer hijo.</div>
+  </Step>
+  <Step lines={[12]}>
+    <HierarchyPicture tree={FOLDERS} tones={{ 'notas.txt': 'mark' }} compact size={0.8} label="notas.txt se agrega como tercer hijo de home." />
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>notas.txt entra al final de la lista de home/: es su tercer hijo.</div>
+  </Step>
+</StepShow>
+
+</Slide>
+
+<SectionBreak />
+
+## Recorridos de un árbol
+
+<Slide title="El recorrido de un árbol">
+**Recorrer** una estructura es visitar cada uno de sus elementos una vez. En
+una fila hay un orden natural: del primero al último. En un árbol no lo hay:
+después de la raíz puede seguir cualquiera de sus hijos, y después de un
+hijo, uno de sus hijos o uno de sus hermanos.
+
+Un **recorrido** es una regla que decide ese orden. Hay varias, y cada una
+responde una pregunta distinta sobre la jerarquía.
+
+</Slide>
+
+<Slide title="El preorden">
+En **preorden**, cada nodo se visita **antes** que sus hijos, y los hijos se
+recorren de izquierda a derecha, cada uno con la misma regla:
+
+<OrderRule parts={['nodo', 'hijos']} label="La regla del preorden: el nodo, y después sus hijos." />
+
+Es el orden de la profundidad: un nodo se visita antes que todo lo que cuelga
+de él.
+
+<HierarchyPicture tree={FOLDERS} visits="pre" strip label="El árbol de carpetas con el preorden: cada nodo numerado en el orden en que se visita, y flechas de cada visita a la siguiente, que bajan por las aristas y saltan al hermano siguiente cuando un subárbol se termina. home 1, fotos 2, playa.jpg 3, perro.jpg 4, ramos 5, eda 6, t1.pdf 7, t2.pdf 8, calculo 9, guia.pdf 10 y notas.txt 11. Debajo, la misma secuencia en fila." caption="las flechas siguen la visita; abajo, el orden en que se visitan" />
+
+</Slide>
+
 <Slide title="El preorden en Java">
-La regla se escribe tal cual: primero el nodo y después cada hijo, de
-izquierda a derecha, con el mismo método.
+La regla **nodo → hijos** se escribe tal cual: primero la visita, y después un
+`for` que recorre cada hijo con el mismo método.
 
 ```java
 void preorder(Node<T> node) {
@@ -497,20 +615,22 @@ home/
 </Slide>
 
 <Slide title="El postorden">
-En **postorden**, cada nodo se visita **después** de sus subárboles. Es el
-orden de la altura: cada nodo, después de sus hijos.
+En **postorden**, cada nodo se visita **después** de sus hijos: primero se
+recorren los hijos, de izquierda a derecha y cada uno con la misma regla, y
+al final el nodo.
 
-Sobre la misma línea que rodea el árbol, el postorden visita cada nodo cuando
-la línea pasa por su **derecha**, al subir: cuando ya rodeó todo lo que
-cuelga de él.
+<OrderRule parts={['hijos', 'nodo']} tone="mark" label="La regla del postorden: los hijos, y después el nodo." />
 
-<HierarchyPicture tree={FOLDERS} tour="post" label="El árbol de carpetas rodeado por la misma línea. En postorden, cada nodo se numera cuando la línea pasa por su derecha: playa.jpg 1, perro.jpg 2, fotos 3, t1.pdf 4, t2.pdf 5, eda 6, guia.pdf 7, calculo 8, ramos 9, notas.txt 10 y home 11." caption="postorden: cada nodo, cuando la línea pasa por su derecha" />
+Es el orden de la altura: un nodo se visita después de todo lo que cuelga de
+él.
+
+<HierarchyPicture tree={FOLDERS} visits="post" strip label="El árbol de carpetas con el postorden: cada nodo numerado en el orden en que se visita, y flechas de cada visita a la siguiente, que suben por las aristas hacia el padre y saltan al subárbol siguiente. playa.jpg 1, perro.jpg 2, fotos 3, t1.pdf 4, t2.pdf 5, eda 6, guia.pdf 7, calculo 8, ramos 9, notas.txt 10 y home 11. Debajo, la misma secuencia en fila." caption="las flechas siguen la visita; abajo, el orden en que se visitan" />
 
 </Slide>
 
 <Slide title="El postorden en Java">
-La visita pasa al final: primero cada hijo, con el mismo método, y después el
-nodo.
+La regla **hijos → nodo** mueve la visita al final: primero el `for` sobre los
+hijos, y después el nodo.
 
 ```java
 void postorder(Node<T> node) {
@@ -557,13 +677,16 @@ int size(Node<Integer> node) {
 <Slide title="El recorrido por niveles">
 El recorrido **por niveles** visita primero la raíz, después todos los nodos
 de profundidad 1, después los de profundidad 2, y así; dentro de cada nivel,
-de izquierda a derecha. Se lee como un texto: cada nivel es un renglón.
+de izquierda a derecha. Se lee como un texto, en el que cada nivel es un
+renglón:
+
+<OrderRule parts={['nivel 0', 'nivel 1', 'nivel 2', '…']} tone="keep" label="La regla del recorrido por niveles: el nivel 0, después el 1, después el 2, y así, cada uno de izquierda a derecha." />
 
 Es el orden que encuentra primero lo más cercano a la raíz: si se busca un
 archivo por su nombre, el primero que aparece por niveles es el que está a
 menos carpetas de distancia.
 
-<HierarchyPicture tree={FOLDERS} reading label="El árbol de carpetas leído por niveles, como un texto: cada nivel de izquierda a derecha, y después el comienzo del siguiente. home 1; fotos 2, ramos 3, notas.txt 4; playa.jpg 5, perro.jpg 6, eda 7, calculo 8; t1.pdf 9, t2.pdf 10 y guia.pdf 11." caption="por niveles: cada renglón de izquierda a derecha, y después el siguiente" />
+<HierarchyPicture tree={FOLDERS} reading strip label="El árbol de carpetas leído por niveles, como un texto: cada nivel de izquierda a derecha, y después el comienzo del siguiente. home 1; fotos 2, ramos 3, notas.txt 4; playa.jpg 5, perro.jpg 6, eda 7, calculo 8; t1.pdf 9, t2.pdf 10 y guia.pdf 11." caption="cada renglón de izquierda a derecha; abajo, el orden en que se visitan" />
 
 </Slide>
 
