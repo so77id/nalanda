@@ -276,6 +276,7 @@ export function HeapPicture({
   reserveCells,
   heightRuler = false,
   tags = {},
+  strokes = [],
   idPrefix = 'heap-pic',
   label,
 }) {
@@ -336,9 +337,9 @@ export function HeapPicture({
   // Past n: a copy nobody reads any more — what extractMax leaves behind in
   // data[n + 1]. Drawn dashed and faint in the array; the tree never draws it.
   const stroke = (k) =>
-    hot.includes(k) ? 'var(--color-accent)' : marked.includes(k) ? 'var(--color-mark)' : k > n ? 'var(--color-rule)' : levelColors ? LEVEL[levelOf(k) % 4] : 'var(--color-rule-strong)';
+    hot.includes(k) ? 'var(--color-accent)' : marked.includes(k) ? 'var(--color-mark)' : k > n ? 'var(--color-rule)' : strokes[k - 1] ? strokes[k - 1] : levelColors ? LEVEL[levelOf(k) % 4] : 'var(--color-rule-strong)';
   const fill = (k) => (marked.includes(k) ? 'var(--color-mark-soft)' : k > n ? 'var(--color-sunk)' : 'var(--color-surface)');
-  const weight = (k) => (hot.includes(k) ? 2.8 : marked.includes(k) || levelColors ? 2 : 1.4);
+  const weight = (k) => (hot.includes(k) ? 2.8 : marked.includes(k) || levelColors || strokes[k - 1] ? 2 : 1.4);
   const ks = values.map((_, i) => i + 1);
   // The number a reader sees: the node's position, from 1 or from 0.
   const shown = (k) => k - 1 + lead;
@@ -821,6 +822,209 @@ export function TopKFrame({ stream, at = -1, discarded = false, heap, hot = [], 
       {result ? (
         <CellRow title="resultado" values={result} tones={result.map(() => 'keep')} label={`El resultado: ${result.map((v) => (v === null ? 'vacío' : v)).join(', ')}.`} />
       ) : null}
+    </div>
+  );
+}
+
+{/* RowCell, GridRows, OutRow, MergeCase, FrontsPicture, FrontsStrip, EntryPicture, MergeFrame — the merge exercise's drawings. Each input row has its own colour, and every cell of the output also carries its row number, so the row is never told by colour alone. File-local like HeapPicture (§6e-quater). */}
+
+export const ROW_COLORS = ['var(--color-keep)', 'var(--color-focus)', 'var(--color-mark)'];
+
+export function RowCell({ x, y, v, row, state, tag = false }) {
+  const done = state === 'done';
+  const empty = v === null || v === undefined;
+  return (
+    <g>
+      <rect x={x} y={y} width="34" height="34" rx="4" style={{ fill: done || empty ? 'var(--color-sunk)' : 'var(--color-surface)', stroke: done || empty ? 'var(--color-rule)' : ROW_COLORS[row] }} strokeWidth={state === 'front' ? 3.2 : done ? 1.2 : 1.8} strokeDasharray={empty ? '4 3' : undefined} />
+      {empty ? null : (
+        <text x={x + 17} y={y + 22} textAnchor="middle" fontSize="15" fontWeight="600" style={{ fill: done ? 'var(--color-ink-faint)' : 'var(--color-ink)' }}>{v}</text>
+      )}
+      {tag && !empty ? (
+        <text x={x + 17} y={y + 47} textAnchor="middle" fontSize="10" fontWeight="700" style={{ fill: ROW_COLORS[row] }}>{row}</text>
+      ) : null}
+    </g>
+  );
+}
+
+export function GridRows({ lists, y0 = 0, done = [], inHeap = [], x0 = 64 }) {
+  return (
+    <g>
+      {lists.map((row, r) => (
+        <g key={r}>
+          <text x="0" y={y0 + r * 44 + 22} fontSize="12" fontWeight="700" style={{ fill: ROW_COLORS[r] }}>{`fila ${r}`}</text>
+          {row.length === 0 ? (
+            <text x={x0} y={y0 + r * 44 + 22} fontSize="12" style={{ fill: 'var(--color-ink-faint)' }}>vacía</text>
+          ) : null}
+          {row.map((v, j) => (
+            <RowCell key={j} x={x0 + j * 38} y={y0 + r * 44} v={v} row={r} state={j < (done[r] ?? 0) ? 'done' : j === inHeap[r] ? 'front' : undefined} />
+          ))}
+        </g>
+      ))}
+    </g>
+  );
+}
+
+export function OutRow({ out, size, y0, x0 = 64, title = 'salida' }) {
+  const cells = Array.from({ length: Math.max(size ?? out.length, out.length) }, (_, i) => out[i] ?? null);
+  return (
+    <g>
+      <text x="0" y={y0 + 22} fontSize="12" fontWeight="600" style={{ fill: 'var(--color-ink-soft)' }}>{title}</text>
+      {cells.length === 0 ? (
+        <text x={x0} y={y0 + 22} fontSize="12" style={{ fill: 'var(--color-ink-faint)' }}>vacía</text>
+      ) : null}
+      {cells.map((c, i) => (
+        <RowCell key={i} x={x0 + i * 38} y={y0} v={c === null ? null : c[0]} row={c === null ? 0 : c[1]} tag />
+      ))}
+    </g>
+  );
+}
+
+export function MergeCase({ cases, label }) {
+  // Several inputs side by side at one scale: each its rows, then its output.
+  const widthOf = (c) => 64 + Math.max(c.out.length, ...c.lists.map((l) => l.length), 2) * 38;
+  const rowsH = Math.max(...cases.map((c) => Math.max(c.lists.length, 1))) * 44;
+  const xs = cases.reduce((acc, c, i) => [...acc, i === 0 ? 0 : acc[i - 1] + widthOf(cases[i - 1]) + 36], []);
+  const width = xs[xs.length - 1] + widthOf(cases[cases.length - 1]);
+  return (
+    <svg viewBox={`0 0 ${width} ${rowsH + 120}`} style={{ width: '100%', maxWidth: `${Math.round(width * 1.25)}px`, height: 'auto', display: 'block', margin: '0.5rem auto' }} role="img" aria-label={label}>
+      {cases.map((c, i) => (
+        <g key={i} transform={`translate(${xs[i]}, 0)`}>
+          <text x="0" y="14" fontSize="12" fontWeight="700" style={{ fill: 'var(--color-ink-soft)' }}>{c.title}</text>
+          {c.lists.length === 0 ? (
+            <text x="0" y="50" fontSize="12" style={{ fill: 'var(--color-ink-faint)' }}>ninguna fila</text>
+          ) : null}
+          <GridRows lists={c.lists} y0={28} />
+          <text x="64" y={rowsH + 46} fontSize="12" fontWeight="600" style={{ fill: 'var(--color-ink-soft)' }}>↓ mezclar</text>
+          <OutRow out={c.out} y0={rowsH + 58} />
+        </g>
+      ))}
+    </svg>
+  );
+}
+
+export function FrontsPicture({ lists, done, inHeap, min, label }) {
+  const maxLen = Math.max(...lists.map((l) => l.length));
+  const boxX = 64 + maxLen * 38 + 90;
+  const boxY = (lists.length * 44) / 2 - 22;
+  return (
+    <svg viewBox={`0 0 ${boxX + 150} ${lists.length * 44 + 8}`} style={{ width: '100%', maxWidth: '640px', height: 'auto', display: 'block', margin: '0.75rem auto' }} role="img" aria-label={label}>
+      {/* Drawn first, so the cells cover them: each line leaves from behind its row. */}
+      {lists.map((row, r) => (inHeap[r] >= 0 ? (
+        <line key={r} x1={64 + inHeap[r] * 38 + 17} y1={r * 44 + 17} x2={boxX - 4} y2={boxY + 22} style={{ stroke: ROW_COLORS[r] }} strokeWidth="1.6" strokeDasharray="5 4" />
+      ) : null))}
+      <GridRows lists={lists} done={done} inHeap={inHeap} />
+      <rect x={boxX} y={boxY} width="140" height="44" rx="6" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.4" />
+      <text x={boxX + 70} y={boxY + 18} textAnchor="middle" fontSize="11" fontWeight="600" style={{ fill: 'var(--color-ink-soft)' }}>el menor de los frentes</text>
+      <text x={boxX + 70} y={boxY + 37} textAnchor="middle" fontSize="16" fontWeight="700" style={{ fill: 'var(--color-ink)' }}>{min}</text>
+    </svg>
+  );
+}
+
+export function FrontsStrip({ steps, k, label }) {
+  // One column per step: the fronts from the smallest (on top, the one that
+  // leaves) down, what entered in its place, and the output cell it filled.
+  const colW = 86;
+  const x0 = 104;
+  const groupH = k * 38;
+  const outY = groupH + 64;
+  return (
+    <svg viewBox={`0 0 ${x0 + steps.length * colW} ${outY + 56}`} style={{ width: '100%', maxWidth: '840px', height: 'auto', display: 'block', margin: '0.75rem auto' }} role="img" aria-label={label}>
+      <text x="0" y="22" fontSize="12" fontWeight="600" style={{ fill: 'var(--color-ink-soft)' }}>los frentes</text>
+      <text x="0" y="38" fontSize="11" style={{ fill: 'var(--color-ink-soft)' }}>el menor, arriba</text>
+      <text x="0" y={outY + 22} fontSize="12" fontWeight="600" style={{ fill: 'var(--color-ink-soft)' }}>salida</text>
+      {steps.map((s, i) => {
+        const cx = x0 + i * colW + colW / 2;
+        return (
+          <g key={i}>
+            {s.fronts.map(([v, r], j) => (
+              <RowCell key={j} x={cx - 17} y={j * 38} v={v} row={r} state={j === 0 ? 'front' : undefined} />
+            ))}
+            <text x={cx} y={groupH + 18} textAnchor="middle" fontSize="11" fontWeight="600" style={{ fill: 'var(--color-ink-soft)' }}>{`sale ${s.fronts[0][0]}`}</text>
+            <text x={cx} y={groupH + 34} textAnchor="middle" fontSize="11" style={{ fill: s.enters ? ROW_COLORS[s.enters[1]] : 'var(--color-ink-faint)' }}>{s.enters ? `entra ${s.enters[0]}` : 'no entra nada'}</text>
+            <RowCell x={cx - 17} y={outY} v={s.fronts[0][0]} row={s.fronts[0][1]} tag />
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
+
+export function EntryPicture({ lists, entry, label }) {
+  const [value, row, col] = entry;
+  const maxLen = Math.max(...lists.map((l) => l.length));
+  const y0 = 66;
+  const cardX = 64 + maxLen * 38 + 40;
+  const cellCx = 64 + col * 38 + 17;
+  const cellTop = y0 + row * 44;
+  return (
+    <svg viewBox={`0 0 ${cardX + 144} ${y0 + lists.length * 44 + 22}`} style={{ width: '100%', maxWidth: '520px', height: 'auto', display: 'block', margin: '0.75rem auto' }} role="img" aria-label={label}>
+      <defs>
+        <marker id="entry-pic-tip" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+          <path d="M0,0 L8,4 L0,8 z" style={{ fill: 'var(--color-accent)' }} />
+        </marker>
+      </defs>
+      <rect x={cardX} y="4" width="140" height="46" rx="6" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-accent)' }} strokeWidth="2" />
+      <line x1={cardX + 44} y1="4" x2={cardX + 44} y2="50" style={{ stroke: 'var(--color-rule)' }} strokeWidth="1" />
+      <text x={cardX + 22} y="33" textAnchor="middle" fontSize="18" fontWeight="700" style={{ fill: 'var(--color-ink)' }}>{value}</text>
+      <text x={cardX + 92} y="22" textAnchor="middle" fontSize="12" fontWeight="600" style={{ fill: ROW_COLORS[row] }}>{`fila ${row}`}</text>
+      <text x={cardX + 92} y="40" textAnchor="middle" fontSize="12" style={{ fill: 'var(--color-ink-soft)' }}>{`posición ${col}`}</text>
+      {/* Left from the card, then down onto the top of the cell it names. */}
+      <path d={`M ${cardX - 4} 27 L ${cellCx + 8} 27 Q ${cellCx} 27 ${cellCx} 35 L ${cellCx} ${cellTop - 6}`} fill="none" style={{ stroke: 'var(--color-accent)' }} strokeWidth="1.8" markerEnd="url(#entry-pic-tip)" />
+      <GridRows lists={lists} y0={y0} inHeap={lists.map((_, r) => (r === row ? col : -1))} />
+      {Array.from({ length: maxLen }, (_, j) => (
+        <text key={j} x={64 + j * 38 + 17} y={y0 + lists.length * 44 + 14} textAnchor="middle" fontSize="11" style={{ fill: 'var(--color-ink-faint)' }}>{j}</text>
+      ))}
+    </svg>
+  );
+}
+
+export function PushPicture({ lists, calls, label }) {
+  // Each call names a row and a position: the cell it would put in the heap,
+  // or a dashed slot past the end of the row when the position does not exist.
+  const maxLen = Math.max(...lists.map((l) => l.length));
+  const textX = 64 + (maxLen + 1) * 38 + 16;
+  return (
+    <svg viewBox={`0 0 ${textX + 330} ${lists.length * 44}`} style={{ width: '100%', maxWidth: '760px', height: 'auto', display: 'block', margin: '0.75rem auto' }} role="img" aria-label={label}>
+      <GridRows lists={lists} inHeap={lists.map((_, r) => { const c = calls.find((x) => x.row === r); return c && c.col < lists[r].length ? c.col : -1; })} />
+      {calls.map((c, i) => {
+        const exists = c.col < lists[c.row].length;
+        const y = c.row * 44;
+        return (
+          <g key={i}>
+            {exists ? null : (
+              <g>
+                <rect x={64 + c.col * 38} y={y} width="34" height="34" rx="4" style={{ fill: 'none', stroke: 'var(--color-flag)' }} strokeWidth="1.6" strokeDasharray="4 3" />
+                <path d={`M ${64 + c.col * 38 + 8} ${y + 8} l 18 18 m -18 0 l 18 -18`} style={{ stroke: 'var(--color-flag)' }} strokeWidth="1.6" strokeLinecap="round" />
+              </g>
+            )}
+            <text x={textX} y={y + 22} fontSize="13" fontFamily="var(--font-mono, monospace)" style={{ fill: 'var(--color-ink)' }}>{`push(…, ${c.row}, ${c.col})`}</text>
+            <text x={textX + 150} y={y + 22} fontSize="13" fontWeight="700" style={{ fill: exists ? ROW_COLORS[c.row] : 'var(--color-flag)' }}>{exists ? `entra el ${lists[c.row][c.col]}` : 'no entra nada'}</text>
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
+
+export function MergeFrame({ lists, done, inHeap, heap, hot = [], out, size, label }) {
+  const gridH = lists.length * 44;
+  const gridW = 64 + Math.max(...lists.map((l) => l.length), 1) * 38;
+  const outW = 64 + size * 38;
+  return (
+    <div>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '1.5rem' }}>
+        <div style={{ flex: `0 1 ${Math.round(gridW * 1.15)}px` }}>
+          <svg viewBox={`0 0 ${gridW} ${gridH}`} style={{ width: '100%', height: 'auto', display: 'block' }} role="img" aria-label={`Las filas: ${lists.map((l, r) => `fila ${r}: ${l.length === 0 ? 'vacía' : l.join(', ')}`).join('; ')}. Más gruesas, las que están en el heap; apagadas, las que ya salieron.`}>
+            <GridRows lists={lists} done={done} inHeap={inHeap} />
+          </svg>
+        </div>
+        <div style={{ flex: '0 1 200px' }}>
+          <HeapPicture values={heap.map((e) => e[0])} strokes={heap.map((e) => ROW_COLORS[e[1]])} view="tree" minLevels={2} hot={hot} label={label} />
+        </div>
+      </div>
+      <svg viewBox={`0 0 ${outW} 52`} style={{ width: '100%', maxWidth: `${Math.round(outW * 1.1)}px`, height: 'auto', display: 'block', margin: '0.2rem auto' }} role="img" aria-label={`La salida: ${out.length === 0 ? 'vacía' : out.map((e) => e[0]).join(', ')}.`}>
+        <OutRow out={out} size={size} y0={0} />
+      </svg>
     </div>
   );
 }
@@ -2172,9 +2376,6 @@ cosas crecen en proporción a $$N$$: la memoria es **$$\Theta(N)$$**.
 <PresentationWide fraction={0.75}>
 <Exercise title="Un planificador de tareas">
 
-El algoritmo entero. **Comprobar** lo corre contra los casos del enunciado.
-Sin el desempate por llegada, los dos primeros fallan.
-
 ```java starter
 import java.util.PriorityQueue;
 
@@ -2438,8 +2639,6 @@ entera guardaba los $$N$$.
 <PresentationWide fraction={0.75}>
 <Exercise title="Top-K de una secuencia">
 
-El algoritmo entero. **Comprobar** lo corre contra los casos del enunciado.
-
 ```java starter
 import java.util.PriorityQueue;
 
@@ -2469,6 +2668,331 @@ check(Solution.topK(3, new int[] {5, 1, 9, 3, 7, 2, 8}), new int[] {9, 8, 7});
 check(Solution.topK(2, new int[] {6, 6, 1}), new int[] {6, 6});
 check(Solution.topK(2, new int[] {4}), new int[] {4});
 check(Solution.topK(1, new int[] {}), new int[] {});
+```
+
+</Exercise>
+</PresentationWide>
+
+</Slide>
+
+<Slide title="Mezclar listas ordenadas">
+Varios servidores escriben cada uno su registro de eventos, ordenado por
+hora. Para entender qué pasó hay que ver todos los eventos en **una sola
+línea de tiempo**: mezclar los registros en uno, también ordenado. Cada
+registro es una fila de números ordenados de menor a mayor, y una fila puede
+estar vacía.
+
+<div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-ink-soft)', textAlign: 'center' }}>bajo cada número de la salida, la fila de donde viene</div>
+<MergeCase
+  cases={[
+    { title: 'tres filas', lists: [[1, 4, 9], [2, 3, 8], [5, 6]], out: [[1, 0], [2, 1], [3, 1], [4, 0], [5, 2], [6, 2], [8, 1], [9, 0]] },
+    { title: 'dos filas vacías', lists: [[], [3], []], out: [[3, 1]] },
+    { title: 'sin filas', lists: [], out: [] },
+  ]}
+  label="Tres ejemplos. Tres filas ordenadas, la fila 0 con 1, 4, 9, la fila 1 con 2, 3, 8 y la fila 2 con 5, 6, se mezclan en 1, 2, 3, 4, 5, 6, 8, 9. Tres filas de las que sólo la fila 1 tiene un número, el 3, dan 3. Sin filas, la salida es vacía."
+/>
+
+El programa recibe las filas y devuelve todos sus números en un solo
+arreglo, de menor a mayor:
+
+```java
+int[] mergeK(int[][] lists)
+```
+
+**Entrada.** `lists`, con $$K$$ filas, hasta 10⁴, y $$N$$ números en total,
+hasta 10⁶. Cada fila está ordenada de menor a mayor.
+
+**Salida.** Los $$N$$ números, de menor a mayor.
+
+</Slide>
+
+<Slide title="Mirar todos los frentes">
+Como cada fila está ordenada, el menor de los que faltan está siempre al
+comienzo de alguna fila. Lo primero que se piensa es mirar el **frente** de
+cada fila —su primer número que todavía no salió—, sacar el menor y repetir.
+Es correcto, y cada número de la salida obliga a mirar los $$K$$ frentes:
+
+<div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-ink-soft)', textAlign: 'center' }}>después de sacar 1 y 2: se comparan los tres frentes y sale el 3</div>
+<FrontsPicture lists={[[1, 4, 9], [2, 3, 8], [5, 6]]} done={[1, 1, 0]} inHeap={[1, 1, 0]} min={3} label="Las tres filas, con el 1 y el 2 ya fuera. Los frentes son el 4 de la fila 0, el 3 de la fila 1 y el 5 de la fila 2; se comparan los tres para encontrar el menor, el 3." />
+
+Son $$N$$ números y $$K$$ comparaciones por cada uno: $$\Theta(N \cdot K)$$.
+Con miles de filas, cada número de la salida cuesta miles de comparaciones.
+Juntar todo en un arreglo y ordenarlo cuesta $$\Theta(N \log N)$$, y no
+aprovecha que las filas ya vienen ordenadas.
+
+</Slide>
+
+<Slide title="El menor está entre los frentes">
+Entre un paso y el siguiente, los frentes casi no cambian: sale uno, y su
+lugar lo toma el siguiente número de **su misma fila**. Los otros $$K - 1$$
+siguen ahí. Cuando una fila se acaba, su frente sale y no entra nada.
+
+<div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-ink-soft)', textAlign: 'center' }}>los frentes en cada paso, del menor, arriba, al mayor</div>
+<FrontsStrip
+  k={3}
+  steps={[
+    { fronts: [[1, 0], [2, 1], [5, 2]], enters: [4, 0] },
+    { fronts: [[2, 1], [4, 0], [5, 2]], enters: [3, 1] },
+    { fronts: [[3, 1], [4, 0], [5, 2]], enters: [8, 1] },
+    { fronts: [[4, 0], [5, 2], [8, 1]], enters: [9, 0] },
+    { fronts: [[5, 2], [8, 1], [9, 0]], enters: [6, 2] },
+    { fronts: [[6, 2], [8, 1], [9, 0]], enters: null },
+    { fronts: [[8, 1], [9, 0]], enters: null },
+    { fronts: [[9, 0]], enters: null },
+  ]}
+  label="Ocho pasos. Los frentes empiezan siendo 1, 2 y 5. Sale 1 y entra 4, de la fila 0. Sale 2 y entra 3, de la fila 1. Sale 3 y entra 8. Sale 4 y entra 9. Sale 5 y entra 6. Sale 6 y la fila 2 se acabó. Sale 8 y la fila 1 se acabó. Sale 9. La salida es 1, 2, 3, 4, 5, 6, 8, 9."
+/>
+
+Lo que hay que tener a mano es el **mínimo** de un grupo de $$K$$ números
+en el que, a cada paso, sale el mínimo y entra otro. Eso es un **min-heap de
+los frentes**. Cada frente tiene que recordar de qué fila viene y en qué
+posición está, para saber cuál entra cuando sale.
+
+</Slide>
+
+<Slide title="K listas · la entrada del heap">
+Una entrada del heap es un frente: su valor, la fila de donde viene y su
+posición en esa fila. Implementa `Comparable` comparando sólo el valor, así
+que una `PriorityQueue<Entry>` sin comparador saca primero la de menor valor.
+
+```java
+class Entry implements Comparable<Entry> {
+    int value, row, col;
+    Entry(int value, int row, int col) {
+        this.value = value; this.row = row; this.col = col;
+    }
+    public int compareTo(Entry other) {
+        return Integer.compare(value, other.value);
+    }
+}
+```
+
+<div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-ink-soft)', textAlign: 'center' }}>la entrada del 4: fila 0, posición 1</div>
+<EntryPicture lists={[[1, 4, 9], [2, 3, 8], [5, 6]]} entry={[4, 0, 1]} label="Una entrada con valor 4, fila 0 y posición 1, que apunta a la segunda casilla de la fila 0." />
+
+</Slide>
+
+<Slide title="K listas · push">
+`push` pone en el heap el número de la fila `r` en la posición `c`, si esa
+posición existe. Si la fila es más corta, no hace nada: así una fila vacía o
+que ya se acabó no aporta ningún frente.
+
+```java
+static void push(PriorityQueue<Entry> fronts, int[][] lists,
+                 int r, int c) {
+    if (c < lists[r].length) {
+        fronts.add(new Entry(lists[r][c], r, c));
+    }
+}
+```
+
+<div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-ink-soft)', textAlign: 'center' }}>dos llamadas sobre las filas de ejemplo</div>
+<PushPicture lists={[[1, 4, 9], [2, 3, 8], [5, 6]]} calls={[{ row: 0, col: 1 }, { row: 2, col: 2 }]} label="Dos llamadas. push con la fila 0 y la posición 1 encuentra el 4 y lo pone en el heap. push con la fila 2 y la posición 2 no encuentra nada, porque la fila 2 tiene sólo dos números, y no agrega nada." />
+
+</Slide>
+
+<Slide title="K listas · la solución">
+Primero entra al heap el primer número de cada fila. Después, cada vuelta
+saca el menor de los frentes, lo escribe en la salida y repone el siguiente
+de su fila.
+
+<StepShow
+  language="java"
+  code={`static int[] mergeK(int[][] lists) {
+      PriorityQueue<Entry> fronts = new PriorityQueue<>();
+      int n = 0;
+      for (int r = 0; r < lists.length; r++) {
+          n += lists[r].length;
+          push(fronts, lists, r, 0);
+      }
+      int[] out = new int[n];
+      for (int i = 0; i < n; i++) {
+          Entry e = fronts.poll();
+          out[i] = e.value;
+          push(fronts, lists, e.row, e.col + 1);
+      }
+      return out;
+  }`}
+>
+  <Step lines={[2, 3]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>El heap de frentes arranca vacío.</div>
+    <MergeFrame lists={[[1, 4, 9], [2, 3, 8], [5, 6]]} done={[0, 0, 0]} inHeap={[-1, -1, -1]} heap={[]} out={[]} size={8} label="El heap de frentes, en orden de arreglo: vacío." />
+  </Step>
+  <Step lines={[6]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Entra el primero de la fila 0, el 1.</div>
+    <MergeFrame lists={[[1, 4, 9], [2, 3, 8], [5, 6]]} done={[0, 0, 0]} inHeap={[0, -1, -1]} heap={[[1, 0]]} hot={[1]} out={[]} size={8} label="El heap de frentes, en orden de arreglo: 1 de la fila 0." />
+  </Step>
+  <Step lines={[6]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Entra el primero de la fila 1, el 2.</div>
+    <MergeFrame lists={[[1, 4, 9], [2, 3, 8], [5, 6]]} done={[0, 0, 0]} inHeap={[0, 0, -1]} heap={[[1, 0], [2, 1]]} hot={[2]} out={[]} size={8} label="El heap de frentes, en orden de arreglo: 1 de la fila 0, 2 de la fila 1." />
+  </Step>
+  <Step lines={[6]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Entra el primero de la fila 2, el 5. El heap tiene un frente por fila.</div>
+    <MergeFrame lists={[[1, 4, 9], [2, 3, 8], [5, 6]]} done={[0, 0, 0]} inHeap={[0, 0, 0]} heap={[[1, 0], [2, 1], [5, 2]]} hot={[3]} out={[]} size={8} label="El heap de frentes, en orden de arreglo: 1 de la fila 0, 2 de la fila 1, 5 de la fila 2." />
+  </Step>
+  <Step lines={[10, 11]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Sale el menor de los frentes, el 1 de la fila 0, y va a la salida.</div>
+    <MergeFrame lists={[[1, 4, 9], [2, 3, 8], [5, 6]]} done={[1, 0, 0]} inHeap={[-1, 0, 0]} heap={[[2, 1], [5, 2]]} out={[[1, 0]]} size={8} label="El heap de frentes, en orden de arreglo: 2 de la fila 1, 5 de la fila 2." />
+  </Step>
+  <Step lines={[12]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Entra el siguiente de la fila 0, el 4.</div>
+    <MergeFrame lists={[[1, 4, 9], [2, 3, 8], [5, 6]]} done={[1, 0, 0]} inHeap={[1, 0, 0]} heap={[[2, 1], [5, 2], [4, 0]]} hot={[3]} out={[[1, 0]]} size={8} label="El heap de frentes, en orden de arreglo: 2 de la fila 1, 5 de la fila 2, 4 de la fila 0." />
+  </Step>
+  <Step lines={[10, 11]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Sale el menor de los frentes, el 2 de la fila 1, y va a la salida.</div>
+    <MergeFrame lists={[[1, 4, 9], [2, 3, 8], [5, 6]]} done={[1, 1, 0]} inHeap={[1, -1, 0]} heap={[[4, 0], [5, 2]]} out={[[1, 0], [2, 1]]} size={8} label="El heap de frentes, en orden de arreglo: 4 de la fila 0, 5 de la fila 2." />
+  </Step>
+  <Step lines={[12]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Entra el siguiente de la fila 1, el 3, y sube a la raíz.</div>
+    <MergeFrame lists={[[1, 4, 9], [2, 3, 8], [5, 6]]} done={[1, 1, 0]} inHeap={[1, 1, 0]} heap={[[3, 1], [5, 2], [4, 0]]} hot={[1]} out={[[1, 0], [2, 1]]} size={8} label="El heap de frentes, en orden de arreglo: 3 de la fila 1, 5 de la fila 2, 4 de la fila 0." />
+  </Step>
+  <Step lines={[10, 11]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Sale el menor de los frentes, el 3 de la fila 1, y va a la salida.</div>
+    <MergeFrame lists={[[1, 4, 9], [2, 3, 8], [5, 6]]} done={[1, 2, 0]} inHeap={[1, -1, 0]} heap={[[4, 0], [5, 2]]} out={[[1, 0], [2, 1], [3, 1]]} size={8} label="El heap de frentes, en orden de arreglo: 4 de la fila 0, 5 de la fila 2." />
+  </Step>
+  <Step lines={[12]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Entra el siguiente de la fila 1, el 8.</div>
+    <MergeFrame lists={[[1, 4, 9], [2, 3, 8], [5, 6]]} done={[1, 2, 0]} inHeap={[1, 2, 0]} heap={[[4, 0], [5, 2], [8, 1]]} hot={[3]} out={[[1, 0], [2, 1], [3, 1]]} size={8} label="El heap de frentes, en orden de arreglo: 4 de la fila 0, 5 de la fila 2, 8 de la fila 1." />
+  </Step>
+  <Step lines={[10, 11]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Sale el menor de los frentes, el 4 de la fila 0, y va a la salida.</div>
+    <MergeFrame lists={[[1, 4, 9], [2, 3, 8], [5, 6]]} done={[2, 2, 0]} inHeap={[-1, 2, 0]} heap={[[5, 2], [8, 1]]} out={[[1, 0], [2, 1], [3, 1], [4, 0]]} size={8} label="El heap de frentes, en orden de arreglo: 5 de la fila 2, 8 de la fila 1." />
+  </Step>
+  <Step lines={[12]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Entra el siguiente de la fila 0, el 9.</div>
+    <MergeFrame lists={[[1, 4, 9], [2, 3, 8], [5, 6]]} done={[2, 2, 0]} inHeap={[2, 2, 0]} heap={[[5, 2], [8, 1], [9, 0]]} hot={[3]} out={[[1, 0], [2, 1], [3, 1], [4, 0]]} size={8} label="El heap de frentes, en orden de arreglo: 5 de la fila 2, 8 de la fila 1, 9 de la fila 0." />
+  </Step>
+  <Step lines={[10, 11]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Sale el menor de los frentes, el 5 de la fila 2, y va a la salida.</div>
+    <MergeFrame lists={[[1, 4, 9], [2, 3, 8], [5, 6]]} done={[2, 2, 1]} inHeap={[2, 2, -1]} heap={[[8, 1], [9, 0]]} out={[[1, 0], [2, 1], [3, 1], [4, 0], [5, 2]]} size={8} label="El heap de frentes, en orden de arreglo: 8 de la fila 1, 9 de la fila 0." />
+  </Step>
+  <Step lines={[12]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Entra el siguiente de la fila 2, el 6, y sube a la raíz.</div>
+    <MergeFrame lists={[[1, 4, 9], [2, 3, 8], [5, 6]]} done={[2, 2, 1]} inHeap={[2, 2, 1]} heap={[[6, 2], [9, 0], [8, 1]]} hot={[1]} out={[[1, 0], [2, 1], [3, 1], [4, 0], [5, 2]]} size={8} label="El heap de frentes, en orden de arreglo: 6 de la fila 2, 9 de la fila 0, 8 de la fila 1." />
+  </Step>
+  <Step lines={[10, 11]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Sale el menor de los frentes, el 6 de la fila 2, y va a la salida.</div>
+    <MergeFrame lists={[[1, 4, 9], [2, 3, 8], [5, 6]]} done={[2, 2, 2]} inHeap={[2, 2, -1]} heap={[[8, 1], [9, 0]]} out={[[1, 0], [2, 1], [3, 1], [4, 0], [5, 2], [6, 2]]} size={8} label="El heap de frentes, en orden de arreglo: 8 de la fila 1, 9 de la fila 0." />
+  </Step>
+  <Step lines={[12]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>La fila 2 se acabó: push no agrega nada, y el heap queda con 2 frentes.</div>
+    <MergeFrame lists={[[1, 4, 9], [2, 3, 8], [5, 6]]} done={[2, 2, 2]} inHeap={[2, 2, -1]} heap={[[8, 1], [9, 0]]} out={[[1, 0], [2, 1], [3, 1], [4, 0], [5, 2], [6, 2]]} size={8} label="El heap de frentes, en orden de arreglo: 8 de la fila 1, 9 de la fila 0." />
+  </Step>
+  <Step lines={[10, 11]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Sale el menor de los frentes, el 8 de la fila 1, y va a la salida.</div>
+    <MergeFrame lists={[[1, 4, 9], [2, 3, 8], [5, 6]]} done={[2, 3, 2]} inHeap={[2, -1, -1]} heap={[[9, 0]]} out={[[1, 0], [2, 1], [3, 1], [4, 0], [5, 2], [6, 2], [8, 1]]} size={8} label="El heap de frentes, en orden de arreglo: 9 de la fila 0." />
+  </Step>
+  <Step lines={[12]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>La fila 1 se acabó: push no agrega nada, y el heap queda con 1 frente.</div>
+    <MergeFrame lists={[[1, 4, 9], [2, 3, 8], [5, 6]]} done={[2, 3, 2]} inHeap={[2, -1, -1]} heap={[[9, 0]]} out={[[1, 0], [2, 1], [3, 1], [4, 0], [5, 2], [6, 2], [8, 1]]} size={8} label="El heap de frentes, en orden de arreglo: 9 de la fila 0." />
+  </Step>
+  <Step lines={[10, 11]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Sale el menor de los frentes, el 9 de la fila 0, y va a la salida.</div>
+    <MergeFrame lists={[[1, 4, 9], [2, 3, 8], [5, 6]]} done={[3, 3, 2]} inHeap={[-1, -1, -1]} heap={[]} out={[[1, 0], [2, 1], [3, 1], [4, 0], [5, 2], [6, 2], [8, 1], [9, 0]]} size={8} label="El heap de frentes, en orden de arreglo: vacío." />
+  </Step>
+  <Step lines={[12]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>La fila 0 se acabó: push no agrega nada, y el heap queda vacío.</div>
+    <MergeFrame lists={[[1, 4, 9], [2, 3, 8], [5, 6]]} done={[3, 3, 2]} inHeap={[-1, -1, -1]} heap={[]} out={[[1, 0], [2, 1], [3, 1], [4, 0], [5, 2], [6, 2], [8, 1], [9, 0]]} size={8} label="El heap de frentes, en orden de arreglo: vacío." />
+  </Step>
+  <Step lines={[14]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>La salida: 1, 2, 3, 4, 5, 6, 8, 9.</div>
+    <MergeFrame lists={[[1, 4, 9], [2, 3, 8], [5, 6]]} done={[3, 3, 2]} inHeap={[-1, -1, -1]} heap={[]} out={[[1, 0], [2, 1], [3, 1], [4, 0], [5, 2], [6, 2], [8, 1], [9, 0]]} size={8} label="El heap de frentes, en orden de arreglo: vacío." />
+  </Step>
+</StepShow>
+
+</Slide>
+
+<Slide title="Las filas vacías y la que se acaba">
+`push` no agrega nada cuando la posición pedida no existe, y eso cubre los
+dos bordes: una fila vacía no aporta ningún frente al comienzo, y una fila
+que se acaba no repone el suyo, así que el heap queda con uno menos. En los
+dos casos el heap guarda un frente por cada fila que todavía tiene números.
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '0.25rem 1.5rem' }}>
+<div>
+<div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-ink-soft)', textAlign: 'center' }}>dos filas vacías: un solo frente</div>
+<MergeFrame lists={[[], [3], []]} done={[0, 0, 0]} inHeap={[-1, 0, -1]} heap={[[3, 1]]} out={[]} size={1} label="Con la fila 0 y la fila 2 vacías, el heap empieza con un solo frente, el 3 de la fila 1." />
+</div>
+<div>
+<div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-ink-soft)', textAlign: 'center' }}>la fila 2 se acabó: dos frentes</div>
+<MergeFrame lists={[[1, 4, 9], [2, 3, 8], [5, 6]]} done={[2, 2, 2]} inHeap={[2, 2, -1]} heap={[[8, 1], [9, 0]]} out={[[1, 0], [2, 1], [3, 1], [4, 0], [5, 2], [6, 2]]} size={8} label="Después de sacar el 6, la fila 2 se acabó y el heap queda con dos frentes, el 8 de la fila 1 y el 9 de la fila 0." />
+</div>
+</div>
+
+Sin filas, $$N$$ es cero, ningún ciclo corre y el resultado es un arreglo
+vacío.
+
+</Slide>
+
+<Slide title="El costo de mezclar K listas">
+**Tiempo.** El algoritmo tiene dos partes:
+
+- primero entra un frente por cada fila: a lo más $$K$$ llamadas a `add`;
+- después cada uno de los $$N$$ números sale una vez con `poll`, y por cada
+  uno que sale entra a lo más otro con `add`.
+
+El heap guarda a lo más un frente por fila, así que nunca tiene más de
+$$K$$ entradas: cada `add` y cada `poll` cuesta $$O(\log K)$$, y comparar
+dos entradas cuesta $$\Theta(1)$$. Sumando las dos partes:
+
+$$
+\underbrace{K \cdot O(\log K)}_{\text{los primeros frentes}} + \underbrace{N \cdot O(\log K)}_{\text{sacar y reponer}} = O((N + K) \log K)
+$$
+
+Si ninguna fila está vacía, $$K \le N$$ y queda $$O(N \log K)$$. Con
+$$10^4$$ filas, $$\log_2 K$$ es cerca de 13: cada número cuesta decenas de
+comparaciones, no diez mil.
+
+**Memoria.** El heap guarda a lo más $$K$$ entradas: $$\Theta(K)$$, además
+del resultado, que tiene los $$N$$ números porque el problema los pide.
+
+</Slide>
+
+<Slide title="K listas · el programa completo">
+<PresentationWide fraction={0.75}>
+<Exercise title="Mezclar listas ordenadas">
+
+```java starter
+import java.util.PriorityQueue;
+class Entry implements Comparable<Entry> {
+    int value, row, col;
+    Entry(int value, int row, int col) {
+        this.value = value; this.row = row; this.col = col;
+    }
+    public int compareTo(Entry other) {
+        return Integer.compare(value, other.value);
+    }
+}
+class Solution {
+    static void push(PriorityQueue<Entry> fronts, int[][] lists,
+                     int r, int c) {
+        if (c < lists[r].length) {
+            fronts.add(new Entry(lists[r][c], r, c));
+        }
+    }
+    static int[] mergeK(int[][] lists) {
+        PriorityQueue<Entry> fronts = new PriorityQueue<>();
+        int n = 0;
+        for (int r = 0; r < lists.length; r++) {
+            n += lists[r].length;
+            push(fronts, lists, r, 0);
+        }
+        int[] out = new int[n];
+        for (int i = 0; i < n; i++) {
+            Entry e = fronts.poll();
+            out[i] = e.value;
+            push(fronts, lists, e.row, e.col + 1);
+        }
+        return out;
+    }
+}
+```
+
+```java test
+check(Solution.mergeK(new int[][] {{1, 4, 9}, {2, 3, 8}, {5, 6}}), new int[] {1, 2, 3, 4, 5, 6, 8, 9});
+check(Solution.mergeK(new int[][] {{1, 3}, {1, 2}}), new int[] {1, 1, 2, 3});
+check(Solution.mergeK(new int[][] {{}, {3}, {}}), new int[] {3});
+check(Solution.mergeK(new int[][] {}), new int[] {});
 ```
 
 </Exercise>
