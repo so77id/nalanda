@@ -3127,6 +3127,30 @@ otro orden: no se crea ningún nodo.
 
 </Slide>
 
+<Slide title="Cuatro formas de mezclar K listas">
+Hay una tercera forma natural de resolver el problema: mezclar las listas de
+a una, la primera con la segunda, el resultado con la tercera, y así. Usa que
+vienen ordenadas, pero cada mezcla vuelve a recorrer todo lo que ya se
+juntó: con listas del mismo largo, la última recorre casi los $$N$$ nodos, y
+las $$K$$ mezclas suman $$O(N \cdot K)$$.
+
+| Solución                              | Tiempo                  | Memoria extra      | Usa que vienen ordenadas |
+| ------------------------------------- | ----------------------- | ------------------ | ------------------------ |
+| Copiar todo a un arreglo y ordenarlo  | $$\Theta(N \log N)$$    | $$\Theta(N)$$      | no                       |
+| Mezclar las listas de a una           | $$O(N \cdot K)$$        | $$\Theta(1)$$      | sí                       |
+| Comparar los $$K$$ frentes en cada paso | $$\Theta(N \cdot K)$$ | $$\Theta(1)$$      | sí                       |
+| **Un min-heap de los frentes**        | **$$O(N \log K)$$**     | **$$\Theta(K)$$**  | **sí**                   |
+
+El min-heap es el mejor porque aprovecha las dos cosas que el problema
+regala: que cada lista ya viene ordenada, así que no hay que volver a
+ordenar nada, y que de un paso al siguiente cambia un solo frente, así que
+no hay que volver a compararlos todos. Paga $$\log K$$ por nodo en vez de
+$$K$$, y como $$K \le N$$, $$N \log K$$ nunca supera a $$N \log N$$. Con
+$$N = 10^6$$ nodos y $$K = 10^4$$ listas, comparar todos los frentes son
+unas $$10^{10}$$ comparaciones; el heap, unas $$10^6 \cdot 13 \approx 1{,}3 \cdot 10^7$$.
+
+</Slide>
+
 <Slide title="K listas · el programa completo">
 <PresentationWide fraction={0.75}>
 <Exercise title="Mezclar listas ordenadas">
