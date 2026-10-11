@@ -1031,32 +1031,51 @@ export function OutPanel({ out, tailAt, ended = false, label }) {
   );
 }
 
-export function HookSteps({ label }) {
-  // Appending a node to the output, from the empty output to the second node.
-  const rows = [
-    { code: ['al comienzo'], plain: true, out: [], empty: 'head = null, tail = null' },
-    { code: ['head = first;', 'tail = first;'], out: [[1, 0]], head: true, tailAt: 0, first: 0 },
-    { code: ['tail.next = first;'], out: [[1, 0], [2, 1]], head: true, tailAt: 0, first: 1 },
-    { code: ['tail = first;'], out: [[1, 0], [2, 1]], head: true, tailAt: 1 },
-  ];
+export function FirstPicture({ label }) {
+  // The node poll() returns: first, still hooked to its list through next.
   return (
-    <svg viewBox="0 0 560 360" style={{ width: '100%', maxWidth: '640px', height: 'auto', display: 'block', margin: '0.75rem auto' }} role="img" aria-label={label}>
-      {rows.map((r, i) => {
-        const y = 30 + i * 86;
-        return (
-          <g key={i}>
-            {r.code.map((c, j) => (
-              <text key={j} x="0" y={y + 20 - (r.code.length - 1) * 8 + j * 16} fontSize="13" fontFamily={r.plain ? undefined : 'var(--font-mono, monospace)'} fontWeight={r.plain ? 600 : 400} style={{ fill: r.plain ? 'var(--color-ink-soft)' : 'var(--color-ink)' }}>{c}</text>
-            ))}
-            <g transform="translate(150, 0)">
-              <OutChain y={y} out={r.out} head={r.head} tailAt={r.tailAt} emptyText={r.empty} />
-              {r.first === undefined ? null : (
-                <text x={84 + r.first * 62 + 23} y={y + 60} textAnchor="middle" fontSize="11" fontWeight="700" fontFamily="var(--font-mono, monospace)" style={{ fill: LIST_COLORS[r.out[r.first][1]] }}>first</text>
-              )}
-            </g>
-          </g>
-        );
-      })}
+    <svg viewBox="0 0 260 74" style={{ width: '100%', maxWidth: '300px', height: 'auto', display: 'block', margin: '0.5rem auto' }} role="img" aria-label={label}>
+      <text x="0" y="45" fontSize="14" fontWeight="700" fontFamily="var(--font-mono, monospace)" style={{ fill: 'var(--color-accent)' }}>first</text>
+      <Arrow x1={46} y1={40} x2={70} y2={40} color="var(--color-accent)" width={1.8} />
+      <LLNode x={72} y={25} v={1} color={LIST_COLORS[0]} state="hot" />
+      <Arrow x1={110} y1={40} x2={140} y2={40} />
+      <LLNode x={142} y={25} v={4} color={LIST_COLORS[0]} />
+      <Arrow x1={180} y1={40} x2={206} y2={40} />
+      <text x="210" y="45" fontSize="13" fontFamily="var(--font-mono, monospace)" style={{ fill: 'var(--color-ink-faint)' }}>null</text>
+      <text x={165} y="16" textAnchor="middle" fontSize="11" fontWeight="700" fontFamily="var(--font-mono, monospace)" style={{ fill: LIST_COLORS[0] }}>first.next</text>
+    </svg>
+  );
+}
+
+export function AppendCases({ label }) {
+  // The two branches of appending first: an empty output, and one that
+  // already has nodes — each before and after.
+  const col = (x0, title, before, after) => (
+    <g transform={`translate(${x0}, 0)`}>
+      <text x="150" y="16" textAnchor="middle" fontSize="13" fontWeight="700" style={{ fill: 'var(--color-ink-soft)' }}>{title}</text>
+      <text x="0" y="66" fontSize="12" fontWeight="600" style={{ fill: 'var(--color-ink-faint)' }}>antes</text>
+      <text x="0" y="156" fontSize="12" fontWeight="600" style={{ fill: 'var(--color-ink-faint)' }}>después</text>
+      <g transform="translate(-24, 46)">{before}</g>
+      <g transform="translate(-24, 136)">{after}</g>
+    </g>
+  );
+  return (
+    <svg viewBox="0 0 660 196" style={{ width: '100%', maxWidth: '880px', height: 'auto', display: 'block', margin: '0.75rem auto' }} role="img" aria-label={label}>
+      {col(0, 'la salida está vacía',
+        <g>
+          <OutChain y={0} out={[]} emptyText="head = null, tail = null" />
+          <text x="84" y="44" fontSize="12" fontFamily="var(--font-mono, monospace)" style={{ fill: 'var(--color-accent)' }}>first = 1</text>
+        </g>,
+        <OutChain y={0} out={[[1, 0]]} head tailAt={0} />,
+      )}
+      <line x1="330" y1="30" x2="330" y2="186" style={{ stroke: 'var(--color-rule)' }} strokeWidth="1" />
+      {col(350, 'la salida ya tiene nodos',
+        <g>
+          <OutChain y={0} out={[[1, 0]]} head tailAt={0} />
+          <text x="160" y="20" fontSize="12" fontFamily="var(--font-mono, monospace)" style={{ fill: 'var(--color-accent)' }}>first = 2</text>
+        </g>,
+        <OutChain y={0} out={[[1, 0], [2, 1]]} head tailAt={1} />,
+      )}
     </svg>
   );
 }
@@ -2863,15 +2882,46 @@ for (Node list : lists) {
 
 </Slide>
 
-<Slide title="K listas · armar la salida">
-La salida no copia valores: engancha los mismos nodos, uno detrás de otro.
-`head` apunta al primero y `tail` al último, para agregar al final sin
-recorrer la salida. Al comienzo no hay nodos, y los dos están en `null`.
+<Slide title="K listas · sacar el menor">
+Cada paso empieza sacando el menor de los frentes con `poll()`:
 
-Agregar un nodo `first` al final depende de si la salida está vacía: si lo
-está, `first` es el primero y se guarda en `head`; si no, se cuelga del
-último con `tail.next`. En los dos casos, `first` pasa a ser el nuevo
-último:
+```java
+Node first = fronts.poll();
+```
+
+Lo que devuelve es un nodo, `first`, que sigue enganchado a su lista: su
+`next` es el nodo que le seguía, el que va a ocupar su lugar como frente.
+
+<div style={{ display: 'grid', gridTemplateColumns: '1fr 1.4fr 1fr', gap: '0.25rem 1rem', alignItems: 'center' }}>
+<div>
+<div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-ink-soft)', textAlign: 'center' }}>antes: el 1 en la raíz</div>
+<HeapPicture values={[1, 2, 5]} strokes={[LIST_COLORS[0], LIST_COLORS[1], LIST_COLORS[2]]} view="tree" minLevels={2} hot={[1]} label="El heap de frentes con el 1 en la raíz, y el 2 y el 5 como hijos." />
+</div>
+<div>
+<div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-ink-soft)', textAlign: 'center' }}>poll() devuelve el 1</div>
+<FirstPicture label="first apunta al nodo 1, que sigue enganchado a su lista: su next es el 4, y el next del 4 es null." />
+</div>
+<div>
+<div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-ink-soft)', textAlign: 'center' }}>después: el heap sin el 1</div>
+<HeapPicture values={[2, 5]} strokes={[LIST_COLORS[1], LIST_COLORS[2]]} view="tree" minLevels={2} label="El heap después de sacar el 1: el 2 en la raíz y el 5 como hijo." />
+</div>
+</div>
+
+</Slide>
+
+<Slide title="K listas · agregar a la salida">
+`first` se agrega al final de la salida, sin copiarlo. La salida se arma con
+dos referencias: `head`, al primer nodo, y `tail`, al último, para agregar
+al final sin recorrerla. Al comienzo no hay nodos y las dos están en `null`:
+
+```java
+Node head = null;
+Node tail = null;
+```
+
+Agregar `first` depende de si la salida está vacía. Si lo está, `first` es
+su primer nodo; si no, se cuelga del último. En los dos casos, `first` pasa
+a ser el nuevo último:
 
 ```java
 if (head == null) {
@@ -2882,8 +2932,7 @@ if (head == null) {
 tail = first;
 ```
 
-<div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-ink-soft)', textAlign: 'center' }}>agregar el 1 y después el 2</div>
-<HookSteps label="Cuatro momentos. Al comienzo, head y tail están en null. Con la salida vacía, el 1 se guarda en head y tail pasa a él. Para el 2, tail.next igual a first lo cuelga después del 1, con tail todavía en el 1. Con tail igual a first, tail pasa al 2." />
+<AppendCases label="Dos casos. Con la salida vacía, head y tail están en null; después de agregar el 1, head y tail apuntan al 1. Con la salida que ya tiene el 1, al agregar el 2 tail.next lo cuelga del 1, y tail pasa al 2; head sigue en el 1." />
 
 </Slide>
 
