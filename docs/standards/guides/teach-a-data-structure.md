@@ -131,6 +131,12 @@ claimed #294 carried an exercise index slide, a hinge after the `<Exercise>`
 blocks and a `Lo que sigue`, none of which ship — because it was written
 before the cuts and never re-measured against the document.
 
+**#304 keeps half of it.** The professor cut its hinge slide (_Lo que el
+orden débil no responde_) in the slide review, so the deck ends on the
+exercises. The trade survives only as prose in the book-only `## Lo que
+sigue`, which still names the next class. That is a second stated deviation,
+not a new shape: the rule above is unchanged.
+
 **#277 also cut its own act 4.** An earlier draft closed with a recap act
 ("un contrato para los dos arreglos") that restated the TDA, put the two cost
 tables side by side and named the trade. Every one of those was already on the

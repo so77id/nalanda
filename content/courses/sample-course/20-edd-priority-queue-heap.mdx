@@ -1729,29 +1729,6 @@ garantizado es que el primero es el que va antes.
 
 </Slide>
 
-<Slide title="Lo que el orden débil no responde">
-El heap es rápido para una sola pregunta, cuál es el máximo, y lo es porque
-guarda el orden más débil que la responde. Cualquier otra pregunta sobre el
-orden le sale cara: **buscar un valor cualquiera es $$\Theta(N)$$**, y
-recorrer los elementos de menor a mayor exige desarmarlo.
-
-La causa es la invariante de **forma completa**. Obliga a que cada valor quede donde toca
-llenar el árbol, no donde lo ubicaría su valor, y por eso dos hermanos
-nunca se comparan.
-
-¿Qué pasa si se abandona? Un árbol binario que acomoda cada nodo según su
-valor —los menores hacia un lado, los mayores hacia el otro— puede
-**buscar** bajando por un solo camino, y recorrer sus valores en orden sin
-destruirlo. El precio es la altura: sin la invariante de forma completa nada garantiza
-$$\lfloor \log_2 N \rfloor$$ niveles, y el árbol puede degenerar en una
-fila tan larga como la lista. Tampoco cabe ya en un arreglo sin huecos:
-necesita punteros entre nodos.
-
-Esa es la estructura general de la que el heap es un caso particular: el
-**árbol binario**.
-
-</Slide>
-
 <SectionBreak />
 
 ## Ejercicios
