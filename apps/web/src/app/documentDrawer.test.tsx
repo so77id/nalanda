@@ -36,9 +36,11 @@ const ids = walkIndex(courseIndex);
 // `openDrawer`, which this file's own comment already explains. Resolving the
 // modules once takes the machine out of the verdict (#102). Review measured
 // this file failing the documented slow-load probe; it was the only one left.
+// Loads every document in content/, so its cost grows with the course: the
+// default 10 s ran out under the full parallel suite once #321 added a class.
 beforeAll(async () => {
   await Promise.all(registry.entries.map((entry) => entry.load()));
-});
+}, 30_000);
 
 const firstId = ids[0]!;
 

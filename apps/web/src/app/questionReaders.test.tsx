@@ -107,7 +107,9 @@ beforeAll(async () => {
     trees.set(entry.meta.id, captured);
     unmount();
   }
-});
+  // Loads AND renders every document in content/, one after another: about
+  // 7 s alone on #321's machine, past the default 10 s under the full suite.
+}, 30_000);
 
 /**
  * Comparable form of a question's text.

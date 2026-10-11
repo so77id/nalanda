@@ -15,3 +15,333 @@ Una carpeta contiene archivos y otras carpetas, que a su vez contienen más;
 un organigrama, una expresión aritmética y un árbol genealógico se organizan
 igual, por niveles que dependen unos de otros. Esa forma se llama
 **jerarquía**, y la estructura que la representa es el **árbol**.
+
+{/* HierarchyPicture — a static drawing of a general tree (any number of children per node): a folder tree or a tree of letters, with tones, badges, notes, level lines, an open path and an optional queue under it. */}
+{/* File-local on purpose (add-a-course-document.md §6e-quater): one consumer, no catalog entry, not registered. The second document that wants it promotes it. */}
+{/* A leaf takes the next column; a parent sits centred over its first and last child. Every node name in one tree is unique, because tones, badges and notes are keyed by it. */}
+
+export function HierarchyPicture({ tree, tones = {}, badges = {}, notes = {}, path = [], levels = false, queue, caption, label }) {
+  const boxH = 26;
+  const levelH = 64;
+  const padX = 12;
+  const padTop = 20;
+  const labelW = levels ? 62 : 0;
+  const widthOf = (name) => Math.max(40, name.length * 7.6 + 16);
+  const nodes = [];
+  let leaves = 0;
+  const walk = (t, depth, parent) => {
+    const me = { name: t.n, depth, parent, kids: [] };
+    nodes.push(me);
+    if (t.c && t.c.length > 0) {
+      for (const c of t.c) me.kids.push(walk(c, depth + 1, me));
+      me.x = (me.kids[0].x + me.kids[me.kids.length - 1].x) / 2;
+    } else {
+      me.x = leaves;
+      leaves += 1;
+    }
+    return me;
+  };
+  walk(tree, 0, null);
+  const pitch = Math.max(...nodes.map((n) => widthOf(n.name))) + 14;
+  const depth = Math.max(...nodes.map((n) => n.depth));
+  const hasNotes = Object.keys(notes).length > 0;
+  const treeH = padTop + boxH + depth * levelH + (hasNotes ? 18 : 6);
+  const queueY = treeH + 26;
+  const captionY = (queue ? queueY + boxH + 26 : treeH + 18);
+  const width = labelW + 2 * padX + leaves * pitch;
+  const height = captionY + (caption ? 8 : -6);
+  const cx = (n) => labelW + padX + (n.x + 0.5) * pitch;
+  const cy = (n) => padTop + boxH / 2 + n.depth * levelH;
+  const onPath = new Set(path);
+  const TONE = {
+    idle: ['var(--color-surface)', 'var(--color-rule-strong)', 1.3],
+    focus: ['var(--color-surface)', 'var(--color-focus)', 2.4],
+    mark: ['var(--color-mark-soft)', 'var(--color-mark)', 2.2],
+    keep: ['var(--color-keep-soft)', 'var(--color-keep)', 2.2],
+    done: ['var(--color-sunk)', 'var(--color-rule-strong)', 1.3],
+    faint: ['var(--color-surface)', 'var(--color-rule)', 1.2],
+  };
+  return (
+    <svg viewBox={`0 0 ${width} ${height}`} style={{ width: '100%', maxWidth: `${Math.round(width * 1.35)}px`, height: 'auto', display: 'block', margin: '1rem auto' }} role="img" aria-label={label}>
+      {levels
+        ? [...new Set(nodes.map((n) => n.depth))].map((d) => (
+            <g key={`lv${d}`}>
+              <line x1={labelW - 4} y1={padTop + boxH / 2 + d * levelH} x2={width - 4} y2={padTop + boxH / 2 + d * levelH} style={{ stroke: 'var(--color-rule)' }} strokeWidth="1" strokeDasharray="3 5" />
+              <text x={4} y={padTop + boxH / 2 + d * levelH + 4} fontSize="11" style={{ fill: 'var(--color-ink-faint)' }}>{`nivel ${d}`}</text>
+            </g>
+          ))
+        : null}
+      {nodes.map((n) =>
+        n.parent === null ? null : (
+          <line key={`e-${n.name}`} x1={cx(n.parent)} y1={cy(n.parent) + boxH / 2} x2={cx(n)} y2={cy(n) - boxH / 2} style={{ stroke: onPath.has(n.name) && onPath.has(n.parent.name) ? 'var(--color-focus)' : tones[n.name] === 'faint' ? 'var(--color-rule)' : 'var(--color-rule-strong)' }} strokeWidth={onPath.has(n.name) && onPath.has(n.parent.name) ? 2.6 : 1.2} />
+        ),
+      )}
+      {nodes.map((n) => {
+        const [fill, stroke, weight] = TONE[tones[n.name] ?? 'idle'];
+        const w = widthOf(n.name);
+        const faint = tones[n.name] === 'faint';
+        return (
+          <g key={`n-${n.name}`} opacity={faint ? 0.5 : undefined}>
+            <rect x={cx(n) - w / 2} y={cy(n) - boxH / 2} width={w} height={boxH} rx="6" style={{ fill, stroke }} strokeWidth={weight} strokeDasharray={faint ? '4 3' : undefined} />
+            <text x={cx(n)} y={cy(n) + 4.5} textAnchor="middle" fontSize="13" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{n.name}</text>
+            {badges[n.name] !== undefined ? (
+              <text x={cx(n) + w / 2 - 3} y={cy(n) - boxH / 2 - 3} fontSize="11" fontWeight="700" paintOrder="stroke" strokeWidth="3" style={{ fill: 'var(--color-focus)', stroke: 'var(--color-ground)' }}>{badges[n.name]}</text>
+            ) : null}
+            {/* A leaf's note sits under it; a parent's goes to its left, clear of the edges leaving for its children. */}
+            {notes[n.name] !== undefined ? (
+              n.kids.length === 0 ? (
+                <text x={cx(n)} y={cy(n) + boxH / 2 + 13} textAnchor="middle" fontSize="10.5" style={{ fill: 'var(--color-ink-soft)' }}>{notes[n.name]}</text>
+              ) : (
+                <text x={cx(n) - w / 2 - 5} y={cy(n) + 4} textAnchor="end" fontSize="10.5" paintOrder="stroke" strokeWidth="3" style={{ fill: 'var(--color-ink-soft)', stroke: 'var(--color-ground)' }}>{notes[n.name]}</text>
+              )
+            ) : null}
+          </g>
+        );
+      })}
+      {queue ? (
+        <g>
+          <text x={labelW + padX} y={queueY - 8} fontSize="11" style={{ fill: 'var(--color-ink-faint)' }}>cola · sale por la izquierda</text>
+          {queue.map((name, i) => {
+            const w = pitch - 14;
+            const x = labelW + padX + i * pitch;
+            return (
+              <g key={`q-${name}`}>
+                <rect x={x} y={queueY} width={w} height={boxH} rx="3" style={{ fill: 'var(--color-mark-soft)', stroke: 'var(--color-mark)' }} strokeWidth="1.6" />
+                <text x={x + w / 2} y={queueY + 17.5} textAnchor="middle" fontSize="13" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{name}</text>
+              </g>
+            );
+          })}
+        </g>
+      ) : null}
+      {caption ? (
+        <text x={width / 2} y={captionY} textAnchor="middle" fontSize="12" style={{ fill: 'var(--color-ink-soft)' }}>{caption}</text>
+      ) : null}
+    </svg>
+  );
+}
+
+{/* The folder tree the class opens with, and the two letter trees of its pencil exercises. */}
+
+export const FOLDERS = { n: 'home/', c: [{ n: 'fotos/', c: [{ n: 'playa.jpg' }, { n: 'perro.jpg' }] }, { n: 'ramos/', c: [{ n: 'eda/', c: [{ n: 't1.pdf' }, { n: 't2.pdf' }] }, { n: 'calculo/', c: [{ n: 'guia.pdf' }] }] }, { n: 'notas.txt' }] };
+
+export const LETTERS_DEPTH = { n: 'A', c: [{ n: 'B', c: [{ n: 'E' }, { n: 'F' }] }, { n: 'C' }, { n: 'D', c: [{ n: 'G', c: [{ n: 'H' }] }] }] };
+
+export const LETTERS_ORDER = { n: 'a', c: [{ n: 'b' }, { n: 'c', c: [{ n: 'e' }, { n: 'f', c: [{ n: 'g' }] }] }, { n: 'd' }] };
+
+<Slide title="Una carpeta dentro de otra">
+Una carpeta del computador guarda archivos y también otras carpetas, que a
+su vez guardan más. Para llegar a un archivo hay que abrir una carpeta tras
+otra, empezando por la de más arriba.
+
+<HierarchyPicture tree={FOLDERS} label="Una carpeta home que contiene dos carpetas, fotos y ramos, y un archivo, notas.txt. La carpeta fotos contiene playa.jpg y perro.jpg. La carpeta ramos contiene dos carpetas: eda, con t1.pdf y t2.pdf, y calculo, con guia.pdf." />
+
+Ninguna de las estructuras que guardan elementos en fila sirve para esta
+forma. Un arreglo, una lista, una pila o una cola ponen cada elemento
+después de otro, y una carpeta tiene varios elementos debajo, cada uno con
+los suyos.
+
+</Slide>
+
+<Slide title="El árbol y sus nodos">
+Un **árbol** es una colección de elementos, llamados **nodos**, organizados
+en una jerarquía:
+
+1. **Un nodo, la raíz, está arriba de todo** y no cuelga de ningún otro.
+2. **Cada uno de los demás cuelga de exactamente un nodo**, su **padre**.
+   Los nodos que cuelgan de un mismo padre son sus **hijos**.
+
+La línea que une a un padre con un hijo se llama **arista**. Un nodo puede
+tener cualquier cantidad de hijos, incluso ninguno.
+
+<HierarchyPicture tree={FOLDERS} tones={{ 'home/': 'focus', 'ramos/': 'mark', 'eda/': 'keep', 'calculo/': 'keep' }} badges={{ 'home/': 'raíz', 'ramos/': 'padre' }} notes={{ 'eda/': 'hijo', 'calculo/': 'hijo' }} label="El árbol de carpetas con la raíz home marcada, y la carpeta ramos marcada como padre de sus dos hijos, eda y calculo." caption="home/ es la raíz; ramos/ es el padre de eda/ y calculo/" />
+
+</Slide>
+
+<Slide title="Hojas y nodos internos">
+Un nodo sin hijos es una **hoja**. Un nodo con al menos un hijo es un
+**nodo interno**. En un sistema de archivos, las hojas son los archivos y las
+carpetas vacías, y los nodos internos son las carpetas que guardan algo.
+
+<HierarchyPicture tree={FOLDERS} tones={{ 'playa.jpg': 'mark', 'perro.jpg': 'mark', 't1.pdf': 'mark', 't2.pdf': 'mark', 'guia.pdf': 'mark', 'notas.txt': 'mark' }} notes={{ 'playa.jpg': 'hoja', 'perro.jpg': 'hoja', 't1.pdf': 'hoja', 't2.pdf': 'hoja', 'guia.pdf': 'hoja', 'notas.txt': 'hoja' }} label="El árbol de carpetas con sus seis hojas marcadas: playa.jpg, perro.jpg, t1.pdf, t2.pdf, guia.pdf y notas.txt. Las cinco carpetas son nodos internos." caption="seis hojas, los archivos; cinco nodos internos, las carpetas" />
+
+</Slide>
+
+<Slide title="Caminos desde la raíz">
+Un **camino** es una secuencia de nodos en la que cada uno es el padre del
+siguiente. Su **largo** es la cantidad de aristas que recorre: uno menos que
+la cantidad de nodos.
+
+Desde la raíz hasta cualquier nodo hay **exactamente un camino**, porque
+cada nodo tiene un solo padre y subir de padre en padre no deja opciones. En
+un sistema de archivos, ese camino es la **ruta** del archivo.
+
+<HierarchyPicture tree={FOLDERS} tones={{ 'home/': 'focus', 'ramos/': 'focus', 'eda/': 'focus', 't1.pdf': 'focus' }} path={['home/', 'ramos/', 'eda/', 't1.pdf']} label="El camino desde la raíz hasta t1.pdf: home, ramos, eda, t1.pdf. Cuatro nodos y tres aristas." caption="home/ramos/eda/t1.pdf: cuatro nodos, un camino de largo 3" />
+
+</Slide>
+
+<Slide title="Subárboles">
+Un nodo, junto con sus hijos, los hijos de sus hijos y así hasta abajo,
+forma un árbol que tiene a ese nodo como raíz: un **subárbol**. Cada carpeta
+es la raíz de un subárbol, el de todo lo que guarda.
+
+<HierarchyPicture tree={FOLDERS} tones={{ 'home/': 'faint', 'fotos/': 'faint', 'playa.jpg': 'faint', 'perro.jpg': 'faint', 'notas.txt': 'faint', 'ramos/': 'keep', 'eda/': 'keep', 't1.pdf': 'keep', 't2.pdf': 'keep', 'calculo/': 'keep', 'guia.pdf': 'keep' }} label="El subárbol que tiene raíz en ramos: ramos, eda, t1.pdf, t2.pdf, calculo y guia.pdf. El resto del árbol aparece atenuado." caption="el subárbol de ramos/: seis nodos, y ramos/ es su raíz" />
+
+Por eso un árbol se puede definir a partir de árboles más pequeños: **un árbol
+es una raíz y, debajo de ella, cero o más subárboles**. Esa definición es
+**recursiva**, y las operaciones sobre árboles también lo son: lo que se
+hace con el árbol se hace, igual, con cada subárbol.
+
+</Slide>
+
+<Slide title="Profundidad y niveles">
+La **profundidad** de un nodo es el largo del camino desde la raíz hasta él.
+La raíz tiene profundidad 0, sus hijos 1, los hijos de ellos 2, y así.
+
+Los nodos de igual profundidad forman un **nivel**. El nivel $$d$$ reúne
+a todos los nodos que están a $$d$$ aristas de la raíz.
+
+<HierarchyPicture tree={FOLDERS} levels label="El árbol de carpetas con una línea por nivel. Nivel 0: home. Nivel 1: fotos, ramos y notas.txt. Nivel 2: playa.jpg, perro.jpg, eda y calculo. Nivel 3: t1.pdf, t2.pdf y guia.pdf." caption="la profundidad de cada nodo es el número de su nivel" />
+
+</Slide>
+
+<Slide title="La altura">
+La **altura** de un nodo es el largo del camino más largo que baja desde él
+hasta una hoja. Una hoja tiene altura 0, y un nodo interno tiene una unidad
+más que el más alto de sus hijos.
+
+La **altura del árbol** es la altura de su raíz: la cantidad de niveles menos
+uno. La profundidad se mide desde arriba y la altura desde abajo.
+
+<HierarchyPicture tree={FOLDERS} badges={{ 'home/': 'h=3', 'fotos/': 'h=1', 'playa.jpg': 'h=0', 'perro.jpg': 'h=0', 'ramos/': 'h=2', 'eda/': 'h=1', 't1.pdf': 'h=0', 't2.pdf': 'h=0', 'calculo/': 'h=1', 'guia.pdf': 'h=0', 'notas.txt': 'h=0' }} label="El árbol de carpetas con la altura de cada nodo. Las hojas tienen altura 0; fotos, eda y calculo, 1; ramos, 2; y la raíz home, 3, que es la altura del árbol." caption="la altura del árbol es 3: el camino más largo baja de home/ a un archivo de eda/" />
+
+La altura dice cuántas aristas hay que bajar, como máximo, desde la raíz para
+llegar a cualquier nodo.
+
+</Slide>
+
+<Slide title="Profundidad y altura · la pregunta">
+Antes de pasar a la respuesta, contestemos sobre este árbol: ¿cuál es la
+profundidad de G?, ¿cuál es la altura de D?, ¿cuál es la altura del árbol?,
+¿cuáles nodos son hojas?
+
+<HierarchyPicture tree={LETTERS_DEPTH} label="Un árbol de ocho nodos. La raíz A tiene tres hijos: B, C y D. B tiene dos hijos, E y F. D tiene un hijo, G, y G tiene un hijo, H." />
+
+</Slide>
+
+<Slide title="Profundidad y altura · la respuesta">
+La profundidad se cuenta en niveles desde la raíz, y la altura en aristas
+hasta la hoja más lejana.
+
+<HierarchyPicture tree={LETTERS_DEPTH} levels badges={{ A: 'h=3', B: 'h=1', C: 'h=0', D: 'h=2', E: 'h=0', F: 'h=0', G: 'h=1', H: 'h=0' }} tones={{ C: 'mark', E: 'mark', F: 'mark', H: 'mark' }} notes={{ C: 'hoja', E: 'hoja', F: 'hoja', H: 'hoja' }} label="El mismo árbol con sus niveles y alturas. G está en el nivel 2. D tiene altura 2. A, la raíz, tiene altura 3, que es la altura del árbol. Las hojas son C, E, F y H." caption="G está en el nivel 2; D tiene altura 2; el árbol, altura 3; las hojas son C, E, F y H" />
+
+</Slide>
+
+<SectionBreak />
+
+## Recorridos de un árbol
+
+<Slide title="El recorrido de un árbol">
+**Recorrer** una estructura es visitar cada uno de sus elementos una vez. En
+una fila hay un orden natural: del primero al último. En un árbol no lo hay:
+después de la raíz puede seguir cualquiera de sus hijos, y después de un
+hijo, uno de sus hijos o uno de sus hermanos.
+
+Un **recorrido** es una regla que decide ese orden. Hay varias, y cada una
+responde una pregunta distinta sobre la jerarquía.
+
+</Slide>
+
+<Slide title="El preorden">
+En **preorden**, cada nodo se visita **antes** que sus subárboles, y los
+subárboles se recorren de izquierda a derecha, cada uno con la misma regla.
+
+<HierarchyPicture tree={FOLDERS} badges={{ 'home/': '1', 'fotos/': '2', 'playa.jpg': '3', 'perro.jpg': '4', 'ramos/': '5', 'eda/': '6', 't1.pdf': '7', 't2.pdf': '8', 'calculo/': '9', 'guia.pdf': '10', 'notas.txt': '11' }} label="El árbol de carpetas con el orden de visita en preorden: home 1, fotos 2, playa.jpg 3, perro.jpg 4, ramos 5, eda 6, t1.pdf 7, t2.pdf 8, calculo 9, guia.pdf 10, notas.txt 11." caption="preorden: cada carpeta, antes que su contenido" />
+
+</Slide>
+
+<Slide title="El listado de una carpeta">
+El preorden es el orden en que se lista el contenido de una carpeta: cada
+carpeta aparece antes que lo que guarda, y lo que guarda aparece completo
+antes de pasar a la carpeta siguiente.
+
+```
+home/
+├── fotos/
+│   ├── playa.jpg
+│   └── perro.jpg
+├── ramos/
+│   ├── eda/
+│   │   ├── t1.pdf
+│   │   └── t2.pdf
+│   └── calculo/
+│       └── guia.pdf
+└── notas.txt
+```
+
+</Slide>
+
+<Slide title="El postorden">
+En **postorden**, cada nodo se visita **después** de sus subárboles.
+
+Es el orden que necesita una pregunta que se responde desde las hojas: el
+tamaño de una carpeta es la suma de lo que guarda, así que antes de sumar
+una carpeta hay que conocer el tamaño de cada cosa que tiene dentro.
+
+<HierarchyPicture tree={FOLDERS} badges={{ 'playa.jpg': '1', 'perro.jpg': '2', 'fotos/': '3', 't1.pdf': '4', 't2.pdf': '5', 'eda/': '6', 'guia.pdf': '7', 'calculo/': '8', 'ramos/': '9', 'notas.txt': '10', 'home/': '11' }} notes={{ 'playa.jpg': '2 MB', 'perro.jpg': '3 MB', 'fotos/': '5 MB', 't1.pdf': '1 MB', 't2.pdf': '1 MB', 'eda/': '2 MB', 'guia.pdf': '2 MB', 'calculo/': '2 MB', 'ramos/': '4 MB', 'notas.txt': '1 MB', 'home/': '10 MB' }} label="El árbol de carpetas con el orden de visita en postorden y el tamaño de cada nodo. Primero playa.jpg y perro.jpg, después fotos, que suma 5 MB; después t1.pdf, t2.pdf y eda, 2 MB; guia.pdf y calculo, 2 MB; ramos, 4 MB; notas.txt, 1 MB; y al final home, 10 MB." caption="postorden: cada carpeta, cuando ya se conoce el tamaño de todo lo que guarda" />
+
+</Slide>
+
+<Slide title="El recorrido por niveles">
+El recorrido **por niveles** visita primero la raíz, después todos los nodos
+de profundidad 1, después los de profundidad 2, y así; dentro de cada nivel,
+de izquierda a derecha.
+
+Es el orden que encuentra primero lo más cercano a la raíz: si se busca un
+archivo por su nombre, el primero que aparece por niveles es el que está a
+menos carpetas de distancia.
+
+<HierarchyPicture tree={FOLDERS} levels badges={{ 'home/': '1', 'fotos/': '2', 'ramos/': '3', 'notas.txt': '4', 'playa.jpg': '5', 'perro.jpg': '6', 'eda/': '7', 'calculo/': '8', 't1.pdf': '9', 't2.pdf': '10', 'guia.pdf': '11' }} label="El árbol de carpetas con el orden de visita por niveles: home 1; fotos 2, ramos 3, notas.txt 4; playa.jpg 5, perro.jpg 6, eda 7, calculo 8; t1.pdf 9, t2.pdf 10, guia.pdf 11." caption="por niveles: un nivel completo antes que el siguiente" />
+
+</Slide>
+
+<Slide title="Una cola para recorrer por niveles">
+El preorden y el postorden se escriben con la misma recursión que define al
+árbol: un nodo y, debajo, sus subárboles. El recorrido por niveles no sigue
+esa forma, porque salta de un subárbol a otro dentro del mismo nivel. Lo que
+lo ordena es una **cola**, que entrega los elementos en el mismo orden en
+que entraron:
+
+1. Se pone la raíz en la cola.
+2. Mientras la cola no esté vacía, se saca el primero, se visita, y sus
+   hijos entran al final de la cola.
+
+Un nodo entra a la cola cuando se visita su padre, así que los hijos de los
+nodos de un nivel entran todos detrás de ese nivel: la cola tiene siempre lo
+que falta del nivel actual y, después, el comienzo del siguiente.
+
+<HierarchyPicture tree={FOLDERS} tones={{ 'home/': 'done', 'fotos/': 'done', 'ramos/': 'mark', 'notas.txt': 'mark', 'playa.jpg': 'mark', 'perro.jpg': 'mark' }} badges={{ 'home/': '1', 'fotos/': '2' }} queue={['ramos/', 'notas.txt', 'playa.jpg', 'perro.jpg']} label="El recorrido por niveles después de visitar home y fotos. En la cola, de adelante hacia atrás: ramos y notas.txt, que quedan del nivel 1, y playa.jpg y perro.jpg, los hijos de fotos, que abren el nivel 2." caption="visitados home/ y fotos/: en la cola, lo que queda del nivel 1 y el comienzo del 2" />
+
+</Slide>
+
+<Slide title="Tres recorridos · la pregunta">
+Escribamos el preorden, el postorden y el recorrido por niveles de este
+árbol antes de pasar a la respuesta.
+
+<HierarchyPicture tree={LETTERS_ORDER} label="Un árbol de siete nodos. La raíz a tiene tres hijos: b, c y d. c tiene dos hijos, e y f, y f tiene un hijo, g." />
+
+</Slide>
+
+<Slide title="Tres recorridos · la respuesta">
+Cada recorrido aplica su regla en cada nodo: el preorden escribe el nodo
+antes de sus subárboles, el postorden después, y el recorrido por niveles
+termina un nivel antes de empezar el siguiente.
+
+| Recorrido    | Orden           |
+| ------------ | --------------- |
+| Preorden     | a b c e f g d   |
+| Postorden    | b e g f c d a   |
+| Por niveles  | a b c d e f g   |
+
+<HierarchyPicture tree={LETTERS_ORDER} badges={{ a: '1', b: '2', c: '3', e: '4', f: '5', g: '6', d: '7' }} label="El árbol con el orden de visita en preorden: a 1, b 2, c 3, e 4, f 5, g 6, d 7." caption="el preorden, número a número: a, b, c, e, f, g, d" />
+
+</Slide>

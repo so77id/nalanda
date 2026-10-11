@@ -45,9 +45,11 @@ vi.mock('mermaid', () => ({
  * shell's MDX map (`app/mdxComponents.ts`). Mounted with a feature-local map
  * every marker would be an unknown tag and this case would pass vacuously.
  */
+// Loads every document in content/, so its cost grows with the course: the
+// default 10 s ran out under the full parallel suite once #321 added a class.
 beforeAll(async () => {
   await Promise.all(registry.entries.map((entry) => entry.load()));
-});
+}, 30_000);
 
 async function renderAt(path: string): Promise<void> {
   await act(async () => {
