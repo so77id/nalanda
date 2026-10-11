@@ -844,6 +844,56 @@ describe('<SequenceStepper> · the combinations 21-edd-arboles-i mounts', () => 
       slide: 'Insertar a mano · la respuesta',
       props: { eda: 'bst', operation: 'insert', values: [], value: [8, 5, 1, 4, 6, 7, 20, 12] },
     },
+    {
+      act: 'Las operaciones del árbol de búsqueda',
+      slide: 'Buscar en un árbol de búsqueda',
+      props: { eda: 'bst', operation: 'search', values: [4, 2, 7, 1, 3, 6, 9], target: [6, 5] },
+    },
+    {
+      act: 'Las operaciones del árbol de búsqueda',
+      slide: 'Insertar en un árbol de búsqueda',
+      props: { eda: 'bst', operation: 'insert', values: [8, 5, 1, 4, 6, 7, 20], value: 12 },
+    },
+    {
+      act: 'Las operaciones del árbol de búsqueda',
+      slide: 'El mínimo y el máximo',
+      props: { eda: 'bst', operation: 'minimum', values: [4, 2, 7, 1, 3, 6, 9] },
+    },
+    {
+      act: 'Las operaciones del árbol de búsqueda',
+      slide: 'El sucesor y el predecesor',
+      props: { eda: 'bst', operation: 'successor', values: [4, 2, 7, 1, 3, 6, 9], target: [3, 4] },
+    },
+    {
+      act: 'Las operaciones del árbol de búsqueda',
+      slide: 'Eliminar una hoja',
+      props: { eda: 'bst', operation: 'remove', values: [4, 2, 7, 1, 3, 6, 9], target: 1 },
+    },
+    {
+      act: 'Las operaciones del árbol de búsqueda',
+      slide: 'Eliminar un nodo con un hijo',
+      props: { eda: 'bst', operation: 'remove', values: [8, 5, 1, 4, 6, 7, 20, 12], target: 1 },
+    },
+    {
+      act: 'Las operaciones del árbol de búsqueda',
+      slide: 'Eliminar un nodo con dos hijos',
+      props: { eda: 'bst', operation: 'remove', values: [8, 5, 1, 4, 6, 7, 20, 12], target: 8 },
+    },
+    {
+      act: 'Las operaciones del árbol de búsqueda',
+      slide: 'Eliminar con dos hijos · la respuesta',
+      props: { eda: 'bst', operation: 'remove', values: [8, 5, 1, 4, 6, 7, 20, 12], target: 5 },
+    },
+    {
+      act: 'Las operaciones del árbol de búsqueda',
+      slide: 'Siete valores en un orden',
+      props: { eda: 'bst', operation: 'insert', values: [], value: [4, 2, 6, 1, 3, 5, 7] },
+    },
+    {
+      act: 'Las operaciones del árbol de búsqueda',
+      slide: 'Los mismos siete valores, ordenados',
+      props: { eda: 'bst', operation: 'insert', values: [], value: [1, 2, 3, 4, 5, 6, 7] },
+    },
   ];
 
   it.each(mounted)('$act · $slide', ({ props }) => {

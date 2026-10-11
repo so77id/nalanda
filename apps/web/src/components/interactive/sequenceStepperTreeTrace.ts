@@ -124,16 +124,12 @@ Node<T> minimum(Node<T> node) {
     } else if (node.right == null) {
         return node.left;
     } else {
-        Node<T> next = minimum(node.right);
+        Node<T> next = node.right;
+        while (next.left != null) next = next.left;
         node.value = next.value;
         node.right = remove(node.right, next.value);
     }
     return node;
-}
-
-Node<T> minimum(Node<T> node) {
-    if (node.left == null) return node;
-    return minimum(node.left);
 }`,
 } as const;
 
@@ -868,10 +864,12 @@ function traceRemove(values: number[], targets: number[]): SequenceTrace {
   const columns: Record<number, number> = {};
   const slots = new Set(values).size;
   let { root } = bstOf(values, columnsFor(values), columns);
+  // No strip: on a slide the listing, the tree and the narration already fill
+  // the frame, and the sorted inorder is shown by insert and by the theorem.
   const rec = new TreeRecorder(
     code,
     () => root,
-    stripByNode(() => root, columns, slots),
+    () => [],
   );
 
   const remove = (n: TreeNode | null, x: number): TreeNode | null => {
@@ -916,7 +914,7 @@ function traceRemove(values: number[], targets: number[]): SequenceTrace {
     }
     rec.push(
       'walk',
-      ['Node<T> next = minimum(node.right)'],
+      ['Node<T> next = node.right'],
       `${x} tiene dos hijos: se busca su sucesor, el menor valor de su subárbol derecho.`,
     );
     let next = n.right!;
@@ -931,7 +929,7 @@ function traceRemove(values: number[], targets: number[]): SequenceTrace {
     rec.badge.set(next.id, 'sucesor');
     rec.push(
       'found',
-      ['if (node.left == null) return node'],
+      ['while (next.left != null)'],
       `El sucesor de ${x} es ${next.value}: el menor de la derecha, sin hijo izquierdo.`,
     );
     rec.path.length = below;
@@ -965,5 +963,5 @@ function traceRemove(values: number[], targets: number[]): SequenceTrace {
       rec.push('done', [], `${x} ya no está en el árbol, y su inorden sigue ordenado.`);
     }
   }
-  return finish(rec, code, columns, slots, true);
+  return finish(rec, code, columns, slots, false);
 }
