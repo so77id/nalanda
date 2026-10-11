@@ -11,16 +11,13 @@ questions: none
 
 Un arreglo, una lista, una pila y una cola guardan sus elementos en fila:
 cada elemento tiene a lo más un siguiente. Muchos datos no tienen esa forma.
-Una carpeta contiene archivos y otras carpetas, que a su vez contienen más;
-un organigrama, una expresión aritmética y un árbol genealógico se organizan
-igual, por niveles que dependen unos de otros. Esa forma se llama
-**jerarquía**, y la estructura que la representa es el **árbol**.
 
 {/* HierarchyPicture — a static drawing of a general tree (any number of children per node): a folder tree or a tree of letters, with tones, badges, notes, level lines, an open path and an optional queue under it. */}
 {/* File-local on purpose (add-a-course-document.md §6e-quater): one consumer, no catalog entry, not registered. The second document that wants it promotes it. */}
 {/* A leaf takes the next column; a parent sits centred over its first and last child. Every node name in one tree is unique, because tones, badges and notes are keyed by it. */}
+{/* minWidth gives figures set side by side one canvas width, so their boxes and text come out the same size; the tree is centred in it. */}
 
-export function HierarchyPicture({ tree, tones = {}, badges = {}, notes = {}, path = [], levels = false, queue, caption, label }) {
+export function HierarchyPicture({ tree, tones = {}, badges = {}, notes = {}, path = [], levels = false, queue, caption, minWidth = 0, label }) {
   const boxH = 26;
   const levelH = 64;
   const padX = 12;
@@ -50,7 +47,7 @@ export function HierarchyPicture({ tree, tones = {}, badges = {}, notes = {}, pa
   const captionY = (queue ? queueY + boxH + 26 : treeH + 18);
   // A caption wider than the drawing widens the canvas, and the drawing is centred in it, so no caption is ever clipped.
   const drawingW = labelW + 2 * padX + leaves * pitch;
-  const width = Math.max(drawingW, caption ? caption.length * 6.6 + 24 : 0);
+  const width = Math.max(drawingW, minWidth, caption ? caption.length * 6.6 + 24 : 0);
   const offset = (width - drawingW) / 2;
   const height = captionY + (caption ? 8 : -6);
   const cx = (n) => offset + labelW + padX + (n.x + 0.5) * pitch;
@@ -123,9 +120,15 @@ export function HierarchyPicture({ tree, tones = {}, badges = {}, notes = {}, pa
   );
 }
 
-{/* The folder tree the class opens with, and the two letter trees of its pencil exercises. */}
+{/* The folder tree the class opens with, the three hierarchies that show the shape is not only the folders' (the expression is the one the calculator exercise evaluates), and the two letter trees of the pencil exercises. */}
 
 export const FOLDERS = { n: 'home/', c: [{ n: 'fotos/', c: [{ n: 'playa.jpg' }, { n: 'perro.jpg' }] }, { n: 'ramos/', c: [{ n: 'eda/', c: [{ n: 't1.pdf' }, { n: 't2.pdf' }] }, { n: 'calculo/', c: [{ n: 'guia.pdf' }] }] }, { n: 'notas.txt' }] };
+
+export const ORG_CHART = { n: 'jefa', c: [{ n: 'ventas', c: [{ n: 'norte' }, { n: 'sur' }] }, { n: 'bodega' }] };
+
+export const EXPRESSION = { n: '*', c: [{ n: '+', c: [{ n: '3' }, { n: '4' }] }, { n: '5' }] };
+
+export const FAMILY = { n: 'abuela', c: [{ n: 'madre', c: [{ n: 'Ana' }, { n: 'Luis' }] }, { n: 'tío' }] };
 
 export const LETTERS_DEPTH = { n: 'A', c: [{ n: 'B', c: [{ n: 'E' }, { n: 'F' }] }, { n: 'C' }, { n: 'D', c: [{ n: 'G', c: [{ n: 'H' }] }] }] };
 
@@ -142,6 +145,24 @@ Ninguna de las estructuras que guardan elementos en fila sirve para esta
 forma. Un arreglo, una lista, una pila o una cola ponen cada elemento
 después de otro, y una carpeta tiene varios elementos debajo, cada uno con
 los suyos.
+
+</Slide>
+
+<Slide title="Jerarquías">
+Muchos datos se organizan por **niveles**: cada elemento tiene **uno solo
+encima** y puede tener **varios debajo**. Las carpetas de un computador son
+así, y también un organigrama, una expresión aritmética y un árbol
+genealógico.
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: '0.75rem', alignItems: 'end' }}>
+<HierarchyPicture tree={ORG_CHART} minWidth={252} label="Un organigrama: arriba la jefa, con dos áreas debajo, ventas y bodega; debajo de ventas, dos zonas, norte y sur." caption="un organigrama" />
+<HierarchyPicture tree={EXPRESSION} minWidth={252} label="La expresión (3 + 4) * 5 como jerarquía: la multiplicación arriba, con la suma y el 5 debajo; la suma, con el 3 y el 4 debajo." caption="la expresión (3 + 4) * 5" />
+<HierarchyPicture tree={FAMILY} minWidth={252} label="Un árbol genealógico: la abuela arriba, con sus dos hijos debajo, la madre y el tío; debajo de la madre, sus hijos, Ana y Luis." caption="los descendientes de una abuela" />
+</div>
+
+Esa forma se llama **jerarquía**, y la estructura de datos que la representa
+es el **árbol**. El nombre viene del dibujo, que es un árbol al revés: la
+**raíz** queda arriba y las **hojas**, abajo.
 
 </Slide>
 
