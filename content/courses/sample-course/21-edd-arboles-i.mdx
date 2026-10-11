@@ -652,51 +652,51 @@ tree.root.add("notas.txt");`}
 >
   <Step lines={[1]}>
     <HierarchyPicture tree={FOLDERS} tones={{ 'home/': 'hidden', 'fotos/': 'hidden', 'playa.jpg': 'hidden', 'perro.jpg': 'hidden', 'ramos/': 'hidden', 'eda/': 'hidden', 't1.pdf': 'hidden', 't2.pdf': 'hidden', 'calculo/': 'hidden', 'guia.pdf': 'hidden', 'notas.txt': 'hidden' }} compact size={0.8} label="Todavía no hay ningún nodo: el árbol está vacío, con root en null." />
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Un árbol vacío: root está en null.</div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>Un árbol vacío: root está en null.</div>
   </Step>
   <Step lines={[2]}>
     <HierarchyPicture tree={FOLDERS} tones={{ 'home/': 'mark', 'fotos/': 'hidden', 'playa.jpg': 'hidden', 'perro.jpg': 'hidden', 'ramos/': 'hidden', 'eda/': 'hidden', 't1.pdf': 'hidden', 't2.pdf': 'hidden', 'calculo/': 'hidden', 'guia.pdf': 'hidden', 'notas.txt': 'hidden' }} compact size={0.8} label="Se crea la raíz, home." />
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Se crea la raíz, home/.</div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>Se crea la raíz, home/.</div>
   </Step>
   <Step lines={[3]}>
     <HierarchyPicture tree={FOLDERS} tones={{ 'fotos/': 'mark', 'playa.jpg': 'hidden', 'perro.jpg': 'hidden', 'ramos/': 'hidden', 'eda/': 'hidden', 't1.pdf': 'hidden', 't2.pdf': 'hidden', 'calculo/': 'hidden', 'guia.pdf': 'hidden', 'notas.txt': 'hidden' }} fresh="fotos/" compact size={0.8} label="fotos se agrega como primer hijo de home." />
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>fotos/ entra al final de los hijos de home/: es su primer hijo.</div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>fotos/ entra al final de los hijos de home/: es su primer hijo.</div>
   </Step>
   <Step lines={[4]}>
     <HierarchyPicture tree={FOLDERS} tones={{ 'playa.jpg': 'mark', 'perro.jpg': 'hidden', 'ramos/': 'hidden', 'eda/': 'hidden', 't1.pdf': 'hidden', 't2.pdf': 'hidden', 'calculo/': 'hidden', 'guia.pdf': 'hidden', 'notas.txt': 'hidden' }} fresh="playa.jpg" compact size={0.8} label="playa.jpg se agrega como primer hijo de fotos." />
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>playa.jpg entra al final de los hijos de fotos/: es su primer hijo.</div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>playa.jpg entra al final de los hijos de fotos/: es su primer hijo.</div>
   </Step>
   <Step lines={[5]}>
     <HierarchyPicture tree={FOLDERS} tones={{ 'perro.jpg': 'mark', 'ramos/': 'hidden', 'eda/': 'hidden', 't1.pdf': 'hidden', 't2.pdf': 'hidden', 'calculo/': 'hidden', 'guia.pdf': 'hidden', 'notas.txt': 'hidden' }} fresh="perro.jpg" compact size={0.8} label="perro.jpg se agrega como segundo hijo de fotos." />
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>perro.jpg entra al final de los hijos de fotos/: es su segundo hijo.</div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>perro.jpg entra al final de los hijos de fotos/: es su segundo hijo.</div>
   </Step>
   <Step lines={[6]}>
     <HierarchyPicture tree={FOLDERS} tones={{ 'ramos/': 'mark', 'eda/': 'hidden', 't1.pdf': 'hidden', 't2.pdf': 'hidden', 'calculo/': 'hidden', 'guia.pdf': 'hidden', 'notas.txt': 'hidden' }} fresh="ramos/" compact size={0.8} label="ramos se agrega como segundo hijo de home." />
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>ramos/ entra al final de los hijos de home/: es su segundo hijo.</div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>ramos/ entra al final de los hijos de home/: es su segundo hijo.</div>
   </Step>
   <Step lines={[7]}>
     <HierarchyPicture tree={FOLDERS} tones={{ 'eda/': 'mark', 't1.pdf': 'hidden', 't2.pdf': 'hidden', 'calculo/': 'hidden', 'guia.pdf': 'hidden', 'notas.txt': 'hidden' }} fresh="eda/" compact size={0.8} label="eda se agrega como primer hijo de ramos." />
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>eda/ entra al final de los hijos de ramos/: es su primer hijo.</div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>eda/ entra al final de los hijos de ramos/: es su primer hijo.</div>
   </Step>
   <Step lines={[8]}>
     <HierarchyPicture tree={FOLDERS} tones={{ 't1.pdf': 'mark', 't2.pdf': 'hidden', 'calculo/': 'hidden', 'guia.pdf': 'hidden', 'notas.txt': 'hidden' }} fresh="t1.pdf" compact size={0.8} label="t1.pdf se agrega como primer hijo de eda." />
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>t1.pdf entra al final de los hijos de eda/: es su primer hijo.</div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>t1.pdf entra al final de los hijos de eda/: es su primer hijo.</div>
   </Step>
   <Step lines={[9]}>
     <HierarchyPicture tree={FOLDERS} tones={{ 't2.pdf': 'mark', 'calculo/': 'hidden', 'guia.pdf': 'hidden', 'notas.txt': 'hidden' }} fresh="t2.pdf" compact size={0.8} label="t2.pdf se agrega como segundo hijo de eda." />
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>t2.pdf entra al final de los hijos de eda/: es su segundo hijo.</div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>t2.pdf entra al final de los hijos de eda/: es su segundo hijo.</div>
   </Step>
   <Step lines={[10]}>
     <HierarchyPicture tree={FOLDERS} tones={{ 'calculo/': 'mark', 'guia.pdf': 'hidden', 'notas.txt': 'hidden' }} fresh="calculo/" compact size={0.8} label="calculo se agrega como segundo hijo de ramos." />
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>calculo/ entra al final de los hijos de ramos/: es su segundo hijo.</div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>calculo/ entra al final de los hijos de ramos/: es su segundo hijo.</div>
   </Step>
   <Step lines={[11]}>
     <HierarchyPicture tree={FOLDERS} tones={{ 'guia.pdf': 'mark', 'notas.txt': 'hidden' }} fresh="guia.pdf" compact size={0.8} label="guia.pdf se agrega como primer hijo de calculo." />
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>guia.pdf entra al final de los hijos de calculo/: es su primer hijo.</div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>guia.pdf entra al final de los hijos de calculo/: es su primer hijo.</div>
   </Step>
   <Step lines={[12]}>
     <HierarchyPicture tree={FOLDERS} tones={{ 'notas.txt': 'mark' }} fresh="notas.txt" compact size={0.8} label="notas.txt se agrega como tercer hijo de home." />
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>notas.txt entra al final de los hijos de home/: es su tercer hijo.</div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>notas.txt entra al final de los hijos de home/: es su tercer hijo.</div>
   </Step>
 </StepShow>
 
@@ -731,195 +731,125 @@ de él.
 </Slide>
 
 <Slide title="El preorden en Java">
-La regla **nodo → hijos** se escribe tal cual: primero la visita, y después un
-`for` que recorre cada hijo con el mismo método. La **visita** es lo que el
-recorrido hace con cada nodo. Aquí imprime su valor, para ver en qué orden
-pasa; en su lugar puede ir cualquier acción —sumar, contar, buscar— y el
-recorrido es el mismo.
+La regla **nodo → hijos** se escribe en dos partes: primero la **visita**, lo
+que se hace con cada nodo, y después el **recorrido**, un `for` que llama al
+mismo método con cada hijo.
 
-<StepShow
-  language="java"
-  code={`void preorder(Node<T> node) {
-    System.out.print(node.value + " ");
-    for (Node<T> child : node.children) {
-        preorder(child);
-    }
-}`}
->
-  <Step lines={[2]}>
-    <HierarchyPicture tree={FOLDERS} tones={{ 'home/': 'focus' }} numbers={{ 'home/': 1 }} numbersColor="var(--color-focus)" compact size={0.8} label="home se visita con el número 1. Impreso hasta ahora: home." />
-    <div style={{ fontFamily: 'var(--font-mono, monospace)', margin: '0.25rem auto 0', padding: '0.4rem 0.75rem', maxWidth: '36rem', fontSize: '0.85rem', lineHeight: 1.35, background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px', whiteSpace: 'pre-wrap', textAlign: 'left' }}>{"home/"}</div>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Se llama con la raíz, home/: se imprime.</div>
-  </Step>
-  <Step lines={[2]}>
-    <HierarchyPicture tree={FOLDERS} tones={{ 'home/': 'done', 'fotos/': 'focus' }} numbers={{ 'home/': 1, 'fotos/': 2 }} numbersColor="var(--color-focus)" compact size={0.8} label="fotos se visita con el número 2. Impreso hasta ahora: home fotos." />
-    <div style={{ fontFamily: 'var(--font-mono, monospace)', margin: '0.25rem auto 0', padding: '0.4rem 0.75rem', maxWidth: '36rem', fontSize: '0.85rem', lineHeight: 1.35, background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px', whiteSpace: 'pre-wrap', textAlign: 'left' }}>{"home/ fotos/"}</div>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>El for de home/ llama con su primer hijo, fotos/: se imprime.</div>
-  </Step>
-  <Step lines={[2]}>
-    <HierarchyPicture tree={FOLDERS} tones={{ 'home/': 'done', 'fotos/': 'done', 'playa.jpg': 'focus' }} numbers={{ 'home/': 1, 'fotos/': 2, 'playa.jpg': 3 }} numbersColor="var(--color-focus)" compact size={0.8} label="playa.jpg se visita con el número 3. Impreso hasta ahora: home fotos playa.jpg." />
-    <div style={{ fontFamily: 'var(--font-mono, monospace)', margin: '0.25rem auto 0', padding: '0.4rem 0.75rem', maxWidth: '36rem', fontSize: '0.85rem', lineHeight: 1.35, background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px', whiteSpace: 'pre-wrap', textAlign: 'left' }}>{"home/ fotos/ playa.jpg"}</div>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>El for de fotos/ llama con su primer hijo, playa.jpg: se imprime. No tiene hijos: el for no da ninguna vuelta y la llamada termina.</div>
-  </Step>
-  <Step lines={[2]}>
-    <HierarchyPicture tree={FOLDERS} tones={{ 'home/': 'done', 'fotos/': 'done', 'playa.jpg': 'done', 'perro.jpg': 'focus' }} numbers={{ 'home/': 1, 'fotos/': 2, 'playa.jpg': 3, 'perro.jpg': 4 }} numbersColor="var(--color-focus)" compact size={0.8} label="perro.jpg se visita con el número 4. Impreso hasta ahora: home fotos playa.jpg perro.jpg." />
-    <div style={{ fontFamily: 'var(--font-mono, monospace)', margin: '0.25rem auto 0', padding: '0.4rem 0.75rem', maxWidth: '36rem', fontSize: '0.85rem', lineHeight: 1.35, background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px', whiteSpace: 'pre-wrap', textAlign: 'left' }}>{"home/ fotos/ playa.jpg perro.jpg"}</div>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Las llamadas de abajo terminaron y el for de fotos/ sigue con su siguiente hijo, perro.jpg: se imprime. No tiene hijos: el for no da ninguna vuelta y la llamada termina.</div>
-  </Step>
-  <Step lines={[2]}>
-    <HierarchyPicture tree={FOLDERS} tones={{ 'home/': 'done', 'fotos/': 'done', 'playa.jpg': 'done', 'perro.jpg': 'done', 'ramos/': 'focus' }} numbers={{ 'home/': 1, 'fotos/': 2, 'playa.jpg': 3, 'perro.jpg': 4, 'ramos/': 5 }} numbersColor="var(--color-focus)" compact size={0.8} label="ramos se visita con el número 5. Impreso hasta ahora: home fotos playa.jpg perro.jpg ramos." />
-    <div style={{ fontFamily: 'var(--font-mono, monospace)', margin: '0.25rem auto 0', padding: '0.4rem 0.75rem', maxWidth: '36rem', fontSize: '0.85rem', lineHeight: 1.35, background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px', whiteSpace: 'pre-wrap', textAlign: 'left' }}>{"home/ fotos/ playa.jpg perro.jpg ramos/"}</div>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Las llamadas de abajo terminaron y el for de home/ sigue con su siguiente hijo, ramos/: se imprime.</div>
-  </Step>
-  <Step lines={[2]}>
-    <HierarchyPicture tree={FOLDERS} tones={{ 'home/': 'done', 'fotos/': 'done', 'playa.jpg': 'done', 'perro.jpg': 'done', 'ramos/': 'done', 'eda/': 'focus' }} numbers={{ 'home/': 1, 'fotos/': 2, 'playa.jpg': 3, 'perro.jpg': 4, 'ramos/': 5, 'eda/': 6 }} numbersColor="var(--color-focus)" compact size={0.8} label="eda se visita con el número 6. Impreso hasta ahora: home fotos playa.jpg perro.jpg ramos eda." />
-    <div style={{ fontFamily: 'var(--font-mono, monospace)', margin: '0.25rem auto 0', padding: '0.4rem 0.75rem', maxWidth: '36rem', fontSize: '0.85rem', lineHeight: 1.35, background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px', whiteSpace: 'pre-wrap', textAlign: 'left' }}>{"home/ fotos/ playa.jpg perro.jpg ramos/ eda/"}</div>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>El for de ramos/ llama con su primer hijo, eda/: se imprime.</div>
-  </Step>
-  <Step lines={[2]}>
-    <HierarchyPicture tree={FOLDERS} tones={{ 'home/': 'done', 'fotos/': 'done', 'playa.jpg': 'done', 'perro.jpg': 'done', 'ramos/': 'done', 'eda/': 'done', 't1.pdf': 'focus' }} numbers={{ 'home/': 1, 'fotos/': 2, 'playa.jpg': 3, 'perro.jpg': 4, 'ramos/': 5, 'eda/': 6, 't1.pdf': 7 }} numbersColor="var(--color-focus)" compact size={0.8} label="t1.pdf se visita con el número 7. Impreso hasta ahora: home fotos playa.jpg perro.jpg ramos eda t1.pdf." />
-    <div style={{ fontFamily: 'var(--font-mono, monospace)', margin: '0.25rem auto 0', padding: '0.4rem 0.75rem', maxWidth: '36rem', fontSize: '0.85rem', lineHeight: 1.35, background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px', whiteSpace: 'pre-wrap', textAlign: 'left' }}>{"home/ fotos/ playa.jpg perro.jpg ramos/ eda/ t1.pdf"}</div>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>El for de eda/ llama con su primer hijo, t1.pdf: se imprime. No tiene hijos: el for no da ninguna vuelta y la llamada termina.</div>
-  </Step>
-  <Step lines={[2]}>
-    <HierarchyPicture tree={FOLDERS} tones={{ 'home/': 'done', 'fotos/': 'done', 'playa.jpg': 'done', 'perro.jpg': 'done', 'ramos/': 'done', 'eda/': 'done', 't1.pdf': 'done', 't2.pdf': 'focus' }} numbers={{ 'home/': 1, 'fotos/': 2, 'playa.jpg': 3, 'perro.jpg': 4, 'ramos/': 5, 'eda/': 6, 't1.pdf': 7, 't2.pdf': 8 }} numbersColor="var(--color-focus)" compact size={0.8} label="t2.pdf se visita con el número 8. Impreso hasta ahora: home fotos playa.jpg perro.jpg ramos eda t1.pdf t2.pdf." />
-    <div style={{ fontFamily: 'var(--font-mono, monospace)', margin: '0.25rem auto 0', padding: '0.4rem 0.75rem', maxWidth: '36rem', fontSize: '0.85rem', lineHeight: 1.35, background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px', whiteSpace: 'pre-wrap', textAlign: 'left' }}>{"home/ fotos/ playa.jpg perro.jpg ramos/ eda/ t1.pdf t2.pdf"}</div>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Las llamadas de abajo terminaron y el for de eda/ sigue con su siguiente hijo, t2.pdf: se imprime. No tiene hijos: el for no da ninguna vuelta y la llamada termina.</div>
-  </Step>
-  <Step lines={[2]}>
-    <HierarchyPicture tree={FOLDERS} tones={{ 'home/': 'done', 'fotos/': 'done', 'playa.jpg': 'done', 'perro.jpg': 'done', 'ramos/': 'done', 'eda/': 'done', 't1.pdf': 'done', 't2.pdf': 'done', 'calculo/': 'focus' }} numbers={{ 'home/': 1, 'fotos/': 2, 'playa.jpg': 3, 'perro.jpg': 4, 'ramos/': 5, 'eda/': 6, 't1.pdf': 7, 't2.pdf': 8, 'calculo/': 9 }} numbersColor="var(--color-focus)" compact size={0.8} label="calculo se visita con el número 9. Impreso hasta ahora: home fotos playa.jpg perro.jpg ramos eda t1.pdf t2.pdf calculo." />
-    <div style={{ fontFamily: 'var(--font-mono, monospace)', margin: '0.25rem auto 0', padding: '0.4rem 0.75rem', maxWidth: '36rem', fontSize: '0.85rem', lineHeight: 1.35, background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px', whiteSpace: 'pre-wrap', textAlign: 'left' }}>{"home/ fotos/ playa.jpg perro.jpg ramos/ eda/ t1.pdf t2.pdf calculo/"}</div>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Las llamadas de abajo terminaron y el for de ramos/ sigue con su siguiente hijo, calculo/: se imprime.</div>
-  </Step>
-  <Step lines={[2]}>
-    <HierarchyPicture tree={FOLDERS} tones={{ 'home/': 'done', 'fotos/': 'done', 'playa.jpg': 'done', 'perro.jpg': 'done', 'ramos/': 'done', 'eda/': 'done', 't1.pdf': 'done', 't2.pdf': 'done', 'calculo/': 'done', 'guia.pdf': 'focus' }} numbers={{ 'home/': 1, 'fotos/': 2, 'playa.jpg': 3, 'perro.jpg': 4, 'ramos/': 5, 'eda/': 6, 't1.pdf': 7, 't2.pdf': 8, 'calculo/': 9, 'guia.pdf': 10 }} numbersColor="var(--color-focus)" compact size={0.8} label="guia.pdf se visita con el número 10. Impreso hasta ahora: home fotos playa.jpg perro.jpg ramos eda t1.pdf t2.pdf calculo guia.pdf." />
-    <div style={{ fontFamily: 'var(--font-mono, monospace)', margin: '0.25rem auto 0', padding: '0.4rem 0.75rem', maxWidth: '36rem', fontSize: '0.85rem', lineHeight: 1.35, background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px', whiteSpace: 'pre-wrap', textAlign: 'left' }}>{"home/ fotos/ playa.jpg perro.jpg ramos/ eda/ t1.pdf t2.pdf calculo/ guia.pdf"}</div>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>El for de calculo/ llama con su primer hijo, guia.pdf: se imprime. No tiene hijos: el for no da ninguna vuelta y la llamada termina.</div>
-  </Step>
-  <Step lines={[2]}>
-    <HierarchyPicture tree={FOLDERS} tones={{ 'home/': 'done', 'fotos/': 'done', 'playa.jpg': 'done', 'perro.jpg': 'done', 'ramos/': 'done', 'eda/': 'done', 't1.pdf': 'done', 't2.pdf': 'done', 'calculo/': 'done', 'guia.pdf': 'done', 'notas.txt': 'focus' }} numbers={{ 'home/': 1, 'fotos/': 2, 'playa.jpg': 3, 'perro.jpg': 4, 'ramos/': 5, 'eda/': 6, 't1.pdf': 7, 't2.pdf': 8, 'calculo/': 9, 'guia.pdf': 10, 'notas.txt': 11 }} numbersColor="var(--color-focus)" compact size={0.8} label="notas.txt se visita con el número 11. Impreso hasta ahora: home fotos playa.jpg perro.jpg ramos eda t1.pdf t2.pdf calculo guia.pdf notas.txt." />
-    <div style={{ fontFamily: 'var(--font-mono, monospace)', margin: '0.25rem auto 0', padding: '0.4rem 0.75rem', maxWidth: '36rem', fontSize: '0.85rem', lineHeight: 1.35, background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px', whiteSpace: 'pre-wrap', textAlign: 'left' }}>{"home/ fotos/ playa.jpg perro.jpg ramos/ eda/ t1.pdf t2.pdf calculo/ guia.pdf notas.txt"}</div>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Las llamadas de abajo terminaron y el for de home/ sigue con su siguiente hijo, notas.txt: se imprime. No tiene hijos: el for no da ninguna vuelta y la llamada termina.</div>
-  </Step>
-</StepShow>
-
-</Slide>
-
-<Slide title="El listado de una carpeta">
-Un explorador de archivos, o el comando `tree` de una terminal, muestra una
-carpeta en preorden: cada carpeta aparece antes que lo que guarda, y lo que
-guarda aparece completo antes de pasar a la carpeta siguiente. La visita
-imprime una línea, y su sangría es la **profundidad** del nodo: cada hijo
-recibe la de su padre, más uno.
+El recorrido es siempre el mismo; lo que cambia según el problema es la
+visita. Un explorador de archivos, o el comando `tree` de una terminal, lista
+una carpeta en preorden: la visita imprime una línea con la sangría de la
+**profundidad** del nodo, y cada hijo recibe la de su padre, más uno.
 
 <StepShow
   language="java"
   code={`void list(Node<String> node, int depth) {
+    // visita: imprime una línea con su sangría
     System.out.println("    ".repeat(depth)
         + node.value);
+    // recorrido: cada hijo, un nivel más abajo
     for (Node<String> child : node.children) {
         list(child, depth + 1);
     }
 }`}
 >
-  <Step lines={[2, 3]}>
+  <Step lines={[3, 4]}>
     <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
     <div style={{ flex: '1 1 0', minWidth: 0 }}>
-    <HierarchyPicture tree={FOLDERS} tones={{ 'home/': 'focus' }} numbers={{ 'home/': 1 }} numbersColor="var(--color-focus)" compact size={1} label="home, a profundidad 0, se imprime en la línea 1 del listado." />
+    <HierarchyPicture tree={FOLDERS} tones={{ 'home/': 'focus' }} numbers={{ 'home/': 1 }} numbersColor="var(--color-focus)" compact size={0.7} label="home, a profundidad 0, se imprime en la línea 1 del listado." />
     </div>
     <div style={{ flex: '0 0 11.5rem', fontFamily: 'var(--font-mono, monospace)', padding: '0.4rem 0.6rem', fontSize: '0.8rem', lineHeight: 1.35, background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px', whiteSpace: 'pre', minHeight: '15.5rem' }}>{"home/"}</div>
     </div>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Se llama con la raíz, home/, con profundidad 0: se imprime sin sangría.</div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>Se llama con la raíz, home/: profundidad 0, sin sangría.</div>
   </Step>
-  <Step lines={[2, 3]}>
+  <Step lines={[3, 4]}>
     <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
     <div style={{ flex: '1 1 0', minWidth: 0 }}>
-    <HierarchyPicture tree={FOLDERS} tones={{ 'home/': 'done', 'fotos/': 'focus' }} numbers={{ 'home/': 1, 'fotos/': 2 }} numbersColor="var(--color-focus)" compact size={1} label="fotos, a profundidad 1, se imprime en la línea 2 del listado." />
+    <HierarchyPicture tree={FOLDERS} tones={{ 'home/': 'done', 'fotos/': 'focus' }} numbers={{ 'home/': 1, 'fotos/': 2 }} numbersColor="var(--color-focus)" compact size={0.7} label="fotos, a profundidad 1, se imprime en la línea 2 del listado." />
     </div>
     <div style={{ flex: '0 0 11.5rem', fontFamily: 'var(--font-mono, monospace)', padding: '0.4rem 0.6rem', fontSize: '0.8rem', lineHeight: 1.35, background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px', whiteSpace: 'pre', minHeight: '15.5rem' }}>{"home/\n    fotos/"}</div>
     </div>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>El for de home/ llama con su primer hijo, fotos/, con profundidad 1: se imprime con una sangría.</div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>home/ llama con su primer hijo, fotos/: profundidad 1, una sangría.</div>
   </Step>
-  <Step lines={[2, 3]}>
+  <Step lines={[3, 4]}>
     <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
     <div style={{ flex: '1 1 0', minWidth: 0 }}>
-    <HierarchyPicture tree={FOLDERS} tones={{ 'home/': 'done', 'fotos/': 'done', 'playa.jpg': 'focus' }} numbers={{ 'home/': 1, 'fotos/': 2, 'playa.jpg': 3 }} numbersColor="var(--color-focus)" compact size={1} label="playa.jpg, a profundidad 2, se imprime en la línea 3 del listado." />
+    <HierarchyPicture tree={FOLDERS} tones={{ 'home/': 'done', 'fotos/': 'done', 'playa.jpg': 'focus' }} numbers={{ 'home/': 1, 'fotos/': 2, 'playa.jpg': 3 }} numbersColor="var(--color-focus)" compact size={0.7} label="playa.jpg, a profundidad 2, se imprime en la línea 3 del listado." />
     </div>
     <div style={{ flex: '0 0 11.5rem', fontFamily: 'var(--font-mono, monospace)', padding: '0.4rem 0.6rem', fontSize: '0.8rem', lineHeight: 1.35, background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px', whiteSpace: 'pre', minHeight: '15.5rem' }}>{"home/\n    fotos/\n        playa.jpg"}</div>
     </div>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>El for de fotos/ llama con su primer hijo, playa.jpg, con profundidad 2: se imprime con 2 sangrías.</div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>fotos/ llama con su primer hijo, playa.jpg: profundidad 2, dos sangrías.</div>
   </Step>
-  <Step lines={[2, 3]}>
+  <Step lines={[3, 4]}>
     <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
     <div style={{ flex: '1 1 0', minWidth: 0 }}>
-    <HierarchyPicture tree={FOLDERS} tones={{ 'home/': 'done', 'fotos/': 'done', 'playa.jpg': 'done', 'perro.jpg': 'focus' }} numbers={{ 'home/': 1, 'fotos/': 2, 'playa.jpg': 3, 'perro.jpg': 4 }} numbersColor="var(--color-focus)" compact size={1} label="perro.jpg, a profundidad 2, se imprime en la línea 4 del listado." />
+    <HierarchyPicture tree={FOLDERS} tones={{ 'home/': 'done', 'fotos/': 'done', 'playa.jpg': 'done', 'perro.jpg': 'focus' }} numbers={{ 'home/': 1, 'fotos/': 2, 'playa.jpg': 3, 'perro.jpg': 4 }} numbersColor="var(--color-focus)" compact size={0.7} label="perro.jpg, a profundidad 2, se imprime en la línea 4 del listado." />
     </div>
     <div style={{ flex: '0 0 11.5rem', fontFamily: 'var(--font-mono, monospace)', padding: '0.4rem 0.6rem', fontSize: '0.8rem', lineHeight: 1.35, background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px', whiteSpace: 'pre', minHeight: '15.5rem' }}>{"home/\n    fotos/\n        playa.jpg\n        perro.jpg"}</div>
     </div>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Las llamadas de abajo terminaron y el for de fotos/ sigue con su siguiente hijo, perro.jpg, con profundidad 2: se imprime con 2 sangrías.</div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>Terminan las llamadas de abajo; fotos/ sigue con perro.jpg: profundidad 2, dos sangrías.</div>
   </Step>
-  <Step lines={[2, 3]}>
+  <Step lines={[3, 4]}>
     <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
     <div style={{ flex: '1 1 0', minWidth: 0 }}>
-    <HierarchyPicture tree={FOLDERS} tones={{ 'home/': 'done', 'fotos/': 'done', 'playa.jpg': 'done', 'perro.jpg': 'done', 'ramos/': 'focus' }} numbers={{ 'home/': 1, 'fotos/': 2, 'playa.jpg': 3, 'perro.jpg': 4, 'ramos/': 5 }} numbersColor="var(--color-focus)" compact size={1} label="ramos, a profundidad 1, se imprime en la línea 5 del listado." />
+    <HierarchyPicture tree={FOLDERS} tones={{ 'home/': 'done', 'fotos/': 'done', 'playa.jpg': 'done', 'perro.jpg': 'done', 'ramos/': 'focus' }} numbers={{ 'home/': 1, 'fotos/': 2, 'playa.jpg': 3, 'perro.jpg': 4, 'ramos/': 5 }} numbersColor="var(--color-focus)" compact size={0.7} label="ramos, a profundidad 1, se imprime en la línea 5 del listado." />
     </div>
     <div style={{ flex: '0 0 11.5rem', fontFamily: 'var(--font-mono, monospace)', padding: '0.4rem 0.6rem', fontSize: '0.8rem', lineHeight: 1.35, background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px', whiteSpace: 'pre', minHeight: '15.5rem' }}>{"home/\n    fotos/\n        playa.jpg\n        perro.jpg\n    ramos/"}</div>
     </div>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Las llamadas de abajo terminaron y el for de home/ sigue con su siguiente hijo, ramos/, con profundidad 1: se imprime con una sangría.</div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>Terminan las llamadas de abajo; home/ sigue con ramos/: profundidad 1, una sangría.</div>
   </Step>
-  <Step lines={[2, 3]}>
+  <Step lines={[3, 4]}>
     <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
     <div style={{ flex: '1 1 0', minWidth: 0 }}>
-    <HierarchyPicture tree={FOLDERS} tones={{ 'home/': 'done', 'fotos/': 'done', 'playa.jpg': 'done', 'perro.jpg': 'done', 'ramos/': 'done', 'eda/': 'focus' }} numbers={{ 'home/': 1, 'fotos/': 2, 'playa.jpg': 3, 'perro.jpg': 4, 'ramos/': 5, 'eda/': 6 }} numbersColor="var(--color-focus)" compact size={1} label="eda, a profundidad 2, se imprime en la línea 6 del listado." />
+    <HierarchyPicture tree={FOLDERS} tones={{ 'home/': 'done', 'fotos/': 'done', 'playa.jpg': 'done', 'perro.jpg': 'done', 'ramos/': 'done', 'eda/': 'focus' }} numbers={{ 'home/': 1, 'fotos/': 2, 'playa.jpg': 3, 'perro.jpg': 4, 'ramos/': 5, 'eda/': 6 }} numbersColor="var(--color-focus)" compact size={0.7} label="eda, a profundidad 2, se imprime en la línea 6 del listado." />
     </div>
     <div style={{ flex: '0 0 11.5rem', fontFamily: 'var(--font-mono, monospace)', padding: '0.4rem 0.6rem', fontSize: '0.8rem', lineHeight: 1.35, background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px', whiteSpace: 'pre', minHeight: '15.5rem' }}>{"home/\n    fotos/\n        playa.jpg\n        perro.jpg\n    ramos/\n        eda/"}</div>
     </div>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>El for de ramos/ llama con su primer hijo, eda/, con profundidad 2: se imprime con 2 sangrías.</div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>ramos/ llama con su primer hijo, eda/: profundidad 2, dos sangrías.</div>
   </Step>
-  <Step lines={[2, 3]}>
+  <Step lines={[3, 4]}>
     <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
     <div style={{ flex: '1 1 0', minWidth: 0 }}>
-    <HierarchyPicture tree={FOLDERS} tones={{ 'home/': 'done', 'fotos/': 'done', 'playa.jpg': 'done', 'perro.jpg': 'done', 'ramos/': 'done', 'eda/': 'done', 't1.pdf': 'focus' }} numbers={{ 'home/': 1, 'fotos/': 2, 'playa.jpg': 3, 'perro.jpg': 4, 'ramos/': 5, 'eda/': 6, 't1.pdf': 7 }} numbersColor="var(--color-focus)" compact size={1} label="t1.pdf, a profundidad 3, se imprime en la línea 7 del listado." />
+    <HierarchyPicture tree={FOLDERS} tones={{ 'home/': 'done', 'fotos/': 'done', 'playa.jpg': 'done', 'perro.jpg': 'done', 'ramos/': 'done', 'eda/': 'done', 't1.pdf': 'focus' }} numbers={{ 'home/': 1, 'fotos/': 2, 'playa.jpg': 3, 'perro.jpg': 4, 'ramos/': 5, 'eda/': 6, 't1.pdf': 7 }} numbersColor="var(--color-focus)" compact size={0.7} label="t1.pdf, a profundidad 3, se imprime en la línea 7 del listado." />
     </div>
     <div style={{ flex: '0 0 11.5rem', fontFamily: 'var(--font-mono, monospace)', padding: '0.4rem 0.6rem', fontSize: '0.8rem', lineHeight: 1.35, background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px', whiteSpace: 'pre', minHeight: '15.5rem' }}>{"home/\n    fotos/\n        playa.jpg\n        perro.jpg\n    ramos/\n        eda/\n            t1.pdf"}</div>
     </div>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>El for de eda/ llama con su primer hijo, t1.pdf, con profundidad 3: se imprime con 3 sangrías.</div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>eda/ llama con su primer hijo, t1.pdf: profundidad 3, tres sangrías.</div>
   </Step>
-  <Step lines={[2, 3]}>
+  <Step lines={[3, 4]}>
     <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
     <div style={{ flex: '1 1 0', minWidth: 0 }}>
-    <HierarchyPicture tree={FOLDERS} tones={{ 'home/': 'done', 'fotos/': 'done', 'playa.jpg': 'done', 'perro.jpg': 'done', 'ramos/': 'done', 'eda/': 'done', 't1.pdf': 'done', 't2.pdf': 'focus' }} numbers={{ 'home/': 1, 'fotos/': 2, 'playa.jpg': 3, 'perro.jpg': 4, 'ramos/': 5, 'eda/': 6, 't1.pdf': 7, 't2.pdf': 8 }} numbersColor="var(--color-focus)" compact size={1} label="t2.pdf, a profundidad 3, se imprime en la línea 8 del listado." />
+    <HierarchyPicture tree={FOLDERS} tones={{ 'home/': 'done', 'fotos/': 'done', 'playa.jpg': 'done', 'perro.jpg': 'done', 'ramos/': 'done', 'eda/': 'done', 't1.pdf': 'done', 't2.pdf': 'focus' }} numbers={{ 'home/': 1, 'fotos/': 2, 'playa.jpg': 3, 'perro.jpg': 4, 'ramos/': 5, 'eda/': 6, 't1.pdf': 7, 't2.pdf': 8 }} numbersColor="var(--color-focus)" compact size={0.7} label="t2.pdf, a profundidad 3, se imprime en la línea 8 del listado." />
     </div>
     <div style={{ flex: '0 0 11.5rem', fontFamily: 'var(--font-mono, monospace)', padding: '0.4rem 0.6rem', fontSize: '0.8rem', lineHeight: 1.35, background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px', whiteSpace: 'pre', minHeight: '15.5rem' }}>{"home/\n    fotos/\n        playa.jpg\n        perro.jpg\n    ramos/\n        eda/\n            t1.pdf\n            t2.pdf"}</div>
     </div>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Las llamadas de abajo terminaron y el for de eda/ sigue con su siguiente hijo, t2.pdf, con profundidad 3: se imprime con 3 sangrías.</div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>Terminan las llamadas de abajo; eda/ sigue con t2.pdf: profundidad 3, tres sangrías.</div>
   </Step>
-  <Step lines={[2, 3]}>
+  <Step lines={[3, 4]}>
     <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
     <div style={{ flex: '1 1 0', minWidth: 0 }}>
-    <HierarchyPicture tree={FOLDERS} tones={{ 'home/': 'done', 'fotos/': 'done', 'playa.jpg': 'done', 'perro.jpg': 'done', 'ramos/': 'done', 'eda/': 'done', 't1.pdf': 'done', 't2.pdf': 'done', 'calculo/': 'focus' }} numbers={{ 'home/': 1, 'fotos/': 2, 'playa.jpg': 3, 'perro.jpg': 4, 'ramos/': 5, 'eda/': 6, 't1.pdf': 7, 't2.pdf': 8, 'calculo/': 9 }} numbersColor="var(--color-focus)" compact size={1} label="calculo, a profundidad 2, se imprime en la línea 9 del listado." />
+    <HierarchyPicture tree={FOLDERS} tones={{ 'home/': 'done', 'fotos/': 'done', 'playa.jpg': 'done', 'perro.jpg': 'done', 'ramos/': 'done', 'eda/': 'done', 't1.pdf': 'done', 't2.pdf': 'done', 'calculo/': 'focus' }} numbers={{ 'home/': 1, 'fotos/': 2, 'playa.jpg': 3, 'perro.jpg': 4, 'ramos/': 5, 'eda/': 6, 't1.pdf': 7, 't2.pdf': 8, 'calculo/': 9 }} numbersColor="var(--color-focus)" compact size={0.7} label="calculo, a profundidad 2, se imprime en la línea 9 del listado." />
     </div>
     <div style={{ flex: '0 0 11.5rem', fontFamily: 'var(--font-mono, monospace)', padding: '0.4rem 0.6rem', fontSize: '0.8rem', lineHeight: 1.35, background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px', whiteSpace: 'pre', minHeight: '15.5rem' }}>{"home/\n    fotos/\n        playa.jpg\n        perro.jpg\n    ramos/\n        eda/\n            t1.pdf\n            t2.pdf\n        calculo/"}</div>
     </div>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Las llamadas de abajo terminaron y el for de ramos/ sigue con su siguiente hijo, calculo/, con profundidad 2: se imprime con 2 sangrías.</div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>Terminan las llamadas de abajo; ramos/ sigue con calculo/: profundidad 2, dos sangrías.</div>
   </Step>
-  <Step lines={[2, 3]}>
+  <Step lines={[3, 4]}>
     <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
     <div style={{ flex: '1 1 0', minWidth: 0 }}>
-    <HierarchyPicture tree={FOLDERS} tones={{ 'home/': 'done', 'fotos/': 'done', 'playa.jpg': 'done', 'perro.jpg': 'done', 'ramos/': 'done', 'eda/': 'done', 't1.pdf': 'done', 't2.pdf': 'done', 'calculo/': 'done', 'guia.pdf': 'focus' }} numbers={{ 'home/': 1, 'fotos/': 2, 'playa.jpg': 3, 'perro.jpg': 4, 'ramos/': 5, 'eda/': 6, 't1.pdf': 7, 't2.pdf': 8, 'calculo/': 9, 'guia.pdf': 10 }} numbersColor="var(--color-focus)" compact size={1} label="guia.pdf, a profundidad 3, se imprime en la línea 10 del listado." />
+    <HierarchyPicture tree={FOLDERS} tones={{ 'home/': 'done', 'fotos/': 'done', 'playa.jpg': 'done', 'perro.jpg': 'done', 'ramos/': 'done', 'eda/': 'done', 't1.pdf': 'done', 't2.pdf': 'done', 'calculo/': 'done', 'guia.pdf': 'focus' }} numbers={{ 'home/': 1, 'fotos/': 2, 'playa.jpg': 3, 'perro.jpg': 4, 'ramos/': 5, 'eda/': 6, 't1.pdf': 7, 't2.pdf': 8, 'calculo/': 9, 'guia.pdf': 10 }} numbersColor="var(--color-focus)" compact size={0.7} label="guia.pdf, a profundidad 3, se imprime en la línea 10 del listado." />
     </div>
     <div style={{ flex: '0 0 11.5rem', fontFamily: 'var(--font-mono, monospace)', padding: '0.4rem 0.6rem', fontSize: '0.8rem', lineHeight: 1.35, background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px', whiteSpace: 'pre', minHeight: '15.5rem' }}>{"home/\n    fotos/\n        playa.jpg\n        perro.jpg\n    ramos/\n        eda/\n            t1.pdf\n            t2.pdf\n        calculo/\n            guia.pdf"}</div>
     </div>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>El for de calculo/ llama con su primer hijo, guia.pdf, con profundidad 3: se imprime con 3 sangrías.</div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>calculo/ llama con su primer hijo, guia.pdf: profundidad 3, tres sangrías.</div>
   </Step>
-  <Step lines={[2, 3]}>
+  <Step lines={[3, 4]}>
     <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
     <div style={{ flex: '1 1 0', minWidth: 0 }}>
-    <HierarchyPicture tree={FOLDERS} tones={{ 'home/': 'done', 'fotos/': 'done', 'playa.jpg': 'done', 'perro.jpg': 'done', 'ramos/': 'done', 'eda/': 'done', 't1.pdf': 'done', 't2.pdf': 'done', 'calculo/': 'done', 'guia.pdf': 'done', 'notas.txt': 'focus' }} numbers={{ 'home/': 1, 'fotos/': 2, 'playa.jpg': 3, 'perro.jpg': 4, 'ramos/': 5, 'eda/': 6, 't1.pdf': 7, 't2.pdf': 8, 'calculo/': 9, 'guia.pdf': 10, 'notas.txt': 11 }} numbersColor="var(--color-focus)" compact size={1} label="notas.txt, a profundidad 1, se imprime en la línea 11 del listado." />
+    <HierarchyPicture tree={FOLDERS} tones={{ 'home/': 'done', 'fotos/': 'done', 'playa.jpg': 'done', 'perro.jpg': 'done', 'ramos/': 'done', 'eda/': 'done', 't1.pdf': 'done', 't2.pdf': 'done', 'calculo/': 'done', 'guia.pdf': 'done', 'notas.txt': 'focus' }} numbers={{ 'home/': 1, 'fotos/': 2, 'playa.jpg': 3, 'perro.jpg': 4, 'ramos/': 5, 'eda/': 6, 't1.pdf': 7, 't2.pdf': 8, 'calculo/': 9, 'guia.pdf': 10, 'notas.txt': 11 }} numbersColor="var(--color-focus)" compact size={0.7} label="notas.txt, a profundidad 1, se imprime en la línea 11 del listado." />
     </div>
     <div style={{ flex: '0 0 11.5rem', fontFamily: 'var(--font-mono, monospace)', padding: '0.4rem 0.6rem', fontSize: '0.8rem', lineHeight: 1.35, background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px', whiteSpace: 'pre', minHeight: '15.5rem' }}>{"home/\n    fotos/\n        playa.jpg\n        perro.jpg\n    ramos/\n        eda/\n            t1.pdf\n            t2.pdf\n        calculo/\n            guia.pdf\n    notas.txt"}</div>
     </div>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Las llamadas de abajo terminaron y el for de home/ sigue con su siguiente hijo, notas.txt, con profundidad 1: se imprime con una sangría.</div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>Terminan las llamadas de abajo; home/ sigue con notas.txt: profundidad 1, una sangría.</div>
   </Step>
 </StepShow>
 
@@ -940,20 +870,19 @@ Es el orden de la altura: un nodo se visita después de todo lo que cuelga de
 </Slide>
 
 <Slide title="El postorden en Java">
-La regla **hijos → nodo** mueve la visita al final: primero el `for` sobre los
-hijos, y después el nodo.
+La regla **hijos → nodo** tiene las mismas dos partes que el preorden, en el
+orden inverso: primero el recorrido, y después la visita.
 
 ```java
 void postorder(Node<T> node) {
+    // recorrido: primero cada hijo
     for (Node<T> child : node.children) {
         postorder(child);
     }
+    // visita: después, el nodo
     System.out.print(node.value + " ");
 }
 ```
-
-El preorden y el postorden son el mismo método con la visita en otro lugar:
-antes del `for` o después de él.
 
 </Slide>
 
@@ -961,7 +890,8 @@ antes del `for` o después de él.
 El tamaño de una carpeta es la suma de lo que guarda: antes de sumarla hay
 que conocer el tamaño de cada cosa que tiene dentro, así que es un postorden.
 Si cada nodo guarda su tamaño propio —un archivo, lo que pesa; una carpeta,
-nada—, el tamaño de un nodo es el suyo más el de cada hijo.
+nada—, el recorrido junta el tamaño de los hijos y la visita le suma el del
+nodo.
 
 <PresentationWide fraction={0.85}>
 
@@ -969,11 +899,13 @@ nada—, el tamaño de un nodo es el suyo más el de cada hijo.
 
 ```java
 int size(Node<Integer> node) {
-    int total = node.value;
+    // recorrido: el tamaño de cada hijo
+    int total = 0;
     for (Node<Integer> child : node.children) {
         total += size(child);
     }
-    return total;
+    // visita: el nodo suma el suyo
+    return total + node.value;
 }
 ```
 
@@ -1026,70 +958,72 @@ primero, se visita, y sus hijos entran al final.
     queue.add(root);
     while (!queue.isEmpty()) {
         Node<T> node = queue.remove();
+        // visita
         System.out.print(node.value + " ");
+        // recorrido: sus hijos, al final de la cola
         queue.addAll(node.children);
     }
 }`}
 >
   <Step lines={[2, 3]}>
     <HierarchyPicture tree={FOLDERS} tones={{ 'home/': 'mark' }} queue={['home/']} compact size={0.8} label="La cola tiene solo a home, la raíz. Todavía no se visita ningún nodo." />
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>La raíz entra a la cola.</div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>La raíz entra a la cola.</div>
   </Step>
   <Step lines={[5]}>
     <HierarchyPicture tree={FOLDERS} tones={{ 'home/': 'focus' }} queue={[]} compact size={0.8} label="home sale de la cola, que queda vacía." />
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Sale el primero de la cola: home/.</div>
-  </Step>
-  <Step lines={[6]}>
-    <HierarchyPicture tree={FOLDERS} tones={{ 'home/': 'focus' }} numbers={{ 'home/': 1 }} queue={[]} compact size={0.8} label="home se visita con el número 1." />
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Se visita home/: es el primero del recorrido.</div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>Sale el primero de la cola: home/.</div>
   </Step>
   <Step lines={[7]}>
+    <HierarchyPicture tree={FOLDERS} tones={{ 'home/': 'focus' }} numbers={{ 'home/': 1 }} queue={[]} compact size={0.8} label="home se visita con el número 1." />
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>Se visita home/: es el primero del recorrido.</div>
+  </Step>
+  <Step lines={[9]}>
     <HierarchyPicture tree={FOLDERS} tones={{ 'home/': 'focus', 'fotos/': 'mark', 'ramos/': 'mark', 'notas.txt': 'mark' }} numbers={{ 'home/': 1 }} queue={['fotos/', 'ramos/', 'notas.txt']} compact size={0.8} label="Los hijos de home, fotos, ramos y notas.txt, entran a la cola." />
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Sus hijos, fotos/, ramos/ y notas.txt, entran al final de la cola, en orden.</div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>Sus hijos, fotos/, ramos/ y notas.txt, entran al final de la cola, en orden.</div>
   </Step>
-  <Step lines={[5, 6, 7]}>
+  <Step lines={[5, 6, 7, 8, 9]}>
     <HierarchyPicture tree={FOLDERS} tones={{ 'home/': 'done', 'fotos/': 'focus', 'ramos/': 'mark', 'notas.txt': 'mark', 'playa.jpg': 'mark', 'perro.jpg': 'mark' }} numbers={{ 'home/': 1, 'fotos/': 2 }} queue={['ramos/', 'notas.txt', 'playa.jpg', 'perro.jpg']} compact size={0.8} label="fotos se visita con el número 2. En la cola quedan: ramos, notas.txt, playa.jpg y perro.jpg." />
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Sale fotos/, se visita, y entran sus hijos al final: playa.jpg y perro.jpg.</div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>Sale fotos/, se visita, y entran sus hijos al final: playa.jpg y perro.jpg.</div>
   </Step>
-  <Step lines={[5, 6, 7]}>
+  <Step lines={[5, 6, 7, 8, 9]}>
     <HierarchyPicture tree={FOLDERS} tones={{ 'home/': 'done', 'fotos/': 'done', 'ramos/': 'focus', 'notas.txt': 'mark', 'playa.jpg': 'mark', 'perro.jpg': 'mark', 'eda/': 'mark', 'calculo/': 'mark' }} numbers={{ 'home/': 1, 'fotos/': 2, 'ramos/': 3 }} queue={['notas.txt', 'playa.jpg', 'perro.jpg', 'eda/', 'calculo/']} compact size={0.8} label="ramos se visita con el número 3. En la cola quedan: notas.txt, playa.jpg, perro.jpg, eda y calculo." />
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Sale ramos/, se visita, y entran sus hijos al final: eda/ y calculo/.</div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>Sale ramos/, se visita, y entran sus hijos al final: eda/ y calculo/.</div>
   </Step>
-  <Step lines={[5, 6, 7]}>
+  <Step lines={[5, 6, 7, 8, 9]}>
     <HierarchyPicture tree={FOLDERS} tones={{ 'home/': 'done', 'fotos/': 'done', 'ramos/': 'done', 'notas.txt': 'focus', 'playa.jpg': 'mark', 'perro.jpg': 'mark', 'eda/': 'mark', 'calculo/': 'mark' }} numbers={{ 'home/': 1, 'fotos/': 2, 'ramos/': 3, 'notas.txt': 4 }} queue={['playa.jpg', 'perro.jpg', 'eda/', 'calculo/']} compact size={0.8} label="notas.txt se visita con el número 4. En la cola quedan: playa.jpg, perro.jpg, eda y calculo." />
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Sale notas.txt y se visita. No tiene hijos: no entra nadie.</div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>Sale notas.txt y se visita. No tiene hijos: no entra nadie.</div>
   </Step>
-  <Step lines={[5, 6, 7]}>
+  <Step lines={[5, 6, 7, 8, 9]}>
     <HierarchyPicture tree={FOLDERS} tones={{ 'home/': 'done', 'fotos/': 'done', 'ramos/': 'done', 'notas.txt': 'done', 'playa.jpg': 'focus', 'perro.jpg': 'mark', 'eda/': 'mark', 'calculo/': 'mark' }} numbers={{ 'home/': 1, 'fotos/': 2, 'ramos/': 3, 'notas.txt': 4, 'playa.jpg': 5 }} queue={['perro.jpg', 'eda/', 'calculo/']} compact size={0.8} label="playa.jpg se visita con el número 5. En la cola quedan: perro.jpg, eda y calculo." />
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Sale playa.jpg y se visita. No tiene hijos: no entra nadie.</div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>Sale playa.jpg y se visita. No tiene hijos: no entra nadie.</div>
   </Step>
-  <Step lines={[5, 6, 7]}>
+  <Step lines={[5, 6, 7, 8, 9]}>
     <HierarchyPicture tree={FOLDERS} tones={{ 'home/': 'done', 'fotos/': 'done', 'ramos/': 'done', 'notas.txt': 'done', 'playa.jpg': 'done', 'perro.jpg': 'focus', 'eda/': 'mark', 'calculo/': 'mark' }} numbers={{ 'home/': 1, 'fotos/': 2, 'ramos/': 3, 'notas.txt': 4, 'playa.jpg': 5, 'perro.jpg': 6 }} queue={['eda/', 'calculo/']} compact size={0.8} label="perro.jpg se visita con el número 6. En la cola quedan: eda y calculo." />
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Sale perro.jpg y se visita. No tiene hijos: no entra nadie.</div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>Sale perro.jpg y se visita. No tiene hijos: no entra nadie.</div>
   </Step>
-  <Step lines={[5, 6, 7]}>
+  <Step lines={[5, 6, 7, 8, 9]}>
     <HierarchyPicture tree={FOLDERS} tones={{ 'home/': 'done', 'fotos/': 'done', 'ramos/': 'done', 'notas.txt': 'done', 'playa.jpg': 'done', 'perro.jpg': 'done', 'eda/': 'focus', 'calculo/': 'mark', 't1.pdf': 'mark', 't2.pdf': 'mark' }} numbers={{ 'home/': 1, 'fotos/': 2, 'ramos/': 3, 'notas.txt': 4, 'playa.jpg': 5, 'perro.jpg': 6, 'eda/': 7 }} queue={['calculo/', 't1.pdf', 't2.pdf']} compact size={0.8} label="eda se visita con el número 7. En la cola quedan: calculo, t1.pdf y t2.pdf." />
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Sale eda/, se visita, y entran sus hijos al final: t1.pdf y t2.pdf.</div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>Sale eda/, se visita, y entran sus hijos al final: t1.pdf y t2.pdf.</div>
   </Step>
-  <Step lines={[5, 6, 7]}>
+  <Step lines={[5, 6, 7, 8, 9]}>
     <HierarchyPicture tree={FOLDERS} tones={{ 'home/': 'done', 'fotos/': 'done', 'ramos/': 'done', 'notas.txt': 'done', 'playa.jpg': 'done', 'perro.jpg': 'done', 'eda/': 'done', 'calculo/': 'focus', 't1.pdf': 'mark', 't2.pdf': 'mark', 'guia.pdf': 'mark' }} numbers={{ 'home/': 1, 'fotos/': 2, 'ramos/': 3, 'notas.txt': 4, 'playa.jpg': 5, 'perro.jpg': 6, 'eda/': 7, 'calculo/': 8 }} queue={['t1.pdf', 't2.pdf', 'guia.pdf']} compact size={0.8} label="calculo se visita con el número 8. En la cola quedan: t1.pdf, t2.pdf y guia.pdf." />
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Sale calculo/, se visita, y entran sus hijos al final: guia.pdf.</div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>Sale calculo/, se visita, y entran sus hijos al final: guia.pdf.</div>
   </Step>
-  <Step lines={[5, 6, 7]}>
+  <Step lines={[5, 6, 7, 8, 9]}>
     <HierarchyPicture tree={FOLDERS} tones={{ 'home/': 'done', 'fotos/': 'done', 'ramos/': 'done', 'notas.txt': 'done', 'playa.jpg': 'done', 'perro.jpg': 'done', 'eda/': 'done', 'calculo/': 'done', 't1.pdf': 'focus', 't2.pdf': 'mark', 'guia.pdf': 'mark' }} numbers={{ 'home/': 1, 'fotos/': 2, 'ramos/': 3, 'notas.txt': 4, 'playa.jpg': 5, 'perro.jpg': 6, 'eda/': 7, 'calculo/': 8, 't1.pdf': 9 }} queue={['t2.pdf', 'guia.pdf']} compact size={0.8} label="t1.pdf se visita con el número 9. En la cola quedan: t2.pdf y guia.pdf." />
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Sale t1.pdf y se visita. No tiene hijos: no entra nadie.</div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>Sale t1.pdf y se visita. No tiene hijos: no entra nadie.</div>
   </Step>
-  <Step lines={[5, 6, 7]}>
+  <Step lines={[5, 6, 7, 8, 9]}>
     <HierarchyPicture tree={FOLDERS} tones={{ 'home/': 'done', 'fotos/': 'done', 'ramos/': 'done', 'notas.txt': 'done', 'playa.jpg': 'done', 'perro.jpg': 'done', 'eda/': 'done', 'calculo/': 'done', 't1.pdf': 'done', 't2.pdf': 'focus', 'guia.pdf': 'mark' }} numbers={{ 'home/': 1, 'fotos/': 2, 'ramos/': 3, 'notas.txt': 4, 'playa.jpg': 5, 'perro.jpg': 6, 'eda/': 7, 'calculo/': 8, 't1.pdf': 9, 't2.pdf': 10 }} queue={['guia.pdf']} compact size={0.8} label="t2.pdf se visita con el número 10. En la cola quedan: guia.pdf." />
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Sale t2.pdf y se visita. No tiene hijos: no entra nadie.</div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>Sale t2.pdf y se visita. No tiene hijos: no entra nadie.</div>
   </Step>
-  <Step lines={[5, 6, 7]}>
+  <Step lines={[5, 6, 7, 8, 9]}>
     <HierarchyPicture tree={FOLDERS} tones={{ 'home/': 'done', 'fotos/': 'done', 'ramos/': 'done', 'notas.txt': 'done', 'playa.jpg': 'done', 'perro.jpg': 'done', 'eda/': 'done', 'calculo/': 'done', 't1.pdf': 'done', 't2.pdf': 'done', 'guia.pdf': 'focus' }} numbers={{ 'home/': 1, 'fotos/': 2, 'ramos/': 3, 'notas.txt': 4, 'playa.jpg': 5, 'perro.jpg': 6, 'eda/': 7, 'calculo/': 8, 't1.pdf': 9, 't2.pdf': 10, 'guia.pdf': 11 }} queue={[]} compact size={0.8} label="guia.pdf se visita con el número 11. En la cola quedan: nadie." />
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Sale guia.pdf y se visita. No tiene hijos: no entra nadie.</div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>Sale guia.pdf y se visita. No tiene hijos: no entra nadie.</div>
   </Step>
   <Step lines={[4]}>
     <HierarchyPicture tree={FOLDERS} tones={{ 'home/': 'done', 'fotos/': 'done', 'ramos/': 'done', 'notas.txt': 'done', 'playa.jpg': 'done', 'perro.jpg': 'done', 'eda/': 'done', 'calculo/': 'done', 't1.pdf': 'done', 't2.pdf': 'done', 'guia.pdf': 'done' }} numbers={{ 'home/': 1, 'fotos/': 2, 'ramos/': 3, 'notas.txt': 4, 'playa.jpg': 5, 'perro.jpg': 6, 'eda/': 7, 'calculo/': 8, 't1.pdf': 9, 't2.pdf': 10, 'guia.pdf': 11 }} queue={[]} compact size={0.8} label="La cola está vacía. Los once nodos se visitaron por niveles: home; fotos, ramos y notas.txt; playa.jpg, perro.jpg, eda y calculo; t1.pdf, t2.pdf y guia.pdf." />
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>La cola quedó vacía y el ciclo termina: los once nodos, nivel por nivel.</div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>La cola quedó vacía y el ciclo termina: los once nodos, nivel por nivel.</div>
   </Step>
 </StepShow>
 
