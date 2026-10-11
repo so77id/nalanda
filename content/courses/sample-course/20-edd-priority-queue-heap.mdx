@@ -548,6 +548,45 @@ export function HeapPicture({
   );
 }
 
+{/* CompareSign — the three answers of cmp.compare(a, b) on a number line, with what each means for before(i, j). File-local like HeapPicture (§6e-quater). */}
+
+export function CompareSign({ label }) {
+  const cols = [
+    { x: 150, sign: 'negativo', meaning: 'a es menor que b', order: 'a va antes', before: 'true', on: true },
+    { x: 300, sign: 'cero', meaning: 'a y b son iguales', order: 'ninguno va antes', before: 'false', on: false },
+    { x: 450, sign: 'positivo', meaning: 'a es mayor que b', order: 'b va antes', before: 'false', on: false },
+  ];
+  const lineY = 50;
+  return (
+    <svg
+      viewBox="0 0 600 176"
+      style={{ width: '100%', maxWidth: '900px', height: 'auto', display: 'block', margin: '0.75rem auto' }}
+      role="img"
+      aria-label={label}
+    >
+      <defs>
+        <marker id="compare-sign-tip" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+          <path d="M0,0 L8,4 L0,8 z" style={{ fill: 'var(--color-ink-soft)' }} />
+        </marker>
+      </defs>
+      <text x="300" y="18" textAnchor="middle" fontSize="14" fontWeight="700" fontFamily="var(--font-mono, monospace)" style={{ fill: 'var(--color-ink)' }}>cmp.compare(a, b)</text>
+      {/* The negative half is the only one where before answers true. */}
+      <rect x="40" y={lineY - 9} width="255" height="18" rx="4" style={{ fill: 'var(--color-accent)', fillOpacity: 0.16 }} />
+      <line x1="300" y1={lineY} x2="40" y2={lineY} style={{ stroke: 'var(--color-ink-soft)' }} strokeWidth="1.6" markerEnd="url(#compare-sign-tip)" />
+      <line x1="300" y1={lineY} x2="560" y2={lineY} style={{ stroke: 'var(--color-ink-soft)' }} strokeWidth="1.6" markerEnd="url(#compare-sign-tip)" />
+      <line x1="300" y1={lineY - 10} x2="300" y2={lineY + 10} style={{ stroke: 'var(--color-ink)' }} strokeWidth="2" />
+      {cols.map((c) => (
+        <g key={c.sign}>
+          <text x={c.x} y="84" textAnchor="middle" fontSize="13" fontWeight="700" style={{ fill: c.on ? 'var(--color-accent)' : 'var(--color-ink)' }}>{c.sign}</text>
+          <text x={c.x} y="106" textAnchor="middle" fontSize="12" style={{ fill: 'var(--color-ink)' }}>{c.meaning}</text>
+          <text x={c.x} y="126" textAnchor="middle" fontSize="12" style={{ fill: 'var(--color-ink-soft)' }}>{c.order}</text>
+          <text x={c.x} y="158" textAnchor="middle" fontSize="13" fontWeight={c.on ? '700' : '500'} fontFamily="var(--font-mono, monospace)" style={{ fill: c.on ? 'var(--color-accent)' : 'var(--color-ink-soft)' }}>{`before → ${c.before}`}</text>
+        </g>
+      ))}
+    </svg>
+  );
+}
+
 <SectionBreak />
 
 ## El heap binario
@@ -1428,8 +1467,8 @@ hoja, no cambia.
 <Slide title="La comparación como parámetro">
 Un max-heap y un min-heap son dos clases casi iguales. En vez de escribir
 las dos, el heap puede recibir **cómo comparar** como parámetro: un
-`Comparator<T>`, el mismo que usa `sort`. El heap deja de comparar los
-valores con `<` y se lo pregunta al comparador.
+`Comparator<T>`, el mismo que usa `sort`. El heap deja de preguntar «¿cuál
+es mayor?» y pregunta «¿cuál va antes?».
 
 ```java
 class Heap<T> {
@@ -1440,50 +1479,59 @@ class Heap<T> {
     Heap(Comparator<T> cmp) {
         this.cmp = cmp;
     }
-}
-```
 
-Java no permite crear un arreglo de `T` directamente, así que se crea uno de
-`Object` y se convierte.
-
-`cmp.compare(a, b)` devuelve un número negativo si, para el comparador, `a`
-es menor que `b`; cero si son iguales, y positivo si es mayor. El heap se
-arma como un min-heap según ese comparador, así que en la raíz queda el
-elemento que el comparador considera **menor**. Para que quede el mayor, se
-usa un comparador que invierte el orden.
-
-</Slide>
-
-<Slide title="swim y sink con la comparación">
-`swim` y `sink` hacen lo mismo que en el min-heap, pero cada comparación
-`a < b` entre valores se reemplaza por `cmp.compare(a, b) < 0`, y cada
-`a <= b` por `cmp.compare(a, b) <= 0`:
-
-```java
-void swim(int k) {
-    while (k > 1 && cmp.compare(data[k], data[parent(k)]) < 0) {
-        swap(parent(k), k);
-        k = parent(k);
+    // ¿El elemento de la posición i va antes que el de la j?
+    private boolean before(int i, int j) {
+        return cmp.compare(data[i], data[j]) < 0;
     }
 }
 ```
 
+Java no permite crear un arreglo de `T` directamente, así que se crea uno de
+`Object` y se convierte. `before(i, j)` es la única comparación que hace el
+heap.
+
+</Slide>
+
+<Slide title="Lo que responde el comparador">
+`cmp.compare` devuelve un entero, y `before` sólo mira su signo:
+
+<div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-ink-soft)', textAlign: 'center' }}>con a = data[i] y b = data[j]</div>
+<CompareSign label="Una recta numérica con el resultado de cmp.compare(a, b), con a = data[i] y b = data[j]. Negativo: a es menor que b, a va antes, y before devuelve true. Cero: a y b son iguales, ninguno va antes, before devuelve false. Positivo: a es mayor que b, b va antes, before devuelve false." />
+
+El heap queda ordenado como un min-heap según el comparador: en la raíz
+queda el elemento que el comparador considera **menor**. Para que quede el
+mayor, se usa un comparador que invierte el orden.
+
+</Slide>
+
+<Slide title="swim y sink con la comparación">
+`swim` y `sink` hacen lo mismo que en el max-heap, pero cada comparación
+entre valores se reemplaza por una pregunta a `before`:
+
 ```java
+void swim(int k) {
+    while (k > 1 && before(k, parent(k))) {
+        swap(parent(k), k);
+        k = parent(k);
+    }
+}
 void sink(int k) {
     while (left(k) <= n) {
         int j = left(k);
-        if (right(k) <= n
-                && cmp.compare(data[right(k)], data[j]) < 0) {
+        if (right(k) <= n && before(right(k), j)) {
             j = right(k);
         }
-        if (cmp.compare(data[k], data[j]) <= 0) break;
+        if (!before(j, k)) break;
         swap(k, j);
         k = j;
     }
 }
 ```
 
-Las invariantes, los costos y el resto de la clase no cambian.
+`swim` sube mientras el elemento vaya antes que su padre. `sink` elige el
+hijo que va antes y baja mientras ese hijo vaya antes que el elemento. Las
+invariantes, los costos y el resto de la clase no cambian.
 
 </Slide>
 
