@@ -815,21 +815,16 @@ animate: `get-at`, `insert-first`, `insert-last`, `insert-at`,
 `insert-ordered`, `remove-first`, `remove-last`, `remove-at` or `search`.
 Since #304 there is a sixth recipe, `heap-max` (ADR-0077): a binary max-heap
 drawn twice — as the complete binary tree and as the 1-based array
-`data[0..]`, side by side on a slide and stacked in the book — with four
+`data[0..]`, side by side on a slide and stacked in the book — with two
 operations of its own and valid nowhere else: `insert` (swim, growing the
-block when full), `extract-max` (swap root and last, `n--`, sink, then the
-dynamic array's `shrinkIfSparse()`), `build-heap` and `heapsort` (both over
-unordered `values`). An empty heap starts at `new int[2]`, so `values={[]}`
+block when full) and `extract-max` (swap root and last, `n--`, sink, then the
+dynamic array's `shrinkIfSparse()`). An empty heap starts at `new int[2]`, so `values={[]}`
 with several `value`s shows the block growing 2 → 4 → 8. Its readout is `n`, `data[0]` is drawn as unused, and
 `capacity` is `data.length` with slot 0 included. `insert` and `extract-max`
 refuse a starting array that is not already a max-heap.
 `values` is the starting contents; `value` feeds the inserts, `index` the
 positional operations (`get-at` included), and `target` both `search` and
 `insert-ordered`.
-`insert-ordered` sorts ascending by default; `descending` sorts from largest
-to smallest and flips the listing's two comparisons — a priority queue's
-ordered list, with its maximum at `head` (#304). **No document mounts it
-today**: the slide it was written for was cut in #304's slide review.
 
 **Every argument also takes an ARRAY, and that is the default shape for a
 slide about cost.** `value={[9, 4, 6]}`, `index={[0, 3, 6]}`,

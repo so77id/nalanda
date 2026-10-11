@@ -71,21 +71,6 @@ describe('<SequenceStepper> · authoring guards', () => {
     expect(screen.getByText(/ordenada/i)).toBeInTheDocument();
   });
 
-  it('passes descending through to the trace: a descending chain is accepted', () => {
-    renderIn(
-      'book',
-      <SequenceStepper
-        eda="linked-list-singly"
-        operation="insert-ordered"
-        values={[9, 5, 1]}
-        target={3}
-        descending
-      />,
-    );
-    expect(screen.queryByText(/ordenada/i)).not.toBeInTheDocument();
-    expect(screen.getByTestId('sequence-structure')).toBeInTheDocument();
-  });
-
   it('refuses a heap operation over a sequence, and points at the heap recipe', () => {
     renderIn(
       'book',
@@ -94,13 +79,13 @@ describe('<SequenceStepper> · authoring guards', () => {
     expect(screen.getByText(/heap-max/)).toBeInTheDocument();
   });
 
-  it('refuses a sequence operation over the heap, and names the four it has', () => {
+  it('refuses a sequence operation over the heap, and names the two it has', () => {
     renderIn(
       'book',
       <SequenceStepper eda="heap-max" operation="insert-first" values={[3]} value={1} />,
     );
     expect(screen.getByText(/extraer el máximo/)).toBeInTheDocument();
-    expect(screen.getByText(/heapsort/)).toBeInTheDocument();
+    expect(screen.getByText(/insertar/)).toBeInTheDocument();
   });
 
   it('refuses a starting array that is not a max-heap', () => {
@@ -588,21 +573,6 @@ describe('<SequenceStepper> · the heap recipe (#304)', () => {
       (n) => n.getAttribute('data-slot'),
     );
     expect(slots).toEqual(ks);
-  });
-
-  it('ends heapsort with every array cell sorted', () => {
-    renderIn(
-      'book',
-      <SequenceStepper eda="heap-max" operation="heapsort" values={[5, 2, 9, 1, 7]} />,
-    );
-    for (let i = 0; i < 200; i += 1) {
-      const next = screen.getByRole('button', { name: 'Adelante' });
-      if (next.getAttribute('aria-disabled') === 'true') break;
-      fireEvent.click(next);
-    }
-    const cells = [...screen.getByTestId('heap-array').querySelectorAll('[data-state]')];
-    expect(cells).toHaveLength(5);
-    expect(cells.every((c) => c.getAttribute('data-state') === 'sorted')).toBe(true);
   });
 
   it('describes both views for a reader who cannot see them', () => {

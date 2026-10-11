@@ -19,9 +19,9 @@ export const sequenceStepperCatalogEntry: CatalogEntry = {
     },
     {
       name: 'operation',
-      type: '"get-at" | "insert-first" | "insert-last" | "insert-at" | "insert-ordered" | "remove-first" | "remove-last" | "remove-at" | "search" | "insert" | "extract-max" | "build-heap" | "heapsort"',
+      type: '"get-at" | "insert-first" | "insert-last" | "insert-at" | "insert-ordered" | "remove-first" | "remove-last" | "remove-at" | "search" | "insert" | "extract-max"',
       description:
-        'Required. Which operation to animate. `array`, `dynamic-array` and `linked-list-singly` accept all nine (bar `insert-ordered` on the two arrays — the ordered array is not a structure this unit presents). The two VARIANT recipes accept only the operations they have a Java listing FOR, because the widget shows code a student may copy: `linked-list-circular` accepts `insert-first` alone — its listing closes the ring again, and walks to do it — and `linked-list-doubly` accepts `get-at`, `search`, `insert-first`, `remove-first`, and `remove-last` only with `tail`. `heap-max` accepts exactly its own four — `insert` (swim; `value` may be an array), `extract-max` (sink; `times` repeats it), `build-heap` and `heapsort` (both over unordered `values`) — and those four are valid on no other recipe. Anything else renders an `<AuthoringError>` naming the operations that recipe does have.',
+        'Required. Which operation to animate. `array`, `dynamic-array` and `linked-list-singly` accept all nine (bar `insert-ordered` on the two arrays — the ordered array is not a structure this unit presents). The two VARIANT recipes accept only the operations they have a Java listing FOR, because the widget shows code a student may copy: `linked-list-circular` accepts `insert-first` alone — its listing closes the ring again, and walks to do it — and `linked-list-doubly` accepts `get-at`, `search`, `insert-first`, `remove-first`, and `remove-last` only with `tail`. `heap-max` accepts exactly its own two — `insert` (swim, growing the block like the dynamic array; `value` may be an array) and `extract-max` (sink, then `shrinkIfSparse`; `times` repeats it) — and those two are valid on no other recipe. Anything else renders an `<AuthoringError>` naming the operations that recipe does have.',
     },
     {
       name: 'values',
@@ -88,12 +88,6 @@ export const sequenceStepperCatalogEntry: CatalogEntry = {
       type: 'boolean',
       description:
         'List recipes only. Draws a `tail` pointer and lets the operations use it: `insert-last` drops to constant cost, and `remove-last` deliberately does NOT — on a singly linked list the missing piece is the PREVIOUS node, which no tail supplies. Default `false`.',
-    },
-    {
-      name: 'descending',
-      type: 'boolean',
-      description:
-        '`insert-ordered` only. Keeps the chain sorted from LARGEST to smallest, so its maximum sits at `head` — the naive ordered priority queue, whose `extractMax` is then `deleteFirst`. Flips the two comparisons of the listing (`x >= head.value`, `prev.next.value > x`); `values` must already be descending. Refused with any other operation. Default `false`.',
     },
     {
       name: 'autoplay',
@@ -289,26 +283,6 @@ export const sequenceStepperCatalogEntry: CatalogEntry = {
       code: '<SequenceStepper eda="heap-max" operation="extract-max" values={[12, 8, 10, 3, 7, 9]} />',
       render: () => (
         <SequenceStepper eda="heap-max" operation="extract-max" values={[12, 8, 10, 3, 7, 9]} />
-      ),
-    },
-    {
-      title: 'HeapSort in its two phases — construction, then sortdown',
-      code: '<SequenceStepper eda="heap-max" operation="heapsort" values={[5, 2, 9, 1, 7, 3]} />',
-      render: () => (
-        <SequenceStepper eda="heap-max" operation="heapsort" values={[5, 2, 9, 1, 7, 3]} />
-      ),
-    },
-    {
-      title: 'The naive ordered priority queue: a chain kept from largest to smallest',
-      code: '<SequenceStepper eda="linked-list-singly" operation="insert-ordered" values={[9, 5, 1]} target={[7, 3]} descending />',
-      render: () => (
-        <SequenceStepper
-          eda="linked-list-singly"
-          operation="insert-ordered"
-          values={[9, 5, 1]}
-          target={[7, 3]}
-          descending
-        />
       ),
     },
     {

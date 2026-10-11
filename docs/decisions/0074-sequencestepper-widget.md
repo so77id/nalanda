@@ -13,8 +13,8 @@ thin painter · the refusal of invalid combinations at boot, addressed to the
 author · the palette the states are painted in, and why it is not the one the
 design reference proposed
 **Extended by:** ADR-0077 (#304) — a sixth recipe, `heap-max`, with its own
-four operations and a second picture beside the first; and `descending` on
-`insert-ordered`. Nothing here is withdrawn.
+two operations and a second picture beside the first. Nothing here is
+withdrawn.
 
 **Amended by:** #288, slide-by-slide review (2026-09-10) — a ninth operation,
 `get-at`. The class needs the operation the array answers with one

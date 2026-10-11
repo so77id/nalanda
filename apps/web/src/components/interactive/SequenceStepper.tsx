@@ -97,11 +97,6 @@ export interface SequenceStepperProps {
   pointer?: string;
   /** Lists only: draw a `tail` pointer, and let the operations use it. */
   tail?: boolean;
-  /**
-   * `insert-ordered` only: the chain is sorted from LARGEST to smallest, so
-   * its maximum is at `head` — the naive ordered priority queue (#304).
-   */
-  descending?: boolean;
   /** Playback default. Off unless the author asks (rule Peli 1/2). */
   autoplay?: boolean;
   /** `slow` ≈ 1200ms/step, `normal` ≈ 700ms, `fast` ≈ 300ms. */
@@ -166,8 +161,6 @@ const OPERATION_LABEL: Record<SequenceOperation, string> = {
   search: 'buscar',
   insert: 'insertar',
   'extract-max': 'extraer el máximo',
-  'build-heap': 'construir el heap',
-  heapsort: 'heapsort',
 };
 
 /** The most elements the picture stays legible with, measured on a slide. */
@@ -200,7 +193,6 @@ export function SequenceStepper({
   receiverType,
   pointer,
   tail = false,
-  descending = false,
   autoplay = false,
   speed = 'normal',
   showCode = true,
@@ -283,7 +275,6 @@ export function SequenceStepper({
       receiverType={receiverType}
       pointer={pointer}
       tail={tail}
-      descending={descending}
       autoplay={autoplay}
       speed={speed}
       showCode={showCode}
@@ -306,7 +297,6 @@ interface BodyProps {
   receiverType?: string;
   pointer?: string;
   tail: boolean;
-  descending: boolean;
   autoplay: boolean;
   speed: StepSpeed;
   showCode: boolean;
@@ -327,7 +317,6 @@ function Body({
   receiverType,
   pointer,
   tail,
-  descending,
   autoplay,
   speed,
   showCode,
@@ -363,7 +352,6 @@ function Body({
     receiverType,
     pointer,
     tail,
-    descending,
   ].join('|');
 
   const built = useMemo((): { trace: SequenceTrace } | { error: string } => {
@@ -381,7 +369,6 @@ function Body({
           receiverType,
           pointer,
           tail,
-          descending,
         }),
       };
     } catch (cause) {
@@ -402,7 +389,6 @@ function Body({
     receiverType,
     pointer,
     tail,
-    descending,
   ]);
 
   const trace = 'trace' in built ? built.trace : null;
@@ -609,9 +595,6 @@ function Body({
           {recipe === 'heap-max' ? (
             <LegendSwatch swatchClass="border-accent bg-surface" label="se intercambia" />
           ) : null}
-          {operation === 'heapsort' ? (
-            <LegendSwatch swatchClass="border-keep bg-keep-soft" label="ordenado" />
-          ) : null}
           <LegendSwatch swatchClass="border-rule bg-sunk" label="libre" />
         </span>
       </div>
@@ -632,9 +615,6 @@ const CELL_FILL: Record<SequenceCell['state'], string> = {
   leaving: 'var(--color-sunk)',
   stale: 'var(--color-surface)',
   swap: 'var(--color-surface)',
-  // `keep` is a status, and heapsort's tail genuinely has one: each of these
-  // cells is in its final place and nothing will move it again.
-  sorted: 'var(--color-keep-soft)',
 };
 
 const CELL_STROKE: Record<SequenceCell['state'], string> = {
@@ -647,7 +627,6 @@ const CELL_STROKE: Record<SequenceCell['state'], string> = {
   // Accent, the unit's "being moved" token (teach-a-data-structure.md §6bis)
   // — Sedgewick's orange path of the element that swims or sinks.
   swap: 'var(--color-accent)',
-  sorted: 'var(--color-keep)',
 };
 
 /**
@@ -661,7 +640,6 @@ const CELL_NOTE: Partial<Record<SequenceCell['state'], string>> = {
   leaving: 'sale',
   stale: 'copia vieja',
   swap: 'intercambio',
-  sorted: 'ordenado',
 };
 
 /**
@@ -833,7 +811,7 @@ function StructureView({
  * read across rather than down.
  *
  * The tree holds only the first `n` cells: a cell past `n` has left the heap
- * (the stale copy extractMax leaves behind, heapsort's sorted tail), and the
+ * (the stale copy extractMax leaves behind), and the
  * tree losing its last leaf while the array keeps the value is exactly the
  * `n--` the listing just ran.
  */
