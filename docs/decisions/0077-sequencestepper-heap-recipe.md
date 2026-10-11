@@ -30,7 +30,8 @@ rather than inventing a widget. This is that ADR.
 Same props, same chrome (listing on top, structure, narration strip,
 controls, speed selector), the same split of the frame model — a pure trace
 in `sequenceStepperTrace.ts`, a pure layout in `sequenceStepperHeapLayout.ts`,
-a thin painter — with one fork in how the block is encoded (`heapSize`, not
+a thin painter in `sequenceStepperHeapView.tsx` that shares the cell colours
+of `sequenceStepperPaint.ts` with the Sequence painter — with one fork in how the block is encoded (`heapSize`, not
 the dynamic array's `slots`; §Consequences). The reader has watched this
 widget run nine operations over four structures (a fifth recipe, `array`,
 never had a reader, and #304 deleted it); the heap is read through the same surface, which is the
