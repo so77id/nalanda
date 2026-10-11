@@ -20,7 +20,7 @@ export const HEAP_BOX = 40;
 const LEAF_PITCH = 46;
 /** Vertical distance between two levels of the tree. */
 const LEVEL_H = 54;
-/** Margin around the tree, room for the index written beside a node. */
+/** Margin around the tree; below the last level it holds the index written under a leaf. */
 const TREE_PAD = 14;
 /** Room above the array cells, clear of the size readout. */
 const ARRAY_TOP = 8;

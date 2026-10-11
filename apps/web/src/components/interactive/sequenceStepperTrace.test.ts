@@ -1208,6 +1208,40 @@ describe('sequenceStepperTrace · heap-max · insert', () => {
     expect(last.cells.filter((c) => c.state === 'new').map((c) => c.value)).toEqual([2]);
   });
 
+  it('marks the inserted cell as new by identity, even when its value repeats', () => {
+    // The new 7 swims past the 7 already in data[7]; marking by value lit the
+    // old one and left the inserted cell idle.
+    const trace = traceFor('heap-max', 'insert', { values: [10, 4, 9, 3, 2, 8, 7], value: 7 });
+    const built = trace.steps.find((s) => s.kind === 'build')!;
+    const inserted = built.cells.find((c) => c.state === 'new')!.id;
+    const last = trace.steps.at(-1)!;
+    expect(last.cells.filter((c) => c.state === 'new').map((c) => c.id)).toEqual([inserted]);
+    expect(last.cells.findIndex((c) => c.id === inserted)).toBe(1);
+  });
+
+  it('does not swap a value with an equal parent', () => {
+    const trace = traceFor('heap-max', 'insert', { values: [9, 5], value: 9, capacity: 4 });
+    expect(trace.steps.some((s) => s.cells.some((c) => c.state === 'swap'))).toBe(false);
+    expect(trace.steps.at(-1)!.cells.map((c) => c.value)).toEqual([9, 5, 9]);
+  });
+
+  it('accepts a starting heap whose parent equals its child', () => {
+    expect(() => traceFor('heap-max', 'insert', { values: [5, 5], value: 1 })).not.toThrow();
+  });
+
+  it('renames the listing under `method` and still lights its signature', () => {
+    const trace = traceFor('heap-max', 'insert', {
+      values: [5],
+      value: 3,
+      capacity: 4,
+      method: 'add',
+    });
+    expect(trace.code).toContain('void add(int x)');
+    expect(trace.steps[0]!.highlightLines).toContain(lineNo(trace, 'void add(int x)'));
+    const poll = traceFor('heap-max', 'extract-max', { values: [5, 3], method: 'poll' });
+    expect(poll.code).toContain('int poll()');
+  });
+
   it('climbs all the way to the root and says it got there', () => {
     const trace = traceFor('heap-max', 'insert', { values: [5], value: 9, capacity: 4 });
     expect(trace.steps.at(-1)!.cells.map((c) => c.value)).toEqual([9, 5]);
@@ -1247,6 +1281,12 @@ describe('sequenceStepperTrace · heap-max · insert', () => {
     expect(heapOrdered(last.cells, 5)).toBe(true);
     expect(trace.code).toContain('MaxHeap heap = new MaxHeap();');
     expect(trace.code).toContain('heap.insert(10);');
+    // Each run lights its own call, one line below the constructor the
+    // program prints for a heap that starts empty.
+    for (const v of [8, 3, 10, 1, 7]) {
+      const start = trace.steps.find((s) => s.description.startsWith(`insert(${v})`))!;
+      expect(start.highlightLines).toContain(lineNo(trace, `heap.insert(${v});`));
+    }
   });
 
   it('prints the 1-based listing with swim written out under insert', () => {
@@ -1296,6 +1336,41 @@ describe('sequenceStepperTrace · heap-max · extract-max', () => {
     expect(last.cells.slice(3).map((c) => c.value)).toEqual([9, 10, 12]);
   });
 
+  it('sinks into the left child when the two children are equal', () => {
+    // [9, 5, 5, 1]: after the swap, 1 is at the root over two 5s. The listing
+    // moves j to the right child only when it is STRICTLY greater.
+    const trace = traceFor('heap-max', 'extract-max', { values: [9, 5, 5, 1] });
+    const sinkSwap = trace.steps.find(
+      (s) => s.kind === 'shift' && s.highlightLines.includes(lineNo(trace, 'swap(k, j);')),
+    )!;
+    const swapped = sinkSwap.cells.flatMap((c, i) => (c.state === 'swap' ? [i + 1] : []));
+    expect(swapped).toEqual([1, 2]);
+  });
+
+  it('says a lone root has nothing to swap with', () => {
+    const trace = traceFor('heap-max', 'extract-max', { values: [2, 1], times: 2 });
+    const swaps = trace.steps.filter((s) =>
+      s.highlightLines.includes(lineNo(trace, 'swap(1, n);')),
+    );
+    expect(swaps.at(-1)!.description).toMatch(/swap\(1, 1\) no mueve nada/);
+  });
+
+  it('says why an emptied heap does not shrink: shrinkIfSparse needs elements', () => {
+    const trace = traceFor('heap-max', 'extract-max', { values: [2, 1], capacity: 4, times: 2 });
+    const check = trace.steps.filter(
+      (s) => s.kind === 'compare' && s.highlightLines.includes(lineNo(trace, 'shrinkIfSparse();')),
+    );
+    expect(check.at(-1)!.description).toMatch(/^n = 0/);
+    expect(check.at(-1)!.description).not.toMatch(/cuarto/);
+  });
+
+  it('stops painting the new root as swapped once the exchange is over', () => {
+    const trace = traceFor('heap-max', 'extract-max', { values: heap, times: 2 });
+    for (const s of trace.steps.filter((f) => f.kind === 'unlink')) {
+      expect(s.cells.filter((c) => c.state === 'swap')).toEqual([]);
+    }
+  });
+
   it('refuses more extractions than the heap has elements', () => {
     expect(() => traceFor('heap-max', 'extract-max', { values: [3, 1], times: 3 })).toThrow();
   });
@@ -1314,6 +1389,8 @@ describe('sequenceStepperTrace · heap-max · every frame', () => {
   const cases: [SequenceOperation, Parameters<typeof traceFor>[2]][] = [
     ['insert', { values: [10, 8, 9, 3, 7], value: [12, 1, 11], capacity: 8 }],
     ['extract-max', { values: [12, 8, 10, 3, 7, 9], times: 4 }],
+    // An odd default block (data.length = 5) that shrinks: 5 / 4 is 1.
+    ['extract-max', { values: [4, 3, 2, 1], times: 3 }],
   ];
 
   it.each(cases)('%s: n never exceeds the cells drawn, and every lit line exists', (op, input) => {
@@ -1323,6 +1400,7 @@ describe('sequenceStepperTrace · heap-max · every frame', () => {
       expect(s.heapSize).toBeDefined();
       expect(s.heapSize!).toBeLessThanOrEqual(s.cells.length);
       expect(s.capacity!).toBeGreaterThan(s.cells.length);
+      expect(Number.isInteger(s.capacity)).toBe(true);
       for (const l of s.highlightLines) expect(l).toBeGreaterThanOrEqual(1);
       for (const l of s.highlightLines) expect(l).toBeLessThanOrEqual(lines);
     }
@@ -1342,20 +1420,24 @@ describe('sequenceStepperTrace · heap-max · every size the widget accepts', ()
   // Every n from 1 to the widget's cap, several orders each — not only the
   // powers of two the hand-picked cases happen to use
   // (teach-a-data-structure.md §Checklist: "one non-power-of-two N").
-  // A fixed LCG keeps the orders the same on every run.
-  let seed = 304;
-  const next = () => (seed = (seed * 1103515245 + 12345) % 2 ** 31);
-  const shuffled = (n: number) => {
-    const a = Array.from({ length: n }, (_, i) => (i * 7 + 3) % 23);
-    for (let i = a.length - 1; i > 0; i -= 1) {
-      const j = next() % (i + 1);
-      [a[i], a[j]] = [a[j]!, a[i]!];
-    }
-    return a;
+  // A fixed LCG, seeded per case, keeps each case's orders the same on every
+  // run — including a run of that one case alone (`-t 'n = 5'`).
+  const shuffler = (start: number) => {
+    let seed = start;
+    const next = () => (seed = (seed * 1103515245 + 12345) % 2 ** 31);
+    return (n: number) => {
+      const a = Array.from({ length: n }, (_, i) => (i * 7 + 3) % 23);
+      for (let i = a.length - 1; i > 0; i -= 1) {
+        const j = next() % (i + 1);
+        [a[i], a[j]] = [a[j]!, a[i]!];
+      }
+      return a;
+    };
   };
 
   for (let n = 1; n <= 8; n += 1) {
     it(`n = ${n}: inserting from empty makes a heap, and extracting leaves the minimum`, () => {
+      const shuffled = shuffler(304 + n);
       for (let round = 0; round < 5; round += 1) {
         const input = shuffled(n);
         const built = traceFor('heap-max', 'insert', { values: [], value: input }).steps.at(-1)!;
@@ -1447,6 +1529,24 @@ describe('sequenceStepperTrace · heap-max · growing and shrinking the block (#
     const last = trace.steps.at(-1)!;
     expect(last.capacity).toBe(4);
     expect(last.cells.length).toBeLessThan(last.capacity!);
+  });
+
+  it('halves an odd block by integer division, as the Java does', () => {
+    // Default block for four values: data.length = 5. n = 1 is 5 / 4, and
+    // resize(5 / 2) reserves 2, never 2.5.
+    const trace = traceFor('heap-max', 'extract-max', { values: [4, 3, 2, 1], times: 3 });
+    const shrink = trace.steps.find((s) => s.kind === 'shrink')!;
+    expect(shrink.capacity).toBe(2);
+    expect(shrink.description).toMatch(/achica el bloque a 2 /);
+    expect(trace.steps.at(-1)!.capacity).toBe(2);
+  });
+
+  it('refuses a capacity that is not an integer, and says so', () => {
+    for (const capacity of [Infinity, NaN, 2.5]) {
+      expect(() => traceFor('heap-max', 'insert', { values: [3], value: 1, capacity })).toThrow(
+        /no es un entero/,
+      );
+    }
   });
 
   it('does not shrink while n stays above a quarter', () => {

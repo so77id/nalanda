@@ -575,6 +575,14 @@ describe('<SequenceStepper> · the heap recipe (#304)', () => {
     expect(slots).toEqual(ks);
   });
 
+  it('writes a cursor under the slot it names, counted from data[1]', () => {
+    // The first frame of extractMax points k at the root: data[1], not data[0].
+    renderIn('book', <SequenceStepper {...heap} operation="extract-max" />);
+    const array = screen.getByTestId('heap-array');
+    expect(array.querySelector('[data-slot="1"]')!.textContent).toContain('↑k');
+    expect(array.querySelector('[data-slot="0"]')!.textContent).not.toContain('↑k');
+  });
+
   it('describes both views for a reader who cannot see them', () => {
     renderIn('book', <SequenceStepper {...heap} operation="extract-max" />);
     const label = screen.getByTestId('heap-views').getAttribute('aria-label')!;

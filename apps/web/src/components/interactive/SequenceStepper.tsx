@@ -632,14 +632,15 @@ const CELL_STROKE: Record<SequenceCell['state'], string> = {
 /**
  * Colour is never the only signal (`design-system.md`): every state that is
  * painted also gets a word under the box, so a reader who cannot separate the
- * hues still reads what happened.
+ * hues still reads what happened. The heap view writes no word under its
+ * cells — its index sits there — and reads `swap` by stroke weight and the
+ * legend instead (ADR-0077 §4).
  */
 const CELL_NOTE: Partial<Record<SequenceCell['state'], string>> = {
   new: 'nuevo',
   found: '✓ este',
   leaving: 'sale',
   stale: 'copia vieja',
-  swap: 'intercambio',
 };
 
 /**

@@ -18,8 +18,9 @@
  * - `cost` is the running count of elementary operations, so the reader can
  *   read $$\Theta(1)$$ against $$\Theta(N)$$ off the counter rather than
  *   memorising it.
- * - `capacity` is the reserved block, for the two array recipes only. The
- *   dynamic array's grows mid-trace; the static array's never does.
+ * - `capacity` is the reserved block, for the two array recipes and the
+ *   heap. The dynamic array's and the heap's grow and shrink mid-trace; the
+ *   static array's never does.
  * - `closesRing` marks the circular recipe, whose last node points back at the
  *   first rather than at `null`.
  */
@@ -31,7 +32,7 @@ export const RECIPES = [
   'linked-list-doubly',
   'linked-list-circular',
   // A binary max-heap stored 1-based in an array (#304, ADR-0077). Not a
-  // Sequence at all — it has its own four operations and draws the array
+  // Sequence at all — it has its own two operations and draws the array
   // beside the complete binary tree it encodes — but it is the same widget:
   // one listing, one structure, the same controls and the same frame model.
   'heap-max',
@@ -95,7 +96,10 @@ export interface SequenceCell {
 }
 
 export interface SequencePointer {
-  /** `head`, `tail`, `current`, `prev` for lists; `i`, `j` for arrays. */
+  /**
+   * `head`, `tail`, `current`, `prev` for lists; `i`, `j` for arrays; `k`,
+   * `j` for the heap, which index `data` 1-based.
+   */
   name: string;
   /** Index into `cells`, or `null` for a pointer aimed past the end. */
   index: number | null;
@@ -115,7 +119,7 @@ export interface SequenceStep {
   /** 1-based lines of `trace.code` this frame is executing. */
   highlightLines: number[];
   description: string;
-  /** Array recipes only: the reserved block size. */
+  /** Array recipes and the heap: the reserved block size (`data.length`). */
   capacity?: number;
   /**
    * Array recipes only: the block slot by slot, `null` where a slot holds
@@ -206,7 +210,8 @@ export interface SequenceTrace {
 export interface SequenceInput {
   values: number[];
   /**
-   * Required by every `insert-*` except `insert-ordered`. An ARRAY inserts
+   * Required by every `insert-*` except `insert-ordered`, and by the heap's
+   * `insert`. An ARRAY inserts
    * each value in turn over the same chain, so a slide can show the list
    * growing rather than one insertion in isolation.
    */
@@ -221,11 +226,12 @@ export interface SequenceInput {
   target?: number | number[];
   /**
    * How many times to run an operation that takes no argument
-   * (`remove-first`, `remove-last`). Default one.
+   * (`remove-first`, `remove-last`, `extract-max`). Default one.
    */
   times?: number;
   /**
-   * Arrays only: how many slots the block reserves. Without it the block is
+   * Arrays and the heap: how many slots the block reserves (the heap's
+   * counts `data[0]`, which it never uses). Without it an array's block is
    * sized from the input (`values.length + 2`), which makes the SAME stack
    * appear four cells wide on the slide that pushes and five on the slide
    * that pops — two consecutive slides drawing one structure at two sizes
@@ -320,7 +326,9 @@ export const DOUBLY_OPERATIONS: readonly SequenceOperation[] = [
   'remove-last',
 ];
 
-export const HEAP_OPERATIONS: readonly SequenceOperation[] = ['insert', 'extract-max'];
+const HEAP_OPERATION_NAMES = ['insert', 'extract-max'] as const;
+type HeapOperation = (typeof HEAP_OPERATION_NAMES)[number];
+export const HEAP_OPERATIONS: readonly SequenceOperation[] = HEAP_OPERATION_NAMES;
 
 export function isValidCombination(
   recipe: SequenceRecipe,
@@ -453,7 +461,7 @@ const METHOD_NAME: Record<SequenceOperation, string> = {
 // ── the array family ──────────────────────────────────────────────────────
 
 /** The operations the two array recipes have a listing for. */
-type ArrayOperation = Exclude<SequenceOperation, 'insert-ordered' | 'insert' | 'extract-max'>;
+type ArrayOperation = Exclude<SequenceOperation, 'insert-ordered' | HeapOperation>;
 
 const ARRAY_CODE: Record<ArrayOperation, string> = {
   'get-at': `int getAt(int i) {
@@ -945,6 +953,7 @@ function runArgs(operation: SequenceOperation, input: SequenceInput): string[] {
   switch (operation) {
     case 'insert-first':
     case 'insert-last':
+    case 'insert':
       return asRuns(input.value).map(String);
     case 'insert-at': {
       const values = asRuns(input.value);
@@ -962,19 +971,14 @@ function runArgs(operation: SequenceOperation, input: SequenceInput): string[] {
     case 'search':
       return asRuns(input.target).map(String);
     case 'remove-first':
-    case 'remove-last': {
-      const times = input.times ?? 1;
-      requireRuns(times);
-      return Array.from({ length: times }, () => '');
-    }
-    case 'insert-ordered':
-    case 'insert':
-      return asRuns(operation === 'insert' ? input.value : input.target).map(String);
+    case 'remove-last':
     case 'extract-max': {
       const times = input.times ?? 1;
       requireRuns(times);
       return Array.from({ length: times }, () => '');
     }
+    case 'insert-ordered':
+      return asRuns(input.target).map(String);
   }
 }
 
@@ -2095,8 +2099,6 @@ const HEAP_SINK = `void sink(int k) {
     }
 }`;
 
-type HeapOperation = 'insert' | 'extract-max';
-
 const HEAP_CODE: Record<HeapOperation, string> = {
   // Grows exactly as the dynamic array of #277 and #294 does — the same guard
   // and the same `resize(2 * data.length)` — with the one difference 1-based
@@ -2182,7 +2184,10 @@ function traceHeap(operation: SequenceOperation, input: SequenceInput): Sequence
   // a larger `capacity`. An EMPTY heap starts at `new int[2]`: one usable slot
   // plus `data[0]`, the dynamic array's one-cell start (#304).
   let capacity = input.capacity ?? Math.max(input.values.length + 1, 2);
-  if (!Number.isInteger(capacity) || capacity < input.values.length + 1) {
+  if (!Number.isInteger(capacity)) {
+    throw new Error(`La capacidad ${capacity} no es un entero.`);
+  }
+  if (capacity < input.values.length + 1) {
     throw new Error(
       `capacity es data.length y el slot 0 no se usa: para ${input.values.length} valores hace falta al menos ${input.values.length + 1}.`,
     );
@@ -2329,6 +2334,7 @@ function traceHeap(operation: SequenceOperation, input: SequenceInput): Sequence
 
   switch (op) {
     case 'insert': {
+      let inserted = 0;
       requireValues(input).forEach((x, r) => {
         run = r;
         cost = 0;
@@ -2338,7 +2344,7 @@ function traceHeap(operation: SequenceOperation, input: SequenceInput): Sequence
         // what the insertion is about to change.
         push(
           'start',
-          [line('void insert(int x)')],
+          [line(`void ${shown}(int x)`)],
           n === 0
             ? `insert(${x}): el heap está vacío, n = 0.`
             : `insert(${x}): el heap tiene n = ${n} elemento${n === 1 ? '' : 's'} y su máximo es ${val(1)}.`,
@@ -2355,7 +2361,8 @@ function traceHeap(operation: SequenceOperation, input: SequenceInput): Sequence
         }
         n += 1;
         cost += 1;
-        cells.push({ id: (nextId += 1), value: x, state: 'new' });
+        inserted = nextId += 1;
+        cells.push({ id: inserted, value: x, state: 'new' });
         push(
           'build',
           [line('data[++n] = x;')],
@@ -2373,13 +2380,12 @@ function traceHeap(operation: SequenceOperation, input: SequenceInput): Sequence
         });
       });
       // The last value inserted keeps its mark on the frame that stays on
-      // screen, as every other insertion of the widget does.
-      const lastX = requireValues(input).at(-1)!;
-      const where = cells.findLastIndex((c) => c.value === lastX);
+      // screen, as every other insertion of the widget does. Found by id: a
+      // value can repeat, and the copy already in the heap is not the new one.
       const last = steps.at(-1)!;
       steps[steps.length - 1] = {
         ...last,
-        cells: last.cells.map((c, i) => (i === where ? { ...c, state: 'new' } : c)),
+        cells: last.cells.map((c) => (c.id === inserted ? { ...c, state: 'new' } : c)),
       };
       break;
     }
@@ -2402,10 +2408,14 @@ function traceHeap(operation: SequenceOperation, input: SequenceInput): Sequence
         push(
           'shift',
           [line('swap(1, n);')],
-          `Intercambiamos la raíz con el último, data[${n}]: ${max} pasa al final y ${val(1)} queda en la raíz.`,
+          n === 1
+            ? 'n = 1: la raíz es también el último, así que swap(1, 1) no mueve nada.'
+            : `Intercambiamos la raíz con el último, data[${n}]: ${max} pasa al final y ${val(1)} queda en la raíz.`,
           [at('k', 1)],
         );
         n -= 1;
+        // The exchange is over: the new root is no longer being moved.
+        calm();
         cells[n] = { ...cells[n]!, state: 'stale' };
         push(
           'unlink',
@@ -2425,20 +2435,29 @@ function traceHeap(operation: SequenceOperation, input: SequenceInput): Sequence
         // The dynamic array's quarter rule, on n: halve the block when n
         // has fallen to a quarter of it. The copy takes data[1..n] only, so
         // what was past n — the stale maxima — does not survive it.
+        // Integer division, as in the Java: a block of 5 has a quarter of 1
+        // and halves to 2, never to 2.5.
         if (n > 0 && n === Math.floor(capacity / 4)) {
-          capacity /= 2;
+          const before = capacity;
+          capacity = Math.floor(capacity / 2);
           cells.length = n;
           cost += n;
+          const quarter =
+            before % 4 === 0
+              ? `n = ${n} es un cuarto de data.length = ${before}`
+              : `n = ${n} es data.length / 4 = ${before} / 4 en división entera`;
           push(
             'shrink',
             [line('shrinkIfSparse();')],
-            `n = ${n} es un cuarto de data.length = ${capacity * 2}: shrinkIfSparse achica el bloque a ${capacity} y ${n === 1 ? 'copia el único elemento del heap' : `copia los ${n} elementos del heap`}.`,
+            `${quarter}: shrinkIfSparse achica el bloque a ${capacity} y ${n === 1 ? 'copia el único elemento del heap' : `copia los ${n} elementos del heap`}.`,
           );
         } else {
           push(
             'compare',
             [line('shrinkIfSparse();')],
-            `n = ${n} no es un cuarto de data.length = ${capacity}: shrinkIfSparse no achica el bloque.`,
+            n === 0
+              ? 'n = 0, y shrinkIfSparse sólo achica cuando quedan elementos: el bloque no cambia.'
+              : `n = ${n} no es un cuarto de data.length = ${capacity}: shrinkIfSparse no achica el bloque.`,
           );
         }
         push('done', [line('return max;')], `extractMax devuelve ${max}. ${heapCount(n)}`);

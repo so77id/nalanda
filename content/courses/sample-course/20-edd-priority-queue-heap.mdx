@@ -281,7 +281,6 @@ export function HeapPicture({
   levelColors = false,
   edgeArrows,
   arcs,
-  parentArcs = false,
   zeroBased = false,
   childBrackets = false,
   nextSlot = false,
@@ -292,7 +291,7 @@ export function HeapPicture({
   heightRuler = false,
   tags = {},
   strokes = [],
-  idPrefix = 'heap-pic',
+  idPrefix,
   label,
 }) {
   const r = 17;
@@ -302,11 +301,11 @@ export function HeapPicture({
   const box = 40;
   // A null value is a HOLE: a position the numbering reserves and nobody occupies.
   const present = (k) => values[k - 1] !== null && values[k - 1] !== undefined;
-  const LEVEL = ['var(--color-accent)', 'var(--color-keep)', 'var(--color-focus)', 'var(--color-mark)'];
-  // One colour per PARENT, so the two arrows leaving one node read as a pair.
-  const PAIR = ['var(--color-accent)', 'var(--color-keep)', 'var(--color-focus)', 'var(--color-mark)'];
-  const pairColor = (parent) => PAIR[(parent - 1) % 4];
-  const arcMode = arcs ?? (parentArcs ? 'parent' : undefined);
+  // One colour per level, and one per PARENT so the two arrows leaving one
+  // node read as a pair.
+  const TONES = ['var(--color-accent)', 'var(--color-keep)', 'var(--color-focus)', 'var(--color-mark)'];
+  const pairColor = (parent) => TONES[(parent - 1) % 4];
+  const arcMode = arcs;
   const levelOf = (k) => Math.floor(Math.log2(k));
   // The next free position, n + 1, is drawn dashed when asked for.
   const total = values.length + (nextSlot ? 1 : 0);
@@ -352,7 +351,7 @@ export function HeapPicture({
   // Past n: a copy nobody reads any more — what extractMax leaves behind in
   // data[n + 1]. Drawn dashed and faint in the array; the tree never draws it.
   const stroke = (k) =>
-    hot.includes(k) ? 'var(--color-accent)' : marked.includes(k) ? 'var(--color-mark)' : k > n ? 'var(--color-rule)' : strokes[k - 1] ? strokes[k - 1] : levelColors ? LEVEL[levelOf(k) % 4] : 'var(--color-rule-strong)';
+    hot.includes(k) ? 'var(--color-accent)' : marked.includes(k) ? 'var(--color-mark)' : k > n ? 'var(--color-rule)' : strokes[k - 1] ? strokes[k - 1] : levelColors ? TONES[levelOf(k) % 4] : 'var(--color-rule-strong)';
   const fill = (k) => (marked.includes(k) ? 'var(--color-mark-soft)' : k > n ? 'var(--color-sunk)' : 'var(--color-surface)');
   const weight = (k) => (hot.includes(k) ? 2.8 : marked.includes(k) || levelColors || strokes[k - 1] ? 2 : 1.4);
   const ks = values.map((_, i) => i + 1);
@@ -368,16 +367,16 @@ export function HeapPicture({
       role="img"
       aria-label={label}
     >
-      <defs>
-        {PAIR.map((c, i) => (
-          <marker key={i} id={`${idPrefix}-tip${i}`} markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto">
-            <path d="M0,0 L7,3.5 L0,7 z" style={{ fill: c }} />
-          </marker>
-        ))}
-        <marker id={`${idPrefix}-arc`} markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto">
-          <path d="M0,0 L7,3.5 L0,7 z" style={{ fill: 'var(--color-ink-soft)' }} />
-        </marker>
-      </defs>
+      {/* Arrowheads only where something draws an arrow, and every caller that does passes its own idPrefix. */}
+      {edgeArrows || arcMode ? (
+        <defs>
+          {TONES.map((c, i) => (
+            <marker key={i} id={`${idPrefix}-tip${i}`} markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto">
+              <path d="M0,0 L7,3.5 L0,7 z" style={{ fill: c }} />
+            </marker>
+          ))}
+        </defs>
+      ) : null}
       {view !== 'array' && heightRuler ? (() => {
         const x = treeX + 16;
         const y1 = pad + r;
@@ -394,8 +393,8 @@ export function HeapPicture({
         const y = pad + r + d * levelH;
         return (
           <g key={`ll${d}`}>
-            <line x1={treeX + rulerW + 4} y1={y} x2={treeX + treeW - 4} y2={y} style={{ stroke: levelColors ? LEVEL[d % 4] : 'var(--color-rule)' }} strokeWidth="1" strokeDasharray="4 4" opacity="0.7" />
-            <text x={treeX + rulerW + 4} y={y - 6} fontSize="11" fontWeight="600" style={{ fill: levelColors ? LEVEL[d % 4] : 'var(--color-ink-faint)' }}>{`nivel ${d}`}</text>
+            <line x1={treeX + rulerW + 4} y1={y} x2={treeX + treeW - 4} y2={y} style={{ stroke: levelColors ? TONES[d % 4] : 'var(--color-rule)' }} strokeWidth="1" strokeDasharray="4 4" opacity="0.7" />
+            <text x={treeX + rulerW + 4} y={y - 6} fontSize="11" fontWeight="600" style={{ fill: levelColors ? TONES[d % 4] : 'var(--color-ink-faint)' }}>{`nivel ${d}`}</text>
           </g>
         );
       }) : null}
@@ -465,36 +464,23 @@ export function HeapPicture({
       })}
       {view === 'tree' ? null : (
         <g>
-          {arcMode === 'parent' ? ks.filter(linked).map((k) => {
-            // A left child (even k) lands on the left half of its parent, a
-            // right child on the right half, so two arrows never share a tip.
-            // Coloured by parent, like the tree's arrows.
+          {arcMode ? ks.filter(linked).map((k) => {
+            // 'parent': from each child to its parent; a left child (even k)
+            // lands on the left half of the parent's cell, a right child on
+            // the right half, so two arrows never share a tip. 'children':
+            // both arrows of a pair leave the SAME point of the parent's cell
+            // and land on their own child. Either way, on the side the
+            // parent's pair uses (1 and 3 above, 2 below), coloured by parent
+            // like the tree's arrows.
             const parent = Math.floor(k / 2);
-            const from = cellX(k);
-            const to = cellX(parent) + (k % 2 === 0 ? -8 : 8);
-            const lift = 16 + (from - to) * 0.3;
+            const [from, to] = arcMode === 'parent' ? [cellX(k), cellX(parent) + (k % 2 === 0 ? -8 : 8)] : [cellX(parent), cellX(k)];
+            const lift = 16 + Math.abs(to - from) * 0.3;
             const style = { fill: 'none', stroke: pairColor(parent) };
             const tip = `url(#${idPrefix}-tip${(parent - 1) % 4})`;
             if (arcAbove(parent)) {
               return <path key={`arc${k}`} d={`M ${from} ${arrayY - 2} C ${from} ${arrayY - lift}, ${to} ${arrayY - lift}, ${to} ${arrayY - 4}`} style={style} strokeWidth="1.6" markerEnd={tip} />;
             }
             // Below, under the index rail, so the numbers stay readable.
-            const base = arrayY + box + 20;
-            return <path key={`arc${k}`} d={`M ${from} ${base} C ${from} ${base + lift}, ${to} ${base + lift}, ${to} ${base + 2}`} style={style} strokeWidth="1.6" markerEnd={tip} />;
-          }) : null}
-          {arcMode === 'children' ? ks.filter(linked).map((k) => {
-            // Both arrows of a pair leave the SAME point of the parent's cell
-            // and land on their own child, on the side the parent's pair uses
-            // (1 and 3 above, 2 below), coloured by parent like the tree.
-            const parent = Math.floor(k / 2);
-            const from = cellX(parent);
-            const to = cellX(k);
-            const lift = 16 + (to - from) * 0.3;
-            const style = { fill: 'none', stroke: pairColor(parent) };
-            const tip = `url(#${idPrefix}-tip${(parent - 1) % 4})`;
-            if (arcAbove(parent)) {
-              return <path key={`arc${k}`} d={`M ${from} ${arrayY - 2} C ${from} ${arrayY - lift}, ${to} ${arrayY - lift}, ${to} ${arrayY - 4}`} style={style} strokeWidth="1.6" markerEnd={tip} />;
-            }
             const base = arrayY + box + 20;
             return <path key={`arc${k}`} d={`M ${from} ${base} C ${from} ${base + lift}, ${to} ${base + lift}, ${to} ${base + 2}`} style={style} strokeWidth="1.6" markerEnd={tip} />;
           }) : null}
@@ -511,7 +497,7 @@ export function HeapPicture({
             const x1 = cellLeft(first) + 3;
             const x2 = cellLeft(last) + box - 3;
             const y = bracketY;
-            const color = levelColors ? LEVEL[d % 4] : 'var(--color-accent)';
+            const color = levelColors ? TONES[d % 4] : 'var(--color-accent)';
             return (
               <g key={`lv${d}`}>
                 <path d={`M ${x1} ${y - 6} L ${x1} ${y} L ${x2} ${y} L ${x2} ${y - 6}`} style={{ fill: 'none', stroke: color }} strokeWidth="1.4" />
@@ -628,7 +614,7 @@ export function TaskCard({ x, y, t, tone }) {
 }
 
 export function TaskRow({ tasks, tones = [], label }) {
-  const width = tasks.length * 116 - 8 + 8;
+  const width = tasks.length * 116;
   return (
     <svg viewBox={`0 0 ${width} 48`} style={{ width: '100%', maxWidth: `${Math.round(width * 1.25)}px`, height: 'auto', display: 'block', margin: '0.4rem auto' }} role="img" aria-label={label}>
       {tasks.map((t, i) => (
@@ -638,8 +624,9 @@ export function TaskRow({ tasks, tones = [], label }) {
   );
 }
 
-export function TaskHeap({ tasks, tones = [], out, outTones = [], minLevels = 3, label }) {
-  const levels = Math.max(minLevels, tasks.length === 0 ? 1 : Math.floor(Math.log2(tasks.length)) + 1);
+export function TaskHeap({ tasks, tones = [], out, label }) {
+  // At least three levels, so every planner heap is drawn on one canvas.
+  const levels = Math.max(3, tasks.length === 0 ? 1 : Math.floor(Math.log2(tasks.length)) + 1);
   const slot = 116;
   const leaves = 2 ** (levels - 1);
   const width = leaves * slot + 8;
@@ -675,7 +662,7 @@ export function TaskHeap({ tasks, tones = [], out, outTones = [], minLevels = 3,
           ) : null}
           {out.map((name, i) => (
             <g key={name}>
-              <rect x={80 + i * 76} y={outY} width="72" height="26" rx="13" style={{ fill: outTones[i] === 'flag' ? 'var(--color-flag-soft)' : 'var(--color-keep-soft)', stroke: outTones[i] === 'flag' ? 'var(--color-flag)' : 'var(--color-keep)' }} strokeWidth="1.4" />
+              <rect x={80 + i * 76} y={outY} width="72" height="26" rx="13" style={{ fill: 'var(--color-keep-soft)', stroke: 'var(--color-keep)' }} strokeWidth="1.4" />
               <text x={80 + i * 76 + 36} y={outY + 17} textAnchor="middle" fontSize="12" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{name}</text>
             </g>
           ))}
@@ -711,7 +698,8 @@ export function TaskCompare({ rows, label }) {
 
 {/* NumBox, CellRow, TopKExamples, SortAllPicture, TopKStrip, TopKFrame — the Top-K exercise's drawings. File-local like HeapPicture (§6e-quater). */}
 
-export function NumBox({ x, y, v, tone, size = 34 }) {
+export function NumBox({ x, y, v, tone }) {
+  const size = 34;
   const stroke = { keep: 'var(--color-keep)', mark: 'var(--color-mark)', flag: 'var(--color-flag)', hot: 'var(--color-accent)', faint: 'var(--color-rule)', empty: 'var(--color-rule)' }[tone] ?? 'var(--color-rule-strong)';
   const fill = { keep: 'var(--color-keep-soft)', mark: 'var(--color-mark-soft)', flag: 'var(--color-flag-soft)', faint: 'var(--color-sunk)', empty: 'var(--color-sunk)' }[tone] ?? 'var(--color-surface)';
   const weight = tone === 'hot' ? 2.6 : tone === 'keep' || tone === 'mark' || tone === 'flag' ? 2 : 1.4;
@@ -729,7 +717,8 @@ export function NumBox({ x, y, v, tone, size = 34 }) {
   );
 }
 
-export function CellRow({ title, values, tones = [], width = 360, label }) {
+export function CellRow({ title, values, tones = [], label }) {
+  const width = 360;
   return (
     <svg viewBox={`0 0 ${width} 44`} style={{ width: '100%', maxWidth: `${Math.round(width * 1.2)}px`, height: 'auto', display: 'block', margin: '0.2rem auto' }} role="img" aria-label={label}>
       <text x="0" y="27" fontSize="12" fontWeight="600" style={{ fill: 'var(--color-ink-soft)' }}>{title}</text>
@@ -841,7 +830,7 @@ export function TopKFrame({ stream, at = -1, discarded = false, heap, hot = [], 
   );
 }
 
-{/* Arrow, LLNode, ChainRow, OutChain, MergeCase, FrontsPicture, FrontsStrip, PushPicture, MergeFrame — the merge exercise's drawings, in the linked-list class's idiom: a node is a box with its value and its next, arrows join the chain, null ends it. Each input list has its own colour and every merged node also carries its list number, so the list is never told by colour alone. File-local like HeapPicture (§6e-quater). */}
+{/* Arrow, LLNode, ChainRow, OutChain, MergeCase, FrontsPicture, OneFrontChanges, OutPanel, FirstPicture, RelinkPicture, MergeFrame — the merge exercise's drawings, in the linked-list class's idiom: a node is a box with its value and its next, arrows join the chain, null ends it. Each input list has its own colour and every merged node also carries its list number, so the list is never told by colour alone. File-local like HeapPicture (§6e-quater). */}
 
 export const LIST_COLORS = ['var(--color-keep)', 'var(--color-focus)', 'var(--color-mark)'];
 
@@ -861,7 +850,7 @@ export function Arrow({ x1, y1, x2, y2, color = 'var(--color-ink-soft)', width =
 
 export function LLNode({ x, y, v, color, state, tag }) {
   const gone = state === 'gone';
-  const stroke = gone ? 'var(--color-rule)' : state === 'hot' ? 'var(--color-accent)' : state === 'flag' ? 'var(--color-flag)' : color ?? 'var(--color-rule-strong)';
+  const stroke = gone ? 'var(--color-rule)' : state === 'hot' ? 'var(--color-accent)' : color ?? 'var(--color-rule-strong)';
   const w = state === 'front' || state === 'hot' ? 3.2 : gone ? 1.2 : 1.8;
   // `target`: the node a next points to without it being drawn in place —
   // dashed, in its list's colour.
@@ -879,21 +868,22 @@ export function LLNode({ x, y, v, color, state, tag }) {
   );
 }
 
-export function ChainRow({ x0 = 0, y, label, color, nodes, P = 70, nullEnd = true }) {
+export function ChainRow({ y, label, color, nodes }) {
   // label → first node → … → null. nodes: [{ v, state, color?, tag? }].
-  const nx = x0 + 84;
+  const P = 70;
+  const nx = 84;
   const mid = y + 15;
   const last = nx + (nodes.length - 1) * P;
   return (
     <g>
-      <text x={x0} y={y + 20} fontSize="12" fontWeight="700" style={{ fill: color ?? 'var(--color-ink-soft)' }}>{label}</text>
+      <text x={0} y={y + 20} fontSize="12" fontWeight="700" style={{ fill: color ?? 'var(--color-ink-soft)' }}>{label}</text>
       {nodes.length === 0 ? (
         <g>
-          <Arrow x1={x0 + 62} y1={mid} x2={nx + 4} y2={mid} />
+          <Arrow x1={62} y1={mid} x2={nx + 4} y2={mid} />
           <text x={nx + 10} y={y + 20} fontSize="13" fontFamily="var(--font-mono, monospace)" style={{ fill: 'var(--color-ink-faint)' }}>null</text>
         </g>
       ) : (
-        <Arrow x1={x0 + 62} y1={mid} x2={nx - 2} y2={mid} faint={nodes[0].state === 'gone'} />
+        <Arrow x1={62} y1={mid} x2={nx - 2} y2={mid} faint={nodes[0].state === 'gone'} />
       )}
       {nodes.map((n, i) => (
         <g key={i}>
@@ -903,7 +893,7 @@ export function ChainRow({ x0 = 0, y, label, color, nodes, P = 70, nullEnd = tru
           ) : null}
         </g>
       ))}
-      {nodes.length > 0 && nullEnd ? (
+      {nodes.length > 0 ? (
         <g>
           <Arrow x1={last + 38} y1={mid} x2={last + 66} y2={mid} faint={nodes[nodes.length - 1].state === 'gone'} />
           <text x={last + 70} y={y + 20} fontSize="13" fontFamily="var(--font-mono, monospace)" style={{ fill: 'var(--color-ink-faint)' }}>null</text>
@@ -913,7 +903,7 @@ export function ChainRow({ x0 = 0, y, label, color, nodes, P = 70, nullEnd = tru
   );
 }
 
-export function OutChain({ y, out, title, head = false, nextTo, emptyText }) {
+export function OutChain({ y, out, title, head = false, nextTo }) {
   // The merged chain from head, each node in its list's colour with its list
   // number under it. nextTo is where the last node's next points: a dashed
   // node (value, list), null, or undefined to draw no arrow.
@@ -924,9 +914,6 @@ export function OutChain({ y, out, title, head = false, nextTo, emptyText }) {
     <g>
       {title ? (
         <text x="0" y={y + 20} fontSize="12" fontWeight="700" style={{ fill: 'var(--color-ink-soft)' }}>{title}</text>
-      ) : null}
-      {out.length === 0 && emptyText ? (
-        <text x={84} y={y + 20} fontSize="13" fontFamily="var(--font-mono, monospace)" style={{ fill: 'var(--color-ink-faint)' }}>{emptyText}</text>
       ) : null}
       {out.map(([v, l], i) => (
         <g key={i}>
@@ -1006,8 +993,6 @@ export function FrontsPicture({ lists, gone, fronts, out, label }) {
     </svg>
   );
 }
-
-
 
 export function OneFrontChanges({ label }) {
   // One step of the example: the 1 leaves and its next, the 4, takes its
@@ -1423,7 +1408,7 @@ una operación aritmética, $$\Theta(1)$$, sin referencias que seguir.
 Con la aritmética de índices, las dos invariantes del heap se pueden
 comprobar sobre el arreglo, sin dibujar el árbol.
 
-<HeapPicture values={[10, 7, 8, 1, 3, 2, 4]} view="array" parentArcs idPrefix="pq-inv-arr" label="El arreglo del heap, data[1] a data[7] = 10, 7, 8, 1, 3, 2, 4. Sobre él, una flecha va de cada casilla k a la casilla k dividido 2, su padre: de data[2] y data[3] a data[1]; de data[4] y data[5] a data[2]; de data[6] y data[7] a data[3]. En todas, el valor de llegada es mayor o igual." />
+<HeapPicture values={[10, 7, 8, 1, 3, 2, 4]} view="array" arcs="parent" idPrefix="pq-inv-arr" label="El arreglo del heap, data[1] a data[7] = 10, 7, 8, 1, 3, 2, 4. Sobre él, una flecha va de cada casilla k a la casilla k dividido 2, su padre: de data[2] y data[3] a data[1]; de data[4] y data[5] a data[2]; de data[6] y data[7] a data[3]. En todas, el valor de llegada es mayor o igual." />
 
 1. **Forma completa: los elementos ocupan `data[1..n]`, sin casillas vacías
    entre medio.** Aquí son los 7, de `data[1]` a `data[7]`.
@@ -1683,7 +1668,7 @@ nivel por vuelta. ¿Cuántos niveles puede subir? Un árbol completo duplica
 sus nodos en cada nivel lleno —1, 2, 4, 8—, así que con $$N$$ nodos tiene
 $$\lfloor \log_2 N \rfloor + 1$$ niveles, y el camino de una hoja a la raíz
 recorre a lo más $$\lfloor \log_2 N \rfloor$$ aristas: 2 en el heap de
-ejemplo, 20 en uno de un millón.
+ejemplo, 19 en uno de un millón.
 
 <div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-ink-soft)', textAlign: 'center' }}>n = 7: altura = ⌊log₂ 7⌋ = 2</div>
 <HeapPicture values={[10, 7, 8, 1, 3, 2, 4]} view="tree" levelLines levelColors heightRuler idPrefix="pq-alt-ins" label="El heap de ejemplo con sus tres niveles marcados: 0, 1 y 2. A la izquierda, una línea de la raíz al último nivel rotulada altura = piso de logaritmo en base 2 de n; con n = 7, la altura es 2: de cualquier hoja a la raíz hay a lo más dos aristas." />
@@ -3215,6 +3200,10 @@ for (Node p = Solution.mergeK(new Node[] {d, e}); p != null; p = p.next) s += p.
 check(s, "1 1 2 3 ");
 check(Solution.mergeK(new Node[] {null, new Node(3), null}).value, 3);
 check(Solution.mergeK(new Node[] {}) == null, true);
+Node f = new Node(1);
+Node g = new Node(2);
+Node h = Solution.mergeK(new Node[] {g, f});
+check(h == f && h.next == g, true);
 ```
 
 </Exercise>
@@ -3251,6 +3240,8 @@ check(Solution.isMaxHeap(new int[] {0, 10, 7, 8, 1, 9}, 5), false);
 check(Solution.isMaxHeap(new int[] {0, 5, 6}, 2), false);
 check(Solution.isMaxHeap(new int[] {0, 4}, 1), true);
 check(Solution.isMaxHeap(new int[] {0}, 0), true);
+check(Solution.isMaxHeap(new int[] {0, 9, 7, 8, 1, 3, 2, 4, 10}, 7), true);
+check(Solution.isMaxHeap(new int[] {0, 5, 5, 5}, 3), true);
 ```
 
 ```java solution
@@ -3444,7 +3435,7 @@ Por cada nivel que baja, ¿cuánto trabajo hace `sink`?
 
 ¿Por qué el heap supera a las dos listas cuando se mezclan muchas inserciones y extracciones?
 
-- [x] Porque ninguna de sus operaciones es lineal
+- [x] Porque sus dos operaciones son logarítmicas amortizadas
 - [ ] Porque inserta más rápido que la lista sin orden
 - [ ] Porque extrae más rápido que la lista ordenada
 - [ ] Porque mantiene todos sus elementos ordenados
