@@ -268,9 +268,10 @@ putting them here is the single mistake that collapses the TDA/EDA distinction
 the unit is built on.
 
 **A class that presents structures and no contract carries no card** (#321).
-Árboles I presents the binary tree and the binary search tree as structures:
-the contract a search tree serves — Set and Map — belongs to a later class,
-which brings its own card. The four questions of §1 still run once per
+Árboles I presents the general tree and the binary tree as structures, and
+neither serves a contract of its own: the search tree, whose contract — Set
+and Map — belongs to a later class that brings its own card, comes in
+Árboles II (#322). The four questions of §1 still run once per
 structure, the invariants are still a numbered list (§3) and the costs still
 a table with its invariant column (§4); only the card is absent, because there
 is no contract to put in it yet. Do not invent one to fill the slot: a card

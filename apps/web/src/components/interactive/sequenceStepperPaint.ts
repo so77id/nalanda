@@ -19,7 +19,6 @@ export const CELL_FILL: Record<SequenceCell['state'], string> = {
   stale: 'var(--color-surface)',
   swap: 'var(--color-surface)',
   visited: 'var(--color-sunk)',
-  discarded: 'var(--color-surface)',
 };
 
 export const CELL_STROKE: Record<SequenceCell['state'], string> = {
@@ -33,5 +32,4 @@ export const CELL_STROKE: Record<SequenceCell['state'], string> = {
   // — Sedgewick's orange path of the element that swims or sinks.
   swap: 'var(--color-accent)',
   visited: 'var(--color-rule-strong)',
-  discarded: 'var(--color-rule)',
 };

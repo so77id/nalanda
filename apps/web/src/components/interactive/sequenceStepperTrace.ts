@@ -38,11 +38,9 @@ export const RECIPES = [
   // one listing, one structure, the same controls and the same frame model.
   'heap-max',
   // A linked binary tree (#321): nodes with `left` and `right`, drawn with
-  // every node in the column of its inorder position. `binary-tree` has no
-  // order, so its operations visit; `bst` keeps the search-tree invariant, so
-  // its operations choose a side. Same widget, same frame model plus a tree.
+  // every node in the column of its inorder position. It has no order, so its
+  // operations visit. Same widget, same frame model plus a tree.
   'binary-tree',
-  'bst',
 ] as const;
 export type SequenceRecipe = (typeof RECIPES)[number];
 
@@ -62,17 +60,11 @@ export const OPERATIONS = [
   'insert',
   'extract-max',
   // The tree's own operations (#321): the three ways to visit every node, and
-  // the height. `search` and `insert` above are shared with the trees: the
-  // same tag over `binary-tree` and `bst` is how a slide contrasts visiting
-  // everything with choosing a side.
+  // the height. `search` above is shared with the tree.
   'preorder',
   'inorder',
   'postorder',
   'height',
-  // The search tree's own operations (#321): each walks one path down.
-  'minimum',
-  'successor',
-  'remove',
 ] as const;
 export type SequenceOperation = (typeof OPERATIONS)[number];
 
@@ -107,9 +99,7 @@ export type SequenceCellState =
   /** Heap: one of the two cells being exchanged by `swap` this frame. */
   | 'swap'
   /** Tree: a node the operation has already finished with. */
-  | 'visited'
-  /** Tree: a node the search-tree invariant has just ruled out. */
-  | 'discarded';
+  | 'visited';
 
 /**
  * What a tree node holds: a number, or — on `binary-tree` only — a symbol, so
@@ -133,8 +123,8 @@ export interface TreeFrameNode {
  * The tree as one frame leaves it. `path` is the chain of calls still open,
  * root first, so the view can light the edges the recursion is standing on.
  * `strip` has one slot per column of the drawing: a traversal writes its
- * output there left to right, and the `bst` recipe shows its inorder there,
- * every value under its own node.
+ * output there left to right, and the inorder lands every value under its
+ * own node.
  */
 export interface TreeFrame {
   root: number | null;
@@ -427,24 +417,12 @@ export const BINARY_TREE_OPERATIONS: readonly SequenceOperation[] = [
   'search',
 ];
 
-/** What `bst` has a listing for (#321): every one chooses a side at each node. */
-export const BST_OPERATIONS: readonly SequenceOperation[] = [
-  'search',
-  'insert',
-  'minimum',
-  'successor',
-  'remove',
-];
-
-/** The operations only a tree has; `search` and `insert` are shared. */
+/** The operations only a tree has; `search` is shared. */
 const TREE_ONLY_OPERATIONS: readonly SequenceOperation[] = [
   'preorder',
   'inorder',
   'postorder',
   'height',
-  'minimum',
-  'successor',
-  'remove',
 ];
 
 export function isValidCombination(
@@ -455,7 +433,6 @@ export function isValidCombination(
   const heapOperation = HEAP_OPERATIONS.includes(operation);
   if (recipe === 'heap-max') return heapOperation;
   if (recipe === 'binary-tree') return BINARY_TREE_OPERATIONS.includes(operation);
-  if (recipe === 'bst') return BST_OPERATIONS.includes(operation);
   if (heapOperation || TREE_ONLY_OPERATIONS.includes(operation)) return false;
   if (operation === 'insert-ordered' && !isList(recipe)) return false;
   if (recipe === 'linked-list-circular') return CIRCULAR_OPERATIONS.includes(operation);
@@ -477,7 +454,7 @@ export function traceFor(
     throw new Error(`La operación «${operation}» no está definida sobre «${recipe}».`);
   }
   if (recipe === 'heap-max') return traceHeap(operation, input);
-  if (recipe === 'binary-tree' || recipe === 'bst') return traceTree(recipe, operation, input);
+  if (recipe === 'binary-tree') return traceTree(operation, input);
   return isList(recipe) ? traceList(recipe, operation, input) : traceArray(operation, input);
 }
 
@@ -578,9 +555,6 @@ const METHOD_NAME: Record<SequenceOperation, string> = {
   inorder: 'inorder',
   postorder: 'postorder',
   height: 'height',
-  minimum: 'min',
-  successor: 'successor',
-  remove: 'remove',
 };
 
 // ── the array family ──────────────────────────────────────────────────────
@@ -588,15 +562,7 @@ const METHOD_NAME: Record<SequenceOperation, string> = {
 /** The operations the dynamic array has a listing for. */
 type ArrayOperation = Exclude<
   SequenceOperation,
-  | 'insert-ordered'
-  | HeapOperation
-  | 'preorder'
-  | 'inorder'
-  | 'postorder'
-  | 'height'
-  | 'minimum'
-  | 'successor'
-  | 'remove'
+  'insert-ordered' | HeapOperation | 'preorder' | 'inorder' | 'postorder' | 'height'
 >;
 
 const ARRAY_CODE: Record<ArrayOperation, string> = {
@@ -1071,9 +1037,6 @@ function runArgs(operation: SequenceOperation, input: SequenceInput): string[] {
     case 'inorder':
     case 'postorder':
     case 'height':
-    case 'minimum':
-    case 'successor':
-    case 'remove':
       return [];
   }
 }
@@ -1319,9 +1282,6 @@ function listCode(recipe: SequenceRecipe, operation: SequenceOperation, tail: bo
     case 'inorder':
     case 'postorder':
     case 'height':
-    case 'minimum':
-    case 'successor':
-    case 'remove':
       throw new Error(`«${operation}» es una operación de árbol, no de una lista.`);
   }
 }

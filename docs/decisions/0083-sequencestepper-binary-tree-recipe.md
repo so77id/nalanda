@@ -42,30 +42,25 @@ A node's x is its inorder position and its y its depth. A parent therefore
 always sits between its two subtrees and no edge crosses another. Under the
 tree, a strip has one slot per column, and a traversal writes its output into
 it left to right. The inorder lands under its own nodes; the preorder and
-postorder visibly do not. For a search tree (the `bst` recipe, S3) the same
-strip reads sorted, which is the theorem the class states, made visible
-rather than asserted.
+postorder visibly do not.
 
 The columns are fixed for the WHOLE run — every node the run ever holds is
-placed once — so an insertion (S3) lands in a column already reserved and
-nothing on screen moves: the rule `maxCells` keeps for the chains.
+placed once — so nothing on screen moves: the rule `maxCells` keeps for the
+chains.
 
 ### 3. The operations, in the order the class needs them
 
 - **S2:** `preorder`, `inorder`, `postorder` on
   `binary-tree`, valid on no other recipe. Each listing is the recursive
   method as the class writes it.
-- **S3:** `height` and `search` on `binary-tree`; a second recipe, `bst`, with
-  `search` and `insert`. `search` keeps ONE name across `binary-tree` and
-  `bst` (and the chains), because two nearly identical tags are how a slide
-  contrasts visiting everything with choosing a side. `insert` becomes shared
-  between `heap-max` and `bst`.
-- **S6:** the rest of `bst` — `minimum`, `successor` and `remove` in its
-  three cases, the two-children case copying the successor's value into the
-  node (which keeps its column) and removing the successor. Maximum and
-  predecessor are their mirror images and stay in prose: no slide mounts them.
+- **S3:** `height` and `search` on `binary-tree`. `search` keeps ONE name
+  across `binary-tree` and the chains.
 
-None ships without a slide that mounts it (#296, ADR-0077 §5).
+None ships without a slide that mounts it (#296, ADR-0077 §5). That is why
+the search tree is not here: a second recipe, `bst` (`search`, `insert`,
+`minimum`, `successor`, `remove`), was built for #321 and left with its
+slides when the class split in two (Miguel's review, 2026-10-12). It ships
+with Árboles II (#322), which mounts it.
 
 ### 4. Authoring: the tree is written in level order, with `null` for a gap
 
@@ -106,21 +101,17 @@ slides set: the traversal stays, the visit is what a problem changes.
   the comparison): the two calls and the empty calls that end the
   recursion under every leaf never showed. The traversals, `height` and
   `search` share one helper for it, so the five read alike.
-- **Numbers, not letters**, on both tree recipes: the frame model is numeric,
-  and the reader uses one view for the binary tree and the search tree.
-  Letters stay for the hand-drawn figures of the general tree.
+- **Numbers, not letters**: the frame model is numeric, and letters stay for
+  the hand-drawn figures of the general tree. An expression tree keeps its
+  operators as symbols (§4).
 - **Cap stays at eight.** Width would allow more, but the degenerate chain of
   the cost slide grows one level per value and stops fitting a slide.
 - **Stacked in both modes**, listing over tree, like the chains — not side by
   side like the heap's two pictures, which are two views of one array.
-- **What a search rules out (S3) is faded**, not outlined with a triangle as
-  the old slides did: fading reads on any shape, the triangle tangles on a
-  small or lopsided subtree.
-
-These five came out of the design step of #321 and stay **Proposed** while the
+These came out of the design step of #321 and stay **Proposed** while the
 professor has not reviewed the recipe running in `/catalog/c/SequenceStepper`.
-The recipe is implemented in full (S2, S3, S6); its acceptance is that
-review, not the code.
+The recipe is implemented in full (S2, S3); its acceptance is that review,
+not the code.
 
 ## Alternatives considered
 
@@ -132,18 +123,16 @@ review, not the code.
 - **A centred layout (parents centred over children, Reingold–Tilford).**
   Prettier for balanced trees, but the strip under it would no longer line up
   with the nodes, and the inorder theorem is the reason for the strip.
-- **A triangle over the discarded subtree** (the old slides). See §5.
 - **Building the binary tree by insertion.** That is a search tree; a tree
   with no order has to be written out.
 
 ## Consequences
 
-- The validity matrix grows two rows: `binary-tree` × {`preorder`,
-  `inorder`, `postorder`, `height`, `search`} and `bst` × {`search`,
-  `insert`, `minimum`, `successor`, `remove`}; the seven tree-only
+- The validity matrix grows one row: `binary-tree` × {`preorder`,
+  `inorder`, `postorder`, `height`, `search`}; the four tree-only
   operations are valid on nothing else
   (`add-a-course-document.md` §5h carries it).
-- `SequenceCellState` gains `visited` and `discarded`; `SequenceStep` gains
+- `SequenceCellState` gains `visited`; `SequenceStep` gains
   `tree`; `SequenceTrace` gains `tree` (columns, slots, depth);
   `SequenceInput` gains `levelOrder`. The sequence and heap recipes never set
   them.

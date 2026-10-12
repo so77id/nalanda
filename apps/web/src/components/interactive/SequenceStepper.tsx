@@ -18,7 +18,6 @@ import {
 import { CELL_FILL, CELL_STROKE } from './sequenceStepperPaint';
 import {
   BINARY_TREE_OPERATIONS,
-  BST_OPERATIONS,
   CIRCULAR_OPERATIONS,
   DOUBLY_OPERATIONS,
   HEAP_OPERATIONS,
@@ -146,11 +145,6 @@ function refusalReason(
       (o) => OPERATION_LABEL[o],
     ).join(', ')}.`;
   }
-  if (recipe === 'bst') {
-    return `el árbol de búsqueda tiene listado para: ${BST_OPERATIONS.map(
-      (o) => OPERATION_LABEL[o],
-    ).join(', ')}.`;
-  }
   if (BINARY_TREE_OPERATIONS.includes(operation)) {
     return 'es una operación de árbol. Úsala con eda="binary-tree".';
   }
@@ -173,7 +167,6 @@ const RECIPE_LABEL: Record<SequenceRecipe, string> = {
   'linked-list-circular': 'lista circular',
   'heap-max': 'heap (máximo)',
   'binary-tree': 'árbol binario',
-  bst: 'árbol binario de búsqueda',
 };
 
 const OPERATION_LABEL: Record<SequenceOperation, string> = {
@@ -192,35 +185,21 @@ const OPERATION_LABEL: Record<SequenceOperation, string> = {
   inorder: 'recorrer en inorden',
   postorder: 'recorrer en postorden',
   height: 'calcular la altura',
-  minimum: 'buscar el mínimo',
-  successor: 'buscar el sucesor',
-  remove: 'eliminar',
 };
 
 /**
  * The legend of a tree run, by operation: each names only the states that
- * operation paints, so a traversal does not explain "descartado" and a
- * removal does not explain "encontrado".
+ * operation paints, so a traversal does not explain "encontrado".
  */
 const UNDER_THE_EYE: [string, string] = ['border-focus bg-surface', 'bajo la mirada'];
 const VISITED: [string, string] = ['border-rule-strong bg-sunk', 'ya visitado'];
-const RULED_OUT: [string, string] = ['border-rule bg-surface', 'descartado'];
 const FOUND: [string, string] = ['border-keep bg-keep-soft', 'encontrado'];
 const TREE_LEGEND: Partial<Record<SequenceOperation, [string, string][]>> = {
   preorder: [['border-mark bg-mark-soft', 'se visita'], UNDER_THE_EYE, VISITED],
   inorder: [['border-mark bg-mark-soft', 'se visita'], UNDER_THE_EYE, VISITED],
   postorder: [['border-mark bg-mark-soft', 'se visita'], UNDER_THE_EYE, VISITED],
   height: [['border-mark bg-mark-soft', 'acaba de responder'], UNDER_THE_EYE, VISITED],
-  search: [FOUND, UNDER_THE_EYE, VISITED, RULED_OUT],
-  insert: [['border-mark bg-mark-soft', 'nuevo'], UNDER_THE_EYE, VISITED],
-  minimum: [FOUND, VISITED, RULED_OUT],
-  successor: [['border-mark bg-mark-soft', 'mejor candidato'], FOUND, RULED_OUT],
-  remove: [
-    ['border-mark bg-mark-soft', 'toma un valor'],
-    ['border-accent bg-surface', 'sucesor'],
-    ['border-rule bg-sunk', 'sale'],
-    UNDER_THE_EYE,
-  ],
+  search: [FOUND, UNDER_THE_EYE, VISITED],
 };
 
 /** The most elements the picture stays legible with, measured on a slide. */
@@ -957,8 +936,6 @@ function TreeView({
             if (child === null) return null;
             const e = treeEdge(at(n.id), at(child));
             const lit = hot.has(`${n.id}-${child}`);
-            // An edge into a subtree the search ruled out fades with it.
-            const out = byId.get(child)?.state === 'discarded';
             return (
               <line
                 key={`${n.id}-${child}`}
@@ -966,15 +943,8 @@ function TreeView({
                 y1={e.y1}
                 x2={e.x2}
                 y2={e.y2}
-                stroke={
-                  lit
-                    ? 'var(--color-focus)'
-                    : out
-                      ? 'var(--color-rule)'
-                      : 'var(--color-rule-strong)'
-                }
+                stroke={lit ? 'var(--color-focus)' : 'var(--color-rule-strong)'}
                 strokeWidth={lit ? 2.6 : 1.2}
-                strokeDasharray={out ? '4 3' : undefined}
               />
             );
           }),
@@ -987,8 +957,7 @@ function TreeView({
         )}
         {tree.nodes.map((n) => {
           const { cx, cy } = at(n.id);
-          const strong = n.state !== 'idle' && n.state !== 'visited' && n.state !== 'discarded';
-          const out = n.state === 'discarded';
+          const strong = n.state !== 'idle' && n.state !== 'visited';
           return (
             <g
               key={n.id}
@@ -996,9 +965,6 @@ function TreeView({
               data-value={n.value}
               data-column={meta.columns[n.id]}
               data-state={n.state}
-              // Ruled out by the invariant: faded and dashed, so the colour is
-              // not the only signal.
-              opacity={out ? 0.45 : undefined}
             >
               <circle
                 cx={cx}
@@ -1007,7 +973,6 @@ function TreeView({
                 fill={CELL_FILL[n.state]}
                 stroke={CELL_STROKE[n.state]}
                 strokeWidth={strong ? 2.4 : 1.2}
-                strokeDasharray={out ? '4 3' : undefined}
               />
               {n.state === 'found' || n.state === 'leaving' ? (
                 <text
