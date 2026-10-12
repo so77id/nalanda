@@ -1498,7 +1498,7 @@ camino más largo desde la raíz.
 
 
 {/* BinaryPicture — a static drawing of a binary tree, with the geometry of the binary-tree recipe of <SequenceStepper> (sequenceStepperTreeLayout.ts): every node in the column of its inorder position and on the row of its depth, so a figure and the widget beside it draw the same tree. File-local like HierarchyPicture (§6e-quater). A tree is { v, l, r }; values are unique within one tree, because tones, badges and notes are keyed by them, and a value may be a symbol: an expression tree keeps its operators. */}
-{/* The drawings of an order, in HierarchyPicture's idiom: visits numbers the nodes in "pre" (focus), "in" (accent) or "post" (mark) order and draws an arrow from every visit to the next — along the edge when the next is a child or the parent, dashed when the walk jumps to another branch; sequence writes the visit order under the tree as a row of chips. holes draws the empty tree under every missing child, as a dashed square. ruler draws the height at the left ("h = 2"), and levelNotes writes one note per level at the right. A node toned "hidden" is not drawn, nor its edge, but keeps its place; fresh names the node just added, whose edge is drawn in the mark colour. */}
+{/* The drawings of an order, in HierarchyPicture's idiom: visits numbers the nodes in "pre" (focus), "in" (accent) or "post" (mark) order and draws an arrow from every visit to the next — along the edge when the next is a child or the parent, dashed when the walk jumps to another branch; sequence writes the visit order under the tree as a row of chips. holes draws the empty tree under every missing child, as a dashed square. ruler draws the height at the left ("h = 2"), and levelNotes writes one note per level at the right. A node toned "hidden" is not drawn, nor any edge that reaches it, but keeps its place: a tree built from the leaves up shows its subtrees loose before their parent is made; fresh names the node just added, whose edge is drawn in the mark colour. */}
 
 {/* edgeLabels writes a word beside the edge that reaches a node, keyed by that node's value: the side it hangs on, izquierdo or derecho. frames draws a dashed box around the subtree rooted at a node, keyed by that node's value, with its name under it. */}
 
@@ -1657,7 +1657,7 @@ export function BinaryPicture({ tree, tones = {}, badges = {}, notes = {}, level
         );
       })}
       {shown.map((n) => {
-        if (n.parent === null) return null;
+        if (n.parent === null || tones[n.parent.v] === 'hidden') return null;
         const e = ends(n.parent, n);
         const faint = tones[n.v] === 'faint';
         const isFresh = n.v === fresh;
@@ -2081,7 +2081,7 @@ la secuencia de hijos del árbol general.
 
 <PresentationWide fraction={0.75}>
 
-<SideBySide direction="mode-aware" left="El código" right="En memoria">
+<SideBySide direction="mode-aware" left="El código" right="En memoria" align="center">
 
 ```java
 class Node<T> {
@@ -2091,6 +2091,12 @@ class Node<T> {
 
     Node(T value) {
         this.value = value;
+    }
+
+    Node(T value, Node<T> left, Node<T> right) {
+        this.value = value;
+        this.left = left;
+        this.right = right;
     }
 }
 ```
@@ -2102,8 +2108,13 @@ class Node<T> {
 </PresentationWide>
 
 Un hijo que falta es una referencia en `null`: en ese lado está el árbol
-vacío. El constructor recibe solo el valor, así que un nodo nuevo nace con
-`left` y `right` en `null`: nace como una hoja.
+vacío.
+
+Hay dos constructores. El primero recibe solo el valor: el nodo nace con
+`left` y `right` en `null`, como una hoja, y sus hijos se cuelgan después. El
+segundo recibe también sus dos hijos, ya armados. Cuál conviene depende de
+cómo se arme el árbol, y eso depende del problema: cada implementación trae
+los constructores que su uso necesita.
 
 </Slide>
 
@@ -2120,7 +2131,7 @@ class BinaryTree<T> {
 
 <PresentationWide fraction={0.9}>
 
-<div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: '1rem 2rem', alignItems: 'flex-end' }}>
+<div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: '1rem 2rem', alignItems: 'center' }}>
 <div style={{ flex: '4 1 38rem' }}>
 <BinaryMemory tree={EXPR} entry label="El árbol de la expresión en memoria: el objeto BinaryTree tiene un campo root que apunta al asterisco, y cada nodo apunta a sus dos hijos; las hojas 3, 4, 5 y 1 apuntan a null." caption="root apunta a la raíz, y desde ella se llega a todo el árbol" />
 </div>
@@ -2135,9 +2146,10 @@ Un árbol binario vacío es un `BinaryTree` con `root` en `null`.
 
 </Slide>
 
-<Slide title="Armar un árbol binario">
-Un árbol binario se arma desde la raíz hacia abajo: cada nodo nuevo se cuelga
-a la izquierda o a la derecha de uno que ya está en el árbol.
+<Slide title="Armar un árbol desde la raíz">
+Un árbol binario se puede armar desde la raíz hacia abajo: cada nodo nuevo se
+cuelga a la izquierda o a la derecha de uno que ya está en el árbol. Es la
+forma natural cuando los nodos llegan de a uno y cada uno sabe dónde va.
 
 <StepShow
   language="java"
@@ -2185,6 +2197,61 @@ tree.root.right.right = new Node<>("1");`}
 </StepShow>
 
 </Slide>
+
+<Slide title="Armar un árbol desde las hojas">
+Un árbol binario también se puede armar desde las hojas hacia arriba: primero
+se arman los subárboles, y después el nodo que los junta, con el constructor
+que recibe sus dos hijos ya armados. Es la forma natural en una expresión con
+paréntesis: lo que está dentro de cada paréntesis es un subárbol, y queda
+armado antes que el operador que lo usa.
+
+<StepShow
+  language="java"
+  code={`BinaryTree<String> tree = new BinaryTree<>();
+Node<String> sum = new Node<>("+",
+        new Node<>("3"), new Node<>("4"));
+Node<String> diff = new Node<>("-",
+        new Node<>("5"), new Node<>("1"));
+tree.root = new Node<>("*", sum, diff);`}
+>
+  <Step lines={[1]}>
+    <BinaryPicture tree={EXPR} tones={{ '*': 'hidden', '+': 'hidden', 3: 'hidden', 4: 'hidden', '−': 'hidden', 5: 'hidden', 1: 'hidden' }} compact size={0.75} label="El árbol está vacío: root en null." />
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>Un árbol binario vacío: root está en null.</div>
+  </Step>
+  <Step lines={[3]}>
+    <BinaryPicture tree={EXPR} tones={{ '*': 'hidden', '+': 'hidden', 4: 'hidden', '−': 'hidden', 5: 'hidden', 1: 'hidden', 3: 'mark' }} compact size={0.75} label="Se crea el 3, una hoja, todavía suelto." />
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>Se crea 3, una hoja.</div>
+  </Step>
+  <Step lines={[3]}>
+    <BinaryPicture tree={EXPR} tones={{ '*': 'hidden', '+': 'hidden', '−': 'hidden', 5: 'hidden', 1: 'hidden', 4: 'mark' }} compact size={0.75} label="Se crea el 4, otra hoja suelta." />
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>Se crea 4, otra hoja.</div>
+  </Step>
+  <Step lines={[2, 3]}>
+    <BinaryPicture tree={EXPR} tones={{ '*': 'hidden', '−': 'hidden', 5: 'hidden', 1: 'hidden', '+': 'mark' }} badges={{ '+': 'sum' }} compact size={0.75} label="Se crea + con el 3 y el 4 como hijos: sum es el subárbol de 3 + 4, que todavía no cuelga de nada." />
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>Se crea + con 3 y 4 como hijos: sum es el subárbol de 3 + 4.</div>
+  </Step>
+  <Step lines={[5]}>
+    <BinaryPicture tree={EXPR} tones={{ '*': 'hidden', '−': 'hidden', 1: 'hidden', 5: 'mark' }} badges={{ '+': 'sum' }} compact size={0.75} label="Se crea el 5, una hoja suelta." />
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>Se crea 5.</div>
+  </Step>
+  <Step lines={[5]}>
+    <BinaryPicture tree={EXPR} tones={{ '*': 'hidden', '−': 'hidden', 1: 'mark' }} badges={{ '+': 'sum' }} compact size={0.75} label="Se crea el 1, otra hoja suelta." />
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>Se crea 1.</div>
+  </Step>
+  <Step lines={[4, 5]}>
+    <BinaryPicture tree={EXPR} tones={{ '*': 'hidden', '−': 'mark' }} badges={{ '+': 'sum', '−': 'diff' }} compact size={0.75} label="Se crea − con el 5 y el 1 como hijos: diff es el subárbol de 5 − 1. Hay dos subárboles sueltos." />
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>Se crea − con 5 y 1 como hijos: diff es el subárbol de 5 − 1.</div>
+  </Step>
+  <Step lines={[6]}>
+    <BinaryPicture tree={EXPR} tones={{ '*': 'mark' }} badges={{ '*': 'root' }} compact size={0.75} label="Se crea * con sum y diff como hijos, y root apunta a él: el árbol está completo." />
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>Se crea * con sum y diff como hijos, y root apunta a él.</div>
+  </Step>
+</StepShow>
+
+Las dos formas arman el mismo árbol. Cuál conviene depende del problema.
+
+</Slide>
+
 
 <Slide title="El preorden en un árbol binario">
 En **preorden**, cada nodo se visita antes que sus dos subárboles: primero el
