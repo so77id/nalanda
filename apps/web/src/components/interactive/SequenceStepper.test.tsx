@@ -688,6 +688,22 @@ describe('<SequenceStepper> · the binary-tree recipe (#321)', () => {
     expect(strip()).toEqual(['4', '7', '9', '6', '1', '3']);
   });
 
+  it('draws the empty subtree a call lands on, and only while that call runs', () => {
+    renderIn('book', <SequenceStepper eda="binary-tree" operation="preorder" values={[2, 1, 3]} />);
+    const probes = () => screen.getByTestId('tree-view').querySelectorAll('[data-probe]');
+    expect(probes()).toHaveLength(0);
+    // The start, the visit to 2, its call to 1, the visit to 1 — then 1 calls
+    // its left side, which is empty.
+    for (let i = 0; i < 4; i += 1)
+      fireEvent.click(screen.getByRole('button', { name: 'Adelante' }));
+    expect(probes()).toHaveLength(1);
+    expect(probes()[0]!.getAttribute('data-probe')).toBe('left');
+    fireEvent.click(screen.getByRole('button', { name: 'Adelante' }));
+    expect(probes()[0]!.getAttribute('data-probe')).toBe('right');
+    fireEvent.click(screen.getByRole('button', { name: 'Adelante' }));
+    expect(probes()).toHaveLength(0);
+  });
+
   it('counts the cap on nodes, not on the gaps between them', () => {
     renderIn(
       'book',

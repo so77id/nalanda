@@ -1832,6 +1832,153 @@ describe('sequenceStepperTrace · binary-tree · the listings mark the visit and
   });
 });
 
+describe('sequenceStepperTrace · binary-tree · every line a call runs is lit', () => {
+  // 2 over 1 and 3: the smallest tree with a call to each side and four empty
+  // subtrees, which is where the base case runs.
+  const small = (operation: SequenceOperation, target?: number): SequenceTrace =>
+    traceFor('binary-tree', operation, { values: [], levelOrder: [2, 1, 3], target });
+
+  /** The fragments that name each beat of an operation's listing. */
+  const FRAGMENTS: Record<string, { left: string; right: string; visit: string }> = {
+    preorder: {
+      left: 'preorder(node.left)',
+      right: 'preorder(node.right)',
+      visit: 'System.out.print',
+    },
+    inorder: {
+      left: 'inorder(node.left)',
+      right: 'inorder(node.right)',
+      visit: 'System.out.print',
+    },
+    postorder: {
+      left: 'postorder(node.left)',
+      right: 'postorder(node.right)',
+      visit: 'System.out.print',
+    },
+    height: {
+      left: 'int left = height',
+      right: 'int right = height',
+      visit: 'return 1 + Math.max',
+    },
+    search: {
+      left: 'contains(node.left',
+      right: 'contains(node.right',
+      visit: 'node.value.equals(target)',
+    },
+  };
+
+  /**
+   * What one frame does, read off what it lights: `visit:v` for the visit (the
+   * print, the answer, the comparison), `left:v` / `right:v` for the call v
+   * makes to that side, and `left∅:v` / `right∅:v` for a call that lands on an
+   * empty subtree — which must light the base case and draw where it landed.
+   */
+  const beat = (operation: string, trace: SequenceTrace, step: SequenceStep): string => {
+    const lines = trace.code.split('\n');
+    const lit = (fragment: string) =>
+      step.highlightLines.includes(lines.findIndex((l) => l.includes(fragment)) + 1);
+    const f = FRAGMENTS[operation]!;
+    const t = step.tree!;
+    const base = lit('if (node == null)');
+    expect(base, `${operation}: ${step.description}`).toBe(t.probe !== undefined);
+    if (t.probe !== undefined) {
+      const parent = t.nodes.find((n) => n.id === t.probe!.parent)!;
+      expect(parent.state, step.description).toBe('active');
+      expect(lit(f[t.probe.side]), step.description).toBe(true);
+      return `${t.probe.side}∅:${parent.value}`;
+    }
+    const at = t.nodes.find((n) => ['active', 'new', 'found'].includes(n.state))!;
+    if (lit(f.visit)) return `visit:${at.value}`;
+    if (lit(f.left)) return `left:${at.value}`;
+    if (lit(f.right)) return `right:${at.value}`;
+    return `? ${step.description}`;
+  };
+  const beats = (operation: SequenceOperation, target?: number): string[] => {
+    const trace = small(operation, target);
+    return trace.steps.slice(1, -1).map((s) => beat(operation, trace, s));
+  };
+
+  it('walks the preorder call by call, the empty calls included', () => {
+    expect(beats('preorder')).toEqual([
+      'visit:2',
+      'left:2',
+      'visit:1',
+      'left∅:1',
+      'right∅:1',
+      'right:2',
+      'visit:3',
+      'left∅:3',
+      'right∅:3',
+    ]);
+  });
+
+  it('walks the inorder call by call: the visit between the two calls', () => {
+    expect(beats('inorder')).toEqual([
+      'left:2',
+      'left∅:1',
+      'visit:1',
+      'right∅:1',
+      'visit:2',
+      'right:2',
+      'left∅:3',
+      'visit:3',
+      'right∅:3',
+    ]);
+  });
+
+  it('walks the postorder call by call: the visit after both calls', () => {
+    expect(beats('postorder')).toEqual([
+      'left:2',
+      'left∅:1',
+      'right∅:1',
+      'visit:1',
+      'right:2',
+      'left∅:3',
+      'right∅:3',
+      'visit:3',
+      'visit:2',
+    ]);
+  });
+
+  it('lights the edge down to the child a call goes to', () => {
+    const trace = small('preorder');
+    const lines = trace.code.split('\n');
+    const left = lines.findIndex((l) => l.includes('preorder(node.left)')) + 1;
+    const call = trace.steps.find((s) => s.highlightLines.includes(left) && !s.tree!.probe)!;
+    expect(call.tree!.path.map((id) => valueOf(call, id))).toEqual([2, 1]);
+  });
+
+  it('walks the height the same way, and every empty call returns −1', () => {
+    expect(beats('height')).toEqual([
+      'left:2',
+      'left∅:1',
+      'right∅:1',
+      'visit:1',
+      'right:2',
+      'left∅:3',
+      'right∅:3',
+      'visit:3',
+      'visit:2',
+    ]);
+    const empty = small('height').steps.filter((s) => s.tree!.probe !== undefined);
+    expect(empty).toHaveLength(4);
+    for (const step of empty) expect(step.description).toContain('−1');
+  });
+
+  it('walks a search through both sides, and calls no further once a side says true', () => {
+    expect(beats('search', 3)).toEqual([
+      'visit:2',
+      'left:2',
+      'visit:1',
+      'left∅:1',
+      'right∅:1',
+      'right:2',
+      'visit:3',
+    ]);
+    expect(beats('search', 1)).toEqual(['visit:2', 'left:2', 'visit:1']);
+  });
+});
+
 describe('sequenceStepperTrace · bst · the valid combinations', () => {
   it('takes search, insert, minimum, successor and remove, and nothing else', () => {
     for (const operation of OPERATIONS) {

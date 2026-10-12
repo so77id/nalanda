@@ -143,6 +143,12 @@ export interface TreeFrame {
   strip: (TreeValue | null)[];
   /** The slot just written, painted as new. */
   stripFresh?: number;
+  /**
+   * A call that landed on an empty subtree: the side of `parent` it went to.
+   * That call is the base case, and the view draws the empty subtree there
+   * for the one frame it runs.
+   */
+  probe?: { parent: number; side: 'left' | 'right' };
 }
 
 export interface SequenceCell {

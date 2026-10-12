@@ -5,7 +5,7 @@ import { useMode } from '../../presentation';
 import { AuthoringError } from '../AuthoringError';
 import { CodeStepper } from './CodeStepper';
 import { HeapView } from './sequenceStepperHeapView';
-import { TREE_NODE_R, layoutTree, treeEdge } from './sequenceStepperTreeLayout';
+import { TREE_NODE_R, layoutTree, treeEdge, treeProbe } from './sequenceStepperTreeLayout';
 import {
   BOX_H,
   BOX_W,
@@ -979,6 +979,12 @@ function TreeView({
             );
           }),
         )}
+        {tree.probe === undefined ? null : (
+          <EmptyCall
+            probe={treeProbe(at(tree.probe.parent), tree.probe.side)}
+            side={tree.probe.side}
+          />
+        )}
         {tree.nodes.map((n) => {
           const { cx, cy } = at(n.id);
           const strong = n.state !== 'idle' && n.state !== 'visited' && n.state !== 'discarded';
@@ -1083,6 +1089,56 @@ function TreeView({
         })}
       </svg>
     </div>
+  );
+}
+
+/**
+ * The empty subtree a call just landed on — the base case — drawn for the one
+ * frame that call runs: a dashed line out of the parent and a dashed box, in
+ * the colour of the call under the eye, with `null` written in it so the
+ * colour is not the only signal.
+ */
+function EmptyCall({
+  probe,
+  side,
+}: {
+  probe: ReturnType<typeof treeProbe>;
+  side: 'left' | 'right';
+}) {
+  const { line, box } = probe;
+  return (
+    <g data-probe={side}>
+      <line
+        x1={line.x1}
+        y1={line.y1}
+        x2={line.x2}
+        y2={line.y2}
+        stroke="var(--color-focus)"
+        strokeWidth={1.8}
+        strokeDasharray="3 3"
+      />
+      <rect
+        x={box.x}
+        y={box.y}
+        width={box.w}
+        height={box.h}
+        rx={2}
+        fill="var(--color-surface)"
+        stroke="var(--color-focus)"
+        strokeWidth={1.8}
+        strokeDasharray="3 2"
+      />
+      <text
+        x={box.x + box.w / 2}
+        y={box.y + box.h - 4}
+        textAnchor="middle"
+        fontSize="9"
+        fontWeight="600"
+        fill="var(--color-focus)"
+      >
+        null
+      </text>
+    </g>
   );
 }
 

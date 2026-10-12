@@ -836,7 +836,9 @@ Since #321 there is also `binary-tree` (ADR-0083): a linked binary tree
 with every node in the column of its inorder position and a strip under it,
 and operations of its own — `preorder`, `inorder` and `postorder`, each
 filling the strip one visit at a time, and `height`, each call answering
-after both of its sides; none of the four is valid on any other recipe. It
+after both of its sides; none of the four is valid on any other recipe.
+Every call is a frame of its own, the empty ones too: a call that lands on
+`null` lights the base case and draws the empty subtree (ADR-0083 §5). It
 also takes `search` (`target`), which may have to compare every node. Its
 `values` is the tree in LEVEL ORDER with `null` for a missing child
 (`values={[3, 9, 1, 4, 7, null, 6]}`); a value with no parent is refused, a

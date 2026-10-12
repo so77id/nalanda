@@ -96,6 +96,16 @@ slides set: the traversal stays, the visit is what a problem changes.
   the pencil exercise.
 - **The open calls as lit edges** from the root to the node under the
   algorithm's eye, in `focus`.
+- **Every line a call runs is a frame of its own** on `binary-tree`, the
+  base case included (Miguel's review of the traversal slides, #321): the
+  call to each side lights its line and the edge down to the child; a call
+  to an empty side lights the call AND `if (node == null)`, and the frame
+  draws the empty subtree it landed on — a dashed box with `null` in it,
+  under the parent on that side (`tree.probe`, geometry in
+  `treeProbe`). The listings first lit only the print (or the answer, or
+  the comparison): the two calls and the empty calls that end the
+  recursion under every leaf never showed. The traversals, `height` and
+  `search` share one helper for it, so the five read alike.
 - **Numbers, not letters**, on both tree recipes: the frame model is numeric,
   and the reader uses one view for the binary tree and the search tree.
   Letters stay for the hand-drawn figures of the general tree.

@@ -285,7 +285,13 @@ class TreeRecorder {
     }
   }
 
-  push(kind: SequenceStepKind, fragments: string[], description: string, stripFresh?: number) {
+  push(
+    kind: SequenceStepKind,
+    fragments: string[],
+    description: string,
+    stripFresh?: number,
+    probe?: TreeFrame['probe'],
+  ) {
     const root = this.rootOf();
     this.depth = Math.max(this.depth, deepest(root));
     const nodes: TreeFrameNode[] = nodesOf(root).map((n) => {
@@ -307,6 +313,7 @@ class TreeRecorder {
       strip: this.stripOf(),
     };
     if (stripFresh !== undefined) tree.stripFresh = stripFresh;
+    if (probe !== undefined) tree.probe = probe;
     // On a tree, cells only count the nodes: the view draws `tree.nodes`. A
     // symbol has no number to mirror, and nothing reads the value here.
     const cells: SequenceCell[] = nodes.map((n) => ({
@@ -324,6 +331,49 @@ class TreeRecorder {
       tree,
     });
   }
+}
+
+type Side = 'left' | 'right';
+
+/** A side in the narration: the child's name. */
+const SIDE_NAME: Record<Side, string> = { left: 'izquierdo', right: 'derecho' };
+
+/**
+ * One call a node makes to one side, as a frame of its own: the line of that
+ * call lit and the caller under the eye. A call to a child lights the edge down
+ * to it and goes on into it. A call to an empty side IS the base case — the
+ * frame lights that line as well, draws the empty subtree where the call
+ * landed, and the call is over: `empty` is what it returns.
+ *
+ * Every line the method runs gets its frame, the base case included. Before
+ * this, a traversal lit only its print: the reader never saw the two calls,
+ * nor the empty calls that end the recursion under every leaf.
+ */
+function callSide<R>(
+  rec: TreeRecorder,
+  n: TreeNode,
+  side: Side,
+  lines: { call: string; base: string },
+  says: { child: (child: TreeNode) => string; empty: string },
+  into: (child: TreeNode) => R,
+  empty: R,
+): R {
+  rec.settle();
+  const before = rec.state.get(n.id);
+  rec.state.set(n.id, 'active');
+  const child = n[side];
+  if (child === null) {
+    rec.push('walk', [lines.call, lines.base], says.empty, undefined, { parent: n.id, side });
+  } else {
+    rec.path.push(child.id);
+    rec.push('walk', [lines.call], says.child(child));
+    rec.path.pop();
+  }
+  // The caller keeps the paint it had: a node already visited stays visited
+  // while its walk passes back through it.
+  if (before === undefined) rec.state.delete(n.id);
+  else rec.state.set(n.id, before);
+  return child === null ? empty : into(child);
 }
 
 export function traceTree(
@@ -383,12 +433,6 @@ function traceTraversal(root: TreeNode, traversal: Traversal): SequenceTrace {
   );
   let written = 0;
 
-  const enter = (n: TreeNode, description: string, fragment: string) => {
-    rec.settle();
-    rec.state.set(n.id, 'active');
-    rec.push('walk', [fragment], description);
-  };
-
   const write = (n: TreeNode, description: string) => {
     rec.settle();
     const slot = written;
@@ -400,40 +444,44 @@ function traceTraversal(root: TreeNode, traversal: Traversal): SequenceTrace {
     rec.push('build', ['System.out.print'], description, slot);
   };
 
-  const hasChildren = (n: TreeNode) => n.left !== null || n.right !== null;
+  const call = (n: TreeNode, side: Side) =>
+    callSide(
+      rec,
+      n,
+      side,
+      { call: `${traversal}(node.${side})`, base: 'if (node == null)' },
+      {
+        child: (c) => `${traversal}(${n.value}): llama con su hijo ${SIDE_NAME[side]}, ${c.value}.`,
+        empty: `${traversal}(${n.value}): su hijo ${SIDE_NAME[side]} es null; ${traversal}(null) es el caso base y vuelve sin hacer nada.`,
+      },
+      visit,
+      undefined,
+    );
 
-  const visit = (n: TreeNode) => {
+  function visit(n: TreeNode): void {
     rec.path.push(n.id);
     const v = n.value;
     if (traversal === 'preorder') {
-      write(n, `preorder(${v}): se visita ${v} antes que sus hijos.`);
-      if (n.left !== null) visit(n.left);
-      if (n.right !== null) visit(n.right);
+      write(n, `preorder(${v}): se visita ${v}, antes que sus dos lados.`);
+      call(n, 'left');
+      call(n, 'right');
     } else if (traversal === 'inorder') {
-      if (n.left !== null) {
-        enter(
-          n,
-          `inorder(${v}): antes de visitar ${v} se recorre su izquierda.`,
-          'inorder(node.left)',
-        );
-        visit(n.left);
-        write(n, `inorder(${v}): su izquierda ya se recorrió; se visita ${v}.`);
-      } else {
-        write(n, `inorder(${v}): su izquierda es null; se visita ${v}.`);
-      }
-      if (n.right !== null) visit(n.right);
-    } else if (hasChildren(n)) {
-      enter(n, `postorder(${v}): ${v} se visita después de sus dos lados.`, 'postorder(node.left)');
-      if (n.left !== null) visit(n.left);
-      if (n.right !== null) visit(n.right);
-      write(n, `postorder(${v}): sus dos lados ya se recorrieron; se visita ${v}.`);
+      call(n, 'left');
+      write(n, `inorder(${v}): su izquierda ya se recorrió; se visita ${v}.`);
+      call(n, 'right');
     } else {
-      write(n, `postorder(${v}): no tiene hijos; se visita ${v}.`);
+      call(n, 'left');
+      call(n, 'right');
+      write(n, `postorder(${v}): sus dos lados ya se recorrieron; se visita ${v}.`);
     }
     rec.path.pop();
-  };
+  }
 
-  rec.push('start', [`void ${traversal}(`], `El ${name} empieza por la raíz, ${root.value}.`);
+  rec.push(
+    'start',
+    [`void ${traversal}(`],
+    `El ${name} empieza con la llamada en la raíz, ${root.value}.`,
+  );
   visit(root);
   rec.settle();
   rec.push('done', [], `El ${name} completo es ${strip.join(' ')}.`);
@@ -460,37 +508,35 @@ function traceHeight(root: TreeNode): SequenceTrace {
     rec.push('build', ['return 1 + Math.max'], description);
   };
 
-  const height = (n: TreeNode): number => {
+  const ask = (n: TreeNode, side: Side): number =>
+    callSide(
+      rec,
+      n,
+      side,
+      { call: `int ${side} = height`, base: 'if (node == null)' },
+      {
+        child: (c) =>
+          `height(${n.value}): pide la altura de su hijo ${SIDE_NAME[side]}, ${c.value}.`,
+        empty: `height(${n.value}): su hijo ${SIDE_NAME[side]} es null; height(null) es el caso base y devuelve ${signed(-1)}.`,
+      },
+      height,
+      -1,
+    );
+
+  function height(n: TreeNode): number {
     rec.path.push(n.id);
     const v = n.value;
-    let h: number;
-    if (n.left === null && n.right === null) {
-      h = 0;
-      answer(
-        n,
-        h,
-        `height(${v}): sus dos lados son null y devuelven ${signed(-1)}; devuelve 1 + max(${signed(-1)}, ${signed(-1)}) = 0.`,
-      );
-    } else {
-      rec.settle();
-      rec.state.set(n.id, 'active');
-      rec.push(
-        'walk',
-        ['int left = height'],
-        `height(${v}): antes de responder, pide la altura de sus dos lados.`,
-      );
-      const left = n.left === null ? -1 : height(n.left);
-      const right = n.right === null ? -1 : height(n.right);
-      h = 1 + Math.max(left, right);
-      answer(
-        n,
-        h,
-        `height(${v}): la izquierda devolvió ${signed(left)} y la derecha ${signed(right)}; devuelve 1 + max(${signed(left)}, ${signed(right)}) = ${h}.`,
-      );
-    }
+    const left = ask(n, 'left');
+    const right = ask(n, 'right');
+    const h = 1 + Math.max(left, right);
+    answer(
+      n,
+      h,
+      `height(${v}): la izquierda devolvió ${signed(left)} y la derecha ${signed(right)}; devuelve 1 + max(${signed(left)}, ${signed(right)}) = ${h}.`,
+    );
     rec.path.pop();
     return h;
-  };
+  }
 
   rec.push(
     'start',
@@ -527,7 +573,7 @@ function traceSearchAnywhere(root: TreeNode, targets: number[]): SequenceTrace {
       ['boolean contains('],
       `Buscar ${t}: el árbol no tiene orden, así que ${t} puede estar en cualquier parte.`,
     );
-    const search = (n: TreeNode): boolean => {
+    function search(n: TreeNode): boolean {
       rec.path.push(n.id);
       rec.settle();
       rec.cost += 1;
@@ -550,10 +596,24 @@ function traceSearchAnywhere(root: TreeNode, targets: number[]): SequenceTrace {
         `contains(${v}): ${v} no es ${t}; se busca en sus dos lados.`,
       );
       rec.state.set(n.id, 'visited');
-      const hit = (n.left !== null && search(n.left)) || (n.right !== null && search(n.right));
+      const look = (side: Side) =>
+        callSide(
+          rec,
+          n,
+          side,
+          { call: `contains(node.${side}`, base: 'if (node == null)' },
+          {
+            child: (c) => `contains(${v}): busca en su hijo ${SIDE_NAME[side]}, ${c.value}.`,
+            empty: `contains(${v}): su hijo ${SIDE_NAME[side]} es null; contains(null) es el caso base y devuelve false.`,
+          },
+          search,
+          false,
+        );
+      // `||` asks the right side only when the left one said false.
+      const hit = look('left') || look('right');
       rec.path.pop();
       return hit;
-    };
+    }
     const found = search(root);
     rec.settle();
     rec.push(

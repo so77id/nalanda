@@ -94,3 +94,36 @@ export function treeEdge(
     y2: child.cy - uy * TREE_NODE_R,
   };
 }
+
+/** The empty subtree a call landed on: a small dashed box under its parent, `null` in it. */
+export interface TreeProbe {
+  /** From the parent's rim to the top of the box. */
+  line: { x1: number; y1: number; x2: number; y2: number };
+  box: { x: number; y: number; w: number; h: number };
+}
+
+/**
+ * Where a call to an empty side is drawn: under the parent, toward that side,
+ * in the room the layout keeps under every level for a note — so it fits under
+ * the deepest level too, clear of the strip, and never where a child could be.
+ */
+export function treeProbe(parent: TreePoint, side: 'left' | 'right'): TreeProbe {
+  // Wide enough to hold `null` inside it: written beside the box, the word
+  // ran off the canvas under the first and the last column.
+  const w = 26;
+  const h = 14;
+  const cx = parent.cx + (side === 'left' ? -1 : 1) * COLUMN_W * 0.34;
+  const y = parent.cy + TREE_NODE_R + 9;
+  const dx = cx - parent.cx;
+  const dy = y - parent.cy;
+  const len = Math.hypot(dx, dy);
+  return {
+    line: {
+      x1: parent.cx + (dx / len) * TREE_NODE_R,
+      y1: parent.cy + (dy / len) * TREE_NODE_R,
+      x2: cx,
+      y2: y,
+    },
+    box: { x: cx - w / 2, y, w, h },
+  };
+}

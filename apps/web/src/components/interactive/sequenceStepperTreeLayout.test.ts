@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { TREE_NODE_R, layoutTree, treeEdge } from './sequenceStepperTreeLayout';
+import { TREE_NODE_R, layoutTree, treeEdge, treeProbe } from './sequenceStepperTreeLayout';
 
 /**
  * The tree recipes' geometry (#321), checked exactly rather than measured
@@ -83,5 +83,39 @@ describe('sequenceStepperTreeLayout · the edges', () => {
     const e = treeEdge(parent, child);
     expect(Math.hypot(e.x1 - parent.cx, e.y1 - parent.cy)).toBeCloseTo(TREE_NODE_R);
     expect(Math.hypot(e.x2 - child.cx, e.y2 - child.cy)).toBeCloseTo(TREE_NODE_R);
+  });
+});
+
+describe('sequenceStepperTreeLayout · an empty call', () => {
+  it('draws the empty subtree under its parent, on its side, clear of the strip', () => {
+    // The deepest level is the tight case: the strip starts right under it.
+    const layout = layoutTree(3, 1, true);
+    const leaf = layout.node(0, 1);
+    const left = treeProbe(leaf, 'left');
+    const right = treeProbe(leaf, 'right');
+    expect(left.box.x + left.box.w / 2).toBeLessThan(leaf.cx);
+    expect(right.box.x + right.box.w / 2).toBeGreaterThan(leaf.cx);
+    for (const probe of [left, right]) {
+      expect(probe.box.y).toBeGreaterThan(leaf.cy + TREE_NODE_R);
+      expect(probe.box.y + probe.box.h).toBeLessThan(layout.strip[0]!.y);
+      // The line leaves the parent's rim and stops at the top of the box.
+      expect(Math.hypot(probe.line.x1 - leaf.cx, probe.line.y1 - leaf.cy)).toBeCloseTo(
+        TREE_NODE_R,
+        0,
+      );
+      expect(probe.line.y2).toBe(probe.box.y);
+    }
+  });
+});
+
+describe('sequenceStepperTreeLayout · an empty call at the edges', () => {
+  it('keeps the box inside the canvas under the first and the last column', () => {
+    // `null` is written inside the box; written beside it, it ran off the
+    // canvas under the first column — seen in the deck, not reasoned about.
+    const layout = layoutTree(4, 1, true);
+    const first = treeProbe(layout.node(0, 1), 'left');
+    const last = treeProbe(layout.node(3, 1), 'right');
+    expect(first.box.x).toBeGreaterThanOrEqual(0);
+    expect(last.box.x + last.box.w).toBeLessThanOrEqual(layout.width);
   });
 });
