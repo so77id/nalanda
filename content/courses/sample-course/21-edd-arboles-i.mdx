@@ -2334,64 +2334,6 @@ valdría 0 y una hoja 1; aquí cuenta aristas.
 
 </Slide>
 
-<Slide title="El espejo de un árbol">
-El **espejo** de un árbol binario cambia, en cada nodo, el subárbol izquierdo
-por el derecho. La visita intercambia los dos lados, y el recorrido sigue con
-cada subárbol.
-
-<StepShow
-  language="java"
-  code={`void mirror(Node<T> node) {
-    if (node == null) return;
-    // visita: intercambia sus dos lados
-    Node<T> saved = node.left;
-    node.left = node.right;
-    node.right = saved;
-    // recorrido
-    mirror(node.left);
-    mirror(node.right);
-}`}
->
-  <Step lines={[1]}>
-    <BinaryPicture tree={{ v: '*', l: { v: '+', l: { v: 3 }, r: { v: 4 } }, r: { v: '−', l: { v: 5 }, r: { v: 1 } } }} tones={{ '*': 'focus' }} compact size={0.75} label="Empieza el espejo en la raíz." />
-    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>Se llama con la raíz, *.</div>
-  </Step>
-  <Step lines={[4, 5, 6]}>
-    <BinaryPicture tree={{ v: '*', l: { v: '−', l: { v: 5 }, r: { v: 1 } }, r: { v: '+', l: { v: 3 }, r: { v: 4 } } }} tones={{ '*': 'mark' }} compact size={0.75} label="Los dos subárboles de la raíz cambian de lado." />
-    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>Se intercambian los dos lados de *: el − pasa a la izquierda y el + a la derecha.</div>
-  </Step>
-  <Step lines={[8]}>
-    <BinaryPicture tree={{ v: '*', l: { v: '−', l: { v: 5 }, r: { v: 1 } }, r: { v: '+', l: { v: 3 }, r: { v: 4 } } }} tones={{ '*': 'done', '−': 'focus' }} compact size={0.75} label="Sigue el espejo en el −." />
-    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>Se llama con su nuevo hijo izquierdo, −.</div>
-  </Step>
-  <Step lines={[4, 5, 6]}>
-    <BinaryPicture tree={{ v: '*', l: { v: '−', l: { v: 1 }, r: { v: 5 } }, r: { v: '+', l: { v: 3 }, r: { v: 4 } } }} tones={{ '*': 'done', '−': 'mark' }} compact size={0.75} label="Los hijos del − cambian de lado." />
-    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>Se intercambian los lados de −: el 1 queda a la izquierda y el 5 a la derecha.</div>
-  </Step>
-  <Step lines={[8, 9]}>
-    <BinaryPicture tree={{ v: '*', l: { v: '−', l: { v: 1 }, r: { v: 5 } }, r: { v: '+', l: { v: 3 }, r: { v: 4 } } }} tones={{ '*': 'done', '−': 'done', 1: 'focus', 5: 'focus' }} compact size={0.75} label="Las hojas 1 y 5 no cambian." />
-    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>El 1 y el 5 son hojas: sus dos lados están vacíos, e intercambiarlos no cambia nada.</div>
-  </Step>
-  <Step lines={[9]}>
-    <BinaryPicture tree={{ v: '*', l: { v: '−', l: { v: 1 }, r: { v: 5 } }, r: { v: '+', l: { v: 3 }, r: { v: 4 } } }} tones={{ '*': 'done', '−': 'done', 1: 'done', 5: 'done', '+': 'focus' }} compact size={0.75} label="Sigue el espejo en el +." />
-    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>Se llama con el hijo derecho de *, el +.</div>
-  </Step>
-  <Step lines={[4, 5, 6]}>
-    <BinaryPicture tree={{ v: '*', l: { v: '−', l: { v: 1 }, r: { v: 5 } }, r: { v: '+', l: { v: 4 }, r: { v: 3 } } }} tones={{ '*': 'done', '−': 'done', 1: 'done', 5: 'done', '+': 'mark' }} compact size={0.75} label="Los hijos del + cambian de lado." />
-    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>Se intercambian los lados de +: el 4 queda a la izquierda y el 3 a la derecha.</div>
-  </Step>
-  <Step lines={[8, 9]}>
-    <BinaryPicture tree={{ v: '*', l: { v: '−', l: { v: 1 }, r: { v: 5 } }, r: { v: '+', l: { v: 4 }, r: { v: 3 } } }} tones={{ '*': 'done', '−': 'done', 1: 'done', 5: 'done', '+': 'done', 4: 'done', 3: 'done' }} compact size={0.75} label="El espejo terminado: (1 − 5) por (4 + 3), que vale menos 28." />
-    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>El espejo terminado es (1 − 5) * (4 + 3) = −28: la suma y el producto no cambian al dar vuelta sus lados; la resta sí.</div>
-  </Step>
-</StepShow>
-
-Las dos invariantes quedan en pie: cada nodo sigue con a lo más dos hijos y un
-solo padre. Lo que cambia es lo que el árbol significa: en una expresión, dar
-vuelta una resta cambia su valor.
-
-</Slide>
-
 <Slide title="Estricto, lleno y completo">
 Tres formas de árbol binario tienen nombre:
 
@@ -2455,7 +2397,6 @@ valores no hay subárbol que pueda saltarse:
 | --------- | --------------------------------- | ------------- | ---------------------------------------- |
 | Consultar | preorden, inorden, postorden      | $$\Theta(n)$$ | Ninguna: no cambian el árbol             |
 | Consultar | altura                            | $$\Theta(n)$$ | Ninguna: no cambia el árbol              |
-| Modificar | espejo                            | $$\Theta(n)$$ | Ninguna: el intercambio mantiene las dos |
 
 </Slide>
 
@@ -2765,6 +2706,226 @@ trabajo en cada inserción y en cada eliminación. Ese es el compromiso de un
 <SectionBreak />
 
 ## Ejercicios
+
+{/* The tree the mirror exercise threads through its beats: the class's guide expression, its mirror, and the states on the way — the root alone turned, the second step, and the left subtree turned first, which is where the mirror written in inorder starts going wrong. */}
+
+export const EXPR_MIRROR = { v: '*', l: { v: '−', l: { v: 1 }, r: { v: 5 } }, r: { v: '+', l: { v: 4 }, r: { v: 3 } } };
+
+export const EXPR_ROOT_TURNED = { v: '*', l: { v: '−', l: { v: 5 }, r: { v: 1 } }, r: { v: '+', l: { v: 3 }, r: { v: 4 } } };
+
+export const EXPR_TWO_TURNED = { v: '*', l: { v: '−', l: { v: 1 }, r: { v: 5 } }, r: { v: '+', l: { v: 3 }, r: { v: 4 } } };
+
+export const EXPR_LEFT_TURNED = { v: '*', l: { v: '+', l: { v: 4 }, r: { v: 3 } }, r: { v: '−', l: { v: 5 }, r: { v: 1 } } };
+
+export const EXPR_INORDER_SWAP = { v: '*', l: { v: '−', l: { v: 5 }, r: { v: 1 } }, r: { v: '+', l: { v: 4 }, r: { v: 3 } } };
+
+<Slide title="El espejo de un árbol">
+El **espejo** de un árbol binario es el árbol que se ve al ponerlo frente a un
+espejo: en cada nodo, lo que estaba a la izquierda queda a la derecha, y lo
+que estaba a la derecha queda a la izquierda.
+
+<PresentationWide fraction={0.9}>
+
+<div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: '1rem 2rem', alignItems: 'flex-end' }}>
+<div style={{ flex: '1 1 260px', maxWidth: '340px' }}>
+<BinaryPicture tree={EXPR} compact label="El árbol de la expresión (3 + 4) por (5 − 1), que vale 28." caption="(3 + 4) * (5 − 1) = 28" />
+</div>
+<div style={{ flex: '1 1 260px', maxWidth: '340px' }}>
+<BinaryPicture tree={EXPR_MIRROR} compact label="Su espejo: (1 − 5) por (4 + 3), que vale menos 28. En cada nodo, los dos lados cambiaron de lugar." caption="su espejo: (1 − 5) * (4 + 3) = −28" />
+</div>
+<div style={{ flex: '0 1 210px' }}>
+<BinaryPicture tree={{ v: 7 }} minColumns={3} compact label="Un nodo solo, el 7: es su propio espejo." caption="un nodo solo: queda igual" />
+</div>
+</div>
+
+</PresentationWide>
+
+El programa recibe la raíz de un árbol binario y lo deja convertido en su
+espejo: no devuelve nada, cambia el árbol que recibe. Con el árbol vacío no
+hay nada que cambiar. Llamamos $$n$$ a la cantidad de nodos y $$h$$ a la
+altura.
+
+```java
+static void mirror(Node<String> node)
+```
+
+</Slide>
+
+<Slide title="Dar vuelta solo la raíz">
+La primera idea es intercambiar los dos hijos de la raíz. Los dos subárboles
+cambian de lado, pero cada uno queda igual por dentro, y el resultado no es el
+espejo: lo que pasa en la raíz tiene que pasar también en cada nodo de abajo.
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1rem 2rem', alignItems: 'end' }}>
+<BinaryPicture tree={EXPR_ROOT_TURNED} tones={{ 5: 'mark', 1: 'mark', 3: 'mark', 4: 'mark' }} compact label="Con solo la raíz dada vuelta: (5 − 1) por (3 + 4). Los subárboles cambiaron de lado, pero el 5 sigue a la izquierda del 1 y el 3 a la izquierda del 4, marcados." caption="solo la raíz: (5 − 1) * (3 + 4)" />
+<BinaryPicture tree={EXPR_MIRROR} compact label="El espejo: (1 − 5) por (4 + 3)." caption="el espejo: (1 − 5) * (4 + 3)" />
+</div>
+
+</Slide>
+
+<Slide title="En cada nodo, los dos lados">
+El espejo de un árbol tiene la misma raíz, y debajo, cambiados de lado, **los
+espejos de sus dos subárboles**. Cada subárbol se da vuelta de la misma forma,
+y así hasta las hojas, cuyos dos lados están vacíos: el espejo del árbol vacío
+es el árbol vacío.
+
+A mano, eso es intercambiar los dos lados de cada nodo, uno por uno, empezando
+por la raíz.
+
+<PresentationWide fraction={0.9}>
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: '1rem', alignItems: 'end' }}>
+<BinaryPicture tree={EXPR} compact label="El árbol de la expresión, antes de empezar." caption="el árbol" />
+<BinaryPicture tree={EXPR_ROOT_TURNED} tones={{ '*': 'mark' }} compact label="Se intercambian los dos lados del asterisco: la resta pasa a la izquierda y la suma a la derecha." caption="1. los lados del *" />
+<BinaryPicture tree={EXPR_TWO_TURNED} tones={{ '−': 'mark' }} compact label="Se intercambian los dos lados de la resta: el 1 queda a la izquierda y el 5 a la derecha." caption="2. los lados del −" />
+<BinaryPicture tree={EXPR_MIRROR} tones={{ '+': 'mark' }} compact label="Se intercambian los dos lados de la suma: el 4 queda a la izquierda y el 3 a la derecha. El árbol es su espejo." caption="3. los lados del +: el espejo" />
+</div>
+
+</PresentationWide>
+
+</Slide>
+
+<Slide title="Espejo · la solución">
+Es un preorden: la visita intercambia los dos lados del nodo, y el recorrido
+sigue con cada subárbol. El caso base es el árbol vacío.
+
+<StepShow
+  language="java"
+  code={`static void mirror(Node<String> node) {
+    if (node == null) return;
+    // visita: intercambia sus dos lados
+    Node<String> saved = node.left;
+    node.left = node.right;
+    node.right = saved;
+    // recorrido
+    mirror(node.left);
+    mirror(node.right);
+}`}
+>
+  <Step lines={[1]}>
+    <BinaryPicture tree={{ v: '*', l: { v: '+', l: { v: 3 }, r: { v: 4 } }, r: { v: '−', l: { v: 5 }, r: { v: 1 } } }} tones={{ '*': 'focus' }} compact size={0.75} label="Empieza el espejo en la raíz." />
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>Se llama con la raíz, *.</div>
+  </Step>
+  <Step lines={[4, 5, 6]}>
+    <BinaryPicture tree={{ v: '*', l: { v: '−', l: { v: 5 }, r: { v: 1 } }, r: { v: '+', l: { v: 3 }, r: { v: 4 } } }} tones={{ '*': 'mark' }} compact size={0.75} label="Los dos subárboles de la raíz cambian de lado." />
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>Se intercambian los dos lados de *: el − pasa a la izquierda y el + a la derecha.</div>
+  </Step>
+  <Step lines={[8]}>
+    <BinaryPicture tree={{ v: '*', l: { v: '−', l: { v: 5 }, r: { v: 1 } }, r: { v: '+', l: { v: 3 }, r: { v: 4 } } }} tones={{ '*': 'done', '−': 'focus' }} compact size={0.75} label="Sigue el espejo en el −." />
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>Se llama con su nuevo hijo izquierdo, −.</div>
+  </Step>
+  <Step lines={[4, 5, 6]}>
+    <BinaryPicture tree={{ v: '*', l: { v: '−', l: { v: 1 }, r: { v: 5 } }, r: { v: '+', l: { v: 3 }, r: { v: 4 } } }} tones={{ '*': 'done', '−': 'mark' }} compact size={0.75} label="Los hijos del − cambian de lado." />
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>Se intercambian los lados de −: el 1 queda a la izquierda y el 5 a la derecha.</div>
+  </Step>
+  <Step lines={[8, 9]}>
+    <BinaryPicture tree={{ v: '*', l: { v: '−', l: { v: 1 }, r: { v: 5 } }, r: { v: '+', l: { v: 3 }, r: { v: 4 } } }} tones={{ '*': 'done', '−': 'done', 1: 'focus', 5: 'focus' }} compact size={0.75} label="Las hojas 1 y 5 no cambian." />
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>El 1 y el 5 son hojas: sus dos lados están vacíos, e intercambiarlos no cambia nada.</div>
+  </Step>
+  <Step lines={[9]}>
+    <BinaryPicture tree={{ v: '*', l: { v: '−', l: { v: 1 }, r: { v: 5 } }, r: { v: '+', l: { v: 3 }, r: { v: 4 } } }} tones={{ '*': 'done', '−': 'done', 1: 'done', 5: 'done', '+': 'focus' }} compact size={0.75} label="Sigue el espejo en el +." />
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>Se llama con el hijo derecho de *, el +.</div>
+  </Step>
+  <Step lines={[4, 5, 6]}>
+    <BinaryPicture tree={{ v: '*', l: { v: '−', l: { v: 1 }, r: { v: 5 } }, r: { v: '+', l: { v: 4 }, r: { v: 3 } } }} tones={{ '*': 'done', '−': 'done', 1: 'done', 5: 'done', '+': 'mark' }} compact size={0.75} label="Los hijos del + cambian de lado." />
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>Se intercambian los lados de +: el 4 queda a la izquierda y el 3 a la derecha.</div>
+  </Step>
+  <Step lines={[8, 9]}>
+    <BinaryPicture tree={{ v: '*', l: { v: '−', l: { v: 1 }, r: { v: 5 } }, r: { v: '+', l: { v: 4 }, r: { v: 3 } } }} tones={{ '*': 'done', '−': 'done', 1: 'done', 5: 'done', '+': 'done', 4: 'done', 3: 'done' }} compact size={0.75} label="El espejo terminado: (1 − 5) por (4 + 3), que vale menos 28." />
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>El espejo terminado: (1 − 5) * (4 + 3), que vale −28.</div>
+  </Step>
+</StepShow>
+
+</Slide>
+
+<Slide title="El espejo escrito en inorden">
+El orden de la visita importa cuando la visita cambia el árbol. En postorden
+el espejo funciona igual: cada nodo intercambia sus lados cuando los dos ya
+se dieron vuelta. En inorden no: el nodo intercambia sus lados entre las dos
+llamadas, así que la segunda llamada baja al subárbol que la primera ya dio
+vuelta y lo deja como estaba, y el otro subárbol nunca se toca.
+
+<PresentationWide fraction={0.9}>
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem', alignItems: 'end' }}>
+<BinaryPicture tree={EXPR_LEFT_TURNED} tones={{ '+': 'mark' }} compact label="En inorden, primero se da vuelta el subárbol izquierdo: la suma queda 4 más 3." caption="1. la izquierda: el + queda (4 + 3)" />
+<BinaryPicture tree={EXPR_INORDER_SWAP} tones={{ '*': 'mark' }} compact label="Después se intercambian los lados del asterisco: la resta pasa a la izquierda y la suma, ya dada vuelta, a la derecha." caption="2. los lados del *" />
+<BinaryPicture tree={EXPR_ROOT_TURNED} tones={{ '+': 'mark', 5: 'mark', 1: 'mark' }} compact label="La llamada derecha baja otra vez a la suma y la deja como estaba: 3 más 4. La resta nunca se dio vuelta: el resultado es (5 − 1) por (3 + 4)." caption="3. el + vuelve atrás: (5 − 1) * (3 + 4)" />
+</div>
+
+</PresentationWide>
+
+El resultado es el mismo de dar vuelta solo la raíz.
+
+</Slide>
+
+<Slide title="El árbol vacío y un nodo solo">
+Con el árbol vacío, la primera línea devuelve sin hacer nada. Con un nodo
+solo, se intercambian dos `null` y el nodo queda igual: es su propio espejo.
+
+**Tiempo.** Cada nodo se visita una vez y su visita hace tres asignaciones; las
+llamadas con `null` son una por cada hijo que falta, $$n + 1$$ en total:
+$$\Theta(n)$$. **Memoria.** Una llamada pendiente por cada nodo del camino
+actual: $$O(h)$$.
+
+</Slide>
+
+<Slide title="Espejo · el programa completo">
+<PresentationWide fraction={0.75}>
+<Exercise title="El espejo de un árbol">
+
+```java starter
+class Node<T> {
+    T value;
+    Node<T> left;
+    Node<T> right;
+
+    Node(T value) {
+        this.value = value;
+    }
+
+    Node(T value, Node<T> left, Node<T> right) {
+        this.value = value;
+        this.left = left;
+        this.right = right;
+    }
+}
+
+class Solution {
+    static void mirror(Node<String> node) {
+        if (node == null) return;
+        // visita: intercambia sus dos lados
+        Node<String> saved = node.left;
+        node.left = node.right;
+        node.right = saved;
+        // recorrido
+        mirror(node.left);
+        mirror(node.right);
+    }
+}
+```
+
+```java test
+Node<String> root = new Node<>("*",
+        new Node<>("+", new Node<>("3"), new Node<>("4")),
+        new Node<>("-", new Node<>("5"), new Node<>("1")));
+Solution.mirror(root);
+check(root.left.value, "-");
+check(root.left.left.value, "1");
+check(root.left.right.value, "5");
+check(root.right.value, "+");
+check(root.right.left.value, "4");
+check(root.right.right.value, "3");
+Node<String> seven = new Node<>("7");
+Solution.mirror(seven);
+check(seven.left == null && seven.right == null, true);
+Solution.mirror(null);
+```
+
+</Exercise>
+</PresentationWide>
+
+</Slide>
 
 {/* The tree the ancestor exercise threads through its beats: the class's own insertion of 8, 5, 1, 4, 6, 7, 20, 12. */}
 
