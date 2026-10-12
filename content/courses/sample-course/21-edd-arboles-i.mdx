@@ -1508,9 +1508,9 @@ camino más largo desde la raíz.
 {/* The drawings of an order, in HierarchyPicture's idiom: visits numbers the nodes in "pre" (focus), "in" (accent) or "post" (mark) order and draws an arrow from every visit to the next — along the edge when the next is a child or the parent, dashed when the walk jumps to another branch; sequence writes the visit order under the tree as a row of chips. holes draws the empty tree under every missing child, as a dashed square. ruler draws the height at the left ("h = 2"), and levelNotes writes one note per level at the right. A node toned "hidden" is not drawn, nor any edge that reaches it, but keeps its place: a tree built from the leaves up shows its subtrees loose before their parent is made; fresh names the node just added, whose edge is drawn in the mark colour. */}
 
 {/* edgeLabels writes a word beside the edge that reaches a node, keyed by that node's value: the side it hangs on, izquierdo or derecho. frames draws a dashed box around the subtree rooted at a node, keyed by that node's value, with its name under it; a frame is a name, or { text, tone } with tone keep (the default), accent or mark, so two subtrees can be told apart as they move. */}
-{/* The drawings of a recursive call, in the idiom of the binary-tree widget: path names the open calls from the root down, and their edges are lit in focus; probe is a call that landed on an empty side, { at, side: 'l' | 'r' }, drawn as a dashed box with null in it; swap is the two nodes a visit just exchanged, joined by a double-headed arrow; holes may also be a list of values, to draw the empty trees under those nodes only. until stops the visits at a value, as a search does when it finds it: the nodes after it are not numbered. seek writes the value a search is looking for in the top left corner, in a neutral pill: the colour stays for the node that holds it, if one does. */}
+{/* The drawings of a recursive call, in the idiom of the binary-tree widget: path names the open calls from the root down, and their edges are lit in focus; probe is a call that landed on an empty side, { at, side: 'l' | 'r' }, drawn as a dashed box with null in it; swap is the two nodes a visit just exchanged, joined by a double-headed arrow; holes may also be a list of values, to draw the empty trees under those nodes only. until stops the visits at a value, as a search does when it finds it: the nodes after it are not numbered. seek writes the value a search is looking for in the top left corner, in a neutral pill: the colour stays for the node that holds it, if one does. emptyNote is what a drawing with every node hidden says, root = null by default; a tree built from the leaves up has no root to name yet, and passes an empty one. */}
 
-export function BinaryPicture({ tree, tones = {}, badges = {}, notes = {}, levels = false, strip = false, caption, size = 1, minColumns = 0, compact = false, visits, sequence = false, holes = false, ruler, levelNotes, fresh, edgeLabels = {}, frames = {}, path = [], probe, swap, until, seek, label }) {
+export function BinaryPicture({ tree, tones = {}, badges = {}, notes = {}, levels = false, strip = false, caption, size = 1, minColumns = 0, compact = false, visits, sequence = false, holes = false, ruler, levelNotes, fresh, edgeLabels = {}, frames = {}, path = [], probe, swap, until, seek, emptyNote = 'root = null', label }) {
   const r = 17;
   // compact narrows the columns for figures set three in a row, so each fills its own column at full size.
   const pitch = compact ? 38 : 46;
@@ -1745,8 +1745,8 @@ export function BinaryPicture({ tree, tones = {}, badges = {}, notes = {}, level
         </g>
       )}
       {visits ? seq.slice(1).map((b, i) => step(seq[i], b, `s${b.v}`)) : null}
-      {shown.length === 0 && root ? (
-        <text x={cx(root)} y={cy(root) + 5} textAnchor="middle" fontSize="13" fontFamily="var(--font-mono, monospace)" style={{ fill: 'var(--color-ink-soft)' }}>root = null</text>
+      {shown.length === 0 && root && emptyNote ? (
+        <text x={cx(root)} y={cy(root) + 5} textAnchor="middle" fontSize="13" fontFamily="var(--font-mono, monospace)" style={{ fill: 'var(--color-ink-soft)' }}>{emptyNote}</text>
       ) : null}
       {shown.map((n) => {
         const [fill, stroke, weight] = TONE[tones[n.v] ?? 'idle'];
@@ -3641,8 +3641,8 @@ $$O(n)$$.
 
 </Slide>
 
-{/* Book-only on purpose, like the calculator's: the program is about forty-five lines with its imports and Node, and an <Exercise> on a slide shows all of them (measured: the slide scales to 0.62, under the 0.70 floor). The solution slide walks every line of it. */}
-
+<Slide title="Nivel más ancho · el programa completo">
+<PresentationWide fraction={0.75}>
 <Exercise title="El nivel más ancho">
 
 ```java starter
@@ -3715,89 +3715,127 @@ check(Solution.widestLevel(null), -1);
 ```
 
 </Exercise>
+</PresentationWide>
+</Slide>
 
-{/* TokenRow and StackRow — the calculator exercise's drawings: a row of symbols with one under the eye, and a stack laid on its side, bottom on the left. File-local like HierarchyPicture (§6e-quater). */}
+{/* TokenRow and StackRow — the calculator exercise's drawings: a row of symbols with one under the eye, and a stack laid on its side, bottom on the left. File-local like HierarchyPicture (§6e-quater). indices writes each position over its cell; range [from, to) dims every cell outside it, the stretch a call is reading; slots keeps room for that many cells, drawn empty, so a row that fills up frame by frame never changes size. spans brackets stretches of the row, each { from, to, tone, text }: its cells take the tone and the text goes under the bracket; an empty list keeps the bracket's room, so a walk that shows them in one frame keeps its size in the others. caption writes a line under the row; size scales its widest size, as in BinaryPicture. */}
 
-export function TokenRow({ tokens, at = -1, title, label }) {
+export function TokenRow({ tokens, at = -1, title, label, indices = false, range, slots = 0, spans, caption, size = 1.3 }) {
   const box = 36;
   const pad = 8;
+  const idxH = indices ? 15 : 0;
+  const spanH = spans ? 30 : 0;
+  const n = Math.max(tokens.length, slots, 1);
   const titleW = title ? title.length * 7.2 + 16 : 0;
-  const width = titleW + 2 * pad + Math.max(tokens.length, 1) * box;
-  const height = 2 * pad + box;
+  const rowW = titleW + 2 * pad + n * box;
+  const width = Math.max(rowW, caption ? caption.length * 6.6 + 24 : 0);
+  const offset = (width - rowW) / 2;
+  const y = pad + idxH;
+  const height = 2 * pad + box + idxH + spanH + (caption ? 20 : 0);
+  const cellX = (i) => offset + titleW + pad + i * box;
+  const inRange = (i) => !range || (i >= range[0] && i < range[1]);
+  const spanOf = (i) => (spans ?? []).find((s) => i >= s.from && i < s.to);
   return (
-    <svg viewBox={`0 0 ${width} ${height}`} style={{ width: '100%', maxWidth: `${Math.round(width * 1.3)}px`, height: 'auto', display: 'block', margin: '0.5rem auto' }} role="img" aria-label={label}>
-      {title ? <text x={4} y={pad + box / 2 + 5} fontSize="12" style={{ fill: 'var(--color-ink-faint)' }}>{title}</text> : null}
-      {tokens.map((t, i) => (
-        <g key={i}>
-          <rect x={titleW + pad + i * box} y={pad} width={box - 4} height={box} rx="3" style={{ fill: i === at ? 'var(--color-mark-soft)' : 'var(--color-surface)', stroke: i === at ? 'var(--color-mark)' : 'var(--color-rule-strong)' }} strokeWidth={i === at ? 2.2 : 1.1} />
-          <text x={titleW + pad + i * box + (box - 4) / 2} y={pad + box / 2 + 5} textAnchor="middle" fontSize="15" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>{t}</text>
-        </g>
-      ))}
-      {tokens.length === 0 ? <text x={titleW + pad + 4} y={pad + box / 2 + 5} fontSize="12" style={{ fill: 'var(--color-ink-faint)' }}>vacía</text> : null}
+    <svg viewBox={`0 0 ${width} ${height}`} style={{ width: '100%', maxWidth: `${Math.round(width * size)}px`, height: 'auto', display: 'block', margin: '0.5rem auto' }} role="img" aria-label={label}>
+      {title ? <text x={offset + 4} y={y + box / 2 + 5} fontSize="12" style={{ fill: 'var(--color-ink-faint)' }}>{title}</text> : null}
+      {Array.from({ length: n }, (_, i) => {
+        const t = tokens[i];
+        const x = cellX(i);
+        if (t === undefined) {
+          return <rect key={i} x={x} y={y} width={box - 4} height={box} rx="3" style={{ fill: 'none', stroke: 'var(--color-rule)' }} strokeWidth="1" strokeDasharray="3 3" />;
+        }
+        const span = spanOf(i);
+        const tone = i === at ? 'mark' : span ? span.tone : null;
+        return (
+          <g key={i} opacity={inRange(i) ? undefined : 0.3}>
+            {indices ? <text x={x + (box - 4) / 2} y={pad + 9} textAnchor="middle" fontSize="10" fontFamily="monospace" style={{ fill: 'var(--color-ink-faint)' }}>{i}</text> : null}
+            <rect x={x} y={y} width={box - 4} height={box} rx="3" style={{ fill: tone ? `var(--color-${tone}-soft)` : 'var(--color-surface)', stroke: tone ? `var(--color-${tone})` : 'var(--color-rule-strong)' }} strokeWidth={tone ? 2.2 : 1.2} />
+            <text x={x + (box - 4) / 2} y={y + box / 2 + 5} textAnchor="middle" fontSize="15" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink)' }}>{t}</text>
+          </g>
+        );
+      })}
+      {(spans ?? []).map((s) => {
+        const x1 = cellX(s.from);
+        const x2 = cellX(s.to) - 4;
+        const yb = y + box + 5;
+        return (
+          <g key={`sp${s.from}`}>
+            <path d={`M ${x1} ${yb} v 6 H ${x2} v -6`} fill="none" style={{ stroke: `var(--color-${s.tone})` }} strokeWidth="1.8" />
+            <text x={(x1 + x2) / 2} y={yb + 21} textAnchor="middle" fontSize="11.5" fontWeight="700" style={{ fill: 'var(--color-ink-soft)' }}>{s.text}</text>
+          </g>
+        );
+      })}
+      {tokens.length === 0 && slots === 0 ? <text x={cellX(0) + 4} y={y + box / 2 + 5} fontSize="12" style={{ fill: 'var(--color-ink-faint)' }}>vacía</text> : null}
+      {caption ? <text x={width / 2} y={height - 6} textAnchor="middle" fontSize="12" style={{ fill: 'var(--color-ink-soft)' }}>{caption}</text> : null}
     </svg>
   );
 }
 
-export function StackRow({ values, fresh = -1, label }) {
-  return <TokenRow tokens={values.map(String)} at={fresh} title="pila" label={label} />;
+export function StackRow({ values, fresh = -1, label, slots = 0, size }) {
+  return <TokenRow tokens={values.map(String)} at={fresh} title="pila" label={label} slots={slots} size={size} />;
 }
 
-{/* The calculator's example expression, as the tree it describes. */}
+{/* The calculator's example expression, as text and as the tree it describes, and that tree's postorder. */}
 
-export const CALC_TREE = { v: '*', l: { v: '+', l: { v: '3' }, r: { v: '4' } }, r: { v: '5' } };
+export const CALC_TREE = { v: '*', l: { v: '+', l: { v: '3' }, r: { v: '4' } }, r: { v: '-', l: { v: '5' }, r: { v: '1' } } };
 
-export const CALC_CHARS = ['(', '(', '3', '+', '4', ')', '*', '5', ')'];
+export const CALC_CHARS = ['(', '(', '3', '+', '4', ')', '*', '(', '5', '-', '1', ')', ')'];
+
+export const CALC_POSTORDER = ['3', '4', '+', '5', '1', '-', '*'];
 
 <Slide title="Una calculadora con paréntesis">
 Una calculadora recibe una expresión aritmética escrita con paréntesis y
-tiene que devolver su valor. En la expresión, **cada operación va entre
-paréntesis** con sus dos operandos, y cada operando es un número o, a su vez,
-otra operación entre paréntesis.
+devuelve su valor. Cada operación va entre paréntesis con sus dos operandos,
+y cada operando es un número o, a su vez, otra operación entre paréntesis.
 
-<TokenRow tokens={CALC_CHARS} title="expresión" label="La expresión abre paréntesis, abre paréntesis, 3 más 4, cierra paréntesis, por 5, cierra paréntesis." />
+<TokenRow tokens={CALC_CHARS} title="expression" caption="((3+4)*(5-1)) vale 28" label="La expresión abre paréntesis, abre paréntesis, 3 más 4, cierra paréntesis, por, abre paréntesis, 5 menos 1, cierra paréntesis, cierra paréntesis. Vale 28." />
 
-El programa recibe la expresión como un `String` sin espacios, con números
-enteros no negativos de uno o más dígitos y los operadores `+`, `-`, `*` y
-`/` (la división es entera), y responde el valor como un `int`. La expresión
-siempre está bien escrita. Llamamos $$N$$ a su largo.
+El programa recibe la expresión y responde su valor:
 
 ```java
 static int calculate(String expression)
 ```
 
-| Expresión         | Valor |
-| ----------------- | ----- |
-| `((3+4)*5)`       | 35    |
-| `(3+(4*5))`       | 23    |
-| `((8-2)/(1+2))`   | 2     |
-| `7`               | 7     |
+**Entrada.** `expression`, un `String` de largo $$N$$, sin espacios y bien
+escrito: un número solo, o una operación entre paréntesis. Los números son
+enteros no negativos, de uno o más dígitos, y los operadores son `+`, `-`,
+`*` y `/`.
+
+**Salida.** El valor de la expresión, un `int`. La división es entera.
 
 </Slide>
 
 <Slide title="Leer de izquierda a derecha">
-`((3+4)*5)` y `(3+(4*5))` tienen los mismos números y los mismos operadores,
-en el mismo orden. Si se operara de izquierda a derecha a medida que se lee,
-las dos darían 35, y la segunda vale 23.
+Dos expresiones pueden tener los mismos números y los mismos operadores, en el
+mismo orden, y valer distinto. Operando a medida que se lee, de izquierda a
+derecha, las dos darían lo mismo, y por lo menos una quedaría mal.
 
-El orden en que se hacen las operaciones no está en el orden de los
-caracteres: está en **qué paréntesis queda dentro de cuál**. Un programa que
-lee la expresión una vez, de corrido, sin guardar ese anidamiento, no tiene
-cómo saber qué operar primero.
+<div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', alignItems: 'center' }}>
+<TokenRow tokens={CALC_CHARS} caption="((3+4)*(5-1)) vale 28" size={1} label="La primera expresión, ((3+4)*(5-1)), vale 28." />
+<TokenRow tokens={['(', '3', '+', '(', '4', '*', '(', '5', '-', '1', ')', ')', ')']} caption="(3+(4*(5-1))) vale 19" size={1} label="La segunda, (3+(4*(5-1))), con los mismos números y operadores en el mismo orden, vale 19." />
+<TokenRow tokens={['3', '+', '4', '*', '5', '-', '1']} at={-1} caption="de izquierda a derecha: 3 + 4 = 7, 7 * 5 = 35, 35 - 1 = 34" size={1} label="Leídas de izquierda a derecha, operando a medida que se lee, las dos dan 34: 3 más 4 es 7, por 5 es 35, menos 1 es 34." />
+</div>
+
+El orden de las operaciones no está en el orden de los caracteres: está en
+**qué paréntesis queda dentro de cuál**. Un programa que lee la expresión de
+corrido, sin guardar ese anidamiento, no tiene cómo saber qué operar primero.
 
 </Slide>
 
 <Slide title="Una expresión es un árbol">
-Cada operación tiene un operador y dos operandos, y cada operando es un
-número u otra operación. Es una jerarquía, y se dibuja como un **árbol
-binario**: los operadores son nodos internos y los números son hojas. Es el
-**árbol de expresión**.
+Cada operación tiene un operador y dos operandos, y cada operando es un número
+u otra operación: es una jerarquía de a dos. Se guarda en un **árbol
+binario**, con los operadores en los nodos internos y los números en las
+hojas.
 
-<BinaryPicture tree={CALC_TREE} label="El árbol de la expresión abre paréntesis abre paréntesis 3 más 4 cierra por 5 cierra. La raíz es el por; su hijo izquierdo es el más, con hojas 3 y 4; su hijo derecho es la hoja 5." caption="((3+4)*5): el + queda debajo del *" />
+<TokenRow tokens={CALC_CHARS} indices at={6} spans={[{ from: 1, to: 6, tone: 'keep', text: 'operando izquierdo' }, { from: 7, to: 12, tone: 'accent', text: 'operando derecho' }]} size={1.1} label="La expresión con su operador, el por en la posición 6, marcado: es el único que no queda dentro de otro paréntesis. A su izquierda, de 1 a 6, el operando izquierdo, 3 más 4; a su derecha, de 7 a 12, el operando derecho, 5 menos 1." />
 
-Para armarlo se lee la expresión una vez: un paréntesis que abre anuncia un
-operando izquierdo, un operador y un operando derecho, y cada operando se lee
-con la misma regla. Lo que estaba dentro de otros paréntesis queda más abajo
-en el árbol.
+<BinaryPicture tree={CALC_TREE} tones={{ '*': 'mark' }} frames={{ '+': { text: 'operando izquierdo', tone: 'keep' }, '-': { text: 'operando derecho', tone: 'accent' } }} size={0.85} label="El árbol de la expresión: el por en la raíz; a su izquierda el más, con 3 y 4, enmarcado como el operando izquierdo; a su derecha el menos, con 5 y 1, enmarcado como el operando derecho." />
+
+Para armarlo, en una operación se busca su operador: el único que no queda
+dentro de otro paréntesis. A cada lado queda un operando, un tramo más corto
+que se arma con la misma regla, y un tramo sin paréntesis es un número: una
+hoja.
 
 </Slide>
 
@@ -3807,12 +3845,14 @@ el árbol se evalúa en **postorden**. Escrito, el postorden de un árbol de
 expresión pone cada operador después de sus dos operandos, sin paréntesis: es
 la **notación polaca inversa**.
 
-<TokenRow tokens={['3', '4', '+', '5', '*']} title="postorden" label="El postorden del árbol: 3, 4, más, 5, por." />
+<BinaryPicture tree={CALC_TREE} visits="post" sequence size={0.85} label="El árbol de la expresión recorrido en postorden: 3, 4, más, 5, 1, menos y por, numerados del 1 al 7, con la secuencia escrita abajo." />
 
-Y la polaca inversa se evalúa con una **pila**, leyendo de izquierda a
-derecha: cada número se apila, y cada operador saca los dos de arriba, los
-opera y apila el resultado. Sobre `3 4 + 5 *`: se apilan 3 y 4; el `+` los
-saca y apila 7; se apila 5; el `*` saca 7 y 5 y apila 35, que es el valor.
+La polaca inversa se evalúa con una **pila**, de izquierda a derecha: cada
+número se apila, y cada operador saca los dos de arriba, los opera y apila el
+resultado. Al final, en la pila queda el valor.
+
+La calculadora encadena tres piezas: arma el árbol desde el texto, lo recorre
+en postorden y evalúa la lista con una pila.
 
 </Slide>
 
@@ -3840,92 +3880,808 @@ static int apply(int a, int b, String t) {
 
 </Slide>
 
-<Slide title="Calculadora · construir el árbol">
-`parse` lee desde la posición `pos`, que comparte con sus llamadas
-recursivas. Si no hay un paréntesis, lee los dígitos de un número y devuelve
-una hoja; si lo hay, lee el operando izquierdo, el operador y el derecho, y
-arma el nodo.
+<Slide title="Calculadora · armar el árbol">
+`parse` recibe la expresión y el tramo que arma, de `from` a `to` sin
+incluirlo: todo lo que usa le llega como parámetro.
 
 <StepShow
   language="java"
-  code={`static int pos;
-
-static Node<String> parse(String s) {
-    if (s.charAt(pos) != '(') {
-        int start = pos;
-        while (pos < s.length()
-                && Character.isDigit(s.charAt(pos))) {
-            pos++;
-        }
-        return new Node<>(s.substring(start, pos));
+  code={`static Node<String> parse(String s, int from, int to) {
+    if (s.charAt(from) != '(') { // un número: una hoja
+        return new Node<>(s.substring(from, to));
     }
-    pos++;
-    Node<String> left = parse(s);
-    String op = String.valueOf(s.charAt(pos));
-    pos++;
-    Node<String> right = parse(s);
-    pos++;
-    Node<String> node = new Node<>(op);
-    node.left = left;
-    node.right = right;
-    return node;
+    // una operación: el operador fuera de paréntesis
+    int depth = 0, at = from + 1;
+    while (depth > 0
+            || !isOperator(s.substring(at, at + 1))) {
+        if (s.charAt(at) == '(') depth++;
+        if (s.charAt(at) == ')') depth--;
+        at++;
+    }
+    Node<String> left = parse(s, from + 1, at);
+    Node<String> right = parse(s, at + 1, to - 1);
+    String op = s.substring(at, at + 1);
+    return new Node<>(op, left, right);
 }`}
 >
-  <Step lines={[12]}>
-    <TokenRow tokens={CALC_CHARS} at={0} title="expresión" label="parse mira el primer carácter, un paréntesis que abre." />
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>El primer carácter es un paréntesis: se salta.</div>
-  </Step>
-  <Step lines={[13, 12]}>
-    <TokenRow tokens={CALC_CHARS} at={1} title="expresión" label="El operando izquierdo empieza con otro paréntesis." />
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>El operando izquierdo es otra operación: parse se llama a sí misma y salta el segundo paréntesis.</div>
-  </Step>
-  <Step lines={[5, 6, 7, 8, 9, 10]}>
-    <TokenRow tokens={CALC_CHARS} at={2} title="expresión" label="parse lee el número 3." />
-    <div style={{ display: 'flex', justifyContent: 'center', gap: '1rem' }}>
-      <BinaryPicture tree={{ v: '3' }} size={0.7} label="Una hoja, 3." />
+  <Step lines={[1]}>
+    <TokenRow tokens={CALC_CHARS} title="s" indices range={[0, 13]} at={-1} spans={[]} size={1} label="El tramo de 0 a 13, ((3+4)*(5-1))." />
+    <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+    <div style={{ flex: '1 1 0', minWidth: 0 }}>
+    <BinaryPicture tree={CALC_TREE} tones={{ '*': 'hidden', '+': 'hidden', '3': 'hidden', '4': 'hidden', '-': 'hidden', '5': 'hidden', '1': 'hidden' }} emptyNote="" compact size={0.8} label="Todavía no hay ningún nodo armado." />
     </div>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Su operando izquierdo es un número: se leen sus dígitos y queda la hoja 3.</div>
-  </Step>
-  <Step lines={[14, 15]}>
-    <TokenRow tokens={CALC_CHARS} at={3} title="expresión" label="parse lee el operador más." />
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>El operador es +.</div>
-  </Step>
-  <Step lines={[16, 10]}>
-    <TokenRow tokens={CALC_CHARS} at={4} title="expresión" label="parse lee el número 4." />
-    <div style={{ display: 'flex', justifyContent: 'center', gap: '1rem' }}>
-      <BinaryPicture tree={{ v: '3' }} size={0.7} label="Una hoja, 3." />
-      <BinaryPicture tree={{ v: '4' }} size={0.7} label="Una hoja, 4." />
+    <div style={{ flex: '0 0 11.5rem', display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.1rem', fontFamily: 'var(--font-mono, monospace)', fontSize: '0.75rem', height: '5.2rem', padding: '0.35rem 0.6rem', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }}>
+      <div style={{ fontSize: '0.7rem', color: 'var(--color-ink-faint)' }}>llamadas abiertas</div>
+      <div style={{ paddingLeft: '0.0rem', fontWeight: 700, color: 'var(--color-focus)' }}>parse(s, 0, 13)</div>
     </div>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>El operando derecho es el número 4: otra hoja.</div>
-  </Step>
-  <Step lines={[17, 18, 19, 20, 21]}>
-    <TokenRow tokens={CALC_CHARS} at={5} title="expresión" label="parse salta el paréntesis que cierra y arma el nodo más." />
-    <div style={{ display: 'flex', justifyContent: 'center', gap: '1rem' }}>
-      <BinaryPicture tree={{ v: '+', l: { v: '3' }, r: { v: '4' } }} size={0.7} label="El nodo más, con 3 a la izquierda y 4 a la derecha." />
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.05rem', fontFamily: 'var(--font-mono, monospace)', fontSize: '0.75rem', height: '6.1rem', padding: '0.35rem 0.6rem', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }} aria-label="Variables: from = 0, to = 13.">
+      <div>from = 0</div>
+      <div>to = 13</div>
     </div>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Se salta el paréntesis que cierra y se arma el nodo +: 3 a la izquierda, 4 a la derecha.</div>
-  </Step>
-  <Step lines={[14, 15]}>
-    <TokenRow tokens={CALC_CHARS} at={6} title="expresión" label="De vuelta en la primera llamada, parse lee el operador por." />
-    <div style={{ display: 'flex', justifyContent: 'center', gap: '1rem' }}>
-      <BinaryPicture tree={{ v: '+', l: { v: '3' }, r: { v: '4' } }} size={0.7} label="El nodo más, con 3 y 4." />
     </div>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>De vuelta en la primera llamada, el operador es *.</div>
-  </Step>
-  <Step lines={[16, 10]}>
-    <TokenRow tokens={CALC_CHARS} at={7} title="expresión" label="parse lee el número 5." />
-    <div style={{ display: 'flex', justifyContent: 'center', gap: '1rem' }}>
-      <BinaryPicture tree={{ v: '+', l: { v: '3' }, r: { v: '4' } }} size={0.7} label="El nodo más, con 3 y 4." />
-      <BinaryPicture tree={{ v: '5' }} size={0.7} label="Una hoja, 5." />
     </div>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>El operando derecho es el número 5.</div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '1.6em', whiteSpace: 'nowrap' }}>parse(s, 0, 13): el tramo es la expresión entera.</div>
   </Step>
-  <Step lines={[17, 18, 19, 20, 21]}>
-    <TokenRow tokens={CALC_CHARS} at={8} title="expresión" label="parse salta el último paréntesis y arma el nodo por." />
-    <div style={{ display: 'flex', justifyContent: 'center', gap: '1rem' }}>
-      <BinaryPicture tree={CALC_TREE} size={0.8} label="El árbol completo: por en la raíz, el más con 3 y 4 a su izquierda, y 5 a su derecha." />
+  <Step lines={[2]}>
+    <TokenRow tokens={CALC_CHARS} title="s" indices range={[0, 13]} at={0} spans={[]} size={1} label="El tramo de 0 a 13, ((3+4)*(5-1)); at está en 0, sobre (." />
+    <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+    <div style={{ flex: '1 1 0', minWidth: 0 }}>
+    <BinaryPicture tree={CALC_TREE} tones={{ '*': 'hidden', '+': 'hidden', '3': 'hidden', '4': 'hidden', '-': 'hidden', '5': 'hidden', '1': 'hidden' }} emptyNote="" compact size={0.8} label="Todavía no hay ningún nodo armado." />
     </div>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Se salta el último paréntesis y se arma el nodo *: el árbol completo.</div>
+    <div style={{ flex: '0 0 11.5rem', display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.1rem', fontFamily: 'var(--font-mono, monospace)', fontSize: '0.75rem', height: '5.2rem', padding: '0.35rem 0.6rem', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }}>
+      <div style={{ fontSize: '0.7rem', color: 'var(--color-ink-faint)' }}>llamadas abiertas</div>
+      <div style={{ paddingLeft: '0.0rem', fontWeight: 700, color: 'var(--color-focus)' }}>parse(s, 0, 13)</div>
+    </div>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.05rem', fontFamily: 'var(--font-mono, monospace)', fontSize: '0.75rem', height: '6.1rem', padding: '0.35rem 0.6rem', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }} aria-label="Variables: from = 0, to = 13.">
+      <div>from = 0</div>
+      <div>to = 13</div>
+    </div>
+    </div>
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '1.6em', whiteSpace: 'nowrap' }}>s[0] es '(': el tramo no es un número, es una operación.</div>
+  </Step>
+  <Step lines={[6]}>
+    <TokenRow tokens={CALC_CHARS} title="s" indices range={[0, 13]} at={1} spans={[]} size={1} label="El tramo de 0 a 13, ((3+4)*(5-1)); at está en 1, sobre (." />
+    <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+    <div style={{ flex: '1 1 0', minWidth: 0 }}>
+    <BinaryPicture tree={CALC_TREE} tones={{ '*': 'hidden', '+': 'hidden', '3': 'hidden', '4': 'hidden', '-': 'hidden', '5': 'hidden', '1': 'hidden' }} emptyNote="" compact size={0.8} label="Todavía no hay ningún nodo armado." />
+    </div>
+    <div style={{ flex: '0 0 11.5rem', display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.1rem', fontFamily: 'var(--font-mono, monospace)', fontSize: '0.75rem', height: '5.2rem', padding: '0.35rem 0.6rem', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }}>
+      <div style={{ fontSize: '0.7rem', color: 'var(--color-ink-faint)' }}>llamadas abiertas</div>
+      <div style={{ paddingLeft: '0.0rem', fontWeight: 700, color: 'var(--color-focus)' }}>parse(s, 0, 13)</div>
+    </div>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.05rem', fontFamily: 'var(--font-mono, monospace)', fontSize: '0.75rem', height: '6.1rem', padding: '0.35rem 0.6rem', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }} aria-label="Variables: from = 0, to = 13, depth = 0, at = 1.">
+      <div>from = 0</div>
+      <div>to = 13</div>
+      <div>depth = 0</div>
+      <div>at = 1</div>
+    </div>
+    </div>
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '1.6em', whiteSpace: 'nowrap' }}>depth, los paréntesis abiertos, parte en 0; at parte en 1, después del paréntesis.</div>
+  </Step>
+  <Step lines={[7, 8, 9, 11]}>
+    <TokenRow tokens={CALC_CHARS} title="s" indices range={[0, 13]} at={1} spans={[]} size={1} label="El tramo de 0 a 13, ((3+4)*(5-1)); at está en 1, sobre (." />
+    <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+    <div style={{ flex: '1 1 0', minWidth: 0 }}>
+    <BinaryPicture tree={CALC_TREE} tones={{ '*': 'hidden', '+': 'hidden', '3': 'hidden', '4': 'hidden', '-': 'hidden', '5': 'hidden', '1': 'hidden' }} emptyNote="" compact size={0.8} label="Todavía no hay ningún nodo armado." />
+    </div>
+    <div style={{ flex: '0 0 11.5rem', display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.1rem', fontFamily: 'var(--font-mono, monospace)', fontSize: '0.75rem', height: '5.2rem', padding: '0.35rem 0.6rem', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }}>
+      <div style={{ fontSize: '0.7rem', color: 'var(--color-ink-faint)' }}>llamadas abiertas</div>
+      <div style={{ paddingLeft: '0.0rem', fontWeight: 700, color: 'var(--color-focus)' }}>parse(s, 0, 13)</div>
+    </div>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.05rem', fontFamily: 'var(--font-mono, monospace)', fontSize: '0.75rem', height: '6.1rem', padding: '0.35rem 0.6rem', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }} aria-label="Variables: from = 0, to = 13, depth = 1, at = 1.">
+      <div>from = 0</div>
+      <div>to = 13</div>
+      <div>depth = 1</div>
+      <div>at = 1</div>
+    </div>
+    </div>
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '1.6em', whiteSpace: 'nowrap' }}>s[1] es '(': depth sube a 1, y at avanza.</div>
+  </Step>
+  <Step lines={[7, 8, 11]}>
+    <TokenRow tokens={CALC_CHARS} title="s" indices range={[0, 13]} at={2} spans={[]} size={1} label="El tramo de 0 a 13, ((3+4)*(5-1)); at está en 2, sobre 3." />
+    <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+    <div style={{ flex: '1 1 0', minWidth: 0 }}>
+    <BinaryPicture tree={CALC_TREE} tones={{ '*': 'hidden', '+': 'hidden', '3': 'hidden', '4': 'hidden', '-': 'hidden', '5': 'hidden', '1': 'hidden' }} emptyNote="" compact size={0.8} label="Todavía no hay ningún nodo armado." />
+    </div>
+    <div style={{ flex: '0 0 11.5rem', display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.1rem', fontFamily: 'var(--font-mono, monospace)', fontSize: '0.75rem', height: '5.2rem', padding: '0.35rem 0.6rem', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }}>
+      <div style={{ fontSize: '0.7rem', color: 'var(--color-ink-faint)' }}>llamadas abiertas</div>
+      <div style={{ paddingLeft: '0.0rem', fontWeight: 700, color: 'var(--color-focus)' }}>parse(s, 0, 13)</div>
+    </div>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.05rem', fontFamily: 'var(--font-mono, monospace)', fontSize: '0.75rem', height: '6.1rem', padding: '0.35rem 0.6rem', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }} aria-label="Variables: from = 0, to = 13, depth = 1, at = 2.">
+      <div>from = 0</div>
+      <div>to = 13</div>
+      <div>depth = 1</div>
+      <div>at = 2</div>
+    </div>
+    </div>
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '1.6em', whiteSpace: 'nowrap' }}>s[2] es '3', dentro de un paréntesis: at avanza.</div>
+  </Step>
+  <Step lines={[7, 8, 11]}>
+    <TokenRow tokens={CALC_CHARS} title="s" indices range={[0, 13]} at={3} spans={[]} size={1} label="El tramo de 0 a 13, ((3+4)*(5-1)); at está en 3, sobre +." />
+    <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+    <div style={{ flex: '1 1 0', minWidth: 0 }}>
+    <BinaryPicture tree={CALC_TREE} tones={{ '*': 'hidden', '+': 'hidden', '3': 'hidden', '4': 'hidden', '-': 'hidden', '5': 'hidden', '1': 'hidden' }} emptyNote="" compact size={0.8} label="Todavía no hay ningún nodo armado." />
+    </div>
+    <div style={{ flex: '0 0 11.5rem', display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.1rem', fontFamily: 'var(--font-mono, monospace)', fontSize: '0.75rem', height: '5.2rem', padding: '0.35rem 0.6rem', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }}>
+      <div style={{ fontSize: '0.7rem', color: 'var(--color-ink-faint)' }}>llamadas abiertas</div>
+      <div style={{ paddingLeft: '0.0rem', fontWeight: 700, color: 'var(--color-focus)' }}>parse(s, 0, 13)</div>
+    </div>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.05rem', fontFamily: 'var(--font-mono, monospace)', fontSize: '0.75rem', height: '6.1rem', padding: '0.35rem 0.6rem', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }} aria-label="Variables: from = 0, to = 13, depth = 1, at = 3.">
+      <div>from = 0</div>
+      <div>to = 13</div>
+      <div>depth = 1</div>
+      <div>at = 3</div>
+    </div>
+    </div>
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '1.6em', whiteSpace: 'nowrap' }}>s[3] es '+', pero depth es 1: está dentro de un paréntesis. at avanza.</div>
+  </Step>
+  <Step lines={[7, 8, 11]}>
+    <TokenRow tokens={CALC_CHARS} title="s" indices range={[0, 13]} at={4} spans={[]} size={1} label="El tramo de 0 a 13, ((3+4)*(5-1)); at está en 4, sobre 4." />
+    <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+    <div style={{ flex: '1 1 0', minWidth: 0 }}>
+    <BinaryPicture tree={CALC_TREE} tones={{ '*': 'hidden', '+': 'hidden', '3': 'hidden', '4': 'hidden', '-': 'hidden', '5': 'hidden', '1': 'hidden' }} emptyNote="" compact size={0.8} label="Todavía no hay ningún nodo armado." />
+    </div>
+    <div style={{ flex: '0 0 11.5rem', display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.1rem', fontFamily: 'var(--font-mono, monospace)', fontSize: '0.75rem', height: '5.2rem', padding: '0.35rem 0.6rem', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }}>
+      <div style={{ fontSize: '0.7rem', color: 'var(--color-ink-faint)' }}>llamadas abiertas</div>
+      <div style={{ paddingLeft: '0.0rem', fontWeight: 700, color: 'var(--color-focus)' }}>parse(s, 0, 13)</div>
+    </div>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.05rem', fontFamily: 'var(--font-mono, monospace)', fontSize: '0.75rem', height: '6.1rem', padding: '0.35rem 0.6rem', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }} aria-label="Variables: from = 0, to = 13, depth = 1, at = 4.">
+      <div>from = 0</div>
+      <div>to = 13</div>
+      <div>depth = 1</div>
+      <div>at = 4</div>
+    </div>
+    </div>
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '1.6em', whiteSpace: 'nowrap' }}>s[4] es '4', dentro de un paréntesis: at avanza.</div>
+  </Step>
+  <Step lines={[7, 8, 10, 11]}>
+    <TokenRow tokens={CALC_CHARS} title="s" indices range={[0, 13]} at={5} spans={[]} size={1} label="El tramo de 0 a 13, ((3+4)*(5-1)); at está en 5, sobre )." />
+    <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+    <div style={{ flex: '1 1 0', minWidth: 0 }}>
+    <BinaryPicture tree={CALC_TREE} tones={{ '*': 'hidden', '+': 'hidden', '3': 'hidden', '4': 'hidden', '-': 'hidden', '5': 'hidden', '1': 'hidden' }} emptyNote="" compact size={0.8} label="Todavía no hay ningún nodo armado." />
+    </div>
+    <div style={{ flex: '0 0 11.5rem', display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.1rem', fontFamily: 'var(--font-mono, monospace)', fontSize: '0.75rem', height: '5.2rem', padding: '0.35rem 0.6rem', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }}>
+      <div style={{ fontSize: '0.7rem', color: 'var(--color-ink-faint)' }}>llamadas abiertas</div>
+      <div style={{ paddingLeft: '0.0rem', fontWeight: 700, color: 'var(--color-focus)' }}>parse(s, 0, 13)</div>
+    </div>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.05rem', fontFamily: 'var(--font-mono, monospace)', fontSize: '0.75rem', height: '6.1rem', padding: '0.35rem 0.6rem', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }} aria-label="Variables: from = 0, to = 13, depth = 0, at = 5.">
+      <div>from = 0</div>
+      <div>to = 13</div>
+      <div>depth = 0</div>
+      <div>at = 5</div>
+    </div>
+    </div>
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '1.6em', whiteSpace: 'nowrap' }}>s[5] es ')': depth baja a 0, y at avanza.</div>
+  </Step>
+  <Step lines={[7, 8]}>
+    <TokenRow tokens={CALC_CHARS} title="s" indices range={[0, 13]} at={6} spans={[{ from: 1, to: 6, tone: 'keep', text: 'izquierdo' }, { from: 7, to: 12, tone: 'accent', text: 'derecho' }]} size={1} label="El tramo de 0 a 13, ((3+4)*(5-1)); at está en 6, sobre *." />
+    <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+    <div style={{ flex: '1 1 0', minWidth: 0 }}>
+    <BinaryPicture tree={CALC_TREE} tones={{ '*': 'hidden', '+': 'hidden', '3': 'hidden', '4': 'hidden', '-': 'hidden', '5': 'hidden', '1': 'hidden' }} emptyNote="" compact size={0.8} label="Todavía no hay ningún nodo armado." />
+    </div>
+    <div style={{ flex: '0 0 11.5rem', display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.1rem', fontFamily: 'var(--font-mono, monospace)', fontSize: '0.75rem', height: '5.2rem', padding: '0.35rem 0.6rem', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }}>
+      <div style={{ fontSize: '0.7rem', color: 'var(--color-ink-faint)' }}>llamadas abiertas</div>
+      <div style={{ paddingLeft: '0.0rem', fontWeight: 700, color: 'var(--color-focus)' }}>parse(s, 0, 13)</div>
+    </div>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.05rem', fontFamily: 'var(--font-mono, monospace)', fontSize: '0.75rem', height: '6.1rem', padding: '0.35rem 0.6rem', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }} aria-label="Variables: from = 0, to = 13, depth = 0, at = 6.">
+      <div>from = 0</div>
+      <div>to = 13</div>
+      <div>depth = 0</div>
+      <div>at = 6</div>
+    </div>
+    </div>
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '1.6em', whiteSpace: 'nowrap' }}>s[6] es '*' y depth es 0: es el operador. El ciclo termina con at en 6.</div>
+  </Step>
+  <Step lines={[13]}>
+    <TokenRow tokens={CALC_CHARS} title="s" indices range={[1, 6]} at={-1} spans={[]} size={1} label="El tramo de 1 a 6, (3+4)." />
+    <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+    <div style={{ flex: '1 1 0', minWidth: 0 }}>
+    <BinaryPicture tree={CALC_TREE} tones={{ '*': 'hidden', '+': 'hidden', '3': 'hidden', '4': 'hidden', '-': 'hidden', '5': 'hidden', '1': 'hidden' }} emptyNote="" compact size={0.8} label="Todavía no hay ningún nodo armado." />
+    </div>
+    <div style={{ flex: '0 0 11.5rem', display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.1rem', fontFamily: 'var(--font-mono, monospace)', fontSize: '0.75rem', height: '5.2rem', padding: '0.35rem 0.6rem', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }}>
+      <div style={{ fontSize: '0.7rem', color: 'var(--color-ink-faint)' }}>llamadas abiertas</div>
+      <div style={{ paddingLeft: '0.0rem', color: 'var(--color-ink-soft)' }}>parse(s, 0, 13)</div>
+      <div style={{ paddingLeft: '0.7rem', fontWeight: 700, color: 'var(--color-focus)' }}>parse(s, 1, 6)</div>
+    </div>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.05rem', fontFamily: 'var(--font-mono, monospace)', fontSize: '0.75rem', height: '6.1rem', padding: '0.35rem 0.6rem', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }} aria-label="Variables: from = 1, to = 6.">
+      <div>from = 1</div>
+      <div>to = 6</div>
+    </div>
+    </div>
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '1.6em', whiteSpace: 'nowrap' }}>Llama con el operando izquierdo: el tramo de 1 a 6, (3+4).</div>
+  </Step>
+  <Step lines={[2]}>
+    <TokenRow tokens={CALC_CHARS} title="s" indices range={[1, 6]} at={1} spans={[]} size={1} label="El tramo de 1 a 6, (3+4); at está en 1, sobre (." />
+    <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+    <div style={{ flex: '1 1 0', minWidth: 0 }}>
+    <BinaryPicture tree={CALC_TREE} tones={{ '*': 'hidden', '+': 'hidden', '3': 'hidden', '4': 'hidden', '-': 'hidden', '5': 'hidden', '1': 'hidden' }} emptyNote="" compact size={0.8} label="Todavía no hay ningún nodo armado." />
+    </div>
+    <div style={{ flex: '0 0 11.5rem', display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.1rem', fontFamily: 'var(--font-mono, monospace)', fontSize: '0.75rem', height: '5.2rem', padding: '0.35rem 0.6rem', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }}>
+      <div style={{ fontSize: '0.7rem', color: 'var(--color-ink-faint)' }}>llamadas abiertas</div>
+      <div style={{ paddingLeft: '0.0rem', color: 'var(--color-ink-soft)' }}>parse(s, 0, 13)</div>
+      <div style={{ paddingLeft: '0.7rem', fontWeight: 700, color: 'var(--color-focus)' }}>parse(s, 1, 6)</div>
+    </div>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.05rem', fontFamily: 'var(--font-mono, monospace)', fontSize: '0.75rem', height: '6.1rem', padding: '0.35rem 0.6rem', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }} aria-label="Variables: from = 1, to = 6.">
+      <div>from = 1</div>
+      <div>to = 6</div>
+    </div>
+    </div>
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '1.6em', whiteSpace: 'nowrap' }}>s[1] es '(': el tramo no es un número, es una operación.</div>
+  </Step>
+  <Step lines={[6]}>
+    <TokenRow tokens={CALC_CHARS} title="s" indices range={[1, 6]} at={2} spans={[]} size={1} label="El tramo de 1 a 6, (3+4); at está en 2, sobre 3." />
+    <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+    <div style={{ flex: '1 1 0', minWidth: 0 }}>
+    <BinaryPicture tree={CALC_TREE} tones={{ '*': 'hidden', '+': 'hidden', '3': 'hidden', '4': 'hidden', '-': 'hidden', '5': 'hidden', '1': 'hidden' }} emptyNote="" compact size={0.8} label="Todavía no hay ningún nodo armado." />
+    </div>
+    <div style={{ flex: '0 0 11.5rem', display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.1rem', fontFamily: 'var(--font-mono, monospace)', fontSize: '0.75rem', height: '5.2rem', padding: '0.35rem 0.6rem', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }}>
+      <div style={{ fontSize: '0.7rem', color: 'var(--color-ink-faint)' }}>llamadas abiertas</div>
+      <div style={{ paddingLeft: '0.0rem', color: 'var(--color-ink-soft)' }}>parse(s, 0, 13)</div>
+      <div style={{ paddingLeft: '0.7rem', fontWeight: 700, color: 'var(--color-focus)' }}>parse(s, 1, 6)</div>
+    </div>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.05rem', fontFamily: 'var(--font-mono, monospace)', fontSize: '0.75rem', height: '6.1rem', padding: '0.35rem 0.6rem', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }} aria-label="Variables: from = 1, to = 6, depth = 0, at = 2.">
+      <div>from = 1</div>
+      <div>to = 6</div>
+      <div>depth = 0</div>
+      <div>at = 2</div>
+    </div>
+    </div>
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '1.6em', whiteSpace: 'nowrap' }}>depth, los paréntesis abiertos, parte en 0; at parte en 2, después del paréntesis.</div>
+  </Step>
+  <Step lines={[7, 8, 11]}>
+    <TokenRow tokens={CALC_CHARS} title="s" indices range={[1, 6]} at={2} spans={[]} size={1} label="El tramo de 1 a 6, (3+4); at está en 2, sobre 3." />
+    <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+    <div style={{ flex: '1 1 0', minWidth: 0 }}>
+    <BinaryPicture tree={CALC_TREE} tones={{ '*': 'hidden', '+': 'hidden', '3': 'hidden', '4': 'hidden', '-': 'hidden', '5': 'hidden', '1': 'hidden' }} emptyNote="" compact size={0.8} label="Todavía no hay ningún nodo armado." />
+    </div>
+    <div style={{ flex: '0 0 11.5rem', display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.1rem', fontFamily: 'var(--font-mono, monospace)', fontSize: '0.75rem', height: '5.2rem', padding: '0.35rem 0.6rem', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }}>
+      <div style={{ fontSize: '0.7rem', color: 'var(--color-ink-faint)' }}>llamadas abiertas</div>
+      <div style={{ paddingLeft: '0.0rem', color: 'var(--color-ink-soft)' }}>parse(s, 0, 13)</div>
+      <div style={{ paddingLeft: '0.7rem', fontWeight: 700, color: 'var(--color-focus)' }}>parse(s, 1, 6)</div>
+    </div>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.05rem', fontFamily: 'var(--font-mono, monospace)', fontSize: '0.75rem', height: '6.1rem', padding: '0.35rem 0.6rem', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }} aria-label="Variables: from = 1, to = 6, depth = 0, at = 2.">
+      <div>from = 1</div>
+      <div>to = 6</div>
+      <div>depth = 0</div>
+      <div>at = 2</div>
+    </div>
+    </div>
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '1.6em', whiteSpace: 'nowrap' }}>s[2] es '3', no es un operador: at avanza.</div>
+  </Step>
+  <Step lines={[7, 8]}>
+    <TokenRow tokens={CALC_CHARS} title="s" indices range={[1, 6]} at={3} spans={[{ from: 2, to: 3, tone: 'keep', text: 'izquierdo' }, { from: 4, to: 5, tone: 'accent', text: 'derecho' }]} size={1} label="El tramo de 1 a 6, (3+4); at está en 3, sobre +." />
+    <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+    <div style={{ flex: '1 1 0', minWidth: 0 }}>
+    <BinaryPicture tree={CALC_TREE} tones={{ '*': 'hidden', '+': 'hidden', '3': 'hidden', '4': 'hidden', '-': 'hidden', '5': 'hidden', '1': 'hidden' }} emptyNote="" compact size={0.8} label="Todavía no hay ningún nodo armado." />
+    </div>
+    <div style={{ flex: '0 0 11.5rem', display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.1rem', fontFamily: 'var(--font-mono, monospace)', fontSize: '0.75rem', height: '5.2rem', padding: '0.35rem 0.6rem', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }}>
+      <div style={{ fontSize: '0.7rem', color: 'var(--color-ink-faint)' }}>llamadas abiertas</div>
+      <div style={{ paddingLeft: '0.0rem', color: 'var(--color-ink-soft)' }}>parse(s, 0, 13)</div>
+      <div style={{ paddingLeft: '0.7rem', fontWeight: 700, color: 'var(--color-focus)' }}>parse(s, 1, 6)</div>
+    </div>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.05rem', fontFamily: 'var(--font-mono, monospace)', fontSize: '0.75rem', height: '6.1rem', padding: '0.35rem 0.6rem', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }} aria-label="Variables: from = 1, to = 6, depth = 0, at = 3.">
+      <div>from = 1</div>
+      <div>to = 6</div>
+      <div>depth = 0</div>
+      <div>at = 3</div>
+    </div>
+    </div>
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '1.6em', whiteSpace: 'nowrap' }}>s[3] es '+' y depth es 0: es el operador. El ciclo termina con at en 3.</div>
+  </Step>
+  <Step lines={[13]}>
+    <TokenRow tokens={CALC_CHARS} title="s" indices range={[2, 3]} at={-1} spans={[]} size={1} label="El tramo de 2 a 3, 3." />
+    <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+    <div style={{ flex: '1 1 0', minWidth: 0 }}>
+    <BinaryPicture tree={CALC_TREE} tones={{ '*': 'hidden', '+': 'hidden', '3': 'hidden', '4': 'hidden', '-': 'hidden', '5': 'hidden', '1': 'hidden' }} emptyNote="" compact size={0.8} label="Todavía no hay ningún nodo armado." />
+    </div>
+    <div style={{ flex: '0 0 11.5rem', display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.1rem', fontFamily: 'var(--font-mono, monospace)', fontSize: '0.75rem', height: '5.2rem', padding: '0.35rem 0.6rem', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }}>
+      <div style={{ fontSize: '0.7rem', color: 'var(--color-ink-faint)' }}>llamadas abiertas</div>
+      <div style={{ paddingLeft: '0.0rem', color: 'var(--color-ink-soft)' }}>parse(s, 0, 13)</div>
+      <div style={{ paddingLeft: '0.7rem', color: 'var(--color-ink-soft)' }}>parse(s, 1, 6)</div>
+      <div style={{ paddingLeft: '1.4rem', fontWeight: 700, color: 'var(--color-focus)' }}>parse(s, 2, 3)</div>
+    </div>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.05rem', fontFamily: 'var(--font-mono, monospace)', fontSize: '0.75rem', height: '6.1rem', padding: '0.35rem 0.6rem', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }} aria-label="Variables: from = 2, to = 3.">
+      <div>from = 2</div>
+      <div>to = 3</div>
+    </div>
+    </div>
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '1.6em', whiteSpace: 'nowrap' }}>Llama con el operando izquierdo: el tramo de 2 a 3, 3.</div>
+  </Step>
+  <Step lines={[2]}>
+    <TokenRow tokens={CALC_CHARS} title="s" indices range={[2, 3]} at={2} spans={[]} size={1} label="El tramo de 2 a 3, 3; at está en 2, sobre 3." />
+    <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+    <div style={{ flex: '1 1 0', minWidth: 0 }}>
+    <BinaryPicture tree={CALC_TREE} tones={{ '*': 'hidden', '+': 'hidden', '3': 'hidden', '4': 'hidden', '-': 'hidden', '5': 'hidden', '1': 'hidden' }} emptyNote="" compact size={0.8} label="Todavía no hay ningún nodo armado." />
+    </div>
+    <div style={{ flex: '0 0 11.5rem', display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.1rem', fontFamily: 'var(--font-mono, monospace)', fontSize: '0.75rem', height: '5.2rem', padding: '0.35rem 0.6rem', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }}>
+      <div style={{ fontSize: '0.7rem', color: 'var(--color-ink-faint)' }}>llamadas abiertas</div>
+      <div style={{ paddingLeft: '0.0rem', color: 'var(--color-ink-soft)' }}>parse(s, 0, 13)</div>
+      <div style={{ paddingLeft: '0.7rem', color: 'var(--color-ink-soft)' }}>parse(s, 1, 6)</div>
+      <div style={{ paddingLeft: '1.4rem', fontWeight: 700, color: 'var(--color-focus)' }}>parse(s, 2, 3)</div>
+    </div>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.05rem', fontFamily: 'var(--font-mono, monospace)', fontSize: '0.75rem', height: '6.1rem', padding: '0.35rem 0.6rem', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }} aria-label="Variables: from = 2, to = 3.">
+      <div>from = 2</div>
+      <div>to = 3</div>
+    </div>
+    </div>
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '1.6em', whiteSpace: 'nowrap' }}>s[2] es '3', no '(': el tramo es un número.</div>
+  </Step>
+  <Step lines={[3]}>
+    <TokenRow tokens={CALC_CHARS} title="s" indices range={[2, 3]} at={2} spans={[]} size={1} label="El tramo de 2 a 3, 3; at está en 2, sobre 3." />
+    <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+    <div style={{ flex: '1 1 0', minWidth: 0 }}>
+    <BinaryPicture tree={CALC_TREE} tones={{ '*': 'hidden', '+': 'hidden', '4': 'hidden', '-': 'hidden', '5': 'hidden', '1': 'hidden', '3': 'mark' }} emptyNote="" compact size={0.8} label="Nodos armados: 3." />
+    </div>
+    <div style={{ flex: '0 0 11.5rem', display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.1rem', fontFamily: 'var(--font-mono, monospace)', fontSize: '0.75rem', height: '5.2rem', padding: '0.35rem 0.6rem', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }}>
+      <div style={{ fontSize: '0.7rem', color: 'var(--color-ink-faint)' }}>llamadas abiertas</div>
+      <div style={{ paddingLeft: '0.0rem', color: 'var(--color-ink-soft)' }}>parse(s, 0, 13)</div>
+      <div style={{ paddingLeft: '0.7rem', color: 'var(--color-ink-soft)' }}>parse(s, 1, 6)</div>
+      <div style={{ paddingLeft: '1.4rem', fontWeight: 700, color: 'var(--color-focus)' }}>parse(s, 2, 3)</div>
+    </div>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.05rem', fontFamily: 'var(--font-mono, monospace)', fontSize: '0.75rem', height: '6.1rem', padding: '0.35rem 0.6rem', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }} aria-label="Variables: from = 2, to = 3.">
+      <div>from = 2</div>
+      <div>to = 3</div>
+    </div>
+    </div>
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '1.6em', whiteSpace: 'nowrap' }}>Devuelve la hoja 3.</div>
+  </Step>
+  <Step lines={[14]}>
+    <TokenRow tokens={CALC_CHARS} title="s" indices range={[4, 5]} at={-1} spans={[]} size={1} label="El tramo de 4 a 5, 4." />
+    <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+    <div style={{ flex: '1 1 0', minWidth: 0 }}>
+    <BinaryPicture tree={CALC_TREE} tones={{ '*': 'hidden', '+': 'hidden', '4': 'hidden', '-': 'hidden', '5': 'hidden', '1': 'hidden' }} emptyNote="" compact size={0.8} label="Nodos armados: 3." />
+    </div>
+    <div style={{ flex: '0 0 11.5rem', display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.1rem', fontFamily: 'var(--font-mono, monospace)', fontSize: '0.75rem', height: '5.2rem', padding: '0.35rem 0.6rem', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }}>
+      <div style={{ fontSize: '0.7rem', color: 'var(--color-ink-faint)' }}>llamadas abiertas</div>
+      <div style={{ paddingLeft: '0.0rem', color: 'var(--color-ink-soft)' }}>parse(s, 0, 13)</div>
+      <div style={{ paddingLeft: '0.7rem', color: 'var(--color-ink-soft)' }}>parse(s, 1, 6)</div>
+      <div style={{ paddingLeft: '1.4rem', fontWeight: 700, color: 'var(--color-focus)' }}>parse(s, 4, 5)</div>
+    </div>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.05rem', fontFamily: 'var(--font-mono, monospace)', fontSize: '0.75rem', height: '6.1rem', padding: '0.35rem 0.6rem', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }} aria-label="Variables: from = 4, to = 5.">
+      <div>from = 4</div>
+      <div>to = 5</div>
+    </div>
+    </div>
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '1.6em', whiteSpace: 'nowrap' }}>Llama con el operando derecho: el tramo de 4 a 5, 4.</div>
+  </Step>
+  <Step lines={[2]}>
+    <TokenRow tokens={CALC_CHARS} title="s" indices range={[4, 5]} at={4} spans={[]} size={1} label="El tramo de 4 a 5, 4; at está en 4, sobre 4." />
+    <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+    <div style={{ flex: '1 1 0', minWidth: 0 }}>
+    <BinaryPicture tree={CALC_TREE} tones={{ '*': 'hidden', '+': 'hidden', '4': 'hidden', '-': 'hidden', '5': 'hidden', '1': 'hidden' }} emptyNote="" compact size={0.8} label="Nodos armados: 3." />
+    </div>
+    <div style={{ flex: '0 0 11.5rem', display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.1rem', fontFamily: 'var(--font-mono, monospace)', fontSize: '0.75rem', height: '5.2rem', padding: '0.35rem 0.6rem', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }}>
+      <div style={{ fontSize: '0.7rem', color: 'var(--color-ink-faint)' }}>llamadas abiertas</div>
+      <div style={{ paddingLeft: '0.0rem', color: 'var(--color-ink-soft)' }}>parse(s, 0, 13)</div>
+      <div style={{ paddingLeft: '0.7rem', color: 'var(--color-ink-soft)' }}>parse(s, 1, 6)</div>
+      <div style={{ paddingLeft: '1.4rem', fontWeight: 700, color: 'var(--color-focus)' }}>parse(s, 4, 5)</div>
+    </div>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.05rem', fontFamily: 'var(--font-mono, monospace)', fontSize: '0.75rem', height: '6.1rem', padding: '0.35rem 0.6rem', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }} aria-label="Variables: from = 4, to = 5.">
+      <div>from = 4</div>
+      <div>to = 5</div>
+    </div>
+    </div>
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '1.6em', whiteSpace: 'nowrap' }}>s[4] es '4', no '(': el tramo es un número.</div>
+  </Step>
+  <Step lines={[3]}>
+    <TokenRow tokens={CALC_CHARS} title="s" indices range={[4, 5]} at={4} spans={[]} size={1} label="El tramo de 4 a 5, 4; at está en 4, sobre 4." />
+    <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+    <div style={{ flex: '1 1 0', minWidth: 0 }}>
+    <BinaryPicture tree={CALC_TREE} tones={{ '*': 'hidden', '+': 'hidden', '-': 'hidden', '5': 'hidden', '1': 'hidden', '4': 'mark' }} emptyNote="" compact size={0.8} label="Nodos armados: 3 y 4." />
+    </div>
+    <div style={{ flex: '0 0 11.5rem', display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.1rem', fontFamily: 'var(--font-mono, monospace)', fontSize: '0.75rem', height: '5.2rem', padding: '0.35rem 0.6rem', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }}>
+      <div style={{ fontSize: '0.7rem', color: 'var(--color-ink-faint)' }}>llamadas abiertas</div>
+      <div style={{ paddingLeft: '0.0rem', color: 'var(--color-ink-soft)' }}>parse(s, 0, 13)</div>
+      <div style={{ paddingLeft: '0.7rem', color: 'var(--color-ink-soft)' }}>parse(s, 1, 6)</div>
+      <div style={{ paddingLeft: '1.4rem', fontWeight: 700, color: 'var(--color-focus)' }}>parse(s, 4, 5)</div>
+    </div>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.05rem', fontFamily: 'var(--font-mono, monospace)', fontSize: '0.75rem', height: '6.1rem', padding: '0.35rem 0.6rem', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }} aria-label="Variables: from = 4, to = 5.">
+      <div>from = 4</div>
+      <div>to = 5</div>
+    </div>
+    </div>
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '1.6em', whiteSpace: 'nowrap' }}>Devuelve la hoja 4.</div>
+  </Step>
+  <Step lines={[15]}>
+    <TokenRow tokens={CALC_CHARS} title="s" indices range={[1, 6]} at={3} spans={[]} size={1} label="El tramo de 1 a 6, (3+4); at está en 3, sobre +." />
+    <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+    <div style={{ flex: '1 1 0', minWidth: 0 }}>
+    <BinaryPicture tree={CALC_TREE} tones={{ '*': 'hidden', '+': 'hidden', '-': 'hidden', '5': 'hidden', '1': 'hidden' }} emptyNote="" compact size={0.8} label="Nodos armados: 3 y 4." />
+    </div>
+    <div style={{ flex: '0 0 11.5rem', display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.1rem', fontFamily: 'var(--font-mono, monospace)', fontSize: '0.75rem', height: '5.2rem', padding: '0.35rem 0.6rem', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }}>
+      <div style={{ fontSize: '0.7rem', color: 'var(--color-ink-faint)' }}>llamadas abiertas</div>
+      <div style={{ paddingLeft: '0.0rem', color: 'var(--color-ink-soft)' }}>parse(s, 0, 13)</div>
+      <div style={{ paddingLeft: '0.7rem', fontWeight: 700, color: 'var(--color-focus)' }}>parse(s, 1, 6)</div>
+    </div>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.05rem', fontFamily: 'var(--font-mono, monospace)', fontSize: '0.75rem', height: '6.1rem', padding: '0.35rem 0.6rem', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }} aria-label="Variables: from = 1, to = 6, at = 3, op = +.">
+      <div>from = 1</div>
+      <div>to = 6</div>
+      <div>at = 3</div>
+      <div>op = +</div>
+    </div>
+    </div>
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '1.6em', whiteSpace: 'nowrap' }}>De vuelta en (3+4): los dos operandos están armados; op es '+'.</div>
+  </Step>
+  <Step lines={[16]}>
+    <TokenRow tokens={CALC_CHARS} title="s" indices range={[1, 6]} at={3} spans={[]} size={1} label="El tramo de 1 a 6, (3+4); at está en 3, sobre +." />
+    <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+    <div style={{ flex: '1 1 0', minWidth: 0 }}>
+    <BinaryPicture tree={CALC_TREE} tones={{ '*': 'hidden', '-': 'hidden', '5': 'hidden', '1': 'hidden', '+': 'mark' }} emptyNote="" compact size={0.8} label="Nodos armados: 3, 4 y +." />
+    </div>
+    <div style={{ flex: '0 0 11.5rem', display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.1rem', fontFamily: 'var(--font-mono, monospace)', fontSize: '0.75rem', height: '5.2rem', padding: '0.35rem 0.6rem', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }}>
+      <div style={{ fontSize: '0.7rem', color: 'var(--color-ink-faint)' }}>llamadas abiertas</div>
+      <div style={{ paddingLeft: '0.0rem', color: 'var(--color-ink-soft)' }}>parse(s, 0, 13)</div>
+      <div style={{ paddingLeft: '0.7rem', fontWeight: 700, color: 'var(--color-focus)' }}>parse(s, 1, 6)</div>
+    </div>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.05rem', fontFamily: 'var(--font-mono, monospace)', fontSize: '0.75rem', height: '6.1rem', padding: '0.35rem 0.6rem', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }} aria-label="Variables: from = 1, to = 6, at = 3, op = +.">
+      <div>from = 1</div>
+      <div>to = 6</div>
+      <div>at = 3</div>
+      <div>op = +</div>
+    </div>
+    </div>
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '1.6em', whiteSpace: 'nowrap' }}>Arma el nodo + con sus dos operandos, y lo devuelve.</div>
+  </Step>
+  <Step lines={[14]}>
+    <TokenRow tokens={CALC_CHARS} title="s" indices range={[7, 12]} at={-1} spans={[]} size={1} label="El tramo de 7 a 12, (5-1)." />
+    <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+    <div style={{ flex: '1 1 0', minWidth: 0 }}>
+    <BinaryPicture tree={CALC_TREE} tones={{ '*': 'hidden', '-': 'hidden', '5': 'hidden', '1': 'hidden' }} emptyNote="" compact size={0.8} label="Nodos armados: 3, 4 y +." />
+    </div>
+    <div style={{ flex: '0 0 11.5rem', display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.1rem', fontFamily: 'var(--font-mono, monospace)', fontSize: '0.75rem', height: '5.2rem', padding: '0.35rem 0.6rem', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }}>
+      <div style={{ fontSize: '0.7rem', color: 'var(--color-ink-faint)' }}>llamadas abiertas</div>
+      <div style={{ paddingLeft: '0.0rem', color: 'var(--color-ink-soft)' }}>parse(s, 0, 13)</div>
+      <div style={{ paddingLeft: '0.7rem', fontWeight: 700, color: 'var(--color-focus)' }}>parse(s, 7, 12)</div>
+    </div>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.05rem', fontFamily: 'var(--font-mono, monospace)', fontSize: '0.75rem', height: '6.1rem', padding: '0.35rem 0.6rem', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }} aria-label="Variables: from = 7, to = 12.">
+      <div>from = 7</div>
+      <div>to = 12</div>
+    </div>
+    </div>
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '1.6em', whiteSpace: 'nowrap' }}>Llama con el operando derecho: el tramo de 7 a 12, (5-1).</div>
+  </Step>
+  <Step lines={[2]}>
+    <TokenRow tokens={CALC_CHARS} title="s" indices range={[7, 12]} at={7} spans={[]} size={1} label="El tramo de 7 a 12, (5-1); at está en 7, sobre (." />
+    <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+    <div style={{ flex: '1 1 0', minWidth: 0 }}>
+    <BinaryPicture tree={CALC_TREE} tones={{ '*': 'hidden', '-': 'hidden', '5': 'hidden', '1': 'hidden' }} emptyNote="" compact size={0.8} label="Nodos armados: 3, 4 y +." />
+    </div>
+    <div style={{ flex: '0 0 11.5rem', display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.1rem', fontFamily: 'var(--font-mono, monospace)', fontSize: '0.75rem', height: '5.2rem', padding: '0.35rem 0.6rem', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }}>
+      <div style={{ fontSize: '0.7rem', color: 'var(--color-ink-faint)' }}>llamadas abiertas</div>
+      <div style={{ paddingLeft: '0.0rem', color: 'var(--color-ink-soft)' }}>parse(s, 0, 13)</div>
+      <div style={{ paddingLeft: '0.7rem', fontWeight: 700, color: 'var(--color-focus)' }}>parse(s, 7, 12)</div>
+    </div>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.05rem', fontFamily: 'var(--font-mono, monospace)', fontSize: '0.75rem', height: '6.1rem', padding: '0.35rem 0.6rem', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }} aria-label="Variables: from = 7, to = 12.">
+      <div>from = 7</div>
+      <div>to = 12</div>
+    </div>
+    </div>
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '1.6em', whiteSpace: 'nowrap' }}>s[7] es '(': el tramo no es un número, es una operación.</div>
+  </Step>
+  <Step lines={[6]}>
+    <TokenRow tokens={CALC_CHARS} title="s" indices range={[7, 12]} at={8} spans={[]} size={1} label="El tramo de 7 a 12, (5-1); at está en 8, sobre 5." />
+    <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+    <div style={{ flex: '1 1 0', minWidth: 0 }}>
+    <BinaryPicture tree={CALC_TREE} tones={{ '*': 'hidden', '-': 'hidden', '5': 'hidden', '1': 'hidden' }} emptyNote="" compact size={0.8} label="Nodos armados: 3, 4 y +." />
+    </div>
+    <div style={{ flex: '0 0 11.5rem', display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.1rem', fontFamily: 'var(--font-mono, monospace)', fontSize: '0.75rem', height: '5.2rem', padding: '0.35rem 0.6rem', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }}>
+      <div style={{ fontSize: '0.7rem', color: 'var(--color-ink-faint)' }}>llamadas abiertas</div>
+      <div style={{ paddingLeft: '0.0rem', color: 'var(--color-ink-soft)' }}>parse(s, 0, 13)</div>
+      <div style={{ paddingLeft: '0.7rem', fontWeight: 700, color: 'var(--color-focus)' }}>parse(s, 7, 12)</div>
+    </div>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.05rem', fontFamily: 'var(--font-mono, monospace)', fontSize: '0.75rem', height: '6.1rem', padding: '0.35rem 0.6rem', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }} aria-label="Variables: from = 7, to = 12, depth = 0, at = 8.">
+      <div>from = 7</div>
+      <div>to = 12</div>
+      <div>depth = 0</div>
+      <div>at = 8</div>
+    </div>
+    </div>
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '1.6em', whiteSpace: 'nowrap' }}>depth, los paréntesis abiertos, parte en 0; at parte en 8, después del paréntesis.</div>
+  </Step>
+  <Step lines={[7, 8, 11]}>
+    <TokenRow tokens={CALC_CHARS} title="s" indices range={[7, 12]} at={8} spans={[]} size={1} label="El tramo de 7 a 12, (5-1); at está en 8, sobre 5." />
+    <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+    <div style={{ flex: '1 1 0', minWidth: 0 }}>
+    <BinaryPicture tree={CALC_TREE} tones={{ '*': 'hidden', '-': 'hidden', '5': 'hidden', '1': 'hidden' }} emptyNote="" compact size={0.8} label="Nodos armados: 3, 4 y +." />
+    </div>
+    <div style={{ flex: '0 0 11.5rem', display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.1rem', fontFamily: 'var(--font-mono, monospace)', fontSize: '0.75rem', height: '5.2rem', padding: '0.35rem 0.6rem', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }}>
+      <div style={{ fontSize: '0.7rem', color: 'var(--color-ink-faint)' }}>llamadas abiertas</div>
+      <div style={{ paddingLeft: '0.0rem', color: 'var(--color-ink-soft)' }}>parse(s, 0, 13)</div>
+      <div style={{ paddingLeft: '0.7rem', fontWeight: 700, color: 'var(--color-focus)' }}>parse(s, 7, 12)</div>
+    </div>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.05rem', fontFamily: 'var(--font-mono, monospace)', fontSize: '0.75rem', height: '6.1rem', padding: '0.35rem 0.6rem', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }} aria-label="Variables: from = 7, to = 12, depth = 0, at = 8.">
+      <div>from = 7</div>
+      <div>to = 12</div>
+      <div>depth = 0</div>
+      <div>at = 8</div>
+    </div>
+    </div>
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '1.6em', whiteSpace: 'nowrap' }}>s[8] es '5', no es un operador: at avanza.</div>
+  </Step>
+  <Step lines={[7, 8]}>
+    <TokenRow tokens={CALC_CHARS} title="s" indices range={[7, 12]} at={9} spans={[{ from: 8, to: 9, tone: 'keep', text: 'izquierdo' }, { from: 10, to: 11, tone: 'accent', text: 'derecho' }]} size={1} label="El tramo de 7 a 12, (5-1); at está en 9, sobre -." />
+    <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+    <div style={{ flex: '1 1 0', minWidth: 0 }}>
+    <BinaryPicture tree={CALC_TREE} tones={{ '*': 'hidden', '-': 'hidden', '5': 'hidden', '1': 'hidden' }} emptyNote="" compact size={0.8} label="Nodos armados: 3, 4 y +." />
+    </div>
+    <div style={{ flex: '0 0 11.5rem', display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.1rem', fontFamily: 'var(--font-mono, monospace)', fontSize: '0.75rem', height: '5.2rem', padding: '0.35rem 0.6rem', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }}>
+      <div style={{ fontSize: '0.7rem', color: 'var(--color-ink-faint)' }}>llamadas abiertas</div>
+      <div style={{ paddingLeft: '0.0rem', color: 'var(--color-ink-soft)' }}>parse(s, 0, 13)</div>
+      <div style={{ paddingLeft: '0.7rem', fontWeight: 700, color: 'var(--color-focus)' }}>parse(s, 7, 12)</div>
+    </div>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.05rem', fontFamily: 'var(--font-mono, monospace)', fontSize: '0.75rem', height: '6.1rem', padding: '0.35rem 0.6rem', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }} aria-label="Variables: from = 7, to = 12, depth = 0, at = 9.">
+      <div>from = 7</div>
+      <div>to = 12</div>
+      <div>depth = 0</div>
+      <div>at = 9</div>
+    </div>
+    </div>
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '1.6em', whiteSpace: 'nowrap' }}>s[9] es '-' y depth es 0: es el operador. El ciclo termina con at en 9.</div>
+  </Step>
+  <Step lines={[13]}>
+    <TokenRow tokens={CALC_CHARS} title="s" indices range={[8, 9]} at={-1} spans={[]} size={1} label="El tramo de 8 a 9, 5." />
+    <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+    <div style={{ flex: '1 1 0', minWidth: 0 }}>
+    <BinaryPicture tree={CALC_TREE} tones={{ '*': 'hidden', '-': 'hidden', '5': 'hidden', '1': 'hidden' }} emptyNote="" compact size={0.8} label="Nodos armados: 3, 4 y +." />
+    </div>
+    <div style={{ flex: '0 0 11.5rem', display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.1rem', fontFamily: 'var(--font-mono, monospace)', fontSize: '0.75rem', height: '5.2rem', padding: '0.35rem 0.6rem', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }}>
+      <div style={{ fontSize: '0.7rem', color: 'var(--color-ink-faint)' }}>llamadas abiertas</div>
+      <div style={{ paddingLeft: '0.0rem', color: 'var(--color-ink-soft)' }}>parse(s, 0, 13)</div>
+      <div style={{ paddingLeft: '0.7rem', color: 'var(--color-ink-soft)' }}>parse(s, 7, 12)</div>
+      <div style={{ paddingLeft: '1.4rem', fontWeight: 700, color: 'var(--color-focus)' }}>parse(s, 8, 9)</div>
+    </div>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.05rem', fontFamily: 'var(--font-mono, monospace)', fontSize: '0.75rem', height: '6.1rem', padding: '0.35rem 0.6rem', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }} aria-label="Variables: from = 8, to = 9.">
+      <div>from = 8</div>
+      <div>to = 9</div>
+    </div>
+    </div>
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '1.6em', whiteSpace: 'nowrap' }}>Llama con el operando izquierdo: el tramo de 8 a 9, 5.</div>
+  </Step>
+  <Step lines={[2]}>
+    <TokenRow tokens={CALC_CHARS} title="s" indices range={[8, 9]} at={8} spans={[]} size={1} label="El tramo de 8 a 9, 5; at está en 8, sobre 5." />
+    <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+    <div style={{ flex: '1 1 0', minWidth: 0 }}>
+    <BinaryPicture tree={CALC_TREE} tones={{ '*': 'hidden', '-': 'hidden', '5': 'hidden', '1': 'hidden' }} emptyNote="" compact size={0.8} label="Nodos armados: 3, 4 y +." />
+    </div>
+    <div style={{ flex: '0 0 11.5rem', display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.1rem', fontFamily: 'var(--font-mono, monospace)', fontSize: '0.75rem', height: '5.2rem', padding: '0.35rem 0.6rem', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }}>
+      <div style={{ fontSize: '0.7rem', color: 'var(--color-ink-faint)' }}>llamadas abiertas</div>
+      <div style={{ paddingLeft: '0.0rem', color: 'var(--color-ink-soft)' }}>parse(s, 0, 13)</div>
+      <div style={{ paddingLeft: '0.7rem', color: 'var(--color-ink-soft)' }}>parse(s, 7, 12)</div>
+      <div style={{ paddingLeft: '1.4rem', fontWeight: 700, color: 'var(--color-focus)' }}>parse(s, 8, 9)</div>
+    </div>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.05rem', fontFamily: 'var(--font-mono, monospace)', fontSize: '0.75rem', height: '6.1rem', padding: '0.35rem 0.6rem', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }} aria-label="Variables: from = 8, to = 9.">
+      <div>from = 8</div>
+      <div>to = 9</div>
+    </div>
+    </div>
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '1.6em', whiteSpace: 'nowrap' }}>s[8] es '5', no '(': el tramo es un número.</div>
+  </Step>
+  <Step lines={[3]}>
+    <TokenRow tokens={CALC_CHARS} title="s" indices range={[8, 9]} at={8} spans={[]} size={1} label="El tramo de 8 a 9, 5; at está en 8, sobre 5." />
+    <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+    <div style={{ flex: '1 1 0', minWidth: 0 }}>
+    <BinaryPicture tree={CALC_TREE} tones={{ '*': 'hidden', '-': 'hidden', '1': 'hidden', '5': 'mark' }} emptyNote="" compact size={0.8} label="Nodos armados: 3, 4, + y 5." />
+    </div>
+    <div style={{ flex: '0 0 11.5rem', display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.1rem', fontFamily: 'var(--font-mono, monospace)', fontSize: '0.75rem', height: '5.2rem', padding: '0.35rem 0.6rem', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }}>
+      <div style={{ fontSize: '0.7rem', color: 'var(--color-ink-faint)' }}>llamadas abiertas</div>
+      <div style={{ paddingLeft: '0.0rem', color: 'var(--color-ink-soft)' }}>parse(s, 0, 13)</div>
+      <div style={{ paddingLeft: '0.7rem', color: 'var(--color-ink-soft)' }}>parse(s, 7, 12)</div>
+      <div style={{ paddingLeft: '1.4rem', fontWeight: 700, color: 'var(--color-focus)' }}>parse(s, 8, 9)</div>
+    </div>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.05rem', fontFamily: 'var(--font-mono, monospace)', fontSize: '0.75rem', height: '6.1rem', padding: '0.35rem 0.6rem', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }} aria-label="Variables: from = 8, to = 9.">
+      <div>from = 8</div>
+      <div>to = 9</div>
+    </div>
+    </div>
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '1.6em', whiteSpace: 'nowrap' }}>Devuelve la hoja 5.</div>
+  </Step>
+  <Step lines={[14]}>
+    <TokenRow tokens={CALC_CHARS} title="s" indices range={[10, 11]} at={-1} spans={[]} size={1} label="El tramo de 10 a 11, 1." />
+    <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+    <div style={{ flex: '1 1 0', minWidth: 0 }}>
+    <BinaryPicture tree={CALC_TREE} tones={{ '*': 'hidden', '-': 'hidden', '1': 'hidden' }} emptyNote="" compact size={0.8} label="Nodos armados: 3, 4, + y 5." />
+    </div>
+    <div style={{ flex: '0 0 11.5rem', display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.1rem', fontFamily: 'var(--font-mono, monospace)', fontSize: '0.75rem', height: '5.2rem', padding: '0.35rem 0.6rem', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }}>
+      <div style={{ fontSize: '0.7rem', color: 'var(--color-ink-faint)' }}>llamadas abiertas</div>
+      <div style={{ paddingLeft: '0.0rem', color: 'var(--color-ink-soft)' }}>parse(s, 0, 13)</div>
+      <div style={{ paddingLeft: '0.7rem', color: 'var(--color-ink-soft)' }}>parse(s, 7, 12)</div>
+      <div style={{ paddingLeft: '1.4rem', fontWeight: 700, color: 'var(--color-focus)' }}>parse(s, 10, 11)</div>
+    </div>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.05rem', fontFamily: 'var(--font-mono, monospace)', fontSize: '0.75rem', height: '6.1rem', padding: '0.35rem 0.6rem', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }} aria-label="Variables: from = 10, to = 11.">
+      <div>from = 10</div>
+      <div>to = 11</div>
+    </div>
+    </div>
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '1.6em', whiteSpace: 'nowrap' }}>Llama con el operando derecho: el tramo de 10 a 11, 1.</div>
+  </Step>
+  <Step lines={[2]}>
+    <TokenRow tokens={CALC_CHARS} title="s" indices range={[10, 11]} at={10} spans={[]} size={1} label="El tramo de 10 a 11, 1; at está en 10, sobre 1." />
+    <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+    <div style={{ flex: '1 1 0', minWidth: 0 }}>
+    <BinaryPicture tree={CALC_TREE} tones={{ '*': 'hidden', '-': 'hidden', '1': 'hidden' }} emptyNote="" compact size={0.8} label="Nodos armados: 3, 4, + y 5." />
+    </div>
+    <div style={{ flex: '0 0 11.5rem', display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.1rem', fontFamily: 'var(--font-mono, monospace)', fontSize: '0.75rem', height: '5.2rem', padding: '0.35rem 0.6rem', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }}>
+      <div style={{ fontSize: '0.7rem', color: 'var(--color-ink-faint)' }}>llamadas abiertas</div>
+      <div style={{ paddingLeft: '0.0rem', color: 'var(--color-ink-soft)' }}>parse(s, 0, 13)</div>
+      <div style={{ paddingLeft: '0.7rem', color: 'var(--color-ink-soft)' }}>parse(s, 7, 12)</div>
+      <div style={{ paddingLeft: '1.4rem', fontWeight: 700, color: 'var(--color-focus)' }}>parse(s, 10, 11)</div>
+    </div>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.05rem', fontFamily: 'var(--font-mono, monospace)', fontSize: '0.75rem', height: '6.1rem', padding: '0.35rem 0.6rem', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }} aria-label="Variables: from = 10, to = 11.">
+      <div>from = 10</div>
+      <div>to = 11</div>
+    </div>
+    </div>
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '1.6em', whiteSpace: 'nowrap' }}>s[10] es '1', no '(': el tramo es un número.</div>
+  </Step>
+  <Step lines={[3]}>
+    <TokenRow tokens={CALC_CHARS} title="s" indices range={[10, 11]} at={10} spans={[]} size={1} label="El tramo de 10 a 11, 1; at está en 10, sobre 1." />
+    <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+    <div style={{ flex: '1 1 0', minWidth: 0 }}>
+    <BinaryPicture tree={CALC_TREE} tones={{ '*': 'hidden', '-': 'hidden', '1': 'mark' }} emptyNote="" compact size={0.8} label="Nodos armados: 3, 4, +, 5 y 1." />
+    </div>
+    <div style={{ flex: '0 0 11.5rem', display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.1rem', fontFamily: 'var(--font-mono, monospace)', fontSize: '0.75rem', height: '5.2rem', padding: '0.35rem 0.6rem', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }}>
+      <div style={{ fontSize: '0.7rem', color: 'var(--color-ink-faint)' }}>llamadas abiertas</div>
+      <div style={{ paddingLeft: '0.0rem', color: 'var(--color-ink-soft)' }}>parse(s, 0, 13)</div>
+      <div style={{ paddingLeft: '0.7rem', color: 'var(--color-ink-soft)' }}>parse(s, 7, 12)</div>
+      <div style={{ paddingLeft: '1.4rem', fontWeight: 700, color: 'var(--color-focus)' }}>parse(s, 10, 11)</div>
+    </div>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.05rem', fontFamily: 'var(--font-mono, monospace)', fontSize: '0.75rem', height: '6.1rem', padding: '0.35rem 0.6rem', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }} aria-label="Variables: from = 10, to = 11.">
+      <div>from = 10</div>
+      <div>to = 11</div>
+    </div>
+    </div>
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '1.6em', whiteSpace: 'nowrap' }}>Devuelve la hoja 1.</div>
+  </Step>
+  <Step lines={[15]}>
+    <TokenRow tokens={CALC_CHARS} title="s" indices range={[7, 12]} at={9} spans={[]} size={1} label="El tramo de 7 a 12, (5-1); at está en 9, sobre -." />
+    <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+    <div style={{ flex: '1 1 0', minWidth: 0 }}>
+    <BinaryPicture tree={CALC_TREE} tones={{ '*': 'hidden', '-': 'hidden' }} emptyNote="" compact size={0.8} label="Nodos armados: 3, 4, +, 5 y 1." />
+    </div>
+    <div style={{ flex: '0 0 11.5rem', display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.1rem', fontFamily: 'var(--font-mono, monospace)', fontSize: '0.75rem', height: '5.2rem', padding: '0.35rem 0.6rem', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }}>
+      <div style={{ fontSize: '0.7rem', color: 'var(--color-ink-faint)' }}>llamadas abiertas</div>
+      <div style={{ paddingLeft: '0.0rem', color: 'var(--color-ink-soft)' }}>parse(s, 0, 13)</div>
+      <div style={{ paddingLeft: '0.7rem', fontWeight: 700, color: 'var(--color-focus)' }}>parse(s, 7, 12)</div>
+    </div>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.05rem', fontFamily: 'var(--font-mono, monospace)', fontSize: '0.75rem', height: '6.1rem', padding: '0.35rem 0.6rem', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }} aria-label="Variables: from = 7, to = 12, at = 9, op = -.">
+      <div>from = 7</div>
+      <div>to = 12</div>
+      <div>at = 9</div>
+      <div>op = -</div>
+    </div>
+    </div>
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '1.6em', whiteSpace: 'nowrap' }}>De vuelta en (5-1): los dos operandos están armados; op es '-'.</div>
+  </Step>
+  <Step lines={[16]}>
+    <TokenRow tokens={CALC_CHARS} title="s" indices range={[7, 12]} at={9} spans={[]} size={1} label="El tramo de 7 a 12, (5-1); at está en 9, sobre -." />
+    <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+    <div style={{ flex: '1 1 0', minWidth: 0 }}>
+    <BinaryPicture tree={CALC_TREE} tones={{ '*': 'hidden', '-': 'mark' }} emptyNote="" compact size={0.8} label="Nodos armados: 3, 4, +, 5, 1 y -." />
+    </div>
+    <div style={{ flex: '0 0 11.5rem', display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.1rem', fontFamily: 'var(--font-mono, monospace)', fontSize: '0.75rem', height: '5.2rem', padding: '0.35rem 0.6rem', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }}>
+      <div style={{ fontSize: '0.7rem', color: 'var(--color-ink-faint)' }}>llamadas abiertas</div>
+      <div style={{ paddingLeft: '0.0rem', color: 'var(--color-ink-soft)' }}>parse(s, 0, 13)</div>
+      <div style={{ paddingLeft: '0.7rem', fontWeight: 700, color: 'var(--color-focus)' }}>parse(s, 7, 12)</div>
+    </div>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.05rem', fontFamily: 'var(--font-mono, monospace)', fontSize: '0.75rem', height: '6.1rem', padding: '0.35rem 0.6rem', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }} aria-label="Variables: from = 7, to = 12, at = 9, op = -.">
+      <div>from = 7</div>
+      <div>to = 12</div>
+      <div>at = 9</div>
+      <div>op = -</div>
+    </div>
+    </div>
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '1.6em', whiteSpace: 'nowrap' }}>Arma el nodo - con sus dos operandos, y lo devuelve.</div>
+  </Step>
+  <Step lines={[15]}>
+    <TokenRow tokens={CALC_CHARS} title="s" indices range={[0, 13]} at={6} spans={[]} size={1} label="El tramo de 0 a 13, ((3+4)*(5-1)); at está en 6, sobre *." />
+    <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+    <div style={{ flex: '1 1 0', minWidth: 0 }}>
+    <BinaryPicture tree={CALC_TREE} tones={{ '*': 'hidden' }} emptyNote="" compact size={0.8} label="Nodos armados: 3, 4, +, 5, 1 y -." />
+    </div>
+    <div style={{ flex: '0 0 11.5rem', display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.1rem', fontFamily: 'var(--font-mono, monospace)', fontSize: '0.75rem', height: '5.2rem', padding: '0.35rem 0.6rem', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }}>
+      <div style={{ fontSize: '0.7rem', color: 'var(--color-ink-faint)' }}>llamadas abiertas</div>
+      <div style={{ paddingLeft: '0.0rem', fontWeight: 700, color: 'var(--color-focus)' }}>parse(s, 0, 13)</div>
+    </div>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.05rem', fontFamily: 'var(--font-mono, monospace)', fontSize: '0.75rem', height: '6.1rem', padding: '0.35rem 0.6rem', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }} aria-label="Variables: from = 0, to = 13, at = 6, op = *.">
+      <div>from = 0</div>
+      <div>to = 13</div>
+      <div>at = 6</div>
+      <div>op = *</div>
+    </div>
+    </div>
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '1.6em', whiteSpace: 'nowrap' }}>De vuelta en ((3+4)*(5-1)): los dos operandos están armados; op es '*'.</div>
+  </Step>
+  <Step lines={[16]}>
+    <TokenRow tokens={CALC_CHARS} title="s" indices range={[0, 13]} at={6} spans={[]} size={1} label="El tramo de 0 a 13, ((3+4)*(5-1)); at está en 6, sobre *." />
+    <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+    <div style={{ flex: '1 1 0', minWidth: 0 }}>
+    <BinaryPicture tree={CALC_TREE} tones={{ '*': 'mark' }} emptyNote="" compact size={0.8} label="Nodos armados: 3, 4, +, 5, 1, - y *." />
+    </div>
+    <div style={{ flex: '0 0 11.5rem', display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.1rem', fontFamily: 'var(--font-mono, monospace)', fontSize: '0.75rem', height: '5.2rem', padding: '0.35rem 0.6rem', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }}>
+      <div style={{ fontSize: '0.7rem', color: 'var(--color-ink-faint)' }}>llamadas abiertas</div>
+      <div style={{ paddingLeft: '0.0rem', fontWeight: 700, color: 'var(--color-focus)' }}>parse(s, 0, 13)</div>
+    </div>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.05rem', fontFamily: 'var(--font-mono, monospace)', fontSize: '0.75rem', height: '6.1rem', padding: '0.35rem 0.6rem', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }} aria-label="Variables: from = 0, to = 13, at = 6, op = *.">
+      <div>from = 0</div>
+      <div>to = 13</div>
+      <div>at = 6</div>
+      <div>op = *</div>
+    </div>
+    </div>
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '1.6em', whiteSpace: 'nowrap' }}>Arma el nodo * con sus dos operandos: es la raíz, y parse lo devuelve.</div>
   </Step>
 </StepShow>
 
@@ -3933,37 +4689,135 @@ static Node<String> parse(String s) {
 
 <Slide title="Calculadora · del árbol a la polaca inversa">
 `postorder` es el recorrido de siempre, con la visita después de las dos
-llamadas; en lugar de imprimir, agrega cada valor al final de una lista.
+llamadas: agrega el valor del nodo al final de `out`. Todas las llamadas
+reciben la misma lista y cada una agrega lo suyo, sin copiar lo de las demás.
 
 <StepShow
   language="java"
   code={`static void postorder(Node<String> node,
         List<String> out) {
     if (node == null) return;
+    // recorrido: primero los dos operandos
     postorder(node.left, out);
     postorder(node.right, out);
+    // visita: el valor va al final de out
     out.add(node.value);
 }`}
 >
-  <Step lines={[6]}>
-    <BinaryPicture tree={CALC_TREE} size={0.8} tones={{ '3': 'mark' }} badges={{ '3': '1' }} label="El postorden visita primero el 3." />
-    <TokenRow tokens={['3']} at={0} title="lista" label="La lista tiene 3." />
+  <Step lines={[1, 2]}>
+    <BinaryPicture tree={CALC_TREE} tones={{ '*': 'focus' }} badges={{  }} holes={[]} compact size={0.8} label="Se llama con la raíz, el por, y out vacía." />
+    <TokenRow tokens={[]} at={-1} slots={7} title="out" size={1} label="La lista out: vacía." />
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>postorder(*, out): la raíz, con out vacía.</div>
+  </Step>
+  <Step lines={[5]}>
+    <BinaryPicture tree={CALC_TREE} tones={{ '+': 'focus' }} badges={{  }} holes={[]} path={['*', '+']} compact size={0.8} label="* llama con su hijo izquierdo, +." />
+    <TokenRow tokens={[]} at={-1} slots={7} title="out" size={1} label="La lista out: vacía." />
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>postorder(*) llama con su hijo izquierdo, +.</div>
+  </Step>
+  <Step lines={[5]}>
+    <BinaryPicture tree={CALC_TREE} tones={{ '3': 'focus' }} badges={{  }} holes={[]} path={['*', '+', '3']} compact size={0.8} label="+ llama con su hijo izquierdo, 3." />
+    <TokenRow tokens={[]} at={-1} slots={7} title="out" size={1} label="La lista out: vacía." />
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>postorder(+) llama con su hijo izquierdo, 3.</div>
+  </Step>
+  <Step lines={[5, 3]}>
+    <BinaryPicture tree={CALC_TREE} tones={{ '3': 'focus' }} badges={{  }} holes={[]} path={['*', '+', '3']} probe={{ at: '3', side: 'l' }} compact size={0.8} label="3 llama con su hijo izquierdo, que es null: la llamada vuelve sin hacer nada." />
+    <TokenRow tokens={[]} at={-1} slots={7} title="out" size={1} label="La lista out: vacía." />
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>3 llama con su hijo izquierdo: es null, y la llamada vuelve en la primera línea.</div>
+  </Step>
+  <Step lines={[6, 3]}>
+    <BinaryPicture tree={CALC_TREE} tones={{ '3': 'focus' }} badges={{  }} holes={[]} path={['*', '+', '3']} probe={{ at: '3', side: 'r' }} compact size={0.8} label="3 llama con su hijo derecho, que es null: la llamada vuelve sin hacer nada." />
+    <TokenRow tokens={[]} at={-1} slots={7} title="out" size={1} label="La lista out: vacía." />
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>3 llama con su hijo derecho: es null, y la llamada vuelve en la primera línea.</div>
+  </Step>
+  <Step lines={[8]}>
+    <BinaryPicture tree={CALC_TREE} tones={{ '3': 'mark' }} badges={{ '3': '1' }} holes={[]} path={['*', '+', '3']} compact size={0.8} label="3 se agrega al final de out." />
+    <TokenRow tokens={['3']} at={0} slots={7} title="out" size={1} label="La lista out: 3." />
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>Visita 3: es una hoja, y 3 va al final.</div>
   </Step>
   <Step lines={[6]}>
-    <BinaryPicture tree={CALC_TREE} size={0.8} tones={{ '3': 'done', '4': 'mark' }} badges={{ '3': '1', '4': '2' }} label="Después el 4." />
-    <TokenRow tokens={['3', '4']} at={1} title="lista" label="La lista tiene 3 y 4." />
+    <BinaryPicture tree={CALC_TREE} tones={{ '3': 'done', '4': 'focus' }} badges={{ '3': '1' }} holes={[]} path={['*', '+', '4']} compact size={0.8} label="+ llama con su hijo derecho, 4." />
+    <TokenRow tokens={['3']} at={-1} slots={7} title="out" size={1} label="La lista out: 3." />
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>postorder(+) llama con su hijo derecho, 4.</div>
+  </Step>
+  <Step lines={[5, 3]}>
+    <BinaryPicture tree={CALC_TREE} tones={{ '3': 'done', '4': 'focus' }} badges={{ '3': '1' }} holes={[]} path={['*', '+', '4']} probe={{ at: '4', side: 'l' }} compact size={0.8} label="4 llama con su hijo izquierdo, que es null: la llamada vuelve sin hacer nada." />
+    <TokenRow tokens={['3']} at={-1} slots={7} title="out" size={1} label="La lista out: 3." />
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>4 llama con su hijo izquierdo: es null, y la llamada vuelve en la primera línea.</div>
+  </Step>
+  <Step lines={[6, 3]}>
+    <BinaryPicture tree={CALC_TREE} tones={{ '3': 'done', '4': 'focus' }} badges={{ '3': '1' }} holes={[]} path={['*', '+', '4']} probe={{ at: '4', side: 'r' }} compact size={0.8} label="4 llama con su hijo derecho, que es null: la llamada vuelve sin hacer nada." />
+    <TokenRow tokens={['3']} at={-1} slots={7} title="out" size={1} label="La lista out: 3." />
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>4 llama con su hijo derecho: es null, y la llamada vuelve en la primera línea.</div>
+  </Step>
+  <Step lines={[8]}>
+    <BinaryPicture tree={CALC_TREE} tones={{ '3': 'done', '4': 'mark' }} badges={{ '3': '1', '4': '2' }} holes={[]} path={['*', '+', '4']} compact size={0.8} label="4 se agrega al final de out." />
+    <TokenRow tokens={['3', '4']} at={1} slots={7} title="out" size={1} label="La lista out: 3, 4." />
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>Visita 4: es una hoja, y 4 va al final.</div>
+  </Step>
+  <Step lines={[8]}>
+    <BinaryPicture tree={CALC_TREE} tones={{ '3': 'done', '4': 'done', '+': 'mark' }} badges={{ '3': '1', '4': '2', '+': '3' }} holes={[]} path={['*', '+']} compact size={0.8} label="+ se agrega al final de out." />
+    <TokenRow tokens={['3', '4', '+']} at={2} slots={7} title="out" size={1} label="La lista out: 3, 4, +." />
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>Visita +: sus dos operandos ya están en out, y + va al final.</div>
   </Step>
   <Step lines={[6]}>
-    <BinaryPicture tree={CALC_TREE} size={0.8} tones={{ '3': 'done', '4': 'done', '+': 'mark' }} badges={{ '3': '1', '4': '2', '+': '3' }} label="Después el más, cuando sus dos operandos ya están en la lista." />
-    <TokenRow tokens={['3', '4', '+']} at={2} title="lista" label="La lista tiene 3, 4 y más." />
+    <BinaryPicture tree={CALC_TREE} tones={{ '3': 'done', '4': 'done', '+': 'done', '-': 'focus' }} badges={{ '3': '1', '4': '2', '+': '3' }} holes={[]} path={['*', '-']} compact size={0.8} label="* llama con su hijo derecho, -." />
+    <TokenRow tokens={['3', '4', '+']} at={-1} slots={7} title="out" size={1} label="La lista out: 3, 4, +." />
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>postorder(*) llama con su hijo derecho, -.</div>
+  </Step>
+  <Step lines={[5]}>
+    <BinaryPicture tree={CALC_TREE} tones={{ '3': 'done', '4': 'done', '+': 'done', '5': 'focus' }} badges={{ '3': '1', '4': '2', '+': '3' }} holes={[]} path={['*', '-', '5']} compact size={0.8} label="- llama con su hijo izquierdo, 5." />
+    <TokenRow tokens={['3', '4', '+']} at={-1} slots={7} title="out" size={1} label="La lista out: 3, 4, +." />
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>postorder(-) llama con su hijo izquierdo, 5.</div>
+  </Step>
+  <Step lines={[5, 3]}>
+    <BinaryPicture tree={CALC_TREE} tones={{ '3': 'done', '4': 'done', '+': 'done', '5': 'focus' }} badges={{ '3': '1', '4': '2', '+': '3' }} holes={[]} path={['*', '-', '5']} probe={{ at: '5', side: 'l' }} compact size={0.8} label="5 llama con su hijo izquierdo, que es null: la llamada vuelve sin hacer nada." />
+    <TokenRow tokens={['3', '4', '+']} at={-1} slots={7} title="out" size={1} label="La lista out: 3, 4, +." />
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>5 llama con su hijo izquierdo: es null, y la llamada vuelve en la primera línea.</div>
+  </Step>
+  <Step lines={[6, 3]}>
+    <BinaryPicture tree={CALC_TREE} tones={{ '3': 'done', '4': 'done', '+': 'done', '5': 'focus' }} badges={{ '3': '1', '4': '2', '+': '3' }} holes={[]} path={['*', '-', '5']} probe={{ at: '5', side: 'r' }} compact size={0.8} label="5 llama con su hijo derecho, que es null: la llamada vuelve sin hacer nada." />
+    <TokenRow tokens={['3', '4', '+']} at={-1} slots={7} title="out" size={1} label="La lista out: 3, 4, +." />
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>5 llama con su hijo derecho: es null, y la llamada vuelve en la primera línea.</div>
+  </Step>
+  <Step lines={[8]}>
+    <BinaryPicture tree={CALC_TREE} tones={{ '3': 'done', '4': 'done', '+': 'done', '5': 'mark' }} badges={{ '3': '1', '4': '2', '+': '3', '5': '4' }} holes={[]} path={['*', '-', '5']} compact size={0.8} label="5 se agrega al final de out." />
+    <TokenRow tokens={['3', '4', '+', '5']} at={3} slots={7} title="out" size={1} label="La lista out: 3, 4, +, 5." />
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>Visita 5: es una hoja, y 5 va al final.</div>
   </Step>
   <Step lines={[6]}>
-    <BinaryPicture tree={CALC_TREE} size={0.8} tones={{ '3': 'done', '4': 'done', '+': 'done', '5': 'mark' }} badges={{ '3': '1', '4': '2', '+': '3', '5': '4' }} label="Después el 5." />
-    <TokenRow tokens={['3', '4', '+', '5']} at={3} title="lista" label="La lista tiene 3, 4, más y 5." />
+    <BinaryPicture tree={CALC_TREE} tones={{ '3': 'done', '4': 'done', '+': 'done', '5': 'done', '1': 'focus' }} badges={{ '3': '1', '4': '2', '+': '3', '5': '4' }} holes={[]} path={['*', '-', '1']} compact size={0.8} label="- llama con su hijo derecho, 1." />
+    <TokenRow tokens={['3', '4', '+', '5']} at={-1} slots={7} title="out" size={1} label="La lista out: 3, 4, +, 5." />
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>postorder(-) llama con su hijo derecho, 1.</div>
   </Step>
-  <Step lines={[6]}>
-    <BinaryPicture tree={CALC_TREE} size={0.8} tones={{ '3': 'done', '4': 'done', '+': 'done', '5': 'done', '*': 'mark' }} badges={{ '3': '1', '4': '2', '+': '3', '5': '4', '*': '5' }} label="Al final, el por." />
-    <TokenRow tokens={['3', '4', '+', '5', '*']} at={4} title="lista" label="La lista tiene 3, 4, más, 5 y por: la notación polaca inversa." />
+  <Step lines={[5, 3]}>
+    <BinaryPicture tree={CALC_TREE} tones={{ '3': 'done', '4': 'done', '+': 'done', '5': 'done', '1': 'focus' }} badges={{ '3': '1', '4': '2', '+': '3', '5': '4' }} holes={[]} path={['*', '-', '1']} probe={{ at: '1', side: 'l' }} compact size={0.8} label="1 llama con su hijo izquierdo, que es null: la llamada vuelve sin hacer nada." />
+    <TokenRow tokens={['3', '4', '+', '5']} at={-1} slots={7} title="out" size={1} label="La lista out: 3, 4, +, 5." />
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>1 llama con su hijo izquierdo: es null, y la llamada vuelve en la primera línea.</div>
+  </Step>
+  <Step lines={[6, 3]}>
+    <BinaryPicture tree={CALC_TREE} tones={{ '3': 'done', '4': 'done', '+': 'done', '5': 'done', '1': 'focus' }} badges={{ '3': '1', '4': '2', '+': '3', '5': '4' }} holes={[]} path={['*', '-', '1']} probe={{ at: '1', side: 'r' }} compact size={0.8} label="1 llama con su hijo derecho, que es null: la llamada vuelve sin hacer nada." />
+    <TokenRow tokens={['3', '4', '+', '5']} at={-1} slots={7} title="out" size={1} label="La lista out: 3, 4, +, 5." />
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>1 llama con su hijo derecho: es null, y la llamada vuelve en la primera línea.</div>
+  </Step>
+  <Step lines={[8]}>
+    <BinaryPicture tree={CALC_TREE} tones={{ '3': 'done', '4': 'done', '+': 'done', '5': 'done', '1': 'mark' }} badges={{ '3': '1', '4': '2', '+': '3', '5': '4', '1': '5' }} holes={[]} path={['*', '-', '1']} compact size={0.8} label="1 se agrega al final de out." />
+    <TokenRow tokens={['3', '4', '+', '5', '1']} at={4} slots={7} title="out" size={1} label="La lista out: 3, 4, +, 5, 1." />
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>Visita 1: es una hoja, y 1 va al final.</div>
+  </Step>
+  <Step lines={[8]}>
+    <BinaryPicture tree={CALC_TREE} tones={{ '3': 'done', '4': 'done', '+': 'done', '5': 'done', '1': 'done', '-': 'mark' }} badges={{ '3': '1', '4': '2', '+': '3', '5': '4', '1': '5', '-': '6' }} holes={[]} path={['*', '-']} compact size={0.8} label="- se agrega al final de out." />
+    <TokenRow tokens={['3', '4', '+', '5', '1', '-']} at={5} slots={7} title="out" size={1} label="La lista out: 3, 4, +, 5, 1, -." />
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>Visita -: sus dos operandos ya están en out, y - va al final.</div>
+  </Step>
+  <Step lines={[8]}>
+    <BinaryPicture tree={CALC_TREE} tones={{ '3': 'done', '4': 'done', '+': 'done', '5': 'done', '1': 'done', '-': 'done', '*': 'mark' }} badges={{ '3': '1', '4': '2', '+': '3', '5': '4', '1': '5', '-': '6', '*': '7' }} holes={[]} compact size={0.8} label="* se agrega al final de out." />
+    <TokenRow tokens={['3', '4', '+', '5', '1', '-', '*']} at={6} slots={7} title="out" size={1} label="La lista out: 3, 4, +, 5, 1, -, *." />
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>Visita *: sus dos operandos ya están en out, y * va al final.</div>
+  </Step>
+  <Step lines={[9]}>
+    <BinaryPicture tree={CALC_TREE} tones={{ '3': 'done', '4': 'done', '+': 'done', '5': 'done', '1': 'done', '-': 'done', '*': 'done' }} badges={{ '3': '1', '4': '2', '+': '3', '5': '4', '1': '5', '-': '6', '*': '7' }} holes={[]} compact size={0.8} label="Todas las llamadas terminaron: out tiene la notación polaca inversa." />
+    <TokenRow tokens={['3', '4', '+', '5', '1', '-', '*']} at={-1} slots={7} title="out" size={1} label="La lista out: 3, 4, +, 5, 1, -, *." />
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>La primera llamada termina: out tiene la notación polaca inversa.</div>
   </Step>
 </StepShow>
 
@@ -3991,86 +4845,194 @@ el operando **derecho**, porque entró último.
 }`}
 >
   <Step lines={[2]}>
-    <TokenRow tokens={['3', '4', '+', '5', '*']} title="lista" label="La lista 3, 4, más, 5, por." />
-    <StackRow values={[]} label="La pila empieza vacía." />
+    <TokenRow tokens={CALC_POSTORDER} at={-1} title="tokens" size={1} label="La lista, todavía sin leer." />
+    <StackRow values={[]} fresh={-1} slots={3} size={1} label="La pila, del fondo hacia arriba: vacía." />
+    <div style={{ fontFamily: 'var(--font-mono, monospace)', fontSize: '0.8rem', margin: '0 auto', padding: '0 0.6rem', maxWidth: '30rem', height: '1.9rem', lineHeight: '1.9rem', textAlign: 'center', whiteSpace: 'pre', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }}>{" "}</div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>Se crea la pila, vacía.</div>
   </Step>
-  <Step lines={[9]}>
-    <TokenRow tokens={['3', '4', '+', '5', '*']} at={0} title="lista" label="Se lee el 3." />
-    <StackRow values={[3]} fresh={0} label="La pila tiene 3." />
+  <Step lines={[3, 4, 9]}>
+    <TokenRow tokens={CALC_POSTORDER} at={0} title="tokens" size={1} label="Se lee 3." />
+    <StackRow values={[3]} fresh={0} slots={3} size={1} label="La pila, del fondo hacia arriba: 3." />
+    <div style={{ fontFamily: 'var(--font-mono, monospace)', fontSize: '0.8rem', margin: '0 auto', padding: '0 0.6rem', maxWidth: '30rem', height: '1.9rem', lineHeight: '1.9rem', textAlign: 'center', whiteSpace: 'pre', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }}>{"t = 3"}</div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>t es '3', un número: se apila.</div>
   </Step>
-  <Step lines={[9]}>
-    <TokenRow tokens={['3', '4', '+', '5', '*']} at={1} title="lista" label="Se lee el 4." />
-    <StackRow values={[3, 4]} fresh={1} label="La pila tiene 3 y 4 arriba." />
+  <Step lines={[3, 4, 9]}>
+    <TokenRow tokens={CALC_POSTORDER} at={1} title="tokens" size={1} label="Se lee 4." />
+    <StackRow values={[3, 4]} fresh={1} slots={3} size={1} label="La pila, del fondo hacia arriba: 3 4." />
+    <div style={{ fontFamily: 'var(--font-mono, monospace)', fontSize: '0.8rem', margin: '0 auto', padding: '0 0.6rem', maxWidth: '30rem', height: '1.9rem', lineHeight: '1.9rem', textAlign: 'center', whiteSpace: 'pre', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }}>{"t = 4"}</div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>t es '4', un número: se apila.</div>
   </Step>
-  <Step lines={[5, 6, 7]}>
-    <TokenRow tokens={['3', '4', '+', '5', '*']} at={2} title="lista" label="Se lee el más." />
-    <StackRow values={[7]} fresh={0} label="Salen 4 y 3, y entra 7." />
+  <Step lines={[3, 4, 5]}>
+    <TokenRow tokens={CALC_POSTORDER} at={2} title="tokens" size={1} label="Se lee más." />
+    <StackRow values={[3]} fresh={-1} slots={3} size={1} label="La pila, del fondo hacia arriba: 3." />
+    <div style={{ fontFamily: 'var(--font-mono, monospace)', fontSize: '0.8rem', margin: '0 auto', padding: '0 0.6rem', maxWidth: '30rem', height: '1.9rem', lineHeight: '1.9rem', textAlign: 'center', whiteSpace: 'pre', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }}>{"t = +   b = 4"}</div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>t es '+', un operador: sale b = 4, el de arriba, que es el operando derecho.</div>
   </Step>
-  <Step lines={[9]}>
-    <TokenRow tokens={['3', '4', '+', '5', '*']} at={3} title="lista" label="Se lee el 5." />
-    <StackRow values={[7, 5]} fresh={1} label="La pila tiene 7 y 5 arriba." />
+  <Step lines={[6]}>
+    <TokenRow tokens={CALC_POSTORDER} at={2} title="tokens" size={1} label="Sale a, 3." />
+    <StackRow values={[]} fresh={-1} slots={3} size={1} label="La pila, del fondo hacia arriba: vacía." />
+    <div style={{ fontFamily: 'var(--font-mono, monospace)', fontSize: '0.8rem', margin: '0 auto', padding: '0 0.6rem', maxWidth: '30rem', height: '1.9rem', lineHeight: '1.9rem', textAlign: 'center', whiteSpace: 'pre', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }}>{"t = +   b = 4   a = 3"}</div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>Sale a = 3, el operando izquierdo.</div>
   </Step>
-  <Step lines={[5, 6, 7]}>
-    <TokenRow tokens={['3', '4', '+', '5', '*']} at={4} title="lista" label="Se lee el por." />
-    <StackRow values={[35]} fresh={0} label="Salen 5 y 7, y entra 35." />
+  <Step lines={[7]}>
+    <TokenRow tokens={CALC_POSTORDER} at={2} title="tokens" size={1} label="Se apila 7." />
+    <StackRow values={[7]} fresh={0} slots={3} size={1} label="La pila, del fondo hacia arriba: 7." />
+    <div style={{ fontFamily: 'var(--font-mono, monospace)', fontSize: '0.8rem', margin: '0 auto', padding: '0 0.6rem', maxWidth: '30rem', height: '1.9rem', lineHeight: '1.9rem', textAlign: 'center', whiteSpace: 'pre', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }}>{"t = +   b = 4   a = 3"}</div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>Se apila apply(3, 4, "+"): 3 + 4 = 7.</div>
+  </Step>
+  <Step lines={[3, 4, 9]}>
+    <TokenRow tokens={CALC_POSTORDER} at={3} title="tokens" size={1} label="Se lee 5." />
+    <StackRow values={[7, 5]} fresh={1} slots={3} size={1} label="La pila, del fondo hacia arriba: 7 5." />
+    <div style={{ fontFamily: 'var(--font-mono, monospace)', fontSize: '0.8rem', margin: '0 auto', padding: '0 0.6rem', maxWidth: '30rem', height: '1.9rem', lineHeight: '1.9rem', textAlign: 'center', whiteSpace: 'pre', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }}>{"t = 5"}</div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>t es '5', un número: se apila.</div>
+  </Step>
+  <Step lines={[3, 4, 9]}>
+    <TokenRow tokens={CALC_POSTORDER} at={4} title="tokens" size={1} label="Se lee 1." />
+    <StackRow values={[7, 5, 1]} fresh={2} slots={3} size={1} label="La pila, del fondo hacia arriba: 7 5 1." />
+    <div style={{ fontFamily: 'var(--font-mono, monospace)', fontSize: '0.8rem', margin: '0 auto', padding: '0 0.6rem', maxWidth: '30rem', height: '1.9rem', lineHeight: '1.9rem', textAlign: 'center', whiteSpace: 'pre', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }}>{"t = 1"}</div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>t es '1', un número: se apila.</div>
+  </Step>
+  <Step lines={[3, 4, 5]}>
+    <TokenRow tokens={CALC_POSTORDER} at={5} title="tokens" size={1} label="Se lee menos." />
+    <StackRow values={[7, 5]} fresh={-1} slots={3} size={1} label="La pila, del fondo hacia arriba: 7 5." />
+    <div style={{ fontFamily: 'var(--font-mono, monospace)', fontSize: '0.8rem', margin: '0 auto', padding: '0 0.6rem', maxWidth: '30rem', height: '1.9rem', lineHeight: '1.9rem', textAlign: 'center', whiteSpace: 'pre', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }}>{"t = -   b = 1"}</div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>t es '-', un operador: sale b = 1, el de arriba, que es el operando derecho.</div>
+  </Step>
+  <Step lines={[6]}>
+    <TokenRow tokens={CALC_POSTORDER} at={5} title="tokens" size={1} label="Sale a, 5." />
+    <StackRow values={[7]} fresh={-1} slots={3} size={1} label="La pila, del fondo hacia arriba: 7." />
+    <div style={{ fontFamily: 'var(--font-mono, monospace)', fontSize: '0.8rem', margin: '0 auto', padding: '0 0.6rem', maxWidth: '30rem', height: '1.9rem', lineHeight: '1.9rem', textAlign: 'center', whiteSpace: 'pre', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }}>{"t = -   b = 1   a = 5"}</div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>Sale a = 5, el operando izquierdo.</div>
+  </Step>
+  <Step lines={[7]}>
+    <TokenRow tokens={CALC_POSTORDER} at={5} title="tokens" size={1} label="Se apila 4." />
+    <StackRow values={[7, 4]} fresh={1} slots={3} size={1} label="La pila, del fondo hacia arriba: 7 4." />
+    <div style={{ fontFamily: 'var(--font-mono, monospace)', fontSize: '0.8rem', margin: '0 auto', padding: '0 0.6rem', maxWidth: '30rem', height: '1.9rem', lineHeight: '1.9rem', textAlign: 'center', whiteSpace: 'pre', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }}>{"t = -   b = 1   a = 5"}</div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>Se apila apply(5, 1, "-"): 5 - 1 = 4.</div>
+  </Step>
+  <Step lines={[3, 4, 5]}>
+    <TokenRow tokens={CALC_POSTORDER} at={6} title="tokens" size={1} label="Se lee por." />
+    <StackRow values={[7]} fresh={-1} slots={3} size={1} label="La pila, del fondo hacia arriba: 7." />
+    <div style={{ fontFamily: 'var(--font-mono, monospace)', fontSize: '0.8rem', margin: '0 auto', padding: '0 0.6rem', maxWidth: '30rem', height: '1.9rem', lineHeight: '1.9rem', textAlign: 'center', whiteSpace: 'pre', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }}>{"t = *   b = 4"}</div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>t es '*', un operador: sale b = 4, el de arriba, que es el operando derecho.</div>
+  </Step>
+  <Step lines={[6]}>
+    <TokenRow tokens={CALC_POSTORDER} at={6} title="tokens" size={1} label="Sale a, 7." />
+    <StackRow values={[]} fresh={-1} slots={3} size={1} label="La pila, del fondo hacia arriba: vacía." />
+    <div style={{ fontFamily: 'var(--font-mono, monospace)', fontSize: '0.8rem', margin: '0 auto', padding: '0 0.6rem', maxWidth: '30rem', height: '1.9rem', lineHeight: '1.9rem', textAlign: 'center', whiteSpace: 'pre', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }}>{"t = *   b = 4   a = 7"}</div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>Sale a = 7, el operando izquierdo.</div>
+  </Step>
+  <Step lines={[7]}>
+    <TokenRow tokens={CALC_POSTORDER} at={6} title="tokens" size={1} label="Se apila 28." />
+    <StackRow values={[28]} fresh={0} slots={3} size={1} label="La pila, del fondo hacia arriba: 28." />
+    <div style={{ fontFamily: 'var(--font-mono, monospace)', fontSize: '0.8rem', margin: '0 auto', padding: '0 0.6rem', maxWidth: '30rem', height: '1.9rem', lineHeight: '1.9rem', textAlign: 'center', whiteSpace: 'pre', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }}>{"t = *   b = 4   a = 7"}</div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>Se apila apply(7, 4, "*"): 7 * 4 = 28.</div>
   </Step>
   <Step lines={[12]}>
-    <TokenRow tokens={['3', '4', '+', '5', '*']} title="lista" label="La lista está leída." />
-    <StackRow values={[]} label="Sale 35, el valor de la expresión, y la pila queda vacía." />
+    <TokenRow tokens={CALC_POSTORDER} at={-1} title="tokens" size={1} label="La lista está leída." />
+    <StackRow values={[]} fresh={-1} slots={3} size={1} label="La pila, del fondo hacia arriba: vacía." />
+    <div style={{ fontFamily: 'var(--font-mono, monospace)', fontSize: '0.8rem', margin: '0 auto', padding: '0 0.6rem', maxWidth: '30rem', height: '1.9rem', lineHeight: '1.9rem', textAlign: 'center', whiteSpace: 'pre', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }}>{" "}</div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>La lista se terminó: sale 28, el valor de la expresión.</div>
   </Step>
 </StepShow>
 
 </Slide>
 
 <Slide title="Calculadora · las tres piezas juntas">
-`calculate` encadena las tres piezas: arma el árbol leyendo la expresión
-desde la posición 0, lo recorre en postorden y evalúa la lista que queda.
+`calculate` encadena las tres piezas: arma el árbol con el tramo de la
+expresión entera, lo recorre en postorden y evalúa la lista que queda.
 
 ```java
 static int calculate(String expression) {
-    pos = 0;
-    Node<String> tree = parse(expression);
+    Node<String> tree =
+        parse(expression, 0, expression.length());
     List<String> tokens = new ArrayList<>();
     postorder(tree, tokens);
     return evaluate(tokens);
 }
 ```
 
-Sobre `((3+4)*5)`, el árbol tiene el `*` en la raíz, la lista es
-`3 4 + 5 *` y la pila termina en 35.
+<PresentationWide fraction={0.9}>
+
+<div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', alignItems: 'center', gap: '0.25rem 1rem' }}>
+<div style={{ flex: '0 1 560px' }}>
+<TokenRow tokens={CALC_CHARS} title="expression" size={1.1} label="La expresión, ((3+4)*(5-1))." />
+</div>
+<div aria-hidden="true" style={{ fontFamily: 'var(--font-mono, monospace)', fontSize: '0.85rem', color: 'var(--color-mark)', textAlign: 'center' }}>parse<br /><span style={{ fontSize: '1.8rem', lineHeight: 1 }}>→</span></div>
+<div style={{ flex: '0 1 300px' }}>
+<BinaryPicture tree={CALC_TREE} compact size={0.95} label="El árbol que arma parse: el por en la raíz, el más con 3 y 4, y el menos con 5 y 1." />
+</div>
+</div>
+
+<div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', alignItems: 'center', gap: '0.25rem 1rem' }}>
+<div aria-hidden="true" style={{ fontFamily: 'var(--font-mono, monospace)', fontSize: '0.85rem', color: 'var(--color-mark)', textAlign: 'center' }}>postorder<br /><span style={{ fontSize: '1.8rem', lineHeight: 1 }}>→</span></div>
+<div style={{ flex: '0 1 380px' }}>
+<TokenRow tokens={CALC_POSTORDER} title="tokens" size={1.1} label="La lista que deja el postorden: 3, 4, más, 5, 1, menos, por." />
+</div>
+<div aria-hidden="true" style={{ fontFamily: 'var(--font-mono, monospace)', fontSize: '0.85rem', color: 'var(--color-mark)', textAlign: 'center' }}>evaluate<br /><span style={{ fontSize: '1.8rem', lineHeight: 1 }}>→</span></div>
+<div role="img" aria-label="El valor que devuelve evaluate: 28." style={{ fontFamily: 'var(--font-mono, monospace)', fontSize: '1.4rem', fontWeight: 700, padding: '0.25rem 0.8rem', border: '2px solid var(--color-keep)', background: 'var(--color-keep-soft)', borderRadius: '6px' }}>28</div>
+</div>
+
+</PresentationWide>
 
 </Slide>
 
-<Slide title="Un número solo y una división por cero">
-**Un número solo**, como `7`, no empieza con paréntesis: `parse` devuelve una
-hoja, el postorden es la lista `7` y la pila apila el 7 y lo devuelve. No
-hace falta ningún caso aparte.
+{/* A number alone, and the division by zero: one leaf, and a tree whose evaluation fails. */}
 
-**Una división por cero**, como `(4/(2-2))`, arma su árbol sin problema y
-falla al evaluar: cuando el `/` saca 0 y 4 de la pila, `apply` divide por
-cero y Java lanza `ArithmeticException`. El enunciado no dice qué hacer en
-ese caso, así que la calculadora no lo oculta.
+export const DIV_ZERO = { v: '/', l: { v: '7' }, r: { v: '0' } };
+
+<Slide title="Un número solo y una división por cero">
+**Un número solo** no empieza con paréntesis: `parse` lo devuelve como una
+hoja, el postorden es una lista de un elemento y la pila lo devuelve. No hace
+falta ningún caso aparte.
+
+**Una división por cero** arma su árbol sin problema y falla al evaluar:
+`apply` divide por cero y Java lanza `ArithmeticException`. El enunciado no
+dice qué hacer en ese caso, así que la calculadora no lo oculta.
+
+<div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: '1rem 3rem', alignItems: 'flex-end' }}>
+<div style={{ flex: '0 1 220px' }}>
+<BinaryPicture tree={{ v: '7' }} minColumns={3} tones={{ 7: 'keep' }} caption="7: una hoja, que vale 7" label="La expresión 7 es un árbol de un solo nodo, una hoja, y vale 7." />
+</div>
+<div style={{ flex: '0 1 220px' }}>
+<BinaryPicture tree={DIV_ZERO} minColumns={3} tones={{ '/': 'mark' }} caption="(7/0): el / divide por 0" label="La expresión 7 dividido 0 es un árbol con la división en la raíz, marcada, y las hojas 7 y 0. Al evaluarla, la división falla." />
+</div>
+</div>
 
 </Slide>
 
 <Slide title="El costo de la calculadora">
-**Tiempo.** `parse` avanza `pos` sobre cada carácter una sola vez, así que
-arma el árbol en $$\Theta(N)$$. El árbol tiene a lo más $$N$$ nodos, porque
-cada nodo sale de al menos un carácter; el postorden visita cada uno una vez
-y la evaluación saca y apila cada valor de la lista una vez. Las tres piezas
-cuestan $$\Theta(N)$$, y la calculadora también.
+**Armar el árbol.** Cada llamada de `parse` lee su tramo hasta el operador, y
+a lo más lo lee entero. Las llamadas de un mismo nivel leen tramos que no se
+tocan, así que entre todas leen a lo más los $$N$$ caracteres, y hay un nivel
+de llamadas por cada nivel del árbol, $$h + 1$$.
 
-**Memoria.** El árbol, la lista y la pila guardan a lo más $$N$$ elementos
-cada uno, y la recursión de `parse` y de `postorder` se apila tan hondo como
-la altura del árbol, que no pasa de $$N$$. La memoria es $$\Theta(N)$$.
+**Recorrer en postorden.** Cada nodo sale de al menos un carácter, así que
+hay a lo más $$N$$, y el postorden visita cada uno una vez.
+
+**Evaluar.** Cada elemento de la lista entra a la pila una vez y sale una
+vez.
+
+$$
+\underbrace{O(N \cdot (h + 1))}_{\text{armar el árbol}} + \underbrace{O(N)}_{\text{postorden}} + \underbrace{O(N)}_{\text{evaluar}} = O(N \cdot (h + 1))
+$$
+
+Con cada operación anidada en el operando izquierdo de la siguiente, la altura
+crece con $$N$$ y cada nivel lee casi toda la expresión: $$O(N^2)$$.
+
+**Memoria.** El árbol, la lista y la pila guardan a lo más un elemento por
+carácter, y las llamadas pendientes no pasan de $$h + 1$$: $$O(N)$$.
 
 </Slide>
 
-{/* Book-only on purpose: the whole program is about eighty lines, and an <Exercise> on a slide shows all of them, which scales the slide to 0.34, far under the 0.70 floor. Every piece of it is on the listing slides above (write-an-exercise.md §Two kinds). */}
+Una versión de `parse` que comparte con sus llamadas una posición que avanza
+lee cada carácter una sola vez, y arma el árbol en $$\Theta(N)$$. El precio
+es que la función depende de un valor que no es suyo: hay que ponerlo en cero
+antes de cada expresión, y nadie más puede usarlo mientras tanto. Aquí cada
+llamada recibe su tramo completo, y lo que se paga es releer.
 
-El programa completo, con las tres piezas y sus auxiliares, para ejecutarlo
-y modificarlo:
-
+<Slide title="Calculadora · el programa completo">
+<PresentationWide fraction={0.75}>
 <Exercise title="Una calculadora con paréntesis">
 
 ```java starter
@@ -4086,11 +5048,15 @@ class Node<T> {
     Node(T value) {
         this.value = value;
     }
+
+    Node(T value, Node<T> left, Node<T> right) {
+        this.value = value;
+        this.left = left;
+        this.right = right;
+    }
 }
 
 class Solution {
-    static int pos;
-
     static boolean isOperator(String t) {
         return t.equals("+") || t.equals("-")
             || t.equals("*") || t.equals("/");
@@ -4103,32 +5069,31 @@ class Solution {
         return a / b;
     }
 
-    static Node<String> parse(String s) {
-        if (s.charAt(pos) != '(') {
-            int start = pos;
-            while (pos < s.length()
-                    && Character.isDigit(s.charAt(pos))) {
-                pos++;
-            }
-            return new Node<>(s.substring(start, pos));
+    static Node<String> parse(String s, int from, int to) {
+        if (s.charAt(from) != '(') { // un número: una hoja
+            return new Node<>(s.substring(from, to));
         }
-        pos++;
-        Node<String> left = parse(s);
-        String op = String.valueOf(s.charAt(pos));
-        pos++;
-        Node<String> right = parse(s);
-        pos++;
-        Node<String> node = new Node<>(op);
-        node.left = left;
-        node.right = right;
-        return node;
+        // una operación: el operador fuera de paréntesis
+        int depth = 0, at = from + 1;
+        while (depth > 0
+                || !isOperator(s.substring(at, at + 1))) {
+            if (s.charAt(at) == '(') depth++;
+            if (s.charAt(at) == ')') depth--;
+            at++;
+        }
+        Node<String> left = parse(s, from + 1, at);
+        Node<String> right = parse(s, at + 1, to - 1);
+        String op = s.substring(at, at + 1);
+        return new Node<>(op, left, right);
     }
 
     static void postorder(Node<String> node,
             List<String> out) {
         if (node == null) return;
+        // recorrido: primero los dos operandos
         postorder(node.left, out);
         postorder(node.right, out);
+        // visita: el valor va al final de out
         out.add(node.value);
     }
 
@@ -4147,8 +5112,8 @@ class Solution {
     }
 
     static int calculate(String expression) {
-        pos = 0;
-        Node<String> tree = parse(expression);
+        Node<String> tree =
+            parse(expression, 0, expression.length());
         List<String> tokens = new ArrayList<>();
         postorder(tree, tokens);
         return evaluate(tokens);
@@ -4157,14 +5122,17 @@ class Solution {
 ```
 
 ```java test
-check(Solution.calculate("((3+4)*5)"), 35);
-check(Solution.calculate("(3+(4*5))"), 23);
+check(Solution.calculate("((3+4)*(5-1))"), 28);
+check(Solution.calculate("(3+(4*(5-1)))"), 19);
 check(Solution.calculate("((8-2)/(1+2))"), 2);
 check(Solution.calculate("7"), 7);
 check(Solution.calculate("(12*(10-7))"), 36);
 ```
 
 </Exercise>
+</PresentationWide>
+</Slide>
+
 
 Dos ejercicios más, propuestos, para resolver sin ver la respuesta:
 
