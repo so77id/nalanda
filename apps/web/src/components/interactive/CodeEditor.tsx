@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 
 import { draftKey, readDraft, saveDraft } from './draft';
-import { useEmbedded } from '../embedded';
+import { useEmbedded, useEmbeddedAlign } from '../embedded';
 import { OUTPUT, Panel } from './Panel';
 import { useMode } from '../../presentation';
 import type { RunResult, RuntimeModule } from '../../runtime';
@@ -47,6 +47,7 @@ export function CodeEditor({
   // column). The frame is dropped rather than drawn twice, and the filename
   // goes with it: the column's own label already says which language this is.
   const embedded = useEmbedded();
+  const align = useEmbeddedAlign();
   const flags = resolveFlags(variant, overrides);
   // Inside a column the line-number gutter costs 20px of the ~376px the
   // listing gets, and that is exactly the margin the #76 fix lives on: with the
@@ -220,6 +221,24 @@ export function CodeEditor({
       : listing
         ? ''
         : 'max-h-64 overflow-auto';
+  // Inside a column the shell fills it and the editor fills the shell, so a
+  // listing beside a taller figure keeps its background to the bottom instead
+  // of stopping halfway down. A column that centres also puts the lines in the
+  // middle of that space; `safe` keeps the first line reachable when they do
+  // not fit. CodeMirror also stretches its content to the whole editor, which
+  // leaves nothing to centre while that height holds. Both overrides are
+  // `!important` because CodeMirror injects its rules outside any cascade
+  // layer, and an unlayered rule beats every Tailwind utility (they live in
+  // `@layer utilities`) whatever the specificity — measured: the plain
+  // `min-h-0` lost to its `min-height: 100%`.
+  const fill =
+    embedded && !expanded
+      ? ` flex flex-1 flex-col [&>div]:flex [&>div]:flex-1 [&>div]:flex-col [&_.cm-editor]:flex-1${
+          align === 'center'
+            ? ' [&_.cm-editor_.cm-scroller]:[align-items:safe_center]! [&_.cm-editor_.cm-content]:min-h-0!'
+            : ''
+        }`
+      : '';
 
   const shell = (
     <div
@@ -227,7 +246,7 @@ export function CodeEditor({
         expanded
           ? 'fixed inset-0 z-50 flex flex-col bg-surface text-ink'
           : embedded
-            ? 'not-prose flex flex-col overflow-hidden bg-surface text-ink'
+            ? 'not-prose flex flex-1 flex-col overflow-hidden bg-surface text-ink'
             : 'not-prose my-6 flex flex-col overflow-hidden rounded-lg border border-rule bg-surface text-ink'
       }
     >
@@ -286,7 +305,7 @@ export function CodeEditor({
         ) : null}
       </header>
 
-      <div className={codeHeight}>
+      <div className={`${codeHeight}${fill}`}>
         <CodeMirror
           value={code}
           onChange={setCode}

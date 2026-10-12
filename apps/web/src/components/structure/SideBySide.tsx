@@ -1,7 +1,7 @@
 import { Children, type ReactNode } from 'react';
 
 import { AuthoringError } from '../AuthoringError';
-import { EmbeddedProvider } from '../embedded';
+import { EmbeddedAlignProvider, EmbeddedProvider, type EmbeddedAlign } from '../embedded';
 import { useMode } from '../../presentation';
 
 export interface SideBySideProps {
@@ -27,6 +27,15 @@ export interface SideBySideProps {
    * awkwardness (Discussion #220 tracks a rename).
    */
   direction?: 'horizontal' | 'vertical' | 'mode-aware';
+  /**
+   * Where each column puts content shorter than its sibling. `start`
+   * (default) keeps it at the top, which two listings compared line by line
+   * need to stay level. `center` puts it in the middle of its column: a
+   * listing beside a drawing, where the shorter of the two would otherwise
+   * hug the top. A listing fills its column either way; `center` moves its
+   * lines, not its background.
+   */
+  align?: EmbeddedAlign;
 }
 
 const LABEL = 'bg-sunk px-3 py-1 font-mono text-3xs uppercase tracking-wide text-ink-faint';
@@ -43,7 +52,15 @@ const LABEL = 'bg-sunk px-3 py-1 font-mono text-3xs uppercase tracking-wide text
  */
 const SCALE = { book: 'text-[0.8em]', presentation: 'text-[0.72em]' } as const;
 
-function Column({ label, children }: { label?: string; children: ReactNode }) {
+function Column({
+  label,
+  align,
+  children,
+}: {
+  label?: string;
+  align: EmbeddedAlign;
+  children: ReactNode;
+}) {
   const mode = useMode();
   return (
     // `flex-col` + `flex-1` on the content div lets a child figure that
@@ -62,9 +79,11 @@ function Column({ label, children }: { label?: string; children: ReactNode }) {
           became a component is told instead: a CSS selector cannot reach inside
           one, and the column would end up with two headers and two borders. */}
       <div
-        className={`flex flex-1 flex-col overflow-x-auto ${SCALE[mode]} [&_pre]:my-0 [&_pre]:rounded-none [&_pre]:border-0`}
+        className={`flex flex-1 flex-col overflow-x-auto ${align === 'center' ? 'justify-center ' : ''}${SCALE[mode]} [&_pre]:my-0 [&_pre]:rounded-none [&_pre]:border-0`}
       >
-        <EmbeddedProvider value={true}>{children}</EmbeddedProvider>
+        <EmbeddedProvider value={true}>
+          <EmbeddedAlignProvider value={align}>{children}</EmbeddedAlignProvider>
+        </EmbeddedProvider>
       </div>
     </div>
   );
@@ -78,7 +97,13 @@ function Column({ label, children }: { label?: string; children: ReactNode }) {
  * one listing under the other makes the reader hold the first in their head
  * while reading the second.
  */
-export function SideBySide({ left, right, children, direction = 'horizontal' }: SideBySideProps) {
+export function SideBySide({
+  left,
+  right,
+  children,
+  direction = 'horizontal',
+  align = 'start',
+}: SideBySideProps) {
   const mode = useMode();
   // MDX contributes whitespace between blocks; it is not a column.
   const columns = Children.toArray(children).filter(
@@ -103,8 +128,12 @@ export function SideBySide({ left, right, children, direction = 'horizontal' }: 
 
   return (
     <div className={`not-prose my-6 grid gap-3 ${gridClass}`} data-direction={effectiveDirection}>
-      <Column label={left}>{columns[0]}</Column>
-      <Column label={right}>{columns[1]}</Column>
+      <Column label={left} align={align}>
+        {columns[0]}
+      </Column>
+      <Column label={right} align={align}>
+        {columns[1]}
+      </Column>
     </div>
   );
 }

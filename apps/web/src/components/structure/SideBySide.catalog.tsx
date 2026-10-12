@@ -27,6 +27,12 @@ export const sideBySideCatalogEntry: CatalogEntry = {
       description:
         '"horizontal" (default): two columns on desktop, stacked on narrow. "vertical": always stacked. Use vertical when both blocks need the full page width (for example prompt + revealed answer in a complexity exercise). The reading "SideBySide direction=vertical" is acknowledged awkward — Discussion #220 tracks a rename.',
     },
+    {
+      name: 'align',
+      type: '"start" | "center"',
+      description:
+        'Where each column puts content shorter than its sibling. "start" (default) keeps it at the top: two listings compared line by line stay level. "center" puts it in the middle of its column — a listing beside a drawing, where the shorter of the two would otherwise hug the top. A listing fills its column either way, so its background never stops halfway down; "center" moves its lines, not its background.',
+    },
   ],
   examples: [
     {
@@ -102,6 +108,99 @@ int algo(int n) { ... }
 // T(n) = ...
 `}</code>
           </MdxPre>
+        </SideBySide>
+      ),
+    },
+    {
+      title: 'A listing beside a drawing — align="center"',
+      code: `<SideBySide left="El código" right="En memoria" align="center">
+
+\`\`\`java
+class Node<T> {
+    T value;
+    Node<T> next;
+}
+\`\`\`
+
+<svg …>…</svg>
+
+</SideBySide>`,
+      render: () => (
+        <SideBySide left="El código" right="En memoria" align="center">
+          <MdxPre>
+            <code className="language-java">{`class Node<T> {
+    T value;
+    Node<T> next;
+}
+`}</code>
+          </MdxPre>
+          <svg
+            viewBox="0 0 240 200"
+            role="img"
+            aria-label="Dos nodos en memoria, uno debajo del otro: el primero apunta al segundo, y el segundo apunta a null."
+            style={{ width: '100%', maxWidth: '240px', display: 'block', margin: '0.75rem auto' }}
+          >
+            <rect
+              x="80"
+              y="20"
+              width="80"
+              height="34"
+              rx="4"
+              style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }}
+            />
+            <text
+              x="120"
+              y="42"
+              textAnchor="middle"
+              fontSize="14"
+              style={{ fill: 'var(--color-ink)' }}
+            >
+              3
+            </text>
+            <line
+              x1="120"
+              y1="54"
+              x2="120"
+              y2="100"
+              style={{ stroke: 'var(--color-ink-soft)' }}
+              strokeWidth="1.6"
+            />
+            <rect
+              x="80"
+              y="104"
+              width="80"
+              height="34"
+              rx="4"
+              style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }}
+            />
+            <text
+              x="120"
+              y="126"
+              textAnchor="middle"
+              fontSize="14"
+              style={{ fill: 'var(--color-ink)' }}
+            >
+              8
+            </text>
+            <line
+              x1="120"
+              y1="138"
+              x2="120"
+              y2="160"
+              style={{ stroke: 'var(--color-rule-strong)' }}
+              strokeWidth="1.6"
+            />
+            <text
+              x="120"
+              y="176"
+              textAnchor="middle"
+              fontSize="12"
+              fontFamily="monospace"
+              style={{ fill: 'var(--color-ink-faint)' }}
+            >
+              null
+            </text>
+          </svg>
         </SideBySide>
       ),
     },
