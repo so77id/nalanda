@@ -1930,7 +1930,7 @@ export const EXPR_HIERARCHY = { n: '*', c: [{ n: '+', c: [{ n: '3' }, { n: '4' }
 <Slide title="Jerarquías de a dos">
 En las carpetas, el organigrama y los descendientes de una abuela, un nodo
 puede tener cualquier cantidad de hijos. Otras jerarquías, en cambio, **se
-parten siempre en dos**:
+parten en dos**:
 
 - En una **decisión**, cada pregunta tiene dos respuestas: sí y no.
 - En la **llave de un campeonato**, cada partido lo juegan los ganadores de
@@ -1953,7 +1953,9 @@ parten siempre en dos**:
 
 </PresentationWide>
 
-En las tres, cada nodo tiene exactamente dos hijos, o ninguno si es una hoja.
+En las tres, cada nodo tiene dos hijos o ninguno. Eso depende del problema:
+hay otros en los que un nodo puede tener cero, uno o dos hijos. Lo que todos
+comparten es el tope: **nunca más de dos**.
 
 </Slide>
 
@@ -1986,10 +1988,10 @@ su secuencia, y el primero hace de izquierdo. Pero la secuencia no sabe lo
 que estos problemas garantizan: admite un tercer hijo, y el papel de cada uno
 queda en su posición, primero o segundo, y no en un nombre.
 
-Cuando un problema se parte siempre en dos, conviene que la estructura lo
-diga. Un **árbol binario** es un árbol en el que cada nodo tiene **a lo más
-dos hijos**, y cada hijo tiene un nombre: es el **izquierdo** o el
-**derecho**.
+Cuando en un problema ningún nodo tiene más de dos hijos, y cada uno tiene su
+papel, conviene que la estructura lo diga. Un **árbol binario** es un árbol
+en el que cada nodo tiene **a lo más dos hijos**, y cada hijo tiene un
+nombre: es el **izquierdo** o el **derecho**.
 
 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem 2rem', alignItems: 'flex-end', justifyContent: 'center' }}>
 <div style={{ flex: '2 1 15rem' }}>
@@ -2001,10 +2003,10 @@ dos hijos**, y cada hijo tiene un nombre: es el **izquierdo** o el
 </div>
 </div>
 
-Un hijo puede faltar, y el que queda conserva su lado: un nodo con solo un
-hijo izquierdo y uno con solo un hijo derecho son dos árboles binarios
-distintos. En una secuencia serían el mismo: un nodo con un solo hijo, el
-primero.
+Cuando un nodo tiene un solo hijo, ese hijo conserva su lado: un nodo con
+solo un hijo izquierdo y uno con solo un hijo derecho son dos árboles
+binarios distintos. En una secuencia serían el mismo: un nodo con un solo
+hijo, el primero.
 
 </Slide>
 
