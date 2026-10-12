@@ -372,6 +372,12 @@ element still picks up the prose monospace styling.
 Colour is a second signal, never the only one. The invariant column carries
 more than a colour could, and it stays.
 
+**One exception: a table whose every operation only consults drops it.** Its
+every cell would read «Ninguna: no cambia el árbol», which teaches nothing —
+Miguel's review of #321's binary-tree costs, where the traversals and the
+height are the whole table. The column comes back as soon as one row
+modifies the structure.
+
 ### 5. Close on a loose end, not a summary
 
 The last slide of the last act poses a concrete question the class has just
@@ -685,7 +691,8 @@ wins — #304's planner orders its tasks with one comparator lambda and an
 - [ ] What an operation breaks, keeps or restores is named _la invariante_
       (feminine) — in the prose, in every widget's narration, and in the
       templates above you copy from; a TDA's exit rule stays _regla_ (§3).
-- [ ] Every operation in the cost table carries the invariant it restores,
+- [ ] Every operation in the cost table carries the invariant it restores
+      (a table where every row only consults drops that column, §4),
       and the table leads with a `Molde` column grouping the operations by
       crear / consultar / modificar. An `Amortizado` column only where a row
       actually differs — and a SECOND table, for a structure derived from the

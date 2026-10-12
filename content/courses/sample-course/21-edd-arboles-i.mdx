@@ -2334,8 +2334,8 @@ valdría 0 y una hoja 1; aquí cuenta aristas.
 
 </Slide>
 
-<Slide title="Estricto, lleno y completo">
-Tres formas de árbol binario tienen nombre:
+<Slide title="Qué tan lleno está un árbol">
+Tres propiedades dicen qué tan lleno está un árbol binario:
 
 - **Estricto**: cada nodo tiene cero o dos hijos, nunca uno.
 - **Lleno**: es estricto y todas sus hojas están en el último nivel; cada
@@ -2354,7 +2354,7 @@ operandos.
 
 </Slide>
 
-<Slide title="Cuántos nodos caben en una altura">
+<Slide title="Cada nivel, el doble">
 Cada nivel de un árbol binario tiene, a lo más, el doble de nodos que el
 anterior: el nivel $$d$$ tiene a lo más $$2^d$$. Un árbol **lleno** de altura
 $$h$$ los tiene todos:
@@ -2369,7 +2369,7 @@ Ningún árbol binario de altura $$h$$ tiene más nodos que el lleno.
 
 </Slide>
 
-<Slide title="La altura mínima y la máxima">
+<Slide title="Entre un árbol lleno y una cadena">
 Con $$n$$ nodos, la altura de un árbol binario queda entre dos extremos:
 
 - **La más baja posible es $$\lfloor \log_2 n \rfloor$$**: los nodos llenan
@@ -2393,10 +2393,10 @@ dos extremos la diferencia es la que hay entre $$\log_2 n$$ y $$n$$.
 Cada operación recorre el árbol entero, porque sin un orden entre los
 valores no hay subárbol que pueda saltarse:
 
-| Molde     | Operación                         | Peor caso     | Invariante que restaura                  |
-| --------- | --------------------------------- | ------------- | ---------------------------------------- |
-| Consultar | preorden, inorden, postorden      | $$\Theta(n)$$ | Ninguna: no cambian el árbol             |
-| Consultar | altura                            | $$\Theta(n)$$ | Ninguna: no cambia el árbol              |
+| Molde     | Operación                    | Peor caso     |
+| --------- | ---------------------------- | ------------- |
+| Consultar | preorden, inorden, postorden | $$\Theta(n)$$ |
+| Consultar | altura                       | $$\Theta(n)$$ |
 
 </Slide>
 
@@ -2405,7 +2405,7 @@ Para saber si un valor está en un árbol binario, la única regla posible es
 mirar el nodo y, si no es, buscar en sus **dos** subárboles: nada dice en cuál
 de los dos puede estar.
 
-<SequenceStepper eda="binary-tree" operation="search" values={['*', '+', '−', 3, 4, 5, 1]} target={5} />
+<SequenceStepper eda="binary-tree" operation="search" values={[4, 9, 2, 7, 1, 8, 3]} target={8} />
 
 Cuando el valor no está, la búsqueda compara los $$n$$ nodos: cuesta
 $$\Theta(n)$$, lo mismo que buscar en una lista. La jerarquía organiza los

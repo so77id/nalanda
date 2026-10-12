@@ -878,7 +878,8 @@ describe('<SequenceStepper> · the combinations 21-edd-arboles-i mounts', () => 
     {
       act: 'El árbol binario',
       slide: 'Buscar en un árbol binario',
-      props: { eda: 'binary-tree', operation: 'search', values: EXPRESSION, target: 5 },
+      // Numbers only, and in no order: the search has to look on both sides.
+      props: { eda: 'binary-tree', operation: 'search', values: [4, 9, 2, 7, 1, 8, 3], target: 8 },
     },
     {
       act: 'El árbol binario de búsqueda',
