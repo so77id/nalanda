@@ -1655,7 +1655,8 @@ export function BinaryPicture({ tree, tones = {}, badges = {}, notes = {}, level
         const x1 = Math.min(...members.map(cx)) - r - 8;
         const x2 = Math.max(...members.map(cx)) + r + 8;
         const y1 = cy(top) - r - 7;
-        const y2 = Math.max(...members.map(cy)) + r + 7;
+        // With room kept for empty calls, the box takes it in, so an empty call's box never lands on the frame's name.
+        const y2 = Math.max(...members.map(cy)) + r + 7 + holeH;
         return (
           <g key={`f${key}`}>
             <rect x={x1} y={y1} width={x2 - x1} height={y2 - y1} rx="12" style={{ fill: `var(--color-${tone}-soft)`, stroke: `var(--color-${tone})` }} strokeWidth="1.4" strokeDasharray="5 4" />
@@ -2707,47 +2708,115 @@ Un subárbol se dio vuelta dos veces y el otro ninguna: solo la raíz cambió.
 </Slide>
 
 <Slide title="Espejo en inorden · el código">
-Con el intercambio entre las dos llamadas, el método recorre esos tres pasos
-y termina en el resultado equivocado:
+Con el intercambio entre las dos llamadas, el método recorre las tres fases de
+la falla, marcadas 1, 2 y 3 en cada paso, y termina en el resultado
+equivocado:
 
 <StepShow
   language="java"
   code={`static void mirror(Node<String> node) {
     if (node == null) return;
+    // recorrido: primero la izquierda
     mirror(node.left);
+    // visita: intercambia sus dos lados
     Node<String> saved = node.left;
     node.left = node.right;
     node.right = saved;
+    // recorrido: después la derecha
     mirror(node.right);
 }`}
 >
   <Step lines={[1]}>
-    <BinaryPicture tree={{ v: '*', l: { v: '+', l: { v: 3 }, r: { v: 4 } }, r: { v: '−', l: { v: 5 }, r: { v: 1 } } }} tones={{ '*': 'focus' }} frames={{ '+': { text: 'suma', tone: 'keep' }, '−': { text: 'resta', tone: 'accent' } }} compact label="Se llama con la raíz. La suma, a la izquierda, y la resta, a la derecha, van enmarcadas." />
+    <BinaryPicture tree={{ v: '*', l: { v: '+', l: { v: 3 }, r: { v: 4 } }, r: { v: '−', l: { v: 5 }, r: { v: 1 } } }} tones={{ '*': 'focus' }} holes={[]} frames={{ '+': { text: 'suma', tone: 'keep' }, '−': { text: 'resta', tone: 'accent' } }} compact label="Se llama con la raíz. La suma y la resta van enmarcadas." />
     <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>Se llama con la raíz, *.</div>
   </Step>
-  <Step lines={[3]}>
-    <BinaryPicture tree={{ v: '*', l: { v: '+', l: { v: 3 }, r: { v: 4 } }, r: { v: '−', l: { v: 5 }, r: { v: 1 } } }} tones={{ '*': 'focus' }} path={['*', '+']} frames={{ '+': { text: 'suma', tone: 'keep' }, '−': { text: 'resta', tone: 'accent' } }} compact label="Paso 1: antes de intercambiar nada, la raíz llama con su hijo izquierdo, la suma." />
-    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>1. La primera llamada es con el hijo izquierdo, la suma.</div>
+  <Step lines={[4]}>
+    <BinaryPicture tree={{ v: '*', l: { v: '+', l: { v: 3 }, r: { v: 4 } }, r: { v: '−', l: { v: 5 }, r: { v: 1 } } }} tones={{ '*': 'focus' }} path={['*', '+']} holes={[]} frames={{ '+': { text: 'suma', tone: 'keep' }, '−': { text: 'resta', tone: 'accent' } }} compact label="* llama con su hijo izquierdo, +." />
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>1 · mirror(*): llama con su hijo izquierdo, +.</div>
   </Step>
-  <Step lines={[3]}>
-    <BinaryPicture tree={{ v: '*', l: { v: '+', l: { v: 4 }, r: { v: 3 } }, r: { v: '−', l: { v: 5 }, r: { v: 1 } } }} tones={{ '*': 'focus', '+': 'mark' }} frames={{ '+': { text: 'suma · 1 vuelta', tone: 'keep' }, '−': { text: 'resta · sin tocar', tone: 'accent' } }} compact label="La llamada con la suma terminó: la suma quedó dada vuelta, 4 más 3. La resta sigue sin tocar." />
-    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>1. La llamada termina: la suma quedó dada vuelta, (4 + 3).</div>
+  <Step lines={[4]}>
+    <BinaryPicture tree={{ v: '*', l: { v: '+', l: { v: 3 }, r: { v: 4 } }, r: { v: '−', l: { v: 5 }, r: { v: 1 } } }} tones={{ '+': 'focus' }} path={['*', '+', 3]} holes={[]} frames={{ '+': { text: 'suma', tone: 'keep' }, '−': { text: 'resta', tone: 'accent' } }} compact label="+ llama con su hijo izquierdo, 3." />
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>1 · mirror(+): llama con su hijo izquierdo, 3.</div>
   </Step>
-  <Step lines={[4, 5, 6]}>
-    <BinaryPicture tree={{ v: '*', l: { v: '−', l: { v: 5 }, r: { v: 1 } }, r: { v: '+', l: { v: 4 }, r: { v: 3 } } }} tones={{ '*': 'focus' }} swap={['−', '+']} frames={{ '+': { text: 'suma · 1 vuelta', tone: 'keep' }, '−': { text: 'resta · sin tocar', tone: 'accent' } }} compact label="Paso 2: la raíz intercambia sus lados. La resta, sin tocar, pasa a la izquierda, y la suma, ya dada vuelta, a la derecha." />
-    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>2. El intercambio: la suma, ya dada vuelta, pasa a la derecha.</div>
+  <Step lines={[4, 2]}>
+    <BinaryPicture tree={{ v: '*', l: { v: '+', l: { v: 3 }, r: { v: 4 } }, r: { v: '−', l: { v: 5 }, r: { v: 1 } } }} tones={{ 3: 'focus' }} path={['*', '+', 3]} probe={{ at: 3, side: 'l' }} holes={[]} frames={{ '+': { text: 'suma', tone: 'keep' }, '−': { text: 'resta', tone: 'accent' } }} compact label="3 llama con su hijo izquierdo, que es null: la llamada vuelve sin hacer nada." />
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>1 · mirror(3): su hijo izquierdo es null; mirror(null) vuelve.</div>
   </Step>
-  <Step lines={[7]}>
-    <BinaryPicture tree={{ v: '*', l: { v: '−', l: { v: 5 }, r: { v: 1 } }, r: { v: '+', l: { v: 4 }, r: { v: 3 } } }} tones={{ '*': 'focus' }} path={['*', '+']} frames={{ '+': { text: 'suma · 1 vuelta', tone: 'keep' }, '−': { text: 'resta · sin tocar', tone: 'accent' } }} compact label="Paso 3: la segunda llamada es con el hijo derecho, que ahora es la suma otra vez." />
-    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>3. La segunda llamada es con el hijo derecho: la suma otra vez.</div>
+  <Step lines={[6, 7, 8]}>
+    <BinaryPicture tree={{ v: '*', l: { v: '+', l: { v: 3 }, r: { v: 4 } }, r: { v: '−', l: { v: 5 }, r: { v: 1 } } }} tones={{ 3: 'focus' }} path={['*', '+', 3]} holes={[3]} frames={{ '+': { text: 'suma', tone: 'keep' }, '−': { text: 'resta', tone: 'accent' } }} compact label="3 es una hoja: sus dos lados son null y el intercambio no cambia nada." />
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>1 · mirror(3): sus dos lados son null; intercambiarlos no cambia nada.</div>
   </Step>
-  <Step lines={[7]}>
-    <BinaryPicture tree={{ v: '*', l: { v: '−', l: { v: 5 }, r: { v: 1 } }, r: { v: '+', l: { v: 3 }, r: { v: 4 } } }} tones={{ '*': 'focus', '+': 'mark' }} frames={{ '+': { text: 'suma · 2 vueltas', tone: 'keep' }, '−': { text: 'resta · sin tocar', tone: 'accent' } }} compact label="La suma se dio vuelta por segunda vez y volvió a 3 más 4." />
-    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>3. La suma se da vuelta otra vez y vuelve a (3 + 4).</div>
+  <Step lines={[10, 2]}>
+    <BinaryPicture tree={{ v: '*', l: { v: '+', l: { v: 3 }, r: { v: 4 } }, r: { v: '−', l: { v: 5 }, r: { v: 1 } } }} tones={{ 3: 'focus' }} path={['*', '+', 3]} probe={{ at: 3, side: 'r' }} holes={[]} frames={{ '+': { text: 'suma', tone: 'keep' }, '−': { text: 'resta', tone: 'accent' } }} compact label="3 llama con su hijo derecho, que es null: la llamada vuelve sin hacer nada." />
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>1 · mirror(3): su hijo derecho es null; mirror(null) vuelve.</div>
   </Step>
-  <Step lines={[8]}>
-    <BinaryPicture tree={{ v: '*', l: { v: '−', l: { v: 5 }, r: { v: 1 } }, r: { v: '+', l: { v: 3 }, r: { v: 4 } } }} tones={{ '−': 'mark', 5: 'mark', 1: 'mark' }} frames={{ '+': { text: 'suma · 2 vueltas', tone: 'keep' }, '−': { text: 'resta · sin tocar', tone: 'accent' } }} compact label="El resultado es (5 − 1) por (3 + 4): solo la raíz cambió. La suma se dio vuelta dos veces y la resta, marcada, ninguna." />
-    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>Resultado: (5 − 1) * (3 + 4). Solo la raíz cambió.</div>
+  <Step lines={[6, 7, 8]}>
+    <BinaryPicture tree={{ v: '*', l: { v: '+', l: { v: 4 }, r: { v: 3 } }, r: { v: '−', l: { v: 5 }, r: { v: 1 } } }} tones={{ '+': 'focus' }} path={['*', '+']} swap={[4, 3]} holes={[]} frames={{ '+': { text: 'suma · 1 vuelta', tone: 'keep' }, '−': { text: 'resta', tone: 'accent' } }} compact label="+ intercambia sus dos lados: 4 pasa a la izquierda y 3 a la derecha." />
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>1 · mirror(+): intercambia sus dos lados; 4 pasa a la izquierda y 3 a la derecha.</div>
+  </Step>
+  <Step lines={[10]}>
+    <BinaryPicture tree={{ v: '*', l: { v: '+', l: { v: 4 }, r: { v: 3 } }, r: { v: '−', l: { v: 5 }, r: { v: 1 } } }} tones={{ '+': 'focus' }} path={['*', '+', 3]} holes={[]} frames={{ '+': { text: 'suma · 1 vuelta', tone: 'keep' }, '−': { text: 'resta', tone: 'accent' } }} compact label="+ llama con su hijo derecho, que ahora es 3 otra vez." />
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>1 · mirror(+): llama con su hijo derecho, que ahora es 3 otra vez.</div>
+  </Step>
+  <Step lines={[4, 2]}>
+    <BinaryPicture tree={{ v: '*', l: { v: '+', l: { v: 4 }, r: { v: 3 } }, r: { v: '−', l: { v: 5 }, r: { v: 1 } } }} tones={{ 3: 'focus' }} path={['*', '+', 3]} probe={{ at: 3, side: 'l' }} holes={[]} frames={{ '+': { text: 'suma · 1 vuelta', tone: 'keep' }, '−': { text: 'resta', tone: 'accent' } }} compact label="3 llama con su hijo izquierdo, que es null: la llamada vuelve sin hacer nada." />
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>1 · mirror(3): su hijo izquierdo es null; mirror(null) vuelve.</div>
+  </Step>
+  <Step lines={[6, 7, 8]}>
+    <BinaryPicture tree={{ v: '*', l: { v: '+', l: { v: 4 }, r: { v: 3 } }, r: { v: '−', l: { v: 5 }, r: { v: 1 } } }} tones={{ 3: 'focus' }} path={['*', '+', 3]} holes={[3]} frames={{ '+': { text: 'suma · 1 vuelta', tone: 'keep' }, '−': { text: 'resta', tone: 'accent' } }} compact label="3 es una hoja: sus dos lados son null y el intercambio no cambia nada." />
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>1 · mirror(3): sus dos lados son null; intercambiarlos no cambia nada.</div>
+  </Step>
+  <Step lines={[10, 2]}>
+    <BinaryPicture tree={{ v: '*', l: { v: '+', l: { v: 4 }, r: { v: 3 } }, r: { v: '−', l: { v: 5 }, r: { v: 1 } } }} tones={{ 3: 'focus' }} path={['*', '+', 3]} probe={{ at: 3, side: 'r' }} holes={[]} frames={{ '+': { text: 'suma · 1 vuelta', tone: 'keep' }, '−': { text: 'resta', tone: 'accent' } }} compact label="3 llama con su hijo derecho, que es null: la llamada vuelve sin hacer nada." />
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>1 · mirror(3): su hijo derecho es null; mirror(null) vuelve.</div>
+  </Step>
+  <Step lines={[6, 7, 8]}>
+    <BinaryPicture tree={{ v: '*', l: { v: '−', l: { v: 5 }, r: { v: 1 } }, r: { v: '+', l: { v: 4 }, r: { v: 3 } } }} tones={{ '*': 'focus' }} swap={['−', '+']} holes={[]} frames={{ '+': { text: 'suma · 1 vuelta', tone: 'keep' }, '−': { text: 'resta · sin tocar', tone: 'accent' } }} compact label="* intercambia sus dos lados: − pasa a la izquierda y + a la derecha." />
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>2 · mirror(*): intercambia sus dos lados; − pasa a la izquierda y + a la derecha.</div>
+  </Step>
+  <Step lines={[10]}>
+    <BinaryPicture tree={{ v: '*', l: { v: '−', l: { v: 5 }, r: { v: 1 } }, r: { v: '+', l: { v: 4 }, r: { v: 3 } } }} tones={{ '*': 'focus' }} path={['*', '+']} holes={[]} frames={{ '+': { text: 'suma · 1 vuelta', tone: 'keep' }, '−': { text: 'resta · sin tocar', tone: 'accent' } }} compact label="* llama con su hijo derecho, que ahora es + otra vez." />
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>3 · mirror(*): llama con su hijo derecho, que ahora es + otra vez.</div>
+  </Step>
+  <Step lines={[4]}>
+    <BinaryPicture tree={{ v: '*', l: { v: '−', l: { v: 5 }, r: { v: 1 } }, r: { v: '+', l: { v: 4 }, r: { v: 3 } } }} tones={{ '+': 'focus' }} path={['*', '+', 4]} holes={[]} frames={{ '+': { text: 'suma · 1 vuelta', tone: 'keep' }, '−': { text: 'resta · sin tocar', tone: 'accent' } }} compact label="+ llama con su hijo izquierdo, 4." />
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>3 · mirror(+): llama con su hijo izquierdo, 4.</div>
+  </Step>
+  <Step lines={[4, 2]}>
+    <BinaryPicture tree={{ v: '*', l: { v: '−', l: { v: 5 }, r: { v: 1 } }, r: { v: '+', l: { v: 4 }, r: { v: 3 } } }} tones={{ 4: 'focus' }} path={['*', '+', 4]} probe={{ at: 4, side: 'l' }} holes={[]} frames={{ '+': { text: 'suma · 1 vuelta', tone: 'keep' }, '−': { text: 'resta · sin tocar', tone: 'accent' } }} compact label="4 llama con su hijo izquierdo, que es null: la llamada vuelve sin hacer nada." />
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>3 · mirror(4): su hijo izquierdo es null; mirror(null) vuelve.</div>
+  </Step>
+  <Step lines={[6, 7, 8]}>
+    <BinaryPicture tree={{ v: '*', l: { v: '−', l: { v: 5 }, r: { v: 1 } }, r: { v: '+', l: { v: 4 }, r: { v: 3 } } }} tones={{ 4: 'focus' }} path={['*', '+', 4]} holes={[4]} frames={{ '+': { text: 'suma · 1 vuelta', tone: 'keep' }, '−': { text: 'resta · sin tocar', tone: 'accent' } }} compact label="4 es una hoja: sus dos lados son null y el intercambio no cambia nada." />
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>3 · mirror(4): sus dos lados son null; intercambiarlos no cambia nada.</div>
+  </Step>
+  <Step lines={[10, 2]}>
+    <BinaryPicture tree={{ v: '*', l: { v: '−', l: { v: 5 }, r: { v: 1 } }, r: { v: '+', l: { v: 4 }, r: { v: 3 } } }} tones={{ 4: 'focus' }} path={['*', '+', 4]} probe={{ at: 4, side: 'r' }} holes={[]} frames={{ '+': { text: 'suma · 1 vuelta', tone: 'keep' }, '−': { text: 'resta · sin tocar', tone: 'accent' } }} compact label="4 llama con su hijo derecho, que es null: la llamada vuelve sin hacer nada." />
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>3 · mirror(4): su hijo derecho es null; mirror(null) vuelve.</div>
+  </Step>
+  <Step lines={[6, 7, 8]}>
+    <BinaryPicture tree={{ v: '*', l: { v: '−', l: { v: 5 }, r: { v: 1 } }, r: { v: '+', l: { v: 3 }, r: { v: 4 } } }} tones={{ '+': 'focus' }} path={['*', '+']} swap={[3, 4]} holes={[]} frames={{ '+': { text: 'suma · 2 vueltas', tone: 'keep' }, '−': { text: 'resta · sin tocar', tone: 'accent' } }} compact label="+ intercambia sus dos lados: 3 pasa a la izquierda y 4 a la derecha." />
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>3 · mirror(+): intercambia sus dos lados; 3 pasa a la izquierda y 4 a la derecha.</div>
+  </Step>
+  <Step lines={[10]}>
+    <BinaryPicture tree={{ v: '*', l: { v: '−', l: { v: 5 }, r: { v: 1 } }, r: { v: '+', l: { v: 3 }, r: { v: 4 } } }} tones={{ '+': 'focus' }} path={['*', '+', 4]} holes={[]} frames={{ '+': { text: 'suma · 2 vueltas', tone: 'keep' }, '−': { text: 'resta · sin tocar', tone: 'accent' } }} compact label="+ llama con su hijo derecho, que ahora es 4 otra vez." />
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>3 · mirror(+): llama con su hijo derecho, que ahora es 4 otra vez.</div>
+  </Step>
+  <Step lines={[4, 2]}>
+    <BinaryPicture tree={{ v: '*', l: { v: '−', l: { v: 5 }, r: { v: 1 } }, r: { v: '+', l: { v: 3 }, r: { v: 4 } } }} tones={{ 4: 'focus' }} path={['*', '+', 4]} probe={{ at: 4, side: 'l' }} holes={[]} frames={{ '+': { text: 'suma · 2 vueltas', tone: 'keep' }, '−': { text: 'resta · sin tocar', tone: 'accent' } }} compact label="4 llama con su hijo izquierdo, que es null: la llamada vuelve sin hacer nada." />
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>3 · mirror(4): su hijo izquierdo es null; mirror(null) vuelve.</div>
+  </Step>
+  <Step lines={[6, 7, 8]}>
+    <BinaryPicture tree={{ v: '*', l: { v: '−', l: { v: 5 }, r: { v: 1 } }, r: { v: '+', l: { v: 3 }, r: { v: 4 } } }} tones={{ 4: 'focus' }} path={['*', '+', 4]} holes={[4]} frames={{ '+': { text: 'suma · 2 vueltas', tone: 'keep' }, '−': { text: 'resta · sin tocar', tone: 'accent' } }} compact label="4 es una hoja: sus dos lados son null y el intercambio no cambia nada." />
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>3 · mirror(4): sus dos lados son null; intercambiarlos no cambia nada.</div>
+  </Step>
+  <Step lines={[10, 2]}>
+    <BinaryPicture tree={{ v: '*', l: { v: '−', l: { v: 5 }, r: { v: 1 } }, r: { v: '+', l: { v: 3 }, r: { v: 4 } } }} tones={{ 4: 'focus' }} path={['*', '+', 4]} probe={{ at: 4, side: 'r' }} holes={[]} frames={{ '+': { text: 'suma · 2 vueltas', tone: 'keep' }, '−': { text: 'resta · sin tocar', tone: 'accent' } }} compact label="4 llama con su hijo derecho, que es null: la llamada vuelve sin hacer nada." />
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>3 · mirror(4): su hijo derecho es null; mirror(null) vuelve.</div>
+  </Step>
+  <Step lines={[11]}>
+    <BinaryPicture tree={{ v: '*', l: { v: '−', l: { v: 5 }, r: { v: 1 } }, r: { v: '+', l: { v: 3 }, r: { v: 4 } } }} tones={{ '−': 'mark', 5: 'mark', 1: 'mark' }} holes={[]} frames={{ '+': { text: 'suma · 2 vueltas', tone: 'keep' }, '−': { text: 'resta', tone: 'accent' } }} compact label="El resultado es (5 − 1) por (3 + 4): solo la raíz cambió. La resta, marcada, nunca recibió una llamada." />
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>Resultado: (5 − 1) * (3 + 4). La resta nunca recibió una llamada.</div>
   </Step>
 </StepShow>
 
