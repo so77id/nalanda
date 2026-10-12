@@ -19,13 +19,15 @@ cada elemento tiene a lo más un siguiente. Muchos datos no tienen esa forma.
 {/* minWidth gives figures set side by side one canvas width, so their boxes and text come out the same size; the tree is centred in it. compact and size fit a frame of a step-through, whose box has a fixed height. A node toned "hidden" is not drawn, nor its edge, but keeps its place: a tree built node by node grows in the positions it will end in, and nothing moves between frames. fresh names the node just added; its edge is drawn in the mark colour. */}
 {/* The drawings of an order, each in its own colour, and each told by its arrows and numbers, never by colour alone. flow puts an arrowhead on every edge — "down" (focus) for what a node takes from its parent, "up" (mark) for what it takes from its children. visits numbers the nodes in "pre" (focus) or "post" (mark) order and draws an arrow from every visit to the next: along the edge when the next is a child or the parent, dashed when the walk jumps to another branch. reading numbers them level by level (keep) and draws each level as a line read left to right, with the return to the next. strip writes the sequence under the tree, the order a program would print it in. */}
 
-export function HierarchyPicture({ tree, tones = {}, badges = {}, notes = {}, numbers = {}, path = [], levels = false, queue, caption, minWidth = 0, flow, visits, reading = false, strip = false, badgeColor = 'var(--color-focus)', numbersColor = 'var(--color-keep)', compact = false, size = 1, fresh, ruler, edgeLabels = {}, label }) {
+export function HierarchyPicture({ tree, tones = {}, badges = {}, notes = {}, numbers = {}, path = [], levels = false, queue, caption, minWidth = 0, flow, visits, reading = false, strip = false, badgeColor = 'var(--color-focus)', numbersColor = 'var(--color-keep)', compact = false, size = 1, fresh, ruler, edgeLabels = {}, levelNotes, queueTone = 'mark', label }) {
   const boxH = 26;
   const levelH = compact ? 50 : 64;
   const padX = reading ? 22 : 12;
   const padTop = visits || reading ? 26 : 20;
   // ruler draws the tree's height at the left: a line from the root's level to the last one, a tick per level, and its label ("h = 3").
   const labelW = (levels || reading ? 62 : 0) + (ruler ? 48 : 0);
+  // levelNotes writes one note per level at the right, such as how many nodes it holds. queueTone colours the queue's boxes, to match the nodes it holds.
+  const noteW = levelNotes ? 74 : 0;
   const widthOf = (name) => Math.max(40, name.length * 7.6 + 16);
   const nodes = [];
   let leaves = 0;
@@ -64,7 +66,7 @@ export function HierarchyPicture({ tree, tones = {}, badges = {}, notes = {}, nu
   const seqColor = visits === 'post' ? 'var(--color-mark)' : visits === 'pre' ? 'var(--color-focus)' : 'var(--color-keep)';
   const flowColor = flow === 'up' ? 'var(--color-mark)' : 'var(--color-focus)';
   // The strip is one row, or two even ones past six chips: chip, arrow, chip. A row wider than the drawing widens the canvas.
-  const drawingW = labelW + 2 * padX + leaves * pitch;
+  const drawingW = labelW + 2 * padX + leaves * pitch + noteW;
   const chipW = (n) => widthOf(n.name) + 20;
   const gap = 22;
   const perRow = seq.length > 6 ? Math.ceil(seq.length / 2) : seq.length;
@@ -151,6 +153,11 @@ export function HierarchyPicture({ tree, tones = {}, badges = {}, notes = {}, nu
               <line x1={offset + labelW - 4} y1={padTop + boxH / 2 + d * levelH} x2={offset + drawingW - 4} y2={padTop + boxH / 2 + d * levelH} style={{ stroke: 'var(--color-rule)' }} strokeWidth="1" strokeDasharray="3 5" />
               <text x={offset + (ruler ? 52 : 4)} y={padTop + boxH / 2 + d * levelH + 4} fontSize="11" style={{ fill: 'var(--color-ink-faint)' }}>{`nivel ${d}`}</text>
             </g>
+          ))
+        : null}
+      {levelNotes
+        ? levelNotes.map((note, d) => (
+            <text key={`ln${d}`} x={offset + drawingW - noteW + 6} y={padTop + boxH / 2 + d * levelH + 4} fontSize="12" fontWeight="600" style={{ fill: 'var(--color-ink-soft)' }}>{note}</text>
           ))
         : null}
       {reading
@@ -245,7 +252,7 @@ export function HierarchyPicture({ tree, tones = {}, badges = {}, notes = {}, nu
             const x = offset + labelW + padX + i * pitch;
             return (
               <g key={`q-${name}`}>
-                <rect x={x} y={queueY} width={w} height={boxH} rx="3" style={{ fill: 'var(--color-mark-soft)', stroke: 'var(--color-mark)' }} strokeWidth="1.6" />
+                <rect x={x} y={queueY} width={w} height={boxH} rx="3" style={{ fill: `var(--color-${queueTone}-soft)`, stroke: `var(--color-${queueTone})` }} strokeWidth="1.6" />
                 <text x={x + w / 2} y={queueY + 17.5} textAnchor="middle" fontSize="13" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{name}</text>
               </g>
             );
@@ -2922,6 +2929,793 @@ Solution.mirror(null);
 
 </Slide>
 
+<Slide title="El nivel más ancho">
+Para dibujar un árbol en pantalla hay que saber cuánto ancho reservar, y lo
+decide el nivel con más nodos: el **nivel más ancho**. En las carpetas, cada
+nivel tiene una cantidad distinta de nodos.
+
+<HierarchyPicture tree={FOLDERS} levels levelNotes={['1 nodo', '3 nodos', '4 nodos', '3 nodos']} tones={{ 'playa.jpg': 'keep', 'perro.jpg': 'keep', 'eda/': 'keep', 'calculo/': 'keep' }} label="El árbol de carpetas con sus cuatro niveles marcados y, a la derecha, cuántos nodos tiene cada uno: 1, 3, 4 y 3. Los cuatro nodos del nivel 2 están en verde: es el nivel más ancho." caption="el nivel 2 es el más ancho: 4 nodos" />
+
+El programa recibe la raíz de un árbol general y responde cuál es su nivel
+más ancho:
+
+```java
+static int widestLevel(Node<String> root)
+```
+
+**Entrada.** `root`, la raíz de un árbol de $$n$$ nodos, cada uno con la
+secuencia de sus hijos; `null` si el árbol está vacío.
+
+**Salida.** El número del nivel con más nodos, contando desde 0 en la raíz.
+Si dos niveles empatan, el más cercano a la raíz. Con el árbol vacío, $$-1$$.
+
+</Slide>
+
+<Slide title="El nodo con más hijos">
+La primera idea es buscar el nodo con más hijos: debajo de él estaría el
+nivel más ancho. Pero un nivel junta los hijos de varios padres, y ninguno de
+ellos tiene por qué ser el que más hijos tiene.
+
+<PresentationWide fraction={0.9}>
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1rem 2rem', alignItems: 'end' }}>
+<HierarchyPicture tree={FOLDERS} compact tones={{ 'home/': 'mark', 'fotos/': 'keep', 'ramos/': 'keep', 'notas.txt': 'keep' }} label="El nodo con más hijos es home, marcado, con tres: fotos, ramos y notas.txt, en verde." caption="el nodo con más hijos: home/, con 3" />
+<HierarchyPicture tree={FOLDERS} compact tones={{ 'fotos/': 'mark', 'ramos/': 'mark', 'playa.jpg': 'keep', 'perro.jpg': 'keep', 'eda/': 'keep', 'calculo/': 'keep' }} label="El nivel 2 tiene cuatro nodos, en verde: dos hijos de fotos y dos de ramos, marcados. Ninguno de esos dos padres tiene más de dos hijos." caption="el nivel 2: dos hijos de fotos/ y dos de ramos/" />
+</div>
+
+</PresentationWide>
+
+</Slide>
+
+<Slide title="Un nivel completo en la cola">
+En el recorrido por niveles, los nodos salen de la cola nivel tras nivel. Cada
+nodo, al salir, deja a sus hijos al final; así, cuando sale el último nodo de
+un nivel, la cola tiene **exactamente el nivel siguiente, completo**. Antes de
+empezar un nivel, entonces, el tamaño de la cola es su ancho, y sacar esa
+cantidad de nodos lo termina.
+
+<PresentationWide fraction={0.9}>
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '0.5rem 2rem', alignItems: 'end', maxWidth: '58rem', margin: '0 auto' }}>
+<HierarchyPicture tree={FOLDERS} compact tones={{ 'home/': 'keep' }} queueTone="keep" queue={['home/']} label="Antes del nivel 0, la cola tiene solo la raíz, home." caption="nivel 0: la cola tiene 1" />
+<HierarchyPicture tree={FOLDERS} compact tones={{ 'home/': 'done', 'fotos/': 'keep', 'ramos/': 'keep', 'notas.txt': 'keep' }} queueTone="keep" queue={['fotos/', 'ramos/', 'notas.txt']} label="Antes del nivel 1, la cola tiene fotos, ramos y notas.txt: el nivel 1 completo." caption="nivel 1: la cola tiene 3" />
+<HierarchyPicture tree={FOLDERS} compact tones={{ 'home/': 'done', 'fotos/': 'done', 'ramos/': 'done', 'notas.txt': 'done', 'playa.jpg': 'keep', 'perro.jpg': 'keep', 'eda/': 'keep', 'calculo/': 'keep' }} queueTone="keep" queue={['playa.jpg', 'perro.jpg', 'eda/', 'calculo/']} label="Antes del nivel 2, la cola tiene playa.jpg, perro.jpg, eda y calculo: el nivel 2 completo." caption="nivel 2: la cola tiene 4" />
+<HierarchyPicture tree={FOLDERS} compact tones={{ 'home/': 'done', 'fotos/': 'done', 'ramos/': 'done', 'notas.txt': 'done', 'playa.jpg': 'done', 'perro.jpg': 'done', 'eda/': 'done', 'calculo/': 'done', 't1.pdf': 'keep', 't2.pdf': 'keep', 'guia.pdf': 'keep' }} queueTone="keep" queue={['t1.pdf', 't2.pdf', 'guia.pdf']} label="Antes del nivel 3, la cola tiene t1.pdf, t2.pdf y guia.pdf: el nivel 3 completo." caption="nivel 3: la cola tiene 3" />
+</div>
+
+</PresentationWide>
+
+</Slide>
+
+<Slide title="Nivel más ancho · la solución">
+La visita mide el nivel que está completo en la cola; el recorrido lo saca
+entero y deja el siguiente.
+
+<StepShow
+  language="java"
+  code={`static int widestLevel(Node<String> root) {
+    if (root == null) return -1;
+    Queue<Node<String>> queue = new LinkedList<>();
+    queue.add(root);
+    int best = 0, bestWidth = 0;
+    for (int level = 0; !queue.isEmpty(); level++) {
+        // visita: el nivel completo está en la cola
+        int width = queue.size();
+        if (width > bestWidth) {
+            bestWidth = width;
+            best = level;
+        }
+        // recorrido: saca el nivel y deja el siguiente
+        for (int i = 0; i < width; i++) {
+            Node<String> node = queue.remove();
+            for (Node<String> child : node.children) {
+                queue.add(child);
+            }
+        }
+    }
+    return best;
+}`}
+>
+  <Step lines={[3]}>
+    <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+    <div style={{ flex: '1 1 0', minWidth: 0 }}>
+    <HierarchyPicture tree={FOLDERS} levels tones={{  }} compact size={0.65} label="La cola empieza vacía." />
+    <div style={{ fontFamily: 'var(--font-mono, monospace)', fontSize: '0.8rem', margin: '0 auto', padding: '0 0.6rem', maxWidth: '30rem', height: '1.9rem', lineHeight: '1.9rem', textAlign: 'center', whiteSpace: 'nowrap', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }}>{""}</div>
+    </div>
+    <div style={{ flex: '0 0 10.5rem', display: 'flex', flexDirection: 'column', gap: '0.2rem', fontFamily: 'var(--font-mono, monospace)', fontSize: '0.75rem', height: '11.4rem', padding: '0.4rem 0.5rem', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }}>
+      <div style={{ fontSize: '0.7rem', color: 'var(--color-ink-faint)', whiteSpace: 'nowrap' }}>cola · sale por arriba</div>
+      <div style={{ marginTop: 'auto', fontSize: '0.7rem', color: 'var(--color-ink-faint)' }}>entra por abajo</div>
+    </div>
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '1.6em' }}>Se crea la cola, vacía.</div>
+  </Step>
+  <Step lines={[4]}>
+    <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+    <div style={{ flex: '1 1 0', minWidth: 0 }}>
+    <HierarchyPicture tree={FOLDERS} levels tones={{ 'home/': 'mark' }} compact size={0.65} label="home entra a la cola." />
+    <div style={{ fontFamily: 'var(--font-mono, monospace)', fontSize: '0.8rem', margin: '0 auto', padding: '0 0.6rem', maxWidth: '30rem', height: '1.9rem', lineHeight: '1.9rem', textAlign: 'center', whiteSpace: 'nowrap', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }}>{""}</div>
+    </div>
+    <div style={{ flex: '0 0 10.5rem', display: 'flex', flexDirection: 'column', gap: '0.2rem', fontFamily: 'var(--font-mono, monospace)', fontSize: '0.75rem', height: '11.4rem', padding: '0.4rem 0.5rem', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }}>
+      <div style={{ fontSize: '0.7rem', color: 'var(--color-ink-faint)', whiteSpace: 'nowrap' }}>cola · sale por arriba</div>
+      <div style={{ border: '2.5px solid var(--color-mark)', background: 'var(--color-mark-soft)', borderRadius: '4px', padding: '0 0.4rem', fontWeight: 600, color: 'var(--color-ink)' }}>home/ ←</div>
+      <div style={{ marginTop: 'auto', fontSize: '0.7rem', color: 'var(--color-ink-faint)' }}>entra por abajo</div>
+    </div>
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '1.6em' }}>La raíz, home/, entra a la cola.</div>
+  </Step>
+  <Step lines={[5]}>
+    <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+    <div style={{ flex: '1 1 0', minWidth: 0 }}>
+    <HierarchyPicture tree={FOLDERS} levels tones={{ 'home/': 'keep' }} compact size={0.65} label="Las dos variables parten en cero." />
+    <div style={{ fontFamily: 'var(--font-mono, monospace)', fontSize: '0.8rem', margin: '0 auto', padding: '0 0.6rem', maxWidth: '30rem', height: '1.9rem', lineHeight: '1.9rem', textAlign: 'center', whiteSpace: 'nowrap', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }}>{"best = 0   bestWidth = 0"}</div>
+    </div>
+    <div style={{ flex: '0 0 10.5rem', display: 'flex', flexDirection: 'column', gap: '0.2rem', fontFamily: 'var(--font-mono, monospace)', fontSize: '0.75rem', height: '11.4rem', padding: '0.4rem 0.5rem', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }}>
+      <div style={{ fontSize: '0.7rem', color: 'var(--color-ink-faint)', whiteSpace: 'nowrap' }}>cola · sale por arriba</div>
+      <div style={{ border: '1.5px solid var(--color-keep)', background: 'var(--color-keep-soft)', borderRadius: '4px', padding: '0 0.4rem', color: 'var(--color-ink)' }}>home/</div>
+      <div style={{ marginTop: 'auto', fontSize: '0.7rem', color: 'var(--color-ink-faint)' }}>entra por abajo</div>
+    </div>
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '1.6em' }}>best y bestWidth parten en 0.</div>
+  </Step>
+  <Step lines={[8]}>
+    <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+    <div style={{ flex: '1 1 0', minWidth: 0 }}>
+    <HierarchyPicture tree={FOLDERS} levels tones={{ 'home/': 'keep' }} compact size={0.65} label="El nivel 0 está completo en la cola: 1 nodos, en verde." />
+    <div style={{ fontFamily: 'var(--font-mono, monospace)', fontSize: '0.8rem', margin: '0 auto', padding: '0 0.6rem', maxWidth: '30rem', height: '1.9rem', lineHeight: '1.9rem', textAlign: 'center', whiteSpace: 'nowrap', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }}>{"level = 0   width = 1   best = 0   bestWidth = 0"}</div>
+    </div>
+    <div style={{ flex: '0 0 10.5rem', display: 'flex', flexDirection: 'column', gap: '0.2rem', fontFamily: 'var(--font-mono, monospace)', fontSize: '0.75rem', height: '11.4rem', padding: '0.4rem 0.5rem', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }}>
+      <div style={{ fontSize: '0.7rem', color: 'var(--color-ink-faint)', whiteSpace: 'nowrap' }}>cola · sale por arriba</div>
+      <div style={{ border: '1.5px solid var(--color-keep)', background: 'var(--color-keep-soft)', borderRadius: '4px', padding: '0 0.4rem', color: 'var(--color-ink)' }}>home/</div>
+      <div style={{ marginTop: 'auto', fontSize: '0.7rem', color: 'var(--color-ink-faint)' }}>entra por abajo</div>
+    </div>
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '1.6em' }}>Empieza el nivel 0: está completo en la cola, y su ancho es 1.</div>
+  </Step>
+  <Step lines={[9, 10, 11]}>
+    <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+    <div style={{ flex: '1 1 0', minWidth: 0 }}>
+    <HierarchyPicture tree={FOLDERS} levels tones={{ 'home/': 'keep' }} compact size={0.65} label="El ancho 1 supera al mejor anterior, 0: el mejor pasa a ser el nivel 0." />
+    <div style={{ fontFamily: 'var(--font-mono, monospace)', fontSize: '0.8rem', margin: '0 auto', padding: '0 0.6rem', maxWidth: '30rem', height: '1.9rem', lineHeight: '1.9rem', textAlign: 'center', whiteSpace: 'nowrap', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }}>{"level = 0   width = 1   best = 0   bestWidth = 1"}</div>
+    </div>
+    <div style={{ flex: '0 0 10.5rem', display: 'flex', flexDirection: 'column', gap: '0.2rem', fontFamily: 'var(--font-mono, monospace)', fontSize: '0.75rem', height: '11.4rem', padding: '0.4rem 0.5rem', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }}>
+      <div style={{ fontSize: '0.7rem', color: 'var(--color-ink-faint)', whiteSpace: 'nowrap' }}>cola · sale por arriba</div>
+      <div style={{ border: '1.5px solid var(--color-keep)', background: 'var(--color-keep-soft)', borderRadius: '4px', padding: '0 0.4rem', color: 'var(--color-ink)' }}>home/</div>
+      <div style={{ marginTop: 'auto', fontSize: '0.7rem', color: 'var(--color-ink-faint)' }}>entra por abajo</div>
+    </div>
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '1.6em' }}>1 supera 0: el nivel 0 es el más ancho hasta ahora.</div>
+  </Step>
+  <Step lines={[15]}>
+    <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+    <div style={{ flex: '1 1 0', minWidth: 0 }}>
+    <HierarchyPicture tree={FOLDERS} levels tones={{ 'home/': 'focus' }} compact size={0.65} label="home/ sale por el frente de la cola." />
+    <div style={{ fontFamily: 'var(--font-mono, monospace)', fontSize: '0.8rem', margin: '0 auto', padding: '0 0.6rem', maxWidth: '30rem', height: '1.9rem', lineHeight: '1.9rem', textAlign: 'center', whiteSpace: 'nowrap', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }}>{"level = 0   width = 1   best = 0   bestWidth = 1"}</div>
+    </div>
+    <div style={{ flex: '0 0 10.5rem', display: 'flex', flexDirection: 'column', gap: '0.2rem', fontFamily: 'var(--font-mono, monospace)', fontSize: '0.75rem', height: '11.4rem', padding: '0.4rem 0.5rem', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }}>
+      <div style={{ fontSize: '0.7rem', color: 'var(--color-ink-faint)', whiteSpace: 'nowrap' }}>cola · sale por arriba</div>
+      <div style={{ border: '1.5px dashed var(--color-rule)', borderRadius: '4px', padding: '0 0.4rem', color: 'var(--color-ink-faint)' }}>↑ home/</div>
+      <div style={{ marginTop: 'auto', fontSize: '0.7rem', color: 'var(--color-ink-faint)' }}>entra por abajo</div>
+    </div>
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '1.6em' }}>Sale home/.</div>
+  </Step>
+  <Step lines={[17]}>
+    <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+    <div style={{ flex: '1 1 0', minWidth: 0 }}>
+    <HierarchyPicture tree={FOLDERS} levels tones={{ 'fotos/': 'mark', 'home/': 'focus' }} compact size={0.65} label="fotos/ entra al final de la cola." />
+    <div style={{ fontFamily: 'var(--font-mono, monospace)', fontSize: '0.8rem', margin: '0 auto', padding: '0 0.6rem', maxWidth: '30rem', height: '1.9rem', lineHeight: '1.9rem', textAlign: 'center', whiteSpace: 'nowrap', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }}>{"level = 0   width = 1   best = 0   bestWidth = 1"}</div>
+    </div>
+    <div style={{ flex: '0 0 10.5rem', display: 'flex', flexDirection: 'column', gap: '0.2rem', fontFamily: 'var(--font-mono, monospace)', fontSize: '0.75rem', height: '11.4rem', padding: '0.4rem 0.5rem', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }}>
+      <div style={{ fontSize: '0.7rem', color: 'var(--color-ink-faint)', whiteSpace: 'nowrap' }}>cola · sale por arriba</div>
+      <div style={{ border: '2.5px solid var(--color-mark)', background: 'var(--color-mark-soft)', borderRadius: '4px', padding: '0 0.4rem', fontWeight: 600, color: 'var(--color-ink)' }}>fotos/ ←</div>
+      <div style={{ marginTop: 'auto', fontSize: '0.7rem', color: 'var(--color-ink-faint)' }}>entra por abajo</div>
+    </div>
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '1.6em' }}>Entra fotos/, hijo de home/, al final de la cola.</div>
+  </Step>
+  <Step lines={[17]}>
+    <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+    <div style={{ flex: '1 1 0', minWidth: 0 }}>
+    <HierarchyPicture tree={FOLDERS} levels tones={{ 'fotos/': 'keep', 'ramos/': 'mark', 'home/': 'focus' }} compact size={0.65} label="ramos/ entra al final de la cola." />
+    <div style={{ fontFamily: 'var(--font-mono, monospace)', fontSize: '0.8rem', margin: '0 auto', padding: '0 0.6rem', maxWidth: '30rem', height: '1.9rem', lineHeight: '1.9rem', textAlign: 'center', whiteSpace: 'nowrap', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }}>{"level = 0   width = 1   best = 0   bestWidth = 1"}</div>
+    </div>
+    <div style={{ flex: '0 0 10.5rem', display: 'flex', flexDirection: 'column', gap: '0.2rem', fontFamily: 'var(--font-mono, monospace)', fontSize: '0.75rem', height: '11.4rem', padding: '0.4rem 0.5rem', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }}>
+      <div style={{ fontSize: '0.7rem', color: 'var(--color-ink-faint)', whiteSpace: 'nowrap' }}>cola · sale por arriba</div>
+      <div style={{ border: '1.5px solid var(--color-keep)', background: 'var(--color-keep-soft)', borderRadius: '4px', padding: '0 0.4rem', color: 'var(--color-ink)' }}>fotos/</div>
+      <div style={{ border: '2.5px solid var(--color-mark)', background: 'var(--color-mark-soft)', borderRadius: '4px', padding: '0 0.4rem', fontWeight: 600, color: 'var(--color-ink)' }}>ramos/ ←</div>
+      <div style={{ marginTop: 'auto', fontSize: '0.7rem', color: 'var(--color-ink-faint)' }}>entra por abajo</div>
+    </div>
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '1.6em' }}>Entra ramos/, hijo de home/, al final de la cola.</div>
+  </Step>
+  <Step lines={[17]}>
+    <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+    <div style={{ flex: '1 1 0', minWidth: 0 }}>
+    <HierarchyPicture tree={FOLDERS} levels tones={{ 'fotos/': 'keep', 'ramos/': 'keep', 'notas.txt': 'mark', 'home/': 'focus' }} compact size={0.65} label="notas.txt entra al final de la cola." />
+    <div style={{ fontFamily: 'var(--font-mono, monospace)', fontSize: '0.8rem', margin: '0 auto', padding: '0 0.6rem', maxWidth: '30rem', height: '1.9rem', lineHeight: '1.9rem', textAlign: 'center', whiteSpace: 'nowrap', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }}>{"level = 0   width = 1   best = 0   bestWidth = 1"}</div>
+    </div>
+    <div style={{ flex: '0 0 10.5rem', display: 'flex', flexDirection: 'column', gap: '0.2rem', fontFamily: 'var(--font-mono, monospace)', fontSize: '0.75rem', height: '11.4rem', padding: '0.4rem 0.5rem', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }}>
+      <div style={{ fontSize: '0.7rem', color: 'var(--color-ink-faint)', whiteSpace: 'nowrap' }}>cola · sale por arriba</div>
+      <div style={{ border: '1.5px solid var(--color-keep)', background: 'var(--color-keep-soft)', borderRadius: '4px', padding: '0 0.4rem', color: 'var(--color-ink)' }}>fotos/</div>
+      <div style={{ border: '1.5px solid var(--color-keep)', background: 'var(--color-keep-soft)', borderRadius: '4px', padding: '0 0.4rem', color: 'var(--color-ink)' }}>ramos/</div>
+      <div style={{ border: '2.5px solid var(--color-mark)', background: 'var(--color-mark-soft)', borderRadius: '4px', padding: '0 0.4rem', fontWeight: 600, color: 'var(--color-ink)' }}>notas.txt ←</div>
+      <div style={{ marginTop: 'auto', fontSize: '0.7rem', color: 'var(--color-ink-faint)' }}>entra por abajo</div>
+    </div>
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '1.6em' }}>Entra notas.txt, hijo de home/, al final de la cola.</div>
+  </Step>
+  <Step lines={[6]}>
+    <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+    <div style={{ flex: '1 1 0', minWidth: 0 }}>
+    <HierarchyPicture tree={FOLDERS} levels tones={{ 'home/': 'done', 'fotos/': 'keep', 'ramos/': 'keep', 'notas.txt': 'keep' }} compact size={0.65} label="Termina el nivel 0 y level pasa a 1; la cola tiene el nivel 1 completo." />
+    <div style={{ fontFamily: 'var(--font-mono, monospace)', fontSize: '0.8rem', margin: '0 auto', padding: '0 0.6rem', maxWidth: '30rem', height: '1.9rem', lineHeight: '1.9rem', textAlign: 'center', whiteSpace: 'nowrap', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }}>{"level = 1   width = 1   best = 0   bestWidth = 1"}</div>
+    </div>
+    <div style={{ flex: '0 0 10.5rem', display: 'flex', flexDirection: 'column', gap: '0.2rem', fontFamily: 'var(--font-mono, monospace)', fontSize: '0.75rem', height: '11.4rem', padding: '0.4rem 0.5rem', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }}>
+      <div style={{ fontSize: '0.7rem', color: 'var(--color-ink-faint)', whiteSpace: 'nowrap' }}>cola · sale por arriba</div>
+      <div style={{ border: '1.5px solid var(--color-keep)', background: 'var(--color-keep-soft)', borderRadius: '4px', padding: '0 0.4rem', color: 'var(--color-ink)' }}>fotos/</div>
+      <div style={{ border: '1.5px solid var(--color-keep)', background: 'var(--color-keep-soft)', borderRadius: '4px', padding: '0 0.4rem', color: 'var(--color-ink)' }}>ramos/</div>
+      <div style={{ border: '1.5px solid var(--color-keep)', background: 'var(--color-keep-soft)', borderRadius: '4px', padding: '0 0.4rem', color: 'var(--color-ink)' }}>notas.txt</div>
+      <div style={{ marginTop: 'auto', fontSize: '0.7rem', color: 'var(--color-ink-faint)' }}>entra por abajo</div>
+    </div>
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '1.6em' }}>Termina el nivel 0: la cola tiene el nivel 1 completo.</div>
+  </Step>
+  <Step lines={[8]}>
+    <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+    <div style={{ flex: '1 1 0', minWidth: 0 }}>
+    <HierarchyPicture tree={FOLDERS} levels tones={{ 'home/': 'done', 'fotos/': 'keep', 'ramos/': 'keep', 'notas.txt': 'keep' }} compact size={0.65} label="El nivel 1 está completo en la cola: 3 nodos, en verde." />
+    <div style={{ fontFamily: 'var(--font-mono, monospace)', fontSize: '0.8rem', margin: '0 auto', padding: '0 0.6rem', maxWidth: '30rem', height: '1.9rem', lineHeight: '1.9rem', textAlign: 'center', whiteSpace: 'nowrap', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }}>{"level = 1   width = 3   best = 0   bestWidth = 1"}</div>
+    </div>
+    <div style={{ flex: '0 0 10.5rem', display: 'flex', flexDirection: 'column', gap: '0.2rem', fontFamily: 'var(--font-mono, monospace)', fontSize: '0.75rem', height: '11.4rem', padding: '0.4rem 0.5rem', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }}>
+      <div style={{ fontSize: '0.7rem', color: 'var(--color-ink-faint)', whiteSpace: 'nowrap' }}>cola · sale por arriba</div>
+      <div style={{ border: '1.5px solid var(--color-keep)', background: 'var(--color-keep-soft)', borderRadius: '4px', padding: '0 0.4rem', color: 'var(--color-ink)' }}>fotos/</div>
+      <div style={{ border: '1.5px solid var(--color-keep)', background: 'var(--color-keep-soft)', borderRadius: '4px', padding: '0 0.4rem', color: 'var(--color-ink)' }}>ramos/</div>
+      <div style={{ border: '1.5px solid var(--color-keep)', background: 'var(--color-keep-soft)', borderRadius: '4px', padding: '0 0.4rem', color: 'var(--color-ink)' }}>notas.txt</div>
+      <div style={{ marginTop: 'auto', fontSize: '0.7rem', color: 'var(--color-ink-faint)' }}>entra por abajo</div>
+    </div>
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '1.6em' }}>Empieza el nivel 1: está completo en la cola, y su ancho es 3.</div>
+  </Step>
+  <Step lines={[9, 10, 11]}>
+    <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+    <div style={{ flex: '1 1 0', minWidth: 0 }}>
+    <HierarchyPicture tree={FOLDERS} levels tones={{ 'home/': 'done', 'fotos/': 'keep', 'ramos/': 'keep', 'notas.txt': 'keep' }} compact size={0.65} label="El ancho 3 supera al mejor anterior, 1: el mejor pasa a ser el nivel 1." />
+    <div style={{ fontFamily: 'var(--font-mono, monospace)', fontSize: '0.8rem', margin: '0 auto', padding: '0 0.6rem', maxWidth: '30rem', height: '1.9rem', lineHeight: '1.9rem', textAlign: 'center', whiteSpace: 'nowrap', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }}>{"level = 1   width = 3   best = 1   bestWidth = 3"}</div>
+    </div>
+    <div style={{ flex: '0 0 10.5rem', display: 'flex', flexDirection: 'column', gap: '0.2rem', fontFamily: 'var(--font-mono, monospace)', fontSize: '0.75rem', height: '11.4rem', padding: '0.4rem 0.5rem', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }}>
+      <div style={{ fontSize: '0.7rem', color: 'var(--color-ink-faint)', whiteSpace: 'nowrap' }}>cola · sale por arriba</div>
+      <div style={{ border: '1.5px solid var(--color-keep)', background: 'var(--color-keep-soft)', borderRadius: '4px', padding: '0 0.4rem', color: 'var(--color-ink)' }}>fotos/</div>
+      <div style={{ border: '1.5px solid var(--color-keep)', background: 'var(--color-keep-soft)', borderRadius: '4px', padding: '0 0.4rem', color: 'var(--color-ink)' }}>ramos/</div>
+      <div style={{ border: '1.5px solid var(--color-keep)', background: 'var(--color-keep-soft)', borderRadius: '4px', padding: '0 0.4rem', color: 'var(--color-ink)' }}>notas.txt</div>
+      <div style={{ marginTop: 'auto', fontSize: '0.7rem', color: 'var(--color-ink-faint)' }}>entra por abajo</div>
+    </div>
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '1.6em' }}>3 supera 1: el nivel 1 es el más ancho hasta ahora.</div>
+  </Step>
+  <Step lines={[15]}>
+    <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+    <div style={{ flex: '1 1 0', minWidth: 0 }}>
+    <HierarchyPicture tree={FOLDERS} levels tones={{ 'home/': 'done', 'ramos/': 'keep', 'notas.txt': 'keep', 'fotos/': 'focus' }} compact size={0.65} label="fotos/ sale por el frente de la cola." />
+    <div style={{ fontFamily: 'var(--font-mono, monospace)', fontSize: '0.8rem', margin: '0 auto', padding: '0 0.6rem', maxWidth: '30rem', height: '1.9rem', lineHeight: '1.9rem', textAlign: 'center', whiteSpace: 'nowrap', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }}>{"level = 1   width = 3   best = 1   bestWidth = 3"}</div>
+    </div>
+    <div style={{ flex: '0 0 10.5rem', display: 'flex', flexDirection: 'column', gap: '0.2rem', fontFamily: 'var(--font-mono, monospace)', fontSize: '0.75rem', height: '11.4rem', padding: '0.4rem 0.5rem', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }}>
+      <div style={{ fontSize: '0.7rem', color: 'var(--color-ink-faint)', whiteSpace: 'nowrap' }}>cola · sale por arriba</div>
+      <div style={{ border: '1.5px dashed var(--color-rule)', borderRadius: '4px', padding: '0 0.4rem', color: 'var(--color-ink-faint)' }}>↑ fotos/</div>
+      <div style={{ border: '1.5px solid var(--color-keep)', background: 'var(--color-keep-soft)', borderRadius: '4px', padding: '0 0.4rem', color: 'var(--color-ink)' }}>ramos/</div>
+      <div style={{ border: '1.5px solid var(--color-keep)', background: 'var(--color-keep-soft)', borderRadius: '4px', padding: '0 0.4rem', color: 'var(--color-ink)' }}>notas.txt</div>
+      <div style={{ marginTop: 'auto', fontSize: '0.7rem', color: 'var(--color-ink-faint)' }}>entra por abajo</div>
+    </div>
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '1.6em' }}>Sale fotos/.</div>
+  </Step>
+  <Step lines={[17]}>
+    <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+    <div style={{ flex: '1 1 0', minWidth: 0 }}>
+    <HierarchyPicture tree={FOLDERS} levels tones={{ 'home/': 'done', 'ramos/': 'keep', 'notas.txt': 'keep', 'playa.jpg': 'mark', 'fotos/': 'focus' }} compact size={0.65} label="playa.jpg entra al final de la cola." />
+    <div style={{ fontFamily: 'var(--font-mono, monospace)', fontSize: '0.8rem', margin: '0 auto', padding: '0 0.6rem', maxWidth: '30rem', height: '1.9rem', lineHeight: '1.9rem', textAlign: 'center', whiteSpace: 'nowrap', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }}>{"level = 1   width = 3   best = 1   bestWidth = 3"}</div>
+    </div>
+    <div style={{ flex: '0 0 10.5rem', display: 'flex', flexDirection: 'column', gap: '0.2rem', fontFamily: 'var(--font-mono, monospace)', fontSize: '0.75rem', height: '11.4rem', padding: '0.4rem 0.5rem', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }}>
+      <div style={{ fontSize: '0.7rem', color: 'var(--color-ink-faint)', whiteSpace: 'nowrap' }}>cola · sale por arriba</div>
+      <div style={{ border: '1.5px solid var(--color-keep)', background: 'var(--color-keep-soft)', borderRadius: '4px', padding: '0 0.4rem', color: 'var(--color-ink)' }}>ramos/</div>
+      <div style={{ border: '1.5px solid var(--color-keep)', background: 'var(--color-keep-soft)', borderRadius: '4px', padding: '0 0.4rem', color: 'var(--color-ink)' }}>notas.txt</div>
+      <div style={{ border: '2.5px solid var(--color-mark)', background: 'var(--color-mark-soft)', borderRadius: '4px', padding: '0 0.4rem', fontWeight: 600, color: 'var(--color-ink)' }}>playa.jpg ←</div>
+      <div style={{ marginTop: 'auto', fontSize: '0.7rem', color: 'var(--color-ink-faint)' }}>entra por abajo</div>
+    </div>
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '1.6em' }}>Entra playa.jpg, hijo de fotos/, al final de la cola.</div>
+  </Step>
+  <Step lines={[17]}>
+    <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+    <div style={{ flex: '1 1 0', minWidth: 0 }}>
+    <HierarchyPicture tree={FOLDERS} levels tones={{ 'home/': 'done', 'ramos/': 'keep', 'notas.txt': 'keep', 'playa.jpg': 'keep', 'perro.jpg': 'mark', 'fotos/': 'focus' }} compact size={0.65} label="perro.jpg entra al final de la cola." />
+    <div style={{ fontFamily: 'var(--font-mono, monospace)', fontSize: '0.8rem', margin: '0 auto', padding: '0 0.6rem', maxWidth: '30rem', height: '1.9rem', lineHeight: '1.9rem', textAlign: 'center', whiteSpace: 'nowrap', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }}>{"level = 1   width = 3   best = 1   bestWidth = 3"}</div>
+    </div>
+    <div style={{ flex: '0 0 10.5rem', display: 'flex', flexDirection: 'column', gap: '0.2rem', fontFamily: 'var(--font-mono, monospace)', fontSize: '0.75rem', height: '11.4rem', padding: '0.4rem 0.5rem', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }}>
+      <div style={{ fontSize: '0.7rem', color: 'var(--color-ink-faint)', whiteSpace: 'nowrap' }}>cola · sale por arriba</div>
+      <div style={{ border: '1.5px solid var(--color-keep)', background: 'var(--color-keep-soft)', borderRadius: '4px', padding: '0 0.4rem', color: 'var(--color-ink)' }}>ramos/</div>
+      <div style={{ border: '1.5px solid var(--color-keep)', background: 'var(--color-keep-soft)', borderRadius: '4px', padding: '0 0.4rem', color: 'var(--color-ink)' }}>notas.txt</div>
+      <div style={{ border: '1.5px solid var(--color-keep)', background: 'var(--color-keep-soft)', borderRadius: '4px', padding: '0 0.4rem', color: 'var(--color-ink)' }}>playa.jpg</div>
+      <div style={{ border: '2.5px solid var(--color-mark)', background: 'var(--color-mark-soft)', borderRadius: '4px', padding: '0 0.4rem', fontWeight: 600, color: 'var(--color-ink)' }}>perro.jpg ←</div>
+      <div style={{ marginTop: 'auto', fontSize: '0.7rem', color: 'var(--color-ink-faint)' }}>entra por abajo</div>
+    </div>
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '1.6em' }}>Entra perro.jpg, hijo de fotos/, al final de la cola.</div>
+  </Step>
+  <Step lines={[15]}>
+    <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+    <div style={{ flex: '1 1 0', minWidth: 0 }}>
+    <HierarchyPicture tree={FOLDERS} levels tones={{ 'home/': 'done', 'fotos/': 'done', 'notas.txt': 'keep', 'playa.jpg': 'keep', 'perro.jpg': 'keep', 'ramos/': 'focus' }} compact size={0.65} label="ramos/ sale por el frente de la cola." />
+    <div style={{ fontFamily: 'var(--font-mono, monospace)', fontSize: '0.8rem', margin: '0 auto', padding: '0 0.6rem', maxWidth: '30rem', height: '1.9rem', lineHeight: '1.9rem', textAlign: 'center', whiteSpace: 'nowrap', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }}>{"level = 1   width = 3   best = 1   bestWidth = 3"}</div>
+    </div>
+    <div style={{ flex: '0 0 10.5rem', display: 'flex', flexDirection: 'column', gap: '0.2rem', fontFamily: 'var(--font-mono, monospace)', fontSize: '0.75rem', height: '11.4rem', padding: '0.4rem 0.5rem', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }}>
+      <div style={{ fontSize: '0.7rem', color: 'var(--color-ink-faint)', whiteSpace: 'nowrap' }}>cola · sale por arriba</div>
+      <div style={{ border: '1.5px dashed var(--color-rule)', borderRadius: '4px', padding: '0 0.4rem', color: 'var(--color-ink-faint)' }}>↑ ramos/</div>
+      <div style={{ border: '1.5px solid var(--color-keep)', background: 'var(--color-keep-soft)', borderRadius: '4px', padding: '0 0.4rem', color: 'var(--color-ink)' }}>notas.txt</div>
+      <div style={{ border: '1.5px solid var(--color-keep)', background: 'var(--color-keep-soft)', borderRadius: '4px', padding: '0 0.4rem', color: 'var(--color-ink)' }}>playa.jpg</div>
+      <div style={{ border: '1.5px solid var(--color-keep)', background: 'var(--color-keep-soft)', borderRadius: '4px', padding: '0 0.4rem', color: 'var(--color-ink)' }}>perro.jpg</div>
+      <div style={{ marginTop: 'auto', fontSize: '0.7rem', color: 'var(--color-ink-faint)' }}>entra por abajo</div>
+    </div>
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '1.6em' }}>Sale ramos/.</div>
+  </Step>
+  <Step lines={[17]}>
+    <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+    <div style={{ flex: '1 1 0', minWidth: 0 }}>
+    <HierarchyPicture tree={FOLDERS} levels tones={{ 'home/': 'done', 'fotos/': 'done', 'notas.txt': 'keep', 'playa.jpg': 'keep', 'perro.jpg': 'keep', 'eda/': 'mark', 'ramos/': 'focus' }} compact size={0.65} label="eda/ entra al final de la cola." />
+    <div style={{ fontFamily: 'var(--font-mono, monospace)', fontSize: '0.8rem', margin: '0 auto', padding: '0 0.6rem', maxWidth: '30rem', height: '1.9rem', lineHeight: '1.9rem', textAlign: 'center', whiteSpace: 'nowrap', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }}>{"level = 1   width = 3   best = 1   bestWidth = 3"}</div>
+    </div>
+    <div style={{ flex: '0 0 10.5rem', display: 'flex', flexDirection: 'column', gap: '0.2rem', fontFamily: 'var(--font-mono, monospace)', fontSize: '0.75rem', height: '11.4rem', padding: '0.4rem 0.5rem', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }}>
+      <div style={{ fontSize: '0.7rem', color: 'var(--color-ink-faint)', whiteSpace: 'nowrap' }}>cola · sale por arriba</div>
+      <div style={{ border: '1.5px solid var(--color-keep)', background: 'var(--color-keep-soft)', borderRadius: '4px', padding: '0 0.4rem', color: 'var(--color-ink)' }}>notas.txt</div>
+      <div style={{ border: '1.5px solid var(--color-keep)', background: 'var(--color-keep-soft)', borderRadius: '4px', padding: '0 0.4rem', color: 'var(--color-ink)' }}>playa.jpg</div>
+      <div style={{ border: '1.5px solid var(--color-keep)', background: 'var(--color-keep-soft)', borderRadius: '4px', padding: '0 0.4rem', color: 'var(--color-ink)' }}>perro.jpg</div>
+      <div style={{ border: '2.5px solid var(--color-mark)', background: 'var(--color-mark-soft)', borderRadius: '4px', padding: '0 0.4rem', fontWeight: 600, color: 'var(--color-ink)' }}>eda/ ←</div>
+      <div style={{ marginTop: 'auto', fontSize: '0.7rem', color: 'var(--color-ink-faint)' }}>entra por abajo</div>
+    </div>
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '1.6em' }}>Entra eda/, hijo de ramos/, al final de la cola.</div>
+  </Step>
+  <Step lines={[17]}>
+    <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+    <div style={{ flex: '1 1 0', minWidth: 0 }}>
+    <HierarchyPicture tree={FOLDERS} levels tones={{ 'home/': 'done', 'fotos/': 'done', 'notas.txt': 'keep', 'playa.jpg': 'keep', 'perro.jpg': 'keep', 'eda/': 'keep', 'calculo/': 'mark', 'ramos/': 'focus' }} compact size={0.65} label="calculo/ entra al final de la cola." />
+    <div style={{ fontFamily: 'var(--font-mono, monospace)', fontSize: '0.8rem', margin: '0 auto', padding: '0 0.6rem', maxWidth: '30rem', height: '1.9rem', lineHeight: '1.9rem', textAlign: 'center', whiteSpace: 'nowrap', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }}>{"level = 1   width = 3   best = 1   bestWidth = 3"}</div>
+    </div>
+    <div style={{ flex: '0 0 10.5rem', display: 'flex', flexDirection: 'column', gap: '0.2rem', fontFamily: 'var(--font-mono, monospace)', fontSize: '0.75rem', height: '11.4rem', padding: '0.4rem 0.5rem', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }}>
+      <div style={{ fontSize: '0.7rem', color: 'var(--color-ink-faint)', whiteSpace: 'nowrap' }}>cola · sale por arriba</div>
+      <div style={{ border: '1.5px solid var(--color-keep)', background: 'var(--color-keep-soft)', borderRadius: '4px', padding: '0 0.4rem', color: 'var(--color-ink)' }}>notas.txt</div>
+      <div style={{ border: '1.5px solid var(--color-keep)', background: 'var(--color-keep-soft)', borderRadius: '4px', padding: '0 0.4rem', color: 'var(--color-ink)' }}>playa.jpg</div>
+      <div style={{ border: '1.5px solid var(--color-keep)', background: 'var(--color-keep-soft)', borderRadius: '4px', padding: '0 0.4rem', color: 'var(--color-ink)' }}>perro.jpg</div>
+      <div style={{ border: '1.5px solid var(--color-keep)', background: 'var(--color-keep-soft)', borderRadius: '4px', padding: '0 0.4rem', color: 'var(--color-ink)' }}>eda/</div>
+      <div style={{ border: '2.5px solid var(--color-mark)', background: 'var(--color-mark-soft)', borderRadius: '4px', padding: '0 0.4rem', fontWeight: 600, color: 'var(--color-ink)' }}>calculo/ ←</div>
+      <div style={{ marginTop: 'auto', fontSize: '0.7rem', color: 'var(--color-ink-faint)' }}>entra por abajo</div>
+    </div>
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '1.6em' }}>Entra calculo/, hijo de ramos/, al final de la cola.</div>
+  </Step>
+  <Step lines={[15]}>
+    <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+    <div style={{ flex: '1 1 0', minWidth: 0 }}>
+    <HierarchyPicture tree={FOLDERS} levels tones={{ 'home/': 'done', 'fotos/': 'done', 'ramos/': 'done', 'playa.jpg': 'keep', 'perro.jpg': 'keep', 'eda/': 'keep', 'calculo/': 'keep', 'notas.txt': 'focus' }} compact size={0.65} label="notas.txt sale por el frente de la cola." />
+    <div style={{ fontFamily: 'var(--font-mono, monospace)', fontSize: '0.8rem', margin: '0 auto', padding: '0 0.6rem', maxWidth: '30rem', height: '1.9rem', lineHeight: '1.9rem', textAlign: 'center', whiteSpace: 'nowrap', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }}>{"level = 1   width = 3   best = 1   bestWidth = 3"}</div>
+    </div>
+    <div style={{ flex: '0 0 10.5rem', display: 'flex', flexDirection: 'column', gap: '0.2rem', fontFamily: 'var(--font-mono, monospace)', fontSize: '0.75rem', height: '11.4rem', padding: '0.4rem 0.5rem', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }}>
+      <div style={{ fontSize: '0.7rem', color: 'var(--color-ink-faint)', whiteSpace: 'nowrap' }}>cola · sale por arriba</div>
+      <div style={{ border: '1.5px dashed var(--color-rule)', borderRadius: '4px', padding: '0 0.4rem', color: 'var(--color-ink-faint)' }}>↑ notas.txt</div>
+      <div style={{ border: '1.5px solid var(--color-keep)', background: 'var(--color-keep-soft)', borderRadius: '4px', padding: '0 0.4rem', color: 'var(--color-ink)' }}>playa.jpg</div>
+      <div style={{ border: '1.5px solid var(--color-keep)', background: 'var(--color-keep-soft)', borderRadius: '4px', padding: '0 0.4rem', color: 'var(--color-ink)' }}>perro.jpg</div>
+      <div style={{ border: '1.5px solid var(--color-keep)', background: 'var(--color-keep-soft)', borderRadius: '4px', padding: '0 0.4rem', color: 'var(--color-ink)' }}>eda/</div>
+      <div style={{ border: '1.5px solid var(--color-keep)', background: 'var(--color-keep-soft)', borderRadius: '4px', padding: '0 0.4rem', color: 'var(--color-ink)' }}>calculo/</div>
+      <div style={{ marginTop: 'auto', fontSize: '0.7rem', color: 'var(--color-ink-faint)' }}>entra por abajo</div>
+    </div>
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '1.6em' }}>Sale notas.txt. Es una hoja: no deja hijos.</div>
+  </Step>
+  <Step lines={[6]}>
+    <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+    <div style={{ flex: '1 1 0', minWidth: 0 }}>
+    <HierarchyPicture tree={FOLDERS} levels tones={{ 'home/': 'done', 'fotos/': 'done', 'ramos/': 'done', 'notas.txt': 'done', 'playa.jpg': 'keep', 'perro.jpg': 'keep', 'eda/': 'keep', 'calculo/': 'keep' }} compact size={0.65} label="Termina el nivel 1 y level pasa a 2; la cola tiene el nivel 2 completo." />
+    <div style={{ fontFamily: 'var(--font-mono, monospace)', fontSize: '0.8rem', margin: '0 auto', padding: '0 0.6rem', maxWidth: '30rem', height: '1.9rem', lineHeight: '1.9rem', textAlign: 'center', whiteSpace: 'nowrap', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }}>{"level = 2   width = 3   best = 1   bestWidth = 3"}</div>
+    </div>
+    <div style={{ flex: '0 0 10.5rem', display: 'flex', flexDirection: 'column', gap: '0.2rem', fontFamily: 'var(--font-mono, monospace)', fontSize: '0.75rem', height: '11.4rem', padding: '0.4rem 0.5rem', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }}>
+      <div style={{ fontSize: '0.7rem', color: 'var(--color-ink-faint)', whiteSpace: 'nowrap' }}>cola · sale por arriba</div>
+      <div style={{ border: '1.5px solid var(--color-keep)', background: 'var(--color-keep-soft)', borderRadius: '4px', padding: '0 0.4rem', color: 'var(--color-ink)' }}>playa.jpg</div>
+      <div style={{ border: '1.5px solid var(--color-keep)', background: 'var(--color-keep-soft)', borderRadius: '4px', padding: '0 0.4rem', color: 'var(--color-ink)' }}>perro.jpg</div>
+      <div style={{ border: '1.5px solid var(--color-keep)', background: 'var(--color-keep-soft)', borderRadius: '4px', padding: '0 0.4rem', color: 'var(--color-ink)' }}>eda/</div>
+      <div style={{ border: '1.5px solid var(--color-keep)', background: 'var(--color-keep-soft)', borderRadius: '4px', padding: '0 0.4rem', color: 'var(--color-ink)' }}>calculo/</div>
+      <div style={{ marginTop: 'auto', fontSize: '0.7rem', color: 'var(--color-ink-faint)' }}>entra por abajo</div>
+    </div>
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '1.6em' }}>Termina el nivel 1: la cola tiene el nivel 2 completo.</div>
+  </Step>
+  <Step lines={[8]}>
+    <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+    <div style={{ flex: '1 1 0', minWidth: 0 }}>
+    <HierarchyPicture tree={FOLDERS} levels tones={{ 'home/': 'done', 'fotos/': 'done', 'ramos/': 'done', 'notas.txt': 'done', 'playa.jpg': 'keep', 'perro.jpg': 'keep', 'eda/': 'keep', 'calculo/': 'keep' }} compact size={0.65} label="El nivel 2 está completo en la cola: 4 nodos, en verde." />
+    <div style={{ fontFamily: 'var(--font-mono, monospace)', fontSize: '0.8rem', margin: '0 auto', padding: '0 0.6rem', maxWidth: '30rem', height: '1.9rem', lineHeight: '1.9rem', textAlign: 'center', whiteSpace: 'nowrap', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }}>{"level = 2   width = 4   best = 1   bestWidth = 3"}</div>
+    </div>
+    <div style={{ flex: '0 0 10.5rem', display: 'flex', flexDirection: 'column', gap: '0.2rem', fontFamily: 'var(--font-mono, monospace)', fontSize: '0.75rem', height: '11.4rem', padding: '0.4rem 0.5rem', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }}>
+      <div style={{ fontSize: '0.7rem', color: 'var(--color-ink-faint)', whiteSpace: 'nowrap' }}>cola · sale por arriba</div>
+      <div style={{ border: '1.5px solid var(--color-keep)', background: 'var(--color-keep-soft)', borderRadius: '4px', padding: '0 0.4rem', color: 'var(--color-ink)' }}>playa.jpg</div>
+      <div style={{ border: '1.5px solid var(--color-keep)', background: 'var(--color-keep-soft)', borderRadius: '4px', padding: '0 0.4rem', color: 'var(--color-ink)' }}>perro.jpg</div>
+      <div style={{ border: '1.5px solid var(--color-keep)', background: 'var(--color-keep-soft)', borderRadius: '4px', padding: '0 0.4rem', color: 'var(--color-ink)' }}>eda/</div>
+      <div style={{ border: '1.5px solid var(--color-keep)', background: 'var(--color-keep-soft)', borderRadius: '4px', padding: '0 0.4rem', color: 'var(--color-ink)' }}>calculo/</div>
+      <div style={{ marginTop: 'auto', fontSize: '0.7rem', color: 'var(--color-ink-faint)' }}>entra por abajo</div>
+    </div>
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '1.6em' }}>Empieza el nivel 2: está completo en la cola, y su ancho es 4.</div>
+  </Step>
+  <Step lines={[9, 10, 11]}>
+    <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+    <div style={{ flex: '1 1 0', minWidth: 0 }}>
+    <HierarchyPicture tree={FOLDERS} levels tones={{ 'home/': 'done', 'fotos/': 'done', 'ramos/': 'done', 'notas.txt': 'done', 'playa.jpg': 'keep', 'perro.jpg': 'keep', 'eda/': 'keep', 'calculo/': 'keep' }} compact size={0.65} label="El ancho 4 supera al mejor anterior, 3: el mejor pasa a ser el nivel 2." />
+    <div style={{ fontFamily: 'var(--font-mono, monospace)', fontSize: '0.8rem', margin: '0 auto', padding: '0 0.6rem', maxWidth: '30rem', height: '1.9rem', lineHeight: '1.9rem', textAlign: 'center', whiteSpace: 'nowrap', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }}>{"level = 2   width = 4   best = 2   bestWidth = 4"}</div>
+    </div>
+    <div style={{ flex: '0 0 10.5rem', display: 'flex', flexDirection: 'column', gap: '0.2rem', fontFamily: 'var(--font-mono, monospace)', fontSize: '0.75rem', height: '11.4rem', padding: '0.4rem 0.5rem', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }}>
+      <div style={{ fontSize: '0.7rem', color: 'var(--color-ink-faint)', whiteSpace: 'nowrap' }}>cola · sale por arriba</div>
+      <div style={{ border: '1.5px solid var(--color-keep)', background: 'var(--color-keep-soft)', borderRadius: '4px', padding: '0 0.4rem', color: 'var(--color-ink)' }}>playa.jpg</div>
+      <div style={{ border: '1.5px solid var(--color-keep)', background: 'var(--color-keep-soft)', borderRadius: '4px', padding: '0 0.4rem', color: 'var(--color-ink)' }}>perro.jpg</div>
+      <div style={{ border: '1.5px solid var(--color-keep)', background: 'var(--color-keep-soft)', borderRadius: '4px', padding: '0 0.4rem', color: 'var(--color-ink)' }}>eda/</div>
+      <div style={{ border: '1.5px solid var(--color-keep)', background: 'var(--color-keep-soft)', borderRadius: '4px', padding: '0 0.4rem', color: 'var(--color-ink)' }}>calculo/</div>
+      <div style={{ marginTop: 'auto', fontSize: '0.7rem', color: 'var(--color-ink-faint)' }}>entra por abajo</div>
+    </div>
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '1.6em' }}>4 supera 3: el nivel 2 es el más ancho hasta ahora.</div>
+  </Step>
+  <Step lines={[15]}>
+    <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+    <div style={{ flex: '1 1 0', minWidth: 0 }}>
+    <HierarchyPicture tree={FOLDERS} levels tones={{ 'home/': 'done', 'fotos/': 'done', 'ramos/': 'done', 'notas.txt': 'done', 'perro.jpg': 'keep', 'eda/': 'keep', 'calculo/': 'keep', 'playa.jpg': 'focus' }} compact size={0.65} label="playa.jpg sale por el frente de la cola." />
+    <div style={{ fontFamily: 'var(--font-mono, monospace)', fontSize: '0.8rem', margin: '0 auto', padding: '0 0.6rem', maxWidth: '30rem', height: '1.9rem', lineHeight: '1.9rem', textAlign: 'center', whiteSpace: 'nowrap', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }}>{"level = 2   width = 4   best = 2   bestWidth = 4"}</div>
+    </div>
+    <div style={{ flex: '0 0 10.5rem', display: 'flex', flexDirection: 'column', gap: '0.2rem', fontFamily: 'var(--font-mono, monospace)', fontSize: '0.75rem', height: '11.4rem', padding: '0.4rem 0.5rem', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }}>
+      <div style={{ fontSize: '0.7rem', color: 'var(--color-ink-faint)', whiteSpace: 'nowrap' }}>cola · sale por arriba</div>
+      <div style={{ border: '1.5px dashed var(--color-rule)', borderRadius: '4px', padding: '0 0.4rem', color: 'var(--color-ink-faint)' }}>↑ playa.jpg</div>
+      <div style={{ border: '1.5px solid var(--color-keep)', background: 'var(--color-keep-soft)', borderRadius: '4px', padding: '0 0.4rem', color: 'var(--color-ink)' }}>perro.jpg</div>
+      <div style={{ border: '1.5px solid var(--color-keep)', background: 'var(--color-keep-soft)', borderRadius: '4px', padding: '0 0.4rem', color: 'var(--color-ink)' }}>eda/</div>
+      <div style={{ border: '1.5px solid var(--color-keep)', background: 'var(--color-keep-soft)', borderRadius: '4px', padding: '0 0.4rem', color: 'var(--color-ink)' }}>calculo/</div>
+      <div style={{ marginTop: 'auto', fontSize: '0.7rem', color: 'var(--color-ink-faint)' }}>entra por abajo</div>
+    </div>
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '1.6em' }}>Sale playa.jpg. Es una hoja: no deja hijos.</div>
+  </Step>
+  <Step lines={[15]}>
+    <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+    <div style={{ flex: '1 1 0', minWidth: 0 }}>
+    <HierarchyPicture tree={FOLDERS} levels tones={{ 'home/': 'done', 'fotos/': 'done', 'ramos/': 'done', 'notas.txt': 'done', 'playa.jpg': 'done', 'eda/': 'keep', 'calculo/': 'keep', 'perro.jpg': 'focus' }} compact size={0.65} label="perro.jpg sale por el frente de la cola." />
+    <div style={{ fontFamily: 'var(--font-mono, monospace)', fontSize: '0.8rem', margin: '0 auto', padding: '0 0.6rem', maxWidth: '30rem', height: '1.9rem', lineHeight: '1.9rem', textAlign: 'center', whiteSpace: 'nowrap', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }}>{"level = 2   width = 4   best = 2   bestWidth = 4"}</div>
+    </div>
+    <div style={{ flex: '0 0 10.5rem', display: 'flex', flexDirection: 'column', gap: '0.2rem', fontFamily: 'var(--font-mono, monospace)', fontSize: '0.75rem', height: '11.4rem', padding: '0.4rem 0.5rem', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }}>
+      <div style={{ fontSize: '0.7rem', color: 'var(--color-ink-faint)', whiteSpace: 'nowrap' }}>cola · sale por arriba</div>
+      <div style={{ border: '1.5px dashed var(--color-rule)', borderRadius: '4px', padding: '0 0.4rem', color: 'var(--color-ink-faint)' }}>↑ perro.jpg</div>
+      <div style={{ border: '1.5px solid var(--color-keep)', background: 'var(--color-keep-soft)', borderRadius: '4px', padding: '0 0.4rem', color: 'var(--color-ink)' }}>eda/</div>
+      <div style={{ border: '1.5px solid var(--color-keep)', background: 'var(--color-keep-soft)', borderRadius: '4px', padding: '0 0.4rem', color: 'var(--color-ink)' }}>calculo/</div>
+      <div style={{ marginTop: 'auto', fontSize: '0.7rem', color: 'var(--color-ink-faint)' }}>entra por abajo</div>
+    </div>
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '1.6em' }}>Sale perro.jpg. Es una hoja: no deja hijos.</div>
+  </Step>
+  <Step lines={[15]}>
+    <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+    <div style={{ flex: '1 1 0', minWidth: 0 }}>
+    <HierarchyPicture tree={FOLDERS} levels tones={{ 'home/': 'done', 'fotos/': 'done', 'ramos/': 'done', 'notas.txt': 'done', 'playa.jpg': 'done', 'perro.jpg': 'done', 'calculo/': 'keep', 'eda/': 'focus' }} compact size={0.65} label="eda/ sale por el frente de la cola." />
+    <div style={{ fontFamily: 'var(--font-mono, monospace)', fontSize: '0.8rem', margin: '0 auto', padding: '0 0.6rem', maxWidth: '30rem', height: '1.9rem', lineHeight: '1.9rem', textAlign: 'center', whiteSpace: 'nowrap', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }}>{"level = 2   width = 4   best = 2   bestWidth = 4"}</div>
+    </div>
+    <div style={{ flex: '0 0 10.5rem', display: 'flex', flexDirection: 'column', gap: '0.2rem', fontFamily: 'var(--font-mono, monospace)', fontSize: '0.75rem', height: '11.4rem', padding: '0.4rem 0.5rem', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }}>
+      <div style={{ fontSize: '0.7rem', color: 'var(--color-ink-faint)', whiteSpace: 'nowrap' }}>cola · sale por arriba</div>
+      <div style={{ border: '1.5px dashed var(--color-rule)', borderRadius: '4px', padding: '0 0.4rem', color: 'var(--color-ink-faint)' }}>↑ eda/</div>
+      <div style={{ border: '1.5px solid var(--color-keep)', background: 'var(--color-keep-soft)', borderRadius: '4px', padding: '0 0.4rem', color: 'var(--color-ink)' }}>calculo/</div>
+      <div style={{ marginTop: 'auto', fontSize: '0.7rem', color: 'var(--color-ink-faint)' }}>entra por abajo</div>
+    </div>
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '1.6em' }}>Sale eda/.</div>
+  </Step>
+  <Step lines={[17]}>
+    <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+    <div style={{ flex: '1 1 0', minWidth: 0 }}>
+    <HierarchyPicture tree={FOLDERS} levels tones={{ 'home/': 'done', 'fotos/': 'done', 'ramos/': 'done', 'notas.txt': 'done', 'playa.jpg': 'done', 'perro.jpg': 'done', 'calculo/': 'keep', 't1.pdf': 'mark', 'eda/': 'focus' }} compact size={0.65} label="t1.pdf entra al final de la cola." />
+    <div style={{ fontFamily: 'var(--font-mono, monospace)', fontSize: '0.8rem', margin: '0 auto', padding: '0 0.6rem', maxWidth: '30rem', height: '1.9rem', lineHeight: '1.9rem', textAlign: 'center', whiteSpace: 'nowrap', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }}>{"level = 2   width = 4   best = 2   bestWidth = 4"}</div>
+    </div>
+    <div style={{ flex: '0 0 10.5rem', display: 'flex', flexDirection: 'column', gap: '0.2rem', fontFamily: 'var(--font-mono, monospace)', fontSize: '0.75rem', height: '11.4rem', padding: '0.4rem 0.5rem', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }}>
+      <div style={{ fontSize: '0.7rem', color: 'var(--color-ink-faint)', whiteSpace: 'nowrap' }}>cola · sale por arriba</div>
+      <div style={{ border: '1.5px solid var(--color-keep)', background: 'var(--color-keep-soft)', borderRadius: '4px', padding: '0 0.4rem', color: 'var(--color-ink)' }}>calculo/</div>
+      <div style={{ border: '2.5px solid var(--color-mark)', background: 'var(--color-mark-soft)', borderRadius: '4px', padding: '0 0.4rem', fontWeight: 600, color: 'var(--color-ink)' }}>t1.pdf ←</div>
+      <div style={{ marginTop: 'auto', fontSize: '0.7rem', color: 'var(--color-ink-faint)' }}>entra por abajo</div>
+    </div>
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '1.6em' }}>Entra t1.pdf, hijo de eda/, al final de la cola.</div>
+  </Step>
+  <Step lines={[17]}>
+    <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+    <div style={{ flex: '1 1 0', minWidth: 0 }}>
+    <HierarchyPicture tree={FOLDERS} levels tones={{ 'home/': 'done', 'fotos/': 'done', 'ramos/': 'done', 'notas.txt': 'done', 'playa.jpg': 'done', 'perro.jpg': 'done', 'calculo/': 'keep', 't1.pdf': 'keep', 't2.pdf': 'mark', 'eda/': 'focus' }} compact size={0.65} label="t2.pdf entra al final de la cola." />
+    <div style={{ fontFamily: 'var(--font-mono, monospace)', fontSize: '0.8rem', margin: '0 auto', padding: '0 0.6rem', maxWidth: '30rem', height: '1.9rem', lineHeight: '1.9rem', textAlign: 'center', whiteSpace: 'nowrap', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }}>{"level = 2   width = 4   best = 2   bestWidth = 4"}</div>
+    </div>
+    <div style={{ flex: '0 0 10.5rem', display: 'flex', flexDirection: 'column', gap: '0.2rem', fontFamily: 'var(--font-mono, monospace)', fontSize: '0.75rem', height: '11.4rem', padding: '0.4rem 0.5rem', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }}>
+      <div style={{ fontSize: '0.7rem', color: 'var(--color-ink-faint)', whiteSpace: 'nowrap' }}>cola · sale por arriba</div>
+      <div style={{ border: '1.5px solid var(--color-keep)', background: 'var(--color-keep-soft)', borderRadius: '4px', padding: '0 0.4rem', color: 'var(--color-ink)' }}>calculo/</div>
+      <div style={{ border: '1.5px solid var(--color-keep)', background: 'var(--color-keep-soft)', borderRadius: '4px', padding: '0 0.4rem', color: 'var(--color-ink)' }}>t1.pdf</div>
+      <div style={{ border: '2.5px solid var(--color-mark)', background: 'var(--color-mark-soft)', borderRadius: '4px', padding: '0 0.4rem', fontWeight: 600, color: 'var(--color-ink)' }}>t2.pdf ←</div>
+      <div style={{ marginTop: 'auto', fontSize: '0.7rem', color: 'var(--color-ink-faint)' }}>entra por abajo</div>
+    </div>
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '1.6em' }}>Entra t2.pdf, hijo de eda/, al final de la cola.</div>
+  </Step>
+  <Step lines={[15]}>
+    <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+    <div style={{ flex: '1 1 0', minWidth: 0 }}>
+    <HierarchyPicture tree={FOLDERS} levels tones={{ 'home/': 'done', 'fotos/': 'done', 'ramos/': 'done', 'notas.txt': 'done', 'playa.jpg': 'done', 'perro.jpg': 'done', 'eda/': 'done', 't1.pdf': 'keep', 't2.pdf': 'keep', 'calculo/': 'focus' }} compact size={0.65} label="calculo/ sale por el frente de la cola." />
+    <div style={{ fontFamily: 'var(--font-mono, monospace)', fontSize: '0.8rem', margin: '0 auto', padding: '0 0.6rem', maxWidth: '30rem', height: '1.9rem', lineHeight: '1.9rem', textAlign: 'center', whiteSpace: 'nowrap', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }}>{"level = 2   width = 4   best = 2   bestWidth = 4"}</div>
+    </div>
+    <div style={{ flex: '0 0 10.5rem', display: 'flex', flexDirection: 'column', gap: '0.2rem', fontFamily: 'var(--font-mono, monospace)', fontSize: '0.75rem', height: '11.4rem', padding: '0.4rem 0.5rem', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }}>
+      <div style={{ fontSize: '0.7rem', color: 'var(--color-ink-faint)', whiteSpace: 'nowrap' }}>cola · sale por arriba</div>
+      <div style={{ border: '1.5px dashed var(--color-rule)', borderRadius: '4px', padding: '0 0.4rem', color: 'var(--color-ink-faint)' }}>↑ calculo/</div>
+      <div style={{ border: '1.5px solid var(--color-keep)', background: 'var(--color-keep-soft)', borderRadius: '4px', padding: '0 0.4rem', color: 'var(--color-ink)' }}>t1.pdf</div>
+      <div style={{ border: '1.5px solid var(--color-keep)', background: 'var(--color-keep-soft)', borderRadius: '4px', padding: '0 0.4rem', color: 'var(--color-ink)' }}>t2.pdf</div>
+      <div style={{ marginTop: 'auto', fontSize: '0.7rem', color: 'var(--color-ink-faint)' }}>entra por abajo</div>
+    </div>
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '1.6em' }}>Sale calculo/.</div>
+  </Step>
+  <Step lines={[17]}>
+    <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+    <div style={{ flex: '1 1 0', minWidth: 0 }}>
+    <HierarchyPicture tree={FOLDERS} levels tones={{ 'home/': 'done', 'fotos/': 'done', 'ramos/': 'done', 'notas.txt': 'done', 'playa.jpg': 'done', 'perro.jpg': 'done', 'eda/': 'done', 't1.pdf': 'keep', 't2.pdf': 'keep', 'guia.pdf': 'mark', 'calculo/': 'focus' }} compact size={0.65} label="guia.pdf entra al final de la cola." />
+    <div style={{ fontFamily: 'var(--font-mono, monospace)', fontSize: '0.8rem', margin: '0 auto', padding: '0 0.6rem', maxWidth: '30rem', height: '1.9rem', lineHeight: '1.9rem', textAlign: 'center', whiteSpace: 'nowrap', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }}>{"level = 2   width = 4   best = 2   bestWidth = 4"}</div>
+    </div>
+    <div style={{ flex: '0 0 10.5rem', display: 'flex', flexDirection: 'column', gap: '0.2rem', fontFamily: 'var(--font-mono, monospace)', fontSize: '0.75rem', height: '11.4rem', padding: '0.4rem 0.5rem', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }}>
+      <div style={{ fontSize: '0.7rem', color: 'var(--color-ink-faint)', whiteSpace: 'nowrap' }}>cola · sale por arriba</div>
+      <div style={{ border: '1.5px solid var(--color-keep)', background: 'var(--color-keep-soft)', borderRadius: '4px', padding: '0 0.4rem', color: 'var(--color-ink)' }}>t1.pdf</div>
+      <div style={{ border: '1.5px solid var(--color-keep)', background: 'var(--color-keep-soft)', borderRadius: '4px', padding: '0 0.4rem', color: 'var(--color-ink)' }}>t2.pdf</div>
+      <div style={{ border: '2.5px solid var(--color-mark)', background: 'var(--color-mark-soft)', borderRadius: '4px', padding: '0 0.4rem', fontWeight: 600, color: 'var(--color-ink)' }}>guia.pdf ←</div>
+      <div style={{ marginTop: 'auto', fontSize: '0.7rem', color: 'var(--color-ink-faint)' }}>entra por abajo</div>
+    </div>
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '1.6em' }}>Entra guia.pdf, hijo de calculo/, al final de la cola.</div>
+  </Step>
+  <Step lines={[6]}>
+    <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+    <div style={{ flex: '1 1 0', minWidth: 0 }}>
+    <HierarchyPicture tree={FOLDERS} levels tones={{ 'home/': 'done', 'fotos/': 'done', 'ramos/': 'done', 'notas.txt': 'done', 'playa.jpg': 'done', 'perro.jpg': 'done', 'eda/': 'done', 'calculo/': 'done', 't1.pdf': 'keep', 't2.pdf': 'keep', 'guia.pdf': 'keep' }} compact size={0.65} label="Termina el nivel 2 y level pasa a 3; la cola tiene el nivel 3 completo." />
+    <div style={{ fontFamily: 'var(--font-mono, monospace)', fontSize: '0.8rem', margin: '0 auto', padding: '0 0.6rem', maxWidth: '30rem', height: '1.9rem', lineHeight: '1.9rem', textAlign: 'center', whiteSpace: 'nowrap', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }}>{"level = 3   width = 4   best = 2   bestWidth = 4"}</div>
+    </div>
+    <div style={{ flex: '0 0 10.5rem', display: 'flex', flexDirection: 'column', gap: '0.2rem', fontFamily: 'var(--font-mono, monospace)', fontSize: '0.75rem', height: '11.4rem', padding: '0.4rem 0.5rem', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }}>
+      <div style={{ fontSize: '0.7rem', color: 'var(--color-ink-faint)', whiteSpace: 'nowrap' }}>cola · sale por arriba</div>
+      <div style={{ border: '1.5px solid var(--color-keep)', background: 'var(--color-keep-soft)', borderRadius: '4px', padding: '0 0.4rem', color: 'var(--color-ink)' }}>t1.pdf</div>
+      <div style={{ border: '1.5px solid var(--color-keep)', background: 'var(--color-keep-soft)', borderRadius: '4px', padding: '0 0.4rem', color: 'var(--color-ink)' }}>t2.pdf</div>
+      <div style={{ border: '1.5px solid var(--color-keep)', background: 'var(--color-keep-soft)', borderRadius: '4px', padding: '0 0.4rem', color: 'var(--color-ink)' }}>guia.pdf</div>
+      <div style={{ marginTop: 'auto', fontSize: '0.7rem', color: 'var(--color-ink-faint)' }}>entra por abajo</div>
+    </div>
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '1.6em' }}>Termina el nivel 2: la cola tiene el nivel 3 completo.</div>
+  </Step>
+  <Step lines={[8]}>
+    <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+    <div style={{ flex: '1 1 0', minWidth: 0 }}>
+    <HierarchyPicture tree={FOLDERS} levels tones={{ 'home/': 'done', 'fotos/': 'done', 'ramos/': 'done', 'notas.txt': 'done', 'playa.jpg': 'done', 'perro.jpg': 'done', 'eda/': 'done', 'calculo/': 'done', 't1.pdf': 'keep', 't2.pdf': 'keep', 'guia.pdf': 'keep' }} compact size={0.65} label="El nivel 3 está completo en la cola: 3 nodos, en verde." />
+    <div style={{ fontFamily: 'var(--font-mono, monospace)', fontSize: '0.8rem', margin: '0 auto', padding: '0 0.6rem', maxWidth: '30rem', height: '1.9rem', lineHeight: '1.9rem', textAlign: 'center', whiteSpace: 'nowrap', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }}>{"level = 3   width = 3   best = 2   bestWidth = 4"}</div>
+    </div>
+    <div style={{ flex: '0 0 10.5rem', display: 'flex', flexDirection: 'column', gap: '0.2rem', fontFamily: 'var(--font-mono, monospace)', fontSize: '0.75rem', height: '11.4rem', padding: '0.4rem 0.5rem', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }}>
+      <div style={{ fontSize: '0.7rem', color: 'var(--color-ink-faint)', whiteSpace: 'nowrap' }}>cola · sale por arriba</div>
+      <div style={{ border: '1.5px solid var(--color-keep)', background: 'var(--color-keep-soft)', borderRadius: '4px', padding: '0 0.4rem', color: 'var(--color-ink)' }}>t1.pdf</div>
+      <div style={{ border: '1.5px solid var(--color-keep)', background: 'var(--color-keep-soft)', borderRadius: '4px', padding: '0 0.4rem', color: 'var(--color-ink)' }}>t2.pdf</div>
+      <div style={{ border: '1.5px solid var(--color-keep)', background: 'var(--color-keep-soft)', borderRadius: '4px', padding: '0 0.4rem', color: 'var(--color-ink)' }}>guia.pdf</div>
+      <div style={{ marginTop: 'auto', fontSize: '0.7rem', color: 'var(--color-ink-faint)' }}>entra por abajo</div>
+    </div>
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '1.6em' }}>Empieza el nivel 3: está completo en la cola, y su ancho es 3.</div>
+  </Step>
+  <Step lines={[9]}>
+    <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+    <div style={{ flex: '1 1 0', minWidth: 0 }}>
+    <HierarchyPicture tree={FOLDERS} levels tones={{ 'home/': 'done', 'fotos/': 'done', 'ramos/': 'done', 'notas.txt': 'done', 'playa.jpg': 'done', 'perro.jpg': 'done', 'eda/': 'done', 'calculo/': 'done', 't1.pdf': 'keep', 't2.pdf': 'keep', 'guia.pdf': 'keep' }} compact size={0.65} label="El ancho 3 no supera al mejor, 4: el mejor sigue siendo el nivel 2." />
+    <div style={{ fontFamily: 'var(--font-mono, monospace)', fontSize: '0.8rem', margin: '0 auto', padding: '0 0.6rem', maxWidth: '30rem', height: '1.9rem', lineHeight: '1.9rem', textAlign: 'center', whiteSpace: 'nowrap', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }}>{"level = 3   width = 3   best = 2   bestWidth = 4"}</div>
+    </div>
+    <div style={{ flex: '0 0 10.5rem', display: 'flex', flexDirection: 'column', gap: '0.2rem', fontFamily: 'var(--font-mono, monospace)', fontSize: '0.75rem', height: '11.4rem', padding: '0.4rem 0.5rem', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }}>
+      <div style={{ fontSize: '0.7rem', color: 'var(--color-ink-faint)', whiteSpace: 'nowrap' }}>cola · sale por arriba</div>
+      <div style={{ border: '1.5px solid var(--color-keep)', background: 'var(--color-keep-soft)', borderRadius: '4px', padding: '0 0.4rem', color: 'var(--color-ink)' }}>t1.pdf</div>
+      <div style={{ border: '1.5px solid var(--color-keep)', background: 'var(--color-keep-soft)', borderRadius: '4px', padding: '0 0.4rem', color: 'var(--color-ink)' }}>t2.pdf</div>
+      <div style={{ border: '1.5px solid var(--color-keep)', background: 'var(--color-keep-soft)', borderRadius: '4px', padding: '0 0.4rem', color: 'var(--color-ink)' }}>guia.pdf</div>
+      <div style={{ marginTop: 'auto', fontSize: '0.7rem', color: 'var(--color-ink-faint)' }}>entra por abajo</div>
+    </div>
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '1.6em' }}>3 no supera 4: el más ancho sigue siendo el nivel 2.</div>
+  </Step>
+  <Step lines={[15]}>
+    <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+    <div style={{ flex: '1 1 0', minWidth: 0 }}>
+    <HierarchyPicture tree={FOLDERS} levels tones={{ 'home/': 'done', 'fotos/': 'done', 'ramos/': 'done', 'notas.txt': 'done', 'playa.jpg': 'done', 'perro.jpg': 'done', 'eda/': 'done', 'calculo/': 'done', 't2.pdf': 'keep', 'guia.pdf': 'keep', 't1.pdf': 'focus' }} compact size={0.65} label="t1.pdf sale por el frente de la cola." />
+    <div style={{ fontFamily: 'var(--font-mono, monospace)', fontSize: '0.8rem', margin: '0 auto', padding: '0 0.6rem', maxWidth: '30rem', height: '1.9rem', lineHeight: '1.9rem', textAlign: 'center', whiteSpace: 'nowrap', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }}>{"level = 3   width = 3   best = 2   bestWidth = 4"}</div>
+    </div>
+    <div style={{ flex: '0 0 10.5rem', display: 'flex', flexDirection: 'column', gap: '0.2rem', fontFamily: 'var(--font-mono, monospace)', fontSize: '0.75rem', height: '11.4rem', padding: '0.4rem 0.5rem', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }}>
+      <div style={{ fontSize: '0.7rem', color: 'var(--color-ink-faint)', whiteSpace: 'nowrap' }}>cola · sale por arriba</div>
+      <div style={{ border: '1.5px dashed var(--color-rule)', borderRadius: '4px', padding: '0 0.4rem', color: 'var(--color-ink-faint)' }}>↑ t1.pdf</div>
+      <div style={{ border: '1.5px solid var(--color-keep)', background: 'var(--color-keep-soft)', borderRadius: '4px', padding: '0 0.4rem', color: 'var(--color-ink)' }}>t2.pdf</div>
+      <div style={{ border: '1.5px solid var(--color-keep)', background: 'var(--color-keep-soft)', borderRadius: '4px', padding: '0 0.4rem', color: 'var(--color-ink)' }}>guia.pdf</div>
+      <div style={{ marginTop: 'auto', fontSize: '0.7rem', color: 'var(--color-ink-faint)' }}>entra por abajo</div>
+    </div>
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '1.6em' }}>Sale t1.pdf. Es una hoja: no deja hijos.</div>
+  </Step>
+  <Step lines={[15]}>
+    <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+    <div style={{ flex: '1 1 0', minWidth: 0 }}>
+    <HierarchyPicture tree={FOLDERS} levels tones={{ 'home/': 'done', 'fotos/': 'done', 'ramos/': 'done', 'notas.txt': 'done', 'playa.jpg': 'done', 'perro.jpg': 'done', 'eda/': 'done', 'calculo/': 'done', 't1.pdf': 'done', 'guia.pdf': 'keep', 't2.pdf': 'focus' }} compact size={0.65} label="t2.pdf sale por el frente de la cola." />
+    <div style={{ fontFamily: 'var(--font-mono, monospace)', fontSize: '0.8rem', margin: '0 auto', padding: '0 0.6rem', maxWidth: '30rem', height: '1.9rem', lineHeight: '1.9rem', textAlign: 'center', whiteSpace: 'nowrap', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }}>{"level = 3   width = 3   best = 2   bestWidth = 4"}</div>
+    </div>
+    <div style={{ flex: '0 0 10.5rem', display: 'flex', flexDirection: 'column', gap: '0.2rem', fontFamily: 'var(--font-mono, monospace)', fontSize: '0.75rem', height: '11.4rem', padding: '0.4rem 0.5rem', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }}>
+      <div style={{ fontSize: '0.7rem', color: 'var(--color-ink-faint)', whiteSpace: 'nowrap' }}>cola · sale por arriba</div>
+      <div style={{ border: '1.5px dashed var(--color-rule)', borderRadius: '4px', padding: '0 0.4rem', color: 'var(--color-ink-faint)' }}>↑ t2.pdf</div>
+      <div style={{ border: '1.5px solid var(--color-keep)', background: 'var(--color-keep-soft)', borderRadius: '4px', padding: '0 0.4rem', color: 'var(--color-ink)' }}>guia.pdf</div>
+      <div style={{ marginTop: 'auto', fontSize: '0.7rem', color: 'var(--color-ink-faint)' }}>entra por abajo</div>
+    </div>
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '1.6em' }}>Sale t2.pdf. Es una hoja: no deja hijos.</div>
+  </Step>
+  <Step lines={[15]}>
+    <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+    <div style={{ flex: '1 1 0', minWidth: 0 }}>
+    <HierarchyPicture tree={FOLDERS} levels tones={{ 'home/': 'done', 'fotos/': 'done', 'ramos/': 'done', 'notas.txt': 'done', 'playa.jpg': 'done', 'perro.jpg': 'done', 'eda/': 'done', 'calculo/': 'done', 't1.pdf': 'done', 't2.pdf': 'done', 'guia.pdf': 'focus' }} compact size={0.65} label="guia.pdf sale por el frente de la cola." />
+    <div style={{ fontFamily: 'var(--font-mono, monospace)', fontSize: '0.8rem', margin: '0 auto', padding: '0 0.6rem', maxWidth: '30rem', height: '1.9rem', lineHeight: '1.9rem', textAlign: 'center', whiteSpace: 'nowrap', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }}>{"level = 3   width = 3   best = 2   bestWidth = 4"}</div>
+    </div>
+    <div style={{ flex: '0 0 10.5rem', display: 'flex', flexDirection: 'column', gap: '0.2rem', fontFamily: 'var(--font-mono, monospace)', fontSize: '0.75rem', height: '11.4rem', padding: '0.4rem 0.5rem', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }}>
+      <div style={{ fontSize: '0.7rem', color: 'var(--color-ink-faint)', whiteSpace: 'nowrap' }}>cola · sale por arriba</div>
+      <div style={{ border: '1.5px dashed var(--color-rule)', borderRadius: '4px', padding: '0 0.4rem', color: 'var(--color-ink-faint)' }}>↑ guia.pdf</div>
+      <div style={{ marginTop: 'auto', fontSize: '0.7rem', color: 'var(--color-ink-faint)' }}>entra por abajo</div>
+    </div>
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '1.6em' }}>Sale guia.pdf. Es una hoja: no deja hijos.</div>
+  </Step>
+  <Step lines={[6]}>
+    <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+    <div style={{ flex: '1 1 0', minWidth: 0 }}>
+    <HierarchyPicture tree={FOLDERS} levels tones={{ 'home/': 'done', 'fotos/': 'done', 'ramos/': 'done', 'notas.txt': 'done', 'playa.jpg': 'done', 'perro.jpg': 'done', 'eda/': 'done', 'calculo/': 'done', 't1.pdf': 'done', 't2.pdf': 'done', 'guia.pdf': 'done' }} compact size={0.65} label="Termina el nivel 3 y level pasa a 4; la cola quedó vacía." />
+    <div style={{ fontFamily: 'var(--font-mono, monospace)', fontSize: '0.8rem', margin: '0 auto', padding: '0 0.6rem', maxWidth: '30rem', height: '1.9rem', lineHeight: '1.9rem', textAlign: 'center', whiteSpace: 'nowrap', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }}>{"level = 4   width = 3   best = 2   bestWidth = 4"}</div>
+    </div>
+    <div style={{ flex: '0 0 10.5rem', display: 'flex', flexDirection: 'column', gap: '0.2rem', fontFamily: 'var(--font-mono, monospace)', fontSize: '0.75rem', height: '11.4rem', padding: '0.4rem 0.5rem', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }}>
+      <div style={{ fontSize: '0.7rem', color: 'var(--color-ink-faint)', whiteSpace: 'nowrap' }}>cola · sale por arriba</div>
+      <div style={{ marginTop: 'auto', fontSize: '0.7rem', color: 'var(--color-ink-faint)' }}>entra por abajo</div>
+    </div>
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '1.6em' }}>Termina el nivel 3: la cola quedó vacía.</div>
+  </Step>
+  <Step lines={[6]}>
+    <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+    <div style={{ flex: '1 1 0', minWidth: 0 }}>
+    <HierarchyPicture tree={FOLDERS} levels tones={{ 'home/': 'done', 'fotos/': 'done', 'ramos/': 'done', 'notas.txt': 'done', 'playa.jpg': 'done', 'perro.jpg': 'done', 'eda/': 'done', 'calculo/': 'done', 't1.pdf': 'done', 't2.pdf': 'done', 'guia.pdf': 'done' }} compact size={0.65} label="La cola está vacía y el ciclo termina." />
+    <div style={{ fontFamily: 'var(--font-mono, monospace)', fontSize: '0.8rem', margin: '0 auto', padding: '0 0.6rem', maxWidth: '30rem', height: '1.9rem', lineHeight: '1.9rem', textAlign: 'center', whiteSpace: 'nowrap', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }}>{"level = 4   width = 3   best = 2   bestWidth = 4"}</div>
+    </div>
+    <div style={{ flex: '0 0 10.5rem', display: 'flex', flexDirection: 'column', gap: '0.2rem', fontFamily: 'var(--font-mono, monospace)', fontSize: '0.75rem', height: '11.4rem', padding: '0.4rem 0.5rem', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }}>
+      <div style={{ fontSize: '0.7rem', color: 'var(--color-ink-faint)', whiteSpace: 'nowrap' }}>cola · sale por arriba</div>
+      <div style={{ marginTop: 'auto', fontSize: '0.7rem', color: 'var(--color-ink-faint)' }}>entra por abajo</div>
+    </div>
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '1.6em' }}>La cola está vacía: no quedan niveles y el ciclo termina.</div>
+  </Step>
+  <Step lines={[21]}>
+    <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+    <div style={{ flex: '1 1 0', minWidth: 0 }}>
+    <HierarchyPicture tree={FOLDERS} levels tones={{ 'home/': 'done', 'fotos/': 'done', 'ramos/': 'done', 'notas.txt': 'done', 'playa.jpg': 'done', 'perro.jpg': 'done', 'eda/': 'done', 'calculo/': 'done', 't1.pdf': 'done', 't2.pdf': 'done', 'guia.pdf': 'done' }} compact size={0.65} label="Devuelve 2, el nivel con 4 nodos." />
+    <div style={{ fontFamily: 'var(--font-mono, monospace)', fontSize: '0.8rem', margin: '0 auto', padding: '0 0.6rem', maxWidth: '30rem', height: '1.9rem', lineHeight: '1.9rem', textAlign: 'center', whiteSpace: 'nowrap', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }}>{"level = 4   width = 3   best = 2   bestWidth = 4"}</div>
+    </div>
+    <div style={{ flex: '0 0 10.5rem', display: 'flex', flexDirection: 'column', gap: '0.2rem', fontFamily: 'var(--font-mono, monospace)', fontSize: '0.75rem', height: '11.4rem', padding: '0.4rem 0.5rem', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }}>
+      <div style={{ fontSize: '0.7rem', color: 'var(--color-ink-faint)', whiteSpace: 'nowrap' }}>cola · sale por arriba</div>
+      <div style={{ marginTop: 'auto', fontSize: '0.7rem', color: 'var(--color-ink-faint)' }}>entra por abajo</div>
+    </div>
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '1.6em' }}>Devuelve 2: el nivel más ancho tiene 4 nodos.</div>
+  </Step>
+</StepShow>
+
+</Slide>
+
+<Slide title="Un empate y el árbol vacío">
+Si dos niveles empatan, la comparación con `>` no cambia el mejor: queda el
+primero, el más cercano a la raíz. Con el árbol vacío, la primera línea
+devuelve $$-1$$, y con un nodo solo, el nivel 0 es el único.
+
+<div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: '1rem 2rem', alignItems: 'flex-end' }}>
+<div style={{ flex: '1 1 260px', maxWidth: '360px' }}>
+<HierarchyPicture tree={ORG_CHART} levels levelNotes={['1 nodo', '2 nodos', '2 nodos']} tones={{ ventas: 'keep', bodega: 'keep' }} label="Un organigrama: la jefa, con ventas y bodega debajo, y norte y sur debajo de ventas. Los niveles 1 y 2 tienen dos nodos cada uno; el nivel 1, en verde, es el que se devuelve." caption="los niveles 1 y 2 empatan: devuelve 1" />
+</div>
+<div style={{ flex: '0 1 220px' }}>
+<HierarchyPicture tree={{ n: 'solo' }} levels levelNotes={['1 nodo']} tones={{ solo: 'keep' }} label="Un árbol de un solo nodo: su único nivel, el 0, es el más ancho." caption="un nodo solo: devuelve 0" />
+</div>
+</div>
+
+</Slide>
+
+<Slide title="El costo del nivel más ancho">
+**Tiempo.** Cada nodo entra a la cola una vez y sale una vez, y al salir se
+recorre la secuencia de sus hijos. Juntas, esas secuencias tienen un hijo por
+cada arista del árbol, $$n - 1$$:
+
+$$
+\underbrace{n \cdot \Theta(1)}_{\text{cada nodo entra y sale}} + \underbrace{(n - 1) \cdot \Theta(1)}_{\text{hijos recorridos}} = \Theta(n)
+$$
+
+**Memoria.** La cola guarda lo que queda de un nivel y lo que ya entró del
+siguiente: a lo más, los nodos de dos niveles seguidos. En el peor caso, una
+raíz con $$n - 1$$ hijos, la cola llega a tener $$n - 1$$ nodos:
+$$O(n)$$.
+
+</Slide>
+
+{/* Book-only on purpose, like the calculator's: the program is about forty-five lines with its imports and Node, and an <Exercise> on a slide shows all of them (measured: the slide scales to 0.62, under the 0.70 floor). The solution slide walks every line of it. */}
+
+<Exercise title="El nivel más ancho">
+
+```java starter
+import java.util.ArrayList;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Queue;
+
+class Node<T> {
+    T value;
+    List<Node<T>> children = new ArrayList<>();
+
+    Node(T value) {
+        this.value = value;
+    }
+}
+
+class Solution {
+    static int widestLevel(Node<String> root) {
+        if (root == null) return -1;
+        Queue<Node<String>> queue = new LinkedList<>();
+        queue.add(root);
+        int best = 0, bestWidth = 0;
+        for (int level = 0; !queue.isEmpty(); level++) {
+            // visita: el nivel completo está en la cola
+            int width = queue.size();
+            if (width > bestWidth) {
+                bestWidth = width;
+                best = level;
+            }
+            // recorrido: saca el nivel y deja el siguiente
+            for (int i = 0; i < width; i++) {
+                Node<String> node = queue.remove();
+                for (Node<String> child : node.children) {
+                    queue.add(child);
+                }
+            }
+        }
+        return best;
+    }
+}
+```
+
+```java test
+Node<String> home = new Node<>("home/");
+Node<String> fotos = new Node<>("fotos/");
+Node<String> ramos = new Node<>("ramos/");
+Node<String> eda = new Node<>("eda/");
+Node<String> calculo = new Node<>("calculo/");
+home.children.add(fotos);
+home.children.add(ramos);
+home.children.add(new Node<>("notas.txt"));
+fotos.children.add(new Node<>("playa.jpg"));
+fotos.children.add(new Node<>("perro.jpg"));
+ramos.children.add(eda);
+ramos.children.add(calculo);
+eda.children.add(new Node<>("t1.pdf"));
+eda.children.add(new Node<>("t2.pdf"));
+calculo.children.add(new Node<>("guia.pdf"));
+check(Solution.widestLevel(home), 2);
+Node<String> jefa = new Node<>("jefa");
+Node<String> ventas = new Node<>("ventas");
+jefa.children.add(ventas);
+jefa.children.add(new Node<>("bodega"));
+ventas.children.add(new Node<>("norte"));
+ventas.children.add(new Node<>("sur"));
+check(Solution.widestLevel(jefa), 1);
+check(Solution.widestLevel(new Node<>("solo")), 0);
+check(Solution.widestLevel(null), -1);
+```
+
+</Exercise>
+
 {/* TokenRow and StackRow — the calculator exercise's drawings: a row of symbols with one under the eye, and a stack laid on its side, bottom on the left. File-local like HierarchyPicture (§6e-quater). */}
 
 export function TokenRow({ tokens, at = -1, title, label }) {
@@ -3375,6 +4169,225 @@ check(Solution.calculate("(3+(4*5))"), 23);
 check(Solution.calculate("((8-2)/(1+2))"), 2);
 check(Solution.calculate("7"), 7);
 check(Solution.calculate("(12*(10-7))"), 36);
+```
+
+</Exercise>
+
+Dos ejercicios más, propuestos, para resolver sin ver la respuesta:
+
+<Exercise title="Las rutas de los archivos">
+
+Un buscador de archivos muestra cada archivo con su ruta completa, desde la
+carpeta de arriba. Escribamos `paths`, que recibe la raíz del árbol de
+carpetas y devuelve la ruta de cada archivo, en preorden. Los archivos son las
+hojas, y la ruta de una hoja es la unión de los nombres desde la raíz hasta
+ella; los nombres de las carpetas ya terminan en `/`.
+
+En el árbol de carpetas, las rutas son `home/fotos/playa.jpg`,
+`home/fotos/perro.jpg`, `home/ramos/eda/t1.pdf`, `home/ramos/eda/t2.pdf`,
+`home/ramos/calculo/guia.pdf` y `home/notas.txt`. Un árbol de un solo nodo
+tiene una sola ruta, su nombre, y el árbol vacío no tiene ninguna.
+
+Cuidado con la ruta que se va armando: al volver de una carpeta, tiene que
+volver a ser la de su padre. Si no, después de `home/fotos/playa.jpg` saldría
+`home/fotos/playa.jpg/perro.jpg`.
+
+```java starter
+import java.util.ArrayList;
+import java.util.List;
+
+class Node<T> {
+    T value;
+    List<Node<T>> children = new ArrayList<>();
+
+    Node(T value) {
+        this.value = value;
+    }
+}
+
+class Solution {
+    static List<String> paths(Node<String> root) {
+        List<String> result = new ArrayList<>();
+        return result;
+    }
+}
+```
+
+```java test
+Node<String> home = new Node<>("home/");
+Node<String> fotos = new Node<>("fotos/");
+Node<String> ramos = new Node<>("ramos/");
+Node<String> eda = new Node<>("eda/");
+Node<String> calculo = new Node<>("calculo/");
+home.children.add(fotos);
+home.children.add(ramos);
+home.children.add(new Node<>("notas.txt"));
+fotos.children.add(new Node<>("playa.jpg"));
+fotos.children.add(new Node<>("perro.jpg"));
+ramos.children.add(eda);
+ramos.children.add(calculo);
+eda.children.add(new Node<>("t1.pdf"));
+eda.children.add(new Node<>("t2.pdf"));
+calculo.children.add(new Node<>("guia.pdf"));
+check(Solution.paths(home), java.util.Arrays.asList("home/fotos/playa.jpg", "home/fotos/perro.jpg",
+        "home/ramos/eda/t1.pdf", "home/ramos/eda/t2.pdf",
+        "home/ramos/calculo/guia.pdf", "home/notas.txt"));
+check(Solution.paths(new Node<>("solo.txt")), java.util.Arrays.asList("solo.txt"));
+check(Solution.paths(null), java.util.Arrays.asList());
+```
+
+```java solution
+import java.util.ArrayList;
+import java.util.List;
+
+class Node<T> {
+    T value;
+    List<Node<T>> children = new ArrayList<>();
+
+    Node(T value) {
+        this.value = value;
+    }
+}
+
+class Solution {
+    static List<String> paths(Node<String> root) {
+        List<String> result = new ArrayList<>();
+        collect(root, "", result);
+        return result;
+    }
+
+    static void collect(Node<String> node, String parent, List<String> result) {
+        if (node == null) return;
+        // visita: la ruta de este nodo es la de su padre más su nombre
+        String path = parent + node.value;
+        if (node.children.isEmpty()) {
+            result.add(path);
+        }
+        // recorrido: cada hijo recibe la ruta de este nodo
+        for (Node<String> child : node.children) {
+            collect(child, path, result);
+        }
+    }
+}
+```
+
+</Exercise>
+
+<Exercise title="Las carpetas grandes">
+
+Para liberar espacio en el disco se buscan las carpetas grandes. Escribamos
+`bigFolders`, que recibe la raíz del árbol de carpetas y un límite en MB, y
+devuelve, en postorden, los nombres de las carpetas que ocupan **más** que el
+límite, contando todo lo que guardan. Cada nodo guarda un `File` con su
+nombre y su tamaño propio: el de un archivo es lo que ocupa, y el de una
+carpeta, 0. Las carpetas son los nodos con hijos.
+
+En el árbol de carpetas, con `playa.jpg` de 2 MB, `perro.jpg` de 3, `t1.pdf`
+y `t2.pdf` de 1, `guia.pdf` de 2 y `notas.txt` de 1, y un límite de 3 MB,
+las carpetas grandes son `fotos/`, con 5 MB, `ramos/`, con 4, y `home/`, con
+10. Con un límite de 10 MB no hay ninguna.
+
+Cuidado con calcular el tamaño de cada carpeta por separado: una carpeta que
+está dentro de otras se recorrería una vez por cada una. Un solo recorrido
+alcanza.
+
+```java starter
+import java.util.ArrayList;
+import java.util.List;
+
+class File {
+    String name;
+    int size;
+
+    File(String name, int size) {
+        this.name = name;
+        this.size = size;
+    }
+}
+
+class Node<T> {
+    T value;
+    List<Node<T>> children = new ArrayList<>();
+
+    Node(T value) {
+        this.value = value;
+    }
+}
+
+class Solution {
+    static List<String> bigFolders(Node<File> root, int limit) {
+        List<String> result = new ArrayList<>();
+        return result;
+    }
+}
+```
+
+```java test
+Node<File> home = new Node<>(new File("home/", 0));
+Node<File> fotos = new Node<>(new File("fotos/", 0));
+Node<File> ramos = new Node<>(new File("ramos/", 0));
+Node<File> eda = new Node<>(new File("eda/", 0));
+Node<File> calculo = new Node<>(new File("calculo/", 0));
+home.children.add(fotos);
+home.children.add(ramos);
+home.children.add(new Node<>(new File("notas.txt", 1)));
+fotos.children.add(new Node<>(new File("playa.jpg", 2)));
+fotos.children.add(new Node<>(new File("perro.jpg", 3)));
+ramos.children.add(eda);
+ramos.children.add(calculo);
+eda.children.add(new Node<>(new File("t1.pdf", 1)));
+eda.children.add(new Node<>(new File("t2.pdf", 1)));
+calculo.children.add(new Node<>(new File("guia.pdf", 2)));
+check(Solution.bigFolders(home, 3), java.util.Arrays.asList("fotos/", "ramos/", "home/"));
+check(Solution.bigFolders(home, 4), java.util.Arrays.asList("fotos/", "home/"));
+check(Solution.bigFolders(home, 10), java.util.Arrays.asList());
+check(Solution.bigFolders(null, 0), java.util.Arrays.asList());
+```
+
+```java solution
+import java.util.ArrayList;
+import java.util.List;
+
+class File {
+    String name;
+    int size;
+
+    File(String name, int size) {
+        this.name = name;
+        this.size = size;
+    }
+}
+
+class Node<T> {
+    T value;
+    List<Node<T>> children = new ArrayList<>();
+
+    Node(T value) {
+        this.value = value;
+    }
+}
+
+class Solution {
+    static List<String> bigFolders(Node<File> root, int limit) {
+        List<String> result = new ArrayList<>();
+        if (root != null) size(root, limit, result);
+        return result;
+    }
+
+    static int size(Node<File> node, int limit, List<String> result) {
+        // recorrido: lo que ocupa cada hijo
+        int total = 0;
+        for (Node<File> child : node.children) {
+            total += size(child, limit, result);
+        }
+        // visita: suma lo suyo y, si es una carpeta grande, la anota
+        total += node.value.size;
+        if (!node.children.isEmpty() && total > limit) {
+            result.add(node.value.name);
+        }
+        return total;
+    }
+}
 ```
 
 </Exercise>
