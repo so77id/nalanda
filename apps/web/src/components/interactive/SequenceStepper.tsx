@@ -18,16 +18,20 @@ import {
 import { CELL_FILL, CELL_NOTE, CELL_STROKE } from './sequenceStepperPaint';
 import {
   BINARY_TREE_OPERATIONS,
+  BST_OPERATIONS,
   CIRCULAR_OPERATIONS,
   DOUBLY_OPERATIONS,
   HEAP_OPERATIONS,
   OPERATIONS,
   RECIPES,
+  BST_ONLY_OPERATIONS,
   TREE_ONLY_OPERATIONS,
   isBinaryTreeOperation,
+  isBstOperation,
   isValidCombination,
   traceFor,
   type BinaryTreeOperation,
+  type BstOperation,
   type SequenceCell,
   type SequenceOperation,
   type SequenceRecipe,
@@ -149,8 +153,16 @@ function refusalReason(
       (o) => OPERATION_LABEL[o],
     ).join(', ')}.`;
   }
-  // The tree-only set, not every tree operation: `search` is shared, and a
-  // ring that refuses it has its own reason.
+  if (recipe === 'bst') {
+    return `el árbol de búsqueda tiene listado para: ${BST_OPERATIONS.map(
+      (o) => OPERATION_LABEL[o],
+    ).join(', ')}.`;
+  }
+  // The tree-only sets, not every tree operation: `search` and `insert` are
+  // shared, and a structure that refuses them has its own reason.
+  if (BST_ONLY_OPERATIONS.includes(operation)) {
+    return 'es una operación del árbol de búsqueda. Úsala con eda="bst".';
+  }
   if (TREE_ONLY_OPERATIONS.includes(operation)) {
     return 'es una operación de árbol. Úsala con eda="binary-tree".';
   }
@@ -173,6 +185,7 @@ const RECIPE_LABEL: Record<SequenceRecipe, string> = {
   'linked-list-circular': 'lista circular',
   'heap-max': 'heap (máximo)',
   'binary-tree': 'árbol binario',
+  bst: 'árbol binario de búsqueda',
 };
 
 const OPERATION_LABEL: Record<SequenceOperation, string> = {
@@ -191,15 +204,20 @@ const OPERATION_LABEL: Record<SequenceOperation, string> = {
   inorder: 'recorrer en inorden',
   postorder: 'recorrer en postorden',
   height: 'calcular la altura',
+  minimum: 'buscar el mínimo',
+  successor: 'buscar el sucesor',
+  remove: 'eliminar',
 };
 
 const UNDER_THE_EYE: [string, string] = ['border-focus bg-surface', 'bajo la mirada'];
 const VISITED: [string, string] = ['border-rule-strong bg-sunk', 'ya visitado'];
+const RULED_OUT: [string, string] = ['border-rule bg-surface', 'descartado'];
 const FOUND: [string, string] = ['border-keep bg-keep-soft', 'encontrado'];
 
 /**
  * The legend of a tree run, by operation: each names only the states that
- * operation paints, so a traversal does not explain "encontrado".
+ * operation paints, so a traversal does not explain "descartado" and a
+ * removal does not explain "encontrado".
  */
 const TREE_LEGEND: Record<BinaryTreeOperation, [string, string][]> = {
   preorder: [['border-mark bg-mark-soft', 'se visita'], UNDER_THE_EYE, VISITED],
@@ -208,6 +226,28 @@ const TREE_LEGEND: Record<BinaryTreeOperation, [string, string][]> = {
   height: [['border-mark bg-mark-soft', 'acaba de responder'], UNDER_THE_EYE, VISITED],
   search: [FOUND, UNDER_THE_EYE, VISITED],
 };
+const SEARCH_TREE_LEGEND: Record<BstOperation, [string, string][]> = {
+  search: [FOUND, UNDER_THE_EYE, VISITED, RULED_OUT],
+  insert: [['border-mark bg-mark-soft', 'nuevo'], UNDER_THE_EYE, VISITED],
+  minimum: [FOUND, VISITED, RULED_OUT],
+  successor: [['border-mark bg-mark-soft', 'mejor candidato'], FOUND, RULED_OUT],
+  remove: [
+    ['border-mark bg-mark-soft', 'toma un valor'],
+    ['border-accent bg-surface', 'sucesor'],
+    ['border-rule bg-sunk', 'sale'],
+    UNDER_THE_EYE,
+  ],
+};
+
+/** The legend of a tree run, or null when the run is not a tree's. */
+function treeLegend(
+  recipe: SequenceRecipe,
+  operation: SequenceOperation,
+): [string, string][] | null {
+  if (recipe === 'binary-tree' && isBinaryTreeOperation(operation)) return TREE_LEGEND[operation];
+  if (recipe === 'bst' && isBstOperation(operation)) return SEARCH_TREE_LEGEND[operation];
+  return null;
+}
 
 /** The most elements the picture stays legible with, measured on a slide. */
 const MAX_VALUES = 8;
@@ -434,7 +474,8 @@ function Body({
 }: BodyProps) {
   const mode = useMode();
   const heap = recipe === 'heap-max';
-  const tree = recipe === 'binary-tree';
+  const tree = recipe === 'binary-tree' || recipe === 'bst';
+  const legend = treeLegend(recipe, operation);
   const isPresentation = mode === 'presentation';
   const outerRef = useRef<HTMLElement | null>(null);
 
@@ -715,9 +756,9 @@ function Body({
         </label>
 
         <span className="ml-auto flex flex-wrap items-center gap-3 font-mono text-3xs text-ink-faint">
-          {tree && isBinaryTreeOperation(operation) ? (
+          {tree && legend !== null ? (
             <>
-              {TREE_LEGEND[operation].map(([swatchClass, label]) => (
+              {legend.map(([swatchClass, label]) => (
                 <LegendSwatch key={label} swatchClass={swatchClass} label={label} />
               ))}
             </>

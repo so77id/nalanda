@@ -73,6 +73,8 @@ export function TreeView({
             if (child === null) return null;
             const e = treeEdge(at(n.id), at(child));
             const lit = hot.has(`${n.id}-${child}`);
+            // An edge into a subtree the search ruled out fades with it (#322).
+            const out = byId.get(child)?.state === 'discarded';
             return (
               <line
                 key={`${n.id}-${child}`}
@@ -80,8 +82,15 @@ export function TreeView({
                 y1={e.y1}
                 x2={e.x2}
                 y2={e.y2}
-                stroke={lit ? 'var(--color-focus)' : 'var(--color-rule-strong)'}
+                stroke={
+                  lit
+                    ? 'var(--color-focus)'
+                    : out
+                      ? 'var(--color-rule)'
+                      : 'var(--color-rule-strong)'
+                }
                 strokeWidth={lit ? 2.6 : 1.2}
+                strokeDasharray={out ? '4 3' : undefined}
               />
             );
           }),
@@ -94,7 +103,8 @@ export function TreeView({
         )}
         {tree.nodes.map((n) => {
           const { cx, cy } = at(n.id);
-          const strong = n.state !== 'idle' && n.state !== 'visited';
+          const strong = n.state !== 'idle' && n.state !== 'visited' && n.state !== 'discarded';
+          const out = n.state === 'discarded';
           return (
             <g
               key={n.id}
@@ -102,6 +112,9 @@ export function TreeView({
               data-value={n.value}
               data-column={run.columns[n.id]}
               data-state={n.state}
+              // Ruled out by the invariant: faded and dashed, so the colour is
+              // not the only signal.
+              opacity={out ? 0.45 : undefined}
             >
               <circle
                 cx={cx}
@@ -110,6 +123,7 @@ export function TreeView({
                 fill={CELL_FILL[n.state]}
                 stroke={CELL_STROKE[n.state]}
                 strokeWidth={strong ? 2.4 : 1.2}
+                strokeDasharray={out ? '4 3' : undefined}
               />
               {n.state === 'found' || n.state === 'leaving' ? (
                 <text

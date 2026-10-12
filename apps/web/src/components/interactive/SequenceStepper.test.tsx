@@ -855,6 +855,53 @@ describe('<SequenceStepper> · height and search on binary-tree (#321)', () => {
   });
 });
 
+describe('<SequenceStepper> · the bst recipe (#321)', () => {
+  const walkToEnd = () => {
+    for (let i = 0; i < 80; i += 1) {
+      const next = screen.getByRole('button', { name: 'Adelante' });
+      if (next.getAttribute('aria-disabled') === 'true') break;
+      fireEvent.click(next);
+    }
+  };
+
+  it('fades what a search rules out', () => {
+    renderIn(
+      'book',
+      <SequenceStepper eda="bst" operation="search" values={[4, 2, 7, 1, 3, 6, 9]} target={6} />,
+    );
+    walkToEnd();
+    const faded = [
+      ...screen.getByTestId('tree-view').querySelectorAll('[data-node][data-state="discarded"]'),
+    ].map((n) => Number(n.getAttribute('data-value')));
+    expect(faded.sort((a, b) => a - b)).toEqual([1, 2, 3, 9]);
+  });
+
+  it('lands an inserted value in a column that was already there', () => {
+    renderIn(
+      'book',
+      <SequenceStepper eda="bst" operation="insert" values={[8, 5, 20]} value={12} />,
+    );
+    const slots = () => screen.getByTestId('tree-view').querySelectorAll('[data-slot]');
+    expect(slots()).toHaveLength(4);
+    walkToEnd();
+    expect(slots()).toHaveLength(4);
+    expect([...slots()].map((s) => s.getAttribute('data-value'))).toEqual(['5', '8', '12', '20']);
+  });
+
+  it('names the search tree in the chip', () => {
+    renderIn(
+      'book',
+      <SequenceStepper eda="bst" operation="search" values={[2, 1, 3]} target={3} />,
+    );
+    expect(screen.getByText(/árbol binario de búsqueda/)).toBeInTheDocument();
+  });
+
+  it('refuses a traversal on the search tree, and says which operations it has', () => {
+    renderIn('book', <SequenceStepper eda="bst" operation="inorder" values={[2, 1, 3]} />);
+    expect(screen.getByText(/buscar, insertar/)).toBeInTheDocument();
+  });
+});
+
 describe('<SequenceStepper> · the combinations 21-edd-arboles-i mounts', () => {
   // Pinned here because `app/contentRenders.test.tsx` never mounts the lazy
   // widget (apps/web/CLAUDE.md §2, class 4). Named for the act and slide they
@@ -888,6 +935,66 @@ describe('<SequenceStepper> · the combinations 21-edd-arboles-i mounts', () => 
       // Numbers only, and in no order: the search has to look on both sides.
       props: { eda: 'binary-tree', operation: 'search', values: [4, 9, 2, 7, 1, 8, 3], target: 8 },
     },
+    {
+      act: 'El árbol binario de búsqueda',
+      slide: 'El inorden de un árbol de búsqueda',
+      props: { eda: 'binary-tree', operation: 'inorder', values: [4, 2, 6, 1, 3, 5, 7] },
+    },
+    {
+      act: 'El árbol binario de búsqueda',
+      slide: 'Insertar a mano · la respuesta',
+      props: { eda: 'bst', operation: 'insert', values: [], value: [8, 5, 1, 4, 6, 7, 20, 12] },
+    },
+    {
+      act: 'Las operaciones del árbol de búsqueda',
+      slide: 'Buscar en un árbol de búsqueda',
+      props: { eda: 'bst', operation: 'search', values: [4, 2, 7, 1, 3, 6, 9], target: [6, 5] },
+    },
+    {
+      act: 'Las operaciones del árbol de búsqueda',
+      slide: 'Insertar en un árbol de búsqueda',
+      props: { eda: 'bst', operation: 'insert', values: [8, 5, 1, 4, 6, 7, 20], value: 12 },
+    },
+    {
+      act: 'Las operaciones del árbol de búsqueda',
+      slide: 'El mínimo y el máximo',
+      props: { eda: 'bst', operation: 'minimum', values: [4, 2, 7, 1, 3, 6, 9] },
+    },
+    {
+      act: 'Las operaciones del árbol de búsqueda',
+      slide: 'El sucesor y el predecesor',
+      props: { eda: 'bst', operation: 'successor', values: [4, 2, 7, 1, 3, 6, 9], target: [3, 4] },
+    },
+    {
+      act: 'Las operaciones del árbol de búsqueda',
+      slide: 'Eliminar una hoja',
+      props: { eda: 'bst', operation: 'remove', values: [4, 2, 7, 1, 3, 6, 9], target: 1 },
+    },
+    {
+      act: 'Las operaciones del árbol de búsqueda',
+      slide: 'Eliminar un nodo con un hijo',
+      props: { eda: 'bst', operation: 'remove', values: [8, 5, 1, 4, 6, 7, 20, 12], target: 1 },
+    },
+    {
+      act: 'Las operaciones del árbol de búsqueda',
+      slide: 'Eliminar un nodo con dos hijos',
+      props: { eda: 'bst', operation: 'remove', values: [8, 5, 1, 4, 6, 7, 20, 12], target: 8 },
+    },
+    {
+      act: 'Las operaciones del árbol de búsqueda',
+      slide: 'Eliminar con dos hijos · la respuesta',
+      props: { eda: 'bst', operation: 'remove', values: [8, 5, 1, 4, 6, 7, 20, 12], target: 5 },
+    },
+    {
+      act: 'Las operaciones del árbol de búsqueda',
+      slide: 'Siete valores en un orden',
+      props: { eda: 'bst', operation: 'insert', values: [], value: [4, 2, 6, 1, 3, 5, 7] },
+    },
+    {
+      act: 'Las operaciones del árbol de búsqueda',
+      slide: 'Los mismos siete valores, ordenados',
+      props: { eda: 'bst', operation: 'insert', values: [], value: [1, 2, 3, 4, 5, 6, 7] },
+    },
   ];
 
   it.each(mounted)('$act · $slide', ({ props }) => {
@@ -903,5 +1010,42 @@ describe('<SequenceStepper> · the combinations 21-edd-arboles-i mounts', () => 
       'true',
     );
     expect(document.querySelector('[data-authoring-error]')).toBeNull();
+  });
+});
+
+describe('<SequenceStepper> · removing from the bst (#321)', () => {
+  it('copies the successor into a node with two children, and keeps the node', () => {
+    renderIn(
+      'book',
+      <SequenceStepper
+        eda="bst"
+        operation="remove"
+        values={[8, 5, 1, 4, 6, 7, 20, 12]}
+        target={8}
+      />,
+    );
+    const view = () => screen.getByTestId('tree-view');
+    const rootColumn = view()
+      .querySelector('[data-node][data-value="8"]')!
+      .getAttribute('data-column');
+    for (let i = 0; i < 80; i += 1) {
+      const next = screen.getByRole('button', { name: 'Adelante' });
+      if (next.getAttribute('aria-disabled') === 'true') break;
+      fireEvent.click(next);
+    }
+    expect(view().querySelector('[data-node][data-value="8"]')).toBeNull();
+    // The root kept its column: only its value changed, to the successor's.
+    const twelves = view().querySelectorAll('[data-node][data-value="12"]');
+    expect(twelves).toHaveLength(1);
+    expect(twelves[0]!.getAttribute('data-column')).toBe(rootColumn);
+  });
+
+  it('names the operation and the states it paints in the legend', () => {
+    renderIn(
+      'book',
+      <SequenceStepper eda="bst" operation="remove" values={[2, 1, 3]} target={1} />,
+    );
+    expect(screen.getByText('eliminar')).toBeInTheDocument();
+    expect(screen.getByText('sale')).toBeInTheDocument();
   });
 });

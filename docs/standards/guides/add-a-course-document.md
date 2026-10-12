@@ -862,8 +862,17 @@ numbering, which would hang it under 3 (ADR-0083 §4). A value with no parent
 is refused, so are gaps left over at the end, a `null` on any other recipe is
 refused, and the cap of eight counts nodes, not gaps. A value may also be a symbol, so an expression tree keeps its operators
 (`values={['*', '+', '−', 3, 4, 5, 1]}` is (3 + 4) * (5 − 1)); a symbol on
-any other recipe is refused too. `search` keeps one name over the chains
-and the tree.
+any other recipe is refused too. A second tree recipe, `bst`, is the search tree: `values` is the
+insertion order that builds it (a repeated value is refused), `search`
+chooses a side at every node and fades the one the invariant rules out,
+`insert` (`value`, an array for several) hangs each value as a leaf in a
+column reserved from the first frame, with the inorder kept sorted in the
+strip, `minimum` walks left only (an empty tree is refused: `min()` throws
+there), `successor` (`target`) walks down once keeping the best candidate,
+and `remove` (`target`) runs the three cases — a leaf, one child, and two
+children by copying the successor's value into the node and removing the
+successor. `search` keeps one name over the chains and both trees, `insert`
+over the heap and `bst`.
 `values` is the starting contents; `value` feeds the inserts, `index` the
 positional operations (`get-at` included), and `target` both `search` and
 `insert-ordered`.
