@@ -2513,13 +2513,19 @@ vacío no hay nada que cambiar.
 
 <Slide title="Dar vuelta solo la raíz">
 La primera idea es intercambiar los dos hijos de la raíz. Los dos subárboles
-cambian de lado, pero cada uno queda igual por dentro, y el resultado no es el
-espejo: lo que pasa en la raíz tiene que pasar también en cada nodo de abajo.
+cambian de lado como bloques, pero cada uno queda igual por dentro; en el
+espejo, en cambio, cada uno también se da vuelta. Lo que pasa en la raíz
+tiene que pasar en cada nodo de abajo.
 
-<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1rem 2rem', alignItems: 'end' }}>
-<BinaryPicture tree={EXPR_ROOT_TURNED} tones={{ 5: 'mark', 1: 'mark', 3: 'mark', 4: 'mark' }} compact label="Con solo la raíz dada vuelta: (5 − 1) por (3 + 4). Los subárboles cambiaron de lado, pero el 5 sigue a la izquierda del 1 y el 3 a la izquierda del 4, marcados." caption="solo la raíz: (5 − 1) * (3 + 4)" />
-<BinaryPicture tree={EXPR_MIRROR} compact label="El espejo: (1 − 5) por (4 + 3)." caption="el espejo: (1 − 5) * (4 + 3)" />
+<PresentationWide fraction={0.9}>
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1rem', alignItems: 'end' }}>
+<BinaryPicture tree={EXPR} swap={['+', '−']} frames={{ '+': { text: 'suma', tone: 'keep' }, '−': { text: 'resta', tone: 'accent' } }} compact label="El árbol de la expresión, con la suma enmarcada en verde a la izquierda y la resta en naranjo a la derecha. Una flecha indica que los dos hijos de la raíz se intercambian." caption="se intercambian los hijos de la raíz" />
+<BinaryPicture tree={EXPR_ROOT_TURNED} tones={{ '*': 'mark' }} frames={{ '−': { text: 'resta', tone: 'accent' }, '+': { text: 'suma', tone: 'keep' } }} compact label="Con solo la raíz dada vuelta: la resta pasó a la izquierda y la suma a la derecha, pero por dentro quedaron igual: 5 menos 1 y 3 más 4." caption="solo la raíz: (5 − 1) * (3 + 4)" />
+<BinaryPicture tree={EXPR_MIRROR} frames={{ '−': { text: 'resta', tone: 'accent' }, '+': { text: 'suma', tone: 'keep' } }} compact label="El espejo: los dos subárboles cambiaron de lado y además cada uno se dio vuelta: 1 menos 5 y 4 más 3." caption="el espejo: (1 − 5) * (4 + 3)" />
 </div>
+
+</PresentationWide>
 
 </Slide>
 
@@ -2669,9 +2675,32 @@ hacer nada, y es la que termina la recursión bajo cada hoja.
 
 <Slide title="La visita entre las dos llamadas">
 El orden de la visita importa cuando la visita cambia el árbol. Si el
-intercambio se escribe entre las dos llamadas, como en un inorden, la segunda
-llamada baja al subárbol que la primera ya dio vuelta, y lo deja como estaba;
-el otro subárbol no lo toca nadie.
+intercambio se escribe entre las dos llamadas, como en un inorden, el espejo
+falla, y falla en tres pasos:
+
+1. La primera llamada da vuelta el subárbol izquierdo.
+2. El intercambio pone ese subárbol, ya dado vuelta, a la derecha, y el otro,
+   que nadie tocó, a la izquierda.
+3. La segunda llamada baja por la derecha: al mismo subárbol de antes, que se
+   da vuelta otra vez y queda como estaba.
+
+<PresentationWide fraction={0.9}>
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1rem', alignItems: 'end' }}>
+<BinaryPicture tree={EXPR_LEFT_TURNED} tones={{ '+': 'mark' }} frames={{ '+': { text: 'suma · 1 vuelta', tone: 'keep' }, '−': { text: 'resta · sin tocar', tone: 'accent' } }} compact label="Paso 1: la primera llamada dio vuelta la suma, que quedó 4 más 3. La resta, a la derecha, sigue sin tocar." caption="1. la primera llamada da vuelta la suma" />
+<BinaryPicture tree={EXPR_INORDER_SWAP} swap={['−', '+']} frames={{ '+': { text: 'suma · 1 vuelta', tone: 'keep' }, '−': { text: 'resta · sin tocar', tone: 'accent' } }} compact label="Paso 2: el intercambio pone la suma, ya dada vuelta, a la derecha, y la resta, sin tocar, a la izquierda." caption="2. el intercambio la pasa a la derecha" />
+<BinaryPicture tree={EXPR_ROOT_TURNED} tones={{ '+': 'mark' }} frames={{ '+': { text: 'suma · 2 vueltas', tone: 'keep' }, '−': { text: 'resta · sin tocar', tone: 'accent' } }} compact label="Paso 3: la segunda llamada baja a la suma otra vez y la deja como estaba, 3 más 4. La resta nunca se dio vuelta." caption="3. la segunda la da vuelta de nuevo" />
+</div>
+
+</PresentationWide>
+
+Un subárbol se dio vuelta dos veces y el otro ninguna: solo la raíz cambió.
+
+</Slide>
+
+<Slide title="Espejo en inorden · el código">
+Con el intercambio entre las dos llamadas, el método recorre esos tres pasos
+y termina en el resultado equivocado:
 
 <StepShow
   language="java"
@@ -2689,33 +2718,33 @@ el otro subárbol no lo toca nadie.
     <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>Se llama con la raíz, *.</div>
   </Step>
   <Step lines={[3]}>
-    <BinaryPicture tree={{ v: '*', l: { v: '+', l: { v: 3 }, r: { v: 4 } }, r: { v: '−', l: { v: 5 }, r: { v: 1 } } }} tones={{ '*': 'focus' }} path={['*', '+']} frames={{ '+': { text: 'suma', tone: 'keep' }, '−': { text: 'resta', tone: 'accent' } }} compact label="Antes de intercambiar nada, la raíz llama con su hijo izquierdo, la suma." />
-    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>mirror(*): primero llama con su hijo izquierdo, +.</div>
+    <BinaryPicture tree={{ v: '*', l: { v: '+', l: { v: 3 }, r: { v: 4 } }, r: { v: '−', l: { v: 5 }, r: { v: 1 } } }} tones={{ '*': 'focus' }} path={['*', '+']} frames={{ '+': { text: 'suma', tone: 'keep' }, '−': { text: 'resta', tone: 'accent' } }} compact label="Paso 1: antes de intercambiar nada, la raíz llama con su hijo izquierdo, la suma." />
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>1. La primera llamada es con el hijo izquierdo, la suma.</div>
   </Step>
   <Step lines={[3]}>
-    <BinaryPicture tree={{ v: '*', l: { v: '+', l: { v: 4 }, r: { v: 3 } }, r: { v: '−', l: { v: 5 }, r: { v: 1 } } }} tones={{ '*': 'focus', '+': 'mark' }} frames={{ '+': { text: 'suma', tone: 'keep' }, '−': { text: 'resta', tone: 'accent' } }} compact label="La llamada con la suma terminó y la dio vuelta: 4 más 3." />
-    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>mirror(+) terminó: la suma quedó dada vuelta, (4 + 3).</div>
+    <BinaryPicture tree={{ v: '*', l: { v: '+', l: { v: 4 }, r: { v: 3 } }, r: { v: '−', l: { v: 5 }, r: { v: 1 } } }} tones={{ '*': 'focus', '+': 'mark' }} frames={{ '+': { text: 'suma · 1 vuelta', tone: 'keep' }, '−': { text: 'resta · sin tocar', tone: 'accent' } }} compact label="La llamada con la suma terminó: la suma quedó dada vuelta, 4 más 3. La resta sigue sin tocar." />
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>1. La llamada termina: la suma quedó dada vuelta, (4 + 3).</div>
   </Step>
   <Step lines={[4, 5, 6]}>
-    <BinaryPicture tree={{ v: '*', l: { v: '−', l: { v: 5 }, r: { v: 1 } }, r: { v: '+', l: { v: 4 }, r: { v: 3 } } }} tones={{ '*': 'focus' }} swap={['−', '+']} frames={{ '+': { text: 'suma', tone: 'keep' }, '−': { text: 'resta', tone: 'accent' } }} compact label="La raíz intercambia sus dos lados: la resta, sin tocar, pasa a la izquierda, y la suma, ya dada vuelta, a la derecha." />
-    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>mirror(*): intercambia sus lados; la suma, ya dada vuelta, queda a la derecha.</div>
+    <BinaryPicture tree={{ v: '*', l: { v: '−', l: { v: 5 }, r: { v: 1 } }, r: { v: '+', l: { v: 4 }, r: { v: 3 } } }} tones={{ '*': 'focus' }} swap={['−', '+']} frames={{ '+': { text: 'suma · 1 vuelta', tone: 'keep' }, '−': { text: 'resta · sin tocar', tone: 'accent' } }} compact label="Paso 2: la raíz intercambia sus lados. La resta, sin tocar, pasa a la izquierda, y la suma, ya dada vuelta, a la derecha." />
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>2. El intercambio: la suma, ya dada vuelta, pasa a la derecha.</div>
   </Step>
   <Step lines={[7]}>
-    <BinaryPicture tree={{ v: '*', l: { v: '−', l: { v: 5 }, r: { v: 1 } }, r: { v: '+', l: { v: 4 }, r: { v: 3 } } }} tones={{ '*': 'focus' }} path={['*', '+']} frames={{ '+': { text: 'suma', tone: 'keep' }, '−': { text: 'resta', tone: 'accent' } }} compact label="La segunda llamada es con el hijo derecho, que ahora es la suma otra vez." />
-    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>mirror(*): llama con su hijo derecho, que ahora es el + otra vez.</div>
+    <BinaryPicture tree={{ v: '*', l: { v: '−', l: { v: 5 }, r: { v: 1 } }, r: { v: '+', l: { v: 4 }, r: { v: 3 } } }} tones={{ '*': 'focus' }} path={['*', '+']} frames={{ '+': { text: 'suma · 1 vuelta', tone: 'keep' }, '−': { text: 'resta · sin tocar', tone: 'accent' } }} compact label="Paso 3: la segunda llamada es con el hijo derecho, que ahora es la suma otra vez." />
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>3. La segunda llamada es con el hijo derecho: la suma otra vez.</div>
   </Step>
   <Step lines={[7]}>
-    <BinaryPicture tree={{ v: '*', l: { v: '−', l: { v: 5 }, r: { v: 1 } }, r: { v: '+', l: { v: 3 }, r: { v: 4 } } }} tones={{ '*': 'focus', '+': 'mark' }} frames={{ '+': { text: 'suma', tone: 'keep' }, '−': { text: 'resta', tone: 'accent' } }} compact label="La suma se dio vuelta por segunda vez y volvió a 3 más 4." />
-    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>mirror(+) terminó: la suma volvió a quedar (3 + 4).</div>
+    <BinaryPicture tree={{ v: '*', l: { v: '−', l: { v: 5 }, r: { v: 1 } }, r: { v: '+', l: { v: 3 }, r: { v: 4 } } }} tones={{ '*': 'focus', '+': 'mark' }} frames={{ '+': { text: 'suma · 2 vueltas', tone: 'keep' }, '−': { text: 'resta · sin tocar', tone: 'accent' } }} compact label="La suma se dio vuelta por segunda vez y volvió a 3 más 4." />
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>3. La suma se da vuelta otra vez y vuelve a (3 + 4).</div>
   </Step>
   <Step lines={[8]}>
-    <BinaryPicture tree={{ v: '*', l: { v: '−', l: { v: 5 }, r: { v: 1 } }, r: { v: '+', l: { v: 3 }, r: { v: 4 } } }} tones={{ '−': 'mark', 5: 'mark', 1: 'mark' }} frames={{ '+': { text: 'suma', tone: 'keep' }, '−': { text: 'resta', tone: 'accent' } }} compact label="El resultado es (5 − 1) por (3 + 4): la resta, marcada, nunca se dio vuelta." />
-    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>Resultado: (5 − 1) * (3 + 4). La resta nunca se dio vuelta.</div>
+    <BinaryPicture tree={{ v: '*', l: { v: '−', l: { v: 5 }, r: { v: 1 } }, r: { v: '+', l: { v: 3 }, r: { v: 4 } } }} tones={{ '−': 'mark', 5: 'mark', 1: 'mark' }} frames={{ '+': { text: 'suma · 2 vueltas', tone: 'keep' }, '−': { text: 'resta · sin tocar', tone: 'accent' } }} compact label="El resultado es (5 − 1) por (3 + 4): solo la raíz cambió. La suma se dio vuelta dos veces y la resta, marcada, ninguna." />
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>Resultado: (5 − 1) * (3 + 4). Solo la raíz cambió.</div>
   </Step>
 </StepShow>
 
 En postorden, con el intercambio después de las dos llamadas, el espejo sale
-bien: cada nodo intercambia dos subárboles que ya se dieron vuelta.
+bien: cada subárbol se da vuelta una sola vez, antes de cambiar de lado.
 
 </Slide>
 
@@ -2728,10 +2757,10 @@ hoja, así que el código no necesita ningún caso aparte.
 
 <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: '1rem 2rem', alignItems: 'flex-end' }}>
 <div style={{ flex: '1 1 200px', maxWidth: '260px' }}>
-<BinaryPicture tree={ONE_CHILD} minColumns={3} compact label="Un árbol con nodos de un solo hijo: el 8 tiene solo un hijo izquierdo, el 3, y el 3 tiene solo un hijo derecho, el 5." caption="nodos con un solo hijo" />
+<BinaryPicture tree={ONE_CHILD} minColumns={3} compact label="Un árbol con nodos de un solo hijo: el 8 tiene solo un hijo izquierdo, el 3, y el 3 tiene solo un hijo derecho, el 5." caption="el árbol" />
 </div>
 <div style={{ flex: '1 1 200px', maxWidth: '260px' }}>
-<BinaryPicture tree={ONE_CHILD_MIRROR} minColumns={3} tones={{ 3: 'mark', 5: 'mark' }} compact label="Su espejo: el 3 pasó a ser el hijo derecho del 8, y el 5, el hijo izquierdo del 3. Los dos están marcados." caption="su espejo: cada hijo solo cambió de lado" />
+<BinaryPicture tree={ONE_CHILD_MIRROR} minColumns={3} tones={{ 3: 'mark', 5: 'mark' }} compact label="Su espejo: el 3 pasó a ser el hijo derecho del 8, y el 5, el hijo izquierdo del 3. Los dos están marcados." caption="su espejo" />
 </div>
 </div>
 
