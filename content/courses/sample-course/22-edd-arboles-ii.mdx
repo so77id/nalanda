@@ -1,0 +1,979 @@
+---
+id: edd-arboles-ii
+title: Estructuras de Datos Avanzadas · Árboles II
+presentation: explicit
+questions: none
+---
+
+{/* `none` es un TODAVÍA NO, no una decisión: el valor se fija con el profesor al cerrar #322, con las preguntas aprobadas una a una. */}
+
+{/* Moved from Árboles I (#321) on 2026-10-12, when that class split in two: its two search-tree acts and their three exercises, as they stood there. The opening, the acts on balance, the closing and Miguel's review of these slides are #322's work. */}
+
+# Estructuras de Datos Avanzadas · Árboles II
+
+{/* PROVISIONAL lead, to be rewritten in #322: it only says where the class starts from. */}
+
+Buscar un valor en un árbol binario obliga a mirar sus dos subárboles: nada
+dice de qué lado está. Un árbol de búsqueda pone un orden entre los valores,
+y con ese orden cada comparación descarta un subárbol entero.
+
+{/* BinaryPicture is a COPY of Árboles I's (§6e-quater): this is the second document that wants it, so #322 promotes it to a content component through add-a-content-component.md and both documents mount that one. Until then, a change to either copy is made to both. */}
+
+{/* BinaryPicture — a static drawing of a binary tree, with the geometry of the binary-tree recipe of <SequenceStepper> (sequenceStepperTreeLayout.ts): every node in the column of its inorder position and on the row of its depth, so a figure and the widget beside it draw the same tree. File-local like HierarchyPicture (§6e-quater). A tree is { v, l, r }; values are unique within one tree, because tones, badges and notes are keyed by them, and a value may be a symbol: an expression tree keeps its operators. */}
+{/* The drawings of an order, in HierarchyPicture's idiom: visits numbers the nodes in "pre" (focus), "in" (accent) or "post" (mark) order and draws an arrow from every visit to the next — along the edge when the next is a child or the parent, dashed when the walk jumps to another branch; sequence writes the visit order under the tree as a row of chips. holes draws the empty tree under every missing child, as a dashed square. ruler draws the height at the left ("h = 2"), and levelNotes writes one note per level at the right. A node toned "hidden" is not drawn, nor any edge that reaches it, but keeps its place: a tree built from the leaves up shows its subtrees loose before their parent is made; fresh names the node just added, whose edge is drawn in the mark colour. */}
+
+{/* edgeLabels writes a word beside the edge that reaches a node, keyed by that node's value: the side it hangs on, izquierdo or derecho. frames draws a dashed box around the subtree rooted at a node, keyed by that node's value, with its name under it. */}
+
+export function BinaryPicture({ tree, tones = {}, badges = {}, notes = {}, levels = false, strip = false, caption, size = 1, minColumns = 0, compact = false, visits, sequence = false, holes = false, ruler, levelNotes, fresh, edgeLabels = {}, frames = {}, label }) {
+  const r = 17;
+  // compact narrows the columns for figures set three in a row, so each fills its own column at full size.
+  const pitch = compact ? 38 : 46;
+  const levelH = compact ? 50 : 56;
+  const pad = 16;
+  const labelW = (levels ? 58 : 0) + (ruler ? 46 : 0);
+  const noteW = levelNotes ? 72 : 0;
+  const nodes = [];
+  let column = 0;
+  const walk = (t, depth, parent) => {
+    if (!t) return null;
+    const me = { v: t.v, depth, parent, l: null, r: null };
+    me.l = walk(t.l, depth + 1, me);
+    me.x = column;
+    column += 1;
+    nodes.push(me);
+    me.r = walk(t.r, depth + 1, me);
+    return me;
+  };
+  const root = walk(tree, 0, null);
+  const depth = Math.max(0, ...nodes.map((n) => n.depth));
+  const hasNotes = Object.keys(notes).length > 0;
+  const holeH = holes ? 26 : 0;
+  const frameH = Object.keys(frames).length > 0 ? 22 : 0;
+  // strip draws the inorder under the tree, one slot per column: each value lands under its own node.
+  const stripY = 2 * pad + 2 * r + depth * levelH + (hasNotes ? 12 : 0) + holeH + frameH + 6;
+  const treeH = strip ? stripY + 30 + pad : stripY - 6;
+  // The visit sequence: from the recursion itself.
+  const seq = [];
+  const order = (n) => {
+    if (!n) return;
+    if (visits === 'pre') seq.push(n);
+    order(n.l);
+    if (visits === 'in') seq.push(n);
+    order(n.r);
+    if (visits === 'post') seq.push(n);
+  };
+  if (visits) order(root);
+  const rank = {};
+  seq.forEach((n, i) => {
+    rank[n.v] = i + 1;
+  });
+  const seqColor = visits === 'post' ? 'var(--color-mark)' : visits === 'in' ? 'var(--color-accent)' : 'var(--color-focus)';
+  const chipW = (n) => String(n.v).length * 9 + 40;
+  const gap = 20;
+  const sequenceW = sequence ? seq.reduce((w, n, i) => w + chipW(n) + (i > 0 ? gap : 0), 0) : 0;
+  const sequenceY = treeH + 6;
+  const fullH = treeH + (sequence ? 42 : 0);
+  // minColumns gives figures set side by side one canvas width, so their nodes come out the same size; the tree is centred in it.
+  const columns = Math.max(column, minColumns, 1);
+  const shift = ((columns - column) / 2) * pitch;
+  // A caption, or the row of chips, wider than the drawing widens the canvas, and the drawing is centred in it, so nothing is clipped.
+  const drawingW = labelW + 2 * pad + columns * pitch + noteW;
+  const width = Math.max(drawingW, caption ? caption.length * 6.6 + 24 : 0, sequenceW + 2 * pad);
+  const offset = (width - drawingW) / 2;
+  const height = fullH + (caption ? 20 : 0);
+  const cx = (n) => offset + labelW + pad + shift + (n.x + 0.5) * pitch;
+  const cy = (n) => pad + r + n.depth * levelH;
+  const rowY = (d) => pad + r + d * levelH;
+  const TONE = {
+    idle: ['var(--color-surface)', 'var(--color-rule-strong)', 1.3],
+    focus: ['var(--color-surface)', 'var(--color-focus)', 2.4],
+    mark: ['var(--color-mark-soft)', 'var(--color-mark)', 2.2],
+    keep: ['var(--color-keep-soft)', 'var(--color-keep)', 2.2],
+    done: ['var(--color-sunk)', 'var(--color-rule-strong)', 1.3],
+    faint: ['var(--color-surface)', 'var(--color-rule)', 1.2],
+  };
+  const shown = nodes.filter((n) => tones[n.v] !== 'hidden');
+  const head = (x, y, angle, color, key) => (
+    <polygon key={key} points="0,0 -8,-4.5 -8,4.5" transform={`translate(${x} ${y}) rotate(${angle})`} style={{ fill: color }} />
+  );
+  const dot = (x, y, k, color, key) => (
+    <g key={key}>
+      <circle cx={x} cy={y} r="8.5" style={{ fill: color }} />
+      <text x={x} y={y + 3.8} textAnchor="middle" fontSize="10.5" fontWeight="700" style={{ fill: 'var(--color-ground)' }}>{k}</text>
+    </g>
+  );
+  // An edge between a parent and a child, trimmed to the two circles.
+  const ends = (p, c) => {
+    const dx = cx(c) - cx(p);
+    const dy = cy(c) - cy(p);
+    const len = Math.hypot(dx, dy);
+    return { x1: cx(p) + (dx / len) * r, y1: cy(p) + (dy / len) * r, x2: cx(c) - (dx / len) * r, y2: cy(c) - (dy / len) * r, angle: (Math.atan2(dy, dx) * 180) / Math.PI };
+  };
+  // From one visit to the next: along the edge, down to a child or up to the parent; otherwise a dashed jump that leaves the right of one and enters the left of the next, both ends level, so the head points the way the line arrives.
+  const step = (a, b, key) => {
+    const down = b.parent === a;
+    const up = a.parent === b;
+    if (down || up) {
+      const e = down ? ends(a, b) : ends(b, a);
+      const mx = (e.x1 + e.x2) / 2;
+      const my = (e.y1 + e.y2) / 2;
+      const rad = (e.angle * Math.PI) / 180;
+      const s = down ? 4 : -4;
+      return (
+        <g key={key}>
+          <line x1={e.x1} y1={e.y1} x2={e.x2} y2={e.y2} style={{ stroke: seqColor }} strokeWidth="2.4" />
+          {head(mx + s * Math.cos(rad), my + s * Math.sin(rad), down ? e.angle : e.angle + 180, seqColor, `${key}-h`)}
+        </g>
+      );
+    }
+    const sx = cx(a) + r + 2;
+    const sy = cy(a) + 2;
+    const ex = cx(b) - r - 2;
+    const ey = cy(b) + 2;
+    const d = Math.max(18, (ex - sx) / 2);
+    return (
+      <g key={key}>
+        <path d={`M ${sx} ${sy} C ${sx + d} ${sy}, ${ex - d} ${ey}, ${ex - 7} ${ey}`} fill="none" style={{ stroke: seqColor }} strokeWidth="1.8" strokeDasharray="5 4" />
+        {head(ex, ey, 0, seqColor, `${key}-h`)}
+      </g>
+    );
+  };
+  return (
+    <svg viewBox={`0 0 ${width} ${height}`} style={{ width: '100%', maxWidth: `${Math.round(width * 1.4 * size)}px`, height: 'auto', display: 'block', margin: '1rem auto' }} role="img" aria-label={label}>
+      {levels
+        ? [...Array(depth + 1).keys()].map((d) => (
+            <g key={`lv${d}`}>
+              <line x1={offset + labelW - 4} y1={rowY(d)} x2={offset + drawingW - noteW - 4} y2={rowY(d)} style={{ stroke: 'var(--color-rule)' }} strokeWidth="1" strokeDasharray="3 5" />
+              <text x={offset + (ruler ? 50 : 4)} y={rowY(d) + 4} fontSize="11" style={{ fill: 'var(--color-ink-faint)' }}>{`nivel ${d}`}</text>
+            </g>
+          ))
+        : null}
+      {ruler ? (
+        <g>
+          <line x1={offset + 24} y1={rowY(0)} x2={offset + 24} y2={rowY(depth)} style={{ stroke: 'var(--color-ink)' }} strokeWidth="1.8" />
+          {[...Array(depth + 1).keys()].map((d) => (
+            <line key={`rt${d}`} x1={offset + 18} y1={rowY(d)} x2={offset + 30} y2={rowY(d)} style={{ stroke: 'var(--color-ink)' }} strokeWidth="1.8" />
+          ))}
+          <text x={offset + 12} y={(rowY(0) + rowY(depth)) / 2} textAnchor="middle" fontSize="13" fontWeight="700" transform={`rotate(-90 ${offset + 12} ${(rowY(0) + rowY(depth)) / 2})`} style={{ fill: 'var(--color-ink)' }}>{ruler}</text>
+        </g>
+      ) : null}
+      {levelNotes
+        ? levelNotes.map((note, d) => (
+            <text key={`ln${d}`} x={offset + drawingW - noteW + 8} y={rowY(d) + 4} fontSize="12" fontWeight="600" style={{ fill: 'var(--color-ink-soft)' }}>{note}</text>
+          ))
+        : null}
+      {Object.entries(frames).map(([key, text]) => {
+        const top = nodes.find((n) => String(n.v) === key);
+        if (!top) return null;
+        const subtree = (n) => (n ? [n, ...subtree(n.l), ...subtree(n.r)] : []);
+        const members = subtree(top);
+        const x1 = Math.min(...members.map(cx)) - r - 8;
+        const x2 = Math.max(...members.map(cx)) + r + 8;
+        const y1 = cy(top) - r - 7;
+        const y2 = Math.max(...members.map(cy)) + r + 7;
+        return (
+          <g key={`f${key}`}>
+            <rect x={x1} y={y1} width={x2 - x1} height={y2 - y1} rx="12" style={{ fill: 'var(--color-keep-soft)', stroke: 'var(--color-keep)' }} strokeWidth="1.4" strokeDasharray="5 4" />
+            <text x={(x1 + x2) / 2} y={y2 + 15} textAnchor="middle" fontSize="12" fontWeight="700" style={{ fill: 'var(--color-ink-soft)' }}>{text}</text>
+          </g>
+        );
+      })}
+      {shown.map((n) => {
+        if (n.parent === null || tones[n.parent.v] === 'hidden') return null;
+        const e = ends(n.parent, n);
+        const faint = tones[n.v] === 'faint';
+        const isFresh = n.v === fresh;
+        return <line key={`e${n.v}`} x1={e.x1} y1={e.y1} x2={e.x2} y2={e.y2} style={{ stroke: isFresh ? 'var(--color-mark)' : faint ? 'var(--color-rule)' : 'var(--color-rule-strong)' }} strokeWidth={isFresh ? 2.6 : 1.3} strokeDasharray={faint ? '4 3' : undefined} />;
+      })}
+      {shown
+        .filter((n) => n.parent !== null && edgeLabels[n.v] !== undefined)
+        .map((n) => {
+          const e = ends(n.parent, n);
+          const left = n === n.parent.l;
+          return (
+            <text key={`el${n.v}`} x={(e.x1 + e.x2) / 2 + (left ? -8 : 8)} y={(e.y1 + e.y2) / 2 + 3} textAnchor={left ? 'end' : 'start'} fontSize="12" fontWeight="700" paintOrder="stroke" strokeWidth="3" style={{ fill: 'var(--color-ink-soft)', stroke: 'var(--color-ground)' }}>{edgeLabels[n.v]}</text>
+          );
+        })}
+      {holes
+        ? shown.flatMap((n) =>
+            ['l', 'r']
+              .filter((side) => n[side] === null || tones[n[side].v] === 'hidden')
+              .map((side) => {
+                const x = cx(n) + (side === 'l' ? -1 : 1) * pitch * 0.32;
+                const y = cy(n) + r + 14;
+                return (
+                  <g key={`h${n.v}${side}`}>
+                    <line x1={cx(n) + (side === 'l' ? -1 : 1) * r * 0.6} y1={cy(n) + r * 0.8} x2={x} y2={y - 4} style={{ stroke: 'var(--color-rule)' }} strokeWidth="1.1" strokeDasharray="2 3" />
+                    <rect x={x - 6} y={y - 4} width="12" height="10" rx="2" style={{ fill: 'none', stroke: 'var(--color-rule-strong)' }} strokeWidth="1" strokeDasharray="2 2" />
+                  </g>
+                );
+              }),
+          )
+        : null}
+      {visits ? seq.slice(1).map((b, i) => step(seq[i], b, `s${b.v}`)) : null}
+      {shown.length === 0 && root ? (
+        <text x={cx(root)} y={cy(root) + 5} textAnchor="middle" fontSize="13" fontFamily="var(--font-mono, monospace)" style={{ fill: 'var(--color-ink-soft)' }}>root = null</text>
+      ) : null}
+      {shown.map((n) => {
+        const [fill, stroke, weight] = TONE[tones[n.v] ?? 'idle'];
+        const faint = tones[n.v] === 'faint';
+        return (
+          <g key={`n${n.v}`} opacity={faint ? 0.5 : undefined}>
+            <circle cx={cx(n)} cy={cy(n)} r={r} style={{ fill, stroke }} strokeWidth={weight} strokeDasharray={faint ? '4 3' : undefined} />
+            <text x={cx(n)} y={cy(n) + 5} textAnchor="middle" fontSize="14" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{n.v}</text>
+            {badges[n.v] !== undefined ? (
+              <text x={cx(n) + r - 1} y={cy(n) - r + 3} fontSize="10.5" fontWeight="700" paintOrder="stroke" strokeWidth="3" style={{ fill: 'var(--color-focus)', stroke: 'var(--color-ground)' }}>{badges[n.v]}</text>
+            ) : null}
+            {notes[n.v] !== undefined ? (
+              <text x={cx(n)} y={cy(n) + r + 12} textAnchor="middle" fontSize="10" paintOrder="stroke" strokeWidth="3" style={{ fill: 'var(--color-ink-soft)', stroke: 'var(--color-ground)' }}>{notes[n.v]}</text>
+            ) : null}
+          </g>
+        );
+      })}
+      {visits ? seq.map((n) => dot(cx(n) - r * 0.8, cy(n) - r * 0.8, rank[n.v], seqColor, `d${n.v}`)) : null}
+      {strip
+        ? nodes.map((n) => (
+            <g key={`s${n.v}`}>
+              <line x1={cx(n)} y1={cy(n) + r + 3} x2={cx(n)} y2={stripY - 3} style={{ stroke: 'var(--color-rule)' }} strokeWidth="1" strokeDasharray="2 4" />
+              <rect x={cx(n) - 19} y={stripY} width="38" height="30" rx="3" style={{ fill: 'var(--color-surface)', stroke: visits === 'in' ? seqColor : 'var(--color-rule-strong)' }} strokeWidth={visits === 'in' ? 1.6 : 1} />
+              <text x={cx(n)} y={stripY + 20} textAnchor="middle" fontSize="14" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{n.v}</text>
+            </g>
+          ))
+        : null}
+      {sequence
+        ? (() => {
+            let x = (width - sequenceW) / 2;
+            return seq.map((n, i) => {
+              const w = chipW(n);
+              const x0 = x + (i > 0 ? gap : 0);
+              x = x0 + w;
+              return (
+                <g key={`c${n.v}`}>
+                  {i > 0 ? <line x1={x0 - gap + 3} y1={sequenceY + 14} x2={x0 - 6} y2={sequenceY + 14} style={{ stroke: seqColor }} strokeWidth="1.6" /> : null}
+                  {i > 0 ? head(x0 - 2, sequenceY + 14, 0, seqColor, `ch${n.v}`) : null}
+                  <rect x={x0} y={sequenceY} width={w} height="28" rx="14" style={{ fill: 'var(--color-surface)', stroke: seqColor }} strokeWidth="1.6" />
+                  {dot(x0 + 13, sequenceY + 14, rank[n.v], seqColor, `cd${n.v}`)}
+                  <text x={x0 + 26 + (w - 26) / 2} y={sequenceY + 19} textAnchor="middle" fontSize="14" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{n.v}</text>
+                </g>
+              );
+            });
+          })()
+        : null}
+      {caption ? (
+        <text x={width / 2} y={fullH + 12} textAnchor="middle" fontSize="12" style={{ fill: 'var(--color-ink-soft)' }}>{caption}</text>
+      ) : null}
+    </svg>
+  );
+}
+
+{/* SortedRow — a sorted array drawn as a row of cells with their indices, one cell under the eye and a range set aside. File-local like HierarchyPicture (§6e-quater). */}
+
+export function SortedRow({ values, hot = -1, out = [], caption, label }) {
+  const box = 44;
+  const pad = 12;
+  // A caption wider than the row widens the canvas, and the row is centred in it.
+  const rowW = 2 * pad + values.length * box;
+  const width = Math.max(rowW, caption ? caption.length * 6.6 + 24 : 0);
+  const left = (width - rowW) / 2 + pad;
+  const height = 2 * pad + box + 18 + (caption ? 22 : 0);
+  return (
+    <svg viewBox={`0 0 ${width} ${height}`} style={{ width: '100%', maxWidth: `${Math.round(width * 1.3)}px`, height: 'auto', display: 'block', margin: '1rem auto' }} role="img" aria-label={label}>
+      {values.map((v, i) => {
+        const set = out.includes(i);
+        const isHot = i === hot;
+        return (
+          <g key={i} opacity={set ? 0.45 : undefined}>
+            <rect x={left + i * box} y={pad} width={box} height={box} rx="3" style={{ fill: isHot ? 'var(--color-surface)' : 'var(--color-surface)', stroke: isHot ? 'var(--color-focus)' : set ? 'var(--color-rule)' : 'var(--color-rule-strong)' }} strokeWidth={isHot ? 2.6 : 1.2} strokeDasharray={set ? '4 3' : undefined} />
+            <text x={left + i * box + box / 2} y={pad + box / 2 + 5} textAnchor="middle" fontSize="15" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{v}</text>
+            <text x={left + i * box + box / 2} y={pad + box + 14} textAnchor="middle" fontSize="10" style={{ fill: 'var(--color-ink-faint)' }}>{i}</text>
+          </g>
+        );
+      })}
+      {caption ? (
+        <text x={width / 2} y={height - 6} textAnchor="middle" fontSize="12" style={{ fill: 'var(--color-ink-soft)' }}>{caption}</text>
+      ) : null}
+    </svg>
+  );
+}
+
+{/* The tree the decisions of a binary search over 1..9 form: its inorder is the array itself. */}
+
+export const FROM_ARRAY = { v: 5, l: { v: 2, l: { v: 1 }, r: { v: 3, r: { v: 4 } } }, r: { v: 7, l: { v: 6 }, r: { v: 8, r: { v: 9 } } } };
+
+## El árbol binario de búsqueda
+
+<Slide title="La búsqueda binaria en un arreglo ordenado">
+En un arreglo **ordenado** se busca sin recorrerlo: se compara con el
+elemento del medio y, según sea mayor o menor, se descarta la mitad que no
+puede contenerlo. Cada comparación parte el problema en dos, así que bastan
+$$\lfloor \log_2 n \rfloor + 1$$ comparaciones.
+
+<SortedRow values={[1, 2, 3, 4, 5, 6, 7, 8, 9]} hot={4} out={[0, 1, 2, 3]} label="El arreglo ordenado del 1 al 9. Buscando el 7, la primera comparación es con el 5, el del medio, y la mitad izquierda, del 1 al 4, queda descartada." caption="buscar 7: se compara con 5, el del medio, y la mitad izquierda se descarta" />
+
+El problema es **insertar**. Para que el arreglo siga ordenado, un valor
+nuevo tiene que entrar en su lugar, y todos los mayores se corren una
+casilla: $$\Theta(n)$$.
+
+</Slide>
+
+<Slide title="Las decisiones de la búsqueda binaria">
+Las comparaciones de una búsqueda binaria siempre siguen el mismo patrón. La
+primera es con el elemento del medio; si el buscado es menor, la segunda es
+con el medio de la mitad izquierda; si es mayor, con el medio de la derecha;
+y así. Dibujadas, esas decisiones forman un **árbol binario**: el medio es la
+raíz, y cada mitad, un subárbol.
+
+<BinaryPicture tree={FROM_ARRAY} strip label="El árbol de decisiones de una búsqueda binaria sobre el arreglo del 1 al 9. La raíz es 5; a la izquierda, 2, con hijos 1 y 3, y el 3 con un hijo derecho, 4; a la derecha, 7, con hijos 6 y 8, y el 8 con un hijo derecho, 9. Debajo, el arreglo ordenado, con cada valor exactamente bajo su nodo." caption="el arreglo ordenado es el inorden del árbol" />
+
+Si, en lugar del arreglo, se guardan esas decisiones como **nodos
+enlazados**, buscar sigue siendo comparar y bajar por un lado. E insertar ya
+no corre nada: el valor nuevo se cuelga como una hoja en el lugar donde su
+búsqueda termina.
+
+</Slide>
+
+<Slide title="La invariante de orden">
+Un **árbol binario de búsqueda** —en inglés, *binary search tree*, o
+**BST**— es un árbol binario que cumple esta **invariante**:
+
+> **para cada nodo, todos los valores de su subárbol izquierdo son menores
+> que el suyo, y todos los de su subárbol derecho son mayores.**
+
+La palabra que importa es **todos**. No basta con que cada hijo esté del lado
+correcto de su padre: un valor tiene que estar del lado correcto de **cada**
+nodo por encima de él.
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem', alignItems: 'end' }}>
+<BinaryPicture tree={{ v: 5, l: { v: 3, l: { v: 1 }, r: { v: 4 } }, r: { v: 8 } }} minColumns={5} label="Un árbol de búsqueda: 5 con hijos 3 y 8; el 3 con hijos 1 y 4. Todo lo que está a la izquierda del 5 es menor que 5, y todo lo de la derecha, mayor." caption="cumple la invariante en cada nodo" />
+<BinaryPicture tree={{ v: 5, l: { v: 3, l: { v: 1 }, r: { v: 7 } }, r: { v: 8 } }} tones={{ 7: 'mark' }} notes={{ 7: '7 > 5' }} minColumns={5} label="Un árbol que no es de búsqueda: 5 con hijos 3 y 8; el 3 con hijos 1 y 7. Cada hijo está del lado correcto de su padre, pero el 7 está en el subárbol izquierdo del 5 y es mayor que 5." caption="7 está bien con su padre, 3, pero no con el 5" />
+</div>
+
+</Slide>
+
+<Slide title="Las invariantes del árbol de búsqueda">
+Un árbol binario de búsqueda sostiene tres propiedades:
+
+1. **Cada nodo tiene a lo más dos hijos, izquierdo y derecho.**
+2. **Cada nodo, salvo la raíz, tiene exactamente un padre.**
+3. **Todo el subárbol izquierdo de un nodo es menor que él, y todo el derecho
+   es mayor.** En particular, ningún valor se repite.
+
+Las dos primeras son las del árbol binario, sin cambios. La tercera es la
+nueva, y la que decide los costos: es la que permite descartar un subárbol
+entero en cada comparación, y la que cada inserción y cada eliminación tienen
+que dejar en pie.
+
+</Slide>
+
+<Slide title="El inorden de un árbol de búsqueda">
+**El inorden de un árbol binario de búsqueda entrega sus valores ordenados de
+menor a mayor.**
+
+La razón es la misma definición recursiva. El inorden de un nodo es el
+inorden de su subárbol izquierdo, después el nodo, y después el inorden del
+derecho. Por la invariante, todo lo de la izquierda es menor que el nodo y
+todo lo de la derecha es mayor; si cada subárbol, más pequeño, ya sale
+ordenado, el nodo queda exactamente entre los dos, y el total sale ordenado.
+
+<SequenceStepper eda="binary-tree" operation="inorder" values={[4, 2, 6, 1, 3, 5, 7]} />
+
+</Slide>
+
+<Slide title="Insertar a mano · la pregunta">
+Insertemos, en este orden, los valores 8, 5, 1, 4, 6, 7, 20 y 12 en un árbol
+de búsqueda vacío: cada valor baja desde la raíz eligiendo un lado en cada
+nodo, y se cuelga como hoja donde no hay más. Después escribamos el inorden
+del árbol que queda.
+
+</Slide>
+
+<Slide title="Insertar a mano · la respuesta">
+Cada valor quedó donde su búsqueda terminó, y el inorden, en la tira de
+abajo, sale ordenado.
+
+<SequenceStepper eda="bst" operation="insert" values={[]} value={[8, 5, 1, 4, 6, 7, 20, 12]} />
+
+</Slide>
+
+<SectionBreak />
+
+## Las operaciones del árbol de búsqueda
+
+<Slide title="El árbol de búsqueda en Java">
+La clase guarda la raíz y ofrece métodos públicos que delegan en uno
+recursivo, que recibe la raíz de un subárbol. Para comparar dos valores se
+usa `compareTo`, así que el tipo de los valores tiene que ser comparable.
+
+```java
+class BST<T extends Comparable<T>> {
+    Node<T> root;
+
+    boolean contains(T value) {
+        return contains(root, value);
+    }
+
+    void insert(T value) {
+        root = insert(root, value);
+    }
+
+    void remove(T value) {
+        root = remove(root, value);
+    }
+}
+```
+
+`insert` y `remove` reasignan la raíz con lo que devuelve la versión
+recursiva, porque insertar en un árbol vacío crea la raíz, y eliminarla
+puede dejar otra en su lugar. Los nodos son los mismos `Node<T>` del árbol
+binario.
+
+</Slide>
+
+<Slide title="Buscar en un árbol de búsqueda">
+En cada nodo hay tres respuestas posibles: el valor es el buscado, es mayor,
+o es menor. Si el buscado es menor, la invariante garantiza que no está a la
+derecha, y se sigue solo por la izquierda; si es mayor, al revés. La
+búsqueda baja por **un solo camino** y termina en el valor o en un subárbol
+vacío.
+
+<SequenceStepper eda="bst" operation="search" values={[4, 2, 7, 1, 3, 6, 9]} target={[6, 5]} />
+
+Un camino desde la raíz tiene a lo más $$h + 1$$ nodos, así que buscar cuesta
+$$O(h)$$, se encuentre o no el valor.
+
+</Slide>
+
+<Slide title="Insertar en un árbol de búsqueda">
+Para insertar, se busca el valor. Si aparece, no se hace nada: el árbol no
+guarda repetidos. Si la búsqueda termina en un subárbol vacío, ahí se cuelga
+el valor nuevo como una **hoja**.
+
+<SequenceStepper eda="bst" operation="insert" values={[8, 5, 1, 4, 6, 7, 20]} value={12} />
+
+La invariante queda en pie: la hoja nueva quedó del lado que eligió cada
+comparación, el lado correcto de cada nodo por encima de ella. Ningún otro
+nodo se mueve, y el costo es el de la búsqueda: $$O(h)$$.
+
+</Slide>
+
+<Slide title="El mínimo y el máximo">
+Por la invariante, todo lo menor que un nodo está a su izquierda. El
+**mínimo** es entonces el nodo de más a la izquierda: se baja por la
+izquierda hasta un nodo que no tenga hijo izquierdo. El **máximo** es el
+simétrico: se baja por la derecha.
+
+<SequenceStepper eda="bst" operation="minimum" values={[4, 2, 7, 1, 3, 6, 9]} />
+
+Los dos bajan por un solo camino: $$O(h)$$. En un árbol vacío no hay mínimo,
+y el método lanza una excepción.
+
+</Slide>
+
+<Slide title="El sucesor y el predecesor">
+El **sucesor** de un valor es el menor valor del árbol que es mayor que él.
+Se encuentra con una sola bajada desde la raíz: en cada nodo mayor que el
+valor, ese nodo es un candidato y uno mejor solo puede estar a su izquierda;
+en cada nodo menor o igual, el sucesor solo puede estar a su derecha. El
+último candidato es el sucesor.
+
+<SequenceStepper eda="bst" operation="successor" values={[4, 2, 7, 1, 3, 6, 9]} target={[3, 4]} />
+
+Si el valor tiene subárbol derecho, el sucesor es el mínimo de ese subárbol;
+si no, es el ancestro más cercano desde el que se bajó por la izquierda. El
+**predecesor**, el mayor valor menor que él, es el simétrico. Los dos cuestan
+$$O(h)$$.
+
+</Slide>
+
+<Slide title="Eliminar una hoja">
+Para eliminar, primero se busca el valor. Cuando el nodo que lo tiene es una
+**hoja**, basta con que su padre deje de apuntarle: la recursión devuelve el
+subárbol vacío y el padre lo guarda en lugar del nodo.
+
+<SequenceStepper eda="bst" operation="remove" values={[4, 2, 7, 1, 3, 6, 9]} target={1} />
+
+</Slide>
+
+<Slide title="Eliminar un nodo con un hijo">
+Cuando el nodo tiene **un solo hijo**, su padre pasa a apuntar a ese hijo.
+
+<SequenceStepper eda="bst" operation="remove" values={[8, 5, 1, 4, 6, 7, 20, 12]} target={1} />
+
+</Slide>
+
+La invariante se mantiene: todo el subárbol del hijo estaba del mismo lado
+del padre que el nodo eliminado.
+
+<Slide title="Eliminar un nodo con dos hijos">
+Con **dos hijos**, el nodo toma el valor de su **sucesor** y se elimina el sucesor.
+
+<SequenceStepper eda="bst" operation="remove" values={[8, 5, 1, 4, 6, 7, 20, 12]} target={8} />
+
+</Slide>
+
+Sacar el nodo dejaría dos subárboles colgando, y su padre solo tiene lugar
+para uno; por eso se reemplaza su valor en lugar de quitarlo. El sucesor es el mínimo del subárbol derecho, y su valor es mayor que todo lo de la izquierda y menor que todo lo
+demás de la derecha, así que la invariante queda en pie. Y el sucesor, por
+ser el mínimo de un subárbol, no tiene hijo izquierdo: eliminarlo es uno de
+los dos casos anteriores. Todo el trabajo es bajar dos veces por un camino:
+$$O(h)$$.
+
+<Slide title="Eliminar con dos hijos · la pregunta">
+En este árbol, el 5 tiene dos hijos. Antes de pasar a la respuesta,
+dibujemos cómo queda el árbol después de eliminarlo.
+
+<BinaryPicture tree={{ v: 8, l: { v: 5, l: { v: 1, r: { v: 4 } }, r: { v: 6, r: { v: 7 } } }, r: { v: 20, l: { v: 12 } } }} tones={{ 5: 'focus' }} label="Un árbol de búsqueda: 8 en la raíz; a su izquierda el 5, con hijos 1 y 6; el 1 con un hijo derecho, 4; el 6 con un hijo derecho, 7; a la derecha del 8, el 20, con un hijo izquierdo, 12. El 5 está marcado." caption="eliminar 5, que tiene dos hijos" />
+
+</Slide>
+
+<Slide title="Eliminar con dos hijos · la respuesta">
+El 5 toma el valor de su sucesor, 6, y el 6 de abajo deja su lugar al 7.
+
+<SequenceStepper eda="bst" operation="remove" values={[8, 5, 1, 4, 6, 7, 20, 12]} target={5} />
+
+</Slide>
+
+<Slide title="Costos del árbol de búsqueda">
+Cada operación baja por un camino desde la raíz, así que todas cuestan lo
+mismo: la altura.
+
+| Molde     | Operación                       | Peor caso  | Invariante que restaura                                    |
+| --------- | ------------------------------- | ---------- | ---------------------------------------------------------- |
+| Consultar | `contains`                      | $$O(h)$$   | Ninguna: no cambia el árbol                                |
+| Consultar | mínimo, máximo                  | $$O(h)$$   | Ninguna: no cambia el árbol                                |
+| Consultar | sucesor, predecesor             | $$O(h)$$   | Ninguna: no cambia el árbol                                |
+| Modificar | `insert`                        | $$O(h)$$   | La de orden: la hoja nueva queda del lado que eligió cada comparación |
+| Modificar | `remove`                        | $$O(h)$$   | La de orden: el sucesor cabe exactamente en el lugar que deja |
+
+Y la altura de un árbol de $$n$$ nodos está entre $$\lfloor \log_2 n \rfloor$$
+y $$n - 1$$.
+
+</Slide>
+
+<Slide title="Siete valores en un orden">
+Los valores del 1 al 7, insertados en el orden 4, 2, 6, 1, 3, 5, 7: cada uno
+cae en un nivel todavía incompleto, y el árbol queda lleno.
+
+<SequenceStepper eda="bst" operation="insert" values={[]} value={[4, 2, 6, 1, 3, 5, 7]} />
+
+</Slide>
+
+<Slide title="Los mismos siete valores, ordenados">
+Los mismos valores, insertados de menor a mayor: cada uno es mayor que todos
+los anteriores, así que siempre baja por la derecha y se cuelga al final.
+
+<SequenceStepper eda="bst" operation="insert" values={[]} value={[1, 2, 3, 4, 5, 6, 7]} />
+
+El árbol quedó como una cadena de altura 6: buscar el 7 compara con todos
+los nodos, igual que en una lista enlazada.
+
+</Slide>
+
+<Slide title="La altura que nadie controla">
+El árbol de búsqueda responde cualquier pregunta sobre el orden —si un valor
+está, el mínimo, el sucesor, insertar o eliminar— bajando por un solo camino:
+cuesta la altura. Ninguna estructura de las que guardan elementos en fila
+hace todo eso a la vez en tiempo logarítmico.
+
+Pero la altura depende del **orden en que llegaron los valores**, y nada en el
+árbol la controla. La invariante de orden dice dónde va cada valor y no dice
+nada sobre la forma. Con los valores en el peor orden posible —ordenados—, el
+árbol es una lista, y cada operación cuesta $$\Theta(n)$$.
+
+Si las inserciones y las eliminaciones también cuidaran la **forma**,
+reacomodando el árbol cada vez que se cargue hacia un lado, la altura quedaría
+acotada por $$O(\log n)$$ y todas las operaciones con ella. El precio sería más
+trabajo en cada inserción y en cada eliminación. Ese es el compromiso de un
+**árbol de búsqueda balanceado**.
+
+</Slide>
+
+<SectionBreak />
+
+## Ejercicios
+
+{/* The tree the ancestor exercise threads through its beats: the class's own insertion of 8, 5, 1, 4, 6, 7, 20, 12. */}
+
+export const LCA_TREE = { v: 8, l: { v: 5, l: { v: 1, r: { v: 4 } }, r: { v: 6, r: { v: 7 } } }, r: { v: 20, l: { v: 12 } } };
+
+<Slide title="El ancestro común más bajo">
+Un **ancestro común** de dos nodos tiene a los dos en su subárbol, y un nodo
+cuenta en su propio subárbol. El **ancestro común más bajo** es el más
+profundo de todos: en un árbol genealógico, el antepasado más cercano.
+
+<BinaryPicture tree={LCA_TREE} tones={{ 4: 'mark', 7: 'mark', 5: 'keep' }} notes={{ 5: 'más bajo' }} label="El árbol de búsqueda 8, 5, 1, 4, 6, 7, 20, 12. Los valores 4 y 7 están marcados; su ancestro común más bajo es el 5." caption="4 y 7: el 8 y el 5 los tienen a los dos debajo, y el 5 es el más bajo" />
+
+El programa recibe la raíz de un árbol binario de búsqueda y dos valores que
+están en el árbol, y responde el valor de su ancestro común más bajo. Llamamos
+$$h$$ a la altura del árbol.
+
+```java
+static int lowestCommonAncestor(Node<Integer> root,
+        int a, int b)
+```
+
+| Valores  | Ancestro común más bajo |
+| -------- | ----------------------- |
+| 4 y 7    | 5                       |
+| 6 y 7    | 6                       |
+| 1 y 1    | 1                       |
+
+</Slide>
+
+<Slide title="La raíz como respuesta">
+La raíz tiene a todos los nodos en su subárbol, así que siempre es un
+ancestro común. Pero no siempre es el más bajo: para 4 y 7, el 8 es ancestro
+de los dos, y el 5, más abajo, también lo es. Una respuesta correcta tiene
+que saber **hasta dónde bajar** sin perder a ninguno de los dos.
+
+</Slide>
+
+<Slide title="Bajar mientras los dos estén del mismo lado">
+Por la invariante del árbol de búsqueda, en cada nodo se sabe de qué lado
+está cada valor. Si los dos son menores que el nodo, los dos están en su
+subárbol izquierdo, y el ancestro común más bajo también: se baja a la
+izquierda. Si los dos son mayores, a la derecha. En cuanto los dos **dejan de
+estar del mismo lado** —uno a cada lado, o uno es el nodo mismo—, ningún nodo
+de más abajo tiene a los dos: ese nodo es la respuesta.
+
+Con 4 y 7: los dos son menores que 8, así que se baja al 5. El 4 es menor que
+5 y el 7 es mayor: se separan, y el ancestro común más bajo es el 5.
+
+</Slide>
+
+<Slide title="Ancestro común · la solución">
+Una sola bajada desde la raíz, sin recursión: en cada nodo, o los dos van
+hacia el mismo lado, o se responde el nodo.
+
+<StepShow
+  language="java"
+  code={`static int lowestCommonAncestor(Node<Integer> root,
+        int a, int b) {
+    Node<Integer> node = root;
+    while (true) {
+        if (a < node.value && b < node.value) {
+            node = node.left;
+        } else if (a > node.value && b > node.value) {
+            node = node.right;
+        } else {
+            return node.value;
+        }
+    }
+}`}
+>
+  <Step lines={[3]}>
+    <BinaryPicture tree={LCA_TREE} tones={{ 8: 'focus', 4: 'mark', 7: 'mark' }} size={0.85} label="Se empieza en la raíz, el 8. Los valores buscados son 4 y 7." />
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Se empieza en la raíz, con 4 y 7.</div>
+  </Step>
+  <Step lines={[5, 6]}>
+    <BinaryPicture tree={LCA_TREE} tones={{ 8: 'done', 5: 'focus', 4: 'mark', 7: 'mark', 20: 'faint', 12: 'faint' }} size={0.85} label="4 y 7 son menores que 8: se baja al 5, y el subárbol derecho del 8 queda descartado." />
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>4 y 7 son menores que 8: los dos están a su izquierda, y se baja al 5.</div>
+  </Step>
+  <Step lines={[9, 10]}>
+    <BinaryPicture tree={LCA_TREE} tones={{ 8: 'done', 5: 'keep', 4: 'mark', 7: 'mark', 20: 'faint', 12: 'faint' }} size={0.85} label="4 es menor que 5 y 7 es mayor: se separan, y el 5 es el ancestro común más bajo." />
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>4 es menor que 5 y 7 es mayor: se separan. La respuesta es 5.</div>
+  </Step>
+</StepShow>
+
+</Slide>
+
+<Slide title="Un valor que es ancestro del otro">
+Con 6 y 7, el ciclo baja del 8 al 5 y del 5 al 6. Ahí el 6 no es menor ni
+mayor que el nodo: **es** el nodo, y la condición de bajar falla. El ciclo
+responde 6, que es correcto, porque un nodo cuenta en su propio subárbol. Con
+dos valores iguales, como 1 y 1, pasa lo mismo al llegar al 1.
+
+Como los dos valores están en el árbol, la bajada siempre se detiene en un
+nodo y nunca llega a un subárbol vacío.
+
+**Tiempo.** Cada vuelta del ciclo baja un nivel, así que hay a lo más
+$$h + 1$$ vueltas, y cada una hace a lo más cuatro comparaciones: $$O(h)$$.
+**Memoria.** Una sola referencia, `node`, sin recursión: $$\Theta(1)$$.
+
+</Slide>
+
+<Slide title="Ancestro común · el programa completo">
+<PresentationWide fraction={0.75}>
+<Exercise title="El ancestro común más bajo">
+
+```java starter
+class Node<T> {
+    T value;
+    Node<T> left;
+    Node<T> right;
+    Node(T value) { this.value = value; }
+}
+
+class Solution {
+    static int lowestCommonAncestor(Node<Integer> root,
+            int a, int b) {
+        Node<Integer> node = root;
+        while (true) {
+            if (a < node.value && b < node.value) {
+                node = node.left;
+            } else if (a > node.value && b > node.value) {
+                node = node.right;
+            } else {
+                return node.value;
+            }
+        }
+    }
+}
+```
+
+```java test
+Node<Integer> root = new Node<>(8);
+root.left = new Node<>(5);
+root.left.left = new Node<>(1);
+root.left.left.right = new Node<>(4);
+root.left.right = new Node<>(6);
+root.left.right.right = new Node<>(7);
+root.right = new Node<>(20);
+root.right.left = new Node<>(12);
+check(Solution.lowestCommonAncestor(root, 4, 7), 5);
+check(Solution.lowestCommonAncestor(root, 4, 12), 8);
+check(Solution.lowestCommonAncestor(root, 6, 7), 6);
+check(Solution.lowestCommonAncestor(root, 1, 1), 1);
+```
+
+</Exercise>
+</PresentationWide>
+
+</Slide>
+
+<Slide title="Un árbol de búsqueda de altura mínima">
+Un arreglo trae valores distintos, ya ordenados de menor a mayor, y hay que
+guardarlos en un árbol binario de búsqueda **lo más bajo posible**: con $$n$$
+valores, de altura $$\lfloor \log_2 n \rfloor$$.
+
+<BinaryPicture tree={{ v: 4, l: { v: 2, l: { v: 1 }, r: { v: 3 } }, r: { v: 6, l: { v: 5 }, r: { v: 7 } } }} strip label="Los valores del 1 al 7 en un árbol de búsqueda de altura 2: 4 en la raíz, 2 y 6 en el segundo nivel, y 1, 3, 5 y 7 abajo. Debajo, el arreglo ordenado, con cada valor bajo su nodo." caption="del 1 al 7: siete valores, altura 2" />
+
+El programa recibe el arreglo, que puede estar vacío, y devuelve la raíz del
+árbol, o `null` si no hay valores.
+
+```java
+static Node<Integer> build(int[] sorted)
+```
+
+| Arreglo            | Raíz   | Altura |
+| ------------------ | ------ | ------ |
+| 1 2 3 4 5 6 7      | 4      | 2      |
+| 1 2 3 4            | 2      | 2      |
+| 5                  | 5      | 0      |
+| vacío              | `null` | —      |
+
+</Slide>
+
+<Slide title="Insertar en orden">
+El árbol de búsqueda ya sabe insertar. Pero si los valores del arreglo se
+insertan en el orden en que vienen, cada uno es mayor que todos los
+anteriores y se cuelga siempre a la derecha: del 1 al 7 queda una cadena de
+altura 6, la **más alta** posible. El arreglo ordenado es justo el peor
+orden de llegada.
+
+<BinaryPicture tree={{ v: 1, r: { v: 2, r: { v: 3, r: { v: 4, r: { v: 5, r: { v: 6, r: { v: 7 } } } } } } }} size={0.7} label="Los valores del 1 al 7 insertados en orden: una cadena hacia la derecha de altura 6." caption="insertados en orden: altura 6" />
+
+</Slide>
+
+<Slide title="El medio como raíz">
+Para que el árbol quede bajo, la raíz tiene que dejar la mitad de los
+valores a cada lado: la raíz es el **elemento del medio**. Los menores, que
+están a su izquierda en el arreglo, forman el subárbol izquierdo, y los
+mayores, el derecho. Cada mitad es un arreglo ordenado más pequeño, y se arma
+con la misma regla: es la recursión de **dividir y conquistar**, y el árbol
+que resulta es el de las decisiones de una búsqueda binaria.
+
+Con el 1 al 7: el medio es 4. A su izquierda quedan 1, 2 y 3, con medio 2; a
+su derecha, 5, 6 y 7, con medio 6. Cada mitad que queda tiene un solo
+elemento, y es una hoja.
+
+</Slide>
+
+<Slide title="Altura mínima · la solución">
+Una versión recibe el tramo del arreglo, de `lo` a `hi`, que todavía hay que
+guardar; un tramo vacío es un subárbol vacío. La versión pública pide el
+arreglo entero.
+
+<StepShow
+  language="java"
+  code={`static Node<Integer> build(int[] sorted,
+        int lo, int hi) {
+    if (lo > hi) return null;
+    int mid = (lo + hi) / 2;
+    Node<Integer> node = new Node<>(sorted[mid]);
+    node.left = build(sorted, lo, mid - 1);
+    node.right = build(sorted, mid + 1, hi);
+    return node;
+}
+
+static Node<Integer> build(int[] sorted) {
+    return build(sorted, 0, sorted.length - 1);
+}`}
+>
+  <Step lines={[12, 4, 5]}>
+    <SortedRow values={[1, 2, 3, 4, 5, 6, 7]} hot={3} label="El tramo es el arreglo entero; el medio, en la posición 3, es el 4." />
+    <BinaryPicture tree={{ v: 4 }} size={0.7} label="La raíz, 4." />
+  </Step>
+  <Step lines={[6, 4, 5]}>
+    <SortedRow values={[1, 2, 3, 4, 5, 6, 7]} hot={1} out={[3, 4, 5, 6]} label="El tramo izquierdo, del 1 al 3; su medio es el 2." />
+    <BinaryPicture tree={{ v: 4, l: { v: 2 } }} size={0.7} label="El 2 a la izquierda del 4." />
+  </Step>
+  <Step lines={[6, 4, 5]}>
+    <SortedRow values={[1, 2, 3, 4, 5, 6, 7]} hot={0} out={[1, 2, 3, 4, 5, 6]} label="El tramo de un solo elemento, el 1." />
+    <BinaryPicture tree={{ v: 4, l: { v: 2, l: { v: 1 } } }} size={0.7} label="El 1 a la izquierda del 2." />
+  </Step>
+  <Step lines={[7, 4, 5]}>
+    <SortedRow values={[1, 2, 3, 4, 5, 6, 7]} hot={2} out={[0, 1, 3, 4, 5, 6]} label="El tramo de un solo elemento, el 3." />
+    <BinaryPicture tree={{ v: 4, l: { v: 2, l: { v: 1 }, r: { v: 3 } } }} size={0.7} label="El 3 a la derecha del 2." />
+  </Step>
+  <Step lines={[7, 4, 5]}>
+    <SortedRow values={[1, 2, 3, 4, 5, 6, 7]} hot={5} out={[0, 1, 2, 3]} label="El tramo derecho, del 5 al 7; su medio es el 6." />
+    <BinaryPicture tree={{ v: 4, l: { v: 2, l: { v: 1 }, r: { v: 3 } }, r: { v: 6 } }} size={0.7} label="El 6 a la derecha del 4." />
+  </Step>
+  <Step lines={[6, 4, 5]}>
+    <SortedRow values={[1, 2, 3, 4, 5, 6, 7]} hot={4} out={[0, 1, 2, 3, 5, 6]} label="El tramo de un solo elemento, el 5." />
+    <BinaryPicture tree={{ v: 4, l: { v: 2, l: { v: 1 }, r: { v: 3 } }, r: { v: 6, l: { v: 5 } } }} size={0.7} label="El 5 a la izquierda del 6." />
+  </Step>
+  <Step lines={[7, 4, 5]}>
+    <SortedRow values={[1, 2, 3, 4, 5, 6, 7]} hot={6} out={[0, 1, 2, 3, 4, 5]} label="El tramo de un solo elemento, el 7." />
+    <BinaryPicture tree={{ v: 4, l: { v: 2, l: { v: 1 }, r: { v: 3 } }, r: { v: 6, l: { v: 5 }, r: { v: 7 } } }} size={0.7} label="El 7 a la derecha del 6: el árbol completo, de altura 2." />
+  </Step>
+</StepShow>
+
+</Slide>
+
+<Slide title="Un arreglo de largo par y el arreglo vacío">
+Con un largo par, como 1 2 3 4, no hay un único medio: la división entera
+elige el de la izquierda, el 2. A su derecha quedan 3 y 4, que arman un
+subárbol de altura 1, y el árbol queda de altura 2, que es
+$$\lfloor \log_2 4 \rfloor$$: un lado queda un elemento más largo que el otro,
+y eso nunca suma un nivel de más. Con el arreglo vacío, `lo` es 0 y `hi` es
+$$-1$$: el primer caso devuelve `null` sin crear nada.
+
+**Tiempo.** Cada llamada con un tramo no vacío crea exactamente un nodo, y
+cada valor está en un solo tramo como medio: $$n$$ nodos, cada uno en tiempo
+constante, $$\Theta(n)$$. **Memoria.** El árbol ocupa $$\Theta(n)$$; la
+recursión, aparte, tiene la profundidad del árbol que arma,
+$$\lfloor \log_2 n \rfloor + 1$$ llamadas: $$\Theta(\log n)$$.
+
+</Slide>
+
+<Slide title="Altura mínima · el programa completo">
+<PresentationWide fraction={0.75}>
+<Exercise title="Un árbol de búsqueda de altura mínima">
+
+```java starter
+class Node<T> {
+    T value;
+    Node<T> left;
+    Node<T> right;
+    Node(T value) { this.value = value; }
+}
+
+class Solution {
+    static Node<Integer> build(int[] sorted,
+            int lo, int hi) {
+        if (lo > hi) return null;
+        int mid = (lo + hi) / 2;
+        Node<Integer> node = new Node<>(sorted[mid]);
+        node.left = build(sorted, lo, mid - 1);
+        node.right = build(sorted, mid + 1, hi);
+        return node;
+    }
+
+    static Node<Integer> build(int[] sorted) {
+        return build(sorted, 0, sorted.length - 1);
+    }
+}
+```
+
+```java test
+Node<Integer> t = Solution.build(new int[] {1, 2, 3, 4, 5, 6, 7});
+check((int) t.value, 4);
+check((int) t.left.value, 2);
+check((int) t.right.value, 6);
+check((int) t.left.left.value, 1);
+check((int) t.right.right.value, 7);
+Node<Integer> u = Solution.build(new int[] {1, 2, 3, 4});
+check((int) u.value, 2);
+check((int) u.right.right.value, 4);
+check(Solution.build(new int[] {5}).left == null, true);
+check(Solution.build(new int[] {}) == null, true);
+```
+
+</Exercise>
+</PresentationWide>
+
+</Slide>
+
+Un último ejercicio, propuesto, para resolver sin ver la respuesta:
+
+<Exercise title="Verificación de un árbol de búsqueda">
+
+Un árbol binario dice ser un árbol de búsqueda. Escribamos `isBST`, que
+recibe su raíz y responde si cumple la invariante: para cada nodo, **todos**
+los valores de su subárbol izquierdo son menores que el suyo, y **todos** los
+de su subárbol derecho son mayores. El árbol vacío la cumple.
+
+El árbol 5, con hijos 3 y 8, y con 1 y 4 debajo del 3, la cumple. El mismo
+árbol con un 7 en lugar del 4 no la cumple: el 7 es mayor que su padre, el 3,
+pero está a la izquierda del 5.
+
+```java starter
+class Node<T> {
+    T value;
+    Node<T> left;
+    Node<T> right;
+    Node(T value) { this.value = value; }
+}
+
+class Solution {
+    static boolean isBST(Node<Integer> root) {
+        return false;
+    }
+}
+```
+
+```java test
+Node<Integer> good = new Node<>(5);
+good.left = new Node<>(3);
+good.left.left = new Node<>(1);
+good.left.right = new Node<>(4);
+good.right = new Node<>(8);
+check(Solution.isBST(good), true);
+Node<Integer> trap = new Node<>(5);
+trap.left = new Node<>(3);
+trap.left.left = new Node<>(1);
+trap.left.right = new Node<>(7);
+trap.right = new Node<>(8);
+check(Solution.isBST(trap), false);
+check(Solution.isBST(null), true);
+check(Solution.isBST(new Node<>(9)), true);
+Node<Integer> twice = new Node<>(5);
+twice.left = new Node<>(5);
+check(Solution.isBST(twice), false);
+```
+
+```java solution
+class Node<T> {
+    T value;
+    Node<T> left;
+    Node<T> right;
+    Node(T value) { this.value = value; }
+}
+
+class Solution {
+    static boolean isBST(Node<Integer> root) {
+        return isBST(root, Long.MIN_VALUE, Long.MAX_VALUE);
+    }
+
+    static boolean isBST(Node<Integer> node, long min, long max) {
+        if (node == null) return true;
+        if (node.value <= min || node.value >= max) return false;
+        return isBST(node.left, min, node.value)
+            && isBST(node.right, node.value, max);
+    }
+}
+```
+
+</Exercise>

@@ -935,6 +935,30 @@ describe('<SequenceStepper> · the combinations 21-edd-arboles-i mounts', () => 
       // Numbers only, and in no order: the search has to look on both sides.
       props: { eda: 'binary-tree', operation: 'search', values: [4, 9, 2, 7, 1, 8, 3], target: 8 },
     },
+  ];
+
+  it.each(mounted)('$act · $slide', ({ props }) => {
+    renderIn('book', <SequenceStepper {...props} />);
+    expect(document.querySelector('[data-authoring-error]')).toBeNull();
+    for (let i = 0; i < 400; i += 1) {
+      const next = screen.getByRole('button', { name: 'Adelante' });
+      if (next.getAttribute('aria-disabled') === 'true') break;
+      fireEvent.click(next);
+    }
+    expect(screen.getByRole('button', { name: 'Adelante' })).toHaveAttribute(
+      'aria-disabled',
+      'true',
+    );
+    expect(document.querySelector('[data-authoring-error]')).toBeNull();
+  });
+});
+
+describe('<SequenceStepper> · the combinations 22-edd-arboles-ii mounts', () => {
+  // Pinned here because `app/contentRenders.test.tsx` never mounts the lazy
+  // widget (apps/web/CLAUDE.md §2, class 4). Named for the act and slide they
+  // come from, and each one WALKED to its last frame, not only mounted. These
+  // slides were Árboles I's until the class split in two (#321 → #322).
+  const mounted: { act: string; slide: string; props: SequenceStepperProps }[] = [
     {
       act: 'El árbol binario de búsqueda',
       slide: 'El inorden de un árbol de búsqueda',
