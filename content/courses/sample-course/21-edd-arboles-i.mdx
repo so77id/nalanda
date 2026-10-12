@@ -2321,11 +2321,14 @@ recorrieron.
 </Slide>
 
 <Slide title="La altura por recursión">
-La altura sigue la definición recursiva al pie de la letra. El árbol vacío
-tiene altura $$-1$$, para que una hoja, con dos subárboles vacíos, tenga
-altura $$1 + \max(-1, -1) = 0$$. Un nodo tiene una unidad más que el más alto
-de sus dos subárboles, así que responde **después** de ellos: es un
-postorden.
+La altura sigue la definición recursiva al pie de la letra. Un nodo tiene una
+unidad más que el más alto de sus dos subárboles, así que responde
+**después** de ellos: es un postorden.
+
+El árbol vacío tiene altura $$-1$$. No es una regla nueva: la altura cuenta
+aristas y una hoja tiene altura 0, así que el vacío tiene que valer $$-1$$
+para que $$1 + \max(-1, -1)$$ dé 0. Si la altura contara niveles, el vacío
+valdría 0 y una hoja 1; aquí cuenta aristas.
 
 <SequenceStepper eda="binary-tree" operation="height" values={['*', '+', '−', 3, 4, 5, 1]} />
 
