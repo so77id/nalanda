@@ -2,10 +2,28 @@
 id: edd-arboles-i
 title: Estructuras de Datos Avanzadas · Árboles I
 presentation: explicit
-questions: none
+questions: pool
 ---
 
-{/* `none` es un TODAVÍA NO, no una decisión: el valor se fija con el profesor en el último slice de #321 (S11), con las preguntas aprobadas una a una. */}
+{/* `pool`: un conjunto sin expectativa por sección. No `per-section`, porque */}
+{/* cada <Slide> es un h2 y exigir una pregunta por lámina serían cerca de */}
+{/* ochenta. Lo que el pool tiene que garantizar es densidad por RANGO: un */}
+{/* control se pide sobre un rango de secciones y cada copia saca cuatro, así */}
+{/* que un rango con menos de cuatro preguntas se rechaza (ErrPoolTooSmall). */}
+{/* COBERTURA. 19 preguntas, aprobadas una a una por el profesor (#321). */}
+{/* Rangos que SÍ llenan una copia de cuatro: */}
+{/*   · la clase entera: 19. */}
+{/*   · la apertura sola (Una carpeta dentro de otra → Desde arriba y desde */}
+{/*     abajo): 8. */}
+{/*   · el acto Recorridos de un árbol: 5. */}
+{/*   · el acto El árbol binario: 4, todas entre Dos hijos con nombre y El */}
+{/*     inorden. */}
+{/* Rangos que NO, y es deliberado: */}
+{/*   · el acto La clase árbol solo: 2. Junto con la apertura o con los */}
+{/*     recorridos, sí alcanza. */}
+{/*   · el árbol binario desde El código del inorden hasta Costos del árbol */}
+{/*     binario: ninguna. El profesor cerró el banco en el inorden. */}
+{/*   · los ejercicios, que no llevan ninguna pregunta por decisión. */}
 
 # Estructuras de Datos Avanzadas · Árboles I
 
@@ -5352,6 +5370,219 @@ class Solution {
 ```
 
 </Exercise>
+
+<Questions>
+
+<Question id="arbol-cuantas-aristas" anchor="el-arbol-y-sus-nodos">
+
+¿Cuántas aristas tiene un árbol de n nodos?
+
+- [x] n − 1
+- [ ] n
+- [ ] n + 1
+- [ ] Depende de cuántos hijos tenga cada nodo
+
+</Question>
+
+<Question id="arbol-que-es-una-hoja" anchor="hojas-y-nodos-internos">
+
+¿Qué es una hoja en un árbol?
+
+- [x] Un nodo que no tiene hijos
+- [ ] Un nodo que no tiene padre
+- [ ] Un nodo que está en el último nivel
+- [ ] Un nodo que tiene un solo hijo
+
+</Question>
+
+<Question id="arbol-caminos-desde-la-raiz" anchor="caminos-desde-la-raiz">
+
+¿Cuántos caminos hay desde la raíz hasta un nodo cualquiera?
+
+- [x] Exactamente uno
+- [ ] Uno por cada ancestro del nodo
+- [ ] Tantos como hijos tenga la raíz
+- [ ] Uno por cada nivel que hay sobre el nodo
+
+</Question>
+
+<Question id="arbol-que-son-los-ancestros" anchor="ancestros-descendientes-y-hermanos">
+
+¿Cuáles son los ancestros de un nodo?
+
+- [x] Los nodos del camino desde la raíz hasta él, sin contarlo
+- [ ] Todos los nodos de los niveles que están sobre él
+- [ ] Su padre y los hermanos de su padre
+- [ ] Los nodos que cuelgan de él, hasta las hojas
+
+</Question>
+
+<Question id="arbol-definicion-recursiva" anchor="subarboles">
+
+¿Cómo se define un árbol a partir de árboles más pequeños?
+
+- [x] Una raíz y, debajo de ella, cero o más subárboles
+- [ ] Una raíz y, debajo de ella, exactamente dos subárboles
+- [ ] Una raíz y, debajo de ella, un solo subárbol
+- [ ] Un subárbol por cada nivel, uno debajo del otro
+
+</Question>
+
+<Question id="arbol-que-es-la-profundidad" anchor="profundidad-y-niveles">
+
+¿Qué es la profundidad de un nodo?
+
+- [x] El largo del camino desde la raíz hasta él
+- [ ] El largo del camino más largo desde él hasta una hoja
+- [ ] La cantidad de nodos que cuelgan de él
+- [ ] La cantidad de hijos que tiene
+
+</Question>
+
+<Question id="arbol-altura-del-arbol" anchor="la-altura">
+
+¿Qué es la altura de un árbol?
+
+- [x] El largo del camino más largo desde la raíz hasta una hoja
+- [ ] El largo del camino más corto desde la raíz hasta una hoja
+- [ ] La cantidad de niveles que tiene
+- [ ] La cantidad de hojas que tiene
+
+</Question>
+
+<Question id="arbol-que-se-sabe-despues" anchor="desde-arriba-y-desde-abajo">
+
+¿Qué medida de un nodo se conoce recién después de conocer la de sus hijos?
+
+- [x] Su altura
+- [ ] Su profundidad
+- [ ] Su nivel
+- [ ] Su cantidad de ancestros
+
+</Question>
+
+<Question id="clase-arbol-por-donde-se-entra" anchor="el-nodo-y-el-arbol">
+
+¿Qué guarda la clase `Tree` para llegar a todos los nodos del árbol?
+
+- [x] Una referencia a la raíz, `root`
+- [ ] Una lista con todos los nodos
+- [ ] Una referencia a cada hoja
+- [ ] La cantidad de nodos y la altura
+
+</Question>
+
+<Question id="clase-arbol-arbol-vacio" anchor="el-nodo-y-el-arbol">
+
+¿Cómo se representa un árbol vacío?
+
+- [x] Un `Tree` con `root` en `null`
+- [ ] Un nodo con la secuencia de hijos vacía
+- [ ] Un `Tree` cuya raíz no tiene valor
+- [ ] Un nodo con el valor en `null`
+
+</Question>
+
+<Question id="recorrido-preorden-cuando" anchor="el-preorden">
+
+En preorden, ¿cuándo se visita un nodo?
+
+- [x] Antes que sus hijos
+- [ ] Después de sus hijos
+- [ ] Entre sus hijos
+- [ ] Al terminar su nivel
+
+</Question>
+
+<Question id="recorrido-que-cambia-segun-el-problema" anchor="el-codigo-del-preorden">
+
+En el código de un recorrido, ¿qué parte cambia según el problema?
+
+- [x] La visita: lo que se hace con cada nodo
+- [ ] El recorrido: el `for` sobre los hijos
+- [ ] El caso base, que decide cuándo parar
+- [ ] El orden en que se guardan los hijos
+
+</Question>
+
+<Question id="recorrido-orden-por-niveles" anchor="el-recorrido-por-niveles">
+
+¿En qué orden visita los nodos el recorrido por niveles?
+
+- [x] Un nivel completo antes que el siguiente
+- [ ] Un subárbol completo antes que el siguiente
+- [ ] Cada nodo después de todos sus descendientes
+- [ ] Las hojas primero, y la raíz al final
+
+</Question>
+
+<Question id="recorrido-cuando-entra-a-la-cola" anchor="una-cola-para-recorrer-por-niveles">
+
+En el recorrido por niveles, ¿cuándo entra un nodo a la cola?
+
+- [x] Cuando se visita su padre
+- [ ] Cuando se visita su hermano anterior
+- [ ] Cuando termina de visitarse su nivel
+- [ ] Al comienzo, junto con todos los demás
+
+</Question>
+
+<Question id="recorrido-cuanto-tiempo" anchor="el-costo-de-un-recorrido">
+
+¿Cuánto tiempo toma recorrer un árbol de n nodos?
+
+- [x] Lineal: cada nodo se visita una vez
+- [ ] Cuadrático: cada nodo recorre sus descendientes
+- [ ] Proporcional a la altura del árbol
+- [ ] Logarítmico, como en la búsqueda binaria
+
+</Question>
+
+<Question id="binario-que-es" anchor="dos-hijos-con-nombre">
+
+¿Qué es un árbol binario?
+
+- [x] Uno en que cada nodo tiene a lo más dos hijos, con nombre
+- [ ] Uno en que cada nodo tiene exactamente dos hijos
+- [ ] Uno cuyos valores van de menor a mayor, de izquierda a derecha
+- [ ] Uno que tiene exactamente dos niveles bajo la raíz
+
+</Question>
+
+<Question id="binario-que-es-una-hoja" anchor="una-definicion-recursiva">
+
+En la definición recursiva del árbol binario, ¿qué es una hoja?
+
+- [x] Un nodo con sus dos subárboles vacíos
+- [ ] Un árbol vacío
+- [ ] Un nodo con uno de sus subárboles vacío
+- [ ] Un nodo sin padre
+
+</Question>
+
+<Question id="binario-left-en-null" anchor="el-nodo-binario">
+
+En un nodo binario, ¿qué significa que `left` esté en `null`?
+
+- [x] Que su subárbol izquierdo es el árbol vacío
+- [ ] Que el nodo es una hoja
+- [ ] Que el nodo todavía no tiene valor
+- [ ] Que el nodo es la raíz
+
+</Question>
+
+<Question id="binario-cuando-visita-el-inorden" anchor="el-inorden">
+
+¿Cuándo visita el inorden a un nodo?
+
+- [x] Entre sus dos subárboles
+- [ ] Antes que sus dos subárboles
+- [ ] Después de sus dos subárboles
+- [ ] Al terminar su nivel
+
+</Question>
+
+</Questions>
 
 ## Lo que sigue
 
