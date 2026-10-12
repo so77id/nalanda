@@ -501,7 +501,7 @@ class Solution {
 
 The `test` fence is inlined as the body of a generated `main` (in class
 `NalandaCheck`), which is compiled beside the student's class and calls it —
-so what is checked is the method, not what the program printed. Two
+so what is checked is the method, not what the program printed. Three
 consequences worth knowing before you write one:
 
 - **Statements only.** No method or field declarations: they are legal in a
@@ -513,6 +513,12 @@ consequences worth knowing before you write one:
   `double` (compared with a 1e-9 tolerance, never `==`), `boolean`, `char`,
   `Object` (arrays compared by contents) and `int[]`, `long[]`, `char[]`,
   `boolean[]`.
+- **The starter's imports do not reach the fence, and the compiler is Java
+  8.** Qualify every library call in a case — `java.util.Arrays.asList(…)`,
+  not `List.of(…)`, which Java 8 does not have either. #321's posed
+  exercises shipped `List.of` checked against a newer JDK, and the browser
+  answered `List cannot be resolved`, then `of` undefined: check a fence with
+  `javac --release 8`, or by pressing **Comprobar** in the built site.
 
 The class named in `starter` and the one the cases call must agree.
 **Only Java validates**; C++ and Python refuse an exercise rather than report
