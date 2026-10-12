@@ -2343,9 +2343,6 @@ Tres propiedades dicen qué tan lleno está un árbol binario:
 - **Completo**: todos los niveles están llenos, salvo quizás el último, que
   se llena de izquierda a derecha, sin huecos.
 
-Un árbol de expresión es siempre estricto: cada operador tiene exactamente dos
-operandos.
-
 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: '1rem', alignItems: 'end' }}>
 <BinaryPicture tree={{ v: 1, l: { v: 2 }, r: { v: 3, l: { v: 4 }, r: { v: 5 } } }} minColumns={7} compact label="Un árbol estricto: 1 con hijos 2 y 3; 3 con hijos 4 y 5; 2 es hoja. Todos los nodos tienen cero o dos hijos." caption="estricto" />
 <BinaryPicture tree={{ v: 1, l: { v: 2, l: { v: 4 }, r: { v: 5 } }, r: { v: 3, l: { v: 6 }, r: { v: 7 } } }} minColumns={7} compact label="Un árbol lleno de altura 2: siete nodos, todos los internos con dos hijos y las cuatro hojas en el último nivel." caption="lleno" />
@@ -2354,7 +2351,7 @@ operandos.
 
 </Slide>
 
-<Slide title="Cada nivel, el doble">
+<Slide title="Cuántos nodos caben en una altura">
 Cada nivel de un árbol binario tiene, a lo más, el doble de nodos que el
 anterior: el nivel $$d$$ tiene a lo más $$2^d$$. Un árbol **lleno** de altura
 $$h$$ los tiene todos:
@@ -2369,7 +2366,7 @@ Ningún árbol binario de altura $$h$$ tiene más nodos que el lleno.
 
 </Slide>
 
-<Slide title="Entre un árbol lleno y una cadena">
+<Slide title="Altura mínima y máxima con n nodos">
 Con $$n$$ nodos, la altura de un árbol binario queda entre dos extremos:
 
 - **La más baja posible es $$\lfloor \log_2 n \rfloor$$**: los nodos llenan
@@ -2389,17 +2386,6 @@ dos extremos la diferencia es la que hay entre $$\log_2 n$$ y $$n$$.
 
 </Slide>
 
-<Slide title="Costos del árbol binario">
-Cada operación recorre el árbol entero, porque sin un orden entre los
-valores no hay subárbol que pueda saltarse:
-
-| Molde     | Operación                    | Peor caso     |
-| --------- | ---------------------------- | ------------- |
-| Consultar | preorden, inorden, postorden | $$\Theta(n)$$ |
-| Consultar | altura                       | $$\Theta(n)$$ |
-
-</Slide>
-
 <Slide title="Buscar en un árbol binario">
 Para saber si un valor está en un árbol binario, la única regla posible es
 mirar el nodo y, si no es, buscar en sus **dos** subárboles: nada dice en cuál
@@ -2410,6 +2396,18 @@ de los dos puede estar.
 Cuando el valor no está, la búsqueda compara los $$n$$ nodos: cuesta
 $$\Theta(n)$$, lo mismo que buscar en una lista. La jerarquía organiza los
 datos, pero sola no dice dónde buscar.
+
+</Slide>
+
+<Slide title="Costos del árbol binario">
+En el peor caso, cada operación recorre el árbol entero, porque sin un orden
+entre los valores no hay subárbol que pueda saltarse:
+
+| Molde     | Operación                    | Peor caso     |
+| --------- | ---------------------------- | ------------- |
+| Consultar | preorden, inorden, postorden | $$\Theta(n)$$ |
+| Consultar | altura                       | $$\Theta(n)$$ |
+| Consultar | buscar un valor              | $$\Theta(n)$$ |
 
 </Slide>
 
