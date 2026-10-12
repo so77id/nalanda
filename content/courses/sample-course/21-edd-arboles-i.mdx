@@ -3817,21 +3817,14 @@ saca y apila 7; se apila 5; el `*` saca 7 y 5 y apila 35, que es el valor.
 </Slide>
 
 <Slide title="Calculadora · funciones auxiliares">
-Tres piezas sin ninguna idea propia: el nodo, que guarda un `String` porque
-un nodo puede ser un número o un operador, y dos funciones que son los datos
-del enunciado escritos en Java.
+Dos funciones sin ninguna idea propia: son los datos del enunciado escritos
+en Java.
+
+- `isOperator(t)` dice si un símbolo es uno de los cuatro operadores.
+- `apply(a, b, t)` hace la operación `t` entre dos operandos: `a` es el
+  izquierdo y `b` el derecho, y la división es entera.
 
 ```java
-class Node<T> {
-    T value;
-    Node<T> left;
-    Node<T> right;
-
-    Node(T value) {
-        this.value = value;
-    }
-}
-
 static boolean isOperator(String t) {
     return t.equals("+") || t.equals("-")
         || t.equals("*") || t.equals("/");
