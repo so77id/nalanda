@@ -38,7 +38,8 @@ type Traversal = 'preorder' | 'inorder' | 'postorder';
  * Each listing is the recursive method as the class writes it. The three
  * traversals differ in ONE line's position — where the visit sits among the
  * two calls — and that is the whole lesson of the three orders. The search
- * has no order to lean on, so it tries both sides.
+ * has no order to lean on, so it tries both sides: a preorder whose visit
+ * compares, marked with the same two comments.
  */
 const CODE = {
   preorder: `void preorder(Node<T> node) {
@@ -74,7 +75,9 @@ const CODE = {
 }`,
   containsAnywhere: `boolean contains(Node<T> node, T target) {
     if (node == null) return false;
+    // visita: compara el nodo con el valor buscado
     if (node.value.equals(target)) return true;
+    // recorrido: la izquierda y, si no estaba, la derecha
     return contains(node.left, target)
         || contains(node.right, target);
 }`,

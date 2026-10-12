@@ -1501,9 +1501,9 @@ camino más largo desde la raíz.
 {/* The drawings of an order, in HierarchyPicture's idiom: visits numbers the nodes in "pre" (focus), "in" (accent) or "post" (mark) order and draws an arrow from every visit to the next — along the edge when the next is a child or the parent, dashed when the walk jumps to another branch; sequence writes the visit order under the tree as a row of chips. holes draws the empty tree under every missing child, as a dashed square. ruler draws the height at the left ("h = 2"), and levelNotes writes one note per level at the right. A node toned "hidden" is not drawn, nor any edge that reaches it, but keeps its place: a tree built from the leaves up shows its subtrees loose before their parent is made; fresh names the node just added, whose edge is drawn in the mark colour. */}
 
 {/* edgeLabels writes a word beside the edge that reaches a node, keyed by that node's value: the side it hangs on, izquierdo or derecho. frames draws a dashed box around the subtree rooted at a node, keyed by that node's value, with its name under it; a frame is a name, or { text, tone } with tone keep (the default), accent or mark, so two subtrees can be told apart as they move. */}
-{/* The drawings of a recursive call, in the idiom of the binary-tree widget: path names the open calls from the root down, and their edges are lit in focus; probe is a call that landed on an empty side, { at, side: 'l' | 'r' }, drawn as a dashed box with null in it; swap is the two nodes a visit just exchanged, joined by a double-headed arrow; holes may also be a list of values, to draw the empty trees under those nodes only. until stops the visits at a value, as a search does when it finds it: the nodes after it are not numbered. */}
+{/* The drawings of a recursive call, in the idiom of the binary-tree widget: path names the open calls from the root down, and their edges are lit in focus; probe is a call that landed on an empty side, { at, side: 'l' | 'r' }, drawn as a dashed box with null in it; swap is the two nodes a visit just exchanged, joined by a double-headed arrow; holes may also be a list of values, to draw the empty trees under those nodes only. until stops the visits at a value, as a search does when it finds it: the nodes after it are not numbered. seek writes the value a search is looking for in the top left corner, in a neutral pill: the colour stays for the node that holds it, if one does. */}
 
-export function BinaryPicture({ tree, tones = {}, badges = {}, notes = {}, levels = false, strip = false, caption, size = 1, minColumns = 0, compact = false, visits, sequence = false, holes = false, ruler, levelNotes, fresh, edgeLabels = {}, frames = {}, path = [], probe, swap, until, label }) {
+export function BinaryPicture({ tree, tones = {}, badges = {}, notes = {}, levels = false, strip = false, caption, size = 1, minColumns = 0, compact = false, visits, sequence = false, holes = false, ruler, levelNotes, fresh, edgeLabels = {}, frames = {}, path = [], probe, swap, until, seek, label }) {
   const r = 17;
   // compact narrows the columns for figures set three in a row, so each fills its own column at full size.
   const pitch = compact ? 38 : 46;
@@ -1730,6 +1730,12 @@ export function BinaryPicture({ tree, tones = {}, badges = {}, notes = {}, level
             );
           })()
         : null}
+      {seek === undefined ? null : (
+        <g>
+          <rect x={offset + 4} y={4} width={String(seek).length * 8 + 92} height="24" rx="12" style={{ fill: 'var(--color-sunk)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.4" />
+          <text x={offset + 16} y={20.5} fontSize="12.5" fontWeight="700" style={{ fill: 'var(--color-ink)' }}>{`se busca el ${seek}`}</text>
+        </g>
+      )}
       {visits ? seq.slice(1).map((b, i) => step(seq[i], b, `s${b.v}`)) : null}
       {shown.length === 0 && root ? (
         <text x={cx(root)} y={cy(root) + 5} textAnchor="middle" fontSize="13" fontFamily="var(--font-mono, monospace)" style={{ fill: 'var(--color-ink-soft)' }}>root = null</text>
@@ -2407,9 +2413,10 @@ La regla tiene la forma de la definición recursiva:
 
 1. En el **árbol vacío**, el valor no está.
 2. Si la **raíz** es el valor, está.
-3. Si no, está si aparece en el **subárbol izquierdo** o en el **derecho**.
+3. Si la raíz no es el valor, se busca en el **subárbol izquierdo** y, si
+   no está ahí, en el **derecho**.
 
-<BinaryPicture tree={SEARCH_TREE} visits="pre" until={8} tones={{ 8: 'keep', 3: 'faint' }} label="Buscar el 8: cada nodo comparado lleva su número y una flecha lleva al siguiente. Se compara con el 4, el 9, el 7, el 1, el 2 y el 8, que es el buscado, en verde. El 3 nunca se mira." caption="buscar 8: se compara con 4, 9, 7, 1, 2 y 8; el 3 no se mira" />
+<BinaryPicture tree={SEARCH_TREE} visits="pre" until={8} seek={8} tones={{ 8: 'keep', 3: 'faint' }} label="Buscar el 8: cada nodo comparado lleva su número y una flecha lleva al siguiente. Se compara con el 4, el 9, el 7, el 1, el 2 y el 8, que es el buscado, en verde. El 3 nunca se mira." caption="buscar 8: se compara con 4, 9, 7, 1, 2 y 8; el 3 no se mira" />
 
 Es un preorden que se detiene: la visita compara el nodo con el valor buscado,
 y en cuanto lo encuentra, la búsqueda termina.
@@ -2424,8 +2431,8 @@ comparación. Si el valor no está, en cambio, cada nodo tiene que compararse:
 son $$n$$ comparaciones, las mismas que buscar en una lista.
 
 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1rem 2rem', alignItems: 'end' }}>
-<BinaryPicture tree={SEARCH_TREE} visits="pre" until={9} tones={{ 9: 'keep', 7: 'faint', 1: 'faint', 2: 'faint', 8: 'faint', 3: 'faint' }} compact label="Buscar el 9: se compara con el 4 y después con el 9, que es el buscado. Ni los hijos del 9 ni el subárbol derecho se miran." caption="buscar 9: dos comparaciones" />
-<BinaryPicture tree={SEARCH_TREE} visits="pre" compact label="Buscar el 6, que no está: se compara con los siete nodos, en preorden, y la búsqueda responde que no." caption="buscar 6: siete comparaciones, y no está" />
+<BinaryPicture tree={SEARCH_TREE} visits="pre" until={9} seek={9} tones={{ 9: 'keep', 7: 'faint', 1: 'faint', 2: 'faint', 8: 'faint', 3: 'faint' }} compact label="Buscar el 9: se compara con el 4 y después con el 9, que es el buscado. Ni los hijos del 9 ni el subárbol derecho se miran." caption="buscar 9: dos comparaciones" />
+<BinaryPicture tree={SEARCH_TREE} visits="pre" seek={6} compact label="Buscar el 6, que no está: se compara con los siete nodos, en preorden, y la búsqueda responde que no." caption="buscar 6: siete comparaciones, y no está" />
 </div>
 
 La jerarquía organiza los datos, pero sola no dice dónde buscar.
@@ -2433,11 +2440,12 @@ La jerarquía organiza los datos, pero sola no dice dónde buscar.
 </Slide>
 
 <Slide title="El código de la búsqueda">
-Cada caso de la regla es una línea del método. `if (node == null) return
-false;` es el árbol vacío; `if (node.value.equals(target)) return true;`, la
-raíz; y el `return` final pregunta a los dos subárboles. El `||` evalúa su
-lado derecho solo si el izquierdo dio `false`: cuando el subárbol izquierdo
-encuentra el valor, el derecho no se busca.
+Como en los recorridos, el método tiene dos partes. La **visita** compara el
+nodo con el valor buscado, y el **recorrido** pregunta a los dos subárboles.
+Cada caso de la regla es una línea: `if (node == null) return false;` es el
+árbol vacío, la comparación es la raíz, y el `return` final, los dos
+subárboles. El `||` evalúa su lado derecho solo si el izquierdo dio `false`:
+cuando el subárbol izquierdo encuentra el valor, el derecho no se busca.
 
 <SequenceStepper eda="binary-tree" operation="search" values={[4, 9, 2, 7, 1, 8, 3]} target={8} />
 

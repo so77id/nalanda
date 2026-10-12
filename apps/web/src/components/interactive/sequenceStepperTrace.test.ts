@@ -1968,3 +1968,21 @@ describe('sequenceStepperTrace · binary-tree · every line a call runs is lit',
     expect(beats('search', 1)).toEqual(['visit:2', 'left:2', 'visit:1']);
   });
 });
+
+describe('sequenceStepperTrace · binary-tree · the search listing marks the visit and the traversal', () => {
+  it('puts a // visita comment over the comparison and a // recorrido comment over the two calls', () => {
+    // The traversals' convention (#321): the traversal stays, the visit is what
+    // a problem changes — and a search is a preorder whose visit compares.
+    const lines = traceFor('binary-tree', 'search', {
+      values: [],
+      levelOrder: [2, 1, 3],
+      target: 3,
+    }).code.split('\n');
+    const visit = lines.findIndex((l) => l.trim().startsWith('// visita'));
+    const walk = lines.findIndex((l) => l.trim().startsWith('// recorrido'));
+    expect(visit).toBeGreaterThan(0);
+    expect(walk).toBeGreaterThan(visit);
+    expect(lines[visit + 1]).toContain('node.value.equals(target)');
+    expect(lines[walk + 1]).toContain('contains(node.left');
+  });
+});
