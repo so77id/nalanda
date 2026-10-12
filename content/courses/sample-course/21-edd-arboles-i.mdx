@@ -15,10 +15,11 @@ cada elemento tiene a lo más un siguiente. Muchos datos no tienen esa forma.
 {/* HierarchyPicture — a static drawing of a general tree (any number of children per node): the folder tree or a small hierarchy, with tones, badges, notes, level lines, an open path and an optional queue under it. */}
 {/* File-local on purpose (add-a-course-document.md §6e-quater): one consumer, no catalog entry, not registered. The second document that wants it promotes it. */}
 {/* A leaf takes the next column; a parent sits centred over its first and last child. Every node name in one tree is unique, because tones, badges and notes are keyed by it. */}
+{/* edgeLabels writes a word beside the edge that reaches a node, keyed by that node's name: the answer a decision takes to get there. */}
 {/* minWidth gives figures set side by side one canvas width, so their boxes and text come out the same size; the tree is centred in it. compact and size fit a frame of a step-through, whose box has a fixed height. A node toned "hidden" is not drawn, nor its edge, but keeps its place: a tree built node by node grows in the positions it will end in, and nothing moves between frames. fresh names the node just added; its edge is drawn in the mark colour. */}
 {/* The drawings of an order, each in its own colour, and each told by its arrows and numbers, never by colour alone. flow puts an arrowhead on every edge — "down" (focus) for what a node takes from its parent, "up" (mark) for what it takes from its children. visits numbers the nodes in "pre" (focus) or "post" (mark) order and draws an arrow from every visit to the next: along the edge when the next is a child or the parent, dashed when the walk jumps to another branch. reading numbers them level by level (keep) and draws each level as a line read left to right, with the return to the next. strip writes the sequence under the tree, the order a program would print it in. */}
 
-export function HierarchyPicture({ tree, tones = {}, badges = {}, notes = {}, numbers = {}, path = [], levels = false, queue, caption, minWidth = 0, flow, visits, reading = false, strip = false, badgeColor = 'var(--color-focus)', numbersColor = 'var(--color-keep)', compact = false, size = 1, fresh, ruler, label }) {
+export function HierarchyPicture({ tree, tones = {}, badges = {}, notes = {}, numbers = {}, path = [], levels = false, queue, caption, minWidth = 0, flow, visits, reading = false, strip = false, badgeColor = 'var(--color-focus)', numbersColor = 'var(--color-keep)', compact = false, size = 1, fresh, ruler, edgeLabels = {}, label }) {
   const boxH = 26;
   const levelH = compact ? 50 : 64;
   const padX = reading ? 22 : 12;
@@ -180,6 +181,14 @@ export function HierarchyPicture({ tree, tones = {}, badges = {}, notes = {}, nu
         const color = n.name === fresh ? 'var(--color-mark)' : onIt ? 'var(--color-focus)' : tones[n.name] === 'faint' ? 'var(--color-rule)' : 'var(--color-rule-strong)';
         return <line key={`e-${n.name}`} x1={cx(n.parent)} y1={cy(n.parent) + boxH / 2} x2={cx(n)} y2={cy(n) - boxH / 2} style={{ stroke: color }} strokeWidth={onIt ? 2.6 : 1.2} />;
       })}
+      {edges
+        .filter((n) => edgeLabels[n.name] !== undefined)
+        .map((n) => {
+          const left = cx(n) < cx(n.parent);
+          return (
+            <text key={`el-${n.name}`} x={(cx(n.parent) + cx(n)) / 2 + (left ? -8 : 8)} y={(cy(n.parent) + cy(n)) / 2 + 4} textAnchor={left ? 'end' : 'start'} fontSize="12" fontWeight="700" paintOrder="stroke" strokeWidth="3" style={{ fill: 'var(--color-ink-soft)', stroke: 'var(--color-ground)' }}>{edgeLabels[n.name]}</text>
+          );
+        })}
       {visits ? seq.slice(1).map((b, i) => step(seq[i], b, `s-${b.name}`)) : null}
       {shown.length === 0 ? (
         <text x={cx(nodes[0])} y={cy(nodes[0]) + 4.5} textAnchor="middle" fontSize="13" fontFamily="var(--font-mono, monospace)" style={{ fill: 'var(--color-ink-soft)' }}>root = null</text>
@@ -1491,7 +1500,9 @@ camino más largo desde la raíz.
 {/* BinaryPicture — a static drawing of a binary tree, with the geometry of the binary-tree recipe of <SequenceStepper> (sequenceStepperTreeLayout.ts): every node in the column of its inorder position and on the row of its depth, so a figure and the widget beside it draw the same tree. File-local like HierarchyPicture (§6e-quater). A tree is { v, l, r }; values are unique within one tree, because tones, badges and notes are keyed by them, and a value may be a symbol: an expression tree keeps its operators. */}
 {/* The drawings of an order, in HierarchyPicture's idiom: visits numbers the nodes in "pre" (focus), "in" (accent) or "post" (mark) order and draws an arrow from every visit to the next — along the edge when the next is a child or the parent, dashed when the walk jumps to another branch; sequence writes the visit order under the tree as a row of chips. holes draws the empty tree under every missing child, as a dashed square. ruler draws the height at the left ("h = 2"), and levelNotes writes one note per level at the right. A node toned "hidden" is not drawn, nor its edge, but keeps its place; fresh names the node just added, whose edge is drawn in the mark colour. */}
 
-export function BinaryPicture({ tree, tones = {}, badges = {}, notes = {}, levels = false, strip = false, caption, size = 1, minColumns = 0, compact = false, visits, sequence = false, holes = false, ruler, levelNotes, fresh, label }) {
+{/* edgeLabels writes a word beside the edge that reaches a node, keyed by that node's value: the side it hangs on, izquierdo or derecho. */}
+
+export function BinaryPicture({ tree, tones = {}, badges = {}, notes = {}, levels = false, strip = false, caption, size = 1, minColumns = 0, compact = false, visits, sequence = false, holes = false, ruler, levelNotes, fresh, edgeLabels = {}, label }) {
   const r = 17;
   // compact narrows the columns for figures set three in a row, so each fills its own column at full size.
   const pitch = compact ? 38 : 46;
@@ -1635,6 +1646,15 @@ export function BinaryPicture({ tree, tones = {}, badges = {}, notes = {}, level
         const isFresh = n.v === fresh;
         return <line key={`e${n.v}`} x1={e.x1} y1={e.y1} x2={e.x2} y2={e.y2} style={{ stroke: isFresh ? 'var(--color-mark)' : faint ? 'var(--color-rule)' : 'var(--color-rule-strong)' }} strokeWidth={isFresh ? 2.6 : 1.3} strokeDasharray={faint ? '4 3' : undefined} />;
       })}
+      {shown
+        .filter((n) => n.parent !== null && edgeLabels[n.v] !== undefined)
+        .map((n) => {
+          const e = ends(n.parent, n);
+          const left = n === n.parent.l;
+          return (
+            <text key={`el${n.v}`} x={(e.x1 + e.x2) / 2 + (left ? -8 : 8)} y={(e.y1 + e.y2) / 2 + 3} textAnchor={left ? 'end' : 'start'} fontSize="12" fontWeight="700" paintOrder="stroke" strokeWidth="3" style={{ fill: 'var(--color-ink-soft)', stroke: 'var(--color-ground)' }}>{edgeLabels[n.v]}</text>
+          );
+        })}
       {holes
         ? shown.flatMap((n) =>
             ['l', 'r']
@@ -1893,25 +1913,99 @@ export const FROM_ARRAY = { v: 5, l: { v: 2, l: { v: 1 }, r: { v: 3, r: { v: 4 }
 
 export const EXPR = { v: '*', l: { v: '+', l: { v: 3 }, r: { v: 4 } }, r: { v: '−', l: { v: 5 }, r: { v: 1 } } };
 
+{/* The three hierarchies the binary tree act opens with, all split in two at every node: a decision, a championship bracket, and the guide expression drawn as the general tree it already is. DECISION_CROSSED is the decision with its two sides exchanged under the same answers. */}
+
+export const DECISION = { n: '¿Llueve?', c: [{ n: 'paraguas' }, { n: '¿Hace frío?', c: [{ n: 'chaqueta' }, { n: 'polera' }] }] };
+
+export const DECISION_CROSSED = { n: '¿Llueve?', c: [{ n: '¿Hace frío?', c: [{ n: 'chaqueta' }, { n: 'polera' }] }, { n: 'paraguas' }] };
+
+export const BRACKET = { n: 'final', c: [{ n: 'semi 1', c: [{ n: 'Chile' }, { n: 'Perú' }] }, { n: 'semi 2', c: [{ n: 'Brasil' }, { n: 'Uruguay' }] }] };
+
+export const EXPR_HIERARCHY = { n: '*', c: [{ n: '+', c: [{ n: '3' }, { n: '4' }] }, { n: '−', c: [{ n: '5' }, { n: '1' }] }] };
+
 <SectionBreak />
 
 ## El árbol binario
 
-<Slide title="Dos hijos con nombre">
-Un **árbol binario** es un árbol en el que cada nodo tiene **a lo más dos
-hijos**, y cada hijo tiene un nombre: es el **izquierdo** o el **derecho**.
+<Slide title="Jerarquías de a dos">
+En las carpetas, el organigrama y los descendientes de una abuela, un nodo
+puede tener cualquier cantidad de hijos. Otras jerarquías, en cambio, **se
+parten siempre en dos**:
 
-Aunque dos árboles tengan la misma forma, importa de qué lado está cada hijo.
-En una expresión aritmética el operador es el padre y sus operandos son los
-hijos, y el orden de los hijos cambia el resultado.
+- En una **decisión**, cada pregunta tiene dos respuestas: sí y no.
+- En la **llave de un campeonato**, cada partido lo juegan los ganadores de
+  dos partidos anteriores.
+- En una **expresión aritmética**, como la del principio, cada operador
+  tiene dos operandos.
 
-<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem', alignItems: 'end' }}>
-<BinaryPicture tree={{ v: '−', l: { v: 5 }, r: { v: 1 } }} minColumns={5} label="Un árbol binario: la resta, con 5 como hijo izquierdo y 1 como hijo derecho. Vale 4." caption="5 − 1 = 4" />
-<BinaryPicture tree={{ v: '−', l: { v: 1 }, r: { v: 5 } }} minColumns={5} label="Otro árbol binario: la resta, con 1 como hijo izquierdo y 5 como hijo derecho. Vale menos 4." caption="1 − 5 = −4" />
+<PresentationWide fraction={0.9}>
+
+<div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: '1rem 2rem', alignItems: 'flex-end' }}>
+<div style={{ flex: '1 1 330px', maxWidth: '360px' }}>
+<HierarchyPicture tree={DECISION} minWidth={366} edgeLabels={{ paraguas: 'sí', '¿Hace frío?': 'no', chaqueta: 'sí', polera: 'no' }} label="Una decisión: arriba la pregunta ¿llueve? Si la respuesta es sí, paraguas. Si es no, otra pregunta, ¿hace frío?: si es sí, chaqueta; si es no, polera." caption="una decisión" />
+</div>
+<div style={{ flex: '1 1 330px', maxWidth: '360px' }}>
+<HierarchyPicture tree={BRACKET} minWidth={366} label="La llave de un campeonato: arriba la final, que juegan los ganadores de dos semifinales. La semifinal 1 la juegan Chile y Perú; la semifinal 2, Brasil y Uruguay." caption="la llave de un campeonato" />
+</div>
+<div style={{ flex: '1 1 330px', maxWidth: '360px' }}>
+<HierarchyPicture tree={EXPR_HIERARCHY} minWidth={366} label="La expresión (3 + 4) * (5 − 1) como jerarquía: la multiplicación arriba, con la suma y la resta debajo; la suma, con el 3 y el 4; la resta, con el 5 y el 1." caption="la expresión (3 + 4) * (5 − 1)" />
+</div>
 </div>
 
-Como árboles generales, los dos son el mismo: un nodo con dos hijos. Como
-árboles binarios son distintos.
+</PresentationWide>
+
+En las tres, debajo de cada nodo hay dos, o nada si es una hoja: nunca tres.
+
+</Slide>
+
+<Slide title="El lado importa">
+En la decisión y en la expresión, además, **el lado importa**: cada uno de
+los dos tiene su papel, y si se intercambian, el árbol dice otra cosa.
+
+<PresentationWide fraction={0.9}>
+
+<div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: '1rem 2rem', alignItems: 'flex-end' }}>
+<div style={{ flex: '1 1 330px', maxWidth: '360px' }}>
+<HierarchyPicture tree={DECISION} minWidth={366} edgeLabels={{ paraguas: 'sí', '¿Hace frío?': 'no', chaqueta: 'sí', polera: 'no' }} label="La decisión: si llueve, paraguas; si no llueve, se pregunta si hace frío." caption="si llueve, paraguas" />
+</div>
+<div style={{ flex: '1 1 330px', maxWidth: '360px' }}>
+<HierarchyPicture tree={DECISION_CROSSED} minWidth={366} tones={{ paraguas: 'mark' }} edgeLabels={{ '¿Hace frío?': 'sí', paraguas: 'no', chaqueta: 'sí', polera: 'no' }} label="La misma decisión con sus dos lados intercambiados: si llueve, se pregunta si hace frío; si no llueve, paraguas, marcado." caption="con los lados cruzados: paraguas si no llueve" />
+</div>
+<div style={{ flex: '0 1 290px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', alignItems: 'end' }}>
+<HierarchyPicture tree={{ n: '−', c: [{ n: '5' }, { n: '1' }] }} minWidth={142} label="La resta con el 5 primero y el 1 después. Vale 4." caption="5 − 1 = 4" />
+<HierarchyPicture tree={{ n: '−', c: [{ n: '1' }, { n: '5' }] }} minWidth={142} tones={{ '1': 'mark', '5': 'mark' }} label="La resta con sus dos operandos intercambiados, el 1 primero y el 5 después, marcados. Vale menos 4." caption="1 − 5 = −4" />
+</div>
+</div>
+
+</PresentationWide>
+
+</Slide>
+
+<Slide title="Dos hijos con nombre">
+La clase árbol ya puede guardar estos árboles: los hijos de cada nodo van en
+su secuencia, y el primero hace de izquierdo. Pero la secuencia no sabe lo
+que estos problemas garantizan: admite un tercer hijo, y el papel de cada uno
+queda en su posición, primero o segundo, y no en un nombre.
+
+Cuando un problema se parte siempre en dos, conviene que la estructura lo
+diga. Un **árbol binario** es un árbol en el que cada nodo tiene **a lo más
+dos hijos**, y cada hijo tiene un nombre: es el **izquierdo** o el
+**derecho**.
+
+<div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem 2rem', alignItems: 'flex-end', justifyContent: 'center' }}>
+<div style={{ flex: '2 1 15rem' }}>
+<BinaryPicture tree={EXPR} edgeLabels={{ '+': 'izquierdo', '−': 'derecho' }} label="La expresión (3 + 4) * (5 − 1) como árbol binario: la suma es el hijo izquierdo de la multiplicación, y la resta, su hijo derecho." caption="la expresión (3 + 4) * (5 − 1)" />
+</div>
+<div style={{ flex: '2 1 15rem', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', alignItems: 'end' }}>
+<BinaryPicture tree={{ v: 7, l: { v: 3 } }} minColumns={3} edgeLabels={{ 3: 'izquierdo' }} label="Un nodo 7 con un solo hijo, el 3, a la izquierda." caption="solo un hijo izquierdo" />
+<BinaryPicture tree={{ v: 7, r: { v: 3 } }} minColumns={3} edgeLabels={{ 3: 'derecho' }} label="Un nodo 7 con un solo hijo, el 3, a la derecha." caption="solo un hijo derecho" />
+</div>
+</div>
+
+Un hijo puede faltar, y el que queda conserva su lado: un nodo con solo un
+hijo izquierdo y uno con solo un hijo derecho son dos árboles binarios
+distintos. En una secuencia serían el mismo: un nodo con un solo hijo, el
+primero.
 
 </Slide>
 
