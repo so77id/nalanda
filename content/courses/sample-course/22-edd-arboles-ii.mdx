@@ -177,7 +177,8 @@ export function BinaryPicture({ tree, tones = {}, badges = {}, notes = {}, level
         const x1 = Math.min(...members.map(cx)) - r - 8;
         const x2 = Math.max(...members.map(cx)) + r + 8;
         const y1 = cy(top) - r - 7;
-        const y2 = Math.max(...members.map(cy)) + r + 7;
+        // With room kept for empty calls, the box takes it in, so an empty call's box never lands on the frame's name.
+        const y2 = Math.max(...members.map(cy)) + r + 7 + holeH;
         return (
           <g key={`f${key}`}>
             <rect x={x1} y={y1} width={x2 - x1} height={y2 - y1} rx="12" style={{ fill: `var(--color-${tone}-soft)`, stroke: `var(--color-${tone})` }} strokeWidth="1.4" strokeDasharray="5 4" />
