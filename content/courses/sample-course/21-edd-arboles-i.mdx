@@ -787,7 +787,8 @@ una carpeta en preorden: la visita imprime una línea con la sangría de la
   language="java"
   code={`void list(Node<String> node, int depth) {
     // visita: imprime una línea con su sangría
-    for (int i = 0; i < depth; i++) System.out.print("    ");
+    for (int i = 0; i < depth; i++)
+        System.out.print("    ");
     System.out.println(node.value);
     // recorrido: cada hijo, un nivel más abajo
     for (Node<String> child : node.children) {
@@ -795,7 +796,7 @@ una carpeta en preorden: la visita imprime una línea con la sangría de la
     }
 }`}
 >
-  <Step lines={[3, 4]}>
+  <Step lines={[3, 4, 5]}>
     <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
     <div style={{ flex: '1 1 0', minWidth: 0 }}>
     <HierarchyPicture tree={FOLDERS} tones={{ 'home/': 'focus' }} numbers={{ 'home/': 1 }} numbersColor="var(--color-focus)" compact size={0.7} label="home, a profundidad 0, se imprime en la línea 1 del listado." />
@@ -804,7 +805,7 @@ una carpeta en preorden: la visita imprime una línea con la sangría de la
     </div>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>Se llama con la raíz, home/: profundidad 0, sin sangría.</div>
   </Step>
-  <Step lines={[3, 4]}>
+  <Step lines={[3, 4, 5]}>
     <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
     <div style={{ flex: '1 1 0', minWidth: 0 }}>
     <HierarchyPicture tree={FOLDERS} tones={{ 'home/': 'done', 'fotos/': 'focus' }} numbers={{ 'home/': 1, 'fotos/': 2 }} numbersColor="var(--color-focus)" compact size={0.7} label="fotos, a profundidad 1, se imprime en la línea 2 del listado." />
@@ -813,7 +814,7 @@ una carpeta en preorden: la visita imprime una línea con la sangría de la
     </div>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>home/ llama con su primer hijo, fotos/: profundidad 1, una sangría.</div>
   </Step>
-  <Step lines={[3, 4]}>
+  <Step lines={[3, 4, 5]}>
     <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
     <div style={{ flex: '1 1 0', minWidth: 0 }}>
     <HierarchyPicture tree={FOLDERS} tones={{ 'home/': 'done', 'fotos/': 'done', 'playa.jpg': 'focus' }} numbers={{ 'home/': 1, 'fotos/': 2, 'playa.jpg': 3 }} numbersColor="var(--color-focus)" compact size={0.7} label="playa.jpg, a profundidad 2, se imprime en la línea 3 del listado." />
@@ -822,7 +823,7 @@ una carpeta en preorden: la visita imprime una línea con la sangría de la
     </div>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>fotos/ llama con su primer hijo, playa.jpg: profundidad 2, dos sangrías. Es una hoja: su for no da vueltas.</div>
   </Step>
-  <Step lines={[3, 4]}>
+  <Step lines={[3, 4, 5]}>
     <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
     <div style={{ flex: '1 1 0', minWidth: 0 }}>
     <HierarchyPicture tree={FOLDERS} tones={{ 'home/': 'done', 'fotos/': 'done', 'playa.jpg': 'done', 'perro.jpg': 'focus' }} numbers={{ 'home/': 1, 'fotos/': 2, 'playa.jpg': 3, 'perro.jpg': 4 }} numbersColor="var(--color-focus)" compact size={0.7} label="perro.jpg, a profundidad 2, se imprime en la línea 4 del listado." />
@@ -831,7 +832,7 @@ una carpeta en preorden: la visita imprime una línea con la sangría de la
     </div>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>Terminan las llamadas de abajo; fotos/ sigue con perro.jpg: profundidad 2, dos sangrías. Es una hoja: su for no da vueltas.</div>
   </Step>
-  <Step lines={[3, 4]}>
+  <Step lines={[3, 4, 5]}>
     <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
     <div style={{ flex: '1 1 0', minWidth: 0 }}>
     <HierarchyPicture tree={FOLDERS} tones={{ 'home/': 'done', 'fotos/': 'done', 'playa.jpg': 'done', 'perro.jpg': 'done', 'ramos/': 'focus' }} numbers={{ 'home/': 1, 'fotos/': 2, 'playa.jpg': 3, 'perro.jpg': 4, 'ramos/': 5 }} numbersColor="var(--color-focus)" compact size={0.7} label="ramos, a profundidad 1, se imprime en la línea 5 del listado." />
@@ -840,7 +841,7 @@ una carpeta en preorden: la visita imprime una línea con la sangría de la
     </div>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>Terminan las llamadas de abajo; home/ sigue con ramos/: profundidad 1, una sangría.</div>
   </Step>
-  <Step lines={[3, 4]}>
+  <Step lines={[3, 4, 5]}>
     <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
     <div style={{ flex: '1 1 0', minWidth: 0 }}>
     <HierarchyPicture tree={FOLDERS} tones={{ 'home/': 'done', 'fotos/': 'done', 'playa.jpg': 'done', 'perro.jpg': 'done', 'ramos/': 'done', 'eda/': 'focus' }} numbers={{ 'home/': 1, 'fotos/': 2, 'playa.jpg': 3, 'perro.jpg': 4, 'ramos/': 5, 'eda/': 6 }} numbersColor="var(--color-focus)" compact size={0.7} label="eda, a profundidad 2, se imprime en la línea 6 del listado." />
@@ -849,7 +850,7 @@ una carpeta en preorden: la visita imprime una línea con la sangría de la
     </div>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>ramos/ llama con su primer hijo, eda/: profundidad 2, dos sangrías.</div>
   </Step>
-  <Step lines={[3, 4]}>
+  <Step lines={[3, 4, 5]}>
     <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
     <div style={{ flex: '1 1 0', minWidth: 0 }}>
     <HierarchyPicture tree={FOLDERS} tones={{ 'home/': 'done', 'fotos/': 'done', 'playa.jpg': 'done', 'perro.jpg': 'done', 'ramos/': 'done', 'eda/': 'done', 't1.pdf': 'focus' }} numbers={{ 'home/': 1, 'fotos/': 2, 'playa.jpg': 3, 'perro.jpg': 4, 'ramos/': 5, 'eda/': 6, 't1.pdf': 7 }} numbersColor="var(--color-focus)" compact size={0.7} label="t1.pdf, a profundidad 3, se imprime en la línea 7 del listado." />
@@ -858,7 +859,7 @@ una carpeta en preorden: la visita imprime una línea con la sangría de la
     </div>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>eda/ llama con su primer hijo, t1.pdf: profundidad 3, tres sangrías. Es una hoja: su for no da vueltas.</div>
   </Step>
-  <Step lines={[3, 4]}>
+  <Step lines={[3, 4, 5]}>
     <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
     <div style={{ flex: '1 1 0', minWidth: 0 }}>
     <HierarchyPicture tree={FOLDERS} tones={{ 'home/': 'done', 'fotos/': 'done', 'playa.jpg': 'done', 'perro.jpg': 'done', 'ramos/': 'done', 'eda/': 'done', 't1.pdf': 'done', 't2.pdf': 'focus' }} numbers={{ 'home/': 1, 'fotos/': 2, 'playa.jpg': 3, 'perro.jpg': 4, 'ramos/': 5, 'eda/': 6, 't1.pdf': 7, 't2.pdf': 8 }} numbersColor="var(--color-focus)" compact size={0.7} label="t2.pdf, a profundidad 3, se imprime en la línea 8 del listado." />
@@ -867,7 +868,7 @@ una carpeta en preorden: la visita imprime una línea con la sangría de la
     </div>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>Terminan las llamadas de abajo; eda/ sigue con t2.pdf: profundidad 3, tres sangrías. Es una hoja: su for no da vueltas.</div>
   </Step>
-  <Step lines={[3, 4]}>
+  <Step lines={[3, 4, 5]}>
     <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
     <div style={{ flex: '1 1 0', minWidth: 0 }}>
     <HierarchyPicture tree={FOLDERS} tones={{ 'home/': 'done', 'fotos/': 'done', 'playa.jpg': 'done', 'perro.jpg': 'done', 'ramos/': 'done', 'eda/': 'done', 't1.pdf': 'done', 't2.pdf': 'done', 'calculo/': 'focus' }} numbers={{ 'home/': 1, 'fotos/': 2, 'playa.jpg': 3, 'perro.jpg': 4, 'ramos/': 5, 'eda/': 6, 't1.pdf': 7, 't2.pdf': 8, 'calculo/': 9 }} numbersColor="var(--color-focus)" compact size={0.7} label="calculo, a profundidad 2, se imprime en la línea 9 del listado." />
@@ -876,7 +877,7 @@ una carpeta en preorden: la visita imprime una línea con la sangría de la
     </div>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>Terminan las llamadas de abajo; ramos/ sigue con calculo/: profundidad 2, dos sangrías.</div>
   </Step>
-  <Step lines={[3, 4]}>
+  <Step lines={[3, 4, 5]}>
     <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
     <div style={{ flex: '1 1 0', minWidth: 0 }}>
     <HierarchyPicture tree={FOLDERS} tones={{ 'home/': 'done', 'fotos/': 'done', 'playa.jpg': 'done', 'perro.jpg': 'done', 'ramos/': 'done', 'eda/': 'done', 't1.pdf': 'done', 't2.pdf': 'done', 'calculo/': 'done', 'guia.pdf': 'focus' }} numbers={{ 'home/': 1, 'fotos/': 2, 'playa.jpg': 3, 'perro.jpg': 4, 'ramos/': 5, 'eda/': 6, 't1.pdf': 7, 't2.pdf': 8, 'calculo/': 9, 'guia.pdf': 10 }} numbersColor="var(--color-focus)" compact size={0.7} label="guia.pdf, a profundidad 3, se imprime en la línea 10 del listado." />
@@ -885,7 +886,7 @@ una carpeta en preorden: la visita imprime una línea con la sangría de la
     </div>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>calculo/ llama con su primer hijo, guia.pdf: profundidad 3, tres sangrías. Es una hoja: su for no da vueltas.</div>
   </Step>
-  <Step lines={[3, 4]}>
+  <Step lines={[3, 4, 5]}>
     <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
     <div style={{ flex: '1 1 0', minWidth: 0 }}>
     <HierarchyPicture tree={FOLDERS} tones={{ 'home/': 'done', 'fotos/': 'done', 'playa.jpg': 'done', 'perro.jpg': 'done', 'ramos/': 'done', 'eda/': 'done', 't1.pdf': 'done', 't2.pdf': 'done', 'calculo/': 'done', 'guia.pdf': 'done', 'notas.txt': 'focus' }} numbers={{ 'home/': 1, 'fotos/': 2, 'playa.jpg': 3, 'perro.jpg': 4, 'ramos/': 5, 'eda/': 6, 't1.pdf': 7, 't2.pdf': 8, 'calculo/': 9, 'guia.pdf': 10, 'notas.txt': 11 }} numbersColor="var(--color-focus)" compact size={0.7} label="notas.txt, a profundidad 1, se imprime en la línea 11 del listado." />
