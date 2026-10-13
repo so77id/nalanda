@@ -13,6 +13,8 @@
  * the height and a search that may have to look everywhere.
  */
 import { asRuns, lineOf, requireRuns } from './sequenceStepperTraceShared';
+// Types only: the dispatcher imports this module's `traceTree` as a value, so a
+// value imported back from it would close a runtime cycle (ADR-0083 §1).
 import type {
   BinaryTreeOperation,
   SequenceCell,

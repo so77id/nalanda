@@ -51,7 +51,7 @@ export const sequenceStepperCatalogEntry: CatalogEntry = {
       name: 'times',
       type: 'number',
       description:
-        'How many times to run a removal that takes no argument (`remove-first`, `remove-last`, `extract-max`). Default one; at most twelve, on every recipe. The traversals and the height of `binary-tree` take no argument either, but run once over the whole tree and ignore it. Running more times than the structure has elements is an authoring error: the listing throws there, and a trace that ran anyway would be animating an exception.',
+        'How many times to run a removal that takes no argument (`remove-first`, `remove-last`, `extract-max`). Default one; at most twelve, on every recipe that reads it. The traversals and the height of `binary-tree` take no argument either, but run once over the whole tree and ignore it. Running more times than the structure has elements is an authoring error: the listing throws there, and a trace that ran anyway would be animating an exception.',
     },
     {
       name: 'capacity',

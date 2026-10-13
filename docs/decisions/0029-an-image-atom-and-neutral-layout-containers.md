@@ -20,9 +20,11 @@ middle. The need is a labelled listing beside the drawing of what it builds
 (Árboles I, «El nodo binario»): `Split` centres, but it has no column labels
 and does not declare itself a frame, so the editor inside it would draw its
 own chrome. §3's trigger is weighed here and has fired — SideBySide already
-held pictures in real content (`11-complejidad-de-hilbert-al-big-o.mdx`, #219;
-`16-diseno-algoritmos-ordenamiento.mdx`, #269), never recorded, and #321 makes
-a listing beside a drawing part of its API. Miguel's decision (Round B of
+held pictures compared under labels in real content
+(`11-complejidad-de-hilbert-al-big-o.mdx`, #219;
+`16-diseno-algoritmos-ordenamiento.mdx`, #269), never recorded, #321's own
+document adds two more (two folder trees, and two columns of a listing with
+its drawing), and #321 makes a listing beside a drawing part of its API. Miguel's decision (Round B of
 #321's review): the consolidation stays deferred, with a new trigger — **the
 next behaviour either container borrows from the other is the one that
 merges them.** `add-a-course-document.md` §5c and §6b say which to use until
@@ -76,7 +78,8 @@ would change a component already used in published content
 (`06-java-desde-cpp.mdx`), the contracts differ in more than looks (child count,
 embedding, type scale), and nothing had yet seen a `Split` in real use. Revisit
 **when a third two-column need appears, or when a `Split` in real content wants
-any part of `SideBySide`'s chrome.**
+any part of `SideBySide`'s chrome.** (That trigger fired; the one in force is
+in `Amended by: #321`, in the header.)
 
 ### 4. A mosaic speaks once
 

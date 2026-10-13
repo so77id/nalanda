@@ -11,7 +11,7 @@ export const sideBySideCatalogEntry: CatalogEntry = {
     'Two blocks shown next to each other with a label each, stacked on a narrow screen. Each column scrolls on its own, so a long line in one never widens the page.',
   whenToUse:
     'When the comparison IS the lesson — most often the language a student already knows beside the one they are learning. Stacking the two listings instead makes the reader hold the first in their head while reading the second, which is exactly the work the layout should be doing for them. ' +
-    'Also, since #321, a listing beside the drawing of what it builds — a class beside the node it makes in memory — when both columns want their labels: pass `align="center"`. Anything else beside a picture is a <Split> (ADR-0029 §Amended by — #321). ' +
+    'Also, since #321, a listing beside the drawing of what it builds — a class beside the node it makes in memory — when both columns want their labels: pass `align="center"`. Two pictures, or two columns each holding a listing with its drawing, compared under labels have shipped in one too (#219, #269, #321). A picture beside prose is a <Split> (ADR-0029 §Amended by — #321). ' +
     'It expects exactly two children and says so when it gets any other number: with three blocks the pairing is ambiguous, and guessing would silently drop one.',
   props: [
     { name: 'left', type: 'string', description: 'Label above the first column. Optional.' },

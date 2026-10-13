@@ -1044,13 +1044,17 @@ the room from the text it illustrates.
 **`<Split>` is not `<SideBySide>`.** SideBySide is the _code comparator_: it
 draws a border and a language chip and shrinks type, all measured for a `<pre>`
 (ADR-0022). A picture inside one renders in something that looks like a
-listing. Two code fences → `SideBySide`. A listing beside the drawing of what
-it builds, when the two columns want their labels → `SideBySide
-align="center"` (#321, §5c). Anything else → `Split`. Two pictures in a
-SideBySide already shipped (`11-complejidad-de-hilbert-al-big-o.mdx`, #219;
-`16-diseno-algoritmos-ordenamiento.mdx`, #269) and were never recorded;
-ADR-0029 §Amended by — #321 records them, and the next behaviour either
-container borrows from the other is the one that merges the two.
+listing, which is accepted only where a comparison under two labels is the
+point. Two code fences → `SideBySide`. A listing beside the drawing of what
+it builds → `SideBySide align="center"` (#321, §5c). Two pictures, or two
+columns that each hold a listing with its drawing, compared under labels →
+`SideBySide` as well: `11-complejidad-de-hilbert-al-big-o.mdx` (#219),
+`16-diseno-algoritmos-ordenamiento.mdx` (#269) and `21-edd-arboles-i.mdx`
+(«La profundidad baja» / «La altura sube», «El nodo» / «El árbol», #321) do
+it, recorded only now in ADR-0029 §Amended by — #321. A picture beside
+prose, or anything that is not a labelled comparison → `Split`. The next
+behaviour either container borrows from the other is the one that merges
+the two.
 
 **`<PresentationWide>` widens a block past the slide's prose column.** In
 presentation mode the `<Slide>` centres and caps its children at a reading

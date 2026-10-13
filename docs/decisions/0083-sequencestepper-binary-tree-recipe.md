@@ -40,7 +40,7 @@ geometry lives in `sequenceStepperTreeLayout.ts` and the painter in
 trace modules share — the line a frame lights, the runs an argument asks for —
 is a leaf both import, `sequenceStepperTraceShared.ts`, and the rim-to-rim
 edge the two layouts share is another, `sequenceStepperEdge.ts` (#321
-review). The two layouts import only that leaf. The two traces do import
+review). The heap's layout and the tree's import only that leaf. The two traces do import
 each other, but the tree's imports only types from the dispatcher, which the
 build erases, so no runtime cycle closes; nothing guards that, so a value
 import back from the dispatcher is the change to refuse.

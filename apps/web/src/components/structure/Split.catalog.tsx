@@ -14,7 +14,7 @@ export const splitCatalogEntry: CatalogEntry = {
   whenToUse:
     'When a figure belongs BESIDE the text it illustrates rather than under it — the commonest slide in a class that explains a picture. It holds any two blocks: prose, a figure, a fence, a component. ' +
     'Not to be confused with <SideBySide>, which is the code comparator: its border, its language chip and its 0.72em are measured for a <pre> (ADR-0022, #76), and a picture dropped into one renders inside something that looks like a listing. The difference is behaviour, not decoration — SideBySide declares itself a frame, so an editor inside it drops its own chrome; a Split declares nothing, so everything inside renders exactly as it would alone. ' +
-    'The one exception is a listing beside the drawing of what it builds, when both columns want their labels: that is a <SideBySide align="center"> (#321). The two are duplicated layout on purpose for now; ADR-0029 records when to merge them — the next behaviour either borrows from the other.',
+    'The exceptions are comparisons under two labels: a listing beside the drawing of what it builds is a <SideBySide align="center">, and two pictures, or two columns each holding a listing with its drawing, have shipped in a <SideBySide> too (#219, #269, #321). The two are duplicated layout on purpose for now; ADR-0029 records when to merge them — the next behaviour either borrows from the other.',
   props: [
     {
       name: 'ratio',
