@@ -208,6 +208,8 @@ export interface SequenceStep {
   pointers: SequencePointer[];
   /** 1-based lines of `trace.code` this frame is executing. */
   highlightLines: number[];
+  /** The same moment in `trace.alongside`, when the trace carries a second listing. */
+  alongsideLines?: number[];
   description: string;
   /** The dynamic array and the heap: the reserved block size (`data.length`). */
   capacity?: number;
@@ -280,6 +282,12 @@ export interface SequenceStep {
 export interface SequenceTrace {
   steps: SequenceStep[];
   code: string;
+  /**
+   * A second listing of the same operation, drawn beside the first and lit
+   * at every frame where the first is (`alongsideLines`): the search tree's
+   * `contains` written as a loop beside the recursive one (#322).
+   */
+  alongside?: string;
   /**
    * The most cells any frame holds. The view lays out for THIS, not for the
    * current frame, so the drawing keeps one size from the first frame to the
@@ -362,6 +370,8 @@ export interface SequenceInput {
   capacity?: number;
   /** Lists only: draw a `tail` pointer and let the operations use it. */
   tail?: boolean;
+  /** `bst` × `search` only: the iterative `contains` beside the recursive one. */
+  iterative?: boolean;
   /**
    * The name the LISTING shows the method under, when the document presents
    * the structure through a TDA that calls it something else. A class that
@@ -515,6 +525,11 @@ export function traceFor(
   operation: SequenceOperation,
   input: SequenceInput,
 ): SequenceTrace {
+  if (input.iterative === true && !(recipe === 'bst' && operation === 'search')) {
+    throw new Error(
+      'Solo la búsqueda del árbol de búsqueda tiene un listado iterativo: iterative va con eda="bst" y operation="search".',
+    );
+  }
   if (!isValidCombination(recipe, operation, input.tail === true)) {
     throw new Error(`La operación «${operation}» no está definida sobre «${recipe}».`);
   }

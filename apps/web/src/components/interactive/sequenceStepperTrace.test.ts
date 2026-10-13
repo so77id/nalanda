@@ -2231,6 +2231,57 @@ describe('sequenceStepperTrace · bst · search', () => {
   });
 });
 
+describe('sequenceStepperTrace · bst · search, recursive and iterative side by side (#322)', () => {
+  const both = (target: number) =>
+    traceFor('bst', 'search', { values: BALANCED, target, iterative: true });
+  const lit = (code: string, lines: number[] | undefined) =>
+    (lines ?? []).map((l) => code.split('\n')[l - 1]!.trim());
+
+  it('carries the iterative listing only when asked', () => {
+    expect(traceFor('bst', 'search', { values: BALANCED, target: 6 }).alongside).toBeUndefined();
+    expect(both(6).alongside).toContain('while (node != null)');
+  });
+
+  it('lights the same decision in both listings at every frame', () => {
+    const trace = both(6);
+    const alongside = trace.alongside!;
+    for (const step of trace.steps) {
+      const left = lit(trace.code, step.highlightLines).join(' | ');
+      const right = lit(alongside, step.alongsideLines).join(' | ');
+      expect(right.length, left).toBeGreaterThan(0);
+      if (left.includes('if (c < 0) return contains')) expect(right).toContain('node = node.left');
+      if (left.includes('return contains(node.right')) expect(right).toContain('node = node.right');
+      if (left.includes('if (c == 0) return true'))
+        expect(right).toContain('if (c == 0) return true');
+      if (left.includes('int c = target.compareTo'))
+        expect(right).toContain('int c = target.compareTo');
+    }
+  });
+
+  it('ends a search that fails on the loop that runs out', () => {
+    const trace = both(5);
+    const last = trace.steps.at(-1)!;
+    expect(lit(trace.alongside!, last.alongsideLines)).toEqual([
+      'while (node != null) {',
+      'return false;',
+    ]);
+  });
+
+  it('refuses the iterative listing on any other operation', () => {
+    expect(() =>
+      traceFor('bst', 'insert', { values: BALANCED, value: 5, iterative: true }),
+    ).toThrow(/iterativ/);
+    expect(() =>
+      traceFor('binary-tree', 'search', {
+        values: [],
+        levelOrder: [4, 2, 7],
+        target: 7,
+        iterative: true,
+      }),
+    ).toThrow(/iterativ/);
+  });
+});
+
 describe('sequenceStepperTrace · bst · insert', () => {
   const PDF = [8, 5, 1, 4, 6, 7, 20];
 

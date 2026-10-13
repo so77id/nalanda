@@ -948,6 +948,42 @@ describe('<SequenceStepper> · the binary search over the array (#322)', () => {
   });
 });
 
+describe('<SequenceStepper> · two listings of one search (#322)', () => {
+  it('shows the recursive listing and the iterative one side by side, each named', () => {
+    renderIn(
+      'presentation',
+      <SequenceStepper
+        eda="bst"
+        operation="search"
+        values={[4, 2, 7, 1, 3, 6, 9]}
+        target={6}
+        iterative
+      />,
+    );
+    const panels = screen.getAllByTestId('sequence-listing');
+    expect(panels).toHaveLength(2);
+    expect(panels.map((p) => p.getAttribute('data-listing'))).toEqual(['recursiva', 'iterativa']);
+    expect(screen.getByText('recursiva')).toBeInTheDocument();
+    expect(screen.getByText('iterativa')).toBeInTheDocument();
+  });
+
+  it('keeps one listing when the iterative one is not asked for', () => {
+    renderIn(
+      'book',
+      <SequenceStepper eda="bst" operation="search" values={[4, 2, 7, 1, 3, 6, 9]} target={6} />,
+    );
+    expect(screen.getAllByTestId('sequence-listing')).toHaveLength(1);
+  });
+
+  it('refuses iterative on an operation that has no iterative listing', () => {
+    renderIn(
+      'book',
+      <SequenceStepper eda="bst" operation="insert" values={[4, 2, 7]} value={5} iterative />,
+    );
+    expect(document.querySelector('[data-authoring-error]')).not.toBeNull();
+  });
+});
+
 describe('<SequenceStepper> · the avl recipe (#322)', () => {
   const forward = (times: number) => {
     for (let i = 0; i < times; i += 1) {
@@ -1122,7 +1158,13 @@ describe('<SequenceStepper> · the combinations 22-edd-arboles-ii mounts', () =>
     {
       act: 'Las operaciones del árbol de búsqueda',
       slide: 'El código de la búsqueda',
-      props: { eda: 'bst', operation: 'search', values: [8, 4, 12, 2, 6, 10, 14], target: [10, 7] },
+      props: {
+        eda: 'bst',
+        operation: 'search',
+        values: [8, 4, 12, 2, 6, 10, 14],
+        target: [10, 7],
+        iterative: true,
+      },
     },
     {
       act: 'Las operaciones del árbol de búsqueda',

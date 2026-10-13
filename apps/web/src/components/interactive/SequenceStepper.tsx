@@ -122,6 +122,11 @@ export interface SequenceStepperProps {
   pointer?: string;
   /** Lists only: draw a `tail` pointer, and let the operations use it. */
   tail?: boolean;
+  /**
+   * `bst` × `search` only: the iterative `contains` beside the recursive one,
+   * the two listings sharing the width, each lit at every frame (#322).
+   */
+  iterative?: boolean;
   /** Playback default. Off unless the author asks (rule Peli 1/2). */
   autoplay?: boolean;
   /** `slow` ≈ 1200ms/step, `normal` ≈ 700ms, `fast` ≈ 300ms. */
@@ -347,6 +352,7 @@ export function SequenceStepper({
   receiverType,
   pointer,
   tail = false,
+  iterative = false,
   autoplay = false,
   speed = 'normal',
   showCode = true,
@@ -473,6 +479,7 @@ export function SequenceStepper({
       receiverType={receiverType}
       pointer={pointer}
       tail={tail}
+      iterative={iterative}
       autoplay={autoplay}
       speed={speed}
       showCode={showCode}
@@ -495,6 +502,7 @@ interface BodyProps {
   receiverType?: string;
   pointer?: string;
   tail: boolean;
+  iterative: boolean;
   autoplay: boolean;
   speed: StepSpeed;
   showCode: boolean;
@@ -515,6 +523,7 @@ function Body({
   receiverType,
   pointer,
   tail,
+  iterative,
   autoplay,
   speed,
   showCode,
@@ -556,6 +565,7 @@ function Body({
     receiverType,
     pointer,
     tail,
+    iterative,
   ].join('|');
 
   const built = useMemo((): { trace: SequenceTrace } | { error: string } => {
@@ -573,6 +583,7 @@ function Body({
           receiverType,
           pointer,
           tail,
+          iterative,
         }),
       };
     } catch (cause) {
@@ -593,6 +604,7 @@ function Body({
     receiverType,
     pointer,
     tail,
+    iterative,
   ]);
 
   const trace = 'trace' in built ? built.trace : null;
@@ -668,7 +680,39 @@ function Body({
               isPresentation ? 'bg-surface text-base [&_.cm-editor]:!text-base' : 'bg-surface'
             }
           >
-            <CodeStepper code={trace.code} highlightLines={step.highlightLines} language="java" />
+            {trace.alongside === undefined ? (
+              <div data-testid="sequence-listing">
+                <CodeStepper
+                  code={trace.code}
+                  highlightLines={step.highlightLines}
+                  language="java"
+                />
+              </div>
+            ) : (
+              // Two listings of one operation share the width: each is short,
+              // and reading them side by side, lit at the same moment, is the
+              // lesson — the call per level against the loop (#322).
+              <div className="grid grid-cols-2 gap-px bg-rule">
+                {(
+                  [
+                    ['recursiva', trace.code, step.highlightLines],
+                    ['iterativa', trace.alongside, step.alongsideLines ?? []],
+                  ] as const
+                ).map(([name, code, lines]) => (
+                  <div
+                    key={name}
+                    data-testid="sequence-listing"
+                    data-listing={name}
+                    className="bg-surface"
+                  >
+                    <div className="px-3 pt-1 font-mono text-3xs uppercase tracking-wide text-ink-faint">
+                      {name}
+                    </div>
+                    <CodeStepper code={code} highlightLines={[...lines]} language="java" />
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         ) : null}
         <div className="relative bg-surface">

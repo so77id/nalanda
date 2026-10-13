@@ -76,7 +76,14 @@ nothing on screen moves: the rule `maxCells` keeps for the chains.
   everything with choosing a side, and `insert` becomes shared between
   `heap-max` and `bst`. Then `minimum`, `successor` and `remove` in its three
   cases, the two-children case copying the successor's value into the node
-  (which keeps its column) and removing the successor. Maximum and
+  (which keeps its column) and removing the successor. `search` may also
+  show the iterative `contains` beside the recursive one (`iterative`): the
+  trace carries a second listing, `alongside`, and every frame the line of
+  it that does what the recursive line does — the comparison in both, a call
+  on a side against the variable stepping to it, a call on an empty side
+  against the loop's condition failing. The two share the code panel's
+  width; Miguel's review of the search slide asked for them read together.
+  Maximum and
   predecessor are their mirror images and stay in prose: no slide mounts
   them.
 

@@ -90,6 +90,12 @@ export const sequenceStepperCatalogEntry: CatalogEntry = {
         'List recipes only. Draws a `tail` pointer and lets the operations use it: `insert-last` drops to constant cost, and `remove-last` deliberately does NOT — on a singly linked list the missing piece is the PREVIOUS node, which no tail supplies. Default `false`.',
     },
     {
+      name: 'iterative',
+      type: 'boolean',
+      description:
+        '`bst` × `search` only. Shows the iterative `contains` — a loop with a variable that walks down — beside the recursive one, the two listings sharing the width, each lit at every frame: the comparison in both, a call on a side against the variable stepping to it, a call on an empty side against the loop condition that fails. Anywhere else it is an authoring error. Default `false`.',
+    },
+    {
       name: 'autoplay',
       type: 'boolean',
       description: 'Autoplay on mount. Off by default (rule Peli 1/2 — the reader decides when).',
@@ -363,6 +369,19 @@ export const sequenceStepperCatalogEntry: CatalogEntry = {
       code: '<SequenceStepper eda="bst" operation="search" values={[4, 2, 7, 1, 3, 6, 9]} target={6} />',
       render: () => (
         <SequenceStepper eda="bst" operation="search" values={[4, 2, 7, 1, 3, 6, 9]} target={6} />
+      ),
+    },
+    {
+      title: 'The same search written twice, recursive and iterative, lit together',
+      code: '<SequenceStepper eda="bst" operation="search" values={[8, 4, 12, 2, 6, 10, 14]} target={10} iterative />',
+      render: () => (
+        <SequenceStepper
+          eda="bst"
+          operation="search"
+          values={[8, 4, 12, 2, 6, 10, 14]}
+          target={10}
+          iterative
+        />
       ),
     },
     {

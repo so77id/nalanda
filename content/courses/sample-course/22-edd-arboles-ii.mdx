@@ -266,9 +266,11 @@ Comparable<T>`.
 
 <Slide title="El código de la búsqueda">
 Cada caso de la regla es una línea del método recursivo: el subárbol vacío,
-el valor encontrado, y un lado o el otro según la comparación.
+el valor encontrado, y un lado o el otro según la comparación. La misma
+búsqueda se escribe también con un ciclo: en vez de una llamada por nivel, una
+variable que baja. Las dos comparan los mismos valores en el mismo orden.
 
-<SequenceStepper eda="bst" operation="search" values={[8, 4, 12, 2, 6, 10, 14]} target={[10, 7]} />
+<SequenceStepper eda="bst" operation="search" values={[8, 4, 12, 2, 6, 10, 14]} target={[10, 7]} iterative />
 
 </Slide>
 

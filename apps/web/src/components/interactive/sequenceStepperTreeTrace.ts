@@ -415,7 +415,10 @@ export function traceSearchTree(operation: BstOperation, input: SequenceInput): 
       `El valor ${repeated} está repetido: un árbol de búsqueda no guarda dos veces el mismo valor.`,
     );
   }
-  if (operation === 'search') return traceSearchOrdered(input.values, asRuns(input.target));
+  if (operation === 'search') {
+    const trace = traceSearchOrdered(input.values, asRuns(input.target));
+    return input.iterative === true ? withIterativeContains(trace) : trace;
+  }
   if (operation === 'minimum') return traceMinimum(input.values);
   if (operation === 'successor') return traceSuccessor(input.values, asRuns(input.target));
   if (operation === 'remove') return traceRemove(input.values, asRuns(input.target));
@@ -694,6 +697,55 @@ export function columnsFor(values: number[]): (v: number) => number {
 /** Marks a whole subtree as ruled out. */
 function discard(rec: TreeRecorder, n: TreeNode | null): void {
   for (const { node } of nodesOf(n)) rec.state.set(node.id, 'discarded');
+}
+
+/**
+ * The search tree's `contains` as a loop: the same comparisons, the same
+ * nodes, a variable that walks down instead of a call per level. Shown
+ * beside the recursive listing, so the class reads the two at once.
+ */
+const CONTAINS_ITERATIVE = `boolean contains(T target) {
+    Node<T> node = root;
+    while (node != null) {
+        int c = target.compareTo(node.value);
+        if (c == 0) return true;
+        if (c < 0) node = node.left;
+        else node = node.right;
+    }
+    return false;
+}`;
+
+/**
+ * What each line the recursive search lights is in the loop: the call that
+ * starts it is the loop's first assignment, a call on an empty side is the
+ * condition that fails, a call on a side is the variable stepping to it. The
+ * loop's condition lights with every comparison, because it is evaluated
+ * before each one.
+ */
+const ITERATIVE_OF: [string, string[]][] = [
+  ['boolean contains(', ['Node<T> node = root']],
+  ['if (node == null) return false', ['while (node != null)', 'return false;']],
+  ['int c = target.compareTo', ['while (node != null)', 'int c = target.compareTo']],
+  ['if (c == 0) return true', ['if (c == 0) return true']],
+  ['if (c < 0) return contains', ['if (c < 0) node = node.left']],
+  ['return contains(node.right', ['else node = node.right']],
+];
+
+function withIterativeContains(trace: SequenceTrace): SequenceTrace {
+  const lines = trace.code.split('\n');
+  return {
+    ...trace,
+    alongside: CONTAINS_ITERATIVE,
+    steps: trace.steps.map((step) => {
+      const mapped = new Set<number>();
+      for (const line of step.highlightLines) {
+        const text = lines[line - 1] ?? '';
+        const entry = ITERATIVE_OF.find(([fragment]) => text.includes(fragment));
+        for (const fragment of entry?.[1] ?? []) mapped.add(lineOf(CONTAINS_ITERATIVE, fragment));
+      }
+      return { ...step, alongsideLines: [...mapped].sort((a, b) => a - b) };
+    }),
+  };
 }
 
 function traceSearchOrdered(values: number[], targets: number[]): SequenceTrace {
