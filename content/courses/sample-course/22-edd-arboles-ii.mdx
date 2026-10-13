@@ -935,16 +935,13 @@ orden entre los lados, vuelve a costar $$\Theta(n)$$. Ese intercambio es el del
 
 ## Ejercicios
 
-{/* The tree the ancestor exercise threads through its beats: the class's own insertion of 8, 5, 1, 4, 6, 7, 20, 12. */}
-
-export const LCA_TREE = { v: 8, l: { v: 5, l: { v: 1, r: { v: 4 } }, r: { v: 6, r: { v: 7 } } }, r: { v: 20, l: { v: 12 } } };
-
 <Slide title="El ancestro común más bajo">
 Un **ancestro común** de dos nodos tiene a los dos en su subárbol, y un nodo
 cuenta en su propio subárbol. El **ancestro común más bajo** es el más
-profundo de todos: en un árbol genealógico, el antepasado más cercano.
+profundo de todos: en un árbol genealógico, el antepasado más cercano que dos
+personas comparten.
 
-<BinaryPicture tree={LCA_TREE} tones={{ 4: 'mark', 7: 'mark', 5: 'keep' }} notes={{ 5: 'más bajo' }} label="El árbol de búsqueda 8, 5, 1, 4, 6, 7, 20, 12. Los valores 4 y 7 están marcados; su ancestro común más bajo es el 5." caption="4 y 7: el 8 y el 5 los tienen a los dos debajo, y el 5 es el más bajo" />
+<BinaryPicture tree={EVENS} tones={{ 2: 'mark', 6: 'mark', 4: 'keep' }} notes={{ 4: 'más bajo' }} label="El árbol de búsqueda con 8 en la raíz, 4 y 12 debajo, y 2, 6, 10 y 14 en el último nivel. Los valores 2 y 6 están marcados; su ancestro común más bajo es el 4." caption="2 y 6: el 8 y el 4 los tienen a los dos debajo, y el 4 es el más bajo" />
 
 El programa recibe la raíz de un árbol binario de búsqueda y dos valores que
 están en el árbol, y responde el valor de su ancestro común más bajo. Llamamos
@@ -955,32 +952,37 @@ static int lowestCommonAncestor(Node<Integer> root,
         int a, int b)
 ```
 
-| Valores  | Ancestro común más bajo |
-| -------- | ----------------------- |
-| 4 y 7    | 5                       |
-| 6 y 7    | 6                       |
-| 1 y 1    | 1                       |
+| Valores | Ancestro común más bajo |
+| ------- | ----------------------- |
+| 2 y 6   | 4                       |
+| 6 y 10  | 8                       |
+| 4 y 6   | 4                       |
+| 14 y 14 | 14                      |
 
 </Slide>
 
 <Slide title="La raíz como respuesta">
-La raíz tiene a todos los nodos en su subárbol, así que siempre es un
-ancestro común. Pero no siempre es el más bajo: para 4 y 7, el 8 es ancestro
-de los dos, y el 5, más abajo, también lo es. Una respuesta correcta tiene
-que saber **hasta dónde bajar** sin perder a ninguno de los dos.
+La raíz tiene a todos los nodos en su subárbol, así que siempre es un ancestro
+común. Pero no siempre es el más bajo: más abajo puede haber otro nodo que
+también tiene a los dos. Una respuesta correcta tiene que saber **hasta dónde
+bajar** sin dejar a ninguno de los dos afuera.
+
+<BinaryPicture tree={EVENS} tones={{ 2: 'mark', 6: 'mark', 8: 'focus', 4: 'keep' }} notes={{ 8: 'común', 4: 'más bajo' }} label="El mismo árbol con 2 y 6 marcados. La raíz, el 8, es un ancestro común de los dos, pero el 4, más abajo, también lo es." caption="el 8 tiene a 2 y 6 debajo, pero el 4 también" />
 
 </Slide>
 
 <Slide title="Bajar mientras los dos estén del mismo lado">
-Por la invariante del árbol de búsqueda, en cada nodo se sabe de qué lado
-está cada valor. Si los dos son menores que el nodo, los dos están en su
-subárbol izquierdo, y el ancestro común más bajo también: se baja a la
-izquierda. Si los dos son mayores, a la derecha. En cuanto los dos **dejan de
-estar del mismo lado** —uno a cada lado, o uno es el nodo mismo—, ningún nodo
-de más abajo tiene a los dos: ese nodo es la respuesta.
+Por la invariante del árbol de búsqueda, en cada nodo se sabe de qué lado está
+cada valor. Si los dos son menores que el nodo, los dos están en su subárbol
+izquierdo, y el ancestro común más bajo también: se baja a la izquierda. Si
+los dos son mayores, a la derecha. En cuanto los dos **dejan de estar del
+mismo lado** —uno a cada lado, o uno es el nodo mismo—, ningún nodo de más
+abajo tiene a los dos: ese nodo es la respuesta.
 
-Con 4 y 7: los dos son menores que 8, así que se baja al 5. El 4 es menor que
-5 y el 7 es mayor: se separan, y el ancestro común más bajo es el 5.
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1rem 2rem', alignItems: 'end' }}>
+<BinaryPicture tree={EVENS} path={[8]} tones={{ 8: 'focus', 2: 'mark', 6: 'mark' }} label="En la raíz, el 8: el 2 y el 6 son menores que 8, así que los dos están a su izquierda." caption="en el 8: 2 y 6 son menores, se baja a la izquierda" />
+<BinaryPicture tree={EVENS} path={[8, 4]} tones={{ 8: 'done', 4: 'keep', 2: 'mark', 6: 'mark', 12: 'faint', 10: 'faint', 14: 'faint' }} label="En el 4: el 2 es menor y el 6 es mayor. Se separan, y el 4 es el ancestro común más bajo." caption="en el 4: 2 es menor y 6 es mayor; se separan, y la respuesta es 4" />
+</div>
 
 </Slide>
 
@@ -1005,32 +1007,32 @@ hacia el mismo lado, o se responde el nodo.
 }`}
 >
   <Step lines={[3]}>
-    <BinaryPicture tree={LCA_TREE} tones={{ 8: 'focus', 4: 'mark', 7: 'mark' }} size={0.85} label="Se empieza en la raíz, el 8. Los valores buscados son 4 y 7." />
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Se empieza en la raíz, con 4 y 7.</div>
+    <BinaryPicture tree={EVENS} tones={{ 8: 'focus', 2: 'mark', 6: 'mark' }} size={0.85} label="Se empieza en la raíz, el 8. Los valores son 2 y 6." />
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>Se empieza en la raíz, con 2 y 6.</div>
   </Step>
   <Step lines={[5, 6]}>
-    <BinaryPicture tree={LCA_TREE} tones={{ 8: 'done', 5: 'focus', 4: 'mark', 7: 'mark', 20: 'faint', 12: 'faint' }} size={0.85} label="4 y 7 son menores que 8: se baja al 5, y el subárbol derecho del 8 queda descartado." />
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>4 y 7 son menores que 8: los dos están a su izquierda, y se baja al 5.</div>
+    <BinaryPicture tree={EVENS} path={[8, 4]} tones={{ 8: 'done', 4: 'focus', 2: 'mark', 6: 'mark', 12: 'faint', 10: 'faint', 14: 'faint' }} size={0.85} label="2 y 6 son menores que 8: se baja al 4, y el subárbol derecho del 8 queda descartado." />
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>2 y 6 son menores que 8: se baja al 4.</div>
   </Step>
   <Step lines={[9, 10]}>
-    <BinaryPicture tree={LCA_TREE} tones={{ 8: 'done', 5: 'keep', 4: 'mark', 7: 'mark', 20: 'faint', 12: 'faint' }} size={0.85} label="4 es menor que 5 y 7 es mayor: se separan, y el 5 es el ancestro común más bajo." />
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>4 es menor que 5 y 7 es mayor: se separan. La respuesta es 5.</div>
+    <BinaryPicture tree={EVENS} path={[8, 4]} tones={{ 8: 'done', 4: 'keep', 2: 'mark', 6: 'mark', 12: 'faint', 10: 'faint', 14: 'faint' }} size={0.85} label="2 es menor que 4 y 6 es mayor: se separan, y el 4 es el ancestro común más bajo." />
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>2 es menor que 4 y 6 es mayor: se separan. La respuesta es 4.</div>
   </Step>
 </StepShow>
 
 </Slide>
 
-<Slide title="Un valor que es ancestro del otro">
-Con 6 y 7, el ciclo baja del 8 al 5 y del 5 al 6. Ahí el 6 no es menor ni
-mayor que el nodo: **es** el nodo, y la condición de bajar falla. El ciclo
-responde 6, que es correcto, porque un nodo cuenta en su propio subárbol. Con
-dos valores iguales, como 1 y 1, pasa lo mismo al llegar al 1.
+<Slide title="Un valor que es ancestro del otro, y el costo">
+Cuando uno de los dos valores **es** el nodo, no es menor ni mayor que él, y
+las dos condiciones de bajar fallan: el ciclo responde ese nodo. Es correcto,
+porque un nodo cuenta en su propio subárbol. Con dos valores iguales pasa lo
+mismo al llegar a ese valor. Como los dos valores están en el árbol, la bajada
+siempre se detiene en un nodo y nunca llega a un subárbol vacío.
 
-Como los dos valores están en el árbol, la bajada siempre se detiene en un
-nodo y nunca llega a un subárbol vacío.
+<BinaryPicture tree={EVENS} path={[8, 4]} tones={{ 4: 'keep', 6: 'mark', 8: 'done', 12: 'faint', 10: 'faint', 14: 'faint', 2: 'faint' }} label="4 y 6: se baja del 8 al 4, y ahí el 4 no es menor ni mayor que el nodo, porque es el nodo. La respuesta es 4." caption="4 y 6: en el 4, el 4 es el nodo; la respuesta es 4" />
 
 **Tiempo.** Cada vuelta del ciclo baja un nivel, así que hay a lo más
-$$h + 1$$ vueltas, y cada una hace a lo más cuatro comparaciones: $$O(h)$$.
+$$h + 1$$ vueltas, cada una con a lo más cuatro comparaciones: $$O(h)$$.
 **Memoria.** Una sola referencia, `node`, sin recursión: $$\Theta(1)$$.
 
 </Slide>
@@ -1066,17 +1068,16 @@ class Solution {
 
 ```java test
 Node<Integer> root = new Node<>(8);
-root.left = new Node<>(5);
-root.left.left = new Node<>(1);
-root.left.left.right = new Node<>(4);
+root.left = new Node<>(4);
+root.left.left = new Node<>(2);
 root.left.right = new Node<>(6);
-root.left.right.right = new Node<>(7);
-root.right = new Node<>(20);
-root.right.left = new Node<>(12);
-check(Solution.lowestCommonAncestor(root, 4, 7), 5);
-check(Solution.lowestCommonAncestor(root, 4, 12), 8);
-check(Solution.lowestCommonAncestor(root, 6, 7), 6);
-check(Solution.lowestCommonAncestor(root, 1, 1), 1);
+root.right = new Node<>(12);
+root.right.left = new Node<>(10);
+root.right.right = new Node<>(14);
+check(Solution.lowestCommonAncestor(root, 2, 6), 4);
+check(Solution.lowestCommonAncestor(root, 6, 10), 8);
+check(Solution.lowestCommonAncestor(root, 4, 6), 4);
+check(Solution.lowestCommonAncestor(root, 14, 14), 14);
 ```
 
 </Exercise>
