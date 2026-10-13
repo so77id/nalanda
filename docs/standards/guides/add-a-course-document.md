@@ -873,9 +873,14 @@ there), `successor` (`target`) walks down once keeping the best candidate,
 and `remove` (`target`) runs the three cases — a leaf, one child, and two
 children by copying the successor's value into the node and removing the
 successor. `search` keeps one name over the chains and both trees, `insert`
-over the heap and `bst`. On `bst`, `search` also takes `iterative`: the
-loop version of `contains` beside the recursive one, the two listings side
-by side and lit at the same moment (#322); on anything else it is an
+over the heap and `bst`. `iterative` puts the recursive version of an
+operation on the left and the iterative one on the right, the two listings
+lit at the same moment (#322): on `bst` × `search`, `minimum` and `insert`,
+and on `dynamic-array` × `binary-search` with one target — the operations
+whose two versions take the same decisions in the same order. `remove`, the
+AVL's operations and the traversals stay recursive: the first needs the
+parent of every node, the AVL rebalances on the way back, and an iterative
+traversal needs a stack of its own. Anywhere else `iterative` is an
 authoring error.
 Since #322 a third tree recipe, `avl`, rotates: `rotate-right` and
 `rotate-left` (`target`, the node that rotates; it needs the child that goes

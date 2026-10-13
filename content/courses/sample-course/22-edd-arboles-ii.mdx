@@ -109,9 +109,11 @@ En un arreglo ordenado, la búsqueda binaria compara el valor buscado con el
 elemento del medio. Si son iguales, lo encontró. Si el buscado es menor, no
 puede estar en la mitad derecha, y la búsqueda sigue en la izquierda; si es
 mayor, al revés. Cada comparación descarta la mitad de lo que quedaba, así que
-bastan $$\lfloor \log_2 n \rfloor + 1$$ comparaciones.
+bastan $$\lfloor \log_2 n \rfloor + 1$$ comparaciones. Se escribe con
+recursión, una llamada por rango, o con un ciclo que achica el rango: las dos
+comparan los mismos valores en el mismo orden.
 
-<SequenceStepper eda="dynamic-array" operation="binary-search" values={[2, 4, 6, 8, 10, 12, 14]} target={7} />
+<SequenceStepper eda="dynamic-array" operation="binary-search" values={[2, 4, 6, 8, 10, 12, 14]} target={7} iterative />
 
 </Slide>
 
@@ -277,13 +279,11 @@ variable que baja. Las dos comparan los mismos valores en el mismo orden.
 <Slide title="Insertar en un árbol de búsqueda">
 Para insertar, se busca el valor. Si aparece, no se hace nada: el árbol no
 guarda repetidos. Si la búsqueda termina en un subárbol vacío, ahí se cuelga
-el valor nuevo como una **hoja**.
+el valor nuevo como una **hoja**. La invariante queda en pie, porque la hoja
+quedó del lado que eligió cada comparación, y ningún otro nodo se mueve: el
+costo es el de la búsqueda, $$O(h)$$.
 
-<SequenceStepper eda="bst" operation="insert" values={[8, 4, 12, 2, 6, 10, 14]} value={7} />
-
-La invariante queda en pie: la hoja nueva quedó del lado que eligió cada
-comparación, que es el lado correcto de cada nodo por encima de ella. Ningún
-otro nodo se mueve, y el costo es el de la búsqueda: $$O(h)$$.
+<SequenceStepper eda="bst" operation="insert" values={[8, 4, 12, 2, 6, 10, 14]} value={7} iterative />
 
 </Slide>
 
@@ -292,7 +292,8 @@ El método recursivo devuelve la raíz del subárbol en que insertó. Casi siemp
 es el mismo nodo que recibió; la excepción es el subárbol vacío, donde
 devuelve el nodo nuevo. Por eso cada llamada guarda lo que devuelve la
 siguiente en `node.left` o `node.right`, y el método público lo guarda en
-`root`: así, insertar en un árbol vacío crea la raíz.
+`root`: así, insertar en un árbol vacío crea la raíz. El ciclo no tiene esa
+vuelta: por eso baja recordando el padre, y al final cuelga la hoja de él.
 
 ```java
 void insert(T value) {
@@ -308,9 +309,10 @@ void insert(T value) {
 Por la invariante, todo lo menor que un nodo está a su izquierda. El
 **mínimo** es entonces el nodo de más a la izquierda: se baja por la izquierda
 hasta un nodo que no tenga hijo izquierdo. El **máximo** es el simétrico: se
-baja por la derecha.
+baja por la derecha. Con recursión es una llamada a la izquierda por nivel;
+con un ciclo, una variable que baja mientras haya izquierda.
 
-<SequenceStepper eda="bst" operation="minimum" values={[8, 4, 12, 2, 6, 10, 14]} />
+<SequenceStepper eda="bst" operation="minimum" values={[8, 4, 12, 2, 6, 10, 14]} iterative />
 
 Los dos bajan por un solo camino: $$O(h)$$. En un árbol vacío no hay mínimo,
 y el método lanza una excepción.

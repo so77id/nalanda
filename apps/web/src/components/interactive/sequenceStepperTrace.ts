@@ -25,7 +25,13 @@
  *   first rather than at `null`.
  */
 
-import { asRuns, lineOf, requireRuns } from './sequenceStepperTraceShared';
+import {
+  asRuns,
+  lineOf,
+  pairListings,
+  requireRuns,
+  type ListingPairs,
+} from './sequenceStepperTraceShared';
 import { traceAvl } from './sequenceStepperAvlTrace';
 import { traceSearchTree, traceTree } from './sequenceStepperTreeTrace';
 
@@ -525,13 +531,26 @@ export function traceFor(
   operation: SequenceOperation,
   input: SequenceInput,
 ): SequenceTrace {
-  if (input.iterative === true && !(recipe === 'bst' && operation === 'search')) {
+  if (input.iterative === true && !PAIRED.some(([r, o]) => r === recipe && o === operation)) {
     throw new Error(
-      'Solo la búsqueda del árbol de búsqueda tiene un listado iterativo: iterative va con eda="bst" y operation="search".',
+      `«${operation}» sobre «${recipe}» no tiene un listado iterativo al lado: iterative va con ${PAIRED.map(([r, o]) => `${r} × ${o}`).join(', ')}.`,
     );
   }
   if (!isValidCombination(recipe, operation, input.tail === true)) {
     throw new Error(`La operación «${operation}» no está definida sobre «${recipe}».`);
+  }
+  if (recipe === 'dynamic-array' && operation === 'binary-search' && input.iterative === true) {
+    if (asRuns(input.target).length > 1) {
+      throw new Error(
+        'La búsqueda binaria con sus dos listados va con una sola búsqueda: el programa que llama a varias no tiene versión recursiva.',
+      );
+    }
+    return pairListings(
+      traceArray(operation, input),
+      BINARY_SEARCH_RECURSIVE,
+      BINARY_SEARCH_PAIRS,
+      true,
+    );
   }
   if (recipe === 'heap-max') return traceHeap(operation, input);
   if (recipe === 'binary-tree' && isBinaryTreeOperation(operation)) {
@@ -761,6 +780,52 @@ const ARRAY_CODE: Record<ArrayOperation, string> = {
     return -1;
 }`,
 };
+
+/**
+ * The operations that can show a second listing beside their own, the
+ * recursive version on the left and the iterative on the right (#322): the
+ * ones whose two versions take the same decisions in the same order, so a
+ * frame is the same moment in both.
+ */
+const PAIRED: [SequenceRecipe, SequenceOperation][] = [
+  ['dynamic-array', 'binary-search'],
+  ['bst', 'search'],
+  ['bst', 'minimum'],
+  ['bst', 'insert'],
+];
+
+/** The binary search written recursively: one call per range, as divide and conquer writes it. */
+const BINARY_SEARCH_RECURSIVE = `int binarySearch(int x) {
+    return binarySearch(x, 0, size - 1);
+}
+
+int binarySearch(int x, int lo, int hi) {
+    if (lo > hi) {
+        return -1;
+    }
+    int mid = (lo + hi) / 2;
+    if (data[mid] == x) {
+        return mid;
+    }
+    if (x < data[mid]) {
+        return binarySearch(x, lo, mid - 1);
+    }
+    return binarySearch(x, mid + 1, hi);
+}`;
+
+/** The iterative listing's lines, read as the recursive one's. */
+const BINARY_SEARCH_PAIRS: ListingPairs = [
+  ['int lo = 0', ['return binarySearch(x, 0, size - 1)']],
+  ['int hi = size - 1', ['return binarySearch(x, 0, size - 1)']],
+  ['while (lo <= hi)', ['if (lo > hi)']],
+  ['int mid =', ['int mid =']],
+  ['if (data[mid] == x)', ['if (data[mid] == x)']],
+  ['return mid;', ['return mid;']],
+  ['if (x < data[mid])', ['if (x < data[mid])']],
+  ['hi = mid - 1', ['return binarySearch(x, lo, mid - 1)']],
+  ['lo = mid + 1', ['return binarySearch(x, mid + 1, hi)']],
+  ['return -1;', ['return -1;']],
+];
 
 function traceArray(operation: SequenceOperation, input: SequenceInput): SequenceTrace {
   // How many times the author asked for the operation. The array family

@@ -399,6 +399,9 @@ the run's legend names it. The settled last frame keeps it — an array that
 turns idle again says the search never looked. `values` must be sorted with
 no repeats or the widget refuses it, the stance `insert-ordered` takes on a
 list: a binary search over an unsorted array answers wrongly with no error.
+With `iterative` (one target) the recursive version — one call per range,
+as divide and conquer writes it — goes on the left and the loop on the
+right, every frame lit in both (ADR-0083 §3 has the mechanism).
 
 **Source:** Issue #288 — Course document "Estructuras de Datos · Listas
 Enlazadas". The class shows nine operations over five structures, and

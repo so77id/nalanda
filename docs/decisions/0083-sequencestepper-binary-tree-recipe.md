@@ -76,13 +76,21 @@ nothing on screen moves: the rule `maxCells` keeps for the chains.
   everything with choosing a side, and `insert` becomes shared between
   `heap-max` and `bst`. Then `minimum`, `successor` and `remove` in its three
   cases, the two-children case copying the successor's value into the node
-  (which keeps its column) and removing the successor. `search` may also
-  show the iterative `contains` beside the recursive one (`iterative`): the
-  trace carries a second listing, `alongside`, and every frame the line of
-  it that does what the recursive line does — the comparison in both, a call
-  on a side against the variable stepping to it, a call on an empty side
-  against the loop's condition failing. The two share the code panel's
-  width; Miguel's review of the search slide asked for them read together.
+  (which keeps its column) and removing the successor. `search`,
+  `minimum` and `insert` may also show their iterative version beside the
+  recursive one (`iterative`): the trace carries a second listing,
+  `alongside`, and every frame the line of it that does what the recursive
+  line does — the comparison in both, a call on a side against the variable
+  stepping to it, a call on an empty side against the loop's condition
+  failing, the leaf the recursion hangs on the way back against the parent
+  the loop kept. The two share the code panel's width; Miguel's review of the
+  search slide asked for them read together, and for every operation that
+  can be written both ways. `remove`, the AVL's two and the traversals are
+  not paired: the first needs the parent of every node through three cases,
+  the AVL rebalances on the way back, and an iterative traversal is a stack
+  — the iterator exercise. The translation is `pairListings`
+  (`sequenceStepperTraceShared.ts`), shared with the array's binary search
+  (ADR-0074).
   Maximum and
   predecessor are their mirror images and stay in prose: no slide mounts
   them.

@@ -93,7 +93,7 @@ export const sequenceStepperCatalogEntry: CatalogEntry = {
       name: 'iterative',
       type: 'boolean',
       description:
-        '`bst` × `search` only. Shows the iterative `contains` — a loop with a variable that walks down — beside the recursive one, the two listings sharing the width, each lit at every frame: the comparison in both, a call on a side against the variable stepping to it, a call on an empty side against the loop condition that fails. Anywhere else it is an authoring error. Default `false`.',
+        'Shows the recursive version of the operation on the left and the iterative one on the right, the two listings sharing the width, each lit at every frame where the other is: the comparison in both, a call on a side against the variable stepping to it, a call on an empty side against the loop condition that fails. Valid on `dynamic-array` × `binary-search` (one target), and on `bst` × `search`, `minimum` and `insert` — the operations whose two versions take the same decisions in the same order. Anywhere else it is an authoring error. Default `false`.',
     },
     {
       name: 'autoplay',

@@ -16,7 +16,13 @@
  * pieces exported here: the node, the recorder, the search tree built by
  * inserting, and the run's columns.
  */
-import { asRuns, lineOf, requireRuns } from './sequenceStepperTraceShared';
+import {
+  asRuns,
+  lineOf,
+  pairListings,
+  requireRuns,
+  type ListingPairs,
+} from './sequenceStepperTraceShared';
 // Types only: the dispatcher imports this module's `traceTree` as a value, so a
 // value imported back from it would close a runtime cycle (ADR-0083 §1).
 import type {
@@ -417,7 +423,19 @@ export function traceSearchTree(operation: BstOperation, input: SequenceInput): 
   }
   if (operation === 'search') {
     const trace = traceSearchOrdered(input.values, asRuns(input.target));
-    return input.iterative === true ? withIterativeContains(trace) : trace;
+    return input.iterative === true
+      ? pairListings(trace, CONTAINS_ITERATIVE, CONTAINS_PAIRS)
+      : trace;
+  }
+  if (operation === 'minimum' && input.iterative === true) {
+    return pairListings(traceMinimum(input.values), MINIMUM_ITERATIVE, MINIMUM_PAIRS);
+  }
+  if (operation === 'insert' && input.iterative === true) {
+    return pairListings(
+      traceInsert(input.values, asRuns(input.value)),
+      INSERT_ITERATIVE,
+      INSERT_PAIRS,
+    );
   }
   if (operation === 'minimum') return traceMinimum(input.values);
   if (operation === 'successor') return traceSuccessor(input.values, asRuns(input.target));
@@ -722,7 +740,7 @@ const CONTAINS_ITERATIVE = `boolean contains(T target) {
  * loop's condition lights with every comparison, because it is evaluated
  * before each one.
  */
-const ITERATIVE_OF: [string, string[]][] = [
+const CONTAINS_PAIRS: ListingPairs = [
   ['boolean contains(', ['Node<T> node = root']],
   ['if (node == null) return false', ['while (node != null)', 'return false;']],
   ['int c = target.compareTo', ['while (node != null)', 'int c = target.compareTo']],
@@ -731,22 +749,66 @@ const ITERATIVE_OF: [string, string[]][] = [
   ['return contains(node.right', ['else node = node.right']],
 ];
 
-function withIterativeContains(trace: SequenceTrace): SequenceTrace {
-  const lines = trace.code.split('\n');
-  return {
-    ...trace,
-    alongside: CONTAINS_ITERATIVE,
-    steps: trace.steps.map((step) => {
-      const mapped = new Set<number>();
-      for (const line of step.highlightLines) {
-        const text = lines[line - 1] ?? '';
-        const entry = ITERATIVE_OF.find(([fragment]) => text.includes(fragment));
-        for (const fragment of entry?.[1] ?? []) mapped.add(lineOf(CONTAINS_ITERATIVE, fragment));
-      }
-      return { ...step, alongsideLines: [...mapped].sort((a, b) => a - b) };
-    }),
-  };
-}
+/** The minimum as a loop: step left while there is a left. */
+const MINIMUM_ITERATIVE = `T min() {
+    if (root == null) {
+        throw new NoSuchElementException();
+    }
+    Node<T> node = root;
+    while (node.left != null) {
+        node = node.left;
+    }
+    return node.value;
+}`;
+
+const MINIMUM_PAIRS: ListingPairs = [
+  ['return minimum(root).value', ['Node<T> node = root']],
+  ['if (node.left == null) return node', ['while (node.left != null)', 'return node.value']],
+  ['return minimum(node.left)', ['while (node.left != null)', 'node = node.left']],
+];
+
+/**
+ * The insertion as a loop: the same descent with the parent kept one step
+ * behind, and the leaf hung on the side the last comparison chose. The
+ * recursive version hangs it on the way back, `node.left = insert(…)`; the
+ * loop has no way back, so it remembers whom to hang it from.
+ */
+const INSERT_ITERATIVE = `void insert(T value) {
+    Node<T> parent = null;
+    Node<T> node = root;
+    while (node != null) {
+        int c = value.compareTo(node.value);
+        if (c == 0) return;
+        parent = node;
+        node = c < 0 ? node.left : node.right;
+    }
+    Node<T> fresh = new Node<>(value);
+    if (parent == null) root = fresh;
+    else if (value.compareTo(parent.value) < 0) parent.left = fresh;
+    else parent.right = fresh;
+}`;
+
+/** Where the frame's new leaf hangs: from nobody, or from a left or a right. */
+const hungFrom = (step: SequenceStep): string => {
+  const nodes = step.tree?.nodes ?? [];
+  const fresh = nodes.find((n) => n.state === 'new');
+  if (fresh === undefined) return 'if (parent == null) root = fresh';
+  if (nodes.some((n) => n.left === fresh.id)) return 'parent.left = fresh';
+  if (nodes.some((n) => n.right === fresh.id)) return 'else parent.right = fresh';
+  return 'if (parent == null) root = fresh';
+};
+
+const INSERT_PAIRS: ListingPairs = [
+  ['Node<T> insert(', ['Node<T> parent = null', 'Node<T> node = root']],
+  ['int c = value.compareTo', ['while (node != null)', 'int c = value.compareTo']],
+  ['return node;', ['if (c == 0) return']],
+  ['node.left = insert', ['parent = node', 'node = c < 0']],
+  ['node.right = insert', ['parent = node', 'node = c < 0']],
+  [
+    'return new Node<>(value)',
+    (step) => ['while (node != null)', 'Node<T> fresh = new Node<>(value)', hungFrom(step)],
+  ],
+];
 
 function traceSearchOrdered(values: number[], targets: number[]): SequenceTrace {
   if (targets.length === 0) throw new Error('Falta el valor a buscar.');

@@ -978,7 +978,7 @@ describe('<SequenceStepper> · two listings of one search (#322)', () => {
   it('refuses iterative on an operation that has no iterative listing', () => {
     renderIn(
       'book',
-      <SequenceStepper eda="bst" operation="insert" values={[4, 2, 7]} value={5} iterative />,
+      <SequenceStepper eda="bst" operation="remove" values={[4, 2, 7]} target={4} iterative />,
     );
     expect(document.querySelector('[data-authoring-error]')).not.toBeNull();
   });
@@ -1136,6 +1136,7 @@ describe('<SequenceStepper> · the combinations 22-edd-arboles-ii mounts', () =>
         operation: 'binary-search',
         values: [2, 4, 6, 8, 10, 12, 14],
         target: 7,
+        iterative: true,
       },
     },
     {
@@ -1169,7 +1170,13 @@ describe('<SequenceStepper> · the combinations 22-edd-arboles-ii mounts', () =>
     {
       act: 'Las operaciones del árbol de búsqueda',
       slide: 'Insertar en un árbol de búsqueda',
-      props: { eda: 'bst', operation: 'insert', values: [8, 4, 12, 2, 6, 10, 14], value: 7 },
+      props: {
+        eda: 'bst',
+        operation: 'insert',
+        values: [8, 4, 12, 2, 6, 10, 14],
+        value: 7,
+        iterative: true,
+      },
     },
     {
       act: 'Las operaciones del árbol de búsqueda',
@@ -1179,7 +1186,12 @@ describe('<SequenceStepper> · the combinations 22-edd-arboles-ii mounts', () =>
     {
       act: 'Las operaciones del árbol de búsqueda',
       slide: 'El mínimo y el máximo',
-      props: { eda: 'bst', operation: 'minimum', values: [8, 4, 12, 2, 6, 10, 14] },
+      props: {
+        eda: 'bst',
+        operation: 'minimum',
+        values: [8, 4, 12, 2, 6, 10, 14],
+        iterative: true,
+      },
     },
     {
       act: 'Las operaciones del árbol de búsqueda',

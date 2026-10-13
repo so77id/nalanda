@@ -2269,7 +2269,7 @@ describe('sequenceStepperTrace · bst · search, recursive and iterative side by
 
   it('refuses the iterative listing on any other operation', () => {
     expect(() =>
-      traceFor('bst', 'insert', { values: BALANCED, value: 5, iterative: true }),
+      traceFor('bst', 'remove', { values: BALANCED, target: 4, iterative: true }),
     ).toThrow(/iterativ/);
     expect(() =>
       traceFor('binary-tree', 'search', {
@@ -2279,6 +2279,73 @@ describe('sequenceStepperTrace · bst · search, recursive and iterative side by
         iterative: true,
       }),
     ).toThrow(/iterativ/);
+  });
+});
+
+describe('sequenceStepperTrace · the other listings shown recursive and iterative (#322)', () => {
+  const lit = (code: string, lines: number[] | undefined) =>
+    (lines ?? []).map((l) => code.split('\n')[l - 1]!.trim());
+  /** Every frame lights something in both listings, and each pair is what the table says. */
+  const paired = (trace: SequenceTrace, pairs: [string, string][]) => {
+    for (const step of trace.steps) {
+      const left = lit(trace.code, step.highlightLines).join(' | ');
+      const right = lit(trace.alongside!, step.alongsideLines).join(' | ');
+      expect(left.length, right).toBeGreaterThan(0);
+      expect(right.length, left).toBeGreaterThan(0);
+      for (const [l, r] of pairs) if (left.includes(l)) expect(right, left).toContain(r);
+    }
+  };
+
+  it('pairs the minimum: a call to the left against the variable stepping left', () => {
+    const trace = traceFor('bst', 'minimum', { values: BALANCED, iterative: true });
+    expect(trace.code).toContain('return minimum(node.left)');
+    expect(trace.alongside).toContain('while (node.left != null)');
+    paired(trace, [
+      ['return minimum(node.left)', 'node = node.left'],
+      ['if (node.left == null) return node', 'return node.value'],
+    ]);
+  });
+
+  it('pairs the insertion: the same descent, and the leaf hung at the end', () => {
+    const trace = traceFor('bst', 'insert', { values: BALANCED, value: 5, iterative: true });
+    expect(trace.alongside).toContain('parent = node');
+    paired(trace, [
+      ['int c = value.compareTo', 'int c = value.compareTo'],
+      ['node.left = insert', 'node = c < 0'],
+      ['node.right = insert', 'node = c < 0'],
+      ['return new Node<>(value)', 'Node<T> fresh = new Node<>(value)'],
+    ]);
+    // 5 goes right of 4, left of 7, and hangs on the left of 6.
+    const last = trace.steps.at(-1)!;
+    expect(lit(trace.alongside!, last.alongsideLines)).toContain(
+      'else if (value.compareTo(parent.value) < 0) parent.left = fresh;',
+    );
+  });
+
+  it('pairs the binary search over the array, the recursive one on the left', () => {
+    const trace = traceFor('dynamic-array', 'binary-search', {
+      values: [2, 4, 6, 8, 10, 12, 14],
+      target: 7,
+      iterative: true,
+    });
+    expect(trace.code).toContain('return binarySearch(x, lo, mid - 1);');
+    expect(trace.alongside).toContain('while (lo <= hi)');
+    paired(trace, [
+      ['return binarySearch(x, lo, mid - 1)', 'hi = mid - 1'],
+      ['return binarySearch(x, mid + 1, hi)', 'lo = mid + 1'],
+      ['if (data[mid] == x)', 'if (data[mid] == x)'],
+      ['return -1;', 'return -1;'],
+    ]);
+  });
+
+  it('refuses the paired binary search over several runs', () => {
+    expect(() =>
+      traceFor('dynamic-array', 'binary-search', {
+        values: [2, 4, 6],
+        target: [2, 6],
+        iterative: true,
+      }),
+    ).toThrow(/una sola/);
   });
 });
 
