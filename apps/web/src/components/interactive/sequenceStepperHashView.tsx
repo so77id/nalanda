@@ -60,7 +60,15 @@ export function HashView({
         data-testid="hash-view"
         viewBox={`0 0 ${layout.width} ${layout.height}`}
         className="h-auto w-full"
-        style={{ maxWidth: `${layout.width * 1.4}px`, maxHeight: '100%' }}
+        // On a slide the panel above caps its height and scrolls past it, and
+        // a projected slide cannot be scrolled: `100%` of a parent that has
+        // only a max-height constrains nothing, so the cap is restated here,
+        // less the panel's padding (p-3, 12px a side). Measured on #326's
+        // `add` slide, whose drawing ran 11px past the panel.
+        style={{
+          maxWidth: `${layout.width * 1.4}px`,
+          maxHeight: presentation ? 'calc(min(46vh, 440px) - 24px)' : '100%',
+        }}
         role="img"
         aria-label={summary}
       >

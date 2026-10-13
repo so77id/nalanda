@@ -114,7 +114,7 @@ describe('sequenceStepperTrace · hash-probing · search', () => {
     const advance = trace.steps.find((s) => lit(trace, s)[0] === 'i = (i + 1) % keys.length;')!;
     expect(advance.probe!.at).toBe(0);
     const hit = trace.steps.find((s) => s.kind === 'found')!;
-    expect(lit(trace, hit)).toEqual(['if (!deleted[i] && keys[i].equals(key)) {', 'return true;']);
+    expect(lit(trace, hit)).toEqual(['if (!deleted[i] && keys[i].equals(key)) return true;']);
     expect(trace.steps.at(-1)!.description).toBe(
       '«Tomas» está en la tabla: se miraron 2 celdas, desde la posición 10.',
     );
@@ -143,7 +143,7 @@ describe('sequenceStepperTrace · hash-probing · insert', () => {
     const trace = run('insert', 'Eva');
     const lines = trace.steps.map((s) => lit(trace, s)[0] ?? '');
     expect(lines[0]).toBe('boolean add(String key) {');
-    expect(lines).toContain('if (contains(key)) {');
+    expect(lines).toContain('if (contains(key)) return false;');
     expect(lines).toContain('keys[i] = key;');
     expect(lines).toContain('deleted[i] = false;');
     const placed = trace.steps.find((s) => lit(trace, s)[0] === 'keys[i] = key;')!;
@@ -163,7 +163,7 @@ describe('sequenceStepperTrace · hash-probing · insert', () => {
 
   it('refuses a key that is already there', () => {
     const trace = run('insert', 'Bea');
-    expect(lit(trace, trace.steps.at(-2)!)).toEqual(['if (contains(key)) {', 'return false;']);
+    expect(lit(trace, trace.steps.at(-2)!)).toEqual(['if (contains(key)) return false;']);
     expect(keysOf(trace.steps.at(-1)!)).toEqual(keysOf(trace.steps[0]!));
   });
 });
