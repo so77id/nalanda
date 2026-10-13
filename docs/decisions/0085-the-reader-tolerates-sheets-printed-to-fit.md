@@ -50,12 +50,26 @@ onto Letter or A4 and never enlarges it.
 ## What this moves, measured
 
 **Real scans, every control on the Jetson**, each re-analysed in a scratch copy
-at both tolerances. The 305 pages the eight earlier controls had captured land
-on the same (copy, page) under `0.35,0.2` as in production. The incident
-control's 31 placed pages do too, and its three missing pages land on
-(9, 2), (10, 2) and (11, 2) with MSE ≤3.61. The 44 pages of the first control
-(2026-08-20) that AMC never placed stay unplaced under both tolerances. The
-wider band does not start accepting what it should not.
+at both tolerances, comparing not only where each page lands but how it is
+read. The 305 pages the eight earlier controls had captured land on the same
+(copy, page) with **bit-identical transforms** (`a`–`f` and MSE of
+`capture_page`), so every box on them reads exactly as before. The incident
+control's 31 placed pages land on the same (copy, page) too, but 14 of them
+are fitted differently (up to 6.2 px of shift): on a sheet at 0.87 the wider
+band finds corners the default missed. Box by box, 2 of its 1,612 boxes change
+verdict, both on copy 16 page 2, question 11, from doubtful (darkness 0.088,
+identical on both boxes, which reads like a frame fitted onto the printed
+border rather than a pencil) to blank; no ticked box changes, so no score
+does. Its three missing pages land on (9, 2), (10, 2) and (11, 2) with MSE
+≤3.61. The 44 pages of the first control (2026-08-20) that AMC never placed
+stay unplaced under both tolerances. The wider band does not start accepting
+what it should not.
+
+The placement-only comparison was the first version of this regression; the
+#327 review (security lens) showed a synthetic case where the wider band moves
+the frame about 18 px while the page still lands right — the copy went to
+`needs_review`, not to a wrong grade — and that is why transforms and box
+verdicts are compared too.
 
 **Real scans, rescaled** (content shrunk about the centre on the scan's own
 canvas; pages placed correctly out of the batch; no page was placed wrongly
@@ -108,6 +122,10 @@ Rejected.
   the first half red. `tests/measure-scale.sh` (`make measure-scale`) reports
   the whole curve for both tolerances, so the margin is re-measured rather
   than assumed.
+- **The synthetic checks bound the value from below only.** A much wider
+  tolerance (`0.9,0.9`, marks from 4 to 81 px) keeps every script green
+  (#327 review): synthetic sheets have nothing for an extra component to
+  compete with. The harm a wider band can do shows only on real scans.
 - **What the tolerance cannot fix.** A sheet enlarged past the paper, a corner
   cut by the scanner, or a page from another Nalanda control: every control
   prints the same markers (ADR-0075 §Consequences), and AMC will place such a
@@ -126,6 +144,14 @@ Rejected.
   control seen so far (the lowest was 0.87).
 - An AMC upgrade: re-run `make measure-scale` and `tests/09-scaled.sh` before
   trusting the curve.
+- Widening either half of the tolerance: re-run the #327 production
+  regression on real scans — every control's scans re-analysed in scratch
+  copies at the old and the new value, comparing transforms and box verdicts,
+  not only placement. `make measure-scale` and `09-scaled.sh` alone cannot
+  reject a value that is too wide.
+- A captured page whose MSE is far above what good pages show (≤5 on every
+  real page measured for #327): the frame was fitted to something other than
+  the four circles.
 
 ## References
 

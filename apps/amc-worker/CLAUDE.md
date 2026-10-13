@@ -90,14 +90,19 @@ it — script names, test titles, the fixture's own comments.
   `read_capture` refuses a copy captured under MORE than one index rather
   than concatenate it (a legacy copy at index 1 alone still reads). Driving
   AMC by hand in a test or a Makefile target follows the same mode.
-- **`analyse` always runs with `--tol-marque MARK_TOLERANCE` (issue #327,
-  ADR-0085).** The professor prints "fit to page", and AMC's default ±20 %
-  corner-mark size filter drops the circles of a sheet that came back at 0.87.
-  The value lives once, in `worker.py`; a Makefile target that reads paper
-  (`read-paper`, `read-paper-min`) takes it from the image's own `worker.py`,
-  never a copy. Before changing it, run `make measure-scale` and
-  `tests/09-scaled.sh`. The curve those report, and the production regression
-  in #327, are what the value rests on.
+- **Every read of real paper runs `analyse` with `--tol-marque
+  MARK_TOLERANCE` (issue #327, ADR-0085)** — the worker's `/analyse`, and the
+  Makefile targets that read a scanned pile (`read-paper`, `read-paper-min`),
+  which take it from the image's own `worker.py`, never a copy. The professor
+  prints "fit to page", and AMC's default ±20 % corner-mark size filter drops
+  the circles of a sheet that came back at 0.87. A test that drives AMC by
+  hand on a 100 % synthetic batch may omit it (03, 04, 05, 07 do), and
+  `09-scaled.sh`'s bare read omits it ON PURPOSE — that is the trap; adding
+  the flag there defuses it. Before changing the value, run `make
+  measure-scale` and `tests/09-scaled.sh`, but know they bound it from BELOW
+  only: a far wider value keeps every script green. Widening needs the #327
+  production regression on real scans (transforms and box verdicts, not only
+  placement).
 - **`/scans/reset` empties what a capture produced and nothing else.** The
   layout and `inputs/` are what the paper was printed from and are
   irreplaceable once students wrote on it; `RESET_FILES` / `RESET_DIRS` in

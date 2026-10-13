@@ -167,7 +167,7 @@ not "no GUI exists" — it is "no display exists, and the CLI does not need one"
 | `06-http.sh` | The whole flow over the HTTP contract; the annotate and unknown-subcommand guards exercised by performing the trap inside the image (the association trap belongs to `04-associate.sh`); and that `/analyse` derives `--n-copies` from the layout, performed with six copies against a source declaring five |
 | `07-rescan.sh` | #298, over HTTP: each batch analysed alone; a re-scanned page replaces its capture (the Control 7 shape: a half batch, then the full one); the `batch` outcome, including blank pages AMC cannot place; a re-captured copy loses its corrections; a photocopy-mode stack (a copy under two indexes) is refused while a legacy capture scanned once still re-reads; `/scans/reset` starts over |
 | `08-survey.sh` | #310 S0, over HTTP: an anonymous survey sheet (no `\namefield`, no `\AMCcode`, authored order, one stand-in `\correctchoice` per simple question — zero or all is refused by AMC) generates and reads unchanged; each answer status a survey keys on (`ok`, `ambiguous`, `doubtful`, `blank`); and the trap: with no ID grid every copy reads `rut_status: unreadable` and lands in `needs_review` |
-| `09-scaled.sh` | #327, over HTTP: a batch printed scaled to fit (0.75, shrunk by ghostscript and rasterised like a scan) — the trap performed: bare AMC at its default corner-mark tolerance places none of its pages, while the same pipeline at 100 % places all; then `/analyse` places every page on its own copy and page and reads it as marked |
+| `09-scaled.sh` | #327, over HTTP: a batch printed scaled to fit (0.75, shrunk by ghostscript and rasterised like a scan) — the trap performed: bare AMC at its default corner-mark tolerance places none of its pages, while the same pipeline at 100 % places all; then `/analyse` places every image on the copy and page it was printed as, reads every box as marked, and AMC's own transform shows it saw the sheet at 0.75 |
 
 **Changing the fixture's question pool moves the seeded draw.** Adding or
 removing a question — or a `\lastchoices`, which draws from the same random
@@ -334,18 +334,36 @@ ADR-0085), so circles down to 65 % of their printed size are found. On the
 Jetson's real scans:
 - the default placed no page at 0.84;
 - `0.35,0.2` placed every page down to 0.70;
-- `0.35,0.2` moved none of the 305 pages the earlier controls had captured.
+- `0.35,0.2` read the 305 pages the earlier controls had captured with
+  bit-identical transforms, so every box on them reads exactly as before.
 
 `tests/09-scaled.sh` performs the trap at 0.75, and `make measure-scale`
 reports the whole curve for both tolerances.
 
 **Scale is the first thing to check when a page is in the PDF but its copy is
-`incomplete`.** The page is in `capture_failed`, and its scale is the square
-root of `a·d − b·c` in `capture_page` (Nalanda's controls have come back at
-0.87–0.94). Re-run one rejected page with `analyse --debug` on a scratch copy
-of `layout.sqlite`. Its candidate list shows which corner circles AMC found.
-Re-uploading the same PDF is never the repair: the result is deterministic,
-and a re-capture clears the copy's corrections (ADR-0075).
+`incomplete`.** The page is in `capture_failed`; the batch's scale is the
+square root of `a·d − b·c` of its PLACED pages in `capture_page` (Nalanda's
+controls have come back at 0.87–0.94). Then re-run one rejected page by
+hand, in the worker container, on a scratch copy — `--debug` takes a FILE,
+and given none it swallows the next flag and AMC dies in OpenCV:
+
+```bash
+P=/work/controls/<id>; T=/tmp/dbg
+mkdir -p $T/data $T/cr $T/scans && cp $P/data/layout.sqlite $T/data/
+cp $P/scans/<rejected-image> $T/scans/ && ls $T/scans/* > $T/list.txt
+auto-multiple-choice analyse --debug $T/debug.log --data $T/data --projet $T \
+  --cr $T/cr --liste-fichiers $T/list.txt
+grep -E 'Target size|\(.*;.*\)\+|Frame|MSE=|Found binary' $T/debug.log
+```
+
+`Target size` is the size band and the `(x;y)+(w;h)` lines are the candidates
+AMC kept. Two signatures of circles below the band, both seen for #327: on
+stdout, `Not enough corner marks detected` (none of the circles kept — a
+synthetic sheet at 0.75); or, in the log, `Found binary ID: +0/0/0+` with a
+large `MSE` (some kept, the frame fitted to the page's code boxes — the real
+sheet at 0.87). Re-uploading the same PDF is never
+the repair: the result is deterministic, and a re-capture clears the copy's
+corrections (ADR-0075).
 
 ## What the reader reports, and what it cannot
 
