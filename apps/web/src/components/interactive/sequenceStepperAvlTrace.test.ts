@@ -236,12 +236,17 @@ describe('sequenceStepperTrace · avl · insert', () => {
     expect(isAvl(first)).toBe(true);
   });
 
-  it('shows the BST insert with one more line, and the balance it calls', () => {
-    const { code } = traceFor('avl', 'insert', { values: [2], value: 1 });
-    expect(code).toContain('return balance(node);');
-    expect(code).toContain('Node<T> balance(Node<T> node) {');
-    expect(code).toContain('return rotateRight(node);');
-    expect(code).not.toContain('return node;\n}\n\nNode<T> balance');
+  it('shows the BST insert with balance as its last line, and not balance itself', () => {
+    // balance's own lines sit on the slide before: beside insert, the slide
+    // measured 0.545, under the 0.70 floor.
+    const trace = traceFor('avl', 'insert', { values: [], value: [30, 20, 10] });
+    expect(trace.code).toContain('return balance(node);');
+    expect(trace.code).not.toContain('Node<T> balance(');
+    // Every frame of the walk back lights the call.
+    const call = lineOf(trace.code, 'return balance(node);');
+    for (const s of trace.steps.filter((s) => s.description.startsWith('balance('))) {
+      expect(s.highlightLines).toEqual([call]);
+    }
   });
 
   it('rotates right once when 30, 20 and 10 arrive in that order', () => {
@@ -249,21 +254,15 @@ describe('sequenceStepperTrace · avl · insert', () => {
     const last = trace.steps.at(-1)!;
     expect(rootValue(last)).toBe(20);
     expect(inorderOf(last)).toEqual([10, 20, 30]);
-    const rotation = trace.steps.find((s) =>
-      s.highlightLines.includes(lineOf(trace.code, 'return rotateRight(node);')),
-    )!;
-    expect(rotation.description).toMatch(/simple a la derecha/);
+    const rotation = trace.steps.find((s) => s.description.startsWith('Rotación simple'))!;
+    expect(rotation.description).toMatch(/simple a la derecha: rotateRight\(30\)/);
   });
 
   it('rotates twice, child first, when 30, 10 and 20 arrive: the double rotation to the right', () => {
     const trace = traceFor('avl', 'insert', { values: [], value: [30, 10, 20] });
     expect(rootValue(trace.steps.at(-1)!)).toBe(20);
-    const child = trace.steps.findIndex((s) =>
-      s.highlightLines.includes(lineOf(trace.code, 'node.left = rotateLeft(')),
-    );
-    const node = trace.steps.findIndex((s) =>
-      s.highlightLines.includes(lineOf(trace.code, 'return rotateRight(node);')),
-    );
+    const child = trace.steps.findIndex((s) => s.description.startsWith('Primero rotateLeft(10)'));
+    const node = trace.steps.findIndex((s) => s.description.startsWith('Después rotateRight(30)'));
     expect(child).toBeGreaterThan(0);
     expect(node).toBeGreaterThan(child);
     expect(trace.steps.some((s) => /doble a la derecha/.test(s.description))).toBe(true);

@@ -41,8 +41,9 @@ type Side = 'left' | 'right';
 /**
  * The class's rotations, before the AVL gives its nodes a height; and its
  * insert and remove, the search tree's with `return balance(node)` as their
- * last line. Insert shows the `balance` it calls, whose lines are the lesson;
- * remove shows only the call, which insert has already opened.
+ * last line. Neither shows `balance` itself: the class puts it on the slide
+ * before, and with it beside `insert` the slide measured 0.545, under the 0.70
+ * floor. The walk back lights the call, and the narration names each decision.
  */
 const CODE: Record<AvlOperation, string> = {
   'rotate-right': `Node<T> rotateRight(Node<T> p) {
@@ -66,26 +67,6 @@ const CODE: Record<AvlOperation, string> = {
         node.right = insert(node.right, value);
     }
     return balance(node);
-}
-
-Node<T> balance(Node<T> node) {
-    updateHeight(node);
-    int b = height(node.right) - height(node.left);
-    if (b < -1) {
-        Node<T> child = node.left;
-        if (height(child.right) > height(child.left)) {
-            node.left = rotateLeft(child);
-        }
-        return rotateRight(node);
-    }
-    if (b > 1) {
-        Node<T> child = node.right;
-        if (height(child.left) > height(child.right)) {
-            node.right = rotateRight(child);
-        }
-        return rotateLeft(node);
-    }
-    return node;
 }`,
   remove: `Node<T> remove(Node<T> node, T value) {
     if (node == null) return null;
@@ -330,9 +311,6 @@ function avlOf(
   return { avl, place };
 }
 
-/** Which listing `balance` speaks in: its own lines, or only the call to it. */
-type BalanceLines = 'own' | 'call';
-
 /** The rotation that fixes a node heavy on `heavy`, by the class's names. */
 const rotationName = (heavy: Side, double: boolean): string =>
   `${double ? 'doble' : 'simple'} a la ${heavy === 'left' ? 'derecha' : 'izquierda'}`;
@@ -365,7 +343,6 @@ function balanceFramed(
   push: (...args: Parameters<TreeRecorder['push']>) => void,
   n: NumberNode,
   relink: (c: NumberNode) => void,
-  lines: BalanceLines,
 ): NumberNode {
   updateHeight(avl, n);
   const b = factorIn(avl, n);
@@ -373,23 +350,16 @@ function balanceFramed(
   const hl = heightIn(avl, n.left);
   const hr = heightIn(avl, n.right);
   const measured = `balance(${v}): su altura queda en ${heightIn(avl, n)}; su factor es ${signedFactor(hr)} − ${signedFactor(hl)} = ${signedFactor(b)}`;
-  const own = (...fragments: string[]) => (lines === 'own' ? fragments : ['return balance(node);']);
+  // Every frame of balance lights its call: its own lines are on the slide.
+  const call = ['return balance(node);'];
   rec.cost += 1;
   rec.state.set(n.id, 'active');
   if (Math.abs(b) <= 1) {
-    push(
-      'compare',
-      own('updateHeight(node);', 'int b = height(node.right)', 'return node;'),
-      `${measured}: la invariante de balance se cumple.`,
-    );
+    push('compare', call, `${measured}: la invariante de balance se cumple.`);
     rec.state.delete(n.id);
     return n;
   }
-  push(
-    'compare',
-    own('updateHeight(node);', 'int b = height(node.right)'),
-    `${measured}: la invariante de balance se rompe en ${v}.`,
-  );
+  push('compare', call, `${measured}: la invariante de balance se rompe en ${v}.`);
   const heavy: Side = b < 0 ? 'left' : 'right';
   const where = heavy === 'left' ? 'izquierda' : 'derecha';
   const child = n[heavy]!;
@@ -397,17 +367,7 @@ function balanceFramed(
   const double = cf * b < 0;
   push(
     'compare',
-    heavy === 'left'
-      ? own(
-          'if (b < -1)',
-          'Node<T> child = node.left;',
-          'if (height(child.right) > height(child.left))',
-        )
-      : own(
-          'if (b > 1)',
-          'Node<T> child = node.right;',
-          'if (height(child.left) > height(child.right))',
-        ),
+    call,
     `${v} está cargado a la ${where}, y su ${CHILD[heavy]}, ${child.value}, tiene factor ${signedFactor(cf)}: ${
       cf === 0
         ? 'no está cargado hacia ningún lado, y basta una sola rotación'
@@ -423,9 +383,7 @@ function balanceFramed(
     rec.state.set(raised.id, 'swap');
     push(
       'link',
-      heavy === 'left'
-        ? own('node.left = rotateLeft(child);')
-        : own('node.right = rotateRight(child);'),
+      call,
       `Primero ${heavy === 'left' ? 'rotateLeft' : 'rotateRight'}(${child.value}): ${raised.value} sube y ${child.value} baja. Ahora ${v} queda cargado a la ${where} por el mismo lado.`,
     );
     rec.state.delete(child.id);
@@ -439,7 +397,7 @@ function balanceFramed(
   rec.state.set(q.id, 'swap');
   push(
     'link',
-    heavy === 'left' ? own('return rotateRight(node);') : own('return rotateLeft(node);'),
+    call,
     `${double ? 'Después' : 'Rotación ' + rotationName(heavy, false) + ':'} ${heavy === 'left' ? 'rotateRight' : 'rotateLeft'}(${v}): ${q.value} sube a su lugar y ${v} baja. Las alturas de los dos se actualizan, y ${q.value} queda con factor ${signedFactor(factorIn(avl, q))}.`,
   );
   rec.state.delete(n.id);
@@ -518,7 +476,7 @@ function traceAvlInsert(input: SequenceInput): SequenceTrace {
       );
       rec.state.delete(n.id);
       insert(n[side], (c) => (n[side] = c), { parent: n, side });
-      const result = repeated ? n : balanceFramed(avl, rec, push, n, relink, 'own');
+      const result = repeated ? n : balanceFramed(avl, rec, push, n, relink);
       rec.path.pop();
       return result;
     };
@@ -583,7 +541,7 @@ function traceAvlRemove(input: SequenceInput): SequenceTrace {
         );
         rec.state.delete(n.id);
         remove(n[side], value, (c) => (n[side] = c));
-        const result = missing ? n : balanceFramed(avl, rec, push, n, relink, 'call');
+        const result = missing ? n : balanceFramed(avl, rec, push, n, relink);
         rec.path.pop();
         return result;
       }
@@ -626,7 +584,7 @@ function traceAvlRemove(input: SequenceInput): SequenceTrace {
       );
       rec.state.delete(n.id);
       remove(n.right, n.value, (c) => (n.right = c));
-      const result = balanceFramed(avl, rec, push, n, relink, 'call');
+      const result = balanceFramed(avl, rec, push, n, relink);
       rec.path.pop();
       return result;
     };

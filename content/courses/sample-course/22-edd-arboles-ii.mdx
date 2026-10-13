@@ -508,6 +508,257 @@ rotación pasa altura de un lado al otro, sin tocar el orden.
 
 <SectionBreak />
 
+## El árbol AVL
+
+{/* A tree that keeps the balance invariant, and one that breaks it at a single node, the 8. */}
+
+export const NOT_AVL = { v: 8, l: { v: 4, l: { v: 2 }, r: { v: 6, r: { v: 7 } } }, r: { v: 12 } };
+
+<Slide title="Un árbol de búsqueda que cuida su forma">
+El primer árbol de búsqueda balanceado lo publicaron Georgy Adelson-Velsky y
+Evgenii Landis en 1962, y lleva sus iniciales: el **árbol AVL**. Es un árbol
+binario de búsqueda cuyas inserciones y eliminaciones, al terminar, revisan
+el camino que recorrieron y **rotan** donde el árbol quedó cargado hacia un
+lado.
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1rem 2rem', alignItems: 'end' }}>
+<BinaryPicture tree={EVENS_CHAIN} ruler="h = 6" compact label="Los valores 2 a 14 insertados de menor a mayor en un árbol de búsqueda: una cadena de altura 6." caption="de menor a mayor, en un árbol de búsqueda: altura 6" />
+<BinaryPicture tree={EVENS} ruler="h = 2" compact minColumns={7} label="Los mismos valores insertados de menor a mayor en un árbol AVL: un árbol lleno de altura 2." caption="los mismos, en un AVL: altura 2" />
+</div>
+
+Los valores pueden llegar en el peor orden: la forma la cuida el árbol.
+
+</Slide>
+
+<Slide title="La invariante de balance">
+Las tres invariantes del árbol de búsqueda siguen en pie, sin cambios. El AVL
+agrega una cuarta:
+
+4. **En cada nodo, las alturas de sus dos subárboles difieren a lo más en
+   1.** Ningún lado puede ser dos niveles más alto que el otro, en ningún
+   nodo.
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1rem 2rem', alignItems: 'end' }}>
+<BinaryPicture tree={EVENS_SHUFFLED} minColumns={7} label="Un árbol AVL: 10 en la raíz, con 4 y 14 debajo; el 4 con 2 y 8, el 8 con 6, y el 14 con 12. En cada nodo, las alturas de los dos subárboles difieren a lo más en 1." caption="cumple la invariante de balance en cada nodo" />
+<BinaryPicture tree={NOT_AVL} minColumns={7} tones={{ 8: 'mark' }} notes={{ 8: 'izq. 2, der. 0' }} label="Un árbol de búsqueda que no es AVL: en el 8, el subárbol izquierdo tiene altura 2 y el derecho, el 12, altura 0." caption="en el 8, la izquierda es dos niveles más alta" />
+</div>
+
+Es la invariante que cuesta: obliga a cada inserción y a cada eliminación a
+revisar su camino y, a veces, a rotar. Y es la que paga: mantiene la altura en
+$$O(\log n)$$.
+
+</Slide>
+
+<Slide title="El factor de balance">
+El **factor de balance** de un nodo es la altura de su subárbol derecho menos
+la de su subárbol izquierdo, contando $$-1$$ como la altura del árbol vacío.
+La invariante de balance dice que todo factor es $$-1$$, $$0$$ o $$+1$$. Un
+factor negativo dice que el nodo está **cargado a la izquierda**; uno
+positivo, **a la derecha**; y un $$-2$$ o un $$+2$$ dice que ahí la invariante
+se rompió.
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1rem 2rem', alignItems: 'end' }}>
+<BinaryPicture tree={EVENS_SHUFFLED} minColumns={7} badges={{ 10: '−1', 4: '+1', 2: '0', 8: '−1', 6: '0', 14: '−1', 12: '0' }} label="El árbol AVL con el factor de balance de cada nodo: 10, menos 1; 4, más 1; 2, 0; 8, menos 1; 6, 0; 14, menos 1; 12, 0." caption="todos los factores entre −1 y +1" />
+<BinaryPicture tree={NOT_AVL} minColumns={7} tones={{ 8: 'mark' }} badges={{ 8: '−2', 4: '+1', 2: '0', 6: '+1', 7: '0', 12: '0' }} label="El árbol que no es AVL con sus factores: 8, menos 2; 4, más 1; 2, 0; 6, más 1; 7, 0; 12, 0." caption="el −2 del 8 rompe la invariante" />
+</div>
+
+</Slide>
+
+<Slide title="El nodo que guarda su altura">
+Calcular la altura de un subárbol recorriéndolo cuesta $$\Theta(n)$$, y el
+AVL la necesita en cada nodo de cada camino. Por eso cada nodo **guarda su
+altura**: es el nodo del árbol de búsqueda con un campo más, `height`. Un
+nodo nuevo es una hoja, y su altura empieza en 0.
+
+```java
+class Node<T> {
+    T value;
+    Node<T> left;
+    Node<T> right;
+    int height;
+
+    Node(T value) {
+        this.value = value;
+    }
+}
+```
+
+</Slide>
+
+<Slide title="La clase AVL y la altura de un subárbol">
+La clase guarda la raíz, como el árbol de búsqueda. `height` lee la altura de
+un subárbol en tiempo constante, con $$-1$$ para el árbol vacío;
+`updateHeight` la vuelve a calcular a partir de las de sus dos hijos, y hay
+que llamarla cada vez que un nodo cambia de hijos; `factor` es el factor de
+balance.
+
+```java
+class AVL<T extends Comparable<T>> {
+    Node<T> root;
+
+    int height(Node<T> node) {
+        return node == null ? -1 : node.height;
+    }
+
+    void updateHeight(Node<T> node) {
+        node.height = 1 + Math.max(height(node.left),
+                                   height(node.right));
+    }
+
+    int factor(Node<T> node) {
+        return height(node.right) - height(node.left);
+    }
+}
+```
+
+</Slide>
+
+<Slide title="Las rotaciones actualizan las alturas">
+Una rotación cambia los hijos de dos nodos, así que las dos rotaciones
+agregan dos líneas antes de devolver `q`: primero se actualiza `p`, que quedó
+abajo, y después `q`, cuya altura depende de la de `p`. Los subárboles que se
+movieron enteros no cambian de altura.
+
+```java
+Node<T> rotateRight(Node<T> p) {
+    Node<T> q = p.left;
+    p.left = q.right;
+    q.right = p;
+    updateHeight(p);
+    updateHeight(q);
+    return q;
+}
+```
+
+`rotateLeft` agrega las mismas dos líneas, en el mismo orden.
+
+</Slide>
+
+<Slide title="Los cuatro casos de desbalance">
+Cuando un nodo queda con factor $$-2$$ o $$+2$$, lo que hay que hacer depende
+de dos cosas: hacia qué lado está cargado el nodo, y hacia qué lado está
+cargado su hijo de ese lado. Son cuatro casos, y cada uno tiene su rotación:
+la **rotación simple a la derecha**, la **doble a la derecha**, la **simple a
+la izquierda** y la **doble a la izquierda**. En inglés, los cuatro casos se
+llaman *left-left*, *left-right*, *right-right* y *right-left*.
+
+<PresentationWide fraction={0.9}>
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem 1.5rem', alignItems: 'end' }}>
+<BinaryPicture tree={{ v: 6, l: { v: 4, l: { v: 2 } } }} minColumns={3} compact tones={{ 6: 'mark' }} badges={{ 6: '−2', 4: '−1', 2: '0' }} label="El 6 con factor menos 2, cargado a la izquierda; su hijo izquierdo, el 4, también está cargado a la izquierda." caption="izquierda e izquierda: simple a la derecha" />
+<BinaryPicture tree={{ v: 6, l: { v: 2, r: { v: 4 } } }} minColumns={3} compact tones={{ 6: 'mark' }} badges={{ 6: '−2', 2: '+1', 4: '0' }} label="El 6 con factor menos 2, cargado a la izquierda; su hijo izquierdo, el 2, está cargado a la derecha." caption="izquierda y derecha: doble a la derecha" />
+<BinaryPicture tree={{ v: 2, r: { v: 4, r: { v: 6 } } }} minColumns={3} compact tones={{ 2: 'mark' }} badges={{ 2: '+2', 4: '+1', 6: '0' }} label="El 2 con factor más 2, cargado a la derecha; su hijo derecho, el 4, también está cargado a la derecha." caption="derecha y derecha: simple a la izquierda" />
+<BinaryPicture tree={{ v: 2, r: { v: 6, l: { v: 4 } } }} minColumns={3} compact tones={{ 2: 'mark' }} badges={{ 2: '+2', 6: '−1', 4: '0' }} label="El 2 con factor más 2, cargado a la derecha; su hijo derecho, el 6, está cargado a la izquierda." caption="derecha e izquierda: doble a la izquierda" />
+</div>
+
+</PresentationWide>
+
+</Slide>
+
+<Slide title="La rotación simple">
+Cuando el nodo y su hijo están cargados hacia el **mismo lado**, basta una
+rotación en el nodo, hacia el lado contrario: si están cargados a la
+izquierda, una **rotación simple a la derecha**. El hijo sube, el nodo baja
+hacia el lado liviano, y los dos quedan con factor 0.
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem 2rem', alignItems: 'end' }}>
+<BinaryPicture tree={{ v: 6, l: { v: 4, l: { v: 2 } } }} minColumns={3} tones={{ 6: 'accent', 4: 'accent' }} badges={{ 6: '−2', 4: '−1', 2: '0' }} label="El 6 con factor menos 2 y su hijo izquierdo, el 4, con factor menos 1: los dos cargados a la izquierda." caption="cargados a la izquierda los dos" />
+<BinaryPicture tree={{ v: 4, l: { v: 2 }, r: { v: 6 } }} minColumns={3} tones={{ 6: 'accent', 4: 'accent' }} badges={{ 6: '0', 4: '0', 2: '0' }} label="Después de rotar a la derecha en el 6: el 4 arriba, con el 2 y el 6 como hijos; todos con factor 0." caption="después de rotar a la derecha en 6" />
+</div>
+
+</Slide>
+
+<Slide title="Cuando una rotación simple no alcanza">
+Cuando el hijo está cargado hacia el **lado contrario** que el nodo, una
+rotación simple no sirve: el subárbol que sube por el medio cambia de lado, y
+el árbol queda cargado igual de fuerte, pero hacia el otro.
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem 2rem', alignItems: 'end' }}>
+<BinaryPicture tree={{ v: 6, l: { v: 2, r: { v: 4 } } }} minColumns={3} tones={{ 6: 'mark' }} badges={{ 6: '−2', 2: '+1', 4: '0' }} label="El 6 con factor menos 2, cargado a la izquierda, y su hijo izquierdo, el 2, con factor más 1, cargado a la derecha." caption="el 6 a la izquierda, el 2 a la derecha" />
+<BinaryPicture tree={{ v: 2, r: { v: 6, l: { v: 4 } } }} minColumns={3} tones={{ 2: 'mark' }} badges={{ 2: '+2', 6: '−1', 4: '0' }} label="Después de rotar solo el 6 a la derecha: el 2 arriba con factor más 2, cargado a la derecha. La invariante sigue rota." caption="rotar solo el 6: ahora el 2 tiene +2" />
+</div>
+
+</Slide>
+
+<Slide title="La rotación doble">
+La **rotación doble** endereza primero al hijo: una rotación en el hijo, hacia
+el lado donde está cargado el nodo, lo deja cargado hacia el mismo lado que
+el nodo. Ahí basta la rotación simple en el nodo. La **doble a la derecha** es
+una rotación a la izquierda en el hijo izquierdo y, después, una a la derecha
+en el nodo.
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: '1rem 1.5rem', alignItems: 'end' }}>
+<BinaryPicture tree={{ v: 6, l: { v: 2, r: { v: 4 } } }} minColumns={3} compact tones={{ 2: 'accent', 4: 'accent' }} badges={{ 6: '−2', 2: '+1', 4: '0' }} label="El punto de partida: el 6 con factor menos 2 y su hijo izquierdo, el 2, cargado a la derecha." caption="el 2 cargado al lado contrario" />
+<BinaryPicture tree={{ v: 6, l: { v: 4, l: { v: 2 } } }} minColumns={3} compact tones={{ 6: 'accent', 4: 'accent' }} badges={{ 6: '−2', 4: '−1', 2: '0' }} label="Después de rotar a la izquierda en el 2: el 4 sube a hijo izquierdo del 6, y el 2 queda debajo. Ahora el 6 y el 4 están cargados a la izquierda." caption="primero, a la izquierda en 2" />
+<BinaryPicture tree={{ v: 4, l: { v: 2 }, r: { v: 6 } }} minColumns={3} compact badges={{ 6: '0', 4: '0', 2: '0' }} label="Después de rotar a la derecha en el 6: el 4 arriba, con el 2 y el 6 como hijos; todos con factor 0." caption="después, a la derecha en 6" />
+</div>
+
+</Slide>
+
+<Slide title="La regla para elegir la rotación">
+La rotación sale del factor del nodo y del factor de su hijo del lado
+cargado:
+
+| Factor del nodo | Factor del hijo del lado cargado | Rotación                 |
+| --------------- | -------------------------------- | ------------------------ |
+| $$-2$$          | $$-1$$ o $$0$$                   | simple a la derecha      |
+| $$-2$$          | $$+1$$                           | doble a la derecha       |
+| $$+2$$          | $$+1$$ o $$0$$                   | simple a la izquierda    |
+| $$+2$$          | $$-1$$                           | doble a la izquierda     |
+
+Dicho en una frase: si el hijo está cargado hacia el lado contrario, doble; si
+no, simple. Un hijo con factor 0 nunca aparece al insertar; aparece al
+eliminar, y ahí basta la rotación simple.
+
+</Slide>
+
+<Slide title="El código de balance">
+`balance` actualiza la altura del nodo, calcula su factor y, si la invariante
+se rompió, hace la rotación de la regla: si el hijo del lado cargado está
+cargado hacia el lado contrario, primero lo rota a él. Devuelve la raíz del
+subárbol que queda: el mismo nodo, o el que subió al rotar.
+
+```java
+Node<T> balance(Node<T> node) {
+    updateHeight(node);
+    int b = factor(node);
+    if (b < -1) {
+        if (factor(node.left) > 0) {
+            node.left = rotateLeft(node.left); // doble
+        }
+        return rotateRight(node);
+    }
+    if (b > 1) {
+        if (factor(node.right) < 0) {
+            node.right = rotateRight(node.right); // doble
+        }
+        return rotateLeft(node);
+    }
+    return node;
+}
+```
+
+</Slide>
+
+<Slide title="Insertar en un árbol AVL">
+`insert` es el del árbol de búsqueda con una sola diferencia: en vez de
+devolver el nodo, devuelve `balance(node)`. La bajada es la misma; al volver,
+cada nodo del camino pasa por `balance`, que actualiza su altura y, si su
+factor llegó a $$\pm 2$$, rota.
+
+<SequenceStepper eda="avl" operation="insert" values={[]} value={[6, 4, 2, 10, 8]} />
+
+</Slide>
+
+Una inserción rota a lo más una vez, simple o doble. La rotación deja al
+subárbol con la altura que tenía antes de insertar, así que más arriba ningún
+factor cambia, y los `balance` que siguen en el camino de vuelta solo
+confirman la invariante. Insertar del 1 al 1000, en orden, en un árbol AVL deja
+un árbol de altura 9; en un árbol de búsqueda sin balance, la misma secuencia
+deja una cadena de altura 999.
+
+<SectionBreak />
+
 ## Ejercicios
 
 {/* The tree the ancestor exercise threads through its beats: the class's own insertion of 8, 5, 1, 4, 6, 7, 20, 12. */}

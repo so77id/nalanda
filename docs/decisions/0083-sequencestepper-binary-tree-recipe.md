@@ -194,9 +194,12 @@ as their last line:
   the rotation act already walked its assignments. The caller's assignment
   is made at once, so the drawing never shows a tree the code no longer
   holds.
-- **`insert` shows the `balance` it calls; `remove` shows only the call.**
-  `insert` with `balance` is thirty lines, and `balance` is its lesson;
-  `remove` with `balance` beside it would be thirty-nine.
+- **Neither listing shows `balance` itself, only its call.** `insert`
+  first showed the `balance` it calls, thirty-two lines, and its slide
+  measured 0.545 against the 0.70 floor; `remove` with `balance` beside it
+  would be thirty-nine. So the class puts `balance` on the slide before, as
+  a fence, and the widget's walk back lights `return balance(node);` and
+  narrates each decision — the factor, the child's, the rotation's name.
 - **No cascade in the widget.** A removal that rotates at two levels needs
   a tree of height 4 at least — the first rotation needs a node of height
   2, the second an ancestor two levels above it — and the smallest AVL tree

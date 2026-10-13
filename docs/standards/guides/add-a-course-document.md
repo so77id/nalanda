@@ -891,8 +891,10 @@ with no frames. Every node carries its balance factor in a badge (`+1`,
 `0`, `−2`), read off the heights the nodes store — so a factor above the
 node being balanced may still be the old one, and changes when the walk
 back reaches it. Each node of the way back gets its `balance` frame; a
-rotation inside them is one frame, a double one two. `insert`'s listing
-shows the `balance` it calls; `remove`'s shows only the call. No removal
+rotation inside them is one frame, a double one two. Neither listing shows
+`balance` itself, only the call, which every frame of the walk back lights:
+with `balance` beside `insert` the slide measured 0.545, so a class puts
+`balance` on the slide before, as a fence. No removal
 that rotates at two levels fits in eight nodes (the smallest AVL tree of
 height 4 has twelve), so a cascade is drawn with `<BinaryPicture>` instead.
 `values` is the starting contents; `value` feeds the inserts, `index` the
