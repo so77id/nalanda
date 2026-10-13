@@ -435,6 +435,79 @@ eliminación. Ese es el intercambio de un **árbol de búsqueda balanceado**.
 
 <SectionBreak />
 
+## Las rotaciones
+
+{/* The generic right rotation: p over q and C, q over A and B; after it, q over A and p, p over B and C. A, B and C are whole subtrees, drawn as triangles. */}
+
+export const ROTATION_BEFORE = { v: 'p', l: { v: 'q', l: { v: 'A' }, r: { v: 'B' } }, r: { v: 'C' } };
+
+export const ROTATION_AFTER = { v: 'q', l: { v: 'A' }, r: { v: 'p', l: { v: 'B' }, r: { v: 'C' } } };
+
+<Slide title="La rotación a la derecha">
+Una **rotación** cambia la forma de un árbol de búsqueda sin romper la
+invariante de orden. La **rotación a la derecha** en un nodo `p` que tiene
+hijo izquierdo `q` hace subir a `q` al lugar de `p`: `p` baja a ser el hijo
+derecho de `q`, y el subárbol derecho de `q` pasa a ser el subárbol izquierdo
+de `p`. Los otros dos subárboles siguen colgados del mismo nodo que antes.
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1rem 2rem', alignItems: 'end' }}>
+<BinaryPicture tree={ROTATION_BEFORE} subtrees={['A', 'B', 'C']} tones={{ p: 'accent', q: 'accent', B: 'mark' }} label="Antes de rotar: p arriba, con q a su izquierda y el subárbol C a su derecha; q tiene a los subárboles A y B." caption="antes: p arriba, q su hijo izquierdo" />
+<BinaryPicture tree={ROTATION_AFTER} subtrees={['A', 'B', 'C']} tones={{ p: 'accent', q: 'accent', B: 'mark' }} label="Después de rotar a la derecha en p: q arriba, con el subárbol A a su izquierda y p a su derecha; p tiene a B a la izquierda y a C a la derecha." caption="después: q arriba, y B cambió de padre" />
+</div>
+
+</Slide>
+
+<Slide title="Por qué la rotación conserva el orden">
+Antes de rotar, los valores de B estaban en el subárbol derecho de `q` y en el
+izquierdo de `p`: eran mayores que `q` y menores que `p`. Después siguen
+siendo las dos cosas, porque B quedó a la izquierda de `p`, y `p` quedó a la
+derecha de `q`. A sigue a la izquierda de `q`, y C a la derecha de `p`.
+Ningún valor cambia de lado respecto de ningún nodo: **la invariante de orden
+se mantiene**.
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1rem 2rem', alignItems: 'end' }}>
+<BinaryPicture tree={ROTATION_BEFORE} subtrees={['A', 'B', 'C']} strip label="Antes de rotar, con el inorden debajo: A, q, B, p, C." caption="inorden antes: A, q, B, p, C" />
+<BinaryPicture tree={ROTATION_AFTER} subtrees={['A', 'B', 'C']} strip label="Después de rotar, con el inorden debajo: A, q, B, p, C, el mismo de antes." caption="inorden después: el mismo" />
+</div>
+
+Cada nodo y cada subárbol está dibujado en la columna de su lugar en el
+inorden: al rotar, nada cambia de columna. Los nodos solo suben o bajan.
+
+</Slide>
+
+<Slide title="El código de la rotación a la derecha">
+Tres referencias cambian, una por línea. El método devuelve `q`, el nodo que
+subió, y quien lo llamó lo guarda donde estaba `p`: en `root`, o en el hijo
+del padre de `p`. Mientras tanto, por un momento, un subárbol tiene dos
+padres, y `q` apunta hacia arriba sin que nadie le apunte.
+
+<SequenceStepper eda="avl" operation="rotate-right" values={[12, 8, 14, 4, 10]} target={12} />
+
+</Slide>
+
+<Slide title="La rotación a la izquierda">
+La **rotación a la izquierda** es la simétrica. En un nodo `p` que tiene hijo
+derecho `q`, `q` sube al lugar de `p`, `p` baja a ser el hijo izquierdo de
+`q`, y el subárbol izquierdo de `q` pasa a ser el subárbol derecho de `p`.
+
+<SequenceStepper eda="avl" operation="rotate-left" values={[4, 2, 8, 6, 10]} target={4} />
+
+</Slide>
+
+<Slide title="Lo que una rotación hace con la altura">
+Al rotar a la derecha, todo el subárbol A sube un nivel, todo C baja uno, y B
+se queda en el suyo. Un árbol cargado hacia la izquierda queda más parejo: la
+rotación pasa altura de un lado al otro, sin tocar el orden.
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem 2rem', alignItems: 'end' }}>
+<BinaryPicture tree={{ v: 6, l: { v: 4, l: { v: 2 } } }} ruler="h = 2" minColumns={3} tones={{ 6: 'accent', 4: 'accent' }} label="Una cadena cargada a la izquierda: 6, con 4 debajo y 2 debajo del 4. Altura 2." caption="cargado a la izquierda: altura 2" />
+<BinaryPicture tree={{ v: 4, l: { v: 2 }, r: { v: 6 } }} ruler="h = 1" minColumns={3} tones={{ 6: 'accent', 4: 'accent' }} label="El mismo árbol después de rotar a la derecha en el 6: 4 arriba, con 2 a la izquierda y 6 a la derecha. Altura 1." caption="después de rotar a la derecha en 6: altura 1" />
+</div>
+
+</Slide>
+
+<SectionBreak />
+
 ## Ejercicios
 
 {/* The tree the ancestor exercise threads through its beats: the class's own insertion of 8, 5, 1, 4, 6, 7, 20, 12. */}

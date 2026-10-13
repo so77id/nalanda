@@ -140,6 +140,36 @@ describe('BinaryPicture', () => {
     expect(screen.getByText('buscar el 5')).toBeTruthy();
   });
 
+  it('draws a named subtree as a triangle, in its own column', () => {
+    // The generic rotation: p over q and C, q over A and B.
+    const { container } = render(
+      <BinaryPicture
+        tree={{ v: 'p', l: { v: 'q', l: { v: 'A' }, r: { v: 'B' } }, r: { v: 'C' } }}
+        subtrees={['A', 'B', 'C']}
+        strip
+        holes
+        label="Una rotación genérica."
+      />,
+    );
+    // A triangle is a whole subtree: no empty children drawn under it.
+    expect(container.querySelectorAll('[data-hole]')).toHaveLength(0);
+    const triangles = [...container.querySelectorAll('[data-subtree]')];
+    expect(triangles.map((t) => t.getAttribute('data-value'))).toEqual(['A', 'B', 'C']);
+    expect(triangles.every((t) => t.querySelector('path'))).toBe(true);
+    expect(triangles.some((t) => t.querySelector('circle'))).toBe(false);
+    const slots = [...container.querySelectorAll('[data-slot]')].map((s) =>
+      s.getAttribute('data-value'),
+    );
+    expect(slots).toEqual(['A', 'q', 'B', 'p', 'C']);
+  });
+
+  it('paints the accent tone, the one for what is being moved', () => {
+    const { container } = render(
+      <BinaryPicture tree={EXPR} tones={{ '+': 'accent' }} label={LABEL} />,
+    );
+    expect(container.querySelector('[data-value="+"]')?.getAttribute('data-tone')).toBe('accent');
+  });
+
   it('draws the same in the book and on a slide', () => {
     const inMode = (mode: 'book' | 'presentation') =>
       render(

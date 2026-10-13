@@ -40,10 +40,10 @@ export const binaryPictureCatalogEntry: CatalogEntry = {
     },
     {
       name: 'tones',
-      type: "Record<value, 'idle' | 'focus' | 'mark' | 'keep' | 'done' | 'faint' | 'hidden'>",
+      type: "Record<value, 'idle' | 'focus' | 'mark' | 'keep' | 'accent' | 'done' | 'faint' | 'hidden'>",
       default: '{}',
       description:
-        'The tone of some nodes, keyed by value. `faint` fades a node and dashes its edge; `hidden` keeps its place and draws neither it nor its edge, so a tree built from the leaves up shows its subtrees loose before their parent is made.',
+        'The tone of some nodes, keyed by value. `accent` is the unit token for what is being moved, as the avl recipe paints the two nodes of a rotation; `faint` fades a node and dashes its edge; `hidden` keeps its place and draws neither it nor its edge, so a tree built from the leaves up shows its subtrees loose before their parent is made.',
     },
     {
       name: 'badges',
@@ -172,6 +172,13 @@ export const binaryPictureCatalogEntry: CatalogEntry = {
         'The value a search is looking for, written in the top left corner in a neutral pill: the colour stays for the node that holds it.',
     },
     {
+      name: 'subtrees',
+      type: 'value[]',
+      default: '[]',
+      description:
+        'Values drawn as a named subtree, a triangle in its own column, instead of a node: the A, B and C of a generic rotation, which move whole. A triangle draws no empty children under it.',
+    },
+    {
       name: 'emptyNote',
       type: 'string',
       default: "'root = null'",
@@ -232,6 +239,25 @@ export const binaryPictureCatalogEntry: CatalogEntry = {
           holes={[3]}
           tones={{ 3: 'focus' }}
           label="Las llamadas abiertas bajan del producto a la suma y de la suma al 3; la llamada sobre el hijo izquierdo del 3 recibe el árbol vacío."
+        />
+      ),
+    },
+    {
+      title: 'A generic right rotation, subtrees as triangles, its inorder in the strip',
+      code: `<BinaryPicture
+  tree={{ v: 'q', l: { v: 'A' }, r: { v: 'p', l: { v: 'B' }, r: { v: 'C' } } }}
+  subtrees={['A', 'B', 'C']}
+  tones={{ p: 'accent', q: 'accent', B: 'mark' }}
+  strip
+  label="Después de rotar a la derecha: q arriba, con el subárbol A a su izquierda y p a su derecha; p tiene a B a la izquierda y a C a la derecha. Debajo, el inorden: A, q, B, p, C."
+/>`,
+      render: () => (
+        <BinaryPicture
+          tree={{ v: 'q', l: { v: 'A' }, r: { v: 'p', l: { v: 'B' }, r: { v: 'C' } } }}
+          subtrees={['A', 'B', 'C']}
+          tones={{ p: 'accent', q: 'accent', B: 'mark' }}
+          strip
+          label="Después de rotar a la derecha: q arriba, con el subárbol A a su izquierda y p a su derecha; p tiene a B a la izquierda y a C a la derecha. Debajo, el inorden: A, q, B, p, C."
         />
       ),
     },

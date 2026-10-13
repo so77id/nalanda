@@ -1113,6 +1113,16 @@ describe('<SequenceStepper> · the combinations 22-edd-arboles-ii mounts', () =>
       slide: 'Valores que llegan ordenados',
       props: { eda: 'bst', operation: 'insert', values: [], value: [2, 4, 6, 8, 10, 12, 14] },
     },
+    {
+      act: 'Las rotaciones',
+      slide: 'El código de la rotación a la derecha',
+      props: { eda: 'avl', operation: 'rotate-right', values: [12, 8, 14, 4, 10], target: 12 },
+    },
+    {
+      act: 'Las rotaciones',
+      slide: 'La rotación a la izquierda',
+      props: { eda: 'avl', operation: 'rotate-left', values: [4, 2, 8, 6, 10], target: 4 },
+    },
   ];
 
   it.each(mounted)('$act · $slide', ({ props }) => {

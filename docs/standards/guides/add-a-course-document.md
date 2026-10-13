@@ -1277,9 +1277,13 @@ beside its line of code. To walk an operation frame by frame, use the widget.
   a symbol (an expression keeps its operators). `label`, in Spanish, is
   required.
 - **Values are unique within one tree**, because everything else is keyed by
-  value: `tones={{ 3: 'focus' }}` (`idle`, `focus`, `mark`, `keep`, `done`,
+  value: `tones={{ 3: 'focus' }}` (`idle`, `focus`, `mark`, `keep`,
+  `accent` — the unit's "being moved", the two nodes of a rotation — `done`,
   `faint`, `hidden`), `badges`, `notes`, `edgeLabels`, `frames`. A missing
   label or a repeated value renders an authoring error (§6f).
+- **A whole subtree as a triangle**: `subtrees={['A', 'B', 'C']}` draws those
+  values as named triangles in their columns — the generic rotation, whose
+  subtrees move whole. A triangle draws no empty children.
 - **An order**: `visits="pre" | "in" | "post"` numbers the nodes and draws an
   arrow from each visit to the next; `sequence` writes the order as a row of
   chips; `until` stops it at a value, as a search does; `strip` writes the

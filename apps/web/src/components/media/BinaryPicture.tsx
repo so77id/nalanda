@@ -15,7 +15,8 @@ import {
 } from './binaryPictureLayout';
 
 /** How a node is painted. `hidden` keeps its place but draws neither it nor its edge. */
-export type BinaryPictureTone = 'idle' | 'focus' | 'mark' | 'keep' | 'done' | 'faint' | 'hidden';
+export type BinaryPictureTone =
+  'idle' | 'focus' | 'mark' | 'keep' | 'accent' | 'done' | 'faint' | 'hidden';
 
 /** A frame's name, or its name and colour, so two subtrees can be told apart as they move. */
 export type BinaryPictureFrame = string | { text: string; tone?: 'keep' | 'accent' | 'mark' };
@@ -70,6 +71,11 @@ export interface BinaryPictureProps {
   seek?: TreeValue;
   /** What a drawing with every node hidden says; an empty string says nothing. */
   emptyNote?: string;
+  /**
+   * Values drawn as a named SUBTREE, a triangle, instead of a node: the
+   * generic rotation's A, B and C, which move whole.
+   */
+  subtrees?: TreeValue[];
 }
 
 const TONE: Record<Exclude<BinaryPictureTone, 'hidden'>, [string, string, number]> = {
@@ -78,6 +84,9 @@ const TONE: Record<Exclude<BinaryPictureTone, 'hidden'>, [string, string, number
   mark: ['var(--color-mark-soft)', 'var(--color-mark)', 2.2],
   keep: ['var(--color-keep-soft)', 'var(--color-keep)', 2.2],
   done: ['var(--color-sunk)', 'var(--color-rule-strong)', 1.3],
+  // The unit's "being moved" token: the two nodes a rotation exchanges, as
+  // the avl recipe of <SequenceStepper> paints them.
+  accent: ['var(--color-surface)', 'var(--color-accent)', 2.4],
   faint: ['var(--color-surface)', 'var(--color-rule)', 1.2],
 };
 
@@ -146,6 +155,7 @@ function Picture({
   until,
   seek,
   emptyNote = 'root = null',
+  subtrees = [],
   label,
 }: BinaryPictureProps) {
   const placed = placeTree(tree);
@@ -183,8 +193,11 @@ function Picture({
   });
   const { r, offset, labelWidth, drawingWidth, noteWidth, cx, cy, rowY } = c;
 
+  const isSubtree = (n: PlacedNode) => subtrees.some((v) => String(v) === n.key);
+  // A subtree drawn as a triangle has no empty children to show.
   const holeAt = (n: PlacedNode) =>
-    holes === true || (Array.isArray(holes) && holes.some((h) => String(h) === n.key));
+    !isSubtree(n) &&
+    (holes === true || (Array.isArray(holes) && holes.some((h) => String(h) === n.key)));
   const find = (v: TreeValue) => nodes.find((n) => n.key === String(v));
   const lit = new Set(path.slice(1).map((v, i) => `${String(path[i])}>${String(v)}`));
   const shown = nodes.filter((n) => toneOf(n) !== 'hidden');
@@ -606,19 +619,32 @@ function Picture({
             data-column={n.column}
             data-tone={tone}
             data-visit={rank.get(n)}
+            data-subtree={isSubtree(n) ? '' : undefined}
             opacity={faint ? 0.5 : undefined}
           >
-            <circle
-              cx={cx(n)}
-              cy={cy(n)}
-              r={r}
-              style={{ fill, stroke }}
-              strokeWidth={weight}
-              strokeDasharray={faint ? '4 3' : undefined}
-            />
+            {isSubtree(n) ? (
+              // A whole subtree: apex where a node's top would be, base in
+              // the room a level keeps under its nodes, as wide as its column.
+              <path
+                d={`M ${cx(n)} ${cy(n) - r} L ${cx(n) + c.pitch * 0.44} ${cy(n) + r + 6} L ${cx(n) - c.pitch * 0.44} ${cy(n) + r + 6} Z`}
+                style={{ fill, stroke }}
+                strokeWidth={weight}
+                strokeLinejoin="round"
+                strokeDasharray={faint ? '4 3' : undefined}
+              />
+            ) : (
+              <circle
+                cx={cx(n)}
+                cy={cy(n)}
+                r={r}
+                style={{ fill, stroke }}
+                strokeWidth={weight}
+                strokeDasharray={faint ? '4 3' : undefined}
+              />
+            )}
             <text
               x={cx(n)}
-              y={cy(n) + 5}
+              y={cy(n) + (isSubtree(n) ? 10 : 5)}
               textAnchor="middle"
               fontSize="14"
               fontWeight="600"
