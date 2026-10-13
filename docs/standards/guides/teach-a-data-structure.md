@@ -1,7 +1,9 @@
 # Guide — Teach a data structure
 
-The shape every class of the **Estructuras de Datos** unit takes. Born with
-#277, the unit's first class, which is also its worked example.
+The shape every class of the **Estructuras de Datos** unit takes — and of
+**Estructuras de Datos Avanzadas**, the unit that continues it with the
+non-linear structures (the trees, then the heap; #321). Born with #277, the
+first unit's first class, which is also its worked example.
 
 This is the third layer of the course-authoring stack, and the three do not
 overlap:
@@ -18,8 +20,9 @@ either of the other two.
 
 ## When to use
 
-You are writing a class of the Estructuras de Datos unit — a TDA, a structure
-that implements one, or a family of variants. The unit is a sequence of
+You are writing a class of the Estructuras de Datos unit or of Estructuras de
+Datos Avanzadas — a TDA, a structure that implements one, or a family of
+variants. The two units are one sequence of
 classes that all answer the same four questions about a different object, and
 the reader learns the answers faster because the questions never move.
 
@@ -118,9 +121,11 @@ next author needs both.
 
 It was defensible there and only there: #294 was last in `index.yaml` when
 it shipped, so there was no next class to navigate to, and a `Lo que sigue`
-would have had to invent one. #304 (Priority Queue y Heap) now follows it on
-the teaching path, so that justification has expired; #294's missing closing
-is owed, and tracked in **#323**. What it costs is real — `18-edd-listas-enlazadas.mdx` wiki-links forward
+would have had to invent one. #304 (Priority Queue y Heap) followed it on the
+teaching path first, and since #321 moved the trees ahead of the heap the next
+stop is Árboles I, the first class of Estructuras de Datos Avanzadas — either
+way that justification has expired; #294's missing closing is owed, and
+tracked in **#323**. What it costs is real — `18-edd-listas-enlazadas.mdx` wiki-links forward
 into a document that now dead-ends, and the trade this guide asks every class
 to close on (§5) went with the hinge.
 
@@ -131,13 +136,19 @@ claimed #294 carried an exercise index slide, a hinge after the `<Exercise>`
 blocks and a `Lo que sigue`, none of which ship — because it was written
 before the cuts and never re-measured against the document.
 
-**#304 keeps half of it.** The professor cut its hinge slide (_Lo que el
-orden débil no responde_) in the slide review, so the deck ends on the
-exercises. The trade survives as the closing lines of the slide _Costos de
-PriorityQueue_ (a search for any element has no shortcut, because the heap
-only knows where the first one is) and as prose in the book-only `## Lo que
-sigue`, which still names the next class. That is a second stated deviation,
-not a new shape: the rule above is unchanged.
+**#304 keeps half of it, and lost the half that pointed forward.** The
+professor cut its hinge slide (_Lo que el orden débil no responde_) in the
+slide review, so the deck ends on the exercises. The trade survives as the
+closing lines of the slide _Costos de PriorityQueue_ (a search for any element
+has no shortcut, because the heap only knows where the first one is). The
+book-only `## Lo que sigue` that named the trees as the next class is gone:
+#321 moved the trees AHEAD of the heap, which made that sentence false, and
+removed the heading and its prose at the professor's call. Its `<Questions>`
+block, which sat under that heading, stays where it was. That leaves #304 last
+on the teaching path with no closing, which is where #294 stood when it
+shipped. Still a stated deviation, not a new shape: the rule above is
+unchanged, and the class that comes to follow #304 on the path is what makes
+its closing owed again.
 
 **#277 also cut its own act 4.** An earlier draft closed with a recap act
 ("un contrato para los dos arreglos") that restated the TDA, put the two cost
@@ -256,6 +267,18 @@ Costs never appear in the contract. They belong to an implementation, and
 putting them here is the single mistake that collapses the TDA/EDA distinction
 the unit is built on.
 
+**A class that presents structures and no contract carries no card** (#321).
+Árboles I presents the general tree and the binary tree as structures, and
+neither serves a contract of its own: the search tree, whose contract — Set
+and Map — belongs to a later class that brings its own card, comes in
+Árboles II (#322). The four questions of §1 still run once per
+structure, the invariants are still a numbered list (§3) and the costs still
+a table (§4) — here without its invariant column, under §4's exception, since
+every row only consults; only the card is absent, because there is no
+contract to put in it yet. Do not invent one to fill the slot: a card
+listing a tree's traversals would present the operations of a structure as if
+they were a contract.
+
 Worked case: #277, slide _El TDA Sequence_, with _El contrato en Java · List_
 right after it mapping every operation to its `java.util.List` name.
 
@@ -350,6 +373,12 @@ element still picks up the prose monospace styling.
 
 Colour is a second signal, never the only one. The invariant column carries
 more than a colour could, and it stays.
+
+**One exception: a table whose every operation only consults drops it.** Its
+every cell would read «Ninguna: no cambia el árbol», which teaches nothing —
+Miguel's review of #321's binary-tree costs, where the traversals, the
+height and the search are the whole table. The column comes back as soon as one row
+modifies the structure.
 
 ### 5. Close on a loose end, not a summary
 
@@ -528,7 +557,11 @@ clip is a box with its own `max-height` — the frame box of a `<StepShow>`
 (`max-h-96 overflow-auto`) and the structure panel of a Sequence recipe of
 `<SequenceStepper>` (the heap's panel scales instead of scrolling)
 on a slide. A frame taller than its box scrolls, and a projected slide cannot
-be scrolled. Read every scrolling box on the stage, at every frame:
+be scrolled. Read every scrolling box on the stage, at every frame. One box is
+meant to scroll and the sweep will list it: the editor of an `<Exercise>`
+whose program is longer than 32 lines, which on a slide is a window the
+presenter scrolls by design (#321, `add-a-content-component.md`,
+`write-an-exercise.md`). Every other box it lists is a defect:
 
 ```js
 [...document.querySelectorAll('[data-testid="slide-stage"] *')]
@@ -570,9 +603,10 @@ listing, their `lines` arrays must agree.** The fixed-capacity `insertAt` said
 its fence text and read the result next to the step's own caption.
 
 **What that widget is, concretely** (ADR-0074): `eda` picks the structure —
-a dynamic array, a singly / doubly / circular list, or (since #304, ADR-0077)
-a binary max-heap — and `operation` picks which of the nine Sequence
-operations, or the heap's own two, to animate over it. (A fixed-capacity
+a dynamic array, a singly / doubly / circular list, (since #304, ADR-0077) a
+binary max-heap, or (since #321, ADR-0083) a linked binary tree — and
+`operation` picks which of the nine Sequence operations, the heap's own two,
+or the tree's traversals, height and search, to animate over it. (A fixed-capacity
 `array` recipe was deleted by #304, never having had a reader; ADR-0074
 §Amended by #304.) The surface never changes
 between combinations, which is the point: the reader learns one visual
@@ -593,6 +627,12 @@ the class reaches it through the same tag. It is also the first recipe that
 is not a Sequence, so its operations are its own — a reminder that "reuse
 first" is about the surface and the frame model, not about forcing every
 structure into the nine Sequence operations.
+
+**The second is the linked binary tree** (#321, ADR-0083): `binary-tree`
+draws nodes with `left` and `right`, each in the column of its inorder
+position, over a strip a traversal fills one visit at a time. It was
+designed the way the rule asks — on the running widget, reviewed in
+`/catalog`, never as drawings outside the system.
 
 **It does not replace `<StepShow>` + `<MemoryVisual>`**, which stay the pair
 for author-written pictures, whose truth is the author's (ADR-0049).
@@ -658,7 +698,8 @@ wins — #304's planner orders its tasks with one comparator lambda and an
 - [ ] What an operation breaks, keeps or restores is named _la invariante_
       (feminine) — in the prose, in every widget's narration, and in the
       templates above you copy from; a TDA's exit rule stays _regla_ (§3).
-- [ ] Every operation in the cost table carries the invariant it restores,
+- [ ] Every operation in the cost table carries the invariant it restores
+      (a table where every row only consults drops that column, §4),
       and the table leads with a `Molde` column grouping the operations by
       crear / consultar / modificar. An `Amortizado` column only where a row
       actually differs — and a SECOND table, for a structure derived from the

@@ -5,6 +5,7 @@ import { useMode } from '../../presentation';
 import { AuthoringError } from '../AuthoringError';
 import { CodeStepper } from './CodeStepper';
 import { HeapView } from './sequenceStepperHeapView';
+import { TreeView } from './sequenceStepperTreeView';
 import {
   BOX_H,
   BOX_W,
@@ -14,20 +15,25 @@ import {
   linkArrow,
   type SequenceLayout,
 } from './sequenceStepperLayout';
-import { CELL_FILL, CELL_STROKE } from './sequenceStepperPaint';
+import { CELL_FILL, CELL_NOTE, CELL_STROKE } from './sequenceStepperPaint';
 import {
+  BINARY_TREE_OPERATIONS,
   CIRCULAR_OPERATIONS,
   DOUBLY_OPERATIONS,
   HEAP_OPERATIONS,
   OPERATIONS,
   RECIPES,
+  TREE_ONLY_OPERATIONS,
+  isBinaryTreeOperation,
   isValidCombination,
   traceFor,
+  type BinaryTreeOperation,
   type SequenceCell,
   type SequenceOperation,
   type SequenceRecipe,
   type SequenceStep,
   type SequenceTrace,
+  type TreeValue,
 } from './sequenceStepperTrace';
 import {
   ControlButton,
@@ -44,8 +50,15 @@ export interface SequenceStepperProps {
   eda?: SequenceRecipe | string;
   /** Which operation to animate over that structure. */
   operation?: SequenceOperation | string;
-  /** The starting contents, in reading order. Six or fewer read best. */
-  values?: number[];
+  /**
+   * The starting contents, in reading order. Six or fewer read best. On
+   * `binary-tree` it is the tree in level order, `null` where a child is
+   * missing (`[3, 9, 1, 4, 7, null, 6]`) — the one recipe that takes a gap,
+   * and a gap has no children written (ADR-0083 §4) — and a value may be a
+   * symbol, so an expression tree keeps its operators as operators:
+   * `['*', '+', '−', 3, 4, 5, 1]` is (3 + 4) * (5 − 1).
+   */
+  values?: (TreeValue | null)[];
   /**
    * The value to insert. Required by every `insert-*` but `insert-ordered`,
    * and by the heap's `insert`. An ARRAY inserts each value in turn over the
@@ -131,6 +144,16 @@ function refusalReason(
   if (HEAP_OPERATIONS.includes(operation)) {
     return 'es una operación del heap. Úsala con eda="heap-max".';
   }
+  if (recipe === 'binary-tree') {
+    return `el árbol binario no es una secuencia y tiene sus propias operaciones: ${BINARY_TREE_OPERATIONS.map(
+      (o) => OPERATION_LABEL[o],
+    ).join(', ')}.`;
+  }
+  // The tree-only set, not every tree operation: `search` is shared, and a
+  // ring that refuses it has its own reason.
+  if (TREE_ONLY_OPERATIONS.includes(operation)) {
+    return 'es una operación de árbol. Úsala con eda="binary-tree".';
+  }
   if (operation === 'insert-ordered' && !recipe.startsWith('linked-list')) {
     return 'esta clase presenta el orden como una variante de la lista, no del arreglo.';
   }
@@ -149,6 +172,7 @@ const RECIPE_LABEL: Record<SequenceRecipe, string> = {
   'linked-list-doubly': 'lista doblemente enlazada',
   'linked-list-circular': 'lista circular',
   'heap-max': 'heap (máximo)',
+  'binary-tree': 'árbol binario',
 };
 
 const OPERATION_LABEL: Record<SequenceOperation, string> = {
@@ -163,27 +187,63 @@ const OPERATION_LABEL: Record<SequenceOperation, string> = {
   search: 'buscar',
   insert: 'insertar',
   'extract-max': 'extraer el máximo',
+  preorder: 'recorrer en preorden',
+  inorder: 'recorrer en inorden',
+  postorder: 'recorrer en postorden',
+  height: 'calcular la altura',
+};
+
+const UNDER_THE_EYE: [string, string] = ['border-focus bg-surface', 'bajo la mirada'];
+const VISITED: [string, string] = ['border-rule-strong bg-sunk', 'ya visitado'];
+const FOUND: [string, string] = ['border-keep bg-keep-soft', 'encontrado'];
+
+/**
+ * The legend of a tree run, by operation: each names only the states that
+ * operation paints, so a traversal does not explain "encontrado".
+ */
+const TREE_LEGEND: Record<BinaryTreeOperation, [string, string][]> = {
+  preorder: [['border-mark bg-mark-soft', 'se visita'], UNDER_THE_EYE, VISITED],
+  inorder: [['border-mark bg-mark-soft', 'se visita'], UNDER_THE_EYE, VISITED],
+  postorder: [['border-mark bg-mark-soft', 'se visita'], UNDER_THE_EYE, VISITED],
+  height: [['border-mark bg-mark-soft', 'acaba de responder'], UNDER_THE_EYE, VISITED],
+  search: [FOUND, UNDER_THE_EYE, VISITED],
 };
 
 /** The most elements the picture stays legible with, measured on a slide. */
 const MAX_VALUES = 8;
 
 /**
+ * `values` read back from its key: the numbers, plus the level order when it
+ * has a gap or a symbol — the only shape in which either means anything.
+ */
+function readValues(key: string): { values: number[]; levelOrder?: (TreeValue | null)[] } {
+  const all = JSON.parse(key) as (TreeValue | null)[];
+  const values = all.filter((v): v is number => typeof v === 'number');
+  return all.length === values.length ? { values } : { values, levelOrder: all };
+}
+
+/**
  * `<SequenceStepper>` — the step-through widget of the Estructuras de Datos
- * unit (ADR-0074, extended by ADR-0077).
+ * and Estructuras de Datos Avanzadas units (ADR-0074, extended by ADR-0077
+ * and ADR-0083).
  *
  * One widget, two props that pick what it shows: `eda` selects the structure
- * (a dynamic array, a singly / doubly / circular list, or a binary max-heap)
- * and `operation` selects the animation. The surface never changes between
- * combinations — code panel, structure, narration, controls — so the reader
- * learns one visual vocabulary and reads every structure of the unit through
- * it.
+ * (a dynamic array, a singly / doubly / circular list, a binary max-heap or a
+ * linked binary tree) and `operation` selects the animation. The surface never
+ * changes between combinations — code panel, structure, narration, controls —
+ * so the reader learns one visual vocabulary and reads every structure of the
+ * unit through it.
  *
- * A Sequence is one hand-written SVG whose every coordinate comes from
- * `sequenceStepperLayout`; the heap is two (tree and array) from
- * `sequenceStepperHeapLayout`. The frames come from `sequenceStepperTrace`.
- * All three are pure and pinned by the suite, which leaves the browser only
- * the paint.
+ * The modules, every one but the painters pure and pinned by the suite, which
+ * leaves the browser only the paint:
+ * - frames: `sequenceStepperTrace` (the dispatcher, the chains and the heap)
+ *   and `sequenceStepperTreeTrace` (the tree), both importing the leaf
+ *   `sequenceStepperTraceShared` (the line a frame lights, the runs cap);
+ * - geometry: `sequenceStepperLayout` (a Sequence), `sequenceStepperHeapLayout`
+ *   (the heap's tree and array) and `sequenceStepperTreeLayout` (the tree),
+ *   the last two sharing the leaf `sequenceStepperEdge`;
+ * - paint: the Sequence picture here, `sequenceStepperHeapView` and
+ *   `sequenceStepperTreeView`, with their colours in `sequenceStepperPaint`.
  */
 export function SequenceStepper({
   eda,
@@ -251,6 +311,50 @@ export function SequenceStepper({
       </AuthoringError>
     );
   }
+  if (!Array.isArray(values)) {
+    return (
+      <AuthoringError component="SequenceStepper">
+        <code>values</code> es una lista entre corchetes, como <code>{'values={[7, 3, 1]}'}</code>.
+      </AuthoringError>
+    );
+  }
+  // What the picture can draw: a finite number and, on a tree, a symbol or a
+  // gap. Anything else either reaches the SVG as a React child — an object
+  // takes the whole page down, past the authoring-error box — or turns into
+  // a gap on its way through the JSON key (NaN, Infinity, undefined) and
+  // changes the tree's shape without a word.
+  const odd = values.findIndex(
+    (v) => v !== null && typeof v !== 'string' && !(typeof v === 'number' && Number.isFinite(v)),
+  );
+  if (odd >= 0) {
+    return (
+      <AuthoringError component="SequenceStepper">
+        <code>values[{odd}]</code> no es un número: <code>values</code> admite números y, en
+        binary-tree, símbolos y null.
+      </AuthoringError>
+    );
+  }
+  // A gap only means something in a tree written in level order; anywhere
+  // else `null` would be read as a value, and `Number(null)` is 0.
+  if (recipe !== 'binary-tree' && values.some((v) => v === null)) {
+    return (
+      <AuthoringError component="SequenceStepper">
+        «null» marca un hueco del árbol: solo binary-tree lo acepta en <code>values</code>.
+      </AuthoringError>
+    );
+  }
+  // A symbol only means something as an operator of an expression tree;
+  // anywhere else it would be read as a number, and `Number('+')` is NaN.
+  const symbol = values.find((v) => typeof v === 'string');
+  if (recipe !== 'binary-tree' && symbol !== undefined) {
+    return (
+      <AuthoringError component="SequenceStepper">
+        «{symbol}»: solo binary-tree acepta símbolos en <code>values</code>.
+      </AuthoringError>
+    );
+  }
+  // The cap is on what is DRAWN: a gap in a level order is not a node.
+  const drawn = values.filter((v) => v !== null).length;
   // The guard has to count what the chain will GROW to, not what it starts
   // at: `value={[9, 4, 6]}` over four nodes ends at seven.
   // `insert-ordered` takes its values through `target`, not `value`, so
@@ -258,11 +362,11 @@ export function SequenceStepper({
   const grows = op.startsWith('insert');
   const from = op === 'insert-ordered' ? target : value;
   const inserted = grows && Array.isArray(from) ? from.length : 0;
-  if (values.length + inserted > MAX_VALUES) {
+  if (drawn + inserted > MAX_VALUES) {
     return (
       <AuthoringError component="SequenceStepper">
-        la cadena llega a {values.length + inserted} elementos. El dibujo se lee bien hasta{' '}
-        {MAX_VALUES}; con más, los nodos quedan ilegibles en la proyección.
+        la estructura llega a {drawn + inserted} elementos. El dibujo se lee bien hasta {MAX_VALUES}
+        ; con más, los nodos quedan ilegibles en la proyección.
       </AuthoringError>
     );
   }
@@ -292,7 +396,7 @@ export function SequenceStepper({
 interface BodyProps {
   recipe: SequenceRecipe;
   operation: SequenceOperation;
-  values: number[];
+  values: (TreeValue | null)[];
   value?: number | number[];
   index?: number | number[];
   target?: number | number[];
@@ -330,13 +434,17 @@ function Body({
 }: BodyProps) {
   const mode = useMode();
   const heap = recipe === 'heap-max';
+  const tree = recipe === 'binary-tree';
   const isPresentation = mode === 'presentation';
   const outerRef = useRef<HTMLElement | null>(null);
 
   // MDX re-mints `values` on every parent re-render, so the memo and every
   // reset key hang off a primitive-derived string rather than the array's
   // identity (`add-a-content-component.md` §2, learned in #266).
-  const valuesKey = values.join(',');
+  // JSON, so a gap and a symbol both survive the round trip: a bare join
+  // writes a gap as an empty string (`Number('')` is 0) and loses the
+  // difference between the number 3 and a symbol.
+  const valuesKey = JSON.stringify(values);
   // Every inline-authored data prop goes through a primitive key, not only
   // `values`: MDX re-mints each array literal on every parent render, so a
   // memo keyed on the references recomputes the trace — and `cellsFrom` mints
@@ -365,7 +473,7 @@ function Body({
     try {
       return {
         trace: traceFor(recipe, operation, {
-          values: valuesKey === '' ? [] : valuesKey.split(',').map(Number),
+          ...readValues(valuesKey),
           value,
           index,
           target,
@@ -484,8 +592,10 @@ function Body({
             word for it. Outside the scrolling box so a wide chain cannot
             push it off screen.
           */}
+          {/* A tree's listing has no size field to show, so it gets no readout. */}
           <div
             data-testid="sequence-size"
+            hidden={tree}
             className="pointer-events-none absolute right-3 top-2 z-10 text-center"
           >
             {/* The heap's listing calls the field `n`, and past it the array
@@ -521,7 +631,15 @@ function Body({
               was chrome that reset between runs with nothing to say.
             */}
           </div>
-          {heap ? (
+          {trace.tree !== undefined && step.tree !== undefined ? (
+            <TreeView
+              tree={step.tree}
+              run={trace.tree}
+              description={step.description}
+              label={RECIPE_LABEL[recipe]}
+              presentation={isPresentation}
+            />
+          ) : heap ? (
             <HeapView
               step={step}
               maxCells={trace.maxCells}
@@ -597,12 +715,22 @@ function Body({
         </label>
 
         <span className="ml-auto flex flex-wrap items-center gap-3 font-mono text-3xs text-ink-faint">
-          <LegendSwatch swatchClass="border-mark bg-mark-soft" label="nuevo" />
-          <LegendSwatch swatchClass="border-focus bg-surface" label="bajo la mirada" />
-          {heap ? (
-            <LegendSwatch swatchClass="border-accent bg-surface" label="se intercambia" />
-          ) : null}
-          <LegendSwatch swatchClass="border-rule bg-sunk" label="libre" />
+          {tree && isBinaryTreeOperation(operation) ? (
+            <>
+              {TREE_LEGEND[operation].map(([swatchClass, label]) => (
+                <LegendSwatch key={label} swatchClass={swatchClass} label={label} />
+              ))}
+            </>
+          ) : (
+            <>
+              <LegendSwatch swatchClass="border-mark bg-mark-soft" label="nuevo" />
+              <LegendSwatch swatchClass="border-focus bg-surface" label="bajo la mirada" />
+              {heap ? (
+                <LegendSwatch swatchClass="border-accent bg-surface" label="se intercambia" />
+              ) : null}
+              <LegendSwatch swatchClass="border-rule bg-sunk" label="libre" />
+            </>
+          )}
         </span>
       </div>
     </figure>
@@ -610,20 +738,6 @@ function Body({
 }
 
 // ── the picture ───────────────────────────────────────────────────────────
-
-/**
- * Colour is never the only signal (`design-system.md`): every state that is
- * painted also gets a word under the box, so a reader who cannot separate the
- * hues still reads what happened. The heap view writes no word under its
- * cells — its index sits there — and reads `swap` by stroke weight and the
- * legend instead (ADR-0077 §4).
- */
-const CELL_NOTE: Partial<Record<SequenceCell['state'], string>> = {
-  new: 'nuevo',
-  found: '✓ este',
-  leaving: 'sale',
-  stale: 'copia vieja',
-};
 
 /**
  * The note sits UNDER its box and is left-aligned to it, never centred above

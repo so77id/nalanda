@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { CodeEditor } from '../interactive/CodeEditor';
 import { ModeProvider } from '../../presentation';
-import { useEmbedded } from '../embedded';
+import { useEmbedded, useEmbeddedAlign } from '../embedded';
 
 // CodeMirror's editing surface is not the contract here; the basicSetup it is
 // handed IS, because the gutter is what the #76 fix lives on.
@@ -157,6 +157,46 @@ describe('SideBySide as a frame', () => {
   it('says nothing of the sort outside a column', () => {
     render(<Probe />);
     expect(screen.getByTestId('probe')).toHaveTextContent('false');
+  });
+});
+
+/** Reports how a column places what is shorter than its sibling. */
+function AlignProbe() {
+  return <span data-testid="align">{useEmbeddedAlign()}</span>;
+}
+
+describe('SideBySide alignment', () => {
+  it('keeps each column at the top by default — two listings compared line by line stay level', () => {
+    const { container } = render(
+      <SideBySide left="C++" right="Java">
+        <AlignProbe />
+        <AlignProbe />
+      </SideBySide>,
+    );
+
+    expect(screen.getAllByTestId('align').map((el) => el.textContent)).toEqual(['start', 'start']);
+    for (const column of container.querySelectorAll('.grid > *')) {
+      expect(column.lastElementChild?.className).not.toContain('justify-center');
+    }
+  });
+
+  it('centres what is shorter than its sibling when align="center"', () => {
+    // A listing beside a drawing: the shorter of the two sits in the middle of
+    // its column instead of hugging the top of it.
+    const { container } = render(
+      <SideBySide left="El código" right="En memoria" align="center">
+        <AlignProbe />
+        <AlignProbe />
+      </SideBySide>,
+    );
+
+    expect(screen.getAllByTestId('align').map((el) => el.textContent)).toEqual([
+      'center',
+      'center',
+    ]);
+    for (const column of container.querySelectorAll('.grid > *')) {
+      expect(column.lastElementChild?.className).toContain('justify-center');
+    }
   });
 });
 

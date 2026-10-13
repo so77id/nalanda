@@ -66,9 +66,13 @@ async function renderAt(path: string): Promise<void> {
  * is a fix the 38th will not get. Dynamic imports are cached, so this costs one
  * resolution, not one per test.
  */
+// Loads every document in content/, so its cost grows with the course: the
+// default 10 s ran out under the full parallel suite once #321 added a class.
+// Do not raise it again: testing-strategy.md §Conventions (apps/web), "The
+// preload itself has a cost that grows with the course".
 beforeAll(async () => {
   await Promise.all(registry.entries.map((entry) => entry.load()));
-});
+}, 30_000);
 
 /**
  * jsdom implements no Fullscreen API, so after #111 the deck hides its

@@ -7,27 +7,27 @@ export const sequenceStepperCatalogEntry: CatalogEntry = {
   name: 'SequenceStepper',
   family: 'interactive',
   description:
-    'One step-through widget for the whole Sequence family. `eda` picks the structure it draws — a dynamic array, or a singly / doubly / circular linked list — and `operation` picks the animation it replays over it. Code panel on top, the structure as a hand-written SVG below, narration and controls at the foot; the surface is identical across all combinations, so the reader learns one visual vocabulary and reads every structure of the unit through it. ADR-0074. Since #304 it also draws a binary max-heap (`heap-max`, ADR-0077): the same array as the complete binary tree it encodes and as `data[0..]`, side by side on a slide and stacked in the book.',
+    'One step-through widget for the whole Sequence family. `eda` picks the structure it draws — a dynamic array, or a singly / doubly / circular linked list — and `operation` picks the animation it replays over it. Code panel on top, the structure as a hand-written SVG below, narration and controls at the foot; the surface is identical across all combinations, so the reader learns one visual vocabulary and reads every structure of the unit through it. ADR-0074. Since #304 it also draws a binary max-heap (`heap-max`, ADR-0077): the same array as the complete binary tree it encodes and as `data[0..]`, side by side on a slide and stacked in the book. Since #321 it draws a linked binary tree (`binary-tree`): every node in the column of its inorder position, with a strip underneath that a traversal fills one visit at a time — so the inorder lands under its own nodes and the other two orders visibly do not.',
   whenToUse:
-    'When a class of the Estructuras de Datos unit shows an operation running over a sequence structure, or `insert` / `extract-max` running over a binary max-heap (`heap-max`) — and especially when it shows the SAME operation over two structures to contrast their cost, which is two nearly identical tags. Not for sorting algorithms (`<SortStepper>`) and not for hand-authored memory pictures (`<StepShow>` + `<MemoryVisual>`).',
+    'When a class of the Estructuras de Datos or the Estructuras de Datos Avanzadas unit shows an operation running over a sequence structure, `insert` / `extract-max` running over a binary max-heap (`heap-max`), or a traversal, the height or a search over a linked binary tree (`binary-tree`) — and especially when it shows the SAME operation over two structures to contrast their cost, which is two nearly identical tags. Not for sorting algorithms (`<SortStepper>`) and not for hand-authored memory pictures (`<StepShow>` + `<MemoryVisual>`).',
   props: [
     {
       name: 'eda',
-      type: '"dynamic-array" | "linked-list-singly" | "linked-list-doubly" | "linked-list-circular" | "heap-max"',
+      type: '"dynamic-array" | "linked-list-singly" | "linked-list-doubly" | "linked-list-circular" | "heap-max" | "binary-tree"',
       description:
         'Required. The recipe: which structure is drawn, and which Java listing is shown beside it.',
     },
     {
       name: 'operation',
-      type: '"get-at" | "insert-first" | "insert-last" | "insert-at" | "insert-ordered" | "remove-first" | "remove-last" | "remove-at" | "search" | "insert" | "extract-max"',
+      type: '"get-at" | "insert-first" | "insert-last" | "insert-at" | "insert-ordered" | "remove-first" | "remove-last" | "remove-at" | "search" | "insert" | "extract-max" | "preorder" | "inorder" | "postorder" | "height"',
       description:
-        'Required. Which operation to animate. `dynamic-array` and `linked-list-singly` accept all nine (bar `insert-ordered` on the dynamic array — the ordered array is not a structure this unit presents). The two VARIANT recipes accept only the operations they have a Java listing FOR, because the widget shows code a student may copy: `linked-list-circular` accepts `insert-first` alone — its listing closes the ring again, and walks to do it — and `linked-list-doubly` accepts `get-at`, `search`, `insert-first`, `remove-first`, and `remove-last` only with `tail`. `heap-max` accepts exactly its own two — `insert` (swim, growing the block like the dynamic array; `value` may be an array) and `extract-max` (sink, then `shrinkIfSparse`; `times` repeats it) — and those two are valid on no other recipe. Anything else renders an `<AuthoringError>` naming the operations that recipe does have.',
+        'Required. Which operation to animate. `dynamic-array` and `linked-list-singly` accept all nine (bar `insert-ordered` on the dynamic array — the ordered array is not a structure this unit presents). The two VARIANT recipes accept only the operations they have a Java listing FOR, because the widget shows code a student may copy: `linked-list-circular` accepts `insert-first` alone — its listing closes the ring again, and walks to do it — and `linked-list-doubly` accepts `get-at`, `search`, `insert-first`, `remove-first`, and `remove-last` only with `tail`. `heap-max` accepts exactly its own two — `insert` (swim, growing the block like the dynamic array; `value` may be an array) and `extract-max` (sink, then `shrinkIfSparse`; `times` repeats it) — and those two are valid on no other recipe. `binary-tree` accepts the three traversals (`preorder`, `inorder`, `postorder`), `height` — none of the four valid on any other recipe — and `search`, which visits until the value turns up. `search` thus keeps one name over the chains and the tree. Anything else renders an `<AuthoringError>` naming the operations that recipe does have.',
     },
     {
       name: 'values',
-      type: 'number[]',
+      type: '(number | string | null)[]',
       description:
-        'Required. The starting contents in reading order. Up to 8; beyond that the nodes stop being legible when projected. May be empty for the insert operations that need no existing element: `insert-first`, `insert-last`, and `insert` on `heap-max`, which then starts at `new int[2]`. On `heap-max` it must already be a max-heap.',
+        "Required. The starting contents in reading order. Up to 8; beyond that the nodes stop being legible when projected. May be empty for the insert operations that need no existing element: `insert-first`, `insert-last`, and `insert` on `heap-max`, which then starts at `new int[2]`. On `heap-max` it must already be a max-heap. On `binary-tree` it is the tree in LEVEL ORDER, `null` where a child is missing — `[3, 9, 1, 4, 7, null, 6]` is 3 over 9 and 1, 9 over 4 and 7, 1 over a lone right child 6 — and a `null` has no children written: the entries after it belong to the next node still waiting, so `[1, 2, null, 3, 4, null, null, 5]` hangs 5 under 4, not under 3 as the heap's numbering would. A value with no parent is refused, and so are gaps left over at the end. The cap counts nodes, not gaps. A value on `binary-tree` may also be a symbol, so an expression tree keeps its operators: `['*', '+', '−', 3, 4, 5, 1]` is (3 + 4) * (5 − 1). A `null` or a symbol on any other recipe is an authoring error.",
     },
     {
       name: 'value',
@@ -51,7 +51,7 @@ export const sequenceStepperCatalogEntry: CatalogEntry = {
       name: 'times',
       type: 'number',
       description:
-        'How many times to run an operation that takes no argument (`remove-first`, `remove-last`, `extract-max`). Default one. Running more times than the structure has elements is an authoring error: the listing throws there, and a trace that ran anyway would be animating an exception.',
+        'How many times to run a removal that takes no argument (`remove-first`, `remove-last`, `extract-max`). Default one; at most twelve, on every recipe that reads it. The traversals and the height of `binary-tree` take no argument either, but run once over the whole tree and ignore it. Running more times than the structure has elements is an authoring error: the listing throws there, and a trace that ran anyway would be animating an exception.',
     },
     {
       name: 'capacity',
@@ -63,7 +63,7 @@ export const sequenceStepperCatalogEntry: CatalogEntry = {
       name: 'method',
       type: 'string',
       description:
-        "The name the LISTING shows the method under, when the document presents the structure through a TDA that calls it something else — a pila slide showing `pop` where the chain's own name is `deleteFirst`. The body is unchanged; the signature and every call in the driving program are renamed together, so the two never disagree. Pair it with `receiver`.",
+        "The name the LISTING shows the method under, when the document presents the structure through a TDA that calls it something else — a pila slide showing `pop` where the chain's own name is `deleteFirst`. The body is unchanged; the signature and every call in the driving program are renamed together, so the two never disagree. Pair it with `receiver`. Not on `binary-tree`: its listings are the recursive methods themselves, with no calling program to rename, and it ignores `method`, `receiver` and `receiverType`.",
     },
     {
       name: 'receiver',
@@ -75,7 +75,7 @@ export const sequenceStepperCatalogEntry: CatalogEntry = {
       name: 'receiverType',
       type: 'string',
       description:
-        'The class the driving program CONSTRUCTS, renamed together with `method` and `receiver`. Without it a slide that renamed `insertFirst` to `push` still printed `LinkedList pila = new LinkedList();` under a heading that had just declared `class Stack` — the listing renamed the call and left the constructor telling the truth about the wrong structure. Every recipe alike; the defaults are `LinkedList`, `DynamicArray` and `MaxHeap`.',
+        'The class the driving program CONSTRUCTS, renamed together with `method` and `receiver`. Without it a slide that renamed `insertFirst` to `push` still printed `LinkedList pila = new LinkedList();` under a heading that had just declared `class Stack` — the listing renamed the call and left the constructor telling the truth about the wrong structure. Every recipe but `binary-tree` alike; the defaults are `LinkedList`, `DynamicArray` and `MaxHeap`.',
     },
     {
       name: 'pointer',
@@ -289,6 +289,61 @@ export const sequenceStepperCatalogEntry: CatalogEntry = {
       code: '<SequenceStepper eda="heap-max" operation="extract-max" values={[12, 8, 10, 3, 7, 9]} />',
       render: () => (
         <SequenceStepper eda="heap-max" operation="extract-max" values={[12, 8, 10, 3, 7, 9]} />
+      ),
+    },
+    {
+      title: 'An inorder traversal: every value lands in the strip right under its own node',
+      code: '<SequenceStepper eda="binary-tree" operation="inorder" values={[3, 9, 1, 4, 7, null, 6]} />',
+      render: () => (
+        <SequenceStepper eda="binary-tree" operation="inorder" values={[3, 9, 1, 4, 7, null, 6]} />
+      ),
+    },
+    {
+      title: 'An expression tree, operators as symbols: its inorder writes the expression under it',
+      code: "<SequenceStepper eda=\"binary-tree\" operation=\"inorder\" values={['*', '+', '−', 3, 4, 5, 1]} />",
+      render: () => (
+        <SequenceStepper
+          eda="binary-tree"
+          operation="inorder"
+          values={['*', '+', '−', 3, 4, 5, 1]}
+        />
+      ),
+    },
+    {
+      title: 'The same tree in preorder: the visit moves before the two calls',
+      code: '<SequenceStepper eda="binary-tree" operation="preorder" values={[3, 9, 1, 4, 7, null, 6]} />',
+      render: () => (
+        <SequenceStepper eda="binary-tree" operation="preorder" values={[3, 9, 1, 4, 7, null, 6]} />
+      ),
+    },
+    {
+      title: 'And in postorder: a node is visited only after both of its sides',
+      code: '<SequenceStepper eda="binary-tree" operation="postorder" values={[3, 9, 1, 4, 7, null, 6]} />',
+      render: () => (
+        <SequenceStepper
+          eda="binary-tree"
+          operation="postorder"
+          values={[3, 9, 1, 4, 7, null, 6]}
+        />
+      ),
+    },
+    {
+      title: 'The height, answered from the leaves up: every call after both of its sides',
+      code: '<SequenceStepper eda="binary-tree" operation="height" values={[3, 9, 1, 4, 7, null, 6]} />',
+      render: () => (
+        <SequenceStepper eda="binary-tree" operation="height" values={[3, 9, 1, 4, 7, null, 6]} />
+      ),
+    },
+    {
+      title: 'Searching a tree with no order: it may have to compare every node',
+      code: '<SequenceStepper eda="binary-tree" operation="search" values={[4, 2, 7, 1, 3, 6, 9]} target={6} />',
+      render: () => (
+        <SequenceStepper
+          eda="binary-tree"
+          operation="search"
+          values={[4, 2, 7, 1, 3, 6, 9]}
+          target={6}
+        />
       ),
     },
     {

@@ -25,6 +25,9 @@
  *   first rather than at `null`.
  */
 
+import { asRuns, lineOf, requireRuns } from './sequenceStepperTraceShared';
+import { traceTree } from './sequenceStepperTreeTrace';
+
 export const RECIPES = [
   'dynamic-array',
   'linked-list-singly',
@@ -35,6 +38,10 @@ export const RECIPES = [
   // beside the complete binary tree it encodes — but it is the same widget:
   // one listing, one structure, the same controls and the same frame model.
   'heap-max',
+  // A linked binary tree (#321): nodes with `left` and `right`, drawn with
+  // every node in the column of its inorder position. It has no order, so its
+  // operations visit. Same widget, same frame model plus a tree.
+  'binary-tree',
 ] as const;
 export type SequenceRecipe = (typeof RECIPES)[number];
 
@@ -53,6 +60,12 @@ export const OPERATIONS = [
   // (their lines light up in the listing), not operations of the TDA.
   'insert',
   'extract-max',
+  // The tree's own operations (#321): the three ways to visit every node, and
+  // the height. `search` above is shared with the tree.
+  'preorder',
+  'inorder',
+  'postorder',
+  'height',
 ] as const;
 export type SequenceOperation = (typeof OPERATIONS)[number];
 
@@ -85,7 +98,51 @@ export type SequenceCellState =
   | 'leaving'
   | 'stale'
   /** Heap: one of the two cells being exchanged by `swap` this frame. */
-  | 'swap';
+  | 'swap'
+  /** Tree: a node the operation has already finished with. */
+  | 'visited';
+
+/**
+ * What a tree node holds: a number, or — on `binary-tree` only — a symbol, so
+ * an expression tree can be drawn with its operators (`'*'`, `'+'`, `'−'`) as
+ * operators and its operands as numbers.
+ */
+export type TreeValue = number | string;
+
+/** One node of a tree frame: its value, its two links and its paint. */
+export interface TreeFrameNode {
+  id: number;
+  value: TreeValue;
+  left: number | null;
+  right: number | null;
+  /** The node's level, the root's 0: the row the view draws it on. */
+  depth: number;
+  state: SequenceCellState;
+  /** A short mark beside the node: its visit order, or what its call returned. */
+  badge?: string;
+}
+
+/**
+ * The tree as one frame leaves it. `path` is the chain of calls still open,
+ * root first, so the view can light the edges the recursion is standing on.
+ * `strip` has one slot per column of the drawing: a traversal writes its
+ * output there left to right, and the inorder lands every value under its
+ * own node.
+ */
+export interface TreeFrame {
+  root: number | null;
+  nodes: TreeFrameNode[];
+  path: number[];
+  strip: (TreeValue | null)[];
+  /** The slot just written, painted as new. */
+  stripFresh?: number;
+  /**
+   * A call that landed on an empty subtree: the side of `parent` it went to.
+   * That call is the base case, and the view draws the empty subtree there
+   * for the one frame it runs.
+   */
+  probe?: { parent: number; side: 'left' | 'right' };
+}
 
 export interface SequenceCell {
   /** Stable across frames — the view animates by identity, not by position. */
@@ -182,6 +239,8 @@ export interface SequenceStep {
    * reading 0, 3 and 9 (#288 review, COR-6b).
    */
   cost: number;
+  /** Tree recipes only: the tree this frame leaves. `cells` mirrors its nodes. */
+  tree?: TreeFrame;
 }
 
 export interface SequenceTrace {
@@ -207,10 +266,35 @@ export interface SequenceTrace {
    * landed, which is the resizing that makes an animation unreadable.
    */
   hasCarry: boolean;
+  /** Tree recipes only: what the whole run needs to keep one canvas. */
+  tree?: TreeRun;
+}
+
+/**
+ * `columns` places every node the run holds in a column fixed for the whole
+ * run — its inorder position — so nothing on screen moves sideways (the rule
+ * `maxCells` keeps for the chains); a tree that grows during the run, as the
+ * search tree of #322 does, reserves the columns of the nodes it will insert.
+ * `depth` is the deepest level any frame reaches, so the canvas keeps one
+ * height too. `strip` says whether the operation writes anything out: a
+ * height or a search does not, and gets no strip at all rather than an empty
+ * one.
+ */
+export interface TreeRun {
+  columns: Record<number, number>;
+  slots: number;
+  depth: number;
+  strip: boolean;
 }
 
 export interface SequenceInput {
   values: number[];
+  /**
+   * `binary-tree` only: the tree in level order, `null` where a child is
+   * missing — `[3, 9, 1, 4, 7, null, 6]`. A tree with no order cannot be
+   * built by inserting, so its shape has to be written out.
+   */
+  levelOrder?: (TreeValue | null)[];
   /**
    * Required by every `insert-*` except `insert-ordered`, and by the heap's
    * `insert`. An ARRAY inserts
@@ -280,24 +364,6 @@ export interface SequenceInput {
   pointer?: string;
 }
 
-/**
- * The 1-based line of the first line containing `fragment`.
- *
- * Every frame names the line it is executing by a piece of that line's TEXT,
- * never by a number. `lines` is unvalidated data — `CodeStepper` silently
- * drops an out-of-range number, so a wrong-but-in-range one survives the
- * build, the suite and the preview alike, and #277 shipped two of them,
- * both from renumbering by hand after re-wrapping a listing
- * (`teach-a-data-structure.md` §6bis). Looking the number up removes the
- * class: edit a listing and the frames follow, and a fragment that stops
- * existing throws here instead of lighting the wrong line.
- */
-function lineOf(code: string, fragment: string): number {
-  const at = code.split('\n').findIndex((line) => line.includes(fragment));
-  if (at < 0) throw new Error(`El listado no contiene «${fragment}».`);
-  return at + 1;
-}
-
 const isList = (recipe: SequenceRecipe) => recipe.startsWith('linked-list');
 
 /**
@@ -336,6 +402,22 @@ const HEAP_OPERATION_NAMES = ['insert', 'extract-max'] as const;
 type HeapOperation = (typeof HEAP_OPERATION_NAMES)[number];
 export const HEAP_OPERATIONS: readonly SequenceOperation[] = HEAP_OPERATION_NAMES;
 
+/** The operations only a tree has (#321): the three visits and the height. */
+const TREE_OPERATION_NAMES = ['preorder', 'inorder', 'postorder', 'height'] as const;
+type TreeOperation = (typeof TREE_OPERATION_NAMES)[number];
+export const TREE_ONLY_OPERATIONS: readonly SequenceOperation[] = TREE_OPERATION_NAMES;
+
+/** What `binary-tree` has a listing for: its own operations, and the shared `search`. */
+const BINARY_TREE_OPERATION_NAMES = [...TREE_OPERATION_NAMES, 'search'] as const;
+export type BinaryTreeOperation = (typeof BINARY_TREE_OPERATION_NAMES)[number];
+export const BINARY_TREE_OPERATIONS: readonly SequenceOperation[] = BINARY_TREE_OPERATION_NAMES;
+
+export function isBinaryTreeOperation(
+  operation: SequenceOperation,
+): operation is BinaryTreeOperation {
+  return BINARY_TREE_OPERATIONS.includes(operation);
+}
+
 export function isValidCombination(
   recipe: SequenceRecipe,
   operation: SequenceOperation,
@@ -343,7 +425,8 @@ export function isValidCombination(
 ): boolean {
   const heapOperation = HEAP_OPERATIONS.includes(operation);
   if (recipe === 'heap-max') return heapOperation;
-  if (heapOperation) return false;
+  if (recipe === 'binary-tree') return BINARY_TREE_OPERATIONS.includes(operation);
+  if (heapOperation || TREE_ONLY_OPERATIONS.includes(operation)) return false;
   if (operation === 'insert-ordered' && !isList(recipe)) return false;
   if (recipe === 'linked-list-circular') return CIRCULAR_OPERATIONS.includes(operation);
   if (recipe === 'linked-list-doubly') {
@@ -364,6 +447,9 @@ export function traceFor(
     throw new Error(`La operación «${operation}» no está definida sobre «${recipe}».`);
   }
   if (recipe === 'heap-max') return traceHeap(operation, input);
+  if (recipe === 'binary-tree' && isBinaryTreeOperation(operation)) {
+    return traceTree(operation, input);
+  }
   return isList(recipe) ? traceList(recipe, operation, input) : traceArray(operation, input);
 }
 
@@ -385,16 +471,6 @@ const settle = (cells: SequenceCell[]): SequenceCell[] =>
   cells.map((c) =>
     c.state === 'new' || c.state === 'found' ? { ...c } : { ...c, state: 'idle' as const },
   );
-
-/**
- * An author-written argument, read as the list of RUNS it asks for: one value
- * runs the operation once, an array runs it once per element over the same
- * structure. Everything the widget animates several times reads its arguments
- * through here, so the multi-run shape is one rule rather than one per
- * operation.
- */
-const asRuns = (v: number | number[] | undefined): number[] =>
-  v === undefined ? [] : Array.isArray(v) ? v : [v];
 
 function checkIndex(i: number | undefined, length: number, inclusive: boolean): number {
   const max = inclusive ? length : length - 1;
@@ -460,12 +536,16 @@ const METHOD_NAME: Record<SequenceOperation, string> = {
   'remove-last': 'deleteLast',
   'remove-at': 'deleteAt',
   search: 'search',
+  preorder: 'preorder',
+  inorder: 'inorder',
+  postorder: 'postorder',
+  height: 'height',
 };
 
 // ── the array family ──────────────────────────────────────────────────────
 
 /** The operations the dynamic array has a listing for. */
-type ArrayOperation = Exclude<SequenceOperation, 'insert-ordered' | HeapOperation>;
+type ArrayOperation = Exclude<SequenceOperation, 'insert-ordered' | HeapOperation | TreeOperation>;
 
 const ARRAY_CODE: Record<ArrayOperation, string> = {
   'get-at': `int getAt(int i) {
@@ -934,6 +1014,12 @@ function runArgs(operation: SequenceOperation, input: SequenceInput): string[] {
     }
     case 'insert-ordered':
       return asRuns(input.target).map(String);
+    // A traversal or a height runs once over the whole tree and takes no argument.
+    case 'preorder':
+    case 'inorder':
+    case 'postorder':
+    case 'height':
+      return [];
   }
 }
 
@@ -1174,31 +1260,21 @@ function listCode(recipe: SequenceRecipe, operation: SequenceOperation, tail: bo
     case 'insert':
     case 'extract-max':
       throw new Error(`«${operation}» es una operación del heap, no de una lista.`);
+    case 'preorder':
+    case 'inorder':
+    case 'postorder':
+    case 'height':
+      throw new Error(`«${operation}» es una operación de árbol, no de una lista.`);
   }
 }
 
 /**
- * The most times an author may ask for one operation. The chain-length guard
- * in the component counts cells, not RUNS, so `times={1e8}` used to allocate
- * its driving program before any guard could refuse it — measured: a heap
- * exhaustion that takes the tab down instead of printing an authoring error.
- */
-const MAX_RUNS = 12;
-
-/**
- * The widest block a slide can still show, in the same spirit as MAX_RUNS:
+ * The widest block a slide can still show, in the same spirit as the runs cap
+ * (`requireRuns`, `sequenceStepperTraceShared.ts`):
  * past this nobody reads the cells projected, and an author who asks for it
  * has almost certainly typed a number they did not mean.
  */
 const MAX_CAPACITY = 40;
-
-function requireRuns(runs: number): void {
-  if (!Number.isInteger(runs) || runs < 1 || runs > MAX_RUNS) {
-    throw new Error(
-      `La operación se ejecuta ${runs} veces. Entre 1 y ${MAX_RUNS}: más pasos de los que nadie sigue en una slide.`,
-    );
-  }
-}
 
 function traceList(
   recipe: SequenceRecipe,

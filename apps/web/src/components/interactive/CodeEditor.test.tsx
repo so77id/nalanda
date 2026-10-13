@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { draftKey, readDraft, saveDraft } from './draft';
-import { EmbeddedProvider } from '../embedded';
+import { EmbeddedAlignProvider, EmbeddedProvider } from '../embedded';
 import { ModeProvider } from '../../presentation';
 import type { RunRequest, RuntimeWorker, WorkerMessage } from '../../runtime';
 import { loadGrammar, runtimeDescriptors } from '../../runtime';
@@ -416,6 +416,55 @@ describe('CodeEditor', () => {
     // on. Measured in a browser at 1440px — 21px of clipping, the closing `);`
     // of the longest Java line gone — not reasoned about.
     expect(screen.getByTestId('code').dataset['lineNumbers']).toBe('false');
+  });
+
+  it('fills its column when embedded, so the listing does not end halfway down it', async () => {
+    // Beside a taller figure the column is taller than the code. The shell and
+    // the editor stretched only to their lines, and the listing's background
+    // stopped mid-column with the page showing under it.
+    const { container } = render(
+      <ModeProvider mode="presentation">
+        <EmbeddedProvider value={true}>
+          <CodeEditor language="java" variant="snippet" defaultValue="class A {}" />
+        </EmbeddedProvider>
+      </ModeProvider>,
+    );
+    await waitFor(() => expect(screen.getAllByTestId('code').length).toBeGreaterThan(0));
+
+    expect(container.querySelector('.not-prose')?.className).toContain('flex-1');
+    const area = container.querySelector('[class*="55vh"]');
+    expect(area?.className).toContain('flex-1');
+    expect(area?.className).toContain('[&_.cm-editor]:flex-1');
+    // Filling is not centring: two listings compared line by line stay level.
+    expect(area?.className).not.toContain('safe_center');
+  });
+
+  it('centres its lines in the column when the container asks for it', async () => {
+    const { container } = render(
+      <ModeProvider mode="presentation">
+        <EmbeddedProvider value={true}>
+          <EmbeddedAlignProvider value="center">
+            <CodeEditor language="java" variant="snippet" defaultValue="class A {}" />
+          </EmbeddedAlignProvider>
+        </EmbeddedProvider>
+      </ModeProvider>,
+    );
+    await waitFor(() => expect(screen.getAllByTestId('code').length).toBeGreaterThan(0));
+
+    const area = container.querySelector('[class*="55vh"]')?.className;
+    expect(area).toContain('[&_.cm-editor_.cm-scroller]:![align-items:safe_center]');
+    // CodeMirror stretches its content to the editor's full height, which
+    // leaves nothing to centre: measured in a browser, the lines stayed at the
+    // top with the background filled under them.
+    expect(area).toContain('[&_.cm-editor_.cm-content]:!min-h-0');
+  });
+
+  it('keeps its own height when nothing contains it', async () => {
+    const { container } = renderEditor({ variant: 'snippet' }, 'presentation');
+    await waitFor(() => expect(screen.getAllByTestId('code').length).toBeGreaterThan(0));
+
+    expect(container.querySelector('.not-prose')?.className).not.toContain('flex-1');
+    expect(container.querySelector('[class*="55vh"]')?.className).not.toContain('flex-1');
   });
 
   it('keeps the copy button when embedded — the reason a listing is quotable', async () => {

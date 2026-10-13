@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  BINARY_TREE_OPERATIONS,
   CIRCULAR_OPERATIONS,
   DOUBLY_OPERATIONS,
   HEAP_OPERATIONS,
@@ -10,7 +11,9 @@ import {
   traceFor,
   type SequenceOperation,
   type SequenceRecipe,
+  type SequenceStep,
   type SequenceTrace,
+  type TreeValue,
 } from './sequenceStepperTrace';
 
 /**
@@ -23,12 +26,15 @@ import {
 const values = [7, 3, 1, 5];
 
 /**
- * The Sequence recipes — every recipe but the heap, whose operations are its
- * own (#304). A sweep over "the operation every structure has" iterates
- * these; a sweep over every valid combination iterates RECIPES and feeds the
- * heap a starting array that already is one.
+ * The Sequence recipes — every recipe but the heap (#304) and the binary tree
+ * (#321), whose operations are their own. A sweep over "the operation every
+ * structure has" iterates these; a sweep over every valid combination
+ * iterates RECIPES and feeds the heap a starting array that already is one.
  */
-const SEQUENCE_RECIPES = RECIPES.filter((r) => r !== 'heap-max');
+const SEQUENCE_RECIPES = RECIPES.filter((r) => r !== 'heap-max' && r !== 'binary-tree');
+/** The tree operations no other kind of recipe has (`search` is everyone's). */
+const TRAVERSALS = ['preorder', 'inorder', 'postorder'] as const;
+const TREE_ONLY: readonly SequenceOperation[] = [...TRAVERSALS, 'height'];
 const startFor = (recipe: SequenceRecipe, operation: SequenceOperation): number[] =>
   recipe === 'heap-max' ? [7, 5, 3, 1] : operation === 'insert-ordered' ? [1, 3, 7, 9] : values;
 
@@ -42,6 +48,7 @@ describe('sequenceStepperTrace · the valid combinations', () => {
     for (const recipe of ['dynamic-array', 'linked-list-singly'] as const) {
       for (const operation of OPERATIONS) {
         if (HEAP_OPERATIONS.includes(operation)) continue;
+        if (TREE_ONLY.includes(operation)) continue;
         if (operation === 'insert-ordered' && !recipe.startsWith('linked-list')) continue;
         expect(isValidCombination(recipe, operation), `${recipe} × ${operation}`).toBe(true);
       }
@@ -1580,5 +1587,458 @@ describe('sequenceStepperTrace · heap-max · counts read as Spanish', () => {
       }),
     ].flatMap((t) => t.steps.map((s) => s.description));
     expect(all.filter((d) => /\b1 elementos\b|\blos 1\b|\b0 elementos\b/.test(d))).toEqual([]);
+  });
+});
+
+// ── binary-tree (#321) ─────────────────────────────────────────────────────
+
+/**
+ * The binary tree has no order, so its operations VISIT: they go everywhere
+ * and differ only in when each node is written. The level order below is the
+ * tree the class draws: 3 with children 9 and 1; 9 with 4 and 7; 1 with only
+ * a right child, 6.
+ */
+const LEVELS = [3, 9, 1, 4, 7, null, 6];
+const treeTrace = (operation: SequenceOperation): SequenceTrace =>
+  traceFor('binary-tree', operation, { values: [], levelOrder: LEVELS });
+const valueOf = (step: SequenceStep, id: number): TreeValue =>
+  step.tree!.nodes.find((n) => n.id === id)!.value;
+
+describe('sequenceStepperTrace · binary-tree · the valid combinations', () => {
+  it('takes its own operations and nothing else', () => {
+    for (const operation of OPERATIONS) {
+      expect(isValidCombination('binary-tree', operation), operation).toBe(
+        BINARY_TREE_OPERATIONS.includes(operation),
+      );
+    }
+  });
+
+  it('keeps the tree operations off every recipe that is not a tree', () => {
+    for (const recipe of RECIPES.filter((r) => r !== 'binary-tree')) {
+      for (const operation of TREE_ONLY) {
+        expect(isValidCombination(recipe, operation), `${recipe} × ${operation}`).toBe(false);
+      }
+    }
+  });
+});
+
+describe('sequenceStepperTrace · binary-tree · the traversals', () => {
+  it('writes each order into the strip, one value per visit', () => {
+    expect(treeTrace('preorder').steps.at(-1)!.tree!.strip).toEqual([3, 9, 4, 7, 1, 6]);
+    expect(treeTrace('inorder').steps.at(-1)!.tree!.strip).toEqual([4, 9, 7, 3, 1, 6]);
+    expect(treeTrace('postorder').steps.at(-1)!.tree!.strip).toEqual([4, 7, 9, 6, 1, 3]);
+  });
+
+  it('gives every node the column of its inorder position', () => {
+    const trace = treeTrace('inorder');
+    const last = trace.steps.at(-1)!;
+    const byColumn = last
+      .tree!.nodes.slice()
+      .sort((a, b) => trace.tree!.columns[a.id]! - trace.tree!.columns[b.id]!)
+      .map((n) => n.value);
+    expect(byColumn).toEqual([4, 9, 7, 3, 1, 6]);
+    expect(trace.tree!.slots).toBe(6);
+    expect(trace.tree!.depth).toBe(2);
+  });
+
+  it('writes every inorder value in the slot right under its own node', () => {
+    const trace = treeTrace('inorder');
+    const writes = trace.steps.filter((s) => s.tree!.stripFresh !== undefined);
+    expect(writes).toHaveLength(6);
+    for (const step of writes) {
+      const slot = step.tree!.stripFresh!;
+      const written = step.tree!.strip[slot];
+      const node = step.tree!.nodes.find((n) => n.value === written)!;
+      expect(trace.tree!.columns[node.id], `${written}`).toBe(slot);
+    }
+  });
+
+  it('numbers the visits beside the nodes, in visit order', () => {
+    const last = treeTrace('preorder').steps.at(-1)!;
+    const badges = Object.fromEntries(last.tree!.nodes.map((n) => [n.value, n.badge]));
+    expect(badges).toEqual({ 3: '1', 9: '2', 4: '3', 7: '4', 1: '5', 6: '6' });
+  });
+
+  it('keeps the calls still open on the path, root first', () => {
+    const trace = treeTrace('inorder');
+    const first = trace.steps.find((s) => s.tree!.stripFresh === 0)!;
+    expect(first.tree!.path.map((id) => valueOf(first, id))).toEqual([3, 9, 4]);
+    const last = trace.steps.at(-1)!;
+    expect(last.tree!.path).toEqual([]);
+  });
+
+  it('lights the print line on every visit, and only there', () => {
+    for (const operation of TRAVERSALS) {
+      const trace = treeTrace(operation);
+      const print = trace.code.split('\n').findIndex((l) => l.includes('System.out.print')) + 1;
+      expect(print, operation).toBeGreaterThan(0);
+      for (const step of trace.steps) {
+        const writes = step.tree!.stripFresh !== undefined;
+        expect(step.highlightLines.includes(print), `${operation}: ${step.description}`).toBe(
+          writes,
+        );
+      }
+    }
+  });
+
+  it('leaves nothing in flight on the last frame', () => {
+    for (const operation of TRAVERSALS) {
+      const last = treeTrace(operation).steps.at(-1)!;
+      expect(
+        last.tree!.nodes.every((n) => n.state === 'visited'),
+        operation,
+      ).toBe(true);
+    }
+  });
+
+  it('reads a plain values array as a level order with no gaps', () => {
+    const trace = traceFor('binary-tree', 'inorder', { values: [7, 3, 1, 5] });
+    expect(trace.steps.at(-1)!.tree!.strip).toEqual([5, 3, 7, 1]);
+  });
+});
+
+describe('sequenceStepperTrace · binary-tree · authoring guards', () => {
+  it('refuses a level order that hangs a value under a missing node', () => {
+    expect(() =>
+      traceFor('binary-tree', 'inorder', { values: [], levelOrder: [3, null, null, 5] }),
+    ).toThrow(/padre/);
+  });
+
+  it('refuses a level order with no root', () => {
+    expect(() => traceFor('binary-tree', 'inorder', { values: [], levelOrder: [null, 1] })).toThrow(
+      /raíz/,
+    );
+  });
+
+  it('refuses gaps left over at the end by saying so, not by naming an undefined value', () => {
+    for (const levelOrder of [
+      [1, null, null, null],
+      [1, 2, 3, null, null, null, null, null],
+    ]) {
+      expect(() => traceFor('binary-tree', 'inorder', { values: [], levelOrder })).toThrow(
+        /huecos de más/,
+      );
+    }
+  });
+
+  it('reads a level order the way the class writes it: a gap has no children written', () => {
+    // 2's children are 3 and 4, the next two entries are 3's, and 5 is 4's
+    // left child. Numbering by array index (the children of k at 2k + 1 and
+    // 2k + 2, the heap's rule) would hang 5 under 3 instead.
+    const first = traceFor('binary-tree', 'preorder', {
+      values: [],
+      levelOrder: [1, 2, null, 3, 4, null, null, 5],
+    }).steps[0]!;
+    const node = (v: number) => first.tree!.nodes.find((n) => n.value === v)!;
+    expect(node(4).left).toBe(node(5).id);
+    expect(node(3).left).toBeNull();
+  });
+});
+
+describe('sequenceStepperTrace · binary-tree · height', () => {
+  it('returns from every call with the height of its subtree', () => {
+    const last = treeTrace('height').steps.at(-1)!;
+    const badges = Object.fromEntries(last.tree!.nodes.map((n) => [n.value, n.badge]));
+    expect(badges).toEqual({ 3: 'h=2', 9: 'h=1', 4: 'h=0', 7: 'h=0', 1: 'h=1', 6: 'h=0' });
+    expect(last.description).toContain('La altura del árbol es 2');
+  });
+
+  it('answers a call only after both of its sides have answered', () => {
+    const trace = treeTrace('height');
+    const returnLine =
+      trace.code.split('\n').findIndex((l) => l.includes('return 1 + Math.max')) + 1;
+    const answered = trace.steps
+      .filter((s) => s.highlightLines.includes(returnLine))
+      .map((s) => s.tree!.nodes.find((n) => n.state === 'new')!.value);
+    // postorder: a node answers after its two subtrees.
+    expect(answered).toEqual([4, 7, 9, 6, 1, 3]);
+  });
+
+  it('draws no strip: a height writes nothing out', () => {
+    expect(treeTrace('height').tree!.strip).toBe(false);
+  });
+});
+
+describe('sequenceStepperTrace · binary-tree · search', () => {
+  const search = (target: number) =>
+    traceFor('binary-tree', 'search', { values: [], levelOrder: LEVELS, target });
+
+  it('visits in preorder and stops at the value', () => {
+    const last = search(6).steps.at(-1)!;
+    expect(last.tree!.nodes.find((n) => n.value === 6)!.state).toBe('found');
+    const order = last
+      .tree!.nodes.filter((n) => n.badge !== undefined)
+      .sort((a, b) => Number(a.badge) - Number(b.badge))
+      .map((n) => n.value);
+    expect(order).toEqual([3, 9, 4, 7, 1, 6]);
+    expect(last.cost).toBe(6);
+  });
+
+  it('compares every node before saying a value is not there', () => {
+    const last = search(5).steps.at(-1)!;
+    expect(last.cost).toBe(6);
+    expect(last.tree!.nodes.some((n) => n.state === 'found')).toBe(false);
+    expect(last.description).toContain('no está');
+  });
+
+  it('refuses more than twelve targets, as every other recipe does', () => {
+    const target = Array.from({ length: 13 }, (_, i) => i);
+    expect(() =>
+      traceFor('binary-tree', 'search', { values: [], levelOrder: LEVELS, target }),
+    ).toThrow(/Entre 1 y 12/);
+  });
+
+  it('starts each target of an array from a clean tree', () => {
+    const trace = traceFor('binary-tree', 'search', {
+      values: [],
+      levelOrder: LEVELS,
+      target: [6, 5],
+    });
+    const second = trace.steps.filter((s) => s.kind === 'start')[1]!;
+    expect(second.cost).toBe(0);
+    expect(second.tree!.nodes.every((n) => n.state === 'idle' && n.badge === undefined)).toBe(true);
+    expect(trace.steps.filter((s) => s.kind === 'done').map((s) => s.cost)).toEqual([6, 6]);
+  });
+});
+
+describe('sequenceStepperTrace · binary-tree · counts read as Spanish', () => {
+  it('never says "los 1 nodos" or "1 nodos" over a tree of one node', () => {
+    const one = { values: [7], levelOrder: [7] };
+    const all = [
+      ...(['preorder', 'inorder', 'postorder', 'height'] as const).map((op) =>
+        traceFor('binary-tree', op, one),
+      ),
+      traceFor('binary-tree', 'search', { ...one, target: [7, 5] }),
+    ].flatMap((t) => t.steps.map((s) => s.description));
+    expect(all.filter((d) => /\blos 1\b|\b1 nodos\b|\b1 aristas\b/.test(d))).toEqual([]);
+  });
+});
+
+describe('sequenceStepperTrace · binary-tree · an expression', () => {
+  // (3 + 4) * (5 − 1): operators as symbols, operands as numbers. The class's
+  // guide example — each traversal writes one notation of the same expression.
+  const EXPRESSION = ['*', '+', '−', 3, 4, 5, 1];
+  const expressionTrace = (operation: SequenceOperation, target?: number): SequenceTrace =>
+    traceFor('binary-tree', operation, { values: [], levelOrder: EXPRESSION, target });
+
+  it('writes the prefix, the infix and the postfix notation', () => {
+    expect(expressionTrace('preorder').steps.at(-1)!.tree!.strip).toEqual([
+      '*',
+      '+',
+      3,
+      4,
+      '−',
+      5,
+      1,
+    ]);
+    expect(expressionTrace('inorder').steps.at(-1)!.tree!.strip).toEqual([
+      3,
+      '+',
+      4,
+      '*',
+      5,
+      '−',
+      1,
+    ]);
+    expect(expressionTrace('postorder').steps.at(-1)!.tree!.strip).toEqual([
+      3,
+      4,
+      '+',
+      5,
+      1,
+      '−',
+      '*',
+    ]);
+  });
+
+  it('names the symbols in the narration', () => {
+    const first = expressionTrace('preorder').steps.find((s) => s.tree!.stripFresh === 0)!;
+    expect(first.description).toContain('preorder(*)');
+  });
+
+  it('measures its height and finds an operand', () => {
+    const height = expressionTrace('height').steps.at(-1)!;
+    expect(height.description).toContain('La altura del árbol es 2');
+    const found = expressionTrace('search', 5).steps.at(-1)!;
+    expect(found.tree!.nodes.find((n) => n.value === 5)!.state).toBe('found');
+  });
+});
+
+describe('sequenceStepperTrace · binary-tree · the listings mark the visit and the traversal', () => {
+  it('puts a // visita comment over the print and a // recorrido comment over the calls', () => {
+    for (const operation of TRAVERSALS) {
+      const lines = treeTrace(operation).code.split('\n');
+      const visit = lines.findIndex((l) => l.trim().startsWith('// visita'));
+      const walk = lines.findIndex((l) => l.trim().startsWith('// recorrido'));
+      expect(visit, `${operation}: visita`).toBeGreaterThan(0);
+      expect(walk, `${operation}: recorrido`).toBeGreaterThan(0);
+      expect(lines[visit + 1], operation).toContain('System.out.print');
+      expect(lines[walk + 1], operation).toContain(`${operation}(node.`);
+    }
+  });
+});
+
+describe('sequenceStepperTrace · binary-tree · every line a call runs is lit', () => {
+  // 2 over 1 and 3: the smallest tree with a call to each side and four empty
+  // subtrees, which is where the base case runs.
+  const small = (operation: SequenceOperation, target?: number): SequenceTrace =>
+    traceFor('binary-tree', operation, { values: [], levelOrder: [2, 1, 3], target });
+
+  /** The fragments that name each beat of an operation's listing. */
+  const FRAGMENTS: Record<string, { left: string; right: string; visit: string }> = {
+    preorder: {
+      left: 'preorder(node.left)',
+      right: 'preorder(node.right)',
+      visit: 'System.out.print',
+    },
+    inorder: {
+      left: 'inorder(node.left)',
+      right: 'inorder(node.right)',
+      visit: 'System.out.print',
+    },
+    postorder: {
+      left: 'postorder(node.left)',
+      right: 'postorder(node.right)',
+      visit: 'System.out.print',
+    },
+    height: {
+      left: 'int left = height',
+      right: 'int right = height',
+      visit: 'return 1 + Math.max',
+    },
+    search: {
+      left: 'contains(node.left',
+      right: 'contains(node.right',
+      visit: 'node.value.equals(target)',
+    },
+  };
+
+  /**
+   * What one frame does, read off what it lights: `visit:v` for the visit (the
+   * print, the answer, the comparison), `left:v` / `right:v` for the call v
+   * makes to that side, and `left∅:v` / `right∅:v` for a call that lands on an
+   * empty subtree — which must light the base case and draw where it landed.
+   */
+  const beat = (operation: string, trace: SequenceTrace, step: SequenceStep): string => {
+    const lines = trace.code.split('\n');
+    const lit = (fragment: string) =>
+      step.highlightLines.includes(lines.findIndex((l) => l.includes(fragment)) + 1);
+    const f = FRAGMENTS[operation]!;
+    const t = step.tree!;
+    const base = lit('if (node == null)');
+    expect(base, `${operation}: ${step.description}`).toBe(t.probe !== undefined);
+    if (t.probe !== undefined) {
+      const parent = t.nodes.find((n) => n.id === t.probe!.parent)!;
+      expect(parent.state, step.description).toBe('active');
+      expect(lit(f[t.probe.side]), step.description).toBe(true);
+      return `${t.probe.side}∅:${parent.value}`;
+    }
+    const at = t.nodes.find((n) => ['active', 'new', 'found'].includes(n.state))!;
+    if (lit(f.visit)) return `visit:${at.value}`;
+    if (lit(f.left)) return `left:${at.value}`;
+    if (lit(f.right)) return `right:${at.value}`;
+    return `? ${step.description}`;
+  };
+  const beats = (operation: SequenceOperation, target?: number): string[] => {
+    const trace = small(operation, target);
+    return trace.steps.slice(1, -1).map((s) => beat(operation, trace, s));
+  };
+
+  it('walks the preorder call by call, the empty calls included', () => {
+    expect(beats('preorder')).toEqual([
+      'visit:2',
+      'left:2',
+      'visit:1',
+      'left∅:1',
+      'right∅:1',
+      'right:2',
+      'visit:3',
+      'left∅:3',
+      'right∅:3',
+    ]);
+  });
+
+  it('walks the inorder call by call: the visit between the two calls', () => {
+    expect(beats('inorder')).toEqual([
+      'left:2',
+      'left∅:1',
+      'visit:1',
+      'right∅:1',
+      'visit:2',
+      'right:2',
+      'left∅:3',
+      'visit:3',
+      'right∅:3',
+    ]);
+  });
+
+  it('walks the postorder call by call: the visit after both calls', () => {
+    expect(beats('postorder')).toEqual([
+      'left:2',
+      'left∅:1',
+      'right∅:1',
+      'visit:1',
+      'right:2',
+      'left∅:3',
+      'right∅:3',
+      'visit:3',
+      'visit:2',
+    ]);
+  });
+
+  it('lights the edge down to the child a call goes to', () => {
+    const trace = small('preorder');
+    const lines = trace.code.split('\n');
+    const left = lines.findIndex((l) => l.includes('preorder(node.left)')) + 1;
+    const call = trace.steps.find((s) => s.highlightLines.includes(left) && !s.tree!.probe)!;
+    expect(call.tree!.path.map((id) => valueOf(call, id))).toEqual([2, 1]);
+  });
+
+  it('walks the height the same way, and every empty call returns −1', () => {
+    expect(beats('height')).toEqual([
+      'left:2',
+      'left∅:1',
+      'right∅:1',
+      'visit:1',
+      'right:2',
+      'left∅:3',
+      'right∅:3',
+      'visit:3',
+      'visit:2',
+    ]);
+    const empty = small('height').steps.filter((s) => s.tree!.probe !== undefined);
+    expect(empty).toHaveLength(4);
+    for (const step of empty) expect(step.description).toContain('−1');
+  });
+
+  it('walks a search through both sides, and calls no further once a side says true', () => {
+    expect(beats('search', 3)).toEqual([
+      'visit:2',
+      'left:2',
+      'visit:1',
+      'left∅:1',
+      'right∅:1',
+      'right:2',
+      'visit:3',
+    ]);
+    expect(beats('search', 1)).toEqual(['visit:2', 'left:2', 'visit:1']);
+  });
+});
+
+describe('sequenceStepperTrace · binary-tree · the search listing marks the visit and the traversal', () => {
+  it('puts a // visita comment over the comparison and a // recorrido comment over the two calls', () => {
+    // The traversals' convention (#321): the traversal stays, the visit is what
+    // a problem changes — and a search is a preorder whose visit compares.
+    const lines = traceFor('binary-tree', 'search', {
+      values: [],
+      levelOrder: [2, 1, 3],
+      target: 3,
+    }).code.split('\n');
+    const visit = lines.findIndex((l) => l.trim().startsWith('// visita'));
+    const walk = lines.findIndex((l) => l.trim().startsWith('// recorrido'));
+    expect(visit).toBeGreaterThan(0);
+    expect(walk).toBeGreaterThan(visit);
+    expect(lines[visit + 1]).toContain('node.value.equals(target)');
+    expect(lines[walk + 1]).toContain('contains(node.left');
   });
 });

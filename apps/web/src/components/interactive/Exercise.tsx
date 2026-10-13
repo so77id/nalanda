@@ -4,6 +4,7 @@ import type { ReactNode } from 'react';
 import { useCallback, useMemo, useState } from 'react';
 
 import { fencesByMeta, withoutFences } from '../../lib/codeFences';
+import { useMode } from '../../presentation';
 import { AuthoringError } from '../AuthoringError';
 import { clearDraft, draftKey, readDraft, saveDraft } from './draft';
 import { OUTPUT, Panel } from './Panel';
@@ -73,6 +74,20 @@ function Verdict({ reading }: { reading: RunReading }) {
 }
 
 /**
+ * The longest program a slide shows whole. Measured in #321 at 1440x900: the
+ * programs that sit on slides today run to 31 lines, and one of 38 already
+ * scaled its slide to 0.62, under the 0.70 floor. Past this, the editor on a
+ * slide is a window of this many lines that scrolls.
+ */
+const SLIDE_LINES = 32;
+
+/**
+ * The window's height, in the editor's own units: CodeMirror sets each line
+ * at 1.4 times its font size, plus 4px of padding above and below the text.
+ */
+const SLIDE_WINDOW = `calc(${SLIDE_LINES * 1.4}em + 8px)`;
+
+/**
  * A problem the student solves in place, checked automatically.
  *
  * What it checks is the *method*, not what the program printed: the cases are
@@ -121,6 +136,10 @@ export function Exercise({ title, language = 'java', children }: ExerciseProps) 
   // Separately from the runtime, and earlier: an exercise highlights before —
   // and whether or not — the student ever presses Comprobar (#122).
   const grammar = useGrammar(language);
+  // The pipeline hands a fence over with its trailing newline, which is not a
+  // line of the program: counted, it windowed a program of exactly 32 lines.
+  const windowed =
+    useMode() === 'presentation' && starter.replace(/\n$/, '').split('\n').length > SLIDE_LINES;
 
   const check = useCallback(async () => {
     // Before the run, not after: a Java loop that never ends freezes this tab
@@ -181,20 +200,27 @@ export function Exercise({ title, language = 'java', children }: ExerciseProps) 
       )}
 
       {/*
-        No height cap. It used to be `max-h-80` — a fixed 20rem that did not
-        grow with the viewport, so a listing longer than it showed a third of
-        itself and scrolled inside, on a projector as much as on a laptop
-        (#294, measured at 900, 1200 and 1600px: 320px every time). A slide
-        that says "el código completo" has to show it. The editor is the
-        tallest thing an exercise owns and a slide scales to fit what it
-        holds, so the listing comes out legible whole rather than a window
-        onto itself.
+        No height cap in the book, nor on a slide for a program a slide shows
+        whole. It used to be `max-h-80` — a fixed 20rem that did not grow with
+        the viewport, so a listing longer than it showed a third of itself and
+        scrolled inside, on a projector as much as on a laptop (#294, measured
+        at 900, 1200 and 1600px: 320px every time). A slide that says "el
+        código completo" has to show it. The editor is the tallest thing an
+        exercise owns and a slide scales to fit what it holds, so the listing
+        comes out legible whole rather than a window onto itself.
+
+        Past SLIDE_LINES that stops being true: a slide scales the whole
+        program down so far that nothing on it reads (#321: eighty lines came
+        out at 0.34). There, and only on a slide, the editor is a window of
+        SLIDE_LINES lines that scrolls, at the size every other slide's code
+        is read at.
       */}
       <div className="border-t border-rule">
         <CodeMirror
           value={code}
           onChange={setCode}
           theme={theme}
+          maxHeight={windowed ? SLIDE_WINDOW : undefined}
           extensions={[...(grammar ? [grammar] : []), checkShortcut]}
           basicSetup={{ lineNumbers: true, foldGutter: false }}
         />

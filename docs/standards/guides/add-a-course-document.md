@@ -10,7 +10,8 @@ ADR-0013 (presentation).
 You are writing course material: a new sección/presentación, an exercise page,
 any content unit. No app code is involved — everything happens under `content/`.
 
-**If the document is a class of the Estructuras de Datos unit, read
+**If the document is a class of the Estructuras de Datos or Estructuras de
+Datos Avanzadas unit, read
 [`teach-a-data-structure.md`](teach-a-data-structure.md) BEFORE drafting.** It
 fixes the shape — the acts and the four questions they answer, the TDA card,
 the invariant list, the cost table with its invariant column, the closing
@@ -59,6 +60,7 @@ content/courses/sample-course/
 ├── 18-edd-listas-enlazadas.mdx  # presentation: explicit, questions: pool — <SequenceStepper> ×13 (the worked case) + <Exercise> ×5 with the `solution` fence
 ├── 19-edd-stack-queue.mdx     # presentation: explicit, questions: pool (13) — <SequenceStepper> ×8 over BOTH families (dynamic-array + singly) + <StepShow> ×7 + <Exercise> ×4 + 20 standalone inline SVG figures + a file-local <Paso> frame component + two TDA cards
 ├── 20-edd-priority-queue-heap.mdx  # presentation: explicit, questions: pool (16) — <SequenceStepper eda="heap-max"> ×4 + <StepShow> ×3 + <Exercise> ×4 (three worked on slides, one posed) + <PresentationWide> ×3 + 23 file-local figure components and LIST_COLORS (§6e-quater) + a TDA card (the fifth copy)
+├── 21-edd-arboles-i.mdx       # presentation: explicit, questions: pool (19) — opens the Estructuras de Datos Avanzadas unit, ahead of chapter 20 in index.yaml; <SequenceStepper eda="binary-tree"> ×5 (its worked case, ADR-0083) + <StepShow> ×12 + <SideBySide> ×3 + <Exercise> ×5 (three worked, each on its slide — the widest level's and the calculator's in a scrolling window, being longer than 32 lines — and two posed) + <PresentationWide> ×18 + eight file-local figure components (HierarchyPicture, TreeMemory, OrderRule, BinaryPicture, BinaryMemory, NodeGraph, TokenRow, StackRow); the search tree moved to Árboles II (#322)
 ├── tda-eda-invariante.svg, arreglo-memoria.svg, arreglo-alocacion.svg, arreglo-invariante-valido.svg, arreglo-invariantes.svg, regla-del-cuarto.svg, costo-acumulado.svg   # assets for chapter 17
 └── index.yaml                 # the ordered teaching path
 ```
@@ -499,7 +501,7 @@ class Solution {
 
 The `test` fence is inlined as the body of a generated `main` (in class
 `NalandaCheck`), which is compiled beside the student's class and calls it —
-so what is checked is the method, not what the program printed. Two
+so what is checked is the method, not what the program printed. Three
 consequences worth knowing before you write one:
 
 - **Statements only.** No method or field declarations: they are legal in a
@@ -511,6 +513,14 @@ consequences worth knowing before you write one:
   `double` (compared with a 1e-9 tolerance, never `==`), `boolean`, `char`,
   `Object` (arrays compared by contents) and `int[]`, `long[]`, `char[]`,
   `boolean[]`.
+- **The starter's imports do not reach the fence, and the compiler is Java
+  8.** The fence sees one import, `java.util.Arrays`, which the harness
+  writes itself (`harness.ts`); qualify every other library call in a case —
+  `java.util.List`, `java.util.ArrayList` — and never `List.of(…)`, which
+  Java 8 does not have either. #321's posed
+  exercises shipped `List.of` checked against a newer JDK, and the browser
+  answered `List cannot be resolved`, then `of` undefined: check a fence with
+  `javac --release 8`, or by pressing **Comprobar** in the built site.
 
 The class named in `starter` and the one the cases call must agree.
 **Only Java validates**; C++ and Python refuse an exercise rather than report
@@ -565,6 +575,12 @@ For a course whose students already program, the comparison is often the
 lesson itself. Half the page is all a column gets: check the longest line of
 both listings on a slide, not only in the book.
 Worked example: `06-java-desde-cpp.mdx`.
+A listing beside the drawing of what it builds — a class beside the node it
+makes in memory — is the other use, with `align="center"`: the listing fills
+its column and its lines sit in the middle beside a taller drawing, and the
+drawing sits in the middle beside a taller listing (#321, ADR-0029 §Amended
+by). Two listings keep the default, `align="start"`, so they stay level line
+by line. Worked example: `21-edd-arboles-i.mdx`, «El nodo binario».
 
 Full usage docs, props and live examples for every document-facing component
 live in the catalog — browse `/catalog`, which is generated from the components
@@ -830,6 +846,24 @@ heap starts at `new int[2]`, so `values={[]}` with several `value`s shows the
 block growing 2 → 4 → 8. Its readout is `n`, `data[0]` is drawn as unused,
 and `capacity` is `data.length` with slot 0 included. `insert` and
 `extract-max` refuse a starting array that is not already a max-heap.
+Since #321 there is also `binary-tree` (ADR-0083): a linked binary tree
+with every node in the column of its inorder position and a strip under it,
+and operations of its own — `preorder`, `inorder` and `postorder`, each
+filling the strip one visit at a time, and `height`, each call answering
+after both of its sides; none of the four is valid on any other recipe.
+Every call is a frame of its own, the empty ones too: a call that lands on
+`null` lights the base case and draws the empty subtree (ADR-0083 §5). It
+also takes `search` (`target`), which may have to compare every node. Its
+`values` is the tree in LEVEL ORDER with `null` for a missing child
+(`values={[3, 9, 1, 4, 7, null, 6]}`), and a `null` has no children written:
+the entries after it belong to the next node still waiting, so
+`[1, 2, null, 3, 4, null, null, 5]` hangs 5 under 4 — not the heap's
+numbering, which would hang it under 3 (ADR-0083 §4). A value with no parent
+is refused, so are gaps left over at the end, a `null` on any other recipe is
+refused, and the cap of eight counts nodes, not gaps. A value may also be a symbol, so an expression tree keeps its operators
+(`values={['*', '+', '−', 3, 4, 5, 1]}` is (3 + 4) * (5 − 1)); a symbol on
+any other recipe is refused too. `search` keeps one name over the chains
+and the tree.
 `values` is the starting contents; `value` feeds the inserts, `index` the
 positional operations (`get-at` included), and `target` both `search` and
 `insert-ordered`.
@@ -837,8 +871,10 @@ positional operations (`get-at` included), and `target` both `search` and
 **Every argument also takes an ARRAY, and that is the default shape for a
 slide about cost.** `value={[9, 4, 6]}`, `index={[0, 3, 6]}`,
 `target={[7, 8, 4]}` run the operation once per element over the same
-structure, and `times={3}` does the same for the three that take no
-argument (`remove-first`, `remove-last`, `extract-max`). **At most twelve runs** — beyond that nobody
+structure, and `times={3}` does the same for the three removals that take no
+argument (`remove-first`, `remove-last`, `extract-max`); a traversal or a
+height on `binary-tree` takes none either, runs once over the whole tree and
+ignores `times`. **At most twelve runs**, on every recipe — beyond that nobody
 follows the steps on a slide, and the widget says so. One run shows what the operation DOES;
 several runs show what it COSTS, because the reader watches the walk change
 length instead of being told it does. `insert-at` needs one `index` per
@@ -847,13 +883,18 @@ length instead of being told it does. `insert-at` needs one `index` per
 
 The widget's own chrome carries a speed selector and, in the corner of the
 structure panel, two readouts: the live `size` (`n` on the heap, the name its
-listing uses) and the `capacidad` on the dynamic array and the heap. The
+listing uses) and the `capacidad` on the dynamic array and the heap. The tree
+gets neither: its listings have no size field to show (ADR-0083,
+ADR-0074 §Amended by — #321). The
 elementary-operation count is not on screen: #294 took it off, because one
 run shows one number and one number is not a growth rate. Neither readout is
 an authoring choice, and no slide has to ask for them.
 
 The multi-run form appends the calling program under the method, and each
-frame lights both the line inside the method and the call being run. Indices
+frame lights both the line inside the method and the call being run — on
+every recipe but `binary-tree`, whose listings are the recursive methods
+themselves: several `target`s replay the same `contains` listing from a clean
+tree, with no calling program. Indices
 are checked against the structure as it is BY THEN, not as it started, and a
 removal asked for more times than the chain has nodes is refused at boot —
 the listing throws there. `tail` draws a tail pointer on a list, and on
@@ -879,26 +920,30 @@ Six things worth knowing before you write one:
   the picture draws. `dynamic-array` and `linked-list-singly` take all nine
   (bar `insert-ordered` on the dynamic array — this course presents order as
   a variant of the list and never defines an ordered array). The two VARIANT
-  recipes take less, and the heap takes only its own two:
+  recipes take less, and the heap and the binary tree take only their own:
 
   | Receta                 | Operaciones                                                                             |
   | ---------------------- | --------------------------------------------------------------------------------------- |
   | `linked-list-doubly`   | `get-at`, `search`, `insert-first`, `remove-first`, y `remove-last` **solo con `tail`** |
   | `linked-list-circular` | `insert-first`                                                                          |
   | `heap-max`             | `insert`, `extract-max` (y ninguna otra receta acepta estas dos)                        |
+  | `binary-tree`          | `preorder`, `inorder`, `postorder`, `height` (y ninguna otra receta acepta estas cuatro), y `search` |
 
   Anything else is an `<AuthoringError>` naming the operations that recipe does
   have; a heap operation on a Sequence recipe is refused pointing at
-  `eda="heap-max"`. Ask for one it does not and the answer tells you which to
+  `eda="heap-max"`, and a tree operation pointing at `eda="binary-tree"`.
+  Ask for one it does not and the answer tells you which to
   use instead.
 
 - **Every recipe animates as many runs as you ask for**, up to twelve —
   more steps than anyone follows on a slide. Pass an array on `value`,
-  `index` or `target`, or `times` on the three operations that take no
+  `index` or `target`, or `times` on the three removals that take no
   argument. A removal is checked against the structure as the runs before it
   left it, so three `pop` over two elements is refused at boot.
 - **`method` and `receiver` show the listing under the document's own
-  names.** A class that has just taught `pop` = `deleteFirst` and then mounts
+  names** — on the chains and the heap; `binary-tree` has no calling program
+  to rename, and ignores them. A class that has just taught `pop` =
+  `deleteFirst` and then mounts
   the widget gets a listing saying `deleteFirst`, three times, over a
   variable called `list` — the pila's own method, wearing the chain's name.
   `method="pop" receiver="pila" receiverType="Stack"` renames the
@@ -951,7 +996,8 @@ Six things worth knowing before you write one:
   SVG — open it in `npm run preview`, in the book and on its slide, in both
   themes, and walk it.
 
-Decisions behind all this: ADR-0074, extended by ADR-0077 for the heap.
+Decisions behind all this: ADR-0074, extended by ADR-0077 for the heap and
+by ADR-0083 for the binary tree.
 Live: `/catalog/c/SequenceStepper`.
 
 6. **Show a picture, or embed a live document (optional)** — pictures in 6a–6f,
@@ -998,7 +1044,17 @@ the room from the text it illustrates.
 **`<Split>` is not `<SideBySide>`.** SideBySide is the _code comparator_: it
 draws a border and a language chip and shrinks type, all measured for a `<pre>`
 (ADR-0022). A picture inside one renders in something that looks like a
-listing. Two code fences → `SideBySide`. Anything else → `Split`.
+listing, which is accepted only where a comparison under two labels is the
+point. Two code fences → `SideBySide`. A listing beside the drawing of what
+it builds → `SideBySide align="center"` (#321, §5c). Two pictures, or two
+columns that each hold a listing with its drawing, compared under labels →
+`SideBySide` as well: `11-complejidad-de-hilbert-al-big-o.mdx` (#219),
+`16-diseno-algoritmos-ordenamiento.mdx` (#269) and `21-edd-arboles-i.mdx`
+(«La profundidad baja» / «La altura sube», «El nodo» / «El árbol», #321) do
+it, recorded only now in ADR-0029 §Amended by — #321. A picture beside
+prose, or anything that is not a labelled comparison → `Split`. The next
+behaviour either container borrows from the other is the one that merges
+the two.
 
 **`<PresentationWide>` widens a block past the slide's prose column.** In
 presentation mode the `<Slide>` centres and caps its children at a reading
@@ -1154,7 +1210,11 @@ What that costs, and the rules that follow from it:
   no gate at all, so it is checked the way a figure is checked — in a browser,
   over both grounds, walking every frame. For the same reason a prop no call
   site passes, or a branch no call site reaches, is removed before merge: the
-  review of #304 found nine of them left over from redraws.
+  review of #304 found nine of them left over from redraws. One exception, and
+  the bar for the next: a prop that a copy of the component on a stacked
+  branch passes stays, so the two copies remain the same for the branch that
+  promotes them, and the note at the definition names that issue (#321 →
+  #322, `BinaryPicture`'s `notes`). The promotion retires it.
 - **One that copies a tested module's geometry names it, and is named back.**
   #304 is the second worked case and the larger one — 23 exports plus
   `LIST_COLORS` for the heap pictures and three exercises, some composing
@@ -1657,7 +1717,8 @@ last block, so no stale copies accumulate.
       cross-references between sections or slides, noun-phrase titles). The
       suite cannot see any of this — a voice violation ships past a green
       build unless a human catches it here (course-content-style.md §6).
-- [ ] If the document belongs to the **Estructuras de Datos** unit, its shape
+- [ ] If the document belongs to the **Estructuras de Datos** or **Estructuras
+      de Datos Avanzadas** unit, its shape
       checked against
       [`teach-a-data-structure.md`](teach-a-data-structure.md) §Checklist —
       the act shape, the TDA card, the invariant list, the cost table with

@@ -19,6 +19,8 @@
  * hand and checked in a browser.
  */
 
+import { rimToRim } from './sequenceStepperEdge';
+
 /** Radius of a tree node. */
 export const HEAP_NODE_R = 17;
 /** Side of an array cell. */
@@ -121,15 +123,5 @@ export function heapEdge(
 ): { x1: number; y1: number; x2: number; y2: number } {
   const parent = layout.tree.nodes[Math.floor(k / 2) - 1]!;
   const child = layout.tree.nodes[k - 1]!;
-  const dx = child.cx - parent.cx;
-  const dy = child.cy - parent.cy;
-  const len = Math.hypot(dx, dy);
-  const ux = dx / len;
-  const uy = dy / len;
-  return {
-    x1: parent.cx + ux * HEAP_NODE_R,
-    y1: parent.cy + uy * HEAP_NODE_R,
-    x2: child.cx - ux * HEAP_NODE_R,
-    y2: child.cy - uy * HEAP_NODE_R,
-  };
+  return rimToRim(parent, child, HEAP_NODE_R);
 }

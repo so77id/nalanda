@@ -17,6 +17,11 @@ design reference proposed
 first. #304 amends two things below: the `array` recipe is deleted, and the
 heap's `swap` state is the one data state painted in `accent` (both
 `Amended by: #304`).
+**Extended by:** ADR-0083 (#321) — a recipe for a linked binary
+tree, each node in the column of its inorder position: `binary-tree`, with
+the three traversals, `height` and `search`. One thing here changes, for the
+tree only: the `size` readout (`Amended by: #321`, the last amendment
+below).
 
 **Amended by:** #288, slide-by-slide review (2026-09-10) — a ninth operation,
 `get-at`. The class needs the operation the array answers with one
@@ -374,6 +379,12 @@ is never colour alone (stroke weight, the legend). **The bar for the next
 exception:** a data state that no assigned token can tell apart from the
 frames around it, carried by a second signal besides colour, and named here
 in the palette paragraph, not only in the ADR that adds it.
+
+**Amended by:** #321 (2026-10-13) — the `size` readout of the #288 chrome
+amendment is not drawn on `binary-tree`. The readout is there because `size`
+is a FIELD of the structure, and the tree's listings — the recursive methods
+over a node — have none: a number in the corner would name a field the
+reader never meets in the code (ADR-0083 §Consequences).
 
 **Source:** Issue #288 — Course document "Estructuras de Datos · Listas
 Enlazadas". The class shows nine operations over five structures, and

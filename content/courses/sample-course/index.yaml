@@ -29,6 +29,10 @@ entries:
       - docId: edd-introduccion
       - docId: edd-listas-enlazadas
       - docId: edd-stack-queue
+  - label: Estructuras de Datos Avanzadas
+    levelName: Unidad
+    children:
+      - docId: edd-arboles-i
       - docId: edd-priority-queue-heap
   - label: Evaluaciones
     children:

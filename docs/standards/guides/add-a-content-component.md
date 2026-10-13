@@ -109,6 +109,13 @@ apps/web/src/components/structure/
      which is exactly why they stopped working the day a fence became one.
      Worked case: `<SideBySide>` × `CodeEditor` (#85, ADR-0024) — the column supplies the
      language label, so the editor suppresses its filename and its chip.
+     Since #321 the column also says where it puts content shorter than its
+     sibling, through `<EmbeddedAlignProvider>` / `useEmbeddedAlign()` in the
+     same file: `'start'` or `'center'`. The column centres a child that
+     does not fill it on its own; a child that fills its column has to read
+     the context and place its own content, or `align="center"` cannot move
+     it. Worked case: `CodeEditor`, which fills a column and, under
+     `center`, puts its lines in the middle (#321).
    - **Knowing something about the document around you.** A component that
      must check itself against the surrounding document reads
      `useKnownSections()` (`lib/knownSections.ts`); `DocumentPage` publishes the
@@ -147,13 +154,25 @@ apps/web/src/components/structure/
      content must be legible takes NO cap and pays in slide scale instead.**
      `<Exercise>` had `max-h-80`, and a capped editor on a slide that says
      «el código completo» shows two thirds of the program and scrolls the
-     rest — on a projector, where nobody can scroll. Removing the cap makes
+     rest — on a projector, where the room cannot scroll, behind a cap set
+     at an arbitrary line. Removing the cap makes
      the slide shrink rather than lie, which is the trade ADR-0013 §5.1 was
      designed for. The obligation moves rather than disappearing: the author
      now owes the 0.70 scale floor, measured, on every slide that carries one
      — and #294 has one at 0.717, which is what that costs. Cap when the
      block is decoration around a point; do not cap when the block IS the
      point.
+
+     **That trade has a floor, and #321 hit it.** Paying in scale works while
+     the scale stays legible: an eighty-line program shown whole scaled its
+     slide to 0.34, and one of 38 to 0.62, where nothing reads at all. So
+     `<Exercise>` takes no cap up to `SLIDE_LINES` (32, past the longest
+     program #294 and #304 put on slides) and, past it, ON A SLIDE ONLY,
+     becomes a window of that many lines that the presenter scrolls (both
+     #321 slides sit at 0.74) — the one scrolling box the slide sweep of
+     `teach-a-data-structure.md` §6bis expects to find. The book never caps. A component that adopts
+     this disposition owes the same two numbers: the size up to which it
+     shows whole, and the window past it.
    - **Inside `interactive/`**, reuse `Panel` (a labelled output strip),
      `useRunShortcut` (Ctrl/Cmd + Enter), `useLoadedRuntime` (loads a runtime
      module and hands back a bound `run`, `warm`, `queued` and `ready` — do NOT

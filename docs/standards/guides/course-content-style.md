@@ -13,7 +13,8 @@ happens INSIDE that scaffolding: how the prose reads. Question stems have their
 own home in [`write-control-questions.md`](write-control-questions.md),
 because a question is a measurement and its wording rules follow from that.
 
-The **shape** of a class in the Estructuras de Datos unit — the acts and the
+The **shape** of a class in the Estructuras de Datos and Estructuras de Datos
+Avanzadas units — the acts and the
 four questions they answer, the TDA card, the invariant list, the cost table,
 the closing trade — is a third
 layer, in [`teach-a-data-structure.md`](teach-a-data-structure.md). It decides

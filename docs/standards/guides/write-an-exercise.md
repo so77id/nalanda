@@ -57,6 +57,17 @@ shape is not hypothetical, though: eleven of them already ship, six in
 `18-edd-listas-enlazadas.mdx`, all with a statement, a skeleton `starter`,
 `test` cases and a `solution`, and none of them on a slide.
 
+**A worked exercise's program goes on its slide whatever its length.** An
+`<Exercise>` on a slide shows its whole `starter`, uncapped, and the slide
+scales to fit it — up to 32 lines (`SLIDE_LINES` in `Exercise.tsx`), which
+covers every program #294 and #304 put on slides (the longest is 31). A
+longer one shows a window of 32 lines that scrolls, on the slide only; the
+book still shows it whole. Shown whole on a slide, #321's calculator — tree,
+traversal and stack evaluation chained, about eighty lines — scaled to 0.34
+against the 0.70 floor, and a program of 38 to 0.62; with the window both
+slides sit at 0.74. Until #321 such a program stayed book-only, which left
+the lecture without the slide where the room runs it.
+
 **They are a SECOND posed shape, and it is worth naming.** The eleven do not
 "ship beat 1 and stop": every one hands the reader beat 3 inside the
 statement — «recorrerla con dos referencias a distinta velocidad», «usá
@@ -323,6 +334,13 @@ exercises (un planificador de tareas, Top-K, mezclar K listas ordenadas) and
 one posed (la verificación de un max-heap). They added beat 3's run in a
 drawing, beat 4's listing built in pieces, the inlined helper, and the
 hidden difficulty levels.
+
+`content/courses/sample-course/21-edd-arboles-i.mdx` — three worked exercises
+(el espejo de un árbol, el nivel más ancho, una calculadora con paréntesis)
+and two posed (las rutas de los archivos, las carpetas grandes). Two of them
+carry the first programs longer than a slide shows whole — the widest level
+(38 lines) and the calculator (83) — each on its slide in a window of 32
+lines.
 
 **Its sibling for the question bank already exists**:
 [`write-control-questions.md`](write-control-questions.md) governs the

@@ -21,3 +21,19 @@ export const EmbeddedProvider = EmbeddedContext.Provider;
 export function useEmbedded(): boolean {
   return useContext(EmbeddedContext);
 }
+
+/**
+ * Where a column puts what is shorter than its sibling: at the top, or in the
+ * middle. `<SideBySide align="center">` says so for a listing beside a drawing;
+ * two listings compared line by line keep the default and stay level.
+ */
+export type EmbeddedAlign = 'start' | 'center';
+
+const EmbeddedAlignContext = createContext<EmbeddedAlign>('start');
+
+export const EmbeddedAlignProvider = EmbeddedAlignContext.Provider;
+
+/** How the containing column places content shorter than its sibling. */
+export function useEmbeddedAlign(): EmbeddedAlign {
+  return useContext(EmbeddedAlignContext);
+}

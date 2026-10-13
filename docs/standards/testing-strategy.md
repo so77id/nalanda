@@ -821,6 +821,33 @@ page-only, invisible to every other gate.
      is decoration: two of the four written for #102 asserted shell markup and
      passed with the preload gone.
 
+  **The preload itself has a cost that grows with the course, and its
+  ceiling was raised once.** Six files load every document in their
+  `beforeAll` (`App`, `contentRenders`, `documentDrawer`, `documentSections`,
+  `presentationRoute`, `questionReaders`), and whichever runs first also pays
+  the MDX compile of all of them. #321 added the largest class so far and the
+  default 10 s ran out under the full parallel suite, so the six got 30 s.
+  Measured in its review (one worker, a shared machine): loading all 21
+  documents took 4.2 s, nearly all of it the MDX compile, Árboles I the
+  largest at 0.85 s; `questionReaders`' load-and-render 6.8 s. The cost is
+  linear in the source — no document is pathological — so it is load plus
+  volume, not a slow path. Within one run the compile is paid once and shared:
+  at two workers the first of the six took 3.6 s and four of the others about
+  0.1 s each, `questionReaders` 2.6 s for its own render. **Do not raise the
+  ceiling a second time.** When it runs out again, take that one compile out
+  of the timed hooks — pay it once before them, in a Vitest `globalSetup`,
+  which lives in the config `apps/web/CLAUDE.md` asks you to confirm with the
+  user before touching. Folding the six files into fewer saves only their
+  re-evaluation, about 0.1 s each. The per-file costs of any size are the
+  renders: `questionReaders`' in its hook, and `contentRenders`', one test
+  per document under the default 5 s per test — where a loaded full run of
+  #321's review timed out once (the heap's case, about 1 s alone). Moving the
+  compile does not touch those; the six comments point back here.
+  **When a render test times out only under load,** run that file alone to
+  confirm it is load and not a regression. The pre-PR suite may then run at
+  `--maxWorkers=2`, as #321's did, and the PR says so. `testTimeout` is never
+  raised without asking the user.
+
   **Prove it in both directions rather than asserting it.** Patch each entry so
   its FIRST resolution is delayed and later calls are served from cache, which
   is how `import()` really behaves:

@@ -651,3 +651,257 @@ describe('<SequenceStepper> · the combinations 20-edd-priority-queue-heap mount
     expect(document.querySelector('[data-authoring-error]')).toBeNull();
   });
 });
+
+describe('<SequenceStepper> · the binary-tree recipe (#321)', () => {
+  const tree = { eda: 'binary-tree' as const, values: [3, 9, 1, 4, 7, null, 6] };
+  const walkToEnd = () => {
+    for (let i = 0; i < 60; i += 1) {
+      const next = screen.getByRole('button', { name: 'Adelante' });
+      if (next.getAttribute('aria-disabled') === 'true') break;
+      fireEvent.click(next);
+    }
+  };
+
+  it('draws one node per value, and no node for a gap', () => {
+    renderIn('book', <SequenceStepper {...tree} operation="inorder" />);
+    expect(screen.getByTestId('tree-view').querySelectorAll('[data-node]')).toHaveLength(6);
+  });
+
+  it('puts each node in the column of its inorder position', () => {
+    renderIn('book', <SequenceStepper {...tree} operation="inorder" />);
+    const columnOf = (value: number) =>
+      screen
+        .getByTestId('tree-view')
+        .querySelector(`[data-node][data-value="${value}"]`)!
+        .getAttribute('data-column');
+    expect([4, 9, 7, 3, 1, 6].map(columnOf)).toEqual(['0', '1', '2', '3', '4', '5']);
+  });
+
+  it('fills the strip with the traversal, slot by slot', () => {
+    renderIn('book', <SequenceStepper {...tree} operation="postorder" />);
+    const strip = () =>
+      [...screen.getByTestId('tree-view').querySelectorAll('[data-slot]')].map(
+        (s) => s.getAttribute('data-value') ?? '',
+      );
+    expect(strip()).toEqual(['', '', '', '', '', '']);
+    walkToEnd();
+    expect(strip()).toEqual(['4', '7', '9', '6', '1', '3']);
+  });
+
+  it('draws the empty subtree a call lands on, and only while that call runs', () => {
+    renderIn('book', <SequenceStepper eda="binary-tree" operation="preorder" values={[2, 1, 3]} />);
+    const probes = () => screen.getByTestId('tree-view').querySelectorAll('[data-probe]');
+    expect(probes()).toHaveLength(0);
+    // The start, the visit to 2, its call to 1, the visit to 1 — then 1 calls
+    // its left side, which is empty.
+    for (let i = 0; i < 4; i += 1)
+      fireEvent.click(screen.getByRole('button', { name: 'Adelante' }));
+    expect(probes()).toHaveLength(1);
+    expect(probes()[0]!.getAttribute('data-probe')).toBe('left');
+    fireEvent.click(screen.getByRole('button', { name: 'Adelante' }));
+    expect(probes()[0]!.getAttribute('data-probe')).toBe('right');
+    fireEvent.click(screen.getByRole('button', { name: 'Adelante' }));
+    expect(probes()).toHaveLength(0);
+  });
+
+  it('counts the cap on nodes, not on the gaps between them', () => {
+    renderIn(
+      'book',
+      <SequenceStepper
+        eda="binary-tree"
+        operation="preorder"
+        values={[1, 2, 3, null, null, 4, 5, null, null, 6, 7, 8]}
+      />,
+    );
+    expect(screen.getByTestId('tree-view')).toBeInTheDocument();
+  });
+
+  it('refuses a level order that hangs a value under a missing node', () => {
+    renderIn(
+      'book',
+      <SequenceStepper eda="binary-tree" operation="inorder" values={[3, null, null, 5]} />,
+    );
+    expect(screen.getByText(/padre/)).toBeInTheDocument();
+  });
+
+  it('refuses a gap on any recipe that is not a tree', () => {
+    renderIn(
+      'book',
+      <SequenceStepper
+        eda="linked-list-singly"
+        operation="search"
+        values={[1, null, 2]}
+        target={1}
+      />,
+    );
+    expect(screen.getByText(/solo binary-tree/)).toBeInTheDocument();
+  });
+
+  it('answers a search asked of a ring with what the ring has, not with the tree', () => {
+    renderIn(
+      'book',
+      <SequenceStepper
+        eda="linked-list-circular"
+        operation="search"
+        values={[7, 3, 1]}
+        target={3}
+      />,
+    );
+    expect(screen.getByText(/hay listado para: insertar al principio/)).toBeInTheDocument();
+    expect(screen.queryByText(/operación de árbol/)).not.toBeInTheDocument();
+  });
+
+  it('points a traversal asked of a sequence at the tree recipe', () => {
+    renderIn(
+      'book',
+      <SequenceStepper eda="linked-list-singly" operation="preorder" values={[7, 3, 1]} />,
+    );
+    expect(screen.getByText(/Úsala con eda="binary-tree"/)).toBeInTheDocument();
+  });
+
+  it('refuses a value that is neither a number, a symbol nor a gap', () => {
+    // An object would reach the picture as a React child and take the page
+    // down; NaN, Infinity and undefined would turn into gaps on the way
+    // through the JSON key and change the tree's shape without a word.
+    for (const bad of [{}, Number.NaN, Number.POSITIVE_INFINITY, undefined]) {
+      const { unmount } = renderIn(
+        'book',
+        <SequenceStepper eda="binary-tree" operation="preorder" values={[1, bad as never, 2]} />,
+      );
+      expect(screen.getByText(/values\[1\]/)).toBeInTheDocument();
+      unmount();
+    }
+  });
+
+  it('refuses a values that is not a list at all', () => {
+    renderIn(
+      'book',
+      <SequenceStepper eda="binary-tree" operation="preorder" values={5 as never} />,
+    );
+    expect(document.querySelector('[data-authoring-error]')).not.toBeNull();
+  });
+
+  it('counts a tree of one node in the singular', () => {
+    renderIn('book', <SequenceStepper eda="binary-tree" operation="preorder" values={[7]} />);
+    expect(screen.getByTestId('tree-view').getAttribute('aria-label')).not.toMatch(/\b1 nodos\b/);
+  });
+
+  it('shows no size readout: the tree listing has no size field', () => {
+    renderIn('book', <SequenceStepper {...tree} operation="inorder" />);
+    expect(screen.getByTestId('sequence-size')).toHaveAttribute('hidden');
+  });
+
+  it('describes the tree for a reader who cannot see it', () => {
+    renderIn('book', <SequenceStepper {...tree} operation="inorder" />);
+    const label = screen.getByTestId('tree-view').getAttribute('aria-label')!;
+    expect(label).toMatch(/árbol/i);
+    expect(label).toContain('3');
+  });
+
+  it('names the structure in the chip and the traversal in the heading', () => {
+    renderIn('book', <SequenceStepper {...tree} operation="inorder" />);
+    expect(screen.getByText(/árbol binario/)).toBeInTheDocument();
+    expect(screen.getByText('recorrer en inorden')).toBeInTheDocument();
+  });
+});
+
+describe('<SequenceStepper> · symbols in a binary-tree (#321)', () => {
+  it('draws an expression tree with its operators as symbols', () => {
+    const { container } = render(
+      <SequenceStepper
+        eda="binary-tree"
+        operation="inorder"
+        values={['*', '+', '−', 3, 4, 5, 1]}
+      />,
+    );
+    const values = [...container.querySelectorAll('[data-node]')].map((n) =>
+      n.getAttribute('data-value'),
+    );
+    expect(values.sort()).toEqual(['*', '+', '1', '3', '4', '5', '−'].sort());
+    expect(document.querySelector('[data-authoring-error]')).toBeNull();
+  });
+
+  it('refuses a symbol on any other recipe', () => {
+    render(
+      <SequenceStepper
+        eda="linked-list-singly"
+        operation="search"
+        values={[1, '+', 3]}
+        target={3}
+      />,
+    );
+    expect(screen.getByText(/solo binary-tree acepta símbolos/)).toBeInTheDocument();
+  });
+});
+
+describe('<SequenceStepper> · height and search on binary-tree (#321)', () => {
+  const tree = { eda: 'binary-tree' as const, values: [3, 9, 1, 4, 7, null, 6] };
+
+  it('draws no strip for a height: it writes nothing out', () => {
+    renderIn('book', <SequenceStepper {...tree} operation="height" />);
+    expect(screen.getByTestId('tree-view').querySelectorAll('[data-slot]')).toHaveLength(0);
+  });
+
+  it('marks the node it finds, in words as well as in colour', () => {
+    renderIn('book', <SequenceStepper {...tree} operation="search" target={6} />);
+    for (let i = 0; i < 60; i += 1) {
+      const next = screen.getByRole('button', { name: 'Adelante' });
+      if (next.getAttribute('aria-disabled') === 'true') break;
+      fireEvent.click(next);
+    }
+    const six = screen.getByTestId('tree-view').querySelector('[data-node][data-value="6"]')!;
+    expect(six.getAttribute('data-state')).toBe('found');
+    expect(within(screen.getByTestId('tree-view')).getByText('✓ este')).toBeInTheDocument();
+  });
+});
+
+describe('<SequenceStepper> · the combinations 21-edd-arboles-i mounts', () => {
+  // Pinned here because `app/contentRenders.test.tsx` never mounts the lazy
+  // widget (apps/web/CLAUDE.md §2, class 4). Named for the act and slide they
+  // come from, and each one WALKED to its last frame, not only mounted.
+  // The binary-tree act's guide example: (3 + 4) * (5 − 1).
+  const EXPRESSION = ['*', '+', '−', 3, 4, 5, 1];
+  const mounted: { act: string; slide: string; props: SequenceStepperProps }[] = [
+    {
+      act: 'El árbol binario',
+      slide: 'El código del preorden en un árbol binario',
+      props: { eda: 'binary-tree', operation: 'preorder', values: EXPRESSION },
+    },
+    {
+      act: 'El árbol binario',
+      slide: 'El código del inorden',
+      props: { eda: 'binary-tree', operation: 'inorder', values: EXPRESSION },
+    },
+    {
+      act: 'El árbol binario',
+      slide: 'El código del postorden en un árbol binario',
+      props: { eda: 'binary-tree', operation: 'postorder', values: EXPRESSION },
+    },
+    {
+      act: 'El árbol binario',
+      slide: 'La altura por recursión',
+      props: { eda: 'binary-tree', operation: 'height', values: EXPRESSION },
+    },
+    {
+      act: 'El árbol binario',
+      slide: 'El código de la búsqueda',
+      // Numbers only, and in no order: the search has to look on both sides.
+      props: { eda: 'binary-tree', operation: 'search', values: [4, 9, 2, 7, 1, 8, 3], target: 8 },
+    },
+  ];
+
+  it.each(mounted)('$act · $slide', ({ props }) => {
+    renderIn('book', <SequenceStepper {...props} />);
+    expect(document.querySelector('[data-authoring-error]')).toBeNull();
+    for (let i = 0; i < 400; i += 1) {
+      const next = screen.getByRole('button', { name: 'Adelante' });
+      if (next.getAttribute('aria-disabled') === 'true') break;
+      fireEvent.click(next);
+    }
+    expect(screen.getByRole('button', { name: 'Adelante' })).toHaveAttribute(
+      'aria-disabled',
+      'true',
+    );
+    expect(document.querySelector('[data-authoring-error]')).toBeNull();
+  });
+});

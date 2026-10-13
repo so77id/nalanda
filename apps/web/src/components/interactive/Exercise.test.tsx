@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { draftKey, readDraft, saveDraft } from './draft';
 import type { RunRequest, RuntimeWorker, WorkerMessage } from '../../runtime';
 import { loadGrammar } from '../../runtime';
+import { ModeProvider } from '../../presentation';
 import { Exercise } from './Exercise';
 
 // Same reasoning as CodeEditor's suite: CodeMirror's contenteditable does not
@@ -13,13 +14,23 @@ import { Exercise } from './Exercise';
 // is the verdict — which cases ran, which passed, and what stays hidden until
 // they do.
 vi.mock('@uiw/react-codemirror', () => ({
-  default: ({ value, extensions }: { value: string; extensions?: unknown[] }) => (
+  default: ({
+    value,
+    extensions,
+    maxHeight,
+  }: {
+    value: string;
+    extensions?: unknown[];
+    maxHeight?: string;
+  }) => (
     // `extensions` is surfaced for the same reason as in CodeEditor's suite: it
     // is the only way a jsdom case can see that the grammar reached the editor.
+    // `maxHeight` likewise: the cap is a prop, and the paint is the browser's.
     <textarea
       readOnly
       value={value}
       data-testid="code"
+      data-max-height={maxHeight ?? ''}
       data-extensions={(extensions ?? [])
         .flat(9)
         .filter((e) => typeof e === 'string')
@@ -321,6 +332,53 @@ describe('Exercise', () => {
     renderExercise();
     const box = screen.getByTestId('code').parentElement as HTMLElement;
     expect(box.className).not.toMatch(/max-h-/);
+    expect(screen.getByTestId('code')).toHaveAttribute('data-max-height', '');
+  });
+
+  describe('a long program on a slide', () => {
+    // A slide scales to fit what it holds, so a program of eighty lines shown
+    // whole came out at 0.34, unreadable. Past the longest program a slide
+    // shows whole, the editor in presentation becomes a window of that many
+    // lines that scrolls; everywhere else nothing changes.
+    const longStarter = Array.from({ length: 60 }, (_, i) => `// línea ${i + 1}`).join('\n');
+    // Exactly the window's length, and one line past it: the boundary itself.
+    // Each ends in a newline, as the MDX pipeline hands a fence over — the
+    // trailing line it leaves is not a line of the program.
+    const lines = (n: number) =>
+      Array.from({ length: n }, (_, i) => `// línea ${i + 1}`).join('\n') + '\n';
+    const shortStarter = lines(32);
+    const oneOver = lines(33);
+
+    function renderIn(mode: 'book' | 'presentation', starter: string) {
+      return render(
+        <ModeProvider mode={mode}>
+          <Exercise title="Largo">
+            {fence('starter', starter)}
+            {fence('test', CASES)}
+          </Exercise>
+        </ModeProvider>,
+      );
+    }
+
+    it('caps the editor at a window of lines in presentation', () => {
+      renderIn('presentation', longStarter);
+      expect(screen.getByTestId('code').getAttribute('data-max-height')).toMatch(/em/);
+    });
+
+    it('leaves a program a slide shows whole uncapped, in presentation too', () => {
+      renderIn('presentation', shortStarter);
+      expect(screen.getByTestId('code')).toHaveAttribute('data-max-height', '');
+    });
+
+    it('windows a program one line longer than a slide shows whole', () => {
+      renderIn('presentation', oneOver);
+      expect(screen.getByTestId('code').getAttribute('data-max-height')).toMatch(/em/);
+    });
+
+    it('never caps the book', () => {
+      renderIn('book', longStarter);
+      expect(screen.getByTestId('code')).toHaveAttribute('data-max-height', '');
+    });
   });
 
   it('loads no runtime until the student asks for one', async () => {
