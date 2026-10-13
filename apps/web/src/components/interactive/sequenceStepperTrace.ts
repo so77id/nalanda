@@ -76,6 +76,9 @@ export const OPERATIONS = [
   // `search` and `insert` above are shared with it — one name per idea across
   // the recipes, as `search` already is between the chains and the tree.
   'remove',
+  // The hash table's too: a new table of more positions, every key put back
+  // in through `add`, because the position a key hashes to depends on them.
+  'resize',
 ] as const;
 export type SequenceOperation = (typeof OPERATIONS)[number];
 
@@ -170,11 +173,20 @@ export interface HashFrame {
   chains: HashFrameNode[][];
   key: string;
   bucket: number | null;
+  /** The listing's `size` field, which `resize` sets back to 0 and counts again. */
+  size: number;
   /**
    * The references the listing holds into a list — `current`, `prev` — by
-   * node id; `null` when it points at null, past the end of the list.
+   * node id; `null` when it points at null, past the end of the list. `old`
+   * marks one that walks the old table during `resize`.
    */
-  pointers: { name: string; node: number | null }[];
+  pointers: { name: string; node: number | null; old?: boolean }[];
+  /**
+   * `resize` only: the table `old` names. `aliased` while `table` still
+   * names it too — the frame between `old = table` and the new array.
+   * `bucket` is the position of `old` the loop is reading.
+   */
+  old?: { chains: HashFrameNode[][]; bucket: number | null; aliased: boolean };
   /**
    * `add` only: the node built and not yet in its list. `next` is the id it
    * points at, `null` for null, and absent while the field is unassigned;
@@ -190,10 +202,14 @@ export interface HashFrame {
   bypass?: { bucket: number; from: number | null };
 }
 
-/** What a hash run needs to keep one canvas: its positions and its longest list. */
+/**
+ * What a hash run needs to keep one canvas: its positions, its longest list
+ * and — for `resize` — the positions of the old table drawn beside the new.
+ */
 export interface HashRun {
   buckets: number;
   longest: number;
+  oldBuckets?: number;
 }
 
 export interface SequenceCell {
@@ -488,10 +504,11 @@ export function isBinaryTreeOperation(
 
 /**
  * What `hash-chaining` has a listing for (#326): the three operations of a
- * set of keys, as `contains`, `add` and `remove`. `search` and `insert` share
- * their names with the other recipes; `remove` is the table's alone.
+ * set of keys, as `contains`, `add` and `remove`, and the `resize` that `add`
+ * calls when the table is full. `search` and `insert` share their names with
+ * the other recipes; `remove` and `resize` are the table's alone.
  */
-const HASH_CHAINING_OPERATION_NAMES = ['search', 'insert', 'remove'] as const;
+const HASH_CHAINING_OPERATION_NAMES = ['search', 'insert', 'remove', 'resize'] as const;
 export type HashChainingOperation = (typeof HASH_CHAINING_OPERATION_NAMES)[number];
 export const HASH_CHAINING_OPERATIONS: readonly SequenceOperation[] = HASH_CHAINING_OPERATION_NAMES;
 
@@ -507,7 +524,7 @@ export function isValidCombination(
   tail = false,
 ): boolean {
   if (recipe === 'hash-chaining') return HASH_CHAINING_OPERATIONS.includes(operation);
-  if (operation === 'remove') return false;
+  if (operation === 'remove' || operation === 'resize') return false;
   const heapOperation = HEAP_OPERATIONS.includes(operation);
   if (recipe === 'heap-max') return heapOperation;
   if (recipe === 'binary-tree') return BINARY_TREE_OPERATIONS.includes(operation);
@@ -629,6 +646,7 @@ const METHOD_NAME: Record<SequenceOperation, string> = {
   postorder: 'postorder',
   height: 'height',
   remove: 'remove',
+  resize: 'resize',
 };
 
 // ── the array family ──────────────────────────────────────────────────────
@@ -636,7 +654,7 @@ const METHOD_NAME: Record<SequenceOperation, string> = {
 /** The operations the dynamic array has a listing for. */
 type ArrayOperation = Exclude<
   SequenceOperation,
-  'insert-ordered' | HeapOperation | TreeOperation | 'remove'
+  'insert-ordered' | HeapOperation | TreeOperation | 'remove' | 'resize'
 >;
 
 const ARRAY_CODE: Record<ArrayOperation, string> = {
@@ -1114,6 +1132,7 @@ function runArgs(operation: SequenceOperation, input: SequenceInput): string[] {
       return [];
     // The hash table drives no program of its own: its key is the run.
     case 'remove':
+    case 'resize':
       return [];
   }
 }
@@ -1361,7 +1380,8 @@ function listCode(recipe: SequenceRecipe, operation: SequenceOperation, tail: bo
     case 'height':
       throw new Error(`«${operation}» es una operación de árbol, no de una lista.`);
     case 'remove':
-      throw new Error('«remove» es una operación de la tabla hash, no de una lista.');
+    case 'resize':
+      throw new Error(`«${operation}» es una operación de la tabla hash, no de una lista.`);
   }
 }
 

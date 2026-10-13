@@ -1,4 +1,4 @@
-import { layoutHash, NODE_KEY_H, type HashBox } from './sequenceStepperHashLayout';
+import { layoutHash, NODE_KEY_H, type HashBox, type HashStrip } from './sequenceStepperHashLayout';
 import { CELL_FILL, CELL_NOTE, CELL_STROKE } from './sequenceStepperPaint';
 import type { HashFrame, HashFrameNode, HashRun } from './sequenceStepperTrace';
 
@@ -13,9 +13,13 @@ import type { HashFrame, HashFrameNode, HashRun } from './sequenceStepperTrace';
  * the front of its list.
  *
  * Colour is never the only signal: the position under the eye also carries
- * `hash = i` in the band, a node that leaves is struck through and noted
- * `sale`, and the references the listing holds are named beside the node
- * they point at.
+ * `hash = i` in the band, a node that leaves is struck through and dashed,
+ * and the references the listing holds are named beside the node they point
+ * at.
+ *
+ * `resize` draws two strips: the old table on the left and the new one on the
+ * right, each named as the listing names it — `table` alone before the copy,
+ * `table` and `old` while both name the same array, then `old` and `table`.
  */
 export function HashView({
   hash,
@@ -28,15 +32,24 @@ export function HashView({
   description: string;
   presentation: boolean;
 }) {
-  const layout = layoutHash(run.buckets, run.longest);
+  const layout = layoutHash(run.buckets, run.longest, run.oldBuckets);
   const keys = hash.chains.flat().map((n) => n.key);
-  const summary = `Tabla hash de ${run.buckets} posiciones con ${
+  const oldNote =
+    hash.old === undefined
+      ? ''
+      : ` La tabla vieja, old, tiene ${hash.old.chains.length} posiciones.`;
+  const summary = `Tabla hash de ${hash.chains.length} posiciones con ${
     keys.length === 0
       ? 'ninguna clave'
       : `${keys.length} ${keys.length === 1 ? 'clave' : 'claves'}: ${keys.join(', ')}`
-  }. ${description}`;
+  }.${oldNote} ${description}`;
   const fresh = hash.fresh;
   const bucket = hash.bucket;
+  const mine = hash.pointers.filter((p) => p.old !== true);
+  // `resize` only: which array each strip draws, and under which names.
+  const old = layout.old;
+  const tableOnLeft =
+    old !== null && hash.old === undefined && hash.chains.length === run.oldBuckets;
 
   return (
     <div
@@ -77,54 +90,118 @@ export function HashView({
           </marker>
         </defs>
 
-        {hash.chains.map((chain, i) => (
-          <Column
-            key={i}
-            bucket={i}
-            chain={chain}
-            hash={hash}
-            layout={layout}
-            picked={bucket === i}
+        {old !== null && hash.old !== undefined ? (
+          <Strip
+            strip={old}
+            chains={hash.old.chains}
+            picked={hash.old.bucket}
+            pointers={hash.pointers.filter((p) => p.old === true)}
+            names={hash.old.aliased ? ['table', 'old'] : ['old']}
           />
-        ))}
+        ) : null}
+        {old !== null && tableOnLeft ? (
+          <Strip strip={old} chains={hash.chains} picked={null} pointers={[]} names={['table']} />
+        ) : hash.old?.aliased === true ? null : (
+          <Strip
+            strip={layout}
+            chains={hash.chains}
+            picked={bucket}
+            pointers={mine}
+            names={old === null ? [] : ['table']}
+            fresh={fresh}
+            bypass={hash.bypass}
+          />
+        )}
 
         {/* The key looked for, over the position its hash named — or, until
             that line runs, over no position at all, at the strip's start. */}
-        {fresh === undefined ? (
+        {fresh !== undefined ? (
+          <FreshNode hash={hash} strip={layout} />
+        ) : hash.key === '' ? null : (
           <KeyChip
             hash={hash}
             box={layout.band(bucket ?? 0)}
             picked={bucket !== null}
             width={layout.width}
           />
-        ) : (
-          <FreshNode hash={hash} layout={layout} />
         )}
       </svg>
     </div>
   );
 }
 
-type Layout = ReturnType<typeof layoutHash>;
+type Pointer = HashFrame['pointers'][number];
+
+/** One array: every position of it, and — when the run has two — its name. */
+function Strip({
+  strip,
+  chains,
+  picked,
+  pointers,
+  names,
+  fresh,
+  bypass,
+}: {
+  strip: HashStrip;
+  chains: HashFrameNode[][];
+  picked: number | null;
+  pointers: Pointer[];
+  names: string[];
+  fresh?: HashFrame['fresh'];
+  bypass?: HashFrame['bypass'];
+}) {
+  return (
+    <g data-strip={names.join(' ') || 'table'}>
+      {names.map((name, k) => (
+        <text
+          key={name}
+          x={strip.name.x}
+          y={strip.name.y + (k - (names.length - 1) / 2) * 14}
+          textAnchor="end"
+          fontSize="12"
+          fontWeight="700"
+          fontFamily="var(--font-mono, monospace)"
+          fill="var(--color-ink-soft)"
+        >
+          {name}
+        </text>
+      ))}
+      {chains.map((chain, i) => (
+        <Column
+          key={i}
+          bucket={i}
+          chain={chain}
+          strip={strip}
+          picked={picked === i}
+          pointers={pointers}
+          held={fresh?.held === true && picked === i}
+          skip={bypass?.bucket === i ? bypass : undefined}
+        />
+      ))}
+    </g>
+  );
+}
 
 /** One position: its cell, its index, the list hanging from it and its links. */
 function Column({
   bucket,
   chain,
-  hash,
-  layout,
+  strip: layout,
   picked,
+  pointers,
+  held,
+  skip,
 }: {
   bucket: number;
   chain: HashFrameNode[];
-  hash: HashFrame;
-  layout: Layout;
+  strip: HashStrip;
   picked: boolean;
+  pointers: Pointer[];
+  held: boolean;
+  skip: HashFrame['bypass'];
 }) {
   const cell = layout.cell(bucket);
   const index = layout.index(bucket);
-  const held = hash.fresh?.held === true && picked;
-  const skip = hash.bypass?.bucket === bucket ? hash.bypass : undefined;
   const empty = chain.length === 0;
 
   return (
@@ -214,7 +291,7 @@ function Column({
                 x={layout.bypassX(bucket)}
               />
             ) : null}
-            {hash.pointers
+            {pointers
               .filter((p) => p.node === node.id)
               .map((p) => (
                 <PointerTag key={p.name} name={p.name} box={box} />
@@ -235,7 +312,7 @@ function Column({
         </text>
       ) : null}
       {picked
-        ? hash.pointers
+        ? pointers
             .filter((p) => p.node === null)
             .map((p) => {
               const at = layout.nullAt(bucket, chain.length);
@@ -435,7 +512,7 @@ function KeyChip({
  * because its `next` field is what the next line assigns. Its link to the old
  * first node runs down the right of the column, past the cell.
  */
-function FreshNode({ hash, layout }: { hash: HashFrame; layout: Layout }) {
+function FreshNode({ hash, strip: layout }: { hash: HashFrame; strip: HashStrip }) {
   const fresh = hash.fresh!;
   const bucket = hash.bucket ?? 0;
   const box = layout.band(bucket);

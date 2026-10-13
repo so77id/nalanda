@@ -866,9 +866,12 @@ any other recipe is refused too. `search` keeps one name over the chains
 and the tree.
 Since #326 there is also `hash-chaining` (ADR-0084): a hash table drawn as a
 contiguous strip — `table`, with its index — with the list of each position
-hanging under its cell, and three operations, the class's `contains`, `add`
-and `remove`: `search` and `insert` keep their names from the other recipes,
-and `remove` is valid on no other. Its keys are TEXT: `values` is the keys
+hanging under its cell, and four operations: the class's `contains`, `add`
+and `remove`, and `resize`, the method `add` calls when
+`size == table.length`. `search` and `insert` keep their names from the other
+recipes; `remove` and `resize` are valid on no other. `resize` draws the old
+table beside the new one, of `nextPrime(2 * capacity)` positions, and puts
+every key back through `add`, so it takes a `capacity` of at most five. Its keys are TEXT: `values` is the keys
 already in the table, added in order, each at the front of the list of its
 position (`values={['Ana', 'Bea', 'Eva']}`), the key an operation works with
 is `target` (`search`, `remove`) or `value` (`insert`), and `capacity` is the
@@ -941,12 +944,12 @@ Six things worth knowing before you write one:
   | `linked-list-circular` | `insert-first`                                                                          |
   | `heap-max`             | `insert`, `extract-max` (y ninguna otra receta acepta estas dos)                        |
   | `binary-tree`          | `preorder`, `inorder`, `postorder`, `height` (y ninguna otra receta acepta estas cuatro), y `search` |
-  | `hash-chaining`        | `search`, `insert`, `remove` (y ninguna otra receta acepta `remove`)                    |
+  | `hash-chaining`        | `search`, `insert`, `remove`, `resize` (y ninguna otra receta acepta las dos últimas)   |
 
   Anything else is an `<AuthoringError>` naming the operations that recipe does
   have; a heap operation on a Sequence recipe is refused pointing at
   `eda="heap-max"`, a tree operation pointing at `eda="binary-tree"`, and
-  `remove` pointing at `eda="hash-chaining"`.
+  `remove` or `resize` pointing at `eda="hash-chaining"`.
   Ask for one it does not and the answer tells you which to
   use instead.
 

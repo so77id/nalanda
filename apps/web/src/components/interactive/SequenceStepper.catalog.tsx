@@ -21,7 +21,7 @@ export const sequenceStepperCatalogEntry: CatalogEntry = {
       name: 'operation',
       type: '"get-at" | "insert-first" | "insert-last" | "insert-at" | "insert-ordered" | "remove-first" | "remove-last" | "remove-at" | "search" | "insert" | "extract-max" | "preorder" | "inorder" | "postorder" | "height"',
       description:
-        "Required. Which operation to animate. `dynamic-array` and `linked-list-singly` accept all nine (bar `insert-ordered` on the dynamic array — the ordered array is not a structure this unit presents). The two VARIANT recipes accept only the operations they have a Java listing FOR, because the widget shows code a student may copy: `linked-list-circular` accepts `insert-first` alone — its listing closes the ring again, and walks to do it — and `linked-list-doubly` accepts `get-at`, `search`, `insert-first`, `remove-first`, and `remove-last` only with `tail`. `heap-max` accepts exactly its own two — `insert` (swim, growing the block like the dynamic array; `value` may be an array) and `extract-max` (sink, then `shrinkIfSparse`; `times` repeats it) — and those two are valid on no other recipe. `binary-tree` accepts the three traversals (`preorder`, `inorder`, `postorder`), `height` — none of the four valid on any other recipe — and `search`, which visits until the value turns up. `search` thus keeps one name over the chains and the tree. `hash-chaining` accepts `search`, `insert` and `remove` — the class's `contains`, `add` and `remove` — and `remove` is valid on no other recipe. Anything else renders an `<AuthoringError>` naming the operations that recipe does have.",
+        "Required. Which operation to animate. `dynamic-array` and `linked-list-singly` accept all nine (bar `insert-ordered` on the dynamic array — the ordered array is not a structure this unit presents). The two VARIANT recipes accept only the operations they have a Java listing FOR, because the widget shows code a student may copy: `linked-list-circular` accepts `insert-first` alone — its listing closes the ring again, and walks to do it — and `linked-list-doubly` accepts `get-at`, `search`, `insert-first`, `remove-first`, and `remove-last` only with `tail`. `heap-max` accepts exactly its own two — `insert` (swim, growing the block like the dynamic array; `value` may be an array) and `extract-max` (sink, then `shrinkIfSparse`; `times` repeats it) — and those two are valid on no other recipe. `binary-tree` accepts the three traversals (`preorder`, `inorder`, `postorder`), `height` — none of the four valid on any other recipe — and `search`, which visits until the value turns up. `search` thus keeps one name over the chains and the tree. `hash-chaining` accepts `search`, `insert` and `remove` — the class's `contains`, `add` and `remove` — and `resize`, the method `add` calls when `size == table.length`: a new array of `nextPrime(2 * table.length)` positions, drawn to the right of the old one, and every key put back through `add`; `remove` and `resize` are valid on no other recipe. Anything else renders an `<AuthoringError>` naming the operations that recipe does have.",
     },
     {
       name: 'values',
@@ -57,7 +57,7 @@ export const sequenceStepperCatalogEntry: CatalogEntry = {
       name: 'capacity',
       type: 'number',
       description:
-        '`dynamic-array`, `heap-max` and `hash-chaining`. On `hash-chaining` it is `table.length`, the number of positions — two to eleven, seven when left out. On `dynamic-array` it is the block reserved, drawn as free slots past the live elements (one too small for `values` is refused at boot), and it is where the resize falls: the default starts the block FULL so that a single insertion shows the growth, and a slide running several insertions passes a larger one to choose WHICH of them pays for it. The drawing shows the block the current frame has, so filling and doubling happen on screen. On `heap-max` it is `data.length`, slot 0 included (so at least `values.length + 1`), and it defaults to full exactly as on `dynamic-array`.',
+        '`dynamic-array`, `heap-max` and `hash-chaining`. On `hash-chaining` it is `table.length`, the number of positions — two to eleven, seven when left out; `resize` grows it to the first prime after twice it, so it takes at most five. On `dynamic-array` it is the block reserved, drawn as free slots past the live elements (one too small for `values` is refused at boot), and it is where the resize falls: the default starts the block FULL so that a single insertion shows the growth, and a slide running several insertions passes a larger one to choose WHICH of them pays for it. The drawing shows the block the current frame has, so filling and doubling happen on screen. On `heap-max` it is `data.length`, slot 0 included (so at least `values.length + 1`), and it defaults to full exactly as on `dynamic-array`.',
     },
     {
       name: 'method',
@@ -384,6 +384,19 @@ export const sequenceStepperCatalogEntry: CatalogEntry = {
           values={['Ana', 'Bea', 'Eva', 'Leo', 'Sara', 'Juan']}
           target="Ana"
           capacity={7}
+        />
+      ),
+    },
+    {
+      title:
+        'Resizing a full table: a new array of the next prime after twice the positions, every key back in through add',
+      code: "<SequenceStepper eda=\"hash-chaining\" operation=\"resize\" values={['Ana', 'Bea', 'Eva']} capacity={3} />",
+      render: () => (
+        <SequenceStepper
+          eda="hash-chaining"
+          operation="resize"
+          values={['Ana', 'Bea', 'Eva']}
+          capacity={3}
         />
       ),
     },

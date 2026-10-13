@@ -161,7 +161,7 @@ function refusalReason(
       (o) => OPERATION_LABEL[o],
     ).join(', ')}.`;
   }
-  if (operation === 'remove') {
+  if (operation === 'remove' || operation === 'resize') {
     return 'es una operación de la tabla hash. Úsala con eda="hash-chaining".';
   }
   // The tree-only set, not every tree operation: `search` is shared, and a
@@ -208,6 +208,7 @@ const OPERATION_LABEL: Record<SequenceOperation, string> = {
   postorder: 'recorrer en postorden',
   height: 'calcular la altura',
   remove: 'eliminar',
+  resize: 'redimensionar',
 };
 
 const UNDER_THE_EYE: [string, string] = ['border-focus bg-surface', 'bajo la mirada'];
@@ -232,6 +233,10 @@ const HASH_LEGEND: Record<HashChainingOperation, [string, string][]> = {
   search: [FOUND, UNDER_THE_EYE, COMPARED],
   insert: [['border-mark bg-mark-soft', 'nuevo'], UNDER_THE_EYE, COMPARED],
   remove: [UNDER_THE_EYE, ['border-rule bg-sunk', 'sale'], COMPARED],
+  resize: [
+    ['border-mark bg-mark-soft', 'reinsertada'],
+    ['border-rule-strong bg-sunk', 'ya movida'],
+  ],
 };
 
 /** The most elements the picture stays legible with, measured on a slide. */
@@ -376,7 +381,7 @@ export function SequenceStepper({
         </AuthoringError>
       );
     }
-    const arg = op === 'insert' ? value : target;
+    const arg = op === 'insert' ? value : op === 'resize' ? undefined : target;
     const args = arg === undefined ? [] : Array.isArray(arg) ? arg : [arg];
     if (args.some((a) => typeof a !== 'string')) {
       return (
@@ -679,7 +684,7 @@ function Body({
               {heap ? 'n' : 'size'}
             </div>
             <div className="min-w-11 rounded border border-rule bg-sunk px-2 py-1 text-lg font-semibold leading-none text-ink">
-              {step.heapSize ?? step.cells.length}
+              {step.hash?.size ?? step.heapSize ?? step.cells.length}
             </div>
             {step.capacity === undefined ? null : (
               <div className="mt-0.5 font-mono text-3xs text-ink-faint">

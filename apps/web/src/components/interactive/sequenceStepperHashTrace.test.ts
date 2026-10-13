@@ -44,6 +44,7 @@ describe('sequenceStepperHashTrace · the hash the listing computes', () => {
   // the number the widget draws is the number the student's program prints.
   it('matches Java for every key the examples use', () => {
     const java: Record<number, Record<string, number>> = {
+      3: { Ana: 2, Bea: 0, Eva: 2, Leo: 0, Sara: 1, Juan: 2 },
       5: { Ana: 2, Bea: 4, Eva: 4, Leo: 3, Sara: 1, Juan: 3 },
       7: {
         Ana: 4,
@@ -73,8 +74,8 @@ describe('sequenceStepperTrace · hash-chaining · which operations it has', () 
     expect(RECIPES).toContain('hash-chaining');
   });
 
-  it('searches, inserts and removes a key, and nothing else', () => {
-    expect([...HASH_CHAINING_OPERATIONS].sort()).toEqual(['insert', 'remove', 'search']);
+  it('searches, inserts, removes a key and resizes, and nothing else', () => {
+    expect([...HASH_CHAINING_OPERATIONS].sort()).toEqual(['insert', 'remove', 'resize', 'search']);
     for (const operation of OPERATIONS) {
       expect(isValidCombination('hash-chaining', operation), operation).toBe(
         HASH_CHAINING_OPERATIONS.includes(operation),
@@ -82,9 +83,10 @@ describe('sequenceStepperTrace · hash-chaining · which operations it has', () 
     }
   });
 
-  it('keeps `remove` on the table: no other recipe has a listing for it', () => {
+  it('keeps `remove` and `resize` on the table: no other recipe has a listing for them', () => {
     for (const recipe of RECIPES.filter((r) => r !== 'hash-chaining')) {
       expect(isValidCombination(recipe, 'remove'), recipe).toBe(false);
+      expect(isValidCombination(recipe, 'resize'), recipe).toBe(false);
     }
   });
 });
@@ -333,5 +335,84 @@ describe('sequenceStepperTrace · hash-chaining · authoring guards', () => {
         Array.from({ length: 13 }, () => 'Ana'),
       ),
     ).toThrow(/Entre 1 y 12/);
+  });
+});
+
+describe('sequenceStepperTrace · hash-chaining · resize', () => {
+  // Three keys over three positions — size == table.length, the moment add
+  // resizes (#326). With 3 positions: 0: Bea · 2: Eva → Ana. The new table has
+  // nextPrime(2 · 3) = 7, where Bea, Eva and Ana fall in 0, 1 and 4: the
+  // class's running table before Leo, Sara and Juan arrive.
+  const resize = () =>
+    traceFor('hash-chaining', 'resize', { values: [], keys: ['Ana', 'Bea', 'Eva'], capacity: 3 });
+
+  it('grows to the prime after twice the positions', () => {
+    const trace = resize();
+    expect(trace.hash).toEqual({ buckets: 7, longest: 2, oldBuckets: 3 });
+  });
+
+  it('runs the lines of resize in order, every key back in through add', () => {
+    const trace = resize();
+    const lines = trace.steps.map((s) => lit(trace, s)[0] ?? '');
+    expect(lines.slice(0, 4)).toEqual([
+      'private void resize(int capacity) {',
+      'Node[] old = table;',
+      'table = new Node[capacity];',
+      'size = 0;',
+    ]);
+    expect(lines.filter((l) => l === 'add(current.key);')).toHaveLength(3);
+  });
+
+  it('keeps the old table on screen as old while the new one fills', () => {
+    const trace = resize();
+    const at = (line: string) => trace.steps.find((s) => lit(trace, s)[0] === line)!;
+    const kept = at('Node[] old = table;');
+    expect(kept.hash!.old!.aliased).toBe(true);
+    expect(kept.hash!.old!.chains.map((c) => c.map((n) => n.key))).toEqual([
+      ['Bea'],
+      [],
+      ['Eva', 'Ana'],
+    ]);
+    const fresh = at('table = new Node[capacity];');
+    expect(fresh.hash!.old!.aliased).toBe(false);
+    expect(chains(fresh)).toEqual([[], [], [], [], [], [], []]);
+    expect(fresh.description).toContain('la invariante');
+  });
+
+  it('counts size from zero again, one add at a time', () => {
+    const trace = resize();
+    const sizes = trace.steps.map((s) => s.hash!.size);
+    expect(sizes[0]).toBe(3);
+    expect(sizes.at(-1)).toBe(3);
+    expect(sizes).toContain(0);
+    const zero = sizes.indexOf(0);
+    expect(sizes.slice(zero)).toEqual([...sizes.slice(zero)].sort((a, b) => a - b));
+  });
+
+  it('says where each key was and where it goes now', () => {
+    const trace = resize();
+    const moves = trace.steps.filter((s) => lit(trace, s)[0] === 'add(current.key);');
+    expect(moves.map((s) => s.description)).toEqual([
+      'add(«Bea»): con 7 posiciones, hash(«Bea») = 0; con 3 también era 0.',
+      'add(«Eva»): con 7 posiciones, hash(«Eva») = 1; con 3 era 2.',
+      'add(«Ana»): con 7 posiciones, hash(«Ana») = 4; con 3 era 2.',
+    ]);
+    expect(moves.map((s) => s.hash!.bucket)).toEqual([0, 1, 4]);
+  });
+
+  it('ends with every key in the list of its position in the new table, and old gone', () => {
+    const last = resize().steps.at(-1)!;
+    expect(last.hash!.old).toBeUndefined();
+    expect(chains(last)).toEqual([['Bea'], ['Eva'], [], [], ['Ana'], [], []]);
+    for (const [bucket, chain] of last.hash!.chains.entries()) {
+      for (const node of chain) expect(hashKey(node.key, 7)).toBe(bucket);
+    }
+    expect(last.description).toContain('la invariante');
+  });
+
+  it('refuses a resize the drawing cannot hold', () => {
+    expect(() =>
+      traceFor('hash-chaining', 'resize', { values: [], keys: ['Ana'], capacity: 7 }),
+    ).toThrow(/17 posiciones/);
   });
 });
