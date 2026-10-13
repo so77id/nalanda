@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { layoutHash, type HashBox } from './sequenceStepperHashLayout';
+import { layoutHash, layoutProbe, type HashBox } from './sequenceStepperHashLayout';
 
 /**
  * The hash view paints only what this module computes, so the geometry is
@@ -97,5 +97,36 @@ describe('sequenceStepperHashLayout · resize draws old beside table', () => {
     const plain = layoutHash(7, 2);
     expect(plain.old).toBeNull();
     expect(plain.cell(0).x).toBe(14);
+  });
+});
+
+describe('sequenceStepperHashLayout · the probing table', () => {
+  it('draws keys and deleted as two contiguous strips, one cell of each per position', () => {
+    const layout = layoutProbe(11);
+    for (let i = 0; i < 11; i += 1) {
+      const cell = layout.cell(i);
+      const mark = layout.mark(i);
+      if (i > 0) expect(cell.x).toBe(layout.cell(i - 1).x + layout.cell(i - 1).w);
+      expect(mark.x).toBe(cell.x);
+      expect(mark.w).toBe(cell.w);
+      expect(mark.y).toBeGreaterThanOrEqual(cell.y + cell.h);
+    }
+  });
+
+  it('keeps the chip over its cell, the index between them, and the cursor under deleted', () => {
+    const layout = layoutProbe(7);
+    const band = layout.band(3);
+    expect(band.cx).toBe(layout.cell(3).cx);
+    expect(band.y + band.h).toBeLessThan(layout.index(3).y - 8);
+    expect(layout.cursor(3).tip).toBeGreaterThan(layout.mark(3).y + layout.mark(3).h);
+    expect(layout.cursor(3).label).toBeLessThan(layout.height);
+  });
+
+  it('names the two strips to their left, inside the canvas', () => {
+    const layout = layoutProbe(5);
+    expect(layout.names.keys.x).toBeLessThan(layout.cell(0).x);
+    expect(layout.names.deleted.x).toBeLessThan(layout.mark(0).x);
+    expect(layout.names.keys.x).toBeGreaterThan(40);
+    expect(inside(layout.cell(4), layout.width, layout.height)).toBe(true);
   });
 });

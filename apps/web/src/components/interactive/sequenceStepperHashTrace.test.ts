@@ -83,10 +83,11 @@ describe('sequenceStepperTrace · hash-chaining · which operations it has', () 
     }
   });
 
-  it('keeps `remove` and `resize` on the table: no other recipe has a listing for them', () => {
-    for (const recipe of RECIPES.filter((r) => r !== 'hash-chaining')) {
-      expect(isValidCombination(recipe, 'remove'), recipe).toBe(false);
-      expect(isValidCombination(recipe, 'resize'), recipe).toBe(false);
+  it('keeps `remove` on the two hash tables and `resize` on this one: no other recipe has a listing for them', () => {
+    for (const recipe of RECIPES) {
+      const hashTable = recipe === 'hash-chaining' || recipe === 'hash-probing';
+      expect(isValidCombination(recipe, 'remove'), recipe).toBe(hashTable);
+      expect(isValidCombination(recipe, 'resize'), recipe).toBe(recipe === 'hash-chaining');
     }
   });
 });

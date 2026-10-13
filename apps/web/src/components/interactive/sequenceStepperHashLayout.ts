@@ -128,3 +128,70 @@ export function layoutHash(buckets: number, longest: number, oldBuckets = 0): Ha
     old: named ? strip(oldOrigin) : null,
   };
 }
+
+// ── the probing table: keys in the array itself (#326) ────────────────────
+
+/** Horizontal room per position: a key sits inside its cell, so a cell is narrower than a list's column. */
+const PROBE_PITCH = 80;
+const PROBE_CELL_H = 34;
+/** The `deleted` strip under `keys`: one boolean per position. */
+const MARK_H = 20;
+/** Room under `deleted` for the cursor `i`: an arrow up, its name under it. */
+const CURSOR_H = 34;
+/** Room left of the strips for their names, `keys` and `deleted`. */
+const PROBE_NAME_W = 64;
+
+export interface ProbeLayout {
+  width: number;
+  height: number;
+  /** `keys[i]`. */
+  cell: (bucket: number) => HashBox;
+  /** `deleted[i]`, right under its key. */
+  mark: (bucket: number) => HashBox;
+  index: (bucket: number) => { x: number; y: number };
+  /** The band over a cell, where the key looked for and its hash are written. */
+  band: (bucket: number) => HashBox;
+  /** The cursor `i` under a cell: an arrow from `tail` up to `tip`, its name at `label`. */
+  cursor: (bucket: number) => { x: number; tip: number; tail: number; label: number };
+  names: { keys: { x: number; y: number }; deleted: { x: number; y: number } };
+}
+
+/**
+ * `keys` and `deleted` are two arrays the class declares side by side, so
+ * they are drawn as two contiguous strips, one over the other, each cell of
+ * `deleted` right under the key it marks — and both named, as the listing
+ * names them. The cursor `i` is the listing's too, and walks under them.
+ */
+export function layoutProbe(buckets: number): ProbeLayout {
+  const origin = PAD + PROBE_NAME_W;
+  const cx = (bucket: number) => origin + (bucket + 0.5) * PROBE_PITCH;
+  const bandY = PAD;
+  const cellY = bandY + BAND_H + INDEX_H;
+  const markY = cellY + PROBE_CELL_H;
+  const cursorY = markY + MARK_H;
+  const box = (bucket: number, y: number, w: number, h: number): HashBox => ({
+    x: cx(bucket) - w / 2,
+    y,
+    w,
+    h,
+    cx: cx(bucket),
+  });
+  return {
+    width: origin + buckets * PROBE_PITCH + PAD,
+    height: cursorY + CURSOR_H + PAD,
+    cell: (bucket) => box(bucket, cellY, PROBE_PITCH, PROBE_CELL_H),
+    mark: (bucket) => box(bucket, markY, PROBE_PITCH, MARK_H),
+    index: (bucket) => ({ x: cx(bucket), y: cellY - 7 }),
+    band: (bucket) => box(bucket, bandY, NODE_W, NODE_H),
+    cursor: (bucket) => ({
+      x: cx(bucket),
+      tip: cursorY + 3,
+      tail: cursorY + 18,
+      label: cursorY + 30,
+    }),
+    names: {
+      keys: { x: origin - 8, y: cellY + PROBE_CELL_H / 2 + 4 },
+      deleted: { x: origin - 8, y: markY + MARK_H / 2 + 4 },
+    },
+  };
+}

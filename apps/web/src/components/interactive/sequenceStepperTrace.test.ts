@@ -32,16 +32,16 @@ const values = [7, 3, 1, 5];
  * iterates RECIPES and feeds the heap a starting array that already is one.
  */
 const SEQUENCE_RECIPES = RECIPES.filter(
-  (r) => r !== 'heap-max' && r !== 'binary-tree' && r !== 'hash-chaining',
+  (r) => r !== 'heap-max' && r !== 'binary-tree' && !r.startsWith('hash-'),
 );
 /**
- * What a sweep over every recipe hands the hash table (#326): keys are text,
+ * What a sweep over every recipe hands the two hash tables (#326): keys are text,
  * so they travel apart from `values`, and five positions, which `resize` can
  * still grow (to 11). Handed to the hash recipe alone — `capacity` means a
  * block on the dynamic array and the heap.
  */
 const HASH_INPUT = { keys: ['Ana', 'Bea', 'Eva', 'Sara'], key: 'Ana', capacity: 5 };
-const hashInputFor = (recipe: SequenceRecipe) => (recipe === 'hash-chaining' ? HASH_INPUT : {});
+const hashInputFor = (recipe: SequenceRecipe) => (recipe.startsWith('hash-') ? HASH_INPUT : {});
 /** The tree operations no other kind of recipe has (`search` is everyone's). */
 const TRAVERSALS = ['preorder', 'inorder', 'postorder'] as const;
 const TREE_ONLY: readonly SequenceOperation[] = [...TRAVERSALS, 'height'];
@@ -1202,7 +1202,7 @@ describe('sequenceStepperTrace · heap-max · which operations it has', () => {
   it('refuses the two heap operations on every sequence recipe', () => {
     // The hash table shares the NAME `insert` (its `add`, #326) and has no
     // `extract-max`: its own sweep lives in sequenceStepperHashTrace.test.ts.
-    for (const recipe of RECIPES.filter((r) => r !== 'heap-max' && r !== 'hash-chaining')) {
+    for (const recipe of RECIPES.filter((r) => r !== 'heap-max' && !r.startsWith('hash-'))) {
       for (const operation of HEAP_OPS) {
         expect(isValidCombination(recipe, operation)).toBe(false);
       }
