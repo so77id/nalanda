@@ -25,7 +25,7 @@
  *   first rather than at `null`.
  */
 
-import { asRuns, lineOf } from './sequenceStepperTraceShared';
+import { asRuns, lineOf, requireRuns } from './sequenceStepperTraceShared';
 import { traceTree } from './sequenceStepperTreeTrace';
 
 export const RECIPES = [
@@ -1269,27 +1269,12 @@ function listCode(recipe: SequenceRecipe, operation: SequenceOperation, tail: bo
 }
 
 /**
- * The most times an author may ask for one operation. The chain-length guard
- * in the component counts cells, not RUNS, so `times={1e8}` used to allocate
- * its driving program before any guard could refuse it — measured: a heap
- * exhaustion that takes the tab down instead of printing an authoring error.
- */
-const MAX_RUNS = 12;
-
-/**
- * The widest block a slide can still show, in the same spirit as MAX_RUNS:
+ * The widest block a slide can still show, in the same spirit as the runs cap
+ * (`requireRuns`, `sequenceStepperTraceShared.ts`):
  * past this nobody reads the cells projected, and an author who asks for it
  * has almost certainly typed a number they did not mean.
  */
 const MAX_CAPACITY = 40;
-
-function requireRuns(runs: number): void {
-  if (!Number.isInteger(runs) || runs < 1 || runs > MAX_RUNS) {
-    throw new Error(
-      `La operación se ejecuta ${runs} veces. Entre 1 y ${MAX_RUNS}: más pasos de los que nadie sigue en una slide.`,
-    );
-  }
-}
 
 function traceList(
   recipe: SequenceRecipe,

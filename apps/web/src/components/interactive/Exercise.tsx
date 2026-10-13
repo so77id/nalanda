@@ -136,7 +136,10 @@ export function Exercise({ title, language = 'java', children }: ExerciseProps) 
   // Separately from the runtime, and earlier: an exercise highlights before —
   // and whether or not — the student ever presses Comprobar (#122).
   const grammar = useGrammar(language);
-  const windowed = useMode() === 'presentation' && starter.split('\n').length > SLIDE_LINES;
+  // The pipeline hands a fence over with its trailing newline, which is not a
+  // line of the program: counted, it windowed a program of exactly 32 lines.
+  const windowed =
+    useMode() === 'presentation' && starter.replace(/\n$/, '').split('\n').length > SLIDE_LINES;
 
   const check = useCallback(async () => {
     // Before the run, not after: a Java loop that never ends freezes this tab

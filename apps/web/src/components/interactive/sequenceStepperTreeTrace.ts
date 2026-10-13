@@ -12,7 +12,7 @@
  * `binary-tree` has no order, so its operations VISIT: the three traversals,
  * the height and a search that may have to look everywhere.
  */
-import { asRuns, lineOf } from './sequenceStepperTraceShared';
+import { asRuns, lineOf, requireRuns } from './sequenceStepperTraceShared';
 import type {
   BinaryTreeOperation,
   SequenceCell,
@@ -474,6 +474,7 @@ function traceHeight(root: TreeNode): SequenceTrace {
 
 function traceSearchAnywhere(root: TreeNode, targets: number[]): SequenceTrace {
   if (targets.length === 0) throw new Error('Falta el valor a buscar.');
+  requireRuns(targets.length);
   const code = CODE.containsAnywhere;
   const columns = inorderColumns(root);
   const slots = nodesOf(root).length;

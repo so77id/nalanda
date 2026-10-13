@@ -342,8 +342,12 @@ describe('Exercise', () => {
     // lines that scrolls; everywhere else nothing changes.
     const longStarter = Array.from({ length: 60 }, (_, i) => `// línea ${i + 1}`).join('\n');
     // Exactly the window's length, and one line past it: the boundary itself.
-    const shortStarter = Array.from({ length: 32 }, (_, i) => `// línea ${i + 1}`).join('\n');
-    const oneOver = Array.from({ length: 33 }, (_, i) => `// línea ${i + 1}`).join('\n');
+    // Each ends in a newline, as the MDX pipeline hands a fence over — the
+    // trailing line it leaves is not a line of the program.
+    const lines = (n: number) =>
+      Array.from({ length: n }, (_, i) => `// línea ${i + 1}`).join('\n') + '\n';
+    const shortStarter = lines(32);
+    const oneOver = lines(33);
 
     function renderIn(mode: 'book' | 'presentation', starter: string) {
       return render(

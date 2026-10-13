@@ -1,6 +1,7 @@
 /**
  * What the two trace modules of `<SequenceStepper>` share: how a frame names
- * the line it lights, and how an author-written argument becomes runs. A leaf
+ * the line it lights, how an author-written argument becomes runs, and how
+ * many runs a slide may ask for. A leaf
  * both import (#321 review, ARQ-6): the tree's module could not import them
  * from the dispatcher, which imports the tree's module, without closing a
  * cycle, and the copy it carried instead had already lost the reasons below.
@@ -33,3 +34,21 @@ export function lineOf(code: string, fragment: string): number {
  */
 export const asRuns = (v: number | number[] | undefined): number[] =>
   v === undefined ? [] : Array.isArray(v) ? v : [v];
+
+/**
+ * The most times an author may ask for one operation. The chain-length guard
+ * in the component counts cells, not RUNS, so `times={1e8}` used to allocate
+ * its driving program before any guard could refuse it — measured: a heap
+ * exhaustion that takes the tab down instead of printing an authoring error.
+ * Every recipe asks it, the tree's search included (#321 review: a search for
+ * thirteen values drew 198 frames before it did).
+ */
+const MAX_RUNS = 12;
+
+export function requireRuns(runs: number): void {
+  if (!Number.isInteger(runs) || runs < 1 || runs > MAX_RUNS) {
+    throw new Error(
+      `La operación se ejecuta ${runs} veces. Entre 1 y ${MAX_RUNS}: más pasos de los que nadie sigue en una slide.`,
+    );
+  }
+}

@@ -1781,6 +1781,13 @@ describe('sequenceStepperTrace · binary-tree · search', () => {
     expect(last.description).toContain('no está');
   });
 
+  it('refuses more than twelve targets, as every other recipe does', () => {
+    const target = Array.from({ length: 13 }, (_, i) => i);
+    expect(() =>
+      traceFor('binary-tree', 'search', { values: [], levelOrder: LEVELS, target }),
+    ).toThrow(/Entre 1 y 12/);
+  });
+
   it('starts each target of an array from a clean tree', () => {
     const trace = traceFor('binary-tree', 'search', {
       values: [],
