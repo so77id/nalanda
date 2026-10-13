@@ -193,13 +193,14 @@ const OPERATION_LABEL: Record<SequenceOperation, string> = {
   height: 'calcular la altura',
 };
 
+const UNDER_THE_EYE: [string, string] = ['border-focus bg-surface', 'bajo la mirada'];
+const VISITED: [string, string] = ['border-rule-strong bg-sunk', 'ya visitado'];
+const FOUND: [string, string] = ['border-keep bg-keep-soft', 'encontrado'];
+
 /**
  * The legend of a tree run, by operation: each names only the states that
  * operation paints, so a traversal does not explain "encontrado".
  */
-const UNDER_THE_EYE: [string, string] = ['border-focus bg-surface', 'bajo la mirada'];
-const VISITED: [string, string] = ['border-rule-strong bg-sunk', 'ya visitado'];
-const FOUND: [string, string] = ['border-keep bg-keep-soft', 'encontrado'];
 const TREE_LEGEND: Record<BinaryTreeOperation, [string, string][]> = {
   preorder: [['border-mark bg-mark-soft', 'se visita'], UNDER_THE_EYE, VISITED],
   inorder: [['border-mark bg-mark-soft', 'se visita'], UNDER_THE_EYE, VISITED],
@@ -301,6 +302,13 @@ export function SequenceStepper({
     return (
       <AuthoringError component="SequenceStepper">
         falta la prop <code>values</code> con el contenido inicial.
+      </AuthoringError>
+    );
+  }
+  if (!Array.isArray(values)) {
+    return (
+      <AuthoringError component="SequenceStepper">
+        <code>values</code> es una lista entre corchetes, como <code>{'values={[7, 3, 1]}'}</code>.
       </AuthoringError>
     );
   }

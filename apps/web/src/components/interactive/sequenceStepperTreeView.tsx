@@ -1,5 +1,5 @@
 import { CELL_FILL, CELL_NOTE, CELL_STROKE } from './sequenceStepperPaint';
-import type { TreeFrame, TreeFrameNode, TreeRun } from './sequenceStepperTrace';
+import type { TreeFrame, TreeRun } from './sequenceStepperTrace';
 import {
   TREE_NODE_R,
   layoutTree,
@@ -40,7 +40,7 @@ export function TreeView({
   const layout = layoutTree(run.slots, run.depth, run.strip);
   const byId = new Map(tree.nodes.map((n) => [n.id, n]));
   const at = (id: number) => {
-    const n: TreeFrameNode = byId.get(id)!;
+    const n = byId.get(id)!;
     return layout.node(run.columns[id]!, n.depth);
   };
   const hot = new Set(tree.path.slice(1).map((id, i) => `${tree.path[i]}-${id}`));

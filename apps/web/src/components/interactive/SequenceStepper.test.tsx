@@ -773,6 +773,14 @@ describe('<SequenceStepper> · the binary-tree recipe (#321)', () => {
     }
   });
 
+  it('refuses a values that is not a list at all', () => {
+    renderIn(
+      'book',
+      <SequenceStepper eda="binary-tree" operation="preorder" values={5 as never} />,
+    );
+    expect(document.querySelector('[data-authoring-error]')).not.toBeNull();
+  });
+
   it('counts a tree of one node in the singular', () => {
     renderIn('book', <SequenceStepper eda="binary-tree" operation="preorder" values={[7]} />);
     expect(screen.getByTestId('tree-view').getAttribute('aria-label')).not.toMatch(/\b1 nodos\b/);
