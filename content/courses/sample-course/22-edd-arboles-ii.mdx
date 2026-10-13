@@ -32,7 +32,7 @@ export function SortedRow({ values, hot = -1, out = [], caption, label }) {
         const isHot = i === hot;
         return (
           <g key={i} opacity={set ? 0.45 : undefined}>
-            <rect x={left + i * box} y={pad} width={box} height={box} rx="3" style={{ fill: isHot ? 'var(--color-surface)' : 'var(--color-surface)', stroke: isHot ? 'var(--color-focus)' : set ? 'var(--color-rule)' : 'var(--color-rule-strong)' }} strokeWidth={isHot ? 2.6 : 1.2} strokeDasharray={set ? '4 3' : undefined} />
+            <rect x={left + i * box} y={pad} width={box} height={box} rx="3" style={{ fill: 'var(--color-surface)', stroke: isHot ? 'var(--color-focus)' : set ? 'var(--color-rule)' : 'var(--color-rule-strong)' }} strokeWidth={isHot ? 2.6 : 1.2} strokeDasharray={set ? '4 3' : undefined} />
             <text x={left + i * box + box / 2} y={pad + box / 2 + 5} textAnchor="middle" fontSize="15" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{v}</text>
             <text x={left + i * box + box / 2} y={pad + box + 14} textAnchor="middle" fontSize="10" style={{ fill: 'var(--color-ink-faint)' }}>{i}</text>
           </g>
@@ -1597,126 +1597,24 @@ check(Solution.intersection(a, odd), Arrays.asList());
 
 </Slide>
 
-<Slide title="Un árbol de búsqueda de altura mínima">
-Un arreglo trae valores distintos, ya ordenados de menor a mayor, y hay que
-guardarlos en un árbol binario de búsqueda **lo más bajo posible**: con $$n$$
-valores, de altura $$\lfloor \log_2 n \rfloor$$.
+Tres ejercicios más, propuestos, para resolver sin ver la respuesta:
 
-<BinaryPicture tree={{ v: 4, l: { v: 2, l: { v: 1 }, r: { v: 3 } }, r: { v: 6, l: { v: 5 }, r: { v: 7 } } }} strip label="Los valores del 1 al 7 en un árbol de búsqueda de altura 2: 4 en la raíz, 2 y 6 en el segundo nivel, y 1, 3, 5 y 7 abajo. Debajo, el arreglo ordenado, con cada valor bajo su nodo." caption="del 1 al 7: siete valores, altura 2" />
-
-El programa recibe el arreglo, que puede estar vacío, y devuelve la raíz del
-árbol, o `null` si no hay valores.
-
-```java
-static Node<Integer> build(int[] sorted)
-```
-
-| Arreglo            | Raíz   | Altura |
-| ------------------ | ------ | ------ |
-| 1 2 3 4 5 6 7      | 4      | 2      |
-| 1 2 3 4            | 2      | 2      |
-| 5                  | 5      | 0      |
-| vacío              | `null` | —      |
-
-</Slide>
-
-<Slide title="Insertar en orden">
-El árbol de búsqueda ya sabe insertar. Pero si los valores del arreglo se
-insertan en el orden en que vienen, cada uno es mayor que todos los
-anteriores y se cuelga siempre a la derecha: del 1 al 7 queda una cadena de
-altura 6, la **más alta** posible. El arreglo ordenado es justo el peor
-orden de llegada.
-
-<BinaryPicture tree={{ v: 1, r: { v: 2, r: { v: 3, r: { v: 4, r: { v: 5, r: { v: 6, r: { v: 7 } } } } } } }} size={0.7} label="Los valores del 1 al 7 insertados en orden: una cadena hacia la derecha de altura 6." caption="insertados en orden: altura 6" />
-
-</Slide>
-
-<Slide title="El medio como raíz">
-Para que el árbol quede bajo, la raíz tiene que dejar la mitad de los
-valores a cada lado: la raíz es el **elemento del medio**. Los menores, que
-están a su izquierda en el arreglo, forman el subárbol izquierdo, y los
-mayores, el derecho. Cada mitad es un arreglo ordenado más pequeño, y se arma
-con la misma regla: es la recursión de **dividir y conquistar**, y el árbol
-que resulta es el de las decisiones de una búsqueda binaria.
-
-Con el 1 al 7: el medio es 4. A su izquierda quedan 1, 2 y 3, con medio 2; a
-su derecha, 5, 6 y 7, con medio 6. Cada mitad que queda tiene un solo
-elemento, y es una hoja.
-
-</Slide>
-
-<Slide title="Altura mínima · la solución">
-Una versión recibe el tramo del arreglo, de `lo` a `hi`, que todavía hay que
-guardar; un tramo vacío es un subárbol vacío. La versión pública pide el
-arreglo entero.
-
-<StepShow
-  language="java"
-  code={`static Node<Integer> build(int[] sorted,
-        int lo, int hi) {
-    if (lo > hi) return null;
-    int mid = (lo + hi) / 2;
-    Node<Integer> node = new Node<>(sorted[mid]);
-    node.left = build(sorted, lo, mid - 1);
-    node.right = build(sorted, mid + 1, hi);
-    return node;
-}
-
-static Node<Integer> build(int[] sorted) {
-    return build(sorted, 0, sorted.length - 1);
-}`}
->
-  <Step lines={[12, 4, 5]}>
-    <SortedRow values={[1, 2, 3, 4, 5, 6, 7]} hot={3} label="El tramo es el arreglo entero; el medio, en la posición 3, es el 4." />
-    <BinaryPicture tree={{ v: 4 }} size={0.7} label="La raíz, 4." />
-  </Step>
-  <Step lines={[6, 4, 5]}>
-    <SortedRow values={[1, 2, 3, 4, 5, 6, 7]} hot={1} out={[3, 4, 5, 6]} label="El tramo izquierdo, del 1 al 3; su medio es el 2." />
-    <BinaryPicture tree={{ v: 4, l: { v: 2 } }} size={0.7} label="El 2 a la izquierda del 4." />
-  </Step>
-  <Step lines={[6, 4, 5]}>
-    <SortedRow values={[1, 2, 3, 4, 5, 6, 7]} hot={0} out={[1, 2, 3, 4, 5, 6]} label="El tramo de un solo elemento, el 1." />
-    <BinaryPicture tree={{ v: 4, l: { v: 2, l: { v: 1 } } }} size={0.7} label="El 1 a la izquierda del 2." />
-  </Step>
-  <Step lines={[7, 4, 5]}>
-    <SortedRow values={[1, 2, 3, 4, 5, 6, 7]} hot={2} out={[0, 1, 3, 4, 5, 6]} label="El tramo de un solo elemento, el 3." />
-    <BinaryPicture tree={{ v: 4, l: { v: 2, l: { v: 1 }, r: { v: 3 } } }} size={0.7} label="El 3 a la derecha del 2." />
-  </Step>
-  <Step lines={[7, 4, 5]}>
-    <SortedRow values={[1, 2, 3, 4, 5, 6, 7]} hot={5} out={[0, 1, 2, 3]} label="El tramo derecho, del 5 al 7; su medio es el 6." />
-    <BinaryPicture tree={{ v: 4, l: { v: 2, l: { v: 1 }, r: { v: 3 } }, r: { v: 6 } }} size={0.7} label="El 6 a la derecha del 4." />
-  </Step>
-  <Step lines={[6, 4, 5]}>
-    <SortedRow values={[1, 2, 3, 4, 5, 6, 7]} hot={4} out={[0, 1, 2, 3, 5, 6]} label="El tramo de un solo elemento, el 5." />
-    <BinaryPicture tree={{ v: 4, l: { v: 2, l: { v: 1 }, r: { v: 3 } }, r: { v: 6, l: { v: 5 } } }} size={0.7} label="El 5 a la izquierda del 6." />
-  </Step>
-  <Step lines={[7, 4, 5]}>
-    <SortedRow values={[1, 2, 3, 4, 5, 6, 7]} hot={6} out={[0, 1, 2, 3, 4, 5]} label="El tramo de un solo elemento, el 7." />
-    <BinaryPicture tree={{ v: 4, l: { v: 2, l: { v: 1 }, r: { v: 3 } }, r: { v: 6, l: { v: 5 }, r: { v: 7 } } }} size={0.7} label="El 7 a la derecha del 6: el árbol completo, de altura 2." />
-  </Step>
-</StepShow>
-
-</Slide>
-
-<Slide title="Un arreglo de largo par y el arreglo vacío">
-Con un largo par, como 1 2 3 4, no hay un único medio: la división entera
-elige el de la izquierda, el 2. A su derecha quedan 3 y 4, que arman un
-subárbol de altura 1, y el árbol queda de altura 2, que es
-$$\lfloor \log_2 4 \rfloor$$: un lado queda un elemento más largo que el otro,
-y eso nunca suma un nivel de más. Con el arreglo vacío, `lo` es 0 y `hi` es
-$$-1$$: el primer caso devuelve `null` sin crear nada.
-
-**Tiempo.** Cada llamada con un tramo no vacío crea exactamente un nodo, y
-cada valor está en un solo tramo como medio: $$n$$ nodos, cada uno en tiempo
-constante, $$\Theta(n)$$. **Memoria.** El árbol ocupa $$\Theta(n)$$; la
-recursión, aparte, tiene la profundidad del árbol que arma,
-$$\lfloor \log_2 n \rfloor + 1$$ llamadas: $$\Theta(\log n)$$.
-
-</Slide>
-
-<Slide title="Altura mínima · el programa completo">
-<PresentationWide fraction={0.75}>
 <Exercise title="Un árbol de búsqueda de altura mínima">
+
+Un arreglo trae valores distintos, ordenados de menor a mayor, y hay que
+guardarlos en un árbol binario de búsqueda lo más bajo posible: con $$n$$
+valores, de altura $$\lfloor \log_2 n \rfloor$$. Escribamos `build`, que
+recibe el arreglo, que puede estar vacío, y devuelve la raíz del árbol, o
+`null` si no hay valores.
+
+Con los valores del 1 al 7, la raíz es el 4, con el 2 y el 6 debajo, y el árbol
+tiene altura 2. Con los valores del 1 al 4, la raíz puede ser el 2 o el 3, y la
+altura es 2. Con un solo valor, el árbol es una hoja.
+
+Insertarlos en el orden en que vienen no sirve: cada uno es mayor que todos
+los anteriores, y el arreglo ordenado es justo el peor orden de llegada. La
+raíz tiene que dejar la mitad de los valores a cada lado, y cada mitad se arma
+con la misma regla.
 
 ```java starter
 class Node<T> {
@@ -1727,8 +1625,39 @@ class Node<T> {
 }
 
 class Solution {
-    static Node<Integer> build(int[] sorted,
-            int lo, int hi) {
+    static Node<Integer> build(int[] sorted) {
+        return null;
+    }
+}
+```
+
+```java test
+Node<Integer> t = Solution.build(new int[] {1, 2, 3, 4, 5, 6, 7});
+check(t != null && t.value == 4, true);
+check(t != null && t.left != null && t.left.value == 2, true);
+check(t != null && t.right != null && t.right.value == 6, true);
+check(t != null && t.left != null && t.left.left != null
+        && t.left.left.value == 1, true);
+check(t != null && t.right != null && t.right.right != null
+        && t.right.right.value == 7, true);
+Node<Integer> u = Solution.build(new int[] {1, 2, 3, 4});
+check(u != null && (u.value == 2 || u.value == 3), true);
+check(u != null && u.left != null && u.right != null, true);
+Node<Integer> one = Solution.build(new int[] {5});
+check(one != null && one.left == null && one.right == null, true);
+check(Solution.build(new int[] {}) == null, true);
+```
+
+```java solution
+class Node<T> {
+    T value;
+    Node<T> left;
+    Node<T> right;
+    Node(T value) { this.value = value; }
+}
+
+class Solution {
+    static Node<Integer> build(int[] sorted, int lo, int hi) {
         if (lo > hi) return null;
         int mid = (lo + hi) / 2;
         Node<Integer> node = new Node<>(sorted[mid]);
@@ -1743,37 +1672,23 @@ class Solution {
 }
 ```
 
-```java test
-Node<Integer> t = Solution.build(new int[] {1, 2, 3, 4, 5, 6, 7});
-check((int) t.value, 4);
-check((int) t.left.value, 2);
-check((int) t.right.value, 6);
-check((int) t.left.left.value, 1);
-check((int) t.right.right.value, 7);
-Node<Integer> u = Solution.build(new int[] {1, 2, 3, 4});
-check((int) u.value, 2);
-check((int) u.right.right.value, 4);
-check(Solution.build(new int[] {5}).left == null, true);
-check(Solution.build(new int[] {}) == null, true);
-```
-
 </Exercise>
-</PresentationWide>
-
-</Slide>
-
-Un último ejercicio, propuesto, para resolver sin ver la respuesta:
 
 <Exercise title="Verificación de un árbol de búsqueda">
 
-Un árbol binario dice ser un árbol de búsqueda. Escribamos `isBST`, que
-recibe su raíz y responde si cumple la invariante: para cada nodo, **todos**
+Un árbol binario dice ser un árbol de búsqueda. Escribamos `isBST`, que recibe
+su raíz y responde si cumple la invariante de orden: para cada nodo, **todos**
 los valores de su subárbol izquierdo son menores que el suyo, y **todos** los
 de su subárbol derecho son mayores. El árbol vacío la cumple.
 
-El árbol 5, con hijos 3 y 8, y con 1 y 4 debajo del 3, la cumple. El mismo
-árbol con un 7 en lugar del 4 no la cumple: el 7 es mayor que su padre, el 3,
-pero está a la izquierda del 5.
+El árbol con el 8 en la raíz, el 4 y el 12 debajo, y el 2, el 6, el 10 y el 14
+en el último nivel, la cumple. El mismo árbol con un 10 en lugar del 6 no la
+cumple: el 10 está bien con su padre, el 4, pero está a la izquierda del 8.
+
+Revisar cada nodo solo con sus hijos no alcanza, y ese es el ejemplo que lo
+muestra. Cada subárbol tiene un rango de valores permitidos, que se angosta al
+bajar: bajar con ese rango revisa cada nodo contra todos sus ancestros a la
+vez.
 
 ```java starter
 class Node<T> {
@@ -1791,17 +1706,19 @@ class Solution {
 ```
 
 ```java test
-Node<Integer> good = new Node<>(5);
-good.left = new Node<>(3);
-good.left.left = new Node<>(1);
-good.left.right = new Node<>(4);
-good.right = new Node<>(8);
+Node<Integer> good = new Node<>(8);
+good.left = new Node<>(4);
+good.left.left = new Node<>(2);
+good.left.right = new Node<>(6);
+good.right = new Node<>(12);
+good.right.left = new Node<>(10);
+good.right.right = new Node<>(14);
 check(Solution.isBST(good), true);
-Node<Integer> trap = new Node<>(5);
-trap.left = new Node<>(3);
-trap.left.left = new Node<>(1);
-trap.left.right = new Node<>(7);
-trap.right = new Node<>(8);
+Node<Integer> trap = new Node<>(8);
+trap.left = new Node<>(4);
+trap.left.left = new Node<>(2);
+trap.left.right = new Node<>(10);
+trap.right = new Node<>(12);
 check(Solution.isBST(trap), false);
 check(Solution.isBST(null), true);
 check(Solution.isBST(new Node<>(9)), true);
