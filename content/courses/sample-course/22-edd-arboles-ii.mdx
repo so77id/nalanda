@@ -351,41 +351,85 @@ $$\lfloor \log_2 n \rfloor$$ y $$n - 1$$.
 
 </Slide>
 
-<Slide title="Siete valores en un orden">
-Los valores del 1 al 7, insertados en el orden 4, 2, 6, 1, 3, 5, 7: cada uno
-cae en un nivel todavía incompleto, y el árbol queda lleno.
+<SectionBreak />
 
-<SequenceStepper eda="bst" operation="insert" values={[]} value={[4, 2, 6, 1, 3, 5, 7]} />
+## La altura según el orden de llegada
+
+{/* The same seven values in three arrival orders: by levels, in some order, sorted. */}
+
+export const EVENS_SHUFFLED = { v: 10, l: { v: 4, l: { v: 2 }, r: { v: 8, l: { v: 6 } } }, r: { v: 14, l: { v: 12 } } };
+
+export const EVENS_CHAIN = { v: 2, r: { v: 4, r: { v: 6, r: { v: 8, r: { v: 10, r: { v: 12, r: { v: 14 } } } } } } };
+
+<Slide title="Un orden de llegada que llena el árbol">
+La forma de un árbol de búsqueda la decide el orden en que llegan sus valores.
+Si cada valor nuevo cae en un nivel que todavía tiene lugar, los niveles se
+llenan de arriba hacia abajo, y el árbol queda con la altura más baja posible.
+
+<SequenceStepper eda="bst" operation="insert" values={[]} value={[8, 4, 12, 2, 6, 10, 14]} />
 
 </Slide>
 
-<Slide title="Los mismos siete valores, ordenados">
-Los mismos valores, insertados de menor a mayor: cada uno es mayor que todos
-los anteriores, así que siempre baja por la derecha y se cuelga al final.
+<Slide title="Valores que llegan ordenados">
+Si los mismos valores llegan de menor a mayor, cada uno es mayor que todos
+los anteriores: siempre baja por la derecha y se cuelga al final. El árbol
+queda como una cadena, con la altura más alta posible.
 
-<SequenceStepper eda="bst" operation="insert" values={[]} value={[1, 2, 3, 4, 5, 6, 7]} />
+<SequenceStepper eda="bst" operation="insert" values={[]} value={[2, 4, 6, 8, 10, 12, 14]} />
 
-El árbol quedó como una cadena de altura 6: buscar el 7 compara con todos
-los nodos, igual que en una lista enlazada.
+Buscar el último compara con todos los nodos, igual que en una lista enlazada.
 
 </Slide>
 
-<Slide title="La altura que nadie controla">
-El árbol de búsqueda responde cualquier pregunta sobre el orden —si un valor
-está, el mínimo, el sucesor, insertar o eliminar— bajando por un solo camino:
-cuesta la altura. Ninguna estructura de las que guardan elementos en fila
-hace todo eso a la vez en tiempo logarítmico.
+<Slide title="La altura de los mismos valores en tres órdenes">
+Los mismos valores, en tres órdenes de llegada, dan tres alturas. Entre el
+árbol lleno y la cadena está todo lo demás.
 
-Pero la altura depende del **orden en que llegaron los valores**, y nada en el
-árbol la controla. La invariante de orden dice dónde va cada valor y no dice
-nada sobre la forma. Con los valores en el peor orden posible —ordenados—, el
-árbol es una lista, y cada operación cuesta $$\Theta(n)$$.
+<PresentationWide fraction={0.9}>
 
-Si las inserciones y las eliminaciones también cuidaran la **forma**,
-reacomodando el árbol cada vez que se cargue hacia un lado, la altura quedaría
-acotada por $$O(\log n)$$ y todas las operaciones con ella. El precio sería más
-trabajo en cada inserción y en cada eliminación. Ese es el compromiso de un
-**árbol de búsqueda balanceado**.
+<div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: '1rem 2rem', alignItems: 'flex-end' }}>
+<div style={{ flex: '1 1 260px', maxWidth: '330px' }}>
+<BinaryPicture tree={EVENS} ruler="h = 2" compact label="Los valores 2 a 14 insertados en el orden 8, 4, 12, 2, 6, 10, 14: un árbol lleno de altura 2." caption="8, 4, 12, 2, 6, 10, 14: altura 2" />
+</div>
+<div style={{ flex: '1 1 260px', maxWidth: '330px' }}>
+<BinaryPicture tree={EVENS_SHUFFLED} ruler="h = 3" compact label="Los mismos valores insertados en el orden 10, 4, 14, 2, 8, 6, 12: un árbol de altura 3." caption="10, 4, 14, 2, 8, 6, 12: altura 3" />
+</div>
+<div style={{ flex: '1 1 260px', maxWidth: '330px' }}>
+<BinaryPicture tree={EVENS_CHAIN} ruler="h = 6" compact label="Los mismos valores insertados de menor a mayor: una cadena hacia la derecha de altura 6." caption="de menor a mayor: altura 6" />
+</div>
+</div>
+
+</PresentationWide>
+
+</Slide>
+
+<Slide title="Datos que llegan en orden">
+El orden de menor a mayor no es un caso raro. Los números de matrícula se
+asignan en orden creciente; los registros de un sistema llegan ordenados por
+fecha; un archivo de palabras suele venir en orden alfabético. Cargar
+cualquiera de ellos en un árbol de búsqueda lo deja como una cadena: el peor
+caso es el caso de todos los días.
+
+Cuando los valores llegan en un orden al azar, en cambio, la altura esperada
+crece como $$O(\log n)$$. Es un resultado conocido, que aquí se cita sin
+demostrar. Pero nadie garantiza que los datos lleguen al azar.
+
+</Slide>
+
+<Slide title="Una altura acotada a cambio de cuidar la forma">
+Todas las operaciones del árbol de búsqueda cuestan $$O(h)$$, y cuando los
+valores llegan ordenados, $$h$$ es $$n - 1$$: cada operación cuesta
+$$\Theta(n)$$, lo mismo que en una lista.
+
+La causa es la invariante de orden: dice de qué lado de cada nodo va cada
+valor, y no dice nada sobre la forma del árbol. Nadie impide que el árbol se
+cargue hacia un lado.
+
+¿Y si cada inserción y cada eliminación cuidaran también la forma,
+reacomodando el árbol cuando se carga hacia un lado, sin romper la invariante
+de orden? La altura quedaría acotada por $$O(\log n)$$, y con ella todas las
+operaciones. El precio sería más trabajo en cada inserción y en cada
+eliminación. Ese es el intercambio de un **árbol de búsqueda balanceado**.
 
 </Slide>
 

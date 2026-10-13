@@ -1104,14 +1104,14 @@ describe('<SequenceStepper> · the combinations 22-edd-arboles-ii mounts', () =>
       },
     },
     {
-      act: 'Las operaciones del árbol de búsqueda',
-      slide: 'Siete valores en un orden',
-      props: { eda: 'bst', operation: 'insert', values: [], value: [4, 2, 6, 1, 3, 5, 7] },
+      act: 'La altura según el orden de llegada',
+      slide: 'Un orden de llegada que llena el árbol',
+      props: { eda: 'bst', operation: 'insert', values: [], value: [8, 4, 12, 2, 6, 10, 14] },
     },
     {
-      act: 'Las operaciones del árbol de búsqueda',
-      slide: 'Los mismos siete valores, ordenados',
-      props: { eda: 'bst', operation: 'insert', values: [], value: [1, 2, 3, 4, 5, 6, 7] },
+      act: 'La altura según el orden de llegada',
+      slide: 'Valores que llegan ordenados',
+      props: { eda: 'bst', operation: 'insert', values: [], value: [2, 4, 6, 8, 10, 12, 14] },
     },
   ];
 
