@@ -55,16 +55,25 @@ export function TreeView({
       : `con raíz ${root.value} y ${count} ${count === 1 ? 'nodo' : 'nodos'}`
   }.${written.length > 0 ? ` En la tira: ${written.join(', ')}.` : ''} ${description}`;
 
+  // On a slide the drawing gets a fixed share of the stage. The cap goes on
+  // the svg itself, in absolute terms: a percentage max-height resolves
+  // against the container's HEIGHT, and a box with only a max-height has
+  // none, so `100%` capped nothing and a tree of four levels or more scrolled
+  // its panel (#322, measured in the deck). The 1.5rem is the panel's padding.
+  const cap = 'min(46vh, 440px)';
   return (
     <div
       className="flex items-center justify-center overflow-x-auto p-3"
-      style={{ maxHeight: presentation ? 'min(46vh, 440px)' : undefined }}
+      style={{ maxHeight: presentation ? cap : undefined }}
     >
       <svg
         data-testid="tree-view"
         viewBox={`0 0 ${layout.width} ${layout.height}`}
         className="h-auto w-full"
-        style={{ maxWidth: `${layout.width * 1.6}px`, maxHeight: '100%' }}
+        style={{
+          maxWidth: `${layout.width * 1.6}px`,
+          maxHeight: presentation ? `calc(${cap} - 1.5rem)` : undefined,
+        }}
         role="img"
         aria-label={summary}
       >

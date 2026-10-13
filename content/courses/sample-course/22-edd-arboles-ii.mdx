@@ -174,10 +174,27 @@ entre los dos, y el total sale ordenado.
 
 ## Las operaciones del árbol de búsqueda
 
-<Slide title="El árbol de búsqueda en Java">
-La clase guarda la raíz y ofrece métodos públicos que delegan en uno
-recursivo, que recibe la raíz de un subárbol. Para comparar dos valores se
-usa `compareTo`, así que el tipo de los valores tiene que ser comparable.
+<Slide title="Buscar en un árbol de búsqueda">
+En cada nodo hay tres respuestas posibles: el valor buscado es el del nodo, es
+menor o es mayor. Si es menor, la invariante garantiza que no está en el
+subárbol derecho, y la búsqueda sigue solo por la izquierda; si es mayor, al
+revés. Cada comparación descarta un subárbol entero.
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1rem 2rem', alignItems: 'end' }}>
+<BinaryPicture tree={EVENS} path={[8, 12, 10]} seek={10} tones={{ 10: 'keep', 4: 'faint', 2: 'faint', 6: 'faint', 14: 'faint' }} holes={[]} label="Buscar el 10: se compara con el 8 y se baja a la derecha, con el 12 y se baja a la izquierda, y el 10 es el buscado. El subárbol izquierdo del 8 y el 14 quedan descartados, atenuados." caption="buscar 10: 8, 12, 10; el resto queda descartado" />
+<BinaryPicture tree={EVENS} path={[8, 4, 6]} seek={7} probe={{ at: 6, side: 'r' }} tones={{ 6: 'focus', 2: 'faint', 12: 'faint', 10: 'faint', 14: 'faint' }} holes={[]} label="Buscar el 7: se compara con el 8, el 4 y el 6, y a la derecha del 6 está el árbol vacío. El 7 no está. El 2 y el subárbol derecho del 8 quedan descartados." caption="buscar 7: 8, 4, 6, y a la derecha de 6 no hay nada" />
+</div>
+
+La búsqueda baja por **un solo camino**, y termina en el valor o en un
+subárbol vacío. Un camino desde la raíz tiene a lo más $$h + 1$$ nodos, así
+que buscar cuesta $$O(h)$$, se encuentre o no el valor.
+
+</Slide>
+
+<Slide title="La clase BST">
+La clase guarda la raíz y ofrece un método público que delega en uno
+recursivo, que recibe la raíz de un subárbol. Los nodos son los `Node<T>` del
+árbol binario.
 
 ```java
 class BST<T extends Comparable<T>> {
@@ -186,35 +203,20 @@ class BST<T extends Comparable<T>> {
     boolean contains(T value) {
         return contains(root, value);
     }
-
-    void insert(T value) {
-        root = insert(root, value);
-    }
-
-    void remove(T value) {
-        root = remove(root, value);
-    }
 }
 ```
 
-`insert` y `remove` reasignan la raíz con lo que devuelve la versión
-recursiva, porque insertar en un árbol vacío crea la raíz, y eliminarla
-puede dejar otra en su lugar. Los nodos son los mismos `Node<T>` del árbol
-binario.
+Para comparar se usa `compareTo`, que responde un número negativo, cero o
+positivo: por eso el tipo de los valores tiene que ser comparable, `T extends
+Comparable<T>`.
 
 </Slide>
 
-<Slide title="Buscar en un árbol de búsqueda">
-En cada nodo hay tres respuestas posibles: el valor es el buscado, es mayor,
-o es menor. Si el buscado es menor, la invariante garantiza que no está a la
-derecha, y se sigue solo por la izquierda; si es mayor, al revés. La
-búsqueda baja por **un solo camino** y termina en el valor o en un subárbol
-vacío.
+<Slide title="El código de la búsqueda">
+Cada caso de la regla es una línea del método recursivo: el subárbol vacío,
+el valor encontrado, y un lado o el otro según la comparación.
 
-<SequenceStepper eda="bst" operation="search" values={[4, 2, 7, 1, 3, 6, 9]} target={[6, 5]} />
-
-Un camino desde la raíz tiene a lo más $$h + 1$$ nodos, así que buscar cuesta
-$$O(h)$$, se encuentre o no el valor.
+<SequenceStepper eda="bst" operation="search" values={[8, 4, 12, 2, 6, 10, 14]} target={[10, 7]} />
 
 </Slide>
 
@@ -223,21 +225,38 @@ Para insertar, se busca el valor. Si aparece, no se hace nada: el árbol no
 guarda repetidos. Si la búsqueda termina en un subárbol vacío, ahí se cuelga
 el valor nuevo como una **hoja**.
 
-<SequenceStepper eda="bst" operation="insert" values={[8, 5, 1, 4, 6, 7, 20]} value={12} />
+<SequenceStepper eda="bst" operation="insert" values={[8, 4, 12, 2, 6, 10, 14]} value={7} />
 
 La invariante queda en pie: la hoja nueva quedó del lado que eligió cada
-comparación, el lado correcto de cada nodo por encima de ella. Ningún otro
-nodo se mueve, y el costo es el de la búsqueda: $$O(h)$$.
+comparación, que es el lado correcto de cada nodo por encima de ella. Ningún
+otro nodo se mueve, y el costo es el de la búsqueda: $$O(h)$$.
+
+</Slide>
+
+<Slide title="La raíz que devuelve insert">
+El método recursivo devuelve la raíz del subárbol en que insertó. Casi siempre
+es el mismo nodo que recibió; la excepción es el subárbol vacío, donde
+devuelve el nodo nuevo. Por eso cada llamada guarda lo que devuelve la
+siguiente en `node.left` o `node.right`, y el método público lo guarda en
+`root`: así, insertar en un árbol vacío crea la raíz.
+
+```java
+void insert(T value) {
+    root = insert(root, value);
+}
+```
+
+<SequenceStepper eda="bst" operation="insert" values={[]} value={[8, 4, 12]} />
 
 </Slide>
 
 <Slide title="El mínimo y el máximo">
 Por la invariante, todo lo menor que un nodo está a su izquierda. El
-**mínimo** es entonces el nodo de más a la izquierda: se baja por la
-izquierda hasta un nodo que no tenga hijo izquierdo. El **máximo** es el
-simétrico: se baja por la derecha.
+**mínimo** es entonces el nodo de más a la izquierda: se baja por la izquierda
+hasta un nodo que no tenga hijo izquierdo. El **máximo** es el simétrico: se
+baja por la derecha.
 
-<SequenceStepper eda="bst" operation="minimum" values={[4, 2, 7, 1, 3, 6, 9]} />
+<SequenceStepper eda="bst" operation="minimum" values={[8, 4, 12, 2, 6, 10, 14]} />
 
 Los dos bajan por un solo camino: $$O(h)$$. En un árbol vacío no hay mínimo,
 y el método lanza una excepción.
@@ -246,82 +265,89 @@ y el método lanza una excepción.
 
 <Slide title="El sucesor y el predecesor">
 El **sucesor** de un valor es el menor valor del árbol que es mayor que él.
-Se encuentra con una sola bajada desde la raíz: en cada nodo mayor que el
-valor, ese nodo es un candidato y uno mejor solo puede estar a su izquierda;
-en cada nodo menor o igual, el sucesor solo puede estar a su derecha. El
+Se encuentra con una sola bajada desde la raíz que guarda un candidato: en
+cada nodo mayor que el valor, ese nodo es el mejor candidato hasta ahí, y uno
+mejor solo puede estar a su izquierda; en cada nodo menor o igual, el sucesor
+solo puede estar a su derecha. Cuando la bajada llega a un subárbol vacío, el
 último candidato es el sucesor.
 
-<SequenceStepper eda="bst" operation="successor" values={[4, 2, 7, 1, 3, 6, 9]} target={[3, 4]} />
+<SequenceStepper eda="bst" operation="successor" values={[8, 4, 12, 2, 6, 10, 14]} target={[6, 8]} />
 
-Si el valor tiene subárbol derecho, el sucesor es el mínimo de ese subárbol;
-si no, es el ancestro más cercano desde el que se bajó por la izquierda. El
-**predecesor**, el mayor valor menor que él, es el simétrico. Los dos cuestan
-$$O(h)$$.
+El **predecesor**, el mayor valor menor que él, es el simétrico. Los dos
+cuestan $$O(h)$$.
 
 </Slide>
 
 <Slide title="Eliminar una hoja">
-Para eliminar, primero se busca el valor. Cuando el nodo que lo tiene es una
-**hoja**, basta con que su padre deje de apuntarle: la recursión devuelve el
-subárbol vacío y el padre lo guarda en lugar del nodo.
+Para eliminar, primero se busca el valor. Cuando el nodo que lo guarda es una
+**hoja**, basta con que su padre deje de apuntarle: en ese lado queda el árbol
+vacío.
 
-<SequenceStepper eda="bst" operation="remove" values={[4, 2, 7, 1, 3, 6, 9]} target={1} />
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1rem 2rem', alignItems: 'end' }}>
+<BinaryPicture tree={EVENS} tones={{ 2: 'mark' }} holes={[]} label="El árbol de búsqueda con el 2 marcado: es una hoja, hijo izquierdo del 4." caption="eliminar 2, una hoja" />
+<BinaryPicture tree={EVENS} tones={{ 2: 'hidden' }} holes={[4]} label="El mismo árbol sin el 2: el hijo izquierdo del 4 es ahora el árbol vacío." caption="el 4 apunta a null por la izquierda" />
+</div>
 
 </Slide>
 
 <Slide title="Eliminar un nodo con un hijo">
-Cuando el nodo tiene **un solo hijo**, su padre pasa a apuntar a ese hijo.
+Cuando el nodo tiene **un solo hijo**, su padre pasa a apuntar a ese hijo. La
+invariante se mantiene: todo el subárbol del hijo estaba del mismo lado del
+padre que el nodo eliminado.
 
-<SequenceStepper eda="bst" operation="remove" values={[8, 5, 1, 4, 6, 7, 20, 12]} target={1} />
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1rem 2rem', alignItems: 'end' }}>
+<BinaryPicture tree={EVENS_WITH_7} tones={{ 6: 'mark' }} minColumns={8} label="El árbol de búsqueda con el 7 colgando del 6. El 6 está marcado: tiene un solo hijo, el 7, a la derecha." caption="eliminar 6, que tiene un solo hijo" />
+<BinaryPicture tree={{ v: 8, l: { v: 4, l: { v: 2 }, r: { v: 7 } }, r: { v: 12, l: { v: 10 }, r: { v: 14 } } }} fresh={7} minColumns={8} label="El árbol sin el 6: el 4 apunta ahora directamente al 7, que quedó como su hijo derecho." caption="el 4 pasa a apuntar al 7" />
+</div>
 
 </Slide>
-
-La invariante se mantiene: todo el subárbol del hijo estaba del mismo lado
-del padre que el nodo eliminado.
 
 <Slide title="Eliminar un nodo con dos hijos">
-Con **dos hijos**, el nodo toma el valor de su **sucesor** y se elimina el sucesor.
+Un nodo con **dos hijos** no se puede sacar: dejaría dos subárboles colgando,
+y su padre tiene lugar para uno solo. Por eso el nodo se queda y cambia de
+valor: toma el de su **sucesor**, el mínimo de su subárbol derecho, y después
+se elimina el sucesor.
 
-<SequenceStepper eda="bst" operation="remove" values={[8, 5, 1, 4, 6, 7, 20, 12]} target={8} />
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1rem 2rem', alignItems: 'end' }}>
+<BinaryPicture tree={EVENS} tones={{ 8: 'mark', 10: 'focus' }} notes={{ 10: 'sucesor' }} holes={[]} label="El árbol de búsqueda con el 8 marcado: tiene dos hijos. Su sucesor, el mínimo de su subárbol derecho, es el 10." caption="eliminar 8: su sucesor es 10" />
+<BinaryPicture tree={{ v: 10, l: { v: 4, l: { v: 2 }, r: { v: 6 } }, r: { v: 12, r: { v: 14 } } }} tones={{ 10: 'mark' }} holes={[12]} minColumns={7} label="El árbol después: la raíz tomó el valor 10, y el nodo del 10 que estaba abajo se eliminó; el 12 ya no tiene hijo izquierdo." caption="la raíz toma el 10, y el 10 de abajo se elimina" />
+</div>
 
-</Slide>
-
-Sacar el nodo dejaría dos subárboles colgando, y su padre solo tiene lugar
-para uno; por eso se reemplaza su valor en lugar de quitarlo. El sucesor es el mínimo del subárbol derecho, y su valor es mayor que todo lo de la izquierda y menor que todo lo
-demás de la derecha, así que la invariante queda en pie. Y el sucesor, por
-ser el mínimo de un subárbol, no tiene hijo izquierdo: eliminarlo es uno de
-los dos casos anteriores. Todo el trabajo es bajar dos veces por un camino:
-$$O(h)$$.
-
-<Slide title="Eliminar con dos hijos · la pregunta">
-En este árbol, el 5 tiene dos hijos. Antes de pasar a la respuesta,
-dibujemos cómo queda el árbol después de eliminarlo.
-
-<BinaryPicture tree={{ v: 8, l: { v: 5, l: { v: 1, r: { v: 4 } }, r: { v: 6, r: { v: 7 } } }, r: { v: 20, l: { v: 12 } } }} tones={{ 5: 'focus' }} label="Un árbol de búsqueda: 8 en la raíz; a su izquierda el 5, con hijos 1 y 6; el 1 con un hijo derecho, 4; el 6 con un hijo derecho, 7; a la derecha del 8, el 20, con un hijo izquierdo, 12. El 5 está marcado." caption="eliminar 5, que tiene dos hijos" />
+El sucesor es mayor que todo lo de la izquierda y menor que todo lo demás de
+la derecha: cabe exactamente en el lugar que deja el valor eliminado. Y como
+es un mínimo, no tiene hijo izquierdo, así que eliminarlo es uno de los dos
+casos anteriores.
 
 </Slide>
 
-<Slide title="Eliminar con dos hijos · la respuesta">
-El 5 toma el valor de su sucesor, 6, y el 6 de abajo deja su lugar al 7.
+<Slide title="El código de la eliminación">
+Cada caso es una rama del método recursivo, que devuelve la raíz del subárbol
+que queda.
 
-<SequenceStepper eda="bst" operation="remove" values={[8, 5, 1, 4, 6, 7, 20, 12]} target={5} />
+<SequenceStepper eda="bst" operation="remove" values={[8, 4, 12, 2, 6, 10, 14, 7]} target={[2, 6, 8]} />
 
 </Slide>
+
+Como `insert`, cada llamada guarda lo que devuelve la siguiente donde estaba
+el nodo. Una hoja devuelve `null`, un nodo con un hijo devuelve ese hijo, y
+uno con dos hijos copia el valor de su sucesor y lo elimina de su derecha.
+Todo el trabajo es bajar dos veces por un camino, una hasta el nodo y otra
+hasta su sucesor: el costo sigue siendo $$O(h)$$.
 
 <Slide title="Costos del árbol de búsqueda">
 Cada operación baja por un camino desde la raíz, así que todas cuestan lo
 mismo: la altura.
 
-| Molde     | Operación                       | Peor caso  | Invariante que restaura                                    |
-| --------- | ------------------------------- | ---------- | ---------------------------------------------------------- |
-| Consultar | `contains`                      | $$O(h)$$   | Ninguna: no cambia el árbol                                |
-| Consultar | mínimo, máximo                  | $$O(h)$$   | Ninguna: no cambia el árbol                                |
-| Consultar | sucesor, predecesor             | $$O(h)$$   | Ninguna: no cambia el árbol                                |
-| Modificar | `insert`                        | $$O(h)$$   | La de orden: la hoja nueva queda del lado que eligió cada comparación |
-| Modificar | `remove`                        | $$O(h)$$   | La de orden: el sucesor cabe exactamente en el lugar que deja |
+| Molde     | Operación           | Peor caso | Invariante que restaura                                              |
+| --------- | ------------------- | --------- | -------------------------------------------------------------------- |
+| Consultar | `contains`          | $$O(h)$$  | Ninguna: no cambia el árbol                                          |
+| Consultar | mínimo, máximo      | $$O(h)$$  | Ninguna: no cambia el árbol                                          |
+| Consultar | sucesor, predecesor | $$O(h)$$  | Ninguna: no cambia el árbol                                          |
+| Modificar | `insert`            | $$O(h)$$  | La de orden: la hoja nueva queda del lado que eligió cada comparación |
+| Modificar | `remove`            | $$O(h)$$  | La de orden: el sucesor cabe justo en el lugar que deja              |
 
-Y la altura de un árbol de $$n$$ nodos está entre $$\lfloor \log_2 n \rfloor$$
-y $$n - 1$$.
+La altura de un árbol binario de $$n$$ nodos está entre
+$$\lfloor \log_2 n \rfloor$$ y $$n - 1$$.
 
 </Slide>
 
