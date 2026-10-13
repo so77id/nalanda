@@ -1172,18 +1172,6 @@ describe('<SequenceStepper> · the combinations 22-edd-arboles-ii mounts', () =>
     },
     {
       act: 'the opening, with no heading',
-      slide: 'Insertar en un arreglo ordenado',
-      props: {
-        eda: 'dynamic-array',
-        operation: 'insert-at',
-        values: [2, 4, 6, 8, 10, 12, 14],
-        value: 7,
-        index: 3,
-        capacity: 8,
-      },
-    },
-    {
-      act: 'the opening, with no heading',
       slide: 'El código del inorden',
       props: { eda: 'binary-tree', operation: 'inorder', values: [8, 4, 12, 2, 6, 10, 14] },
     },

@@ -77,7 +77,7 @@ export function OrderSides({ label }) {
   );
 }
 
-{/* The tree the decisions of a binary search over 2, 4, …, 14 form: its inorder is the array itself. The opening threads it through, and the same insertion of 7 runs in the array and in the tree. */}
+{/* The tree the decisions of a binary search over 2, 4, …, 14 form: its inorder is the array itself. The opening threads it through: the binary search runs over it, and the 7 it lacks is searched and hung as a leaf in the tree. */}
 
 export const EVENS = { v: 8, l: { v: 4, l: { v: 2 }, r: { v: 6 } }, r: { v: 12, l: { v: 10 }, r: { v: 14 } } };
 
@@ -124,16 +124,6 @@ recursión, una llamada por rango, o con un ciclo que achica el rango: las dos
 comparan los mismos valores en el mismo orden.
 
 <SequenceStepper eda="dynamic-array" operation="binary-search" values={[2, 4, 6, 8, 10, 12, 14]} target={6} iterative />
-
-</Slide>
-
-<Slide title="Insertar en un arreglo ordenado">
-La búsqueda binaria también dice dónde va un valor nuevo: en la posición
-donde la búsqueda terminó sin encontrarlo. Pero para abrirle esa casilla,
-cada valor mayor se corre un lugar a la derecha, empezando por el último. En
-el peor caso se corren todos: $$\Theta(n)$$.
-
-<SequenceStepper eda="dynamic-array" operation="insert-at" values={[2, 4, 6, 8, 10, 12, 14]} value={7} index={3} capacity={8} />
 
 </Slide>
 
