@@ -1263,3 +1263,138 @@ listas toleran mejor una tabla llena y eliminan sin dejar rastro. Las dos,
 tal como están escritas, solo guardan claves `String`.
 
 </Slide>
+
+<SectionBreak />
+
+## Una tabla para cualquier clave
+
+<Slide title="Claves que son objetos">
+Las dos tablas guardan claves `String`. Para guardar claves de cualquier tipo
+—personas, puntos, fechas— la tabla necesita dos cosas de cada clave: un
+número para calcular su posición, y una manera de decidir si dos claves son la
+misma. Java se las da a todo objeto: los métodos `hashCode()` y
+`equals(Object)`, que toda clase hereda de `Object`.
+
+La tabla usa `hashCode()` en lugar de su propio ciclo, y `equals` para
+comparar, como ya hacía con los `String`. El `hashCode()` de un `String` es la
+misma regla de Horner con 31, sin reducir: en un texto largo el `int` se
+desborda y puede quedar negativo. Y en Java el resto de un número negativo es
+negativo, así que la posición se calcula con `Math.floorMod`, que siempre da
+un resultado entre 0 y $$M - 1$$.
+
+| Clave              | `hashCode()`   | `hashCode() % 7` | `Math.floorMod(hashCode(), 7)` |
+| ------------------ | -------------- | ---------------- | ------------------------------ |
+| «Ana»              | 65 972         | 4                | 4                              |
+| «Constantinopla»   | −324 698 497   | −4               | 3                              |
+
+</Slide>
+
+<Slide title="La tabla genérica">
+Con un tipo `T` para las claves, el nodo pasa a ser `Node<T>`, con un campo
+`T key`, y `hash` deja el ciclo de Horner en manos de `hashCode()`. Un arreglo
+de un tipo genérico no se puede crear directamente: se crea un arreglo de
+`Node` y se convierte.
+
+```java
+class ChainedHashTable<T> {
+    private Node<T>[] table;
+    private int size;
+
+    ChainedHashTable(int capacity) {
+        if (capacity < 1) throw new IllegalArgumentException();
+        table = (Node<T>[]) new Node[capacity];
+    }
+
+    private int hash(T key) {
+        if (key == null) throw new IllegalArgumentException();
+        return Math.floorMod(key.hashCode(), table.length);
+    }
+}
+```
+
+`contains`, `add` y `remove` no cambian: solo reciben un `T` en lugar de un
+`String`, y siguen comparando con `equals`.
+
+</Slide>
+
+<Slide title="El contrato entre hashCode y equals">
+La tabla busca una clave en la lista de **su** posición, y dentro de ella
+compara con `equals`. Para que eso funcione, `hashCode` y `equals` tienen que
+cumplir un contrato:
+
+> si `a.equals(b)`, entonces `a.hashCode() == b.hashCode()`.
+
+Dos claves iguales tienen que ir a la misma posición, o la búsqueda de una
+mira la lista equivocada y no encuentra la otra. Lo inverso no es necesario:
+dos claves distintas pueden tener el mismo `hashCode`, y eso es solo una
+colisión, que la tabla ya sabe resolver.
+
+</Slide>
+
+<Slide title="Un contrato roto">
+Una `Persona` cuya igualdad es el RUT sobrescribe `equals`, pero si no
+sobrescribe `hashCode`, hereda el de `Object`, que depende de cada objeto en
+memoria. Dos personas iguales tienen entonces `hashCode` distintos: caen en
+listas distintas, y `contains` busca en la que no es.
+
+<Reparto
+  id="contrato"
+  keys={[{ name: 'Ana · 12345, agregada', to: 2 }, { name: 'Ana · 12345, buscada', to: 5 }]}
+  cells={7}
+  caption="dos personas iguales con el hashCode de Object: por ejemplo, la 2 y la 5. En la JVM, contains acertó 146 de 1000 veces, solo por azar"
+  label="Dos objetos Persona iguales, Ana con RUT 12345: el que se agregó va a la posición 2 y el que se busca a la 5, porque cada uno tiene el hashCode heredado de Object."
+/>
+
+El error no se ve al compilar ni al ejecutar: la tabla simplemente responde
+que la clave no está. Una clase que sobrescribe `equals` sobrescribe
+también `hashCode`.
+
+</Slide>
+
+<Slide title="Escribir hashCode">
+`hashCode` combina los mismos campos que compara `equals`, con la misma regla
+de Horner: cada campo multiplica lo anterior por 31 y suma su propio valor.
+Para un `Punto` con campos `x` e `y`:
+
+```java
+@Override
+public boolean equals(Object o) {
+    if (!(o instanceof Punto)) return false;
+    Punto p = (Punto) o;
+    return x == p.x && y == p.y;
+}
+
+@Override
+public int hashCode() {
+    return 31 * x + y;
+}
+```
+
+Dos puntos iguales tienen los mismos `x` e `y`, y por lo tanto el mismo
+`hashCode`. `Objects.hash(x, y)`, de `java.util.Objects`, hace la misma
+cuenta con cualquier cantidad de campos, y un `record` trae `equals` y
+`hashCode` ya escritos con todos sus campos.
+
+</Slide>
+
+<Slide title="Claves que cambian">
+Si una clave cambia después de agregarse, cambia también su `hashCode`. La
+clave sigue en la lista de la posición que tenía al entrar, pero una búsqueda
+la busca en la posición nueva: la tabla la pierde, y ni ella misma ni una
+igual a la original se encuentran.
+
+<Reparto
+  id="mutable"
+  keys={[{ name: '(3, 4), al agregarlo', to: 6 }, { name: '(5, 4), al buscarlo', to: 5 }]}
+  cells={7}
+  contents={[null, null, null, null, null, null, '(5, 4)']}
+  caption="con 7 posiciones, el punto entra en la 6; cambia x a 5 y la búsqueda va a la 5"
+  label="Un punto agregado como (3, 4) entra en la posición 6. Después su x cambia a 5: el mismo objeto, ahora (5, 4), sigue guardado en la 6, pero su búsqueda va a la posición 5."
+/>
+
+Por eso las claves de una tabla hash son **inmutables**: `String`, `Integer`,
+un `record`, o una clase cuyos campos son `final`. Las tablas de la biblioteca
+de Java funcionan exactamente así: piden las claves con `hashCode` y
+`equals`, y confían en ese contrato.
+
+</Slide>
