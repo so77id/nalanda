@@ -1,6 +1,6 @@
 # ADR-0083: `<SequenceStepper>` gains a linked binary tree — every node in the column of its inorder position
 
-**Status:** Proposed
+**Status:** Accepted — the professor's review of the recipe in `/catalog/c/SequenceStepper` outstanding
 **Date:** 2026-10-11
 **Decision-makers:** Miguel Rodriguez
 **Source:** Issue #321 (Estructuras de Datos Avanzadas · Árboles I), slice S2.
@@ -125,10 +125,10 @@ slides set: the traversal stays, the visit is what a problem changes.
   the cost slide grows one level per value and stops fitting a slide.
 - **Stacked in both modes**, listing over tree, like the chains — not side by
   side like the heap's two pictures, which are two views of one array.
-These came out of the design step of #321 and stay **Proposed** while the
-professor has not reviewed the recipe running in `/catalog/c/SequenceStepper`.
-The recipe is implemented in full (S2, S3); its acceptance is that review,
-not the code.
+These came out of the design step of #321. The recipe is implemented in
+full (S2, S3) and ships with the class, so the ADR is Accepted with the
+professor's review of the recipe running in `/catalog/c/SequenceStepper` still
+outstanding (#321 review, B14): that review, not the code, is what closes it.
 
 ## Alternatives considered
 

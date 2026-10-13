@@ -843,6 +843,10 @@ page-only, invisible to every other gate.
   per document under the default 5 s per test — where a loaded full run of
   #321's review timed out once (the heap's case, about 1 s alone). Moving the
   compile does not touch those; the six comments point back here.
+  **When a render test times out only under load,** run that file alone to
+  confirm it is load and not a regression. The pre-PR suite may then run at
+  `--maxWorkers=2`, as #321's did, and the PR says so. `testTimeout` is never
+  raised without asking the user.
 
   **Prove it in both directions rather than asserting it.** Patch each entry so
   its FIRST resolution is delayed and later calls are served from cache, which

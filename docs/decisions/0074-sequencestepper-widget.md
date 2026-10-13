@@ -17,7 +17,7 @@ design reference proposed
 first. #304 amends two things below: the `array` recipe is deleted, and the
 heap's `swap` state is the one data state painted in `accent` (both
 `Amended by: #304`).
-**Extended by:** ADR-0083 (#321, Proposed) — a recipe for a linked binary
+**Extended by:** ADR-0083 (#321) — a recipe for a linked binary
 tree, each node in the column of its inorder position: `binary-tree`, with
 the three traversals, `height` and `search`. One thing here changes, for the
 tree only: the `size` readout (`Amended by: #321`, the last amendment

@@ -1210,7 +1210,11 @@ What that costs, and the rules that follow from it:
   no gate at all, so it is checked the way a figure is checked — in a browser,
   over both grounds, walking every frame. For the same reason a prop no call
   site passes, or a branch no call site reaches, is removed before merge: the
-  review of #304 found nine of them left over from redraws.
+  review of #304 found nine of them left over from redraws. One exception, and
+  the bar for the next: a prop that a copy of the component on a stacked
+  branch passes stays, so the two copies remain the same for the branch that
+  promotes them, and the note at the definition names that issue (#321 →
+  #322, `BinaryPicture`'s `notes`). The promotion retires it.
 - **One that copies a tested module's geometry names it, and is named back.**
   #304 is the second worked case and the larger one — 23 exports plus
   `LIST_COLORS` for the heap pictures and three exercises, some composing
