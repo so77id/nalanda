@@ -55,12 +55,16 @@ read. The 305 pages the eight earlier controls had captured land on the same
 (copy, page) with **bit-identical transforms** (`a`–`f` and MSE of
 `capture_page`), so every box on them reads exactly as before. The incident
 control's 31 placed pages land on the same (copy, page) too, but 14 of them
-are fitted differently (up to 6.2 px of shift): on a sheet at 0.87 the wider
-band finds corners the default missed. Box by box, 2 of its 1,612 boxes change
-verdict, both on copy 16 page 2, question 11, from doubtful (darkness 0.088,
-identical on both boxes, which reads like a frame fitted onto the printed
-border rather than a pencil) to blank; no ticked box changes, so no score
-does. Its three missing pages land on (9, 2), (10, 2) and (11, 2) with MSE
+are fitted differently (up to 6.2 px of shift). All 14 had MSE 0.00 under the
+default: an exact fit, which an affine transform gets from three points, so
+AMC fitted them with three circles. Under `0.35,0.2` they fit all four
+(MSE 1.02–3.61, the range of every good page). Box by box, 2 of its 1,612
+boxes change verdict, both on copy 16 page 2, question 11, from doubtful
+(darkness 0.088, identical on both boxes, which reads like a three-circle
+frame landing on the printed border rather than a pencil — not confirmed
+by anyone looking at the sheet yet) to blank. No ticked box changes, so no
+score does; but a doubtful box is what sends a copy to `needs_review`, so
+the change can take a review flag away. Its three missing pages land on (9, 2), (10, 2) and (11, 2) with MSE
 ≤3.61. The 44 pages of the first control (2026-08-20) that AMC never placed
 stay unplaced under both tolerances. The wider band does not start accepting
 what it should not.
