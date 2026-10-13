@@ -1085,6 +1085,264 @@ check(Solution.lowestCommonAncestor(root, 14, 14), 14);
 
 </Slide>
 
+<Slide title="Recorrer un árbol con un for">
+En Java, `for (int x : lista)` recorre cualquier objeto que implemente
+`Iterable`: le pide un **iterador**, un objeto con dos métodos. `hasNext`
+responde si quedan valores, y `next` entrega el siguiente, o lanza
+`NoSuchElementException` si no queda ninguno. Para que un árbol de búsqueda se
+recorra con un `for`, de menor a mayor, hace falta su iterador.
+
+<BinaryPicture tree={EVENS} visits="in" sequence label="El árbol de búsqueda con 8 en la raíz, recorrido de menor a mayor: el iterador entrega 2, 4, 6, 8, 10, 12 y 14, en ese orden." caption="cada next entrega el siguiente: 2, 4, 6, 8, 10, 12, 14" />
+
+El iterador recibe la raíz del árbol, que puede estar vacío, y entrega sus
+valores en orden; en un árbol vacío, `hasNext` responde `false` desde el
+principio. Puede pedir memoria proporcional a la altura del árbol, $$O(h)$$,
+pero no a la cantidad de valores.
+
+```java
+class InorderIterator<T> implements Iterator<T> {
+    InorderIterator(Node<T> root)
+    public boolean hasNext()
+    public T next()
+}
+```
+
+</Slide>
+
+<Slide title="Copiar el inorden a una lista">
+La idea a mano es recorrer el árbol en inorden al crear el iterador, guardar
+los valores en una lista y entregarlos de a uno. Funciona, pero copia el árbol
+entero: la memoria es $$\Theta(n)$$, no $$O(h)$$. Y hace todo el trabajo antes
+de entregar el primer valor, aunque el `for` se detenga en el segundo.
+
+El inorden recursivo no sirve tal cual: una recursión no se puede pausar a la
+mitad. Entrega todos los valores de una vez, y un iterador tiene que entregar
+uno y esperar.
+
+</Slide>
+
+<Slide title="Pausar el inorden">
+Mientras el inorden recursivo baja por la izquierda, deja pendientes los nodos
+del camino: cada uno espera a que termine su subárbol izquierdo para ser
+visitado. Esos pendientes son lo único que hay que recordar para pausar el
+recorrido. El siguiente valor es siempre el **último** pendiente que se
+agregó; al entregarlo, quedan pendientes los nodos del camino hacia la
+izquierda desde su hijo derecho. Así, los pendientes forman una **pila**.
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '1rem 2rem', alignItems: 'center' }}>
+<BinaryPicture tree={EVENS} label="El árbol de búsqueda con 8 en la raíz; 4 y 12 debajo; 2, 6, 10 y 14 en el último nivel." caption="el árbol que se recorre" />
+<div>
+
+|            | Entrega | Pendientes después |
+| ---------- | ------- | ------------------ |
+| Al crearlo | —       | 8, 4, 2            |
+| `next`     | 2       | 8, 4               |
+| `next`     | 4       | 8, 6               |
+| `next`     | 6       | 8                  |
+| `next`     | 8       | 12, 10             |
+| `next`     | 10      | 12                 |
+| `next`     | 12      | 14                 |
+| `next`     | 14      | ninguno            |
+
+</div>
+</div>
+
+Los pendientes se leen de abajo hacia arriba de la pila: el último de cada
+lista es el que sale con el próximo `next`.
+
+</Slide>
+
+<Slide title="Iterador · los pendientes">
+El iterador guarda los nodos pendientes en una pila, `pending`. Al crearlo,
+baja por la izquierda desde la raíz y deja pendiente cada nodo del camino; eso
+lo hace `pushLeft`, que también usa `next`. Quedan valores mientras quede algún
+pendiente.
+
+```java
+class InorderIterator<T> implements Iterator<T> {
+    private final Deque<Node<T>> pending =
+            new ArrayDeque<>();
+
+    InorderIterator(Node<T> root) {
+        pushLeft(root);
+    }
+
+    public boolean hasNext() {
+        return !pending.isEmpty();
+    }
+}
+```
+
+<BinaryPicture tree={EVENS} tones={{ 8: 'focus', 4: 'focus', 2: 'focus' }} size={0.7} label="Al crear el iterador, quedan pendientes los nodos del camino hacia la izquierda desde la raíz: 8, 4 y 2." caption="al crearlo: pendientes 8, 4, 2" />
+
+</Slide>
+
+<Slide title="Iterador · la solución">
+`next` saca el último pendiente y, antes de entregarlo, deja pendientes los
+nodos del camino hacia la izquierda desde su hijo derecho.
+
+<StepShow
+  language="java"
+  code={`private void pushLeft(Node<T> node) {
+    while (node != null) {
+        pending.push(node);
+        node = node.left;
+    }
+}
+
+public T next() {
+    if (pending.isEmpty()) {
+        throw new NoSuchElementException();
+    }
+    Node<T> node = pending.pop();
+    pushLeft(node.right);
+    return node.value;
+}`}
+>
+  <Step lines={[12, 13, 14]}>
+    <BinaryPicture tree={EVENS} tones={{ 8: 'focus', 4: 'focus', 2: 'keep' }} size={0.8} label="next saca el 2, el último pendiente; su derecha está vacía. Entrega 2, y quedan pendientes 8 y 4." />
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>next entrega 2; pendientes 8, 4.</div>
+  </Step>
+  <Step lines={[12, 13, 2, 3, 4, 14]}>
+    <BinaryPicture tree={EVENS} tones={{ 8: 'focus', 6: 'focus', 2: 'done', 4: 'keep' }} size={0.8} label="next saca el 4 y baja por la izquierda desde su hijo derecho, el 6. Entrega 4, y quedan pendientes 8 y 6." />
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>next entrega 4 y deja pendiente al 6; pendientes 8, 6.</div>
+  </Step>
+  <Step lines={[12, 13, 14]}>
+    <BinaryPicture tree={EVENS} tones={{ 8: 'focus', 2: 'done', 4: 'done', 6: 'keep' }} size={0.8} label="next saca el 6. Entrega 6, y queda pendiente el 8." />
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>next entrega 6; pendiente 8.</div>
+  </Step>
+  <Step lines={[12, 13, 2, 3, 4, 14]}>
+    <BinaryPicture tree={EVENS} tones={{ 12: 'focus', 10: 'focus', 2: 'done', 4: 'done', 6: 'done', 8: 'keep' }} size={0.8} label="next saca el 8 y baja por la izquierda desde su hijo derecho: quedan pendientes 12 y 10. Entrega 8." />
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>next entrega 8 y deja pendientes al 12 y al 10.</div>
+  </Step>
+  <Step lines={[12, 13, 14]}>
+    <BinaryPicture tree={EVENS} tones={{ 12: 'focus', 2: 'done', 4: 'done', 6: 'done', 8: 'done', 10: 'keep' }} size={0.8} label="next saca el 10. Entrega 10, y queda pendiente el 12." />
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>next entrega 10; pendiente 12.</div>
+  </Step>
+  <Step lines={[12, 13, 2, 3, 4, 14]}>
+    <BinaryPicture tree={EVENS} tones={{ 14: 'focus', 2: 'done', 4: 'done', 6: 'done', 8: 'done', 10: 'done', 12: 'keep' }} size={0.8} label="next saca el 12 y deja pendiente a su hijo derecho, el 14. Entrega 12." />
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>next entrega 12 y deja pendiente al 14.</div>
+  </Step>
+  <Step lines={[12, 13, 14]}>
+    <BinaryPicture tree={EVENS} tones={{ 2: 'done', 4: 'done', 6: 'done', 8: 'done', 10: 'done', 12: 'done', 14: 'keep' }} size={0.8} label="next saca el 14. Entrega 14, y no queda nada pendiente: hasNext responde false." />
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>next entrega 14; no queda nada pendiente.</div>
+  </Step>
+</StepShow>
+
+</Slide>
+
+<Slide title="El árbol vacío y el costo de next">
+Con el árbol vacío, el constructor no deja nada pendiente: `hasNext` responde
+`false` y `next` lanza la excepción, como pide el contrato de `Iterator`.
+
+**Tiempo.** Un solo `next` puede bajar por un camino entero, $$O(h)$$. Pero
+cada nodo entra a la pila una vez y sale una vez, así que recorrer los $$n$$
+valores cuesta $$\Theta(n)$$ en total: $$O(1)$$ por `next`, en promedio.
+**Memoria.** La pila guarda un camino a la vez: $$O(h)$$.
+
+Para que el árbol se recorra con un `for`, la clase implementa `Iterable` y
+devuelve su iterador:
+
+```java
+class BST<T extends Comparable<T>> implements Iterable<T> {
+    Node<T> root;
+
+    public Iterator<T> iterator() {
+        return new InorderIterator<>(root);
+    }
+}
+```
+
+</Slide>
+
+<Slide title="Iterador · el programa completo">
+<PresentationWide fraction={0.75}>
+<Exercise title="Un iterador para el árbol de búsqueda">
+
+```java starter
+import java.util.ArrayDeque;
+import java.util.Deque;
+import java.util.Iterator;
+import java.util.NoSuchElementException;
+
+class Node<T> {
+    T value;
+    Node<T> left;
+    Node<T> right;
+    Node(T value) { this.value = value; }
+}
+
+class InorderIterator<T> implements Iterator<T> {
+    private final Deque<Node<T>> pending =
+            new ArrayDeque<>();
+
+    InorderIterator(Node<T> root) {
+        pushLeft(root);
+    }
+
+    private void pushLeft(Node<T> node) {
+        while (node != null) {
+            pending.push(node);
+            node = node.left;
+        }
+    }
+
+    public boolean hasNext() {
+        return !pending.isEmpty();
+    }
+
+    public T next() {
+        if (pending.isEmpty()) {
+            throw new NoSuchElementException();
+        }
+        Node<T> node = pending.pop();
+        pushLeft(node.right);
+        return node.value;
+    }
+}
+
+class BST<T extends Comparable<T>> implements Iterable<T> {
+    Node<T> root;
+
+    public Iterator<T> iterator() {
+        return new InorderIterator<>(root);
+    }
+}
+```
+
+```java test
+Node<Integer> root = new Node<>(8);
+root.left = new Node<>(4);
+root.left.left = new Node<>(2);
+root.left.right = new Node<>(6);
+root.right = new Node<>(12);
+root.right.left = new Node<>(10);
+root.right.right = new Node<>(14);
+InorderIterator<Integer> it = new InorderIterator<>(root);
+check((int) it.next(), 2);
+check((int) it.next(), 4);
+check((int) it.next(), 6);
+check(it.hasNext(), true);
+BST<Integer> tree = new BST<>();
+tree.root = root;
+String all = "";
+for (int x : tree) all += x + " ";
+check(all, "2 4 6 8 10 12 14 ");
+check(new InorderIterator<Integer>(null).hasNext(), false);
+boolean threw = false;
+try {
+    new InorderIterator<Integer>(null).next();
+} catch (java.util.NoSuchElementException e) {
+    threw = true;
+}
+check(threw, true);
+```
+
+</Exercise>
+</PresentationWide>
+
+</Slide>
+
 <Slide title="Un árbol de búsqueda de altura mínima">
 Un arreglo trae valores distintos, ya ordenados de menor a mayor, y hay que
 guardarlos en un árbol binario de búsqueda **lo más bajo posible**: con $$n$$
