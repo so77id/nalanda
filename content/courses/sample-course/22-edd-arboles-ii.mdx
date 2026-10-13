@@ -84,8 +84,8 @@ export const EVENS = { v: 8, l: { v: 4, l: { v: 2 }, r: { v: 6 } }, r: { v: 12, 
 export const EVENS_WITH_7 = { v: 8, l: { v: 4, l: { v: 2 }, r: { v: 6, r: { v: 7 } } }, r: { v: 12, l: { v: 10 }, r: { v: 14 } } };
 
 <Slide title="Un dilema entre buscar e insertar">
-Las estructuras que guardan sus elementos en fila resuelven bien una de las dos
-operaciones y mal la otra.
+Las estructuras que guardan sus elementos en fila no resuelven bien las dos
+operaciones a la vez: buscar e insertar.
 
 - **Sin orden**, un valor nuevo entra al final de un arreglo, o al principio
   de una lista, sin mirar a los demás. Pero buscar obliga a revisar los
@@ -222,10 +222,10 @@ lado correcto de cada uno de sus ancestros.
 
 ## Las operaciones del árbol de búsqueda
 
-<Slide title="La clase BST">
+<Slide title="El nodo y la clase BST">
 Las operaciones se escriben sobre dos clases. El árbol de búsqueda usa el
-mismo nodo del árbol binario: un valor y una referencia a cada hijo. La clase del árbol guarda solo la raíz, y un árbol
-vacío tiene la raíz en `null`.
+mismo nodo del árbol binario: un valor y una referencia a cada hijo. La clase
+del árbol guarda solo la raíz, y un árbol vacío tiene la raíz en `null`.
 
 ```java
 class Node<T> {
@@ -290,7 +290,7 @@ costo es el de la búsqueda, $$O(h)$$.
 
 </Slide>
 
-<Slide title="La raíz que devuelve insert">
+<Slide title="La raíz que devuelve insert y su envoltorio">
 El método recursivo recibe la raíz de un subárbol y devuelve la raíz de ese
 mismo subárbol después de insertar. Casi siempre es el nodo que recibió; la
 excepción es el subárbol vacío, donde devuelve el nodo nuevo. Por eso cada
@@ -351,9 +351,9 @@ el derecho.
 
 <Slide title="El mínimo y el máximo">
 Por la invariante, todo lo menor que un nodo está a su izquierda. El
-**mínimo**, el primero del inorden, es entonces el nodo de más a la izquierda: se baja por la izquierda
-hasta un nodo que no tenga hijo izquierdo. El **máximo** es el simétrico: se
-baja por la derecha. Con recursión es una llamada a la izquierda por nivel;
+**mínimo**, el primero del inorden, es entonces el nodo de más a la izquierda:
+se baja por la izquierda hasta un nodo que no tenga hijo izquierdo. El
+**máximo** es el simétrico: se baja por la derecha. Con recursión es una llamada a la izquierda por nivel;
 con un ciclo, una variable que baja mientras haya izquierda.
 
 <SequenceStepper eda="bst" operation="minimum" values={[8, 4, 12, 2, 6, 10, 14]} iterative />
@@ -365,9 +365,9 @@ y el método lanza una excepción.
 
 <Slide title="El sucesor y el predecesor">
 El **sucesor** de un valor es el menor valor del árbol que es mayor que él:
-el que le sigue en el inorden. Se encuentra con una sola bajada desde la raíz que guarda un candidato: en
-cada nodo mayor que el valor, ese nodo es el mejor candidato hasta ahí, y uno
-mejor solo puede estar a su izquierda; en cada nodo menor o igual, el sucesor
+el que le sigue en el inorden. Se encuentra con una sola bajada desde la raíz
+que guarda un candidato: en cada nodo mayor que el valor, ese nodo es el mejor
+candidato hasta ahí, y uno mejor solo puede estar a su izquierda; en cada nodo menor o igual, el sucesor
 solo puede estar a su derecha. Cuando la bajada llega a un subárbol vacío, el
 último candidato es el sucesor.
 
