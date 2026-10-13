@@ -171,15 +171,11 @@ private Node<T> minimum(Node<T> node) {
 private Node<T> remove(Node<T> node, T value) {
     if (node == null) return null;
     int c = value.compareTo(node.value);
-    if (c < 0) {
-        node.left = remove(node.left, value);
-    } else if (c > 0) {
-        node.right = remove(node.right, value);
-    } else if (node.left == null) {
-        return node.right;
-    } else if (node.right == null) {
-        return node.left;
-    } else {
+    if (c < 0) node.left = remove(node.left, value);
+    else if (c > 0) node.right = remove(node.right, value);
+    else if (node.left == null) return node.right;
+    else if (node.right == null) return node.left;
+    else {
         Node<T> next = node.right;
         while (next.left != null) next = next.left;
         node.value = next.value;

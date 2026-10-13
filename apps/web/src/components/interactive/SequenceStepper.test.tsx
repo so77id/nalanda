@@ -1208,7 +1208,7 @@ describe('<SequenceStepper> · the combinations 22-edd-arboles-ii mounts', () =>
     },
     {
       act: 'El árbol binario de búsqueda',
-      slide: 'Insertar en un árbol de búsqueda',
+      slide: 'El código de la inserción',
       props: {
         eda: 'bst',
         operation: 'insert',
@@ -1231,11 +1231,11 @@ describe('<SequenceStepper> · the combinations 22-edd-arboles-ii mounts', () =>
     {
       act: 'El árbol binario de búsqueda',
       slide: 'El código del inorden',
-      props: { eda: 'binary-tree', operation: 'inorder', values: [8, 4, 12, 2, 6, 10, 14] },
+      props: { eda: 'bst', operation: 'inorder', values: [8, 4, 12, 2, 6, 10, 14] },
     },
     {
       act: 'El árbol binario de búsqueda',
-      slide: 'El mínimo y el máximo',
+      slide: 'El código del mínimo',
       props: {
         eda: 'bst',
         operation: 'minimum',
@@ -1245,12 +1245,12 @@ describe('<SequenceStepper> · the combinations 22-edd-arboles-ii mounts', () =>
     },
     {
       act: 'El árbol binario de búsqueda',
-      slide: 'El sucesor y el predecesor',
+      slide: 'El código del sucesor',
       props: {
         eda: 'bst',
         operation: 'successor',
         values: [8, 4, 12, 2, 6, 10, 14],
-        target: [6, 8],
+        target: 8,
       },
     },
     {
@@ -1259,8 +1259,8 @@ describe('<SequenceStepper> · the combinations 22-edd-arboles-ii mounts', () =>
       props: {
         eda: 'bst',
         operation: 'remove',
-        values: [8, 4, 12, 2, 6, 10, 14, 7],
-        target: [2, 6, 8],
+        values: [8, 4, 12, 2, 6, 10, 14],
+        target: 8,
       },
     },
     {

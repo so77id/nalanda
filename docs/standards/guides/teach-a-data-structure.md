@@ -380,6 +380,39 @@ Miguel's review of #321's binary-tree costs, where the traversals, the
 height and the search are the whole table. The column comes back as soon as one row
 modifies the structure.
 
+### 4bis. Teach every operation with the same script
+
+Each operation of a structure is told in the same four beats, in this
+order — Miguel's review of #322, where the search tree's search, insertion,
+minimum and removal had each been told its own way (an idea slide and a code
+slide for one, both on one slide for another, the class arriving between
+them):
+
+1. **The operation.** A slide that presents it before any code: what it
+   does, what it takes and what it returns, and what it must keep — the
+   invariant. The rule in prose, the example in the drawings, one step per
+   drawing (`course-content-style.md`).
+2. **The cases**, when there are several — the search tree's removal: a
+   leaf, one child, two children — each drawn, one slide per case when one
+   slide would be crowded.
+3. **The code**, on a slide «El código de …»: the method the structure
+   offers, `public`, and for a recursive operation the `private` method it
+   calls with the root, said in one sentence; beside it the iterative
+   version when there is one (`<SequenceStepper iterative>`), which is the
+   public method itself. The widget walks ONE run with ONE value. Several
+   runs of one operation teach something else — what a sequence of calls
+   builds — and go in the program mode (`program`), one frame per call,
+   never as the method walked again.
+4. **The cost**, one sentence closing the code slide's paragraph: what it
+   costs and why («baja por un solo camino: $$O(h)$$»). The table of every
+   operation stays at the end of the act (§4).
+
+The classes the operations use come right before the first of them, never
+earlier, and their members follow one rule: `public` for what the structure
+offers, `private` for the recursive helpers and for the fields. Worked case:
+the search tree's section of `22-edd-arboles-ii.mdx` — buscar, insertar, el
+inorden, el mínimo, el sucesor, eliminar.
+
 ### 5. Close on a loose end, not a summary
 
 The last slide of the last act poses a concrete question the class has just
