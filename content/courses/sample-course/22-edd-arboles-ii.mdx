@@ -757,6 +757,93 @@ confirman la invariante. Insertar del 1 al 1000, en orden, en un árbol AVL deja
 un árbol de altura 9; en un árbol de búsqueda sin balance, la misma secuencia
 deja una cadena de altura 999.
 
+{/* A removal that rotates at two levels: the smallest AVL tree where it can happen has height 4 and twelve nodes, past the widget's cap of eight, so its four steps are drawn. Searched and checked on the same model as the widget's trace. */}
+
+export const CASCADE_START = { v: 16, l: { v: 10, l: { v: 4, l: { v: 2 }, r: { v: 8, l: { v: 6 } } }, r: { v: 14, l: { v: 12 } } }, r: { v: 20, l: { v: 18 }, r: { v: 22, r: { v: 24 } } } };
+
+export const CASCADE_COPIED = { v: 18, l: { v: 10, l: { v: 4, l: { v: 2 }, r: { v: 8, l: { v: 6 } } }, r: { v: 14, l: { v: 12 } } }, r: { v: 20, r: { v: 22, r: { v: 24 } } } };
+
+export const CASCADE_LOW = { v: 18, l: { v: 10, l: { v: 4, l: { v: 2 }, r: { v: 8, l: { v: 6 } } }, r: { v: 14, l: { v: 12 } } }, r: { v: 22, l: { v: 20 }, r: { v: 24 } } };
+
+export const CASCADE_END = { v: 10, l: { v: 4, l: { v: 2 }, r: { v: 8, l: { v: 6 } } }, r: { v: 18, l: { v: 14, l: { v: 12 } }, r: { v: 22, l: { v: 20 }, r: { v: 24 } } } };
+
+<Slide title="Eliminar en un árbol AVL">
+`remove` también es el del árbol de búsqueda con `return balance(node)` al
+final. Al eliminar aparece el caso que insertar nunca produce: el hijo del
+lado cargado con factor 0. La regla lo resuelve con una rotación simple.
+
+<SequenceStepper eda="avl" operation="remove" values={[8, 4, 10, 2, 6]} target={10} />
+
+</Slide>
+
+<Slide title="Una eliminación que rota en dos niveles">
+Insertar rota a lo más una vez, porque la rotación le devuelve al subárbol la
+altura que tenía. Eliminar no: una rotación puede dejar al subárbol un nivel
+más bajo, y entonces el que se desbalancea es un ancestro. Una eliminación
+puede rotar en cada nivel del camino de vuelta.
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(380px, 1fr))', gap: '0.5rem 2rem', alignItems: 'end' }}>
+<BinaryPicture tree={CASCADE_START} compact minColumns={12} tones={{ 16: 'mark', 18: 'focus' }} badges={{ 16: '−1', 10: '−1', 4: '+1', 2: '0', 8: '−1', 6: '0', 14: '−1', 12: '0', 20: '+1', 18: '0', 22: '+1', 24: '0' }} label="Un árbol AVL de doce nodos y altura 4, con el factor de cada nodo. Se elimina la raíz, el 16, que tiene dos hijos; su sucesor es el 18." caption="1. eliminar 16: su sucesor es 18" />
+<BinaryPicture tree={CASCADE_COPIED} compact minColumns={12} tones={{ 20: 'mark' }} badges={{ 18: '−1', 10: '−1', 4: '+1', 2: '0', 8: '−1', 6: '0', 14: '−1', 12: '0', 20: '+2', 22: '+1', 24: '0' }} label="La raíz tomó el valor 18 y la hoja del 18 se eliminó. Al volver, el 20 queda con factor más 2, y su hijo derecho, el 22, con más 1." caption="2. el 20 queda con +2: simple a la izquierda" />
+<BinaryPicture tree={CASCADE_LOW} compact minColumns={12} tones={{ 18: 'mark', 22: 'accent', 20: 'accent' }} badges={{ 18: '−2', 10: '−1', 4: '+1', 2: '0', 8: '−1', 6: '0', 14: '−1', 12: '0', 22: '0', 20: '0', 24: '0' }} label="Después de rotar a la izquierda en el 20: el 22 sube, con el 20 y el 24 como hijos. Ese subárbol quedó un nivel más bajo, y la raíz, el 18, queda con factor menos 2." caption="3. el subárbol bajó un nivel: la raíz queda con −2" />
+<BinaryPicture tree={CASCADE_END} compact minColumns={12} tones={{ 10: 'accent', 18: 'accent' }} badges={{ 10: '0', 4: '+1', 2: '0', 8: '−1', 6: '0', 18: '0', 14: '−1', 12: '0', 22: '0', 20: '0', 24: '0' }} label="Después de rotar a la derecha en la raíz: el 10 sube a la raíz, con el 4 a la izquierda y el 18 a la derecha. Todos los factores están entre menos 1 y más 1." caption="4. simple a la derecha en la raíz: todo vuelve a cumplir" />
+</div>
+
+</Slide>
+
+Cada rotación cuesta lo mismo, unas pocas referencias y dos alturas, y el
+camino de vuelta tiene a lo más $$h + 1$$ nodos: una eliminación hace a lo
+más $$O(\log n)$$ rotaciones, y sigue costando $$O(\log n)$$.
+
+<Slide title="La altura de un árbol AVL">
+El árbol AVL **más flaco** de cada altura, el que tiene menos nodos, es una
+raíz sobre los más flacos de las dos alturas anteriores. Sus tamaños crecen
+como los números de Fibonacci: 1, 2, 4, 7, 12, 20, 33… y eso es crecer de
+forma exponencial. Al revés, la altura de un AVL de $$n$$ nodos crece como
+$$\log n$$: Adelson-Velsky y Landis demostraron que es menor que
+$$1{,}45 \cdot \log_2(n + 2)$$, un resultado que aquí se cita sin demostrar.
+
+<PresentationWide fraction={0.9}>
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem 1.5rem', alignItems: 'end' }}>
+<BinaryPicture tree={{ v: 1 }} minColumns={7} compact label="El árbol AVL más flaco de altura 0: un solo nodo." caption="altura 0: 1 nodo" />
+<BinaryPicture tree={{ v: 2, l: { v: 1 } }} minColumns={7} compact label="El árbol AVL más flaco de altura 1: dos nodos." caption="altura 1: 2 nodos" />
+<BinaryPicture tree={{ v: 3, l: { v: 2, l: { v: 1 } }, r: { v: 4 } }} minColumns={7} compact label="El árbol AVL más flaco de altura 2: una raíz sobre el más flaco de altura 1 y el de altura 0. Cuatro nodos." caption="altura 2: 4 nodos" />
+<BinaryPicture tree={{ v: 5, l: { v: 3, l: { v: 2, l: { v: 1 } }, r: { v: 4 } }, r: { v: 7, l: { v: 6 } } }} minColumns={7} compact label="El árbol AVL más flaco de altura 3: una raíz sobre el más flaco de altura 2 y el de altura 1. Siete nodos." caption="altura 3: 7 nodos" />
+</div>
+
+</PresentationWide>
+
+</Slide>
+
+<Slide title="Costos del árbol AVL">
+Las operaciones son las del árbol de búsqueda, y cuestan la altura; la
+diferencia es que ahora la altura está acotada por $$O(\log n)$$, llegue lo que
+llegue.
+
+| Molde     | Operación           | Peor caso       | Invariante que restaura                                         |
+| --------- | ------------------- | --------------- | --------------------------------------------------------------- |
+| Consultar | `contains`          | $$O(\log n)$$   | Ninguna: no cambia el árbol                                     |
+| Consultar | mínimo, máximo      | $$O(\log n)$$   | Ninguna: no cambia el árbol                                     |
+| Consultar | sucesor, predecesor | $$O(\log n)$$   | Ninguna: no cambia el árbol                                     |
+| Modificar | `insert`            | $$O(\log n)$$   | La de orden, y la de balance con a lo más una rotación          |
+| Modificar | `remove`            | $$O(\log n)$$   | La de orden, y la de balance con a lo más una rotación por nivel |
+
+</Slide>
+
+<Slide title="El precio del balance">
+El árbol AVL garantiza $$O(\log n)$$ en todas sus operaciones, y lo paga de
+tres maneras. Cada nodo guarda un entero más, su altura. Cada inserción y cada
+eliminación recorren de vuelta todo su camino, actualizando alturas y
+revisando factores, aunque no haya nada que rotar. Y el código es más largo:
+cuatro casos de rotación y una invariante más que mantener en cada
+modificación.
+
+Cuando hay muchas más búsquedas que modificaciones, lo que se paga al
+modificar se recupera en cada búsqueda.
+
+</Slide>
+
 <SectionBreak />
 
 ## Ejercicios
