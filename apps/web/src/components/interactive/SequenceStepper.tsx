@@ -728,7 +728,7 @@ function Body({
                       running top to bottom — rather than ending early over a
                       band of the panel's own ground.
                     */}
-                    <div className="flex-1 [&>div>div]:h-full [&>div]:h-full [&_.cm-editor]:h-full [&_.cm-editor]:justify-center [&_.cm-scroller]:!h-auto [&_.cm-scroller]:!grow-0">
+                    <div className="flex-1 [&>div>div]:h-full [&>div]:h-full [&_.cm-content]:!min-h-0 [&_.cm-content]:!self-center [&_.cm-editor]:h-full [&_.cm-gutter]:!min-h-0 [&_.cm-gutters]:!items-center [&_.cm-gutters]:!self-stretch">
                       <CodeStepper code={code} highlightLines={[...lines]} language="java" />
                     </div>
                   </div>

@@ -246,7 +246,8 @@ class BST<T extends Comparable<T>> {
 Lo nuevo es `T extends Comparable<T>`. Para elegir entre la izquierda y la
 derecha hay que comparar valores, y `compareTo` responde un número negativo,
 cero o positivo según el valor sea menor, igual o mayor que el otro: el tipo
-de los valores tiene que saber compararse.
+de los valores tiene que saber compararse. El nodo no lleva esa condición:
+solo guarda valores, y quien los compara es el árbol.
 
 </Slide>
 
