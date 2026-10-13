@@ -838,3 +838,181 @@ esperado: para que se mantenga constante, la tabla tiene que crecer con
 $$N$$.
 
 </Slide>
+
+<SectionBreak />
+
+## La redimensión
+
+{/* Agregados — what each of a run of `add`s costs: one unit to put the key in, plus every key a `resize` moves on the `add` that triggers it. Bars, one per insertion, a moved count over each spike. File-local (§6e-quater). */}
+
+export function Agregados({ moves, total, caption, label }) {
+  const pad = 14;
+  const bw = 24;
+  const unit = 7;
+  const top = 26;
+  const peak = Math.max(...moves) + 1;
+  const base = top + peak * unit;
+  const width = 2 * pad + total * bw;
+  const height = base + 22 + (caption ? 28 : 6);
+  return (
+    <svg viewBox={`0 0 ${width} ${height}`} style={{ width: '100%', maxWidth: `${Math.round(width * 1.3)}px`, height: 'auto', display: 'block', margin: '0.4rem auto' }} role="img" aria-label={label}>
+      <line x1={pad} y1={base} x2={width - pad} y2={base} style={{ stroke: 'var(--color-rule-strong)' }} strokeWidth="1" />
+      {Array.from({ length: total }, (_, i) => {
+        const moved = moves[i] ?? 0;
+        const h = (1 + moved) * unit;
+        const x = pad + i * bw + 3;
+        return (
+          <g key={i}>
+            <rect x={x} y={base - unit} width={bw - 6} height={unit} style={{ fill: 'var(--color-mark-soft)', stroke: 'var(--color-mark)' }} strokeWidth="1" />
+            {moved > 0 ? (
+              <g>
+                <rect x={x} y={base - h} width={bw - 6} height={h - unit} style={{ fill: 'var(--color-sunk)', stroke: 'var(--color-focus)' }} strokeWidth="1.4" />
+                <text x={x + (bw - 6) / 2} y={base - h - 6} textAnchor="middle" fontSize="12" fontWeight="700" style={{ fill: 'var(--color-focus)' }}>{`+${moved}`}</text>
+              </g>
+            ) : null}
+            {(i + 1) % 5 === 0 || i === 0 ? (
+              <text x={x + (bw - 6) / 2} y={base + 15} textAnchor="middle" fontSize="11" style={{ fill: 'var(--color-ink-faint)' }}>{i + 1}</text>
+            ) : null}
+          </g>
+        );
+      })}
+      {caption ? (
+        <text x={width / 2} y={height - 8} textAnchor="middle" fontSize="12" style={{ fill: 'var(--color-ink-soft)' }}>{caption}</text>
+      ) : null}
+    </svg>
+  );
+}
+
+<Slide title="Una tabla que crece">
+Con $$M$$ fijo, cada clave que se agrega sube el factor de carga
+$$\alpha = N / M$$, y con él el largo esperado de las listas. Para que buscar
+siga costando $$\Theta(1)$$ en promedio, la tabla tiene que crecer junto con
+$$N$$: en el guardarropa, abrir más casilleros cuando los que hay se llenan.
+
+La regla es redimensionar cuando hay tantas claves como posiciones, cuando
+`size == table.length`, es decir, cuando $$\alpha$$ llega a 1: un abrigo por
+casillero, en promedio. Así, $$\alpha$$ nunca pasa de 1.
+
+</Slide>
+
+<Slide title="Por qué cada clave cambia de posición">
+La posición de una clave es el resto de dividir por $$M$$, así que al cambiar
+$$M$$ cambia la posición de casi todas. Una tabla nueva no se llena copiando
+las listas a las mismas posiciones: la invariante pide que cada clave esté en
+la lista de **su** posición, y con el $$M$$ nuevo esa posición es otra. Cada
+clave tiene que volver a entrar, con su hash recalculado.
+
+| Clave  | $$h$$, con $$M = 3$$ | $$h$$, con $$M = 7$$ |
+| ------ | -------------------- | -------------------- |
+| «Ana»  | 2                    | 4                    |
+| «Bea»  | 0                    | 0                    |
+| «Eva»  | 2                    | 1                    |
+
+</Slide>
+
+<Slide title="El tamaño nuevo">
+La tabla nueva tiene el primer primo desde $$2M$$: así el tamaño se mantiene
+primo, como pide el método de la división, y casi se duplica. Duplicar sin más
+daría un número par.
+
+La búsqueda del primo es una función auxiliar que no lleva ninguna idea de la
+tabla: prueba los números desde $$2M$$ hasta dar con uno sin divisores.
+
+```java
+private static int nextPrime(int n) {
+    while (!isPrime(n)) {
+        n++;
+    }
+    return n;
+}
+
+private static boolean isPrime(int n) {
+    if (n < 2) return false;
+    for (int d = 2; d * d <= n; d++) {
+        if (n % d == 0) return false;
+    }
+    return true;
+}
+```
+
+</Slide>
+
+<Slide title="add con redimensión">
+`add` gana una línea: antes de enganchar la clave nueva, si la tabla está
+llena, la redimensiona.
+
+```java
+boolean add(String key) {
+    if (contains(key)) return false;
+    if (size == table.length) resize(nextPrime(2 * table.length));
+    int i = hash(key);
+    Node fresh = new Node(key);
+    fresh.next = table[i];
+    table[i] = fresh;
+    size++;
+    return true;
+}
+```
+
+`resize` guarda la tabla vieja en `old`, crea el arreglo nuevo, pone `size` en
+0 y recorre todas las listas de `old`, volviendo a agregar cada clave con
+`add`. Mientras corre, las claves que todavía no vuelven a entrar están en la
+lista de su posición vieja: la invariante se restaura clave por clave.
+
+</Slide>
+
+<Slide title="El código de resize">
+<SequenceStepper
+  eda="hash-chaining"
+  operation="resize"
+  values={['Ana', 'Bea', 'Eva']}
+  capacity={3}
+/>
+
+</Slide>
+
+<Slide title="El costo de una redimensión">
+Una redimensión recorre las $$M$$ posiciones de la tabla vieja y vuelve a
+agregar sus $$N$$ claves, cada una en $$\Theta(1)$$ esperado, porque en la
+tabla nueva $$\alpha$$ es cerca de $$1/2$$. Cuesta $$\Theta(N + M)$$, y como
+redimensiona cuando $$N = M$$, $$\Theta(N)$$.
+
+Es caro, pero raro. Después de redimensionar, el tamaño casi se duplicó, y
+la próxima redimensión solo llega cuando se agregaron otras tantas claves.
+
+</Slide>
+
+<Slide title="El costo amortizado de add">
+Repartido entre todas las inserciones, el costo de las redimensiones es
+constante. Cada redimensión mueve las claves que hay en ese momento, y cada
+una mueve al menos el doble que la anterior: si la última movió $$k$$ claves,
+la anterior movió menos de $$k/2$$, la de antes menos de $$k/4$$, y así. En
+total, al agregar $$N$$ claves se mueven menos de
+$$N + N/2 + N/4 + \cdots < 2N$$, y cada `add` paga en promedio menos de dos
+movimientos además del suyo: $$\Theta(1)$$ **amortizado**.
+
+<Agregados
+  moves={[0, 0, 0, 3, 0, 0, 0, 7, 0, 0, 0, 0, 0, 0, 0, 0, 0, 17, 0, 0]}
+  total={20}
+  caption="20 inserciones desde 3 posiciones: crece a 7, 17 y 37, y mueve 3 + 7 + 17 = 27 claves, menos que 2 · 20"
+  label="Veinte barras, una por inserción, empezando con una tabla de tres posiciones. Cada barra cuesta una unidad, salvo la cuarta, la octava y la decimoctava, que redimensionan y mueven tres, siete y diecisiete claves. En total se mueven veintisiete claves, menos que cuarenta."
+/>
+
+</Slide>
+
+<Slide title="Costos con redimensión">
+Con la redimensión, $$\alpha$$ no pasa de 1, y el costo esperado de las tres
+operaciones es constante.
+
+| Molde     | Operación       | Peor caso     | Esperado      | Amortizado                  |
+| --------- | --------------- | ------------- | ------------- | --------------------------- |
+| consultar | `contains(key)` | $$\Theta(N)$$ | $$\Theta(1)$$ | $$\Theta(1)$$               |
+| modificar | `add(key)`      | $$\Theta(N)$$ | $$\Theta(1)$$ | <span style={{ color: 'var(--color-keep)', fontWeight: 700 }}>$$\Theta(1)$$, con redimensión</span> |
+| modificar | `remove(key)`   | $$\Theta(N)$$ | $$\Theta(1)$$ | $$\Theta(1)$$               |
+
+Las tres son $$\Theta(1)$$ en promedio, pero las listas tienen un precio que
+el costo no muestra: una referencia y un objeto aparte por cada clave, que el
+programa tiene que ir a buscar a otro lugar de la memoria. La otra manera de
+resolver las colisiones guarda las claves en el propio arreglo.
+
+</Slide>
