@@ -1,5 +1,7 @@
 import {
   BinaryPicture,
+  NodeGraph,
+  OrderRule,
   Explanation,
   Figure,
   LazyBenchmark,
@@ -72,6 +74,13 @@ export const mdxComponents = {
   // A lazy wrapper would also hide its authoring errors from
   // app/contentRenders.test.tsx (apps/web/CLAUDE.md, class 4).
   BinaryPicture,
+  // Not lazy, for BinaryPicture's reasons, and smaller: two figures promoted
+  // from Árboles I when Árboles II wanted them (#322, the counterexamples to
+  // a tree's invariants and the rule of a traversal). Measured on the
+  // shipped build, the two cost the entry chunk 2,848 bytes raw, 909 with
+  // gzip -9.
+  NodeGraph,
+  OrderRule,
   // Not lazy: it is one iframe. Measured on the shipped build, registering it
   // eagerly costs the entry chunk 1,463 bytes of component code, and it pulls in
   // no package the first paint did not already need. (That figure used to be

@@ -60,7 +60,7 @@ content/courses/sample-course/
 ├── 18-edd-listas-enlazadas.mdx  # presentation: explicit, questions: pool — <SequenceStepper> ×13 (the worked case) + <Exercise> ×5 with the `solution` fence
 ├── 19-edd-stack-queue.mdx     # presentation: explicit, questions: pool (13) — <SequenceStepper> ×8 over BOTH families (dynamic-array + singly) + <StepShow> ×7 + <Exercise> ×4 + 20 standalone inline SVG figures + a file-local <Paso> frame component + two TDA cards
 ├── 20-edd-priority-queue-heap.mdx  # presentation: explicit, questions: pool (16) — <SequenceStepper eda="heap-max"> ×4 + <StepShow> ×3 + <Exercise> ×4 (three worked on slides, one posed) + <PresentationWide> ×3 + 23 file-local figure components and LIST_COLORS (§6e-quater) + a TDA card (the fifth copy)
-├── 21-edd-arboles-i.mdx       # presentation: explicit, questions: pool (19) — opens the Estructuras de Datos Avanzadas unit, ahead of chapter 20 in index.yaml; <SequenceStepper eda="binary-tree"> ×5 (its worked case, ADR-0083) + <StepShow> ×12 + <SideBySide> ×3 + <Exercise> ×5 (three worked, each on its slide — the widest level's and the calculator's in a scrolling window, being longer than 32 lines — and two posed) + <PresentationWide> ×18 + <BinaryPicture> ×162 (the content component #322 promoted from it, §6e-quinquies) + seven file-local figure components (HierarchyPicture, TreeMemory, OrderRule, BinaryMemory, NodeGraph, TokenRow, StackRow); the search tree moved to Árboles II (#322)
+├── 21-edd-arboles-i.mdx       # presentation: explicit, questions: pool (19) — opens the Estructuras de Datos Avanzadas unit, ahead of chapter 20 in index.yaml; <SequenceStepper eda="binary-tree"> ×5 (its worked case, ADR-0083) + <StepShow> ×12 + <SideBySide> ×3 + <Exercise> ×5 (three worked, each on its slide — the widest level's and the calculator's in a scrolling window, being longer than 32 lines — and two posed) + <PresentationWide> ×18 + <BinaryPicture> ×162, <NodeGraph> ×2 and <OrderRule> ×6 (the content components #322 promoted from it, §6e-quinquies) + five file-local figure components (HierarchyPicture, TreeMemory, BinaryMemory, TokenRow, StackRow); the search tree moved to Árboles II (#322)
 ├── 22-edd-arboles-ii.mdx      # presentation: explicit, questions: none (a documented not-yet, step 2) — the second class of the Estructuras de Datos Avanzadas unit, after edd-arboles-i in index.yaml and closing toward edd-priority-queue-heap: a growing set from the sorted array to the search tree, its operations, the arrival order, the rotation, the AVL tree and the other trees; <SequenceStepper> ×15 (bst ×8, avl ×4 — the avl recipe's worked case, ADR-0083 §6 —, dynamic-array ×2 — one the binary search, its worked case, ADR-0074 §Amended by #322 —, binary-tree) + <BinaryPicture> ×67 (§6e-quinquies, triangles for the generic rotation) + <StepShow> ×3 + <Exercise> ×6 (three worked, each with its program on a slide — the iterator's and the intersection's in a scrolling window —, and three posed, book-only) + an inline B-tree <svg> + one file-local figure component (SortedRow)
 ├── tda-eda-invariante.svg, arreglo-memoria.svg, arreglo-alocacion.svg, arreglo-invariante-valido.svg, arreglo-invariantes.svg, regla-del-cuarto.svg, costo-acumulado.svg   # assets for chapter 17
 └── index.yaml                 # the ordered teaching path
@@ -1315,6 +1315,21 @@ beside its line of code. To walk an operation frame by frame, use the widget.
 
 The full props table, with live examples, is its catalog page
 (`/catalog/c/BinaryPicture`).
+
+Two smaller figures came out of Árboles I the same way, when Árboles II
+wanted them (#322):
+
+- **`<NodeGraph>`** draws nodes at explicit grid positions joined by edges —
+  for what `<BinaryPicture>` cannot draw because it is not a tree: a node with
+  three children, a node with two parents. The counterexamples to a tree's
+  invariants; `mark` on the node and the edges that break the rule.
+- **`<OrderRule>`** writes a traversal's rule as pills joined by arrows
+  (`izquierda → raíz → derecha`), in the traversal's colour. It goes first on
+  the slide that introduces a traversal, before the drawing that walks it and
+  before the widget that runs its code.
+
+Both are pure markup with no package of their own and register eagerly, as
+`<BinaryPicture>` does; their catalog pages carry the props.
 
 6f. **An authoring error does not fail the build**, on purpose: writing the
 slides before drawing the diagrams is a real order of work, and gating the

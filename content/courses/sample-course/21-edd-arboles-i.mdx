@@ -284,20 +284,6 @@ export function HierarchyPicture({ tree, tones = {}, badges = {}, notes = {}, nu
   );
 }
 
-{/* OrderRule — the rule of a traversal written short, as pills joined by arrows in the traversal's colour: nodo → hijos for the preorder, the colour its drawings use. File-local like HierarchyPicture (§6e-quater). */}
-
-export function OrderRule({ parts, tone = 'focus', label }) {
-  const color = `var(--color-${tone})`;
-  return (
-    <div role="img" aria-label={label} style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', alignItems: 'center', gap: '0.6rem', margin: '1rem 0', fontWeight: 700, fontSize: '1.15em' }}>
-      {parts.flatMap((part, i) => [
-        i > 0 ? <span key={`a${i}`} aria-hidden="true" style={{ color }}>→</span> : null,
-        <span key={`p${i}`} aria-hidden="true" style={{ border: `2px solid ${color}`, borderRadius: '999px', padding: '0.1rem 0.9rem', color: 'var(--color-ink)' }}>{part}</span>,
-      ])}
-    </div>
-  );
-}
-
 {/* TreeMemory — a general tree as it sits in memory, in the linked-list class's idiom: a node is a box with its value and a grey compartment whose dot is the reference to the sequence of its children, an ArrayList, drawn as the row of cells of the dynamic array behind it, one per child, each with the dot of its reference and an arrow to the child. A leaf's list is empty and drawn as Java prints an empty ArrayList, []. depth cuts the drawing: a node at the cut keeps its list, with short faint arrows to children not drawn. entry draws the Tree object and its root reference ("root", or "null" for the empty tree); fields names the node's two fields. A node toned "mark" is the one just added, and so is its cell. File-local like HierarchyPicture (§6e-quater). */}
 
 export function TreeMemory({ tree, depth = 99, tones = {}, entry, fields = false, px, caption, label }) {
@@ -1645,47 +1631,6 @@ export function BinaryMemory({ tree, entry = false, fields = false, caption, lab
       })}
       {caption ? (
         <text x={width / 2} y={bodyH + 6} textAnchor="middle" fontSize="12" style={{ fill: 'var(--color-ink-soft)' }}>{caption}</text>
-      ) : null}
-    </svg>
-  );
-}
-
-{/* NodeGraph — nodes at explicit grid positions, joined by edges: for a shape no tree layout can draw, such as a node with two parents. Nodes are BinaryPicture's circles; a node or an edge toned "mark" is the one that breaks the rule the drawing shows. File-local like HierarchyPicture (§6e-quater). */}
-
-export function NodeGraph({ nodes, edges, cols, rows, tones = {}, markEdges = [], caption, label }) {
-  const r = 17;
-  const pitch = 52;
-  const levelH = 58;
-  const pad = 18;
-  const drawingW = 2 * pad + cols * pitch;
-  const width = Math.max(drawingW, caption ? caption.length * 6.6 + 24 : 0);
-  const offset = (width - drawingW) / 2;
-  const treeH = 2 * pad + 2 * r + (rows - 1) * levelH;
-  const height = treeH + (caption ? 20 : 0);
-  const at = Object.fromEntries(nodes.map((n) => [n.v, { x: offset + pad + (n.x + 0.5) * pitch, y: pad + r + n.y * levelH }]));
-  const marked = new Set(markEdges.map(([a, b]) => `${a}>${b}`));
-  return (
-    <svg viewBox={`0 0 ${width} ${height}`} style={{ width: '100%', maxWidth: `${Math.round(width * 1.4)}px`, height: 'auto', display: 'block', margin: '1rem auto' }} role="img" aria-label={label}>
-      {edges.map(([a, b]) => {
-        const p = at[a];
-        const c = at[b];
-        const dx = c.x - p.x;
-        const dy = c.y - p.y;
-        const len = Math.hypot(dx, dy);
-        const hot = marked.has(`${a}>${b}`);
-        return <line key={`${a}>${b}`} x1={p.x + (dx / len) * r} y1={p.y + (dy / len) * r} x2={c.x - (dx / len) * r} y2={c.y - (dy / len) * r} style={{ stroke: hot ? 'var(--color-mark)' : 'var(--color-rule-strong)' }} strokeWidth={hot ? 2.6 : 1.3} />;
-      })}
-      {nodes.map((n) => {
-        const hot = tones[n.v] === 'mark';
-        return (
-          <g key={`n${n.v}`}>
-            <circle cx={at[n.v].x} cy={at[n.v].y} r={r} style={{ fill: hot ? 'var(--color-mark-soft)' : 'var(--color-surface)', stroke: hot ? 'var(--color-mark)' : 'var(--color-rule-strong)' }} strokeWidth={hot ? 2.2 : 1.3} />
-            <text x={at[n.v].x} y={at[n.v].y + 5} textAnchor="middle" fontSize="14" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{n.v}</text>
-          </g>
-        );
-      })}
-      {caption ? (
-        <text x={width / 2} y={treeH + 12} textAnchor="middle" fontSize="12" style={{ fill: 'var(--color-ink-soft)' }}>{caption}</text>
       ) : null}
     </svg>
   );
