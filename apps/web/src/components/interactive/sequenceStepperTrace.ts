@@ -62,6 +62,9 @@ export const OPERATIONS = [
   'remove-last',
   'remove-at',
   'search',
+  // The dynamic array's own (#322): the search a SORTED array allows, which
+  // discards half of what is left at every comparison. Árboles II opens on it.
+  'binary-search',
   // The heap's own operations — valid on `heap-max` and nowhere else.
   // `swim` and `sink` are not among them: they are the INSIDE of these
   // (their lines light up in the listing), not operations of the TDA.
@@ -495,6 +498,7 @@ export function isValidCombination(
   if (recipe === 'bst') return BST_OPERATIONS.includes(operation);
   if (recipe === 'avl') return AVL_OPERATIONS.includes(operation);
   if (heapOperation || TREE_ONLY_OPERATIONS.includes(operation)) return false;
+  if (operation === 'binary-search') return recipe === 'dynamic-array';
   if (operation === 'insert-ordered' && !isList(recipe)) return false;
   if (recipe === 'linked-list-circular') return CIRCULAR_OPERATIONS.includes(operation);
   if (recipe === 'linked-list-doubly') {
@@ -539,8 +543,35 @@ const snapshot = (cells: SequenceCell[]): SequenceCell[] => cells.map((c) => ({ 
  */
 const settle = (cells: SequenceCell[]): SequenceCell[] =>
   cells.map((c) =>
-    c.state === 'new' || c.state === 'found' ? { ...c } : { ...c, state: 'idle' as const },
+    // `discarded` stays: the last frame of a binary search is what it ruled
+    // out, and an array that turns idle again says it never looked.
+    c.state === 'new' || c.state === 'found' || c.state === 'discarded'
+      ? { ...c }
+      : { ...c, state: 'idle' as const },
   );
+
+/**
+ * The binary search's cursors, ordered by position, with one label for
+ * cursors that share a cell: three arrows on one box draw three labels on top
+ * of each other. A cursor past either end of the block (`hi = -1` once
+ * everything is ruled out on the left) has no box to point at and is left
+ * out; the narration still says where it stopped.
+ */
+function rangeCursors(lo: number, hi: number, mid?: number): SequencePointer[] {
+  const named: [string, number][] = [
+    ['lo', lo],
+    ...(mid === undefined ? [] : [['mid', mid] as [string, number]]),
+    ['hi', hi],
+  ];
+  const byIndex = new Map<number, string[]>();
+  for (const [name, index] of named) {
+    if (index < 0) continue;
+    byIndex.set(index, [...(byIndex.get(index) ?? []), name]);
+  }
+  return [...byIndex.entries()]
+    .sort(([a], [b]) => a - b)
+    .map(([index, names]) => ({ name: names.join(', '), index }));
+}
 
 function checkIndex(i: number | undefined, length: number, inclusive: boolean): number {
   const max = inclusive ? length : length - 1;
@@ -606,6 +637,7 @@ const METHOD_NAME: Record<SequenceOperation, string> = {
   'remove-last': 'deleteLast',
   'remove-at': 'deleteAt',
   search: 'search',
+  'binary-search': 'binarySearch',
   preorder: 'preorder',
   inorder: 'inorder',
   postorder: 'postorder',
@@ -697,6 +729,22 @@ const ARRAY_CODE: Record<ArrayOperation, string> = {
     }
     return -1;
 }`,
+  'binary-search': `int binarySearch(int x) {
+    int lo = 0;
+    int hi = size - 1;
+    while (lo <= hi) {
+        int mid = (lo + hi) / 2;
+        if (data[mid] == x) {
+            return mid;
+        }
+        if (x < data[mid]) {
+            hi = mid - 1;
+        } else {
+            lo = mid + 1;
+        }
+    }
+    return -1;
+}`,
 };
 
 function traceArray(operation: SequenceOperation, input: SequenceInput): SequenceTrace {
@@ -713,6 +761,17 @@ function traceArray(operation: SequenceOperation, input: SequenceInput): Sequenc
     throw new Error('La operación no se ejecuta ninguna vez: falta el argumento que la corre.');
   }
   requireRuns(args.length);
+  // A binary search on an unsorted array answers wrongly with no error, which
+  // is the one thing a slide must never show; a repeated value has no single
+  // position to find. Same refusal `insertOrdered` makes on a list.
+  if (
+    operation === 'binary-search' &&
+    input.values.some((v, i) => i > 0 && v <= input.values[i - 1]!)
+  ) {
+    throw new Error(
+      'La búsqueda binaria necesita el arreglo ordenado de menor a mayor, sin valores repetidos.',
+    );
+  }
   const shown = shownName(operation, input);
   const base = renameIn(ARRAY_CODE[operation as ArrayOperation], operation, shown);
   const many = args.length > 1;
@@ -1001,6 +1060,83 @@ function traceArray(operation: SequenceOperation, input: SequenceInput): Sequenc
         );
         break;
       }
+      case 'binary-search': {
+        const x = asRuns(input.target)[run]!;
+        const n = size();
+        // A second search starts on the whole block: what the first one ruled
+        // out says nothing about the next value.
+        slots.forEach((cell, i) => {
+          if (cell !== null) slots[i] = { ...cell, state: 'idle' };
+        });
+        let lo = 0;
+        let hi = n - 1;
+        push(
+          'start',
+          [lineOf(code, 'int lo = 0'), lineOf(code, 'int hi = size - 1')],
+          `Buscamos ${x}. Lo que queda por revisar va de lo = 0 a hi = ${hi}: el arreglo entero.`,
+          { pointers: rangeCursors(lo, hi) },
+        );
+        let found = -1;
+        while (lo <= hi) {
+          const mid = Math.floor((lo + hi) / 2);
+          const cell = slots[mid]!;
+          slots[mid] = { ...cell, state: 'active' };
+          cost += 1;
+          push(
+            'walk',
+            [lineOf(code, 'while (lo <= hi)'), lineOf(code, 'int mid =')],
+            `lo = ${lo} ≤ hi = ${hi}: queda algo por revisar. El medio es (${lo} + ${hi}) / 2 = ${mid}.`,
+            { pointers: rangeCursors(lo, hi, mid) },
+          );
+          if (cell.value === x) {
+            slots[mid] = { ...cell, state: 'found' };
+            push(
+              'found',
+              [lineOf(code, 'if (data[mid] == x)'), lineOf(code, 'return mid;')],
+              `¿data[${mid}] = ${cell.value} es ${x}? Sí: está en la posición ${mid}.`,
+              { pointers: rangeCursors(lo, hi, mid) },
+            );
+            found = mid;
+            break;
+          }
+          push(
+            'compare',
+            [lineOf(code, 'if (data[mid] == x)')],
+            `¿data[${mid}] = ${cell.value} es ${x}? No.`,
+            { pointers: rangeCursors(lo, hi, mid) },
+          );
+          // One comparison rules out the middle and the whole half on the
+          // side the value cannot be: the cells fade and stay faded.
+          const [from, to] = x < cell.value ? [mid, hi] : [lo, mid];
+          for (let i = from; i <= to; i += 1) slots[i] = { ...slots[i]!, state: 'discarded' };
+          if (x < cell.value) {
+            hi = mid - 1;
+            push(
+              'walk',
+              [lineOf(code, 'if (x < data[mid])'), lineOf(code, 'hi = mid - 1')],
+              `${x} < ${cell.value}: ${x} no puede estar de la posición ${mid} en adelante. Esa parte queda descartada, y hi = ${hi}.`,
+              { pointers: rangeCursors(lo, hi, mid) },
+            );
+          } else {
+            lo = mid + 1;
+            push(
+              'walk',
+              [lineOf(code, 'if (x < data[mid])'), lineOf(code, 'lo = mid + 1')],
+              `${x} > ${cell.value}: ${x} no puede estar de la posición ${mid} hacia atrás. Esa parte queda descartada, y lo = ${lo}.`,
+              { pointers: rangeCursors(lo, hi, mid) },
+            );
+          }
+        }
+        if (found < 0) {
+          push(
+            'done',
+            [lineOf(code, 'while (lo <= hi)'), lineOf(code, 'return -1;')],
+            `lo = ${lo} > hi = ${hi}: no queda nada por revisar. ${x} no está, y lo quedó en ${lo}: la posición donde iría.`,
+            { pointers: rangeCursors(lo, hi) },
+          );
+        }
+        break;
+      }
       default:
         throw new Error(`Operación no soportada sobre un arreglo: ${operation}`);
     }
@@ -1079,6 +1215,7 @@ function runArgs(operation: SequenceOperation, input: SequenceInput): string[] {
     case 'remove-at':
       return asRuns(input.index).map(String);
     case 'search':
+    case 'binary-search':
       return asRuns(input.target).map(String);
     case 'remove-first':
     case 'remove-last':
@@ -1350,6 +1487,10 @@ function listCode(recipe: SequenceRecipe, operation: SequenceOperation, tail: bo
     case 'rotate-right':
     case 'rotate-left':
       throw new Error(`«${operation}» es una operación de árbol, no de una lista.`);
+    case 'binary-search':
+      throw new Error(
+        'La búsqueda binaria necesita llegar a la posición del medio en un paso: es del arreglo, no de una lista.',
+      );
   }
 }
 

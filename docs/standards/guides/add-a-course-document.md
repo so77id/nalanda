@@ -61,7 +61,7 @@ content/courses/sample-course/
 ├── 19-edd-stack-queue.mdx     # presentation: explicit, questions: pool (13) — <SequenceStepper> ×8 over BOTH families (dynamic-array + singly) + <StepShow> ×7 + <Exercise> ×4 + 20 standalone inline SVG figures + a file-local <Paso> frame component + two TDA cards
 ├── 20-edd-priority-queue-heap.mdx  # presentation: explicit, questions: pool (16) — <SequenceStepper eda="heap-max"> ×4 + <StepShow> ×3 + <Exercise> ×4 (three worked on slides, one posed) + <PresentationWide> ×3 + 23 file-local figure components and LIST_COLORS (§6e-quater) + a TDA card (the fifth copy)
 ├── 21-edd-arboles-i.mdx       # presentation: explicit, questions: pool (19) — opens the Estructuras de Datos Avanzadas unit, ahead of chapter 20 in index.yaml; <SequenceStepper eda="binary-tree"> ×5 (its worked case, ADR-0083) + <StepShow> ×12 + <SideBySide> ×3 + <Exercise> ×5 (three worked, each on its slide — the widest level's and the calculator's in a scrolling window, being longer than 32 lines — and two posed) + <PresentationWide> ×18 + <BinaryPicture> ×162 (the content component #322 promoted from it, §6e-quinquies) + seven file-local figure components (HierarchyPicture, TreeMemory, OrderRule, BinaryMemory, NodeGraph, TokenRow, StackRow); the search tree moved to Árboles II (#322)
-├── 22-edd-arboles-ii.mdx      # presentation: explicit, questions: none (a documented not-yet, step 2) — the second class of the Estructuras de Datos Avanzadas unit, after edd-arboles-i in index.yaml and closing toward edd-priority-queue-heap: a growing set from the sorted array to the search tree, its operations, the arrival order, the rotation, the AVL tree and the other trees; <SequenceStepper> ×14 (bst ×8, avl ×4 — the avl recipe's worked case, ADR-0083 §6 —, binary-tree, dynamic-array) + <BinarySearchOnArray> + <BinaryPicture> ×67 (§6e-quinquies, triangles for the generic rotation) + <StepShow> ×3 + <Exercise> ×6 (three worked, each with its program on a slide — the iterator's and the intersection's in a scrolling window —, and three posed, book-only) + an inline B-tree <svg> + one file-local figure component (SortedRow)
+├── 22-edd-arboles-ii.mdx      # presentation: explicit, questions: none (a documented not-yet, step 2) — the second class of the Estructuras de Datos Avanzadas unit, after edd-arboles-i in index.yaml and closing toward edd-priority-queue-heap: a growing set from the sorted array to the search tree, its operations, the arrival order, the rotation, the AVL tree and the other trees; <SequenceStepper> ×15 (bst ×8, avl ×4 — the avl recipe's worked case, ADR-0083 §6 —, dynamic-array ×2 — one the binary search, its worked case, ADR-0074 §Amended by #322 —, binary-tree) + <BinaryPicture> ×67 (§6e-quinquies, triangles for the generic rotation) + <StepShow> ×3 + <Exercise> ×6 (three worked, each with its program on a slide — the iterator's and the intersection's in a scrolling window —, and three posed, book-only) + an inline B-tree <svg> + one file-local figure component (SortedRow)
 ├── tda-eda-invariante.svg, arreglo-memoria.svg, arreglo-alocacion.svg, arreglo-invariante-valido.svg, arreglo-invariantes.svg, regla-del-cuarto.svg, costo-acumulado.svg   # assets for chapter 17
 └── index.yaml                 # the ordered teaching path
 ```
@@ -952,8 +952,12 @@ Six things worth knowing before you write one:
   may copy, so a pair is valid only when the listing belongs to the structure
   the picture draws. `dynamic-array` and `linked-list-singly` take all nine
   (bar `insert-ordered` on the dynamic array — this course presents order as
-  a variant of the list and never defines an ordered array). The two VARIANT
-  recipes take less, and the heap and the binary tree take only their own:
+  a variant of the list and never defines an ordered array). The dynamic
+  array alone takes a tenth, `binary-search` (#322): a list cannot reach its
+  middle in one step, and `values` must be sorted with no repeats, or the
+  widget refuses it — it would otherwise answer wrongly with no error. The
+  two VARIANT recipes take less, and the heap and the trees take only their
+  own:
 
   | Receta                 | Operaciones                                                                             |
   | ---------------------- | --------------------------------------------------------------------------------------- |
@@ -961,6 +965,8 @@ Six things worth knowing before you write one:
   | `linked-list-circular` | `insert-first`                                                                          |
   | `heap-max`             | `insert`, `extract-max` (y ninguna otra receta acepta estas dos)                        |
   | `binary-tree`          | `preorder`, `inorder`, `postorder`, `height` (y ninguna otra receta acepta estas cuatro), y `search` |
+  | `bst`                  | `search`, `insert`, `minimum`, `successor`, `remove` (las tres últimas, solo aquí)       |
+  | `avl`                  | `rotate-right`, `rotate-left` (solo aquí), `insert`, `remove`                           |
 
   Anything else is an `<AuthoringError>` naming the operations that recipe does
   have; a heap operation on a Sequence recipe is refused pointing at

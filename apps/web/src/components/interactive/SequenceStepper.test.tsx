@@ -902,6 +902,52 @@ describe('<SequenceStepper> · the bst recipe (#321)', () => {
   });
 });
 
+describe('<SequenceStepper> · the binary search over the array (#322)', () => {
+  const walkToEnd = () => {
+    for (let i = 0; i < 80; i += 1) {
+      const next = screen.getByRole('button', { name: 'Adelante' });
+      if (next.getAttribute('aria-disabled') === 'true') break;
+      fireEvent.click(next);
+    }
+  };
+
+  it('fades and dashes every cell the search rules out, and says so in the legend', () => {
+    renderIn(
+      'book',
+      <SequenceStepper
+        eda="dynamic-array"
+        operation="binary-search"
+        values={[2, 4, 6, 8, 10, 12, 14]}
+        target={7}
+      />,
+    );
+    walkToEnd();
+    const out = [
+      ...screen.getByTestId('sequence-structure').querySelectorAll('[data-state="discarded"]'),
+    ];
+    expect(out).toHaveLength(7);
+    for (const cell of out) {
+      expect(cell.getAttribute('opacity')).toBe('0.45');
+      expect(cell.querySelector('rect')?.getAttribute('stroke-dasharray')).not.toBeNull();
+    }
+    expect(screen.getByText('descartado')).toBeInTheDocument();
+    expect(screen.queryByText('libre')).toBeNull();
+  });
+
+  it('refuses an array that is not sorted with an authoring error', () => {
+    renderIn(
+      'book',
+      <SequenceStepper
+        eda="dynamic-array"
+        operation="binary-search"
+        values={[7, 3, 1]}
+        target={3}
+      />,
+    );
+    expect(document.querySelector('[data-authoring-error]')).not.toBeNull();
+  });
+});
+
 describe('<SequenceStepper> · the avl recipe (#322)', () => {
   const forward = (times: number) => {
     for (let i = 0; i < times; i += 1) {
@@ -1046,6 +1092,16 @@ describe('<SequenceStepper> · the combinations 22-edd-arboles-ii mounts', () =>
   // come from, and each one WALKED to its last frame, not only mounted. Kept
   // level with the document by every slice of #322 that rewrites an act.
   const mounted: { act: string; slide: string; props: SequenceStepperProps }[] = [
+    {
+      act: 'the opening, with no heading',
+      slide: 'La búsqueda binaria',
+      props: {
+        eda: 'dynamic-array',
+        operation: 'binary-search',
+        values: [2, 4, 6, 8, 10, 12, 14],
+        target: 7,
+      },
+    },
     {
       act: 'the opening, with no heading',
       slide: 'Insertar en un arreglo ordenado',

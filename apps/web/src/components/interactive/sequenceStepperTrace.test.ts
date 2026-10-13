@@ -52,7 +52,7 @@ const startFor = (recipe: SequenceRecipe, operation: SequenceOperation): number[
     ? [7, 5, 3, 1]
     : recipe === 'avl'
       ? [3, 1, 0, 2]
-      : operation === 'insert-ordered'
+      : operation === 'insert-ordered' || operation === 'binary-search'
         ? [1, 3, 7, 9]
         : values;
 
@@ -68,6 +68,7 @@ describe('sequenceStepperTrace · the valid combinations', () => {
         if (HEAP_OPERATIONS.includes(operation)) continue;
         if (TREE_ONLY.includes(operation)) continue;
         if (operation === 'insert-ordered' && !recipe.startsWith('linked-list')) continue;
+        if (operation === 'binary-search' && recipe !== 'dynamic-array') continue;
         expect(isValidCombination(recipe, operation), `${recipe} × ${operation}`).toBe(true);
       }
     }
@@ -1192,6 +1193,105 @@ const heapOrdered = (cells: { value: number }[], n: number): boolean =>
     .every((c, i) => i === 0 || cells[Math.floor((i + 1) / 2) - 1]!.value >= c.value);
 
 const HEAP_OPS = ['insert', 'extract-max'] as const;
+
+describe('sequenceStepperTrace · dynamic-array · binary-search (#322)', () => {
+  const EVENS = [2, 4, 6, 8, 10, 12, 14];
+  const search = (target: number, values = EVENS) =>
+    traceFor('dynamic-array', 'binary-search', { values, target });
+  /** The value under `mid` at every frame that names it, in order, once each. */
+  const middles = (trace: SequenceTrace): number[] => {
+    const out: number[] = [];
+    for (const step of trace.steps) {
+      if (
+        (step.kind !== 'compare' && step.kind !== 'found') ||
+        !trace.code.split('\n')[step.highlightLines[0]! - 1]!.includes('data[mid] == x')
+      )
+        continue;
+      const at = step.slots!.findIndex(
+        (s) => s !== null && (s.state === 'active' || s.state === 'found'),
+      );
+      out.push(step.slots![at]!.value);
+    }
+    return out;
+  };
+  const lineText = (trace: SequenceTrace, step: SequenceStep): string[] =>
+    step.highlightLines.map((l) => trace.code.split('\n')[l - 1]!.trim());
+
+  it('is an operation of the array and of nothing else', () => {
+    expect(isValidCombination('dynamic-array', 'binary-search')).toBe(true);
+    for (const recipe of RECIPES) {
+      if (recipe === 'dynamic-array') continue;
+      expect(isValidCombination(recipe, 'binary-search'), recipe).toBe(false);
+    }
+  });
+
+  it('compares 7 with 8, then 4, then 6, and returns -1', () => {
+    const trace = search(7);
+    expect(middles(trace)).toEqual([8, 4, 6]);
+    const last = trace.steps.at(-1)!;
+    expect(lineText(trace, last)).toContain('return -1;');
+    expect(last.description).toContain('no está');
+    // Where the search stopped is where the value goes: the next slide
+    // inserts 7 at position 3.
+    expect(last.description).toContain('3');
+  });
+
+  it('finds 12 in two comparisons, at position 5', () => {
+    const trace = search(12);
+    expect(middles(trace)).toEqual([8, 12]);
+    const last = trace.steps.at(-1)!;
+    expect(last.kind).toBe('found');
+    expect(lineText(trace, last)).toContain('return mid;');
+    expect(last.slots![5]!.state).toBe('found');
+    expect(last.cost).toBe(2);
+  });
+
+  it('rules out the half the comparison discards, and keeps it ruled out', () => {
+    const trace = search(7);
+    // The first decision: 7 < 8, so 8 and everything right of it go.
+    const first = trace.steps.find((s) => lineText(trace, s).includes('hi = mid - 1;'))!;
+    const out = first.slots!.flatMap((s, i) => (s !== null && s.state === 'discarded' ? [i] : []));
+    expect(out).toEqual([3, 4, 5, 6]);
+    const last = trace.steps.at(-1)!;
+    expect(last.slots!.every((s) => s === null || s.state === 'discarded')).toBe(true);
+  });
+
+  it('shows lo, mid and hi as cursors, one label where they share a cell', () => {
+    const trace = search(7);
+    const start = trace.steps[0]!;
+    expect(start.pointers).toEqual([
+      { name: 'lo', index: 0 },
+      { name: 'hi', index: 6 },
+    ]);
+    // The third middle is 6, at position 2, where lo and hi also stand.
+    const together = trace.steps.find((s) => s.pointers.some((p) => p.name === 'lo, mid, hi'));
+    expect(together?.pointers).toEqual([{ name: 'lo, mid, hi', index: 2 }]);
+  });
+
+  it('never takes more than floor(log2 n) + 1 comparisons', () => {
+    for (let n = 1; n <= 8; n += 1) {
+      const values = Array.from({ length: n }, (_, i) => 2 * i + 2);
+      for (let target = 0; target <= 2 * n + 3; target += 1) {
+        const last = search(target, values).steps.at(-1)!;
+        expect(last.cost, `n = ${n}, ${target}`).toBeLessThanOrEqual(Math.floor(Math.log2(n)) + 1);
+      }
+    }
+  });
+
+  it('refuses an array that is not sorted, or that repeats a value', () => {
+    expect(() => search(3, [7, 3, 1, 5])).toThrow(/ordenado/);
+    expect(() => search(3, [1, 3, 3, 5])).toThrow(/ordenado/);
+  });
+
+  it('lights one decision per frame', () => {
+    const trace = search(7);
+    for (const step of trace.steps) {
+      const lines = lineText(trace, step);
+      const assignments = lines.filter((l) => /^(int )?(lo|hi|mid) = /.test(l));
+      expect(assignments.length, lines.join(' | ')).toBeLessThanOrEqual(2);
+    }
+  });
+});
 
 describe('sequenceStepperTrace · heap-max · which operations it has', () => {
   it('offers exactly the two heap operations, and nothing else', () => {

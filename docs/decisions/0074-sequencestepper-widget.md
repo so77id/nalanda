@@ -138,7 +138,7 @@ So the widget gives up advertised range instead:
 
 | Receta                   | Operaciones válidas                                                                     |
 | ------------------------ | --------------------------------------------------------------------------------------- |
-| `dynamic-array`          | las nueve, menos `insert-ordered` (también `array`, hasta que #304 lo borró)            |
+| `dynamic-array`          | las nueve, menos `insert-ordered` (también `array`, hasta que #304 lo borró); y `binary-search` desde #322, solo aquí |
 | `linked-list-singly`     | las nueve                                                                               |
 | `linked-list-doubly`     | `get-at`, `search`, `insert-first`, `remove-first`, y `remove-last` **solo con `tail`** |
 | `linked-list-circular`   | `insert-first` (con listado propio: cierra el anillo, y camina para hacerlo)            |
@@ -385,6 +385,20 @@ amendment is not drawn on `binary-tree`. The readout is there because `size`
 is a FIELD of the structure, and the tree's listings — the recursive methods
 over a node — have none: a number in the corner would name a field the
 reader never meets in the code (ADR-0083 §Consequences).
+
+**Amended by:** #322 (2026-10-13) — a tenth operation, `binary-search`,
+valid on `dynamic-array` alone. Árboles II opens on the sorted array, and its
+binary search was a widget of an older generation (`<BinarySearchOnArray>`,
+English chrome, no listing); the professor asked for the one the unit uses.
+The listing is the iterative method over `data` and `size`; a frame per
+decision — the middle, the comparison, the half ruled out — with `lo`, `mid`
+and `hi` as cursors, one label where they share a cell. What a comparison
+rules out is painted `discarded`, the state ADR-0083 gave the search tree:
+the cell fades and its border dashes, so colour is not the only signal, and
+the run's legend names it. The settled last frame keeps it — an array that
+turns idle again says the search never looked. `values` must be sorted with
+no repeats or the widget refuses it, the stance `insert-ordered` takes on a
+list: a binary search over an unsorted array answers wrongly with no error.
 
 **Source:** Issue #288 — Course document "Estructuras de Datos · Listas
 Enlazadas". The class shows nine operations over five structures, and

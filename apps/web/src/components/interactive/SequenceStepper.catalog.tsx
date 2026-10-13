@@ -335,6 +335,18 @@ export const sequenceStepperCatalogEntry: CatalogEntry = {
       ),
     },
     {
+      title: 'A binary search over a sorted array: each comparison rules out half of what is left',
+      code: '<SequenceStepper eda="dynamic-array" operation="binary-search" values={[2, 4, 6, 8, 10, 12, 14]} target={7} />',
+      render: () => (
+        <SequenceStepper
+          eda="dynamic-array"
+          operation="binary-search"
+          values={[2, 4, 6, 8, 10, 12, 14]}
+          target={7}
+        />
+      ),
+    },
+    {
       title: 'Searching a tree with no order: it may have to compare every node',
       code: '<SequenceStepper eda="binary-tree" operation="search" values={[4, 2, 7, 1, 3, 6, 9]} target={6} />',
       render: () => (

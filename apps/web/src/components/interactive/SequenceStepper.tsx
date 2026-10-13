@@ -212,6 +212,7 @@ const OPERATION_LABEL: Record<SequenceOperation, string> = {
   'remove-last': 'eliminar el último',
   'remove-at': 'eliminar una posición',
   search: 'buscar',
+  'binary-search': 'búsqueda binaria',
   insert: 'insertar',
   'extract-max': 'extraer el máximo',
   preorder: 'recorrer en preorden',
@@ -278,11 +279,16 @@ const AVL_LEGEND: Record<AvlOperation, [string, string][]> = {
   ],
 };
 
-/** The legend of a tree run, or null when the run is not a tree's. */
-function treeLegend(
+/**
+ * The legend of a run that paints its own states — a tree's, and the array's
+ * binary search, which rules out cells the way the search tree rules out
+ * subtrees — or null for the default one.
+ */
+function runLegend(
   recipe: SequenceRecipe,
   operation: SequenceOperation,
 ): [string, string][] | null {
+  if (operation === 'binary-search') return [FOUND, UNDER_THE_EYE, RULED_OUT];
   if (recipe === 'binary-tree' && isBinaryTreeOperation(operation)) return TREE_LEGEND[operation];
   if (recipe === 'bst' && isBstOperation(operation)) return SEARCH_TREE_LEGEND[operation];
   if (recipe === 'avl' && isAvlOperation(operation)) return AVL_LEGEND[operation];
@@ -517,7 +523,7 @@ function Body({
   const mode = useMode();
   const heap = recipe === 'heap-max';
   const tree = recipe === 'binary-tree' || recipe === 'bst' || recipe === 'avl';
-  const legend = treeLegend(recipe, operation);
+  const legend = runLegend(recipe, operation);
   const isPresentation = mode === 'presentation';
   const outerRef = useRef<HTMLElement | null>(null);
 
@@ -798,7 +804,7 @@ function Body({
         </label>
 
         <span className="ml-auto flex flex-wrap items-center gap-3 font-mono text-3xs text-ink-faint">
-          {tree && legend !== null ? (
+          {legend !== null ? (
             <>
               {legend.map(([swatchClass, label]) => (
                 <LegendSwatch key={label} swatchClass={swatchClass} label={label} />
@@ -989,8 +995,12 @@ function ArrayPicture({ step, layout }: { step: SequenceStep; layout: SequenceLa
         // visible as a move rather than as a colour change.
         const cell = step.slots?.[i] ?? undefined;
         const free = cell === null || cell === undefined;
+        // Ruled out by a binary search: the whole cell fades and its border
+        // dashes, as a ruled-out node does on the tree, so colour is not the
+        // only signal.
+        const out = !free && cell.state === 'discarded';
         return (
-          <g key={i}>
+          <g key={i} data-state={free ? undefined : cell.state} opacity={out ? 0.45 : undefined}>
             <rect
               x={box.x}
               y={box.y}
@@ -1000,7 +1010,7 @@ function ArrayPicture({ step, layout }: { step: SequenceStep; layout: SequenceLa
               fill={free ? 'var(--color-sunk)' : CELL_FILL[cell.state]}
               stroke={free ? 'var(--color-rule)' : CELL_STROKE[cell.state]}
               strokeWidth={!free && (cell.state === 'active' || cell.state === 'found') ? 2.5 : 1.2}
-              strokeDasharray={free ? '3 3' : undefined}
+              strokeDasharray={free || out ? '3 3' : undefined}
               opacity={!free && (cell.state === 'leaving' || cell.state === 'stale') ? 0.45 : 1}
             />
             {free ? null : (
