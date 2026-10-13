@@ -331,3 +331,200 @@ reparta las claves parejo, y una manera de guardar dos claves que caen en la
 misma posición.
 
 </Slide>
+
+<SectionBreak />
+
+## Funciones hash
+
+{/* Bits — integer keys written in binary, one cell per bit, the `low` lowest boxed: what `x mod 2^k` keeps. `notes` writes, beside each row, what the row's key gives under each M. File-local (§6e-quater). */}
+
+export function Bits({ rows, low, label, caption }) {
+  const bits = Math.max(...rows.map((r) => r.value.toString(2).length));
+  const cw = 22;
+  const ch = 28;
+  const pad = 12;
+  const labelW = 60;
+  const noteW = 250;
+  const top = 34;
+  const width = pad + labelW + bits * cw + 18 + noteW + pad;
+  const height = top + rows.length * (ch + 12) + (caption ? 28 : 6);
+  const lowX = pad + labelW + (bits - low) * cw;
+  return (
+    <svg viewBox={`0 0 ${width} ${height}`} style={{ width: '100%', maxWidth: `${Math.round(width * 1.3)}px`, height: 'auto', display: 'block', margin: '0.4rem auto' }} role="img" aria-label={label}>
+      <path d={`M ${lowX} ${top - 8} V ${top - 14} H ${lowX + low * cw} V ${top - 8}`} fill="none" style={{ stroke: 'var(--color-focus)' }} strokeWidth="1.6" />
+      <text x={lowX + (low * cw) / 2} y={top - 19} textAnchor="middle" fontSize="12" fontWeight="700" style={{ fill: 'var(--color-focus)' }}>{`los ${low} bits bajos`}</text>
+      {rows.map((r, n) => {
+        const y = top + n * (ch + 12);
+        const digits = r.value.toString(2).padStart(bits, '0').split('');
+        return (
+          <g key={r.value}>
+            <text x={pad + labelW - 10} y={y + ch / 2 + 5} textAnchor="end" fontSize="14" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{r.value}</text>
+            {digits.map((d, i) => {
+              const isLow = i >= bits - low;
+              return (
+                <g key={i}>
+                  <rect x={pad + labelW + i * cw} y={y} width={cw} height={ch} style={{ fill: isLow ? 'var(--color-sunk)' : 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1" />
+                  <text x={pad + labelW + i * cw + cw / 2} y={y + ch / 2 + 5} textAnchor="middle" fontSize="13" fontFamily="var(--font-mono, monospace)" style={{ fill: 'var(--color-ink)' }}>{d}</text>
+                </g>
+              );
+            })}
+            <text x={pad + labelW + bits * cw + 18} y={y + ch / 2 + 5} fontSize="13" style={{ fill: 'var(--color-ink-soft)' }}>{r.note}</text>
+          </g>
+        );
+      })}
+      {caption ? (
+        <text x={width / 2} y={height - 8} textAnchor="middle" fontSize="12" style={{ fill: 'var(--color-ink-soft)' }}>{caption}</text>
+      ) : null}
+    </svg>
+  );
+}
+
+<Slide title="Tres requisitos de una función hash">
+Una función hash sirve para una tabla si cumple tres requisitos.
+
+1. **Es determinista.** La misma clave da siempre la misma posición. Si no,
+   un abrigo guardado en un casillero se buscaría después en otro.
+2. **Reparte parejo.** Las claves se distribuyen de manera uniforme entre las
+   $$M$$ posiciones: cada posición recibe más o menos $$N / M$$ claves. Una
+   regla que llena unas posiciones y deja otras vacías convierte la tabla en
+   unas pocas filas largas.
+3. **Es barata.** Calcularla cuesta poco, y no depende de cuántas claves hay
+   en la tabla. Una regla que tarda más que revisar los casilleros no ahorra
+   nada.
+
+</Slide>
+
+<Slide title="El método de la división">
+Si la clave es un entero $$x$$, la regla más usada es el **método de la
+división**: la posición es el resto de dividir por el tamaño de la tabla,
+
+$$
+h(x) = x \bmod M,
+$$
+
+que siempre es un entero entre $$0$$ y $$M - 1$$. Es determinista y se
+calcula con una sola operación.
+
+<Reparto
+  id="division"
+  keys={[{ name: '2024', to: 1 }, { name: '1985', to: 4 }, { name: '3141', to: 5 }, { name: '2718', to: 2 }]}
+  cells={7}
+  caption="con M = 7: 2024 mod 7 = 1, 1985 mod 7 = 4, 3141 mod 7 = 5, 2718 mod 7 = 2"
+  label="Cuatro números y siete casilleros. 2024 va al casillero 1, 1985 al 4, 3141 al 5 y 2718 al 2: cada uno al resto de dividirlo por 7."
+/>
+
+</Slide>
+
+<Slide title="Por qué M es primo">
+Que el método reparta parejo depende de $$M$$. Si $$M$$ es una potencia de
+2, $$M = 2^k$$, el resto de dividir por $$M$$ son exactamente los $$k$$ bits
+más bajos de la clave: dos claves que terminan en los mismos $$k$$ bits
+colisionan, aunque todo el resto sea distinto. Las claves reales suelen
+repetir esos patrones —números pares, múltiplos de 4, folios que solo cambian
+en sus cifras altas— y la tabla los hereda.
+
+<Bits
+  rows={[
+    { value: 1482, note: 'mod 1024 = 458 · mod 1009 = 473' },
+    { value: 7626, note: 'mod 1024 = 458 · mod 1009 = 563' },
+  ]}
+  low={10}
+  caption="1024 = 2¹⁰ solo mira los 10 bits bajos, y ahí las dos claves son iguales; con 1009, primo, no colisionan"
+  label="Las claves 1482 y 7626 en binario, con trece bits. Sus diez bits bajos son iguales y sus tres bits altos distintos. Con M igual a 1024 las dos dan 458; con M igual a 1009, un primo, dan 473 y 563."
+/>
+
+Con un $$M$$ **primo**, y lejos de una potencia de 2, el resto depende de
+todos los bits de la clave, y esos patrones se reparten.
+
+</Slide>
+
+<Slide title="De un texto a un número">
+La clave de un guardarropa es un nombre, un texto, y el método de la división
+necesita un entero. Cada carácter ya es un número —su código: `'A'` es 65,
+`'n'` es 110, `'a'` es 97—, así que un texto se puede leer como un número
+escrito en una base, con un carácter por cifra.
+
+| Carácter de «Ana»   | `'A'`         | `'n'`        | `'a'`        | Número de «Ana» |
+| ------------------- | ------------- | ------------ | ------------ | --------------- |
+| Código              | 65            | 110          | 97           |                 |
+| Peso, en base 256   | $$256^2$$     | $$256^1$$    | $$256^0$$    |                 |
+| Aporte              | 4 259 840     | 28 160       | 97           | 4 288 097       |
+
+El número crece muy rápido con el largo del texto: cada carácter lo multiplica
+por la base. Un `int` de Java llega hasta $$2^{31} - 1 = 2\,147\,483\,647$$, y
+cualquier nombre de cinco letras lo supera, porque su primera cifra ya pesa
+$$256^4 = 2^{32}$$.
+
+</Slide>
+
+<Slide title="La regla de Horner">
+El número de un texto $$c_0 c_1 \ldots c_{n-1}$$ en una base $$B$$ es
+
+$$
+c_0 \cdot B^{n-1} + c_1 \cdot B^{n-2} + \cdots + c_{n-1},
+$$
+
+y la **regla de Horner** lo calcula sin potencias, con una multiplicación y
+una suma por carácter:
+
+$$
+\Big(\big(c_0 \cdot B + c_1\big) \cdot B + c_2\Big) \cdot B + \cdots + c_{n-1}.
+$$
+
+Como lo que la tabla necesita es ese número $$\bmod M$$, se puede reducir
+$$\bmod M$$ en cada paso: el resultado es el mismo, y ningún paso pasa de
+$$B \cdot M$$ más el código de un carácter. Con base 31 —un primo chico, la base que usa Java para los
+`String`— cada paso es
+
+$$
+h = (31 \cdot h + c) \bmod M.
+$$
+
+| Paso | Carácter | Código | $$31 \cdot h + c$$     | $$h$$, con $$M = 7$$ |
+| ---- | -------- | ------ | ---------------------- | -------------------- |
+| 1    | `'A'`    | 65     | $$31 \cdot 0 + 65 = 65$$   | $$65 \bmod 7 = 2$$   |
+| 2    | `'n'`    | 110    | $$31 \cdot 2 + 110 = 172$$ | $$172 \bmod 7 = 4$$  |
+| 3    | `'a'`    | 97     | $$31 \cdot 4 + 97 = 221$$  | $$221 \bmod 7 = 4$$  |
+
+</Slide>
+
+<Slide title="El código de hash">
+La regla de Horner, en un método de la tabla. `table.length` es $$M$$, y una
+clave `null` no tiene posición: es un error, no una clave.
+
+```java
+private int hash(String key) {
+    if (key == null) {
+        throw new IllegalArgumentException();
+    }
+    int h = 0;
+    for (int i = 0; i < key.length(); i++) {
+        h = (31 * h + key.charAt(i)) % table.length;
+    }
+    return h;
+}
+```
+
+Hace una multiplicación, una suma y un resto por carácter: cuesta
+$$\Theta(L)$$, con $$L$$ el largo de la clave, y no depende de cuántas claves
+hay en la tabla. Como $$h$$ siempre es menor que $$M$$, `31 * h + key.charAt(i)`
+no se sale de un `int` para ningún tamaño de tabla razonable.
+
+</Slide>
+
+<Slide title="El método de la multiplicación">
+Hay otra regla clásica para claves enteras, el **método de la
+multiplicación**:
+
+$$
+h(x) = \big\lfloor M \cdot (A \cdot x \bmod 1) \big\rfloor,
+$$
+
+donde $$A$$ es una constante entre 0 y 1 y $$A \cdot x \bmod 1$$ es la parte
+fraccionaria de $$A \cdot x$$. Knuth propone
+$$A = (\sqrt{5} - 1)/2 \approx 0{,}618$$, el inverso de la razón áurea: con
+ella, las partes fraccionarias de $$A$$, $$2A$$, $$3A, \ldots$$ se reparten
+parejo en el intervalo entre 0 y 1. A diferencia de la división, funciona bien
+con cualquier $$M$$, también con una potencia de 2.
+
+</Slide>
