@@ -1,6 +1,6 @@
 # ADR-0083: `<SequenceStepper>` gains a linked binary tree — every node in the column of its inorder position
 
-**Status:** Accepted — the professor's review of the recipe in `/catalog/c/SequenceStepper` outstanding
+**Status:** Accepted — the professor's review of the recipe in `/catalog/c/SequenceStepper` outstanding; §6, the `avl` amendment (#322), Proposed
 **Date:** 2026-10-11
 **Decision-makers:** Miguel Rodriguez
 **Source:** Issue #321 (Estructuras de Datos Avanzadas · Árboles I), slice S2.
@@ -8,7 +8,9 @@
 picture of its own, the way ADR-0077 added the heap's. ADR-0077 still holds
 entirely, and so does ADR-0074 but for the `size` readout, which the tree does
 not show (`Amended by: #321` there).
-**Amended by:** #322 (Árboles II): the `avl` recipe and its rotations, §6.
+**Amended by:** #322 (Árboles II): the `bst` recipe ships with the class
+that mounts it (§2, §3, §5), and a third recipe, `avl`, rotates, inserts
+and removes (§6).
 
 ## Context
 
@@ -151,7 +153,9 @@ so a third tree recipe, `avl`, starts with `rotate-right` and `rotate-left`
 (`target`, the node that rotates), valid on no other recipe. Its trace is a
 module of its own, `sequenceStepperAvlTrace.ts`, built on the pieces
 `sequenceStepperTreeTrace.ts` exports (the node, the recorder, the search
-tree built by inserting, the run's columns).
+tree built by inserting, the run's columns). Like the tree's, it imports only
+types from the dispatcher, so the dispatcher's value import of `traceAvl`
+closes no runtime cycle (§1).
 
 - **`values` builds a PLAIN search tree** for the rotations, inserted in that
   order with no rebalancing: the act shows rotating a tree that leans, before
@@ -210,7 +214,10 @@ as their last line:
   widget's `remove` shows the case only a removal produces: a child with
   factor 0, fixed by one rotation.
 
-Proposed, like the rest, until the professor reviews it running.
+This amendment is **Proposed**. The two recipes above ship with the classes
+that mount them; `avl` ships with Árboles II, and the professor's review of it
+running in `/catalog/c/SequenceStepper` (#322's checkpoint after its S2) is
+what accepts it — the review, not the code.
 
 ## Alternatives considered
 

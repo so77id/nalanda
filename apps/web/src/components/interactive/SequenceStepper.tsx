@@ -316,9 +316,11 @@ function readValues(key: string): { values: number[]; levelOrder?: (TreeValue | 
  *
  * The modules, every one but the painters pure and pinned by the suite, which
  * leaves the browser only the paint:
- * - frames: `sequenceStepperTrace` (the dispatcher, the chains and the heap)
- *   and `sequenceStepperTreeTrace` (the tree), both importing the leaf
- *   `sequenceStepperTraceShared` (the line a frame lights, the runs cap);
+ * - frames: `sequenceStepperTrace` (the dispatcher, the chains and the heap),
+ *   `sequenceStepperTreeTrace` (the binary tree and the search tree) and
+ *   `sequenceStepperAvlTrace` (the AVL tree, built on the tree's pieces), all
+ *   importing the leaf `sequenceStepperTraceShared` (the line a frame lights,
+ *   the runs cap);
  * - geometry: `sequenceStepperLayout` (a Sequence), `sequenceStepperHeapLayout`
  *   (the heap's tree and array) and `sequenceStepperTreeLayout` (the tree),
  *   the last two sharing the leaf `sequenceStepperEdge`;
