@@ -254,9 +254,14 @@ what accepts it — the review, not the code.
 
 - The validity matrix grows two rows: `binary-tree` × {`preorder`,
   `inorder`, `postorder`, `height`, `search`} and `bst` × {`search`,
-  `insert`, `minimum`, `successor`, `remove`}; the seven tree-only
-  operations are valid on nothing else
-  (`add-a-course-document.md` §5h carries it). #322 adds a third row,
+  `insert`, `inorder`, `minimum`, `successor`, `remove`}; the seven
+  tree-only operations are valid on no Sequence recipe
+  (`add-a-course-document.md` §5h carries it). `bst`'s `inorder` (#322)
+  is the binary tree's body behind a public `inorder()`, in a listing of
+  its own, so the binary tree's — Árboles I's — is untouched; and every
+  `bst` listing is the method the tree offers, `public`, and for the
+  recursive ones the `private` method it calls with the root, which the
+  first frame lights (Miguel's review: "these are private"). #322 adds a third row,
   `avl` × {`rotate-right`, `rotate-left`, `insert`, `remove`}; the two
   rotations are valid on nothing else.
 - `SequenceCellState` gains `visited` and `discarded`; `SequenceStep` gains

@@ -494,7 +494,7 @@ export function isBinaryTreeOperation(
 }
 
 /** What `bst` has a listing for: its own operations, and the shared `search` and `insert`. */
-const BST_OPERATION_NAMES = ['search', 'insert', ...BST_ONLY_NAMES] as const;
+const BST_OPERATION_NAMES = ['search', 'insert', 'inorder', ...BST_ONLY_NAMES] as const;
 export type BstOperation = (typeof BST_OPERATION_NAMES)[number];
 export const BST_OPERATIONS: readonly SequenceOperation[] = BST_OPERATION_NAMES;
 

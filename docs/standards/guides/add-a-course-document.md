@@ -874,7 +874,10 @@ keeps no array, and a strip there read as one (#322); with `program` and
 there), `successor` (`target`) walks down once keeping the best candidate,
 and `remove` (`target`) runs the three cases — a leaf, one child, and two
 children by copying the successor's value into the node and removing the
-successor. `search` keeps one name over the chains and both trees, `insert`
+successor. `inorder` walks it as the binary tree's does. Every `bst` listing
+is the method the tree offers, `public`, and for the recursive ones the
+`private` method it calls with the root; the first frame lights that call
+(#322). `search` keeps one name over the chains and both trees, `insert`
 over the heap and `bst`. The binary search and `bst`'s `search` write the
 value sought beside the structure on every frame («se busca el 6»).
 `iterative` puts the recursive version of an
@@ -977,7 +980,7 @@ Six things worth knowing before you write one:
   | `linked-list-circular` | `insert-first`                                                                          |
   | `heap-max`             | `insert`, `extract-max` (y ninguna otra receta acepta estas dos)                        |
   | `binary-tree`          | `preorder`, `inorder`, `postorder`, `height` (y ninguna otra receta acepta estas cuatro), y `search` |
-  | `bst`                  | `search`, `insert`, `minimum`, `successor`, `remove` (las tres últimas, solo aquí)       |
+  | `bst`                  | `search`, `insert`, `inorder`, `minimum`, `successor`, `remove` (las tres últimas, solo aquí) |
   | `avl`                  | `rotate-right`, `rotate-left` (solo aquí), `insert`, `remove`                           |
 
   Anything else is an `<AuthoringError>` naming the operations that recipe does

@@ -10,6 +10,7 @@ import {
   RECIPES,
   isValidCombination,
   traceFor,
+  type SequenceInput,
   type SequenceOperation,
   type SequenceRecipe,
   type SequenceStep,
@@ -2413,6 +2414,76 @@ describe('sequenceStepperTrace · bst · a tree built by a program (#322)', () =
     expect(build([8, 4]).tree!.strip).toBe(false);
     expect(traceFor('bst', 'insert', { values: [8, 4], value: 6 }).tree!.strip).toBe(false);
     expect(traceFor('avl', 'insert', { values: [], value: [3, 2, 1] }).tree!.strip).toBe(false);
+  });
+});
+
+describe('sequenceStepperTrace · bst · the public method and the private one (#322)', () => {
+  const first = (trace: SequenceTrace) =>
+    trace.steps[0]!.highlightLines.map((l) => trace.code.split('\n')[l - 1]!.trim());
+
+  it('shows each recursive operation as a public method that calls a private one with the root', () => {
+    const cases: [SequenceOperation, Partial<SequenceInput>, string, string, string][] = [
+      [
+        'search',
+        { target: 6 },
+        'public boolean contains(T target) {',
+        'private boolean contains(Node<T> node, T target) {',
+        'return contains(root, target);',
+      ],
+      [
+        'insert',
+        { value: 5 },
+        'public void insert(T value) {',
+        'private Node<T> insert(Node<T> node, T value) {',
+        'root = insert(root, value);',
+      ],
+      [
+        'remove',
+        { target: 4 },
+        'public void remove(T value) {',
+        'private Node<T> remove(Node<T> node, T value) {',
+        'root = remove(root, value);',
+      ],
+      [
+        'minimum',
+        {},
+        'public T min() {',
+        'private Node<T> minimum(Node<T> node) {',
+        'return minimum(root).value;',
+      ],
+      [
+        'inorder',
+        {},
+        'public void inorder() {',
+        'private void inorder(Node<T> node) {',
+        'inorder(root);',
+      ],
+    ];
+    for (const [operation, extra, pub, priv, call] of cases) {
+      const trace = traceFor('bst', operation, { values: BALANCED, ...extra });
+      expect(trace.code, operation).toContain(pub);
+      expect(trace.code, operation).toContain(priv);
+      expect(first(trace), operation).toEqual([call]);
+    }
+  });
+
+  it('writes the iterative versions, and the successor, as public methods', () => {
+    expect(traceFor('bst', 'successor', { values: BALANCED, target: 6 }).code).toContain(
+      'public T successor(T value) {',
+    );
+    for (const [operation, extra] of [
+      ['search', { target: 6 }],
+      ['insert', { value: 5 }],
+      ['minimum', {}],
+    ] as const) {
+      const trace = traceFor('bst', operation, { values: BALANCED, ...extra, iterative: true });
+      expect(trace.alongside!.startsWith('public '), operation).toBe(true);
+    }
+  });
+
+  it('walks the inorder of a search tree, writing it sorted', () => {
+    const trace = traceFor('bst', 'inorder', { values: BALANCED });
+    expect(trace.steps.at(-1)!.tree!.strip).toEqual([1, 2, 3, 4, 6, 7, 9]);
   });
 });
 

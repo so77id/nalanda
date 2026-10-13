@@ -80,6 +80,19 @@ const CODE = {
     // recorrido: después la derecha
     inorder(node.right);
 }`,
+  bstInorder: `public void inorder() {
+    inorder(root);
+}
+
+private void inorder(Node<T> node) {
+    if (node == null) return;
+    // recorrido: primero la izquierda
+    inorder(node.left);
+    // visita
+    System.out.print(node.value + " ");
+    // recorrido: después la derecha
+    inorder(node.right);
+}`,
   postorder: `void postorder(Node<T> node) {
     if (node == null) return;
     // recorrido
@@ -102,14 +115,22 @@ const CODE = {
     return contains(node.left, target)
         || contains(node.right, target);
 }`,
-  containsOrdered: `boolean contains(Node<T> node, T target) {
+  containsOrdered: `public boolean contains(T target) {
+    return contains(root, target);
+}
+
+private boolean contains(Node<T> node, T target) {
     if (node == null) return false;
     int c = target.compareTo(node.value);
     if (c == 0) return true;
     if (c < 0) return contains(node.left, target);
     return contains(node.right, target);
 }`,
-  insert: `Node<T> insert(Node<T> node, T value) {
+  insert: `public void insert(T value) {
+    root = insert(root, value);
+}
+
+private Node<T> insert(Node<T> node, T value) {
     if (node == null) return new Node<>(value);
     int c = value.compareTo(node.value);
     if (c < 0) {
@@ -119,18 +140,19 @@ const CODE = {
     }
     return node;
 }`,
-  minimum: `T min() {
+  minimum: `public T min() {
     if (root == null) {
         throw new NoSuchElementException();
     }
     return minimum(root).value;
 }
 
-Node<T> minimum(Node<T> node) {
+private Node<T> minimum(Node<T> node) {
     if (node.left == null) return node;
     return minimum(node.left);
 }`,
-  successor: `Node<T> successor(Node<T> node, T value) {
+  successor: `public T successor(T value) {
+    Node<T> node = root;
     Node<T> best = null;
     while (node != null) {
         if (value.compareTo(node.value) < 0) {
@@ -140,9 +162,13 @@ Node<T> minimum(Node<T> node) {
             node = node.right;
         }
     }
-    return best;
+    return best == null ? null : best.value;
 }`,
-  remove: `Node<T> remove(Node<T> node, T value) {
+  remove: `public void remove(T value) {
+    root = remove(root, value);
+}
+
+private Node<T> remove(Node<T> node, T value) {
     if (node == null) return null;
     int c = value.compareTo(node.value);
     if (c < 0) {
@@ -443,6 +469,11 @@ export function traceSearchTree(operation: BstOperation, input: SequenceInput): 
       INSERT_PAIRS,
     );
   }
+  if (operation === 'inorder') {
+    const { root } = bstOf(input.values, columnsFor(input.values), {});
+    if (root === null) throw new Error('El árbol está vacío: no hay nada que recorrer.');
+    return traceTraversal(root, 'inorder', { code: CODE.bstInorder, start: 'inorder(root);' });
+  }
   if (operation === 'minimum') return traceMinimum(input.values);
   if (operation === 'successor') return traceSuccessor(input.values, asRuns(input.target));
   if (operation === 'remove') return traceRemove(input.values, asRuns(input.target));
@@ -469,8 +500,17 @@ export function finish(
 
 // ── binary-tree: the three traversals ─────────────────────────────────────
 
-function traceTraversal(root: TreeNode, traversal: Traversal): SequenceTrace {
-  const code = CODE[traversal];
+/**
+ * `listing` swaps the binary tree's listing for another with the same body:
+ * the search tree's inorder, behind a public method whose call `start` names
+ * (#322).
+ */
+function traceTraversal(
+  root: TreeNode,
+  traversal: Traversal,
+  listing?: { code: string; start: string },
+): SequenceTrace {
+  const code = listing?.code ?? CODE[traversal];
   const name = TRAVERSAL_NAME[traversal];
   const columns = inorderColumns(root);
   const slots = nodesOf(root).length;
@@ -528,7 +568,7 @@ function traceTraversal(root: TreeNode, traversal: Traversal): SequenceTrace {
 
   rec.push(
     'start',
-    [`void ${traversal}(`],
+    [listing?.start ?? `void ${traversal}(`],
     `El ${name} empieza con la llamada en la raíz, ${root.value}.`,
   );
   visit(root);
@@ -740,7 +780,7 @@ function withSeek(trace: SequenceTrace, targets: number[]): SequenceTrace {
  * nodes, a variable that walks down instead of a call per level. Shown
  * beside the recursive listing, so the class reads the two at once.
  */
-const CONTAINS_ITERATIVE = `boolean contains(T target) {
+const CONTAINS_ITERATIVE = `public boolean contains(T target) {
     Node<T> node = root;
     while (node != null) {
         int c = target.compareTo(node.value);
@@ -759,7 +799,7 @@ const CONTAINS_ITERATIVE = `boolean contains(T target) {
  * before each one.
  */
 const CONTAINS_PAIRS: ListingPairs = [
-  ['boolean contains(', ['Node<T> node = root']],
+  ['return contains(root, target)', ['Node<T> node = root']],
   ['if (node == null) return false', ['while (node != null)', 'return false;']],
   ['int c = target.compareTo', ['while (node != null)', 'int c = target.compareTo']],
   ['if (c == 0) return true', ['if (c == 0) return true']],
@@ -768,7 +808,7 @@ const CONTAINS_PAIRS: ListingPairs = [
 ];
 
 /** The minimum as a loop: step left while there is a left. */
-const MINIMUM_ITERATIVE = `T min() {
+const MINIMUM_ITERATIVE = `public T min() {
     if (root == null) {
         throw new NoSuchElementException();
     }
@@ -791,7 +831,7 @@ const MINIMUM_PAIRS: ListingPairs = [
  * recursive version hangs it on the way back, `node.left = insert(…)`; the
  * loop has no way back, so it remembers whom to hang it from.
  */
-const INSERT_ITERATIVE = `void insert(T value) {
+const INSERT_ITERATIVE = `public void insert(T value) {
     Node<T> parent = null;
     Node<T> node = root;
     while (node != null) {
@@ -817,7 +857,7 @@ const hungFrom = (step: SequenceStep): string => {
 };
 
 const INSERT_PAIRS: ListingPairs = [
-  ['Node<T> insert(', ['Node<T> parent = null', 'Node<T> node = root']],
+  ['root = insert(root, value)', ['Node<T> parent = null', 'Node<T> node = root']],
   ['int c = value.compareTo', ['while (node != null)', 'int c = value.compareTo']],
   ['return node;', ['if (c == 0) return']],
   ['node.left = insert', ['parent = node', 'node = c < 0']],
@@ -845,7 +885,7 @@ function traceSearchOrdered(values: number[], targets: number[]): SequenceTrace 
     rec.reset();
     rec.push(
       'start',
-      ['boolean contains('],
+      ['return contains(root, target)'],
       `Buscar ${t}: en cada nodo, la invariante dice de qué lado puede estar.`,
     );
     let n = root;
@@ -917,7 +957,7 @@ function traceInsert(values: number[], inserts: number[]): SequenceTrace {
     rec.reset();
     rec.push(
       'start',
-      ['Node<T> insert('],
+      ['root = insert(root, value)'],
       `Insertar ${x}: se baja desde la raíz, como al buscarlo.`,
     );
     if (root === null) {
@@ -1157,9 +1197,13 @@ function traceSuccessor(values: number[], targets: number[]): SequenceTrace {
     rec.settle();
     if (best !== null) {
       rec.state.set(best.id, 'found');
-      rec.push('found', ['return best;'], `El sucesor de ${x} es ${best.value}.`);
+      rec.push('found', ['return best == null'], `El sucesor de ${x} es ${best.value}.`);
     } else {
-      rec.push('done', ['return best;'], `${x} no tiene sucesor: ningún valor del árbol es mayor.`);
+      rec.push(
+        'done',
+        ['return best == null'],
+        `${x} no tiene sucesor: ningún valor del árbol es mayor.`,
+      );
     }
   }
   return finish(rec, code, columns, new Set(values).size, false);
@@ -1262,7 +1306,11 @@ function traceRemove(values: number[], targets: number[]): SequenceTrace {
 
   for (const x of targets) {
     rec.reset();
-    rec.push('start', ['Node<T> remove('], `Eliminar ${x}: primero se busca, como en contains.`);
+    rec.push(
+      'start',
+      ['root = remove(root, value)'],
+      `Eliminar ${x}: primero se busca, como en contains.`,
+    );
     const before = nodesOf(root).length;
     root = remove(root, x);
     if (nodesOf(root).length < before) {

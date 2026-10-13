@@ -257,6 +257,7 @@ const TREE_LEGEND: Record<BinaryTreeOperation, [string, string][]> = {
 const SEARCH_TREE_LEGEND: Record<BstOperation, [string, string][]> = {
   search: [FOUND, UNDER_THE_EYE, VISITED, RULED_OUT],
   insert: [['border-mark bg-mark-soft', 'nuevo'], UNDER_THE_EYE, VISITED],
+  inorder: [['border-mark bg-mark-soft', 'se visita'], UNDER_THE_EYE, VISITED],
   minimum: [FOUND, VISITED, RULED_OUT],
   successor: [['border-mark bg-mark-soft', 'mejor candidato'], FOUND, RULED_OUT],
   remove: [

@@ -921,8 +921,9 @@ describe('<SequenceStepper> · the bst recipe (#321)', () => {
   });
 
   it('refuses a traversal on the search tree, and says which operations it has', () => {
-    renderIn('book', <SequenceStepper eda="bst" operation="inorder" values={[2, 1, 3]} />);
-    expect(screen.getByText(/buscar, insertar/)).toBeInTheDocument();
+    // The inorder is the search tree's too (#322); the preorder is not.
+    renderIn('book', <SequenceStepper eda="bst" operation="preorder" values={[2, 1, 3]} />);
+    expect(screen.getByText(/buscar, insertar, recorrer en inorden/)).toBeInTheDocument();
   });
 });
 
