@@ -26,7 +26,7 @@ export function SortedRow({ values, hot = -1, out = [], caption, label }) {
   const left = (width - rowW) / 2 + pad;
   const height = 2 * pad + box + 18 + (caption ? 22 : 0);
   return (
-    <svg viewBox={`0 0 ${width} ${height}`} style={{ width: '100%', maxWidth: `${Math.round(width * 1.3)}px`, height: 'auto', display: 'block', margin: '1rem auto' }} role="img" aria-label={label}>
+    <svg viewBox={`0 0 ${width} ${height}`} style={{ width: '100%', maxWidth: `${Math.round(width * 1.3)}px`, height: 'auto', display: 'block', margin: '0.4rem auto' }} role="img" aria-label={label}>
       {values.map((v, i) => {
         const set = out.includes(i);
         const isHot = i === hot;
@@ -1336,6 +1336,260 @@ try {
     threw = true;
 }
 check(threw, true);
+```
+
+</Exercise>
+</PresentationWide>
+
+</Slide>
+
+{/* The second tree of the intersection: 9, 6, 12, 3 inserted in that order. Its common values with EVENS are 6 and 12. */}
+
+export const THREES = { v: 9, l: { v: 6, l: { v: 3 } }, r: { v: 12 } };
+
+<Slide title="La intersección de dos árboles de búsqueda">
+Dos cursos guardan a sus estudiantes inscritos en un árbol de búsqueda, por
+número de matrícula, y hay que saber quiénes están inscritos en los dos. El
+programa recibe las raíces de los dos árboles, que pueden estar vacíos, y
+devuelve los valores que están en ambos, de menor a mayor. Llamamos $$n$$ y
+$$m$$ a sus tamaños, y $$h_1$$ y $$h_2$$ a sus alturas.
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1rem 2rem', alignItems: 'end' }}>
+<BinaryPicture tree={EVENS} tones={{ 6: 'keep', 12: 'keep' }} label="El primer árbol: 8 en la raíz, 4 y 12 debajo, y 2, 6, 10 y 14 en el último nivel. El 6 y el 12 están marcados: también están en el otro árbol." caption="el primer curso" />
+<BinaryPicture tree={THREES} tones={{ 6: 'keep', 12: 'keep' }} minColumns={4} label="El segundo árbol: 9 en la raíz, 6 a su izquierda con el 3 debajo, y 12 a su derecha. El 6 y el 12 están marcados: también están en el primer árbol." caption="el segundo curso: en los dos están 6 y 12" />
+</div>
+
+```java
+static List<Integer> intersection(Node<Integer> a,
+        Node<Integer> b)
+```
+
+Si un árbol está vacío, o si no tienen valores en común, la lista vuelve
+vacía.
+
+</Slide>
+
+<Slide title="Buscar cada valor en el otro árbol">
+La primera idea es recorrer el primer árbol y buscar cada uno de sus valores
+en el segundo. Es correcta, pero son $$n$$ búsquedas de costo $$O(h_2)$$:
+$$O(n \cdot h_2)$$, y si el segundo árbol es una cadena, $$O(n \cdot m)$$.
+
+La segunda es copiar el inorden de cada árbol en una lista: las dos quedan
+ordenadas, y se cruzan en $$\Theta(n + m)$$. Pero copia los dos árboles
+enteros: la memoria también es $$\Theta(n + m)$$.
+
+</Slide>
+
+<Slide title="Avanzar los dos inórdenes a la vez">
+Dos secuencias ordenadas se cruzan sin volver atrás. Se compara el valor
+actual de cada una: si son iguales, ese valor está en las dos, y avanzan
+ambas; si no, avanza la que tiene el menor, porque ese valor no puede estar
+en la otra, cuyos valores que quedan son todos mayores. Los inórdenes de los
+dos árboles son esas dos secuencias, y basta avanzarlos **de a un valor**,
+cada uno pausado mientras el otro avanza.
+
+|          | Primero | Segundo | Qué pasa                              |
+| -------- | ------- | ------- | ------------------------------------- |
+| Al partir | 2       | 3       | 2 < 3: avanza el primero              |
+|          | 4       | 3       | 4 > 3: avanza el segundo              |
+|          | 4       | 6       | 4 < 6: avanza el primero              |
+|          | 6       | 6       | iguales: 6 está en los dos; avanzan ambos |
+|          | 8       | 9       | 8 < 9: avanza el primero              |
+|          | 10      | 9       | 10 > 9: avanza el segundo             |
+|          | 10      | 12      | 10 < 12: avanza el primero            |
+|          | 12      | 12      | iguales: 12 está en los dos; avanzan ambos |
+|          | 14      | —       | el segundo se acabó: termina          |
+
+</Slide>
+
+<Slide title="Intersección · el iterador del inorden">
+Un inorden que avanza de a un valor es un **iterador**: guarda en una pila los
+nodos pendientes, el camino hacia la izquierda; `next` saca el último y deja
+pendiente el camino hacia la izquierda desde su hijo derecho. La pila guarda
+un camino a la vez, así que pide memoria $$O(h)$$.
+
+```java
+class InorderIterator<T> implements Iterator<T> {
+    Deque<Node<T>> pending = new ArrayDeque<>();
+    InorderIterator(Node<T> root) { pushLeft(root); }
+    void pushLeft(Node<T> node) {
+        for (; node != null; node = node.left) {
+            pending.push(node);
+        }
+    }
+    public boolean hasNext() { return !pending.isEmpty(); }
+    public T next() {
+        Node<T> node = pending.pop();
+        pushLeft(node.right);
+        return node.value;
+    }
+}
+```
+
+</Slide>
+
+<Slide title="Intersección · la solución">
+Cada árbol tiene su iterador, y `x` e `y` son sus valores actuales, o `null`
+cuando ese árbol se acabó. Una sola comparación decide los tres casos: con
+`c` igual a cero se agrega `x` y avanzan los dos; con `c` negativo avanza
+solo `x`, y con `c` positivo, solo `y`.
+
+<StepShow
+  language="java"
+  code={`static List<Integer> intersection(Node<Integer> a,
+        Node<Integer> b) {
+    List<Integer> both = new ArrayList<>();
+    Iterator<Integer> ia = new InorderIterator<>(a);
+    Iterator<Integer> ib = new InorderIterator<>(b);
+    Integer x = ia.hasNext() ? ia.next() : null;
+    Integer y = ib.hasNext() ? ib.next() : null;
+    while (x != null && y != null) {
+        int c = x.compareTo(y);
+        if (c == 0) both.add(x);
+        if (c <= 0) x = ia.hasNext() ? ia.next() : null;
+        if (c >= 0) y = ib.hasNext() ? ib.next() : null;
+    }
+    return both;
+}`}
+>
+  <Step lines={[3, 4, 5, 6, 7]}>
+    <SortedRow values={[2, 4, 6, 8, 10, 12, 14]} hot={0} label="El inorden del primer árbol; su valor actual, x, es el 2." caption="primero: x = 2" />
+    <SortedRow values={[3, 6, 9, 12]} hot={0} label="El inorden del segundo árbol; su valor actual, y, es el 3." caption="segundo: y = 3" />
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>Cada iterador entrega su primer valor: x = 2, y = 3.</div>
+  </Step>
+  <Step lines={[8, 9, 11]}>
+    <SortedRow values={[2, 4, 6, 8, 10, 12, 14]} hot={1} out={[0]} label="2 es menor que 3: avanza el primero, y x pasa a ser 4." caption="primero: x = 4" />
+    <SortedRow values={[3, 6, 9, 12]} hot={0} label="El segundo no avanza: y sigue en 3." caption="segundo: y = 3" />
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>2 &lt; 3: avanza x, que pasa a 4.</div>
+  </Step>
+  <Step lines={[8, 9, 12]}>
+    <SortedRow values={[2, 4, 6, 8, 10, 12, 14]} hot={1} out={[0]} label="El primero no avanza: x sigue en 4." caption="primero: x = 4" />
+    <SortedRow values={[3, 6, 9, 12]} hot={1} out={[0]} label="4 es mayor que 3: avanza el segundo, y y pasa a ser 6." caption="segundo: y = 6" />
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>4 &gt; 3: avanza y, que pasa a 6.</div>
+  </Step>
+  <Step lines={[8, 9, 11]}>
+    <SortedRow values={[2, 4, 6, 8, 10, 12, 14]} hot={2} out={[0, 1]} label="4 es menor que 6: avanza el primero, y x pasa a ser 6." caption="primero: x = 6" />
+    <SortedRow values={[3, 6, 9, 12]} hot={1} out={[0]} label="El segundo no avanza: y sigue en 6." caption="segundo: y = 6" />
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>4 &lt; 6: avanza x, que pasa a 6.</div>
+  </Step>
+  <Step lines={[8, 9, 10, 11, 12]}>
+    <SortedRow values={[2, 4, 6, 8, 10, 12, 14]} hot={3} out={[0, 1, 2]} label="6 es igual a 6: se agrega a la respuesta, y avanzan los dos; x pasa a ser 8." caption="primero: x = 8" />
+    <SortedRow values={[3, 6, 9, 12]} hot={2} out={[0, 1]} label="El segundo también avanza: y pasa a ser 9." caption="segundo: y = 9" />
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>6 = 6: está en los dos. Respuesta: 6. Avanzan x e y.</div>
+  </Step>
+  <Step lines={[8, 9, 11]}>
+    <SortedRow values={[2, 4, 6, 8, 10, 12, 14]} hot={4} out={[0, 1, 2, 3]} label="8 es menor que 9: avanza el primero, y x pasa a ser 10." caption="primero: x = 10" />
+    <SortedRow values={[3, 6, 9, 12]} hot={2} out={[0, 1]} label="El segundo no avanza: y sigue en 9." caption="segundo: y = 9" />
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>8 &lt; 9: avanza x, que pasa a 10. Respuesta: 6.</div>
+  </Step>
+  <Step lines={[8, 9, 12]}>
+    <SortedRow values={[2, 4, 6, 8, 10, 12, 14]} hot={4} out={[0, 1, 2, 3]} label="El primero no avanza: x sigue en 10." caption="primero: x = 10" />
+    <SortedRow values={[3, 6, 9, 12]} hot={3} out={[0, 1, 2]} label="10 es mayor que 9: avanza el segundo, y y pasa a ser 12." caption="segundo: y = 12" />
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>10 &gt; 9: avanza y, que pasa a 12. Respuesta: 6.</div>
+  </Step>
+  <Step lines={[8, 9, 11]}>
+    <SortedRow values={[2, 4, 6, 8, 10, 12, 14]} hot={5} out={[0, 1, 2, 3, 4]} label="10 es menor que 12: avanza el primero, y x pasa a ser 12." caption="primero: x = 12" />
+    <SortedRow values={[3, 6, 9, 12]} hot={3} out={[0, 1, 2]} label="El segundo no avanza: y sigue en 12." caption="segundo: y = 12" />
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>10 &lt; 12: avanza x, que pasa a 12. Respuesta: 6.</div>
+  </Step>
+  <Step lines={[8, 9, 10, 11, 12]}>
+    <SortedRow values={[2, 4, 6, 8, 10, 12, 14]} hot={6} out={[0, 1, 2, 3, 4, 5]} label="12 es igual a 12: se agrega a la respuesta, y avanzan los dos; x pasa a ser 14." caption="primero: x = 14" />
+    <SortedRow values={[3, 6, 9, 12]} out={[0, 1, 2, 3]} label="El segundo también avanza, pero ya no le quedan valores: y pasa a ser null." caption="segundo: y = null" />
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>12 = 12: está en los dos. Respuesta: 6, 12. El segundo se acabó.</div>
+  </Step>
+  <Step lines={[8, 14]}>
+    <SortedRow values={[2, 4, 6, 8, 10, 12, 14]} hot={6} out={[0, 1, 2, 3, 4, 5]} label="El primero no alcanza a avanzar: el ciclo termina." caption="primero: x = 14" />
+    <SortedRow values={[3, 6, 9, 12]} out={[0, 1, 2, 3]} label="El segundo se acabó, y con él el ciclo." caption="segundo: y = null" />
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>y es null: el ciclo termina, y la respuesta es 6, 12.</div>
+  </Step>
+</StepShow>
+
+</Slide>
+
+<Slide title="Un árbol vacío y el costo de la intersección">
+Si un árbol está vacío, su iterador no entrega nada, `x` o `y` empieza en
+`null`, y el ciclo no corre: la respuesta es la lista vacía. Si los árboles no
+tienen valores en común, el ciclo avanza hasta acabar uno de los dos sin
+agregar nada.
+
+**Tiempo.** Cada valor de cada árbol sale de su iterador una sola vez, y cada
+vuelta del ciclo hace avanzar al menos a uno: $$\Theta(n + m)$$. **Memoria.**
+Las dos pilas guardan un camino cada una: $$O(h_1 + h_2)$$, aparte de la
+respuesta. Si los dos son árboles AVL, eso es $$O(\log n + \log m)$$.
+
+</Slide>
+
+<Slide title="Intersección · el programa completo">
+<PresentationWide fraction={0.75}>
+<Exercise title="La intersección de dos árboles de búsqueda">
+
+```java starter
+import java.util.ArrayDeque;
+import java.util.ArrayList;
+import java.util.Deque;
+import java.util.Iterator;
+import java.util.List;
+
+class Node<T> {
+    T value;
+    Node<T> left;
+    Node<T> right;
+    Node(T value) { this.value = value; }
+}
+
+class InorderIterator<T> implements Iterator<T> {
+    Deque<Node<T>> pending = new ArrayDeque<>();
+    InorderIterator(Node<T> root) { pushLeft(root); }
+    void pushLeft(Node<T> node) {
+        for (; node != null; node = node.left) {
+            pending.push(node);
+        }
+    }
+    public boolean hasNext() { return !pending.isEmpty(); }
+    public T next() {
+        Node<T> node = pending.pop();
+        pushLeft(node.right);
+        return node.value;
+    }
+}
+
+class Solution {
+    static List<Integer> intersection(Node<Integer> a,
+            Node<Integer> b) {
+        List<Integer> both = new ArrayList<>();
+        Iterator<Integer> ia = new InorderIterator<>(a);
+        Iterator<Integer> ib = new InorderIterator<>(b);
+        Integer x = ia.hasNext() ? ia.next() : null;
+        Integer y = ib.hasNext() ? ib.next() : null;
+        while (x != null && y != null) {
+            int c = x.compareTo(y);
+            if (c == 0) both.add(x);
+            if (c <= 0) x = ia.hasNext() ? ia.next() : null;
+            if (c >= 0) y = ib.hasNext() ? ib.next() : null;
+        }
+        return both;
+    }
+}
+```
+
+```java test
+Node<Integer> a = new Node<>(8);
+a.left = new Node<>(4);
+a.left.left = new Node<>(2);
+a.left.right = new Node<>(6);
+a.right = new Node<>(12);
+a.right.left = new Node<>(10);
+a.right.right = new Node<>(14);
+Node<Integer> b = new Node<>(9);
+b.left = new Node<>(6);
+b.left.left = new Node<>(3);
+b.right = new Node<>(12);
+check(Solution.intersection(a, b), Arrays.asList(6, 12));
+check(Solution.intersection(a, null), Arrays.asList());
+check(Solution.intersection(a, a), Arrays.asList(2, 4, 6, 8, 10, 12, 14));
+Node<Integer> odd = new Node<>(5);
+odd.left = new Node<>(1);
+check(Solution.intersection(a, odd), Arrays.asList());
 ```
 
 </Exercise>
