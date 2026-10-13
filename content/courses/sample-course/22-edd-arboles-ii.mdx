@@ -846,6 +846,93 @@ modificar se recupera en cada búsqueda.
 
 <SectionBreak />
 
+## Otros árboles de búsqueda
+
+<Slide title="Árboles balanceados de otras formas">
+El AVL no es la única manera de acotar la altura. Otros árboles de búsqueda
+balanceados cuidan la forma con otras reglas, y cada uno cambia un poco de
+trabajo por otra ventaja.
+
+| Árbol         | Qué cuida                                                                              | Para qué se usa                                                                                 |
+| ------------- | -------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| Rojo-negro    | Cada nodo es rojo o negro, ningún rojo tiene un hijo rojo, y todos los caminos hacia abajo tienen la misma cantidad de negros | Al eliminar rota a lo más tres veces, contra $$O(\log n)$$ del AVL; es el que usan `TreeMap` y `TreeSet` de Java |
+| Árbol 2-3     | Nodos de uno o dos valores, y todas las hojas en el mismo nivel                         | El modelo con que se explica el rojo-negro                                                      |
+| *Splay*       | Nada fijo: cada búsqueda sube el nodo encontrado hasta la raíz                          | Datos donde unos pocos valores se buscan una y otra vez                                         |
+
+</Slide>
+
+<Slide title="Los árboles B">
+Un **árbol B** guarda en cada nodo muchos valores ordenados —cientos— y tiene
+un hijo entre cada par de ellos. Cada nodo ocupa una página del disco, y leer
+una página cuesta mucho más que comparar lo que trae. Con nodos tan anchos, el
+árbol es muy bajo: con tres o cuatro niveles alcanza para millones de valores,
+así que una búsqueda lee tres o cuatro páginas.
+
+<svg viewBox="0 0 560 170" style={{ width: '100%', maxWidth: '640px', height: 'auto', display: 'block', margin: '1rem auto' }} role="img" aria-label="Un árbol B de dos niveles. La raíz guarda los valores 30 y 60, y tiene tres hijos: uno con 10 y 20, otro con 40 y 50, y otro con 70, 80 y 90.">
+  <rect x="210" y="14" width="140" height="40" rx="6" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.4" />
+  <line x1="280" y1="14" x2="280" y2="54" style={{ stroke: 'var(--color-rule-strong)' }} strokeWidth="1.2" />
+  <text x="245" y="40" textAnchor="middle" fontSize="16" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>30</text>
+  <text x="315" y="40" textAnchor="middle" fontSize="16" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>60</text>
+  <line x1="214" y1="54" x2="95" y2="110" style={{ stroke: 'var(--color-rule-strong)' }} strokeWidth="1.2" />
+  <line x1="280" y1="54" x2="280" y2="110" style={{ stroke: 'var(--color-rule-strong)' }} strokeWidth="1.2" />
+  <line x1="346" y1="54" x2="465" y2="110" style={{ stroke: 'var(--color-rule-strong)' }} strokeWidth="1.2" />
+  <rect x="25" y="110" width="140" height="40" rx="6" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.4" />
+  <line x1="95" y1="110" x2="95" y2="150" style={{ stroke: 'var(--color-rule-strong)' }} strokeWidth="1.2" />
+  <text x="60" y="136" textAnchor="middle" fontSize="16" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>10</text>
+  <text x="130" y="136" textAnchor="middle" fontSize="16" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>20</text>
+  <rect x="210" y="110" width="140" height="40" rx="6" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.4" />
+  <line x1="280" y1="110" x2="280" y2="150" style={{ stroke: 'var(--color-rule-strong)' }} strokeWidth="1.2" />
+  <text x="245" y="136" textAnchor="middle" fontSize="16" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>40</text>
+  <text x="315" y="136" textAnchor="middle" fontSize="16" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>50</text>
+  <rect x="380" y="110" width="170" height="40" rx="6" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.4" />
+  <line x1="436" y1="110" x2="436" y2="150" style={{ stroke: 'var(--color-rule-strong)' }} strokeWidth="1.2" />
+  <line x1="493" y1="110" x2="493" y2="150" style={{ stroke: 'var(--color-rule-strong)' }} strokeWidth="1.2" />
+  <text x="408" y="136" textAnchor="middle" fontSize="16" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>70</text>
+  <text x="465" y="136" textAnchor="middle" fontSize="16" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>80</text>
+  <text x="521" y="136" textAnchor="middle" fontSize="16" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>90</text>
+  <text x="280" y="166" textAnchor="middle" fontSize="12" style={{ fill: 'var(--color-ink-soft)' }}>un hijo entre cada par de valores: los menores a la izquierda, los mayores a la derecha</text>
+</svg>
+
+Es la estructura de los índices de las bases de datos y de muchos sistemas de
+archivos. Su variante **B+** guarda todos los valores en las hojas, enlazadas
+en orden, para recorrer un rango de un tirón.
+
+</Slide>
+
+<Slide title="Árboles para otras preguntas">
+Otros árboles no buscan un valor por comparación, sino que responden otras
+preguntas rápido.
+
+| Árbol                | Qué responde rápido                                           | Dónde se usa                                   |
+| -------------------- | ------------------------------------------------------------- | ---------------------------------------------- |
+| *Trie*               | Qué palabras empiezan con un prefijo: cada nivel es una letra | Autocompletar, diccionarios, rutas de red      |
+| Árbol de segmentos   | La suma o el mínimo de un tramo de un arreglo que cambia      | Consultas por rango en datos que se actualizan |
+| *Treap*              | Un árbol de búsqueda balanceado en promedio, con prioridades al azar | Una alternativa simple al AVL y al rojo-negro |
+| *Quadtree*           | Qué puntos de un plano caen en una región                     | Mapas, geolocalización, colisiones en juegos   |
+| Árbol de decisión    | Qué respuesta dar según una serie de preguntas                | Clasificadores en aprendizaje automático       |
+
+</Slide>
+
+<Slide title="Renunciar al orden completo">
+Un árbol de búsqueda balanceado responde cualquier pregunta sobre el orden en
+$$O(\log n)$$, y paga por eso dos referencias por nodo y una invariante que
+ordena **todo**: cada valor queda del lado correcto de cada uno de sus
+ancestros.
+
+Hay problemas que no preguntan por todo el orden. En una sala de urgencias
+solo importa quién es el paciente más grave; un planificador solo necesita la
+tarea más urgente. ¿Y si el árbol renunciara al orden completo y pidiera solo
+que **cada padre sea mayor que sus hijos**? El máximo quedaría siempre en la
+raíz, y sacarlo o agregar un valor seguiría costando $$O(\log n)$$. Con un
+orden tan débil, el árbol puede quedar siempre completo y guardarse en un
+arreglo, sin referencias. Lo que se pierde es buscar un valor cualquiera: sin
+orden entre los lados, vuelve a costar $$\Theta(n)$$. Ese intercambio es el del
+**heap**.
+
+</Slide>
+
+<SectionBreak />
+
 ## Ejercicios
 
 {/* The tree the ancestor exercise threads through its beats: the class's own insertion of 8, 5, 1, 4, 6, 7, 20, 12. */}
@@ -1233,3 +1320,12 @@ class Solution {
 ```
 
 </Exercise>
+
+## Lo que sigue
+
+Un árbol binario con un orden más débil que el de búsqueda —cada padre mayor
+que sus hijos— guarda siempre el máximo en su raíz, queda completo y vive en
+un arreglo, sin referencias.
+[[edd-priority-queue-heap|Estructuras de Datos · Priority Queue y Heap]]
+estudia esa estructura, el heap, y el contrato que implementa: la cola de
+prioridad.
