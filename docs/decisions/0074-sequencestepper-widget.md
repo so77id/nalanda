@@ -19,7 +19,9 @@ heap's `swap` state is the one data state painted in `accent` (both
 `Amended by: #304`).
 **Extended by:** ADR-0083 (#321, Proposed) — a recipe for a linked binary
 tree, each node in the column of its inorder position: `binary-tree`, with
-the three traversals, `height` and `search`. Nothing here is withdrawn.
+the three traversals, `height` and `search`. One thing here changes, for the
+tree only: the `size` readout (`Amended by: #321`, below the #288 chrome
+amendment).
 
 **Amended by:** #288, slide-by-slide review (2026-09-10) — a ninth operation,
 `get-at`. The class needs the operation the array answers with one
@@ -85,6 +87,11 @@ should watch that instead of taking the narration's word for it. It replaces
 the array recipe's in-drawing `largo · capacidad` caption, which said the
 same thing and scaled with the SVG, and it is drawn at a node's size — a
 caption-sized one was read as chrome rather than as state.
+
+**Amended by:** #321 (2026-10-13) — not on `binary-tree`. The readout is
+there because `size` is a FIELD of the structure, and the tree's listings —
+the recursive methods over a node — have none: a number in the corner would
+name a field the reader never meets in the code (ADR-0083 §Consequences).
 
 The chain also gains the index rail the array already had, in the same place
 and the same faint ink, so the two pictures can be read side by side. On a

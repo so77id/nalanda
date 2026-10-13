@@ -335,6 +335,13 @@ one posed (la verificación de un max-heap). They added beat 3's run in a
 drawing, beat 4's listing built in pieces, the inlined helper, and the
 hidden difficulty levels.
 
+`content/courses/sample-course/21-edd-arboles-i.mdx` — three worked exercises
+(el espejo de un árbol, el nivel más ancho, una calculadora con paréntesis)
+and two posed (las rutas de los archivos, las carpetas grandes). Two of them
+carry the first programs longer than a slide shows whole — the widest level
+(38 lines) and the calculator (83) — each on its slide in a window of 32
+lines.
+
 **Its sibling for the question bank already exists**:
 [`write-control-questions.md`](write-control-questions.md) governs the
 questions at the end of a document. An exercise and a question are different

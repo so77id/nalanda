@@ -175,9 +175,10 @@ src/
   live in a feature — features may not import `app/`, and only the shell may
   import every feature — and it must not live in `lib/`, which is for pure code
   (the rule that moved `draft.ts` out of it in #76).
-- **The global stylesheet may name a third-party class only when nothing else
-  can win**, and the rule says why in place. Worked case: `.cm-editor.cm-focused`
-  in `styles/index.css`. CodeMirror injects `outline: none` **unlayered**, and
+- **The global stylesheet names a third-party class only for an override
+  every instance on the page needs**, and the rule says why in place; one that
+  only some situations need is an important utility on the component (below).
+  Worked case: `.cm-editor.cm-focused` in `styles/index.css`. CodeMirror injects `outline: none` **unlayered**, and
   Tailwind v4 emits its utilities inside `@layer utilities` — unlayered beats
   layered regardless of specificity, so a `focus-within:` utility on the
   component loses. The same rule cuts the other way and is worth knowing before
@@ -199,8 +200,10 @@ src/
   move to the suffix is one change across all of them, never one component at
   a time.
   Worked cases: the steppers' editors fill their panel (`SortStepper`,
-  `MergeStepper`, `PartitionStepper`, `SequenceStepper`), and `CodeEditor`
-  centres its lines only inside `<SideBySide align="center">` (#321).
+  `MergeStepper`, `PartitionStepper`), `SortStepper` sizes its listing by the
+  sort it shows and `SequenceStepper` only on a slide
+  (`[&_.cm-editor]:!text-base`), and `CodeEditor` centres its lines only
+  inside `<SideBySide align="center">` (#321).
 - **The deployment base path is declared once**, in `vite.config.ts` (`outDir`
   stays at the Vite default); runtime code derives from `import.meta.env.BASE_URL`
   and CI never overrides it on the command line — a CI-only flag makes local

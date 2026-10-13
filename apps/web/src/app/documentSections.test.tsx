@@ -22,6 +22,8 @@ import { AppRoutes } from './AppRoutes';
 // lines are cheaper to read in place than to go and find.
 // Loads every document in content/, so its cost grows with the course: the
 // default 10 s ran out under the full parallel suite once #321 added a class.
+// Do not raise it again: testing-strategy.md §Conventions (apps/web), "The
+// preload itself has a cost that grows with the course".
 beforeAll(async () => {
   await Promise.all(registry.entries.map((entry) => entry.load()));
 }, 30_000);

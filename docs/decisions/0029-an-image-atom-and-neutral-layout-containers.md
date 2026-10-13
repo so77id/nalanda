@@ -11,6 +11,22 @@ which resolves to `horizontal` in presentation and `vertical` in book. This is
 the first structural container that branches on `useMode()`; the earlier
 "SideBySide is untouched" claim in §3 is retained as historical context but no
 longer describes the current API.
+**Amended by:** #321 (2026-10-13) — SideBySide gains `align: 'start' |
+'center'` (default `start`), and `components/embedded.ts` gains a second
+context beside `EmbeddedProvider`, `EmbeddedAlignProvider`, through which a
+column says where it puts content shorter than its sibling. An embedded
+`CodeEditor` fills its column and, under `center`, puts its lines in the
+middle. The need is a labelled listing beside the drawing of what it builds
+(Árboles I, «El nodo binario»): `Split` centres, but it has no column labels
+and does not declare itself a frame, so the editor inside it would draw its
+own chrome. §3's trigger is weighed here and has fired — SideBySide already
+held pictures in real content (`11-complejidad-de-hilbert-al-big-o.mdx`, #219;
+`16-diseno-algoritmos-ordenamiento.mdx`, #269), never recorded, and #321 makes
+a listing beside a drawing part of its API. Miguel's decision (Round B of
+#321's review): the consolidation stays deferred, with a new trigger — **the
+next behaviour either container borrows from the other is the one that
+merges them.** `add-a-course-document.md` §5c and §6b say which to use until
+then.
 
 ## Context
 

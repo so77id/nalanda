@@ -229,6 +229,14 @@ other, and the Makefile's says the part that matters — it is the copy whose
 drift is discovered on printed paper, in the middle of a fifteen-minute manual
 check (#147 review).
 
+**A copy that lives only on a stacked branch is named together with the issue
+that brings it.** The note on `main` then says what will exist and who brings
+it, so a reader who cannot find the file knows why, and dropping that branch
+is the one change that sweeps the note. Worked case: `BinaryPicture`, the
+figure `21-edd-arboles-i.mdx` copies from `sequenceStepperTreeLayout.ts`, has a
+second copy in `22-edd-arboles-ii.mdx`, which #322 — stacked on #321 — brings
+and promotes; both of #321's notes name #322 with it (#321 review).
+
 **A manual verification procedure states its steps in prose and its SETUP as a
 target the reader runs.** A prose command list for a procedure a human performs
 with paper in hand drifts exactly like duplicated prose, and it fails at the

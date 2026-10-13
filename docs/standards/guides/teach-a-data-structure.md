@@ -273,8 +273,9 @@ neither serves a contract of its own: the search tree, whose contract — Set
 and Map — belongs to a later class that brings its own card, comes in
 Árboles II (#322). The four questions of §1 still run once per
 structure, the invariants are still a numbered list (§3) and the costs still
-a table with its invariant column (§4); only the card is absent, because there
-is no contract to put in it yet. Do not invent one to fill the slot: a card
+a table (§4) — here without its invariant column, under §4's exception, since
+every row only consults; only the card is absent, because there is no
+contract to put in it yet. Do not invent one to fill the slot: a card
 listing a tree's traversals would present the operations of a structure as if
 they were a contract.
 
@@ -375,8 +376,8 @@ more than a colour could, and it stays.
 
 **One exception: a table whose every operation only consults drops it.** Its
 every cell would read «Ninguna: no cambia el árbol», which teaches nothing —
-Miguel's review of #321's binary-tree costs, where the traversals and the
-height are the whole table. The column comes back as soon as one row
+Miguel's review of #321's binary-tree costs, where the traversals, the
+height and the search are the whole table. The column comes back as soon as one row
 modifies the structure.
 
 ### 5. Close on a loose end, not a summary
@@ -556,7 +557,11 @@ clip is a box with its own `max-height` — the frame box of a `<StepShow>`
 (`max-h-96 overflow-auto`) and the structure panel of a Sequence recipe of
 `<SequenceStepper>` (the heap's panel scales instead of scrolling)
 on a slide. A frame taller than its box scrolls, and a projected slide cannot
-be scrolled. Read every scrolling box on the stage, at every frame:
+be scrolled. Read every scrolling box on the stage, at every frame. One box is
+meant to scroll and the sweep will list it: the editor of an `<Exercise>`
+whose program is longer than 32 lines, which on a slide is a window the
+presenter scrolls by design (#321, `add-a-content-component.md`,
+`write-an-exercise.md`). Every other box it lists is a defect:
 
 ```js
 [...document.querySelectorAll('[data-testid="slide-stage"] *')]
@@ -598,9 +603,10 @@ listing, their `lines` arrays must agree.** The fixed-capacity `insertAt` said
 its fence text and read the result next to the step's own caption.
 
 **What that widget is, concretely** (ADR-0074): `eda` picks the structure —
-a dynamic array, a singly / doubly / circular list, or (since #304, ADR-0077)
-a binary max-heap — and `operation` picks which of the nine Sequence
-operations, or the heap's own two, to animate over it. (A fixed-capacity
+a dynamic array, a singly / doubly / circular list, (since #304, ADR-0077) a
+binary max-heap, or (since #321, ADR-0083) a linked binary tree — and
+`operation` picks which of the nine Sequence operations, the heap's own two,
+or the tree's traversals, height and search, to animate over it. (A fixed-capacity
 `array` recipe was deleted by #304, never having had a reader; ADR-0074
 §Amended by #304.) The surface never changes
 between combinations, which is the point: the reader learns one visual

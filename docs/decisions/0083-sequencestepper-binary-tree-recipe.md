@@ -4,9 +4,10 @@
 **Date:** 2026-10-11
 **Decision-makers:** Miguel Rodriguez
 **Source:** Issue #321 (Estructuras de Datos Avanzadas · Árboles I), slice S2.
-**Extends** ADR-0074, the same way ADR-0077 did: a new recipe,
-`binary-tree`, with operations of its own and a picture of its own. ADR-0074
-and ADR-0077 still hold entirely.
+**Extends:** ADR-0074 — a recipe, `binary-tree`, with operations and a
+picture of its own, the way ADR-0077 added the heap's. ADR-0077 still holds
+entirely, and so does ADR-0074 but for the `size` readout, which the tree does
+not show (`Amended by: #321` there).
 
 ## Context
 
@@ -38,8 +39,11 @@ geometry lives in `sequenceStepperTreeLayout.ts` and the painter in
 `sequenceStepperTreeView.tsx`, as the heap's do (ADR-0077 §1). What the two
 trace modules share — the line a frame lights, the runs an argument asks for —
 is a leaf both import, `sequenceStepperTraceShared.ts`, and the rim-to-rim
-edge the two layouts share is another, `sequenceStepperEdge.ts`: neither pair
-imports the other, so no cycle closes (#321 review).
+edge the two layouts share is another, `sequenceStepperEdge.ts` (#321
+review). The two layouts import only that leaf. The two traces do import
+each other, but the tree's imports only types from the dispatcher, which the
+build erases, so no runtime cycle closes; nothing guards that, so a value
+import back from the dispatcher is the change to refuse.
 
 ### 2. Every node sits in the column of its inorder position
 
@@ -146,7 +150,8 @@ not the code.
   operations are valid on nothing else
   (`add-a-course-document.md` §5h carries it).
 - `SequenceCellState` gains `visited`; `SequenceStep` gains
-  `tree`; `SequenceTrace` gains `tree` (columns, slots, depth);
+  `tree`; `SequenceTrace` gains `tree` (columns, slots, depth, and whether
+  it has a strip);
   `SequenceInput` gains `levelOrder`. The sequence and heap recipes never set
   them.
 - The `size` readout is hidden on the tree recipes: their listings have no

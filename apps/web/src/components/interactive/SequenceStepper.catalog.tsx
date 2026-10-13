@@ -9,7 +9,7 @@ export const sequenceStepperCatalogEntry: CatalogEntry = {
   description:
     'One step-through widget for the whole Sequence family. `eda` picks the structure it draws — a dynamic array, or a singly / doubly / circular linked list — and `operation` picks the animation it replays over it. Code panel on top, the structure as a hand-written SVG below, narration and controls at the foot; the surface is identical across all combinations, so the reader learns one visual vocabulary and reads every structure of the unit through it. ADR-0074. Since #304 it also draws a binary max-heap (`heap-max`, ADR-0077): the same array as the complete binary tree it encodes and as `data[0..]`, side by side on a slide and stacked in the book. Since #321 it draws a linked binary tree (`binary-tree`): every node in the column of its inorder position, with a strip underneath that a traversal fills one visit at a time — so the inorder lands under its own nodes and the other two orders visibly do not.',
   whenToUse:
-    'When a class of the Estructuras de Datos unit shows an operation running over a sequence structure, or `insert` / `extract-max` running over a binary max-heap (`heap-max`) — and especially when it shows the SAME operation over two structures to contrast their cost, which is two nearly identical tags. Not for sorting algorithms (`<SortStepper>`) and not for hand-authored memory pictures (`<StepShow>` + `<MemoryVisual>`).',
+    'When a class of the Estructuras de Datos or the Estructuras de Datos Avanzadas unit shows an operation running over a sequence structure, `insert` / `extract-max` running over a binary max-heap (`heap-max`), or a traversal, the height or a search over a linked binary tree (`binary-tree`) — and especially when it shows the SAME operation over two structures to contrast their cost, which is two nearly identical tags. Not for sorting algorithms (`<SortStepper>`) and not for hand-authored memory pictures (`<StepShow>` + `<MemoryVisual>`).',
   props: [
     {
       name: 'eda',
@@ -51,7 +51,7 @@ export const sequenceStepperCatalogEntry: CatalogEntry = {
       name: 'times',
       type: 'number',
       description:
-        'How many times to run an operation that takes no argument (`remove-first`, `remove-last`, `extract-max`). Default one. Running more times than the structure has elements is an authoring error: the listing throws there, and a trace that ran anyway would be animating an exception.',
+        'How many times to run a removal that takes no argument (`remove-first`, `remove-last`, `extract-max`). Default one; at most twelve, on every recipe. The traversals and the height of `binary-tree` take no argument either, but run once over the whole tree and ignore it. Running more times than the structure has elements is an authoring error: the listing throws there, and a trace that ran anyway would be animating an exception.',
     },
     {
       name: 'capacity',
@@ -63,7 +63,7 @@ export const sequenceStepperCatalogEntry: CatalogEntry = {
       name: 'method',
       type: 'string',
       description:
-        "The name the LISTING shows the method under, when the document presents the structure through a TDA that calls it something else — a pila slide showing `pop` where the chain's own name is `deleteFirst`. The body is unchanged; the signature and every call in the driving program are renamed together, so the two never disagree. Pair it with `receiver`.",
+        "The name the LISTING shows the method under, when the document presents the structure through a TDA that calls it something else — a pila slide showing `pop` where the chain's own name is `deleteFirst`. The body is unchanged; the signature and every call in the driving program are renamed together, so the two never disagree. Pair it with `receiver`. Not on `binary-tree`: its listings are the recursive methods themselves, with no calling program to rename, and it ignores `method`, `receiver` and `receiverType`.",
     },
     {
       name: 'receiver',
@@ -75,7 +75,7 @@ export const sequenceStepperCatalogEntry: CatalogEntry = {
       name: 'receiverType',
       type: 'string',
       description:
-        'The class the driving program CONSTRUCTS, renamed together with `method` and `receiver`. Without it a slide that renamed `insertFirst` to `push` still printed `LinkedList pila = new LinkedList();` under a heading that had just declared `class Stack` — the listing renamed the call and left the constructor telling the truth about the wrong structure. Every recipe alike; the defaults are `LinkedList`, `DynamicArray` and `MaxHeap`.',
+        'The class the driving program CONSTRUCTS, renamed together with `method` and `receiver`. Without it a slide that renamed `insertFirst` to `push` still printed `LinkedList pila = new LinkedList();` under a heading that had just declared `class Stack` — the listing renamed the call and left the constructor telling the truth about the wrong structure. Every recipe but `binary-tree` alike; the defaults are `LinkedList`, `DynamicArray` and `MaxHeap`.',
     },
     {
       name: 'pointer',

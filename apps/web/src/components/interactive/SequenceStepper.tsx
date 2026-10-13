@@ -224,20 +224,26 @@ function readValues(key: string): { values: number[]; levelOrder?: (TreeValue | 
 
 /**
  * `<SequenceStepper>` — the step-through widget of the Estructuras de Datos
- * unit (ADR-0074, extended by ADR-0077 and ADR-0083).
+ * and Estructuras de Datos Avanzadas units (ADR-0074, extended by ADR-0077
+ * and ADR-0083).
  *
  * One widget, two props that pick what it shows: `eda` selects the structure
- * (a dynamic array, a singly / doubly / circular list, or a binary max-heap)
- * and `operation` selects the animation. The surface never changes between
- * combinations — code panel, structure, narration, controls — so the reader
- * learns one visual vocabulary and reads every structure of the unit through
- * it.
+ * (a dynamic array, a singly / doubly / circular list, a binary max-heap or a
+ * linked binary tree) and `operation` selects the animation. The surface never
+ * changes between combinations — code panel, structure, narration, controls —
+ * so the reader learns one visual vocabulary and reads every structure of the
+ * unit through it.
  *
- * A Sequence is one hand-written SVG whose every coordinate comes from
- * `sequenceStepperLayout`; the heap is two (tree and array) from
- * `sequenceStepperHeapLayout`. The frames come from `sequenceStepperTrace`.
- * All three are pure and pinned by the suite, which leaves the browser only
- * the paint.
+ * The modules, every one but the painters pure and pinned by the suite, which
+ * leaves the browser only the paint:
+ * - frames: `sequenceStepperTrace` (the dispatcher, the chains and the heap)
+ *   and `sequenceStepperTreeTrace` (the tree), both importing the leaf
+ *   `sequenceStepperTraceShared` (the line a frame lights, the runs cap);
+ * - geometry: `sequenceStepperLayout` (a Sequence), `sequenceStepperHeapLayout`
+ *   (the heap's tree and array) and `sequenceStepperTreeLayout` (the tree),
+ *   the last two sharing the leaf `sequenceStepperEdge`;
+ * - paint: the Sequence picture here, `sequenceStepperHeapView` and
+ *   `sequenceStepperTreeView`, with their colours in `sequenceStepperPaint`.
  */
 export function SequenceStepper({
   eda,

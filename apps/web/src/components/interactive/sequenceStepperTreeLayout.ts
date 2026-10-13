@@ -14,9 +14,9 @@
  *
  * COPIED: the file-local `BinaryPicture` of `21-edd-arboles-i.mdx` draws its
  * static trees with these same numbers (node radius, column width, level
- * height, margin, strip slot), and so does its copy in `22-edd-arboles-ii.mdx`
- * while #322 has not yet promoted it to a shared component, so a figure and
- * the widget beside it match. Those copies are the ones that fail late —
+ * height, margin, strip slot), so a figure and the widget beside it match. A
+ * second copy lives in `22-edd-arboles-ii.mdx`, which #322 — stacked on #321
+ * — brings and promotes to a shared component, retiring both copies. Those copies are the ones that fail late —
  * nothing tests a document's own components — so a change here is carried
  * there by hand and checked in a browser.
  */

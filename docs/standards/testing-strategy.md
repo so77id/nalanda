@@ -835,9 +835,14 @@ page-only, invisible to every other gate.
   at two workers the first of the six took 3.6 s and four of the others about
   0.1 s each, `questionReaders` 2.6 s for its own render. **Do not raise the
   ceiling a second time.** When it runs out again, take that one compile out
-  of the timed hooks — pay it once before them. Folding the six files into
-  fewer saves only their re-evaluation, about 0.1 s each; `questionReaders`'
-  render is the only per-file cost of any size.
+  of the timed hooks — pay it once before them, in a Vitest `globalSetup`,
+  which lives in the config `apps/web/CLAUDE.md` asks you to confirm with the
+  user before touching. Folding the six files into fewer saves only their
+  re-evaluation, about 0.1 s each. The per-file costs of any size are the
+  renders: `questionReaders`' in its hook, and `contentRenders`', one test
+  per document under the default 5 s per test — where a loaded full run of
+  #321's review timed out once (the heap's case, about 1 s alone). Moving the
+  compile does not touch those; the six comments point back here.
 
   **Prove it in both directions rather than asserting it.** Patch each entry so
   its FIRST resolution is delayed and later calls are served from cache, which
