@@ -827,13 +827,17 @@ page-only, invisible to every other gate.
   `presentationRoute`, `questionReaders`), and whichever runs first also pays
   the MDX compile of all of them. #321 added the largest class so far and the
   default 10 s ran out under the full parallel suite, so the six got 30 s.
-  Measured in its review (one worker, a loaded machine): loading all 21
-  documents took 4.2 s, Árboles I the largest at 0.85 s; `questionReaders`'
-  load-and-render 6.8 s. The cost is linear in the source — no document is
-  pathological — so it is load plus volume, not a slow path. **Do not raise the
-  ceiling a second time.** When it runs out again, stop paying the
-  all-documents load in six places: fold the assertions into fewer files, or
-  share one compiled pass between them.
+  Measured in its review (one worker, a shared machine): loading all 21
+  documents took 4.2 s, nearly all of it the MDX compile, Árboles I the
+  largest at 0.85 s; `questionReaders`' load-and-render 6.8 s. The cost is
+  linear in the source — no document is pathological — so it is load plus
+  volume, not a slow path. Within one run the compile is paid once and shared:
+  at two workers the first of the six took 3.6 s and four of the others about
+  0.1 s each, `questionReaders` 2.6 s for its own render. **Do not raise the
+  ceiling a second time.** When it runs out again, take that one compile out
+  of the timed hooks — pay it once before them. Folding the six files into
+  fewer saves only their re-evaluation, about 0.1 s each; `questionReaders`'
+  render is the only per-file cost of any size.
 
   **Prove it in both directions rather than asserting it.** Patch each entry so
   its FIRST resolution is delayed and later calls are served from cache, which

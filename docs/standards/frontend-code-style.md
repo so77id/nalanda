@@ -192,8 +192,12 @@ src/
   only where the component puts it — a global rule would reach every editor on
   the page. The test between the two is the condition: an override every
   instance needs goes in `styles/index.css`; one that depends on a prop, a mode
-  or a container stays on the component. One spelling, the `!` prefix (Tailwind
-  v4 also accepts a `!` suffix; #321 shipped one and moved it to the prefix).
+  or a container stays on the component. One spelling, the `!` prefix, kept
+  for consistency with the components that already use it — although it is
+  Tailwind v3's spelling: v4 documents the `!` suffix and still accepts the
+  prefix as deprecated. #321 shipped one suffix and moved it to the prefix; a
+  move to the suffix is one change across all of them, never one component at
+  a time.
   Worked cases: the steppers' editors fill their panel (`SortStepper`,
   `MergeStepper`, `PartitionStepper`, `SequenceStepper`), and `CodeEditor`
   centres its lines only inside `<SideBySide align="center">` (#321).
