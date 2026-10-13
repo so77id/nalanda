@@ -229,6 +229,25 @@ const isAvl = (step: SequenceStep): boolean => {
   return sorted && [...factorsOf(step).values()].every((f) => Math.abs(f) <= 1);
 };
 
+describe('sequenceStepperTrace · avl · how many runs', () => {
+  const thirteen = Array.from({ length: 13 }, (_, i) => i);
+
+  it('refuses more than twelve runs on every operation, as every other recipe does', () => {
+    expect(() => traceFor('avl', 'rotate-right', { values: [3, 2, 1], target: thirteen })).toThrow(
+      /Entre 1 y 12/,
+    );
+    expect(() => traceFor('avl', 'rotate-left', { values: [1, 2, 3], target: thirteen })).toThrow(
+      /Entre 1 y 12/,
+    );
+    expect(() => traceFor('avl', 'insert', { values: [], value: thirteen })).toThrow(
+      /Entre 1 y 12/,
+    );
+    expect(() => traceFor('avl', 'remove', { values: [2, 1, 3], target: thirteen })).toThrow(
+      /Entre 1 y 12/,
+    );
+  });
+});
+
 describe('sequenceStepperTrace · avl · insert', () => {
   it('builds its starting values as an AVL tree, rotating with no frames', () => {
     const first = traceFor('avl', 'insert', { values: [1, 2, 3], value: 4 }).steps[0]!;

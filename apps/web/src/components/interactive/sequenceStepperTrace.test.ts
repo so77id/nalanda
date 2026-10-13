@@ -2083,6 +2083,24 @@ describe('sequenceStepperTrace · bst · the valid combinations', () => {
 /** Built by inserting 4, 2, 7, 1, 3, 6, 9 in that order: a tree of height 2. */
 const BALANCED = [4, 2, 7, 1, 3, 6, 9];
 
+describe('sequenceStepperTrace · bst · how many runs', () => {
+  const thirteen = Array.from({ length: 13 }, (_, i) => i);
+
+  it('refuses more than twelve targets, as every other recipe does', () => {
+    for (const operation of ['search', 'successor', 'remove'] as const) {
+      expect(() => traceFor('bst', operation, { values: BALANCED, target: thirteen })).toThrow(
+        /Entre 1 y 12/,
+      );
+    }
+  });
+
+  it('refuses more than twelve insertions', () => {
+    expect(() => traceFor('bst', 'insert', { values: [], value: thirteen })).toThrow(
+      /Entre 1 y 12/,
+    );
+  });
+});
+
 describe('sequenceStepperTrace · bst · search', () => {
   const search = (target: number) => traceFor('bst', 'search', { values: BALANCED, target });
 

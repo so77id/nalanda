@@ -23,7 +23,7 @@
  * node. A rotation inside them is one frame — the rotation act already showed
  * its three assignments.
  */
-import { asRuns } from './sequenceStepperTraceShared';
+import { asRuns, requireRuns } from './sequenceStepperTraceShared';
 import type { AvlOperation, SequenceInput, SequenceTrace, TreeValue } from './sequenceStepperTrace';
 import {
   TreeRecorder,
@@ -145,6 +145,7 @@ function traceRotation(direction: Side, input: SequenceInput): SequenceTrace {
   const operation: AvlOperation = direction === 'right' ? 'rotate-right' : 'rotate-left';
   const targets = asRuns(input.target);
   if (targets.length === 0) throw new Error('Falta el valor del nodo a rotar.');
+  requireRuns(targets.length);
   const code = CODE[operation];
   const method = direction === 'right' ? 'rotateRight' : 'rotateLeft';
   // Rotating right raises the LEFT child: `inner` is the side q comes from,
@@ -411,6 +412,7 @@ const toward = (side: Side) => (side === 'left' ? 'la izquierda' : 'la derecha')
 function traceAvlInsert(input: SequenceInput): SequenceTrace {
   const inserts = asRuns(input.value);
   if (inserts.length === 0) throw new Error('Falta el valor a insertar.');
+  requireRuns(inserts.length);
   const code = CODE.insert;
   const everything = [...input.values, ...inserts];
   const columnOf = columnsFor(everything);
@@ -494,6 +496,7 @@ function traceAvlInsert(input: SequenceInput): SequenceTrace {
 function traceAvlRemove(input: SequenceInput): SequenceTrace {
   const targets = asRuns(input.target);
   if (targets.length === 0) throw new Error('Falta el valor a eliminar.');
+  requireRuns(targets.length);
   const code = CODE.remove;
   const columns: Record<number, number> = {};
   const slots = new Set(input.values).size;

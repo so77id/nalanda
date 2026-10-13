@@ -698,6 +698,7 @@ function discard(rec: TreeRecorder, n: TreeNode | null): void {
 
 function traceSearchOrdered(values: number[], targets: number[]): SequenceTrace {
   if (targets.length === 0) throw new Error('Falta el valor a buscar.');
+  requireRuns(targets.length);
   const code = CODE.containsOrdered;
   const columns: Record<number, number> = {};
   const columnOf = columnsFor(values);
@@ -766,6 +767,7 @@ function traceSearchOrdered(values: number[], targets: number[]): SequenceTrace 
 
 function traceInsert(values: number[], inserts: number[]): SequenceTrace {
   if (inserts.length === 0) throw new Error('Falta el valor a insertar.');
+  requireRuns(inserts.length);
   const code = CODE.insert;
   const everything = [...values, ...inserts];
   const columnOf = columnsFor(everything);
@@ -906,6 +908,7 @@ function traceMinimum(values: number[]): SequenceTrace {
 
 function traceSuccessor(values: number[], targets: number[]): SequenceTrace {
   if (targets.length === 0) throw new Error('Falta el valor cuyo sucesor se busca.');
+  requireRuns(targets.length);
   const code = CODE.successor;
   const columns: Record<number, number> = {};
   const { root } = bstOf(values, columnsFor(values), columns);
@@ -966,6 +969,7 @@ function traceSuccessor(values: number[], targets: number[]): SequenceTrace {
 
 function traceRemove(values: number[], targets: number[]): SequenceTrace {
   if (targets.length === 0) throw new Error('Falta el valor a eliminar.');
+  requireRuns(targets.length);
   const code = CODE.remove;
   const columns: Record<number, number> = {};
   const slots = new Set(values).size;
