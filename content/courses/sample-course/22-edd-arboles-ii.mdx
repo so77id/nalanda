@@ -45,6 +45,38 @@ export function SortedRow({ values, hot = -1, out = [], caption, label }) {
   );
 }
 
+{/* OrderSides — the order invariant drawn for any node x: its left subtree, every value smaller than x, and its right subtree, every value larger, as two triangles. The colours are the ones the slides that follow paint a tree's two sides in: x in accent, the smaller side in focus, the larger in keep (mark stays for what breaks a rule). File-local like HierarchyPicture (§6e-quater). */}
+
+export function OrderSides({ label }) {
+  const W = 340;
+  const H = 204;
+  const root = { x: W / 2, y: 32 };
+  const r = 20;
+  const sides = [
+    { apex: 85, sign: '<', word: 'menores', color: 'var(--color-focus)' },
+    { apex: W - 85, sign: '>', word: 'mayores', color: 'var(--color-keep)' },
+  ];
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', maxWidth: `${Math.round(W * 1.3)}px`, height: 'auto', display: 'block', margin: '0.4rem auto' }} role="img" aria-label={label}>
+      {sides.map((side) => {
+        const dx = side.apex - root.x;
+        const dy = 78 - root.y;
+        const len = Math.hypot(dx, dy);
+        return (
+          <g key={side.sign}>
+            <line x1={root.x + (dx / len) * r} y1={root.y + (dy / len) * r} x2={side.apex} y2={78} style={{ stroke: 'var(--color-rule-strong)' }} strokeWidth="1.4" />
+            <path d={`M ${side.apex} 78 L ${side.apex + 70} 168 L ${side.apex - 70} 168 Z`} style={{ fill: 'var(--color-surface)', stroke: side.color }} strokeWidth="2.4" strokeLinejoin="round" />
+            <text x={side.apex} y={146} textAnchor="middle" fontSize="18" fontWeight="700" style={{ fill: side.color }}>{`${side.sign} x`}</text>
+            <text x={side.apex} y={190} textAnchor="middle" fontSize="13" style={{ fill: 'var(--color-ink-soft)' }}>{`todos ${side.word} que x`}</text>
+          </g>
+        );
+      })}
+      <circle cx={root.x} cy={root.y} r={r} style={{ fill: 'var(--color-surface)', stroke: 'var(--color-accent)' }} strokeWidth="2.4" />
+      <text x={root.x} y={root.y + 6} textAnchor="middle" fontSize="17" fontWeight="700" fontStyle="italic" style={{ fill: 'var(--color-ink)' }}>x</text>
+    </svg>
+  );
+}
+
 {/* The tree the decisions of a binary search over 2, 4, …, 14 form: its inorder is the array itself. The opening threads it through, and the same insertion of 7 runs in the array and in the tree. */}
 
 export const EVENS = { v: 8, l: { v: 4, l: { v: 2 }, r: { v: 6 } }, r: { v: 12, l: { v: 10 }, r: { v: 14 } } };
@@ -130,41 +162,61 @@ Un **árbol binario de búsqueda** —en inglés, *binary search tree*, o
 > **para cada nodo, todos los valores de su subárbol izquierdo son menores
 > que el suyo, y todos los de su subárbol derecho son mayores.**
 
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1rem 2rem', alignItems: 'end' }}>
+<OrderSides label="Un nodo x con sus dos subárboles dibujados como triángulos: el izquierdo, en un color, guarda solo valores menores que x; el derecho, en otro color, guarda solo valores mayores que x." />
+<BinaryPicture tree={{ v: 8, l: { v: 4, l: { v: 2 }, r: { v: 10 } }, r: { v: 12 } }} minColumns={5} tones={{ 8: 'accent', 4: 'focus', 2: 'focus', 10: 'mark', 12: 'keep' }} notes={{ 10: '10 > 8' }} label="Un árbol que no es de búsqueda: 8 en la raíz, con 4 y 12 debajo; el 4 tiene hijos 2 y 10. Los nodos a la izquierda del 8 tienen el color de los menores, el de la derecha el de los mayores, y el 10 está marcado: está en el subárbol izquierdo del 8 y es mayor que 8." caption="10 está bien con su padre, 4, pero no con el 8" />
+</div>
+
 La palabra que importa es **todos**. No basta con que cada hijo esté del lado
 correcto de su padre: un valor tiene que estar del lado correcto de **cada**
 nodo por encima de él.
 
-<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem', alignItems: 'end' }}>
-<BinaryPicture tree={EVENS} minColumns={7} compact label="Un árbol de búsqueda: 8 en la raíz, 4 y 12 debajo, 2, 6, 10 y 14 en el último nivel. Todo lo que está a la izquierda de cada nodo es menor que él, y todo lo de la derecha, mayor." caption="cumple la invariante en cada nodo" />
-<BinaryPicture tree={{ v: 8, l: { v: 4, l: { v: 2 }, r: { v: 10 } }, r: { v: 12 } }} minColumns={7} compact tones={{ 10: 'mark' }} notes={{ 10: '10 > 8' }} label="Un árbol que no es de búsqueda: 8 en la raíz, con 4 y 12 debajo; el 4 tiene hijos 2 y 10. El 10 está bien con su padre, el 4, pero está en el subárbol izquierdo del 8 y es mayor que 8." caption="10 está bien con su padre, 4, pero no con el 8" />
-</div>
-
 </Slide>
 
 <Slide title="Las invariantes del árbol de búsqueda">
-Las dos invariantes del árbol binario siguen en pie, sin cambios: cada nodo
-tiene a lo más dos hijos, el izquierdo y el derecho, y cada nodo salvo la raíz
-tiene exactamente un padre. El árbol de búsqueda agrega una tercera:
+Un árbol de búsqueda cumple tres invariantes. Las dos primeras son las del
+árbol binario, sin cambios; la tercera es la que lo hace de búsqueda.
 
-3. **Para cada nodo, todo su subárbol izquierdo es menor que él, y todo su
-   subárbol derecho es mayor.** En particular, ningún valor se repite: un
-   valor igual no estaría ni a un lado ni al otro.
+1. **Cada nodo tiene a lo más dos hijos, y cada uno es el izquierdo o el
+   derecho.**
+2. **Cada nodo, salvo la raíz, tiene exactamente un padre.**
+3. **Todo nodo del subárbol izquierdo es menor que la raíz, y todo nodo del
+   subárbol derecho es mayor que la raíz.** Vale para el árbol entero y para
+   cada uno de sus subárboles, porque cada nodo es la raíz del suyo. En
+   particular, ningún valor se repite: un valor igual no estaría ni a un lado
+   ni al otro.
 
-Es la invariante que decide los costos. Por ella, cada comparación descarta
-un subárbol entero, y por ella cada inserción y cada eliminación tienen que
-dejar a cada valor del lado correcto de cada uno de sus ancestros.
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: '1rem', alignItems: 'end' }}>
+<NodeGraph cols={5} rows={2} nodes={[{ v: 8, x: 2, y: 0 }, { v: 4, x: 1, y: 1 }, { v: 6, x: 2, y: 1 }, { v: 12, x: 3, y: 1 }]} edges={[[8, 4], [8, 6], [8, 12]]} tones={{ 8: 'mark' }} markEdges={[[8, 4], [8, 6], [8, 12]]} label="Un nodo con tres hijos: el 8 tiene al 4, al 6 y al 12 debajo. Rompe la invariante 1." caption="1 · tres hijos: no es binario" />
+<NodeGraph cols={5} rows={2} nodes={[{ v: 4, x: 1.5, y: 0 }, { v: 12, x: 2.5, y: 0 }, { v: 8, x: 2, y: 1 }]} edges={[[4, 8], [12, 8]]} tones={{ 8: 'mark' }} markEdges={[[4, 8], [12, 8]]} label="Un nodo con dos padres: el 8 cuelga del 4 y del 12. Rompe la invariante 2." caption="2 · dos padres: no es un árbol" />
+<BinaryPicture tree={EVENS} compact tones={{ 8: 'accent', 4: 'focus', 2: 'focus', 6: 'focus', 12: 'keep', 10: 'keep', 14: 'keep' }} label="Un árbol de búsqueda: 8 en la raíz, 4 y 12 debajo, 2, 6, 10 y 14 en el último nivel. El subárbol izquierdo del 8, con el 4, el 2 y el 6, tiene el color de los menores; el derecho, con el 12, el 10 y el 14, el de los mayores. Cumple la invariante 3." caption="3 · izquierda menor, derecha mayor" />
+</div>
+
+La tercera decide los costos: por ella, cada comparación descarta un subárbol
+entero, y cada inserción y cada eliminación tienen que dejar a cada valor del
+lado correcto de cada uno de sus ancestros.
 
 </Slide>
 
 <Slide title="El inorden de un árbol de búsqueda">
 **El inorden de un árbol binario de búsqueda entrega sus valores ordenados de
-menor a mayor.**
+menor a mayor.** El inorden visita cada nodo entre sus dos subárboles: primero
+el izquierdo, después el nodo, después el derecho.
 
-La razón es la definición recursiva del inorden: primero el subárbol
-izquierdo, después el nodo, después el subárbol derecho. Por la invariante,
-todo lo de la izquierda es menor que el nodo y todo lo de la derecha es mayor.
-Si cada subárbol, más pequeño, ya sale ordenado, el nodo queda exactamente
-entre los dos, y el total sale ordenado.
+<OrderRule parts={['izquierda', 'raíz', 'derecha']} tone="accent" label="La regla del inorden: el subárbol izquierdo, después la raíz, después el derecho." />
+
+<BinaryPicture tree={EVENS} visits="in" strip label="El árbol de búsqueda con 8 en la raíz, 4 y 12 debajo, y 2, 6, 10 y 14 en el último nivel, recorrido en inorden: cada nodo numerado en el orden en que se visita, con una flecha de cada visita a la siguiente. Se visitan el 2, el 4, el 6, el 8, el 10, el 12 y el 14, y la fila de abajo los muestra en ese orden, cada uno bajo su nodo." caption="el inorden: 2, 4, 6, 8, 10, 12, 14, ordenado" />
+
+La razón es la invariante: todo lo de la izquierda de un nodo es menor que él
+y todo lo de la derecha es mayor. Si cada subárbol, más pequeño, ya sale
+ordenado, el nodo queda exactamente entre los dos, y el total sale ordenado.
+
+</Slide>
+
+<Slide title="El código del inorden">
+El código es el del árbol binario: la visita va entre las dos llamadas, así
+que cada nodo se imprime después de todo su subárbol izquierdo y antes de todo
+el derecho.
 
 <SequenceStepper eda="binary-tree" operation="inorder" values={[8, 4, 12, 2, 6, 10, 14]} />
 

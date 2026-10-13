@@ -1116,7 +1116,7 @@ describe('<SequenceStepper> · the combinations 22-edd-arboles-ii mounts', () =>
     },
     {
       act: 'the opening, with no heading',
-      slide: 'El inorden de un árbol de búsqueda',
+      slide: 'El código del inorden',
       props: { eda: 'binary-tree', operation: 'inorder', values: [8, 4, 12, 2, 6, 10, 14] },
     },
     {
