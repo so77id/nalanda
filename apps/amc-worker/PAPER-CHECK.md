@@ -44,9 +44,11 @@ The second one is the dangerous half: without `meptex` the layout is empty, so
 you would print, mark, scan, and step 4 would read nothing and tell you AMC had
 failed.
 
-**Print double-sided (dúplex), at 100% scale.** Not "fit to page": AMC finds
-the sheet by the four corner marks, and scaling moves them. If your dialog
-offers "actual size" or "100%", that is the one. Use the paper the control
+**Print double-sided (dúplex), at 100% or "fit to page".** Both read. AMC finds
+the sheet by its four corner circles and keeps only components close to their
+printed size. Since #327 (ADR-0085) the reader accepts circles down to 65 % of
+that size. Real controls have come back at 0.87–0.94 of full size; every
+page still read at 0.70, and none at 0.65. Use the paper the control
 was created for — Letter by default (Chile), A4 if you opened "Opciones
 avanzadas" in the create form and switched (ADR-0043 supersedes the
 fixed-Letter of ADR-0042). Six sheets come out on that paper.
@@ -176,6 +178,9 @@ of how badly a "no" would hurt:
    `pages.failed` 0, and no copy should have `status: "incomplete"`. A page
    whose corner marks AMC could not find is the worst outcome — it means the
    print or the scan geometry is wrong, and nothing downstream can recover it.
+   Check the scale first: every page read at 0.70 of full size and none at
+   0.65 (ADR-0085); the README's §A sheet printed to fit the page says how to
+   measure it.
 2. **Did every RUT read back correctly?** Sheet by sheet, against what you
    wrote. A wrong digit is worse than an unread one.
 3. **Did the deliberate damage land in the right bucket?** Sheet 3's blank

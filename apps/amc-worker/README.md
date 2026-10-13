@@ -318,6 +318,35 @@ a single-mode upload over a legacy project (0 beside 1). Exit 2, nothing on
 stdout, the copies and the repair named, rather than concatenate two scans in
 silence. The repair is `/scans/reset` and a fresh upload.
 
+## A sheet printed to fit the page is read
+
+AMC finds a page by its four corner circles, and it keeps only the components
+whose size is close to the circles' printed diameter. Its default tolerance is
+±20 %, which is 34 to 51 px at 300 dpi. A sheet printed "fit to page" comes
+back smaller, and its circles shrink with it. On 2026-10-13 a control printed
+at 0.87 had ~35 px circles. On three pages AMC kept only two corners, fitted
+the frame to the page's own code boxes, read the page id as `+0/0/0+`, and
+filed the page as unrecognised ("No layout for ID"). Those three copies came
+back `incomplete` even though their pages were in the batch.
+
+`/analyse` passes `--tol-marque MARK_TOLERANCE` (`0.35,0.2`, issue #327,
+ADR-0085), so circles down to 65 % of their printed size are found. On the
+Jetson's real scans:
+- the default placed no page at 0.84;
+- `0.35,0.2` placed every page down to 0.70;
+- `0.35,0.2` moved none of the 305 pages the earlier controls had captured.
+
+`tests/09-scaled.sh` performs the trap at 0.75, and `make measure-scale`
+reports the whole curve for both tolerances.
+
+**Scale is the first thing to check when a page is in the PDF but its copy is
+`incomplete`.** The page is in `capture_failed`, and its scale is the square
+root of `a·d − b·c` in `capture_page` (Nalanda's controls have come back at
+0.87–0.94). Re-run one rejected page with `analyse --debug` on a scratch copy
+of `layout.sqlite`. Its candidate list shows which corner circles AMC found.
+Re-uploading the same PDF is never the repair: the result is deterministic,
+and a re-capture clears the copy's corrections (ADR-0075).
+
 ## What the reader reports, and what it cannot
 
 `/analyse` returns a per-copy report with **three** failure kinds, kept apart
@@ -327,7 +356,7 @@ because they need different repairs:
 | --- | --- | --- |
 | `rut_status: unreadable` | who is this — a blank or doubled RUT column | type eight digits |
 | answer `blank` / `ambiguous` / `doubtful` | what did they mark | a human looks at the sheet |
-| `status: incomplete` | the copy printed questions this batch never captured | find the sheet and scan it again |
+| `status: incomplete` | the copy printed questions this batch never captured | find the sheet and scan it again — or, if the page IS in the batch, check its print scale (§A sheet printed to fit the page) |
 
 A box at or above `ticked` (0.15) is marked; at or above `unsure` (0.05) it
 is **doubtful** and reported separately, never counted as an answer. Those

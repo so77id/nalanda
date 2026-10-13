@@ -90,6 +90,14 @@ it — script names, test titles, the fixture's own comments.
   `read_capture` refuses a copy captured under MORE than one index rather
   than concatenate it (a legacy copy at index 1 alone still reads). Driving
   AMC by hand in a test or a Makefile target follows the same mode.
+- **`analyse` always runs with `--tol-marque MARK_TOLERANCE` (issue #327,
+  ADR-0085).** The professor prints "fit to page", and AMC's default ±20 %
+  corner-mark size filter drops the circles of a sheet that came back at 0.87.
+  The value lives once, in `worker.py`; a Makefile target that reads paper
+  (`read-paper`, `read-paper-min`) takes it from the image's own `worker.py`,
+  never a copy. Before changing it, run `make measure-scale` and
+  `tests/09-scaled.sh`. The curve those report, and the production regression
+  in #327, are what the value rests on.
 - **`/scans/reset` empties what a capture produced and nothing else.** The
   layout and `inputs/` are what the paper was printed from and are
   irreplaceable once students wrote on it; `RESET_FILES` / `RESET_DIRS` in
