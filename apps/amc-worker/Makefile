@@ -10,7 +10,7 @@ COPIES ?= 40
 PAPER_COPIES ?= 6
 PAPER_MIN_COPIES ?= 3
 
-.PHONY: build test verify shell clean size serve measure paper read-paper paper-min read-paper-min
+.PHONY: build test verify shell clean size serve measure measure-scale paper read-paper paper-min read-paper-min
 
 ## build — build the image
 build:
@@ -51,6 +51,14 @@ serve:
 ##   make does not export its variables to the recipe's shell.
 measure:
 	COPIES=$(COPIES) AMC_IMAGE=$(IMAGE) tests/measure-batch.sh
+
+## measure-scale — down to which print scale a sheet is still read, at AMC's
+##   default corner-mark tolerance and at the worker's (#327, ADR-0085). Not
+##   part of `test`: it reports, it does not assert. Override the scales with
+##   make measure-scale SCALES="1.0 0.8" — passed through explicitly, like COPIES;
+##   left empty, the script uses its own list.
+measure-scale:
+	SCALES="$(SCALES)" AMC_IMAGE=$(IMAGE) tests/measure-scale.sh
 
 ## paper — produce the printable control for the manual paper check
 ##   The one verification no agent can run. See PAPER-CHECK.md.

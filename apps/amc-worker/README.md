@@ -27,6 +27,7 @@ make verify      # build, then test (pre-PR protocol)
 make serve       # run the HTTP wrapper on localhost:8080
 make shell       # interactive shell in the image, for exploring AMC by hand
 make measure     # time a real-sized batch — reports, never asserts (COPIES=40)
+make measure-scale  # down to which print scale a sheet is read — reports, never asserts
 make paper       # produce the printable control for the manual paper check
 make read-paper  # read the scanned batch back (see PAPER-CHECK.md)
 make size        # report image size
@@ -166,8 +167,8 @@ not "no GUI exists" — it is "no display exists, and the CLI does not need one"
 | `06-http.sh` | The whole flow over the HTTP contract; the annotate and unknown-subcommand guards exercised by performing the trap inside the image (the association trap belongs to `04-associate.sh`); and that `/analyse` derives `--n-copies` from the layout, performed with six copies against a source declaring five |
 | `07-rescan.sh` | #298, over HTTP: each batch analysed alone; a re-scanned page replaces its capture (the Control 7 shape: a half batch, then the full one); the `batch` outcome, including blank pages AMC cannot place; a re-captured copy loses its corrections; a photocopy-mode stack (a copy under two indexes) is refused while a legacy capture scanned once still re-reads; `/scans/reset` starts over |
 | `08-survey.sh` | #310 S0, over HTTP: an anonymous survey sheet (no `\namefield`, no `\AMCcode`, authored order, one stand-in `\correctchoice` per simple question — zero or all is refused by AMC) generates and reads unchanged; each answer status a survey keys on (`ok`, `ambiguous`, `doubtful`, `blank`); and the trap: with no ID grid every copy reads `rut_status: unreadable` and lands in `needs_review` |
-
 | `09-scaled.sh` | #327, over HTTP: a batch printed scaled to fit (0.75, shrunk by ghostscript and rasterised like a scan) — the trap performed: bare AMC at its default corner-mark tolerance places none of its pages, while the same pipeline at 100 % places all; then `/analyse` places every page on its own copy and page and reads it as marked |
+
 **Changing the fixture's question pool moves the seeded draw.** Adding or
 removing a question — or a `\lastchoices`, which draws from the same random
 stream — changes which questions every copy gets, and several checks are pinned
