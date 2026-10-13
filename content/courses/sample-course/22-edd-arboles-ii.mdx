@@ -161,9 +161,23 @@ lugar donde su búsqueda terminó.
 
 </Slide>
 
-<Slide title="La invariante de orden">
+<Slide title="El árbol binario de búsqueda">
 Un **árbol binario de búsqueda** —en inglés, *binary search tree*, o
-**BST**— es un árbol binario que cumple esta **invariante**:
+**BST**— es un árbol binario que guarda sus valores en el orden de las
+decisiones de una búsqueda binaria: los menores que un nodo, a su izquierda;
+los mayores, a su derecha. Sus nodos son los del árbol binario: un valor y dos
+referencias, `left` y `right`.
+
+<BinaryPicture tree={EVENS} tones={{ 8: 'accent', 4: 'focus', 2: 'focus', 6: 'focus', 12: 'keep', 10: 'keep', 14: 'keep' }} label="Un árbol binario de búsqueda: 8 en la raíz, 4 y 12 debajo, 2, 6, 10 y 14 en el último nivel. El subárbol izquierdo del 8, con el 4, el 2 y el 6, tiene el color de los menores; el derecho, con el 12, el 10 y el 14, el de los mayores." caption="a la izquierda del 8, los menores; a su derecha, los mayores" />
+
+Con esa forma, buscar e insertar recorren un solo camino desde la raíz:
+ninguna operación revisa todos los valores ni corre a nadie. Lo que cuesta ese
+camino depende de la altura del árbol.
+
+</Slide>
+
+<Slide title="La invariante de orden">
+Lo que hace que un árbol binario sea de búsqueda es esta **invariante**:
 
 > **para cada nodo, todos los valores de su subárbol izquierdo son menores
 > que el suyo, y todos los de su subárbol derecho son mayores.**
