@@ -94,9 +94,15 @@ UNSURE = 0.05
 # back smaller, the circles with it. Issue #327, measured on the Jetson: a
 # control printed at 0.87 had ~35 px circles, AMC lost two corners on three
 # pages and filed them as unrecognised; on the same real scans the default
-# placed NO page at 0.84, while 0.35 placed every page down to 0.70 and moved
-# none of the 305 pages the eight earlier controls had captured. Growing stays
-# at AMC's default: fitting onto Letter or A4 paper never enlarges the sheet.
+# placed NO page at 0.84, while 0.35 placed every page down to 0.70 and read
+# the 305 pages the eight earlier controls had captured with bit-identical
+# transforms. Growing stays at AMC's default: fitting onto Letter or A4 paper
+# never enlarges the sheet (ADR-0085).
+#
+# Read BY NAME, from the image, by `make read-paper`, `make read-paper-min`
+# and tests/measure-scale.sh — none of which runs in `make test`. A rename
+# goes green through the suite and breaks the paper check after the pile has
+# been printed, marked and scanned.
 MARK_TOLERANCE = "0.35,0.2"
 
 # AMC keeps its state in sqlite files inside the project directory, and nothing

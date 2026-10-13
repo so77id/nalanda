@@ -70,6 +70,11 @@ field() { python3 -c "import json,sys;d=json.load(sys.stdin);print($1)" 2>/dev/n
 # Inside the container, where the locale is C: on a host whose locale writes a
 # decimal comma, the same arithmetic produces "0,75" and ghostscript a blank
 # page (it happened while measuring this WP on the Jetson).
+#
+# The same five lines print every scale of tests/measure-scale.sh's curve, and
+# the two must stay the same pipeline: this script asserts one point of the
+# curve that one reports. An edit here goes there too. That copy is the one
+# whose drift is found late — it reports and never goes red.
 shrink() {
   docker run --rm -v "${work}:/work" "$IMAGE" sh -c '
     set -e
@@ -141,10 +146,18 @@ docker run --rm -v "${work}:/work" "$IMAGE" sh -c \
 rep="$(post /analyse '{"project":"p1","scan_pdf":"p1/uploads/batch-1.pdf","source":"src/control-demo.tex"}')"
 check_eq "the worker places every page of the scaled batch" \
   "{'captured': 4, 'failed': 0, 'recaptured_copies': []}" "$(echo "$rep" | field 'd["batch"]')"
-check_eq "each on the copy and page the layout printed" "{'1': [1, 2], '2': [1, 2]}" \
+check_eq "each copy gets its two pages" "{'1': [1, 2], '2': [1, 2]}" \
   "$(echo "$rep" | field 'd["pages_per_copy"]')"
-check_eq "and the sheets read as they were marked" "['ok', 'ok']" \
+# The batch is filled copy by copy, page by page, unscrambled, and getimages
+# numbers its images in batch order — so ordered by image, the capture must
+# list the pages in printed order. pages_per_copy alone cannot see two
+# copies' page 2 swapped: each copy would still hold pages 1 and 2.
+check_eq "each image on the copy and page it was printed as" "[(1, 1), (1, 2), (2, 1), (2, 2)]" \
+  "$(sql 'SELECT student, page FROM capture_page ORDER BY src')"
+check_eq "with every copy clean" "['ok', 'ok']" \
   "$(echo "$rep" | field '[d["copies"][k]["status"] for k in sorted(d["copies"])]')"
+check_eq "and every box read as it was marked" "[[[1], [2], [3], [4]], [[2], [1], [1], [1]]]" \
+  "$(echo "$rep" | field '[[a["marked"] for a in d["copies"][k]["answers"]] for k in sorted(d["copies"])]')"
 check_eq "RUTs included" "['20123456', '19876543']" \
   "$(echo "$rep" | field '[d["copies"][k]["rut"] for k in sorted(d["copies"])]')"
 # AMC's own transform says how big it found the page: its determinant is the

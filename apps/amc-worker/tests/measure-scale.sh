@@ -10,10 +10,15 @@
 # Run it with `make measure-scale`. Override the scales with SCALES="1.0 0.8".
 #
 # For each scale, a synthetic batch is printed at that scale and scanned back
-# (the 09-scaled.sh pipeline), then read by bare AMC at its default tolerance
-# and at the worker's MARK_TOLERANCE, read from the image itself. Each page is
-# scored against the copy and page the layout printed it as, so a page placed
-# on the WRONG copy shows up as `wrong`, not as read.
+# — the same five ghostscript lines as 09-scaled.sh's shrink(), which asserts
+# one point of this curve; an edit to one goes to the other. This copy is the
+# one whose drift is found late: it reports and never goes red. Then the
+# batch is read by bare AMC at its default tolerance and at the worker's
+# MARK_TOLERANCE, read from the image itself. Each page is scored against the
+# copy and page the layout printed it as, so a page placed on the WRONG copy
+# shows up as `wrong`, not as read. `analyse` exits 0 when it places nothing
+# (measured, #327 review), so a non-zero exit is a real failure and stops the
+# curve rather than reading as "unrecognised".
 #
 # What this can and cannot say: synthetic circles are crisper than toner, so
 # the curve sits lower than on paper. Measured for #327: the default's cliff
@@ -49,7 +54,7 @@ docker run --rm --env DISPLAY= -v "${work}:/work" -w /work "$IMAGE" bash -c '
   auto-multiple-choice meptex --data $P/data --src /tmp/out/calage.xy >/dev/null 2>&1
   python3 /work/fill_sheet.py --layout $P/data/layout.sqlite --sujet /tmp/out/sujet.pdf \
     --out /tmp/scan --plan /work/plan.json --pdf /tmp/scan/lote.pdf >/dev/null 2>&1
-  worker_tol=$(cd /opt/amc-worker && python3 -c "import worker; print(worker.MARK_TOLERANCE)")
+  worker_tol=$(python3 -c "import sys; sys.path.insert(0, sys.argv[1]); import worker; print(worker.MARK_TOLERANCE)" /opt/amc-worker)
   for f in $1; do
     tx=$(awk -v f="$f" "BEGIN { printf \"%.3f\", (1 - f) * 612 / 2 }")
     ty=$(awk -v f="$f" "BEGIN { printf \"%.3f\", (1 - f) * 792 / 2 }")
@@ -64,7 +69,7 @@ docker run --rm --env DISPLAY= -v "${work}:/work" -w /work "$IMAGE" bash -c '
         --copy-to $t/scans /tmp/scaled.pdf >/dev/null 2>&1
       flag=""; [ "$tol" = default ] || flag="--tol-marque $tol"
       auto-multiple-choice analyse $flag --data $t/data --projet $t --cr $t/cr \
-        --liste-fichiers $t/list.txt >/dev/null 2>&1 || true
+        --liste-fichiers $t/list.txt >/dev/null 2>&1
       line="$line  $tol → $(python3 - $t <<"PY"
 import os, sqlite3, sys
 t = sys.argv[1]

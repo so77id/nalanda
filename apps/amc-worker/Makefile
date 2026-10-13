@@ -140,7 +140,8 @@ read-paper-min:
 		bash -c 'set -e; \
 		  auto-multiple-choice getimages --list /work/project/scans/list.txt \
 		    --vector-density 300 --copy-to /work/project/scans /work/scan/lote.pdf >/dev/null; \
-		  T=$$(cd /opt/amc-worker && python3 -c "import worker; print(worker.MARK_TOLERANCE)"); \
+		  T=$$(python3 -c "import sys; sys.path.insert(0, sys.argv[1]); import worker; print(worker.MARK_TOLERANCE)" \
+		    /opt/amc-worker); \
 		  auto-multiple-choice analyse --tol-marque "$$T" \
 		    --data /work/project/data --projet /work/project \
 		    --cr /work/project/cr \
@@ -178,7 +179,8 @@ read-paper:
 		  rm -f /work/project/scans/list.txt; \
 		  auto-multiple-choice getimages --list /work/project/scans/list.txt \
 		    --vector-density 300 --copy-to /work/project/scans /work/scan/lote.pdf >/dev/null; \
-		  T=$$(cd /opt/amc-worker && python3 -c "import worker; print(worker.MARK_TOLERANCE)"); \
+		  T=$$(python3 -c "import sys; sys.path.insert(0, sys.argv[1]); import worker; print(worker.MARK_TOLERANCE)" \
+		    /opt/amc-worker); \
 		  auto-multiple-choice analyse --tol-marque "$$T" \
 		    --data /work/project/data --projet /work/project \
 		    --cr /work/project/cr \
