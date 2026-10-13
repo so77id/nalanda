@@ -1398,3 +1398,172 @@ de Java funcionan exactamente así: piden las claves con `hashCode` y
 `equals`, y confían en ese contrato.
 
 </Slide>
+
+<SectionBreak />
+
+## Las tablas hash de Java
+
+<Slide title="La clase HashSet">
+`java.util.HashSet<E>` es una tabla hash de claves de cualquier tipo, con las
+mismas tres operaciones: `add`, `contains` y `remove`, que devuelven
+`boolean` como las de la tabla con listas, más `size`.
+
+```java
+Set<String> guardarropa = new HashSet<>();
+guardarropa.add("Ana");
+guardarropa.add("Sara");
+guardarropa.add("Ana");                         // false: ya estaba
+System.out.println(guardarropa.contains("Sara")); // true
+guardarropa.remove("Sara");
+System.out.println(guardarropa.size());           // 1
+```
+
+Por dentro, un `HashSet` es un `HashMap` —una tabla que guarda junto a cada
+clave un valor— en el que todas las claves comparten un mismo valor que nadie
+lee.
+
+</Slide>
+
+<Slide title="Por dentro de HashMap">
+`HashMap` resuelve las colisiones con **listas**, como la tabla con listas, y
+elige otro tamaño: una potencia de 2, que empieza en 16 y se duplica cuando el
+factor de carga pasa de **0,75**. Con $$M = 2^k$$, la posición es
+`hash & (M - 1)`: los $$k$$ bits bajos del hash, que se calculan más rápido
+que un resto.
+
+Usar solo los bits bajos es justo lo que hace mala una potencia de 2: dos
+claves que difieren solo en sus bits altos colisionan. Por eso `HashMap` no
+usa `hashCode()` directamente, sino que antes lo mezcla, combinando sus 16
+bits altos con los 16 bajos:
+
+```java
+h ^ (h >>> 16)
+```
+
+Así, los bits altos de la clave también deciden su posición.
+
+</Slide>
+
+<Slide title="Listas que se vuelven árboles">
+Si muchas claves caen en la misma posición, su lista se vuelve larga y
+buscar en ella cuesta $$\Theta(N)$$. `HashMap` se defiende: cuando una lista
+llega a más de 8 nodos y la tabla tiene al menos 64 posiciones, convierte esa
+lista en un **árbol rojo-negro**, un árbol de búsqueda balanceado. Si la
+tabla es más chica, en cambio, la duplica, para repartir la lista.
+
+Con claves comparables, como `String`, buscar en esa posición pasa a costar
+$$O(\log N)$$ en lugar de $$\Theta(N)$$. Si la lista vuelve a bajar a 6 nodos,
+el árbol vuelve a ser una lista.
+
+</Slide>
+
+<Slide title="Cuándo se rompe el costo esperado">
+El $$\Theta(1)$$ esperado descansa en un supuesto: que la función hash reparte
+las claves parejo, como si las repartiera al azar. Es un supuesto sobre los
+datos, no una garantía, y hay cinco maneras de romperlo:
+
+1. **Una función hash pobre**, como la inicial del nombre, que junta las claves
+   en pocas posiciones.
+2. **Claves elegidas por un adversario.** Quien conoce la función puede elegir
+   claves que caigan todas en la misma posición. En 2011 se mostró que
+   servidores web de varios lenguajes se caían con una sola petición que
+   traía miles de parámetros con nombres elegidos para colisionar.
+3. **Un factor de carga que crece** sin redimensionar.
+4. **Claves que cambian** después de agregarse.
+5. **Un contrato roto** entre `hashCode` y `equals`.
+
+</Slide>
+
+<Slide title="Universal hashing">
+Contra el adversario, la defensa es que no sepa qué función se usa. El
+**universal hashing** elige la función al azar, de una familia de funciones,
+al crear la tabla. Para cualquier conjunto de claves —también uno elegido para
+dañar— el costo esperado de cada operación es $$\Theta(1)$$, porque el azar
+está en la función y no en los datos (resultado de Carter y Wegman, que se
+cita sin demostrarlo).
+
+Los lenguajes combinan las defensas. Python elige al azar, cada vez que
+arranca un programa, una parte del cálculo del hash de los `String`. Java no
+lo hace, y limita el daño con los árboles: aunque todas las claves caigan en
+la misma posición, buscar cuesta $$O(\log N)$$ si son comparables.
+
+</Slide>
+
+<Slide title="Costos de HashSet">
+| Operación       | Esperado      | Peor caso, claves comparables | Peor caso, claves no comparables |
+| --------------- | ------------- | ----------------------------- | -------------------------------- |
+| `add(x)`        | $$\Theta(1)$$ amortizado | $$O(\log N)$$      | $$\Theta(N)$$                    |
+| `contains(x)`   | $$\Theta(1)$$ | $$O(\log N)$$                 | $$\Theta(N)$$                    |
+| `remove(x)`     | $$\Theta(1)$$ | $$O(\log N)$$                 | $$\Theta(N)$$                    |
+| `size()`        | $$\Theta(1)$$ | $$\Theta(1)$$                 | $$\Theta(1)$$                    |
+
+El esperado es el de una tabla con un factor de carga acotado, y el peor caso
+el de una posición donde caen todas las claves, ya convertida en árbol.
+
+</Slide>
+
+<Slide title="Otras tablas, otras decisiones">
+Cada biblioteca elige su manera de resolver las colisiones según lo que más le
+cuesta.
+
+| Lenguaje | Tabla                       | Colisiones                                           |
+| -------- | --------------------------- | ---------------------------------------------------- |
+| Java     | `HashMap`, `HashSet`        | Listas, que se vuelven árboles si crecen             |
+| C++      | `std::unordered_map`        | Listas                                               |
+| Python   | `dict`, `set`               | Sondeo, con saltos que no son de a una celda         |
+| Rust     | `HashMap`                   | Sondeo, en una tabla que revisa varias celdas a la vez |
+| Go       | `map`                       | Sondeo, desde la versión 1.24; antes, listas         |
+
+Las listas convienen cuando cada clave ya es un objeto aparte en la memoria;
+el sondeo, cuando las claves caben en el arreglo y recorrer celdas seguidas es
+lo más rápido que puede hacer el procesador. No hay una respuesta única.
+
+</Slide>
+
+<Slide title="Funciones hash fuera de las tablas">
+Una función que resume un dato en un número sirve para más que ubicar claves,
+y en cada uso pide otras cosas.
+
+- **El dígito verificador del RUT** resume el número en un dígito, con una
+  suma ponderada módulo 11: detecta un dígito mal copiado.
+- **La verificación de un archivo descargado** compara su resumen —SHA-256, por
+  ejemplo— con el que publica quien lo distribuye: si un solo bit cambió, el
+  resumen es otro.
+- **Las contraseñas** se guardan como el resumen de la contraseña, con un
+  agregado al azar para cada usuario, y nunca la contraseña misma.
+
+Las dos últimas usan funciones **criptográficas**, que piden lo contrario de
+una tabla: que sea imposible en la práctica encontrar dos datos con el mismo
+resumen, o el dato a partir de su resumen, aunque calcularla cueste más. Una
+tabla solo pide que reparta parejo y sea barata.
+
+</Slide>
+
+<Slide title="El orden que la dispersión no guarda">
+Una tabla hash responde si una clave está en tiempo constante esperado porque
+la función reparte las claves por la tabla sin ninguna relación con su orden:
+dos claves vecinas en el orden caen en posiciones que no tienen nada que ver.
+Esa misma invariante
+—cada clave en la posición de su hash— deja sin atajo cualquier pregunta sobre
+el orden.
+
+| Pregunta                          | Tabla hash             | Árbol de búsqueda balanceado |
+| --------------------------------- | ---------------------- | ---------------------------- |
+| ¿Está la clave?                   | $$\Theta(1)$$ esperado | $$O(\log N)$$                |
+| La clave menor, o la mayor        | $$\Theta(N + M)$$      | $$O(\log N)$$                |
+| La siguiente a una clave dada     | $$\Theta(N + M)$$      | $$O(\log N)$$                |
+| Todas las claves, en orden        | $$\Theta(N \log N)$$   | $$\Theta(N)$$                |
+
+Renunciar al orden abarata la pregunta «¿está?»; conservarlo, como hace un
+árbol de búsqueda balanceado, responde todas las demás en $$O(\log N)$$ y cobra
+ese mismo $$O(\log N)$$ por cada búsqueda.
+
+</Slide>
+
+## Lo que sigue
+
+Una tabla hash y un árbol de búsqueda balanceado guardan el mismo conjunto de
+claves y responden las mismas tres operaciones, a precios distintos. La
+próxima clase formaliza el contrato que las dos cumplen —los TDAs **Set** y
+**Map**, este último con un valor junto a cada clave— y las compara como dos
+implementaciones del mismo contrato, para decidir cuándo usar cada una.

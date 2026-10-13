@@ -2,7 +2,8 @@
 
 The shape every class of the **Estructuras de Datos** unit takes — and of
 **Estructuras de Datos Avanzadas**, the unit that continues it with the
-non-linear structures (the trees, then the heap; #321). Born with #277, the
+non-linear structures (the trees, then the heap; #321) and the hash table
+that closes it (#326). Born with #277, the
 first unit's first class, which is also its worked example.
 
 This is the third layer of the course-authoring stack, and the three do not
@@ -149,6 +150,15 @@ on the teaching path with no closing, which is where #294 stood when it
 shipped. Still a stated deviation, not a new shape: the rule above is
 unchanged, and the class that comes to follow #304 on the path is what makes
 its closing owed again.
+
+**#326 paid it back.** Tablas Hash follows the heap on the teaching path, and
+its PR gave the heap a book-only `## Lo que sigue` born from the heap's own
+last cost row: `contains(x)` is $$\Theta(N)$$ because the heap only knows
+where the first element is, and a hash table answers it in constant expected
+time by giving up order altogether. Tablas Hash itself closes on a named
+trade — the order a hash table does not keep, and what a balanced search tree
+charges to keep it — and its `## Lo que sigue` names Set and Map in prose,
+with no wiki-link, because that class does not exist yet (§5).
 
 **#277 also cut its own act 4.** An earlier draft closed with a recap act
 ("un contrato para los dos arreglos") that restated the TDA, put the two cost
@@ -604,9 +614,11 @@ its fence text and read the result next to the step's own caption.
 
 **What that widget is, concretely** (ADR-0074): `eda` picks the structure —
 a dynamic array, a singly / doubly / circular list, (since #304, ADR-0077) a
-binary max-heap, or (since #321, ADR-0083) a linked binary tree — and
+binary max-heap, (since #321, ADR-0083) a linked binary tree, or (since
+#326, ADR-0084) a hash table with chaining or with linear probing — and
 `operation` picks which of the nine Sequence operations, the heap's own two,
-or the tree's traversals, height and search, to animate over it. (A fixed-capacity
+the tree's traversals, height and search, or the table's search, insert,
+remove and resize, to animate over it. (A fixed-capacity
 `array` recipe was deleted by #304, never having had a reader; ADR-0074
 §Amended by #304.) The surface never changes
 between combinations, which is the point: the reader learns one visual
@@ -633,6 +645,14 @@ draws nodes with `left` and `right`, each in the column of its inorder
 position, over a strip a traversal fills one visit at a time. It was
 designed the way the rule asks — on the running widget, reviewed in
 `/catalog`, never as drawings outside the system.
+
+**The third and fourth are the two hash tables** (#326, ADR-0084):
+`hash-chaining` draws `table` as a contiguous strip with each position's list
+hanging under its cell, and `hash-probing` draws `keys` and its parallel
+`deleted` as two strips with the cursor `i` under them. Their keys are text,
+and the position drawn is the class's own `hash`, pinned against the JVM. The
+professor's first review rejected cells with gaps between them: an array is
+drawn flush, and only nodes stand apart.
 
 **It does not replace `<StepShow>` + `<MemoryVisual>`**, which stay the pair
 for author-written pictures, whose truth is the author's (ADR-0049).
