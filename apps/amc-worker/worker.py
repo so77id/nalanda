@@ -88,6 +88,17 @@ CALLER_UID = 65532
 TICKED = 0.15
 UNSURE = 0.05
 
+# How far a corner circle may shrink (and grow) from its printed diameter and
+# still be found: `analyse --tol-marque <smaller>,<larger>`. AMC's default is
+# 0.2,0.2 — 34 to 51 px at 300 dpi — and a sheet printed "fit to page" comes
+# back smaller, the circles with it. Issue #327, measured on the Jetson: a
+# control printed at 0.87 had ~35 px circles, AMC lost two corners on three
+# pages and filed them as unrecognised; on the same real scans the default
+# placed NO page at 0.84, while 0.35 placed every page down to 0.70 and moved
+# none of the 305 pages the eight earlier controls had captured. Growing stays
+# at AMC's default: fitting onto Letter or A4 paper never enlarges the sheet.
+MARK_TOLERANCE = "0.35,0.2"
+
 # AMC keeps its state in sqlite files inside the project directory, and nothing
 # about `prepare`/`analyse`/`note` is re-entrant over one project. Threading the
 # server (so /health answers during a minutes-long /analyse) must not turn into
@@ -294,7 +305,8 @@ def analyse(body):
     # page captured again is OVERWRITTEN (AMC-analyse.pl bumps
     # capture_page.overwritten) — the semantics a professor re-scanning
     # a sheet expects.
-    output = amc("analyse", "--data", data, "--projet", project,
+    output = amc("analyse", "--tol-marque", MARK_TOLERANCE,
+                 "--data", data, "--projet", project,
                  "--cr", os.path.join(project, "cr"),
                  "--liste-fichiers", listing)
     # AMC analyses pages in parallel processes that each write capture.sqlite,
