@@ -2,38 +2,23 @@
 id: edd-tablas-hash
 title: Estructuras de Datos Avanzadas · Tablas Hash
 presentation: explicit
-questions: pool
+questions: none
 ---
 
-{/* `pool`: un conjunto sin expectativa por sección, como Árboles I y II: cada */}
-{/* <Slide> es un h2, y exigir una pregunta por lámina serían cerca de */}
-{/* cincuenta. Lo que el pool tiene que garantizar es densidad por RANGO: un */}
-{/* control se pide sobre un rango de secciones y cada copia saca cuatro, así */}
-{/* que un rango con menos de cuatro preguntas se rechaza (ErrPoolTooSmall). */}
-{/* COBERTURA. 12 preguntas, de una sola correcta, aprobadas por el profesor */}
-{/* (#326, S15) sobre la primera mitad, hasta el método de la división. */}
-{/* Rangos que SÍ llenan una copia de cuatro: */}
-{/*   · la clase entera: 12. */}
-{/*   · el acto Funciones hash: 4. */}
-{/*   · la apertura junto con Funciones: 5. */}
-{/*   · Funciones junto con Funciones hash: 7. */}
-{/*   · Funciones hash junto con El cálculo de una función hash: 7. */}
-{/* Rangos que NO, y es deliberado: */}
-{/*   · la apertura sola (2), Funciones sola (3) y El cálculo sola (3). */}
-{/*   · El cálculo desde Primo o potencia de 2: ninguna. El profesor cerró */}
-{/*     el banco en el método de la división. */}
+{/* `none` es un TODAVÍA NO, no una decisión: el valor se fija con el profesor al cerrar #326 (S15), con las preguntas aprobadas de a dos. */}
 
 # Estructuras de Datos Avanzadas · Tablas Hash
 
-Lo que más repite un programa con lo que guarda es preguntar si un dato ya
-está. Las estructuras de la unidad responden esa pregunta comparando, y la más
-rápida de ellas compara más veces mientras más datos guarda. Para que la
-respuesta cueste lo mismo con mil datos que con un millón, hace falta otra
-manera de buscar.
+En el guardarropa de un teatro, cada abrigo se guarda con el nombre de su
+dueño, y al terminar la función todos vuelven a la vez a pedir el suyo. Con
+miles de abrigos, quien atiende no puede revisarlos uno por uno: necesita ir
+directo al abrigo de cada nombre. Una **tabla hash** hace exactamente eso con
+un conjunto de claves: buscar, agregar y sacar una clave cuesta, en promedio,
+un tiempo que no crece con la cantidad de claves guardadas.
 
-{/* Casilleros — the cloakroom drawn as the unit draws an array: a contiguous strip of cells, the index over each, a name or nothing inside. `paint` colours a cell as the widget does (focus: under the eye; visited: already looked at; found: the one looked for; mark: just written), `notes` writes a short mark over a cell — a visit order, a shift, a hash — and `struck` strikes a key through: the mark of a removed key in the probing table. File-local (add-a-course-document.md §6e-quater). */}
+{/* Casilleros — the cloakroom drawn as the unit draws an array: a contiguous strip of cells, the index over each, a name or nothing inside. `paint` colours a cell as the widget does (focus: under the eye; visited: already looked at; found: the one looked for; mark: just written), and `notes` writes a short mark over a cell — a visit order, a shift. File-local (add-a-course-document.md §6e-quater). */}
 
-export function Casilleros({ cells, index, paint = {}, notes = {}, struck = [], caption, label, cell = 64 }) {
+export function Casilleros({ cells, index, paint = {}, notes = {}, caption, label, cell = 64 }) {
   const pad = 12;
   const noteY = 15;
   const indexY = 31;
@@ -55,12 +40,12 @@ export function Casilleros({ cells, index, paint = {}, notes = {}, struck = [], 
         return (
           <g key={i}>
             {notes[i] ? (
-              <text x={x + cell / 2} y={noteY} textAnchor="middle" fontSize="12" fontWeight="700" style={{ fill: 'var(--color-ink-soft)' }}>{notes[i]}</text>
+              <text x={x + cell / 2} y={noteY} textAnchor="middle" fontSize="12" fontWeight="700" style={{ fill: 'var(--color-focus)' }}>{notes[i]}</text>
             ) : null}
             <text x={x + cell / 2} y={indexY} textAnchor="middle" fontSize="11" style={{ fill: 'var(--color-ink-faint)' }}>{index ? index[i] : i}</text>
             <rect x={x} y={cellY} width={cell} height={cellH} style={{ fill: p ? fill[p] : 'var(--color-surface)', stroke: p ? stroke[p] : 'var(--color-rule-strong)' }} strokeWidth={p && p !== 'visited' ? 2.4 : 1.2} />
             {cells[i] ? (
-              <text x={x + cell / 2} y={cellY + cellH / 2 + 5} textAnchor="middle" fontSize="14" fontWeight="600" textDecoration={struck.includes(i) ? 'line-through' : undefined} style={{ fill: struck.includes(i) ? 'var(--color-ink-faint)' : 'var(--color-ink)' }}>{cells[i]}</text>
+              <text x={x + cell / 2} y={cellY + cellH / 2 + 5} textAnchor="middle" fontSize="14" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{cells[i]}</text>
             ) : null}
           </g>
         );
@@ -140,95 +125,77 @@ export function Reparto({ keys, cells, index, contents = [], hit, caption, label
 
 export const LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
 
-{/* The tree a search over seven names follows when it compares: the opening's "El límite de comparar" draws it to show that comparing never goes below log N. In alphabetical order, so its inorder is the sorted array a binary search would halve. */}
+<Slide title="Un guardarropa">
+Un guardarropa guarda abrigos, y de cada abrigo importa una sola cosa: el
+nombre de su dueño. Sobre ese conjunto de nombres se hacen tres operaciones:
 
-export const DECISIONES = { v: 'Leo', l: { v: 'Bea', l: { v: 'Ana' }, r: { v: 'Eva' } }, r: { v: 'Sol', l: { v: 'Luz' }, r: { v: 'Teo' } } };
+- **guardar** el abrigo de un nombre nuevo;
+- **buscar** si el abrigo de un nombre está;
+- **retirar** el abrigo de un nombre.
 
-<Slide title="Buscar un dato">
-Muchos programas repiten millones de veces una misma pregunta: si un dato
-está guardado.
+El nombre es la **clave**: identifica a cada abrigo y es lo que se dice para
+pedirlo. Dos abrigos nunca tienen la misma clave. Lo que interesa es cuánto
+cuesta cada operación cuando hay $$N$$ abrigos guardados.
 
-- **Un registro de usuarios**, al crear una cuenta, revisa si el nombre
-  elegido ya está tomado.
-- **Un corrector ortográfico** busca cada palabra que se escribe en un
-  diccionario de cientos de miles de palabras.
-- **Un compilador** revisa, por cada nombre que aparece en el programa, si fue
-  declarado.
-- **Un navegador**, antes de descargar una imagen, revisa si ya la tiene
-  guardada.
-
-Al dato que se busca —un nombre de usuario, una palabra, el nombre de una
-variable, una dirección— se le llama **clave**, porque identifica a cada
-elemento: dos elementos nunca tienen la misma. Sobre el conjunto de claves se
-hacen tres operaciones —**buscar** si una clave está, **agregar** una clave
-nueva y **eliminar** una—, y la que más se repite es buscar.
-
-</Slide>
-
-<Slide title="El costo de buscar">
-Las estructuras de la unidad ya hacen las tres operaciones, cada una a su
-precio cuando guarda $$N$$ claves:
-
-| Estructura          | Buscar             | Agregar                  | Eliminar           |
-| ------------------- | ------------------ | ------------------------ | ------------------ |
-| Arreglo sin orden   | $$\Theta(N)$$      | $$\Theta(1)$$ amortizado | $$\Theta(N)$$      |
-| Arreglo ordenado    | $$\Theta(\log N)$$ | $$\Theta(N)$$            | $$\Theta(N)$$      |
-| Árbol AVL           | $$O(\log N)$$      | $$O(\log N)$$            | $$O(\log N)$$      |
-| **Lo que buscamos** | $$\Theta(1)$$      | $$\Theta(1)$$            | $$\Theta(1)$$      |
-
-Con un millón de claves, buscar en el arreglo sin orden es revisar hasta un
-millón; la búsqueda binaria y el árbol AVL comparan unas $$\log_2 10^6 \approx 20$$ veces. $$\log N$$ crece
-muy despacio, pero crece con $$N$$. **El objetivo** es una estructura en la
-que las tres operaciones cuesten lo mismo con mil claves que con un millón.
-
-</Slide>
-
-<Slide title="El límite de comparar">
-La manera más rápida de buscar que conocemos es la búsqueda binaria, y un
-árbol AVL busca de la misma manera. En un arreglo ordenado, cada comparación
-tiene tres respuestas posibles —es la clave, va antes o va después—, y si no
-es la clave descarta la mitad de lo que queda. Dibujadas, sus comparaciones
-forman un árbol binario, el **árbol de decisiones**: la raíz es la primera
-comparación, con el elemento del medio, y cada búsqueda es un camino desde la
-raíz hacia abajo, con una comparación por nivel.
-
-<BinaryPicture
-  tree={DECISIONES}
-  path={['Leo', 'Bea', 'Eva']}
-  tones={{ Eva: 'keep' }}
-  levelNotes={['1 nodo', '2 nodos', '4 nodos']}
-  caption="buscar «Eva» compara con «Leo», con «Bea» y con «Eva»; siete nombres no caben en menos de tres niveles"
-  label="El árbol de decisiones de una búsqueda entre siete nombres en orden alfabético. La raíz es Leo; a la izquierda, Bea, con Ana y Eva debajo; a la derecha, Sol, con Luz y Teo debajo. El camino de Leo a Bea y de Bea a Eva está destacado, y Eva, encontrada. A la derecha de cada nivel, cuántos nodos tiene: 1, 2 y 4."
+<Casilleros
+  cells={['Sara', 'Leo', 'Ana', 'Juan', 'Eva', 'Bea', null, null]}
+  caption="un guardarropa de 8 casilleros con 6 abrigos"
+  label="Ocho casilleros en fila, numerados del 0 al 7. Los seis primeros guardan los abrigos de Sara, Leo, Ana, Juan, Eva y Bea; los dos últimos están libres."
 />
 
-Cualquier búsqueda que compare dibuja un árbol así; el de una lista sin orden
-es un solo camino de $$N$$ niveles. Una búsqueda solo sabe que una clave está
-cuando la compara con ella, así que cada una de las $$N$$ claves tiene que ser
-un nodo del árbol. Como cada nodo tiene a lo más dos hijos, un árbol de $$k$$
-niveles tiene a lo más
+</Slide>
 
-$$
-1 + 2 + 4 + \cdots + 2^{k - 1} = 2^k - 1
-$$
+<Slide title="Guardar sin orden">
+La manera más simple de guardar un abrigo es usar cualquier casillero libre.
+Guardar no mira a los demás abrigos y cuesta $$\Theta(1)$$.
 
-nodos. Para que quepan las $$N$$ claves hace falta que $$2^k - 1 \ge N$$, es
-decir, que $$k \ge \log_2 (N + 1)$$, y buscar una clave del último nivel cuesta
-$$k$$ comparaciones. Ninguna búsqueda que compare baja de $$\log_2 (N + 1)$$
-comparaciones en el peor caso: la búsqueda binaria ya es la más rápida
-posible.
+Buscar un nombre, en cambio, obliga a revisar los casilleros uno por uno,
+porque nada indica dónde quedó el abrigo. En el peor caso se revisan los
+$$N$$: buscar cuesta $$\Theta(N)$$, y retirar también, porque empieza por
+buscar.
 
-**Para buscar más rápido hay que llegar a la clave sin compararla con las
-demás: hay que calcular dónde está.**
+<Casilleros
+  cells={['Sara', 'Leo', 'Ana', 'Juan', 'Eva', 'Bea', null, null]}
+  paint={{ 0: 'visited', 1: 'visited', 2: 'visited', 3: 'found' }}
+  notes={{ 0: '1', 1: '2', 2: '3', 3: '4' }}
+  caption="buscar «Juan»: se revisan los casilleros en orden, hasta el cuarto"
+  label="Los mismos ocho casilleros. La búsqueda de Juan revisa el casillero 0, el 1 y el 2, sin encontrarlo, y lo encuentra en el 3, el cuarto revisado."
+/>
 
 </Slide>
 
-<Slide title="Las fichas de un guardarropa">
-El guardarropa de un teatro llega a cada abrigo sin comparar. Al recibir un
-abrigo, quien atiende lo cuelga en un casillero y le entrega al dueño una
-**ficha numerada** con el número de ese casillero. Al terminar la obra,
-cientos de personas piden su abrigo a la vez, y nadie compara nombres: la
-ficha dice en qué casillero está cada uno. Con la ficha, guardar, buscar y
-retirar un abrigo toman un solo paso: ir al casillero de ese número.
+<Slide title="Guardar en orden alfabético">
+Si los abrigos se guardan en orden alfabético, buscar puede usar la
+**búsqueda binaria**: se compara con el nombre del casillero del medio y se
+descarta la mitad que no puede tener el buscado. Buscar cuesta
+$$\Theta(\log N)$$.
+
+<Casilleros
+  cells={['Ana', 'Bea', 'Ema', 'Eva', 'Juan', 'Leo', 'Sara', 'Teo', null]}
+  paint={{ 0: 'visited', 1: 'visited', 2: 'visited', 3: 'visited', 5: 'found' }}
+  notes={{ 3: '1', 5: '2' }}
+  caption="buscar «Leo»: «Eva» va antes, se descarta la mitad izquierda; el medio de la otra mitad es «Leo»"
+  label="Nueve casilleros con Ana, Bea, Ema, Eva, Juan, Leo, Sara y Teo en orden alfabético, y el último libre. La búsqueda de Leo compara primero con Eva, en el casillero 3, descarta los casilleros 0 a 3, y después compara con Leo, en el 5, donde lo encuentra."
+/>
+
+Pero un abrigo nuevo tiene que entrar en su lugar, y todos los que van
+después se corren un casillero. Guardar y retirar cuestan $$\Theta(N)$$.
+
+<Casilleros
+  cells={['Ana', 'Bea', 'Ema', 'Eva', 'Iván', 'Juan', 'Leo', 'Sara', 'Teo']}
+  paint={{ 4: 'mark', 5: 'focus', 6: 'focus', 7: 'focus', 8: 'focus' }}
+  notes={{ 5: '→', 6: '→', 7: '→', 8: '→' }}
+  caption="guardar «Iván»: «Juan», «Leo», «Sara» y «Teo» se corren un casillero para hacerle lugar"
+  label="Los mismos casilleros después de guardar a Iván en el casillero 4. Juan, Leo, Sara y Teo se corrieron un casillero a la derecha, del 4 al 5, del 5 al 6, del 6 al 7 y del 7 al 8."
+/>
+
+</Slide>
+
+<Slide title="Fichas numeradas">
+Muchos guardarropas lo resuelven de otra manera: al recibir un abrigo entregan
+una **ficha numerada**, y el número de la ficha es el número del casillero.
+Con la ficha en la mano, guardar, buscar y retirar son un solo paso: ir al
+casillero de ese número.
 
 <Reparto
   id="ficha"
@@ -241,970 +208,62 @@ retirar un abrigo toman un solo paso: ir al casillero de ese número.
 />
 
 Es el **acceso directo** de un arreglo: el elemento de una posición se lee en
-un solo paso, en tiempo $$\Theta(1)$$, sin compararlo con ningún otro.
-Funciona por dos razones. La primera, la clave la elige el guardarropa: es el
-número de la ficha que entregó. La segunda, esa clave es un entero pequeño, y
-hay un casillero para cada ficha posible.
+un paso, $$\Theta(1)$$. Funciona por dos razones. La clave la elige el
+guardarropa, y es un entero chico: hay un casillero para cada ficha posible.
 
 </Slide>
 
-{/* Universo — the keys a cloakroom can be asked for, against the ones it keeps and the lockers it has: a large box for U, every possible key, dotted; a dashed cluster inside it for the keys stored; an arrow with a question mark to the strip of M lockers. File-local (§6e-quater). */}
+<Slide title="Tres maneras de guardar">
+| Guardarropa                 | Guardar          | Buscar             | Retirar          |
+| --------------------------- | ---------------- | ------------------ | ---------------- |
+| Sin orden                   | $$\Theta(1)$$    | $$\Theta(N)$$      | $$\Theta(N)$$    |
+| En orden alfabético         | $$\Theta(N)$$    | $$\Theta(\log N)$$ | $$\Theta(N)$$    |
+| Con fichas numeradas        | $$\Theta(1)$$    | $$\Theta(1)$$      | $$\Theta(1)$$    |
 
-export function Universo({ stored, cells, caption, label, id }) {
-  const pad = 14;
-  const boxW = 300;
-  const boxH = 176;
-  const top = 26;
-  const gap = 110;
-  const cell = 40;
-  const core = 2 * pad + boxW + gap + cells * cell;
-  const width = Math.max(core, caption ? caption.length * 6.6 + 24 : 0);
-  const x0 = (width - core) / 2 + pad;
-  const stripX = x0 + boxW + gap;
-  const stripY = top + boxH / 2 - 20;
-  const sub = { x: x0 + 150, y: top + 60, w: 130, h: 92 };
-  const height = top + boxH + (caption ? 36 : 10);
-  const dots = [];
-  for (let r = 0; r < 8; r++) {
-    for (let c = 0; c < 16; c++) {
-      const cx = x0 + 12 + c * 18 + (r % 2) * 9;
-      const cy = top + 14 + r * 21;
-      const inside = cx > sub.x - 6 && cx < sub.x + sub.w + 6 && cy > sub.y - 6 && cy < sub.y + sub.h + 6;
-      if (!inside && cx < x0 + boxW - 6) dots.push([cx, cy]);
-    }
-  }
-  const half = Math.ceil(stored.length / 2);
-  return (
-    <svg viewBox={`0 0 ${width} ${height}`} style={{ width: '100%', maxWidth: `${Math.round(width * 1.3)}px`, height: 'auto', display: 'block', margin: '0.4rem auto' }} role="img" aria-label={label}>
-      <defs>
-        <marker id={`${id}-punta`} markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
-          <path d="M0,0 L8,4 L0,8 z" style={{ fill: 'var(--color-ink-soft)' }} />
-        </marker>
-      </defs>
-      <text x={x0 + boxW / 2} y={top - 9} textAnchor="middle" fontSize="12" fontWeight="700" style={{ fill: 'var(--color-ink-soft)' }}>U, todos los nombres posibles</text>
-      <rect x={x0} y={top} width={boxW} height={boxH} rx="12" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.4" />
-      {dots.map(([cx, cy], n) => (
-        <circle key={`d${n}`} cx={cx} cy={cy} r="2.2" style={{ fill: 'var(--color-ink-faint)' }} />
-      ))}
-      <rect x={sub.x} y={sub.y} width={sub.w} height={sub.h} rx="8" style={{ fill: 'var(--color-keep-soft)', stroke: 'var(--color-keep)' }} strokeWidth="1.8" strokeDasharray="5 4" />
-      <text x={sub.x + sub.w / 2} y={sub.y - 6} textAnchor="middle" fontSize="11" fontWeight="700" style={{ fill: 'var(--color-ink-soft)' }}>los guardados</text>
-      {stored.map((name, n) => (
-        <text key={`s${n}`} x={sub.x + (n < half ? 36 : 96)} y={sub.y + 24 + (n % half) * 22} textAnchor="middle" fontSize="13" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{name}</text>
-      ))}
-      <line x1={x0 + boxW + 10} y1={stripY + 20} x2={stripX - 10} y2={stripY + 20} style={{ stroke: 'var(--color-ink-soft)' }} strokeWidth="1.6" markerEnd={`url(#${id}-punta)`} />
-      <text x={x0 + boxW + gap / 2} y={stripY + 10} textAnchor="middle" fontSize="20" fontWeight="700" style={{ fill: 'var(--color-ink-soft)' }}>?</text>
-      <text x={stripX + (cells * cell) / 2} y={stripY - 12} textAnchor="middle" fontSize="12" fontWeight="700" style={{ fill: 'var(--color-ink-soft)' }}>{`M = ${cells} casilleros`}</text>
-      {Array.from({ length: cells }, (_, c) => (
-        <g key={`c${c}`}>
-          <rect x={stripX + c * cell} y={stripY} width={cell} height="40" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.2" />
-          <text x={stripX + c * cell + cell / 2} y={stripY + 56} textAnchor="middle" fontSize="11" style={{ fill: 'var(--color-ink-faint)' }}>{c}</text>
-        </g>
-      ))}
-      {caption ? (
-        <text x={width / 2} y={height - 10} textAnchor="middle" fontSize="12" style={{ fill: 'var(--color-ink-soft)' }}>{caption}</text>
-      ) : null}
-    </svg>
-  );
-}
+Un árbol de búsqueda balanceado también guardaría los nombres en orden, con
+las tres operaciones en $$O(\log N)$$. Las fichas son más rápidas que
+cualquier orden: no comparan claves, calculan dónde está cada abrigo.
+
+</Slide>
 
 <Slide title="Claves que no son posiciones">
-Sin fichas, cada persona pide su abrigo por su nombre, y las dos razones dejan
-de valer. La clave ya no la elige el guardarropa: la trae cada persona, y un
-nombre no es un número de casillero. Tampoco se puede tener un casillero por
-cada nombre posible: con las 26 letras del alfabeto inglés se escriben
-$$26^5 = 11\,881\,376$$ nombres de cinco letras, y en una noche se guardan
-unos cientos de abrigos. Al conjunto de todas las claves posibles se le llama
-**universo**, $$U$$.
+La ficha no siempre es posible. Si cada persona pide su abrigo por su nombre,
+la clave la trae el dueño y no la elige el guardarropa. Y un casillero por
+cada nombre posible no cabe en ningún edificio: con solo cinco letras se
+escriben $$26^5 = 11\,881\,376$$ nombres distintos, mientras que los abrigos
+de una función son unos pocos miles.
 
-<Universo
-  id="universo"
-  stored={['Ana', 'Bea', 'Eva', 'Leo', 'Sara', 'Juan']}
-  cells={7}
-  caption="los nombres posibles son millones; los abrigos guardados, unos pocos; los casilleros, siete"
-  label="A la izquierda, un recuadro grande lleno de puntos: todos los nombres posibles. Dentro, un grupo pequeño destacado con Ana, Bea, Eva, Leo, Sara y Juan, los guardados. A la derecha, una fila de siete casilleros, del 0 al 6. Entre los dos, una flecha con un signo de interrogación."
-/>
-
-Hace falta un arreglo de $$M$$ casilleros, del tamaño de lo que se guarda y
-no del universo, y una manera de calcular, a partir del nombre, el casillero
-que le toca, tan rápido como se lee el número de una ficha.
+Hace falta un arreglo de tamaño razonable, de $$M$$ casilleros, y una manera
+de llegar desde el nombre a uno de ellos tan rápido como desde una ficha.
 
 </Slide>
 
-<Slide title="La regla que asigna los casilleros">
-Lo que falta es una regla: recibe un nombre y entrega un casillero, siempre el
-mismo para el mismo nombre, para que lo guardado se encuentre donde se dejó.
-Dibujada, la regla es una flecha desde cada nombre hasta su casillero.
+<Slide title="La función hash">
+Una **función hash** es una regla que convierte cada clave $$k$$ en una
+posición del arreglo, un entero $$h(k)$$ entre $$0$$ y $$M - 1$$. Para
+guardar, buscar o retirar una clave, se calcula su posición y se va directo a
+ese casillero, sin mirar los demás. El arreglo, junto con su función hash, es
+una **tabla hash**.
 
 <Reparto
   id="regla"
-  keys={[{ name: 'Ana', to: 2 }, { name: 'Bea', to: 3 }, { name: 'Eva', to: 0 }, { name: 'Sara', to: 4 }]}
+  keys={[{ name: 'Bea', to: 0 }, { name: 'Eva', to: 1 }, { name: 'Ana', to: 4 }, { name: 'Leo', to: 6 }]}
   cells={7}
-  caption="una flecha desde cada nombre hasta su casillero"
-  label="Cuatro nombres, Ana, Bea, Eva y Sara, sobre una fila de siete casilleros, del 0 al 6. De cada nombre baja una flecha a un casillero: Ana al 2, Bea al 3, Eva al 0 y Sara al 4."
+  caption="una regla que lleva cada nombre a uno de 7 casilleros: h(«Ana») = 4"
+  label="Cuatro nombres y siete casilleros numerados del 0 al 6. Una flecha lleva a Bea al casillero 0, a Eva al 1, a Ana al 4 y a Leo al 6."
 />
 
-A una regla así las matemáticas la llaman **función**, y tienen palabras
-precisas para lo que se le pide: que a cada nombre le toque un solo
-casillero, que se usen todos los casilleros y que dos nombres no compartan
-uno.
+Calcular la posición tiene un costo, pero depende del largo de la clave, no de
+cuántas claves hay en la tabla.
 
 </Slide>
 
-<SectionBreak />
+<Slide title="Casilleros por inicial">
+La regla más simple usa la inicial del nombre: 26 casilleros, de la A a la Z.
+Es fácil de calcular, pero falla de dos maneras. Dos nombres con la misma
+inicial van al mismo casillero. Y las iniciales no se reparten parejo: unas
+letras juntan muchos nombres mientras otras dejan sus casilleros vacíos.
 
-## Funciones
-
-{/* Sagital — a function drawn as school draws it, a diagrama sagital: the domain and the codomain as two ovals, an arrow from each element to its image. `arrows` lists [from, to] index pairs, or [from, to, tone] to paint one, `mark` for the arrow to look at and `flag` for a wrong one; `clash` paints mark every image that receives two arrows or more, with the arrows that reach it; `hit` paints keep every image that receives one, the range; `more` writes ⋮ under the domain, which has more elements than are drawn; `tones` paints some domain elements, `{ index: 'mark' | 'flag' }`, and `toTones` some codomain elements the same way, over what `clash` and `hit` would paint. File-local (add-a-course-document.md §6e-quater). */}
-
-export function Sagital({ from, to, arrows, fromTitle, toTitle, more = false, clash = false, hit = false, tones = {}, toTones = {}, caption, label, id }) {
-  const rowH = 30;
-  const nL = from.length + (more ? 1 : 0);
-  const rows = Math.max(nL, to.length);
-  const top = 30;
-  const ry = (rows * rowH) / 2 + 14;
-  const cy = top + ry;
-  const core = 430;
-  const width = Math.max(core, caption ? caption.length * 6.6 + 24 : 0);
-  const off = (width - core) / 2;
-  const lx = off + 105;
-  const rx = off + 325;
-  const height = top + 2 * ry + (caption ? 34 : 10);
-  const yAt = (i, n) => cy - ((n - 1) * rowH) / 2 + i * rowH;
-  const into = to.map((_, j) => arrows.filter((a) => a[1] === j).length);
-  const toneOf = (a) => a[2] ?? (clash && into[a[1]] > 1 ? 'mark' : 'idle');
-  const boxW = (t) => Math.max(30, String(t).length * 8.5 + 14);
-  const line = { idle: 'var(--color-ink-soft)', mark: 'var(--color-mark)', flag: 'var(--color-flag)' };
-  return (
-    <svg viewBox={`0 0 ${width} ${height}`} style={{ width: '100%', maxWidth: `${Math.round(width * 1.3)}px`, height: 'auto', display: 'block', margin: '0.4rem auto' }} role="img" aria-label={label}>
-      <defs>
-        {Object.entries(line).map(([tone, color]) => (
-          <marker key={tone} id={`${id}-punta-${tone}`} markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto">
-            <path d="M0,0 L7,3.5 L0,7 z" style={{ fill: color }} />
-          </marker>
-        ))}
-      </defs>
-      <text x={lx} y={16} textAnchor="middle" fontSize="12" fontWeight="700" style={{ fill: 'var(--color-ink-soft)' }}>{fromTitle}</text>
-      <text x={rx} y={16} textAnchor="middle" fontSize="12" fontWeight="700" style={{ fill: 'var(--color-ink-soft)' }}>{toTitle}</text>
-      <ellipse cx={lx} cy={cy} rx="80" ry={ry} style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.4" />
-      <ellipse cx={rx} cy={cy} rx="56" ry={ry} style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.4" />
-      {arrows.map((a, n) => {
-        const tone = toneOf(a);
-        return (
-          <line key={`a${n}`} x1={lx + 38} y1={yAt(a[0], nL)} x2={rx - boxW(to[a[1]]) / 2 - 4} y2={yAt(a[1], to.length)} style={{ stroke: line[tone] }} strokeWidth={tone === 'idle' ? 1.3 : 2} markerEnd={`url(#${id}-punta-${tone})`} />
-        );
-      })}
-      {from.map((name, i) => {
-        const y = yAt(i, nL);
-        const tone = tones[i];
-        return (
-          <g key={`f${i}`}>
-            {tone ? (
-              <rect x={lx - boxW(name) / 2} y={y - 13} width={boxW(name)} height="26" rx="4" style={{ fill: `var(--color-${tone}-soft)`, stroke: `var(--color-${tone})` }} strokeWidth="1.8" />
-            ) : null}
-            <text x={lx} y={y + 5} textAnchor="middle" fontSize="14" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{name}</text>
-          </g>
-        );
-      })}
-      {more ? (
-        <text x={lx} y={yAt(from.length, nL) + 6} textAnchor="middle" fontSize="16" fontWeight="700" style={{ fill: 'var(--color-ink-faint)' }}>⋮</text>
-      ) : null}
-      {to.map((name, j) => {
-        const y = yAt(j, to.length);
-        const tone = toTones[j] ?? (clash && into[j] > 1 ? 'mark' : hit && into[j] > 0 ? 'keep' : null);
-        return (
-          <g key={`t${j}`}>
-            {tone ? (
-              <rect x={rx - boxW(name) / 2} y={y - 13} width={boxW(name)} height="26" rx="4" style={{ fill: `var(--color-${tone}-soft)`, stroke: `var(--color-${tone})` }} strokeWidth="1.8" />
-            ) : null}
-            <text x={rx} y={y + 5} textAnchor="middle" fontSize="14" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{name}</text>
-          </g>
-        );
-      })}
-      {caption ? (
-        <text x={width / 2} y={height - 10} textAnchor="middle" fontSize="12" style={{ fill: 'var(--color-ink-soft)' }}>{caption}</text>
-      ) : null}
-    </svg>
-  );
-}
-
-export const SAGITAL_GRID = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '1rem', alignItems: 'end' };
-
-<Slide title="La definición de función">
-Una **función** es una regla que a cada elemento de un conjunto le asigna
-exactamente un elemento de otro conjunto. Se escribe $$f : A \to B$$, y se lee
-«$$f$$ va de $$A$$ a $$B$$».
-
-- $$A$$ es el **dominio**: los elementos a los que la función les asigna algo.
-- $$B$$ es el **codominio**: el conjunto de donde la función toma lo que
-  asigna.
-- Lo que le toca a un elemento $$a$$ se escribe $$f(a)$$, y se llama su
-  **imagen**.
-
-Una función se dibuja como la regla de los casilleros: una flecha desde cada
-elemento del dominio hasta su imagen. Por ejemplo, la regla que a cada persona
-le asigna su mes de cumpleaños es una función, porque cada persona cumple años
-en un solo mes.
-
-<Sagital
-  id="mes"
-  from={['Ana', 'Bea', 'Eva', 'Leo']}
-  to={['enero', 'marzo', 'julio', 'octubre']}
-  arrows={[[0, 1], [1, 0], [2, 1], [3, 2]]}
-  fromTitle="dominio: personas"
-  toTitle="codominio: meses"
-  caption="a cada persona, su mes de cumpleaños"
-  label="Un diagrama de flechas. A la izquierda, el dominio: un óvalo con cuatro personas, Ana, Bea, Eva y Leo. A la derecha, el codominio: un óvalo con cuatro meses, enero, marzo, julio y octubre. Sale una flecha de cada persona hacia su mes de cumpleaños: Ana a marzo, Bea a enero, Eva a marzo y Leo a julio."
-/>
-
-$$
-f(\text{Ana}) = \text{marzo}, \quad f(\text{Bea}) = \text{enero}, \quad f(\text{Eva}) = \text{marzo}, \quad f(\text{Leo}) = \text{julio}
-$$
-
-</Slide>
-
-<Slide title="Una sola imagen por elemento">
-En una función, de cada elemento del dominio sale **exactamente una** flecha:
-si de alguno salen dos, o ninguna, la regla no es una función.
-
-<div style={SAGITAL_GRID}>
-<Sagital
-  id="si-funcion"
-  from={['Ana', 'Bea', 'Eva', 'Leo']}
-  to={['enero', 'marzo', 'julio', 'octubre']}
-  arrows={[[0, 1], [1, 0], [2, 1], [3, 2]]}
-  fromTitle="personas"
-  toTitle="mes de cumpleaños"
-  caption="el mes de cumpleaños: es una función"
-  label="El mes de cumpleaños de cada persona: de cada una sale exactamente una flecha. Ana va a marzo, Bea a enero, Eva a marzo y Leo a julio. Es una función."
-/>
-<Sagital
-  id="no-funcion"
-  from={['Ana', 'Bea', 'Eva', 'Leo']}
-  to={['enero', 'marzo', 'julio', 'octubre']}
-  arrows={[[0, 1, 'flag'], [0, 2, 'flag'], [1, 0], [2, 3]]}
-  tones={{ 3: 'flag' }}
-  fromTitle="personas"
-  toTitle="meses de viaje"
-  caption="los meses de viaje: no es una función"
-  label="Los meses en que viajó cada persona. Ana viajó en marzo y en julio: dos flechas, en rojo. Bea viajó en enero y Eva en octubre. Leo, en rojo, no viajó: no sale ninguna flecha. No es una función."
-/>
-</div>
-
-</Slide>
-
-<Slide title="El recorrido de una función">
-El codominio dice dónde **puede** caer una imagen; el **recorrido** dice dónde
-**cae**. Es el conjunto de las imágenes de todos los elementos del dominio,
-
-$$
-\operatorname{Rec}(f) = \{\, f(a) : a \in A \,\} \subseteq B,
-$$
-
-que se lee «el conjunto de los $$f(a)$$, con $$a$$ en $$A$$». En el diagrama,
-son los elementos del codominio a los que llega al menos una flecha. El
-recorrido siempre está dentro del codominio, y puede ser todo el codominio o
-solo una parte.
-
-<Sagital
-  id="mes-recorrido"
-  from={['Ana', 'Bea', 'Eva', 'Leo']}
-  to={['enero', 'marzo', 'julio', 'octubre']}
-  arrows={[[0, 1], [1, 0], [2, 1], [3, 2]]}
-  hit
-  fromTitle="dominio: personas"
-  toTitle="codominio: meses"
-  caption="el recorrido, destacado; a octubre no llega ninguna flecha"
-  label="El diagrama del mes de cumpleaños con el recorrido destacado: enero, marzo y julio, los meses a los que llega alguna flecha. Octubre, sin flechas, queda sin destacar."
-/>
-
-$$
-\operatorname{Rec}(f) = \{\text{enero}, \text{marzo}, \text{julio}\} \;\ne\; \{\text{enero}, \text{marzo}, \text{julio}, \text{octubre}\} = B
-$$
-
-</Slide>
-
-<Slide title="Funciones sobreyectivas">
-Una función $$f : A \to B$$ es **sobreyectiva** si todo elemento del
-codominio es imagen de al menos un elemento del dominio:
-
-$$
-f \text{ es sobreyectiva} \iff \forall b \in B, \; \exists a \in A \text{ tal que } f(a) = b,
-$$
-
-que se lee «$$f$$ es sobreyectiva si y solo si, para todo $$b$$ en $$B$$,
-existe un $$a$$ en $$A$$ tal que $$f(a) = b$$». Como el recorrido reúne
-justamente las imágenes, la definición equivale a pedir que el recorrido sea
-todo el codominio:
-
-$$
-f \text{ es sobreyectiva} \iff \operatorname{Rec}(f) = B.
-$$
-
-En el diagrama, a cada elemento del codominio llega al menos una flecha.
-
-<Sagital
-  id="sobreyectiva"
-  from={['Ana', 'Bea', 'Eva', 'Leo', 'Sol']}
-  to={['enero', 'marzo', 'julio', 'octubre']}
-  arrows={[[0, 1], [1, 0], [2, 1], [3, 2], [4, 3]]}
-  hit
-  fromTitle="dominio: personas"
-  toTitle="codominio: meses"
-  caption="con «Sol», que cumple años en octubre, a cada mes llega una flecha"
-  label="El diagrama del mes de cumpleaños con una persona más, Sol, que va a octubre. A los cuatro meses llega al menos una flecha, y los cuatro están destacados: el recorrido es todo el codominio."
-/>
-
-$$
-\operatorname{Rec}(f) = \{\text{enero}, \text{marzo}, \text{julio}, \text{octubre}\} = B
-$$
-
-</Slide>
-
-<Slide title="Funciones inyectivas">
-Una función $$f : A \to B$$ es **inyectiva** si elementos distintos del
-dominio tienen siempre imágenes distintas:
-
-$$
-f \text{ es inyectiva} \iff \forall a_1, a_2 \in A, \; f(a_1) = f(a_2) \implies a_1 = a_2,
-$$
-
-que se lee «$$f$$ es inyectiva si y solo si, para todo $$a_1$$ y $$a_2$$ en
-$$A$$, si $$f(a_1) = f(a_2)$$, entonces $$a_1$$ y $$a_2$$ son el mismo
-elemento». En el diagrama, a ningún elemento del codominio llega más de una
-flecha.
-
-<div style={SAGITAL_GRID}>
-<Sagital
-  id="ficha-inyectiva"
-  from={['Ana', 'Bea', 'Eva', 'Leo']}
-  to={['1', '2', '3', '4', '5']}
-  arrows={[[0, 2], [1, 0], [2, 4], [3, 1]]}
-  fromTitle="personas"
-  toTitle="fichas"
-  caption="la ficha de cada abrigo: es inyectiva"
-  label="Un diagrama de flechas de cuatro personas a cinco fichas, del 1 al 5. Ana va a la 3, Bea a la 1, Eva a la 5 y Leo a la 2: a cada ficha llega a lo más una flecha. Es inyectiva."
-/>
-<Sagital
-  id="mes-no-inyectiva"
-  from={['Ana', 'Bea', 'Eva', 'Leo']}
-  to={['enero', 'marzo', 'julio', 'octubre']}
-  arrows={[[0, 1], [1, 0], [2, 1], [3, 2]]}
-  clash
-  fromTitle="personas"
-  toTitle="mes de cumpleaños"
-  caption="el mes de cumpleaños: no es inyectiva"
-  label="El diagrama del mes de cumpleaños. Ana y Eva van a marzo: marzo y sus dos flechas están destacados. No es inyectiva."
-/>
-</div>
-
-$$
-f(\text{Ana}) = f(\text{Eva}) = \text{marzo}, \qquad \text{Ana} \ne \text{Eva}
-$$
-
-</Slide>
-
-<Slide title="Funciones biyectivas">
-Una función $$f : A \to B$$ es **biyectiva** si es inyectiva y sobreyectiva a
-la vez. Juntas, las dos condiciones dicen que todo elemento del codominio es
-imagen de exactamente un elemento del dominio:
-
-$$
-f \text{ es biyectiva} \iff \forall b \in B, \; \exists!\, a \in A \text{ tal que } f(a) = b,
-$$
-
-que se lee «$$f$$ es biyectiva si y solo si, para todo $$b$$ en $$B$$, existe
-un único $$a$$ en $$A$$ tal que $$f(a) = b$$». En el diagrama, a cada elemento
-del codominio llega exactamente una flecha.
-
-<Sagital
-  id="ficha-biyectiva"
-  from={['Ana', 'Bea', 'Eva', 'Leo']}
-  to={['1', '2', '3', '4']}
-  arrows={[[0, 2], [1, 0], [2, 3], [3, 1]]}
-  hit
-  fromTitle="personas"
-  toTitle="fichas"
-  caption="cuatro abrigos y cuatro fichas: a cada ficha llega exactamente una flecha"
-  label="Un diagrama de flechas de cuatro personas a cuatro fichas, del 1 al 4. Ana va a la 3, Bea a la 1, Eva a la 4 y Leo a la 2. Las cuatro fichas están destacadas: a cada una llega exactamente una flecha. Es biyectiva."
-/>
-
-</Slide>
-
-<SectionBreak />
-
-## Funciones hash
-
-<Slide title="La idea de una función hash">
-Una **función hash** es la regla que asigna los casilleros: recibe una clave
-cualquiera —un nombre, un número, un texto— y la convierte en una posición
-del arreglo, calculada a partir de la clave sola, sin mirar las otras claves
-guardadas.
-
-<Pasos
-  id="idea"
-  boxes={[{ title: 'clave', text: '«Ana»' }, { title: 'posición', text: '2' }]}
-  steps={['función hash']}
-  caption="la función hash recibe la clave y entrega su posición"
-  label="Dos cajas unidas por una flecha. La clave Ana; una flecha rotulada función hash lleva a la posición 2."
-/>
-
-Desde el principio se le exigen dos cosas. La primera, que entregue
-**siempre la misma posición para la misma clave**: si no, una clave guardada
-en un casillero se buscaría después en otro. La segunda, que sea **rápida de
-calcular**: si calcular la posición costara tanto como comparar, no se ganaría
-nada frente a la búsqueda binaria.
-
-El nombre viene del inglés _to hash_, picar y mezclar: una buena función hash
-desarma la clave y mezcla sus partes hasta obtener un número pequeño.
-
-</Slide>
-
-<Slide title="La definición de función hash">
-Formalmente, una **función hash** para un universo de claves $$U$$ —**todas**
-las claves posibles, no solo las que se guardan— y un arreglo de $$M$$
-posiciones es una función
-
-$$
-h : U \to \{0, 1, \ldots, M - 1\},
-$$
-
-que se lee «$$h$$ va de $$U$$ al conjunto de los enteros entre $$0$$ y
-$$M - 1$$, ambos incluidos». Su dominio es el universo y su codominio, las
-posiciones del arreglo: a cada clave posible le asigna una posición. La
-posición de una clave $$k$$ es su imagen, $$h(k)$$, y guardar, buscar y
-retirar $$k$$ empiezan por calcular $$h(k)$$ e ir directo a ese casillero. El
-arreglo, junto con su función hash, es una **tabla hash**.
-
-<Sagital
-  id="hash"
-  from={['Ana', 'Bea', 'Eva', 'Sara']}
-  to={['0', '1', '2', '3', '4', '5', '6']}
-  arrows={[[0, 2], [1, 3], [2, 0], [3, 4]]}
-  more
-  fromTitle="dominio: U, las claves"
-  toTitle="codominio: posiciones"
-  label="Un diagrama de flechas de una función hash con M igual a 7. A la izquierda, el dominio U, las claves: Ana, Bea, Eva y Sara, y tres puntos debajo, porque hay muchas más. A la derecha, el codominio: las posiciones del 0 al 6. h de Ana es 2, h de Bea es 3, h de Eva es 0 y h de Sara es 4."
-/>
-
-$$
-\begin{gathered}
-M = 7, \qquad h : U \to \{0, 1, \ldots, 6\} \\
-h(\text{«Ana»}) = 2, \quad h(\text{«Bea»}) = 3, \quad h(\text{«Eva»}) = 0, \quad h(\text{«Sara»}) = 4
-\end{gathered}
-$$
-
-Que $$h$$ sea una función es justamente la primera exigencia: a cada clave le
-toca exactamente una posición, siempre la misma.
-
-</Slide>
-
-<Slide title="Funciones hash inyectivas">
-La ficha del guardarropa reparte los abrigos de la mejor manera posible: uno
-por casillero. Una función hash que hiciera lo mismo sería **inyectiva**: cada
-casillero guardaría a lo más una clave, y buscar una clave sería ir a su
-casillero y mirar una sola.
-
-<Sagital
-  id="hash-inyectiva"
-  from={['Ana', 'Bea', 'Eva', 'Sara']}
-  to={['0', '1', '2', '3', '4', '5', '6']}
-  arrows={[[0, 2], [1, 3], [2, 0], [3, 4]]}
-  fromTitle="claves guardadas"
-  toTitle="posiciones"
-  caption="cada posición recibe a lo más una clave"
-  label="El diagrama de flechas de la función hash con M igual a 7: Ana va al 2, Bea al 3, Eva al 0 y Sara al 4. A cada posición llega a lo más una flecha."
-/>
-
-La ficha lo logra porque hay un casillero para cada ficha posible. Una
-función hash inyectiva necesitaría lo mismo: una posición propia para cada
-clave de $$U$$.
-
-</Slide>
-
-<Slide title="Ninguna función hash es inyectiva">
-Las posiciones no alcanzan: $$U$$ tiene muchísimas más claves que posiciones
-el arreglo. Lo asegura el **principio del palomar**, también llamado
-**principio de Dirichlet**: si se reparten más palomas que nidos, algún nido
-recibe al menos dos.
-
-<Sagital
-  id="palomar"
-  from={['Ana', 'Bea', 'Eva', 'Leo']}
-  to={['0', '1', '2']}
-  arrows={[[0, 2], [1, 0], [2, 1], [3, 2]]}
-  clash
-  fromTitle="abrigos"
-  toTitle="casilleros"
-  caption="cuatro abrigos en tres casilleros: como sea que se repartan, alguno recibe dos"
-  label="Un diagrama de flechas de cuatro abrigos, de Ana, Bea, Eva y Leo, a tres casilleros, del 0 al 2. Ana y Leo van al 2, que está destacado con sus dos flechas; Bea va al 0 y Eva al 1."
-/>
-
-La cantidad de elementos de un conjunto $$A$$ se llama su **cardinalidad** y
-se escribe $$|A|$$. Con esa notación, el principio se enuncia así:
-
-$$
-|A| > |B| \implies \text{ninguna función } f : A \to B \text{ es inyectiva},
-$$
-
-que se lee «si $$A$$ tiene más elementos que $$B$$, ninguna función de $$A$$ en
-$$B$$ es inyectiva». En una tabla hash, $$A$$ es $$U$$ y $$B$$ son las $$M$$
-posiciones: como $$|U| > M$$, ninguna función hash es inyectiva.
-
-</Slide>
-
-El principio parece no decir nada, y sin embargo asegura que algo ocurre sin
-decir dónde ni a quién. En un grupo de 13 personas, dos están de cumpleaños el
-mismo mes, porque hay 12 meses; y como nadie tiene más de un millón de pelos
-en la cabeza y en Santiago viven más de un millón de personas, dos tienen
-exactamente la misma cantidad. La primera mención escrita que se conoce es de
-1622, del jesuita francés Jean Leurechon, y es justamente la de los pelos. El
-matemático alemán Peter Gustav Lejeune Dirichlet lo usó en 1834 con el nombre
-de _Schubfachprinzip_, el principio de los cajones, y de ahí su otro nombre.
-En inglés es el _pigeonhole principle_: un _pigeonhole_ es cada casillero de
-un mueble donde se dejan las cartas.
-
-<Slide title="Las colisiones">
-Como ninguna función hash es inyectiva, siempre existen dos claves distintas
-con la misma posición,
-
-$$
-a \ne b \quad \text{y} \quad h(a) = h(b),
-$$
-
-y cuando las dos se guardan, **colisionan**: les toca el mismo casillero.
-
-<Reparto
-  id="choque"
-  keys={[{ name: 'Eva', to: 0 }, { name: 'Ana', to: 2 }, { name: 'Bea', to: 3 }, { name: 'Sara', to: 4 }, { name: 'Leo', to: 2 }]}
-  cells={7}
-  caption="con siete casilleros, «Leo» cae en el casillero de «Ana»"
-  label="Cinco nombres en siete casilleros: Eva va al 0, Ana al 2, Bea al 3 y Sara al 4. Leo va al casillero 2, el mismo de Ana: los dos colisionan."
-/>
-
-$$
-h(\text{«Leo»}) = h(\text{«Ana»}) = 2, \qquad \text{«Leo»} \ne \text{«Ana»}
-$$
-
-El principio no dice qué claves colisionan, solo que algunas lo harán. Por
-eso las colisiones no son un defecto de una función en particular: ninguna
-función hash las evita.
-
-</Slide>
-
-<Slide title="Funciones hash perfectas">
-Si las claves que se van a guardar se conocen de antemano, sí se puede elegir
-una función que no las haga colisionar: una **función hash perfecta** para
-esas claves. Si además hay exactamente tantas posiciones como claves, la
-función es biyectiva sobre ellas —cada casillero recibe una clave y ninguno
-sobra— y se llama **perfecta mínima**. Pero es perfecta solo para esas claves:
-una clave nueva puede caer donde ya hay otra.
-
-<div style={SAGITAL_GRID}>
-<Sagital
-  id="perfecta"
-  from={['Ana', 'Bea', 'Eva']}
-  to={['0', '1', '2']}
-  arrows={[[0, 2], [1, 0], [2, 1]]}
-  fromTitle="claves guardadas"
-  toTitle="posiciones"
-  caption="perfecta mínima: cada clave en su casillero, y ninguno sobra"
-  label="Un diagrama de flechas de las tres claves guardadas, Ana, Bea y Eva, a tres posiciones, del 0 al 2. Ana va al 2, Bea al 0 y Eva al 1: cada posición recibe exactamente una clave."
-/>
-<Sagital
-  id="perfecta-nueva"
-  from={['Ana', 'Bea', 'Eva', 'Leo']}
-  to={['0', '1', '2']}
-  arrows={[[0, 2], [1, 0], [2, 1], [3, 0]]}
-  clash
-  fromTitle="guardadas y una nueva"
-  toTitle="posiciones"
-  caption="«Leo», una clave nueva, cae con «Bea»"
-  label="La misma función con una clave más, Leo, que no estaba entre las guardadas. Leo va al 0, donde ya está Bea: la posición 0 y sus dos flechas están destacadas."
-/>
-</div>
-
-Por eso se usan solo con claves fijas, como las palabras reservadas de un
-lenguaje de programación. Una tabla que recibe claves que no conoce no puede
-contar con una función perfecta.
-
-</Slide>
-
-<Slide title="La paradoja del cumpleaños">
-Sin conocer las claves, que las $$N$$ guardadas caigan en posiciones
-distintas es cuestión de suerte, y esa suerte se acaba mucho antes de lo que
-parece. Lo muestra la **paradoja del cumpleaños**: si los cumpleaños caen al
-azar entre los 365 días del año, en un grupo de 23 personas lo más probable
-es que dos estén de cumpleaños el mismo día. Se llama paradoja porque 23
-personas parecen muy pocas para tantos días.
-
-| Personas | Probabilidad de que dos compartan cumpleaños |
-| -------- | -------------------------------------------- |
-| 10       | 12 %                                         |
-| 23       | 51 %                                         |
-| 40       | 89 %                                         |
-| 57       | 99 %                                         |
-
-Es la misma situación de una tabla hash: las personas son las claves, y los
-días, las $$M = 365$$ posiciones.
-
-</Slide>
-
-{/* Elecciones — keys arriving one by one without colliding: one row per key, the M positions, the ones the earlier keys took greyed with their name, the free ones outlined, and at the right how many of the M are still free for this key. File-local (§6e-quater). */}
-
-export function Elecciones({ rows, cells, caption, label }) {
-  const pad = 12;
-  const nameW = 70;
-  const cell = 56;
-  const rowH = 52;
-  const countW = 120;
-  const core = 2 * pad + nameW + cells * cell + countW;
-  const width = Math.max(core, caption ? caption.length * 6.6 + 24 : 0);
-  const x0 = (width - core) / 2 + pad;
-  const sx = x0 + nameW;
-  const top = 22;
-  const height = top + rows.length * rowH + (caption ? 34 : 8);
-  return (
-    <svg viewBox={`0 0 ${width} ${height}`} style={{ width: '100%', maxWidth: `${Math.round(width * 1.3)}px`, height: 'auto', display: 'block', margin: '0.4rem auto' }} role="img" aria-label={label}>
-      {Array.from({ length: cells }, (_, c) => (
-        <text key={`i${c}`} x={sx + c * cell + cell / 2} y={top - 6} textAnchor="middle" fontSize="11" style={{ fill: 'var(--color-ink-faint)' }}>{c}</text>
-      ))}
-      {rows.map((row, n) => {
-        const y = top + n * rowH;
-        const free = cells - Object.keys(row.taken).length;
-        return (
-          <g key={`r${n}`}>
-            <text x={sx - 12} y={y + 23} textAnchor="end" fontSize="14" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{`«${row.name}»`}</text>
-            {Array.from({ length: cells }, (_, c) => {
-              const owner = row.taken[c];
-              return (
-                <g key={`c${c}`}>
-                  <rect x={sx + c * cell + 2} y={y + 2} width={cell - 4} height="32" rx="3" style={{ fill: owner ? 'var(--color-sunk)' : 'var(--color-keep-soft)', stroke: owner ? 'var(--color-rule-strong)' : 'var(--color-keep)' }} strokeWidth={owner ? 1.2 : 2} />
-                  {owner ? (
-                    <text x={sx + c * cell + cell / 2} y={y + 23} textAnchor="middle" fontSize="12" style={{ fill: 'var(--color-ink-faint)' }}>{owner}</text>
-                  ) : null}
-                </g>
-              );
-            })}
-            <text x={sx + cells * cell + 14} y={y + 23} fontSize="14" fontWeight="700" style={{ fill: 'var(--color-ink)' }}>{`${free} de ${cells} libres`}</text>
-          </g>
-        );
-      })}
-      {caption ? (
-        <text x={width / 2} y={height - 10} textAnchor="middle" fontSize="12" style={{ fill: 'var(--color-ink-soft)' }}>{caption}</text>
-      ) : null}
-    </svg>
-  );
-}
-
-<Slide title="La probabilidad de no colisionar">
-Las claves llegan una por una, y cada una cae al azar en cualquiera de las
-$$M$$ posiciones, sin depender de las demás. Para que no haya colisiones, cada
-clave tiene que caer en una posición libre: la primera siempre encuentra una,
-la segunda tiene $$M - 1$$ libres de $$M$$, la tercera $$M - 2$$, y así. La
-probabilidad de que ninguna choque, es decir, de que el reparto sea
-inyectivo, es el producto de esas fracciones:
-
-$$
-P(\text{sin colisiones}) = \frac{M}{M} \cdot \frac{M - 1}{M} \cdot \frac{M - 2}{M} \cdots \frac{M - N + 1}{M}.
-$$
-
-<Elecciones
-  rows={[
-    { name: 'Ana', taken: {} },
-    { name: 'Bea', taken: { 2: 'Ana' } },
-    { name: 'Eva', taken: { 2: 'Ana', 0: 'Bea' } },
-  ]}
-  cells={4}
-  caption="tres claves en cuatro posiciones: cada una tiene que caer en una libre"
-  label="Tres filas de cuatro posiciones, del 0 al 3, una por clave. Ana tiene las cuatro libres. Bea encuentra ocupada la 2, por Ana: 3 de 4 libres. Eva encuentra ocupadas la 2, por Ana, y la 0, por Bea: 2 de 4 libres."
-/>
-
-$$
-\frac{4}{4} \cdot \frac{3}{4} \cdot \frac{2}{4} = \frac{24}{64} = 37{,}5\,\%
-$$
-
-Desde la segunda, cada fracción es menor que $$1$$, y al multiplicar muchas el
-producto cae muy rápido: con $$M = 365$$, a las 23 personas ya es menor que un medio.
-Con 31 claves en 41 posiciones, la probabilidad de que no haya colisiones es
-de una en diez millones.
-
-</Slide>
-
-{/* Tiradas — keys arriving one by one into M positions, one row per key: the keys already in, the new one outlined, and the first that lands on an occupied position painted mark with ×2. Drawn twice: a real random run (Python's random, seed 13, M = 16), and the keys 1 to 8 under the multiplication with the golden ratio (M = 8). File-local (§6e-quater). */}
-
-export function Tiradas({ keys, cells, caption, label }) {
-  const pad = 12;
-  const labelW = 64;
-  const cell = 36;
-  const rowH = 40;
-  const top = 22;
-  const core = 2 * pad + labelW + cells * cell;
-  const width = Math.max(core, caption ? caption.length * 6.6 + 24 : 0);
-  const sx = (width - core) / 2 + pad + labelW;
-  const height = top + keys.length * rowH + (caption ? 30 : 6);
-  return (
-    <svg viewBox={`0 0 ${width} ${height}`} style={{ width: '100%', maxWidth: `${Math.round(width * 1.3)}px`, height: 'auto', display: 'block', margin: '0.4rem auto' }} role="img" aria-label={label}>
-      {Array.from({ length: cells }, (_, c) => (
-        <text key={`i${c}`} x={sx + c * cell + cell / 2} y={top - 6} textAnchor="middle" fontSize="11" style={{ fill: 'var(--color-ink-faint)' }}>{c}</text>
-      ))}
-      {keys.map((_, n) => {
-        const y = top + n * rowH;
-        const fresh = keys[n];
-        const before = keys.slice(0, n);
-        const clash = before.some((k) => k.to === fresh.to);
-        return (
-          <g key={`r${n}`}>
-            <text x={sx - 12} y={y + 21} textAnchor="end" fontSize="12" style={{ fill: 'var(--color-ink-soft)' }}>{`${n + 1}.ª clave`}</text>
-            {Array.from({ length: cells }, (_, c) => {
-              const old = before.find((k) => k.to === c);
-              const isNew = fresh.to === c;
-              const fill = isNew ? (clash ? 'var(--color-mark-soft)' : 'var(--color-keep-soft)') : 'var(--color-surface)';
-              const stroke = isNew ? (clash ? 'var(--color-mark)' : 'var(--color-keep)') : 'var(--color-rule-strong)';
-              const text = isNew ? (clash ? '×2' : fresh.name) : old ? old.name : '';
-              return (
-                <g key={`c${c}`}>
-                  <rect x={sx + c * cell} y={y} width={cell} height="30" style={{ fill, stroke }} strokeWidth={isNew ? 2.2 : 1} />
-                  <text x={sx + c * cell + cell / 2} y={y + 20} textAnchor="middle" fontSize="12" fontWeight={isNew ? 700 : 500} style={{ fill: isNew ? 'var(--color-ink)' : 'var(--color-ink-soft)' }}>{text}</text>
-                </g>
-              );
-            })}
-          </g>
-        );
-      })}
-      {caption ? (
-        <text x={width / 2} y={height - 8} textAnchor="middle" fontSize="12" style={{ fill: 'var(--color-ink-soft)' }}>{caption}</text>
-      ) : null}
-    </svg>
-  );
-}
-
-<Slide title="La primera colisión">
-Lanzar las claves al azar en una tabla, una por una, muestra cuándo llega la
-primera colisión: alrededor de las $$\sqrt{M}$$ claves, muy lejos de $$M$$, con
-la tabla casi vacía.
-
-<Tiradas
-  keys={[
-    { name: 'Ana', to: 8 },
-    { name: 'Bea', to: 9 },
-    { name: 'Eva', to: 5 },
-    { name: 'Leo', to: 7 },
-    { name: 'Sol', to: 4 },
-    { name: 'Teo', to: 7 },
-  ]}
-  cells={16}
-  caption="una tirada al azar con M = 16: la sexta clave cae en el 7, donde ya está «Leo», con 11 posiciones vacías"
-  label="Seis filas de dieciséis posiciones, del 0 al 15, una por clave lanzada al azar. Ana cae en el 8, Bea en el 9, Eva en el 5, Leo en el 7 y Sol en el 4, cada una en una posición libre. La sexta, Teo, cae en el 7, donde ya está Leo: la posición está destacada con un dos."
-/>
-
-Compartir casillero no solo es inevitable: empieza con la tabla casi vacía.
-Lo que sí se puede decidir es cómo se reparten las claves entre los
-casilleros.
-
-</Slide>
-
-<Slide title="Repartir las claves parejo">
-Si las claves van a compartir casilleros, lo mejor es que los compartan
-parejo, porque buscar en una posición cuesta más mientras más claves la
-comparten. Repartir $$N$$ claves por igual entre $$M$$ posiciones le da a cada
-una $$N / M$$ claves, y eso pide dos cosas. Que se usen todas las posiciones,
-es decir, que la función sea **sobreyectiva**: una posición fuera del
-recorrido nunca recibe una clave, y las demás reciben más. Y que ninguna
-reciba muchas más de $$N / M$$ claves, porque una función sobreyectiva igual
-puede cargar una sola posición.
-
-<div style={SAGITAL_GRID}>
-<Sagital
-  id="dispareja"
-  from={['Ana', 'Bea', 'Eva', 'Leo', 'Sol', 'Teo']}
-  to={['0', '1', '2']}
-  arrows={[[0, 0, 'mark'], [1, 0, 'mark'], [2, 0, 'mark'], [3, 0, 'mark'], [4, 1], [5, 1]]}
-  toTones={{ 0: 'mark', 2: 'mark' }}
-  fromTitle="claves guardadas"
-  toTitle="posiciones"
-  caption="dispareja: la 0 recibe cuatro claves y la 2 queda vacía"
-  label="Seis claves, Ana, Bea, Eva, Leo, Sol y Teo, a tres posiciones. Ana, Bea, Eva y Leo van a la 0; Sol y Teo, a la 1. La 2 no recibe ninguna. La 0, con sus cuatro flechas, y la 2, vacía, están destacadas."
-/>
-<Sagital
-  id="pareja"
-  from={['Ana', 'Bea', 'Eva', 'Leo', 'Sol', 'Teo']}
-  to={['0', '1', '2']}
-  arrows={[[0, 0], [1, 0], [2, 1], [3, 1], [4, 2], [5, 2]]}
-  fromTitle="claves guardadas"
-  toTitle="posiciones"
-  caption="pareja: dos claves en cada posición"
-  label="Las mismas seis claves a tres posiciones: Ana y Bea van a la 0, Eva y Leo a la 1, Sol y Teo a la 2. Cada posición recibe dos claves."
-/>
-</div>
-
-$$
-\frac{N}{M} = \frac{6}{3} = 2 \text{ claves por posición}
-$$
-
-</Slide>
-
-{/* Abanico — the uniform hashing assumption drawn: one key over the strip of M positions, an arrow to each, every position with the same probability 1/M written inside. File-local (§6e-quater). */}
-
-export function Abanico({ name, cells, caption, label, id, cell = 56 }) {
-  const pad = 12;
-  const chipH = 28;
-  const chipW = Math.max(52, name.length * 8.4 + 18);
-  const stripW = cells * cell;
-  const width = Math.max(2 * pad + stripW, caption ? caption.length * 6.6 + 24 : 0);
-  const stripLeft = (width - stripW) / 2;
-  const chipY = pad;
-  const cellY = chipY + chipH + 70;
-  const cellH = 34;
-  const height = cellY + cellH + 18 + (caption ? 30 : 8);
-  return (
-    <svg viewBox={`0 0 ${width} ${height}`} style={{ width: '100%', maxWidth: `${Math.round(width * 1.3)}px`, height: 'auto', display: 'block', margin: '0.4rem auto' }} role="img" aria-label={label}>
-      <defs>
-        <marker id={`${id}-punta`} markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto">
-          <path d="M0,0 L7,3.5 L0,7 z" style={{ fill: 'var(--color-ink-soft)' }} />
-        </marker>
-      </defs>
-      {Array.from({ length: cells }, (_, c) => (
-        <line key={`a${c}`} x1={width / 2} y1={chipY + chipH} x2={stripLeft + c * cell + cell / 2} y2={cellY - 3} style={{ stroke: 'var(--color-ink-soft)' }} strokeWidth="1.2" markerEnd={`url(#${id}-punta)`} />
-      ))}
-      <rect x={(width - chipW) / 2} y={chipY} width={chipW} height={chipH} rx="14" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.2" />
-      <text x={width / 2} y={chipY + chipH / 2 + 5} textAnchor="middle" fontSize="13" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{name}</text>
-      {Array.from({ length: cells }, (_, c) => (
-        <g key={`c${c}`}>
-          <rect x={stripLeft + c * cell} y={cellY} width={cell} height={cellH} style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.2" />
-          <text x={stripLeft + c * cell + cell / 2} y={cellY + cellH / 2 + 5} textAnchor="middle" fontSize="13" style={{ fill: 'var(--color-ink)' }}>{`1/${cells}`}</text>
-          <text x={stripLeft + c * cell + cell / 2} y={cellY + cellH + 14} textAnchor="middle" fontSize="11" style={{ fill: 'var(--color-ink-faint)' }}>{c}</text>
-        </g>
-      ))}
-      {caption ? (
-        <text x={width / 2} y={height - 8} textAnchor="middle" fontSize="12" style={{ fill: 'var(--color-ink-soft)' }}>{caption}</text>
-      ) : null}
-    </svg>
-  );
-}
-
-<Slide title="El supuesto de dispersión uniforme">
-Para calcular cuánto cuestan las operaciones de una tabla hash, hay que
-suponer algo sobre cómo reparte las claves su función. Se supone que las
-reparte como si las lanzara al azar, igual que en la primera colisión: es el
-**supuesto de dispersión uniforme**. Dice que cada clave cae en cualquiera de
-las $$M$$ posiciones con la misma probabilidad,
-
-$$
-P\big(h(k) = i\big) = \frac{1}{M} \qquad \text{para } i = 0, 1, \ldots, M - 1,
-$$
-
-que se lee «la clave $$k$$ cae en la posición $$i$$ con probabilidad $$1/M$$,
-para todas las posiciones». Además, dónde cae una clave no cambia dónde cae
-otra. Como todas las posiciones tienen la misma probabilidad, todas reciben,
-en promedio, la misma cantidad de claves: $$N / M$$, el reparto parejo.
-
-<Abanico
-  id="uniforme"
-  name="Ana"
-  cells={7}
-  caption="«Ana» puede caer en cualquiera de las siete posiciones, todas con la misma probabilidad"
-  label="La clave Ana sobre siete casilleros, del 0 al 6, con una flecha a cada uno. Dentro de cada casillero dice un séptimo: la probabilidad de que Ana caiga ahí."
-/>
-
-Es solo un supuesto: ninguna función lo cumple con todos los conjuntos de
-claves. Como $$U$$ es mucho más grande que el arreglo, alguna posición recibe
-muchísimas claves de $$U$$, y si las claves que llegan son justo esas, caen
-todas en la misma posición, por buena que sea la función. De una buena
-función se espera que, con las claves que de verdad llegan, el reparto se
-parezca al del azar. Los costos esperados de una tabla hash se calculan bajo
-este supuesto.
-
-</Slide>
-
-<Slide title="Los requisitos de una función hash">
-Una buena función hash cumple tres requisitos.
-
-1. **Determinista.** La misma clave da siempre la misma posición: la posición
-   depende solo de la clave. Si no, una clave guardada en un casillero se
-   buscaría después en otro, y no se encontraría.
-2. **Eficiente.** Calcularla cuesta poco, y el costo no depende de cuántas
-   claves hay guardadas. Si costara tanto como comparar, no se ganaría nada
-   frente a la búsqueda binaria.
-3. **Uniforme.** Reparte las claves parejo: cada posición recibe más o menos
-   $$N / M$$ claves. Como las colisiones no se pueden evitar, es lo mejor que
-   se le puede pedir.
-
-Con estos tres requisitos, la función lleva cada clave a su posición sin
-comparar, que era lo que se buscaba. Pero quedan dos cosas por decidir, de
-naturaleza distinta.
-
-- **Cómo calcular la función.** Es un problema de la función: cumplir los tres
-  requisitos con claves reales, que se parecen entre sí —nombres que empiezan
-  igual, números que terminan igual—. Una regla que mira solo una parte de la
-  clave hereda esos parecidos, así que la posición tiene que depender de
-  **toda** la clave.
-- **Qué hacer cuando dos claves colisionan.** Es un problema de la tabla: como
-  ninguna función evita las colisiones, y llegan pronto, la tabla tiene que
-  poder guardar dos claves que caen en la misma posición.
-
-</Slide>
-
-<SectionBreak />
-
-## El cálculo de una función hash
-
-{/* Vara — the three requirements of a hash function as three chips, the yardstick every attempt in this act is measured with: `true` paints a chip keep with ✓, `false` flag with ✗, and an omitted one stays neutral with a question mark. `note` adds a short qualifier after the chips. File-local (§6e-quater). */}
-
-export function Vara({ determinista, eficiente, uniforme, note }) {
-  const chip = (name, ok) => {
-    const tone = ok === undefined ? null : ok ? 'keep' : 'flag';
-    return (
-      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35em', padding: '0.15em 0.7em', borderRadius: '999px', border: `1.5px solid var(--color-${tone ?? 'rule-strong'})`, background: tone ? `var(--color-${tone}-soft)` : 'var(--color-surface)', color: 'var(--color-ink)', fontSize: '0.9em', fontWeight: 600 }}>
-        {name}
-        <span aria-hidden="true">{ok === undefined ? '?' : ok ? '✓' : '✗'}</span>
-        <span className="sr-only">{ok === undefined ? ', por ver' : ok ? ', cumple' : ', no cumple'}</span>
-      </span>
-    );
-  };
-  return (
-    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.6rem', justifyContent: 'center', alignItems: 'center', margin: '0.8rem 0' }}>
-      {chip('determinista', determinista)}
-      {chip('eficiente', eficiente)}
-      {chip('uniforme', uniforme)}
-      {note ? <span style={{ fontSize: '0.85em', color: 'var(--color-ink-soft)' }}>{note}</span> : null}
-    </div>
-  );
-}
-
-<Slide title="Una función hash para nombres">
-La función hash tiene que convertir un nombre, como «Ana», en el número de un
-casillero, y cumplir los tres requisitos: ser determinista, eficiente y
-uniforme.
-
-<Pasos
-  id="entrada"
-  boxes={[{ title: 'clave', text: '«Ana»' }, { title: 'posición', text: '?' }]}
-  steps={['¿cómo?']}
-  caption="falta la regla que lleva cada nombre a su casillero"
-  label="Dos cajas unidas por una flecha. La clave Ana; la flecha, rotulada cómo, lleva a una posición que todavía es un signo de interrogación."
-/>
-
-El camino es probar reglas, de la más simple a la más elaborada, y revisar
-cada una con los tres requisitos. Los dos primeros se cumplen casi solos: una
-regla que solo mira las letras del nombre da siempre el mismo casillero, y si
-hace pocas cuentas, es rápida. El difícil es el tercero, porque los nombres
-reales se parecen entre sí —muchos empiezan con la misma letra o terminan
-igual—, y una regla descuidada los junta en pocos casilleros. Bajo cada regla,
-estas tres marcas dicen qué requisitos cumple:
-
-<Vara />
-
-</Slide>
-
-<Slide title="El primer carácter">
-La idea más simple es la de una agenda con pestañas: mirar solo la primera
-letra del nombre, con 26 casilleros, de la A a la Z. Es determinista y
-eficiente, pero no es uniforme, por dos razones. Su recorrido tiene a
-lo más 26 posiciones, por grande que sea la tabla. Y las iniciales de los
-nombres no se reparten parejo: unas letras juntan muchos nombres, mientras
-otras dejan sus casilleros vacíos.
-
-<PresentationWide fraction={0.9}>
 <Reparto
   id="inicial"
   keys={[
@@ -1225,790 +284,50 @@ otras dejan sus casilleros vacíos.
   caption="diez nombres en 26 casilleros: la L recibe tres, la A dos, y diecinueve quedan vacíos"
   label="Diez nombres repartidos por su inicial en 26 casilleros de la A a la Z. Ana y Alba van a la A, Leo, Lía y Luis a la L, y Bea, Carla, Eva, Sara y Tomás a la B, la C, la E, la S y la T. Diecinueve casilleros no reciben ningún nombre."
 />
-</PresentationWide>
-
-<Vara determinista eficiente uniforme={false} />
 
 </Slide>
 
-<Slide title="Los primeros caracteres">
-La primera letra reparte mal, en parte, porque solo puede dar 26 posiciones.
-Para repartir mejor, la regla puede mirar las tres primeras letras del nombre:
-así puede dar $$26^3 = 17\,576$$ posiciones distintas, y los nombres tienen
-mucho más espacio donde repartirse.
-
-Pero los nombres no empiezan al azar, y eso falla por dos lados. Muchos
-nombres comparten sus primeras letras, y todos los que empiezan igual caen en
-el mismo casillero. Y la mayoría de las combinaciones de tres letras no es el
-comienzo de ningún nombre, así que sus casilleros quedan siempre vacíos.
+<Slide title="Las colisiones">
+Cuando dos claves distintas tienen la misma posición, **colisionan**. Ninguna
+función hash evita las colisiones: hay muchas más claves posibles que
+posiciones, y por el **principio del palomar** —si hay más palomas que nidos,
+algún nido recibe al menos dos— algunas comparten casillero.
 
 <Reparto
-  id="prefijo"
-  keys={[
-    { name: 'María', to: 2 },
-    { name: 'Mariana', to: 2 },
-    { name: 'Marcela', to: 2 },
-    { name: 'Marta', to: 2 },
-    { name: 'Mario', to: 2 },
-    { name: 'Marcos', to: 2 },
-  ]}
-  cells={5}
-  index={['MAL', 'MAN', 'MAR', 'MAS', 'MAT']}
-  cell={64}
-  caption="un tramo de los 17 576 casilleros: los seis nombres empiezan con «Mar», y caen todos en el mismo"
-  label="Seis nombres, María, Mariana, Marcela, Marta, Mario y Marcos, con flechas a un tramo de cinco casilleros rotulados MAL, MAN, MAR, MAS y MAT. Las seis flechas llegan al casillero MAR, destacado con un seis."
+  id="choque"
+  keys={[{ name: 'Bea', to: 0 }, { name: 'Eva', to: 1 }, { name: 'Ana', to: 4 }, { name: 'Leo', to: 6 }, { name: 'Sara', to: 4 }]}
+  cells={7}
+  caption="con 7 casilleros, h(«Sara») = 4, el casillero de «Ana»"
+  label="Los cuatro nombres de antes y Sara, en siete casilleros. Sara va al casillero 4, el mismo de Ana: los dos colisionan."
 />
 
-La regla sigue mirando solo una parte del nombre, y hereda los parecidos de
-esa parte.
-
-<Vara determinista eficiente uniforme={false} />
+Lo que una buena función hash sí puede lograr es repartir las claves parejo,
+de modo que cada casillero reciba más o menos la misma cantidad.
 
 </Slide>
 
-{/* Franja — the range of a rule over the whole codomain: a bar for the positions from 0 to M − 1, and painted on it the stretch the rule can reach. File-local (§6e-quater). */}
+<Slide title="La paradoja del cumpleaños">
+Las colisiones aparecen mucho antes de llenar la tabla. Si una función reparte
+las claves al azar y parejo entre $$M$$ casilleros, la probabilidad de que
+$$N$$ claves caigan todas en casilleros distintos es
 
-export function Franja({ total, from, to, caption, label }) {
-  const pad = 14;
-  const barW = 600;
-  const barH = 26;
-  const top = 30;
-  const width = Math.max(2 * pad + barW, caption ? caption.length * 6.6 + 24 : 0);
-  const left = (width - barW) / 2;
-  const x = (v) => left + (v / (total - 1)) * barW;
-  const height = top + barH + 22 + (caption ? 28 : 6);
-  return (
-    <svg viewBox={`0 0 ${width} ${height}`} style={{ width: '100%', maxWidth: `${Math.round(width * 1.3)}px`, height: 'auto', display: 'block', margin: '0.4rem auto' }} role="img" aria-label={label}>
-      <rect x={left} y={top} width={barW} height={barH} style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.2" />
-      <rect x={x(from)} y={top} width={x(to) - x(from)} height={barH} style={{ fill: 'var(--color-mark-soft)', stroke: 'var(--color-mark)' }} strokeWidth="1.8" />
-      <text x={(x(from) + x(to)) / 2} y={top - 8} textAnchor="middle" fontSize="12" fontWeight="700" style={{ fill: 'var(--color-ink-soft)' }}>{`${from} a ${to}`}</text>
-      <text x={left} y={top + barH + 15} textAnchor="middle" fontSize="11" style={{ fill: 'var(--color-ink-faint)' }}>0</text>
-      <text x={left + barW} y={top + barH + 15} textAnchor="end" fontSize="11" style={{ fill: 'var(--color-ink-faint)' }}>{String(total - 1).replace(/\B(?=(\d{3})+(?!\d))/g, ' ')}</text>
-      {caption ? (
-        <text x={width / 2} y={height - 8} textAnchor="middle" fontSize="12" style={{ fill: 'var(--color-ink-soft)' }}>{caption}</text>
-      ) : null}
-    </svg>
-  );
-}
+$$
+\left(1 - \frac{1}{M}\right)\left(1 - \frac{2}{M}\right)\cdots\left(1 - \frac{N - 1}{M}\right),
+$$
 
-<Slide title="La suma de los caracteres">
-Para que cuente todo el nombre, se pueden sumar sus letras. El computador
-guarda cada carácter como un número, su código en la tabla
-[ASCII](https://es.wikipedia.org/wiki/ASCII): `'A'` es 65 y `'a'`, 97. Java
-usa Unicode, que extiende esa tabla y les da a esas letras los mismos códigos.
-La regla suma el código de cada carácter y usa la suma como posición.
+y cae muy rápido. Es la cuenta que dice que, en un grupo de 23 personas, lo
+más probable es que dos estén de cumpleaños el mismo día.
 
-Ahora todas las letras cuentan, pero la suma no mira el orden: dos nombres con
-las mismas letras en otro orden suman lo mismo, y colisionan siempre.
+| Claves, con $$M = 365$$ | Probabilidad de al menos una colisión |
+| ----------------------- | ------------------------------------- |
+| 10                      | 12 %                                  |
+| 23                      | 51 %                                  |
+| 40                      | 89 %                                  |
+| 57                      | 99 %                                  |
 
-| Clave    | Códigos de sus caracteres | Suma |
-| -------- | ------------------------- | ---- |
-| «Irma»   | 73 + 114 + 109 + 97       | 393  |
-| «Mari»   | 77 + 97 + 114 + 105       | 393  |
-
-<Reparto
-  id="suma"
-  keys={[{ name: 'Sara', to: 0 }, { name: 'Irma', to: 2 }, { name: 'Mari', to: 2 }, { name: 'Juan', to: 7 }]}
-  cells={8}
-  index={['391', '392', '393', '394', '395', '396', '397', '398']}
-  cell={56}
-  caption="«Irma» y «Mari» tienen las mismas letras y suman 393; «Sara» suma 391 y «Juan», 398"
-  label="Cuatro nombres y un tramo de ocho casilleros, del 391 al 398. Sara va al 391, Juan al 398, e Irma y Mari, que tienen las mismas letras, van los dos al 393, destacado."
-/>
-
-La suma, además, puede pasarse del último casillero: en una tabla de 1 000
-casilleros, un nombre de hasta ocho letras no alcanza, pero uno más largo sí
-puede.
-Es un segundo problema que queda abierto: la regla tiene que entregar siempre
-una posición que exista en la tabla.
+La primera colisión llega alrededor de $$\sqrt{M}$$ claves, muy lejos de
+$$M$$. Una tabla hash tiene que contar con ellas: necesita una regla que
+reparta las claves parejo, y una manera de guardar dos claves que caen en la
+misma posición.
 
 </Slide>
-
-<Slide title="El recorrido de la suma">
-La suma falla también por otro lado. Una tabla que guarda miles de nombres,
-como los de los alumnos de una universidad, necesita miles de casilleros:
-digamos 10 000. Pero la suma de un nombre es un número chico. El código de
-cada letra está entre 65, la `'A'`, y 122, la `'z'`, así que un nombre de tres
-a ocho letras suma entre 259 y 944. Todos los nombres caen en esa franja, y los
-demás casilleros no reciben nunca una clave: la suma está lejos de ser
-sobreyectiva.
-
-<Franja
-  total={10000}
-  from={259}
-  to={944}
-  caption="las sumas posibles, de «Aaa», 259, a «Zzzzzzzz», 944, dentro de las 10 000 posiciones"
-  label="Una barra con las posiciones del 0 al 9 999. Solo un tramo angosto cerca del comienzo, del 259 al 944, está destacado: las posiciones que la suma puede dar."
-/>
-
-$$
-\begin{gathered}
-259 = 65 + 2 \cdot 97 \;\le\; \operatorname{suma} \;\le\; 90 + 7 \cdot 122 = 944 \\
-\frac{944 - 259 + 1}{10\,000} = \frac{686}{10\,000} \approx 6{,}9\,\%
-\end{gathered}
-$$
-
-La suma no sirve como función hash: no mira el orden de las letras y, por
-grande que sea la tabla, da apenas unos cientos de valores distintos.
-
-<Vara determinista eficiente uniforme={false} />
-
-</Slide>
-
-<Slide title="De un texto a un número">
-Los tres intentos fallan por lo mismo: miran solo una parte del nombre, lo
-miran sin orden, o dan muy pocos valores distintos. El orden es lo más
-delicado: «Irma» y «Mari» tienen las mismas letras. Para que el orden cuente,
-cada letra tiene que pesar según su lugar.
-
-Así funcionan los números que escribimos todos los días. 347 y 743 tienen las
-mismas cifras, pero son números distintos, porque cada cifra se multiplica por
-un peso según su lugar: la primera por 100, la segunda por 10 y la última
-por 1.
-
-$$
-347 = 3 \cdot 100 + 4 \cdot 10 + 7 \cdot 1, \qquad 743 = 7 \cdot 100 + 4 \cdot 10 + 3 \cdot 1
-$$
-
-Un nombre se puede leer igual, con cada carácter como una cifra. Como los
-códigos de las letras son menores que 256, los pesos no son 100, 10 y 1 sino
-potencias de 256: es leer el nombre como un número en **base 256**.
-
-| Carácter de «Ana»   | `'A'`         | `'n'`        | `'a'`        | Número de «Ana» |
-| ------------------- | ------------- | ------------ | ------------ | --------------- |
-| Código              | 65            | 110          | 97           |                 |
-| Peso                | $$256^2$$     | $$256^1$$    | $$256^0$$    |                 |
-| Aporte              | 4 259 840     | 28 160       | 97           | 4 288 097       |
-
-Así, dos textos distintos dan siempre números distintos, y «Irma» y «Mari» ya
-no se confunden. Además, cada letra cuenta, y con más letras el número crece
-sin límite. Lo que falta es llevar ese número, enorme, a una de las $$M$$
-posiciones de la tabla.
-
-</Slide>
-
-<Slide title="El método de la división">
-Para usar un número como posición, tiene que quedar dentro de la tabla, entre
-$$0$$ y $$M - 1$$, por grande que sea. La manera más usada de limitarlo es el
-**método de la división**: la posición es el resto de dividir $$x$$ por $$M$$,
-
-$$
-h(x) = x \bmod M,
-$$
-
-que se lee «$$x$$ módulo $$M$$». El resto de dividir por $$M$$ siempre está
-entre $$0$$ y $$M - 1$$. Con esto, la función hash queda en **dos pasos**: de
-la clave a un número, y del número a una posición.
-
-<Pasos
-  id="division"
-  boxes={[{ title: 'clave', text: '«Ana»' }, { title: 'número', text: '4 288 097' }, { title: 'posición', text: '2' }]}
-  steps={['base 256', 'mod 7']}
-  caption="«Ana», leído en base 256 y llevado a siete posiciones"
-  label="Tres cajas unidas por flechas. La clave Ana; una flecha rotulada base 256 lleva al número 4 288 097; otra flecha rotulada mod 7 lleva a la posición 2."
-/>
-
-$$
-4\,288\,097 \bmod 7 = 2
-$$
-
-</Slide>
-
-<Slide title="La elección de M">
-Que la división reparta parejo depende de $$M$$. Si $$M$$ es una potencia de
-2, $$M = 2^k$$, el resto se queda solo con los $$k$$ bits más bajos del
-número: la regla vuelve a mirar una parte de la clave. Con un texto leído en
-base 256, $$M = 256$$ deja solo el último carácter, y todos los nombres que
-terminan igual caen en la misma posición. Con un $$M$$ **primo**, lejos de una
-potencia de 2, el resto depende de todo el número, y cuentan todas las letras.
-
-| Nombre   | Número, en base 256 | Con $$M = 256$$ | Con $$M = 251$$, primo |
-| -------- | ------------------- | --------------- | ---------------------- |
-| «Ana»    | 4 288 097           | 97              | 13                     |
-| «Bea»    | 4 351 329           | 97              | 244                    |
-| «Eva»    | 4 552 289           | 97              | 153                    |
-| «Sara»   | 1 398 895 201       | 97              | 164                    |
-
-Con $$M = 256$$, los cuatro nombres colisionan en la 97, el código de la «a»
-final.
-
-</Slide>
-
-<Slide title="La regla de Horner">
-El número de un texto crece muy rápido: cada carácter lo multiplica por la
-base. Un `int` de Java llega hasta $$2^{31} - 1 = 2\,147\,483\,647$$, y
-cualquier nombre de cinco letras lo supera, porque su primera cifra ya pesa
-$$256^4 = 2^{32}$$. Hace falta calcular la posición sin armar nunca el número
-completo, y el primer paso es la **regla de Horner**.
-
-La idea se ve con 347. Sacando el 10 como factor común de los dos primeros
-términos,
-
-$$
-347 = 3 \cdot 100 + 4 \cdot 10 + 7 = (3 \cdot 10 + 4) \cdot 10 + 7,
-$$
-
-y el número se arma leyendo sus cifras de izquierda a derecha: 3, después
-$$3 \cdot 10 + 4 = 34$$, después $$34 \cdot 10 + 7 = 347$$. Cada paso
-multiplica lo anterior por la base y suma la cifra siguiente. Con un texto
-$$c_0 c_1 \ldots c_{n-1}$$ en base $$B$$ es lo mismo:
-
-$$
-\begin{gathered}
-c_0 \cdot B^{n-1} + c_1 \cdot B^{n-2} + \cdots + c_{n-1} \\
-= \Big(\big(c_0 \cdot B + c_1\big) \cdot B + c_2\Big) \cdot B + \cdots + c_{n-1},
-\end{gathered}
-$$
-
-con una multiplicación y una suma por carácter, sin calcular potencias.
-
-</Slide>
-
-<Slide title="El resto en cada paso">
-Horner todavía arma el número completo, que no cabe en un `int`. La tabla, en
-cambio, solo necesita el resto de dividirlo por $$M$$, y el resto tiene una
-propiedad que permite no armarlo nunca: **el resto de una suma o de un
-producto solo depende de los restos de sus partes**. Por eso, antes de sumar o
-de multiplicar, un número se puede reemplazar por su resto, y el resto final
-no cambia:
-
-$$
-\begin{gathered}
-(a + b) \bmod M = \big((a \bmod M) + b\big) \bmod M \\
-(a \cdot b) \bmod M = \big((a \bmod M) \cdot b\big) \bmod M
-\end{gathered}
-$$
-
-Es la base de la **aritmética modular**. Con ella, cada paso de Horner se
-queda solo con el resto,
-
-$$
-h = (h \cdot B + c) \bmod M,
-$$
-
-y $$h$$ siempre es menor que $$M$$. Con «Ana», en base 256 y con $$M = 7$$:
-
-| Carácter | Código | Horner, sin reducir                        | Horner, reduciendo en cada paso                      |
-| -------- | ------ | ------------------------------------------ | ---------------------------------------------------- |
-| `'A'`    | 65     | $$65$$                                     | $$65 \bmod 7 = 2$$                                   |
-| `'n'`    | 110    | $$65 \cdot 256 + 110 = 16\,750$$           | $$(2 \cdot 256 + 110) \bmod 7 = 622 \bmod 7 = 6$$    |
-| `'a'`    | 97     | $$16\,750 \cdot 256 + 97 = 4\,288\,097$$   | $$(6 \cdot 256 + 97) \bmod 7 = 1\,633 \bmod 7 = 2$$  |
-
-Las dos columnas llegan a la misma posición, $$4\,288\,097 \bmod 7 = 2$$. Pero
-en la segunda, $$h$$ nunca llega a 7, y
-la cuenta más grande, 1 633, queda muy lejos del límite de un `int`.
-
-</Slide>
-
-{/* HornerPaso — a frame of hash("Ana") walked in <StepShow>: the key as a row of characters with their codes, the one at i outlined; the box h with its value; the step's arithmetic beside it; a one-line note under all of it. Fixed size, so the slide never rescales between frames (#321). File-local (§6e-quater). */}
-
-export function HornerPaso({ word, i = -1, h, calc, note, m }) {
-  const X = 96;
-  const W = 44;
-  const chars = word.split('');
-  return (
-    <svg viewBox="0 0 560 176" style={{ width: '100%', maxWidth: '640px', height: 'auto', display: 'block' }} role="img" aria-label={`${note} h vale ${h ?? 'nada todavía'}.`}>
-      <text x="8" y="36" fontSize="13" fontFamily="var(--font-mono, monospace)" style={{ fill: 'var(--color-ink-faint)' }}>key</text>
-      {chars.map((c, j) => (
-        <g key={j}>
-          <rect x={X + j * (W + 6)} y="12" width={W} height="36" rx="3" style={{ fill: 'var(--color-surface)', stroke: j === i ? 'var(--color-focus)' : 'var(--color-rule-strong)' }} strokeWidth={j === i ? 2.6 : 1.4} />
-          <text x={X + j * (W + 6) + W / 2} y="37" textAnchor="middle" fontSize="18" fontWeight="600" fontFamily="var(--font-mono, monospace)" style={{ fill: 'var(--color-ink)' }}>{c}</text>
-          <text x={X + j * (W + 6) + W / 2} y="64" textAnchor="middle" fontSize="12" style={{ fill: 'var(--color-ink-faint)' }}>{c.charCodeAt(0)}</text>
-        </g>
-      ))}
-      {i >= 0 && i < chars.length ? (
-        <text x={X + i * (W + 6) + W / 2} y="82" textAnchor="middle" fontSize="13" fontWeight="700" fontFamily="var(--font-mono, monospace)" style={{ fill: 'var(--color-ink-soft)' }}>{`↑ i = ${i}`}</text>
-      ) : null}
-      <text x="400" y="36" fontSize="13" fontFamily="var(--font-mono, monospace)" style={{ fill: 'var(--color-ink-faint)' }}>{`table.length = ${m}`}</text>
-      <text x="8" y="122" fontSize="13" fontFamily="var(--font-mono, monospace)" style={{ fill: 'var(--color-ink-faint)' }}>h</text>
-      <rect x={X} y="98" width="56" height="36" rx="3" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.4" />
-      <text x={X + 28} y="123" textAnchor="middle" fontSize="18" fontWeight="600" style={{ fill: h === undefined ? 'var(--color-ink-faint)' : 'var(--color-ink)' }}>{h ?? '—'}</text>
-      {calc ? (
-        <text x={X + 72} y="122" fontSize="14" fontFamily="var(--font-mono, monospace)" style={{ fill: 'var(--color-ink)' }}>{calc}</text>
-      ) : null}
-      <text x="8" y="164" fontSize="13" style={{ fill: 'var(--color-ink-soft)' }}>{note}</text>
-    </svg>
-  );
-}
-
-<Slide title="El código de la función hash">
-El método `hash` de la tabla calcula la posición con la regla de Horner en base
-256, tomando el resto en cada paso. El tamaño $$M$$ es el largo del arreglo,
-`table.length`.
-
-<StepShow
-  language="java"
-  title="hash(«Ana»), con M = 7"
-  code={`private int hash(String key) {
-    if (key == null)
-        throw new IllegalArgumentException();
-    int h = 0;
-    for (int i = 0; i < key.length(); i++) {
-        h = (256 * h + key.charAt(i)) % table.length;
-    }
-    return h;
-}`}
->
-  <Step lines={[2, 3]}>
-    <HornerPaso word="Ana" m={7} note="«Ana» no es null: tiene una posición." />
-  </Step>
-  <Step lines={[4]}>
-    <HornerPaso word="Ana" m={7} h={0} note="h parte en 0." />
-  </Step>
-  <Step lines={[5]}>
-    <HornerPaso word="Ana" m={7} h={0} i={0} note="i = 0 es menor que 3: se procesa el primer carácter." />
-  </Step>
-  <Step lines={[6]}>
-    <HornerPaso word="Ana" m={7} h={2} i={0} calc="(256 · 0 + 65) % 7 = 65 % 7 = 2" note="'A' entra en h con su código, 65." />
-  </Step>
-  <Step lines={[5]}>
-    <HornerPaso word="Ana" m={7} h={2} i={1} note="i = 1: el segundo carácter." />
-  </Step>
-  <Step lines={[6]}>
-    <HornerPaso word="Ana" m={7} h={6} i={1} calc="(256 · 2 + 110) % 7 = 622 % 7 = 6" note="Lo anterior se multiplica por 256 y entra 'n', 110." />
-  </Step>
-  <Step lines={[5]}>
-    <HornerPaso word="Ana" m={7} h={6} i={2} note="i = 2: el tercer carácter." />
-  </Step>
-  <Step lines={[6]}>
-    <HornerPaso word="Ana" m={7} h={2} i={2} calc="(256 · 6 + 97) % 7 = 1633 % 7 = 2" note="Otra vez por 256, y entra 'a', 97." />
-  </Step>
-  <Step lines={[5]}>
-    <HornerPaso word="Ana" m={7} h={2} i={3} note="i = 3 ya no es menor que 3: el ciclo termina." />
-  </Step>
-  <Step lines={[8]}>
-    <HornerPaso word="Ana" m={7} h={2} note="hash(«Ana») es 2: la posición de «Ana» en una tabla de 7." />
-  </Step>
-</StepShow>
-
-El método hace una multiplicación, una suma y un resto por carácter, así que
-cuesta $$\Theta(L)$$, con $$L$$ el largo de la clave, sin importar cuántas
-claves haya en la tabla.
-
-<Vara determinista eficiente uniforme note="con un tamaño primo" />
-
-</Slide>
-
-<Slide title="Primo o potencia de 2">
-La división reparte bien con un $$M$$ primo, pero un tamaño primo tiene dos
-costos. El primero aparece al crecer: la tabla no puede simplemente duplicar
-su tamaño, porque el doble de un primo es par, y tiene que buscar el siguiente
-primo. El segundo está en cada cálculo: dividir por un número cualquiera es,
-para el procesador, una cuenta larga, como una división hecha a mano, bastante
-más lenta que una suma o una multiplicación.
-
-Con $$M$$ potencia de 2, las dos cosas se simplifican. La tabla crece
-duplicándose, y dividir por $$2^k$$ es correr los bits del número $$k$$
-lugares, como en decimal dividir por 1 000 es correr la coma tres lugares: el
-resto son los $$k$$ bits que quedan atrás, y se obtiene sin ninguna cuenta
-larga.
-
-Pero eso es justo lo que la división no tolera: con $$M = 2^k$$, el resto son
-solo los $$k$$ bits más bajos del número, y la regla vuelve a mirar una parte
-de la clave. Las dos preferencias chocan.
-
-</Slide>
-
-<Slide title="El método de la multiplicación">
-Para tablas de tamaño potencia de 2 hay otra manera de llevar un número $$x$$
-a una posición, el **método de la multiplicación**. Elige una constante $$A$$
-entre 0 y 1, y da tres pasos:
-
-1. multiplica $$x$$ por $$A$$; el producto puede ser mayor que 1;
-2. se queda con la parte decimal del producto, un número entre 0 y 1;
-3. multiplica esa parte decimal por $$M$$ y redondea hacia abajo.
-
-Con símbolos,
-
-$$
-h(x) = \big\lfloor M \cdot (A \cdot x \bmod 1) \big\rfloor,
-$$
-
-donde $$\bmod 1$$ se queda con la parte decimal y $$\lfloor\,\cdot\,\rfloor$$
-redondea hacia abajo. Knuth propone $$A = (\sqrt{5} - 1)/2 \approx 0{,}618$$.
-Con ese $$A$$ y $$M = 8$$:
-
-| $$x$$ | $$A \cdot x$$ | Parte decimal | Por $$M = 8$$ | Posición |
-| ----- | ------------- | ------------- | ------------- | -------- |
-| 1     | 0,618         | 0,618         | 4,94          | 4        |
-| 2     | 1,236         | 0,236         | 1,89          | 1        |
-| 3     | 1,854         | 0,854         | 6,83          | 6        |
-
-Las tres claves quedan en posiciones distintas. A diferencia de la división,
-el método reparte bien con cualquier $$M$$, también con una potencia de 2.
-
-</Slide>
-
-<Slide title="La razón áurea">
-La constante que propone Knuth no es un número cualquiera: es el inverso de la
-**razón áurea** $$\varphi$$,
-
-$$
-\varphi = \frac{1 + \sqrt{5}}{2} \approx 1{,}618, \qquad A = \frac{1}{\varphi} = \varphi - 1 \approx 0{,}618,
-$$
-
-el número al que se acerca el cociente entre dos números de Fibonacci
-consecutivos, como $$34/55$$ o $$55/89$$.
-
-Tiene una propiedad que la hace buena para repartir. Si llegan las claves 1,
-2, 3, …, una a una, la parte decimal de $$A \cdot x$$ de cada clave nueva cae
-en uno de los huecos más grandes que dejaron las anteriores, así que cada
-clave queda lejos de las que ya están. Por eso claves seguidas, o que avanzan
-de a un paso fijo, se reparten por toda la tabla: con $$M = 8$$, las claves 1
-a 8 ocupan las ocho posiciones, una cada una.
-Al método con esta constante se le llama **hashing de Fibonacci**.
-
-<Tiradas
-  keys={[
-    { name: '1', to: 4 },
-    { name: '2', to: 1 },
-    { name: '3', to: 6 },
-    { name: '4', to: 3 },
-    { name: '5', to: 0 },
-    { name: '6', to: 5 },
-    { name: '7', to: 2 },
-    { name: '8', to: 7 },
-  ]}
-  cells={8}
-  caption="cada clave nueva cae en un casillero libre, lejos de los ocupados: las ocho llenan la tabla sin chocar"
-  label="Ocho filas de ocho casilleros, del 0 al 7, una por cada clave que llega. La clave 1 cae en el 4; la 2, en el 1; la 3, en el 6; la 4, en el 3; la 5, en el 0; la 6, en el 5; la 7, en el 2, y la 8, en el 7. En cada fila, la clave nueva está destacada, en un casillero vacío. Al final, las ocho claves ocupan los ocho casilleros, sin ninguna colisión."
-/>
-
-</Slide>
-
-<Slide title="Claves con un patrón">
-Muchas claves reales avanzan de a un paso fijo: los folios de un sistema de a
-10 o de a 100, las direcciones de memoria de los objetos de a 8. Con un tamaño
-potencia de 2, la división junta esas claves en muy pocas posiciones. Con
-$$M = 16$$ y claves que avanzan de a 8, el resto de dividir por 16 solo puede
-ser 0 u 8:
-
-$$
-8k \bmod 16 = \begin{cases} 0 & \text{si } k \text{ es par} \\ 8 & \text{si } k \text{ es impar} \end{cases}
-$$
-
-<Reparto
-  id="patron-division"
-  keys={[{ name: '8', to: 8 }, { name: '16', to: 0 }, { name: '24', to: 8 }, { name: '32', to: 0 }, { name: '40', to: 8 }, { name: '48', to: 0 }, { name: '56', to: 8 }, { name: '64', to: 0 }]}
-  cells={16}
-  cell={38}
-  caption="con la división: ocho claves en solo dos posiciones"
-  label="Ocho claves, 8, 16, 24, hasta 64, sobre dieciséis posiciones. Con la división, 8, 24, 40 y 56 caen en la posición 8, y 16, 32, 48 y 64 en la 0: las dos posiciones están destacadas, con cuatro claves cada una."
-/>
-
-Es justo lo que evita un $$M$$ primo: con $$M = 17$$, las mismas claves caen en
-ocho posiciones distintas. La multiplicación las reparte aunque el tamaño sea
-potencia de 2, porque mira el número completo:
-
-<Reparto
-  id="patron-multiplicacion"
-  keys={[{ name: '64', to: 8 }, { name: '56', to: 9 }, { name: '48', to: 10 }, { name: '40', to: 11 }, { name: '32', to: 12 }, { name: '24', to: 13 }, { name: '16', to: 14 }, { name: '8', to: 15 }]}
-  cells={16}
-  cell={38}
-  caption="con la multiplicación: cada clave en una posición distinta"
-  label="Las mismas ocho claves con la multiplicación, de 64 a 8: 64 cae en la posición 8, 56 en la 9, 48 en la 10, y así hasta 8 en la 15. Cada clave queda en una posición distinta, y ninguna flecha se cruza con otra."
-/>
-
-</Slide>
-
-<Slide title="El código de la multiplicación">
-En código, el método son tres líneas, una por paso. `A` es una constante de la
-clase, y `table.length` es $$M$$.
-
-```java
-private static final double A = (Math.sqrt(5) - 1) / 2;
-
-private int hash(int x) {
-    double producto = x * A;
-    double decimal = producto - Math.floor(producto);
-    return (int) (decimal * table.length);
-}
-```
-
-`Math.floor` redondea hacia abajo, así que `producto - Math.floor(producto)`
-es la parte decimal, y convertir a `int` redondea hacia abajo la posición. Con
-$$x = 8$$ y $$M = 16$$:
-
-$$
-8 \cdot 0{,}618 = 4{,}944, \qquad 4{,}944 - 4 = 0{,}944, \qquad \lfloor 0{,}944 \cdot 16 \rfloor = \lfloor 15{,}1 \rfloor = 15
-$$
-
-La multiplicación necesita el número completo de la clave. Con claves que ya
-son números, como folios o identificadores, se aplica directo. Con un texto,
-en cambio, ese número no cabe en un `int` apenas el texto es un poco largo,
-mientras que la división se puede aplicar en cada paso de Horner y sirve para
-textos de cualquier largo.
-
-<Vara determinista eficiente uniforme note="con un tamaño potencia de 2" />
-
-</Slide>
-
-<Slide title="La división frente a la multiplicación">
-Las dos técnicas dan el segundo paso, del número a una posición, y las dos son
-deterministas. Se diferencian en el tamaño de tabla que piden y en lo que
-cuestan.
-
-|                         | División                               | Multiplicación                                  |
-| ----------------------- | -------------------------------------- | ----------------------------------------------- |
-| Posición                | $$x \bmod M$$                          | $$\lfloor M \cdot (A \cdot x \bmod 1) \rfloor$$ |
-| Tamaño de la tabla      | Un primo, lejos de una potencia de 2   | Una potencia de 2                               |
-| Costo                   | Una división                           | Una multiplicación                              |
-| Claves con un patrón    | Las reparte, si $$M$$ es primo         | Las reparte                                     |
-| Al crecer la tabla      | Hay que buscar el siguiente primo      | Basta duplicarla                                |
-| La usan                 | `unordered_map` de GCC                 | El núcleo de Linux, `ThreadLocal` de Java       |
-
-La división es la más simple de entender y de programar, reparte bien con un
-$$M$$ primo y sirve directo para textos de cualquier largo. La multiplicación
-es la más rápida, y la que conviene con claves que ya son números y con tablas
-que crecen duplicando su tamaño.
-
-</Slide>
-
-{/* Pasos — the steps from a key to its position, each value in a box and the step written over the arrow between them: one step for the idea of a hash function, and the two a library splits it into (the key, the integer its type turns it into, the position the table takes from that integer). File-local (§6e-quater). */}
-
-export function Pasos({ boxes, steps, caption, label, id }) {
-  const pad = 14;
-  const boxW = 120;
-  const boxH = 44;
-  const gap = 150;
-  const top = 26;
-  const core = 2 * pad + boxes.length * boxW + (boxes.length - 1) * gap;
-  const width = Math.max(core, caption ? caption.length * 6.6 + 24 : 0);
-  const left = (width - core) / 2 + pad;
-  const height = top + boxH + (caption ? 40 : 12);
-  const bx = (i) => left + i * (boxW + gap);
-  return (
-    <svg viewBox={`0 0 ${width} ${height}`} style={{ width: '100%', maxWidth: `${Math.round(width * 1.3)}px`, height: 'auto', display: 'block', margin: '0.4rem auto' }} role="img" aria-label={label}>
-      <defs>
-        <marker id={`${id}-punta`} markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
-          <path d="M0,0 L8,4 L0,8 z" style={{ fill: 'var(--color-ink-soft)' }} />
-        </marker>
-      </defs>
-      {boxes.map((b, i) => (
-        <g key={`b${i}`}>
-          <text x={bx(i) + boxW / 2} y={top - 9} textAnchor="middle" fontSize="12" style={{ fill: 'var(--color-ink-faint)' }}>{b.title}</text>
-          <rect x={bx(i)} y={top} width={boxW} height={boxH} rx="4" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.4" />
-          <text x={bx(i) + boxW / 2} y={top + boxH / 2 + 6} textAnchor="middle" fontSize="16" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{b.text}</text>
-        </g>
-      ))}
-      {steps.map((s, i) => (
-        <g key={`s${i}`}>
-          <line x1={bx(i) + boxW + 6} y1={top + boxH / 2} x2={bx(i + 1) - 8} y2={top + boxH / 2} style={{ stroke: 'var(--color-ink-soft)' }} strokeWidth="1.6" markerEnd={`url(#${id}-punta)`} />
-          <text x={bx(i) + boxW + gap / 2} y={top + boxH / 2 - 8} textAnchor="middle" fontSize="13" fontFamily="var(--font-mono, monospace)" style={{ fill: 'var(--color-ink-soft)' }}>{s}</text>
-        </g>
-      ))}
-      {caption ? (
-        <text x={width / 2} y={height - 8} textAnchor="middle" fontSize="12" style={{ fill: 'var(--color-ink-soft)' }}>{caption}</text>
-      ) : null}
-    </svg>
-  );
-}
-
-<Slide title="De la clave a la posición en dos pasos">
-La división y la multiplicación dan solo el segundo paso, del número a una
-posición, y no les importa de qué tipo era la clave. El primer paso, de la
-clave a un número, sí depende del tipo.
-
-- **Un entero** ya es un número, y el primer paso no hace nada.
-- **Un texto** se lee como un número con la regla de Horner, o con otra
-  función que mezcle sus caracteres.
-- **Un objeto** combina los números de sus campos, como Horner combina las
-  letras, y cada lenguaje decide cómo.
-
-En Java, el primer paso es el método `hashCode()`, que tiene todo objeto, y el
-segundo lo da la tabla. Para un `Integer`, `hashCode()` devuelve el mismo
-número.
-
-<Pasos
-  id="pasos"
-  boxes={[{ title: 'clave', text: '2024' }, { title: 'número', text: '2024' }, { title: 'posición', text: '1' }]}
-  steps={['hashCode()', 'mod 7']}
-  label="Tres cajas unidas por flechas. La clave, el entero 2024; una flecha rotulada hashCode lleva al número 2024, el mismo; otra flecha rotulada mod 7 lleva a la posición 1."
-/>
-
-$$
-2024 \bmod 7 = 1
-$$
-
-</Slide>
-
-<Slide title="Las funciones hash de cada lenguaje">
-Cada biblioteca elige cómo dar los dos pasos.
-
-| Biblioteca                    | De un texto a un número                        | Del número a una posición                                        |
-| ----------------------------- | ---------------------------------------------- | ---------------------------------------------------------------- |
-| Java, `HashMap`               | Horner con 31                                  | Mezcla los 16 bits altos con los bajos y se queda con los bajos |
-| C++, `unordered_map` de GCC   | MurmurHash                                     | El resto de dividir por un primo                                 |
-| Python, `dict`                | SipHash, con una clave al azar                 | Los bits bajos                                                   |
-| Rust, `HashMap`               | SipHash, con una clave al azar                 | Una parte de sus bits                                            |
-| Go, `map`                     | Basada en AES o en wyhash, con semilla al azar | Una parte de sus bits                                            |
-
-Python, Rust y Go eligen al azar la clave de su función hash cada vez que
-arranca un programa: quien no la conoce no puede elegir claves que colisionen.
-
-En la práctica, el texto se resuelve en el primer paso: `hashCode()` u otra
-función lo acota a un número de 32 o 64 bits, y desde ahí cualquier segundo
-paso sirve. Por eso casi todas estas tablas tienen un tamaño potencia de 2 y
-se quedan con los bits bajos: su primer paso ya mezcló todos los bits, como
-Java al mezclar los 16 altos con los bajos.
-
-</Slide>
-
-<Slide title="Una función hash que cumple los tres requisitos">
-La primera decisión era cómo calcular una función hash determinista, eficiente
-y uniforme con claves reales, que se parecen entre sí. La respuesta tiene dos
-pasos:
-
-1. **De la clave a un número**, leyéndola completa: cada carácter pesa según
-   su lugar, con la regla de Horner. Así la posición depende de **toda** la
-   clave.
-2. **Del número a una posición**: con la división, si $$M$$ es primo, o con la
-   multiplicación, si $$M$$ es potencia de 2.
-
-Es determinista, porque la posición depende solo de la clave; eficiente,
-porque recorre la clave una sola vez, sin importar cuántas claves haya en la
-tabla; y uniforme, porque mira la clave completa y la reparte con un $$M$$
-primo o con la razón áurea.
-
-<Vara determinista eficiente uniforme />
-
-Queda la segunda decisión, que es de la tabla: qué hacer cuando dos claves
-colisionan. Ninguna función lo evita, y pasa pronto, con la tabla casi vacía.
-
-</Slide>
-
-<Questions>
-
-<Question id="hash-limite-de-comparar" anchor="el-limite-de-comparar">
-
-Con N claves, ¿cuántas comparaciones hace como mínimo, en el peor caso, cualquier búsqueda que encuentra una clave comparándola con las guardadas?
-
-- [x] Al menos log₂(N + 1)
-- [ ] Al menos N
-- [ ] Al menos la raíz cuadrada de N
-- [ ] Una sola, si las claves están ordenadas
-
-</Question>
-
-<Question id="hash-fichas-un-solo-paso" anchor="las-fichas-de-un-guardarropa">
-
-¿Por qué con fichas numeradas el guardarropa guarda y busca un abrigo en un solo paso?
-
-- [x] El número de la ficha es el del casillero, y hay un casillero para cada ficha posible
-- [ ] Los abrigos se cuelgan en orden alfabético por el nombre de su dueño
-- [ ] Quien atiende recuerda en qué casillero dejó cada abrigo
-- [ ] Hay más casilleros que personas en el teatro
-
-</Question>
-
-<Question id="hash-cuando-no-es-funcion" anchor="una-sola-imagen-por-elemento">
-
-¿Cuándo una regla **no** es una función?
-
-- [x] Cuando de algún elemento del dominio salen dos flechas, o ninguna
-- [ ] Cuando a un elemento del codominio llegan dos flechas
-- [ ] Cuando a algún elemento del codominio no llega ninguna flecha
-- [ ] Cuando el dominio tiene más elementos que el codominio
-
-</Question>
-
-<Question id="hash-que-es-sobreyectiva" anchor="funciones-sobreyectivas">
-
-¿Qué significa que una función f : A → B sea sobreyectiva?
-
-- [x] Todo elemento de B es imagen de al menos un elemento de A
-- [ ] Elementos distintos de A tienen imágenes distintas
-- [ ] Todo elemento de B es imagen de exactamente un elemento de A
-- [ ] Todo elemento de A tiene exactamente una imagen en B
-
-</Question>
-
-<Question id="hash-que-concluye-la-inyectividad" anchor="funciones-inyectivas">
-
-Si f es inyectiva y f(a₁) = f(a₂), ¿qué se puede concluir?
-
-- [x] Que a₁ = a₂
-- [ ] Que f también es sobreyectiva
-- [ ] Que a₁ y a₂ colisionan
-- [ ] Nada: dos elementos distintos pueden tener la misma imagen
-
-</Question>
-
-<Question id="hash-por-que-no-inyectiva" anchor="ninguna-funcion-hash-es-inyectiva">
-
-¿Por qué ninguna función hash puede ser inyectiva?
-
-- [x] El universo de claves tiene más elementos que las M posiciones del arreglo
-- [ ] Calcular una posición distinta para cada clave costaría demasiado
-- [ ] Una función sobreyectiva nunca puede ser también inyectiva
-- [ ] Las claves reales se parecen entre sí
-
-</Question>
-
-<Question id="hash-cuando-usar-perfecta" anchor="funciones-hash-perfectas">
-
-¿Cuándo se puede usar una función hash perfecta?
-
-- [x] Cuando las claves que se van a guardar se conocen de antemano y no cambian
-- [ ] Cuando la tabla guarda pocas claves
-- [ ] Cuando el tamaño de la tabla es un número primo
-- [ ] Cuando la función reparte las claves de manera uniforme
-
-</Question>
-
-<Question id="hash-que-muestra-el-cumpleanos" anchor="la-paradoja-del-cumpleanos">
-
-¿Qué muestra la paradoja del cumpleaños sobre una tabla hash?
-
-- [x] Que las colisiones aparecen con la tabla casi vacía, mucho antes de llenarla
-- [ ] Que con una buena función hash las colisiones se pueden evitar
-- [ ] Que las colisiones solo aparecen cuando hay más claves que posiciones
-- [ ] Que con menos de 23 claves no hay colisiones
-
-</Question>
-
-<Question id="hash-que-exige-uniforme" anchor="los-requisitos-de-una-funcion-hash">
-
-¿Qué exige que una función hash sea uniforme?
-
-- [x] Que cada posición reciba más o menos la misma cantidad de claves
-- [ ] Que la misma clave dé siempre la misma posición
-- [ ] Que calcularla no dependa de cuántas claves haya en la tabla
-- [ ] Que dos claves distintas nunca den la misma posición
-
-</Question>
-
-<Question id="hash-por-que-base-256" anchor="de-un-texto-a-un-numero">
-
-¿Por qué conviene leer un nombre como un número en base 256, en vez de sumar sus letras?
-
-- [x] Cada letra pesa según su lugar, así que dos nombres distintos dan números distintos
-- [ ] Da números más chicos, que caben en la tabla
-- [ ] Ignora las letras repetidas del nombre
-- [ ] Solo usa las primeras letras, que son las que más cambian
-
-</Question>
-
-<Question id="hash-por-que-m-primo" anchor="la-eleccion-de-m">
-
-¿Por qué conviene que M sea primo en el método de la división?
-
-- [x] El resto depende de todo el número, no solo de una parte
-- [ ] La división por un número primo es más rápida
-- [ ] Con M primo la tabla nunca tiene colisiones
-- [ ] Un M primo deja más posiciones libres
-
-</Question>
-
-<Question id="hash-resto-en-cada-paso" anchor="el-resto-en-cada-paso">
-
-¿Por qué el método `hash` puede tomar el resto en cada paso de Horner, sin calcular el número completo?
-
-- [x] El resto de una suma o de un producto solo depende de los restos de sus partes
-- [ ] Los códigos de las letras son menores que M
-- [ ] Horner no usa multiplicaciones
-- [ ] Cambia la posición final, pero reparte igual de bien
-
-</Question>
-
-</Questions>
