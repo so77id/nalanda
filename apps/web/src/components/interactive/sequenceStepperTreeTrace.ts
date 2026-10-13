@@ -11,7 +11,10 @@
  *
  * `binary-tree` has no order, so its operations VISIT: the three traversals,
  * the height and a search that may have to look everywhere. `bst` keeps the
- * search-tree invariant, so its operations CHOOSE A SIDE at every node.
+ * search-tree invariant, so its operations CHOOSE A SIDE at every node. The
+ * `avl` recipe (#322) lives in `sequenceStepperAvlTrace.ts` and builds on the
+ * pieces exported here: the node, the recorder, the search tree built by
+ * inserting, and the run's columns.
  */
 import { asRuns, lineOf, requireRuns } from './sequenceStepperTraceShared';
 // Types only: the dispatcher imports this module's `traceTree` as a value, so a
@@ -33,7 +36,7 @@ import type {
 // Generic, and the recorder takes its root and strip as closures, for the
 // search tree of Árboles II (#322): there `root` starts empty and changes with
 // every insertion. Here every tree is built once and never changes shape.
-interface TreeNode<V extends TreeValue = TreeValue> {
+export interface TreeNode<V extends TreeValue = TreeValue> {
   id: number;
   value: V;
   left: TreeNode<V> | null;
@@ -41,7 +44,7 @@ interface TreeNode<V extends TreeValue = TreeValue> {
 }
 
 /** A search tree holds numbers only: its operations compare them. */
-type NumberNode = TreeNode<number>;
+export type NumberNode = TreeNode<number>;
 
 type Traversal = Exclude<BinaryTreeOperation, 'height' | 'search'>;
 
@@ -165,7 +168,7 @@ const TRAVERSAL_NAME: Record<Traversal, string> = {
 const signed = (n: number): string => (n < 0 ? `−${-n}` : String(n));
 
 let nextId = 0;
-const nodeOf = <V extends TreeValue>(value: V): TreeNode<V> => ({
+export const nodeOf = <V extends TreeValue>(value: V): TreeNode<V> => ({
   id: (nextId += 1),
   value,
   left: null,
@@ -216,7 +219,7 @@ function fromLevelOrder(levels: (TreeValue | null)[]): TreeNode {
 }
 
 /** Every node with its depth, root first, each before its children (the order frames list them). */
-function nodesOf(root: TreeNode | null): { node: TreeNode; depth: number }[] {
+export function nodesOf(root: TreeNode | null): { node: TreeNode; depth: number }[] {
   const out: { node: TreeNode; depth: number }[] = [];
   const walk = (n: TreeNode | null, depth: number) => {
     if (n === null) return;
@@ -247,14 +250,23 @@ function inorderColumns(root: TreeNode): Record<number, number> {
  * The frame list every tree operation is written into. It owns the paint
  * (state and badge per node), the calls still open, the running cost and the
  * deepest level any frame reached, and turns them into one frame per `push`.
+ *
+ * A rotation (#322) adds two things. `loose` holds the nodes a local variable
+ * keeps that no link from the root reaches — `q`, between `p.left = q.right`
+ * and the caller taking it — so they stay on the drawing. And while `frozen`,
+ * every node keeps the level it had in the last frame: the method changes
+ * links, not places, and the tree settles only when the caller takes `q`.
  */
-class TreeRecorder {
+export class TreeRecorder {
   readonly steps: SequenceStep[] = [];
   readonly state = new Map<number, SequenceCellState>();
   readonly badge = new Map<number, string>();
   readonly path: number[] = [];
+  readonly loose: TreeNode[] = [];
+  frozen = false;
   cost = 0;
   depth = 0;
+  private readonly lastDepth = new Map<number, number>();
   private readonly code: string;
   private readonly rootOf: () => TreeNode | null;
   private readonly stripOf: () => (TreeValue | null)[];
@@ -293,7 +305,19 @@ class TreeRecorder {
     probe?: TreeFrame['probe'],
   ) {
     const root = this.rootOf();
-    const nodes: TreeFrameNode[] = nodesOf(root).map(({ node: n, depth }) => {
+    // Root first, then whatever only a local variable still holds; a node two
+    // references reach (`p.left` and `q.right` mid-rotation) is drawn once.
+    const seen = new Set<number>();
+    const placed: { node: TreeNode; depth: number }[] = [];
+    for (const start of [root, ...this.loose]) {
+      for (const { node, depth } of nodesOf(start)) {
+        if (seen.has(node.id)) continue;
+        seen.add(node.id);
+        placed.push({ node, depth: this.frozen ? (this.lastDepth.get(node.id) ?? depth) : depth });
+      }
+    }
+    const nodes: TreeFrameNode[] = placed.map(({ node: n, depth }) => {
+      this.lastDepth.set(n.id, depth);
       this.depth = Math.max(this.depth, depth);
       const out: TreeFrameNode = {
         id: n.id,
@@ -399,7 +423,7 @@ export function traceSearchTree(operation: BstOperation, input: SequenceInput): 
 }
 
 /** The result every tree operation hands back, sized for the whole run. */
-function finish(
+export function finish(
   rec: TreeRecorder,
   code: string,
   columns: Record<number, number>,
@@ -631,7 +655,11 @@ function traceSearchAnywhere(root: TreeNode, targets: number[]): SequenceTrace {
 // ── bst: built by inserting, and every operation chooses a side ───────────
 
 /** Inserts with no frames: the tree a `bst` slide starts from. */
-function bstOf(values: number[], columnOf: (v: number) => number, columns: Record<number, number>) {
+export function bstOf(
+  values: number[],
+  columnOf: (v: number) => number,
+  columns: Record<number, number>,
+) {
   let root: NumberNode | null = null;
   const place = (v: number): NumberNode => {
     const fresh = nodeOf(v);
@@ -658,7 +686,7 @@ function bstOf(values: number[], columnOf: (v: number) => number, columns: Recor
 }
 
 /** Every value the run ever holds, sorted: a value's column is its rank here. */
-function columnsFor(values: number[]): (v: number) => number {
+export function columnsFor(values: number[]): (v: number) => number {
   const sorted = [...new Set(values)].sort((a, b) => a - b);
   return (v) => sorted.indexOf(v);
 }

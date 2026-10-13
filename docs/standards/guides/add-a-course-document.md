@@ -874,6 +874,17 @@ and `remove` (`target`) runs the three cases — a leaf, one child, and two
 children by copying the successor's value into the node and removing the
 successor. `search` keeps one name over the chains and both trees, `insert`
 over the heap and `bst`.
+Since #322 a third tree recipe, `avl`, rotates: `rotate-right` and
+`rotate-left` (`target`, the node that rotates; it needs the child that goes
+up), valid on no other recipe. For them `values` builds a PLAIN search tree,
+inserted in that order with no rebalancing, so a slide can rotate a tree
+that leans (`values={[3, 2, 1]} target={3}`). One frame per reference the
+method changes; every node holds its level until the caller takes `q`, so
+the frames in between show a subtree with two parents and `q` pointing back
+up at `p` — that reference gets an arrowhead — and the strip keeps the same
+inorder from the first frame to the last. The listing is the class's
+rotation before the AVL gives its nodes a height (ADR-0083, *Amended by
+#322*).
 `values` is the starting contents; `value` feeds the inserts, `index` the
 positional operations (`get-at` included), and `target` both `search` and
 `insert-ordered`.

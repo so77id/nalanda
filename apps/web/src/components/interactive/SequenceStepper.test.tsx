@@ -902,6 +902,78 @@ describe('<SequenceStepper> · the bst recipe (#321)', () => {
   });
 });
 
+describe('<SequenceStepper> · the avl recipe (#322)', () => {
+  const forward = (times: number) => {
+    for (let i = 0; i < times; i += 1) {
+      fireEvent.click(screen.getByRole('button', { name: 'Adelante' }));
+    }
+  };
+  const view = () => screen.getByTestId('tree-view');
+
+  it('draws the reference q.right = p with an arrowhead, since it points up', () => {
+    renderIn(
+      'book',
+      <SequenceStepper eda="avl" operation="rotate-right" values={[6, 4, 7, 2, 5]} target={6} />,
+    );
+    expect(view().querySelectorAll('[data-edge-up]')).toHaveLength(0);
+    forward(3);
+    const up = [...view().querySelectorAll('[data-edge-up]')];
+    expect(up.map((e) => e.getAttribute('data-edge-up'))).toEqual(['4-6']);
+    forward(1);
+    expect(view().querySelectorAll('[data-edge-up]')).toHaveLength(0);
+  });
+
+  it('keeps the one node only q holds on the drawing', () => {
+    renderIn(
+      'book',
+      <SequenceStepper eda="avl" operation="rotate-right" values={[6, 4, 7, 2, 5]} target={6} />,
+    );
+    forward(2);
+    const values = [...view().querySelectorAll('[data-node]')].map((n) =>
+      Number(n.getAttribute('data-value')),
+    );
+    expect(values.sort((a, b) => a - b)).toEqual([2, 4, 5, 6, 7]);
+  });
+
+  it('writes p and q beside the two nodes that rotate', () => {
+    renderIn(
+      'book',
+      <SequenceStepper eda="avl" operation="rotate-left" values={[1, 2, 3]} target={1} />,
+    );
+    forward(1);
+    expect(within(view()).getByText('p')).toBeInTheDocument();
+    expect(within(view()).getByText('q')).toBeInTheDocument();
+  });
+
+  it('names the AVL tree in the chip, and a rotation in the legend', () => {
+    renderIn(
+      'book',
+      <SequenceStepper eda="avl" operation="rotate-right" values={[3, 2, 1]} target={3} />,
+    );
+    expect(screen.getByText(/árbol AVL/)).toBeInTheDocument();
+    expect(screen.getByText('rotan')).toBeInTheDocument();
+    expect(screen.getByText('cambia de padre')).toBeInTheDocument();
+  });
+
+  it('refuses a rotation on another tree, and says where it lives', () => {
+    renderIn(
+      'book',
+      <SequenceStepper eda="bst" operation="rotate-right" values={[3, 2, 1]} target={3} />,
+    );
+    expect(screen.getByText(/árbol de búsqueda tiene listado/)).toBeInTheDocument();
+    renderIn('book', <SequenceStepper eda="dynamic-array" operation="rotate-left" values={[1]} />);
+    expect(screen.getByText(/eda="avl"/)).toBeInTheDocument();
+  });
+
+  it('tells the author which child is missing for the rotation asked', () => {
+    renderIn(
+      'book',
+      <SequenceStepper eda="avl" operation="rotate-right" values={[1, 2, 3]} target={1} />,
+    );
+    expect(screen.getByText(/hijo izquierdo que suba/)).toBeInTheDocument();
+  });
+});
+
 describe('<SequenceStepper> · the combinations 21-edd-arboles-i mounts', () => {
   // Pinned here because `app/contentRenders.test.tsx` never mounts the lazy
   // widget (apps/web/CLAUDE.md §2, class 4). Named for the act and slide they

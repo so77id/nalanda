@@ -74,24 +74,35 @@ export function TreeView({
             const e = treeEdge(at(n.id), at(child));
             const lit = hot.has(`${n.id}-${child}`);
             // An edge into a subtree the search ruled out fades with it (#322).
-            const out = byId.get(child)?.state === 'discarded';
+            const target = byId.get(child)!;
+            const out = target.state === 'discarded';
+            const stroke = lit
+              ? 'var(--color-focus)'
+              : out
+                ? 'var(--color-rule)'
+                : 'var(--color-rule-strong)';
+            // A reference whose node is not below its holder — `q.right = p`
+            // mid-rotation — would read as an ordinary child the other way
+            // round, so it carries an arrowhead at the node it points at.
+            const up = target.depth <= n.depth;
             return (
-              <line
+              <g
                 key={`${n.id}-${child}`}
-                x1={e.x1}
-                y1={e.y1}
-                x2={e.x2}
-                y2={e.y2}
-                stroke={
-                  lit
-                    ? 'var(--color-focus)'
-                    : out
-                      ? 'var(--color-rule)'
-                      : 'var(--color-rule-strong)'
-                }
-                strokeWidth={lit ? 2.6 : 1.2}
-                strokeDasharray={out ? '4 3' : undefined}
-              />
+                data-edge-up={up ? `${n.value}-${target.value}` : undefined}
+              >
+                <line
+                  x1={e.x1}
+                  y1={e.y1}
+                  x2={e.x2}
+                  y2={e.y2}
+                  stroke={stroke}
+                  strokeWidth={lit ? 2.6 : 1.2}
+                  strokeDasharray={out ? '4 3' : undefined}
+                />
+                {up ? (
+                  <Arrowhead x={e.x2} y={e.y2} from={{ x: e.x1, y: e.y1 }} color={stroke} />
+                ) : null}
+              </g>
             );
           }),
         )}
@@ -205,6 +216,28 @@ export function TreeView({
         })}
       </svg>
     </div>
+  );
+}
+
+/** A small filled head at the end of a reference, pointing the way it runs. */
+function Arrowhead({
+  x,
+  y,
+  from,
+  color,
+}: {
+  x: number;
+  y: number;
+  from: { x: number; y: number };
+  color: string;
+}) {
+  const angle = (Math.atan2(y - from.y, x - from.x) * 180) / Math.PI;
+  return (
+    <polygon
+      points="0,0 -8,-4.5 -8,4.5"
+      transform={`translate(${x} ${y}) rotate(${angle})`}
+      fill={color}
+    />
   );
 }
 

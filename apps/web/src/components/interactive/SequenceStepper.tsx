@@ -17,6 +17,7 @@ import {
 } from './sequenceStepperLayout';
 import { CELL_FILL, CELL_NOTE, CELL_STROKE } from './sequenceStepperPaint';
 import {
+  AVL_OPERATIONS,
   BINARY_TREE_OPERATIONS,
   BST_OPERATIONS,
   CIRCULAR_OPERATIONS,
@@ -26,10 +27,12 @@ import {
   RECIPES,
   BST_ONLY_OPERATIONS,
   TREE_ONLY_OPERATIONS,
+  isAvlOperation,
   isBinaryTreeOperation,
   isBstOperation,
   isValidCombination,
   traceFor,
+  type AvlOperation,
   type BinaryTreeOperation,
   type BstOperation,
   type SequenceCell,
@@ -80,7 +83,9 @@ export interface SequenceStepperProps {
   /**
    * The value looked for. Required by `search` and `insert-ordered`. An
    * ARRAY searches each in turn, so one widget can show the hit at the
-   * front, the hit at the back and the value that is not there.
+   * front, the hit at the back and the value that is not there. On the
+   * trees, the node an operation acts on: `successor` and `remove` on `bst`,
+   * the node that rotates on `avl`.
    */
   target?: number | number[];
   /**
@@ -158,8 +163,16 @@ function refusalReason(
       (o) => OPERATION_LABEL[o],
     ).join(', ')}.`;
   }
+  if (recipe === 'avl') {
+    return `el árbol AVL tiene listado para: ${AVL_OPERATIONS.map((o) => OPERATION_LABEL[o]).join(
+      ', ',
+    )}.`;
+  }
   // The tree-only sets, not every tree operation: `search` and `insert` are
   // shared, and a structure that refuses them has its own reason.
+  if (AVL_OPERATIONS.includes(operation)) {
+    return 'es una operación del árbol AVL. Úsala con eda="avl".';
+  }
   if (BST_ONLY_OPERATIONS.includes(operation)) {
     return 'es una operación del árbol de búsqueda. Úsala con eda="bst".';
   }
@@ -186,6 +199,7 @@ const RECIPE_LABEL: Record<SequenceRecipe, string> = {
   'heap-max': 'heap (máximo)',
   'binary-tree': 'árbol binario',
   bst: 'árbol binario de búsqueda',
+  avl: 'árbol AVL',
 };
 
 const OPERATION_LABEL: Record<SequenceOperation, string> = {
@@ -207,6 +221,8 @@ const OPERATION_LABEL: Record<SequenceOperation, string> = {
   minimum: 'buscar el mínimo',
   successor: 'buscar el sucesor',
   remove: 'eliminar',
+  'rotate-right': 'rotar a la derecha',
+  'rotate-left': 'rotar a la izquierda',
 };
 
 const UNDER_THE_EYE: [string, string] = ['border-focus bg-surface', 'bajo la mirada'];
@@ -239,6 +255,18 @@ const SEARCH_TREE_LEGEND: Record<BstOperation, [string, string][]> = {
   ],
 };
 
+/** A rotation paints the two nodes it exchanges and the subtree that changes parent. */
+const AVL_LEGEND: Record<AvlOperation, [string, string][]> = {
+  'rotate-right': [
+    ['border-accent bg-surface', 'rotan'],
+    ['border-mark bg-mark-soft', 'cambia de padre'],
+  ],
+  'rotate-left': [
+    ['border-accent bg-surface', 'rotan'],
+    ['border-mark bg-mark-soft', 'cambia de padre'],
+  ],
+};
+
 /** The legend of a tree run, or null when the run is not a tree's. */
 function treeLegend(
   recipe: SequenceRecipe,
@@ -246,6 +274,7 @@ function treeLegend(
 ): [string, string][] | null {
   if (recipe === 'binary-tree' && isBinaryTreeOperation(operation)) return TREE_LEGEND[operation];
   if (recipe === 'bst' && isBstOperation(operation)) return SEARCH_TREE_LEGEND[operation];
+  if (recipe === 'avl' && isAvlOperation(operation)) return AVL_LEGEND[operation];
   return null;
 }
 
@@ -474,7 +503,7 @@ function Body({
 }: BodyProps) {
   const mode = useMode();
   const heap = recipe === 'heap-max';
-  const tree = recipe === 'binary-tree' || recipe === 'bst';
+  const tree = recipe === 'binary-tree' || recipe === 'bst' || recipe === 'avl';
   const legend = treeLegend(recipe, operation);
   const isPresentation = mode === 'presentation';
   const outerRef = useRef<HTMLElement | null>(null);

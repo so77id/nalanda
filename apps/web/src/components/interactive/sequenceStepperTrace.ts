@@ -26,6 +26,7 @@
  */
 
 import { asRuns, lineOf, requireRuns } from './sequenceStepperTraceShared';
+import { traceAvl } from './sequenceStepperAvlTrace';
 import { traceSearchTree, traceTree } from './sequenceStepperTreeTrace';
 
 export const RECIPES = [
@@ -44,6 +45,10 @@ export const RECIPES = [
   // its operations choose a side. Same widget, same frame model plus a tree.
   'binary-tree',
   'bst',
+  // The AVL tree (#322): a search tree that keeps its shape. It rotates, and
+  // a rotation changes links, not the inorder, so it shares the tree view
+  // and the column of every node.
+  'avl',
 ] as const;
 export type SequenceRecipe = (typeof RECIPES)[number];
 
@@ -74,6 +79,10 @@ export const OPERATIONS = [
   'minimum',
   'successor',
   'remove',
+  // The AVL tree's own (#322): the rotation, the tool its insertions and
+  // removals use to keep the shape, shown on its own first.
+  'rotate-right',
+  'rotate-left',
 ] as const;
 export type SequenceOperation = (typeof OPERATIONS)[number];
 
@@ -105,7 +114,11 @@ export type SequenceCellState =
   | 'found'
   | 'leaving'
   | 'stale'
-  /** Heap: one of the two cells being exchanged by `swap` this frame. */
+  /**
+   * Heap: one of the two cells being exchanged by `swap` this frame. AVL:
+   * one of the two nodes a rotation exchanges, the one going up and the one
+   * going down.
+   */
   | 'swap'
   /** Tree: a node the operation has already finished with. */
   | 'visited'
@@ -125,10 +138,18 @@ export interface TreeFrameNode {
   value: TreeValue;
   left: number | null;
   right: number | null;
-  /** The node's level, the root's 0: the row the view draws it on. */
+  /**
+   * The node's level, the root's 0: the row the view draws it on. While a
+   * rotation runs, every node keeps the level it had — the method changes
+   * links, not places — so a reference can point UP (`q.right = p`) before
+   * the caller takes `q`; the view draws that one with an arrowhead.
+   */
   depth: number;
   state: SequenceCellState;
-  /** A short mark beside the node: its visit order, or what its call returned. */
+  /**
+   * A short mark beside the node: its visit order, what its call returned,
+   * or the name a rotation's listing gives it (`p`, `q`).
+   */
   badge?: string;
 }
 
@@ -419,8 +440,15 @@ const BINARY_TREE_ONLY_NAMES = ['preorder', 'inorder', 'postorder', 'height'] as
 const BST_ONLY_NAMES = ['minimum', 'successor', 'remove'] as const;
 export const BST_ONLY_OPERATIONS: readonly SequenceOperation[] = BST_ONLY_NAMES;
 
+/** The operations only `avl` has (#322): the rotations, its tool. */
+const AVL_ONLY_NAMES = ['rotate-right', 'rotate-left'] as const;
+
 /** The operations only a tree has; `search` and `insert` are shared. */
-const TREE_OPERATION_NAMES = [...BINARY_TREE_ONLY_NAMES, ...BST_ONLY_NAMES] as const;
+const TREE_OPERATION_NAMES = [
+  ...BINARY_TREE_ONLY_NAMES,
+  ...BST_ONLY_NAMES,
+  ...AVL_ONLY_NAMES,
+] as const;
 type TreeOperation = (typeof TREE_OPERATION_NAMES)[number];
 export const TREE_ONLY_OPERATIONS: readonly SequenceOperation[] = TREE_OPERATION_NAMES;
 
@@ -444,6 +472,15 @@ export function isBstOperation(operation: SequenceOperation): operation is BstOp
   return BST_OPERATIONS.includes(operation);
 }
 
+/** What `avl` has a listing for. */
+const AVL_OPERATION_NAMES = [...AVL_ONLY_NAMES] as const;
+export type AvlOperation = (typeof AVL_OPERATION_NAMES)[number];
+export const AVL_OPERATIONS: readonly SequenceOperation[] = AVL_OPERATION_NAMES;
+
+export function isAvlOperation(operation: SequenceOperation): operation is AvlOperation {
+  return AVL_OPERATIONS.includes(operation);
+}
+
 export function isValidCombination(
   recipe: SequenceRecipe,
   operation: SequenceOperation,
@@ -453,6 +490,7 @@ export function isValidCombination(
   if (recipe === 'heap-max') return heapOperation;
   if (recipe === 'binary-tree') return BINARY_TREE_OPERATIONS.includes(operation);
   if (recipe === 'bst') return BST_OPERATIONS.includes(operation);
+  if (recipe === 'avl') return AVL_OPERATIONS.includes(operation);
   if (heapOperation || TREE_ONLY_OPERATIONS.includes(operation)) return false;
   if (operation === 'insert-ordered' && !isList(recipe)) return false;
   if (recipe === 'linked-list-circular') return CIRCULAR_OPERATIONS.includes(operation);
@@ -478,6 +516,7 @@ export function traceFor(
     return traceTree(operation, input);
   }
   if (recipe === 'bst' && isBstOperation(operation)) return traceSearchTree(operation, input);
+  if (recipe === 'avl' && isAvlOperation(operation)) return traceAvl(operation, input);
   return isList(recipe) ? traceList(recipe, operation, input) : traceArray(operation, input);
 }
 
@@ -571,6 +610,8 @@ const METHOD_NAME: Record<SequenceOperation, string> = {
   minimum: 'min',
   successor: 'successor',
   remove: 'remove',
+  'rotate-right': 'rotateRight',
+  'rotate-left': 'rotateLeft',
 };
 
 // ── the array family ──────────────────────────────────────────────────────
@@ -1053,6 +1094,8 @@ function runArgs(operation: SequenceOperation, input: SequenceInput): string[] {
     case 'minimum':
     case 'successor':
     case 'remove':
+    case 'rotate-right':
+    case 'rotate-left':
       return [];
   }
 }
@@ -1301,6 +1344,8 @@ function listCode(recipe: SequenceRecipe, operation: SequenceOperation, tail: bo
     case 'minimum':
     case 'successor':
     case 'remove':
+    case 'rotate-right':
+    case 'rotate-left':
       throw new Error(`«${operation}» es una operación de árbol, no de una lista.`);
   }
 }

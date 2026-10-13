@@ -33,7 +33,7 @@ const values = [7, 3, 1, 5];
  * iterates RECIPES and feeds the heap a starting array that already is one.
  */
 const SEQUENCE_RECIPES = RECIPES.filter(
-  (r) => r !== 'heap-max' && r !== 'binary-tree' && r !== 'bst',
+  (r) => r !== 'heap-max' && r !== 'binary-tree' && r !== 'bst' && r !== 'avl',
 );
 /** The tree operations no other kind of recipe has (`search` is everyone's). */
 const TRAVERSALS = ['preorder', 'inorder', 'postorder'] as const;
@@ -43,9 +43,18 @@ const TREE_ONLY: readonly SequenceOperation[] = [
   'minimum',
   'successor',
   'remove',
+  'rotate-right',
+  'rotate-left',
 ];
+// The AVL's sweep rotates at 1, which needs both children: 3 over 1, 1 over 0 and 2.
 const startFor = (recipe: SequenceRecipe, operation: SequenceOperation): number[] =>
-  recipe === 'heap-max' ? [7, 5, 3, 1] : operation === 'insert-ordered' ? [1, 3, 7, 9] : values;
+  recipe === 'heap-max'
+    ? [7, 5, 3, 1]
+    : recipe === 'avl'
+      ? [3, 1, 0, 2]
+      : operation === 'insert-ordered'
+        ? [1, 3, 7, 9]
+        : values;
 
 describe('sequenceStepperTrace · the valid combinations', () => {
   it('rejects insert-ordered on the dynamic array', () => {
@@ -1624,7 +1633,7 @@ describe('sequenceStepperTrace · binary-tree · the valid combinations', () => 
   });
 
   it('keeps the tree operations off every recipe that is not a tree', () => {
-    for (const recipe of RECIPES.filter((r) => r !== 'binary-tree' && r !== 'bst')) {
+    for (const recipe of RECIPES.filter((r) => r !== 'binary-tree' && r !== 'bst' && r !== 'avl')) {
       for (const operation of TREE_ONLY) {
         expect(isValidCombination(recipe, operation), `${recipe} × ${operation}`).toBe(false);
       }

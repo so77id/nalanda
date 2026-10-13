@@ -8,6 +8,7 @@
 picture of its own, the way ADR-0077 added the heap's. ADR-0077 still holds
 entirely, and so does ADR-0074 but for the `size` readout, which the tree does
 not show (`Amended by: #321` there).
+**Amended by:** #322 (Árboles II): the `avl` recipe and its rotations, §6.
 
 ## Context
 
@@ -143,6 +144,43 @@ mount them, so the ADR is Accepted with the professor's review of the recipes
 running in `/catalog/c/SequenceStepper` still outstanding (#321 review, B14):
 that review, not the code, is what closes it.
 
+### 6. Amendment, #322: `avl`, and the rotation shown one assignment at a time
+
+Árboles II teaches the rotation as a tool before the AVL tree that uses it,
+so a third tree recipe, `avl`, starts with `rotate-right` and `rotate-left`
+(`target`, the node that rotates), valid on no other recipe. Its trace is a
+module of its own, `sequenceStepperAvlTrace.ts`, built on the pieces
+`sequenceStepperTreeTrace.ts` exports (the node, the recorder, the search
+tree built by inserting, the run's columns).
+
+- **`values` builds a PLAIN search tree** for the rotations, inserted in that
+  order with no rebalancing: the act shows rotating a tree that leans, before
+  anything says when to rotate.
+- **One frame per assignment**, the rule StepShow follows (Miguel, #209):
+  `q = p.left`, `p.left = q.right`, `q.right = p`, `return q`. The listing is
+  the class's method before the AVL gives its nodes a height.
+- **Every node holds its level until the caller takes `q`.** Between the
+  second assignment and the return the structure is not a tree — a subtree
+  with two parents, then `q` pointing back up at `p` while nobody points at
+  `q` — and drawing it as it is IS the lesson: the method changes links, not
+  places. Recomputing the levels at every frame would make the nodes jump
+  while the code moves nothing. The recorder gained `loose` (nodes only a
+  local variable holds, drawn anyway) and `frozen` (levels kept from the
+  last frame) for this.
+- **A reference that does not point down gets an arrowhead.** An edge is
+  read parent above child; `q.right = p` with `q` below would read as the
+  opposite link.
+- **The strip keeps one inorder through every frame** — the claim the act
+  makes, drawn instead of asserted. The columns are the values' ranks, as on
+  `bst`, so in the frame where the tree settles the nodes only move up or
+  down.
+- **`p` and `q` are written beside their nodes**, the listing's names, and
+  the two nodes paint in `accent`, the unit's "being moved" token; the
+  subtree that changes parent paints in `mark`. Colour is never the only
+  signal: the badges and the narration name all three.
+
+Proposed, like the rest, until the professor reviews it running.
+
 ## Alternatives considered
 
 - **A `<TreeStepper>` widget of its own.** Refused for the reason ADR-0077
@@ -163,7 +201,8 @@ that review, not the code, is what closes it.
   `inorder`, `postorder`, `height`, `search`} and `bst` × {`search`,
   `insert`, `minimum`, `successor`, `remove`}; the seven tree-only
   operations are valid on nothing else
-  (`add-a-course-document.md` §5h carries it).
+  (`add-a-course-document.md` §5h carries it). #322 adds a third row,
+  `avl` × {`rotate-right`, `rotate-left`}, also valid on nothing else.
 - `SequenceCellState` gains `visited` and `discarded`; `SequenceStep` gains
   `tree`; `SequenceTrace` gains `tree` (columns, slots, depth, and whether
   it has a strip);
