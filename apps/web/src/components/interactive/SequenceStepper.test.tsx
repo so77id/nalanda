@@ -1195,7 +1195,7 @@ describe('<SequenceStepper> · the combinations 22-edd-arboles-ii mounts', () =>
       },
     },
     {
-      act: 'Las operaciones del árbol de búsqueda',
+      act: 'El árbol binario de búsqueda',
       slide: 'El código de la búsqueda',
       props: {
         eda: 'bst',
@@ -1206,7 +1206,7 @@ describe('<SequenceStepper> · the combinations 22-edd-arboles-ii mounts', () =>
       },
     },
     {
-      act: 'Las operaciones del árbol de búsqueda',
+      act: 'El árbol binario de búsqueda',
       slide: 'Insertar en un árbol de búsqueda',
       props: {
         eda: 'bst',
@@ -1217,7 +1217,7 @@ describe('<SequenceStepper> · the combinations 22-edd-arboles-ii mounts', () =>
       },
     },
     {
-      act: 'Las operaciones del árbol de búsqueda',
+      act: 'El árbol binario de búsqueda',
       slide: 'Un árbol armado con inserciones',
       props: {
         eda: 'bst',
@@ -1228,12 +1228,12 @@ describe('<SequenceStepper> · the combinations 22-edd-arboles-ii mounts', () =>
       },
     },
     {
-      act: 'Las operaciones del árbol de búsqueda',
+      act: 'El árbol binario de búsqueda',
       slide: 'El código del inorden',
       props: { eda: 'binary-tree', operation: 'inorder', values: [8, 4, 12, 2, 6, 10, 14] },
     },
     {
-      act: 'Las operaciones del árbol de búsqueda',
+      act: 'El árbol binario de búsqueda',
       slide: 'El mínimo y el máximo',
       props: {
         eda: 'bst',
@@ -1243,7 +1243,7 @@ describe('<SequenceStepper> · the combinations 22-edd-arboles-ii mounts', () =>
       },
     },
     {
-      act: 'Las operaciones del árbol de búsqueda',
+      act: 'El árbol binario de búsqueda',
       slide: 'El sucesor y el predecesor',
       props: {
         eda: 'bst',
@@ -1253,7 +1253,7 @@ describe('<SequenceStepper> · the combinations 22-edd-arboles-ii mounts', () =>
       },
     },
     {
-      act: 'Las operaciones del árbol de búsqueda',
+      act: 'El árbol binario de búsqueda',
       slide: 'El código de la eliminación',
       props: {
         eda: 'bst',
