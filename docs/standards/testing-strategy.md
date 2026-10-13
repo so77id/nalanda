@@ -821,6 +821,20 @@ page-only, invisible to every other gate.
      is decoration: two of the four written for #102 asserted shell markup and
      passed with the preload gone.
 
+  **The preload itself has a cost that grows with the course, and its
+  ceiling was raised once.** Six files load every document in their
+  `beforeAll` (`App`, `contentRenders`, `documentDrawer`, `documentSections`,
+  `presentationRoute`, `questionReaders`), and whichever runs first also pays
+  the MDX compile of all of them. #321 added the largest class so far and the
+  default 10 s ran out under the full parallel suite, so the six got 30 s.
+  Measured in its review (one worker, a loaded machine): loading all 21
+  documents took 4.2 s, Árboles I the largest at 0.85 s; `questionReaders`'
+  load-and-render 6.8 s. The cost is linear in the source — no document is
+  pathological — so it is load plus volume, not a slow path. **Do not raise the
+  ceiling a second time.** When it runs out again, stop paying the
+  all-documents load in six places: fold the assertions into fewer files, or
+  share one compiled pass between them.
+
   **Prove it in both directions rather than asserting it.** Patch each entry so
   its FIRST resolution is delayed and later calls are served from cache, which
   is how `import()` really behaves:

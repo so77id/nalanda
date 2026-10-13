@@ -184,6 +184,19 @@ src/
   writing anything here: an unlayered declaration in this file overrides every
   Tailwind utility on the page, which is how a `border-radius` in `:focus-visible`
   silently reshaped every focused button (#83).
+
+  **A component that overrides a vendor's unlayered rule only in some
+  situations uses an important utility instead**, on the element it renders:
+  `[&_.cm-editor]:!h-full`. An important declaration inside a layer beats an
+  unlayered normal one, so it wins without leaving the component, and it applies
+  only where the component puts it — a global rule would reach every editor on
+  the page. The test between the two is the condition: an override every
+  instance needs goes in `styles/index.css`; one that depends on a prop, a mode
+  or a container stays on the component. One spelling, the `!` prefix (Tailwind
+  v4 also accepts a `!` suffix; #321 shipped one and moved it to the prefix).
+  Worked cases: the steppers' editors fill their panel (`SortStepper`,
+  `MergeStepper`, `PartitionStepper`, `SequenceStepper`), and `CodeEditor`
+  centres its lines only inside `<SideBySide align="center">` (#321).
 - **The deployment base path is declared once**, in `vite.config.ts` (`outDir`
   stays at the Vite default); runtime code derives from `import.meta.env.BASE_URL`
   and CI never overrides it on the command line — a CI-only flag makes local
