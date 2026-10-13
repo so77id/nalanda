@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { layoutTree } from '../interactive/sequenceStepperTreeLayout';
-import { TREE_NODE_R } from '../treeGeometry';
+import { TREE_NODE_R, TREE_SLOT_H } from '../treeGeometry';
 import {
   layoutPicture,
   placeTree,
@@ -138,6 +138,18 @@ describe('binaryPictureLayout · layoutPicture', () => {
     expect(strip.treeHeight).toBeGreaterThan(bare.treeHeight);
     const deepest = Math.max(...placed.nodes.map((n) => strip.cy(n)));
     expect(strip.stripY).toBeGreaterThan(deepest + strip.r);
+  });
+
+  it('keeps one row per level under the tree for the splits, the first where the strip goes', () => {
+    const placed = placeTree(EXPR);
+    const strip = layoutPicture(placed, { strip: true });
+    const splits = layoutPicture(placed, { splits: true });
+    expect(splits.splitRowY(0)).toBe(strip.stripY);
+    // Every row below the first, one per level, each under the one above.
+    for (let d = 1; d <= placed.depth; d += 1) {
+      expect(splits.splitRowY(d)).toBeGreaterThan(splits.splitRowY(d - 1) + TREE_SLOT_H);
+    }
+    expect(splits.treeHeight).toBeGreaterThan(splits.splitRowY(placed.depth) + TREE_SLOT_H);
   });
 
   it('keeps room for the row of chips under the tree when the sequence is drawn', () => {

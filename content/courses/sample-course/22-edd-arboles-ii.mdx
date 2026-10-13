@@ -100,7 +100,7 @@ con el medio de la mitad izquierda; si es mayor, con el medio de la derecha;
 y así. Dibujadas, esas decisiones forman un **árbol binario**: el elemento del
 medio es la raíz, y cada mitad, un subárbol armado con la misma regla.
 
-<BinaryPicture tree={EVENS} strip label="El árbol de decisiones de una búsqueda binaria sobre el arreglo 2, 4, 6, 8, 10, 12, 14. La raíz es 8; a la izquierda, 4, con hijos 2 y 6; a la derecha, 12, con hijos 10 y 14. Debajo, el arreglo ordenado, con cada valor exactamente bajo su nodo." caption="el arreglo ordenado es el inorden del árbol" />
+<BinaryPicture tree={EVENS} splits label="El árbol de decisiones de una búsqueda binaria sobre el arreglo 2, 4, 6, 8, 10, 12, 14. La raíz es 8; a la izquierda, 4, con hijos 2 y 6; a la derecha, 12, con hijos 10 y 14. Cada nivel del árbol tiene un color, y debajo, en una fila por nivel, el arreglo partido como lo parte la búsqueda: entero, con el 8 en el medio; en dos mitades, 2, 4, 6 con el 4 en el medio y 10, 12, 14 con el 12; y en valores sueltos, el 2, el 6, el 10 y el 14. Cada valor queda bajo su nodo, y cada tramo, del color de su nodo." caption="cada nodo es el medio de su tramo; sus hijos, los medios de las dos mitades" />
 
 Cada búsqueda es un camino desde la raíz hacia abajo, y el arreglo ordenado
 es el inorden del árbol: cada valor queda debajo de su nodo.

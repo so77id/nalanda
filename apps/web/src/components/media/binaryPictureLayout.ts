@@ -103,6 +103,11 @@ export interface PictureOptions {
   frames?: boolean;
   /** One slot per column under the tree. */
   strip?: boolean;
+  /**
+   * A binary search's divisions: one row per level under the tree, each
+   * node's stretch of the sorted array in it. The first row is the strip.
+   */
+  splits?: boolean;
   /** Width of the row of chips under the tree, when it is drawn. */
   sequenceWidth?: number;
   caption?: string;
@@ -124,6 +129,8 @@ export interface PictureCanvas {
   fullHeight: number;
   /** Top of the strip. */
   stripY: number;
+  /** Top of the row of splits of a level; the first is the strip's. */
+  splitRowY: (depth: number) => number;
   /** Top of the row of chips. */
   sequenceY: number;
   /** Where the drawing starts: it is centred in a canvas a caption or chips widened. */
@@ -141,6 +148,9 @@ export interface PictureCanvas {
   /** The y of a level. */
   rowY: (depth: number) => number;
 }
+
+/** The gap between two rows of splits. */
+export const SPLIT_GAP = 8;
 
 /** A chip of the visit sequence, as wide as its value. */
 export const chipWidth = (value: TreeValue): number => String(value).length * 9 + 40;
@@ -165,7 +175,12 @@ export function layoutPicture(placed: PlacedTree, options: PictureOptions): Pict
   // The strip goes under everything a level can carry, one slot per column.
   const stripY =
     2 * pad + 2 * r + placed.depth * levelH + (options.notes ? 12 : 0) + holeRoom + frameRoom + 6;
-  const treeHeight = options.strip ? stripY + TREE_SLOT_H + pad : stripY - 6;
+  const splitRowY = (depth: number) => stripY + depth * (TREE_SLOT_H + SPLIT_GAP);
+  const treeHeight = options.splits
+    ? splitRowY(placed.depth) + TREE_SLOT_H + pad
+    : options.strip
+      ? stripY + TREE_SLOT_H + pad
+      : stripY - 6;
   const drawn = options.sequenceWidth !== undefined;
   const fullHeight = treeHeight + (drawn ? 42 : 0);
   // minColumns gives figures set side by side one canvas width; the tree is centred in it.
@@ -190,6 +205,7 @@ export function layoutPicture(placed: PlacedTree, options: PictureOptions): Pict
     treeHeight,
     fullHeight,
     stripY,
+    splitRowY,
     sequenceY: treeHeight + 6,
     offset,
     drawingWidth,

@@ -1296,6 +1296,11 @@ beside its line of code. To walk an operation frame by frame, use the widget.
   arrow from each visit to the next; `sequence` writes the order as a row of
   chips; `until` stops it at a value, as a search does; `strip` writes the
   inorder under the tree, each value under its own node.
+- **A binary search's divisions**: `splits` replaces the strip with one row
+  per level — every node over the stretch of the sorted array it halves, the
+  node filled as its middle — and gives each level a colour its nodes and
+  stretches share (a written tone still wins). Árboles II's decision tree
+  (#322).
 - **A recursion**: `path` lights the open calls from the root down; `probe`
   (`{ at, side: 'l' | 'r' }`) draws a call that landed on an empty side;
   `holes` draws the empty trees (all, or under a list of values — an empty

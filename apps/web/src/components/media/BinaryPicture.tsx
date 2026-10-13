@@ -36,6 +36,14 @@ export interface BinaryPictureProps {
   levels?: boolean;
   /** The inorder in a strip under the tree, each value under its own node. */
   strip?: boolean;
+  /**
+   * A binary search's divisions, one row per level under the tree: every node
+   * over the stretch of the sorted array it halves — its subtree's columns —
+   * with the node, the middle, filled. A level's nodes and stretches share a
+   * colour, so the eye follows a split from the tree down to the array. Takes
+   * the strip's place: the first row is the whole array.
+   */
+  splits?: boolean;
   caption?: string;
   /** Scales the drawing's largest size: 0.7 for one beside a listing. */
   size?: number;
@@ -90,6 +98,21 @@ const TONE: Record<Exclude<BinaryPictureTone, 'hidden'>, [string, string, number
   faint: ['var(--color-surface)', 'var(--color-rule)', 1.2],
 };
 
+/**
+ * The colour of each level when the splits are drawn: the soft fill of the
+ * middle and the stroke of the stretch. Four, then again from the first; a
+ * slide never shows more levels than that.
+ */
+const SPLIT_TONES = ['accent', 'mark', 'keep', 'focus'] as const;
+const SPLIT_SOFT: Record<(typeof SPLIT_TONES)[number], string> = {
+  // Surface, as the accent tone paints a node: the middle reads like the root over it.
+  accent: 'var(--color-surface)',
+  mark: 'var(--color-mark-soft)',
+  keep: 'var(--color-keep-soft)',
+  focus: 'var(--color-surface)',
+};
+const splitTone = (depth: number) => SPLIT_TONES[depth % SPLIT_TONES.length]!;
+
 const VISIT_COLOR = {
   pre: 'var(--color-focus)',
   in: 'var(--color-accent)',
@@ -137,6 +160,7 @@ function Picture({
   notes = {},
   levels = false,
   strip = false,
+  splits = false,
   caption,
   size = 1,
   minColumns = 0,
@@ -160,7 +184,7 @@ function Picture({
 }: BinaryPictureProps) {
   const placed = placeTree(tree);
   const { root, nodes, depth } = placed;
-  const toneOf = (n: PlacedNode) => tones[n.key] ?? 'idle';
+  const toneOf = (n: PlacedNode) => tones[n.key] ?? (splits ? splitTone(n.depth) : 'idle');
 
   // The visit sequence, from the recursion itself.
   const seq: PlacedNode[] = [];
@@ -187,6 +211,7 @@ function Picture({
     holes: holes !== false || probe !== undefined,
     frames: Object.keys(frames).length > 0,
     strip,
+    splits,
     sequenceWidth: sequence ? sequenceWidth(seq.map((n) => n.value)) : undefined,
     caption,
     minColumns,
@@ -720,6 +745,82 @@ function Picture({
               </text>
             </g>
           ))
+        : null}
+      {splits
+        ? [...nodes]
+            .sort((a, b) => a.depth - b.depth || a.column - b.column)
+            .map((n) => {
+              // A subtree's columns are contiguous: from its leftmost node to
+              // its rightmost, which is the stretch of the array it decides.
+              let first = n;
+              while (first.left) first = first.left;
+              let last = n;
+              while (last.right) last = last.right;
+              const tone = splitTone(n.depth);
+              const stroke = TONE[tone][1];
+              const y = c.splitRowY(n.depth);
+              const span = nodes.slice(first.column, last.column + 1);
+              return (
+                <g
+                  key={`p${n.key}`}
+                  data-split
+                  data-value={n.key}
+                  data-depth={n.depth}
+                  data-from={first.column}
+                  data-to={last.column}
+                  data-tone={tone}
+                >
+                  {/* A stretch of one value is only its middle: no box around the box. */}
+                  {first !== last ? (
+                    <rect
+                      x={cx(first) - c.pitch / 2 + 2}
+                      y={y}
+                      width={cx(last) - cx(first) + c.pitch - 4}
+                      height={TREE_SLOT_H}
+                      rx="6"
+                      style={{ fill: 'var(--color-surface)', stroke }}
+                      strokeWidth="1.4"
+                    />
+                  ) : null}
+                  {span.map((m) =>
+                    m === n ? (
+                      <g key={m.key}>
+                        <rect
+                          x={cx(m) - TREE_SLOT_W / 2}
+                          y={y + 2}
+                          width={TREE_SLOT_W}
+                          height={TREE_SLOT_H - 4}
+                          rx="3"
+                          style={{ fill: SPLIT_SOFT[tone], stroke }}
+                          strokeWidth="2"
+                        />
+                        <text
+                          x={cx(m)}
+                          y={y + 20}
+                          textAnchor="middle"
+                          fontSize="14"
+                          fontWeight="700"
+                          style={{ fill: 'var(--color-ink)' }}
+                        >
+                          {m.value}
+                        </text>
+                      </g>
+                    ) : (
+                      <text
+                        key={m.key}
+                        x={cx(m)}
+                        y={y + 20}
+                        textAnchor="middle"
+                        fontSize="13"
+                        style={{ fill: 'var(--color-ink-soft)' }}
+                      >
+                        {m.value}
+                      </text>
+                    ),
+                  )}
+                </g>
+              );
+            })
         : null}
       {sequence
         ? (() => {

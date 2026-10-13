@@ -73,6 +73,13 @@ export const binaryPictureCatalogEntry: CatalogEntry = {
         'Writes the inorder in a strip under the tree, each value under its own node: the inorder of a search tree reads sorted.',
     },
     {
+      name: 'splits',
+      type: 'boolean',
+      default: 'false',
+      description:
+        "A binary search's divisions, in place of the strip: one row per level under the tree, every node over the stretch of the sorted array it halves (its subtree's columns), the node — the middle — filled. Each level has a colour, shared by its nodes and its stretches; a tone written in `tones` still wins.",
+    },
+    {
       name: 'caption',
       type: 'string',
       description: 'A line under the drawing. A caption wider than the drawing widens the canvas.',
@@ -258,6 +265,25 @@ export const binaryPictureCatalogEntry: CatalogEntry = {
           tones={{ p: 'accent', q: 'accent', B: 'mark' }}
           strip
           label="Después de rotar a la derecha: q arriba, con el subárbol A a su izquierda y p a su derecha; p tiene a B a la izquierda y a C a la derecha. Debajo, el inorden: A, q, B, p, C."
+        />
+      ),
+    },
+    {
+      title: 'The decision tree of a binary search, with the stretch each node halves',
+      code: `<BinaryPicture
+  tree={{ v: 8, l: { v: 4, l: { v: 2 }, r: { v: 6 } }, r: { v: 12, l: { v: 10 }, r: { v: 14 } } }}
+  splits
+  label="El árbol de decisiones de una búsqueda binaria sobre 2, 4, 6, 8, 10, 12, 14, y debajo el arreglo partido nivel por nivel, cada tramo del color de su nodo."
+/>`,
+      render: () => (
+        <BinaryPicture
+          tree={{
+            v: 8,
+            l: { v: 4, l: { v: 2 }, r: { v: 6 } },
+            r: { v: 12, l: { v: 10 }, r: { v: 14 } },
+          }}
+          splits
+          label="El árbol de decisiones de una búsqueda binaria sobre 2, 4, 6, 8, 10, 12, 14, y debajo el arreglo partido nivel por nivel, cada tramo del color de su nodo."
         />
       ),
     },

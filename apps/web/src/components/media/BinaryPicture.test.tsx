@@ -124,6 +124,47 @@ describe('BinaryPicture', () => {
     ]);
   });
 
+  it('splits a binary search level by level: each node over the stretch it halves, in its colour', () => {
+    // The decision tree of a binary search over 2, 4, …, 14.
+    const EVENS: BinaryTreeShape = {
+      v: 8,
+      l: { v: 4, l: { v: 2 }, r: { v: 6 } },
+      r: { v: 12, l: { v: 10 }, r: { v: 14 } },
+    };
+    const { container } = render(
+      <BinaryPicture tree={EVENS} splits label="Las divisiones de la búsqueda binaria." />,
+    );
+    const stretches = [...container.querySelectorAll('[data-split]')].map((g) =>
+      ['data-value', 'data-depth', 'data-from', 'data-to', 'data-tone']
+        .map((a) => g.getAttribute(a))
+        .join(' '),
+    );
+    expect(stretches).toEqual([
+      '8 0 0 6 accent',
+      '4 1 0 2 mark',
+      '12 1 4 6 mark',
+      '2 2 0 0 keep',
+      '6 2 2 2 keep',
+      '10 2 4 4 keep',
+      '14 2 6 6 keep',
+    ]);
+    // Every node takes its level's colour, so it reads as the middle of its stretch.
+    const tone = (v: string) =>
+      nodesOf(container)
+        .find((n) => n.getAttribute('data-value') === v)!
+        .getAttribute('data-tone');
+    expect([tone('8'), tone('12'), tone('6')]).toEqual(['accent', 'mark', 'keep']);
+  });
+
+  it('lets a tone the author writes win over the colour of the level', () => {
+    const EVENS: BinaryTreeShape = { v: 8, l: { v: 4 }, r: { v: 12 } };
+    const { container } = render(
+      <BinaryPicture tree={EVENS} splits tones={{ 4: 'done' }} label="Tres valores." />,
+    );
+    const four = nodesOf(container).find((n) => n.getAttribute('data-value') === '4')!;
+    expect(four.getAttribute('data-tone')).toBe('done');
+  });
+
   it('draws an empty call as a box with null in it, under the side it landed on', () => {
     const { container } = render(
       <BinaryPicture tree={EXPR} path={['*', '+', 3]} probe={{ at: 3, side: 'l' }} label={LABEL} />,
