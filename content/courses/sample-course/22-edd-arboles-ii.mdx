@@ -1834,6 +1834,107 @@ class Solution {
 
 </Exercise>
 
+<Exercise title="El problema de Josefo con saltos grandes">
+
+En el problema de Josefo, $$n$$ personas numeradas de 1 a $$n$$ forman un
+círculo. Se cuenta desde la primera, y la $$k$$-ésima sale del círculo; se
+sigue contando desde la siguiente, y la $$k$$-ésima sale; y así, hasta que no
+queda nadie. Escribamos `josephus`, que recibe $$n$$ y $$k$$, los dos mayores
+que cero, y devuelve el orden en que salen.
+
+Con siete personas y saltos de tres, salen en el orden 3, 6, 2, 7, 5, 1, 4. Con
+una sola persona, sale ella; con saltos de uno, salen en orden, de 1 a $$n$$; y
+un salto puede ser más largo que el círculo: con cuatro personas y saltos de
+diez, salen 2, 3, 1, 4.
+
+Con una cola, cada salida hace avanzar a $$k - 1$$ personas, y el total es
+$$\Theta(n \cdot k)$$: con saltos de mil millones, no termina. La dificultad es
+llegar a la $$k$$-ésima persona sin contar de a una. Guardemos a las $$n$$
+personas en un árbol de búsqueda de altura mínima en el que cada nodo sabe
+cuántas personas de su subárbol siguen en el círculo: con esas cuentas se baja
+directo a la persona número $$r$$ entre las que quedan, y sacarla corrige las
+cuentas de un solo camino. Cada salida cuesta $$O(\log n)$$, y todas juntas,
+$$O(n \log n)$$, sea cual sea $$k$$.
+
+```java starter
+import java.util.ArrayList;
+import java.util.List;
+
+class Solution {
+    static List<Integer> josephus(int n, int k) {
+        return new ArrayList<>();
+    }
+}
+```
+
+```java test
+check(Solution.josephus(7, 3), Arrays.asList(3, 6, 2, 7, 5, 1, 4));
+check(Solution.josephus(1, 5), Arrays.asList(1));
+check(Solution.josephus(5, 1), Arrays.asList(1, 2, 3, 4, 5));
+check(Solution.josephus(6, 2), Arrays.asList(2, 4, 6, 3, 1, 5));
+check(Solution.josephus(4, 10), Arrays.asList(2, 3, 1, 4));
+```
+
+```java solution
+import java.util.ArrayList;
+import java.util.List;
+
+class Solution {
+    // Una persona del círculo, en un árbol de búsqueda de altura
+    // mínima sobre 1..n; alive cuenta cuántas personas de su
+    // subárbol siguen en el círculo.
+    static class Seat {
+        int value;
+        int alive;
+        boolean here = true;
+        Seat left;
+        Seat right;
+    }
+
+    static Seat build(int lo, int hi) {
+        if (lo > hi) return null;
+        int mid = (lo + hi) / 2;
+        Seat seat = new Seat();
+        seat.value = mid;
+        seat.alive = hi - lo + 1;
+        seat.left = build(lo, mid - 1);
+        seat.right = build(mid + 1, hi);
+        return seat;
+    }
+
+    static int alive(Seat seat) {
+        return seat == null ? 0 : seat.alive;
+    }
+
+    // Saca a la persona en la posición rank, desde 0, entre las que
+    // siguen en el círculo; cada nodo del camino pierde una.
+    static int removeAt(Seat seat, int rank) {
+        seat.alive--;
+        int left = alive(seat.left);
+        if (rank < left) return removeAt(seat.left, rank);
+        if (seat.here && rank == left) {
+            seat.here = false;
+            return seat.value;
+        }
+        int skipped = left + (seat.here ? 1 : 0);
+        return removeAt(seat.right, rank - skipped);
+    }
+
+    static List<Integer> josephus(int n, int k) {
+        List<Integer> order = new ArrayList<>();
+        Seat root = build(1, n);
+        int position = 0;
+        for (int left = n; left > 0; left--) {
+            position = (position + k - 1) % left;
+            order.add(removeAt(root, position));
+        }
+        return order;
+    }
+}
+```
+
+</Exercise>
+
 ## Lo que sigue
 
 Un árbol binario con un orden más débil que el de búsqueda —cada padre mayor
