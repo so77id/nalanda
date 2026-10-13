@@ -401,7 +401,12 @@ no repeats or the widget refuses it, the stance `insert-ordered` takes on a
 list: a binary search over an unsorted array answers wrongly with no error.
 With `iterative` (one target) the recursive version — one call per range,
 as divide and conquer writes it — goes on the left and the loop on the
-right, every frame lit in both (ADR-0083 §3 has the mechanism).
+right, every frame lit in both (ADR-0083 §3 has the mechanism). Every frame
+carries the value sought (`seek`), written beside the structure as «se busca
+el 6»: the narration names it once, and Miguel's review found the slide did
+not say what was being searched. The search tree's `search` writes it too;
+the chains' linear search does not, so the classes before #322 draw as they
+did.
 
 **Source:** Issue #288 — Course document "Estructuras de Datos · Listas
 Enlazadas". The class shows nine operations over five structures, and

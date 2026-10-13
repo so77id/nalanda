@@ -734,6 +734,15 @@ function Body({
             word for it. Outside the scrolling box so a wide chain cannot
             push it off screen.
           */}
+          {/* What a search looks for, on every frame of its run (#322). */}
+          {step.seek !== undefined ? (
+            <div
+              data-testid="sequence-seek"
+              className="pointer-events-none absolute left-3 top-2 z-10 rounded-full border border-rule-strong bg-surface px-2.5 py-0.5 text-xs font-semibold text-ink"
+            >
+              se busca el {step.seek}
+            </div>
+          ) : null}
           {/* A tree's listing has no size field to show, so it gets no readout. */}
           <div
             data-testid="sequence-size"

@@ -216,6 +216,12 @@ export interface SequenceStep {
   highlightLines: number[];
   /** The same moment in `trace.alongside`, when the trace carries a second listing. */
   alongsideLines?: number[];
+  /**
+   * The value a search is looking for, written beside the structure on every
+   * frame of its run (#322): the narration names it once, and a reader who
+   * joins mid-walk should not have to scroll back to learn what is sought.
+   */
+  seek?: number;
   description: string;
   /** The dynamic array and the heap: the reserved block size (`data.length`). */
   capacity?: number;
@@ -902,6 +908,8 @@ function traceArray(operation: SequenceOperation, input: SequenceInput): Sequenc
 
   const steps: SequenceStep[] = [];
   let cost = 0;
+  // The value the running search looks for, written beside the block.
+  let seekNow: number | undefined;
   // Which call is running, so every frame lights BOTH the line inside the
   // method and the call that invoked it — the two halves of "where are we"
   // the list family already prints.
@@ -936,6 +944,7 @@ function traceArray(operation: SequenceOperation, input: SequenceInput): Sequenc
       description,
       capacity,
       cost,
+      ...(seekNow === undefined ? {} : { seek: seekNow }),
       ...rest,
     });
   };
@@ -1142,6 +1151,7 @@ function traceArray(operation: SequenceOperation, input: SequenceInput): Sequenc
       }
       case 'binary-search': {
         const x = asRuns(input.target)[run]!;
+        seekNow = x;
         const n = size();
         // A second search starts on the whole block: what the first one ruled
         // out says nothing about the next value.

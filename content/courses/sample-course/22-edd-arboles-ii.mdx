@@ -87,20 +87,30 @@ export const EVENS_WITH_7 = { v: 8, l: { v: 4, l: { v: 2 }, r: { v: 6, r: { v: 7
 Las estructuras que guardan sus elementos en fila resuelven bien una de las dos
 operaciones y mal la otra.
 
-- **Sin orden**, un valor nuevo entra al principio de una lista, o al final de
-  un arreglo, sin mirar a los demás. Pero buscar obliga a revisar los valores
-  uno por uno: nada dice dónde está el buscado.
-- **Ordenado**, un arreglo se busca con la búsqueda binaria, que descarta la
+- **Sin orden**, un valor nuevo entra al final de un arreglo, o al principio
+  de una lista, sin mirar a los demás. Pero buscar obliga a revisar los
+  valores uno por uno: nada dice dónde está el buscado.
+- **Un arreglo ordenado** se busca con la búsqueda binaria, que descarta la
   mitad de lo que queda en cada comparación. Pero un valor nuevo tiene que
   entrar en su lugar, y todos los mayores se corren una casilla.
+- **Una lista ordenada** no gana nada con el orden: la búsqueda binaria
+  necesita llegar al elemento del medio en un paso, y en una lista llegar al
+  medio es recorrer la mitad. Buscar sigue siendo recorrer, y para insertar
+  también hay que recorrer hasta el lugar del valor nuevo, aunque enlazarlo
+  ahí no corra a nadie.
 
-| Estructura            | Buscar             | Insertar      |
-| --------------------- | ------------------ | ------------- |
-| Lista enlazada        | $$\Theta(n)$$      | $$\Theta(1)$$ |
-| Arreglo ordenado      | $$\Theta(\log n)$$ | $$\Theta(n)$$ |
+| Estructura               | Buscar             | Insertar                 |
+| ------------------------ | ------------------ | ------------------------ |
+| Arreglo sin orden        | $$\Theta(n)$$      | $$\Theta(1)$$ amortizado |
+| Lista enlazada sin orden | $$\Theta(n)$$      | $$\Theta(1)$$            |
+| Arreglo ordenado         | $$\Theta(\log n)$$ | $$\Theta(n)$$            |
+| Lista enlazada ordenada  | $$\Theta(n)$$      | $$\Theta(n)$$            |
+| **Lo que buscamos**      | $$O(\log n)$$      | $$O(\log n)$$            |
 
-Una sirve para insertar y la otra para buscar. Lo que hace falta es una
-estructura que no tenga que elegir.
+Ninguna de las cuatro logra las dos cosas a la vez. **El objetivo** es una
+estructura que mantenga los valores en orden, que busque como la búsqueda
+binaria, en tiempo logarítmico, y que inserte también en tiempo logarítmico,
+sin correr a nadie para hacerle lugar al valor nuevo.
 
 </Slide>
 
@@ -113,7 +123,7 @@ bastan $$\lfloor \log_2 n \rfloor + 1$$ comparaciones. Se escribe con
 recursión, una llamada por rango, o con un ciclo que achica el rango: las dos
 comparan los mismos valores en el mismo orden.
 
-<SequenceStepper eda="dynamic-array" operation="binary-search" values={[2, 4, 6, 8, 10, 12, 14]} target={7} iterative />
+<SequenceStepper eda="dynamic-array" operation="binary-search" values={[2, 4, 6, 8, 10, 12, 14]} target={6} iterative />
 
 </Slide>
 

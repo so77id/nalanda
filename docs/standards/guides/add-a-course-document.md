@@ -873,7 +873,9 @@ there), `successor` (`target`) walks down once keeping the best candidate,
 and `remove` (`target`) runs the three cases — a leaf, one child, and two
 children by copying the successor's value into the node and removing the
 successor. `search` keeps one name over the chains and both trees, `insert`
-over the heap and `bst`. `iterative` puts the recursive version of an
+over the heap and `bst`. The binary search and `bst`'s `search` write the
+value sought beside the structure on every frame («se busca el 6»).
+`iterative` puts the recursive version of an
 operation on the left and the iterative one on the right, the two listings
 lit at the same moment (#322): on `bst` × `search`, `minimum` and `insert`,
 and on `dynamic-array` × `binary-search` with one target — the operations

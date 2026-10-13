@@ -948,6 +948,37 @@ describe('<SequenceStepper> · the binary search over the array (#322)', () => {
   });
 });
 
+describe('<SequenceStepper> · a search says what it looks for (#322)', () => {
+  it('writes the value the binary search looks for', () => {
+    renderIn(
+      'book',
+      <SequenceStepper
+        eda="dynamic-array"
+        operation="binary-search"
+        values={[2, 4, 6, 8, 10, 12, 14]}
+        target={6}
+      />,
+    );
+    expect(screen.getByTestId('sequence-seek').textContent).toBe('se busca el 6');
+  });
+
+  it('writes the value a search tree is searched for', () => {
+    renderIn(
+      'book',
+      <SequenceStepper eda="bst" operation="search" values={[4, 2, 7, 1, 3, 6, 9]} target={6} />,
+    );
+    expect(screen.getByTestId('sequence-seek').textContent).toBe('se busca el 6');
+  });
+
+  it('writes nothing for an operation that looks for nothing', () => {
+    renderIn(
+      'book',
+      <SequenceStepper eda="dynamic-array" operation="insert-last" values={[1, 2]} value={3} />,
+    );
+    expect(screen.queryByTestId('sequence-seek')).toBeNull();
+  });
+});
+
 describe('<SequenceStepper> · two listings of one search (#322)', () => {
   it('shows the recursive listing and the iterative one side by side, each named', () => {
     renderIn(
@@ -1135,7 +1166,7 @@ describe('<SequenceStepper> · the combinations 22-edd-arboles-ii mounts', () =>
         eda: 'dynamic-array',
         operation: 'binary-search',
         values: [2, 4, 6, 8, 10, 12, 14],
-        target: 7,
+        target: 6,
         iterative: true,
       },
     },

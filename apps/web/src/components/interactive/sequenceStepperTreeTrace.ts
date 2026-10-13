@@ -422,7 +422,10 @@ export function traceSearchTree(operation: BstOperation, input: SequenceInput): 
     );
   }
   if (operation === 'search') {
-    const trace = traceSearchOrdered(input.values, asRuns(input.target));
+    const trace = withSeek(
+      traceSearchOrdered(input.values, asRuns(input.target)),
+      asRuns(input.target),
+    );
     return input.iterative === true
       ? pairListings(trace, CONTAINS_ITERATIVE, CONTAINS_PAIRS)
       : trace;
@@ -715,6 +718,18 @@ export function columnsFor(values: number[]): (v: number) => number {
 /** Marks a whole subtree as ruled out. */
 function discard(rec: TreeRecorder, n: TreeNode | null): void {
   for (const { node } of nodesOf(n)) rec.state.set(node.id, 'discarded');
+}
+
+/** Writes each run's target on every frame of that run: a run starts on its `start` frame. */
+function withSeek(trace: SequenceTrace, targets: number[]): SequenceTrace {
+  let run = -1;
+  return {
+    ...trace,
+    steps: trace.steps.map((step) => {
+      if (step.kind === 'start') run += 1;
+      return { ...step, seek: targets[Math.max(run, 0)] };
+    }),
+  };
 }
 
 /**

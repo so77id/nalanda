@@ -1278,6 +1278,14 @@ describe('sequenceStepperTrace · dynamic-array · binary-search (#322)', () => 
     }
   });
 
+  it('names the value it looks for on every frame', () => {
+    const trace = search(6);
+    expect(trace.steps.every((step) => step.seek === 6)).toBe(true);
+    const twice = traceFor('dynamic-array', 'binary-search', { values: EVENS, target: [6, 12] });
+    expect(twice.steps[0]!.seek).toBe(6);
+    expect(twice.steps.at(-1)!.seek).toBe(12);
+  });
+
   it('refuses an array that is not sorted, or that repeats a value', () => {
     expect(() => search(3, [7, 3, 1, 5])).toThrow(/ordenado/);
     expect(() => search(3, [1, 3, 3, 5])).toThrow(/ordenado/);
@@ -2346,6 +2354,16 @@ describe('sequenceStepperTrace · the other listings shown recursive and iterati
         iterative: true,
       }),
     ).toThrow(/una sola/);
+  });
+});
+
+describe('sequenceStepperTrace · bst · search names what it looks for (#322)', () => {
+  it('carries the target of each run on every frame of that run', () => {
+    const trace = traceFor('bst', 'search', { values: BALANCED, target: [6, 5] });
+    const starts = trace.steps.flatMap((s, i) => (s.kind === 'start' ? [i] : []));
+    expect(starts).toHaveLength(2);
+    expect(trace.steps.slice(0, starts[1]).every((s) => s.seek === 6)).toBe(true);
+    expect(trace.steps.slice(starts[1]).every((s) => s.seek === 5)).toBe(true);
   });
 });
 
