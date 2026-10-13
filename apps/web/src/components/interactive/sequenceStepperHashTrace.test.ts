@@ -131,7 +131,7 @@ describe('sequenceStepperTrace · hash-chaining · search', () => {
     const lines = trace.steps.map((s) => lit(trace, s));
     expect(lines).toContainEqual(['current = current.next;']);
     const hit = trace.steps.find((s) => s.kind === 'found')!;
-    expect(lit(trace, hit)).toEqual(['if (current.key.equals(key)) {', 'return true;']);
+    expect(lit(trace, hit)).toEqual(['if (current.key.equals(key)) return true;']);
     expect(hit.hash!.chains[4]!.map((n) => n.state)).toEqual(['visited', 'found']);
     expect(trace.steps.at(-1)!.description).toBe(
       '«Ana» está en la tabla: se comparó con 2 claves, todas de la lista de la posición 4.',
@@ -173,7 +173,7 @@ describe('sequenceStepperTrace · hash-chaining · insert', () => {
     const lines = trace.steps.map((s) => lit(trace, s));
     expect(lines).toEqual([
       ['boolean add(String key) {'],
-      ['if (contains(key)) {'],
+      ['if (contains(key)) return false;'],
       ['int i = hash(key);'],
       ['Node fresh = new Node(key);'],
       ['fresh.next = table[i];'],
@@ -214,7 +214,7 @@ describe('sequenceStepperTrace · hash-chaining · insert', () => {
   it('refuses a key that is already there, and leaves the table as it was', () => {
     const trace = run('insert', 'Sara');
     const last = trace.steps.at(-1)!;
-    expect(lit(trace, trace.steps.at(-2)!)).toEqual(['if (contains(key)) {', 'return false;']);
+    expect(lit(trace, trace.steps.at(-2)!)).toEqual(['if (contains(key)) return false;']);
     expect(chains(last)).toEqual(chains(trace.steps[0]!));
     expect(last.cells).toHaveLength(KEYS.length);
     expect(trace.steps.some((s) => s.hash!.fresh !== undefined)).toBe(false);
@@ -253,7 +253,7 @@ describe('sequenceStepperTrace · hash-chaining · remove', () => {
   it('answers false over an empty list without looking at anything', () => {
     const trace = run('remove', 'Pia');
     const lines = trace.steps.map((s) => lit(trace, s));
-    expect(lines).toContainEqual(['if (table[i] == null) {', 'return false;']);
+    expect(lines).toContainEqual(['if (table[i] == null) return false;']);
     expect(chains(trace.steps.at(-1)!)).toEqual(chains(trace.steps[0]!));
   });
 

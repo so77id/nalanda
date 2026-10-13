@@ -33,7 +33,9 @@ import type {
 type HashOperation = 'search' | 'insert' | 'remove' | 'resize';
 
 /**
- * The three listings as the class writes them. `add` asks `contains` first,
+ * The listings as the class writes them, a guard that only returns on one
+ * line — as the tree's listings write theirs — so the listing over the table
+ * fits a slide. `add` asks `contains` first,
  * so the table never holds a key twice, and puts the new node at the FRONT of
  * its list — the one place a singly linked list reaches without a walk.
  * `remove` treats the first node apart because it has no node before it: the
@@ -45,17 +47,13 @@ const CODE: Record<HashOperation, string> = {
   search: `boolean contains(String key) {
     Node current = table[hash(key)];
     while (current != null) {
-        if (current.key.equals(key)) {
-            return true;
-        }
+        if (current.key.equals(key)) return true;
         current = current.next;
     }
     return false;
 }`,
   insert: `boolean add(String key) {
-    if (contains(key)) {
-        return false;
-    }
+    if (contains(key)) return false;
     int i = hash(key);
     Node fresh = new Node(key);
     fresh.next = table[i];
@@ -65,9 +63,7 @@ const CODE: Record<HashOperation, string> = {
 }`,
   remove: `boolean remove(String key) {
     int i = hash(key);
-    if (table[i] == null) {
-        return false;
-    }
+    if (table[i] == null) return false;
     if (table[i].key.equals(key)) {
         table[i] = table[i].next;
         size--;
@@ -237,7 +233,7 @@ class HashRecorder {
       kind,
       cells,
       pointers: [],
-      highlightLines: lines,
+      highlightLines: [...new Set(lines)],
       description,
       cost: this.cost,
       hash,

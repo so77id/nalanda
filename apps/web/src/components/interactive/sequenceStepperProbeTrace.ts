@@ -39,17 +39,13 @@ const CODE: Record<ProbeOperation, string> = {
   search: `boolean contains(String key) {
     int i = hash(key);
     while (keys[i] != null) {
-        if (!deleted[i] && keys[i].equals(key)) {
-            return true;
-        }
+        if (!deleted[i] && keys[i].equals(key)) return true;
         i = (i + 1) % keys.length;
     }
     return false;
 }`,
   insert: `boolean add(String key) {
-    if (contains(key)) {
-        return false;
-    }
+    if (contains(key)) return false;
     int i = hash(key);
     while (keys[i] != null && !deleted[i]) {
         i = (i + 1) % keys.length;
@@ -134,7 +130,7 @@ class ProbeRecorder {
       kind,
       cells: mirror,
       pointers: [],
-      highlightLines: lines,
+      highlightLines: [...new Set(lines)],
       description,
       cost: this.cost,
       probe,

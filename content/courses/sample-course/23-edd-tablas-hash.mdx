@@ -494,9 +494,7 @@ clave `null` no tiene posición: es un error, no una clave.
 
 ```java
 private int hash(String key) {
-    if (key == null) {
-        throw new IllegalArgumentException();
-    }
+    if (key == null) throw new IllegalArgumentException();
     int h = 0;
     for (int i = 0; i < key.length(); i++) {
         h = (31 * h + key.charAt(i)) % table.length;
@@ -526,5 +524,317 @@ $$A = (\sqrt{5} - 1)/2 \approx 0{,}618$$, el inverso de la razón áurea: con
 ella, las partes fraccionarias de $$A$$, $$2A$$, $$3A, \ldots$$ se reparten
 parejo en el intervalo entre 0 y 1. A diferencia de la división, funciona bien
 con cualquier $$M$$, también con una potencia de 2.
+
+</Slide>
+
+<SectionBreak />
+
+## Encadenamiento
+
+{/* Listas — a hash table with chaining drawn still: `table` as a contiguous strip with its index, each position's list hanging under its cell, `null` where a list ends. COPIES the look of the hash-chaining recipe of <SequenceStepper> (sequenceStepperHashLayout.ts: contiguous cells, nodes with the key over a `next` field, lists hanging down) at a smaller pitch, so a still figure and the widget beside it read alike; nothing tests the copy, so a change there is carried here by hand and checked in a browser. `picked` outlines a position, `only` fades the others, `paint` colours a key's node. File-local (§6e-quater). */}
+
+export function Listas({ chains, picked, only = false, paint = {}, caption, label }) {
+  const pad = 12;
+  const pitch = 78;
+  const cellH = 30;
+  const nodeW = 56;
+  const keyH = 22;
+  const nodeH = 34;
+  const gap = 18;
+  const indexY = 18;
+  const cellY = 26;
+  const longest = Math.max(1, ...chains.map((c) => c.length));
+  const stripW = chains.length * pitch;
+  const width = Math.max(2 * pad + stripW, caption ? caption.length * 6.6 + 24 : 0);
+  const left = (width - stripW) / 2;
+  const nodeY = (k) => cellY + cellH + gap + k * (nodeH + gap);
+  const height = nodeY(longest) - gap + 18 + (caption ? 30 : 6);
+  const fill = { mark: 'var(--color-mark-soft)', found: 'var(--color-keep-soft)', visited: 'var(--color-sunk)', focus: 'var(--color-surface)' };
+  const stroke = { mark: 'var(--color-mark)', found: 'var(--color-keep)', visited: 'var(--color-rule-strong)', focus: 'var(--color-focus)' };
+  return (
+    <svg viewBox={`0 0 ${width} ${height}`} style={{ width: '100%', maxWidth: `${Math.round(width * 1.3)}px`, height: 'auto', display: 'block', margin: '0.4rem auto' }} role="img" aria-label={label}>
+      {chains.map((chain, i) => {
+        const cx = left + i * pitch + pitch / 2;
+        const isPicked = picked === i;
+        const faded = only && picked !== undefined && !isPicked;
+        return (
+          <g key={i} opacity={faded ? 0.4 : undefined}>
+            <text x={cx} y={indexY} textAnchor="middle" fontSize="11" fontWeight={isPicked ? 700 : 400} style={{ fill: isPicked ? 'var(--color-focus)' : 'var(--color-ink-faint)' }}>{i}</text>
+            <rect x={left + i * pitch} y={cellY} width={pitch} height={cellH} style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.2" />
+            {chain.length === 0 ? (
+              <text x={cx} y={cellY + cellH / 2 + 4} textAnchor="middle" fontSize="11" style={{ fill: 'var(--color-ink-faint)' }}>null</text>
+            ) : (
+              <g>
+                <circle cx={cx} cy={cellY + cellH / 2} r="3" style={{ fill: 'var(--color-ink-soft)' }} />
+                <line x1={cx} y1={cellY + cellH / 2} x2={cx} y2={nodeY(0) - 2} style={{ stroke: 'var(--color-ink-soft)' }} strokeWidth="1.4" />
+                <path d={`M ${cx - 4} ${nodeY(0) - 7} L ${cx} ${nodeY(0) - 1} L ${cx + 4} ${nodeY(0) - 7} z`} style={{ fill: 'var(--color-ink-soft)' }} />
+              </g>
+            )}
+            {chain.map((key, k) => {
+              const y = nodeY(k);
+              const p = paint[key];
+              return (
+                <g key={key}>
+                  <rect x={cx - nodeW / 2} y={y} width={nodeW} height={nodeH} rx="3" style={{ fill: p ? fill[p] : 'var(--color-surface)', stroke: p ? stroke[p] : 'var(--color-rule)' }} strokeWidth={p && p !== 'visited' ? 2.4 : 1.2} />
+                  <line x1={cx - nodeW / 2} y1={y + keyH} x2={cx + nodeW / 2} y2={y + keyH} style={{ stroke: p ? stroke[p] : 'var(--color-rule)' }} strokeWidth="1" />
+                  <text x={cx} y={y + keyH / 2 + 5} textAnchor="middle" fontSize="13" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{key}</text>
+                  {k < chain.length - 1 ? (
+                    <g>
+                      <circle cx={cx} cy={y + keyH + (nodeH - keyH) / 2} r="2.5" style={{ fill: 'var(--color-ink-soft)' }} />
+                      <line x1={cx} y1={y + keyH + (nodeH - keyH) / 2} x2={cx} y2={nodeY(k + 1) - 2} style={{ stroke: 'var(--color-ink-soft)' }} strokeWidth="1.4" />
+                      <path d={`M ${cx - 4} ${nodeY(k + 1) - 7} L ${cx} ${nodeY(k + 1) - 1} L ${cx + 4} ${nodeY(k + 1) - 7} z`} style={{ fill: 'var(--color-ink-soft)' }} />
+                    </g>
+                  ) : (
+                    <text x={cx} y={y + nodeH + 13} textAnchor="middle" fontSize="10" style={{ fill: 'var(--color-ink-faint)' }}>null</text>
+                  )}
+                </g>
+              );
+            })}
+            {isPicked ? (
+              <rect x={left + i * pitch} y={cellY} width={pitch} height={cellH} fill="none" style={{ stroke: 'var(--color-focus)' }} strokeWidth="2.4" />
+            ) : null}
+          </g>
+        );
+      })}
+      {caption ? (
+        <text x={width / 2} y={height - 8} textAnchor="middle" fontSize="12" style={{ fill: 'var(--color-ink-soft)' }}>{caption}</text>
+      ) : null}
+    </svg>
+  );
+}
+
+export const TABLA = [['Bea'], ['Juan', 'Eva'], [], [], ['Sara', 'Ana'], [], ['Leo']];
+
+<Slide title="Una lista en cada casillero">
+La primera manera de guardar claves que colisionan es dejar que cada posición
+guarde varias. En el guardarropa, cada casillero tiene varios ganchos; en la
+tabla, cada posición guarda una **lista enlazada** con todas las claves que
+caen en ella. `table[i]` es una referencia al primer nodo de la lista de la
+posición `i`, o `null` si ninguna clave cae ahí.
+
+A esta forma de resolver las colisiones se le llama **encadenamiento**.
+
+<Listas
+  chains={TABLA}
+  caption="7 posiciones: «Juan» y «Eva» comparten la 1, «Sara» y «Ana» la 4"
+  label="Una tabla de siete posiciones con encadenamiento. De la posición 0 cuelga Bea; de la 1, Juan y después Eva; de la 4, Sara y después Ana; de la 6, Leo. Las posiciones 2, 3 y 5 guardan null."
+/>
+
+</Slide>
+
+<Slide title="Las invariantes de la tabla con listas">
+1. **Ninguna clave está dos veces.** La tabla guarda un conjunto: agregar una
+   clave que ya está no la duplica.
+2. **`size` es la cantidad de nodos de todas las listas.** Es el $$N$$ de la
+   tabla, y se mantiene sin recorrerla.
+3. **Cada clave está en la lista de la posición `hash(key)`.** Es la
+   invariante que hace barata la búsqueda: para saber si una clave está, basta
+   mirar una sola lista.
+
+La tercera es también la que cobra. La posición de una clave depende del
+tamaño de la tabla, así que si la tabla cambia de tamaño, cada clave tiene que
+moverse a la lista de su nueva posición.
+
+</Slide>
+
+<Slide title="Buscar en una tabla con listas">
+Para buscar una clave se calcula su posición y se recorre solo la lista de esa
+posición, comparando cada clave con la buscada. La búsqueda termina al
+encontrarla o al llegar a `null`: por la invariante, la clave no puede estar
+en ninguna otra lista.
+
+Las claves son `String`, y se comparan con `equals`, que compara los
+caracteres; `==` compararía las referencias.
+
+<Listas
+  chains={TABLA}
+  picked={4}
+  only
+  paint={{ Sara: 'visited', Ana: 'found' }}
+  caption="buscar «Ana»: h(«Ana») = 4, y solo se recorre la lista de la posición 4"
+  label="La misma tabla con la posición 4 destacada y las demás atenuadas. La búsqueda de Ana compara primero con Sara y después con Ana, donde la encuentra."
+/>
+
+</Slide>
+
+<Slide title="El nodo de las listas">
+Cada lista de la tabla es una lista simplemente enlazada, y su nodo guarda una
+clave `String` y la referencia al siguiente.
+
+```java
+class Node {
+    String key;
+    Node next;
+
+    Node(String key) {
+        this.key = key;
+    }
+}
+```
+
+</Slide>
+
+<Slide title="La clase de la tabla con listas">
+La tabla es el arreglo de referencias al primer nodo de cada lista, más el
+contador `size`. Una tabla necesita al menos una posición, y `hash(String
+key)` es el método de la regla de Horner, dentro de esta clase.
+
+```java
+class ChainedHashTable {
+    private Node[] table;
+    private int size;
+
+    ChainedHashTable(int capacity) {
+        if (capacity < 1) throw new IllegalArgumentException();
+        table = new Node[capacity];
+    }
+}
+```
+
+</Slide>
+
+<Slide title="El código de contains">
+`contains` calcula la posición una vez y recorre esa lista con `current`
+hasta encontrar la clave o llegar a `null`.
+
+<SequenceStepper
+  eda="hash-chaining"
+  operation="search"
+  values={['Ana', 'Bea', 'Eva', 'Leo', 'Sara', 'Juan']}
+  target={['Ana', 'Ivan']}
+  capacity={7}
+/>
+
+</Slide>
+
+<Slide title="Agregar una clave">
+`add` pregunta primero con `contains` si la clave ya está: si está, no la
+agrega y devuelve `false`. Si no está, crea un nodo y lo engancha al
+**frente** de la lista de su posición, el único lugar de una lista
+simplemente enlazada al que se llega sin recorrerla. El orden dentro de una
+lista no importa: lo único que la invariante pide es que la clave esté en la
+lista de su posición.
+
+<Listas
+  chains={[['Bea'], ['Teo', 'Juan', 'Eva'], [], [], ['Sara', 'Ana'], [], ['Leo']]}
+  picked={1}
+  paint={{ Teo: 'mark' }}
+  caption="agregar «Teo»: h(«Teo») = 1, y entra al frente de su lista, delante de «Juan»"
+  label="La tabla después de agregar a Teo: de la posición 1 cuelgan ahora Teo, Juan y Eva, con Teo al frente y destacado como nuevo."
+/>
+
+</Slide>
+
+<Slide title="El código de add">
+El nodo nuevo se construye aparte, se enlaza al primero de la lista y recién
+después `table[i]` pasa a apuntarlo: la asignación antes del movimiento, como
+en cualquier inserción al frente de una lista.
+
+<SequenceStepper
+  eda="hash-chaining"
+  operation="insert"
+  values={['Ana', 'Bea', 'Eva', 'Leo', 'Sara', 'Juan']}
+  value="Teo"
+  capacity={7}
+/>
+
+</Slide>
+
+<Slide title="Eliminar una clave">
+`remove` busca la clave en la lista de su posición y la desengancha, sin un
+nodo de mentira al frente:
+
+- si la clave está en el **primer nodo**, `table[i]` pasa a su siguiente;
+- si está más adelante, `prev` recorre la lista hasta el **nodo anterior** al
+  que sale, y `prev.next` salta al siguiente.
+
+Ninguna otra clave cambia de lista, así que la invariante se mantiene.
+
+<Listas
+  chains={[['Bea'], ['Juan', 'Eva'], [], [], ['Sara'], [], ['Leo']]}
+  picked={4}
+  paint={{ Sara: 'focus' }}
+  caption="eliminar «Ana»: «Sara», el nodo anterior, pasa a apuntar a lo que seguía a «Ana», que era null"
+  label="La tabla después de eliminar a Ana: de la posición 4 cuelga solo Sara, que antes apuntaba a Ana y ahora apunta a null."
+/>
+
+</Slide>
+
+<Slide title="El código de remove">
+<SequenceStepper
+  eda="hash-chaining"
+  operation="remove"
+  values={['Ana', 'Bea', 'Eva', 'Leo', 'Sara', 'Juan']}
+  target="Ana"
+  capacity={7}
+/>
+
+</Slide>
+
+<Slide title="Eliminar el primer nodo de una lista">
+Si la clave está al frente de su lista, no hay `prev`: `table[i]` pasa
+directamente al segundo nodo, o a `null` si era el único.
+
+<SequenceStepper
+  eda="hash-chaining"
+  operation="remove"
+  values={['Ana', 'Bea', 'Eva', 'Leo', 'Sara', 'Juan']}
+  target="Sara"
+  capacity={7}
+/>
+
+</Slide>
+
+<Slide title="El factor de carga">
+El **factor de carga** de una tabla es
+
+$$
+\alpha = \frac{N}{M},
+$$
+
+la cantidad de claves por posición: en el guardarropa, cuántos abrigos cuelgan
+en promedio de cada casillero. Si la función hash reparte parejo, cada clave
+cae en cada posición con probabilidad $$1 / M$$, y una lista mide en promedio
+$$N / M = \alpha$$ nodos.
+
+<Listas
+  chains={TABLA}
+  caption="N = 6 claves en M = 7 posiciones: α = 6/7 ≈ 0,86"
+  label="La tabla de siete posiciones con seis claves: Bea, Juan, Eva, Sara, Ana y Leo. Su factor de carga es seis séptimos, casi 0,86."
+/>
+
+</Slide>
+
+<Slide title="El costo esperado y el peor caso">
+Buscar una clave que no está recorre una lista entera, y una que está recorre
+en promedio la mitad. Si la función reparte parejo, las dos cuestan en
+promedio $$\Theta(1 + \alpha)$$: calcular el hash más recorrer una lista de
+largo esperado $$\alpha$$ (resultado que se cita, sin demostrarlo). Con
+$$\alpha$$ acotado por una constante, eso es $$\Theta(1)$$.
+
+Nada impide, sin embargo, el peor caso: si todas las claves caen en la misma
+posición, la tabla es una sola lista, y buscar cuesta $$\Theta(N)$$.
+
+<Listas
+  chains={[[], [], [], ['Ana', 'Leo', 'Eva', 'Bea'], [], [], []]}
+  picked={3}
+  caption="si todas las claves caen en la posición 3, la tabla es una lista de N nodos"
+  label="Una tabla de siete posiciones donde las cuatro claves, Ana, Leo, Eva y Bea, cuelgan todas de la posición 3, en una sola lista. Las demás posiciones guardan null."
+/>
+
+</Slide>
+
+<Slide title="Costos de la tabla con listas">
+| Molde     | Operación                 | Peor caso     | Esperado               | Invariante que restaura                   |
+| --------- | ------------------------- | ------------- | ---------------------- | ----------------------------------------- |
+| crear     | `ChainedHashTable(M)`     | $$\Theta(M)$$ | $$\Theta(M)$$          | Listas vacías                             |
+| consultar | `contains(key)`           | $$\Theta(N)$$ | $$\Theta(1 + \alpha)$$ | Ninguna: no cambia la tabla               |
+| modificar | `add(key)`                | $$\Theta(N)$$ | $$\Theta(1 + \alpha)$$ | La clave, una vez, en la lista de su hash |
+| modificar | `remove(key)`             | $$\Theta(N)$$ | $$\Theta(1 + \alpha)$$ | Las demás, en la lista de su hash         |
+
+El peor caso de `add` es el de `contains`, que corre antes de enganchar. Con
+$$M$$ fijo, $$\alpha$$ crece con cada clave que se agrega, y con él el costo
+esperado: para que se mantenga constante, la tabla tiene que crecer con
+$$N$$.
 
 </Slide>
