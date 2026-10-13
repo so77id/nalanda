@@ -864,6 +864,19 @@ refused, and the cap of eight counts nodes, not gaps. A value may also be a symb
 (`values={['*', '+', '−', 3, 4, 5, 1]}` is (3 + 4) * (5 − 1)); a symbol on
 any other recipe is refused too. `search` keeps one name over the chains
 and the tree.
+Since #326 there is also `hash-chaining` (ADR-0084): a hash table drawn as a
+contiguous strip — `table`, with its index — with the list of each position
+hanging under its cell, and three operations, the class's `contains`, `add`
+and `remove`: `search` and `insert` keep their names from the other recipes,
+and `remove` is valid on no other. Its keys are TEXT: `values` is the keys
+already in the table, added in order, each at the front of the list of its
+position (`values={['Ana', 'Bea', 'Eva']}`), the key an operation works with
+is `target` (`search`, `remove`) or `value` (`insert`), and `capacity` is the
+number of positions, two to eleven (seven when it is left out). The position
+drawn is the class's own `hash(String key)`, pinned against the JVM. A number
+where a key goes is refused, and so is text on any other recipe. Several keys
+replay the same listing over the same table, with no calling program, as on
+the tree.
 `values` is the starting contents; `value` feeds the inserts, `index` the
 positional operations (`get-at` included), and `target` both `search` and
 `insert-ordered`.
@@ -883,8 +896,8 @@ length instead of being told it does. `insert-at` needs one `index` per
 
 The widget's own chrome carries a speed selector and, in the corner of the
 structure panel, two readouts: the live `size` (`n` on the heap, the name its
-listing uses) and the `capacidad` on the dynamic array and the heap. The tree
-gets neither: its listings have no size field to show (ADR-0083,
+listing uses; the hash table's keys on `hash-chaining`) and the `capacidad` on
+the dynamic array and the heap. The tree gets neither: its listings have no size field to show (ADR-0083,
 ADR-0074 §Amended by — #321). The
 elementary-operation count is not on screen: #294 took it off, because one
 run shows one number and one number is not a growth rate. Neither readout is
@@ -928,10 +941,12 @@ Six things worth knowing before you write one:
   | `linked-list-circular` | `insert-first`                                                                          |
   | `heap-max`             | `insert`, `extract-max` (y ninguna otra receta acepta estas dos)                        |
   | `binary-tree`          | `preorder`, `inorder`, `postorder`, `height` (y ninguna otra receta acepta estas cuatro), y `search` |
+  | `hash-chaining`        | `search`, `insert`, `remove` (y ninguna otra receta acepta `remove`)                    |
 
   Anything else is an `<AuthoringError>` naming the operations that recipe does
   have; a heap operation on a Sequence recipe is refused pointing at
-  `eda="heap-max"`, and a tree operation pointing at `eda="binary-tree"`.
+  `eda="heap-max"`, a tree operation pointing at `eda="binary-tree"`, and
+  `remove` pointing at `eda="hash-chaining"`.
   Ask for one it does not and the answer tells you which to
   use instead.
 
@@ -941,8 +956,8 @@ Six things worth knowing before you write one:
   argument. A removal is checked against the structure as the runs before it
   left it, so three `pop` over two elements is refused at boot.
 - **`method` and `receiver` show the listing under the document's own
-  names** — on the chains and the heap; `binary-tree` has no calling program
-  to rename, and ignores them. A class that has just taught `pop` =
+  names** — on the chains and the heap; `binary-tree` and `hash-chaining`
+  have no calling program to rename, and ignore them. A class that has just taught `pop` =
   `deleteFirst` and then mounts
   the widget gets a listing saying `deleteFirst`, three times, over a
   variable called `list` — the pila's own method, wearing the chain's name.

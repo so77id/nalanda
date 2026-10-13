@@ -31,7 +31,14 @@ const values = [7, 3, 1, 5];
  * structure has" iterates these; a sweep over every valid combination
  * iterates RECIPES and feeds the heap a starting array that already is one.
  */
-const SEQUENCE_RECIPES = RECIPES.filter((r) => r !== 'heap-max' && r !== 'binary-tree');
+const SEQUENCE_RECIPES = RECIPES.filter(
+  (r) => r !== 'heap-max' && r !== 'binary-tree' && r !== 'hash-chaining',
+);
+/**
+ * What a sweep over every recipe hands the hash table (#326): keys are text,
+ * so they travel apart from `values`, and the other recipes ignore them.
+ */
+const HASH_INPUT = { keys: ['Ana', 'Bea', 'Eva', 'Sara'], key: 'Ana' };
 /** The tree operations no other kind of recipe has (`search` is everyone's). */
 const TRAVERSALS = ['preorder', 'inorder', 'postorder'] as const;
 const TREE_ONLY: readonly SequenceOperation[] = [...TRAVERSALS, 'height'];
@@ -49,6 +56,8 @@ describe('sequenceStepperTrace · the valid combinations', () => {
       for (const operation of OPERATIONS) {
         if (HEAP_OPERATIONS.includes(operation)) continue;
         if (TREE_ONLY.includes(operation)) continue;
+        // The hash table's own (#326).
+        if (operation === 'remove') continue;
         if (operation === 'insert-ordered' && !recipe.startsWith('linked-list')) continue;
         expect(isValidCombination(recipe, operation), `${recipe} × ${operation}`).toBe(true);
       }
@@ -91,6 +100,7 @@ describe('sequenceStepperTrace · the valid combinations', () => {
         const tail = recipe === 'linked-list-doubly' && operation === 'remove-last';
         if (!isValidCombination(recipe, operation, tail)) continue;
         const trace = traceFor(recipe, operation, {
+          ...HASH_INPUT,
           tail,
           // insert-ordered is the one operation with a precondition on the
           // input, and it is the widget's job to refuse an unsorted one — so
@@ -237,6 +247,7 @@ describe('sequenceStepperTrace · what the last frame is allowed to still say', 
       for (const operation of OPERATIONS) {
         if (!isValidCombination(recipe, operation)) continue;
         const trace = traceFor(recipe, operation, {
+          ...HASH_INPUT,
           values: startFor(recipe, operation),
           value: 9,
           index: 2,
@@ -454,6 +465,7 @@ describe('sequenceStepperTrace · the narration is Spanish prose', () => {
         if (!isValidCombination(recipe, operation)) continue;
         for (const tail of [false, true]) {
           const trace = traceFor(recipe, operation, {
+            ...HASH_INPUT,
             values: startFor(recipe, operation),
             value: 9,
             index: 2,
@@ -1185,7 +1197,9 @@ describe('sequenceStepperTrace · heap-max · which operations it has', () => {
   });
 
   it('refuses the two heap operations on every sequence recipe', () => {
-    for (const recipe of RECIPES.filter((r) => r !== 'heap-max')) {
+    // The hash table shares the NAME `insert` (its `add`, #326) and has no
+    // `extract-max`: its own sweep lives in sequenceStepperHashTrace.test.ts.
+    for (const recipe of RECIPES.filter((r) => r !== 'heap-max' && r !== 'hash-chaining')) {
       for (const operation of HEAP_OPS) {
         expect(isValidCombination(recipe, operation)).toBe(false);
       }

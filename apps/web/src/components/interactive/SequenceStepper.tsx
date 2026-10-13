@@ -4,6 +4,7 @@ import { useMemo, useRef } from 'react';
 import { useMode } from '../../presentation';
 import { AuthoringError } from '../AuthoringError';
 import { CodeStepper } from './CodeStepper';
+import { HashView } from './sequenceStepperHashView';
 import { HeapView } from './sequenceStepperHeapView';
 import { TreeView } from './sequenceStepperTreeView';
 import {
@@ -19,15 +20,18 @@ import { CELL_FILL, CELL_NOTE, CELL_STROKE } from './sequenceStepperPaint';
 import {
   BINARY_TREE_OPERATIONS,
   CIRCULAR_OPERATIONS,
+  HASH_CHAINING_OPERATIONS,
   DOUBLY_OPERATIONS,
   HEAP_OPERATIONS,
   OPERATIONS,
   RECIPES,
   TREE_ONLY_OPERATIONS,
   isBinaryTreeOperation,
+  isHashChainingOperation,
   isValidCombination,
   traceFor,
   type BinaryTreeOperation,
+  type HashChainingOperation,
   type SequenceCell,
   type SequenceOperation,
   type SequenceRecipe,
@@ -56,16 +60,18 @@ export interface SequenceStepperProps {
    * missing (`[3, 9, 1, 4, 7, null, 6]`) — the one recipe that takes a gap,
    * and a gap has no children written (ADR-0083 §4) — and a value may be a
    * symbol, so an expression tree keeps its operators as operators:
-   * `['*', '+', '−', 3, 4, 5, 1]` is (3 + 4) * (5 − 1).
+   * `['*', '+', '−', 3, 4, 5, 1]` is (3 + 4) * (5 − 1). On `hash-chaining` it
+   * is the KEYS already in the table, text, added in this order — each at the
+   * front of the list of its position: `['Ana', 'Bea', 'Eva']`.
    */
   values?: (TreeValue | null)[];
   /**
    * The value to insert. Required by every `insert-*` but `insert-ordered`,
    * and by the heap's `insert`. An ARRAY inserts each value in turn over the
    * same structure, so a slide can show it growing instead of one insertion
-   * in isolation.
+   * in isolation. On `hash-chaining`, the key `insert` adds — text.
    */
-  value?: number | number[];
+  value?: number | string | (number | string)[];
   /**
    * The position to act on. Required by `get-at`, `insert-at` and
    * `remove-at`. An ARRAY runs the operation once per index, in order over
@@ -76,9 +82,10 @@ export interface SequenceStepperProps {
   /**
    * The value looked for. Required by `search` and `insert-ordered`. An
    * ARRAY searches each in turn, so one widget can show the hit at the
-   * front, the hit at the back and the value that is not there.
+   * front, the hit at the back and the value that is not there. On
+   * `hash-chaining`, the key `search` and `remove` work with — text.
    */
-  target?: number | number[];
+  target?: number | string | (number | string)[];
   /**
    * How many times to run an operation that takes no argument
    * (`remove-first`, `remove-last`, `extract-max`). Default one.
@@ -149,6 +156,14 @@ function refusalReason(
       (o) => OPERATION_LABEL[o],
     ).join(', ')}.`;
   }
+  if (recipe === 'hash-chaining') {
+    return `la tabla hash tiene listado para: ${HASH_CHAINING_OPERATIONS.map(
+      (o) => OPERATION_LABEL[o],
+    ).join(', ')}.`;
+  }
+  if (operation === 'remove') {
+    return 'es una operación de la tabla hash. Úsala con eda="hash-chaining".';
+  }
   // The tree-only set, not every tree operation: `search` is shared, and a
   // ring that refuses it has its own reason.
   if (TREE_ONLY_OPERATIONS.includes(operation)) {
@@ -173,6 +188,7 @@ const RECIPE_LABEL: Record<SequenceRecipe, string> = {
   'linked-list-circular': 'lista circular',
   'heap-max': 'heap (máximo)',
   'binary-tree': 'árbol binario',
+  'hash-chaining': 'tabla hash con encadenamiento',
 };
 
 const OPERATION_LABEL: Record<SequenceOperation, string> = {
@@ -191,6 +207,7 @@ const OPERATION_LABEL: Record<SequenceOperation, string> = {
   inorder: 'recorrer en inorden',
   postorder: 'recorrer en postorden',
   height: 'calcular la altura',
+  remove: 'eliminar',
 };
 
 const UNDER_THE_EYE: [string, string] = ['border-focus bg-surface', 'bajo la mirada'];
@@ -209,6 +226,14 @@ const TREE_LEGEND: Record<BinaryTreeOperation, [string, string][]> = {
   search: [FOUND, UNDER_THE_EYE, VISITED],
 };
 
+/** The legend of a hash run, by operation: each names only the states it paints. */
+const COMPARED: [string, string] = ['border-rule-strong bg-sunk', 'ya comparada'];
+const HASH_LEGEND: Record<HashChainingOperation, [string, string][]> = {
+  search: [FOUND, UNDER_THE_EYE, COMPARED],
+  insert: [['border-mark bg-mark-soft', 'nuevo'], UNDER_THE_EYE, COMPARED],
+  remove: [UNDER_THE_EYE, ['border-rule bg-sunk', 'sale'], COMPARED],
+};
+
 /** The most elements the picture stays legible with, measured on a slide. */
 const MAX_VALUES = 8;
 
@@ -224,26 +249,30 @@ function readValues(key: string): { values: number[]; levelOrder?: (TreeValue | 
 
 /**
  * `<SequenceStepper>` — the step-through widget of the Estructuras de Datos
- * and Estructuras de Datos Avanzadas units (ADR-0074, extended by ADR-0077
- * and ADR-0083).
+ * and Estructuras de Datos Avanzadas units (ADR-0074, extended by ADR-0077,
+ * ADR-0083 and ADR-0084).
  *
  * One widget, two props that pick what it shows: `eda` selects the structure
- * (a dynamic array, a singly / doubly / circular list, a binary max-heap or a
- * linked binary tree) and `operation` selects the animation. The surface never
+ * (a dynamic array, a singly / doubly / circular list, a binary max-heap, a
+ * linked binary tree or a hash table with chaining) and `operation` selects
+ * the animation. The surface never
  * changes between combinations — code panel, structure, narration, controls —
  * so the reader learns one visual vocabulary and reads every structure of the
  * unit through it.
  *
  * The modules, every one but the painters pure and pinned by the suite, which
  * leaves the browser only the paint:
- * - frames: `sequenceStepperTrace` (the dispatcher, the chains and the heap)
- *   and `sequenceStepperTreeTrace` (the tree), both importing the leaf
- *   `sequenceStepperTraceShared` (the line a frame lights, the runs cap);
+ * - frames: `sequenceStepperTrace` (the dispatcher, the chains and the heap),
+ *   `sequenceStepperTreeTrace` (the tree) and `sequenceStepperHashTrace` (the
+ *   hash table), all importing the leaf `sequenceStepperTraceShared` (the line
+ *   a frame lights, the runs cap);
  * - geometry: `sequenceStepperLayout` (a Sequence), `sequenceStepperHeapLayout`
- *   (the heap's tree and array) and `sequenceStepperTreeLayout` (the tree),
- *   the last two sharing the leaf `sequenceStepperEdge`;
- * - paint: the Sequence picture here, `sequenceStepperHeapView` and
- *   `sequenceStepperTreeView`, with their colours in `sequenceStepperPaint`.
+ *   (the heap's tree and array), `sequenceStepperTreeLayout` (the tree), the
+ *   last two sharing the leaf `sequenceStepperEdge`, and
+ *   `sequenceStepperHashLayout` (the table and its lists);
+ * - paint: the Sequence picture here, `sequenceStepperHeapView`,
+ *   `sequenceStepperTreeView` and `sequenceStepperHashView`, with their
+ *   colours in `sequenceStepperPaint`.
  */
 export function SequenceStepper({
   eda,
@@ -334,6 +363,40 @@ export function SequenceStepper({
       </AuthoringError>
     );
   }
+  // The hash table's keys are text (#326): the class's table holds Strings,
+  // and a number there would be hashed as nothing the listing computes.
+  const hash = recipe === 'hash-chaining';
+  if (hash) {
+    const notText = values.findIndex((v) => typeof v !== 'string');
+    if (notText >= 0) {
+      return (
+        <AuthoringError component="SequenceStepper">
+          <code>values[{notText}]</code> no es una clave: en hash-chaining las claves son textos,
+          como <code>{"values={['Ana', 'Bea']}"}</code>.
+        </AuthoringError>
+      );
+    }
+    const arg = op === 'insert' ? value : target;
+    const args = arg === undefined ? [] : Array.isArray(arg) ? arg : [arg];
+    if (args.some((a) => typeof a !== 'string')) {
+      return (
+        <AuthoringError component="SequenceStepper">
+          la clave de {op === 'insert' ? <code>value</code> : <code>target</code>} es un texto en
+          hash-chaining, como <code>{op === 'insert' ? 'value="Ana"' : 'target="Ana"'}</code>.
+        </AuthoringError>
+      );
+    }
+  } else {
+    const word = [value, target].flat().find((a) => typeof a === 'string');
+    if (word !== undefined) {
+      return (
+        <AuthoringError component="SequenceStepper">
+          «{word}»: solo hash-chaining trabaja con claves de texto en <code>value</code> y{' '}
+          <code>target</code>.
+        </AuthoringError>
+      );
+    }
+  }
   // A gap only means something in a tree written in level order; anywhere
   // else `null` would be read as a value, and `Number(null)` is 0.
   if (recipe !== 'binary-tree' && values.some((v) => v === null)) {
@@ -346,7 +409,7 @@ export function SequenceStepper({
   // A symbol only means something as an operator of an expression tree;
   // anywhere else it would be read as a number, and `Number('+')` is NaN.
   const symbol = values.find((v) => typeof v === 'string');
-  if (recipe !== 'binary-tree' && symbol !== undefined) {
+  if (recipe !== 'binary-tree' && !hash && symbol !== undefined) {
     return (
       <AuthoringError component="SequenceStepper">
         «{symbol}»: solo binary-tree acepta símbolos en <code>values</code>.
@@ -397,9 +460,9 @@ interface BodyProps {
   recipe: SequenceRecipe;
   operation: SequenceOperation;
   values: (TreeValue | null)[];
-  value?: number | number[];
+  value?: number | string | (number | string)[];
   index?: number | number[];
-  target?: number | number[];
+  target?: number | string | (number | string)[];
   times?: number;
   capacity?: number;
   method?: string;
@@ -435,6 +498,7 @@ function Body({
   const mode = useMode();
   const heap = recipe === 'heap-max';
   const tree = recipe === 'binary-tree';
+  const hash = recipe === 'hash-chaining';
   const isPresentation = mode === 'presentation';
   const outerRef = useRef<HTMLElement | null>(null);
 
@@ -474,9 +538,17 @@ function Body({
       return {
         trace: traceFor(recipe, operation, {
           ...readValues(valuesKey),
-          value,
+          // The guards in `SequenceStepper` already refused a number where a
+          // key goes and text anywhere else, so these narrowings only say so.
+          ...(hash
+            ? {
+                keys: JSON.parse(valuesKey) as string[],
+                key: (operation === 'insert' ? value : target) as string | string[] | undefined,
+              }
+            : {}),
+          value: hash ? undefined : (value as number | number[] | undefined),
           index,
-          target,
+          target: hash ? undefined : (target as number | number[] | undefined),
           times,
           capacity,
           method,
@@ -631,7 +703,14 @@ function Body({
               was chrome that reset between runs with nothing to say.
             */}
           </div>
-          {trace.tree !== undefined && step.tree !== undefined ? (
+          {trace.hash !== undefined && step.hash !== undefined ? (
+            <HashView
+              hash={step.hash}
+              run={trace.hash}
+              description={step.description}
+              presentation={isPresentation}
+            />
+          ) : trace.tree !== undefined && step.tree !== undefined ? (
             <TreeView
               tree={step.tree}
               run={trace.tree}
@@ -718,6 +797,12 @@ function Body({
           {tree && isBinaryTreeOperation(operation) ? (
             <>
               {TREE_LEGEND[operation].map(([swatchClass, label]) => (
+                <LegendSwatch key={label} swatchClass={swatchClass} label={label} />
+              ))}
+            </>
+          ) : hash && isHashChainingOperation(operation) ? (
+            <>
+              {HASH_LEGEND[operation].map(([swatchClass, label]) => (
                 <LegendSwatch key={label} swatchClass={swatchClass} label={label} />
               ))}
             </>

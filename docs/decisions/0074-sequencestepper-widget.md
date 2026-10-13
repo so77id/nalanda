@@ -22,6 +22,10 @@ tree, each node in the column of its inorder position: `binary-tree`, with
 the three traversals, `height` and `search`. One thing here changes, for the
 tree only: the `size` readout (`Amended by: #321`, the last amendment
 below).
+**Extended by:** ADR-0084 (#326) — a recipe for a hash table with a list
+per position, `hash-chaining` (`search`, `insert`, `remove`), drawn as a
+contiguous strip with each position's list hanging under its cell; its keys
+are text. Nothing here changes.
 
 **Amended by:** #288, slide-by-slide review (2026-09-10) — a ninth operation,
 `get-at`. The class needs the operation the array answers with one
