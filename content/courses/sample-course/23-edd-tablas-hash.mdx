@@ -1,0 +1,333 @@
+---
+id: edd-tablas-hash
+title: Estructuras de Datos Avanzadas · Tablas Hash
+presentation: explicit
+questions: none
+---
+
+{/* `none` es un TODAVÍA NO, no una decisión: el valor se fija con el profesor al cerrar #326 (S15), con las preguntas aprobadas de a dos. */}
+
+# Estructuras de Datos Avanzadas · Tablas Hash
+
+En el guardarropa de un teatro, cada abrigo se guarda con el nombre de su
+dueño, y al terminar la función todos vuelven a la vez a pedir el suyo. Con
+miles de abrigos, quien atiende no puede revisarlos uno por uno: necesita ir
+directo al abrigo de cada nombre. Una **tabla hash** hace exactamente eso con
+un conjunto de claves: buscar, agregar y sacar una clave cuesta, en promedio,
+un tiempo que no crece con la cantidad de claves guardadas.
+
+{/* Casilleros — the cloakroom drawn as the unit draws an array: a contiguous strip of cells, the index over each, a name or nothing inside. `paint` colours a cell as the widget does (focus: under the eye; visited: already looked at; found: the one looked for; mark: just written), and `notes` writes a short mark over a cell — a visit order, a shift. File-local (add-a-course-document.md §6e-quater). */}
+
+export function Casilleros({ cells, index, paint = {}, notes = {}, caption, label, cell = 64 }) {
+  const pad = 12;
+  const noteY = 15;
+  const indexY = 31;
+  const cellY = 38;
+  const cellH = 40;
+  const stripW = cells.length * cell;
+  const width = Math.max(2 * pad + stripW, caption ? caption.length * 6.6 + 24 : 0);
+  const left = (width - stripW) / 2;
+  const height = cellY + cellH + (caption ? 34 : 12);
+  const fill = { focus: 'var(--color-surface)', visited: 'var(--color-sunk)', found: 'var(--color-keep-soft)', mark: 'var(--color-mark-soft)' };
+  const stroke = { focus: 'var(--color-focus)', visited: 'var(--color-rule-strong)', found: 'var(--color-keep)', mark: 'var(--color-mark)' };
+  // Painted cells last, so a strong outline is never drawn under its neighbour.
+  const order = cells.map((_, i) => i).sort((a, b) => (paint[a] ? 1 : 0) - (paint[b] ? 1 : 0));
+  return (
+    <svg viewBox={`0 0 ${width} ${height}`} style={{ width: '100%', maxWidth: `${Math.round(width * 1.3)}px`, height: 'auto', display: 'block', margin: '0.4rem auto' }} role="img" aria-label={label}>
+      {order.map((i) => {
+        const p = paint[i];
+        const x = left + i * cell;
+        return (
+          <g key={i}>
+            {notes[i] ? (
+              <text x={x + cell / 2} y={noteY} textAnchor="middle" fontSize="12" fontWeight="700" style={{ fill: 'var(--color-focus)' }}>{notes[i]}</text>
+            ) : null}
+            <text x={x + cell / 2} y={indexY} textAnchor="middle" fontSize="11" style={{ fill: 'var(--color-ink-faint)' }}>{index ? index[i] : i}</text>
+            <rect x={x} y={cellY} width={cell} height={cellH} style={{ fill: p ? fill[p] : 'var(--color-surface)', stroke: p ? stroke[p] : 'var(--color-rule-strong)' }} strokeWidth={p && p !== 'visited' ? 2.4 : 1.2} />
+            {cells[i] ? (
+              <text x={x + cell / 2} y={cellY + cellH / 2 + 5} textAnchor="middle" fontSize="14" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{cells[i]}</text>
+            ) : null}
+          </g>
+        );
+      })}
+      {caption ? (
+        <text x={width / 2} y={height - 10} textAnchor="middle" fontSize="12" style={{ fill: 'var(--color-ink-soft)' }}>{caption}</text>
+      ) : null}
+    </svg>
+  );
+}
+
+{/* Reparto — where a rule sends each key: the keys as chips in a row, the positions as a contiguous strip under them, one arrow per key down to its position. A position that receives two keys or more is painted `mark` and its count written under it: a collision. `contents` writes inside the cells (a coat already there) and `hit` paints one cell as found. File-local (§6e-quater). */}
+
+export function Reparto({ keys, cells, index, contents = [], hit, caption, label, cell = 56, id }) {
+  const pad = 12;
+  const chipH = 28;
+  const chipGap = 10;
+  const chipW = keys.map((k) => Math.max(52, k.name.length * 8.4 + 18));
+  const chipsW = chipW.reduce((a, b) => a + b, 0) + (keys.length - 1) * chipGap;
+  const stripW = cells * cell;
+  const width = Math.max(2 * pad + Math.max(chipsW, stripW), caption ? caption.length * 6.6 + 24 : 0);
+  const stripLeft = (width - stripW) / 2;
+  const chipsLeft = (width - chipsW) / 2;
+  const chipY = pad;
+  const cellY = chipY + chipH + 70;
+  const cellH = 34;
+  const height = cellY + cellH + 18 + (caption ? 30 : 8);
+  const count = Array.from({ length: cells }, (_, c) => keys.filter((k) => k.to === c).length);
+  const chipX = (k) => chipsLeft + chipW.slice(0, k).reduce((a, b) => a + b, 0) + k * chipGap;
+  return (
+    <svg viewBox={`0 0 ${width} ${height}`} style={{ width: '100%', maxWidth: `${Math.round(width * 1.3)}px`, height: 'auto', display: 'block', margin: '0.4rem auto' }} role="img" aria-label={label}>
+      <defs>
+        <marker id={`${id}-punta`} markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto">
+          <path d="M0,0 L7,3.5 L0,7 z" style={{ fill: 'var(--color-ink-soft)' }} />
+        </marker>
+        <marker id={`${id}-punta-choque`} markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto">
+          <path d="M0,0 L7,3.5 L0,7 z" style={{ fill: 'var(--color-mark)' }} />
+        </marker>
+      </defs>
+      {keys.map((k, n) => {
+        const clash = count[k.to] > 1;
+        const x1 = chipX(n) + chipW[n] / 2;
+        const x2 = stripLeft + k.to * cell + cell / 2;
+        return (
+          <line key={`a${n}`} x1={x1} y1={chipY + chipH} x2={x2} y2={cellY - 3} style={{ stroke: clash ? 'var(--color-mark)' : 'var(--color-ink-soft)' }} strokeWidth={clash ? 1.8 : 1.2} markerEnd={`url(#${id}-${clash ? 'punta-choque' : 'punta'})`} />
+        );
+      })}
+      {keys.map((k, n) => (
+        <g key={`k${n}`}>
+          <rect x={chipX(n)} y={chipY} width={chipW[n]} height={chipH} rx="14" style={{ fill: 'var(--color-surface)', stroke: count[k.to] > 1 ? 'var(--color-mark)' : 'var(--color-rule-strong)' }} strokeWidth={count[k.to] > 1 ? 2 : 1.2} />
+          <text x={chipX(n) + chipW[n] / 2} y={chipY + chipH / 2 + 5} textAnchor="middle" fontSize="13" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{k.name}</text>
+        </g>
+      ))}
+      {Array.from({ length: cells }, (_, c) => {
+        const clash = count[c] > 1;
+        const found = hit === c;
+        const x = stripLeft + c * cell;
+        return (
+          <g key={`c${c}`}>
+            <rect x={x} y={cellY} width={cell} height={cellH} style={{ fill: found ? 'var(--color-keep-soft)' : clash ? 'var(--color-mark-soft)' : 'var(--color-surface)', stroke: found ? 'var(--color-keep)' : clash ? 'var(--color-mark)' : 'var(--color-rule-strong)' }} strokeWidth={found || clash ? 2.2 : 1.2} />
+            {contents[c] ? (
+              <text x={x + cell / 2} y={cellY + cellH / 2 + 5} textAnchor="middle" fontSize="13" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{contents[c]}</text>
+            ) : null}
+            <text x={x + cell / 2} y={cellY + cellH + 14} textAnchor="middle" fontSize="11" style={{ fill: 'var(--color-ink-faint)' }}>{index ? index[c] : c}</text>
+            {clash ? (
+              <text x={x + cell / 2} y={cellY + cellH / 2 + 5} textAnchor="middle" fontSize="13" fontWeight="700" style={{ fill: 'var(--color-mark)' }}>{`×${count[c]}`}</text>
+            ) : null}
+          </g>
+        );
+      })}
+      {caption ? (
+        <text x={width / 2} y={height - 8} textAnchor="middle" fontSize="12" style={{ fill: 'var(--color-ink-soft)' }}>{caption}</text>
+      ) : null}
+    </svg>
+  );
+}
+
+export const LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
+
+<Slide title="Un guardarropa">
+Un guardarropa guarda abrigos, y de cada abrigo importa una sola cosa: el
+nombre de su dueño. Sobre ese conjunto de nombres se hacen tres operaciones:
+
+- **guardar** el abrigo de un nombre nuevo;
+- **buscar** si el abrigo de un nombre está;
+- **retirar** el abrigo de un nombre.
+
+El nombre es la **clave**: identifica a cada abrigo y es lo que se dice para
+pedirlo. Dos abrigos nunca tienen la misma clave. Lo que interesa es cuánto
+cuesta cada operación cuando hay $$N$$ abrigos guardados.
+
+<Casilleros
+  cells={['Sara', 'Leo', 'Ana', 'Juan', 'Eva', 'Bea', null, null]}
+  caption="un guardarropa de 8 casilleros con 6 abrigos"
+  label="Ocho casilleros en fila, numerados del 0 al 7. Los seis primeros guardan los abrigos de Sara, Leo, Ana, Juan, Eva y Bea; los dos últimos están libres."
+/>
+
+</Slide>
+
+<Slide title="Guardar sin orden">
+La manera más simple de guardar un abrigo es usar cualquier casillero libre.
+Guardar no mira a los demás abrigos y cuesta $$\Theta(1)$$.
+
+Buscar un nombre, en cambio, obliga a revisar los casilleros uno por uno,
+porque nada indica dónde quedó el abrigo. En el peor caso se revisan los
+$$N$$: buscar cuesta $$\Theta(N)$$, y retirar también, porque empieza por
+buscar.
+
+<Casilleros
+  cells={['Sara', 'Leo', 'Ana', 'Juan', 'Eva', 'Bea', null, null]}
+  paint={{ 0: 'visited', 1: 'visited', 2: 'visited', 3: 'found' }}
+  notes={{ 0: '1', 1: '2', 2: '3', 3: '4' }}
+  caption="buscar «Juan»: se revisan los casilleros en orden, hasta el cuarto"
+  label="Los mismos ocho casilleros. La búsqueda de Juan revisa el casillero 0, el 1 y el 2, sin encontrarlo, y lo encuentra en el 3, el cuarto revisado."
+/>
+
+</Slide>
+
+<Slide title="Guardar en orden alfabético">
+Si los abrigos se guardan en orden alfabético, buscar puede usar la
+**búsqueda binaria**: se compara con el nombre del casillero del medio y se
+descarta la mitad que no puede tener el buscado. Buscar cuesta
+$$\Theta(\log N)$$.
+
+<Casilleros
+  cells={['Ana', 'Bea', 'Ema', 'Eva', 'Juan', 'Leo', 'Sara', 'Teo', null]}
+  paint={{ 0: 'visited', 1: 'visited', 2: 'visited', 3: 'visited', 5: 'found' }}
+  notes={{ 3: '1', 5: '2' }}
+  caption="buscar «Leo»: «Eva» va antes, se descarta la mitad izquierda; el medio de la otra mitad es «Leo»"
+  label="Nueve casilleros con Ana, Bea, Ema, Eva, Juan, Leo, Sara y Teo en orden alfabético, y el último libre. La búsqueda de Leo compara primero con Eva, en el casillero 3, descarta los casilleros 0 a 3, y después compara con Leo, en el 5, donde lo encuentra."
+/>
+
+Pero un abrigo nuevo tiene que entrar en su lugar, y todos los que van
+después se corren un casillero. Guardar y retirar cuestan $$\Theta(N)$$.
+
+<Casilleros
+  cells={['Ana', 'Bea', 'Ema', 'Eva', 'Iván', 'Juan', 'Leo', 'Sara', 'Teo']}
+  paint={{ 4: 'mark', 5: 'focus', 6: 'focus', 7: 'focus', 8: 'focus' }}
+  notes={{ 5: '→', 6: '→', 7: '→', 8: '→' }}
+  caption="guardar «Iván»: «Juan», «Leo», «Sara» y «Teo» se corren un casillero para hacerle lugar"
+  label="Los mismos casilleros después de guardar a Iván en el casillero 4. Juan, Leo, Sara y Teo se corrieron un casillero a la derecha, del 4 al 5, del 5 al 6, del 6 al 7 y del 7 al 8."
+/>
+
+</Slide>
+
+<Slide title="Fichas numeradas">
+Muchos guardarropas lo resuelven de otra manera: al recibir un abrigo entregan
+una **ficha numerada**, y el número de la ficha es el número del casillero.
+Con la ficha en la mano, guardar, buscar y retirar son un solo paso: ir al
+casillero de ese número.
+
+<Reparto
+  id="ficha"
+  keys={[{ name: 'ficha 5', to: 5 }]}
+  cells={8}
+  contents={['Sara', 'Leo', 'Ana', 'Juan', 'Eva', 'Bea', null, null]}
+  hit={5}
+  caption="la ficha 5 lleva directo al casillero 5, sin mirar ningún otro"
+  label="Una ficha con el número 5 y una flecha directa al casillero 5 de una fila de ocho, donde está el abrigo de Bea."
+/>
+
+Es el **acceso directo** de un arreglo: el elemento de una posición se lee en
+un paso, $$\Theta(1)$$. Funciona por dos razones. La clave la elige el
+guardarropa, y es un entero chico: hay un casillero para cada ficha posible.
+
+</Slide>
+
+<Slide title="Tres maneras de guardar">
+| Guardarropa                 | Guardar          | Buscar             | Retirar          |
+| --------------------------- | ---------------- | ------------------ | ---------------- |
+| Sin orden                   | $$\Theta(1)$$    | $$\Theta(N)$$      | $$\Theta(N)$$    |
+| En orden alfabético         | $$\Theta(N)$$    | $$\Theta(\log N)$$ | $$\Theta(N)$$    |
+| Con fichas numeradas        | $$\Theta(1)$$    | $$\Theta(1)$$      | $$\Theta(1)$$    |
+
+Un árbol de búsqueda balanceado también guardaría los nombres en orden, con
+las tres operaciones en $$O(\log N)$$. Las fichas son más rápidas que
+cualquier orden: no comparan claves, calculan dónde está cada abrigo.
+
+</Slide>
+
+<Slide title="Claves que no son posiciones">
+La ficha no siempre es posible. Si cada persona pide su abrigo por su nombre,
+la clave la trae el dueño y no la elige el guardarropa. Y un casillero por
+cada nombre posible no cabe en ningún edificio: con solo cinco letras se
+escriben $$26^5 = 11\,881\,376$$ nombres distintos, mientras que los abrigos
+de una función son unos pocos miles.
+
+Hace falta un arreglo de tamaño razonable, de $$M$$ casilleros, y una manera
+de llegar desde el nombre a uno de ellos tan rápido como desde una ficha.
+
+</Slide>
+
+<Slide title="La función hash">
+Una **función hash** es una regla que convierte cada clave $$k$$ en una
+posición del arreglo, un entero $$h(k)$$ entre $$0$$ y $$M - 1$$. Para
+guardar, buscar o retirar una clave, se calcula su posición y se va directo a
+ese casillero, sin mirar los demás. El arreglo, junto con su función hash, es
+una **tabla hash**.
+
+<Reparto
+  id="regla"
+  keys={[{ name: 'Bea', to: 0 }, { name: 'Eva', to: 1 }, { name: 'Ana', to: 4 }, { name: 'Leo', to: 6 }]}
+  cells={7}
+  caption="una regla que lleva cada nombre a uno de 7 casilleros: h(«Ana») = 4"
+  label="Cuatro nombres y siete casilleros numerados del 0 al 6. Una flecha lleva a Bea al casillero 0, a Eva al 1, a Ana al 4 y a Leo al 6."
+/>
+
+Calcular la posición tiene un costo, pero depende del largo de la clave, no de
+cuántas claves hay en la tabla.
+
+</Slide>
+
+<Slide title="Casilleros por inicial">
+La regla más simple usa la inicial del nombre: 26 casilleros, de la A a la Z.
+Es fácil de calcular, pero falla de dos maneras. Dos nombres con la misma
+inicial van al mismo casillero. Y las iniciales no se reparten parejo: unas
+letras juntan muchos nombres mientras otras dejan sus casilleros vacíos.
+
+<Reparto
+  id="inicial"
+  keys={[
+    { name: 'Ana', to: 0 },
+    { name: 'Alba', to: 0 },
+    { name: 'Bea', to: 1 },
+    { name: 'Carla', to: 2 },
+    { name: 'Eva', to: 4 },
+    { name: 'Leo', to: 11 },
+    { name: 'Lía', to: 11 },
+    { name: 'Luis', to: 11 },
+    { name: 'Sara', to: 18 },
+    { name: 'Tomás', to: 19 },
+  ]}
+  cells={26}
+  index={LETTERS}
+  cell={36}
+  caption="diez nombres en 26 casilleros: la L recibe tres, la A dos, y diecinueve quedan vacíos"
+  label="Diez nombres repartidos por su inicial en 26 casilleros de la A a la Z. Ana y Alba van a la A, Leo, Lía y Luis a la L, y Bea, Carla, Eva, Sara y Tomás a la B, la C, la E, la S y la T. Diecinueve casilleros no reciben ningún nombre."
+/>
+
+</Slide>
+
+<Slide title="Las colisiones">
+Cuando dos claves distintas tienen la misma posición, **colisionan**. Ninguna
+función hash evita las colisiones: hay muchas más claves posibles que
+posiciones, y por el **principio del palomar** —si hay más palomas que nidos,
+algún nido recibe al menos dos— algunas comparten casillero.
+
+<Reparto
+  id="choque"
+  keys={[{ name: 'Bea', to: 0 }, { name: 'Eva', to: 1 }, { name: 'Ana', to: 4 }, { name: 'Leo', to: 6 }, { name: 'Sara', to: 4 }]}
+  cells={7}
+  caption="con 7 casilleros, h(«Sara») = 4, el casillero de «Ana»"
+  label="Los cuatro nombres de antes y Sara, en siete casilleros. Sara va al casillero 4, el mismo de Ana: los dos colisionan."
+/>
+
+Lo que una buena función hash sí puede lograr es repartir las claves parejo,
+de modo que cada casillero reciba más o menos la misma cantidad.
+
+</Slide>
+
+<Slide title="La paradoja del cumpleaños">
+Las colisiones aparecen mucho antes de llenar la tabla. Si una función reparte
+las claves al azar y parejo entre $$M$$ casilleros, la probabilidad de que
+$$N$$ claves caigan todas en casilleros distintos es
+
+$$
+\left(1 - \frac{1}{M}\right)\left(1 - \frac{2}{M}\right)\cdots\left(1 - \frac{N - 1}{M}\right),
+$$
+
+y cae muy rápido. Es la cuenta que dice que, en un grupo de 23 personas, lo
+más probable es que dos estén de cumpleaños el mismo día.
+
+| Claves, con $$M = 365$$ | Probabilidad de al menos una colisión |
+| ----------------------- | ------------------------------------- |
+| 10                      | 12 %                                  |
+| 23                      | 51 %                                  |
+| 40                      | 89 %                                  |
+| 57                      | 99 %                                  |
+
+La primera colisión llega alrededor de $$\sqrt{M}$$ claves, muy lejos de
+$$M$$. Una tabla hash tiene que contar con ellas: necesita una regla que
+reparta las claves parejo, y una manera de guardar dos claves que caen en la
+misma posición.
+
+</Slide>
