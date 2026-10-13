@@ -218,54 +218,13 @@ lado correcto de cada uno de sus ancestros.
 
 </Slide>
 
-<Slide title="El inorden de un árbol de búsqueda">
-**El inorden de un árbol binario de búsqueda entrega sus valores ordenados de
-menor a mayor.** El inorden visita cada nodo entre sus dos subárboles: primero
-el izquierdo, después el nodo, después el derecho.
-
-<OrderRule parts={['izquierda', 'raíz', 'derecha']} tone="accent" label="La regla del inorden: el subárbol izquierdo, después la raíz, después el derecho." />
-
-<BinaryPicture tree={EVENS} visits="in" strip label="El árbol de búsqueda con 8 en la raíz, 4 y 12 debajo, y 2, 6, 10 y 14 en el último nivel, recorrido en inorden: cada nodo numerado en el orden en que se visita, con una flecha de cada visita a la siguiente. Se visitan el 2, el 4, el 6, el 8, el 10, el 12 y el 14, y la fila de abajo los muestra en ese orden, cada uno bajo su nodo." caption="el inorden: 2, 4, 6, 8, 10, 12, 14, ordenado" />
-
-La razón es la invariante: todo lo de la izquierda de un nodo es menor que él
-y todo lo de la derecha es mayor. Si cada subárbol, más pequeño, ya sale
-ordenado, el nodo queda exactamente entre los dos, y el total sale ordenado.
-
-</Slide>
-
-<Slide title="El código del inorden">
-El código es el del árbol binario: la visita va entre las dos llamadas, así
-que cada nodo se imprime después de todo su subárbol izquierdo y antes de todo
-el derecho.
-
-<SequenceStepper eda="binary-tree" operation="inorder" values={[8, 4, 12, 2, 6, 10, 14]} />
-
-</Slide>
-
 <SectionBreak />
 
 ## Las operaciones del árbol de búsqueda
 
-<Slide title="Buscar en un árbol de búsqueda">
-En cada nodo hay tres respuestas posibles: el valor buscado es el del nodo, es
-menor o es mayor. Si es menor, la invariante garantiza que no está en el
-subárbol derecho, y la búsqueda sigue solo por la izquierda; si es mayor, al
-revés. Cada comparación descarta un subárbol entero.
-
-<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1rem 2rem', alignItems: 'end' }}>
-<BinaryPicture tree={EVENS} path={[8, 12, 10]} seek={10} tones={{ 10: 'keep', 4: 'faint', 2: 'faint', 6: 'faint', 14: 'faint' }} holes={[]} label="Buscar el 10: se compara con el 8 y se baja a la derecha, con el 12 y se baja a la izquierda, y el 10 es el buscado. El subárbol izquierdo del 8 y el 14 quedan descartados, atenuados." caption="buscar 10: 8, 12, 10; el resto queda descartado" />
-<BinaryPicture tree={EVENS} path={[8, 4, 6]} seek={7} probe={{ at: 6, side: 'r' }} tones={{ 6: 'focus', 2: 'faint', 12: 'faint', 10: 'faint', 14: 'faint' }} holes={[]} label="Buscar el 7: se compara con el 8, el 4 y el 6, y a la derecha del 6 está el árbol vacío. El 7 no está. El 2 y el subárbol derecho del 8 quedan descartados." caption="buscar 7: 8, 4, 6, y a la derecha de 6 no hay nada" />
-</div>
-
-La búsqueda baja por **un solo camino**, y termina en el valor o en un
-subárbol vacío. Un camino desde la raíz tiene a lo más $$h + 1$$ nodos, así
-que buscar cuesta $$O(h)$$, se encuentre o no el valor.
-
-</Slide>
-
 <Slide title="La clase BST">
-El árbol de búsqueda usa el mismo nodo del árbol binario: un valor y una
-referencia a cada hijo. La clase del árbol guarda solo la raíz, y un árbol
+Las operaciones se escriben sobre dos clases. El árbol de búsqueda usa el
+mismo nodo del árbol binario: un valor y una referencia a cada hijo. La clase del árbol guarda solo la raíz, y un árbol
 vacío tiene la raíz en `null`.
 
 ```java
@@ -288,6 +247,23 @@ Lo nuevo es `T extends Comparable<T>`. Para elegir entre la izquierda y la
 derecha hay que comparar valores, y `compareTo` responde un número negativo,
 cero o positivo según el valor sea menor, igual o mayor que el otro: el tipo
 de los valores tiene que saber compararse.
+
+</Slide>
+
+<Slide title="Buscar en un árbol de búsqueda">
+En cada nodo hay tres respuestas posibles: el valor buscado es el del nodo, es
+menor o es mayor. Si es menor, la invariante garantiza que no está en el
+subárbol derecho, y la búsqueda sigue solo por la izquierda; si es mayor, al
+revés. Cada comparación descarta un subárbol entero.
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1rem 2rem', alignItems: 'end' }}>
+<BinaryPicture tree={EVENS} path={[8, 12, 10]} seek={10} tones={{ 10: 'keep', 4: 'faint', 2: 'faint', 6: 'faint', 14: 'faint' }} holes={[]} label="Buscar el 10: se compara con el 8 y se baja a la derecha, con el 12 y se baja a la izquierda, y el 10 es el buscado. El subárbol izquierdo del 8 y el 14 quedan descartados, atenuados." caption="buscar 10: 8, 12, 10; el resto queda descartado" />
+<BinaryPicture tree={EVENS} path={[8, 4, 6]} seek={7} probe={{ at: 6, side: 'r' }} tones={{ 6: 'focus', 2: 'faint', 12: 'faint', 10: 'faint', 14: 'faint' }} holes={[]} label="Buscar el 7: se compara con el 8, el 4 y el 6, y a la derecha del 6 está el árbol vacío. El 7 no está. El 2 y el subárbol derecho del 8 quedan descartados." caption="buscar 7: 8, 4, 6, y a la derecha de 6 no hay nada" />
+</div>
+
+La búsqueda baja por **un solo camino**, y termina en el valor o en un
+subárbol vacío. Un camino desde la raíz tiene a lo más $$h + 1$$ nodos, así
+que buscar cuesta $$O(h)$$, se encuentre o no el valor.
 
 </Slide>
 
@@ -347,9 +323,35 @@ cuelga donde su búsqueda terminó.
 
 </Slide>
 
+<Slide title="El inorden de un árbol de búsqueda">
+Un árbol armado con inserciones guarda sus valores en orden, y hay un
+recorrido que los entrega así: **el inorden de un árbol binario de búsqueda
+entrega sus valores ordenados de menor a mayor.** El inorden visita cada nodo
+entre sus dos subárboles: primero el izquierdo, después el nodo, después el
+derecho.
+
+<OrderRule parts={['izquierda', 'raíz', 'derecha']} tone="accent" label="La regla del inorden: el subárbol izquierdo, después la raíz, después el derecho." />
+
+<BinaryPicture tree={EVENS} visits="in" strip label="El árbol de búsqueda con 8 en la raíz, 4 y 12 debajo, y 2, 6, 10 y 14 en el último nivel, recorrido en inorden: cada nodo numerado en el orden en que se visita, con una flecha de cada visita a la siguiente. Se visitan el 2, el 4, el 6, el 8, el 10, el 12 y el 14, y la fila de abajo los muestra en ese orden, cada uno bajo su nodo." caption="el inorden: 2, 4, 6, 8, 10, 12, 14, ordenado" />
+
+La razón es la invariante: todo lo de la izquierda de un nodo es menor que él
+y todo lo de la derecha es mayor. Si cada subárbol, más pequeño, ya sale
+ordenado, el nodo queda exactamente entre los dos, y el total sale ordenado.
+
+</Slide>
+
+<Slide title="El código del inorden">
+El código es el del árbol binario: la visita va entre las dos llamadas, así
+que cada nodo se imprime después de todo su subárbol izquierdo y antes de todo
+el derecho.
+
+<SequenceStepper eda="binary-tree" operation="inorder" values={[8, 4, 12, 2, 6, 10, 14]} />
+
+</Slide>
+
 <Slide title="El mínimo y el máximo">
 Por la invariante, todo lo menor que un nodo está a su izquierda. El
-**mínimo** es entonces el nodo de más a la izquierda: se baja por la izquierda
+**mínimo**, el primero del inorden, es entonces el nodo de más a la izquierda: se baja por la izquierda
 hasta un nodo que no tenga hijo izquierdo. El **máximo** es el simétrico: se
 baja por la derecha. Con recursión es una llamada a la izquierda por nivel;
 con un ciclo, una variable que baja mientras haya izquierda.
@@ -362,8 +364,8 @@ y el método lanza una excepción.
 </Slide>
 
 <Slide title="El sucesor y el predecesor">
-El **sucesor** de un valor es el menor valor del árbol que es mayor que él.
-Se encuentra con una sola bajada desde la raíz que guarda un candidato: en
+El **sucesor** de un valor es el menor valor del árbol que es mayor que él:
+el que le sigue en el inorden. Se encuentra con una sola bajada desde la raíz que guarda un candidato: en
 cada nodo mayor que el valor, ese nodo es el mejor candidato hasta ahí, y uno
 mejor solo puede estar a su izquierda; en cada nodo menor o igual, el sucesor
 solo puede estar a su derecha. Cuando la bajada llega a un subárbol vacío, el
