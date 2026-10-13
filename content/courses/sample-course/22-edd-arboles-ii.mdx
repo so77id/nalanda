@@ -7,15 +7,13 @@ questions: none
 
 {/* `none` es un TODAVÍA NO, no una decisión: el valor se fija con el profesor al cerrar #322, con las preguntas aprobadas una a una. */}
 
-{/* Moved from Árboles I (#321) on 2026-10-12, when that class split in two: its two search-tree acts and their three exercises, as they stood there. The opening, the acts on balance, the closing and Miguel's review of these slides are #322's work. */}
-
 # Estructuras de Datos Avanzadas · Árboles II
 
-{/* PROVISIONAL lead, to be rewritten in #322: it only says where the class starts from. */}
-
-Buscar un valor en un árbol binario obliga a mirar sus dos subárboles: nada
-dice de qué lado está. Un árbol de búsqueda pone un orden entre los valores,
-y con ese orden cada comparación descarta un subárbol entero.
+Un registro de estudiantes recibe números de matrícula de a uno, y en
+cualquier momento hay que responder si un número ya está. Un registro de
+fechas, o de folios, pide lo mismo: guardar un conjunto de valores que crece,
+y buscar e insertar en él todo el tiempo. Para eso hacen falta dos
+operaciones rápidas a la vez.
 
 {/* SortedRow — a sorted array drawn as a row of cells with their indices, one cell under the eye and a range set aside. File-local like HierarchyPicture (§6e-quater). */}
 
@@ -47,39 +45,81 @@ export function SortedRow({ values, hot = -1, out = [], caption, label }) {
   );
 }
 
-{/* The tree the decisions of a binary search over 1..9 form: its inorder is the array itself. */}
+{/* The tree the decisions of a binary search over 2, 4, …, 14 form: its inorder is the array itself. The opening threads it through, and the same insertion of 7 runs in the array and in the tree. */}
 
-export const FROM_ARRAY = { v: 5, l: { v: 2, l: { v: 1 }, r: { v: 3, r: { v: 4 } } }, r: { v: 7, l: { v: 6 }, r: { v: 8, r: { v: 9 } } } };
+export const EVENS = { v: 8, l: { v: 4, l: { v: 2 }, r: { v: 6 } }, r: { v: 12, l: { v: 10 }, r: { v: 14 } } };
 
-## El árbol binario de búsqueda
+export const EVENS_WITH_7 = { v: 8, l: { v: 4, l: { v: 2 }, r: { v: 6, r: { v: 7 } } }, r: { v: 12, l: { v: 10 }, r: { v: 14 } } };
 
-<Slide title="La búsqueda binaria en un arreglo ordenado">
-En un arreglo **ordenado** se busca sin recorrerlo: se compara con el
-elemento del medio y, según sea mayor o menor, se descarta la mitad que no
-puede contenerlo. Cada comparación parte el problema en dos, así que bastan
-$$\lfloor \log_2 n \rfloor + 1$$ comparaciones.
+<Slide title="Un dilema entre buscar e insertar">
+Las estructuras que guardan sus elementos en fila resuelven bien una de las dos
+operaciones y mal la otra.
 
-<SortedRow values={[1, 2, 3, 4, 5, 6, 7, 8, 9]} hot={4} out={[0, 1, 2, 3]} label="El arreglo ordenado del 1 al 9. Buscando el 7, la primera comparación es con el 5, el del medio, y la mitad izquierda, del 1 al 4, queda descartada." caption="buscar 7: se compara con 5, el del medio, y la mitad izquierda se descarta" />
+- **Sin orden**, un valor nuevo entra al principio de una lista, o al final de
+  un arreglo, sin mirar a los demás. Pero buscar obliga a revisar los valores
+  uno por uno: nada dice dónde está el buscado.
+- **Ordenado**, un arreglo se busca con la búsqueda binaria, que descarta la
+  mitad de lo que queda en cada comparación. Pero un valor nuevo tiene que
+  entrar en su lugar, y todos los mayores se corren una casilla.
 
-El problema es **insertar**. Para que el arreglo siga ordenado, un valor
-nuevo tiene que entrar en su lugar, y todos los mayores se corren una
-casilla: $$\Theta(n)$$.
+| Estructura            | Buscar             | Insertar      |
+| --------------------- | ------------------ | ------------- |
+| Lista enlazada        | $$\Theta(n)$$      | $$\Theta(1)$$ |
+| Arreglo ordenado      | $$\Theta(\log n)$$ | $$\Theta(n)$$ |
+
+Una sirve para insertar y la otra para buscar. Lo que hace falta es una
+estructura que no tenga que elegir.
+
+</Slide>
+
+<Slide title="La búsqueda binaria">
+En un arreglo ordenado, la búsqueda binaria compara el valor buscado con el
+elemento del medio. Si son iguales, lo encontró. Si el buscado es menor, no
+puede estar en la mitad derecha, y la búsqueda sigue en la izquierda; si es
+mayor, al revés. Cada comparación descarta la mitad de lo que quedaba, así que
+bastan $$\lfloor \log_2 n \rfloor + 1$$ comparaciones.
+
+<BinarySearchOnArray values={[2, 4, 6, 8, 10, 12, 14]} target={12} />
+
+</Slide>
+
+<Slide title="Insertar en un arreglo ordenado">
+La búsqueda binaria también dice dónde va un valor nuevo: en la posición
+donde la búsqueda terminó sin encontrarlo. Pero para abrirle esa casilla,
+cada valor mayor se corre un lugar a la derecha, empezando por el último. En
+el peor caso se corren todos: $$\Theta(n)$$.
+
+<SequenceStepper eda="dynamic-array" operation="insert-at" values={[2, 4, 6, 8, 10, 12, 14]} value={7} index={3} capacity={8} />
 
 </Slide>
 
 <Slide title="Las decisiones de la búsqueda binaria">
-Las comparaciones de una búsqueda binaria siempre siguen el mismo patrón. La
-primera es con el elemento del medio; si el buscado es menor, la segunda es
+Las comparaciones de una búsqueda binaria siguen siempre el mismo patrón. La
+primera es con el elemento del medio. Si el buscado es menor, la segunda es
 con el medio de la mitad izquierda; si es mayor, con el medio de la derecha;
-y así. Dibujadas, esas decisiones forman un **árbol binario**: el medio es la
-raíz, y cada mitad, un subárbol.
+y así. Dibujadas, esas decisiones forman un **árbol binario**: el elemento del
+medio es la raíz, y cada mitad, un subárbol armado con la misma regla.
 
-<BinaryPicture tree={FROM_ARRAY} strip label="El árbol de decisiones de una búsqueda binaria sobre el arreglo del 1 al 9. La raíz es 5; a la izquierda, 2, con hijos 1 y 3, y el 3 con un hijo derecho, 4; a la derecha, 7, con hijos 6 y 8, y el 8 con un hijo derecho, 9. Debajo, el arreglo ordenado, con cada valor exactamente bajo su nodo." caption="el arreglo ordenado es el inorden del árbol" />
+<BinaryPicture tree={EVENS} strip label="El árbol de decisiones de una búsqueda binaria sobre el arreglo 2, 4, 6, 8, 10, 12, 14. La raíz es 8; a la izquierda, 4, con hijos 2 y 6; a la derecha, 12, con hijos 10 y 14. Debajo, el arreglo ordenado, con cada valor exactamente bajo su nodo." caption="el arreglo ordenado es el inorden del árbol" />
 
-Si, en lugar del arreglo, se guardan esas decisiones como **nodos
-enlazados**, buscar sigue siendo comparar y bajar por un lado. E insertar ya
-no corre nada: el valor nuevo se cuelga como una hoja en el lugar donde su
-búsqueda termina.
+Cada búsqueda es un camino desde la raíz hacia abajo, y el arreglo ordenado
+es el inorden del árbol: cada valor queda debajo de su nodo.
+
+</Slide>
+
+<Slide title="Las decisiones guardadas en nodos">
+Si esas decisiones se guardan como **nodos enlazados** en lugar de un
+arreglo, buscar sigue siendo lo mismo: comparar y bajar por un lado. Y un
+valor que no está termina su búsqueda en un subárbol vacío, que es justo
+donde tiene que ir.
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1rem 2rem', alignItems: 'end' }}>
+<BinaryPicture tree={EVENS} path={[8, 4, 6]} probe={{ at: 6, side: 'r' }} seek={7} tones={{ 6: 'focus' }} holes={[]} minColumns={8} label="Buscar el 7 en el árbol de decisiones: se compara con el 8, se baja al 4, se baja al 6, y a la derecha del 6 está el árbol vacío. El 7 no está." caption="buscar 7: 8, 4, 6, y a la derecha de 6 no hay nada" />
+<BinaryPicture tree={EVENS_WITH_7} fresh={7} tones={{ 7: 'mark' }} holes={[]} minColumns={8} label="El 7 colgado como hijo derecho del 6: una hoja nueva, sin que ningún otro nodo se mueva." caption="el 7 se cuelga ahí, como hoja: nada se corre" />
+</div>
+
+Insertar ya no corre nada: el valor nuevo se cuelga como una **hoja** en el
+lugar donde su búsqueda terminó.
 
 </Slide>
 
@@ -95,24 +135,24 @@ correcto de su padre: un valor tiene que estar del lado correcto de **cada**
 nodo por encima de él.
 
 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem', alignItems: 'end' }}>
-<BinaryPicture tree={{ v: 5, l: { v: 3, l: { v: 1 }, r: { v: 4 } }, r: { v: 8 } }} minColumns={5} label="Un árbol de búsqueda: 5 con hijos 3 y 8; el 3 con hijos 1 y 4. Todo lo que está a la izquierda del 5 es menor que 5, y todo lo de la derecha, mayor." caption="cumple la invariante en cada nodo" />
-<BinaryPicture tree={{ v: 5, l: { v: 3, l: { v: 1 }, r: { v: 7 } }, r: { v: 8 } }} tones={{ 7: 'mark' }} notes={{ 7: '7 > 5' }} minColumns={5} label="Un árbol que no es de búsqueda: 5 con hijos 3 y 8; el 3 con hijos 1 y 7. Cada hijo está del lado correcto de su padre, pero el 7 está en el subárbol izquierdo del 5 y es mayor que 5." caption="7 está bien con su padre, 3, pero no con el 5" />
+<BinaryPicture tree={EVENS} minColumns={7} compact label="Un árbol de búsqueda: 8 en la raíz, 4 y 12 debajo, 2, 6, 10 y 14 en el último nivel. Todo lo que está a la izquierda de cada nodo es menor que él, y todo lo de la derecha, mayor." caption="cumple la invariante en cada nodo" />
+<BinaryPicture tree={{ v: 8, l: { v: 4, l: { v: 2 }, r: { v: 10 } }, r: { v: 12 } }} minColumns={7} compact tones={{ 10: 'mark' }} notes={{ 10: '10 > 8' }} label="Un árbol que no es de búsqueda: 8 en la raíz, con 4 y 12 debajo; el 4 tiene hijos 2 y 10. El 10 está bien con su padre, el 4, pero está en el subárbol izquierdo del 8 y es mayor que 8." caption="10 está bien con su padre, 4, pero no con el 8" />
 </div>
 
 </Slide>
 
 <Slide title="Las invariantes del árbol de búsqueda">
-Un árbol binario de búsqueda sostiene tres propiedades:
+Las dos invariantes del árbol binario siguen en pie, sin cambios: cada nodo
+tiene a lo más dos hijos, el izquierdo y el derecho, y cada nodo salvo la raíz
+tiene exactamente un padre. El árbol de búsqueda agrega una tercera:
 
-1. **Cada nodo tiene a lo más dos hijos, izquierdo y derecho.**
-2. **Cada nodo, salvo la raíz, tiene exactamente un padre.**
-3. **Todo el subárbol izquierdo de un nodo es menor que él, y todo el derecho
-   es mayor.** En particular, ningún valor se repite.
+3. **Para cada nodo, todo su subárbol izquierdo es menor que él, y todo su
+   subárbol derecho es mayor.** En particular, ningún valor se repite: un
+   valor igual no estaría ni a un lado ni al otro.
 
-Las dos primeras son las del árbol binario, sin cambios. La tercera es la
-nueva, y la que decide los costos: es la que permite descartar un subárbol
-entero en cada comparación, y la que cada inserción y cada eliminación tienen
-que dejar en pie.
+Es la invariante que decide los costos. Por ella, cada comparación descarta
+un subárbol entero, y por ella cada inserción y cada eliminación tienen que
+dejar a cada valor del lado correcto de cada uno de sus ancestros.
 
 </Slide>
 
@@ -120,29 +160,13 @@ que dejar en pie.
 **El inorden de un árbol binario de búsqueda entrega sus valores ordenados de
 menor a mayor.**
 
-La razón es la misma definición recursiva. El inorden de un nodo es el
-inorden de su subárbol izquierdo, después el nodo, y después el inorden del
-derecho. Por la invariante, todo lo de la izquierda es menor que el nodo y
-todo lo de la derecha es mayor; si cada subárbol, más pequeño, ya sale
-ordenado, el nodo queda exactamente entre los dos, y el total sale ordenado.
+La razón es la definición recursiva del inorden: primero el subárbol
+izquierdo, después el nodo, después el subárbol derecho. Por la invariante,
+todo lo de la izquierda es menor que el nodo y todo lo de la derecha es mayor.
+Si cada subárbol, más pequeño, ya sale ordenado, el nodo queda exactamente
+entre los dos, y el total sale ordenado.
 
-<SequenceStepper eda="binary-tree" operation="inorder" values={[4, 2, 6, 1, 3, 5, 7]} />
-
-</Slide>
-
-<Slide title="Insertar a mano · la pregunta">
-Insertemos, en este orden, los valores 8, 5, 1, 4, 6, 7, 20 y 12 en un árbol
-de búsqueda vacío: cada valor baja desde la raíz eligiendo un lado en cada
-nodo, y se cuelga como hoja donde no hay más. Después escribamos el inorden
-del árbol que queda.
-
-</Slide>
-
-<Slide title="Insertar a mano · la respuesta">
-Cada valor quedó donde su búsqueda terminó, y el inorden, en la tira de
-abajo, sale ordenado.
-
-<SequenceStepper eda="bst" operation="insert" values={[]} value={[8, 5, 1, 4, 6, 7, 20, 12]} />
+<SequenceStepper eda="binary-tree" operation="inorder" values={[8, 4, 12, 2, 6, 10, 14]} />
 
 </Slide>
 

@@ -1043,18 +1043,25 @@ describe('<SequenceStepper> · the combinations 21-edd-arboles-i mounts', () => 
 describe('<SequenceStepper> · the combinations 22-edd-arboles-ii mounts', () => {
   // Pinned here because `app/contentRenders.test.tsx` never mounts the lazy
   // widget (apps/web/CLAUDE.md §2, class 4). Named for the act and slide they
-  // come from, and each one WALKED to its last frame, not only mounted. These
-  // slides were Árboles I's until the class split in two (#321 → #322).
+  // come from, and each one WALKED to its last frame, not only mounted. Kept
+  // level with the document by every slice of #322 that rewrites an act.
   const mounted: { act: string; slide: string; props: SequenceStepperProps }[] = [
     {
-      act: 'El árbol binario de búsqueda',
-      slide: 'El inorden de un árbol de búsqueda',
-      props: { eda: 'binary-tree', operation: 'inorder', values: [4, 2, 6, 1, 3, 5, 7] },
+      act: 'the opening, with no heading',
+      slide: 'Insertar en un arreglo ordenado',
+      props: {
+        eda: 'dynamic-array',
+        operation: 'insert-at',
+        values: [2, 4, 6, 8, 10, 12, 14],
+        value: 7,
+        index: 3,
+        capacity: 8,
+      },
     },
     {
-      act: 'El árbol binario de búsqueda',
-      slide: 'Insertar a mano · la respuesta',
-      props: { eda: 'bst', operation: 'insert', values: [], value: [8, 5, 1, 4, 6, 7, 20, 12] },
+      act: 'the opening, with no heading',
+      slide: 'El inorden de un árbol de búsqueda',
+      props: { eda: 'binary-tree', operation: 'inorder', values: [8, 4, 12, 2, 6, 10, 14] },
     },
     {
       act: 'Las operaciones del árbol de búsqueda',
