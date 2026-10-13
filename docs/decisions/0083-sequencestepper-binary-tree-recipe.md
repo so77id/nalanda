@@ -54,9 +54,11 @@ A node's x is its inorder position and its y its depth. A parent therefore
 always sits between its two subtrees and no edge crosses another. Under the
 tree, a strip has one slot per column, and a traversal writes its output into
 it left to right. The inorder lands under its own nodes; the preorder and
-postorder visibly do not. For a search tree (the `bst` recipe, #322) the same
-strip reads sorted, which is the theorem the class states, made visible
-rather than asserted.
+postorder visibly do not. A search tree's operations draw no strip (#322,
+Miguel's review): under an insertion it read as an array the tree keeps, and
+a search tree keeps none. The sorted inorder is shown where it is the
+lesson — the traversal's own slide — and the rotations keep their strip,
+because what they teach is that the inorder does not change.
 
 The columns are fixed for the WHOLE run — every node the run ever holds is
 placed once — so an insertion (`bst`) lands in a column already reserved and

@@ -382,8 +382,13 @@ export interface SequenceInput {
   capacity?: number;
   /** Lists only: draw a `tail` pointer and let the operations use it. */
   tail?: boolean;
-  /** `bst` × `search` only: the iterative `contains` beside the recursive one. */
+  /** The iterative version of the operation beside the recursive one (`PAIRED`). */
   iterative?: boolean;
+  /**
+   * `bst` × `insert` only, from an empty tree: the listing is the program
+   * that builds the tree, one frame per line, instead of the method walked.
+   */
+  program?: boolean;
   /**
    * The name the LISTING shows the method under, when the document presents
    * the structure through a TDA that calls it something else. A class that
@@ -537,6 +542,11 @@ export function traceFor(
   operation: SequenceOperation,
   input: SequenceInput,
 ): SequenceTrace {
+  if (input.program === true && !(recipe === 'bst' && operation === 'insert')) {
+    throw new Error(
+      `Solo la inserción del árbol de búsqueda se muestra como programa: program va con eda="bst" y operation="insert", no con «${operation}».`,
+    );
+  }
   if (input.iterative === true && !PAIRED.some(([r, o]) => r === recipe && o === operation)) {
     throw new Error(
       `«${operation}» sobre «${recipe}» no tiene un listado iterativo al lado: iterative va con ${PAIRED.map(([r, o]) => `${r} × ${o}`).join(', ')}.`,

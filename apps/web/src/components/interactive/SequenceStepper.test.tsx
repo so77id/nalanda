@@ -881,11 +881,35 @@ describe('<SequenceStepper> · the bst recipe (#321)', () => {
       'book',
       <SequenceStepper eda="bst" operation="insert" values={[8, 5, 20]} value={12} />,
     );
-    const slots = () => screen.getByTestId('tree-view').querySelectorAll('[data-slot]');
-    expect(slots()).toHaveLength(4);
+    const columns = () =>
+      Object.fromEntries(
+        [...screen.getByTestId('tree-view').querySelectorAll('[data-node]')].map((n) => [
+          n.getAttribute('data-value'),
+          n.getAttribute('data-column'),
+        ]),
+      );
+    // Column 2 is 12's before 12 exists: nothing moves when it lands.
+    expect(columns()).toEqual({ 5: '0', 8: '1', 20: '3' });
     walkToEnd();
-    expect(slots()).toHaveLength(4);
-    expect([...slots()].map((s) => s.getAttribute('data-value'))).toEqual(['5', '8', '12', '20']);
+    expect(columns()).toEqual({ 5: '0', 8: '1', 12: '2', 20: '3' });
+  });
+
+  it('draws no strip under an insertion: a search tree keeps no array', () => {
+    renderIn(
+      'book',
+      <SequenceStepper eda="bst" operation="insert" values={[8, 5, 20]} value={12} />,
+    );
+    expect(screen.getByTestId('tree-view').querySelectorAll('[data-slot]')).toHaveLength(0);
+  });
+
+  it('shows a tree built by a program, one line per frame', () => {
+    renderIn(
+      'book',
+      <SequenceStepper eda="bst" operation="insert" values={[]} value={[8, 4, 12]} program />,
+    );
+    expect(screen.getByTestId('tree-view').querySelectorAll('[data-node]')).toHaveLength(0);
+    walkToEnd();
+    expect(screen.getByTestId('tree-view').querySelectorAll('[data-node]')).toHaveLength(3);
   });
 
   it('names the search tree in the chip', () => {
@@ -1182,7 +1206,7 @@ describe('<SequenceStepper> · the combinations 22-edd-arboles-ii mounts', () =>
         eda: 'bst',
         operation: 'search',
         values: [8, 4, 12, 2, 6, 10, 14],
-        target: [10, 7],
+        target: 10,
         iterative: true,
       },
     },
@@ -1199,8 +1223,14 @@ describe('<SequenceStepper> · the combinations 22-edd-arboles-ii mounts', () =>
     },
     {
       act: 'Las operaciones del árbol de búsqueda',
-      slide: 'La raíz que devuelve insert',
-      props: { eda: 'bst', operation: 'insert', values: [], value: [8, 4, 12] },
+      slide: 'Un árbol armado con inserciones',
+      props: {
+        eda: 'bst',
+        operation: 'insert',
+        values: [],
+        value: [8, 4, 12, 2, 6, 10, 14],
+        program: true,
+      },
     },
     {
       act: 'Las operaciones del árbol de búsqueda',

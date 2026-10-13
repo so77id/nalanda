@@ -127,6 +127,12 @@ export interface SequenceStepperProps {
    * the two listings sharing the width, each lit at every frame (#322).
    */
   iterative?: boolean;
+  /**
+   * `bst` × `insert` only, from `values={[]}`: the listing is the program
+   * that builds the tree — the tree created, then one `insert` per value —
+   * one frame per line, the tree drawn after each (#322).
+   */
+  program?: boolean;
   /** Playback default. Off unless the author asks (rule Peli 1/2). */
   autoplay?: boolean;
   /** `slow` ≈ 1200ms/step, `normal` ≈ 700ms, `fast` ≈ 300ms. */
@@ -353,6 +359,7 @@ export function SequenceStepper({
   pointer,
   tail = false,
   iterative = false,
+  program = false,
   autoplay = false,
   speed = 'normal',
   showCode = true,
@@ -480,6 +487,7 @@ export function SequenceStepper({
       pointer={pointer}
       tail={tail}
       iterative={iterative}
+      program={program}
       autoplay={autoplay}
       speed={speed}
       showCode={showCode}
@@ -503,6 +511,7 @@ interface BodyProps {
   pointer?: string;
   tail: boolean;
   iterative: boolean;
+  program: boolean;
   autoplay: boolean;
   speed: StepSpeed;
   showCode: boolean;
@@ -524,6 +533,7 @@ function Body({
   pointer,
   tail,
   iterative,
+  program,
   autoplay,
   speed,
   showCode,
@@ -566,6 +576,7 @@ function Body({
     pointer,
     tail,
     iterative,
+    program,
   ].join('|');
 
   const built = useMemo((): { trace: SequenceTrace } | { error: string } => {
@@ -584,6 +595,7 @@ function Body({
           pointer,
           tail,
           iterative,
+          program,
         }),
       };
     } catch (cause) {
@@ -605,6 +617,7 @@ function Body({
     pointer,
     tail,
     iterative,
+    program,
   ]);
 
   const trace = 'trace' in built ? built.trace : null;

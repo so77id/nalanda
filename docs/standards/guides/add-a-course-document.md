@@ -867,8 +867,10 @@ any other recipe is refused too. A second tree recipe, `bst`, is the search tree
 insertion order that builds it (a repeated value is refused), `search`
 chooses a side at every node and fades the one the invariant rules out,
 `insert` (`value`, an array for several) hangs each value as a leaf in a
-column reserved from the first frame, with the inorder kept sorted in the
-strip, `minimum` walks left only (an empty tree is refused: `min()` throws
+column reserved from the first frame — with no strip under it: a search tree
+keeps no array, and a strip there read as one (#322); with `program` and
+`values={[]}` the listing is the program that builds the tree, one frame per
+`tree.insert(x);` line — `minimum` walks left only (an empty tree is refused: `min()` throws
 there), `successor` (`target`) walks down once keeping the best candidate,
 and `remove` (`target`) runs the three cases — a leaf, one child, and two
 children by copying the successor's value into the node and removing the

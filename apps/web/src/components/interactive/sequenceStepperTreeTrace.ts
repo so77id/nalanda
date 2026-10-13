@@ -433,6 +433,9 @@ export function traceSearchTree(operation: BstOperation, input: SequenceInput): 
   if (operation === 'minimum' && input.iterative === true) {
     return pairListings(traceMinimum(input.values), MINIMUM_ITERATIVE, MINIMUM_PAIRS);
   }
+  if (operation === 'insert' && input.program === true) {
+    return traceInsertProgram(input.values, asRuns(input.value));
+  }
   if (operation === 'insert' && input.iterative === true) {
     return pairListings(
       traceInsert(input.values, asRuns(input.value)),
@@ -968,7 +971,73 @@ function traceInsert(values: number[], inserts: number[]): SequenceTrace {
       n = next;
     }
   }
-  return finish(rec, code, columns, slots, true);
+  // No strip: under an insertion it reads as an array the tree keeps, and a
+  // search tree keeps none (Miguel's review, #322). The traversals keep
+  // theirs — it is what they write — and so do the rotations, whose lesson
+  // is that the inorder does not change.
+  return finish(rec, code, columns, slots, false);
+}
+
+/**
+ * A tree built by a program, one frame per line (#322): the listing is the
+ * calling code — the tree created, then one `insert` per value — and each
+ * frame shows the tree after its line, the new leaf marked and the way it
+ * came down lit. The descent inside `insert` is the method's own slide; this
+ * one shows what a run of insertions builds.
+ */
+function traceInsertProgram(values: number[], inserts: number[]): SequenceTrace {
+  if (values.length > 0) {
+    throw new Error(
+      'El programa empieza con el árbol vacío: values va como [], y los valores que inserta, en value.',
+    );
+  }
+  if (inserts.length === 0) throw new Error('Falta el valor a insertar.');
+  requireRuns(inserts.length);
+  const code = [
+    'BST<Integer> tree = new BST<>();',
+    ...inserts.map((x) => `tree.insert(${x});`),
+  ].join('\n');
+  const columns: Record<number, number> = {};
+  const { place } = bstOf([], columnsFor(inserts), columns);
+  let root: NumberNode | null = null;
+  const rec = new TreeRecorder(
+    code,
+    () => root,
+    () => [],
+  );
+  rec.push('start', ['new BST<>()'], 'El árbol se crea vacío: su raíz es null.');
+  inserts.forEach((x, i) => {
+    rec.reset();
+    const said: string[] = [];
+    let parent: NumberNode | null = null;
+    let n: NumberNode | null = root;
+    while (n !== null && n.value !== x) {
+      said.push(`${x} ${x < n.value ? '<' : '>'} ${n.value}`);
+      rec.path.push(n.id);
+      parent = n;
+      n = x < n.value ? n.left : n.right;
+    }
+    if (n !== null) {
+      rec.push('done', [], `${x} ya está en el árbol: insert no hace nada.`);
+    } else {
+      const fresh = place(x);
+      if (parent === null) root = fresh;
+      else if (x < parent.value) parent.left = fresh;
+      else parent.right = fresh;
+      rec.path.push(fresh.id);
+      rec.state.set(fresh.id, 'new');
+      rec.push(
+        'build',
+        [],
+        parent === null
+          ? `El árbol está vacío: ${x} pasa a ser la raíz.`
+          : `${said.join(', ')}: ${x} se cuelga como hoja, a la ${x < parent.value ? 'izquierda' : 'derecha'} de ${parent.value}.`,
+      );
+    }
+    // The line by number: two insertions of one value write two equal lines.
+    rec.steps.at(-1)!.highlightLines = [i + 2];
+  });
+  return finish(rec, code, columns, new Set(inserts).size, false);
 }
 
 /**

@@ -2367,6 +2367,55 @@ describe('sequenceStepperTrace · bst · search names what it looks for (#322)',
   });
 });
 
+describe('sequenceStepperTrace · bst · a tree built by a program (#322)', () => {
+  const build = (value: number[]) =>
+    traceFor('bst', 'insert', { values: [], value, program: true });
+  const lines = (trace: SequenceTrace, step: SequenceStep) =>
+    step.highlightLines.map((l) => trace.code.split('\n')[l - 1]!);
+
+  it('lists the program that builds the tree, not the method', () => {
+    const trace = build([8, 4, 12]);
+    expect(trace.code).toBe(
+      'BST<Integer> tree = new BST<>();\ntree.insert(8);\ntree.insert(4);\ntree.insert(12);',
+    );
+  });
+
+  it('takes one frame per line: the empty tree, then the tree after each insertion', () => {
+    const trace = build([8, 4, 12, 2, 6]);
+    expect(trace.steps).toHaveLength(6);
+    expect(trace.steps[0]!.tree!.nodes).toHaveLength(0);
+    expect(lines(trace, trace.steps[0]!)).toEqual(['BST<Integer> tree = new BST<>();']);
+    trace.steps.slice(1).forEach((step, i) => {
+      expect(lines(trace, step)).toEqual([`tree.insert(${[8, 4, 12, 2, 6][i]});`]);
+      expect(step.tree!.nodes).toHaveLength(i + 1);
+      const fresh = step.tree!.nodes.filter((n) => n.state === 'new');
+      expect(fresh.map((n) => n.value)).toEqual([[8, 4, 12, 2, 6][i]]);
+    });
+  });
+
+  it('narrates the comparisons that led each value to its place', () => {
+    const last = build([8, 4, 12, 2, 6]).steps.at(-1)!;
+    expect(last.description).toContain('6 < 8');
+    expect(last.description).toContain('6 > 4');
+    expect(last.description).toContain('derecha de 4');
+  });
+
+  it('starts from an empty tree, and only on the insertion', () => {
+    expect(() => traceFor('bst', 'insert', { values: [8], value: 4, program: true })).toThrow(
+      /vacío/,
+    );
+    expect(() => traceFor('bst', 'search', { values: [8], target: 8, program: true })).toThrow(
+      /programa/,
+    );
+  });
+
+  it('draws no strip under an insertion: the tree has no array beside it', () => {
+    expect(build([8, 4]).tree!.strip).toBe(false);
+    expect(traceFor('bst', 'insert', { values: [8, 4], value: 6 }).tree!.strip).toBe(false);
+    expect(traceFor('avl', 'insert', { values: [], value: [3, 2, 1] }).tree!.strip).toBe(false);
+  });
+});
+
 describe('sequenceStepperTrace · bst · insert', () => {
   const PDF = [8, 5, 1, 4, 6, 7, 20];
 

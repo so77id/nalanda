@@ -264,33 +264,42 @@ que buscar cuesta $$O(h)$$, se encuentre o no el valor.
 </Slide>
 
 <Slide title="La clase BST">
-La clase guarda la raíz y ofrece un método público que delega en uno
-recursivo, que recibe la raíz de un subárbol. Los nodos son los `Node<T>` del
-árbol binario.
+El árbol de búsqueda usa el mismo nodo del árbol binario: un valor y una
+referencia a cada hijo. La clase del árbol guarda solo la raíz, y un árbol
+vacío tiene la raíz en `null`.
 
 ```java
+class Node<T> {
+    T value;
+    Node<T> left;
+    Node<T> right;
+
+    Node(T value) {
+        this.value = value;
+    }
+}
+
 class BST<T extends Comparable<T>> {
     Node<T> root;
-
-    boolean contains(T value) {
-        return contains(root, value);
-    }
 }
 ```
 
-Para comparar se usa `compareTo`, que responde un número negativo, cero o
-positivo: por eso el tipo de los valores tiene que ser comparable, `T extends
-Comparable<T>`.
+Lo nuevo es `T extends Comparable<T>`. Para elegir entre la izquierda y la
+derecha hay que comparar valores, y `compareTo` responde un número negativo,
+cero o positivo según el valor sea menor, igual o mayor que el otro: el tipo
+de los valores tiene que saber compararse.
 
 </Slide>
 
 <Slide title="El código de la búsqueda">
-Cada caso de la regla es una línea del método recursivo: el subárbol vacío,
-el valor encontrado, y un lado o el otro según la comparación. La misma
-búsqueda se escribe también con un ciclo: en vez de una llamada por nivel, una
-variable que baja. Las dos comparan los mismos valores en el mismo orden.
+El método recursivo recibe el nodo desde donde busca, la raíz de un subárbol,
+y tiene un caso por línea: si el subárbol está vacío, el valor no está; si el
+nodo tiene el valor, está; si el valor es menor, sigue en el subárbol
+izquierdo, y si es mayor, en el derecho. La búsqueda en el árbol completo
+empieza en la raíz: `contains(root, x)`. El ciclo toma las mismas decisiones:
+en vez de una llamada por nivel, una variable que baja desde la raíz.
 
-<SequenceStepper eda="bst" operation="search" values={[8, 4, 12, 2, 6, 10, 14]} target={[10, 7]} iterative />
+<SequenceStepper eda="bst" operation="search" values={[8, 4, 12, 2, 6, 10, 14]} target={10} iterative />
 
 </Slide>
 
@@ -306,12 +315,16 @@ costo es el de la búsqueda, $$O(h)$$.
 </Slide>
 
 <Slide title="La raíz que devuelve insert">
-El método recursivo devuelve la raíz del subárbol en que insertó. Casi siempre
-es el mismo nodo que recibió; la excepción es el subárbol vacío, donde
-devuelve el nodo nuevo. Por eso cada llamada guarda lo que devuelve la
-siguiente en `node.left` o `node.right`, y el método público lo guarda en
-`root`: así, insertar en un árbol vacío crea la raíz. El ciclo no tiene esa
-vuelta: por eso baja recordando el padre, y al final cuelga la hoja de él.
+El método recursivo recibe la raíz de un subárbol y devuelve la raíz de ese
+mismo subárbol después de insertar. Casi siempre es el nodo que recibió; la
+excepción es el subárbol vacío, donde devuelve el nodo nuevo. Por eso cada
+llamada guarda lo que le devuelve la siguiente en `node.left` o `node.right`:
+así la hoja nueva queda enlazada a su padre.
+
+Quien usa el árbol no tiene nodos, solo valores. El método público es un
+**envoltorio** del recursivo: recibe el valor, llama al recursivo con la raíz
+y guarda en `root` lo que devuelve. Por eso, insertar en un árbol vacío crea
+la raíz.
 
 ```java
 void insert(T value) {
@@ -319,7 +332,18 @@ void insert(T value) {
 }
 ```
 
-<SequenceStepper eda="bst" operation="insert" values={[]} value={[8, 4, 12]} />
+El ciclo no necesita envoltorio, porque ya es el método público. Como no
+vuelve por el camino, baja recordando el padre, y al final cuelga la hoja de
+él.
+
+</Slide>
+
+<Slide title="Un árbol armado con inserciones">
+Un programa que crea un árbol vacío e inserta valores uno tras otro lo arma
+hoja por hoja: cada valor baja desde la raíz por las comparaciones, y se
+cuelga donde su búsqueda terminó.
+
+<SequenceStepper eda="bst" operation="insert" values={[]} value={[8, 4, 12, 2, 6, 10, 14]} program />
 
 </Slide>
 

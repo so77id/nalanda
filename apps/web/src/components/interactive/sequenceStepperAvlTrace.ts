@@ -490,7 +490,8 @@ function traceAvlInsert(input: SequenceInput): SequenceTrace {
     [],
     `El árbol cumple las dos invariantes, la de orden y la de balance. Su altura es ${heightIn(avl, avl.root)}.`,
   );
-  return finish(rec, code, columns, slots, true);
+  // No strip, as the search tree's insertion (#322): no array beside the tree.
+  return finish(rec, code, columns, slots, false);
 }
 
 function traceAvlRemove(input: SequenceInput): SequenceTrace {

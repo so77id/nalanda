@@ -96,6 +96,12 @@ export const sequenceStepperCatalogEntry: CatalogEntry = {
         'Shows the recursive version of the operation on the left and the iterative one on the right, the two listings sharing the width, each lit at every frame where the other is: the comparison in both, a call on a side against the variable stepping to it, a call on an empty side against the loop condition that fails. Valid on `dynamic-array` × `binary-search` (one target), and on `bst` × `search`, `minimum` and `insert` — the operations whose two versions take the same decisions in the same order. Anywhere else it is an authoring error. Default `false`.',
     },
     {
+      name: 'program',
+      type: 'boolean',
+      description:
+        '`bst` × `insert` only, from `values={[]}`. The listing becomes the program that builds the tree — `BST<Integer> tree = new BST<>();`, then one `tree.insert(x);` per value — one frame per line, the tree drawn after each with the new leaf marked and the way it came down lit. For showing what a run of insertions builds, not the descent inside the method. Default `false`.',
+    },
+    {
       name: 'autoplay',
       type: 'boolean',
       description: 'Autoplay on mount. Off by default (rule Peli 1/2 — the reader decides when).',
@@ -381,6 +387,19 @@ export const sequenceStepperCatalogEntry: CatalogEntry = {
           values={[8, 4, 12, 2, 6, 10, 14]}
           target={10}
           iterative
+        />
+      ),
+    },
+    {
+      title: 'A tree built by a program: one frame per insertion, the tree after each',
+      code: '<SequenceStepper eda="bst" operation="insert" values={[]} value={[8, 4, 12, 2, 6]} program />',
+      render: () => (
+        <SequenceStepper
+          eda="bst"
+          operation="insert"
+          values={[]}
+          value={[8, 4, 12, 2, 6]}
+          program
         />
       ),
     },
