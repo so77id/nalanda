@@ -2,10 +2,10 @@ import type { SequenceCell } from './sequenceStepperTrace';
 
 /**
  * The colour of every cell state, shared by the painters of
- * `<SequenceStepper>`: the Sequence picture and the tree's (both in
- * `SequenceStepper.tsx`) and the heap's (`sequenceStepperHeapView.tsx`). One
- * table, so a state cannot read as one thing in a chain and another in a heap
- * or a tree.
+ * `<SequenceStepper>`: the Sequence picture (`SequenceStepper.tsx`), the
+ * heap's (`sequenceStepperHeapView.tsx`) and the tree's
+ * (`sequenceStepperTreeView.tsx`). One table, so a state cannot read as one
+ * thing in a chain and another in a heap or a tree.
  */
 export const CELL_FILL: Record<SequenceCell['state'], string> = {
   idle: 'var(--color-surface)',
@@ -32,4 +32,18 @@ export const CELL_STROKE: Record<SequenceCell['state'], string> = {
   // — Sedgewick's orange path of the element that swims or sinks.
   swap: 'var(--color-accent)',
   visited: 'var(--color-rule-strong)',
+};
+
+/**
+ * Colour is never the only signal (`design-system.md`): every state that is
+ * painted also gets a word under the box, so a reader who cannot separate the
+ * hues still reads what happened. The heap view writes no word under its
+ * cells — its index sits there — and reads `swap` by stroke weight and the
+ * legend instead (ADR-0077 §4).
+ */
+export const CELL_NOTE: Partial<Record<SequenceCell['state'], string>> = {
+  new: 'nuevo',
+  found: '✓ este',
+  leaving: 'sale',
+  stale: 'copia vieja',
 };

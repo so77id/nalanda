@@ -25,6 +25,7 @@
  *   first rather than at `null`.
  */
 
+import { asRuns, lineOf } from './sequenceStepperTraceShared';
 import { traceTree } from './sequenceStepperTreeTrace';
 
 export const RECIPES = [
@@ -114,6 +115,8 @@ export interface TreeFrameNode {
   value: TreeValue;
   left: number | null;
   right: number | null;
+  /** The node's level, the root's 0: the row the view draws it on. */
+  depth: number;
   state: SequenceCellState;
   /** A short mark beside the node: its visit order, or what its call returned. */
   badge?: string;
@@ -263,16 +266,25 @@ export interface SequenceTrace {
    * landed, which is the resizing that makes an animation unreadable.
    */
   hasCarry: boolean;
-  /**
-   * Tree recipes only. `columns` places every node the run EVER holds in a
-   * column fixed for the whole run — its inorder position among all of them —
-   * so an insertion lands in a column already reserved and nothing on screen
-   * moves (the rule `maxCells` keeps for the chains). `depth` is the deepest
-   * level any frame reaches, so the canvas keeps one height too. `strip` says
-   * whether the operation writes anything out: a height or a search does not,
-   * and gets no strip at all rather than an empty one.
-   */
-  tree?: { columns: Record<number, number>; slots: number; depth: number; strip: boolean };
+  /** Tree recipes only: what the whole run needs to keep one canvas. */
+  tree?: TreeRun;
+}
+
+/**
+ * `columns` places every node the run holds in a column fixed for the whole
+ * run — its inorder position — so nothing on screen moves sideways (the rule
+ * `maxCells` keeps for the chains); a tree that grows during the run, as the
+ * search tree of #322 does, reserves the columns of the nodes it will insert.
+ * `depth` is the deepest level any frame reaches, so the canvas keeps one
+ * height too. `strip` says whether the operation writes anything out: a
+ * height or a search does not, and gets no strip at all rather than an empty
+ * one.
+ */
+export interface TreeRun {
+  columns: Record<number, number>;
+  slots: number;
+  depth: number;
+  strip: boolean;
 }
 
 export interface SequenceInput {
@@ -352,24 +364,6 @@ export interface SequenceInput {
   pointer?: string;
 }
 
-/**
- * The 1-based line of the first line containing `fragment`.
- *
- * Every frame names the line it is executing by a piece of that line's TEXT,
- * never by a number. `lines` is unvalidated data — `CodeStepper` silently
- * drops an out-of-range number, so a wrong-but-in-range one survives the
- * build, the suite and the preview alike, and #277 shipped two of them,
- * both from renumbering by hand after re-wrapping a listing
- * (`teach-a-data-structure.md` §6bis). Looking the number up removes the
- * class: edit a listing and the frames follow, and a fragment that stops
- * existing throws here instead of lighting the wrong line.
- */
-function lineOf(code: string, fragment: string): number {
-  const at = code.split('\n').findIndex((line) => line.includes(fragment));
-  if (at < 0) throw new Error(`El listado no contiene «${fragment}».`);
-  return at + 1;
-}
-
 const isList = (recipe: SequenceRecipe) => recipe.startsWith('linked-list');
 
 /**
@@ -408,22 +402,21 @@ const HEAP_OPERATION_NAMES = ['insert', 'extract-max'] as const;
 type HeapOperation = (typeof HEAP_OPERATION_NAMES)[number];
 export const HEAP_OPERATIONS: readonly SequenceOperation[] = HEAP_OPERATION_NAMES;
 
-/** What `binary-tree` has a listing for (#321): visits, the height, a search. */
-export const BINARY_TREE_OPERATIONS: readonly SequenceOperation[] = [
-  'preorder',
-  'inorder',
-  'postorder',
-  'height',
-  'search',
-];
+/** The operations only a tree has (#321): the three visits and the height. */
+const TREE_OPERATION_NAMES = ['preorder', 'inorder', 'postorder', 'height'] as const;
+type TreeOperation = (typeof TREE_OPERATION_NAMES)[number];
+export const TREE_ONLY_OPERATIONS: readonly SequenceOperation[] = TREE_OPERATION_NAMES;
 
-/** The operations only a tree has; `search` is shared. */
-const TREE_ONLY_OPERATIONS: readonly SequenceOperation[] = [
-  'preorder',
-  'inorder',
-  'postorder',
-  'height',
-];
+/** What `binary-tree` has a listing for: its own operations, and the shared `search`. */
+const BINARY_TREE_OPERATION_NAMES = [...TREE_OPERATION_NAMES, 'search'] as const;
+export type BinaryTreeOperation = (typeof BINARY_TREE_OPERATION_NAMES)[number];
+export const BINARY_TREE_OPERATIONS: readonly SequenceOperation[] = BINARY_TREE_OPERATION_NAMES;
+
+export function isBinaryTreeOperation(
+  operation: SequenceOperation,
+): operation is BinaryTreeOperation {
+  return BINARY_TREE_OPERATIONS.includes(operation);
+}
 
 export function isValidCombination(
   recipe: SequenceRecipe,
@@ -454,7 +447,9 @@ export function traceFor(
     throw new Error(`La operación «${operation}» no está definida sobre «${recipe}».`);
   }
   if (recipe === 'heap-max') return traceHeap(operation, input);
-  if (recipe === 'binary-tree') return traceTree(operation, input);
+  if (recipe === 'binary-tree' && isBinaryTreeOperation(operation)) {
+    return traceTree(operation, input);
+  }
   return isList(recipe) ? traceList(recipe, operation, input) : traceArray(operation, input);
 }
 
@@ -476,16 +471,6 @@ const settle = (cells: SequenceCell[]): SequenceCell[] =>
   cells.map((c) =>
     c.state === 'new' || c.state === 'found' ? { ...c } : { ...c, state: 'idle' as const },
   );
-
-/**
- * An author-written argument, read as the list of RUNS it asks for: one value
- * runs the operation once, an array runs it once per element over the same
- * structure. Everything the widget animates several times reads its arguments
- * through here, so the multi-run shape is one rule rather than one per
- * operation.
- */
-const asRuns = (v: number | number[] | undefined): number[] =>
-  v === undefined ? [] : Array.isArray(v) ? v : [v];
 
 function checkIndex(i: number | undefined, length: number, inclusive: boolean): number {
   const max = inclusive ? length : length - 1;
@@ -560,10 +545,7 @@ const METHOD_NAME: Record<SequenceOperation, string> = {
 // ── the array family ──────────────────────────────────────────────────────
 
 /** The operations the dynamic array has a listing for. */
-type ArrayOperation = Exclude<
-  SequenceOperation,
-  'insert-ordered' | HeapOperation | 'preorder' | 'inorder' | 'postorder' | 'height'
->;
+type ArrayOperation = Exclude<SequenceOperation, 'insert-ordered' | HeapOperation | TreeOperation>;
 
 const ARRAY_CODE: Record<ArrayOperation, string> = {
   'get-at': `int getAt(int i) {

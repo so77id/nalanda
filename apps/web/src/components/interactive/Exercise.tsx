@@ -74,6 +74,20 @@ function Verdict({ reading }: { reading: RunReading }) {
 }
 
 /**
+ * The longest program a slide shows whole. Measured in #321 at 1440x900: the
+ * programs that sit on slides today run to 31 lines, and one of 38 already
+ * scaled its slide to 0.62, under the 0.70 floor. Past this, the editor on a
+ * slide is a window of this many lines that scrolls.
+ */
+const SLIDE_LINES = 32;
+
+/**
+ * The window's height, in the editor's own units: CodeMirror sets each line
+ * at 1.4 times its font size, plus 4px of padding above and below the text.
+ */
+const SLIDE_WINDOW = `calc(${SLIDE_LINES * 1.4}em + 8px)`;
+
+/**
  * A problem the student solves in place, checked automatically.
  *
  * What it checks is the *method*, not what the program printed: the cases are
@@ -91,20 +105,6 @@ function Verdict({ reading }: { reading: RunReading }) {
  * about pacing, not secrecy, and an exercise whose cases must stay private
  * cannot exist here.
  */
-/**
- * The longest program a slide shows whole. Measured in #321 at 1440x900: the
- * programs that sit on slides today run to 31 lines, and one of 38 already
- * scaled its slide to 0.62, under the 0.70 floor. Past this, the editor on a
- * slide is a window of this many lines that scrolls.
- */
-const SLIDE_LINES = 32;
-
-/**
- * The window's height, in the editor's own units: CodeMirror sets each line
- * at 1.4 times its font size, plus 4px of padding above and below the text.
- */
-const SLIDE_WINDOW = `calc(${SLIDE_LINES * 1.4}em + 8px)`;
-
 export function Exercise({ title, language = 'java', children }: ExerciseProps) {
   const theme = useResolvedTheme();
   const fences = useMemo(() => fencesByMeta(children), [children]);

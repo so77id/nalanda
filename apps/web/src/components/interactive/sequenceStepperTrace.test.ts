@@ -1709,6 +1709,30 @@ describe('sequenceStepperTrace · binary-tree · authoring guards', () => {
       /raíz/,
     );
   });
+
+  it('refuses gaps left over at the end by saying so, not by naming an undefined value', () => {
+    for (const levelOrder of [
+      [1, null, null, null],
+      [1, 2, 3, null, null, null, null, null],
+    ]) {
+      expect(() => traceFor('binary-tree', 'inorder', { values: [], levelOrder })).toThrow(
+        /huecos de más/,
+      );
+    }
+  });
+
+  it('reads a level order the way the class writes it: a gap has no children written', () => {
+    // 2's children are 3 and 4, the next two entries are 3's, and 5 is 4's
+    // left child. Numbering by array index (the children of k at 2k + 1 and
+    // 2k + 2, the heap's rule) would hang 5 under 3 instead.
+    const first = traceFor('binary-tree', 'preorder', {
+      values: [],
+      levelOrder: [1, 2, null, 3, 4, null, null, 5],
+    }).steps[0]!;
+    const node = (v: number) => first.tree!.nodes.find((n) => n.value === v)!;
+    expect(node(4).left).toBe(node(5).id);
+    expect(node(3).left).toBeNull();
+  });
 });
 
 describe('sequenceStepperTrace · binary-tree · height', () => {
@@ -1755,6 +1779,31 @@ describe('sequenceStepperTrace · binary-tree · search', () => {
     expect(last.cost).toBe(6);
     expect(last.tree!.nodes.some((n) => n.state === 'found')).toBe(false);
     expect(last.description).toContain('no está');
+  });
+
+  it('starts each target of an array from a clean tree', () => {
+    const trace = traceFor('binary-tree', 'search', {
+      values: [],
+      levelOrder: LEVELS,
+      target: [6, 5],
+    });
+    const second = trace.steps.filter((s) => s.kind === 'start')[1]!;
+    expect(second.cost).toBe(0);
+    expect(second.tree!.nodes.every((n) => n.state === 'idle' && n.badge === undefined)).toBe(true);
+    expect(trace.steps.filter((s) => s.kind === 'done').map((s) => s.cost)).toEqual([6, 6]);
+  });
+});
+
+describe('sequenceStepperTrace · binary-tree · counts read as Spanish', () => {
+  it('never says "los 1 nodos" or "1 nodos" over a tree of one node', () => {
+    const one = { values: [7], levelOrder: [7] };
+    const all = [
+      ...(['preorder', 'inorder', 'postorder', 'height'] as const).map((op) =>
+        traceFor('binary-tree', op, one),
+      ),
+      traceFor('binary-tree', 'search', { ...one, target: [7, 5] }),
+    ].flatMap((t) => t.steps.map((s) => s.description));
+    expect(all.filter((d) => /\blos 1\b|\b1 nodos\b|\b1 aristas\b/.test(d))).toEqual([]);
   });
 });
 

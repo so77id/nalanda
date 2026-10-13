@@ -11,7 +11,17 @@
  * with one slot per column puts every value under its own node: the inorder
  * of any tree reads straight down, and the inorder of a search tree reads
  * sorted — which is the theorem the class states, made visible.
+ *
+ * COPIED: the file-local `BinaryPicture` of `21-edd-arboles-i.mdx` draws its
+ * static trees with these same numbers (node radius, column width, level
+ * height, margin, strip slot), and so does its copy in `22-edd-arboles-ii.mdx`
+ * while #322 has not yet promoted it to a shared component, so a figure and
+ * the widget beside it match. Those copies are the ones that fail late —
+ * nothing tests a document's own components — so a change here is carried
+ * there by hand and checked in a browser.
  */
+
+import { rimToRim } from './sequenceStepperEdge';
 
 /** Radius of a node. */
 export const TREE_NODE_R = 17;
@@ -82,17 +92,7 @@ export function treeEdge(
   parent: TreePoint,
   child: TreePoint,
 ): { x1: number; y1: number; x2: number; y2: number } {
-  const dx = child.cx - parent.cx;
-  const dy = child.cy - parent.cy;
-  const len = Math.hypot(dx, dy);
-  const ux = dx / len;
-  const uy = dy / len;
-  return {
-    x1: parent.cx + ux * TREE_NODE_R,
-    y1: parent.cy + uy * TREE_NODE_R,
-    x2: child.cx - ux * TREE_NODE_R,
-    y2: child.cy - uy * TREE_NODE_R,
-  };
+  return rimToRim(parent, child, TREE_NODE_R);
 }
 
 /** The empty subtree a call landed on: a small dashed box under its parent, `null` in it. */
@@ -114,16 +114,10 @@ export function treeProbe(parent: TreePoint, side: 'left' | 'right'): TreeProbe 
   const h = 14;
   const cx = parent.cx + (side === 'left' ? -1 : 1) * COLUMN_W * 0.34;
   const y = parent.cy + TREE_NODE_R + 9;
-  const dx = cx - parent.cx;
-  const dy = y - parent.cy;
-  const len = Math.hypot(dx, dy);
+  // Trimmed at the parent only: the box has no rim, and the line ends on it.
+  const { x1, y1 } = rimToRim(parent, { cx, cy: y }, TREE_NODE_R);
   return {
-    line: {
-      x1: parent.cx + (dx / len) * TREE_NODE_R,
-      y1: parent.cy + (dy / len) * TREE_NODE_R,
-      x2: cx,
-      y2: y,
-    },
+    line: { x1, y1, x2: cx, y2: y },
     box: { x: cx - w / 2, y, w, h },
   };
 }

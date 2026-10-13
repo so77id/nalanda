@@ -452,11 +452,11 @@ describe('CodeEditor', () => {
     await waitFor(() => expect(screen.getAllByTestId('code').length).toBeGreaterThan(0));
 
     const area = container.querySelector('[class*="55vh"]')?.className;
-    expect(area).toContain('[&_.cm-editor_.cm-scroller]:[align-items:safe_center]!');
+    expect(area).toContain('[&_.cm-editor_.cm-scroller]:![align-items:safe_center]');
     // CodeMirror stretches its content to the editor's full height, which
     // leaves nothing to centre: measured in a browser, the lines stayed at the
     // top with the background filled under them.
-    expect(area).toContain('[&_.cm-editor_.cm-content]:min-h-0!');
+    expect(area).toContain('[&_.cm-editor_.cm-content]:!min-h-0');
   });
 
   it('keeps its own height when nothing contains it', async () => {

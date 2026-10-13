@@ -300,7 +300,7 @@ export function OrderRule({ parts, tone = 'focus', label }) {
 
 {/* TreeMemory — a general tree as it sits in memory, in the linked-list class's idiom: a node is a box with its value and a grey compartment whose dot is the reference to the sequence of its children, an ArrayList, drawn as the row of cells of the dynamic array behind it, one per child, each with the dot of its reference and an arrow to the child. A leaf's list is empty and drawn as Java prints an empty ArrayList, []. depth cuts the drawing: a node at the cut keeps its list, with short faint arrows to children not drawn. entry draws the Tree object and its root reference ("root", or "null" for the empty tree); fields names the node's two fields. A node toned "mark" is the one just added, and so is its cell. File-local like HierarchyPicture (§6e-quater). */}
 
-export function TreeMemory({ tree, depth = 99, tones = {}, entry, fields = false, size = 1, minWidth = 0, px, caption, label }) {
+export function TreeMemory({ tree, depth = 99, tones = {}, entry, fields = false, px, caption, label }) {
   const H = 28;
   const COMP = 20;
   const CELL = 22;
@@ -339,8 +339,7 @@ export function TreeMemory({ tree, depth = 99, tones = {}, entry, fields = false
   place(tree, 0, pad + entryW, null);
   const deepest = Math.max(...placed.map((p) => p.d));
   const stubs = placed.some((p) => p.cut);
-  // minWidth gives drawings set side by side one canvas width, so their boxes come out the same size.
-  const width = Math.max(2 * pad + entryW + span(tree, 0), minWidth, caption ? caption.length * 6.6 + 24 : 0);
+  const width = Math.max(2 * pad + entryW + span(tree, 0), caption ? caption.length * 6.6 + 24 : 0);
   const shift = (width - (2 * pad + entryW + span(tree, 0))) / 2;
   const bodyH = top + deepest * LEVEL + H + 18 + CELL + (stubs ? 26 : 0) + pad;
   const height = bodyH + (caption ? 18 : 0);
@@ -359,7 +358,7 @@ export function TreeMemory({ tree, depth = 99, tones = {}, entry, fields = false
   const root = placed[0];
   return (
     // px draws at a fixed scale, its own width times px, so drawings of different sizes set in one row share a scale.
-    <svg viewBox={`0 0 ${width} ${height}`} style={{ width: px ? `${Math.round(width * px)}px` : '100%', maxWidth: px ? '100%' : `${Math.round(width * 1.3 * size)}px`, height: 'auto', display: 'block', margin: '0.75rem auto' }} role="img" aria-label={label}>
+    <svg viewBox={`0 0 ${width} ${height}`} style={{ width: px ? `${Math.round(width * px)}px` : '100%', maxWidth: px ? '100%' : `${Math.round(width * 1.3)}px`, height: 'auto', display: 'block', margin: '0.75rem auto' }} role="img" aria-label={label}>
       <g transform={`translate(${shift} 0)`}>
         {entry ? (
           <g>
@@ -788,8 +787,8 @@ una carpeta en preorden: la visita imprime una línea con la sangría de la
   language="java"
   code={`void list(Node<String> node, int depth) {
     // visita: imprime una línea con su sangría
-    System.out.println("    ".repeat(depth)
-        + node.value);
+    for (int i = 0; i < depth; i++) System.out.print("    ");
+    System.out.println(node.value);
     // recorrido: cada hijo, un nivel más abajo
     for (Node<String> child : node.children) {
         list(child, depth + 1);
@@ -1125,6 +1124,7 @@ raíz.
 <StepShow
   language="java"
   code={`void levelOrder(Node<T> root) {
+    if (root == null) return;
     Queue<Node<T>> queue = new LinkedList<>();
     queue.add(root);
     while (!queue.isEmpty()) {
@@ -1138,7 +1138,21 @@ raíz.
     }
 }`}
 >
-  <Step lines={[2, 3]}>
+  <Step lines={[2]}>
+    <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+    <div style={{ flex: '1 1 0', minWidth: 0 }}>
+    <HierarchyPicture tree={FOLDERS} tones={{ 'home/': 'focus' }} compact size={0.7} label="La raíz, home, no es null: el árbol tiene nodos." />
+    <div style={{ fontFamily: 'var(--font-mono, monospace)', fontSize: '0.8rem', lineHeight: 1.35, margin: '0 auto', padding: '0.3rem 0.6rem', maxWidth: '30rem', minHeight: '3.9em', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }}>{""}</div>
+    </div>
+    <div style={{ flex: '0 0 8.5rem', display: 'flex', flexDirection: 'column', gap: '0.3rem', fontFamily: 'var(--font-mono, monospace)', fontSize: '0.8rem', minHeight: '16rem', padding: '0.4rem 0.5rem', background: 'var(--color-surface)', border: '1px solid var(--color-rule)', borderRadius: '6px' }}>
+      <div style={{ fontSize: '0.7rem', color: 'var(--color-ink-faint)' }}>cola · sale por arriba</div>
+      <div style={{ fontSize: '0.7rem', color: 'var(--color-ink-faint)' }}>todavía no existe</div>
+      <div style={{ marginTop: 'auto', fontSize: '0.7rem', color: 'var(--color-ink-faint)' }}>entra por abajo</div>
+    </div>
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>La raíz no es null: el árbol tiene al menos un nodo y el recorrido sigue.</div>
+  </Step>
+  <Step lines={[3, 4]}>
     <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
     <div style={{ flex: '1 1 0', minWidth: 0 }}>
     <HierarchyPicture tree={FOLDERS} tones={{ 'home/': 'mark' }} compact size={0.7} label="La raíz, home, entra a la cola." />
@@ -1152,7 +1166,7 @@ raíz.
     </div>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>La raíz entra a la cola.</div>
   </Step>
-  <Step lines={[5, 6, 7]}>
+  <Step lines={[6, 7, 8]}>
     <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
     <div style={{ flex: '1 1 0', minWidth: 0 }}>
     <HierarchyPicture tree={FOLDERS} tones={{ 'home/': 'focus' }} numbers={{ 'home/': 1 }} compact size={0.7} label="home sale de la cola y se visita con el número 1." />
@@ -1166,7 +1180,7 @@ raíz.
     </div>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>Sale home/ por el frente de la cola y se visita: se imprime.</div>
   </Step>
-  <Step lines={[9, 10]}>
+  <Step lines={[10, 11]}>
     <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
     <div style={{ flex: '1 1 0', minWidth: 0 }}>
     <HierarchyPicture tree={FOLDERS} tones={{ 'home/': 'focus', 'fotos/': 'mark' }} numbers={{ 'home/': 1 }} compact size={0.7} label="fotos entra al final de la cola." />
@@ -1180,7 +1194,7 @@ raíz.
     </div>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>Su primer hijo, fotos/, entra al final de la cola.</div>
   </Step>
-  <Step lines={[9, 10]}>
+  <Step lines={[10, 11]}>
     <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
     <div style={{ flex: '1 1 0', minWidth: 0 }}>
     <HierarchyPicture tree={FOLDERS} tones={{ 'home/': 'focus', 'fotos/': 'mark', 'ramos/': 'mark' }} numbers={{ 'home/': 1 }} compact size={0.7} label="ramos entra al final de la cola." />
@@ -1195,7 +1209,7 @@ raíz.
     </div>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>Su segundo hijo, ramos/, entra al final de la cola.</div>
   </Step>
-  <Step lines={[9, 10]}>
+  <Step lines={[10, 11]}>
     <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
     <div style={{ flex: '1 1 0', minWidth: 0 }}>
     <HierarchyPicture tree={FOLDERS} tones={{ 'home/': 'focus', 'fotos/': 'mark', 'ramos/': 'mark', 'notas.txt': 'mark' }} numbers={{ 'home/': 1 }} compact size={0.7} label="notas.txt entra al final de la cola." />
@@ -1211,7 +1225,7 @@ raíz.
     </div>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>Su tercer hijo, notas.txt, entra al final de la cola.</div>
   </Step>
-  <Step lines={[5, 6, 7]}>
+  <Step lines={[6, 7, 8]}>
     <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
     <div style={{ flex: '1 1 0', minWidth: 0 }}>
     <HierarchyPicture tree={FOLDERS} tones={{ 'home/': 'done', 'fotos/': 'focus', 'ramos/': 'mark', 'notas.txt': 'mark' }} numbers={{ 'home/': 1, 'fotos/': 2 }} compact size={0.7} label="fotos sale de la cola y se visita con el número 2." />
@@ -1227,7 +1241,7 @@ raíz.
     </div>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>Sale fotos/ por el frente de la cola y se visita: se imprime.</div>
   </Step>
-  <Step lines={[9, 10]}>
+  <Step lines={[10, 11]}>
     <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
     <div style={{ flex: '1 1 0', minWidth: 0 }}>
     <HierarchyPicture tree={FOLDERS} tones={{ 'home/': 'done', 'fotos/': 'focus', 'ramos/': 'mark', 'notas.txt': 'mark', 'playa.jpg': 'mark' }} numbers={{ 'home/': 1, 'fotos/': 2 }} compact size={0.7} label="playa.jpg entra al final de la cola." />
@@ -1243,7 +1257,7 @@ raíz.
     </div>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>Su primer hijo, playa.jpg, entra al final de la cola.</div>
   </Step>
-  <Step lines={[9, 10]}>
+  <Step lines={[10, 11]}>
     <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
     <div style={{ flex: '1 1 0', minWidth: 0 }}>
     <HierarchyPicture tree={FOLDERS} tones={{ 'home/': 'done', 'fotos/': 'focus', 'ramos/': 'mark', 'notas.txt': 'mark', 'playa.jpg': 'mark', 'perro.jpg': 'mark' }} numbers={{ 'home/': 1, 'fotos/': 2 }} compact size={0.7} label="perro.jpg entra al final de la cola." />
@@ -1260,7 +1274,7 @@ raíz.
     </div>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>Su segundo hijo, perro.jpg, entra al final de la cola.</div>
   </Step>
-  <Step lines={[5, 6, 7]}>
+  <Step lines={[6, 7, 8]}>
     <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
     <div style={{ flex: '1 1 0', minWidth: 0 }}>
     <HierarchyPicture tree={FOLDERS} tones={{ 'home/': 'done', 'fotos/': 'done', 'ramos/': 'focus', 'notas.txt': 'mark', 'playa.jpg': 'mark', 'perro.jpg': 'mark' }} numbers={{ 'home/': 1, 'fotos/': 2, 'ramos/': 3 }} compact size={0.7} label="ramos sale de la cola y se visita con el número 3." />
@@ -1277,7 +1291,7 @@ raíz.
     </div>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>Sale ramos/ por el frente de la cola y se visita: se imprime.</div>
   </Step>
-  <Step lines={[9, 10]}>
+  <Step lines={[10, 11]}>
     <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
     <div style={{ flex: '1 1 0', minWidth: 0 }}>
     <HierarchyPicture tree={FOLDERS} tones={{ 'home/': 'done', 'fotos/': 'done', 'ramos/': 'focus', 'notas.txt': 'mark', 'playa.jpg': 'mark', 'perro.jpg': 'mark', 'eda/': 'mark' }} numbers={{ 'home/': 1, 'fotos/': 2, 'ramos/': 3 }} compact size={0.7} label="eda entra al final de la cola." />
@@ -1294,7 +1308,7 @@ raíz.
     </div>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>Su primer hijo, eda/, entra al final de la cola.</div>
   </Step>
-  <Step lines={[9, 10]}>
+  <Step lines={[10, 11]}>
     <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
     <div style={{ flex: '1 1 0', minWidth: 0 }}>
     <HierarchyPicture tree={FOLDERS} tones={{ 'home/': 'done', 'fotos/': 'done', 'ramos/': 'focus', 'notas.txt': 'mark', 'playa.jpg': 'mark', 'perro.jpg': 'mark', 'eda/': 'mark', 'calculo/': 'mark' }} numbers={{ 'home/': 1, 'fotos/': 2, 'ramos/': 3 }} compact size={0.7} label="calculo entra al final de la cola." />
@@ -1312,7 +1326,7 @@ raíz.
     </div>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>Su segundo hijo, calculo/, entra al final de la cola.</div>
   </Step>
-  <Step lines={[5, 6, 7]}>
+  <Step lines={[6, 7, 8]}>
     <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
     <div style={{ flex: '1 1 0', minWidth: 0 }}>
     <HierarchyPicture tree={FOLDERS} tones={{ 'home/': 'done', 'fotos/': 'done', 'ramos/': 'done', 'notas.txt': 'focus', 'playa.jpg': 'mark', 'perro.jpg': 'mark', 'eda/': 'mark', 'calculo/': 'mark' }} numbers={{ 'home/': 1, 'fotos/': 2, 'ramos/': 3, 'notas.txt': 4 }} compact size={0.7} label="notas.txt sale de la cola y se visita con el número 4." />
@@ -1330,7 +1344,7 @@ raíz.
     </div>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>Sale notas.txt y se visita: se imprime. No tiene hijos: no entra nadie.</div>
   </Step>
-  <Step lines={[5, 6, 7]}>
+  <Step lines={[6, 7, 8]}>
     <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
     <div style={{ flex: '1 1 0', minWidth: 0 }}>
     <HierarchyPicture tree={FOLDERS} tones={{ 'home/': 'done', 'fotos/': 'done', 'ramos/': 'done', 'notas.txt': 'done', 'playa.jpg': 'focus', 'perro.jpg': 'mark', 'eda/': 'mark', 'calculo/': 'mark' }} numbers={{ 'home/': 1, 'fotos/': 2, 'ramos/': 3, 'notas.txt': 4, 'playa.jpg': 5 }} compact size={0.7} label="playa.jpg sale de la cola y se visita con el número 5." />
@@ -1347,7 +1361,7 @@ raíz.
     </div>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>Sale playa.jpg y se visita: se imprime. No tiene hijos: no entra nadie.</div>
   </Step>
-  <Step lines={[5, 6, 7]}>
+  <Step lines={[6, 7, 8]}>
     <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
     <div style={{ flex: '1 1 0', minWidth: 0 }}>
     <HierarchyPicture tree={FOLDERS} tones={{ 'home/': 'done', 'fotos/': 'done', 'ramos/': 'done', 'notas.txt': 'done', 'playa.jpg': 'done', 'perro.jpg': 'focus', 'eda/': 'mark', 'calculo/': 'mark' }} numbers={{ 'home/': 1, 'fotos/': 2, 'ramos/': 3, 'notas.txt': 4, 'playa.jpg': 5, 'perro.jpg': 6 }} compact size={0.7} label="perro.jpg sale de la cola y se visita con el número 6." />
@@ -1363,7 +1377,7 @@ raíz.
     </div>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>Sale perro.jpg y se visita: se imprime. No tiene hijos: no entra nadie.</div>
   </Step>
-  <Step lines={[5, 6, 7]}>
+  <Step lines={[6, 7, 8]}>
     <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
     <div style={{ flex: '1 1 0', minWidth: 0 }}>
     <HierarchyPicture tree={FOLDERS} tones={{ 'home/': 'done', 'fotos/': 'done', 'ramos/': 'done', 'notas.txt': 'done', 'playa.jpg': 'done', 'perro.jpg': 'done', 'eda/': 'focus', 'calculo/': 'mark' }} numbers={{ 'home/': 1, 'fotos/': 2, 'ramos/': 3, 'notas.txt': 4, 'playa.jpg': 5, 'perro.jpg': 6, 'eda/': 7 }} compact size={0.7} label="eda sale de la cola y se visita con el número 7." />
@@ -1378,7 +1392,7 @@ raíz.
     </div>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>Sale eda/ por el frente de la cola y se visita: se imprime.</div>
   </Step>
-  <Step lines={[9, 10]}>
+  <Step lines={[10, 11]}>
     <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
     <div style={{ flex: '1 1 0', minWidth: 0 }}>
     <HierarchyPicture tree={FOLDERS} tones={{ 'home/': 'done', 'fotos/': 'done', 'ramos/': 'done', 'notas.txt': 'done', 'playa.jpg': 'done', 'perro.jpg': 'done', 'eda/': 'focus', 'calculo/': 'mark', 't1.pdf': 'mark' }} numbers={{ 'home/': 1, 'fotos/': 2, 'ramos/': 3, 'notas.txt': 4, 'playa.jpg': 5, 'perro.jpg': 6, 'eda/': 7 }} compact size={0.7} label="t1.pdf entra al final de la cola." />
@@ -1393,7 +1407,7 @@ raíz.
     </div>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>Su primer hijo, t1.pdf, entra al final de la cola.</div>
   </Step>
-  <Step lines={[9, 10]}>
+  <Step lines={[10, 11]}>
     <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
     <div style={{ flex: '1 1 0', minWidth: 0 }}>
     <HierarchyPicture tree={FOLDERS} tones={{ 'home/': 'done', 'fotos/': 'done', 'ramos/': 'done', 'notas.txt': 'done', 'playa.jpg': 'done', 'perro.jpg': 'done', 'eda/': 'focus', 'calculo/': 'mark', 't1.pdf': 'mark', 't2.pdf': 'mark' }} numbers={{ 'home/': 1, 'fotos/': 2, 'ramos/': 3, 'notas.txt': 4, 'playa.jpg': 5, 'perro.jpg': 6, 'eda/': 7 }} compact size={0.7} label="t2.pdf entra al final de la cola." />
@@ -1409,7 +1423,7 @@ raíz.
     </div>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>Su segundo hijo, t2.pdf, entra al final de la cola.</div>
   </Step>
-  <Step lines={[5, 6, 7]}>
+  <Step lines={[6, 7, 8]}>
     <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
     <div style={{ flex: '1 1 0', minWidth: 0 }}>
     <HierarchyPicture tree={FOLDERS} tones={{ 'home/': 'done', 'fotos/': 'done', 'ramos/': 'done', 'notas.txt': 'done', 'playa.jpg': 'done', 'perro.jpg': 'done', 'eda/': 'done', 'calculo/': 'focus', 't1.pdf': 'mark', 't2.pdf': 'mark' }} numbers={{ 'home/': 1, 'fotos/': 2, 'ramos/': 3, 'notas.txt': 4, 'playa.jpg': 5, 'perro.jpg': 6, 'eda/': 7, 'calculo/': 8 }} compact size={0.7} label="calculo sale de la cola y se visita con el número 8." />
@@ -1425,7 +1439,7 @@ raíz.
     </div>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>Sale calculo/ por el frente de la cola y se visita: se imprime.</div>
   </Step>
-  <Step lines={[9, 10]}>
+  <Step lines={[10, 11]}>
     <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
     <div style={{ flex: '1 1 0', minWidth: 0 }}>
     <HierarchyPicture tree={FOLDERS} tones={{ 'home/': 'done', 'fotos/': 'done', 'ramos/': 'done', 'notas.txt': 'done', 'playa.jpg': 'done', 'perro.jpg': 'done', 'eda/': 'done', 'calculo/': 'focus', 't1.pdf': 'mark', 't2.pdf': 'mark', 'guia.pdf': 'mark' }} numbers={{ 'home/': 1, 'fotos/': 2, 'ramos/': 3, 'notas.txt': 4, 'playa.jpg': 5, 'perro.jpg': 6, 'eda/': 7, 'calculo/': 8 }} compact size={0.7} label="guia.pdf entra al final de la cola." />
@@ -1441,7 +1455,7 @@ raíz.
     </div>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>Su primer hijo, guia.pdf, entra al final de la cola.</div>
   </Step>
-  <Step lines={[5, 6, 7]}>
+  <Step lines={[6, 7, 8]}>
     <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
     <div style={{ flex: '1 1 0', minWidth: 0 }}>
     <HierarchyPicture tree={FOLDERS} tones={{ 'home/': 'done', 'fotos/': 'done', 'ramos/': 'done', 'notas.txt': 'done', 'playa.jpg': 'done', 'perro.jpg': 'done', 'eda/': 'done', 'calculo/': 'done', 't1.pdf': 'focus', 't2.pdf': 'mark', 'guia.pdf': 'mark' }} numbers={{ 'home/': 1, 'fotos/': 2, 'ramos/': 3, 'notas.txt': 4, 'playa.jpg': 5, 'perro.jpg': 6, 'eda/': 7, 'calculo/': 8, 't1.pdf': 9 }} compact size={0.7} label="t1.pdf sale de la cola y se visita con el número 9." />
@@ -1457,7 +1471,7 @@ raíz.
     </div>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>Sale t1.pdf y se visita: se imprime. No tiene hijos: no entra nadie.</div>
   </Step>
-  <Step lines={[5, 6, 7]}>
+  <Step lines={[6, 7, 8]}>
     <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
     <div style={{ flex: '1 1 0', minWidth: 0 }}>
     <HierarchyPicture tree={FOLDERS} tones={{ 'home/': 'done', 'fotos/': 'done', 'ramos/': 'done', 'notas.txt': 'done', 'playa.jpg': 'done', 'perro.jpg': 'done', 'eda/': 'done', 'calculo/': 'done', 't1.pdf': 'done', 't2.pdf': 'focus', 'guia.pdf': 'mark' }} numbers={{ 'home/': 1, 'fotos/': 2, 'ramos/': 3, 'notas.txt': 4, 'playa.jpg': 5, 'perro.jpg': 6, 'eda/': 7, 'calculo/': 8, 't1.pdf': 9, 't2.pdf': 10 }} compact size={0.7} label="t2.pdf sale de la cola y se visita con el número 10." />
@@ -1472,7 +1486,7 @@ raíz.
     </div>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>Sale t2.pdf y se visita: se imprime. No tiene hijos: no entra nadie.</div>
   </Step>
-  <Step lines={[5, 6, 7]}>
+  <Step lines={[6, 7, 8]}>
     <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
     <div style={{ flex: '1 1 0', minWidth: 0 }}>
     <HierarchyPicture tree={FOLDERS} tones={{ 'home/': 'done', 'fotos/': 'done', 'ramos/': 'done', 'notas.txt': 'done', 'playa.jpg': 'done', 'perro.jpg': 'done', 'eda/': 'done', 'calculo/': 'done', 't1.pdf': 'done', 't2.pdf': 'done', 'guia.pdf': 'focus' }} numbers={{ 'home/': 1, 'fotos/': 2, 'ramos/': 3, 'notas.txt': 4, 'playa.jpg': 5, 'perro.jpg': 6, 'eda/': 7, 'calculo/': 8, 't1.pdf': 9, 't2.pdf': 10, 'guia.pdf': 11 }} compact size={0.7} label="guia.pdf sale de la cola y se visita con el número 11." />
@@ -1486,7 +1500,7 @@ raíz.
     </div>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>Sale guia.pdf y se visita: se imprime. No tiene hijos: no entra nadie.</div>
   </Step>
-  <Step lines={[4]}>
+  <Step lines={[5]}>
     <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
     <div style={{ flex: '1 1 0', minWidth: 0 }}>
     <HierarchyPicture tree={FOLDERS} tones={{ 'home/': 'done', 'fotos/': 'done', 'ramos/': 'done', 'notas.txt': 'done', 'playa.jpg': 'done', 'perro.jpg': 'done', 'eda/': 'done', 'calculo/': 'done', 't1.pdf': 'done', 't2.pdf': 'done', 'guia.pdf': 'done' }} numbers={{ 'home/': 1, 'fotos/': 2, 'ramos/': 3, 'notas.txt': 4, 'playa.jpg': 5, 'perro.jpg': 6, 'eda/': 7, 'calculo/': 8, 't1.pdf': 9, 't2.pdf': 10, 'guia.pdf': 11 }} compact size={0.7} label="La cola está vacía: se visitaron los once nodos, por niveles." />
@@ -1522,7 +1536,7 @@ camino más largo desde la raíz.
 </Slide>
 
 
-{/* BinaryPicture — a static drawing of a binary tree, with the geometry of the binary-tree recipe of <SequenceStepper> (sequenceStepperTreeLayout.ts): every node in the column of its inorder position and on the row of its depth, so a figure and the widget beside it draw the same tree. File-local like HierarchyPicture (§6e-quater). A tree is { v, l, r }; values are unique within one tree, because tones, badges and notes are keyed by them, and a value may be a symbol: an expression tree keeps its operators. */}
+{/* BinaryPicture — a static drawing of a binary tree, with the geometry of the binary-tree recipe of <SequenceStepper> (sequenceStepperTreeLayout.ts): every node in the column of its inorder position and on the row of its depth, so a figure and the widget beside it draw the same tree. File-local like HierarchyPicture (§6e-quater). A tree is { v, l, r }; values are unique within one tree, because tones, badges and notes are keyed by them, and a value may be a symbol: an expression tree keeps its operators. No drawing in this document passes notes; the copy of this component in 22-edd-arboles-ii.mdx does, and the two copies are kept the same while #322 has not promoted the component, so it stays here. */}
 {/* The drawings of an order, in HierarchyPicture's idiom: visits numbers the nodes in "pre" (focus), "in" (accent) or "post" (mark) order and draws an arrow from every visit to the next — along the edge when the next is a child or the parent, dashed when the walk jumps to another branch; sequence writes the visit order under the tree as a row of chips. holes draws the empty tree under every missing child, as a dashed square. ruler draws the height at the left ("h = 2"), and levelNotes writes one note per level at the right. A node toned "hidden" is not drawn, nor any edge that reaches it, but keeps its place: a tree built from the leaves up shows its subtrees loose before their parent is made; fresh names the node just added, whose edge is drawn in the mark colour. */}
 
 {/* edgeLabels writes a word beside the edge that reaches a node, keyed by that node's value: the side it hangs on, izquierdo or derecho. frames draws a dashed box around the subtree rooted at a node, keyed by that node's value, with its name under it; a frame is a name, or { text, tone } with tone keep (the default), accent or mark, so two subtrees can be told apart as they move. */}
@@ -1820,7 +1834,7 @@ export function BinaryPicture({ tree, tones = {}, badges = {}, notes = {}, level
 
 {/* BinaryMemory — a binary tree as it sits in memory, in TreeMemory's idiom: a node is a box with its value between two grey compartments, left and right, whose dots are the references to its two children; a missing child is a reference to null. Nodes sit in the columns of their inorder position, as BinaryPicture places them. entry draws the BinaryTree object and its root reference, which points to null when the tree is empty; fields names the three fields over the root. File-local like HierarchyPicture (§6e-quater). */}
 
-export function BinaryMemory({ tree, entry = false, fields = false, px, caption, label }) {
+export function BinaryMemory({ tree, entry = false, fields = false, caption, label }) {
   const H = 28;
   const COMP = 18;
   const pad = 14;
@@ -1865,7 +1879,7 @@ export function BinaryMemory({ tree, entry = false, fields = false, px, caption,
   };
   const mono = 'var(--font-mono, monospace)';
   return (
-    <svg viewBox={`0 0 ${width} ${height}`} style={{ width: px ? `${Math.round(width * px)}px` : '100%', maxWidth: px ? '100%' : `${Math.round(width * 1.3)}px`, height: 'auto', display: 'block', margin: '0.75rem auto' }} role="img" aria-label={label}>
+    <svg viewBox={`0 0 ${width} ${height}`} style={{ width: '100%', maxWidth: `${Math.round(width * 1.3)}px`, height: 'auto', display: 'block', margin: '0.75rem auto' }} role="img" aria-label={label}>
       {entry ? (
         <g>
           <text x={offset + pad} y={top - 6} fontSize="11" style={{ fill: 'var(--color-ink-faint)' }}>BinaryTree</text>
@@ -2939,6 +2953,12 @@ check(root.right.right.value, "3");
 Node<String> seven = new Node<>("7");
 Solution.mirror(seven);
 check(seven.left == null && seven.right == null, true);
+Node<String> lone = new Node<>("a", new Node<>("b", null, new Node<>("c")), null);
+Solution.mirror(lone);
+check(lone.left == null, true);
+check(lone.right.value, "b");
+check(lone.right.left.value, "c");
+check(lone.right.right == null, true);
 Solution.mirror(null);
 ```
 

@@ -341,7 +341,9 @@ describe('Exercise', () => {
     // shows whole, the editor in presentation becomes a window of that many
     // lines that scrolls; everywhere else nothing changes.
     const longStarter = Array.from({ length: 60 }, (_, i) => `// línea ${i + 1}`).join('\n');
-    const shortStarter = Array.from({ length: 31 }, (_, i) => `// línea ${i + 1}`).join('\n');
+    // Exactly the window's length, and one line past it: the boundary itself.
+    const shortStarter = Array.from({ length: 32 }, (_, i) => `// línea ${i + 1}`).join('\n');
+    const oneOver = Array.from({ length: 33 }, (_, i) => `// línea ${i + 1}`).join('\n');
 
     function renderIn(mode: 'book' | 'presentation', starter: string) {
       return render(
@@ -362,6 +364,11 @@ describe('Exercise', () => {
     it('leaves a program a slide shows whole uncapped, in presentation too', () => {
       renderIn('presentation', shortStarter);
       expect(screen.getByTestId('code')).toHaveAttribute('data-max-height', '');
+    });
+
+    it('windows a program one line longer than a slide shows whole', () => {
+      renderIn('presentation', oneOver);
+      expect(screen.getByTestId('code').getAttribute('data-max-height')).toMatch(/em/);
     });
 
     it('never caps the book', () => {

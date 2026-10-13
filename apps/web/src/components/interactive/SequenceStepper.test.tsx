@@ -737,6 +737,52 @@ describe('<SequenceStepper> · the binary-tree recipe (#321)', () => {
     expect(screen.getByText(/solo binary-tree/)).toBeInTheDocument();
   });
 
+  it('answers a search asked of a ring with what the ring has, not with the tree', () => {
+    renderIn(
+      'book',
+      <SequenceStepper
+        eda="linked-list-circular"
+        operation="search"
+        values={[7, 3, 1]}
+        target={3}
+      />,
+    );
+    expect(screen.getByText(/hay listado para: insertar al principio/)).toBeInTheDocument();
+    expect(screen.queryByText(/operación de árbol/)).not.toBeInTheDocument();
+  });
+
+  it('points a traversal asked of a sequence at the tree recipe', () => {
+    renderIn(
+      'book',
+      <SequenceStepper eda="linked-list-singly" operation="preorder" values={[7, 3, 1]} />,
+    );
+    expect(screen.getByText(/Úsala con eda="binary-tree"/)).toBeInTheDocument();
+  });
+
+  it('refuses a value that is neither a number, a symbol nor a gap', () => {
+    // An object would reach the picture as a React child and take the page
+    // down; NaN, Infinity and undefined would turn into gaps on the way
+    // through the JSON key and change the tree's shape without a word.
+    for (const bad of [{}, Number.NaN, Number.POSITIVE_INFINITY, undefined]) {
+      const { unmount } = renderIn(
+        'book',
+        <SequenceStepper eda="binary-tree" operation="preorder" values={[1, bad as never, 2]} />,
+      );
+      expect(screen.getByText(/values\[1\]/)).toBeInTheDocument();
+      unmount();
+    }
+  });
+
+  it('counts a tree of one node in the singular', () => {
+    renderIn('book', <SequenceStepper eda="binary-tree" operation="preorder" values={[7]} />);
+    expect(screen.getByTestId('tree-view').getAttribute('aria-label')).not.toMatch(/\b1 nodos\b/);
+  });
+
+  it('shows no size readout: the tree listing has no size field', () => {
+    renderIn('book', <SequenceStepper {...tree} operation="inorder" />);
+    expect(screen.getByTestId('sequence-size')).toHaveAttribute('hidden');
+  });
+
   it('describes the tree for a reader who cannot see it', () => {
     renderIn('book', <SequenceStepper {...tree} operation="inorder" />);
     const label = screen.getByTestId('tree-view').getAttribute('aria-label')!;
@@ -764,7 +810,7 @@ describe('<SequenceStepper> · symbols in a binary-tree (#321)', () => {
       n.getAttribute('data-value'),
     );
     expect(values.sort()).toEqual(['*', '+', '1', '3', '4', '5', '−'].sort());
-    expect(screen.queryByText(/AuthoringError|no acepta/)).not.toBeInTheDocument();
+    expect(document.querySelector('[data-authoring-error]')).toBeNull();
   });
 
   it('refuses a symbol on any other recipe', () => {

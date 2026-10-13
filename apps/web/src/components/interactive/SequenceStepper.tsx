@@ -5,7 +5,7 @@ import { useMode } from '../../presentation';
 import { AuthoringError } from '../AuthoringError';
 import { CodeStepper } from './CodeStepper';
 import { HeapView } from './sequenceStepperHeapView';
-import { TREE_NODE_R, layoutTree, treeEdge, treeProbe } from './sequenceStepperTreeLayout';
+import { TreeView } from './sequenceStepperTreeView';
 import {
   BOX_H,
   BOX_W,
@@ -15,7 +15,7 @@ import {
   linkArrow,
   type SequenceLayout,
 } from './sequenceStepperLayout';
-import { CELL_FILL, CELL_STROKE } from './sequenceStepperPaint';
+import { CELL_FILL, CELL_NOTE, CELL_STROKE } from './sequenceStepperPaint';
 import {
   BINARY_TREE_OPERATIONS,
   CIRCULAR_OPERATIONS,
@@ -23,8 +23,11 @@ import {
   HEAP_OPERATIONS,
   OPERATIONS,
   RECIPES,
+  TREE_ONLY_OPERATIONS,
+  isBinaryTreeOperation,
   isValidCombination,
   traceFor,
+  type BinaryTreeOperation,
   type SequenceCell,
   type SequenceOperation,
   type SequenceRecipe,
@@ -50,9 +53,10 @@ export interface SequenceStepperProps {
   /**
    * The starting contents, in reading order. Six or fewer read best. On
    * `binary-tree` it is the tree in level order, `null` where a child is
-   * missing (`[3, 9, 1, 4, 7, null, 6]`) — the one recipe that takes a gap —
-   * and a value may be a symbol, so an expression tree keeps its operators
-   * as operators: `['*', '+', '−', 3, 4, 5, 1]` is (3 + 4) * (5 − 1).
+   * missing (`[3, 9, 1, 4, 7, null, 6]`) — the one recipe that takes a gap,
+   * and a gap has no children written (ADR-0083 §4) — and a value may be a
+   * symbol, so an expression tree keeps its operators as operators:
+   * `['*', '+', '−', 3, 4, 5, 1]` is (3 + 4) * (5 − 1).
    */
   values?: (TreeValue | null)[];
   /**
@@ -145,7 +149,9 @@ function refusalReason(
       (o) => OPERATION_LABEL[o],
     ).join(', ')}.`;
   }
-  if (BINARY_TREE_OPERATIONS.includes(operation)) {
+  // The tree-only set, not every tree operation: `search` is shared, and a
+  // ring that refuses it has its own reason.
+  if (TREE_ONLY_OPERATIONS.includes(operation)) {
     return 'es una operación de árbol. Úsala con eda="binary-tree".';
   }
   if (operation === 'insert-ordered' && !recipe.startsWith('linked-list')) {
@@ -194,7 +200,7 @@ const OPERATION_LABEL: Record<SequenceOperation, string> = {
 const UNDER_THE_EYE: [string, string] = ['border-focus bg-surface', 'bajo la mirada'];
 const VISITED: [string, string] = ['border-rule-strong bg-sunk', 'ya visitado'];
 const FOUND: [string, string] = ['border-keep bg-keep-soft', 'encontrado'];
-const TREE_LEGEND: Partial<Record<SequenceOperation, [string, string][]>> = {
+const TREE_LEGEND: Record<BinaryTreeOperation, [string, string][]> = {
   preorder: [['border-mark bg-mark-soft', 'se visita'], UNDER_THE_EYE, VISITED],
   inorder: [['border-mark bg-mark-soft', 'se visita'], UNDER_THE_EYE, VISITED],
   postorder: [['border-mark bg-mark-soft', 'se visita'], UNDER_THE_EYE, VISITED],
@@ -298,6 +304,22 @@ export function SequenceStepper({
       </AuthoringError>
     );
   }
+  // What the picture can draw: a finite number and, on a tree, a symbol or a
+  // gap. Anything else either reaches the SVG as a React child — an object
+  // takes the whole page down, past the authoring-error box — or turns into
+  // a gap on its way through the JSON key (NaN, Infinity, undefined) and
+  // changes the tree's shape without a word.
+  const odd = values.findIndex(
+    (v) => v !== null && typeof v !== 'string' && !(typeof v === 'number' && Number.isFinite(v)),
+  );
+  if (odd >= 0) {
+    return (
+      <AuthoringError component="SequenceStepper">
+        <code>values[{odd}]</code> no es un número: <code>values</code> admite números y, en
+        binary-tree, símbolos y null.
+      </AuthoringError>
+    );
+  }
   // A gap only means something in a tree written in level order; anywhere
   // else `null` would be read as a value, and `Number(null)` is 0.
   if (recipe !== 'binary-tree' && values.some((v) => v === null)) {
@@ -398,6 +420,7 @@ function Body({
 }: BodyProps) {
   const mode = useMode();
   const heap = recipe === 'heap-max';
+  const tree = recipe === 'binary-tree';
   const isPresentation = mode === 'presentation';
   const outerRef = useRef<HTMLElement | null>(null);
 
@@ -558,7 +581,7 @@ function Body({
           {/* A tree's listing has no size field to show, so it gets no readout. */}
           <div
             data-testid="sequence-size"
-            hidden={trace.tree !== undefined}
+            hidden={tree}
             className="pointer-events-none absolute right-3 top-2 z-10 text-center"
           >
             {/* The heap's listing calls the field `n`, and past it the array
@@ -594,10 +617,11 @@ function Body({
               was chrome that reset between runs with nothing to say.
             */}
           </div>
-          {trace.tree !== undefined ? (
+          {trace.tree !== undefined && step.tree !== undefined ? (
             <TreeView
-              step={step}
-              meta={trace.tree}
+              tree={step.tree}
+              run={trace.tree}
+              description={step.description}
               label={RECIPE_LABEL[recipe]}
               presentation={isPresentation}
             />
@@ -677,9 +701,9 @@ function Body({
         </label>
 
         <span className="ml-auto flex flex-wrap items-center gap-3 font-mono text-3xs text-ink-faint">
-          {trace.tree !== undefined ? (
+          {tree && isBinaryTreeOperation(operation) ? (
             <>
-              {(TREE_LEGEND[operation] ?? []).map(([swatchClass, label]) => (
+              {TREE_LEGEND[operation].map(([swatchClass, label]) => (
                 <LegendSwatch key={label} swatchClass={swatchClass} label={label} />
               ))}
             </>
@@ -700,20 +724,6 @@ function Body({
 }
 
 // ── the picture ───────────────────────────────────────────────────────────
-
-/**
- * Colour is never the only signal (`design-system.md`): every state that is
- * painted also gets a word under the box, so a reader who cannot separate the
- * hues still reads what happened. The heap view writes no word under its
- * cells — its index sits there — and reads `swap` by stroke weight and the
- * legend instead (ADR-0077 §4).
- */
-const CELL_NOTE: Partial<Record<SequenceCell['state'], string>> = {
-  new: 'nuevo',
-  found: '✓ este',
-  leaving: 'sale',
-  stale: 'copia vieja',
-};
 
 /**
  * The note sits UNDER its box and is left-aligned to it, never centred above
@@ -870,240 +880,6 @@ function StructureView({
         />
       ) : null}
     </svg>
-  );
-}
-
-// ── the tree: every node in the column of its inorder position (#321) ─────
-
-/**
- * The tree recipe draws the linked tree with each node in a column fixed for
- * the whole run — its inorder position — and on the row of its depth, and a
- * strip under it with one slot per column. A traversal writes its output into
- * the strip left to right, so the inorder lands under its own nodes and the
- * other two orders visibly do not.
- *
- * The calls still open are the lit edges from the root down to the node under
- * the algorithm's eye; the number beside a node is its visit order, so the
- * order reads without the colours.
- */
-function TreeView({
-  step,
-  meta,
-  label,
-  presentation,
-}: {
-  step: SequenceStep;
-  meta: { columns: Record<number, number>; slots: number; depth: number; strip: boolean };
-  label: string;
-  presentation: boolean;
-}) {
-  const tree = step.tree!;
-  const layout = layoutTree(meta.slots, meta.depth, meta.strip);
-  const byId = new Map(tree.nodes.map((n) => [n.id, n]));
-  const depthOf = new Map<number, number>();
-  const walk = (id: number | null, level: number) => {
-    if (id === null) return;
-    depthOf.set(id, level);
-    const n = byId.get(id)!;
-    walk(n.left, level + 1);
-    walk(n.right, level + 1);
-  };
-  walk(tree.root, 0);
-  const at = (id: number) => layout.node(meta.columns[id]!, depthOf.get(id)!);
-  const hot = new Set(tree.path.slice(1).map((id, i) => `${tree.path[i]}-${id}`));
-  const written = tree.strip.filter((v) => v !== null);
-  const kind = label.charAt(0).toUpperCase() + label.slice(1);
-  const root = tree.root === null ? undefined : byId.get(tree.root);
-  const summary = `${kind} ${
-    root === undefined ? 'vacío' : `con raíz ${root.value} y ${tree.nodes.length} nodos`
-  }.${written.length > 0 ? ` En la tira: ${written.join(', ')}.` : ''} ${step.description}`;
-
-  return (
-    <div
-      className="flex items-center justify-center overflow-x-auto p-3"
-      style={{ maxHeight: presentation ? 'min(46vh, 440px)' : undefined }}
-    >
-      <svg
-        data-testid="tree-view"
-        viewBox={`0 0 ${layout.width} ${layout.height}`}
-        className="h-auto w-full"
-        style={{ maxWidth: `${layout.width * 1.6}px`, maxHeight: '100%' }}
-        role="img"
-        aria-label={summary}
-      >
-        {tree.nodes.map((n) =>
-          [n.left, n.right].map((child) => {
-            if (child === null) return null;
-            const e = treeEdge(at(n.id), at(child));
-            const lit = hot.has(`${n.id}-${child}`);
-            return (
-              <line
-                key={`${n.id}-${child}`}
-                x1={e.x1}
-                y1={e.y1}
-                x2={e.x2}
-                y2={e.y2}
-                stroke={lit ? 'var(--color-focus)' : 'var(--color-rule-strong)'}
-                strokeWidth={lit ? 2.6 : 1.2}
-              />
-            );
-          }),
-        )}
-        {tree.probe === undefined ? null : (
-          <EmptyCall
-            probe={treeProbe(at(tree.probe.parent), tree.probe.side)}
-            side={tree.probe.side}
-          />
-        )}
-        {tree.nodes.map((n) => {
-          const { cx, cy } = at(n.id);
-          const strong = n.state !== 'idle' && n.state !== 'visited';
-          return (
-            <g
-              key={n.id}
-              data-node
-              data-value={n.value}
-              data-column={meta.columns[n.id]}
-              data-state={n.state}
-            >
-              <circle
-                cx={cx}
-                cy={cy}
-                r={TREE_NODE_R}
-                fill={CELL_FILL[n.state]}
-                stroke={CELL_STROKE[n.state]}
-                strokeWidth={strong ? 2.4 : 1.2}
-              />
-              {n.state === 'found' || n.state === 'leaving' ? (
-                <text
-                  x={cx}
-                  y={cy + TREE_NODE_R + 12}
-                  textAnchor="middle"
-                  fontSize="9"
-                  fill="var(--color-ink-soft)"
-                >
-                  {CELL_NOTE[n.state]}
-                </text>
-              ) : null}
-              <text
-                x={cx}
-                y={cy + 5}
-                textAnchor="middle"
-                fontSize="14"
-                fontWeight="600"
-                fill="var(--color-ink)"
-              >
-                {n.value}
-              </text>
-              {n.badge === undefined ? null : (
-                // A left child's badge sits on the edge arriving from its
-                // parent; the halo in the panel's own colour keeps it legible.
-                <text
-                  x={cx + TREE_NODE_R - 1}
-                  y={cy - TREE_NODE_R + 3}
-                  textAnchor="start"
-                  fontSize="10"
-                  fontWeight="700"
-                  fill="var(--color-focus)"
-                  stroke="var(--color-surface)"
-                  strokeWidth={3}
-                  paintOrder="stroke"
-                >
-                  {n.badge}
-                </text>
-              )}
-            </g>
-          );
-        })}
-        {layout.strip.map((slot, k) => {
-          const value = tree.strip[k] ?? null;
-          const fresh = tree.stripFresh === k;
-          return (
-            <g key={`slot${k}`} data-slot={k} data-value={value ?? undefined}>
-              <rect
-                x={slot.cx - slot.w / 2}
-                y={slot.y}
-                width={slot.w}
-                height={slot.h}
-                rx={3}
-                fill={fresh ? 'var(--color-mark-soft)' : 'var(--color-surface)'}
-                stroke={
-                  fresh
-                    ? 'var(--color-mark)'
-                    : value === null
-                      ? 'var(--color-rule)'
-                      : 'var(--color-rule-strong)'
-                }
-                strokeWidth={fresh ? 2.2 : 1}
-                strokeDasharray={value === null ? '3 3' : undefined}
-              />
-              {value === null ? null : (
-                <text
-                  x={slot.cx}
-                  y={slot.y + slot.h / 2 + 5}
-                  textAnchor="middle"
-                  fontSize="14"
-                  fontWeight="600"
-                  fill="var(--color-ink)"
-                >
-                  {value}
-                </text>
-              )}
-            </g>
-          );
-        })}
-      </svg>
-    </div>
-  );
-}
-
-/**
- * The empty subtree a call just landed on — the base case — drawn for the one
- * frame that call runs: a dashed line out of the parent and a dashed box, in
- * the colour of the call under the eye, with `null` written in it so the
- * colour is not the only signal.
- */
-function EmptyCall({
-  probe,
-  side,
-}: {
-  probe: ReturnType<typeof treeProbe>;
-  side: 'left' | 'right';
-}) {
-  const { line, box } = probe;
-  return (
-    <g data-probe={side}>
-      <line
-        x1={line.x1}
-        y1={line.y1}
-        x2={line.x2}
-        y2={line.y2}
-        stroke="var(--color-focus)"
-        strokeWidth={1.8}
-        strokeDasharray="3 3"
-      />
-      <rect
-        x={box.x}
-        y={box.y}
-        width={box.w}
-        height={box.h}
-        rx={2}
-        fill="var(--color-surface)"
-        stroke="var(--color-focus)"
-        strokeWidth={1.8}
-        strokeDasharray="3 2"
-      />
-      <text
-        x={box.x + box.w / 2}
-        y={box.y + box.h - 4}
-        textAnchor="middle"
-        fontSize="9"
-        fontWeight="600"
-        fill="var(--color-focus)"
-      >
-        null
-      </text>
-    </g>
   );
 }
 

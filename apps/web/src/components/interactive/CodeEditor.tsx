@@ -235,7 +235,7 @@ export function CodeEditor({
     embedded && !expanded
       ? ` flex flex-1 flex-col [&>div]:flex [&>div]:flex-1 [&>div]:flex-col [&_.cm-editor]:flex-1${
           align === 'center'
-            ? ' [&_.cm-editor_.cm-scroller]:[align-items:safe_center]! [&_.cm-editor_.cm-content]:min-h-0!'
+            ? ' [&_.cm-editor_.cm-scroller]:![align-items:safe_center] [&_.cm-editor_.cm-content]:!min-h-0'
             : ''
         }`
       : '';

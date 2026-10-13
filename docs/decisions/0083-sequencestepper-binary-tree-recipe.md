@@ -34,7 +34,12 @@ controls, speed), same frame model plus one optional field, `step.tree`: every
 node with its two links and its paint, the calls still open, and a strip. The
 trace lives in its own pure module (`sequenceStepperTreeTrace.ts`), dispatched
 from `traceFor`, because the sequence module was already 2400 lines; the
-geometry lives in `sequenceStepperTreeLayout.ts`, as the heap's does.
+geometry lives in `sequenceStepperTreeLayout.ts` and the painter in
+`sequenceStepperTreeView.tsx`, as the heap's do (ADR-0077 §1). What the two
+trace modules share — the line a frame lights, the runs an argument asks for —
+is a leaf both import, `sequenceStepperTraceShared.ts`, and the rim-to-rim
+edge the two layouts share is another, `sequenceStepperEdge.ts`: neither pair
+imports the other, so no cycle closes (#321 review).
 
 ### 2. Every node sits in the column of its inorder position
 
@@ -66,9 +71,17 @@ with Árboles II (#322), which mounts it.
 
 A tree with no order cannot be built by inserting, so `values` on
 `binary-tree` is the level order, `null` where a child is missing:
-`[3, 9, 1, 4, 7, null, 6]`. A value with no parent is an authoring error, and
-so is a `null` on any other recipe (it would otherwise be read as `0`). The
-cap of eight counts nodes, not gaps.
+`[3, 9, 1, 4, 7, null, 6]`. A gap has no children written: after a `null`,
+the next entries belong to the next node still waiting for its children, not
+to the gap, so `[1, 2, null, 3, 4, null, null, 5]` hangs 5 under 4. That is
+how trees are written down, and not the heap's rule, which numbers every
+position, the empty ones included, and would hang 5 under 3 (#321 review,
+pinned in `sequenceStepperTrace.test.ts`). A value with no parent is an
+authoring error, and so are gaps left over at the end, once no node is
+waiting; so is a `null` on any other recipe (it would otherwise be read as
+`0`), and on every recipe a value that is not a finite number, a symbol or a
+gap — an object would take the page down, and `NaN` would turn into a gap on
+the way. The cap of eight counts nodes, not gaps.
 
 A value on `binary-tree` may also be a **symbol** (Miguel's review of the
 binary-tree act, #321): the class's guide example is the expression

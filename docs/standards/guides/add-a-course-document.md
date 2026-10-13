@@ -847,9 +847,12 @@ Every call is a frame of its own, the empty ones too: a call that lands on
 `null` lights the base case and draws the empty subtree (ADR-0083 §5). It
 also takes `search` (`target`), which may have to compare every node. Its
 `values` is the tree in LEVEL ORDER with `null` for a missing child
-(`values={[3, 9, 1, 4, 7, null, 6]}`); a value with no parent is refused, a
-`null` on any other recipe is refused, and the cap of eight counts nodes, not
-gaps. A value may also be a symbol, so an expression tree keeps its operators
+(`values={[3, 9, 1, 4, 7, null, 6]}`), and a `null` has no children written:
+the entries after it belong to the next node still waiting, so
+`[1, 2, null, 3, 4, null, null, 5]` hangs 5 under 4 — not the heap's
+numbering, which would hang it under 3 (ADR-0083 §4). A value with no parent
+is refused, so are gaps left over at the end, a `null` on any other recipe is
+refused, and the cap of eight counts nodes, not gaps. A value may also be a symbol, so an expression tree keeps its operators
 (`values={['*', '+', '−', 3, 4, 5, 1]}` is (3 + 4) * (5 − 1)); a symbol on
 any other recipe is refused too. `search` keeps one name over the chains
 and the tree.

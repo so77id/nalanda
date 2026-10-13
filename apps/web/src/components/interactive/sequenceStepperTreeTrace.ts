@@ -12,11 +12,12 @@
  * `binary-tree` has no order, so its operations VISIT: the three traversals,
  * the height and a search that may have to look everywhere.
  */
+import { asRuns, lineOf } from './sequenceStepperTraceShared';
 import type {
+  BinaryTreeOperation,
   SequenceCell,
   SequenceCellState,
   SequenceInput,
-  SequenceOperation,
   SequenceStep,
   SequenceStepKind,
   SequenceTrace,
@@ -25,6 +26,9 @@ import type {
   TreeValue,
 } from './sequenceStepperTrace';
 
+// Generic, and the recorder takes its root and strip as closures, for the
+// search tree of Árboles II (#322): there `root` starts empty and changes with
+// every insertion. Here every tree is built once and never changes shape.
 interface TreeNode<V extends TreeValue = TreeValue> {
   id: number;
   value: V;
@@ -32,7 +36,7 @@ interface TreeNode<V extends TreeValue = TreeValue> {
   right: TreeNode<V> | null;
 }
 
-type Traversal = 'preorder' | 'inorder' | 'postorder';
+type Traversal = Exclude<BinaryTreeOperation, 'height' | 'search'>;
 
 /**
  * Each listing is the recursive method as the class writes it. The three
@@ -93,16 +97,6 @@ const TRAVERSAL_NAME: Record<Traversal, string> = {
 /** A height in the narration: the minus sign, not a hyphen. */
 const signed = (n: number): string => (n < 0 ? `−${-n}` : String(n));
 
-/** The 1-based line of the first line containing `fragment` — never a number. */
-function lineOf(code: string, fragment: string): number {
-  const at = code.split('\n').findIndex((line) => line.includes(fragment));
-  if (at < 0) throw new Error(`El listado no contiene «${fragment}».`);
-  return at + 1;
-}
-
-const asRuns = (v: number | number[] | undefined): number[] =>
-  v === undefined ? [] : Array.isArray(v) ? v : [v];
-
 let nextId = 0;
 const nodeOf = <V extends TreeValue>(value: V): TreeNode<V> => ({
   id: (nextId += 1),
@@ -115,6 +109,11 @@ const nodeOf = <V extends TreeValue>(value: V): TreeNode<V> => ({
  * The tree an author writes in level order, `null` where a child is missing:
  * `[3, 9, 1, 4, 7, null, 6]` is 3 over 9 and 1, 9 over 4 and 7, and 1 over a
  * lone right child 6. Every value has to have a parent to hang from.
+ *
+ * A gap has no children written: after a `null`, the next two entries belong
+ * to the next node still waiting, not to the gap — `[1, 2, null, 3, 4, null,
+ * null, 5]` hangs 5 under 4. That is the convention trees are written in, and
+ * not the heap's, which numbers every position, the empty ones included.
  */
 function fromLevelOrder(levels: (TreeValue | null)[]): TreeNode {
   const first = levels[0];
@@ -131,7 +130,9 @@ function fromLevelOrder(levels: (TreeValue | null)[]): TreeNode {
     if (parent === undefined) {
       const orphan = levels.slice(i).find((v) => v !== null);
       throw new Error(
-        `El valor ${orphan} no tiene padre: en el orden por niveles cae bajo un hueco.`,
+        orphan === undefined
+          ? 'El orden por niveles tiene huecos de más al final: un null marca el hijo que le falta a un nodo, y ya no queda ningún nodo esperando hijos.'
+          : `El valor ${orphan} no tiene padre: en el orden por niveles cae bajo un hueco.`,
       );
     }
     for (const side of ['left', 'right'] as const) {
@@ -147,16 +148,16 @@ function fromLevelOrder(levels: (TreeValue | null)[]): TreeNode {
   return root;
 }
 
-/** Every node, root first, each before its children (the order frames list them). */
-function nodesOf(root: TreeNode | null): TreeNode[] {
-  const out: TreeNode[] = [];
-  const walk = (n: TreeNode | null) => {
+/** Every node with its depth, root first, each before its children (the order frames list them). */
+function nodesOf(root: TreeNode | null): { node: TreeNode; depth: number }[] {
+  const out: { node: TreeNode; depth: number }[] = [];
+  const walk = (n: TreeNode | null, depth: number) => {
     if (n === null) return;
-    out.push(n);
-    walk(n.left);
-    walk(n.right);
+    out.push({ node: n, depth });
+    walk(n.left, depth + 1);
+    walk(n.right, depth + 1);
   };
-  walk(root);
+  walk(root, 0);
   return out;
 }
 
@@ -173,13 +174,6 @@ function inorderColumns(root: TreeNode): Record<number, number> {
   };
   walk(root);
   return columns;
-}
-
-function deepest(root: TreeNode | null): number {
-  if (root === null) return 0;
-  const below = (n: TreeNode | null): number =>
-    n === null ? -1 : 1 + Math.max(below(n.left), below(n.right));
-  return below(root);
 }
 
 /**
@@ -232,13 +226,14 @@ class TreeRecorder {
     probe?: TreeFrame['probe'],
   ) {
     const root = this.rootOf();
-    this.depth = Math.max(this.depth, deepest(root));
-    const nodes: TreeFrameNode[] = nodesOf(root).map((n) => {
+    const nodes: TreeFrameNode[] = nodesOf(root).map(({ node: n, depth }) => {
+      this.depth = Math.max(this.depth, depth);
       const out: TreeFrameNode = {
         id: n.id,
         value: n.value,
         left: n.left?.id ?? null,
         right: n.right?.id ?? null,
+        depth,
         state: this.state.get(n.id) ?? 'idle',
       };
       const mark = this.badge.get(n.id);
@@ -315,11 +310,11 @@ function callSide<R>(
   return child === null ? empty : into(child);
 }
 
-export function traceTree(operation: SequenceOperation, input: SequenceInput): SequenceTrace {
+export function traceTree(operation: BinaryTreeOperation, input: SequenceInput): SequenceTrace {
   const root = fromLevelOrder(input.levelOrder ?? input.values);
   if (operation === 'height') return traceHeight(root);
   if (operation === 'search') return traceSearchAnywhere(root, asRuns(input.target));
-  return traceTraversal(root, operation as Traversal);
+  return traceTraversal(root, operation);
 }
 
 /** The result every tree operation hands back, sized for the whole run. */
@@ -543,7 +538,9 @@ function traceSearchAnywhere(root: TreeNode, targets: number[]): SequenceTrace {
       [],
       found
         ? `${t} está en el árbol: apareció en la comparación ${rec.cost}.`
-        : `${t} no está: se compararon los ${rec.cost} nodos, uno por uno.`,
+        : rec.cost === 1
+          ? `${t} no está: se comparó el único nodo.`
+          : `${t} no está: se compararon los ${rec.cost} nodos, uno por uno.`,
     );
   }
   return finish(rec, code, columns, slots, false);
