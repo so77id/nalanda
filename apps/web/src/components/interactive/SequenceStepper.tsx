@@ -703,12 +703,21 @@ function Body({
                     key={name}
                     data-testid="sequence-listing"
                     data-listing={name}
-                    className="bg-surface"
+                    className="flex flex-col bg-surface"
                   >
                     <div className="px-3 pt-1 font-mono text-3xs uppercase tracking-wide text-ink-faint">
                       {name}
                     </div>
-                    <CodeStepper code={code} highlightLines={[...lines]} language="java" />
+                    {/*
+                      The shorter listing fills its column and sits in the
+                      middle of it: the editor takes the column's height and
+                      centres its lines, the gutter's background still
+                      running top to bottom — rather than ending early over a
+                      band of the panel's own ground.
+                    */}
+                    <div className="flex-1 [&>div>div]:h-full [&>div]:h-full [&_.cm-editor]:h-full [&_.cm-editor]:justify-center [&_.cm-scroller]:!h-auto [&_.cm-scroller]:!grow-0">
+                      <CodeStepper code={code} highlightLines={[...lines]} language="java" />
+                    </div>
                   </div>
                 ))}
               </div>
