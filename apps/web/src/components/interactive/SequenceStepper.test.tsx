@@ -965,6 +965,21 @@ describe('<SequenceStepper> · the avl recipe (#322)', () => {
     expect(screen.getByText(/eda="avl"/)).toBeInTheDocument();
   });
 
+  it('writes the balance factor beside every node, and shows the −2 balance finds', () => {
+    renderIn('book', <SequenceStepper eda="avl" operation="insert" values={[30, 20]} value={10} />);
+    const badges = () => [...view().querySelectorAll('[data-node] text')].map((t) => t.textContent);
+    expect(badges()).toContain('−1');
+    let sawBroken = false;
+    for (let i = 0; i < 20; i += 1) {
+      if (badges().includes('−2')) sawBroken = true;
+      const next = screen.getByRole('button', { name: 'Adelante' });
+      if (next.getAttribute('aria-disabled') === 'true') break;
+      fireEvent.click(next);
+    }
+    expect(sawBroken).toBe(true);
+    expect(badges()).not.toContain('−2');
+  });
+
   it('tells the author which child is missing for the rotation asked', () => {
     renderIn(
       'book',

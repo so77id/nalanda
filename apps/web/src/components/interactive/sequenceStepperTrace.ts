@@ -472,8 +472,11 @@ export function isBstOperation(operation: SequenceOperation): operation is BstOp
   return BST_OPERATIONS.includes(operation);
 }
 
-/** What `avl` has a listing for. */
-const AVL_OPERATION_NAMES = [...AVL_ONLY_NAMES] as const;
+/**
+ * What `avl` has a listing for: its rotations, and the shared `insert` and
+ * `remove`, which are the search tree's with a `balance` on the way back.
+ */
+const AVL_OPERATION_NAMES = [...AVL_ONLY_NAMES, 'insert', 'remove'] as const;
 export type AvlOperation = (typeof AVL_OPERATION_NAMES)[number];
 export const AVL_OPERATIONS: readonly SequenceOperation[] = AVL_OPERATION_NAMES;
 

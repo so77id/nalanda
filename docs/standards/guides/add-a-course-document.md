@@ -884,7 +884,17 @@ the frames in between show a subtree with two parents and `q` pointing back
 up at `p` — that reference gets an arrowhead — and the strip keeps the same
 inorder from the first frame to the last. The listing is the class's
 rotation before the AVL gives its nodes a height (ADR-0083, *Amended by
-#322*).
+#322*). `avl` also takes `insert` (`value`, an array for several) and
+`remove` (`target`), the search tree's with `return balance(node)` as their
+last line; for these two `values` builds a REAL AVL, rotating as it goes,
+with no frames. Every node carries its balance factor in a badge (`+1`,
+`0`, `−2`), read off the heights the nodes store — so a factor above the
+node being balanced may still be the old one, and changes when the walk
+back reaches it. Each node of the way back gets its `balance` frame; a
+rotation inside them is one frame, a double one two. `insert`'s listing
+shows the `balance` it calls; `remove`'s shows only the call. No removal
+that rotates at two levels fits in eight nodes (the smallest AVL tree of
+height 4 has twelve), so a cascade is drawn with `<BinaryPicture>` instead.
 `values` is the starting contents; `value` feeds the inserts, `index` the
 positional operations (`get-at` included), and `target` both `search` and
 `insert-ordered`.

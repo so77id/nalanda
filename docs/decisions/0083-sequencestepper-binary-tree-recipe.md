@@ -179,6 +179,34 @@ tree built by inserting, the run's columns).
   subtree that changes parent paints in `mark`. Colour is never the only
   signal: the badges and the narration name all three.
 
+Then `insert` and `remove`, the search tree's with `return balance(node)`
+as their last line:
+
+- **Their `values` build a real AVL**, rotating as it goes with no frames,
+  because a slide that inserts into an AVL starts from one.
+- **The balance factor is a badge on every node**, `+1`, `0`, `−2`, read off
+  the heights the nodes STORE, as `balance` reads them. A factor above the
+  node being balanced may therefore still be the old one, and changes when
+  the walk back reaches it: that is when the code learns it. Computing the
+  true factor everywhere would show a `−2` the code has not found yet.
+- **Every node of the way back gets its `balance` frame**, with its height
+  and factor narrated; the rotation inside is one frame (a double, two) —
+  the rotation act already walked its assignments. The caller's assignment
+  is made at once, so the drawing never shows a tree the code no longer
+  holds.
+- **`insert` shows the `balance` it calls; `remove` shows only the call.**
+  `insert` with `balance` is thirty lines, and `balance` is its lesson;
+  `remove` with `balance` beside it would be thirty-nine.
+- **No cascade in the widget.** A removal that rotates at two levels needs
+  a tree of height 4 at least — the first rotation needs a node of height
+  2, the second an ancestor two levels above it — and the smallest AVL tree
+  of height 4 has twelve nodes (N(h) = N(h − 1) + N(h − 2) + 1), past the
+  cap of eight; a search over random orders of seven and eight values found
+  none either. The cap stays (raising it is asked first, #322's risk
+  table); the class draws the cascade with `<BinaryPicture>`, and the
+  widget's `remove` shows the case only a removal produces: a child with
+  factor 0, fixed by one rotation.
+
 Proposed, like the rest, until the professor reviews it running.
 
 ## Alternatives considered
@@ -202,7 +230,8 @@ Proposed, like the rest, until the professor reviews it running.
   `insert`, `minimum`, `successor`, `remove`}; the seven tree-only
   operations are valid on nothing else
   (`add-a-course-document.md` §5h carries it). #322 adds a third row,
-  `avl` × {`rotate-right`, `rotate-left`}, also valid on nothing else.
+  `avl` × {`rotate-right`, `rotate-left`, `insert`, `remove`}; the two
+  rotations are valid on nothing else.
 - `SequenceCellState` gains `visited` and `discarded`; `SequenceStep` gains
   `tree`; `SequenceTrace` gains `tree` (columns, slots, depth, and whether
   it has a strip);

@@ -255,7 +255,7 @@ const SEARCH_TREE_LEGEND: Record<BstOperation, [string, string][]> = {
   ],
 };
 
-/** A rotation paints the two nodes it exchanges and the subtree that changes parent. */
+/** A rotation paints the two nodes it exchanges and the subtree that changes parent; insert and remove add the node balance is looking at. */
 const AVL_LEGEND: Record<AvlOperation, [string, string][]> = {
   'rotate-right': [
     ['border-accent bg-surface', 'rotan'],
@@ -264,6 +264,17 @@ const AVL_LEGEND: Record<AvlOperation, [string, string][]> = {
   'rotate-left': [
     ['border-accent bg-surface', 'rotan'],
     ['border-mark bg-mark-soft', 'cambia de padre'],
+  ],
+  insert: [
+    ['border-mark bg-mark-soft', 'nuevo'],
+    ['border-focus bg-surface', 'se rebalancea'],
+    ['border-accent bg-surface', 'rotan'],
+  ],
+  remove: [
+    ['border-rule bg-sunk', 'sale'],
+    ['border-mark bg-mark-soft', 'toma un valor'],
+    ['border-focus bg-surface', 'se rebalancea'],
+    ['border-accent bg-surface', 'rotan'],
   ],
 };
 

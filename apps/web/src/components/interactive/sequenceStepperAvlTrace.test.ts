@@ -205,3 +205,159 @@ describe('sequenceStepperTrace · avl · what a rotation refuses', () => {
     );
   });
 });
+
+/** The factor of every node of a frame, from its links: right height − left height. */
+const factorsOf = (step: SequenceStep): Map<number, number> => {
+  const byId = new Map(step.tree!.nodes.map((n) => [n.id, n]));
+  const out = new Map<number, number>();
+  const height = (id: number | null): number => {
+    if (id === null) return -1;
+    const n = byId.get(id)!;
+    const l = height(n.left);
+    const r = height(n.right);
+    out.set(Number(n.value), r - l);
+    return 1 + Math.max(l, r);
+  };
+  height(step.tree!.root);
+  return out;
+};
+
+/** Both invariants of an AVL tree, read off a frame. */
+const isAvl = (step: SequenceStep): boolean => {
+  const order = inorderOf(step);
+  const sorted = order.every((v, i) => i === 0 || order[i - 1]! < v);
+  return sorted && [...factorsOf(step).values()].every((f) => Math.abs(f) <= 1);
+};
+
+describe('sequenceStepperTrace · avl · insert', () => {
+  it('builds its starting values as an AVL tree, rotating with no frames', () => {
+    const first = traceFor('avl', 'insert', { values: [1, 2, 3], value: 4 }).steps[0]!;
+    expect(rootValue(first)).toBe(2);
+    expect(isAvl(first)).toBe(true);
+  });
+
+  it('shows the BST insert with one more line, and the balance it calls', () => {
+    const { code } = traceFor('avl', 'insert', { values: [2], value: 1 });
+    expect(code).toContain('return balance(node);');
+    expect(code).toContain('Node<T> balance(Node<T> node) {');
+    expect(code).toContain('return rotateRight(node);');
+    expect(code).not.toContain('return node;\n}\n\nNode<T> balance');
+  });
+
+  it('rotates right once when 30, 20 and 10 arrive in that order', () => {
+    const trace = traceFor('avl', 'insert', { values: [], value: [30, 20, 10] });
+    const last = trace.steps.at(-1)!;
+    expect(rootValue(last)).toBe(20);
+    expect(inorderOf(last)).toEqual([10, 20, 30]);
+    const rotation = trace.steps.find((s) =>
+      s.highlightLines.includes(lineOf(trace.code, 'return rotateRight(node);')),
+    )!;
+    expect(rotation.description).toMatch(/simple a la derecha/);
+  });
+
+  it('rotates twice, child first, when 30, 10 and 20 arrive: the double rotation to the right', () => {
+    const trace = traceFor('avl', 'insert', { values: [], value: [30, 10, 20] });
+    expect(rootValue(trace.steps.at(-1)!)).toBe(20);
+    const child = trace.steps.findIndex((s) =>
+      s.highlightLines.includes(lineOf(trace.code, 'node.left = rotateLeft(')),
+    );
+    const node = trace.steps.findIndex((s) =>
+      s.highlightLines.includes(lineOf(trace.code, 'return rotateRight(node);')),
+    );
+    expect(child).toBeGreaterThan(0);
+    expect(node).toBeGreaterThan(child);
+    expect(trace.steps.some((s) => /doble a la derecha/.test(s.description))).toBe(true);
+  });
+
+  it('writes the balance factor beside every node, with a real minus sign', () => {
+    const trace = traceFor('avl', 'insert', { values: [], value: [30, 20, 10] });
+    const broken = trace.steps.find((s) => s.description.includes('−2'))!;
+    const thirty = broken.tree!.nodes.find((n) => n.value === 30)!;
+    expect(thirty.badge).toBe('−2');
+    for (const n of trace.steps.at(-1)!.tree!.nodes) {
+      expect(['−1', '0', '+1']).toContain(n.badge);
+    }
+  });
+
+  it('leaves both invariants in place after every insertion, whatever the order', () => {
+    const orders = [
+      [1, 2, 3, 4, 5, 6, 7],
+      [7, 6, 5, 4, 3, 2, 1],
+      [4, 2, 6, 1, 3, 5, 7],
+      [3, 1, 6, 5, 7, 4, 2],
+      [5, 1, 4, 2, 3, 7, 6],
+      [2, 7, 1, 6, 3, 5, 4],
+    ];
+    for (const order of orders) {
+      const trace = traceFor('avl', 'insert', { values: [], value: order });
+      expect(isAvl(trace.steps.at(-1)!), order.join(' ')).toBe(true);
+      expect(inorderOf(trace.steps.at(-1)!)).toEqual([1, 2, 3, 4, 5, 6, 7]);
+    }
+  });
+
+  it('keeps the strip sorted in every frame: a rotation never touches the order', () => {
+    const trace = traceFor('avl', 'insert', { values: [], value: [1, 2, 3, 4, 5] });
+    for (const s of trace.steps) {
+      const written = s.tree!.strip.filter((v): v is number => v !== null);
+      expect(written).toEqual([...written].sort((a, b) => a - b));
+    }
+  });
+
+  it('marks the new leaf, and inserts nothing twice', () => {
+    const trace = traceFor('avl', 'insert', { values: [2, 1, 3], value: 3 });
+    expect(trace.steps.some((s) => s.description.includes('ya está'))).toBe(true);
+    expect(trace.steps.at(-1)!.tree!.nodes).toHaveLength(3);
+    const fresh = traceFor('avl', 'insert', { values: [2, 1, 3], value: 4 });
+    const built = fresh.steps.find((s) =>
+      s.highlightLines.includes(lineOf(fresh.code, 'return new Node<>(value)')),
+    )!;
+    expect(byValue(built, 4).state).toBe('new');
+  });
+});
+
+describe('sequenceStepperTrace · avl · remove', () => {
+  it('shows the BST remove with balance on the way back', () => {
+    const { code } = traceFor('avl', 'remove', { values: [2, 1, 3], target: 1 });
+    expect(code).toContain('return balance(node);');
+    expect(code).toContain('node.value = next.value;');
+  });
+
+  it('rotates once when the child it lifts leans neither way: a factor only removal produces', () => {
+    const trace = traceFor('avl', 'remove', { values: [4, 2, 5, 1, 3], target: 5 });
+    const last = trace.steps.at(-1)!;
+    expect(rootValue(last)).toBe(2);
+    expect(byValue(last, 2).right).toBe(byValue(last, 4).id);
+    expect(byValue(last, 4).left).toBe(byValue(last, 3).id);
+    expect(isAvl(last)).toBe(true);
+    expect(trace.steps.some((s) => /factor 0/.test(s.description))).toBe(true);
+    expect(trace.steps.some((s) => /simple a la derecha/.test(s.description))).toBe(true);
+  });
+
+  it('removes with no rotation when every factor stays within one', () => {
+    const trace = traceFor('avl', 'remove', { values: [4, 2, 5], target: 5 });
+    expect(inorderOf(trace.steps.at(-1)!)).toEqual([2, 4]);
+    expect(trace.steps.some((s) => /rotación/.test(s.description))).toBe(false);
+  });
+
+  it('copies the successor into a node with two children, as the BST does', () => {
+    const last = traceFor('avl', 'remove', { values: [4, 2, 6, 1, 3, 5, 7], target: 4 }).steps.at(
+      -1,
+    )!;
+    expect(rootValue(last)).toBe(5);
+    expect(isAvl(last)).toBe(true);
+  });
+
+  it('says a value that is not there is not removed', () => {
+    const trace = traceFor('avl', 'remove', { values: [2, 1, 3], target: 9 });
+    expect(trace.steps.at(-1)!.description).toContain('no está');
+  });
+
+  it('leaves both invariants in place after every removal', () => {
+    const start = [5, 2, 8, 1, 4, 7, 9, 3];
+    for (const target of start) {
+      const last = traceFor('avl', 'remove', { values: start, target }).steps.at(-1)!;
+      expect(isAvl(last), `remove ${target}`).toBe(true);
+      expect(inorderOf(last)).toEqual(start.filter((v) => v !== target).sort((a, b) => a - b));
+    }
+  });
+});

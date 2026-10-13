@@ -1203,8 +1203,9 @@ describe('sequenceStepperTrace · heap-max · which operations it has', () => {
   });
 
   it('refuses the two heap operations on every sequence recipe', () => {
-    // `bst` shares `insert` (#321): the same name over a different listing.
-    for (const recipe of RECIPES.filter((r) => r !== 'heap-max' && r !== 'bst')) {
+    // `bst` and `avl` share `insert` (#321, #322): the same name over a
+    // different listing.
+    for (const recipe of RECIPES.filter((r) => r !== 'heap-max' && r !== 'bst' && r !== 'avl')) {
       for (const operation of HEAP_OPS) {
         expect(isValidCombination(recipe, operation)).toBe(false);
       }
