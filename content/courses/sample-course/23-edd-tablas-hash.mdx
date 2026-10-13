@@ -16,9 +16,9 @@ directo al abrigo de cada nombre. Una **tabla hash** hace exactamente eso con
 un conjunto de claves: buscar, agregar y sacar una clave cuesta, en promedio,
 un tiempo que no crece con la cantidad de claves guardadas.
 
-{/* Casilleros — the cloakroom drawn as the unit draws an array: a contiguous strip of cells, the index over each, a name or nothing inside. `paint` colours a cell as the widget does (focus: under the eye; visited: already looked at; found: the one looked for; mark: just written), and `notes` writes a short mark over a cell — a visit order, a shift. File-local (add-a-course-document.md §6e-quater). */}
+{/* Casilleros — the cloakroom drawn as the unit draws an array: a contiguous strip of cells, the index over each, a name or nothing inside. `paint` colours a cell as the widget does (focus: under the eye; visited: already looked at; found: the one looked for; mark: just written), `notes` writes a short mark over a cell — a visit order, a shift, a hash — and `struck` strikes a key through: the mark of a removed key in the probing table. File-local (add-a-course-document.md §6e-quater). */}
 
-export function Casilleros({ cells, index, paint = {}, notes = {}, caption, label, cell = 64 }) {
+export function Casilleros({ cells, index, paint = {}, notes = {}, struck = [], caption, label, cell = 64 }) {
   const pad = 12;
   const noteY = 15;
   const indexY = 31;
@@ -45,7 +45,7 @@ export function Casilleros({ cells, index, paint = {}, notes = {}, caption, labe
             <text x={x + cell / 2} y={indexY} textAnchor="middle" fontSize="11" style={{ fill: 'var(--color-ink-faint)' }}>{index ? index[i] : i}</text>
             <rect x={x} y={cellY} width={cell} height={cellH} style={{ fill: p ? fill[p] : 'var(--color-surface)', stroke: p ? stroke[p] : 'var(--color-rule-strong)' }} strokeWidth={p && p !== 'visited' ? 2.4 : 1.2} />
             {cells[i] ? (
-              <text x={x + cell / 2} y={cellY + cellH / 2 + 5} textAnchor="middle" fontSize="14" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{cells[i]}</text>
+              <text x={x + cell / 2} y={cellY + cellH / 2 + 5} textAnchor="middle" fontSize="14" fontWeight="600" textDecoration={struck.includes(i) ? 'line-through' : undefined} style={{ fill: struck.includes(i) ? 'var(--color-ink-faint)' : 'var(--color-ink)' }}>{cells[i]}</text>
             ) : null}
           </g>
         );
@@ -1014,5 +1014,252 @@ Las tres son $$\Theta(1)$$ en promedio, pero las listas tienen un precio que
 el costo no muestra: una referencia y un objeto aparte por cada clave, que el
 programa tiene que ir a buscar a otro lugar de la memoria. La otra manera de
 resolver las colisiones guarda las claves en el propio arreglo.
+
+</Slide>
+
+<SectionBreak />
+
+## Sondeo lineal
+
+export const SONDEO = ['Tomas', null, null, null, 'Leo', 'Ana', 'Bea', null, null, null, 'Olga'];
+
+<Slide title="Un abrigo por casillero">
+La otra manera de resolver las colisiones no usa listas: cada casillero guarda
+a lo más una clave, y todas viven en el propio arreglo. Si el casillero que
+indica el hash está ocupado, la clave prueba el siguiente, y el siguiente,
+hasta dar con uno libre; después del último viene el primero. En el
+guardarropa, si el casillero de un abrigo está ocupado, se cuelga en el
+próximo libre.
+
+A esta forma de resolver las colisiones se le llama **sondeo lineal**, y
+necesita que haya siempre más casilleros que claves: $$N < M$$, es decir,
+$$\alpha < 1$$.
+
+<Casilleros
+  cells={SONDEO}
+  notes={{ 0: 'h 10', 4: 'h 4', 5: 'h 5', 6: 'h 5', 10: 'h 10' }}
+  caption="11 casilleros: «Bea» tiene hash 5, ocupado por «Ana», y queda en el 6; «Tomas» tiene hash 10 y da la vuelta hasta el 0"
+  label="Once casilleros numerados del 0 al 10. Tomas está en el 0, Leo en el 4, Ana en el 5, Bea en el 6 y Olga en el 10. Sobre cada uno, su hash: Tomas 10, Leo 4, Ana 5, Bea 5 y Olga 10."
+/>
+
+</Slide>
+
+<Slide title="Las invariantes del sondeo lineal">
+1. **Ninguna clave está dos veces.** Como en la tabla con listas, la tabla
+   guarda un conjunto.
+2. **Siempre queda al menos una celda vacía.** Es lo que garantiza que una
+   búsqueda termine aunque la clave no esté.
+3. **Entre la posición `hash(key)` y la celda de `key` no hay ninguna celda
+   vacía.** Una clave queda en la primera celda libre desde su hash, así que
+   todas las anteriores estaban ocupadas cuando entró.
+
+La tercera es la que hace correcta la búsqueda: al llegar a una celda vacía,
+la clave buscada no puede estar más allá. Y es también la que cobra: una
+celda ocupada no se puede volver a vaciar sin romperla.
+
+</Slide>
+
+<Slide title="La clase de la tabla con sondeo lineal">
+Las claves se guardan en un arreglo de `String`, `null` donde no hay ninguna.
+Junto a él, un arreglo `deleted` del mismo largo marca las claves eliminadas.
+`hash(String key)` es la misma regla de Horner, con `keys.length` como
+$$M$$. Con una sola posición no quedaría ninguna vacía.
+
+```java
+class ProbingHashTable {
+    private String[] keys;
+    private boolean[] deleted;
+    private int size;
+
+    ProbingHashTable(int capacity) {
+        if (capacity < 2) throw new IllegalArgumentException();
+        keys = new String[capacity];
+        deleted = new boolean[capacity];
+    }
+}
+```
+
+</Slide>
+
+<Slide title="Buscar con sondeo lineal">
+Para buscar una clave se empieza en la celda de su hash y se avanza de a una,
+dando la vuelta al final del arreglo, hasta encontrarla o llegar a una celda
+vacía. Por la invariante, la clave no puede estar después de esa celda vacía.
+
+<Casilleros
+  cells={SONDEO}
+  paint={{ 4: 'visited', 5: 'visited', 6: 'visited', 7: 'focus' }}
+  notes={{ 4: '1', 5: '2', 6: '3', 7: '4' }}
+  caption="buscar «Lia»: su hash es 4; se miran el 4, el 5 y el 6, ocupados, y la celda 7, vacía, dice que no está"
+  label="Los once casilleros. La búsqueda de Lia mira el casillero 4, con Leo, el 5, con Ana, y el 6, con Bea, y se detiene en el 7, vacío: Lia no está."
+/>
+
+</Slide>
+
+<Slide title="El código de contains con sondeo lineal">
+<SequenceStepper
+  eda="hash-probing"
+  operation="search"
+  values={['Ana', 'Bea', 'Leo', 'Olga', 'Tomas']}
+  target={['Lia', 'Tomas']}
+  capacity={11}
+/>
+
+</Slide>
+
+<Slide title="Agregar con sondeo lineal">
+`add` pregunta primero con `contains` si la clave ya está. Si no está, avanza
+desde la celda de su hash hasta la primera libre y la deja ahí. Todas las
+celdas que pasó estaban ocupadas, así que la invariante se mantiene.
+
+<SequenceStepper
+  eda="hash-probing"
+  operation="insert"
+  values={['Ana', 'Bea', 'Leo', 'Olga', 'Tomas']}
+  value="Eva"
+  capacity={11}
+/>
+
+</Slide>
+
+<Slide title="Eliminar sin vaciar la celda">
+Vaciar la celda de una clave eliminada rompe la invariante. Una clave que
+quedó más allá, en el mismo tramo ocupado, tiene ahora una celda vacía entre
+su hash y su celda, y una búsqueda se detendría antes de llegar a ella.
+
+<Casilleros
+  cells={['Tomas', null, null, null, 'Leo', 'Ana', null, 'Eva', null, null, 'Olga']}
+  paint={{ 5: 'visited', 6: 'focus' }}
+  notes={{ 5: '1', 6: '2' }}
+  caption="si «Bea» se eliminara vaciando la celda 6, buscar «Eva», de hash 5, se detendría en el 6 sin llegar al 7"
+  label="Los once casilleros con la celda 6 vacía. Eva, de hash 5, está en el 7. Su búsqueda mira el 5, con Ana, y se detiene en el 6, vacío, sin llegar a Eva."
+/>
+
+Por eso una clave eliminada se **marca** en lugar de borrarse: en el
+guardarropa, un cartel que dice «aquí hubo un abrigo». La búsqueda pasa sobre
+la marca sin detenerse, y `add` puede volver a usar esa celda. Otra
+alternativa, que no se desarrolla aquí, es volver a insertar todas las claves
+que siguen a la eliminada en su tramo.
+
+<Casilleros
+  cells={['Tomas', null, null, null, 'Leo', 'Ana', 'Bea', 'Eva', null, null, 'Olga']}
+  struck={[6]}
+  paint={{ 5: 'visited', 6: 'visited', 7: 'found' }}
+  notes={{ 5: '1', 6: '2', 7: '3' }}
+  caption="con «Bea» marcada, la búsqueda de «Eva» pasa sobre la marca y la encuentra en el 7"
+  label="Los once casilleros con Bea tachada en la celda 6: tiene la marca de borrado. La búsqueda de Eva mira el 5, pasa sobre la marca del 6 y la encuentra en el 7."
+/>
+
+</Slide>
+
+<Slide title="El código de remove con sondeo lineal">
+`remove` busca la clave como `contains` y, al encontrarla, solo pone
+`deleted[i]` en `true`: la clave sigue en su celda, y la celda sigue ocupada
+para la invariante.
+
+<SequenceStepper
+  eda="hash-probing"
+  operation="remove"
+  values={['Ana', 'Bea', 'Leo', 'Olga', 'Tomas']}
+  target="Bea"
+  capacity={11}
+/>
+
+</Slide>
+
+<Slide title="Una búsqueda sobre una marca">
+<SequenceStepper
+  eda="hash-probing"
+  operation="search"
+  values={['Ana', 'Bea', 'Eva', 'Leo', 'Olga', 'Tomas']}
+  deleted={['Bea']}
+  target="Eva"
+  capacity={11}
+/>
+
+</Slide>
+
+<Slide title="Una inserción que reutiliza una marca">
+`contains` recorre el tramo entero para asegurarse de que la clave no está, y
+recién entonces `add` vuelve al hash y se queda en la primera celda libre o
+marcada.
+
+<SequenceStepper
+  eda="hash-probing"
+  operation="insert"
+  values={['Ana', 'Bea', 'Leo', 'Olga', 'Tomas']}
+  deleted={['Bea']}
+  value="Eva"
+  capacity={11}
+/>
+
+</Slide>
+
+<Slide title="Los racimos">
+Las celdas ocupadas forman tramos seguidos, los **racimos**. Una clave cuyo
+hash cae en cualquier celda de un racimo recorre el resto del racimo y queda
+al final, haciéndolo más largo: mientras más largo es un racimo, más claves
+lo alcanzan y más rápido crece. Dos racimos que se tocan se funden en uno.
+
+<Casilleros
+  cells={['Tomas', null, null, null, 'Leo', 'Ana', 'Bea', 'Eva', 'Juan', null, 'Olga']}
+  paint={{ 4: 'visited', 5: 'visited', 6: 'visited', 7: 'visited', 8: 'visited', 9: 'mark' }}
+  caption="un racimo del 4 al 8: una clave con hash entre 4 y 9 termina en el 9, y el racimo crece hasta tocar el de «Olga» y «Tomas»"
+  label="Once casilleros con un racimo de cinco claves seguidas, del 4 al 8: Leo, Ana, Bea, Eva y Juan. El casillero 9 está destacado: ahí termina cualquier clave cuyo hash caiga entre el 4 y el 9."
+/>
+
+Hay variantes que dispersan los saltos: el **sondeo cuadrático** prueba
+$$h + 1, h + 4, h + 9, \ldots$$, y el **doble hashing** salta con un paso que
+calcula una segunda función hash. Las dos rompen los racimos, a cambio de
+una búsqueda menos simple.
+
+</Slide>
+
+<Slide title="El costo del sondeo lineal">
+Si la función reparte parejo, Knuth calculó cuántas celdas mira en promedio
+una búsqueda (resultado que se cita, sin demostrarlo):
+
+$$
+\text{si la clave está:}\quad \frac{1}{2}\left(1 + \frac{1}{1 - \alpha}\right)
+\qquad\qquad
+\text{si no está:}\quad \frac{1}{2}\left(1 + \frac{1}{(1 - \alpha)^2}\right)
+$$
+
+Con $$\alpha$$ cerca de 1, los racimos hacen crecer ese costo muy rápido.
+
+| $$\alpha$$ | Celdas si la clave está | Celdas si no está |
+| ---------- | ----------------------- | ----------------- |
+| 0,5        | 1,5                     | 2,5               |
+| 0,75       | 2,5                     | 8,5               |
+| 0,9        | 5,5                     | 50,5              |
+
+</Slide>
+
+<Slide title="Costos de la tabla con sondeo lineal">
+La tabla se redimensiona antes de que $$\alpha$$ pase de $$1/2$$, contando
+también las celdas marcadas, que ocupan lugar igual que una clave. Al volver a
+agregar las claves en la tabla nueva, las marcas desaparecen.
+
+| Molde     | Operación       | Peor caso     | Esperado, con $$\alpha \le 1/2$$ | Invariante que restaura               |
+| --------- | --------------- | ------------- | -------------------------------- | ------------------------------------- |
+| consultar | `contains(key)` | $$\Theta(N)$$ | $$\Theta(1)$$                    | Ninguna: no cambia la tabla           |
+| modificar | `add(key)`      | $$\Theta(N)$$ | $$\Theta(1)$$                    | Ninguna celda vacía antes de la nueva |
+| modificar | `remove(key)`   | $$\Theta(N)$$ | $$\Theta(1)$$                    | La celda queda ocupada, con su marca  |
+
+</Slide>
+
+<Slide title="Listas frente a sondeo lineal">
+|                         | Listas                                   | Sondeo lineal                                 |
+| ----------------------- | ---------------------------------------- | --------------------------------------------- |
+| Memoria por clave       | Un nodo aparte, con una referencia       | Una celda del arreglo, y un `boolean`         |
+| Dónde están las claves  | Repartidas por la memoria                | Seguidas en un arreglo, rápidas de recorrer   |
+| Factor de carga         | Puede pasar de 1                         | Menor que 1; en la práctica, a lo más 1/2     |
+| Eliminar                | Desenganchar el nodo                     | Marcar la celda                               |
+| Peor caso               | $$\Theta(N)$$                            | $$\Theta(N)$$                                 |
+
+Las dos dan $$\Theta(1)$$ esperado. El sondeo lineal ahorra objetos y
+aprovecha que las celdas de un arreglo están seguidas en la memoria; las
+listas toleran mejor una tabla llena y eliminan sin dejar rastro. Las dos,
+tal como están escritas, solo guardan claves `String`.
 
 </Slide>
