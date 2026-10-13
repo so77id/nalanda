@@ -344,24 +344,29 @@ reports the whole curve for both tolerances.
 `incomplete`.** The page is in `capture_failed`; the batch's scale is the
 square root of `a·d − b·c` of its PLACED pages in `capture_page` (Nalanda's
 controls have come back at 0.87–0.94). Then re-run one rejected page by
-hand, in the worker container, on a scratch copy — `--debug` takes a FILE,
-and given none it swallows the next flag and AMC dies in OpenCV:
+hand, in the worker container, on a scratch copy and at the worker's own
+tolerance, so it reads the page the way `/analyse` did — `--debug` takes a
+FILE, and given none it swallows the next flag and AMC dies in OpenCV:
 
 ```bash
 P=/work/controls/<id>; T=/tmp/dbg
 mkdir -p $T/data $T/cr $T/scans && cp $P/data/layout.sqlite $T/data/
 cp $P/scans/<rejected-image> $T/scans/ && ls $T/scans/* > $T/list.txt
-auto-multiple-choice analyse --debug $T/debug.log --data $T/data --projet $T \
-  --cr $T/cr --liste-fichiers $T/list.txt
+TOL=$(python3 -c "import sys; sys.path.insert(0, sys.argv[1]); import worker; print(worker.MARK_TOLERANCE)" /opt/amc-worker)
+auto-multiple-choice analyse --tol-marque "$TOL" --debug $T/debug.log \
+  --data $T/data --projet $T --cr $T/cr --liste-fichiers $T/list.txt
 grep -E 'Target size|\(.*;.*\)\+|Frame|MSE=|Found binary' $T/debug.log
 ```
 
-`Target size` is the size band and the `(x;y)+(w;h)` lines are the candidates
-AMC kept. Two signatures of circles below the band, both seen for #327: on
-stdout, `Not enough corner marks detected` (none of the circles kept — a
-synthetic sheet at 0.75); or, in the log, `Found binary ID: +0/0/0+` with a
-large `MSE` (some kept, the frame fitted to the page's code boxes — the real
-sheet at 0.87). Re-uploading the same PDF is never
+`Target size` is the size band (27.6 to 51 px at the worker's tolerance) and
+the `(x;y)+(w;h)` lines are the candidates AMC kept. Two signatures of
+circles below the band, both seen for #327 at AMC's default band: on stdout,
+`Not enough corner marks detected` (none kept — a synthetic sheet at 0.75);
+or, in the log, `Found binary ID: +0/0/0+` with a large `MSE` (some kept, the
+frame fitted to the page's code boxes — the real sheet at 0.87). At the
+worker's band they mean a sheet printed smaller than was measured to read
+(every page at 0.70, none at 0.65), or a corner the scale does not explain — cut by the scanner, covered, torn. Drop `--tol-marque` to
+see what AMC's default would have done. Re-uploading the same PDF is never
 the repair: the result is deterministic, and a re-capture clears the copy's
 corrections (ADR-0075).
 
