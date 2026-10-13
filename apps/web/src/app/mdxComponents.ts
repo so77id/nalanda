@@ -1,4 +1,5 @@
 import {
+  BinaryPicture,
   Explanation,
   Figure,
   LazyBenchmark,
@@ -64,6 +65,13 @@ export const mdxComponents = {
   Split,
   Mosaic,
   Figure,
+  // Not lazy: a pure SVG with no package of its own, and 162 figures on one
+  // page would each paint a placeholder first. Measured on the shipped build
+  // (#322): registering it eagerly costs the entry chunk 11,470 bytes raw,
+  // 3,790 gzipped — code that used to travel inside the two tree documents.
+  // A lazy wrapper would also hide its authoring errors from
+  // app/contentRenders.test.tsx (apps/web/CLAUDE.md, class 4).
+  BinaryPicture,
   // Not lazy: it is one iframe. Measured on the shipped build, registering it
   // eagerly costs the entry chunk 1,463 bytes of component code, and it pulls in
   // no package the first paint did not already need. (That figure used to be

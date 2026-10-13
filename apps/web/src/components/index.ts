@@ -46,6 +46,7 @@ export { LazyMermaid } from './interactive/lazyMermaid';
 // Not a document-facing component and deliberately not in the catalog: authors
 // never write it, they write a fence. The shell maps it onto `pre`.
 export { MdxPre } from './MdxPre';
+export { BinaryPicture } from './media/BinaryPicture';
 export { Figure } from './media/Figure';
 export { MathTex } from './media/Math';
 export type { MathTexProps } from './media/Math';

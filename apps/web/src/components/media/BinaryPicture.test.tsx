@@ -1,0 +1,174 @@
+import { render, screen } from '@testing-library/react';
+import { describe, expect, it } from 'vitest';
+
+import { ModeProvider } from '../../presentation';
+import { BinaryPicture } from './BinaryPicture';
+import type { BinaryTreeShape } from './binaryPictureLayout';
+
+/** (3 + 4) * (5 − 1), the expression tree Árboles I threads through its binary act. */
+const EXPR: BinaryTreeShape = {
+  v: '*',
+  l: { v: '+', l: { v: 3 }, r: { v: 4 } },
+  r: { v: '−', l: { v: 5 }, r: { v: 1 } },
+};
+
+const LABEL = 'El árbol de la expresión (3 + 4) por (5 − 1).';
+
+const nodesOf = (container: HTMLElement) => [...container.querySelectorAll('[data-node]')];
+const valuesOf = (container: HTMLElement) =>
+  nodesOf(container).map((n) => n.getAttribute('data-value'));
+
+describe('BinaryPicture', () => {
+  it('is one image, named by its label', () => {
+    render(<BinaryPicture tree={EXPR} label={LABEL} />);
+    expect(screen.getByRole('img', { name: LABEL })).toBeTruthy();
+  });
+
+  it('draws every node once, in the column of its inorder position', () => {
+    const { container } = render(<BinaryPicture tree={EXPR} label={LABEL} />);
+    const columns = Object.fromEntries(
+      nodesOf(container).map((n) => [n.getAttribute('data-value'), n.getAttribute('data-column')]),
+    );
+    expect(columns).toEqual({
+      '3': '0',
+      '+': '1',
+      '4': '2',
+      '*': '3',
+      '5': '4',
+      '−': '5',
+      '1': '6',
+    });
+  });
+
+  it('paints each node in the tone it is given, keyed by its value', () => {
+    const { container } = render(
+      <BinaryPicture tree={EXPR} tones={{ '+': 'focus', 5: 'mark' }} label={LABEL} />,
+    );
+    const tone = (v: string) =>
+      nodesOf(container)
+        .find((n) => n.getAttribute('data-value') === v)!
+        .getAttribute('data-tone');
+    expect([tone('+'), tone('5'), tone('*')]).toEqual(['focus', 'mark', 'idle']);
+  });
+
+  it('keeps a hidden node out of the drawing, with every edge that reaches it', () => {
+    const { container } = render(
+      <BinaryPicture tree={EXPR} tones={{ '*': 'hidden' }} label={LABEL} />,
+    );
+    expect(valuesOf(container)).not.toContain('*');
+    // The two edges from the root are gone; the four under it stay.
+    expect(container.querySelectorAll('[data-edge]')).toHaveLength(4);
+  });
+
+  it('says root = null when every node is hidden, or what the author asks it to say', () => {
+    const allHidden = {
+      '*': 'hidden',
+      '+': 'hidden',
+      '−': 'hidden',
+      3: 'hidden',
+      4: 'hidden',
+      5: 'hidden',
+      1: 'hidden',
+    } as const;
+    const { container, rerender } = render(
+      <BinaryPicture tree={EXPR} tones={allHidden} label={LABEL} />,
+    );
+    expect(container.textContent).toContain('root = null');
+    rerender(<BinaryPicture tree={EXPR} tones={allHidden} emptyNote="" label={LABEL} />);
+    expect(container.textContent).not.toContain('root = null');
+  });
+
+  it('numbers the visits in the order asked for, and stops at until', () => {
+    const order = (container: HTMLElement) =>
+      [...container.querySelectorAll('[data-visit]')]
+        .sort((a, b) => Number(a.getAttribute('data-visit')) - Number(b.getAttribute('data-visit')))
+        .map((n) => n.getAttribute('data-value'));
+    const { container, rerender } = render(
+      <BinaryPicture tree={EXPR} visits="pre" label={LABEL} />,
+    );
+    expect(order(container)).toEqual(['*', '+', '3', '4', '−', '5', '1']);
+    rerender(<BinaryPicture tree={EXPR} visits="post" label={LABEL} />);
+    expect(order(container)).toEqual(['3', '4', '+', '5', '1', '−', '*']);
+    rerender(<BinaryPicture tree={EXPR} visits="pre" until={4} label={LABEL} />);
+    expect(order(container)).toEqual(['*', '+', '3', '4']);
+  });
+
+  it('writes the visit order under the tree as a row of chips', () => {
+    const { container } = render(<BinaryPicture tree={EXPR} visits="in" sequence label={LABEL} />);
+    const chips = [...container.querySelectorAll('[data-chip]')].map((c) =>
+      c.getAttribute('data-value'),
+    );
+    expect(chips).toEqual(['3', '+', '4', '*', '5', '−', '1']);
+  });
+
+  it('writes the inorder in the strip, each value under its own node', () => {
+    const { container } = render(<BinaryPicture tree={EXPR} strip label={LABEL} />);
+    const slots = [...container.querySelectorAll('[data-slot]')];
+    expect(slots.map((s) => s.getAttribute('data-value'))).toEqual([
+      '3',
+      '+',
+      '4',
+      '*',
+      '5',
+      '−',
+      '1',
+    ]);
+    expect(slots.map((s) => s.getAttribute('data-column'))).toEqual([
+      '0',
+      '1',
+      '2',
+      '3',
+      '4',
+      '5',
+      '6',
+    ]);
+  });
+
+  it('draws an empty call as a box with null in it, under the side it landed on', () => {
+    const { container } = render(
+      <BinaryPicture tree={EXPR} path={['*', '+', 3]} probe={{ at: 3, side: 'l' }} label={LABEL} />,
+    );
+    const probe = container.querySelector('[data-probe]');
+    expect(probe?.getAttribute('data-probe')).toBe('3-l');
+    expect(probe?.textContent).toBe('null');
+    expect(container.querySelectorAll('[data-edge][data-lit]')).toHaveLength(2);
+  });
+
+  it('writes the value a search is looking for, and the caption under the drawing', () => {
+    render(<BinaryPicture tree={EXPR} seek={5} caption="buscar el 5" label={LABEL} />);
+    expect(screen.getByText('se busca el 5')).toBeTruthy();
+    expect(screen.getByText('buscar el 5')).toBeTruthy();
+  });
+
+  it('draws the same in the book and on a slide', () => {
+    const inMode = (mode: 'book' | 'presentation') =>
+      render(
+        <ModeProvider mode={mode}>
+          <BinaryPicture tree={EXPR} visits="pre" holes strip label={LABEL} />
+        </ModeProvider>,
+      ).container.innerHTML;
+    expect(inMode('presentation')).toBe(inMode('book'));
+  });
+
+  it('tells the author when the label is missing, and draws nothing', () => {
+    // MDX is not typechecked: an image with no name is invisible to a screen
+    // reader, and only the author can fix it.
+    const props = { tree: EXPR } as unknown as Parameters<typeof BinaryPicture>[0];
+    const { container } = render(<BinaryPicture {...props} />);
+    expect(container.textContent).toContain('<BinaryPicture>');
+    expect(container.textContent).toMatch(/label/);
+    expect(container.querySelector('svg')).toBeNull();
+  });
+
+  it('tells the author when a value repeats, since tones and notes are keyed by value', () => {
+    const { container } = render(
+      <BinaryPicture
+        tree={{ v: 5, l: { v: 3 }, r: { v: 3 } }}
+        label="Un árbol con un 3 repetido."
+      />,
+    );
+    expect(container.textContent).toContain('<BinaryPicture>');
+    expect(container.textContent).toContain('3');
+    expect(container.querySelector('svg')).toBeNull();
+  });
+});

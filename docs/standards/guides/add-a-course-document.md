@@ -60,8 +60,8 @@ content/courses/sample-course/
 ├── 18-edd-listas-enlazadas.mdx  # presentation: explicit, questions: pool — <SequenceStepper> ×13 (the worked case) + <Exercise> ×5 with the `solution` fence
 ├── 19-edd-stack-queue.mdx     # presentation: explicit, questions: pool (13) — <SequenceStepper> ×8 over BOTH families (dynamic-array + singly) + <StepShow> ×7 + <Exercise> ×4 + 20 standalone inline SVG figures + a file-local <Paso> frame component + two TDA cards
 ├── 20-edd-priority-queue-heap.mdx  # presentation: explicit, questions: pool (16) — <SequenceStepper eda="heap-max"> ×4 + <StepShow> ×3 + <Exercise> ×4 (three worked on slides, one posed) + <PresentationWide> ×3 + 23 file-local figure components and LIST_COLORS (§6e-quater) + a TDA card (the fifth copy)
-├── 21-edd-arboles-i.mdx       # presentation: explicit, questions: pool (19) — opens the Estructuras de Datos Avanzadas unit, ahead of chapter 20 in index.yaml; <SequenceStepper eda="binary-tree"> ×5 (its worked case, ADR-0083) + <StepShow> ×12 + <SideBySide> ×3 + <Exercise> ×5 (three worked, each on its slide — the widest level's and the calculator's in a scrolling window, being longer than 32 lines — and two posed) + <PresentationWide> ×18 + eight file-local figure components (HierarchyPicture, TreeMemory, OrderRule, BinaryPicture, BinaryMemory, NodeGraph, TokenRow, StackRow); the search tree moved to Árboles II (#322)
-├── 22-edd-arboles-ii.mdx      # presentation: explicit, questions: none (a documented not-yet, step 2) — the second class of the Estructuras de Datos Avanzadas unit, after edd-arboles-i in index.yaml; its search-tree acts and exercises came from #321 when that class split (2026-10-12) and are still to be refined in #322: <SequenceStepper> ×12 (bst ×11 — the bst recipe's worked case, ADR-0083 — and binary-tree ×1) + <StepShow> ×2 + <Exercise> ×3 (two worked, one posed) + two file-local figure components (BinaryPicture, a copy of Árboles I's that #322 promotes, and SortedRow)
+├── 21-edd-arboles-i.mdx       # presentation: explicit, questions: pool (19) — opens the Estructuras de Datos Avanzadas unit, ahead of chapter 20 in index.yaml; <SequenceStepper eda="binary-tree"> ×5 (its worked case, ADR-0083) + <StepShow> ×12 + <SideBySide> ×3 + <Exercise> ×5 (three worked, each on its slide — the widest level's and the calculator's in a scrolling window, being longer than 32 lines — and two posed) + <PresentationWide> ×18 + <BinaryPicture> ×162 (the content component #322 promoted from it, §6e-quinquies) + seven file-local figure components (HierarchyPicture, TreeMemory, OrderRule, BinaryMemory, NodeGraph, TokenRow, StackRow); the search tree moved to Árboles II (#322)
+├── 22-edd-arboles-ii.mdx      # presentation: explicit, questions: none (a documented not-yet, step 2) — the second class of the Estructuras de Datos Avanzadas unit, after edd-arboles-i in index.yaml; its search-tree acts and exercises came from #321 when that class split (2026-10-12) and are still to be refined in #322: <SequenceStepper> ×12 (bst ×11 — the bst recipe's worked case, ADR-0083 — and binary-tree ×1) + <StepShow> ×2 + <Exercise> ×3 (two worked, one posed) + <BinaryPicture> ×17 (§6e-quinquies) + one file-local figure component (SortedRow)
 ├── tda-eda-invariante.svg, arreglo-memoria.svg, arreglo-alocacion.svg, arreglo-invariante-valido.svg, arreglo-invariantes.svg, regla-del-cuarto.svg, costo-acumulado.svg   # assets for chapter 17
 └── index.yaml                 # the ordered teaching path
 ```
@@ -1235,6 +1235,48 @@ What that costs, and the rules that follow from it:
   match. The copy is the one that fails late — nothing tests it, so a moved
   constant shows only in a browser — and both ends say so
   (`documentation.md`, "Two shapes").
+- **The first promotion is `<BinaryPicture>`** (#322). Árboles I drew 162
+  trees with a local `BinaryPicture`; Árboles II was the second document to
+  want it, and for a day carried a copy kept level by hand — five commits did
+  nothing else. Promoting it cost a typed port, a catalog entry, a pure layout
+  module with its tests and the two deletions, and it bought what the copy
+  could not: the geometry it shared with the widget now lives in one module
+  both import (`components/treeGeometry.ts`), and a test checks the figure
+  against the widget instead of a comment asking the next author to. Promote
+  at the second document, not after the second has started copying.
+
+6e-quinquies. **Draw a binary tree: `<BinaryPicture>`**, a static figure with
+the geometry of the binary-tree recipe of `<SequenceStepper>` — every node in
+the column of its inorder position and on the row of its depth, at the same
+sizes — so a figure and the widget beside it draw the same tree. Use it for a
+tree in ONE state: a definition, a counterexample, one frame of a `<StepShow>`
+beside its line of code. To walk an operation frame by frame, use the widget.
+
+- `tree` is `{ v, l, r }`, a side left out when empty; a value is a number or
+  a symbol (an expression keeps its operators). `label`, in Spanish, is
+  required.
+- **Values are unique within one tree**, because everything else is keyed by
+  value: `tones={{ 3: 'focus' }}` (`idle`, `focus`, `mark`, `keep`, `done`,
+  `faint`, `hidden`), `badges`, `notes`, `edgeLabels`, `frames`. A missing
+  label or a repeated value renders an authoring error (§6f).
+- **An order**: `visits="pre" | "in" | "post"` numbers the nodes and draws an
+  arrow from each visit to the next; `sequence` writes the order as a row of
+  chips; `until` stops it at a value, as a search does; `strip` writes the
+  inorder under the tree, each value under its own node.
+- **A recursion**: `path` lights the open calls from the root down; `probe`
+  (`{ at, side: 'l' | 'r' }`) draws a call that landed on an empty side;
+  `holes` draws the empty trees (all, or under a list of values — an empty
+  list keeps their room, so the frames of one walk keep one height); `swap`
+  joins two exchanged nodes; `seek` writes the value a search looks for.
+- **A tree built in steps**: a node toned `hidden` keeps its place; `fresh`
+  marks the edge of the node just added; `emptyNote` is what an all-hidden
+  drawing says (`root = null`, or nothing).
+- **Measure**: `levels`, `ruler="h = 2"`, `levelNotes`; **size**: `compact`
+  for three in a row, `size` to scale it, `minColumns` so figures side by
+  side come out the same size.
+
+The full props table, with live examples, is its catalog page
+(`/catalog/c/BinaryPicture`).
 
 6f. **An authoring error does not fail the build**, on purpose: writing the
 slides before drawing the diagrams is a real order of work, and gating the
