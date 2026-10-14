@@ -645,6 +645,29 @@ describe('sequenceStepperTrace · avl · removals run by a program (#322)', () =
   });
 });
 
+describe('sequenceStepperTrace · avl · the cascade, run by a program (#322)', () => {
+  // The twelve-node tree of the class's cascade, built by its level order.
+  const LEVELS = [16, 10, 20, 4, 14, 18, 22, 2, 8, 12, 24, 6];
+  const trace = traceFor('avl', 'remove', { values: LEVELS, target: [16, 10], program: true });
+  const program = (step: SequenceStep) =>
+    (step.rowLines?.[0] ?? []).map((l) => trace.code.split('\n')[l - 1]!.trim());
+
+  it('builds exactly the cascade tree from its level order, with no rotation', () => {
+    expect(rootValue(trace.steps[0]!)).toBe(16);
+    expect(trace.steps[0]!.tree!.nodes).toHaveLength(12);
+  });
+
+  it('rotates at two levels removing the root: below first, then at the root', () => {
+    const removing16 = trace.steps.filter((s) => program(s)[0] === 'tree.remove(16);');
+    const rotations = removing16.filter((s) => s.description.startsWith('Rotación'));
+    expect(rotations.map((s) => s.description.split(':')[0])).toEqual([
+      'Rotación simple a la izquierda',
+      'Rotación simple a la derecha',
+    ]);
+    expect(rootValue(removing16.at(-1)!)).toBe(10);
+  });
+});
+
 describe('sequenceStepperTrace · avl · remove', () => {
   it('shows the BST remove with balance on the way back', () => {
     const { code } = traceFor('avl', 'remove', { values: [2, 1, 3], target: 1 });

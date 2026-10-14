@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 
@@ -23,6 +23,45 @@ const base = {
 };
 
 describe('<SequenceStepper> · authoring guards', () => {
+  it('draws at most eight elements, refused past that with the count named', () => {
+    renderIn(
+      'book',
+      <SequenceStepper
+        eda="bst"
+        operation="insert"
+        values={[]}
+        value={[1, 2, 3, 4, 5, 6, 7, 8, 9]}
+      />,
+    );
+    expect(document.querySelector('[data-authoring-error]')?.textContent).toMatch(/9 elementos/);
+  });
+
+  it('draws twelve on an AVL that inserts or removes: its height stays at four', () => {
+    // A search tree of twelve can be a chain eleven levels deep; an AVL of
+    // twelve is at most four, so the class can run its cascade (#322).
+    const twelve = [16, 10, 20, 4, 14, 18, 22, 2, 8, 12, 24, 6];
+    renderIn('book', <SequenceStepper eda="avl" operation="remove" values={twelve} target={16} />);
+    expect(document.querySelector('[data-authoring-error]')).toBeNull();
+    cleanup();
+    renderIn(
+      'book',
+      <SequenceStepper eda="avl" operation="remove" values={[...twelve, 26]} target={16} />,
+    );
+    expect(document.querySelector('[data-authoring-error]')?.textContent).toMatch(/13 elementos/);
+    cleanup();
+    // The rotations build a PLAIN search tree, which can lean all the way.
+    renderIn(
+      'book',
+      <SequenceStepper
+        eda="avl"
+        operation="rotate-right"
+        values={[9, 8, 7, 6, 5, 4, 3, 2, 1]}
+        target={9}
+      />,
+    );
+    expect(document.querySelector('[data-authoring-error]')).not.toBeNull();
+  });
+
   it('refuses a missing recipe and names the ones it knows', () => {
     renderIn('book', <SequenceStepper operation="search" values={[1]} target={1} />);
     expect(screen.getByText(/falta la prop/i)).toBeInTheDocument();
@@ -1415,8 +1454,8 @@ describe('<SequenceStepper> · the combinations 22-edd-arboles-ii mounts', () =>
       props: {
         eda: 'avl',
         operation: 'remove',
-        values: [2, 12, 8, 4, 14, 16, 10, 6],
-        target: [4, 14, 2, 6, 16],
+        values: [16, 10, 20, 4, 14, 18, 22, 2, 8, 12, 24, 6],
+        target: [16, 10, 14, 24],
         program: true,
       },
     },

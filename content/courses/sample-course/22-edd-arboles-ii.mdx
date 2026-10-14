@@ -1111,7 +1111,7 @@ invariante.
 
 </Slide>
 
-{/* A removal that rotates at two levels: the smallest AVL tree where it can happen has height 4 and twelve nodes, past the widget's cap of eight, so its four steps are drawn. Searched and checked on the same model as the widget's trace. */}
+{/* A removal that rotates at two levels: the smallest AVL tree where it can happen has height 4 and twelve nodes. Its four steps are drawn here, and the widget runs it on the removals' program slide (the AVL's cap is twelve). Searched and checked on the same model as the widget's trace. */}
 
 export const CASCADE_START = { v: 16, l: { v: 10, l: { v: 4, l: { v: 2 }, r: { v: 8, l: { v: 6 } } }, r: { v: 14, l: { v: 12 } } }, r: { v: 20, l: { v: 18 }, r: { v: 22, r: { v: 24 } } } };
 
@@ -1151,9 +1151,9 @@ su subárbol no cambió. A lo más una rotación por nivel: $$O(\log n)$$.
 </Slide>
 
 <Slide title="Eliminaciones en un mismo árbol AVL">
-Varias eliminaciones seguidas pasan por todos los casos del rebalanceo.
+Primero, la eliminación que rota en dos niveles; después, los otros casos.
 
-<SequenceStepper eda="avl" operation="remove" values={[2, 12, 8, 4, 14, 16, 10, 6]} target={[4, 14, 2, 6, 16]} program />
+<SequenceStepper eda="avl" operation="remove" values={[16, 10, 20, 4, 14, 18, 22, 2, 8, 12, 24, 6]} target={[16, 10, 14, 24]} program />
 
 </Slide>
 

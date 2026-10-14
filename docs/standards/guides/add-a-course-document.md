@@ -922,9 +922,10 @@ list `balance` beside them, and every frame of the walk back lights what
 by side it is as tall as the taller listing). Two listings share the width
 in halves, three (with `program`) a fifth and two fifths each; `remove` is
 the search tree's without its comments, which do not fit. The class also puts `balance` on a slide of its own, as a fence, with
-the same lines. No removal
-that rotates at two levels fits in eight nodes (the smallest AVL tree of
-height 4 has twelve), so a cascade is drawn with `<BinaryPicture>` instead.
+the same lines. The drawing
+holds twelve nodes on `avl` × `insert` and `remove` (a real AVL is at most
+four levels tall with twelve) and eight everywhere else: enough for a
+removal that rotates at two levels, whose smallest tree has twelve nodes.
 `avl` × `insert` (from `values={[]}`) and `avl` × `remove` (from the tree
 `values` builds, `target` an array) also run as a program, shown as the
 search tree's program of removals: the program beside the method and

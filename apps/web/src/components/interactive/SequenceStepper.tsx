@@ -320,6 +320,14 @@ function runLegend(
 const MAX_VALUES = 8;
 
 /**
+ * An AVL that inserts or removes builds a real AVL, whose height is at most
+ * four with twelve nodes: twelve fit a slide where a search tree of twelve
+ * may be a chain eleven deep. Enough for the class's removal that rotates at
+ * two levels, the smallest of which has twelve nodes (#322).
+ */
+const MAX_AVL_VALUES = 12;
+
+/**
  * `values` read back from its key: the numbers, plus the level order when it
  * has a gap or a symbol — the only shape in which either means anything.
  */
@@ -473,11 +481,13 @@ export function SequenceStepper({
   const grows = op.startsWith('insert');
   const from = op === 'insert-ordered' ? target : value;
   const inserted = grows && Array.isArray(from) ? from.length : 0;
-  if (drawn + inserted > MAX_VALUES) {
+  const cap =
+    recipe === 'avl' && (op === 'insert' || op === 'remove') ? MAX_AVL_VALUES : MAX_VALUES;
+  if (drawn + inserted > cap) {
     return (
       <AuthoringError component="SequenceStepper">
-        la estructura llega a {drawn + inserted} elementos. El dibujo se lee bien hasta {MAX_VALUES}
-        ; con más, los nodos quedan ilegibles en la proyección.
+        la estructura llega a {drawn + inserted} elementos. El dibujo se lee bien hasta {cap}; con
+        más, los nodos quedan ilegibles en la proyección.
       </AuthoringError>
     );
   }

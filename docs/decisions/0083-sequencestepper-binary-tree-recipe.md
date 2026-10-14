@@ -269,15 +269,19 @@ as their last line:
   was searched on the trace's own model so five removals in eight nodes go
   through no rotation, a simple one, the simple one a child at 0 asks for,
   and a double.
-- **No cascade in the widget.** A removal that rotates at two levels needs
-  a tree of height 4 at least — the first rotation needs a node of height
-  2, the second an ancestor two levels above it — and the smallest AVL tree
-  of height 4 has twelve nodes (N(h) = N(h − 1) + N(h − 2) + 1), past the
-  cap of eight; a search over random orders of seven and eight values found
-  none either. The cap stays (raising it is asked first, #322's risk
-  table); the class draws the cascade with `<BinaryPicture>`, and the
-  widget's `remove` shows the case only a removal produces: a child with
-  factor 0, fixed by one rotation.
+- **The cascade in the widget: twelve nodes on an AVL.** A removal that
+  rotates at two levels needs a tree of height 4 at least — the first
+  rotation needs a node of height 2, the second an ancestor two levels
+  above it — and the smallest AVL tree of height 4 has twelve nodes
+  (N(h) = N(h − 1) + N(h − 2) + 1). The cap was eight for every recipe,
+  and the class first drew the cascade with `<BinaryPicture>` only. Asked
+  to run it in the widget (Miguel's review: "show the case of the cascade
+  slide, then other removals"), the cap is twelve for `avl` × `insert` and
+  `remove`, which build a real AVL — at most four levels with twelve
+  nodes — and stays eight everywhere else: a search tree of twelve, the
+  rotations' plain tree included, can be a chain eleven deep. The class
+  keeps the drawn cascade for its four steps and runs it in the widget's
+  program of removals, built by inserting the tree's level order.
 
 This amendment is **Proposed**. The two recipes above ship with the classes
 that mount them; `avl` ships with Árboles II, and the professor's review of it
