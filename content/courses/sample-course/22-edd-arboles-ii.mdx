@@ -363,13 +363,6 @@ derecho. Visita cada nodo una vez: $$\Theta(n)$$.
 el nodo que lo guarda; si el valor no está, no se hace nada. Si está, lo que se
 hace depende de cuántos hijos tiene ese nodo: **ninguno**, **uno** o **dos**.
 
-La raíz se elimina con los mismos tres casos. La diferencia es que no tiene un
-padre que pase a apuntar a otra cosa: lo que cambia es la raíz del árbol.
-
-- Si la raíz es una hoja, el árbol queda vacío.
-- Si tiene un hijo, ese hijo pasa a ser la raíz.
-- Si tiene dos, la raíz se queda y toma el valor de su sucesor.
-
 <BinaryPicture tree={EVENS_WITH_7} tones={{ 2: 'focus', 6: 'keep', 8: 'mark' }} badges={{ 2: 'hoja', 6: 'un hijo', 8: 'dos hijos' }} minColumns={8} label="El árbol de búsqueda con el 7 colgando del 6. El 2 es una hoja, el 6 tiene un solo hijo y el 8 tiene dos: los tres casos de la eliminación." caption="los tres casos: una hoja, un hijo, dos hijos" />
 
 </Slide>
@@ -433,6 +426,25 @@ hijos, sino uno de los dos primeros:
 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1rem 2rem', alignItems: 'end' }}>
 <BinaryPicture tree={EVENS_WITH_11} tones={{ 8: 'mark', 10: 'focus' }} notes={{ 10: 'sucesor' }} holes={[]} minColumns={8} label="El árbol de búsqueda con el 11 colgando a la derecha del 10. El 8 está marcado: tiene dos hijos. Su sucesor es el 10, que no tiene hijo izquierdo y tiene un hijo derecho, el 11." caption="eliminar 8: su sucesor, 10, tiene un hijo" />
 <BinaryPicture tree={{ v: 10, l: { v: 4, l: { v: 2 }, r: { v: 6 } }, r: { v: 12, l: { v: 11 }, r: { v: 14 } } }} tones={{ 10: 'mark' }} fresh={11} holes={[]} minColumns={8} label="El árbol después: la raíz tomó el valor 10, y el nodo del 10 que estaba abajo se eliminó como un nodo con un hijo: el 12 apunta ahora directamente al 11." caption="la raíz toma el 10; el 12 pasa a apuntar al 11" />
+</div>
+
+</Slide>
+
+<Slide title="Eliminar la raíz">
+La raíz se elimina con los mismos casos. Lo único distinto es que no tiene
+padre: quien la apunta es el árbol, con `root`. Por eso, lo que en los otros
+casos hacía el padre, aquí lo hace `root`:
+
+- si la raíz es una **hoja**, `root` pasa a ser `null`, y el árbol queda vacío;
+- si tiene **un hijo**, `root` pasa a apuntar a ese hijo, que es la nueva raíz;
+- si tiene **dos**, la raíz se queda y toma el valor de su sucesor, como
+  cualquier otro nodo.
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: '1rem', alignItems: 'end' }}>
+<BinaryPicture tree={{ v: 8 }} tones={{ 8: 'mark' }} compact minColumns={3} label="Un árbol de un solo nodo, el 8, que es la raíz y es una hoja." caption="eliminar 8, raíz y hoja" />
+<BinaryPicture tree={{ v: 8 }} tones={{ 8: 'hidden' }} compact minColumns={3} label="El árbol después de eliminar el 8: está vacío, y su raíz es null." caption="el árbol queda vacío" />
+<BinaryPicture tree={{ v: 8, l: { v: 4, l: { v: 2 }, r: { v: 6 } } }} tones={{ 8: 'mark' }} compact minColumns={3} label="Un árbol con el 8 en la raíz y un solo hijo, el 4, que tiene al 2 y al 6 debajo." caption="eliminar 8, raíz con un hijo" />
+<BinaryPicture tree={{ v: 4, l: { v: 2 }, r: { v: 6 } }} tones={{ 4: 'mark' }} compact minColumns={3} label="El árbol después de eliminar el 8: el 4 es la nueva raíz, con el 2 y el 6 debajo." caption="root apunta al 4, la nueva raíz" />
 </div>
 
 </Slide>
