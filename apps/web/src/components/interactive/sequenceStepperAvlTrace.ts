@@ -109,6 +109,28 @@ private Node<T> remove(Node<T> node, T value) {
 }`,
 };
 
+/**
+ * `balance`, as the class writes it, listed beside `insert` so its lines are
+ * lit as the walk back runs it (Miguel's review: the insertion with balance
+ * beside it, step by step). The two double rotations' returns go on a line
+ * of their own, so three listings fit side by side on a slide.
+ */
+const BALANCE = `Node<T> balance(Node<T> node) {
+    updateHeight(node);
+    int b = factor(node);
+    if (b < -1) {
+        if (factor(node.left) > 0)
+            return rotateLeftRight(node);
+        return rotateRight(node);
+    }
+    if (b > 1) {
+        if (factor(node.right) < 0)
+            return rotateRightLeft(node);
+        return rotateLeft(node);
+    }
+    return node;
+}`;
+
 /** A child in the narration. */
 const CHILD: Record<Side, string> = { left: 'hijo izquierdo', right: 'hijo derecho' };
 const OTHER: Record<Side, Side> = { left: 'right', right: 'left' };
@@ -560,7 +582,14 @@ function balanceFramed(
   push: (...args: Parameters<TreeRecorder['push']>) => void,
   n: NumberNode,
   relink: (c: NumberNode) => void,
+  inBalance: Map<SequenceStep, number[]> = new Map(),
 ): NumberNode {
+  // What the frame just pushed lights in `balance`'s own listing.
+  const light = (...fragments: string[]) =>
+    inBalance.set(
+      rec.steps.at(-1)!,
+      fragments.map((f) => lineOf(BALANCE, f)),
+    );
   updateHeight(avl, n);
   const b = factorIn(avl, n);
   const v = n.value;
@@ -573,10 +602,12 @@ function balanceFramed(
   rec.state.set(n.id, 'active');
   if (Math.abs(b) <= 1) {
     push('compare', call, `${measured}: la invariante de balance se cumple.`);
+    light('updateHeight(node);', 'int b = factor(node);', 'return node;');
     rec.state.delete(n.id);
     return n;
   }
   push('compare', call, `${measured}: la invariante de balance se rompe en ${v}.`);
+  light('updateHeight(node);', 'int b = factor(node);', b < 0 ? 'if (b < -1) {' : 'if (b > 1) {');
   const heavy: Side = b < 0 ? 'left' : 'right';
   const where = heavy === 'left' ? 'izquierda' : 'derecha';
   const child = n[heavy]!;
@@ -593,6 +624,14 @@ function balanceFramed(
           : 'está cargado hacia el mismo lado'
     }. Toca una rotación ${rotationName(heavy, double)}.`,
   );
+  light(heavy === 'left' ? 'if (factor(node.left) > 0)' : 'if (factor(node.right) < 0)');
+  const rotation = double
+    ? heavy === 'left'
+      ? 'return rotateLeftRight(node);'
+      : 'return rotateRightLeft(node);'
+    : heavy === 'left'
+      ? 'return rotateRight(node);'
+      : 'return rotateLeft(node);';
   if (double) {
     const raised = rotate(avl, child, OTHER[heavy]);
     n[heavy] = raised;
@@ -603,6 +642,7 @@ function balanceFramed(
       call,
       `Primero ${heavy === 'left' ? 'rotateLeft' : 'rotateRight'}(${child.value}): ${raised.value} sube y ${child.value} baja. Ahora ${v} queda cargado a la ${where} por el mismo lado.`,
     );
+    light(rotation);
     rec.state.delete(child.id);
     rec.state.delete(raised.id);
   }
@@ -617,6 +657,7 @@ function balanceFramed(
     call,
     `${double ? 'Después' : 'Rotación ' + rotationName(heavy, false) + ':'} ${heavy === 'left' ? 'rotateRight' : 'rotateLeft'}(${v}): ${q.value} sube a su lugar y ${v} baja. Las alturas de los dos se actualizan, y ${q.value} queda con factor ${signedFactor(factorIn(avl, q))}.`,
   );
+  light(rotation);
   rec.state.delete(n.id);
   rec.state.delete(q.id);
   return q;
@@ -640,6 +681,7 @@ function traceAvlInsert(input: SequenceInput): SequenceTrace {
     avl,
     stripOf(() => [avl.root], columns, slots),
   );
+  const inBalance = new Map<SequenceStep, number[]>();
 
   for (const x of inserts) {
     rec.reset();
@@ -694,7 +736,7 @@ function traceAvlInsert(input: SequenceInput): SequenceTrace {
       );
       rec.state.delete(n.id);
       insert(n[side], (c) => (n[side] = c), { parent: n, side });
-      const result = repeated ? n : balanceFramed(avl, rec, push, n, relink);
+      const result = repeated ? n : balanceFramed(avl, rec, push, n, relink, inBalance);
       rec.path.pop();
       return result;
     };
@@ -707,7 +749,18 @@ function traceAvlInsert(input: SequenceInput): SequenceTrace {
     `El árbol cumple las dos invariantes, la de orden y la de balance. Su altura es ${heightIn(avl, avl.root)}.`,
   );
   // No strip, as the search tree's insertion (#322): no array beside the tree.
-  return finish(rec, code, columns, slots, false);
+  const trace = finish(rec, code, columns, slots, false);
+  return {
+    ...trace,
+    row: [
+      { name: 'inserción', code },
+      { name: 'balance', code: BALANCE },
+    ],
+    steps: trace.steps.map((step) => ({
+      ...step,
+      rowLines: [step.highlightLines, inBalance.get(step) ?? []],
+    })),
+  };
 }
 
 /**
@@ -734,7 +787,7 @@ function traceAvlInsertProgram(values: number[], inserts: number[]): SequenceTra
     ...walked.steps[0]!,
     kind: 'start',
     highlightLines: [1],
-    alongsideLines: [],
+    rowLines: [[1], [], []],
     description: 'El árbol se crea vacío: su raíz es null.',
     tree: { ...walked.steps[0]!.tree!, root: null, nodes: [], path: [] },
     cells: [],
@@ -746,15 +799,15 @@ function traceAvlInsertProgram(values: number[], inserts: number[]): SequenceTra
     if (step.kind === 'start') run += 1;
     // The closing frame speaks of the whole program: no line of it is running.
     if (i === last && step.kind === 'done') {
-      return { ...step, highlightLines: [], alongsideLines: [] };
+      return { ...step, highlightLines: [], rowLines: [[], [], []] };
     }
-    return { ...step, highlightLines: [run + 2], alongsideLines: step.highlightLines };
+    const [inInsert = [], inBalanceLines = []] = step.rowLines ?? [];
+    return { ...step, highlightLines: [run + 2], rowLines: [[run + 2], inInsert, inBalanceLines] };
   });
   return {
     ...walked,
     code,
-    alongside: walked.code,
-    listingNames: ['programa', 'método'],
+    row: [{ name: 'programa', code }, ...walked.row!],
     steps: [created, ...steps],
   };
 }

@@ -252,12 +252,18 @@ as their last line:
   the rotation act already walked its assignments. The caller's assignment
   is made at once, so the drawing never shows a tree the code no longer
   holds.
-- **Neither listing shows `balance` itself, only its call.** `insert`
-  first showed the `balance` it calls, thirty-two lines, and its slide
-  measured 0.545 against the 0.70 floor; `remove` with `balance` beside it
-  would be thirty-nine. So the class puts `balance` on the slide before, as
-  a fence, and the widget's walk back lights `return balance(node);` and
-  narrates each decision — the factor, the child's, the rotation's name.
+- **`insert` lists `balance` beside it; `remove` shows only its call.**
+  `insert` first showed the `balance` it calls under it, thirty-two lines,
+  and its slide measured 0.545 against the 0.70 floor. Side by side the
+  height is the taller listing's, not the sum: the trace carries a `row` of
+  listings, each lit on its own (`rowLines`), and every frame of the walk
+  back lights in `balance` what it does — its height and factor, the
+  branch of the loaded side, the child's factor, the rotation it returns
+  (Miguel's review: "put balance sharing the space with the insertion").
+  Its two double returns go on a line of their own so a program, `insert`
+  and `balance` fit three abreast. `remove` still lights only
+  `return balance(node);` and narrates each decision; the class puts
+  `balance` on a slide of its own, as a fence, with the same lines.
 - **No cascade in the widget.** A removal that rotates at two levels needs
   a tree of height 4 at least — the first rotation needs a node of height
   2, the second an ancestor two levels above it — and the smallest AVL tree

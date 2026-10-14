@@ -922,6 +922,16 @@ describe('<SequenceStepper> · the bst recipe (#321)', () => {
     expect(screen.getByTestId('tree-view').querySelectorAll('[data-slot]')).toHaveLength(0);
   });
 
+  it('shows balance beside insert on the AVL, each listing named', () => {
+    renderIn(
+      'book',
+      <SequenceStepper eda="avl" operation="insert" values={[8, 4, 12, 2, 6]} value={5} />,
+    );
+    const panels = screen.getAllByTestId('sequence-listing');
+    expect(panels.map((p) => p.getAttribute('data-listing'))).toEqual(['inserción', 'balance']);
+    expect(panels[1]).toHaveTextContent('Node<T> balance(Node<T> node)');
+  });
+
   it('shows a double rotation above the two simple ones it calls, side by side', () => {
     renderIn(
       'book',

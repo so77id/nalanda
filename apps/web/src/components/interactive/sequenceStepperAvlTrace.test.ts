@@ -511,21 +511,49 @@ describe('sequenceStepperTrace · avl · the public method over the private one 
   });
 });
 
+describe('sequenceStepperTrace · avl · balance beside insert (#322)', () => {
+  // Insert 5 under 8 4 12 2 6: the 8 ends at −2 with its left child at +1,
+  // the double rotation to the right.
+  const trace = traceFor('avl', 'insert', { values: [8, 4, 12, 2, 6], value: 5 });
+  const inPanel = (step: SequenceStep, i: number) =>
+    (step.rowLines?.[i] ?? []).map((l) => trace.row![i]!.code.split('\n')[l - 1]!.trim());
+
+  it('lists insert and balance side by side, insert first', () => {
+    expect(trace.row!.map((p) => p.name)).toEqual(['inserción', 'balance']);
+    expect(trace.row![0]!.code).toBe(trace.code);
+    for (const step of trace.steps) expect(step.rowLines![0]).toEqual(step.highlightLines);
+  });
+
+  it('lights in balance what each balance frame does, and nothing on the way down', () => {
+    const lit = trace.steps.map((step) => inPanel(step, 1));
+    expect(lit[0]).toEqual([]);
+    // A node that keeps the invariant: its height, its factor, and back.
+    expect(lit).toContainEqual(['updateHeight(node);', 'int b = factor(node);', 'return node;']);
+    // The 8 at −2: the left branch, the left child's factor, then the double.
+    expect(lit).toContainEqual(['updateHeight(node);', 'int b = factor(node);', 'if (b < -1) {']);
+    expect(lit).toContainEqual(['if (factor(node.left) > 0)']);
+    expect(lit).toContainEqual(['return rotateLeftRight(node);']);
+  });
+});
+
 describe('sequenceStepperTrace · avl · insertions run by a program (#322)', () => {
   const SORTED = [2, 4, 6, 8, 10, 12, 14];
   const run = (value: number[]) => traceFor('avl', 'insert', { values: [], value, program: true });
   const lit = (trace: SequenceTrace, step: SequenceStep) =>
     step.highlightLines.map((l) => trace.code.split('\n')[l - 1]!.trim());
   const method = (trace: SequenceTrace, step: SequenceStep) =>
-    (step.alongsideLines ?? []).map((l) => trace.alongside!.split('\n')[l - 1]!.trim());
+    (step.rowLines?.[1] ?? []).map((l) => trace.row![1]!.code.split('\n')[l - 1]!.trim());
+  const balanceOf = (trace: SequenceTrace, step: SequenceStep) =>
+    (step.rowLines?.[2] ?? []).map((l) => trace.row![2]!.code.split('\n')[l - 1]!.trim());
 
-  it('lists the program on the left and the insert method on the right', () => {
+  it('lists the program, the insert method and balance side by side', () => {
     const trace = run([2, 4, 6]);
     expect(trace.code).toBe(
       'AVL<Integer> tree = new AVL<>();\ntree.insert(2);\ntree.insert(4);\ntree.insert(6);',
     );
-    expect(trace.alongside).toBe(traceFor('avl', 'insert', { values: [2], value: 1 }).code);
-    expect(trace.listingNames).toEqual(['programa', 'método']);
+    expect(trace.row!.map((p) => p.name)).toEqual(['programa', 'inserción', 'balance']);
+    expect(trace.row![1]!.code).toBe(traceFor('avl', 'insert', { values: [2], value: 1 }).code);
+    expect(trace.row![2]!.code).toContain('Node<T> balance(Node<T> node) {');
   });
 
   it('walks every insertion through the method, its program line lit the whole time', () => {
@@ -538,9 +566,10 @@ describe('sequenceStepperTrace · avl · insertions run by a program (#322)', ()
     expect(
       third.some((s) => method(trace, s)[0] === 'if (node == null) return new Node<>(value);'),
     ).toBe(true);
-    const rotation = third.find((s) => s.description.includes('simple a la izquierda'));
+    const rotation = third.find((s) => s.description.startsWith('Rotación simple a la izquierda'));
     expect(rotation).toBeDefined();
     expect(method(trace, rotation!)).toEqual(['return balance(node);']);
+    expect(balanceOf(trace, rotation!)).toEqual(['return rotateLeft(node);']);
   });
 
   it('keeps sorted values balanced: height 2 for seven, where a search tree makes a chain', () => {

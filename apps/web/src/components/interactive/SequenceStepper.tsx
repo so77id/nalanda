@@ -703,7 +703,41 @@ function Body({
               isPresentation ? 'bg-surface text-base [&_.cm-editor]:!text-base' : 'bg-surface'
             }
           >
-            {trace.callees !== undefined ? (
+            {trace.row !== undefined ? (
+              // Listings side by side in one row, each named and lit on its
+              // own: the AVL's insert beside balance, a program beside both
+              // (#322). Each takes the width its lines need and the last the
+              // rest; the book's column holds them one over the other.
+              <div
+                className={
+                  !isPresentation
+                    ? 'grid grid-cols-1 gap-px bg-rule'
+                    : trace.row.length === 3
+                      ? 'grid grid-cols-[max-content_max-content_minmax(0,1fr)] gap-px bg-rule'
+                      : 'grid grid-cols-[max-content_minmax(0,1fr)] gap-px bg-rule'
+                }
+              >
+                {trace.row.map((listing, i) => (
+                  <div
+                    key={listing.name}
+                    data-testid="sequence-listing"
+                    data-listing={listing.name}
+                    className="flex flex-col bg-surface"
+                  >
+                    <div className="px-3 pt-1 font-mono text-3xs uppercase tracking-wide text-ink-faint">
+                      {listing.name}
+                    </div>
+                    <div className="flex-1 [&>div>div]:h-full [&>div]:h-full [&_.cm-content]:!min-h-0 [&_.cm-content]:!self-center [&_.cm-editor]:h-full [&_.cm-gutter]:!min-h-0 [&_.cm-gutters]:!items-center [&_.cm-gutters]:!self-stretch">
+                      <CodeStepper
+                        code={listing.code}
+                        highlightLines={step.rowLines?.[i] ?? []}
+                        language="java"
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : trace.callees !== undefined ? (
               // A method over the methods it calls: the double rotation above,
               // its two simple rotations side by side under it, each lit while
               // its call runs, the call itself lit above the whole time (#322).

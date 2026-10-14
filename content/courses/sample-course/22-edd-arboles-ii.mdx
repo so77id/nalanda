@@ -1047,11 +1047,13 @@ Node<T> balance(Node<T> node) {
     updateHeight(node);
     int b = factor(node);
     if (b < -1) {
-        if (factor(node.left) > 0) return rotateLeftRight(node);
+        if (factor(node.left) > 0)
+            return rotateLeftRight(node);
         return rotateRight(node);
     }
     if (b > 1) {
-        if (factor(node.right) < 0) return rotateRightLeft(node);
+        if (factor(node.right) < 0)
+            return rotateRightLeft(node);
         return rotateLeft(node);
     }
     return node;
@@ -1061,11 +1063,10 @@ Node<T> balance(Node<T> node) {
 </Slide>
 
 <Slide title="Insertar en un árbol AVL">
-Insertar en un árbol AVL se hace en dos partes: se inserta como en el árbol de
-búsqueda, y al volver, cada nodo del camino pasa por `balance`, que rota el
-primero que quedó con $$\pm 2$$. En el código es la única diferencia: el método
-privado devuelve `balance(node)` en vez de `node`. Baja y vuelve por un camino
-de altura $$O(\log n)$$, con trabajo constante en cada nodo: $$O(\log n)$$.
+Se inserta como en el árbol de búsqueda y, al volver, cada nodo del camino
+pasa por `balance`, que rota el primero que quedó con $$\pm 2$$: el privado
+devuelve `balance(node)` en vez de `node`. Baja y vuelve por un camino de
+altura $$O(\log n)$$: $$O(\log n)$$.
 
 <SequenceStepper eda="avl" operation="insert" values={[8, 4, 12, 2, 6]} value={5} />
 

@@ -221,6 +221,8 @@ export interface SequenceStep {
   alongsideLines?: number[];
   /** The lines each of `trace.callees` lights at this moment, in the same order. */
   calleeLines?: number[][];
+  /** The lines each listing of `trace.row` lights at this moment, in the same order. */
+  rowLines?: number[][];
   /**
    * The value a search is looking for, written beside the structure on every
    * frame of its run (#322): the narration names it once, and a reader who
@@ -319,6 +321,12 @@ export interface SequenceTrace {
    * runs them stays lit above (#322).
    */
   callees?: { name: string; code: string }[];
+  /**
+   * Listings drawn side by side in one row, each named and lit on its own
+   * (`rowLines`): the AVL's insert beside the balance it calls, and a
+   * program of insertions beside both (#322). The first is `code`.
+   */
+  row?: { name: string; code: string }[];
   /**
    * The most cells any frame holds. The view lays out for THIS, not for the
    * current frame, so the drawing keeps one size from the first frame to the
