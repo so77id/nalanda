@@ -1313,7 +1313,7 @@ describe('<SequenceStepper> · the combinations 22-edd-arboles-ii mounts', () =>
     },
     {
       act: 'Las rotaciones',
-      slide: 'La rotación a la izquierda',
+      slide: 'El código de la rotación a la izquierda',
       props: { eda: 'avl', operation: 'rotate-left', values: [4, 2, 8, 6, 10], target: 4 },
     },
     {

@@ -605,11 +605,15 @@ una forma a otra es la **rotación**.
 
 ## Las rotaciones
 
-{/* The generic right rotation: p over q and C, q over A and B; after it, q over A and p, p over B and C. A, B and C are whole subtrees, drawn as triangles. */}
+{/* The generic rotations: to the right at p, whose left child is q, and to the left at p, whose right child is q. A, B and C are whole subtrees, drawn as triangles. */}
 
 export const ROTATION_BEFORE = { v: 'p', l: { v: 'q', l: { v: 'A' }, r: { v: 'B' } }, r: { v: 'C' } };
 
 export const ROTATION_AFTER = { v: 'q', l: { v: 'A' }, r: { v: 'p', l: { v: 'B' }, r: { v: 'C' } } };
+
+export const LEFT_ROTATION_BEFORE = { v: 'p', l: { v: 'A' }, r: { v: 'q', l: { v: 'B' }, r: { v: 'C' } } };
+
+export const LEFT_ROTATION_AFTER = { v: 'q', l: { v: 'p', l: { v: 'A' }, r: { v: 'B' } }, r: { v: 'C' } };
 
 <Slide title="La rotación a la derecha">
 Una **rotación** cambia la forma de un árbol de búsqueda sin romper la
@@ -619,13 +623,13 @@ derecho de `q`, y el subárbol derecho de `q` pasa a ser el subárbol izquierdo
 de `p`. Los otros dos subárboles siguen colgados del mismo nodo que antes.
 
 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1rem 2rem', alignItems: 'end' }}>
-<BinaryPicture tree={ROTATION_BEFORE} subtrees={['A', 'B', 'C']} tones={{ p: 'accent', q: 'accent', B: 'mark' }} label="Antes de rotar: p arriba, con q a su izquierda y el subárbol C a su derecha; q tiene a los subárboles A y B." caption="antes: p arriba, q su hijo izquierdo" />
+<BinaryPicture tree={ROTATION_BEFORE} subtrees={['A', 'B', 'C']} tones={{ p: 'accent', q: 'accent', B: 'mark' }} turn={{ at: 'p', dir: 'right' }} label="Antes de rotar: p arriba, con q a su izquierda y el subárbol C a su derecha; q tiene a los subárboles A y B. Una flecha curva, en el sentido de las agujas del reloj, sobre la arista entre p y q." caption="antes: rotar a la derecha en p" />
 <BinaryPicture tree={ROTATION_AFTER} subtrees={['A', 'B', 'C']} tones={{ p: 'accent', q: 'accent', B: 'mark' }} label="Después de rotar a la derecha en p: q arriba, con el subárbol A a su izquierda y p a su derecha; p tiene a B a la izquierda y a C a la derecha." caption="después: q arriba, y B cambió de padre" />
 </div>
 
 </Slide>
 
-<Slide title="Por qué la rotación conserva el orden">
+<Slide title="Por qué la rotación a la derecha conserva el orden">
 Antes de rotar, los valores de B estaban en el subárbol derecho de `q` y en el
 izquierdo de `p`: eran mayores que `q` y menores que `p`. Después siguen
 siendo las dos cosas, porque B quedó a la izquierda de `p`, y `p` quedó a la
@@ -654,9 +658,41 @@ padres, y `q` apunta hacia arriba sin que nadie le apunte.
 </Slide>
 
 <Slide title="La rotación a la izquierda">
-La **rotación a la izquierda** es la simétrica. En un nodo `p` que tiene hijo
-derecho `q`, `q` sube al lugar de `p`, `p` baja a ser el hijo izquierdo de
-`q`, y el subárbol izquierdo de `q` pasa a ser el subárbol derecho de `p`.
+La **rotación a la izquierda** es la simétrica de la rotación a la derecha. En
+un nodo `p` que tiene hijo derecho `q`, hace subir a `q` al lugar de `p`: `p`
+baja a ser el hijo izquierdo de `q`, y el subárbol izquierdo de `q` pasa a ser
+el subárbol derecho de `p`. Los otros dos subárboles siguen colgados del mismo
+nodo que antes.
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1rem 2rem', alignItems: 'end' }}>
+<BinaryPicture tree={LEFT_ROTATION_BEFORE} subtrees={['A', 'B', 'C']} tones={{ p: 'accent', q: 'accent', B: 'mark' }} turn={{ at: 'p', dir: 'left' }} label="Antes de rotar: p arriba, con el subárbol A a su izquierda y q a su derecha; q tiene a los subárboles B y C. Una flecha curva, en contra de las agujas del reloj, sobre la arista entre p y q." caption="antes: rotar a la izquierda en p" />
+<BinaryPicture tree={LEFT_ROTATION_AFTER} subtrees={['A', 'B', 'C']} tones={{ p: 'accent', q: 'accent', B: 'mark' }} label="Después de rotar a la izquierda en p: q arriba, con p a su izquierda y el subárbol C a su derecha; p tiene a A a la izquierda y a B a la derecha." caption="después: q arriba, y B cambió de padre" />
+</div>
+
+</Slide>
+
+<Slide title="Por qué la rotación a la izquierda conserva el orden">
+Antes de rotar, los valores de B estaban en el subárbol izquierdo de `q` y en
+el derecho de `p`: eran mayores que `p` y menores que `q`. Después siguen
+siendo las dos cosas, porque B quedó a la derecha de `p`, y `p` quedó a la
+izquierda de `q`. A sigue a la izquierda de `p`, y C a la derecha de `q`.
+Ningún valor cambia de lado respecto de ningún nodo: **la invariante de orden
+se mantiene**.
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1rem 2rem', alignItems: 'end' }}>
+<BinaryPicture tree={LEFT_ROTATION_BEFORE} subtrees={['A', 'B', 'C']} strip label="Antes de rotar, con el inorden debajo: A, p, B, q, C." caption="inorden antes: A, p, B, q, C" />
+<BinaryPicture tree={LEFT_ROTATION_AFTER} subtrees={['A', 'B', 'C']} strip label="Después de rotar, con el inorden debajo: A, p, B, q, C, el mismo de antes." caption="inorden después: el mismo" />
+</div>
+
+Como en la rotación a la derecha, nada cambia de columna: los nodos solo suben
+o bajan.
+
+</Slide>
+
+<Slide title="El código de la rotación a la izquierda">
+Las mismas tres referencias, del lado contrario: `p` toma como hijo derecho al
+subárbol izquierdo de `q`, y `q` toma a `p` como hijo izquierdo. El método
+devuelve `q`, y quien lo llamó lo guarda donde estaba `p`.
 
 <SequenceStepper eda="avl" operation="rotate-left" values={[4, 2, 8, 6, 10]} target={4} />
 
@@ -664,13 +700,68 @@ derecho `q`, `q` sube al lugar de `p`, `p` baja a ser el hijo izquierdo de
 
 <Slide title="Lo que una rotación hace con la altura">
 Al rotar a la derecha, todo el subárbol A sube un nivel, todo C baja uno, y B
-se queda en el suyo. Un árbol cargado hacia la izquierda queda más parejo: la
-rotación pasa altura de un lado al otro, sin tocar el orden.
+se queda en el suyo; al rotar a la izquierda es al revés: C sube y A baja. Un
+árbol cargado hacia un lado queda más parejo: la rotación pasa altura de un
+lado al otro, sin tocar el orden.
 
 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem 2rem', alignItems: 'end' }}>
-<BinaryPicture tree={{ v: 6, l: { v: 4, l: { v: 2 } } }} ruler="h = 2" minColumns={3} tones={{ 6: 'accent', 4: 'accent' }} label="Una cadena cargada a la izquierda: 6, con 4 debajo y 2 debajo del 4. Altura 2." caption="cargado a la izquierda: altura 2" />
+<BinaryPicture tree={{ v: 6, l: { v: 4, l: { v: 2 } } }} ruler="h = 2" minColumns={3} tones={{ 6: 'accent', 4: 'accent' }} turn={{ at: 6, dir: 'right' }} label="Una cadena cargada a la izquierda: 6, con 4 debajo y 2 debajo del 4. Altura 2. Una flecha curva marca la rotación a la derecha en el 6." caption="cargado a la izquierda: altura 2" />
 <BinaryPicture tree={{ v: 4, l: { v: 2 }, r: { v: 6 } }} ruler="h = 1" minColumns={3} tones={{ 6: 'accent', 4: 'accent' }} label="El mismo árbol después de rotar a la derecha en el 6: 4 arriba, con 2 a la izquierda y 6 a la derecha. Altura 1." caption="después de rotar a la derecha en 6: altura 1" />
 </div>
+
+</Slide>
+
+<Slide title="Cuando una rotación simple no alcanza">
+Las rotaciones a la derecha y a la izquierda se llaman **simples**. Una
+rotación simple empareja un árbol cargado hacia un lado solo si lo que lo
+carga está **por fuera**: en el subárbol izquierdo del hijo izquierdo, o en el
+derecho del hijo derecho. Si está **por dentro**, en el subárbol derecho del
+hijo izquierdo o en el izquierdo del hijo derecho, ese subárbol es el B de la
+rotación: no sube ni baja, solo cambia de padre. El árbol queda cargado igual
+de fuerte, pero hacia el otro lado.
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem 2rem', alignItems: 'end' }}>
+<BinaryPicture tree={{ v: 6, l: { v: 2, r: { v: 4 } } }} ruler="h = 2" minColumns={3} tones={{ 6: 'accent', 2: 'accent', 4: 'mark' }} turn={{ at: 6, dir: 'right' }} label="El 6 con su hijo izquierdo, el 2, y el 4 colgando a la derecha del 2: cargado a la izquierda, por dentro. Altura 2. Una flecha curva marca la rotación a la derecha en el 6." caption="cargado a la izquierda, por dentro: altura 2" />
+<BinaryPicture tree={{ v: 2, r: { v: 6, l: { v: 4 } } }} ruler="h = 2" minColumns={3} tones={{ 6: 'accent', 2: 'accent', 4: 'mark' }} label="Después de rotar a la derecha en el 6: el 2 arriba, con el 6 a su derecha y el 4 colgando a la izquierda del 6. Sigue con altura 2, ahora cargado a la derecha, por dentro." caption="después: cargado a la derecha, altura 2" />
+</div>
+
+</Slide>
+
+<Slide title="La rotación doble a la derecha">
+La **rotación doble a la derecha** son dos rotaciones simples. Primero, una
+**rotación a la izquierda en el hijo izquierdo**: lo que cargaba por dentro
+sube y queda por fuera. Después, una **rotación a la derecha en el nodo**, que
+ahora sí empareja. Como cada rotación conserva el orden, la doble también. En
+inglés se llama *left-right*: el peso está en el hijo izquierdo y, dentro de
+él, a la derecha.
+
+<PresentationWide fraction={0.9}>
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: '1rem 1.5rem', alignItems: 'end' }}>
+<BinaryPicture tree={{ v: 6, l: { v: 2, r: { v: 4 } } }} minColumns={3} compact tones={{ 2: 'accent', 4: 'accent' }} turn={{ at: 2, dir: 'left' }} label="El punto de partida: el 6 con su hijo izquierdo, el 2, y el 4 a la derecha del 2. Una flecha curva marca la rotación a la izquierda en el 2." caption="primero, a la izquierda en 2" />
+<BinaryPicture tree={{ v: 6, l: { v: 4, l: { v: 2 } } }} minColumns={3} compact tones={{ 6: 'accent', 4: 'accent' }} turn={{ at: 6, dir: 'right' }} label="Después de rotar a la izquierda en el 2: el 4 es el hijo izquierdo del 6, y el 2 cuelga a la izquierda del 4. Una flecha curva marca la rotación a la derecha en el 6." caption="después, a la derecha en 6" />
+<BinaryPicture tree={{ v: 4, l: { v: 2 }, r: { v: 6 } }} minColumns={3} compact tones={{ 4: 'keep' }} label="Después de rotar a la derecha en el 6: el 4 arriba, con el 2 a la izquierda y el 6 a la derecha." caption="el 4 arriba: altura 1" />
+</div>
+
+</PresentationWide>
+
+</Slide>
+
+<Slide title="La rotación doble a la izquierda">
+La **rotación doble a la izquierda** es la simétrica: primero, una **rotación a
+la derecha en el hijo derecho**, que deja por fuera lo que cargaba por dentro;
+después, una **rotación a la izquierda en el nodo**. En inglés se llama
+*right-left*: el peso está en el hijo derecho y, dentro de él, a la izquierda.
+
+<PresentationWide fraction={0.9}>
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: '1rem 1.5rem', alignItems: 'end' }}>
+<BinaryPicture tree={{ v: 2, r: { v: 6, l: { v: 4 } } }} minColumns={3} compact tones={{ 6: 'accent', 4: 'accent' }} turn={{ at: 6, dir: 'right' }} label="El punto de partida: el 2 con su hijo derecho, el 6, y el 4 a la izquierda del 6. Una flecha curva marca la rotación a la derecha en el 6." caption="primero, a la derecha en 6" />
+<BinaryPicture tree={{ v: 2, r: { v: 4, r: { v: 6 } } }} minColumns={3} compact tones={{ 2: 'accent', 4: 'accent' }} turn={{ at: 2, dir: 'left' }} label="Después de rotar a la derecha en el 6: el 4 es el hijo derecho del 2, y el 6 cuelga a la derecha del 4. Una flecha curva marca la rotación a la izquierda en el 2." caption="después, a la izquierda en 2" />
+<BinaryPicture tree={{ v: 4, l: { v: 2 }, r: { v: 6 } }} minColumns={3} compact tones={{ 4: 'keep' }} label="Después de rotar a la izquierda en el 2: el 4 arriba, con el 2 a la izquierda y el 6 a la derecha." caption="el 4 arriba: altura 1" />
+</div>
+
+</PresentationWide>
 
 </Slide>
 
@@ -803,12 +894,13 @@ Node<T> rotateRight(Node<T> p) {
 </Slide>
 
 <Slide title="Los cuatro casos de desbalance">
-Cuando un nodo queda con factor $$-2$$ o $$+2$$, lo que hay que hacer depende
-de dos cosas: hacia qué lado está cargado el nodo, y hacia qué lado está
-cargado su hijo de ese lado. Son cuatro casos, y cada uno tiene su rotación:
-la **rotación simple a la derecha**, la **doble a la derecha**, la **simple a
-la izquierda** y la **doble a la izquierda**. En inglés, los cuatro casos se
-llaman *left-left*, *left-right*, *right-right* y *right-left*.
+Cuando un nodo queda con factor $$-2$$ o $$+2$$, la rotación que lo arregla
+depende de dos cosas: hacia qué lado está cargado el nodo, y hacia qué lado
+está cargado su hijo de ese lado. Si el hijo está cargado hacia el **mismo
+lado**, lo que carga está por fuera, y basta una **rotación simple** en el
+nodo; si está cargado hacia el **lado contrario**, está por dentro, y hace
+falta una **rotación doble**. En inglés, los cuatro casos se llaman
+*left-left*, *left-right*, *right-right* y *right-left*.
 
 <PresentationWide fraction={0.9}>
 
@@ -820,46 +912,6 @@ llaman *left-left*, *left-right*, *right-right* y *right-left*.
 </div>
 
 </PresentationWide>
-
-</Slide>
-
-<Slide title="La rotación simple">
-Cuando el nodo y su hijo están cargados hacia el **mismo lado**, basta una
-rotación en el nodo, hacia el lado contrario: si están cargados a la
-izquierda, una **rotación simple a la derecha**. El hijo sube, el nodo baja
-hacia el lado liviano, y los dos quedan con factor 0.
-
-<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem 2rem', alignItems: 'end' }}>
-<BinaryPicture tree={{ v: 6, l: { v: 4, l: { v: 2 } } }} minColumns={3} tones={{ 6: 'accent', 4: 'accent' }} badges={{ 6: '−2', 4: '−1', 2: '0' }} label="El 6 con factor menos 2 y su hijo izquierdo, el 4, con factor menos 1: los dos cargados a la izquierda." caption="cargados a la izquierda los dos" />
-<BinaryPicture tree={{ v: 4, l: { v: 2 }, r: { v: 6 } }} minColumns={3} tones={{ 6: 'accent', 4: 'accent' }} badges={{ 6: '0', 4: '0', 2: '0' }} label="Después de rotar a la derecha en el 6: el 4 arriba, con el 2 y el 6 como hijos; todos con factor 0." caption="después de rotar a la derecha en 6" />
-</div>
-
-</Slide>
-
-<Slide title="Cuando una rotación simple no alcanza">
-Cuando el hijo está cargado hacia el **lado contrario** que el nodo, una
-rotación simple no sirve: el subárbol que sube por el medio cambia de lado, y
-el árbol queda cargado igual de fuerte, pero hacia el otro.
-
-<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem 2rem', alignItems: 'end' }}>
-<BinaryPicture tree={{ v: 6, l: { v: 2, r: { v: 4 } } }} minColumns={3} tones={{ 6: 'mark' }} badges={{ 6: '−2', 2: '+1', 4: '0' }} label="El 6 con factor menos 2, cargado a la izquierda, y su hijo izquierdo, el 2, con factor más 1, cargado a la derecha." caption="el 6 a la izquierda, el 2 a la derecha" />
-<BinaryPicture tree={{ v: 2, r: { v: 6, l: { v: 4 } } }} minColumns={3} tones={{ 2: 'mark' }} badges={{ 2: '+2', 6: '−1', 4: '0' }} label="Después de rotar solo el 6 a la derecha: el 2 arriba con factor más 2, cargado a la derecha. La invariante sigue rota." caption="rotar solo el 6: ahora el 2 tiene +2" />
-</div>
-
-</Slide>
-
-<Slide title="La rotación doble">
-La **rotación doble** endereza primero al hijo: una rotación en el hijo, hacia
-el lado donde está cargado el nodo, lo deja cargado hacia el mismo lado que
-el nodo. Ahí basta la rotación simple en el nodo. La **doble a la derecha** es
-una rotación a la izquierda en el hijo izquierdo y, después, una a la derecha
-en el nodo.
-
-<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: '1rem 1.5rem', alignItems: 'end' }}>
-<BinaryPicture tree={{ v: 6, l: { v: 2, r: { v: 4 } } }} minColumns={3} compact tones={{ 2: 'accent', 4: 'accent' }} badges={{ 6: '−2', 2: '+1', 4: '0' }} label="El punto de partida: el 6 con factor menos 2 y su hijo izquierdo, el 2, cargado a la derecha." caption="el 2 cargado al lado contrario" />
-<BinaryPicture tree={{ v: 6, l: { v: 4, l: { v: 2 } } }} minColumns={3} compact tones={{ 6: 'accent', 4: 'accent' }} badges={{ 6: '−2', 4: '−1', 2: '0' }} label="Después de rotar a la izquierda en el 2: el 4 sube a hijo izquierdo del 6, y el 2 queda debajo. Ahora el 6 y el 4 están cargados a la izquierda." caption="primero, a la izquierda en 2" />
-<BinaryPicture tree={{ v: 4, l: { v: 2 }, r: { v: 6 } }} minColumns={3} compact badges={{ 6: '0', 4: '0', 2: '0' }} label="Después de rotar a la derecha en el 6: el 4 arriba, con el 2 y el 6 como hijos; todos con factor 0." caption="después, a la derecha en 6" />
-</div>
 
 </Slide>
 
