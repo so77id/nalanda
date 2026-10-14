@@ -869,9 +869,10 @@ agrega una cuarta:
 <BinaryPicture tree={NOT_AVL} minColumns={7} tones={{ 8: 'mark' }} notes={{ 8: 'izq. 2, der. 0' }} label="Un árbol de búsqueda que no es AVL: en el 8, el subárbol izquierdo tiene altura 2 y el derecho, el 12, altura 0." caption="en el 8, la izquierda es dos niveles más alta" />
 </div>
 
-Es la invariante que cuesta: obliga a cada inserción y a cada eliminación a
-revisar su camino y, a veces, a rotar. Y es la que paga: mantiene la altura en
-$$O(\log n)$$.
+Mantener esta invariante tiene un costo: después de cada inserción y de cada
+eliminación hay que revisar los nodos del camino recorrido y, donde alguno
+quedó desbalanceado, rotar. A cambio, la altura del árbol queda en
+$$O(\log n)$$, y con ella el costo de buscar, insertar y eliminar.
 
 </Slide>
 
@@ -913,13 +914,10 @@ $$1{,}45 \cdot \log_2(n + 2)$$.
 </Slide>
 
 <Slide title="Dónde se rompe la invariante">
-Insertar en un árbol AVL empieza como en el árbol de búsqueda: el valor baja
-por las comparaciones y se cuelga como hoja. Las únicas alturas que cambian
-son las de los nodos del camino, así que solo ahí puede romperse la invariante
-de balance. Por eso, al volver de la inserción, se revisa el factor de cada
-nodo del camino, de abajo hacia arriba, y el primero que llega a $$-2$$ o
-$$+2$$ se arregla con una rotación. Al eliminar se revisa igual, por el camino
-de vuelta de la eliminación.
+Una inserción o una eliminación solo cambia las alturas de los nodos de su
+camino, así que solo ahí puede romperse la invariante de balance. Por eso, al
+volver de la operación, se revisa el factor de cada nodo del camino, de abajo
+hacia arriba, y el que llega a $$-2$$ o $$+2$$ se arregla con una rotación.
 
 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1rem 2rem', alignItems: 'end' }}>
 <BinaryPicture tree={{ v: 8, l: { v: 4, l: { v: 2 }, r: { v: 6 } }, r: { v: 12 } }} minColumns={7} badges={{ 8: '−1', 4: '0', 2: '0', 6: '0', 12: '0' }} label="Un árbol AVL con el factor de cada nodo: 8 en la raíz, con factor menos 1; el 4 debajo, con el 2 y el 6, todos con factor 0; el 12 a la derecha del 8, con factor 0." caption="un árbol AVL" />
@@ -966,72 +964,6 @@ no, simple. Un hijo con factor 0 nunca aparece al insertar; aparece al
 eliminar, y ahí basta la rotación simple.
 
 </Slide>
-
-<Slide title="Insertar en un árbol AVL">
-Una inserción rota a lo más una vez, simple o doble: la rotación deja al
-subárbol con la altura que tenía antes de insertar, así que más arriba ningún
-factor cambia. Ni siquiera los valores ordenados, el peor orden para un árbol
-de búsqueda, lo desbalancean: cada vez que el árbol se carga hacia un lado,
-una rotación lo empareja.
-
-<SequenceStepper eda="avl" operation="insert" values={[]} value={[2, 4, 6, 8, 10, 12, 14]} program />
-
-</Slide>
-
-Insertar del 1 al 1000, en orden, en un árbol AVL deja un árbol de altura 9;
-en un árbol de búsqueda sin balance, la misma secuencia deja una cadena de
-altura 999.
-
-<Slide title="Eliminar en un árbol AVL">
-Eliminar también empieza como en el árbol de búsqueda, y al volver se revisa
-el camino igual que al insertar. Aparece un caso que insertar nunca produce:
-el hijo del lado cargado con factor 0. La regla lo resuelve con una rotación
-simple.
-
-<PresentationWide fraction={0.9}>
-
-<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem 1.5rem', alignItems: 'end' }}>
-<BinaryPicture tree={{ v: 8, l: { v: 4, l: { v: 2 }, r: { v: 6 } }, r: { v: 10 } }} minColumns={5} compact tones={{ 10: 'mark' }} badges={{ 8: '−1', 4: '0', 2: '0', 6: '0', 10: '0' }} label="Un árbol AVL: 8 en la raíz, con factor menos 1; a su izquierda el 4, con el 2 y el 6; a su derecha el 10, marcado para eliminarlo." caption="eliminar 10" />
-<BinaryPicture tree={{ v: 8, l: { v: 4, l: { v: 2 }, r: { v: 6 } } }} minColumns={5} compact tones={{ 8: 'mark' }} badges={{ 8: '−2', 4: '0', 2: '0', 6: '0' }} turn={{ at: 8, dir: 'right' }} label="Sin el 10, el 8 queda con factor menos 2, y su hijo izquierdo, el 4, con factor 0. Una flecha curva marca la rotación a la derecha en el 8." caption="el 8 con −2; su hijo, con 0" />
-<BinaryPicture tree={{ v: 4, l: { v: 2 }, r: { v: 8, l: { v: 6 } } }} minColumns={5} compact tones={{ 4: 'accent', 8: 'accent' }} badges={{ 4: '+1', 2: '0', 8: '−1', 6: '0' }} label="Después de la rotación simple a la derecha en el 8: el 4 arriba, con el 2 a la izquierda y el 8 a la derecha; el 6 pasó a ser hijo izquierdo del 8. Todos los factores entre menos 1 y más 1." caption="rotación simple a la derecha" />
-</div>
-
-</PresentationWide>
-
-</Slide>
-
-{/* A removal that rotates at two levels: the smallest AVL tree where it can happen has height 4 and twelve nodes, past the widget's cap of eight, so its four steps are drawn. Searched and checked on the same model as the widget's trace. */}
-
-export const CASCADE_START = { v: 16, l: { v: 10, l: { v: 4, l: { v: 2 }, r: { v: 8, l: { v: 6 } } }, r: { v: 14, l: { v: 12 } } }, r: { v: 20, l: { v: 18 }, r: { v: 22, r: { v: 24 } } } };
-
-export const CASCADE_COPIED = { v: 18, l: { v: 10, l: { v: 4, l: { v: 2 }, r: { v: 8, l: { v: 6 } } }, r: { v: 14, l: { v: 12 } } }, r: { v: 20, r: { v: 22, r: { v: 24 } } } };
-
-export const CASCADE_LOW = { v: 18, l: { v: 10, l: { v: 4, l: { v: 2 }, r: { v: 8, l: { v: 6 } } }, r: { v: 14, l: { v: 12 } } }, r: { v: 22, l: { v: 20 }, r: { v: 24 } } };
-
-export const CASCADE_END = { v: 10, l: { v: 4, l: { v: 2 }, r: { v: 8, l: { v: 6 } } }, r: { v: 18, l: { v: 14, l: { v: 12 } }, r: { v: 22, l: { v: 20 }, r: { v: 24 } } } };
-
-<Slide title="Una eliminación que rota en dos niveles">
-Insertar rota a lo más una vez, porque la rotación le devuelve al subárbol la
-altura que tenía. Eliminar no: una rotación puede dejar al subárbol un nivel
-más bajo, y entonces el que se desbalancea es un ancestro. Una eliminación
-puede rotar en cada nivel del camino de vuelta.
-
-<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(380px, 1fr))', gap: '0.5rem 2rem', alignItems: 'end' }}>
-<BinaryPicture tree={CASCADE_START} compact minColumns={12} tones={{ 16: 'mark', 18: 'focus' }} badges={{ 16: '−1', 10: '−1', 4: '+1', 2: '0', 8: '−1', 6: '0', 14: '−1', 12: '0', 20: '+1', 18: '0', 22: '+1', 24: '0' }} label="Un árbol AVL de doce nodos y altura 4, con el factor de cada nodo. Se elimina la raíz, el 16, que tiene dos hijos; su sucesor es el 18." caption="1. eliminar 16: su sucesor es 18" />
-<BinaryPicture tree={CASCADE_COPIED} compact minColumns={12} tones={{ 20: 'mark' }} badges={{ 18: '−1', 10: '−1', 4: '+1', 2: '0', 8: '−1', 6: '0', 14: '−1', 12: '0', 20: '+2', 22: '+1', 24: '0' }} label="La raíz tomó el valor 18 y la hoja del 18 se eliminó. Al volver, el 20 queda con factor más 2, y su hijo derecho, el 22, con más 1." caption="2. el 20 queda con +2: simple a la izquierda" />
-<BinaryPicture tree={CASCADE_LOW} compact minColumns={12} tones={{ 18: 'mark', 22: 'accent', 20: 'accent' }} badges={{ 18: '−2', 10: '−1', 4: '+1', 2: '0', 8: '−1', 6: '0', 14: '−1', 12: '0', 22: '0', 20: '0', 24: '0' }} label="Después de rotar a la izquierda en el 20: el 22 sube, con el 20 y el 24 como hijos. Ese subárbol quedó un nivel más bajo, y la raíz, el 18, queda con factor menos 2." caption="3. el subárbol bajó un nivel: la raíz queda con −2" />
-<BinaryPicture tree={CASCADE_END} compact minColumns={12} tones={{ 10: 'accent', 18: 'accent' }} badges={{ 10: '0', 4: '+1', 2: '0', 8: '−1', 6: '0', 18: '0', 14: '−1', 12: '0', 22: '0', 20: '0', 24: '0' }} label="Después de rotar a la derecha en la raíz: el 10 sube a la raíz, con el 4 a la izquierda y el 18 a la derecha. Todos los factores están entre menos 1 y más 1." caption="4. simple a la derecha en la raíz: todo vuelve a cumplir" />
-</div>
-
-</Slide>
-
-Cada rotación cuesta lo mismo, unas pocas referencias y dos alturas, y el
-camino de vuelta tiene a lo más $$h + 1$$ nodos: una eliminación hace a lo
-más $$O(\log n)$$ rotaciones, y sigue costando $$O(\log n)$$.
-
-<SectionBreak />
-
-## La implementación del árbol AVL
 
 <Slide title="El nodo que guarda su altura">
 Calcular la altura de un subárbol recorriéndolo cuesta $$\Theta(n)$$, y el
@@ -1128,6 +1060,23 @@ Node<T> balance(Node<T> node) {
 
 </Slide>
 
+<Slide title="Insertar en un árbol AVL">
+Insertar en un árbol AVL se hace en dos partes:
+
+1. **Se inserta como en el árbol de búsqueda**: el valor se cuelga como hoja.
+2. **Se rebalancea al volver**: el primer nodo del camino con $$\pm 2$$ rota.
+
+La rotación le devuelve al subárbol su altura, y más arriba nada cambia: una
+inserción rota a lo más una vez. Ni los valores ordenados lo desbalancean.
+
+<SequenceStepper eda="avl" operation="insert" values={[]} value={[2, 4, 6, 8, 10, 12, 14]} program />
+
+</Slide>
+
+Insertar del 1 al 1000, en orden, en un árbol AVL deja un árbol de altura 9;
+en un árbol de búsqueda sin balance, la misma secuencia deja una cadena de
+altura 999.
+
 <Slide title="El código de la inserción en un árbol AVL">
 `insert` es el del árbol de búsqueda: el método público llama al privado con
 la raíz. La única diferencia está en la última línea del privado, que en vez
@@ -1139,11 +1088,67 @@ $$O(\log n)$$, con trabajo constante en cada nodo: $$O(\log n)$$.
 
 </Slide>
 
+<Slide title="Eliminar en un árbol AVL">
+Eliminar en un árbol AVL también se hace en dos partes:
+
+1. **Se elimina como en el árbol de búsqueda**: el nodo se busca y se saca
+   según su caso, hoja, un hijo o dos hijos.
+2. **Se rebalancea al volver**: igual que al insertar, cada nodo del camino de
+   vuelta revisa su factor, y el que quedó con $$-2$$ o $$+2$$ rota.
+
+Eliminar acorta un lado, y el que queda cargado es el otro. Ahí aparece un
+caso que insertar nunca produce: el hijo del lado cargado con factor 0, con
+sus dos subárboles igual de altos. Basta una rotación simple: lo de fuera
+sube, y lo de dentro, que pesa lo mismo, pasa al otro lado sin romper la
+invariante.
+
+<PresentationWide fraction={0.9}>
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem 1.5rem', alignItems: 'end' }}>
+<BinaryPicture tree={{ v: 8, l: { v: 4, l: { v: 2 }, r: { v: 6 } }, r: { v: 10 } }} minColumns={5} compact tones={{ 10: 'mark' }} badges={{ 8: '−1', 4: '0', 2: '0', 6: '0', 10: '0' }} label="Un árbol AVL: 8 en la raíz, con factor menos 1; a su izquierda el 4, con el 2 y el 6; a su derecha el 10, marcado para eliminarlo." caption="eliminar 10" />
+<BinaryPicture tree={{ v: 8, l: { v: 4, l: { v: 2 }, r: { v: 6 } } }} minColumns={5} compact tones={{ 8: 'mark' }} badges={{ 8: '−2', 4: '0', 2: '0', 6: '0' }} turn={{ at: 8, dir: 'right' }} label="Sin el 10, el 8 queda con factor menos 2, y su hijo izquierdo, el 4, con factor 0. Una flecha curva marca la rotación a la derecha en el 8." caption="el 8 con −2; su hijo, con 0" />
+<BinaryPicture tree={{ v: 4, l: { v: 2 }, r: { v: 8, l: { v: 6 } } }} minColumns={5} compact tones={{ 4: 'accent', 8: 'accent' }} badges={{ 4: '+1', 2: '0', 8: '−1', 6: '0' }} label="Después de la rotación simple a la derecha en el 8: el 4 arriba, con el 2 a la izquierda y el 8 a la derecha; el 6 pasó a ser hijo izquierdo del 8. Todos los factores entre menos 1 y más 1." caption="rotación simple a la derecha" />
+</div>
+
+</PresentationWide>
+
+</Slide>
+
+{/* A removal that rotates at two levels: the smallest AVL tree where it can happen has height 4 and twelve nodes, past the widget's cap of eight, so its four steps are drawn. Searched and checked on the same model as the widget's trace. */}
+
+export const CASCADE_START = { v: 16, l: { v: 10, l: { v: 4, l: { v: 2 }, r: { v: 8, l: { v: 6 } } }, r: { v: 14, l: { v: 12 } } }, r: { v: 20, l: { v: 18 }, r: { v: 22, r: { v: 24 } } } };
+
+export const CASCADE_COPIED = { v: 18, l: { v: 10, l: { v: 4, l: { v: 2 }, r: { v: 8, l: { v: 6 } } }, r: { v: 14, l: { v: 12 } } }, r: { v: 20, r: { v: 22, r: { v: 24 } } } };
+
+export const CASCADE_LOW = { v: 18, l: { v: 10, l: { v: 4, l: { v: 2 }, r: { v: 8, l: { v: 6 } } }, r: { v: 14, l: { v: 12 } } }, r: { v: 22, l: { v: 20 }, r: { v: 24 } } };
+
+export const CASCADE_END = { v: 10, l: { v: 4, l: { v: 2 }, r: { v: 8, l: { v: 6 } } }, r: { v: 18, l: { v: 14, l: { v: 12 } }, r: { v: 22, l: { v: 20 }, r: { v: 24 } } } };
+
+<Slide title="Una eliminación que rota en dos niveles">
+Al insertar, la rotación le devuelve al subárbol la altura que tenía, y más
+arriba nada cambia. Al eliminar, eso puede no pasar:
+
+- la eliminación acortó el subárbol en un nivel;
+- la rotación lo empareja, pero puede dejarlo con ese nivel menos;
+- entonces su padre ve un lado más corto, y puede desbalancearse él también.
+
+Por eso una eliminación puede rotar varias veces: en el peor caso, una por
+cada nivel del camino de vuelta.
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(380px, 1fr))', gap: '0.5rem 2rem', alignItems: 'end' }}>
+<BinaryPicture tree={CASCADE_START} compact minColumns={12} tones={{ 16: 'mark', 18: 'focus' }} badges={{ 16: '−1', 10: '−1', 4: '+1', 2: '0', 8: '−1', 6: '0', 14: '−1', 12: '0', 20: '+1', 18: '0', 22: '+1', 24: '0' }} label="Un árbol AVL de doce nodos y altura 4, con el factor de cada nodo. Se elimina la raíz, el 16, que tiene dos hijos; su sucesor es el 18." caption="1. eliminar 16: su sucesor es 18" />
+<BinaryPicture tree={CASCADE_COPIED} compact minColumns={12} tones={{ 20: 'mark' }} badges={{ 18: '−1', 10: '−1', 4: '+1', 2: '0', 8: '−1', 6: '0', 14: '−1', 12: '0', 20: '+2', 22: '+1', 24: '0' }} label="La raíz tomó el valor 18 y la hoja del 18 se eliminó. Al volver, el 20 queda con factor más 2, y su hijo derecho, el 22, con más 1." caption="2. el 20 queda con +2: simple a la izquierda" />
+<BinaryPicture tree={CASCADE_LOW} compact minColumns={12} tones={{ 18: 'mark', 22: 'accent', 20: 'accent' }} badges={{ 18: '−2', 10: '−1', 4: '+1', 2: '0', 8: '−1', 6: '0', 14: '−1', 12: '0', 22: '0', 20: '0', 24: '0' }} label="Después de rotar a la izquierda en el 20: el 22 sube, con el 20 y el 24 como hijos. Ese subárbol quedó un nivel más bajo, y la raíz, el 18, queda con factor menos 2." caption="3. el subárbol bajó un nivel: la raíz queda con −2" />
+<BinaryPicture tree={CASCADE_END} compact minColumns={12} tones={{ 10: 'accent', 18: 'accent' }} badges={{ 10: '0', 4: '+1', 2: '0', 8: '−1', 6: '0', 18: '0', 14: '−1', 12: '0', 22: '0', 20: '0', 24: '0' }} label="Después de rotar a la derecha en la raíz: el 10 sube a la raíz, con el 4 a la izquierda y el 18 a la derecha. Todos los factores están entre menos 1 y más 1." caption="4. simple a la derecha en la raíz: todo vuelve a cumplir" />
+</div>
+
+</Slide>
+
 <Slide title="El código de la eliminación en un árbol AVL">
-`remove` también es el del árbol de búsqueda, con `return balance(node)` al
-final del privado. Las devoluciones del medio, la de una hoja o un solo hijo,
-no pasan por `balance`: el subárbol que devuelven ya cumplía la invariante.
-Hace a lo más una rotación por nivel del camino: $$O(\log n)$$.
+`remove` es el del árbol de búsqueda con `return balance(node)` al final del
+privado. Las devoluciones de una hoja o de un solo hijo no pasan por
+`balance`: el subárbol que devuelven no cambió. Hay a lo más una rotación por
+nivel del camino, de costo constante: $$O(\log n)$$.
 
 <SequenceStepper eda="avl" operation="remove" values={[8, 4, 10, 2, 6]} target={10} />
 
