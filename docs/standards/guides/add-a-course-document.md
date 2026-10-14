@@ -922,10 +922,10 @@ with `balance` beside `insert` the slide measured 0.545, so a class puts
 `balance` on the slide before, as a fence. No removal
 that rotates at two levels fits in eight nodes (the smallest AVL tree of
 height 4 has twelve), so a cascade is drawn with `<BinaryPicture>` instead.
-`avl` × `insert` also runs as a program (`program`, `values={[]}`): one
-frame per insertion, two when it rotates — the factor that breaks, then the
-tree after the rotation — so a run of insertions shows the tree staying
-balanced without walking the method; the code's slide walks ONE value.
+`avl` × `insert` also runs as a program (`program`, `values={[]}`), shown
+as the search tree's program of removals: the program beside the insert
+method, walked for every insertion with its program line lit. A class walks
+ONE value through the code first, then the run of insertions beside it.
 `values` is the starting contents; `value` feeds the inserts, `index` the
 positional operations (`get-at` included), and `target` both `search` and
 `insert-ordered`.

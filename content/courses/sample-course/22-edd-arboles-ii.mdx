@@ -1061,13 +1061,20 @@ Node<T> balance(Node<T> node) {
 </Slide>
 
 <Slide title="Insertar en un árbol AVL">
-Insertar en un árbol AVL se hace en dos partes:
+Insertar en un árbol AVL se hace en dos partes: se inserta como en el árbol de
+búsqueda, y al volver, cada nodo del camino pasa por `balance`, que rota el
+primero que quedó con $$\pm 2$$. En el código es la única diferencia: el método
+privado devuelve `balance(node)` en vez de `node`. Baja y vuelve por un camino
+de altura $$O(\log n)$$, con trabajo constante en cada nodo: $$O(\log n)$$.
 
-1. **Se inserta como en el árbol de búsqueda**: el valor se cuelga como hoja.
-2. **Se rebalancea al volver**: el primer nodo del camino con $$\pm 2$$ rota.
+<SequenceStepper eda="avl" operation="insert" values={[8, 4, 12, 2, 6]} value={5} />
 
-La rotación le devuelve al subárbol su altura, y más arriba nada cambia: una
-inserción rota a lo más una vez. Ni los valores ordenados lo desbalancean.
+</Slide>
+
+<Slide title="Inserciones en un mismo árbol AVL">
+Una inserción rota a lo más una vez: la rotación le devuelve al subárbol su
+altura, y más arriba nada cambia. Ni los valores ordenados, el peor orden para
+un árbol de búsqueda, lo desbalancean.
 
 <SequenceStepper eda="avl" operation="insert" values={[]} value={[2, 4, 6, 8, 10, 12, 14]} program />
 
@@ -1076,17 +1083,6 @@ inserción rota a lo más una vez. Ni los valores ordenados lo desbalancean.
 Insertar del 1 al 1000, en orden, en un árbol AVL deja un árbol de altura 9;
 en un árbol de búsqueda sin balance, la misma secuencia deja una cadena de
 altura 999.
-
-<Slide title="El código de la inserción en un árbol AVL">
-`insert` es el del árbol de búsqueda: el método público llama al privado con
-la raíz. La única diferencia está en la última línea del privado, que en vez
-de devolver el nodo devuelve `balance(node)`: al volver de la recursión, cada
-nodo del camino pasa por `balance`. Baja y vuelve por un camino de altura
-$$O(\log n)$$, con trabajo constante en cada nodo: $$O(\log n)$$.
-
-<SequenceStepper eda="avl" operation="insert" values={[8, 4, 12, 2, 6]} value={5} />
-
-</Slide>
 
 <Slide title="Eliminar en un árbol AVL">
 Eliminar en un árbol AVL también se hace en dos partes:

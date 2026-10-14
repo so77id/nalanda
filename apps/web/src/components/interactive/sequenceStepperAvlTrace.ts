@@ -24,7 +24,13 @@
  * its three assignments.
  */
 import { asRuns, lineOf, requireRuns } from './sequenceStepperTraceShared';
-import type { AvlOperation, SequenceInput, SequenceTrace, TreeValue } from './sequenceStepperTrace';
+import type {
+  AvlOperation,
+  SequenceInput,
+  SequenceStep,
+  SequenceTrace,
+  TreeValue,
+} from './sequenceStepperTrace';
 import {
   TreeRecorder,
   bstOf,
@@ -705,15 +711,13 @@ function traceAvlInsert(input: SequenceInput): SequenceTrace {
 }
 
 /**
- * Insertions run by a program, from an empty AVL (#322): the listing is the
- * program, one line per insertion, and the method is not walked — the slide
- * that teaches the code walks one value through it. An insertion that keeps
- * every factor between −1 and +1 is one frame, the tree after it; one that
- * breaks the invariant is two: the leaf hung and the first node of the way
- * back with ±2 — what `balance` finds, the factors above it still the old
- * ones, as the heights stored say — and then the tree after the rotation the
- * rule picks. What a run of insertions looks like, sorted values included,
- * without walking the method again.
+ * Insertions run by a program, from an empty AVL (#322): the program on the
+ * left — the tree created, then one `tree.insert(x);` per value — and the
+ * insert method on the right, walked for every insertion as a single one is
+ * walked, its program line lit the whole time (Miguel's review: the run of
+ * insertions with the code beside it, step by step, so everything that
+ * happens to the tree is seen). The same shape as the search tree's program
+ * of removals.
  */
 function traceAvlInsertProgram(values: number[], inserts: number[]): SequenceTrace {
   if (values.length > 0) {
@@ -721,122 +725,38 @@ function traceAvlInsertProgram(values: number[], inserts: number[]): SequenceTra
       'El programa empieza con el árbol vacío: values va como [], y los valores que inserta, en value.',
     );
   }
-  if (inserts.length === 0) throw new Error('Falta el valor a insertar.');
-  requireRuns(inserts.length);
+  const walked = traceAvlInsert({ values: [], value: inserts });
   const code = [
     'AVL<Integer> tree = new AVL<>();',
     ...inserts.map((x) => `tree.insert(${x});`),
   ].join('\n');
-  const columnOf = columnsFor(inserts);
-  const columns: Record<number, number> = {};
-  const { avl, place } = avlOf([], columnOf, columns);
-  const { rec, push } = avlRecorder(code, avl, () => []);
-  const line = (i: number) => () => {
-    rec.steps.at(-1)!.highlightLines = [i];
+  const created: SequenceStep = {
+    ...walked.steps[0]!,
+    kind: 'start',
+    highlightLines: [1],
+    alongsideLines: [],
+    description: 'El árbol se crea vacío: su raíz es null.',
+    tree: { ...walked.steps[0]!.tree!, root: null, nodes: [], path: [] },
+    cells: [],
   };
-  push('start', [], 'El árbol se crea vacío: su raíz es null.');
-  line(1)();
-
-  inserts.forEach((x, i) => {
-    rec.reset();
-    // Down as in the search tree, keeping the way.
-    const way: { node: NumberNode; side: Side }[] = [];
-    let n = avl.root;
-    while (n !== null && n.value !== x) {
-      const side: Side = x < n.value ? 'left' : 'right';
-      way.push({ node: n, side });
-      rec.path.push(n.id);
-      n = n[side];
+  // A run starts at the public call, the `start` frame of each insertion.
+  let run = -1;
+  const last = walked.steps.length - 1;
+  const steps = walked.steps.map((step, i) => {
+    if (step.kind === 'start') run += 1;
+    // The closing frame speaks of the whole program: no line of it is running.
+    if (i === last && step.kind === 'done') {
+      return { ...step, highlightLines: [], alongsideLines: [] };
     }
-    if (n !== null) {
-      push('done', [], `${x} ya está en el árbol: no se inserta un repetido.`);
-      line(i + 2)();
-      return;
-    }
-    const leaf = place(x);
-    const parent = way.at(-1);
-    if (parent === undefined) avl.root = leaf;
-    else parent.node[parent.side] = leaf;
-    rec.path.push(leaf.id);
-    rec.state.set(leaf.id, 'new');
-    const hung =
-      parent === undefined
-        ? `El árbol está vacío: ${x} pasa a ser la raíz.`
-        : `${x} se cuelga como hoja, a la ${parent.side === 'left' ? 'izquierda' : 'derecha'} de ${parent.node.value}.`;
-
-    // Back up, as balance does: the first node with ±2 is the one rotated.
-    let broken = -1;
-    for (let k = way.length - 1; k >= 0; k -= 1) {
-      updateHeight(avl, way[k]!.node);
-      if (Math.abs(factorIn(avl, way[k]!.node)) > 1) {
-        broken = k;
-        break;
-      }
-    }
-    if (broken < 0) {
-      push('build', [], `${hung} Todos los factores siguen entre −1 y +1.`);
-      line(i + 2)();
-      return;
-    }
-    const node = way[broken]!.node;
-    const b = factorIn(avl, node);
-    const heavy: Side = b < 0 ? 'left' : 'right';
-    const child = node[heavy]!;
-    const double = factorIn(avl, child) * b < 0;
-    const name = rotationName(heavy, double);
-    // The true heights above it too, for the drawing: a node above may have
-    // broken as well, and the rotation below is what fixes it.
-    const alsoBroken: NumberNode[] = [];
-    for (let k = broken - 1; k >= 0; k -= 1) {
-      updateHeight(avl, way[k]!.node);
-      if (Math.abs(factorIn(avl, way[k]!.node)) > 1) alsoBroken.push(way[k]!.node);
-    }
-    const above =
-      alsoBroken.length === 0
-        ? ''
-        : ` ${alsoBroken
-            .map((a) => `el ${a.value}`)
-            .join(' y ')
-            .replace(/^e/, 'E')} también quedó con ${alsoBroken
-            .map((a) => signedFactor(factorIn(avl, a)))
-            .join(
-              ' y ',
-            )}, pero la rotación en ${node.value} le devuelve al subárbol su altura, y con eso ${alsoBroken.length === 1 ? 'lo arregla' : 'los arregla'}.`;
-    rec.state.set(node.id, 'active');
-    push(
-      'compare',
-      [],
-      `${hung} Al volver, ${node.value} es el primero con factor ${signedFactor(b)}: está cargado a la ${heavy === 'left' ? 'izquierda' : 'derecha'}, y su ${CHILD[heavy]}, ${child.value}, ${
-        double
-          ? `al lado contrario. Toca la rotación doble a la ${heavy === 'left' ? 'derecha' : 'izquierda'}.`
-          : `hacia el mismo lado. Toca la rotación ${name}.`
-      }${above}`,
-    );
-    line(i + 2)();
-
-    if (double) node[heavy] = rotate(avl, child, OTHER[heavy]);
-    const top = rotate(avl, node, heavy);
-    const up = way[broken - 1];
-    if (up === undefined) avl.root = top;
-    else up.node[up.side] = top;
-    for (let k = broken - 1; k >= 0; k -= 1) updateHeight(avl, way[k]!.node);
-    rec.state.clear();
-    rec.path.length = 0;
-    for (const moved of [node, child, top]) rec.state.set(moved.id, 'swap');
-    push(
-      'link',
-      [],
-      `Rotación ${name} en ${node.value}: ${top.value} sube a su lugar. El subárbol vuelve a la altura que tenía antes de insertar, así que más arriba ningún factor cambia.`,
-    );
-    line(i + 2)();
+    return { ...step, highlightLines: [run + 2], alongsideLines: step.highlightLines };
   });
-  rec.reset();
-  push(
-    'done',
-    [],
-    `El árbol cumple las dos invariantes, la de orden y la de balance, y tiene altura ${heightIn(avl, avl.root)}.`,
-  );
-  return finish(rec, code, columns, new Set(inserts).size, false);
+  return {
+    ...walked,
+    code,
+    alongside: walked.code,
+    listingNames: ['programa', 'método'],
+    steps: [created, ...steps],
+  };
 }
 
 function traceAvlRemove(input: SequenceInput): SequenceTrace {
