@@ -1254,12 +1254,11 @@ static int lowestCommonAncestor(Node<Integer> root,
         int a, int b)
 ```
 
-| Valores | Ancestro común más bajo |
-| ------- | ----------------------- |
-| 2 y 6   | 4                       |
-| 6 y 10  | 8                       |
-| 4 y 6   | 4                       |
-| 14 y 14 | 14                      |
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: '0 1.5rem', alignItems: 'end' }}>
+<BinaryPicture tree={EVENS} compact size={0.75} tones={{ 6: 'mark', 10: 'mark', 8: 'keep' }} label="6 y 10: el 6 está a la izquierda de la raíz y el 10 a su derecha, así que su ancestro común más bajo es la raíz, el 8." caption="6 y 10: responde 8" />
+<BinaryPicture tree={EVENS} compact size={0.75} tones={{ 6: 'mark', 4: 'keep' }} label="4 y 6: el 6 está debajo del 4, y el 4 cuenta en su propio subárbol, así que la respuesta es el 4." caption="4 y 6: responde 4" />
+<BinaryPicture tree={EVENS} compact size={0.75} tones={{ 14: 'keep' }} label="14 y 14: los dos valores son el mismo nodo, y la respuesta es ese nodo, el 14." caption="14 y 14: responde 14" />
+</div>
 
 </Slide>
 
@@ -1282,8 +1281,8 @@ mismo lado** —uno a cada lado, o uno es el nodo mismo—, ningún nodo de más
 abajo tiene a los dos: ese nodo es la respuesta.
 
 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1rem 2rem', alignItems: 'end' }}>
-<BinaryPicture tree={EVENS} path={[8]} tones={{ 8: 'focus', 2: 'mark', 6: 'mark' }} label="En la raíz, el 8: el 2 y el 6 son menores que 8, así que los dos están a su izquierda." caption="en el 8: 2 y 6 son menores, se baja a la izquierda" />
-<BinaryPicture tree={EVENS} path={[8, 4]} tones={{ 8: 'done', 4: 'keep', 2: 'mark', 6: 'mark', 12: 'faint', 10: 'faint', 14: 'faint' }} label="En el 4: el 2 es menor y el 6 es mayor. Se separan, y el 4 es el ancestro común más bajo." caption="en el 4: 2 es menor y 6 es mayor; se separan, y la respuesta es 4" />
+<BinaryPicture tree={EVENS} path={[8]} tones={{ 8: 'focus', 2: 'mark', 6: 'mark' }} label="En la raíz, el 8: el 2 y el 6 son menores que 8, así que los dos están a su izquierda." caption="en el 8: 2 y 6 son menores; se baja a la izquierda" />
+<BinaryPicture tree={EVENS} path={[8, 4]} tones={{ 8: 'done', 4: 'keep', 2: 'mark', 6: 'mark', 12: 'faint', 10: 'faint', 14: 'faint' }} label="En el 4: el 2 es menor y el 6 es mayor. Se separan, y el 4 es el ancestro común más bajo." caption="en el 4: 2 es menor y 6 mayor; la respuesta es 4" />
 </div>
 
 </Slide>
@@ -1309,16 +1308,24 @@ hacia el mismo lado, o se responde el nodo.
 }`}
 >
   <Step lines={[3]}>
-    <BinaryPicture tree={EVENS} tones={{ 8: 'focus', 2: 'mark', 6: 'mark' }} size={0.85} label="Se empieza en la raíz, el 8. Los valores son 2 y 6." />
-    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>Se empieza en la raíz, con 2 y 6.</div>
+    <BinaryPicture tree={EVENS} tones={{ 8: 'focus', 2: 'mark', 6: 'mark' }} size={0.85} label="node empieza en la raíz, el 8. Los valores son 2 y 6." />
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>node empieza en la raíz, el 8; los valores son 2 y 6.</div>
   </Step>
-  <Step lines={[5, 6]}>
-    <BinaryPicture tree={EVENS} path={[8, 4]} tones={{ 8: 'done', 4: 'focus', 2: 'mark', 6: 'mark', 12: 'faint', 10: 'faint', 14: 'faint' }} size={0.85} label="2 y 6 son menores que 8: se baja al 4, y el subárbol derecho del 8 queda descartado." />
-    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>2 y 6 son menores que 8: se baja al 4.</div>
+  <Step lines={[5]}>
+    <BinaryPicture tree={EVENS} tones={{ 8: 'focus', 2: 'mark', 6: 'mark' }} size={0.85} label="2 y 6 son menores que 8: los dos están en el subárbol izquierdo del 8." />
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>2 y 6 son menores que 8: los dos están a su izquierda.</div>
   </Step>
-  <Step lines={[9, 10]}>
-    <BinaryPicture tree={EVENS} path={[8, 4]} tones={{ 8: 'done', 4: 'keep', 2: 'mark', 6: 'mark', 12: 'faint', 10: 'faint', 14: 'faint' }} size={0.85} label="2 es menor que 4 y 6 es mayor: se separan, y el 4 es el ancestro común más bajo." />
-    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>2 es menor que 4 y 6 es mayor: se separan. La respuesta es 4.</div>
+  <Step lines={[6]}>
+    <BinaryPicture tree={EVENS} path={[8, 4]} tones={{ 8: 'done', 4: 'focus', 2: 'mark', 6: 'mark', 12: 'faint', 10: 'faint', 14: 'faint' }} size={0.85} label="node baja al 4, y el subárbol derecho del 8 queda descartado." />
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>node baja al 4.</div>
+  </Step>
+  <Step lines={[5, 7]}>
+    <BinaryPicture tree={EVENS} path={[8, 4]} tones={{ 8: 'done', 4: 'focus', 2: 'mark', 6: 'mark', 12: 'faint', 10: 'faint', 14: 'faint' }} size={0.85} label="En el 4, el 2 es menor y el 6 es mayor: no son los dos menores ni los dos mayores." />
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>2 es menor que 4 y 6 es mayor: ni los dos menores, ni los dos mayores.</div>
+  </Step>
+  <Step lines={[10]}>
+    <BinaryPicture tree={EVENS} path={[8, 4]} tones={{ 8: 'done', 4: 'keep', 2: 'mark', 6: 'mark', 12: 'faint', 10: 'faint', 14: 'faint' }} size={0.85} label="Se separan en el 4: el 4 es el ancestro común más bajo." />
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>Se separan en el 4: la respuesta es 4.</div>
   </Step>
 </StepShow>
 
@@ -1387,6 +1394,82 @@ check(Solution.lowestCommonAncestor(root, 14, 14), 14);
 
 </Slide>
 
+{/* ValueBox, StackColumn, PendingStack, PendingStrip — the iterator's drawings. A value is a box; the pending nodes are a stack in the stack class's idiom, closed below and open on top, with the top — the next to come out — in the accent colour. PendingStrip runs a whole inorder as one column per state, the way the heap class's TopKStrip runs the K best. Room for three pending nodes always, so a figure keeps one size from frame to frame. File-local like SortedRow (§6e-quater). */}
+
+export function ValueBox({ x, y, v, tone }) {
+  const size = 34;
+  const stroke = { keep: 'var(--color-keep)', hot: 'var(--color-accent)', mark: 'var(--color-mark)', empty: 'var(--color-rule)' }[tone] ?? 'var(--color-rule-strong)';
+  const fill = { keep: 'var(--color-keep-soft)', mark: 'var(--color-mark-soft)', empty: 'var(--color-sunk)' }[tone] ?? 'var(--color-surface)';
+  const weight = tone === 'hot' ? 2.6 : tone === 'keep' || tone === 'mark' ? 2 : 1.4;
+  return (
+    <g>
+      <rect x={x} y={y} width={size} height={size} rx="4" style={{ fill, stroke }} strokeWidth={weight} strokeDasharray={tone === 'empty' ? '4 3' : undefined} />
+      {v === null || v === undefined ? null : (
+        <text x={x + size / 2} y={y + size / 2 + 5} textAnchor="middle" fontSize="15" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{v}</text>
+      )}
+    </g>
+  );
+}
+
+export function StackColumn({ cx, top, items }) {
+  // items go from the bottom of the stack to its top: the last one is the top.
+  const floor = top + 3 * 38 + 4;
+  const wall = 22;
+  const edge = { stroke: 'var(--color-rule-strong)' };
+  return (
+    <g>
+      <line x1={cx - wall} y1={top} x2={cx - wall} y2={floor} style={edge} strokeWidth="2.2" strokeLinecap="round" />
+      <line x1={cx + wall} y1={top} x2={cx + wall} y2={floor} style={edge} strokeWidth="2.2" strokeLinecap="round" />
+      <line x1={cx - wall} y1={floor} x2={cx + wall} y2={floor} style={edge} strokeWidth="2.2" strokeLinecap="round" />
+      {items.map((v, i) => (
+        <ValueBox key={i} x={cx - 17} y={floor + 2 - (i + 1) * 38} v={v} tone={i === items.length - 1 ? 'hot' : undefined} />
+      ))}
+    </g>
+  );
+}
+
+export function PendingStack({ items, label }) {
+  const W = 120;
+  const top = 28;
+  const H = top + 3 * 38 + 4 + 8;
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', maxWidth: `${W}px`, height: 'auto', display: 'block', margin: '0.5rem auto' }} role="img" aria-label={label}>
+      <text x={W / 2} y="16" textAnchor="middle" fontSize="13" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink-soft)' }}>pending</text>
+      <StackColumn cx={W / 2} top={top} items={items} />
+      {items.length === 0 ? (
+        <text x={W / 2} y={top + 3 * 38 - 14} textAnchor="middle" fontSize="12" style={{ fill: 'var(--color-ink-faint)' }}>vacía</text>
+      ) : null}
+    </svg>
+  );
+}
+
+export function PendingStrip({ steps, label }) {
+  // One column per state: on top the value just delivered, under it the pending stack.
+  const colW = 70;
+  const x0 = 112;
+  const top = 84;
+  const floor = top + 3 * 38 + 4;
+  const W = x0 + steps.length * colW;
+  return (
+    <svg viewBox={`0 0 ${W} ${floor + 8}`} style={{ width: '100%', maxWidth: `${Math.round(W * 1.15)}px`, height: 'auto', display: 'block', margin: '0.75rem auto' }} role="img" aria-label={label}>
+      <text x="0" y="50" fontSize="12" fontWeight="600" style={{ fill: 'var(--color-ink-soft)' }}>entrega</text>
+      <text x="0" y={top + 24} fontSize="12" fontWeight="600" style={{ fill: 'var(--color-ink-soft)' }}>pendientes</text>
+      <text x="0" y={top + 40} fontSize="11" style={{ fill: 'var(--color-accent)' }}>la cima, arriba</text>
+      {steps.map((s, i) => {
+        const cx = x0 + i * colW + colW / 2;
+        const first = s.out === undefined;
+        return (
+          <g key={i}>
+            <text x={cx} y="14" textAnchor="middle" fontSize="11" fontFamily={first ? undefined : 'monospace'} style={{ fill: 'var(--color-ink-faint)' }}>{first ? 'al crearlo' : 'next'}</text>
+            <ValueBox x={cx - 17} y={28} v={s.out} tone={first ? 'empty' : 'keep'} />
+            <StackColumn cx={cx} top={top} items={s.pending} />
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
+
 <Slide title="Recorrer un árbol con un for">
 En Java, `for (int x : lista)` recorre cualquier objeto que implemente
 `Iterable`: le pide un **iterador**, un objeto con dos métodos. `hasNext`
@@ -1398,8 +1481,8 @@ recorra con un `for`, de menor a mayor, hace falta su iterador.
 
 El iterador recibe la raíz del árbol, que puede estar vacío, y entrega sus
 valores en orden; en un árbol vacío, `hasNext` responde `false` desde el
-principio. Puede pedir memoria proporcional a la altura del árbol, $$O(h)$$,
-pero no a la cantidad de valores.
+principio. Llamamos $$n$$ a la cantidad de valores y $$h$$ a la altura: el
+iterador puede pedir memoria $$O(h)$$, pero no $$\Theta(n)$$.
 
 ```java
 class InorderIterator<T> implements Iterator<T> {
@@ -1412,58 +1495,66 @@ class InorderIterator<T> implements Iterator<T> {
 </Slide>
 
 <Slide title="Copiar el inorden a una lista">
-La idea a mano es recorrer el árbol en inorden al crear el iterador, guardar
+La primera idea es recorrer el árbol en inorden al crear el iterador, guardar
 los valores en una lista y entregarlos de a uno. Funciona, pero copia el árbol
 entero: la memoria es $$\Theta(n)$$, no $$O(h)$$. Y hace todo el trabajo antes
 de entregar el primer valor, aunque el `for` se detenga en el segundo.
 
-El inorden recursivo no sirve tal cual: una recursión no se puede pausar a la
-mitad. Entrega todos los valores de una vez, y un iterador tiene que entregar
-uno y esperar.
+<SortedRow values={[2, 4, 6, 8, 10, 12, 14]} label="La copia del inorden en una lista: 2, 4, 6, 8, 10, 12 y 14, los siete valores del árbol, guardados antes de entregar el primero." caption="la copia: los siete valores, guardados antes de entregar el primero" />
+
+El inorden recursivo tampoco sirve tal cual: una recursión no se puede pausar
+a la mitad. Entrega todos los valores de una vez, y un iterador tiene que
+entregar uno y esperar.
 
 </Slide>
 
 <Slide title="Pausar el inorden">
-Mientras el inorden recursivo baja por la izquierda, deja pendientes los nodos
-del camino: cada uno espera a que termine su subárbol izquierdo para ser
-visitado. Esos pendientes son lo único que hay que recordar para pausar el
-recorrido. El siguiente valor es siempre el **último** pendiente que se
-agregó; al entregarlo, quedan pendientes los nodos del camino hacia la
-izquierda desde su hijo derecho. Así, los pendientes forman una **pila**.
+El inorden visita un nodo recién cuando termina su subárbol izquierdo. Por
+eso, al bajar por la izquierda desde la raíz, cada nodo del camino queda
+**pendiente**, esperando a los de más abajo, y el primero en entregarse es el
+último del camino. Después de entregar un nodo, el inorden sigue con su
+subárbol derecho, que empieza igual: bajando por la izquierda desde el hijo
+derecho, y dejando pendientes los nodos de ese camino.
 
-<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '1rem 2rem', alignItems: 'center' }}>
-<BinaryPicture tree={EVENS} label="El árbol de búsqueda con 8 en la raíz; 4 y 12 debajo; 2, 6, 10 y 14 en el último nivel." caption="el árbol que se recorre" />
-<div>
+El próximo en entregarse es siempre el último pendiente que entró. Los
+pendientes forman una **pila**, y su cima es el próximo valor.
 
-|            | Entrega | Pendientes después |
-| ---------- | ------- | ------------------ |
-| Al crearlo | —       | 8, 4, 2            |
-| `next`     | 2       | 8, 4               |
-| `next`     | 4       | 8, 6               |
-| `next`     | 6       | 8                  |
-| `next`     | 8       | 12, 10             |
-| `next`     | 10      | 12                 |
-| `next`     | 12      | 14                 |
-| `next`     | 14      | ninguno            |
+<BinaryPicture tree={EVENS} size={0.6} label="El árbol de búsqueda con 8 en la raíz; 4 y 12 debajo; 2, 6, 10 y 14 en el último nivel." caption="el árbol que se recorre" />
 
-</div>
-</div>
-
-Los pendientes se leen de abajo hacia arriba de la pila: el último de cada
-lista es el que sale con el próximo `next`.
+<PendingStrip
+  steps={[
+    { pending: [8, 4, 2] },
+    { out: 2, pending: [8, 4] },
+    { out: 4, pending: [8, 6] },
+    { out: 6, pending: [8] },
+    { out: 8, pending: [12, 10] },
+    { out: 10, pending: [12] },
+    { out: 12, pending: [14] },
+    { out: 14, pending: [] },
+  ]}
+  label="El recorrido del árbol, un estado por columna. Al crearlo quedan pendientes 8, 4 y 2, con el 2 en la cima. Cada next entrega la cima: el 2, que no tiene hijo derecho, y quedan 8 y 4; el 4, y entra el 6, su hijo derecho; el 6, y queda el 8; el 8, y entran 12 y 10, el camino hacia la izquierda desde su hijo derecho; el 10, y queda el 12; el 12, y entra el 14; el 14, y no queda ningún pendiente."
+/>
 
 </Slide>
 
 <Slide title="Iterador · los pendientes">
-El iterador guarda los nodos pendientes en una pila, `pending`. Al crearlo,
-baja por la izquierda desde la raíz y deja pendiente cada nodo del camino; eso
-lo hace `pushLeft`, que también usa `next`. Quedan valores mientras quede algún
-pendiente.
+El iterador guarda los nodos pendientes en una pila, `pending`. El método
+`pushLeft` baja por la izquierda desde un nodo y deja pendiente cada nodo del
+camino; el constructor lo llama con la raíz. Quedan valores mientras quede
+algún pendiente.
 
-```java
-class InorderIterator<T> implements Iterator<T> {
+<StepShow
+  language="java"
+  code={`class InorderIterator<T> implements Iterator<T> {
     private final Deque<Node<T>> pending =
             new ArrayDeque<>();
+
+    private void pushLeft(Node<T> node) {
+        while (node != null) {
+            pending.push(node);
+            node = node.left;
+        }
+    }
 
     InorderIterator(Node<T> root) {
         pushLeft(root);
@@ -1472,16 +1563,72 @@ class InorderIterator<T> implements Iterator<T> {
     public boolean hasNext() {
         return !pending.isEmpty();
     }
-}
-```
-
-<BinaryPicture tree={EVENS} tones={{ 8: 'focus', 4: 'focus', 2: 'focus' }} size={0.7} label="Al crear el iterador, quedan pendientes los nodos del camino hacia la izquierda desde la raíz: 8, 4 y 2." caption="al crearlo: pendientes 8, 4, 2" />
+}`}
+>
+  <Step lines={[12, 13]}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 2fr) minmax(0, 1fr)', gap: '0 1rem', alignItems: 'center', maxWidth: '560px', margin: '0 auto' }}>
+      <BinaryPicture tree={EVENS} tones={{ 8: 'accent' }} size={0.7} label="Se crea el iterador con la raíz, el 8, y el constructor llama a pushLeft con ella." />
+      <PendingStack items={[]} label="La pila de pendientes está vacía." />
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>El constructor llama a pushLeft con la raíz, el 8.</div>
+  </Step>
+  <Step lines={[6, 7]}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 2fr) minmax(0, 1fr)', gap: '0 1rem', alignItems: 'center', maxWidth: '560px', margin: '0 auto' }}>
+      <BinaryPicture tree={EVENS} tones={{ 8: 'focus' }} size={0.7} label="node es el 8, que no es null: el 8 entra a la pila." />
+      <PendingStack items={[8]} label="La pila de pendientes tiene al 8." />
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>node no es null: el 8 entra a la pila.</div>
+  </Step>
+  <Step lines={[8]}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 2fr) minmax(0, 1fr)', gap: '0 1rem', alignItems: 'center', maxWidth: '560px', margin: '0 auto' }}>
+      <BinaryPicture tree={EVENS} tones={{ 8: 'focus', 4: 'accent' }} size={0.7} label="node baja a la izquierda del 8, al 4." />
+      <PendingStack items={[8]} label="La pila de pendientes tiene al 8." />
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>node baja a la izquierda, al 4.</div>
+  </Step>
+  <Step lines={[6, 7]}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 2fr) minmax(0, 1fr)', gap: '0 1rem', alignItems: 'center', maxWidth: '560px', margin: '0 auto' }}>
+      <BinaryPicture tree={EVENS} tones={{ 8: 'focus', 4: 'focus' }} size={0.7} label="El 4 entra a la pila, sobre el 8." />
+      <PendingStack items={[8, 4]} label="La pila de pendientes tiene al 8 abajo y al 4 en la cima." />
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>El 4 entra a la pila, sobre el 8.</div>
+  </Step>
+  <Step lines={[8]}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 2fr) minmax(0, 1fr)', gap: '0 1rem', alignItems: 'center', maxWidth: '560px', margin: '0 auto' }}>
+      <BinaryPicture tree={EVENS} tones={{ 8: 'focus', 4: 'focus', 2: 'accent' }} size={0.7} label="node baja a la izquierda del 4, al 2." />
+      <PendingStack items={[8, 4]} label="La pila de pendientes tiene al 8 abajo y al 4 en la cima." />
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>node baja a la izquierda, al 2.</div>
+  </Step>
+  <Step lines={[6, 7]}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 2fr) minmax(0, 1fr)', gap: '0 1rem', alignItems: 'center', maxWidth: '560px', margin: '0 auto' }}>
+      <BinaryPicture tree={EVENS} tones={{ 8: 'focus', 4: 'focus', 2: 'focus' }} size={0.7} label="El 2 entra a la pila, sobre el 4." />
+      <PendingStack items={[8, 4, 2]} label="La pila de pendientes tiene, de abajo hacia arriba, al 8, al 4 y al 2 en la cima." />
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>El 2 entra a la pila, sobre el 4.</div>
+  </Step>
+  <Step lines={[8, 6]}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 2fr) minmax(0, 1fr)', gap: '0 1rem', alignItems: 'center', maxWidth: '560px', margin: '0 auto' }}>
+      <BinaryPicture tree={EVENS} tones={{ 8: 'focus', 4: 'focus', 2: 'focus' }} size={0.7} label="La izquierda del 2 está vacía: node es null, y el ciclo termina." />
+      <PendingStack items={[8, 4, 2]} label="La pila de pendientes tiene, de abajo hacia arriba, al 8, al 4 y al 2 en la cima." />
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>La izquierda del 2 está vacía: node es null, y el ciclo termina.</div>
+  </Step>
+  <Step lines={[16, 17]}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 2fr) minmax(0, 1fr)', gap: '0 1rem', alignItems: 'center', maxWidth: '560px', margin: '0 auto' }}>
+      <BinaryPicture tree={EVENS} tones={{ 8: 'focus', 4: 'focus', 2: 'focus' }} size={0.7} label="Quedan tres pendientes: hasNext responde true, y el próximo valor es el 2, en la cima." />
+      <PendingStack items={[8, 4, 2]} label="La pila de pendientes tiene, de abajo hacia arriba, al 8, al 4 y al 2 en la cima." />
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>Quedan pendientes: hasNext responde true, y el próximo es el 2, en la cima.</div>
+  </Step>
+</StepShow>
 
 </Slide>
 
 <Slide title="Iterador · la solución">
-`next` saca el último pendiente y, antes de entregarlo, deja pendientes los
-nodos del camino hacia la izquierda desde su hijo derecho.
+`next` saca el pendiente de la cima, que es el próximo valor. Antes de
+entregarlo, deja pendientes los nodos del camino hacia la izquierda desde su
+hijo derecho, porque el subárbol derecho es lo que el inorden recorre después.
 
 <StepShow
   language="java"
@@ -1501,49 +1648,141 @@ public T next() {
     return node.value;
 }`}
 >
-  <Step lines={[12, 13, 14]}>
-    <BinaryPicture tree={EVENS} tones={{ 8: 'focus', 4: 'focus', 2: 'keep' }} size={0.8} label="next saca el 2, el último pendiente; su derecha está vacía. Entrega 2, y quedan pendientes 8 y 4." />
-    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>next entrega 2; pendientes 8, 4.</div>
+  <Step lines={[9, 12]}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 2fr) minmax(0, 1fr)', gap: '0 1rem', alignItems: 'center', maxWidth: '560px', margin: '0 auto' }}>
+      <BinaryPicture tree={EVENS} tones={{ 8: 'focus', 4: 'focus', 2: 'keep' }} size={0.7} label="node es el 2, que sale de la cima; quedan pendientes 8 y 4." />
+      <PendingStack items={[8,  4]} label="La pila de pendientes tiene, de abajo hacia arriba, al 8 y al 4 en la cima." />
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>La pila no está vacía: node es el 2, que sale de la cima.</div>
   </Step>
-  <Step lines={[12, 13, 2, 3, 4, 14]}>
-    <BinaryPicture tree={EVENS} tones={{ 8: 'focus', 6: 'focus', 2: 'done', 4: 'keep' }} size={0.8} label="next saca el 4 y baja por la izquierda desde su hijo derecho, el 6. Entrega 4, y quedan pendientes 8 y 6." />
-    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>next entrega 4 y deja pendiente al 6; pendientes 8, 6.</div>
+  <Step lines={[13, 14]}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 2fr) minmax(0, 1fr)', gap: '0 1rem', alignItems: 'center', maxWidth: '560px', margin: '0 auto' }}>
+      <BinaryPicture tree={EVENS} tones={{ 8: 'focus', 4: 'focus', 2: 'keep' }} size={0.7} label="La derecha del 2 está vacía, así que no entra nada a la pila. next entrega el 2." />
+      <PendingStack items={[8,  4]} label="La pila de pendientes tiene, de abajo hacia arriba, al 8 y al 4 en la cima." />
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>La derecha del 2 está vacía: pushLeft no deja nada. next entrega el 2.</div>
   </Step>
-  <Step lines={[12, 13, 14]}>
-    <BinaryPicture tree={EVENS} tones={{ 8: 'focus', 2: 'done', 4: 'done', 6: 'keep' }} size={0.8} label="next saca el 6. Entrega 6, y queda pendiente el 8." />
-    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>next entrega 6; pendiente 8.</div>
+  <Step lines={[9, 12]}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 2fr) minmax(0, 1fr)', gap: '0 1rem', alignItems: 'center', maxWidth: '560px', margin: '0 auto' }}>
+      <BinaryPicture tree={EVENS} tones={{ 2: 'done', 8: 'focus', 4: 'keep' }} size={0.7} label="node es el 4, que sale de la cima; queda pendiente el 8." />
+      <PendingStack items={[8]} label="La pila de pendientes tiene al 8, en la cima." />
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>node es el 4, que sale de la cima.</div>
   </Step>
-  <Step lines={[12, 13, 2, 3, 4, 14]}>
-    <BinaryPicture tree={EVENS} tones={{ 12: 'focus', 10: 'focus', 2: 'done', 4: 'done', 6: 'done', 8: 'keep' }} size={0.8} label="next saca el 8 y baja por la izquierda desde su hijo derecho: quedan pendientes 12 y 10. Entrega 8." />
-    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>next entrega 8 y deja pendientes al 12 y al 10.</div>
+  <Step lines={[13, 2, 3]}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 2fr) minmax(0, 1fr)', gap: '0 1rem', alignItems: 'center', maxWidth: '560px', margin: '0 auto' }}>
+      <BinaryPicture tree={EVENS} tones={{ 2: 'done', 8: 'focus', 6: 'focus', 4: 'keep' }} size={0.7} label="pushLeft baja desde la derecha del 4: el 6 entra a la pila, sobre el 8." />
+      <PendingStack items={[8,  6]} label="La pila de pendientes tiene, de abajo hacia arriba, al 8 y al 6 en la cima." />
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>pushLeft baja desde la derecha del 4: el 6 entra a la pila.</div>
   </Step>
-  <Step lines={[12, 13, 14]}>
-    <BinaryPicture tree={EVENS} tones={{ 12: 'focus', 2: 'done', 4: 'done', 6: 'done', 8: 'done', 10: 'keep' }} size={0.8} label="next saca el 10. Entrega 10, y queda pendiente el 12." />
-    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>next entrega 10; pendiente 12.</div>
+  <Step lines={[4, 14]}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 2fr) minmax(0, 1fr)', gap: '0 1rem', alignItems: 'center', maxWidth: '560px', margin: '0 auto' }}>
+      <BinaryPicture tree={EVENS} tones={{ 2: 'done', 8: 'focus', 6: 'focus', 4: 'keep' }} size={0.7} label="La izquierda del 6 está vacía y pushLeft termina. next entrega el 4." />
+      <PendingStack items={[8,  6]} label="La pila de pendientes tiene, de abajo hacia arriba, al 8 y al 6 en la cima." />
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>La izquierda del 6 está vacía y pushLeft termina. next entrega el 4.</div>
   </Step>
-  <Step lines={[12, 13, 2, 3, 4, 14]}>
-    <BinaryPicture tree={EVENS} tones={{ 14: 'focus', 2: 'done', 4: 'done', 6: 'done', 8: 'done', 10: 'done', 12: 'keep' }} size={0.8} label="next saca el 12 y deja pendiente a su hijo derecho, el 14. Entrega 12." />
-    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>next entrega 12 y deja pendiente al 14.</div>
+  <Step lines={[9, 12]}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 2fr) minmax(0, 1fr)', gap: '0 1rem', alignItems: 'center', maxWidth: '560px', margin: '0 auto' }}>
+      <BinaryPicture tree={EVENS} tones={{ 2: 'done', 4: 'done', 8: 'focus', 6: 'keep' }} size={0.7} label="node es el 6, que sale de la cima; queda pendiente el 8." />
+      <PendingStack items={[8]} label="La pila de pendientes tiene al 8, en la cima." />
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>node es el 6, que sale de la cima.</div>
   </Step>
-  <Step lines={[12, 13, 14]}>
-    <BinaryPicture tree={EVENS} tones={{ 2: 'done', 4: 'done', 6: 'done', 8: 'done', 10: 'done', 12: 'done', 14: 'keep' }} size={0.8} label="next saca el 14. Entrega 14, y no queda nada pendiente: hasNext responde false." />
-    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>next entrega 14; no queda nada pendiente.</div>
+  <Step lines={[13, 14]}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 2fr) minmax(0, 1fr)', gap: '0 1rem', alignItems: 'center', maxWidth: '560px', margin: '0 auto' }}>
+      <BinaryPicture tree={EVENS} tones={{ 2: 'done', 4: 'done', 8: 'focus', 6: 'keep' }} size={0.7} label="La derecha del 6 está vacía, así que no entra nada a la pila. next entrega el 6." />
+      <PendingStack items={[8]} label="La pila de pendientes tiene al 8, en la cima." />
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>La derecha del 6 está vacía. next entrega el 6.</div>
+  </Step>
+  <Step lines={[9, 12]}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 2fr) minmax(0, 1fr)', gap: '0 1rem', alignItems: 'center', maxWidth: '560px', margin: '0 auto' }}>
+      <BinaryPicture tree={EVENS} tones={{ 2: 'done', 4: 'done', 6: 'done', 8: 'keep' }} size={0.7} label="node es el 8, el último pendiente; la pila queda vacía." />
+      <PendingStack items={[]} label="La pila de pendientes está vacía." />
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>node es el 8, el último pendiente.</div>
+  </Step>
+  <Step lines={[13, 2, 3]}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 2fr) minmax(0, 1fr)', gap: '0 1rem', alignItems: 'center', maxWidth: '560px', margin: '0 auto' }}>
+      <BinaryPicture tree={EVENS} tones={{ 2: 'done', 4: 'done', 6: 'done', 12: 'focus', 8: 'keep' }} size={0.7} label="pushLeft baja desde la derecha del 8: el 12 entra a la pila." />
+      <PendingStack items={[12]} label="La pila de pendientes tiene al 12, en la cima." />
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>pushLeft baja desde la derecha del 8: el 12 entra a la pila.</div>
+  </Step>
+  <Step lines={[4, 2, 3]}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 2fr) minmax(0, 1fr)', gap: '0 1rem', alignItems: 'center', maxWidth: '560px', margin: '0 auto' }}>
+      <BinaryPicture tree={EVENS} tones={{ 2: 'done', 4: 'done', 6: 'done', 12: 'focus', 10: 'focus', 8: 'keep' }} size={0.7} label="node baja a la izquierda del 12, al 10, que entra a la pila sobre el 12." />
+      <PendingStack items={[12,  10]} label="La pila de pendientes tiene, de abajo hacia arriba, al 12 y al 10 en la cima." />
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>node baja al 10, que entra sobre el 12.</div>
+  </Step>
+  <Step lines={[4, 14]}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 2fr) minmax(0, 1fr)', gap: '0 1rem', alignItems: 'center', maxWidth: '560px', margin: '0 auto' }}>
+      <BinaryPicture tree={EVENS} tones={{ 2: 'done', 4: 'done', 6: 'done', 12: 'focus', 10: 'focus', 8: 'keep' }} size={0.7} label="La izquierda del 10 está vacía y pushLeft termina. next entrega el 8." />
+      <PendingStack items={[12,  10]} label="La pila de pendientes tiene, de abajo hacia arriba, al 12 y al 10 en la cima." />
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>La izquierda del 10 está vacía y pushLeft termina. next entrega el 8.</div>
+  </Step>
+  <Step lines={[9, 12]}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 2fr) minmax(0, 1fr)', gap: '0 1rem', alignItems: 'center', maxWidth: '560px', margin: '0 auto' }}>
+      <BinaryPicture tree={EVENS} tones={{ 2: 'done', 4: 'done', 6: 'done', 8: 'done', 12: 'focus', 10: 'keep' }} size={0.7} label="node es el 10, que sale de la cima; queda pendiente el 12." />
+      <PendingStack items={[12]} label="La pila de pendientes tiene al 12, en la cima." />
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>node es el 10, que sale de la cima.</div>
+  </Step>
+  <Step lines={[13, 14]}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 2fr) minmax(0, 1fr)', gap: '0 1rem', alignItems: 'center', maxWidth: '560px', margin: '0 auto' }}>
+      <BinaryPicture tree={EVENS} tones={{ 2: 'done', 4: 'done', 6: 'done', 8: 'done', 12: 'focus', 10: 'keep' }} size={0.7} label="La derecha del 10 está vacía, así que no entra nada a la pila. next entrega el 10." />
+      <PendingStack items={[12]} label="La pila de pendientes tiene al 12, en la cima." />
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>La derecha del 10 está vacía. next entrega el 10.</div>
+  </Step>
+  <Step lines={[9, 12]}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 2fr) minmax(0, 1fr)', gap: '0 1rem', alignItems: 'center', maxWidth: '560px', margin: '0 auto' }}>
+      <BinaryPicture tree={EVENS} tones={{ 2: 'done', 4: 'done', 6: 'done', 8: 'done', 10: 'done', 12: 'keep' }} size={0.7} label="node es el 12, el último pendiente; la pila queda vacía." />
+      <PendingStack items={[]} label="La pila de pendientes está vacía." />
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>node es el 12, el último pendiente.</div>
+  </Step>
+  <Step lines={[13, 2, 3]}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 2fr) minmax(0, 1fr)', gap: '0 1rem', alignItems: 'center', maxWidth: '560px', margin: '0 auto' }}>
+      <BinaryPicture tree={EVENS} tones={{ 2: 'done', 4: 'done', 6: 'done', 8: 'done', 10: 'done', 14: 'focus', 12: 'keep' }} size={0.7} label="pushLeft baja desde la derecha del 12: el 14 entra a la pila." />
+      <PendingStack items={[14]} label="La pila de pendientes tiene al 14, en la cima." />
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>pushLeft baja desde la derecha del 12: el 14 entra a la pila.</div>
+  </Step>
+  <Step lines={[4, 14]}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 2fr) minmax(0, 1fr)', gap: '0 1rem', alignItems: 'center', maxWidth: '560px', margin: '0 auto' }}>
+      <BinaryPicture tree={EVENS} tones={{ 2: 'done', 4: 'done', 6: 'done', 8: 'done', 10: 'done', 14: 'focus', 12: 'keep' }} size={0.7} label="La izquierda del 14 está vacía y pushLeft termina. next entrega el 12." />
+      <PendingStack items={[14]} label="La pila de pendientes tiene al 14, en la cima." />
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>La izquierda del 14 está vacía y pushLeft termina. next entrega el 12.</div>
+  </Step>
+  <Step lines={[9, 12]}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 2fr) minmax(0, 1fr)', gap: '0 1rem', alignItems: 'center', maxWidth: '560px', margin: '0 auto' }}>
+      <BinaryPicture tree={EVENS} tones={{ 2: 'done', 4: 'done', 6: 'done', 8: 'done', 10: 'done', 12: 'done', 14: 'keep' }} size={0.7} label="node es el 14, el último pendiente; la pila queda vacía." />
+      <PendingStack items={[]} label="La pila de pendientes está vacía." />
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>node es el 14, el último pendiente.</div>
+  </Step>
+  <Step lines={[13, 14]}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 2fr) minmax(0, 1fr)', gap: '0 1rem', alignItems: 'center', maxWidth: '560px', margin: '0 auto' }}>
+      <BinaryPicture tree={EVENS} tones={{ 2: 'done', 4: 'done', 6: 'done', 8: 'done', 10: 'done', 12: 'done', 14: 'keep' }} size={0.7} label="La derecha del 14 está vacía. next entrega el 14, y no queda ningún pendiente: hasNext responde false." />
+      <PendingStack items={[]} label="La pila de pendientes está vacía." />
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>La derecha del 14 está vacía. next entrega el 14, y no queda ningún pendiente: hasNext responde false.</div>
   </Step>
 </StepShow>
 
 </Slide>
 
-<Slide title="El árbol vacío y el costo de next">
-Con el árbol vacío, el constructor no deja nada pendiente: `hasNext` responde
-`false` y `next` lanza la excepción, como pide el contrato de `Iterator`.
-
-**Tiempo.** Un solo `next` puede bajar por un camino entero, $$O(h)$$. Pero
-cada nodo entra a la pila una vez y sale una vez, así que recorrer los $$n$$
-valores cuesta $$\Theta(n)$$ en total: $$O(1)$$ por `next`, en promedio.
-**Memoria.** La pila guarda un camino a la vez: $$O(h)$$.
-
-Para que el árbol se recorra con un `for`, la clase implementa `Iterable` y
-devuelve su iterador:
+<Slide title="Iterador · el árbol en un for">
+El `for` pide un iterador a lo que recorre. Para eso, la clase del árbol
+implementa `Iterable`, cuyo único método, `iterator`, crea un iterador que
+parte de la raíz. Cada `for` pide el suyo, así que dos recorridos del mismo
+árbol no se estorban.
 
 ```java
 class BST<T extends Comparable<T>> implements Iterable<T> {
@@ -1554,6 +1793,28 @@ class BST<T extends Comparable<T>> implements Iterable<T> {
     }
 }
 ```
+
+Con eso, un `BST<Integer>` llamado `tree` se recorre de menor a mayor como
+cualquier colección:
+
+```java
+for (int x : tree) {
+    System.out.println(x);
+}
+```
+
+</Slide>
+
+<Slide title="El árbol vacío y el costo de next">
+Con el árbol vacío, el constructor no deja nada pendiente: `hasNext` responde
+`false` desde el principio, y `next` lanza la excepción, como pide el contrato
+de `Iterator`. Lo mismo pasa con un `next` pedido después del último valor.
+
+**Tiempo.** Un solo `next` puede bajar por un camino entero, $$O(h)$$. Pero
+cada nodo entra a la pila una vez y sale una vez, así que recorrer los $$n$$
+valores cuesta $$\Theta(n)$$ en total: $$\Theta(1)$$ amortizado por `next`.
+**Memoria.** La pila guarda solo nodos de un mismo camino desde la raíz:
+$$O(h)$$.
 
 </Slide>
 
@@ -1578,15 +1839,15 @@ class InorderIterator<T> implements Iterator<T> {
     private final Deque<Node<T>> pending =
             new ArrayDeque<>();
 
-    InorderIterator(Node<T> root) {
-        pushLeft(root);
-    }
-
     private void pushLeft(Node<T> node) {
         while (node != null) {
             pending.push(node);
             node = node.left;
         }
+    }
+
+    InorderIterator(Node<T> root) {
+        pushLeft(root);
     }
 
     public boolean hasNext() {
@@ -1649,6 +1910,54 @@ check(threw, true);
 
 export const THREES = { v: 9, l: { v: 6, l: { v: 3 } }, r: { v: 12 } };
 
+{/* CrossStrip, AnswerRow — the intersection's drawings. CrossStrip runs the crossing of two sorted sequences as one column per comparison: each one's current value and the sign between them; the value that advances in the accent colour, a value in both in keep and copied down to the answer row. AnswerRow is the answer list a walk builds, with room for two values so a frame keeps one size. File-local like SortedRow (§6e-quater); the boxes are ValueBox. */}
+
+export function CrossStrip({ steps, label }) {
+  const colW = 62;
+  const x0 = 104;
+  const W = x0 + steps.length * colW;
+  const tone = (s, side) => (s.adv === 'both' ? 'keep' : s.adv === side ? 'hot' : undefined);
+  return (
+    <svg viewBox={`0 0 ${W} 196`} style={{ width: '100%', maxWidth: `${Math.round(W * 1.15)}px`, height: 'auto', display: 'block', margin: '0.75rem auto' }} role="img" aria-label={label}>
+      <text x="0" y="33" fontSize="12" fontWeight="600" style={{ fill: 'var(--color-ink-soft)' }}>primero</text>
+      <text x="0" y="113" fontSize="12" fontWeight="600" style={{ fill: 'var(--color-ink-soft)' }}>segundo</text>
+      <text x="0" y="171" fontSize="12" fontWeight="600" style={{ fill: 'var(--color-ink-soft)' }}>en los dos</text>
+      <text x="0" y="66" fontSize="11" style={{ fill: 'var(--color-accent)' }}>en color,</text>
+      <text x="0" y="80" fontSize="11" style={{ fill: 'var(--color-accent)' }}>el que avanza</text>
+      {steps.map((s, i) => {
+        const cx = x0 + i * colW + colW / 2;
+        const ended = s.b === null;
+        const sign = ended ? '' : s.a < s.b ? '<' : s.a > s.b ? '>' : '=';
+        return (
+          <g key={i}>
+            <ValueBox x={cx - 17} y={12} v={s.a} tone={tone(s, 'a')} />
+            <text x={cx} y="78" textAnchor="middle" fontSize="18" fontWeight="700" style={{ fill: 'var(--color-ink-soft)' }}>{sign}</text>
+            <ValueBox x={cx - 17} y={92} v={ended ? null : s.b} tone={ended ? 'empty' : tone(s, 'b')} />
+            {s.adv === 'both' ? <ValueBox x={cx - 17} y={150} v={s.a} tone="keep" /> : null}
+            {ended ? (
+              <text x={cx} y="171" textAnchor="middle" fontSize="12" style={{ fill: 'var(--color-ink-faint)' }}>termina</text>
+            ) : null}
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
+
+export function AnswerRow({ values, label }) {
+  const W = 200;
+  return (
+    <svg viewBox={`0 0 ${W} 46`} style={{ width: '100%', maxWidth: `${Math.round(W * 1.3)}px`, height: 'auto', display: 'block', margin: '0.25rem auto' }} role="img" aria-label={label}>
+      <text x="0" y="28" fontSize="13" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink-soft)' }}>both</text>
+      {values.length === 0 ? (
+        <text x="56" y="28" fontSize="12" style={{ fill: 'var(--color-ink-faint)' }}>vacía</text>
+      ) : (
+        values.map((v, i) => <ValueBox key={i} x={56 + i * 40} y={6} v={v} tone="keep" />)
+      )}
+    </svg>
+  );
+}
+
 <Slide title="La intersección de dos árboles de búsqueda">
 Dos cursos guardan a sus estudiantes inscritos en un árbol de búsqueda, por
 número de matrícula, y hay que saber quiénes están inscritos en los dos. El
@@ -1676,9 +1985,16 @@ La primera idea es recorrer el primer árbol y buscar cada uno de sus valores
 en el segundo. Es correcta, pero son $$n$$ búsquedas de costo $$O(h_2)$$:
 $$O(n \cdot h_2)$$, y si el segundo árbol es una cadena, $$O(n \cdot m)$$.
 
+<BinaryPicture tree={THREES} path={[9, 6, 3]} probe={{ at: 3, side: 'l' }} tones={{ 9: 'focus', 6: 'focus', 3: 'focus', 12: 'faint' }} minColumns={4} size={0.6} label="La búsqueda del 2, el primer valor del primer árbol, en el segundo: baja por 9, 6 y 3, y llega a un subárbol vacío. El 2 no está." caption="el 2 en el segundo: 9, 6, 3, y no está" />
+
 La segunda es copiar el inorden de cada árbol en una lista: las dos quedan
 ordenadas, y se cruzan en $$\Theta(n + m)$$. Pero copia los dos árboles
 enteros: la memoria también es $$\Theta(n + m)$$.
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '0 2rem', alignItems: 'end' }}>
+<SortedRow values={[2, 4, 6, 8, 10, 12, 14]} label="La copia del inorden del primer árbol: 2, 4, 6, 8, 10, 12 y 14." caption="la copia del primero: siete valores" />
+<SortedRow values={[3, 6, 9, 12]} label="La copia del inorden del segundo árbol: 3, 6, 9 y 12." caption="la copia del segundo: cuatro valores" />
+</div>
 
 </Slide>
 
@@ -1686,45 +2002,45 @@ enteros: la memoria también es $$\Theta(n + m)$$.
 Dos secuencias ordenadas se cruzan sin volver atrás. Se compara el valor
 actual de cada una: si son iguales, ese valor está en las dos, y avanzan
 ambas; si no, avanza la que tiene el menor, porque ese valor no puede estar
-en la otra, cuyos valores que quedan son todos mayores. Los inórdenes de los
-dos árboles son esas dos secuencias, y basta avanzarlos **de a un valor**,
-cada uno pausado mientras el otro avanza.
+en la otra, cuyos valores que quedan son todos mayores. Cuando una se acaba,
+no queda nada en común.
 
-|          | Primero | Segundo | Qué pasa                              |
-| -------- | ------- | ------- | ------------------------------------- |
-| Al partir | 2       | 3       | 2 < 3: avanza el primero              |
-|          | 4       | 3       | 4 > 3: avanza el segundo              |
-|          | 4       | 6       | 4 < 6: avanza el primero              |
-|          | 6       | 6       | iguales: 6 está en los dos; avanzan ambos |
-|          | 8       | 9       | 8 < 9: avanza el primero              |
-|          | 10      | 9       | 10 > 9: avanza el segundo             |
-|          | 10      | 12      | 10 < 12: avanza el primero            |
-|          | 12      | 12      | iguales: 12 está en los dos; avanzan ambos |
-|          | 14      | —       | el segundo se acabó: termina          |
+Las secuencias son los inórdenes de los dos árboles, y cada uno avanza **de a
+un valor**, en pausa mientras el otro avanza: un **iterador** por árbol.
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '0 2rem', alignItems: 'end' }}>
+<BinaryPicture tree={EVENS} strip compact minColumns={4} size={0.6} label="El primer árbol con su inorden debajo: 2, 4, 6, 8, 10, 12 y 14." caption="el primero y su inorden" />
+<BinaryPicture tree={THREES} strip compact minColumns={4} size={0.6} label="El segundo árbol con su inorden debajo: 3, 6, 9 y 12." caption="el segundo y su inorden" />
+</div>
+
+<CrossStrip
+  steps={[
+    { a: 2, b: 3, adv: 'a' },
+    { a: 4, b: 3, adv: 'b' },
+    { a: 4, b: 6, adv: 'a' },
+    { a: 6, b: 6, adv: 'both' },
+    { a: 8, b: 9, adv: 'a' },
+    { a: 10, b: 9, adv: 'b' },
+    { a: 10, b: 12, adv: 'a' },
+    { a: 12, b: 12, adv: 'both' },
+    { a: 14, b: null },
+  ]}
+  label="El cruce de los dos inórdenes, una comparación por columna. 2 y 3: avanza el primero. 4 y 3: avanza el segundo. 4 y 6: avanza el primero. 6 y 6: el 6 está en los dos, y avanzan ambos. 8 y 9: avanza el primero. 10 y 9: avanza el segundo. 10 y 12: avanza el primero. 12 y 12: el 12 está en los dos, y avanzan ambos. Con el 14 en el primero, el segundo se acabó, y el cruce termina: en los dos están el 6 y el 12."
+/>
 
 </Slide>
 
 <Slide title="Intersección · el iterador del inorden">
-Un inorden que avanza de a un valor es un **iterador**: guarda en una pila los
-nodos pendientes, el camino hacia la izquierda; `next` saca el último y deja
-pendiente el camino hacia la izquierda desde su hijo derecho. La pila guarda
-un camino a la vez, así que pide memoria $$O(h)$$.
+Cada árbol se recorre con su propio iterador del inorden, el del árbol de
+búsqueda, sin cambios. `hasNext` dice si a ese árbol le quedan valores, y
+`next` entrega el siguiente; su pila de pendientes pide memoria $$O(h)$$ de su
+árbol.
 
 ```java
 class InorderIterator<T> implements Iterator<T> {
-    Deque<Node<T>> pending = new ArrayDeque<>();
-    InorderIterator(Node<T> root) { pushLeft(root); }
-    void pushLeft(Node<T> node) {
-        for (; node != null; node = node.left) {
-            pending.push(node);
-        }
-    }
-    public boolean hasNext() { return !pending.isEmpty(); }
-    public T next() {
-        Node<T> node = pending.pop();
-        pushLeft(node.right);
-        return node.value;
-    }
+    InorderIterator(Node<T> root)
+    public boolean hasNext()
+    public T next()
 }
 ```
 
@@ -1754,55 +2070,205 @@ solo `x`, y con `c` positivo, solo `y`.
     return both;
 }`}
 >
-  <Step lines={[3, 4, 5, 6, 7]}>
-    <SortedRow values={[2, 4, 6, 8, 10, 12, 14]} hot={0} label="El inorden del primer árbol; su valor actual, x, es el 2." caption="primero: x = 2" />
-    <SortedRow values={[3, 6, 9, 12]} hot={0} label="El inorden del segundo árbol; su valor actual, y, es el 3." caption="segundo: y = 3" />
-    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>Cada iterador entrega su primer valor: x = 2, y = 3.</div>
+  <Step lines={[3, 4, 5]}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr) minmax(0, 0.7fr)', gap: '0 1rem', alignItems: 'center' }}>
+      <BinaryPicture tree={EVENS} compact minColumns={4} size={0.75} tones={{}} notes={{ 8: '' }} label="El primer árbol; su iterador todavía no entrega nada." caption="primero" />
+      <BinaryPicture tree={THREES} compact minColumns={4} size={0.75} tones={{}} notes={{ 9: '' }} label="El segundo árbol; su iterador todavía no entrega nada." caption="segundo" />
+      <AnswerRow values={[]} label="La respuesta, both, está vacía." />
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '1.4em' }}>La respuesta empieza vacía, y cada árbol tiene su iterador.</div>
   </Step>
-  <Step lines={[8, 9, 11]}>
-    <SortedRow values={[2, 4, 6, 8, 10, 12, 14]} hot={1} out={[0]} label="2 es menor que 3: avanza el primero, y x pasa a ser 4." caption="primero: x = 4" />
-    <SortedRow values={[3, 6, 9, 12]} hot={0} label="El segundo no avanza: y sigue en 3." caption="segundo: y = 3" />
-    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>2 &lt; 3: avanza x, que pasa a 4.</div>
+  <Step lines={[6]}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr) minmax(0, 0.7fr)', gap: '0 1rem', alignItems: 'center' }}>
+      <BinaryPicture tree={EVENS} compact minColumns={4} size={0.75} tones={{ 2: 'focus' }} notes={{ 2: 'x' }} label="El primer árbol; x es el 2." caption="primero" />
+      <BinaryPicture tree={THREES} compact minColumns={4} size={0.75} tones={{}} notes={{ 9: '' }} label="El segundo árbol; su iterador todavía no entrega nada." caption="segundo" />
+      <AnswerRow values={[]} label="La respuesta, both, está vacía." />
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '1.4em' }}>El primer iterador entrega su primer valor: x = 2.</div>
   </Step>
-  <Step lines={[8, 9, 12]}>
-    <SortedRow values={[2, 4, 6, 8, 10, 12, 14]} hot={1} out={[0]} label="El primero no avanza: x sigue en 4." caption="primero: x = 4" />
-    <SortedRow values={[3, 6, 9, 12]} hot={1} out={[0]} label="4 es mayor que 3: avanza el segundo, y y pasa a ser 6." caption="segundo: y = 6" />
-    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>4 &gt; 3: avanza y, que pasa a 6.</div>
+  <Step lines={[7]}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr) minmax(0, 0.7fr)', gap: '0 1rem', alignItems: 'center' }}>
+      <BinaryPicture tree={EVENS} compact minColumns={4} size={0.75} tones={{ 2: 'focus' }} notes={{ 2: 'x' }} label="El primer árbol; x es el 2." caption="primero" />
+      <BinaryPicture tree={THREES} compact minColumns={4} size={0.75} tones={{ 3: 'focus' }} notes={{ 3: 'y' }} label="El segundo árbol; y es el 3." caption="segundo" />
+      <AnswerRow values={[]} label="La respuesta, both, está vacía." />
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '1.4em' }}>El segundo entrega el suyo: y = 3.</div>
   </Step>
-  <Step lines={[8, 9, 11]}>
-    <SortedRow values={[2, 4, 6, 8, 10, 12, 14]} hot={2} out={[0, 1]} label="4 es menor que 6: avanza el primero, y x pasa a ser 6." caption="primero: x = 6" />
-    <SortedRow values={[3, 6, 9, 12]} hot={1} out={[0]} label="El segundo no avanza: y sigue en 6." caption="segundo: y = 6" />
-    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>4 &lt; 6: avanza x, que pasa a 6.</div>
+  <Step lines={[8, 9]}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr) minmax(0, 0.7fr)', gap: '0 1rem', alignItems: 'center' }}>
+      <BinaryPicture tree={EVENS} compact minColumns={4} size={0.75} tones={{ 2: 'focus' }} notes={{ 2: 'x' }} label="El primer árbol; x es el 2." caption="primero" />
+      <BinaryPicture tree={THREES} compact minColumns={4} size={0.75} tones={{ 3: 'focus' }} notes={{ 3: 'y' }} label="El segundo árbol; y es el 3." caption="segundo" />
+      <AnswerRow values={[]} label="La respuesta, both, está vacía." />
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '1.4em' }}>Los dos tienen valor. 2 < 3: c es negativo.</div>
   </Step>
-  <Step lines={[8, 9, 10, 11, 12]}>
-    <SortedRow values={[2, 4, 6, 8, 10, 12, 14]} hot={3} out={[0, 1, 2]} label="6 es igual a 6: se agrega a la respuesta, y avanzan los dos; x pasa a ser 8." caption="primero: x = 8" />
-    <SortedRow values={[3, 6, 9, 12]} hot={2} out={[0, 1]} label="El segundo también avanza: y pasa a ser 9." caption="segundo: y = 9" />
-    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>6 = 6: está en los dos. Respuesta: 6. Avanzan x e y.</div>
+  <Step lines={[11]}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr) minmax(0, 0.7fr)', gap: '0 1rem', alignItems: 'center' }}>
+      <BinaryPicture tree={EVENS} compact minColumns={4} size={0.75} tones={{ 2: 'done', 4: 'focus' }} notes={{ 4: 'x' }} label="El primer árbol; x es el 4." caption="primero" />
+      <BinaryPicture tree={THREES} compact minColumns={4} size={0.75} tones={{ 3: 'focus' }} notes={{ 3: 'y' }} label="El segundo árbol; y es el 3." caption="segundo" />
+      <AnswerRow values={[]} label="La respuesta, both, está vacía." />
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '1.4em' }}>Avanza solo x, que pasa a 4.</div>
   </Step>
-  <Step lines={[8, 9, 11]}>
-    <SortedRow values={[2, 4, 6, 8, 10, 12, 14]} hot={4} out={[0, 1, 2, 3]} label="8 es menor que 9: avanza el primero, y x pasa a ser 10." caption="primero: x = 10" />
-    <SortedRow values={[3, 6, 9, 12]} hot={2} out={[0, 1]} label="El segundo no avanza: y sigue en 9." caption="segundo: y = 9" />
-    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>8 &lt; 9: avanza x, que pasa a 10. Respuesta: 6.</div>
+  <Step lines={[8, 9]}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr) minmax(0, 0.7fr)', gap: '0 1rem', alignItems: 'center' }}>
+      <BinaryPicture tree={EVENS} compact minColumns={4} size={0.75} tones={{ 2: 'done', 4: 'focus' }} notes={{ 4: 'x' }} label="El primer árbol; x es el 4." caption="primero" />
+      <BinaryPicture tree={THREES} compact minColumns={4} size={0.75} tones={{ 3: 'focus' }} notes={{ 3: 'y' }} label="El segundo árbol; y es el 3." caption="segundo" />
+      <AnswerRow values={[]} label="La respuesta, both, está vacía." />
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '1.4em' }}>4 > 3: c es positivo.</div>
   </Step>
-  <Step lines={[8, 9, 12]}>
-    <SortedRow values={[2, 4, 6, 8, 10, 12, 14]} hot={4} out={[0, 1, 2, 3]} label="El primero no avanza: x sigue en 10." caption="primero: x = 10" />
-    <SortedRow values={[3, 6, 9, 12]} hot={3} out={[0, 1, 2]} label="10 es mayor que 9: avanza el segundo, y y pasa a ser 12." caption="segundo: y = 12" />
-    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>10 &gt; 9: avanza y, que pasa a 12. Respuesta: 6.</div>
+  <Step lines={[12]}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr) minmax(0, 0.7fr)', gap: '0 1rem', alignItems: 'center' }}>
+      <BinaryPicture tree={EVENS} compact minColumns={4} size={0.75} tones={{ 2: 'done', 4: 'focus' }} notes={{ 4: 'x' }} label="El primer árbol; x es el 4." caption="primero" />
+      <BinaryPicture tree={THREES} compact minColumns={4} size={0.75} tones={{ 3: 'done', 6: 'focus' }} notes={{ 6: 'y' }} label="El segundo árbol; y es el 6." caption="segundo" />
+      <AnswerRow values={[]} label="La respuesta, both, está vacía." />
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '1.4em' }}>Avanza solo y, que pasa a 6.</div>
   </Step>
-  <Step lines={[8, 9, 11]}>
-    <SortedRow values={[2, 4, 6, 8, 10, 12, 14]} hot={5} out={[0, 1, 2, 3, 4]} label="10 es menor que 12: avanza el primero, y x pasa a ser 12." caption="primero: x = 12" />
-    <SortedRow values={[3, 6, 9, 12]} hot={3} out={[0, 1, 2]} label="El segundo no avanza: y sigue en 12." caption="segundo: y = 12" />
-    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>10 &lt; 12: avanza x, que pasa a 12. Respuesta: 6.</div>
+  <Step lines={[8, 9]}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr) minmax(0, 0.7fr)', gap: '0 1rem', alignItems: 'center' }}>
+      <BinaryPicture tree={EVENS} compact minColumns={4} size={0.75} tones={{ 2: 'done', 4: 'focus' }} notes={{ 4: 'x' }} label="El primer árbol; x es el 4." caption="primero" />
+      <BinaryPicture tree={THREES} compact minColumns={4} size={0.75} tones={{ 3: 'done', 6: 'focus' }} notes={{ 6: 'y' }} label="El segundo árbol; y es el 6." caption="segundo" />
+      <AnswerRow values={[]} label="La respuesta, both, está vacía." />
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '1.4em' }}>4 < 6: c es negativo.</div>
   </Step>
-  <Step lines={[8, 9, 10, 11, 12]}>
-    <SortedRow values={[2, 4, 6, 8, 10, 12, 14]} hot={6} out={[0, 1, 2, 3, 4, 5]} label="12 es igual a 12: se agrega a la respuesta, y avanzan los dos; x pasa a ser 14." caption="primero: x = 14" />
-    <SortedRow values={[3, 6, 9, 12]} out={[0, 1, 2, 3]} label="El segundo también avanza, pero ya no le quedan valores: y pasa a ser null." caption="segundo: y = null" />
-    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>12 = 12: está en los dos. Respuesta: 6, 12. El segundo se acabó.</div>
+  <Step lines={[11]}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr) minmax(0, 0.7fr)', gap: '0 1rem', alignItems: 'center' }}>
+      <BinaryPicture tree={EVENS} compact minColumns={4} size={0.75} tones={{ 2: 'done', 4: 'done', 6: 'focus' }} notes={{ 6: 'x' }} label="El primer árbol; x es el 6." caption="primero" />
+      <BinaryPicture tree={THREES} compact minColumns={4} size={0.75} tones={{ 3: 'done', 6: 'focus' }} notes={{ 6: 'y' }} label="El segundo árbol; y es el 6." caption="segundo" />
+      <AnswerRow values={[]} label="La respuesta, both, está vacía." />
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '1.4em' }}>Avanza solo x, que pasa a 6.</div>
   </Step>
-  <Step lines={[8, 14]}>
-    <SortedRow values={[2, 4, 6, 8, 10, 12, 14]} hot={6} out={[0, 1, 2, 3, 4, 5]} label="El primero no alcanza a avanzar: el ciclo termina." caption="primero: x = 14" />
-    <SortedRow values={[3, 6, 9, 12]} out={[0, 1, 2, 3]} label="El segundo se acabó, y con él el ciclo." caption="segundo: y = null" />
-    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>y es null: el ciclo termina, y la respuesta es 6, 12.</div>
+  <Step lines={[8, 9]}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr) minmax(0, 0.7fr)', gap: '0 1rem', alignItems: 'center' }}>
+      <BinaryPicture tree={EVENS} compact minColumns={4} size={0.75} tones={{ 2: 'done', 4: 'done', 6: 'focus' }} notes={{ 6: 'x' }} label="El primer árbol; x es el 6." caption="primero" />
+      <BinaryPicture tree={THREES} compact minColumns={4} size={0.75} tones={{ 3: 'done', 6: 'focus' }} notes={{ 6: 'y' }} label="El segundo árbol; y es el 6." caption="segundo" />
+      <AnswerRow values={[]} label="La respuesta, both, está vacía." />
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '1.4em' }}>6 = 6: c es cero.</div>
+  </Step>
+  <Step lines={[10]}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr) minmax(0, 0.7fr)', gap: '0 1rem', alignItems: 'center' }}>
+      <BinaryPicture tree={EVENS} compact minColumns={4} size={0.75} tones={{ 2: 'done', 4: 'done', 6: 'keep' }} notes={{ 6: 'x' }} label="El primer árbol; x es el 6." caption="primero" />
+      <BinaryPicture tree={THREES} compact minColumns={4} size={0.75} tones={{ 3: 'done', 6: 'keep' }} notes={{ 6: 'y' }} label="El segundo árbol; y es el 6." caption="segundo" />
+      <AnswerRow values={[6]} label="La respuesta, both: 6." />
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '1.4em' }}>El 6 está en los dos: entra a la respuesta.</div>
+  </Step>
+  <Step lines={[11]}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr) minmax(0, 0.7fr)', gap: '0 1rem', alignItems: 'center' }}>
+      <BinaryPicture tree={EVENS} compact minColumns={4} size={0.75} tones={{ 2: 'done', 4: 'done', 6: 'keep', 8: 'focus' }} notes={{ 8: 'x' }} label="El primer árbol; x es el 8." caption="primero" />
+      <BinaryPicture tree={THREES} compact minColumns={4} size={0.75} tones={{ 3: 'done', 6: 'keep' }} notes={{ 6: 'y' }} label="El segundo árbol; y es el 6." caption="segundo" />
+      <AnswerRow values={[6]} label="La respuesta, both: 6." />
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '1.4em' }}>Avanzan los dos: x pasa a 8…</div>
+  </Step>
+  <Step lines={[12]}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr) minmax(0, 0.7fr)', gap: '0 1rem', alignItems: 'center' }}>
+      <BinaryPicture tree={EVENS} compact minColumns={4} size={0.75} tones={{ 2: 'done', 4: 'done', 6: 'keep', 8: 'focus' }} notes={{ 8: 'x' }} label="El primer árbol; x es el 8." caption="primero" />
+      <BinaryPicture tree={THREES} compact minColumns={4} size={0.75} tones={{ 3: 'done', 6: 'keep', 9: 'focus' }} notes={{ 9: 'y' }} label="El segundo árbol; y es el 9." caption="segundo" />
+      <AnswerRow values={[6]} label="La respuesta, both: 6." />
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '1.4em' }}>…e y pasa a 9.</div>
+  </Step>
+  <Step lines={[8, 9]}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr) minmax(0, 0.7fr)', gap: '0 1rem', alignItems: 'center' }}>
+      <BinaryPicture tree={EVENS} compact minColumns={4} size={0.75} tones={{ 2: 'done', 4: 'done', 6: 'keep', 8: 'focus' }} notes={{ 8: 'x' }} label="El primer árbol; x es el 8." caption="primero" />
+      <BinaryPicture tree={THREES} compact minColumns={4} size={0.75} tones={{ 3: 'done', 6: 'keep', 9: 'focus' }} notes={{ 9: 'y' }} label="El segundo árbol; y es el 9." caption="segundo" />
+      <AnswerRow values={[6]} label="La respuesta, both: 6." />
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '1.4em' }}>8 < 9: c es negativo.</div>
+  </Step>
+  <Step lines={[11]}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr) minmax(0, 0.7fr)', gap: '0 1rem', alignItems: 'center' }}>
+      <BinaryPicture tree={EVENS} compact minColumns={4} size={0.75} tones={{ 2: 'done', 4: 'done', 6: 'keep', 8: 'done', 10: 'focus' }} notes={{ 10: 'x' }} label="El primer árbol; x es el 10." caption="primero" />
+      <BinaryPicture tree={THREES} compact minColumns={4} size={0.75} tones={{ 3: 'done', 6: 'keep', 9: 'focus' }} notes={{ 9: 'y' }} label="El segundo árbol; y es el 9." caption="segundo" />
+      <AnswerRow values={[6]} label="La respuesta, both: 6." />
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '1.4em' }}>Avanza solo x, que pasa a 10.</div>
+  </Step>
+  <Step lines={[8, 9]}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr) minmax(0, 0.7fr)', gap: '0 1rem', alignItems: 'center' }}>
+      <BinaryPicture tree={EVENS} compact minColumns={4} size={0.75} tones={{ 2: 'done', 4: 'done', 6: 'keep', 8: 'done', 10: 'focus' }} notes={{ 10: 'x' }} label="El primer árbol; x es el 10." caption="primero" />
+      <BinaryPicture tree={THREES} compact minColumns={4} size={0.75} tones={{ 3: 'done', 6: 'keep', 9: 'focus' }} notes={{ 9: 'y' }} label="El segundo árbol; y es el 9." caption="segundo" />
+      <AnswerRow values={[6]} label="La respuesta, both: 6." />
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '1.4em' }}>10 > 9: c es positivo.</div>
+  </Step>
+  <Step lines={[12]}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr) minmax(0, 0.7fr)', gap: '0 1rem', alignItems: 'center' }}>
+      <BinaryPicture tree={EVENS} compact minColumns={4} size={0.75} tones={{ 2: 'done', 4: 'done', 6: 'keep', 8: 'done', 10: 'focus' }} notes={{ 10: 'x' }} label="El primer árbol; x es el 10." caption="primero" />
+      <BinaryPicture tree={THREES} compact minColumns={4} size={0.75} tones={{ 3: 'done', 6: 'keep', 9: 'done', 12: 'focus' }} notes={{ 12: 'y' }} label="El segundo árbol; y es el 12." caption="segundo" />
+      <AnswerRow values={[6]} label="La respuesta, both: 6." />
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '1.4em' }}>Avanza solo y, que pasa a 12.</div>
+  </Step>
+  <Step lines={[8, 9]}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr) minmax(0, 0.7fr)', gap: '0 1rem', alignItems: 'center' }}>
+      <BinaryPicture tree={EVENS} compact minColumns={4} size={0.75} tones={{ 2: 'done', 4: 'done', 6: 'keep', 8: 'done', 10: 'focus' }} notes={{ 10: 'x' }} label="El primer árbol; x es el 10." caption="primero" />
+      <BinaryPicture tree={THREES} compact minColumns={4} size={0.75} tones={{ 3: 'done', 6: 'keep', 9: 'done', 12: 'focus' }} notes={{ 12: 'y' }} label="El segundo árbol; y es el 12." caption="segundo" />
+      <AnswerRow values={[6]} label="La respuesta, both: 6." />
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '1.4em' }}>10 < 12: c es negativo.</div>
+  </Step>
+  <Step lines={[11]}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr) minmax(0, 0.7fr)', gap: '0 1rem', alignItems: 'center' }}>
+      <BinaryPicture tree={EVENS} compact minColumns={4} size={0.75} tones={{ 2: 'done', 4: 'done', 6: 'keep', 8: 'done', 10: 'done', 12: 'focus' }} notes={{ 12: 'x' }} label="El primer árbol; x es el 12." caption="primero" />
+      <BinaryPicture tree={THREES} compact minColumns={4} size={0.75} tones={{ 3: 'done', 6: 'keep', 9: 'done', 12: 'focus' }} notes={{ 12: 'y' }} label="El segundo árbol; y es el 12." caption="segundo" />
+      <AnswerRow values={[6]} label="La respuesta, both: 6." />
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '1.4em' }}>Avanza solo x, que pasa a 12.</div>
+  </Step>
+  <Step lines={[8, 9]}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr) minmax(0, 0.7fr)', gap: '0 1rem', alignItems: 'center' }}>
+      <BinaryPicture tree={EVENS} compact minColumns={4} size={0.75} tones={{ 2: 'done', 4: 'done', 6: 'keep', 8: 'done', 10: 'done', 12: 'focus' }} notes={{ 12: 'x' }} label="El primer árbol; x es el 12." caption="primero" />
+      <BinaryPicture tree={THREES} compact minColumns={4} size={0.75} tones={{ 3: 'done', 6: 'keep', 9: 'done', 12: 'focus' }} notes={{ 12: 'y' }} label="El segundo árbol; y es el 12." caption="segundo" />
+      <AnswerRow values={[6]} label="La respuesta, both: 6." />
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '1.4em' }}>12 = 12: c es cero.</div>
+  </Step>
+  <Step lines={[10]}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr) minmax(0, 0.7fr)', gap: '0 1rem', alignItems: 'center' }}>
+      <BinaryPicture tree={EVENS} compact minColumns={4} size={0.75} tones={{ 2: 'done', 4: 'done', 6: 'keep', 8: 'done', 10: 'done', 12: 'keep' }} notes={{ 12: 'x' }} label="El primer árbol; x es el 12." caption="primero" />
+      <BinaryPicture tree={THREES} compact minColumns={4} size={0.75} tones={{ 3: 'done', 6: 'keep', 9: 'done', 12: 'keep' }} notes={{ 12: 'y' }} label="El segundo árbol; y es el 12." caption="segundo" />
+      <AnswerRow values={[6,  12]} label="La respuesta, both: 6, 12." />
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '1.4em' }}>El 12 está en los dos: entra a la respuesta.</div>
+  </Step>
+  <Step lines={[11]}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr) minmax(0, 0.7fr)', gap: '0 1rem', alignItems: 'center' }}>
+      <BinaryPicture tree={EVENS} compact minColumns={4} size={0.75} tones={{ 2: 'done', 4: 'done', 6: 'keep', 8: 'done', 10: 'done', 12: 'keep', 14: 'focus' }} notes={{ 14: 'x' }} label="El primer árbol; x es el 14." caption="primero" />
+      <BinaryPicture tree={THREES} compact minColumns={4} size={0.75} tones={{ 3: 'done', 6: 'keep', 9: 'done', 12: 'keep' }} notes={{ 12: 'y' }} label="El segundo árbol; y es el 12." caption="segundo" />
+      <AnswerRow values={[6,  12]} label="La respuesta, both: 6, 12." />
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '1.4em' }}>Avanzan los dos: x pasa a 14…</div>
+  </Step>
+  <Step lines={[12]}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr) minmax(0, 0.7fr)', gap: '0 1rem', alignItems: 'center' }}>
+      <BinaryPicture tree={EVENS} compact minColumns={4} size={0.75} tones={{ 2: 'done', 4: 'done', 6: 'keep', 8: 'done', 10: 'done', 12: 'keep', 14: 'focus' }} notes={{ 14: 'x' }} label="El primer árbol; x es el 14." caption="primero" />
+      <BinaryPicture tree={THREES} compact minColumns={4} size={0.75} tones={{ 3: 'done', 6: 'keep', 9: 'done', 12: 'keep' }} notes={{ 9: '' }} label="El segundo árbol, recorrido entero: y es null." caption="segundo" />
+      <AnswerRow values={[6,  12]} label="La respuesta, both: 6, 12." />
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '1.4em' }}>…y al segundo no le quedan valores: y pasa a null.</div>
+  </Step>
+  <Step lines={[8]}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr) minmax(0, 0.7fr)', gap: '0 1rem', alignItems: 'center' }}>
+      <BinaryPicture tree={EVENS} compact minColumns={4} size={0.75} tones={{ 2: 'done', 4: 'done', 6: 'keep', 8: 'done', 10: 'done', 12: 'keep', 14: 'focus' }} notes={{ 14: 'x' }} label="El primer árbol; x es el 14." caption="primero" />
+      <BinaryPicture tree={THREES} compact minColumns={4} size={0.75} tones={{ 3: 'done', 6: 'keep', 9: 'done', 12: 'keep' }} notes={{ 9: '' }} label="El segundo árbol, recorrido entero: y es null." caption="segundo" />
+      <AnswerRow values={[6,  12]} label="La respuesta, both: 6, 12." />
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '1.4em' }}>y es null: el ciclo termina.</div>
+  </Step>
+  <Step lines={[14]}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr) minmax(0, 0.7fr)', gap: '0 1rem', alignItems: 'center' }}>
+      <BinaryPicture tree={EVENS} compact minColumns={4} size={0.75} tones={{ 2: 'done', 4: 'done', 6: 'keep', 8: 'done', 10: 'done', 12: 'keep', 14: 'focus' }} notes={{ 14: 'x' }} label="El primer árbol; x es el 14." caption="primero" />
+      <BinaryPicture tree={THREES} compact minColumns={4} size={0.75} tones={{ 3: 'done', 6: 'keep', 9: 'done', 12: 'keep' }} notes={{ 9: '' }} label="El segundo árbol, recorrido entero: y es null." caption="segundo" />
+      <AnswerRow values={[6,  12]} label="La respuesta, both: 6, 12." />
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '1.4em' }}>La respuesta es 6, 12.</div>
   </Step>
 </StepShow>
 
@@ -1814,10 +2280,11 @@ Si un árbol está vacío, su iterador no entrega nada, `x` o `y` empieza en
 tienen valores en común, el ciclo avanza hasta acabar uno de los dos sin
 agregar nada.
 
-**Tiempo.** Cada valor de cada árbol sale de su iterador una sola vez, y cada
-vuelta del ciclo hace avanzar al menos a uno: $$\Theta(n + m)$$. **Memoria.**
-Las dos pilas guardan un camino cada una: $$O(h_1 + h_2)$$, aparte de la
-respuesta. Si los dos son árboles AVL, eso es $$O(\log n + \log m)$$.
+**Tiempo.** Cada vuelta del ciclo saca al menos un valor de un iterador, y
+cada nodo entra y sale de su pila una sola vez: $$O(n + m)$$. Puede ser menos,
+porque el ciclo termina en cuanto un árbol se acaba. **Memoria.** Las dos
+pilas guardan un camino cada una: $$O(h_1 + h_2)$$, aparte de la respuesta.
+Si los dos son árboles AVL, eso es $$O(\log n + \log m)$$.
 
 </Slide>
 
@@ -1831,6 +2298,7 @@ import java.util.ArrayList;
 import java.util.Deque;
 import java.util.Iterator;
 import java.util.List;
+import java.util.NoSuchElementException;
 
 class Node<T> {
     T value;
@@ -1840,15 +2308,28 @@ class Node<T> {
 }
 
 class InorderIterator<T> implements Iterator<T> {
-    Deque<Node<T>> pending = new ArrayDeque<>();
-    InorderIterator(Node<T> root) { pushLeft(root); }
-    void pushLeft(Node<T> node) {
-        for (; node != null; node = node.left) {
+    private final Deque<Node<T>> pending =
+            new ArrayDeque<>();
+
+    private void pushLeft(Node<T> node) {
+        while (node != null) {
             pending.push(node);
+            node = node.left;
         }
     }
-    public boolean hasNext() { return !pending.isEmpty(); }
+
+    InorderIterator(Node<T> root) {
+        pushLeft(root);
+    }
+
+    public boolean hasNext() {
+        return !pending.isEmpty();
+    }
+
     public T next() {
+        if (pending.isEmpty()) {
+            throw new NoSuchElementException();
+        }
         Node<T> node = pending.pop();
         pushLeft(node.right);
         return node.value;
