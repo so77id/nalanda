@@ -64,7 +64,9 @@ MAX_BODY = 1 << 20  # 1 MiB
 
 # No AMC call should outlive this. A 40-copy batch reads in under a minute
 # measured (ADR-0030 §Measurements); half an hour means something hung, and
-# without a bound it would hold a worker thread forever.
+# without a bound it would hold a worker thread forever. Also read BY NAME,
+# from the image, by tests/tools/regress-tolerance.py, which `make test` never
+# runs: a rename breaks that tool, not the suite.
 AMC_TIMEOUT = 1800
 
 # apps/server runs as this UID (its Dockerfile, `USER 65532:65532`). The
@@ -85,6 +87,10 @@ CALLER_UID = 65532
 # 0.62-1.00, empty boxes ~0.0 — 0.30 cut straight through the X band. 0.15
 # reads every X except the faintest tail, which falls into the doubtful band
 # (0.05-0.15) and stays visible in needs_review instead of being lost.
+#
+# Read BY NAME, from the image: TICKED by `make read-paper` and `make
+# read-paper-min` (note --seuil), both by tests/tools/regress-tolerance.py —
+# none of which runs in `make test`. A rename goes green through the suite.
 TICKED = 0.15
 UNSURE = 0.05
 
@@ -98,6 +104,11 @@ UNSURE = 0.05
 # the 305 pages the eight earlier controls had captured with bit-identical
 # transforms. Growing stays at AMC's default: fitting onto Letter or A4 paper
 # never enlarges the sheet (ADR-0085).
+#
+# The suite bounds this value from BELOW only: 09-scaled.sh reddens on a band
+# too narrow and stays green on one far too wide (0.9,0.9 passes). What
+# guards widening is tests/tools/regress-tolerance.py on the Jetson's real
+# scans (documentation.md Rule 6).
 #
 # Read BY NAME, from the image, by `make read-paper`, `make read-paper-min`,
 # tests/measure-scale.sh, tests/tools/regress-tolerance.py and the README's

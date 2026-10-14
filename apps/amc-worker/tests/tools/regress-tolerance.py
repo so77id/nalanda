@@ -12,6 +12,19 @@ on the Jetson, over real scans, and it is the gate for any change to
       < ../../apps/amc-worker/tests/tools/regress-tolerance.py
     # options after `python3 -`:  --old 0.2,0.2  --new 0.35,0.2  --root /work/controls
 
+With no options it compares AMC's own band against this image's
+MARK_TOLERANCE — the #327 comparison (its AC-5). To vet a CHANGE of the value,
+pass both: --old <the deployed MARK_TOLERANCE> --new <the candidate>.
+
+The Jetson's checkout can lag behind the branch you are testing; from a dev
+host, pipe your own copy instead (how #327 ran it):
+
+    ssh jetson 'cd /opt/nalanda/repo/infra/local && sudo docker-compose exec -T \\
+      amc-worker python3 - --new 0.35,0.2' < apps/amc-worker/tests/tools/regress-tolerance.py
+
+The root's subdirectories must be AMC projects: /work/controls for controls; a
+survey's runs are one level deeper, --root /work/surveys/<survey id>/runs.
+
 READ-ONLY. For each project under the root it copies `layout.sqlite` and the
 scan images its capture references into a scratch directory under /tmp,
 analyses them there at OLD and at NEW, compares, and removes the scratch copy
@@ -141,7 +154,8 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--old", default="default",
-                    help="tolerance to compare from: 'default' (AMC's own, no flag) or <smaller>,<larger>")
+                    help="tolerance to compare from: 'default' (AMC's own, no flag — the #327 "
+                         "comparison) or <smaller>,<larger>; to vet a change, the deployed value")
     # getattr: an image deployed before #327 has no MARK_TOLERANCE, and testing
     # a value BEFORE it ships is exactly what this script is for.
     ap.add_argument("--new", default=getattr(worker, "MARK_TOLERANCE", None),
