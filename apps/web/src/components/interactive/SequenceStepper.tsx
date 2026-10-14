@@ -706,15 +706,16 @@ function Body({
             {trace.row !== undefined ? (
               // Listings side by side in one row, each named and lit on its
               // own: the AVL's insert beside balance, a program beside both
-              // (#322). Each takes the width its lines need and the last the
-              // rest; the book's column holds them one over the other.
+              // (#322). Two share the width in halves; three give the program
+              // a fifth and the methods two fifths each (Miguel's review). The
+              // book's column holds them one over the other.
               <div
                 className={
                   !isPresentation
                     ? 'grid grid-cols-1 gap-px bg-rule'
                     : trace.row.length === 3
-                      ? 'grid grid-cols-[max-content_max-content_minmax(0,1fr)] gap-px bg-rule'
-                      : 'grid grid-cols-[max-content_minmax(0,1fr)] gap-px bg-rule'
+                      ? 'grid grid-cols-[minmax(0,1fr)_minmax(0,2fr)_minmax(0,2fr)] gap-px bg-rule'
+                      : 'grid grid-cols-2 gap-px bg-rule'
                 }
               >
                 {trace.row.map((listing, i) => (

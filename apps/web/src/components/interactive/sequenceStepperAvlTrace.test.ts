@@ -548,8 +548,9 @@ describe('sequenceStepperTrace · avl · insertions run by a program (#322)', ()
 
   it('lists the program, the insert method and balance side by side', () => {
     const trace = run([2, 4, 6]);
+    // The creation on two lines: the program's column is a fifth of the width.
     expect(trace.code).toBe(
-      'AVL<Integer> tree = new AVL<>();\ntree.insert(2);\ntree.insert(4);\ntree.insert(6);',
+      'AVL<Integer> tree =\n        new AVL<>();\ntree.insert(2);\ntree.insert(4);\ntree.insert(6);',
     );
     expect(trace.row!.map((p) => p.name)).toEqual(['programa', 'inserción', 'balance']);
     expect(trace.row![1]!.code).toBe(traceFor('avl', 'insert', { values: [2], value: 1 }).code);
@@ -558,7 +559,7 @@ describe('sequenceStepperTrace · avl · insertions run by a program (#322)', ()
 
   it('walks every insertion through the method, its program line lit the whole time', () => {
     const trace = run([2, 4, 6]);
-    expect(lit(trace, trace.steps[0]!)).toEqual(['AVL<Integer> tree = new AVL<>();']);
+    expect(lit(trace, trace.steps[0]!)).toEqual(['AVL<Integer> tree =', 'new AVL<>();']);
     expect(method(trace, trace.steps[0]!)).toEqual([]);
     const third = trace.steps.filter((s) => lit(trace, s)[0] === 'tree.insert(6);');
     // It starts at the public call, goes down, hangs the leaf and balances back up.

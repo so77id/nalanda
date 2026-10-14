@@ -779,15 +779,18 @@ function traceAvlInsertProgram(values: number[], inserts: number[]): SequenceTra
     );
   }
   const walked = traceAvlInsert({ values: [], value: inserts });
+  // The creation on two lines: the program's column is a fifth of the
+  // slide's width, and on one line it was cut (#322).
   const code = [
-    'AVL<Integer> tree = new AVL<>();',
+    'AVL<Integer> tree =',
+    '        new AVL<>();',
     ...inserts.map((x) => `tree.insert(${x});`),
   ].join('\n');
   const created: SequenceStep = {
     ...walked.steps[0]!,
     kind: 'start',
-    highlightLines: [1],
-    rowLines: [[1], [], []],
+    highlightLines: [1, 2],
+    rowLines: [[1, 2], [], []],
     description: 'El árbol se crea vacío: su raíz es null.',
     tree: { ...walked.steps[0]!.tree!, root: null, nodes: [], path: [] },
     cells: [],
@@ -802,7 +805,7 @@ function traceAvlInsertProgram(values: number[], inserts: number[]): SequenceTra
       return { ...step, highlightLines: [], rowLines: [[], [], []] };
     }
     const [inInsert = [], inBalanceLines = []] = step.rowLines ?? [];
-    return { ...step, highlightLines: [run + 2], rowLines: [[run + 2], inInsert, inBalanceLines] };
+    return { ...step, highlightLines: [run + 3], rowLines: [[run + 3], inInsert, inBalanceLines] };
   });
   return {
     ...walked,
