@@ -15,8 +15,8 @@ Commands and stack live in `README.md` — one home per fact.
   subprocess rules (argument lists, a `timeout` on every call, a caller value
   only ever in a flag's value slot) and how a request-supplied path is resolved.
 - `docs/standards/testing-strategy.md` §`apps/amc-worker` — the two protocols
-  and the **five** rules for writing a verification script here. Read all five;
-  two of them exist because they were violated once.
+  and the rules for writing a verification script here. Read the whole
+  section; several exist because they were violated once.
 - `docs/decisions/0030-…` (the engine and its traps) and `0031-…` (the reading
   report, which is the contract WP-F and WP-G bind to).
 - `README.md` §Five traps — the AMC behaviours that silently lose a grade —
@@ -57,13 +57,15 @@ it — script names, test titles, the fixture's own comments.
   Every verification script, `make shell` and `make paper` override the command
   with a bare `auto-multiple-choice …` call; an `ENTRYPOINT` would bury the CLI
   underneath the server and break all of them.
-- **The five rules for verification scripts live in
-  `docs/standards/testing-strategy.md` §`apps/amc-worker`** — they are the tests;
+- **The rules for verification scripts live in
+  `docs/standards/testing-strategy.md` §`apps/amc-worker`** — among them: they are the tests;
   a measurement is reported rather than asserted; a trap is tested by performing
   it rather than by reading the wrapper; a trap performed on a degraded input
   also proves the pipeline reads at the identity setting and that the system
   saw the degradation (#327); and a test runs against the artifact rather than
-  the working tree. Read all five before adding a script. This file used to
+  the working tree. Read the whole section before adding a script — it holds
+  more than this list (a script never writes into a project the worker has
+  touched; a fixture added to kill a mutant names it). This file used to
   paraphrase the first two and silently omit the others.
 - **Anything the caller passes crosses the volume, not the wire.** Requests name
   paths under `/work`; PDFs and scans never travel as HTTP bodies.
@@ -109,9 +111,11 @@ it — script names, test titles, the fixture's own comments.
   from BELOW only: a far wider value keeps every script green. Any change
   must also pass `tests/tools/regress-tolerance.py` on the Jetson — the #327
   production regression, read-only, comparing placement, transforms and box
-  verdicts between the old and the new value; its docstring has the command
-  and what a report of it may record (counts only — the scans are students'
-  sheets).
+  verdicts between the old and the new value — run it with `--old <the
+  deployed MARK_TOLERANCE> --new <candidate>`: its `--old` DEFAULTS to AMC's
+  own band, which is the #327 comparison, not a change of the value. Its
+  docstring has the command and what a report of it may record (counts only —
+  the scans are students' sheets).
 - **`/scans/reset` empties what a capture produced and nothing else.** The
   layout and `inputs/` are what the paper was printed from and are
   irreplaceable once students wrote on it; `RESET_FILES` / `RESET_DIRS` in

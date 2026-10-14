@@ -354,7 +354,7 @@ reports the whole curve for both tolerances.
 
 - on the Jetson, from the deploy directory (`infra/local/DEPLOY-JETSON.md`):
   `sudo docker-compose exec amc-worker bash`, then `P=/work/controls/<control
-  id>` — a survey run's project lives under `/work/surveys/`;
+  id>` — a survey run's project is `/work/surveys/<survey id>/runs/<run id>`;
 - for a paper check, `make shell` from `apps/amc-worker/`, then
   `P=/work/paper/project` (or `/work/paper-min/project`).
 
@@ -396,8 +396,9 @@ the log, `Found binary ID: +0/0/0+` with a large `MSE` (some kept, the frame
 fitted to the page's code boxes — the real sheet at 0.87). At the worker's band
 they mean a sheet printed smaller than was measured to read, or a corner the
 scale does not explain: cut by the scanner, covered, torn — or clipped by the
-printer, a control laid out for one paper size printed on the other at 100 %
-(ADR-0042: every page `+0/0/0+`, 2026-08-19).
+printer: a control laid out for A4 printed on Letter at 100 % loses the
+~18 mm that holds its bottom circles (ADR-0042: every page `+0/0/0+`,
+2026-08-19). Letter on A4 clips none.
 
 Re-uploading the same PDF to the same worker is never the repair: the result
 is deterministic, and a re-capture clears the copy's corrections (ADR-0075).

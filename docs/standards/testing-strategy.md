@@ -212,8 +212,11 @@ bind-mounted directory the host just deleted and recreated (2 of 8 runs of
 `09-scaled.sh`; 7 of 10 in a two-line repro that does nothing else), which
 reddens "a two-copy control generates". Same answer for both: re-run, and
 expect neither on CI. If either stays red after two re-runs, stop re-running:
-run the script against a derived image carrying `main`'s `worker.py` (the
-recipe above) — red there too is the host, green there is the change — and
+run the script against a derived image carrying `main`'s `worker.py` — the
+recipe above, but take the file from `main`, not the working tree (`git show
+origin/main:apps/amc-worker/worker.py > /tmp/amc-mutant/worker.py`, and
+`COPY worker.py …` from `/tmp/amc-mutant` as the build context) — red there too
+is the host, green there is the change — and
 print the failing response (`echo "$again" >&2` after the call) so the next
 occurrence says what it is.
 

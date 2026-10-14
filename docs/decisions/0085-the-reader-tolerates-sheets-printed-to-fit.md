@@ -1,7 +1,8 @@
 # ADR-0085: The reader tolerates sheets printed to fit the page
 
 **Status:** Accepted — the production regression against the deployed image
-on the Jetson (#327 AC-5) outstanding
+on the Jetson (#327 AC-5) and the professor's look at copy 16 (AC-6)
+outstanding
 **Date:** 2026-10-13
 **Decision-makers:** Miguel Rodriguez
 **Source:** #327, from a production incident on control
@@ -176,9 +177,10 @@ Rejected.
 - An AMC upgrade: re-run `make measure-scale` and `tests/09-scaled.sh` before
   trusting the curve.
 - Widening either half of the tolerance: run
-  `apps/amc-worker/tests/tools/regress-tolerance.py --new <value>` on the
-  Jetson — every control's scans re-analysed in scratch copies at the old and
-  the new value, comparing placement, transforms and box verdicts.
+  `apps/amc-worker/tests/tools/regress-tolerance.py --old <the deployed value>
+  --new <candidate>` on the Jetson — every control's scans re-analysed in
+  scratch copies at both, comparing placement, transforms and box verdicts.
+  Both flags: `--old` defaults to AMC's own band, the comparison #327 made.
   `make measure-scale` and `09-scaled.sh` alone cannot reject a value that is
   too wide.
 - A captured page whose MSE is far above what good pages show (≤5 on every
