@@ -84,6 +84,13 @@ export interface BinaryPictureProps {
    * generic rotation's A, B and C, which move whole.
    */
   subtrees?: TreeValue[];
+  /**
+   * A rotation about to happen at a node, drawn as a curved arrow over the
+   * edge it turns: clockwise over the edge to the left child for `right`
+   * (that child goes up, the node goes down to its right), counterclockwise
+   * over the edge to the right child for `left` (#322).
+   */
+  turn?: { at: TreeValue; dir: 'right' | 'left' };
 }
 
 const TONE: Record<Exclude<BinaryPictureTone, 'hidden'>, [string, string, number]> = {
@@ -150,6 +157,20 @@ export function BinaryPicture(props: BinaryPictureProps) {
       </AuthoringError>
     );
   }
+  if (props.turn !== undefined) {
+    const { at, dir } = props.turn;
+    const node = placed.nodes.find((n) => n.key === String(at));
+    const child = dir === 'right' ? node?.left : node?.right;
+    if (!child) {
+      return (
+        <AuthoringError component="BinaryPicture">
+          gira a la {dir === 'right' ? 'derecha' : 'izquierda'} en {String(at)}, que no tiene{' '}
+          {dir === 'right' ? 'hijo izquierdo' : 'hijo derecho'}: la rotación sube a ese hijo, y sin
+          él no hay nada que girar.
+        </AuthoringError>
+      );
+    }
+  }
   return <Picture {...props} />;
 }
 
@@ -180,6 +201,7 @@ function Picture({
   seek,
   emptyNote = 'root = null',
   subtrees = [],
+  turn,
   label,
 }: BinaryPictureProps) {
   const placed = placeTree(tree);
@@ -599,6 +621,40 @@ function Picture({
             );
           })()
         : null}
+      {turn === undefined
+        ? null
+        : (() => {
+            // An arc about the middle of the edge, on its outer side — away
+            // from the subtrees — from beside the child round to beside the
+            // node: the way the child goes up and the node comes down.
+            const p = find(turn.at)!;
+            const q = (turn.dir === 'right' ? p.left : p.right)!;
+            const mx = (cx(p) + cx(q)) / 2;
+            const my = (cy(p) + cy(q)) / 2;
+            const toQ = Math.atan2(cy(q) - my, cx(q) - mx);
+            const radius = Math.hypot(cx(q) - cx(p), cy(q) - cy(p)) * 0.42;
+            const gap = (42 * Math.PI) / 180;
+            // Clockwise, in SVG's downward y, is the growing angle.
+            const sign = turn.dir === 'right' ? 1 : -1;
+            const from = toQ + sign * gap;
+            const to = toQ + sign * (Math.PI - gap);
+            const at = (a: number) => [mx + radius * Math.cos(a), my + radius * Math.sin(a)];
+            const [x1, y1] = at(from);
+            const [x2, y2] = at(to);
+            const color = 'var(--color-accent)';
+            return (
+              <g data-turn={turn.dir} data-edge={`${p.key}-${q.key}`}>
+                <path
+                  d={`M ${x1} ${y1} A ${radius} ${radius} 0 0 ${turn.dir === 'right' ? 1 : 0} ${x2} ${y2}`}
+                  fill="none"
+                  style={{ stroke: color }}
+                  strokeWidth="2.4"
+                  strokeLinecap="round"
+                />
+                {head(x2!, y2!, ((to + (sign * Math.PI) / 2) * 180) / Math.PI, color, 'turn-h')}
+              </g>
+            );
+          })()}
       {seek === undefined ? null : (
         <g>
           <rect

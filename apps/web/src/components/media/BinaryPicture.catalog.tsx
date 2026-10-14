@@ -186,6 +186,12 @@ export const binaryPictureCatalogEntry: CatalogEntry = {
         'Values drawn as a named subtree, a triangle in its own column, instead of a node: the A, B and C of a generic rotation, which move whole. A triangle draws no empty children under it.',
     },
     {
+      name: 'turn',
+      type: "{ at: value; dir: 'right' | 'left' }",
+      description:
+        'A rotation about to happen at the node `at`, drawn as a curved arrow over the edge it turns, on the side away from the subtrees: clockwise over the edge to the left child for `right`, which brings that child up and the node down to its right; counterclockwise over the edge to the right child for `left`. For the picture BEFORE a rotation, so the reader sees which way it turns; the picture after needs none. A node without the child the rotation brings up is an authoring error.',
+    },
+    {
       name: 'emptyNote',
       type: 'string',
       default: "'root = null'",
@@ -265,6 +271,44 @@ export const binaryPictureCatalogEntry: CatalogEntry = {
           tones={{ p: 'accent', q: 'accent', B: 'mark' }}
           strip
           label="Después de rotar a la derecha: q arriba, con el subárbol A a su izquierda y p a su derecha; p tiene a B a la izquierda y a C a la derecha. Debajo, el inorden: A, q, B, p, C."
+        />
+      ),
+    },
+    {
+      title: 'Before a right rotation: the arrow says which way it turns',
+      code: `<BinaryPicture
+  tree={{ v: 'p', l: { v: 'q', l: { v: 'A' }, r: { v: 'B' } }, r: { v: 'C' } }}
+  subtrees={['A', 'B', 'C']}
+  tones={{ p: 'accent', q: 'accent' }}
+  turn={{ at: 'p', dir: 'right' }}
+  label="Antes de rotar a la derecha en p: p arriba, con q a su izquierda y el subárbol C a su derecha. Una flecha curva, en el sentido de las agujas del reloj, sobre la arista entre p y q."
+/>`,
+      render: () => (
+        <BinaryPicture
+          tree={{ v: 'p', l: { v: 'q', l: { v: 'A' }, r: { v: 'B' } }, r: { v: 'C' } }}
+          subtrees={['A', 'B', 'C']}
+          tones={{ p: 'accent', q: 'accent' }}
+          turn={{ at: 'p', dir: 'right' }}
+          label="Antes de rotar a la derecha en p: p arriba, con q a su izquierda y el subárbol C a su derecha. Una flecha curva, en el sentido de las agujas del reloj, sobre la arista entre p y q."
+        />
+      ),
+    },
+    {
+      title: 'Before a left rotation, the mirror',
+      code: `<BinaryPicture
+  tree={{ v: 'p', l: { v: 'A' }, r: { v: 'q', l: { v: 'B' }, r: { v: 'C' } } }}
+  subtrees={['A', 'B', 'C']}
+  tones={{ p: 'accent', q: 'accent' }}
+  turn={{ at: 'p', dir: 'left' }}
+  label="Antes de rotar a la izquierda en p: p arriba, con el subárbol A a su izquierda y q a su derecha. Una flecha curva, en contra de las agujas del reloj, sobre la arista entre p y q."
+/>`,
+      render: () => (
+        <BinaryPicture
+          tree={{ v: 'p', l: { v: 'A' }, r: { v: 'q', l: { v: 'B' }, r: { v: 'C' } } }}
+          subtrees={['A', 'B', 'C']}
+          tones={{ p: 'accent', q: 'accent' }}
+          turn={{ at: 'p', dir: 'left' }}
+          label="Antes de rotar a la izquierda en p: p arriba, con el subárbol A a su izquierda y q a su derecha. Una flecha curva, en contra de las agujas del reloj, sobre la arista entre p y q."
         />
       ),
     },

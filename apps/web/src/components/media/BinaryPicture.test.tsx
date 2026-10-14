@@ -204,6 +204,51 @@ describe('BinaryPicture', () => {
     expect(slots).toEqual(['A', 'q', 'B', 'p', 'C']);
   });
 
+  it('draws a turn as a curved arrow over the edge it rotates, clockwise to the right', () => {
+    const { container } = render(
+      <BinaryPicture
+        tree={{ v: 'p', l: { v: 'q', l: { v: 'A' }, r: { v: 'B' } }, r: { v: 'C' } }}
+        subtrees={['A', 'B', 'C']}
+        turn={{ at: 'p', dir: 'right' }}
+        label="Una rotación a la derecha en p."
+      />,
+    );
+    const turn = container.querySelector('[data-turn]');
+    expect(turn?.getAttribute('data-turn')).toBe('right');
+    // The edge it turns: p and its LEFT child, the one that goes up.
+    expect(turn?.getAttribute('data-edge')).toBe('p-q');
+    expect(turn?.querySelector('path')).toBeTruthy();
+    expect(turn?.querySelector('polygon')).toBeTruthy();
+  });
+
+  it('turns to the left over the edge to the right child, counterclockwise', () => {
+    const { container } = render(
+      <BinaryPicture
+        tree={{ v: 'p', l: { v: 'A' }, r: { v: 'q', l: { v: 'B' }, r: { v: 'C' } } }}
+        subtrees={['A', 'B', 'C']}
+        turn={{ at: 'p', dir: 'left' }}
+        label="Una rotación a la izquierda en p."
+      />,
+    );
+    const turn = container.querySelector('[data-turn]');
+    expect(turn?.getAttribute('data-turn')).toBe('left');
+    expect(turn?.getAttribute('data-edge')).toBe('p-q');
+  });
+
+  it('tells the author when a turn has no child to bring up', () => {
+    // A right rotation lifts the left child: with none, there is nothing to turn.
+    const { container } = render(
+      <BinaryPicture
+        tree={{ v: 'p', r: { v: 'q' } }}
+        turn={{ at: 'p', dir: 'right' }}
+        label="Un nodo sin hijo izquierdo."
+      />,
+    );
+    expect(container.textContent).toContain('<BinaryPicture>');
+    expect(container.textContent).toContain('hijo izquierdo');
+    expect(container.querySelector('svg')).toBeNull();
+  });
+
   it('paints the accent tone, the one for what is being moved', () => {
     const { container } = render(
       <BinaryPicture tree={EXPR} tones={{ '+': 'accent' }} label={LABEL} />,

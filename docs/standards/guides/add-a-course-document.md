@@ -1308,6 +1308,12 @@ beside its line of code. To walk an operation frame by frame, use the widget.
 - **A whole subtree as a triangle**: `subtrees={['A', 'B', 'C']}` draws those
   values as named triangles in their columns — the generic rotation, whose
   subtrees move whole. A triangle draws no empty children.
+- **A rotation about to happen**: `turn={{ at: 'p', dir: 'right' }}` draws a
+  curved arrow over the edge from `p` to the child the rotation lifts —
+  clockwise over the left child for `right`, counterclockwise over the right
+  child for `left` — on the picture BEFORE the rotation, so the reader sees
+  which way it turns (#322, Miguel's review: "the drawing should show the
+  rotation's effect"). Without that child it is an authoring error.
 - **An order**: `visits="pre" | "in" | "post"` numbers the nodes and draws an
   arrow from each visit to the next; `sequence` writes the order as a row of
   chips; `until` stops it at a value, as a search does; `strip` writes the
