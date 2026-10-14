@@ -23,7 +23,7 @@
  * node. A rotation inside them is one frame — the rotation act already showed
  * its three assignments.
  */
-import { asRuns, requireRuns } from './sequenceStepperTraceShared';
+import { asRuns, lineOf, requireRuns } from './sequenceStepperTraceShared';
 import type { AvlOperation, SequenceInput, SequenceTrace, TreeValue } from './sequenceStepperTrace';
 import {
   TreeRecorder,
@@ -258,11 +258,16 @@ function traceRotation(direction: Side, input: SequenceInput): SequenceTrace {
 
 /**
  * A double rotation as its method writes it (#322): two calls, the child
- * first and then the node, one frame each with the tree after it — the
- * simple rotation's three assignments were walked on their own slides. The
- * tree is whole between the two calls, so nothing is frozen. `direction` is
- * the side the node goes down to: `right` is the left-right rotation, the
- * one for a node that leans left whose left child leans right.
+ * first and then the node. The two simple rotations are listed under it,
+ * the left one beside the right one, and each call is walked inside its own
+ * listing an assignment at a time — the call that runs it lit above the
+ * whole time — so the reader follows the six references one by one
+ * (Miguel's review: with a frame per call "the steps get lost"). The names
+ * on the drawing are the running method's: inside a call, `p` and `q` are
+ * that call's. Between an assignment and the return the tree is drawn as it
+ * is, levels held, exactly as the simple rotation's own widget draws it.
+ * `direction` is the side the node goes down to: `right` is the left-right
+ * rotation, for a node that leans left whose left child leans right.
  */
 function traceDouble(direction: Side, input: SequenceInput): SequenceTrace {
   const operation: AvlOperation = direction === 'right' ? 'rotate-left-right' : 'rotate-right-left';
@@ -272,6 +277,12 @@ function traceDouble(direction: Side, input: SequenceInput): SequenceTrace {
   const code = CODE[operation];
   const method = direction === 'right' ? 'rotateLeftRight' : 'rotateRightLeft';
   const name = `rotación doble a la ${direction === 'right' ? 'derecha' : 'izquierda'}`;
+  // Listed left beside right, whichever runs first.
+  const callees = [
+    { name: 'rotación a la izquierda', code: CODE['rotate-left'] },
+    { name: 'rotación a la derecha', code: CODE['rotate-right'] },
+  ];
+  const calleeOf: Record<Side, number> = { left: 0, right: 1 };
   // `inner` is the side q hangs on under p; r is q's child on the OTHER side,
   // the weight inside, the node the double brings to the top.
   const inner: Side = direction === 'right' ? 'left' : 'right';
@@ -279,17 +290,93 @@ function traceDouble(direction: Side, input: SequenceInput): SequenceTrace {
   const columns: Record<number, number> = {};
   const slots = new Set(input.values).size;
   let { root } = bstOf(input.values, columnsFor(input.values), columns);
-  const rec = new TreeRecorder(
+  const rec: TreeRecorder = new TreeRecorder(
     code,
     () => root,
-    stripOf(() => [root], columns, slots),
+    stripOf(() => [root, ...rec.loose], columns, slots),
   );
-  // A simple rotation on a plain tree: `up` rises from `side` into n's place.
-  const rotate = (n: NumberNode, side: Side): NumberNode => {
-    const up = n[side]!;
-    n[side] = up[OTHER[side]];
-    up[OTHER[side]] = n;
-    return up;
+  /** Pushes a frame lighting `main` above and `inside` in one callee, or none. */
+  const frame = (
+    kind: Parameters<TreeRecorder['push']>[0],
+    main: string | null,
+    inside: { side: Side; fragment: string } | null,
+    said: string,
+  ) => {
+    rec.push(kind, main === null ? [] : [main], said);
+    const step = rec.steps.at(-1)!;
+    step.calleeLines = callees.map((c, i) =>
+      inside !== null && calleeOf[inside.side] === i ? [lineOf(c.code, inside.fragment)] : [],
+    );
+  };
+
+  /**
+   * One simple rotation, walked inside its listing: `up` is the side its q
+   * comes from, `call` the line of the double that runs it, `hang` where the
+   * caller keeps what it returns.
+   */
+  const walk = (
+    p: NumberNode,
+    up: Side,
+    call: string,
+    hang: (q: NumberNode) => string,
+  ): NumberNode => {
+    const down = OTHER[up];
+    const turn = down === 'right' ? 'rotateRight' : 'rotateLeft';
+    // The listing it runs in: rotateLeft's or rotateRight's.
+    const side = down;
+    rec.state.clear();
+    rec.badge.clear();
+    rec.state.set(p.id, 'swap');
+    rec.badge.set(p.id, 'p');
+    frame(
+      'walk',
+      call,
+      { side, fragment: `Node<T> ${turn}(` },
+      `Se llama a ${turn} con ${p.value}: dentro, p es ${p.value}.`,
+    );
+    rec.frozen = true;
+    const q = p[up]!;
+    rec.state.set(q.id, 'swap');
+    rec.badge.set(q.id, 'q');
+    frame(
+      'walk',
+      call,
+      { side, fragment: `Node<T> q = p.${up};` },
+      `q apunta al ${CHILD[up]} de p, ${q.value}.`,
+    );
+    const b = q[down];
+    p[up] = b;
+    rec.loose.push(q);
+    rec.cost += 1;
+    if (b !== null) rec.state.set(b.id, 'new');
+    frame(
+      'link',
+      call,
+      { side, fragment: `p.${up} = q.${down};` },
+      b === null
+        ? `${q.value} no tiene ${CHILD[down]}: el ${CHILD[up]} de ${p.value} queda en null.`
+        : `El ${CHILD[down]} de ${q.value}, ${b.value}, pasa a ser el ${CHILD[up]} de ${p.value}.`,
+    );
+    if (b !== null) rec.state.delete(b.id);
+    q[down] = p;
+    rec.cost += 1;
+    frame(
+      'link',
+      call,
+      { side, fragment: `q.${down} = p;` },
+      `${p.value} pasa a ser el ${CHILD[down]} de ${q.value}. Por ahora solo la variable q sostiene a ${q.value}.`,
+    );
+    const where = hang(q);
+    rec.loose.length = 0;
+    rec.frozen = false;
+    rec.cost += 1;
+    frame(
+      'link',
+      call,
+      { side, fragment: 'return q;' },
+      `${turn} devuelve ${q.value}, ${where}. ${q.value} sube un nivel y ${p.value} baja uno.`,
+    );
+    return q;
   };
 
   for (const t of targets) {
@@ -310,66 +397,44 @@ function traceDouble(direction: Side, input: SequenceInput): SequenceTrace {
         `El ${CHILD[inner]} de ${t}, ${q.value}, no tiene ${CHILD[outer]}: la ${name} sube a ese nodo, el de adentro, y no lo hay.`,
       );
     }
-    const [P, Q, R] = [p.value, q.value, r.value];
     const before = heightOf(root);
     const firstWay = direction === 'right' ? 'izquierda' : 'derecha';
     const secondWay = direction === 'right' ? 'derecha' : 'izquierda';
+    const firstCall = `p.${inner} = rotate`;
+    const secondCall = 'return rotate';
 
-    for (const [n, badge] of [
-      [p, 'p'],
-      [q, 'q'],
-      [r, 'r'],
-    ] as const) {
-      rec.state.set(n.id, 'swap');
-      rec.badge.set(n.id, badge);
-    }
-    rec.push(
-      'start',
-      [`Node<T> ${method}(`],
-      `${name[0]!.toUpperCase()}${name.slice(1)} en ${P}: el peso está por dentro, en ${R}, el ${CHILD[outer]} de su ${CHILD[inner]}, ${Q}. Primero se rota a la ${firstWay} en ${Q}, y después a la ${secondWay} en ${P}.`,
-    );
-
-    // The child first: r rises into q's place under p.
-    const handedToQ = r[inner];
-    p[inner] = rotate(q, outer);
-    rec.cost += 3;
-    rec.state.clear();
-    rec.state.set(q.id, 'swap');
-    rec.state.set(r.id, 'swap');
-    if (handedToQ !== null) rec.state.set(handedToQ.id, 'new');
-    rec.push(
-      'link',
-      [`p.${inner} = rotate`],
-      `Rotar a la ${firstWay} en ${Q}: ${R} sube a su lugar, y ${Q} baja a ser su ${CHILD[inner]}${
-        handedToQ === null ? '' : `; ${handedToQ.value} pasa de ${R} a ${Q}`
-      }. ${P} guarda a ${R} como su ${CHILD[inner]}: ahora el peso está por fuera.`,
-    );
-
-    // Then the node: r rises into p's place.
-    const handedToP = r[outer];
-    const top = rotate(p, inner);
-    if (parent === null) root = top;
-    else parent[parent.left === p ? 'left' : 'right'] = top;
-    rec.cost += 3;
-    rec.state.clear();
     rec.state.set(p.id, 'swap');
-    rec.state.set(r.id, 'swap');
-    if (handedToP !== null) rec.state.set(handedToP.id, 'new');
-    rec.push(
-      'link',
-      [`return rotate`],
-      `Rotar a la ${secondWay} en ${P}: ${R} sube a su lugar, y ${P} baja a ser su ${CHILD[outer]}${
-        handedToP === null ? '' : `; ${handedToP.value} pasa de ${R} a ${P}`
-      }. ${method} devuelve ${R}, que queda arriba con ${Q} y ${P} como hijos.`,
+    rec.badge.set(p.id, 'p');
+    frame(
+      'start',
+      `Node<T> ${method}(`,
+      null,
+      `${name[0]!.toUpperCase()}${name.slice(1)} en ${p.value}: el peso está por dentro, en ${r.value}, el ${CHILD[outer]} de su ${CHILD[inner]}, ${q.value}. Primero se rota a la ${firstWay} en ${q.value}, y después a la ${secondWay} en ${p.value}.`,
     );
+
+    // The child first: r rises into q's place, and p keeps it.
+    walk(q, outer, firstCall, (top) => {
+      p[inner] = top;
+      return `y p.${inner} lo guarda: ${top.value} pasa a ser el ${CHILD[inner]} de ${p.value}, y el peso queda por fuera`;
+    });
+
+    // Then the node: r rises into p's place, kept by whoever called.
+    walk(p, inner, secondCall, (top) => {
+      if (parent === null) root = top;
+      else parent[parent.left === p ? 'left' : 'right'] = top;
+      return `y ${method} lo devuelve a quien llamó, que lo guarda donde estaba ${p.value}${
+        parent === null ? `: ${top.value} es la raíz nueva` : ''
+      }`;
+    });
 
     rec.state.clear();
     rec.badge.clear();
     const after = heightOf(root);
     const inorder = rec.steps.at(-1)!.tree!.strip.join(' ');
-    rec.push(
+    frame(
       'done',
-      [],
+      null,
+      null,
       `El inorden sigue siendo ${inorder}: las dos rotaciones conservan la invariante de orden. ${
         after === before
           ? `La altura del árbol sigue siendo ${after}.`
@@ -377,7 +442,7 @@ function traceDouble(direction: Side, input: SequenceInput): SequenceTrace {
       }`,
     );
   }
-  return finish(rec, code, columns, slots, true);
+  return { ...finish(rec, code, columns, slots, true), callees };
 }
 
 // ── insert and remove: the search tree's, with balance on the way back ───

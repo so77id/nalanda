@@ -903,8 +903,10 @@ rotation before the AVL gives its nodes a height (ADR-0083, *Amended by
 #322*). The double rotations are operations too, `rotate-left-right` and
 `rotate-right-left` (`target`, the node; it needs the child on the side it
 leans and that child's grandchild inside): their listing is the method of
-two calls, one frame per call with the tree after it, `p`, `q` and `r`
-named on the drawing. Rotate a tree that LEANS, so the rotation lowers it
+two calls, with `rotateLeft` and `rotateRight` side by side under it, and
+each call is walked inside its simple rotation an assignment at a time
+while the call stays lit above; the names on the drawing are the running
+method's (Miguel's review: with one frame per call "the steps get lost"). Rotate a tree that LEANS, so the rotation lowers it
 and the last frame says so — equal sides come out as a mirror (#322).
 `avl` also takes `insert` (`value`, an array for several) and
 `remove` (`target`), the search tree's with `return balance(node)` as their

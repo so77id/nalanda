@@ -215,10 +215,14 @@ closes no runtime cycle (§1).
   AVL says when to use them). Their listing is a method of two calls —
   `p.left = rotateLeft(p.left); return rotateRight(p);` and its mirror —
   and the AVL's `balance` calls `rotateLeftRight` and `rotateRightLeft`
-  instead of writing the two calls inline with a comment. One frame per
-  CALL, the tree after it, `p`, `q` and `r` written beside their nodes:
-  the simple rotation's assignments were walked on their own slides, and
-  the tree is whole between the two calls, so nothing is frozen.
+  instead of writing the two calls inline with a comment. The two simple
+  rotations are listed side by side under it (`callees` on the trace, the
+  lines each frame lights in them in `calleeLines`), and each call is
+  walked inside its own listing an assignment at a time, the call lit
+  above the whole time, levels held as the simple rotation's widget holds
+  them. A first version gave each call one frame; Miguel's review: "the
+  steps get lost". The names on the drawing are the running method's —
+  inside `rotateLeft(p.left)`, its `p` is the outer `q`.
 - **A rotation's example leans** (Miguel's review: "the tree comes out like
   a mirror"): every slide rotates a tree whose height the rotation lowers,
   and the last frame says so.

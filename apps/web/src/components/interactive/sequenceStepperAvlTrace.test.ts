@@ -7,6 +7,7 @@ import {
   isValidCombination,
   traceFor,
   type SequenceStep,
+  type SequenceTrace,
   type TreeFrameNode,
 } from './sequenceStepperTrace';
 
@@ -224,16 +225,53 @@ describe('sequenceStepperTrace · avl · the double rotations (#322)', () => {
     );
   });
 
-  it('runs one frame per call, the tree after each', () => {
+  // What a frame lights in each of the two simple rotations listed under the double.
+  const inCallee = (trace: SequenceTrace, step: SequenceStep, i: number) =>
+    (step.calleeLines?.[i] ?? []).map((l) => trace.callees![i]!.code.split('\n')[l - 1]!.trim());
+
+  it('lists the two simple rotations under the double, the left one first', () => {
+    for (const [operation, values, target] of [
+      ['rotate-left-right', INSIDE_LEFT, 12],
+      ['rotate-right-left', INSIDE_RIGHT, 4],
+    ] as const) {
+      const trace = traceFor('avl', operation, { values: [...values], target });
+      expect(trace.callees!.map((c) => c.name)).toEqual([
+        'rotación a la izquierda',
+        'rotación a la derecha',
+      ]);
+      expect(trace.callees![0]!.code).toBe(
+        traceFor('avl', 'rotate-left', { values: [1, 2], target: 1 }).code,
+      );
+      expect(trace.callees![1]!.code).toBe(
+        traceFor('avl', 'rotate-right', { values: [2, 1], target: 2 }).code,
+      );
+    }
+  });
+
+  it('walks each call inside its own listing, the call lit in the double the whole time', () => {
     const trace = traceFor('avl', 'rotate-left-right', { values: INSIDE_LEFT, target: 12 });
-    expect(trace.steps.map((s) => lit(trace.code, s))).toEqual([
-      ['Node<T> rotateLeftRight(Node<T> p) {'],
-      ['p.left = rotateLeft(p.left);'],
-      ['return rotateRight(p);'],
-      [],
+    expect(
+      trace.steps.map((s) => [
+        lit(trace.code, s)[0] ?? '',
+        inCallee(trace, s, 0)[0] ?? '',
+        inCallee(trace, s, 1)[0] ?? '',
+      ]),
+    ).toEqual([
+      ['Node<T> rotateLeftRight(Node<T> p) {', '', ''],
+      ['p.left = rotateLeft(p.left);', 'Node<T> rotateLeft(Node<T> p) {', ''],
+      ['p.left = rotateLeft(p.left);', 'Node<T> q = p.right;', ''],
+      ['p.left = rotateLeft(p.left);', 'p.right = q.left;', ''],
+      ['p.left = rotateLeft(p.left);', 'q.left = p;', ''],
+      ['p.left = rotateLeft(p.left);', 'return q;', ''],
+      ['return rotateRight(p);', '', 'Node<T> rotateRight(Node<T> p) {'],
+      ['return rotateRight(p);', '', 'Node<T> q = p.left;'],
+      ['return rotateRight(p);', '', 'p.left = q.right;'],
+      ['return rotateRight(p);', '', 'q.right = p;'],
+      ['return rotateRight(p);', '', 'return q;'],
+      ['', '', ''],
     ]);
-    // After the first call, 8 has gone up under 12, and 4 down to its left.
-    expect(shape(trace.steps[1]!)).toEqual({
+    // When the first call returns, 8 is up under 12, and 4 down to its left.
+    expect(shape(trace.steps[5]!)).toEqual({
       v: 12,
       l: {
         v: 8,
@@ -245,22 +283,37 @@ describe('sequenceStepperTrace · avl · the double rotations (#322)', () => {
     expect(shape(trace.steps.at(-1)!)).toEqual(SETTLED);
   });
 
-  it('names p, q and r on the drawing', () => {
-    const first = traceFor('avl', 'rotate-left-right', { values: INSIDE_LEFT, target: 12 })
-      .steps[0]!;
-    expect([12, 4, 8].map((v) => byValue(first, v).badge)).toEqual(['p', 'q', 'r']);
+  it('names on the drawing the variables of the method that is running', () => {
+    const trace = traceFor('avl', 'rotate-left-right', { values: INSIDE_LEFT, target: 12 });
+    const names = (step: SequenceStep) =>
+      Object.fromEntries(
+        step.tree!.nodes.filter((n) => n.badge !== undefined).map((n) => [n.badge, n.value]),
+      );
+    expect(names(trace.steps[0]!)).toEqual({ p: 12 });
+    // Inside rotateLeft(p.left), its p is 4 and its q is 8.
+    expect(names(trace.steps[2]!)).toEqual({ p: 4, q: 8 });
+    // Inside rotateRight(p), its p is 12 and its q is 8 again.
+    expect(names(trace.steps[7]!)).toEqual({ p: 12, q: 8 });
   });
 
-  it('keeps the inorder in every frame, and says the height went down', () => {
+  it('keeps the inorder in the strip in every frame, and says the height went down', () => {
     for (const [operation, values, target] of [
       ['rotate-left-right', INSIDE_LEFT, 12],
       ['rotate-right-left', INSIDE_RIGHT, 4],
     ] as const) {
       const trace = traceFor('avl', operation, { values: [...values], target });
-      for (const step of trace.steps) expect(inorderOf(step)).toEqual([2, 4, 6, 8, 10, 12, 14]);
+      for (const step of trace.steps) {
+        expect(step.tree!.strip.map(Number)).toEqual([2, 4, 6, 8, 10, 12, 14]);
+      }
       expect(shape(trace.steps.at(-1)!)).toEqual(SETTLED);
+      expect(inorderOf(trace.steps.at(-1)!)).toEqual([2, 4, 6, 8, 10, 12, 14]);
       expect(trace.steps.at(-1)!.description).toContain('pasó de 3 a 2');
     }
+  });
+
+  it('counts six reference changes, three per simple rotation', () => {
+    const trace = traceFor('avl', 'rotate-left-right', { values: INSIDE_LEFT, target: 12 });
+    expect(trace.steps.at(-1)!.cost).toBe(6);
   });
 
   it('refuses a node whose child has nothing inside to raise', () => {

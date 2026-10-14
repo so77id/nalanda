@@ -922,6 +922,28 @@ describe('<SequenceStepper> · the bst recipe (#321)', () => {
     expect(screen.getByTestId('tree-view').querySelectorAll('[data-slot]')).toHaveLength(0);
   });
 
+  it('shows a double rotation above the two simple ones it calls, side by side', () => {
+    renderIn(
+      'book',
+      <SequenceStepper
+        eda="avl"
+        operation="rotate-left-right"
+        values={[12, 4, 14, 2, 8, 6, 10]}
+        target={12}
+      />,
+    );
+    const panels = screen.getAllByTestId('sequence-listing');
+    expect(panels.map((p) => p.getAttribute('data-listing'))).toEqual([
+      'principal',
+      'rotación a la izquierda',
+      'rotación a la derecha',
+    ]);
+    expect(panels[0]).toHaveTextContent('rotateLeftRight');
+    expect(panels[1]).toHaveTextContent('Node<T> rotateLeft(Node<T> p)');
+    expect(panels[2]).toHaveTextContent('Node<T> rotateRight(Node<T> p)');
+    expect(screen.getByText('rotación a la izquierda')).toBeInTheDocument();
+  });
+
   it('shows a program of removals beside the method it calls, each listing named', () => {
     renderIn(
       'book',

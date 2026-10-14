@@ -219,6 +219,8 @@ export interface SequenceStep {
   highlightLines: number[];
   /** The same moment in `trace.alongside`, when the trace carries a second listing. */
   alongsideLines?: number[];
+  /** The lines each of `trace.callees` lights at this moment, in the same order. */
+  calleeLines?: number[][];
   /**
    * The value a search is looking for, written beside the structure on every
    * frame of its run (#322): the narration names it once, and a reader who
@@ -310,6 +312,13 @@ export interface SequenceTrace {
    * program, and the method it calls (#322).
    */
   listingNames?: [string, string];
+  /**
+   * The methods the listing calls, drawn side by side under it, each with
+   * the lines a frame lights in it (`calleeLines`): the double rotation's
+   * two simple ones, walked an assignment at a time while the call that
+   * runs them stays lit above (#322).
+   */
+  callees?: { name: string; code: string }[];
   /**
    * The most cells any frame holds. The view lays out for THIS, not for the
    * current frame, so the drawing keeps one size from the first frame to the

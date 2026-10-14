@@ -703,7 +703,39 @@ function Body({
               isPresentation ? 'bg-surface text-base [&_.cm-editor]:!text-base' : 'bg-surface'
             }
           >
-            {trace.alongside === undefined ? (
+            {trace.callees !== undefined ? (
+              // A method over the methods it calls: the double rotation above,
+              // its two simple rotations side by side under it, each lit while
+              // its call runs, the call itself lit above the whole time (#322).
+              <div className="flex flex-col gap-px bg-rule">
+                <div data-testid="sequence-listing" data-listing="principal" className="bg-surface">
+                  <CodeStepper
+                    code={trace.code}
+                    highlightLines={step.highlightLines}
+                    language="java"
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-px bg-rule">
+                  {trace.callees.map((callee, i) => (
+                    <div
+                      key={callee.name}
+                      data-testid="sequence-listing"
+                      data-listing={callee.name}
+                      className="flex flex-col bg-surface"
+                    >
+                      <div className="px-3 pt-1 font-mono text-3xs uppercase tracking-wide text-ink-faint">
+                        {callee.name}
+                      </div>
+                      <CodeStepper
+                        code={callee.code}
+                        highlightLines={step.calleeLines?.[i] ?? []}
+                        language="java"
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : trace.alongside === undefined ? (
               <div data-testid="sequence-listing">
                 <CodeStepper
                   code={trace.code}
