@@ -1,8 +1,7 @@
 # ADR-0085: The reader tolerates sheets printed to fit the page
 
-**Status:** Accepted — the production regression against the deployed image
-on the Jetson (#327 AC-5) and the professor's look at copy 16 (AC-6)
-outstanding
+**Status:** Accepted — measured against the deployed image and confirmed on
+the sheet (2026-10-14, §Measured after deploy)
 **Date:** 2026-10-13
 **Decision-makers:** Miguel Rodriguez
 **Source:** #327, from a production incident on control
@@ -64,9 +63,9 @@ default: an exact fit, which an affine transform gets from three points, so
 AMC fitted them with three circles. Under `0.35,0.2` they fit all four
 (MSE 1.02–3.61, the range of every good page). Box by box, 2 of its 1,612
 boxes change verdict, both on copy 16 page 2, question 11, from doubtful
-(darkness 0.088, identical on both boxes, which reads like a three-circle
-frame landing on the printed border rather than a pencil — not confirmed
-by anyone looking at the sheet yet) to blank. No ticked box changes, so no
+(darkness 0.088, identical on both boxes) to blank: the three-circle
+frame landing on the printed border, not a pencil (confirmed on the sheet,
+§Measured after deploy). No ticked box changes, so no
 score does; but a doubtful box is what sends a copy to `needs_review`, so
 the change can take a review flag away. Its three missing pages land on
 (9, 2), (10, 2) and (11, 2) with MSE ≤3.61. The 44 pages of the first control
@@ -74,15 +73,21 @@ the change can take a review flag away. Its three missing pages land on
 bottom corner circles were clipped off the paper) stay unplaced under both
 tolerances: the wider band does not start accepting what it should not.
 
-> **Measurements to fill in (owner: Miguel Rodriguez, the regression run by
-> the agent over ssh; deadline: 2026-10-20, before the next control is read;
-> tracked in #327):**
-> - `tests/tools/regress-tolerance.py` against the DEPLOYED image (AC-5).
->   Expected: the numbers above. A (copy, page) moved, a page lost, or a
->   ticked box changing verdict reopens the value.
-> - The professor's look at copy 16, page 2, question 11 after the re-upload
->   (AC-6): whether its two doubtful boxes were the printed border or a
->   pencil. A pencil there means the four-circle fit erased a real doubt.
+### Measured after deploy (2026-10-14, #327 AC-5 and AC-6)
+
+- **The regression against the deployed image** (`MARK_TOLERANCE 0.35,0.2`
+  read back from the running container; the script piped in from `main`, no
+  options) reproduced every number above: the eight earlier controls' 305
+  pages bit-identical, the incident control 31 → 34 with the same 14 refits
+  and the same 2 box changes, WNME 0 → 0. No page moved, none was lost, no
+  ticked box changed.
+- **The incident control, re-uploaded whole on the deployed image:** 34 of 34
+  pages placed, `capture_failed` empty, all 17 copies with both pages.
+- **Copy 16 page 2, looked at by the professor on the scan:** no pencil on
+  the two boxes the old read flagged. They belong to AMC's question 11,
+  printed third on that copy. The four-circle capture reads both at darkness
+  0.000, where the three-circle frame read 0.088. The doubt was the frame,
+  not a pencil.
 
 The placement-only comparison was the first version of this regression; the
 #327 review (security lens) showed a case — synthetic, a corner circle erased
