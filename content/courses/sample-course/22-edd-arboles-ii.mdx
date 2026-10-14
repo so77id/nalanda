@@ -1195,7 +1195,7 @@ trabajo por otra ventaja.
 | Árbol         | Qué cuida                                                                              | Para qué se usa                                                                                 |
 | ------------- | -------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
 | Rojo-negro    | Cada nodo es rojo o negro, ningún rojo tiene un hijo rojo, y todos los caminos hacia abajo tienen la misma cantidad de negros | Al eliminar rota a lo más tres veces, contra $$O(\log n)$$ del AVL; es el que usan `TreeMap` y `TreeSet` de Java |
-| Árbol 2-3     | Nodos de uno o dos valores, y todas las hojas en el mismo nivel                         | El modelo con que se explica el rojo-negro                                                      |
+| Árbol 2-3     | Nodos de uno o dos valores, y todas las hojas en el mismo nivel                         | Casi no se programa tal cual: es la idea detrás del rojo-negro, que lo escribe con nodos binarios, y del árbol B, que lo generaliza |
 | Árbol B       | Generaliza el 2-3: nodos con muchos valores, cientos, y todas las hojas en el mismo nivel | Los índices de las bases de datos: cada nodo es una página del disco, y tres o cuatro niveles alcanzan para millones de valores |
 | *Splay*       | Nada fijo: cada búsqueda sube el nodo encontrado hasta la raíz                          | Datos donde unos pocos valores se buscan una y otra vez                                         |
 
