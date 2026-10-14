@@ -226,6 +226,17 @@ closes no runtime cycle (§1).
 - **A rotation's example leans** (Miguel's review: "the tree comes out like
   a mirror"): every slide rotates a tree whose height the rotation lowers,
   and the last frame says so.
+- **`insert` and `remove` are listed as the search tree lists them**, the
+  public method over the private one, the first frame lighting the public
+  call, with `return balance(node)` as the private one's last line — the
+  script every operation of the class follows (Miguel's review of the AVL
+  section). `insert` also runs as a program from an empty tree: one frame
+  per insertion that keeps every factor in place, two for one that breaks
+  it — the leaf hung with the first node of the way back at ±2, and any
+  node above it that broke too, named as fixed by the rotation below; then
+  the tree after the rotation. The section tells the AVL with it before any
+  code (sorted values staying balanced), and its code slide walks one
+  value.
 
 Then `insert` and `remove`, the search tree's with `return balance(node)`
 as their last line:

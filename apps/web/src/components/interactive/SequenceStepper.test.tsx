@@ -1381,11 +1381,22 @@ describe('<SequenceStepper> · the combinations 22-edd-arboles-ii mounts', () =>
     {
       act: 'El árbol AVL',
       slide: 'Insertar en un árbol AVL',
-      props: { eda: 'avl', operation: 'insert', values: [], value: [6, 4, 2, 10, 8] },
+      props: {
+        eda: 'avl',
+        operation: 'insert',
+        values: [],
+        value: [2, 4, 6, 8, 10, 12, 14],
+        program: true,
+      },
     },
     {
-      act: 'El árbol AVL',
-      slide: 'Eliminar en un árbol AVL',
+      act: 'La implementación del árbol AVL',
+      slide: 'El código de la inserción en un árbol AVL',
+      props: { eda: 'avl', operation: 'insert', values: [8, 4, 12, 2, 6], value: 5 },
+    },
+    {
+      act: 'La implementación del árbol AVL',
+      slide: 'El código de la eliminación en un árbol AVL',
       props: { eda: 'avl', operation: 'remove', values: [8, 4, 10, 2, 6], target: 10 },
     },
   ];

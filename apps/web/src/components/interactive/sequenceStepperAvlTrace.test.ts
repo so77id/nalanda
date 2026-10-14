@@ -484,6 +484,80 @@ describe('sequenceStepperTrace · avl · insert', () => {
   });
 });
 
+describe('sequenceStepperTrace · avl · the public method over the private one (#322)', () => {
+  // The AVL's insert and remove are the search tree's with `return
+  // balance(node)` as their last line: the same public method, calling the
+  // private one with the root (Miguel's script for every operation).
+  it('lists insert and remove as the search tree lists them, balance last', () => {
+    const insert = traceFor('avl', 'insert', { values: [2], value: 1 });
+    const remove = traceFor('avl', 'remove', { values: [2, 1], target: 1 });
+    for (const [trace, name] of [
+      [insert, 'insert'],
+      [remove, 'remove'],
+    ] as const) {
+      expect(trace.code).toContain(`public void ${name}(T value) {`);
+      expect(trace.code).toContain(`private Node<T> ${name}(Node<T> node, T value) {`);
+      expect(trace.code).toContain('return balance(node);');
+    }
+  });
+
+  it('lights the public call first, as the search tree does', () => {
+    const insert = traceFor('avl', 'insert', { values: [2], value: 1 });
+    const remove = traceFor('avl', 'remove', { values: [2, 1], target: 1 });
+    const first = (trace: SequenceTrace) =>
+      trace.steps[0]!.highlightLines.map((l) => trace.code.split('\n')[l - 1]!.trim());
+    expect(first(insert)).toEqual(['root = insert(root, value);']);
+    expect(first(remove)[0]).toMatch(/^root = remove\(root, value\);/);
+  });
+});
+
+describe('sequenceStepperTrace · avl · insertions run by a program (#322)', () => {
+  const SORTED = [2, 4, 6, 8, 10, 12, 14];
+  const run = (value: number[]) => traceFor('avl', 'insert', { values: [], value, program: true });
+  const lit = (trace: SequenceTrace, step: SequenceStep) =>
+    step.highlightLines.map((l) => trace.code.split('\n')[l - 1]!);
+
+  it('lists the program: the tree created, then one insertion per line', () => {
+    expect(run([2, 4, 6]).code).toBe(
+      'AVL<Integer> tree = new AVL<>();\ntree.insert(2);\ntree.insert(4);\ntree.insert(6);',
+    );
+  });
+
+  it('shows a rotation in two frames: the factor that breaks, then the tree after it', () => {
+    const trace = run([2, 4, 6]);
+    const third = trace.steps.filter((s) => lit(trace, s)[0] === 'tree.insert(6);');
+    expect(third).toHaveLength(2);
+    expect(byValue(third[0]!, 2).badge).toBe('+2');
+    expect(third[0]!.description).toContain('simple a la izquierda');
+    expect(rootValue(third[1]!)).toBe(4);
+    expect(third[1]!.description).toContain('4 sube');
+  });
+
+  it('keeps sorted values balanced: height 2 for seven, where a search tree makes a chain', () => {
+    const trace = run(SORTED);
+    const last = trace.steps.at(-1)!;
+    expect(inorderOf(last)).toEqual(SORTED);
+    expect(rootValue(last)).toBe(8);
+    expect(last.description).toContain('altura 2');
+  });
+
+  it('says when the rotation below also fixes a node above that broke', () => {
+    // Hanging 10 under 2 4 6 8 leaves 6 and 4 both at +2: 6 is rotated, and
+    // giving its subtree its height back fixes 4 as well.
+    const trace = run([2, 4, 6, 8, 10]);
+    const broken = trace.steps.find((s) => s.description.includes('10 se cuelga'))!;
+    expect(byValue(broken, 6).badge).toBe('+2');
+    expect(byValue(broken, 4).badge).toBe('+2');
+    expect(broken.description).toMatch(/el 4 también quedó con \+2/i);
+  });
+
+  it('runs only from an empty tree', () => {
+    expect(() => traceFor('avl', 'insert', { values: [1], value: [2], program: true })).toThrow(
+      /vacío/,
+    );
+  });
+});
+
 describe('sequenceStepperTrace · avl · remove', () => {
   it('shows the BST remove with balance on the way back', () => {
     const { code } = traceFor('avl', 'remove', { values: [2, 1, 3], target: 1 });

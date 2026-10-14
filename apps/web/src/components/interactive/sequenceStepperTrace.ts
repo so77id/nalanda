@@ -570,10 +570,11 @@ export function traceFor(
 ): SequenceTrace {
   if (
     input.program === true &&
-    !(recipe === 'bst' && (operation === 'insert' || operation === 'remove'))
+    !(recipe === 'bst' && (operation === 'insert' || operation === 'remove')) &&
+    !(recipe === 'avl' && operation === 'insert')
   ) {
     throw new Error(
-      `Solo la inserción y la eliminación del árbol de búsqueda se muestran como programa: program va con eda="bst" y operation="insert" o "remove", no con «${operation}».`,
+      `Solo la inserción y la eliminación del árbol de búsqueda, y la inserción del árbol AVL, se muestran como programa: program va con eda="bst" y operation="insert" o "remove", o con eda="avl" y operation="insert"; no con «${operation}».`,
     );
   }
   if (input.iterative === true && !PAIRED.some(([r, o]) => r === recipe && o === operation)) {

@@ -66,7 +66,13 @@ const CODE: Record<AvlOperation, string> = {
     p.right = rotateRight(p.right);
     return rotateLeft(p);
 }`,
-  insert: `Node<T> insert(Node<T> node, T value) {
+  // The search tree's, the public method over the private one, with
+  // `return balance(node)` for the private one's last line (#322).
+  insert: `public void insert(T value) {
+    root = insert(root, value);
+}
+
+private Node<T> insert(Node<T> node, T value) {
     if (node == null) return new Node<>(value);
     int c = value.compareTo(node.value);
     if (c < 0) {
@@ -76,24 +82,24 @@ const CODE: Record<AvlOperation, string> = {
     }
     return balance(node);
 }`,
-  remove: `Node<T> remove(Node<T> node, T value) {
-    if (node == null) return null;
+  remove: `public void remove(T value) {
+    root = remove(root, value); // si era la raíz, root cambia
+}
+
+private Node<T> remove(Node<T> node, T value) {
+    if (node == null) return null; // el valor no está
     int c = value.compareTo(node.value);
-    if (c < 0) {
-        node.left = remove(node.left, value);
-    } else if (c > 0) {
-        node.right = remove(node.right, value);
-    } else if (node.left == null) {
-        return node.right;
-    } else if (node.right == null) {
-        return node.left;
-    } else {
-        Node<T> next = node.right;
-        while (next.left != null) next = next.left;
+    if (c < 0) node.left = remove(node.left, value); // está a la izquierda
+    else if (c > 0) node.right = remove(node.right, value); // está a la derecha
+    else if (node.left == null) return node.right; // hoja, o solo hijo derecho
+    else if (node.right == null) return node.left; // solo hijo izquierdo
+    else { // dos hijos: toma el valor del sucesor
+        Node<T> next = node.right; // el sucesor es el menor
+        while (next.left != null) next = next.left; // de la derecha
         node.value = next.value;
-        node.right = remove(node.right, next.value);
+        node.right = remove(node.right, next.value); // y lo elimina abajo
     }
-    return balance(node);
+    return balance(node); // rebalancea al volver
 }`,
 };
 
@@ -141,6 +147,9 @@ export function traceAvl(operation: AvlOperation, input: SequenceInput): Sequenc
     throw new Error(
       `El valor ${repeated} está repetido: un árbol de búsqueda no guarda dos veces el mismo valor.`,
     );
+  }
+  if (operation === 'insert' && input.program === true) {
+    return traceAvlInsertProgram(input.values, asRuns(input.value));
   }
   if (operation === 'insert') return traceAvlInsert(input);
   if (operation === 'remove') return traceAvlRemove(input);
@@ -630,7 +639,7 @@ function traceAvlInsert(input: SequenceInput): SequenceTrace {
     rec.reset();
     push(
       'start',
-      ['Node<T> insert('],
+      ['root = insert(root, value)'],
       `Insertar ${x}: se baja como en el árbol de búsqueda, y al volver cada nodo del camino se rebalancea.`,
     );
     let repeated = false;
@@ -695,6 +704,141 @@ function traceAvlInsert(input: SequenceInput): SequenceTrace {
   return finish(rec, code, columns, slots, false);
 }
 
+/**
+ * Insertions run by a program, from an empty AVL (#322): the listing is the
+ * program, one line per insertion, and the method is not walked — the slide
+ * that teaches the code walks one value through it. An insertion that keeps
+ * every factor between −1 and +1 is one frame, the tree after it; one that
+ * breaks the invariant is two: the leaf hung and the first node of the way
+ * back with ±2 — what `balance` finds, the factors above it still the old
+ * ones, as the heights stored say — and then the tree after the rotation the
+ * rule picks. What a run of insertions looks like, sorted values included,
+ * without walking the method again.
+ */
+function traceAvlInsertProgram(values: number[], inserts: number[]): SequenceTrace {
+  if (values.length > 0) {
+    throw new Error(
+      'El programa empieza con el árbol vacío: values va como [], y los valores que inserta, en value.',
+    );
+  }
+  if (inserts.length === 0) throw new Error('Falta el valor a insertar.');
+  requireRuns(inserts.length);
+  const code = [
+    'AVL<Integer> tree = new AVL<>();',
+    ...inserts.map((x) => `tree.insert(${x});`),
+  ].join('\n');
+  const columnOf = columnsFor(inserts);
+  const columns: Record<number, number> = {};
+  const { avl, place } = avlOf([], columnOf, columns);
+  const { rec, push } = avlRecorder(code, avl, () => []);
+  const line = (i: number) => () => {
+    rec.steps.at(-1)!.highlightLines = [i];
+  };
+  push('start', [], 'El árbol se crea vacío: su raíz es null.');
+  line(1)();
+
+  inserts.forEach((x, i) => {
+    rec.reset();
+    // Down as in the search tree, keeping the way.
+    const way: { node: NumberNode; side: Side }[] = [];
+    let n = avl.root;
+    while (n !== null && n.value !== x) {
+      const side: Side = x < n.value ? 'left' : 'right';
+      way.push({ node: n, side });
+      rec.path.push(n.id);
+      n = n[side];
+    }
+    if (n !== null) {
+      push('done', [], `${x} ya está en el árbol: no se inserta un repetido.`);
+      line(i + 2)();
+      return;
+    }
+    const leaf = place(x);
+    const parent = way.at(-1);
+    if (parent === undefined) avl.root = leaf;
+    else parent.node[parent.side] = leaf;
+    rec.path.push(leaf.id);
+    rec.state.set(leaf.id, 'new');
+    const hung =
+      parent === undefined
+        ? `El árbol está vacío: ${x} pasa a ser la raíz.`
+        : `${x} se cuelga como hoja, a la ${parent.side === 'left' ? 'izquierda' : 'derecha'} de ${parent.node.value}.`;
+
+    // Back up, as balance does: the first node with ±2 is the one rotated.
+    let broken = -1;
+    for (let k = way.length - 1; k >= 0; k -= 1) {
+      updateHeight(avl, way[k]!.node);
+      if (Math.abs(factorIn(avl, way[k]!.node)) > 1) {
+        broken = k;
+        break;
+      }
+    }
+    if (broken < 0) {
+      push('build', [], `${hung} Todos los factores siguen entre −1 y +1.`);
+      line(i + 2)();
+      return;
+    }
+    const node = way[broken]!.node;
+    const b = factorIn(avl, node);
+    const heavy: Side = b < 0 ? 'left' : 'right';
+    const child = node[heavy]!;
+    const double = factorIn(avl, child) * b < 0;
+    const name = rotationName(heavy, double);
+    // The true heights above it too, for the drawing: a node above may have
+    // broken as well, and the rotation below is what fixes it.
+    const alsoBroken: NumberNode[] = [];
+    for (let k = broken - 1; k >= 0; k -= 1) {
+      updateHeight(avl, way[k]!.node);
+      if (Math.abs(factorIn(avl, way[k]!.node)) > 1) alsoBroken.push(way[k]!.node);
+    }
+    const above =
+      alsoBroken.length === 0
+        ? ''
+        : ` ${alsoBroken
+            .map((a) => `el ${a.value}`)
+            .join(' y ')
+            .replace(/^e/, 'E')} también quedó con ${alsoBroken
+            .map((a) => signedFactor(factorIn(avl, a)))
+            .join(
+              ' y ',
+            )}, pero la rotación en ${node.value} le devuelve al subárbol su altura, y con eso ${alsoBroken.length === 1 ? 'lo arregla' : 'los arregla'}.`;
+    rec.state.set(node.id, 'active');
+    push(
+      'compare',
+      [],
+      `${hung} Al volver, ${node.value} es el primero con factor ${signedFactor(b)}: está cargado a la ${heavy === 'left' ? 'izquierda' : 'derecha'}, y su ${CHILD[heavy]}, ${child.value}, ${
+        double
+          ? `al lado contrario. Toca la rotación doble a la ${heavy === 'left' ? 'derecha' : 'izquierda'}.`
+          : `hacia el mismo lado. Toca la rotación ${name}.`
+      }${above}`,
+    );
+    line(i + 2)();
+
+    if (double) node[heavy] = rotate(avl, child, OTHER[heavy]);
+    const top = rotate(avl, node, heavy);
+    const up = way[broken - 1];
+    if (up === undefined) avl.root = top;
+    else up.node[up.side] = top;
+    for (let k = broken - 1; k >= 0; k -= 1) updateHeight(avl, way[k]!.node);
+    rec.state.clear();
+    rec.path.length = 0;
+    for (const moved of [node, child, top]) rec.state.set(moved.id, 'swap');
+    push(
+      'link',
+      [],
+      `Rotación ${name} en ${node.value}: ${top.value} sube a su lugar. El subárbol vuelve a la altura que tenía antes de insertar, así que más arriba ningún factor cambia.`,
+    );
+    line(i + 2)();
+  });
+  rec.reset();
+  push(
+    'done',
+    [],
+    `El árbol cumple las dos invariantes, la de orden y la de balance, y tiene altura ${heightIn(avl, avl.root)}.`,
+  );
+  return finish(rec, code, columns, new Set(inserts).size, false);
+}
+
 function traceAvlRemove(input: SequenceInput): SequenceTrace {
   const targets = asRuns(input.target);
   if (targets.length === 0) throw new Error('Falta el valor a eliminar.');
@@ -710,7 +854,7 @@ function traceAvlRemove(input: SequenceInput): SequenceTrace {
     rec.reset();
     push(
       'start',
-      ['Node<T> remove('],
+      ['root = remove(root, value)'],
       `Eliminar ${x}: primero se busca, como en el árbol de búsqueda.`,
     );
     let missing = false;
