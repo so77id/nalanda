@@ -2478,37 +2478,73 @@ describe('sequenceStepperTrace · bst · removals run by a program (#322)', () =
   const values = (step: SequenceStep) =>
     step.tree!.nodes.map((n) => Number(n.value)).sort((a, b) => a - b);
 
-  it('lists the program: the tree built, then one removal per line', () => {
-    expect(run([1, 3]).code).toBe(
+  const method = (trace: SequenceTrace, step: SequenceStep) =>
+    (step.alongsideLines ?? []).map((l) => trace.alongside!.split('\n')[l - 1]!);
+  // The frames of each removal, keyed by the program line they light.
+  const byRun = (trace: SequenceTrace) => {
+    const runs = new Map<string, SequenceStep[]>();
+    for (const step of trace.steps.slice(1)) {
+      const [line] = lines(trace, step);
+      runs.set(line!, [...(runs.get(line!) ?? []), step]);
+    }
+    return runs;
+  };
+
+  it('lists the program on the left and the method it calls on the right', () => {
+    const trace = run([1, 3]);
+    expect(trace.code).toBe(
       'BST<Integer> tree = new BST<>();\n' +
-        'for (int x : new int[] {8, 3, 12, 1, 6, 10, 14, 11}) tree.insert(x);\n' +
+        'int[] values = {8, 3, 12, 1, 6, 10, 14, 11};\n' +
+        'for (int x : values) tree.insert(x);\n' +
         'tree.remove(1);\n' +
         'tree.remove(3);',
     );
+    expect(trace.alongside).toContain('private Node<T> remove(Node<T> node, T value) {');
+    expect(trace.listingNames).toEqual(['programa', 'método']);
   });
 
-  it('shows the whole tree first, then the tree after each removal', () => {
+  it('shows the whole tree first, the program building it and the method not yet called', () => {
     const trace = run([1, 3, 8, 12, 14, 5]);
-    expect(trace.steps).toHaveLength(7);
-    expect(values(trace.steps[0]!)).toEqual([1, 3, 6, 8, 10, 11, 12, 14]);
-    expect(lines(trace, trace.steps[0]!)).toHaveLength(2);
-    expect(lines(trace, trace.steps[1]!)).toEqual(['tree.remove(1);']);
-    expect(values(trace.steps[1]!)).toEqual([3, 6, 8, 10, 11, 12, 14]);
+    const first = trace.steps[0]!;
+    expect(values(first)).toEqual([1, 3, 6, 8, 10, 11, 12, 14]);
+    expect(lines(trace, first)).toHaveLength(3);
+    expect(method(trace, first)).toEqual([]);
     expect(values(trace.steps.at(-1)!)).toEqual([6, 10, 11]);
   });
 
-  it('names the case every removal falls in', () => {
-    const said = run([1, 3, 8, 12, 14, 5])
-      .steps.slice(1)
-      .map((s) => s.description);
-    expect(said[0]).toContain('hoja');
-    expect(said[1]).toContain('un solo hijo');
-    expect(said[2]).toContain('raíz');
-    expect(said[2]).toContain('sucesor');
-    expect(said[2]).toContain('11');
-    expect(said[3]).toContain('dos hijos');
-    expect(said[4]).toContain('un solo hijo');
-    expect(said[5]).toContain('no está');
+  it('walks the method for every removal, one program line lit at a time', () => {
+    const trace = run([1, 3, 8, 12, 14, 5]);
+    for (const step of trace.steps.slice(1)) expect(lines(trace, step)).toHaveLength(1);
+    const runs = byRun(trace);
+    expect([...runs.keys()]).toEqual([
+      'tree.remove(1);',
+      'tree.remove(3);',
+      'tree.remove(8);',
+      'tree.remove(12);',
+      'tree.remove(14);',
+      'tree.remove(5);',
+    ]);
+    // Each run starts at the public method's call, and goes down from there.
+    for (const steps of runs.values()) {
+      expect(method(trace, steps[0]!)[0]).toContain('root = remove(root, value);');
+      expect(steps.length).toBeGreaterThan(2);
+    }
+  });
+
+  it('lights, in each removal, the branch of its case', () => {
+    const runs = byRun(run([1, 3, 8, 12, 14, 5]));
+    const lit = (x: number) =>
+      runs
+        .get(`tree.remove(${x});`)!
+        .flatMap((step) => method(run([1, 3, 8, 12, 14, 5]), step))
+        .join('\n');
+    expect(lit(1)).toContain('return node.right; // hoja');
+    expect(lit(3)).toContain('return node.right; // hoja');
+    expect(lit(8)).toContain('Node<T> next = node.right;');
+    expect(lit(12)).toContain('Node<T> next = node.right;');
+    expect(lit(14)).toContain('return node.left; // solo hijo izquierdo');
+    expect(lit(5)).toContain('if (node == null) return null;');
+    expect(lit(5)).not.toContain('Node<T> next');
   });
 
   it('removes from a tree that exists, and only as a program of removals or insertions', () => {

@@ -872,10 +872,10 @@ keeps no array, and a strip there read as one (#322); with `program` and
 `values={[]}` the listing is the program that builds the tree, one frame per
 `tree.insert(x);` line — and `remove` (`target`) runs the three cases — a leaf, one child, and two
 children by copying the successor's value into the node and removing the
-successor; with `program` and `target` an array, the listing builds the
-tree with a loop of insertions and removes each target, one frame per
-`tree.remove(x);` line, the node left in the removed one's place marked and
-the case named. `inorder` walks it as the binary tree's does. Every `bst` listing
+successor; with `program` and `target` an array, the program — the tree
+built by a loop of insertions, then one `tree.remove(x);` per target — is
+listed beside the method, which is walked for every removal with the
+program's line lit. `inorder` walks it as the binary tree's does. Every `bst` listing
 is the method the tree offers, `public`, and for the recursive ones the
 `private` method it calls with the root; the first frame lights that call
 (#322). `search` keeps one name over the chains and both trees, `insert`

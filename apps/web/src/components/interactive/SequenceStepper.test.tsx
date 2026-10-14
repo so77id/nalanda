@@ -902,7 +902,7 @@ describe('<SequenceStepper> · the bst recipe (#321)', () => {
     expect(screen.getByTestId('tree-view').querySelectorAll('[data-slot]')).toHaveLength(0);
   });
 
-  it('names what a program marks, not what the method walked marks', () => {
+  it('shows a program of removals beside the method it calls, each listing named', () => {
     renderIn(
       'book',
       <SequenceStepper
@@ -913,8 +913,12 @@ describe('<SequenceStepper> · the bst recipe (#321)', () => {
         program
       />,
     );
-    expect(screen.getByText('ocupa el lugar')).toBeInTheDocument();
-    expect(screen.queryByText('sucesor')).toBeNull();
+    const panels = screen.getAllByTestId('sequence-listing');
+    expect(panels.map((p) => p.getAttribute('data-listing'))).toEqual(['programa', 'método']);
+    expect(panels[0]).toHaveTextContent('tree.remove(1);');
+    expect(panels[1]).toHaveTextContent('private Node<T> remove(Node<T> node, T value)');
+    // The method is walked, so its legend is the removal's.
+    expect(screen.getByText('sucesor')).toBeInTheDocument();
   });
 
   it('shows a tree built by a program, one line per frame', () => {

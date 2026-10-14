@@ -461,14 +461,6 @@ $$O(h)$$.
 </Slide>
 
 <Slide title="Eliminaciones en un mismo árbol">
-Varias eliminaciones seguidas, en un mismo árbol, pasan por todos los casos:
-
-- una **hoja**;
-- un nodo con **un solo hijo**, primero a la derecha y después a la izquierda;
-- un nodo con **dos hijos**: la raíz, cuyo sucesor tiene un hijo, y otro cuyo
-  sucesor es una hoja;
-- un valor que **no está**.
-
 <SequenceStepper eda="bst" operation="remove" values={[8, 3, 12, 1, 6, 10, 14, 11]} target={[1, 3, 8, 12, 14, 5]} program />
 
 </Slide>

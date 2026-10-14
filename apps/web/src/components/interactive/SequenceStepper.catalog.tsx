@@ -99,7 +99,7 @@ export const sequenceStepperCatalogEntry: CatalogEntry = {
       name: 'program',
       type: 'boolean',
       description:
-        "`bst` × `insert` from `values={[]}`, or `bst` × `remove` from the tree `values` builds. The listing becomes the program that runs the operation several times — `BST<Integer> tree = new BST<>();`, then one `tree.insert(x);` per value, or the tree built by a loop of insertions and one `tree.remove(x);` per target — one frame per line, the tree drawn after each. An insertion marks the new leaf and lights the way it came down; a removal marks the node left in the removed one's place and names the case in the narration (a leaf, one child, two children, the root, a value that is not there). For showing what a run of the operation does to the tree, not the descent inside the method. Anywhere else it is an authoring error. Default `false`.",
+        '`bst` × `insert` from `values={[]}`, or `bst` × `remove` with `target` an array. On `insert` the listing becomes the program that builds the tree — `BST<Integer> tree = new BST<>();`, then one `tree.insert(x);` per value — one frame per line, the tree drawn after each with the new leaf marked and the way it came down lit: what a run of insertions builds, not the descent inside the method. On `remove` the program — the tree built from `values` by a loop of insertions, then one `tree.remove(x);` per target — is listed beside the method it calls, each under its own heading: every removal is walked through the method as a single one is, its program line lit the whole time, so one tree goes through every case in turn (a leaf, one child, two children, the root, a value that is not there). The program takes the width its lines need and the method the rest; in the book the program goes on top. Anywhere else it is an authoring error. Default `false`.',
     },
     {
       name: 'autoplay',
@@ -404,7 +404,7 @@ export const sequenceStepperCatalogEntry: CatalogEntry = {
       ),
     },
     {
-      title: 'Removals run by a program: one frame per removal, each case named',
+      title: 'Removals run by a program: the program beside the method, every removal walked',
       code: '<SequenceStepper eda="bst" operation="remove" values={[8, 3, 12, 1, 6, 10, 14, 11]} target={[1, 3, 8, 12, 14, 5]} program />',
       render: () => (
         <SequenceStepper

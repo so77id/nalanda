@@ -96,13 +96,16 @@ nothing on screen moves: the rule `maxCells` keeps for the chains.
   the AVL rebalances on the way back, and an iterative traversal is a stack
   — the iterator exercise. The translation is `pairListings`
   (`sequenceStepperTraceShared.ts`), shared with the array's binary search
-  (ADR-0074). `insert` and `remove` may also run as a program (`program`):
-  the listing is the program that calls the operation several times, one
-  frame per line, the tree drawn after each — what a run of insertions
-  builds from an empty tree, and what a run of removals does to one tree,
-  each case named. The method walks ONE value; several values are the
-  program's (Miguel's review: "one thing is walking a single value, and
-  another the widget doing the same operation several times").
+  (ADR-0074). `insert` and `remove` may also run as a program (`program`),
+  the operation called several times (Miguel's review: "one thing is walking
+  a single value, and another the widget doing the same operation several
+  times"). `insert`'s program is one frame per line, the tree drawn after
+  each: what a run of insertions builds from an empty tree. `remove`'s is
+  listed beside the method, which is walked for every removal with the
+  program's line lit — the program on the left, the method on the right, as
+  Miguel asked for the slide that runs every case in one tree; the trace
+  names its two listings (`listingNames`) where the recursive and the
+  iterative pair take the default ones.
 
 None ships without a slide that mounts it (#296, ADR-0077 §5).
 

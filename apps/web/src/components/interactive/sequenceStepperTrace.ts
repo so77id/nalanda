@@ -300,6 +300,13 @@ export interface SequenceTrace {
    */
   alongside?: string;
   /**
+   * What the two listings are called, left then right, when the trace
+   * carries `alongside`. Without it they are the recursive and the iterative
+   * version of one operation; a program of removals names its own: the
+   * program, and the method it calls (#322).
+   */
+  listingNames?: [string, string];
+  /**
    * The most cells any frame holds. The view lays out for THIS, not for the
    * current frame, so the drawing keeps one size from the first frame to the
    * last — a chain that resizes under the reader on every insertion is a
@@ -384,9 +391,10 @@ export interface SequenceInput {
   /** The iterative version of the operation beside the recursive one (`PAIRED`). */
   iterative?: boolean;
   /**
-   * `bst` × `insert` from an empty tree, or `bst` × `remove` from the tree
-   * `values` builds: the listing is the program that runs the operation
-   * several times, one frame per line, instead of the method walked.
+   * The program that runs the operation several times: `bst` × `insert`
+   * from an empty tree, one frame per line instead of the method walked; or
+   * `bst` × `remove` from the tree `values` builds, beside the method it
+   * calls, walked for every removal.
    */
   program?: boolean;
   /**
