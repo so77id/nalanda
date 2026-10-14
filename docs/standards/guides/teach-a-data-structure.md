@@ -411,7 +411,7 @@ The classes the operations use come right before the first of them, never
 earlier, and their members follow one rule: `public` for what the structure
 offers, `private` for the recursive helpers and for the fields. Worked case:
 the search tree's section of `22-edd-arboles-ii.mdx` — buscar, insertar, el
-inorden, el mínimo, el sucesor, eliminar.
+inorden, eliminar.
 
 ### 5. Close on a loose end, not a summary
 

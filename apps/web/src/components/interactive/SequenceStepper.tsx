@@ -84,7 +84,7 @@ export interface SequenceStepperProps {
    * The value looked for. Required by `search` and `insert-ordered`. An
    * ARRAY searches each in turn, so one widget can show the hit at the
    * front, the hit at the back and the value that is not there. On the
-   * trees, the node an operation acts on: `successor` and `remove` on `bst`,
+   * trees, the node an operation acts on: `remove` on `bst`,
    * the node that rotates on `avl`.
    */
   target?: number | number[];
@@ -230,8 +230,6 @@ const OPERATION_LABEL: Record<SequenceOperation, string> = {
   inorder: 'recorrer en inorden',
   postorder: 'recorrer en postorden',
   height: 'calcular la altura',
-  minimum: 'buscar el mínimo',
-  successor: 'buscar el sucesor',
   remove: 'eliminar',
   'rotate-right': 'rotar a la derecha',
   'rotate-left': 'rotar a la izquierda',
@@ -258,8 +256,6 @@ const SEARCH_TREE_LEGEND: Record<BstOperation, [string, string][]> = {
   search: [FOUND, UNDER_THE_EYE, VISITED, RULED_OUT],
   insert: [['border-mark bg-mark-soft', 'nuevo'], UNDER_THE_EYE, VISITED],
   inorder: [['border-mark bg-mark-soft', 'se visita'], UNDER_THE_EYE, VISITED],
-  minimum: [FOUND, VISITED, RULED_OUT],
-  successor: [['border-mark bg-mark-soft', 'mejor candidato'], FOUND, RULED_OUT],
   remove: [
     ['border-mark bg-mark-soft', 'toma un valor'],
     ['border-accent bg-surface', 'sucesor'],

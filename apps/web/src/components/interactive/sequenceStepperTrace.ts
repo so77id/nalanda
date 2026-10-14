@@ -84,9 +84,8 @@ export const OPERATIONS = [
   'inorder',
   'postorder',
   'height',
-  // The search tree's own operations (#321): each walks one path down.
-  'minimum',
-  'successor',
+  // The search tree's own (#321): the removal, down one path to the node
+  // and down another to its successor.
   'remove',
   // The AVL tree's own (#322): the rotation, the tool its insertions and
   // removals use to keep the shape, shown on its own first.
@@ -467,7 +466,7 @@ export const HEAP_OPERATIONS: readonly SequenceOperation[] = HEAP_OPERATION_NAME
 const BINARY_TREE_ONLY_NAMES = ['preorder', 'inorder', 'postorder', 'height'] as const;
 
 /** The operations only `bst` has (#322): each chooses a side at every node. */
-const BST_ONLY_NAMES = ['minimum', 'successor', 'remove'] as const;
+const BST_ONLY_NAMES = ['remove'] as const;
 export const BST_ONLY_OPERATIONS: readonly SequenceOperation[] = BST_ONLY_NAMES;
 
 /** The operations only `avl` has (#322): the rotations, its tool. */
@@ -692,8 +691,6 @@ const METHOD_NAME: Record<SequenceOperation, string> = {
   inorder: 'inorder',
   postorder: 'postorder',
   height: 'height',
-  minimum: 'min',
-  successor: 'successor',
   remove: 'remove',
   'rotate-right': 'rotateRight',
   'rotate-left': 'rotateLeft',
@@ -806,7 +803,6 @@ const ARRAY_CODE: Record<ArrayOperation, string> = {
 const PAIRED: [SequenceRecipe, SequenceOperation][] = [
   ['dynamic-array', 'binary-search'],
   ['bst', 'search'],
-  ['bst', 'minimum'],
   ['bst', 'insert'],
 ];
 
@@ -1331,8 +1327,6 @@ function runArgs(operation: SequenceOperation, input: SequenceInput): string[] {
     case 'inorder':
     case 'postorder':
     case 'height':
-    case 'minimum':
-    case 'successor':
     case 'remove':
     case 'rotate-right':
     case 'rotate-left':
@@ -1581,8 +1575,6 @@ function listCode(recipe: SequenceRecipe, operation: SequenceOperation, tail: bo
     case 'inorder':
     case 'postorder':
     case 'height':
-    case 'minimum':
-    case 'successor':
     case 'remove':
     case 'rotate-right':
     case 'rotate-left':

@@ -1235,26 +1235,6 @@ describe('<SequenceStepper> · the combinations 22-edd-arboles-ii mounts', () =>
     },
     {
       act: 'El árbol binario de búsqueda',
-      slide: 'El código del mínimo',
-      props: {
-        eda: 'bst',
-        operation: 'minimum',
-        values: [8, 4, 12, 2, 6, 10, 14],
-        iterative: true,
-      },
-    },
-    {
-      act: 'El árbol binario de búsqueda',
-      slide: 'El código del sucesor',
-      props: {
-        eda: 'bst',
-        operation: 'successor',
-        values: [8, 4, 12, 2, 6, 10, 14],
-        target: 8,
-      },
-    },
-    {
-      act: 'El árbol binario de búsqueda',
       slide: 'El código de la eliminación',
       props: {
         eda: 'bst',

@@ -61,7 +61,7 @@ content/courses/sample-course/
 ├── 19-edd-stack-queue.mdx     # presentation: explicit, questions: pool (13) — <SequenceStepper> ×8 over BOTH families (dynamic-array + singly) + <StepShow> ×7 + <Exercise> ×4 + 20 standalone inline SVG figures + a file-local <Paso> frame component + two TDA cards
 ├── 20-edd-priority-queue-heap.mdx  # presentation: explicit, questions: pool (16) — <SequenceStepper eda="heap-max"> ×4 + <StepShow> ×3 + <Exercise> ×4 (three worked on slides, one posed) + <PresentationWide> ×3 + 23 file-local figure components and LIST_COLORS (§6e-quater) + a TDA card (the fifth copy)
 ├── 21-edd-arboles-i.mdx       # presentation: explicit, questions: pool (19) — opens the Estructuras de Datos Avanzadas unit, ahead of chapter 20 in index.yaml; <SequenceStepper eda="binary-tree"> ×5 (its worked case, ADR-0083) + <StepShow> ×12 + <SideBySide> ×3 + <Exercise> ×5 (three worked, each on its slide — the widest level's and the calculator's in a scrolling window, being longer than 32 lines — and two posed) + <PresentationWide> ×18 + <BinaryPicture> ×162, <NodeGraph> ×2 and <OrderRule> ×6 (the content components #322 promoted from it, §6e-quinquies) + five file-local figure components (HierarchyPicture, TreeMemory, BinaryMemory, TokenRow, StackRow); the search tree moved to Árboles II (#322)
-├── 22-edd-arboles-ii.mdx      # presentation: explicit, questions: none (a documented not-yet, step 2) — the second class of the Estructuras de Datos Avanzadas unit, after edd-arboles-i in index.yaml and closing toward edd-priority-queue-heap: a growing set from the sorted array to the search tree, its operations, the arrival order, the rotation, the AVL tree and the other trees; <SequenceStepper> ×14 (bst ×9, every operation in the theory-cases-code-cost order and its code public over private, avl ×4 — the avl recipe's worked case, ADR-0083 §6 —, dynamic-array — the binary search, its worked case, ADR-0074 §Amended by #322) + <BinaryPicture> ×75 (§6e-quinquies, triangles for the generic rotation, splits for the binary search's decisions) + <NodeGraph> ×2 + <OrderRule> + <StepShow> ×3 + <Exercise> ×6 (three worked, each with its program on a slide — the iterator's and the intersection's in a scrolling window —, and three posed, book-only) + an inline B-tree <svg> + two file-local figure components (SortedRow, OrderSides)
+├── 22-edd-arboles-ii.mdx      # presentation: explicit, questions: none (a documented not-yet, step 2) — the second class of the Estructuras de Datos Avanzadas unit, after edd-arboles-i in index.yaml and closing toward edd-priority-queue-heap: a growing set from the sorted array to the search tree, its operations, the arrival order, the rotation, the AVL tree and the other trees; <SequenceStepper> ×12 (bst ×7, every operation in the theory-cases-code-cost order and its code public over private, avl ×4 — the avl recipe's worked case, ADR-0083 §6 —, dynamic-array — the binary search, its worked case, ADR-0074 §Amended by #322) + <BinaryPicture> ×72 (§6e-quinquies, triangles for the generic rotation, splits for the binary search's decisions) + <NodeGraph> ×2 + <OrderRule> + <StepShow> ×3 + <Exercise> ×6 (three worked, each with its program on a slide — the iterator's and the intersection's in a scrolling window —, and three posed, book-only) + an inline B-tree <svg> + two file-local figure components (SortedRow, OrderSides)
 ├── tda-eda-invariante.svg, arreglo-memoria.svg, arreglo-alocacion.svg, arreglo-invariante-valido.svg, arreglo-invariantes.svg, regla-del-cuarto.svg, costo-acumulado.svg   # assets for chapter 17
 └── index.yaml                 # the ordered teaching path
 ```
@@ -870,9 +870,7 @@ chooses a side at every node and fades the one the invariant rules out,
 column reserved from the first frame — with no strip under it: a search tree
 keeps no array, and a strip there read as one (#322); with `program` and
 `values={[]}` the listing is the program that builds the tree, one frame per
-`tree.insert(x);` line — `minimum` walks left only (an empty tree is refused: `min()` throws
-there), `successor` (`target`) walks down once keeping the best candidate,
-and `remove` (`target`) runs the three cases — a leaf, one child, and two
+`tree.insert(x);` line — and `remove` (`target`) runs the three cases — a leaf, one child, and two
 children by copying the successor's value into the node and removing the
 successor. `inorder` walks it as the binary tree's does. Every `bst` listing
 is the method the tree offers, `public`, and for the recursive ones the
@@ -882,7 +880,7 @@ over the heap and `bst`. The binary search and `bst`'s `search` write the
 value sought beside the structure on every frame («se busca el 6»).
 `iterative` puts the recursive version of an
 operation on the left and the iterative one on the right, the two listings
-lit at the same moment (#322): on `bst` × `search`, `minimum` and `insert`,
+lit at the same moment (#322): on `bst` × `search` and `insert`,
 and on `dynamic-array` × `binary-search` with one target — the operations
 whose two versions take the same decisions in the same order. `remove`, the
 AVL's operations and the traversals stay recursive: the first needs the
@@ -980,7 +978,7 @@ Six things worth knowing before you write one:
   | `linked-list-circular` | `insert-first`                                                                          |
   | `heap-max`             | `insert`, `extract-max` (y ninguna otra receta acepta estas dos)                        |
   | `binary-tree`          | `preorder`, `inorder`, `postorder`, `height` (y ninguna otra receta acepta estas cuatro), y `search` |
-  | `bst`                  | `search`, `insert`, `inorder`, `minimum`, `successor`, `remove` (las tres últimas, solo aquí) |
+  | `bst`                  | `search`, `insert`, `inorder`, `remove` (la última, solo aquí)                       |
   | `avl`                  | `rotate-right`, `rotate-left` (solo aquí), `insert`, `remove`                           |
 
   Anything else is an `<AuthoringError>` naming the operations that recipe does

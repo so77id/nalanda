@@ -76,10 +76,14 @@ nothing on screen moves: the rule `maxCells` keeps for the chains.
   `search` keeps ONE name across `binary-tree` and `bst` (and the chains),
   because two nearly identical tags are how a slide contrasts visiting
   everything with choosing a side, and `insert` becomes shared between
-  `heap-max` and `bst`. Then `minimum`, `successor` and `remove` in its three
-  cases, the two-children case copying the successor's value into the node
-  (which keeps its column) and removing the successor. `search`,
-  `minimum` and `insert` may also show their iterative version beside the
+  `heap-max` and `bst`. Then `remove` in its three cases, the two-children
+  case copying the successor's value into the node (which keeps its column)
+  and removing the successor. `minimum` and `successor` were built too and
+  went with their slides (Miguel's review, #322: "more tree exercises than
+  matter"; the removal needs only the right subtree's minimum, which its own
+  listing finds) — no operation ships without a slide that mounts it, so
+  they come back with the exercise that wants them. `search` and `insert`
+  may also show their iterative version beside the
   recursive one (`iterative`): the trace carries a second listing,
   `alongside`, and every frame the line of it that does what the recursive
   line does — the comparison in both, a call on a side against the variable
@@ -93,9 +97,6 @@ nothing on screen moves: the rule `maxCells` keeps for the chains.
   — the iterator exercise. The translation is `pairListings`
   (`sequenceStepperTraceShared.ts`), shared with the array's binary search
   (ADR-0074).
-  Maximum and
-  predecessor are their mirror images and stay in prose: no slide mounts
-  them.
 
 None ships without a slide that mounts it (#296, ADR-0077 §5).
 
@@ -254,8 +255,8 @@ what accepts it — the review, not the code.
 
 - The validity matrix grows two rows: `binary-tree` × {`preorder`,
   `inorder`, `postorder`, `height`, `search`} and `bst` × {`search`,
-  `insert`, `inorder`, `minimum`, `successor`, `remove`}; the seven
-  tree-only operations are valid on no Sequence recipe
+  `insert`, `inorder`, `remove`}; the tree-only operations are valid on
+  no Sequence recipe
   (`add-a-course-document.md` §5h carries it). `bst`'s `inorder` (#322)
   is the binary tree's body behind a public `inorder()`, in a listing of
   its own, so the binary tree's — Árboles I's — is untouched; and every

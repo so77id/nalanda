@@ -41,8 +41,6 @@ const TRAVERSALS = ['preorder', 'inorder', 'postorder'] as const;
 const TREE_ONLY: readonly SequenceOperation[] = [
   ...TRAVERSALS,
   'height',
-  'minimum',
-  'successor',
   'remove',
   'rotate-right',
   'rotate-left',
@@ -2173,7 +2171,7 @@ describe('sequenceStepperTrace · binary-tree · the search listing marks the vi
 });
 
 describe('sequenceStepperTrace · bst · the valid combinations', () => {
-  it('takes search, insert, minimum, successor and remove, and nothing else', () => {
+  it('takes search, insert, inorder and remove, and nothing else', () => {
     for (const operation of OPERATIONS) {
       expect(isValidCombination('bst', operation), operation).toBe(
         BST_OPERATIONS.includes(operation),
@@ -2196,7 +2194,7 @@ describe('sequenceStepperTrace · bst · how many runs', () => {
   const thirteen = Array.from({ length: 13 }, (_, i) => i);
 
   it('refuses more than twelve targets, as every other recipe does', () => {
-    for (const operation of ['search', 'successor', 'remove'] as const) {
+    for (const operation of ['search', 'remove'] as const) {
       expect(() => traceFor('bst', operation, { values: BALANCED, target: thirteen })).toThrow(
         /Entre 1 y 12/,
       );
@@ -2304,16 +2302,6 @@ describe('sequenceStepperTrace · the other listings shown recursive and iterati
       for (const [l, r] of pairs) if (left.includes(l)) expect(right, left).toContain(r);
     }
   };
-
-  it('pairs the minimum: a call to the left against the variable stepping left', () => {
-    const trace = traceFor('bst', 'minimum', { values: BALANCED, iterative: true });
-    expect(trace.code).toContain('return minimum(node.left)');
-    expect(trace.alongside).toContain('while (node.left != null)');
-    paired(trace, [
-      ['return minimum(node.left)', 'node = node.left'],
-      ['if (node.left == null) return node', 'return node.value'],
-    ]);
-  });
 
   it('pairs the insertion: the same descent, and the leaf hung at the end', () => {
     const trace = traceFor('bst', 'insert', { values: BALANCED, value: 5, iterative: true });
@@ -2445,13 +2433,6 @@ describe('sequenceStepperTrace · bst · the public method and the private one (
         'root = remove(root, value);',
       ],
       [
-        'minimum',
-        {},
-        'public T min() {',
-        'private Node<T> minimum(Node<T> node) {',
-        'return minimum(root).value;',
-      ],
-      [
         'inorder',
         {},
         'public void inorder() {',
@@ -2467,14 +2448,10 @@ describe('sequenceStepperTrace · bst · the public method and the private one (
     }
   });
 
-  it('writes the iterative versions, and the successor, as public methods', () => {
-    expect(traceFor('bst', 'successor', { values: BALANCED, target: 6 }).code).toContain(
-      'public T successor(T value) {',
-    );
+  it('writes the iterative versions as public methods', () => {
     for (const [operation, extra] of [
       ['search', { target: 6 }],
       ['insert', { value: 5 }],
-      ['minimum', {}],
     ] as const) {
       const trace = traceFor('bst', operation, { values: BALANCED, ...extra, iterative: true });
       expect(trace.alongside!.startsWith('public '), operation).toBe(true);
@@ -2548,50 +2525,6 @@ const inorderOf = (step: SequenceStep): number[] => {
   return out;
 };
 const sorted = (xs: number[]) => xs.every((x, i) => i === 0 || xs[i - 1]! < x);
-
-describe('sequenceStepperTrace · bst · minimum', () => {
-  it('walks left only, and finds the minimum in h + 1 comparisons', () => {
-    const last = traceFor('bst', 'minimum', { values: BALANCED }).steps.at(-1)!;
-    expect(last.tree!.nodes.find((n) => n.state === 'found')!.value).toBe(1);
-    expect(last.cost).toBe(3);
-  });
-
-  it('rules out every right subtree on the way down', () => {
-    const last = traceFor('bst', 'minimum', { values: BALANCED }).steps.at(-1)!;
-    const out = last
-      .tree!.nodes.filter((n) => n.state === 'discarded')
-      .map((n) => Number(n.value))
-      .sort((a, b) => a - b);
-    expect(out).toEqual([3, 6, 7, 9]);
-  });
-
-  it('refuses an empty tree: min() throws there', () => {
-    expect(() => traceFor('bst', 'minimum', { values: [] })).toThrow(/vacío/);
-  });
-});
-
-describe('sequenceStepperTrace · bst · successor', () => {
-  const successorOf = (target: number) =>
-    traceFor('bst', 'successor', { values: BALANCED, target }).steps.at(-1)!;
-
-  it('finds the successor up the tree when the node has no right subtree', () => {
-    expect(successorOf(3).tree!.nodes.find((n) => n.state === 'found')!.value).toBe(4);
-  });
-
-  it('finds the successor down the right subtree when there is one', () => {
-    expect(successorOf(4).tree!.nodes.find((n) => n.state === 'found')!.value).toBe(6);
-  });
-
-  it('says the largest value has no successor', () => {
-    const last = successorOf(9);
-    expect(last.tree!.nodes.some((n) => n.state === 'found')).toBe(false);
-    expect(last.description).toContain('no tiene sucesor');
-  });
-
-  it('descends a single path: one comparison per level', () => {
-    expect(successorOf(4).cost).toBe(3);
-  });
-});
 
 describe('sequenceStepperTrace · bst · remove', () => {
   const PDF_FULL = [8, 5, 1, 4, 6, 7, 20, 12, 23].slice(0, 8);

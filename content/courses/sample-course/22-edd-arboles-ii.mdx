@@ -358,54 +358,6 @@ derecho. Visita cada nodo una vez: $$\Theta(n)$$.
 
 </Slide>
 
-<Slide title="El mínimo y el máximo">
-El **mínimo** es el menor valor del árbol, el primero del inorden. Por la
-invariante, todo lo menor que un nodo está a su izquierda, así que el mínimo
-es el nodo de más a la izquierda: se baja por la izquierda hasta un nodo que
-no tenga hijo izquierdo. El **máximo** es el simétrico: se baja por la
-derecha. En un árbol vacío no hay ni mínimo ni máximo.
-
-<BinaryPicture tree={EVENS} path={[8, 4, 2]} tones={{ 2: 'keep' }} label="El mínimo del árbol: desde el 8 se baja al 4 y del 4 al 2, que no tiene hijo izquierdo. El mínimo es el 2." caption="mínimo: 8, 4, 2, y el 2 no tiene hijo izquierdo" />
-
-</Slide>
-
-<Slide title="El código del mínimo">
-El método público, `min`, lanza una excepción si el árbol está vacío; si no,
-llama al privado con la raíz y devuelve el valor del nodo que este encuentra.
-El privado baja una llamada por nivel; la versión iterativa, una variable que
-baja mientras haya un hijo izquierdo. Las dos bajan por un solo camino:
-$$O(h)$$, lo mismo que el máximo.
-
-<SequenceStepper eda="bst" operation="minimum" values={[8, 4, 12, 2, 6, 10, 14]} iterative />
-
-</Slide>
-
-<Slide title="El sucesor y el predecesor">
-El **sucesor** de un valor es el menor valor del árbol que es mayor que él:
-el que le sigue en el inorden. Se encuentra con una sola bajada desde la raíz
-que guarda un candidato: en cada nodo mayor que el valor, ese nodo es el mejor
-candidato hasta ahí, y uno mejor solo puede estar a su izquierda; en cada nodo
-menor o igual, el sucesor solo puede estar a su derecha. Cuando la bajada
-llega a un subárbol vacío, el último candidato es el sucesor. El
-**predecesor**, el mayor valor menor que él, es el simétrico.
-
-<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1rem 2rem', alignItems: 'end' }}>
-<BinaryPicture tree={EVENS} path={[8, 4, 6]} probe={{ at: 6, side: 'r' }} tones={{ 8: 'keep' }} holes={[]} label="El sucesor del 6: la bajada pasa por el 8, que es mayor y queda de candidato, y por el 4 y el 6, que no son mayores; a la derecha del 6 no hay nada. El sucesor es el 8." caption="sucesor de 6: el 8, un ancestro" />
-<BinaryPicture tree={EVENS} path={[8, 12, 10]} probe={{ at: 10, side: 'l' }} tones={{ 10: 'keep' }} holes={[]} label="El sucesor del 8: la bajada pasa por el 8, que no es mayor, por el 12, mayor y candidato, y por el 10, mayor y mejor candidato; a la izquierda del 10 no hay nada. El sucesor es el 10." caption="sucesor de 8: el 10, el mínimo de su derecha" />
-</div>
-
-</Slide>
-
-<Slide title="El código del sucesor">
-El método público, `successor`, baja una sola vez desde la raíz con una
-variable, y guarda en otra el mejor candidato; al final devuelve su valor, o
-`null` si ningún valor del árbol es mayor. Baja por un solo camino: $$O(h)$$,
-lo mismo que el predecesor.
-
-<SequenceStepper eda="bst" operation="successor" values={[8, 4, 12, 2, 6, 10, 14]} target={8} />
-
-</Slide>
-
 <Slide title="Eliminar en un árbol de búsqueda">
 **Eliminar** saca un valor del árbol sin romper la invariante: recibe el valor
 y, si no está, no hace nada. Primero se busca el nodo que lo guarda; lo que se
@@ -442,8 +394,10 @@ padre que el nodo eliminado.
 <Slide title="Eliminar un nodo con dos hijos">
 Un nodo con **dos hijos** no se puede sacar: dejaría dos subárboles colgando,
 y su padre tiene lugar para uno solo. Por eso el nodo se queda y cambia de
-valor: toma el de su **sucesor**, el mínimo de su subárbol derecho, y después
-se elimina el sucesor.
+valor: toma el de su **sucesor**, el valor que le sigue en orden. El sucesor
+es el menor del subárbol derecho: se baja una vez a la derecha, y después por
+la izquierda hasta un nodo que no tenga hijo izquierdo. Después se elimina el
+sucesor de abajo.
 
 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1rem 2rem', alignItems: 'end' }}>
 <BinaryPicture tree={EVENS} tones={{ 8: 'mark', 10: 'focus' }} notes={{ 10: 'sucesor' }} holes={[]} label="El árbol de búsqueda con el 8 marcado: tiene dos hijos. Su sucesor, el mínimo de su subárbol derecho, es el 10." caption="eliminar 8: su sucesor es 10" />
@@ -452,8 +406,8 @@ se elimina el sucesor.
 
 El sucesor es mayor que todo lo de la izquierda y menor que todo lo demás de
 la derecha: cabe exactamente en el lugar que deja el valor eliminado. Y como
-es un mínimo, no tiene hijo izquierdo, así que eliminarlo es uno de los dos
-casos anteriores.
+es el menor de su subárbol, no tiene hijo izquierdo, así que eliminarlo es uno
+de los dos casos anteriores.
 
 </Slide>
 
@@ -475,8 +429,6 @@ mismo: la altura.
 | Molde     | Operación           | Peor caso | Invariante que restaura                                              |
 | --------- | ------------------- | --------- | -------------------------------------------------------------------- |
 | Consultar | `contains`          | $$O(h)$$  | Ninguna: no cambia el árbol                                          |
-| Consultar | mínimo, máximo      | $$O(h)$$  | Ninguna: no cambia el árbol                                          |
-| Consultar | sucesor, predecesor | $$O(h)$$  | Ninguna: no cambia el árbol                                          |
 | Modificar | `insert`            | $$O(h)$$  | La de orden: la hoja nueva queda del lado que eligió cada comparación |
 | Modificar | `remove`            | $$O(h)$$  | La de orden: el sucesor cabe justo en el lugar que deja              |
 
@@ -958,8 +910,6 @@ llegue.
 | Molde     | Operación           | Peor caso       | Invariante que restaura                                         |
 | --------- | ------------------- | --------------- | --------------------------------------------------------------- |
 | Consultar | `contains`          | $$O(\log n)$$   | Ninguna: no cambia el árbol                                     |
-| Consultar | mínimo, máximo      | $$O(\log n)$$   | Ninguna: no cambia el árbol                                     |
-| Consultar | sucesor, predecesor | $$O(\log n)$$   | Ninguna: no cambia el árbol                                     |
 | Modificar | `insert`            | $$O(\log n)$$   | La de orden, y la de balance con a lo más una rotación          |
 | Modificar | `remove`            | $$O(\log n)$$   | La de orden, y la de balance con a lo más una rotación por nivel |
 
