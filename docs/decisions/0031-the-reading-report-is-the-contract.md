@@ -13,6 +13,13 @@ page's raw-scan fallback iterates every page AMC captured
 **Amended by:** #298 (2026-09-22) — `/analyse` says what THIS batch did
 (`batch`), and a copy captured under more than one scan index (a photocopy-mode
 stack) is refused
+**Amended by:** #327 (2026-10-13) — *what is missing* has a second cause the
+repair below did not name: the page WAS scanned and AMC could not place it
+(`capture_failed`, counted by `batch.failed`). On 2026-10-13 a control printed
+"fit to page" at 0.87 lost three pages that way, and re-scanning the same
+sheet would not have helped. The report's shape is unchanged; the repair now
+starts with the print scale (ADR-0085, and the diagnostic in
+`apps/amc-worker/README.md` §A sheet printed to fit the page)
 
 ## Context
 
@@ -56,7 +63,7 @@ one without the others:
 | --- | --- | --- |
 | *Who is this* | `rut_status: "unreadable"` | type eight digits into the queue |
 | *What did they mark* | answer `status`: `blank` / `ambiguous` / `doubtful` | a human looks at the sheet |
-| *What is missing* | copy `status: "incomplete"` | find the sheet and scan it again |
+| *What is missing* | copy `status: "incomplete"` | find the sheet and scan it again — or, if the page is in the batch, check its print scale (ADR-0085) |
 | *What cannot be scored* | no report at all — exit 2, the reason on stderr | re-run the engine's scoring pass after the last capture |
 
 The third is the one that cannot be repaired at a keyboard, which is why it is
@@ -64,7 +71,10 @@ its own status rather than another flavour of "needs review". It is detected by
 comparing the questions captured against the questions the layout says the copy
 **printed** — without that comparison a sheet whose page never reached the
 scanner (a double feed, the likeliest failure with real paper) reports clean and
-a student gets zero on half the exam with nothing to show for it.
+a student gets zero on half the exam with nothing to show for it. A page that
+was scanned but that AMC could not place lands in the same status (#327: a
+sheet printed below the corner-mark band), which is why the repair checks the
+batch before the pile.
 
 ### A question says which kind it is, and several marks are an answer
 

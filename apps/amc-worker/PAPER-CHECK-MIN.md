@@ -32,8 +32,9 @@ make paper-min   # PAPER_MIN_COPIES=n for a different count
 That produces `tests/work/paper-min/out/control-min-para-imprimir.pdf` — three
 copies, three pages.
 
-**Print single-sided, at 100% scale.** Not "fit to page": AMC finds the sheet
-by the four corner marks, and scaling moves them. Use the paper the control
+**Print single-sided, at 100% or "fit to page".** Both read: since #327
+(ADR-0085) the reader accepts corner circles down to 65 % of their printed
+size: every page read at a 0.70 print scale, none at 0.65. Use the paper the control
 was created for — Letter by default (Chile), A4 if you opened "Opciones
 avanzadas" in the create form and switched (ADR-0043 supersedes the
 fixed-Letter of ADR-0042). Three sheets come out on that paper.
@@ -104,7 +105,8 @@ first-cycle question, not a full validation.
 
 1. **Every page captured.** `pages.captured` should be 3 and `pages.failed`
    0. Any copy with `status: incomplete` is a scan-geometry problem, not a
-   marking problem.
+   marking problem. Check the print scale first (README §A sheet printed to
+   fit the page): every page read at 0.70 of full size and none at 0.65.
 2. **Sheet 1 RUT: exact digit match.** `copies["1"].rut_status` should be
    `ok` and `copies["1"].rut` should equal the RUT written on that sheet's
    `RUT:` line — digit by digit. This is the check the first pencil cycle

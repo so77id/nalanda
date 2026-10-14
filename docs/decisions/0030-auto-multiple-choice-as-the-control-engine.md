@@ -18,6 +18,15 @@ never `analyse --multiple` (ADR-0075). The capture's copy index is therefore 0,
 and TRAP 1 below inverts: the ghost row is now `--copy 1`, the index the §The
 spike table records. The table and §Not yet proven's tooling notes stay as the
 record of what was measured then.
+**Amended by:** #327 (2026-10-13) — `analyse` runs with a wider corner-mark
+tolerance, `--tol-marque 0.35,0.2` (ADR-0085). §Not yet proven's review trigger
+"corner marks not found" fired on a control printed to fit at 0.87; it was AMC's
+default ±20 % size filter, not the engine — the trigger was evaluated and the
+engine choice stands — and a sheet printed to fit is now read down to 0.70. The
+paper check (`make read-paper`) reads at the same tolerance, so §Not yet
+proven's outstanding full cycle measures production's calibration.
+§Partial evidence's "printed at 100%" is still the record of what was measured
+then.
 
 ## Context
 

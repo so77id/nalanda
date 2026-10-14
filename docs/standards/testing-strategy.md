@@ -137,11 +137,37 @@ which passes with the guard commented out and reads a different copy of the file
 than the container runs. Same rule as "reading a config proves a name appears in
 it" above, one level up.
 
+**A trap performed on a DEGRADED input carries two controls besides the trap
+itself.** First the same pipeline at the identity setting, which must read
+everything — otherwise a degradation step that broke the input outright (a
+blank page, an unreadable file) passes for the trap, since "reads nothing" is
+also what a broken pipeline produces. Then an assertion that the system under
+test SAW the degradation, from its own numbers. `09-scaled.sh` is the worked
+case (#327): the batch is printed at 1.0 and must place 4/4 under bare AMC
+before the 0.75 print must place 0/4, and the worker's capture must report an
+area scale of 0.56 (0.75²). Measured in its review: a near-blank shrink
+places 0/4 too, exactly the trap's expectation.
+
 **A test runs against the ARTIFACT, not the working tree.** `make test` does not
 rebuild, so a script that mounts a source file from the host and executes that
 is green against a stale image — which is the per-commit protocol's normal
 state. Production code is invoked from where the image installed it; only test
-tools travel on the volume (#138 review).
+tools travel on the volume (#138 review). The same holds for configuration: a
+Makefile target or a tool that drives AMC by hand over a REAL pile takes every
+value the worker names as a module constant or derives — `worker.MARK_TOLERANCE`,
+`worker.TICKED`, `read_capture.printed_copies` — from the INSTALLED module, by
+import, never a copy; one idiom, `python3 -c "import sys; sys.path.insert(0,
+sys.argv[1]); import worker; …" /opt/amc-worker`. `read-paper` and
+`read-paper-min` take all three that way (#147, #327), and
+`tests/tools/regress-tolerance.py` imports the worker's, so a paper check and the
+production regression read as production does. Literals the worker inlines in
+a call (`--vector-density 300`, `--with pdflatex`) cannot be imported and stay
+literals. Exceptions, named here so the next one is weighed against them: a
+test or measurement on a 100 % SYNTHETIC batch may omit the corner-mark
+tolerance, since at full size the band changes nothing (03, 04, 05, 07,
+`measure-batch.sh`); and `09-scaled.sh`'s bare read MUST omit it — that is the
+trap it performs. A new exception clears the same bar: say why the omitted
+value cannot change what the script reads.
 
 That makes "seen to fail" look expensive, because reddening a check appears to
 need a full `make build`. It does not: a **derived image** keeps the artifact
@@ -174,6 +200,25 @@ right after a first capture in `07-rescan.sh` can go red on a Mac with that
 message. It is the host, not the change: re-run the script. Production (the
 Jetson, a native Linux volume) is not exposed the same way, and the refusal is
 there so that it would be loud if it were.
+
+Two more shapes of the same host, both seen in #327. In `07-rescan.sh`, the
+two checks right after `/scans/reset` — "the same batch reads from scratch
+after a reset" and "as a first capture: nothing re-captured" — went red with
+an empty value three runs in a row and then green seven, also with `main`'s
+`worker.py` on the same image, so not the change; the response was not
+captured, so whether it is the database error above is unproven. And
+`/generate` can fail with `FileNotFoundError: '/work/p1/data'` on a
+bind-mounted directory the host just deleted and recreated (2 of 8 runs of
+`09-scaled.sh`; 7 of 10 in a two-line repro that does nothing else), which
+reddens "a two-copy control generates". Same answer for both: re-run, and
+expect neither on CI. If either stays red after two re-runs, stop re-running:
+run the script against a derived image carrying `main`'s `worker.py` — the
+recipe above, but take the file from `main`, not the working tree (`git show
+origin/main:apps/amc-worker/worker.py > /tmp/amc-mutant/worker.py`, and
+`COPY worker.py …` from `/tmp/amc-mutant` as the build context) — red there too
+is the host, green there is the change — and
+print the failing response (`echo "$again" >&2` after the call) so the next
+occurrence says what it is.
 
 **A script never writes into a project the worker has touched — it goes
 through the container.** Every request that names a project hands it to UID

@@ -109,13 +109,17 @@ different repairs (docs/design/2026-08-controles.md §lectura.estado):
                          ADMITS ONLY ONE, or one faint enough to doubt. On a
                          question that admits several (`type: "multiple"`),
                          several ticks are the answer and nothing is flagged.
-    what is missing    — the copy printed questions this batch never captured,
-                         which is a page that never reached the scanner
+    what is missing    — the copy printed questions this batch never captured:
+                         a page that never reached the scanner, or one that
+                         did and AMC could not place (it is in capture_failed;
+                         first check its print scale, ADR-0085)
 
 A copy can have the first without the second. When it does, typing the RUT is
 the whole repair and the answers are already final. The third is not repairable
-at a keyboard at all: the sheet has to be found and re-scanned, which is why it
-gets its own status rather than being folded into "needs review".
+at a keyboard at all: the sheet has to be found and re-scanned — or, when AMC
+rejected a page that was scanned, the cause fixed and the batch read again —
+which is why it gets its own status rather than being folded into "needs
+review".
 """
 
 import argparse

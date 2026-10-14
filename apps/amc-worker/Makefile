@@ -10,7 +10,7 @@ COPIES ?= 40
 PAPER_COPIES ?= 6
 PAPER_MIN_COPIES ?= 3
 
-.PHONY: build test verify shell clean size serve measure paper read-paper paper-min read-paper-min
+.PHONY: build test verify shell clean size serve measure measure-scale paper read-paper paper-min read-paper-min
 
 ## build — build the image
 build:
@@ -52,6 +52,14 @@ serve:
 measure:
 	COPIES=$(COPIES) AMC_IMAGE=$(IMAGE) tests/measure-batch.sh
 
+## measure-scale — down to which print scale a sheet is still read, at AMC's
+##   default corner-mark tolerance and at the worker's (#327, ADR-0085). Not
+##   part of `test`: it reports, it does not assert. Override the scales with
+##   make measure-scale SCALES="1.0 0.8" — passed through explicitly, like COPIES;
+##   left empty, the script uses its own list.
+measure-scale:
+	SCALES="$(SCALES)" AMC_IMAGE=$(IMAGE) tests/measure-scale.sh
+
 ## paper — produce the printable control for the manual paper check
 ##   The one verification no agent can run. See PAPER-CHECK.md.
 ##   Does the setup too: an earlier version of that document told the reader to
@@ -77,7 +85,7 @@ paper:
 		    --out-calage /work/out/calage.xy /work/src/control-demo.tex >/dev/null; \
 		  auto-multiple-choice meptex --data /work/project/data --src /work/out/calage.xy >/dev/null'
 	@echo
-	@echo "Print this DOUBLE-SIDED at 100% scale (not 'fit to page'):"
+	@echo "Print this DOUBLE-SIDED, at 100% or 'fit to page' (both read, ADR-0085):"
 	@echo "  apps/amc-worker/tests/work/paper/out/control-para-imprimir.pdf"
 	@echo "Then follow apps/amc-worker/PAPER-CHECK.md from step 2."
 
@@ -98,7 +106,7 @@ paper-min:
 		    --out-calage /work/out/calage.xy /work/src/control-paper-min.tex >/dev/null; \
 		  auto-multiple-choice meptex --data /work/project/data --src /work/out/calage.xy >/dev/null'
 	@echo
-	@echo "Print SINGLE-SIDED at 100% scale (not 'fit to page'), one page per copy:"
+	@echo "Print SINGLE-SIDED, at 100% or 'fit to page' (both read, ADR-0085), one page per copy:"
 	@echo "  apps/amc-worker/tests/work/paper-min/out/control-min-para-imprimir.pdf"
 	@echo "Then follow apps/amc-worker/PAPER-CHECK-MIN.md from step 2."
 
@@ -115,6 +123,11 @@ paper-min:
 ##   Only the CAPTURE-derived files are wiped; layout/scoring are kept
 ##   because `paper-min` produced them and re-running getimages does not
 ##   need them regenerated.
+##   `analyse` runs at the worker's corner-mark tolerance, taken from the
+##   image's own worker.py rather than copied (#327, ADR-0085): a sheet
+##   printed to fit reads here as it does in production. At AMC's default,
+##   a batch printed at 0.75 captured nothing and this target stopped on
+##   "`prepare --mode b` ran but `note` did not" — blaming the wrong step.
 read-paper-min:
 	rm -f tests/work/paper-min/project/scans/*.jpg \
 	      tests/work/paper-min/project/scans/list.txt \
@@ -127,7 +140,10 @@ read-paper-min:
 		bash -c 'set -e; \
 		  auto-multiple-choice getimages --list /work/project/scans/list.txt \
 		    --vector-density 300 --copy-to /work/project/scans /work/scan/lote.pdf >/dev/null; \
-		  auto-multiple-choice analyse --data /work/project/data --projet /work/project \
+		  T=$$(python3 -c "import sys; sys.path.insert(0, sys.argv[1]); import worker; print(worker.MARK_TOLERANCE)" \
+		    /opt/amc-worker); \
+		  auto-multiple-choice analyse --tol-marque "$$T" \
+		    --data /work/project/data --projet /work/project \
 		    --cr /work/project/cr \
 		    --liste-fichiers /work/project/scans/list.txt >/dev/null; \
 		  N=$$(python3 -c "import sys; sys.path.insert(0, sys.argv[1]); import read_capture; print(read_capture.printed_copies(sys.argv[2]))" \
@@ -136,7 +152,9 @@ read-paper-min:
 		    --n-copies "$$N" \
 		    --data /work/project/data --prefix /work/project \
 		    /work/src/control-paper-min.tex >/dev/null; \
-		  auto-multiple-choice note --data /work/project/data --seuil 0.15 >/dev/null; \
+		  S=$$(python3 -c "import sys; sys.path.insert(0, sys.argv[1]); import worker; print(worker.TICKED)" \
+		    /opt/amc-worker); \
+		  auto-multiple-choice note --data /work/project/data --seuil "$$S" >/dev/null; \
 		  python3 /opt/amc-worker/read_capture.py --data /work/project/data'
 
 ## read-paper — read the scanned batch back (step 4 of PAPER-CHECK.md)
@@ -152,13 +170,21 @@ read-paper-min:
 ##   while `make paper` may have been given a different count. Taking the
 ##   variable here would score six copies of a forty-copy pile and then refuse
 ##   the batch with a remedy that cannot work (#147 review, COR-8).
+##   `analyse` runs at the worker's corner-mark tolerance, taken from the
+##   image's own worker.py rather than copied (#327, ADR-0085): a sheet
+##   printed to fit reads here as it does in production. At AMC's default,
+##   a batch printed at 0.75 captured nothing and this target stopped on
+##   "`prepare --mode b` ran but `note` did not" — blaming the wrong step.
 read-paper:
 	docker run --rm --env DISPLAY= -v "$(PWD)/tests/work/paper:/work" -w /work $(IMAGE) \
 		bash -c 'set -e; \
 		  rm -f /work/project/scans/list.txt; \
 		  auto-multiple-choice getimages --list /work/project/scans/list.txt \
 		    --vector-density 300 --copy-to /work/project/scans /work/scan/lote.pdf >/dev/null; \
-		  auto-multiple-choice analyse --data /work/project/data --projet /work/project \
+		  T=$$(python3 -c "import sys; sys.path.insert(0, sys.argv[1]); import worker; print(worker.MARK_TOLERANCE)" \
+		    /opt/amc-worker); \
+		  auto-multiple-choice analyse --tol-marque "$$T" \
+		    --data /work/project/data --projet /work/project \
 		    --cr /work/project/cr \
 		    --liste-fichiers /work/project/scans/list.txt >/dev/null; \
 		  N=$$(python3 -c "import sys; sys.path.insert(0, sys.argv[1]); import read_capture; print(read_capture.printed_copies(sys.argv[2]))" \
@@ -167,5 +193,7 @@ read-paper:
 		    --n-copies "$$N" \
 		    --data /work/project/data --prefix /work/project \
 		    /work/src/control-demo.tex >/dev/null; \
-		  auto-multiple-choice note --data /work/project/data --seuil 0.15 >/dev/null; \
+		  S=$$(python3 -c "import sys; sys.path.insert(0, sys.argv[1]); import worker; print(worker.TICKED)" \
+		    /opt/amc-worker); \
+		  auto-multiple-choice note --data /work/project/data --seuil "$$S" >/dev/null; \
 		  python3 /opt/amc-worker/read_capture.py --data /work/project/data'

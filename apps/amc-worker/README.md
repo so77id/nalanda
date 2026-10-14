@@ -27,6 +27,7 @@ make verify      # build, then test (pre-PR protocol)
 make serve       # run the HTTP wrapper on localhost:8080
 make shell       # interactive shell in the image, for exploring AMC by hand
 make measure     # time a real-sized batch — reports, never asserts (COPIES=40)
+make measure-scale  # down to which print scale a sheet is read — reports, never asserts
 make paper       # produce the printable control for the manual paper check
 make read-paper  # read the scanned batch back (see PAPER-CHECK.md)
 make size        # report image size
@@ -154,7 +155,8 @@ not "no GUI exists" — it is "no display exists, and the CLI does not need one"
 
 ## Tests
 
-`tests/NN-*.sh`, one per acceptance criterion of #138, each re-runnable alone:
+`tests/NN-*.sh`, one per acceptance criterion of the WP that introduced the
+behaviour (#138 for 01–06; the others name theirs), each re-runnable alone:
 
 | Script | Proves |
 | ------ | ------ |
@@ -166,6 +168,7 @@ not "no GUI exists" — it is "no display exists, and the CLI does not need one"
 | `06-http.sh` | The whole flow over the HTTP contract; the annotate and unknown-subcommand guards exercised by performing the trap inside the image (the association trap belongs to `04-associate.sh`); and that `/analyse` derives `--n-copies` from the layout, performed with six copies against a source declaring five |
 | `07-rescan.sh` | #298, over HTTP: each batch analysed alone; a re-scanned page replaces its capture (the Control 7 shape: a half batch, then the full one); the `batch` outcome, including blank pages AMC cannot place; a re-captured copy loses its corrections; a photocopy-mode stack (a copy under two indexes) is refused while a legacy capture scanned once still re-reads; `/scans/reset` starts over |
 | `08-survey.sh` | #310 S0, over HTTP: an anonymous survey sheet (no `\namefield`, no `\AMCcode`, authored order, one stand-in `\correctchoice` per simple question — zero or all is refused by AMC) generates and reads unchanged; each answer status a survey keys on (`ok`, `ambiguous`, `doubtful`, `blank`); and the trap: with no ID grid every copy reads `rut_status: unreadable` and lands in `needs_review` |
+| `09-scaled.sh` | #327, over HTTP: a batch printed scaled to fit (0.75, shrunk by ghostscript and rasterised like a scan) — the trap performed: bare AMC at its default corner-mark tolerance places none of its pages, while the same pipeline at 100 % places all; then `/analyse` places every image on the copy and page it was printed as, reads every box as marked, and AMC's own transform shows it saw the sheet at 0.75 |
 
 **Changing the fixture's question pool moves the seeded draw.** Adding or
 removing a question — or a `\lastchoices`, which draws from the same random
@@ -203,7 +206,8 @@ Fifteen minutes, and its outcome is recorded in ADR-0030 §Not yet proven.
 
 Measurements (image size, batch timings) are **reported**, never asserted: a
 test that fails because a number moved teaches nothing about correctness. They
-are collected in the ADR that closes #138.
+are collected in the ADR of the WP that measured them — ADR-0030 for #138's,
+ADR-0085 for the print-scale curve (`make measure-scale`).
 
 ## Five traps in AMC that this worker exists to neutralise
 
@@ -247,6 +251,13 @@ came back with every score null under `status: "ok"`, absent from
 it, and the reader refuses a captured question that carries no score. (In
 `worker.py`'s own comments this is TRAP 3 — that numbering is the wrapper's
 internal one and does not match the order of this list.)
+
+**Not in this list: a sheet printed to fit the page.** It has its own section
+below (§A sheet printed to fit the page is read), because it is neither of
+the two things these five share: the wrapper does not refuse it, it widens
+AMC's default (`--tol-marque`); and it is not silent — the copy comes back
+`incomplete` and the job banner counts the unrecognised pages.
+`tests/09-scaled.sh` performs it, not `06-http.sh`.
 
 ## A second batch replaces what it re-scans
 
@@ -316,6 +327,89 @@ a single-mode upload over a legacy project (0 beside 1). Exit 2, nothing on
 stdout, the copies and the repair named, rather than concatenate two scans in
 silence. The repair is `/scans/reset` and a fresh upload.
 
+## A sheet printed to fit the page is read
+
+AMC finds a page by its four corner circles, and it keeps only the components
+whose size is close to the circles' printed diameter. Its default tolerance is
+±20 %, which is 34 to 51 px at 300 dpi. A sheet printed "fit to page" comes
+back smaller, and its circles shrink with it. On 2026-10-13 a control printed
+at 0.87 had ~35 px circles. On three pages AMC kept only two corners, fitted
+the frame to the page's own code boxes, read the page id as `+0/0/0+`, and
+filed the page as unrecognised ("No layout for ID"). Those three copies came
+back `incomplete` even though their pages were in the batch.
+
+`/analyse` passes `--tol-marque MARK_TOLERANCE` (`0.35,0.2`, issue #327,
+ADR-0085), so circles down to 65 % of their printed size are found. On the
+Jetson's real scans:
+- the default placed no page at 0.84;
+- `0.35,0.2` placed every page down to 0.70;
+- `0.35,0.2` read the 305 pages the earlier controls had captured with
+  bit-identical transforms, so every box on them reads exactly as before.
+
+`tests/09-scaled.sh` performs the trap at 0.75, and `make measure-scale`
+reports the whole curve for both tolerances.
+
+**Scale is the first thing to check when a page is in the PDF but its copy is
+`incomplete`.** Work inside the worker container, with `P` the project:
+
+- on the Jetson, from the deploy directory (`infra/local/DEPLOY-JETSON.md`):
+  `sudo docker-compose exec amc-worker bash`, then `P=/work/controls/<control
+  id>` — a survey run's project is `/work/surveys/<survey id>/runs/<run id>`;
+- for a paper check, `make shell` from `apps/amc-worker/`, then
+  `P=/work/paper/project` (or `/work/paper-min/project`).
+
+First the batch's scale. The image has no `sqlite3` CLI; python's module does
+it:
+
+```bash
+python3 -c "import math, sqlite3, sys; con = sqlite3.connect(sys.argv[1]); print(sorted({round(math.sqrt(a * d - b * c), 2) for a, b, c, d in con.execute('SELECT a, b, c, d FROM capture_page')})); print(con.execute('SELECT filename FROM capture_failed').fetchall())" $P/data/capture.sqlite
+```
+
+The first line is the linear scale of the PLACED pages — Nalanda's controls
+have come back at 0.87–0.94, and every page read at 0.70, none at 0.65 — the
+second, the images AMC could not place. Then re-run one rejected image by hand,
+on a scratch copy, at the worker's own tolerance, so it reads the page the way
+`/analyse` did. The scratch copy holds a student's sheet: it is removed at the
+end, and a second run (say at AMC's default, without `--tol-marque`) starts
+from a fresh one — `debug.log` and `capture.sqlite` append, and two runs in one
+directory read as one. Keep the flags in this order: `--debug` takes a FILE,
+and given none it swallows the next flag; OpenCV throws on what is left,
+`analyse` still exits 0, and if the flag it ate was `--tol-marque` the page is
+read at AMC's default and shows the very signature you are looking for.
+
+```bash
+T=/tmp/dbg && rm -rf $T && mkdir -p $T/data $T/cr $T/scans
+cp $P/data/layout.sqlite $T/data/
+cp $P/scans/<rejected-image> $T/scans/ && ls $T/scans/* > $T/list.txt
+TOL=$(python3 -c "import sys; sys.path.insert(0, sys.argv[1]); import worker; print(worker.MARK_TOLERANCE)" /opt/amc-worker)
+auto-multiple-choice analyse --tol-marque "$TOL" --debug $T/debug.log \
+  --data $T/data --projet $T --cr $T/cr --liste-fichiers $T/list.txt
+grep -E 'Target size|\(.*;.*\)\+|Frame|MSE=|Found binary' $T/debug.log
+rm -rf $T
+```
+
+`Target size` is the size band (27.6 to 51 px at the worker's tolerance) and
+the `(x;y)+(w;h)` lines are the candidates AMC kept. Two signatures of circles
+below the band, both seen for #327 at AMC's default band: on stdout, `Not
+enough corner marks detected` (none kept — a synthetic sheet at 0.75); or, in
+the log, `Found binary ID: +0/0/0+` with a large `MSE` (some kept, the frame
+fitted to the page's code boxes — the real sheet at 0.87). At the worker's band
+they mean a sheet printed smaller than was measured to read, or a corner the
+scale does not explain: cut by the scanner, covered, torn — or clipped by the
+printer: a control laid out for A4 printed on Letter at 100 % loses the
+~18 mm that holds its bottom circles (ADR-0042: every page `+0/0/0+`,
+2026-08-19). Letter on A4 clips none.
+
+Re-uploading the same PDF to the same worker is never the repair: the result
+is deterministic, and a re-capture clears the copy's corrections (ADR-0075).
+After a change of the reader's calibration — this section's own — re-uploading
+IS the repair, at that cost.
+
+Before changing `MARK_TOLERANCE`, read `apps/amc-worker/CLAUDE.md`'s rule on
+it: the synthetic checks bound it from below only, and
+`tests/tools/regress-tolerance.py` is the real-scan check, read-only, run on
+the Jetson.
+
 ## What the reader reports, and what it cannot
 
 `/analyse` returns a per-copy report with **three** failure kinds, kept apart
@@ -325,7 +419,7 @@ because they need different repairs:
 | --- | --- | --- |
 | `rut_status: unreadable` | who is this — a blank or doubled RUT column | type eight digits |
 | answer `blank` / `ambiguous` / `doubtful` | what did they mark | a human looks at the sheet |
-| `status: incomplete` | the copy printed questions this batch never captured | find the sheet and scan it again |
+| `status: incomplete` | the copy printed questions this batch never captured | find the sheet and scan it again — or, if the page IS in the batch, check its print scale (§A sheet printed to fit the page) |
 
 A box at or above `ticked` (0.15) is marked; at or above `unsure` (0.05) it
 is **doubtful** and reported separately, never counted as an answer. Those

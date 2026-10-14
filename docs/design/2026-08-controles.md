@@ -141,8 +141,9 @@ already exist and the import becomes an upsert rather than a migration.
 in V1 and V2. Two distinct failures were foreseen here; the spike found a
 **third**, and the contract is now owned by ADR-0031 — *what is missing*: the
 copy printed questions the batch never captured, which is a page that never
-reached the scanner. Unlike the two below, that one cannot be repaired at a
-keyboard. The two foreseen are: *who is this* (in V1, RUT unreadable; in V2,
+reached the scanner — or one that did and AMC could not place, a cause
+ADR-0031 names since its #327 amendment (ADR-0085). Unlike the two below, that one cannot be
+repaired at a keyboard. The two foreseen are: *who is this* (in V1, RUT unreadable; in V2,
 RUT unreadable or not on the roster) and *what did they mark* (two bubbles
 WHERE THE QUESTION ADMITS ONE, or one half-filled — on a question that admits
 several, several bubbles are the answer and nothing is flagged; #147). A sheet
