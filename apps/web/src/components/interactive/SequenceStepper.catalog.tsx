@@ -93,13 +93,13 @@ export const sequenceStepperCatalogEntry: CatalogEntry = {
       name: 'iterative',
       type: 'boolean',
       description:
-        'Shows the recursive version of the operation on the left and the iterative one on the right, the two listings sharing the width, each lit at every frame where the other is: the comparison in both, a call on a side against the variable stepping to it, a call on an empty side against the loop condition that fails. Valid on `dynamic-array` × `binary-search` (one target), and on `bst` × `search`, `minimum` and `insert` — the operations whose two versions take the same decisions in the same order. Anywhere else it is an authoring error. Default `false`.',
+        'Shows the recursive version of the operation on the left and the iterative one on the right, the two listings sharing the width, each lit at every frame where the other is: the comparison in both, a call on a side against the variable stepping to it, a call on an empty side against the loop condition that fails. Valid on `dynamic-array` × `binary-search` (one target), and on `bst` × `search` and `insert` — the operations whose two versions take the same decisions in the same order. Anywhere else it is an authoring error. Default `false`.',
     },
     {
       name: 'program',
       type: 'boolean',
       description:
-        '`bst` × `insert` only, from `values={[]}`. The listing becomes the program that builds the tree — `BST<Integer> tree = new BST<>();`, then one `tree.insert(x);` per value — one frame per line, the tree drawn after each with the new leaf marked and the way it came down lit. For showing what a run of insertions builds, not the descent inside the method. Default `false`.',
+        "`bst` × `insert` from `values={[]}`, or `bst` × `remove` from the tree `values` builds. The listing becomes the program that runs the operation several times — `BST<Integer> tree = new BST<>();`, then one `tree.insert(x);` per value, or the tree built by a loop of insertions and one `tree.remove(x);` per target — one frame per line, the tree drawn after each. An insertion marks the new leaf and lights the way it came down; a removal marks the node left in the removed one's place and names the case in the narration (a leaf, one child, two children, the root, a value that is not there). For showing what a run of the operation does to the tree, not the descent inside the method. Anywhere else it is an authoring error. Default `false`.",
     },
     {
       name: 'autoplay',
@@ -399,6 +399,19 @@ export const sequenceStepperCatalogEntry: CatalogEntry = {
           operation="insert"
           values={[]}
           value={[8, 4, 12, 2, 6]}
+          program
+        />
+      ),
+    },
+    {
+      title: 'Removals run by a program: one frame per removal, each case named',
+      code: '<SequenceStepper eda="bst" operation="remove" values={[8, 3, 12, 1, 6, 10, 14, 11]} target={[1, 3, 8, 12, 14, 5]} program />',
+      render: () => (
+        <SequenceStepper
+          eda="bst"
+          operation="remove"
+          values={[8, 3, 12, 1, 6, 10, 14, 11]}
+          target={[1, 3, 8, 12, 14, 5]}
           program
         />
       ),

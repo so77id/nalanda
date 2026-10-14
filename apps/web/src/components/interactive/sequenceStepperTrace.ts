@@ -384,8 +384,9 @@ export interface SequenceInput {
   /** The iterative version of the operation beside the recursive one (`PAIRED`). */
   iterative?: boolean;
   /**
-   * `bst` × `insert` only, from an empty tree: the listing is the program
-   * that builds the tree, one frame per line, instead of the method walked.
+   * `bst` × `insert` from an empty tree, or `bst` × `remove` from the tree
+   * `values` builds: the listing is the program that runs the operation
+   * several times, one frame per line, instead of the method walked.
    */
   program?: boolean;
   /**
@@ -541,9 +542,12 @@ export function traceFor(
   operation: SequenceOperation,
   input: SequenceInput,
 ): SequenceTrace {
-  if (input.program === true && !(recipe === 'bst' && operation === 'insert')) {
+  if (
+    input.program === true &&
+    !(recipe === 'bst' && (operation === 'insert' || operation === 'remove'))
+  ) {
     throw new Error(
-      `Solo la inserción del árbol de búsqueda se muestra como programa: program va con eda="bst" y operation="insert", no con «${operation}».`,
+      `Solo la inserción y la eliminación del árbol de búsqueda se muestran como programa: program va con eda="bst" y operation="insert" o "remove", no con «${operation}».`,
     );
   }
   if (input.iterative === true && !PAIRED.some(([r, o]) => r === recipe && o === operation)) {

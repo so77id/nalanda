@@ -428,6 +428,9 @@ export function traceSearchTree(operation: BstOperation, input: SequenceInput): 
       ? pairListings(trace, CONTAINS_ITERATIVE, CONTAINS_PAIRS)
       : trace;
   }
+  if (operation === 'remove' && input.program === true) {
+    return traceRemoveProgram(input.values, asRuns(input.target));
+  }
   if (operation === 'insert' && input.program === true) {
     return traceInsertProgram(input.values, asRuns(input.value));
   }
@@ -1027,6 +1030,104 @@ function traceInsertProgram(values: number[], inserts: number[]): SequenceTrace 
     rec.steps.at(-1)!.highlightLines = [i + 2];
   });
   return finish(rec, code, columns, new Set(inserts).size, false);
+}
+
+/**
+ * Removals run by a program, one frame per line (#322): the listing builds
+ * the tree from `values` and removes each target in turn, and each frame
+ * shows the tree after its line, the node that took the removed one's place
+ * marked and the way down to it lit, the case named in the narration. What
+ * a run of removals goes through — a leaf, one child on either side, two
+ * children with a successor that is a leaf or has a right child, the root,
+ * a value that is not there — in one tree, without walking the method again.
+ */
+function traceRemoveProgram(values: number[], targets: number[]): SequenceTrace {
+  if (values.length === 0) {
+    throw new Error(
+      'El programa elimina de un árbol: con values vacío el árbol está vacío y no hay nada que eliminar.',
+    );
+  }
+  if (targets.length === 0) throw new Error('Falta el valor a eliminar.');
+  requireRuns(targets.length);
+  const code = [
+    'BST<Integer> tree = new BST<>();',
+    `for (int x : new int[] {${values.join(', ')}}) tree.insert(x);`,
+    ...targets.map((x) => `tree.remove(${x});`),
+  ].join('\n');
+  const columns: Record<number, number> = {};
+  let { root } = bstOf(values, columnsFor(values), columns);
+  const rec = new TreeRecorder(
+    code,
+    () => root,
+    () => [],
+  );
+  rec.push('start', [], `El árbol, armado con esas inserciones: ${values.length} nodos.`);
+  rec.steps.at(-1)!.highlightLines = [1, 2];
+
+  const side = (child: NumberNode, parent: NumberNode) =>
+    parent.left === child ? 'izquierda' : 'derecha';
+
+  targets.forEach((x, i) => {
+    rec.reset();
+    let parent: NumberNode | null = null;
+    let n: NumberNode | null = root;
+    while (n !== null && n.value !== x) {
+      rec.path.push(n.id);
+      parent = n;
+      n = x < n.value ? n.left : n.right;
+    }
+    let said: string;
+    if (n === null) {
+      said = `${x} no está en el árbol: no se elimina nada.`;
+    } else {
+      rec.path.push(n.id);
+      const node: NumberNode = n;
+      const isRoot = parent === null;
+      const hang = (to: NumberNode | null) => {
+        if (parent === null) root = to;
+        else if (parent.left === node) parent.left = to;
+        else parent.right = to;
+      };
+      if (node.left === null && node.right === null) {
+        said = isRoot
+          ? `${x} es la raíz y es una hoja: el árbol queda vacío.`
+          : `${x} es una hoja: el ${parent!.value} deja de apuntarle.`;
+        rec.path.pop();
+        hang(null);
+      } else if (node.left === null || node.right === null) {
+        const child = (node.left ?? node.right)!;
+        said = `${x} tiene un solo hijo, el ${child.value}, a la ${side(child, node)}: ${
+          isRoot
+            ? `el ${child.value} pasa a ser la raíz`
+            : `el ${parent!.value} pasa a apuntar al ${child.value}`
+        }.`;
+        hang(child);
+        rec.state.set(child.id, 'new');
+      } else {
+        let next: NumberNode = node.right;
+        let nextParent: NumberNode = node;
+        while (next.left !== null) {
+          nextParent = next;
+          next = next.left;
+        }
+        const below = next.right;
+        said = `${isRoot ? `${x} es la raíz y tiene` : `${x} tiene`} dos hijos: su sucesor es el ${next.value}${
+          below === null ? ', una hoja' : `, que tiene un hijo derecho, el ${below.value}`
+        }. ${isRoot ? 'La raíz' : 'El nodo'} toma el ${next.value}, y ${
+          below === null
+            ? `la hoja del ${next.value} se elimina`
+            : `el ${nextParent === node ? next.value : nextParent.value} pasa a apuntar al ${below.value}`
+        }.`;
+        node.value = next.value;
+        if (nextParent === node) node.right = below;
+        else nextParent.left = below;
+        rec.state.set(node.id, 'new');
+      }
+    }
+    rec.push(n === null ? 'done' : 'unlink', [], said);
+    rec.steps.at(-1)!.highlightLines = [i + 3];
+  });
+  return finish(rec, code, columns, new Set(values).size, false);
 }
 
 /**

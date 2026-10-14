@@ -902,6 +902,21 @@ describe('<SequenceStepper> · the bst recipe (#321)', () => {
     expect(screen.getByTestId('tree-view').querySelectorAll('[data-slot]')).toHaveLength(0);
   });
 
+  it('names what a program marks, not what the method walked marks', () => {
+    renderIn(
+      'book',
+      <SequenceStepper
+        eda="bst"
+        operation="remove"
+        values={[8, 3, 12, 1, 6, 10, 14, 11]}
+        target={[1, 3]}
+        program
+      />,
+    );
+    expect(screen.getByText('ocupa el lugar')).toBeInTheDocument();
+    expect(screen.queryByText('sucesor')).toBeNull();
+  });
+
   it('shows a tree built by a program, one line per frame', () => {
     renderIn(
       'book',
@@ -1241,6 +1256,17 @@ describe('<SequenceStepper> · the combinations 22-edd-arboles-ii mounts', () =>
         operation: 'remove',
         values: [8, 4, 12, 2, 6, 10, 14],
         target: 8,
+      },
+    },
+    {
+      act: 'El árbol binario de búsqueda',
+      slide: 'Eliminaciones en un mismo árbol',
+      props: {
+        eda: 'bst',
+        operation: 'remove',
+        values: [8, 3, 12, 1, 6, 10, 14, 11],
+        target: [1, 3, 8, 12, 14, 5],
+        program: true,
       },
     },
     {

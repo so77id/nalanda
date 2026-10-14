@@ -2469,6 +2469,58 @@ describe('sequenceStepperTrace · bst · the public method and the private one (
   });
 });
 
+describe('sequenceStepperTrace · bst · removals run by a program (#322)', () => {
+  const TREE = [8, 3, 12, 1, 6, 10, 14, 11];
+  const run = (target: number[]) =>
+    traceFor('bst', 'remove', { values: TREE, target, program: true });
+  const lines = (trace: SequenceTrace, step: SequenceStep) =>
+    step.highlightLines.map((l) => trace.code.split('\n')[l - 1]!);
+  const values = (step: SequenceStep) =>
+    step.tree!.nodes.map((n) => Number(n.value)).sort((a, b) => a - b);
+
+  it('lists the program: the tree built, then one removal per line', () => {
+    expect(run([1, 3]).code).toBe(
+      'BST<Integer> tree = new BST<>();\n' +
+        'for (int x : new int[] {8, 3, 12, 1, 6, 10, 14, 11}) tree.insert(x);\n' +
+        'tree.remove(1);\n' +
+        'tree.remove(3);',
+    );
+  });
+
+  it('shows the whole tree first, then the tree after each removal', () => {
+    const trace = run([1, 3, 8, 12, 14, 5]);
+    expect(trace.steps).toHaveLength(7);
+    expect(values(trace.steps[0]!)).toEqual([1, 3, 6, 8, 10, 11, 12, 14]);
+    expect(lines(trace, trace.steps[0]!)).toHaveLength(2);
+    expect(lines(trace, trace.steps[1]!)).toEqual(['tree.remove(1);']);
+    expect(values(trace.steps[1]!)).toEqual([3, 6, 8, 10, 11, 12, 14]);
+    expect(values(trace.steps.at(-1)!)).toEqual([6, 10, 11]);
+  });
+
+  it('names the case every removal falls in', () => {
+    const said = run([1, 3, 8, 12, 14, 5])
+      .steps.slice(1)
+      .map((s) => s.description);
+    expect(said[0]).toContain('hoja');
+    expect(said[1]).toContain('un solo hijo');
+    expect(said[2]).toContain('raíz');
+    expect(said[2]).toContain('sucesor');
+    expect(said[2]).toContain('11');
+    expect(said[3]).toContain('dos hijos');
+    expect(said[4]).toContain('un solo hijo');
+    expect(said[5]).toContain('no está');
+  });
+
+  it('removes from a tree that exists, and only as a program of removals or insertions', () => {
+    expect(() => traceFor('bst', 'remove', { values: [], target: 1, program: true })).toThrow(
+      /vacío/,
+    );
+    expect(() => traceFor('bst', 'search', { values: TREE, target: 1, program: true })).toThrow(
+      /programa/,
+    );
+  });
+});
+
 describe('sequenceStepperTrace · bst · insert', () => {
   const PDF = [8, 5, 1, 4, 6, 7, 20];
 

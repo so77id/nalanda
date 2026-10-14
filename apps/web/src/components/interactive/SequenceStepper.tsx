@@ -128,9 +128,10 @@ export interface SequenceStepperProps {
    */
   iterative?: boolean;
   /**
-   * `bst` × `insert` only, from `values={[]}`: the listing is the program
-   * that builds the tree — the tree created, then one `insert` per value —
-   * one frame per line, the tree drawn after each (#322).
+   * `bst` × `insert` from `values={[]}`, or `bst` × `remove` from the tree
+   * `values` builds: the listing is the program that runs the operation
+   * several times — the tree created, then one `insert` per value, or one
+   * `remove` per target — one frame per line, the tree drawn after each (#322).
    */
   program?: boolean;
   /** Playback default. Off unless the author asks (rule Peli 1/2). */
@@ -288,6 +289,13 @@ const AVL_LEGEND: Record<AvlOperation, [string, string][]> = {
 };
 
 /**
+ * A program of removals shows the tree after each line, not the method
+ * walking it: the only node it paints is the one left in the removed one's
+ * place — the child that moved up, or the node that took the successor's value.
+ */
+const REMOVE_PROGRAM_LEGEND: [string, string][] = [['border-mark bg-mark-soft', 'ocupa el lugar']];
+
+/**
  * The legend of a run that paints its own states — a tree's, and the array's
  * binary search, which rules out cells the way the search tree rules out
  * subtrees — or null for the default one.
@@ -295,8 +303,10 @@ const AVL_LEGEND: Record<AvlOperation, [string, string][]> = {
 function runLegend(
   recipe: SequenceRecipe,
   operation: SequenceOperation,
+  program: boolean,
 ): [string, string][] | null {
   if (operation === 'binary-search') return [FOUND, UNDER_THE_EYE, RULED_OUT];
+  if (recipe === 'bst' && operation === 'remove' && program) return REMOVE_PROGRAM_LEGEND;
   if (recipe === 'binary-tree' && isBinaryTreeOperation(operation)) return TREE_LEGEND[operation];
   if (recipe === 'bst' && isBstOperation(operation)) return SEARCH_TREE_LEGEND[operation];
   if (recipe === 'avl' && isAvlOperation(operation)) return AVL_LEGEND[operation];
@@ -539,7 +549,7 @@ function Body({
   const mode = useMode();
   const heap = recipe === 'heap-max';
   const tree = recipe === 'binary-tree' || recipe === 'bst' || recipe === 'avl';
-  const legend = runLegend(recipe, operation);
+  const legend = runLegend(recipe, operation, program);
   const isPresentation = mode === 'presentation';
   const outerRef = useRef<HTMLElement | null>(null);
 
