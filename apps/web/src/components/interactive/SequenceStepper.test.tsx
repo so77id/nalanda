@@ -1409,6 +1409,17 @@ describe('<SequenceStepper> · the combinations 22-edd-arboles-ii mounts', () =>
       slide: 'El código de la eliminación en un árbol AVL',
       props: { eda: 'avl', operation: 'remove', values: [8, 4, 10, 2, 6], target: 10 },
     },
+    {
+      act: 'El árbol AVL',
+      slide: 'Eliminaciones en un mismo árbol AVL',
+      props: {
+        eda: 'avl',
+        operation: 'remove',
+        values: [2, 12, 8, 4, 14, 16, 10, 6],
+        target: [4, 14, 2, 6, 16],
+        program: true,
+      },
+    },
   ];
 
   it.each(mounted)('$act · $slide', ({ props }) => {

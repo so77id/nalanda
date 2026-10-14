@@ -588,6 +588,63 @@ describe('sequenceStepperTrace · avl · insertions run by a program (#322)', ()
   });
 });
 
+describe('sequenceStepperTrace · avl · balance beside remove (#322)', () => {
+  // Remove 10 from 8 4 10 2 6: the 8 ends at −2 with its left child at 0,
+  // the case insertion never makes, fixed by a simple rotation.
+  const trace = traceFor('avl', 'remove', { values: [8, 4, 10, 2, 6], target: 10 });
+  const inPanel = (step: SequenceStep, i: number) =>
+    (step.rowLines?.[i] ?? []).map((l) => trace.row![i]!.code.split('\n')[l - 1]!.trim());
+
+  it('lists remove and balance side by side, remove first and with no comments', () => {
+    expect(trace.row!.map((p) => p.name)).toEqual(['eliminación', 'balance']);
+    expect(trace.row![0]!.code).toBe(trace.code);
+    // Narrow enough for two fifths of a slide, measured at 64 characters.
+    for (const line of trace.code.split('\n')) expect(line.length).toBeLessThanOrEqual(60);
+    expect(trace.code).not.toContain('//');
+  });
+
+  it('lights in balance the child at 0 and the simple rotation it calls for', () => {
+    const lit = trace.steps.map((step) => inPanel(step, 1));
+    expect(lit).toContainEqual(['if (factor(node.left) > 0)']);
+    expect(lit).toContainEqual(['return rotateRight(node);']);
+  });
+});
+
+describe('sequenceStepperTrace · avl · removals run by a program (#322)', () => {
+  const TREE = [2, 12, 8, 4, 14, 16, 10, 6];
+  const TARGETS = [4, 14, 2, 6, 16];
+  const trace = traceFor('avl', 'remove', { values: TREE, target: TARGETS, program: true });
+  const program = (step: SequenceStep) =>
+    (step.rowLines?.[0] ?? []).map((l) => trace.code.split('\n')[l - 1]!.trim());
+  const balanceOf = (step: SequenceStep) =>
+    (step.rowLines?.[2] ?? []).map((l) => trace.row![2]!.code.split('\n')[l - 1]!.trim());
+
+  it('lists the program, remove and balance side by side', () => {
+    expect(trace.row!.map((p) => p.name)).toEqual(['programa', 'eliminación', 'balance']);
+    expect(trace.code.split('\n').slice(-5)).toEqual(TARGETS.map((x) => `tree.remove(${x});`));
+    // A fifth of a slide: no program line over 22 characters.
+    for (const line of trace.code.split('\n')) expect(line.length).toBeLessThanOrEqual(22);
+  });
+
+  it('shows the tree built first, the program lines that build it lit', () => {
+    const first = trace.steps[0]!;
+    expect(program(first)[0]).toBe('AVL<Integer> tree =');
+    expect(program(first).at(-1)).toBe('tree.insert(x);');
+    expect(first.tree!.nodes).toHaveLength(8);
+  });
+
+  it('walks each removal through remove and balance, its program line lit the whole time', () => {
+    const lines = new Set(trace.steps.slice(1).map((s) => program(s)[0]));
+    expect([...lines]).toEqual(TARGETS.map((x) => `tree.remove(${x});`));
+    const lit = trace.steps.flatMap((s) => balanceOf(s));
+    // The simple rotation, the one for a child at 0, and the double.
+    expect(lit).toContain('return rotateRight(node);');
+    expect(lit).toContain('return rotateLeft(node);');
+    expect(lit).toContain('return rotateLeftRight(node);');
+    expect(rootValue(trace.steps.at(-1)!)).toBe(10);
+  });
+});
+
 describe('sequenceStepperTrace · avl · remove', () => {
   it('shows the BST remove with balance on the way back', () => {
     const { code } = traceFor('avl', 'remove', { values: [2, 1, 3], target: 1 });

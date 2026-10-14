@@ -1143,11 +1143,17 @@ cada nivel del camino de vuelta.
 
 <Slide title="El código de la eliminación en un árbol AVL">
 `remove` es el del árbol de búsqueda con `return balance(node)` al final del
-privado. Las devoluciones de una hoja o de un solo hijo no pasan por
-`balance`: el subárbol que devuelven no cambió. Hay a lo más una rotación por
-nivel del camino, de costo constante: $$O(\log n)$$.
+privado; una hoja o un solo hijo se devuelven sin pasar por `balance`, porque
+su subárbol no cambió. A lo más una rotación por nivel: $$O(\log n)$$.
 
 <SequenceStepper eda="avl" operation="remove" values={[8, 4, 10, 2, 6]} target={10} />
+
+</Slide>
+
+<Slide title="Eliminaciones en un mismo árbol AVL">
+Varias eliminaciones seguidas pasan por todos los casos del rebalanceo.
+
+<SequenceStepper eda="avl" operation="remove" values={[2, 12, 8, 4, 14, 16, 10, 6]} target={[4, 14, 2, 6, 16]} program />
 
 </Slide>
 

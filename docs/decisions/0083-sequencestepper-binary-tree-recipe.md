@@ -252,7 +252,7 @@ as their last line:
   the rotation act already walked its assignments. The caller's assignment
   is made at once, so the drawing never shows a tree the code no longer
   holds.
-- **`insert` lists `balance` beside it; `remove` shows only its call.**
+- **`insert` and `remove` list `balance` beside them.**
   `insert` first showed the `balance` it calls under it, thirty-two lines,
   and its slide measured 0.545 against the 0.70 floor. Side by side the
   height is the taller listing's, not the sum: the trace carries a `row` of
@@ -260,10 +260,15 @@ as their last line:
   back lights in `balance` what it does — its height and factor, the
   branch of the loaded side, the child's factor, the rotation it returns
   (Miguel's review: "put balance sharing the space with the insertion").
-  Its two double returns go on a line of their own so a program, `insert`
-  and `balance` fit three abreast. `remove` still lights only
-  `return balance(node);` and narrates each decision; the class puts
-  `balance` on a slide of its own, as a fence, with the same lines.
+  Its two double returns go on a line of their own so a program, a method
+  and `balance` fit three abreast — a fifth and two fifths each, two
+  listings in halves (Miguel's widths). `remove` lists the search tree's
+  lines without their comments, which do not fit two fifths of a slide.
+  The class also puts `balance` on a slide of its own, as a fence, with the
+  same lines. `remove` runs as a program too: the class's run of removals
+  was searched on the trace's own model so five removals in eight nodes go
+  through no rotation, a simple one, the simple one a child at 0 asks for,
+  and a double.
 - **No cascade in the widget.** A removal that rotates at two levels needs
   a tree of height 4 at least — the first rotation needs a node of height
   2, the second an ancestor two levels above it — and the smallest AVL tree

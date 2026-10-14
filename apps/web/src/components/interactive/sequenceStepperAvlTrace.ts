@@ -88,24 +88,26 @@ private Node<T> insert(Node<T> node, T value) {
     }
     return balance(node);
 }`,
+  // The search tree's lines without their comments: beside balance, in half
+  // a slide or two fifths of it, a commented line does not fit (#322).
   remove: `public void remove(T value) {
-    root = remove(root, value); // si era la raíz, root cambia
+    root = remove(root, value);
 }
 
 private Node<T> remove(Node<T> node, T value) {
-    if (node == null) return null; // el valor no está
+    if (node == null) return null;
     int c = value.compareTo(node.value);
-    if (c < 0) node.left = remove(node.left, value); // está a la izquierda
-    else if (c > 0) node.right = remove(node.right, value); // está a la derecha
-    else if (node.left == null) return node.right; // hoja, o solo hijo derecho
-    else if (node.right == null) return node.left; // solo hijo izquierdo
-    else { // dos hijos: toma el valor del sucesor
-        Node<T> next = node.right; // el sucesor es el menor
-        while (next.left != null) next = next.left; // de la derecha
+    if (c < 0) node.left = remove(node.left, value);
+    else if (c > 0) node.right = remove(node.right, value);
+    else if (node.left == null) return node.right;
+    else if (node.right == null) return node.left;
+    else {
+        Node<T> next = node.right;
+        while (next.left != null) next = next.left;
         node.value = next.value;
-        node.right = remove(node.right, next.value); // y lo elimina abajo
+        node.right = remove(node.right, next.value);
     }
-    return balance(node); // rebalancea al volver
+    return balance(node);
 }`,
 };
 
@@ -180,6 +182,9 @@ export function traceAvl(operation: AvlOperation, input: SequenceInput): Sequenc
     return traceAvlInsertProgram(input.values, asRuns(input.value));
   }
   if (operation === 'insert') return traceAvlInsert(input);
+  if (operation === 'remove' && input.program === true) {
+    return traceAvlRemoveProgram(input.values, asRuns(input.target));
+  }
   if (operation === 'remove') return traceAvlRemove(input);
   if (operation === 'rotate-left-right') return traceDouble('right', input);
   if (operation === 'rotate-right-left') return traceDouble('left', input);
@@ -815,6 +820,59 @@ function traceAvlInsertProgram(values: number[], inserts: number[]): SequenceTra
   };
 }
 
+/**
+ * Removals run by a program, from the AVL `values` builds (#322): the
+ * program on a fifth of the slide — the tree created, the values in an array
+ * and a loop inserting them, then one `tree.remove(x);` per target — beside
+ * remove and balance, walked for every removal with its program line lit:
+ * the insertions' shape, for the removals.
+ */
+function traceAvlRemoveProgram(values: number[], targets: number[]): SequenceTrace {
+  if (values.length === 0) {
+    throw new Error(
+      'El programa elimina de un árbol: con values vacío el árbol está vacío y no hay nada que eliminar.',
+    );
+  }
+  const walked = traceAvlRemove({ values, target: targets });
+  // Four values to a line, so no line passes a fifth of the slide.
+  const rows: string[] = [];
+  for (let i = 0; i < values.length; i += 4) {
+    const chunk = values.slice(i, i + 4).join(', ');
+    rows.push(`    ${chunk}${i + 4 < values.length ? ',' : ''}`);
+  }
+  const build = [
+    'AVL<Integer> tree =',
+    '        new AVL<>();',
+    'int[] v = {',
+    ...rows,
+    '};',
+    'for (int x : v)',
+    '    tree.insert(x);',
+  ];
+  const code = [...build, ...targets.map((x) => `tree.remove(${x});`)].join('\n');
+  const builtLines = build.map((_, i) => i + 1);
+  const built: SequenceStep = {
+    ...walked.steps[0]!,
+    kind: 'start',
+    highlightLines: builtLines,
+    rowLines: [builtLines, [], []],
+    description: `El árbol, armado con esas inserciones: ${values.length} nodos.`,
+  };
+  let run = -1;
+  const steps = walked.steps.map((step) => {
+    if (step.kind === 'start') run += 1;
+    const line = build.length + run + 1;
+    const [inRemove = [], inBalanceLines = []] = step.rowLines ?? [];
+    return { ...step, highlightLines: [line], rowLines: [[line], inRemove, inBalanceLines] };
+  });
+  return {
+    ...walked,
+    code,
+    row: [{ name: 'programa', code }, ...walked.row!],
+    steps: [built, ...steps],
+  };
+}
+
 function traceAvlRemove(input: SequenceInput): SequenceTrace {
   const targets = asRuns(input.target);
   if (targets.length === 0) throw new Error('Falta el valor a eliminar.');
@@ -825,6 +883,7 @@ function traceAvlRemove(input: SequenceInput): SequenceTrace {
   const { avl } = avlOf(input.values, columnsFor(input.values), columns);
   // No strip, as on `bst`: the listing, the tree and the narration fill the frame.
   const { rec, push } = avlRecorder(code, avl, () => []);
+  const inBalance = new Map<SequenceStep, number[]>();
 
   for (const x of targets) {
     rec.reset();
@@ -866,7 +925,7 @@ function traceAvlRemove(input: SequenceInput): SequenceTrace {
         );
         rec.state.delete(n.id);
         remove(n[side], value, (c) => (n[side] = c));
-        const result = missing ? n : balanceFramed(avl, rec, push, n, relink);
+        const result = missing ? n : balanceFramed(avl, rec, push, n, relink, inBalance);
         rec.path.pop();
         return result;
       }
@@ -909,7 +968,7 @@ function traceAvlRemove(input: SequenceInput): SequenceTrace {
       );
       rec.state.delete(n.id);
       remove(n.right, n.value, (c) => (n.right = c));
-      const result = balanceFramed(avl, rec, push, n, relink);
+      const result = balanceFramed(avl, rec, push, n, relink, inBalance);
       rec.path.pop();
       return result;
     };
@@ -923,5 +982,16 @@ function traceAvlRemove(input: SequenceInput): SequenceTrace {
       );
     }
   }
-  return finish(rec, code, columns, slots, false);
+  const trace = finish(rec, code, columns, slots, false);
+  return {
+    ...trace,
+    row: [
+      { name: 'eliminación', code },
+      { name: 'balance', code: BALANCE },
+    ],
+    steps: trace.steps.map((step) => ({
+      ...step,
+      rowLines: [step.highlightLines, inBalance.get(step) ?? []],
+    })),
+  };
 }

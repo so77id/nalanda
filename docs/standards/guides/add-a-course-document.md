@@ -916,18 +916,21 @@ with no frames. Every node carries its balance factor in a badge (`+1`,
 `0`, `−2`), read off the heights the nodes store — so a factor above the
 node being balanced may still be the old one, and changes when the walk
 back reaches it. Each node of the way back gets its `balance` frame; a
-rotation inside them is one frame, a double one two. `insert` lists
-`balance` beside it, side by side, and every frame of the walk back lights
-what `balance` does in it (stacked under `insert` the slide measured 0.545;
-side by side it is as tall as the taller listing); `remove` lights only the
-call. The class also puts `balance` on a slide of its own, as a fence, with
+rotation inside them is one frame, a double one two. `insert` and `remove`
+list `balance` beside them, and every frame of the walk back lights what
+`balance` does in it (stacked under `insert` the slide measured 0.545; side
+by side it is as tall as the taller listing). Two listings share the width
+in halves, three (with `program`) a fifth and two fifths each; `remove` is
+the search tree's without its comments, which do not fit. The class also puts `balance` on a slide of its own, as a fence, with
 the same lines. No removal
 that rotates at two levels fits in eight nodes (the smallest AVL tree of
 height 4 has twelve), so a cascade is drawn with `<BinaryPicture>` instead.
-`avl` × `insert` also runs as a program (`program`, `values={[]}`), shown
-as the search tree's program of removals: the program beside the insert
-method, walked for every insertion with its program line lit. A class walks
-ONE value through the code first, then the run of insertions beside it.
+`avl` × `insert` (from `values={[]}`) and `avl` × `remove` (from the tree
+`values` builds, `target` an array) also run as a program, shown as the
+search tree's program of removals: the program beside the method and
+`balance`, walked for every call with its program line lit. A class walks
+ONE value through the code first, then the run beside it; a run of
+removals is chosen to go through every case of the rebalancing.
 `values` is the starting contents; `value` feeds the inserts, `index` the
 positional operations (`get-at` included), and `target` both `search` and
 `insert-ordered`.
