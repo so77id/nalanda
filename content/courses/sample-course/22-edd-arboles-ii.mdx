@@ -482,7 +482,7 @@ $$\lfloor \log_2 n \rfloor$$ y $$n - 1$$.
 
 <SectionBreak />
 
-## La altura según el orden de llegada
+## El desbalance del árbol de búsqueda
 
 {/* The same seven values in three arrival orders: by levels, in some order, sorted. */}
 
@@ -490,19 +490,22 @@ export const EVENS_SHUFFLED = { v: 10, l: { v: 4, l: { v: 2 }, r: { v: 8, l: { v
 
 export const EVENS_CHAIN = { v: 2, r: { v: 4, r: { v: 6, r: { v: 8, r: { v: 10, r: { v: 12, r: { v: 14 } } } } } } };
 
-<Slide title="Un orden de llegada que llena el árbol">
+<Slide title="Altura mínima: un árbol balanceado">
 La forma de un árbol de búsqueda la decide el orden en que llegan sus valores.
 Si cada valor nuevo cae en un nivel que todavía tiene lugar, los niveles se
-llenan de arriba hacia abajo, y el árbol queda con la altura más baja posible.
+llenan de arriba hacia abajo, y el árbol queda con la **altura mínima**,
+$$\lfloor \log_2 n \rfloor$$. Un árbol así está **balanceado**: en cada nodo,
+el subárbol izquierdo y el derecho tienen alturas parecidas.
 
 <SequenceStepper eda="bst" operation="insert" values={[]} value={[8, 4, 12, 2, 6, 10, 14]} />
 
 </Slide>
 
-<Slide title="Valores que llegan ordenados">
+<Slide title="Altura máxima: un árbol desbalanceado">
 Si los mismos valores llegan de menor a mayor, cada uno es mayor que todos
 los anteriores: siempre baja por la derecha y se cuelga al final. El árbol
-queda como una cadena, con la altura más alta posible.
+queda como una cadena, con la **altura máxima**, $$n - 1$$. Está
+**desbalanceado**: en cada nodo, todo lo que sigue cuelga a la derecha.
 
 <SequenceStepper eda="bst" operation="insert" values={[]} value={[2, 4, 6, 8, 10, 12, 14]} />
 
@@ -510,9 +513,10 @@ Buscar el último compara con todos los nodos, igual que en una lista enlazada.
 
 </Slide>
 
-<Slide title="La altura de los mismos valores en tres órdenes">
-Los mismos valores, en tres órdenes de llegada, dan tres alturas. Entre el
-árbol lleno y la cadena está todo lo demás.
+<Slide title="El desbalance según el orden de inserción">
+Los mismos valores, en tres órdenes de inserción, dan tres alturas. Entre el
+árbol balanceado, con la altura mínima, y la cadena, con la máxima, están
+todos los demás, más o menos desbalanceados.
 
 <PresentationWide fraction={0.9}>
 
@@ -532,12 +536,12 @@ Los mismos valores, en tres órdenes de llegada, dan tres alturas. Entre el
 
 </Slide>
 
-<Slide title="Datos que llegan en orden">
+<Slide title="El desbalance con datos reales">
 El orden de menor a mayor no es un caso raro. Los números de matrícula se
 asignan en orden creciente; los registros de un sistema llegan ordenados por
 fecha; un archivo de palabras suele venir en orden alfabético. Cargar
-cualquiera de ellos en un árbol de búsqueda lo deja como una cadena: el peor
-caso es el caso de todos los días.
+cualquiera de ellos en un árbol de búsqueda lo deja como una cadena, con la
+altura máxima: el peor caso es el caso de todos los días.
 
 Cuando los valores llegan en un orden al azar, en cambio, la altura esperada
 crece como $$O(\log n)$$. Es un resultado conocido, que aquí se cita sin
@@ -545,17 +549,17 @@ demostrar. Pero nadie garantiza que los datos lleguen al azar.
 
 </Slide>
 
-<Slide title="Una altura acotada a cambio de cuidar la forma">
+<Slide title="El árbol de búsqueda balanceado">
 Todas las operaciones del árbol de búsqueda cuestan $$O(h)$$, y cuando los
 valores llegan ordenados, $$h$$ es $$n - 1$$: cada operación cuesta
 $$\Theta(n)$$, lo mismo que en una lista.
 
 La causa es la invariante de orden: dice de qué lado de cada nodo va cada
 valor, y no dice nada sobre la forma del árbol. Nadie impide que el árbol se
-cargue hacia un lado.
+desbalancee.
 
 ¿Y si cada inserción y cada eliminación cuidaran también la forma,
-reacomodando el árbol cuando se carga hacia un lado, sin romper la invariante
+reacomodando el árbol cuando se desbalancea, sin romper la invariante
 de orden? La altura quedaría acotada por $$O(\log n)$$, y con ella todas las
 operaciones. El precio sería más trabajo en cada inserción y en cada
 eliminación. Ese es el intercambio de un **árbol de búsqueda balanceado**.

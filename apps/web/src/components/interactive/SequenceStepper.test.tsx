@@ -1274,13 +1274,13 @@ describe('<SequenceStepper> · the combinations 22-edd-arboles-ii mounts', () =>
       },
     },
     {
-      act: 'La altura según el orden de llegada',
-      slide: 'Un orden de llegada que llena el árbol',
+      act: 'El desbalance del árbol de búsqueda',
+      slide: 'Altura mínima: un árbol balanceado',
       props: { eda: 'bst', operation: 'insert', values: [], value: [8, 4, 12, 2, 6, 10, 14] },
     },
     {
-      act: 'La altura según el orden de llegada',
-      slide: 'Valores que llegan ordenados',
+      act: 'El desbalance del árbol de búsqueda',
+      slide: 'Altura máxima: un árbol desbalanceado',
       props: { eda: 'bst', operation: 'insert', values: [], value: [2, 4, 6, 8, 10, 12, 14] },
     },
     {
