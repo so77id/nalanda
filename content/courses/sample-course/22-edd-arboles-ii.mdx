@@ -359,20 +359,24 @@ derecho. Visita cada nodo una vez: $$\Theta(n)$$.
 </Slide>
 
 <Slide title="Eliminar en un árbol de búsqueda">
-**Eliminar** saca un valor del árbol sin romper la invariante.
+**Eliminar** saca un valor del árbol sin romper la invariante. Primero se busca
+el nodo que lo guarda; si el valor no está, no se hace nada. Si está, lo que se
+hace depende de cuántos hijos tiene ese nodo: **ninguno**, **uno** o **dos**.
 
-- Primero se busca el nodo que guarda el valor. Si no está, no se hace nada.
-- Después, lo que se hace depende de cuántos hijos tiene ese nodo:
-  **ninguno**, **uno** o **dos**.
-- Si el nodo es la raíz, lo que quede en su lugar pasa a ser la raíz.
+La raíz se elimina con los mismos tres casos. La diferencia es que no tiene un
+padre que pase a apuntar a otra cosa: lo que cambia es la raíz del árbol.
+
+- Si la raíz es una hoja, el árbol queda vacío.
+- Si tiene un hijo, ese hijo pasa a ser la raíz.
+- Si tiene dos, la raíz se queda y toma el valor de su sucesor.
 
 <BinaryPicture tree={EVENS_WITH_7} tones={{ 2: 'focus', 6: 'keep', 8: 'mark' }} badges={{ 2: 'hoja', 6: 'un hijo', 8: 'dos hijos' }} minColumns={8} label="El árbol de búsqueda con el 7 colgando del 6. El 2 es una hoja, el 6 tiene un solo hijo y el 8 tiene dos: los tres casos de la eliminación." caption="los tres casos: una hoja, un hijo, dos hijos" />
 
 </Slide>
 
 <Slide title="Eliminar una hoja">
-- Una **hoja** no tiene hijos: nadie cuelga de ella.
-- Basta con que su padre deje de apuntarle: en ese lado queda el árbol vacío.
+Una **hoja** no tiene hijos, así que nadie cuelga de ella. Basta con que su
+padre deje de apuntarle, y en ese lado queda el árbol vacío.
 
 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1rem 2rem', alignItems: 'end' }}>
 <BinaryPicture tree={EVENS} tones={{ 2: 'mark' }} holes={[]} label="El árbol de búsqueda con el 2 marcado: es una hoja, hijo izquierdo del 4." caption="eliminar 2, una hoja" />
@@ -382,11 +386,10 @@ derecho. Visita cada nodo una vez: $$\Theta(n)$$.
 </Slide>
 
 <Slide title="Eliminar un nodo con un hijo">
-- El nodo tiene **un solo hijo**, a la izquierda o a la derecha.
-- Su padre pasa a apuntar a ese hijo: el subárbol del hijo sube un nivel,
-  entero.
-- La invariante se mantiene: todo ese subárbol ya estaba del mismo lado del
-  padre que el nodo eliminado.
+Cuando el nodo tiene **un solo hijo**, a la izquierda o a la derecha, su padre
+pasa a apuntar a ese hijo, y el subárbol del hijo sube un nivel, entero. La
+invariante se mantiene, porque todo ese subárbol ya estaba del mismo lado del
+padre que el nodo eliminado.
 
 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1rem 2rem', alignItems: 'end' }}>
 <BinaryPicture tree={EVENS_WITH_7} tones={{ 6: 'mark' }} minColumns={8} label="El árbol de búsqueda con el 7 colgando del 6. El 6 está marcado: tiene un solo hijo, el 7, a la derecha." caption="eliminar 6, que tiene un solo hijo" />
@@ -396,32 +399,36 @@ derecho. Visita cada nodo una vez: $$\Theta(n)$$.
 </Slide>
 
 <Slide title="Eliminar un nodo con dos hijos">
-- El nodo **no se puede sacar**: dejaría dos subárboles colgando, y su padre
-  tiene lugar para uno solo.
-- Se queda, y cambia de valor: toma el de su **sucesor**, el valor que le
-  sigue en orden.
-- El sucesor es el menor del subárbol derecho: una vez a la derecha, y después
-  a la izquierda mientras haya hijo izquierdo.
-- Cabe justo en ese lugar: es mayor que todo lo de la izquierda y menor que
-  todo lo demás de la derecha.
-- Después se elimina el sucesor de abajo.
+Un nodo con **dos hijos** no se puede sacar: dejaría dos subárboles colgando,
+y su padre tiene lugar para uno solo. Por eso el nodo se queda, y lo que
+cambia es su valor:
+
+1. Se busca su **sucesor**, el valor que le sigue en orden: el menor de su
+   subárbol derecho. Se baja una vez a la derecha, y después a la izquierda
+   mientras haya hijo izquierdo.
+2. El nodo toma el valor del sucesor.
+3. Se elimina el sucesor de abajo.
 
 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1rem 2rem', alignItems: 'end' }}>
 <BinaryPicture tree={EVENS} tones={{ 8: 'mark', 10: 'focus' }} notes={{ 10: 'sucesor' }} holes={[]} label="El árbol de búsqueda con el 8 marcado: tiene dos hijos. Su sucesor, el mínimo de su subárbol derecho, es el 10." caption="eliminar 8: su sucesor es 10" />
 <BinaryPicture tree={{ v: 10, l: { v: 4, l: { v: 2 }, r: { v: 6 } }, r: { v: 12, r: { v: 14 } } }} tones={{ 10: 'mark' }} holes={[12]} minColumns={7} label="El árbol después: la raíz tomó el valor 10, y el nodo del 10 que estaba abajo se eliminó; el 12 ya no tiene hijo izquierdo." caption="la raíz toma el 10, y el 10 de abajo se elimina" />
 </div>
 
+El sucesor cabe justo en ese lugar. Es mayor que todo el subárbol izquierdo
+del nodo, porque ese subárbol era menor que el valor eliminado; y es menor que
+todo lo que queda en el derecho, porque era el menor de ese lado.
+
 </Slide>
 
 <Slide title="El sucesor tiene a lo más un hijo">
-- El sucesor **nunca tiene hijo izquierdo**: si lo tuviera, ese hijo estaría
-  en el mismo subárbol y sería menor, y el sucesor sería él.
-- Por eso, eliminar el sucesor de abajo es siempre uno de los dos primeros
-  casos:
-  - si es una **hoja**, su padre deja de apuntarle;
-  - si tiene **un hijo**, ese hijo está a la derecha, y su padre pasa a
-    apuntar a él.
-- El caso de dos hijos no vuelve a aparecer.
+El sucesor **nunca tiene hijo izquierdo**. Si lo tuviera, ese hijo estaría en el
+mismo subárbol derecho y sería menor que él, y entonces el sucesor sería ese
+hijo. Por eso, eliminar el sucesor de abajo nunca vuelve a ser el caso de dos
+hijos, sino uno de los dos primeros:
+
+- si es una **hoja**, su padre deja de apuntarle;
+- si tiene **un hijo**, ese hijo está a la derecha, y su padre pasa a apuntar
+  a él.
 
 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1rem 2rem', alignItems: 'end' }}>
 <BinaryPicture tree={EVENS_WITH_11} tones={{ 8: 'mark', 10: 'focus' }} notes={{ 10: 'sucesor' }} holes={[]} minColumns={8} label="El árbol de búsqueda con el 11 colgando a la derecha del 10. El 8 está marcado: tiene dos hijos. Su sucesor es el 10, que no tiene hijo izquierdo y tiene un hijo derecho, el 11." caption="eliminar 8: su sucesor, 10, tiene un hijo" />
