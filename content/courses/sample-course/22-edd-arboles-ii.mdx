@@ -2,10 +2,27 @@
 id: edd-arboles-ii
 title: Estructuras de Datos Avanzadas · Árboles II
 presentation: explicit
-questions: none
+questions: pool
 ---
 
-{/* `none` es un TODAVÍA NO, no una decisión: el valor se fija con el profesor al cerrar #322, con las preguntas aprobadas una a una. */}
+{/* `pool`: un conjunto sin expectativa por sección, como Árboles I y el heap: */}
+{/* cada <Slide> es un h2, y exigir una pregunta por lámina serían cerca de */}
+{/* noventa. Lo que el pool tiene que garantizar es densidad por RANGO: un */}
+{/* control se pide sobre un rango de secciones y cada copia saca cuatro, así */}
+{/* que un rango con menos de cuatro preguntas se rechaza (ErrPoolTooSmall). */}
+{/* COBERTURA. 20 preguntas, de una sola correcta, aprobadas de a dos por el */}
+{/* profesor (#322). Rangos que SÍ llenan una copia de cuatro: */}
+{/*   · la clase entera: 20. */}
+{/*   · el acto El árbol binario de búsqueda: 7. */}
+{/*   · el acto El desbalance del árbol de búsqueda: 4. */}
+{/*   · el acto El árbol AVL: 4. */}
+{/*   · la apertura junto con el árbol de búsqueda: 9. */}
+{/*   · las rotaciones junto con el desbalance o con el AVL: 7. */}
+{/* Rangos que NO, y es deliberado: */}
+{/*   · la apertura sola (2) y las rotaciones solas (3). */}
+{/*   · el AVL desde Eliminar en un árbol AVL, Otros árboles de búsqueda y */}
+{/*     los ejercicios: ninguna. El profesor cerró el banco en la inserción */}
+{/*     del AVL, y los ejercicios no llevan preguntas por decisión. */}
 
 # Estructuras de Datos Avanzadas · Árboles II
 
@@ -2136,6 +2153,230 @@ class Solution {
 ```
 
 </Exercise>
+
+<Questions>
+
+<Question id="dilema-lista-ordenada-sin-busqueda-binaria" anchor="un-dilema-entre-buscar-e-insertar">
+
+¿Por qué una lista enlazada ordenada no gana nada con la búsqueda binaria?
+
+- [x] Llegar al elemento del medio obliga a recorrer la mitad de la lista
+- [ ] Al insertar, todos los valores mayores se corren una posición
+- [ ] Sus nodos no se pueden comparar entre sí
+- [ ] Mantener el orden obliga a reordenar la lista después de cada inserción
+
+</Question>
+
+<Question id="decisiones-en-nodos-valor-nuevo" anchor="las-decisiones-guardadas-en-nodos">
+
+Si las decisiones de la búsqueda binaria se guardan como nodos enlazados, ¿dónde queda un valor nuevo?
+
+- [x] Como una hoja, en el lugar donde terminó su búsqueda
+- [ ] En el medio, y los valores mayores se corren un lugar
+- [ ] En la raíz, y el resto del árbol baja un nivel
+- [ ] Al final, después del mayor de todos los valores
+
+</Question>
+
+<Question id="abb-que-exige-la-invariante-de-orden" anchor="la-invariante-de-orden">
+
+¿Qué exige la invariante de orden de un árbol de búsqueda a cada nodo?
+
+- [x] Que todo su subárbol izquierdo sea menor que él, y todo el derecho, mayor
+- [ ] Que su hijo izquierdo sea menor que él, y su hijo derecho, mayor
+- [ ] Que sus dos subárboles tengan la misma altura
+- [ ] Que sus dos hijos sean hojas o tengan ellos mismos dos hijos
+
+</Question>
+
+<Question id="abb-por-que-sin-repetidos" anchor="las-invariantes-del-arbol-de-busqueda">
+
+¿Por qué un árbol de búsqueda no guarda valores repetidos?
+
+- [x] Un valor igual a un nodo no estaría ni a su izquierda ni a su derecha
+- [ ] Cada nodo tiene a lo más dos hijos, y no caben más copias
+- [ ] La búsqueda se detendría antes de llegar a la segunda copia
+- [ ] Un valor repetido aumentaría la altura del árbol
+
+</Question>
+
+<Question id="abb-cuando-termina-una-busqueda-fallida" anchor="buscar-en-un-arbol-de-busqueda">
+
+En un árbol de búsqueda, ¿cuándo termina la búsqueda de un valor que no está?
+
+- [x] Al llegar a un subárbol vacío
+- [ ] Después de revisar todos los nodos del árbol
+- [ ] Al llegar a la hoja más a la derecha
+- [ ] Al volver a la raíz sin haberlo encontrado
+
+</Question>
+
+<Question id="abb-orden-del-inorden" anchor="el-inorden-de-un-arbol-de-busqueda">
+
+¿En qué orden entrega sus valores el inorden de un árbol de búsqueda?
+
+- [x] De menor a mayor
+- [ ] De mayor a menor
+- [ ] Por niveles, desde la raíz hacia abajo
+- [ ] En el mismo orden en que se insertaron
+
+</Question>
+
+<Question id="abb-que-valor-reemplaza-al-de-dos-hijos" anchor="eliminar-un-nodo-con-dos-hijos">
+
+Al eliminar un nodo con dos hijos, ¿qué valor pasa a ocupar ese nodo?
+
+- [x] El de su sucesor: el menor de su subárbol derecho
+- [ ] El de su hijo izquierdo, que sube a su lugar
+- [ ] El mayor de su subárbol derecho
+- [ ] El de la raíz del árbol
+
+</Question>
+
+<Question id="abb-por-que-el-sucesor-no-tiene-dos-hijos" anchor="el-sucesor-tiene-a-lo-mas-un-hijo">
+
+¿Por qué eliminar el sucesor nunca vuelve a ser el caso de dos hijos?
+
+- [x] El sucesor nunca tiene hijo izquierdo
+- [ ] El sucesor siempre es una hoja
+- [ ] El sucesor nunca tiene hijo derecho
+- [ ] El sucesor siempre es hijo de la raíz
+
+</Question>
+
+<Question id="abb-de-que-depende-el-costo" anchor="costos-del-arbol-de-busqueda">
+
+¿De qué depende el costo de buscar, insertar y eliminar en un árbol de búsqueda?
+
+- [x] De la altura del árbol
+- [ ] De la cantidad de hojas
+- [ ] De cuántos nodos tienen dos hijos
+- [ ] Del valor que se busca
+
+</Question>
+
+<Question id="desbalance-valores-ordenados" anchor="altura-maxima-un-arbol-desbalanceado">
+
+Si los valores se insertan de menor a mayor en un árbol de búsqueda, ¿qué forma queda?
+
+- [x] Una cadena que baja siempre por la derecha
+- [ ] Un árbol lleno, con la altura mínima
+- [ ] Una cadena que baja siempre por la izquierda
+- [ ] Un árbol con todas sus hojas en el último nivel
+
+</Question>
+
+<Question id="desbalance-costo-peor-caso" anchor="el-caso-esperado-y-el-peor-caso">
+
+¿Cuánto cuesta buscar en un árbol de búsqueda en el peor caso?
+
+- [x] Lineal, como en una lista enlazada ordenada
+- [ ] Logarítmico, como la búsqueda binaria
+- [ ] Constante, si el valor está en la raíz
+- [ ] Cuadrático, porque compara con cada nodo dos veces
+
+</Question>
+
+<Question id="desbalance-datos-reales" anchor="el-desbalance-con-datos-reales">
+
+¿Por qué el peor caso del árbol de búsqueda no es raro con datos reales?
+
+- [x] Suelen llegar ordenados, como las matrículas o las fechas
+- [ ] Suelen traer valores repetidos, que el árbol rechaza
+- [ ] Son tantos que el árbol no alcanza a balancearse
+- [ ] Llegan al azar, y el azar produce cadenas
+
+</Question>
+
+<Question id="balanceado-que-agrega" anchor="el-arbol-de-busqueda-balanceado">
+
+¿Qué agrega un árbol de búsqueda balanceado a un árbol de búsqueda?
+
+- [x] Arregla su forma después de cada inserción y eliminación
+- [ ] Ordena de nuevo sus valores después de cada inserción
+- [ ] Rechaza los valores que llegan ordenados
+- [ ] Guarda sus valores también en un arreglo
+
+</Question>
+
+<Question id="rotacion-que-cambia" anchor="la-rotacion-a-la-derecha">
+
+¿Qué cambia una rotación en un árbol de búsqueda?
+
+- [x] Su forma, sin romper la invariante de orden
+- [ ] Su invariante de orden, sin cambiar la forma
+- [ ] Los valores de los dos nodos que rota
+- [ ] La raíz del árbol entero, siempre
+
+</Question>
+
+<Question id="rotacion-que-pasa-con-la-altura" anchor="lo-que-una-rotacion-hace-con-la-altura">
+
+Al rotar a la derecha, ¿qué le pasa al subárbol izquierdo del hijo que sube?
+
+- [x] Sube un nivel
+- [ ] Baja un nivel
+- [ ] Se queda en su nivel
+- [ ] Pasa a ser hijo del nodo que baja
+
+</Question>
+
+<Question id="rotacion-simple-no-alcanza" anchor="cuando-una-rotacion-simple-no-alcanza">
+
+¿Cuándo una rotación simple no empareja un árbol cargado a la izquierda?
+
+- [x] Cuando el peso está por dentro: en el subárbol derecho del hijo izquierdo
+- [ ] Cuando el peso está por fuera: en el subárbol izquierdo del hijo izquierdo
+- [ ] Cuando el nodo que rota es la raíz del árbol
+- [ ] Cuando el hijo izquierdo del nodo es una hoja
+
+</Question>
+
+<Question id="avl-que-exige-la-invariante-de-balance" anchor="la-invariante-de-balance">
+
+¿Qué exige la invariante de balance de un árbol AVL a cada nodo?
+
+- [x] Que las alturas de sus dos subárboles difieran a lo más en uno
+- [ ] Que sus dos subárboles tengan exactamente la misma altura
+- [ ] Que sus dos subárboles tengan la misma cantidad de nodos
+- [ ] Que todas las hojas estén en el mismo nivel
+
+</Question>
+
+<Question id="avl-factor-menos-dos" anchor="el-factor-de-balance">
+
+¿Qué dice un factor de balance de −2 en un nodo?
+
+- [x] Que su lado izquierdo es dos niveles más alto que el derecho
+- [ ] Que su lado derecho es dos niveles más alto que el izquierdo
+- [ ] Que al nodo le faltan dos hijos para estar lleno
+- [ ] Que el nodo está dos niveles bajo la raíz
+
+</Question>
+
+<Question id="avl-donde-se-rompe" anchor="donde-se-rompe-la-invariante">
+
+Después de insertar en un árbol AVL, ¿en qué nodos puede haberse roto la invariante de balance?
+
+- [x] Solo en los nodos del camino de la inserción
+- [ ] Solo en la raíz del árbol
+- [ ] Solo en el padre de la hoja nueva
+- [ ] En cualquier nodo del árbol
+
+</Question>
+
+<Question id="avl-rotaciones-por-insercion" anchor="inserciones-en-un-mismo-arbol-avl">
+
+¿Cuántas veces rota, a lo más, una inserción en un árbol AVL?
+
+- [x] Una vez, con una rotación simple o una doble
+- [ ] Una vez por cada nivel del camino de vuelta
+- [ ] Ninguna, si los valores llegan ordenados
+- [ ] Dos veces, porque siempre hace una doble
+
+</Question>
+
+</Questions>
 
 ## Lo que sigue
 
