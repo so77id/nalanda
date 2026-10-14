@@ -460,6 +460,14 @@ review, SEC-2).
   ```
   Same result as waiting for Watchtower, minus the wait.
 - Rollback recipes are in §Rollback above.
+- **A copy comes back `incomplete` while its page is in the uploaded PDF**:
+  diagnose before re-uploading — `apps/amc-worker/README.md` §A sheet printed
+  to fit the page (enter the worker with `sudo docker-compose exec amc-worker
+  bash` from this directory). Re-uploading the same PDF to the same worker
+  reads the same, and clears the corrections of every copy it re-captures.
+- **Before changing the worker's corner-mark tolerance** (`MARK_TOLERANCE`,
+  ADR-0085): `apps/amc-worker/tests/tools/regress-tolerance.py`, read-only
+  over every control on this box; the command is in its docstring.
 
 ## The master key is not in the backup
 

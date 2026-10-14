@@ -15,11 +15,13 @@ Commands and stack live in `README.md` — one home per fact.
   subprocess rules (argument lists, a `timeout` on every call, a caller value
   only ever in a flag's value slot) and how a request-supplied path is resolved.
 - `docs/standards/testing-strategy.md` §`apps/amc-worker` — the two protocols
-  and the **four** rules for writing a verification script here. Read all four;
+  and the **five** rules for writing a verification script here. Read all five;
   two of them exist because they were violated once.
 - `docs/decisions/0030-…` (the engine and its traps) and `0031-…` (the reading
   report, which is the contract WP-F and WP-G bind to).
-- `README.md` §Five traps — the AMC behaviours that silently lose a grade.
+- `README.md` §Five traps — the AMC behaviours that silently lose a grade —
+  and §A sheet printed to fit the page is read, the one that is not silent
+  (a copy `incomplete` while its page is in the batch) and its diagnosis.
 
 ## Language
 
@@ -55,12 +57,14 @@ it — script names, test titles, the fixture's own comments.
   Every verification script, `make shell` and `make paper` override the command
   with a bare `auto-multiple-choice …` call; an `ENTRYPOINT` would bury the CLI
   underneath the server and break all of them.
-- **The four rules for verification scripts live in
+- **The five rules for verification scripts live in
   `docs/standards/testing-strategy.md` §`apps/amc-worker`** — they are the tests;
   a measurement is reported rather than asserted; a trap is tested by performing
-  it rather than by reading the wrapper; and a test runs against the artifact
-  rather than the working tree. Read all four before adding a script. This file
-  used to paraphrase the first two and silently omit the others.
+  it rather than by reading the wrapper; a trap performed on a degraded input
+  also proves the pipeline reads at the identity setting and that the system
+  saw the degradation (#327); and a test runs against the artifact rather than
+  the working tree. Read all five before adding a script. This file used to
+  paraphrase the first two and silently omit the others.
 - **Anything the caller passes crosses the volume, not the wire.** Requests name
   paths under `/work`; PDFs and scans never travel as HTTP bodies.
 - **A new field in the `/analyse` or `/reanalyse` response body is
@@ -95,14 +99,19 @@ it — script names, test titles, the fixture's own comments.
   Makefile targets that read a scanned pile (`read-paper`, `read-paper-min`),
   which take it from the image's own `worker.py`, never a copy. The professor
   prints "fit to page", and AMC's default ±20 % corner-mark size filter drops
-  the circles of a sheet that came back at 0.87. A test that drives AMC by
-  hand on a 100 % synthetic batch may omit it (03, 04, 05, 07 do), and
+  the circles of a sheet that came back at 0.87. A test or measurement that
+  drives AMC by hand on a 100 % synthetic batch may omit it (03, 04, 05, 07
+  and `measure-batch.sh` do — at 100 % the band changes nothing), and
   `09-scaled.sh`'s bare read omits it ON PURPOSE — that is the trap; adding
-  the flag there defuses it. Before changing the value, run `make
-  measure-scale` and `tests/09-scaled.sh`, but know they bound it from BELOW
-  only: a far wider value keeps every script green. Widening needs the #327
-  production regression on real scans (transforms and box verdicts, not only
-  placement).
+  the flag there defuses it. When changing the value: `make build` first,
+  then `make measure-scale` (each line names the tolerance it read from the
+  image — check it is the new one) and `tests/09-scaled.sh`. Those bound it
+  from BELOW only: a far wider value keeps every script green. Any change
+  must also pass `tests/tools/regress-tolerance.py` on the Jetson — the #327
+  production regression, read-only, comparing placement, transforms and box
+  verdicts between the old and the new value; its docstring has the command
+  and what a report of it may record (counts only — the scans are students'
+  sheets).
 - **`/scans/reset` empties what a capture produced and nothing else.** The
   layout and `inputs/` are what the paper was printed from and are
   irreplaceable once students wrote on it; `RESET_FILES` / `RESET_DIRS` in

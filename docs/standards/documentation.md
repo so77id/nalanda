@@ -105,7 +105,13 @@ case: the deployed shape (#66).
    376px `<SideBySide>` column that breaks at a narrower container, and the
    rejected "narrow the container"), and the rail breakpoint in
    `DocumentPage.tsx` (256 + 64 + 768 + 224 = 1312, so `2xl`; `xl` lands 32px
-   short).
+   short). **When the automated checks bound a tuned value from ONE side
+   only**, the rule at the value also says which direction of change the
+   suite cannot see, and names the runnable procedure that guards it. Worked
+   case (#327): `MARK_TOLERANCE` in `apps/amc-worker/worker.py` — the
+   synthetic checks reject a band too narrow and stay green on one far too
+   wide, so widening goes through `tests/tools/regress-tolerance.py` on real
+   scans (`apps/amc-worker/CLAUDE.md`, ADR-0085).
 7. **Retiring a tool, a model or a DOCUMENT obligates a sweep**: in the same PR,
    grep ALL instruction surfaces (`CLAUDE.md` files, `.claude/skills/`,
    `.claude/agents/`, `docs/conventions.md`, standards) for the retired terms and

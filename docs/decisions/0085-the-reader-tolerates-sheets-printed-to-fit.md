@@ -1,13 +1,14 @@
 # ADR-0085: The reader tolerates sheets printed to fit the page
 
-**Status:** Accepted. Outstanding: the production regression re-run against
-the deployed image on the Jetson (#327 AC-5)
+**Status:** Accepted — the production regression against the deployed image
+on the Jetson (#327 AC-5) outstanding
 **Date:** 2026-10-13
 **Decision-makers:** Miguel Rodriguez
 **Source:** #327, from a production incident on control
 `5UIUIRM6XZBXHQQ7LWJ7Q7LHIY` (2026-10-13), diagnosed read-only on the Jetson.
-Every number below was measured on that box's real scans, or with
-`apps/amc-worker/tests/measure-scale.sh`.
+Every number below was measured on that box's real scans or with
+`apps/amc-worker/tests/measure-scale.sh`, except two the #327 review measured
+on synthetic batches, marked where they appear.
 
 ## Context
 
@@ -44,14 +45,16 @@ request field and not a UI knob, because it calibrates the engine to the
 paper, like the 300 dpi `getimages` renders at. The professor never makes it
 as a per-batch decision.
 
-**The larger half stays at AMC's default.** Fit-to-page shrinks a Letter sheet
-onto Letter or A4 and never enlarges it.
+**The larger half stays at AMC's default.** Fit-to-page shrinks a Letter or A4
+control onto Letter or A4 paper and never enlarges it.
 
 ## What this moves, measured
 
 **Real scans, every control on the Jetson**, each re-analysed in a scratch copy
 at both tolerances, comparing not only where each page lands but how it is
-read. The 305 pages the eight earlier controls had captured land on the same
+read. `apps/amc-worker/tests/tools/regress-tolerance.py`, committed with this
+ADR, is that comparison; run on the Jetson before merge, it reproduced every
+number in this paragraph. The 305 pages the eight earlier controls had captured land on the same
 (copy, page) with **bit-identical transforms** (`a`–`f` and MSE of
 `capture_page`), so every box on them reads exactly as before. The incident
 control's 31 placed pages land on the same (copy, page) too, but 14 of them
@@ -64,14 +67,26 @@ boxes change verdict, both on copy 16 page 2, question 11, from doubtful
 frame landing on the printed border rather than a pencil — not confirmed
 by anyone looking at the sheet yet) to blank. No ticked box changes, so no
 score does; but a doubtful box is what sends a copy to `needs_review`, so
-the change can take a review flag away. Its three missing pages land on (9, 2), (10, 2) and (11, 2) with MSE
-≤3.61. The 44 pages of the first control (2026-08-20) that AMC never placed
-stay unplaced under both tolerances. The wider band does not start accepting
-what it should not.
+the change can take a review flag away. Its three missing pages land on
+(9, 2), (10, 2) and (11, 2) with MSE ≤3.61. The 44 pages of the first control
+(WNME, 2026-08-19, ADR-0042: laid out for A4 and printed on Letter, so its two
+bottom corner circles were clipped off the paper) stay unplaced under both
+tolerances: the wider band does not start accepting what it should not.
+
+> **Measurements to fill in (owner: Miguel Rodriguez, the regression run by
+> the agent over ssh; deadline: 2026-10-20, before the next control is read;
+> tracked in #327):**
+> - `tests/tools/regress-tolerance.py` against the DEPLOYED image (AC-5).
+>   Expected: the numbers above. A (copy, page) moved, a page lost, or a
+>   ticked box changing verdict reopens the value.
+> - The professor's look at copy 16, page 2, question 11 after the re-upload
+>   (AC-6): whether its two doubtful boxes were the printed border or a
+>   pencil. A pencil there means the four-circle fit erased a real doubt.
 
 The placement-only comparison was the first version of this regression; the
-#327 review (security lens) showed a synthetic case where the wider band moves
-the frame about 18 px while the page still lands right — the copy went to
+#327 review (security lens) showed a case — synthetic, a corner circle erased
+and a blob drawn beside it — where the wider band moves the frame about 18 px
+while the page still lands right — the copy went to
 `needs_review`, not to a wrong grade — and that is why transforms and box
 verdicts are compared too.
 
@@ -89,7 +104,9 @@ at any row):
 
 **Synthetic sheets** (`make measure-scale`: the batch is printed at a scale by
 ghostscript and rasterised like a scan). The default reads 4/4 at 0.84 and
-0/4 at 0.80; `0.35,0.2` reads 4/4 down to 0.70 and 0/4 at 0.65. Synthetic
+0/4 from 0.82 — measured with `SCALES` covering 0.84 and 0.82, since the
+script's own list steps 0.85 → 0.80; `0.35,0.2` reads 4/4 down to 0.70 and
+0/4 at 0.65. Synthetic
 circles are crisper than toner, so this curve sits lower than paper's.
 `tests/09-scaled.sh` asserts it at 0.75, away from both edges.
 
@@ -128,16 +145,26 @@ Rejected.
   than assumed.
 - **The synthetic checks bound the value from below only.** A much wider
   tolerance (`0.9,0.9`, marks from 4 to 81 px) keeps every script green
-  (#327 review): synthetic sheets have nothing for an extra component to
-  compete with. The harm a wider band can do shows only on real scans.
+  (#327 review, synthetic batches): synthetic sheets have nothing for an extra
+  component to compete with. The harm a wider band can do shows only on real scans.
 - **What the tolerance cannot fix.** A sheet enlarged past the paper, a corner
   cut by the scanner, or a page from another Nalanda control: every control
-  prints the same markers (ADR-0075 §Consequences), and AMC will place such a
-  page as this control's.
-- **Re-uploading the same PDF is never a repair.** The result is
-  deterministic, and since ADR-0075 a re-capture clears the copy's
-  corrections. The worker's job banner already says how many pages it could
-  not recognise.
+  prints the same markers (ADR-0075 §What this moves, measured), and AMC will
+  place such a page as this control's.
+- **Re-uploading the same PDF to the same worker is never a repair.** The
+  result is deterministic, and since ADR-0075 a re-capture clears the copy's
+  corrections. After a change of calibration like this one, re-uploading IS
+  the repair, at that cost (#327 AC-6). The worker's job banner already says
+  how many pages it could not recognise.
+- **The paper check reads at this tolerance.** `make read-paper` and
+  `read-paper-min` take `MARK_TOLERANCE` (and `TICKED`) from the image, so
+  ADR-0030's outstanding full pencil cycle measures production's calibration.
+  For this change itself, the regression over real production scans —
+  printed to fit and marked in pencil by students — is the real-paper
+  evidence; no separate PAPER-CHECK cycle is owed for it.
+- **`incomplete` has a second cause** in ADR-0031's contract, amended: a page
+  that was scanned and that AMC could not place. The diagnosis is in
+  `apps/amc-worker/README.md` §A sheet printed to fit the page.
 
 ## Review triggers
 
@@ -148,11 +175,12 @@ Rejected.
   control seen so far (the lowest was 0.87).
 - An AMC upgrade: re-run `make measure-scale` and `tests/09-scaled.sh` before
   trusting the curve.
-- Widening either half of the tolerance: re-run the #327 production
-  regression on real scans — every control's scans re-analysed in scratch
-  copies at the old and the new value, comparing transforms and box verdicts,
-  not only placement. `make measure-scale` and `09-scaled.sh` alone cannot
-  reject a value that is too wide.
+- Widening either half of the tolerance: run
+  `apps/amc-worker/tests/tools/regress-tolerance.py --new <value>` on the
+  Jetson — every control's scans re-analysed in scratch copies at the old and
+  the new value, comparing placement, transforms and box verdicts.
+  `make measure-scale` and `09-scaled.sh` alone cannot reject a value that is
+  too wide.
 - A captured page whose MSE is far above what good pages show (≤5 on every
   real page measured for #327): the frame was fitted to something other than
   the four circles.
@@ -162,6 +190,9 @@ Rejected.
 - #327: the incident, the diagnostic recipe, every measurement table.
 - ADR-0030 §Not yet proven ("corner marks not found" as a review trigger):
   amended by this ADR.
+- ADR-0031: the reading report; amended by #327 (a second cause of
+  `incomplete`).
+- ADR-0042: the A4-on-Letter clipping, the other way a page loses its corners.
 - ADR-0075: single-mode capture, and what a re-capture clears.
 - `apps/amc-worker/worker.py` `MARK_TOLERANCE`; `AMC-analyse.pl:78,181–187`
   in the AMC 1.6.0 image.

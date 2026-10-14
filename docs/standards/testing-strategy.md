@@ -153,12 +153,21 @@ rebuild, so a script that mounts a source file from the host and executes that
 is green against a stale image — which is the per-commit protocol's normal
 state. Production code is invoked from where the image installed it; only test
 tools travel on the volume (#138 review). The same holds for configuration: a
-Makefile target or a measurement that drives AMC by hand takes every value the
-worker would pass from the INSTALLED module, by import, never a copy — one
-idiom, `python3 -c "import sys; sys.path.insert(0, sys.argv[1]); import worker;
-…" /opt/amc-worker`. `read-paper` takes `read_capture.printed_copies` that way
-(#147) and `worker.MARK_TOLERANCE` (#327), so a paper check reads as
-production does.
+Makefile target or a tool that drives AMC by hand over a REAL pile takes every
+value the worker names as a module constant or derives — `worker.MARK_TOLERANCE`,
+`worker.TICKED`, `read_capture.printed_copies` — from the INSTALLED module, by
+import, never a copy; one idiom, `python3 -c "import sys; sys.path.insert(0,
+sys.argv[1]); import worker; …" /opt/amc-worker`. `read-paper` and
+`read-paper-min` take all three that way (#147, #327), and
+`tests/tools/regress-tolerance.py` imports the worker's, so a paper check and the
+production regression read as production does. Literals the worker inlines in
+a call (`--vector-density 300`, `--with pdflatex`) cannot be imported and stay
+literals. Exceptions, named here so the next one is weighed against them: a
+test or measurement on a 100 % SYNTHETIC batch may omit the corner-mark
+tolerance, since at full size the band changes nothing (03, 04, 05, 07,
+`measure-batch.sh`); and `09-scaled.sh`'s bare read MUST omit it — that is the
+trap it performs. A new exception clears the same bar: say why the omitted
+value cannot change what the script reads.
 
 That makes "seen to fail" look expensive, because reddening a check appears to
 need a full `make build`. It does not: a **derived image** keeps the artifact
@@ -192,14 +201,21 @@ message. It is the host, not the change: re-run the script. Production (the
 Jetson, a native Linux volume) is not exposed the same way, and the refusal is
 there so that it would be loud if it were.
 
-Two more shapes of the same host, both seen in #327. `07-rescan.sh`'s first
-capture right after `/scans/reset` went red three runs in a row and then
-green seven — also with `main`'s `worker.py` on the same image, so not the
-change; its response was not captured, so whether it is the database error
-above is unproven. And `/generate` can fail with `FileNotFoundError:
-'/work/p1/data'` on a bind-mounted directory the host just deleted and
-recreated (2 of 8 runs of `09-scaled.sh`; 7 of 10 in a two-line repro that
-does nothing else). Same answer for both: re-run, and expect neither on CI.
+Two more shapes of the same host, both seen in #327. In `07-rescan.sh`, the
+two checks right after `/scans/reset` — "the same batch reads from scratch
+after a reset" and "as a first capture: nothing re-captured" — went red with
+an empty value three runs in a row and then green seven, also with `main`'s
+`worker.py` on the same image, so not the change; the response was not
+captured, so whether it is the database error above is unproven. And
+`/generate` can fail with `FileNotFoundError: '/work/p1/data'` on a
+bind-mounted directory the host just deleted and recreated (2 of 8 runs of
+`09-scaled.sh`; 7 of 10 in a two-line repro that does nothing else), which
+reddens "a two-copy control generates". Same answer for both: re-run, and
+expect neither on CI. If either stays red after two re-runs, stop re-running:
+run the script against a derived image carrying `main`'s `worker.py` (the
+recipe above) — red there too is the host, green there is the change — and
+print the failing response (`echo "$again" >&2` after the call) so the next
+occurrence says what it is.
 
 **A script never writes into a project the worker has touched — it goes
 through the container.** Every request that names a project hands it to UID
