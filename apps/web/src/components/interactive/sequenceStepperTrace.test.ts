@@ -2444,7 +2444,12 @@ describe('sequenceStepperTrace · bst · the public method and the private one (
       const trace = traceFor('bst', operation, { values: BALANCED, ...extra });
       expect(trace.code, operation).toContain(pub);
       expect(trace.code, operation).toContain(priv);
-      expect(first(trace), operation).toEqual([call]);
+      // A listing may comment its lines (the removal's say which case each
+      // branch handles): the first frame lights the call, whatever follows it.
+      expect(
+        first(trace).map((line) => line.split(' //')[0]),
+        operation,
+      ).toEqual([call]);
     }
   });
 

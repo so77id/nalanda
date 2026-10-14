@@ -141,21 +141,21 @@ private Node<T> insert(Node<T> node, T value) {
     return node;
 }`,
   remove: `public void remove(T value) {
-    root = remove(root, value);
+    root = remove(root, value); // si era la raíz, root cambia
 }
 
 private Node<T> remove(Node<T> node, T value) {
-    if (node == null) return null;
+    if (node == null) return null; // el valor no está
     int c = value.compareTo(node.value);
-    if (c < 0) node.left = remove(node.left, value);
-    else if (c > 0) node.right = remove(node.right, value);
-    else if (node.left == null) return node.right;
-    else if (node.right == null) return node.left;
-    else {
-        Node<T> next = node.right;
-        while (next.left != null) next = next.left;
+    if (c < 0) node.left = remove(node.left, value); // está a la izquierda
+    else if (c > 0) node.right = remove(node.right, value); // está a la derecha
+    else if (node.left == null) return node.right; // hoja, o solo hijo derecho
+    else if (node.right == null) return node.left; // solo hijo izquierdo
+    else { // dos hijos: toma el valor del sucesor
+        Node<T> next = node.right; // el sucesor es el menor
+        while (next.left != null) next = next.left; // de la derecha
         node.value = next.value;
-        node.right = remove(node.right, next.value);
+        node.right = remove(node.right, next.value); // y lo elimina abajo
     }
     return node;
 }`,
