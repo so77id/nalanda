@@ -99,10 +99,11 @@ UNSURE = 0.05
 # transforms. Growing stays at AMC's default: fitting onto Letter or A4 paper
 # never enlarges the sheet (ADR-0085).
 #
-# Read BY NAME, from the image, by `make read-paper`, `make read-paper-min`
-# and tests/measure-scale.sh — none of which runs in `make test`. A rename
-# goes green through the suite and breaks the paper check after the pile has
-# been printed, marked and scanned.
+# Read BY NAME, from the image, by `make read-paper`, `make read-paper-min`,
+# tests/measure-scale.sh, tests/tools/regress-tolerance.py and the README's
+# diagnostic recipe (§A sheet printed to fit the page) — none of which runs in
+# `make test`. A rename goes green through the suite and breaks the paper
+# check after the pile has been printed, marked and scanned.
 MARK_TOLERANCE = "0.35,0.2"
 
 # AMC keeps its state in sqlite files inside the project directory, and nothing
