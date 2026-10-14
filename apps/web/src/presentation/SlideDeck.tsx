@@ -15,7 +15,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { renderInlineTitle } from '../lib/inlineTitle';
 import { mdxChildrenOf } from './mdxChildren';
 import { computeSlides } from './parser';
-import { fitScale } from './fit';
+import { fitScale, settleScale, worthRescaling, type Measure } from './fit';
 import { startsInsideHorizontalScroller, swipeDirection } from './swipe';
 import type { Point } from './swipe';
 import { RotateNotice } from './RotateNotice';
@@ -239,13 +239,29 @@ export function SlideDeck({ docId, title, configMode = 'auto', children }: Props
   const [scale, setScale] = useState(1);
   useLayoutEffect(() => {
     if (!stageNode || !contentNode) return;
-    const measure = () =>
-      setScale(
-        fitScale(
-          { width: stageNode.clientWidth, height: stageNode.clientHeight },
-          { width: contentNode.offsetWidth, height: contentNode.offsetHeight },
-        ),
-      );
+    // The last measurement a scale was taken from: a slide whose content
+    // answers its own scale by a pixel must not set off a new one
+    // (`worthRescaling`).
+    let last: Measure | null = null;
+    // The scales applied on the current stage, for `settleScale` to tell a
+    // slide answering its own scale from one that changed.
+    let applied: number[] = [];
+    const measure = () => {
+      const next: Measure = {
+        stage: { width: stageNode.clientWidth, height: stageNode.clientHeight },
+        content: { width: contentNode.offsetWidth, height: contentNode.offsetHeight },
+      };
+      if (!worthRescaling(last, next)) return;
+      const stageMoved =
+        last === null ||
+        last.stage.width !== next.stage.width ||
+        last.stage.height !== next.stage.height;
+      if (stageMoved) applied = [];
+      last = next;
+      const scale = settleScale(applied, fitScale(next.stage, next.content));
+      applied.push(scale);
+      setScale(scale);
+    };
     measure();
     // Rotation, the browser chrome appearing, a font finishing loading: all of
     // them change the stage without changing the slide.
