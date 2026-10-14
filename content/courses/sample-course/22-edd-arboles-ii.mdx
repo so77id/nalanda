@@ -484,51 +484,62 @@ $$\lfloor \log_2 n \rfloor$$ y $$n - 1$$.
 
 ## El desbalance del árbol de búsqueda
 
-{/* The same seven values in three arrival orders: by levels, in some order, sorted. */}
+{/* The same seven values in three insertion orders: by levels, in no particular order (lopsided at the root), sorted. EVENS_SHUFFLED is a fourth order the AVL section shows as balanced. */}
 
 export const EVENS_SHUFFLED = { v: 10, l: { v: 4, l: { v: 2 }, r: { v: 8, l: { v: 6 } } }, r: { v: 14, l: { v: 12 } } };
+
+export const EVENS_LOPSIDED = { v: 4, l: { v: 2 }, r: { v: 10, l: { v: 8, l: { v: 6 } }, r: { v: 12, r: { v: 14 } } } };
 
 export const EVENS_CHAIN = { v: 2, r: { v: 4, r: { v: 6, r: { v: 8, r: { v: 10, r: { v: 12, r: { v: 14 } } } } } } };
 
 <Slide title="Altura mínima: un árbol balanceado">
-La forma de un árbol de búsqueda la decide el orden en que llegan sus valores.
-Si cada valor nuevo cae en un nivel que todavía tiene lugar, los niveles se
-llenan de arriba hacia abajo, y el árbol queda con la **altura mínima**,
-$$\lfloor \log_2 n \rfloor$$. Un árbol así está **balanceado**: en cada nodo,
-el subárbol izquierdo y el derecho tienen alturas parecidas.
+La forma de un árbol de búsqueda la decide el orden en que se insertan sus
+valores. Si cada valor nuevo cae en un nivel que todavía tiene lugar, los
+niveles se llenan de arriba hacia abajo, y el árbol queda con la **altura
+mínima**, $$\lfloor \log_2 n \rfloor$$. Un árbol así está **balanceado**: en
+cada nodo, el subárbol izquierdo y el derecho tienen alturas parecidas.
 
-<SequenceStepper eda="bst" operation="insert" values={[]} value={[8, 4, 12, 2, 6, 10, 14]} />
+<SequenceStepper eda="bst" operation="insert" values={[]} value={[8, 4, 12, 2, 6, 10, 14]} program />
 
 </Slide>
 
 <Slide title="Altura máxima: un árbol desbalanceado">
-Si los mismos valores llegan de menor a mayor, cada uno es mayor que todos
-los anteriores: siempre baja por la derecha y se cuelga al final. El árbol
-queda como una cadena, con la **altura máxima**, $$n - 1$$. Está
+Si los mismos valores se insertan de menor a mayor, cada uno es mayor que
+todos los anteriores: siempre baja por la derecha y se cuelga al final. El
+árbol queda como una cadena, con la **altura máxima**, $$n - 1$$. Está
 **desbalanceado**: en cada nodo, todo lo que sigue cuelga a la derecha.
 
-<SequenceStepper eda="bst" operation="insert" values={[]} value={[2, 4, 6, 8, 10, 12, 14]} />
+<SequenceStepper eda="bst" operation="insert" values={[]} value={[2, 4, 6, 8, 10, 12, 14]} program />
 
-Buscar el último compara con todos los nodos, igual que en una lista enlazada.
+Buscar el mayor compara con todos los nodos, como en una lista enlazada.
+
+</Slide>
+
+<Slide title="Altura intermedia: un árbol en parte desbalanceado">
+En un orden cualquiera, ni por niveles ni de menor a mayor, el árbol queda
+entre los dos extremos: algunas ramas se alargan más que otras, y la altura
+queda entre la mínima y la máxima.
+
+<SequenceStepper eda="bst" operation="insert" values={[]} value={[4, 10, 2, 12, 8, 14, 6]} program />
 
 </Slide>
 
 <Slide title="El desbalance según el orden de inserción">
-Los mismos valores, en tres órdenes de inserción, dan tres alturas. Entre el
-árbol balanceado, con la altura mínima, y la cadena, con la máxima, están
-todos los demás, más o menos desbalanceados.
+Los mismos valores, insertados en tres órdenes, dan tres alturas: la mínima,
+una intermedia y la máxima. Como cada operación cuesta $$O(h)$$, el mismo
+conjunto se busca más rápido o más lento según el orden en que llegó.
 
 <PresentationWide fraction={0.9}>
 
 <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: '1rem 2rem', alignItems: 'flex-end' }}>
 <div style={{ flex: '1 1 260px', maxWidth: '330px' }}>
-<BinaryPicture tree={EVENS} ruler="h = 2" compact label="Los valores 2 a 14 insertados en el orden 8, 4, 12, 2, 6, 10, 14: un árbol lleno de altura 2." caption="8, 4, 12, 2, 6, 10, 14: altura 2" />
+<BinaryPicture tree={EVENS} ruler="h = 2" compact label="Los valores 2 a 14 insertados en el orden 8, 4, 12, 2, 6, 10, 14: un árbol lleno de altura 2, la mínima." caption="8, 4, 12, 2, 6, 10, 14: altura 2" />
 </div>
 <div style={{ flex: '1 1 260px', maxWidth: '330px' }}>
-<BinaryPicture tree={EVENS_SHUFFLED} ruler="h = 3" compact label="Los mismos valores insertados en el orden 10, 4, 14, 2, 8, 6, 12: un árbol de altura 3." caption="10, 4, 14, 2, 8, 6, 12: altura 3" />
+<BinaryPicture tree={EVENS_LOPSIDED} ruler="h = 3" compact label="Los mismos valores insertados en el orden 4, 10, 2, 12, 8, 14, 6: el 4 en la raíz con solo el 2 a la izquierda y todo lo demás a la derecha. Altura 3." caption="4, 10, 2, 12, 8, 14, 6: altura 3" />
 </div>
 <div style={{ flex: '1 1 260px', maxWidth: '330px' }}>
-<BinaryPicture tree={EVENS_CHAIN} ruler="h = 6" compact label="Los mismos valores insertados de menor a mayor: una cadena hacia la derecha de altura 6." caption="de menor a mayor: altura 6" />
+<BinaryPicture tree={EVENS_CHAIN} ruler="h = 6" compact label="Los mismos valores insertados de menor a mayor: una cadena hacia la derecha de altura 6, la máxima." caption="de menor a mayor: altura 6" />
 </div>
 </div>
 
@@ -536,33 +547,57 @@ todos los demás, más o menos desbalanceados.
 
 </Slide>
 
-<Slide title="El desbalance con datos reales">
-El orden de menor a mayor no es un caso raro. Los números de matrícula se
-asignan en orden creciente; los registros de un sistema llegan ordenados por
-fecha; un archivo de palabras suele venir en orden alfabético. Cargar
-cualquiera de ellos en un árbol de búsqueda lo deja como una cadena, con la
-altura máxima: el peor caso es el caso de todos los días.
+<Slide title="El caso esperado y el peor caso">
+El costo de un árbol de búsqueda depende de un orden que el árbol no elige: el
+orden en que llegan sus valores.
 
-Cuando los valores llegan en un orden al azar, en cambio, la altura esperada
-crece como $$O(\log n)$$. Es un resultado conocido, que aquí se cita sin
-demostrar. Pero nadie garantiza que los datos lleguen al azar.
+- **En el caso esperado**, el árbol se arma insertando los valores en un
+  orden al azar, con todos los órdenes igual de probables. Se demuestra que
+  su altura esperada es $$O(\log n)$$.
+- **En el peor caso**, los valores llegan ordenados, y la altura es $$n - 1$$.
+
+| Operación  | Caso esperado | Peor caso     |
+| ---------- | ------------- | ------------- |
+| `contains` | $$O(\log n)$$ | $$\Theta(n)$$ |
+| `insert`   | $$O(\log n)$$ | $$\Theta(n)$$ |
+| `remove`   | $$O(\log n)$$ | $$\Theta(n)$$ |
+
+En el peor caso, un árbol de búsqueda no es mejor que una lista enlazada
+ordenada.
+
+</Slide>
+
+<Slide title="El desbalance con datos reales">
+El peor caso no es raro. Los números de matrícula se asignan en orden
+creciente; los registros de un sistema llegan ordenados por fecha; un archivo
+de palabras suele venir en orden alfabético. Cargar cualquiera de ellos en un
+árbol de búsqueda lo deja como una cadena, con la altura máxima.
+
+El caso esperado supone que los valores llegan al azar, y los datos reales no
+lo garantizan. Por eso un árbol de búsqueda, por sí solo, no puede asegurar
+que buscar, insertar y eliminar cuesten $$O(\log n)$$.
 
 </Slide>
 
 <Slide title="El árbol de búsqueda balanceado">
-Todas las operaciones del árbol de búsqueda cuestan $$O(h)$$, y cuando los
-valores llegan ordenados, $$h$$ es $$n - 1$$: cada operación cuesta
-$$\Theta(n)$$, lo mismo que en una lista.
+La invariante de orden dice de qué lado de cada nodo va cada valor, pero no
+dice nada sobre la forma del árbol: nada impide que se desbalancee.
 
-La causa es la invariante de orden: dice de qué lado de cada nodo va cada
-valor, y no dice nada sobre la forma del árbol. Nadie impide que el árbol se
-desbalancee.
+Un **árbol de búsqueda balanceado** agrega lo que falta. Después de cada
+inserción y de cada eliminación, revisa la forma y la arregla donde quedó
+desbalanceada, sin romper la invariante de orden. Su altura queda en
+$$O(\log n)$$ en el peor caso, sin importar el orden en que lleguen los
+valores, y con ella el costo de todas las operaciones. El precio es más trabajo en cada inserción y en cada
+eliminación.
 
-¿Y si cada inserción y cada eliminación cuidaran también la forma,
-reacomodando el árbol cuando se desbalancea, sin romper la invariante
-de orden? La altura quedaría acotada por $$O(\log n)$$, y con ella todas las
-operaciones. El precio sería más trabajo en cada inserción y en cada
-eliminación. Ese es el intercambio de un **árbol de búsqueda balanceado**.
+Arreglar la forma sin romper el orden es posible porque los mismos valores
+caben en muchas formas que cumplen la invariante. La herramienta que pasa de
+una forma a otra es la **rotación**.
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem 2rem', alignItems: 'end' }}>
+<BinaryPicture tree={{ v: 2, r: { v: 4, r: { v: 6 } } }} ruler="h = 2" minColumns={3} compact label="Los valores 2, 4 y 6 en una cadena hacia la derecha: el 2 en la raíz, el 4 debajo y el 6 debajo del 4. Altura 2." caption="2, 4, 6 en cadena: altura 2" />
+<BinaryPicture tree={{ v: 4, l: { v: 2 }, r: { v: 6 } }} ruler="h = 1" minColumns={3} compact label="Los mismos valores balanceados: el 4 en la raíz, con el 2 a la izquierda y el 6 a la derecha. Altura 1, y la invariante de orden se cumple igual." caption="los mismos valores, balanceados: altura 1" />
+</div>
 
 </Slide>
 

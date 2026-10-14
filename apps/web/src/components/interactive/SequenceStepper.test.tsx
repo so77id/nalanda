@@ -1276,12 +1276,35 @@ describe('<SequenceStepper> · the combinations 22-edd-arboles-ii mounts', () =>
     {
       act: 'El desbalance del árbol de búsqueda',
       slide: 'Altura mínima: un árbol balanceado',
-      props: { eda: 'bst', operation: 'insert', values: [], value: [8, 4, 12, 2, 6, 10, 14] },
+      props: {
+        eda: 'bst',
+        operation: 'insert',
+        values: [],
+        value: [8, 4, 12, 2, 6, 10, 14],
+        program: true,
+      },
     },
     {
       act: 'El desbalance del árbol de búsqueda',
       slide: 'Altura máxima: un árbol desbalanceado',
-      props: { eda: 'bst', operation: 'insert', values: [], value: [2, 4, 6, 8, 10, 12, 14] },
+      props: {
+        eda: 'bst',
+        operation: 'insert',
+        values: [],
+        value: [2, 4, 6, 8, 10, 12, 14],
+        program: true,
+      },
+    },
+    {
+      act: 'El desbalance del árbol de búsqueda',
+      slide: 'Altura intermedia: un árbol en parte desbalanceado',
+      props: {
+        eda: 'bst',
+        operation: 'insert',
+        values: [],
+        value: [4, 10, 2, 12, 8, 14, 6],
+        program: true,
+      },
     },
     {
       act: 'Las rotaciones',
