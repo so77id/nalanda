@@ -91,6 +91,12 @@ export interface BinaryPictureProps {
    * over the edge to the right child for `left` (#322).
    */
   turn?: { at: TreeValue; dir: 'right' | 'left' };
+  /**
+   * Subtrees drawn a level taller than the others: the side that weighs
+   * more, so a rotation's pictures show the height it moves (#322). Each
+   * value must be one of `subtrees`.
+   */
+  tall?: TreeValue[];
 }
 
 const TONE: Record<Exclude<BinaryPictureTone, 'hidden'>, [string, string, number]> = {
@@ -157,6 +163,17 @@ export function BinaryPicture(props: BinaryPictureProps) {
       </AuthoringError>
     );
   }
+  const notSubtree = (props.tall ?? []).find(
+    (v) => !(props.subtrees ?? []).some((s) => String(s) === String(v)),
+  );
+  if (notSubtree !== undefined) {
+    return (
+      <AuthoringError component="BinaryPicture">
+        marca {String(notSubtree)} como alto, pero no está en subtrees: solo un subárbol dibujado
+        como triángulo puede ser más alto que los otros.
+      </AuthoringError>
+    );
+  }
   if (props.turn !== undefined) {
     const { at, dir } = props.turn;
     const node = placed.nodes.find((n) => n.key === String(at));
@@ -202,6 +219,7 @@ function Picture({
   emptyNote = 'root = null',
   subtrees = [],
   turn,
+  tall = [],
   label,
 }: BinaryPictureProps) {
   const placed = placeTree(tree);
@@ -224,7 +242,9 @@ function Picture({
   const rank = new Map(seq.map((n, i) => [n, i + 1]));
   const seqColor = VISIT_COLOR[visits ?? 'pre'];
 
+  const isTall = (n: PlacedNode) => tall.some((v) => String(v) === n.key);
   const c = layoutPicture(placed, {
+    reach: Math.max(0, ...nodes.filter(isTall).map((n) => n.depth + 1)),
     compact,
     levels,
     ruler: ruler !== undefined,
@@ -701,13 +721,19 @@ function Picture({
             data-tone={tone}
             data-visit={rank.get(n)}
             data-subtree={isSubtree(n) ? '' : undefined}
+            data-tall={isTall(n) ? '' : undefined}
             opacity={faint ? 0.5 : undefined}
           >
             {isSubtree(n) ? (
               // A whole subtree: apex where a node's top would be, base in
               // the room a level keeps under its nodes, as wide as its column.
+              // A tall one reaches a level further down, and widens with it.
               <path
-                d={`M ${cx(n)} ${cy(n) - r} L ${cx(n) + c.pitch * 0.44} ${cy(n) + r + 6} L ${cx(n) - c.pitch * 0.44} ${cy(n) + r + 6} Z`}
+                d={(() => {
+                  const base = cy(n) + r + 6 + (isTall(n) ? c.levelH : 0);
+                  const half = c.pitch * (isTall(n) ? 0.66 : 0.44);
+                  return `M ${cx(n)} ${cy(n) - r} L ${cx(n) + half} ${base} L ${cx(n) - half} ${base} Z`;
+                })()}
                 style={{ fill, stroke }}
                 strokeWidth={weight}
                 strokeLinejoin="round"
@@ -725,7 +751,7 @@ function Picture({
             )}
             <text
               x={cx(n)}
-              y={cy(n) + (isSubtree(n) ? 10 : 5)}
+              y={cy(n) + (isSubtree(n) ? 10 + (isTall(n) ? c.levelH * 0.45 : 0) : 5)}
               textAnchor="middle"
               fontSize="14"
               fontWeight="600"

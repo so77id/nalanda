@@ -1309,12 +1309,12 @@ describe('<SequenceStepper> · the combinations 22-edd-arboles-ii mounts', () =>
     {
       act: 'Las rotaciones',
       slide: 'El código de la rotación a la derecha',
-      props: { eda: 'avl', operation: 'rotate-right', values: [12, 8, 14, 4, 10], target: 12 },
+      props: { eda: 'avl', operation: 'rotate-right', values: [12, 8, 14, 4, 10, 2], target: 12 },
     },
     {
       act: 'Las rotaciones',
       slide: 'El código de la rotación a la izquierda',
-      props: { eda: 'avl', operation: 'rotate-left', values: [4, 2, 8, 6, 10], target: 4 },
+      props: { eda: 'avl', operation: 'rotate-left', values: [4, 2, 8, 6, 10, 12], target: 4 },
     },
     {
       act: 'El árbol AVL',

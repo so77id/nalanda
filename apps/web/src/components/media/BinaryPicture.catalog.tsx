@@ -186,6 +186,13 @@ export const binaryPictureCatalogEntry: CatalogEntry = {
         'Values drawn as a named subtree, a triangle in its own column, instead of a node: the A, B and C of a generic rotation, which move whole. A triangle draws no empty children under it.',
     },
     {
+      name: 'tall',
+      type: 'value[]',
+      default: '[]',
+      description:
+        'Values of `subtrees` drawn a level taller and wider than the others: the side that weighs more, so the pictures before and after a rotation show the height it moves. The canvas grows only when a tall triangle reaches past the deepest level. A value that is not one of `subtrees` is an authoring error.',
+    },
+    {
       name: 'turn',
       type: "{ at: value; dir: 'right' | 'left' }",
       description:
@@ -275,21 +282,24 @@ export const binaryPictureCatalogEntry: CatalogEntry = {
       ),
     },
     {
-      title: 'Before a right rotation: the arrow says which way it turns',
+      title:
+        'Before a right rotation: the arrow says which way it turns, the tall subtree what it fixes',
       code: `<BinaryPicture
   tree={{ v: 'p', l: { v: 'q', l: { v: 'A' }, r: { v: 'B' } }, r: { v: 'C' } }}
   subtrees={['A', 'B', 'C']}
+  tall={['A']}
   tones={{ p: 'accent', q: 'accent' }}
   turn={{ at: 'p', dir: 'right' }}
-  label="Antes de rotar a la derecha en p: p arriba, con q a su izquierda y el subárbol C a su derecha. Una flecha curva, en el sentido de las agujas del reloj, sobre la arista entre p y q."
+  label="Antes de rotar a la derecha en p: p arriba, con q a su izquierda y el subárbol C a su derecha. A es más alto que los otros dos. Una flecha curva, en el sentido de las agujas del reloj, sobre la arista entre p y q."
 />`,
       render: () => (
         <BinaryPicture
           tree={{ v: 'p', l: { v: 'q', l: { v: 'A' }, r: { v: 'B' } }, r: { v: 'C' } }}
           subtrees={['A', 'B', 'C']}
+          tall={['A']}
           tones={{ p: 'accent', q: 'accent' }}
           turn={{ at: 'p', dir: 'right' }}
-          label="Antes de rotar a la derecha en p: p arriba, con q a su izquierda y el subárbol C a su derecha. Una flecha curva, en el sentido de las agujas del reloj, sobre la arista entre p y q."
+          label="Antes de rotar a la derecha en p: p arriba, con q a su izquierda y el subárbol C a su derecha. A es más alto que los otros dos. Una flecha curva, en el sentido de las agujas del reloj, sobre la arista entre p y q."
         />
       ),
     },

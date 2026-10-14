@@ -111,6 +111,11 @@ export interface PictureOptions {
   /** Width of the row of chips under the tree, when it is drawn. */
   sequenceWidth?: number;
   caption?: string;
+  /**
+   * The deepest level anything is drawn down to, when it is past the tree's
+   * own depth: a tall subtree reaches a level under the row it hangs on.
+   */
+  reach?: number;
   /** Columns to make room for at least, so figures side by side match. */
   minColumns?: number;
 }
@@ -173,8 +178,9 @@ export function layoutPicture(placed: PlacedTree, options: PictureOptions): Pict
   const holeRoom = options.holes ? 26 : 0;
   const frameRoom = options.frames ? 22 : 0;
   // The strip goes under everything a level can carry, one slot per column.
+  const deepest = Math.max(placed.depth, options.reach ?? 0);
   const stripY =
-    2 * pad + 2 * r + placed.depth * levelH + (options.notes ? 12 : 0) + holeRoom + frameRoom + 6;
+    2 * pad + 2 * r + deepest * levelH + (options.notes ? 12 : 0) + holeRoom + frameRoom + 6;
   const splitRowY = (depth: number) => stripY + depth * (TREE_SLOT_H + SPLIT_GAP);
   const treeHeight = options.splits
     ? splitRowY(placed.depth) + TREE_SLOT_H + pad

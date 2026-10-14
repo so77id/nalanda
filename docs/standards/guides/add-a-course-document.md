@@ -1307,7 +1307,10 @@ beside its line of code. To walk an operation frame by frame, use the widget.
   label or a repeated value renders an authoring error (§6f).
 - **A whole subtree as a triangle**: `subtrees={['A', 'B', 'C']}` draws those
   values as named triangles in their columns — the generic rotation, whose
-  subtrees move whole. A triangle draws no empty children.
+  subtrees move whole. A triangle draws no empty children. `tall={['A']}`
+  draws some of them a level taller, the side that weighs more, so a
+  rotation's before and after show the height it moves (#322: a rotation of
+  equal subtrees reads as a mirror, Miguel's review).
 - **A rotation about to happen**: `turn={{ at: 'p', dir: 'right' }}` draws a
   curved arrow over the edge from `p` to the child the rotation lifts —
   clockwise over the left child for `right`, counterclockwise over the right

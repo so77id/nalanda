@@ -623,8 +623,8 @@ derecho de `q`, y el subárbol derecho de `q` pasa a ser el subárbol izquierdo
 de `p`. Los otros dos subárboles siguen colgados del mismo nodo que antes.
 
 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1rem 2rem', alignItems: 'end' }}>
-<BinaryPicture tree={ROTATION_BEFORE} subtrees={['A', 'B', 'C']} tones={{ p: 'accent', q: 'accent', B: 'mark' }} turn={{ at: 'p', dir: 'right' }} label="Antes de rotar: p arriba, con q a su izquierda y el subárbol C a su derecha; q tiene a los subárboles A y B. Una flecha curva, en el sentido de las agujas del reloj, sobre la arista entre p y q." caption="antes: rotar a la derecha en p" />
-<BinaryPicture tree={ROTATION_AFTER} subtrees={['A', 'B', 'C']} tones={{ p: 'accent', q: 'accent', B: 'mark' }} label="Después de rotar a la derecha en p: q arriba, con el subárbol A a su izquierda y p a su derecha; p tiene a B a la izquierda y a C a la derecha." caption="después: q arriba, y B cambió de padre" />
+<BinaryPicture tree={ROTATION_BEFORE} subtrees={['A', 'B', 'C']} tall={['A']} tones={{ p: 'accent', q: 'accent', B: 'mark' }} turn={{ at: 'p', dir: 'right' }} label="Antes de rotar: p arriba, con q a su izquierda y el subárbol C a su derecha; q tiene a los subárboles A y B. A es más alto que los otros dos: llega un nivel más abajo, y carga el árbol hacia la izquierda. Una flecha curva, en el sentido de las agujas del reloj, sobre la arista entre p y q." caption="antes: A, más alto, carga la izquierda" />
+<BinaryPicture tree={ROTATION_AFTER} subtrees={['A', 'B', 'C']} tall={['A']} tones={{ p: 'accent', q: 'accent', B: 'mark' }} label="Después de rotar a la derecha en p: q arriba, con el subárbol A a su izquierda y p a su derecha; p tiene a B a la izquierda y a C a la derecha. A subió un nivel, C bajó uno, y el árbol quedó parejo." caption="después: A sube un nivel, C baja uno" />
 </div>
 
 </Slide>
@@ -638,8 +638,8 @@ Ningún valor cambia de lado respecto de ningún nodo: **la invariante de orden
 se mantiene**.
 
 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1rem 2rem', alignItems: 'end' }}>
-<BinaryPicture tree={ROTATION_BEFORE} subtrees={['A', 'B', 'C']} strip label="Antes de rotar, con el inorden debajo: A, q, B, p, C." caption="inorden antes: A, q, B, p, C" />
-<BinaryPicture tree={ROTATION_AFTER} subtrees={['A', 'B', 'C']} strip label="Después de rotar, con el inorden debajo: A, q, B, p, C, el mismo de antes." caption="inorden después: el mismo" />
+<BinaryPicture tree={ROTATION_BEFORE} subtrees={['A', 'B', 'C']} tall={['A']} strip label="Antes de rotar, con el inorden debajo: A, q, B, p, C." caption="inorden antes: A, q, B, p, C" />
+<BinaryPicture tree={ROTATION_AFTER} subtrees={['A', 'B', 'C']} tall={['A']} strip label="Después de rotar, con el inorden debajo: A, q, B, p, C, el mismo de antes." caption="inorden después: el mismo" />
 </div>
 
 Cada nodo y cada subárbol está dibujado en la columna de su lugar en el
@@ -653,7 +653,7 @@ subió, y quien lo llamó lo guarda donde estaba `p`: en `root`, o en el hijo
 del padre de `p`. Mientras tanto, por un momento, un subárbol tiene dos
 padres, y `q` apunta hacia arriba sin que nadie le apunte.
 
-<SequenceStepper eda="avl" operation="rotate-right" values={[12, 8, 14, 4, 10]} target={12} />
+<SequenceStepper eda="avl" operation="rotate-right" values={[12, 8, 14, 4, 10, 2]} target={12} />
 
 </Slide>
 
@@ -665,8 +665,8 @@ el subárbol derecho de `p`. Los otros dos subárboles siguen colgados del mismo
 nodo que antes.
 
 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1rem 2rem', alignItems: 'end' }}>
-<BinaryPicture tree={LEFT_ROTATION_BEFORE} subtrees={['A', 'B', 'C']} tones={{ p: 'accent', q: 'accent', B: 'mark' }} turn={{ at: 'p', dir: 'left' }} label="Antes de rotar: p arriba, con el subárbol A a su izquierda y q a su derecha; q tiene a los subárboles B y C. Una flecha curva, en contra de las agujas del reloj, sobre la arista entre p y q." caption="antes: rotar a la izquierda en p" />
-<BinaryPicture tree={LEFT_ROTATION_AFTER} subtrees={['A', 'B', 'C']} tones={{ p: 'accent', q: 'accent', B: 'mark' }} label="Después de rotar a la izquierda en p: q arriba, con p a su izquierda y el subárbol C a su derecha; p tiene a A a la izquierda y a B a la derecha." caption="después: q arriba, y B cambió de padre" />
+<BinaryPicture tree={LEFT_ROTATION_BEFORE} subtrees={['A', 'B', 'C']} tall={['C']} tones={{ p: 'accent', q: 'accent', B: 'mark' }} turn={{ at: 'p', dir: 'left' }} label="Antes de rotar: p arriba, con el subárbol A a su izquierda y q a su derecha; q tiene a los subárboles B y C. C es más alto que los otros dos: llega un nivel más abajo, y carga el árbol hacia la derecha. Una flecha curva, en contra de las agujas del reloj, sobre la arista entre p y q." caption="antes: C, más alto, carga la derecha" />
+<BinaryPicture tree={LEFT_ROTATION_AFTER} subtrees={['A', 'B', 'C']} tall={['C']} tones={{ p: 'accent', q: 'accent', B: 'mark' }} label="Después de rotar a la izquierda en p: q arriba, con p a su izquierda y el subárbol C a su derecha; p tiene a A a la izquierda y a B a la derecha. C subió un nivel, A bajó uno, y el árbol quedó parejo." caption="después: C sube un nivel, A baja uno" />
 </div>
 
 </Slide>
@@ -680,8 +680,8 @@ Ningún valor cambia de lado respecto de ningún nodo: **la invariante de orden
 se mantiene**.
 
 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1rem 2rem', alignItems: 'end' }}>
-<BinaryPicture tree={LEFT_ROTATION_BEFORE} subtrees={['A', 'B', 'C']} strip label="Antes de rotar, con el inorden debajo: A, p, B, q, C." caption="inorden antes: A, p, B, q, C" />
-<BinaryPicture tree={LEFT_ROTATION_AFTER} subtrees={['A', 'B', 'C']} strip label="Después de rotar, con el inorden debajo: A, p, B, q, C, el mismo de antes." caption="inorden después: el mismo" />
+<BinaryPicture tree={LEFT_ROTATION_BEFORE} subtrees={['A', 'B', 'C']} tall={['C']} strip label="Antes de rotar, con el inorden debajo: A, p, B, q, C." caption="inorden antes: A, p, B, q, C" />
+<BinaryPicture tree={LEFT_ROTATION_AFTER} subtrees={['A', 'B', 'C']} tall={['C']} strip label="Después de rotar, con el inorden debajo: A, p, B, q, C, el mismo de antes." caption="inorden después: el mismo" />
 </div>
 
 Como en la rotación a la derecha, nada cambia de columna: los nodos solo suben
@@ -694,7 +694,7 @@ Las mismas tres referencias, del lado contrario: `p` toma como hijo derecho al
 subárbol izquierdo de `q`, y `q` toma a `p` como hijo izquierdo. El método
 devuelve `q`, y quien lo llamó lo guarda donde estaba `p`.
 
-<SequenceStepper eda="avl" operation="rotate-left" values={[4, 2, 8, 6, 10]} target={4} />
+<SequenceStepper eda="avl" operation="rotate-left" values={[4, 2, 8, 6, 10, 12]} target={4} />
 
 </Slide>
 

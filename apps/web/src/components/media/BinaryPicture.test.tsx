@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 
 import { ModeProvider } from '../../presentation';
 import { BinaryPicture } from './BinaryPicture';
+import { TREE_LEVEL_H } from '../treeGeometry';
 import type { BinaryTreeShape } from './binaryPictureLayout';
 
 /** (3 + 4) * (5 − 1), the expression tree Árboles I threads through its binary act. */
@@ -246,6 +247,42 @@ describe('BinaryPicture', () => {
     );
     expect(container.textContent).toContain('<BinaryPicture>');
     expect(container.textContent).toContain('hijo izquierdo');
+    expect(container.querySelector('svg')).toBeNull();
+  });
+
+  it('draws a tall subtree a level deeper, and makes room for it only past the deepest level', () => {
+    const before = { v: 'p', l: { v: 'q', l: { v: 'A' }, r: { v: 'B' } }, r: { v: 'C' } };
+    const after = { v: 'q', l: { v: 'A' }, r: { v: 'p', l: { v: 'B' }, r: { v: 'C' } } };
+    const height = (tree: BinaryTreeShape, tall: string[]) => {
+      const { container } = render(
+        <BinaryPicture
+          tree={tree}
+          subtrees={['A', 'B', 'C']}
+          tall={tall}
+          label="Una rotación con un subárbol más alto."
+        />,
+      );
+      const svg = container.querySelector('svg')!;
+      return {
+        h: Number(svg.getAttribute('viewBox')!.split(' ')[3]),
+        tall: [...container.querySelectorAll('[data-tall]')].map((t) =>
+          t.getAttribute('data-value'),
+        ),
+      };
+    };
+    // Before a right rotation, A is the deepest thing drawn: a level more.
+    expect(height(before, ['A']).h - height(before, []).h).toBe(TREE_LEVEL_H);
+    expect(height(before, ['A']).tall).toEqual(['A']);
+    // After it, A went up a level and reaches only as deep as B and C.
+    expect(height(after, ['A']).h).toBe(height(after, []).h);
+  });
+
+  it('tells the author when a tall value is not a subtree', () => {
+    const { container } = render(
+      <BinaryPicture tree={{ v: 'p', l: { v: 'q' } }} tall={['q']} label="Un nodo marcado alto." />,
+    );
+    expect(container.textContent).toContain('<BinaryPicture>');
+    expect(container.textContent).toContain('subtrees');
     expect(container.querySelector('svg')).toBeNull();
   });
 

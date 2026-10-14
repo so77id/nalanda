@@ -436,10 +436,16 @@ export const sequenceStepperCatalogEntry: CatalogEntry = {
       ),
     },
     {
-      title: 'A right rotation: three references change, and the inorder does not',
-      code: '<SequenceStepper eda="avl" operation="rotate-right" values={[6, 4, 7, 2, 5]} target={6} />',
+      title:
+        'A right rotation on a tree leaning left: three references change, the height drops, and the inorder does not change',
+      code: '<SequenceStepper eda="avl" operation="rotate-right" values={[6, 4, 7, 2, 5, 1]} target={6} />',
       render: () => (
-        <SequenceStepper eda="avl" operation="rotate-right" values={[6, 4, 7, 2, 5]} target={6} />
+        <SequenceStepper
+          eda="avl"
+          operation="rotate-right"
+          values={[6, 4, 7, 2, 5, 1]}
+          target={6}
+        />
       ),
     },
     {
