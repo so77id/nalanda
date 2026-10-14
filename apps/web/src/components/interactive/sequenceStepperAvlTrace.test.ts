@@ -176,6 +176,104 @@ describe('sequenceStepperTrace · avl · a rotation lowers a chain', () => {
   });
 });
 
+describe('sequenceStepperTrace · avl · the double rotations (#322)', () => {
+  // 12 leans left, and its left child 4 leans right: the weight is inside, under 8.
+  const INSIDE_LEFT = [12, 4, 14, 2, 8, 6, 10];
+  // The mirror: 4 leans right, and its right child 12 leans left, under 8.
+  const INSIDE_RIGHT = [4, 2, 12, 8, 14, 6, 10];
+  const lit = (code: string, step: SequenceStep) =>
+    step.highlightLines.map((l) => code.split('\n')[l - 1]!.trim());
+  const shape = (step: SequenceStep) => {
+    const byId = new Map(step.tree!.nodes.map((n) => [n.id, n]));
+    const of = (id: number | null): unknown =>
+      id === null
+        ? null
+        : { v: byId.get(id)!.value, l: of(byId.get(id)!.left), r: of(byId.get(id)!.right) };
+    return of(step.tree!.root);
+  };
+  const SETTLED = {
+    v: 8,
+    l: { v: 4, l: { v: 2, l: null, r: null }, r: { v: 6, l: null, r: null } },
+    r: { v: 12, l: { v: 10, l: null, r: null }, r: { v: 14, l: null, r: null } },
+  };
+
+  it('are two valid operations of avl, and of no other recipe', () => {
+    for (const operation of ['rotate-left-right', 'rotate-right-left'] as const) {
+      expect(AVL_OPERATIONS).toContain(operation);
+      for (const recipe of RECIPES) {
+        expect(isValidCombination(recipe, operation), `${recipe} × ${operation}`).toBe(
+          recipe === 'avl',
+        );
+      }
+    }
+  });
+
+  it('lists the double as two calls: the child first, then the node', () => {
+    const trace = traceFor('avl', 'rotate-left-right', { values: INSIDE_LEFT, target: 12 });
+    expect(trace.code).toBe(
+      'Node<T> rotateLeftRight(Node<T> p) {\n' +
+        '    p.left = rotateLeft(p.left);\n' +
+        '    return rotateRight(p);\n' +
+        '}',
+    );
+    expect(traceFor('avl', 'rotate-right-left', { values: INSIDE_RIGHT, target: 4 }).code).toBe(
+      'Node<T> rotateRightLeft(Node<T> p) {\n' +
+        '    p.right = rotateRight(p.right);\n' +
+        '    return rotateLeft(p);\n' +
+        '}',
+    );
+  });
+
+  it('runs one frame per call, the tree after each', () => {
+    const trace = traceFor('avl', 'rotate-left-right', { values: INSIDE_LEFT, target: 12 });
+    expect(trace.steps.map((s) => lit(trace.code, s))).toEqual([
+      ['Node<T> rotateLeftRight(Node<T> p) {'],
+      ['p.left = rotateLeft(p.left);'],
+      ['return rotateRight(p);'],
+      [],
+    ]);
+    // After the first call, 8 has gone up under 12, and 4 down to its left.
+    expect(shape(trace.steps[1]!)).toEqual({
+      v: 12,
+      l: {
+        v: 8,
+        l: { v: 4, l: { v: 2, l: null, r: null }, r: { v: 6, l: null, r: null } },
+        r: { v: 10, l: null, r: null },
+      },
+      r: { v: 14, l: null, r: null },
+    });
+    expect(shape(trace.steps.at(-1)!)).toEqual(SETTLED);
+  });
+
+  it('names p, q and r on the drawing', () => {
+    const first = traceFor('avl', 'rotate-left-right', { values: INSIDE_LEFT, target: 12 })
+      .steps[0]!;
+    expect([12, 4, 8].map((v) => byValue(first, v).badge)).toEqual(['p', 'q', 'r']);
+  });
+
+  it('keeps the inorder in every frame, and says the height went down', () => {
+    for (const [operation, values, target] of [
+      ['rotate-left-right', INSIDE_LEFT, 12],
+      ['rotate-right-left', INSIDE_RIGHT, 4],
+    ] as const) {
+      const trace = traceFor('avl', operation, { values: [...values], target });
+      for (const step of trace.steps) expect(inorderOf(step)).toEqual([2, 4, 6, 8, 10, 12, 14]);
+      expect(shape(trace.steps.at(-1)!)).toEqual(SETTLED);
+      expect(trace.steps.at(-1)!.description).toContain('pasó de 3 a 2');
+    }
+  });
+
+  it('refuses a node whose child has nothing inside to raise', () => {
+    // 4 has a left child, 2, but 2 has no right child.
+    expect(() => traceFor('avl', 'rotate-left-right', { values: [6, 4, 7, 2], target: 6 })).toThrow(
+      /hijo derecho/,
+    );
+    expect(() => traceFor('avl', 'rotate-right-left', { values: [2, 4], target: 2 })).toThrow(
+      /hijo izquierdo/,
+    );
+  });
+});
+
 describe('sequenceStepperTrace · avl · what a rotation refuses', () => {
   it('refuses a right rotation where there is no left child to raise', () => {
     expect(() => traceFor('avl', 'rotate-right', { values: [1, 2, 3], target: 1 })).toThrow(

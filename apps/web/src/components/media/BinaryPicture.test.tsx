@@ -277,6 +277,23 @@ describe('BinaryPicture', () => {
     expect(height(after, ['A']).h).toBe(height(after, []).h);
   });
 
+  it('draws the levels down to where a tall subtree reaches', () => {
+    const { container } = render(
+      <BinaryPicture
+        tree={{ v: 'p', l: { v: 'q', l: { v: 'A' }, r: { v: 'B' } }, r: { v: 'C' } }}
+        subtrees={['A', 'B', 'C']}
+        tall={['A']}
+        levels
+        label="Una rotación con los niveles marcados."
+      />,
+    );
+    const levels = [...container.querySelectorAll('text')]
+      .map((t) => t.textContent)
+      .filter((t) => t?.startsWith('nivel'));
+    // p on 0, q and C on 1, B on 2, and A reaching down to 3.
+    expect(levels).toEqual(['nivel 0', 'nivel 1', 'nivel 2', 'nivel 3']);
+  });
+
   it('tells the author when a tall value is not a subtree', () => {
     const { container } = render(
       <BinaryPicture tree={{ v: 'p', l: { v: 'q' } }} tall={['q']} label="Un nodo marcado alto." />,

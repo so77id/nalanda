@@ -154,6 +154,26 @@ describe('<SequenceStepper> · per mode', () => {
     expect(figure).toHaveAttribute('data-operation', 'insert-first');
   });
 
+  it('keeps the narration as tall as its longest frame on a slide, hidden from readers', () => {
+    // A slide is scaled to fit: a narration one line longer on one frame
+    // rescaled the whole slide when the reader stepped onto it (#322).
+    renderIn('presentation', <SequenceStepper {...base} />);
+    const live = screen.getByTestId('sequence-narration');
+    const reserved = live.querySelectorAll('[data-narration-reserve]');
+    expect(reserved.length).toBeGreaterThan(1);
+    for (const r of reserved) {
+      expect(r).toHaveAttribute('aria-hidden', 'true');
+      expect(r).toHaveClass('invisible');
+    }
+    expect(within(live).getAllByText(/Creamos el nodo 9/)).toHaveLength(2);
+  });
+
+  it('reserves nothing in the book, where nothing is scaled', () => {
+    renderIn('book', <SequenceStepper {...base} />);
+    const live = screen.getByTestId('sequence-narration');
+    expect(live.querySelectorAll('[data-narration-reserve]')).toHaveLength(0);
+  });
+
   it('hides the code panel when the slide already carries the listing', () => {
     const { container } = renderIn('book', <SequenceStepper {...base} showCode={false} />);
     expect(container.textContent).not.toMatch(/código/);
@@ -1315,6 +1335,26 @@ describe('<SequenceStepper> · the combinations 22-edd-arboles-ii mounts', () =>
       act: 'Las rotaciones',
       slide: 'El código de la rotación a la izquierda',
       props: { eda: 'avl', operation: 'rotate-left', values: [4, 2, 8, 6, 10, 12], target: 4 },
+    },
+    {
+      act: 'Las rotaciones',
+      slide: 'El código de la rotación doble a la derecha',
+      props: {
+        eda: 'avl',
+        operation: 'rotate-left-right',
+        values: [12, 4, 14, 2, 8, 6, 10],
+        target: 12,
+      },
+    },
+    {
+      act: 'Las rotaciones',
+      slide: 'El código de la rotación doble a la izquierda',
+      props: {
+        eda: 'avl',
+        operation: 'rotate-right-left',
+        values: [4, 2, 12, 8, 14, 6, 10],
+        target: 4,
+      },
     },
     {
       act: 'El árbol AVL',

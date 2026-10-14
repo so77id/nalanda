@@ -44,16 +44,24 @@ const TREE_ONLY: readonly SequenceOperation[] = [
   'remove',
   'rotate-right',
   'rotate-left',
+  'rotate-left-right',
+  'rotate-right-left',
 ];
-// The AVL's sweep rotates at 1, which needs both children: 3 over 1, 1 over 0 and 2.
+// The AVL's sweep rotates at 1, which needs both children: 3 over 1, 1 over 0
+// and 2. A double needs a grandchild inside: -1 under 1 with 0 to its right,
+// or 3 under 1 with 2 to its left.
 const startFor = (recipe: SequenceRecipe, operation: SequenceOperation): number[] =>
   recipe === 'heap-max'
     ? [7, 5, 3, 1]
-    : recipe === 'avl'
-      ? [3, 1, 0, 2]
-      : operation === 'insert-ordered' || operation === 'binary-search'
-        ? [1, 3, 7, 9]
-        : values;
+    : recipe === 'avl' && operation === 'rotate-left-right'
+      ? [3, 1, -1, 0]
+      : recipe === 'avl' && operation === 'rotate-right-left'
+        ? [0, 1, 3, 2]
+        : recipe === 'avl'
+          ? [3, 1, 0, 2]
+          : operation === 'insert-ordered' || operation === 'binary-search'
+            ? [1, 3, 7, 9]
+            : values;
 
 describe('sequenceStepperTrace · the valid combinations', () => {
   it('rejects insert-ordered on the dynamic array', () => {

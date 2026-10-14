@@ -61,7 +61,7 @@ content/courses/sample-course/
 ├── 19-edd-stack-queue.mdx     # presentation: explicit, questions: pool (13) — <SequenceStepper> ×8 over BOTH families (dynamic-array + singly) + <StepShow> ×7 + <Exercise> ×4 + 20 standalone inline SVG figures + a file-local <Paso> frame component + two TDA cards
 ├── 20-edd-priority-queue-heap.mdx  # presentation: explicit, questions: pool (16) — <SequenceStepper eda="heap-max"> ×4 + <StepShow> ×3 + <Exercise> ×4 (three worked on slides, one posed) + <PresentationWide> ×3 + 23 file-local figure components and LIST_COLORS (§6e-quater) + a TDA card (the fifth copy)
 ├── 21-edd-arboles-i.mdx       # presentation: explicit, questions: pool (19) — opens the Estructuras de Datos Avanzadas unit, ahead of chapter 20 in index.yaml; <SequenceStepper eda="binary-tree"> ×5 (its worked case, ADR-0083) + <StepShow> ×12 + <SideBySide> ×3 + <Exercise> ×5 (three worked, each on its slide — the widest level's and the calculator's in a scrolling window, being longer than 32 lines — and two posed) + <PresentationWide> ×18 + <BinaryPicture> ×162, <NodeGraph> ×2 and <OrderRule> ×6 (the content components #322 promoted from it, §6e-quinquies) + five file-local figure components (HierarchyPicture, TreeMemory, BinaryMemory, TokenRow, StackRow); the search tree moved to Árboles II (#322)
-├── 22-edd-arboles-ii.mdx      # presentation: explicit, questions: none (a documented not-yet, step 2) — the second class of the Estructuras de Datos Avanzadas unit, after edd-arboles-i in index.yaml and closing toward edd-priority-queue-heap: a growing set from the sorted array to the search tree, its operations, the arrival order, the rotation, the AVL tree and the other trees; <SequenceStepper> ×14 (bst ×9, every operation in the theory-cases-code-cost order and its code public over private, avl ×4 — the avl recipe's worked case, ADR-0083 §6 —, dynamic-array — the binary search, its worked case, ADR-0074 §Amended by #322) + <BinaryPicture> ×85 (§6e-quinquies, triangles for the generic rotation, splits for the binary search's decisions) + <NodeGraph> ×2 + <OrderRule> + <StepShow> ×3 + <Exercise> ×6 (three worked, each with its program on a slide — the iterator's and the intersection's in a scrolling window —, and three posed, book-only) + an inline B-tree <svg> + two file-local figure components (SortedRow, OrderSides)
+├── 22-edd-arboles-ii.mdx      # presentation: explicit, questions: none (a documented not-yet, step 2) — the second class of the Estructuras de Datos Avanzadas unit, after edd-arboles-i in index.yaml and closing toward edd-priority-queue-heap: a growing set from the sorted array to the search tree, its operations, the arrival order, the rotation, the AVL tree and the other trees; <SequenceStepper> ×16 (bst ×9, every operation in the theory-cases-code-cost order and its code public over private, avl ×6 — the avl recipe's worked case, ADR-0083 §6 —, dynamic-array — the binary search, its worked case, ADR-0074 §Amended by #322) + <BinaryPicture> ×89 (§6e-quinquies, triangles for the generic rotation, splits for the binary search's decisions) + <NodeGraph> ×2 + <OrderRule> + <StepShow> ×3 + <Exercise> ×6 (three worked, each with its program on a slide — the iterator's and the intersection's in a scrolling window —, and three posed, book-only) + an inline B-tree <svg> + two file-local figure components (SortedRow, OrderSides)
 ├── tda-eda-invariante.svg, arreglo-memoria.svg, arreglo-alocacion.svg, arreglo-invariante-valido.svg, arreglo-invariantes.svg, regla-del-cuarto.svg, costo-acumulado.svg   # assets for chapter 17
 └── index.yaml                 # the ordered teaching path
 ```
@@ -900,7 +900,13 @@ the frames in between show a subtree with two parents and `q` pointing back
 up at `p` — that reference gets an arrowhead — and the strip keeps the same
 inorder from the first frame to the last. The listing is the class's
 rotation before the AVL gives its nodes a height (ADR-0083, *Amended by
-#322*). `avl` also takes `insert` (`value`, an array for several) and
+#322*). The double rotations are operations too, `rotate-left-right` and
+`rotate-right-left` (`target`, the node; it needs the child on the side it
+leans and that child's grandchild inside): their listing is the method of
+two calls, one frame per call with the tree after it, `p`, `q` and `r`
+named on the drawing. Rotate a tree that LEANS, so the rotation lowers it
+and the last frame says so — equal sides come out as a mirror (#322).
+`avl` also takes `insert` (`value`, an array for several) and
 `remove` (`target`), the search tree's with `return balance(node)` as their
 last line; for these two `values` builds a REAL AVL, rotating as it goes,
 with no frames. Every node carries its balance factor in a badge (`+1`,
@@ -982,7 +988,7 @@ Six things worth knowing before you write one:
   | `heap-max`             | `insert`, `extract-max` (y ninguna otra receta acepta estas dos)                        |
   | `binary-tree`          | `preorder`, `inorder`, `postorder`, `height` (y ninguna otra receta acepta estas cuatro), y `search` |
   | `bst`                  | `search`, `insert`, `inorder`, `remove` (la última, solo aquí)                       |
-  | `avl`                  | `rotate-right`, `rotate-left` (solo aquí), `insert`, `remove`                           |
+  | `avl`                  | `rotate-right`, `rotate-left`, `rotate-left-right`, `rotate-right-left` (solo aquí), `insert`, `remove` |
 
   Anything else is an `<AuthoringError>` naming the operations that recipe does
   have; a heap operation on a Sequence recipe is refused pointing at

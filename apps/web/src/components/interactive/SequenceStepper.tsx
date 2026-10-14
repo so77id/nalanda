@@ -236,6 +236,8 @@ const OPERATION_LABEL: Record<SequenceOperation, string> = {
   remove: 'eliminar',
   'rotate-right': 'rotar a la derecha',
   'rotate-left': 'rotar a la izquierda',
+  'rotate-left-right': 'rotación doble a la derecha',
+  'rotate-right-left': 'rotación doble a la izquierda',
 };
 
 const UNDER_THE_EYE: [string, string] = ['border-focus bg-surface', 'bajo la mirada'];
@@ -274,6 +276,14 @@ const AVL_LEGEND: Record<AvlOperation, [string, string][]> = {
     ['border-mark bg-mark-soft', 'cambia de padre'],
   ],
   'rotate-left': [
+    ['border-accent bg-surface', 'rotan'],
+    ['border-mark bg-mark-soft', 'cambia de padre'],
+  ],
+  'rotate-left-right': [
+    ['border-accent bg-surface', 'rotan'],
+    ['border-mark bg-mark-soft', 'cambia de padre'],
+  ],
+  'rotate-right-left': [
     ['border-accent bg-surface', 'rotan'],
     ['border-mark bg-mark-soft', 'cambia de padre'],
   ],
@@ -847,7 +857,10 @@ function Body({
       </div>
 
       <div aria-live="polite" data-testid="sequence-narration">
-        <NarrationStrip text={step.description} />
+        <NarrationStrip
+          text={step.description}
+          reserve={isPresentation ? trace.steps.map((s) => s.description) : undefined}
+        />
       </div>
 
       <div className="flex flex-wrap items-center gap-2 border-t border-rule bg-sunk px-3 py-2">

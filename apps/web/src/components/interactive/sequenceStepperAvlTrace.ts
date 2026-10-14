@@ -58,6 +58,14 @@ const CODE: Record<AvlOperation, string> = {
     q.left = p;
     return q;
 }`,
+  'rotate-left-right': `Node<T> rotateLeftRight(Node<T> p) {
+    p.left = rotateLeft(p.left);
+    return rotateRight(p);
+}`,
+  'rotate-right-left': `Node<T> rotateRightLeft(Node<T> p) {
+    p.right = rotateRight(p.right);
+    return rotateLeft(p);
+}`,
   insert: `Node<T> insert(Node<T> node, T value) {
     if (node == null) return new Node<>(value);
     int c = value.compareTo(node.value);
@@ -136,6 +144,8 @@ export function traceAvl(operation: AvlOperation, input: SequenceInput): Sequenc
   }
   if (operation === 'insert') return traceAvlInsert(input);
   if (operation === 'remove') return traceAvlRemove(input);
+  if (operation === 'rotate-left-right') return traceDouble('right', input);
+  if (operation === 'rotate-right-left') return traceDouble('left', input);
   return traceRotation(operation === 'rotate-right' ? 'right' : 'left', input);
 }
 
@@ -235,6 +245,132 @@ function traceRotation(direction: Side, input: SequenceInput): SequenceTrace {
       'done',
       [],
       `El inorden sigue siendo ${inorder}: la rotación cambió tres referencias y la invariante de orden se mantiene. ${
+        after === before
+          ? `La altura del árbol sigue siendo ${after}.`
+          : `La altura del árbol pasó de ${before} a ${after}.`
+      }`,
+    );
+  }
+  return finish(rec, code, columns, slots, true);
+}
+
+// ── the double rotation: two simple ones, one frame per call ─────────────
+
+/**
+ * A double rotation as its method writes it (#322): two calls, the child
+ * first and then the node, one frame each with the tree after it — the
+ * simple rotation's three assignments were walked on their own slides. The
+ * tree is whole between the two calls, so nothing is frozen. `direction` is
+ * the side the node goes down to: `right` is the left-right rotation, the
+ * one for a node that leans left whose left child leans right.
+ */
+function traceDouble(direction: Side, input: SequenceInput): SequenceTrace {
+  const operation: AvlOperation = direction === 'right' ? 'rotate-left-right' : 'rotate-right-left';
+  const targets = asRuns(input.target);
+  if (targets.length === 0) throw new Error('Falta el valor del nodo a rotar.');
+  requireRuns(targets.length);
+  const code = CODE[operation];
+  const method = direction === 'right' ? 'rotateLeftRight' : 'rotateRightLeft';
+  const name = `rotación doble a la ${direction === 'right' ? 'derecha' : 'izquierda'}`;
+  // `inner` is the side q hangs on under p; r is q's child on the OTHER side,
+  // the weight inside, the node the double brings to the top.
+  const inner: Side = direction === 'right' ? 'left' : 'right';
+  const outer = OTHER[inner];
+  const columns: Record<number, number> = {};
+  const slots = new Set(input.values).size;
+  let { root } = bstOf(input.values, columnsFor(input.values), columns);
+  const rec = new TreeRecorder(
+    code,
+    () => root,
+    stripOf(() => [root], columns, slots),
+  );
+  // A simple rotation on a plain tree: `up` rises from `side` into n's place.
+  const rotate = (n: NumberNode, side: Side): NumberNode => {
+    const up = n[side]!;
+    n[side] = up[OTHER[side]];
+    up[OTHER[side]] = n;
+    return up;
+  };
+
+  for (const t of targets) {
+    rec.reset();
+    const found = locate(root, t);
+    if (found === null)
+      throw new Error(`El valor ${t} no está en el árbol: no hay nodo que rotar.`);
+    const { node: p, parent } = found;
+    const q = p[inner];
+    if (q === null) {
+      throw new Error(
+        `${t} no tiene ${CHILD[inner]}: la ${name} en ${t} sube al ${CHILD[outer]} de su ${CHILD[inner]}, y no lo hay.`,
+      );
+    }
+    const r = q[outer];
+    if (r === null) {
+      throw new Error(
+        `El ${CHILD[inner]} de ${t}, ${q.value}, no tiene ${CHILD[outer]}: la ${name} sube a ese nodo, el de adentro, y no lo hay.`,
+      );
+    }
+    const [P, Q, R] = [p.value, q.value, r.value];
+    const before = heightOf(root);
+    const firstWay = direction === 'right' ? 'izquierda' : 'derecha';
+    const secondWay = direction === 'right' ? 'derecha' : 'izquierda';
+
+    for (const [n, badge] of [
+      [p, 'p'],
+      [q, 'q'],
+      [r, 'r'],
+    ] as const) {
+      rec.state.set(n.id, 'swap');
+      rec.badge.set(n.id, badge);
+    }
+    rec.push(
+      'start',
+      [`Node<T> ${method}(`],
+      `${name[0]!.toUpperCase()}${name.slice(1)} en ${P}: el peso está por dentro, en ${R}, el ${CHILD[outer]} de su ${CHILD[inner]}, ${Q}. Primero se rota a la ${firstWay} en ${Q}, y después a la ${secondWay} en ${P}.`,
+    );
+
+    // The child first: r rises into q's place under p.
+    const handedToQ = r[inner];
+    p[inner] = rotate(q, outer);
+    rec.cost += 3;
+    rec.state.clear();
+    rec.state.set(q.id, 'swap');
+    rec.state.set(r.id, 'swap');
+    if (handedToQ !== null) rec.state.set(handedToQ.id, 'new');
+    rec.push(
+      'link',
+      [`p.${inner} = rotate`],
+      `Rotar a la ${firstWay} en ${Q}: ${R} sube a su lugar, y ${Q} baja a ser su ${CHILD[inner]}${
+        handedToQ === null ? '' : `; ${handedToQ.value} pasa de ${R} a ${Q}`
+      }. ${P} guarda a ${R} como su ${CHILD[inner]}: ahora el peso está por fuera.`,
+    );
+
+    // Then the node: r rises into p's place.
+    const handedToP = r[outer];
+    const top = rotate(p, inner);
+    if (parent === null) root = top;
+    else parent[parent.left === p ? 'left' : 'right'] = top;
+    rec.cost += 3;
+    rec.state.clear();
+    rec.state.set(p.id, 'swap');
+    rec.state.set(r.id, 'swap');
+    if (handedToP !== null) rec.state.set(handedToP.id, 'new');
+    rec.push(
+      'link',
+      [`return rotate`],
+      `Rotar a la ${secondWay} en ${P}: ${R} sube a su lugar, y ${P} baja a ser su ${CHILD[outer]}${
+        handedToP === null ? '' : `; ${handedToP.value} pasa de ${R} a ${P}`
+      }. ${method} devuelve ${R}, que queda arriba con ${Q} y ${P} como hijos.`,
+    );
+
+    rec.state.clear();
+    rec.badge.clear();
+    const after = heightOf(root);
+    const inorder = rec.steps.at(-1)!.tree!.strip.join(' ');
+    rec.push(
+      'done',
+      [],
+      `El inorden sigue siendo ${inorder}: las dos rotaciones conservan la invariante de orden. ${
         after === before
           ? `La altura del árbol sigue siendo ${after}.`
           : `La altura del árbol pasó de ${before} a ${after}.`

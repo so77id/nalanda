@@ -91,6 +91,10 @@ export const OPERATIONS = [
   // removals use to keep the shape, shown on its own first.
   'rotate-right',
   'rotate-left',
+  // The double rotations, two simple ones in a row: the child first, toward
+  // the side the node leans, then the node (#322).
+  'rotate-left-right',
+  'rotate-right-left',
 ] as const;
 export type SequenceOperation = (typeof OPERATIONS)[number];
 
@@ -478,8 +482,13 @@ const BINARY_TREE_ONLY_NAMES = ['preorder', 'inorder', 'postorder', 'height'] as
 const BST_ONLY_NAMES = ['remove'] as const;
 export const BST_ONLY_OPERATIONS: readonly SequenceOperation[] = BST_ONLY_NAMES;
 
-/** The operations only `avl` has (#322): the rotations, its tool. */
-const AVL_ONLY_NAMES = ['rotate-right', 'rotate-left'] as const;
+/** The operations only `avl` has (#322): the rotations, its tool, simple and double. */
+const AVL_ONLY_NAMES = [
+  'rotate-right',
+  'rotate-left',
+  'rotate-left-right',
+  'rotate-right-left',
+] as const;
 
 /** The operations only a tree has; `search` and `insert` are shared. */
 const TREE_OPERATION_NAMES = [
@@ -706,6 +715,8 @@ const METHOD_NAME: Record<SequenceOperation, string> = {
   remove: 'remove',
   'rotate-right': 'rotateRight',
   'rotate-left': 'rotateLeft',
+  'rotate-left-right': 'rotateLeftRight',
+  'rotate-right-left': 'rotateRightLeft',
 };
 
 // ── the array family ──────────────────────────────────────────────────────
@@ -1342,6 +1353,8 @@ function runArgs(operation: SequenceOperation, input: SequenceInput): string[] {
     case 'remove':
     case 'rotate-right':
     case 'rotate-left':
+    case 'rotate-left-right':
+    case 'rotate-right-left':
       return [];
   }
 }
@@ -1590,6 +1603,8 @@ function listCode(recipe: SequenceRecipe, operation: SequenceOperation, tail: bo
     case 'remove':
     case 'rotate-right':
     case 'rotate-left':
+    case 'rotate-left-right':
+    case 'rotate-right-left':
       throw new Error(`«${operation}» es una operación de árbol, no de una lista.`);
     case 'binary-search':
       throw new Error(

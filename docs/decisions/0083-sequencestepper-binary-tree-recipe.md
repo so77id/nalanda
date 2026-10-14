@@ -209,6 +209,19 @@ closes no runtime cycle (§1).
   the two nodes paint in `accent`, the unit's "being moved" token; the
   subtree that changes parent paints in `mark`. Colour is never the only
   signal: the badges and the narration name all three.
+- **The double rotations are operations of their own**, `rotate-left-right`
+  and `rotate-right-left` (Miguel's review: the doubles taught with the same
+  script as the simple ones, definition, order, code and widget, before the
+  AVL says when to use them). Their listing is a method of two calls —
+  `p.left = rotateLeft(p.left); return rotateRight(p);` and its mirror —
+  and the AVL's `balance` calls `rotateLeftRight` and `rotateRightLeft`
+  instead of writing the two calls inline with a comment. One frame per
+  CALL, the tree after it, `p`, `q` and `r` written beside their nodes:
+  the simple rotation's assignments were walked on their own slides, and
+  the tree is whole between the two calls, so nothing is frozen.
+- **A rotation's example leans** (Miguel's review: "the tree comes out like
+  a mirror"): every slide rotates a tree whose height the rotation lowers,
+  and the last frame says so.
 
 Then `insert` and `remove`, the search tree's with `return balance(node)`
 as their last line:
@@ -272,8 +285,9 @@ what accepts it — the review, not the code.
   `bst` listing is the method the tree offers, `public`, and for the
   recursive ones the `private` method it calls with the root, which the
   first frame lights (Miguel's review: "these are private"). #322 adds a third row,
-  `avl` × {`rotate-right`, `rotate-left`, `insert`, `remove`}; the two
-  rotations are valid on nothing else.
+  `avl` × {`rotate-right`, `rotate-left`, `rotate-left-right`,
+  `rotate-right-left`, `insert`, `remove`}; the four rotations are valid on
+  nothing else.
 - `SequenceCellState` gains `visited` and `discarded`; `SequenceStep` gains
   `tree`; `SequenceTrace` gains `tree` (columns, slots, depth, and whether
   it has a strip);

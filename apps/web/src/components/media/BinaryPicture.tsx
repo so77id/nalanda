@@ -243,8 +243,10 @@ function Picture({
   const seqColor = VISIT_COLOR[visits ?? 'pre'];
 
   const isTall = (n: PlacedNode) => tall.some((v) => String(v) === n.key);
+  // The deepest level drawn on: a tall subtree reaches one under its own.
+  const reach = Math.max(depth, ...nodes.filter(isTall).map((n) => n.depth + 1));
   const c = layoutPicture(placed, {
-    reach: Math.max(0, ...nodes.filter(isTall).map((n) => n.depth + 1)),
+    reach,
     compact,
     levels,
     ruler: ruler !== undefined,
@@ -268,7 +270,7 @@ function Picture({
   const find = (v: TreeValue) => nodes.find((n) => n.key === String(v));
   const lit = new Set(path.slice(1).map((v, i) => `${String(path[i])}>${String(v)}`));
   const shown = nodes.filter((n) => toneOf(n) !== 'hidden');
-  const levelRows = [...Array(depth + 1).keys()];
+  const levelRows = [...Array(reach + 1).keys()];
 
   const head = (x: number, y: number, angle: number, color: string, key: string) => (
     <polygon
@@ -401,7 +403,8 @@ function Picture({
             style={{ stroke: 'var(--color-ink)' }}
             strokeWidth="1.8"
           />
-          {levelRows.map((d) => (
+          {/* The ruler measures the nodes: a tall subtree's height is not a number. */}
+          {levelRows.slice(0, depth + 1).map((d) => (
             <line
               key={`rt${d}`}
               x1={offset + 18}
@@ -652,7 +655,13 @@ function Picture({
             const mx = (cx(p) + cx(q)) / 2;
             const my = (cy(p) + cy(q)) / 2;
             const toQ = Math.atan2(cy(q) - my, cx(q) - mx);
-            const radius = Math.hypot(cx(q) - cx(p), cy(q) - cy(p)) * 0.42;
+            // A share of the edge, capped at what a two-column edge gets: a long,
+            // flat edge would otherwise swing the arc off the top of the canvas.
+            const radius =
+              Math.min(
+                Math.hypot(cx(q) - cx(p), cy(q) - cy(p)),
+                Math.hypot(2 * c.pitch, c.levelH),
+              ) * 0.42;
             const gap = (42 * Math.PI) / 180;
             // Clockwise, in SVG's downward y, is the growing angle.
             const sign = turn.dir === 'right' ? 1 : -1;
