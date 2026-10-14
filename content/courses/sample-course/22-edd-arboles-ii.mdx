@@ -1149,7 +1149,7 @@ arriba nada cambia. Al eliminar, eso puede no pasar:
 Por eso una eliminación puede rotar varias veces: en el peor caso, una por
 cada nivel del camino de vuelta.
 
-<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(380px, 1fr))', gap: '0.5rem 2rem', alignItems: 'end' }}>
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(380px, 100%), 1fr))', gap: '0.5rem 2rem', alignItems: 'end' }}>
 <BinaryPicture tree={CASCADE_START} compact minColumns={12} tones={{ 16: 'mark', 18: 'focus' }} badges={{ 16: '−1', 10: '−1', 4: '+1', 2: '0', 8: '−1', 6: '0', 14: '−1', 12: '0', 20: '+1', 18: '0', 22: '+1', 24: '0' }} label="Un árbol AVL de doce nodos y altura 4, con el factor de cada nodo. Se elimina la raíz, el 16, que tiene dos hijos; su sucesor es el 18." caption="1. eliminar 16: su sucesor es 18" />
 <BinaryPicture tree={CASCADE_COPIED} compact minColumns={12} tones={{ 20: 'mark' }} badges={{ 18: '−1', 10: '−1', 4: '+1', 2: '0', 8: '−1', 6: '0', 14: '−1', 12: '0', 20: '+2', 22: '+1', 24: '0' }} label="La raíz tomó el valor 18 y la hoja del 18 se eliminó. Al volver, el 20 queda con factor más 2, y su hijo derecho, el 22, con más 1." caption="2. el 20 queda con +2: simple a la izquierda" />
 <BinaryPicture tree={CASCADE_LOW} compact minColumns={12} tones={{ 18: 'mark', 22: 'accent', 20: 'accent' }} badges={{ 18: '−2', 10: '−1', 4: '+1', 2: '0', 8: '−1', 6: '0', 14: '−1', 12: '0', 22: '0', 20: '0', 24: '0' }} label="Después de rotar a la izquierda en el 20: el 22 sube, con el 20 y el 24 como hijos. Ese subárbol quedó un nivel más bajo, y la raíz, el 18, queda con factor menos 2." caption="3. el subárbol bajó un nivel: la raíz queda con −2" />
