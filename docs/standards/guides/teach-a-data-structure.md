@@ -573,6 +573,18 @@ identical listing, and 46 — at scale 0.835 — measures 860/860 and does not
 clip at all. A line under 55 is safe everywhere; between 55 and 57 it depends
 on how much else the slide is carrying.
 
+**A listing too long to stack over its drawing goes `beside`.** #322 walked
+the BST iterator's whole class — twenty-eight lines — in one `<StepShow>`,
+because the professor rejected it split across two slides; stacked over its
+drawing it put the slide at 0.577. With `beside`, on a slide the drawing sits
+to the right of the code and the widget breaks out to three quarters of the
+viewport; the book ignores the prop and stacks. The code column is then
+narrower than the stacked panel: measured on that slide, at scale 0.755, it is
+793 px wide and holds about 63 rendered columns (the longest line is 49), and
+since the breakout divides by the scale it would be about 600 px — some 47
+columns — at 1.0. A slide that needs `beside` carries a long listing and is
+never at 1.0, but sweep its horizontal axis like any other.
+
 **Sweep the horizontal axis too, not only the scale.** A deck sweep that reads
 the `transform` on the slide stage sees a slide shrink to fit and reports it;
 it cannot see a `.cm-scroller` whose `scrollWidth` exceeds its `clientWidth`,

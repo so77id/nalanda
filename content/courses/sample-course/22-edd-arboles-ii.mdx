@@ -1314,39 +1314,39 @@ hacia el mismo lado, o se responde el nodo.
 }`}
 >
   <Step lines={[3]}>
-    <BinaryPicture tree={LCA_TREE} tones={{ 20: 'focus', 11: 'mark', 13: 'mark' }} size={0.75} label="node empieza en la raíz, el 20. Los valores son 11 y 13." />
+    <BinaryPicture tree={LCA_TREE} tones={{ 20: 'focus', 11: 'mark', 13: 'mark' }} size={0.7} label="node empieza en la raíz, el 20. Los valores son 11 y 13." />
     <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>node empieza en la raíz, el 20; los valores son 11 y 13.</div>
   </Step>
   <Step lines={[5]}>
-    <BinaryPicture tree={LCA_TREE} tones={{ 20: 'focus', 11: 'mark', 13: 'mark' }} size={0.75} label="11 y 13 son menores que 20: los dos están en el subárbol izquierdo del 20." />
+    <BinaryPicture tree={LCA_TREE} tones={{ 20: 'focus', 11: 'mark', 13: 'mark' }} size={0.7} label="11 y 13 son menores que 20: los dos están en el subárbol izquierdo del 20." />
     <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>11 y 13 son menores que 20: los dos están a su izquierda.</div>
   </Step>
   <Step lines={[6]}>
-    <BinaryPicture tree={LCA_TREE} path={[20,  10]} tones={{ 20: 'done', 10: 'focus', 11: 'mark', 13: 'mark', 30: 'faint', 25: 'faint', 35: 'faint' }} size={0.75} label="node baja al 10, y el subárbol derecho del 20 queda descartado." />
+    <BinaryPicture tree={LCA_TREE} path={[20,  10]} tones={{ 20: 'done', 10: 'focus', 11: 'mark', 13: 'mark', 30: 'faint', 25: 'faint', 35: 'faint' }} size={0.7} label="node baja al 10, y el subárbol derecho del 20 queda descartado." />
     <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>node baja a la izquierda, al 10.</div>
   </Step>
   <Step lines={[5,  7]}>
-    <BinaryPicture tree={LCA_TREE} path={[20,  10]} tones={{ 20: 'done', 10: 'focus', 11: 'mark', 13: 'mark', 30: 'faint', 25: 'faint', 35: 'faint' }} size={0.75} label="En el 10, el 11 y el 13 son mayores: los dos están en el subárbol derecho del 10." />
+    <BinaryPicture tree={LCA_TREE} path={[20,  10]} tones={{ 20: 'done', 10: 'focus', 11: 'mark', 13: 'mark', 30: 'faint', 25: 'faint', 35: 'faint' }} size={0.7} label="En el 10, el 11 y el 13 son mayores: los dos están en el subárbol derecho del 10." />
     <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>11 y 13 son mayores que 10: los dos están a su derecha.</div>
   </Step>
   <Step lines={[8]}>
-    <BinaryPicture tree={LCA_TREE} path={[20,  10,  15]} tones={{ 20: 'done', 10: 'done', 15: 'focus', 11: 'mark', 13: 'mark', 30: 'faint', 25: 'faint', 35: 'faint', 5: 'faint' }} size={0.75} label="node baja al 15, y el subárbol izquierdo del 10 queda descartado." />
+    <BinaryPicture tree={LCA_TREE} path={[20,  10,  15]} tones={{ 20: 'done', 10: 'done', 15: 'focus', 11: 'mark', 13: 'mark', 30: 'faint', 25: 'faint', 35: 'faint', 5: 'faint' }} size={0.7} label="node baja al 15, y el subárbol izquierdo del 10 queda descartado." />
     <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>node baja a la derecha, al 15.</div>
   </Step>
   <Step lines={[5]}>
-    <BinaryPicture tree={LCA_TREE} path={[20,  10,  15]} tones={{ 20: 'done', 10: 'done', 15: 'focus', 11: 'mark', 13: 'mark', 30: 'faint', 25: 'faint', 35: 'faint', 5: 'faint' }} size={0.75} label="En el 15, el 11 y el 13 son menores: los dos están en el subárbol izquierdo del 15." />
+    <BinaryPicture tree={LCA_TREE} path={[20,  10,  15]} tones={{ 20: 'done', 10: 'done', 15: 'focus', 11: 'mark', 13: 'mark', 30: 'faint', 25: 'faint', 35: 'faint', 5: 'faint' }} size={0.7} label="En el 15, el 11 y el 13 son menores: los dos están en el subárbol izquierdo del 15." />
     <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>11 y 13 son menores que 15: los dos están a su izquierda.</div>
   </Step>
   <Step lines={[6]}>
-    <BinaryPicture tree={LCA_TREE} path={[20,  10,  15,  12]} tones={{ 20: 'done', 10: 'done', 15: 'done', 12: 'focus', 11: 'mark', 13: 'mark', 30: 'faint', 25: 'faint', 35: 'faint', 5: 'faint', 18: 'faint' }} size={0.75} label="node baja al 12, y el subárbol derecho del 15 queda descartado." />
+    <BinaryPicture tree={LCA_TREE} path={[20,  10,  15,  12]} tones={{ 20: 'done', 10: 'done', 15: 'done', 12: 'focus', 11: 'mark', 13: 'mark', 30: 'faint', 25: 'faint', 35: 'faint', 5: 'faint', 18: 'faint' }} size={0.7} label="node baja al 12, y el subárbol derecho del 15 queda descartado." />
     <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>node baja a la izquierda, al 12.</div>
   </Step>
   <Step lines={[5,  7]}>
-    <BinaryPicture tree={LCA_TREE} path={[20,  10,  15,  12]} tones={{ 20: 'done', 10: 'done', 15: 'done', 12: 'focus', 11: 'mark', 13: 'mark', 30: 'faint', 25: 'faint', 35: 'faint', 5: 'faint', 18: 'faint' }} size={0.75} label="En el 12, el 11 es menor y el 13 es mayor: no son los dos menores ni los dos mayores." />
+    <BinaryPicture tree={LCA_TREE} path={[20,  10,  15,  12]} tones={{ 20: 'done', 10: 'done', 15: 'done', 12: 'focus', 11: 'mark', 13: 'mark', 30: 'faint', 25: 'faint', 35: 'faint', 5: 'faint', 18: 'faint' }} size={0.7} label="En el 12, el 11 es menor y el 13 es mayor: no son los dos menores ni los dos mayores." />
     <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>11 es menor que 12 y 13 es mayor: ni los dos menores, ni los dos mayores.</div>
   </Step>
   <Step lines={[10]}>
-    <BinaryPicture tree={LCA_TREE} path={[20,  10,  15,  12]} tones={{ 20: 'done', 10: 'done', 15: 'done', 12: 'keep', 11: 'mark', 13: 'mark', 30: 'faint', 25: 'faint', 35: 'faint', 5: 'faint', 18: 'faint' }} size={0.75} label="Se separan en el 12: el 12 es el ancestro común más bajo." />
+    <BinaryPicture tree={LCA_TREE} path={[20,  10,  15,  12]} tones={{ 20: 'done', 10: 'done', 15: 'done', 12: 'keep', 11: 'mark', 13: 'mark', 30: 'faint', 25: 'faint', 35: 'faint', 5: 'faint', 18: 'faint' }} size={0.7} label="Se separan en el 12: el 12 es el ancestro común más bajo." />
     <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>Se separan en el 12: la respuesta es 12.</div>
   </Step>
 </StepShow>
@@ -1459,7 +1459,7 @@ export function PendingStack({ items, label }) {
   const top = 28;
   const H = top + 3 * 38 + 4 + 8;
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', maxWidth: `${W}px`, height: 'auto', display: 'block', margin: '0.5rem auto' }} role="img" aria-label={label}>
+    <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', maxWidth: `${Math.round(W * 1.3)}px`, height: 'auto', display: 'block', margin: '0.5rem auto' }} role="img" aria-label={label}>
       <text x={W / 2} y="16" textAnchor="middle" fontSize="13" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink-soft)' }}>pending</text>
       <StackColumn cx={W / 2} top={top} items={items} />
       {items.length === 0 ? (
@@ -1563,14 +1563,14 @@ pendientes forman una **pila**, y su cima es el próximo valor.
 
 </Slide>
 
-<Slide title="Iterador · los pendientes">
-El iterador guarda los nodos pendientes en una pila, `pending`. El método
-`pushLeft` baja por la izquierda desde un nodo y deja pendiente cada nodo del
-camino; el constructor lo llama con la raíz. Quedan valores mientras quede
-algún pendiente.
+<Slide title="Iterador · la solución">
+Los pendientes van en una pila, `pending`. `pushLeft` deja pendiente el
+camino hacia la izquierda desde un nodo: el constructor lo llama con la raíz,
+y `next`, después de sacar la cima, con su hijo derecho.
 
 <StepShow
   language="java"
+  beside
   code={`class InorderIterator<T> implements Iterator<T> {
     private final Deque<Node<T>> pending =
             new ArrayDeque<>();
@@ -1589,216 +1589,205 @@ algún pendiente.
     public boolean hasNext() {
         return !pending.isEmpty();
     }
+
+    public T next() {
+        if (pending.isEmpty()) {
+            throw new NoSuchElementException();
+        }
+        Node<T> node = pending.pop();
+        pushLeft(node.right);
+        return node.value;
+    }
 }`}
 >
   <Step lines={[12, 13]}>
-    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 2fr) minmax(0, 1fr)', gap: '0 1rem', alignItems: 'center', maxWidth: '560px', margin: '0 auto' }}>
-      <BinaryPicture tree={EVENS} tones={{ 8: 'accent' }} size={0.7} label="Se crea el iterador con la raíz, el 8, y el constructor llama a pushLeft con ella." />
+    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 2fr) minmax(0, 1fr)', gap: '0 1rem', alignItems: 'center', width: '100%', maxWidth: '680px', margin: '0 auto' }}>
+      <BinaryPicture tree={EVENS} tones={{ 8: 'accent' }} size={1.5} label="Se crea el iterador con la raíz, el 8, y el constructor llama a pushLeft con ella." />
       <PendingStack items={[]} label="La pila de pendientes está vacía." />
     </div>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>El constructor llama a pushLeft con la raíz, el 8.</div>
   </Step>
   <Step lines={[6, 7]}>
-    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 2fr) minmax(0, 1fr)', gap: '0 1rem', alignItems: 'center', maxWidth: '560px', margin: '0 auto' }}>
-      <BinaryPicture tree={EVENS} tones={{ 8: 'focus' }} size={0.7} label="node es el 8, que no es null: el 8 entra a la pila." />
+    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 2fr) minmax(0, 1fr)', gap: '0 1rem', alignItems: 'center', width: '100%', maxWidth: '680px', margin: '0 auto' }}>
+      <BinaryPicture tree={EVENS} tones={{ 8: 'focus' }} size={1.5} label="node es el 8, que no es null: el 8 entra a la pila." />
       <PendingStack items={[8]} label="La pila de pendientes tiene al 8." />
     </div>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>node no es null: el 8 entra a la pila.</div>
   </Step>
   <Step lines={[8]}>
-    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 2fr) minmax(0, 1fr)', gap: '0 1rem', alignItems: 'center', maxWidth: '560px', margin: '0 auto' }}>
-      <BinaryPicture tree={EVENS} tones={{ 8: 'focus', 4: 'accent' }} size={0.7} label="node baja a la izquierda del 8, al 4." />
+    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 2fr) minmax(0, 1fr)', gap: '0 1rem', alignItems: 'center', width: '100%', maxWidth: '680px', margin: '0 auto' }}>
+      <BinaryPicture tree={EVENS} tones={{ 8: 'focus', 4: 'accent' }} size={1.5} label="node baja a la izquierda del 8, al 4." />
       <PendingStack items={[8]} label="La pila de pendientes tiene al 8." />
     </div>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>node baja a la izquierda, al 4.</div>
   </Step>
   <Step lines={[6, 7]}>
-    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 2fr) minmax(0, 1fr)', gap: '0 1rem', alignItems: 'center', maxWidth: '560px', margin: '0 auto' }}>
-      <BinaryPicture tree={EVENS} tones={{ 8: 'focus', 4: 'focus' }} size={0.7} label="El 4 entra a la pila, sobre el 8." />
+    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 2fr) minmax(0, 1fr)', gap: '0 1rem', alignItems: 'center', width: '100%', maxWidth: '680px', margin: '0 auto' }}>
+      <BinaryPicture tree={EVENS} tones={{ 8: 'focus', 4: 'focus' }} size={1.5} label="El 4 entra a la pila, sobre el 8." />
       <PendingStack items={[8, 4]} label="La pila de pendientes tiene al 8 abajo y al 4 en la cima." />
     </div>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>El 4 entra a la pila, sobre el 8.</div>
   </Step>
   <Step lines={[8]}>
-    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 2fr) minmax(0, 1fr)', gap: '0 1rem', alignItems: 'center', maxWidth: '560px', margin: '0 auto' }}>
-      <BinaryPicture tree={EVENS} tones={{ 8: 'focus', 4: 'focus', 2: 'accent' }} size={0.7} label="node baja a la izquierda del 4, al 2." />
+    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 2fr) minmax(0, 1fr)', gap: '0 1rem', alignItems: 'center', width: '100%', maxWidth: '680px', margin: '0 auto' }}>
+      <BinaryPicture tree={EVENS} tones={{ 8: 'focus', 4: 'focus', 2: 'accent' }} size={1.5} label="node baja a la izquierda del 4, al 2." />
       <PendingStack items={[8, 4]} label="La pila de pendientes tiene al 8 abajo y al 4 en la cima." />
     </div>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>node baja a la izquierda, al 2.</div>
   </Step>
   <Step lines={[6, 7]}>
-    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 2fr) minmax(0, 1fr)', gap: '0 1rem', alignItems: 'center', maxWidth: '560px', margin: '0 auto' }}>
-      <BinaryPicture tree={EVENS} tones={{ 8: 'focus', 4: 'focus', 2: 'focus' }} size={0.7} label="El 2 entra a la pila, sobre el 4." />
+    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 2fr) minmax(0, 1fr)', gap: '0 1rem', alignItems: 'center', width: '100%', maxWidth: '680px', margin: '0 auto' }}>
+      <BinaryPicture tree={EVENS} tones={{ 8: 'focus', 4: 'focus', 2: 'focus' }} size={1.5} label="El 2 entra a la pila, sobre el 4." />
       <PendingStack items={[8, 4, 2]} label="La pila de pendientes tiene, de abajo hacia arriba, al 8, al 4 y al 2 en la cima." />
     </div>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>El 2 entra a la pila, sobre el 4.</div>
   </Step>
   <Step lines={[8, 6]}>
-    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 2fr) minmax(0, 1fr)', gap: '0 1rem', alignItems: 'center', maxWidth: '560px', margin: '0 auto' }}>
-      <BinaryPicture tree={EVENS} tones={{ 8: 'focus', 4: 'focus', 2: 'focus' }} size={0.7} label="La izquierda del 2 está vacía: node es null, y el ciclo termina." />
+    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 2fr) minmax(0, 1fr)', gap: '0 1rem', alignItems: 'center', width: '100%', maxWidth: '680px', margin: '0 auto' }}>
+      <BinaryPicture tree={EVENS} tones={{ 8: 'focus', 4: 'focus', 2: 'focus' }} size={1.5} label="La izquierda del 2 está vacía: node es null, y el ciclo termina." />
       <PendingStack items={[8, 4, 2]} label="La pila de pendientes tiene, de abajo hacia arriba, al 8, al 4 y al 2 en la cima." />
     </div>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>La izquierda del 2 está vacía: node es null, y el ciclo termina.</div>
   </Step>
   <Step lines={[16, 17]}>
-    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 2fr) minmax(0, 1fr)', gap: '0 1rem', alignItems: 'center', maxWidth: '560px', margin: '0 auto' }}>
-      <BinaryPicture tree={EVENS} tones={{ 8: 'focus', 4: 'focus', 2: 'focus' }} size={0.7} label="Quedan tres pendientes: hasNext responde true, y el próximo valor es el 2, en la cima." />
+    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 2fr) minmax(0, 1fr)', gap: '0 1rem', alignItems: 'center', width: '100%', maxWidth: '680px', margin: '0 auto' }}>
+      <BinaryPicture tree={EVENS} tones={{ 8: 'focus', 4: 'focus', 2: 'focus' }} size={1.5} label="Quedan tres pendientes: hasNext responde true, y el próximo valor es el 2, en la cima." />
       <PendingStack items={[8, 4, 2]} label="La pila de pendientes tiene, de abajo hacia arriba, al 8, al 4 y al 2 en la cima." />
     </div>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>Quedan pendientes: hasNext responde true, y el próximo es el 2, en la cima.</div>
   </Step>
-</StepShow>
-
-</Slide>
-
-<Slide title="Iterador · la solución">
-`next` saca el pendiente de la cima, que es el próximo valor. Antes de
-entregarlo, deja pendientes los nodos del camino hacia la izquierda desde su
-hijo derecho, porque el subárbol derecho es lo que el inorden recorre después.
-
-<StepShow
-  language="java"
-  code={`private void pushLeft(Node<T> node) {
-    while (node != null) {
-        pending.push(node);
-        node = node.left;
-    }
-}
-
-public T next() {
-    if (pending.isEmpty()) {
-        throw new NoSuchElementException();
-    }
-    Node<T> node = pending.pop();
-    pushLeft(node.right);
-    return node.value;
-}`}
->
-  <Step lines={[9, 12]}>
-    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 2fr) minmax(0, 1fr)', gap: '0 1rem', alignItems: 'center', maxWidth: '560px', margin: '0 auto' }}>
-      <BinaryPicture tree={EVENS} tones={{ 8: 'focus', 4: 'focus', 2: 'keep' }} size={0.7} label="node es el 2, que sale de la cima; quedan pendientes 8 y 4." />
+  <Step lines={[21, 24]}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 2fr) minmax(0, 1fr)', gap: '0 1rem', alignItems: 'center', width: '100%', maxWidth: '680px', margin: '0 auto' }}>
+      <BinaryPicture tree={EVENS} tones={{ 8: 'focus', 4: 'focus', 2: 'keep' }} size={1.5} label="node es el 2, que sale de la cima; quedan pendientes 8 y 4." />
       <PendingStack items={[8,  4]} label="La pila de pendientes tiene, de abajo hacia arriba, al 8 y al 4 en la cima." />
     </div>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>La pila no está vacía: node es el 2, que sale de la cima.</div>
   </Step>
-  <Step lines={[13, 14]}>
-    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 2fr) minmax(0, 1fr)', gap: '0 1rem', alignItems: 'center', maxWidth: '560px', margin: '0 auto' }}>
-      <BinaryPicture tree={EVENS} tones={{ 8: 'focus', 4: 'focus', 2: 'keep' }} size={0.7} label="La derecha del 2 está vacía, así que no entra nada a la pila. next entrega el 2." />
+  <Step lines={[25, 26]}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 2fr) minmax(0, 1fr)', gap: '0 1rem', alignItems: 'center', width: '100%', maxWidth: '680px', margin: '0 auto' }}>
+      <BinaryPicture tree={EVENS} tones={{ 8: 'focus', 4: 'focus', 2: 'keep' }} size={1.5} label="La derecha del 2 está vacía, así que no entra nada a la pila. next entrega el 2." />
       <PendingStack items={[8,  4]} label="La pila de pendientes tiene, de abajo hacia arriba, al 8 y al 4 en la cima." />
     </div>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>La derecha del 2 está vacía: pushLeft no deja nada. next entrega el 2.</div>
   </Step>
-  <Step lines={[9, 12]}>
-    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 2fr) minmax(0, 1fr)', gap: '0 1rem', alignItems: 'center', maxWidth: '560px', margin: '0 auto' }}>
-      <BinaryPicture tree={EVENS} tones={{ 2: 'done', 8: 'focus', 4: 'keep' }} size={0.7} label="node es el 4, que sale de la cima; queda pendiente el 8." />
+  <Step lines={[21, 24]}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 2fr) minmax(0, 1fr)', gap: '0 1rem', alignItems: 'center', width: '100%', maxWidth: '680px', margin: '0 auto' }}>
+      <BinaryPicture tree={EVENS} tones={{ 2: 'done', 8: 'focus', 4: 'keep' }} size={1.5} label="node es el 4, que sale de la cima; queda pendiente el 8." />
       <PendingStack items={[8]} label="La pila de pendientes tiene al 8, en la cima." />
     </div>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>node es el 4, que sale de la cima.</div>
   </Step>
-  <Step lines={[13, 2, 3]}>
-    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 2fr) minmax(0, 1fr)', gap: '0 1rem', alignItems: 'center', maxWidth: '560px', margin: '0 auto' }}>
-      <BinaryPicture tree={EVENS} tones={{ 2: 'done', 8: 'focus', 6: 'focus', 4: 'keep' }} size={0.7} label="pushLeft baja desde la derecha del 4: el 6 entra a la pila, sobre el 8." />
+  <Step lines={[25, 6, 7]}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 2fr) minmax(0, 1fr)', gap: '0 1rem', alignItems: 'center', width: '100%', maxWidth: '680px', margin: '0 auto' }}>
+      <BinaryPicture tree={EVENS} tones={{ 2: 'done', 8: 'focus', 6: 'focus', 4: 'keep' }} size={1.5} label="pushLeft baja desde la derecha del 4: el 6 entra a la pila, sobre el 8." />
       <PendingStack items={[8,  6]} label="La pila de pendientes tiene, de abajo hacia arriba, al 8 y al 6 en la cima." />
     </div>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>pushLeft baja desde la derecha del 4: el 6 entra a la pila.</div>
   </Step>
-  <Step lines={[4, 14]}>
-    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 2fr) minmax(0, 1fr)', gap: '0 1rem', alignItems: 'center', maxWidth: '560px', margin: '0 auto' }}>
-      <BinaryPicture tree={EVENS} tones={{ 2: 'done', 8: 'focus', 6: 'focus', 4: 'keep' }} size={0.7} label="La izquierda del 6 está vacía y pushLeft termina. next entrega el 4." />
+  <Step lines={[8, 26]}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 2fr) minmax(0, 1fr)', gap: '0 1rem', alignItems: 'center', width: '100%', maxWidth: '680px', margin: '0 auto' }}>
+      <BinaryPicture tree={EVENS} tones={{ 2: 'done', 8: 'focus', 6: 'focus', 4: 'keep' }} size={1.5} label="La izquierda del 6 está vacía y pushLeft termina. next entrega el 4." />
       <PendingStack items={[8,  6]} label="La pila de pendientes tiene, de abajo hacia arriba, al 8 y al 6 en la cima." />
     </div>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>La izquierda del 6 está vacía y pushLeft termina. next entrega el 4.</div>
   </Step>
-  <Step lines={[9, 12]}>
-    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 2fr) minmax(0, 1fr)', gap: '0 1rem', alignItems: 'center', maxWidth: '560px', margin: '0 auto' }}>
-      <BinaryPicture tree={EVENS} tones={{ 2: 'done', 4: 'done', 8: 'focus', 6: 'keep' }} size={0.7} label="node es el 6, que sale de la cima; queda pendiente el 8." />
+  <Step lines={[21, 24]}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 2fr) minmax(0, 1fr)', gap: '0 1rem', alignItems: 'center', width: '100%', maxWidth: '680px', margin: '0 auto' }}>
+      <BinaryPicture tree={EVENS} tones={{ 2: 'done', 4: 'done', 8: 'focus', 6: 'keep' }} size={1.5} label="node es el 6, que sale de la cima; queda pendiente el 8." />
       <PendingStack items={[8]} label="La pila de pendientes tiene al 8, en la cima." />
     </div>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>node es el 6, que sale de la cima.</div>
   </Step>
-  <Step lines={[13, 14]}>
-    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 2fr) minmax(0, 1fr)', gap: '0 1rem', alignItems: 'center', maxWidth: '560px', margin: '0 auto' }}>
-      <BinaryPicture tree={EVENS} tones={{ 2: 'done', 4: 'done', 8: 'focus', 6: 'keep' }} size={0.7} label="La derecha del 6 está vacía, así que no entra nada a la pila. next entrega el 6." />
+  <Step lines={[25, 26]}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 2fr) minmax(0, 1fr)', gap: '0 1rem', alignItems: 'center', width: '100%', maxWidth: '680px', margin: '0 auto' }}>
+      <BinaryPicture tree={EVENS} tones={{ 2: 'done', 4: 'done', 8: 'focus', 6: 'keep' }} size={1.5} label="La derecha del 6 está vacía, así que no entra nada a la pila. next entrega el 6." />
       <PendingStack items={[8]} label="La pila de pendientes tiene al 8, en la cima." />
     </div>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>La derecha del 6 está vacía. next entrega el 6.</div>
   </Step>
-  <Step lines={[9, 12]}>
-    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 2fr) minmax(0, 1fr)', gap: '0 1rem', alignItems: 'center', maxWidth: '560px', margin: '0 auto' }}>
-      <BinaryPicture tree={EVENS} tones={{ 2: 'done', 4: 'done', 6: 'done', 8: 'keep' }} size={0.7} label="node es el 8, el último pendiente; la pila queda vacía." />
+  <Step lines={[21, 24]}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 2fr) minmax(0, 1fr)', gap: '0 1rem', alignItems: 'center', width: '100%', maxWidth: '680px', margin: '0 auto' }}>
+      <BinaryPicture tree={EVENS} tones={{ 2: 'done', 4: 'done', 6: 'done', 8: 'keep' }} size={1.5} label="node es el 8, el último pendiente; la pila queda vacía." />
       <PendingStack items={[]} label="La pila de pendientes está vacía." />
     </div>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>node es el 8, el último pendiente.</div>
   </Step>
-  <Step lines={[13, 2, 3]}>
-    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 2fr) minmax(0, 1fr)', gap: '0 1rem', alignItems: 'center', maxWidth: '560px', margin: '0 auto' }}>
-      <BinaryPicture tree={EVENS} tones={{ 2: 'done', 4: 'done', 6: 'done', 12: 'focus', 8: 'keep' }} size={0.7} label="pushLeft baja desde la derecha del 8: el 12 entra a la pila." />
+  <Step lines={[25, 6, 7]}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 2fr) minmax(0, 1fr)', gap: '0 1rem', alignItems: 'center', width: '100%', maxWidth: '680px', margin: '0 auto' }}>
+      <BinaryPicture tree={EVENS} tones={{ 2: 'done', 4: 'done', 6: 'done', 12: 'focus', 8: 'keep' }} size={1.5} label="pushLeft baja desde la derecha del 8: el 12 entra a la pila." />
       <PendingStack items={[12]} label="La pila de pendientes tiene al 12, en la cima." />
     </div>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>pushLeft baja desde la derecha del 8: el 12 entra a la pila.</div>
   </Step>
-  <Step lines={[4, 2, 3]}>
-    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 2fr) minmax(0, 1fr)', gap: '0 1rem', alignItems: 'center', maxWidth: '560px', margin: '0 auto' }}>
-      <BinaryPicture tree={EVENS} tones={{ 2: 'done', 4: 'done', 6: 'done', 12: 'focus', 10: 'focus', 8: 'keep' }} size={0.7} label="node baja a la izquierda del 12, al 10, que entra a la pila sobre el 12." />
+  <Step lines={[8, 6, 7]}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 2fr) minmax(0, 1fr)', gap: '0 1rem', alignItems: 'center', width: '100%', maxWidth: '680px', margin: '0 auto' }}>
+      <BinaryPicture tree={EVENS} tones={{ 2: 'done', 4: 'done', 6: 'done', 12: 'focus', 10: 'focus', 8: 'keep' }} size={1.5} label="node baja a la izquierda del 12, al 10, que entra a la pila sobre el 12." />
       <PendingStack items={[12,  10]} label="La pila de pendientes tiene, de abajo hacia arriba, al 12 y al 10 en la cima." />
     </div>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>node baja al 10, que entra sobre el 12.</div>
   </Step>
-  <Step lines={[4, 14]}>
-    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 2fr) minmax(0, 1fr)', gap: '0 1rem', alignItems: 'center', maxWidth: '560px', margin: '0 auto' }}>
-      <BinaryPicture tree={EVENS} tones={{ 2: 'done', 4: 'done', 6: 'done', 12: 'focus', 10: 'focus', 8: 'keep' }} size={0.7} label="La izquierda del 10 está vacía y pushLeft termina. next entrega el 8." />
+  <Step lines={[8, 26]}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 2fr) minmax(0, 1fr)', gap: '0 1rem', alignItems: 'center', width: '100%', maxWidth: '680px', margin: '0 auto' }}>
+      <BinaryPicture tree={EVENS} tones={{ 2: 'done', 4: 'done', 6: 'done', 12: 'focus', 10: 'focus', 8: 'keep' }} size={1.5} label="La izquierda del 10 está vacía y pushLeft termina. next entrega el 8." />
       <PendingStack items={[12,  10]} label="La pila de pendientes tiene, de abajo hacia arriba, al 12 y al 10 en la cima." />
     </div>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>La izquierda del 10 está vacía y pushLeft termina. next entrega el 8.</div>
   </Step>
-  <Step lines={[9, 12]}>
-    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 2fr) minmax(0, 1fr)', gap: '0 1rem', alignItems: 'center', maxWidth: '560px', margin: '0 auto' }}>
-      <BinaryPicture tree={EVENS} tones={{ 2: 'done', 4: 'done', 6: 'done', 8: 'done', 12: 'focus', 10: 'keep' }} size={0.7} label="node es el 10, que sale de la cima; queda pendiente el 12." />
+  <Step lines={[21, 24]}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 2fr) minmax(0, 1fr)', gap: '0 1rem', alignItems: 'center', width: '100%', maxWidth: '680px', margin: '0 auto' }}>
+      <BinaryPicture tree={EVENS} tones={{ 2: 'done', 4: 'done', 6: 'done', 8: 'done', 12: 'focus', 10: 'keep' }} size={1.5} label="node es el 10, que sale de la cima; queda pendiente el 12." />
       <PendingStack items={[12]} label="La pila de pendientes tiene al 12, en la cima." />
     </div>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>node es el 10, que sale de la cima.</div>
   </Step>
-  <Step lines={[13, 14]}>
-    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 2fr) minmax(0, 1fr)', gap: '0 1rem', alignItems: 'center', maxWidth: '560px', margin: '0 auto' }}>
-      <BinaryPicture tree={EVENS} tones={{ 2: 'done', 4: 'done', 6: 'done', 8: 'done', 12: 'focus', 10: 'keep' }} size={0.7} label="La derecha del 10 está vacía, así que no entra nada a la pila. next entrega el 10." />
+  <Step lines={[25, 26]}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 2fr) minmax(0, 1fr)', gap: '0 1rem', alignItems: 'center', width: '100%', maxWidth: '680px', margin: '0 auto' }}>
+      <BinaryPicture tree={EVENS} tones={{ 2: 'done', 4: 'done', 6: 'done', 8: 'done', 12: 'focus', 10: 'keep' }} size={1.5} label="La derecha del 10 está vacía, así que no entra nada a la pila. next entrega el 10." />
       <PendingStack items={[12]} label="La pila de pendientes tiene al 12, en la cima." />
     </div>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>La derecha del 10 está vacía. next entrega el 10.</div>
   </Step>
-  <Step lines={[9, 12]}>
-    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 2fr) minmax(0, 1fr)', gap: '0 1rem', alignItems: 'center', maxWidth: '560px', margin: '0 auto' }}>
-      <BinaryPicture tree={EVENS} tones={{ 2: 'done', 4: 'done', 6: 'done', 8: 'done', 10: 'done', 12: 'keep' }} size={0.7} label="node es el 12, el último pendiente; la pila queda vacía." />
+  <Step lines={[21, 24]}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 2fr) minmax(0, 1fr)', gap: '0 1rem', alignItems: 'center', width: '100%', maxWidth: '680px', margin: '0 auto' }}>
+      <BinaryPicture tree={EVENS} tones={{ 2: 'done', 4: 'done', 6: 'done', 8: 'done', 10: 'done', 12: 'keep' }} size={1.5} label="node es el 12, el último pendiente; la pila queda vacía." />
       <PendingStack items={[]} label="La pila de pendientes está vacía." />
     </div>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>node es el 12, el último pendiente.</div>
   </Step>
-  <Step lines={[13, 2, 3]}>
-    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 2fr) minmax(0, 1fr)', gap: '0 1rem', alignItems: 'center', maxWidth: '560px', margin: '0 auto' }}>
-      <BinaryPicture tree={EVENS} tones={{ 2: 'done', 4: 'done', 6: 'done', 8: 'done', 10: 'done', 14: 'focus', 12: 'keep' }} size={0.7} label="pushLeft baja desde la derecha del 12: el 14 entra a la pila." />
+  <Step lines={[25, 6, 7]}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 2fr) minmax(0, 1fr)', gap: '0 1rem', alignItems: 'center', width: '100%', maxWidth: '680px', margin: '0 auto' }}>
+      <BinaryPicture tree={EVENS} tones={{ 2: 'done', 4: 'done', 6: 'done', 8: 'done', 10: 'done', 14: 'focus', 12: 'keep' }} size={1.5} label="pushLeft baja desde la derecha del 12: el 14 entra a la pila." />
       <PendingStack items={[14]} label="La pila de pendientes tiene al 14, en la cima." />
     </div>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>pushLeft baja desde la derecha del 12: el 14 entra a la pila.</div>
   </Step>
-  <Step lines={[4, 14]}>
-    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 2fr) minmax(0, 1fr)', gap: '0 1rem', alignItems: 'center', maxWidth: '560px', margin: '0 auto' }}>
-      <BinaryPicture tree={EVENS} tones={{ 2: 'done', 4: 'done', 6: 'done', 8: 'done', 10: 'done', 14: 'focus', 12: 'keep' }} size={0.7} label="La izquierda del 14 está vacía y pushLeft termina. next entrega el 12." />
+  <Step lines={[8, 26]}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 2fr) minmax(0, 1fr)', gap: '0 1rem', alignItems: 'center', width: '100%', maxWidth: '680px', margin: '0 auto' }}>
+      <BinaryPicture tree={EVENS} tones={{ 2: 'done', 4: 'done', 6: 'done', 8: 'done', 10: 'done', 14: 'focus', 12: 'keep' }} size={1.5} label="La izquierda del 14 está vacía y pushLeft termina. next entrega el 12." />
       <PendingStack items={[14]} label="La pila de pendientes tiene al 14, en la cima." />
     </div>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>La izquierda del 14 está vacía y pushLeft termina. next entrega el 12.</div>
   </Step>
-  <Step lines={[9, 12]}>
-    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 2fr) minmax(0, 1fr)', gap: '0 1rem', alignItems: 'center', maxWidth: '560px', margin: '0 auto' }}>
-      <BinaryPicture tree={EVENS} tones={{ 2: 'done', 4: 'done', 6: 'done', 8: 'done', 10: 'done', 12: 'done', 14: 'keep' }} size={0.7} label="node es el 14, el último pendiente; la pila queda vacía." />
+  <Step lines={[21, 24]}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 2fr) minmax(0, 1fr)', gap: '0 1rem', alignItems: 'center', width: '100%', maxWidth: '680px', margin: '0 auto' }}>
+      <BinaryPicture tree={EVENS} tones={{ 2: 'done', 4: 'done', 6: 'done', 8: 'done', 10: 'done', 12: 'done', 14: 'keep' }} size={1.5} label="node es el 14, el último pendiente; la pila queda vacía." />
       <PendingStack items={[]} label="La pila de pendientes está vacía." />
     </div>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>node es el 14, el último pendiente.</div>
   </Step>
-  <Step lines={[13, 14]}>
-    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 2fr) minmax(0, 1fr)', gap: '0 1rem', alignItems: 'center', maxWidth: '560px', margin: '0 auto' }}>
-      <BinaryPicture tree={EVENS} tones={{ 2: 'done', 4: 'done', 6: 'done', 8: 'done', 10: 'done', 12: 'done', 14: 'keep' }} size={0.7} label="La derecha del 14 está vacía. next entrega el 14, y no queda ningún pendiente: hasNext responde false." />
+  <Step lines={[25, 26]}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 2fr) minmax(0, 1fr)', gap: '0 1rem', alignItems: 'center', width: '100%', maxWidth: '680px', margin: '0 auto' }}>
+      <BinaryPicture tree={EVENS} tones={{ 2: 'done', 4: 'done', 6: 'done', 8: 'done', 10: 'done', 12: 'done', 14: 'keep' }} size={1.5} label="La derecha del 14 está vacía. next entrega el 14, y no queda ningún pendiente: hasNext responde false." />
       <PendingStack items={[]} label="La pila de pendientes está vacía." />
     </div>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>La derecha del 14 está vacía. next entrega el 14, y no queda ningún pendiente: hasNext responde false.</div>
+  </Step>
+  <Step lines={[16, 17]}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 2fr) minmax(0, 1fr)', gap: '0 1rem', alignItems: 'center', width: '100%', maxWidth: '680px', margin: '0 auto' }}>
+      <BinaryPicture tree={EVENS} tones={{ 2: 'done', 4: 'done', 6: 'done', 8: 'done', 10: 'done', 12: 'done', 14: 'keep' }} size={1.5} label="Todos los valores fueron entregados y no queda ningún pendiente: hasNext responde false." />
+      <PendingStack items={[]} label="La pila de pendientes está vacía." />
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>No queda ningún pendiente: hasNext responde false, y el recorrido termina.</div>
   </Step>
 </StepShow>
 

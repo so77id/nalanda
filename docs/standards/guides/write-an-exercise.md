@@ -195,6 +195,15 @@ appeared inside the walk under a promise to write them "al final".
   el menor_, _enganchar el siguiente_, _una vuelta_) before _K listas · la
   solución_; «the idea, then the whole listing» is what the review
   rejected.
+- **The pieces are not walked apart when they are one class.** #322's
+  iterator first walked its constructor on one slide and `next` on the
+  next, and the professor rejected it: «es como el widget partido». The
+  methods call each other — the constructor and `next` both run `pushLeft`
+  — so the walk is the whole class in one widget, from the construction to
+  the last `next`, with the drawing `beside` the listing when the class is
+  too long to stack over it (`teach-a-data-structure.md` §6bis). Building
+  in pieces is for a listing whose parts are steps of one algorithm, as
+  #304's merge; a class whose parts are methods is walked whole.
 - **A helper slide comes immediately before the listing slide** when the
   helpers and the walk do not fit together. This guide said the opposite
   first — "helpers get no slide of their own, plumbing with a slide of its

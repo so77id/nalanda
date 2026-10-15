@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
+import { ModeProvider } from '../../presentation';
 import { useViewportBreakout } from '../useViewportBreakout';
 import { Step, StepShow } from './StepShow';
 
@@ -64,6 +65,45 @@ describe('StepShow', () => {
       expect.anything(),
       expect.objectContaining({ fraction: 0.5 }),
     );
+  });
+
+  it('sets the drawing beside the listing on a slide when asked, three quarters wide', () => {
+    vi.mocked(useViewportBreakout).mockClear();
+    const { container } = render(
+      <ModeProvider mode="presentation">
+        <StepShow code={CODE} beside>
+          <Step lines={[1]}>uno</Step>
+        </StepShow>
+      </ModeProvider>,
+    );
+
+    expect(container.querySelector('[data-layout]')?.getAttribute('data-layout')).toBe('beside');
+    expect(vi.mocked(useViewportBreakout)).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ enabled: true, fraction: 0.75 }),
+    );
+  });
+
+  it('keeps the drawing under the listing in the book, beside or not', () => {
+    const { container } = render(
+      <StepShow code={CODE} beside>
+        <Step lines={[1]}>uno</Step>
+      </StepShow>,
+    );
+
+    expect(container.querySelector('[data-layout]')?.getAttribute('data-layout')).toBe('stacked');
+  });
+
+  it('keeps the drawing under the listing on a slide unless asked', () => {
+    const { container } = render(
+      <ModeProvider mode="presentation">
+        <StepShow code={CODE}>
+          <Step lines={[1]}>uno</Step>
+        </StepShow>
+      </ModeProvider>,
+    );
+
+    expect(container.querySelector('[data-layout]')?.getAttribute('data-layout')).toBe('stacked');
   });
 
   it('renders the code, the first step, and highlights that step’s lines', () => {
