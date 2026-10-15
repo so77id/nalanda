@@ -370,8 +370,10 @@ these still paint text in `focus`, already published, left as they are by
 the «qué está pasando» chip of every stepper (`stepperShell.tsx`, the
 `NarrationStrip`), the names of the walking cursors of `<SequenceStepper>`
 (`lo`, `mid`, `hi` among them), and labels of `<SortStepper>` and
-`<PartitionStepper>`. They converge together, in the follow-up issue #322's
-review opened; until then a new component does not copy them.
+`<PartitionStepper>`, and the call-stack text of Árboles I's calculator
+walk (`21-edd-arboles-i.mdx`, the open call in «llamadas abiertas»). They
+converge together, in #333; meanwhile a new component
+does not copy them.
 
 ## The stepper chrome (#294)
 

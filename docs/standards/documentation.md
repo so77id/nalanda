@@ -117,7 +117,8 @@ case: the deployed shape (#66).
    still the best example of the rule; what changes is that it now shows the
    ending too, as `integration-guides.md` keeps its closed deferral "as the
    example of how a not yet is supposed to end". #322 resolved the
-   stacked-copy case above and first left it describing two copies that no
+   stacked-copy case below (§Two shapes this repo learned the hard way) and
+   first left it describing two copies that no
    longer existed (#322 review).
 
    **Retiring a course document has three surfaces, not one**, and the list above

@@ -399,7 +399,8 @@ widget had "English chrome, no listing", and #322's review found both false:
 it lists the recursive `bs` through `<CodeStepper>`, and its chrome is
 Spanish but for three words. What it does not draw is what the unit needs —
 the course's iterative method over `data` and `size` beside the recursive
-one, the unit's palette and its `discarded` state, the value sought. So
+one, the unit's palette and its `discarded` state, the «se busca» label beside
+the structure. So
 `<BinarySearchOnArray>` stays for Divide y Vencerás, the class that mounts
 it and whose recursion it shows, and the Estructuras de Datos units use this
 operation; both catalog entries say so.
@@ -429,7 +430,8 @@ them apart from the frames around them — `focus` is the node under the
 algorithm's eye and, on `avl`, the node `balance` looks at; `mark` is the
 node that takes a value or the subtree that changes parent — and `accent`
 is the unit's "being moved" token, which is what both are. Each carries a
-second signal: the badges `p` and `q` on a rotation, «sucesor» on the
+second signal: the badges `p` and `q` on a rotation operation (inside
+insert and remove, the narration and the legend name them), «sucesor» on the
 successor, and the legend («rotan», «sucesor», and «sucesor o rotan» on the
 AVL's removal, where the two share a walk). Until #322's review the AVL's
 successor had no badge, and the legend of the class's first removal called
@@ -440,7 +442,9 @@ several named ones.** The surface stays identical across combinations, but
 the panel above the structure may now hold the recursive and the iterative
 listing side by side (`iterative`), a program beside the method it calls
 (`program`), a method beside the `balance` it calls (`row`), or a double
-rotation over its two simple rotations (`callees`). In the book they stack.
+rotation over its two simple rotations (`callees`). In the book `program`
+and `row` stack; the recursive/iterative pair and the two simple rotations
+stay side by side.
 `iterative` and `program` are props of the widget, valid where the trace's
 `PAIRED` and program lists say; the mechanisms are ADR-0083 §3 and ADR-0086.
 

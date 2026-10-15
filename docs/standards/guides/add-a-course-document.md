@@ -989,7 +989,9 @@ frame lights both the line inside the method and the call being run — on
 the chains, the dynamic array and the heap. `binary-tree`'s listings are the
 recursive methods themselves: several `target`s replay the same `contains`
 listing from a clean tree, with no calling program. The search trees put the
-program BESIDE the method instead, and only with `program` (above). Indices
+program BESIDE the method instead, and only with `program` (above): on
+`bst`'s removals and `avl`'s insert and remove; `bst`'s insertions show the
+program alone, one frame per line. Indices
 are checked against the structure as it is BY THEN, not as it started, and a
 removal asked for more times than the chain has nodes is refused at boot —
 the listing throws there. `tail` draws a tail pointer on a list, and on
@@ -1859,6 +1861,11 @@ last block, so no stale copies accumulate.
       runs the content integrity gate; the declaration invariant and the fixture
       guards live in the suite, so the build alone goes green on content CI
       rejects (#108).
+- [ ] A document of more than about a hundred figures or twenty editors:
+      its book page's longest load task taken at full speed and at a 4x CPU
+      throttle, beside the previous document's, and both put in the PR
+      (`testing-strategy.md` §Conventions, "A book page renders in one long
+      task"; #322).
 - [ ] Every `<StepShow>` + `<MemoryVisual>` opened in `npm run preview` and
       stepped through: each `<Step>` renders the intended picture, prev / next /
       reset walk the sequence with the right line lit, cross-frame aliasing

@@ -1211,8 +1211,9 @@ components — cover the empty branch with a direct FamilyPage test')`.
   1.56 s at a 4x CPU throttle (`Emulation.setCPUThrottlingRate`, the stand-in
   for a mid-range phone), Árboles I's about 250 ms, `<BinaryPicture>` some
   72 ms of the first. Before the next document that is heavy in figures or
-  editors — more than about a hundred figures or twenty editors, the size
-  where Árboles II's numbers above appeared — take those two load numbers
+  editors — more than about a hundred figures or twenty editors, a
+  threshold set below Árboles I's size (163 tree figures, 32 editors on its
+  book page; Árboles II has 177 and 52) — take those two load numbers
   for its book page and the previous one, and say in the PR what they are.
   The recipe: `npm run build && npm run preview`; in Playwright's Chromium a
   CDP session (`context.newCDPSession(page)`) with
