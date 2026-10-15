@@ -16,7 +16,9 @@ import {
   type SequenceLayout,
 } from './sequenceStepperLayout';
 import { CELL_FILL, CELL_NOTE, CELL_STROKE } from './sequenceStepperPaint';
+import { asRuns } from './sequenceStepperTraceShared';
 import {
+  AVL_ONLY_OPERATIONS,
   AVL_OPERATIONS,
   BINARY_TREE_OPERATIONS,
   BST_OPERATIONS,
@@ -123,17 +125,21 @@ export interface SequenceStepperProps {
   /** Lists only: draw a `tail` pointer, and let the operations use it. */
   tail?: boolean;
   /**
-   * `bst` × `search` only: the iterative `contains` beside the recursive one,
-   * the two listings sharing the width, each lit at every frame (#322).
+   * The iterative listing beside the recursive one, the two sharing the
+   * width, each lit at every frame (#322): `dynamic-array` ×
+   * `binary-search`, `bst` × `search` and `bst` × `insert` (`PAIRED` in the
+   * trace). Not with `program`, which takes that column.
    */
   iterative?: boolean;
   /**
-   * `bst` × `insert` from `values={[]}`: the listing is the program that
-   * builds the tree — the tree created, then one `insert` per value — one
-   * frame per line, the tree drawn after each. `bst` × `remove` with
-   * `target` an array: the program that builds the tree from `values` and
-   * removes each target, beside the method it calls, walked for every
-   * removal with the program's line lit (#322).
+   * The operation run by a program, on `bst` and `avl` (#322). `insert`
+   * from `values={[]}`: the program that builds the tree — the tree created,
+   * then one `insert` per value — on `bst` one frame per line with the tree
+   * drawn after each, on `avl` beside the insertion and `balance`, walked for
+   * every insertion. `remove` with `target` an array: the program that builds
+   * the tree from `values` and removes each target, beside the method it
+   * calls (and `balance`, on `avl`), walked for every removal with the
+   * program's line lit.
    */
   program?: boolean;
   /** Playback default. Off unless the author asks (rule Peli 1/2). */
@@ -183,12 +189,14 @@ function refusalReason(
     )}.`;
   }
   // The tree-only sets, not every tree operation: `search` and `insert` are
-  // shared, and a structure that refuses them has its own reason.
-  if (AVL_OPERATIONS.includes(operation)) {
+  // shared, and a structure that refuses them has its own reason. `remove` is
+  // the search tree's and the AVL's both, so the AVL's own set is only its
+  // rotations.
+  if (AVL_ONLY_OPERATIONS.includes(operation)) {
     return 'es una operación del árbol AVL. Úsala con eda="avl".';
   }
   if (BST_ONLY_OPERATIONS.includes(operation)) {
-    return 'es una operación del árbol de búsqueda. Úsala con eda="bst".';
+    return 'es una operación del árbol de búsqueda. Úsala con eda="bst" o eda="avl".';
   }
   if (TREE_ONLY_OPERATIONS.includes(operation)) {
     return 'es una operación de árbol. Úsala con eda="binary-tree".';
@@ -480,7 +488,8 @@ export function SequenceStepper({
   // counting only `value` let an ordered slide draw past the cap.
   const grows = op.startsWith('insert');
   const from = op === 'insert-ordered' ? target : value;
-  const inserted = grows && Array.isArray(from) ? from.length : 0;
+  // A single value counts as one, alone or in a list.
+  const inserted = grows ? asRuns(from).length : 0;
   const cap =
     recipe === 'avl' && (op === 'insert' || op === 'remove') ? MAX_AVL_VALUES : MAX_VALUES;
   if (drawn + inserted > cap) {

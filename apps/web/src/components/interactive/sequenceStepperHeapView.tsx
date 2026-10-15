@@ -195,7 +195,7 @@ export function HeapView({
                   textAnchor="middle"
                   fontSize="11"
                   fontWeight="700"
-                  fill="var(--color-focus)"
+                  fill="var(--color-ink-soft)"
                 >
                   ↑{names.join(',')}
                 </text>

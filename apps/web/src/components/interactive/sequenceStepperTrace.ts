@@ -506,6 +506,7 @@ const AVL_ONLY_NAMES = [
   'rotate-left-right',
   'rotate-right-left',
 ] as const;
+export const AVL_ONLY_OPERATIONS: readonly SequenceOperation[] = AVL_ONLY_NAMES;
 
 /** The operations only a tree has; `search` and `insert` are shared. */
 const TREE_OPERATION_NAMES = [
@@ -583,6 +584,11 @@ export function traceFor(
   ) {
     throw new Error(
       `Solo la inserción y la eliminación se muestran como programa: program va con eda="bst" o eda="avl", y operation="insert" o "remove"; no con «${operation}».`,
+    );
+  }
+  if (input.program === true && input.iterative === true) {
+    throw new Error(
+      'Un programa no lleva el listado iterativo al lado: el programa ocupa esa columna. Usa program o iterative, no los dos.',
     );
   }
   if (input.iterative === true && !PAIRED.some(([r, o]) => r === recipe && o === operation)) {

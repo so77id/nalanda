@@ -204,8 +204,7 @@ export function PanelLabel({
  * The "qué está pasando" narration strip — turquoise chip + a single line
  * of Spanish that names what the current step is doing. Pedagogical anchor:
  * a verbal frame every reader can hold onto while scanning the visual.
- */
-/**
+ *
  * `reserve`, every text the strip will show: drawn invisible in the same cell
  * as the current one, so the strip is as tall as the longest from the first
  * frame. On a slide, which is scaled to fit, a frame one line longer would

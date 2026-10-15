@@ -345,7 +345,24 @@ src/
   what an early return does when the deck replaces another view. Worked case:
   `presentation/fit.ts` + `SlideDeck` (#99, where both defects shipped past a
   green suite and a thirty-point browser pass); the decision and its
-  consequences are ADR-0013 §5.1.
+  consequences are ADR-0013 §5.1. **A slide that answers its own scale is
+  settled, not chased** (#322): what the deck remembers between
+  measurements lives in the same pure module (`nextFit`), which ignores a
+  content change of two pixels or less and, when a scale applied in the last
+  half second comes back, keeps the smaller one. The window is what tells a
+  flip, frame after frame, from a reader opening and closing a panel seconds
+  apart — without it that click pinned the slide at its smaller scale.
+- **On a fitted slide, a frame sequence keeps one size from frame to frame.**
+  The deck rescales on any change of the content's size, so a widget or a
+  `<StepShow>` whose frames differ in height rescales the whole slide as the
+  reader steps, and a drawing whose size follows the slide's width can chase
+  the scale it causes. Reserve the largest frame instead: every narration
+  drawn in one grid cell, invisible but the current one (`NarrationStrip`'s
+  `reserve`); drawings capped in absolute units, never a percentage of a box
+  with no height (`sequenceStepperTreeView.tsx`); room for the most items a
+  figure will hold (Árboles II's `PendingStack`, always three). All three are
+  #322's; sweep every frame of a stepper slide for one scale
+  (`teach-a-data-structure.md` §Checklist).
 - **A full-viewport overlay carries `h-[100dvh]` beside `fixed inset-0`.**
   `inset-0` resolves against the LARGE viewport — the one a mobile browser
   overlays with its own chrome — so the overlay draws under the URL bar. The

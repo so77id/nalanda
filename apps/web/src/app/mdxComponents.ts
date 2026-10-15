@@ -69,16 +69,18 @@ export const mdxComponents = {
   Figure,
   // Not lazy: a pure SVG with no package of its own, and 162 figures on one
   // page would each paint a placeholder first. Measured on the shipped build
-  // (#322): registering it eagerly costs the entry chunk 11,470 bytes raw,
-  // 3,790 gzipped — code that used to travel inside the two tree documents.
+  // (#322 review, removing it from this map AND from the components barrel,
+  // whose re-export alone keeps it in the entry chunk): it costs the entry
+  // chunk 14,669 bytes raw, 4,535 with gzip -9 — code that used to travel
+  // inside the two tree documents.
   // A lazy wrapper would also hide its authoring errors from
   // app/contentRenders.test.tsx (apps/web/CLAUDE.md, class 4).
   BinaryPicture,
   // Not lazy, for BinaryPicture's reasons, and smaller: two figures promoted
   // from Árboles I when Árboles II wanted them (#322, the counterexamples to
   // a tree's invariants and the rule of a traversal). Measured on the
-  // shipped build, the two cost the entry chunk 2,848 bytes raw, 909 with
-  // gzip -9.
+  // shipped build the same way, the two cost the entry chunk 2,846 bytes
+  // raw, 871 with gzip -9.
   NodeGraph,
   OrderRule,
   // Not lazy: it is one iframe. Measured on the shipped build, registering it

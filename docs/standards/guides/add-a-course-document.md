@@ -646,9 +646,9 @@ truth-preserving job back to you. Draft the states with the snippet in a
 `<CodeEditor>` open beside the doc, and step through them at 1440px in both
 themes before committing.
 
-Six things worth knowing before you write one:
+What is worth knowing before you write one:
 
-- **The listing is not syntax-coloured.** Highlighting is a per-line box
+- **The step highlight is a per-line box**, over a syntax-coloured listing
   (`lines={[8, 9]}` lights lines 8 and 9 of the listing; numbers are 1-based
   and blank lines count). Empty is legal — a step whose lesson is what
   appears beside the code, not which line is running, passes `lines={[]}`.
@@ -677,6 +677,13 @@ Six things worth knowing before you write one:
   mismo objeto" so a reader who cannot see the arrows still gets the lesson.
 - **State is scoped per widget.** Two `<StepShow>`s on one page step
   independently.
+- **A long listing with a small drawing goes `beside`.** On a slide,
+  `<StepShow beside>` puts the drawing to the right of the code and breaks
+  out to three quarters of the viewport instead of half; the book stacks as
+  always. It exists for a whole class walked in one widget — #322's BST
+  iterator, twenty-eight lines, put the slide at 0.577 stacked and at 0.755
+  beside. The code column it leaves is narrower than the stacked panel; its
+  measurements are in `teach-a-data-structure.md` §6bis.
 - **No Java compiler.** The widget mounts no JVM. It DOES load CodeMirror
   for syntax-coloured listings (through `<CodeStepper>` and
   `loadGrammar('java')`, same shape every other `java` fence on the site
@@ -1308,6 +1315,14 @@ What that costs, and the rules that follow from it:
   both import (`components/treeGeometry.ts`), and a test checks the figure
   against the widget instead of a comment asking the next author to. Promote
   at the second document, not after the second has started copying.
+- **A piece of a figure is not a figure, and the promotion rule stops at
+  figures.** A `<g>` that draws one box at an `x` and `y` cannot be mounted on
+  its own in MDX — it needs an `<svg>` around it and has no `role` or label —
+  so promoting it buys a catalog page nobody can use. When a second document
+  copies one, the copy is kept and the two name each other at their
+  definitions (`documentation.md`, "Two shapes"). Worked case: Árboles II's
+  `ValueBox` is the heap class's `NumBox` without its struck-through and faint
+  tones (#322 review).
 
 6e-quinquies. **Draw a binary tree: `<BinaryPicture>`**, a static figure with
 the geometry of the binary-tree recipe of `<SequenceStepper>` — every node in

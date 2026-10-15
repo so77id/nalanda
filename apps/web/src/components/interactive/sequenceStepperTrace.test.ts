@@ -2406,6 +2406,14 @@ describe('sequenceStepperTrace · bst · a tree built by a program (#322)', () =
     );
   });
 
+  it('refuses a program with the iterative listing beside it', () => {
+    // The program takes the second column; the iterative listing was dropped
+    // without a word.
+    expect(() =>
+      traceFor('bst', 'insert', { values: [], value: [8, 4, 12], program: true, iterative: true }),
+    ).toThrow(/program.*iterative|iterative.*program/);
+  });
+
   it('draws no strip under an insertion: the tree has no array beside it', () => {
     expect(build([8, 4]).tree!.strip).toBe(false);
     expect(traceFor('bst', 'insert', { values: [8, 4], value: 6 }).tree!.strip).toBe(false);

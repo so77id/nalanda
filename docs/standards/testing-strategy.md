@@ -1198,6 +1198,20 @@ components — cover the empty branch with a direct FamilyPage test')`.
   the old catalog segments 404, with the no-redirect rationale above it.
 - Test fakes live next to the tests that use them (see placement criteria in
   `repository-structure.md`).
+- **A book page renders in one long task, and nothing measures it.** The
+  whole document mounts in one synchronous React pass, so its longest task on
+  load grows with every figure and editor a class adds, and no gate reads it.
+  Measured at #322's review on the built site, Chromium, to network-idle plus
+  three seconds: Árboles II's longest load task 388 ms at full speed and
+  1.56 s at a 4x CPU throttle (`Emulation.setCPUThrottlingRate`, the stand-in
+  for a mid-range phone), Árboles I's about 250 ms, `<BinaryPicture>` some
+  72 ms of the first. Before the next document that is heavy in figures or
+  editors, take the same two numbers for its book page and the previous one,
+  and say in the PR what they are. **Scrolling is the second number, and
+  #322 is its worked case**: every heading crossed re-rendered the whole
+  document, and on Árboles II's 52 editors that was about ninety long tasks
+  per scroll at 4x — invisible at full speed. `content/DocumentPage.test.tsx`
+  now pins that a scroll does not render the document again.
 
 ## References
 

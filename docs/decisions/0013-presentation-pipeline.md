@@ -6,6 +6,7 @@
 **Source:** Issue #64 (WP3, presentation mode). Extends ADR-0010 (component
 contract, which defined the two render modes) and ADR-0012 (content pipeline);
 details the seam ADR-0008 deferred ("sync is a navigation state").
+**Amended by:** #322 (2026-10-15) — §5.1: a slide whose content answers its own scale settles at the smaller scale, within a half-second window
 
 ## Context
 
@@ -118,6 +119,17 @@ can drive it.
    slide 9 of `java-desde-cpp` lost 69px at 1440x900 and more on a phone. The
    consequence an author feels: nothing is cut any more, but a dense slide
    shrinks, and below roughly half scale it stops being readable on a phone.
+   **Amended by #322:** a slide whose content answers its own scale settles.
+   The professor saw the removal's code slide of Árboles II shiver in Brave,
+   flipping between two scales; it never reproduced in Chromium, so the guard
+   does not depend on knowing what changes size. A content change of two
+   pixels or less does not rescale, and a scale applied within the last half
+   second that comes back is taken for a flip, answered with the smaller of
+   the two. The window is the decision: without it, a reader opening and
+   closing an `<Exercise>`'s panel seconds apart brought back the same two
+   heights and left the slide at its smaller scale until they left it
+   (#322 review, measured 0.727 where 0.889 fits). The state lives in the
+   pure `nextFit` of `presentation/fit.ts`, with its tests.
 
    **5.2 Touch is a second input path** (#99): a one-finger horizontal swipe
    moves one slide (a second finger is a pinch, and zooming is not navigating).

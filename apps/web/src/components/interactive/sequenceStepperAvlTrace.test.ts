@@ -97,9 +97,10 @@ describe('sequenceStepperTrace · avl · rotate-right', () => {
     expect(byValue(last, 6).right).toBe(byValue(last, 7).id);
   });
 
-  it('keeps the inorder, link by link, in every frame', () => {
+  it('keeps the inorder, link by link, before and after the rotation', () => {
+    // Only the ends: between them a subtree is held by two references for a
+    // frame, which is the point of walking the rotation an assignment at a time.
     for (const s of [steps[0]!, steps.at(-1)!]) expect(inorderOf(s)).toEqual([2, 4, 5, 6, 7]);
-    for (const s of steps) expect(s.tree!.strip).toEqual([2, 4, 5, 6, 7]);
   });
 
   it('draws every node in every frame, the one only q holds included', () => {
@@ -406,9 +407,23 @@ describe('sequenceStepperTrace · avl · insert', () => {
     expect(isAvl(first)).toBe(true);
   });
 
-  it('shows the BST insert with balance as its last line, and not balance itself', () => {
-    // balance's own lines sit on the slide before: beside insert, the slide
-    // measured 0.545, under the 0.70 floor.
+  it('builds with a double rotation when a value lands inside', () => {
+    // 30, 10, 20: the 20 lands to the right of the left child, and only a
+    // double rotation brings it up. Every slide starts from this builder, and
+    // with the double broken it would start from a tree that is not an AVL.
+    for (const values of [
+      [30, 10, 20],
+      [10, 30, 20],
+    ]) {
+      const first = traceFor('avl', 'insert', { values, value: 5 }).steps[0]!;
+      expect(rootValue(first), values.join(' ')).toBe(20);
+      expect(isAvl(first), values.join(' ')).toBe(true);
+    }
+  });
+
+  it('keeps balance out of the insert listing: it is the second listing of the row', () => {
+    // insert is the search tree's with `return balance(node)` as its last
+    // line; balance's own code is the listing beside it (`row`).
     const trace = traceFor('avl', 'insert', { values: [], value: [30, 20, 10] });
     expect(trace.code).toContain('return balance(node);');
     expect(trace.code).not.toContain('Node<T> balance(');
@@ -464,12 +479,30 @@ describe('sequenceStepperTrace · avl · insert', () => {
     }
   });
 
-  it('keeps the strip sorted in every frame: a rotation never touches the order', () => {
+  it('keeps the inorder sorted in every frame, read from the links', () => {
+    // From the links, not the strip: the strip writes each value in its own
+    // column, so it reads sorted whatever the links are.
     const trace = traceFor('avl', 'insert', { values: [], value: [1, 2, 3, 4, 5] });
     for (const s of trace.steps) {
-      const written = s.tree!.strip.filter((v): v is number => v !== null);
-      expect(written).toEqual([...written].sort((a, b) => a - b));
+      const order = inorderOf(s);
+      expect(order).toEqual([...order].sort((a, b) => a - b));
     }
+  });
+
+  it('says the inorder after a rotation as the links read it', () => {
+    const trace = traceFor('avl', 'rotate-right', { values: [6, 4, 7, 2, 5], target: 6 });
+    const last = trace.steps.at(-1)!;
+    expect(last.description).toContain(`El inorden sigue siendo ${inorderOf(last).join(' ')}`);
+  });
+
+  it('writes a height as a number and a factor with its sign', () => {
+    // A height is never signed: «0 − 2 = −2» reads the subtrees' heights and
+    // the factor they give; «0 − +2» read a height as a factor (#322 review).
+    const trace = traceFor('avl', 'insert', { values: [8, 4, 12, 2, 6], value: 5 });
+    const at8 = trace.steps.find((s) => s.description.startsWith('balance(8)'))!;
+    expect(at8.description).toContain('su factor es 0 − 2 = −2');
+    const emptied = traceFor('avl', 'remove', { values: [5], target: 5 }).steps.at(-1)!;
+    expect(emptied.description).toContain('Su altura es −1.');
   });
 
   it('marks the new leaf, and inserts nothing twice', () => {

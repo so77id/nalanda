@@ -175,7 +175,7 @@ export function TreeView({
                   textAnchor="start"
                   fontSize="10"
                   fontWeight="700"
-                  fill="var(--color-focus)"
+                  fill="var(--color-ink-soft)"
                   stroke="var(--color-surface)"
                   strokeWidth={3}
                   paintOrder="stroke"
@@ -286,7 +286,7 @@ function EmptyCall({ probe, side }: { probe: TreeProbe; side: 'left' | 'right' }
         textAnchor="middle"
         fontSize="9"
         fontWeight="600"
-        fill="var(--color-focus)"
+        fill="var(--color-ink-soft)"
       >
         null
       </text>

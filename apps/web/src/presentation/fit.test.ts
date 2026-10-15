@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { fitScale, settleScale, worthRescaling } from './fit';
+import { INITIAL_FIT, fitScale, nextFit, settleScale, worthRescaling } from './fit';
 
 describe('fitScale', () => {
   it('leaves a slide that already fits alone', () => {
@@ -85,5 +85,73 @@ describe('settleScale', () => {
 
   it('answers the same scale again once settled, so nothing re-renders', () => {
     expect(settleScale([0.72, 0.7, 0.7], 0.72)).toBe(0.7);
+  });
+});
+
+describe('nextFit', () => {
+  const at = (contentH: number, stageH = 800) => ({
+    stage: { width: 1200, height: stageH },
+    content: { width: 896, height: contentH },
+  });
+
+  function run(steps: [ReturnType<typeof at>, number][]): (number | null)[] {
+    let state = INITIAL_FIT;
+    return steps.map(([measure, now]) => {
+      const result = nextFit(state, measure, now);
+      if (result === null) return null;
+      state = result.state;
+      return Math.round(result.scale * 1000) / 1000;
+    });
+  }
+
+  it('scales a slide the first time it is measured', () => {
+    expect(run([[at(900), 0]])).toEqual([0.889]);
+  });
+
+  it('leaves the scale alone when the content moves by a pixel', () => {
+    expect(
+      run([
+        [at(900), 0],
+        [at(901), 16],
+      ]),
+    ).toEqual([0.889, null]);
+  });
+
+  it('settles a slide that flips between two scales frame after frame', () => {
+    // The removal's code slide in Brave (#322): the content answers its own
+    // scale, and the flip never ends by itself. The smaller scale fits both,
+    // and once settled it is the answer every time — the same number, which
+    // React does not re-render for.
+    expect(
+      run([
+        [at(1111), 0],
+        [at(1143), 16],
+        [at(1111), 33],
+        [at(1143), 50],
+      ]),
+    ).toEqual([0.72, 0.7, 0.7, 0.7]);
+  });
+
+  it('gives the slide its scale back when the content returns seconds later', () => {
+    // «Ver solución» opens a panel and «Ocultar solución» closes it: the same
+    // two heights, but a reader's clicks, not a loop. Settling here kept the
+    // slide at the smaller scale while the reader stayed on it (#322 review).
+    expect(
+      run([
+        [at(900), 0],
+        [at(1100), 2000],
+        [at(900), 4000],
+      ]),
+    ).toEqual([0.889, 0.727, 0.889]);
+  });
+
+  it('starts over when the stage changes', () => {
+    expect(
+      run([
+        [at(1111), 0],
+        [at(1143), 16],
+        [at(1111, 700), 33],
+      ]),
+    ).toEqual([0.72, 0.7, 0.63]);
   });
 });

@@ -601,7 +601,7 @@ function Picture({
                   textAnchor="middle"
                   fontSize="9"
                   fontWeight="600"
-                  style={{ fill: 'var(--color-focus)' }}
+                  style={{ fill: 'var(--color-ink-soft)' }}
                 >
                   null
                 </text>
@@ -776,7 +776,7 @@ function Picture({
                 fontWeight="700"
                 paintOrder="stroke"
                 strokeWidth="3"
-                style={{ fill: 'var(--color-focus)', stroke: 'var(--color-ground)' }}
+                style={{ fill: 'var(--color-ink-soft)', stroke: 'var(--color-ground)' }}
               >
                 {badges[n.key]}
               </text>

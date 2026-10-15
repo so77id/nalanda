@@ -1,10 +1,12 @@
 /**
- * What the two trace modules of `<SequenceStepper>` share: how a frame names
- * the line it lights, how an author-written argument becomes runs, and how
- * many runs a slide may ask for. A leaf
- * both import (#321 review, ARQ-6): the tree's module could not import them
- * from the dispatcher, which imports the tree's module, without closing a
- * cycle, and the copy it carried instead had already lost the reasons below.
+ * What the trace modules of `<SequenceStepper>` share — the dispatcher, the
+ * tree's and the AVL's (#322): how a frame names the line it lights, how an
+ * author-written argument becomes runs, how many runs a slide may ask for,
+ * and how two listings are paired side by side. The tree's module could not
+ * import these from the dispatcher, which imports the tree's module, without
+ * closing a cycle (#321 review, ARQ-6), and the copy it carried instead had
+ * already lost the reasons below. It imports the dispatcher's TYPES only,
+ * which leave no edge at run time.
  */
 
 import type { SequenceStep, SequenceTrace } from './sequenceStepperTrace';

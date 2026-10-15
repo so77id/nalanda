@@ -49,6 +49,11 @@ describe('<SequenceStepper> · authoring guards', () => {
     );
     expect(document.querySelector('[data-authoring-error]')?.textContent).toMatch(/13 elementos/);
     cleanup();
+    // One value to insert counts whether it comes alone or in a list: the
+    // scalar used to count as none, and drew thirteen past the cap.
+    renderIn('book', <SequenceStepper eda="avl" operation="insert" values={twelve} value={26} />);
+    expect(document.querySelector('[data-authoring-error]')?.textContent).toMatch(/13 elementos/);
+    cleanup();
     // The rotations build a PLAIN search tree, which can lean all the way.
     renderIn(
       'book',
@@ -808,6 +813,33 @@ describe('<SequenceStepper> · the binary-tree recipe (#321)', () => {
     );
     expect(screen.getByText(/hay listado para: insertar al principio/)).toBeInTheDocument();
     expect(screen.queryByText(/operación de árbol/)).not.toBeInTheDocument();
+  });
+
+  it('points a rotation asked of a sequence at the AVL recipe', () => {
+    renderIn(
+      'book',
+      <SequenceStepper
+        eda="linked-list-singly"
+        operation="rotate-right"
+        values={[2, 1]}
+        target={2}
+      />,
+    );
+    expect(
+      screen.getByText(/es una operación del árbol AVL\. Úsala con eda="avl"/),
+    ).toBeInTheDocument();
+  });
+
+  it('points a removal asked of a sequence at the search trees', () => {
+    // `remove` is the search tree's and the AVL's; the AVL check used to catch
+    // it first and name the AVL alone.
+    renderIn(
+      'book',
+      <SequenceStepper eda="linked-list-singly" operation="remove" values={[7, 3, 1]} target={3} />,
+    );
+    expect(
+      screen.getByText(/es una operación del árbol de búsqueda\. Úsala con eda="bst" o eda="avl"/),
+    ).toBeInTheDocument();
   });
 
   it('points a traversal asked of a sequence at the tree recipe', () => {

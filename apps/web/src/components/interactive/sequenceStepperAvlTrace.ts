@@ -47,9 +47,9 @@ type Side = 'left' | 'right';
 /**
  * The class's rotations, before the AVL gives its nodes a height; and its
  * insert and remove, the search tree's with `return balance(node)` as their
- * last line. Neither shows `balance` itself: the class puts it on the slide
- * before, and with it beside `insert` the slide measured 0.545, under the 0.70
- * floor. The walk back lights the call, and the narration names each decision.
+ * last line. `balance` itself is not in these listings: it is the second
+ * listing of the row beside them (`BALANCE`, `trace.row`), lit frame by frame
+ * as the walk back calls it.
  */
 const CODE: Record<AvlOperation, string> = {
   'rotate-right': `Node<T> rotateRight(Node<T> p) {
@@ -141,6 +141,22 @@ const OTHER: Record<Side, Side> = { left: 'right', right: 'left' };
 function heightOf(n: TreeNode | null): number {
   return n === null ? -1 : 1 + Math.max(heightOf(n.left), heightOf(n.right));
 }
+
+/**
+ * The inorder of a subtree, read from its links. The narration says it after a
+ * rotation from here, not from the strip: the strip writes each value in its
+ * own column and reads sorted whatever the links are.
+ */
+function inorderOf(n: TreeNode | null, out: TreeValue[] = []): TreeValue[] {
+  if (n === null) return out;
+  inorderOf(n.left, out);
+  out.push(n.value);
+  inorderOf(n.right, out);
+  return out;
+}
+
+/** A height in the narration: a number, with a true minus for the empty tree's. */
+const heightText = (h: number): string => (h < 0 ? `−${-h}` : String(h));
 
 /** The node holding `value` and its parent, found by the search the invariant allows. */
 function locate(
@@ -282,7 +298,7 @@ function traceRotation(direction: Side, input: SequenceInput): SequenceTrace {
     rec.state.clear();
     rec.badge.clear();
     const after = heightOf(root);
-    const inorder = rec.steps.at(-1)!.tree!.strip.join(' ');
+    const inorder = inorderOf(root).join(' ');
     rec.push(
       'done',
       [],
@@ -472,7 +488,7 @@ function traceDouble(direction: Side, input: SequenceInput): SequenceTrace {
     rec.state.clear();
     rec.badge.clear();
     const after = heightOf(root);
-    const inorder = rec.steps.at(-1)!.tree!.strip.join(' ');
+    const inorder = inorderOf(root).join(' ');
     frame(
       'done',
       null,
@@ -600,7 +616,7 @@ function balanceFramed(
   const v = n.value;
   const hl = heightIn(avl, n.left);
   const hr = heightIn(avl, n.right);
-  const measured = `balance(${v}): su altura queda en ${heightIn(avl, n)}; su factor es ${signedFactor(hr)} − ${signedFactor(hl)} = ${signedFactor(b)}`;
+  const measured = `balance(${v}): su altura queda en ${heightIn(avl, n)}; su factor es ${heightText(hr)} − ${heightText(hl)} = ${signedFactor(b)}`;
   // Every frame of balance lights its call: its own lines are on the slide.
   const call = ['return balance(node);'];
   rec.cost += 1;
@@ -751,7 +767,7 @@ function traceAvlInsert(input: SequenceInput): SequenceTrace {
   push(
     'done',
     [],
-    `El árbol cumple las dos invariantes, la de orden y la de balance. Su altura es ${heightIn(avl, avl.root)}.`,
+    `El árbol cumple las dos invariantes, la de orden y la de balance. Su altura es ${heightText(heightIn(avl, avl.root))}.`,
   );
   // No strip, as the search tree's insertion (#322): no array beside the tree.
   const trace = finish(rec, code, columns, slots, false);
@@ -978,7 +994,7 @@ function traceAvlRemove(input: SequenceInput): SequenceTrace {
       push(
         'done',
         [],
-        `${x} ya no está en el árbol, y las dos invariantes se cumplen. Su altura es ${heightIn(avl, avl.root)}.`,
+        `${x} ya no está en el árbol, y las dos invariantes se cumplen. Su altura es ${heightText(heightIn(avl, avl.root))}.`,
       );
     }
   }

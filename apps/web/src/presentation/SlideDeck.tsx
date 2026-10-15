@@ -15,7 +15,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { renderInlineTitle } from '../lib/inlineTitle';
 import { mdxChildrenOf } from './mdxChildren';
 import { computeSlides } from './parser';
-import { fitScale, settleScale, worthRescaling, type Measure } from './fit';
+import { INITIAL_FIT, nextFit, type FitState } from './fit';
 import { startsInsideHorizontalScroller, swipeDirection } from './swipe';
 import type { Point } from './swipe';
 import { RotateNotice } from './RotateNotice';
@@ -239,28 +239,22 @@ export function SlideDeck({ docId, title, configMode = 'auto', children }: Props
   const [scale, setScale] = useState(1);
   useLayoutEffect(() => {
     if (!stageNode || !contentNode) return;
-    // The last measurement a scale was taken from: a slide whose content
-    // answers its own scale by a pixel must not set off a new one
-    // (`worthRescaling`).
-    let last: Measure | null = null;
-    // The scales applied on the current stage, for `settleScale` to tell a
-    // slide answering its own scale from one that changed.
-    let applied: number[] = [];
+    // What the fit remembers between measurements: the one the scale was taken
+    // from, and the scales applied lately, so a slide answering its own scale
+    // settles instead of flipping (`nextFit`).
+    let fit: FitState = INITIAL_FIT;
     const measure = () => {
-      const next: Measure = {
-        stage: { width: stageNode.clientWidth, height: stageNode.clientHeight },
-        content: { width: contentNode.offsetWidth, height: contentNode.offsetHeight },
-      };
-      if (!worthRescaling(last, next)) return;
-      const stageMoved =
-        last === null ||
-        last.stage.width !== next.stage.width ||
-        last.stage.height !== next.stage.height;
-      if (stageMoved) applied = [];
-      last = next;
-      const scale = settleScale(applied, fitScale(next.stage, next.content));
-      applied.push(scale);
-      setScale(scale);
+      const result = nextFit(
+        fit,
+        {
+          stage: { width: stageNode.clientWidth, height: stageNode.clientHeight },
+          content: { width: contentNode.offsetWidth, height: contentNode.offsetHeight },
+        },
+        performance.now(),
+      );
+      if (result === null) return;
+      fit = result.state;
+      setScale(result.scale);
     };
     measure();
     // Rotation, the browser chrome appearing, a font finishing loading: all of
