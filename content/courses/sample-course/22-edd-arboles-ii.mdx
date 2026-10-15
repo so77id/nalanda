@@ -1237,13 +1237,17 @@ preguntas rápido.
 
 ## Ejercicios
 
+{/* The ancestor exercise's tree: deep enough that the walk goes down four levels, left, right and left again, before the two values part at the 12. */}
+
+export const LCA_TREE = { v: 20, l: { v: 10, l: { v: 5 }, r: { v: 15, l: { v: 12, l: { v: 11 }, r: { v: 13 } }, r: { v: 18 } } }, r: { v: 30, l: { v: 25 }, r: { v: 35 } } };
+
 <Slide title="El ancestro común más bajo">
 Un **ancestro común** de dos nodos tiene a los dos en su subárbol, y un nodo
 cuenta en su propio subárbol. El **ancestro común más bajo** es el más
 profundo de todos: en un árbol genealógico, el antepasado más cercano que dos
 personas comparten.
 
-<BinaryPicture tree={EVENS} tones={{ 2: 'mark', 6: 'mark', 4: 'keep' }} notes={{ 4: 'más bajo' }} label="El árbol de búsqueda con 8 en la raíz, 4 y 12 debajo, y 2, 6, 10 y 14 en el último nivel. Los valores 2 y 6 están marcados; su ancestro común más bajo es el 4." caption="2 y 6: el 8 y el 4 los tienen a los dos debajo, y el 4 es el más bajo" />
+<BinaryPicture tree={LCA_TREE} size={0.8} tones={{ 11: 'mark', 13: 'mark', 12: 'keep' }} notes={{ 12: 'más bajo' }} label="El árbol de búsqueda con 20 en la raíz; 10 y 30 debajo; el 10 con 5 y 15; el 30 con 25 y 35; el 15 con 12 y 18; el 12 con 11 y 13. Los valores 11 y 13 están marcados; su ancestro común más bajo es el 12." caption="11 y 13: su ancestro común más bajo es el 12" />
 
 El programa recibe la raíz de un árbol binario de búsqueda y dos valores que
 están en el árbol, y responde el valor de su ancestro común más bajo. Llamamos
@@ -1254,21 +1258,21 @@ static int lowestCommonAncestor(Node<Integer> root,
         int a, int b)
 ```
 
-<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: '0 1.5rem', alignItems: 'end' }}>
-<BinaryPicture tree={EVENS} compact size={0.75} tones={{ 6: 'mark', 10: 'mark', 8: 'keep' }} label="6 y 10: el 6 está a la izquierda de la raíz y el 10 a su derecha, así que su ancestro común más bajo es la raíz, el 8." caption="6 y 10: responde 8" />
-<BinaryPicture tree={EVENS} compact size={0.75} tones={{ 6: 'mark', 4: 'keep' }} label="4 y 6: el 6 está debajo del 4, y el 4 cuenta en su propio subárbol, así que la respuesta es el 4." caption="4 y 6: responde 4" />
-<BinaryPicture tree={EVENS} compact size={0.75} tones={{ 14: 'keep' }} label="14 y 14: los dos valores son el mismo nodo, y la respuesta es ese nodo, el 14." caption="14 y 14: responde 14" />
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: '0 1.5rem', alignItems: 'end' }}>
+<BinaryPicture tree={LCA_TREE} compact size={0.6} tones={{ 5: 'mark', 25: 'mark', 20: 'keep' }} label="5 y 25: el 5 está a la izquierda de la raíz y el 25 a su derecha, así que su ancestro común más bajo es la raíz, el 20." caption="5 y 25: responde 20" />
+<BinaryPicture tree={LCA_TREE} compact size={0.6} tones={{ 13: 'mark', 15: 'keep' }} label="13 y 15: el 13 está debajo del 15, y el 15 cuenta en su propio subárbol, así que la respuesta es el 15." caption="13 y 15: responde 15" />
+<BinaryPicture tree={LCA_TREE} compact size={0.6} tones={{ 18: 'keep' }} label="18 y 18: los dos valores son el mismo nodo, y la respuesta es ese nodo, el 18." caption="18 y 18: responde 18" />
 </div>
 
 </Slide>
 
 <Slide title="La raíz como respuesta">
 La raíz tiene a todos los nodos en su subárbol, así que siempre es un ancestro
-común. Pero no siempre es el más bajo: más abajo puede haber otro nodo que
-también tiene a los dos. Una respuesta correcta tiene que saber **hasta dónde
+común. Pero no siempre es el más bajo: más abajo puede haber otros nodos que
+también tienen a los dos. Una respuesta correcta tiene que saber **hasta dónde
 bajar** sin dejar a ninguno de los dos afuera.
 
-<BinaryPicture tree={EVENS} tones={{ 2: 'mark', 6: 'mark', 8: 'focus', 4: 'keep' }} notes={{ 8: 'común', 4: 'más bajo' }} label="El mismo árbol con 2 y 6 marcados. La raíz, el 8, es un ancestro común de los dos, pero el 4, más abajo, también lo es." caption="el 8 tiene a 2 y 6 debajo, pero el 4 también" />
+<BinaryPicture tree={LCA_TREE} tones={{ 11: 'mark', 13: 'mark', 20: 'focus', 10: 'focus', 15: 'focus', 12: 'keep' }} notes={{ 20: 'común', 10: 'común', 15: 'común', 12: 'más bajo' }} label="El mismo árbol con 11 y 13 marcados. La raíz, el 20, es un ancestro común de los dos, y también lo son el 10 y el 15, más abajo; el más bajo de todos es el 12." caption="el 20, el 10 y el 15 tienen a 11 y 13 debajo, pero el 12 está más abajo" />
 
 </Slide>
 
@@ -1280,9 +1284,11 @@ los dos son mayores, a la derecha. En cuanto los dos **dejan de estar del
 mismo lado** —uno a cada lado, o uno es el nodo mismo—, ningún nodo de más
 abajo tiene a los dos: ese nodo es la respuesta.
 
-<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1rem 2rem', alignItems: 'end' }}>
-<BinaryPicture tree={EVENS} path={[8]} tones={{ 8: 'focus', 2: 'mark', 6: 'mark' }} label="En la raíz, el 8: el 2 y el 6 son menores que 8, así que los dos están a su izquierda." caption="en el 8: 2 y 6 son menores; se baja a la izquierda" />
-<BinaryPicture tree={EVENS} path={[8, 4]} tones={{ 8: 'done', 4: 'keep', 2: 'mark', 6: 'mark', 12: 'faint', 10: 'faint', 14: 'faint' }} label="En el 4: el 2 es menor y el 6 es mayor. Se separan, y el 4 es el ancestro común más bajo." caption="en el 4: 2 es menor y 6 mayor; la respuesta es 4" />
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(360px, 100%), 1fr))', gap: '0.5rem 2rem', alignItems: 'end' }}>
+<BinaryPicture tree={LCA_TREE} compact path={[20]} tones={{ 20: 'focus', 11: 'mark', 13: 'mark' }} label="En la raíz, el 20: el 11 y el 13 son menores que 20, así que los dos están a su izquierda." caption="en el 20: 11 y 13 son menores; se baja a la izquierda" />
+<BinaryPicture tree={LCA_TREE} compact path={[20, 10]} tones={{ 20: 'done', 10: 'focus', 11: 'mark', 13: 'mark', 30: 'faint', 25: 'faint', 35: 'faint' }} label="En el 10: el 11 y el 13 son mayores que 10, así que los dos están a su derecha." caption="en el 10: 11 y 13 son mayores; se baja a la derecha" />
+<BinaryPicture tree={LCA_TREE} compact path={[20, 10, 15]} tones={{ 20: 'done', 10: 'done', 15: 'focus', 11: 'mark', 13: 'mark', 30: 'faint', 25: 'faint', 35: 'faint', 5: 'faint' }} label="En el 15: el 11 y el 13 son menores que 15, así que los dos están a su izquierda." caption="en el 15: 11 y 13 son menores; se baja a la izquierda" />
+<BinaryPicture tree={LCA_TREE} compact path={[20, 10, 15, 12]} tones={{ 20: 'done', 10: 'done', 15: 'done', 12: 'keep', 11: 'mark', 13: 'mark', 30: 'faint', 25: 'faint', 35: 'faint', 5: 'faint', 18: 'faint' }} label="En el 12: el 11 es menor y el 13 es mayor. Se separan, y el 12 es el ancestro común más bajo." caption="en el 12: 11 es menor y 13 mayor; la respuesta es 12" />
 </div>
 
 </Slide>
@@ -1308,24 +1314,40 @@ hacia el mismo lado, o se responde el nodo.
 }`}
 >
   <Step lines={[3]}>
-    <BinaryPicture tree={EVENS} tones={{ 8: 'focus', 2: 'mark', 6: 'mark' }} size={0.85} label="node empieza en la raíz, el 8. Los valores son 2 y 6." />
-    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>node empieza en la raíz, el 8; los valores son 2 y 6.</div>
+    <BinaryPicture tree={LCA_TREE} tones={{ 20: 'focus', 11: 'mark', 13: 'mark' }} size={0.75} label="node empieza en la raíz, el 20. Los valores son 11 y 13." />
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>node empieza en la raíz, el 20; los valores son 11 y 13.</div>
   </Step>
   <Step lines={[5]}>
-    <BinaryPicture tree={EVENS} tones={{ 8: 'focus', 2: 'mark', 6: 'mark' }} size={0.85} label="2 y 6 son menores que 8: los dos están en el subárbol izquierdo del 8." />
-    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>2 y 6 son menores que 8: los dos están a su izquierda.</div>
+    <BinaryPicture tree={LCA_TREE} tones={{ 20: 'focus', 11: 'mark', 13: 'mark' }} size={0.75} label="11 y 13 son menores que 20: los dos están en el subárbol izquierdo del 20." />
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>11 y 13 son menores que 20: los dos están a su izquierda.</div>
   </Step>
   <Step lines={[6]}>
-    <BinaryPicture tree={EVENS} path={[8, 4]} tones={{ 8: 'done', 4: 'focus', 2: 'mark', 6: 'mark', 12: 'faint', 10: 'faint', 14: 'faint' }} size={0.85} label="node baja al 4, y el subárbol derecho del 8 queda descartado." />
-    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>node baja al 4.</div>
+    <BinaryPicture tree={LCA_TREE} path={[20,  10]} tones={{ 20: 'done', 10: 'focus', 11: 'mark', 13: 'mark', 30: 'faint', 25: 'faint', 35: 'faint' }} size={0.75} label="node baja al 10, y el subárbol derecho del 20 queda descartado." />
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>node baja a la izquierda, al 10.</div>
   </Step>
-  <Step lines={[5, 7]}>
-    <BinaryPicture tree={EVENS} path={[8, 4]} tones={{ 8: 'done', 4: 'focus', 2: 'mark', 6: 'mark', 12: 'faint', 10: 'faint', 14: 'faint' }} size={0.85} label="En el 4, el 2 es menor y el 6 es mayor: no son los dos menores ni los dos mayores." />
-    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>2 es menor que 4 y 6 es mayor: ni los dos menores, ni los dos mayores.</div>
+  <Step lines={[5,  7]}>
+    <BinaryPicture tree={LCA_TREE} path={[20,  10]} tones={{ 20: 'done', 10: 'focus', 11: 'mark', 13: 'mark', 30: 'faint', 25: 'faint', 35: 'faint' }} size={0.75} label="En el 10, el 11 y el 13 son mayores: los dos están en el subárbol derecho del 10." />
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>11 y 13 son mayores que 10: los dos están a su derecha.</div>
+  </Step>
+  <Step lines={[8]}>
+    <BinaryPicture tree={LCA_TREE} path={[20,  10,  15]} tones={{ 20: 'done', 10: 'done', 15: 'focus', 11: 'mark', 13: 'mark', 30: 'faint', 25: 'faint', 35: 'faint', 5: 'faint' }} size={0.75} label="node baja al 15, y el subárbol izquierdo del 10 queda descartado." />
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>node baja a la derecha, al 15.</div>
+  </Step>
+  <Step lines={[5]}>
+    <BinaryPicture tree={LCA_TREE} path={[20,  10,  15]} tones={{ 20: 'done', 10: 'done', 15: 'focus', 11: 'mark', 13: 'mark', 30: 'faint', 25: 'faint', 35: 'faint', 5: 'faint' }} size={0.75} label="En el 15, el 11 y el 13 son menores: los dos están en el subárbol izquierdo del 15." />
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>11 y 13 son menores que 15: los dos están a su izquierda.</div>
+  </Step>
+  <Step lines={[6]}>
+    <BinaryPicture tree={LCA_TREE} path={[20,  10,  15,  12]} tones={{ 20: 'done', 10: 'done', 15: 'done', 12: 'focus', 11: 'mark', 13: 'mark', 30: 'faint', 25: 'faint', 35: 'faint', 5: 'faint', 18: 'faint' }} size={0.75} label="node baja al 12, y el subárbol derecho del 15 queda descartado." />
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>node baja a la izquierda, al 12.</div>
+  </Step>
+  <Step lines={[5,  7]}>
+    <BinaryPicture tree={LCA_TREE} path={[20,  10,  15,  12]} tones={{ 20: 'done', 10: 'done', 15: 'done', 12: 'focus', 11: 'mark', 13: 'mark', 30: 'faint', 25: 'faint', 35: 'faint', 5: 'faint', 18: 'faint' }} size={0.75} label="En el 12, el 11 es menor y el 13 es mayor: no son los dos menores ni los dos mayores." />
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>11 es menor que 12 y 13 es mayor: ni los dos menores, ni los dos mayores.</div>
   </Step>
   <Step lines={[10]}>
-    <BinaryPicture tree={EVENS} path={[8, 4]} tones={{ 8: 'done', 4: 'keep', 2: 'mark', 6: 'mark', 12: 'faint', 10: 'faint', 14: 'faint' }} size={0.85} label="Se separan en el 4: el 4 es el ancestro común más bajo." />
-    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>Se separan en el 4: la respuesta es 4.</div>
+    <BinaryPicture tree={LCA_TREE} path={[20,  10,  15,  12]} tones={{ 20: 'done', 10: 'done', 15: 'done', 12: 'keep', 11: 'mark', 13: 'mark', 30: 'faint', 25: 'faint', 35: 'faint', 5: 'faint', 18: 'faint' }} size={0.75} label="Se separan en el 12: el 12 es el ancestro común más bajo." />
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>Se separan en el 12: la respuesta es 12.</div>
   </Step>
 </StepShow>
 
@@ -1338,7 +1360,7 @@ porque un nodo cuenta en su propio subárbol. Con dos valores iguales pasa lo
 mismo al llegar a ese valor. Como los dos valores están en el árbol, la bajada
 siempre se detiene en un nodo y nunca llega a un subárbol vacío.
 
-<BinaryPicture tree={EVENS} path={[8, 4]} tones={{ 4: 'keep', 6: 'mark', 8: 'done', 12: 'faint', 10: 'faint', 14: 'faint', 2: 'faint' }} label="4 y 6: se baja del 8 al 4, y ahí el 4 no es menor ni mayor que el nodo, porque es el nodo. La respuesta es 4." caption="4 y 6: en el 4, el 4 es el nodo; la respuesta es 4" />
+<BinaryPicture tree={LCA_TREE} size={0.8} path={[20, 10, 15]} tones={{ 20: 'done', 10: 'done', 15: 'keep', 13: 'mark', 30: 'faint', 25: 'faint', 35: 'faint', 5: 'faint', 18: 'faint' }} label="13 y 15: se baja del 20 al 10 y del 10 al 15, y ahí el 15 no es menor ni mayor que el nodo, porque es el nodo. La respuesta es 15." caption="13 y 15: en el 15, el 15 es el nodo; la respuesta es 15" />
 
 **Tiempo.** Cada vuelta del ciclo baja un nivel, así que hay a lo más
 $$h + 1$$ vueltas, cada una con a lo más cuatro comparaciones: $$O(h)$$.
@@ -1376,17 +1398,21 @@ class Solution {
 ```
 
 ```java test
-Node<Integer> root = new Node<>(8);
-root.left = new Node<>(4);
-root.left.left = new Node<>(2);
-root.left.right = new Node<>(6);
-root.right = new Node<>(12);
-root.right.left = new Node<>(10);
-root.right.right = new Node<>(14);
-check(Solution.lowestCommonAncestor(root, 2, 6), 4);
-check(Solution.lowestCommonAncestor(root, 6, 10), 8);
-check(Solution.lowestCommonAncestor(root, 4, 6), 4);
-check(Solution.lowestCommonAncestor(root, 14, 14), 14);
+Node<Integer> root = new Node<>(20);
+root.left = new Node<>(10);
+root.left.left = new Node<>(5);
+root.left.right = new Node<>(15);
+root.left.right.left = new Node<>(12);
+root.left.right.left.left = new Node<>(11);
+root.left.right.left.right = new Node<>(13);
+root.left.right.right = new Node<>(18);
+root.right = new Node<>(30);
+root.right.left = new Node<>(25);
+root.right.right = new Node<>(35);
+check(Solution.lowestCommonAncestor(root, 11, 13), 12);
+check(Solution.lowestCommonAncestor(root, 5, 25), 20);
+check(Solution.lowestCommonAncestor(root, 13, 15), 15);
+check(Solution.lowestCommonAncestor(root, 18, 18), 18);
 ```
 
 </Exercise>
