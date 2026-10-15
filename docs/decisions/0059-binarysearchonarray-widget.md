@@ -16,6 +16,7 @@ Conquista". Block 2 of the deck introduces binary search as the first D&C
 example and needs a widget that shows the algorithm running on a specific
 array with `lo`, `mid`, `hi` visible on the cells and the corresponding code
 line highlighted as each iteration decides.
+**Amended by:** #322 (2026-10-15) — a second binary search exists: `<SequenceStepper eda="dynamic-array" operation="binary-search">` (ADR-0074's `Amended by: #322`), with the course's iterative method beside the recursive one and the Estructuras de Datos unit's palette. This widget stays for Divide y Vencerás, whose recursion it shows; the data-structure units use that one, and both catalog entries say which to use.
 
 ## Context
 

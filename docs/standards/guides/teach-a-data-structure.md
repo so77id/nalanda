@@ -399,10 +399,16 @@ them):
    offers, `public`, and for a recursive operation the `private` method it
    calls with the root, said in one sentence; beside it the iterative
    version when there is one (`<SequenceStepper iterative>`), which is the
-   public method itself. The widget walks ONE run with ONE value. Several
-   runs of one operation teach something else — what a sequence of calls
-   builds — and go in the program mode (`program`), one frame per call,
-   never as the method walked again.
+   public method itself. The widget walks ONE run with ONE value first.
+   Several runs of one operation teach something else — what a sequence of
+   calls does to one structure — and go in the program mode (`program`), on
+   a slide after the single run: the program beside the method, the method
+   walked again for every call with the program's line lit (Miguel's
+   review, #322: the search tree's removals, the AVL's insertions and
+   removals). Only the search tree's insertions run as one frame per
+   program line with the tree drawn after each, because what they teach is
+   the tree a run builds, not the descent (`add-a-course-document.md`
+   §5h).
 4. **The cost**, one sentence closing the code slide's paragraph: what it
    costs and why («baja por un solo camino: $$O(h)$$»). The table of every
    operation stays at the end of the act (§4).
@@ -491,7 +497,9 @@ Everything in §6 above is about a figure served through `<img>`. **A `<Step>`
 frame is not one.** Inline SVG lives in the page's own DOM, so it sees
 `--color-*` and must use it: no opaque panel, no hard-coded hex, never the
 `#fdfbf9`/`#2b221d` values of the `<img>` exemption — those paint a
-theme-blind rectangle inside a themed page. Both grounds still get looked at.
+theme-blind rectangle inside a themed page. Text takes a text token, never
+`focus`, and a tree's traversals, levels and sides take the unit's fixed
+colours (`design-system.md` §The tree figures' palette, #322). Both grounds still get looked at.
 
 The ten steppers of #277 share one drawing vocabulary, and a second class that
 invents its own makes the unit look like two courses. Copy the frame from the
@@ -649,9 +657,12 @@ its fence text and read the result next to the step's own caption.
 
 **What that widget is, concretely** (ADR-0074): `eda` picks the structure —
 a dynamic array, a singly / doubly / circular list, (since #304, ADR-0077) a
-binary max-heap, or (since #321, ADR-0083) a linked binary tree — and
-`operation` picks which of the nine Sequence operations, the heap's own two,
-or the tree's traversals, height and search, to animate over it. (A fixed-capacity
+binary max-heap, (since #321, ADR-0083) a linked binary tree, or (since #322)
+the search tree `bst` (ADR-0083) and the AVL tree `avl` (ADR-0086) — and
+`operation` picks which of the nine Sequence operations (and `binary-search`
+on the dynamic array), the heap's own two, the tree's traversals, height and
+search, the search tree's insertion and removal, or the AVL's rotations, to
+animate over it. The full matrix is `add-a-course-document.md` §5h. (A fixed-capacity
 `array` recipe was deleted by #304, never having had a reader; ADR-0074
 §Amended by #304.) The surface never changes
 between combinations, which is the point: the reader learns one visual
@@ -678,6 +689,14 @@ draws nodes with `left` and `right`, each in the column of its inorder
 position, over a strip a traversal fills one visit at a time. It was
 designed the way the rule asks — on the running widget, reviewed in
 `/catalog`, never as drawings outside the system.
+
+**The third and fourth are the search tree and the AVL** (#322): `bst` adds
+`insert` and `remove` to the tree, a search that rules out a side, and
+programs that run an operation several times; `avl` adds the four rotations,
+walked an assignment at a time, and `insert` and `remove` that rebalance on
+the way back with `balance` listed beside them (ADR-0083 for `bst`,
+ADR-0086 for `avl`). Both were designed with the professor slide by slide on
+the running widget.
 
 **It does not replace `<StepShow>` + `<MemoryVisual>`**, which stay the pair
 for author-written pictures, whose truth is the author's (ADR-0049).
@@ -808,8 +827,13 @@ wins — #304's planner orders its tasks with one comparator lambda and an
       stepping through with the widget's own control: the deck re-measures
       on every resize (`SlideDeck.tsx`'s `ResizeObserver`) and a walk mounts
       one frame at a time, so a frame that grows — a tree that gains a level —
-      can shrink the slide where the first frame did not. The floor holds per
-      frame. A walk cannot be split like a slide: compact its frame (fewer
+      can shrink the slide where the first frame did not. **Every frame of
+      one walk sits at the SAME scale, at or above the floor**: a scale
+      that moves between frames is a frame that changes size, and the fix is
+      to reserve the largest frame (`frontend-code-style.md` §Styling; worked
+      cases in #322). Read the scale at least a second after each step —
+      a slide settles a flip within half a second (`nextFit`), so a reading
+      taken sooner can catch it mid-way. A walk cannot be split like a slide: compact its frame (fewer
       rows, not smaller nodes), and never shrink the drawing until it cannot
       be read (#304's lowest, the Top-K walk, sits at 0.714 on all fifteen
       frames). **How to read it**: under

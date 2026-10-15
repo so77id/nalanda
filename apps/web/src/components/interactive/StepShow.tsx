@@ -14,8 +14,8 @@ export interface StepShowProps {
   /** The listing shown on the code side, constant across steps. */
   code: string;
   /**
-   * Language label the code is written in. Informational — the listing is not
-   * syntax-coloured today (`CodeStepper.tsx`).
+   * The language the listing is coloured as: a runtime id loads that grammar
+   * (`loadGrammar`), anything else falls back to Java (`CodeStepper.tsx`).
    */
   language?: string;
   /** Optional heading, rendered above the panels. */
@@ -247,9 +247,11 @@ export function StepShow({
         one supersedes (#116).
 
         `beside` is the one exception, and only on a slide: there the widget
-        breaks out to three quarters of the viewport, so each column is as
-        wide as the stacked widget was. #322 asked for it when a whole class —
-        twenty-eight lines — stacked over its drawing put the slide at 0.577.
+        breaks out to three quarters of the viewport, which leaves the code
+        column a little narrower than the stacked widget and the drawing as
+        wide as most need (measured in teach-a-data-structure.md §6bis). #322
+        asked for it when a whole class — twenty-eight lines — stacked over its
+        drawing put the slide at 0.577.
       */}
       <div
         data-layout={isBeside ? 'beside' : 'stacked'}

@@ -9,6 +9,10 @@ and a second picture drawn beside the first. One rule of ADR-0074 gives way:
 its palette keeps `accent` for chrome, and §4 paints the `swap` state in it.
 ADR-0074 names that exception in place (its `Amended by: #304` on the
 palette); nothing else in it is withdrawn.
+**Amended by:** #322 (2026-10-15) — `swap` is no longer the only data state
+in `accent`: the tree recipes reuse it (ADR-0074's `Amended by: #322`), and
+the cap of eight has one exception, `avl` × `insert`/`remove` at twelve
+(ADR-0086 §4).
 
 ## Context
 
@@ -110,10 +114,10 @@ is what the reader has to see, which reads across better than down.
   heap view writes no word under its cells, where the index sits, so `new`,
   `swap` and `stale` read by stroke weight, dash and the legend rather than
   by ADR-0074's word per state — which the Sequence recipes' `active` state
-  never had either. This is
+  never had either. This was
   the one data state in `accent`, which ADR-0074 otherwise keeps for chrome;
   the exception is recorded there, in place, with the bar the next one has to
-  clear.
+  clear — and #322's tree recipes cleared it for a rotation and a successor.
 
 ### 5. Built and then removed in the same PR: `build-heap`, `heapsort`, `descending`
 
@@ -159,7 +163,8 @@ back with its own slides and its own review.
   (`add-a-course-document.md` §5h) carries it.
 - The frame model gains `heapSize`, and `SequenceCellState` gains `swap`. The
   Sequence recipes never set them.
-- Up to eight values, as for every recipe (`MAX_VALUES`); the tree of eight
+- Up to eight values, as for every recipe (`MAX_VALUES`) but `avl` ×
+  `insert`/`remove`, twelve since #322 (ADR-0086 §4); the tree of eight
   has four levels, and the layout is sized for the largest heap of the run so
   it does not jump between frames.
 - **The picture exists only in a real browser.** The frames and the geometry

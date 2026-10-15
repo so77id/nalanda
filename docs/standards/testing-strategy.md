@@ -565,7 +565,12 @@ page-only, invisible to every other gate.
   thing the reader came to RUN reports its own failures). Adding a language, or
   touching the grammar path, is verified in a browser against the built site: a
   fence in that language is actually coloured. #122 shipped the split with the
-  whole consumer side untested and 989 cases green.
+  whole consumer side untested and 989 cases green. **What the suite does see
+  since #322 is which READING a parse takes**: Java's grammar re-reads a
+  source that fails as a program as the members of a class, and
+  `runtime/java/grammar.test.ts` pins when it does and when it does not (a
+  whole program, a cut parse, a source over 20,000 characters). The colour
+  itself is still the browser's to check.
 - **A promise read with `use()` during render must be memoised, and what that
   costs depends on what is above it.** `loadCatalog()` in `catalog/registry.ts` is
   the worked case (#122): it is called inside the component body, so an
@@ -1206,8 +1211,15 @@ components — cover the empty branch with a direct FamilyPage test')`.
   1.56 s at a 4x CPU throttle (`Emulation.setCPUThrottlingRate`, the stand-in
   for a mid-range phone), Árboles I's about 250 ms, `<BinaryPicture>` some
   72 ms of the first. Before the next document that is heavy in figures or
-  editors, take those two load numbers for its book page and the previous
-  one, and say in the PR what they are. **Scrolling is the other thing to
+  editors — more than about a hundred figures or twenty editors, the size
+  where Árboles II's numbers above appeared — take those two load numbers
+  for its book page and the previous one, and say in the PR what they are.
+  The recipe: `npm run build && npm run preview`; in Playwright's Chromium a
+  CDP session (`context.newCDPSession(page)`) with
+  `Emulation.setCPUThrottlingRate { rate: 4 }`; before the page loads, a
+  `PerformanceObserver` on `longtask` (`buffered: true`) that keeps the
+  longest duration; load the book page, wait for network-idle plus three
+  seconds, read the maximum, and repeat at rate 1. **Scrolling is the other thing to
   measure, and #322 is its worked case**: every heading crossed re-rendered the whole
   document, and on Árboles II's 52 editors that was about ninety long tasks
   per scroll at 4x — invisible at full speed. `content/DocumentPage.test.tsx`

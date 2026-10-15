@@ -37,7 +37,7 @@ export const stepShowCatalogEntry: CatalogEntry = {
   whenToUse:
     'Whenever the lesson requires the reader to see a fragment of code and its effect together, one step at a time. Stacked rather than side by side: two columns inside a document measure scaled the drawing to unreadable (#116). In presentation it breaks out of the Slide prose column to HALF the viewport on its own, so never wrap it in <PresentationWide> (ADR-0067), one step at a time. The one exception to the stack is `beside`, for a listing too long to stack over its drawing on a slide: there the drawing sits to the right of the code and the widget takes three quarters of the viewport, while the book keeps the stack (#322: the whole class of the BST iterator, twenty-eight lines walked in one widget, put the slide at 0.577 stacked and at 0.755 beside). Introduced in #209 as the reversal of ADR-0028: the memory picture used to be drawn from an execution trace (a Java compile + JVM per diagram); <StepShow> takes author-written state and pairs it with a highlighted listing, at a fraction of the bundle. ' +
     'For memory specifically, use <MemoryVisual state={…}> inside each <Step> — it consumes a { frames, objects } state where references are values on the variables/fields themselves ({ kind: "ref", id }), never a top-level list (ADR-0049 §Decision-2). For other visuals (call stacks, trees, hash tables, sequence diagrams), drop any JSX inside a <Step> instead. ' +
-    'The listing is deliberately not syntax-coloured: an editor here would put CodeMirror in the bundle of every page that steps through anything, and the highlight is a per-line box rather than tokenised colour — nothing would be gained by paying the weight. ' +
+    "The listing is syntax-coloured — `<CodeStepper>` loads the language's grammar through `loadGrammar`, which is why StepShow registers behind a lazy wrapper — and the step highlight is a per-line box over it. A Java method written on its own colours too (#322: the grammar re-reads it as the members of a class). " +
     'Bounded by author judgement, not by a cap: the widget renders every <Step> child it finds, in order. Anything other than a <Step> child is ignored, so a stray paragraph does not derail the counter.',
   props: [
     {
@@ -50,7 +50,7 @@ export const stepShowCatalogEntry: CatalogEntry = {
       name: 'language',
       type: 'string',
       description:
-        'Informational label for the code (e.g. "java"). Not used for syntax colouring today; kept as a prop so a future highlighter can key on it without changing every consumer.',
+        'The language the listing is coloured as (e.g. "java"): a runtime id loads that grammar through `loadGrammar`, anything else falls back to Java (`CodeStepper.tsx`).',
     },
     {
       name: 'title',

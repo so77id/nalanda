@@ -309,8 +309,10 @@ and whether anything clips — the scale recipe is in
       structure is named there for the first time.
 - [ ] Beat 3's hand run is a drawing, with the values in it and in its
       caption; the prose states the rule and names none.
-- [ ] A listing with several moving parts is built a fragment per slide
-      before the full walk, and a helper that hides the idea is inlined.
+- [ ] A listing whose parts are steps of one algorithm is built a
+      fragment per slide before the full walk; a class whose methods call
+      each other is walked whole in one widget, `beside` its drawing when it
+      does not stack (§4); and a helper that hides the idea is inlined.
 - [ ] The worked exercises of a class climb easy → medium → hard, and
       nothing the reader sees names a level or counts the problems.
 - [ ] Every helper the listing calls is written and explained before the
@@ -350,6 +352,17 @@ and two posed (las rutas de los archivos, las carpetas grandes). Two of them
 carry the first programs longer than a slide shows whole — the widest level
 (38 lines) and the calculator (83) — each on its slide in a window of 32
 lines.
+
+`content/courses/sample-course/22-edd-arboles-ii.mdx` — three worked
+exercises (el ancestro común más bajo, un iterador para el árbol de
+búsqueda, la intersección de dos árboles de búsqueda) and three posed (el
+problema de Josefo con saltos grandes, un árbol de búsqueda de altura
+mínima, la verificación de un árbol de búsqueda). They added the class
+walked whole — the iterator's constructor, `pushLeft`, `hasNext` and `next`
+in one widget `beside` its tree and stack, after the professor rejected it
+split across two slides — and beat 3's hand runs drawn as one column per
+state (the pending stack after every `next`, the two inorders crossed one
+comparison at a time), the shape the heap class's Top-K strip set.
 
 **Its sibling for the question bank already exists**:
 [`write-control-questions.md`](write-control-questions.md) governs the

@@ -112,6 +112,14 @@ case: the deployed shape (#66).
    update every hit. Partial migrations make instruction consistency depend on
    which file an agent reads first.
 
+   **A worked case the PR resolves is kept and rewritten as how it ended**, in
+   the same PR — not deleted, and not left in the present tense. The case is
+   still the best example of the rule; what changes is that it now shows the
+   ending too, as `integration-guides.md` keeps its closed deferral "as the
+   example of how a not yet is supposed to end". #322 resolved the
+   stacked-copy case above and first left it describing two copies that no
+   longer existed (#322 review).
+
    **Retiring a course document has three surfaces, not one**, and the list above
    is only the first. Grep the retired id AND its filename across:
 
@@ -232,10 +240,14 @@ check (#147 review).
 **A copy that lives only on a stacked branch is named together with the issue
 that brings it.** The note on `main` then says what will exist and who brings
 it, so a reader who cannot find the file knows why, and dropping that branch
-is the one change that sweeps the note. Worked case: `BinaryPicture`, the
-figure `21-edd-arboles-i.mdx` copies from `sequenceStepperTreeLayout.ts`, has a
-second copy in `22-edd-arboles-ii.mdx`, which #322 — stacked on #321 — brings
-and promotes; both of #321's notes name #322 with it (#321 review).
+is the one change that sweeps the note. Worked case, and how it ended:
+`BinaryPicture`, the figure `21-edd-arboles-i.mdx` copied from
+`sequenceStepperTreeLayout.ts`, had a second copy in `22-edd-arboles-ii.mdx`
+on #322's branch, stacked on #321, and both of #321's notes named #322
+(#321 review). #322 promoted it to `components/media/BinaryPicture.tsx`,
+deleted both copies and their notes, and moved the shared geometry to
+`components/treeGeometry.ts`, where a test checks the figure against the
+widget.
 
 **A manual verification procedure states its steps in prose and its SETUP as a
 target the reader runs.** A prose command list for a procedure a human performs

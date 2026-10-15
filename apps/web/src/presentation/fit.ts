@@ -77,7 +77,10 @@ export const INITIAL_FIT: FitState = { last: null, applied: [] };
 
 /**
  * How recent a scale must be, in milliseconds, to count as the slide
- * answering its own scale. A slide that flips does it frame after frame; a
+ * answering its own scale. Two cases fall outside it, accepted (#322
+ * review, ADR-0013 §5.1): a panel opened and closed in under half a second
+ * keeps the smaller scale, and a flip slower than half a second never
+ * settles. A slide that flips does it frame after frame; a
  * reader opening and closing a panel («Ver solución», «Ocultar solución»)
  * brings back the same two heights seconds apart. Without the window that
  * click was taken for a flip and the slide stayed at the smaller scale while

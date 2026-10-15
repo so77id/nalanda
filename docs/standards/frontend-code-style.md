@@ -349,7 +349,7 @@ src/
   settled, not chased** (#322): what the deck remembers between
   measurements lives in the same pure module (`nextFit`), which ignores a
   content change of two pixels or less and, when a scale applied in the last
-  half second comes back, keeps the smaller one. The window is what tells a
+  half second comes back, keeps the smallest scale applied in that window. The window is what tells a
   flip, frame after frame, from a reader opening and closing a panel seconds
   apart — without it that click pinned the slide at its smaller scale.
 - **On a fitted slide, a frame sequence keeps one size from frame to frame.**

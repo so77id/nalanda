@@ -362,7 +362,16 @@ text ON `focus`, since contrast is a property of the pair: a visit's number
 was `ground` on a disc filled with the traversal's colour, 4.12:1 on
 preorder's, so every visit disc — in `BinaryPicture` and in Árboles I's
 `HierarchyPicture` — is now `surface`, ringed in the traversal's colour, with
-the digit in `ink`.
+the digit in `ink`. `HierarchyPicture`'s badges default to `ink-soft` too.
+
+**Known debt, outside the tree figures.** The rule holds product-wide, and
+these still paint text in `focus`, already published, left as they are by
+#322's review because repainting them changes every stepper on every page:
+the «qué está pasando» chip of every stepper (`stepperShell.tsx`, the
+`NarrationStrip`), the names of the walking cursors of `<SequenceStepper>`
+(`lo`, `mid`, `hi` among them), and labels of `<SortStepper>` and
+`<PartitionStepper>`. They converge together, in the follow-up issue #322's
+review opened; until then a new component does not copy them.
 
 ## The stepper chrome (#294)
 
