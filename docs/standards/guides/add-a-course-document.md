@@ -61,6 +61,7 @@ content/courses/sample-course/
 ├── 19-edd-stack-queue.mdx     # presentation: explicit, questions: pool (13) — <SequenceStepper> ×8 over BOTH families (dynamic-array + singly) + <StepShow> ×7 + <Exercise> ×4 + 20 standalone inline SVG figures + a file-local <Paso> frame component + two TDA cards
 ├── 20-edd-priority-queue-heap.mdx  # presentation: explicit, questions: pool (16) — <SequenceStepper eda="heap-max"> ×4 + <StepShow> ×3 + <Exercise> ×4 (three worked on slides, one posed) + <PresentationWide> ×3 + 23 file-local figure components and LIST_COLORS (§6e-quater) + a TDA card (the fifth copy)
 ├── 21-edd-arboles-i.mdx       # presentation: explicit, questions: pool (19) — opens the Estructuras de Datos Avanzadas unit, ahead of chapter 20 in index.yaml; <SequenceStepper eda="binary-tree"> ×5 (its worked case, ADR-0083) + <StepShow> ×12 + <SideBySide> ×3 + <Exercise> ×5 (three worked, each on its slide — the widest level's and the calculator's in a scrolling window, being longer than 32 lines — and two posed) + <PresentationWide> ×18 + eight file-local figure components (HierarchyPicture, TreeMemory, OrderRule, BinaryPicture, BinaryMemory, NodeGraph, TokenRow, StackRow); the search tree moved to Árboles II (#322)
+├── 23-edd-tablas-hash.mdx     # presentation: explicit, questions: none until #326's S15 — after chapter 20 in index.yaml, the hash table as a structure with no TDA card; <SequenceStepper eda="hash-chaining"> and eda="hash-probing" ×11 (their worked case, ADR-0084) + five file-local figure components (Casilleros, Reparto, Bits, Listas, Agregados)
 ├── tda-eda-invariante.svg, arreglo-memoria.svg, arreglo-alocacion.svg, arreglo-invariante-valido.svg, arreglo-invariantes.svg, regla-del-cuarto.svg, costo-acumulado.svg   # assets for chapter 17
 └── index.yaml                 # the ordered teaching path
 ```
@@ -864,6 +865,28 @@ refused, and the cap of eight counts nodes, not gaps. A value may also be a symb
 (`values={['*', '+', '−', 3, 4, 5, 1]}` is (3 + 4) * (5 − 1)); a symbol on
 any other recipe is refused too. `search` keeps one name over the chains
 and the tree.
+Since #326 there is also `hash-chaining` (ADR-0084): a hash table drawn as a
+contiguous strip — `table`, with its index — with the list of each position
+hanging under its cell, and four operations: the class's `contains`, `add`
+and `remove`, and `resize`, the method `add` calls when
+`size == table.length`. `search` and `insert` keep their names from the other
+recipes; `remove` and `resize` are valid on no other. `resize` draws the old
+table beside the new one, of `nextPrime(2 * capacity)` positions, and puts
+every key back through `add`, so it takes a `capacity` of at most five.
+`hash-probing` is the same set of keys with linear probing: `keys` and a
+parallel `deleted` drawn as two contiguous strips, the cursor `i` under them,
+and `search`, `insert` and `remove` — `remove` marks `deleted[i]` and leaves
+the key in its cell. The table keeps at least one cell empty, and
+`deleted={['Bea']}` starts it with marks, for a search that passes over one
+or an insertion that reuses one; `deleted` on any other recipe is refused. Its keys are TEXT: `values` is the keys
+already in the table, added in order, each at the front of the list of its
+position (`values={['Ana', 'Bea', 'Eva']}`), the key an operation works with
+is `target` (`search`, `remove`) or `value` (`insert`), and `capacity` is the
+number of positions, two to eleven (seven when it is left out). The position
+drawn is the class's own `hash(String key)`, pinned against the JVM. A number
+where a key goes is refused, and so is text on any other recipe. Several keys
+replay the same listing over the same table, with no calling program, as on
+the tree.
 `values` is the starting contents; `value` feeds the inserts, `index` the
 positional operations (`get-at` included), and `target` both `search` and
 `insert-ordered`.
@@ -883,8 +906,8 @@ length instead of being told it does. `insert-at` needs one `index` per
 
 The widget's own chrome carries a speed selector and, in the corner of the
 structure panel, two readouts: the live `size` (`n` on the heap, the name its
-listing uses) and the `capacidad` on the dynamic array and the heap. The tree
-gets neither: its listings have no size field to show (ADR-0083,
+listing uses; the keys on the two hash tables, not counting a marked one) and the `capacidad` on
+the dynamic array and the heap. The tree gets neither: its listings have no size field to show (ADR-0083,
 ADR-0074 §Amended by — #321). The
 elementary-operation count is not on screen: #294 took it off, because one
 run shows one number and one number is not a growth rate. Neither readout is
@@ -928,10 +951,14 @@ Six things worth knowing before you write one:
   | `linked-list-circular` | `insert-first`                                                                          |
   | `heap-max`             | `insert`, `extract-max` (y ninguna otra receta acepta estas dos)                        |
   | `binary-tree`          | `preorder`, `inorder`, `postorder`, `height` (y ninguna otra receta acepta estas cuatro), y `search` |
+  | `hash-chaining`        | `search`, `insert`, `remove`, `resize` (ninguna otra receta acepta `resize`)            |
+  | `hash-probing`         | `search`, `insert`, `remove` (`remove` solo lo aceptan las dos tablas hash)              |
 
   Anything else is an `<AuthoringError>` naming the operations that recipe does
   have; a heap operation on a Sequence recipe is refused pointing at
-  `eda="heap-max"`, and a tree operation pointing at `eda="binary-tree"`.
+  `eda="heap-max"`, a tree operation pointing at `eda="binary-tree"`, and
+  `remove` pointing at the two hash tables and `resize` at
+  `eda="hash-chaining"`.
   Ask for one it does not and the answer tells you which to
   use instead.
 
@@ -941,8 +968,8 @@ Six things worth knowing before you write one:
   argument. A removal is checked against the structure as the runs before it
   left it, so three `pop` over two elements is refused at boot.
 - **`method` and `receiver` show the listing under the document's own
-  names** — on the chains and the heap; `binary-tree` has no calling program
-  to rename, and ignores them. A class that has just taught `pop` =
+  names** — on the chains and the heap; `binary-tree` and the two hash
+  tables have no calling program to rename, and ignore them. A class that has just taught `pop` =
   `deleteFirst` and then mounts
   the widget gets a listing saying `deleteFirst`, three times, over a
   variable called `list` — the pila's own method, wearing the chain's name.

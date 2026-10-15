@@ -25,6 +25,8 @@
  *   first rather than at `null`.
  */
 
+import { traceHash } from './sequenceStepperHashTrace';
+import { traceProbe } from './sequenceStepperProbeTrace';
 import { asRuns, lineOf, requireRuns } from './sequenceStepperTraceShared';
 import { traceTree } from './sequenceStepperTreeTrace';
 
@@ -42,6 +44,15 @@ export const RECIPES = [
   // every node in the column of its inorder position. It has no order, so its
   // operations visit. Same widget, same frame model plus a tree.
   'binary-tree',
+  // A hash table with one list per position (#326): `table[i]` is the first
+  // node of the list of position `i`, and every key lives in the list of the
+  // position its hash names. Its keys are text, and its operations are the
+  // ones a set of keys needs: search, insert, remove.
+  'hash-chaining',
+  // The same set of keys with linear probing (#326): the keys live in the
+  // array itself, a taken cell sends a key to the next one, and a parallel
+  // `boolean[] deleted` marks a removed key so a search passes over it.
+  'hash-probing',
 ] as const;
 export type SequenceRecipe = (typeof RECIPES)[number];
 
@@ -66,6 +77,13 @@ export const OPERATIONS = [
   'inorder',
   'postorder',
   'height',
+  // The hash table's (#326): take a key out, wherever its list keeps it.
+  // `search` and `insert` above are shared with it — one name per idea across
+  // the recipes, as `search` already is between the chains and the tree.
+  'remove',
+  // The hash table's too: a new table of more positions, every key put back
+  // in through `add`, because the position a key hashes to depends on them.
+  'resize',
 ] as const;
 export type SequenceOperation = (typeof OPERATIONS)[number];
 
@@ -142,6 +160,82 @@ export interface TreeFrame {
    * for the one frame it runs.
    */
   probe?: { parent: number; side: 'left' | 'right' };
+}
+
+/** One node of a list of the hash table: its key and its paint. */
+export interface HashFrameNode {
+  id: number;
+  key: string;
+  state: SequenceCellState;
+}
+
+/**
+ * The hash table as one frame leaves it (#326): one list per position of
+ * `table`, its first node first. `bucket` is the position the hash of `key`
+ * named — `null` until the line that computes it runs.
+ */
+export interface HashFrame {
+  chains: HashFrameNode[][];
+  key: string;
+  bucket: number | null;
+  /** The listing's `size` field, which `resize` sets back to 0 and counts again. */
+  size: number;
+  /**
+   * The references the listing holds into a list — `current`, `prev` — by
+   * node id; `null` when it points at null, past the end of the list. `old`
+   * marks one that walks the old table during `resize`.
+   */
+  pointers: { name: string; node: number | null; old?: boolean }[];
+  /**
+   * `resize` only: the table `old` names. `aliased` while `table` still
+   * names it too — the frame between `old = table` and the new array.
+   * `bucket` is the position of `old` the loop is reading.
+   */
+  old?: { chains: HashFrameNode[][]; bucket: number | null; aliased: boolean };
+  /**
+   * `add` only: the node built and not yet in its list. `next` is the id it
+   * points at, `null` for null, and absent while the field is unassigned;
+   * `held` once `table[i]` points at it, the frame before it takes its place.
+   */
+  fresh?: { id: number; key: string; next?: number | null; held: boolean };
+  /**
+   * `remove` only: the link that skips the leaving node — from the node at
+   * `from` in the list of `bucket`, or from `table[bucket]` itself when
+   * `from` is null. Drawn for the one frame between the assignment and
+   * `size--`, while the leaving node is still on screen.
+   */
+  bypass?: { bucket: number; from: number | null };
+}
+
+/**
+ * What a hash run needs to keep one canvas: its positions, its longest list
+ * and — for `resize` — the positions of the old table drawn beside the new.
+ */
+export interface HashRun {
+  buckets: number;
+  longest: number;
+  oldBuckets?: number;
+}
+
+/** One cell of the probing table: the key in `keys[i]` (null if none ever was) and `deleted[i]`. */
+export interface ProbeCell {
+  key: string | null;
+  deleted: boolean;
+  state: SequenceCellState;
+}
+
+/**
+ * The probing table as one frame leaves it (#326): `keys` and `deleted` cell
+ * by cell. `home` is the position the hash of `key` named, and `at` the
+ * listing's cursor `i` — both null until the line that sets them runs.
+ */
+export interface ProbeFrame {
+  cells: ProbeCell[];
+  key: string;
+  home: number | null;
+  at: number | null;
+  /** The listing's `size`: the keys not marked. */
+  size: number;
 }
 
 export interface SequenceCell {
@@ -241,6 +335,10 @@ export interface SequenceStep {
   cost: number;
   /** Tree recipes only: the tree this frame leaves. `cells` mirrors its nodes. */
   tree?: TreeFrame;
+  /** The hash recipe only: the table this frame leaves. `cells` mirrors its keys. */
+  hash?: HashFrame;
+  /** The probing recipe only: `keys` and `deleted` as this frame leaves them. */
+  probe?: ProbeFrame;
 }
 
 export interface SequenceTrace {
@@ -268,6 +366,10 @@ export interface SequenceTrace {
   hasCarry: boolean;
   /** Tree recipes only: what the whole run needs to keep one canvas. */
   tree?: TreeRun;
+  /** The hash recipe only: what the whole run needs to keep one canvas. */
+  hash?: HashRun;
+  /** The probing recipe only: its positions. */
+  probe?: { buckets: number };
 }
 
 /**
@@ -295,6 +397,23 @@ export interface SequenceInput {
    * built by inserting, so its shape has to be written out.
    */
   levelOrder?: (TreeValue | null)[];
+  /**
+   * The hash recipe only: the keys already in the table, added in this order,
+   * each at the front of the list of its position. Keys are text — the class's
+   * table holds `String`s — so they travel apart from the numeric `values`.
+   */
+  keys?: string[];
+  /**
+   * The hash recipe only: the key the operation works with. An ARRAY runs it
+   * once per key over the same table. The component reads it from `target`
+   * (search, remove) or `value` (insert), the props every recipe uses.
+   */
+  key?: string | string[];
+  /**
+   * `hash-probing` only: keys of `keys` that were removed — each stays in its
+   * cell with `deleted[i]` set, so a slide can start from a table with marks.
+   */
+  deleted?: string[];
   /**
    * Required by every `insert-*` except `insert-ordered`, and by the heap's
    * `insert`. An ARRAY inserts
@@ -418,11 +537,41 @@ export function isBinaryTreeOperation(
   return BINARY_TREE_OPERATIONS.includes(operation);
 }
 
+/**
+ * What `hash-chaining` has a listing for (#326): the three operations of a
+ * set of keys, as `contains`, `add` and `remove`, and the `resize` that `add`
+ * calls when the table is full. `search` and `insert` share their names with
+ * the other recipes; `remove` and `resize` are the table's alone.
+ */
+const HASH_CHAINING_OPERATION_NAMES = ['search', 'insert', 'remove', 'resize'] as const;
+export type HashChainingOperation = (typeof HASH_CHAINING_OPERATION_NAMES)[number];
+export const HASH_CHAINING_OPERATIONS: readonly SequenceOperation[] = HASH_CHAINING_OPERATION_NAMES;
+
+export function isHashChainingOperation(
+  operation: SequenceOperation,
+): operation is HashChainingOperation {
+  return HASH_CHAINING_OPERATIONS.includes(operation);
+}
+
+/** What `hash-probing` has a listing for (#326): `contains`, `add` and `remove`. */
+const HASH_PROBING_OPERATION_NAMES = ['search', 'insert', 'remove'] as const;
+export type HashProbingOperation = (typeof HASH_PROBING_OPERATION_NAMES)[number];
+export const HASH_PROBING_OPERATIONS: readonly SequenceOperation[] = HASH_PROBING_OPERATION_NAMES;
+
+export function isHashProbingOperation(
+  operation: SequenceOperation,
+): operation is HashProbingOperation {
+  return HASH_PROBING_OPERATIONS.includes(operation);
+}
+
 export function isValidCombination(
   recipe: SequenceRecipe,
   operation: SequenceOperation,
   tail = false,
 ): boolean {
+  if (recipe === 'hash-chaining') return HASH_CHAINING_OPERATIONS.includes(operation);
+  if (recipe === 'hash-probing') return HASH_PROBING_OPERATIONS.includes(operation);
+  if (operation === 'remove' || operation === 'resize') return false;
   const heapOperation = HEAP_OPERATIONS.includes(operation);
   if (recipe === 'heap-max') return heapOperation;
   if (recipe === 'binary-tree') return BINARY_TREE_OPERATIONS.includes(operation);
@@ -449,6 +598,12 @@ export function traceFor(
   if (recipe === 'heap-max') return traceHeap(operation, input);
   if (recipe === 'binary-tree' && isBinaryTreeOperation(operation)) {
     return traceTree(operation, input);
+  }
+  if (recipe === 'hash-chaining' && isHashChainingOperation(operation)) {
+    return traceHash(operation, input);
+  }
+  if (recipe === 'hash-probing' && isHashProbingOperation(operation)) {
+    return traceProbe(operation, input);
   }
   return isList(recipe) ? traceList(recipe, operation, input) : traceArray(operation, input);
 }
@@ -540,12 +695,17 @@ const METHOD_NAME: Record<SequenceOperation, string> = {
   inorder: 'inorder',
   postorder: 'postorder',
   height: 'height',
+  remove: 'remove',
+  resize: 'resize',
 };
 
 // ── the array family ──────────────────────────────────────────────────────
 
 /** The operations the dynamic array has a listing for. */
-type ArrayOperation = Exclude<SequenceOperation, 'insert-ordered' | HeapOperation | TreeOperation>;
+type ArrayOperation = Exclude<
+  SequenceOperation,
+  'insert-ordered' | HeapOperation | TreeOperation | 'remove' | 'resize'
+>;
 
 const ARRAY_CODE: Record<ArrayOperation, string> = {
   'get-at': `int getAt(int i) {
@@ -1020,6 +1180,10 @@ function runArgs(operation: SequenceOperation, input: SequenceInput): string[] {
     case 'postorder':
     case 'height':
       return [];
+    // The hash table drives no program of its own: its key is the run.
+    case 'remove':
+    case 'resize':
+      return [];
   }
 }
 
@@ -1265,6 +1429,9 @@ function listCode(recipe: SequenceRecipe, operation: SequenceOperation, tail: bo
     case 'postorder':
     case 'height':
       throw new Error(`«${operation}» es una operación de árbol, no de una lista.`);
+    case 'remove':
+    case 'resize':
+      throw new Error(`«${operation}» es una operación de la tabla hash, no de una lista.`);
   }
 }
 

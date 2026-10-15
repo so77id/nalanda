@@ -7,13 +7,13 @@ export const sequenceStepperCatalogEntry: CatalogEntry = {
   name: 'SequenceStepper',
   family: 'interactive',
   description:
-    'One step-through widget for the whole Sequence family. `eda` picks the structure it draws — a dynamic array, or a singly / doubly / circular linked list — and `operation` picks the animation it replays over it. Code panel on top, the structure as a hand-written SVG below, narration and controls at the foot; the surface is identical across all combinations, so the reader learns one visual vocabulary and reads every structure of the unit through it. ADR-0074. Since #304 it also draws a binary max-heap (`heap-max`, ADR-0077): the same array as the complete binary tree it encodes and as `data[0..]`, side by side on a slide and stacked in the book. Since #321 it draws a linked binary tree (`binary-tree`): every node in the column of its inorder position, with a strip underneath that a traversal fills one visit at a time — so the inorder lands under its own nodes and the other two orders visibly do not.',
+    'One step-through widget for the whole Sequence family. `eda` picks the structure it draws — a dynamic array, or a singly / doubly / circular linked list — and `operation` picks the animation it replays over it. Code panel on top, the structure as a hand-written SVG below, narration and controls at the foot; the surface is identical across all combinations, so the reader learns one visual vocabulary and reads every structure of the unit through it. ADR-0074. Since #304 it also draws a binary max-heap (`heap-max`, ADR-0077): the same array as the complete binary tree it encodes and as `data[0..]`, side by side on a slide and stacked in the book. Since #321 it draws a linked binary tree (`binary-tree`): every node in the column of its inorder position, with a strip underneath that a traversal fills one visit at a time — so the inorder lands under its own nodes and the other two orders visibly do not. Since #326 it draws the two hash tables (ADR-0084). With a list per position (`hash-chaining`): `table` as a contiguous strip with its index, each position\'s list hanging under its cell, and the position the hash of the key names outlined under a chip that reads `hash("Ana") = 4` — the class\'s own hash, pinned against the JVM. With linear probing (`hash-probing`): `keys` and `deleted` as two contiguous strips, a removed key struck through over `true`, and the cursor `i` walking under them.',
   whenToUse:
-    'When a class of the Estructuras de Datos or the Estructuras de Datos Avanzadas unit shows an operation running over a sequence structure, `insert` / `extract-max` running over a binary max-heap (`heap-max`), or a traversal, the height or a search over a linked binary tree (`binary-tree`) — and especially when it shows the SAME operation over two structures to contrast their cost, which is two nearly identical tags. Not for sorting algorithms (`<SortStepper>`) and not for hand-authored memory pictures (`<StepShow>` + `<MemoryVisual>`).',
+    'When a class of the Estructuras de Datos or the Estructuras de Datos Avanzadas unit shows an operation running over a sequence structure, `insert` / `extract-max` running over a binary max-heap (`heap-max`), a traversal, the height or a search over a linked binary tree (`binary-tree`), or `contains`, `add` or `remove` over a hash table with chaining (`hash-chaining`) or with linear probing (`hash-probing`) — and especially when it shows the SAME operation over two structures to contrast their cost, which is two nearly identical tags. Not for sorting algorithms (`<SortStepper>`) and not for hand-authored memory pictures (`<StepShow>` + `<MemoryVisual>`).',
   props: [
     {
       name: 'eda',
-      type: '"dynamic-array" | "linked-list-singly" | "linked-list-doubly" | "linked-list-circular" | "heap-max" | "binary-tree"',
+      type: '"dynamic-array" | "linked-list-singly" | "linked-list-doubly" | "linked-list-circular" | "heap-max" | "binary-tree" | "hash-chaining" | "hash-probing"',
       description:
         'Required. The recipe: which structure is drawn, and which Java listing is shown beside it.',
     },
@@ -21,19 +21,19 @@ export const sequenceStepperCatalogEntry: CatalogEntry = {
       name: 'operation',
       type: '"get-at" | "insert-first" | "insert-last" | "insert-at" | "insert-ordered" | "remove-first" | "remove-last" | "remove-at" | "search" | "insert" | "extract-max" | "preorder" | "inorder" | "postorder" | "height"',
       description:
-        'Required. Which operation to animate. `dynamic-array` and `linked-list-singly` accept all nine (bar `insert-ordered` on the dynamic array — the ordered array is not a structure this unit presents). The two VARIANT recipes accept only the operations they have a Java listing FOR, because the widget shows code a student may copy: `linked-list-circular` accepts `insert-first` alone — its listing closes the ring again, and walks to do it — and `linked-list-doubly` accepts `get-at`, `search`, `insert-first`, `remove-first`, and `remove-last` only with `tail`. `heap-max` accepts exactly its own two — `insert` (swim, growing the block like the dynamic array; `value` may be an array) and `extract-max` (sink, then `shrinkIfSparse`; `times` repeats it) — and those two are valid on no other recipe. `binary-tree` accepts the three traversals (`preorder`, `inorder`, `postorder`), `height` — none of the four valid on any other recipe — and `search`, which visits until the value turns up. `search` thus keeps one name over the chains and the tree. Anything else renders an `<AuthoringError>` naming the operations that recipe does have.',
+        "Required. Which operation to animate. `dynamic-array` and `linked-list-singly` accept all nine (bar `insert-ordered` on the dynamic array — the ordered array is not a structure this unit presents). The two VARIANT recipes accept only the operations they have a Java listing FOR, because the widget shows code a student may copy: `linked-list-circular` accepts `insert-first` alone — its listing closes the ring again, and walks to do it — and `linked-list-doubly` accepts `get-at`, `search`, `insert-first`, `remove-first`, and `remove-last` only with `tail`. `heap-max` accepts exactly its own two — `insert` (swim, growing the block like the dynamic array; `value` may be an array) and `extract-max` (sink, then `shrinkIfSparse`; `times` repeats it) — and those two are valid on no other recipe. `binary-tree` accepts the three traversals (`preorder`, `inorder`, `postorder`), `height` — none of the four valid on any other recipe — and `search`, which visits until the value turns up. `search` thus keeps one name over the chains and the tree. `hash-chaining` accepts `search`, `insert` and `remove` — the class's `contains`, `add` and `remove` — and `resize`, the method `add` calls when `size == table.length`: a new array of `nextPrime(2 * table.length)` positions, drawn to the right of the old one, and every key put back through `add`; `hash-probing` accepts `search`, `insert` and `remove` — the class's `contains`, `add` and `remove` over `keys` and a parallel `boolean[] deleted`. `remove` is valid on the two hash tables only, `resize` on `hash-chaining` only. Anything else renders an `<AuthoringError>` naming the operations that recipe does have.",
     },
     {
       name: 'values',
       type: '(number | string | null)[]',
       description:
-        "Required. The starting contents in reading order. Up to 8; beyond that the nodes stop being legible when projected. May be empty for the insert operations that need no existing element: `insert-first`, `insert-last`, and `insert` on `heap-max`, which then starts at `new int[2]`. On `heap-max` it must already be a max-heap. On `binary-tree` it is the tree in LEVEL ORDER, `null` where a child is missing — `[3, 9, 1, 4, 7, null, 6]` is 3 over 9 and 1, 9 over 4 and 7, 1 over a lone right child 6 — and a `null` has no children written: the entries after it belong to the next node still waiting, so `[1, 2, null, 3, 4, null, null, 5]` hangs 5 under 4, not under 3 as the heap's numbering would. A value with no parent is refused, and so are gaps left over at the end. The cap counts nodes, not gaps. A value on `binary-tree` may also be a symbol, so an expression tree keeps its operators: `['*', '+', '−', 3, 4, 5, 1]` is (3 + 4) * (5 − 1). A `null` or a symbol on any other recipe is an authoring error.",
+        "Required. The starting contents in reading order. Up to 8; beyond that the nodes stop being legible when projected. May be empty for the insert operations that need no existing element: `insert-first`, `insert-last`, and `insert` on `heap-max`, which then starts at `new int[2]`. On `heap-max` it must already be a max-heap. On `binary-tree` it is the tree in LEVEL ORDER, `null` where a child is missing — `[3, 9, 1, 4, 7, null, 6]` is 3 over 9 and 1, 9 over 4 and 7, 1 over a lone right child 6 — and a `null` has no children written: the entries after it belong to the next node still waiting, so `[1, 2, null, 3, 4, null, null, 5]` hangs 5 under 4, not under 3 as the heap's numbering would. A value with no parent is refused, and so are gaps left over at the end. The cap counts nodes, not gaps. A value on `binary-tree` may also be a symbol, so an expression tree keeps its operators: `['*', '+', '−', 3, 4, 5, 1]` is (3 + 4) * (5 − 1). A `null` or a symbol on any other recipe is an authoring error. On `hash-chaining` it is the KEYS already in the table, text, added in order — each at the front of the list of its position: `['Ana', 'Bea', 'Eva']`; a key written twice is refused, and so is a number. On `hash-probing` it is the keys too, each placed in the first free cell from its hash on, and the table keeps at least one cell empty — a search for a key that is not there stops at the first null, and without one it would never stop.",
     },
     {
       name: 'value',
-      type: 'number | number[]',
+      type: 'number | string | (number | string)[]',
       description:
-        'The value inserted. Required by `insert-first`, `insert-last` and `insert-at`, and by `insert` on `heap-max`. An ARRAY inserts each value in turn over the same chain, so a slide can show the list growing — `value={[9, 4, 6]}` runs three insertions end to end. `insert-first` and `insert-last` also accept `values={[]}`: a chain built from nothing shows the empty-chain branch taken once and, at the back, the walk getting one hop longer every time. `insert-at` needs one `index` per value.',
+        'The value inserted. Required by `insert-first`, `insert-last` and `insert-at`, and by `insert` on `heap-max`. An ARRAY inserts each value in turn over the same chain, so a slide can show the list growing — `value={[9, 4, 6]}` runs three insertions end to end. `insert-first` and `insert-last` also accept `values={[]}`: a chain built from nothing shows the empty-chain branch taken once and, at the back, the walk getting one hop longer every time. `insert-at` needs one `index` per value. On `hash-chaining` it is the KEY `insert` adds, text (`value="Teo"`); a key already there is refused by `add` itself, which returns false and leaves the table as it was.',
     },
     {
       name: 'index',
@@ -43,9 +43,15 @@ export const sequenceStepperCatalogEntry: CatalogEntry = {
     },
     {
       name: 'target',
-      type: 'number | number[]',
+      type: 'number | string | (number | string)[]',
       description:
-        'The value looked for. Required by `search` and by `insert-ordered`, which also refuses a starting list that is not already sorted. An ARRAY searches each in turn — the hit at the front, the hit at the back and the value that is not there, in one widget.',
+        'The value looked for. Required by `search` and by `insert-ordered`, which also refuses a starting list that is not already sorted. An ARRAY searches each in turn — the hit at the front, the hit at the back and the value that is not there, in one widget. On `hash-chaining` it is the KEY `search` and `remove` work with, text (`target="Ana"`); text on any other recipe is refused.',
+    },
+    {
+      name: 'deleted',
+      type: 'string[]',
+      description:
+        '`hash-probing` only. Keys of `values` that were removed: each stays in its cell with `deleted[i]` set, struck through, `true` under it — so a slide can start from a table with marks and show a search passing over one or an insertion reusing it. A key not in `values` is refused, and so is `deleted` on any other recipe.',
     },
     {
       name: 'times',
@@ -57,7 +63,7 @@ export const sequenceStepperCatalogEntry: CatalogEntry = {
       name: 'capacity',
       type: 'number',
       description:
-        '`dynamic-array` and `heap-max` only. On `dynamic-array` it is the block reserved, drawn as free slots past the live elements (one too small for `values` is refused at boot), and it is where the resize falls: the default starts the block FULL so that a single insertion shows the growth, and a slide running several insertions passes a larger one to choose WHICH of them pays for it. The drawing shows the block the current frame has, so filling and doubling happen on screen. On `heap-max` it is `data.length`, slot 0 included (so at least `values.length + 1`), and it defaults to full exactly as on `dynamic-array`.',
+        '`dynamic-array`, `heap-max` and `hash-chaining`. On `hash-chaining` it is `table.length`, the number of positions — two to eleven, seven when left out; `resize` grows it to the first prime after twice it, so it takes at most five. On `dynamic-array` it is the block reserved, drawn as free slots past the live elements (one too small for `values` is refused at boot), and it is where the resize falls: the default starts the block FULL so that a single insertion shows the growth, and a slide running several insertions passes a larger one to choose WHICH of them pays for it. The drawing shows the block the current frame has, so filling and doubling happen on screen. On `heap-max` it is `data.length`, slot 0 included (so at least `values.length + 1`), and it defaults to full exactly as on `dynamic-array`.',
     },
     {
       name: 'method',
@@ -343,6 +349,128 @@ export const sequenceStepperCatalogEntry: CatalogEntry = {
           operation="search"
           values={[4, 2, 7, 1, 3, 6, 9]}
           target={6}
+        />
+      ),
+    },
+    {
+      title:
+        'A hash table with chaining: the search goes straight to one list and compares only there',
+      code: "<SequenceStepper eda=\"hash-chaining\" operation=\"search\" values={['Ana', 'Bea', 'Eva', 'Leo', 'Sara', 'Juan']} target=\"Ana\" capacity={7} />",
+      render: () => (
+        <SequenceStepper
+          eda="hash-chaining"
+          operation="search"
+          values={['Ana', 'Bea', 'Eva', 'Leo', 'Sara', 'Juan']}
+          target="Ana"
+          capacity={7}
+        />
+      ),
+    },
+    {
+      title: 'Adding a key: contains first, then a node built apart and linked in at the front',
+      code: "<SequenceStepper eda=\"hash-chaining\" operation=\"insert\" values={['Ana', 'Bea', 'Eva', 'Leo', 'Sara', 'Juan']} value=\"Teo\" capacity={7} />",
+      render: () => (
+        <SequenceStepper
+          eda="hash-chaining"
+          operation="insert"
+          values={['Ana', 'Bea', 'Eva', 'Leo', 'Sara', 'Juan']}
+          value="Teo"
+          capacity={7}
+        />
+      ),
+    },
+    {
+      title:
+        'Removing a key further along its list, through prev, with no node of its own in front',
+      code: "<SequenceStepper eda=\"hash-chaining\" operation=\"remove\" values={['Ana', 'Bea', 'Eva', 'Leo', 'Sara', 'Juan']} target=\"Ana\" capacity={7} />",
+      render: () => (
+        <SequenceStepper
+          eda="hash-chaining"
+          operation="remove"
+          values={['Ana', 'Bea', 'Eva', 'Leo', 'Sara', 'Juan']}
+          target="Ana"
+          capacity={7}
+        />
+      ),
+    },
+    {
+      title:
+        'Resizing a full table: a new array of the next prime after twice the positions, every key back in through add',
+      code: "<SequenceStepper eda=\"hash-chaining\" operation=\"resize\" values={['Ana', 'Bea', 'Eva']} capacity={3} />",
+      render: () => (
+        <SequenceStepper
+          eda="hash-chaining"
+          operation="resize"
+          values={['Ana', 'Bea', 'Eva']}
+          capacity={3}
+        />
+      ),
+    },
+    {
+      title: 'Linear probing: a key that collides takes the next free cell, and a cluster grows',
+      code: "<SequenceStepper eda=\"hash-probing\" operation=\"insert\" values={['Ana', 'Bea', 'Leo', 'Olga', 'Tomas']} value=\"Eva\" capacity={11} />",
+      render: () => (
+        <SequenceStepper
+          eda="hash-probing"
+          operation="insert"
+          values={['Ana', 'Bea', 'Leo', 'Olga', 'Tomas']}
+          value="Eva"
+          capacity={11}
+        />
+      ),
+    },
+    {
+      title:
+        'Searching with linear probing: it stops at the first empty cell, after the whole cluster',
+      code: "<SequenceStepper eda=\"hash-probing\" operation=\"search\" values={['Ana', 'Bea', 'Leo', 'Olga', 'Tomas']} target=\"Lia\" capacity={11} />",
+      render: () => (
+        <SequenceStepper
+          eda="hash-probing"
+          operation="search"
+          values={['Ana', 'Bea', 'Leo', 'Olga', 'Tomas']}
+          target="Lia"
+          capacity={11}
+        />
+      ),
+    },
+    {
+      title: 'Removing with linear probing: the key is marked in deleted, never emptied',
+      code: "<SequenceStepper eda=\"hash-probing\" operation=\"remove\" values={['Ana', 'Bea', 'Leo', 'Olga', 'Tomas']} target=\"Bea\" capacity={11} />",
+      render: () => (
+        <SequenceStepper
+          eda="hash-probing"
+          operation="remove"
+          values={['Ana', 'Bea', 'Leo', 'Olga', 'Tomas']}
+          target="Bea"
+          capacity={11}
+        />
+      ),
+    },
+    {
+      title: 'A search passes over a mark: the key may be after it',
+      code: "<SequenceStepper eda=\"hash-probing\" operation=\"search\" values={['Ana', 'Bea', 'Eva', 'Leo', 'Olga', 'Tomas']} target=\"Eva\" deleted={['Bea']} capacity={11} />",
+      render: () => (
+        <SequenceStepper
+          eda="hash-probing"
+          operation="search"
+          values={['Ana', 'Bea', 'Eva', 'Leo', 'Olga', 'Tomas']}
+          target="Eva"
+          deleted={['Bea']}
+          capacity={11}
+        />
+      ),
+    },
+    {
+      title: 'An insertion reuses a marked cell, after contains has walked past it',
+      code: "<SequenceStepper eda=\"hash-probing\" operation=\"insert\" values={['Ana', 'Bea', 'Leo', 'Olga', 'Tomas']} value=\"Eva\" deleted={['Bea']} capacity={11} />",
+      render: () => (
+        <SequenceStepper
+          eda="hash-probing"
+          operation="insert"
+          values={['Ana', 'Bea', 'Leo', 'Olga', 'Tomas']}
+          value="Eva"
+          deleted={['Bea']}
+          capacity={11}
         />
       ),
     },
