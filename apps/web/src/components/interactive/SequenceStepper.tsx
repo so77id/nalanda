@@ -304,7 +304,9 @@ const AVL_LEGEND: Record<AvlOperation, [string, string][]> = {
     ['border-rule bg-sunk', 'sale'],
     ['border-mark bg-mark-soft', 'toma un valor'],
     ['border-focus bg-surface', 'se rebalancea'],
-    ['border-accent bg-surface', 'rotan'],
+    // One colour, two moments: the successor before the copy, the rotation
+    // on the way back; the successor's badge tells them apart (#322 review).
+    ['border-accent bg-surface', 'sucesor o rotan'],
   ],
 };
 
@@ -347,8 +349,8 @@ function readValues(key: string): { values: number[]; levelOrder?: (TreeValue | 
 
 /**
  * `<SequenceStepper>` — the step-through widget of the Estructuras de Datos
- * and Estructuras de Datos Avanzadas units (ADR-0074, extended by ADR-0077
- * and ADR-0083).
+ * and Estructuras de Datos Avanzadas units (ADR-0074, extended by ADR-0077,
+ * ADR-0083 and ADR-0086).
  *
  * One widget, two props that pick what it shows: `eda` selects the structure
  * (a dynamic array, a singly / doubly / circular list, a binary max-heap or a

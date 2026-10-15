@@ -37,7 +37,7 @@ cada elemento tiene a lo más un siguiente. Muchos datos no tienen esa forma.
 {/* minWidth gives figures set side by side one canvas width, so their boxes and text come out the same size; the tree is centred in it. compact and size fit a frame of a step-through, whose box has a fixed height. A node toned "hidden" is not drawn, nor its edge, but keeps its place: a tree built node by node grows in the positions it will end in, and nothing moves between frames. fresh names the node just added; its edge is drawn in the mark colour. */}
 {/* The drawings of an order, each in its own colour, and each told by its arrows and numbers, never by colour alone. flow puts an arrowhead on every edge — "down" (focus) for what a node takes from its parent, "up" (mark) for what it takes from its children. visits numbers the nodes in "pre" (focus) or "post" (mark) order and draws an arrow from every visit to the next: along the edge when the next is a child or the parent, dashed when the walk jumps to another branch. reading numbers them level by level (keep) and draws each level as a line read left to right, with the return to the next. strip writes the sequence under the tree, the order a program would print it in. */}
 
-export function HierarchyPicture({ tree, tones = {}, badges = {}, notes = {}, numbers = {}, path = [], levels = false, queue, caption, minWidth = 0, flow, visits, reading = false, strip = false, badgeColor = 'var(--color-focus)', numbersColor = 'var(--color-keep)', compact = false, size = 1, fresh, ruler, edgeLabels = {}, levelNotes, queueTone = 'mark', label }) {
+export function HierarchyPicture({ tree, tones = {}, badges = {}, notes = {}, numbers = {}, path = [], levels = false, queue, caption, minWidth = 0, flow, visits, reading = false, strip = false, badgeColor = 'var(--color-ink-soft)', numbersColor = 'var(--color-keep)', compact = false, size = 1, fresh, ruler, edgeLabels = {}, levelNotes, queueTone = 'mark', label }) {
   const boxH = 26;
   const levelH = compact ? 50 : 64;
   const padX = reading ? 22 : 12;
@@ -114,7 +114,7 @@ export function HierarchyPicture({ tree, tones = {}, badges = {}, notes = {}, nu
   const head = (x, y, angle, color, key) => (
     <polygon key={key} points="0,0 -8,-4.5 -8,4.5" transform={`translate(${x} ${y}) rotate(${angle})`} style={{ fill: color }} />
   );
-  // A visit's number on a disc ringed in the traversal's colour, the digit in ink, as <BinaryPicture> draws it: filled with preorder's focus, the digit held 4.12:1 in light (#322 review; design-system.md §The tree figures' palette).
+  // A visit's number on a disc ringed in the traversal's colour, the digit in ink, as <BinaryPicture> draws it. A disc FILLED with the colour held the digit at 4.12:1 on preorder's focus in light (#322 review; design-system.md §The tree figures' palette).
   const dot = (x, y, k, color, key) => (
     <g key={key}>
       <circle cx={x} cy={y} r="9" strokeWidth="2" style={{ fill: 'var(--color-surface)', stroke: color }} />

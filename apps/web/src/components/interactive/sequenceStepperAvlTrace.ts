@@ -312,7 +312,7 @@ function traceRotation(direction: Side, input: SequenceInput): SequenceTrace {
   return finish(rec, code, columns, slots, true);
 }
 
-// ── the double rotation: two simple ones, one frame per call ─────────────
+// ── the double rotation: two simple ones, each walked an assignment at a time ─
 
 /**
  * A double rotation as its method writes it (#322): two calls, the child
@@ -583,13 +583,16 @@ const rotationName = (heavy: Side, double: boolean): string =>
  */
 function avlRecorder(code: string, avl: Avl, strip: () => (TreeValue | null)[]) {
   const rec = new TreeRecorder(code, () => avl.root, strip);
+  // A name a frame gives a node instead of its factor: the successor's.
+  const names = new Map<number, string>();
   const push = (...args: Parameters<TreeRecorder['push']>) => {
     rec.badge.clear();
     for (const { node } of nodesOf(avl.root))
       rec.badge.set(node.id, signedFactor(factorIn(avl, node)));
+    for (const [id, name] of names) rec.badge.set(id, name);
     rec.push(...args);
   };
-  return { rec, push };
+  return { rec, push, names };
 }
 
 /**
@@ -898,7 +901,7 @@ function traceAvlRemove(input: SequenceInput): SequenceTrace {
   const slots = new Set(input.values).size;
   const { avl } = avlOf(input.values, columnsFor(input.values), columns);
   // No strip, as on `bst`: the listing, the tree and the narration fill the frame.
-  const { rec, push } = avlRecorder(code, avl, () => []);
+  const { rec, push, names } = avlRecorder(code, avl, () => []);
   const inBalance = new Map<SequenceStep, number[]>();
 
   for (const x of targets) {
@@ -968,13 +971,18 @@ function traceAvlRemove(input: SequenceInput): SequenceTrace {
       );
       let next = n.right!;
       while (next.left !== null) next = next.left;
+      // Accent is also the rotation's colour here, so the successor carries
+      // its name, as the search tree's does (#322 review): the legend says
+      // «sucesor o rotan», and the badge says which.
       rec.state.set(next.id, 'swap');
+      names.set(next.id, 'sucesor');
       push(
         'found',
         ['while (next.left != null)'],
         `El sucesor de ${value} es ${next.value}: el menor de la derecha, sin hijo izquierdo.`,
       );
       rec.state.delete(next.id);
+      names.delete(next.id);
       n.value = next.value;
       rec.state.set(n.id, 'new');
       push(

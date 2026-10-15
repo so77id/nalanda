@@ -733,6 +733,16 @@ describe('sequenceStepperTrace · avl · remove', () => {
     expect(isAvl(last)).toBe(true);
   });
 
+  it('names the successor where it paints it in accent, as the BST does', () => {
+    // The colour is the rotation's too; on the class's first removal the
+    // legend read «rotan» under a successor that does not rotate (#322 review).
+    const trace = traceFor('avl', 'remove', { values: [4, 2, 6, 1, 3, 5, 7], target: 4 });
+    const found = trace.steps.find((s) => s.description.startsWith('El sucesor de 4'))!;
+    expect(found.tree!.nodes.find((n) => n.value === 5)!.badge).toBe('sucesor');
+    const after = trace.steps[trace.steps.indexOf(found) + 1]!;
+    expect(after.tree!.nodes.find((n) => n.value === 5)?.badge).not.toBe('sucesor');
+  });
+
   it('says a value that is not there is not removed', () => {
     const trace = traceFor('avl', 'remove', { values: [2, 1, 3], target: 9 });
     expect(trace.steps.at(-1)!.description).toContain('no está');

@@ -1235,6 +1235,14 @@ describe('<SequenceStepper> · the avl recipe (#322)', () => {
     expect(screen.getByText('cambia de padre')).toBeInTheDocument();
   });
 
+  it('explains accent on an AVL removal as the successor or a rotation', () => {
+    renderIn(
+      'book',
+      <SequenceStepper eda="avl" operation="remove" values={[4, 2, 6, 1, 3, 5, 7]} target={4} />,
+    );
+    expect(screen.getByText('sucesor o rotan')).toBeInTheDocument();
+  });
+
   it('refuses a rotation on another tree, and says where it lives', () => {
     renderIn(
       'book',
