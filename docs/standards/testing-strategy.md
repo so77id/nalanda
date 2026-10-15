@@ -1206,9 +1206,9 @@ components — cover the empty branch with a direct FamilyPage test')`.
   1.56 s at a 4x CPU throttle (`Emulation.setCPUThrottlingRate`, the stand-in
   for a mid-range phone), Árboles I's about 250 ms, `<BinaryPicture>` some
   72 ms of the first. Before the next document that is heavy in figures or
-  editors, take the same two numbers for its book page and the previous one,
-  and say in the PR what they are. **Scrolling is the second number, and
-  #322 is its worked case**: every heading crossed re-rendered the whole
+  editors, take those two load numbers for its book page and the previous
+  one, and say in the PR what they are. **Scrolling is the other thing to
+  measure, and #322 is its worked case**: every heading crossed re-rendered the whole
   document, and on Árboles II's 52 editors that was about ninety long tasks
   per scroll at 4x — invisible at full speed. `content/DocumentPage.test.tsx`
   now pins that a scroll does not render the document again.

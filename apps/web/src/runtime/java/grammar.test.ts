@@ -72,6 +72,15 @@ describe('the Java grammar', () => {
     expect(tree.length).toBeLessThan(source.length);
   });
 
+  it('reads a source longer than any listing only once', () => {
+    // Lone methods past the cap: the members reading would win, and is not
+    // tried — a student's pasted program is not re-read on every keystroke.
+    const method = 'void f() {\n    int x = 1;\n}\n';
+    const long = method.repeat(Math.ceil(20_001 / method.length));
+    expect(javaListing.parser.parse(long).topNode.name).toBe('Program');
+    expect(javaListing.parser.parse(method).topNode.name).toBe('ClassContent');
+  });
+
   it('installs the listing language, and names it', () => {
     const installed = grammar() as { language?: unknown; extension?: unknown };
     expect(installed.language).toBe(javaListing);

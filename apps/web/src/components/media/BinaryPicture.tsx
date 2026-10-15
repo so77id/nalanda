@@ -280,16 +280,27 @@ function Picture({
       style={{ fill: color }}
     />
   );
+  // A visit's number on a disc ringed in the traversal's colour, the digit in
+  // ink: on a disc FILLED with the colour, preorder's focus held the digit at
+  // 4.12:1 in light (#322 review), and focus is not a text colour
+  // (design-system.md §The tree figures' palette). All three traversals
+  // share the shape, so the colour still tells them apart.
   const dot = (x: number, y: number, k: number, color: string, key: string) => (
     <g key={key}>
-      <circle cx={x} cy={y} r="8.5" style={{ fill: color }} />
+      <circle
+        cx={x}
+        cy={y}
+        r="8.5"
+        strokeWidth={2}
+        style={{ fill: 'var(--color-surface)', stroke: color }}
+      />
       <text
         x={x}
         y={y + 3.8}
         textAnchor="middle"
         fontSize="10.5"
         fontWeight="700"
-        style={{ fill: 'var(--color-ground)' }}
+        style={{ fill: 'var(--color-ink)' }}
       >
         {k}
       </text>

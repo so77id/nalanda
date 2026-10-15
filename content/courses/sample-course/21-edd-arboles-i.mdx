@@ -114,10 +114,11 @@ export function HierarchyPicture({ tree, tones = {}, badges = {}, notes = {}, nu
   const head = (x, y, angle, color, key) => (
     <polygon key={key} points="0,0 -8,-4.5 -8,4.5" transform={`translate(${x} ${y}) rotate(${angle})`} style={{ fill: color }} />
   );
+  // A visit's number on a disc ringed in the traversal's colour, the digit in ink, as <BinaryPicture> draws it: filled with preorder's focus, the digit held 4.12:1 in light (#322 review; design-system.md §The tree figures' palette).
   const dot = (x, y, k, color, key) => (
     <g key={key}>
-      <circle cx={x} cy={y} r="9" style={{ fill: color }} />
-      <text x={x} y={y + 3.8} textAnchor="middle" fontSize="11" fontWeight="700" style={{ fill: 'var(--color-ground)' }}>{k}</text>
+      <circle cx={x} cy={y} r="9" strokeWidth="2" style={{ fill: 'var(--color-surface)', stroke: color }} />
+      <text x={x} y={y + 3.8} textAnchor="middle" fontSize="11" fontWeight="700" style={{ fill: 'var(--color-ink)' }}>{k}</text>
     </g>
   );
   // An edge with its arrowhead at the middle, pointing to the child (down) or to the parent (up).

@@ -8,6 +8,14 @@ type Tree = NonNullable<ReturnType<ReturnType<ParseWrapper>['advance']>>;
 /** The same grammar entered at a class's body: what a method on its own is. */
 const members = javaLanguage.parser.configure({ top: 'ClassContent' });
 
+/**
+ * The longest source read a second time, in characters. A course listing is a
+ * few hundred; past this a source is a student's whole program pasted in, and
+ * re-reading it on every keystroke that leaves an error cost about 40 ms at
+ * 100,000 characters (#322 review, security recheck).
+ */
+const MEMBERS_READING_CAP = 20_000;
+
 /** Top-level nodes no class body can hold: a source with one is a whole program. */
 const PROGRAM_ONLY = new Set(['ImportDeclaration', 'PackageDeclaration']);
 
@@ -42,8 +50,9 @@ function errorsIn(tree: Tree): number {
  * most keystrokes (#322 review: 34 of 50 keystrokes in the intersection
  * program, and the members reading won none). So it is skipped where it can
  * never win or must not run: a source that imports or declares a package is
- * a whole program, and a parse CodeMirror stopped short — at the viewport, or
- * at its time budget — is left as it is rather than re-read to the end.
+ * a whole program, a parse CodeMirror stopped short — at the viewport, or at
+ * its time budget — is left as it is rather than re-read to the end, and a
+ * source longer than any listing is not re-read at all.
  */
 const eitherTop: ParseWrapper = (inner, input) => ({
   get parsedPos() {
@@ -56,7 +65,9 @@ const eitherTop: ParseWrapper = (inner, input) => ({
   advance: () => {
     const tree = inner.advance();
     if (tree === null) return null;
-    if (tree.length < input.length || wholeProgram(tree)) return tree;
+    if (tree.length < input.length || input.length > MEMBERS_READING_CAP || wholeProgram(tree)) {
+      return tree;
+    }
     const errors = errorsIn(tree);
     if (errors === 0) return tree;
     const asMembers = members.parse(input.read(0, input.length));
@@ -74,10 +85,11 @@ export const javaListing = javaLanguage.configure({ wrap: eitherTop });
  * grammar its own name there: a swapped switch arm once highlighted every
  * Java listing as Python with the suite green (`registry.test.ts`). The
  * class itself lives in `@codemirror/language`, which is not a dependency of
- * this app, so the shape is written out, and the cast is what an object
- * literal with a key `Extension` does not declare costs (#322 review kept
- * it).
+ * this app, so the shape is written out. Bound to a name before it is
+ * returned, it is an `Extension` as it is — `{ extension }` — with no cast;
+ * only a fresh literal is checked for the key the type does not declare.
  */
 export function grammar(): Extension {
-  return { language: javaListing, extension: javaListing } as Extension;
+  const support = { language: javaListing, extension: javaListing };
+  return support;
 }

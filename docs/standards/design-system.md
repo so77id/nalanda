@@ -357,7 +357,12 @@ everywhere else — the ring — and is used here on strokes only.
 a `focus` stroke — a node's badge, the `null` of an empty call, the heap's
 pointer names, `OrderSides`' `< x` — are painted `ink-soft` or `ink`, never
 `focus`. Before #322's review they were `focus` in `BinaryPicture`, in the
-tree and heap stepper views and in the document's figure.
+tree and heap stepper views and in the document's figure. The same holds for
+text ON `focus`, since contrast is a property of the pair: a visit's number
+was `ground` on a disc filled with the traversal's colour, 4.12:1 on
+preorder's, so every visit disc — in `BinaryPicture` and in Árboles I's
+`HierarchyPicture` — is now `surface`, ringed in the traversal's colour, with
+the digit in `ink`.
 
 ## The stepper chrome (#294)
 

@@ -495,7 +495,12 @@ export const HEAP_OPERATIONS: readonly SequenceOperation[] = HEAP_OPERATION_NAME
 /** The operations only `binary-tree` has (#321): the three visits and the height. */
 const BINARY_TREE_ONLY_NAMES = ['preorder', 'inorder', 'postorder', 'height'] as const;
 
-/** The operations only `bst` has (#322): each chooses a side at every node. */
+/**
+ * The search trees' own operation (#322), which chooses a side at every node:
+ * `bst` has it, and `avl` has it too, as the search tree's with `balance` on
+ * the way back. It is "only" against every structure that is not a search
+ * tree, which is what the refusal reasons ask.
+ */
 const BST_ONLY_NAMES = ['remove'] as const;
 export const BST_ONLY_OPERATIONS: readonly SequenceOperation[] = BST_ONLY_NAMES;
 
