@@ -90,10 +90,9 @@ export function DocumentPage({ notFound, presentableSectionsWrapper: Wrapper }: 
   const article = useRef<HTMLElement>(null);
   const { sections, activeId } = useSections(article);
   // Keyed on the spine so the context value keeps its identity when `activeId`
-  // changes, which it does on every scroll past a heading. It does NOT save the
-  // questions a re-render: `<Doc />` is a fresh element each time and nothing
-  // between is memoised, so the subtree renders either way. Measured — the
-  // whole document scrolls with zero long tasks.
+  // changes, which it does on every scroll past a heading. The document element
+  // below is memoised for the same reason, so a scroll moves the section mark
+  // and nothing else.
   const sectionIds = useMemo(() => new Set(sections.map((section) => section.id)), [sections]);
   const [drawerOpen, setDrawerOpen] = useState(false);
   // One handler for the two things that close the drawer (the drawer itself,
@@ -173,6 +172,17 @@ export function DocumentPage({ notFound, presentableSectionsWrapper: Wrapper }: 
     return { wrapper: DocumentSectionsWrapper };
   }, [Wrapper, entry]);
 
+  // The document element, kept across renders of this page. `activeId` moves on
+  // every heading the reader scrolls past, and a fresh `<Doc />` re-rendered
+  // the whole document each time: on Árboles II, 52 editors reconfigured per
+  // crossing — about ninety long tasks per scroll at a 4x CPU throttle, zero
+  // with this memo (#322). The section spine still reaches the questions
+  // through the context above.
+  const docElement = useMemo(
+    () => (Doc ? <Doc components={mdxComponents} /> : null),
+    [Doc, mdxComponents],
+  );
+
   if (!Doc) return <>{notFound}</>;
   return (
     <div className="flex min-h-screen bg-ground text-ink">
@@ -227,9 +237,7 @@ export function DocumentPage({ notFound, presentableSectionsWrapper: Wrapper }: 
               measurement, three consumers — a second reading of the DOM could
               disagree with the navigation about what a section is. */}
           <KnownSectionsProvider value={sectionIds}>
-            <Suspense fallback={null}>
-              <Doc components={mdxComponents} />
-            </Suspense>
+            <Suspense fallback={null}>{docElement}</Suspense>
           </KnownSectionsProvider>
           <SequenceNav id={id} />
         </article>

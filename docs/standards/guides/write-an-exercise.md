@@ -195,6 +195,15 @@ appeared inside the walk under a promise to write them "al final".
   el menor_, _enganchar el siguiente_, _una vuelta_) before _K listas · la
   solución_; «the idea, then the whole listing» is what the review
   rejected.
+- **The pieces are not walked apart when they are one class.** #322's
+  iterator first walked its constructor on one slide and `next` on the
+  next, and the professor rejected it: «es como el widget partido». The
+  methods call each other — the constructor and `next` both run `pushLeft`
+  — so the walk is the whole class in one widget, from the construction to
+  the last `next`, with the drawing `beside` the listing when the class is
+  too long to stack over it (`teach-a-data-structure.md` §6bis). Building
+  in pieces is for a listing whose parts are steps of one algorithm, as
+  #304's merge; a class whose parts are methods is walked whole.
 - **A helper slide comes immediately before the listing slide** when the
   helpers and the walk do not fit together. This guide said the opposite
   first — "helpers get no slide of their own, plumbing with a slide of its
@@ -300,8 +309,10 @@ and whether anything clips — the scale recipe is in
       structure is named there for the first time.
 - [ ] Beat 3's hand run is a drawing, with the values in it and in its
       caption; the prose states the rule and names none.
-- [ ] A listing with several moving parts is built a fragment per slide
-      before the full walk, and a helper that hides the idea is inlined.
+- [ ] A listing whose parts are steps of one algorithm is built a
+      fragment per slide before the full walk; a class whose methods call
+      each other is walked whole in one widget, `beside` its drawing when it
+      does not stack (§4); and a helper that hides the idea is inlined.
 - [ ] The worked exercises of a class climb easy → medium → hard, and
       nothing the reader sees names a level or counts the problems.
 - [ ] Every helper the listing calls is written and explained before the
@@ -341,6 +352,17 @@ and two posed (las rutas de los archivos, las carpetas grandes). Two of them
 carry the first programs longer than a slide shows whole — the widest level
 (38 lines) and the calculator (83) — each on its slide in a window of 32
 lines.
+
+`content/courses/sample-course/22-edd-arboles-ii.mdx` — three worked
+exercises (el ancestro común más bajo, un iterador para el árbol de
+búsqueda, la intersección de dos árboles de búsqueda) and three posed (el
+problema de Josefo con saltos grandes, un árbol de búsqueda de altura
+mínima, la verificación de un árbol de búsqueda). They added the class
+walked whole — the iterator's constructor, `pushLeft`, `hasNext` and `next`
+in one widget `beside` its tree and stack, after the professor rejected it
+split across two slides — and beat 3's hand runs drawn as one column per
+state (the pending stack after every `next`, the two inorders crossed one
+comparison at a time), the shape the heap class's Top-K strip set.
 
 **Its sibling for the question bank already exists**:
 [`write-control-questions.md`](write-control-questions.md) governs the

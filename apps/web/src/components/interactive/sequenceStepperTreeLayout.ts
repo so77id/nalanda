@@ -12,30 +12,26 @@
  * of any tree reads straight down, and the inorder of a search tree reads
  * sorted — which is the theorem the class states, made visible.
  *
- * COPIED: the file-local `BinaryPicture` of `21-edd-arboles-i.mdx` draws its
- * static trees with these same numbers (node radius, column width, level
- * height, margin, strip slot), so a figure and the widget beside it match. A
- * second copy lives in `22-edd-arboles-ii.mdx`, which #322 — stacked on #321
- * — brings and promotes to a shared component, retiring both copies. Those copies are the ones that fail late —
- * nothing tests a document's own components — so a change here is carried
- * there by hand and checked in a browser.
+ * SHARED: the node radius, column width, level height, margin and strip slot
+ * come from `../treeGeometry.ts`, which `<BinaryPicture>` reads too, so a
+ * static figure and the widget beside it draw the same tree at the same size
+ * (`media/binaryPictureLayout.test.ts` checks it).
  */
 
+import {
+  TREE_COLUMN_W as COLUMN_W,
+  TREE_LEVEL_H as LEVEL_H,
+  TREE_NODE_R,
+  TREE_PAD as PAD,
+  TREE_SLOT_H as SLOT_H,
+  TREE_SLOT_W as SLOT_W,
+} from '../treeGeometry';
 import { rimToRim } from './sequenceStepperEdge';
 
-/** Radius of a node. */
-export const TREE_NODE_R = 17;
-/** Horizontal room per column. */
-const COLUMN_W = 46;
-/** Vertical distance between two levels. */
-const LEVEL_H = 56;
-/** Margin around the drawing, room for a badge beside a node. */
-const PAD = 16;
+export { TREE_NODE_R };
+
 /** Room under the deepest node for its note, before the strip. */
 const NOTE_H = 16;
-/** Width and height of a strip slot. */
-const SLOT_W = 38;
-const SLOT_H = 30;
 /** Gap between the deepest note and the strip. */
 const STRIP_GAP = 12;
 

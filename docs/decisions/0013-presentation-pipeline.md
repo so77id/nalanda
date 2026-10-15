@@ -6,6 +6,7 @@
 **Source:** Issue #64 (WP3, presentation mode). Extends ADR-0010 (component
 contract, which defined the two render modes) and ADR-0012 (content pipeline);
 details the seam ADR-0008 deferred ("sync is a navigation state").
+**Amended by:** #322 (2026-10-15) — §5.1: a slide whose content answers its own scale settles at the smaller scale, within a half-second window
 
 ## Context
 
@@ -118,6 +119,30 @@ can drive it.
    slide 9 of `java-desde-cpp` lost 69px at 1440x900 and more on a phone. The
    consequence an author feels: nothing is cut any more, but a dense slide
    shrinks, and below roughly half scale it stops being readable on a phone.
+   **Amended by #322:** a slide whose content answers its own scale settles.
+   The professor saw the removal's code slide of Árboles II shiver in Brave,
+   flipping between two scales; it never reproduced in Chromium, so the guard
+   does not depend on knowing what changes size. A content change of two
+   pixels or less does not rescale — so "nothing is cut" now reads "at most
+   two pixels of the slide's bottom edge", the stage clipping what the scale
+   no longer accounts for — and a scale applied within the last half second
+   that comes back is taken for a flip, answered with the smallest scale
+   applied in that window. The window is the decision: without it, a reader
+   opening and closing an `<Exercise>`'s panel seconds apart brought back the
+   same two heights and left the slide at its smaller scale until they left
+   it (#322 review, measured 0.727 where 0.889 fits). The state lives in the
+   pure `nextFit` of `presentation/fit.ts`, with its tests. **What it does
+   not hold, accepted:** a panel opened and closed in under half a second
+   keeps the smaller scale, and a flip slower than half a second per cycle
+   never settles; the shiver seen flipped frame after frame.
+
+   > **TODO (#322) — the Brave check.** Owner: Miguel. Before #322 merges:
+   > open Árboles II's search-tree removal code slide («El código de la
+   > eliminación»), the one that shivered, in Brave, step its frames, and
+   > record here whether it stays still. The first guard (`aff586c`) was
+   > confirmed there; the window added since was not, and Playwright's
+   > Chromium never reproduced the shiver, so no automated check stands in
+   > for this one.
 
    **5.2 Touch is a second input path** (#99): a one-finger horizontal swipe
    moves one slide (a second finger is a pinch, and zooming is not navigating).

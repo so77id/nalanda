@@ -380,6 +380,45 @@ Miguel's review of #321's binary-tree costs, where the traversals, the
 height and the search are the whole table. The column comes back as soon as one row
 modifies the structure.
 
+### 4bis. Teach every operation with the same script
+
+Each operation of a structure is told in the same four beats, in this
+order — Miguel's review of #322, where the search tree's search, insertion,
+minimum and removal had each been told its own way (an idea slide and a code
+slide for one, both on one slide for another, the class arriving between
+them):
+
+1. **The operation.** A slide that presents it before any code: what it
+   does, what it takes and what it returns, and what it must keep — the
+   invariant. The rule in prose, the example in the drawings, one step per
+   drawing (`course-content-style.md`).
+2. **The cases**, when there are several — the search tree's removal: a
+   leaf, one child, two children — each drawn, one slide per case when one
+   slide would be crowded.
+3. **The code**, on a slide «El código de …»: the method the structure
+   offers, `public`, and for a recursive operation the `private` method it
+   calls with the root, said in one sentence; beside it the iterative
+   version when there is one (`<SequenceStepper iterative>`), which is the
+   public method itself. The widget walks ONE run with ONE value first.
+   Several runs of one operation teach something else — what a sequence of
+   calls does to one structure — and go in the program mode (`program`), on
+   a slide after the single run: the program beside the method, the method
+   walked again for every call with the program's line lit (Miguel's
+   review, #322: the search tree's removals, the AVL's insertions and
+   removals). Only the search tree's insertions run as one frame per
+   program line with the tree drawn after each, because what they teach is
+   the tree a run builds, not the descent (`add-a-course-document.md`
+   §5h).
+4. **The cost**, one sentence closing the code slide's paragraph: what it
+   costs and why («baja por un solo camino: $$O(h)$$»). The table of every
+   operation stays at the end of the act (§4).
+
+The classes the operations use come right before the first of them, never
+earlier, and their members follow one rule: `public` for what the structure
+offers, `private` for the recursive helpers and for the fields. Worked case:
+the search tree's section of `22-edd-arboles-ii.mdx` — buscar, insertar, el
+inorden, eliminar.
+
 ### 5. Close on a loose end, not a summary
 
 The last slide of the last act poses a concrete question the class has just
@@ -458,7 +497,9 @@ Everything in §6 above is about a figure served through `<img>`. **A `<Step>`
 frame is not one.** Inline SVG lives in the page's own DOM, so it sees
 `--color-*` and must use it: no opaque panel, no hard-coded hex, never the
 `#fdfbf9`/`#2b221d` values of the `<img>` exemption — those paint a
-theme-blind rectangle inside a themed page. Both grounds still get looked at.
+theme-blind rectangle inside a themed page. Text takes a text token, never
+`focus`, and a tree's traversals, levels and sides take the unit's fixed
+colours (`design-system.md` §The tree figures' palette, #322). Both grounds still get looked at.
 
 The ten steppers of #277 share one drawing vocabulary, and a second class that
 invents its own makes the unit look like two courses. Copy the frame from the
@@ -540,6 +581,18 @@ identical listing, and 46 — at scale 0.835 — measures 860/860 and does not
 clip at all. A line under 55 is safe everywhere; between 55 and 57 it depends
 on how much else the slide is carrying.
 
+**A listing too long to stack over its drawing goes `beside`.** #322 walked
+the BST iterator's whole class — twenty-eight lines — in one `<StepShow>`,
+because the professor rejected it split across two slides; stacked over its
+drawing it put the slide at 0.577. With `beside`, on a slide the drawing sits
+to the right of the code and the widget breaks out to three quarters of the
+viewport; the book ignores the prop and stacks. The code column is then
+narrower than the stacked panel: measured on that slide, at scale 0.755, it is
+793 px wide and holds about 63 rendered columns (the longest line is 49), and
+since the breakout divides by the scale it would be about 600 px — some 47
+columns — at 1.0. A slide that needs `beside` carries a long listing and is
+never at 1.0, but sweep its horizontal axis like any other.
+
 **Sweep the horizontal axis too, not only the scale.** A deck sweep that reads
 the `transform` on the slide stage sees a slide shrink to fit and reports it;
 it cannot see a `.cm-scroller` whose `scrollWidth` exceeds its `clientWidth`,
@@ -604,9 +657,12 @@ its fence text and read the result next to the step's own caption.
 
 **What that widget is, concretely** (ADR-0074): `eda` picks the structure —
 a dynamic array, a singly / doubly / circular list, (since #304, ADR-0077) a
-binary max-heap, or (since #321, ADR-0083) a linked binary tree — and
-`operation` picks which of the nine Sequence operations, the heap's own two,
-or the tree's traversals, height and search, to animate over it. (A fixed-capacity
+binary max-heap, (since #321, ADR-0083) a linked binary tree, or (since #322)
+the search tree `bst` (ADR-0083) and the AVL tree `avl` (ADR-0086) — and
+`operation` picks which of the nine Sequence operations (and `binary-search`
+on the dynamic array), the heap's own two, the tree's traversals, height and
+search, the search tree's insertion and removal, or the AVL's rotations, to
+animate over it. The full matrix is `add-a-course-document.md` §5h. (A fixed-capacity
 `array` recipe was deleted by #304, never having had a reader; ADR-0074
 §Amended by #304.) The surface never changes
 between combinations, which is the point: the reader learns one visual
@@ -633,6 +689,14 @@ draws nodes with `left` and `right`, each in the column of its inorder
 position, over a strip a traversal fills one visit at a time. It was
 designed the way the rule asks — on the running widget, reviewed in
 `/catalog`, never as drawings outside the system.
+
+**The third and fourth are the search tree and the AVL** (#322): `bst` adds
+`insert` and `remove` to the tree, a search that rules out a side, and
+programs that run an operation several times; `avl` adds the four rotations,
+walked an assignment at a time, and `insert` and `remove` that rebalance on
+the way back with `balance` listed beside them (ADR-0083 for `bst`,
+ADR-0086 for `avl`). Both were designed with the professor slide by slide on
+the running widget.
 
 **It does not replace `<StepShow>` + `<MemoryVisual>`**, which stay the pair
 for author-written pictures, whose truth is the author's (ADR-0049).
@@ -763,8 +827,13 @@ wins — #304's planner orders its tasks with one comparator lambda and an
       stepping through with the widget's own control: the deck re-measures
       on every resize (`SlideDeck.tsx`'s `ResizeObserver`) and a walk mounts
       one frame at a time, so a frame that grows — a tree that gains a level —
-      can shrink the slide where the first frame did not. The floor holds per
-      frame. A walk cannot be split like a slide: compact its frame (fewer
+      can shrink the slide where the first frame did not. **Every frame of
+      one walk sits at the SAME scale, at or above the floor**: a scale
+      that moves between frames is a frame that changes size, and the fix is
+      to reserve the largest frame (`frontend-code-style.md` §Styling; worked
+      cases in #322). Read the scale at least a second after each step —
+      a slide settles a flip within half a second (`nextFit`), so a reading
+      taken sooner can catch it mid-way. A walk cannot be split like a slide: compact its frame (fewer
       rows, not smaller nodes), and never shrink the drawing until it cannot
       be read (#304's lowest, the Top-K walk, sits at 0.714 on all fifteen
       frames). **How to read it**: under

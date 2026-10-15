@@ -8,6 +8,12 @@
 picture of its own, the way ADR-0077 added the heap's. ADR-0077 still holds
 entirely, and so does ADR-0074 but for the `size` readout, which the tree does
 not show (`Amended by: #321` there).
+**Amended by:** #322 (2026-10-13) — the `bst` recipe ships with the class
+that mounts it (§2, §3, §5), and the cap of eight names the `avl` exception
+in place (§5).
+**Extended by:** ADR-0086 (#322) — a third tree recipe, `avl`: the four
+rotations an assignment at a time, `insert` and `remove` rebalancing on the
+way back. It was §6 of this ADR while the branch was open.
 
 ## Context
 
@@ -51,25 +57,60 @@ A node's x is its inorder position and its y its depth. A parent therefore
 always sits between its two subtrees and no edge crosses another. Under the
 tree, a strip has one slot per column, and a traversal writes its output into
 it left to right. The inorder lands under its own nodes; the preorder and
-postorder visibly do not.
+postorder visibly do not. A search tree's operations draw no strip (#322,
+Miguel's review): under an insertion it read as an array the tree keeps, and
+a search tree keeps none. The sorted inorder is shown where it is the
+lesson — the traversal's own slide — and the rotations keep their strip,
+because what they teach is that the inorder does not change.
 
 The columns are fixed for the WHOLE run — every node the run ever holds is
-placed once — so nothing on screen moves: the rule `maxCells` keeps for the
-chains.
+placed once — so an insertion (`bst`) lands in a column already reserved and
+nothing on screen moves: the rule `maxCells` keeps for the chains.
 
 ### 3. The operations, in the order the class needs them
 
 - **S2:** `preorder`, `inorder`, `postorder` on
   `binary-tree`, valid on no other recipe. Each listing is the recursive
   method as the class writes it.
-- **S3:** `height` and `search` on `binary-tree`. `search` keeps ONE name
-  across `binary-tree` and the chains.
+- **S3:** `height` and `search` on `binary-tree`.
+- **Árboles II (#322):** a second recipe, `bst`. It was built for #321 and
+  left with its slides when that class split (Miguel's review, 2026-10-12);
+  it ships with Árboles II, which mounts it. `search` and `insert` first:
+  `search` keeps ONE name across `binary-tree` and `bst` (and the chains),
+  because two nearly identical tags are how a slide contrasts visiting
+  everything with choosing a side, and `insert` becomes shared between
+  `heap-max` and `bst`. Then `remove` in its three cases, the two-children
+  case copying the successor's value into the node (which keeps its column)
+  and removing the successor. `minimum` and `successor` were built too and
+  went with their slides (Miguel's review, #322: "more tree exercises than
+  matter"; the removal needs only the right subtree's minimum, which its own
+  listing finds) — no operation ships without a slide that mounts it, so
+  they come back with the exercise that wants them. `search` and `insert`
+  may also show their iterative version beside the
+  recursive one (`iterative`): the trace carries a second listing,
+  `alongside`, and every frame the line of it that does what the recursive
+  line does — the comparison in both, a call on a side against the variable
+  stepping to it, a call on an empty side against the loop's condition
+  failing, the leaf the recursion hangs on the way back against the parent
+  the loop kept. The two share the code panel's width; Miguel's review of the
+  search slide asked for them read together, and for every operation that
+  can be written both ways. `remove`, the AVL's two and the traversals are
+  not paired: the first needs the parent of every node through three cases,
+  the AVL rebalances on the way back, and an iterative traversal is a stack
+  — the iterator exercise. The translation is `pairListings`
+  (`sequenceStepperTraceShared.ts`), shared with the array's binary search
+  (ADR-0074). `insert` and `remove` may also run as a program (`program`),
+  the operation called several times (Miguel's review: "one thing is walking
+  a single value, and another the widget doing the same operation several
+  times"). `insert`'s program is one frame per line, the tree drawn after
+  each: what a run of insertions builds from an empty tree. `remove`'s is
+  listed beside the method, which is walked for every removal with the
+  program's line lit — the program on the left, the method on the right, as
+  Miguel asked for the slide that runs every case in one tree; the trace
+  names its two listings (`listingNames`) where the recursive and the
+  iterative pair take the default ones.
 
-None ships without a slide that mounts it (#296, ADR-0077 §5). That is why
-the search tree is not here: a second recipe, `bst` (`search`, `insert`,
-`minimum`, `successor`, `remove`), was built for #321 and left with its
-slides when the class split in two (Miguel's review, 2026-10-12). It ships
-with Árboles II (#322), which mounts it.
+None ships without a slide that mounts it (#296, ADR-0077 §5).
 
 ### 4. Authoring: the tree is written in level order, with `null` for a gap
 
@@ -118,17 +159,33 @@ slides set: the traversal stays, the visit is what a problem changes.
   the comparison): the two calls and the empty calls that end the
   recursion under every leaf never showed. The traversals, `height` and
   `search` share one helper for it, so the five read alike.
-- **Numbers, not letters**: the frame model is numeric, and letters stay for
-  the hand-drawn figures of the general tree. An expression tree keeps its
-  operators as symbols (§4).
-- **Cap stays at eight.** Width would allow more, but the degenerate chain of
-  the cost slide grows one level per value and stops fitting a slide.
+- **Numbers, not letters**, on both tree recipes: the frame model is numeric,
+  and the reader uses one view for the binary tree and the search tree.
+  Letters stay for the hand-drawn figures of the general tree.
+- **Cap stays at eight** — except `avl` × `insert` and `remove`, twelve
+  (#322, ADR-0086 §4): a real AVL of twelve nodes is at most four levels
+  deep. Width would allow more, but the degenerate chain of the cost slide
+  grows one level per value and stops fitting a slide. The bar for the next
+  exception: a recipe whose own invariant bounds the drawn height at that
+  size, with the slide measured.
 - **Stacked in both modes**, listing over tree, like the chains — not side by
   side like the heap's two pictures, which are two views of one array.
-These came out of the design step of #321. The recipe is implemented in
-full (S2, S3) and ships with the class, so the ADR is Accepted with the
-professor's review of the recipe running in `/catalog/c/SequenceStepper` still
-outstanding (#321 review, B14): that review, not the code, is what closes it.
+- **What a search rules out (`bst`) is faded**, not outlined with a triangle as
+  the old slides did: fading reads on any shape, the triangle tangles on a
+  small or lopsided subtree.
+
+These came out of the design step of #321. Both recipes are implemented in
+full (`binary-tree` in #321, `bst` in #322) and ship with the classes that
+mount them, so the ADR is Accepted with the professor's review of the recipes
+running in `/catalog/c/SequenceStepper` still outstanding (#321 review, B14):
+that review, not the code, is what closes it.
+
+### 6. `avl` is ADR-0086
+
+The third tree recipe was written here as §6 while #322's branch was open,
+and moved by its review into an ADR of its own that extends this one
+(`documentation.md` §ADR format: a new recipe on an existing widget is an
+`Extends:`): ADR-0086.
 
 ## Alternatives considered
 
@@ -140,20 +197,34 @@ outstanding (#321 review, B14): that review, not the code, is what closes it.
 - **A centred layout (parents centred over children, Reingold–Tilford).**
   Prettier for balanced trees, but the strip under it would no longer line up
   with the nodes, and the inorder theorem is the reason for the strip.
+- **A triangle over the discarded subtree** (the old slides). See §5.
 - **Building the binary tree by insertion.** That is a search tree; a tree
   with no order has to be written out.
 
 ## Consequences
 
-- The validity matrix grows one row: `binary-tree` × {`preorder`,
-  `inorder`, `postorder`, `height`, `search`}; the four tree-only
-  operations are valid on nothing else
-  (`add-a-course-document.md` §5h carries it).
-- `SequenceCellState` gains `visited`; `SequenceStep` gains
+- The validity matrix grows two rows: `binary-tree` × {`preorder`,
+  `inorder`, `postorder`, `height`, `search`} and `bst` × {`search`,
+  `insert`, `inorder`, `remove`}; the tree-only operations are valid on
+  no Sequence recipe
+  (`add-a-course-document.md` §5h carries it). `bst`'s `inorder` (#322)
+  is the binary tree's body behind a public `inorder()`, in a listing of
+  its own, so the binary tree's — Árboles I's — is untouched; and every
+  `bst` listing is the method the tree offers, `public`, and for the
+  recursive ones the `private` method it calls with the root, which the
+  first frame lights (Miguel's review: "these are private"). The `avl` row
+  is ADR-0086's.
+- `SequenceCellState` gains `visited` and `discarded`; `SequenceStep` gains
   `tree`; `SequenceTrace` gains `tree` (columns, slots, depth, and whether
   it has a strip);
-  `SequenceInput` gains `levelOrder`. The sequence and heap recipes never set
-  them.
+  `SequenceInput` gains `levelOrder`. The heap never sets them, and of the
+  sequence recipes only `dynamic-array` × `binary-search` does (#322: the
+  half a binary search discards is `discarded`, ADR-0074's amendment). #322
+  also gives `bst` `SequenceStep.alongsideLines`, `SequenceTrace.alongside`
+  and `listingNames`, and `SequenceInput.iterative` and `program` (§3), and
+  every search `SequenceStep.seek`, the value sought written beside the
+  structure (the trees' `search` and the array's `binary-search`); the `avl`
+  fields are ADR-0086's.
 - The `size` readout is hidden on the tree recipes: their listings have no
   size field to show.
 - **The picture exists only in a real browser.** The frames and the geometry

@@ -1,4 +1,7 @@
 import {
+  BinaryPicture,
+  NodeGraph,
+  OrderRule,
   Explanation,
   Figure,
   LazyBenchmark,
@@ -64,6 +67,23 @@ export const mdxComponents = {
   Split,
   Mosaic,
   Figure,
+  // Not lazy: a pure SVG with no package of its own, and 162 figures on one
+  // page would each paint a placeholder first. Measured on the shipped build
+  // (#322 review, removing it from this map AND from the components barrel,
+  // whose re-export alone keeps it in the entry chunk; vite build on the
+  // tree of 112bc4b, the figure's last change): it costs the entry chunk
+  // 14,710 bytes raw, 4,525 with gzip -9 — code that used to travel inside
+  // the two tree documents.
+  // A lazy wrapper would also hide its authoring errors from
+  // app/contentRenders.test.tsx (apps/web/CLAUDE.md, class 4).
+  BinaryPicture,
+  // Not lazy, for BinaryPicture's reasons, and smaller: two figures promoted
+  // from Árboles I when Árboles II wanted them (#322, the counterexamples to
+  // a tree's invariants and the rule of a traversal). Measured on the
+  // shipped build the same way, on the same tree, the two cost the entry
+  // chunk 2,846 bytes raw, 878 with gzip -9.
+  NodeGraph,
+  OrderRule,
   // Not lazy: it is one iframe. Measured on the shipped build, registering it
   // eagerly costs the entry chunk 1,463 bytes of component code, and it pulls in
   // no package the first paint did not already need. (That figure used to be

@@ -16,18 +16,27 @@ import {
   type SequenceLayout,
 } from './sequenceStepperLayout';
 import { CELL_FILL, CELL_NOTE, CELL_STROKE } from './sequenceStepperPaint';
+import { asRuns } from './sequenceStepperTraceShared';
 import {
+  AVL_ONLY_OPERATIONS,
+  AVL_OPERATIONS,
   BINARY_TREE_OPERATIONS,
+  BST_OPERATIONS,
   CIRCULAR_OPERATIONS,
   DOUBLY_OPERATIONS,
   HEAP_OPERATIONS,
   OPERATIONS,
   RECIPES,
+  BST_ONLY_OPERATIONS,
   TREE_ONLY_OPERATIONS,
+  isAvlOperation,
   isBinaryTreeOperation,
+  isBstOperation,
   isValidCombination,
   traceFor,
+  type AvlOperation,
   type BinaryTreeOperation,
+  type BstOperation,
   type SequenceCell,
   type SequenceOperation,
   type SequenceRecipe,
@@ -76,7 +85,9 @@ export interface SequenceStepperProps {
   /**
    * The value looked for. Required by `search` and `insert-ordered`. An
    * ARRAY searches each in turn, so one widget can show the hit at the
-   * front, the hit at the back and the value that is not there.
+   * front, the hit at the back and the value that is not there. On the
+   * trees, the node an operation acts on: `remove` on `bst`,
+   * the node that rotates on `avl`.
    */
   target?: number | number[];
   /**
@@ -113,6 +124,24 @@ export interface SequenceStepperProps {
   pointer?: string;
   /** Lists only: draw a `tail` pointer, and let the operations use it. */
   tail?: boolean;
+  /**
+   * The iterative listing beside the recursive one, the two sharing the
+   * width, each lit at every frame (#322): `dynamic-array` ×
+   * `binary-search`, `bst` × `search` and `bst` × `insert` (`PAIRED` in the
+   * trace). Not with `program`, which takes that column.
+   */
+  iterative?: boolean;
+  /**
+   * The operation run by a program, on `bst` and `avl` (#322). `insert`
+   * from `values={[]}`: the program that builds the tree — the tree created,
+   * then one `insert` per value — on `bst` one frame per line with the tree
+   * drawn after each, on `avl` beside the insertion and `balance`, walked for
+   * every insertion. `remove` with `target` an array: the program that builds
+   * the tree from `values` and removes each target, beside the method it
+   * calls (and `balance`, on `avl`), walked for every removal with the
+   * program's line lit.
+   */
+  program?: boolean;
   /** Playback default. Off unless the author asks (rule Peli 1/2). */
   autoplay?: boolean;
   /** `slow` ≈ 1200ms/step, `normal` ≈ 700ms, `fast` ≈ 300ms. */
@@ -149,8 +178,26 @@ function refusalReason(
       (o) => OPERATION_LABEL[o],
     ).join(', ')}.`;
   }
-  // The tree-only set, not every tree operation: `search` is shared, and a
-  // ring that refuses it has its own reason.
+  if (recipe === 'bst') {
+    return `el árbol de búsqueda tiene listado para: ${BST_OPERATIONS.map(
+      (o) => OPERATION_LABEL[o],
+    ).join(', ')}.`;
+  }
+  if (recipe === 'avl') {
+    return `el árbol AVL tiene listado para: ${AVL_OPERATIONS.map((o) => OPERATION_LABEL[o]).join(
+      ', ',
+    )}.`;
+  }
+  // The tree-only sets, not every tree operation: `search` and `insert` are
+  // shared, and a structure that refuses them has its own reason. `remove` is
+  // the search tree's and the AVL's both, so the AVL's own set is only its
+  // rotations.
+  if (AVL_ONLY_OPERATIONS.includes(operation)) {
+    return 'es una operación del árbol AVL. Úsala con eda="avl".';
+  }
+  if (BST_ONLY_OPERATIONS.includes(operation)) {
+    return 'es una operación del árbol de búsqueda. Úsala con eda="bst" o eda="avl".';
+  }
   if (TREE_ONLY_OPERATIONS.includes(operation)) {
     return 'es una operación de árbol. Úsala con eda="binary-tree".';
   }
@@ -173,6 +220,8 @@ const RECIPE_LABEL: Record<SequenceRecipe, string> = {
   'linked-list-circular': 'lista circular',
   'heap-max': 'heap (máximo)',
   'binary-tree': 'árbol binario',
+  bst: 'árbol binario de búsqueda',
+  avl: 'árbol AVL',
 };
 
 const OPERATION_LABEL: Record<SequenceOperation, string> = {
@@ -185,21 +234,29 @@ const OPERATION_LABEL: Record<SequenceOperation, string> = {
   'remove-last': 'eliminar el último',
   'remove-at': 'eliminar una posición',
   search: 'buscar',
+  'binary-search': 'búsqueda binaria',
   insert: 'insertar',
   'extract-max': 'extraer el máximo',
   preorder: 'recorrer en preorden',
   inorder: 'recorrer en inorden',
   postorder: 'recorrer en postorden',
   height: 'calcular la altura',
+  remove: 'eliminar',
+  'rotate-right': 'rotar a la derecha',
+  'rotate-left': 'rotar a la izquierda',
+  'rotate-left-right': 'rotación doble a la derecha',
+  'rotate-right-left': 'rotación doble a la izquierda',
 };
 
 const UNDER_THE_EYE: [string, string] = ['border-focus bg-surface', 'bajo la mirada'];
 const VISITED: [string, string] = ['border-rule-strong bg-sunk', 'ya visitado'];
+const RULED_OUT: [string, string] = ['border-rule bg-surface', 'descartado'];
 const FOUND: [string, string] = ['border-keep bg-keep-soft', 'encontrado'];
 
 /**
  * The legend of a tree run, by operation: each names only the states that
- * operation paints, so a traversal does not explain "encontrado".
+ * operation paints, so a traversal does not explain "descartado" and a
+ * removal does not explain "encontrado".
  */
 const TREE_LEGEND: Record<BinaryTreeOperation, [string, string][]> = {
   preorder: [['border-mark bg-mark-soft', 'se visita'], UNDER_THE_EYE, VISITED],
@@ -208,9 +265,77 @@ const TREE_LEGEND: Record<BinaryTreeOperation, [string, string][]> = {
   height: [['border-mark bg-mark-soft', 'acaba de responder'], UNDER_THE_EYE, VISITED],
   search: [FOUND, UNDER_THE_EYE, VISITED],
 };
+const SEARCH_TREE_LEGEND: Record<BstOperation, [string, string][]> = {
+  search: [FOUND, UNDER_THE_EYE, VISITED, RULED_OUT],
+  insert: [['border-mark bg-mark-soft', 'nuevo'], UNDER_THE_EYE, VISITED],
+  inorder: [['border-mark bg-mark-soft', 'se visita'], UNDER_THE_EYE, VISITED],
+  remove: [
+    ['border-mark bg-mark-soft', 'toma un valor'],
+    ['border-accent bg-surface', 'sucesor'],
+    ['border-rule bg-sunk', 'sale'],
+    UNDER_THE_EYE,
+  ],
+};
+
+/** A rotation paints the two nodes it exchanges and the subtree that changes parent; insert and remove add the node balance is looking at. */
+const AVL_LEGEND: Record<AvlOperation, [string, string][]> = {
+  'rotate-right': [
+    ['border-accent bg-surface', 'rotan'],
+    ['border-mark bg-mark-soft', 'cambia de padre'],
+  ],
+  'rotate-left': [
+    ['border-accent bg-surface', 'rotan'],
+    ['border-mark bg-mark-soft', 'cambia de padre'],
+  ],
+  'rotate-left-right': [
+    ['border-accent bg-surface', 'rotan'],
+    ['border-mark bg-mark-soft', 'cambia de padre'],
+  ],
+  'rotate-right-left': [
+    ['border-accent bg-surface', 'rotan'],
+    ['border-mark bg-mark-soft', 'cambia de padre'],
+  ],
+  insert: [
+    ['border-mark bg-mark-soft', 'nuevo'],
+    ['border-focus bg-surface', 'se rebalancea'],
+    ['border-accent bg-surface', 'rotan'],
+  ],
+  remove: [
+    ['border-rule bg-sunk', 'sale'],
+    ['border-mark bg-mark-soft', 'toma un valor'],
+    ['border-focus bg-surface', 'se rebalancea'],
+    // One colour, two moments: the successor before the copy, the rotation
+    // on the way back; the successor's badge tells them apart (#322 review).
+    ['border-accent bg-surface', 'sucesor o rotan'],
+  ],
+};
+
+/**
+ * The legend of a run that paints its own states — a tree's, and the array's
+ * binary search, which rules out cells the way the search tree rules out
+ * subtrees — or null for the default one.
+ */
+function runLegend(
+  recipe: SequenceRecipe,
+  operation: SequenceOperation,
+): [string, string][] | null {
+  if (operation === 'binary-search') return [FOUND, UNDER_THE_EYE, RULED_OUT];
+  if (recipe === 'binary-tree' && isBinaryTreeOperation(operation)) return TREE_LEGEND[operation];
+  if (recipe === 'bst' && isBstOperation(operation)) return SEARCH_TREE_LEGEND[operation];
+  if (recipe === 'avl' && isAvlOperation(operation)) return AVL_LEGEND[operation];
+  return null;
+}
 
 /** The most elements the picture stays legible with, measured on a slide. */
 const MAX_VALUES = 8;
+
+/**
+ * An AVL that inserts or removes builds a real AVL, whose height is at most
+ * four with twelve nodes: twelve fit a slide where a search tree of twelve
+ * may be a chain eleven deep. Enough for the class's removal that rotates at
+ * two levels, the smallest of which has twelve nodes (#322).
+ */
+const MAX_AVL_VALUES = 12;
 
 /**
  * `values` read back from its key: the numbers, plus the level order when it
@@ -224,8 +349,8 @@ function readValues(key: string): { values: number[]; levelOrder?: (TreeValue | 
 
 /**
  * `<SequenceStepper>` — the step-through widget of the Estructuras de Datos
- * and Estructuras de Datos Avanzadas units (ADR-0074, extended by ADR-0077
- * and ADR-0083).
+ * and Estructuras de Datos Avanzadas units (ADR-0074, extended by ADR-0077,
+ * ADR-0083 and ADR-0086).
  *
  * One widget, two props that pick what it shows: `eda` selects the structure
  * (a dynamic array, a singly / doubly / circular list, a binary max-heap or a
@@ -236,9 +361,11 @@ function readValues(key: string): { values: number[]; levelOrder?: (TreeValue | 
  *
  * The modules, every one but the painters pure and pinned by the suite, which
  * leaves the browser only the paint:
- * - frames: `sequenceStepperTrace` (the dispatcher, the chains and the heap)
- *   and `sequenceStepperTreeTrace` (the tree), both importing the leaf
- *   `sequenceStepperTraceShared` (the line a frame lights, the runs cap);
+ * - frames: `sequenceStepperTrace` (the dispatcher, the chains and the heap),
+ *   `sequenceStepperTreeTrace` (the binary tree and the search tree) and
+ *   `sequenceStepperAvlTrace` (the AVL tree, built on the tree's pieces), all
+ *   importing the leaf `sequenceStepperTraceShared` (the line a frame lights,
+ *   the runs cap);
  * - geometry: `sequenceStepperLayout` (a Sequence), `sequenceStepperHeapLayout`
  *   (the heap's tree and array) and `sequenceStepperTreeLayout` (the tree),
  *   the last two sharing the leaf `sequenceStepperEdge`;
@@ -259,6 +386,8 @@ export function SequenceStepper({
   receiverType,
   pointer,
   tail = false,
+  iterative = false,
+  program = false,
   autoplay = false,
   speed = 'normal',
   showCode = true,
@@ -361,12 +490,15 @@ export function SequenceStepper({
   // counting only `value` let an ordered slide draw past the cap.
   const grows = op.startsWith('insert');
   const from = op === 'insert-ordered' ? target : value;
-  const inserted = grows && Array.isArray(from) ? from.length : 0;
-  if (drawn + inserted > MAX_VALUES) {
+  // A single value counts as one, alone or in a list.
+  const inserted = grows ? asRuns(from).length : 0;
+  const cap =
+    recipe === 'avl' && (op === 'insert' || op === 'remove') ? MAX_AVL_VALUES : MAX_VALUES;
+  if (drawn + inserted > cap) {
     return (
       <AuthoringError component="SequenceStepper">
-        la estructura llega a {drawn + inserted} elementos. El dibujo se lee bien hasta {MAX_VALUES}
-        ; con más, los nodos quedan ilegibles en la proyección.
+        la estructura llega a {drawn + inserted} elementos. El dibujo se lee bien hasta {cap}; con
+        más, los nodos quedan ilegibles en la proyección.
       </AuthoringError>
     );
   }
@@ -385,6 +517,8 @@ export function SequenceStepper({
       receiverType={receiverType}
       pointer={pointer}
       tail={tail}
+      iterative={iterative}
+      program={program}
       autoplay={autoplay}
       speed={speed}
       showCode={showCode}
@@ -407,6 +541,8 @@ interface BodyProps {
   receiverType?: string;
   pointer?: string;
   tail: boolean;
+  iterative: boolean;
+  program: boolean;
   autoplay: boolean;
   speed: StepSpeed;
   showCode: boolean;
@@ -427,6 +563,8 @@ function Body({
   receiverType,
   pointer,
   tail,
+  iterative,
+  program,
   autoplay,
   speed,
   showCode,
@@ -434,7 +572,8 @@ function Body({
 }: BodyProps) {
   const mode = useMode();
   const heap = recipe === 'heap-max';
-  const tree = recipe === 'binary-tree';
+  const tree = recipe === 'binary-tree' || recipe === 'bst' || recipe === 'avl';
+  const legend = runLegend(recipe, operation);
   const isPresentation = mode === 'presentation';
   const outerRef = useRef<HTMLElement | null>(null);
 
@@ -467,6 +606,8 @@ function Body({
     receiverType,
     pointer,
     tail,
+    iterative,
+    program,
   ].join('|');
 
   const built = useMemo((): { trace: SequenceTrace } | { error: string } => {
@@ -484,6 +625,8 @@ function Body({
           receiverType,
           pointer,
           tail,
+          iterative,
+          program,
         }),
       };
     } catch (cause) {
@@ -504,6 +647,8 @@ function Body({
     receiverType,
     pointer,
     tail,
+    iterative,
+    program,
   ]);
 
   const trace = 'trace' in built ? built.trace : null;
@@ -579,7 +724,130 @@ function Body({
               isPresentation ? 'bg-surface text-base [&_.cm-editor]:!text-base' : 'bg-surface'
             }
           >
-            <CodeStepper code={trace.code} highlightLines={step.highlightLines} language="java" />
+            {trace.row !== undefined ? (
+              // Listings side by side in one row, each named and lit on its
+              // own: the AVL's insert beside balance, a program beside both
+              // (#322). Two share the width in halves; three give the program
+              // a fifth and the methods two fifths each (Miguel's review). The
+              // book's column holds them one over the other.
+              <div
+                className={
+                  !isPresentation
+                    ? 'grid grid-cols-1 gap-px bg-rule'
+                    : trace.row.length === 3
+                      ? 'grid grid-cols-[minmax(0,1fr)_minmax(0,2fr)_minmax(0,2fr)] gap-px bg-rule'
+                      : 'grid grid-cols-2 gap-px bg-rule'
+                }
+              >
+                {trace.row.map((listing, i) => (
+                  <div
+                    key={listing.name}
+                    data-testid="sequence-listing"
+                    data-listing={listing.name}
+                    className="flex flex-col bg-surface"
+                  >
+                    <div className="px-3 pt-1 font-mono text-3xs uppercase tracking-wide text-ink-faint">
+                      {listing.name}
+                    </div>
+                    <div className="flex-1 [&>div>div]:h-full [&>div]:h-full [&_.cm-content]:!min-h-0 [&_.cm-content]:!self-center [&_.cm-editor]:h-full [&_.cm-gutter]:!min-h-0 [&_.cm-gutters]:!items-center [&_.cm-gutters]:!self-stretch">
+                      <CodeStepper
+                        code={listing.code}
+                        highlightLines={step.rowLines?.[i] ?? []}
+                        language="java"
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : trace.callees !== undefined ? (
+              // A method over the methods it calls: the double rotation above,
+              // its two simple rotations side by side under it, each lit while
+              // its call runs, the call itself lit above the whole time (#322).
+              <div className="flex flex-col gap-px bg-rule">
+                <div data-testid="sequence-listing" data-listing="principal" className="bg-surface">
+                  <CodeStepper
+                    code={trace.code}
+                    highlightLines={step.highlightLines}
+                    language="java"
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-px bg-rule">
+                  {trace.callees.map((callee, i) => (
+                    <div
+                      key={callee.name}
+                      data-testid="sequence-listing"
+                      data-listing={callee.name}
+                      className="flex flex-col bg-surface"
+                    >
+                      <div className="px-3 pt-1 font-mono text-3xs uppercase tracking-wide text-ink-faint">
+                        {callee.name}
+                      </div>
+                      <CodeStepper
+                        code={callee.code}
+                        highlightLines={step.calleeLines?.[i] ?? []}
+                        language="java"
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : trace.alongside === undefined ? (
+              <div data-testid="sequence-listing">
+                <CodeStepper
+                  code={trace.code}
+                  highlightLines={step.highlightLines}
+                  language="java"
+                />
+              </div>
+            ) : (
+              // Two listings share the width, lit at the same moment: two
+              // versions of one operation — the call per level against the
+              // loop — in two equal halves, or a program and the method it
+              // calls, the program as narrow as its lines so the method's
+              // fit beside it (#322). The book's column is too narrow for
+              // that method beside anything: there the program goes on top.
+              <div
+                className={
+                  trace.listingNames === undefined
+                    ? 'grid grid-cols-2 gap-px bg-rule'
+                    : isPresentation
+                      ? 'grid grid-cols-[max-content_minmax(0,1fr)] gap-px bg-rule'
+                      : 'grid grid-cols-1 gap-px bg-rule'
+                }
+              >
+                {(
+                  [
+                    [trace.listingNames?.[0] ?? 'recursiva', trace.code, step.highlightLines],
+                    [
+                      trace.listingNames?.[1] ?? 'iterativa',
+                      trace.alongside,
+                      step.alongsideLines ?? [],
+                    ],
+                  ] as const
+                ).map(([name, code, lines]) => (
+                  <div
+                    key={name}
+                    data-testid="sequence-listing"
+                    data-listing={name}
+                    className="flex flex-col bg-surface"
+                  >
+                    <div className="px-3 pt-1 font-mono text-3xs uppercase tracking-wide text-ink-faint">
+                      {name}
+                    </div>
+                    {/*
+                      The shorter listing fills its column and sits in the
+                      middle of it: the editor takes the column's height and
+                      centres its lines, the gutter's background still
+                      running top to bottom — rather than ending early over a
+                      band of the panel's own ground.
+                    */}
+                    <div className="flex-1 [&>div>div]:h-full [&>div]:h-full [&_.cm-content]:!min-h-0 [&_.cm-content]:!self-center [&_.cm-editor]:h-full [&_.cm-gutter]:!min-h-0 [&_.cm-gutters]:!items-center [&_.cm-gutters]:!self-stretch">
+                      <CodeStepper code={code} highlightLines={[...lines]} language="java" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         ) : null}
         <div className="relative bg-surface">
@@ -592,6 +860,15 @@ function Body({
             word for it. Outside the scrolling box so a wide chain cannot
             push it off screen.
           */}
+          {/* What a search looks for, on every frame of its run (#322). */}
+          {step.seek !== undefined ? (
+            <div
+              data-testid="sequence-seek"
+              className="pointer-events-none absolute left-3 top-2 z-10 rounded-full border border-rule-strong bg-surface px-2.5 py-0.5 text-xs font-semibold text-ink"
+            >
+              se busca el {step.seek}
+            </div>
+          ) : null}
           {/* A tree's listing has no size field to show, so it gets no readout. */}
           <div
             data-testid="sequence-size"
@@ -668,7 +945,10 @@ function Body({
       </div>
 
       <div aria-live="polite" data-testid="sequence-narration">
-        <NarrationStrip text={step.description} />
+        <NarrationStrip
+          text={step.description}
+          reserve={isPresentation ? trace.steps.map((s) => s.description) : undefined}
+        />
       </div>
 
       <div className="flex flex-wrap items-center gap-2 border-t border-rule bg-sunk px-3 py-2">
@@ -715,9 +995,9 @@ function Body({
         </label>
 
         <span className="ml-auto flex flex-wrap items-center gap-3 font-mono text-3xs text-ink-faint">
-          {tree && isBinaryTreeOperation(operation) ? (
+          {legend !== null ? (
             <>
-              {TREE_LEGEND[operation].map(([swatchClass, label]) => (
+              {legend.map(([swatchClass, label]) => (
                 <LegendSwatch key={label} swatchClass={swatchClass} label={label} />
               ))}
             </>
@@ -906,8 +1186,12 @@ function ArrayPicture({ step, layout }: { step: SequenceStep; layout: SequenceLa
         // visible as a move rather than as a colour change.
         const cell = step.slots?.[i] ?? undefined;
         const free = cell === null || cell === undefined;
+        // Ruled out by a binary search: the whole cell fades and its border
+        // dashes, as a ruled-out node does on the tree, so colour is not the
+        // only signal.
+        const out = !free && cell.state === 'discarded';
         return (
-          <g key={i}>
+          <g key={i} data-state={free ? undefined : cell.state} opacity={out ? 0.45 : undefined}>
             <rect
               x={box.x}
               y={box.y}
@@ -917,7 +1201,7 @@ function ArrayPicture({ step, layout }: { step: SequenceStep; layout: SequenceLa
               fill={free ? 'var(--color-sunk)' : CELL_FILL[cell.state]}
               stroke={free ? 'var(--color-rule)' : CELL_STROKE[cell.state]}
               strokeWidth={!free && (cell.state === 'active' || cell.state === 'found') ? 2.5 : 1.2}
-              strokeDasharray={free ? '3 3' : undefined}
+              strokeDasharray={free || out ? '3 3' : undefined}
               opacity={!free && (cell.state === 'leaving' || cell.state === 'stale') ? 0.45 : 1}
             />
             {free ? null : (

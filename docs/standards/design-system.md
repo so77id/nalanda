@@ -326,6 +326,55 @@ as of #304. Its extraction into a content component with a catalog entry
 and the authoring rule live in `guides/teach-a-data-structure.md` §2, which
 points here for the tokens rather than restating them.
 
+## The tree figures' palette (#322)
+
+The Estructuras de Datos Avanzadas unit draws trees with `<BinaryPicture>`
+and the tree recipes of `<SequenceStepper>`, and three of their categories
+take a colour each from tokens that already mean something else. The mapping
+is fixed, so a reader meets the same colours in both Árboles classes:
+
+- **A traversal** (`VISIT_COLOR` in `BinaryPicture.tsx`, and the `tone`
+  Árboles I gives each traversal's `<OrderRule>`, whose default is
+  preorder's): preorder `focus`, inorder `accent`, postorder `mark`, and
+  level order `keep` on `<OrderRule>` alone. Second signal: every visit is
+  numbered, and the rule names its parts in words.
+- **A level of a binary search's divisions** (`SPLIT_TONES`, the `splits`
+  prop): `accent`, `mark`, `keep`, `focus`, from the root down. Second
+  signal: one row per level, each with its middle filled.
+- **The two sides of a node** (Árboles II's `OrderSides` and every figure
+  after it that tones a subtree): the node `accent`, the smaller side
+  `focus`, the larger `keep`; `mark` stays for what breaks a rule. Second
+  signal: the `< x` and `> x` labels and the words «menores» and «mayores».
+
+Like the TDA card's moulds, these are not new product meanings: they are
+scoped to the tree figures, and none of them is load-bearing, because each
+category is also told without colour. `focus` keeps its own meaning
+everywhere else — the ring — and is used here on strokes only.
+
+**`focus` is not a text colour.** It is held to the 3:1 non-text floor
+(`UI_TOKENS` in `palette.test.ts`), and measured as text it fails: light
+`focus` on `ground` is 4.12:1 (#322). So the labels these figures draw beside
+a `focus` stroke — a node's badge, the `null` of an empty call, the heap's
+pointer names, `OrderSides`' `< x` — are painted `ink-soft` or `ink`, never
+`focus`. Before #322's review they were `focus` in `BinaryPicture`, in the
+tree and heap stepper views and in the document's figure. The same holds for
+text ON `focus`, since contrast is a property of the pair: a visit's number
+was `ground` on a disc filled with the traversal's colour, 4.12:1 on
+preorder's, so every visit disc — in `BinaryPicture` and in Árboles I's
+`HierarchyPicture` — is now `surface`, ringed in the traversal's colour, with
+the digit in `ink`. `HierarchyPicture`'s badges default to `ink-soft` too.
+
+**Known debt, outside the tree figures.** The rule holds product-wide, and
+these still paint text in `focus`, already published, left as they are by
+#322's review because repainting them changes every stepper on every page:
+the «qué está pasando» chip of every stepper (`stepperShell.tsx`, the
+`NarrationStrip`), the names of the walking cursors of `<SequenceStepper>`
+(`lo`, `mid`, `hi` among them), and labels of `<SortStepper>` and
+`<PartitionStepper>`, and the call-stack text of Árboles I's calculator
+walk (`21-edd-arboles-i.mdx`, the open call in «llamadas abiertas»). They
+converge together, in #333; meanwhile a new component
+does not copy them.
+
 ## The stepper chrome (#294)
 
 Every widget that walks a reader through frames — `<StepShow>`,

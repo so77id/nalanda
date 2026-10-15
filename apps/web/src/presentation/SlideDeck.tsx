@@ -15,7 +15,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { renderInlineTitle } from '../lib/inlineTitle';
 import { mdxChildrenOf } from './mdxChildren';
 import { computeSlides } from './parser';
-import { fitScale } from './fit';
+import { INITIAL_FIT, nextFit, type FitState } from './fit';
 import { startsInsideHorizontalScroller, swipeDirection } from './swipe';
 import type { Point } from './swipe';
 import { RotateNotice } from './RotateNotice';
@@ -239,13 +239,23 @@ export function SlideDeck({ docId, title, configMode = 'auto', children }: Props
   const [scale, setScale] = useState(1);
   useLayoutEffect(() => {
     if (!stageNode || !contentNode) return;
-    const measure = () =>
-      setScale(
-        fitScale(
-          { width: stageNode.clientWidth, height: stageNode.clientHeight },
-          { width: contentNode.offsetWidth, height: contentNode.offsetHeight },
-        ),
+    // What the fit remembers between measurements: the one the scale was taken
+    // from, and the scales applied lately, so a slide answering its own scale
+    // settles instead of flipping (`nextFit`).
+    let fit: FitState = INITIAL_FIT;
+    const measure = () => {
+      const result = nextFit(
+        fit,
+        {
+          stage: { width: stageNode.clientWidth, height: stageNode.clientHeight },
+          content: { width: contentNode.offsetWidth, height: contentNode.offsetHeight },
+        },
+        performance.now(),
       );
+      if (result === null) return;
+      fit = result.state;
+      setScale(result.scale);
+    };
     measure();
     // Rotation, the browser chrome appearing, a font finishing loading: all of
     // them change the stage without changing the slide.

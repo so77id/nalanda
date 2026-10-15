@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   BINARY_TREE_OPERATIONS,
+  BST_OPERATIONS,
   CIRCULAR_OPERATIONS,
   DOUBLY_OPERATIONS,
   HEAP_OPERATIONS,
@@ -9,6 +10,7 @@ import {
   RECIPES,
   isValidCombination,
   traceFor,
+  type SequenceInput,
   type SequenceOperation,
   type SequenceRecipe,
   type SequenceStep,
@@ -31,12 +33,35 @@ const values = [7, 3, 1, 5];
  * structure has" iterates these; a sweep over every valid combination
  * iterates RECIPES and feeds the heap a starting array that already is one.
  */
-const SEQUENCE_RECIPES = RECIPES.filter((r) => r !== 'heap-max' && r !== 'binary-tree');
+const SEQUENCE_RECIPES = RECIPES.filter(
+  (r) => r !== 'heap-max' && r !== 'binary-tree' && r !== 'bst' && r !== 'avl',
+);
 /** The tree operations no other kind of recipe has (`search` is everyone's). */
 const TRAVERSALS = ['preorder', 'inorder', 'postorder'] as const;
-const TREE_ONLY: readonly SequenceOperation[] = [...TRAVERSALS, 'height'];
+const TREE_ONLY: readonly SequenceOperation[] = [
+  ...TRAVERSALS,
+  'height',
+  'remove',
+  'rotate-right',
+  'rotate-left',
+  'rotate-left-right',
+  'rotate-right-left',
+];
+// The AVL's sweep rotates at 1, which needs both children: 3 over 1, 1 over 0
+// and 2. A double needs a grandchild inside: -1 under 1 with 0 to its right,
+// or 3 under 1 with 2 to its left.
 const startFor = (recipe: SequenceRecipe, operation: SequenceOperation): number[] =>
-  recipe === 'heap-max' ? [7, 5, 3, 1] : operation === 'insert-ordered' ? [1, 3, 7, 9] : values;
+  recipe === 'heap-max'
+    ? [7, 5, 3, 1]
+    : recipe === 'avl' && operation === 'rotate-left-right'
+      ? [3, 1, -1, 0]
+      : recipe === 'avl' && operation === 'rotate-right-left'
+        ? [0, 1, 3, 2]
+        : recipe === 'avl'
+          ? [3, 1, 0, 2]
+          : operation === 'insert-ordered' || operation === 'binary-search'
+            ? [1, 3, 7, 9]
+            : values;
 
 describe('sequenceStepperTrace · the valid combinations', () => {
   it('rejects insert-ordered on the dynamic array', () => {
@@ -50,6 +75,7 @@ describe('sequenceStepperTrace · the valid combinations', () => {
         if (HEAP_OPERATIONS.includes(operation)) continue;
         if (TREE_ONLY.includes(operation)) continue;
         if (operation === 'insert-ordered' && !recipe.startsWith('linked-list')) continue;
+        if (operation === 'binary-search' && recipe !== 'dynamic-array') continue;
         expect(isValidCombination(recipe, operation), `${recipe} × ${operation}`).toBe(true);
       }
     }
@@ -1175,6 +1201,113 @@ const heapOrdered = (cells: { value: number }[], n: number): boolean =>
 
 const HEAP_OPS = ['insert', 'extract-max'] as const;
 
+describe('sequenceStepperTrace · dynamic-array · binary-search (#322)', () => {
+  const EVENS = [2, 4, 6, 8, 10, 12, 14];
+  const search = (target: number, values = EVENS) =>
+    traceFor('dynamic-array', 'binary-search', { values, target });
+  /** The value under `mid` at every frame that names it, in order, once each. */
+  const middles = (trace: SequenceTrace): number[] => {
+    const out: number[] = [];
+    for (const step of trace.steps) {
+      if (
+        (step.kind !== 'compare' && step.kind !== 'found') ||
+        !trace.code.split('\n')[step.highlightLines[0]! - 1]!.includes('data[mid] == x')
+      )
+        continue;
+      const at = step.slots!.findIndex(
+        (s) => s !== null && (s.state === 'active' || s.state === 'found'),
+      );
+      out.push(step.slots![at]!.value);
+    }
+    return out;
+  };
+  const lineText = (trace: SequenceTrace, step: SequenceStep): string[] =>
+    step.highlightLines.map((l) => trace.code.split('\n')[l - 1]!.trim());
+
+  it('is an operation of the array and of nothing else', () => {
+    expect(isValidCombination('dynamic-array', 'binary-search')).toBe(true);
+    for (const recipe of RECIPES) {
+      if (recipe === 'dynamic-array') continue;
+      expect(isValidCombination(recipe, 'binary-search'), recipe).toBe(false);
+    }
+  });
+
+  it('compares 7 with 8, then 4, then 6, and returns -1', () => {
+    const trace = search(7);
+    expect(middles(trace)).toEqual([8, 4, 6]);
+    const last = trace.steps.at(-1)!;
+    expect(lineText(trace, last)).toContain('return -1;');
+    expect(last.description).toContain('no está');
+    // Where the search stopped is where the value goes: the next slide
+    // inserts 7 at position 3.
+    expect(last.description).toContain('3');
+  });
+
+  it('finds 12 in two comparisons, at position 5', () => {
+    const trace = search(12);
+    expect(middles(trace)).toEqual([8, 12]);
+    const last = trace.steps.at(-1)!;
+    expect(last.kind).toBe('found');
+    expect(lineText(trace, last)).toContain('return mid;');
+    expect(last.slots![5]!.state).toBe('found');
+    expect(last.cost).toBe(2);
+  });
+
+  it('rules out the half the comparison discards, and keeps it ruled out', () => {
+    const trace = search(7);
+    // The first decision: 7 < 8, so 8 and everything right of it go.
+    const first = trace.steps.find((s) => lineText(trace, s).includes('hi = mid - 1;'))!;
+    const out = first.slots!.flatMap((s, i) => (s !== null && s.state === 'discarded' ? [i] : []));
+    expect(out).toEqual([3, 4, 5, 6]);
+    const last = trace.steps.at(-1)!;
+    expect(last.slots!.every((s) => s === null || s.state === 'discarded')).toBe(true);
+  });
+
+  it('shows lo, mid and hi as cursors, one label where they share a cell', () => {
+    const trace = search(7);
+    const start = trace.steps[0]!;
+    expect(start.pointers).toEqual([
+      { name: 'lo', index: 0 },
+      { name: 'hi', index: 6 },
+    ]);
+    // The third middle is 6, at position 2, where lo and hi also stand.
+    const together = trace.steps.find((s) => s.pointers.some((p) => p.name === 'lo, mid, hi'));
+    expect(together?.pointers).toEqual([{ name: 'lo, mid, hi', index: 2 }]);
+  });
+
+  it('never takes more than floor(log2 n) + 1 comparisons', () => {
+    for (let n = 1; n <= 8; n += 1) {
+      const values = Array.from({ length: n }, (_, i) => 2 * i + 2);
+      for (let target = 0; target <= 2 * n + 3; target += 1) {
+        const last = search(target, values).steps.at(-1)!;
+        expect(last.cost, `n = ${n}, ${target}`).toBeLessThanOrEqual(Math.floor(Math.log2(n)) + 1);
+      }
+    }
+  });
+
+  it('names the value it looks for on every frame', () => {
+    const trace = search(6);
+    expect(trace.steps.every((step) => step.seek === 6)).toBe(true);
+    const twice = traceFor('dynamic-array', 'binary-search', { values: EVENS, target: [6, 12] });
+    expect(twice.steps[0]!.seek).toBe(6);
+    expect(twice.steps.at(-1)!.seek).toBe(12);
+  });
+
+  it('refuses an array that is not sorted, or that repeats a value', () => {
+    expect(() => search(3, [7, 3, 1, 5])).toThrow(/ordenado/);
+    expect(() => search(3, [1, 3, 3, 5])).toThrow(/ordenado/);
+  });
+
+  it('lights one decision per frame', () => {
+    const trace = search(7);
+    for (const step of trace.steps) {
+      const lines = lineText(trace, step);
+      const assignments = lines.filter((l) => /^(int )?(lo|hi|mid) = /.test(l));
+      expect(assignments.length, lines.join(' | ')).toBeLessThanOrEqual(2);
+    }
+  });
+});
+
 describe('sequenceStepperTrace · heap-max · which operations it has', () => {
   it('offers exactly the two heap operations, and nothing else', () => {
     for (const operation of OPERATIONS) {
@@ -1185,7 +1318,9 @@ describe('sequenceStepperTrace · heap-max · which operations it has', () => {
   });
 
   it('refuses the two heap operations on every sequence recipe', () => {
-    for (const recipe of RECIPES.filter((r) => r !== 'heap-max')) {
+    // `bst` and `avl` share `insert` (#321, #322): the same name over a
+    // different listing.
+    for (const recipe of RECIPES.filter((r) => r !== 'heap-max' && r !== 'bst' && r !== 'avl')) {
       for (const operation of HEAP_OPS) {
         expect(isValidCombination(recipe, operation)).toBe(false);
       }
@@ -1614,7 +1749,7 @@ describe('sequenceStepperTrace · binary-tree · the valid combinations', () => 
   });
 
   it('keeps the tree operations off every recipe that is not a tree', () => {
-    for (const recipe of RECIPES.filter((r) => r !== 'binary-tree')) {
+    for (const recipe of RECIPES.filter((r) => r !== 'binary-tree' && r !== 'bst' && r !== 'avl')) {
       for (const operation of TREE_ONLY) {
         expect(isValidCombination(recipe, operation), `${recipe} × ${operation}`).toBe(false);
       }
@@ -2040,5 +2175,511 @@ describe('sequenceStepperTrace · binary-tree · the search listing marks the vi
     expect(walk).toBeGreaterThan(visit);
     expect(lines[visit + 1]).toContain('node.value.equals(target)');
     expect(lines[walk + 1]).toContain('contains(node.left');
+  });
+});
+
+describe('sequenceStepperTrace · bst · the valid combinations', () => {
+  it('takes search, insert, inorder and remove, and nothing else', () => {
+    for (const operation of OPERATIONS) {
+      expect(isValidCombination('bst', operation), operation).toBe(
+        BST_OPERATIONS.includes(operation),
+      );
+    }
+  });
+
+  it('shares search with every structure and insert with the heap', () => {
+    expect(isValidCombination('linked-list-singly', 'search')).toBe(true);
+    expect(isValidCombination('binary-tree', 'search')).toBe(true);
+    expect(isValidCombination('heap-max', 'insert')).toBe(true);
+    expect(isValidCombination('bst', 'extract-max')).toBe(false);
+  });
+});
+
+/** Built by inserting 4, 2, 7, 1, 3, 6, 9 in that order: a tree of height 2. */
+const BALANCED = [4, 2, 7, 1, 3, 6, 9];
+
+describe('sequenceStepperTrace · bst · how many runs', () => {
+  const thirteen = Array.from({ length: 13 }, (_, i) => i);
+
+  it('refuses more than twelve targets, as every other recipe does', () => {
+    for (const operation of ['search', 'remove'] as const) {
+      expect(() => traceFor('bst', operation, { values: BALANCED, target: thirteen })).toThrow(
+        /Entre 1 y 12/,
+      );
+    }
+  });
+
+  it('refuses more than twelve insertions', () => {
+    expect(() => traceFor('bst', 'insert', { values: [], value: thirteen })).toThrow(
+      /Entre 1 y 12/,
+    );
+  });
+});
+
+describe('sequenceStepperTrace · bst · search', () => {
+  const search = (target: number) => traceFor('bst', 'search', { values: BALANCED, target });
+
+  it('chooses a side at every node and finds 6 in three comparisons', () => {
+    const last = search(6).steps.at(-1)!;
+    expect(last.cost).toBe(3);
+    expect(last.tree!.nodes.find((n) => n.value === 6)!.state).toBe('found');
+  });
+
+  it('rules out the whole subtree on the side it does not take', () => {
+    const last = search(6).steps.at(-1)!;
+    const discarded = last
+      .tree!.nodes.filter((n) => n.state === 'discarded')
+      .map((n) => Number(n.value))
+      .sort((a, b) => a - b);
+    expect(discarded).toEqual([1, 2, 3, 9]);
+  });
+
+  it('says a value is not there when the side it needs is empty', () => {
+    const last = search(5).steps.at(-1)!;
+    expect(last.cost).toBe(3);
+    expect(last.description).toContain('no está');
+  });
+
+  it('names the invariant when it rules a side out', () => {
+    const trace = search(6);
+    expect(trace.steps.some((s) => s.description.includes('la invariante'))).toBe(true);
+  });
+});
+
+describe('sequenceStepperTrace · bst · search, recursive and iterative side by side (#322)', () => {
+  const both = (target: number) =>
+    traceFor('bst', 'search', { values: BALANCED, target, iterative: true });
+  const lit = (code: string, lines: number[] | undefined) =>
+    (lines ?? []).map((l) => code.split('\n')[l - 1]!.trim());
+
+  it('carries the iterative listing only when asked', () => {
+    expect(traceFor('bst', 'search', { values: BALANCED, target: 6 }).alongside).toBeUndefined();
+    expect(both(6).alongside).toContain('while (node != null)');
+  });
+
+  it('lights the same decision in both listings at every frame', () => {
+    const trace = both(6);
+    const alongside = trace.alongside!;
+    for (const step of trace.steps) {
+      const left = lit(trace.code, step.highlightLines).join(' | ');
+      const right = lit(alongside, step.alongsideLines).join(' | ');
+      expect(right.length, left).toBeGreaterThan(0);
+      if (left.includes('if (c < 0) return contains')) expect(right).toContain('node = node.left');
+      if (left.includes('return contains(node.right')) expect(right).toContain('node = node.right');
+      if (left.includes('if (c == 0) return true'))
+        expect(right).toContain('if (c == 0) return true');
+      if (left.includes('int c = target.compareTo'))
+        expect(right).toContain('int c = target.compareTo');
+    }
+  });
+
+  it('ends a search that fails on the loop that runs out', () => {
+    const trace = both(5);
+    const last = trace.steps.at(-1)!;
+    expect(lit(trace.alongside!, last.alongsideLines)).toEqual([
+      'while (node != null) {',
+      'return false;',
+    ]);
+  });
+
+  it('refuses the iterative listing on any other operation', () => {
+    expect(() =>
+      traceFor('bst', 'remove', { values: BALANCED, target: 4, iterative: true }),
+    ).toThrow(/iterativ/);
+    expect(() =>
+      traceFor('binary-tree', 'search', {
+        values: [],
+        levelOrder: [4, 2, 7],
+        target: 7,
+        iterative: true,
+      }),
+    ).toThrow(/iterativ/);
+  });
+});
+
+describe('sequenceStepperTrace · the other listings shown recursive and iterative (#322)', () => {
+  const lit = (code: string, lines: number[] | undefined) =>
+    (lines ?? []).map((l) => code.split('\n')[l - 1]!.trim());
+  /** Every frame lights something in both listings, and each pair is what the table says. */
+  const paired = (trace: SequenceTrace, pairs: [string, string][]) => {
+    for (const step of trace.steps) {
+      const left = lit(trace.code, step.highlightLines).join(' | ');
+      const right = lit(trace.alongside!, step.alongsideLines).join(' | ');
+      expect(left.length, right).toBeGreaterThan(0);
+      expect(right.length, left).toBeGreaterThan(0);
+      for (const [l, r] of pairs) if (left.includes(l)) expect(right, left).toContain(r);
+    }
+  };
+
+  it('pairs the insertion: the same descent, and the leaf hung at the end', () => {
+    const trace = traceFor('bst', 'insert', { values: BALANCED, value: 5, iterative: true });
+    expect(trace.alongside).toContain('parent = node');
+    paired(trace, [
+      ['int c = value.compareTo', 'int c = value.compareTo'],
+      ['node.left = insert', 'node = c < 0'],
+      ['node.right = insert', 'node = c < 0'],
+      ['return new Node<>(value)', 'Node<T> fresh = new Node<>(value)'],
+    ]);
+    // 5 goes right of 4, left of 7, and hangs on the left of 6.
+    const last = trace.steps.at(-1)!;
+    expect(lit(trace.alongside!, last.alongsideLines)).toContain(
+      'else if (value.compareTo(parent.value) < 0) parent.left = fresh;',
+    );
+  });
+
+  it('pairs the binary search over the array, the recursive one on the left', () => {
+    const trace = traceFor('dynamic-array', 'binary-search', {
+      values: [2, 4, 6, 8, 10, 12, 14],
+      target: 7,
+      iterative: true,
+    });
+    expect(trace.code).toContain('return binarySearch(x, lo, mid - 1);');
+    expect(trace.alongside).toContain('while (lo <= hi)');
+    paired(trace, [
+      ['return binarySearch(x, lo, mid - 1)', 'hi = mid - 1'],
+      ['return binarySearch(x, mid + 1, hi)', 'lo = mid + 1'],
+      ['if (data[mid] == x)', 'if (data[mid] == x)'],
+      ['return -1;', 'return -1;'],
+    ]);
+  });
+
+  it('refuses the paired binary search over several runs', () => {
+    expect(() =>
+      traceFor('dynamic-array', 'binary-search', {
+        values: [2, 4, 6],
+        target: [2, 6],
+        iterative: true,
+      }),
+    ).toThrow(/una sola/);
+  });
+});
+
+describe('sequenceStepperTrace · bst · search names what it looks for (#322)', () => {
+  it('carries the target of each run on every frame of that run', () => {
+    const trace = traceFor('bst', 'search', { values: BALANCED, target: [6, 5] });
+    const starts = trace.steps.flatMap((s, i) => (s.kind === 'start' ? [i] : []));
+    expect(starts).toHaveLength(2);
+    expect(trace.steps.slice(0, starts[1]).every((s) => s.seek === 6)).toBe(true);
+    expect(trace.steps.slice(starts[1]).every((s) => s.seek === 5)).toBe(true);
+  });
+});
+
+describe('sequenceStepperTrace · bst · a tree built by a program (#322)', () => {
+  const build = (value: number[]) =>
+    traceFor('bst', 'insert', { values: [], value, program: true });
+  const lines = (trace: SequenceTrace, step: SequenceStep) =>
+    step.highlightLines.map((l) => trace.code.split('\n')[l - 1]!);
+
+  it('lists the program that builds the tree, not the method', () => {
+    const trace = build([8, 4, 12]);
+    expect(trace.code).toBe(
+      'BST<Integer> tree = new BST<>();\ntree.insert(8);\ntree.insert(4);\ntree.insert(12);',
+    );
+  });
+
+  it('takes one frame per line: the empty tree, then the tree after each insertion', () => {
+    const trace = build([8, 4, 12, 2, 6]);
+    expect(trace.steps).toHaveLength(6);
+    expect(trace.steps[0]!.tree!.nodes).toHaveLength(0);
+    expect(lines(trace, trace.steps[0]!)).toEqual(['BST<Integer> tree = new BST<>();']);
+    trace.steps.slice(1).forEach((step, i) => {
+      expect(lines(trace, step)).toEqual([`tree.insert(${[8, 4, 12, 2, 6][i]});`]);
+      expect(step.tree!.nodes).toHaveLength(i + 1);
+      const fresh = step.tree!.nodes.filter((n) => n.state === 'new');
+      expect(fresh.map((n) => n.value)).toEqual([[8, 4, 12, 2, 6][i]]);
+    });
+  });
+
+  it('narrates the comparisons that led each value to its place', () => {
+    const last = build([8, 4, 12, 2, 6]).steps.at(-1)!;
+    expect(last.description).toContain('6 < 8');
+    expect(last.description).toContain('6 > 4');
+    expect(last.description).toContain('derecha de 4');
+  });
+
+  it('starts from an empty tree, and only on the insertion', () => {
+    expect(() => traceFor('bst', 'insert', { values: [8], value: 4, program: true })).toThrow(
+      /vacío/,
+    );
+    expect(() => traceFor('bst', 'search', { values: [8], target: 8, program: true })).toThrow(
+      /programa/,
+    );
+  });
+
+  it('refuses a program with the iterative listing beside it', () => {
+    // The program takes the second column; the iterative listing was dropped
+    // without a word.
+    expect(() =>
+      traceFor('bst', 'insert', { values: [], value: [8, 4, 12], program: true, iterative: true }),
+    ).toThrow(/program.*iterative|iterative.*program/);
+  });
+
+  it('draws no strip under an insertion: the tree has no array beside it', () => {
+    expect(build([8, 4]).tree!.strip).toBe(false);
+    expect(traceFor('bst', 'insert', { values: [8, 4], value: 6 }).tree!.strip).toBe(false);
+    expect(traceFor('avl', 'insert', { values: [], value: [3, 2, 1] }).tree!.strip).toBe(false);
+  });
+});
+
+describe('sequenceStepperTrace · bst · the public method and the private one (#322)', () => {
+  const first = (trace: SequenceTrace) =>
+    trace.steps[0]!.highlightLines.map((l) => trace.code.split('\n')[l - 1]!.trim());
+
+  it('shows each recursive operation as a public method that calls a private one with the root', () => {
+    const cases: [SequenceOperation, Partial<SequenceInput>, string, string, string][] = [
+      [
+        'search',
+        { target: 6 },
+        'public boolean contains(T target) {',
+        'private boolean contains(Node<T> node, T target) {',
+        'return contains(root, target);',
+      ],
+      [
+        'insert',
+        { value: 5 },
+        'public void insert(T value) {',
+        'private Node<T> insert(Node<T> node, T value) {',
+        'root = insert(root, value);',
+      ],
+      [
+        'remove',
+        { target: 4 },
+        'public void remove(T value) {',
+        'private Node<T> remove(Node<T> node, T value) {',
+        'root = remove(root, value);',
+      ],
+      [
+        'inorder',
+        {},
+        'public void inorder() {',
+        'private void inorder(Node<T> node) {',
+        'inorder(root);',
+      ],
+    ];
+    for (const [operation, extra, pub, priv, call] of cases) {
+      const trace = traceFor('bst', operation, { values: BALANCED, ...extra });
+      expect(trace.code, operation).toContain(pub);
+      expect(trace.code, operation).toContain(priv);
+      // A listing may comment its lines (the removal's say which case each
+      // branch handles): the first frame lights the call, whatever follows it.
+      expect(
+        first(trace).map((line) => line.split(' //')[0]),
+        operation,
+      ).toEqual([call]);
+    }
+  });
+
+  it('writes the iterative versions as public methods', () => {
+    for (const [operation, extra] of [
+      ['search', { target: 6 }],
+      ['insert', { value: 5 }],
+    ] as const) {
+      const trace = traceFor('bst', operation, { values: BALANCED, ...extra, iterative: true });
+      expect(trace.alongside!.startsWith('public '), operation).toBe(true);
+    }
+  });
+
+  it('walks the inorder of a search tree, writing it sorted', () => {
+    const trace = traceFor('bst', 'inorder', { values: BALANCED });
+    expect(trace.steps.at(-1)!.tree!.strip).toEqual([1, 2, 3, 4, 6, 7, 9]);
+  });
+});
+
+describe('sequenceStepperTrace · bst · removals run by a program (#322)', () => {
+  const TREE = [8, 3, 12, 1, 6, 10, 14, 11];
+  const run = (target: number[]) =>
+    traceFor('bst', 'remove', { values: TREE, target, program: true });
+  const lines = (trace: SequenceTrace, step: SequenceStep) =>
+    step.highlightLines.map((l) => trace.code.split('\n')[l - 1]!);
+  const values = (step: SequenceStep) =>
+    step.tree!.nodes.map((n) => Number(n.value)).sort((a, b) => a - b);
+
+  const method = (trace: SequenceTrace, step: SequenceStep) =>
+    (step.alongsideLines ?? []).map((l) => trace.alongside!.split('\n')[l - 1]!);
+  // The frames of each removal, keyed by the program line they light.
+  const byRun = (trace: SequenceTrace) => {
+    const runs = new Map<string, SequenceStep[]>();
+    for (const step of trace.steps.slice(1)) {
+      const [line] = lines(trace, step);
+      runs.set(line!, [...(runs.get(line!) ?? []), step]);
+    }
+    return runs;
+  };
+
+  it('lists the program on the left and the method it calls on the right', () => {
+    const trace = run([1, 3]);
+    expect(trace.code).toBe(
+      'BST<Integer> tree = new BST<>();\n' +
+        'int[] values = {8, 3, 12, 1, 6, 10, 14, 11};\n' +
+        'for (int x : values) tree.insert(x);\n' +
+        'tree.remove(1);\n' +
+        'tree.remove(3);',
+    );
+    expect(trace.alongside).toContain('private Node<T> remove(Node<T> node, T value) {');
+    expect(trace.listingNames).toEqual(['programa', 'método']);
+  });
+
+  it('shows the whole tree first, the program building it and the method not yet called', () => {
+    const trace = run([1, 3, 8, 12, 14, 5]);
+    const first = trace.steps[0]!;
+    expect(values(first)).toEqual([1, 3, 6, 8, 10, 11, 12, 14]);
+    expect(lines(trace, first)).toHaveLength(3);
+    expect(method(trace, first)).toEqual([]);
+    expect(values(trace.steps.at(-1)!)).toEqual([6, 10, 11]);
+  });
+
+  it('walks the method for every removal, one program line lit at a time', () => {
+    const trace = run([1, 3, 8, 12, 14, 5]);
+    for (const step of trace.steps.slice(1)) expect(lines(trace, step)).toHaveLength(1);
+    const runs = byRun(trace);
+    expect([...runs.keys()]).toEqual([
+      'tree.remove(1);',
+      'tree.remove(3);',
+      'tree.remove(8);',
+      'tree.remove(12);',
+      'tree.remove(14);',
+      'tree.remove(5);',
+    ]);
+    // Each run starts at the public method's call, and goes down from there.
+    for (const steps of runs.values()) {
+      expect(method(trace, steps[0]!)[0]).toContain('root = remove(root, value);');
+      expect(steps.length).toBeGreaterThan(2);
+    }
+  });
+
+  it('lights, in each removal, the branch of its case', () => {
+    const runs = byRun(run([1, 3, 8, 12, 14, 5]));
+    const lit = (x: number) =>
+      runs
+        .get(`tree.remove(${x});`)!
+        .flatMap((step) => method(run([1, 3, 8, 12, 14, 5]), step))
+        .join('\n');
+    expect(lit(1)).toContain('return node.right; // hoja');
+    expect(lit(3)).toContain('return node.right; // hoja');
+    expect(lit(8)).toContain('Node<T> next = node.right;');
+    expect(lit(12)).toContain('Node<T> next = node.right;');
+    expect(lit(14)).toContain('return node.left; // solo hijo izquierdo');
+    expect(lit(5)).toContain('if (node == null) return null;');
+    expect(lit(5)).not.toContain('Node<T> next');
+  });
+
+  it('removes from a tree that exists, and only as a program of removals or insertions', () => {
+    expect(() => traceFor('bst', 'remove', { values: [], target: 1, program: true })).toThrow(
+      /vacío/,
+    );
+    expect(() => traceFor('bst', 'search', { values: TREE, target: 1, program: true })).toThrow(
+      /programa/,
+    );
+  });
+});
+
+describe('sequenceStepperTrace · bst · insert', () => {
+  const PDF = [8, 5, 1, 4, 6, 7, 20];
+
+  it('hangs the new value as a leaf, where the search for it ends', () => {
+    const last = traceFor('bst', 'insert', { values: PDF, value: 12 }).steps.at(-1)!;
+    const twelve = last.tree!.nodes.find((n) => n.value === 12)!;
+    const twenty = last.tree!.nodes.find((n) => n.value === 20)!;
+    expect(twenty.left).toBe(twelve.id);
+    expect(twelve.left).toBeNull();
+    expect(twelve.right).toBeNull();
+    expect(twelve.state).toBe('new');
+  });
+
+  it('keeps the inorder in the strip, sorted, with the new value in its place', () => {
+    const last = traceFor('bst', 'insert', { values: PDF, value: 12 }).steps.at(-1)!;
+    expect(last.tree!.strip).toEqual([1, 4, 5, 6, 7, 8, 12, 20]);
+    expect(last.tree!.stripFresh).toBe(6);
+  });
+
+  it('reserves every column from the start, so nothing moves', () => {
+    const trace = traceFor('bst', 'insert', { values: PDF, value: 12 });
+    const first = trace.steps[0]!;
+    expect(first.tree!.strip).toEqual([1, 4, 5, 6, 7, 8, null, 20]);
+    const twenty = first.tree!.nodes.find((n) => n.value === 20)!;
+    expect(trace.tree!.columns[twenty.id]).toBe(7);
+  });
+
+  it('inserts nothing when the value is already there', () => {
+    const trace = traceFor('bst', 'insert', { values: PDF, value: 5 });
+    const last = trace.steps.at(-1)!;
+    expect(last.tree!.nodes).toHaveLength(7);
+    expect(trace.steps.some((s) => s.description.includes('ya está'))).toBe(true);
+  });
+
+  it('grows a tree from nothing, one value after another', () => {
+    const last = traceFor('bst', 'insert', { values: [], value: [2, 1, 3] }).steps.at(-1)!;
+    const root = last.tree!.nodes.find((n) => n.id === last.tree!.root)!;
+    expect(root.value).toBe(2);
+    expect(last.tree!.strip).toEqual([1, 2, 3]);
+  });
+
+  it('refuses a starting list with a repeated value', () => {
+    expect(() => traceFor('bst', 'insert', { values: [4, 2, 4], value: 1 })).toThrow(/repet/);
+  });
+});
+
+/** The inorder of a frame's tree, read from its links: sorted iff the invariant holds. */
+const inorderOf = (step: SequenceStep): number[] => {
+  const byId = new Map(step.tree!.nodes.map((n) => [n.id, n]));
+  const out: number[] = [];
+  const walk = (id: number | null) => {
+    if (id === null) return;
+    const n = byId.get(id)!;
+    walk(n.left);
+    out.push(Number(n.value));
+    walk(n.right);
+  };
+  walk(step.tree!.root);
+  return out;
+};
+const sorted = (xs: number[]) => xs.every((x, i) => i === 0 || xs[i - 1]! < x);
+
+describe('sequenceStepperTrace · bst · remove', () => {
+  const PDF_FULL = [8, 5, 1, 4, 6, 7, 20, 12, 23].slice(0, 8);
+  const remove = (values: number[], target: number) =>
+    traceFor('bst', 'remove', { values, target });
+
+  it('removes a leaf: its parent points at null', () => {
+    const last = remove(BALANCED, 1).steps.at(-1)!;
+    expect(inorderOf(last)).toEqual([2, 3, 4, 6, 7, 9]);
+    expect(last.tree!.nodes.find((n) => n.value === 2)!.left).toBeNull();
+  });
+
+  it('removes a node with one child: its parent adopts the child', () => {
+    const last = remove(PDF_FULL, 1).steps.at(-1)!;
+    const five = last.tree!.nodes.find((n) => n.value === 5)!;
+    const four = last.tree!.nodes.find((n) => n.value === 4)!;
+    expect(five.left).toBe(four.id);
+    expect(inorderOf(last)).toEqual([4, 5, 6, 7, 8, 12, 20]);
+  });
+
+  it('removes a node with two children by copying its successor, then removing that', () => {
+    const trace = remove(PDF_FULL, 8);
+    const last = trace.steps.at(-1)!;
+    const root = last.tree!.nodes.find((n) => n.id === last.tree!.root)!;
+    expect(root.value).toBe(12);
+    expect(inorderOf(last)).toEqual([1, 4, 5, 6, 7, 12, 20]);
+    expect(trace.steps.some((s) => s.description.includes('sucesor'))).toBe(true);
+  });
+
+  it('keeps the root node itself: only its value changes', () => {
+    const trace = remove(PDF_FULL, 8);
+    const firstRoot = trace.steps[0]!.tree!.root;
+    expect(trace.steps.at(-1)!.tree!.root).toBe(firstRoot);
+  });
+
+  it('leaves the search-tree invariant standing after every removal', () => {
+    for (const target of PDF_FULL) {
+      const last = remove(PDF_FULL, target).steps.at(-1)!;
+      expect(sorted(inorderOf(last)), `remove ${target}`).toBe(true);
+      expect(inorderOf(last)).toHaveLength(PDF_FULL.length - 1);
+    }
+  });
+
+  it('removes nothing when the value is not there', () => {
+    const last = remove(BALANCED, 5).steps.at(-1)!;
+    expect(inorderOf(last)).toEqual([1, 2, 3, 4, 6, 7, 9]);
+    expect(last.description).toContain('no está');
   });
 });

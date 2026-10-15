@@ -204,14 +204,39 @@ export function PanelLabel({
  * The "qué está pasando" narration strip — turquoise chip + a single line
  * of Spanish that names what the current step is doing. Pedagogical anchor:
  * a verbal frame every reader can hold onto while scanning the visual.
+ *
+ * `reserve`, every text the strip will show: drawn invisible in the same cell
+ * as the current one, so the strip is as tall as the longest from the first
+ * frame. On a slide, which is scaled to fit, a frame one line longer would
+ * otherwise rescale the whole slide when the reader stepped onto it (#322).
+ * Hidden from assistive technology, so the live region announces only the
+ * current text.
  */
-export function NarrationStrip({ text }: { text: ReactNode }) {
+export function NarrationStrip({
+  text,
+  reserve,
+}: {
+  text: ReactNode;
+  reserve?: readonly ReactNode[];
+}) {
   return (
     <div className="flex items-center gap-3 border-t border-rule bg-sunk px-3 py-2">
       <span className="rounded border border-focus/40 bg-focus/10 px-2 py-0.5 font-mono text-3xs font-bold tracking-wide text-focus uppercase whitespace-nowrap">
         qué está pasando
       </span>
-      <p className="m-0 font-mono text-xs text-ink">{text}</p>
+      <div className="grid">
+        {reserve?.map((r, i) => (
+          <p
+            key={i}
+            data-narration-reserve
+            aria-hidden="true"
+            className="invisible m-0 font-mono text-xs [grid-area:1/1]"
+          >
+            {r}
+          </p>
+        ))}
+        <p className="m-0 font-mono text-xs text-ink [grid-area:1/1]">{text}</p>
+      </div>
     </div>
   );
 }

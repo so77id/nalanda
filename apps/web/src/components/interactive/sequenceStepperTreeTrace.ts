@@ -10,13 +10,24 @@
  * `cells` mirrors the nodes so the rest of the widget can count them.
  *
  * `binary-tree` has no order, so its operations VISIT: the three traversals,
- * the height and a search that may have to look everywhere.
+ * the height and a search that may have to look everywhere. `bst` keeps the
+ * search-tree invariant, so its operations CHOOSE A SIDE at every node. The
+ * `avl` recipe (#322) lives in `sequenceStepperAvlTrace.ts` and builds on the
+ * pieces exported here: the node, the recorder, the search tree built by
+ * inserting, and the run's columns.
  */
-import { asRuns, lineOf, requireRuns } from './sequenceStepperTraceShared';
+import {
+  asRuns,
+  lineOf,
+  pairListings,
+  requireRuns,
+  type ListingPairs,
+} from './sequenceStepperTraceShared';
 // Types only: the dispatcher imports this module's `traceTree` as a value, so a
 // value imported back from it would close a runtime cycle (ADR-0083 §1).
 import type {
   BinaryTreeOperation,
+  BstOperation,
   SequenceCell,
   SequenceCellState,
   SequenceInput,
@@ -31,21 +42,25 @@ import type {
 // Generic, and the recorder takes its root and strip as closures, for the
 // search tree of Árboles II (#322): there `root` starts empty and changes with
 // every insertion. Here every tree is built once and never changes shape.
-interface TreeNode<V extends TreeValue = TreeValue> {
+export interface TreeNode<V extends TreeValue = TreeValue> {
   id: number;
   value: V;
   left: TreeNode<V> | null;
   right: TreeNode<V> | null;
 }
 
+/** A search tree holds numbers only: its operations compare them. */
+export type NumberNode = TreeNode<number>;
+
 type Traversal = Exclude<BinaryTreeOperation, 'height' | 'search'>;
 
 /**
  * Each listing is the recursive method as the class writes it. The three
  * traversals differ in ONE line's position — where the visit sits among the
- * two calls — and that is the whole lesson of the three orders. The search
- * has no order to lean on, so it tries both sides: a preorder whose visit
- * compares, marked with the same two comments.
+ * two calls — and that is the whole lesson of the three orders. The binary
+ * tree's search has no order to lean on, so it tries both sides: a preorder
+ * whose visit compares, marked with the same two comments. The search tree's
+ * shares its signature and lets the invariant pick one side instead.
  */
 const CODE = {
   preorder: `void preorder(Node<T> node) {
@@ -57,6 +72,19 @@ const CODE = {
     preorder(node.right);
 }`,
   inorder: `void inorder(Node<T> node) {
+    if (node == null) return;
+    // recorrido: primero la izquierda
+    inorder(node.left);
+    // visita
+    System.out.print(node.value + " ");
+    // recorrido: después la derecha
+    inorder(node.right);
+}`,
+  bstInorder: `public void inorder() {
+    inorder(root);
+}
+
+private void inorder(Node<T> node) {
     if (node == null) return;
     // recorrido: primero la izquierda
     inorder(node.left);
@@ -87,6 +115,50 @@ const CODE = {
     return contains(node.left, target)
         || contains(node.right, target);
 }`,
+  containsOrdered: `public boolean contains(T target) {
+    return contains(root, target);
+}
+
+private boolean contains(Node<T> node, T target) {
+    if (node == null) return false;
+    int c = target.compareTo(node.value);
+    if (c == 0) return true;
+    if (c < 0) return contains(node.left, target);
+    return contains(node.right, target);
+}`,
+  insert: `public void insert(T value) {
+    root = insert(root, value);
+}
+
+private Node<T> insert(Node<T> node, T value) {
+    if (node == null) return new Node<>(value);
+    int c = value.compareTo(node.value);
+    if (c < 0) {
+        node.left = insert(node.left, value);
+    } else if (c > 0) {
+        node.right = insert(node.right, value);
+    }
+    return node;
+}`,
+  remove: `public void remove(T value) {
+    root = remove(root, value); // si era la raíz, root cambia
+}
+
+private Node<T> remove(Node<T> node, T value) {
+    if (node == null) return null; // el valor no está
+    int c = value.compareTo(node.value);
+    if (c < 0) node.left = remove(node.left, value); // está a la izquierda
+    else if (c > 0) node.right = remove(node.right, value); // está a la derecha
+    else if (node.left == null) return node.right; // hoja, o solo hijo derecho
+    else if (node.right == null) return node.left; // solo hijo izquierdo
+    else { // dos hijos: toma el valor del sucesor
+        Node<T> next = node.right; // el sucesor es el menor
+        while (next.left != null) next = next.left; // de la derecha
+        node.value = next.value;
+        node.right = remove(node.right, next.value); // y lo elimina abajo
+    }
+    return node;
+}`,
 } as const;
 
 /** The traversal's name in the narration. */
@@ -100,7 +172,7 @@ const TRAVERSAL_NAME: Record<Traversal, string> = {
 const signed = (n: number): string => (n < 0 ? `−${-n}` : String(n));
 
 let nextId = 0;
-const nodeOf = <V extends TreeValue>(value: V): TreeNode<V> => ({
+export const nodeOf = <V extends TreeValue>(value: V): TreeNode<V> => ({
   id: (nextId += 1),
   value,
   left: null,
@@ -151,7 +223,7 @@ function fromLevelOrder(levels: (TreeValue | null)[]): TreeNode {
 }
 
 /** Every node with its depth, root first, each before its children (the order frames list them). */
-function nodesOf(root: TreeNode | null): { node: TreeNode; depth: number }[] {
+export function nodesOf(root: TreeNode | null): { node: TreeNode; depth: number }[] {
   const out: { node: TreeNode; depth: number }[] = [];
   const walk = (n: TreeNode | null, depth: number) => {
     if (n === null) return;
@@ -182,14 +254,23 @@ function inorderColumns(root: TreeNode): Record<number, number> {
  * The frame list every tree operation is written into. It owns the paint
  * (state and badge per node), the calls still open, the running cost and the
  * deepest level any frame reached, and turns them into one frame per `push`.
+ *
+ * A rotation (#322) adds two things. `loose` holds the nodes a local variable
+ * keeps that no link from the root reaches — `q`, between `p.left = q.right`
+ * and the caller taking it — so they stay on the drawing. And while `frozen`,
+ * every node keeps the level it had in the last frame: the method changes
+ * links, not places, and the tree settles only when the caller takes `q`.
  */
-class TreeRecorder {
+export class TreeRecorder {
   readonly steps: SequenceStep[] = [];
   readonly state = new Map<number, SequenceCellState>();
   readonly badge = new Map<number, string>();
   readonly path: number[] = [];
+  readonly loose: TreeNode[] = [];
+  frozen = false;
   cost = 0;
   depth = 0;
+  private readonly lastDepth = new Map<number, number>();
   private readonly code: string;
   private readonly rootOf: () => TreeNode | null;
   private readonly stripOf: () => (TreeValue | null)[];
@@ -228,7 +309,19 @@ class TreeRecorder {
     probe?: TreeFrame['probe'],
   ) {
     const root = this.rootOf();
-    const nodes: TreeFrameNode[] = nodesOf(root).map(({ node: n, depth }) => {
+    // Root first, then whatever only a local variable still holds; a node two
+    // references reach (`p.left` and `q.right` mid-rotation) is drawn once.
+    const seen = new Set<number>();
+    const placed: { node: TreeNode; depth: number }[] = [];
+    for (const start of [root, ...this.loose]) {
+      for (const { node, depth } of nodesOf(start)) {
+        if (seen.has(node.id)) continue;
+        seen.add(node.id);
+        placed.push({ node, depth: this.frozen ? (this.lastDepth.get(node.id) ?? depth) : depth });
+      }
+    }
+    const nodes: TreeFrameNode[] = placed.map(({ node: n, depth }) => {
+      this.lastDepth.set(n.id, depth);
       this.depth = Math.max(this.depth, depth);
       const out: TreeFrameNode = {
         id: n.id,
@@ -319,8 +412,46 @@ export function traceTree(operation: BinaryTreeOperation, input: SequenceInput):
   return traceTraversal(root, operation);
 }
 
+export function traceSearchTree(operation: BstOperation, input: SequenceInput): SequenceTrace {
+  const repeated = input.values.find((v, i) => input.values.indexOf(v) !== i);
+  if (repeated !== undefined) {
+    throw new Error(
+      `El valor ${repeated} está repetido: un árbol de búsqueda no guarda dos veces el mismo valor.`,
+    );
+  }
+  if (operation === 'search') {
+    const trace = withSeek(
+      traceSearchOrdered(input.values, asRuns(input.target)),
+      asRuns(input.target),
+    );
+    return input.iterative === true
+      ? pairListings(trace, CONTAINS_ITERATIVE, CONTAINS_PAIRS)
+      : trace;
+  }
+  if (operation === 'remove' && input.program === true) {
+    return traceRemoveProgram(input.values, asRuns(input.target));
+  }
+  if (operation === 'insert' && input.program === true) {
+    return traceInsertProgram(input.values, asRuns(input.value));
+  }
+  if (operation === 'insert' && input.iterative === true) {
+    return pairListings(
+      traceInsert(input.values, asRuns(input.value)),
+      INSERT_ITERATIVE,
+      INSERT_PAIRS,
+    );
+  }
+  if (operation === 'inorder') {
+    const { root } = bstOf(input.values, columnsFor(input.values), {});
+    if (root === null) throw new Error('El árbol está vacío: no hay nada que recorrer.');
+    return traceTraversal(root, 'inorder', { code: CODE.bstInorder, start: 'inorder(root);' });
+  }
+  if (operation === 'remove') return traceRemove(input.values, asRuns(input.target));
+  return traceInsert(input.values, asRuns(input.value));
+}
+
 /** The result every tree operation hands back, sized for the whole run. */
-function finish(
+export function finish(
   rec: TreeRecorder,
   code: string,
   columns: Record<number, number>,
@@ -339,8 +470,17 @@ function finish(
 
 // ── binary-tree: the three traversals ─────────────────────────────────────
 
-function traceTraversal(root: TreeNode, traversal: Traversal): SequenceTrace {
-  const code = CODE[traversal];
+/**
+ * `listing` swaps the binary tree's listing for another with the same body:
+ * the search tree's inorder, behind a public method whose call `start` names
+ * (#322).
+ */
+function traceTraversal(
+  root: TreeNode,
+  traversal: Traversal,
+  listing?: { code: string; start: string },
+): SequenceTrace {
+  const code = listing?.code ?? CODE[traversal];
   const name = TRAVERSAL_NAME[traversal];
   const columns = inorderColumns(root);
   const slots = nodesOf(root).length;
@@ -398,7 +538,7 @@ function traceTraversal(root: TreeNode, traversal: Traversal): SequenceTrace {
 
   rec.push(
     'start',
-    [`void ${traversal}(`],
+    [listing?.start ?? `void ${traversal}(`],
     `El ${name} empieza con la llamada en la raíz, ${root.value}.`,
   );
   visit(root);
@@ -545,6 +685,523 @@ function traceSearchAnywhere(root: TreeNode, targets: number[]): SequenceTrace {
           ? `${t} no está: se comparó el único nodo.`
           : `${t} no está: se compararon los ${rec.cost} nodos, uno por uno.`,
     );
+  }
+  return finish(rec, code, columns, slots, false);
+}
+
+// ── bst: built by inserting, and every operation chooses a side ───────────
+
+/** Inserts with no frames: the tree a `bst` slide starts from. */
+export function bstOf(
+  values: number[],
+  columnOf: (v: number) => number,
+  columns: Record<number, number>,
+) {
+  let root: NumberNode | null = null;
+  const place = (v: number): NumberNode => {
+    const fresh = nodeOf(v);
+    columns[fresh.id] = columnOf(v);
+    return fresh;
+  };
+  for (const v of values) {
+    if (root === null) {
+      root = place(v);
+      continue;
+    }
+    let n: NumberNode = root;
+    for (;;) {
+      const side = v < n.value ? 'left' : 'right';
+      const next: NumberNode | null = n[side];
+      if (next === null) {
+        n[side] = place(v);
+        break;
+      }
+      n = next;
+    }
+  }
+  return { root, place };
+}
+
+/** Every value the run ever holds, sorted: a value's column is its rank here. */
+export function columnsFor(values: number[]): (v: number) => number {
+  const sorted = [...new Set(values)].sort((a, b) => a - b);
+  return (v) => sorted.indexOf(v);
+}
+
+/** Marks a whole subtree as ruled out. */
+function discard(rec: TreeRecorder, n: TreeNode | null): void {
+  for (const { node } of nodesOf(n)) rec.state.set(node.id, 'discarded');
+}
+
+/** Writes each run's target on every frame of that run: a run starts on its `start` frame. */
+function withSeek(trace: SequenceTrace, targets: number[]): SequenceTrace {
+  let run = -1;
+  return {
+    ...trace,
+    steps: trace.steps.map((step) => {
+      if (step.kind === 'start') run += 1;
+      return { ...step, seek: targets[Math.max(run, 0)] };
+    }),
+  };
+}
+
+/**
+ * The search tree's `contains` as a loop: the same comparisons, the same
+ * nodes, a variable that walks down instead of a call per level. Shown
+ * beside the recursive listing, so the class reads the two at once.
+ */
+const CONTAINS_ITERATIVE = `public boolean contains(T target) {
+    Node<T> node = root;
+    while (node != null) {
+        int c = target.compareTo(node.value);
+        if (c == 0) return true;
+        if (c < 0) node = node.left;
+        else node = node.right;
+    }
+    return false;
+}`;
+
+/**
+ * What each line the recursive search lights is in the loop: the call that
+ * starts it is the loop's first assignment, a call on an empty side is the
+ * condition that fails, a call on a side is the variable stepping to it. The
+ * loop's condition lights with every comparison, because it is evaluated
+ * before each one.
+ */
+const CONTAINS_PAIRS: ListingPairs = [
+  ['return contains(root, target)', ['Node<T> node = root']],
+  ['if (node == null) return false', ['while (node != null)', 'return false;']],
+  ['int c = target.compareTo', ['while (node != null)', 'int c = target.compareTo']],
+  ['if (c == 0) return true', ['if (c == 0) return true']],
+  ['if (c < 0) return contains', ['if (c < 0) node = node.left']],
+  ['return contains(node.right', ['else node = node.right']],
+];
+
+/**
+ * The insertion as a loop: the same descent with the parent kept one step
+ * behind, and the leaf hung on the side the last comparison chose. The
+ * recursive version hangs it on the way back, `node.left = insert(…)`; the
+ * loop has no way back, so it remembers whom to hang it from.
+ */
+const INSERT_ITERATIVE = `public void insert(T value) {
+    Node<T> parent = null;
+    Node<T> node = root;
+    while (node != null) {
+        int c = value.compareTo(node.value);
+        if (c == 0) return;
+        parent = node;
+        node = c < 0 ? node.left : node.right;
+    }
+    Node<T> fresh = new Node<>(value);
+    if (parent == null) root = fresh;
+    else if (value.compareTo(parent.value) < 0) parent.left = fresh;
+    else parent.right = fresh;
+}`;
+
+/** Where the frame's new leaf hangs: from nobody, or from a left or a right. */
+const hungFrom = (step: SequenceStep): string => {
+  const nodes = step.tree?.nodes ?? [];
+  const fresh = nodes.find((n) => n.state === 'new');
+  if (fresh === undefined) return 'if (parent == null) root = fresh';
+  if (nodes.some((n) => n.left === fresh.id)) return 'parent.left = fresh';
+  if (nodes.some((n) => n.right === fresh.id)) return 'else parent.right = fresh';
+  return 'if (parent == null) root = fresh';
+};
+
+const INSERT_PAIRS: ListingPairs = [
+  ['root = insert(root, value)', ['Node<T> parent = null', 'Node<T> node = root']],
+  ['int c = value.compareTo', ['while (node != null)', 'int c = value.compareTo']],
+  ['return node;', ['if (c == 0) return']],
+  ['node.left = insert', ['parent = node', 'node = c < 0']],
+  ['node.right = insert', ['parent = node', 'node = c < 0']],
+  [
+    'return new Node<>(value)',
+    (step) => ['while (node != null)', 'Node<T> fresh = new Node<>(value)', hungFrom(step)],
+  ],
+];
+
+function traceSearchOrdered(values: number[], targets: number[]): SequenceTrace {
+  if (targets.length === 0) throw new Error('Falta el valor a buscar.');
+  requireRuns(targets.length);
+  const code = CODE.containsOrdered;
+  const columns: Record<number, number> = {};
+  const columnOf = columnsFor(values);
+  const { root } = bstOf(values, columnOf, columns);
+  const rec = new TreeRecorder(
+    code,
+    () => root,
+    () => [],
+  );
+
+  for (const t of targets) {
+    rec.reset();
+    rec.push(
+      'start',
+      ['return contains(root, target)'],
+      `Buscar ${t}: en cada nodo, la invariante dice de qué lado puede estar.`,
+    );
+    let n = root;
+    for (;;) {
+      if (n === null) {
+        rec.push(
+          'done',
+          ['if (node == null) return false'],
+          `El lado que tocaba está vacío: ${t} no está en el árbol.`,
+        );
+        break;
+      }
+      rec.path.push(n.id);
+      rec.settle();
+      rec.cost += 1;
+      rec.badge.set(n.id, String(rec.cost));
+      rec.state.set(n.id, 'active');
+      const v = n.value;
+      rec.push(
+        'compare',
+        ['int c = target.compareTo'],
+        `contains(${v}): se compara ${t} con ${v}.`,
+      );
+      if (t === v) {
+        rec.state.set(n.id, 'found');
+        rec.push('found', ['if (c == 0) return true'], `${t} es ${v}: está en el árbol.`);
+        break;
+      }
+      rec.state.set(n.id, 'visited');
+      if (t < v) {
+        discard(rec, n.right);
+        rec.push(
+          'walk',
+          ['if (c < 0) return contains'],
+          `${t} < ${v}: por la invariante, ${t} solo puede estar a la izquierda de ${v}; la derecha se descarta entera.`,
+        );
+        n = n.left;
+      } else {
+        discard(rec, n.left);
+        rec.push(
+          'walk',
+          ['return contains(node.right'],
+          `${t} > ${v}: por la invariante, ${t} solo puede estar a la derecha de ${v}; la izquierda se descarta entera.`,
+        );
+        n = n.right;
+      }
+    }
+  }
+  return finish(rec, code, columns, new Set(values).size, false);
+}
+
+function traceInsert(values: number[], inserts: number[]): SequenceTrace {
+  if (inserts.length === 0) throw new Error('Falta el valor a insertar.');
+  requireRuns(inserts.length);
+  const code = CODE.insert;
+  const everything = [...values, ...inserts];
+  const columnOf = columnsFor(everything);
+  const slots = new Set(everything).size;
+  const columns: Record<number, number> = {};
+  const built = bstOf(values, columnOf, columns);
+  let root = built.root;
+  const rec = new TreeRecorder(
+    code,
+    () => root,
+    stripByNode(() => root, columns, slots),
+  );
+
+  for (const x of inserts) {
+    rec.reset();
+    rec.push(
+      'start',
+      ['root = insert(root, value)'],
+      `Insertar ${x}: se baja desde la raíz, como al buscarlo.`,
+    );
+    if (root === null) {
+      root = built.place(x);
+      rec.state.set(root.id, 'new');
+      rec.push(
+        'build',
+        ['return new Node<>(value)'],
+        `El árbol está vacío: ${x} pasa a ser la raíz.`,
+        columnOf(x),
+      );
+      continue;
+    }
+    let n: NumberNode = root;
+    for (;;) {
+      rec.path.push(n.id);
+      rec.settle();
+      rec.cost += 1;
+      rec.state.set(n.id, 'active');
+      const v = n.value;
+      rec.push('compare', ['int c = value.compareTo'], `insert(${v}): se compara ${x} con ${v}.`);
+      if (x === v) {
+        rec.state.set(n.id, 'idle');
+        rec.push('done', ['return node;'], `${x} ya está en el árbol: no se inserta un repetido.`);
+        break;
+      }
+      rec.state.set(n.id, 'visited');
+      const side = x < v ? 'left' : 'right';
+      const where = side === 'left' ? 'la izquierda' : 'la derecha';
+      const sign = x < v ? '<' : '>';
+      const next: NumberNode | null = n[side];
+      if (next === null) {
+        const fresh = built.place(x);
+        n[side] = fresh;
+        rec.path.push(fresh.id);
+        rec.settle();
+        rec.state.set(fresh.id, 'new');
+        rec.push(
+          'build',
+          ['return new Node<>(value)'],
+          `${x} ${sign} ${v} y ${where} de ${v} es null: ${x} se cuelga ahí como hoja nueva.`,
+          columnOf(x),
+        );
+        break;
+      }
+      rec.push(
+        'walk',
+        [side === 'left' ? 'node.left = insert' : 'node.right = insert'],
+        `${x} ${sign} ${v}: por la invariante, ${x} va a ${where} de ${v}.`,
+      );
+      n = next;
+    }
+  }
+  // No strip: under an insertion it reads as an array the tree keeps, and a
+  // search tree keeps none (Miguel's review, #322). The traversals keep
+  // theirs — it is what they write — and so do the rotations, whose lesson
+  // is that the inorder does not change.
+  return finish(rec, code, columns, slots, false);
+}
+
+/**
+ * A tree built by a program, one frame per line (#322): the listing is the
+ * calling code — the tree created, then one `insert` per value — and each
+ * frame shows the tree after its line, the new leaf marked and the way it
+ * came down lit. The descent inside `insert` is the method's own slide; this
+ * one shows what a run of insertions builds.
+ */
+function traceInsertProgram(values: number[], inserts: number[]): SequenceTrace {
+  if (values.length > 0) {
+    throw new Error(
+      'El programa empieza con el árbol vacío: values va como [], y los valores que inserta, en value.',
+    );
+  }
+  if (inserts.length === 0) throw new Error('Falta el valor a insertar.');
+  requireRuns(inserts.length);
+  const code = [
+    'BST<Integer> tree = new BST<>();',
+    ...inserts.map((x) => `tree.insert(${x});`),
+  ].join('\n');
+  const columns: Record<number, number> = {};
+  const { place } = bstOf([], columnsFor(inserts), columns);
+  let root: NumberNode | null = null;
+  const rec = new TreeRecorder(
+    code,
+    () => root,
+    () => [],
+  );
+  rec.push('start', ['new BST<>()'], 'El árbol se crea vacío: su raíz es null.');
+  inserts.forEach((x, i) => {
+    rec.reset();
+    const said: string[] = [];
+    let parent: NumberNode | null = null;
+    let n: NumberNode | null = root;
+    while (n !== null && n.value !== x) {
+      said.push(`${x} ${x < n.value ? '<' : '>'} ${n.value}`);
+      rec.path.push(n.id);
+      parent = n;
+      n = x < n.value ? n.left : n.right;
+    }
+    if (n !== null) {
+      rec.push('done', [], `${x} ya está en el árbol: insert no hace nada.`);
+    } else {
+      const fresh = place(x);
+      if (parent === null) root = fresh;
+      else if (x < parent.value) parent.left = fresh;
+      else parent.right = fresh;
+      rec.path.push(fresh.id);
+      rec.state.set(fresh.id, 'new');
+      rec.push(
+        'build',
+        [],
+        parent === null
+          ? `El árbol está vacío: ${x} pasa a ser la raíz.`
+          : `${said.join(', ')}: ${x} se cuelga como hoja, a la ${x < parent.value ? 'izquierda' : 'derecha'} de ${parent.value}.`,
+      );
+    }
+    // The line by number: two insertions of one value write two equal lines.
+    rec.steps.at(-1)!.highlightLines = [i + 2];
+  });
+  return finish(rec, code, columns, new Set(inserts).size, false);
+}
+
+/**
+ * Removals run by a program (#322): the program on the left — the tree
+ * built from `values`, then one `tree.remove(x);` per target — and the method
+ * it calls on the right, walked for every removal the way a single removal
+ * walks it. The program's line stays lit while the method runs, so the
+ * reader sees which removal the method is in; one tree goes through a leaf,
+ * one child on either side, two children, the root, a value that is not
+ * there (Miguel's review: the removal's code beside the program, each step lit).
+ */
+function traceRemoveProgram(values: number[], targets: number[]): SequenceTrace {
+  if (values.length === 0) {
+    throw new Error(
+      'El programa elimina de un árbol: con values vacío el árbol está vacío y no hay nada que eliminar.',
+    );
+  }
+  const walked = traceRemove(values, targets);
+  const code = [
+    'BST<Integer> tree = new BST<>();',
+    `int[] values = {${values.join(', ')}};`,
+    'for (int x : values) tree.insert(x);',
+    ...targets.map((x) => `tree.remove(${x});`),
+  ].join('\n');
+  const built: SequenceStep = {
+    ...walked.steps[0]!,
+    kind: 'start',
+    highlightLines: [1, 2, 3],
+    alongsideLines: [],
+    description: `El árbol, armado con esas inserciones: ${values.length} nodos.`,
+  };
+  // A run starts where the method is called, at the public method's frame.
+  let run = -1;
+  const steps = walked.steps.map((step) => {
+    if (step.kind === 'start') run += 1;
+    return { ...step, highlightLines: [run + 4], alongsideLines: step.highlightLines };
+  });
+  return {
+    ...walked,
+    code,
+    alongside: walked.code,
+    listingNames: ['programa', 'método'],
+    steps: [built, ...steps],
+  };
+}
+
+/**
+ * The inorder strip of a search tree, read by NODE: each node writes its value
+ * in its own column. By node rather than by value, because a removal copies a
+ * successor's value into another node, and that node keeps its column.
+ */
+function stripByNode(
+  rootOf: () => TreeNode | null,
+  columns: Record<number, number>,
+  slots: number,
+): () => (TreeValue | null)[] {
+  return () => {
+    const out: (TreeValue | null)[] = Array.from({ length: slots }, () => null);
+    for (const { node } of nodesOf(rootOf())) out[columns[node.id]!] = node.value;
+    return out;
+  };
+}
+
+function traceRemove(values: number[], targets: number[]): SequenceTrace {
+  if (targets.length === 0) throw new Error('Falta el valor a eliminar.');
+  requireRuns(targets.length);
+  const code = CODE.remove;
+  const columns: Record<number, number> = {};
+  const slots = new Set(values).size;
+  let { root } = bstOf(values, columnsFor(values), columns);
+  // No strip: on a slide the listing, the tree and the narration already fill
+  // the frame, and the sorted inorder is shown by insert and by the theorem.
+  const rec = new TreeRecorder(
+    code,
+    () => root,
+    () => [],
+  );
+
+  const remove = (n: NumberNode | null, x: number): NumberNode | null => {
+    if (n === null) {
+      rec.push(
+        'done',
+        ['if (node == null) return null'],
+        `${x} no está en el árbol: no se elimina nada.`,
+      );
+      return null;
+    }
+    rec.path.push(n.id);
+    rec.settle();
+    rec.cost += 1;
+    rec.state.set(n.id, 'active');
+    const v = n.value;
+    rec.push('compare', ['int c = value.compareTo'], `remove(${v}): se compara ${x} con ${v}.`);
+    if (x !== v) {
+      rec.state.set(n.id, 'visited');
+      const side = x < v ? 'left' : 'right';
+      rec.push(
+        'walk',
+        [side === 'left' ? 'node.left = remove' : 'node.right = remove'],
+        `${x} ${x < v ? '<' : '>'} ${v}: por la invariante, ${x} solo puede estar a ${side === 'left' ? 'la izquierda' : 'la derecha'} de ${v}.`,
+      );
+      n[side] = remove(n[side], x);
+      rec.path.pop();
+      return n;
+    }
+    if (n.left === null || n.right === null) {
+      const child = n.left ?? n.right;
+      rec.state.set(n.id, 'leaving');
+      rec.push(
+        'found',
+        [n.left === null ? 'return node.right;' : 'return node.left;'],
+        child === null
+          ? `${x} es una hoja: se devuelve null, y su padre deja de apuntarle.`
+          : `${x} tiene un solo hijo, ${child.value}: se devuelve ese hijo y el padre de ${x} pasa a apuntarle. Todo ese subárbol estaba del mismo lado, así que la invariante se mantiene.`,
+      );
+      rec.path.pop();
+      return child;
+    }
+    rec.push(
+      'walk',
+      ['Node<T> next = node.right'],
+      `${x} tiene dos hijos: se busca su sucesor, el menor valor de su subárbol derecho.`,
+    );
+    let next = n.right!;
+    const below = rec.path.length;
+    for (;;) {
+      rec.path.push(next.id);
+      if (next.left === null) break;
+      rec.state.set(next.id, 'visited');
+      next = next.left;
+    }
+    rec.state.set(next.id, 'swap');
+    rec.badge.set(next.id, 'sucesor');
+    rec.push(
+      'found',
+      ['while (next.left != null)'],
+      `El sucesor de ${x} es ${next.value}: el menor de la derecha, sin hijo izquierdo.`,
+    );
+    rec.path.length = below;
+    n.value = next.value;
+    rec.state.set(n.id, 'new');
+    rec.state.set(next.id, 'leaving');
+    rec.push(
+      'build',
+      ['node.value = next.value'],
+      `${x} toma el valor de su sucesor, ${next.value}. La invariante se mantiene: ${next.value} es mayor que todo lo de la izquierda y menor que todo lo demás de la derecha.`,
+    );
+    rec.badge.delete(next.id);
+    rec.push(
+      'walk',
+      ['node.right = remove(node.right, next.value)'],
+      `Queda borrar el sucesor de la derecha. No tiene hijo izquierdo, así que es el caso de una hoja o de un solo hijo.`,
+    );
+    n.right = remove(n.right, n.value);
+    rec.path.pop();
+    return n;
+  };
+
+  for (const x of targets) {
+    rec.reset();
+    rec.push(
+      'start',
+      ['root = remove(root, value)'],
+      `Eliminar ${x}: primero se busca, como en contains.`,
+    );
+    const before = nodesOf(root).length;
+    root = remove(root, x);
+    if (nodesOf(root).length < before) {
+      rec.settle();
+      for (const [id, s] of rec.state) if (s === 'leaving') rec.state.delete(id);
+      rec.push('done', [], `${x} ya no está en el árbol, y su inorden sigue ordenado.`);
+    }
   }
   return finish(rec, code, columns, slots, false);
 }

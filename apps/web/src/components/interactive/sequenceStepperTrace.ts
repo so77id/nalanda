@@ -25,8 +25,15 @@
  *   first rather than at `null`.
  */
 
-import { asRuns, lineOf, requireRuns } from './sequenceStepperTraceShared';
-import { traceTree } from './sequenceStepperTreeTrace';
+import {
+  asRuns,
+  lineOf,
+  pairListings,
+  requireRuns,
+  type ListingPairs,
+} from './sequenceStepperTraceShared';
+import { traceAvl } from './sequenceStepperAvlTrace';
+import { traceSearchTree, traceTree } from './sequenceStepperTreeTrace';
 
 export const RECIPES = [
   'dynamic-array',
@@ -39,9 +46,15 @@ export const RECIPES = [
   // one listing, one structure, the same controls and the same frame model.
   'heap-max',
   // A linked binary tree (#321): nodes with `left` and `right`, drawn with
-  // every node in the column of its inorder position. It has no order, so its
-  // operations visit. Same widget, same frame model plus a tree.
+  // every node in the column of its inorder position. `binary-tree` has no
+  // order, so its operations visit; `bst` keeps the search-tree invariant, so
+  // its operations choose a side. Same widget, same frame model plus a tree.
   'binary-tree',
+  'bst',
+  // The AVL tree (#322): a search tree that keeps its shape. It rotates, and
+  // a rotation changes links, not the inorder, so it shares the tree view
+  // and the column of every node.
+  'avl',
 ] as const;
 export type SequenceRecipe = (typeof RECIPES)[number];
 
@@ -55,17 +68,33 @@ export const OPERATIONS = [
   'remove-last',
   'remove-at',
   'search',
+  // The dynamic array's own (#322): the search a SORTED array allows, which
+  // discards half of what is left at every comparison. Árboles II opens on it.
+  'binary-search',
   // The heap's own operations — valid on `heap-max` and nowhere else.
   // `swim` and `sink` are not among them: they are the INSIDE of these
   // (their lines light up in the listing), not operations of the TDA.
   'insert',
   'extract-max',
   // The tree's own operations (#321): the three ways to visit every node, and
-  // the height. `search` above is shared with the tree.
+  // the height. `search` and `insert` above are shared with the trees: the
+  // same tag over `binary-tree` and `bst` is how a slide contrasts visiting
+  // everything with choosing a side.
   'preorder',
   'inorder',
   'postorder',
   'height',
+  // The search tree's own (#321): the removal, down one path to the node
+  // and down another to its successor.
+  'remove',
+  // The AVL tree's own (#322): the rotation, the tool its insertions and
+  // removals use to keep the shape, shown on its own first.
+  'rotate-right',
+  'rotate-left',
+  // The double rotations, two simple ones in a row: the child first, toward
+  // the side the node leans, then the node (#322).
+  'rotate-left-right',
+  'rotate-right-left',
 ] as const;
 export type SequenceOperation = (typeof OPERATIONS)[number];
 
@@ -97,10 +126,16 @@ export type SequenceCellState =
   | 'found'
   | 'leaving'
   | 'stale'
-  /** Heap: one of the two cells being exchanged by `swap` this frame. */
+  /**
+   * Heap: one of the two cells being exchanged by `swap` this frame. AVL:
+   * one of the two nodes a rotation exchanges, the one going up and the one
+   * going down.
+   */
   | 'swap'
   /** Tree: a node the operation has already finished with. */
-  | 'visited';
+  | 'visited'
+  /** Tree: a node the search-tree invariant has just ruled out. */
+  | 'discarded';
 
 /**
  * What a tree node holds: a number, or — on `binary-tree` only — a symbol, so
@@ -115,10 +150,18 @@ export interface TreeFrameNode {
   value: TreeValue;
   left: number | null;
   right: number | null;
-  /** The node's level, the root's 0: the row the view draws it on. */
+  /**
+   * The node's level, the root's 0: the row the view draws it on. While a
+   * rotation runs, every node keeps the level it had — the method changes
+   * links, not places — so a reference can point UP (`q.right = p`) before
+   * the caller takes `q`; the view draws that one with an arrowhead.
+   */
   depth: number;
   state: SequenceCellState;
-  /** A short mark beside the node: its visit order, or what its call returned. */
+  /**
+   * A short mark beside the node: its visit order, what its call returned,
+   * or the name a rotation's listing gives it (`p`, `q`).
+   */
   badge?: string;
 }
 
@@ -126,8 +169,8 @@ export interface TreeFrameNode {
  * The tree as one frame leaves it. `path` is the chain of calls still open,
  * root first, so the view can light the edges the recursion is standing on.
  * `strip` has one slot per column of the drawing: a traversal writes its
- * output there left to right, and the inorder lands every value under its
- * own node.
+ * output there left to right, and the `bst` recipe shows its inorder there,
+ * every value under its own node.
  */
 export interface TreeFrame {
   root: number | null;
@@ -174,6 +217,18 @@ export interface SequenceStep {
   pointers: SequencePointer[];
   /** 1-based lines of `trace.code` this frame is executing. */
   highlightLines: number[];
+  /** The same moment in `trace.alongside`, when the trace carries a second listing. */
+  alongsideLines?: number[];
+  /** The lines each of `trace.callees` lights at this moment, in the same order. */
+  calleeLines?: number[][];
+  /** The lines each listing of `trace.row` lights at this moment, in the same order. */
+  rowLines?: number[][];
+  /**
+   * The value a search is looking for, written beside the structure on every
+   * frame of its run (#322): the narration names it once, and a reader who
+   * joins mid-walk should not have to scroll back to learn what is sought.
+   */
+  seek?: number;
   description: string;
   /** The dynamic array and the heap: the reserved block size (`data.length`). */
   capacity?: number;
@@ -246,6 +301,32 @@ export interface SequenceStep {
 export interface SequenceTrace {
   steps: SequenceStep[];
   code: string;
+  /**
+   * A second listing of the same operation, drawn beside the first and lit
+   * at every frame where the first is (`alongsideLines`): the search tree's
+   * `contains` written as a loop beside the recursive one (#322).
+   */
+  alongside?: string;
+  /**
+   * What the two listings are called, left then right, when the trace
+   * carries `alongside`. Without it they are the recursive and the iterative
+   * version of one operation; a program of removals names its own: the
+   * program, and the method it calls (#322).
+   */
+  listingNames?: [string, string];
+  /**
+   * The methods the listing calls, drawn side by side under it, each with
+   * the lines a frame lights in it (`calleeLines`): the double rotation's
+   * two simple ones, walked an assignment at a time while the call that
+   * runs them stays lit above (#322).
+   */
+  callees?: { name: string; code: string }[];
+  /**
+   * Listings drawn side by side in one row, each named and lit on its own
+   * (`rowLines`): the AVL's insert beside the balance it calls, and a
+   * program of insertions beside both (#322). The first is `code`.
+   */
+  row?: { name: string; code: string }[];
   /**
    * The most cells any frame holds. The view lays out for THIS, not for the
    * current frame, so the drawing keeps one size from the first frame to the
@@ -328,6 +409,15 @@ export interface SequenceInput {
   capacity?: number;
   /** Lists only: draw a `tail` pointer and let the operations use it. */
   tail?: boolean;
+  /** The iterative version of the operation beside the recursive one (`PAIRED`). */
+  iterative?: boolean;
+  /**
+   * The program that runs the operation several times: `bst` × `insert`
+   * from an empty tree, one frame per line instead of the method walked; or
+   * `bst` × `remove` from the tree `values` builds, beside the method it
+   * calls, walked for every removal.
+   */
+  program?: boolean;
   /**
    * The name the LISTING shows the method under, when the document presents
    * the structure through a TDA that calls it something else. A class that
@@ -402,13 +492,38 @@ const HEAP_OPERATION_NAMES = ['insert', 'extract-max'] as const;
 type HeapOperation = (typeof HEAP_OPERATION_NAMES)[number];
 export const HEAP_OPERATIONS: readonly SequenceOperation[] = HEAP_OPERATION_NAMES;
 
-/** The operations only a tree has (#321): the three visits and the height. */
-const TREE_OPERATION_NAMES = ['preorder', 'inorder', 'postorder', 'height'] as const;
+/** The operations only `binary-tree` has (#321): the three visits and the height. */
+const BINARY_TREE_ONLY_NAMES = ['preorder', 'inorder', 'postorder', 'height'] as const;
+
+/**
+ * The search trees' own operation (#322), which chooses a side at every node:
+ * `bst` has it, and `avl` has it too, as the search tree's with `balance` on
+ * the way back. It is "only" against every structure that is not a search
+ * tree, which is what the refusal reasons ask.
+ */
+const BST_ONLY_NAMES = ['remove'] as const;
+export const BST_ONLY_OPERATIONS: readonly SequenceOperation[] = BST_ONLY_NAMES;
+
+/** The operations only `avl` has (#322): the rotations, its tool, simple and double. */
+const AVL_ONLY_NAMES = [
+  'rotate-right',
+  'rotate-left',
+  'rotate-left-right',
+  'rotate-right-left',
+] as const;
+export const AVL_ONLY_OPERATIONS: readonly SequenceOperation[] = AVL_ONLY_NAMES;
+
+/** The operations only a tree has; `search` and `insert` are shared. */
+const TREE_OPERATION_NAMES = [
+  ...BINARY_TREE_ONLY_NAMES,
+  ...BST_ONLY_NAMES,
+  ...AVL_ONLY_NAMES,
+] as const;
 type TreeOperation = (typeof TREE_OPERATION_NAMES)[number];
 export const TREE_ONLY_OPERATIONS: readonly SequenceOperation[] = TREE_OPERATION_NAMES;
 
 /** What `binary-tree` has a listing for: its own operations, and the shared `search`. */
-const BINARY_TREE_OPERATION_NAMES = [...TREE_OPERATION_NAMES, 'search'] as const;
+const BINARY_TREE_OPERATION_NAMES = [...BINARY_TREE_ONLY_NAMES, 'search'] as const;
 export type BinaryTreeOperation = (typeof BINARY_TREE_OPERATION_NAMES)[number];
 export const BINARY_TREE_OPERATIONS: readonly SequenceOperation[] = BINARY_TREE_OPERATION_NAMES;
 
@@ -416,6 +531,27 @@ export function isBinaryTreeOperation(
   operation: SequenceOperation,
 ): operation is BinaryTreeOperation {
   return BINARY_TREE_OPERATIONS.includes(operation);
+}
+
+/** What `bst` has a listing for: its own operations, and the shared `search` and `insert`. */
+const BST_OPERATION_NAMES = ['search', 'insert', 'inorder', ...BST_ONLY_NAMES] as const;
+export type BstOperation = (typeof BST_OPERATION_NAMES)[number];
+export const BST_OPERATIONS: readonly SequenceOperation[] = BST_OPERATION_NAMES;
+
+export function isBstOperation(operation: SequenceOperation): operation is BstOperation {
+  return BST_OPERATIONS.includes(operation);
+}
+
+/**
+ * What `avl` has a listing for: its rotations, and the shared `insert` and
+ * `remove`, which are the search tree's with a `balance` on the way back.
+ */
+const AVL_OPERATION_NAMES = [...AVL_ONLY_NAMES, 'insert', 'remove'] as const;
+export type AvlOperation = (typeof AVL_OPERATION_NAMES)[number];
+export const AVL_OPERATIONS: readonly SequenceOperation[] = AVL_OPERATION_NAMES;
+
+export function isAvlOperation(operation: SequenceOperation): operation is AvlOperation {
+  return AVL_OPERATIONS.includes(operation);
 }
 
 export function isValidCombination(
@@ -426,7 +562,10 @@ export function isValidCombination(
   const heapOperation = HEAP_OPERATIONS.includes(operation);
   if (recipe === 'heap-max') return heapOperation;
   if (recipe === 'binary-tree') return BINARY_TREE_OPERATIONS.includes(operation);
+  if (recipe === 'bst') return BST_OPERATIONS.includes(operation);
+  if (recipe === 'avl') return AVL_OPERATIONS.includes(operation);
   if (heapOperation || TREE_ONLY_OPERATIONS.includes(operation)) return false;
+  if (operation === 'binary-search') return recipe === 'dynamic-array';
   if (operation === 'insert-ordered' && !isList(recipe)) return false;
   if (recipe === 'linked-list-circular') return CIRCULAR_OPERATIONS.includes(operation);
   if (recipe === 'linked-list-doubly') {
@@ -443,13 +582,47 @@ export function traceFor(
   operation: SequenceOperation,
   input: SequenceInput,
 ): SequenceTrace {
+  if (
+    input.program === true &&
+    !(recipe === 'bst' && (operation === 'insert' || operation === 'remove')) &&
+    !(recipe === 'avl' && (operation === 'insert' || operation === 'remove'))
+  ) {
+    throw new Error(
+      `Solo la inserción y la eliminación se muestran como programa: program va con eda="bst" o eda="avl", y operation="insert" o "remove"; no con «${operation}».`,
+    );
+  }
+  if (input.program === true && input.iterative === true) {
+    throw new Error(
+      'Un programa no lleva el listado iterativo al lado: el programa ocupa esa columna. Usa program o iterative, no los dos.',
+    );
+  }
+  if (input.iterative === true && !PAIRED.some(([r, o]) => r === recipe && o === operation)) {
+    throw new Error(
+      `«${operation}» sobre «${recipe}» no tiene un listado iterativo al lado: iterative va con ${PAIRED.map(([r, o]) => `${r} × ${o}`).join(', ')}.`,
+    );
+  }
   if (!isValidCombination(recipe, operation, input.tail === true)) {
     throw new Error(`La operación «${operation}» no está definida sobre «${recipe}».`);
+  }
+  if (recipe === 'dynamic-array' && operation === 'binary-search' && input.iterative === true) {
+    if (asRuns(input.target).length > 1) {
+      throw new Error(
+        'La búsqueda binaria con sus dos listados va con una sola búsqueda: el programa que llama a varias no tiene versión recursiva.',
+      );
+    }
+    return pairListings(
+      traceArray(operation, input),
+      BINARY_SEARCH_RECURSIVE,
+      BINARY_SEARCH_PAIRS,
+      true,
+    );
   }
   if (recipe === 'heap-max') return traceHeap(operation, input);
   if (recipe === 'binary-tree' && isBinaryTreeOperation(operation)) {
     return traceTree(operation, input);
   }
+  if (recipe === 'bst' && isBstOperation(operation)) return traceSearchTree(operation, input);
+  if (recipe === 'avl' && isAvlOperation(operation)) return traceAvl(operation, input);
   return isList(recipe) ? traceList(recipe, operation, input) : traceArray(operation, input);
 }
 
@@ -469,8 +642,35 @@ const snapshot = (cells: SequenceCell[]): SequenceCell[] => cells.map((c) => ({ 
  */
 const settle = (cells: SequenceCell[]): SequenceCell[] =>
   cells.map((c) =>
-    c.state === 'new' || c.state === 'found' ? { ...c } : { ...c, state: 'idle' as const },
+    // `discarded` stays: the last frame of a binary search is what it ruled
+    // out, and an array that turns idle again says it never looked.
+    c.state === 'new' || c.state === 'found' || c.state === 'discarded'
+      ? { ...c }
+      : { ...c, state: 'idle' as const },
   );
+
+/**
+ * The binary search's cursors, ordered by position, with one label for
+ * cursors that share a cell: three arrows on one box draw three labels on top
+ * of each other. A cursor past either end of the block (`hi = -1` once
+ * everything is ruled out on the left) has no box to point at and is left
+ * out; the narration still says where it stopped.
+ */
+function rangeCursors(lo: number, hi: number, mid?: number): SequencePointer[] {
+  const named: [string, number][] = [
+    ['lo', lo],
+    ...(mid === undefined ? [] : [['mid', mid] as [string, number]]),
+    ['hi', hi],
+  ];
+  const byIndex = new Map<number, string[]>();
+  for (const [name, index] of named) {
+    if (index < 0) continue;
+    byIndex.set(index, [...(byIndex.get(index) ?? []), name]);
+  }
+  return [...byIndex.entries()]
+    .sort(([a], [b]) => a - b)
+    .map(([index, names]) => ({ name: names.join(', '), index }));
+}
 
 function checkIndex(i: number | undefined, length: number, inclusive: boolean): number {
   const max = inclusive ? length : length - 1;
@@ -536,10 +736,16 @@ const METHOD_NAME: Record<SequenceOperation, string> = {
   'remove-last': 'deleteLast',
   'remove-at': 'deleteAt',
   search: 'search',
+  'binary-search': 'binarySearch',
   preorder: 'preorder',
   inorder: 'inorder',
   postorder: 'postorder',
   height: 'height',
+  remove: 'remove',
+  'rotate-right': 'rotateRight',
+  'rotate-left': 'rotateLeft',
+  'rotate-left-right': 'rotateLeftRight',
+  'rotate-right-left': 'rotateRightLeft',
 };
 
 // ── the array family ──────────────────────────────────────────────────────
@@ -622,7 +828,68 @@ const ARRAY_CODE: Record<ArrayOperation, string> = {
     }
     return -1;
 }`,
+  'binary-search': `int binarySearch(int x) {
+    int lo = 0;
+    int hi = size - 1;
+    while (lo <= hi) {
+        int mid = (lo + hi) / 2;
+        if (data[mid] == x) {
+            return mid;
+        }
+        if (x < data[mid]) {
+            hi = mid - 1;
+        } else {
+            lo = mid + 1;
+        }
+    }
+    return -1;
+}`,
 };
+
+/**
+ * The operations that can show a second listing beside their own, the
+ * recursive version on the left and the iterative on the right (#322): the
+ * ones whose two versions take the same decisions in the same order, so a
+ * frame is the same moment in both.
+ */
+const PAIRED: [SequenceRecipe, SequenceOperation][] = [
+  ['dynamic-array', 'binary-search'],
+  ['bst', 'search'],
+  ['bst', 'insert'],
+];
+
+/** The binary search written recursively: one call per range, as divide and conquer writes it. */
+const BINARY_SEARCH_RECURSIVE = `int binarySearch(int x) {
+    return binarySearch(x, 0, size - 1);
+}
+
+int binarySearch(int x, int lo, int hi) {
+    if (lo > hi) {
+        return -1;
+    }
+    int mid = (lo + hi) / 2;
+    if (data[mid] == x) {
+        return mid;
+    }
+    if (x < data[mid]) {
+        return binarySearch(x, lo, mid - 1);
+    }
+    return binarySearch(x, mid + 1, hi);
+}`;
+
+/** The iterative listing's lines, read as the recursive one's. */
+const BINARY_SEARCH_PAIRS: ListingPairs = [
+  ['int lo = 0', ['return binarySearch(x, 0, size - 1)']],
+  ['int hi = size - 1', ['return binarySearch(x, 0, size - 1)']],
+  ['while (lo <= hi)', ['if (lo > hi)']],
+  ['int mid =', ['int mid =']],
+  ['if (data[mid] == x)', ['if (data[mid] == x)']],
+  ['return mid;', ['return mid;']],
+  ['if (x < data[mid])', ['if (x < data[mid])']],
+  ['hi = mid - 1', ['return binarySearch(x, lo, mid - 1)']],
+  ['lo = mid + 1', ['return binarySearch(x, mid + 1, hi)']],
+  ['return -1;', ['return -1;']],
+];
 
 function traceArray(operation: SequenceOperation, input: SequenceInput): SequenceTrace {
   // How many times the author asked for the operation. The array family
@@ -638,6 +905,17 @@ function traceArray(operation: SequenceOperation, input: SequenceInput): Sequenc
     throw new Error('La operación no se ejecuta ninguna vez: falta el argumento que la corre.');
   }
   requireRuns(args.length);
+  // A binary search on an unsorted array answers wrongly with no error, which
+  // is the one thing a slide must never show; a repeated value has no single
+  // position to find. Same refusal `insertOrdered` makes on a list.
+  if (
+    operation === 'binary-search' &&
+    input.values.some((v, i) => i > 0 && v <= input.values[i - 1]!)
+  ) {
+    throw new Error(
+      'La búsqueda binaria necesita el arreglo ordenado de menor a mayor, sin valores repetidos.',
+    );
+  }
   const shown = shownName(operation, input);
   const base = renameIn(ARRAY_CODE[operation as ArrayOperation], operation, shown);
   const many = args.length > 1;
@@ -688,6 +966,8 @@ function traceArray(operation: SequenceOperation, input: SequenceInput): Sequenc
 
   const steps: SequenceStep[] = [];
   let cost = 0;
+  // The value the running search looks for, written beside the block.
+  let seekNow: number | undefined;
   // Which call is running, so every frame lights BOTH the line inside the
   // method and the call that invoked it — the two halves of "where are we"
   // the list family already prints.
@@ -722,6 +1002,7 @@ function traceArray(operation: SequenceOperation, input: SequenceInput): Sequenc
       description,
       capacity,
       cost,
+      ...(seekNow === undefined ? {} : { seek: seekNow }),
       ...rest,
     });
   };
@@ -926,6 +1207,84 @@ function traceArray(operation: SequenceOperation, input: SequenceInput): Sequenc
         );
         break;
       }
+      case 'binary-search': {
+        const x = asRuns(input.target)[run]!;
+        seekNow = x;
+        const n = size();
+        // A second search starts on the whole block: what the first one ruled
+        // out says nothing about the next value.
+        slots.forEach((cell, i) => {
+          if (cell !== null) slots[i] = { ...cell, state: 'idle' };
+        });
+        let lo = 0;
+        let hi = n - 1;
+        push(
+          'start',
+          [lineOf(code, 'int lo = 0'), lineOf(code, 'int hi = size - 1')],
+          `Buscamos ${x}. Lo que queda por revisar va de lo = 0 a hi = ${hi}: el arreglo entero.`,
+          { pointers: rangeCursors(lo, hi) },
+        );
+        let found = -1;
+        while (lo <= hi) {
+          const mid = Math.floor((lo + hi) / 2);
+          const cell = slots[mid]!;
+          slots[mid] = { ...cell, state: 'active' };
+          cost += 1;
+          push(
+            'walk',
+            [lineOf(code, 'while (lo <= hi)'), lineOf(code, 'int mid =')],
+            `lo = ${lo} ≤ hi = ${hi}: queda algo por revisar. El medio es (${lo} + ${hi}) / 2 = ${mid}.`,
+            { pointers: rangeCursors(lo, hi, mid) },
+          );
+          if (cell.value === x) {
+            slots[mid] = { ...cell, state: 'found' };
+            push(
+              'found',
+              [lineOf(code, 'if (data[mid] == x)'), lineOf(code, 'return mid;')],
+              `¿data[${mid}] = ${cell.value} es ${x}? Sí: está en la posición ${mid}.`,
+              { pointers: rangeCursors(lo, hi, mid) },
+            );
+            found = mid;
+            break;
+          }
+          push(
+            'compare',
+            [lineOf(code, 'if (data[mid] == x)')],
+            `¿data[${mid}] = ${cell.value} es ${x}? No.`,
+            { pointers: rangeCursors(lo, hi, mid) },
+          );
+          // One comparison rules out the middle and the whole half on the
+          // side the value cannot be: the cells fade and stay faded.
+          const [from, to] = x < cell.value ? [mid, hi] : [lo, mid];
+          for (let i = from; i <= to; i += 1) slots[i] = { ...slots[i]!, state: 'discarded' };
+          if (x < cell.value) {
+            hi = mid - 1;
+            push(
+              'walk',
+              [lineOf(code, 'if (x < data[mid])'), lineOf(code, 'hi = mid - 1')],
+              `${x} < ${cell.value}: ${x} no puede estar de la posición ${mid} en adelante. Esa parte queda descartada, y hi = ${hi}.`,
+              { pointers: rangeCursors(lo, hi, mid) },
+            );
+          } else {
+            lo = mid + 1;
+            push(
+              'walk',
+              [lineOf(code, 'if (x < data[mid])'), lineOf(code, 'lo = mid + 1')],
+              `${x} > ${cell.value}: ${x} no puede estar de la posición ${mid} hacia atrás. Esa parte queda descartada, y lo = ${lo}.`,
+              { pointers: rangeCursors(lo, hi, mid) },
+            );
+          }
+        }
+        if (found < 0) {
+          push(
+            'done',
+            [lineOf(code, 'while (lo <= hi)'), lineOf(code, 'return -1;')],
+            `lo = ${lo} > hi = ${hi}: no queda nada por revisar. ${x} no está, y lo quedó en ${lo}: la posición donde iría.`,
+            { pointers: rangeCursors(lo, hi) },
+          );
+        }
+        break;
+      }
       default:
         throw new Error(`Operación no soportada sobre un arreglo: ${operation}`);
     }
@@ -1004,6 +1363,7 @@ function runArgs(operation: SequenceOperation, input: SequenceInput): string[] {
     case 'remove-at':
       return asRuns(input.index).map(String);
     case 'search':
+    case 'binary-search':
       return asRuns(input.target).map(String);
     case 'remove-first':
     case 'remove-last':
@@ -1019,6 +1379,11 @@ function runArgs(operation: SequenceOperation, input: SequenceInput): string[] {
     case 'inorder':
     case 'postorder':
     case 'height':
+    case 'remove':
+    case 'rotate-right':
+    case 'rotate-left':
+    case 'rotate-left-right':
+    case 'rotate-right-left':
       return [];
   }
 }
@@ -1264,7 +1629,16 @@ function listCode(recipe: SequenceRecipe, operation: SequenceOperation, tail: bo
     case 'inorder':
     case 'postorder':
     case 'height':
+    case 'remove':
+    case 'rotate-right':
+    case 'rotate-left':
+    case 'rotate-left-right':
+    case 'rotate-right-left':
       throw new Error(`«${operation}» es una operación de árbol, no de una lista.`);
+    case 'binary-search':
+      throw new Error(
+        'La búsqueda binaria necesita llegar a la posición del medio en un paso: es del arreglo, no de una lista.',
+      );
   }
 }
 

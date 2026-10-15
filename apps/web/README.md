@@ -58,7 +58,13 @@ src/
 │                         # + their colocated <Component>.catalog.tsx entries,
 │                         #   aggregated in catalogEntries.ts, which the seam reaches
 │                         #   through loadCatalogEntries() — never a static export,
-│                         # + AuthoringError: shared across families, not a content component
+│                         # media: Figure, Math, the embeds (SheetEmbed, PdfEmbed,
+│                         #   VideoEmbed, EmbedFrame), and the tree figures
+│                         #   BinaryPicture (+ binaryPictureLayout.ts), NodeGraph,
+│                         #   OrderRule (#322),
+│                         # + AuthoringError and treeGeometry.ts (the sizes the tree
+│                         #   figure and the tree stepper share): shared across
+│                         #   families, not content components
 │                         # + MdxPre: the pre→component seam (registered in the SHELL's
 │                         #   map, not a catalog component), embedded.ts: the context by
 │                         #   which a framing container tells its children so

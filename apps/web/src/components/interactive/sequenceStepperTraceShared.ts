@@ -1,11 +1,15 @@
 /**
- * What the two trace modules of `<SequenceStepper>` share: how a frame names
- * the line it lights, how an author-written argument becomes runs, and how
- * many runs a slide may ask for. A leaf
- * both import (#321 review, ARQ-6): the tree's module could not import them
- * from the dispatcher, which imports the tree's module, without closing a
- * cycle, and the copy it carried instead had already lost the reasons below.
+ * What the trace modules of `<SequenceStepper>` share — the dispatcher, the
+ * tree's and the AVL's (#322): how a frame names the line it lights, how an
+ * author-written argument becomes runs, how many runs a slide may ask for,
+ * and how two listings are paired side by side. The tree's module could not
+ * import these from the dispatcher, which imports the tree's module, without
+ * closing a cycle (#321 review, ARQ-6), and the copy it carried instead had
+ * already lost the reasons below. It imports the dispatcher's TYPES only,
+ * which leave no edge at run time.
  */
+
+import type { SequenceStep, SequenceTrace } from './sequenceStepperTrace';
 
 /**
  * The 1-based line of the first line containing `fragment`.
@@ -51,4 +55,46 @@ export function requireRuns(runs: number): void {
       `La operación se ejecuta ${runs} veces. Entre 1 y ${MAX_RUNS}: más pasos de los que nadie sigue en una slide.`,
     );
   }
+}
+
+/**
+ * What each line of one listing is in the other: a fragment of the traced
+ * listing's line, and the fragments of the other listing's lines that do the
+ * same thing — or a function of the frame, when which line depends on what
+ * the frame drew (the side a new leaf hangs on).
+ */
+export type ListingPairs = [string, string[] | ((step: SequenceStep) => string[])][];
+
+/**
+ * Adds a second listing of the same operation to a trace (`alongside`), and
+ * to every frame the lines of it that do what the frame's lines do. The
+ * recursive and the iterative version of one operation make the same
+ * decisions in the same order, so the frames are shared and only the lines
+ * are translated. `otherFirst` makes the added listing the main one — the
+ * array's binary search is traced iteratively but read recursive first.
+ */
+export function pairListings(
+  trace: SequenceTrace,
+  other: string,
+  pairs: ListingPairs,
+  otherFirst = false,
+): SequenceTrace {
+  const lines = trace.code.split('\n');
+  const steps = trace.steps.map((step) => {
+    const mapped = new Set<number>();
+    for (const line of step.highlightLines) {
+      const text = lines[line - 1] ?? '';
+      const entry = pairs.find(([fragment]) => text.includes(fragment));
+      if (entry === undefined) continue;
+      const fragments = typeof entry[1] === 'function' ? entry[1](step) : entry[1];
+      for (const fragment of fragments) mapped.add(lineOf(other, fragment));
+    }
+    const translated = [...mapped].sort((a, b) => a - b);
+    return otherFirst
+      ? { ...step, highlightLines: translated, alongsideLines: step.highlightLines }
+      : { ...step, alongsideLines: translated };
+  });
+  return otherFirst
+    ? { ...trace, code: other, alongside: trace.code, steps }
+    : { ...trace, alongside: other, steps };
 }

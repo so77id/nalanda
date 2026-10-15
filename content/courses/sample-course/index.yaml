@@ -33,6 +33,7 @@ entries:
     levelName: Unidad
     children:
       - docId: edd-arboles-i
+      - docId: edd-arboles-ii
       - docId: edd-priority-queue-heap
   - label: Evaluaciones
     children:

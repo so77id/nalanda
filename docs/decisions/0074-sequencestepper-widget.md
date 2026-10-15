@@ -16,12 +16,17 @@ design reference proposed
 `heap-max`, with its own two operations and a second picture beside the
 first. #304 amends two things below: the `array` recipe is deleted, and the
 heap's `swap` state is the one data state painted in `accent` (both
-`Amended by: #304`).
+`Amended by: #304`) — reused since #322 by the tree recipes, for a
+rotation's two nodes and a removal's successor (`Amended by: #322`).
 **Extended by:** ADR-0083 (#321) — a recipe for a linked binary
 tree, each node in the column of its inorder position: `binary-tree`, with
-the three traversals, `height` and `search`. One thing here changes, for the
-tree only: the `size` readout (`Amended by: #321`, the last amendment
-below).
+the three traversals, `height` and `search`; and, since #322, the search
+tree `bst`. One thing here changes, for the tree only: the `size` readout
+(`Amended by: #321`).
+**Extended by:** ADR-0086 (#322) — the AVL tree, `avl`: the four rotations an
+assignment at a time, `insert` and `remove` rebalancing on the way back. Two
+things here change: the accent data state and the code panel holding several
+named listings (`Amended by: #322`, the last two amendments below).
 
 **Amended by:** #288, slide-by-slide review (2026-09-10) — a ninth operation,
 `get-at`. The class needs the operation the array answers with one
@@ -138,7 +143,7 @@ So the widget gives up advertised range instead:
 
 | Receta                   | Operaciones válidas                                                                     |
 | ------------------------ | --------------------------------------------------------------------------------------- |
-| `dynamic-array`          | las nueve, menos `insert-ordered` (también `array`, hasta que #304 lo borró)            |
+| `dynamic-array`          | las nueve, menos `insert-ordered` (también `array`, hasta que #304 lo borró); y `binary-search` desde #322, solo aquí |
 | `linked-list-singly`     | las nueve                                                                               |
 | `linked-list-doubly`     | `get-at`, `search`, `insert-first`, `remove-first`, y `remove-last` **solo con `tail`** |
 | `linked-list-circular`   | `insert-first` (con listado propio: cierra el anillo, y camina para hacerlo)            |
@@ -386,6 +391,63 @@ is a FIELD of the structure, and the tree's listings — the recursive methods
 over a node — have none: a number in the corner would name a field the
 reader never meets in the code (ADR-0083 §Consequences).
 
+**Amended by:** #322 (2026-10-13) — a tenth operation, `binary-search`,
+valid on `dynamic-array` alone. Árboles II opens on the sorted array, and its
+binary search was a widget of an older generation (`<BinarySearchOnArray>`,
+ADR-0059); the professor asked for the one the unit uses. This said the old
+widget had "English chrome, no listing", and #322's review found both false:
+it lists the recursive `bs` through `<CodeStepper>`, and its chrome is
+Spanish but for three words. What it does not draw is what the unit needs —
+the course's iterative method over `data` and `size` beside the recursive
+one, the unit's palette and its `discarded` state, the «se busca» label beside
+the structure. So
+`<BinarySearchOnArray>` stays for Divide y Vencerás, the class that mounts
+it and whose recursion it shows, and the Estructuras de Datos units use this
+operation; both catalog entries say so.
+The listing is the iterative method over `data` and `size`; a frame per
+decision — the middle, the comparison, the half ruled out — with `lo`, `mid`
+and `hi` as cursors, one label where they share a cell. What a comparison
+rules out is painted `discarded`, the state ADR-0083 gave the search tree:
+the cell fades and its border dashes, so colour is not the only signal, and
+the run's legend names it. The settled last frame keeps it — an array that
+turns idle again says the search never looked. `values` must be sorted with
+no repeats or the widget refuses it, the stance `insert-ordered` takes on a
+list: a binary search over an unsorted array answers wrongly with no error.
+With `iterative` (one target) the recursive version — one call per range,
+as divide and conquer writes it — goes on the left and the loop on the
+right, every frame lit in both (ADR-0083 §3 has the mechanism). Every frame
+carries the value sought (`seek`), written beside the structure as «se busca
+el 6»: the narration names it once, and Miguel's review found the slide did
+not say what was being searched. The search tree's `search` writes it too;
+the chains' linear search does not, so the classes before #322 draw as they
+did.
+
+**Amended by:** #322 (2026-10-15) — **`accent` on two more data states**, the
+exception #304's bar governs. The tree recipes reuse `swap` for the two nodes
+a rotation exchanges (`avl`, ADR-0086) and for the successor whose value a
+removal copies (`bst` and `avl`). The bar, walked: no assigned token tells
+them apart from the frames around them — `focus` is the node under the
+algorithm's eye and, on `avl`, the node `balance` looks at; `mark` is the
+node that takes a value or the subtree that changes parent — and `accent`
+is the unit's "being moved" token, which is what both are. Each carries a
+second signal: the badges `p` and `q` on a rotation operation (inside
+insert and remove, the narration and the legend name them), «sucesor» on the
+successor, and the legend («rotan», «sucesor», and «sucesor o rotan» on the
+AVL's removal, where the two share a walk). Until #322's review the AVL's
+successor had no badge, and the legend of the class's first removal called
+it «rotan».
+
+**Amended by:** #322 (2026-10-15) — **the code panel holds one listing or
+several named ones.** The surface stays identical across combinations, but
+the panel above the structure may now hold the recursive and the iterative
+listing side by side (`iterative`), a program beside the method it calls
+(`program`), a method beside the `balance` it calls (`row`), or a double
+rotation over its two simple rotations (`callees`). In the book `program`
+and `row` stack; the recursive/iterative pair and the two simple rotations
+stay side by side.
+`iterative` and `program` are props of the widget, valid where the trace's
+`PAIRED` and program lists say; the mechanisms are ADR-0083 §3 and ADR-0086.
+
 **Source:** Issue #288 — Course document "Estructuras de Datos · Listas
 Enlazadas". The class shows nine operations over five structures, and
 `teach-a-data-structure.md` §7 defers the unit's widget decision to exactly
@@ -479,7 +541,9 @@ a success, so both tokens ship and they mean different things), `focus` for
 the cell under the algorithm's attention — the same token the narration chip
 and `<CodeStepper>`'s active line already use — and `accent` for the widget's
 own chrome, never for data state **except the heap's `swap`** (`Amended by:
-#304`, on the palette). The reference's full coral + emerald + amber
+#304`, on the palette), **which the tree recipes reuse** for the two nodes a
+rotation exchanges and the successor a removal copies (`Amended by: #322`).
+The reference's full coral + emerald + amber
 rebrand of the unit remains the separate WP the issue files; this registers
 one token with one meaning, not a palette.
 

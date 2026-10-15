@@ -1,0 +1,2884 @@
+---
+id: edd-arboles-ii
+title: Estructuras de Datos Avanzadas · Árboles II
+presentation: explicit
+questions: pool
+---
+
+{/* `pool`: un conjunto sin expectativa por sección, como Árboles I y el heap: */}
+{/* cada <Slide> es un h2, y exigir una pregunta por lámina serían cerca de */}
+{/* noventa. Lo que el pool tiene que garantizar es densidad por RANGO: un */}
+{/* control se pide sobre un rango de secciones y cada copia saca cuatro, así */}
+{/* que un rango con menos de cuatro preguntas se rechaza (ErrPoolTooSmall). */}
+{/* COBERTURA. 20 preguntas, de una sola correcta, aprobadas de a dos por el */}
+{/* profesor (#322). Rangos que SÍ llenan una copia de cuatro: */}
+{/*   · la clase entera: 20. */}
+{/*   · el acto El árbol binario de búsqueda: 7. */}
+{/*   · el acto El desbalance del árbol de búsqueda: 4. */}
+{/*   · el acto El árbol AVL: 4. */}
+{/*   · la apertura junto con el árbol de búsqueda: 9. */}
+{/*   · las rotaciones junto con el desbalance o con el AVL: 7. */}
+{/* Rangos que NO, y es deliberado: */}
+{/*   · la apertura sola (2) y las rotaciones solas (3). */}
+{/*   · el AVL desde Eliminar en un árbol AVL, Otros árboles de búsqueda y */}
+{/*     los ejercicios: ninguna. El profesor cerró el banco en la inserción */}
+{/*     del AVL, y los ejercicios no llevan preguntas por decisión. */}
+
+# Estructuras de Datos Avanzadas · Árboles II
+
+Un registro de estudiantes recibe números de matrícula de a uno, y en
+cualquier momento hay que responder si un número ya está. Un registro de
+fechas, o de folios, pide lo mismo: guardar un conjunto de valores que crece,
+y buscar e insertar en él todo el tiempo. Para eso hacen falta dos
+operaciones rápidas a la vez.
+
+{/* SortedRow — a sorted array drawn as a row of cells with their indices, one cell under the eye and a range set aside. File-local like HierarchyPicture (§6e-quater). */}
+
+export function SortedRow({ values, hot = -1, out = [], caption, label }) {
+  const box = 44;
+  const pad = 12;
+  // A caption wider than the row widens the canvas, and the row is centred in it.
+  const rowW = 2 * pad + values.length * box;
+  const width = Math.max(rowW, caption ? caption.length * 6.6 + 24 : 0);
+  const left = (width - rowW) / 2 + pad;
+  const height = 2 * pad + box + 18 + (caption ? 22 : 0);
+  return (
+    <svg viewBox={`0 0 ${width} ${height}`} style={{ width: '100%', maxWidth: `${Math.round(width * 1.3)}px`, height: 'auto', display: 'block', margin: '0.4rem auto' }} role="img" aria-label={label}>
+      {values.map((v, i) => {
+        const set = out.includes(i);
+        const isHot = i === hot;
+        return (
+          <g key={i} opacity={set ? 0.45 : undefined}>
+            <rect x={left + i * box} y={pad} width={box} height={box} rx="3" style={{ fill: 'var(--color-surface)', stroke: isHot ? 'var(--color-focus)' : set ? 'var(--color-rule)' : 'var(--color-rule-strong)' }} strokeWidth={isHot ? 2.6 : 1.2} strokeDasharray={set ? '4 3' : undefined} />
+            <text x={left + i * box + box / 2} y={pad + box / 2 + 5} textAnchor="middle" fontSize="15" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{v}</text>
+            <text x={left + i * box + box / 2} y={pad + box + 14} textAnchor="middle" fontSize="10" style={{ fill: 'var(--color-ink-faint)' }}>{i}</text>
+          </g>
+        );
+      })}
+      {caption ? (
+        <text x={width / 2} y={height - 6} textAnchor="middle" fontSize="12" style={{ fill: 'var(--color-ink-soft)' }}>{caption}</text>
+      ) : null}
+    </svg>
+  );
+}
+
+{/* OrderSides — the order invariant drawn for any node x: its left subtree, every value smaller than x, and its right subtree, every value larger, as two triangles. The colours are the ones the slides that follow paint a tree's two sides in: x in accent, the smaller side in focus, the larger in keep (mark stays for what breaks a rule) — on the strokes; the labels are ink, since focus is not a text colour (design-system.md §The tree figures' palette). File-local like HierarchyPicture (§6e-quater). */}
+
+export function OrderSides({ label }) {
+  const W = 340;
+  const H = 204;
+  const root = { x: W / 2, y: 32 };
+  const r = 20;
+  const sides = [
+    { apex: 85, sign: '<', word: 'menores', color: 'var(--color-focus)' },
+    { apex: W - 85, sign: '>', word: 'mayores', color: 'var(--color-keep)' },
+  ];
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', maxWidth: `${Math.round(W * 1.3)}px`, height: 'auto', display: 'block', margin: '0.4rem auto' }} role="img" aria-label={label}>
+      {sides.map((side) => {
+        const dx = side.apex - root.x;
+        const dy = 78 - root.y;
+        const len = Math.hypot(dx, dy);
+        return (
+          <g key={side.sign}>
+            <line x1={root.x + (dx / len) * r} y1={root.y + (dy / len) * r} x2={side.apex} y2={78} style={{ stroke: 'var(--color-rule-strong)' }} strokeWidth="1.4" />
+            <path d={`M ${side.apex} 78 L ${side.apex + 70} 168 L ${side.apex - 70} 168 Z`} style={{ fill: 'var(--color-surface)', stroke: side.color }} strokeWidth="2.4" strokeLinejoin="round" />
+            <text x={side.apex} y={146} textAnchor="middle" fontSize="18" fontWeight="700" style={{ fill: 'var(--color-ink)' }}>{`${side.sign} x`}</text>
+            <text x={side.apex} y={190} textAnchor="middle" fontSize="13" style={{ fill: 'var(--color-ink-soft)' }}>{`todos ${side.word} que x`}</text>
+          </g>
+        );
+      })}
+      <circle cx={root.x} cy={root.y} r={r} style={{ fill: 'var(--color-surface)', stroke: 'var(--color-accent)' }} strokeWidth="2.4" />
+      <text x={root.x} y={root.y + 6} textAnchor="middle" fontSize="17" fontWeight="700" fontStyle="italic" style={{ fill: 'var(--color-ink)' }}>x</text>
+    </svg>
+  );
+}
+
+{/* The tree the decisions of a binary search over 2, 4, …, 14 form: its inorder is the array itself. The opening threads it through: the binary search runs over it, and the 7 it lacks is searched and hung as a leaf in the tree. */}
+
+export const EVENS = { v: 8, l: { v: 4, l: { v: 2 }, r: { v: 6 } }, r: { v: 12, l: { v: 10 }, r: { v: 14 } } };
+
+export const EVENS_WITH_11 = { v: 8, l: { v: 4, l: { v: 2 }, r: { v: 6 } }, r: { v: 12, l: { v: 10, r: { v: 11 } }, r: { v: 14 } } };
+
+export const EVENS_WITH_7 = { v: 8, l: { v: 4, l: { v: 2 }, r: { v: 6, r: { v: 7 } } }, r: { v: 12, l: { v: 10 }, r: { v: 14 } } };
+
+<Slide title="Un dilema entre buscar e insertar">
+Las estructuras que guardan sus elementos en fila no resuelven bien las dos
+operaciones a la vez: buscar e insertar.
+
+- **Sin orden**, un valor nuevo entra al final de un arreglo, o al principio
+  de una lista, sin mirar a los demás. Pero buscar obliga a revisar los
+  valores uno por uno: nada dice dónde está el buscado.
+- **Un arreglo ordenado** se busca con la búsqueda binaria, que descarta la
+  mitad de lo que queda en cada comparación. Pero un valor nuevo tiene que
+  entrar en su lugar, y todos los mayores se corren una casilla.
+- **Una lista ordenada** no gana nada con el orden: la búsqueda binaria
+  necesita llegar al elemento del medio en un paso, y en una lista llegar al
+  medio es recorrer la mitad. Buscar sigue siendo recorrer, y para insertar
+  también hay que recorrer hasta el lugar del valor nuevo, aunque enlazarlo
+  ahí no corra a nadie.
+
+| Estructura               | Buscar             | Insertar                 |
+| ------------------------ | ------------------ | ------------------------ |
+| Arreglo sin orden        | $$\Theta(n)$$      | $$\Theta(1)$$ amortizado |
+| Lista enlazada sin orden | $$\Theta(n)$$      | $$\Theta(1)$$            |
+| Arreglo ordenado         | $$\Theta(\log n)$$ | $$\Theta(n)$$            |
+| Lista enlazada ordenada  | $$\Theta(n)$$      | $$\Theta(n)$$            |
+| **Lo que buscamos**      | $$O(\log n)$$      | $$O(\log n)$$            |
+
+Ninguna de las cuatro logra las dos cosas a la vez. **El objetivo** es una
+estructura que mantenga los valores en orden, que busque como la búsqueda
+binaria, en tiempo logarítmico, y que inserte también en tiempo logarítmico,
+sin correr a nadie para hacerle lugar al valor nuevo.
+
+</Slide>
+
+<Slide title="La búsqueda binaria">
+En un arreglo ordenado, la búsqueda binaria compara el valor buscado con el
+elemento del medio. Si son iguales, lo encontró. Si el buscado es menor, no
+puede estar en la mitad derecha, y la búsqueda sigue en la izquierda; si es
+mayor, al revés. Cada comparación descarta la mitad de lo que quedaba, así que
+bastan $$\lfloor \log_2 n \rfloor + 1$$ comparaciones. Se escribe con
+recursión, una llamada por rango, o con un ciclo que achica el rango: las dos
+comparan los mismos valores en el mismo orden.
+
+<SequenceStepper eda="dynamic-array" operation="binary-search" values={[2, 4, 6, 8, 10, 12, 14]} target={6} iterative />
+
+</Slide>
+
+<Slide title="Las decisiones de la búsqueda binaria">
+Las comparaciones de una búsqueda binaria siguen siempre el mismo patrón. La
+primera es con el elemento del medio. Si el buscado es menor, la segunda es
+con el medio de la mitad izquierda; si es mayor, con el medio de la derecha;
+y así. Dibujadas, esas decisiones forman un **árbol binario**: el elemento del
+medio es la raíz, y cada mitad, un subárbol armado con la misma regla.
+
+<BinaryPicture tree={EVENS} splits label="El árbol de decisiones de una búsqueda binaria sobre el arreglo 2, 4, 6, 8, 10, 12, 14. La raíz es 8; a la izquierda, 4, con hijos 2 y 6; a la derecha, 12, con hijos 10 y 14. Cada nivel del árbol tiene un color, y debajo, en una fila por nivel, el arreglo partido como lo parte la búsqueda: entero, con el 8 en el medio; en dos mitades, 2, 4, 6 con el 4 en el medio y 10, 12, 14 con el 12; y en valores sueltos, el 2, el 6, el 10 y el 14. Cada valor queda bajo su nodo, y cada tramo, del color de su nodo." caption="cada nodo es el medio de su tramo; sus hijos, los medios de las dos mitades" />
+
+Cada búsqueda es un camino desde la raíz hacia abajo, una comparación por
+nivel. Debajo del árbol, cada fila es un nivel: los tramos del arreglo que la
+búsqueda puede estar revisando en ese momento, cada uno con su elemento del
+medio marcado, que es el nodo de ese nivel. Por eso cada nodo queda en la
+misma columna que su valor en el arreglo, y los nodos, leídos de izquierda a
+derecha, repiten el arreglo ordenado.
+
+</Slide>
+
+<Slide title="Las decisiones guardadas en nodos">
+Si esas decisiones se guardan como **nodos enlazados** en lugar de un
+arreglo, buscar sigue siendo lo mismo: comparar y bajar por un lado. Y un
+valor que no está termina su búsqueda en un subárbol vacío, que es justo
+donde tiene que ir.
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1rem 2rem', alignItems: 'end' }}>
+<BinaryPicture tree={EVENS} path={[8, 4, 6]} probe={{ at: 6, side: 'r' }} seek={7} tones={{ 6: 'focus' }} holes={[]} minColumns={8} label="Buscar el 7 en el árbol de decisiones: se compara con el 8, se baja al 4, se baja al 6, y a la derecha del 6 está el árbol vacío. El 7 no está." caption="buscar 7: 8, 4, 6, y a la derecha de 6 no hay nada" />
+<BinaryPicture tree={EVENS_WITH_7} fresh={7} tones={{ 7: 'mark' }} holes={[]} minColumns={8} label="El 7 colgado como hijo derecho del 6: una hoja nueva, sin que ningún otro nodo se mueva." caption="el 7 se cuelga ahí, como hoja: nada se corre" />
+</div>
+
+Insertar ya no corre nada: el valor nuevo se cuelga como una **hoja** en el
+lugar donde su búsqueda terminó.
+
+</Slide>
+
+<SectionBreak />
+
+## El árbol binario de búsqueda
+
+<Slide title="La definición del árbol binario de búsqueda">
+Un **árbol binario de búsqueda** —en inglés, *binary search tree*, o
+**BST**— es un árbol binario que guarda sus valores en el orden de las
+decisiones de una búsqueda binaria: los menores que un nodo, a su izquierda;
+los mayores, a su derecha. Sus nodos son los del árbol binario: un valor y dos
+referencias, `left` y `right`.
+
+<BinaryPicture tree={EVENS} tones={{ 8: 'accent', 4: 'focus', 2: 'focus', 6: 'focus', 12: 'keep', 10: 'keep', 14: 'keep' }} label="Un árbol binario de búsqueda: 8 en la raíz, 4 y 12 debajo, 2, 6, 10 y 14 en el último nivel. El subárbol izquierdo del 8, con el 4, el 2 y el 6, tiene el color de los menores; el derecho, con el 12, el 10 y el 14, el de los mayores." caption="a la izquierda del 8, los menores; a su derecha, los mayores" />
+
+Con esa forma, buscar e insertar recorren un solo camino desde la raíz:
+ninguna operación revisa todos los valores ni corre a nadie. Lo que cuesta ese
+camino depende de la altura del árbol.
+
+</Slide>
+
+<Slide title="La invariante de orden">
+Lo que hace que un árbol binario sea de búsqueda es esta **invariante**:
+
+> **para cada nodo, todos los valores de su subárbol izquierdo son menores
+> que el suyo, y todos los de su subárbol derecho son mayores.**
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1rem 2rem', alignItems: 'end' }}>
+<OrderSides label="Un nodo x con sus dos subárboles dibujados como triángulos: el izquierdo, en un color, guarda solo valores menores que x; el derecho, en otro color, guarda solo valores mayores que x." />
+<BinaryPicture tree={{ v: 8, l: { v: 4, l: { v: 2 }, r: { v: 10 } }, r: { v: 12 } }} minColumns={5} tones={{ 8: 'accent', 4: 'focus', 2: 'focus', 10: 'mark', 12: 'keep' }} notes={{ 10: '10 > 8' }} label="Un árbol que no es de búsqueda: 8 en la raíz, con 4 y 12 debajo; el 4 tiene hijos 2 y 10. Los nodos a la izquierda del 8 tienen el color de los menores, el de la derecha el de los mayores, y el 10 está marcado: está en el subárbol izquierdo del 8 y es mayor que 8." caption="10 está bien con su padre, 4, pero no con el 8" />
+</div>
+
+La palabra que importa es **todos**. No basta con que cada hijo esté del lado
+correcto de su padre: un valor tiene que estar del lado correcto de **cada**
+nodo por encima de él.
+
+</Slide>
+
+<Slide title="Las invariantes del árbol de búsqueda">
+Un árbol de búsqueda cumple tres invariantes. Las dos primeras son las del
+árbol binario, sin cambios; la tercera es la que lo hace de búsqueda.
+
+1. **Cada nodo tiene a lo más dos hijos, y cada uno es el izquierdo o el
+   derecho.**
+2. **Cada nodo, salvo la raíz, tiene exactamente un padre.**
+3. **Todo nodo del subárbol izquierdo es menor que la raíz, y todo nodo del
+   subárbol derecho es mayor que la raíz.** Vale para el árbol entero y para
+   cada uno de sus subárboles, porque cada nodo es la raíz del suyo. En
+   particular, ningún valor se repite: un valor igual no estaría ni a un lado
+   ni al otro.
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: '1rem', alignItems: 'end' }}>
+<NodeGraph cols={5} rows={2} nodes={[{ v: 8, x: 2, y: 0 }, { v: 4, x: 1, y: 1 }, { v: 6, x: 2, y: 1 }, { v: 12, x: 3, y: 1 }]} edges={[[8, 4], [8, 6], [8, 12]]} tones={{ 8: 'mark' }} markEdges={[[8, 4], [8, 6], [8, 12]]} label="Un nodo con tres hijos: el 8 tiene al 4, al 6 y al 12 debajo. Rompe la invariante 1." caption="1 · tres hijos: no es binario" />
+<NodeGraph cols={5} rows={2} nodes={[{ v: 4, x: 1.5, y: 0 }, { v: 12, x: 2.5, y: 0 }, { v: 8, x: 2, y: 1 }]} edges={[[4, 8], [12, 8]]} tones={{ 8: 'mark' }} markEdges={[[4, 8], [12, 8]]} label="Un nodo con dos padres: el 8 cuelga del 4 y del 12. Rompe la invariante 2." caption="2 · dos padres: no es un árbol" />
+<BinaryPicture tree={EVENS} compact tones={{ 8: 'accent', 4: 'focus', 2: 'focus', 6: 'focus', 12: 'keep', 10: 'keep', 14: 'keep' }} label="Un árbol de búsqueda: 8 en la raíz, 4 y 12 debajo, 2, 6, 10 y 14 en el último nivel. El subárbol izquierdo del 8, con el 4, el 2 y el 6, tiene el color de los menores; el derecho, con el 12, el 10 y el 14, el de los mayores. Cumple la invariante 3." caption="3 · izquierda menor, derecha mayor" />
+</div>
+
+La tercera decide los costos: por ella, cada comparación descarta un subárbol
+entero, y cada inserción y cada eliminación tienen que dejar a cada valor del
+lado correcto de cada uno de sus ancestros.
+
+</Slide>
+
+<Slide title="El nodo y la clase BST">
+Las operaciones se escriben sobre dos clases. El árbol de búsqueda usa el
+mismo nodo del árbol binario: un valor y una referencia a cada hijo. La clase
+del árbol guarda solo la raíz, privada, y un árbol vacío la tiene en `null`.
+
+```java
+class Node<T> {
+    T value;
+    Node<T> left;
+    Node<T> right;
+
+    Node(T value) {
+        this.value = value;
+    }
+}
+
+class BST<T extends Comparable<T>> {
+    private Node<T> root;
+}
+```
+
+Lo nuevo es `T extends Comparable<T>`. Para elegir entre la izquierda y la
+derecha hay que comparar valores, y `compareTo` responde un número negativo,
+cero o positivo según el valor sea menor, igual o mayor que el otro: el tipo
+de los valores tiene que saber compararse. El nodo no lleva esa condición:
+solo guarda valores, y quien los compara es el árbol.
+
+</Slide>
+
+<Slide title="Buscar en un árbol de búsqueda">
+**Buscar** responde si un valor está en el árbol: recibe el valor, responde sí
+o no, y no cambia nada. En cada nodo hay tres respuestas posibles: el valor
+buscado es el del nodo, es menor o es mayor. Si es menor, la invariante
+garantiza que no está en el subárbol derecho, y la búsqueda sigue solo por la
+izquierda; si es mayor, al revés. La búsqueda termina en el valor, o en un
+subárbol vacío, y entonces el valor no está.
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1rem 2rem', alignItems: 'end' }}>
+<BinaryPicture tree={EVENS} path={[8, 12, 10]} seek={10} tones={{ 10: 'keep', 4: 'faint', 2: 'faint', 6: 'faint', 14: 'faint' }} holes={[]} label="Buscar el 10: se compara con el 8 y se baja a la derecha, con el 12 y se baja a la izquierda, y el 10 es el buscado. El subárbol izquierdo del 8 y el 14 quedan descartados, atenuados." caption="buscar 10: 8, 12, 10; el resto queda descartado" />
+<BinaryPicture tree={EVENS} path={[8, 4, 6]} seek={7} probe={{ at: 6, side: 'r' }} tones={{ 6: 'focus', 2: 'faint', 12: 'faint', 10: 'faint', 14: 'faint' }} holes={[]} label="Buscar el 7: se compara con el 8, el 4 y el 6, y a la derecha del 6 está el árbol vacío. El 7 no está. El 2 y el subárbol derecho del 8 quedan descartados." caption="buscar 7: 8, 4, 6, y a la derecha de 6 no hay nada" />
+</div>
+
+</Slide>
+
+<Slide title="El código de la búsqueda">
+Quien usa el árbol llama al método público, `contains`, que recibe solo el
+valor: no tiene nodos. Ese método llama al privado con la raíz y devuelve su
+respuesta. El privado busca en un subárbol: si está vacío, el valor no está;
+si su raíz tiene el valor, está; si no, sigue por el lado que dice la
+comparación. La versión iterativa no necesita método privado: una variable
+baja desde la raíz y toma las mismas decisiones. Las dos bajan por un solo
+camino: $$O(h)$$, se encuentre o no el valor.
+
+<SequenceStepper eda="bst" operation="search" values={[8, 4, 12, 2, 6, 10, 14]} target={10} iterative />
+
+</Slide>
+
+<Slide title="Insertar en un árbol de búsqueda">
+**Insertar** agrega un valor sin romper la invariante: recibe el valor y no
+devuelve nada. Primero se busca. Si el valor ya está, no se hace nada, porque
+el árbol no guarda repetidos. Si no está, la búsqueda termina en un subárbol
+vacío, y ahí se cuelga el valor nuevo como una **hoja**: queda del lado que
+eligió cada comparación, y ningún otro nodo se mueve.
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1rem 2rem', alignItems: 'end' }}>
+<BinaryPicture tree={EVENS} path={[8, 12, 10]} seek={11} probe={{ at: 10, side: 'r' }} tones={{ 10: 'focus' }} holes={[]} minColumns={8} label="Insertar el 11: se compara con el 8 y se baja a la derecha, con el 12 y se baja a la izquierda, con el 10 y se baja a la derecha, donde está el árbol vacío." caption="insertar 11: 8, 12, 10, y a la derecha de 10 no hay nada" />
+<BinaryPicture tree={EVENS_WITH_11} fresh={11} tones={{ 11: 'mark' }} holes={[]} minColumns={8} label="El 11 colgado como hijo derecho del 10: una hoja nueva, sin que ningún otro nodo se mueva." caption="el 11 se cuelga ahí, como hoja" />
+</div>
+
+</Slide>
+
+<Slide title="El código de la inserción">
+El método público, `insert`, llama al privado con la raíz y guarda en `root`
+lo que este devuelve. La versión iterativa, al lado, es el método público
+mismo. Las dos bajan por un solo camino, como la búsqueda: $$O(h)$$.
+
+<SequenceStepper eda="bst" operation="insert" values={[8, 4, 12, 2, 6, 10, 14]} value={7} iterative />
+
+</Slide>
+
+<Slide title="La raíz que devuelve insert y su envoltorio">
+El método recursivo recibe la raíz de un subárbol y devuelve la raíz de ese
+mismo subárbol después de insertar. Casi siempre es el nodo que recibió; la
+excepción es el subárbol vacío, donde devuelve el nodo nuevo. Por eso cada
+llamada guarda lo que le devuelve la siguiente en `node.left` o `node.right`:
+así la hoja nueva queda enlazada a su padre.
+
+Quien usa el árbol no tiene nodos, solo valores. El método público es un
+**envoltorio** del recursivo: recibe el valor, llama al recursivo con la raíz
+y guarda en `root` lo que devuelve. Por eso, insertar en un árbol vacío crea
+la raíz.
+
+El ciclo no necesita envoltorio, porque ya es el método público. Como no
+vuelve por el camino, baja recordando el padre, y al final cuelga la hoja de
+él.
+
+</Slide>
+
+<Slide title="Un árbol armado con inserciones">
+Un programa que crea un árbol vacío e inserta valores uno tras otro lo arma
+hoja por hoja: cada valor baja desde la raíz por las comparaciones, y se
+cuelga donde su búsqueda terminó.
+
+<SequenceStepper eda="bst" operation="insert" values={[]} value={[8, 4, 12, 2, 6, 10, 14]} program />
+
+</Slide>
+
+<Slide title="El inorden de un árbol de búsqueda">
+Un árbol armado con inserciones guarda sus valores en orden, y hay un
+recorrido que los entrega así: **el inorden de un árbol binario de búsqueda
+entrega sus valores ordenados de menor a mayor.** El inorden visita cada nodo
+entre sus dos subárboles: primero el izquierdo, después el nodo, después el
+derecho.
+
+<OrderRule parts={['izquierda', 'raíz', 'derecha']} tone="accent" label="La regla del inorden: el subárbol izquierdo, después la raíz, después el derecho." />
+
+<BinaryPicture tree={EVENS} visits="in" strip label="El árbol de búsqueda con 8 en la raíz, 4 y 12 debajo, y 2, 6, 10 y 14 en el último nivel, recorrido en inorden: cada nodo numerado en el orden en que se visita, con una flecha de cada visita a la siguiente. Se visitan el 2, el 4, el 6, el 8, el 10, el 12 y el 14, y la fila de abajo los muestra en ese orden, cada uno bajo su nodo." caption="el inorden: 2, 4, 6, 8, 10, 12, 14, ordenado" />
+
+La razón es la invariante: todo lo de la izquierda de un nodo es menor que él
+y todo lo de la derecha es mayor. Si cada subárbol, más pequeño, ya sale
+ordenado, el nodo queda exactamente entre los dos, y el total sale ordenado.
+
+</Slide>
+
+<Slide title="El código del inorden">
+El método público, `inorder`, llama al privado con la raíz. El privado es el
+recorrido del árbol binario: la visita va entre las dos llamadas, así que cada
+nodo se imprime después de todo su subárbol izquierdo y antes de todo el
+derecho. Visita cada nodo una vez: $$\Theta(n)$$.
+
+<SequenceStepper eda="bst" operation="inorder" values={[8, 4, 12, 2, 6, 10, 14]} />
+
+</Slide>
+
+<Slide title="Eliminar en un árbol de búsqueda">
+**Eliminar** saca un valor del árbol sin romper la invariante. Primero se busca
+el nodo que lo guarda; si el valor no está, no se hace nada. Si está, lo que se
+hace depende de cuántos hijos tiene ese nodo: **ninguno**, **uno** o **dos**.
+
+<BinaryPicture tree={EVENS_WITH_7} tones={{ 2: 'focus', 6: 'keep', 8: 'mark' }} badges={{ 2: 'hoja', 6: 'un hijo', 8: 'dos hijos' }} minColumns={8} label="El árbol de búsqueda con el 7 colgando del 6. El 2 es una hoja, el 6 tiene un solo hijo y el 8 tiene dos: los tres casos de la eliminación." caption="los tres casos: una hoja, un hijo, dos hijos" />
+
+</Slide>
+
+<Slide title="Eliminar una hoja">
+Una **hoja** no tiene hijos, así que nadie cuelga de ella. Basta con que su
+padre deje de apuntarle, y en ese lado queda el árbol vacío.
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1rem 2rem', alignItems: 'end' }}>
+<BinaryPicture tree={EVENS} tones={{ 2: 'mark' }} holes={[]} label="El árbol de búsqueda con el 2 marcado: es una hoja, hijo izquierdo del 4." caption="eliminar 2, una hoja" />
+<BinaryPicture tree={EVENS} tones={{ 2: 'hidden' }} holes={[4]} label="El mismo árbol sin el 2: el hijo izquierdo del 4 es ahora el árbol vacío." caption="el 4 apunta a null por la izquierda" />
+</div>
+
+</Slide>
+
+<Slide title="Eliminar un nodo con un hijo">
+Cuando el nodo tiene **un solo hijo**, a la izquierda o a la derecha, su padre
+pasa a apuntar a ese hijo, y el subárbol del hijo sube un nivel, entero. La
+invariante se mantiene, porque todo ese subárbol ya estaba del mismo lado del
+padre que el nodo eliminado.
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1rem 2rem', alignItems: 'end' }}>
+<BinaryPicture tree={EVENS_WITH_7} tones={{ 6: 'mark' }} minColumns={8} label="El árbol de búsqueda con el 7 colgando del 6. El 6 está marcado: tiene un solo hijo, el 7, a la derecha." caption="eliminar 6, que tiene un solo hijo" />
+<BinaryPicture tree={{ v: 8, l: { v: 4, l: { v: 2 }, r: { v: 7 } }, r: { v: 12, l: { v: 10 }, r: { v: 14 } } }} fresh={7} minColumns={8} label="El árbol sin el 6: el 4 apunta ahora directamente al 7, que quedó como su hijo derecho." caption="el 4 pasa a apuntar al 7" />
+</div>
+
+</Slide>
+
+<Slide title="Eliminar un nodo con dos hijos">
+Un nodo con **dos hijos** no se puede sacar: dejaría dos subárboles colgando,
+y su padre tiene lugar para uno solo. Por eso el nodo se queda, y lo que
+cambia es su valor:
+
+1. Se busca su **sucesor**, el valor que le sigue en orden: el menor de su
+   subárbol derecho. Se baja una vez a la derecha, y después a la izquierda
+   mientras haya hijo izquierdo.
+2. El nodo toma el valor del sucesor.
+3. Se elimina el sucesor de abajo.
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1rem 2rem', alignItems: 'end' }}>
+<BinaryPicture tree={EVENS} tones={{ 8: 'mark', 10: 'focus' }} notes={{ 10: 'sucesor' }} holes={[]} label="El árbol de búsqueda con el 8 marcado: tiene dos hijos. Su sucesor, el mínimo de su subárbol derecho, es el 10." caption="eliminar 8: su sucesor es 10" />
+<BinaryPicture tree={{ v: 10, l: { v: 4, l: { v: 2 }, r: { v: 6 } }, r: { v: 12, r: { v: 14 } } }} tones={{ 10: 'mark' }} holes={[12]} minColumns={7} label="El árbol después: la raíz tomó el valor 10, y el nodo del 10 que estaba abajo se eliminó; el 12 ya no tiene hijo izquierdo." caption="la raíz toma el 10, y el 10 de abajo se elimina" />
+</div>
+
+El sucesor cabe justo en ese lugar. Es mayor que todo el subárbol izquierdo
+del nodo, porque ese subárbol era menor que el valor eliminado; y es menor que
+todo lo que queda en el derecho, porque era el menor de ese lado.
+
+</Slide>
+
+<Slide title="El sucesor tiene a lo más un hijo">
+El sucesor **nunca tiene hijo izquierdo**. Si lo tuviera, ese hijo estaría en el
+mismo subárbol derecho y sería menor que él, y entonces el sucesor sería ese
+hijo. Por eso, eliminar el sucesor de abajo nunca vuelve a ser el caso de dos
+hijos, sino uno de los dos primeros:
+
+- si es una **hoja**, su padre deja de apuntarle;
+- si tiene **un hijo**, ese hijo está a la derecha, y su padre pasa a apuntar
+  a él.
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1rem 2rem', alignItems: 'end' }}>
+<BinaryPicture tree={EVENS_WITH_11} tones={{ 8: 'mark', 10: 'focus' }} notes={{ 10: 'sucesor' }} holes={[]} minColumns={8} label="El árbol de búsqueda con el 11 colgando a la derecha del 10. El 8 está marcado: tiene dos hijos. Su sucesor es el 10, que no tiene hijo izquierdo y tiene un hijo derecho, el 11." caption="eliminar 8: su sucesor, 10, tiene un hijo" />
+<BinaryPicture tree={{ v: 10, l: { v: 4, l: { v: 2 }, r: { v: 6 } }, r: { v: 12, l: { v: 11 }, r: { v: 14 } } }} tones={{ 10: 'mark' }} fresh={11} holes={[]} minColumns={8} label="El árbol después: la raíz tomó el valor 10, y el nodo del 10 que estaba abajo se eliminó como un nodo con un hijo: el 12 apunta ahora directamente al 11." caption="la raíz toma el 10; el 12 pasa a apuntar al 11" />
+</div>
+
+</Slide>
+
+<Slide title="Eliminar la raíz">
+La raíz se elimina con los mismos casos. Lo único distinto es que no tiene
+padre: quien la apunta es el árbol, con `root`. Por eso, lo que en los otros
+casos hacía el padre, aquí lo hace `root`:
+
+- si la raíz es una **hoja**, `root` pasa a ser `null`, y el árbol queda vacío;
+- si tiene **un hijo**, `root` pasa a apuntar a ese hijo, que es la nueva raíz;
+- si tiene **dos**, la raíz se queda y toma el valor de su sucesor, como
+  cualquier otro nodo.
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: '1rem', alignItems: 'end' }}>
+<BinaryPicture tree={{ v: 8 }} tones={{ 8: 'mark' }} compact minColumns={3} label="Un árbol de un solo nodo, el 8, que es la raíz y es una hoja." caption="eliminar 8, raíz y hoja" />
+<BinaryPicture tree={{ v: 8 }} tones={{ 8: 'hidden' }} compact minColumns={3} label="El árbol después de eliminar el 8: está vacío, y su raíz es null." caption="el árbol queda vacío" />
+<BinaryPicture tree={{ v: 8, l: { v: 4, l: { v: 2 }, r: { v: 6 } } }} tones={{ 8: 'mark' }} compact minColumns={3} label="Un árbol con el 8 en la raíz y un solo hijo, el 4, que tiene al 2 y al 6 debajo." caption="eliminar 8, raíz con un hijo" />
+<BinaryPicture tree={{ v: 4, l: { v: 2 }, r: { v: 6 } }} tones={{ 4: 'mark' }} compact minColumns={3} label="El árbol después de eliminar el 8: el 4 es la nueva raíz, con el 2 y el 6 debajo." caption="root apunta al 4, la nueva raíz" />
+</div>
+
+</Slide>
+
+<Slide title="El código de la eliminación">
+El método público, `remove`, llama al privado con la raíz y guarda en `root`
+lo que este devuelve, como `insert`. El privado devuelve lo que queda en el
+lugar del nodo: `null`, su único hijo, o el mismo nodo con el valor de su
+sucesor. Baja dos veces por un camino, hasta el nodo y hasta su sucesor:
+$$O(h)$$.
+
+<SequenceStepper eda="bst" operation="remove" values={[8, 4, 12, 2, 6, 10, 14]} target={8} />
+
+</Slide>
+
+<Slide title="Eliminaciones en un mismo árbol">
+<SequenceStepper eda="bst" operation="remove" values={[8, 3, 12, 1, 6, 10, 14, 11]} target={[1, 3, 8, 12, 14, 5]} program />
+
+</Slide>
+
+<Slide title="Costos del árbol de búsqueda">
+Cada operación baja por un camino desde la raíz, así que todas cuestan lo
+mismo: la altura.
+
+| Molde     | Operación           | Peor caso | Invariante que restaura                                              |
+| --------- | ------------------- | --------- | -------------------------------------------------------------------- |
+| Consultar | `contains`          | $$O(h)$$  | Ninguna: no cambia el árbol                                          |
+| Modificar | `insert`            | $$O(h)$$  | La de orden: la hoja nueva queda del lado que eligió cada comparación |
+| Modificar | `remove`            | $$O(h)$$  | La de orden: el sucesor cabe justo en el lugar que deja              |
+
+La altura de un árbol binario de $$n$$ nodos está entre
+$$\lfloor \log_2 n \rfloor$$ y $$n - 1$$.
+
+</Slide>
+
+<SectionBreak />
+
+## El desbalance del árbol de búsqueda
+
+{/* The same seven values in three insertion orders: by levels, in no particular order (lopsided at the root), sorted. EVENS_SHUFFLED is a fourth order the AVL section shows as balanced. */}
+
+export const EVENS_SHUFFLED = { v: 10, l: { v: 4, l: { v: 2 }, r: { v: 8, l: { v: 6 } } }, r: { v: 14, l: { v: 12 } } };
+
+export const EVENS_LOPSIDED = { v: 4, l: { v: 2 }, r: { v: 10, l: { v: 8, l: { v: 6 } }, r: { v: 12, r: { v: 14 } } } };
+
+export const EVENS_CHAIN = { v: 2, r: { v: 4, r: { v: 6, r: { v: 8, r: { v: 10, r: { v: 12, r: { v: 14 } } } } } } };
+
+<Slide title="Altura mínima: un árbol balanceado">
+La forma de un árbol de búsqueda la decide el orden en que se insertan sus
+valores. Si cada valor nuevo cae en un nivel que todavía tiene lugar, los
+niveles se llenan de arriba hacia abajo, y el árbol queda con la **altura
+mínima**, $$\lfloor \log_2 n \rfloor$$. Un árbol así está **balanceado**: en
+cada nodo, el subárbol izquierdo y el derecho tienen alturas parecidas.
+
+<SequenceStepper eda="bst" operation="insert" values={[]} value={[8, 4, 12, 2, 6, 10, 14]} program />
+
+</Slide>
+
+<Slide title="Altura máxima: un árbol desbalanceado">
+Si los mismos valores se insertan de menor a mayor, cada uno es mayor que
+todos los anteriores: siempre baja por la derecha y se cuelga al final. El
+árbol queda como una cadena, con la **altura máxima**, $$n - 1$$. Está
+**desbalanceado**: en cada nodo, todo lo que sigue cuelga a la derecha.
+
+<SequenceStepper eda="bst" operation="insert" values={[]} value={[2, 4, 6, 8, 10, 12, 14]} program />
+
+Buscar el mayor compara con todos los nodos, como en una lista enlazada.
+
+</Slide>
+
+<Slide title="Altura intermedia: un árbol en parte desbalanceado">
+En un orden cualquiera, ni por niveles ni de menor a mayor, el árbol queda
+entre los dos extremos: algunas ramas se alargan más que otras, y la altura
+queda entre la mínima y la máxima.
+
+<SequenceStepper eda="bst" operation="insert" values={[]} value={[4, 10, 2, 12, 8, 14, 6]} program />
+
+</Slide>
+
+<Slide title="El desbalance según el orden de inserción">
+Los mismos valores, insertados en tres órdenes, dan tres alturas: la mínima,
+una intermedia y la máxima. Como cada operación cuesta $$O(h)$$, el mismo
+conjunto se busca más rápido o más lento según el orden en que llegó.
+
+<PresentationWide fraction={0.9}>
+
+<div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: '1rem 2rem', alignItems: 'flex-end' }}>
+<div style={{ flex: '1 1 260px', maxWidth: '330px' }}>
+<BinaryPicture tree={EVENS} ruler="h = 2" compact label="Los valores 2 a 14 insertados en el orden 8, 4, 12, 2, 6, 10, 14: un árbol lleno de altura 2, la mínima." caption="8, 4, 12, 2, 6, 10, 14: altura 2" />
+</div>
+<div style={{ flex: '1 1 260px', maxWidth: '330px' }}>
+<BinaryPicture tree={EVENS_LOPSIDED} ruler="h = 3" compact label="Los mismos valores insertados en el orden 4, 10, 2, 12, 8, 14, 6: el 4 en la raíz con solo el 2 a la izquierda y todo lo demás a la derecha. Altura 3." caption="4, 10, 2, 12, 8, 14, 6: altura 3" />
+</div>
+<div style={{ flex: '1 1 260px', maxWidth: '330px' }}>
+<BinaryPicture tree={EVENS_CHAIN} ruler="h = 6" compact label="Los mismos valores insertados de menor a mayor: una cadena hacia la derecha de altura 6, la máxima." caption="de menor a mayor: altura 6" />
+</div>
+</div>
+
+</PresentationWide>
+
+</Slide>
+
+<Slide title="El caso esperado y el peor caso">
+El costo de un árbol de búsqueda depende de un orden que el árbol no elige: el
+orden en que llegan sus valores.
+
+- **En el caso esperado**, el árbol se arma insertando los valores en un
+  orden al azar, con todos los órdenes igual de probables. Se demuestra que
+  su altura esperada es $$O(\log n)$$.
+- **En el peor caso**, los valores llegan ordenados, y la altura es $$n - 1$$.
+
+| Operación  | Caso esperado | Peor caso     |
+| ---------- | ------------- | ------------- |
+| `contains` | $$O(\log n)$$ | $$\Theta(n)$$ |
+| `insert`   | $$O(\log n)$$ | $$\Theta(n)$$ |
+| `remove`   | $$O(\log n)$$ | $$\Theta(n)$$ |
+
+En el peor caso, un árbol de búsqueda no es mejor que una lista enlazada
+ordenada.
+
+</Slide>
+
+<Slide title="El desbalance con datos reales">
+El peor caso no es raro. Los números de matrícula se asignan en orden
+creciente; los registros de un sistema llegan ordenados por fecha; un archivo
+de palabras suele venir en orden alfabético. Cargar cualquiera de ellos en un
+árbol de búsqueda lo deja como una cadena, con la altura máxima.
+
+El caso esperado supone que los valores llegan al azar, y los datos reales no
+lo garantizan. Por eso un árbol de búsqueda, por sí solo, no puede asegurar
+que buscar, insertar y eliminar cuesten $$O(\log n)$$.
+
+</Slide>
+
+<Slide title="El árbol de búsqueda balanceado">
+La invariante de orden dice de qué lado de cada nodo va cada valor, pero no
+dice nada sobre la forma del árbol: nada impide que se desbalancee.
+
+Un **árbol de búsqueda balanceado** agrega lo que falta. Después de cada
+inserción y de cada eliminación, revisa la forma y la arregla donde quedó
+desbalanceada, sin romper la invariante de orden. Su altura queda en
+$$O(\log n)$$ en el peor caso, sin importar el orden en que lleguen los
+valores, y con ella el costo de todas las operaciones. El precio es más trabajo en cada inserción y en cada
+eliminación.
+
+Arreglar la forma sin romper el orden es posible porque los mismos valores
+caben en muchas formas que cumplen la invariante. La herramienta que pasa de
+una forma a otra es la **rotación**.
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem 2rem', alignItems: 'end' }}>
+<BinaryPicture tree={{ v: 2, r: { v: 4, r: { v: 6 } } }} ruler="h = 2" minColumns={3} compact label="Los valores 2, 4 y 6 en una cadena hacia la derecha: el 2 en la raíz, el 4 debajo y el 6 debajo del 4. Altura 2." caption="2, 4, 6 en cadena: altura 2" />
+<BinaryPicture tree={{ v: 4, l: { v: 2 }, r: { v: 6 } }} ruler="h = 1" minColumns={3} compact label="Los mismos valores balanceados: el 4 en la raíz, con el 2 a la izquierda y el 6 a la derecha. Altura 1, y la invariante de orden se cumple igual." caption="los mismos valores, balanceados: altura 1" />
+</div>
+
+</Slide>
+
+<SectionBreak />
+
+## Las rotaciones
+
+{/* The generic rotations: to the right at p, whose left child is q, and to the left at p, whose right child is q. A, B and C are whole subtrees, drawn as triangles. */}
+
+export const ROTATION_BEFORE = { v: 'p', l: { v: 'q', l: { v: 'A' }, r: { v: 'B' } }, r: { v: 'C' } };
+
+export const ROTATION_AFTER = { v: 'q', l: { v: 'A' }, r: { v: 'p', l: { v: 'B' }, r: { v: 'C' } } };
+
+export const LEFT_ROTATION_BEFORE = { v: 'p', l: { v: 'A' }, r: { v: 'q', l: { v: 'B' }, r: { v: 'C' } } };
+
+export const LEFT_ROTATION_AFTER = { v: 'q', l: { v: 'p', l: { v: 'A' }, r: { v: 'B' } }, r: { v: 'C' } };
+
+{/* The double rotations: the weight inside, under r, the child of q on the side away from p's lean. Four subtrees, A to D, in inorder. */}
+
+export const DOUBLE_RIGHT_BEFORE = { v: 'p', l: { v: 'q', l: { v: 'A' }, r: { v: 'r', l: { v: 'B' }, r: { v: 'C' } } }, r: { v: 'D' } };
+
+export const DOUBLE_RIGHT_MIDDLE = { v: 'p', l: { v: 'r', l: { v: 'q', l: { v: 'A' }, r: { v: 'B' } }, r: { v: 'C' } }, r: { v: 'D' } };
+
+export const DOUBLE_RIGHT_AFTER = { v: 'r', l: { v: 'q', l: { v: 'A' }, r: { v: 'B' } }, r: { v: 'p', l: { v: 'C' }, r: { v: 'D' } } };
+
+export const SIMPLE_RIGHT_INSIDE = { v: 'q', l: { v: 'A' }, r: { v: 'p', l: { v: 'r', l: { v: 'B' }, r: { v: 'C' } }, r: { v: 'D' } } };
+
+export const DOUBLE_LEFT_BEFORE = { v: 'p', l: { v: 'A' }, r: { v: 'q', l: { v: 'r', l: { v: 'B' }, r: { v: 'C' } }, r: { v: 'D' } } };
+
+export const DOUBLE_LEFT_MIDDLE = { v: 'p', l: { v: 'A' }, r: { v: 'r', l: { v: 'B' }, r: { v: 'q', l: { v: 'C' }, r: { v: 'D' } } } };
+
+export const DOUBLE_LEFT_AFTER = { v: 'r', l: { v: 'p', l: { v: 'A' }, r: { v: 'B' } }, r: { v: 'q', l: { v: 'C' }, r: { v: 'D' } } };
+
+<Slide title="La rotación a la derecha">
+Una **rotación** cambia la forma de un árbol de búsqueda sin romper la
+invariante de orden. La **rotación a la derecha** en un nodo `p` que tiene
+hijo izquierdo `q` hace subir a `q` al lugar de `p`: `p` baja a ser el hijo
+derecho de `q`, y el subárbol derecho de `q` pasa a ser el subárbol izquierdo
+de `p`. Los otros dos subárboles siguen colgados del mismo nodo que antes.
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1rem 2rem', alignItems: 'end' }}>
+<BinaryPicture tree={ROTATION_BEFORE} subtrees={['A', 'B', 'C']} tall={['A']} tones={{ p: 'accent', q: 'accent', B: 'mark' }} turn={{ at: 'p', dir: 'right' }} label="Antes de rotar: p arriba, con q a su izquierda y el subárbol C a su derecha; q tiene a los subárboles A y B. A es más alto que los otros dos: llega un nivel más abajo, y carga el árbol hacia la izquierda. Una flecha curva, en el sentido de las agujas del reloj, sobre la arista entre p y q." caption="antes: A, más alto, carga la izquierda" />
+<BinaryPicture tree={ROTATION_AFTER} subtrees={['A', 'B', 'C']} tall={['A']} tones={{ p: 'accent', q: 'accent', B: 'mark' }} label="Después de rotar a la derecha en p: q arriba, con el subárbol A a su izquierda y p a su derecha; p tiene a B a la izquierda y a C a la derecha. A subió un nivel, C bajó uno, y el árbol quedó parejo." caption="después: A sube un nivel, C baja uno" />
+</div>
+
+</Slide>
+
+<Slide title="Por qué la rotación a la derecha conserva el orden">
+Antes de rotar, los valores de B estaban en el subárbol derecho de `q` y en el
+izquierdo de `p`: eran mayores que `q` y menores que `p`. Después siguen
+siendo las dos cosas, porque B quedó a la izquierda de `p`, y `p` quedó a la
+derecha de `q`. A sigue a la izquierda de `q`, y C a la derecha de `p`.
+Ningún valor cambia de lado respecto de ningún nodo: **la invariante de orden
+se mantiene**.
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1rem 2rem', alignItems: 'end' }}>
+<BinaryPicture tree={ROTATION_BEFORE} subtrees={['A', 'B', 'C']} tall={['A']} strip label="Antes de rotar, con el inorden debajo: A, q, B, p, C." caption="inorden antes: A, q, B, p, C" />
+<BinaryPicture tree={ROTATION_AFTER} subtrees={['A', 'B', 'C']} tall={['A']} strip label="Después de rotar, con el inorden debajo: A, q, B, p, C, el mismo de antes." caption="inorden después: el mismo" />
+</div>
+
+Cada nodo y cada subárbol está dibujado en la columna de su lugar en el
+inorden: al rotar, nada cambia de columna. Los nodos solo suben o bajan.
+
+</Slide>
+
+<Slide title="El código de la rotación a la derecha">
+Tres referencias cambian, una por línea. El método devuelve `q`, el nodo que
+subió, y quien lo llamó lo guarda donde estaba `p`: en `root`, o en el hijo
+del padre de `p`. Mientras tanto, por un momento, un subárbol tiene dos
+padres, y `q` apunta hacia arriba sin que nadie le apunte.
+
+<SequenceStepper eda="avl" operation="rotate-right" values={[12, 8, 14, 4, 10, 2]} target={12} />
+
+</Slide>
+
+<Slide title="La rotación a la izquierda">
+La **rotación a la izquierda** es la simétrica de la rotación a la derecha. En
+un nodo `p` que tiene hijo derecho `q`, hace subir a `q` al lugar de `p`: `p`
+baja a ser el hijo izquierdo de `q`, y el subárbol izquierdo de `q` pasa a ser
+el subárbol derecho de `p`. Los otros dos subárboles siguen colgados del mismo
+nodo que antes.
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1rem 2rem', alignItems: 'end' }}>
+<BinaryPicture tree={LEFT_ROTATION_BEFORE} subtrees={['A', 'B', 'C']} tall={['C']} tones={{ p: 'accent', q: 'accent', B: 'mark' }} turn={{ at: 'p', dir: 'left' }} label="Antes de rotar: p arriba, con el subárbol A a su izquierda y q a su derecha; q tiene a los subárboles B y C. C es más alto que los otros dos: llega un nivel más abajo, y carga el árbol hacia la derecha. Una flecha curva, en contra de las agujas del reloj, sobre la arista entre p y q." caption="antes: C, más alto, carga la derecha" />
+<BinaryPicture tree={LEFT_ROTATION_AFTER} subtrees={['A', 'B', 'C']} tall={['C']} tones={{ p: 'accent', q: 'accent', B: 'mark' }} label="Después de rotar a la izquierda en p: q arriba, con p a su izquierda y el subárbol C a su derecha; p tiene a A a la izquierda y a B a la derecha. C subió un nivel, A bajó uno, y el árbol quedó parejo." caption="después: C sube un nivel, A baja uno" />
+</div>
+
+</Slide>
+
+<Slide title="Por qué la rotación a la izquierda conserva el orden">
+Antes de rotar, los valores de B estaban en el subárbol izquierdo de `q` y en
+el derecho de `p`: eran mayores que `p` y menores que `q`. Después siguen
+siendo las dos cosas, porque B quedó a la derecha de `p`, y `p` quedó a la
+izquierda de `q`. A sigue a la izquierda de `p`, y C a la derecha de `q`.
+Ningún valor cambia de lado respecto de ningún nodo: **la invariante de orden
+se mantiene**.
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1rem 2rem', alignItems: 'end' }}>
+<BinaryPicture tree={LEFT_ROTATION_BEFORE} subtrees={['A', 'B', 'C']} tall={['C']} strip label="Antes de rotar, con el inorden debajo: A, p, B, q, C." caption="inorden antes: A, p, B, q, C" />
+<BinaryPicture tree={LEFT_ROTATION_AFTER} subtrees={['A', 'B', 'C']} tall={['C']} strip label="Después de rotar, con el inorden debajo: A, p, B, q, C, el mismo de antes." caption="inorden después: el mismo" />
+</div>
+
+Como en la rotación a la derecha, nada cambia de columna: los nodos solo suben
+o bajan.
+
+</Slide>
+
+<Slide title="El código de la rotación a la izquierda">
+Las mismas tres referencias, del lado contrario: `p` toma como hijo derecho al
+subárbol izquierdo de `q`, y `q` toma a `p` como hijo izquierdo. El método
+devuelve `q`, y quien lo llamó lo guarda donde estaba `p`.
+
+<SequenceStepper eda="avl" operation="rotate-left" values={[4, 2, 8, 6, 10, 12]} target={4} />
+
+</Slide>
+
+<Slide title="Lo que una rotación hace con la altura">
+Al rotar a la derecha, todo el subárbol A sube un nivel, todo C baja uno, y B
+se queda en el suyo; al rotar a la izquierda es al revés: C sube y A baja. Si
+A era el subárbol más alto, el árbol queda más parejo: la rotación pasa altura
+de un lado al otro, sin tocar el orden.
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1rem 2rem', alignItems: 'end' }}>
+<BinaryPicture tree={ROTATION_BEFORE} subtrees={['A', 'B', 'C']} tall={['A']} levels tones={{ p: 'accent', q: 'accent', A: 'keep', C: 'mark' }} turn={{ at: 'p', dir: 'right' }} label="Antes de rotar a la derecha en p, con los niveles marcados: p en el nivel 0; q y el subárbol C en el nivel 1; los subárboles A y B empiezan en el nivel 2, y A, más alto, llega hasta el nivel 3. Una flecha curva marca la rotación." caption="antes: A en el nivel 2, C en el 1" />
+<BinaryPicture tree={ROTATION_AFTER} subtrees={['A', 'B', 'C']} tall={['A']} levels tones={{ p: 'accent', q: 'accent', A: 'keep', C: 'mark' }} label="Después de rotar, con los niveles marcados: q en el nivel 0; A y p en el nivel 1; B y C en el nivel 2. A subió un nivel y ya no llega más abajo que los demás; C bajó uno; B siguió en el 2." caption="después: A en el 1, C en el 2" />
+</div>
+
+</Slide>
+
+<Slide title="Cuando una rotación simple no alcanza">
+Las rotaciones a la derecha y a la izquierda se llaman **simples**. Al rotar a
+la derecha en `p`, lo que cuelga a la izquierda de `q` sube un nivel, y lo que
+cuelga a su derecha cambia de padre sin cambiar de nivel. Por eso una rotación
+simple empareja el árbol o no según dónde esté lo que lo carga:
+
+- **por fuera**, a la izquierda de `q`: sube, y el árbol queda parejo;
+- **por dentro**, a la derecha de `q`, bajo `r`: no sube, solo pasa al otro
+  lado, y el árbol queda cargado igual de fuerte, pero hacia la derecha.
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1rem 2rem', alignItems: 'end' }}>
+<BinaryPicture tree={DOUBLE_RIGHT_BEFORE} subtrees={['A', 'B', 'C', 'D']} levels tones={{ p: 'accent', q: 'accent', r: 'mark', B: 'mark', C: 'mark' }} turn={{ at: 'p', dir: 'right' }} label="Antes de rotar a la derecha en p, con los niveles marcados: p en el nivel 0; q y el subárbol D en el 1; el subárbol A y el nodo r en el 2; los subárboles B y C, bajo r, en el 3. Lo que carga el árbol está por dentro, bajo r. Una flecha curva marca la rotación." caption="antes: el peso, bajo r, por dentro" />
+<BinaryPicture tree={SIMPLE_RIGHT_INSIDE} subtrees={['A', 'B', 'C', 'D']} levels tones={{ p: 'accent', q: 'accent', r: 'mark', B: 'mark', C: 'mark' }} label="Después de rotar a la derecha en p, con los niveles marcados: q en el nivel 0; A y p en el 1; r y D en el 2; B y C, bajo r, siguen en el 3. El peso no subió: ahora carga el árbol hacia la derecha." caption="después: r sigue en el nivel 2" />
+</div>
+
+</Slide>
+
+<Slide title="La rotación doble a la derecha">
+La **rotación doble a la derecha** empareja un árbol cargado a la izquierda con
+el peso por dentro, bajo `r`, con dos rotaciones simples:
+
+1. una **rotación a la izquierda en `q`**: sube `r`, y el peso queda por
+   fuera;
+2. una **rotación a la derecha en `p`**, que ahora sí empareja: `r` queda
+   arriba, con `q` y `p` como hijos.
+
+En inglés se llama *left-right*: el peso está en el hijo izquierdo y, dentro de
+él, a la derecha.
+
+<PresentationWide fraction={0.9}>
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem 1.5rem', alignItems: 'end' }}>
+<BinaryPicture tree={DOUBLE_RIGHT_BEFORE} subtrees={['A', 'B', 'C', 'D']} compact tones={{ q: 'accent', r: 'accent', B: 'mark' }} turn={{ at: 'q', dir: 'left' }} label="El punto de partida: p arriba, con q a su izquierda y el subárbol D a su derecha; q tiene a A a la izquierda y a r a la derecha; r tiene a B y C. Una flecha curva marca la rotación a la izquierda en q." caption="primero, a la izquierda en q" />
+<BinaryPicture tree={DOUBLE_RIGHT_MIDDLE} subtrees={['A', 'B', 'C', 'D']} compact tones={{ p: 'accent', r: 'accent', C: 'mark' }} turn={{ at: 'p', dir: 'right' }} label="Después de rotar a la izquierda en q: r es el hijo izquierdo de p, con q a su izquierda y C a su derecha; q tiene a A y B. El peso quedó por fuera. Una flecha curva marca la rotación a la derecha en p." caption="después, a la derecha en p" />
+<BinaryPicture tree={DOUBLE_RIGHT_AFTER} subtrees={['A', 'B', 'C', 'D']} compact tones={{ r: 'keep' }} label="Después de rotar a la derecha en p: r arriba, con q a su izquierda y p a su derecha; q tiene a A y B, y p tiene a C y D." caption="r arriba, el árbol parejo" />
+</div>
+
+</PresentationWide>
+
+</Slide>
+
+<Slide title="Por qué la rotación doble a la derecha conserva el orden">
+Cada una de las dos rotaciones conserva la invariante de orden, así que la
+doble también: el inorden es el mismo antes y después, y cada nodo y cada
+subárbol sigue en su columna. Lo que cambia es la altura: `r` sube dos
+niveles, B y C suben uno, A se queda en el suyo y D baja uno.
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '1rem 2rem', alignItems: 'end' }}>
+<BinaryPicture tree={DOUBLE_RIGHT_BEFORE} subtrees={['A', 'B', 'C', 'D']} strip label="Antes de la rotación doble, con el inorden debajo: A, q, B, r, C, p, D." caption="inorden antes: A, q, B, r, C, p, D" />
+<BinaryPicture tree={DOUBLE_RIGHT_AFTER} subtrees={['A', 'B', 'C', 'D']} strip label="Después de la rotación doble, con el inorden debajo: A, q, B, r, C, p, D, el mismo de antes." caption="inorden después: el mismo" />
+</div>
+
+</Slide>
+
+<Slide title="El código de la rotación doble a la derecha">
+Dos líneas, una por rotación. La primera rota en el hijo izquierdo y guarda en
+`p.left` el nodo que subió; la segunda rota en `p` y devuelve el nodo que sube
+a su lugar, que quien llamó guarda donde estaba `p`.
+
+<SequenceStepper eda="avl" operation="rotate-left-right" values={[12, 4, 14, 2, 8, 6, 10]} target={12} />
+
+</Slide>
+
+<Slide title="La rotación doble a la izquierda">
+La **rotación doble a la izquierda** es la simétrica: empareja un árbol cargado
+a la derecha con el peso por dentro, bajo `r`, el hijo izquierdo de `q`:
+
+1. una **rotación a la derecha en `q`**: sube `r`, y el peso queda por fuera;
+2. una **rotación a la izquierda en `p`**: `r` queda arriba, con `p` y `q`
+   como hijos.
+
+En inglés se llama *right-left*: el peso está en el hijo derecho y, dentro de
+él, a la izquierda.
+
+<PresentationWide fraction={0.9}>
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem 1.5rem', alignItems: 'end' }}>
+<BinaryPicture tree={DOUBLE_LEFT_BEFORE} subtrees={['A', 'B', 'C', 'D']} compact tones={{ q: 'accent', r: 'accent', C: 'mark' }} turn={{ at: 'q', dir: 'right' }} label="El punto de partida: p arriba, con el subárbol A a su izquierda y q a su derecha; q tiene a r a la izquierda y a D a la derecha; r tiene a B y C. Una flecha curva marca la rotación a la derecha en q." caption="primero, a la derecha en q" />
+<BinaryPicture tree={DOUBLE_LEFT_MIDDLE} subtrees={['A', 'B', 'C', 'D']} compact tones={{ p: 'accent', r: 'accent', B: 'mark' }} turn={{ at: 'p', dir: 'left' }} label="Después de rotar a la derecha en q: r es el hijo derecho de p, con B a su izquierda y q a su derecha; q tiene a C y D. El peso quedó por fuera. Una flecha curva marca la rotación a la izquierda en p." caption="después, a la izquierda en p" />
+<BinaryPicture tree={DOUBLE_LEFT_AFTER} subtrees={['A', 'B', 'C', 'D']} compact tones={{ r: 'keep' }} label="Después de rotar a la izquierda en p: r arriba, con p a su izquierda y q a su derecha; p tiene a A y B, y q tiene a C y D." caption="r arriba, el árbol parejo" />
+</div>
+
+</PresentationWide>
+
+</Slide>
+
+<Slide title="Por qué la rotación doble a la izquierda conserva el orden">
+Como en la doble a la derecha, cada rotación conserva la invariante de orden, y
+el inorden es el mismo antes y después. Cambia la altura: `r` sube dos
+niveles, B y C suben uno, D se queda en el suyo y A baja uno.
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '1rem 2rem', alignItems: 'end' }}>
+<BinaryPicture tree={DOUBLE_LEFT_BEFORE} subtrees={['A', 'B', 'C', 'D']} strip label="Antes de la rotación doble, con el inorden debajo: A, p, B, r, C, q, D." caption="inorden antes: A, p, B, r, C, q, D" />
+<BinaryPicture tree={DOUBLE_LEFT_AFTER} subtrees={['A', 'B', 'C', 'D']} strip label="Después de la rotación doble, con el inorden debajo: A, p, B, r, C, q, D, el mismo de antes." caption="inorden después: el mismo" />
+</div>
+
+</Slide>
+
+<Slide title="El código de la rotación doble a la izquierda">
+Las mismas dos líneas, del lado contrario: primero rota en el hijo derecho y lo
+guarda en `p.right`, después rota en `p` y devuelve el nodo que subió.
+
+<SequenceStepper eda="avl" operation="rotate-right-left" values={[4, 2, 12, 8, 14, 6, 10]} target={4} />
+
+</Slide>
+
+<SectionBreak />
+
+## El árbol AVL
+
+{/* A tree that keeps the balance invariant, and one that breaks it at a single node, the 8. */}
+
+export const NOT_AVL = { v: 8, l: { v: 4, l: { v: 2 }, r: { v: 6, r: { v: 7 } } }, r: { v: 12 } };
+
+<Slide title="Un árbol de búsqueda que cuida su forma">
+El primer árbol de búsqueda balanceado lo publicaron Georgy Adelson-Velsky y
+Evgenii Landis en 1962, y lleva sus iniciales: el **árbol AVL**. Es un árbol
+binario de búsqueda cuyas inserciones y eliminaciones, al terminar, revisan
+el camino que recorrieron y **rotan** donde el árbol quedó desbalanceado.
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1rem 2rem', alignItems: 'end' }}>
+<BinaryPicture tree={EVENS_CHAIN} ruler="h = 6" compact label="Los valores 2 a 14 insertados de menor a mayor en un árbol de búsqueda: una cadena de altura 6." caption="de menor a mayor, en un árbol de búsqueda: altura 6" />
+<BinaryPicture tree={EVENS} ruler="h = 2" compact minColumns={7} label="Los mismos valores insertados de menor a mayor en un árbol AVL: un árbol lleno de altura 2." caption="los mismos, en un AVL: altura 2" />
+</div>
+
+Los valores pueden llegar en el peor orden: la forma la cuida el árbol.
+
+</Slide>
+
+<Slide title="La invariante de balance">
+Las tres invariantes del árbol de búsqueda siguen en pie, sin cambios. El AVL
+agrega una cuarta:
+
+4. **En cada nodo, las alturas de sus dos subárboles difieren a lo más en
+   1.** Ningún lado puede ser dos niveles más alto que el otro, en ningún
+   nodo.
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1rem 2rem', alignItems: 'end' }}>
+<BinaryPicture tree={EVENS_SHUFFLED} minColumns={7} label="Un árbol AVL: 10 en la raíz, con 4 y 14 debajo; el 4 con 2 y 8, el 8 con 6, y el 14 con 12. En cada nodo, las alturas de los dos subárboles difieren a lo más en 1." caption="cumple la invariante de balance en cada nodo" />
+<BinaryPicture tree={NOT_AVL} minColumns={7} tones={{ 8: 'mark' }} notes={{ 8: 'izq. 2, der. 0' }} label="Un árbol de búsqueda que no es AVL: en el 8, el subárbol izquierdo tiene altura 2 y el derecho, el 12, altura 0." caption="en el 8, la izquierda es dos niveles más alta" />
+</div>
+
+Mantener esta invariante tiene un costo: después de cada inserción y de cada
+eliminación hay que revisar los nodos del camino recorrido y, donde alguno
+quedó desbalanceado, rotar. A cambio, la altura del árbol queda en
+$$O(\log n)$$, y con ella el costo de buscar, insertar y eliminar.
+
+</Slide>
+
+<Slide title="El factor de balance">
+El **factor de balance** de un nodo es la altura de su subárbol derecho menos
+la de su subárbol izquierdo, contando $$-1$$ como la altura del árbol vacío.
+La invariante de balance dice que todo factor es $$-1$$, $$0$$ o $$+1$$. Un
+factor negativo dice que el nodo está **cargado a la izquierda**; uno
+positivo, **a la derecha**; y un $$-2$$ o un $$+2$$ dice que ahí la invariante
+se rompió.
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1rem 2rem', alignItems: 'end' }}>
+<BinaryPicture tree={EVENS_SHUFFLED} minColumns={7} badges={{ 10: '−1', 4: '+1', 2: '0', 8: '−1', 6: '0', 14: '−1', 12: '0' }} label="El árbol AVL con el factor de balance de cada nodo: 10, menos 1; 4, más 1; 2, 0; 8, menos 1; 6, 0; 14, menos 1; 12, 0." caption="todos los factores entre −1 y +1" />
+<BinaryPicture tree={NOT_AVL} minColumns={7} tones={{ 8: 'mark' }} badges={{ 8: '−2', 4: '+1', 2: '0', 6: '+1', 7: '0', 12: '0' }} label="El árbol que no es AVL con sus factores: 8, menos 2; 4, más 1; 2, 0; 6, más 1; 7, 0; 12, 0." caption="el −2 del 8 rompe la invariante" />
+</div>
+
+</Slide>
+
+<Slide title="La altura de un árbol AVL">
+La invariante de balance basta para que la altura quede en $$O(\log n)$$. El
+árbol AVL **más flaco** de cada altura, el que tiene menos nodos, es una
+raíz sobre los más flacos de las dos alturas anteriores. Sus tamaños crecen
+como los números de Fibonacci: 1, 2, 4, 7, 12, 20, 33… y eso es crecer de
+forma exponencial. Al revés, la altura de un AVL de $$n$$ nodos crece como
+$$\log n$$: Adelson-Velsky y Landis demostraron que es menor que
+$$1{,}45 \cdot \log_2(n + 2)$$.
+
+<PresentationWide fraction={0.9}>
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem 1.5rem', alignItems: 'end' }}>
+<BinaryPicture tree={{ v: 1 }} minColumns={7} compact label="El árbol AVL más flaco de altura 0: un solo nodo." caption="altura 0: 1 nodo" />
+<BinaryPicture tree={{ v: 2, l: { v: 1 } }} minColumns={7} compact label="El árbol AVL más flaco de altura 1: dos nodos." caption="altura 1: 2 nodos" />
+<BinaryPicture tree={{ v: 3, l: { v: 2, l: { v: 1 } }, r: { v: 4 } }} minColumns={7} compact label="El árbol AVL más flaco de altura 2: una raíz sobre el más flaco de altura 1 y el de altura 0. Cuatro nodos." caption="altura 2: 4 nodos" />
+<BinaryPicture tree={{ v: 5, l: { v: 3, l: { v: 2, l: { v: 1 } }, r: { v: 4 } }, r: { v: 7, l: { v: 6 } } }} minColumns={7} compact label="El árbol AVL más flaco de altura 3: una raíz sobre el más flaco de altura 2 y el de altura 1. Siete nodos." caption="altura 3: 7 nodos" />
+</div>
+
+</PresentationWide>
+
+</Slide>
+
+<Slide title="Dónde se rompe la invariante">
+Una inserción o una eliminación solo cambia las alturas de los nodos de su
+camino, así que solo ahí puede romperse la invariante de balance. Por eso, al
+volver de la operación, se revisa el factor de cada nodo del camino, de abajo
+hacia arriba, y el que llega a $$-2$$ o $$+2$$ se arregla con una rotación.
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1rem 2rem', alignItems: 'end' }}>
+<BinaryPicture tree={{ v: 8, l: { v: 4, l: { v: 2 }, r: { v: 6 } }, r: { v: 12 } }} minColumns={7} badges={{ 8: '−1', 4: '0', 2: '0', 6: '0', 12: '0' }} label="Un árbol AVL con el factor de cada nodo: 8 en la raíz, con factor menos 1; el 4 debajo, con el 2 y el 6, todos con factor 0; el 12 a la derecha del 8, con factor 0." caption="un árbol AVL" />
+<BinaryPicture tree={{ v: 8, l: { v: 4, l: { v: 2 }, r: { v: 6, l: { v: 5 } } }, r: { v: 12 } }} minColumns={7} path={[8, 4, 6, 5]} fresh={5} tones={{ 8: 'mark' }} badges={{ 8: '−2', 4: '+1', 2: '0', 6: '−1', 5: '0', 12: '0' }} label="El mismo árbol después de colgar el 5 a la izquierda del 6. El camino 8, 4, 6, 5 está marcado: el 6 queda con factor menos 1, el 4 con más 1, y el 8 con menos 2, el primero del camino de vuelta que rompe la invariante." caption="insertar 5: el 8 queda con −2" />
+</div>
+
+</Slide>
+
+<Slide title="Los cuatro casos de desbalance">
+Cuando un nodo queda con factor $$-2$$ o $$+2$$, la rotación que lo arregla
+depende de dos cosas: hacia qué lado está cargado el nodo, y hacia qué lado
+está cargado su hijo de ese lado. Si el hijo está cargado hacia el **mismo
+lado**, lo que carga está por fuera, y basta una **rotación simple** en el
+nodo; si está cargado hacia el **lado contrario**, está por dentro, y hace
+falta una **rotación doble**. En inglés, los cuatro casos se llaman
+*left-left*, *left-right*, *right-right* y *right-left*.
+
+<PresentationWide fraction={0.9}>
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem 1.5rem', alignItems: 'end' }}>
+<BinaryPicture tree={{ v: 6, l: { v: 4, l: { v: 2 } } }} minColumns={3} compact tones={{ 6: 'mark' }} badges={{ 6: '−2', 4: '−1', 2: '0' }} label="El 6 con factor menos 2, cargado a la izquierda; su hijo izquierdo, el 4, también está cargado a la izquierda." caption="izquierda e izquierda: simple a la derecha" />
+<BinaryPicture tree={{ v: 6, l: { v: 2, r: { v: 4 } } }} minColumns={3} compact tones={{ 6: 'mark' }} badges={{ 6: '−2', 2: '+1', 4: '0' }} label="El 6 con factor menos 2, cargado a la izquierda; su hijo izquierdo, el 2, está cargado a la derecha." caption="izquierda y derecha: doble a la derecha" />
+<BinaryPicture tree={{ v: 2, r: { v: 4, r: { v: 6 } } }} minColumns={3} compact tones={{ 2: 'mark' }} badges={{ 2: '+2', 4: '+1', 6: '0' }} label="El 2 con factor más 2, cargado a la derecha; su hijo derecho, el 4, también está cargado a la derecha." caption="derecha y derecha: simple a la izquierda" />
+<BinaryPicture tree={{ v: 2, r: { v: 6, l: { v: 4 } } }} minColumns={3} compact tones={{ 2: 'mark' }} badges={{ 2: '+2', 6: '−1', 4: '0' }} label="El 2 con factor más 2, cargado a la derecha; su hijo derecho, el 6, está cargado a la izquierda." caption="derecha e izquierda: doble a la izquierda" />
+</div>
+
+</PresentationWide>
+
+</Slide>
+
+<Slide title="La regla para elegir la rotación">
+La rotación sale del factor del nodo y del factor de su hijo del lado
+cargado:
+
+| Factor del nodo | Factor del hijo del lado cargado | Rotación                 |
+| --------------- | -------------------------------- | ------------------------ |
+| $$-2$$          | $$-1$$ o $$0$$                   | simple a la derecha      |
+| $$-2$$          | $$+1$$                           | doble a la derecha       |
+| $$+2$$          | $$+1$$ o $$0$$                   | simple a la izquierda    |
+| $$+2$$          | $$-1$$                           | doble a la izquierda     |
+
+Dicho en una frase: si el hijo está cargado hacia el lado contrario, doble; si
+no, simple. Un hijo con factor 0 nunca aparece al insertar; aparece al
+eliminar, y ahí basta la rotación simple.
+
+</Slide>
+
+<Slide title="El nodo que guarda su altura">
+Calcular la altura de un subárbol recorriéndolo cuesta $$\Theta(n)$$, y el
+AVL la necesita en cada nodo de cada camino. Por eso cada nodo **guarda su
+altura**: es el nodo del árbol de búsqueda con un campo más, `height`. Un
+nodo nuevo es una hoja, y su altura empieza en 0.
+
+```java
+class Node<T> {
+    T value;
+    Node<T> left;
+    Node<T> right;
+    int height;
+
+    Node(T value) {
+        this.value = value;
+    }
+}
+```
+
+</Slide>
+
+<Slide title="La clase AVL y la altura de un subárbol">
+La clase guarda la raíz, como el árbol de búsqueda. `height` lee la altura de
+un subárbol en tiempo constante, con $$-1$$ para el árbol vacío;
+`updateHeight` la vuelve a calcular a partir de las de sus dos hijos, y hay
+que llamarla cada vez que un nodo cambia de hijos; `factor` es el factor de
+balance.
+
+```java
+class AVL<T extends Comparable<T>> {
+    Node<T> root;
+
+    int height(Node<T> node) {
+        return node == null ? -1 : node.height;
+    }
+
+    void updateHeight(Node<T> node) {
+        node.height = 1 + Math.max(height(node.left),
+                                   height(node.right));
+    }
+
+    int factor(Node<T> node) {
+        return height(node.right) - height(node.left);
+    }
+}
+```
+
+</Slide>
+
+<Slide title="Las rotaciones actualizan las alturas">
+Una rotación cambia los hijos de dos nodos, así que las dos rotaciones
+agregan dos líneas antes de devolver `q`: primero se actualiza `p`, que quedó
+abajo, y después `q`, cuya altura depende de la de `p`. Los subárboles que se
+movieron enteros no cambian de altura.
+
+```java
+Node<T> rotateRight(Node<T> p) {
+    Node<T> q = p.left;
+    p.left = q.right;
+    q.right = p;
+    updateHeight(p);
+    updateHeight(q);
+    return q;
+}
+```
+
+`rotateLeft` agrega las mismas dos líneas, en el mismo orden. Las dobles no
+cambian: sus dos llamadas son a las simples, que ya actualizan las alturas.
+
+</Slide>
+
+<Slide title="El código de balance">
+`balance` actualiza la altura del nodo, calcula su factor y, si la invariante
+se rompió, hace la rotación de la regla: la doble si el hijo del lado cargado
+está cargado hacia el lado contrario, y la simple si no. Devuelve la raíz del
+subárbol que queda: el mismo nodo, o el que subió al rotar.
+
+```java
+Node<T> balance(Node<T> node) {
+    updateHeight(node);
+    int b = factor(node);
+    if (b < -1) {
+        if (factor(node.left) > 0)
+            return rotateLeftRight(node);
+        return rotateRight(node);
+    }
+    if (b > 1) {
+        if (factor(node.right) < 0)
+            return rotateRightLeft(node);
+        return rotateLeft(node);
+    }
+    return node;
+}
+```
+
+</Slide>
+
+<Slide title="Insertar en un árbol AVL">
+Se inserta como en el árbol de búsqueda y, al volver, cada nodo del camino
+pasa por `balance`, que rota el primero que quedó con $$\pm 2$$: el privado
+devuelve `balance(node)` en vez de `node`. Baja y vuelve por un camino de
+altura $$O(\log n)$$: $$O(\log n)$$.
+
+<SequenceStepper eda="avl" operation="insert" values={[8, 4, 12, 2, 6]} value={5} />
+
+</Slide>
+
+<Slide title="Inserciones en un mismo árbol AVL">
+Una inserción rota a lo más una vez: la rotación le devuelve al subárbol su
+altura, y más arriba nada cambia. Ni los valores ordenados, el peor orden para
+un árbol de búsqueda, lo desbalancean.
+
+<SequenceStepper eda="avl" operation="insert" values={[]} value={[2, 4, 6, 8, 10, 12, 14]} program />
+
+</Slide>
+
+Insertar del 1 al 1000, en orden, en un árbol AVL deja un árbol de altura 9;
+en un árbol de búsqueda sin balance, la misma secuencia deja una cadena de
+altura 999.
+
+<Slide title="Eliminar en un árbol AVL">
+Eliminar en un árbol AVL también se hace en dos partes:
+
+1. **Se elimina como en el árbol de búsqueda**: el nodo se busca y se saca
+   según su caso, hoja, un hijo o dos hijos.
+2. **Se rebalancea al volver**: igual que al insertar, cada nodo del camino de
+   vuelta revisa su factor, y el que quedó con $$-2$$ o $$+2$$ rota.
+
+Eliminar acorta un lado, y el que queda cargado es el otro. Ahí aparece un
+caso que insertar nunca produce: el hijo del lado cargado con factor 0, con
+sus dos subárboles igual de altos. Basta una rotación simple: lo de fuera
+sube, y lo de dentro, que pesa lo mismo, pasa al otro lado sin romper la
+invariante.
+
+<PresentationWide fraction={0.9}>
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem 1.5rem', alignItems: 'end' }}>
+<BinaryPicture tree={{ v: 8, l: { v: 4, l: { v: 2 }, r: { v: 6 } }, r: { v: 10 } }} minColumns={5} compact tones={{ 10: 'mark' }} badges={{ 8: '−1', 4: '0', 2: '0', 6: '0', 10: '0' }} label="Un árbol AVL: 8 en la raíz, con factor menos 1; a su izquierda el 4, con el 2 y el 6; a su derecha el 10, marcado para eliminarlo." caption="eliminar 10" />
+<BinaryPicture tree={{ v: 8, l: { v: 4, l: { v: 2 }, r: { v: 6 } } }} minColumns={5} compact tones={{ 8: 'mark' }} badges={{ 8: '−2', 4: '0', 2: '0', 6: '0' }} turn={{ at: 8, dir: 'right' }} label="Sin el 10, el 8 queda con factor menos 2, y su hijo izquierdo, el 4, con factor 0. Una flecha curva marca la rotación a la derecha en el 8." caption="el 8 con −2; su hijo, con 0" />
+<BinaryPicture tree={{ v: 4, l: { v: 2 }, r: { v: 8, l: { v: 6 } } }} minColumns={5} compact tones={{ 4: 'accent', 8: 'accent' }} badges={{ 4: '+1', 2: '0', 8: '−1', 6: '0' }} label="Después de la rotación simple a la derecha en el 8: el 4 arriba, con el 2 a la izquierda y el 8 a la derecha; el 6 pasó a ser hijo izquierdo del 8. Todos los factores entre menos 1 y más 1." caption="rotación simple a la derecha" />
+</div>
+
+</PresentationWide>
+
+</Slide>
+
+{/* A removal that rotates at two levels: the smallest AVL tree where it can happen has height 4 and twelve nodes. Its four steps are drawn here, and the widget runs it on the removals' program slide (the AVL's cap is twelve). Searched and checked on the same model as the widget's trace. */}
+
+export const CASCADE_START = { v: 16, l: { v: 10, l: { v: 4, l: { v: 2 }, r: { v: 8, l: { v: 6 } } }, r: { v: 14, l: { v: 12 } } }, r: { v: 20, l: { v: 18 }, r: { v: 22, r: { v: 24 } } } };
+
+export const CASCADE_COPIED = { v: 18, l: { v: 10, l: { v: 4, l: { v: 2 }, r: { v: 8, l: { v: 6 } } }, r: { v: 14, l: { v: 12 } } }, r: { v: 20, r: { v: 22, r: { v: 24 } } } };
+
+export const CASCADE_LOW = { v: 18, l: { v: 10, l: { v: 4, l: { v: 2 }, r: { v: 8, l: { v: 6 } } }, r: { v: 14, l: { v: 12 } } }, r: { v: 22, l: { v: 20 }, r: { v: 24 } } };
+
+export const CASCADE_END = { v: 10, l: { v: 4, l: { v: 2 }, r: { v: 8, l: { v: 6 } } }, r: { v: 18, l: { v: 14, l: { v: 12 } }, r: { v: 22, l: { v: 20 }, r: { v: 24 } } } };
+
+<Slide title="Una eliminación que rota en dos niveles">
+Al insertar, la rotación le devuelve al subárbol la altura que tenía, y más
+arriba nada cambia. Al eliminar, eso puede no pasar:
+
+- la eliminación acortó el subárbol en un nivel;
+- la rotación lo empareja, pero puede dejarlo con ese nivel menos;
+- entonces su padre ve un lado más corto, y puede desbalancearse él también.
+
+Por eso una eliminación puede rotar varias veces: en el peor caso, una por
+cada nivel del camino de vuelta.
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(380px, 100%), 1fr))', gap: '0.5rem 2rem', alignItems: 'end' }}>
+<BinaryPicture tree={CASCADE_START} compact minColumns={12} tones={{ 16: 'mark', 18: 'focus' }} badges={{ 16: '−1', 10: '−1', 4: '+1', 2: '0', 8: '−1', 6: '0', 14: '−1', 12: '0', 20: '+1', 18: '0', 22: '+1', 24: '0' }} label="Un árbol AVL de doce nodos y altura 4, con el factor de cada nodo. Se elimina la raíz, el 16, que tiene dos hijos; su sucesor es el 18." caption="1. eliminar 16: su sucesor es 18" />
+<BinaryPicture tree={CASCADE_COPIED} compact minColumns={12} tones={{ 20: 'mark' }} badges={{ 18: '−1', 10: '−1', 4: '+1', 2: '0', 8: '−1', 6: '0', 14: '−1', 12: '0', 20: '+2', 22: '+1', 24: '0' }} label="La raíz tomó el valor 18 y la hoja del 18 se eliminó. Al volver, el 20 queda con factor más 2, y su hijo derecho, el 22, con más 1." caption="2. el 20 queda con +2: simple a la izquierda" />
+<BinaryPicture tree={CASCADE_LOW} compact minColumns={12} tones={{ 18: 'mark', 22: 'accent', 20: 'accent' }} badges={{ 18: '−2', 10: '−1', 4: '+1', 2: '0', 8: '−1', 6: '0', 14: '−1', 12: '0', 22: '0', 20: '0', 24: '0' }} label="Después de rotar a la izquierda en el 20: el 22 sube, con el 20 y el 24 como hijos. Ese subárbol quedó un nivel más bajo, y la raíz, el 18, queda con factor menos 2." caption="3. el subárbol bajó un nivel: la raíz queda con −2" />
+<BinaryPicture tree={CASCADE_END} compact minColumns={12} tones={{ 10: 'accent', 18: 'accent' }} badges={{ 10: '0', 4: '+1', 2: '0', 8: '−1', 6: '0', 18: '0', 14: '−1', 12: '0', 22: '0', 20: '0', 24: '0' }} label="Después de rotar a la derecha en la raíz: el 10 sube a la raíz, con el 4 a la izquierda y el 18 a la derecha. Todos los factores están entre menos 1 y más 1." caption="4. simple a la derecha en la raíz: todo vuelve a cumplir" />
+</div>
+
+</Slide>
+
+<Slide title="El código de la eliminación en un árbol AVL">
+`remove` es el del árbol de búsqueda con `return balance(node)` al final del
+privado; una hoja o un solo hijo se devuelven sin pasar por `balance`, porque
+su subárbol no cambió. A lo más una rotación por nivel: $$O(\log n)$$.
+
+<SequenceStepper eda="avl" operation="remove" values={[8, 4, 10, 2, 6]} target={10} />
+
+</Slide>
+
+<Slide title="Eliminaciones en un mismo árbol AVL">
+Primero, la eliminación que rota en dos niveles; después, los otros casos.
+
+<SequenceStepper eda="avl" operation="remove" values={[16, 10, 20, 4, 14, 18, 22, 2, 8, 12, 24, 6]} target={[16, 10, 14, 24]} program />
+
+</Slide>
+
+<Slide title="Costos del árbol AVL">
+Las operaciones son las del árbol de búsqueda, y cuestan la altura; la
+diferencia es que ahora la altura está acotada por $$O(\log n)$$, llegue lo que
+llegue.
+
+| Molde     | Operación           | Peor caso       | Invariante que restaura                                         |
+| --------- | ------------------- | --------------- | --------------------------------------------------------------- |
+| Consultar | `contains`          | $$O(\log n)$$   | Ninguna: no cambia el árbol                                     |
+| Modificar | `insert`            | $$O(\log n)$$   | La de orden, y la de balance con a lo más una rotación          |
+| Modificar | `remove`            | $$O(\log n)$$   | La de orden, y la de balance con a lo más una rotación por nivel |
+
+</Slide>
+
+<Slide title="El precio del balance">
+El árbol AVL garantiza $$O(\log n)$$ en todas sus operaciones, y lo paga de
+tres maneras. Cada nodo guarda un entero más, su altura. Cada inserción y cada
+eliminación recorren de vuelta todo su camino, actualizando alturas y
+revisando factores, aunque no haya nada que rotar. Y el código es más largo:
+cuatro casos de rotación y una invariante más que mantener en cada
+modificación.
+
+Cuando hay muchas más búsquedas que modificaciones, lo que se paga al
+modificar se recupera en cada búsqueda.
+
+</Slide>
+
+<SectionBreak />
+
+## Otros árboles de búsqueda
+
+<Slide title="Árboles balanceados de otras formas">
+El AVL no es la única manera de acotar la altura. Otros árboles de búsqueda
+balanceados cuidan la forma con otras reglas, y cada uno cambia un poco de
+trabajo por otra ventaja.
+
+| Árbol         | Qué cuida                                                                              | Para qué se usa                                                                                 |
+| ------------- | -------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| Rojo-negro    | Cada nodo es rojo o negro, ningún rojo tiene un hijo rojo, y todos los caminos hacia abajo tienen la misma cantidad de negros | Al eliminar rota a lo más tres veces, contra $$O(\log n)$$ del AVL; es el que usan `TreeMap` y `TreeSet` de Java |
+| Árbol 2-3     | Nodos de uno o dos valores, y todas las hojas en el mismo nivel                         | Casi no se programa tal cual: es la idea detrás del rojo-negro, que lo escribe con nodos binarios, y del árbol B, que lo generaliza |
+| Árbol B       | Generaliza el 2-3: nodos con muchos valores, cientos, y todas las hojas en el mismo nivel | Los índices de las bases de datos: cada nodo es una página del disco, y tres o cuatro niveles alcanzan para millones de valores |
+| *Splay*       | Nada fijo: cada búsqueda sube el nodo encontrado hasta la raíz                          | Datos donde unos pocos valores se buscan una y otra vez                                         |
+
+</Slide>
+
+<Slide title="Árboles para otras preguntas">
+Otros árboles no buscan un valor por comparación, sino que responden otras
+preguntas rápido.
+
+| Árbol                | Qué responde rápido                                           | Dónde se usa                                   |
+| -------------------- | ------------------------------------------------------------- | ---------------------------------------------- |
+| *Trie*               | Qué palabras empiezan con un prefijo: cada nivel es una letra | Autocompletar, diccionarios, rutas de red      |
+| Árbol de segmentos   | La suma o el mínimo de un tramo de un arreglo que cambia      | Consultas por rango en datos que se actualizan |
+| *Treap*              | Un árbol de búsqueda balanceado en promedio, con prioridades al azar | Una alternativa simple al AVL y al rojo-negro |
+| *Quadtree*           | Qué puntos de un plano caen en una región                     | Mapas, geolocalización, colisiones en juegos   |
+| Árbol de decisión    | Qué respuesta dar según una serie de preguntas                | Clasificadores en aprendizaje automático       |
+| *Heap*               | Cuál es el mayor, o el menor, de todos: siempre está en la raíz | Colas de prioridad: urgencias, planificadores de tareas |
+
+</Slide>
+
+<SectionBreak />
+
+## Ejercicios
+
+{/* The ancestor exercise's tree: deep enough that the walk goes down four levels, left, right and left again, before the two values part at the 12. */}
+
+export const LCA_TREE = { v: 20, l: { v: 10, l: { v: 5 }, r: { v: 15, l: { v: 12, l: { v: 11 }, r: { v: 13 } }, r: { v: 18 } } }, r: { v: 30, l: { v: 25 }, r: { v: 35 } } };
+
+<Slide title="El ancestro común más bajo">
+Un **ancestro común** de dos nodos tiene a los dos en su subárbol, y un nodo
+cuenta en su propio subárbol. El **ancestro común más bajo** es el más
+profundo de todos: en un árbol genealógico, el antepasado más cercano que dos
+personas comparten.
+
+<BinaryPicture tree={LCA_TREE} size={0.8} tones={{ 11: 'mark', 13: 'mark', 12: 'keep' }} notes={{ 12: 'más bajo' }} label="El árbol de búsqueda con 20 en la raíz; 10 y 30 debajo; el 10 con 5 y 15; el 30 con 25 y 35; el 15 con 12 y 18; el 12 con 11 y 13. Los valores 11 y 13 están marcados; su ancestro común más bajo es el 12." caption="11 y 13: su ancestro común más bajo es el 12" />
+
+El programa recibe la raíz de un árbol binario de búsqueda y dos valores que
+están en el árbol, y responde el valor de su ancestro común más bajo. Llamamos
+$$h$$ a la altura del árbol.
+
+```java
+static int lowestCommonAncestor(Node<Integer> root,
+        int a, int b)
+```
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: '0 1.5rem', alignItems: 'end' }}>
+<BinaryPicture tree={LCA_TREE} compact size={0.6} tones={{ 5: 'mark', 25: 'mark', 20: 'keep' }} label="5 y 25: el 5 está a la izquierda de la raíz y el 25 a su derecha, así que su ancestro común más bajo es la raíz, el 20." caption="5 y 25: responde 20" />
+<BinaryPicture tree={LCA_TREE} compact size={0.6} tones={{ 13: 'mark', 15: 'keep' }} label="13 y 15: el 13 está debajo del 15, y el 15 cuenta en su propio subárbol, así que la respuesta es el 15." caption="13 y 15: responde 15" />
+<BinaryPicture tree={LCA_TREE} compact size={0.6} tones={{ 18: 'keep' }} label="18 y 18: los dos valores son el mismo nodo, y la respuesta es ese nodo, el 18." caption="18 y 18: responde 18" />
+</div>
+
+</Slide>
+
+<Slide title="La raíz como respuesta">
+La raíz tiene a todos los nodos en su subárbol, así que siempre es un ancestro
+común. Pero no siempre es el más bajo: más abajo puede haber otros nodos que
+también tienen a los dos. Una respuesta correcta tiene que saber **hasta dónde
+bajar** sin dejar a ninguno de los dos afuera.
+
+<BinaryPicture tree={LCA_TREE} tones={{ 11: 'mark', 13: 'mark', 20: 'focus', 10: 'focus', 15: 'focus', 12: 'keep' }} notes={{ 20: 'común', 10: 'común', 15: 'común', 12: 'más bajo' }} label="El mismo árbol con 11 y 13 marcados. La raíz, el 20, es un ancestro común de los dos, y también lo son el 10 y el 15, más abajo; el más bajo de todos es el 12." caption="el 20, el 10 y el 15 tienen a 11 y 13 debajo, pero el 12 está más abajo" />
+
+</Slide>
+
+<Slide title="Bajar mientras los dos estén del mismo lado">
+Por la invariante del árbol de búsqueda, en cada nodo se sabe de qué lado está
+cada valor. Si los dos son menores que el nodo, los dos están en su subárbol
+izquierdo, y el ancestro común más bajo también: se baja a la izquierda. Si
+los dos son mayores, a la derecha. En cuanto los dos **dejan de estar del
+mismo lado** —uno a cada lado, o uno es el nodo mismo—, ningún nodo de más
+abajo tiene a los dos: ese nodo es la respuesta.
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(360px, 100%), 1fr))', gap: '0.5rem 2rem', alignItems: 'end' }}>
+<BinaryPicture tree={LCA_TREE} compact path={[20]} tones={{ 20: 'focus', 11: 'mark', 13: 'mark' }} label="En la raíz, el 20: el 11 y el 13 son menores que 20, así que los dos están a su izquierda." caption="en el 20: 11 y 13 son menores; se baja a la izquierda" />
+<BinaryPicture tree={LCA_TREE} compact path={[20, 10]} tones={{ 20: 'done', 10: 'focus', 11: 'mark', 13: 'mark', 30: 'faint', 25: 'faint', 35: 'faint' }} label="En el 10: el 11 y el 13 son mayores que 10, así que los dos están a su derecha." caption="en el 10: 11 y 13 son mayores; se baja a la derecha" />
+<BinaryPicture tree={LCA_TREE} compact path={[20, 10, 15]} tones={{ 20: 'done', 10: 'done', 15: 'focus', 11: 'mark', 13: 'mark', 30: 'faint', 25: 'faint', 35: 'faint', 5: 'faint' }} label="En el 15: el 11 y el 13 son menores que 15, así que los dos están a su izquierda." caption="en el 15: 11 y 13 son menores; se baja a la izquierda" />
+<BinaryPicture tree={LCA_TREE} compact path={[20, 10, 15, 12]} tones={{ 20: 'done', 10: 'done', 15: 'done', 12: 'keep', 11: 'mark', 13: 'mark', 30: 'faint', 25: 'faint', 35: 'faint', 5: 'faint', 18: 'faint' }} label="En el 12: el 11 es menor y el 13 es mayor. Se separan, y el 12 es el ancestro común más bajo." caption="en el 12: 11 es menor y 13 mayor; la respuesta es 12" />
+</div>
+
+</Slide>
+
+<Slide title="Ancestro común · la solución">
+Una sola bajada desde la raíz, sin recursión: en cada nodo, o los dos van
+hacia el mismo lado, o se responde el nodo.
+
+<StepShow
+  language="java"
+  code={`static int lowestCommonAncestor(Node<Integer> root,
+        int a, int b) {
+    Node<Integer> node = root;
+    while (true) {
+        if (a < node.value && b < node.value) {
+            node = node.left;
+        } else if (a > node.value && b > node.value) {
+            node = node.right;
+        } else {
+            return node.value;
+        }
+    }
+}`}
+>
+  <Step lines={[3]}>
+    <BinaryPicture tree={LCA_TREE} tones={{ 20: 'focus', 11: 'mark', 13: 'mark' }} size={0.7} label="node empieza en la raíz, el 20. Los valores son 11 y 13." />
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>node empieza en la raíz, el 20; los valores son 11 y 13.</div>
+  </Step>
+  <Step lines={[5]}>
+    <BinaryPicture tree={LCA_TREE} tones={{ 20: 'focus', 11: 'mark', 13: 'mark' }} size={0.7} label="11 y 13 son menores que 20: los dos están en el subárbol izquierdo del 20." />
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>11 y 13 son menores que 20: los dos están a su izquierda.</div>
+  </Step>
+  <Step lines={[6]}>
+    <BinaryPicture tree={LCA_TREE} path={[20,  10]} tones={{ 20: 'done', 10: 'focus', 11: 'mark', 13: 'mark', 30: 'faint', 25: 'faint', 35: 'faint' }} size={0.7} label="node baja al 10, y el subárbol derecho del 20 queda descartado." />
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>node baja a la izquierda, al 10.</div>
+  </Step>
+  <Step lines={[5,  7]}>
+    <BinaryPicture tree={LCA_TREE} path={[20,  10]} tones={{ 20: 'done', 10: 'focus', 11: 'mark', 13: 'mark', 30: 'faint', 25: 'faint', 35: 'faint' }} size={0.7} label="En el 10, el 11 y el 13 son mayores: los dos están en el subárbol derecho del 10." />
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>11 y 13 son mayores que 10: los dos están a su derecha.</div>
+  </Step>
+  <Step lines={[8]}>
+    <BinaryPicture tree={LCA_TREE} path={[20,  10,  15]} tones={{ 20: 'done', 10: 'done', 15: 'focus', 11: 'mark', 13: 'mark', 30: 'faint', 25: 'faint', 35: 'faint', 5: 'faint' }} size={0.7} label="node baja al 15, y el subárbol izquierdo del 10 queda descartado." />
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>node baja a la derecha, al 15.</div>
+  </Step>
+  <Step lines={[5]}>
+    <BinaryPicture tree={LCA_TREE} path={[20,  10,  15]} tones={{ 20: 'done', 10: 'done', 15: 'focus', 11: 'mark', 13: 'mark', 30: 'faint', 25: 'faint', 35: 'faint', 5: 'faint' }} size={0.7} label="En el 15, el 11 y el 13 son menores: los dos están en el subárbol izquierdo del 15." />
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>11 y 13 son menores que 15: los dos están a su izquierda.</div>
+  </Step>
+  <Step lines={[6]}>
+    <BinaryPicture tree={LCA_TREE} path={[20,  10,  15,  12]} tones={{ 20: 'done', 10: 'done', 15: 'done', 12: 'focus', 11: 'mark', 13: 'mark', 30: 'faint', 25: 'faint', 35: 'faint', 5: 'faint', 18: 'faint' }} size={0.7} label="node baja al 12, y el subárbol derecho del 15 queda descartado." />
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>node baja a la izquierda, al 12.</div>
+  </Step>
+  <Step lines={[5,  7]}>
+    <BinaryPicture tree={LCA_TREE} path={[20,  10,  15,  12]} tones={{ 20: 'done', 10: 'done', 15: 'done', 12: 'focus', 11: 'mark', 13: 'mark', 30: 'faint', 25: 'faint', 35: 'faint', 5: 'faint', 18: 'faint' }} size={0.7} label="En el 12, el 11 es menor y el 13 es mayor: no son los dos menores ni los dos mayores." />
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>11 es menor que 12 y 13 es mayor: ni los dos menores, ni los dos mayores.</div>
+  </Step>
+  <Step lines={[10]}>
+    <BinaryPicture tree={LCA_TREE} path={[20,  10,  15,  12]} tones={{ 20: 'done', 10: 'done', 15: 'done', 12: 'keep', 11: 'mark', 13: 'mark', 30: 'faint', 25: 'faint', 35: 'faint', 5: 'faint', 18: 'faint' }} size={0.7} label="Se separan en el 12: el 12 es el ancestro común más bajo." />
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>Se separan en el 12: la respuesta es 12.</div>
+  </Step>
+</StepShow>
+
+</Slide>
+
+<Slide title="Un valor que es ancestro del otro, y el costo">
+Cuando uno de los dos valores **es** el nodo, no es menor ni mayor que él, y
+las dos condiciones de bajar fallan: el ciclo responde ese nodo. Es correcto,
+porque un nodo cuenta en su propio subárbol. Con dos valores iguales pasa lo
+mismo al llegar a ese valor. Como los dos valores están en el árbol, la bajada
+siempre se detiene en un nodo y nunca llega a un subárbol vacío.
+
+<BinaryPicture tree={LCA_TREE} size={0.8} path={[20, 10, 15]} tones={{ 20: 'done', 10: 'done', 15: 'keep', 13: 'mark', 30: 'faint', 25: 'faint', 35: 'faint', 5: 'faint', 18: 'faint' }} label="13 y 15: se baja del 20 al 10 y del 10 al 15, y ahí el 15 no es menor ni mayor que el nodo, porque es el nodo. La respuesta es 15." caption="13 y 15: en el 15, el 15 es el nodo; la respuesta es 15" />
+
+**Tiempo.** Cada vuelta del ciclo baja un nivel, así que hay a lo más
+$$h + 1$$ vueltas, cada una con a lo más cuatro comparaciones: $$O(h)$$.
+**Memoria.** Una sola referencia, `node`, sin recursión: $$\Theta(1)$$.
+
+</Slide>
+
+<Slide title="Ancestro común · el programa completo">
+<PresentationWide fraction={0.75}>
+<Exercise title="El ancestro común más bajo">
+
+```java starter
+class Node<T> {
+    T value;
+    Node<T> left;
+    Node<T> right;
+    Node(T value) { this.value = value; }
+}
+
+class Solution {
+    static int lowestCommonAncestor(Node<Integer> root,
+            int a, int b) {
+        Node<Integer> node = root;
+        while (true) {
+            if (a < node.value && b < node.value) {
+                node = node.left;
+            } else if (a > node.value && b > node.value) {
+                node = node.right;
+            } else {
+                return node.value;
+            }
+        }
+    }
+}
+```
+
+```java test
+Node<Integer> root = new Node<>(20);
+root.left = new Node<>(10);
+root.left.left = new Node<>(5);
+root.left.right = new Node<>(15);
+root.left.right.left = new Node<>(12);
+root.left.right.left.left = new Node<>(11);
+root.left.right.left.right = new Node<>(13);
+root.left.right.right = new Node<>(18);
+root.right = new Node<>(30);
+root.right.left = new Node<>(25);
+root.right.right = new Node<>(35);
+check(Solution.lowestCommonAncestor(root, 11, 13), 12);
+check(Solution.lowestCommonAncestor(root, 5, 25), 20);
+check(Solution.lowestCommonAncestor(root, 13, 15), 15);
+check(Solution.lowestCommonAncestor(root, 18, 18), 18);
+```
+
+</Exercise>
+</PresentationWide>
+
+</Slide>
+
+{/* ValueBox, StackColumn, PendingStack, PendingStrip — the iterator's drawings. A value is a box: ValueBox is a copy of 20-edd-priority-queue-heap.mdx's NumBox without its flag and faint tones, kept as a copy because a box is a piece of a figure, not one (add-a-course-document.md §6e-quater); the pending nodes are a stack in the stack class's idiom, closed below and open on top, with the top — the next to come out — in the accent colour. PendingStrip runs a whole inorder as one column per state, the way the heap class's TopKStrip runs the K best. Room for three pending nodes always, so a figure keeps one size from frame to frame. File-local like SortedRow (§6e-quater). */}
+
+export function ValueBox({ x, y, v, tone }) {
+  const size = 34;
+  const stroke = { keep: 'var(--color-keep)', hot: 'var(--color-accent)', mark: 'var(--color-mark)', empty: 'var(--color-rule)' }[tone] ?? 'var(--color-rule-strong)';
+  const fill = { keep: 'var(--color-keep-soft)', mark: 'var(--color-mark-soft)', empty: 'var(--color-sunk)' }[tone] ?? 'var(--color-surface)';
+  const weight = tone === 'hot' ? 2.6 : tone === 'keep' || tone === 'mark' ? 2 : 1.4;
+  return (
+    <g>
+      <rect x={x} y={y} width={size} height={size} rx="4" style={{ fill, stroke }} strokeWidth={weight} strokeDasharray={tone === 'empty' ? '4 3' : undefined} />
+      {v === null || v === undefined ? null : (
+        <text x={x + size / 2} y={y + size / 2 + 5} textAnchor="middle" fontSize="15" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{v}</text>
+      )}
+    </g>
+  );
+}
+
+export function StackColumn({ cx, top, items }) {
+  // items go from the bottom of the stack to its top: the last one is the top.
+  const floor = top + 3 * 38 + 4;
+  const wall = 22;
+  const edge = { stroke: 'var(--color-rule-strong)' };
+  return (
+    <g>
+      <line x1={cx - wall} y1={top} x2={cx - wall} y2={floor} style={edge} strokeWidth="2.2" strokeLinecap="round" />
+      <line x1={cx + wall} y1={top} x2={cx + wall} y2={floor} style={edge} strokeWidth="2.2" strokeLinecap="round" />
+      <line x1={cx - wall} y1={floor} x2={cx + wall} y2={floor} style={edge} strokeWidth="2.2" strokeLinecap="round" />
+      {items.map((v, i) => (
+        <ValueBox key={i} x={cx - 17} y={floor + 2 - (i + 1) * 38} v={v} tone={i === items.length - 1 ? 'hot' : undefined} />
+      ))}
+    </g>
+  );
+}
+
+export function PendingStack({ items, label }) {
+  const W = 120;
+  const top = 28;
+  const H = top + 3 * 38 + 4 + 8;
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', maxWidth: `${Math.round(W * 1.3)}px`, height: 'auto', display: 'block', margin: '0.5rem auto' }} role="img" aria-label={label}>
+      <text x={W / 2} y="16" textAnchor="middle" fontSize="13" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink-soft)' }}>pending</text>
+      <StackColumn cx={W / 2} top={top} items={items} />
+      {items.length === 0 ? (
+        <text x={W / 2} y={top + 3 * 38 - 14} textAnchor="middle" fontSize="12" style={{ fill: 'var(--color-ink-faint)' }}>vacía</text>
+      ) : null}
+    </svg>
+  );
+}
+
+export function PendingStrip({ steps, label }) {
+  // One column per state: on top the value just delivered, under it the pending stack.
+  const colW = 70;
+  const x0 = 112;
+  const top = 84;
+  const floor = top + 3 * 38 + 4;
+  const W = x0 + steps.length * colW;
+  return (
+    <svg viewBox={`0 0 ${W} ${floor + 8}`} style={{ width: '100%', maxWidth: `${Math.round(W * 1.15)}px`, height: 'auto', display: 'block', margin: '0.75rem auto' }} role="img" aria-label={label}>
+      <text x="0" y="50" fontSize="12" fontWeight="600" style={{ fill: 'var(--color-ink-soft)' }}>entrega</text>
+      <text x="0" y={top + 24} fontSize="12" fontWeight="600" style={{ fill: 'var(--color-ink-soft)' }}>pendientes</text>
+      <text x="0" y={top + 40} fontSize="11" style={{ fill: 'var(--color-accent)' }}>la cima, arriba</text>
+      {steps.map((s, i) => {
+        const cx = x0 + i * colW + colW / 2;
+        const first = s.out === undefined;
+        return (
+          <g key={i}>
+            <text x={cx} y="14" textAnchor="middle" fontSize="11" fontFamily={first ? undefined : 'monospace'} style={{ fill: 'var(--color-ink-faint)' }}>{first ? 'al crearlo' : 'next'}</text>
+            <ValueBox x={cx - 17} y={28} v={s.out} tone={first ? 'empty' : 'keep'} />
+            <StackColumn cx={cx} top={top} items={s.pending} />
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
+
+<Slide title="Recorrer un árbol con un for">
+En Java, `for (int x : lista)` recorre cualquier objeto que implemente
+`Iterable`: le pide un **iterador**, un objeto con dos métodos. `hasNext`
+responde si quedan valores, y `next` entrega el siguiente, o lanza
+`NoSuchElementException` si no queda ninguno. Para que un árbol de búsqueda se
+recorra con un `for`, de menor a mayor, hace falta su iterador.
+
+<BinaryPicture tree={EVENS} visits="in" sequence label="El árbol de búsqueda con 8 en la raíz, recorrido de menor a mayor: el iterador entrega 2, 4, 6, 8, 10, 12 y 14, en ese orden." caption="cada next entrega el siguiente: 2, 4, 6, 8, 10, 12, 14" />
+
+El iterador recibe la raíz del árbol, que puede estar vacío, y entrega sus
+valores en orden; en un árbol vacío, `hasNext` responde `false` desde el
+principio. Llamamos $$n$$ a la cantidad de valores y $$h$$ a la altura: el
+iterador puede pedir memoria $$O(h)$$, pero no $$\Theta(n)$$.
+
+```java
+class InorderIterator<T> implements Iterator<T> {
+    InorderIterator(Node<T> root)
+    public boolean hasNext()
+    public T next()
+}
+```
+
+</Slide>
+
+<Slide title="Copiar el inorden a una lista">
+La primera idea es recorrer el árbol en inorden al crear el iterador, guardar
+los valores en una lista y entregarlos de a uno. Funciona, pero copia el árbol
+entero: la memoria es $$\Theta(n)$$, no $$O(h)$$. Y hace todo el trabajo antes
+de entregar el primer valor, aunque el `for` se detenga en el segundo.
+
+<SortedRow values={[2, 4, 6, 8, 10, 12, 14]} label="La copia del inorden en una lista: 2, 4, 6, 8, 10, 12 y 14, los siete valores del árbol, guardados antes de entregar el primero." caption="la copia: los siete valores, guardados antes de entregar el primero" />
+
+El inorden recursivo tampoco sirve tal cual: una recursión no se puede pausar
+a la mitad. Entrega todos los valores de una vez, y un iterador tiene que
+entregar uno y esperar.
+
+</Slide>
+
+<Slide title="Pausar el inorden">
+El inorden visita un nodo recién cuando termina su subárbol izquierdo. Por
+eso, al bajar por la izquierda desde la raíz, cada nodo del camino queda
+**pendiente**, esperando a los de más abajo, y el primero en entregarse es el
+último del camino. Después de entregar un nodo, el inorden sigue con su
+subárbol derecho, que empieza igual: bajando por la izquierda desde el hijo
+derecho, y dejando pendientes los nodos de ese camino.
+
+El próximo en entregarse es siempre el último pendiente que entró. Los
+pendientes forman una **pila**, y su cima es el próximo valor.
+
+<BinaryPicture tree={EVENS} size={0.6} label="El árbol de búsqueda con 8 en la raíz; 4 y 12 debajo; 2, 6, 10 y 14 en el último nivel." caption="el árbol que se recorre" />
+
+<PendingStrip
+  steps={[
+    { pending: [8, 4, 2] },
+    { out: 2, pending: [8, 4] },
+    { out: 4, pending: [8, 6] },
+    { out: 6, pending: [8] },
+    { out: 8, pending: [12, 10] },
+    { out: 10, pending: [12] },
+    { out: 12, pending: [14] },
+    { out: 14, pending: [] },
+  ]}
+  label="El recorrido del árbol, un estado por columna. Al crearlo quedan pendientes 8, 4 y 2, con el 2 en la cima. Cada next entrega la cima: el 2, que no tiene hijo derecho, y quedan 8 y 4; el 4, y entra el 6, su hijo derecho; el 6, y queda el 8; el 8, y entran 12 y 10, el camino hacia la izquierda desde su hijo derecho; el 10, y queda el 12; el 12, y entra el 14; el 14, y no queda ningún pendiente."
+/>
+
+</Slide>
+
+<Slide title="Iterador · la solución">
+Los pendientes van en una pila, `pending`. `pushLeft` deja pendiente el
+camino hacia la izquierda desde un nodo: el constructor lo llama con la raíz,
+y `next`, después de sacar la cima, con su hijo derecho.
+
+<StepShow
+  language="java"
+  beside
+  code={`class InorderIterator<T> implements Iterator<T> {
+    private final Deque<Node<T>> pending =
+            new ArrayDeque<>();
+
+    private void pushLeft(Node<T> node) {
+        while (node != null) {
+            pending.push(node);
+            node = node.left;
+        }
+    }
+
+    InorderIterator(Node<T> root) {
+        pushLeft(root);
+    }
+
+    public boolean hasNext() {
+        return !pending.isEmpty();
+    }
+
+    public T next() {
+        if (pending.isEmpty()) {
+            throw new NoSuchElementException();
+        }
+        Node<T> node = pending.pop();
+        pushLeft(node.right);
+        return node.value;
+    }
+}`}
+>
+  <Step lines={[12, 13]}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 2fr) minmax(0, 1fr)', gap: '0 1rem', alignItems: 'center', width: '100%', maxWidth: '680px', margin: '0 auto' }}>
+      <BinaryPicture tree={EVENS} tones={{ 8: 'accent' }} size={1.5} label="Se crea el iterador con la raíz, el 8, y el constructor llama a pushLeft con ella." />
+      <PendingStack items={[]} label="La pila de pendientes está vacía." />
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>El constructor llama a pushLeft con la raíz, el 8.</div>
+  </Step>
+  <Step lines={[6, 7]}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 2fr) minmax(0, 1fr)', gap: '0 1rem', alignItems: 'center', width: '100%', maxWidth: '680px', margin: '0 auto' }}>
+      <BinaryPicture tree={EVENS} tones={{ 8: 'focus' }} size={1.5} label="node es el 8, que no es null: el 8 entra a la pila." />
+      <PendingStack items={[8]} label="La pila de pendientes tiene al 8." />
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>node no es null: el 8 entra a la pila.</div>
+  </Step>
+  <Step lines={[8]}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 2fr) minmax(0, 1fr)', gap: '0 1rem', alignItems: 'center', width: '100%', maxWidth: '680px', margin: '0 auto' }}>
+      <BinaryPicture tree={EVENS} tones={{ 8: 'focus', 4: 'accent' }} size={1.5} label="node baja a la izquierda del 8, al 4." />
+      <PendingStack items={[8]} label="La pila de pendientes tiene al 8." />
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>node baja a la izquierda, al 4.</div>
+  </Step>
+  <Step lines={[6, 7]}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 2fr) minmax(0, 1fr)', gap: '0 1rem', alignItems: 'center', width: '100%', maxWidth: '680px', margin: '0 auto' }}>
+      <BinaryPicture tree={EVENS} tones={{ 8: 'focus', 4: 'focus' }} size={1.5} label="El 4 entra a la pila, sobre el 8." />
+      <PendingStack items={[8, 4]} label="La pila de pendientes tiene al 8 abajo y al 4 en la cima." />
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>El 4 entra a la pila, sobre el 8.</div>
+  </Step>
+  <Step lines={[8]}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 2fr) minmax(0, 1fr)', gap: '0 1rem', alignItems: 'center', width: '100%', maxWidth: '680px', margin: '0 auto' }}>
+      <BinaryPicture tree={EVENS} tones={{ 8: 'focus', 4: 'focus', 2: 'accent' }} size={1.5} label="node baja a la izquierda del 4, al 2." />
+      <PendingStack items={[8, 4]} label="La pila de pendientes tiene al 8 abajo y al 4 en la cima." />
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>node baja a la izquierda, al 2.</div>
+  </Step>
+  <Step lines={[6, 7]}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 2fr) minmax(0, 1fr)', gap: '0 1rem', alignItems: 'center', width: '100%', maxWidth: '680px', margin: '0 auto' }}>
+      <BinaryPicture tree={EVENS} tones={{ 8: 'focus', 4: 'focus', 2: 'focus' }} size={1.5} label="El 2 entra a la pila, sobre el 4." />
+      <PendingStack items={[8, 4, 2]} label="La pila de pendientes tiene, de abajo hacia arriba, al 8, al 4 y al 2 en la cima." />
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>El 2 entra a la pila, sobre el 4.</div>
+  </Step>
+  <Step lines={[8, 6]}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 2fr) minmax(0, 1fr)', gap: '0 1rem', alignItems: 'center', width: '100%', maxWidth: '680px', margin: '0 auto' }}>
+      <BinaryPicture tree={EVENS} tones={{ 8: 'focus', 4: 'focus', 2: 'focus' }} size={1.5} label="La izquierda del 2 está vacía: node es null, y el ciclo termina." />
+      <PendingStack items={[8, 4, 2]} label="La pila de pendientes tiene, de abajo hacia arriba, al 8, al 4 y al 2 en la cima." />
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>La izquierda del 2 está vacía: node es null, y el ciclo termina.</div>
+  </Step>
+  <Step lines={[16, 17]}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 2fr) minmax(0, 1fr)', gap: '0 1rem', alignItems: 'center', width: '100%', maxWidth: '680px', margin: '0 auto' }}>
+      <BinaryPicture tree={EVENS} tones={{ 8: 'focus', 4: 'focus', 2: 'focus' }} size={1.5} label="Quedan tres pendientes: hasNext responde true, y el próximo valor es el 2, en la cima." />
+      <PendingStack items={[8, 4, 2]} label="La pila de pendientes tiene, de abajo hacia arriba, al 8, al 4 y al 2 en la cima." />
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>Quedan pendientes: hasNext responde true, y el próximo es el 2, en la cima.</div>
+  </Step>
+  <Step lines={[21, 24]}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 2fr) minmax(0, 1fr)', gap: '0 1rem', alignItems: 'center', width: '100%', maxWidth: '680px', margin: '0 auto' }}>
+      <BinaryPicture tree={EVENS} tones={{ 8: 'focus', 4: 'focus', 2: 'keep' }} size={1.5} label="node es el 2, que sale de la cima; quedan pendientes 8 y 4." />
+      <PendingStack items={[8,  4]} label="La pila de pendientes tiene, de abajo hacia arriba, al 8 y al 4 en la cima." />
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>La pila no está vacía: node es el 2, que sale de la cima.</div>
+  </Step>
+  <Step lines={[25, 26]}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 2fr) minmax(0, 1fr)', gap: '0 1rem', alignItems: 'center', width: '100%', maxWidth: '680px', margin: '0 auto' }}>
+      <BinaryPicture tree={EVENS} tones={{ 8: 'focus', 4: 'focus', 2: 'keep' }} size={1.5} label="La derecha del 2 está vacía, así que no entra nada a la pila. next entrega el 2." />
+      <PendingStack items={[8,  4]} label="La pila de pendientes tiene, de abajo hacia arriba, al 8 y al 4 en la cima." />
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>La derecha del 2 está vacía: pushLeft no deja nada. next entrega el 2.</div>
+  </Step>
+  <Step lines={[21, 24]}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 2fr) minmax(0, 1fr)', gap: '0 1rem', alignItems: 'center', width: '100%', maxWidth: '680px', margin: '0 auto' }}>
+      <BinaryPicture tree={EVENS} tones={{ 2: 'done', 8: 'focus', 4: 'keep' }} size={1.5} label="node es el 4, que sale de la cima; queda pendiente el 8." />
+      <PendingStack items={[8]} label="La pila de pendientes tiene al 8, en la cima." />
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>node es el 4, que sale de la cima.</div>
+  </Step>
+  <Step lines={[25, 6, 7]}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 2fr) minmax(0, 1fr)', gap: '0 1rem', alignItems: 'center', width: '100%', maxWidth: '680px', margin: '0 auto' }}>
+      <BinaryPicture tree={EVENS} tones={{ 2: 'done', 8: 'focus', 6: 'focus', 4: 'keep' }} size={1.5} label="pushLeft baja desde la derecha del 4: el 6 entra a la pila, sobre el 8." />
+      <PendingStack items={[8,  6]} label="La pila de pendientes tiene, de abajo hacia arriba, al 8 y al 6 en la cima." />
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>pushLeft baja desde la derecha del 4: el 6 entra a la pila.</div>
+  </Step>
+  <Step lines={[8, 26]}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 2fr) minmax(0, 1fr)', gap: '0 1rem', alignItems: 'center', width: '100%', maxWidth: '680px', margin: '0 auto' }}>
+      <BinaryPicture tree={EVENS} tones={{ 2: 'done', 8: 'focus', 6: 'focus', 4: 'keep' }} size={1.5} label="La izquierda del 6 está vacía y pushLeft termina. next entrega el 4." />
+      <PendingStack items={[8,  6]} label="La pila de pendientes tiene, de abajo hacia arriba, al 8 y al 6 en la cima." />
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>La izquierda del 6 está vacía y pushLeft termina. next entrega el 4.</div>
+  </Step>
+  <Step lines={[21, 24]}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 2fr) minmax(0, 1fr)', gap: '0 1rem', alignItems: 'center', width: '100%', maxWidth: '680px', margin: '0 auto' }}>
+      <BinaryPicture tree={EVENS} tones={{ 2: 'done', 4: 'done', 8: 'focus', 6: 'keep' }} size={1.5} label="node es el 6, que sale de la cima; queda pendiente el 8." />
+      <PendingStack items={[8]} label="La pila de pendientes tiene al 8, en la cima." />
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>node es el 6, que sale de la cima.</div>
+  </Step>
+  <Step lines={[25, 26]}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 2fr) minmax(0, 1fr)', gap: '0 1rem', alignItems: 'center', width: '100%', maxWidth: '680px', margin: '0 auto' }}>
+      <BinaryPicture tree={EVENS} tones={{ 2: 'done', 4: 'done', 8: 'focus', 6: 'keep' }} size={1.5} label="La derecha del 6 está vacía, así que no entra nada a la pila. next entrega el 6." />
+      <PendingStack items={[8]} label="La pila de pendientes tiene al 8, en la cima." />
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>La derecha del 6 está vacía. next entrega el 6.</div>
+  </Step>
+  <Step lines={[21, 24]}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 2fr) minmax(0, 1fr)', gap: '0 1rem', alignItems: 'center', width: '100%', maxWidth: '680px', margin: '0 auto' }}>
+      <BinaryPicture tree={EVENS} tones={{ 2: 'done', 4: 'done', 6: 'done', 8: 'keep' }} size={1.5} label="node es el 8, el último pendiente; la pila queda vacía." />
+      <PendingStack items={[]} label="La pila de pendientes está vacía." />
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>node es el 8, el último pendiente.</div>
+  </Step>
+  <Step lines={[25, 6, 7]}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 2fr) minmax(0, 1fr)', gap: '0 1rem', alignItems: 'center', width: '100%', maxWidth: '680px', margin: '0 auto' }}>
+      <BinaryPicture tree={EVENS} tones={{ 2: 'done', 4: 'done', 6: 'done', 12: 'focus', 8: 'keep' }} size={1.5} label="pushLeft baja desde la derecha del 8: el 12 entra a la pila." />
+      <PendingStack items={[12]} label="La pila de pendientes tiene al 12, en la cima." />
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>pushLeft baja desde la derecha del 8: el 12 entra a la pila.</div>
+  </Step>
+  <Step lines={[8, 6, 7]}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 2fr) minmax(0, 1fr)', gap: '0 1rem', alignItems: 'center', width: '100%', maxWidth: '680px', margin: '0 auto' }}>
+      <BinaryPicture tree={EVENS} tones={{ 2: 'done', 4: 'done', 6: 'done', 12: 'focus', 10: 'focus', 8: 'keep' }} size={1.5} label="node baja a la izquierda del 12, al 10, que entra a la pila sobre el 12." />
+      <PendingStack items={[12,  10]} label="La pila de pendientes tiene, de abajo hacia arriba, al 12 y al 10 en la cima." />
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>node baja al 10, que entra sobre el 12.</div>
+  </Step>
+  <Step lines={[8, 26]}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 2fr) minmax(0, 1fr)', gap: '0 1rem', alignItems: 'center', width: '100%', maxWidth: '680px', margin: '0 auto' }}>
+      <BinaryPicture tree={EVENS} tones={{ 2: 'done', 4: 'done', 6: 'done', 12: 'focus', 10: 'focus', 8: 'keep' }} size={1.5} label="La izquierda del 10 está vacía y pushLeft termina. next entrega el 8." />
+      <PendingStack items={[12,  10]} label="La pila de pendientes tiene, de abajo hacia arriba, al 12 y al 10 en la cima." />
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>La izquierda del 10 está vacía y pushLeft termina. next entrega el 8.</div>
+  </Step>
+  <Step lines={[21, 24]}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 2fr) minmax(0, 1fr)', gap: '0 1rem', alignItems: 'center', width: '100%', maxWidth: '680px', margin: '0 auto' }}>
+      <BinaryPicture tree={EVENS} tones={{ 2: 'done', 4: 'done', 6: 'done', 8: 'done', 12: 'focus', 10: 'keep' }} size={1.5} label="node es el 10, que sale de la cima; queda pendiente el 12." />
+      <PendingStack items={[12]} label="La pila de pendientes tiene al 12, en la cima." />
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>node es el 10, que sale de la cima.</div>
+  </Step>
+  <Step lines={[25, 26]}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 2fr) minmax(0, 1fr)', gap: '0 1rem', alignItems: 'center', width: '100%', maxWidth: '680px', margin: '0 auto' }}>
+      <BinaryPicture tree={EVENS} tones={{ 2: 'done', 4: 'done', 6: 'done', 8: 'done', 12: 'focus', 10: 'keep' }} size={1.5} label="La derecha del 10 está vacía, así que no entra nada a la pila. next entrega el 10." />
+      <PendingStack items={[12]} label="La pila de pendientes tiene al 12, en la cima." />
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>La derecha del 10 está vacía. next entrega el 10.</div>
+  </Step>
+  <Step lines={[21, 24]}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 2fr) minmax(0, 1fr)', gap: '0 1rem', alignItems: 'center', width: '100%', maxWidth: '680px', margin: '0 auto' }}>
+      <BinaryPicture tree={EVENS} tones={{ 2: 'done', 4: 'done', 6: 'done', 8: 'done', 10: 'done', 12: 'keep' }} size={1.5} label="node es el 12, el último pendiente; la pila queda vacía." />
+      <PendingStack items={[]} label="La pila de pendientes está vacía." />
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>node es el 12, el último pendiente.</div>
+  </Step>
+  <Step lines={[25, 6, 7]}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 2fr) minmax(0, 1fr)', gap: '0 1rem', alignItems: 'center', width: '100%', maxWidth: '680px', margin: '0 auto' }}>
+      <BinaryPicture tree={EVENS} tones={{ 2: 'done', 4: 'done', 6: 'done', 8: 'done', 10: 'done', 14: 'focus', 12: 'keep' }} size={1.5} label="pushLeft baja desde la derecha del 12: el 14 entra a la pila." />
+      <PendingStack items={[14]} label="La pila de pendientes tiene al 14, en la cima." />
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>pushLeft baja desde la derecha del 12: el 14 entra a la pila.</div>
+  </Step>
+  <Step lines={[8, 26]}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 2fr) minmax(0, 1fr)', gap: '0 1rem', alignItems: 'center', width: '100%', maxWidth: '680px', margin: '0 auto' }}>
+      <BinaryPicture tree={EVENS} tones={{ 2: 'done', 4: 'done', 6: 'done', 8: 'done', 10: 'done', 14: 'focus', 12: 'keep' }} size={1.5} label="La izquierda del 14 está vacía y pushLeft termina. next entrega el 12." />
+      <PendingStack items={[14]} label="La pila de pendientes tiene al 14, en la cima." />
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>La izquierda del 14 está vacía y pushLeft termina. next entrega el 12.</div>
+  </Step>
+  <Step lines={[21, 24]}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 2fr) minmax(0, 1fr)', gap: '0 1rem', alignItems: 'center', width: '100%', maxWidth: '680px', margin: '0 auto' }}>
+      <BinaryPicture tree={EVENS} tones={{ 2: 'done', 4: 'done', 6: 'done', 8: 'done', 10: 'done', 12: 'done', 14: 'keep' }} size={1.5} label="node es el 14, el último pendiente; la pila queda vacía." />
+      <PendingStack items={[]} label="La pila de pendientes está vacía." />
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>node es el 14, el último pendiente.</div>
+  </Step>
+  <Step lines={[25, 26]}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 2fr) minmax(0, 1fr)', gap: '0 1rem', alignItems: 'center', width: '100%', maxWidth: '680px', margin: '0 auto' }}>
+      <BinaryPicture tree={EVENS} tones={{ 2: 'done', 4: 'done', 6: 'done', 8: 'done', 10: 'done', 12: 'done', 14: 'keep' }} size={1.5} label="La derecha del 14 está vacía. next entrega el 14, y no queda ningún pendiente: hasNext responde false." />
+      <PendingStack items={[]} label="La pila de pendientes está vacía." />
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>La derecha del 14 está vacía. next entrega el 14, y no queda ningún pendiente: hasNext responde false.</div>
+  </Step>
+  <Step lines={[16, 17]}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 2fr) minmax(0, 1fr)', gap: '0 1rem', alignItems: 'center', width: '100%', maxWidth: '680px', margin: '0 auto' }}>
+      <BinaryPicture tree={EVENS} tones={{ 2: 'done', 4: 'done', 6: 'done', 8: 'done', 10: 'done', 12: 'done', 14: 'keep' }} size={1.5} label="Todos los valores fueron entregados y no queda ningún pendiente: hasNext responde false." />
+      <PendingStack items={[]} label="La pila de pendientes está vacía." />
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '2.8em' }}>No queda ningún pendiente: hasNext responde false, y el recorrido termina.</div>
+  </Step>
+</StepShow>
+
+</Slide>
+
+<Slide title="Iterador · el árbol en un for">
+El `for` pide un iterador a lo que recorre. Para eso, la clase del árbol
+implementa `Iterable`, cuyo único método, `iterator`, crea un iterador que
+parte de la raíz. Cada `for` pide el suyo, así que dos recorridos del mismo
+árbol no se estorban.
+
+```java
+class BST<T extends Comparable<T>> implements Iterable<T> {
+    Node<T> root;
+
+    public Iterator<T> iterator() {
+        return new InorderIterator<>(root);
+    }
+}
+```
+
+Con eso, un `BST<Integer>` llamado `tree` se recorre de menor a mayor como
+cualquier colección:
+
+```java
+for (int x : tree) {
+    System.out.println(x);
+}
+```
+
+</Slide>
+
+<Slide title="El árbol vacío y el costo de next">
+Con el árbol vacío, el constructor no deja nada pendiente: `hasNext` responde
+`false` desde el principio, y `next` lanza la excepción, como pide el contrato
+de `Iterator`. Lo mismo pasa con un `next` pedido después del último valor.
+
+**Tiempo.** Un solo `next` puede bajar por un camino entero, $$O(h)$$. Pero
+cada nodo entra a la pila una vez y sale una vez, así que recorrer los $$n$$
+valores cuesta $$\Theta(n)$$ en total: $$\Theta(1)$$ amortizado por `next`.
+**Memoria.** La pila guarda solo nodos de un mismo camino desde la raíz:
+$$O(h)$$.
+
+</Slide>
+
+<Slide title="Iterador · el programa completo">
+<PresentationWide fraction={0.75}>
+<Exercise title="Un iterador para el árbol de búsqueda">
+
+```java starter
+import java.util.ArrayDeque;
+import java.util.Deque;
+import java.util.Iterator;
+import java.util.NoSuchElementException;
+
+class Node<T> {
+    T value;
+    Node<T> left;
+    Node<T> right;
+    Node(T value) { this.value = value; }
+}
+
+class InorderIterator<T> implements Iterator<T> {
+    private final Deque<Node<T>> pending =
+            new ArrayDeque<>();
+
+    private void pushLeft(Node<T> node) {
+        while (node != null) {
+            pending.push(node);
+            node = node.left;
+        }
+    }
+
+    InorderIterator(Node<T> root) {
+        pushLeft(root);
+    }
+
+    public boolean hasNext() {
+        return !pending.isEmpty();
+    }
+
+    public T next() {
+        if (pending.isEmpty()) {
+            throw new NoSuchElementException();
+        }
+        Node<T> node = pending.pop();
+        pushLeft(node.right);
+        return node.value;
+    }
+}
+
+class BST<T extends Comparable<T>> implements Iterable<T> {
+    Node<T> root;
+
+    public Iterator<T> iterator() {
+        return new InorderIterator<>(root);
+    }
+}
+```
+
+```java test
+Node<Integer> root = new Node<>(8);
+root.left = new Node<>(4);
+root.left.left = new Node<>(2);
+root.left.right = new Node<>(6);
+root.right = new Node<>(12);
+root.right.left = new Node<>(10);
+root.right.right = new Node<>(14);
+InorderIterator<Integer> it = new InorderIterator<>(root);
+check((int) it.next(), 2);
+check((int) it.next(), 4);
+check((int) it.next(), 6);
+check(it.hasNext(), true);
+BST<Integer> tree = new BST<>();
+tree.root = root;
+String all = "";
+for (int x : tree) all += x + " ";
+check(all, "2 4 6 8 10 12 14 ");
+check(new InorderIterator<Integer>(null).hasNext(), false);
+boolean threw = false;
+try {
+    new InorderIterator<Integer>(null).next();
+} catch (java.util.NoSuchElementException e) {
+    threw = true;
+}
+check(threw, true);
+```
+
+</Exercise>
+</PresentationWide>
+
+</Slide>
+
+{/* The second tree of the intersection: 9, 6, 12, 3 inserted in that order. Its common values with EVENS are 6 and 12. */}
+
+export const THREES = { v: 9, l: { v: 6, l: { v: 3 } }, r: { v: 12 } };
+
+{/* CrossStrip, AnswerRow — the intersection's drawings. CrossStrip runs the crossing of two sorted sequences as one column per comparison: each one's current value and the sign between them; the value that advances in the accent colour, a value in both in keep and copied down to the answer row. AnswerRow is the answer list a walk builds, with room for two values so a frame keeps one size. File-local like SortedRow (§6e-quater); the boxes are ValueBox. */}
+
+export function CrossStrip({ steps, label }) {
+  const colW = 62;
+  const x0 = 104;
+  const W = x0 + steps.length * colW;
+  const tone = (s, side) => (s.adv === 'both' ? 'keep' : s.adv === side ? 'hot' : undefined);
+  return (
+    <svg viewBox={`0 0 ${W} 196`} style={{ width: '100%', maxWidth: `${Math.round(W * 1.15)}px`, height: 'auto', display: 'block', margin: '0.75rem auto' }} role="img" aria-label={label}>
+      <text x="0" y="33" fontSize="12" fontWeight="600" style={{ fill: 'var(--color-ink-soft)' }}>primero</text>
+      <text x="0" y="113" fontSize="12" fontWeight="600" style={{ fill: 'var(--color-ink-soft)' }}>segundo</text>
+      <text x="0" y="171" fontSize="12" fontWeight="600" style={{ fill: 'var(--color-ink-soft)' }}>en los dos</text>
+      <text x="0" y="66" fontSize="11" style={{ fill: 'var(--color-accent)' }}>en color,</text>
+      <text x="0" y="80" fontSize="11" style={{ fill: 'var(--color-accent)' }}>el que avanza</text>
+      {steps.map((s, i) => {
+        const cx = x0 + i * colW + colW / 2;
+        const ended = s.b === null;
+        const sign = ended ? '' : s.a < s.b ? '<' : s.a > s.b ? '>' : '=';
+        return (
+          <g key={i}>
+            <ValueBox x={cx - 17} y={12} v={s.a} tone={tone(s, 'a')} />
+            <text x={cx} y="78" textAnchor="middle" fontSize="18" fontWeight="700" style={{ fill: 'var(--color-ink-soft)' }}>{sign}</text>
+            <ValueBox x={cx - 17} y={92} v={ended ? null : s.b} tone={ended ? 'empty' : tone(s, 'b')} />
+            {s.adv === 'both' ? <ValueBox x={cx - 17} y={150} v={s.a} tone="keep" /> : null}
+            {ended ? (
+              <text x={cx} y="171" textAnchor="middle" fontSize="12" style={{ fill: 'var(--color-ink-faint)' }}>termina</text>
+            ) : null}
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
+
+export function AnswerRow({ values, label }) {
+  const W = 200;
+  return (
+    <svg viewBox={`0 0 ${W} 46`} style={{ width: '100%', maxWidth: `${Math.round(W * 1.3)}px`, height: 'auto', display: 'block', margin: '0.25rem auto' }} role="img" aria-label={label}>
+      <text x="0" y="28" fontSize="13" fontWeight="600" fontFamily="monospace" style={{ fill: 'var(--color-ink-soft)' }}>both</text>
+      {values.length === 0 ? (
+        <text x="56" y="28" fontSize="12" style={{ fill: 'var(--color-ink-faint)' }}>vacía</text>
+      ) : (
+        values.map((v, i) => <ValueBox key={i} x={56 + i * 40} y={6} v={v} tone="keep" />)
+      )}
+    </svg>
+  );
+}
+
+<Slide title="La intersección de dos árboles de búsqueda">
+Dos cursos guardan a sus estudiantes inscritos en un árbol de búsqueda, por
+número de matrícula, y hay que saber quiénes están inscritos en los dos. El
+programa recibe las raíces de los dos árboles, que pueden estar vacíos, y
+devuelve los valores que están en ambos, de menor a mayor. Llamamos $$n$$ y
+$$m$$ a sus tamaños, y $$h_1$$ y $$h_2$$ a sus alturas.
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1rem 2rem', alignItems: 'end' }}>
+<BinaryPicture tree={EVENS} tones={{ 6: 'keep', 12: 'keep' }} label="El primer árbol: 8 en la raíz, 4 y 12 debajo, y 2, 6, 10 y 14 en el último nivel. El 6 y el 12 están marcados: también están en el otro árbol." caption="el primer curso" />
+<BinaryPicture tree={THREES} tones={{ 6: 'keep', 12: 'keep' }} minColumns={4} label="El segundo árbol: 9 en la raíz, 6 a su izquierda con el 3 debajo, y 12 a su derecha. El 6 y el 12 están marcados: también están en el primer árbol." caption="el segundo curso: en los dos están 6 y 12" />
+</div>
+
+```java
+static List<Integer> intersection(Node<Integer> a,
+        Node<Integer> b)
+```
+
+Si un árbol está vacío, o si no tienen valores en común, la lista vuelve
+vacía.
+
+</Slide>
+
+<Slide title="Buscar cada valor en el otro árbol">
+La primera idea es recorrer el primer árbol y buscar cada uno de sus valores
+en el segundo. Es correcta, pero son $$n$$ búsquedas de costo $$O(h_2)$$:
+$$O(n \cdot h_2)$$, y si el segundo árbol es una cadena, $$O(n \cdot m)$$.
+
+<BinaryPicture tree={THREES} path={[9, 6, 3]} probe={{ at: 3, side: 'l' }} tones={{ 9: 'focus', 6: 'focus', 3: 'focus', 12: 'faint' }} minColumns={4} size={0.6} label="La búsqueda del 2, el primer valor del primer árbol, en el segundo: baja por 9, 6 y 3, y llega a un subárbol vacío. El 2 no está." caption="el 2 en el segundo: 9, 6, 3, y no está" />
+
+La segunda es copiar el inorden de cada árbol en una lista: las dos quedan
+ordenadas, y se cruzan en $$\Theta(n + m)$$. Pero copia los dos árboles
+enteros: la memoria también es $$\Theta(n + m)$$.
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '0 2rem', alignItems: 'end' }}>
+<SortedRow values={[2, 4, 6, 8, 10, 12, 14]} label="La copia del inorden del primer árbol: 2, 4, 6, 8, 10, 12 y 14." caption="la copia del primero: siete valores" />
+<SortedRow values={[3, 6, 9, 12]} label="La copia del inorden del segundo árbol: 3, 6, 9 y 12." caption="la copia del segundo: cuatro valores" />
+</div>
+
+</Slide>
+
+<Slide title="Avanzar los dos inórdenes a la vez">
+Dos secuencias ordenadas se cruzan sin volver atrás. Se compara el valor
+actual de cada una: si son iguales, ese valor está en las dos, y avanzan
+ambas; si no, avanza la que tiene el menor, porque ese valor no puede estar
+en la otra, cuyos valores que quedan son todos mayores. Cuando una se acaba,
+no queda nada en común.
+
+Las secuencias son los inórdenes de los dos árboles, y cada uno avanza **de a
+un valor**, en pausa mientras el otro avanza: un **iterador** por árbol.
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '0 2rem', alignItems: 'end' }}>
+<BinaryPicture tree={EVENS} strip compact minColumns={4} size={0.6} label="El primer árbol con su inorden debajo: 2, 4, 6, 8, 10, 12 y 14." caption="el primero y su inorden" />
+<BinaryPicture tree={THREES} strip compact minColumns={4} size={0.6} label="El segundo árbol con su inorden debajo: 3, 6, 9 y 12." caption="el segundo y su inorden" />
+</div>
+
+<CrossStrip
+  steps={[
+    { a: 2, b: 3, adv: 'a' },
+    { a: 4, b: 3, adv: 'b' },
+    { a: 4, b: 6, adv: 'a' },
+    { a: 6, b: 6, adv: 'both' },
+    { a: 8, b: 9, adv: 'a' },
+    { a: 10, b: 9, adv: 'b' },
+    { a: 10, b: 12, adv: 'a' },
+    { a: 12, b: 12, adv: 'both' },
+    { a: 14, b: null },
+  ]}
+  label="El cruce de los dos inórdenes, una comparación por columna. 2 y 3: avanza el primero. 4 y 3: avanza el segundo. 4 y 6: avanza el primero. 6 y 6: el 6 está en los dos, y avanzan ambos. 8 y 9: avanza el primero. 10 y 9: avanza el segundo. 10 y 12: avanza el primero. 12 y 12: el 12 está en los dos, y avanzan ambos. Con el 14 en el primero, el segundo se acabó, y el cruce termina: en los dos están el 6 y el 12."
+/>
+
+</Slide>
+
+<Slide title="Intersección · el iterador del inorden">
+Cada árbol se recorre con su propio iterador del inorden, el del árbol de
+búsqueda, sin cambios. `hasNext` dice si a ese árbol le quedan valores, y
+`next` entrega el siguiente; su pila de pendientes pide memoria $$O(h)$$ de su
+árbol.
+
+```java
+class InorderIterator<T> implements Iterator<T> {
+    InorderIterator(Node<T> root)
+    public boolean hasNext()
+    public T next()
+}
+```
+
+</Slide>
+
+<Slide title="Intersección · la solución">
+Cada árbol tiene su iterador, y `x` e `y` son sus valores actuales, o `null`
+cuando ese árbol se acabó. Una sola comparación decide los tres casos: con
+`c` igual a cero se agrega `x` y avanzan los dos; con `c` negativo avanza
+solo `x`, y con `c` positivo, solo `y`.
+
+<StepShow
+  language="java"
+  code={`static List<Integer> intersection(Node<Integer> a,
+        Node<Integer> b) {
+    List<Integer> both = new ArrayList<>();
+    Iterator<Integer> ia = new InorderIterator<>(a);
+    Iterator<Integer> ib = new InorderIterator<>(b);
+    Integer x = ia.hasNext() ? ia.next() : null;
+    Integer y = ib.hasNext() ? ib.next() : null;
+    while (x != null && y != null) {
+        int c = x.compareTo(y);
+        if (c == 0) both.add(x);
+        if (c <= 0) x = ia.hasNext() ? ia.next() : null;
+        if (c >= 0) y = ib.hasNext() ? ib.next() : null;
+    }
+    return both;
+}`}
+>
+  <Step lines={[3, 4, 5]}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr) minmax(0, 0.7fr)', gap: '0 1rem', alignItems: 'center' }}>
+      <BinaryPicture tree={EVENS} compact minColumns={4} size={0.75} tones={{}} notes={{ 8: '' }} label="El primer árbol; su iterador todavía no entrega nada." caption="primero" />
+      <BinaryPicture tree={THREES} compact minColumns={4} size={0.75} tones={{}} notes={{ 9: '' }} label="El segundo árbol; su iterador todavía no entrega nada." caption="segundo" />
+      <AnswerRow values={[]} label="La respuesta, both, está vacía." />
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '1.4em' }}>La respuesta empieza vacía, y cada árbol tiene su iterador.</div>
+  </Step>
+  <Step lines={[6]}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr) minmax(0, 0.7fr)', gap: '0 1rem', alignItems: 'center' }}>
+      <BinaryPicture tree={EVENS} compact minColumns={4} size={0.75} tones={{ 2: 'focus' }} notes={{ 2: 'x' }} label="El primer árbol; x es el 2." caption="primero" />
+      <BinaryPicture tree={THREES} compact minColumns={4} size={0.75} tones={{}} notes={{ 9: '' }} label="El segundo árbol; su iterador todavía no entrega nada." caption="segundo" />
+      <AnswerRow values={[]} label="La respuesta, both, está vacía." />
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '1.4em' }}>El primer iterador entrega su primer valor: x = 2.</div>
+  </Step>
+  <Step lines={[7]}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr) minmax(0, 0.7fr)', gap: '0 1rem', alignItems: 'center' }}>
+      <BinaryPicture tree={EVENS} compact minColumns={4} size={0.75} tones={{ 2: 'focus' }} notes={{ 2: 'x' }} label="El primer árbol; x es el 2." caption="primero" />
+      <BinaryPicture tree={THREES} compact minColumns={4} size={0.75} tones={{ 3: 'focus' }} notes={{ 3: 'y' }} label="El segundo árbol; y es el 3." caption="segundo" />
+      <AnswerRow values={[]} label="La respuesta, both, está vacía." />
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '1.4em' }}>El segundo entrega el suyo: y = 3.</div>
+  </Step>
+  <Step lines={[8, 9]}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr) minmax(0, 0.7fr)', gap: '0 1rem', alignItems: 'center' }}>
+      <BinaryPicture tree={EVENS} compact minColumns={4} size={0.75} tones={{ 2: 'focus' }} notes={{ 2: 'x' }} label="El primer árbol; x es el 2." caption="primero" />
+      <BinaryPicture tree={THREES} compact minColumns={4} size={0.75} tones={{ 3: 'focus' }} notes={{ 3: 'y' }} label="El segundo árbol; y es el 3." caption="segundo" />
+      <AnswerRow values={[]} label="La respuesta, both, está vacía." />
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '1.4em' }}>Los dos tienen valor. 2 < 3: c es negativo.</div>
+  </Step>
+  <Step lines={[11]}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr) minmax(0, 0.7fr)', gap: '0 1rem', alignItems: 'center' }}>
+      <BinaryPicture tree={EVENS} compact minColumns={4} size={0.75} tones={{ 2: 'done', 4: 'focus' }} notes={{ 4: 'x' }} label="El primer árbol; x es el 4." caption="primero" />
+      <BinaryPicture tree={THREES} compact minColumns={4} size={0.75} tones={{ 3: 'focus' }} notes={{ 3: 'y' }} label="El segundo árbol; y es el 3." caption="segundo" />
+      <AnswerRow values={[]} label="La respuesta, both, está vacía." />
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '1.4em' }}>Avanza solo x, que pasa a 4.</div>
+  </Step>
+  <Step lines={[8, 9]}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr) minmax(0, 0.7fr)', gap: '0 1rem', alignItems: 'center' }}>
+      <BinaryPicture tree={EVENS} compact minColumns={4} size={0.75} tones={{ 2: 'done', 4: 'focus' }} notes={{ 4: 'x' }} label="El primer árbol; x es el 4." caption="primero" />
+      <BinaryPicture tree={THREES} compact minColumns={4} size={0.75} tones={{ 3: 'focus' }} notes={{ 3: 'y' }} label="El segundo árbol; y es el 3." caption="segundo" />
+      <AnswerRow values={[]} label="La respuesta, both, está vacía." />
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '1.4em' }}>4 > 3: c es positivo.</div>
+  </Step>
+  <Step lines={[12]}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr) minmax(0, 0.7fr)', gap: '0 1rem', alignItems: 'center' }}>
+      <BinaryPicture tree={EVENS} compact minColumns={4} size={0.75} tones={{ 2: 'done', 4: 'focus' }} notes={{ 4: 'x' }} label="El primer árbol; x es el 4." caption="primero" />
+      <BinaryPicture tree={THREES} compact minColumns={4} size={0.75} tones={{ 3: 'done', 6: 'focus' }} notes={{ 6: 'y' }} label="El segundo árbol; y es el 6." caption="segundo" />
+      <AnswerRow values={[]} label="La respuesta, both, está vacía." />
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '1.4em' }}>Avanza solo y, que pasa a 6.</div>
+  </Step>
+  <Step lines={[8, 9]}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr) minmax(0, 0.7fr)', gap: '0 1rem', alignItems: 'center' }}>
+      <BinaryPicture tree={EVENS} compact minColumns={4} size={0.75} tones={{ 2: 'done', 4: 'focus' }} notes={{ 4: 'x' }} label="El primer árbol; x es el 4." caption="primero" />
+      <BinaryPicture tree={THREES} compact minColumns={4} size={0.75} tones={{ 3: 'done', 6: 'focus' }} notes={{ 6: 'y' }} label="El segundo árbol; y es el 6." caption="segundo" />
+      <AnswerRow values={[]} label="La respuesta, both, está vacía." />
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '1.4em' }}>4 < 6: c es negativo.</div>
+  </Step>
+  <Step lines={[11]}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr) minmax(0, 0.7fr)', gap: '0 1rem', alignItems: 'center' }}>
+      <BinaryPicture tree={EVENS} compact minColumns={4} size={0.75} tones={{ 2: 'done', 4: 'done', 6: 'focus' }} notes={{ 6: 'x' }} label="El primer árbol; x es el 6." caption="primero" />
+      <BinaryPicture tree={THREES} compact minColumns={4} size={0.75} tones={{ 3: 'done', 6: 'focus' }} notes={{ 6: 'y' }} label="El segundo árbol; y es el 6." caption="segundo" />
+      <AnswerRow values={[]} label="La respuesta, both, está vacía." />
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '1.4em' }}>Avanza solo x, que pasa a 6.</div>
+  </Step>
+  <Step lines={[8, 9]}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr) minmax(0, 0.7fr)', gap: '0 1rem', alignItems: 'center' }}>
+      <BinaryPicture tree={EVENS} compact minColumns={4} size={0.75} tones={{ 2: 'done', 4: 'done', 6: 'focus' }} notes={{ 6: 'x' }} label="El primer árbol; x es el 6." caption="primero" />
+      <BinaryPicture tree={THREES} compact minColumns={4} size={0.75} tones={{ 3: 'done', 6: 'focus' }} notes={{ 6: 'y' }} label="El segundo árbol; y es el 6." caption="segundo" />
+      <AnswerRow values={[]} label="La respuesta, both, está vacía." />
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '1.4em' }}>6 = 6: c es cero.</div>
+  </Step>
+  <Step lines={[10]}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr) minmax(0, 0.7fr)', gap: '0 1rem', alignItems: 'center' }}>
+      <BinaryPicture tree={EVENS} compact minColumns={4} size={0.75} tones={{ 2: 'done', 4: 'done', 6: 'keep' }} notes={{ 6: 'x' }} label="El primer árbol; x es el 6." caption="primero" />
+      <BinaryPicture tree={THREES} compact minColumns={4} size={0.75} tones={{ 3: 'done', 6: 'keep' }} notes={{ 6: 'y' }} label="El segundo árbol; y es el 6." caption="segundo" />
+      <AnswerRow values={[6]} label="La respuesta, both: 6." />
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '1.4em' }}>El 6 está en los dos: entra a la respuesta.</div>
+  </Step>
+  <Step lines={[11]}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr) minmax(0, 0.7fr)', gap: '0 1rem', alignItems: 'center' }}>
+      <BinaryPicture tree={EVENS} compact minColumns={4} size={0.75} tones={{ 2: 'done', 4: 'done', 6: 'keep', 8: 'focus' }} notes={{ 8: 'x' }} label="El primer árbol; x es el 8." caption="primero" />
+      <BinaryPicture tree={THREES} compact minColumns={4} size={0.75} tones={{ 3: 'done', 6: 'keep' }} notes={{ 6: 'y' }} label="El segundo árbol; y es el 6." caption="segundo" />
+      <AnswerRow values={[6]} label="La respuesta, both: 6." />
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '1.4em' }}>Avanzan los dos: x pasa a 8…</div>
+  </Step>
+  <Step lines={[12]}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr) minmax(0, 0.7fr)', gap: '0 1rem', alignItems: 'center' }}>
+      <BinaryPicture tree={EVENS} compact minColumns={4} size={0.75} tones={{ 2: 'done', 4: 'done', 6: 'keep', 8: 'focus' }} notes={{ 8: 'x' }} label="El primer árbol; x es el 8." caption="primero" />
+      <BinaryPicture tree={THREES} compact minColumns={4} size={0.75} tones={{ 3: 'done', 6: 'keep', 9: 'focus' }} notes={{ 9: 'y' }} label="El segundo árbol; y es el 9." caption="segundo" />
+      <AnswerRow values={[6]} label="La respuesta, both: 6." />
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '1.4em' }}>…e y pasa a 9.</div>
+  </Step>
+  <Step lines={[8, 9]}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr) minmax(0, 0.7fr)', gap: '0 1rem', alignItems: 'center' }}>
+      <BinaryPicture tree={EVENS} compact minColumns={4} size={0.75} tones={{ 2: 'done', 4: 'done', 6: 'keep', 8: 'focus' }} notes={{ 8: 'x' }} label="El primer árbol; x es el 8." caption="primero" />
+      <BinaryPicture tree={THREES} compact minColumns={4} size={0.75} tones={{ 3: 'done', 6: 'keep', 9: 'focus' }} notes={{ 9: 'y' }} label="El segundo árbol; y es el 9." caption="segundo" />
+      <AnswerRow values={[6]} label="La respuesta, both: 6." />
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '1.4em' }}>8 < 9: c es negativo.</div>
+  </Step>
+  <Step lines={[11]}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr) minmax(0, 0.7fr)', gap: '0 1rem', alignItems: 'center' }}>
+      <BinaryPicture tree={EVENS} compact minColumns={4} size={0.75} tones={{ 2: 'done', 4: 'done', 6: 'keep', 8: 'done', 10: 'focus' }} notes={{ 10: 'x' }} label="El primer árbol; x es el 10." caption="primero" />
+      <BinaryPicture tree={THREES} compact minColumns={4} size={0.75} tones={{ 3: 'done', 6: 'keep', 9: 'focus' }} notes={{ 9: 'y' }} label="El segundo árbol; y es el 9." caption="segundo" />
+      <AnswerRow values={[6]} label="La respuesta, both: 6." />
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '1.4em' }}>Avanza solo x, que pasa a 10.</div>
+  </Step>
+  <Step lines={[8, 9]}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr) minmax(0, 0.7fr)', gap: '0 1rem', alignItems: 'center' }}>
+      <BinaryPicture tree={EVENS} compact minColumns={4} size={0.75} tones={{ 2: 'done', 4: 'done', 6: 'keep', 8: 'done', 10: 'focus' }} notes={{ 10: 'x' }} label="El primer árbol; x es el 10." caption="primero" />
+      <BinaryPicture tree={THREES} compact minColumns={4} size={0.75} tones={{ 3: 'done', 6: 'keep', 9: 'focus' }} notes={{ 9: 'y' }} label="El segundo árbol; y es el 9." caption="segundo" />
+      <AnswerRow values={[6]} label="La respuesta, both: 6." />
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '1.4em' }}>10 > 9: c es positivo.</div>
+  </Step>
+  <Step lines={[12]}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr) minmax(0, 0.7fr)', gap: '0 1rem', alignItems: 'center' }}>
+      <BinaryPicture tree={EVENS} compact minColumns={4} size={0.75} tones={{ 2: 'done', 4: 'done', 6: 'keep', 8: 'done', 10: 'focus' }} notes={{ 10: 'x' }} label="El primer árbol; x es el 10." caption="primero" />
+      <BinaryPicture tree={THREES} compact minColumns={4} size={0.75} tones={{ 3: 'done', 6: 'keep', 9: 'done', 12: 'focus' }} notes={{ 12: 'y' }} label="El segundo árbol; y es el 12." caption="segundo" />
+      <AnswerRow values={[6]} label="La respuesta, both: 6." />
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '1.4em' }}>Avanza solo y, que pasa a 12.</div>
+  </Step>
+  <Step lines={[8, 9]}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr) minmax(0, 0.7fr)', gap: '0 1rem', alignItems: 'center' }}>
+      <BinaryPicture tree={EVENS} compact minColumns={4} size={0.75} tones={{ 2: 'done', 4: 'done', 6: 'keep', 8: 'done', 10: 'focus' }} notes={{ 10: 'x' }} label="El primer árbol; x es el 10." caption="primero" />
+      <BinaryPicture tree={THREES} compact minColumns={4} size={0.75} tones={{ 3: 'done', 6: 'keep', 9: 'done', 12: 'focus' }} notes={{ 12: 'y' }} label="El segundo árbol; y es el 12." caption="segundo" />
+      <AnswerRow values={[6]} label="La respuesta, both: 6." />
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '1.4em' }}>10 < 12: c es negativo.</div>
+  </Step>
+  <Step lines={[11]}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr) minmax(0, 0.7fr)', gap: '0 1rem', alignItems: 'center' }}>
+      <BinaryPicture tree={EVENS} compact minColumns={4} size={0.75} tones={{ 2: 'done', 4: 'done', 6: 'keep', 8: 'done', 10: 'done', 12: 'focus' }} notes={{ 12: 'x' }} label="El primer árbol; x es el 12." caption="primero" />
+      <BinaryPicture tree={THREES} compact minColumns={4} size={0.75} tones={{ 3: 'done', 6: 'keep', 9: 'done', 12: 'focus' }} notes={{ 12: 'y' }} label="El segundo árbol; y es el 12." caption="segundo" />
+      <AnswerRow values={[6]} label="La respuesta, both: 6." />
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '1.4em' }}>Avanza solo x, que pasa a 12.</div>
+  </Step>
+  <Step lines={[8, 9]}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr) minmax(0, 0.7fr)', gap: '0 1rem', alignItems: 'center' }}>
+      <BinaryPicture tree={EVENS} compact minColumns={4} size={0.75} tones={{ 2: 'done', 4: 'done', 6: 'keep', 8: 'done', 10: 'done', 12: 'focus' }} notes={{ 12: 'x' }} label="El primer árbol; x es el 12." caption="primero" />
+      <BinaryPicture tree={THREES} compact minColumns={4} size={0.75} tones={{ 3: 'done', 6: 'keep', 9: 'done', 12: 'focus' }} notes={{ 12: 'y' }} label="El segundo árbol; y es el 12." caption="segundo" />
+      <AnswerRow values={[6]} label="La respuesta, both: 6." />
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '1.4em' }}>12 = 12: c es cero.</div>
+  </Step>
+  <Step lines={[10]}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr) minmax(0, 0.7fr)', gap: '0 1rem', alignItems: 'center' }}>
+      <BinaryPicture tree={EVENS} compact minColumns={4} size={0.75} tones={{ 2: 'done', 4: 'done', 6: 'keep', 8: 'done', 10: 'done', 12: 'keep' }} notes={{ 12: 'x' }} label="El primer árbol; x es el 12." caption="primero" />
+      <BinaryPicture tree={THREES} compact minColumns={4} size={0.75} tones={{ 3: 'done', 6: 'keep', 9: 'done', 12: 'keep' }} notes={{ 12: 'y' }} label="El segundo árbol; y es el 12." caption="segundo" />
+      <AnswerRow values={[6,  12]} label="La respuesta, both: 6, 12." />
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '1.4em' }}>El 12 está en los dos: entra a la respuesta.</div>
+  </Step>
+  <Step lines={[11]}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr) minmax(0, 0.7fr)', gap: '0 1rem', alignItems: 'center' }}>
+      <BinaryPicture tree={EVENS} compact minColumns={4} size={0.75} tones={{ 2: 'done', 4: 'done', 6: 'keep', 8: 'done', 10: 'done', 12: 'keep', 14: 'focus' }} notes={{ 14: 'x' }} label="El primer árbol; x es el 14." caption="primero" />
+      <BinaryPicture tree={THREES} compact minColumns={4} size={0.75} tones={{ 3: 'done', 6: 'keep', 9: 'done', 12: 'keep' }} notes={{ 12: 'y' }} label="El segundo árbol; y es el 12." caption="segundo" />
+      <AnswerRow values={[6,  12]} label="La respuesta, both: 6, 12." />
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '1.4em' }}>Avanzan los dos: x pasa a 14…</div>
+  </Step>
+  <Step lines={[12]}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr) minmax(0, 0.7fr)', gap: '0 1rem', alignItems: 'center' }}>
+      <BinaryPicture tree={EVENS} compact minColumns={4} size={0.75} tones={{ 2: 'done', 4: 'done', 6: 'keep', 8: 'done', 10: 'done', 12: 'keep', 14: 'focus' }} notes={{ 14: 'x' }} label="El primer árbol; x es el 14." caption="primero" />
+      <BinaryPicture tree={THREES} compact minColumns={4} size={0.75} tones={{ 3: 'done', 6: 'keep', 9: 'done', 12: 'keep' }} notes={{ 9: '' }} label="El segundo árbol, recorrido entero: y es null." caption="segundo" />
+      <AnswerRow values={[6,  12]} label="La respuesta, both: 6, 12." />
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '1.4em' }}>…y al segundo no le quedan valores: y pasa a null.</div>
+  </Step>
+  <Step lines={[8]}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr) minmax(0, 0.7fr)', gap: '0 1rem', alignItems: 'center' }}>
+      <BinaryPicture tree={EVENS} compact minColumns={4} size={0.75} tones={{ 2: 'done', 4: 'done', 6: 'keep', 8: 'done', 10: 'done', 12: 'keep', 14: 'focus' }} notes={{ 14: 'x' }} label="El primer árbol; x es el 14." caption="primero" />
+      <BinaryPicture tree={THREES} compact minColumns={4} size={0.75} tones={{ 3: 'done', 6: 'keep', 9: 'done', 12: 'keep' }} notes={{ 9: '' }} label="El segundo árbol, recorrido entero: y es null." caption="segundo" />
+      <AnswerRow values={[6,  12]} label="La respuesta, both: 6, 12." />
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '1.4em' }}>y es null: el ciclo termina.</div>
+  </Step>
+  <Step lines={[14]}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr) minmax(0, 0.7fr)', gap: '0 1rem', alignItems: 'center' }}>
+      <BinaryPicture tree={EVENS} compact minColumns={4} size={0.75} tones={{ 2: 'done', 4: 'done', 6: 'keep', 8: 'done', 10: 'done', 12: 'keep', 14: 'focus' }} notes={{ 14: 'x' }} label="El primer árbol; x es el 14." caption="primero" />
+      <BinaryPicture tree={THREES} compact minColumns={4} size={0.75} tones={{ 3: 'done', 6: 'keep', 9: 'done', 12: 'keep' }} notes={{ 9: '' }} label="El segundo árbol, recorrido entero: y es null." caption="segundo" />
+      <AnswerRow values={[6,  12]} label="La respuesta, both: 6, 12." />
+    </div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', minHeight: '1.4em' }}>La respuesta es 6, 12.</div>
+  </Step>
+</StepShow>
+
+</Slide>
+
+<Slide title="Un árbol vacío y el costo de la intersección">
+Si un árbol está vacío, su iterador no entrega nada, `x` o `y` empieza en
+`null`, y el ciclo no corre: la respuesta es la lista vacía. Si los árboles no
+tienen valores en común, el ciclo avanza hasta acabar uno de los dos sin
+agregar nada.
+
+**Tiempo.** Cada vuelta del ciclo saca al menos un valor de un iterador, y
+cada nodo entra y sale de su pila una sola vez: $$O(n + m)$$. Puede ser menos,
+porque el ciclo termina en cuanto un árbol se acaba. **Memoria.** Las dos
+pilas guardan un camino cada una: $$O(h_1 + h_2)$$, aparte de la respuesta.
+Si los dos son árboles AVL, eso es $$O(\log n + \log m)$$.
+
+</Slide>
+
+<Slide title="Intersección · el programa completo">
+<PresentationWide fraction={0.75}>
+<Exercise title="La intersección de dos árboles de búsqueda">
+
+```java starter
+import java.util.ArrayDeque;
+import java.util.ArrayList;
+import java.util.Deque;
+import java.util.Iterator;
+import java.util.List;
+import java.util.NoSuchElementException;
+
+class Node<T> {
+    T value;
+    Node<T> left;
+    Node<T> right;
+    Node(T value) { this.value = value; }
+}
+
+class InorderIterator<T> implements Iterator<T> {
+    private final Deque<Node<T>> pending =
+            new ArrayDeque<>();
+
+    private void pushLeft(Node<T> node) {
+        while (node != null) {
+            pending.push(node);
+            node = node.left;
+        }
+    }
+
+    InorderIterator(Node<T> root) {
+        pushLeft(root);
+    }
+
+    public boolean hasNext() {
+        return !pending.isEmpty();
+    }
+
+    public T next() {
+        if (pending.isEmpty()) {
+            throw new NoSuchElementException();
+        }
+        Node<T> node = pending.pop();
+        pushLeft(node.right);
+        return node.value;
+    }
+}
+
+class Solution {
+    static List<Integer> intersection(Node<Integer> a,
+            Node<Integer> b) {
+        List<Integer> both = new ArrayList<>();
+        Iterator<Integer> ia = new InorderIterator<>(a);
+        Iterator<Integer> ib = new InorderIterator<>(b);
+        Integer x = ia.hasNext() ? ia.next() : null;
+        Integer y = ib.hasNext() ? ib.next() : null;
+        while (x != null && y != null) {
+            int c = x.compareTo(y);
+            if (c == 0) both.add(x);
+            if (c <= 0) x = ia.hasNext() ? ia.next() : null;
+            if (c >= 0) y = ib.hasNext() ? ib.next() : null;
+        }
+        return both;
+    }
+}
+```
+
+```java test
+Node<Integer> a = new Node<>(8);
+a.left = new Node<>(4);
+a.left.left = new Node<>(2);
+a.left.right = new Node<>(6);
+a.right = new Node<>(12);
+a.right.left = new Node<>(10);
+a.right.right = new Node<>(14);
+Node<Integer> b = new Node<>(9);
+b.left = new Node<>(6);
+b.left.left = new Node<>(3);
+b.right = new Node<>(12);
+check(Solution.intersection(a, b), Arrays.asList(6, 12));
+check(Solution.intersection(a, null), Arrays.asList());
+check(Solution.intersection(a, a), Arrays.asList(2, 4, 6, 8, 10, 12, 14));
+Node<Integer> odd = new Node<>(5);
+odd.left = new Node<>(1);
+check(Solution.intersection(a, odd), Arrays.asList());
+```
+
+</Exercise>
+</PresentationWide>
+
+</Slide>
+
+Tres ejercicios más, propuestos, para resolver sin ver la respuesta:
+
+<Exercise title="Un árbol de búsqueda de altura mínima">
+
+Un arreglo trae valores distintos, ordenados de menor a mayor, y hay que
+guardarlos en un árbol binario de búsqueda lo más bajo posible: con $$n$$
+valores, de altura $$\lfloor \log_2 n \rfloor$$. Escribamos `build`, que
+recibe el arreglo, que puede estar vacío, y devuelve la raíz del árbol, o
+`null` si no hay valores.
+
+Con los valores del 1 al 7, la raíz es el 4, con el 2 y el 6 debajo, y el árbol
+tiene altura 2. Con los valores del 1 al 4, la raíz puede ser el 2 o el 3, y la
+altura es 2. Con un solo valor, el árbol es una hoja.
+
+Insertarlos en el orden en que vienen no sirve: cada uno es mayor que todos
+los anteriores, y el arreglo ordenado es justo el peor orden de llegada. La
+raíz tiene que dejar la mitad de los valores a cada lado, y cada mitad se arma
+con la misma regla.
+
+```java starter
+class Node<T> {
+    T value;
+    Node<T> left;
+    Node<T> right;
+    Node(T value) { this.value = value; }
+}
+
+class Solution {
+    static Node<Integer> build(int[] sorted) {
+        return null;
+    }
+}
+```
+
+```java test
+Node<Integer> t = Solution.build(new int[] {1, 2, 3, 4, 5, 6, 7});
+check(t != null && t.value == 4, true);
+check(t != null && t.left != null && t.left.value == 2, true);
+check(t != null && t.right != null && t.right.value == 6, true);
+check(t != null && t.left != null && t.left.left != null
+        && t.left.left.value == 1, true);
+check(t != null && t.right != null && t.right.right != null
+        && t.right.right.value == 7, true);
+Node<Integer> u = Solution.build(new int[] {1, 2, 3, 4});
+check(u != null && (u.value == 2 || u.value == 3), true);
+check(u != null && u.left != null && u.right != null, true);
+Node<Integer> one = Solution.build(new int[] {5});
+check(one != null && one.left == null && one.right == null, true);
+check(Solution.build(new int[] {}) == null, true);
+```
+
+```java solution
+class Node<T> {
+    T value;
+    Node<T> left;
+    Node<T> right;
+    Node(T value) { this.value = value; }
+}
+
+class Solution {
+    static Node<Integer> build(int[] sorted, int lo, int hi) {
+        if (lo > hi) return null;
+        int mid = (lo + hi) / 2;
+        Node<Integer> node = new Node<>(sorted[mid]);
+        node.left = build(sorted, lo, mid - 1);
+        node.right = build(sorted, mid + 1, hi);
+        return node;
+    }
+
+    static Node<Integer> build(int[] sorted) {
+        return build(sorted, 0, sorted.length - 1);
+    }
+}
+```
+
+</Exercise>
+
+<Exercise title="Verificación de un árbol de búsqueda">
+
+Un árbol binario dice ser un árbol de búsqueda. Escribamos `isBST`, que recibe
+su raíz y responde si cumple la invariante de orden: para cada nodo, **todos**
+los valores de su subárbol izquierdo son menores que el suyo, y **todos** los
+de su subárbol derecho son mayores. El árbol vacío la cumple.
+
+El árbol con el 8 en la raíz, el 4 y el 12 debajo, y el 2, el 6, el 10 y el 14
+en el último nivel, la cumple. El mismo árbol con un 10 en lugar del 6 no la
+cumple: el 10 está bien con su padre, el 4, pero está a la izquierda del 8.
+
+Revisar cada nodo solo con sus hijos no alcanza, y ese es el ejemplo que lo
+muestra. Cada subárbol tiene un rango de valores permitidos, que se angosta al
+bajar: bajar con ese rango revisa cada nodo contra todos sus ancestros a la
+vez.
+
+```java starter
+class Node<T> {
+    T value;
+    Node<T> left;
+    Node<T> right;
+    Node(T value) { this.value = value; }
+}
+
+class Solution {
+    static boolean isBST(Node<Integer> root) {
+        return false;
+    }
+}
+```
+
+```java test
+Node<Integer> good = new Node<>(8);
+good.left = new Node<>(4);
+good.left.left = new Node<>(2);
+good.left.right = new Node<>(6);
+good.right = new Node<>(12);
+good.right.left = new Node<>(10);
+good.right.right = new Node<>(14);
+check(Solution.isBST(good), true);
+Node<Integer> trap = new Node<>(8);
+trap.left = new Node<>(4);
+trap.left.left = new Node<>(2);
+trap.left.right = new Node<>(10);
+trap.right = new Node<>(12);
+check(Solution.isBST(trap), false);
+check(Solution.isBST(null), true);
+check(Solution.isBST(new Node<>(9)), true);
+Node<Integer> twice = new Node<>(5);
+twice.left = new Node<>(5);
+check(Solution.isBST(twice), false);
+```
+
+```java solution
+class Node<T> {
+    T value;
+    Node<T> left;
+    Node<T> right;
+    Node(T value) { this.value = value; }
+}
+
+class Solution {
+    static boolean isBST(Node<Integer> root) {
+        return isBST(root, Long.MIN_VALUE, Long.MAX_VALUE);
+    }
+
+    static boolean isBST(Node<Integer> node, long min, long max) {
+        if (node == null) return true;
+        if (node.value <= min || node.value >= max) return false;
+        return isBST(node.left, min, node.value)
+            && isBST(node.right, node.value, max);
+    }
+}
+```
+
+</Exercise>
+
+<Exercise title="El problema de Josefo con saltos grandes">
+
+En el problema de Josefo, $$n$$ personas numeradas de 1 a $$n$$ forman un
+círculo. Se cuenta desde la primera, y la $$k$$-ésima sale del círculo; se
+sigue contando desde la siguiente, y la $$k$$-ésima sale; y así, hasta que no
+queda nadie. Escribamos `josephus`, que recibe $$n$$ y $$k$$, los dos mayores
+que cero, y devuelve el orden en que salen.
+
+Con siete personas y saltos de tres, salen en el orden 3, 6, 2, 7, 5, 1, 4. Con
+una sola persona, sale ella; con saltos de uno, salen en orden, de 1 a $$n$$; y
+un salto puede ser más largo que el círculo: con cuatro personas y saltos de
+diez, salen 2, 3, 1, 4.
+
+Con una cola, cada salida hace avanzar a $$k - 1$$ personas, y el total es
+$$\Theta(n \cdot k)$$: con saltos de mil millones, no termina. La dificultad es
+llegar a la $$k$$-ésima persona sin contar de a una. Guardemos a las $$n$$
+personas en un árbol de búsqueda de altura mínima en el que cada nodo sabe
+cuántas personas de su subárbol siguen en el círculo: con esas cuentas se baja
+directo a la persona número $$r$$ entre las que quedan, y sacarla corrige las
+cuentas de un solo camino. Cada salida cuesta $$O(\log n)$$, y todas juntas,
+$$O(n \log n)$$, sea cual sea $$k$$.
+
+```java starter
+import java.util.ArrayList;
+import java.util.List;
+
+class Solution {
+    static List<Integer> josephus(int n, int k) {
+        return new ArrayList<>();
+    }
+}
+```
+
+```java test
+check(Solution.josephus(7, 3), Arrays.asList(3, 6, 2, 7, 5, 1, 4));
+check(Solution.josephus(1, 5), Arrays.asList(1));
+check(Solution.josephus(5, 1), Arrays.asList(1, 2, 3, 4, 5));
+check(Solution.josephus(6, 2), Arrays.asList(2, 4, 6, 3, 1, 5));
+check(Solution.josephus(4, 10), Arrays.asList(2, 3, 1, 4));
+```
+
+```java solution
+import java.util.ArrayList;
+import java.util.List;
+
+class Solution {
+    // Una persona del círculo, en un árbol de búsqueda de altura
+    // mínima sobre 1..n; alive cuenta cuántas personas de su
+    // subárbol siguen en el círculo.
+    static class Seat {
+        int value;
+        int alive;
+        boolean here = true;
+        Seat left;
+        Seat right;
+    }
+
+    static Seat build(int lo, int hi) {
+        if (lo > hi) return null;
+        int mid = (lo + hi) / 2;
+        Seat seat = new Seat();
+        seat.value = mid;
+        seat.alive = hi - lo + 1;
+        seat.left = build(lo, mid - 1);
+        seat.right = build(mid + 1, hi);
+        return seat;
+    }
+
+    static int alive(Seat seat) {
+        return seat == null ? 0 : seat.alive;
+    }
+
+    // Saca a la persona en la posición rank, desde 0, entre las que
+    // siguen en el círculo; cada nodo del camino pierde una.
+    static int removeAt(Seat seat, int rank) {
+        seat.alive--;
+        int left = alive(seat.left);
+        if (rank < left) return removeAt(seat.left, rank);
+        if (seat.here && rank == left) {
+            seat.here = false;
+            return seat.value;
+        }
+        int skipped = left + (seat.here ? 1 : 0);
+        return removeAt(seat.right, rank - skipped);
+    }
+
+    static List<Integer> josephus(int n, int k) {
+        List<Integer> order = new ArrayList<>();
+        Seat root = build(1, n);
+        int position = 0;
+        for (int left = n; left > 0; left--) {
+            position = (position + k - 1) % left;
+            order.add(removeAt(root, position));
+        }
+        return order;
+    }
+}
+```
+
+</Exercise>
+
+<Questions>
+
+<Question id="dilema-lista-ordenada-sin-busqueda-binaria" anchor="un-dilema-entre-buscar-e-insertar">
+
+¿Por qué una lista enlazada ordenada no gana nada con la búsqueda binaria?
+
+- [x] Llegar al elemento del medio obliga a recorrer la mitad de la lista
+- [ ] Al insertar, todos los valores mayores se corren una posición
+- [ ] Sus nodos no se pueden comparar entre sí
+- [ ] Mantener el orden obliga a reordenar la lista después de cada inserción
+
+</Question>
+
+<Question id="decisiones-en-nodos-valor-nuevo" anchor="las-decisiones-guardadas-en-nodos">
+
+Si las decisiones de la búsqueda binaria se guardan como nodos enlazados, ¿dónde queda un valor nuevo?
+
+- [x] Como una hoja, en el lugar donde terminó su búsqueda
+- [ ] En el medio, y los valores mayores se corren un lugar
+- [ ] En la raíz, y el resto del árbol baja un nivel
+- [ ] Al final, después del mayor de todos los valores
+
+</Question>
+
+<Question id="abb-que-exige-la-invariante-de-orden" anchor="la-invariante-de-orden">
+
+¿Qué exige la invariante de orden de un árbol de búsqueda a cada nodo?
+
+- [x] Que todo su subárbol izquierdo sea menor que él, y todo el derecho, mayor
+- [ ] Que su hijo izquierdo sea menor que él, y su hijo derecho, mayor
+- [ ] Que sus dos subárboles tengan la misma altura
+- [ ] Que sus dos hijos sean hojas o tengan ellos mismos dos hijos
+
+</Question>
+
+<Question id="abb-por-que-sin-repetidos" anchor="las-invariantes-del-arbol-de-busqueda">
+
+¿Por qué un árbol de búsqueda no guarda valores repetidos?
+
+- [x] Un valor igual a un nodo no estaría ni a su izquierda ni a su derecha
+- [ ] Cada nodo tiene a lo más dos hijos, y no caben más copias
+- [ ] La búsqueda se detendría antes de llegar a la segunda copia
+- [ ] Un valor repetido aumentaría la altura del árbol
+
+</Question>
+
+<Question id="abb-cuando-termina-una-busqueda-fallida" anchor="buscar-en-un-arbol-de-busqueda">
+
+En un árbol de búsqueda, ¿cuándo termina la búsqueda de un valor que no está?
+
+- [x] Al llegar a un subárbol vacío
+- [ ] Después de revisar todos los nodos del árbol
+- [ ] Al llegar a la hoja más a la derecha
+- [ ] Al volver a la raíz sin haberlo encontrado
+
+</Question>
+
+<Question id="abb-orden-del-inorden" anchor="el-inorden-de-un-arbol-de-busqueda">
+
+¿En qué orden entrega sus valores el inorden de un árbol de búsqueda?
+
+- [x] De menor a mayor
+- [ ] De mayor a menor
+- [ ] Por niveles, desde la raíz hacia abajo
+- [ ] En el mismo orden en que se insertaron
+
+</Question>
+
+<Question id="abb-que-valor-reemplaza-al-de-dos-hijos" anchor="eliminar-un-nodo-con-dos-hijos">
+
+Al eliminar un nodo con dos hijos, ¿qué valor pasa a ocupar ese nodo?
+
+- [x] El de su sucesor: el menor de su subárbol derecho
+- [ ] El de su hijo izquierdo, que sube a su lugar
+- [ ] El mayor de su subárbol derecho
+- [ ] El de la raíz del árbol
+
+</Question>
+
+<Question id="abb-por-que-el-sucesor-no-tiene-dos-hijos" anchor="el-sucesor-tiene-a-lo-mas-un-hijo">
+
+¿Por qué eliminar el sucesor nunca vuelve a ser el caso de dos hijos?
+
+- [x] El sucesor nunca tiene hijo izquierdo
+- [ ] El sucesor siempre es una hoja
+- [ ] El sucesor nunca tiene hijo derecho
+- [ ] El sucesor siempre es hijo de la raíz
+
+</Question>
+
+<Question id="abb-de-que-depende-el-costo" anchor="costos-del-arbol-de-busqueda">
+
+¿De qué depende el costo de buscar, insertar y eliminar en un árbol de búsqueda?
+
+- [x] De la altura del árbol
+- [ ] De la cantidad de hojas
+- [ ] De cuántos nodos tienen dos hijos
+- [ ] Del valor que se busca
+
+</Question>
+
+<Question id="desbalance-valores-ordenados" anchor="altura-maxima-un-arbol-desbalanceado">
+
+Si los valores se insertan de menor a mayor en un árbol de búsqueda, ¿qué forma queda?
+
+- [x] Una cadena que baja siempre por la derecha
+- [ ] Un árbol lleno, con la altura mínima
+- [ ] Una cadena que baja siempre por la izquierda
+- [ ] Un árbol con todas sus hojas en el último nivel
+
+</Question>
+
+<Question id="desbalance-costo-peor-caso" anchor="el-caso-esperado-y-el-peor-caso">
+
+¿Cuánto cuesta buscar en un árbol de búsqueda en el peor caso?
+
+- [x] Lineal, como en una lista enlazada ordenada
+- [ ] Logarítmico, como la búsqueda binaria
+- [ ] Constante, si el valor está en la raíz
+- [ ] Cuadrático, porque compara con cada nodo dos veces
+
+</Question>
+
+<Question id="desbalance-datos-reales" anchor="el-desbalance-con-datos-reales">
+
+¿Por qué el peor caso del árbol de búsqueda no es raro con datos reales?
+
+- [x] Suelen llegar ordenados, como las matrículas o las fechas
+- [ ] Suelen traer valores repetidos, que el árbol rechaza
+- [ ] Son tantos que el árbol no alcanza a balancearse
+- [ ] Llegan al azar, y el azar produce cadenas
+
+</Question>
+
+<Question id="balanceado-que-agrega" anchor="el-arbol-de-busqueda-balanceado">
+
+¿Qué agrega un árbol de búsqueda balanceado a un árbol de búsqueda?
+
+- [x] Arregla su forma después de cada inserción y eliminación
+- [ ] Ordena de nuevo sus valores después de cada inserción
+- [ ] Rechaza los valores que llegan ordenados
+- [ ] Guarda sus valores también en un arreglo
+
+</Question>
+
+<Question id="rotacion-que-cambia" anchor="la-rotacion-a-la-derecha">
+
+¿Qué cambia una rotación en un árbol de búsqueda?
+
+- [x] Su forma, sin romper la invariante de orden
+- [ ] Su invariante de orden, sin cambiar la forma
+- [ ] Los valores de los dos nodos que rota
+- [ ] La raíz del árbol entero, siempre
+
+</Question>
+
+<Question id="rotacion-que-pasa-con-la-altura" anchor="lo-que-una-rotacion-hace-con-la-altura">
+
+Al rotar a la derecha, ¿qué le pasa al subárbol izquierdo del hijo que sube?
+
+- [x] Sube un nivel
+- [ ] Baja un nivel
+- [ ] Se queda en su nivel
+- [ ] Pasa a ser hijo del nodo que baja
+
+</Question>
+
+<Question id="rotacion-simple-no-alcanza" anchor="cuando-una-rotacion-simple-no-alcanza">
+
+¿Cuándo una rotación simple no empareja un árbol cargado a la izquierda?
+
+- [x] Cuando el peso está por dentro: en el subárbol derecho del hijo izquierdo
+- [ ] Cuando el peso está por fuera: en el subárbol izquierdo del hijo izquierdo
+- [ ] Cuando el nodo que rota es la raíz del árbol
+- [ ] Cuando el hijo izquierdo del nodo es una hoja
+
+</Question>
+
+<Question id="avl-que-exige-la-invariante-de-balance" anchor="la-invariante-de-balance">
+
+¿Qué exige la invariante de balance de un árbol AVL a cada nodo?
+
+- [x] Que las alturas de sus dos subárboles difieran a lo más en uno
+- [ ] Que sus dos subárboles tengan exactamente la misma altura
+- [ ] Que sus dos subárboles tengan la misma cantidad de nodos
+- [ ] Que todas las hojas estén en el mismo nivel
+
+</Question>
+
+<Question id="avl-factor-menos-dos" anchor="el-factor-de-balance">
+
+¿Qué dice un factor de balance de −2 en un nodo?
+
+- [x] Que su lado izquierdo es dos niveles más alto que el derecho
+- [ ] Que su lado derecho es dos niveles más alto que el izquierdo
+- [ ] Que al nodo le faltan dos hijos para estar lleno
+- [ ] Que el nodo está dos niveles bajo la raíz
+
+</Question>
+
+<Question id="avl-donde-se-rompe" anchor="donde-se-rompe-la-invariante">
+
+Después de insertar en un árbol AVL, ¿en qué nodos puede haberse roto la invariante de balance?
+
+- [x] Solo en los nodos del camino de la inserción
+- [ ] Solo en la raíz del árbol
+- [ ] Solo en el padre de la hoja nueva
+- [ ] En cualquier nodo del árbol
+
+</Question>
+
+<Question id="avl-rotaciones-por-insercion" anchor="inserciones-en-un-mismo-arbol-avl">
+
+¿Cuántas veces rota, a lo más, una inserción en un árbol AVL?
+
+- [x] Una vez, con una rotación simple o una doble
+- [ ] Una vez por cada nivel del camino de vuelta
+- [ ] Ninguna, si los valores llegan ordenados
+- [ ] Dos veces, porque siempre hace una doble
+
+</Question>
+
+</Questions>
+
+## Lo que sigue
+
+Un árbol binario con un orden más débil que el de búsqueda —cada padre mayor
+que sus hijos— guarda siempre el máximo en su raíz, queda completo y vive en
+un arreglo, sin referencias.
+[[edd-priority-queue-heap|Estructuras de Datos · Priority Queue y Heap]]
+estudia esa estructura, el heap, y el contrato que implementa: la cola de
+prioridad.

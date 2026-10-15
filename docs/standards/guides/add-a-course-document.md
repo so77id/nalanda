@@ -60,7 +60,8 @@ content/courses/sample-course/
 ├── 18-edd-listas-enlazadas.mdx  # presentation: explicit, questions: pool — <SequenceStepper> ×13 (the worked case) + <Exercise> ×5 with the `solution` fence
 ├── 19-edd-stack-queue.mdx     # presentation: explicit, questions: pool (13) — <SequenceStepper> ×8 over BOTH families (dynamic-array + singly) + <StepShow> ×7 + <Exercise> ×4 + 20 standalone inline SVG figures + a file-local <Paso> frame component + two TDA cards
 ├── 20-edd-priority-queue-heap.mdx  # presentation: explicit, questions: pool (16) — <SequenceStepper eda="heap-max"> ×4 + <StepShow> ×3 + <Exercise> ×4 (three worked on slides, one posed) + <PresentationWide> ×3 + 23 file-local figure components and LIST_COLORS (§6e-quater) + a TDA card (the fifth copy)
-├── 21-edd-arboles-i.mdx       # presentation: explicit, questions: pool (19) — opens the Estructuras de Datos Avanzadas unit, ahead of chapter 20 in index.yaml; <SequenceStepper eda="binary-tree"> ×5 (its worked case, ADR-0083) + <StepShow> ×12 + <SideBySide> ×3 + <Exercise> ×5 (three worked, each on its slide — the widest level's and the calculator's in a scrolling window, being longer than 32 lines — and two posed) + <PresentationWide> ×18 + eight file-local figure components (HierarchyPicture, TreeMemory, OrderRule, BinaryPicture, BinaryMemory, NodeGraph, TokenRow, StackRow); the search tree moved to Árboles II (#322)
+├── 21-edd-arboles-i.mdx       # presentation: explicit, questions: pool (19) — opens the Estructuras de Datos Avanzadas unit, ahead of chapter 20 in index.yaml; <SequenceStepper eda="binary-tree"> ×5 (its worked case, ADR-0083) + <StepShow> ×12 + <SideBySide> ×3 + <Exercise> ×5 (three worked, each on its slide — the widest level's and the calculator's in a scrolling window, being longer than 32 lines — and two posed) + <PresentationWide> ×18 + <BinaryPicture> ×162, <NodeGraph> ×2 and <OrderRule> ×6 (the content components #322 promoted from it, §6e-quinquies) + five file-local figure components (HierarchyPicture, TreeMemory, BinaryMemory, TokenRow, StackRow); the search tree moved to Árboles II (#322)
+├── 22-edd-arboles-ii.mdx      # presentation: explicit, questions: pool (20, each with one correct alternative, approved two at a time, closed at the AVL's insertion) — the second class of the Estructuras de Datos Avanzadas unit, after edd-arboles-i in index.yaml and closing toward edd-priority-queue-heap: a growing set from the sorted array to the search tree, its operations, the unbalance, the rotations, the AVL tree and the other trees; <SequenceStepper> ×18 (bst ×9, every operation in the theory-cases-code-cost order and its code public over private, avl ×8 — the avl recipe's worked case, ADR-0086 —, dynamic-array — the binary search, its worked case, ADR-0074 §Amended by #322) + <BinaryPicture> ×177 (§6e-quinquies, triangles for the generic rotation, splits for the binary search's decisions) + <NodeGraph> ×2 + <OrderRule> + <PresentationWide> ×9 + <StepShow> ×3 (the iterator's whole class in one, `beside` its drawing on the slide) + <Exercise> ×6 (three worked, each with its program on a slide — the iterator's and the intersection's in a scrolling window —, and three posed, book-only) + eight file-local figure components (SortedRow, OrderSides, and the exercises' ValueBox, StackColumn, PendingStack, PendingStrip, CrossStrip, AnswerRow: the iterator's pending stack in the stack class's idiom, and the hand runs of the iterator and the intersection drawn one column per state, as the heap class's TopKStrip)
 ├── tda-eda-invariante.svg, arreglo-memoria.svg, arreglo-alocacion.svg, arreglo-invariante-valido.svg, arreglo-invariantes.svg, regla-del-cuarto.svg, costo-acumulado.svg   # assets for chapter 17
 └── index.yaml                 # the ordered teaching path
 ```
@@ -236,7 +237,12 @@ the frontmatter `id`, never the path. v0.1 supports exactly ONE course directory
    language: ` ```C++ `, ` ```c++ `, ` ```py ` and
    ` ```Java ` all fall through to plain monospace. Nothing warns you —
    the page renders, it just renders grey. If a fence you expected to be
-   coloured is not, check its tag before anything else.
+   coloured is not, check its tag before anything else. A ```` ```java ````
+   fence of methods on their own colours since #322 — the grammar re-reads a
+   source that fails as a program as the members of a class — except after
+   an `import` or `package` line, in a source over 20,000 characters, or when
+   the methods are mixed with statements outside them: split such a fence,
+   or wrap it in its class (`runtime/java/grammar.ts`).
 
    Three consequences worth knowing, all measured rather than assumed:
 
@@ -645,9 +651,9 @@ truth-preserving job back to you. Draft the states with the snippet in a
 `<CodeEditor>` open beside the doc, and step through them at 1440px in both
 themes before committing.
 
-Six things worth knowing before you write one:
+What is worth knowing before you write one:
 
-- **The listing is not syntax-coloured.** Highlighting is a per-line box
+- **The step highlight is a per-line box**, over a syntax-coloured listing
   (`lines={[8, 9]}` lights lines 8 and 9 of the listing; numbers are 1-based
   and blank lines count). Empty is legal — a step whose lesson is what
   appears beside the code, not which line is running, passes `lines={[]}`.
@@ -674,8 +680,28 @@ Six things worth knowing before you write one:
 - **Cross-frame aliasing is announced in the accessible name** —
   `main.a` and `swap.q` naming the same object id come out as "apuntan al
   mismo objeto" so a reader who cannot see the arrows still gets the lesson.
+- **One assignment per step.** Each `<Step>` lights the one statement that
+  changes something — a loop's test and its body are two steps, a push and
+  the move that follows it two more. Several lines lit at once collapse the
+  lesson into a summary (Miguel, #209; re-applied to every walk of #322's
+  exercises). Worked case: the iterator's walk in `22-edd-arboles-ii.mdx`.
+- **On a slide, every frame keeps one size.** The deck rescales the slide
+  whenever its content changes size, so a frame taller than the others
+  shrinks the whole slide as the reader steps onto it. Reserve the largest
+  frame: a narration in a box of fixed height (`minHeight`), a figure that
+  always has room for its most items, notes or badges passed on every frame
+  if any frame has them. Sweep every frame for one scale
+  (`teach-a-data-structure.md` §Checklist; the rule is
+  `frontend-code-style.md` §Styling).
 - **State is scoped per widget.** Two `<StepShow>`s on one page step
   independently.
+- **A long listing with a small drawing goes `beside`.** On a slide,
+  `<StepShow beside>` puts the drawing to the right of the code and breaks
+  out to three quarters of the viewport instead of half; the book stacks as
+  always. It exists for a whole class walked in one widget — #322's BST
+  iterator, twenty-eight lines, put the slide at 0.577 stacked and at 0.755
+  beside. The code column it leaves is narrower than the stacked panel; its
+  measurements are in `teach-a-data-structure.md` §6bis.
 - **No Java compiler.** The widget mounts no JVM. It DOES load CodeMirror
   for syntax-coloured listings (through `<CodeStepper>` and
   `loadGrammar('java')`, same shape every other `java` fence on the site
@@ -862,11 +888,78 @@ numbering, which would hang it under 3 (ADR-0083 §4). A value with no parent
 is refused, so are gaps left over at the end, a `null` on any other recipe is
 refused, and the cap of eight counts nodes, not gaps. A value may also be a symbol, so an expression tree keeps its operators
 (`values={['*', '+', '−', 3, 4, 5, 1]}` is (3 + 4) * (5 − 1)); a symbol on
-any other recipe is refused too. `search` keeps one name over the chains
-and the tree.
+any other recipe is refused too. A second tree recipe, `bst`, is the search tree: `values` is the
+insertion order that builds it (a repeated value is refused), `search`
+chooses a side at every node and fades the one the invariant rules out,
+`insert` (`value`, an array for several) hangs each value as a leaf in a
+column reserved from the first frame — with no strip under it: a search tree
+keeps no array, and a strip there read as one (#322); with `program` and
+`values={[]}` the listing is the program that builds the tree, one frame per
+`tree.insert(x);` line — and `remove` (`target`) runs the three cases — a leaf, one child, and two
+children by copying the successor's value into the node and removing the
+successor; with `program` and `target` an array, the program — the tree
+built by a loop of insertions, then one `tree.remove(x);` per target — is
+listed beside the method, which is walked for every removal with the
+program's line lit. `inorder` walks it as the binary tree's does. Every `bst` listing
+is the method the tree offers, `public`, and for the recursive ones the
+`private` method it calls with the root; the first frame lights that call
+(#322). `search` keeps one name over the chains and both trees, `insert`
+over the heap and `bst`. The binary search and `bst`'s `search` write the
+value sought beside the structure on every frame («se busca el 6»).
+`iterative` puts the recursive version of an
+operation on the left and the iterative one on the right, the two listings
+lit at the same moment (#322): on `bst` × `search` and `insert`,
+and on `dynamic-array` × `binary-search` with one target — the operations
+whose two versions take the same decisions in the same order. `remove`, the
+AVL's operations and the traversals stay recursive: the first needs the
+parent of every node, the AVL rebalances on the way back, and an iterative
+traversal needs a stack of its own. Anywhere else `iterative` is an
+authoring error.
+Since #322 a third tree recipe, `avl`, rotates: `rotate-right` and
+`rotate-left` (`target`, the node that rotates; it needs the child that goes
+up), valid on no other recipe. For them `values` builds a PLAIN search tree,
+inserted in that order with no rebalancing, so a slide can rotate a tree
+that leans (`values={[3, 2, 1]} target={3}`). One frame per reference the
+method changes; every node holds its level until the caller takes `q`, so
+the frames in between show a subtree with two parents and `q` pointing back
+up at `p` — that reference gets an arrowhead — and the strip keeps the same
+inorder from the first frame to the last. The listing is the class's
+rotation before the AVL gives its nodes a height (ADR-0086). The double rotations are operations too, `rotate-left-right` and
+`rotate-right-left` (`target`, the node; it needs the child on the side it
+leans and that child's grandchild inside): their listing is the method of
+two calls, with `rotateLeft` and `rotateRight` side by side under it, and
+each call is walked inside its simple rotation an assignment at a time
+while the call stays lit above; the names on the drawing are the running
+method's (Miguel's review: with one frame per call "the steps get lost"). Rotate a tree that LEANS, so the rotation lowers it
+and the last frame says so — equal sides come out as a mirror (#322).
+`avl` also takes `insert` (`value`, an array for several) and
+`remove` (`target`), the search tree's listings — the public method over the
+private one, the first frame lighting the public call — with `return
+balance(node)` as the private one's last line; for these two `values` builds a REAL AVL, rotating as it goes,
+with no frames. Every node carries its balance factor in a badge (`+1`,
+`0`, `−2`), read off the heights the nodes store — so a factor above the
+node being balanced may still be the old one, and changes when the walk
+back reaches it. Each node of the way back gets its `balance` frame; a
+rotation inside them is one frame, a double one two. `insert` and `remove`
+list `balance` beside them, and every frame of the walk back lights what
+`balance` does in it (stacked under `insert` the slide measured 0.545; side
+by side it is as tall as the taller listing). Two listings share the width
+in halves, three (with `program`) a fifth and two fifths each; `remove` is
+the search tree's without its comments, which do not fit. The class also puts `balance` on a slide of its own, as a fence, with
+the same lines. The drawing
+holds twelve nodes on `avl` × `insert` and `remove` (a real AVL is at most
+four levels tall with twelve) and eight everywhere else: enough for a
+removal that rotates at two levels, whose smallest tree has twelve nodes.
+`avl` × `insert` (from `values={[]}`) and `avl` × `remove` (from the tree
+`values` builds, `target` an array) also run as a program, shown as the
+search tree's program of removals: the program beside the method and
+`balance`, walked for every call with its program line lit. A class walks
+ONE value through the code first, then the run beside it; a run of
+removals is chosen to go through every case of the rebalancing.
 `values` is the starting contents; `value` feeds the inserts, `index` the
-positional operations (`get-at` included), and `target` both `search` and
-`insert-ordered`.
+positional operations (`get-at` included), and `target` the searches
+(`search`, `binary-search`), `insert-ordered`, and on the trees the node an
+operation acts on (`remove`, the rotations).
 
 **Every argument also takes an ARRAY, and that is the default shape for a
 slide about cost.** `value={[9, 4, 6]}`, `index={[0, 3, 6]}`,
@@ -878,8 +971,9 @@ ignores `times`. **At most twelve runs**, on every recipe — beyond that nobody
 follows the steps on a slide, and the widget says so. One run shows what the operation DOES;
 several runs show what it COSTS, because the reader watches the walk change
 length instead of being told it does. `insert-at` needs one `index` per
-`value`. `insert-first`, `insert-last` and the heap's `insert` also accept
-`values={[]}`, so a slide can build a chain — or a heap — from nothing.
+`value`. `insert-first`, `insert-last`, the heap's `insert` and the search
+trees' `insert` also accept `values={[]}`, so a slide can build a chain, a
+heap or a tree from nothing.
 
 The widget's own chrome carries a speed selector and, in the corner of the
 structure panel, two readouts: the live `size` (`n` on the heap, the name its
@@ -892,9 +986,12 @@ an authoring choice, and no slide has to ask for them.
 
 The multi-run form appends the calling program under the method, and each
 frame lights both the line inside the method and the call being run — on
-every recipe but `binary-tree`, whose listings are the recursive methods
-themselves: several `target`s replay the same `contains` listing from a clean
-tree, with no calling program. Indices
+the chains, the dynamic array and the heap. `binary-tree`'s listings are the
+recursive methods themselves: several `target`s replay the same `contains`
+listing from a clean tree, with no calling program. The search trees put the
+program BESIDE the method instead, and only with `program` (above): on
+`bst`'s removals and `avl`'s insert and remove; `bst`'s insertions show the
+program alone, one frame per line. Indices
 are checked against the structure as it is BY THEN, not as it started, and a
 removal asked for more times than the chain has nodes is refused at boot —
 the listing throws there. `tail` draws a tail pointer on a list, and on
@@ -906,7 +1003,7 @@ the widget's `insertLast` would introduce a listing the class chose not to
 teach, under a name the slide teaches as `push`) — and
 `autoplay` / `speed` behave as in every other stepper.
 
-Six things worth knowing before you write one:
+What is worth knowing before you write one:
 
 - **Showing the same operation over two structures is two nearly identical
   tags.** That is what the widget is for; the surface does not change between
@@ -919,8 +1016,12 @@ Six things worth knowing before you write one:
   may copy, so a pair is valid only when the listing belongs to the structure
   the picture draws. `dynamic-array` and `linked-list-singly` take all nine
   (bar `insert-ordered` on the dynamic array — this course presents order as
-  a variant of the list and never defines an ordered array). The two VARIANT
-  recipes take less, and the heap and the binary tree take only their own:
+  a variant of the list and never defines an ordered array). The dynamic
+  array alone takes a tenth, `binary-search` (#322): a list cannot reach its
+  middle in one step, and `values` must be sorted with no repeats, or the
+  widget refuses it — it would otherwise answer wrongly with no error. The
+  two VARIANT recipes take less, and the heap and the trees take only their
+  own:
 
   | Receta                 | Operaciones                                                                             |
   | ---------------------- | --------------------------------------------------------------------------------------- |
@@ -928,10 +1029,14 @@ Six things worth knowing before you write one:
   | `linked-list-circular` | `insert-first`                                                                          |
   | `heap-max`             | `insert`, `extract-max` (y ninguna otra receta acepta estas dos)                        |
   | `binary-tree`          | `preorder`, `inorder`, `postorder`, `height` (y ninguna otra receta acepta estas cuatro), y `search` |
+  | `bst`                  | `search`, `insert`, `inorder`, `remove` (la última, solo en los árboles de búsqueda: `bst` y `avl`) |
+  | `avl`                  | `rotate-right`, `rotate-left`, `rotate-left-right`, `rotate-right-left` (solo aquí), `insert`, `remove` |
 
   Anything else is an `<AuthoringError>` naming the operations that recipe does
   have; a heap operation on a Sequence recipe is refused pointing at
-  `eda="heap-max"`, and a tree operation pointing at `eda="binary-tree"`.
+  `eda="heap-max"`, a traversal or `height` pointing at
+  `eda="binary-tree"`, a rotation at `eda="avl"`, and `remove` at
+  `eda="bst"` or `eda="avl"`.
   Ask for one it does not and the answer tells you which to
   use instead.
 
@@ -941,8 +1046,9 @@ Six things worth knowing before you write one:
   argument. A removal is checked against the structure as the runs before it
   left it, so three `pop` over two elements is refused at boot.
 - **`method` and `receiver` show the listing under the document's own
-  names** — on the chains and the heap; `binary-tree` has no calling program
-  to rename, and ignores them. A class that has just taught `pop` =
+  names** — on the chains and the heap. The trees ignore them: `binary-tree`
+  has no calling program to rename, and the programs of `bst` and `avl`
+  always name the tree `tree`. A class that has just taught `pop` =
   `deleteFirst` and then mounts
   the widget gets a listing saying `deleteFirst`, three times, over a
   variable called `list` — the pila's own method, wearing the chain's name.
@@ -974,8 +1080,10 @@ Six things worth knowing before you write one:
 - **The widget refuses the author, not the reader.** An index outside the
   structure, an unsorted list handed to `insert-ordered`, a heap that does not
   start as a max-heap, a `capacity` that is not an integer or is too small for
-  `values`, an unknown recipe, a pair the recipe does not offer, or more than
-  eight values — each renders an `<AuthoringError>` naming the problem.
+  `values`, `values` that are not sorted with no repeats on `binary-search`,
+  an unknown recipe, a pair the recipe does not offer, `program` together
+  with `iterative`, or more nodes than the cap below — each renders an
+  `<AuthoringError>` naming the problem.
 
   **`npm run test` does NOT see these.** The widget is registered lazily, so
   `app/contentRenders.test.tsx` paints the `<Suspense>` fallback and never
@@ -985,8 +1093,13 @@ Six things worth knowing before you write one:
   the document mounts to `SequenceStepper.test.tsx`, which renders the real
   component.
 
-- **Up to eight values.** Beyond that the nodes stop being legible projected,
-  and the widget says so instead of drawing them.
+- **Up to eight values — twelve on `avl` × `insert` and `remove`.** Beyond
+  that the nodes stop being legible projected, and the widget says so
+  instead of drawing them. The exception (ADR-0086 §4): a real AVL of twelve
+  nodes is at most four levels deep, where a search tree of twelve can be a
+  chain eleven deep. The bar for the next one: a recipe whose own invariant
+  bounds the drawn height at that size, with the slide measured. A single
+  `value` counts as one, as a list of one does.
 - **It already breaks out of the prose column in presentation**, like
   `<SortStepper>` and `<StepShow>`. Do **not** wrap it in
   `<PresentationWide>` — that doubles the breakout and lands it off centre
@@ -996,8 +1109,9 @@ Six things worth knowing before you write one:
   SVG — open it in `npm run preview`, in the book and on its slide, in both
   themes, and walk it.
 
-Decisions behind all this: ADR-0074, extended by ADR-0077 for the heap and
-by ADR-0083 for the binary tree.
+Decisions behind all this: ADR-0074, extended by ADR-0077 for the heap, by
+ADR-0083 for the binary tree and the search tree, and by ADR-0086 for the
+AVL; ADR-0074's `Amended by: #322` for `binary-search`.
 Live: `/catalog/c/SequenceStepper`.
 
 6. **Show a picture, or embed a live document (optional)** — pictures in 6a–6f,
@@ -1150,7 +1264,11 @@ the page, and inline SVG is the page.
 
 - **Palette tokens, always** — `style={{ fill: 'var(--color-ink)' }}`, never
   the `#fdfbf9` / `#2b221d` values 6e-bis licenses for an `<img>`. Those
-  paint a theme-blind rectangle inside a themed page.
+  paint a theme-blind rectangle inside a themed page. **Text takes a text
+  token** (`ink`, `ink-soft`, `ink-faint`, `accent`, `flag`, `keep`,
+  `mark`): `focus` and `rule-strong` are strokes only, and so is a coloured
+  disc under a digit (`design-system.md` §The pairing table and §The tree
+  figures' palette, #322).
 - **No opaque panel and no contrast arithmetic.** The tokens are already
   correct in both themes, which is the whole reason to author inline.
 - **`role="img"` and a Spanish `aria-label`** on the `<svg>` itself.
@@ -1213,8 +1331,9 @@ What that costs, and the rules that follow from it:
   review of #304 found nine of them left over from redraws. One exception, and
   the bar for the next: a prop that a copy of the component on a stacked
   branch passes stays, so the two copies remain the same for the branch that
-  promotes them, and the note at the definition names that issue (#321 →
-  #322, `BinaryPicture`'s `notes`). The promotion retires it.
+  promotes them, and the note at the definition names that issue. Worked
+  case, retired: `BinaryPicture`'s `notes` was kept on #321's copy for #322's,
+  and #322's promotion deleted both copies with the note.
 - **One that copies a tested module's geometry names it, and is named back.**
   #304 is the second worked case and the larger one — 23 exports plus
   `LIST_COLORS` for the heap pictures and three exercises, some composing
@@ -1225,6 +1344,92 @@ What that costs, and the rules that follow from it:
   match. The copy is the one that fails late — nothing tests it, so a moved
   constant shows only in a browser — and both ends say so
   (`documentation.md`, "Two shapes").
+- **The first promotion is `<BinaryPicture>`** (#322). Árboles I drew 162
+  trees with a local `BinaryPicture`; Árboles II was the second document to
+  want it, and for a day carried a copy kept level by hand — five commits did
+  nothing else. Promoting it cost a typed port, a catalog entry, a pure layout
+  module with its tests and the two deletions, and it bought what the copy
+  could not: the geometry it shared with the widget now lives in one module
+  both import (`components/treeGeometry.ts`), and a test checks the figure
+  against the widget instead of a comment asking the next author to. Promote
+  at the second document, not after the second has started copying.
+- **A piece of a figure is not a figure, and the promotion rule stops at
+  figures.** A `<g>` that draws one box at an `x` and `y` cannot be mounted on
+  its own in MDX — it needs an `<svg>` around it and has no `role` or label —
+  so promoting it buys a catalog page nobody can use. When a second document
+  copies one, the copy is kept and the two name each other at their
+  definitions (`documentation.md`, "Two shapes"). Worked case: Árboles II's
+  `ValueBox` is the heap class's `NumBox` without its struck-through and faint
+  tones (#322 review).
+
+6e-quinquies. **Draw a binary tree: `<BinaryPicture>`**, a static figure with
+the geometry of the binary-tree recipe of `<SequenceStepper>` — every node in
+the column of its inorder position and on the row of its depth, at the same
+sizes — so a figure and the widget beside it draw the same tree. Use it for a
+tree in ONE state: a definition, a counterexample, one frame of a `<StepShow>`
+beside its line of code. To walk an operation frame by frame, use the widget.
+Its colours for a traversal, a level of the splits and the two sides of a
+node are fixed across the unit (`design-system.md` §The tree figures'
+palette).
+
+- `tree` is `{ v, l, r }`, a side left out when empty; a value is a number or
+  a symbol (an expression keeps its operators). `label`, in Spanish, is
+  required.
+- **Values are unique within one tree**, because everything else is keyed by
+  value: `tones={{ 3: 'focus' }}` (`idle`, `focus`, `mark`, `keep`,
+  `accent` — the unit's "being moved", the two nodes of a rotation — `done`,
+  `faint`, `hidden`), `badges`, `notes`, `edgeLabels`, `frames`. A missing
+  label or a repeated value renders an authoring error (§6f).
+- **A whole subtree as a triangle**: `subtrees={['A', 'B', 'C']}` draws those
+  values as named triangles in their columns — the generic rotation, whose
+  subtrees move whole. A triangle draws no empty children. `tall={['A']}`
+  draws some of them a level taller, the side that weighs more, so a
+  rotation's before and after show the height it moves (#322: a rotation of
+  equal subtrees reads as a mirror, Miguel's review).
+- **A rotation about to happen**: `turn={{ at: 'p', dir: 'right' }}` draws a
+  curved arrow over the edge from `p` to the child the rotation lifts —
+  clockwise over the left child for `right`, counterclockwise over the right
+  child for `left` — on the picture BEFORE the rotation, so the reader sees
+  which way it turns (#322, Miguel's review: "the drawing should show the
+  rotation's effect"). Without that child it is an authoring error.
+- **An order**: `visits="pre" | "in" | "post"` numbers the nodes and draws an
+  arrow from each visit to the next; `sequence` writes the order as a row of
+  chips; `until` stops it at a value, as a search does; `strip` writes the
+  inorder under the tree, each value under its own node.
+- **A binary search's divisions**: `splits` replaces the strip with one row
+  per level — every node over the stretch of the sorted array it halves, the
+  node filled as its middle — and gives each level a colour its nodes and
+  stretches share (a written tone still wins). Árboles II's decision tree
+  (#322).
+- **A recursion**: `path` lights the open calls from the root down; `probe`
+  (`{ at, side: 'l' | 'r' }`) draws a call that landed on an empty side;
+  `holes` draws the empty trees (all, or under a list of values — an empty
+  list keeps their room, so the frames of one walk keep one height); `swap`
+  joins two exchanged nodes; `seek` writes the value a search looks for.
+- **A tree built in steps**: a node toned `hidden` keeps its place; `fresh`
+  marks the edge of the node just added; `emptyNote` is what an all-hidden
+  drawing says (`root = null`, or nothing).
+- **Measure**: `levels`, `ruler="h = 2"`, `levelNotes`; **size**: `compact`
+  for three in a row, `size` to scale it, `minColumns` so figures side by
+  side come out the same size.
+
+The full props table, with live examples, is its catalog page
+(`/catalog/c/BinaryPicture`).
+
+Two smaller figures came out of Árboles I the same way, when Árboles II
+wanted them (#322):
+
+- **`<NodeGraph>`** draws nodes at explicit grid positions joined by edges —
+  for what `<BinaryPicture>` cannot draw because it is not a tree: a node with
+  three children, a node with two parents. The counterexamples to a tree's
+  invariants; `mark` on the node and the edges that break the rule.
+- **`<OrderRule>`** writes a traversal's rule as pills joined by arrows
+  (`izquierda → raíz → derecha`), in the traversal's colour. It goes first on
+  the slide that introduces a traversal, before the drawing that walks it and
+  before the widget that runs its code.
+
+Both are pure markup with no package of their own and register eagerly, as
+`<BinaryPicture>` does; their catalog pages carry the props.
 
 6f. **An authoring error does not fail the build**, on purpose: writing the
 slides before drawing the diagrams is a real order of work, and gating the
@@ -1656,6 +1861,11 @@ last block, so no stale copies accumulate.
       runs the content integrity gate; the declaration invariant and the fixture
       guards live in the suite, so the build alone goes green on content CI
       rejects (#108).
+- [ ] A document of more than about a hundred figures or twenty editors:
+      its book page's longest load task taken at full speed and at a 4x CPU
+      throttle, beside the previous document's, and both put in the PR
+      (`testing-strategy.md` §Conventions, "A book page renders in one long
+      task"; #322).
 - [ ] Every `<StepShow>` + `<MemoryVisual>` opened in `npm run preview` and
       stepped through: each `<Step>` renders the intended picture, prev / next /
       reset walk the sequence with the right line lit, cross-frame aliasing

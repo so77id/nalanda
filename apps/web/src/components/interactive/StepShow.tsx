@@ -14,8 +14,8 @@ export interface StepShowProps {
   /** The listing shown on the code side, constant across steps. */
   code: string;
   /**
-   * Language label the code is written in. Informational — the listing is not
-   * syntax-coloured today (`CodeStepper.tsx`).
+   * The language the listing is coloured as: a runtime id loads that grammar
+   * (`loadGrammar`), anything else falls back to Java (`CodeStepper.tsx`).
    */
   language?: string;
   /** Optional heading, rendered above the panels. */
@@ -32,6 +32,14 @@ export interface StepShowProps {
    * Default `normal`. The reader can override in the UI.
    */
   speed?: 'slow' | 'normal' | 'fast';
+  /**
+   * On a slide, the drawing sits beside the listing instead of under it, and
+   * the widget takes three quarters of the viewport. For a listing too long
+   * to stack over its drawing — a whole class walked in one widget (#322) —
+   * whose drawing is small. The book keeps the stack: there the widget gets
+   * ~700px, and two columns shrink the drawing to unreadable (#116).
+   */
+  beside?: boolean;
   /** `<Step>` elements. Order is step order; anything else is ignored. */
   children?: ReactNode;
 }
@@ -77,6 +85,7 @@ export function StepShow({
   title,
   autoplay = false,
   speed = 'normal',
+  beside = false,
   children,
 }: StepShowProps) {
   const steps = Children.toArray(children).filter(
@@ -113,6 +122,10 @@ export function StepShow({
   // `<SortStepper>` (`useViewportBreakout`).
   const mode = useMode();
   const isPresentation = mode === 'presentation';
+  // Beside only on a slide, where the breakout gives both columns room; the
+  // two columns need half again the stacked width (a 57-column listing and a
+  // drawing beside it), so the widget asks for three quarters.
+  const isBeside = beside && isPresentation;
 
   // Pause playback when the widget is not intersecting the viewport. Book
   // mode may host many step widgets on one page; without this, every one
@@ -121,7 +134,7 @@ export function StepShow({
   const outerRef = useRef<HTMLDivElement | null>(null);
   useViewportBreakout(outerRef, {
     enabled: isPresentation,
-    fraction: 0.5,
+    fraction: isBeside ? 0.75 : 0.5,
   });
   const [isVisible, setIsVisible] = useState(true);
   useEffect(() => {
@@ -232,10 +245,32 @@ export function StepShow({
         A media query cannot fix it; what is narrow is the container, not the
         viewport. Full width each, both legible. Earned in the widget this
         one supersedes (#116).
+
+        `beside` is the one exception, and only on a slide: there the widget
+        breaks out to three quarters of the viewport, which leaves the code
+        column a little narrower than the stacked widget and the drawing as
+        wide as most need (measured in teach-a-data-structure.md §6bis). #322
+        asked for it when a whole class — twenty-eight lines — stacked over its
+        drawing put the slide at 0.577.
       */}
-      <div className="flex flex-col gap-px bg-rule">
+      <div
+        data-layout={isBeside ? 'beside' : 'stacked'}
+        className={
+          isBeside
+            ? 'grid grid-cols-[minmax(0,1fr)_minmax(0,0.8fr)] gap-px bg-rule'
+            : 'flex flex-col gap-px bg-rule'
+        }
+      >
         <CodeStepper code={code} highlightLines={currentLines} language={language} />
-        <div className="max-h-96 overflow-auto bg-surface p-3">{currentVisual}</div>
+        <div
+          className={
+            isBeside
+              ? 'flex flex-col justify-center bg-surface p-3'
+              : 'max-h-96 overflow-auto bg-surface p-3'
+          }
+        >
+          {currentVisual}
+        </div>
       </div>
 
       {/*
