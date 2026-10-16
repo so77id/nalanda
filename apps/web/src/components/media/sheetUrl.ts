@@ -1,5 +1,5 @@
 /**
- * A Google Sheets share url, captured as (spreadsheet id). Three parts earn
+ * A Google Sheets share url, captured as (spreadsheet id). Four parts earn
  * their keep:
  *
  * - **Anchored at the scheme and the host**, because this value ends up in an
@@ -13,28 +13,34 @@
  *   `/spreadsheets/d/e/<token>/…`, out of this pattern. Without them it matches,
  *   captures the literal `"e"` as the id, and builds `/spreadsheets/d/e/preview`
  *   — a 404 that frames Google's own "el archivo que solicitaste no existe" with
- *   the whole suite green (#146 review). Real ids are 40+ characters. Either
- *   part alone refuses it — `/` is not in `[\w-]`, so the captured `"e"` can
- *   never reach the floor — and the lookahead stays because it is the one that
- *   says why (mutated in #336: only removing both turns a `/d/e/` url into the
- *   404). The published form has a pattern of its own since #336, below, and
- *   this one must still refuse it: otherwise every `/d/e/` url that is not a
- *   `/pubhtml` one would be rewritten into that 404 instead of reported.
+ *   the whole suite green (#146 review). Real ids are 40+ characters. The floor
+ *   alone would refuse it too (`/` is not in `[\w-]`), but the floor is about
+ *   id length; the lookahead fences off the `/d/e/` namespace, and still holds
+ *   if the floor is ever lowered. The published page has a pattern of its own,
+ *   below; every other `/d/e/` url must still be refused here, not rewritten
+ *   into that 404.
+ * - **`(?![\w-]|\/pub)`** refuses the id-based published link Google handed out
+ *   before the `/d/e/` token, `/d/<id>/pubhtml?…&range=…`. Rewritten to
+ *   `/preview` it would silently drop `range` and `single` and frame the whole
+ *   sheet. The `[\w-]` half keeps the id capture maximal: without it the
+ *   pattern backtracks to a shorter id, whose next character is not a `/`, and
+ *   the `/pub` check passes.
  */
-const SHARE_URL = /^https:\/\/docs\.google\.com\/spreadsheets\/(?:u\/\d+\/)?d\/(?!e\/)([\w-]{20,})/;
+const SHARE_URL =
+  /^https:\/\/docs\.google\.com\/spreadsheets\/(?:u\/\d+\/)?d\/(?!e\/)([\w-]{20,})(?![\w-]|\/pub)/;
 
 /**
  * A Google Sheets *published* url, the one Archivo → Compartir → Publicar en la
- * web hands out as a page. Anchored like the share pattern and for the same
- * reason, and also **closed at the end of the path**, because this url reaches
- * the frame verbatim: without `(?:[?#]|$)`, `…/pubhtml/../../document/…` passes
- * and the browser resolves it to another docs.google.com document altogether.
- * The token Google mints is ~86 characters (`2PACX-…`); the floor is the share
+ * web hands out as a page, captured as (token, query-and-fragment). Anchored
+ * like the share pattern and for the same reason, and **closed at the end of
+ * the path**: without `([?#]…)?$`, `…/pubhtml/../../document/…` passes and the
+ * browser resolves it to another docs.google.com document altogether. The
+ * token Google mints is ~86 characters (`2PACX-…`); the floor is the share
  * pattern's. The other published outputs (`/pub?output=csv`, …) are downloads,
  * not pages, and are refused.
  */
 const PUBLISHED_URL =
-  /^https:\/\/docs\.google\.com\/spreadsheets\/d\/e\/[\w-]{20,}\/pubhtml(?:[?#]|$)/;
+  /^https:\/\/docs\.google\.com\/spreadsheets\/d\/e\/([\w-]{20,})\/pubhtml((?:[?#][\s\S]*)?)$/;
 
 /**
  * The tab of a multi-sheet document, wherever Google put it in the link.
@@ -55,19 +61,23 @@ const GID = /[?#&]gid=(\d+)/;
  *   `/preview`. It needs only "anyone with the link can view" and shows the
  *   whole spreadsheet, every tab, with Google's tab bar.
  * - **The published link** (Publicar en la web, `/d/e/<token>/pubhtml?…`) is
- *   framed **exactly as given**. It needs the sheet published to the web — a
- *   setting of its own, separate from sharing — and it serves the tabs chosen
- *   in that dialog, each one whole.
- *   It honours `single` (no tab bar) and `range` (some columns only), which is
- *   why it is passed through rather than rebuilt: the query is the author's
- *   choice of what the frame shows, and a rewrite that dropped a parameter
- *   would show something else.
+ *   rebuilt around its token with **its query and fragment carried across
+ *   whole**. It needs the sheet published to the web — a setting of its own,
+ *   separate from sharing — and it serves each published tab whole. It honours
+ *   `single` (one tab, though a strip naming it stays at the foot) and `range`
+ *   (some columns only). The query is the author's choice of what the frame
+ *   shows, so it is not parsed: a rewrite that dropped a parameter would show
+ *   something else. That makes this the one url in the module whose tail is the
+ *   author's — the exception `frontend-code-style.md` §Components names.
  *
  * **What the frame shows is not what is published.** `range` and `single` are
  * view parameters on a public url, not permissions: the same token with
  * `range=A1:C27` served the columns a `D1:Y27` link leaves out (measured
- * 2026-10-15, #336). Anything a reader must not see stays out of the published
- * tabs, never merely out of the range.
+ * 2026-10-15). Anything a reader must not see stays out of every published
+ * tab, never merely out of the range — and the file's own sharing is
+ * restricted too, or its share link still opens every tab. That an existing
+ * unpublished tab is refused, and that a restricted file keeps serving its
+ * publication, are what Google's dialogs offer; neither is measured here.
  *
  * Authors paste what the Compartir button gives them, which is an `/edit` url.
  * That url is **not** frame-blocked — Google sends no `frame-ancestors` and no
@@ -85,12 +95,16 @@ const GID = /[?#&]gid=(\d+)/;
  */
 export function sheetEmbedUrl(src: string): string | null {
   const trimmed = src.trim();
-  if (PUBLISHED_URL.test(trimmed)) return trimmed;
+
+  const published = PUBLISHED_URL.exec(trimmed);
+  if (published !== null) {
+    return `https://docs.google.com/spreadsheets/d/e/${published[1]}/pubhtml${published[2]}`;
+  }
 
   const match = SHARE_URL.exec(trimmed);
   if (match === null) return null;
 
-  const gid = GID.exec(src);
+  const gid = GID.exec(trimmed);
   const tab = gid === null ? '' : `?gid=${gid[1]}`;
   return `https://docs.google.com/spreadsheets/d/${match[1]}/preview${tab}`;
 }

@@ -7,8 +7,8 @@ export interface SheetEmbedProps {
    * The sheet's link, in either of two forms (ADR-0087). The share link,
    * exactly as the Compartir button gives it — shared as "cualquiera con el
    * enlace puede ver" — is rewritten into the embeddable `/preview` form. The
-   * Publicar-en-la-web link (`/d/e/<token>/pubhtml?…`) is framed as given, so
-   * its `range` and `single` survive; those choose what the frame shows, not
+   * Publicar-en-la-web link (`/d/e/<token>/pubhtml?…`) keeps its query whole,
+   * so its `range` and `single` survive; those choose what the frame shows, not
    * what is published.
    */
   src?: string;
@@ -56,7 +56,9 @@ const SANDBOX = 'allow-scripts allow-popups allow-popups-to-escape-sandbox';
  * A shared Google Sheet, rendered read-only inside the page.
  *
  * The professor edits the spreadsheet and the page follows — no commit, no
- * deploy. Deliberately the whole of it: this component does not read the sheet,
+ * deploy. That is measured for the share link; for a published one it rests on
+ * Google's automatic republishing, which nothing here has watched (ADR-0087).
+ * Deliberately the whole of it: this component does not read the sheet,
  * does not know its columns and transforms nothing. Google renders it; we frame
  * it and say how tall.
  *
@@ -85,7 +87,7 @@ export function SheetEmbed({ src, title, height = DEFAULT_HEIGHT }: SheetEmbedPr
     return (
       <AuthoringError component="SheetEmbed">
         necesita el enlace de <strong>Compartir</strong> de una planilla de Google
-        (docs.google.com/spreadsheets/d/…) o el de <strong>Publicar en la web</strong>
+        (docs.google.com/spreadsheets/d/…) o el de <strong>Publicar en la web</strong>{' '}
         (docs.google.com/spreadsheets/d/e/…/pubhtml). Este no sirve: {src}
       </AuthoringError>
     );

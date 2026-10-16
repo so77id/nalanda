@@ -299,6 +299,17 @@ src/
   ADR-0076) — `<PdfEmbed>`'s frame is granted `allow-same-origin`, so anything
   that is not rebuilt as a `drive.google.com` url is refused.
 
+  **One exception, and its bar.** `sheetUrl.ts`'s published form (#336,
+  ADR-0087) is rebuilt like the rest — literal scheme, host and path around one
+  captured `[\w-]` token — but carries the author's query and fragment across
+  whole, because the query (`range`, `single`, `gid`) is the author's choice of
+  what the frame shows and a rewrite that dropped a parameter would show
+  something else. What makes that safe is the bar the next exception must also
+  clear: the path is closed (`pubhtml((?:[?#][\s\S]*)?)$`), so nothing the author
+  writes can reach the scheme, the host or the path; the frame holds no
+  `allow-same-origin`; and the tail stays unparsed rather than half-trusted. A
+  second exception needs an ADR of its own.
+
 ## Styling
 
 - **Tailwind only**, utility classes inline in JSX. No CSS modules, no CSS-in-JS,

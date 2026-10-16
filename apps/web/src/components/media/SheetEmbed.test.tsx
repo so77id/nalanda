@@ -61,9 +61,9 @@ describe('SheetEmbed', () => {
 
     expect(container.textContent).toContain('<SheetEmbed>');
     // The message is the whole product of an AuthoringError, so it is pinned
-    // rather than merely present: the shape it must name, the trap it must warn
-    // about, and the echo of the value that makes the error actionable. All
-    // three were droppable while green.
+    // rather than merely present: the two links it accepts, Compartir and
+    // Publicar en la web, and the echo of the value that makes the error
+    // actionable. All three were droppable while green.
     expect(container.textContent).toMatch(/Compartir/);
     expect(container.textContent).toMatch(/Publicar en la web/);
     expect(container.textContent).toContain('https://example.com/plan.xlsx');
@@ -76,13 +76,18 @@ describe('SheetEmbed', () => {
     // warned against it would send the author away from a link that works.
     const { container } = render(<SheetEmbed src="https://example.com/plan.xlsx" title={TITLE} />);
 
-    expect(container.textContent).toContain('/pubhtml');
+    // Pinned with its spacing: JSX drops a line break next to a tag, and the
+    // first draft of this message read "Publicar en la web(docs…" (#336 review).
+    expect(container.textContent).toContain(
+      'Publicar en la web (docs.google.com/spreadsheets/d/e/…/pubhtml)',
+    );
     expect(container.textContent).not.toMatch(/no el de Publicar/);
   });
 
   describe('a published sheet (#336)', () => {
-    const PUBHTML =
-      'https://docs.google.com/spreadsheets/d/e/2PACX-1vQ-I_Ov3y6AWPMDV6eEFP82VMDXZrL_zZBK9g80cxp0cvBcMy3J7Mc69txmQ-oUUc41aIdTziyXV41k/pubhtml?gid=0&single=true&range=D1:Y27';
+    // A synthetic token: this pins the component, not a live sheet. The real
+    // one is in solemne-1.mdx, which app/contentRenders.test.tsx renders.
+    const PUBHTML = `https://docs.google.com/spreadsheets/d/e/2PACX-1vT${'a1B2-c3D4_'.repeat(8)}/pubhtml?gid=0&single=true&range=D1:Y27`;
 
     it('frames it at the url the author gave, query and all', () => {
       const { container } = render(<SheetEmbed src={PUBHTML} title="Notas del Solemne 1" />);

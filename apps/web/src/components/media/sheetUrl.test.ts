@@ -66,20 +66,34 @@ describe('sheetEmbedUrl', () => {
     expect(sheetEmbedUrl('')).toBeNull();
   });
 
+  it('refuses the id-based published link rather than dropping its range', () => {
+    // `/d/<id>/pubhtml` is how Google published before the `/d/e/` token. The
+    // share pattern took it, and the rewrite to `/preview` silently dropped
+    // `range` and `single`: the frame showed the whole sheet the author had
+    // narrowed (#336 review).
+    expect(
+      sheetEmbedUrl(
+        `https://docs.google.com/spreadsheets/d/${ID}/pubhtml?gid=0&single=true&range=D1:Y27`,
+      ),
+    ).toBeNull();
+    expect(sheetEmbedUrl(`https://docs.google.com/spreadsheets/u/0/d/${ID}/pubhtml`)).toBeNull();
+  });
+
   // The Publicar-en-la-web link (#336). A different document identifier from
   // the share link's id — a token Google mints when the sheet is published —
-  // and the only form that honours `range`, which is how a grades sheet hides
-  // its name and RUT columns without a second file.
+  // and the only form that honours `range` and `single`. Both choose what the
+  // frame SHOWS; neither hides anything, since the whole published tab is one
+  // edited query away (ADR-0087).
   describe('the published form', () => {
-    // Solemne 1's grades, published with one tab and columns D–Y only.
-    const TOKEN =
-      '2PACX-1vQ-I_Ov3y6AWPMDV6eEFP82VMDXZrL_zZBK9g80cxp0cvBcMy3J7Mc69txmQ-oUUc41aIdTziyXV41k';
+    // Synthetic, of the length Google mints: these cases pin the pattern, not a
+    // live sheet, and a real token here would outlive the data it opens.
+    const TOKEN = `2PACX-1vT${'a1B2-c3D4_'.repeat(8)}`;
     const PUBHTML = `https://docs.google.com/spreadsheets/d/e/${TOKEN}/pubhtml`;
 
-    it('frames it exactly as given, so the range it was published with survives', () => {
-      // Verbatim, not rebuilt: `range` and `single` are the whole reason to use
-      // this form, and a rewrite that dropped either would silently publish the
-      // columns the author meant to hide.
+    it('carries its query across whole, so the view the author chose survives', () => {
+      // Not parsed: `range` and `single` are the reason to use this form, and a
+      // rewrite that dropped either would frame columns or tabs the author left
+      // out of the view.
       const filtered = `${PUBHTML}?gid=0&single=true&range=D1:Y27`;
 
       expect(sheetEmbedUrl(filtered)).toBe(filtered);
@@ -87,6 +101,10 @@ describe('sheetEmbedUrl', () => {
 
     it('accepts it with no query at all', () => {
       expect(sheetEmbedUrl(PUBHTML)).toBe(PUBHTML);
+    });
+
+    it('accepts a fragment right after pubhtml', () => {
+      expect(sheetEmbedUrl(`${PUBHTML}#gid=0`)).toBe(`${PUBHTML}#gid=0`);
     });
 
     it('ignores the whitespace a pasted link drags in', () => {
@@ -100,9 +118,26 @@ describe('sheetEmbedUrl', () => {
     });
 
     it('refuses it on another host', () => {
-      // The url goes into the frame verbatim, so the host check is all that
-      // stands between an author's typo and a third party's page.
+      // Its query is the author's, so the host check is all that stands between
+      // an author's typo and a third party's page.
       expect(sheetEmbedUrl(`https://evil.example/spreadsheets/d/e/${TOKEN}/pubhtml`)).toBeNull();
+    });
+
+    it('refuses it wrapped in another url', () => {
+      // A link copied out of Gmail or a Doc comes wrapped in Google's redirector.
+      // It contains the whole published url, so only the anchor at the start of
+      // the pattern refuses it — the case above cannot tell an anchored pattern
+      // from an unanchored one (#336 review).
+      expect(
+        sheetEmbedUrl(
+          `https://www.google.com/url?q=https://docs.google.com/spreadsheets/d/e/${TOKEN}/pubhtml`,
+        ),
+      ).toBeNull();
+    });
+
+    it('refuses a host that only looks like docs.google.com', () => {
+      // Pins the escaped dots: unescaped, `.` matches any character.
+      expect(sheetEmbedUrl(`https://docsxgoogle.com/spreadsheets/d/e/${TOKEN}/pubhtml`)).toBeNull();
     });
 
     it('refuses plain http', () => {
@@ -110,9 +145,8 @@ describe('sheetEmbedUrl', () => {
     });
 
     it('refuses a path that carries on past pubhtml', () => {
-      // Verbatim means the path must END at `pubhtml`: `/pubhtml/../../…` is a
-      // docs.google.com url to somewhere else entirely once the browser
-      // resolves it.
+      // The path must END at `pubhtml`: `/pubhtml/../../…` is a docs.google.com
+      // url to somewhere else entirely once the browser resolves it.
       expect(
         sheetEmbedUrl(`https://docs.google.com/spreadsheets/d/e/${TOKEN}/pubhtml/../../document`),
       ).toBeNull();

@@ -57,21 +57,33 @@ re-measured 2026-10-15).
 **1. One component accepts both forms, and tells them apart by shape.** The
 author pastes what they have. `sheetEmbedUrl()` (`components/media/sheetUrl.ts`,
 renamed from `sheetPreviewUrl`, which no longer described what it returned)
-rewrites a share link to `/preview` exactly as before, and frames a published
-link **verbatim**, query included. A separate `<PublishedSheet>` was the other
+rewrites a share link to `/preview` exactly as before, and rebuilds a
+published link around its token with **its query and fragment kept whole**. A
+separate `<PublishedSheet>` was the other
 option and costs a second name, a second catalog entry and a second set of
 authoring errors for what an author experiences as "a link to my sheet".
 
-**2. The published link is passed through, not rebuilt.** Its query is the
-author's choice of what the frame shows; parsing it would mean deciding which
-of Google's parameters matter, and a rewrite that dropped one would show
-something else. Verbatim is safe because nothing in the query can move the
-frame off `docs.google.com`: the pattern anchors the scheme and the host, as
-the share pattern does, and also **closes the path at `pubhtml`**
-(`(?:[?#]|$)`), since `…/pubhtml/../../document/…` would otherwise pass and
-resolve to another document. Every other `/d/e/` url — the CSV and PDF
-outputs of the same dialog — is still refused rather than rewritten, which is
-the #146 bug staying fixed.
+**2. The published link is rebuilt, and its query is carried across
+unparsed.** `frontend-code-style.md` §Components requires a url bound for an
+`<iframe src>` to be rebuilt from a literal scheme and host, never matched and
+forwarded; that rule now names this as its one exception, with the bar the
+next must clear. The scheme, host and path are literals around one captured
+`[\w-]` token; only the query and fragment are the author's. They are kept
+whole because the query is the author's choice of what the frame shows:
+parsing it would mean deciding which of Google's parameters matter, and a
+rewrite that dropped one would show something else. That is safe because
+nothing in the query can move the frame off `docs.google.com`: the pattern
+anchors the scheme and the host and **closes the path at `pubhtml`**
+(`pubhtml((?:[?#][\s\S]*)?)$`), since `…/pubhtml/../../document/…` would
+otherwise pass and resolve to another document. The #336 review fuzzed it with
+44 hostile inputs (backslashes, `@`, `%2F..`, control and lookalike
+characters, `javascript:` and `data:` prefixes, redirector wrappers): every
+one was refused or resolved to exactly `/spreadsheets/d/e/<token>/pubhtml` on
+`docs.google.com`. Every other `/d/e/` url — the CSV and PDF outputs of the
+same dialog — is still refused rather than rewritten, which is the #146 bug
+staying fixed. So is the id-based published link Google handed out before the
+token, `/d/<id>/pubhtml?…`: the share pattern used to take it, and its rewrite
+to `/preview` silently dropped `range` and `single`.
 
 **3. The sandbox string does not change.** Measured in Chromium against the
 published sheet: under
@@ -134,12 +146,16 @@ any of this, which is why the statement lives in
   `request.sizes()` transfer bytes, the same sheet both ways: `/preview` 12
   requests and ~578 kB, the published form 9 requests and ~566 kB. The Google
   stylesheet ADR-0035 measured at ~490 kB (494 kB today) dominates both.
-- **Solemne 1 ships the professor's link as given**, his decision under
-  ADR-0076 §3, taken with the table above in front of him: the frame shows the
-  RUT column and the grades, and the names sit in the published tab, one edited
-  query away. That is less than the share link it replaces, which framed the
-  names outright; it is not nothing. The share link is in the public history
-  of #335 and still opens the original until its sharing is restricted.
+- **Solemne 1 ships the professor's link as given, and the exposure is
+  unchanged.** His decision under ADR-0076 §3, taken with the table above in
+  front of him: the frame shows the RUT column and the grades, and the names
+  sit in the published tab, one edited query away. What this WP narrows is the
+  **default view**, not what is exposed: the share link #335 put in the public
+  history still opens the whole file, names included, to anyone signed out
+  (200, re-measured by the #336 review), and the professor has chosen to leave
+  its sharing as it is. Restricting it is his call; when it is made, the
+  published link is checked in a signed-out window, since a restricted file
+  still serving its publication is unmeasured (decision 4).
 - **If Google stops honouring `range`, the frame shows the whole tab** with
   every test green. Since `range` was never a permission, that exposes nothing
   a reader editing the url could not already read.

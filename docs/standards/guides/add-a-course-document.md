@@ -1510,12 +1510,16 @@ The other outputs of that dialog — CSV, PDF — are downloads, not pages, and 
 refused. So is any `/d/e/` url that does not end its path at `pubhtml`. (Before
 the published page had a pattern of its own, every `/d/e/` url was rewritten
 into a framed Google "el archivo que solicitaste no existe" with every test
-green, #146 review — that stays fixed.)
+green, #146 review — that stays fixed.) The older id-based published link,
+`/spreadsheets/d/<id>/pubhtml`, is refused too: it used to be taken for a share
+link and rewritten to `/preview`, silently losing its `range` and `single`.
 
-**Share the sheet as "cualquiera con el enlace puede ver" before you publish the
-document — _ver_, never _editar_.** A sheet that is not shared renders Google's
-own request-access page inside the rectangle, and that is cross-origin: nothing
-here can detect it and no test will fail, so **look at the page**. The mistake
+**For the share link, share the sheet as "cualquiera con el enlace puede ver"
+before you publish the document — _ver_, never _editar_.** (For the published
+link, its own setting is what has to be on, and the file's sharing is set by
+what it must not show, as above.) A sheet that is not shared — or not published
+— renders Google's own page inside the rectangle, and that is cross-origin:
+nothing here can detect it and no test will fail, so **look at the page**. The mistake
 in the other direction has no page to look at — an editable share puts a
 surface anyone can write on inside a public course page, and nothing here
 detects that either. Anyone who can read the page can read the sheet, so what a
@@ -1929,10 +1933,12 @@ last block, so no stale copies accumulate.
       `npm run build && npm run preview`, and **looked at**: the grid is on
       screen — not Google's request-access page, not a rectangle stuck on
       "Cargando la planilla…", not the wrong tab. Then check in Drive that the
-      sheet is shared as _cualquiera con el enlace puede **ver**_ and not
-      _editar_. For a published link, check instead that every tab ticked in
-      Publicar en la web is one you would publish whole: its `range` is a view,
-      not a filter (6g). All of it is cross-origin: no level of the suite and no
+      file's sharing is never _editar_ — for a share link, _cualquiera con el
+      enlace puede **ver**_. For a published link, also check that every tab
+      ticked in Publicar en la web is one you would publish whole (its `range`
+      is a view, not a filter), and that the file's sharing is no wider than
+      what it must not show allows — _Restringido_ if any of it is private
+      (6g). All of it is cross-origin: no level of the suite and no
       part of the build can see any of it, and a wrong share setting in either
       direction publishes silently.
 - [ ] Every `<PdfEmbed>` opened the same way and **looked at**: the viewer

@@ -6,9 +6,9 @@
 **Amended by:** ADR-0076 — a second host (`drive.google.com`, `<PdfEmbed>`),
 and the grades disposition in §Consequences is withdrawn: what a framed file
 contains is the professor's decision (#299, 2026-09-22). ADR-0087 — §3's
-refusal of the published `/pubhtml` link is lifted: it is framed verbatim on a
-pattern of its own, and its `range` is a view, not a filter (#336,
-2026-10-15).
+refusal of the published `/pubhtml` link is lifted: it is rebuilt around its
+token on a pattern of its own, its query kept whole, and its `range` is a
+view, not a filter (#336, 2026-10-15).
 **Source:** Issue #146. Extends ADR-0010 (component contract) and ADR-0029 (the
 media family); applies ADR-0013 §5.1 (a slide is fit, not reflowed) and ADR-0022
 (the reading measure); measured with ADR-0018 §7's method, whose lazy-wrapper
@@ -72,7 +72,7 @@ selector from an ignored one — and refuses any other host with an authoring
 error. It also refuses the *published* form, `/spreadsheets/d/e/<token>/pubhtml`,
 which is a different identifier that the first pattern accepted and turned into
 a framed 404 (#146 review). _Amended by ADR-0087 (#336): the published page is
-now accepted and framed as given; the refusal stands for every other `/d/e/`
+now accepted, its query kept whole; the refusal stands for every other `/d/e/`
 url, and the 404 stays fixed._ The failure it replaces is silent — a refused url frames a blank
 rectangle whose only trace is a console violation nobody sees.
 

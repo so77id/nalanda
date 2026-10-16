@@ -15,7 +15,14 @@ export interface CatalogPropDef {
 
 export interface CatalogExample {
   title: string;
-  /** Source snippet shown beside the live render; plain <pre>, no highlighter (ADR-0014). */
+  /**
+   * Source snippet shown beside the live render; plain <pre>, no highlighter
+   * (ADR-0014). It is the source of the render, with one exception: a snippet
+   * may name data that must not be framed on /catalog — a page that is public
+   * and outlives a semester — and render a stand-in, only when the example's
+   * title says so. Worked case: SheetEmbed's published form (#336), whose only
+   * published sheet holds grades.
+   */
   code: string;
   /** A component, not a call: each example gets its own React instance (own hooks/state). */
   render: ComponentType;
