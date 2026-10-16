@@ -170,14 +170,20 @@ referrerpolicy="no-referrer"
   **This is not the same as "no Google session is involved".** The sandbox flag
   governs the origin of the resulting document, never the cookie jar of the
   request that fetched it: the frame carries no `credentialless` attribute, so
-  loading `/preview` is an ordinary credentialed cross-site request and a
-  signed-in reader is identified to Google as a viewer of this sheet — which
+  loading `/preview` or `/pubhtml` is an ordinary credentialed cross-site
+  request and a signed-in reader is identified to Google as a viewer of this
+  sheet — which
   names the course, whatever `referrerpolicy` withholds about the page.
   Accepted, in the same spirit as the CheerpJ and jsDelivr origins below and for
   the same reason: the alternative is not publishing the plan. `credentialless`
   would load the frame in an anonymous store and is worth measuring **before**
   adopting — a link-shared sheet may or may not still render — but it is not free
   and was not measured here.
+- **The published form runs under the same string** (#336, ADR-0087), measured
+  on 2026-10-15 against Solemne 1's published grades rather than assumed from
+  `/preview`: it renders; without `allow-scripts` its grid is empty; with
+  `allow-same-origin` added nothing changes. The popup pair was not re-measured
+  on it — that sheet carries no links.
 - **`allow-top-navigation` and `allow-forms` are not granted**, and nothing
   read-only needs them. The frame cannot navigate the page around it.
 - **`referrerpolicy="no-referrer"`** costs nothing measurable and stops Google
@@ -199,8 +205,8 @@ Google runs in our origin.
 
 **The sheet decides what it exposes, and that decision is not in this
 repository.** Which columns a sheet carries is the professor's call, made in
-Google Drive. Two consequences, stated before the second use rather than after
-it:
+Google Drive. The consequences, the first two stated before the second use
+rather than after it:
 
 - **A sheet that is not shared renders Google's own request-access page inside
   the rectangle.** That is cross-origin: nothing here can detect it, no test
@@ -225,11 +231,35 @@ it:
   sheet he curates and to own what it shows. Nothing about `<SheetEmbed>`
   decides it, and the repo no longer tries: which columns the sheet carries is
   decided in Drive, outside this repo's review.
+- **A published link's `range` is a view, not a filter** (#336, ADR-0087).
+  Measured on 2026-10-15: the same token with `range=A1:C27` served the name
+  columns a `range=D1:Y27` link leaves out, and with no `range` at all, the whole
+  tab. The query is in the frame's `src`, in the page source, for anyone to
+  edit. What a published link exposes is every tab ticked in the Publicar en la
+  web dialog, whole; a column stays private only by being in no published tab —
+  and the file's own sharing must be restricted too, or its share link still
+  opens the original. (That an existing unpublished tab is refused, and that a
+  restricted file keeps serving its publication, are what Google's dialogs
+  offer; neither is measured here.) Solemne 1 frames a published range that
+  carries the RUT column, with the names one edited query away — and the share
+  link #335 put in the public history still opens the whole file, names
+  included, to anyone signed out. So that page narrows the **default view**,
+  not the exposure. Both are the professor's decision, taken with these
+  measurements in front of him; restricting the file's sharing is his call,
+  followed by a signed-out look at the published link.
 
-**Review trigger**: the first `<SheetEmbed>` pointed at a host other than
+**Review triggers**: the first `<SheetEmbed>` pointed at a host other than
 `docs.google.com`, which the component refuses today and which would reopen
-every line above. (The earlier trigger — the first sheet carrying student
-identifiers or marks — fired with #299 and was resolved by ADR-0076.)
+every line above; any change to `SHARE_URL` or `PUBLISHED_URL` in `sheetUrl.ts`
+that loosens the host or the published form's closed path, or that frames
+another form with the author's tail kept (`frontend-code-style.md` §Components
+names the one exception and its bar); any change to the sandbox string, which
+is re-measured against both forms; the first published sheet that carries
+links, where the popup pair is measured for that form; and the first page that
+relies on an unpublished tab or on restricted sharing to keep data private,
+which measures both Google behaviours first. (The earlier trigger — the first
+sheet carrying student identifiers or marks — fired with #299 and was resolved
+by ADR-0076.)
 
 ### Drive's PDF viewer is framed with its own origin (accepted 2026-09-22, #299)
 
@@ -1164,7 +1194,11 @@ just as well.
 **Review trigger:** any future spike that measures against production data —
 the Canvas roster, a scanned control, a grade export. Also the first time
 `CANVAS-CHECK.md` is run by someone who is not the professor whose students
-these are.
+these are. (Fired with #336: the published grades sheet was probed and
+ADR-0087 records counts — rows, cells per row, cells shaped like a name or a
+RUT — never a value. That is the method: against live personal data, read the
+response's shape, never its contents, and keep the raw responses out of the
+repository.)
 
 **Related:** ADR-0068 §Consequences (the roster's own PII, unencrypted and
 in every nightly off-host backup), and the §"Logs and personal data" entry

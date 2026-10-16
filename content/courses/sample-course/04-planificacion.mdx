@@ -25,9 +25,10 @@ questions: none
 {/*      to that file (copy it from app/documentSections.test.tsx) or repoint */}
 {/*      DEEP_LINK_FIXTURE at another non-landing document — otherwise the */}
 {/*      flake class those issues closed comes back. */}
-{/*   4. Since #146, the <SheetEmbed> src must stay a valid Google Sheets */}
-{/*      share link: app/contentRenders.test.tsx renders every published */}
-{/*      document and fails on the authoring error a bad one produces. */}
+{/*   4. Since #146, the <SheetEmbed> src must stay a link the component */}
+{/*      accepts (share or published, ADR-0087): app/contentRenders.test.tsx */}
+{/*      renders every published document and fails on the authoring error a */}
+{/*      bad one produces. */}
 
 {/* #146 filled this document and kept all three, but NOT by writing around */}
 {/* them. The calendar is a framed spreadsheet because a typed table is wrong */}

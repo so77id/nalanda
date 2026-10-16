@@ -1,12 +1,15 @@
 import { AuthoringError } from '../AuthoringError';
 import { EmbedFrame } from './EmbedFrame';
-import { sheetPreviewUrl } from './sheetUrl';
+import { sheetEmbedUrl } from './sheetUrl';
 
 export interface SheetEmbedProps {
   /**
-   * The sheet's share link, exactly as the Compartir button gives it. Must be
-   * shared as "cualquiera con el enlace puede ver"; the component rewrites it
-   * into the embeddable `/preview` form.
+   * The sheet's link, in either of two forms (ADR-0087). The share link,
+   * exactly as the Compartir button gives it — shared as "cualquiera con el
+   * enlace puede ver" — is rewritten into the embeddable `/preview` form. The
+   * Publicar-en-la-web link (`/d/e/<token>/pubhtml?…`) keeps its query whole,
+   * so its `range` and `single` survive; those choose what the frame shows, not
+   * what is published.
    */
   src?: string;
   /**
@@ -39,6 +42,13 @@ const DEFAULT_HEIGHT = 480;
  *
  * `allow-same-origin` is deliberately absent: the sheet renders and scrolls
  * both ways without it, so the frame stays in an opaque origin.
+ *
+ * The published form (#336) was measured against Solemne 1's grades on
+ * 2026-10-15 rather than assumed to behave like `/preview`: under this string
+ * it renders; without `allow-scripts` its grid is empty; adding
+ * `allow-same-origin` changes nothing. So one string serves both forms. The
+ * popup pair was not re-measured there — that sheet has no links — and stays
+ * on the share form's evidence.
  */
 const SANDBOX = 'allow-scripts allow-popups allow-popups-to-escape-sandbox';
 
@@ -46,7 +56,10 @@ const SANDBOX = 'allow-scripts allow-popups allow-popups-to-escape-sandbox';
  * A shared Google Sheet, rendered read-only inside the page.
  *
  * The professor edits the spreadsheet and the page follows — no commit, no
- * deploy. Deliberately the whole of it: this component does not read the sheet,
+ * deploy. That is inferred rather than watched: the build carries no cell of
+ * the sheet (#146), and the literal edit-and-reload check is not on record; for
+ * a published link it also rests on Google's automatic republishing (ADR-0087).
+ * Deliberately the whole of it: this component does not read the sheet,
  * does not know its columns and transforms nothing. Google renders it; we frame
  * it and say how tall.
  *
@@ -70,12 +83,13 @@ export function SheetEmbed({ src, title, height = DEFAULT_HEIGHT }: SheetEmbedPr
     );
   }
 
-  const url = sheetPreviewUrl(src);
+  const url = sheetEmbedUrl(src);
   if (url === null) {
     return (
       <AuthoringError component="SheetEmbed">
         necesita el enlace de <strong>Compartir</strong> de una planilla de Google
-        (docs.google.com/spreadsheets/d/…), no el de Publicar en la web. Este no sirve: {src}
+        (docs.google.com/spreadsheets/d/…) o el de <strong>Publicar en la web</strong>{' '}
+        (docs.google.com/spreadsheets/d/e/…/pubhtml). Este no sirve: {src}
       </AuthoringError>
     );
   }

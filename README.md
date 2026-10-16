@@ -142,7 +142,12 @@ prefix may not survive the move, so decide before handing URLs to students
   the build or the suite can see what it says (ADR-0035). Add it to the
   after-deploy check and look at the rectangle — a sheet that stops being shared
   shows Google's own request-access page there, and nothing anywhere will tell
-  you.
+  you. The evaluation pages (`/nalanda/d/control-1`, `/nalanda/d/solemne-1`,
+  #299, #335) frame Drive files the same way, and Solemne 1's grades come from
+  a **published** link (ADR-0087): a sheet that stops being published shows
+  Google's own page, and whether a corrected grade reaches the page depends on
+  Publicar en la web's automatic-republish option, unmeasured either way. So
+  after a correction, look at the page signed out.
 - **Rollback**: revert the offending commit on `main`. The revert is itself a
   push to `main`, so it redeploys the previous version — there is no separate
   deploy button to press. **It does not restore the calendar**: reverting can

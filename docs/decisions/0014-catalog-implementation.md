@@ -9,7 +9,10 @@ the four families, and deferred its shape to v0.1.
 **Amended by:** #87 (§6 — family ids are English and are their own folder; the
 id↔folder mapping this ADR described no longer exists) · #122 (2026-08-16) — §2:
 the entry array moved off the components seam and behind `loadCatalogEntries()`,
-and the catalog's data became asynchronous
+and the catalog's data became asynchronous · #336 (2026-10-15) — §1: an
+example's `code` may name data its `render` deliberately does not frame, only
+when the example's title says so (worked case: `<SheetEmbed>`'s published form,
+ADR-0087; the contract is on `CatalogExample.code` in `lib/catalogEntry.ts`)
 
 ## Context
 
@@ -28,6 +31,9 @@ entries reach the catalog, and what a machine can check.
    **Accepted limits**: the props table is prose, not derived from the component's
    TS interface, and each example's `code` string is written beside its `render`
    component — both can drift from the implementation, and nothing detects it.
+   **Amended by #336 (2026-10-15):** one divergence is sanctioned — a snippet
+   may name data `/catalog` must not frame and render a stand-in, only when the
+   example's title says so (ADR-0087; the contract is on `CatalogExample.code`).
    The entry covers ADR-0010 contract points 2 and 3 only; there is no field for
    point 1 (per-mode behavior — it is proven by tests and shown by the examples)
    nor point 4 (sync interface — nothing emits session events yet). Fields get

@@ -5,7 +5,10 @@
 **Decision-makers:** Miguel Rodriguez
 **Amended by:** ADR-0076 — a second host (`drive.google.com`, `<PdfEmbed>`),
 and the grades disposition in §Consequences is withdrawn: what a framed file
-contains is the professor's decision (#299, 2026-09-22).
+contains is the professor's decision (#299, 2026-09-22). ADR-0087 — §3's
+refusal of the published `/pubhtml` link is lifted: it is rebuilt around its
+token on a pattern of its own, its query kept whole, and its `range` is a
+view, not a filter (#336, 2026-10-15).
 **Source:** Issue #146. Extends ADR-0010 (component contract) and ADR-0029 (the
 media family); applies ADR-0013 §5.1 (a slide is fit, not reflowed) and ADR-0022
 (the reading measure); measured with ADR-0018 §7's method, whose lazy-wrapper
@@ -68,7 +71,11 @@ course's own sheet has one tab and nothing has distinguished a working tab
 selector from an ignored one — and refuses any other host with an authoring
 error. It also refuses the *published* form, `/spreadsheets/d/e/<token>/pubhtml`,
 which is a different identifier that the first pattern accepted and turned into
-a framed 404 (#146 review). The failure it replaces is silent — a refused url frames a blank
+a framed 404 (#146 review). _Amended by ADR-0087 (#336): the published page is
+now accepted, its query kept whole; the refusal stands for every other `/d/e/`
+url, and the 404 stays fixed. The share pattern now also refuses the id-based
+`/d/<id>/pubhtml` link, which it used to rewrite to `/preview` without its
+`range`._ The failure it replaces is silent — a refused url frames a blank
 rectangle whose only trace is a console violation nobody sees.
 
 **4. The frame's permissions are measured, not inherited.**
@@ -108,7 +115,9 @@ whole slide with its title.
   class that moves on Tuesday is wrong until someone remembers.
 - **Publish the sheet to the web and use `/pubhtml`.** Works, and needs a second
   setting the professor must not forget; `/preview` needs only the share setting
-  that must be right anyway.
+  that must be right anyway. _Adopted alongside `/preview` by ADR-0087 (#336),
+  for a narrower view: `/preview` stays the share link's form, and the second
+  setting is the author's cost when they choose it._
 - **Type the calendar into MDX.** The status quo. It is the thing that is wrong
   the first time a class moves.
 
@@ -152,7 +161,7 @@ whole slide with its title.
   designed as though the sheet were deferred.
 - **Availability is Google's.** If Drive is down or the sheet is unshared, the
   rectangle shows Google's own page and nothing here can tell — cross-origin. The
-  authoring guide's instruction is to look at the published page.
+  authoring guide's instruction is to look at the rendered course page.
 - **The exception is narrow but real**: `security-notes.md` §"All bundled MDX is
   repo-controlled content" still holds for MDX, and now has a neighbour that does
   not. What a `<SheetEmbed>` shows is outside PR review by construction.

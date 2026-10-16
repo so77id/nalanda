@@ -61,13 +61,51 @@ describe('SheetEmbed', () => {
 
     expect(container.textContent).toContain('<SheetEmbed>');
     // The message is the whole product of an AuthoringError, so it is pinned
-    // rather than merely present: the shape it must name, the trap it must warn
-    // about, and the echo of the value that makes the error actionable. All
-    // three were droppable while green.
+    // rather than merely present: the two links it accepts, Compartir and
+    // Publicar en la web, and the echo of the value that makes the error
+    // actionable. All three were droppable while green.
     expect(container.textContent).toMatch(/Compartir/);
     expect(container.textContent).toMatch(/Publicar en la web/);
     expect(container.textContent).toContain('https://example.com/plan.xlsx');
     expect(frameOf(container)).toBeNull();
+  });
+
+  it('offers both links it accepts, rather than warning off the published one', () => {
+    // Until #336 the published link was refused, and the message said so: "no
+    // el de Publicar en la web". It is accepted now, so a message that still
+    // warned against it would send the author away from a link that works.
+    const { container } = render(<SheetEmbed src="https://example.com/plan.xlsx" title={TITLE} />);
+
+    // Pinned with its spacing: JSX drops a line break next to a tag, and the
+    // first draft of this message read "Publicar en la web(docs…" (#336 review).
+    expect(container.textContent).toContain(
+      'Publicar en la web (docs.google.com/spreadsheets/d/e/…/pubhtml)',
+    );
+    expect(container.textContent).not.toMatch(/no el de Publicar/);
+  });
+
+  describe('a published sheet (#336)', () => {
+    // A synthetic token: this pins the component, not a live sheet. The real
+    // one is in solemne-1.mdx, which app/contentRenders.test.tsx renders.
+    const PUBHTML = `https://docs.google.com/spreadsheets/d/e/2PACX-1vT${'a1B2-c3D4_'.repeat(8)}/pubhtml?gid=0&single=true&range=D1:Y27`;
+
+    it('frames it at the url the author gave, query and all', () => {
+      const { container } = render(<SheetEmbed src={PUBHTML} title="Notas del Solemne 1" />);
+
+      expect(frameOf(container)?.getAttribute('src')).toBe(PUBHTML);
+    });
+
+    it('frames it under the same sandbox as a shared sheet', () => {
+      // One string for both forms, measured against each in a real browser
+      // (ADR-0087). A branch that granted the published frame its origin back
+      // would pass every assertion above.
+      const { container } = render(<SheetEmbed src={PUBHTML} title="Notas del Solemne 1" />);
+      const shared = render(<SheetEmbed src={SHARE} title={TITLE} />).container;
+
+      expect(frameOf(container)?.getAttribute('sandbox')).toBe(
+        frameOf(shared)?.getAttribute('sandbox'),
+      );
+    });
   });
 
   describe('the frame permissions (AC5)', () => {

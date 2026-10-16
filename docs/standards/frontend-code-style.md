@@ -290,7 +290,7 @@ src/
   pattern anchored on the path alone accepts
   `https://evil.example/spreadsheets/d/…`. Rebuilding also makes the pattern's
   tail harmless, which is why it may be loose. Worked case:
-  `components/media/sheetUrl.ts` (#146, ADR-0035) — 26 hostile inputs
+  `components/media/sheetUrl.ts`'s share form (#146, ADR-0035) — 26 hostile inputs
   (userinfo `@`, backslashes, `\t\n\r`, NUL, zero-width and ideographic spaces,
   U+2024 in the host, trailing dot, explicit `:443`) all produced either `null`
   or a url on `docs.google.com`, because none of the input survives into the
@@ -298,6 +298,22 @@ src/
   where the host check carries the most: `components/media/driveUrl.ts` (#299,
   ADR-0076) — `<PdfEmbed>`'s frame is granted `allow-same-origin`, so anything
   that is not rebuilt as a `drive.google.com` url is refused.
+
+  **One exception, and its bar.** `sheetUrl.ts`'s published form (#336,
+  ADR-0087) is rebuilt like the rest — literal scheme, host and path around one
+  captured `[\w-]` token — but carries the author's query and fragment across
+  whole, because the query (`range`, `single`, `gid`) is the author's choice of
+  what the frame shows and a rewrite that dropped a parameter would show
+  something else. What makes that safe is the bar the next exception must also
+  clear: the path is closed (`pubhtml((?:[?#][\s\S]*)?)$`), so nothing the author
+  writes can reach the scheme, the host or the path; the frame holds no
+  `allow-same-origin`; and the tail stays unparsed rather than half-trusted. A
+  second exception needs an ADR of its own. Know what the rebuild does there:
+  while the pattern matches the whole string from a literal prefix, every url
+  it accepts comes back byte-identical, so the rebuild is a backstop for the
+  day the pattern is loosened and no test can hold it. The pattern's own
+  anchors are what the tests pin — they decide whether a bad link is refused
+  or quietly rewritten into a working one.
 
 ## Styling
 

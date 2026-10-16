@@ -364,8 +364,11 @@ rejects the static import as a bypass.
 - [ ] If it embeds another origin: its `<iframe>` sits inside
       `media/EmbedFrame.tsx` (the wrapper, the placeholder and the slide cap
       are shared; the url, the sandbox and the referrer policy are the
-      component's own), its sandbox measured for THIS provider rather than
-      copied from a sibling (ADR-0076), and verified in a real browser per
+      component's own — the url REBUILT from a literal scheme and host per
+      `frontend-code-style.md` §Components, which names the one exception
+      that keeps an author's tail and the bar a second must clear), its
+      sandbox measured for THIS provider and for each url form it frames,
+      rather than copied from a sibling (ADR-0076, ADR-0087), and verified in a real browser per
       `testing-strategy.md` §Conventions, third class — the frame paints, each
       permission re-measured, network weight from a cold profile, and a sideways
       drag on a touch context. No test at any level can see any of it.
