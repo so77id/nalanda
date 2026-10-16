@@ -70,6 +70,39 @@ describe('SheetEmbed', () => {
     expect(frameOf(container)).toBeNull();
   });
 
+  it('offers both links it accepts, rather than warning off the published one', () => {
+    // Until #336 the published link was refused, and the message said so: "no
+    // el de Publicar en la web". It is accepted now, so a message that still
+    // warned against it would send the author away from a link that works.
+    const { container } = render(<SheetEmbed src="https://example.com/plan.xlsx" title={TITLE} />);
+
+    expect(container.textContent).toContain('/pubhtml');
+    expect(container.textContent).not.toMatch(/no el de Publicar/);
+  });
+
+  describe('a published sheet (#336)', () => {
+    const PUBHTML =
+      'https://docs.google.com/spreadsheets/d/e/2PACX-1vQ-I_Ov3y6AWPMDV6eEFP82VMDXZrL_zZBK9g80cxp0cvBcMy3J7Mc69txmQ-oUUc41aIdTziyXV41k/pubhtml?gid=0&single=true&range=D1:Y27';
+
+    it('frames it at the url the author gave, query and all', () => {
+      const { container } = render(<SheetEmbed src={PUBHTML} title="Notas del Solemne 1" />);
+
+      expect(frameOf(container)?.getAttribute('src')).toBe(PUBHTML);
+    });
+
+    it('frames it under the same sandbox as a shared sheet', () => {
+      // One string for both forms, measured against each in a real browser
+      // (ADR-0087). A branch that granted the published frame its origin back
+      // would pass every assertion above.
+      const { container } = render(<SheetEmbed src={PUBHTML} title="Notas del Solemne 1" />);
+      const shared = render(<SheetEmbed src={SHARE} title={TITLE} />).container;
+
+      expect(frameOf(container)?.getAttribute('sandbox')).toBe(
+        frameOf(shared)?.getAttribute('sandbox'),
+      );
+    });
+  });
+
   describe('the frame permissions (AC5)', () => {
     // Every value here was measured in a real browser against the course's own
     // sheet on 2026-08-16, not inherited by omission. The probe is recorded in

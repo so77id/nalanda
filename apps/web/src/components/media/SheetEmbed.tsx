@@ -4,9 +4,12 @@ import { sheetEmbedUrl } from './sheetUrl';
 
 export interface SheetEmbedProps {
   /**
-   * The sheet's share link, exactly as the Compartir button gives it. Must be
-   * shared as "cualquiera con el enlace puede ver"; the component rewrites it
-   * into the embeddable `/preview` form.
+   * The sheet's link, in either of two forms (ADR-0087). The share link,
+   * exactly as the Compartir button gives it — shared as "cualquiera con el
+   * enlace puede ver" — is rewritten into the embeddable `/preview` form. The
+   * Publicar-en-la-web link (`/d/e/<token>/pubhtml?…`) is framed as given, so
+   * its `range` and `single` survive; those choose what the frame shows, not
+   * what is published.
    */
   src?: string;
   /**
@@ -39,6 +42,13 @@ const DEFAULT_HEIGHT = 480;
  *
  * `allow-same-origin` is deliberately absent: the sheet renders and scrolls
  * both ways without it, so the frame stays in an opaque origin.
+ *
+ * The published form (#336) was measured against Solemne 1's grades on
+ * 2026-10-15 rather than assumed to behave like `/preview`: under this string
+ * it renders; without `allow-scripts` its grid is empty; adding
+ * `allow-same-origin` changes nothing. So one string serves both forms. The
+ * popup pair was not re-measured there — that sheet has no links — and stays
+ * on the share form's evidence.
  */
 const SANDBOX = 'allow-scripts allow-popups allow-popups-to-escape-sandbox';
 
@@ -75,7 +85,8 @@ export function SheetEmbed({ src, title, height = DEFAULT_HEIGHT }: SheetEmbedPr
     return (
       <AuthoringError component="SheetEmbed">
         necesita el enlace de <strong>Compartir</strong> de una planilla de Google
-        (docs.google.com/spreadsheets/d/…), no el de Publicar en la web. Este no sirve: {src}
+        (docs.google.com/spreadsheets/d/…) o el de <strong>Publicar en la web</strong>
+        (docs.google.com/spreadsheets/d/e/…/pubhtml). Este no sirve: {src}
       </AuthoringError>
     );
   }
