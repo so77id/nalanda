@@ -308,7 +308,12 @@ src/
   clear: the path is closed (`pubhtml((?:[?#][\s\S]*)?)$`), so nothing the author
   writes can reach the scheme, the host or the path; the frame holds no
   `allow-same-origin`; and the tail stays unparsed rather than half-trusted. A
-  second exception needs an ADR of its own.
+  second exception needs an ADR of its own. Know what the rebuild does there:
+  while the pattern matches the whole string from a literal prefix, every url
+  it accepts comes back byte-identical, so the rebuild is a backstop for the
+  day the pattern is loosened and no test can hold it. The pattern's own
+  anchors are what the tests pin — they decide whether a bad link is refused
+  or quietly rewritten into a working one.
 
 ## Styling
 

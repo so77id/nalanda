@@ -72,14 +72,21 @@ next must clear. The scheme, host and path are literals around one captured
 whole because the query is the author's choice of what the frame shows:
 parsing it would mean deciding which of Google's parameters matter, and a
 rewrite that dropped one would show something else. That is safe because
-nothing in the query can move the frame off `docs.google.com`: the pattern
-anchors the scheme and the host and **closes the path at `pubhtml`**
-(`pubhtml((?:[?#][\s\S]*)?)$`), since `…/pubhtml/../../document/…` would
-otherwise pass and resolve to another document. The #336 review fuzzed it with
-44 hostile inputs (backslashes, `@`, `%2F..`, control and lookalike
-characters, `javascript:` and `data:` prefixes, redirector wrappers): every
-one was refused or resolved to exactly `/spreadsheets/d/e/<token>/pubhtml` on
-`docs.google.com`. Every other `/d/e/` url — the CSV and PDF outputs of the
+nothing in the query can move the frame off `docs.google.com`: the url is
+rebuilt from literals, and the pattern **closes the path at `pubhtml`**
+(`pubhtml((?:[?#][\s\S]*)?)$`) — the tail must start with `?` or `#`, so
+nothing the author writes reaches the path. The pattern's anchors and its `$`
+then decide only whether a bad link is refused or silently rewritten into a
+working one (`…/pubhtml/../../document` cut back to `/pubhtml`, a foreign host
+swapped for `docs.google.com`); the tests pin the refusal. The rebuild itself
+changes no output today — every accepted url comes back byte-identical — so it
+is a backstop for the day the pattern is loosened, and no test can hold it.
+The #336 review fuzzed the shipped pattern with 52 hostile inputs
+(backslashes, `@`, `%2F..`, `%3F`/`%23`, control, separator and lookalike
+characters, `javascript:` and `data:` prefixes, redirector wrappers, tails
+carrying `/../`): every one was refused or resolved to exactly
+`/spreadsheets/d/e/<token>/pubhtml` on `docs.google.com`, the tail staying in
+the query or fragment, with no input slower than ~1.3 ms at ~200k characters. Every other `/d/e/` url — the CSV and PDF outputs of the
 same dialog — is still refused rather than rewritten, which is the #146 bug
 staying fixed. So is the id-based published link Google handed out before the
 token, `/d/<id>/pubhtml?…`: the share pattern used to take it, and its rewrite

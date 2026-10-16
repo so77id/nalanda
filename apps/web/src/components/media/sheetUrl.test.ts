@@ -118,8 +118,10 @@ describe('sheetEmbedUrl', () => {
     });
 
     it('refuses it on another host', () => {
-      // Its query is the author's, so the host check is all that stands between
-      // an author's typo and a third party's page.
+      // The rebuild keeps the frame on docs.google.com whatever the pattern
+      // takes; the host check is what keeps a foreign link an authoring error
+      // instead of quietly rewriting it into a published page the author never
+      // named.
       expect(sheetEmbedUrl(`https://evil.example/spreadsheets/d/e/${TOKEN}/pubhtml`)).toBeNull();
     });
 
@@ -136,8 +138,10 @@ describe('sheetEmbedUrl', () => {
     });
 
     it('refuses a host that only looks like docs.google.com', () => {
-      // Pins the escaped dots: unescaped, `.` matches any character.
+      // Pins both escaped dots, one case each: unescaped, `.` matches any
+      // character.
       expect(sheetEmbedUrl(`https://docsxgoogle.com/spreadsheets/d/e/${TOKEN}/pubhtml`)).toBeNull();
+      expect(sheetEmbedUrl(`https://docs.googlexcom/spreadsheets/d/e/${TOKEN}/pubhtml`)).toBeNull();
     });
 
     it('refuses plain http', () => {
@@ -145,8 +149,8 @@ describe('sheetEmbedUrl', () => {
     });
 
     it('refuses a path that carries on past pubhtml', () => {
-      // The path must END at `pubhtml`: `/pubhtml/../../…` is a docs.google.com
-      // url to somewhere else entirely once the browser resolves it.
+      // The path must END at `pubhtml`: a url that runs on is an authoring
+      // error, not one quietly cut back to `/pubhtml` by the rebuild.
       expect(
         sheetEmbedUrl(`https://docs.google.com/spreadsheets/d/e/${TOKEN}/pubhtml/../../document`),
       ).toBeNull();

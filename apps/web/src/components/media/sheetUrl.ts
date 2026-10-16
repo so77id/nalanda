@@ -32,12 +32,15 @@ const SHARE_URL =
 /**
  * A Google Sheets *published* url, the one Archivo → Compartir → Publicar en la
  * web hands out as a page, captured as (token, query-and-fragment). Anchored
- * like the share pattern and for the same reason, and **closed at the end of
- * the path**: without `([?#]…)?$`, `…/pubhtml/../../document/…` passes and the
- * browser resolves it to another docs.google.com document altogether. The
- * token Google mints is ~86 characters (`2PACX-…`); the floor is the share
- * pattern's. The other published outputs (`/pub?output=csv`, …) are downloads,
- * not pages, and are refused.
+ * like the share pattern, and **closed at the end of the path**: the tail must
+ * start with `?` or `#`, so nothing the author writes can reach the path, and
+ * the `$` makes a url that runs on past `pubhtml` (`…/pubhtml/../../document`)
+ * an authoring error rather than one silently cut back to `/pubhtml`. The url
+ * is rebuilt from literals either way, so these parts decide whether a bad
+ * link is refused or quietly turned into a working one — never which site is
+ * framed. The token Google mints is ~86 characters (`2PACX-…`); the floor is
+ * the share pattern's. The other published outputs (`/pub?output=csv`, …) are
+ * downloads, not pages, and are refused.
  */
 const PUBLISHED_URL =
   /^https:\/\/docs\.google\.com\/spreadsheets\/d\/e\/([\w-]{20,})\/pubhtml((?:[?#][\s\S]*)?)$/;
@@ -69,6 +72,11 @@ const GID = /[?#&]gid=(\d+)/;
  *   shows, so it is not parsed: a rewrite that dropped a parameter would show
  *   something else. That makes this the one url in the module whose tail is the
  *   author's — the exception `frontend-code-style.md` §Components names.
+ *   **The rebuild changes no output today**: the pattern matches the whole
+ *   string from a literal prefix, so every url it accepts comes back
+ *   byte-identical, and no test can tell the rebuild from returning the input.
+ *   It is a backstop for the day the pattern is loosened, deliberately not held
+ *   by a test.
  *
  * **What the frame shows is not what is published.** `range` and `single` are
  * view parameters on a public url, not permissions: the same token with
