@@ -31,6 +31,9 @@ entries reach the catalog, and what a machine can check.
    **Accepted limits**: the props table is prose, not derived from the component's
    TS interface, and each example's `code` string is written beside its `render`
    component — both can drift from the implementation, and nothing detects it.
+   **Amended by #336 (2026-10-15):** one divergence is sanctioned — a snippet
+   may name data `/catalog` must not frame and render a stand-in, only when the
+   example's title says so (ADR-0087; the contract is on `CatalogExample.code`).
    The entry covers ADR-0010 contract points 2 and 3 only; there is no field for
    point 1 (per-mode behavior — it is proven by tests and shown by the examples)
    nor point 4 (sync interface — nothing emits session events yet). Fields get

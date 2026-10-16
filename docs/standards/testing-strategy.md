@@ -794,7 +794,8 @@ page-only, invisible to every other gate.
   was added (#299, ADR-0076) — and a new url FORM of a provider already
   framed is measured the same way, string unchanged or not, because it is a
   different document: `<SheetEmbed>`'s published `/pubhtml` was measured
-  against itself rather than assumed from `/preview` (#336, ADR-0087); the
+  against itself rather than assumed from `/preview` (#336, ADR-0087) — all
+  but the popup pair, which waits for a published sheet that carries links; the
   network weight, since one frame
   cost ~570kB against a 190kB page; and whether `loading="lazy"` defers
   anything, since on an iframe it defers nothing until roughly 4000px below the

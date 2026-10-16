@@ -14,9 +14,10 @@ questions: none
 {/* copied. The pauta is the PDF's Compartir link, shared as "cualquiera */}
 {/* con el enlace puede ver"; the component rewrites it, and replacing the */}
 {/* file in Drive updates this page with no deploy. The grades are the */}
-{/* sheet's Publicar-en-la-web link, its query kept whole (ADR-0087). An */}
-{/* edit reaches the page only if the publication republishes on its own, */}
-{/* which is unmeasured: after a correction, look at the page signed out. */}
+{/* sheet's Publicar-en-la-web link, its query kept whole (ADR-0087). */}
+{/* Whether an edit reaches the page depends on the publication's */}
+{/* automatic-republish option, which is unmeasured: after a correction, */}
+{/* look at the page signed out. */}
 {/* A new sheet means a new token, so a new link here. Its */}
 {/* range=D1:Y27 is a VIEW, not a filter — the whole published tab, names */}
 {/* included, is one edited query away, and the share link this replaced */}

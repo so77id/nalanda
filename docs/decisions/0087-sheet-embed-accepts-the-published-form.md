@@ -6,9 +6,10 @@
 **Source:** Issue #336. **Amends** ADR-0035 §3, which normalised every sheet
 to `/preview` and refused the Publicar-en-la-web link. An amendment, not a
 supersession: §1, §2 and §4–§6 still hold, and §3's normalisation to `/preview`
-still holds for the share link — what changes is one clause of it, the refusal,
-narrowed to every `/d/e/` url but the page (the closer precedent is ADR-0020
-amending a rule ADR-0017 shipped). Numbered 0087 to clear `0084-*`, held by the unmerged
+still holds for the share link — what changes is its refusal clause: narrowed
+to every `/d/e/` url but `pubhtml`, and extended to the id-based
+`/d/<id>/pubhtml` link the share pattern used to rewrite (the closer precedent
+is ADR-0020 amending a rule ADR-0017 shipped). Numbered 0087 to clear `0084-*`, held by the unmerged
 branch of #326.
 
 ## Context

@@ -161,7 +161,7 @@ whole slide with its title.
   designed as though the sheet were deferred.
 - **Availability is Google's.** If Drive is down or the sheet is unshared, the
   rectangle shows Google's own page and nothing here can tell — cross-origin. The
-  authoring guide's instruction is to look at the published page.
+  authoring guide's instruction is to look at the rendered course page.
 - **The exception is narrow but real**: `security-notes.md` §"All bundled MDX is
   repo-controlled content" still holds for MDX, and now has a neighbour that does
   not. What a `<SheetEmbed>` shows is outside PR review by construction.

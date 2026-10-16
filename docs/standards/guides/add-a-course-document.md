@@ -1515,7 +1515,7 @@ The other outputs of that dialog — CSV, PDF — are downloads, not pages, and 
 refused. So is any `/d/e/` url that does not end its path at `pubhtml`. (#146's
 first pattern rewrote every `/d/e/` url into a framed Google "el archivo que
 solicitaste no existe" with every test green; its review refused them, and that
-stays fixed for every `/d/e/` url but the page.) The older id-based published link,
+stays fixed for every `/d/e/` url but `pubhtml`.) The older id-based published link,
 `/spreadsheets/d/<id>/pubhtml`, is refused too: it used to be taken for a share
 link and rewritten to `/preview`, silently losing its `range` and `single`.
 
