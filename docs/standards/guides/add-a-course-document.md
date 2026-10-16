@@ -1463,17 +1463,54 @@ an ignored one). If you link one tab of several, open the published page and
 check the right tab is showing. The url out of the address bar works too,
 including the
 `/spreadsheets/u/0/d/…` shape you get when you are signed into more than one
-Google account. Anything else is an authoring error, which is the failure worth
-catching: a hand-written `/edit` url is not blocked by Google — it frames
+Google account. Anything that is neither this nor the published link below is
+an authoring error. The rewrite matters as much as the refusal: a hand-written
+`/edit` url is not blocked by Google — it frames
 happily — it just publishes Google's **editor**, whose own requests fail inside
 the frame, so the reader gets the grid behind a "Se ha producido un error"
 dialog. The rewrite is what avoids that.
 
-**Not the "Publicar en la web" link.** That dialog hands out
-`/spreadsheets/d/e/<token>/pubhtml`, which looks close enough to be tempting and
-is a different document identifier entirely — it is refused, deliberately and
-loudly. Before it was, it produced a framed Google "el archivo que solicitaste
-no existe" with every test green (#146 review).
+**Or paste the "Publicar en la web" link**, when the frame should show less
+than the whole spreadsheet (ADR-0087). Archivo → Compartir → Publicar en la web
+hands out `/spreadsheets/d/e/<token>/pubhtml`; its query takes `gid=<tab>`,
+`single=true` and `range=D1:Y27`, and the component frames it exactly as you
+pasted it, query and all:
+
+```mdx
+<SheetEmbed
+  src="https://docs.google.com/spreadsheets/d/e/2PACX-1vQ.../pubhtml?gid=0&single=true&range=D1:Y27"
+  title="Notas del Solemne 1"
+/>
+```
+
+The two links do not behave alike:
+
+| | Compartir | Publicar en la web |
+| --- | --- | --- |
+| The setting it needs | _cualquiera con el enlace puede ver_ | Publicar en la web — a setting of its own, separate from sharing |
+| What the frame shows | the whole spreadsheet, every tab, with the tab bar | one tab with `single=true`, its name still in a strip at the foot; `range` trims the columns |
+| What anyone holding the link can read | the whole spreadsheet | every published tab, whole |
+| Changing what the frame shows | edit the spreadsheet | edit `src`, which is a commit, or the publication in Drive |
+
+**`range` hides nothing.** It sits in the frame's `src`, in the page source,
+and anyone who edits it reads the rest of the tab — measured: the same link with
+`range=A1:C27` served exactly the name columns a `D1:Y27` link leaves out, and
+with no `range` the whole tab. What a published link exposes is every tab ticked
+in the dialog, whole. To keep a column private, put the publishable columns in
+a tab of their own (`=Hoja1!D1:Y27`), publish **only that tab**, and set the
+file's own sharing back to _Restringido_ — or its share link still opens the
+original. Two parts of that are Google's and have not been measured here, so
+check them on your sheet before relying on them: the published link with the
+other tab's `gid` is refused, and once sharing is restricted, the published link
+still renders in a signed-out window. Whether a published sheet follows your
+edits depends on the dialog's automatic-republish option and has not been
+measured either: after an edit, look at the page.
+
+The other outputs of that dialog — CSV, PDF — are downloads, not pages, and are
+refused. So is any `/d/e/` url that does not end its path at `pubhtml`. (Before
+the published page had a pattern of its own, every `/d/e/` url was rewritten
+into a framed Google "el archivo que solicitaste no existe" with every test
+green, #146 review — that stays fixed.)
 
 **Share the sheet as "cualquiera con el enlace puede ver" before you publish the
 document — _ver_, never _editar_.** A sheet that is not shared renders Google's
@@ -1566,6 +1603,10 @@ authoring error — including a PDF url from another host, which this frame, the
 one granted `allow-same-origin`, must never hold. Share the file as
 _cualquiera con el enlace puede ver_ and look at the page, for the same reason
 as a sheet.
+
+**For the grades, the share link frames the whole sheet**, names included. To
+show fewer columns, use the published link of 6g — and read what its `range`
+does not hide before you choose it.
 
 **Write the document after the evaluation, never before.** Everything under
 `content/` is published, and a merged document pointing at a shared pauta is a
@@ -1889,9 +1930,11 @@ last block, so no stale copies accumulate.
       screen — not Google's request-access page, not a rectangle stuck on
       "Cargando la planilla…", not the wrong tab. Then check in Drive that the
       sheet is shared as _cualquiera con el enlace puede **ver**_ and not
-      _editar_. All of it is cross-origin: no level of the suite and no part of
-      the build can see any of it, and a wrong share setting in either direction
-      publishes silently.
+      _editar_. For a published link, check instead that every tab ticked in
+      Publicar en la web is one you would publish whole: its `range` is a view,
+      not a filter (6g). All of it is cross-origin: no level of the suite and no
+      part of the build can see any of it, and a wrong share setting in either
+      direction publishes silently.
 - [ ] Every `<PdfEmbed>` opened the same way and **looked at**: the viewer
       shows "Página 1 de N" and scrolls to the last page — not Google's
       request-access page, not a spinner that never resolves. The file shared
