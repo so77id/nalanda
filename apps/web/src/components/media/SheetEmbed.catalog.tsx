@@ -16,6 +16,7 @@ export const sheetEmbedCatalogEntry: CatalogEntry = {
     'A shared Google Sheet, framed read-only inside the page. The author edits the spreadsheet and the page follows, with no commit and no deploy.',
   whenToUse:
     'When what the course needs to publish already lives in a spreadsheet and changes on its own schedule — today that is the week-by-week plan and each evaluation’s grades. What the sheet shows is the author’s decision, grades included (ADR-0076): a link-shared sheet is public, names, RUTs and marks are personal data under Ley 21.719, and a shared link cannot be taken back, so choose the columns in the spreadsheet (docs/security-notes.md). A table typed into MDX is wrong the first time a class moves; this one is never re-typed. ' +
+    'Two links are accepted, and they show different things (ADR-0087). The share link shows the whole spreadsheet, every tab. The Publicar-en-la-web link shows only the tabs published in that dialog, and its range= and single= trim the view further, but only the view: they are parameters on a public url, and anyone who edits them sees the rest of the published tab (measured, #336). A column a reader must not see goes in a tab that is not published, never merely outside the range. ' +
     'It shows the sheet as Google renders it and does nothing else: it does not read the data, does not know the columns, and transforms nothing. Tidying happens in the spreadsheet. ' +
     'The `title` is a runtime contract rather than a type, for the same reason as <Figure>: an iframe carries no accessible name of its own, so a frame without one is announced as an unnamed region the reader cannot identify or skip. ' +
     'Prefer a table typed into MDX for anything genuinely static: a frame is among the most expensive things the site serves (and <PdfEmbed> is heavier still, ADR-0076) — one frame costs about 10 requests and 570 kB on a first visit, roughly 2.9 times the whole application entry chunk (ADR-0035). It earns that only when the data changes on its own and a typed copy would go stale. ' +
@@ -25,7 +26,7 @@ export const sheetEmbedCatalogEntry: CatalogEntry = {
       name: 'src',
       type: 'string',
       description:
-        'The share link, exactly as the Compartir button gives it — or the /spreadsheets/u/0/d/... url out of the address bar. Required. It is rewritten into the embeddable /preview form, because the /edit url Google hands you frames the EDITOR — not blocked, but its own requests fail inside the sandbox and it paints the grid behind an error dialog. The gid is carried across when the link points at one tab of several, but THAT part is unverified (see sheetUrl.ts): check the published page if you use a multi-tab sheet. The Publicar-en-la-web url is a different identifier entirely and is refused. So is anything that is not a docs.google.com spreadsheet url.',
+        'Required, in one of two forms. The share link, exactly as the Compartir button gives it — or the /spreadsheets/u/0/d/... url out of the address bar — is rewritten into the embeddable /preview form, because the /edit url Google hands you frames the EDITOR — not blocked, but its own requests fail inside the sandbox and it paints the grid behind an error dialog. The gid is carried across when the link points at one tab of several, but THAT part is unverified (see sheetUrl.ts): check the published page if you use a multi-tab sheet. The Publicar-en-la-web link (/spreadsheets/d/e/<token>/pubhtml?...) is framed exactly as given, query included, so its gid, single and range survive; it needs the sheet published to the web, a setting separate from sharing, and single=true still leaves a one-tab strip at the foot. Every other /d/e/ url (the CSV and PDF outputs) is refused, and so is anything that is not a docs.google.com spreadsheet url.',
     },
     {
       name: 'title',
@@ -57,6 +58,20 @@ export const sheetEmbedCatalogEntry: CatalogEntry = {
   height={260}
 />`,
       render: () => <SheetEmbed src={PLAN} title="Fechas de laboratorio" height={260} />,
+    },
+    {
+      // The snippet is the published form; the frame is not. The only sheet
+      // published to the web today is a grades sheet, and this page is public
+      // and outlives the semester, so it frames the plan's share link instead
+      // (decided with the professor, #336). The live published form is on the
+      // evaluation page that uses it.
+      title:
+        'Published to the web, one tab and a range (snippet only: the frame below is the share link, since no non-personal sheet is published)',
+      code: `<SheetEmbed
+  src="https://docs.google.com/spreadsheets/d/e/2PACX-1vQ.../pubhtml?gid=0&single=true&range=A1:F20"
+  title="Planificación del semestre"
+/>`,
+      render: () => <SheetEmbed src={PLAN} title="Planificación del semestre" />,
     },
     {
       title: 'Given no title',
