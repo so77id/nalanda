@@ -1,6 +1,6 @@
 import { AuthoringError } from '../AuthoringError';
 import { EmbedFrame } from './EmbedFrame';
-import { sheetPreviewUrl } from './sheetUrl';
+import { sheetEmbedUrl } from './sheetUrl';
 
 export interface SheetEmbedProps {
   /**
@@ -70,7 +70,7 @@ export function SheetEmbed({ src, title, height = DEFAULT_HEIGHT }: SheetEmbedPr
     );
   }
 
-  const url = sheetPreviewUrl(src);
+  const url = sheetEmbedUrl(src);
   if (url === null) {
     return (
       <AuthoringError component="SheetEmbed">

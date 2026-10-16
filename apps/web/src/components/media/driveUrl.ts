@@ -33,7 +33,7 @@ const RESOURCE_KEY = /[?&]resourcekey=([\w-]+)/;
  * (ADR-0076). Measured 2026-09-22: the `/preview` url answers 200 with no
  * `X-Frame-Options` and no `frame-ancestors` on a link-shared file.
  *
- * Pure and separate from the component for the reason `sheetPreviewUrl` is: a
+ * Pure and separate from the component for the reason `sheetEmbedUrl` is: a
  * refused url frames a blank rectangle and the suite stays green.
  */
 export function drivePreviewUrl(src: string): string | null {

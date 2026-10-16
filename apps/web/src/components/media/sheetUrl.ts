@@ -1,6 +1,6 @@
 /**
- * A Google Sheets url, captured as (spreadsheet id). Three parts earn their
- * keep:
+ * A Google Sheets share url, captured as (spreadsheet id). Three parts earn
+ * their keep:
  *
  * - **Anchored at the scheme and the host**, because this value ends up in an
  *   `<iframe src>`: the host is the whole of what is being trusted, and a
@@ -9,13 +9,32 @@
  *   address bar when the professor is signed into more than one account
  *   (`/spreadsheets/u/0/d/…`) — the url you get by copying from the address bar
  *   instead of the Compartir dialog, which is the likelier of the two.
- * - **`(?!e\/)` and the 20-character floor** refuse the *published* form,
- *   `/spreadsheets/d/e/<token>/pubhtml`. Without them it matches, captures the
- *   literal `"e"` as the id, and builds `/spreadsheets/d/e/preview` — a 404
- *   that frames Google's own "el archivo que solicitaste no existe" with the
- *   whole suite green (#146 review). Real ids are 40+ characters.
+ * - **`(?!e\/)` and the 20-character floor** keep the *published* form,
+ *   `/spreadsheets/d/e/<token>/…`, out of this pattern. Without them it matches,
+ *   captures the literal `"e"` as the id, and builds `/spreadsheets/d/e/preview`
+ *   — a 404 that frames Google's own "el archivo que solicitaste no existe" with
+ *   the whole suite green (#146 review). Real ids are 40+ characters. Either
+ *   part alone refuses it — `/` is not in `[\w-]`, so the captured `"e"` can
+ *   never reach the floor — and the lookahead stays because it is the one that
+ *   says why (mutated in #336: only removing both turns a `/d/e/` url into the
+ *   404). The published form has a pattern of its own since #336, below, and
+ *   this one must still refuse it: otherwise every `/d/e/` url that is not a
+ *   `/pubhtml` one would be rewritten into that 404 instead of reported.
  */
-const SHEET_URL = /^https:\/\/docs\.google\.com\/spreadsheets\/(?:u\/\d+\/)?d\/(?!e\/)([\w-]{20,})/;
+const SHARE_URL = /^https:\/\/docs\.google\.com\/spreadsheets\/(?:u\/\d+\/)?d\/(?!e\/)([\w-]{20,})/;
+
+/**
+ * A Google Sheets *published* url, the one Archivo → Compartir → Publicar en la
+ * web hands out as a page. Anchored like the share pattern and for the same
+ * reason, and also **closed at the end of the path**, because this url reaches
+ * the frame verbatim: without `(?:[?#]|$)`, `…/pubhtml/../../document/…` passes
+ * and the browser resolves it to another docs.google.com document altogether.
+ * The token Google mints is ~86 characters (`2PACX-…`); the floor is the share
+ * pattern's. The other published outputs (`/pub?output=csv`, …) are downloads,
+ * not pages, and are refused.
+ */
+const PUBLISHED_URL =
+  /^https:\/\/docs\.google\.com\/spreadsheets\/d\/e\/[\w-]{20,}\/pubhtml(?:[?#]|$)/;
 
 /**
  * The tab of a multi-sheet document, wherever Google put it in the link.
@@ -29,7 +48,26 @@ const SHEET_URL = /^https:\/\/docs\.google\.com\/spreadsheets\/(?:u\/\d+\/)?d\/(
 const GID = /[?#&]gid=(\d+)/;
 
 /**
- * The embeddable url for a shared Google Sheet, or `null` if this is not one.
+ * The embeddable url for a Google Sheet, or `null` if this is not one. Two
+ * forms are accepted, and they are not interchangeable (ADR-0087):
+ *
+ * - **The share link** (Compartir, `/d/<id>/edit?usp=sharing`) is rewritten to
+ *   `/preview`. It needs only "anyone with the link can view" and shows the
+ *   whole spreadsheet, every tab, with Google's tab bar.
+ * - **The published link** (Publicar en la web, `/d/e/<token>/pubhtml?…`) is
+ *   framed **exactly as given**. It needs the sheet published to the web — a
+ *   setting of its own, separate from sharing — and it serves only the tabs
+ *   chosen in that dialog: any other `gid` answers 401 (measured 2026-10-15).
+ *   It honours `single` (no tab bar) and `range` (some columns only), which is
+ *   why it is passed through rather than rebuilt: the query is the author's
+ *   choice of what the frame shows, and a rewrite that dropped a parameter
+ *   would show something else.
+ *
+ * **What the frame shows is not what is published.** `range` and `single` are
+ * view parameters on a public url, not permissions: the same token with
+ * `range=A1:C27` served the columns a `D1:Y27` link leaves out (measured
+ * 2026-10-15, #336). Anything a reader must not see stays out of the published
+ * tabs, never merely out of the range.
  *
  * Authors paste what the Compartir button gives them, which is an `/edit` url.
  * That url is **not** frame-blocked — Google sends no `frame-ancestors` and no
@@ -37,19 +75,19 @@ const GID = /[?#&]gid=(\d+)/;
  * the wrong thing to publish: framed under this component's sandbox, without
  * `allow-same-origin`, the editor's own requests fail and it paints the grid
  * behind a "Se ha producido un error" dialog, editing chrome and all.
- *
- * The other two forms measured the same day: `/pubhtml` needs the sheet
- * published to the web (401 without it), and `/htmlembed` works on a merely
- * link-shared sheet but shows no tab bar. `/preview` needs nothing but "anyone
- * with the link can view" and renders the sheet as Google draws it, so it is
- * the one form this normalises to.
+ * `/htmlembed`, measured the same day, works on a merely link-shared sheet but
+ * shows no tab bar; `/preview` renders the sheet as Google draws it, so it is
+ * the form a share link normalises to.
  *
  * Pure and separate from the component because the alternative is a silent
  * failure with the suite green: a refused url frames a blank rectangle, and the
  * only evidence is a console violation neither the author nor the reader sees.
  */
-export function sheetPreviewUrl(src: string): string | null {
-  const match = SHEET_URL.exec(src.trim());
+export function sheetEmbedUrl(src: string): string | null {
+  const trimmed = src.trim();
+  if (PUBLISHED_URL.test(trimmed)) return trimmed;
+
+  const match = SHARE_URL.exec(trimmed);
   if (match === null) return null;
 
   const gid = GID.exec(src);
