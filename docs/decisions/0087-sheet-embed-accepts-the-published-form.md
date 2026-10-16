@@ -5,8 +5,10 @@
 **Decision-makers:** Miguel Rodriguez
 **Source:** Issue #336. **Amends** ADR-0035 §3, which normalised every sheet
 to `/preview` and refused the Publicar-en-la-web link. An amendment, not a
-supersession, as ADR-0076 was: §1, §2 and §4–§6 still hold, and §3 still holds
-for the share link. Numbered 0087 to clear `0084-*`, held by the unmerged
+supersession: §1, §2 and §4–§6 still hold, and §3's normalisation to `/preview`
+still holds for the share link — what changes is one clause of it, the refusal,
+narrowed to every `/d/e/` url but the page (the closer precedent is ADR-0020
+amending a rule ADR-0017 shipped). Numbered 0087 to clear `0084-*`, held by the unmerged
 branch of #326.
 
 ## Context
@@ -110,7 +112,8 @@ halves of that are what Google's dialogs offer, **not measured here**: the
 401s above were on tabs that do not exist, so nothing has yet shown an
 existing tab left out of the publication being refused, nor a published sheet
 still serving once its sharing is restricted. Whoever first relies on it
-checks both on the sheet, the way the guide says. The component cannot see
+checks both on the sheet, the way the guide says (§Consequences, the block
+at the end). The component cannot see
 any of this, which is why the statement lives in
 `sheetUrl.ts`, the catalog entry, the authoring guide (§6g) and
 `security-notes.md` rather than in a check.
@@ -130,8 +133,9 @@ any of this, which is why the statement lives in
   nothing with the original. It duplicates the file and keeps an import
   authorised. The single published tab of decision 4 gets the same separation
   inside one file.
-- **Keep refusing the form.** Keeps ADR-0035's single setting, and leaves the
-  professor no way to show fewer columns than the whole sheet.
+- **Keep refusing the form.** Keeps ADR-0035's single setting, and leaves a
+  second file fed by `IMPORTRANGE` as the only way to show fewer columns than
+  the whole sheet.
 
 ## Consequences
 
@@ -146,13 +150,15 @@ any of this, which is why the statement lives in
   | Changing what the frame shows | Edit the spreadsheet | Edit `src` in the MDX — a commit — or the publication in Drive |
 
 - **Whether a published sheet follows edits is not measured.** Google's dialog
-  has an option to republish automatically on change, but nothing here has edited a published sheet and watched the frame. Nor has
-  anything measured whether the token survives unpublishing and republishing.
-  Until someone does, an author who changes the sheet looks at the page.
+  has an option to republish automatically on change, but nothing here has
+  edited a published sheet and watched the frame. Nor has anything measured
+  whether the token survives unpublishing and republishing. Meanwhile an author
+  who changes the sheet looks at the page; both are in the block below.
 - **The weight is the share form's.** Cold, the frame alone at 760×480,
   `request.sizes()` transfer bytes, the same sheet both ways: `/preview` 12
-  requests and ~578 kB, the published form 9 requests and ~566 kB. The Google
-  stylesheet ADR-0035 measured at ~490 kB (494 kB today) dominates both.
+  requests and ~578 KiB, the published form 9 requests and ~566 KiB; the #336
+  review re-ran it at 11 and 10 requests, ±1 from a ping. The Google stylesheet
+  ADR-0035 measured at ~490 kB (494 KiB today) dominates both.
 - **Solemne 1 ships the professor's link as given, and the exposure is
   unchanged.** His decision under ADR-0076 §3, taken with the table above in
   front of him: the frame shows the RUT column and the grades, and the names
@@ -169,3 +175,25 @@ any of this, which is why the statement lives in
 - **A future CSP needs nothing new for it**: the published page and the grid
   it loads are both served from `docs.google.com`, which ADR-0035 already
   names for `frame-src`.
+- **`/catalog` cannot show the published form live.** The only published
+  sheet holds grades, and the catalog is public past the semester, so its
+  example shows the published snippet and renders the plan's share link, its
+  title saying so — the first sanctioned divergence between an example's
+  `code` and its `render` (the contract on `CatalogExample.code` in
+  `lib/catalogEntry.ts`; ADR-0014 amended). Decided with the professor.
+
+> **Measurements to fill in (owner: Miguel Rodriguez, deadline: before the
+> next correction of Solemne 1's grades, or the first page that relies on a
+> published link to keep data private — whichever comes first; tracked in
+> #300):**
+>
+> - **A published sheet follows an edit.** With automatic republish on, edit
+>   one cell of a published sheet, reload the page in a signed-out window, and
+>   record how long the change took to appear. Then the same with it off.
+> - **The token survives unpublishing.** Stop publishing, publish again, and
+>   compare the `2PACX-…` token with the one in `src`.
+> - **An existing unpublished tab is refused.** On a sheet of two tabs with
+>   one published, request the other tab's `gid` on the published link.
+> - **A restricted file keeps serving its publication.** Set the file's
+>   sharing to _Restringido_ and open the published link in a signed-out
+>   window.

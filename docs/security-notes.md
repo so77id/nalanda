@@ -1194,7 +1194,11 @@ just as well.
 **Review trigger:** any future spike that measures against production data —
 the Canvas roster, a scanned control, a grade export. Also the first time
 `CANVAS-CHECK.md` is run by someone who is not the professor whose students
-these are.
+these are. (Fired with #336: the published grades sheet was probed and
+ADR-0087 records counts — rows, cells per row, cells shaped like a name or a
+RUT — never a value. That is the method: against live personal data, read the
+response's shape, never its contents, and keep the raw responses out of the
+repository.)
 
 **Related:** ADR-0068 §Consequences (the roster's own PII, unencrypted and
 in every nightly off-host backup), and the §"Logs and personal data" entry

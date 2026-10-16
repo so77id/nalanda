@@ -9,7 +9,10 @@ the four families, and deferred its shape to v0.1.
 **Amended by:** #87 (§6 — family ids are English and are their own folder; the
 id↔folder mapping this ADR described no longer exists) · #122 (2026-08-16) — §2:
 the entry array moved off the components seam and behind `loadCatalogEntries()`,
-and the catalog's data became asynchronous
+and the catalog's data became asynchronous · #336 (2026-10-15) — §1: an
+example's `code` may name data its `render` deliberately does not frame, only
+when the example's title says so (worked case: `<SheetEmbed>`'s published form,
+ADR-0087; the contract is on `CatalogExample.code` in `lib/catalogEntry.ts`)
 
 ## Context
 

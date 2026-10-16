@@ -40,7 +40,8 @@ content/courses/sample-course/
 │   └── google.svg, java.svg, … (22, with a README recording provenance)
 ├── 04-planificacion.mdx       # presentation: none     — book-only; <SheetEmbed> around the live plan
 ├── evaluaciones/              # one document per evaluation, the "Evaluaciones" group of index.yaml
-│   └── control-1.mdx          # presentation: none     — <PdfEmbed> (pauta) + <SheetEmbed> (notas), §6h
+│   ├── control-1.mdx          # presentation: none     — <PdfEmbed> (pauta) + <SheetEmbed> (notas), §6h
+│   └── solemne-1.mdx          # presentation: none     — the same, with the grades on a Publicar-en-la-web link (§6g, ADR-0087)
 ├── 06-java-desde-cpp.mdx      # presentation: explicit — uses <SideBySide>, plus a markdown ##
 ├── 07-java-tipos-y-flujo.mdx  # presentation: explicit — uses <Exercise> + <CodeEditor>, plus two markdown ##
 ├── 08-referencias-null-igualdad.mdx  # presentation: explicit — uses <PredictOutput> + <StepShow>/<MemoryVisual> + <Exercise> + <CodeEditor>
@@ -1444,7 +1445,10 @@ ADR-0029.
 
 6g. **Publish a spreadsheet instead of typing it out**: `<SheetEmbed>` frames a
 shared Google Sheet inside the page, read-only. You edit the spreadsheet and the
-page follows — **no commit and no deploy**. Use it for what changes on its own
+page follows — **no commit and no deploy**. That is inferred rather than
+watched: the build carries no cell of the sheet (#146); for the published link
+below it also rests on Google republishing, which nothing here has measured.
+Use it for what changes on its own
 schedule and already lives in a sheet — today the week-by-week plan and each
 evaluation's grades (6h).
 
@@ -1459,8 +1463,9 @@ evaluation's grades (6h).
 into the embeddable form itself, keeping the `gid` when your link points at one
 tab of several — **that last part is unverified** (`sheetUrl.ts`: the course's
 sheet has one tab, so nothing has yet distinguished a working tab selector from
-an ignored one). If you link one tab of several, open the published page and
-check the right tab is showing. The url out of the address bar works too,
+an ignored one). If you link one tab of several, open the course page
+(`npm run preview`, or the live site after merge) and check the right tab is
+showing. The url out of the address bar works too,
 including the
 `/spreadsheets/u/0/d/…` shape you get when you are signed into more than one
 Google account. Anything that is neither this nor the published link below is
@@ -1507,10 +1512,10 @@ edits depends on the dialog's automatic-republish option and has not been
 measured either: after an edit, look at the page.
 
 The other outputs of that dialog — CSV, PDF — are downloads, not pages, and are
-refused. So is any `/d/e/` url that does not end its path at `pubhtml`. (Before
-the published page had a pattern of its own, every `/d/e/` url was rewritten
-into a framed Google "el archivo que solicitaste no existe" with every test
-green, #146 review — that stays fixed.) The older id-based published link,
+refused. So is any `/d/e/` url that does not end its path at `pubhtml`. (#146's
+first pattern rewrote every `/d/e/` url into a framed Google "el archivo que
+solicitaste no existe" with every test green; its review refused them, and that
+stays fixed for every `/d/e/` url but the page.) The older id-based published link,
 `/spreadsheets/d/<id>/pubhtml`, is refused too: it used to be taken for a share
 link and rewritten to `/preview`, silently losing its `range` and `single`.
 

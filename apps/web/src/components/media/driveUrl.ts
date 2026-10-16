@@ -1,6 +1,6 @@
 /**
- * A Google Drive file url, captured as (file id). The same three concerns as
- * `sheetUrl.ts`, for a different host:
+ * A Google Drive file url, captured as (file id). Three of the concerns of
+ * `sheetUrl.ts`'s share pattern, for a different host:
  *
  * - **Anchored at the scheme and the host, and the host is closed by the `/`
  *   that follows it**, because this value ends up in an `<iframe src>` that is

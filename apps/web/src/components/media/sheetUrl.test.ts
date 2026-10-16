@@ -158,12 +158,12 @@ describe('sheetEmbedUrl', () => {
 
     it('refuses the other published outputs rather than framing a 404', () => {
       // `/d/e/<token>/pub?output=csv` is published too, but it is a download,
-      // not a page. Before the published form had a branch of its own, the share
-      // pattern took ANY `/d/e/…` url, captured the literal "e" as the id and
-      // built `/spreadsheets/d/e/preview` — a 404 that frames Google's own "el
-      // archivo que solicitaste no existe", with no authoring error and the whole
-      // suite green (#146 review). Every `/d/e/` url that is not `/pubhtml` must
-      // still be refused, not rewritten.
+      // not a page. #146's first share pattern took ANY `/d/e/…` url, captured
+      // the literal "e" as the id and built `/spreadsheets/d/e/preview` — a 404
+      // that frames Google's own "el archivo que solicitaste no existe", with no
+      // authoring error and the whole suite green; its review refused them.
+      // Every `/d/e/` url that is not `/pubhtml` must still be refused, not
+      // rewritten.
       expect(
         sheetEmbedUrl(`https://docs.google.com/spreadsheets/d/e/${TOKEN}/pub?output=csv`),
       ).toBeNull();

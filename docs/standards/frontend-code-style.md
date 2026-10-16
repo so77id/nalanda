@@ -290,7 +290,7 @@ src/
   pattern anchored on the path alone accepts
   `https://evil.example/spreadsheets/d/…`. Rebuilding also makes the pattern's
   tail harmless, which is why it may be loose. Worked case:
-  `components/media/sheetUrl.ts` (#146, ADR-0035) — 26 hostile inputs
+  `components/media/sheetUrl.ts`'s share form (#146, ADR-0035) — 26 hostile inputs
   (userinfo `@`, backslashes, `\t\n\r`, NUL, zero-width and ideographic spaces,
   U+2024 in the host, trailing dot, explicit `:443`) all produced either `null`
   or a url on `docs.google.com`, because none of the input survives into the

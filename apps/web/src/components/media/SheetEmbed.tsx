@@ -56,8 +56,9 @@ const SANDBOX = 'allow-scripts allow-popups allow-popups-to-escape-sandbox';
  * A shared Google Sheet, rendered read-only inside the page.
  *
  * The professor edits the spreadsheet and the page follows — no commit, no
- * deploy. That is measured for the share link; for a published one it rests on
- * Google's automatic republishing, which nothing here has watched (ADR-0087).
+ * deploy. That is inferred rather than watched: the build carries no cell of
+ * the sheet (#146), and the literal edit-and-reload check is not on record; for
+ * a published link it also rests on Google's automatic republishing (ADR-0087).
  * Deliberately the whole of it: this component does not read the sheet,
  * does not know its columns and transforms nothing. Google renders it; we frame
  * it and say how tall.

@@ -113,12 +113,17 @@ SPA fallback and the `vite preview` gotcha). One home per fact, per
      below the fold, so it bought nothing on either shipping page; and one frame
      costs ~570kB of third-party payload, three times the whole app. Anything
      rendering an `<iframe>` is checked in a real browser against the built site:
-     the frame paints, each permission re-measured whenever the string changes,
-     weight from a cold profile, and a sideways drag on a touch context. Worked
-     case: `<SheetEmbed>` (ADR-0035). Second worked case, and the reason the
-     permissions are measured rather than copied: `<PdfEmbed>` (ADR-0076) took
-     `SheetEmbed`'s sandbox and Drive's viewer never finished loading — it
-     needs `allow-same-origin`, which only a real browser showed.
+     the frame paints, each permission re-measured whenever the string changes
+     or the component starts framing a new url form (a different document,
+     even from the same provider), weight from a cold profile, and a sideways
+     drag on a touch context. Worked case: `<SheetEmbed>` (ADR-0035). Second
+     worked case, and the reason the permissions are measured rather than
+     copied: `<PdfEmbed>` (ADR-0076) took `SheetEmbed`'s sandbox and Drive's
+     viewer never finished loading — it needs `allow-same-origin`, which only
+     a real browser showed. Third: `<SheetEmbed>`'s published `/pubhtml` form
+     (#336, ADR-0087) kept the string and was still measured against that
+     form, not assumed from `/preview`; the popup pair stays unmeasured for it
+     until a published sheet carries links.
 
   4. _A guard behind a lazy boundary_: the heavy widgets register through a
      `lazy<Name>.tsx` wrapper, and `app/contentRenders.test.tsx` preloads the

@@ -791,7 +791,11 @@ page-only, invisible to every other gate.
   and both spellings pass every assertion — and for a NEW provider the string
   is measured from scratch, never copied from a sibling: `<PdfEmbed>` took
   `<SheetEmbed>`'s and Drive's viewer never loaded until `allow-same-origin`
-  was added (#299, ADR-0076); the network weight, since one frame
+  was added (#299, ADR-0076) — and a new url FORM of a provider already
+  framed is measured the same way, string unchanged or not, because it is a
+  different document: `<SheetEmbed>`'s published `/pubhtml` was measured
+  against itself rather than assumed from `/preview` (#336, ADR-0087); the
+  network weight, since one frame
   cost ~570kB against a 190kB page; and whether `loading="lazy"` defers
   anything, since on an iframe it defers nothing until roughly 4000px below the
   fold. A fifth, if the component can appear on a slide: a real touch drag

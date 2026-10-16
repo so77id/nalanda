@@ -73,7 +73,9 @@ error. It also refuses the *published* form, `/spreadsheets/d/e/<token>/pubhtml`
 which is a different identifier that the first pattern accepted and turned into
 a framed 404 (#146 review). _Amended by ADR-0087 (#336): the published page is
 now accepted, its query kept whole; the refusal stands for every other `/d/e/`
-url, and the 404 stays fixed._ The failure it replaces is silent — a refused url frames a blank
+url, and the 404 stays fixed. The share pattern now also refuses the id-based
+`/d/<id>/pubhtml` link, which it used to rewrite to `/preview` without its
+`range`._ The failure it replaces is silent — a refused url frames a blank
 rectangle whose only trace is a console violation nobody sees.
 
 **4. The frame's permissions are measured, not inherited.**
@@ -113,7 +115,9 @@ whole slide with its title.
   class that moves on Tuesday is wrong until someone remembers.
 - **Publish the sheet to the web and use `/pubhtml`.** Works, and needs a second
   setting the professor must not forget; `/preview` needs only the share setting
-  that must be right anyway.
+  that must be right anyway. _Adopted alongside `/preview` by ADR-0087 (#336),
+  for a narrower view: `/preview` stays the share link's form, and the second
+  setting is the author's cost when they choose it._
 - **Type the calendar into MDX.** The status quo. It is the thing that is wrong
   the first time a class moves.
 
