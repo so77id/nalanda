@@ -56,8 +56,8 @@ const GID = /[?#&]gid=(\d+)/;
  *   whole spreadsheet, every tab, with Google's tab bar.
  * - **The published link** (Publicar en la web, `/d/e/<token>/pubhtml?…`) is
  *   framed **exactly as given**. It needs the sheet published to the web — a
- *   setting of its own, separate from sharing — and it serves only the tabs
- *   chosen in that dialog: any other `gid` answers 401 (measured 2026-10-15).
+ *   setting of its own, separate from sharing — and it serves the tabs chosen
+ *   in that dialog, each one whole.
  *   It honours `single` (no tab bar) and `range` (some columns only), which is
  *   why it is passed through rather than rebuilt: the query is the author's
  *   choice of what the frame shows, and a rewrite that dropped a parameter

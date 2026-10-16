@@ -166,6 +166,11 @@ referrerpolicy="no-referrer"
   scrolls both ways without it, so the frame's document runs in an opaque origin
   and cannot **script** Google's. Verified rather than assumed: all four sandbox
   combinations rendered the sheet identically.
+- **The published form runs under the same string** (#336, ADR-0087), measured
+  on 2026-10-15 against Solemne 1's published grades rather than assumed from
+  `/preview`: it renders; without `allow-scripts` its grid is empty; with
+  `allow-same-origin` added nothing changes. The popup pair was not re-measured
+  on it — that sheet carries no links.
 
   **This is not the same as "no Google session is involved".** The sandbox flag
   governs the origin of the resulting document, never the cookie jar of the
@@ -225,6 +230,18 @@ it:
   sheet he curates and to own what it shows. Nothing about `<SheetEmbed>`
   decides it, and the repo no longer tries: which columns the sheet carries is
   decided in Drive, outside this repo's review.
+- **A published link's `range` is a view, not a filter** (#336, ADR-0087).
+  Measured on 2026-10-15: the same token with `range=A1:C27` served the name
+  columns a `range=D1:Y27` link leaves out, and with no `range` at all, the whole
+  tab. The query is in the frame's `src`, in the page source, for anyone to
+  edit. What a published link exposes is every tab ticked in the Publicar en la
+  web dialog, whole; a column stays private only by being in no published tab —
+  and the file's own sharing must be restricted too, or its share link still
+  opens the original. (That an existing unpublished tab is refused, and that a
+  restricted file keeps serving its publication, are what Google's dialogs
+  offer; neither is measured here.) Solemne 1 frames a published range that
+  carries the RUT column, with the names one edited query away: the professor's
+  decision, taken with these measurements in front of him.
 
 **Review trigger**: the first `<SheetEmbed>` pointed at a host other than
 `docs.google.com`, which the component refuses today and which would reopen
