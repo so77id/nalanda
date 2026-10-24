@@ -30,6 +30,7 @@ import (
 	"log/slog"
 	"mime"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 
@@ -314,6 +315,18 @@ func (a *Auth) VerifyCSRF(next http.Handler) http.Handler {
 		//     never read. The gated test above pins the fix.
 		if isMultipart(r) {
 			if err := r.ParseMultipartForm(csrfMultipartMemoryLimit); err != nil {
+				// httpserver's read deadline bounds the BODY too, and this
+				// parse is where a scan batch the link cannot carry in time
+				// runs out of it. It used to fall into the 403 below and read
+				// as a permissions problem (#339).
+				if errors.Is(err, os.ErrDeadlineExceeded) {
+					a.Log.Warn("upload body read timed out",
+						"professor", session.UserID, "path", r.URL.Path, "error", err)
+					WriteError(w, r, http.StatusRequestTimeout, uploadTimedOut)
+					return
+				}
+				a.Log.Warn("refusing a multipart body that could not be read",
+					"professor", session.UserID, "path", r.URL.Path, "error", err)
 				renderForbidden(w, r)
 				return
 			}
@@ -351,6 +364,10 @@ func isMultipart(r *http.Request) bool {
 	}
 	return mt == "multipart/form-data"
 }
+
+// uploadTimedOut is what a professor reads when the read deadline cut their
+// upload: the cause, and the two things they can change.
+const uploadTimedOut = "La subida tardó demasiado y se cortó. Vuelve a intentarlo con una conexión más rápida o con un archivo más pequeño."
 
 // renderForbidden writes a 403 through the shell (AC-11). The plain-text
 // http.Error version was what a signed-in professor got when a form's CSRF

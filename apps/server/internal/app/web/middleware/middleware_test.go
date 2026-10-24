@@ -1,18 +1,23 @@
 package middleware_test
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"io"
 	"log/slog"
 	"mime/multipart"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -644,6 +649,196 @@ func TestVerifyCSRFRefusesAStateChangingRequestWithNoSessionAtAll(t *testing.T) 
 	}
 	if recorder.Code != http.StatusForbidden {
 		t.Errorf("status = %d, want 403", recorder.Code)
+	}
+}
+
+// lockedBuffer is a log sink a server goroutine can write while the test reads
+// it afterwards; the race detector cannot see the TCP round trip that orders
+// the two.
+type lockedBuffer struct {
+	mu  sync.Mutex
+	buf bytes.Buffer
+}
+
+func (b *lockedBuffer) Write(p []byte) (int, error) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.buf.Write(p)
+}
+
+func (b *lockedBuffer) String() string {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.buf.String()
+}
+
+// captureLog points the middleware's logger at a buffer the test can read.
+func (h *harness) captureLog() *lockedBuffer {
+	logs := &lockedBuffer{}
+	h.auth.Log = slog.New(slog.NewTextHandler(logs, nil))
+	return logs
+}
+
+// unfinishedUpload is the start of a scan upload that never arrives whole: the
+// token, then a file part cut off mid-way.
+func unfinishedUpload(t *testing.T, csrf string) (body []byte, contentType string) {
+	t.Helper()
+
+	var buf bytes.Buffer
+	w := multipart.NewWriter(&buf)
+	if err := w.WriteField(middleware.CSRFFieldName, csrf); err != nil {
+		t.Fatalf("WriteField: %v", err)
+	}
+	part, err := w.CreateFormFile("scan", "scan.pdf")
+	if err != nil {
+		t.Fatalf("CreateFormFile: %v", err)
+	}
+	_, _ = part.Write([]byte("%PDF-1.4 the first bytes of a batch"))
+	// No Close: the closing boundary is what never arrived.
+	return buf.Bytes(), w.FormDataContentType()
+}
+
+// failingReader stands in for the connection once the server's read deadline
+// has passed.
+type failingReader struct{ err error }
+
+func (f failingReader) Read([]byte) (int, error) { return 0, f.err }
+
+// Issue #339. httpserver's readTimeout bounds the BODY as well as the headers,
+// and this middleware parses a multipart body before the handler runs — so a
+// scan batch too large for the link to carry in 15 s died here, and the
+// professor read "Solicitud no autorizada.", a permissions problem they did not
+// have (2026-10-23, two uploads at 15002 ms and 15001 ms). The deadline is now
+// named for what it is: a 408, in Spanish, and a WARN an operator can grep.
+func TestVerifyCSRFAnswersAReadDeadlineInsideTheUploadWith408(t *testing.T) {
+	h := newHarness(t)
+	user, token := h.login(t, "profesora@example.com")
+	logs := h.captureLog()
+
+	session, err := h.store.SessionByTokenHash(context.Background(), auth.HashToken(token))
+	if err != nil {
+		t.Fatalf("SessionByTokenHash: %v", err)
+	}
+	prefix, contentType := unfinishedUpload(t, session.CSRFToken)
+	// The shape net/http hands a handler when the connection's deadline fires.
+	deadline := &net.OpError{Op: "read", Net: "tcp", Err: os.ErrDeadlineExceeded}
+	body := io.MultiReader(bytes.NewReader(prefix), failingReader{err: deadline})
+
+	req := httptest.NewRequest(http.MethodPost, "/controls/X/scans", body)
+	req.Header.Set("Content-Type", contentType)
+	req.AddCookie(&http.Cookie{Name: middleware.SessionCookieName(true), Value: token})
+	recorder := httptest.NewRecorder()
+	h.auth.Resolve(h.auth.RequireProfessor(h.auth.VerifyCSRF(h.next()))).ServeHTTP(recorder, req)
+
+	if h.handlerRan {
+		t.Error("a request whose body never arrived reached the handler")
+	}
+	if recorder.Code != http.StatusRequestTimeout {
+		t.Errorf("status = %d, want 408", recorder.Code)
+	}
+	if body := recorder.Body.String(); !strings.Contains(body, "La subida tardó demasiado y se cortó.") {
+		t.Errorf("the page does not say the upload was cut by time:\n%s", body)
+	}
+	if body := recorder.Body.String(); strings.Contains(body, "Solicitud no autorizada.") {
+		t.Errorf("a timed-out upload still reads as a permissions problem:\n%s", body)
+	}
+	line := logs.String()
+	for _, want := range []string{
+		`level=WARN`, `msg="upload body read timed out"`,
+		"path=/controls/X/scans", fmt.Sprintf("professor=%d", user.ID),
+	} {
+		if !strings.Contains(line, want) {
+			t.Errorf("log line missing %q:\n%s", want, line)
+		}
+	}
+}
+
+// The test above builds the error by hand, so it proves the middleware reads
+// the shape it was told to expect. This one lets net/http produce it: a real
+// server with a short read deadline, and a client that sends the headers and
+// the start of a body, then stops. If a later Go wrapped the deadline in
+// something errors.Is cannot see through, this is the test that says so.
+func TestARealServersReadDeadlineDuringAnUploadIsA408(t *testing.T) {
+	h := newHarness(t)
+	_, token := h.login(t, "profesora@example.com")
+	logs := h.captureLog()
+
+	session, err := h.store.SessionByTokenHash(context.Background(), auth.HashToken(token))
+	if err != nil {
+		t.Fatalf("SessionByTokenHash: %v", err)
+	}
+	prefix, contentType := unfinishedUpload(t, session.CSRFToken)
+
+	srv := httptest.NewUnstartedServer(h.auth.Resolve(h.auth.RequireProfessor(h.auth.VerifyCSRF(h.next()))))
+	srv.Config.ReadTimeout = 300 * time.Millisecond
+	srv.Start()
+
+	conn, err := net.Dial("tcp", srv.Listener.Addr().String())
+	if err != nil {
+		t.Fatalf("Dial: %v", err)
+	}
+	defer func() { _ = conn.Close() }()
+	// Content-Length promises far more than is sent, so the parse is still
+	// waiting for bytes when the deadline passes.
+	fmt.Fprintf(conn, "POST /controls/X/scans HTTP/1.1\r\nHost: nalanda.test\r\n"+
+		"Cookie: %s=%s\r\nContent-Type: %s\r\nContent-Length: %d\r\n\r\n",
+		middleware.SessionCookieName(true), token, contentType, 10<<20)
+	if _, err := conn.Write(prefix); err != nil {
+		t.Fatalf("writing the start of the body: %v", err)
+	}
+
+	if err := conn.SetReadDeadline(time.Now().Add(10 * time.Second)); err != nil {
+		t.Fatalf("SetReadDeadline: %v", err)
+	}
+	resp, err := http.ReadResponse(bufio.NewReader(conn), nil)
+	if err != nil {
+		t.Fatalf("reading the answer: %v", err)
+	}
+	_ = resp.Body.Close()
+	// Close waits for the handler, which orders its writes before the reads below.
+	srv.Close()
+
+	if resp.StatusCode != http.StatusRequestTimeout {
+		t.Errorf("status = %d, want 408", resp.StatusCode)
+	}
+	if h.handlerRan {
+		t.Error("a request whose body never arrived reached the handler")
+	}
+	if !strings.Contains(logs.String(), `msg="upload body read timed out"`) {
+		t.Errorf("no timeout WARN in the log:\n%s", logs.String())
+	}
+}
+
+// Every OTHER reason a multipart body cannot be read keeps its 403 — there is
+// no token to compare — and now leaves a WARN with the error, so the next one
+// is not diagnosed by inference the way #339's was.
+func TestVerifyCSRFLogsAMultipartBodyItCannotRead(t *testing.T) {
+	h := newHarness(t)
+	user, token := h.login(t, "profesora@example.com")
+	logs := h.captureLog()
+
+	req := httptest.NewRequest(http.MethodPost, "/controls/X/scans", strings.NewReader("not a multipart body at all"))
+	req.Header.Set("Content-Type", "multipart/form-data; boundary=nothing-here-matches")
+	req.AddCookie(&http.Cookie{Name: middleware.SessionCookieName(true), Value: token})
+	recorder := httptest.NewRecorder()
+	h.auth.Resolve(h.auth.RequireProfessor(h.auth.VerifyCSRF(h.next()))).ServeHTTP(recorder, req)
+
+	if h.handlerRan {
+		t.Error("a body that could not be read reached the handler")
+	}
+	if recorder.Code != http.StatusForbidden {
+		t.Errorf("status = %d, want 403", recorder.Code)
+	}
+	line := logs.String()
+	for _, want := range []string{
+		`level=WARN`, "path=/controls/X/scans", fmt.Sprintf("professor=%d", user.ID), "error=",
+	} {
+		if !strings.Contains(line, want) {
+			t.Errorf("log line missing %q:\n%s", want, line)
+		}
+	}
+	if strings.Contains(line, "timed out") {
+		t.Errorf("a malformed body was logged as a timeout:\n%s", line)
 	}
 }
 
