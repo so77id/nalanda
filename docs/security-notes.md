@@ -805,6 +805,15 @@ integers only — the run's stored survey and run ids, the copy number and a pag
 bounded 1–99 — under the run's own project, and serves only a copy the run
 read.
 
+**Trigger status after #339 (chunked uploads, 2026-10-24) — not pulled.** A
+batch may now arrive in 1 MiB chunks instead of one request, but from the same
+signed-in professor off the same scanner, and the worker reads the same
+`batch-N.pdf`. What changed is the size bound: the chunked path IS bounded by
+`NALANDA_MAX_SCAN_MB` (declared at start, enforced per chunk), so the SEC-3
+gap above now applies only to the one-request form a page without its script
+falls back to. The partials themselves sit on the volume this worker mounts
+as root — see §"Chunked uploads read the shared volume defensively".
+
 **Named in advance, because WP-E will pull that trigger** (#147 review): a
 control source now includes code with `\lstinputlisting{<absolute path>}` —
 that is the documented shape, because a path relative to the `.tex` does not
@@ -859,6 +868,48 @@ trigger:
   step to take before the trigger fires — the blast-radius asymmetry
   paragraph in ADR-0038 §Consequences names why it becomes worth doing
   first once amc-worker sits behind Watchtower.
+
+### Chunked uploads read the shared volume defensively (accepted 2026-10-24, #339, ADR-0088)
+
+A scan batch crossing a slow link waits in `<WorkDir>/incoming/` as
+`<uid>.part` plus a `<uid>.json` sidecar, on the volume the AMC worker mounts
+read-write **as root** (§"The control worker runs as root…"). The worker
+never writes there, but a compromised worker could. So everything this server
+reads back from that directory is treated as hostile:
+
+- Only names that are an upload's own — `^<uid>\.(part|json|tmp)$`, the uid
+  26 characters of `[A-Z2-7]` — are ever opened, written or removed; the
+  sweep and the eviction log any other name and leave it. A uid from a URL
+  that is not that shape is refused before a path is built.
+- Files are opened with `O_NOFOLLOW` and must be regular files, so a `.part`
+  swapped for a symlink to the database is neither written through nor
+  "saved" as a batch (`TestASymlinkedPartIsNeverFollowed`).
+- The sidecar is re-validated on every read — its own uid, a subject kind in
+  the closed set, a positive professor, a size within `NALANDA_MAX_SCAN_MB`,
+  at most 16 KiB — and one that does not validate is "no such upload".
+- An unknown uid, another professor's and a malformed one answer the same 404
+  with the same body, so a uid cannot be probed.
+
+**The accepted residual**: a compromised worker can already rewrite every
+saved batch, every annotated PDF and every AMC project on the same volume; a
+partial gives it nothing more. The disk a professor can occupy is bounded at
+four partials of `NALANDA_MAX_SCAN_MB` for at most a day; there is no global
+cap, because an eviction across professors would let one cancel another's
+upload.
+
+**CSRF by header.** The chunks are raw bytes, so the page's script sends the
+session's token as `X-CSRF-Token`. When that header is present it is the ONLY
+token `VerifyCSRF` considers — compared in constant time, with no fallback to
+a body field, so a request cannot offer two tokens and win with either — and
+the body is left unparsed. Nothing on this server answers a CORS preflight, so
+a cross-origin page cannot set the header at all. A signed-in professor's
+upload is authorised exactly as the multipart form's is: any professor may
+upload to any control or open run, and the uid adds only "the creator
+continues it".
+
+**Review trigger**: a second server process (the per-upload lock is in
+memory), anything that writes into `incoming/` other than this package, or a
+route that serves a partial's bytes back.
 
 ### `apps/server` joins the worker's compose network (accepted 2026-08-16, #149)
 

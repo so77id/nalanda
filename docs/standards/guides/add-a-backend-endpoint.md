@@ -577,6 +577,39 @@ Both directions of (2) and (3) are pinned by tests: a login nonce cannot
 complete the second grant, and its cookie cannot complete a login. Policy:
 ADR-0072 §2.
 
+## A pattern the chunked upload adds — JSON routes for a page's script
+
+First worked case: the chunked scan upload (#339, ADR-0088,
+`handler/uploads.go` and the start/complete pairs in `scans.go` and
+`survey_scans.go`). The backoffice renders pages, but a page's script that
+must talk to the server WITHOUT leaving the page gets JSON routes on the SAME
+surface, behind the same table — never on `/api`, which is anonymous by
+construction (§C12). Five rules:
+
+1. **Gated and in the table like any route.** A state-changing one carries
+   the session's token in `X-CSRF-Token`
+   (`middleware.CSRFHeaderName`), which the script reads from the page's own
+   `csrf_token` field; `VerifyCSRF` then leaves the body alone. The table's
+   CSRF guard covers it with no change.
+2. **An error is `{"message": "<Spanish>"}`**, which the script shows
+   verbatim — so it is written for the professor and carries no internal
+   error (that is logged). Add a field only when the script must ACT on it
+   (`received`, the number a resumed upload starts from).
+3. **No answer is cached** (`writeUploadJSON`: `no-store`, `nosniff`, then
+   `httpjson.Write`, which encodes before the header).
+4. **An expired session needs no JSON shape of its own.** The gate still
+   redirects to `/login`; `fetch` follows it and receives a page where JSON was
+   expected, and the shell's 403 for a token gone stale arrives the same way.
+   The script reads "not JSON" as "sign in again".
+5. **A lookup the screens share answers in the caller's format.** Rather
+   than a second copy of the survey and run lookups, they take a `refusal`
+   (`pageRefusal` for a screen, `Surveys.jsonRefusal` for the script) — copy
+   that shape before duplicating a lookup.
+
+The script itself lives once in `templates/partials/` and is checked in a
+real browser on every change (`testing-strategy.md` §`apps/server`, "inline
+browser scripts").
+
 ## A file export (CSV)
 
 First worked case: the survey exports (#312, ADR-0082 §8,

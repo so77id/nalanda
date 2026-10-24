@@ -354,8 +354,7 @@ several flash cookies in one response — the second overwrites the first.
 
 ### Client-side JS in a server template
 
-The backoffice serves no static assets today (no `/static/` mount), and a
-one-page progressive enhancement is inline in the template that needs it.
+A one-page progressive enhancement is inline in the template that needs it.
 Worked case: the two-level cascade picker in `controls_form.html` (issue
 #228 S4) inlines ~110 lines of vanilla JS at the end of the form. The
 enhancement reads the flat `<select>`'s own `<optgroup>` structure — one
@@ -363,9 +362,16 @@ source of truth — and hides the flat control while keeping it in the form
 so its value is what POSTs. Without JS the flat select is the whole UI;
 the handler contract is unchanged.
 
-A SECOND page adopting client-side behavior tips the balance: introduce a
-`/static/` mount under `internal/app/web` and move both scripts to files
-with SRI or an immutable path, rather than inlining a second block.
+A script MORE than one page needs is still written once: as a block in
+`templates/partials/`, which the layout parses for every page, invoked where
+it is needed — never a second inline copy. Worked case: the chunked scan
+upload (#339, ADR-0088), one partial used by the control page and a run's
+scans page, enhancing whichever form carries `data-chunked-upload`; without
+it the form posts as it always did. `/static/` (ADR-0047) is for VENDORED
+libraries, whose README contract (version, integrity, upgrade path) has
+nothing to say about first-party code. (This paragraph used to say a second
+page should move both scripts to `/static/`; #339 is where that changed,
+and ADR-0088 §6 says why.)
 
 ### Error pages — 404 / 403 / 500
 

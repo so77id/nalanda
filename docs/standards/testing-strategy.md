@@ -466,6 +466,28 @@ part of its own pre-PR run. Worked case: #231 caught its own
 the tree; the tests said nothing until then. Same class as PAPER-CHECK
 above but scoped to the JS/browser edge.
 
+Since #339 there is a second one, and the first that CHANGES state:
+`templates/partials/chunked_upload.html`, the chunked scan upload on the
+control page and a run's scans page (ADR-0088). The suite pins only that
+both pages render the form's `data-chunked-upload`, the status block and the
+script once (`chunked_form_test.go`). Its check is a Playwright run against
+the compose stack, with Chromium's upload throttled through CDP
+(`Network.emulateNetworkConditions`, `uploadThroughput: 125000` for 1
+Mbit/s): a clean upload, `offline: true` for 30 s mid-upload, a
+`docker compose restart server` mid-upload, and the session row deleted
+mid-upload then a new one signed in before Reintentar — each ending with the
+stored `batch-N.pdf`'s sha256 equal to the source's. Two traps measured in
+#339: the redirect after complete is the SAME URL as the page, so wait for a
+navigation rather than a URL match (`waitForURL` resolves at once and the
+browser closes mid-upload); and a FRESH `amc-work` volume comes up
+root-owned under `docker compose create`/`up` although the server container
+is created first — its root carries the worker image's timestamp, so the
+worker's seed is the one that stuck — and the server cannot create anything
+under `/work` (`mkdir /work/controls: permission denied`) until the volume
+root is chowned to 65532. The cause past that measurement is not
+established, and the Dockerfile's comment that `depends_on` prevents it is
+contradicted by it.
+
 **A form-render test for an enum-valued input (radio or select) asserts the
 chosen value carries `checked` AND every other value does NOT, in the same
 test.** The pair kills two mutations at once — "both values render `checked`"
