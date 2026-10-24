@@ -11,12 +11,14 @@
       hoja y la lee automáticamente. Si vuelves a escanear una hoja, la lectura
       nueva reemplaza a la anterior.
     </p>
-    <form method="post" action="{{ .UploadAction }}" enctype="multipart/form-data" class="survey-upload">
+    <form method="post" action="{{ .UploadAction }}" enctype="multipart/form-data" class="survey-upload" data-chunked-upload="{{ .ChunkedUploadURL }}">
       <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}" />
       <label for="scan">Un PDF de varias páginas, con las hojas en cualquier orden{{ if .MaxMB }} (máximo {{ .MaxMB }} MB){{ end }}</label>
       <input type="file" id="scan" name="scan" accept="application/pdf,.pdf" required />
       <button type="submit">Subir</button>
+      {{ template "chunked_upload_status" }}
     </form>
+    {{ template "chunked_upload_script" }}
   {{ else }}
     <p>Esta pasada ya no está abierta: no recibe escaneos.</p>
   {{ end }}

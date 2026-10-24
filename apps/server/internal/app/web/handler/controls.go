@@ -328,15 +328,16 @@ func (h *Controls) Detail(w http.ResponseWriter, r *http.Request) {
 	}
 
 	page := view.ControlDetailPage{
-		Page:         middleware.PageFor(r, c.Name),
-		Control:      toDetailedControl(c, h.Bank.Get()),
-		SujetURL:     controlSujetURL(c.ID),
-		CorrigeURL:   controlCorrigeURL(c.ID),
-		PoolJSONURL:  controlPoolJSONURL(c.ID),
-		ScansURL:     controlScansURL(c.ID),
-		ReanalyzeURL: controlReanalyzeURL(c.ID),
-		CloseURL:     controlCloseURL(c.ID),
-		MaxScanMB:    h.MaxScanBytes >> 20,
+		Page:             middleware.PageFor(r, c.Name),
+		Control:          toDetailedControl(c, h.Bank.Get()),
+		SujetURL:         controlSujetURL(c.ID),
+		CorrigeURL:       controlCorrigeURL(c.ID),
+		PoolJSONURL:      controlPoolJSONURL(c.ID),
+		ScansURL:         controlScansURL(c.ID),
+		ChunkedUploadURL: ControlScanUploadsPathFor(c.ID),
+		ReanalyzeURL:     controlReanalyzeURL(c.ID),
+		CloseURL:         controlCloseURL(c.ID),
+		MaxScanMB:        h.MaxScanBytes >> 20,
 		// Issue #197: the pair the control was last read at — the prefill
 		// for both threshold forms and the "umbral actual" line.
 		CurrentTicked: c.Ticked,

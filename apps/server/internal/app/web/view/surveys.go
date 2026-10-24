@@ -300,8 +300,11 @@ type SurveyRunScansPage struct {
 	// CanUpload is false on a run that is not open; the form is not drawn.
 	CanUpload    bool
 	UploadAction string
-	MaxMB        int64
-	Uploads      []UploadRow
+	// ChunkedUploadURL is where the page's script opens a chunked upload
+	// instead of posting to UploadAction (issue #339).
+	ChunkedUploadURL string
+	MaxMB            int64
+	Uploads          []UploadRow
 	// The run's reading so far.
 	Read    int
 	Clean   int

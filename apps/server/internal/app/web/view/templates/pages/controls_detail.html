@@ -113,7 +113,7 @@
     {{ else }}
       <p>Sube otro PDF: las hojas que vuelvas a escanear reemplazan a las anteriores y las nuevas se añaden.</p>
     {{ end }}
-    <form method="post" action="{{ .ScansURL }}" enctype="multipart/form-data">
+    <form method="post" action="{{ .ScansURL }}" enctype="multipart/form-data" data-chunked-upload="{{ .ChunkedUploadURL }}">
       <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
       <p>
         <label for="scan">Archivo PDF (máximo {{ .MaxScanMB }} MB):</label><br>
@@ -124,7 +124,9 @@
         <label>Inseguro (0–marcado): <input type="number" name="unsure" min="0" step="0.01" value="{{ printf "%.2f" .CurrentUnsure }}"></label>
       </p>
       <p><button type="submit">Subir escaneos</button></p>
+      {{ template "chunked_upload_status" }}
     </form>
+    {{ template "chunked_upload_script" }}
     {{ if .Uploads }}
       <h3>Lotes subidos</h3>
       <ul>

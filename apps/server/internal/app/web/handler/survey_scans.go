@@ -83,16 +83,17 @@ func (h *Surveys) RunScans(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	page := view.SurveyRunScansPage{
-		Page:         middleware.PageFor(r, "Escaneos · "+runTitle(run)),
-		RunTitle:     runTitle(run),
-		RunURL:       SurveyRunPathFor(one.ID, run.ID),
-		Banner:       runBanner(h.latestRunJob(r.Context(), run)),
-		CanUpload:    run.State == survey.RunOpen,
-		UploadAction: SurveyRunScansPathFor(one.ID, run.ID),
-		MaxMB:        h.MaxScanBytes >> 20,
-		Read:         counts.Copies,
-		Clean:        counts.Clean(),
-		Pending:      counts.PendingCopies,
+		Page:             middleware.PageFor(r, "Escaneos · "+runTitle(run)),
+		RunTitle:         runTitle(run),
+		RunURL:           SurveyRunPathFor(one.ID, run.ID),
+		Banner:           runBanner(h.latestRunJob(r.Context(), run)),
+		CanUpload:        run.State == survey.RunOpen,
+		UploadAction:     SurveyRunScansPathFor(one.ID, run.ID),
+		ChunkedUploadURL: SurveyRunScanUploadsPathFor(one.ID, run.ID),
+		MaxMB:            h.MaxScanBytes >> 20,
+		Read:             counts.Copies,
+		Clean:            counts.Clean(),
+		Pending:          counts.PendingCopies,
 	}
 	if run.State == survey.RunOpen && (survey.ScanSummary{Uploads: len(uploads), Copies: counts.Copies}).HasScans() {
 		page.ResetURL = SurveyRunScansResetConfirmPathFor(one.ID, run.ID)
