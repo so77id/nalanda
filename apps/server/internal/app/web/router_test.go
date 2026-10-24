@@ -26,6 +26,7 @@ import (
 	"github.com/so77id/nalanda/apps/server/internal/domain/matching"
 	"github.com/so77id/nalanda/apps/server/internal/domain/roster"
 	"github.com/so77id/nalanda/apps/server/internal/domain/survey"
+	"github.com/so77id/nalanda/apps/server/internal/domain/uploads"
 	"github.com/so77id/nalanda/apps/server/internal/infra/amcworker/amctest"
 	"github.com/so77id/nalanda/apps/server/internal/infra/email"
 	"github.com/so77id/nalanda/apps/server/internal/infra/oidc/oidctest"
@@ -232,6 +233,12 @@ func deps(t *testing.T, prober health.Prober) web.Deps {
 			Courses:   roster.NewService(coursestore.New(db), roster.NewCanvasSource(canvas.NewService(nil, unreachableCanvas{}))),
 			PublicURL: "https://nalanda.test",
 			Log:       logger,
+		}),
+		Uploads: handler.NewUploads(handler.Uploads{
+			Service: uploads.NewService(uploads.Service{
+				Root: filepath.Join(t.TempDir(), uploads.DirName), MaxBytes: 8 << 20, Log: logger,
+			}),
+			Log: logger,
 		}),
 		Log: logger,
 	}
@@ -615,6 +622,7 @@ func TestRouterRefusesAnIncompleteDepsAtWiringTime(t *testing.T) {
 		{"no controls", func(d *web.Deps) { d.Controls = nil }},
 		{"no profile", func(d *web.Deps) { d.Profile = nil }},
 		{"no admin bank", func(d *web.Deps) { d.AdminBank = nil }},
+		{"no uploads", func(d *web.Deps) { d.Uploads = nil }},
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			d := deps(t, reachable)

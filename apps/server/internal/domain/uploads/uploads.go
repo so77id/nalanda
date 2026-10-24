@@ -88,6 +88,13 @@ type Upload struct {
 // is never mistaken for a batch.
 const DirName = "incoming"
 
+// ChunkBytes is the most one chunk may carry: 1 MiB, the conservative bet
+// against a proxy that caps or buffers request bodies (Tailscale serve and
+// Funnel are unmeasured). The page sends chunks of exactly this size, and a
+// link too slow to carry one inside the read deadline still progresses,
+// since a cut chunk keeps its prefix.
+const ChunkBytes = 1 << 20
+
 // MaxNameBytes bounds the declared file name.
 const MaxNameBytes = 255
 
@@ -101,6 +108,10 @@ var (
 	ErrOffsetMismatch = errors.New("uploads: a chunk at the wrong offset")
 	ErrIncomplete     = errors.New("uploads: not every byte has arrived")
 	ErrNotPDF         = errors.New("uploads: the bytes are not a PDF")
+	// ErrCut is a chunk whose BODY failed part-way — the link dropped or the
+	// read deadline passed — as opposed to a write the server could not
+	// make. It wraps the read error, so errors.Is still sees which.
+	ErrCut = errors.New("uploads: the chunk arrived cut")
 )
 
 // OffsetMismatchError is ErrOffsetMismatch carrying what the server holds, so
@@ -184,7 +195,7 @@ func (s *Service) Create(professor int64, subject Subject, name string, size int
 // link dropped, or the read deadline passed — KEEPS the prefix that arrived:
 // those are the right bytes at the right offset, so even a link too slow to
 // carry a whole chunk inside the deadline makes progress on every request.
-// The read error is returned beside the new count.
+// The read error is returned beside the new count, wrapped in ErrCut.
 func (s *Service) Append(professor int64, id string, offset int64, r io.Reader) (int64, error) {
 	if !isID(id) {
 		return 0, ErrNotFound

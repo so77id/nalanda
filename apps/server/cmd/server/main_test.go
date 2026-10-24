@@ -33,6 +33,7 @@ import (
 	"github.com/so77id/nalanda/apps/server/internal/domain/matching"
 	"github.com/so77id/nalanda/apps/server/internal/domain/roster"
 	"github.com/so77id/nalanda/apps/server/internal/domain/survey"
+	"github.com/so77id/nalanda/apps/server/internal/domain/uploads"
 	"github.com/so77id/nalanda/apps/server/internal/infra/amcworker/amctest"
 	"github.com/so77id/nalanda/apps/server/internal/infra/config"
 	"github.com/so77id/nalanda/apps/server/internal/infra/email"
@@ -234,6 +235,12 @@ func composed(t *testing.T, prober health.Prober) (http.Handler, *authstore.Stor
 			Courses:   roster.NewService(coursestore.New(db), roster.NewCanvasSource(canvas.NewService(nil, unreachableCanvas{}))),
 			PublicURL: "https://nalanda.test",
 			Log:       logger,
+		}),
+		Uploads: handler.NewUploads(handler.Uploads{
+			Service: uploads.NewService(uploads.Service{
+				Root: filepath.Join(t.TempDir(), uploads.DirName), MaxBytes: 8 << 20, Log: logger,
+			}),
+			Log: logger,
 		}),
 		Log: logger,
 	}, prober, logger), store

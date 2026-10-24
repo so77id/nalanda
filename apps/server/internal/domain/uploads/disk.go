@@ -190,12 +190,16 @@ func (s *Service) appendPart(up Upload, r io.Reader) (int64, error) {
 	if err != nil {
 		return up.Received, err
 	}
-	n, copyErr := io.Copy(f, io.LimitReader(r, up.Size-up.Received))
+	body := &readRecorder{r: r}
+	n, copyErr := io.Copy(f, io.LimitReader(body, up.Size-up.Received))
 	received := up.Received + n
 	if copyErr != nil {
 		// The prefix that arrived stays: it is the right bytes at the right
 		// offset, and the client resynchronises through Status.
 		_ = f.Close()
+		if body.err != nil {
+			return received, fmt.Errorf("uploads.Append %s: at byte %d: %w: %w", up.ID, received, ErrCut, body.err)
+		}
 		return received, fmt.Errorf("uploads.Append %s: at byte %d: %w", up.ID, received, copyErr)
 	}
 	var probe [1]byte
@@ -213,6 +217,21 @@ func (s *Service) appendPart(up Upload, r io.Reader) (int64, error) {
 		return received, fmt.Errorf("uploads.Append %s: %w", up.ID, err)
 	}
 	return received, nil
+}
+
+// readRecorder remembers the error a chunk's body failed with, which io.Copy
+// returns without saying whether it came from the read or the write.
+type readRecorder struct {
+	r   io.Reader
+	err error
+}
+
+func (rr *readRecorder) Read(p []byte) (int, error) {
+	n, err := rr.r.Read(p)
+	if err != nil && !errors.Is(err, io.EOF) {
+		rr.err = err
+	}
+	return n, err
 }
 
 // openPDF opens a finished partial for reading, refusing one that does not

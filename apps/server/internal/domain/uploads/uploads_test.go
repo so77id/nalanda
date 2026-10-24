@@ -223,8 +223,8 @@ func TestACutChunkKeepsThePrefixThatArrived(t *testing.T) {
 
 	received, err := s.Append(professor, up.ID, 0, &cutReader{prefix: bytes.NewReader(source[:640]), err: cut})
 
-	if !errors.Is(err, cut) {
-		t.Errorf("Append = %v, want the read error passed on", err)
+	if !errors.Is(err, cut) || !errors.Is(err, uploads.ErrCut) {
+		t.Errorf("Append = %v, want ErrCut wrapping the read error", err)
 	}
 	if received != 640 {
 		t.Errorf("Append answered %d, want the 640 that arrived", received)

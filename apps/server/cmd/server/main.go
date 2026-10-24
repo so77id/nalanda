@@ -408,6 +408,10 @@ func run(logger *slog.Logger) error {
 			Log:          logger,
 			MaxScanBytes: cfg.MaxScanBytes,
 		}),
+		Uploads: handler.NewUploads(handler.Uploads{
+			Service: uploadsService,
+			Log:     logger,
+		}),
 		Login: handler.NewAuth(handler.Auth{
 			Login: login,
 			Provider: oidc.NewGoogle(oidc.GoogleConfig{

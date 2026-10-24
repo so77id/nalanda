@@ -71,6 +71,11 @@ type Deps struct {
 	// ADR-0078) — its own handler struct, because the subsystem is a
 	// sibling of the controls and shares no handler with them.
 	Surveys *handler.Surveys
+	// Uploads is the chunked scan upload's subject-free half (issue #339):
+	// a chunk, its status and Cancelar, addressed by the upload's uid. The
+	// create and complete routes belong to the subsystem the batch is for,
+	// on Controls and Surveys.
+	Uploads *handler.Uploads
 	// Log is spelled the same here as in the two structs above.
 	Log *slog.Logger
 }
@@ -355,6 +360,23 @@ func routes(deps Deps) []Route {
 			Method: http.MethodPost, Path: handler.JobDismissPath,
 			Handler: deps.Controls.DismissJob,
 		},
+		// Issue #339: one upload in progress, by its uid. Gated like every
+		// route; the PUT and the DELETE change state, so the table's CSRF
+		// rule applies to them — through the X-CSRF-Token header, since a
+		// chunk's body is raw bytes. JSON answers: the reader is the page's
+		// script, not the professor.
+		{
+			Method: http.MethodPut, Path: handler.UploadPath,
+			Handler: deps.Uploads.Append,
+		},
+		{
+			Method: http.MethodGet, Path: handler.UploadPath,
+			Handler: deps.Uploads.Status,
+		},
+		{
+			Method: http.MethodDelete, Path: handler.UploadPath,
+			Handler: deps.Uploads.Cancel,
+		},
 		// Epic #308: the survey screens (ADR-0078). Every one gated by
 		// default — a survey's bank and, later, its answers are course
 		// data — and every POST CSRF-verified by the table.
@@ -632,6 +654,8 @@ func Router(deps Deps) http.Handler {
 		panic("web.Router: no admin bank handler")
 	case deps.Surveys == nil:
 		panic("web.Router: no surveys handlers")
+	case deps.Uploads == nil:
+		panic("web.Router: no uploads handlers")
 	case deps.Log == nil:
 		panic("web.Router: no logger")
 	}
