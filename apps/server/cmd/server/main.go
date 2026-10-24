@@ -410,6 +410,7 @@ func run(logger *slog.Logger) error {
 			PublicURL:    cfg.PublicURL,
 			Log:          logger,
 			MaxScanBytes: cfg.MaxScanBytes,
+			Uploads:      uploadsService,
 		}),
 		Uploads: handler.NewUploads(handler.Uploads{
 			Service: uploadsService,

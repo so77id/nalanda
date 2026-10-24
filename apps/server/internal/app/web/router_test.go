@@ -235,7 +235,10 @@ func deps(t *testing.T, prober health.Prober) web.Deps {
 			}, logger, time.Now),
 			Courses:   roster.NewService(coursestore.New(db), roster.NewCanvasSource(canvas.NewService(nil, unreachableCanvas{}))),
 			PublicURL: "https://nalanda.test",
-			Log:       logger,
+			Uploads: uploads.NewService(uploads.Service{
+				Root: filepath.Join(t.TempDir(), uploads.DirName), MaxBytes: 8 << 20, Log: logger,
+			}),
+			Log: logger,
 		}),
 		Uploads: handler.NewUploads(handler.Uploads{
 			Service: uploads.NewService(uploads.Service{

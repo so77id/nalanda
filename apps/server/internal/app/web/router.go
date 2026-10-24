@@ -487,6 +487,16 @@ func routes(deps Deps) []Route {
 			Method: http.MethodGet, Path: handler.SurveyRunScansPath,
 			Handler: deps.Surveys.RunScans,
 		},
+		// Issue #339: a run's batch in chunks, opened and finished under
+		// the run (the controls' twin, ADR-0078 keeps them apart).
+		{
+			Method: http.MethodPost, Path: handler.SurveyRunScanUploadsPath,
+			Handler: deps.Surveys.StartScanUpload,
+		},
+		{
+			Method: http.MethodPost, Path: handler.SurveyRunScanUploadCompletePath,
+			Handler: deps.Surveys.CompleteScanUpload,
+		},
 		{
 			Method: http.MethodPost, Path: handler.SurveyRunScansPath,
 			Handler: deps.Surveys.UploadScans,

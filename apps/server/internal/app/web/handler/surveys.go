@@ -113,6 +113,9 @@ type Surveys struct {
 	// MaxScanBytes bounds one uploaded batch (issue #311) — the controls'
 	// limit, NALANDA_MAX_SCAN_BYTES. Zero means no limit.
 	MaxScanBytes int64
+	// Uploads holds a batch while it crosses a slow link in chunks (issue
+	// #339) — the same service the controls hold.
+	Uploads ScanUploads
 
 	// secureCookie is DERIVED from PublicURL by NewSurveys, never passed in
 	// — same reasoning as Courses.secureCookie.
@@ -131,6 +134,8 @@ func NewSurveys(deps Surveys) *Surveys {
 		panic("handler.NewSurveys: no jobs store")
 	case deps.Runner == nil:
 		panic("handler.NewSurveys: no job runner")
+	case deps.Uploads == nil:
+		panic("handler.NewSurveys: no chunked uploads")
 	case deps.PublicURL == "":
 		panic("handler.NewSurveys: no public URL — the flash cookie's Secure attribute is derived from it")
 	case deps.Log == nil:
@@ -478,19 +483,37 @@ func (h *Surveys) renderEditForm(w http.ResponseWriter, r *http.Request, one sur
 // survey reads the {id} survey of the request, answering 404 itself when
 // there is none.
 func (h *Surveys) survey(w http.ResponseWriter, r *http.Request) (survey.Survey, bool) {
+	return h.findSurvey(r, pageRefusal(w, r))
+}
+
+// refusal answers a lookup that found nothing to serve: a shell page for a
+// screen, a JSON message for the chunked upload's script (#339).
+type refusal func(status int, message string)
+
+func pageRefusal(w http.ResponseWriter, r *http.Request) refusal {
+	return func(status int, message string) { middleware.WriteError(w, r, status, message) }
+}
+
+func (h *Surveys) jsonRefusal(w http.ResponseWriter) refusal {
+	return func(status int, message string) {
+		writeUploadJSON(w, h.Log, status, uploadMessage{Message: message})
+	}
+}
+
+func (h *Surveys) findSurvey(r *http.Request, refuse refusal) (survey.Survey, bool) {
 	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
 	if err != nil || id <= 0 {
-		middleware.WriteError(w, r, http.StatusNotFound, "Esa encuesta no existe.")
+		refuse(http.StatusNotFound, "Esa encuesta no existe.")
 		return survey.Survey{}, false
 	}
 	one, err := h.Service.Survey(r.Context(), id)
 	switch {
 	case errors.Is(err, survey.ErrSurveyNotFound):
-		middleware.WriteError(w, r, http.StatusNotFound, "Esa encuesta no existe.")
+		refuse(http.StatusNotFound, "Esa encuesta no existe.")
 		return survey.Survey{}, false
 	case err != nil:
 		h.Log.Error("reading a survey", "survey", id, "error", err)
-		middleware.WriteError(w, r, http.StatusInternalServerError, surveyBroke)
+		refuse(http.StatusInternalServerError, surveyBroke)
 		return survey.Survey{}, false
 	}
 	return one, true

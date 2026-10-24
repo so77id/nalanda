@@ -190,7 +190,7 @@ func readUploadStart(w http.ResponseWriter, r *http.Request, log *slog.Logger, m
 	switch {
 	case start.Size <= 0:
 		writeUploadJSON(w, log, http.StatusBadRequest, uploadMessage{Message: "El archivo está vacío."})
-	case start.Size > maxBytes:
+	case maxBytes > 0 && start.Size > maxBytes:
 		writeUploadJSON(w, log, http.StatusRequestEntityTooLarge, uploadMessage{Message: fmt.Sprintf("El PDF excede el máximo de %d MB.", maxBytes>>20)})
 	case !looksLikePDF(start.Name, start.Type):
 		writeUploadJSON(w, log, http.StatusBadRequest, uploadMessage{Message: "El archivo debe ser un PDF."})
