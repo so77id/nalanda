@@ -842,6 +842,111 @@ func TestVerifyCSRFLogsAMultipartBodyItCannotRead(t *testing.T) {
 	}
 }
 
+// Issue #339. A chunk of a resumable upload is raw bytes, not a form, so the
+// page's script carries the token in a header. When the header is present it
+// is the ONLY token considered: the body is neither parsed nor consulted.
+func TestVerifyCSRFAcceptsTheTokenFromAHeader(t *testing.T) {
+	type sent struct {
+		header      string // "" means the header is absent
+		formField   string // "" means no csrf_token field in the body
+		contentType string
+	}
+	run := func(t *testing.T, s sent, rightToken func(*testing.T, *harness, string) string) (*harness, *httptest.ResponseRecorder, []byte) {
+		t.Helper()
+		h := newHarness(t)
+		_, token := h.login(t, "profesora@example.com")
+		right := rightToken(t, h, token)
+		resolve := func(v string) string {
+			if v == "right" {
+				return right
+			}
+			return v
+		}
+
+		var body []byte
+		if s.formField != "" {
+			form := url.Values{}
+			form.Set(middleware.CSRFFieldName, resolve(s.formField))
+			body = []byte(form.Encode())
+		} else {
+			body = bytes.Repeat([]byte{0x25, 0x50, 0x44, 0x46}, 1024) // raw chunk bytes
+		}
+		req := httptest.NewRequest(http.MethodPut, "/uploads/X?offset=0", bytes.NewReader(body))
+		req.Header.Set("Content-Type", s.contentType)
+		if s.header != "" {
+			req.Header.Set(middleware.CSRFHeaderName, resolve(s.header))
+		}
+		req.AddCookie(&http.Cookie{Name: middleware.SessionCookieName(true), Value: token})
+
+		var seenBody []byte
+		next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			h.handlerRan = true
+			seenBody, _ = io.ReadAll(r.Body)
+			w.WriteHeader(http.StatusOK)
+		})
+		recorder := httptest.NewRecorder()
+		h.auth.Resolve(h.auth.RequireProfessor(h.auth.VerifyCSRF(next))).ServeHTTP(recorder, req)
+		return h, recorder, seenBody
+	}
+	csrfOf := func(t *testing.T, h *harness, token string) string {
+		t.Helper()
+		session, err := h.store.SessionByTokenHash(context.Background(), auth.HashToken(token))
+		if err != nil {
+			t.Fatalf("SessionByTokenHash: %v", err)
+		}
+		return session.CSRFToken
+	}
+
+	t.Run("the session's token in the header is accepted and the body reaches the handler untouched", func(t *testing.T) {
+		h, recorder, seen := run(t, sent{header: "right", contentType: "application/octet-stream"}, csrfOf)
+		if !h.handlerRan || recorder.Code != http.StatusOK {
+			t.Fatalf("handler ran = %v, status = %d; want the request through", h.handlerRan, recorder.Code)
+		}
+		if want := bytes.Repeat([]byte{0x25, 0x50, 0x44, 0x46}, 1024); !bytes.Equal(seen, want) {
+			t.Errorf("the handler read %d bytes of the chunk, want all %d — the middleware consumed the body", len(seen), len(want))
+		}
+	})
+
+	t.Run("a wrong header is refused even when the body carries the right token", func(t *testing.T) {
+		h, recorder, _ := run(t, sent{
+			header: "a-csrf-token-from-somewhere-else", formField: "right",
+			contentType: "application/x-www-form-urlencoded",
+		}, csrfOf)
+		if h.handlerRan {
+			t.Error("the body's token was consulted although the header was present")
+		}
+		if recorder.Code != http.StatusForbidden {
+			t.Errorf("status = %d, want 403", recorder.Code)
+		}
+	})
+
+	t.Run("an empty header is refused rather than falling back to the body", func(t *testing.T) {
+		h := newHarness(t)
+		_, token := h.login(t, "profesora@example.com")
+		form := url.Values{}
+		form.Set(middleware.CSRFFieldName, csrfOf(t, h, token))
+		req := httptest.NewRequest(http.MethodPost, "/logout", strings.NewReader(form.Encode()))
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		req.Header[http.CanonicalHeaderKey(middleware.CSRFHeaderName)] = []string{""}
+		req.AddCookie(&http.Cookie{Name: middleware.SessionCookieName(true), Value: token})
+		recorder := httptest.NewRecorder()
+		h.auth.Resolve(h.auth.RequireProfessor(h.auth.VerifyCSRF(h.next()))).ServeHTTP(recorder, req)
+		if h.handlerRan || recorder.Code != http.StatusForbidden {
+			t.Errorf("handler ran = %v, status = %d; want a 403", h.handlerRan, recorder.Code)
+		}
+	})
+
+	t.Run("a raw body with neither header nor field is refused", func(t *testing.T) {
+		h, recorder, _ := run(t, sent{contentType: "application/octet-stream"}, csrfOf)
+		if h.handlerRan {
+			t.Error("a chunk with no token reached the handler")
+		}
+		if recorder.Code != http.StatusForbidden {
+			t.Errorf("status = %d, want 403", recorder.Code)
+		}
+	})
+}
+
 // The other unexercised branch of the same middleware: a body that cannot be
 // parsed carries no token either, and must be refused rather than crash.
 func TestVerifyCSRFRefusesAnUnparseableBody(t *testing.T) {

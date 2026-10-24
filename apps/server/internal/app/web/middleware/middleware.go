@@ -84,6 +84,11 @@ func SessionCookieName(secure bool) string {
 // CSRFFieldName is the form field every state-changing request carries.
 const CSRFFieldName = "csrf_token"
 
+// CSRFHeaderName carries the token instead when the body is not a form: a
+// chunk of a resumable scan upload is raw bytes the page's script sends
+// (#339). The script reads the value from the page's own csrf_token field.
+const CSRFHeaderName = "X-CSRF-Token"
+
 // Auth holds what the middlewares need. Constructed once in cmd/server.
 type Auth struct {
 	Sessions auth.SessionStore
@@ -295,6 +300,22 @@ func (a *Auth) VerifyCSRF(next http.Handler) http.Handler {
 			// state-changing request from nobody is refused rather than
 			// redirected: it was not a person following a link.
 			renderForbidden(w, r)
+			return
+		}
+
+		// A token in the header is the ONLY token considered, and the body is
+		// left alone: it is a chunk of raw bytes the handler reads (#339). No
+		// fallback to a form field, so a request cannot offer two tokens and
+		// win with either. A cross-origin page cannot set this header without
+		// a preflight, and nothing here ever answers one with CORS headers.
+		if values, present := r.Header[http.CanonicalHeaderKey(CSRFHeaderName)]; present {
+			if len(values) != 1 || !auth.VerifyCSRF(session.CSRFToken, values[0]) {
+				a.Log.Warn("refusing a request with no valid CSRF token",
+					"professor", session.UserID, "path", r.URL.Path, "method", r.Method, "via", "header")
+				renderForbidden(w, r)
+				return
+			}
+			next.ServeHTTP(w, r)
 			return
 		}
 
