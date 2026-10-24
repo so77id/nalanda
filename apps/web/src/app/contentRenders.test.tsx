@@ -71,17 +71,24 @@ describe('architecture: every published document renders clean', () => {
     ).toBeGreaterThan(0);
   });
 
-  it.each(registry.entries.map((e) => e.meta.id))('%s carries no authoring error', async (id) => {
-    await renderAt(`/d/${id}`);
-    const article = await screen.findByRole('article');
+  // 15 s per document, approved by the user: the default 5 s ran out on a loaded
+  // runner for the largest classes, and once after a merge, so the site did not
+  // publish. testing-strategy.md §Conventions (apps/web), "The preload itself".
+  it.each(registry.entries.map((e) => e.meta.id))(
+    '%s carries no authoring error',
+    async (id) => {
+      await renderAt(`/d/${id}`);
+      const article = await screen.findByRole('article');
 
-    // The article element is the shell's and exists before its lazy document
-    // does (#102), so an empty one would make the assertion below meaningless.
-    expect(article.textContent?.trim(), `${id} rendered an empty article`).not.toBe('');
+      // The article element is the shell's and exists before its lazy document
+      // does (#102), so an empty one would make the assertion below meaningless.
+      expect(article.textContent?.trim(), `${id} rendered an empty article`).not.toBe('');
 
-    const errors = [...article.querySelectorAll('[data-authoring-error]')].map(
-      (el) => `<${el.getAttribute('data-authoring-error')}> ${el.textContent?.trim()}`,
-    );
-    expect(errors, `${id} paints an authoring error a reader would see`).toEqual([]);
-  });
+      const errors = [...article.querySelectorAll('[data-authoring-error]')].map(
+        (el) => `<${el.getAttribute('data-authoring-error')}> ${el.textContent?.trim()}`,
+      );
+      expect(errors, `${id} paints an authoring error a reader would see`).toEqual([]);
+    },
+    15_000,
+  );
 });

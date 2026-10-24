@@ -895,9 +895,13 @@ page-only, invisible to every other gate.
   user before touching. Folding the six files into fewer saves only their
   re-evaluation, about 0.1 s each. The per-file costs of any size are the
   renders: `questionReaders`' in its hook, and `contentRenders`', one test
-  per document under the default 5 s per test — where a loaded full run of
-  #321's review timed out once (the heap's case, about 1 s alone). Moving the
-  compile does not touch those; the six comments point back here.
+  per document under 15 s per test. It ran on the default 5 s until that
+  timed out under load three times — the heap's case in a loaded full run of
+  #321's review (about 1 s alone), Árboles I in #321's CI, then Árboles II in
+  the deploy of #337's merge, which skipped the publish and left the site a
+  version behind for eight days — and the user approved 15 s (2026-10-24).
+  Alone, the largest takes about 1.2 s (Árboles II, one file, a laptop). Moving
+  the compile does not touch those; the six comments point back here.
   **When a render test times out only under load,** run that file alone to
   confirm it is load and not a regression. The pre-PR suite may then run at
   `--maxWorkers=2`, as #321's did, and the PR says so. `testTimeout` is never
