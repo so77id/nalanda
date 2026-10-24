@@ -29,6 +29,7 @@ import (
 	"github.com/so77id/nalanda/apps/server/internal/domain/jobs"
 	"github.com/so77id/nalanda/apps/server/internal/domain/matching"
 	"github.com/so77id/nalanda/apps/server/internal/domain/roster"
+	"github.com/so77id/nalanda/apps/server/internal/domain/uploads"
 	"github.com/so77id/nalanda/apps/server/internal/infra/amcworker/amctest"
 	"github.com/so77id/nalanda/apps/server/internal/infra/email"
 	"github.com/so77id/nalanda/apps/server/internal/infra/storage"
@@ -89,6 +90,9 @@ type controlsFixture struct {
 	// — a real coursestore over the same database, and a Canvas source
 	// that is never reached. The dropdown asks the store, not Canvas.
 	roster *roster.Service
+	// uploads holds the chunked uploads (issue #339) under the same work
+	// directory the batches land in.
+	uploads *uploads.Service
 }
 
 // stubCourseSource satisfies roster.CourseSource without a Canvas.
@@ -295,8 +299,9 @@ func newControlsFixtureWith(t *testing.T, annotateEnabled bool) *controlsFixture
 		defer close(runnerDone)
 		runner.Start(runnerCtx)
 	}()
+	up := uploads.NewService(uploads.Service{Root: filepath.Join(workDir, uploads.DirName), MaxBytes: 5 << 20, Log: log})
 	h := handler.NewControls(handler.Controls{
-		Service: svc, Bank: live,
+		Service: svc, Bank: live, Uploads: up,
 		Roster:    rosterService,
 		PublicURL: publicURL, MaxScanBytes: 5 << 20,
 		OnCorrectionClosed: hook,
@@ -305,7 +310,7 @@ func newControlsFixtureWith(t *testing.T, annotateEnabled bool) *controlsFixture
 		Runner:             runner,
 		Log:                log,
 	})
-	return &controlsFixture{handler: h, service: svc, cstore: cstore, jstore: jstore, runner: runner, fake: fake, hook: hook, workDir: workDir, user: prof, session: session, log: log, db: db, roster: rosterService, bank: live}
+	return &controlsFixture{handler: h, uploads: up, service: svc, cstore: cstore, jstore: jstore, runner: runner, fake: fake, hook: hook, workDir: workDir, user: prof, session: session, log: log, db: db, roster: rosterService, bank: live}
 }
 
 // jobCounts is what jstoreQueuedAndTerminalCount returns — the three
@@ -1673,7 +1678,7 @@ func TestTheControlPageReadsTheRosterOnceForEveryCopy(t *testing.T) {
 		Service: f.service, Bank: f.bank, Roster: counter,
 		PublicURL: publicURL, MaxScanBytes: 5 << 20,
 		OnCorrectionClosed: f.hook, Gmail: connectedGmail{},
-		Jobs: f.jstore, Runner: f.runner, Log: f.log,
+		Jobs: f.jstore, Runner: f.runner, Uploads: f.uploads, Log: f.log,
 	})
 
 	body := f.detailBody(t, controlID)
@@ -1723,7 +1728,7 @@ func TestAFailedRosterReadStillRendersTheControlPage(t *testing.T) {
 		Roster:    &failingRoster{RosterReader: f.roster},
 		PublicURL: publicURL, MaxScanBytes: 5 << 20,
 		OnCorrectionClosed: f.hook, Gmail: connectedGmail{},
-		Jobs: f.jstore, Runner: f.runner, Log: f.log,
+		Jobs: f.jstore, Runner: f.runner, Uploads: f.uploads, Log: f.log,
 	})
 
 	req := f.detailRequest(t, controlID)
@@ -1764,7 +1769,7 @@ func (f *controlsFixture) rebuildWithGmail(t *testing.T, connection handler.Gmai
 		Service: f.service, Roster: f.roster, Bank: f.bank,
 		PublicURL: publicURL, MaxScanBytes: 5 << 20,
 		OnCorrectionClosed: f.hook, Gmail: connection,
-		Jobs: f.jstore, Runner: f.runner, Log: f.log,
+		Jobs: f.jstore, Runner: f.runner, Uploads: f.uploads, Log: f.log,
 	})
 }
 

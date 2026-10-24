@@ -209,6 +209,17 @@ func routes(deps Deps) []Route {
 			Method: http.MethodPost, Path: handler.ControlScansPath,
 			Handler: deps.Controls.UploadScan,
 		},
+		// Issue #339: a batch in chunks — opened under the control,
+		// finished under it again. JSON for the page's script; CSRF by
+		// header, like the chunks themselves.
+		{
+			Method: http.MethodPost, Path: handler.ControlScanUploadsPath,
+			Handler: deps.Controls.StartScanUpload,
+		},
+		{
+			Method: http.MethodPost, Path: handler.ControlScanUploadCompletePath,
+			Handler: deps.Controls.CompleteScanUpload,
+		},
 		{
 			Method: http.MethodPost, Path: handler.ControlReanalyzePath,
 			Handler: deps.Controls.ReanalyzeScans,

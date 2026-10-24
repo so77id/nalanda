@@ -310,6 +310,8 @@ func run(logger *slog.Logger) error {
 	// beside controls/ and surveys/. A partial nobody resumed for a day is
 	// swept at boot and then hourly. A failed sweep does not stop the boot —
 	// the partials cost disk, not correctness, and the next tick retries.
+	// ONE Service for every handler that touches an upload: its per-upload
+	// locks are what keep a chunk, a complete and the sweep apart.
 	uploadsService := uploads.NewService(uploads.Service{
 		Root:     filepath.Join(cfg.WorkDir, uploads.DirName),
 		MaxBytes: cfg.MaxScanBytes,
@@ -362,9 +364,10 @@ func run(logger *slog.Logger) error {
 			// refuses on it. *gmail.Service satisfies the narrow port.
 			Gmail: gmailService,
 			// Issue #249: the async job runner (banner + Submit calls).
-			Jobs:   jobStore,
-			Runner: jobRunner,
-			Log:    logger,
+			Jobs:    jobStore,
+			Runner:  jobRunner,
+			Uploads: uploadsService,
+			Log:     logger,
 		}),
 		Profile: handler.NewProfile(handler.Profile{
 			Canvas: canvasService,

@@ -1,7 +1,10 @@
 package handler
 
 import (
+	"encoding/json"
 	"errors"
+	"fmt"
+	"io"
 	"log/slog"
 	"net/http"
 	"os"
@@ -150,6 +153,93 @@ func (h *Uploads) Cancel(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// ScanUploads is what a subsystem's scan screens need of the chunked
+// uploads: open one for their own subject, and finish it into a batch. The
+// controls and the surveys each hold it; the chunks themselves go through
+// handler.Uploads, which knows no subject at all.
+type ScanUploads interface {
+	Create(professor int64, subject uploads.Subject, name string, size int64, meta map[string]string) (uploads.Upload, error)
+	Complete(professor int64, id string, subject uploads.Subject, save func(uploads.Upload, io.ReadCloser) error) (uploads.Upload, error)
+}
+
+var _ ScanUploads = (*uploads.Service)(nil)
+
+// uploadStart is what the page sends to open an upload: the file as the
+// browser describes it, plus — for a control — the two thresholds the
+// one-request form carries as fields.
+type uploadStart struct {
+	Size   int64  `json:"size"`
+	Name   string `json:"name"`
+	Type   string `json:"type"`
+	Ticked string `json:"ticked"`
+	Unsure string `json:"unsure"`
+}
+
+// uploadStartMaxBytes bounds a start's body: a name and four short fields.
+const uploadStartMaxBytes = 4 << 10
+
+// readUploadStart decodes a start, answering the refusal itself when the body
+// is not one. Everything checkable about the FILE is checked here, so a batch
+// the one-request form would refuse is refused before a byte of it travels.
+func readUploadStart(w http.ResponseWriter, r *http.Request, log *slog.Logger, maxBytes int64) (uploadStart, bool) {
+	var start uploadStart
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, uploadStartMaxBytes)).Decode(&start); err != nil {
+		writeUploadJSON(w, log, http.StatusBadRequest, uploadMessage{Message: "No se pudo leer la solicitud de subida."})
+		return uploadStart{}, false
+	}
+	switch {
+	case start.Size <= 0:
+		writeUploadJSON(w, log, http.StatusBadRequest, uploadMessage{Message: "El archivo está vacío."})
+	case start.Size > maxBytes:
+		writeUploadJSON(w, log, http.StatusRequestEntityTooLarge, uploadMessage{Message: fmt.Sprintf("El PDF excede el máximo de %d MB.", maxBytes>>20)})
+	case !looksLikePDF(start.Name, start.Type):
+		writeUploadJSON(w, log, http.StatusBadRequest, uploadMessage{Message: "El archivo debe ser un PDF."})
+	case len(start.Name) > uploads.MaxNameBytes:
+		writeUploadJSON(w, log, http.StatusBadRequest, uploadMessage{Message: "El nombre del archivo es demasiado largo."})
+	default:
+		return start, true
+	}
+	return uploadStart{}, false
+}
+
+// writeUploadOpened answers a start that opened an upload: where to send its
+// chunks from, how large each may be, and the route that finishes it.
+func writeUploadOpened(w http.ResponseWriter, log *slog.Logger, up uploads.Upload, complete string) {
+	writeUploadJSON(w, log, http.StatusCreated, uploadOpened{
+		Upload: up.ID, Received: up.Received, Chunk: uploads.ChunkBytes, Complete: complete,
+	})
+}
+
+// uploadCreateRefusal answers a Create the domain refused. It reports
+// whether it wrote anything.
+func uploadCreateRefusal(w http.ResponseWriter, log *slog.Logger, err error, maxBytes int64) bool {
+	switch {
+	case errors.Is(err, uploads.ErrTooLarge):
+		writeUploadJSON(w, log, http.StatusRequestEntityTooLarge, uploadMessage{Message: fmt.Sprintf("El PDF excede el máximo de %d MB.", maxBytes>>20)})
+	case errors.Is(err, uploads.ErrInvalid):
+		writeUploadJSON(w, log, http.StatusBadRequest, uploadMessage{Message: "No se pudo empezar la subida con ese archivo."})
+	default:
+		return false
+	}
+	return true
+}
+
+// uploadCompleteRefusal answers a Complete the uploads package refused before
+// the subsystem's save ran. It reports whether it wrote anything.
+func uploadCompleteRefusal(w http.ResponseWriter, log *slog.Logger, err error, up uploads.Upload) bool {
+	switch {
+	case errors.Is(err, uploads.ErrNotFound):
+		writeUploadJSON(w, log, http.StatusNotFound, uploadMessage{Message: uploadNotFound})
+	case errors.Is(err, uploads.ErrIncomplete):
+		writeUploadJSON(w, log, http.StatusConflict, uploadRefusal{Message: "Todavía faltan partes del archivo por llegar.", Received: up.Received})
+	case errors.Is(err, uploads.ErrNotPDF):
+		writeUploadJSON(w, log, http.StatusBadRequest, uploadMessage{Message: "El archivo que llegó no es un PDF."})
+	default:
+		return false
+	}
+	return true
+}
+
 // The JSON shapes the page reads. An error is always {"message"}, plus
 // "received" when the page should resume from a number it was just told.
 type (
@@ -166,6 +256,15 @@ type (
 	uploadStatus struct {
 		Received int64 `json:"received"`
 		Size     int64 `json:"size"`
+	}
+	uploadOpened struct {
+		Upload   string `json:"upload"`
+		Received int64  `json:"received"`
+		Chunk    int64  `json:"chunk"`
+		Complete string `json:"complete"`
+	}
+	uploadFinished struct {
+		Redirect string `json:"redirect"`
 	}
 )
 

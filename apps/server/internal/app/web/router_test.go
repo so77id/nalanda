@@ -156,7 +156,10 @@ func deps(t *testing.T, prober health.Prober) web.Deps {
 				Gmail:              connectedGmail{},
 				Jobs:               jstore,
 				Runner:             runner,
-				Log:                logger,
+				Uploads: uploads.NewService(uploads.Service{
+					Root: filepath.Join(t.TempDir(), uploads.DirName), MaxBytes: 8 << 20, Log: logger,
+				}),
+				Log: logger,
 			})
 		}(),
 		// Issue #271: the profile screen. Wired with a nil secret store —

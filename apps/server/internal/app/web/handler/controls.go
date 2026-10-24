@@ -137,7 +137,11 @@ type Controls struct {
 	// Runner submits async jobs (issue #249). Handlers migrated to the
 	// runner call it here instead of the sync Service method.
 	Runner *jobs.Runner
-	Log    *slog.Logger
+	// Uploads holds a batch while it crosses a slow link in chunks (issue
+	// #339); StartScanUpload opens one under a control and
+	// CompleteScanUpload turns it into the control's next batch.
+	Uploads ScanUploads
+	Log     *slog.Logger
 
 	secureCookie bool
 }
@@ -161,6 +165,8 @@ func NewControls(deps Controls) *Controls {
 		panic("handler.NewControls: no jobs store")
 	case deps.Runner == nil:
 		panic("handler.NewControls: no jobs runner")
+	case deps.Uploads == nil:
+		panic("handler.NewControls: no chunked uploads")
 	case deps.Log == nil:
 		panic("handler.NewControls: no logger")
 	}
