@@ -82,6 +82,12 @@ type Upload struct {
 	Meta map[string]string
 }
 
+// DirName is the directory the partials live in, under the server's work
+// directory: beside controls/ and surveys/, never inside a project the AMC
+// worker resets — so "Borrar escaneos" cannot reach a partial, and a partial
+// is never mistaken for a batch.
+const DirName = "incoming"
+
 // MaxNameBytes bounds the declared file name.
 const MaxNameBytes = 255
 
@@ -154,6 +160,13 @@ func (s *Service) Create(professor int64, subject Subject, name string, size int
 	}
 	up := Upload{ID: id, Professor: professor, Subject: subject, Name: name, Size: size, Meta: meta}
 
+	// One create at a time, so two tabs opening uploads together cannot both
+	// count three and leave the professor holding five.
+	s.locks.create.Lock()
+	defer s.locks.create.Unlock()
+	if err := s.evictBeyondCap(professor); err != nil {
+		return Upload{}, fmt.Errorf("uploads.Create: %w", err)
+	}
 	unlock := s.locks.lock(id)
 	defer unlock()
 	if err := s.create(up); err != nil {
@@ -286,12 +299,15 @@ func isID(id string) bool {
 }
 
 // lockTable serialises every operation on one upload — append, complete,
-// cancel and, from S4, the sweep and the eviction — so none of them sees the
-// files half-changed by another. An entry exists only while somebody holds or
-// waits for it, so the table never outgrows the requests in flight.
+// cancel, the sweep and the eviction — so none of them sees the files
+// half-changed by another. An entry exists only while somebody holds or waits
+// for it, so the table never outgrows the requests in flight.
 type lockTable struct {
 	mu   sync.Mutex
 	held map[string]*uidLock
+	// create serialises Create's count-evict-create, the one sequence that
+	// spans several uploads.
+	create sync.Mutex
 }
 
 type uidLock struct {

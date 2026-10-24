@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"syscall"
 	"time"
 
@@ -29,6 +30,7 @@ import (
 	"github.com/so77id/nalanda/apps/server/internal/domain/roster"
 	"github.com/so77id/nalanda/apps/server/internal/domain/secret"
 	"github.com/so77id/nalanda/apps/server/internal/domain/survey"
+	"github.com/so77id/nalanda/apps/server/internal/domain/uploads"
 	"github.com/so77id/nalanda/apps/server/internal/infra/amcworker"
 	// Aliased because the domain package one import above owns the name:
 	// the domain is what the rest of this file talks about, and the
@@ -303,6 +305,22 @@ func run(logger *slog.Logger) error {
 		return err
 	}
 	go jobRunner.Start(ctx)
+
+	// Issue #339: the partials of chunked scan uploads, on the shared volume
+	// beside controls/ and surveys/. A partial nobody resumed for a day is
+	// swept at boot and then hourly. A failed sweep does not stop the boot —
+	// the partials cost disk, not correctness, and the next tick retries.
+	uploadsService := uploads.NewService(uploads.Service{
+		Root:     filepath.Join(cfg.WorkDir, uploads.DirName),
+		MaxBytes: cfg.MaxScanBytes,
+		Log:      logger,
+	})
+	if removed, err := uploadsService.Sweep(time.Now(), uploads.IdleAfter); err != nil {
+		logger.Warn("sweeping idle upload partials at boot", "error", err)
+	} else if removed > 0 {
+		logger.Info("swept idle upload partials at boot", "removed", removed)
+	}
+	go uploadsService.Watch(ctx, uploads.SweepEvery, time.Now)
 
 	backoffice := web.Deps{
 		Database: storage.NewProber(db),
