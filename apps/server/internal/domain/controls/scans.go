@@ -77,6 +77,19 @@ func (s *Service) SaveUploadedBatch(ctx context.Context, req UploadRequest) (Sav
 	if err != nil {
 		return SaveUploadedBatchResult{}, fmt.Errorf("controls.SaveUploadedBatch: %w", err)
 	}
+	// Past every batch the STORE holds too (issue #338): with S3 the
+	// primary store, a volume that came back empty would otherwise hand out
+	// batch-1.pdf again, and the next analyse's push would overwrite the
+	// real batch-1 in S3. A store that cannot answer refuses the upload
+	// rather than have it numbered blind.
+	stored, err := s.UploadList(ctx, control.ID)
+	if err != nil {
+		return SaveUploadedBatchResult{}, fmt.Errorf("controls.SaveUploadedBatch: %w", err)
+	}
+	if len(stored) > 0 {
+		highest, _ := batchNumber(stored[len(stored)-1])
+		batch = max(batch, highest+1)
+	}
 	batchName := fmt.Sprintf("%s%d%s", scanFilePrefix, batch, scanFileExt)
 	batchHostPath := filepath.Join(uploads, batchName)
 
@@ -1038,11 +1051,12 @@ func batchNumber(name string) (int, bool) {
 	return n, true
 }
 
-// nextBatchNumber walks the uploads/ directory and returns one past the
-// highest existing batch-N.pdf (max+1). Empty dir → 1. If the highest
+// nextBatchNumber walks the LOCAL uploads/ directory and returns one past
+// the highest existing batch-N.pdf (max+1). Empty dir → 1. If the highest
 // batch is deleted the next number goes back to fill the gap — the
-// uploads dir is the persisted state and no counter lives outside it.
-// Names that do not match batch-<positive int>.pdf are ignored.
+// uploads are the persisted state and no counter lives outside them.
+// Names that do not match batch-<positive int>.pdf are ignored. It is the
+// local half: SaveUploadedBatch also numbers past what the store holds.
 func nextBatchNumber(dir string) (int, error) {
 	entries, err := os.ReadDir(dir)
 	if err != nil {

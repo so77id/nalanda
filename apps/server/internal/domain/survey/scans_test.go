@@ -2,13 +2,17 @@ package survey_test
 
 import (
 	"context"
+	"errors"
+	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/so77id/nalanda/apps/server/internal/domain/survey"
 	"github.com/so77id/nalanda/apps/server/internal/infra/filestore"
+	"github.com/so77id/nalanda/apps/server/internal/infra/filestore/s3test"
 )
 
 // Issue #338: Uploads reads through the file store, so its contract is
@@ -56,5 +60,91 @@ func TestUploadsOfARunWithNoneIsEmpty(t *testing.T) {
 	got, err := svc.Uploads(context.Background(), survey.Run{ID: 2, SurveyID: 1})
 	if err != nil || len(got) != 0 {
 		t.Errorf("Uploads of a run with no uploads dir = %+v, %v, want empty and nil", got, err)
+	}
+}
+
+// openRunStore answers one open run, so SaveUploadedBatch reaches its
+// numbering.
+type openRunStore struct{ *memStore }
+
+func (openRunStore) Run(_ context.Context, surveyID, runID int64) (survey.Run, error) {
+	return survey.Run{ID: runID, SurveyID: surveyID, State: survey.RunOpen}, nil
+}
+
+func uploadTo(t *testing.T, svc *survey.Service) (string, error) {
+	t.Helper()
+	return svc.SaveUploadedBatch(context.Background(), 1, 2, io.NopCloser(strings.NewReader("%PDF-hojas")))
+}
+
+// Issue #338, AC-6 for a run: the same destructive bug as the controls'. A
+// volume that came back empty must not hand out batch-1.pdf again while the
+// store holds it.
+func TestARunsNewBatchNumbersPastTheBatchesTheStoreHolds(t *testing.T) {
+	work := t.TempDir()
+	bucket := s3test.New()
+	bucket.Put("work/surveys/1/runs/2/uploads/batch-1.pdf", []byte("uno"))
+	bucket.Put("work/surveys/1/runs/2/uploads/batch-2.pdf", []byte("dos"))
+	svc := survey.NewService(survey.Service{
+		Store: openRunStore{newMemStore()}, Generator: noGenerator{}, Analyzer: noGenerator{},
+		WorkDir: work, Files: filestore.NewS3(bucket, "nalanda-test"), Now: time.Now,
+	})
+
+	name, err := uploadTo(t, svc)
+	if err != nil {
+		t.Fatalf("SaveUploadedBatch: %v", err)
+	}
+	if name != "batch-3.pdf" {
+		t.Errorf("the new batch is %s, want batch-3.pdf", name)
+	}
+	if _, err := os.Stat(filepath.Join(work, survey.RunProject(1, 2), "uploads", "batch-3.pdf")); err != nil {
+		t.Errorf("the batch was not written where its number says: %v", err)
+	}
+}
+
+func TestARunsNewBatchNumbersPastTheBatchesOnDiskThatTheStoreLacks(t *testing.T) {
+	work := t.TempDir()
+	uploads := filepath.Join(work, survey.RunProject(1, 2), "uploads")
+	if err := os.MkdirAll(uploads, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(uploads, "batch-4.pdf"), []byte("cuatro"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	bucket := s3test.New()
+	bucket.Put("work/surveys/1/runs/2/uploads/batch-1.pdf", []byte("uno"))
+	svc := survey.NewService(survey.Service{
+		Store: openRunStore{newMemStore()}, Generator: noGenerator{}, Analyzer: noGenerator{},
+		WorkDir: work, Files: filestore.NewS3(bucket, "nalanda-test"), Now: time.Now,
+	})
+
+	name, err := uploadTo(t, svc)
+	if err != nil {
+		t.Fatalf("SaveUploadedBatch: %v", err)
+	}
+	if name != "batch-5.pdf" {
+		t.Errorf("the new batch is %s, want batch-5.pdf — batch-4 is on disk", name)
+	}
+}
+
+func TestARunsUploadIsRefusedWhenTheStoreCannotListItsBatches(t *testing.T) {
+	work := t.TempDir()
+	bucket := s3test.New()
+	bucket.FailOn = func(op, _ string) error {
+		if op == "ListObjectsV2" {
+			return errors.New("dial tcp: i/o timeout")
+		}
+		return nil
+	}
+	svc := survey.NewService(survey.Service{
+		Store: openRunStore{newMemStore()}, Generator: noGenerator{}, Analyzer: noGenerator{},
+		WorkDir: work, Files: filestore.NewS3(bucket, "nalanda-test"), Now: time.Now,
+	})
+
+	if _, err := uploadTo(t, svc); err == nil {
+		t.Fatal("SaveUploadedBatch numbered a batch without knowing the store's")
+	}
+	entries, _ := os.ReadDir(filepath.Join(work, survey.RunProject(1, 2), "uploads"))
+	if len(entries) != 0 {
+		t.Errorf("a refused upload wrote %d file(s)", len(entries))
 	}
 }

@@ -49,13 +49,21 @@ func (s *Service) SaveUploadedBatch(ctx context.Context, surveyID, runID int64, 
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return "", fmt.Errorf("survey: preparing %s: %w", dir, err)
 	}
+	// Past every batch, on disk AND in the store (issue #338): numbering
+	// from the store alone would reuse a number a batch written while it
+	// was unreachable already holds, and from the disk alone would reuse
+	// batch-1.pdf on a volume that came back empty — and the next push
+	// would overwrite the real one. A store that cannot answer refuses.
 	uploads, err := s.Uploads(ctx, run)
 	if err != nil {
 		return "", err
 	}
-	next := 1
+	next, err := nextLocalBatch(dir)
+	if err != nil {
+		return "", err
+	}
 	if len(uploads) > 0 {
-		next = uploads[len(uploads)-1].Number + 1
+		next = max(next, uploads[len(uploads)-1].Number+1)
 	}
 	name := batchPrefix + strconv.Itoa(next) + batchExt
 	path := filepath.Join(dir, name)
@@ -72,6 +80,22 @@ func (s *Service) SaveUploadedBatch(ctx context.Context, surveyID, runID int64, 
 		return "", fmt.Errorf("survey: closing %s: %w", path, err)
 	}
 	return name, nil
+}
+
+// nextLocalBatch is one past the highest batch-N.pdf in dir, the local half
+// of a run's numbering.
+func nextLocalBatch(dir string) (int, error) {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return 0, fmt.Errorf("survey: listing %s: %w", dir, err)
+	}
+	next := 1
+	for _, e := range entries {
+		if n, ok := batchNumber(e.Name()); ok && !e.IsDir() {
+			next = max(next, n+1)
+		}
+	}
+	return next, nil
 }
 
 // Upload is one batch on disk.
