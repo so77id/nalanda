@@ -17,7 +17,7 @@ import (
 // same lock as Generate and Analyze: AMC's state is sqlite in the project
 // directory and two runs against one project would race it (ADR-0030). Its
 // sync leaves the databases the annotate rewrites for the next other call
-// (ProjectSync.AroundAnnotate).
+// (ProjectSync.AroundDeferringDatabases).
 //
 // A push that failed returns no path, on purpose (issue #338 review): with
 // no annotated_copy row the review page falls back to the raw scan and a

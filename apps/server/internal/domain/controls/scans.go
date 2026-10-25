@@ -308,7 +308,10 @@ func (s *Service) AnnotateAllCleanCopies(ctx context.Context, controlID string) 
 // the flows that call this were minutes-class anyway. A failure must not
 // fail the caller's operation: the reading is already persisted and the
 // professor can retry the same copy from the review page (ruta B) — or
-// switch the whole loop off by config.
+// switch the whole loop off by config. An unreachable file store is every
+// copy's failure, so the loop stops at the first one, as the close's does
+// (issue #338 review recheck): an analyse whose own push just failed would
+// otherwise try S3 once per clean copy.
 func (s *Service) annotateCleanCopies(ctx context.Context, control Control, report Report) {
 	for key, copy := range report.Copies {
 		if copy.Status != CopyStatusOK {
@@ -325,6 +328,9 @@ func (s *Service) annotateCleanCopies(ctx context.Context, control Control, repo
 		if _, err := s.Annotate(ctx, control.ID, copyNumber); err != nil {
 			s.Log.Warn("controls: annotate failed",
 				"control", control.ID, "copy", copyNumber, "error", err)
+			if errors.Is(err, files.ErrSync) {
+				return
+			}
 		}
 	}
 }

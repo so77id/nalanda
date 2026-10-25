@@ -608,7 +608,8 @@ worth reading before writing Go in this repo:
   hand at six call sites, named a test that checked the sync half for all of
   them and the lock half for one, and a mutation that dropped the lock at two
   call sites left the suite green (#338 review, ARQ-1/COR-3). Now
-  `serialised`/`trySerialised` are the only way to the worker, and
+  `serialised`, `serialisedAnnotate` and `trySerialised` are the only way
+  to the worker, and
   `TestEveryWorkerCallsSyncRunsInsideTheWorkerLock` walks the same table as
   `TestEveryWorkerCallRunsBetweenTheHydrateAndThePush`.
 

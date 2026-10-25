@@ -981,13 +981,20 @@ databases. That is personal data (Ley 21.719) outside the box, so:
   the archived control whole. The three steps run under the worker lock and
   a busy worker refuses the purge (#338 review, SEC-1): a push or the
   reconcile running beside it re-uploaded what it had deleted, leaving a
-  purged student's files in S3 with no row that could ever find them. The
+  purged student's files in S3 with no row that could ever find them. One
+  double fault stays open: when the purge's best-effort RemoveAll fails —
+  root-owned files the worker's chown did not fix — the leftover directory
+  reads as a project, and a worker call that was queued for that control
+  behind the purge uploads it again (measured in the #338 recheck). It
+  needs the three at once; a purge whose log carries "file cleanup
+  failed" is the one to clean by hand (`aws s3 rm --recursive
+  s3://$B/work/controls/<id>/` after removing the directory). The
   database backups keep a purged control's rows thirty days, as before.
   **Under `NALANDA_FILES_STORE=local` it deletes nothing from S3** (#338
   review, SEC-2): once `-sync-files` has filled the bucket — the migration's
   window, or after a rollback — a purge, or a "Borrar escaneos", in local
   mode leaves those objects in `work/`, and a later flip back to `s3` brings
-  them back. DEPLOY-JETSON.md §"Going back to local" has the operator
+  them back. DEPLOY-JETSON.md §"Going back to the local store" has the operator
   remove the same keys by hand; until a purge under `local` also deletes
   the S3 prefix when the bucket is configured (a follow-up), that step is
   the deletion path in that mode.

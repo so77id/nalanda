@@ -189,8 +189,10 @@ internal/infra/    adapters: config, storage, httpserver, httpjson, selfcheck
                    worker call runs in (hydrate, push, prune, the link
                    map); the Reconciler (boot, 03:00 UTC, -sync-files);
                    s3test/, the in-memory bucket the suite drives
-  amcworker/       the AMC worker HTTP client (one worker lock, taken only
-                   through serialised/trySerialised, #338);
+  amcworker/       the AMC worker HTTP client (one worker lock: every call
+                   through serialised / serialisedAnnotate / trySerialised,
+                   the reconcile and the purge through Exclusive /
+                   TryExclusive, #338);
                    implements survey.Generator too (GenerateSheet, #310)
                    and survey.Analyzer (AnalyzeSheets, ResetSurveyScans,
                    #311) — one wire per route, each domain's own sentinels

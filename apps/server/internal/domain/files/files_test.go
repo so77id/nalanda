@@ -181,3 +181,35 @@ func TestWriteNewNeverReplacesAFileThatExists(t *testing.T) {
 		t.Errorf("a refused write left %d entries", len(entries))
 	}
 }
+
+// statOnRead is a source that, on its first Read, records whether path
+// already exists — what a sync scanning the directory meanwhile would see.
+type statOnRead struct {
+	path    string
+	content *strings.Reader
+	seen    bool
+	existed bool
+}
+
+func (s *statOnRead) Read(p []byte) (int, error) {
+	if !s.seen {
+		s.seen = true
+		_, err := os.Stat(s.path)
+		s.existed = err == nil
+	}
+	return s.content.Read(p)
+}
+
+// COR-8 itself (issue #338 review recheck: the cases above held for an
+// in-place write too): while the batch is being written its name does not
+// exist, so a sync scanning the directory meanwhile cannot upload half of it.
+func TestWriteNewNeverExposesAHalfWrittenFileUnderItsName(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "batch-1.pdf")
+	src := &statOnRead{path: path, content: strings.NewReader("%PDF-lote")}
+	if err := files.WriteNew(path, src); err != nil {
+		t.Fatal(err)
+	}
+	if !src.seen || src.existed {
+		t.Errorf("batch-1.pdf existed while it was being written (read %v)", src.seen)
+	}
+}

@@ -26,7 +26,7 @@ import (
 // the store is flipped), what finishes a push a failed call or a deadline
 // left behind, and what uploads what a rollback to the local store wrote
 // meanwhile. It also carries what an annotate left for the next call (the
-// databases Sync.AroundAnnotate defers).
+// databases Sync.AroundDeferringDatabases defers).
 type Reconciler struct {
 	sync *Sync
 	// projects lists every project the database knows — controls archived

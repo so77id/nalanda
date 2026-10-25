@@ -455,7 +455,11 @@ func (s *Service) Restore(ctx context.Context, id string) error {
 // TRIED, never waited for, for the resets' reason: the professor is
 // waiting. A call already queued for this control when the purge took the
 // lock finds no project anywhere afterwards, and the file store's sync
-// refuses it before it creates anything.
+// refuses it before it creates anything — when step 4 succeeded. A RemoveAll
+// that failed (root-owned files a failed chown of the worker left behind)
+// leaves a directory the sync takes for a project, and that queued call
+// uploads it again: a double fault, recorded in docs/security-notes.md
+// §"The work files live in S3".
 //
 // A parallel in-flight async job for this id is possible (§Async runner
 // interaction); the runner's MarkRunning / MarkDone / MarkFailed will

@@ -386,8 +386,9 @@ the `avisoNo*` / `flash.Set(…)` string literals in `internal/app/web/handler/`
      sync's halves around each call, and the lock held during each one's
      sync (#338 review, COR-3 — the second test once covered one call, and
      dropping the lock at two others left the suite green). Add the new call
-     to that table. An annotate's sync leaves AMC's `data/*.sqlite` for the
-     next other call (ADR-0089 §4); a push that fails after a call that
+     to that table. An annotate's and a reset's sync leave AMC's
+     `data/*.sqlite` for the next other call (`AroundDeferringDatabases`,
+     ADR-0089 §4); a push that fails after a call that
      succeeded is `files.ErrNotStored` as well as `ErrSync`, and the calls
      whose result the domain persists return it WITH that error.
   3. **Nothing is deleted from S3 because it is MISSING locally.** The prune

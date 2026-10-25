@@ -54,8 +54,8 @@ type Client struct {
 	// review save behind another control's analyse — whose hold now
 	// includes that analyse's hydrate and push — blocked for the whole
 	// hold, past its own deadline, and then skipped the annotate it had
-	// waited for. Taken only through serialised, trySerialised, Exclusive
-	// and TryExclusive.
+	// waited for. Taken only through serialised, serialisedAnnotate,
+	// trySerialised, Exclusive and TryExclusive.
 	lock chan struct{}
 
 	// sync keeps a project's files and the file store in step around each
@@ -70,17 +70,18 @@ type Client struct {
 // worker lock, so nothing mutates a project while it is being copied — the
 // copy is part of the critical section, not something beside it.
 //
-// AroundAnnotate is Around for /annotate/copy, which rewrites AMC's
-// databases as a by-product on every call: it leaves them for the next
-// call of another kind rather than uploading them once per copy (issue #338
-// review, PER-1).
+// AroundDeferringDatabases is Around for a call the bucket does not need
+// AMC's databases from — /annotate/copy, which rewrites them as a
+// by-product on every call, and /scans/reset, which deletes them: it leaves
+// them for the next call of another kind (issue #338 review, PER-1 and its
+// recheck).
 //
 // A push that fails after a call that succeeded wraps files.ErrNotStored:
 // the work is done and on the volume, and the calls that return a result
 // worth keeping — an analyse's report — return it with that error.
 type ProjectSync interface {
 	Around(ctx context.Context, project string, call func() error) error
-	AroundAnnotate(ctx context.Context, project string, call func() error) error
+	AroundDeferringDatabases(ctx context.Context, project string, call func() error) error
 }
 
 // Config is what New takes. HTTPClient is optional: nil means the default
@@ -177,7 +178,7 @@ func (c *Client) serialised(ctx context.Context, project string, call func() err
 
 // serialisedAnnotate is serialised for /annotate/copy: the sync leaves the
 // databases the annotate rewrites for the next other call
-// (ProjectSync.AroundAnnotate).
+// (ProjectSync.AroundDeferringDatabases).
 func (c *Client) serialisedAnnotate(ctx context.Context, project string, call func() error) error {
 	if err := c.acquire(ctx); err != nil {
 		return err
@@ -187,13 +188,16 @@ func (c *Client) serialisedAnnotate(ctx context.Context, project string, call fu
 }
 
 // trySerialised is serialised for a call that must never wait — the resets
-// (ADR-0075 §5): busy at once when the lock is held.
+// (ADR-0075 §5): busy at once when the lock is held. Its sync defers AMC's
+// databases, which a reset deletes (ProjectSync.AroundDeferringDatabases):
+// uploading what the annotates deferred, for the reset's prune to delete,
+// would spend the synchronous reset's deadline on the uplink.
 func (c *Client) trySerialised(ctx context.Context, project string, busy error, call func() error) error {
 	if !c.tryAcquire() {
 		return busy
 	}
 	defer c.release()
-	return c.inStep(ctx, project, false, call)
+	return c.inStep(ctx, project, true, call)
 }
 
 // acquire waits for the lock until ctx ends.
@@ -220,12 +224,12 @@ func (c *Client) release() { <-c.lock }
 // inStep runs call between the file store's hydrate and push for project.
 // The caller holds the lock. A sync failure is returned as the sync wrapped
 // it (files.ErrSync); a worker failure as the call returned it.
-func (c *Client) inStep(ctx context.Context, project string, annotate bool, call func() error) error {
+func (c *Client) inStep(ctx context.Context, project string, deferDatabases bool, call func() error) error {
 	switch {
 	case c.sync == nil:
 		return call()
-	case annotate:
-		return c.sync.AroundAnnotate(ctx, filepath.ToSlash(project), call)
+	case deferDatabases:
+		return c.sync.AroundDeferringDatabases(ctx, filepath.ToSlash(project), call)
 	}
 	return c.sync.Around(ctx, filepath.ToSlash(project), call)
 }

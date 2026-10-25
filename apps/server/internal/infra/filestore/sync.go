@@ -99,31 +99,39 @@ func (s *Sync) Around(ctx context.Context, project string, call func() error) er
 	return s.around(ctx, project, keptWhole, call)
 }
 
-// AroundAnnotate is Around for an /annotate/copy call (issue #338 review,
-// PER-1). AMC rewrites the project's databases (data/*.sqlite) on every
-// annotate as a by-product: it re-applies the overrides the server holds
-// and recomputes the scores — measured on the real worker, two identical
-// annotates of one copy changed capture.sqlite and scoring.sqlite and left
-// the corrected PDF byte-identical. Pushed per call, an analyse's forty
-// annotates uploaded a 5.7 MB capture.sqlite forty times (228 MB) to keep
-// the last one. So here those files are left out of the hydrate's uploads
-// and the push: the next call of another kind uploads them in its hydrate,
-// since the disk's copy is the newer one, and so does the reconcile. Until
-// then the bucket's databases are the ones the last other call left, which
-// is what a restore needs — what an annotate adds is derived from it and
-// from the database, and the next annotate re-derives it. Everything else,
-// the corrected PDF first, goes up as in Around, and whatever the call
-// needs from the bucket still comes down.
-func (s *Sync) AroundAnnotate(ctx context.Context, project string, call func() error) error {
-	return s.around(ctx, project, annotateDerived, call)
+// AroundDeferringDatabases is Around for a call the bucket does not need
+// AMC's databases (data/*.sqlite) from: they are left out of the hydrate's
+// uploads and of the push, and the next call of another kind uploads them in
+// its hydrate — the disk's copy is the newer one — as does the reconcile.
+// Two kinds of call (issue #338 review):
+//
+//   - /annotate/copy (PER-1) rewrites them as a by-product: it re-applies the
+//     overrides the server holds and recomputes the scores — measured on the
+//     real worker, two identical annotates of one copy changed capture.sqlite
+//     and scoring.sqlite and left the corrected PDF byte-identical. Pushed per
+//     call, an analyse's forty annotates uploaded a 5.7 MB capture.sqlite
+//     forty times (228 MB) to keep the last one. Until the next other call
+//     the bucket's databases are the ones it left, which is what a restore
+//     needs: what an annotate adds is derived from them and from the
+//     database, and the next annotate re-derives it.
+//   - /scans/reset DELETES the capture's: uploading what the annotates
+//     deferred, only for the reset's own prune to delete it, cost the
+//     synchronous reset seconds of its 25 — on a slow uplink all of them, a
+//     hydrate that could never finish (the recheck measured 5.8 MB). The
+//     prune still deletes the bucket's copies of whatever the reset removed.
+//
+// Everything else, the corrected PDF first, goes up as in Around, and
+// whatever the call needs from the bucket still comes down.
+func (s *Sync) AroundDeferringDatabases(ctx context.Context, project string, call func() error) error {
+	return s.around(ctx, project, amcDatabase, call)
 }
 
 // keptWhole defers nothing: every file a call changes goes up.
 func keptWhole(string) bool { return false }
 
-// annotateDerived names the files an annotate rewrites only as a by-product,
-// which AroundAnnotate leaves for the next other call.
-func annotateDerived(rel string) bool {
+// amcDatabase names AMC's project databases, which
+// AroundDeferringDatabases leaves for the next other call.
+func amcDatabase(rel string) bool {
 	return path.Dir(rel) == "data" && strings.HasSuffix(rel, ".sqlite")
 }
 
@@ -170,17 +178,30 @@ type syncStats struct {
 	uploaded      int
 	bytes         int64
 	pruned        int
-	// deferred is what an annotate left for the next other call.
-	deferred int
+	// deferred is what AroundDeferringDatabases left for the next other
+	// call, by name: a file both halves skip is one file, and its size is
+	// the upload that waits.
+	deferred map[string]int64
+}
+
+func (st *syncStats) deferFile(rel string, size int64) {
+	if st.deferred == nil {
+		st.deferred = map[string]int64{}
+	}
+	st.deferred[rel] = size
 }
 
 func (st syncStats) attrs(project string) []any {
 	ms := func(d time.Duration) time.Duration { return d.Round(time.Millisecond) }
+	var deferredBytes int64
+	for _, size := range st.deferred {
+		deferredBytes += size
+	}
 	return []any{"project", project,
 		"hydrate", ms(st.hydrate), "downloaded", st.downloaded, "uploaded_first", st.uploadedFirst,
 		"call", ms(st.call),
 		"push", ms(st.push), "uploaded", st.uploaded, "pruned", st.pruned,
-		"bytes", st.bytes, "deferred", st.deferred}
+		"bytes", st.bytes, "deferred", len(st.deferred), "deferred_bytes", deferredBytes}
 }
 
 // errNoProject is a call on a project that exists nowhere (see Around).
@@ -238,7 +259,7 @@ func (s *Sync) hydrate(ctx context.Context, project string, deferred func(string
 
 	up := func(rel string, file diskFile) error {
 		if deferred(rel) {
-			stats.deferred++
+			stats.deferFile(rel, file.size)
 			return nil
 		}
 		if err := s.upload(ctx, root, project, rel, file); err != nil {
@@ -307,7 +328,7 @@ func (s *Sync) push(ctx context.Context, project string, before snapshot, deferr
 			continue
 		}
 		if deferred(rel) {
-			stats.deferred++
+			stats.deferFile(rel, file.size)
 			continue
 		}
 		changed = append(changed, rel)

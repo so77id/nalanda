@@ -46,10 +46,10 @@ func (s *recordingSync) Around(_ context.Context, project string, call func() er
 	return s.around("", project, call)
 }
 
-// AroundAnnotate records its halves apart, so a test can tell which of the
-// two an annotate went through.
-func (s *recordingSync) AroundAnnotate(_ context.Context, project string, call func() error) error {
-	return s.around("annotate-", project, call)
+// AroundDeferringDatabases records its halves apart, so a test can tell
+// which of the two a call went through.
+func (s *recordingSync) AroundDeferringDatabases(_ context.Context, project string, call func() error) error {
+	return s.around("deferring-", project, call)
 }
 
 func (s *recordingSync) around(kind, project string, call func() error) error {
@@ -93,9 +93,10 @@ func workerAnswering(t *testing.T, s *recordingSync, body string) *httptest.Serv
 // workerCall is one of the client's calls, and what its worker answers.
 type workerCall struct {
 	name, project, body string
-	// annotate: the call's sync is AroundAnnotate.
-	annotate bool
-	run      func(*amcworker.Client) error
+	// defers: the call's sync is AroundDeferringDatabases (the annotate and
+	// the resets).
+	defers bool
+	run    func(*amcworker.Client) error
 }
 
 // workerCalls is EVERY call the client makes to the worker. A new call is
@@ -136,10 +137,10 @@ func workerCalls(t *testing.T) []workerCall {
 				Source: "surveys/1/runs/2/inputs/source.tex", Ticked: 0.3, Unsure: 0.1})
 			return err
 		}},
-		{"reset", "controls/A", `{"project":"controls/A"}`, false, func(c *amcworker.Client) error {
+		{"reset", "controls/A", `{"project":"controls/A"}`, true, func(c *amcworker.Client) error {
 			return c.ResetScans(ctx, "controls/A")
 		}},
-		{"survey reset", "surveys/1/runs/2", `{"project":"surveys/1/runs/2"}`, false, func(c *amcworker.Client) error {
+		{"survey reset", "surveys/1/runs/2", `{"project":"surveys/1/runs/2"}`, true, func(c *amcworker.Client) error {
 			return c.ResetSurveyScans(ctx, "surveys/1/runs/2")
 		}},
 	}
@@ -154,8 +155,8 @@ func TestEveryWorkerCallRunsBetweenTheHydrateAndThePush(t *testing.T) {
 				t.Fatalf("call: %v", err)
 			}
 			kind := ""
-			if tc.annotate {
-				kind = "annotate-"
+			if tc.defers {
+				kind = "deferring-"
 			}
 			want := []string{kind + "hydrate " + tc.project, "worker", kind + "push " + tc.project}
 			if got := s.Events(); !slices.Equal(got, want) {

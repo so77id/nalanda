@@ -1,6 +1,7 @@
 package filestore_test
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -570,7 +571,7 @@ func TestAnAnnotateLeavesTheDatabasesForTheNextCall(t *testing.T) {
 		writeFile(t, r.dir, "annotated/copy-1.pdf", "%PDF-corregido")
 		return nil
 	}
-	if err := r.sync.AroundAnnotate(ctx, project, annotate); err != nil {
+	if err := r.sync.AroundDeferringDatabases(ctx, project, annotate); err != nil {
 		t.Fatal(err)
 	}
 	if body, _ := r.remoteBody("annotated/copy-1.pdf"); body != "%PDF-corregido" {
@@ -583,7 +584,7 @@ func TestAnAnnotateLeavesTheDatabasesForTheNextCall(t *testing.T) {
 	}
 	// A second annotate's hydrate finds the disk's databases newer, and
 	// leaves them as well.
-	if err := r.sync.AroundAnnotate(ctx, project, noop); err != nil {
+	if err := r.sync.AroundDeferringDatabases(ctx, project, noop); err != nil {
 		t.Fatal(err)
 	}
 	if body, _ := r.remoteBody("data/capture.sqlite"); body != "analysed" {
@@ -595,6 +596,40 @@ func TestAnAnnotateLeavesTheDatabasesForTheNextCall(t *testing.T) {
 	}
 	if body, _ := r.remoteBody("data/capture.sqlite"); body != "annotated bookkeeping" {
 		t.Errorf("the next call did not carry what the annotate left: %q", body)
+	}
+}
+
+// The recheck's case: a reset after a run of annotates uploads nothing —
+// not the databases they deferred, only for its own prune to delete them —
+// and the bucket still loses what the reset removed.
+func TestAResetAfterAnnotatesUploadsNothingAndStillPrunes(t *testing.T) {
+	r := newSyncRig(t)
+	ctx := context.Background()
+	r.bucket.Now = func() time.Time { return time.Now().Add(-time.Hour) }
+	r.remote("data/capture.sqlite", "analysed")
+	r.remote("data/layout.sqlite", "layout")
+	if err := r.sync.Around(ctx, project, noop); err != nil {
+		t.Fatal(err)
+	}
+	// What the annotates deferred: the disk's capture is newer than the
+	// bucket's.
+	r.local(t, "data/capture.sqlite", "annotated bookkeeping")
+	before := len(r.puts())
+
+	err := r.sync.AroundDeferringDatabases(ctx, project, func() error {
+		return os.Remove(filepath.Join(r.dir, "data", "capture.sqlite"))
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := r.puts()[before:]; len(got) != 0 {
+		t.Errorf("the reset uploaded %v", got)
+	}
+	if _, ok := r.remoteBody("data/capture.sqlite"); ok {
+		t.Error("the capture the reset removed is still in S3")
+	}
+	if body, _ := r.remoteBody("data/layout.sqlite"); body != "layout" {
+		t.Errorf("layout.sqlite = %q, want it kept", body)
 	}
 }
 
@@ -716,5 +751,34 @@ func TestAFileRewrittenBetweenTheScanAndTheSendIsRefused(t *testing.T) {
 	}
 	if _, ok := r.remoteBody("data/capture.sqlite"); ok {
 		t.Error("a body that changed after its hash was stored")
+	}
+}
+
+// PER-5's recheck: the `files: synced` line counts a deferred file once —
+// both halves skip it — and says how many bytes wait for the next call.
+func TestTheSyncedLineCountsADeferredFileOnceWithItsBytes(t *testing.T) {
+	r := newSyncRig(t)
+	var log bytes.Buffer
+	sync := filestore.NewSync(filestore.NewS3(r.bucket, "nalanda-test"), r.work, slog.New(slog.NewTextHandler(&log, nil)))
+	ctx := context.Background()
+	r.bucket.Now = func() time.Time { return time.Now().Add(-time.Hour) }
+	r.remote("data/capture.sqlite", "analysed")
+	if err := sync.Around(ctx, project, noop); err != nil {
+		t.Fatal(err)
+	}
+	// The first annotate's push skips the database; the second's hydrate
+	// and push both skip it.
+	for range 2 {
+		if err := sync.AroundDeferringDatabases(ctx, project, func() error {
+			writeFile(t, r.dir, "data/capture.sqlite", "0123456789")
+			return nil
+		}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	lines := strings.Split(strings.TrimSpace(log.String()), "\n")
+	last := lines[len(lines)-1]
+	if !strings.Contains(last, "deferred=1 ") || !strings.Contains(last, "deferred_bytes=10") {
+		t.Errorf("the last synced line = %q, want deferred=1 deferred_bytes=10", last)
 	}
 }

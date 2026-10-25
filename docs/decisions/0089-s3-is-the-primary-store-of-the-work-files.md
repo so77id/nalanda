@@ -96,7 +96,8 @@ PER-2: four requests per image became three).
 `amcworker.Client` serialises every call behind one lock. Since #338 each
 call runs `filestore.Sync.Around` **inside** that lock, so nothing mutates a
 project while it is being copied — and there is one way in, the client's
-`serialised` helper (`trySerialised` for the resets), so a call cannot take
+`serialised` helper (`serialisedAnnotate` for an annotate, `trySerialised`
+for the resets), so a call cannot take
 the lock without the sync or the sync without the lock;
 `TestEveryWorkerCallsSyncRunsInsideTheWorkerLock` holds all eight calls to
 it (#338 review, ARQ-1/COR-3: the rule had been repeated at six call sites,
@@ -138,7 +139,8 @@ nanosecond mtime, because an analyse annotates each clean copy as a call of
 its own.
 
 **An annotate leaves AMC's databases for the next other call**
-(`Sync.AroundAnnotate`; #338 review, PER-1, Miguel's choice among three).
+(`Sync.AroundDeferringDatabases`; #338 review, PER-1, Miguel's choice among
+three).
 AMC rewrites `data/capture.sqlite` and `data/scoring.sqlite` on every
 `/annotate/copy` as a by-product — measured on the real worker, two
 identical annotates of one copy changed both and left the corrected PDF
@@ -154,7 +156,12 @@ overrides the server holds and recomputes the scores — and the next annotate
 re-derives it. The alternatives were a per-copy sync that pushes only
 `annotated/` with one full sync at the end of the loop (more code in the
 loop's callers), and one call that annotates N copies (holding the lock for
-the whole loop, which makes COR-2 worse).
+the whole loop, which makes COR-2 worse). **"Borrar escaneos" defers them
+too** (the recheck of PER-1): it deletes the capture's databases, and its
+hydrate would otherwise upload what the annotates deferred only for its own
+prune to delete it — seconds of the synchronous reset's 25 s, and on a slow
+uplink all of them. The prune still deletes the bucket's copies of what the
+reset removed.
 
 **A call on a project that exists nowhere is refused** before anything is
 created: no file on the volume, none in the bucket. No real call starts from
@@ -165,7 +172,7 @@ with no row left to find it (#338 review, SEC-1).
 
 Every Around logs one line, `files: synced`, with what each half moved and
 how long each part took — hydrate, call, push, the bytes, the files pruned
-and the ones an annotate deferred (PER-5).
+and the ones deferred, with their bytes (PER-5).
 
 ### 5. New batches number past the store's
 
@@ -189,7 +196,10 @@ enough: a push running beside the purge — an annotate loop releases the lock
 between copies, the reconcile walks every project — uploaded again what the
 S3 step had just deleted, and with the row gone nothing would ever find
 those objects. A call already queued for the control when the purge took the
-lock finds the project nowhere afterwards and is refused (§4). The lesson
+lock finds the project nowhere afterwards and is refused (§4) — unless the
+best-effort RemoveAll failed, in which case it re-uploads what was left: a
+double fault (a failed chown, a failed RemoveAll, a call queued on that very
+control), recorded and not closed. The lesson
 is in `apps/server/CLAUDE.md`'s purge rule: a destructive step on a store a
 sync repopulates runs under that sync's lock.
 
