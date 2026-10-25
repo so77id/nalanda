@@ -20,7 +20,7 @@
 # tells it to CROSS-COMPILE for the target. Load-bearing on the CI runner
 # (issue #162 S11); a no-op on a local build where BUILDPLATFORM equals
 # TARGETPLATFORM.
-FROM --platform=${BUILDPLATFORM} golang:1.25-alpine@sha256:3eb6c2b3db8d55e38537302edb510b4417f8a115efbd5906d131ceba9468e29a AS build
+FROM --platform=${BUILDPLATFORM} golang:1.26-alpine@sha256:27f2d3b83cfc5803c8078f8e730af0f7c431bf067afaec8f60a36fb763187cba AS build
 
 # TARGETARCH is set by buildx from --platform; empty in a plain `docker build`,
 # where the `${TARGETARCH:-$(go env GOARCH)}` fallback below keeps Go writing
