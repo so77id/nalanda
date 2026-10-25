@@ -134,6 +134,16 @@ fact.
   `templates/partials/chunked_upload.html`. A change to the module is
   unfinished until the browser check in `testing-strategy.md` §`apps/server`
   ran: nothing in `go test` executes it.
+- `docs/decisions/0089-s3-is-the-primary-store-of-the-work-files.md` — S3 as
+  the PRIMARY store of every project's files (issue #338): the `files.Store`
+  port and its two adapters, the sync around every worker call (hydrate,
+  push, prune) inside the worker lock, the numbering past the store's
+  batches, the purge's S3-first order, the reconcile and `-sync-files`, the
+  server's own IAM user, and why S3 is treated as an input. Read before
+  touching `internal/domain/files`, `internal/infra/filestore`, any route or
+  service method that opens a work file, `amcworker.Client`'s calls, the
+  purge, or `NALANDA_FILES_*`. Its operating side is `S3-CHECK.md` and
+  `infra/local/DEPLOY-JETSON.md` §"The work files in S3".
 - `docs/security-notes.md` §"Logs and personal data" — read before adding any
   `slog` call on a path that holds a RUT, a name or a student address. The
   rule is that the identifier stays OUT of the line; the `_action` /
@@ -246,7 +256,8 @@ the `avisoNo*` / `flash.Set(…)` string literals in `internal/app/web/handler/`
      not the store field. **NOT enforced by the guard** — the package graph
      cannot see it, because handler and store are already allowed to share
      one through the domain. It is a review item, and its check is
-     `grep -rn '\.Store\.' internal/app/**/handler/*.go` returning nothing.
+     `grep -rnE --exclude='*_test.go' '\.(Store|Files)\.' internal/app/**/handler/*.go` returning nothing — `.Files.` too since #338, and
+     test files excluded, whose fixtures seed a store on purpose.
      Violated and re-fixed twice: WP-E's review (ARQ-11) removed a second
      injected `Store` field from a handler struct, and #271's review (ARQ-1)
      removed a `c.Roster.Store.ListEnrollments` reach-through that also ran
@@ -277,9 +288,11 @@ the `avisoNo*` / `flash.Set(…)` string literals in `internal/app/web/handler/`
   APPROXIMATE a per-row domain rule" — never by asking per row instead.
 - **Never add a dependency without discussing it.** `go.mod` is a manifest and
   the root `CLAUDE.md` rule applies to it unchanged. The direct set is exactly
-  `modernc.org/sqlite` and `github.com/pressly/goose/v3`; there is deliberately
-  no router, no test framework and no logging library. Never edit `go.sum` by
-  hand.
+  `modernc.org/sqlite`, `github.com/pressly/goose/v3` and, since #338,
+  `github.com/aws/aws-sdk-go-v2` (`aws` and `service/s3` only — the client is
+  built from `s3.Options`, so the SDK's `config` module is not needed and is
+  not to be added); there is deliberately no router, no test framework and no
+  logging library. Never edit `go.sum` by hand.
 - **`CGO_ENABLED=0` is load-bearing, not a flag someone once set.** It is what
   lets the binary run on `scratch`. A dependency that needs CGO produces a build
   that succeeds and a container that cannot start — the failure appears at
@@ -351,6 +364,104 @@ the `avisoNo*` / `flash.Set(…)` string literals in `internal/app/web/handler/`
   `oidctest.Provider`; the real round trip is `GOOGLE-CHECK.md`, and a change to
   the login path is unfinished while a human has not run it. Same rule, and the
   same reason, as `apps/amc-worker/PAPER-CHECK.md`.
+- **Every work file a page or a download hands out is read through
+  `files.Store` (issue #338, ADR-0089)**, and with `NALANDA_FILES_STORE=s3`
+  that store is S3, the PRIMARY copy. Six rules, each with its reason:
+  1. **No `os.Open`/`ReadFile`/`ReadDir` of a work file under `internal/app`
+     or `internal/domain`.** A handler calls a service method that opens
+     through `Files` (edge 4: never the store field from a handler — its
+     grep, above, covers `.Files.`). A control's file is served with the
+     `Controls.serveControlFile` method; elsewhere the open's error goes to
+     `handler.fileUnavailable` (absent is the page's 404, anything else a 503
+     in Spanish), never an `errors.Is` ladder of its own; a page image that
+     may be PNG or JPG opens with `files.OpenFirst`. What legitimately stays
+     on the disk: the LOCAL half of a batch's numbering,
+     `internal/domain/uploads`' partials, the bank, and the files the server
+     WRITES — AMC works on local files, and the next worker call's hydrate
+     uploads them. **A file the server writes into a project a sync may be
+     scanning** — a batch, anything on a request goroutine — **goes through
+     `files.WriteNew`**: it writes under `files.TempPrefix`, which the sync
+     never uploads, and links the file into place without replacing a name
+     that exists (#338 review, COR-8; written in place, half a batch could
+     reach S3). `os.WriteFile` stays right for a file no sync can be
+     scanning yet: a new control's inputs (written before its row exists)
+     and a new run's source (written right after its row, before any
+     worker call on it — the reconcile could list the run in between, an
+     accepted window: an upload of a file that changed under it fails its
+     Content-MD5, and the next hydrate carries the whole one). `grep -rnE --exclude='*_test.go'
+     'os\.(Open|ReadFile|ReadDir)\(' internal/app internal/domain` lists
+     exactly the disk reads above: four lines today.
+  2. **Every `amcworker.Client` call goes through `c.serialised` (or
+     `c.trySerialised`, `c.serialisedAnnotate`)** — the worker lock and the
+     sync (hydrate → call → push → prune) in one helper, so a call cannot
+     take one without the other; a new worker call written outside them
+     would act on a project S3 has not brought back, and leave its result
+     only on the disk. The lock is a one-slot channel a waiting call gives up
+     on when its ctx ends — never a `sync.Mutex`, whose `Lock` held a review
+     save past its own deadline (#338 review, COR-2). `workerCalls` in
+     `amcworker/sync_test.go` lists every call, and two tests walk it: the
+     sync's halves around each call, and the lock held during each one's
+     sync (#338 review, COR-3 — the second test once covered one call, and
+     dropping the lock at two others left the suite green). Add the new call
+     to that table. The helper is chosen by two questions: may the call WAIT
+     for the lock (`serialised`, `serialisedAnnotate`) or must it answer busy
+     at once (`trySerialised`)? And does the bucket need the `data/*.sqlite`
+     the call changes (`serialised`), or are they a by-product or a deletion
+     (`serialisedAnnotate`; `trySerialised` always defers them —
+     `AroundDeferringDatabases`, ADR-0089 §4)? Set the table's `defers`
+     column to match; a fourth combination is a new helper, never an inline
+     lock. A push that fails after a call that succeeded is
+     `files.ErrNotStored` inside `ErrSync`, so a consumer tests
+     `ErrNotStored` FIRST (`failureFromGenerateError` in jobhandlers.go). A
+     call whose result the domain persists returns it WITH that error and
+     joins `TestAResultTheStoreDidNotTakeIsStillReturned`'s table — except
+     `AnnotateCopy`, whose path would become an `annotated_copy` row
+     pointing at a PDF S3 may lack, where no row falls back to the raw scan
+     (ADR-0089 §4, `TestAnAnnotateTheStoreDidNotTakeReturnsNoPath`).
+  3. **Nothing is deleted from S3 because it is MISSING locally.** The prune
+     deletes exactly what a call removed (the files before it minus the
+     files after it); the purge's `DeleteProject` deletes a project; the
+     reconcile deletes nothing. A "make S3 match the disk" step anywhere is
+     the deletion-by-absence the design exists to rule out — an empty volume
+     would empty the bucket. The converse bites a NEW deletion: a work file
+     removed from the volume outside a worker call is UNDONE by the next
+     hydrate, which downloads what the disk lacks. So a new deletion of work
+     files goes through a worker call, whose prune carries it to S3 (as
+     "Borrar escaneos" does), or through a new `files.Store` method recorded
+     as an amendment to ADR-0089 — under the worker lock either way (the
+     purge rule's fourth bullet), the store's copy before the row a retry
+     would need (ADR-0089 §6).
+  4. **A new batch numbers past the store's batches too**, in both
+     subsystems, and a store that cannot list refuses the upload: on an empty
+     volume a disk-only count hands out `batch-1.pdf` again and the push
+     overwrites the real one.
+  5. **The purge deletes the store's copy FIRST** (ADR-0052 as amended),
+     under the worker lock it only TRIES (`Analyzer.TryExclusive`, 409 when
+     busy — the purge rule's fourth bullet below), and a failure there is
+     `files.ErrSync`, named in Spanish on the page. Any
+     error a worker call, a job, a reset or a download meets from the store
+     is named as the store's failure — never as a missing file and never in
+     the SDK's words. The sentences: `syncFailed` (a job), `readNotStored` /
+     `generatedNotStored` / `sheetNotStored` and the inline one in
+     `survey.AnalyzeResult.Notice` (a done job whose files are not in S3
+     yet), `resetSyncFailed` (a reset), the purge's own 502, `storeFailed` (a
+     download) and `annotateNotUpdated` (a review save).
+  6. **S3 is an INPUT**: a key is a path only after `files.ValidRel` and the
+     project's own prefix; every local write of the sync goes through an
+     `os.Root` on the project; a link is created only as an ADR-0037 name
+     pointing at a bare file name (`docs/security-notes.md` §"The work files
+     live in S3, and S3 is an input").
+- **Nothing here can test S3, either (issue #338).** The suite drives
+  `internal/infra/filestore/s3test`, an in-memory bucket that keeps exactly
+  what the store relies on. What it cannot see: the SDK's signing, whether
+  this bucket's ETag is the MD5 the hydrate compares, what a HEAD of a
+  missing key answers to the server's key, whether the policy refuses
+  `backups/` and plain HTTP. A change inside the scope [`S3-CHECK.md`](S3-CHECK.md)'s
+  first paragraph names — its one list — is unfinished while a human has
+  not run it. Same rule, and the same reason, as the Google, Canvas and
+  paper bullets. What goes to S3 and what does not, file by file, is
+  `README.md` §"Where files live" (the catalog, and the default-include
+  rule).
 - **Nothing here can test Canvas, either (issue #271).** The suite drives
   `httptest` fakes in `internal/infra/canvas`, the way it drives
   `oidctest.Provider` for Google. What no test can see: whether the GraphQL
@@ -472,7 +583,7 @@ the `avisoNo*` / `flash.Set(…)` string literals in `internal/app/web/handler/`
   WORK decides, not who it talks to.** An AMC-worker call is async by
   construction, and so is any loop the professor cannot wait on —
   `publish` is the worked non-worker case (forty Gmail calls plus forty
-  PDFs off the shared volume, against `httpserver.writeTimeout`'s 30 s).
+  PDFs off the file store, against `httpserver.writeTimeout`'s 30 s).
   A bounded third-party call the professor waits on stays synchronous
   under its own deadline (#271). Concretely: do NOT add a synchronous
   handler that calls `amcworker.Client` from the HTTP goroutine — split the sync half
@@ -483,7 +594,13 @@ the `avisoNo*` / `flash.Set(…)` string literals in `internal/app/web/handler/`
   `handler.Surveys.ScansReset` (#311, ADR-0081 §5, through
   `amcworker.Client.ResetSurveyScans` and the survey's own sentinels). Both
   only remove files and never wait on the client's lock; a third exception
-  needs the same two properties, and an ADR.
+  needs the same two properties, and an ADR. **And one long-standing call
+  that WAITS**: the review save's per-copy re-annotate (ADR-0048
+  §Consequences), on the request goroutine. Since #338 it is bounded by
+  `handler.Controls.ReviewAnnotateDeadline` (20 s, its wait for the lock
+  included — the lock gives up when the ctx ends), and past it the save
+  stands with a flash. Under `s3` every one of these runs inside the file
+  store's sync (ADR-0089 §4).
 - **A worker refusal on the async half leaves the row and files
   intact (issue #249, ADR-0050 §6 — amends ADR-0034 §Failure modes).**
   `GenerateAssets` returning `ErrGeneratorRefused` /
@@ -518,9 +635,9 @@ the `avisoNo*` / `flash.Set(…)` string literals in `internal/app/web/handler/`
      refuses with nothing destroyed. The reverse order leaves readings gone
      over a capture the next upload would re-analyse.
   2. **Synchronous, and it never WAITS.** It runs on the request goroutine
-     under `scansResetDeadline`. The client's lock is one mutex for every
-     control and ignores ctx, so `Client.ResetScans` uses `TryLock` and
-     answers `ErrAnalyzerBusy` (409) when another control's job holds it.
+     under `scansResetDeadline`. The client's lock is one for every control,
+     so `Client.ResetScans` only tries it (`trySerialised`) and answers
+     `ErrAnalyzerBusy` (409) when another control's job holds it.
   3. **Refused while THIS control's job is in flight** (409), since the job
      would write readings back over the wiped capture — and a jobs-store
      read error fails CLOSED. Both are status pages: a deliberate departure
@@ -548,7 +665,7 @@ the `avisoNo*` / `flash.Set(…)` string literals in `internal/app/web/handler/`
   match (issue #261, ADR-0052).** Purge is a two-step gate; a hand-typed
   `/controls/{id}/purge` on an active row must not delete grades. THREE
   independent layers enforce it, and adding a new path to the destructive
-  step must respect all three:
+  step must respect all three — and, since #338, the fourth rule below:
   1. `Store.PurgeControl` runs `DELETE FROM control WHERE id = ? AND
      deleted_at IS NOT NULL`. The `AND` is the schema-level belt: even
      if a caller skips the Service gate, an active row is untouched.
@@ -565,6 +682,14 @@ the `avisoNo*` / `flash.Set(…)` string literals in `internal/app/web/handler/`
      row with 404 before the form is rendered or the delete is
      attempted — the destructive form never surfaces for anything not
      archived.
+
+  4. **Since #338 the file steps run under the worker's lock**, which the
+     purge only TRIES (`Analyzer.TryExclusive` → `ErrAnalyzerBusy` → a 409
+     that says nothing was deleted). A destructive step on a store a sync
+     repopulates must hold that sync's lock: deleting S3 first made the
+     order right and not exclusive, and a push or the reconcile running
+     beside it re-uploaded a purged student's files with no row to find
+     them (#338 review, SEC-1/SEC-5). Its pins interleave the two.
 
   Post-DB the on-disk project directory is removed best-effort
   (`os.RemoveAll` warning-not-erroring; §Service.Purge doc). Forwarding

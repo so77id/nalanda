@@ -88,6 +88,27 @@ func (s *Store) Run(ctx context.Context, surveyID, runID int64) (survey.Run, err
 	return r, nil
 }
 
+// AllRuns returns every run of every survey, in id order (issue #338).
+func (s *Store) AllRuns(ctx context.Context) ([]survey.Run, error) {
+	rows, err := s.db.QueryContext(ctx, `SELECT `+runColumns+` FROM survey_run ORDER BY id`)
+	if err != nil {
+		return nil, fmt.Errorf("surveystore.AllRuns: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+	var out []survey.Run
+	for rows.Next() {
+		r, err := scanRun(rows)
+		if err != nil {
+			return nil, fmt.Errorf("surveystore.AllRuns: %w", err)
+		}
+		out = append(out, r)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("surveystore.AllRuns: %w", err)
+	}
+	return out, nil
+}
+
 // RunsForSurvey returns the runs, most recent number first.
 func (s *Store) RunsForSurvey(ctx context.Context, surveyID int64) ([]survey.Run, error) {
 	rows, err := s.db.QueryContext(ctx,

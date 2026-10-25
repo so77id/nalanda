@@ -1,19 +1,20 @@
 package handler
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/http"
-	"os"
-	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/so77id/nalanda/apps/server/internal/app/web/flash"
 	"github.com/so77id/nalanda/apps/server/internal/app/web/middleware"
 	"github.com/so77id/nalanda/apps/server/internal/app/web/view"
 	"github.com/so77id/nalanda/apps/server/internal/domain/controls"
 	"github.com/so77id/nalanda/apps/server/internal/domain/course/bank"
+	"github.com/so77id/nalanda/apps/server/internal/domain/files"
 	"github.com/so77id/nalanda/apps/server/internal/domain/matching"
 )
 
@@ -317,12 +318,33 @@ func (h *Controls) SaveReview(w http.ResponseWriter, r *http.Request) {
 	// (the issue accepts the seconds-class block). A failure here does not
 	// fail the save: the overrides are persisted and the next save retries
 	// the annotate with the same payload.
-	if _, err := h.Service.Annotate(r.Context(), id, copyNumber); err != nil {
+	//
+	// Under its OWN deadline since #338, because the annotate now carries a
+	// sync with S3 (the corrected PDF; AMC's databases wait for the next
+	// other call, PER-1) and waits for the worker's lock behind any other
+	// control's job — and stops waiting at the deadline (COR-2). Past it the
+	// save still redirects; what the push did not finish is on the Jetson,
+	// newer than S3, and the next call on the control — or the reconcile —
+	// uploads it.
+	//
+	// And the professor is told when the PDF did not follow (issue #338
+	// review, COR-2): the grade moved and the corrected PDF did not, and a
+	// copy sent from this page before its next annotate would mail the
+	// student the old one. Saving the copy again redoes it.
+	ctx, cancel := context.WithTimeout(r.Context(), h.ReviewAnnotateDeadline)
+	defer cancel()
+	message := buildSaveReviewFlash(result, blank)
+	if _, err := h.Service.Annotate(ctx, id, copyNumber); err != nil {
 		h.Log.Warn("save review: annotate failed", "control", id, "copy", copyNumber, "error", err)
+		message += "\n" + annotateNotUpdated
 	}
-	flash.Set(w, h.secureCookie, buildSaveReviewFlash(result, blank))
+	flash.Set(w, h.secureCookie, message)
 	http.Redirect(w, r, controlReviewURL(id, copyNumber), http.StatusSeeOther)
 }
+
+// annotateNotUpdated is the review save's line when its annotate did not
+// complete — the deadline, the worker refusing, or S3.
+const annotateNotUpdated = "La corrección quedó guardada, pero el PDF corregido no se alcanzó a actualizar. Vuelve a guardar esta copia antes de enviarla."
 
 // buildSaveReviewFlash turns a save result into the professor-visible
 // flash. Multi-line output is separated by "\n" — the layout template
@@ -420,6 +442,10 @@ func isValidRUT(s string) bool {
 	return true
 }
 
+// defaultReviewAnnotateDeadline is Controls.ReviewAnnotateDeadline's
+// default (the reasoning is on the field).
+const defaultReviewAnnotateDeadline = 20 * time.Second
+
 // statusFor decides the AnswerStatus a saved edit lands at. For a simple
 // question with more than one mark the professor has produced something
 // impossible via the form — but leaving the branch in matches the report's
@@ -434,14 +460,16 @@ func statusFor(marks []int, qtype controls.QuestionType) controls.AnswerStatus {
 	return controls.AnswerStatusOK
 }
 
-// PageImage serves the scanned page image for a copy. Path convention:
-// <workdir>/controls/<id>/scans/copy-<copy>-page-<n>.png. This shape is
+// PageImage serves the scanned page image for a copy, through the file
+// store (issue #338). Path convention:
+// controls/<id>/scans/copy-<copy>-page-<n>.{png,jpg}. This shape is
 // part of the WORKER CONTRACT (ADR-0037) — the same class of promise
 // as /generate's response paths — so a fallback engine has to satisfy
 // the same names. The paper check (ADR-0030 §Not yet proven) is what
 // pins the exact filename against real AMC output. Until then the
-// endpoint answers 404 when the file is not on disk and the review
-// page shows a broken-image icon rather than failing the whole page.
+// endpoint answers 404 when the file store has no such image and the
+// review page shows a broken-image icon rather than failing the whole
+// page.
 func (h *Controls) PageImage(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	copyNumber, okCopy := parseCopyPathValue(r.PathValue("copy"))
@@ -463,37 +491,22 @@ func (h *Controls) PageImage(w http.ResponseWriter, r *http.Request) {
 		middleware.WriteError(w, r, http.StatusNotFound, "Ese control no existe.")
 		return
 	}
-	// The extension follows whatever AMC's `getimages` produced: PNG for a
-	// vector-sourced page, JPG for a raster-sourced scan. Miguel's first
-	// real batch (2026-08-19) landed as JPG and this endpoint used to look
-	// only for PNG, returning 404 for every real scan. PNG wins when both
-	// exist so a future engine that produces both cannot silently flip
-	// which image the reviewer sees. Content-Type mirrors the extension —
-	// browsers accept both and the caller does not have to know.
-	scansDir := filepath.Join(h.Service.ProjectDir(id), "scans")
-	base := fmt.Sprintf("copy-%d-page-%d", copyNumber, pageNumber)
-	for _, ext := range []string{".png", ".jpg"} {
-		path := filepath.Join(scansDir, base+ext)
-		f, err := os.Open(path)
-		if err != nil {
-			continue
-		}
-		info, statErr := f.Stat()
-		if statErr != nil {
-			_ = f.Close()
-			middleware.WriteError(w, r, http.StatusInternalServerError, "")
-			return
-		}
-		defer func() { _ = f.Close() }()
-		if ext == ".png" {
-			w.Header().Set("Content-Type", "image/png")
-		} else {
-			w.Header().Set("Content-Type", "image/jpeg")
-		}
-		http.ServeContent(w, r, "page"+ext, info.ModTime(), f)
+	// Which extension the page has, and why PNG wins, is OpenScanPage's.
+	// Content-Type mirrors it — browsers accept both and the caller does
+	// not have to know.
+	f, ext, err := h.Service.OpenScanPage(r.Context(), id, copyNumber, pageNumber)
+	if err != nil {
+		fileUnavailable(w, r, h.Log, err, "La imagen escaneada no está disponible.",
+			"id", id, "copy", copyNumber, "page", pageNumber)
 		return
 	}
-	middleware.WriteError(w, r, http.StatusNotFound, "La imagen escaneada no está disponible.")
+	defer func() { _ = f.Close() }()
+	if ext == ".png" {
+		w.Header().Set("Content-Type", "image/png")
+	} else {
+		w.Header().Set("Content-Type", "image/jpeg")
+	}
+	http.ServeContent(w, r, "page"+ext, f.ModTime(), f)
 }
 
 // AnnotatedPDF serves the corrected PDF for one copy (issue #190). The
@@ -524,55 +537,31 @@ func (h *Controls) AnnotatedPDF(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// The path is relative to the shared volume. Unlike SujetPath and
-	// CorrigePath — which the server composes from a validated control id
-	// — this one arrives from the worker's response through the database,
-	// so the row lookup is NOT the whole boundary. The check below refuses
-	// a record naming a path outside the work dir rather than serving it.
-	path := filepath.Join(h.Service.WorkDir, filepath.FromSlash(record.Path))
-	// The containment check is lexical: a symlink planted INSIDE the work
-	// dir that points out of it would still resolve outside. That residual
-	// is accepted defense-in-depth — the worker is the only writer of both
-	// the volume and the response path, and it holds no auth either way —
-	// but the check still closes the cheap class (a `..` record) without
-	// trusting the database to only ever hold worker-shaped paths.
-	if !withinDir(h.Service.WorkDir, path) {
-		h.Log.Error("serving annotated PDF: record points outside the work dir",
+	// The path arrives from the worker's response through the database,
+	// so the row lookup is NOT the whole boundary: OpenAnnotated refuses a
+	// record that does not name a file of this control. The check is
+	// lexical — a symlink planted inside the project that points out of it
+	// would still be followed by the local store. That residual is accepted
+	// defense-in-depth: the worker is the only writer of both the volume and
+	// the response path, and it holds no auth either way.
+	f, err := h.Service.OpenAnnotated(r.Context(), record)
+	if errors.Is(err, files.ErrInvalidPath) {
+		h.Log.Error("serving annotated PDF: record names a file outside its control",
 			"id", id, "copy", copyNumber, "path", record.Path)
 		middleware.WriteError(w, r, http.StatusNotFound,
 			"El PDF corregido no está disponible.")
 		return
 	}
-	f, err := os.Open(path)
 	if err != nil {
-		h.Log.Warn("serving annotated PDF", "id", id, "copy", copyNumber, "path", path, "error", err)
-		middleware.WriteError(w, r, http.StatusNotFound,
-			"El PDF corregido no está disponible. Puede que se haya limpiado del volumen compartido.")
+		fileUnavailable(w, r, h.Log, err, "El PDF corregido no está disponible.",
+			"id", id, "copy", copyNumber, "path", record.Path)
 		return
 	}
 	defer func() { _ = f.Close() }()
-	info, err := f.Stat()
-	if err != nil {
-		h.Log.Error("stat annotated PDF", "id", id, "copy", copyNumber, "error", err)
-		middleware.WriteError(w, r, http.StatusInternalServerError,
-			"Algo se rompió en el servidor. Vuelve a intentarlo en unos segundos.")
-		return
-	}
 	w.Header().Set("Content-Type", "application/pdf")
 	w.Header().Set("Content-Disposition",
 		fmt.Sprintf(`inline; filename="copia-%d-anotada.pdf"`, copyNumber))
-	http.ServeContent(w, r, "annotated.pdf", info.ModTime(), f)
-}
-
-// withinDir reports whether path stays inside dir after cleaning. Both are
-// absolute; the comparison is on the resolved relative form, so `..`
-// segments are resolved rather than matched as text.
-func withinDir(dir, path string) bool {
-	rel, err := filepath.Rel(dir, path)
-	if err != nil {
-		return false
-	}
-	return rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator))
+	http.ServeContent(w, r, "annotated.pdf", f.ModTime(), f)
 }
 
 // parseCopyPathValue turns a path segment into a positive int. Empty and

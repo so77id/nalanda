@@ -22,6 +22,7 @@ import (
 	"github.com/so77id/nalanda/apps/server/internal/domain/survey"
 	"github.com/so77id/nalanda/apps/server/internal/domain/uploads"
 	"github.com/so77id/nalanda/apps/server/internal/infra/amcworker/amctest"
+	"github.com/so77id/nalanda/apps/server/internal/infra/filestore"
 	"github.com/so77id/nalanda/apps/server/internal/infra/storage"
 	"github.com/so77id/nalanda/apps/server/internal/infra/storage/authstore"
 	"github.com/so77id/nalanda/apps/server/internal/infra/storage/coursestore"
@@ -87,7 +88,7 @@ func newSurveyFixture(t *testing.T) *surveyFixture {
 	f.worker = &amctest.Fake{WorkDir: t.TempDir()}
 	f.surveys = survey.NewService(survey.Service{
 		Store: surveystore.New(db), Generator: f.worker, Analyzer: f.worker, WorkDir: f.worker.WorkDir,
-		Now: func() time.Time { return f.now },
+		Files: filestore.NewLocal(f.worker.WorkDir), Now: func() time.Time { return f.now },
 	})
 	f.jobs = jobstore.New(db)
 	f.runner = jobs.NewRunner(f.jobs, jobs.Handlers{

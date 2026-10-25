@@ -10,13 +10,20 @@ import (
 
 // AnnotateCopy satisfies controls.Annotator. Records the call and returns
 // AnnotatedPath when set, otherwise the convention the worker follows:
-// <project>/annotated/copy-<N>.pdf. AnnotateErr wins over both.
-func (f *Fake) AnnotateCopy(_ context.Context, req controls.AnnotateRequest) (string, error) {
+// <project>/annotated/copy-<N>.pdf. AnnotateErr wins over both;
+// AnnotateBlocks over everything.
+func (f *Fake) AnnotateCopy(ctx context.Context, req controls.AnnotateRequest) (string, error) {
 	f.mu.Lock()
 	f.AnnotateCalls = append(f.AnnotateCalls, req)
 	err := f.AnnotateErr
 	path := f.AnnotatedPath
+	blocks := f.AnnotateBlocks
 	f.mu.Unlock()
+
+	if blocks {
+		<-ctx.Done()
+		return "", ctx.Err()
+	}
 
 	if err != nil {
 		return "", err

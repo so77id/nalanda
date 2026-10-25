@@ -463,6 +463,41 @@ func TestAnnotatedPDFRefusesARecordPointingOutsideTheWorkDir(t *testing.T) {
 	}
 }
 
+// Issue #338: inside the work dir is not enough. A record names a file of
+// its OWN control — a row of one control pointing at another's corrected
+// PDF would mail or show the wrong student's paper.
+func TestAnnotatedPDFRefusesARecordNamingAnotherControlsFile(t *testing.T) {
+	f := newControlsFixture(t)
+	controlID := f.createControl(t, "Control vecino", 1)
+
+	other := "OTHERCONTROL00000000000000"
+	otherFile := filepath.Join(f.workDir, "controls", other, "annotated", "copy-1.pdf")
+	if err := os.MkdirAll(filepath.Dir(otherFile), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(otherFile, []byte("%PDF-otro-alumno"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := f.cstore.RecordAnnotated(context.Background(), controls.AnnotatedCopy{
+		ControlID: controlID, CopyNumber: 1, Path: "controls/" + other + "/annotated/copy-1.pdf",
+	}); err != nil {
+		t.Fatalf("RecordAnnotated: %v", err)
+	}
+
+	req := f.authedRequest(t, http.MethodGet, "/controls/"+controlID+"/copies/1/annotated.pdf", nil)
+	req.SetPathValue("id", controlID)
+	req.SetPathValue("copy", "1")
+	rec := httptest.NewRecorder()
+	f.handler.AnnotatedPDF(rec, req)
+
+	if rec.Code != http.StatusNotFound {
+		t.Errorf("status = %d, want 404 for a record naming another control's file", rec.Code)
+	}
+	if strings.Contains(rec.Body.String(), "otro-alumno") {
+		t.Errorf("body served the other control's PDF")
+	}
+}
+
 // The flag gates the READ too, not only the write: rows produced while
 // the flow was on must not keep rendering the PDF viewer after the operator
 // flips it off — the escape hatch exists precisely for the scenario where

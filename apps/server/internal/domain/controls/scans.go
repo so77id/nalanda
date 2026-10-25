@@ -10,6 +10,8 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+
+	"github.com/so77id/nalanda/apps/server/internal/domain/files"
 )
 
 // uploadsDir is the subdirectory under a control's project where uploaded
@@ -75,6 +77,19 @@ func (s *Service) SaveUploadedBatch(ctx context.Context, req UploadRequest) (Sav
 	if err != nil {
 		return SaveUploadedBatchResult{}, fmt.Errorf("controls.SaveUploadedBatch: %w", err)
 	}
+	// Past every batch the STORE holds too (issue #338): with S3 the
+	// primary store, a volume that came back empty would otherwise hand out
+	// batch-1.pdf again, and the next analyse's push would overwrite the
+	// real batch-1 in S3. A store that cannot answer refuses the upload
+	// rather than have it numbered blind.
+	stored, err := s.UploadList(ctx, control.ID)
+	if err != nil {
+		return SaveUploadedBatchResult{}, fmt.Errorf("controls.SaveUploadedBatch: %w", err)
+	}
+	if len(stored) > 0 {
+		highest, _ := batchNumber(stored[len(stored)-1])
+		batch = max(batch, highest+1)
+	}
 	batchName := fmt.Sprintf("%s%d%s", scanFilePrefix, batch, scanFileExt)
 	batchHostPath := filepath.Join(uploads, batchName)
 
@@ -98,6 +113,11 @@ type AnalyzeResult struct {
 	// grade the new reading may have moved — ADR-0073 then derives the
 	// copy as stale — so the job's notice names the number.
 	RecapturedPublished int
+	// NotStored: the reading is saved, and the files it produced are on
+	// the volume but not yet in S3 (issue #338 review, COR-1). The next
+	// call on the control, or the reconcile, finishes the copy; the job's
+	// notice says so.
+	NotStored bool
 }
 
 // SaveUploadedBatchResult is what SaveUploadedBatch returns to the HTTP
@@ -148,7 +168,16 @@ func (s *Service) AnalyzeBatch(ctx context.Context, controlID, batchName string,
 		Ticked:  ticked,
 		Unsure:  unsure,
 	})
-	if err != nil {
+	// AMC captured the batch and only the copy to S3 failed (issue #338
+	// review, COR-1): the report is saved like any other. Dropping it would
+	// leave the readings behind a capture that has moved on — the
+	// re-captured copies' `manual` already cleared — for want of a copy the
+	// next call, or the reconcile, makes from the volume anyway.
+	notStored := errors.Is(err, files.ErrNotStored)
+	if notStored {
+		s.Log.Warn("controls.AnalyzeBatch: the read is saved, its files are not yet in S3",
+			"control", control.ID, "batch", batchName, "error", err)
+	} else if err != nil {
 		return AnalyzeResult{}, err
 	}
 	// Issue #298: a batch AMC recognised none of is refused before anything
@@ -170,7 +199,7 @@ func (s *Service) AnalyzeBatch(ctx context.Context, controlID, batchName string,
 	// altogether after the worker cleared `manual` (a restart mid-job): the
 	// server's overrides then outlive the image they were made on, and the
 	// next save of that copy re-applies them. ADR-0075 §Consequences.
-	result := AnalyzeResult{Report: report}
+	result := AnalyzeResult{Report: report, NotStored: notStored}
 	if report.Batch != nil && len(report.Batch.RecapturedCopies) > 0 {
 		published, err := s.Readings.ResetRecapturedCopies(ctx, control.ID, report.Batch.RecapturedCopies)
 		if err != nil {
@@ -261,6 +290,12 @@ func (s *Service) AnnotateAllCleanCopies(ctx context.Context, controlID string) 
 			continue
 		}
 		if _, err := s.Annotate(ctx, controlID, r.CopyNumber); err != nil {
+			// An unreachable file store is every copy's failure, not this
+			// one's: stop, and let the job say so (issue #338). What was
+			// annotated so far is on the Jetson; the retry pushes it.
+			if errors.Is(err, files.ErrSync) {
+				return err
+			}
 			s.Log.Warn("controls: annotate on close failed",
 				"control", controlID, "copy", r.CopyNumber, "error", err)
 		}
@@ -273,7 +308,10 @@ func (s *Service) AnnotateAllCleanCopies(ctx context.Context, controlID string) 
 // the flows that call this were minutes-class anyway. A failure must not
 // fail the caller's operation: the reading is already persisted and the
 // professor can retry the same copy from the review page (ruta B) — or
-// switch the whole loop off by config.
+// switch the whole loop off by config. An unreachable file store is every
+// copy's failure, so the loop stops at the first one, as the close's does
+// (issue #338 review recheck): an analyse whose own push just failed would
+// otherwise try S3 once per clean copy.
 func (s *Service) annotateCleanCopies(ctx context.Context, control Control, report Report) {
 	for key, copy := range report.Copies {
 		if copy.Status != CopyStatusOK {
@@ -290,6 +328,9 @@ func (s *Service) annotateCleanCopies(ctx context.Context, control Control, repo
 		if _, err := s.Annotate(ctx, control.ID, copyNumber); err != nil {
 			s.Log.Warn("controls: annotate failed",
 				"control", control.ID, "copy", copyNumber, "error", err)
+			if errors.Is(err, files.ErrSync) {
+				return
+			}
 		}
 	}
 }
@@ -1036,11 +1077,12 @@ func batchNumber(name string) (int, bool) {
 	return n, true
 }
 
-// nextBatchNumber walks the uploads/ directory and returns one past the
-// highest existing batch-N.pdf (max+1). Empty dir → 1. If the highest
+// nextBatchNumber walks the LOCAL uploads/ directory and returns one past
+// the highest existing batch-N.pdf (max+1). Empty dir → 1. If the highest
 // batch is deleted the next number goes back to fill the gap — the
-// uploads dir is the persisted state and no counter lives outside it.
-// Names that do not match batch-<positive int>.pdf are ignored.
+// uploads are the persisted state and no counter lives outside them.
+// Names that do not match batch-<positive int>.pdf are ignored. It is the
+// local half: SaveUploadedBatch also numbers past what the store holds.
 func nextBatchNumber(dir string) (int, error) {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
@@ -1066,27 +1108,21 @@ func nextBatchNumber(dir string) (int, error) {
 	return nums[len(nums)-1] + 1, nil
 }
 
-// UploadList returns the names of the scan batches already on disk for a
-// control, ordered by batch number. Only files matching the on-disk
+// UploadList returns the names of the scan batches the file store holds
+// for a control, ordered by batch number. Only files matching the on-disk
 // contract count (batch-N.pdf, batchNumber); the handler renders one
 // download link per entry (issue #204). Empty when nothing was uploaded
 // yet or the directory does not exist — the page then shows nothing.
-func (s *Service) UploadList(controlID string) ([]string, error) {
-	dir := filepath.Join(s.ProjectDir(controlID), uploadsDir)
-	entries, err := os.ReadDir(dir)
+func (s *Service) UploadList(ctx context.Context, controlID string) ([]string, error) {
+	dir := projectRel(controlID, uploadsDir)
+	entries, err := s.Files.List(ctx, dir)
 	if err != nil {
-		if os.IsNotExist(err) {
-			return nil, nil
-		}
-		return nil, fmt.Errorf("controls.UploadList: read %s: %w", dir, err)
+		return nil, fmt.Errorf("controls.UploadList: list %s: %w", dir, err)
 	}
 	names := make([]string, 0, len(entries))
 	for _, e := range entries {
-		if e.IsDir() {
-			continue
-		}
-		if _, ok := batchNumber(e.Name()); ok {
-			names = append(names, e.Name())
+		if _, ok := batchNumber(e.Name); ok {
+			names = append(names, e.Name)
 		}
 	}
 	sort.Slice(names, func(i, j int) bool {
@@ -1097,26 +1133,16 @@ func (s *Service) UploadList(controlID string) ([]string, error) {
 	return names, nil
 }
 
-// UploadPath composes the host-side path of one uploaded batch. The name
+// OpenUpload opens one uploaded batch through the file store. The name
 // must already match the batch contract — the handler validates at the URL
-// boundary (issue #204); this is a path join, not a validation.
-func (s *Service) UploadPath(controlID, name string) string {
-	return filepath.Join(s.ProjectDir(controlID), uploadsDir, name)
+// boundary (issue #204), and the store refuses any path that is not clean.
+func (s *Service) OpenUpload(ctx context.Context, controlID, name string) (files.File, error) {
+	return s.Files.Open(ctx, projectRel(controlID, uploadsDir, name))
 }
 
+// writeUpload writes an uploaded batch whole, never in place
+// (files.WriteNew), and closes its source.
 func writeUpload(path string, r io.ReadCloser) error {
 	defer func() { _ = r.Close() }()
-	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o644)
-	if err != nil {
-		return fmt.Errorf("open %s: %w", path, err)
-	}
-	if _, err := io.Copy(f, r); err != nil {
-		_ = f.Close()
-		_ = os.Remove(path)
-		return fmt.Errorf("copy to %s: %w", path, err)
-	}
-	if err := f.Close(); err != nil {
-		return fmt.Errorf("close %s: %w", path, err)
-	}
-	return nil
+	return files.WriteNew(path, r)
 }

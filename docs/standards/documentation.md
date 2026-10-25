@@ -346,7 +346,14 @@ each invent their own spelling from whichever neighbour they open first.
 Amendments are listed in date order. An amendment that renames an identifier
 earlier amendments still cite maps the old spelling to the new one in its own
 line and leaves the accepted text untouched (worked case: ADR-0050's #310 line,
-`LatestForControlByKind` → `LatestByKind`).
+`LatestForControlByKind` → `LatestByKind`). **A review fix that changes a
+decision re-walks the ADR set**: grep `docs/decisions/` for each concept the
+fix touched (the lock, a job outcome, the purge, the reset) and add or extend
+an `Amended by:` line on every ADR whose stated property moved — the list
+written at slice time is not the post-review one (#338: its review changed
+the purge's lock, the worker lock's shape and the reset under S3, and the
+amendments on ADR-0050 and 0075 — and ADR-0052's lock clause, on a line
+written at slice S9 — came only from the documentation round).
 
 **`Extends:` / `Extended by:`** is for an ADR that builds on an accepted one
 without replacing it — a new recipe on an existing widget, a new kind on an
@@ -366,9 +373,7 @@ spelling.
 
 ## The CHECK-document contract
 
-Four of these exist now — `apps/amc-worker/PAPER-CHECK.md` (#138), `apps/server/GOOGLE-CHECK.md` (#150), `apps/server/CANVAS-CHECK.md` (#271) and `apps/server/GMAIL-CHECK.md` (#273) — so the shape is a pattern rather than a handful of one-offs. #273's adds something the others do not have: a §6 whose job is to MEASURE a question its ADR could not settle from documentation, and to write the answer back into the ADR.md` (#138),
-`apps/server/GOOGLE-CHECK.md` (#150) and `apps/server/CANVAS-CHECK.md`
-(#271) — so the shape is a pattern rather than three one-offs. A CHECK
+Five of these exist now — `apps/amc-worker/PAPER-CHECK.md` (#138), `apps/server/GOOGLE-CHECK.md` (#150), `apps/server/CANVAS-CHECK.md` (#271), `apps/server/GMAIL-CHECK.md` (#273) and `apps/server/S3-CHECK.md` (#338) — so the shape is a pattern rather than a handful of one-offs. #273's added something the earlier ones did not have: a §6 whose job is to MEASURE a question its ADR could not settle from documentation, and to write the answer back into the ADR; #338's §1 does the same for what S3 answers a HEAD of a missing key. A CHECK
 document is what stands in for a test that cannot exist: it verifies
 something no code in this repository can reach.
 
@@ -396,4 +401,15 @@ Every one of them carries five things:
 
 And it is registered in three places or an agent will not find it:
 `integration-guides.md`, `testing-strategy.md` §L8, and the app's own
-§"Before you open a PR" checklist.
+§"Before you open a PR" checklist. **Its scope sentence is the one home of
+its triggers**: each registration — those three, and a CLAUDE.md rule that
+names the procedure — points at the scope sentence rather than paraphrasing
+it. S3-CHECK's scope was restated in five places and they disagreed on
+whether a route that opens a work file triggers it (#338 review).
+
+**A procedure that promises a command's output** ("the last `find` must list
+only …", "`ls` shows only …") **is rehearsed before it is written**, against
+a scratch copy of the measured state — a Docker volume, a `mktemp` tree —
+and the rehearsal's output stands beside the expectation. Two of
+DEPLOY-JETSON's #338 expectations were reasoned rather than rehearsed and
+were both wrong; each reproduced in under a minute (#338 review, DAC-1/DAC-2).

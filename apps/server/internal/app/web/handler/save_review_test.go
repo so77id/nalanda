@@ -805,3 +805,62 @@ func TestClearingAnOverrideRefilesTheCopyUnderTheAMCRead(t *testing.T) {
 			"the effective RUT moved and the association did not follow", got, anaID)
 	}
 }
+
+// Issue #338, AC-7: the review save's annotate now carries a push to S3, so
+// it runs under its own deadline. Past it the save is still saved, the
+// failure is logged, and the professor is redirected — not left behind a
+// request that httpserver's WriteTimeout would cut — and told the corrected
+// PDF did not follow (issue #338 review, COR-2).
+func TestSaveReviewPastItsAnnotateDeadlineStillSavesAndRedirects(t *testing.T) {
+	f, controlID := saveReviewFixture(t)
+	f.handler.ReviewAnnotateDeadline = 50 * time.Millisecond
+	f.fake.AnnotateBlocks = true
+
+	values := url.Values{}
+	values.Set("rut", "20111111")
+	values.Set("qq3", "2")
+	values.Set("qq4", "1")
+	values.Set("save", "1")
+	done := make(chan *httptest.ResponseRecorder, 1)
+	go func() { done <- postSaveReview(t, f, controlID, 1, values) }()
+
+	var rec *httptest.ResponseRecorder
+	select {
+	case rec = <-done:
+	case <-time.After(10 * time.Second):
+		t.Fatal("the save is still waiting on its annotate; it has no deadline of its own")
+	}
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("status = %d, want the redirect", rec.Code)
+	}
+	reading, err := f.service.ReadingFor(context.Background(), controlID, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var overridden bool
+	for _, a := range reading.Answers {
+		if a.QuestionRef == "q3" && a.Override != nil {
+			overridden = true
+		}
+	}
+	if !overridden {
+		t.Error("the save was not kept when its annotate ran out of time")
+	}
+	if flash := readFlash(t, rec); !strings.Contains(flash, "el PDF corregido no se alcanzó a actualizar") {
+		t.Errorf("flash = %q, want it to say the corrected PDF did not follow", flash)
+	}
+}
+
+// An annotate that did complete says nothing about the PDF.
+func TestSaveReviewWhoseAnnotateCompletedSaysNothingAboutThePDF(t *testing.T) {
+	f, controlID := saveReviewFixture(t)
+	values := url.Values{}
+	values.Set("rut", "20111111")
+	values.Set("qq3", "2")
+	values.Set("qq4", "1")
+	values.Set("save", "1")
+	rec := postSaveReview(t, f, controlID, 1, values)
+	if flash := readFlash(t, rec); strings.Contains(flash, "PDF") {
+		t.Errorf("flash = %q after an annotate that completed", flash)
+	}
+}

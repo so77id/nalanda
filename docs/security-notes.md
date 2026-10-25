@@ -828,6 +828,23 @@ gap above now applies only to the one-request form a page without its script
 falls back to. The partials themselves sit on the volume this worker mounts
 as root — see §"Chunked uploads read the shared volume defensively".
 
+**Trigger status after #338 (S3 the primary store, 2026-10-25) — fired, and
+accepted for now** (#338 review, SEC-4). Under `NALANDA_FILES_STORE=s3` the
+hydrate restores into the project whatever bytes the bucket holds for it —
+batches, `source.tex` (recompiled by the analyse's `prepare --mode b`), AMC's
+SQLite databases — so "a batch arriving from another system" is now the
+bucket itself. Only the server's own key can write `work/`, and the bucket
+is private and TLS-only, so reaching the root worker's parsers this way
+needs that key; what it adds over the key's own read and delete is a path
+from a cloud credential to code running on the Jetson, through a ghostscript,
+poppler, OpenCV or pdflatex bug. Accepted on the same reasoning as the key's
+other residual (§"The work files live in S3, and S3 is an input"); the cheap
+half's compose part — `cap_drop: [ALL]`, `no-new-privileges`, tracked in
+#173 — is the first thing to take when it is next revisited, and the leak of
+the server's key is now a reason to; `openin_any = p` only together with the
+listing-shape change this note records below, since on its own it refuses
+the legitimate listings and produces no PDF.
+
 **Named in advance, because WP-E will pull that trigger** (#147 review): a
 control source now includes code with `\lstinputlisting{<absolute path>}` —
 that is the documented shape, because a path relative to the `.tex` does not
@@ -939,6 +956,83 @@ continues it".
 server process (the per-upload lock is in
 memory), anything that writes into `incoming/` other than this package, or a
 route that serves a partial's bytes back.
+
+### The work files live in S3, and S3 is an input (accepted 2026-10-25, #338, ADR-0089)
+
+Under `NALANDA_FILES_STORE=s3` the PRIMARY copy of every project's files sits
+in the backups' bucket, under `work/`: the printed sheets and keys, the
+professor's scanned batches, the page images and the **handwritten-name
+crops**, the **corrected PDFs students are mailed**, and AMC's project
+databases. That is personal data (Ley 21.719) outside the box, so:
+
+- **Where and how**: the bucket's region — the one Miguel provisioned it in
+  (`NALANDA_FILES_S3_REGION`; the documented invocation uses `us-east-1`, and
+  the script has no default); encrypted at rest (SSE-S3, `BucketKeyEnabled`) and in transit
+  (TLS — the server's policy denies any request without
+  `aws:SecureTransport`, and the client has no endpoint override); public
+  access blocked at all four levels.
+- **Who can read it**: the server's own IAM user, `nalanda-jetson-server`
+  (Get/Put/Delete and List on `work/*` only, nothing of `backups/`), and the
+  account root. The backup sidecar's user cannot reach `work/`. No
+  presigned URL is ever made: every byte a professor sees passes through the
+  server, behind the professor session.
+- **Retention**: as long as the control exists, by Miguel's decision — no
+  lifecycle rule reaches `work/` (the provisioning script refuses one), and
+  versioning is off.
+- **Deletion path**: the purge deletes the project from S3 FIRST, then the
+  rows, then the local copy (ADR-0052 as amended); a refused S3 step leaves
+  the archived control whole. The three steps run under the worker lock and
+  a busy worker refuses the purge (#338 review, SEC-1): a push or the
+  reconcile running beside it re-uploaded what it had deleted, leaving a
+  purged student's files in S3 with no row that could ever find them. One
+  double fault stays open: when the purge's best-effort RemoveAll fails —
+  root-owned files the worker's chown did not fix — the leftover directory
+  reads as a project, and a worker call that was queued for that control
+  behind the purge uploads it again (measured in the #338 recheck). It
+  needs the three at once; a purge whose log carries "file cleanup
+  failed" is the one to clean by hand (`aws s3 rm --recursive
+  s3://$B/work/controls/<id>/` after removing the directory). The
+  database backups keep a purged control's rows thirty days, as before.
+  **Under `NALANDA_FILES_STORE=local` it deletes nothing from S3** (#338
+  review, SEC-2): once `-sync-files` has filled the bucket — the migration's
+  window, or after a rollback — a purge, or a "Borrar escaneos", in local
+  mode leaves those objects in `work/`, and a later flip back to `s3` brings
+  them back. DEPLOY-JETSON.md §"Going back to the local store" has the operator
+  remove the same keys by hand; until a purge under `local` also deletes
+  the S3 prefix when the bucket is configured (a follow-up), that step is
+  the deletion path in that mode.
+
+**S3 is also an INPUT.** Its keys become paths the worker — which runs as
+root — reads, and its link map becomes symlinks the review page serves. So
+the sync treats the bucket as hostile: a key whose remainder is not a clean
+path of its own project fails the hydrate rather than being skipped; every
+download goes to a temp file beside its target, is MD5-checked against the
+ETag (an unverifiable multipart ETag is refused) and renamed into place;
+every local write goes through an `os.Root` on the project, so a directory
+replaced by a symlink cannot carry a write out — the fix §"Chunked uploads
+read the shared volume defensively" names for `incoming/` and defers, which
+#338 does not retrofit; a link is created only as an ADR-0037 name pointing
+at a bare file name of the same `scans/`; the link map is strict JSON of at
+most 1 MiB. Keys hold ids and file names, never a RUT or a name, and a log
+line carries a key and the SDK's error, never a file's content or a
+credential (`config.Config` reports only whether the key is set).
+
+**The accepted residual**: a leaked server key can DELETE the primary copy —
+versioning is off by decision — and can PLANT inputs the root worker parses
+(§"The control worker runs as root and parses scans there", trigger status
+after #338). Accepted because the Jetson keeps its full copy (no eviction in
+#338), so each side can rebuild the other; evicting the local copy needs its
+own decision, and this is why. The key also sits in the server's
+environment, as the backup's does in its own container
+(§"The Jetson sidecars run as root and carry AWS credentials in their env").
+Re-running the provisioning script never mints a second key for a user that
+has one (#338 review, SEC-3): rotating is a deliberate create, deploy,
+delete.
+
+**Review trigger**: evicting the local copy; enabling SSE-KMS on the bucket
+(the ETag stops being the MD5 the sync compares); a lifecycle rule or a
+second writer on `work/`; any route that hands out an S3 URL instead of the
+bytes.
 
 ### `apps/server` joins the worker's compose network (accepted 2026-08-16, #149)
 
@@ -1065,6 +1159,10 @@ half first: `USER nonroot`, `read_only: true`, `tmpfs: [/tmp]`,
 `security_opt: [no-new-privileges:true]`, `cap_drop: [ALL]` on both compose
 services, and rebuild once. Moving the AWS secret to a `secrets:` mount is
 the second half and follows the same trigger.
+
+Since #338 the `server` container — which keeps the hardened posture these
+sidecars lack — carries an AWS key of its own too, its user's, with
+`DeleteObject` on `work/*`: §"The work files live in S3, and S3 is an input".
 
 ### The professor login is public, unrate-limited and remembered in memory (accepted 2026-08-16, #150; re-deferred 2026-08-17, #162)
 
@@ -1345,6 +1443,14 @@ no store method deletes a course, a student or an enrolment. `withdrawn` is
 a state, not a deletion, and ADR-0069 §Decision 4 explains why the enrolment
 must survive — a student who dropped still sat the controls they sat. **A
 student who asks to be removed cannot be, today.**
+
+**Trigger status after #338 (2026-10-25) — not pulled; owed harder.** Under
+`NALANDA_FILES_STORE=s3` a student's per-copy files — the `scans/` pages,
+`cr/name-*.jpg`, `annotated/copy-N.pdf` — and the batch PDFs holding every
+sheet also sit in the bucket, under `work/controls/<id>/` (§"The work files
+live in S3, and S3 is an input"). A removal by hand deletes those keys too
+(`aws s3 rm`): removing them on the volume alone is undone by the next
+worker call's hydrate, which downloads what the disk lacks.
 
 Accepted because the fields are the working data of every query WP-2 and
 WP-3 run, and encrypting a join key would end the feature. The masking rule

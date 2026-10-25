@@ -14,6 +14,7 @@ import (
 	"log/slog"
 	"net/url"
 	"os"
+	"regexp"
 	"slices"
 	"strconv"
 	"strings"
@@ -123,6 +124,49 @@ const (
 	// stub. Optional, and its DEFAULT IS stub — see defaultEmailMode.
 	KeyEmailMode = "NALANDA_EMAIL_MODE"
 )
+
+// The file store block (#338). Where every file a page or a download hands
+// out is read from and kept: the shared volume itself, or S3 with the
+// volume as AMC's working copy.
+const (
+	// KeyFilesStore selects the store: local | s3. Optional, and its default
+	// is local — what the server did before the variable existed, so a
+	// deploy that has not chosen keeps working. An unknown value fails the
+	// boot rather than falling back.
+	KeyFilesStore = "NALANDA_FILES_STORE"
+	// KeyFilesS3Bucket is the bucket the files live in, under work/ — the
+	// backups' bucket, whose backups/ prefix this server never touches.
+	KeyFilesS3Bucket = "NALANDA_FILES_S3_BUCKET"
+	// KeyFilesS3Region is the bucket's region: the AWS_REGION it was
+	// provisioned with (the provisioning script has no default).
+	KeyFilesS3Region = "NALANDA_FILES_S3_REGION"
+	// KeyFilesS3AccessKeyID and KeyFilesS3SecretAccessKey are the server's
+	// own IAM user (nalanda-jetson-server, work/* only), never the backup
+	// sidecar's. Read here, like every other variable, rather than left to
+	// the SDK's AWS_* lookup: nothing below this package reads the
+	// environment, and a key the SDK found by itself (a shared file, the
+	// instance metadata) would be one nobody configured.
+	KeyFilesS3AccessKeyID     = "NALANDA_FILES_S3_ACCESS_KEY_ID"
+	KeyFilesS3SecretAccessKey = "NALANDA_FILES_S3_SECRET_ACCESS_KEY"
+)
+
+// FilesStore is the selected file store.
+type FilesStore string
+
+// The two stores.
+const (
+	// FilesStoreLocal reads the shared volume, as before #338.
+	FilesStoreLocal FilesStore = "local"
+	// FilesStoreS3 reads the bucket and keeps every change there.
+	FilesStoreS3 FilesStore = "s3"
+)
+
+var filesStores = []string{string(FilesStoreLocal), string(FilesStoreS3)}
+
+// bucketName is S3's own rule for a bucket name, close enough to refuse a
+// typo at boot: 3 to 63 lower-case letters, digits, dots and hyphens,
+// starting and ending with a letter or a digit.
+var bucketName = regexp.MustCompile(`^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$`)
 
 // EmailMode is the selected transport. A named type rather than a bare
 // string so a caller cannot pass a mode this package never validated.
@@ -295,6 +339,27 @@ type Config struct {
 	// one of the four; an unset variable resolves to EmailModeStub and an
 	// unknown one fails the boot.
 	EmailMode EmailMode
+
+	// FilesStore is where the work files are read from and kept (issue
+	// #338). Always local or s3.
+	FilesStore FilesStore
+	// FilesS3Bucket and FilesS3Region name the bucket. Required under s3,
+	// and kept when set under local, because the migration's -sync-files
+	// uploads before the store is flipped.
+	FilesS3Bucket string
+	FilesS3Region string
+	// FilesS3AccessKeyID and FilesS3SecretAccessKey are the server's IAM
+	// user. Never logged: LogValue and String report only whether both are
+	// set — this key can delete the primary copy of every scan.
+	FilesS3AccessKeyID     string
+	FilesS3SecretAccessKey string
+}
+
+// FilesS3Configured reports whether every S3 variable is set: what the S3
+// store needs, and what -sync-files needs under either store.
+func (c Config) FilesS3Configured() bool {
+	return c.FilesS3Bucket != "" && c.FilesS3Region != "" &&
+		c.FilesS3AccessKeyID != "" && c.FilesS3SecretAccessKey != ""
 }
 
 // SecretsConfigured reports whether a usable master key was configured, and
@@ -318,6 +383,8 @@ func Keys() []string {
 		KeyBankRefreshInterval,
 		KeySecretsMasterKey, KeyCanvasGraphQLURL,
 		KeyEmailMode,
+		KeyFilesStore, KeyFilesS3Bucket, KeyFilesS3Region,
+		KeyFilesS3AccessKeyID, KeyFilesS3SecretAccessKey,
 	}
 }
 
@@ -338,7 +405,20 @@ func Load(lookup LookupFunc) (Config, error) {
 		QuestionsJSONURL: l.required(KeyQuestionsJSONURL),
 		AmcWorkerURL:     l.required(KeyAmcWorkerURL),
 		WorkDir:          l.required(KeyWorkDir),
+
+		FilesStore: FilesStore(strings.TrimSpace(l.optional(KeyFilesStore, string(FilesStoreLocal)))),
 	}
+	// Under s3 the bucket's four variables are required, and they are read
+	// BEFORE the missing check below so a fresh environment learns every
+	// absent variable in one run, these included.
+	s3Value := l.optional
+	if cfg.FilesStore == FilesStoreS3 {
+		s3Value = func(key, _ string) string { return l.required(key) }
+	}
+	cfg.FilesS3Bucket = strings.TrimSpace(s3Value(KeyFilesS3Bucket, ""))
+	cfg.FilesS3Region = strings.TrimSpace(s3Value(KeyFilesS3Region, ""))
+	cfg.FilesS3AccessKeyID = strings.TrimSpace(s3Value(KeyFilesS3AccessKeyID, ""))
+	cfg.FilesS3SecretAccessKey = strings.TrimSpace(s3Value(KeyFilesS3SecretAccessKey, ""))
 
 	// Report every missing variable at once: an operator starting from an
 	// empty environment should need one run to learn what to set, not one run
@@ -482,6 +562,17 @@ func Load(lookup LookupFunc) (Config, error) {
 					"Use https, or a loopback host for a local stub",
 				KeyCanvasGraphQLURL, cfg.CanvasGraphQLURL)
 		}
+	}
+
+	if !slices.Contains(filesStores, string(cfg.FilesStore)) {
+		// Loud, like the mail mode: a typo resolving to local would be a
+		// server that quietly stopped keeping anything in S3.
+		return Config{}, fmt.Errorf("%s=%q is not a file store; expected one of %s",
+			KeyFilesStore, cfg.FilesStore, strings.Join(filesStores, ", "))
+	}
+	if cfg.FilesS3Bucket != "" && !bucketName.MatchString(cfg.FilesS3Bucket) {
+		return Config{}, fmt.Errorf("%s=%q is not a bucket name S3 accepts; "+
+			"expected 3 to 63 lower-case letters, digits, dots and hyphens", KeyFilesS3Bucket, cfg.FilesS3Bucket)
 	}
 
 	cfg.EmailMode = EmailMode(strings.TrimSpace(l.optional(KeyEmailMode, string(defaultEmailMode))))
@@ -628,6 +719,10 @@ func (c Config) LogValue() slog.Value {
 		slog.String("bank_refresh_interval", c.BankRefreshInterval.String()),
 		slog.Bool("secrets_master_key_set", c.SecretsConfigured()),
 		slog.String("canvas_graphql_url", c.CanvasGraphQLURL),
+		slog.String("files_store", string(c.FilesStore)),
+		slog.String("files_s3_bucket", c.FilesS3Bucket),
+		slog.String("files_s3_region", c.FilesS3Region),
+		slog.Bool("files_s3_credentials_set", c.FilesS3AccessKeyID != "" && c.FilesS3SecretAccessKey != ""),
 	)
 }
 
@@ -636,11 +731,13 @@ func (c Config) LogValue() slog.Value {
 // either.
 func (c Config) String() string {
 	return fmt.Sprintf(
-		"config{addr:%s database:%s log_level:%s public_url:%s google_client_id:%s session_ttl:%s bootstrap_email_set:%t trust_proxy_headers:%t questions_json_url:%s amc_worker_url:%s work_dir:%s annotate_enabled:%t bank_refresh_interval:%s secrets_master_key_set:%t canvas_graphql_url:%s}",
+		"config{addr:%s database:%s log_level:%s public_url:%s google_client_id:%s session_ttl:%s bootstrap_email_set:%t trust_proxy_headers:%t questions_json_url:%s amc_worker_url:%s work_dir:%s annotate_enabled:%t bank_refresh_interval:%s secrets_master_key_set:%t canvas_graphql_url:%s files_store:%s files_s3_bucket:%s files_s3_region:%s files_s3_credentials_set:%t}",
 		c.Addr, c.SafeDatabaseURL(), c.LogLevel, c.PublicURL, c.GoogleClientID,
 		c.SessionTTL, c.BootstrapProfessorEmail != "", c.TrustProxyHeaders,
 		c.QuestionsJSONURL, c.AmcWorkerURL, c.WorkDir, c.AnnotateEnabled,
 		c.BankRefreshInterval, c.SecretsConfigured(), c.CanvasGraphQLURL,
+		c.FilesStore, c.FilesS3Bucket, c.FilesS3Region,
+		c.FilesS3AccessKeyID != "" && c.FilesS3SecretAccessKey != "",
 	)
 }
 

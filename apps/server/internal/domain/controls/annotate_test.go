@@ -12,7 +12,9 @@ import (
 
 	"github.com/so77id/nalanda/apps/server/internal/domain/controls"
 	"github.com/so77id/nalanda/apps/server/internal/domain/course/bank"
+	"github.com/so77id/nalanda/apps/server/internal/domain/files"
 	"github.com/so77id/nalanda/apps/server/internal/infra/amcworker/amctest"
+	"github.com/so77id/nalanda/apps/server/internal/infra/filestore"
 )
 
 // annotateFixture wires a Service for the annotate loop's tests: a fake
@@ -35,6 +37,7 @@ func newAnnotateFixture(t *testing.T, annotateEnabled bool) *annotateFixture {
 	store := newFakeStore()
 	readings := newFakeReadingStore()
 	fake := &amctest.Fake{}
+	controlsWork := t.TempDir()
 	svc := controls.NewService(controls.Service{
 		Matcher:         noMatcher{},
 		Dispatcher:      noDispatcher{},
@@ -47,7 +50,8 @@ func newAnnotateFixture(t *testing.T, annotateEnabled bool) *annotateFixture {
 		Readings:        readings,
 		Annotator:       fake,
 		AnnotateEnabled: annotateEnabled,
-		WorkDir:         t.TempDir(),
+		WorkDir:         controlsWork,
+		Files:           filestore.NewLocal(controlsWork),
 		Now:             func() time.Time { return time.Unix(1_755_446_400, 0).UTC() },
 		Seed:            1242,
 		Log:             slog.New(slog.NewTextHandler(io.Discard, nil)),
@@ -245,5 +249,27 @@ func TestReanalyzeClearsAnnotatedRows(t *testing.T) {
 	}
 	if _, exists, _ := f.store.AnnotatedByCopy(context.Background(), f.control.ID, 1); exists {
 		t.Error("annotated_copy row survived the reanalyze — the PDF would disagree with the new reading")
+	}
+}
+
+// An analyse's annotate loop stops at the first copy the file store fails,
+// like the close's (issue #338 review recheck): an analyse whose push just
+// failed would otherwise try S3 once per clean copy.
+func TestAnAnalysesAnnotateLoopStopsAtTheFirstSyncFailure(t *testing.T) {
+	f := newAnnotateFixture(t, true)
+	copies := map[string]controls.ReportCopy{}
+	for _, n := range []int{1, 2, 3} {
+		f.seedReading(t, n, nil)
+		copies[fmt.Sprint(n)] = controls.ReportCopy{Status: controls.CopyStatusOK}
+	}
+	f.fake.AnalyzeReports = []controls.Report{{Batch: &controls.Batch{Captured: 3}, Copies: copies}}
+	f.fake.AnnotateErr = fmt.Errorf("%w: put work/controls/X/annotated/copy-1.pdf: dial tcp: i/o timeout", files.ErrSync)
+
+	if _, err := f.svc.AnalyzeBatch(context.Background(), f.control.ID, "batch-1.pdf",
+		controls.DefaultTicked, controls.DefaultUnsure); err != nil {
+		t.Fatalf("AnalyzeBatch = %v, want the read to stand", err)
+	}
+	if got := f.fake.AnnotateCallCount(); got != 1 {
+		t.Errorf("the loop annotated %d copies past an unreachable S3, want it to stop at the first", got)
 	}
 }

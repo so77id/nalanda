@@ -16,6 +16,7 @@ import (
 	"github.com/so77id/nalanda/apps/server/internal/domain/controls"
 	"github.com/so77id/nalanda/apps/server/internal/domain/course/bank"
 	"github.com/so77id/nalanda/apps/server/internal/infra/amcworker/amctest"
+	"github.com/so77id/nalanda/apps/server/internal/infra/filestore"
 )
 
 // bankJSON is the fixture from S1, trimmed to what these cases exercise.
@@ -50,6 +51,9 @@ type fakeStore struct {
 	pools     map[string][]controls.PoolEntry
 	annotated map[string]controls.AnnotatedCopy // key: <controlID>#<copyNumber>
 	fail      error
+	// purgeFail, when set, is what PurgeControl answers — the database
+	// failing at the purge's point of no return (issue #338's order test).
+	purgeFail error
 }
 
 func newFakeStore() *fakeStore {
@@ -200,6 +204,9 @@ func (s *fakeStore) MarkPublished(_ context.Context, id string, at time.Time, mo
 }
 
 func (s *fakeStore) PurgeControl(_ context.Context, id string) error {
+	if s.purgeFail != nil {
+		return s.purgeFail
+	}
 	for i := range s.controls {
 		if s.controls[i].ID == id && s.controls[i].DeletedAt != nil {
 			s.controls = append(s.controls[:i], s.controls[i+1:]...)
@@ -340,6 +347,7 @@ func newService(t *testing.T) (*controls.Service, *fakeStore, *amctest.Fake, str
 		// that exercise the off switch build their own Service.
 		AnnotateEnabled: true,
 		WorkDir:         workDir,
+		Files:           filestore.NewLocal(workDir),
 		Now:             func() time.Time { return time.Unix(1_755_446_400, 0).UTC() },
 		Seed:            1242,
 		Log:             slog.New(slog.NewTextHandler(io.Discard, nil)),
@@ -595,6 +603,7 @@ func TestCreatePassesTheCorrectAbsoluteListingPathForCodeQuestions(t *testing.T)
 		Roster:     noRoster{},
 		Senders:    noSenders{},
 		WorkDir:    workDir,
+		Files:      filestore.NewLocal(workDir),
 		Now:        func() time.Time { return time.Now() }, Seed: 1,
 		Log: slog.New(slog.NewTextHandler(io.Discard, nil)),
 	})

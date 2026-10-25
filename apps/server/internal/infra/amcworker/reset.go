@@ -22,11 +22,11 @@ import (
 // before any handler runs, and that arrives here as ErrAnalyzerRefused:
 // the caller destroys nothing on its side either.
 //
-// TryLock, not Lock: the lock is one mutex for EVERY project and does not
-// watch ctx, and the caller is a request goroutine the professor is
-// waiting on. Behind another control's minutes-long analyse, Lock would
-// hold the request far past its deadline and the server's write timeout
-// (measured in the #298 review, COR-1). A busy worker refuses at once.
+// It only TRIES the lock: the lock is one for EVERY project, and the caller
+// is a request goroutine the professor is waiting on. Behind another
+// control's minutes-long analyse, waiting would hold the request until its
+// deadline and answer nothing useful (measured in the #298 review, COR-1). A
+// busy worker refuses at once.
 func (c *Client) ResetScans(ctx context.Context, project string) error {
 	return c.resetScans(ctx, project, resetErrors{
 		workerErrors: controlsWorkerErrors,
@@ -35,7 +35,7 @@ func (c *Client) ResetScans(ctx context.Context, project string) error {
 }
 
 // ResetSurveyScans is ResetScans for a survey run's project (issue #311):
-// the same route, the same TryLock, the survey's sentinels — so the survey
+// the same route, the same tried lock, the survey's sentinels — so the survey
 // never names a controls error (ADR-0078). The SECOND synchronous worker
 // call; it qualifies on the same two properties as the first (it only
 // removes files, it never waits on the lock) — ADR-0081.
@@ -58,11 +58,12 @@ func (c *Client) resetScans(ctx context.Context, project string, errs resetError
 		return fmt.Errorf("%w: project path is required", errs.refused)
 	}
 
-	if !c.generateLock.TryLock() {
-		return errs.busy
-	}
-	defer c.generateLock.Unlock()
+	return c.trySerialised(ctx, project, errs.busy, func() error { return c.postReset(ctx, project, errs) })
+}
 
+// postReset is the /scans/reset request itself, under the lock and inside
+// the sync: what the worker removes is what the push then prunes from S3.
+func (c *Client) postReset(ctx context.Context, project string, errs resetErrors) error {
 	body, err := json.Marshal(struct {
 		Project string `json:"project"`
 	}{project})

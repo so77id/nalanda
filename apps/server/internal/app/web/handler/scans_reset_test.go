@@ -2,6 +2,7 @@ package handler_test
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -12,6 +13,7 @@ import (
 	"time"
 
 	"github.com/so77id/nalanda/apps/server/internal/domain/controls"
+	"github.com/so77id/nalanda/apps/server/internal/domain/files"
 	"github.com/so77id/nalanda/apps/server/internal/domain/jobs"
 )
 
@@ -233,5 +235,30 @@ func TestABusyWorkerRefusesTheScanReset(t *testing.T) {
 	}
 	if !strings.Contains(rec.Body.String(), "no se borró nada") {
 		t.Error("the page does not say nothing was deleted")
+	}
+}
+
+// Issue #338: the reset's S3 half failing — before the worker or after it
+// — leaves every reading in place, and the page says so; a retry brings
+// the scans back from S3 and finishes. Never the "files gone, readings
+// left" page, which is the DATABASE failing past the worker.
+func TestAnS3FailureOfTheResetKeepsTheReadingsAndSaysSo(t *testing.T) {
+	f := newControlsFixture(t)
+	controlID := f.createControl(t, "Control 338 sin S3", 1)
+	f.fake.AnalyzeReports = []controls.Report{
+		{Copies: map[string]controls.ReportCopy{"1": okCopy("20100001")}},
+	}
+	uploadOnce(t, f, controlID)
+	f.fake.ResetErr = fmt.Errorf("%w: prune: dial tcp: i/o timeout", files.ErrSync)
+
+	rec := resetPost(t, f, controlID, "Control 338 sin S3")
+	if rec.Code != http.StatusBadGateway {
+		t.Fatalf("POST = %d, want 502", rec.Code)
+	}
+	if body := rec.Body.String(); !strings.Contains(body, "S3") || !strings.Contains(body, "las lecturas no se borraron") {
+		t.Error("the page does not say the S3 sync failed and the readings are intact")
+	}
+	if readings, _ := f.service.ReadingsFor(context.Background(), controlID); len(readings) != 1 {
+		t.Errorf("readings after an S3 failure = %d, want 1", len(readings))
 	}
 }

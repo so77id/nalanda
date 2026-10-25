@@ -32,6 +32,7 @@ import (
 	"github.com/so77id/nalanda/apps/server/internal/domain/uploads"
 	"github.com/so77id/nalanda/apps/server/internal/infra/amcworker/amctest"
 	"github.com/so77id/nalanda/apps/server/internal/infra/email"
+	"github.com/so77id/nalanda/apps/server/internal/infra/filestore"
 	"github.com/so77id/nalanda/apps/server/internal/infra/storage"
 	"github.com/so77id/nalanda/apps/server/internal/infra/storage/authstore"
 	"github.com/so77id/nalanda/apps/server/internal/infra/storage/controlstore"
@@ -265,6 +266,7 @@ func newControlsFixtureWith(t *testing.T, annotateEnabled bool) *controlsFixture
 		Senders:    authstore.New(db),
 		Annotator:  fake, AnnotateEnabled: annotateEnabled,
 		WorkDir: workDir,
+		Files:   filestore.NewLocal(workDir),
 		Now:     time.Now, Seed: 1, Log: log,
 	})
 	hook := &recordingHook{service: svc}

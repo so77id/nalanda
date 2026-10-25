@@ -6,11 +6,14 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"path"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/so77id/nalanda/apps/server/internal/domain/controls/tex"
 	"github.com/so77id/nalanda/apps/server/internal/domain/course/bank"
+	"github.com/so77id/nalanda/apps/server/internal/domain/files"
 )
 
 // WorkerWorkDir is where apps/amc-worker mounts its shared volume (ADR-0030
@@ -108,7 +111,13 @@ type Service struct {
 	// development it may be any path the operator chose (see
 	// NALANDA_WORK_DIR).
 	WorkDir string
-	Now     func() time.Time
+	// Files is where every file a page or a download hands out is read
+	// from (issue #338): the shared volume itself, or S3 with the volume as
+	// AMC's working copy. Required — which store it is was decided at
+	// boot, and a nil one would make every download a nil dereference.
+	// Writes still go to WorkDir: AMC works on local files.
+	Files files.Store
+	Now   func() time.Time
 	// Seed is what tex.Compile writes into \AMCrandomseed. Constant so a
 	// re-compile is reproducible; a per-control seed is a future decision.
 	Seed int64
@@ -159,6 +168,8 @@ func NewService(deps Service) *Service {
 		panic("controls.NewService: no sender reader")
 	case deps.WorkDir == "":
 		panic("controls.NewService: no work directory")
+	case deps.Files == nil:
+		panic("controls.NewService: no file store")
 	case deps.Now == nil:
 		panic("controls.NewService: no clock")
 	case deps.Seed == 0:
@@ -330,18 +341,22 @@ func (s *Service) GenerateAssets(ctx context.Context, controlID string) error {
 		Source:  filepath.Join(project, "inputs", "source.tex"),
 		Copies:  control.Copies,
 	})
-	if err != nil {
+	// A sheet the store did not take is still generated (issue #338
+	// review, COR-1): it is checked like any other, and the not-stored
+	// error is returned for the job to word as a notice — a failure there
+	// would hide the downloads, and nothing could retry a generation.
+	if err != nil && !errors.Is(err, files.ErrNotStored) {
 		return err
 	}
 	sujetPath := filepath.Join(s.WorkDir, assets.Sujet)
-	info, err := os.Stat(sujetPath)
-	if err != nil {
-		return fmt.Errorf("%w: stat %s: %v", ErrSujetMissing, sujetPath, err)
+	info, statErr := os.Stat(sujetPath)
+	if statErr != nil {
+		return fmt.Errorf("%w: stat %s: %v", ErrSujetMissing, sujetPath, statErr)
 	}
 	if info.Size() == 0 {
 		return fmt.Errorf("%w: %s is 0 bytes", ErrSujetMissing, sujetPath)
 	}
-	return nil
+	return err
 }
 
 // List returns every control, delegating to the Store's own ordering
@@ -356,6 +371,27 @@ func (s *Service) List(ctx context.Context) ([]Control, error) {
 // Get returns one control by id, or ErrControlNotFound.
 func (s *Service) Get(ctx context.Context, id string) (Control, error) {
 	return s.Store.ControlByID(ctx, id)
+}
+
+// ProjectPaths names every control's project, archived or not, the way
+// files.Store takes it — the reconcile's list (issue #338): an archived
+// control's files are what a restore brings back. A function over the
+// store rather than a Service method, so the migration's -sync-files can
+// run it with nothing but the database.
+func ProjectPaths(ctx context.Context, store Store) ([]string, error) {
+	active, err := store.ListControls(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("controls.ProjectPaths: %w", err)
+	}
+	archived, err := store.ListArchivedControls(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("controls.ProjectPaths: %w", err)
+	}
+	paths := make([]string, 0, len(active)+len(archived))
+	for _, c := range append(active, archived...) {
+		paths = append(paths, projectRel(c.ID))
+	}
+	return paths, nil
 }
 
 // ArchivedList returns every archived control, deleted_at DESC (issue #261).
@@ -383,25 +419,47 @@ func (s *Service) Restore(ctx context.Context, id string) error {
 	return s.Store.RestoreControl(ctx, id)
 }
 
-// Purge is the hard-delete path: DB row + on-disk project directory
-// (issue #261). Two-step, defense-in-depth, best-effort on the
-// filesystem:
+// Purge is the hard-delete path: the project's files in the store, the DB
+// row, and the on-disk project directory (issue #261, #338).
+// Defense-in-depth, best-effort on the local filesystem:
 //
 //  1. ControlByID confirms the row exists AND is archived. An active row
 //     surfaces as ErrCannotPurgeActive — kept distinct from
 //     ErrControlNotFound so the handler can render "you have to archive
 //     it first" rather than a bare 404 on a hand-typed URL.
-//  2. PurgeControl deletes the row; the FK cascades from ADR-0034
+//  2. Files.DeleteProject deletes the project from the file store FIRST
+//     (issue #338, amending ADR-0052's order): under S3 it is the step
+//     that fails for network reasons, and failing there leaves the
+//     archived control whole (files.ErrSync) for the professor to retry.
+//     The reverse order would leave a purged student's scans in S3 with no
+//     row to retry from. A database failure after it leaves an archived row
+//     with no files in S3, which the retry then purges. The local store
+//     deletes nothing here.
+//  3. PurgeControl deletes the row; the FK cascades from ADR-0034
 //     §Consequences remove control_pregunta, copia, reading, answer and
 //     annotated_copy, and the control's jobs (no FK since 00023,
 //     ADR-0079 §5) are deleted explicitly in the same transaction. This
 //     is the point of no return.
-//  3. RemoveAll drops the project directory. A filesystem failure here is
+//  4. RemoveAll drops the project directory. A filesystem failure here is
 //     LOGGED and NOT returned: the row and its dependents are already
 //     gone, and forwarding a cleanup problem would leave the caller
 //     believing the purge failed while every referenced grade is
 //     unrecoverable. Same "best-effort cleanup after the load-bearing
 //     commit" pattern as PrepareControl's `rollback` closure.
+//
+// Steps 2–4 run under the worker's lock (Analyzer.TryExclusive), and a
+// purge that finds the worker busy refuses with ErrAnalyzerBusy before
+// deleting anything (issue #338 review, SEC-1): a worker call's push — or
+// the reconcile — beside them would upload again what step 2 had just
+// deleted from S3, and step 3 leaves no row to find it by. The lock is
+// TRIED, never waited for, for the resets' reason: the professor is
+// waiting. A call already queued for this control when the purge took the
+// lock finds no project anywhere afterwards, and the file store's sync
+// refuses it before it creates anything — when step 4 succeeded. A RemoveAll
+// that failed (root-owned files a failed chown of the worker left behind)
+// leaves a directory the sync takes for a project, and that queued call
+// uploads it again: a double fault, recorded in docs/security-notes.md
+// §"The work files live in S3".
 //
 // A parallel in-flight async job for this id is possible (§Async runner
 // interaction); the runner's MarkRunning / MarkDone / MarkFailed will
@@ -415,15 +473,24 @@ func (s *Service) Purge(ctx context.Context, id string) error {
 	if control.DeletedAt == nil {
 		return fmt.Errorf("controls.Purge %s: %w", id, ErrCannotPurgeActive)
 	}
-	if err := s.Store.PurgeControl(ctx, id); err != nil {
+	err = s.Analyzer.TryExclusive(func() error {
+		if err := s.Files.DeleteProject(ctx, projectRel(id)); err != nil {
+			return fmt.Errorf("controls.Purge %s: %w: %w", id, files.ErrSync, err)
+		}
+		if err := s.Store.PurgeControl(ctx, id); err != nil {
+			return fmt.Errorf("controls.Purge %s: %w", id, err)
+		}
+		projectDir := s.ProjectDir(id)
+		if err := os.RemoveAll(projectDir); err != nil {
+			s.Log.Warn("controls.Purge: file cleanup failed",
+				"control_id", id, "project", projectDir, "error", err)
+		}
+		return nil
+	})
+	if errors.Is(err, ErrAnalyzerBusy) {
 		return fmt.Errorf("controls.Purge %s: %w", id, err)
 	}
-	projectDir := s.ProjectDir(id)
-	if err := os.RemoveAll(projectDir); err != nil {
-		s.Log.Warn("controls.Purge: file cleanup failed",
-			"control_id", id, "project", projectDir, "error", err)
-	}
-	return nil
+	return err
 }
 
 // AssignCourse sets the course a control belongs to and rebuilds its
@@ -458,33 +525,77 @@ func (s *Service) AssignCourse(ctx context.Context, controlID string, courseID i
 }
 
 // ProjectDir is the directory (on the SERVER's side) where a control's
-// files live. Handlers use it to serve the PDF downloads (S8).
+// working copy lives: where the server writes a project's inputs and
+// batches, and what the purge removes after the rows. Nothing reads a
+// download from it since #338 — those open through the file store.
 //
 // The layout it encodes — controls/<id>/{inputs,out} — is a MODEL of
 // what the AMC worker writes at generation time (ADR-0030 §Operational
 // leaves the directory shape to the caller; we chose it and pass its
 // contents through to the worker). Nothing in this repo cross-checks the
 // two, so a change to where the worker writes its output must be paired
-// with a change here; a fixture-shape assertion between the amctest
-// stubs and these paths pins the current agreement (ARQ-8).
+// with a change in projectRel, which this derives from; a fixture-shape
+// assertion between the amctest stubs and these paths pins the current
+// agreement (ARQ-8).
 func (s *Service) ProjectDir(controlID string) string {
-	return filepath.Join(s.WorkDir, projectPrefix, controlID)
+	return filepath.Join(s.WorkDir, filepath.FromSlash(projectRel(controlID)))
 }
 
-// SujetPath returns the sujet.pdf's full path on the server side.
-func (s *Service) SujetPath(controlID string) string {
-	return filepath.Join(s.ProjectDir(controlID), "out", "sujet.pdf")
+// OpenSujet opens the control's printable sheet through the file store.
+func (s *Service) OpenSujet(ctx context.Context, controlID string) (files.File, error) {
+	return s.Files.Open(ctx, projectRel(controlID, "out", "sujet.pdf"))
 }
 
-// CorrigePath returns the corrige.pdf's full path on the server side.
-func (s *Service) CorrigePath(controlID string) string {
-	return filepath.Join(s.ProjectDir(controlID), "out", "corrige.pdf")
+// OpenCorrige opens the control's answer key through the file store.
+func (s *Service) OpenCorrige(ctx context.Context, controlID string) (files.File, error) {
+	return s.Files.Open(ctx, projectRel(controlID, "out", "corrige.pdf"))
 }
 
-// PoolJSONPath returns the pool snapshot's full path on the server side
-// (issue #198).
-func (s *Service) PoolJSONPath(controlID string) string {
-	return filepath.Join(s.ProjectDir(controlID), "pool.json")
+// OpenPoolJSON opens the pool snapshot written at Create time (issue #198)
+// through the file store.
+func (s *Service) OpenPoolJSON(ctx context.Context, controlID string) (files.File, error) {
+	return s.Files.Open(ctx, projectRel(controlID, "pool.json"))
+}
+
+// OpenScanPage opens the scanned image of one page of a copy through the
+// file store, by its ADR-0037 contract name (scans/copy-N-page-M), and
+// says which extension it found. The extension follows whatever AMC's
+// `getimages` produced: PNG for a vector-sourced page, JPG for a
+// raster-sourced scan — Miguel's first real batch (2026-08-19) was JPG,
+// and a PNG-only lookup answered 404 for every real scan. PNG wins when
+// both exist, so a future engine that produces both cannot silently flip
+// which image the reviewer sees.
+//
+// Only an ABSENT PNG falls through to the JPG: a store that failed is not a
+// page without a PNG, and the caller must hear it failed (files.OpenFirst,
+// which also lets S3 read the link map once for both names).
+func (s *Service) OpenScanPage(ctx context.Context, controlID string, copyNumber, page int) (files.File, string, error) {
+	base := projectRel(controlID, "scans", fmt.Sprintf("copy-%d-page-%d", copyNumber, page))
+	f, rel, err := files.OpenFirst(ctx, s.Files, base+".png", base+".jpg")
+	if err != nil {
+		return nil, "", err
+	}
+	return f, path.Ext(rel), nil
+}
+
+// OpenAnnotated opens a copy's corrected PDF through the file store.
+// Unlike the files the server names itself, record.Path arrives from the
+// worker's response through the database, so it is checked here: it must
+// name a file of the record's OWN control (files.ErrInvalidPath otherwise)
+// — inside the work root is not enough when a wrong row would show or mail
+// another student's paper. The store's ValidRel refuses the rest (`..`, an
+// absolute path).
+func (s *Service) OpenAnnotated(ctx context.Context, record AnnotatedCopy) (files.File, error) {
+	if !strings.HasPrefix(record.Path, projectRel(record.ControlID)+"/") {
+		return nil, fmt.Errorf("%w: %q is not a file of control %s", files.ErrInvalidPath, record.Path, record.ControlID)
+	}
+	return s.Files.Open(ctx, record.Path)
+}
+
+// projectRel names a file of the control's project the way files.Store
+// takes it: relative to the work root, slash-separated.
+func projectRel(controlID string, parts ...string) string {
+	return path.Join(append([]string{projectPrefix, controlID}, parts...)...)
 }
 
 // workerPath joins components under WorkerWorkDir using forward slashes.

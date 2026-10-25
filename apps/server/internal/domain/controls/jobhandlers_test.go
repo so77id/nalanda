@@ -4,12 +4,16 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
+	"slices"
 	"strings"
 	"testing"
 
 	"github.com/so77id/nalanda/apps/server/internal/domain/controls"
+	"github.com/so77id/nalanda/apps/server/internal/domain/files"
 	"github.com/so77id/nalanda/apps/server/internal/domain/gmail"
 	"github.com/so77id/nalanda/apps/server/internal/domain/jobs"
+	"github.com/so77id/nalanda/apps/server/internal/infra/amcworker/amctest"
 )
 
 // The translation layer between the publication and the banner.
@@ -487,5 +491,113 @@ func TestThePublishBannerNamesTheCopiesAlreadySent(t *testing.T) {
 	}
 	if !strings.Contains(failure.Message, "1 falló") {
 		t.Errorf("the banner lost the failure it exists to report: %q", failure.Message)
+	}
+}
+
+// Issue #338, AC-7: a failure to keep the files in S3 fails the job with
+// one Spanish sentence naming it — never the SDK's words on the banner —
+// and it says the files are safe on the Jetson, which is what the
+// professor needs to know before pressing again.
+const syncFailed = "no se pudo sincronizar con S3"
+
+func TestASyncFailureFailsEachWorkerJobInSpanish(t *testing.T) {
+	syncErr := fmt.Errorf("%w: put work/controls/X/annotated/copy-1.pdf: dial tcp: i/o timeout", files.ErrSync)
+	for name, run := range map[string]func(*controls.Service, *amctest.Fake, string) error{
+		"generate": func(svc *controls.Service, gen *amctest.Fake, id string) error {
+			gen.Err = syncErr
+			return controls.NewGenerateHandler(svc)(context.Background(), id, controls.EmptyPayload)
+		},
+		"analyse": func(svc *controls.Service, gen *amctest.Fake, id string) error {
+			gen.AnalyzeErr = syncErr
+			raw, _ := json.Marshal(controls.AnalysePayload{BatchName: "batch-1.pdf", Ticked: controls.DefaultTicked, Unsure: controls.DefaultUnsure})
+			return controls.NewAnalyseHandler(svc)(context.Background(), id, raw)
+		},
+		"reanalyse": func(svc *controls.Service, gen *amctest.Fake, id string) error {
+			gen.ReanalyzeErr = syncErr
+			raw, _ := json.Marshal(controls.ReanalysePayload{Ticked: controls.DefaultTicked, Unsure: controls.DefaultUnsure})
+			return controls.NewReanalyseHandler(svc)(context.Background(), id, raw)
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			svc, _, gen, _ := newService(t)
+			control, err := createControlSync(context.Background(), svc, req(nil))
+			if err != nil {
+				t.Fatal(err)
+			}
+			failure := failureFrom(t, run(svc, gen, control.ID))
+			if !strings.Contains(failure.Message, syncFailed) || !strings.Contains(failure.Message, "Jetson") {
+				t.Errorf("banner = %q, want it to say the S3 sync failed and the files are on the Jetson", failure.Message)
+			}
+			if strings.Contains(failure.Message, "dial tcp") {
+				t.Errorf("the banner carries the SDK's words: %q", failure.Message)
+			}
+		})
+	}
+}
+
+// Issue #338 review, COR-1: a sheet generated whose copy to S3 failed is a
+// done job with a notice. A failure would hide the downloads behind a
+// banner whose "press again" has nothing to press.
+func TestAGenerationTheStoreDidNotTakeIsDoneWithANotice(t *testing.T) {
+	svc, _, gen, _ := newService(t)
+	control, err := svc.PrepareControl(context.Background(), req(nil))
+	if err != nil {
+		t.Fatal(err)
+	}
+	gen.NotStored = true
+	notice := noticeFrom(t, controls.NewGenerateHandler(svc)(context.Background(), control.ID, controls.EmptyPayload))
+	if !strings.Contains(notice.Message, "Las hojas se generaron") || !strings.Contains(notice.Message, "S3") {
+		t.Errorf("notice = %q", notice.Message)
+	}
+}
+
+// listedReadings is fakeReadingStore whose ReadingsByControl lists what a
+// case seeded, by copy number.
+type listedReadings struct{ *fakeReadingStore }
+
+func (l listedReadings) ReadingsByControl(_ context.Context, controlID string) ([]controls.Reading, error) {
+	var out []controls.Reading
+	for _, r := range l.readingsByCopy {
+		if r.ControlID == controlID {
+			out = append(out, r)
+		}
+	}
+	slices.SortFunc(out, func(a, b controls.Reading) int { return a.CopyNumber - b.CopyNumber })
+	return out, nil
+}
+
+// Issue #338 review, COR-6: closing a correction while S3 is out of reach
+// stops at the first copy — every copy would fail alike — and the banner
+// says so in Spanish, not in the SDK's words.
+func TestACloseThatCannotReachS3StopsAtTheFirstCopyAndSaysSo(t *testing.T) {
+	f := newAnnotateFixture(t, true)
+	f.svc.Readings = listedReadings{f.readings}
+	for _, n := range []int{1, 2, 3} {
+		f.seedReading(t, n, func(r *controls.Reading) { r.CopyStatus = controls.CopyStatusOK })
+	}
+	f.fake.AnnotateErr = fmt.Errorf("%w: put work/controls/X/annotated/copy-1.pdf: dial tcp: i/o timeout", files.ErrSync)
+
+	failure := failureFrom(t, controls.NewAnnotateHandler(f.svc)(context.Background(), f.control.ID, controls.EmptyPayload))
+	if !strings.Contains(failure.Message, syncFailed) || strings.Contains(failure.Message, "dial tcp") {
+		t.Errorf("banner = %q, want the Spanish sync failure", failure.Message)
+	}
+	if got := f.fake.AnnotateCallCount(); got != 1 {
+		t.Errorf("the close annotated %d copies past an unreachable S3, want it to stop at the first", got)
+	}
+}
+
+// ...and the sheet is still checked: a generation that produced an empty
+// sujet.pdf fails as one, whether or not its copy to S3 also failed.
+func TestASheetTheStoreDidNotTakeIsStillChecked(t *testing.T) {
+	svc, _, gen, _ := newService(t)
+	control, err := svc.PrepareControl(context.Background(), req(nil))
+	if err != nil {
+		t.Fatal(err)
+	}
+	gen.NotStored = true
+	gen.SujetSize = 0
+	err = svc.GenerateAssets(context.Background(), control.ID)
+	if !errors.Is(err, controls.ErrSujetMissing) {
+		t.Errorf("GenerateAssets = %v, want ErrSujetMissing for an empty sheet", err)
 	}
 }

@@ -13,6 +13,7 @@ import (
 	"github.com/so77id/nalanda/apps/server/internal/domain/controls"
 	"github.com/so77id/nalanda/apps/server/internal/domain/course/bank"
 	"github.com/so77id/nalanda/apps/server/internal/infra/amcworker/amctest"
+	"github.com/so77id/nalanda/apps/server/internal/infra/filestore"
 )
 
 // matchingReadingStore is a ReadingStore that actually holds readings, so
@@ -217,6 +218,7 @@ func newMatchingService(t *testing.T, matcher controls.Matcher) (*controls.Servi
 		Roster:     noRoster{},
 		Senders:    noSenders{},
 		WorkDir:    workDir,
+		Files:      filestore.NewLocal(workDir),
 		Now:        func() time.Time { return time.Unix(1_755_446_400, 0).UTC() },
 		Seed:       1,
 		Log:        slog.New(slog.NewTextHandler(io.Discard, nil)),

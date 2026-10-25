@@ -271,7 +271,7 @@ func TestResetScansCallsTheWorkerThenTheDatabase(t *testing.T) {
 	if len(calls) == 0 || calls[len(calls)-1] != "reset-results "+control.ID {
 		t.Errorf("reading store calls = %v, want the reset last", calls)
 	}
-	uploads, _ := svc.UploadList(control.ID)
+	uploads, _ := svc.UploadList(context.Background(), control.ID)
 	if len(uploads) != 0 {
 		t.Errorf("uploads after reset = %v, want none — the next upload is batch-1.pdf", uploads)
 	}
@@ -313,5 +313,26 @@ func TestResetScansRefusesAnArchivedControlBeforeTheWorker(t *testing.T) {
 	}
 	if len(gen.ResetCalls) != 0 {
 		t.Errorf("the worker was asked to reset %v an archived control", gen.ResetCalls)
+	}
+}
+
+// Issue #338 review, COR-1: AMC read the batch and only the copy to S3
+// failed. The reading is saved — the capture has moved on either way — and
+// the done job says the files are on the Jetson, not "press again".
+func TestAReadTheStoreDidNotTakeIsSavedAndSaysSo(t *testing.T) {
+	svc, _, gen, _ := newService(t)
+	control, err := createControlSync(context.Background(), svc, req(nil))
+	if err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+	gen.AnalyzeReports = []controls.Report{{Batch: &controls.Batch{Captured: 6}}}
+	gen.NotStored = true
+
+	notice := noticeFrom(t, runAnalyseJob(t, svc, control.ID))
+	if !strings.Contains(notice.Message, "no se pudieron copiar a S3") || !strings.Contains(notice.Message, "Jetson") {
+		t.Errorf("notice %q does not say the files are on the Jetson and not in S3", notice.Message)
+	}
+	if n := svc.Readings.(*fakeReadingStore).upserts; n != 1 {
+		t.Errorf("the reading was upserted %d time(s), want once — it is AMC's capture", n)
 	}
 }

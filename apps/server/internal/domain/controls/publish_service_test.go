@@ -16,6 +16,7 @@ import (
 	"github.com/so77id/nalanda/apps/server/internal/domain/course/bank"
 	"github.com/so77id/nalanda/apps/server/internal/domain/gmail"
 	"github.com/so77id/nalanda/apps/server/internal/infra/amcworker/amctest"
+	"github.com/so77id/nalanda/apps/server/internal/infra/filestore"
 )
 
 // The publication loop. What is worth pinning is not "does it send" — it is
@@ -217,6 +218,7 @@ type publishRig struct {
 	store      *fakeStore
 	readings   *publishReadings
 	controlID  string
+	workDir    string
 }
 
 const publishControlID = "CTRLPUBLISH0000000000000A"
@@ -289,13 +291,14 @@ func newPublishRig(t *testing.T) *publishRig {
 		}},
 		AnnotateEnabled: true,
 		WorkDir:         workDir,
+		Files:           filestore.NewLocal(workDir),
 		Now:             func() time.Time { return time.Unix(1_757_260_800, 0).UTC() },
 		Seed:            1242,
 		Log:             slog.New(slog.NewTextHandler(io.Discard, nil)),
 	})
 
 	return &publishRig{svc: svc, dispatcher: dispatcher, store: store,
-		readings: readings, controlID: publishControlID}
+		readings: readings, controlID: publishControlID, workDir: workDir}
 }
 
 func TestPublishSendsOneMessagePerDeliverableCopy(t *testing.T) {
@@ -896,6 +899,58 @@ func TestACopyWithNoAnnotatedPDFIsSkippedRatherThanSentEmpty(t *testing.T) {
 	for _, msg := range rig.dispatcher.sent {
 		if len(msg.Attachment.Content) == 0 {
 			t.Error("a message promising a correction went out with nothing attached")
+		}
+	}
+}
+
+// An empty file is no attachment either: the read succeeds and the copy is
+// still skipped, rather than mailed a zero-byte PDF.
+func TestACopyWhoseAnnotatedPDFIsEmptyIsSkipped(t *testing.T) {
+	rig := newPublishRig(t)
+	empty := filepath.Join(rig.workDir, "controls", publishControlID, "anotado-2.pdf")
+	if err := os.WriteFile(empty, nil, 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	result, err := rig.svc.Publish(context.Background(), rig.controlID,
+		controls.PublishRequest{ProfessorID: 7, Mode: controls.PublishModeReal})
+	if err != nil {
+		t.Fatalf("Publish: %v", err)
+	}
+	if result.Sent != 2 || result.Skipped != 1 {
+		t.Errorf("result = %+v, want the copy with an empty PDF skipped", result)
+	}
+}
+
+// Issue #338: the record's path comes from the worker through the database,
+// so the attachment is read only when it names a file of THIS control. A
+// row pointing at another control's corrected PDF would mail a student
+// somebody else's paper; the copy is skipped instead.
+func TestACopyWhoseRecordNamesAnotherControlsPDFIsSkipped(t *testing.T) {
+	rig := newPublishRig(t)
+	other := filepath.Join(rig.workDir, "controls", "OTHERCONTROL00000000000000", "anotado-2.pdf")
+	if err := os.MkdirAll(filepath.Dir(other), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(other, []byte("%PDF otro alumno"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	_ = rig.store.RecordAnnotated(context.Background(), controls.AnnotatedCopy{
+		ControlID: publishControlID, CopyNumber: 2,
+		Path: "controls/OTHERCONTROL00000000000000/anotado-2.pdf",
+	})
+
+	result, err := rig.svc.Publish(context.Background(), rig.controlID,
+		controls.PublishRequest{ProfessorID: 7, Mode: controls.PublishModeReal})
+	if err != nil {
+		t.Fatalf("Publish: %v", err)
+	}
+	if result.Sent != 2 || result.Skipped != 1 {
+		t.Errorf("result = %+v, want the copy naming another control's PDF skipped", result)
+	}
+	for _, msg := range rig.dispatcher.sent {
+		if string(msg.Attachment.Content) == "%PDF otro alumno" {
+			t.Error("a student was mailed another control's corrected PDF")
 		}
 	}
 }

@@ -16,11 +16,12 @@ still to come — see [What is not here yet](#what-is-not-here-yet).
 | Language | Go — the authoritative version is [`go.mod`](go.mod), and this table deliberately does not repeat it. The places kept in step with it on purpose are listed where a bump starts, in the comment on the Dockerfile's pinned builder; `backend-code-style.md` §Version quotes the current patch and says why |
 | Database | SQLite via `modernc.org/sqlite` — pure Go, no CGO (ADR-0007) |
 | Migrations | `github.com/pressly/goose/v3`, embedded, applied at boot |
+| Work files | the shared volume, or S3 via `github.com/aws/aws-sdk-go-v2` (`aws`, `service/s3`) — §"Where files live" (#338, ADR-0089) |
 | Routing | `net/http.ServeMux` — no router dependency |
 | Logging | `log/slog`, structured, to stderr |
 | Tests | `testing` + `net/http/httptest` — no framework |
 
-Those two are the **entire** direct dependency set, and adding to it is a PR
+Those three are the **entire** direct dependency set, and adding to it is a PR
 discussion (root `CLAUDE.md`). Rules for writing code here:
 [`docs/standards/backend-code-style.md`](../../docs/standards/backend-code-style.md).
 
@@ -50,6 +51,11 @@ Environment variables, read once at boot. A required variable that is absent
 | `NALANDA_SECRETS_MASTER_KEY` | no | The AES-256 key sealing `user_secrets` — the professor's Canvas API token (#271) and their Gmail refresh token (#273) (issue #271, ADR-0068). Base64 of exactly 32 bytes (`openssl rand -base64 32`). **Absent or empty is legal**: the server boots and the Canvas integration reports itself unconfigured, so a deploy that has not been given a key yet stays up instead of refusing to start (the Jetson restarts within five minutes of a merge, ADR-0038 — a required variable here would take production down in that window). **Present but not 32 bytes after decoding is a startup error** naming the variable; a typo must not read as "not configured". Never printed: `config.Config` reports only whether it is set. WP-1 of epic #270 |
 | `NALANDA_CANVAS_GRAPHQL_URL` | no | The Canvas GraphQL endpoint the roster import talks to (issue #271). Empty uses the client's own default, `https://udp.instructure.com/api/graphql` — the literal lives on `canvas.Client` so it is written once. When it **is** set it must be an absolute http/https URL, and **plain `http` is refused unless the host is loopback**: the Canvas token travels in an `Authorization` header on every profile load and every import, so `http://` to a real host would put a full-permission credential in clear from nothing worse than a typo (#271 review, SEC-2). A malformed value is a startup error rather than a failure on the first professor who pastes a token |
 | `NALANDA_EMAIL_MODE` | no | Which mail transport a publication uses (issue #273): `stub` (no network, fabricated ids — what CI runs), `dryrun` (resolves the professor's credential and builds the message for real, logs what it would have sent, delivers nothing), `staging` (sends, but every message goes to the professor's own address whatever the form asked for) or `real` (honours the per-publication choice). **Unset means `stub`**, and that direction is deliberate — it is the only optional variable here whose default is not what production wants. Under a non-delivering mode a publication is REFUSED: the button is disabled and a hand-typed POST answers 422 naming this variable, with nothing stamped. So an operator who deploys without choosing finds out the first time they press "Publicar"; one who got `real` would find out when a class receives mail that cannot be recalled. An unknown value is a startup error naming the legal set, never a silent fall back — a typo must not resolve quietly to a mode nobody chose |
+| `NALANDA_FILES_STORE` | no | Where the work files live (issue #338): `local` (the shared volume, as before #338 — **the default**) or `s3` (the bucket is the primary store: every page and download reads from S3 through the server, and every worker operation's result is kept there; the volume is AMC's working copy and is never pruned). An unknown value is a startup error naming the legal set, never a fall back. Rolling back is setting `local` again: the volume was never emptied |
+| `NALANDA_FILES_S3_BUCKET` | under `s3` | The bucket the files live in, under `work/` — the database backups' bucket, whose `backups/` prefix this server never touches. A name S3 would refuse (upper case, `_`, fewer than 3 characters) is a startup error. Read under `local` too when set, because the migration's `-sync-files` uploads before the flip |
+| `NALANDA_FILES_S3_REGION` | under `s3` | The bucket's region — the `AWS_REGION` it was provisioned with (`provision-jetson-iam.sh` has no default and refuses to run without one; the documented invocation uses `us-east-1`) |
+| `NALANDA_FILES_S3_ACCESS_KEY_ID` | under `s3` | The access key of the server's OWN IAM user, `nalanda-jetson-server` (Get/Put/Delete on `work/*` only), never the backup sidecar's. Read here rather than through the SDK's `AWS_*` lookup, so no key the server finds by itself (a shared file, instance metadata) can stand in for the configured one |
+| `NALANDA_FILES_S3_SECRET_ACCESS_KEY` | under `s3` | Its secret. Never printed: `config.Config` reports only whether both halves are set. With it the server can delete the primary copy of every scan, which is why the Jetson keeps its full copy (issue #338 §8.7) |
 
 ## Commands
 
@@ -114,6 +120,24 @@ healthcheck is the binary itself: `/server -health` probes `/health` and exits
 non-zero unless it answers 200. The image is `scratch` — no shell, no curl, no
 wget — so the only executable a healthcheck can invoke is the server.
 
+### `-sync-files` — upload the work files to the bucket once
+
+```bash
+docker compose run --rm server -sync-files ; echo "exit $?"
+```
+
+The reconcile (issue #338, ADR-0089 §7) run once in a process of its own,
+then exit: for every project the database knows, every local file the bucket
+lacks or holds older goes up, and the link map with it. It **uploads only —
+never downloads, never deletes** — and reads the bucket whatever
+`NALANDA_FILES_STORE` says, so it needs the four `NALANDA_FILES_S3_*`
+variables even under `local` (that is the migration: it runs before the
+flip). It prints one line, `sync-files: N projects, M files uploaded (B
+bytes), F failed, took T`, and exits 0 only when no project failed; a second
+run uploads 0 files. It cannot hold the running server's worker lock, so it
+runs with no job in flight. The procedure around it is
+`infra/local/DEPLOY-JETSON.md` §"The work files in S3".
+
 ## Layout
 
 ```
@@ -160,6 +184,12 @@ internal/domain/   business types and the interfaces they need — PURE
                    sidecar, the per-upload locks, the eviction and the
                    sweep. Neutral — imports neither controls nor survey
                    (TestTheUploadsDomainImportsNeitherSubsystem)
+  files/           the port every work file is read through (issue #338,
+                   ADR-0089): Store (Open, List, DeleteProject), OpenFirst
+                   (a PNG-or-JPG name), WriteNew (a batch written under
+                   TempPrefix and linked into place), ValidRel, ErrSync and
+                   ErrNotStored. Neutral, like uploads
+                   (TestTheFilesDomainImportsNeitherSubsystem)
 internal/app/web/  the professor's backoffice
   handler/         one file per area: login, professors, profile, courses,
                    controls (+ scans, review, publish…) and surveys
@@ -174,7 +204,15 @@ internal/app/web/  the professor's backoffice
                    under js/ (the chunked upload since #339, ADR-0088)
 internal/app/api/  the JSON/WS surface — anonymous, no middleware (§C12)
 internal/infra/    adapters: config, storage, httpserver, httpjson, selfcheck
-  amcworker/       the AMC worker HTTP client (with generateLock mutex);
+  filestore/       files.Store's adapters (issue #338, ADR-0089): Local (the
+                   volume) and S3 (the bucket, under work/); the Sync every
+                   worker call runs in (hydrate, push, prune, the link
+                   map); the Reconciler (boot, 03:00 UTC, -sync-files);
+                   s3test/, the in-memory bucket the suite drives
+  amcworker/       the AMC worker HTTP client (one worker lock: every call
+                   through serialised / serialisedAnnotate / trySerialised,
+                   the reconcile and the purge through Exclusive /
+                   TryExclusive, #338);
                    implements survey.Generator too (GenerateSheet, #310)
                    and survey.Analyzer (AnalyzeSheets, ResetSurveyScans,
                    #311) — one wire per route, each domain's own sentinels
@@ -214,6 +252,48 @@ When the domain needs something from outside it declares an interface and infra
 implements it — `health.Prober`, implemented by `storage.Prober`, is the worked
 example. Full statement: `docs/standards/backend-code-style.md` §The dependency
 rule.
+
+## Where files live
+
+Every file under a project the database knows — `controls/<id>/` and
+`surveys/<id>/runs/<id>/` — is read through `files.Store` (#338, ADR-0089).
+With `NALANDA_FILES_STORE=local` that is the shared volume, as before. With
+`s3` it is the bucket, under `work/` mirroring `/work`
+(`work/controls/<id>/uploads/batch-1.pdf`), and the volume is AMC's working
+copy: every worker call runs between a hydrate from S3 and a push to it,
+inside the worker lock, and S3 deletes only what the system deletes. The
+catalog, measured on the Jetson on 2026-10-24 (13 controls, ≈ 525 MB):
+
+| Path | Content | Written / rewritten | Deleted by | In S3 |
+|---|---|---|---|---|
+| `inputs/source.tex`, `inputs/question-*.txt` | the sheet's LaTeX, code listings | the server, at create | purge | yes |
+| `pool.json` | the drawn questions | the server, at create | purge | yes |
+| `inputs/amc-compiled*` | AMC's compile of the source | worker: generate, every analyse | purge | yes |
+| `out/sujet.pdf`, `out/corrige.pdf`, `out/calage.xy` | the printable sheet, the key, the calibration | worker: generate | purge | yes |
+| `out/catalog.pdf` | AMC's question catalog (beside the project before #338) | worker: generate | purge | yes |
+| `data/layout.sqlite` | AMC's layout | worker: generate | purge | yes |
+| `uploads/batch-N.pdf` | the professor's scan, write-once | the server, at upload | reset, purge | yes |
+| `scans/<batch>.pdf-page-*.jpg` | the pages AMC extracted | worker: analyse | reset, purge | yes |
+| `scans/copy-N-page-M.{jpg,png}` | ADR-0037's contract names — symlinks | worker: every analyse | reset, purge | as `.nalanda/links.json` |
+| `cr/page-*.jpg`, `cr/name-*.jpg` | layout images; the handwritten-name crops | worker: analyse | reset, purge | yes |
+| `data/capture.sqlite` | AMC's capture, the review's corrections mirrored in | worker: every analyse and every review save | reset, purge | yes |
+| `data/scoring.sqlite`, `data/association.sqlite` | scores; a forced RUT association | worker: analyse, re-read, annotate | reset, purge | yes |
+| `data/report.sqlite` | AMC's report | worker | purge only — survives a reset | yes |
+| `annotated/copy-N.pdf` | the corrected PDF a student is mailed | worker: review save, analyse, close | reset, purge | yes |
+| `scans/list*.txt` | getimages' input list | worker: analyse | reset | **no** — garbage |
+| `annotate-copy-N.txt` | a failed annotate's scratch | worker | — | **no** — garbage |
+| `*-journal`, `*-wal`, `*-shm` | SQLite's transients | AMC | — | **no** — transient |
+| `.nalanda-tmp-*` | a file still being written: the sync's downloads and links, and a batch while `files.WriteNew` writes it | the sync; the server | — | **no** — a leftover means a crash |
+
+Survey runs have the same shape minus `pool.json`, `annotated/` and the
+association. Outside every project, and never uploaded: `incoming/` (#339's
+partials), `questions.json`, `_pre-rescan-*`, and the leftovers of purged
+controls (a directory with only `data/report.sqlite`). The rule the code
+implements (`skipped` in `internal/infra/filestore/sync.go`, which changes in
+the same PR as this table) is **every regular file and contract link under a project goes to
+S3, except the four rows marked no** — default-include, so a file AMC starts
+writing tomorrow is kept until somebody decides otherwise, rather than lost
+until somebody notices.
 
 ## `/health`
 
@@ -395,7 +475,7 @@ Routes today:
 | `POST /controls/{id}/copies/{copy}/publish` | Sends ONE copy's correction, **synchronously**, from the review page — where the professor already is when they finish re-correcting somebody (issue #287, ADR-0073 §5). One Gmail call plus one PDF is a bounded third-party call they wait on; forty of each is the loop nobody can wait on. It sends whatever state the copy is in, which is the manual override for a re-annotation that moved the marks without moving the total — the case the staleness rule cannot see. Same gates as the batch. The three not-deliverable reasons — nobody matched, no defined grade, no corrected PDF — disable the button on the review page with the sentence beside it, and a hand-typed POST comes back **303** with the same sentence as a flash: it says "corrige el RUT aquí arriba", which only means something on the page that has the form (`backend-code-style.md` §Flash). The other refusals — correction open, no course, non-delivering transport, no connected account — stay 422 |
 | `POST /controls/{id}/resend-all` | Forgets every copy's publication stamp, so the next Publicar writes to the whole class again (issue #287, ADR-0073 §5). It occupies the slot "Deshacer la publicación" had, with a name that describes what happens: that button never undid anything. It exists for the case the staleness rule cannot see — the annotated PDFs were wrong and the grades were not — which would otherwise cost one click per student. **It sends nothing**: the confirmation names how many people would receive a second copy, and pressing Publicar afterwards is how the professor says yes to that. `control.published_at` is left alone, because the class WAS published on the day it was |
 | `GET /controls/{id}` | Detail: metadata, PDF downloads (gated on the latest generate job reaching `done` — hidden while queued/running/failed since #257, so no button 404s), the Escaneos upload form, the Resultados table — which since #287 carries an **Envío** column on a graded control, rendering the four per-copy situations and, for a skipped copy, its reason — (after upload) the *Cerrar corrección* button, (once graded) the statistics panel — globals, histogram, boxplot, item analysis (issue #251) — and the publication block, where **Publicar** now sits beside the "Publicado el …" line rather than instead of it, with **Reenviar a todo el curso** in the slot "Deshacer la publicación" used to occupy. A failed publication's banner also renders the job's detail — which copies did not go out and the repair — and, while the professor's Gmail is disconnected, a link to `/profile` (issue #297; no other kind's detail is shown) |
-| `GET /controls/{id}/sujet.pdf` · `GET /controls/{id}/corrige.pdf` | Streamed from the shared volume |
+| `GET /controls/{id}/sujet.pdf` · `GET /controls/{id}/corrige.pdf` | Streamed through `files.Store` (the volume or S3, §"Where files live"); 503 in Spanish when the store fails rather than the file being absent |
 | `GET /controls/{id}/pool.json` | The pool snapshot written at Create time (issue #198) — attachment |
 | `POST /controls/{id}/scans` | Multipart PDF upload — writes the PDF to disk synchronously, then enqueues an `analyse` job. The runner hands the file to the worker's `/analyse`, persists the report and the pair, annotates clean copies and flips the state to `in_review`. Detail page's banner surfaces the running/done/failed state (issue #249). A second batch REPLACES the sheets it re-scans and adds the rest; a copy it re-captured loses its corrections and annotated PDF and keeps its publication record. A batch the worker recognised none of fails the job; a done job's banner says how many pages it could not place and how many published copies it re-read (issue #298, ADR-0075). It is the form WITHOUT the page's script, which uploads in chunks instead (the next two rows); a body the 15 s read deadline cuts answers **408** "La subida tardó demasiado y se cortó…" with `WARN "upload body read timed out"`, never the 403 it used to (issue #339) |
 | `POST /controls/{id}/scans/uploads` | Opens a chunked upload of a batch (issue #339, ADR-0088) — JSON from the page's script, CSRF in `X-CSRF-Token`. Refuses before a byte travels what the form above refuses: an unknown control (404), a size over `NALANDA_MAX_SCAN_MB` (413), a name or type that is not a PDF or thresholds outside the band (400). Answers 201 `{upload, received, chunk, chunks, complete}` — `chunks` is the upload's `/uploads/{uid}`, so the page's script knows no route of its own; the thresholds ride with the upload |
@@ -407,12 +487,12 @@ Routes today:
 | `POST /controls/{id}/archive` | Soft-delete: stamps `deleted_at`, redirects to `/controls`. The row disappears from `/controls`; every downstream row (readings, jobs, PDFs) stays. An in-flight async job for this control keeps running because nothing about its row moves. Reached from the "Zona peligrosa" section on the detail page (issue #261, ADR-0052) |
 | `POST /controls/{id}/restore` | Clears `deleted_at` and redirects to `/controls/{id}`. Idempotent guard: an already-active row returns "ya estaba activo" and lands on the detail anyway (issue #261, ADR-0052) |
 | `GET /controls/archived` | Lists archived controls ordered by `deleted_at DESC, created_at DESC` — most recently archived first, deterministic on same-second batches. Each row surfaces Ver / Restaurar (inline POST) / Eliminar permanentemente (link to the confirmation page) (issue #261, ADR-0052) |
-| `GET /controls/{id}/scans/reset/confirm` · `POST /controls/{id}/scans/reset` | "Borrar escaneos y empezar de nuevo", the destructive-confirm pair on the Escaneos box (issue #298). Both 404 on an archived control or one with no batch and no reading. The GET counts what goes — batches, copies read, copies with hand corrections, copies already MAILED — and asks for the control's name verbatim; the POST answers 409 while a job of this control is in flight or the worker is busy with another control's, and 422 on a wrong name (typed value echoed back), then calls the worker's `/scans/reset` FIRST and, only if it succeeded, returns the control to `generated` with no reading, no annotated row and no publication stamp in one transaction. Synchronous under a 25 s deadline (ADR-0075 §5); a worker that refuses or predates the route leaves everything as it was |
-| `GET /controls/{id}/purge/confirm` · `POST /controls/{id}/purge` | Two-step hard delete. The GET renders the confirmation page (404 on an active control — the destructive form never surfaces for anything not archived). The POST refuses unless `confirm_name` matches `control.name` verbatim, and Service.Purge then deletes the row + FK cascade + the control's jobs (explicit since #310, ADR-0079 §5) + `os.RemoveAll` the project directory best-effort. 422 on a name mismatch re-renders the page with the typed value echoed back; 303 to `/controls/archived` with a flash on success. The three-gate design (schema `AND deleted_at IS NOT NULL`, Service `ErrCannotPurgeActive`, handler `confirm_name` verbatim) lives in ADR-0052 §2 (issue #261) |
-| `GET /controls/{id}/copies/{copy}/review` · `POST` | Split view — corrected PDF (or raw scan) + editable form; POST saves overrides through `answer_override` / `rut_override` and re-annotates the copy |
-| `GET /controls/{id}/copies/{copy}/page/{n}` | Streams the scanned page image from the shared volume |
-| `GET /controls/{id}/copies/{copy}/annotated.pdf` | Streams the corrected PDF from the shared volume; 404 while none exists (issue #190) |
-| `GET /controls/{id}/uploads/{batch}.pdf` | Downloads an uploaded scan batch (`batch-N.pdf`) from the shared volume; the detail page links every batch (issue #204) |
+| `GET /controls/{id}/scans/reset/confirm` · `POST /controls/{id}/scans/reset` | "Borrar escaneos y empezar de nuevo", the destructive-confirm pair on the Escaneos box (issue #298). Both 404 on an archived control or one with no batch and no reading. The GET counts what goes — batches, copies read, copies with hand corrections, copies already MAILED — and asks for the control's name verbatim; the POST answers 409 while a job of this control is in flight or the worker is busy with another control's, and 422 on a wrong name (typed value echoed back), then calls the worker's `/scans/reset` FIRST and, only if it succeeded, returns the control to `generated` with no reading, no annotated row and no publication stamp in one transaction. Synchronous under a 25 s deadline (ADR-0075 §5); a worker that refuses or predates the route leaves everything as it was. Under `s3` the reset runs inside the file store's sync — its prune deletes the bucket's copies of what it removed — and a store failure is a 502 with no reading deleted (#338) |
+| `GET /controls/{id}/purge/confirm` · `POST /controls/{id}/purge` | Two-step hard delete. The GET renders the confirmation page (404 on an active control — the destructive form never surfaces for anything not archived). The POST refuses unless `confirm_name` matches `control.name` verbatim, and Service.Purge then, under the worker lock it only TRIES (409, nothing deleted, while the worker is busy on any job — #338): deletes the project from the file store FIRST (502 on a store failure, the control stays archived — ADR-0089 §6), then the row + FK cascade + the control's jobs (explicit since #310, ADR-0079 §5), then `os.RemoveAll` the project directory best-effort. 422 on a name mismatch re-renders the page with the typed value echoed back; 303 to `/controls/archived` with a flash on success. The three-gate design (schema `AND deleted_at IS NOT NULL`, Service `ErrCannotPurgeActive`, handler `confirm_name` verbatim) lives in ADR-0052 §2 (issue #261) |
+| `GET /controls/{id}/copies/{copy}/review` · `POST` | Split view — corrected PDF (or raw scan) + editable form; POST saves overrides through `answer_override` / `rut_override` and re-annotates the copy under its own 20 s deadline (`ReviewAnnotateDeadline`, the wait for the worker lock included): past it the save stands and the flash says the corrected PDF did not follow (#338) |
+| `GET /controls/{id}/copies/{copy}/page/{n}` | Streams the scanned page image through `files.Store` (PNG before JPG, `files.OpenFirst`); 503 when the store fails |
+| `GET /controls/{id}/copies/{copy}/annotated.pdf` | Streams the corrected PDF through `files.Store`; 404 while none exists (issue #190), 503 when the store fails |
+| `GET /controls/{id}/uploads/{batch}.pdf` | Downloads an uploaded scan batch (`batch-N.pdf`) through `files.Store`; the detail page links every batch (issue #204) |
 | `GET /static/vendor/pdfjs/pdf.mjs` · `GET /static/vendor/pdfjs/pdf.worker.mjs` | Vendored PDF.js served by the `static` package. Public (issue #231, ADR-0047) — a browser fetching an ES module over a stale session would 302-redirect to login HTML the browser then refuses as JS. Directory-shaped requests answer 404 (no listing, no bare-name redirect); anything else under `/static/` that is not on the embed list is 404 too |
 | `GET /profile` | The professor's own account, reached from their menu in the bar. Once a token is stored it also lists the professor's Canvas courses **of the most recent term only** — `allCourses` returns every course they have ever been enrolled in (16 for the professor measured in #271 S4, back to 2020), and the one they want is the current semester's. A finished course is deliberately not offered: importing one writes a roster nobody will use (ADR-0069 §Decision 5). Today it holds the Canvas integration and, since #273, the Gmail sending account (Conectar Gmail / Conectado como … / Desconectar): the empty state with the instructions for generating a token, "Token configurado" with a Reemplazar form once one is stored, or — on a deployment with no `NALANDA_SECRETS_MASTER_KEY` — an explanation naming the variable instead of a form. The stored token is never rendered back (issue #271, ADR-0068) |
 | `POST /profile/canvas-token` | Verifies the pasted token against Canvas, then seals and stores it. One route for the first token and for a replacement — the store upserts. A token Canvas refuses is a 422 with a field error and nothing stored; a Canvas that cannot be reached is a 422 that says so and stores nothing either, because an outage is not evidence about a token (issue #271) |
@@ -449,9 +529,9 @@ Routes today:
 | `GET /surveys/{id}/runs/{rid}/sujet.pdf` | The printable sheet, streamed once the latest `survey_generate` is done; 404 on a cancelled run, whose dashboard offers no actions |
 | `GET /surveys/{id}/runs/{rid}/edit` · `POST /surveys/{id}/runs/{rid}/edit` | Rename / re-date a run; the printed copies are not editable |
 | `POST /surveys/{id}/runs/{rid}/cancel` | Cancel an open run — refused with a flash while a job about it is queued or running, and once it has scans (an upload or a read copy, #311: "Borrar escaneos" first). A cancelled run stays listed and releases the bank |
-| `GET /surveys/{id}/runs/{rid}/scans` · `POST /surveys/{id}/runs/{rid}/scans` | Screen 10 (issue #311): the batches on disk and the reading totals; the multipart POST writes the PDF as the next `batch-N.pdf` BEFORE it queues `survey_analyse` (the controls' size limit), and lands back here. Only an open run takes scans. Like the control's, the POST is the form without the page's script, and its timed-out body answers 408 (issue #339) |
+| `GET /surveys/{id}/runs/{rid}/scans` · `POST /surveys/{id}/runs/{rid}/scans` | Screen 10 (issue #311): the batches in the file store and the reading totals; the multipart POST writes the PDF as the next `batch-N.pdf` BEFORE it queues `survey_analyse` (the controls' size limit), and lands back here. Only an open run takes scans. Like the control's, the POST is the form without the page's script, and its timed-out body answers 408 (issue #339) |
 | `POST /surveys/{id}/runs/{rid}/scans/uploads` · `POST /surveys/{id}/runs/{rid}/scans/uploads/{uid}/complete` | The controls' chunked pair for an OPEN run (issue #339, ADR-0088): start answers 409 on a run that is not open and refuses a size over the cap or a non-PDF before a byte travels; complete writes the run's next `batch-N.pdf` through `survey.SaveUploadedBatch` (409 if the run closed meanwhile), removes the partial, queues `survey_analyse` and answers `{redirect}` to screen 10. The chunks go to `/uploads/{uid}` |
-| `GET /surveys/{id}/runs/{rid}/scans/reset/confirm` · `POST /surveys/{id}/runs/{rid}/scans/reset` | "Borrar escaneos" (issue #311, ADR-0081 §5): both 404 on a run that is not open or has nothing to erase; the GET counts what goes and asks for `Pasada N`; the POST answers 409 while the run's job is in flight (a jobs-store read error fails closed) or the worker is busy, 422 on a wrong phrase, then calls the worker's `/scans/reset` FIRST and only then deletes the copies. Synchronous under a 25 s deadline |
+| `GET /surveys/{id}/runs/{rid}/scans/reset/confirm` · `POST /surveys/{id}/runs/{rid}/scans/reset` | "Borrar escaneos" (issue #311, ADR-0081 §5): both 404 on a run that is not open or has nothing to erase; the GET counts what goes and asks for `Pasada N`; the POST answers 409 while the run's job is in flight (a jobs-store read error fails closed) or the worker is busy, 422 on a wrong phrase, then calls the worker's `/scans/reset` FIRST and only then deletes the copies. Synchronous under a 25 s deadline; under `s3` a store failure is a 502 with no copy deleted (#338) |
 | `GET /surveys/{id}/runs/{rid}/review` · `GET`/`POST /surveys/{id}/runs/{rid}/review/{copy}` | Screen 11 (issue #311): the queue starts at the first copy that waits; a copy's page shows its scanned pages beside each doubtful answer, every alternative offered (detected ones marked). The POST records the decisions — one alternative on a single or scale, at least one on a multi, or "Descartar"; a blank one stays pending — and moves to the next copy that waits |
 | `GET /surveys/{id}/runs/{rid}/copies/{copy}/page/{n}` | A scanned page image of a copy the run read (the worker's `scans/copy-<n>-page-<p>`, PNG before JPG) |
 | `POST /surveys/{id}/runs/{rid}/close` | "Cerrar pasada" (issue #311): refused with a flash while a job is in flight, before any copy was read, or while a copy waits. A closed run refuses every mutation and has no reopen |
@@ -487,7 +567,7 @@ Deliberately, and each with an owner:
 | JSON contracts, CORS, WebSocket on `/api` | with a consumer (ADR-0008) |
 | A per-control upload quota (batches per control, or total bytes) — today `NALANDA_MAX_SCAN_MB` bounds ONE upload | when an operator wants a ceiling on abuse by an authenticated professor |
 | Publishing GRADES — CSV export and Canvas grade posting. The corrected copy itself already goes out by email (#273, ADR-0072) | WP-G |
-| A deletion path for a student's data — nothing in the app deletes a student, and since #273 nothing can unsend either | unowned. `docs/security-notes.md` §"The roster is personal data" books it and records that #273 made it owed harder |
+| A deletion path for a student's data — nothing in the app deletes a student, and since #273 nothing can unsend either | unowned. `docs/security-notes.md` §"The roster is personal data" books it and records that #273 made it owed harder — and #338 harder still: under `s3` a student's page images, name crops and corrected PDFs also sit in the bucket, and removing them on the volume alone is undone by the next worker call's hydrate |
 | A control created before migration `00015` carries no course until a professor assigns one on its detail page, and its copies stay unmatched meanwhile | by hand, per control — there is nothing to backfill from, since `00004` never recorded a course |
 | A control published before migration `00019` shows every copy `no enviada` and `0/N enviadas` on the list, although its class is holding the mail. **Pressing Publicar on it mails everybody again** — it is a decision, not a resume, and nothing warns you | by hand, per control — there is nothing to backfill from, since `control.published_sent` was a COUNT and not a list. For the class of 2026-09-08 re-mailing is very likely what you want, because #273 mailed the wrong grade (ADR-0073 §Consequences). `GMAIL-CHECK.md` §5bb |
 | A seven-digit RUT typed with its verifier and NO separator (`11222335`) is read as an eight-digit body | deliberately unguessed — `matching.NormalizeRUT` refuses to guess rather than risk matching a stranger; a mod-11 check is the WP that would close it |
@@ -560,6 +640,7 @@ from `apps/server/`:
       built from your tip. Nothing in `go test` executes them.
 - [ ] **If you touched the login path**, [`GOOGLE-CHECK.md`](GOOGLE-CHECK.md) was run against a real Google OAuth client. No test in this repository reaches Google, so a green suite is not evidence that signing in still works.
 - [ ] **If you touched the publication path** — the Gmail adapter in `internal/infra/oidc/gmail.go`, the `/profile` connect flow, the transports in `internal/infra/email/`, the message builder, or `NALANDA_EMAIL_MODE` — [`GMAIL-CHECK.md`](GMAIL-CHECK.md) was run against the https URL. The suite drives `httptest` stand-ins for both Google and Gmail, so a green suite says nothing about whether the consent screen grants the scope, whether the redirect URI matches, or whether the message arrives readable. Its §6 also MEASURES the open question ADR-0072 could not settle from documentation
+- [ ] **If you touched where the work files live** — anything in [`S3-CHECK.md`](S3-CHECK.md)'s scope, its first paragraph — it was run against the real bucket. The suite drives an in-memory one, so a green suite says nothing about signing, about this bucket's ETag being the MD5 the sync compares, or about what the policy refuses
 - [ ] **If you touched the Canvas path** — the GraphQL queries in `internal/infra/canvas`, the normalisation in `internal/domain/canvas/roster.go`, the import in `handler.ImportCanvas` / `coursestore.SaveRoster`, the `/profile` token path, or `NALANDA_CANVAS_GRAPHQL_URL` — [`CANVAS-CHECK.md`](CANVAS-CHECK.md) was run against the real UDP instance. The suite drives `httptest` fakes, so a green suite is not evidence the import still works: #271's review found a state filter that emptied a whole past-term roster, and the suite was green throughout
 
 ## References

@@ -27,7 +27,7 @@ func (f *Fake) Analyze(_ context.Context, req controls.AnalyzeRequest) (controls
 	if err != nil {
 		return controls.Report{}, err
 	}
-	return report, nil
+	return report, f.notStored()
 }
 
 // Reanalyze satisfies controls.Analyzer. Same shape as Analyze: records the

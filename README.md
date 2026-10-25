@@ -204,7 +204,10 @@ DocumentBuddy already holds 443 on the same box). Full context in
   `backup` container (SQLite `.backup` → gzip → S3, 30-day retention
   via bucket lifecycle, Telegram notify), and a `monitor` container
   (polls `/health` every 5 min, alerts after 3 failures with a 30-min
-  reminder cadence). `/api/controls/…` is answered end-to-end once
+  reminder cadence). With `NALANDA_FILES_STORE=s3` the bucket's `work/`
+  prefix is the PRIMARY copy of every control's and survey run's files, the
+  volume AMC's working copy ([`DEPLOY-JETSON.md`](infra/local/DEPLOY-JETSON.md)
+  §"The work files in S3", ADR-0089). `/api/controls/…` is answered end-to-end once
   amc-worker's health check passes; the RSS-and-coexistence measurement
   is recorded in ADR-0038 §Decision.
 - **How to verify after a deploy**: from a browser off the tailnet,
@@ -217,7 +220,9 @@ DocumentBuddy already holds 443 on the same box). Full context in
   its poll interval. Emergency pin to a specific past image without a
   git push: `docker compose pull ghcr.io/so77id/nalanda-server:sha-<good>`
   then `docker tag …:sha-<good> …:latest` and `--force-recreate`
-  ([`DEPLOY-JETSON.md`](infra/local/DEPLOY-JETSON.md) §Rollback).
+  ([`DEPLOY-JETSON.md`](infra/local/DEPLOY-JETSON.md) §Rollback). Under
+  `NALANDA_FILES_STORE=s3`, an image older than #338 also means going back
+  to the local store — that section says what to hold off on.
 
 ## Workflow
 

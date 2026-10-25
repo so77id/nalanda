@@ -6,11 +6,14 @@ package main
 import (
 	"context"
 	"flag"
+	"fmt"
+	"io"
 	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strings"
 	"syscall"
 	"time"
 
@@ -23,6 +26,7 @@ import (
 	"github.com/so77id/nalanda/apps/server/internal/domain/canvas"
 	"github.com/so77id/nalanda/apps/server/internal/domain/controls"
 	"github.com/so77id/nalanda/apps/server/internal/domain/course/bank"
+	"github.com/so77id/nalanda/apps/server/internal/domain/files"
 	"github.com/so77id/nalanda/apps/server/internal/domain/gmail"
 	"github.com/so77id/nalanda/apps/server/internal/domain/health"
 	"github.com/so77id/nalanda/apps/server/internal/domain/jobs"
@@ -32,6 +36,7 @@ import (
 	"github.com/so77id/nalanda/apps/server/internal/domain/survey"
 	"github.com/so77id/nalanda/apps/server/internal/domain/uploads"
 	"github.com/so77id/nalanda/apps/server/internal/infra/amcworker"
+	"github.com/so77id/nalanda/apps/server/internal/infra/filestore"
 	// Aliased because the domain package one import above owns the name:
 	// the domain is what the rest of this file talks about, and the
 	// adapter appears exactly once, in the constructor below.
@@ -57,6 +62,13 @@ import (
 var healthFlag = flag.Bool("health", false,
 	"probe this server's own /health endpoint and exit non-zero unless it answers 200")
 
+// syncFilesFlag is the migration to S3 as one command (issue #338,
+// DEPLOY-JETSON.md): the reconcile, run once against the bucket whatever
+// NALANDA_FILES_STORE says — the files go up BEFORE the store is flipped.
+var syncFilesFlag = flag.Bool("sync-files", false,
+	"upload every project's local files the S3 bucket lacks or holds older, print one summary line, "+
+		"and exit non-zero if any project failed; never downloads, never deletes")
+
 func main() {
 	// A bootstrap logger, because the configured level is not known until the
 	// configuration is read — and a configuration error has to be reportable.
@@ -78,6 +90,10 @@ func main() {
 			os.Exit(1)
 		}
 		return
+	}
+
+	if *syncFilesFlag {
+		os.Exit(syncFiles(logger))
 	}
 
 	if err := run(logger); err != nil {
@@ -237,7 +253,21 @@ func run(logger *slog.Logger) error {
 	dispatcher := buildDispatcher(cfg.EmailMode, gmailService, logger)
 	logger.Info("email dispatcher", "mode", cfg.EmailMode)
 
-	amcClient := amcworker.New(amcworker.Config{BaseURL: cfg.AmcWorkerURL})
+	// Issue #338: the store every work file a page or a download hands out
+	// is read through, selected ONCE at boot and logged in one line, like
+	// the mail transport above. ONE for both subsystems, like the volume —
+	// and, under s3, the sync the worker client runs around every call.
+	fileStore, fileSync := buildFileStore(cfg, logger)
+	logger.Info("file store", "store", cfg.FilesStore, "bucket", cfg.FilesS3Bucket, "region", cfg.FilesS3Region)
+	amcClient := amcworker.New(amcworker.Config{BaseURL: cfg.AmcWorkerURL, Sync: workerSync(fileSync)})
+	// Under s3, the reconcile at boot and every day at 03:00 UTC (issue #338
+	// §5): what a rollback to local wrote meanwhile, what a push a failure or
+	// a deadline cut short left behind, and what the annotates deferred goes
+	// up.
+	if fileSync != nil {
+		go reconcileDaily(ctx, filestore.NewReconciler(fileSync,
+			allProjects(controlStore, surveystore.New(db)), amcClient.Exclusive, logger), logger)
+	}
 	controlsService := controls.NewService(controls.Service{
 		Bank:      liveBank,
 		Store:     controlStore,
@@ -264,6 +294,7 @@ func run(logger *slog.Logger) error {
 		// turn the whole flow off without a deploy.
 		AnnotateEnabled: cfg.AnnotateEnabled,
 		WorkDir:         cfg.WorkDir,
+		Files:           fileStore,
 		Now:             time.Now,
 		// Constant seed for reproducibility (tex.Compile refuses zero).
 		// A per-control seed is a future decision: today every control
@@ -282,6 +313,7 @@ func run(logger *slog.Logger) error {
 		Generator: amcClient,
 		Analyzer:  amcClient,
 		WorkDir:   cfg.WorkDir,
+		Files:     fileStore,
 		Now:       time.Now,
 	})
 
@@ -459,6 +491,126 @@ func warnIfNobodyCanLogIn(ctx context.Context, users auth.UserStore, cfg config.
 			"set", config.KeyBootstrapProfessorEmail)
 	}
 	return nil
+}
+
+// allProjects is every project the database knows — controls archived or
+// not, every survey run — as files.Store paths: what the reconcile walks.
+func allProjects(controlStore controls.Store, surveyStore survey.Store) func(context.Context) ([]string, error) {
+	return func(ctx context.Context) ([]string, error) {
+		paths, err := controls.ProjectPaths(ctx, controlStore)
+		if err != nil {
+			return nil, err
+		}
+		runs, err := survey.RunProjectPaths(ctx, surveyStore)
+		if err != nil {
+			return nil, err
+		}
+		return append(paths, runs...), nil
+	}
+}
+
+// reconcileDaily runs the reconcile once at boot — when a rollback's delta
+// or a push a restart cut short is waiting — and then every day at 03:00
+// UTC, for as long as ctx lives.
+func reconcileDaily(ctx context.Context, rec *filestore.Reconciler, log *slog.Logger) {
+	for {
+		if _, err := rec.Run(ctx); err != nil {
+			log.Error("files: reconcile", "error", err)
+		}
+		timer := time.NewTimer(time.Until(filestore.NextReconcile(time.Now())))
+		select {
+		case <-ctx.Done():
+			timer.Stop()
+			return
+		case <-timer.C:
+		}
+	}
+}
+
+// syncFiles is -sync-files: the database read for its projects (never
+// migrated — the running server owns the schema), the reconcile run once
+// against the bucket, and the exit code. It runs in a process of its own,
+// so it cannot hold the running server's worker lock: the procedure runs
+// it with no job in flight, and a file a job rewrites mid-upload fails its
+// Content-MD5, counts as a failed project, and goes up on the next run.
+func syncFiles(logger *slog.Logger) int {
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+	cfg, err := config.LoadFromEnv()
+	if err != nil {
+		logger.Error("sync-files", "error", err)
+		return 1
+	}
+	if !cfg.FilesS3Configured() {
+		logger.Error("sync-files needs the bucket and the server's key, whatever the store",
+			"needs", strings.Join([]string{config.KeyFilesS3Bucket, config.KeyFilesS3Region,
+				config.KeyFilesS3AccessKeyID, config.KeyFilesS3SecretAccessKey}, ", "))
+		return 1
+	}
+	db, err := storage.Open(ctx, cfg.DatabaseURL)
+	if err != nil {
+		logger.Error("sync-files", "error", err)
+		return 1
+	}
+	defer func() { _ = db.Close() }()
+	_, sync := newS3Sync(cfg, logger)
+	rec := filestore.NewReconciler(sync, allProjects(controlstore.New(db), surveystore.New(db)),
+		func(fn func() error) error { return fn() }, logger)
+	summary, err := rec.Run(ctx)
+	return syncFilesExit(summary, err, os.Stdout)
+}
+
+// syncFilesExit prints -sync-files' one line and picks its exit code: 0
+// only when every project went up.
+func syncFilesExit(summary filestore.Summary, err error, out io.Writer) int {
+	if err != nil {
+		_, _ = fmt.Fprintf(out, "sync-files: %v\n", err)
+		return 1
+	}
+	_, _ = fmt.Fprintf(out, "sync-files: %d projects, %d files uploaded (%d bytes), %d failed, took %s\n",
+		summary.Projects, summary.Files, summary.Bytes, summary.Failed, summary.Took)
+	if summary.Failed > 0 {
+		return 1
+	}
+	return 0
+}
+
+// buildFileStore maps the configured store onto its adapter. config.Load has
+// already refused an unknown value and, under s3, any missing variable, so
+// the default branch is a value someone added without coming back here: a
+// panic at boot, never a quiet fall back to local — a server that looks
+// healthy and keeps nothing off the Jetson.
+//
+// The second value is the sync the worker client wraps each call in and the
+// reconcile walks with, or nil under local, whose files are the working copy
+// itself.
+func buildFileStore(cfg config.Config, log *slog.Logger) (files.Store, *filestore.Sync) {
+	switch cfg.FilesStore {
+	case config.FilesStoreLocal:
+		return filestore.NewLocal(cfg.WorkDir), nil
+	case config.FilesStoreS3:
+		return newS3Sync(cfg, log)
+	default:
+		panic("main.buildFileStore: no adapter for file store " + string(cfg.FilesStore))
+	}
+}
+
+// newS3Sync is the bucket's store and the sync over it, built the one way
+// both the server and -sync-files build them.
+func newS3Sync(cfg config.Config, log *slog.Logger) (*filestore.S3, *filestore.Sync) {
+	client := filestore.NewS3Client(cfg.FilesS3Region, cfg.FilesS3AccessKeyID, cfg.FilesS3SecretAccessKey)
+	store := filestore.NewS3(client, cfg.FilesS3Bucket)
+	return store, filestore.NewSync(store, cfg.WorkDir, log)
+}
+
+// workerSync is the sync the worker client is handed: a nil INTERFACE when
+// there is none, never a nil *filestore.Sync inside one, on which the
+// client would call Around.
+func workerSync(sync *filestore.Sync) amcworker.ProjectSync {
+	if sync == nil {
+		return nil
+	}
+	return sync
 }
 
 // buildDispatcher picks the transport for the selected mode.

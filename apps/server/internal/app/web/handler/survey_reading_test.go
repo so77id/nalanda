@@ -364,6 +364,27 @@ func TestAScannedPageIsServedOnlyForACopyTheRunRead(t *testing.T) {
 	}
 }
 
+// PNG wins when both exist — the controls' rule — so an engine that wrote
+// both could never flip which image the reviewer sees.
+func TestAScannedPagePrefersPNGOverJPG(t *testing.T) {
+	f := newSurveyFixture(t)
+	r := f.reviewable()
+	scans := filepath.Join(f.worker.WorkDir, survey.RunProject(r.s.ID, r.run.ID), "scans")
+	if err := os.MkdirAll(scans, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	for name, content := range map[string]string{"copy-2-page-1.png": "png", "copy-2-page-1.jpg": "jpeg"} {
+		if err := os.WriteFile(filepath.Join(scans, name), []byte(content), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	rec := f.do(http.MethodGet, handler.SurveyRunPagePathFor(r.s.ID, r.run.ID, 2, 1), f.handler.RunPage, nil,
+		append(f.reviewValues(r, 2), "n", "1")...)
+	if rec.Code != http.StatusOK || rec.Header().Get("Content-Type") != "image/png" || rec.Body.String() != "png" {
+		t.Errorf("copy 2 page 1 with both: %d %q %q, want the PNG", rec.Code, rec.Header().Get("Content-Type"), rec.Body.String())
+	}
+}
+
 // Issue #311 S6, AC 7b: a run with scans is not cancelled — an upload is
 // enough, a batch whose reading failed included.
 func TestARunWithScansIsNotCancelled(t *testing.T) {
@@ -720,5 +741,34 @@ func TestADecisionForAVanishedItemShowsTheCopyAgain(t *testing.T) {
 	rec := f.do(http.MethodPost, path, f.handler.ResolveCopy, url.Values{"choice_999999": {"discard"}}, f.reviewValues(r, 2)...)
 	if rec.Code != http.StatusConflict || !strings.Contains(rec.Body.String(), "cambió con un lote nuevo") {
 		t.Errorf("a vanished item: %d, want 409 showing the copy again", rec.Code)
+	}
+}
+
+// Issue #338 review, COR-1: a batch AMC read whose files did not reach S3
+// is stored, and the done job says where the files are.
+func TestABatchTheStoreDidNotTakeIsStoredAndSaysSo(t *testing.T) {
+	f := newSurveyFixture(t)
+	r := f.readableRun()
+	f.worker.SurveyReports = []survey.Report{{
+		Batch: survey.Batch{Captured: 1},
+		Copies: []survey.ReportCopy{{CopyNumber: 1, Pages: []int{1}, Answers: []survey.ReportAnswer{
+			answer(r.single, survey.AnswerOK, []int{2}),
+			answer(r.scale, survey.AnswerOK, []int{4}),
+			answer(r.contextQ, survey.AnswerOK, []int{1}),
+		}}},
+	}}
+	f.worker.NotStored = true
+
+	err := f.analyse(r, "batch-1.pdf")
+	var notice *jobs.Notice
+	if !errors.As(err, &notice) {
+		t.Fatalf("the job returned %v, want a done job's notice", err)
+	}
+	if !strings.Contains(notice.Message, "no se pudieron copiar a S3") {
+		t.Errorf("notice %q does not say the files are not in S3 yet", notice.Message)
+	}
+	counts, err := f.surveys.ReadingCounts(context.Background(), r.run.ID)
+	if err != nil || counts.Copies != 1 {
+		t.Errorf("counts = %+v, %v; want the copy stored", counts, err)
 	}
 }

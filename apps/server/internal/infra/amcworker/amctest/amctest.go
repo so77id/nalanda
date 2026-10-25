@@ -14,6 +14,7 @@ import (
 	"sync"
 
 	"github.com/so77id/nalanda/apps/server/internal/domain/controls"
+	"github.com/so77id/nalanda/apps/server/internal/domain/files"
 	"github.com/so77id/nalanda/apps/server/internal/domain/survey"
 )
 
@@ -71,6 +72,10 @@ type Fake struct {
 	AnnotatedPath string
 	// AnnotateErr, when set, is returned from AnnotateCopy.
 	AnnotateErr error
+	// AnnotateBlocks, when set, makes AnnotateCopy wait for its ctx and
+	// return ctx.Err() — an annotate whose push to S3 is slower than the
+	// caller's deadline (issue #338).
+	AnnotateBlocks bool
 
 	// ResetCalls records every ResetScans project in order (issue #298).
 	ResetCalls []string
@@ -94,6 +99,46 @@ type Fake struct {
 	// the error to return instead (issue #311).
 	SurveyResets   []string
 	SurveyResetErr error
+
+	// NotStored makes Generate, Analyze, GenerateSheet and AnalyzeSheets
+	// do their work and then answer the way the real client does when only
+	// the copy to the file store failed: the result WITH an error wrapping
+	// files.ErrNotStored (issue #338 review, COR-1).
+	NotStored bool
+
+	// ExclusiveBusy makes TryExclusive answer controls.ErrAnalyzerBusy
+	// without running fn — the worker on another control's job (issue
+	// #338 review, SEC-1). ExclusiveCalls counts the TryExclusive calls.
+	ExclusiveBusy  bool
+	ExclusiveCalls int
+}
+
+// errNotStored is what the real client wraps when a push failed after the
+// call succeeded.
+var errNotStored = fmt.Errorf("%w: %w: amctest: the copy to the store failed", files.ErrSync, files.ErrNotStored)
+
+// notStored is the error a call answers alongside its result: nil, or
+// errNotStored under NotStored.
+func (f *Fake) notStored() error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.NotStored {
+		return errNotStored
+	}
+	return nil
+}
+
+// TryExclusive satisfies controls.Analyzer: it runs fn, or refuses under
+// ExclusiveBusy, as the real worker lock does.
+func (f *Fake) TryExclusive(fn func() error) error {
+	f.mu.Lock()
+	f.ExclusiveCalls++
+	busy := f.ExclusiveBusy
+	f.mu.Unlock()
+	if busy {
+		return controls.ErrAnalyzerBusy
+	}
+	return fn()
 }
 
 // Generate satisfies controls.Generator. When Err is set, it returns that;
@@ -135,7 +180,7 @@ func (f *Fake) Generate(_ context.Context, req controls.GenerateRequest) (contro
 		}
 	}
 
-	return controls.Assets{Sujet: sujetRel}, nil
+	return controls.Assets{Sujet: sujetRel}, f.notStored()
 }
 
 func writeStub(path string, size int) error {

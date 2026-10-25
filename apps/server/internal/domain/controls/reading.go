@@ -193,6 +193,10 @@ type ReanalyzeRequest struct {
 // seconds-class and synchronous, and splitting the two keeps a change to
 // one from renaming callers of the other.
 type Analyzer interface {
+	// Analyze reads a batch. When AMC read it and only the copy to the
+	// file store failed, the report comes back WITH an error wrapping
+	// files.ErrNotStored (issue #338 review, COR-1): the caller persists
+	// it, since AMC has captured the batch either way.
 	Analyze(ctx context.Context, req AnalyzeRequest) (Report, error)
 	Reanalyze(ctx context.Context, req ReanalyzeRequest) (Report, error)
 	// ResetScans removes every capture-side file of a project — AMC's
@@ -201,6 +205,12 @@ type Analyzer interface {
 	// predates the route refuses with ErrAnalyzerRefused, before anything
 	// is destroyed.
 	ResetScans(ctx context.Context, project string) error
+	// TryExclusive runs fn with no worker call in flight — none of any
+	// control — or answers ErrAnalyzerBusy at once without running it
+	// (issue #338 review, SEC-1). The purge's file steps run in it: a
+	// call's push beside them would upload again what the purge had just
+	// deleted from S3, with no row left to find it.
+	TryExclusive(fn func() error) error
 }
 
 // The failure modes callers branch on. Same shape as ErrGeneratorRefused /
@@ -217,8 +227,9 @@ var (
 	ErrAnalyzerUnavailable = errors.New("controls: the AMC worker is unreachable")
 
 	// ErrAnalyzerBusy: the worker is running another control's job, and a
-	// call that must not wait — the synchronous scans reset — refuses
-	// instead of queueing behind it (issue #298 review, COR-1).
+	// call that must not wait — the synchronous scans reset, and since
+	// #338 the purge — refuses instead of queueing behind it (issue #298
+	// review, COR-1).
 	ErrAnalyzerBusy = errors.New("controls: the AMC worker is busy with another job")
 
 	// ErrNothingCaptured: the worker read the batch and recognised none of

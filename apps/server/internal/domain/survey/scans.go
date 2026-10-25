@@ -5,11 +5,14 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
+
+	"github.com/so77id/nalanda/apps/server/internal/domain/files"
 )
 
 // A run's scans (issue #311), split the way the controls split them
@@ -46,59 +49,68 @@ func (s *Service) SaveUploadedBatch(ctx context.Context, surveyID, runID int64, 
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return "", fmt.Errorf("survey: preparing %s: %w", dir, err)
 	}
-	uploads, err := s.Uploads(run)
+	// Past every batch, on disk AND in the store (issue #338): numbering
+	// from the store alone would reuse a number a batch written while it
+	// was unreachable already holds, and from the disk alone would reuse
+	// batch-1.pdf on a volume that came back empty — and the next push
+	// would overwrite the real one. A store that cannot answer refuses.
+	uploads, err := s.Uploads(ctx, run)
 	if err != nil {
 		return "", err
 	}
-	next := 1
+	next, err := nextLocalBatch(dir)
+	if err != nil {
+		return "", err
+	}
 	if len(uploads) > 0 {
-		next = uploads[len(uploads)-1].Number + 1
+		next = max(next, uploads[len(uploads)-1].Number+1)
 	}
 	name := batchPrefix + strconv.Itoa(next) + batchExt
-	path := filepath.Join(dir, name)
-	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o644)
-	if err != nil {
-		return "", fmt.Errorf("survey: creating %s: %w", path, err)
-	}
-	if _, err := io.Copy(f, content); err != nil {
-		_ = f.Close()
-		_ = os.Remove(path) // a partial batch is not a batch
-		return "", fmt.Errorf("survey: writing %s: %w", path, err)
-	}
-	if err := f.Close(); err != nil {
-		return "", fmt.Errorf("survey: closing %s: %w", path, err)
+	// Whole or not at all, and never in place (files.WriteNew): a partial
+	// batch is not a batch, and a sync must never upload one.
+	if err := files.WriteNew(filepath.Join(dir, name), content); err != nil {
+		return "", fmt.Errorf("survey: %w", err)
 	}
 	return name, nil
 }
 
-// Upload is one batch on disk.
+// nextLocalBatch is one past the highest batch-N.pdf in dir, the local half
+// of a run's numbering.
+func nextLocalBatch(dir string) (int, error) {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return 0, fmt.Errorf("survey: listing %s: %w", dir, err)
+	}
+	next := 1
+	for _, e := range entries {
+		if n, ok := batchNumber(e.Name()); ok && !e.IsDir() {
+			next = max(next, n+1)
+		}
+	}
+	return next, nil
+}
+
+// Upload is one batch in the file store.
 type Upload struct {
 	Number int
 	Name   string
 	Bytes  int64
 }
 
-// Uploads lists the run's batches on disk, in upload order. None yet is
-// an empty list, not an error.
-func (s *Service) Uploads(run Run) ([]Upload, error) {
-	entries, err := os.ReadDir(s.uploadsDir(run))
-	if os.IsNotExist(err) {
-		return nil, nil
-	}
+// Uploads lists the run's batches the file store holds, in upload order.
+// None yet is an empty list, not an error.
+func (s *Service) Uploads(ctx context.Context, run Run) ([]Upload, error) {
+	entries, err := s.Files.List(ctx, runRel(run, uploadsDirName))
 	if err != nil {
 		return nil, fmt.Errorf("survey: listing run %d's uploads: %w", run.ID, err)
 	}
 	var out []Upload
 	for _, e := range entries {
-		n, ok := batchNumber(e.Name())
-		if !ok || e.IsDir() {
+		n, ok := batchNumber(e.Name)
+		if !ok {
 			continue
 		}
-		info, err := e.Info()
-		if err != nil {
-			return nil, fmt.Errorf("survey: reading %s: %w", e.Name(), err)
-		}
-		out = append(out, Upload{Number: n, Name: e.Name(), Bytes: info.Size()})
+		out = append(out, Upload{Number: n, Name: e.Name, Bytes: e.Size})
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].Number < out[j].Number })
 	return out, nil
@@ -123,6 +135,9 @@ type AnalyzeResult struct {
 	Failed   int
 	// Counts is the whole run's reading after the batch.
 	Counts ReadingCounts
+	// NotStored: the reading is saved, and the files it produced are on
+	// the volume but not yet in S3 (issue #338 review, COR-1).
+	NotStored bool
 }
 
 // Notice is the done job's sentence for the professor.
@@ -135,6 +150,9 @@ func (r AnalyzeResult) Notice() string {
 	msg += "."
 	if r.Failed > 0 {
 		msg += fmt.Sprintf(" %d página(s) no se reconocieron.", r.Failed)
+	}
+	if r.NotStored {
+		msg += " Los archivos de este lote no se pudieron copiar a S3: siguen en la Jetson y se copian en la próxima operación o en la copia de cada noche."
 	}
 	return msg
 }
@@ -162,14 +180,18 @@ func (s *Service) AnalyzeBatch(ctx context.Context, surveyID, runID int64, batch
 		Ticked:  DefaultTicked,
 		Unsure:  DefaultUnsure,
 	})
-	if err != nil {
+	// AMC read the batch and only the copy to S3 failed (issue #338
+	// review, COR-1): the reading is stored like any other — the capture
+	// has moved on, and the next call or the reconcile copies its files.
+	notStored := errors.Is(err, files.ErrNotStored)
+	if err != nil && !notStored {
 		return AnalyzeResult{}, err
 	}
 	if report.Batch.Captured == 0 {
 		return AnalyzeResult{}, fmt.Errorf("%w: %s: %d unrecognised pages",
 			ErrNothingCaptured, batch, report.Batch.Failed)
 	}
-	result := AnalyzeResult{Captured: report.Batch.Captured, Failed: report.Batch.Failed}
+	result := AnalyzeResult{Captured: report.Batch.Captured, Failed: report.Batch.Failed, NotStored: notStored}
 	recaptured := report.Batch.RecapturedCopies
 	printed, _, err := s.printedQuestions(ctx, run)
 	if err != nil {
@@ -275,7 +297,7 @@ func (s *Service) HasScans(ctx context.Context, run Run) (bool, error) {
 
 // ScanSummaryFor counts what a reset of the run would destroy.
 func (s *Service) ScanSummaryFor(ctx context.Context, run Run) (ScanSummary, error) {
-	uploads, err := s.Uploads(run)
+	uploads, err := s.Uploads(ctx, run)
 	if err != nil {
 		return ScanSummary{}, err
 	}
@@ -324,20 +346,26 @@ func (s *Service) ResetScans(ctx context.Context, surveyID, runID int64) error {
 	return nil
 }
 
-// ScanImage finds one page image of a copy the run READ — the worker's
-// `scans/copy-<n>-page-<p>` naming, PNG before JPG (the controls' rule: a
-// raster scan comes out as JPG). ErrCopyNotFound for a copy the run has
-// not read, or a page with no image.
-func (s *Service) ScanImage(ctx context.Context, run Run, copyNumber, page int) (path, contentType string, err error) {
+// OpenScanImage opens one page image of a copy the run READ, through the
+// file store — the worker's `scans/copy-<n>-page-<p>` naming, PNG before
+// JPG (the controls' rule: a raster scan comes out as JPG) — and says its
+// content type. ErrCopyNotFound for a copy the run has not read, or a page
+// with no image.
+func (s *Service) OpenScanImage(ctx context.Context, run Run, copyNumber, page int) (f files.File, contentType string, err error) {
 	if _, err := s.Store.CopyByNumber(ctx, run.ID, copyNumber); err != nil {
-		return "", "", err
+		return nil, "", err
 	}
-	base := filepath.Join(s.WorkDir, RunProject(run.SurveyID, run.ID), "scans",
-		"copy-"+strconv.Itoa(copyNumber)+"-page-"+strconv.Itoa(page))
-	for _, ext := range []struct{ suffix, ctype string }{{".png", "image/png"}, {".jpg", "image/jpeg"}} {
-		if _, err := os.Stat(base + ext.suffix); err == nil {
-			return base + ext.suffix, ext.ctype, nil
-		}
+	base := runRel(run, "scans", "copy-"+strconv.Itoa(copyNumber)+"-page-"+strconv.Itoa(page))
+	// A store that failed is not a page with no image (issue #338):
+	// files.OpenFirst falls through on a missing PNG only.
+	f, rel, err := files.OpenFirst(ctx, s.Files, base+".png", base+".jpg")
+	switch {
+	case errors.Is(err, fs.ErrNotExist):
+		return nil, "", fmt.Errorf("survey: copy %d page %d of run %d: %w", copyNumber, page, run.ID, ErrCopyNotFound)
+	case err != nil:
+		return nil, "", fmt.Errorf("survey: copy %d page %d of run %d: %w", copyNumber, page, run.ID, err)
+	case strings.HasSuffix(rel, ".png"):
+		return f, "image/png", nil
 	}
-	return "", "", fmt.Errorf("survey: copy %d page %d of run %d: %w", copyNumber, page, run.ID, ErrCopyNotFound)
+	return f, "image/jpeg", nil
 }

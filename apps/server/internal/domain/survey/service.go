@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"time"
+
+	"github.com/so77id/nalanda/apps/server/internal/domain/files"
 )
 
 // Service is the survey bank's behaviour over a Store. A struct of
@@ -18,6 +20,10 @@ type Service struct {
 	// WorkDir is what the SERVER sees as the root of the worker's shared
 	// /work volume — the controls' WorkDir, the same volume.
 	WorkDir string
+	// Files is where every file a page or a download hands out is read
+	// from (issue #338) — the controls' store, over the same volume or the
+	// same bucket. Writes still go to WorkDir: AMC works on local files.
+	Files files.Store
 	// Now is the clock; a field rather than a package so the domain stays
 	// free of infra (add-a-backend-endpoint.md §2).
 	Now func() time.Time
@@ -36,6 +42,8 @@ func NewService(deps Service) *Service {
 		panic("survey.NewService: no analyzer")
 	case deps.WorkDir == "":
 		panic("survey.NewService: no work dir")
+	case deps.Files == nil:
+		panic("survey.NewService: no file store")
 	case deps.Now == nil:
 		panic("survey.NewService: no clock")
 	}

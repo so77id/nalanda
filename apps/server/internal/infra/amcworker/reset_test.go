@@ -56,9 +56,9 @@ func TestResetScansAgainstAWorkerWithoutTheRouteIsARefusal(t *testing.T) {
 	}
 }
 
-// #298 review, COR-1: the client's lock is ONE mutex for every project and
-// does not watch ctx. A reset behind another control's analyse must refuse
-// at once, not hang the professor's request past its deadline.
+// #298 review, COR-1: the client's lock is ONE for every project. A reset
+// behind another control's analyse must refuse at once, not hold the
+// professor's request until its deadline.
 func TestResetScansRefusesWhileAnotherJobHoldsTheWorker(t *testing.T) {
 	analysing := make(chan struct{})
 	release := make(chan struct{})

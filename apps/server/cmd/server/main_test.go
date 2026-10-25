@@ -37,6 +37,8 @@ import (
 	"github.com/so77id/nalanda/apps/server/internal/infra/amcworker/amctest"
 	"github.com/so77id/nalanda/apps/server/internal/infra/config"
 	"github.com/so77id/nalanda/apps/server/internal/infra/email"
+	"github.com/so77id/nalanda/apps/server/internal/infra/filestore"
+	"github.com/so77id/nalanda/apps/server/internal/infra/filestore/s3test"
 	"github.com/so77id/nalanda/apps/server/internal/infra/oidc/oidctest"
 	"github.com/so77id/nalanda/apps/server/internal/infra/storage"
 	"github.com/so77id/nalanda/apps/server/internal/infra/storage/authstore"
@@ -84,6 +86,7 @@ func composed(t *testing.T, prober health.Prober) (http.Handler, *authstore.Stor
 	sharedUploads := uploads.NewService(uploads.Service{
 		Root: filepath.Join(t.TempDir(), uploads.DirName), MaxBytes: 8 << 20, Log: logger,
 	})
+	controlsWork := t.TempDir()
 	sharedControls := controls.NewService(controls.Service{
 		// A real matcher over the same database. These cases are about
 		// the router's table, and an empty `student` table is the right
@@ -100,7 +103,8 @@ func composed(t *testing.T, prober health.Prober) (http.Handler, *authstore.Stor
 		Readings:        cstore,
 		Annotator:       amcFake,
 		AnnotateEnabled: true,
-		WorkDir:         t.TempDir(),
+		WorkDir:         controlsWork,
+		Files:           filestore.NewLocal(controlsWork),
 		Now:             time.Now,
 		Seed:            1,
 		Log:             logger,
@@ -226,7 +230,8 @@ func composed(t *testing.T, prober health.Prober) (http.Handler, *authstore.Stor
 		// wires.
 		Surveys: handler.NewSurveys(handler.Surveys{
 			Service: survey.NewService(survey.Service{
-				Store: surveystore.New(db), Generator: &amctest.Fake{}, Analyzer: &amctest.Fake{}, WorkDir: t.TempDir(), Now: time.Now,
+				Store: surveystore.New(db), Generator: &amctest.Fake{}, Analyzer: &amctest.Fake{},
+				WorkDir: controlsWork, Files: filestore.NewLocal(controlsWork), Now: time.Now,
 			}),
 			Jobs: jobstore.New(db),
 			Runner: jobs.NewRunner(jobstore.New(db), jobs.Handlers{
@@ -629,6 +634,46 @@ func TestAnUnhandledMailModePanicsRatherThanFallingBackToStub(t *testing.T) {
 		slog.New(slog.NewTextHandler(io.Discard, nil)))
 }
 
+// Issue #338: the boot-time file store. Same reason as the transports
+// above — a wrong answer is silent: an s3 deployment that got the local
+// store looks healthy and keeps nothing off the Jetson.
+func TestEachFilesStoreSelectsItsOwnStore(t *testing.T) {
+	for _, tc := range []struct {
+		store    config.FilesStore
+		want     string
+		wantSync bool
+	}{
+		{config.FilesStoreLocal, "*filestore.Local", false},
+		{config.FilesStoreS3, "*filestore.S3", true},
+	} {
+		t.Run(string(tc.store), func(t *testing.T) {
+			cfg := config.Config{
+				FilesStore: tc.store, WorkDir: t.TempDir(),
+				FilesS3Bucket: "nalanda-test", FilesS3Region: "us-east-1",
+				FilesS3AccessKeyID: "AKIATEST", FilesS3SecretAccessKey: "secret",
+			}
+			store, sync := buildFileStore(cfg, slog.New(slog.NewTextHandler(io.Discard, nil)))
+			if got := fmt.Sprintf("%T", store); got != tc.want {
+				t.Errorf("%s selected %s, want %s", tc.store, got, tc.want)
+			}
+			// The worker client calls Around on any non-nil ProjectSync:
+			// under local it must be a nil interface, under s3 the real one.
+			if got := workerSync(sync) != nil; got != tc.wantSync || (sync != nil) != tc.wantSync {
+				t.Errorf("%s selected a sync: %v (worker's %v), want %v", tc.store, sync != nil, got, tc.wantSync)
+			}
+		})
+	}
+}
+
+func TestAnUnhandledFilesStorePanicsRatherThanFallingBackToLocal(t *testing.T) {
+	defer func() {
+		if recover() == nil {
+			t.Fatal("buildFileStore returned a store for a value it does not handle")
+		}
+	}()
+	buildFileStore(config.Config{FilesStore: "tape", WorkDir: t.TempDir()}, slog.New(slog.NewTextHandler(io.Discard, nil)))
+}
+
 // unreachableCredentials satisfies email.Credentials without a network. No
 // case above sends, so no case above needs a token.
 type unreachableCredentials struct{}
@@ -654,4 +699,61 @@ func (c connectedGmail) Connection(context.Context, int64) (gmail.Connection, er
 		address = "profesora@gmail.com"
 	}
 	return gmail.Connection{Address: address}, nil
+}
+
+// Issue #338, AC-9: -sync-files is the migration's one command — its exit
+// code is what the operator's procedure checks, and its line is what they
+// read before flipping the store.
+func TestSyncFilesExitsZeroWithItsSummaryAndNonZeroOnAnyFailure(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		summary filestore.Summary
+		err     error
+		code    int
+	}{
+		{"all reconciled", filestore.Summary{Projects: 16, Files: 1800, Bytes: 525_000_000}, nil, 0},
+		{"one project failed", filestore.Summary{Projects: 16, Files: 1700, Failed: 1}, nil, 1},
+		{"no project list", filestore.Summary{}, errors.New("database is locked"), 1},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var out strings.Builder
+			if got := syncFilesExit(tc.summary, tc.err, &out); got != tc.code {
+				t.Errorf("exit = %d, want %d", got, tc.code)
+			}
+			if tc.err == nil && !strings.Contains(out.String(), "projects") {
+				t.Errorf("no summary line: %q", out.String())
+			}
+		})
+	}
+}
+
+// The reconcile runs at BOOT, not first at 03:00: the boot is when a
+// rollback's delta, or a push a restart cut short, is waiting.
+func TestTheReconcileRunsAtBootThenWaitsForThreeOClock(t *testing.T) {
+	ran := make(chan struct{}, 4)
+	log := slog.New(slog.NewTextHandler(io.Discard, nil))
+	rec := filestore.NewReconciler(filestore.NewSync(filestore.NewS3(s3test.New(), "nalanda-test"), t.TempDir(), log),
+		func(context.Context) ([]string, error) {
+			ran <- struct{}{}
+			return nil, nil
+		},
+		func(fn func() error) error { return fn() }, log)
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	go func() { reconcileDaily(ctx, rec, log); close(done) }()
+
+	select {
+	case <-ran:
+	case <-time.After(10 * time.Second):
+		t.Fatal("the reconcile did not run at boot")
+	}
+	cancel()
+	select {
+	case <-done:
+	case <-time.After(10 * time.Second):
+		t.Fatal("the reconcile loop did not stop with its context")
+	}
+	if len(ran) != 0 {
+		t.Errorf("the reconcile ran %d more time(s) before 03:00", len(ran))
+	}
 }

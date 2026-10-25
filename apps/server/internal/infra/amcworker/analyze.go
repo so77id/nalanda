@@ -10,16 +10,22 @@ import (
 	"net/http"
 
 	"github.com/so77id/nalanda/apps/server/internal/domain/controls"
+	"github.com/so77id/nalanda/apps/server/internal/domain/files"
 )
 
 // Analyze runs POST /analyse against the worker. Serialised behind the same
-// mutex as Generate: AMC's state is sqlite in the project directory and two
+// lock as Generate: AMC's state is sqlite in the project directory and two
 // runs against one project would race it, which is the whole reason this
 // wrapper exists (ADR-0030 §The worker is threaded; AMC is not re-entrant).
 //
 // Analyse is minutes-class — a 40-copy batch is under a minute measured, but
 // getimages + analyse + note + read_capture is orders of magnitude slower
 // than a synchronous generate. The caller's context is what bounds the wait.
+//
+// When AMC read the batch and only the copy to the store failed, the report
+// comes back WITH the error, which wraps files.ErrNotStored (issue #338
+// review, COR-1): AMC has captured the batch, and a caller that dropped the
+// report would leave the database behind a capture it no longer matches.
 func (c *Client) Analyze(ctx context.Context, req controls.AnalyzeRequest) (controls.Report, error) {
 	if req.Project == "" {
 		return controls.Report{}, fmt.Errorf("%w: project path is required", controls.ErrAnalyzerRefused)
@@ -38,9 +44,6 @@ func (c *Client) Analyze(ctx context.Context, req controls.AnalyzeRequest) (cont
 			controls.ErrAnalyzerRefused, req.Ticked, req.Unsure)
 	}
 
-	c.generateLock.Lock()
-	defer c.generateLock.Unlock()
-
 	body, err := json.Marshal(analyzeRequestBody{
 		Project: req.Project,
 		ScanPDF: req.ScanPDF,
@@ -51,8 +54,12 @@ func (c *Client) Analyze(ctx context.Context, req controls.AnalyzeRequest) (cont
 	if err != nil {
 		return controls.Report{}, fmt.Errorf("amcworker: encode analyse request: %w", err)
 	}
-	report, err := c.postReport(ctx, "/analyse", body)
-	if err != nil {
+	var report controls.Report
+	err = c.serialised(ctx, req.Project, func() (err error) {
+		report, err = c.postReport(ctx, "/analyse", body)
+		return err
+	})
+	if err != nil && !errors.Is(err, files.ErrNotStored) {
 		return controls.Report{}, err
 	}
 	// Issue #298: `batch` is optional on the wire (apps/amc-worker/CLAUDE.md).
@@ -61,7 +68,7 @@ func (c *Client) Analyze(ctx context.Context, req controls.AnalyzeRequest) (cont
 	if report.Batch == nil {
 		report.Batch = &controls.Batch{Captured: report.Pages.Captured}
 	}
-	return report, nil
+	return report, err
 }
 
 // Reanalyze runs POST /reanalyse against the worker. Same lock — the read
@@ -77,9 +84,6 @@ func (c *Client) Reanalyze(ctx context.Context, req controls.ReanalyzeRequest) (
 		return controls.Report{}, fmt.Errorf("%w: unsure must be in [0, ticked), got %v vs ticked %v", controls.ErrAnalyzerRefused, req.Unsure, req.Ticked)
 	}
 
-	c.generateLock.Lock()
-	defer c.generateLock.Unlock()
-
 	body, err := json.Marshal(reanalyzeRequestBody{
 		Project: req.Project,
 		Ticked:  req.Ticked,
@@ -88,7 +92,12 @@ func (c *Client) Reanalyze(ctx context.Context, req controls.ReanalyzeRequest) (
 	if err != nil {
 		return controls.Report{}, fmt.Errorf("amcworker: encode reanalyse request: %w", err)
 	}
-	return c.postReport(ctx, "/reanalyse", body)
+	var report controls.Report
+	err = c.serialised(ctx, req.Project, func() (err error) {
+		report, err = c.postReport(ctx, "/reanalyse", body)
+		return err
+	})
+	return report, err
 }
 
 // postReport POSTs body to path and decodes the reading report. Shared by

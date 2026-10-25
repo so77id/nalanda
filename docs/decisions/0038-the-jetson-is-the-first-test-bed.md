@@ -6,6 +6,11 @@ provisioning, the Funnel bring-up, and `GOOGLE-CHECK.md` on https)
 **Amended by:** #175 (2026-08-18) — extended to co-host `apps/amc-worker`
 on the same Jetson; §Decision "Compose-file shape" now covers both apps
 and the measurement block adds three amc-worker RSS numbers.
+**Amended by:** #338 (2026-10-25) — what leaves the box is no longer only
+the database: under `NALANDA_FILES_STORE=s3` every project's files live in
+the same bucket, under `work/`, as their PRIMARY copy, reached with a
+second IAM user (`nalanda-jetson-server`, `work/*` only). The backup
+sidecar, its user and `backups/` are unchanged. ADR-0089.
 **Decision-makers:** Miguel Rodriguez
 **Source:** #162, #175, design `docs/design/2026-08-controles.md` §C15,
 ADR-0034 §Consequences, WP-C2 (#150) — the five review triggers that fire at
