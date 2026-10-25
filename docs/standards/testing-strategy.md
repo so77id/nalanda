@@ -466,11 +466,13 @@ part of its own pre-PR run. Worked case: #231 caught its own
 the tree; the tests said nothing until then. Same class as PAPER-CHECK
 above but scoped to the JS/browser edge.
 
-Since #339 there is a second one, and the first that CHANGES state:
-`templates/partials/chunked_upload.html`, the chunked scan upload on the
-control page and a run's scans page (ADR-0088). The suite pins only that
-both pages render the form's `data-chunked-upload`, the status block and the
-script once (`chunked_form_test.go`). Its check is a Playwright run against
+The same blindness covers a first-party module under `/static/js/`, and since
+#339 there is one, the first script on this surface that CHANGES state:
+`static/js/chunked_upload.mjs`, the chunked scan upload on the control page
+and a run's scans page (ADR-0088 §6). The suite pins only that it is served
+as `text/javascript` (`static_test.go`) and that both pages render the form's
+`data-chunked-upload`, the status block and the one `<script type="module"
+src>` tag (`chunked_form_test.go`). Its check is a Playwright run against
 the compose stack, with Chromium's upload throttled through CDP
 (`Network.emulateNetworkConditions`, `uploadThroughput: 125000` for 1
 Mbit/s): a clean upload, `offline: true` for 30 s mid-upload, a

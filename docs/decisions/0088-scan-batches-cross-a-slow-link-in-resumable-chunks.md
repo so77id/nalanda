@@ -35,7 +35,7 @@ recurs.
 ### 1. The protocol: five kinds of request, all professor-gated
 
 ```
-POST   /controls/{id}/scans/uploads                   start    → 201 {upload, received, chunk, complete}
+POST   /controls/{id}/scans/uploads                   start    → 201 {upload, received, chunk, chunks, complete}
 POST   /surveys/{id}/runs/{rid}/scans/uploads         start    → 201 (same shape)
 PUT    /uploads/{uid}?offset=N   (raw bytes)          chunk    → 200 {received}
 GET    /uploads/{uid}                                 status   → 200 {received, size}
@@ -88,10 +88,13 @@ worker resets, so "Borrar escaneos" cannot reach a partial. But the worker
 mounts the same volume as root, so everything read back from it is
 re-validated: only `^<uid>\.(part|json|tmp)$` names directly under `incoming/`
 are ever opened, written or removed (anything else is logged and left); files
-are opened with `O_NOFOLLOW` and must be regular; the sidecar must parse, name
-its own uid, a subject kind in the closed set, a positive professor and a size
-within the cap. A uid outside its 26-character `[A-Z2-7]` shape is refused
-before any path is built.
+are opened with `O_NOFOLLOW|O_NONBLOCK` and must be regular — the second flag
+so that a FIFO is refused instead of blocking `open(2)`; the sidecar must
+parse, name its own uid, a subject kind in the closed set with a present,
+bounded id, a positive professor and a size within the cap. A uid outside its
+26-character `[A-Z2-7]` shape is refused before any path is built. What is
+NOT defended: `incoming/` itself replaced by a symlink is followed
+(`security-notes.md`, accepted residual).
 
 Every operation on one upload — append, complete, cancel, the sweep, the
 eviction — takes that upload's in-process lock, so the sweep cannot delete a
@@ -132,24 +135,33 @@ se cortó…", with `WARN "upload body read timed out"` naming path and
 professor; every other parse failure keeps its 403 and gains a WARN with the
 error.
 
-### 6. The page: one script, in a partial
+### 6. The page: one module under `/static/js/`, one partial for its markup
 
-`templates/partials/chunked_upload.html` defines two blocks the layout parses
-for every page: `chunked_upload_status` (a `<progress>`, an `aria-live` line,
-Reintentar and Cancelar) inside `form[data-chunked-upload]`, and
-`chunked_upload_script` once per page. The script retries forever with a
-back-off of 1 to 30 s while the tab is open (decision 2: Cancelar is the
-professor's), warns on `beforeunload` while bytes are in flight, and on
-Reintentar after signing in again re-reads the token from the page it lives
-on — no route hands out tokens. Every string it shows is Spanish. A reload or
-a page change abandons the upload (decision 1): the partial is swept.
+The behaviour is a first-party module, `static/js/chunked_upload.mjs`, served
+under `/static/js/` — where ADR-0047 §4 put stateful first-party JS ("No
+stateful behaviour is authored inline… it belongs in a first-party `.mjs`
+under `internal/app/web/static/js/`, not in a template"). It enhances any
+`form[data-chunked-upload]`; the attribute is the URL that opens an upload,
+and the start answer hands it every other URL it uses (`chunks`, `complete`),
+so the file knows no route of the server's.
 
-A partial rather than a first-party file under `/static/`: the script is
-written once and parsed with the templates at boot, and `/static/` is the home
-of VENDORED libraries, whose README contract (version, integrity, upgrade
-path) has nothing to say about our own code. The cost is the one
-`testing-strategy.md` names for any inline script: nothing in `go test` runs
-it, so every change to it is checked in a real browser.
+`templates/partials/chunked_upload.html`, parsed into the layout for every
+page, holds what is markup: `chunked_upload_status` (a `<progress>`, an
+`aria-live` line, Reintentar and Cancelar) inside the form, and
+`chunked_upload_script`, the one `<script type="module">` tag that loads the
+module, once per page.
+
+The script retries forever with a back-off of 1 to 30 s while the tab is open
+(decision 2: Cancelar is the professor's), warns on `beforeunload` while bytes
+are in flight, and on Reintentar after signing in again re-reads the token
+from the page it lives on — no route hands out tokens. Every string it shows
+is Spanish. A reload or a page change abandons the upload (decision 1): the
+partial is swept. Nothing in `go test` runs it; every change to it is checked
+in a real browser (`testing-strategy.md`).
+
+The first draft of this WP put the whole script inline in the partial; the
+pre-PR review found it contradicting ADR-0047 §4, and it moved (#339 review,
+ARQ-1).
 
 ## Alternatives considered
 
@@ -188,9 +200,15 @@ it, so every change to it is checked in a real browser.
   chunk cap per request. The one-request path still is not: its body is parsed
   by `VerifyCSRF` before the handler's `MaxBytesReader` runs (#311 review,
   SEC-3, unchanged here).
-- The page's script is the second inline script on this surface (after
-  `review.html`'s PDF.js boot) and the first that changes state; a change to it
-  is unfinished until it ran in a browser.
+- The page's script is the first first-party module under `/static/js/`, and
+  the first script on this surface that changes state; it adds no inline
+  `<script>` (the CSP trigger in `security-notes.md` is about those — see its
+  "Trigger status after #339"). A change to it is unfinished until it ran in
+  a browser.
+- A complete whose batch was saved but whose job could not be queued still
+  answers `{redirect}`, with a flash that names the failure: the partial is
+  gone by then, so a 500 would send the page into a retry that finds nothing
+  (#339 review, COR-3).
 - `incoming/` is a third kind of thing on the shared volume. Its partials are
   never copied anywhere (#338).
 

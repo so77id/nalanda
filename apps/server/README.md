@@ -166,11 +166,12 @@ internal/app/web/  the professor's backoffice
   middleware/      cookie → professor, the gate, CSRF, and the surface-agnostic request log
   oauthstate/      the single-use state nonces of the OAuth flow
   flash/           the one-shot POST/redirect/GET message cookie
-  view/            html/template, embedded — shell + pages
-  static/          vendored front-end assets (PDF.js today), embedded via
-                   //go:embed and served under /static/ (ADR-0047). New
-                   libraries land under vendor/<lib>/ with their own README
-                   (source, version, SHA-384, upgrade recipe).
+  view/            html/template, embedded — shell + partials + pages
+  static/          front-end assets embedded via //go:embed and served
+                   under /static/ (ADR-0047): vendored libraries (PDF.js
+                   today) under vendor/<lib>/ with their own README (source,
+                   version, SHA-384, upgrade recipe), and first-party modules
+                   under js/ (the chunked upload since #339, ADR-0088)
 internal/app/api/  the JSON/WS surface — anonymous, no middleware (§C12)
 internal/infra/    adapters: config, storage, httpserver, httpjson, selfcheck
   amcworker/       the AMC worker HTTP client (with generateLock mutex);
@@ -387,7 +388,7 @@ Routes today:
 | `GET /controls/{id}/sujet.pdf` · `GET /controls/{id}/corrige.pdf` | Streamed from the shared volume |
 | `GET /controls/{id}/pool.json` | The pool snapshot written at Create time (issue #198) — attachment |
 | `POST /controls/{id}/scans` | Multipart PDF upload — writes the PDF to disk synchronously, then enqueues an `analyse` job. The runner hands the file to the worker's `/analyse`, persists the report and the pair, annotates clean copies and flips the state to `in_review`. Detail page's banner surfaces the running/done/failed state (issue #249). A second batch REPLACES the sheets it re-scans and adds the rest; a copy it re-captured loses its corrections and annotated PDF and keeps its publication record. A batch the worker recognised none of fails the job; a done job's banner says how many pages it could not place and how many published copies it re-read (issue #298, ADR-0075). It is the form WITHOUT the page's script, which uploads in chunks instead (the next two rows); a body the 15 s read deadline cuts answers **408** "La subida tardó demasiado y se cortó…" with `WARN "upload body read timed out"`, never the 403 it used to (issue #339) |
-| `POST /controls/{id}/scans/uploads` | Opens a chunked upload of a batch (issue #339, ADR-0088) — JSON from the page's script, CSRF in `X-CSRF-Token`. Refuses before a byte travels what the form above refuses: an unknown control (404), a size over `NALANDA_MAX_SCAN_MB` (413), a name or type that is not a PDF or thresholds outside the band (400). Answers 201 `{upload, received, chunk, complete}`; the thresholds ride with the upload |
+| `POST /controls/{id}/scans/uploads` | Opens a chunked upload of a batch (issue #339, ADR-0088) — JSON from the page's script, CSRF in `X-CSRF-Token`. Refuses before a byte travels what the form above refuses: an unknown control (404), a size over `NALANDA_MAX_SCAN_MB` (413), a name or type that is not a PDF or thresholds outside the band (400). Answers 201 `{upload, received, chunk, chunks, complete}` — `chunks` is the upload's `/uploads/{uid}`, so the page's script knows no route of its own; the thresholds ride with the upload |
 | `POST /controls/{id}/scans/uploads/{uid}/complete` | Turns a whole upload into the control's next `batch-N.pdf` through the same `SaveUploadedBatch`, removes the partial only after it returned, then enqueues the `analyse` job and sets the form's flash; answers `{redirect}`. 409 with `received` while bytes are missing, 404 for another control's or an unknown uid (a second complete included), 400 when the bytes are not a PDF |
 | `PUT /uploads/{uid}?offset=N` · `GET /uploads/{uid}` · `DELETE /uploads/{uid}` | One upload in progress, whatever it is for (issue #339, ADR-0088), reachable only by its creator. PUT appends ≤ 1 MiB of raw bytes at `offset` → `{received}`; a wrong offset is 409 with `received` and writes nothing, a chunk over 1 MiB or past the declared size 413, a body the deadline cut 408 and one the link cut 400 — both with `received`, keeping what arrived. GET answers `{received, size}`, never cached — the page's resync. DELETE is Cancelar (204). Unknown, foreign and malformed uids are one identical 404. JSON errors are `{"message"}` in Spanish |
 | `POST /controls/{id}/reanalyze` | Enqueues a `reanalyse` job: the runner re-reads the stored captures at new `ticked`/`unsure` thresholds without a new capture, re-scores at them, and re-annotates the clean copies (issue #197, async since #249) |

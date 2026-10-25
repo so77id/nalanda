@@ -154,7 +154,11 @@ fact.
   URL prefix is a string literal spelled in router.go, in the template
   that consumes the asset, and in the vendor README — a rename touches
   all three; there is no shared constant on purpose (see the router
-  entry's comment).
+  entry's comment). **First-party JS goes under `static/js/`, never inline
+  in a template** (ADR-0047 §4): one more embed entry, no README, and a
+  `static_test.go` case pinning `text/javascript` — worked case
+  `js/chunked_upload.mjs` (#339), loaded from
+  `templates/partials/chunked_upload.html`.
 - `README.md` §"What is not here yet" — before adding anything, check whether
   the work belongs to **WP-G** (publishing grades) or to the deletion path
   `security-notes.md` records as missing. **WP-C1, WP-C2,
@@ -403,10 +407,13 @@ the `avisoNo*` / `flash.Set(…)` string literals in `internal/app/web/handler/`
      its prefix on purpose — it is the right bytes at the right offset.
   2. **Only an upload's own names are ever touched** — `<uid>.part`,
      `.json`, `.tmp` directly under `<WorkDir>/incoming/`; the sweep and the
-     eviction log anything else and leave it. Files are opened `O_NOFOLLOW`
-     and must be regular, and the sidecar is re-validated on every read: a
-     partial swapped for a symlink to the database would otherwise be
-     "saved" as a batch (`TestASymlinkedPartIsNeverFollowed`).
+     eviction log anything else and leave it. Files are opened
+     `O_NOFOLLOW|O_NONBLOCK` and must be regular, and the sidecar is
+     re-validated on every read: a partial swapped for a symlink to the
+     database would otherwise be "saved" as a batch
+     (`TestASymlinkedPartIsNeverFollowed`), and a FIFO would block `open(2)` —
+     and through the eviction's mutex every Create
+     (`TestAFIFOOnTheSharedVolumeIsRefusedAndBlocksNothing`).
   3. **One `uploads.Service` per process**, built once in `cmd/server` and
      handed to `handler.Uploads`, `Controls` and `Surveys` alike. The
      per-upload lock that keeps a chunk, a complete and the sweep apart is in

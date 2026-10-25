@@ -119,6 +119,12 @@ other's code, the boundary is a named test in `internal/architecture_test.go`:
 the two sides as prefix lists, checked over `readPackages`'s transitive
 imports, with a non-vacuity floor on how many packages the walk saw. Worked
 case: `TestTheSurveyDomainDoesNotImportControls` (issue #309, ADR-0078).
+And the NEUTRAL package both siblings use gets one too: a test that it
+imports neither side, transitively, failing when the package is missing from
+the walk — otherwise "shared code goes in a neutral package" holds only
+until someone adds one import. Worked case:
+`TestTheUploadsDomainImportsNeitherSubsystem` (#339); `jobs`, the older
+neutral package, has no such guard yet.
 
 **When the domain needs something from outside, it declares the interface and
 infra implements it.** The worked example is `health.Prober`: declared in
@@ -270,8 +276,10 @@ import, WP-E's control creation, WP-F's review queue.
 
 ### Every page renders through the shell
 
-`internal/app/web/view` parses `templates/layout.html` once at package init
-and stitches every page under `templates/pages/*.html` onto a clone of it.
+`internal/app/web/view` parses `templates/layout.html` once at package init,
+with the blocks under `templates/partials/*.html` parsed into it so every page
+can invoke them (#339), and stitches every page under `templates/pages/*.html`
+onto a clone of it.
 The layout carries the two-half navigation, both themes (`color-scheme:
 light dark`, `currentColor` only), the embedded CSS, and the render of
 `.Flash`. `view.render` is the only writer: it buffers into memory, sets
@@ -362,16 +370,17 @@ source of truth — and hides the flat control while keeping it in the form
 so its value is what POSTs. Without JS the flat select is the whole UI;
 the handler contract is unchanged.
 
-A script MORE than one page needs is still written once: as a block in
-`templates/partials/`, which the layout parses for every page, invoked where
-it is needed — never a second inline copy. Worked case: the chunked scan
-upload (#339, ADR-0088), one partial used by the control page and a run's
-scans page, enhancing whichever form carries `data-chunked-upload`; without
-it the form posts as it always did. `/static/` (ADR-0047) is for VENDORED
-libraries, whose README contract (version, integrity, upgrade path) has
-nothing to say about first-party code. (This paragraph used to say a second
-page should move both scripts to `/static/`; #339 is where that changed,
-and ADR-0088 §6 says why.)
+Behaviour with state, or behaviour more than one page needs, is a
+first-party module under `internal/app/web/static/js/`, never an inline
+block (ADR-0047 §4): one more entry on `static.go`'s explicit embed line and
+a `static_test.go` case pinning it is served as `text/javascript`. Markup the
+module drives, if more than one page needs it, is a block in
+`templates/partials/`, which the layout parses for every page. Worked case:
+the chunked scan upload (#339, ADR-0088 §6) — `static/js/chunked_upload.mjs`
+enhances any form carrying `data-chunked-upload`, and the partial
+`chunked_upload.html` holds its status block and the one `<script
+type="module" src>` tag; without the module the form posts as it always did.
+(#339's first draft inlined the script in the partial; its review moved it.)
 
 ### Error pages — 404 / 403 / 500
 
