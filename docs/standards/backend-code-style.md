@@ -18,8 +18,8 @@ covers only what `gofmt` and `go vet` cannot.
 
 - **Go as declared in `apps/server/go.mod`**, currently 1.26.10. Every place a
   toolchain bump moves, and the checks it owes, are listed once, in the comment
-  on the Dockerfile's pinned builder (#341). CI reads the
-  version from that file (`go-version-file`), so the toolchain a job uses and
+  on the Dockerfile's pinned builder (#341). CI reads the version from
+  `go.mod` (`go-version-file`), so the toolchain a job uses and
   the one the module declares cannot drift. **Keep it at or above the patch the
   Dockerfile's pinned builder ships**: the two were 1.25.7 and 1.25.13 for one
   WP, so CI tested on a toolchain older than the one that built the image, and

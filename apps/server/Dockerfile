@@ -33,8 +33,10 @@
 #     defaults the move flips; read them and the release notes against this
 #     server and record the result in a commit body (#341 is the worked case).
 #   - this image's CA bundle is the one the scratch stage ships, so a new
-#     digest also moves production's trusted roots: compare the two bundles
-#     (#341: 119 -> 118 roots, Google's GTS roots in both).
+#     digest also moves production's trusted roots: list the subjects of
+#     /etc/ssl/certs/ca-certificates.crt in the old and new image, and check
+#     that every destination named at the COPY below keeps its root (#341:
+#     119 -> 118 roots; GTS R1/R3/R4 and Amazon Root CA 1 in both).
 #
 # --platform=${BUILDPLATFORM} pins the BUILDER to the runner's own arch. Without
 # it, buildx cross-compiling to linux/arm64 from an amd64 runner would run the

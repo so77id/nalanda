@@ -50,11 +50,13 @@ names its trigger for re-evaluation — nothing is "accepted forever".
   rather than 1.27 because it was the measured one-major move the issue
   specified (decided 2026-10-24).
 - **What else the move changed**: four GODEBUG defaults now follow the 1.26
-  line, all toward the stricter side (`urlstrictcolons`, `tlssecpmlkem`,
-  `cryptocustomrand`, `httpservecontentmaxranges`), and the new builder ships
-  a newer CA bundle into the scratch image (`ca-certificates-bundle`
-  20260611-r0 → 20261020-r0, 119 → 118 roots; Google's GTS roots are in
-  both, so the OIDC and Gmail calls keep their trust anchors).
+  line — three stricter (`urlstrictcolons`, `cryptocustomrand`,
+  `httpservecontentmaxranges`), and `tlssecpmlkem`, which turns on two more
+  post-quantum key exchanges. The new builder also ships a newer CA bundle
+  into the scratch image (`ca-certificates-bundle` 20260611-r0 →
+  20261020-r0, 119 → 118 roots: five removed, four added). Google's GTS
+  roots (OIDC, Gmail) and Canvas's Amazon Root CA 1 / Starfield G2 are in
+  both, so every outbound TLS call keeps its trust anchor.
 - **Review trigger**: Go 1.28's release (expected February 2027) ends fixes
   for the 1.26 line, so the toolchain moves again then — or sooner, the first
   time govulncheck reports a standard-library advisory with no 1.26 fix.
