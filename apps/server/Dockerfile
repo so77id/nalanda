@@ -13,11 +13,15 @@
 # Pinned by digest, not only by tag: a tag is a moving pointer, and "the build
 # that worked last week" has to be reproducible for a project measured in years.
 #
-# A toolchain bump starts here and moves, in the same PR: go.mod's `go` line
-# (equal to this image's patch — backend-code-style.md §Version), the copies
-# of this digest in testing-strategy.md §apps/server (both protocols run in
-# this image), and the govulncheck pin in .github/workflows/server.yml and in
-# the tool registry of .claude/workflow-bindings.md (#341).
+# A toolchain bump starts here and moves, in the same PR (#341):
+#   - go.mod's `go` line, kept equal to this image's patch (go.mod at or above
+#     it: backend-code-style.md §Version; the image at or above go.mod:
+#     testing-strategy.md §apps/server), and §Version's "currently" patch;
+#   - in testing-strategy.md §apps/server, where both protocols run in this
+#     image: the copies of this digest and its tag, the go1.x.y it names, and
+#     its govulncheck pin;
+#   - the govulncheck pin in .github/workflows/server.yml and in the tool
+#     registry of .claude/workflow-bindings.md.
 #
 # --platform=${BUILDPLATFORM} pins the BUILDER to the runner's own arch. Without
 # it, buildx cross-compiling to linux/arm64 from an amd64 runner would run the

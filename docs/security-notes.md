@@ -32,7 +32,7 @@ names its trigger for re-evaluation — nothing is "accepted forever".
   `crypto/x509` (6809) was published 2026-10-21 and fixed only in go1.26.10 /
   go1.27.3. govulncheck reported all 13 as reachable, through
   `httpserver.Serve`, `email.GmailDispatcher.Send`, `middleware.WriteError`
-  and the handlers' form parsing.
+  and the handlers' form parsing, among others.
 - **Why 1.25 had no fix**: Go supports a major release until there are two
   newer ones, and go1.27.0 shipped 2026-08-19. Raising the toolchain was the
   only resolution (`backend-code-style.md` §Version: never suppress a hit).
@@ -40,7 +40,8 @@ names its trigger for re-evaluation — nothing is "accepted forever".
   publication until #341's image is deployed (`govulncheck -mode=binary` on
   the published arm64 binary reported 13 on 2026-10-24). Nothing saw it in
   between: `server.yml` runs only on a PR or a push that touches
-  `apps/server`, none happened from 2026-10-06 to 2026-10-24, and it was
+  `apps/server` or the workflow itself, none happened from 2026-10-06 to
+  2026-10-24, and it was
   #339's pre-PR gate that found them. A scheduled scan of the shipped binary
   is a follow-up issue of #341's review.
 - **Resolution (#341)**: `go.mod` and the pinned builder moved to go1.26.10,
