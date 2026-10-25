@@ -72,6 +72,19 @@ check_eq "and names the subject PDF on the volume" "project/out/sujet.pdf" \
   "$(echo "$gen" | field 'd["sujet"]')"
 check "the subject PDF is really there" test -s "${work}/project/out/sujet.pdf"
 
+# Issue #338: AMC names its question catalog `<prefix>catalog.pdf` unless
+# told otherwise, and `--prefix <project>` has no trailing slash — so it used
+# to land BESIDE the project (/work/projectcatalog.pdf), root-owned, out of
+# reach of the chown, the purge and the sync. It belongs in out/, and nothing
+# may appear beside the project.
+check "the catalog lands in the project's out/" test -s "${work}/project/out/catalog.pdf"
+check_eq "nothing is written beside the project" "" \
+  "$(cd "$work" && ls -1 -- *catalog.pdf 2>/dev/null | tr '\n' ' ' || true)"
+# Building the catalog is also what fills layout_char — the letters drawn in
+# the boxes — so it must be redirected, never dropped.
+check "the catalog build still fills layout_char" test "$(docker exec "$NAME" python3 -c \
+  "import sqlite3; print(sqlite3.connect('/work/project/data/layout.sqlite').execute('select count(*) from layout_char').fetchone()[0])")" -gt 0
+
 # --- fill synthetically (a test tool, deliberately not a worker route) --------
 
 # Filling sheets is not something production ever does — a real batch comes off

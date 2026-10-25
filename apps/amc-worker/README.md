@@ -105,6 +105,7 @@ of promise as `/generate`'s response paths):
 <project>/out/sujet.pdf         printed set, from /generate
 <project>/out/corrige.pdf       answer key, from /generate
 <project>/out/calage.xy         layout coordinates, from /generate
+<project>/out/catalog.pdf       AMC's question catalog, from /generate (#338: never beside the project)
 <project>/scans/copy-N-page-M.png
                                 one image per scanned page, from /analyse's
                                 getimages step (N = copy number, M = page)

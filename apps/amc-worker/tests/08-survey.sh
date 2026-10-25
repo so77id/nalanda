@@ -59,6 +59,11 @@ field() { python3 -c "import json,sys;d=json.load(sys.stdin);print($1)" 2>/dev/n
 gen="$(post /generate '{"project":"survey","source":"survey/inputs/source.tex","copies":3}')"
 check_eq "a sheet with no ID grid and one stand-in correct answer generates" "3" \
   "$(echo "$gen" | field 'd["copies"]')"
+# Issue #338: a run's catalog in its own out/, not beside the run directory
+# (production had surveys/1/runs/1catalog.pdf).
+check "the run's catalog lands in its out/" test -s "${work}/survey/out/catalog.pdf"
+check_eq "nothing is written beside the run" "" \
+  "$(cd "$work" && ls -1 -- *catalog.pdf 2>/dev/null | tr '\n' ' ' || true)"
 
 fill() {
   docker exec --env DISPLAY= "$NAME" python3 /work/fill_sheet.py \

@@ -242,10 +242,17 @@ def generate(body):
     sujet = os.path.join(out, "sujet.pdf")
     corrige = os.path.join(out, "corrige.pdf")
     calage = os.path.join(out, "calage.xy")
+    # Mode s builds the catalog too, and AMC names it `<prefix>catalog.pdf`
+    # when not told otherwise — with `--prefix <project>` that is BESIDE the
+    # project, root-owned, out of reach of the chown, the purge and the S3
+    # sync (issue #338). Named here like the other three. Not dropped: its
+    # build is also what fills layout_char, the letters in the boxes.
+    catalog = os.path.join(out, "catalog.pdf")
 
     amc("prepare", "--mode", "s", "--n-copies", copies, "--with", "pdflatex",
         "--data", data, "--prefix", project,
         "--out-sujet", sujet, "--out-corrige", corrige, "--out-calage", calage,
+        "--out-catalog", catalog,
         source)
     amc("meptex", "--data", data, "--src", calage)
 
