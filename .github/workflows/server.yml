@@ -78,7 +78,7 @@ jobs:
       # PINNED (#297), not @latest: a scanner release that needs a newer Go
       # than go.mod's makes setup-go's GOTOOLCHAIN=auto switch toolchain
       # silently and scan THAT stdlib instead of go.mod's — v1.8.0 did it to
-      # go 1.25. The pin moves with go.mod's `go` line (v1.9.0 since go
+      # a 1.25 module. The pin moves with go.mod's `go` line (v1.9.0 since
       # 1.26.10, #341) — docs/standards/testing-strategy.md §apps/server says
       # why.
       - name: Vulnerability check

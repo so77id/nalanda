@@ -253,8 +253,8 @@ Born with the app in #149. Style rules for the tests themselves live in
 
 **Both protocols run inside the builder image the `Dockerfile` pins, never
 on a host toolchain** (2026-09-05). The image is
-`golang:1.25-alpine@sha256:3eb6c2b3db8d55e38537302edb510b4417f8a115efbd5906d131ceba9468e29a`,
-so the suite runs on the same `go1.25.13` that builds the shipped binary and
+`golang:1.26-alpine@sha256:27f2d3b83cfc5803c8078f8e730af0f7c431bf067afaec8f60a36fb763187cba`,
+so the suite runs on the same `go1.26.10` that builds the shipped binary and
 that `go.mod` declares. A laptop Homebrew Go tests a standard library
 production never runs — measured on 2026-09-05, the host was `go1.26.6`
 against a module declaring `1.25.13`, which is the same toolchain gap
@@ -284,7 +284,7 @@ run re-downloads the module graph.
 ```bash
 docker run --rm -v "$PWD":/src -w /src/apps/server \
   -v nalanda-gomod:/go/pkg/mod -v nalanda-gocache:/root/.cache/go-build \
-  golang:1.25-alpine@sha256:3eb6c2b3db8d55e38537302edb510b4417f8a115efbd5906d131ceba9468e29a \
+  golang:1.26-alpine@sha256:27f2d3b83cfc5803c8078f8e730af0f7c431bf067afaec8f60a36fb763187cba \
   sh -c 'test -z "$(gofmt -l .)" && go vet ./... && go build ./... && go test ./...'
 ```
 
@@ -310,7 +310,7 @@ line for the cgo reason above:
 ```bash
 docker run --rm -e CGO_ENABLED=1 -v "$PWD":/src -w /src/apps/server \
   -v nalanda-gomod:/go/pkg/mod -v nalanda-gocache:/root/.cache/go-build \
-  golang:1.25-alpine@sha256:3eb6c2b3db8d55e38537302edb510b4417f8a115efbd5906d131ceba9468e29a \
+  golang:1.26-alpine@sha256:27f2d3b83cfc5803c8078f8e730af0f7c431bf067afaec8f60a36fb763187cba \
   sh -c 'apk add --no-cache build-base && go test -race -count=1 ./...'
 ```
 
@@ -323,7 +323,7 @@ test -z "$(gofmt -l .)"        # see below: `gofmt -l` alone is not a gate
 go vet ./...
 go test -race -count=1 ./...   # FULL suite: unit + L4 architecture + L6
 go build ./...
-go run golang.org/x/vuln/cmd/govulncheck@v1.7.0 ./...   # same gate as CI; needs network; PINNED, see below
+go run golang.org/x/vuln/cmd/govulncheck@v1.9.0 ./...   # same gate as CI; needs network; PINNED, see below
 docker build -t nalanda/server:dev .
 # then the compose path (L8), from infra/local/:
 #   docker compose up -d --build --wait server \
@@ -342,23 +342,27 @@ then fail CI on a gate no document mentions.
 
 **Its version is PINNED, and the pin moves with `go.mod`'s `go` line**
 (2026-09-22, #297). `@latest` became `golang.org/x/vuln` v1.8.0, which
-requires go ≥ 1.26: in the pinned 1.25 image it refuses to run
+requires go ≥ 1.26: in the then-pinned 1.25 image it refused to run
 (`requires go >= 1.26.0 (running go 1.25.13; GOTOOLCHAIN=local)`), and
 wherever `GOTOOLCHAIN=auto` — which is what `setup-go` leaves CI with — it
-silently switches to go1.26.x and scans THAT standard library (`-json`
-reports `"go_version": "go1.26.8"`), which is the one gap this step exists
-to close, while going green. v1.7.0 is the newest release that runs on 1.25
-and scans `go1.25.13`. Raise it when `go.mod` moves to a toolchain the newer
-scanner supports — in this file and in `.github/workflows/server.yml`
-together.
+silently switched to go1.26.x and scanned THAT standard library (`-json`
+reported `"go_version": "go1.26.8"`), which is the one gap this step exists
+to close, while going green. So the pin is the newest release that runs on
+the toolchain `go.mod` declares and scans it: v1.7.0 while that was
+1.25.13, **v1.9.0 since `go.mod` moved to 1.26.10** (2026-10-24, #341 —
+the 1.25 line shipped no fix for 13 standard-library advisories, so the
+step stayed red until the move; v1.8.0 also runs on 1.26.10 and is also
+clean). Raise it when `go.mod` moves to a toolchain a newer scanner
+supports — in this file, in `.github/workflows/server.yml` and in the tool
+registry of `.claude/workflow-bindings.md` together.
 
 **When the Dockerfile's builder digest changes, check it against `go.mod`:**
 
 ```bash
-docker run --rm golang:1.25-alpine@<digest> go version   # must be >= go.mod's
+docker run --rm golang:1.26-alpine@<digest> go version   # must be >= go.mod's
 ```
 
-The digest names no version and `1.25-alpine` is a moving tag, so nothing else
+The digest names no version and `1.26-alpine` is a moving tag, so nothing else
 surfaces a mismatch: `docker build` succeeds either way.
 
 **`-count=1` is not optional in the pre-PR run, and the reason is specific.**
