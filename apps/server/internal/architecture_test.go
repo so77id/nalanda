@@ -556,3 +556,32 @@ func TestTheUploadsDomainImportsNeitherSubsystem(t *testing.T) {
 		}
 	}
 }
+
+// Issue #338, the same shape as the uploads rule above: every work file of
+// both subsystems is read through internal/domain/files, so it may import
+// neither. It knows paths under the work root, never a control or a run.
+func TestTheFilesDomainImportsNeitherSubsystem(t *testing.T) {
+	packages := readPackages(t)
+
+	port := domainPrefix + "/files"
+	subsystems := []string{
+		domainPrefix + "/controls",
+		domainPrefix + "/survey",
+		infraPrefix + "/storage/controlstore",
+		infraPrefix + "/storage/surveystore",
+	}
+
+	deps, ok := packages[port]
+	if !ok {
+		t.Fatalf("no package %s in the walk — if it moved, repoint this test", port)
+	}
+	for _, dep := range deps {
+		for _, prefix := range subsystems {
+			if inLayer(dep, prefix) {
+				t.Errorf("%s depends on %s.\nThe file store is shared by the controls and the "+
+					"surveys, so it may depend on neither (ADR-0078). It names files by their "+
+					"path under the work root instead.", port, dep)
+			}
+		}
+	}
+}

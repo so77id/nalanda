@@ -10,6 +10,8 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+
+	"github.com/so77id/nalanda/apps/server/internal/domain/files"
 )
 
 // uploadsDir is the subdirectory under a control's project where uploaded
@@ -1066,27 +1068,21 @@ func nextBatchNumber(dir string) (int, error) {
 	return nums[len(nums)-1] + 1, nil
 }
 
-// UploadList returns the names of the scan batches already on disk for a
-// control, ordered by batch number. Only files matching the on-disk
+// UploadList returns the names of the scan batches the file store holds
+// for a control, ordered by batch number. Only files matching the on-disk
 // contract count (batch-N.pdf, batchNumber); the handler renders one
 // download link per entry (issue #204). Empty when nothing was uploaded
 // yet or the directory does not exist — the page then shows nothing.
-func (s *Service) UploadList(controlID string) ([]string, error) {
-	dir := filepath.Join(s.ProjectDir(controlID), uploadsDir)
-	entries, err := os.ReadDir(dir)
+func (s *Service) UploadList(ctx context.Context, controlID string) ([]string, error) {
+	dir := projectRel(controlID, uploadsDir)
+	entries, err := s.Files.List(ctx, dir)
 	if err != nil {
-		if os.IsNotExist(err) {
-			return nil, nil
-		}
-		return nil, fmt.Errorf("controls.UploadList: read %s: %w", dir, err)
+		return nil, fmt.Errorf("controls.UploadList: list %s: %w", dir, err)
 	}
 	names := make([]string, 0, len(entries))
 	for _, e := range entries {
-		if e.IsDir() {
-			continue
-		}
-		if _, ok := batchNumber(e.Name()); ok {
-			names = append(names, e.Name())
+		if _, ok := batchNumber(e.Name); ok {
+			names = append(names, e.Name)
 		}
 	}
 	sort.Slice(names, func(i, j int) bool {
@@ -1097,11 +1093,11 @@ func (s *Service) UploadList(controlID string) ([]string, error) {
 	return names, nil
 }
 
-// UploadPath composes the host-side path of one uploaded batch. The name
+// OpenUpload opens one uploaded batch through the file store. The name
 // must already match the batch contract — the handler validates at the URL
-// boundary (issue #204); this is a path join, not a validation.
-func (s *Service) UploadPath(controlID, name string) string {
-	return filepath.Join(s.ProjectDir(controlID), uploadsDir, name)
+// boundary (issue #204), and the store refuses any path that is not clean.
+func (s *Service) OpenUpload(ctx context.Context, controlID, name string) (files.File, error) {
+	return s.Files.Open(ctx, projectRel(controlID, uploadsDir, name))
 }
 
 func writeUpload(path string, r io.ReadCloser) error {

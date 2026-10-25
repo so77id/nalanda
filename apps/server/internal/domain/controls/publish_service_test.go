@@ -16,6 +16,7 @@ import (
 	"github.com/so77id/nalanda/apps/server/internal/domain/course/bank"
 	"github.com/so77id/nalanda/apps/server/internal/domain/gmail"
 	"github.com/so77id/nalanda/apps/server/internal/infra/amcworker/amctest"
+	"github.com/so77id/nalanda/apps/server/internal/infra/filestore"
 )
 
 // The publication loop. What is worth pinning is not "does it send" — it is
@@ -289,6 +290,7 @@ func newPublishRig(t *testing.T) *publishRig {
 		}},
 		AnnotateEnabled: true,
 		WorkDir:         workDir,
+		Files:           filestore.NewLocal(workDir),
 		Now:             func() time.Time { return time.Unix(1_757_260_800, 0).UTC() },
 		Seed:            1242,
 		Log:             slog.New(slog.NewTextHandler(io.Discard, nil)),

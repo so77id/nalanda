@@ -16,6 +16,7 @@ import (
 	"github.com/so77id/nalanda/apps/server/internal/domain/controls"
 	"github.com/so77id/nalanda/apps/server/internal/domain/course/bank"
 	"github.com/so77id/nalanda/apps/server/internal/infra/amcworker/amctest"
+	"github.com/so77id/nalanda/apps/server/internal/infra/filestore"
 )
 
 // bankJSON is the fixture from S1, trimmed to what these cases exercise.
@@ -340,6 +341,7 @@ func newService(t *testing.T) (*controls.Service, *fakeStore, *amctest.Fake, str
 		// that exercise the off switch build their own Service.
 		AnnotateEnabled: true,
 		WorkDir:         workDir,
+		Files:           filestore.NewLocal(workDir),
 		Now:             func() time.Time { return time.Unix(1_755_446_400, 0).UTC() },
 		Seed:            1242,
 		Log:             slog.New(slog.NewTextHandler(io.Discard, nil)),
@@ -595,6 +597,7 @@ func TestCreatePassesTheCorrectAbsoluteListingPathForCodeQuestions(t *testing.T)
 		Roster:     noRoster{},
 		Senders:    noSenders{},
 		WorkDir:    workDir,
+		Files:      filestore.NewLocal(workDir),
 		Now:        func() time.Time { return time.Now() }, Seed: 1,
 		Log: slog.New(slog.NewTextHandler(io.Discard, nil)),
 	})

@@ -271,7 +271,7 @@ func TestResetScansCallsTheWorkerThenTheDatabase(t *testing.T) {
 	if len(calls) == 0 || calls[len(calls)-1] != "reset-results "+control.ID {
 		t.Errorf("reading store calls = %v, want the reset last", calls)
 	}
-	uploads, _ := svc.UploadList(control.ID)
+	uploads, _ := svc.UploadList(context.Background(), control.ID)
 	if len(uploads) != 0 {
 		t.Errorf("uploads after reset = %v, want none — the next upload is batch-1.pdf", uploads)
 	}

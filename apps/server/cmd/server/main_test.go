@@ -37,6 +37,7 @@ import (
 	"github.com/so77id/nalanda/apps/server/internal/infra/amcworker/amctest"
 	"github.com/so77id/nalanda/apps/server/internal/infra/config"
 	"github.com/so77id/nalanda/apps/server/internal/infra/email"
+	"github.com/so77id/nalanda/apps/server/internal/infra/filestore"
 	"github.com/so77id/nalanda/apps/server/internal/infra/oidc/oidctest"
 	"github.com/so77id/nalanda/apps/server/internal/infra/storage"
 	"github.com/so77id/nalanda/apps/server/internal/infra/storage/authstore"
@@ -84,6 +85,7 @@ func composed(t *testing.T, prober health.Prober) (http.Handler, *authstore.Stor
 	sharedUploads := uploads.NewService(uploads.Service{
 		Root: filepath.Join(t.TempDir(), uploads.DirName), MaxBytes: 8 << 20, Log: logger,
 	})
+	controlsWork := t.TempDir()
 	sharedControls := controls.NewService(controls.Service{
 		// A real matcher over the same database. These cases are about
 		// the router's table, and an empty `student` table is the right
@@ -100,7 +102,8 @@ func composed(t *testing.T, prober health.Prober) (http.Handler, *authstore.Stor
 		Readings:        cstore,
 		Annotator:       amcFake,
 		AnnotateEnabled: true,
-		WorkDir:         t.TempDir(),
+		WorkDir:         controlsWork,
+		Files:           filestore.NewLocal(controlsWork),
 		Now:             time.Now,
 		Seed:            1,
 		Log:             logger,

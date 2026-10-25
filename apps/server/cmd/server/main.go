@@ -32,6 +32,7 @@ import (
 	"github.com/so77id/nalanda/apps/server/internal/domain/survey"
 	"github.com/so77id/nalanda/apps/server/internal/domain/uploads"
 	"github.com/so77id/nalanda/apps/server/internal/infra/amcworker"
+	"github.com/so77id/nalanda/apps/server/internal/infra/filestore"
 	// Aliased because the domain package one import above owns the name:
 	// the domain is what the rest of this file talks about, and the
 	// adapter appears exactly once, in the constructor below.
@@ -238,6 +239,9 @@ func run(logger *slog.Logger) error {
 	logger.Info("email dispatcher", "mode", cfg.EmailMode)
 
 	amcClient := amcworker.New(amcworker.Config{BaseURL: cfg.AmcWorkerURL})
+	// Issue #338: the store every work file a page or a download hands out
+	// is read through. ONE for both subsystems, like the volume it reads.
+	fileStore := filestore.NewLocal(cfg.WorkDir)
 	controlsService := controls.NewService(controls.Service{
 		Bank:      liveBank,
 		Store:     controlStore,
@@ -264,6 +268,7 @@ func run(logger *slog.Logger) error {
 		// turn the whole flow off without a deploy.
 		AnnotateEnabled: cfg.AnnotateEnabled,
 		WorkDir:         cfg.WorkDir,
+		Files:           fileStore,
 		Now:             time.Now,
 		// Constant seed for reproducibility (tex.Compile refuses zero).
 		// A per-control seed is a future decision: today every control

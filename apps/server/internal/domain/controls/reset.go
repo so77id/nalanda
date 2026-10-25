@@ -40,7 +40,7 @@ func (s ScanSummary) HasScans() bool {
 
 // ScanSummaryFor counts what a reset of the control would destroy.
 func (s *Service) ScanSummaryFor(ctx context.Context, controlID string) (ScanSummary, error) {
-	uploads, err := s.UploadList(controlID)
+	uploads, err := s.UploadList(ctx, controlID)
 	if err != nil {
 		return ScanSummary{}, err
 	}

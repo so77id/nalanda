@@ -1,9 +1,13 @@
 package controls
 
 import (
+	"context"
+	"io"
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/so77id/nalanda/apps/server/internal/infra/filestore"
 )
 
 // The batch naming contract is stated in nextBatchNumber's docstring:
@@ -49,7 +53,7 @@ func touch(t *testing.T, dir string, names ...string) {
 // batchNumber helper that names the next upload — two readers, one rule.
 func TestUploadListReturnsContractMatchingBatchesInOrder(t *testing.T) {
 	workDir := t.TempDir()
-	svc := &Service{WorkDir: workDir}
+	svc := &Service{WorkDir: workDir, Files: filestore.NewLocal(workDir)}
 	dir := filepath.Join(svc.ProjectDir("CTRLUPLOAD0000000000000000"), uploadsDir)
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		t.Fatalf("MkdirAll: %v", err)
@@ -62,7 +66,7 @@ func TestUploadListReturnsContractMatchingBatchesInOrder(t *testing.T) {
 		t.Fatalf("MkdirAll subdir: %v", err)
 	}
 
-	names, err := svc.UploadList("CTRLUPLOAD0000000000000000")
+	names, err := svc.UploadList(context.Background(), "CTRLUPLOAD0000000000000000")
 	if err != nil {
 		t.Fatalf("UploadList: %v", err)
 	}
@@ -78,9 +82,10 @@ func TestUploadListReturnsContractMatchingBatchesInOrder(t *testing.T) {
 }
 
 func TestUploadListIsEmptyWhenNothingWasUploaded(t *testing.T) {
-	svc := &Service{WorkDir: t.TempDir()}
+	workDir := t.TempDir()
+	svc := &Service{WorkDir: workDir, Files: filestore.NewLocal(workDir)}
 
-	names, err := svc.UploadList("CTRLUPLOAD0000000000000000")
+	names, err := svc.UploadList(context.Background(), "CTRLUPLOAD0000000000000000")
 	if err != nil {
 		t.Fatalf("UploadList: %v", err)
 	}
@@ -89,11 +94,29 @@ func TestUploadListIsEmptyWhenNothingWasUploaded(t *testing.T) {
 	}
 }
 
-func TestUploadPathJoinsUnderTheControlUploadsDir(t *testing.T) {
-	svc := &Service{WorkDir: "/work"}
-	got := svc.UploadPath("CTRLUPLOAD0000000000000000", "batch-1.pdf")
-	want := filepath.Join("/work", "controls", "CTRLUPLOAD0000000000000000", "uploads", "batch-1.pdf")
-	if got != want {
-		t.Errorf("UploadPath = %q, want %q", got, want)
+// OpenUpload names the batch under the control's own uploads/ — the same
+// directory SaveUploadedBatch writes it into.
+func TestOpenUploadReadsUnderTheControlUploadsDir(t *testing.T) {
+	workDir := t.TempDir()
+	svc := &Service{WorkDir: workDir, Files: filestore.NewLocal(workDir)}
+	dir := filepath.Join(workDir, "controls", "CTRLUPLOAD0000000000000000", "uploads")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "batch-1.pdf"), []byte("%PDF-batch"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	f, err := svc.OpenUpload(context.Background(), "CTRLUPLOAD0000000000000000", "batch-1.pdf")
+	if err != nil {
+		t.Fatalf("OpenUpload: %v", err)
+	}
+	defer func() { _ = f.Close() }()
+	got, err := io.ReadAll(f)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(got) != "%PDF-batch" {
+		t.Errorf("OpenUpload read %q, want %q", got, "%PDF-batch")
 	}
 }

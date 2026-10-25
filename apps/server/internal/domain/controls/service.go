@@ -6,11 +6,13 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"path"
 	"path/filepath"
 	"time"
 
 	"github.com/so77id/nalanda/apps/server/internal/domain/controls/tex"
 	"github.com/so77id/nalanda/apps/server/internal/domain/course/bank"
+	"github.com/so77id/nalanda/apps/server/internal/domain/files"
 )
 
 // WorkerWorkDir is where apps/amc-worker mounts its shared volume (ADR-0030
@@ -108,7 +110,13 @@ type Service struct {
 	// development it may be any path the operator chose (see
 	// NALANDA_WORK_DIR).
 	WorkDir string
-	Now     func() time.Time
+	// Files is where every file a page or a download hands out is read
+	// from (issue #338): the shared volume itself, or S3 with the volume as
+	// AMC's working copy. Required — which store it is was decided at
+	// boot, and a nil one would make every download a nil dereference.
+	// Writes still go to WorkDir: AMC works on local files.
+	Files files.Store
+	Now   func() time.Time
 	// Seed is what tex.Compile writes into \AMCrandomseed. Constant so a
 	// re-compile is reproducible; a per-control seed is a future decision.
 	Seed int64
@@ -159,6 +167,8 @@ func NewService(deps Service) *Service {
 		panic("controls.NewService: no sender reader")
 	case deps.WorkDir == "":
 		panic("controls.NewService: no work directory")
+	case deps.Files == nil:
+		panic("controls.NewService: no file store")
 	case deps.Now == nil:
 		panic("controls.NewService: no clock")
 	case deps.Seed == 0:
@@ -471,20 +481,26 @@ func (s *Service) ProjectDir(controlID string) string {
 	return filepath.Join(s.WorkDir, projectPrefix, controlID)
 }
 
-// SujetPath returns the sujet.pdf's full path on the server side.
-func (s *Service) SujetPath(controlID string) string {
-	return filepath.Join(s.ProjectDir(controlID), "out", "sujet.pdf")
+// OpenSujet opens the control's printable sheet through the file store.
+func (s *Service) OpenSujet(ctx context.Context, controlID string) (files.File, error) {
+	return s.Files.Open(ctx, projectRel(controlID, "out", "sujet.pdf"))
 }
 
-// CorrigePath returns the corrige.pdf's full path on the server side.
-func (s *Service) CorrigePath(controlID string) string {
-	return filepath.Join(s.ProjectDir(controlID), "out", "corrige.pdf")
+// OpenCorrige opens the control's answer key through the file store.
+func (s *Service) OpenCorrige(ctx context.Context, controlID string) (files.File, error) {
+	return s.Files.Open(ctx, projectRel(controlID, "out", "corrige.pdf"))
 }
 
-// PoolJSONPath returns the pool snapshot's full path on the server side
-// (issue #198).
-func (s *Service) PoolJSONPath(controlID string) string {
-	return filepath.Join(s.ProjectDir(controlID), "pool.json")
+// OpenPoolJSON opens the pool snapshot written at Create time (issue #198)
+// through the file store.
+func (s *Service) OpenPoolJSON(ctx context.Context, controlID string) (files.File, error) {
+	return s.Files.Open(ctx, projectRel(controlID, "pool.json"))
+}
+
+// projectRel names a file of the control's project the way files.Store
+// takes it: relative to the work root, slash-separated.
+func projectRel(controlID string, parts ...string) string {
+	return path.Join(append([]string{projectPrefix, controlID}, parts...)...)
 }
 
 // workerPath joins components under WorkerWorkDir using forward slashes.

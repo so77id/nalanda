@@ -13,6 +13,7 @@ import (
 	"github.com/so77id/nalanda/apps/server/internal/domain/controls"
 	"github.com/so77id/nalanda/apps/server/internal/domain/course/bank"
 	"github.com/so77id/nalanda/apps/server/internal/infra/amcworker/amctest"
+	"github.com/so77id/nalanda/apps/server/internal/infra/filestore"
 )
 
 // annotateFixture wires a Service for the annotate loop's tests: a fake
@@ -35,6 +36,7 @@ func newAnnotateFixture(t *testing.T, annotateEnabled bool) *annotateFixture {
 	store := newFakeStore()
 	readings := newFakeReadingStore()
 	fake := &amctest.Fake{}
+	controlsWork := t.TempDir()
 	svc := controls.NewService(controls.Service{
 		Matcher:         noMatcher{},
 		Dispatcher:      noDispatcher{},
@@ -47,7 +49,8 @@ func newAnnotateFixture(t *testing.T, annotateEnabled bool) *annotateFixture {
 		Readings:        readings,
 		Annotator:       fake,
 		AnnotateEnabled: annotateEnabled,
-		WorkDir:         t.TempDir(),
+		WorkDir:         controlsWork,
+		Files:           filestore.NewLocal(controlsWork),
 		Now:             func() time.Time { return time.Unix(1_755_446_400, 0).UTC() },
 		Seed:            1242,
 		Log:             slog.New(slog.NewTextHandler(io.Discard, nil)),

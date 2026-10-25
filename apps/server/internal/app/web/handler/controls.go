@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
-	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -17,6 +16,7 @@ import (
 	"github.com/so77id/nalanda/apps/server/internal/domain/controls"
 	"github.com/so77id/nalanda/apps/server/internal/domain/controls/stats"
 	"github.com/so77id/nalanda/apps/server/internal/domain/course/bank"
+	"github.com/so77id/nalanda/apps/server/internal/domain/files"
 	"github.com/so77id/nalanda/apps/server/internal/domain/jobs"
 	"github.com/so77id/nalanda/apps/server/internal/domain/roster"
 	"github.com/so77id/nalanda/apps/server/internal/infra/config"
@@ -319,7 +319,7 @@ func (h *Controls) Detail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	uploads, err := h.Service.UploadList(id)
+	uploads, err := h.Service.UploadList(r.Context(), id)
 	if err != nil {
 		h.Log.Error("listing upload batches", "control", id, "error", err)
 		middleware.WriteError(w, r, http.StatusInternalServerError,
@@ -519,28 +519,27 @@ func studentName(s roster.Student) string {
 	return s.FirstName + " " + s.LastName
 }
 
-// SujetPDF, CorrigePDF and PoolJSON stream the control's files from the
-// shared volume. Paths are computed through the Service's wrote-through
-// helpers so a caller cannot accidentally hand back something outside the
-// control's own directory.
+// SujetPDF, CorrigePDF and PoolJSON stream the control's files through the
+// file store (issue #338). The Service names each file, so a caller cannot
+// hand back something outside the control's own directory.
 func (h *Controls) SujetPDF(w http.ResponseWriter, r *http.Request) {
-	h.serveControlFile(w, r, h.Service.SujetPath, "sujet.pdf", "application/pdf", "inline",
+	h.serveControlFile(w, r, h.Service.OpenSujet, "sujet.pdf", "application/pdf", "inline",
 		"El PDF del control no está disponible. Puede que se haya limpiado del volumen compartido.")
 }
 
 func (h *Controls) CorrigePDF(w http.ResponseWriter, r *http.Request) {
-	h.serveControlFile(w, r, h.Service.CorrigePath, "corrige.pdf", "application/pdf", "inline",
+	h.serveControlFile(w, r, h.Service.OpenCorrige, "corrige.pdf", "application/pdf", "inline",
 		"El PDF del control no está disponible. Puede que se haya limpiado del volumen compartido.")
 }
 
 // PoolJSON streams the pool snapshot written at Create time (issue #198).
 // Attachment rather than inline: it is backup material, not a page.
 func (h *Controls) PoolJSON(w http.ResponseWriter, r *http.Request) {
-	h.serveControlFile(w, r, h.Service.PoolJSONPath, "pool.json", "application/json", "attachment",
+	h.serveControlFile(w, r, h.Service.OpenPoolJSON, "pool.json", "application/json", "attachment",
 		"El respaldo de preguntas del control no está disponible.")
 }
 
-func (h *Controls) serveControlFile(w http.ResponseWriter, r *http.Request, pathFor func(string) string, name, contentType, disposition, missingMsg string) {
+func (h *Controls) serveControlFile(w http.ResponseWriter, r *http.Request, open func(context.Context, string) (files.File, error), name, contentType, disposition, missingMsg string) {
 	id := r.PathValue("id")
 	if !isValidControlID(id) {
 		middleware.WriteError(w, r, http.StatusNotFound, "Ese control no existe.")
@@ -560,9 +559,7 @@ func (h *Controls) serveControlFile(w http.ResponseWriter, r *http.Request, path
 		return
 	}
 
-	path := pathFor(id)
-
-	f, err := os.Open(path)
+	f, err := open(r.Context(), id)
 	if err != nil {
 		h.Log.Warn("serving control file", "id", id, "name", name, "error", err)
 		middleware.WriteError(w, r, http.StatusNotFound, missingMsg)
@@ -570,16 +567,9 @@ func (h *Controls) serveControlFile(w http.ResponseWriter, r *http.Request, path
 	}
 	defer func() { _ = f.Close() }()
 
-	info, err := f.Stat()
-	if err != nil {
-		h.Log.Error("stat control file", "id", id, "name", name, "error", err)
-		middleware.WriteError(w, r, http.StatusInternalServerError,
-			"Algo se rompió en el servidor. Vuelve a intentarlo en unos segundos.")
-		return
-	}
 	w.Header().Set("Content-Type", contentType)
 	w.Header().Set("Content-Disposition", fmt.Sprintf(`%s; filename="control-%s-%s"`, disposition, id, name))
-	http.ServeContent(w, r, name, info.ModTime(), f)
+	http.ServeContent(w, r, name, f.ModTime(), f)
 }
 
 // rerenderNew re-renders the form after a validation refusal (422).
