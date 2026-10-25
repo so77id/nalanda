@@ -58,6 +58,8 @@ describe('sequenceStepperHashTrace · the hash the listing computes', () => {
         Ema: 2,
         Ivan: 4,
         Mia: 6,
+        // The chaining act's absent key since the review (#326).
+        Iris: 4,
       },
       11: {
         Ana: 5,
@@ -127,7 +129,7 @@ describe('sequenceStepperTrace · hash-chaining · search', () => {
   it('goes straight to the list of its position and compares only there', () => {
     const trace = run('search', 'Ana');
     const [start, hashed] = trace.steps;
-    expect(lit(trace, start!)).toEqual(['boolean contains(String key) {']);
+    expect(lit(trace, start!)).toEqual(['public boolean contains(String key) {']);
     expect(lit(trace, hashed!)).toEqual(['Node current = table[hash(key)];']);
     expect(hashed!.hash!.bucket).toBe(4);
     expect(hashed!.hash!.pointers).toEqual([{ name: 'current', node: chainIds(hashed!, 4)[0] }]);
@@ -186,7 +188,7 @@ describe('sequenceStepperTrace · hash-chaining · insert', () => {
     const trace = run('insert', 'Ema');
     const lines = trace.steps.map((s) => lit(trace, s));
     expect(lines).toEqual([
-      ['boolean add(String key) {'],
+      ['public boolean add(String key) {'],
       ['if (contains(key)) return false;'],
       ['int i = hash(key);'],
       ['Node fresh = new Node(key);'],

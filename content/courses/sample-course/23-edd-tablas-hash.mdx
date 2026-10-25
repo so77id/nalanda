@@ -488,7 +488,7 @@ $$
 
 </Slide>
 
-<Slide title="El código de hash">
+<Slide title="El código de la función hash">
 La regla de Horner, en un método de la tabla. `table.length` es $$M$$, y una
 clave `null` no tiene posición: es un error, no una clave.
 
@@ -637,26 +637,6 @@ moverse a la lista de su nueva posición.
 
 </Slide>
 
-<Slide title="Buscar en una tabla con listas">
-Para buscar una clave se calcula su posición y se recorre solo la lista de esa
-posición, comparando cada clave con la buscada. La búsqueda termina al
-encontrarla o al llegar a `null`: por la invariante, la clave no puede estar
-en ninguna otra lista.
-
-Las claves son `String`, y se comparan con `equals`, que compara los
-caracteres; `==` compararía las referencias.
-
-<Listas
-  chains={TABLA}
-  picked={4}
-  only
-  paint={{ Sara: 'visited', Ana: 'found' }}
-  caption="buscar «Ana»: h(«Ana») = 4, y solo se recorre la lista de la posición 4"
-  label="La misma tabla con la posición 4 destacada y las demás atenuadas. La búsqueda de Ana compara primero con Sara y después con Ana, donde la encuentra."
-/>
-
-</Slide>
-
 <Slide title="El nodo de las listas">
 Cada lista de la tabla es una lista simplemente enlazada, y su nodo guarda una
 clave `String` y la referencia al siguiente.
@@ -677,7 +657,7 @@ class Node {
 <Slide title="La clase de la tabla con listas">
 La tabla es el arreglo de referencias al primer nodo de cada lista, más el
 contador `size`. Una tabla necesita al menos una posición, y `hash(String
-key)` es el método de la regla de Horner, dentro de esta clase.
+key)` es el método privado de la regla de Horner, dentro de esta clase.
 
 ```java
 class ChainedHashTable {
@@ -693,27 +673,61 @@ class ChainedHashTable {
 
 </Slide>
 
-<Slide title="El código de contains">
-`contains` calcula la posición una vez y recorre esa lista con `current`
-hasta encontrar la clave o llegar a `null`.
+<Slide title="Buscar en una tabla con listas">
+**Buscar** responde si una clave está en la tabla: recibe la clave, responde
+sí o no, y no cambia nada. Se calcula la posición de la clave y se recorre
+solo la lista de esa posición, comparando cada clave con la buscada. La
+búsqueda termina al encontrarla o al llegar a `null`: por la invariante, la
+clave no puede estar en ninguna otra lista.
+
+Las claves son `String`, y se comparan con `equals`, que compara los
+caracteres; `==` compararía las referencias.
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '1rem 2rem', alignItems: 'end' }}>
+<Listas
+  chains={TABLA}
+  picked={4}
+  only
+  paint={{ Sara: 'visited', Ana: 'found' }}
+  caption="buscar «Ana»: h(«Ana») = 4; la encuentra en la lista de la 4"
+  label="La tabla de siete posiciones con la posición 4 destacada y las demás atenuadas. La búsqueda de Ana compara primero con Sara y después con Ana, donde la encuentra."
+/>
+<Listas
+  chains={TABLA}
+  picked={4}
+  only
+  paint={{ Sara: 'visited', Ana: 'visited' }}
+  caption="buscar «Iris»: h(«Iris») = 4; la lista termina sin encontrarla"
+  label="La misma tabla con la posición 4 destacada. La búsqueda de Iris compara con Sara y con Ana, llega al null del final de la lista y no la encuentra."
+/>
+</div>
+
+</Slide>
+
+<Slide title="El código de la búsqueda">
+`contains` es el método público de la búsqueda: calcula la posición una vez y
+recorre esa lista con `current` hasta encontrar la clave o llegar a `null`.
+Recorre una sola lista: cuesta lo que mide la lista de esa posición, más el
+cálculo del hash.
 
 <SequenceStepper
   eda="hash-chaining"
   operation="search"
   values={['Ana', 'Bea', 'Eva', 'Leo', 'Sara', 'Juan']}
-  target={['Ana', 'Ivan']}
+  target="Ana"
   capacity={7}
 />
 
 </Slide>
 
-<Slide title="Agregar una clave">
-`add` pregunta primero con `contains` si la clave ya está: si está, no la
-agrega y devuelve `false`. Si no está, crea un nodo y lo engancha al
-**frente** de la lista de su posición, el único lugar de una lista
-simplemente enlazada al que se llega sin recorrerla. El orden dentro de una
-lista no importa: lo único que la invariante pide es que la clave esté en la
-lista de su posición.
+<Slide title="Agregar en una tabla con listas">
+**Agregar** guarda una clave nueva sin romper la invariante: recibe la clave y
+responde si la agregó. Primero pregunta con `contains` si la clave ya está: si
+está, no la agrega, porque la tabla guarda cada clave una sola vez. Si no
+está, crea un nodo y lo engancha al **frente** de la lista de su posición, el
+único lugar de una lista simplemente enlazada al que se llega sin recorrerla.
+El orden dentro de una lista no importa: lo único que la invariante pide es
+que la clave esté en la lista de su posición.
 
 <Listas
   chains={[['Bea'], ['Teo', 'Juan', 'Eva'], [], [], ['Sara', 'Ana'], [], ['Leo']]}
@@ -725,10 +739,11 @@ lista de su posición.
 
 </Slide>
 
-<Slide title="El código de add">
-El nodo nuevo se construye aparte, se enlaza al primero de la lista y recién
-después `table[i]` pasa a apuntarlo: la asignación antes del movimiento, como
-en cualquier inserción al frente de una lista.
+<Slide title="El código de la inserción">
+`add` es público. Después de `contains`, construye el nodo nuevo aparte, lo
+enlaza al primero de la lista y recién entonces `table[i]` pasa a apuntarlo,
+como en cualquier inserción al frente de una lista. Fuera de `contains` hace
+un número fijo de asignaciones: cuesta lo mismo que la búsqueda.
 
 <SequenceStepper
   eda="hash-chaining"
@@ -740,46 +755,46 @@ en cualquier inserción al frente de una lista.
 
 </Slide>
 
-<Slide title="Eliminar una clave">
-`remove` busca la clave en la lista de su posición y la desengancha, sin un
-nodo de mentira al frente:
+<Slide title="Eliminar en una tabla con listas">
+**Eliminar** saca una clave sin romper la invariante: recibe la clave y
+responde si estaba. La busca en la lista de su posición, y cómo la desengancha
+depende de dónde está:
 
-- si la clave está en el **primer nodo**, `table[i]` pasa a su siguiente;
+- si está en el **primer nodo**, `table[i]` pasa a su siguiente;
 - si está más adelante, `prev` recorre la lista hasta el **nodo anterior** al
   que sale, y `prev.next` salta al siguiente.
 
 Ninguna otra clave cambia de lista, así que la invariante se mantiene.
 
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '1rem 2rem', alignItems: 'end' }}>
+<Listas
+  chains={[['Bea'], ['Juan', 'Eva'], [], [], ['Ana'], [], ['Leo']]}
+  picked={4}
+  paint={{ Ana: 'focus' }}
+  caption="eliminar «Sara», el primer nodo: table[4] pasa a «Ana»"
+  label="La tabla después de eliminar a Sara, que era el primer nodo de la posición 4: table[4] apunta ahora a Ana."
+/>
 <Listas
   chains={[['Bea'], ['Juan', 'Eva'], [], [], ['Sara'], [], ['Leo']]}
   picked={4}
   paint={{ Sara: 'focus' }}
-  caption="eliminar «Ana»: «Sara», el nodo anterior, pasa a apuntar a lo que seguía a «Ana», que era null"
+  caption="eliminar «Ana»: «Sara», el nodo anterior, pasa a null"
   label="La tabla después de eliminar a Ana: de la posición 4 cuelga solo Sara, que antes apuntaba a Ana y ahora apunta a null."
 />
+</div>
 
 </Slide>
 
-<Slide title="El código de remove">
+<Slide title="El código de la eliminación">
+`remove` es público y trata aparte el primer nodo, que no tiene anterior.
+Recorre una sola lista y desengancha con un número fijo de asignaciones:
+cuesta lo mismo que la búsqueda.
+
 <SequenceStepper
   eda="hash-chaining"
   operation="remove"
   values={['Ana', 'Bea', 'Eva', 'Leo', 'Sara', 'Juan']}
   target="Ana"
-  capacity={7}
-/>
-
-</Slide>
-
-<Slide title="Eliminar el primer nodo de una lista">
-Si la clave está al frente de su lista, no hay `prev`: `table[i]` pasa
-directamente al segundo nodo, o a `null` si era el único.
-
-<SequenceStepper
-  eda="hash-chaining"
-  operation="remove"
-  values={['Ana', 'Bea', 'Eva', 'Leo', 'Sara', 'Juan']}
-  target="Sara"
   capacity={7}
 />
 
@@ -895,7 +910,7 @@ casillero, en promedio. Así, $$\alpha$$ nunca pasa de 1.
 
 </Slide>
 
-<Slide title="Por qué cada clave cambia de posición">
+<Slide title="Por qué las claves cambian de posición">
 La posición de una clave es el resto de dividir por $$M$$, así que al cambiar
 $$M$$ cambia la posición de casi todas. Una tabla nueva no se llena copiando
 las listas a las mismas posiciones: la invariante pide que cada clave esté en
@@ -937,12 +952,12 @@ private static boolean isPrime(int n) {
 
 </Slide>
 
-<Slide title="add con redimensión">
+<Slide title="La inserción con redimensión">
 `add` gana una línea: antes de enganchar la clave nueva, si la tabla está
 llena, la redimensiona.
 
 ```java
-boolean add(String key) {
+public boolean add(String key) {
     if (contains(key)) return false;
     if (size == table.length) resize(nextPrime(2 * table.length));
     int i = hash(key);
@@ -954,14 +969,17 @@ boolean add(String key) {
 }
 ```
 
-`resize` guarda la tabla vieja en `old`, crea el arreglo nuevo, pone `size` en
-0 y recorre todas las listas de `old`, volviendo a agregar cada clave con
-`add`. Mientras corre, las claves que todavía no vuelven a entrar están en la
-lista de su posición vieja: la invariante se restaura clave por clave.
-
 </Slide>
 
-<Slide title="El código de resize">
+<Slide title="El código de la redimensión">
+`resize` es privado: solo lo llama `add`. Guarda la tabla vieja en `old`, crea
+el arreglo nuevo, pone `size` en 0 y vuelve a agregar con `add` cada clave de
+las listas de `old`. Mientras corre, las claves que todavía no vuelven a
+entrar están en la lista de su posición vieja: la invariante se restaura
+clave por clave. Recorre las $$M$$ posiciones viejas y vuelve a agregar las
+$$N$$ claves, cada una en $$\Theta(1)$$ esperado: cuesta $$\Theta(N + M)$$, y
+como redimensiona cuando $$N = M$$, $$\Theta(N)$$.
+
 <SequenceStepper
   eda="hash-chaining"
   operation="resize"
@@ -971,18 +989,9 @@ lista de su posición vieja: la invariante se restaura clave por clave.
 
 </Slide>
 
-<Slide title="El costo de una redimensión">
-Una redimensión recorre las $$M$$ posiciones de la tabla vieja y vuelve a
-agregar sus $$N$$ claves, cada una en $$\Theta(1)$$ esperado, porque en la
-tabla nueva $$\alpha$$ es cerca de $$1/2$$. Cuesta $$\Theta(N + M)$$, y como
-redimensiona cuando $$N = M$$, $$\Theta(N)$$.
-
-Es caro, pero raro. Después de redimensionar, el tamaño casi se duplicó, y
-la próxima redimensión solo llega cuando se agregaron otras tantas claves.
-
-</Slide>
-
-<Slide title="El costo amortizado de add">
+<Slide title="El costo amortizado de la inserción">
+Una redimensión es cara, pero rara: después de redimensionar, el tamaño casi
+se duplicó, y la próxima solo llega cuando se agregaron otras tantas claves.
 Repartido entre todas las inserciones, el costo de las redimensiones es
 constante. Cada redimensión mueve las claves que hay en ese momento, y cada
 una mueve al menos el doble que la anterior: si la última movió $$k$$ claves,
@@ -1085,9 +1094,19 @@ class ProbingHashTable {
 </Slide>
 
 <Slide title="Buscar con sondeo lineal">
-Para buscar una clave se empieza en la celda de su hash y se avanza de a una,
-dando la vuelta al final del arreglo, hasta encontrarla o llegar a una celda
-vacía. Por la invariante, la clave no puede estar después de esa celda vacía.
+**Buscar** responde si una clave está, como en la tabla con listas: recibe la
+clave, responde sí o no, y no cambia nada. Se empieza en la celda de su hash y
+se avanza de a una, dando la vuelta al final del arreglo, hasta encontrarla o
+llegar a una celda vacía. Por la invariante, la clave no puede estar después
+de esa celda vacía.
+
+<Casilleros
+  cells={SONDEO}
+  paint={{ 10: 'visited', 0: 'found' }}
+  notes={{ 10: '1', 0: '2' }}
+  caption="buscar «Iván»: su hash es 10, donde está «Olga»; la búsqueda da la vuelta y lo encuentra en el 0"
+  label="Los once casilleros. La búsqueda de Iván mira el casillero 10, con Olga, da la vuelta al final del arreglo y lo encuentra en el 0."
+/>
 
 <Casilleros
   cells={SONDEO}
@@ -1099,24 +1118,45 @@ vacía. Por la invariante, la clave no puede estar después de esa celda vacía.
 
 </Slide>
 
-<Slide title="El código de contains con sondeo lineal">
+<Slide title="El código de la búsqueda con sondeo lineal">
+`contains` es público: empieza en la celda del hash y avanza con `i`, dando la
+vuelta con el resto, hasta la clave o una celda vacía; una clave marcada como
+eliminada no cuenta. Mira las celdas de un solo tramo ocupado: cuesta lo que
+mide ese tramo, más el cálculo del hash.
+
 <SequenceStepper
   eda="hash-probing"
   operation="search"
   values={['Ana', 'Bea', 'Olga', 'Iván']}
-  target={['Luz', 'Iván']}
+  target="Iván"
   capacity={11}
 />
 
 </Slide>
 
 <Slide title="Agregar con sondeo lineal">
-`add` pregunta primero con `contains` si la clave ya está. Si no está, y la
-clave nueva dejaría usadas más de la mitad de las celdas, redimensiona la
-tabla, como la tabla con listas. Después avanza desde la celda de su hash
-hasta la primera libre y la deja ahí, y esa celda pasa a contar en `used`.
-Todas las celdas que pasó estaban ocupadas, así que la invariante se
-mantiene.
+**Agregar** guarda una clave nueva sin romper la invariante: recibe la clave y
+responde si la agregó. Primero pregunta con `contains` si la clave ya está. Si
+no está, y la clave nueva dejaría usadas más de la mitad de las celdas,
+redimensiona la tabla, como la tabla con listas. Después avanza desde la celda
+de su hash hasta la primera libre y la deja ahí. Todas las celdas que pasó
+estaban ocupadas, así que la invariante se mantiene.
+
+<Casilleros
+  cells={['Iván', null, null, null, null, 'Ana', 'Bea', 'Eva', null, null, 'Olga']}
+  paint={{ 5: 'visited', 6: 'visited', 7: 'mark' }}
+  notes={{ 5: '1', 6: '2', 7: '3' }}
+  caption="agregar «Eva»: su hash es 5; el 5 y el 6 están ocupados, y entra en el 7"
+  label="Los once casilleros después de agregar a Eva. Su hash es 5: el casillero 5, con Ana, y el 6, con Bea, están ocupados, y Eva queda en el 7, destacada como nueva."
+/>
+
+</Slide>
+
+<Slide title="El código de la inserción con sondeo lineal">
+`add` es público. Después de `contains` y de la redimensión, si toca, avanza
+desde el hash hasta la primera celda libre; si esa celda era `null`, `used`
+cuenta una celda más. Recorre el mismo tramo que la búsqueda: cuesta lo mismo,
+más la redimensión cuando toca.
 
 <SequenceStepper
   eda="hash-probing"
@@ -1129,7 +1169,8 @@ mantiene.
 </Slide>
 
 <Slide title="Eliminar sin vaciar la celda">
-Vaciar la celda de una clave eliminada rompe la invariante. Una clave que
+**Eliminar** saca una clave: recibe la clave y responde si estaba. Pero vaciar
+la celda de una clave eliminada rompe la invariante. Una clave que
 quedó más allá, en el mismo tramo ocupado, tiene ahora una celda vacía entre
 su hash y su celda, y una búsqueda se detendría antes de llegar a ella.
 
@@ -1158,10 +1199,11 @@ que siguen a la eliminada en su tramo.
 
 </Slide>
 
-<Slide title="El código de remove con sondeo lineal">
-`remove` busca la clave como `contains` y, al encontrarla, solo pone
-`deleted[i]` en `true`: la clave sigue en su celda, y la celda sigue ocupada
-para la invariante.
+<Slide title="El código de la eliminación con sondeo lineal">
+`remove` es público: busca la clave como `contains` y, al encontrarla, solo
+pone `deleted[i]` en `true`. La clave sigue en su celda, y la celda sigue
+ocupada para la invariante y para `used`. Recorre el tramo como la búsqueda:
+cuesta lo mismo.
 
 <SequenceStepper
   eda="hash-probing"
@@ -1173,30 +1215,27 @@ para la invariante.
 
 </Slide>
 
-<Slide title="Una búsqueda sobre una marca">
-<SequenceStepper
-  eda="hash-probing"
-  operation="search"
-  values={['Ana', 'Bea', 'Olga', 'Iván', 'Eva']}
-  deleted={['Bea']}
-  target="Eva"
-  capacity={11}
+<Slide title="Agregar sobre una celda marcada">
+Una celda marcada se puede volver a usar, pero no antes de saber que la clave
+no está más allá de la marca. `contains` recorre el tramo entero, pasando sobre
+las marcas, y recién entonces `add` vuelve al hash y deja la clave en la
+primera celda libre o marcada. Si se quedara en la primera marca sin
+preguntar, una clave que ya estaba más adelante quedaría dos veces.
+
+<Casilleros
+  cells={['Iván', null, null, null, null, 'Ana', 'Bea', null, null, null, 'Olga']}
+  struck={[6]}
+  paint={{ 5: 'visited', 6: 'visited', 7: 'focus' }}
+  notes={{ 5: '1', 6: '2', 7: '3' }}
+  caption="contains(«Eva») pasa sobre la marca de «Bea» y se detiene en el 7, vacío: «Eva» no está"
+  label="Los once casilleros con Bea tachada en el 6. La búsqueda de Eva mira el 5, con Ana, pasa sobre la marca del 6 y se detiene en el 7, vacío."
 />
 
-</Slide>
-
-<Slide title="Una inserción que reutiliza una marca">
-`contains` recorre el tramo entero para asegurarse de que la clave no está, y
-recién entonces `add` vuelve al hash y se queda en la primera celda libre o
-marcada.
-
-<SequenceStepper
-  eda="hash-probing"
-  operation="insert"
-  values={['Ana', 'Bea', 'Olga', 'Iván']}
-  deleted={['Bea']}
-  value="Eva"
-  capacity={11}
+<Casilleros
+  cells={['Iván', null, null, null, null, 'Ana', 'Eva', null, null, null, 'Olga']}
+  paint={{ 6: 'mark' }}
+  caption="add vuelve al hash, 5, y deja a «Eva» en la primera celda libre o marcada: la 6"
+  label="Los once casilleros después de agregar a Eva: quedó en el 6, la celda que tenía la marca de Bea, y la marca desapareció."
 />
 
 </Slide>

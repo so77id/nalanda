@@ -43,7 +43,7 @@ type ProbeOperation = 'search' | 'insert' | 'remove';
  * null or marked; `remove` marks instead of emptying.
  */
 const CODE: Record<ProbeOperation, string> = {
-  search: `boolean contains(String key) {
+  search: `public boolean contains(String key) {
     int i = hash(key);
     while (keys[i] != null) {
         if (!deleted[i] && keys[i].equals(key)) return true;
@@ -51,7 +51,7 @@ const CODE: Record<ProbeOperation, string> = {
     }
     return false;
 }`,
-  insert: `boolean add(String key) {
+  insert: `public boolean add(String key) {
     if (contains(key)) return false;
     if (2 * (used + 1) > keys.length) resize(nextPrime(2 * keys.length));
     int i = hash(key);
@@ -64,7 +64,7 @@ const CODE: Record<ProbeOperation, string> = {
     size++;
     return true;
 }`,
-  remove: `boolean remove(String key) {
+  remove: `public boolean remove(String key) {
     int i = hash(key);
     while (keys[i] != null) {
         if (!deleted[i] && keys[i].equals(key)) {

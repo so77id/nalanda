@@ -429,6 +429,18 @@ offers, `private` for the recursive helpers and for the fields. Worked case:
 the search tree's section of `22-edd-arboles-ii.mdx` — buscar, insertar, el
 inorden, eliminar.
 
+**A structure with no recursion keeps the same four beats** (#326, the hash
+tables, written before this section and brought to it in the review): the
+class slides before «Buscar…», never between an operation's slide and its
+code — the chaining act first had the node and the table there; a search's
+two outcomes drawn side by side, found and not found; the cases a single run
+does not reach drawn, not walked a second time — the removal at the front of
+a list, the insertion over a marked cell, the search that passes a mark,
+which the first draft walked on slides of their own; and the code slide
+naming the method public and closing on its cost in one sentence («recorre
+una sola lista: cuesta lo que mide esa lista»). Constructors carry no
+modifier, as in every class of the unit.
+
 ### 5. Close on a loose end, not a summary
 
 The last slide of the last act poses a concrete question the class has just

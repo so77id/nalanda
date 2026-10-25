@@ -44,7 +44,7 @@ type HashOperation = 'search' | 'insert' | 'remove' | 'resize';
  * in through `add` itself, because where a key goes depends on the positions.
  */
 const CODE: Record<HashOperation, string> = {
-  search: `boolean contains(String key) {
+  search: `public boolean contains(String key) {
     Node current = table[hash(key)];
     while (current != null) {
         if (current.key.equals(key)) return true;
@@ -52,7 +52,7 @@ const CODE: Record<HashOperation, string> = {
     }
     return false;
 }`,
-  insert: `boolean add(String key) {
+  insert: `public boolean add(String key) {
     if (contains(key)) return false;
     int i = hash(key);
     Node fresh = new Node(key);
@@ -61,7 +61,7 @@ const CODE: Record<HashOperation, string> = {
     size++;
     return true;
 }`,
-  remove: `boolean remove(String key) {
+  remove: `public boolean remove(String key) {
     int i = hash(key);
     if (table[i] == null) return false;
     if (table[i].key.equals(key)) {

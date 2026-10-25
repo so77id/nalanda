@@ -660,6 +660,109 @@ describe('<SequenceStepper> · the heap recipe (#304)', () => {
   });
 });
 
+describe('<SequenceStepper> · the combinations 23-edd-tablas-hash mounts', () => {
+  // Pinned here because `app/contentRenders.test.tsx` never mounts the lazy
+  // widget (apps/web/CLAUDE.md §2, class 4). Named for the act and slide
+  // they come from, and each one WALKED to its last frame, not only mounted:
+  // a frame that throws or refuses halfway is invisible to a mount. One value
+  // per walk, the script every operation follows (#322, #326 review).
+  const chained = ['Ana', 'Bea', 'Eva', 'Leo', 'Sara', 'Juan'];
+  const probed = ['Ana', 'Bea', 'Olga', 'Iván'];
+  const mounted: { act: string; slide: string; props: SequenceStepperProps }[] = [
+    {
+      act: 'Encadenamiento',
+      slide: 'El código de la búsqueda',
+      props: {
+        eda: 'hash-chaining',
+        operation: 'search',
+        values: chained,
+        target: 'Ana',
+        capacity: 7,
+      },
+    },
+    {
+      act: 'Encadenamiento',
+      slide: 'El código de la inserción',
+      props: {
+        eda: 'hash-chaining',
+        operation: 'insert',
+        values: chained,
+        value: 'Teo',
+        capacity: 7,
+      },
+    },
+    {
+      act: 'Encadenamiento',
+      slide: 'El código de la eliminación',
+      props: {
+        eda: 'hash-chaining',
+        operation: 'remove',
+        values: chained,
+        target: 'Ana',
+        capacity: 7,
+      },
+    },
+    {
+      act: 'La redimensión',
+      slide: 'El código de la redimensión',
+      props: {
+        eda: 'hash-chaining',
+        operation: 'resize',
+        values: ['Ana', 'Bea', 'Eva'],
+        capacity: 3,
+      },
+    },
+    {
+      act: 'Sondeo lineal',
+      slide: 'El código de la búsqueda con sondeo lineal',
+      props: {
+        eda: 'hash-probing',
+        operation: 'search',
+        values: probed,
+        target: 'Iván',
+        capacity: 11,
+      },
+    },
+    {
+      act: 'Sondeo lineal',
+      slide: 'El código de la inserción con sondeo lineal',
+      props: {
+        eda: 'hash-probing',
+        operation: 'insert',
+        values: probed,
+        value: 'Eva',
+        capacity: 11,
+      },
+    },
+    {
+      act: 'Sondeo lineal',
+      slide: 'El código de la eliminación con sondeo lineal',
+      props: {
+        eda: 'hash-probing',
+        operation: 'remove',
+        values: probed,
+        target: 'Bea',
+        capacity: 11,
+      },
+    },
+  ];
+
+  it.each(mounted)('$act · $slide', ({ props }) => {
+    renderIn('book', <SequenceStepper {...props} />);
+    expect(document.querySelector('[data-authoring-error]')).toBeNull();
+    for (let i = 0; i < 400; i += 1) {
+      const next = screen.getByRole('button', { name: 'Adelante' });
+      if (next.getAttribute('aria-disabled') === 'true') break;
+      fireEvent.click(next);
+    }
+    expect(screen.getByRole('button', { name: 'Adelante' })).toHaveAttribute(
+      'aria-disabled',
+      'true',
+    );
+    expect(document.querySelector('[data-authoring-error]')).toBeNull();
+  });
+});
+
 describe('<SequenceStepper> · the combinations 20-edd-priority-queue-heap mounts', () => {
   // Pinned here because `app/contentRenders.test.tsx` never mounts the lazy
   // widget (apps/web/CLAUDE.md §2, class 4). Named for the act they come

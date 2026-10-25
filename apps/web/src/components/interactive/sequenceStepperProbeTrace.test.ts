@@ -110,7 +110,7 @@ describe('sequenceStepperTrace · hash-probing · search', () => {
   it('starts at the hash and steps one cell at a time until it finds the key', () => {
     const trace = run('search', 'Iván');
     const lines = trace.steps.map((s) => lit(trace, s));
-    expect(lines[0]).toEqual(['boolean contains(String key) {']);
+    expect(lines[0]).toEqual(['public boolean contains(String key) {']);
     expect(lines[1]).toEqual(['int i = hash(key);']);
     expect(trace.steps[1]!.probe!.home).toBe(10);
     expect(trace.steps[1]!.probe!.at).toBe(10);
@@ -146,7 +146,7 @@ describe('sequenceStepperTrace · hash-probing · insert', () => {
   it('asks contains, then takes the first free cell from the hash on', () => {
     const trace = run('insert', 'Eva');
     const lines = trace.steps.map((s) => lit(trace, s)[0] ?? '');
-    expect(lines[0]).toBe('boolean add(String key) {');
+    expect(lines[0]).toBe('public boolean add(String key) {');
     expect(lines).toContain('if (contains(key)) return false;');
     expect(lines).toContain('keys[i] = key;');
     expect(lines).toContain('deleted[i] = false;');
