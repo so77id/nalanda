@@ -40,7 +40,7 @@ export function Casilleros({ cells, index, paint = {}, notes = {}, struck = [], 
         return (
           <g key={i}>
             {notes[i] ? (
-              <text x={x + cell / 2} y={noteY} textAnchor="middle" fontSize="12" fontWeight="700" style={{ fill: 'var(--color-focus)' }}>{notes[i]}</text>
+              <text x={x + cell / 2} y={noteY} textAnchor="middle" fontSize="12" fontWeight="700" style={{ fill: 'var(--color-ink-soft)' }}>{notes[i]}</text>
             ) : null}
             <text x={x + cell / 2} y={indexY} textAnchor="middle" fontSize="11" style={{ fill: 'var(--color-ink-faint)' }}>{index ? index[i] : i}</text>
             <rect x={x} y={cellY} width={cell} height={cellH} style={{ fill: p ? fill[p] : 'var(--color-surface)', stroke: p ? stroke[p] : 'var(--color-rule-strong)' }} strokeWidth={p && p !== 'visited' ? 2.4 : 1.2} />
@@ -264,6 +264,7 @@ Es fácil de calcular, pero falla de dos maneras. Dos nombres con la misma
 inicial van al mismo casillero. Y las iniciales no se reparten parejo: unas
 letras juntan muchos nombres mientras otras dejan sus casilleros vacíos.
 
+<PresentationWide fraction={0.9}>
 <Reparto
   id="inicial"
   keys={[
@@ -284,6 +285,7 @@ letras juntan muchos nombres mientras otras dejan sus casilleros vacíos.
   caption="diez nombres en 26 casilleros: la L recibe tres, la A dos, y diecinueve quedan vacíos"
   label="Diez nombres repartidos por su inicial en 26 casilleros de la A a la Z. Ana y Alba van a la A, Leo, Lía y Luis a la L, y Bea, Carla, Eva, Sara y Tomás a la B, la C, la E, la S y la T. Diecinueve casilleros no reciben ningún nombre."
 />
+</PresentationWide>
 
 </Slide>
 
@@ -352,7 +354,7 @@ export function Bits({ rows, low, label, caption }) {
   return (
     <svg viewBox={`0 0 ${width} ${height}`} style={{ width: '100%', maxWidth: `${Math.round(width * 1.3)}px`, height: 'auto', display: 'block', margin: '0.4rem auto' }} role="img" aria-label={label}>
       <path d={`M ${lowX} ${top - 8} V ${top - 14} H ${lowX + low * cw} V ${top - 8}`} fill="none" style={{ stroke: 'var(--color-focus)' }} strokeWidth="1.6" />
-      <text x={lowX + (low * cw) / 2} y={top - 19} textAnchor="middle" fontSize="12" fontWeight="700" style={{ fill: 'var(--color-focus)' }}>{`los ${low} bits bajos`}</text>
+      <text x={lowX + (low * cw) / 2} y={top - 19} textAnchor="middle" fontSize="12" fontWeight="700" style={{ fill: 'var(--color-ink-soft)' }}>{`los ${low} bits bajos`}</text>
       {rows.map((r, n) => {
         const y = top + n * (ch + 12);
         const digits = r.value.toString(2).padStart(bits, '0').split('');
@@ -559,7 +561,7 @@ export function Listas({ chains, picked, only = false, paint = {}, caption, labe
         const faded = only && picked !== undefined && !isPicked;
         return (
           <g key={i} opacity={faded ? 0.4 : undefined}>
-            <text x={cx} y={indexY} textAnchor="middle" fontSize="11" fontWeight={isPicked ? 700 : 400} style={{ fill: isPicked ? 'var(--color-focus)' : 'var(--color-ink-faint)' }}>{i}</text>
+            <text x={cx} y={indexY} textAnchor="middle" fontSize="11" fontWeight={isPicked ? 700 : 400} style={{ fill: isPicked ? 'var(--color-ink)' : 'var(--color-ink-faint)' }}>{i}</text>
             <rect x={left + i * pitch} y={cellY} width={pitch} height={cellH} style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.2" />
             {chain.length === 0 ? (
               <text x={cx} y={cellY + cellH / 2 + 4} textAnchor="middle" fontSize="11" style={{ fill: 'var(--color-ink-faint)' }}>null</text>
@@ -867,22 +869,25 @@ export function Agregados({ moves, total, caption, label }) {
   const top = 26;
   const peak = Math.max(...moves) + 1;
   const base = top + peak * unit;
-  const width = 2 * pad + total * bw;
+  // Wide enough for the caption too, the bars centred under it: sized to the
+  // bars alone, the caption was cut at both ends.
+  const width = Math.max(2 * pad + total * bw, caption ? caption.length * 6.6 + 24 : 0);
+  const left = (width - total * bw) / 2;
   const height = base + 22 + (caption ? 28 : 6);
   return (
     <svg viewBox={`0 0 ${width} ${height}`} style={{ width: '100%', maxWidth: `${Math.round(width * 1.3)}px`, height: 'auto', display: 'block', margin: '0.4rem auto' }} role="img" aria-label={label}>
-      <line x1={pad} y1={base} x2={width - pad} y2={base} style={{ stroke: 'var(--color-rule-strong)' }} strokeWidth="1" />
+      <line x1={left} y1={base} x2={left + total * bw} y2={base} style={{ stroke: 'var(--color-rule-strong)' }} strokeWidth="1" />
       {Array.from({ length: total }, (_, i) => {
         const moved = moves[i] ?? 0;
         const h = (1 + moved) * unit;
-        const x = pad + i * bw + 3;
+        const x = left + i * bw + 3;
         return (
           <g key={i}>
             <rect x={x} y={base - unit} width={bw - 6} height={unit} style={{ fill: 'var(--color-mark-soft)', stroke: 'var(--color-mark)' }} strokeWidth="1" />
             {moved > 0 ? (
               <g>
                 <rect x={x} y={base - h} width={bw - 6} height={h - unit} style={{ fill: 'var(--color-sunk)', stroke: 'var(--color-focus)' }} strokeWidth="1.4" />
-                <text x={x + (bw - 6) / 2} y={base - h - 6} textAnchor="middle" fontSize="12" fontWeight="700" style={{ fill: 'var(--color-focus)' }}>{`+${moved}`}</text>
+                <text x={x + (bw - 6) / 2} y={base - h - 6} textAnchor="middle" fontSize="12" fontWeight="700" style={{ fill: 'var(--color-ink-soft)' }}>{`+${moved}`}</text>
               </g>
             ) : null}
             {(i + 1) % 5 === 0 || i === 0 ? (
@@ -1011,13 +1016,15 @@ movimientos además del suyo: $$\Theta(1)$$ **amortizado**.
 
 <Slide title="Costos con redimensión">
 Con la redimensión, $$\alpha$$ no pasa de 1, y el costo esperado de las tres
-operaciones es constante.
+operaciones es constante. El de `add` es amortizado: la inserción que
+redimensiona cuesta $$\Theta(N)$$ siempre, no por azar, y ese costo se reparte
+entre las inserciones que llenaron la tabla.
 
-| Molde     | Operación       | Peor caso     | Esperado      | Amortizado                  |
-| --------- | --------------- | ------------- | ------------- | --------------------------- |
-| consultar | `contains(key)` | $$\Theta(N)$$ | $$\Theta(1)$$ | $$\Theta(1)$$               |
-| modificar | `add(key)`      | $$\Theta(N)$$ | $$\Theta(1)$$ | <span style={{ color: 'var(--color-keep)', fontWeight: 700 }}>$$\Theta(1)$$, con redimensión</span> |
-| modificar | `remove(key)`   | $$\Theta(N)$$ | $$\Theta(1)$$ | $$\Theta(1)$$               |
+| Molde     | Operación       | Peor caso     | Esperado      | Invariante que restaura                        |
+| --------- | --------------- | ------------- | ------------- | ---------------------------------------------- |
+| consultar | `contains(key)` | $$\Theta(N)$$ | $$\Theta(1)$$ | Ninguna: no cambia la tabla                    |
+| modificar | <code style={{ color: 'var(--color-keep)' }}>add(key)</code> | $$\Theta(N)$$ | <span style={{ color: 'var(--color-keep)', fontWeight: 700 }}>$$\Theta(1)$$ amortizado</span> | La clave, una vez, en la lista de su hash, con $$\alpha \le 1$$ |
+| modificar | `remove(key)`   | $$\Theta(N)$$ | $$\Theta(1)$$ | Las demás, en la lista de su hash              |
 
 Las tres son $$\Theta(1)$$ en promedio, pero las listas tienen un precio que
 el costo no muestra: una referencia y un objeto aparte por cada clave, que el
@@ -1551,9 +1558,9 @@ datos, no una garantía, y hay cinco maneras de romperlo:
 
 </Slide>
 
-<Slide title="Universal hashing">
+<Slide title="Hashing universal">
 Contra el adversario, la defensa es que no sepa qué función se usa. El
-**universal hashing** elige la función al azar, de una familia de funciones,
+**hashing universal** elige la función al azar, de una familia de funciones,
 al crear la tabla. Para cualquier conjunto de claves —también uno elegido para
 dañar— el costo esperado de cada operación es $$\Theta(1)$$, porque el azar
 está en la función y no en los datos (resultado de Carter y Wegman, que se
@@ -1579,7 +1586,7 @@ el de una posición donde caen todas las claves, ya convertida en árbol.
 
 </Slide>
 
-<Slide title="Otras tablas, otras decisiones">
+<Slide title="Las tablas hash de otros lenguajes">
 Cada biblioteca elige su manera de resolver las colisiones según lo que más le
 cuesta.
 
@@ -1640,7 +1647,7 @@ ese mismo $$O(\log N)$$ por cada búsqueda.
 ## Lo que sigue
 
 Una tabla hash y un árbol de búsqueda balanceado guardan el mismo conjunto de
-claves y responden las mismas tres operaciones, a precios distintos. La
-próxima clase formaliza el contrato que las dos cumplen —los TDAs **Set** y
-**Map**, este último con un valor junto a cada clave— y las compara como dos
-implementaciones del mismo contrato, para decidir cuándo usar cada una.
+claves y responden las mismas tres operaciones, a precios distintos. Los TDAs
+**Set** y **Map** —este último con un valor junto a cada clave— formalizan el
+contrato que las dos cumplen, y permiten compararlas como dos implementaciones
+del mismo contrato para decidir cuándo usar cada una.

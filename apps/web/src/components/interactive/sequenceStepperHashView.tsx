@@ -258,7 +258,7 @@ function Column({
         y={index.y}
         textAnchor="middle"
         fontSize="11"
-        fill={picked ? 'var(--color-focus)' : 'var(--color-ink-faint)'}
+        fill={picked ? 'var(--color-ink)' : 'var(--color-ink-faint)'}
         fontWeight={picked ? 700 : 400}
         stroke="var(--color-surface)"
         strokeWidth={4}
@@ -333,7 +333,7 @@ function Column({
                   textAnchor="end"
                   fontSize="10"
                   fontWeight="700"
-                  fill="var(--color-focus)"
+                  fill="var(--color-ink-soft)"
                   stroke="var(--color-surface)"
                   strokeWidth={3}
                   paintOrder="stroke"
@@ -462,7 +462,7 @@ function PointerTag({ name, box }: { name: string; box: HashBox }) {
       textAnchor="end"
       fontSize="10"
       fontWeight="700"
-      fill="var(--color-focus)"
+      fill="var(--color-ink-soft)"
       stroke="var(--color-surface)"
       strokeWidth={3}
       paintOrder="stroke"

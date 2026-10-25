@@ -103,7 +103,7 @@ export function ProbeView({
                 y={index.y}
                 textAnchor="middle"
                 fontSize="11"
-                fill={home ? 'var(--color-focus)' : 'var(--color-ink-faint)'}
+                fill={home ? 'var(--color-ink)' : 'var(--color-ink-faint)'}
                 fontWeight={home ? 700 : 400}
               >
                 {i}
@@ -172,7 +172,7 @@ export function ProbeView({
               fontSize="12"
               fontWeight="700"
               fontFamily="var(--font-mono, monospace)"
-              fill="var(--color-focus)"
+              fill="var(--color-ink-soft)"
             >
               i
             </text>
