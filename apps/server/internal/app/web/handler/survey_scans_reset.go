@@ -10,6 +10,7 @@ import (
 	"github.com/so77id/nalanda/apps/server/internal/app/web/flash"
 	"github.com/so77id/nalanda/apps/server/internal/app/web/middleware"
 	"github.com/so77id/nalanda/apps/server/internal/app/web/view"
+	"github.com/so77id/nalanda/apps/server/internal/domain/files"
 	"github.com/so77id/nalanda/apps/server/internal/domain/jobs"
 	"github.com/so77id/nalanda/apps/server/internal/domain/survey"
 )
@@ -100,6 +101,10 @@ func (h *Surveys) ScansReset(w http.ResponseWriter, r *http.Request) {
 		case errors.Is(err, survey.ErrAnalyzerBusy):
 			middleware.WriteError(w, r, http.StatusConflict,
 				"El motor de lectura está ocupado con otro trabajo; no se borró nada. Vuelve a intentarlo en unos minutos.")
+		case errors.Is(err, files.ErrSync):
+			h.Log.Error("survey scans reset: file store", "run", run.ID, "error", err)
+			middleware.WriteError(w, r, http.StatusBadGateway,
+				"No se pudo sincronizar con S3; las lecturas no se borraron. Vuelve a intentarlo.")
 		case errors.Is(err, survey.ErrAnalyzerRefused), errors.Is(err, survey.ErrAnalyzerUnavailable),
 			errors.Is(err, context.DeadlineExceeded):
 			h.Log.Error("survey scans reset: worker", "run", run.ID, "error", err)

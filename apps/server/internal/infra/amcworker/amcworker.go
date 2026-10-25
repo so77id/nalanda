@@ -20,6 +20,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"path/filepath"
 	"strings"
 	"sync"
 
@@ -46,6 +47,20 @@ type Client struct {
 	// price. It sits here rather than on the worker because Go's caller is
 	// where control lives, and the worker (§C9) has no auth to police it.
 	generateLock sync.Mutex
+
+	// sync keeps a project's files and the file store in step around each
+	// call (issue #338), or is nil with the local store.
+	sync ProjectSync
+}
+
+// ProjectSync keeps one project's working copy on the volume and its copy in
+// the file store in step around a worker call (issue #338 §3):
+// filestore.Sync satisfies it. Around hydrates the project, runs call, then
+// pushes and prunes what the call did. Every call here runs it INSIDE
+// generateLock, so nothing mutates a project while it is being copied — the
+// copy is part of the critical section, not something beside it.
+type ProjectSync interface {
+	Around(ctx context.Context, project string, call func() error) error
 }
 
 // Config is what New takes. HTTPClient is optional: nil means the default
@@ -61,6 +76,9 @@ type Config struct {
 	// connect/read separately provides one; the default is
 	// http.DefaultClient, which honours the caller's context deadline.
 	HTTPClient *http.Client
+	// Sync is the file store's sync (issue #338). Optional: nil — the local
+	// store, whose files ARE the working copy — runs each call as it is.
+	Sync ProjectSync
 }
 
 // New returns a Client. Refuses a set it cannot serve with — a common shape
@@ -95,7 +113,18 @@ func New(cfg Config) *Client {
 	return &Client{
 		base: strings.TrimRight(cfg.BaseURL, "/"),
 		http: client,
+		sync: cfg.Sync,
 	}
+}
+
+// inStep runs call between the file store's hydrate and push for project.
+// The caller holds generateLock. A sync failure is returned as the sync
+// wrapped it (files.ErrSync); a worker failure as the call returned it.
+func (c *Client) inStep(ctx context.Context, project string, call func() error) error {
+	if c.sync == nil {
+		return call()
+	}
+	return c.sync.Around(ctx, filepath.ToSlash(project), call)
 }
 
 // Generate runs POST /generate against the worker, serialised.
@@ -145,6 +174,17 @@ func (c *Client) generate(ctx context.Context, project, source string, copies in
 	c.generateLock.Lock()
 	defer c.generateLock.Unlock()
 
+	var sujet string
+	err := c.inStep(ctx, project, func() (err error) {
+		sujet, err = c.postGenerate(ctx, project, source, copies, refused, unavailable)
+		return err
+	})
+	return sujet, err
+}
+
+// postGenerate is the /generate request itself, under the lock and inside
+// the sync.
+func (c *Client) postGenerate(ctx context.Context, project, source string, copies int, refused, unavailable error) (string, error) {
 	body, err := json.Marshal(generateRequestBody{
 		Project: project,
 		Source:  source,

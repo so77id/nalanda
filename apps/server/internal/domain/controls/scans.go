@@ -276,6 +276,12 @@ func (s *Service) AnnotateAllCleanCopies(ctx context.Context, controlID string) 
 			continue
 		}
 		if _, err := s.Annotate(ctx, controlID, r.CopyNumber); err != nil {
+			// An unreachable file store is every copy's failure, not this
+			// one's: stop, and let the job say so (issue #338). What was
+			// annotated so far is on the Jetson; the retry pushes it.
+			if errors.Is(err, files.ErrSync) {
+				return err
+			}
 			s.Log.Warn("controls: annotate on close failed",
 				"control", controlID, "copy", r.CopyNumber, "error", err)
 		}

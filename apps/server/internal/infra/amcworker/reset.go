@@ -63,6 +63,12 @@ func (c *Client) resetScans(ctx context.Context, project string, errs resetError
 	}
 	defer c.generateLock.Unlock()
 
+	return c.inStep(ctx, project, func() error { return c.postReset(ctx, project, errs) })
+}
+
+// postReset is the /scans/reset request itself, under the lock and inside
+// the sync: what the worker removes is what the push then prunes from S3.
+func (c *Client) postReset(ctx context.Context, project string, errs resetErrors) error {
 	body, err := json.Marshal(struct {
 		Project string `json:"project"`
 	}{project})

@@ -4,12 +4,15 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
 
 	"github.com/so77id/nalanda/apps/server/internal/domain/controls"
+	"github.com/so77id/nalanda/apps/server/internal/domain/files"
 	"github.com/so77id/nalanda/apps/server/internal/domain/gmail"
 	"github.com/so77id/nalanda/apps/server/internal/domain/jobs"
+	"github.com/so77id/nalanda/apps/server/internal/infra/amcworker/amctest"
 )
 
 // The translation layer between the publication and the banner.
@@ -487,5 +490,46 @@ func TestThePublishBannerNamesTheCopiesAlreadySent(t *testing.T) {
 	}
 	if !strings.Contains(failure.Message, "1 falló") {
 		t.Errorf("the banner lost the failure it exists to report: %q", failure.Message)
+	}
+}
+
+// Issue #338, AC-7: a failure to keep the files in S3 fails the job with
+// one Spanish sentence naming it — never the SDK's words on the banner —
+// and it says the files are safe on the Jetson, which is what the
+// professor needs to know before pressing again.
+const syncFailed = "no se pudo sincronizar con S3"
+
+func TestASyncFailureFailsEachWorkerJobInSpanish(t *testing.T) {
+	syncErr := fmt.Errorf("%w: put work/controls/X/annotated/copy-1.pdf: dial tcp: i/o timeout", files.ErrSync)
+	for name, run := range map[string]func(*controls.Service, *amctest.Fake, string) error{
+		"generate": func(svc *controls.Service, gen *amctest.Fake, id string) error {
+			gen.Err = syncErr
+			return controls.NewGenerateHandler(svc)(context.Background(), id, controls.EmptyPayload)
+		},
+		"analyse": func(svc *controls.Service, gen *amctest.Fake, id string) error {
+			gen.AnalyzeErr = syncErr
+			raw, _ := json.Marshal(controls.AnalysePayload{BatchName: "batch-1.pdf", Ticked: controls.DefaultTicked, Unsure: controls.DefaultUnsure})
+			return controls.NewAnalyseHandler(svc)(context.Background(), id, raw)
+		},
+		"reanalyse": func(svc *controls.Service, gen *amctest.Fake, id string) error {
+			gen.ReanalyzeErr = syncErr
+			raw, _ := json.Marshal(controls.ReanalysePayload{Ticked: controls.DefaultTicked, Unsure: controls.DefaultUnsure})
+			return controls.NewReanalyseHandler(svc)(context.Background(), id, raw)
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			svc, _, gen, _ := newService(t)
+			control, err := createControlSync(context.Background(), svc, req(nil))
+			if err != nil {
+				t.Fatal(err)
+			}
+			failure := failureFrom(t, run(svc, gen, control.ID))
+			if !strings.Contains(failure.Message, syncFailed) || !strings.Contains(failure.Message, "Jetson") {
+				t.Errorf("banner = %q, want it to say the S3 sync failed and the files are on the Jetson", failure.Message)
+			}
+			if strings.Contains(failure.Message, "dial tcp") {
+				t.Errorf("the banner carries the SDK's words: %q", failure.Message)
+			}
+		})
 	}
 }

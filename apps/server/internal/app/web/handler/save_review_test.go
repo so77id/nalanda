@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/so77id/nalanda/apps/server/internal/app/web/flash"
+	"github.com/so77id/nalanda/apps/server/internal/app/web/handler"
 	"github.com/so77id/nalanda/apps/server/internal/domain/controls"
 	"github.com/so77id/nalanda/apps/server/internal/domain/roster"
 )
@@ -803,5 +804,46 @@ func TestClearingAnOverrideRefilesTheCopyUnderTheAMCRead(t *testing.T) {
 	if got := readings[0].StudentID; got == nil || *got != anaID {
 		t.Errorf("copy 1 student = %v after the override was cleared, want Ana (%d) — "+
 			"the effective RUT moved and the association did not follow", got, anaID)
+	}
+}
+
+// Issue #338, AC-7: the review save's annotate now carries a push to S3, so
+// it runs under its own deadline. Past it the save is still saved, the
+// failure is logged, and the professor is redirected — not left behind a
+// request that httpserver's WriteTimeout would cut.
+func TestSaveReviewPastItsAnnotateDeadlineStillSavesAndRedirects(t *testing.T) {
+	f, controlID := saveReviewFixture(t)
+	t.Cleanup(handler.SetReviewAnnotateDeadline(50 * time.Millisecond))
+	f.fake.AnnotateBlocks = true
+
+	values := url.Values{}
+	values.Set("rut", "20111111")
+	values.Set("qq3", "2")
+	values.Set("qq4", "1")
+	values.Set("save", "1")
+	done := make(chan *httptest.ResponseRecorder, 1)
+	go func() { done <- postSaveReview(t, f, controlID, 1, values) }()
+
+	var rec *httptest.ResponseRecorder
+	select {
+	case rec = <-done:
+	case <-time.After(10 * time.Second):
+		t.Fatal("the save is still waiting on its annotate; it has no deadline of its own")
+	}
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("status = %d, want the redirect", rec.Code)
+	}
+	reading, err := f.service.ReadingFor(context.Background(), controlID, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var overridden bool
+	for _, a := range reading.Answers {
+		if a.QuestionRef == "q3" && a.Override != nil {
+			overridden = true
+		}
+	}
+	if !overridden {
+		t.Error("the save was not kept when its annotate ran out of time")
 	}
 }

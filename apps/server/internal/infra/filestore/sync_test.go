@@ -202,6 +202,29 @@ func TestAWorkerCallsChangesArePushedTheAnnotatedPDFFirst(t *testing.T) {
 	}
 }
 
+// The hash cache (an analyse annotates each copy as a call of its own) must
+// not hide a change: a file rewritten with the same size, as AMC rewrites a
+// sqlite file, has a new mtime and is pushed.
+func TestAFileRewrittenWithTheSameSizeIsStillPushed(t *testing.T) {
+	r := newSyncRig(t)
+	r.local(t, "data/scoring.sqlite", "aaaa")
+	ctx := context.Background()
+	if err := r.sync.Around(ctx, project, noop); err != nil {
+		t.Fatal(err)
+	}
+	err := r.sync.Around(ctx, project, func() error {
+		writeFile(t, r.dir, "data/scoring.sqlite", "bbbb")
+		later := time.Now().Add(time.Second)
+		return os.Chtimes(filepath.Join(r.dir, "data", "scoring.sqlite"), later, later)
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if body, _ := r.remoteBody("data/scoring.sqlite"); body != "bbbb" {
+		t.Errorf("scoring.sqlite in S3 = %q, want the rewrite", body)
+	}
+}
+
 // AC-4: S3 deletes exactly what the call removed. A key that was never
 // local during the call — denylisted junk, or one written meanwhile — is
 // never pruned, so an incomplete picture cannot turn into a deletion.

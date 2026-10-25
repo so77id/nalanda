@@ -1,11 +1,13 @@
 package handler
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/so77id/nalanda/apps/server/internal/app/web/flash"
 	"github.com/so77id/nalanda/apps/server/internal/app/web/middleware"
@@ -316,7 +318,15 @@ func (h *Controls) SaveReview(w http.ResponseWriter, r *http.Request) {
 	// (the issue accepts the seconds-class block). A failure here does not
 	// fail the save: the overrides are persisted and the next save retries
 	// the annotate with the same payload.
-	if _, err := h.Service.Annotate(r.Context(), id, copyNumber); err != nil {
+	//
+	// Under its OWN deadline since #338, because the annotate now carries a
+	// push to S3 (the corrected PDF and capture.sqlite, up to ~10 MB over the
+	// Jetson's uplink). Past it the save still redirects; what the push did
+	// not finish is on the Jetson, newer than S3, and the next call on the
+	// control — or the reconcile — uploads it.
+	ctx, cancel := context.WithTimeout(r.Context(), reviewAnnotateDeadline)
+	defer cancel()
+	if _, err := h.Service.Annotate(ctx, id, copyNumber); err != nil {
 		h.Log.Warn("save review: annotate failed", "control", id, "copy", copyNumber, "error", err)
 	}
 	flash.Set(w, h.secureCookie, buildSaveReviewFlash(result, blank))
@@ -418,6 +428,13 @@ func isValidRUT(s string) bool {
 	}
 	return true
 }
+
+// reviewAnnotateDeadline bounds the review save's annotate — the worker call
+// and its push to S3 — under httpserver's 30 s WriteTimeout, which neither
+// cancels the handler nor reaches the professor (add-a-backend-endpoint.md,
+// the same reason scansResetDeadline is 25). Twenty, to leave the redirect
+// its margin. A var so a test can wait less than twenty seconds for it.
+var reviewAnnotateDeadline = 20 * time.Second
 
 // statusFor decides the AnswerStatus a saved edit lands at. For a simple
 // question with more than one mark the professor has produced something

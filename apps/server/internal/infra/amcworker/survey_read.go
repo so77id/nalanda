@@ -35,8 +35,11 @@ func (c *Client) AnalyzeSheets(ctx context.Context, req survey.AnalyzeRequest) (
 	if err != nil {
 		return survey.Report{}, fmt.Errorf("amcworker: encode analyse request: %w", err)
 	}
-	wire, err := c.postWire(ctx, "/analyse", body, surveyWorkerErrors)
-	if err != nil {
+	var wire reportBody
+	if err := c.inStep(ctx, req.Project, func() (err error) {
+		wire, err = c.postWire(ctx, "/analyse", body, surveyWorkerErrors)
+		return err
+	}); err != nil {
 		return survey.Report{}, err
 	}
 	return wire.toSurvey(), nil

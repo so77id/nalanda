@@ -239,12 +239,13 @@ func run(logger *slog.Logger) error {
 	dispatcher := buildDispatcher(cfg.EmailMode, gmailService, logger)
 	logger.Info("email dispatcher", "mode", cfg.EmailMode)
 
-	amcClient := amcworker.New(amcworker.Config{BaseURL: cfg.AmcWorkerURL})
 	// Issue #338: the store every work file a page or a download hands out
 	// is read through, selected ONCE at boot and logged in one line, like
-	// the mail transport above. ONE for both subsystems, like the volume.
-	fileStore := buildFileStore(cfg)
+	// the mail transport above. ONE for both subsystems, like the volume —
+	// and, under s3, the sync the worker client runs around every call.
+	fileStore, fileSync := buildFileStore(cfg, logger)
 	logger.Info("file store", "store", cfg.FilesStore, "bucket", cfg.FilesS3Bucket, "region", cfg.FilesS3Region)
+	amcClient := amcworker.New(amcworker.Config{BaseURL: cfg.AmcWorkerURL, Sync: fileSync})
 	controlsService := controls.NewService(controls.Service{
 		Bank:      liveBank,
 		Store:     controlStore,
@@ -484,13 +485,18 @@ func warnIfNobodyCanLogIn(ctx context.Context, users auth.UserStore, cfg config.
 // the default branch is a value someone added without coming back here: a
 // panic at boot, never a quiet fall back to local — a server that looks
 // healthy and keeps nothing off the Jetson.
-func buildFileStore(cfg config.Config) files.Store {
+//
+// The second value is the sync the worker client wraps each call in: nil —
+// a nil INTERFACE, never a nil *filestore.Sync inside one — under local,
+// whose files are the working copy itself.
+func buildFileStore(cfg config.Config, log *slog.Logger) (files.Store, amcworker.ProjectSync) {
 	switch cfg.FilesStore {
 	case config.FilesStoreLocal:
-		return filestore.NewLocal(cfg.WorkDir)
+		return filestore.NewLocal(cfg.WorkDir), nil
 	case config.FilesStoreS3:
 		client := filestore.NewS3Client(cfg.FilesS3Region, cfg.FilesS3AccessKeyID, cfg.FilesS3SecretAccessKey)
-		return filestore.NewS3(client, cfg.FilesS3Bucket)
+		store := filestore.NewS3(client, cfg.FilesS3Bucket)
+		return store, filestore.NewSync(store, cfg.WorkDir, log)
 	default:
 		panic("main.buildFileStore: no adapter for file store " + string(cfg.FilesStore))
 	}

@@ -19,6 +19,7 @@ import (
 	"regexp"
 	"slices"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -46,6 +47,22 @@ type Sync struct {
 	store *S3
 	root  string
 	log   *slog.Logger
+
+	// hashes caches each local file's MD5 by its path, size and
+	// nanosecond mtime. Every call scans its project twice, and an analyse
+	// annotates each clean copy as a call of its own: forty copies would
+	// otherwise hash the project's ~100 MB eighty times. A file rewritten
+	// with the same size changes its mtime; one rewritten within the same
+	// nanosecond with the same size would be missed, which no writer here
+	// can do.
+	mu     sync.Mutex
+	hashes map[string]cachedHash
+}
+
+type cachedHash struct {
+	size    int64
+	modTime time.Time
+	md5     string
 }
 
 // NewSync returns the sync over store for the work root workRoot
@@ -59,7 +76,7 @@ func NewSync(store *S3, workRoot string, log *slog.Logger) *Sync {
 	case log == nil:
 		panic("filestore.NewSync: no logger")
 	}
-	return &Sync{store: store, root: workRoot, log: log}
+	return &Sync{store: store, root: workRoot, log: log, hashes: map[string]cachedHash{}}
 }
 
 // Around hydrates project, runs call, and pushes and prunes what the call
@@ -347,7 +364,7 @@ func (s *Sync) scan(root *os.Root) (snapshot, error) {
 		if err != nil {
 			return err
 		}
-		sum, err := md5Of(root, p)
+		sum, err := s.hashOf(root, p, info)
 		if err != nil {
 			return err
 		}
@@ -558,6 +575,25 @@ func etagMD5(etag string) string {
 		return ""
 	}
 	return sum
+}
+
+// hashOf is md5Of through the cache.
+func (s *Sync) hashOf(root *os.Root, rel string, info fs.FileInfo) (string, error) {
+	key := root.Name() + "/" + rel
+	s.mu.Lock()
+	cached, ok := s.hashes[key]
+	s.mu.Unlock()
+	if ok && cached.size == info.Size() && cached.modTime.Equal(info.ModTime()) {
+		return cached.md5, nil
+	}
+	sum, err := md5Of(root, rel)
+	if err != nil {
+		return "", err
+	}
+	s.mu.Lock()
+	s.hashes[key] = cachedHash{size: info.Size(), modTime: info.ModTime(), md5: sum}
+	s.mu.Unlock()
+	return sum, nil
 }
 
 func md5Of(root *os.Root, rel string) (string, error) {

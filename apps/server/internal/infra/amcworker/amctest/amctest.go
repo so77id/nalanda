@@ -71,6 +71,10 @@ type Fake struct {
 	AnnotatedPath string
 	// AnnotateErr, when set, is returned from AnnotateCopy.
 	AnnotateErr error
+	// AnnotateBlocks, when set, makes AnnotateCopy wait for its ctx and
+	// return ctx.Err() — an annotate whose push to S3 is slower than the
+	// caller's deadline (issue #338).
+	AnnotateBlocks bool
 
 	// ResetCalls records every ResetScans project in order (issue #298).
 	ResetCalls []string

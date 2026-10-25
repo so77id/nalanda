@@ -51,8 +51,11 @@ func (c *Client) Analyze(ctx context.Context, req controls.AnalyzeRequest) (cont
 	if err != nil {
 		return controls.Report{}, fmt.Errorf("amcworker: encode analyse request: %w", err)
 	}
-	report, err := c.postReport(ctx, "/analyse", body)
-	if err != nil {
+	var report controls.Report
+	if err := c.inStep(ctx, req.Project, func() (err error) {
+		report, err = c.postReport(ctx, "/analyse", body)
+		return err
+	}); err != nil {
 		return controls.Report{}, err
 	}
 	// Issue #298: `batch` is optional on the wire (apps/amc-worker/CLAUDE.md).
@@ -88,7 +91,12 @@ func (c *Client) Reanalyze(ctx context.Context, req controls.ReanalyzeRequest) (
 	if err != nil {
 		return controls.Report{}, fmt.Errorf("amcworker: encode reanalyse request: %w", err)
 	}
-	return c.postReport(ctx, "/reanalyse", body)
+	var report controls.Report
+	err = c.inStep(ctx, req.Project, func() (err error) {
+		report, err = c.postReport(ctx, "/reanalyse", body)
+		return err
+	})
+	return report, err
 }
 
 // postReport POSTs body to path and decodes the reading report. Shared by

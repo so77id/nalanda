@@ -3,6 +3,7 @@ package survey_test
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -10,6 +11,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/so77id/nalanda/apps/server/internal/domain/files"
+	"github.com/so77id/nalanda/apps/server/internal/domain/jobs"
 	"github.com/so77id/nalanda/apps/server/internal/domain/survey"
 	"github.com/so77id/nalanda/apps/server/internal/infra/filestore"
 	"github.com/so77id/nalanda/apps/server/internal/infra/filestore/s3test"
@@ -146,5 +149,31 @@ func TestARunsUploadIsRefusedWhenTheStoreCannotListItsBatches(t *testing.T) {
 	entries, _ := os.ReadDir(filepath.Join(work, survey.RunProject(1, 2), "uploads"))
 	if len(entries) != 0 {
 		t.Errorf("a refused upload wrote %d file(s)", len(entries))
+	}
+}
+
+// syncFailingGenerator is a worker client whose file store could not be
+// brought in step (issue #338).
+type syncFailingGenerator struct{ noGenerator }
+
+func (syncFailingGenerator) GenerateSheet(context.Context, survey.GenerateRequest) (survey.Assets, error) {
+	return survey.Assets{}, fmt.Errorf("%w: put work/surveys/1/runs/2/out/sujet.pdf: dial tcp: i/o timeout", files.ErrSync)
+}
+
+// AC-7 for a run: the job says, in Spanish, that S3 was not reached and the
+// files are on the Jetson — not "the generator refused".
+func TestARunsSyncFailureFailsItsJobInSpanish(t *testing.T) {
+	work := t.TempDir()
+	svc := survey.NewService(survey.Service{
+		Store: openRunStore{newMemStore()}, Generator: syncFailingGenerator{}, Analyzer: noGenerator{},
+		WorkDir: work, Files: filestore.NewLocal(work), Now: time.Now,
+	})
+	err := survey.NewGenerateHandler(svc)(context.Background(), "2", []byte(`{"survey_id":1}`))
+	var failure *jobs.Failure
+	if !errors.As(err, &failure) {
+		t.Fatalf("the handler returned %v, want a *jobs.Failure", err)
+	}
+	if !strings.Contains(failure.Message, "S3") || !strings.Contains(failure.Message, "Jetson") || strings.Contains(failure.Message, "dial tcp") {
+		t.Errorf("banner = %q", failure.Message)
 	}
 }

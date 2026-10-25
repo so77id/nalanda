@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/so77id/nalanda/apps/server/internal/domain/files"
 	"github.com/so77id/nalanda/apps/server/internal/domain/gmail"
 	"github.com/so77id/nalanda/apps/server/internal/domain/jobs"
 )
@@ -147,12 +148,22 @@ func NewAnnotateHandler(svc *Service) jobs.Handler {
 			// AnnotateAllCleanCopies logs per-copy failures and never
 			// propagates them (annotate is best-effort — the professor
 			// can retry per copy from review). Anything reaching here
-			// is a whole-flow failure (control not found, store outage).
+			// is a whole-flow failure (control not found, store outage,
+			// and since #338 the file store out of reach).
+			if errors.Is(err, files.ErrSync) {
+				return &jobs.Failure{Message: syncFailed, Detail: err.Error()}
+			}
 			return &jobs.Failure{Message: err.Error()}
 		}
 		return nil
 	}
 }
+
+// syncFailed is the banner of a job whose files could not be kept in step
+// with S3 (issue #338): the worker's work is done or not, but either way the
+// files are safe on the Jetson, and pressing again finishes the copy — the
+// next call's hydrate uploads what this one could not.
+const syncFailed = "no se pudo sincronizar con S3; los archivos siguen en la Jetson. Vuelve a intentarlo"
 
 // failureFromGenerateError translates a Service.GenerateAssets error
 // into the (banner, debug) pair. Same split shape as
@@ -164,6 +175,8 @@ func failureFromGenerateError(err error) error {
 		return nil
 	}
 	switch {
+	case errors.Is(err, files.ErrSync):
+		return &jobs.Failure{Message: syncFailed, Detail: err.Error()}
 	case errors.Is(err, ErrControlNotFound):
 		return &jobs.Failure{Message: "ese control ya no existe", Detail: err.Error()}
 	case errors.Is(err, ErrGeneratorRefused):
@@ -196,6 +209,8 @@ func failureFromAnalyzeError(err error) error {
 		return &jobs.Failure{Message: msg, Detail: refused.Detail}
 	}
 	switch {
+	case errors.Is(err, files.ErrSync):
+		return &jobs.Failure{Message: syncFailed, Detail: err.Error()}
 	case errors.Is(err, ErrControlNotFound):
 		return &jobs.Failure{Message: "ese control ya no existe", Detail: err.Error()}
 	case errors.Is(err, ErrNothingCaptured):

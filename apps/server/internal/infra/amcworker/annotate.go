@@ -30,6 +30,17 @@ func (c *Client) AnnotateCopy(ctx context.Context, req controls.AnnotateRequest)
 	c.generateLock.Lock()
 	defer c.generateLock.Unlock()
 
+	var path string
+	err := c.inStep(ctx, req.Project, func() (err error) {
+		path, err = c.postAnnotate(ctx, req)
+		return err
+	})
+	return path, err
+}
+
+// postAnnotate is the /annotate/copy request itself, under the lock and
+// inside the sync.
+func (c *Client) postAnnotate(ctx context.Context, req controls.AnnotateRequest) (string, error) {
 	body, err := json.Marshal(annotateRequestBody{
 		Project:   req.Project,
 		Copy:      req.Copy,

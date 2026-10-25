@@ -638,11 +638,11 @@ func TestAnUnhandledMailModePanicsRatherThanFallingBackToStub(t *testing.T) {
 // store looks healthy and keeps nothing off the Jetson.
 func TestEachFilesStoreSelectsItsOwnStore(t *testing.T) {
 	for _, tc := range []struct {
-		store config.FilesStore
-		want  string
+		store          config.FilesStore
+		want, wantSync string
 	}{
-		{config.FilesStoreLocal, "*filestore.Local"},
-		{config.FilesStoreS3, "*filestore.S3"},
+		{config.FilesStoreLocal, "*filestore.Local", "<nil>"},
+		{config.FilesStoreS3, "*filestore.S3", "*filestore.Sync"},
 	} {
 		t.Run(string(tc.store), func(t *testing.T) {
 			cfg := config.Config{
@@ -650,8 +650,14 @@ func TestEachFilesStoreSelectsItsOwnStore(t *testing.T) {
 				FilesS3Bucket: "nalanda-test", FilesS3Region: "us-east-1",
 				FilesS3AccessKeyID: "AKIATEST", FilesS3SecretAccessKey: "secret",
 			}
-			if got := fmt.Sprintf("%T", buildFileStore(cfg)); got != tc.want {
+			store, sync := buildFileStore(cfg, slog.New(slog.NewTextHandler(io.Discard, nil)))
+			if got := fmt.Sprintf("%T", store); got != tc.want {
 				t.Errorf("%s selected %s, want %s", tc.store, got, tc.want)
+			}
+			// The worker client calls Around on any non-nil Sync: under
+			// local it must be a nil interface, under s3 the real one.
+			if gotSync := fmt.Sprintf("%T", sync); gotSync != tc.wantSync {
+				t.Errorf("%s selected the sync %s, want %s", tc.store, gotSync, tc.wantSync)
 			}
 		})
 	}
@@ -663,7 +669,7 @@ func TestAnUnhandledFilesStorePanicsRatherThanFallingBackToLocal(t *testing.T) {
 			t.Fatal("buildFileStore returned a store for a value it does not handle")
 		}
 	}()
-	buildFileStore(config.Config{FilesStore: "tape", WorkDir: t.TempDir()})
+	buildFileStore(config.Config{FilesStore: "tape", WorkDir: t.TempDir()}, slog.New(slog.NewTextHandler(io.Discard, nil)))
 }
 
 // unreachableCredentials satisfies email.Credentials without a network. No
