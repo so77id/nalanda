@@ -256,7 +256,8 @@ the `avisoNo*` / `flash.Set(…)` string literals in `internal/app/web/handler/`
      not the store field. **NOT enforced by the guard** — the package graph
      cannot see it, because handler and store are already allowed to share
      one through the domain. It is a review item, and its check is
-     `grep -rn '\.Store\.' internal/app/**/handler/*.go` returning nothing.
+     `grep -rnE --exclude='*_test.go' '\.(Store|Files)\.' internal/app/**/handler/*.go` returning nothing — `.Files.` too since #338, and
+     test files excluded, whose fixtures seed a store on purpose.
      Violated and re-fixed twice: WP-E's review (ARQ-11) removed a second
      injected `Store` field from a handler struct, and #271's review (ARQ-1)
      removed a `c.Roster.Store.ListEnrollments` reach-through that also ran
@@ -368,9 +369,9 @@ the `avisoNo*` / `flash.Set(…)` string literals in `internal/app/web/handler/`
   that store is S3, the PRIMARY copy. Six rules, each with its reason:
   1. **No `os.Open`/`ReadFile`/`ReadDir` of a work file under `internal/app`
      or `internal/domain`.** A handler calls a service method that opens
-     through `Files` (edge 4: never the store field from a handler — and its
-     grep below misses `.Files.`, so look for that too). It serves the file
-     with `handler.serveControlFile`, or passes the open's error to
+     through `Files` (edge 4: never the store field from a handler — its
+     grep, above, covers `.Files.`). A control's file is served with the
+     `Controls.serveControlFile` method; elsewhere the open's error goes to
      `handler.fileUnavailable` (absent is the page's 404, anything else a 503
      in Spanish), never an `errors.Is` ladder of its own; a page image that
      may be PNG or JPG opens with `files.OpenFirst`. What legitimately stays
@@ -382,8 +383,12 @@ the `avisoNo*` / `flash.Set(…)` string literals in `internal/app/web/handler/`
      `files.WriteNew`**: it writes under `files.TempPrefix`, which the sync
      never uploads, and links the file into place without replacing a name
      that exists (#338 review, COR-8; written in place, half a batch could
-     reach S3). `os.WriteFile` stays right for a new project's inputs,
-     written before its row exists. `grep -rnE --exclude='*_test.go'
+     reach S3). `os.WriteFile` stays right for a file no sync can be
+     scanning yet: a new control's inputs (written before its row exists)
+     and a new run's source (written right after its row, before any
+     worker call on it — the reconcile could list the run in between, an
+     accepted window: an upload of a file that changed under it fails its
+     Content-MD5, and the next hydrate carries the whole one). `grep -rnE --exclude='*_test.go'
      'os\.(Open|ReadFile|ReadDir)\(' internal/app internal/domain` lists
      exactly the disk reads above: four lines today.
   2. **Every `amcworker.Client` call goes through `c.serialised` (or
@@ -437,9 +442,10 @@ the `avisoNo*` / `flash.Set(…)` string literals in `internal/app/web/handler/`
      error a worker call, a job, a reset or a download meets from the store
      is named as the store's failure — never as a missing file and never in
      the SDK's words. The sentences: `syncFailed` (a job), `readNotStored` /
-     `generatedNotStored` / `sheetNotStored` (a done job whose files are not
-     in S3 yet), `resetSyncFailed` (a reset), the purge's own 502, and
-     `storeFailed` (a download), `annotateNotUpdated` (a review save).
+     `generatedNotStored` / `sheetNotStored` and the inline one in
+     `survey.AnalyzeResult.Notice` (a done job whose files are not in S3
+     yet), `resetSyncFailed` (a reset), the purge's own 502, `storeFailed` (a
+     download) and `annotateNotUpdated` (a review save).
   6. **S3 is an INPUT**: a key is a path only after `files.ValidRel` and the
      project's own prefix; every local write of the sync goes through an
      `os.Root` on the project; a link is created only as an ADR-0037 name

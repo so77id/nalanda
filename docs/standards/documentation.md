@@ -352,8 +352,8 @@ fix touched (the lock, a job outcome, the purge, the reset) and add or extend
 an `Amended by:` line on every ADR whose stated property moved — the list
 written at slice time is not the post-review one (#338: its review changed
 the purge's lock, the worker lock's shape and the reset under S3, and the
-amendments on ADR-0050, 0052 and 0075 came only from the documentation
-round).
+amendments on ADR-0050 and 0075 — and ADR-0052's lock clause, on a line
+written at slice S9 — came only from the documentation round).
 
 **`Extends:` / `Extended by:`** is for an ADR that builds on an accepted one
 without replacing it — a new recipe on an existing widget, a new kind on an

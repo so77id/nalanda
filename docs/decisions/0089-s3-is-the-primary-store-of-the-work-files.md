@@ -194,14 +194,17 @@ leaves the archived control whole for a retry; the reverse order would leave
 a purged student's scans in S3 with no row to retry from. The local store's
 `DeleteProject` deletes nothing, so local mode purges exactly as before.
 
-The three file steps run **under the worker lock**, which the purge only
+The three steps — the store, the rows, the directory — run **under the worker lock**, which the purge only
 TRIES (`Analyzer.TryExclusive`): a worker busy on any job refuses it with a
 409 before anything is deleted (#338 review, SEC-1). Ordering alone was not
 enough: a push running beside the purge — an annotate loop releases the lock
 between copies, the reconcile walks every project — uploaded again what the
 S3 step had just deleted, and with the row gone nothing would ever find
-those objects. A call already queued for the control when the purge took the
-lock finds the project nowhere afterwards and is refused (§4) — unless the
+those objects. The lock is taken in `local` mode too, deliberately: there it
+keeps a worker call from writing into the directory the purge's RemoveAll is
+deleting, and one rule is simpler to hold than two. A call already queued
+for the control when the purge took the lock finds the project nowhere
+afterwards and is refused (§4) — unless the
 best-effort RemoveAll failed, in which case it re-uploads what was left: a
 double fault (a failed chown, a failed RemoveAll, a call queued on that very
 control), recorded and not closed. The lesson

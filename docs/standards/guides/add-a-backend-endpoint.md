@@ -144,7 +144,8 @@ dropdown that never talks to Canvas.
 
 Either way it is a domain **service**, never a store — edge 4 of the
 dependency rule is unchanged, and its check is still
-`grep -rn '\.Store\.' internal/app/**/handler/*.go` returning nothing.
+`grep -rnE --exclude='*_test.go' '\.(Store|Files)\.' internal/app/**/handler/*.go` returning nothing (`.Files.` since #338; test fixtures
+seed a store on purpose, so they are excluded).
 Name the port for the collaborator (`RosterReader`, `CourseControls`), not
 for the first method it carries: #272 shipped `CourseLister` and
 `CourseRematcher` and had to rename both within two slices when each grew a
@@ -447,7 +448,8 @@ opens one with `os.Open`. The chain: the handler validates the URL's
 segments, calls a service method that opens through `Service.Files`
 (`files.Store`), and serves it with `http.ServeContent` (Range and
 If-Modified-Since cost what they cost on disk; pass `f.ModTime()`), as
-`handler.serveControlFile` does. An error goes to `handler.fileUnavailable`:
+the `Controls.serveControlFile` method does for a control's file. An error
+goes to `handler.fileUnavailable`:
 absence — or a path the store refuses — is the page's own 404, anything
 else is a 503 that says the STORE failed, never "no está disponible". A
 name that may be a PNG or a JPG opens with `files.OpenFirst`, which falls
@@ -503,7 +505,7 @@ And the guide's own checklist gains two lines:
 - [ ] A handler that reaches a third party imposes its own
       `context.WithTimeout`, below `httpserver`'s `WriteTimeout`.
 - [ ] The handler holds the domain **Service**, never `Service.Store` —
-      `grep -rn '\.Store\.' internal/app/**/handler/*.go` returns nothing
+      `grep -rnE --exclude='*_test.go' '\.(Store|Files)\.' internal/app/**/handler/*.go` returns nothing
       (`backend-code-style.md` §The dependency rule, edge 4).
 
 ## A pattern the publication adds — the capability-gated route

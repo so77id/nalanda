@@ -88,7 +88,7 @@ the fourth is review-only, and says so:
 4. **A delivery surface depends on a domain SERVICE, never on the store
    behind it.** Reads and writes both go through the service; a handler that
    needs a shape the service does not expose gets a service METHOD, not the
-   store field. Check: `grep -rn '\.Store\.' internal/app/**/handler/*.go`
+   store field. Check: `grep -rnE --exclude='*_test.go' '\.(Store|Files)\.' internal/app/**/handler/*.go`
    returns nothing.
 
    This one is not enforced by `architecture_test.go` — the package graph

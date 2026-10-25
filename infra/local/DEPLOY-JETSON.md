@@ -489,11 +489,20 @@ each copy re-derives that from the database.
 
 Run it when no professor is working. It mounts a FRESH, empty volume in place
 of `amc-work` (`infra/deploy/jetson/docker-compose.drill.yml`) and proves S3
-alone brings every file back. The override replaces the volume list with
-compose's `!override`, which needs docker-compose 2.24 or later — the Jetson
-runs v2.24.0 (`docker-compose version`, measured 2026-10-25), and the merged
-file was rendered with that exact binary before #338's PR (both services
-mount `amc-work-drill` at `/work`).
+alone brings every file back. The Jetson runs docker-compose v2.24.0
+(`docker-compose version`, measured 2026-10-25), which IGNORES the file's
+`!override` (that needs 2.24.4) and merges the volume lists by target; the
+drill still swaps the volume because it restates every target of the base's
+lists — so check the merged file first. It must print `0`, measured with
+v2.24.0's own binary in #338's review (`2` without the drill file):
+
+```bash
+sudo docker-compose -f docker-compose.yml -f ../deploy/jetson/docker-compose.jetson.yml \
+  -f ../deploy/jetson/docker-compose.drill.yml config | grep -cE 'source: amc-work$'
+```
+
+Anything else means a mount of the real volume would survive into the drill:
+stop, and restate that target in `docker-compose.drill.yml`.
 
 ```bash
 sudo docker-compose exec amc-worker sh -c 'find /work -type f | wc -l; ls -lt --time-style=+%FT%T /work/controls | head -3' > /tmp/before-drill.txt

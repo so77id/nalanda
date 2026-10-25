@@ -289,7 +289,8 @@ Survey runs have the same shape minus `pool.json`, `annotated/` and the
 association. Outside every project, and never uploaded: `incoming/` (#339's
 partials), `questions.json`, `_pre-rescan-*`, and the leftovers of purged
 controls (a directory with only `data/report.sqlite`). The rule the code
-implements is **every regular file and contract link under a project goes to
+implements (`skipped` in `internal/infra/filestore/sync.go`, which changes in
+the same PR as this table) is **every regular file and contract link under a project goes to
 S3, except the four rows marked no** — default-include, so a file AMC starts
 writing tomorrow is kept until somebody decides otherwise, rather than lost
 until somebody notices.

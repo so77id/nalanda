@@ -20,9 +20,16 @@
 # non-empty /work (/work/incoming, #339; ADR-0034 §Consequences) — which is
 # what lets the server's hydrate write into it at all.
 #
-# `!override` replaces the base file's volume list rather than appending to
-# it (compose 2.24+; the Jetson's measured version is in DEPLOY-JETSON.md
-# §"The drill (AC-16)").
+# `!override` would replace the base file's volume list outright, but only
+# from compose 2.24.4; the Jetson runs v2.24.0, which ignores the tag and
+# merges the lists by TARGET — measured in #338's review: a base mount at a
+# target this file does not name survives into the drill. What makes the
+# swap work there is that each list below restates EVERY target of the
+# base's (server: /data, /work, /work/questions.json; amc-worker: /work),
+# and a restated target replaces the base's mount. So a base mount added at
+# a NEW target must be restated here too, and DEPLOY-JETSON.md §"The drill
+# (AC-16)" renders the merged file and checks that no `amc-work` source is
+# left before it starts anything.
 
 services:
   server:
