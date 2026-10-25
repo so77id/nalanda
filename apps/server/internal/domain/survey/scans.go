@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"sort"
@@ -330,8 +331,13 @@ func (s *Service) OpenScanImage(ctx context.Context, run Run, copyNumber, page i
 	}
 	base := "copy-" + strconv.Itoa(copyNumber) + "-page-" + strconv.Itoa(page)
 	for _, ext := range []struct{ suffix, ctype string }{{".png", "image/png"}, {".jpg", "image/jpeg"}} {
-		if f, err := s.Files.Open(ctx, runRel(run, "scans", base+ext.suffix)); err == nil {
+		f, err := s.Files.Open(ctx, runRel(run, "scans", base+ext.suffix))
+		if err == nil {
 			return f, ext.ctype, nil
+		}
+		// A store that failed is not a page with no image (issue #338).
+		if !errors.Is(err, fs.ErrNotExist) {
+			return nil, "", fmt.Errorf("survey: copy %d page %d of run %d: %w", copyNumber, page, run.ID, err)
 		}
 	}
 	return nil, "", fmt.Errorf("survey: copy %d page %d of run %d: %w", copyNumber, page, run.ID, ErrCopyNotFound)

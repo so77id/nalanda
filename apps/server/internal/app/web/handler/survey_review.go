@@ -188,8 +188,12 @@ func (h *Surveys) RunPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	f, ctype, err := h.Service.OpenScanImage(r.Context(), run, copyNumber, page)
-	if err != nil {
+	if errors.Is(err, survey.ErrCopyNotFound) {
 		middleware.WriteError(w, r, http.StatusNotFound, "Ese archivo no existe.")
+		return
+	}
+	if err != nil {
+		fileUnavailable(w, r, h.Log, err, "Ese archivo no existe.", "run", run.ID, "copy", copyNumber, "page", page)
 		return
 	}
 	defer func() { _ = f.Close() }()

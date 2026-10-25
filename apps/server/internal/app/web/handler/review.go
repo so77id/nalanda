@@ -468,7 +468,8 @@ func (h *Controls) PageImage(w http.ResponseWriter, r *http.Request) {
 	// not have to know.
 	f, ext, err := h.Service.OpenScanPage(r.Context(), id, copyNumber, pageNumber)
 	if err != nil {
-		middleware.WriteError(w, r, http.StatusNotFound, "La imagen escaneada no está disponible.")
+		fileUnavailable(w, r, h.Log, err, "La imagen escaneada no está disponible.",
+			"id", id, "copy", copyNumber, "page", pageNumber)
 		return
 	}
 	defer func() { _ = f.Close() }()
@@ -524,9 +525,8 @@ func (h *Controls) AnnotatedPDF(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err != nil {
-		h.Log.Warn("serving annotated PDF", "id", id, "copy", copyNumber, "path", record.Path, "error", err)
-		middleware.WriteError(w, r, http.StatusNotFound,
-			"El PDF corregido no está disponible. Puede que se haya limpiado del volumen compartido.")
+		fileUnavailable(w, r, h.Log, err, "El PDF corregido no está disponible.",
+			"id", id, "copy", copyNumber, "path", record.Path)
 		return
 	}
 	defer func() { _ = f.Close() }()

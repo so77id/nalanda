@@ -264,8 +264,7 @@ func (h *Surveys) RunSheet(w http.ResponseWriter, r *http.Request) {
 	}
 	f, err := h.Service.OpenSheet(r.Context(), run)
 	if err != nil {
-		h.Log.Error("opening a run's sheet", "run", run.ID, "error", err)
-		middleware.WriteError(w, r, http.StatusNotFound, "No se encontró el PDF de esta pasada.")
+		fileUnavailable(w, r, h.Log, err, "No se encontró el PDF de esta pasada.", "run", run.ID)
 		return
 	}
 	defer func() { _ = f.Close() }()

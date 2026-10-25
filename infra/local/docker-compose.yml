@@ -108,6 +108,13 @@ services:
       # developer running `docker compose up` must not be one typo away
       # from mailing a real class.
       NALANDA_EMAIL_MODE: "${NALANDA_EMAIL_MODE:-stub}"
+      # Issue #338: where the work files live. local here as in the loader;
+      # s3 needs the bucket, the region and the server's own IAM key.
+      NALANDA_FILES_STORE: "${NALANDA_FILES_STORE:-local}"
+      NALANDA_FILES_S3_BUCKET: "${NALANDA_FILES_S3_BUCKET:-}"
+      NALANDA_FILES_S3_REGION: "${NALANDA_FILES_S3_REGION:-}"
+      NALANDA_FILES_S3_ACCESS_KEY_ID: "${NALANDA_FILES_S3_ACCESS_KEY_ID:-}"
+      NALANDA_FILES_S3_SECRET_ACCESS_KEY: "${NALANDA_FILES_S3_SECRET_ACCESS_KEY:-}"
     volumes:
       - server-data:/data
       # Shared with the amc-worker service below. The server writes a

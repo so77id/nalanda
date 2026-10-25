@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io/fs"
 	"log/slog"
 	"os"
 	"path"
@@ -511,8 +512,14 @@ func (s *Service) OpenScanPage(ctx context.Context, controlID string, copyNumber
 	var err error
 	for _, ext := range []string{".png", ".jpg"} {
 		var f files.File
-		if f, err = s.Files.Open(ctx, projectRel(controlID, "scans", base+ext)); err == nil {
+		f, err = s.Files.Open(ctx, projectRel(controlID, "scans", base+ext))
+		if err == nil {
 			return f, ext, nil
+		}
+		// Only an ABSENT PNG falls through to the JPG: a store that failed
+		// is not a page without a PNG, and the caller must hear it failed.
+		if !errors.Is(err, fs.ErrNotExist) {
+			return nil, "", err
 		}
 	}
 	return nil, "", err

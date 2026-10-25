@@ -524,12 +524,12 @@ func studentName(s roster.Student) string {
 // hand back something outside the control's own directory.
 func (h *Controls) SujetPDF(w http.ResponseWriter, r *http.Request) {
 	h.serveControlFile(w, r, h.Service.OpenSujet, "sujet.pdf", "application/pdf", "inline",
-		"El PDF del control no está disponible. Puede que se haya limpiado del volumen compartido.")
+		"El PDF del control no está disponible.")
 }
 
 func (h *Controls) CorrigePDF(w http.ResponseWriter, r *http.Request) {
 	h.serveControlFile(w, r, h.Service.OpenCorrige, "corrige.pdf", "application/pdf", "inline",
-		"El PDF del control no está disponible. Puede que se haya limpiado del volumen compartido.")
+		"El PDF del control no está disponible.")
 }
 
 // PoolJSON streams the pool snapshot written at Create time (issue #198).
@@ -561,8 +561,7 @@ func (h *Controls) serveControlFile(w http.ResponseWriter, r *http.Request, open
 
 	f, err := open(r.Context(), id)
 	if err != nil {
-		h.Log.Warn("serving control file", "id", id, "name", name, "error", err)
-		middleware.WriteError(w, r, http.StatusNotFound, missingMsg)
+		fileUnavailable(w, r, h.Log, err, missingMsg, "id", id, "name", name)
 		return
 	}
 	defer func() { _ = f.Close() }()

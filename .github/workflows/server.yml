@@ -129,6 +129,11 @@ jobs:
             -e NALANDA_SECRETS_MASTER_KEY= \
             -e NALANDA_CANVAS_GRAPHQL_URL= \
             -e NALANDA_EMAIL_MODE=stub \
+            -e NALANDA_FILES_STORE=local \
+            -e NALANDA_FILES_S3_BUCKET= \
+            -e NALANDA_FILES_S3_REGION= \
+            -e NALANDA_FILES_S3_ACCESS_KEY_ID= \
+            -e NALANDA_FILES_S3_SECRET_ACCESS_KEY= \
             -v "$GITHUB_WORKSPACE/ci-work:/work:ro" \
             -p 127.0.0.1:8081:8081 \
             nalanda/server:ci

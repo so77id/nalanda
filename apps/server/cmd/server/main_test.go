@@ -633,6 +633,39 @@ func TestAnUnhandledMailModePanicsRatherThanFallingBackToStub(t *testing.T) {
 		slog.New(slog.NewTextHandler(io.Discard, nil)))
 }
 
+// Issue #338: the boot-time file store. Same reason as the transports
+// above — a wrong answer is silent: an s3 deployment that got the local
+// store looks healthy and keeps nothing off the Jetson.
+func TestEachFilesStoreSelectsItsOwnStore(t *testing.T) {
+	for _, tc := range []struct {
+		store config.FilesStore
+		want  string
+	}{
+		{config.FilesStoreLocal, "*filestore.Local"},
+		{config.FilesStoreS3, "*filestore.S3"},
+	} {
+		t.Run(string(tc.store), func(t *testing.T) {
+			cfg := config.Config{
+				FilesStore: tc.store, WorkDir: t.TempDir(),
+				FilesS3Bucket: "nalanda-test", FilesS3Region: "us-east-1",
+				FilesS3AccessKeyID: "AKIATEST", FilesS3SecretAccessKey: "secret",
+			}
+			if got := fmt.Sprintf("%T", buildFileStore(cfg)); got != tc.want {
+				t.Errorf("%s selected %s, want %s", tc.store, got, tc.want)
+			}
+		})
+	}
+}
+
+func TestAnUnhandledFilesStorePanicsRatherThanFallingBackToLocal(t *testing.T) {
+	defer func() {
+		if recover() == nil {
+			t.Fatal("buildFileStore returned a store for a value it does not handle")
+		}
+	}()
+	buildFileStore(config.Config{FilesStore: "tape", WorkDir: t.TempDir()})
+}
+
 // unreachableCredentials satisfies email.Credentials without a network. No
 // case above sends, so no case above needs a token.
 type unreachableCredentials struct{}

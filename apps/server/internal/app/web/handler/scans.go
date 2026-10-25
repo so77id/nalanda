@@ -469,9 +469,7 @@ func (h *Controls) UploadsPDF(w http.ResponseWriter, r *http.Request) {
 
 	f, err := h.Service.OpenUpload(r.Context(), id, batch)
 	if err != nil {
-		h.Log.Warn("serving upload batch", "id", id, "batch", batch, "error", err)
-		middleware.WriteError(w, r, http.StatusNotFound,
-			"Ese archivo no existe en el volumen compartido.")
+		fileUnavailable(w, r, h.Log, err, "Ese archivo no existe.", "id", id, "batch", batch)
 		return
 	}
 	defer func() { _ = f.Close() }()
