@@ -72,10 +72,12 @@ NALANDA_GOOGLE_CLIENT_SECRET=placeholder-secret \
 curl -s http://127.0.0.1:8081/health      # backoffice surface
 curl -s http://127.0.0.1:8081/api/health  # API surface
 
-# Verify. The two protocols are defined in docs/standards/testing-strategy.md;
-# this is the per-commit one. Note the `test -z`: `gofmt -l` PRINTS the files it
-# objects to and exits 0 either way, so a bare `gofmt -l . && …` chain reads
-# like a gate and is not one.
+# Verify. The two protocols are defined in docs/standards/testing-strategy.md
+# §apps/server and run inside the builder image the Dockerfile pins, never on a
+# host Go: take the per-commit `docker run` line from there (from the repo
+# root). This is what it runs inside the image. Note the `test -z`: `gofmt -l`
+# PRINTS the files it objects to and exits 0 either way, so a bare
+# `gofmt -l . && …` chain reads like a gate and is not one.
 test -z "$(gofmt -l .)" && go vet ./... && go build ./... && go test ./...
 
 # Build the production image (16.4 MB, measured 2026-08-26 on darwin/arm64:

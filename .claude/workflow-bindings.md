@@ -79,6 +79,9 @@ Repo-specific tools the review lenses run and fold into findings. Empty is valid
 
 ```
 apps/server (Go, added #149):
+  Every Go line below runs INSIDE the builder image the Dockerfile pins, with
+  the `docker run` prefix testing-strategy.md §apps/server writes for the two
+  protocols — never on a host toolchain, whose stdlib is not the one shipped.
   gofmt -l .        — L1. CAVEAT: it reports by PRINTING filenames and exits 0
                       either way, so a lens must test its OUTPUT, never its
                       status. A step written as `gofmt -l . && …` is green over

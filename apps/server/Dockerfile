@@ -22,6 +22,19 @@
 #     its govulncheck pin;
 #   - the govulncheck pin in .github/workflows/server.yml and in the tool
 #     registry of .claude/workflow-bindings.md.
+# And three checks the edits do not make by themselves:
+#   - the digest is the multi-arch INDEX digest, the top-level `Digest` of
+#     `docker buildx imagetools inspect golang:<x.y>-alpine` (MediaType
+#     ...image.index...), never one platform's manifest: --platform below
+#     needs both arches. Then the `go version` check in testing-strategy.md.
+#   - go.mod's `go` line also sets the binary's GODEBUG defaults, so a bump
+#     changes runtime behaviour without a code change. In the new image with
+#     the OLD line, `go list -f '{{.DefaultGODEBUG}}' ./cmd/server` names the
+#     defaults the move flips; read them and the release notes against this
+#     server and record the result in a commit body (#341 is the worked case).
+#   - this image's CA bundle is the one the scratch stage ships, so a new
+#     digest also moves production's trusted roots: compare the two bundles
+#     (#341: 119 -> 118 roots, Google's GTS roots in both).
 #
 # --platform=${BUILDPLATFORM} pins the BUILDER to the runner's own arch. Without
 # it, buildx cross-compiling to linux/arm64 from an amd64 runner would run the
@@ -80,10 +93,11 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=${TARGETARCH:-$(go env GOARCH)} go build \
 # --- run ---------------------------------------------------------------------
 FROM scratch
 
-# Certificate authorities, for the OAuth calls WP-C2 will make. Nothing in this
-# WP talks to the network, but a scratch image has no CA bundle at all and the
-# failure it produces ("x509: certificate signed by unknown authority") sends
-# whoever meets it looking in entirely the wrong place.
+# Certificate authorities, for every outbound TLS call: Google OIDC, Gmail,
+# Canvas GraphQL and the question-bank fetch. A scratch image has no CA bundle
+# at all, and the failure it produces ("x509: certificate signed by unknown
+# authority") sends whoever meets it looking in entirely the wrong place. The
+# bundle comes from the builder, so it moves with the digest above.
 COPY --from=build /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 
 # Timestamps are UTC. Without zoneinfo, time.LoadLocation fails on scratch; the

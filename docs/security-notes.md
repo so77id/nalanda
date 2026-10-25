@@ -35,7 +35,8 @@ names its trigger for re-evaluation — nothing is "accepted forever".
   and the handlers' form parsing, among others.
 - **Why 1.25 had no fix**: Go supports a major release until there are two
   newer ones, and go1.27.0 shipped 2026-08-19. Raising the toolchain was the
-  only resolution (`backend-code-style.md` §Version: never suppress a hit).
+  only resolution (`testing-strategy.md` §apps/server: a hit is resolved by
+  raising the toolchain or the dependency, never by suppressing it).
 - **Exposure**: the Jetson image built 2026-10-06 carried all 13 from their
   publication until #341's image is deployed (`govulncheck -mode=binary` on
   the published arm64 binary reported 13 on 2026-10-24). Nothing saw it in
@@ -43,11 +44,17 @@ names its trigger for re-evaluation — nothing is "accepted forever".
   `apps/server` or the workflow itself, none happened from 2026-10-06 to
   2026-10-24, and it was
   #339's pre-PR gate that found them. A scheduled scan of the shipped binary
-  is a follow-up issue of #341's review.
+  is #343.
 - **Resolution (#341)**: `go.mod` and the pinned builder moved to go1.26.10,
   govulncheck to v1.9.0; the arm64 binary scans clean in binary mode. 1.26
   rather than 1.27 because it was the measured one-major move the issue
   specified (decided 2026-10-24).
+- **What else the move changed**: four GODEBUG defaults now follow the 1.26
+  line, all toward the stricter side (`urlstrictcolons`, `tlssecpmlkem`,
+  `cryptocustomrand`, `httpservecontentmaxranges`), and the new builder ships
+  a newer CA bundle into the scratch image (`ca-certificates-bundle`
+  20260611-r0 → 20261020-r0, 119 → 118 roots; Google's GTS roots are in
+  both, so the OIDC and Gmail calls keep their trust anchors).
 - **Review trigger**: Go 1.28's release (expected February 2027) ends fixes
   for the 1.26 line, so the toolchain moves again then — or sooner, the first
   time govulncheck reports a standard-library advisory with no 1.26 fix.

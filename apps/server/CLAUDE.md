@@ -1028,8 +1028,10 @@ the `avisoNo*` / `flash.Set(…)` string literals in `internal/app/web/handler/`
 
 Registered in `docs/standards/testing-strategy.md` (the two-protocol rule).
 
-- **Per-commit**: `gofmt -l .` (must print NOTHING — it exits 0 either way, so
-  the status is not the gate), then `go vet ./...`, `go build ./...`,
+- **Per-commit**: inside the pinned builder image, with the `docker run` line
+  of `docs/standards/testing-strategy.md` §`apps/server`, never on a host Go.
+  It runs `gofmt -l .` (must print NOTHING — it exits 0 either way, so the
+  status is not the gate), then `go vet ./...`, `go build ./...`,
   `go test ./...`.
 - **Pre-PR**: NOT restated here. Run it line by line from
   `docs/standards/testing-strategy.md` §`apps/server`, which is its one home —

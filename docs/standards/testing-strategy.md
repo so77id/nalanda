@@ -353,9 +353,8 @@ the toolchain `go.mod` declares and scans it: v1.7.0 while that was
 the 1.25 line shipped no fix for 13 standard-library advisories, so the
 step stayed red until the move, `docs/security-notes.md` §Resolved
 advisories; v1.8.0 also runs on 1.26.10 and is also clean). Raise it when
-`go.mod` moves to a toolchain a newer scanner supports — in this file, in
-`.github/workflows/server.yml` and in the tool registry of
-`.claude/workflow-bindings.md` together.
+`go.mod` moves to a toolchain a newer scanner supports, in every place the
+comment on the Dockerfile's pinned builder lists, together.
 
 **When the Dockerfile's builder digest changes, check it against `go.mod`:**
 
