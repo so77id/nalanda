@@ -35,6 +35,12 @@ type Store interface {
 	// directories are not entries. A directory that does not exist is an
 	// empty list, not an error.
 	List(ctx context.Context, relDir string) ([]Entry, error)
+	// DeleteProject deletes every file the store holds for a project
+	// (controls/<id>) — the purge, and nothing else (ADR-0052 as amended
+	// by #338). The local store answers nil and deletes nothing: there the
+	// disk IS the store, and the purge removes it best-effort after the
+	// rows, as it always did.
+	DeleteProject(ctx context.Context, project string) error
 }
 
 // File is an open work file: what http.ServeContent needs (it seeks to the

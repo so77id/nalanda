@@ -51,6 +51,9 @@ type fakeStore struct {
 	pools     map[string][]controls.PoolEntry
 	annotated map[string]controls.AnnotatedCopy // key: <controlID>#<copyNumber>
 	fail      error
+	// purgeFail, when set, is what PurgeControl answers — the database
+	// failing at the purge's point of no return (issue #338's order test).
+	purgeFail error
 }
 
 func newFakeStore() *fakeStore {
@@ -201,6 +204,9 @@ func (s *fakeStore) MarkPublished(_ context.Context, id string, at time.Time, mo
 }
 
 func (s *fakeStore) PurgeControl(_ context.Context, id string) error {
+	if s.purgeFail != nil {
+		return s.purgeFail
+	}
 	for i := range s.controls {
 		if s.controls[i].ID == id && s.controls[i].DeletedAt != nil {
 			s.controls = append(s.controls[:i], s.controls[i+1:]...)

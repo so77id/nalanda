@@ -82,6 +82,14 @@ func (l *Local) List(_ context.Context, relDir string) ([]files.Entry, error) {
 	return entries, nil
 }
 
+// DeleteProject deletes nothing: the local copy is the volume itself, which
+// the purge removes after the rows, best-effort, as before #338 — deleting
+// it here, before them, would turn a disk hiccup into a refused purge with
+// half its files gone.
+func (l *Local) DeleteProject(_ context.Context, project string) error {
+	return validProject(project)
+}
+
 func (l *Local) path(rel string) string {
 	return filepath.Join(l.root, filepath.FromSlash(rel))
 }

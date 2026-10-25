@@ -163,3 +163,22 @@ func TestLocalListOfAMissingDirectoryIsEmpty(t *testing.T) {
 		t.Errorf("List of a missing directory = %v, %v, want empty and nil", entries, err)
 	}
 }
+
+// The local store deletes nothing on a purge: the disk IS the store there,
+// and the purge removes the directory itself, best-effort, AFTER the rows —
+// deleting it before them would turn a disk hiccup into a refused purge
+// with half its files gone.
+func TestLocalDeleteProjectDeletesNothing(t *testing.T) {
+	root := t.TempDir()
+	writeFile(t, root, "controls/ABC/out/sujet.pdf", "%PDF")
+
+	if err := filestore.NewLocal(root).DeleteProject(context.Background(), "controls/ABC"); err != nil {
+		t.Fatalf("DeleteProject: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(root, "controls", "ABC", "out", "sujet.pdf")); err != nil {
+		t.Errorf("the local store deleted a file on DeleteProject: %v", err)
+	}
+	if err := filestore.NewLocal(root).DeleteProject(context.Background(), "controls"); err == nil {
+		t.Error("DeleteProject accepted a path that is not a project")
+	}
+}

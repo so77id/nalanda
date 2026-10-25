@@ -6,6 +6,7 @@ import (
 	"io/fs"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strconv"
 	"strings"
 	"testing"
@@ -24,6 +25,7 @@ func (unreachableStore) Open(context.Context, string) (files.File, error) { retu
 func (unreachableStore) List(context.Context, string) ([]files.Entry, error) {
 	return nil, errUnreachable
 }
+func (unreachableStore) DeleteProject(context.Context, string) error { return errUnreachable }
 
 // Issue #338 §8.5: once the files live in S3, a download can fail for a
 // reason that is not the file's absence. Saying "no está disponible" would
@@ -75,6 +77,7 @@ func (pngUnreachableStore) Open(_ context.Context, rel string) (files.File, erro
 	return nil, fs.ErrNotExist
 }
 func (pngUnreachableStore) List(context.Context, string) ([]files.Entry, error) { return nil, nil }
+func (pngUnreachableStore) DeleteProject(context.Context, string) error         { return nil }
 
 func TestAScanPageWhosePNGCouldNotBeReadIsNotReportedAsMissing(t *testing.T) {
 	f := newControlsFixture(t)
@@ -133,5 +136,30 @@ func TestARunScanPageSaysTheStoreFailedRatherThanTheImageIsMissing(t *testing.T)
 		append(f.reviewValues(r, 2), "n", strconv.Itoa(1))...)
 	if rec.Code != http.StatusServiceUnavailable || !strings.Contains(rec.Body.String(), storeFailed) {
 		t.Errorf("status %d, want 503 saying the store failed", rec.Code)
+	}
+}
+
+// Issue #338, AC-8 at the page: S3 out of reach refuses the purge with a
+// sentence that says the control is still archived — never "no se pudo
+// eliminar", which reads as if something were half-deleted.
+func TestAPurgeTheStoreRefusesKeepsTheControlAndSaysSo(t *testing.T) {
+	f := newControlsFixture(t)
+	name := "Control sin S3"
+	id := f.createControl(t, name, 1)
+	if err := f.service.Archive(context.Background(), id); err != nil {
+		t.Fatal(err)
+	}
+	f.service.Files = unreachableStore{}
+
+	req := f.authedRequest(t, http.MethodPost, "/controls/"+id+"/purge", url.Values{"confirm_name": {name}})
+	req.SetPathValue("id", id)
+	rec := httptest.NewRecorder()
+	f.handler.Purge(rec, req)
+
+	if rec.Code != http.StatusBadGateway || !strings.Contains(rec.Body.String(), "sigue archivado") {
+		t.Errorf("status %d, want 502 saying the control is still archived", rec.Code)
+	}
+	if _, err := f.service.Get(context.Background(), id); err != nil {
+		t.Errorf("the row is gone after a refused purge: %v", err)
 	}
 }

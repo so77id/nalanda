@@ -395,20 +395,28 @@ func (s *Service) Restore(ctx context.Context, id string) error {
 	return s.Store.RestoreControl(ctx, id)
 }
 
-// Purge is the hard-delete path: DB row + on-disk project directory
-// (issue #261). Two-step, defense-in-depth, best-effort on the
-// filesystem:
+// Purge is the hard-delete path: the project's files in the store, the DB
+// row, and the on-disk project directory (issue #261, #338).
+// Defense-in-depth, best-effort on the local filesystem:
 //
 //  1. ControlByID confirms the row exists AND is archived. An active row
 //     surfaces as ErrCannotPurgeActive — kept distinct from
 //     ErrControlNotFound so the handler can render "you have to archive
 //     it first" rather than a bare 404 on a hand-typed URL.
-//  2. PurgeControl deletes the row; the FK cascades from ADR-0034
+//  2. Files.DeleteProject deletes the project from the file store FIRST
+//     (issue #338, amending ADR-0052's order): under S3 it is the step
+//     that fails for network reasons, and failing there leaves the
+//     archived control whole (files.ErrSync) for the professor to retry.
+//     The reverse order would leave a purged student's scans in S3 with no
+//     row to retry from. A database failure after it leaves an archived row
+//     with no files in S3, which the retry then purges. The local store
+//     deletes nothing here.
+//  3. PurgeControl deletes the row; the FK cascades from ADR-0034
 //     §Consequences remove control_pregunta, copia, reading, answer and
 //     annotated_copy, and the control's jobs (no FK since 00023,
 //     ADR-0079 §5) are deleted explicitly in the same transaction. This
 //     is the point of no return.
-//  3. RemoveAll drops the project directory. A filesystem failure here is
+//  4. RemoveAll drops the project directory. A filesystem failure here is
 //     LOGGED and NOT returned: the row and its dependents are already
 //     gone, and forwarding a cleanup problem would leave the caller
 //     believing the purge failed while every referenced grade is
@@ -426,6 +434,9 @@ func (s *Service) Purge(ctx context.Context, id string) error {
 	}
 	if control.DeletedAt == nil {
 		return fmt.Errorf("controls.Purge %s: %w", id, ErrCannotPurgeActive)
+	}
+	if err := s.Files.DeleteProject(ctx, projectRel(id)); err != nil {
+		return fmt.Errorf("controls.Purge %s: %w: %w", id, files.ErrSync, err)
 	}
 	if err := s.Store.PurgeControl(ctx, id); err != nil {
 		return fmt.Errorf("controls.Purge %s: %w", id, err)

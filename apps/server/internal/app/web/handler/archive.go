@@ -9,6 +9,7 @@ import (
 	"github.com/so77id/nalanda/apps/server/internal/app/web/middleware"
 	"github.com/so77id/nalanda/apps/server/internal/app/web/view"
 	"github.com/so77id/nalanda/apps/server/internal/domain/controls"
+	"github.com/so77id/nalanda/apps/server/internal/domain/files"
 )
 
 // Archive is the detail page's danger-zone POST target (issue #261). It
@@ -264,6 +265,14 @@ func (h *Controls) Purge(w http.ResponseWriter, r *http.Request) {
 			flash.Set(w, h.secureCookie,
 				"El control «"+c.Name+"» ya había sido eliminado.")
 			http.Redirect(w, r, ControlsArchivedPath, http.StatusSeeOther)
+			return
+		}
+		if errors.Is(err, files.ErrSync) {
+			// Issue #338: S3 goes first, so failing there leaves the
+			// archived control and its grades whole for a retry.
+			h.Log.Error("purge: file store", "id", id, "error", err)
+			middleware.WriteError(w, r, http.StatusBadGateway,
+				"No se pudieron borrar sus archivos de S3; el control sigue archivado. Vuelve a intentarlo.")
 			return
 		}
 		h.Log.Error("purge", "id", id, "error", err)
