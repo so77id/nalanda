@@ -3,6 +3,7 @@ package filestore
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -12,6 +13,7 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -81,13 +83,67 @@ func (s *S3) Open(ctx context.Context, rel string) (files.File, error) {
 	if err := files.ValidRel(rel); err != nil {
 		return nil, err
 	}
-	if project, ok := contractPage(rel); ok {
-		target, err := s.resolveLink(ctx, project, rel)
-		if err != nil {
-			return nil, err
-		}
-		rel = target
+	target, err := s.target(ctx, rel, linkMaps{})
+	if err != nil {
+		return nil, err
 	}
+	return s.openTarget(ctx, target)
+}
+
+// OpenFirst is files.OpenFirst with each project's link map read once: a
+// page image that is a JPG costs that one read, a HEAD and the body, where
+// an Open per name read the map again for the PNG that was not there
+// (issue #338 review, PER-2). Only a missing file falls through.
+func (s *S3) OpenFirst(ctx context.Context, rels ...string) (files.File, string, error) {
+	read := linkMaps{}
+	for _, rel := range rels {
+		if err := files.ValidRel(rel); err != nil {
+			return nil, "", err
+		}
+		target, err := s.target(ctx, rel, read)
+		if err == nil {
+			var f files.File
+			if f, err = s.openTarget(ctx, target); err == nil {
+				return f, rel, nil
+			}
+		}
+		if !errors.Is(err, fs.ErrNotExist) {
+			return nil, "", err
+		}
+	}
+	return nil, "", fmt.Errorf("filestore: none of %q: %w", rels, fs.ErrNotExist)
+}
+
+// linkMaps holds the link maps one Open or OpenFirst has read, by project.
+type linkMaps map[string]map[string]string
+
+// target is the path rel is served from: rel itself, or — for a contract
+// name under scans/ — the image the project's link map points it at, read
+// through read. A link whose target is not a bare file name of the same
+// scans/ is never followed (issue #338 §8.3): the link map is input, not
+// trust.
+func (s *S3) target(ctx context.Context, rel string, read linkMaps) (string, error) {
+	project, ok := contractPage(rel)
+	if !ok {
+		return rel, nil
+	}
+	links, seen := read[project]
+	if !seen {
+		var err error
+		if links, err = s.readLinks(ctx, project); err != nil {
+			return "", err
+		}
+		read[project] = links
+	}
+	target, ok := links[strings.TrimPrefix(rel, project+"/")]
+	if !ok || !bareName(target) {
+		return "", fmt.Errorf("filestore: open %s: no link: %w", rel, fs.ErrNotExist)
+	}
+	return path.Join(project, "scans", target), nil
+}
+
+// openTarget is one HEAD of the object at rel and the lazy file over it.
+func (s *S3) openTarget(ctx context.Context, rel string) (files.File, error) {
 	key := KeyPrefix + rel
 	head, err := s.client.HeadObject(ctx, &s3.HeadObjectInput{Bucket: &s.bucket, Key: &key})
 	if err != nil {
@@ -152,6 +208,41 @@ func (s *S3) DeleteProject(ctx context.Context, project string) error {
 		return fmt.Errorf("filestore: delete %s: %w", project, err)
 	}
 	return nil
+}
+
+// put writes one object in a single PutObject — never the SDK's multipart
+// manager, so its ETag stays the MD5 of its bytes, which is what lets one
+// listing per project answer "is the bucket current?" and every download be
+// checked (issue #338 §1). Content-MD5 carries sum, so S3 refuses a body
+// that changed between the hash and the send. Every write of the sync goes
+// through here (issue #338 review, ARQ-4).
+func (s *S3) put(ctx context.Context, key string, body io.Reader, size int64, sum []byte, contentType string) error {
+	in := &s3.PutObjectInput{
+		Bucket:        &s.bucket,
+		Key:           &key,
+		Body:          body,
+		ContentLength: aws.Int64(size),
+		ContentMD5:    aws.String(base64.StdEncoding.EncodeToString(sum)),
+	}
+	if contentType != "" {
+		in.ContentType = &contentType
+	}
+	_, err := s.client.PutObject(ctx, in)
+	return err
+}
+
+// get reads the whole object at key, If-Match ifMatch when it is given, so
+// the bytes are the ones a listing described.
+func (s *S3) get(ctx context.Context, key, ifMatch string) (io.ReadCloser, error) {
+	in := &s3.GetObjectInput{Bucket: &s.bucket, Key: &key}
+	if ifMatch != "" {
+		in.IfMatch = &ifMatch
+	}
+	out, err := s.client.GetObject(ctx, in)
+	if err != nil {
+		return nil, err
+	}
+	return out.Body, nil
 }
 
 // deleteKeys deletes keys in batches S3 accepts, reading the per-key
@@ -219,33 +310,19 @@ func (s *S3) each(ctx context.Context, prefix, delimiter string, visit func(type
 	}
 }
 
-// resolveLink answers the image a contract name links to, as a path under
-// the same scans/. A target that is not a bare file name of that directory
-// is never followed (issue #338 §8.3): the link map is input, not trust.
-func (s *S3) resolveLink(ctx context.Context, project, rel string) (string, error) {
-	links, err := s.readLinks(ctx, project)
-	if err != nil {
-		return "", err
-	}
-	name := strings.TrimPrefix(rel, project+"/")
-	target, ok := links[name]
-	if !ok || !bareName(target) {
-		return "", fmt.Errorf("filestore: open %s: no link: %w", rel, fs.ErrNotExist)
-	}
-	return path.Join(project, "scans", target), nil
-}
-
+// readLinks reads a project's link map; a project with none has an empty
+// one.
 func (s *S3) readLinks(ctx context.Context, project string) (map[string]string, error) {
 	key := KeyPrefix + path.Join(project, files.ReservedDir, linksName)
-	out, err := s.client.GetObject(ctx, &s3.GetObjectInput{Bucket: &s.bucket, Key: &key})
+	body, err := s.get(ctx, key, "")
 	if notFound(err) {
 		return nil, nil
 	}
 	if err != nil {
 		return nil, fmt.Errorf("filestore: read %s: %w", key, err)
 	}
-	defer func() { _ = out.Body.Close() }()
-	links, err := decodeLinks(out.Body)
+	defer func() { _ = body.Close() }()
+	links, err := decodeLinks(body)
 	if err != nil {
 		return nil, fmt.Errorf("filestore: read %s: %w", key, err)
 	}
@@ -323,6 +400,14 @@ func (s *S3) fail(op, rel string, err error) error {
 // offset, If-Match the ETag the HEAD saw, so the bytes are the ones the
 // size and the time describe — an object replaced in between fails the read
 // instead of serving a body of another length.
+//
+// Safe for use from two goroutines, unlike what an io.ReadSeekCloser need
+// be: http.ServeContent reads a multi-range answer from a goroutine of its
+// own, which can still be reading when the handler's deferred Close runs
+// after the client went away (issue #338 review, COR-7). Without the mutex
+// that Read could open a GET body nobody closes, or call Read on a body
+// Close just cleared — a panic in a goroutine net/http does not recover.
+// After Close, a Read refuses rather than issuing a GET.
 type s3File struct {
 	ctx     context.Context
 	client  S3Client
@@ -331,11 +416,19 @@ type s3File struct {
 	etag    string
 	size    int64
 	modTime time.Time
-	offset  int64
-	body    io.ReadCloser
+
+	mu     sync.Mutex
+	offset int64
+	body   io.ReadCloser
+	closed bool
 }
 
 func (f *s3File) Read(p []byte) (int, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.closed {
+		return 0, fmt.Errorf("filestore: read %s: %w", f.key, fs.ErrClosed)
+	}
 	if f.offset >= f.size {
 		return 0, io.EOF
 	}
@@ -360,6 +453,8 @@ func (f *s3File) Read(p []byte) (int, error) {
 
 // Seek only moves the offset; the next Read fetches from there.
 func (f *s3File) Seek(offset int64, whence int) (int64, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
 	var to int64
 	switch whence {
 	case io.SeekStart:
@@ -383,6 +478,9 @@ func (f *s3File) Seek(offset int64, whence int) (int64, error) {
 }
 
 func (f *s3File) Close() error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.closed = true
 	if f.body == nil {
 		return nil
 	}

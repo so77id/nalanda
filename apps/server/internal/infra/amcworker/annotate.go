@@ -14,8 +14,15 @@ import (
 
 // AnnotateCopy runs POST /annotate/copy against the worker and returns the
 // produced PDF's path relative to the shared volume. Serialised behind the
-// same mutex as Generate and Analyze: AMC's state is sqlite in the project
-// directory and two runs against one project would race it (ADR-0030).
+// same lock as Generate and Analyze: AMC's state is sqlite in the project
+// directory and two runs against one project would race it (ADR-0030). Its
+// sync leaves the databases the annotate rewrites for the next other call
+// (ProjectSync.AroundAnnotate).
+//
+// A push that failed returns no path, on purpose (issue #338 review): with
+// no annotated_copy row the review page falls back to the raw scan and a
+// publication skips the copy, where a row would point both at a PDF S3 may
+// not hold.
 func (c *Client) AnnotateCopy(ctx context.Context, req controls.AnnotateRequest) (string, error) {
 	if req.Project == "" {
 		return "", fmt.Errorf("%w: project path is required", controls.ErrAnnotatorRefused)
@@ -27,15 +34,15 @@ func (c *Client) AnnotateCopy(ctx context.Context, req controls.AnnotateRequest)
 		return "", fmt.Errorf("%w: invalid ticked %v", controls.ErrAnnotatorRefused, req.Ticked)
 	}
 
-	c.generateLock.Lock()
-	defer c.generateLock.Unlock()
-
 	var path string
-	err := c.inStep(ctx, req.Project, func() (err error) {
+	err := c.serialisedAnnotate(ctx, req.Project, func() (err error) {
 		path, err = c.postAnnotate(ctx, req)
 		return err
 	})
-	return path, err
+	if err != nil {
+		return "", err
+	}
+	return path, nil
 }
 
 // postAnnotate is the /annotate/copy request itself, under the lock and

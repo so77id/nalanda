@@ -2,16 +2,21 @@
 // the suite (issue #338) — the shape DocumentBuddy's ADR-008 uses for its own
 // store. It keeps exactly what the S3 store relies on: single-part ETags (the
 // quoted hex MD5 of the bytes, as S3 answers for a single PutObject under
-// SSE-S3), LastModified to the second, ranged and If-Match GETs, prefix and
-// delimiter listing in pages, and DeleteObjects. Nothing here vouches for
-// real S3 — signing, the ETag under the bucket's real encryption, Range on
-// the wire — which is apps/server/S3-CHECK.md's.
+// SSE-S3), a PUT refused when its body does not match its Content-MD5 or its
+// Content-Length (S3's BadDigest and IncompleteBody), LastModified to the
+// second, ranged and If-Match GETs, prefix and delimiter listing in pages,
+// and DeleteObjects. Like the SDK, it sends nothing for a context that is
+// already done (issue #338 review, COR-4: a fake that ignored both let a
+// wrong digest and a lock wait that outlived its deadline pass the suite).
+// Nothing here vouches for real S3 — signing, the ETag under the bucket's
+// real encryption, Range on the wire — which is apps/server/S3-CHECK.md's.
 package s3test
 
 import (
 	"bytes"
 	"context"
 	"crypto/md5"
+	"encoding/base64"
 	"encoding/hex"
 	"fmt"
 	"io"
@@ -134,7 +139,10 @@ func (b *Bucket) begin(op, key string) error {
 
 // HeadObject answers *types.NotFound for a missing key, as S3 does to a
 // caller allowed to list the bucket.
-func (b *Bucket) HeadObject(_ context.Context, in *s3.HeadObjectInput, _ ...func(*s3.Options)) (*s3.HeadObjectOutput, error) {
+func (b *Bucket) HeadObject(ctx context.Context, in *s3.HeadObjectInput, _ ...func(*s3.Options)) (*s3.HeadObjectOutput, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	key := aws.ToString(in.Key)
@@ -154,7 +162,10 @@ func (b *Bucket) HeadObject(_ context.Context, in *s3.HeadObjectInput, _ ...func
 
 // GetObject honours Range ("bytes=a-" and "bytes=a-b") and If-Match, and
 // answers *types.NoSuchKey for a missing key.
-func (b *Bucket) GetObject(_ context.Context, in *s3.GetObjectInput, _ ...func(*s3.Options)) (*s3.GetObjectOutput, error) {
+func (b *Bucket) GetObject(ctx context.Context, in *s3.GetObjectInput, _ ...func(*s3.Options)) (*s3.GetObjectOutput, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	key := aws.ToString(in.Key)
@@ -204,8 +215,13 @@ func parseRange(r string, size int64) (from, to int64, err error) {
 	return from, to, nil
 }
 
-// PutObject stores the body whole, the way one single-part PUT does.
-func (b *Bucket) PutObject(_ context.Context, in *s3.PutObjectInput, _ ...func(*s3.Options)) (*s3.PutObjectOutput, error) {
+// PutObject stores the body whole, the way one single-part PUT does, and
+// refuses it — storing nothing — when it is not the length ContentLength
+// declared or its MD5 is not the ContentMD5 sent with it.
+func (b *Bucket) PutObject(ctx context.Context, in *s3.PutObjectInput, _ ...func(*s3.Options)) (*s3.PutObjectOutput, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	key := aws.ToString(in.Key)
 	var body []byte
 	if in.Body != nil {
@@ -219,13 +235,25 @@ func (b *Bucket) PutObject(_ context.Context, in *s3.PutObjectInput, _ ...func(*
 	if err := b.begin("PutObject", key); err != nil {
 		return nil, err
 	}
+	if in.ContentLength != nil && *in.ContentLength != int64(len(body)) {
+		return nil, fmt.Errorf("s3test: IncompleteBody: %s declared %d bytes and sent %d", key, *in.ContentLength, len(body))
+	}
+	if digest := aws.ToString(in.ContentMD5); digest != "" {
+		sum := md5.Sum(body)
+		if got := base64.StdEncoding.EncodeToString(sum[:]); got != digest {
+			return nil, fmt.Errorf("s3test: BadDigest: %s was sent with Content-MD5 %s, its bytes hash to %s", key, digest, got)
+		}
+	}
 	b.store(key, body)
 	return &s3.PutObjectOutput{ETag: aws.String(b.objects[key].ETag)}, nil
 }
 
 // ListObjectsV2 lists in key order, rolling keys up to CommonPrefixes on
 // the delimiter, PageSize (or the request's MaxKeys, if fewer) at a time.
-func (b *Bucket) ListObjectsV2(_ context.Context, in *s3.ListObjectsV2Input, _ ...func(*s3.Options)) (*s3.ListObjectsV2Output, error) {
+func (b *Bucket) ListObjectsV2(ctx context.Context, in *s3.ListObjectsV2Input, _ ...func(*s3.Options)) (*s3.ListObjectsV2Output, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	prefix := aws.ToString(in.Prefix)
@@ -288,7 +316,10 @@ func (b *Bucket) ListObjectsV2(_ context.Context, in *s3.ListObjectsV2Input, _ .
 
 // DeleteObjects deletes every key it is handed (a missing one is not an
 // error, as in S3) and refuses more than 1000, as S3 does.
-func (b *Bucket) DeleteObjects(_ context.Context, in *s3.DeleteObjectsInput, _ ...func(*s3.Options)) (*s3.DeleteObjectsOutput, error) {
+func (b *Bucket) DeleteObjects(ctx context.Context, in *s3.DeleteObjectsInput, _ ...func(*s3.Options)) (*s3.DeleteObjectsOutput, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	if in.Delete == nil {

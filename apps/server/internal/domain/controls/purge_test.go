@@ -10,6 +10,7 @@ import (
 
 	"github.com/so77id/nalanda/apps/server/internal/domain/controls"
 	"github.com/so77id/nalanda/apps/server/internal/domain/files"
+	"github.com/so77id/nalanda/apps/server/internal/infra/amcworker/amctest"
 	"github.com/so77id/nalanda/apps/server/internal/infra/filestore"
 	"github.com/so77id/nalanda/apps/server/internal/infra/filestore/s3test"
 )
@@ -23,6 +24,7 @@ import (
 type purgeRig struct {
 	svc     *controls.Service
 	store   *fakeStore
+	worker  *amctest.Fake
 	bucket  *s3test.Bucket
 	id      string
 	project string // the local project directory
@@ -30,7 +32,7 @@ type purgeRig struct {
 
 func newPurgeRig(t *testing.T) purgeRig {
 	t.Helper()
-	svc, store, _, workDir := newService(t)
+	svc, store, worker, workDir := newService(t)
 	ctx := context.Background()
 	control, err := createControlSync(ctx, svc, req(nil))
 	if err != nil {
@@ -46,7 +48,7 @@ func newPurgeRig(t *testing.T) purgeRig {
 	bucket.Put(prefix+".nalanda/links.json", []byte(`{}`))
 	bucket.Put("work/controls/OTHER/out/sujet.pdf", []byte("another control"))
 	svc.Files = filestore.NewS3(bucket, "nalanda-test")
-	return purgeRig{svc: svc, store: store, bucket: bucket, id: control.ID,
+	return purgeRig{svc: svc, store: store, worker: worker, bucket: bucket, id: control.ID,
 		project: filepath.Join(workDir, "controls", control.ID)}
 }
 
@@ -153,5 +155,38 @@ func TestProjectPathsNamesEveryControlArchivedOrNot(t *testing.T) {
 	want := map[string]bool{"controls/" + active.ID: true, "controls/" + archived.ID: true}
 	if len(got) != 2 || !want[got[0]] || !want[got[1]] {
 		t.Errorf("ProjectPaths = %v, want both controls", got)
+	}
+}
+
+// Issue #338 review, SEC-1: the purge's file steps run under the worker's
+// lock, which it only TRIES. A worker busy on any job refuses the purge
+// before anything is deleted — a push running beside it would upload again
+// what it deleted from S3, with no row left to find it.
+func TestAPurgeWhileTheWorkerIsBusyDeletesNothing(t *testing.T) {
+	r := newPurgeRig(t)
+	r.worker.ExclusiveBusy = true
+
+	err := r.svc.Purge(context.Background(), r.id)
+	if !errors.Is(err, controls.ErrAnalyzerBusy) {
+		t.Fatalf("Purge = %v, want ErrAnalyzerBusy", err)
+	}
+	if keys := r.keysOfTheControl(); len(keys) != 3 {
+		t.Errorf("S3 holds %v after a refused purge, want all three keys", keys)
+	}
+	if len(r.store.controls) != 1 {
+		t.Error("the row went in a refused purge")
+	}
+	if _, err := os.Stat(r.project); err != nil {
+		t.Errorf("the local directory went in a refused purge: %v", err)
+	}
+}
+
+func TestAPurgeTakesTheWorkerLockOnce(t *testing.T) {
+	r := newPurgeRig(t)
+	if err := r.svc.Purge(context.Background(), r.id); err != nil {
+		t.Fatal(err)
+	}
+	if r.worker.ExclusiveCalls != 1 {
+		t.Errorf("the purge asked for the worker lock %d time(s), want once", r.worker.ExclusiveCalls)
 	}
 }

@@ -163,3 +163,27 @@ func TestAPurgeTheStoreRefusesKeepsTheControlAndSaysSo(t *testing.T) {
 		t.Errorf("the row is gone after a refused purge: %v", err)
 	}
 }
+
+// Issue #338 review, SEC-1 at the page: a worker busy on any job refuses
+// the purge with a 409 that says nothing was deleted.
+func TestAPurgeWhileTheWorkerIsBusyIsRefusedAndSaysNothingWasDeleted(t *testing.T) {
+	f := newControlsFixture(t)
+	name := "Control con motor ocupado"
+	id := f.createControl(t, name, 1)
+	if err := f.service.Archive(context.Background(), id); err != nil {
+		t.Fatal(err)
+	}
+	f.fake.ExclusiveBusy = true
+
+	req := f.authedRequest(t, http.MethodPost, "/controls/"+id+"/purge", url.Values{"confirm_name": {name}})
+	req.SetPathValue("id", id)
+	rec := httptest.NewRecorder()
+	f.handler.Purge(rec, req)
+
+	if rec.Code != http.StatusConflict || !strings.Contains(rec.Body.String(), "no se borró nada") {
+		t.Errorf("status %d, want 409 saying nothing was deleted", rec.Code)
+	}
+	if _, err := f.service.Get(context.Background(), id); err != nil {
+		t.Errorf("the row is gone after a refused purge: %v", err)
+	}
+}

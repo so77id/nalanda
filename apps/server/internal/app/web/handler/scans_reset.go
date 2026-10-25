@@ -106,12 +106,8 @@ func (h *Controls) ScansReset(w http.ResponseWriter, r *http.Request) {
 			middleware.WriteError(w, r, http.StatusConflict,
 				"El motor de lectura está trabajando en otro control; no se borró nada. Vuelve a intentarlo en unos minutos.")
 		case errors.Is(err, files.ErrSync):
-			// Before the readings: whether the S3 half failed before the
-			// worker ran or after it, no reading was deleted, and a retry
-			// brings the scans back from S3 and finishes (issue #338).
 			h.Log.Error("scans reset: file store", "id", c.ID, "error", err)
-			middleware.WriteError(w, r, http.StatusBadGateway,
-				"No se pudo sincronizar con S3; las lecturas no se borraron. Vuelve a intentarlo.")
+			middleware.WriteError(w, r, http.StatusBadGateway, resetSyncFailed)
 		case errors.Is(err, controls.ErrAnalyzerRefused), errors.Is(err, controls.ErrAnalyzerUnavailable),
 			errors.Is(err, context.DeadlineExceeded):
 			h.Log.Error("scans reset: worker", "id", c.ID, "error", err)

@@ -194,3 +194,29 @@ func TestRunProjectPathsNamesEveryRunAsAStorePath(t *testing.T) {
 		t.Errorf("RunProjectPaths = %v", got)
 	}
 }
+
+// notStoredGenerator generated the sheet; only its copy to S3 failed.
+type notStoredGenerator struct{ noGenerator }
+
+func (notStoredGenerator) GenerateSheet(_ context.Context, req survey.GenerateRequest) (survey.Assets, error) {
+	return survey.Assets{Sujet: req.Project + "/out/sujet.pdf"},
+		fmt.Errorf("%w: %w: put work/surveys/1/runs/2/out/sujet.pdf: dial tcp: i/o timeout", files.ErrSync, files.ErrNotStored)
+}
+
+// Issue #338 review, COR-1: the sheet exists; the job is done, and its
+// notice says the copy to S3 is still to come.
+func TestARunSheetTheStoreDidNotTakeIsDoneWithANotice(t *testing.T) {
+	work := t.TempDir()
+	svc := survey.NewService(survey.Service{
+		Store: openRunStore{newMemStore()}, Generator: notStoredGenerator{}, Analyzer: noGenerator{},
+		WorkDir: work, Files: filestore.NewLocal(work), Now: time.Now,
+	})
+	err := survey.NewGenerateHandler(svc)(context.Background(), "2", []byte(`{"survey_id":1}`))
+	var notice *jobs.Notice
+	if !errors.As(err, &notice) {
+		t.Fatalf("the handler returned %v, want a *jobs.Notice", err)
+	}
+	if !strings.Contains(notice.Message, "La hoja se generó") || strings.Contains(notice.Message, "dial tcp") {
+		t.Errorf("notice = %q", notice.Message)
+	}
+}

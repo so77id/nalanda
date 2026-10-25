@@ -12,6 +12,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
+
 	"github.com/so77id/nalanda/apps/server/internal/domain/files"
 	"github.com/so77id/nalanda/apps/server/internal/infra/filestore"
 	"github.com/so77id/nalanda/apps/server/internal/infra/filestore/s3test"
@@ -433,5 +436,111 @@ func TestAForbiddenHeadOfAMissingKeyIsStillNotExist(t *testing.T) {
 	bucket.FailOn = func(op, _ string) error { return errors.New("dial tcp: i/o timeout") }
 	if _, err := store.Open(ctx, "controls/ABC/out/missing.pdf"); err == nil || errors.Is(err, fs.ErrNotExist) {
 		t.Errorf("an unreachable store = %v, want its failure, not a missing file", err)
+	}
+}
+
+// PER-2: a page image is a PNG or a JPG, the PNG winning; finding the JPG
+// reads the project's link map once, not once per name.
+func TestS3OpenFirstReadsTheLinkMapOnce(t *testing.T) {
+	store, bucket := newS3(t)
+	bucket.Put("work/controls/ABC/.nalanda/links.json",
+		[]byte(`{"scans/copy-3-page-1.jpg": "batch-1.pdf-page-005-001.jpg"}`))
+	bucket.Put("work/controls/ABC/scans/batch-1.pdf-page-005-001.jpg", []byte("jpeg"))
+
+	f, rel, err := files.OpenFirst(context.Background(), store,
+		"controls/ABC/scans/copy-3-page-1.png", "controls/ABC/scans/copy-3-page-1.jpg")
+	if err != nil {
+		t.Fatalf("OpenFirst: %v", err)
+	}
+	_ = f.Close()
+	if rel != "controls/ABC/scans/copy-3-page-1.jpg" {
+		t.Errorf("OpenFirst opened %q, want the JPG", rel)
+	}
+	if got := len(calls(bucket, "GetObject")); got != 1 {
+		t.Errorf("the link map was read %d times, want once", got)
+	}
+	if got := len(calls(bucket, "HeadObject")); got != 1 {
+		t.Errorf("%d HEADs, want one (the PNG has no link to ask about)", got)
+	}
+}
+
+// A link map S3 cannot serve is not "no PNG": the JPG is never served in
+// its place.
+func TestS3OpenFirstStopsWhenTheLinkMapCannotBeRead(t *testing.T) {
+	store, bucket := newS3(t)
+	bucket.Put("work/controls/ABC/.nalanda/links.json", []byte(`{}`))
+	bucket.FailOn = func(op, _ string) error {
+		if op == "GetObject" {
+			return errors.New("dial tcp: i/o timeout")
+		}
+		return nil
+	}
+	_, _, err := store.OpenFirst(context.Background(),
+		"controls/ABC/scans/copy-3-page-1.png", "controls/ABC/scans/copy-3-page-1.jpg")
+	if err == nil || errors.Is(err, fs.ErrNotExist) {
+		t.Errorf("OpenFirst = %v, want the store's failure, not a missing file", err)
+	}
+}
+
+// COR-7: a Read after Close refuses instead of opening a GET body nobody
+// would close — the case of a multi-range answer's goroutine still reading
+// when the handler's deferred Close ran.
+func TestS3ReadAfterCloseRefusesAndFetchesNothing(t *testing.T) {
+	store, bucket := newS3(t)
+	bucket.Put("work/controls/ABC/out/sujet.pdf", []byte("%PDF-sheet"))
+	f, err := store.Open(context.Background(), "controls/ABC/out/sujet.pdf")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := f.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.Read(make([]byte, 4)); !errors.Is(err, fs.ErrClosed) {
+		t.Errorf("Read after Close = %v, want fs.ErrClosed", err)
+	}
+	if got := len(calls(bucket, "GetObject")); got != 0 {
+		t.Errorf("a Read after Close issued %d GET(s)", got)
+	}
+}
+
+// failingWriter is a client that went away: every write fails.
+type failingWriter struct{ header http.Header }
+
+func (w *failingWriter) Header() http.Header       { return w.header }
+func (w *failingWriter) Write([]byte) (int, error) { return 0, errors.New("broken pipe") }
+func (w *failingWriter) WriteHeader(int)           {}
+
+// COR-7 under -race: http.ServeContent reads a multi-range answer from a
+// goroutine of its own; a client that goes away makes the handler return
+// and Close while that goroutine may still be reading.
+func TestS3FileSurvivesAMultiRangeAnswerTheClientAbandons(t *testing.T) {
+	store, bucket := newS3(t)
+	bucket.Put("work/controls/ABC/out/sujet.pdf", []byte(strings.Repeat("x", 1000)))
+	for range 20 {
+		f, err := store.Open(context.Background(), "controls/ABC/out/sujet.pdf")
+		if err != nil {
+			t.Fatal(err)
+		}
+		req := httptest.NewRequest(http.MethodGet, "/sujet.pdf", nil)
+		req.Header.Set("Range", "bytes=0-9,500-509")
+		http.ServeContent(&failingWriter{header: http.Header{}}, req, "sujet.pdf", f.ModTime(), f)
+		_ = f.Close()
+	}
+}
+
+// The fake refuses a body shorter or longer than it declared, as S3 does
+// (IncompleteBody) — what a file truncated between its scan and its send
+// looks like on the wire.
+func TestTheFakeRefusesABodyOfAnotherLength(t *testing.T) {
+	bucket := s3test.New()
+	_, err := bucket.PutObject(context.Background(), &s3.PutObjectInput{
+		Bucket: aws.String("nalanda-test"), Key: aws.String("work/controls/ABC/out/sujet.pdf"),
+		Body: strings.NewReader("%PDF"), ContentLength: aws.Int64(10),
+	})
+	if err == nil {
+		t.Fatal("a 4-byte body declared as 10 was stored")
+	}
+	if _, ok := bucket.Get("work/controls/ABC/out/sujet.pdf"); ok {
+		t.Error("the refused body is in the bucket")
 	}
 }

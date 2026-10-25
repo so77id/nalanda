@@ -3,10 +3,12 @@ package amcworker
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"sort"
 	"strconv"
 
+	"github.com/so77id/nalanda/apps/server/internal/domain/files"
 	"github.com/so77id/nalanda/apps/server/internal/domain/survey"
 )
 
@@ -14,7 +16,9 @@ import (
 // /analyse, the same lock, answered in the survey domain's types and
 // sentinels — survey never sees a controls type (ADR-0078). Only the
 // per-answer part of the report crosses: a survey sheet has no ID grid, so
-// the copy's status, RUT and score mean nothing (ADR-0080 §8).
+// the copy's status, RUT and score mean nothing (ADR-0080 §8). Like Analyze,
+// a report AMC produced comes back with a files.ErrNotStored error when only
+// the copy to the store failed.
 func (c *Client) AnalyzeSheets(ctx context.Context, req survey.AnalyzeRequest) (survey.Report, error) {
 	switch {
 	case req.Project == "":
@@ -25,9 +29,6 @@ func (c *Client) AnalyzeSheets(ctx context.Context, req survey.AnalyzeRequest) (
 		return survey.Report{}, fmt.Errorf("%w: source path is required", survey.ErrAnalyzerRefused)
 	}
 
-	c.generateLock.Lock()
-	defer c.generateLock.Unlock()
-
 	body, err := json.Marshal(analyzeRequestBody{
 		Project: req.Project, ScanPDF: req.ScanPDF, Source: req.Source,
 		Ticked: req.Ticked, Unsure: req.Unsure,
@@ -36,13 +37,14 @@ func (c *Client) AnalyzeSheets(ctx context.Context, req survey.AnalyzeRequest) (
 		return survey.Report{}, fmt.Errorf("amcworker: encode analyse request: %w", err)
 	}
 	var wire reportBody
-	if err := c.inStep(ctx, req.Project, func() (err error) {
+	err = c.serialised(ctx, req.Project, func() (err error) {
 		wire, err = c.postWire(ctx, "/analyse", body, surveyWorkerErrors)
 		return err
-	}); err != nil {
+	})
+	if err != nil && !errors.Is(err, files.ErrNotStored) {
 		return survey.Report{}, err
 	}
-	return wire.toSurvey(), nil
+	return wire.toSurvey(), err
 }
 
 var surveyWorkerErrors = workerErrors{

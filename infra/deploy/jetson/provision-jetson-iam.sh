@@ -126,12 +126,17 @@ aws iam put-user-policy \
   --policy-document "${RENDERED_POLICY}"
 echo "    Policy attached (PutObject + GetObject + ListBucket on ${NALANDA_S3_BUCKET}/backups/)."
 
+# A key is created only for a user that has NONE (#338 review, SEC-3): the
+# migration re-runs this script, and creating — and printing — a second key
+# for a user whose first one is already deployed leaves a live secret in a
+# terminal's scrollback that nothing uses. Rotating is a deliberate act:
+# create-access-key by hand, deploy it, then delete-access-key the old one.
 echo "==> Checking existing access keys..."
 KEY_COUNT="$(aws iam list-access-keys --user-name "${USER_NAME}" \
   --query 'length(AccessKeyMetadata)' --output text)"
-if [[ "${KEY_COUNT}" -ge 2 ]]; then
-  echo "    User already has ${KEY_COUNT} access keys (max 2). Not creating a new one."
-  echo "    Delete an unused key first if you need fresh credentials:"
+if [[ "${KEY_COUNT}" -ge 1 ]]; then
+  echo "    User already has ${KEY_COUNT} access key(s). Not creating one."
+  echo "    To rotate: aws iam create-access-key --user-name ${USER_NAME}, deploy it, then delete the old key:"
   aws iam list-access-keys --user-name "${USER_NAME}" \
     --query 'AccessKeyMetadata[].{Id:AccessKeyId,Status:Status,Created:CreateDate}' --output table
 else
@@ -170,8 +175,9 @@ echo "    Policy attached (GetObject + PutObject + DeleteObject + ListBucket on 
 echo "==> Checking the server user's access keys..."
 SERVER_KEY_COUNT="$(aws iam list-access-keys --user-name "${SERVER_USER_NAME}" \
   --query 'length(AccessKeyMetadata)' --output text)"
-if [[ "${SERVER_KEY_COUNT}" -ge 2 ]]; then
-  echo "    User already has ${SERVER_KEY_COUNT} access keys (max 2). Not creating a new one."
+if [[ "${SERVER_KEY_COUNT}" -ge 1 ]]; then
+  echo "    User already has ${SERVER_KEY_COUNT} access key(s). Not creating one."
+  echo "    To rotate: aws iam create-access-key --user-name ${SERVER_USER_NAME}, deploy it, then delete the old key:"
   aws iam list-access-keys --user-name "${SERVER_USER_NAME}" \
     --query 'AccessKeyMetadata[].{Id:AccessKeyId,Status:Status,Created:CreateDate}' --output table
 else

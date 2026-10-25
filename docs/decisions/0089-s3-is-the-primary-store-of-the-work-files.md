@@ -86,13 +86,24 @@ only to a caller allowed to list, and whether this policy's prefix-scoped
 `ListBucket` satisfies a HEAD's implicit check is not documented. A store
 that fails (rather than a file that is missing) is a 503 in Spanish, never a
 "no está disponible" that would send the professor looking for a file that is
-there.
+there. A page image that may be a PNG or a JPG is opened with
+`files.OpenFirst`, which falls through on a MISSING file only and lets the S3
+store resolve both names against one read of the link map (#338 review,
+PER-2: four requests per image became three).
 
 ### 4. The sync wraps every worker call, inside the worker lock
 
-`amcworker.Client` serialises every call behind one mutex. Since #338 each
+`amcworker.Client` serialises every call behind one lock. Since #338 each
 call runs `filestore.Sync.Around` **inside** that lock, so nothing mutates a
-project while it is being copied:
+project while it is being copied — and there is one way in, the client's
+`serialised` helper (`trySerialised` for the resets), so a call cannot take
+the lock without the sync or the sync without the lock;
+`TestEveryWorkerCallsSyncRunsInsideTheWorkerLock` holds all eight calls to
+it (#338 review, ARQ-1/COR-3: the rule had been repeated at six call sites,
+and dropping the lock at two of them left the suite green). The lock is a
+one-slot channel, not a mutex: a call waiting for it gives up when its
+context ends (COR-2), where a review save behind another control's analyse
+used to wait out the whole hold and then skip the annotate it waited for:
 
 1. **hydrate** — one listing; each file goes the way of the NEWER copy:
    downloaded (temp file → MD5 check → the object's time → rename) when
@@ -110,10 +121,51 @@ The push runs after a FAILED call too (#210's batch-survives rule). A sync
 failure is `files.ErrSync`, which the jobs, the resets and the purge name in
 Spanish ("no se pudo sincronizar con S3; los archivos siguen en la Jetson");
 the local files are never touched by it, and the next call or the reconcile
-finishes the copy. The review save's annotate, which now carries a push, has
-its own 20 s deadline: past it the save stands and the reconcile catches up.
-Each file's MD5 is cached by path, size and nanosecond mtime, because an
-analyse annotates each clean copy as a call of its own.
+finishes the copy. A push that fails after a call that SUCCEEDED also wraps
+`files.ErrNotStored` (#338 review, COR-1): the work is done and on the
+volume, so an analyse returns its report with that error and the domain
+saves the reading — AMC has captured the batch either way, and dropping the
+report left the readings behind a capture that had moved on — and a
+generation is a done job. Both say, in a notice, that the files are on the
+Jetson and go up with the next call or the nightly reconcile. An annotate's
+path is NOT kept: a row would point the review page and the publication at
+a PDF S3 may lack, where no row falls back to the raw scan. The review
+save's annotate has its own 20 s deadline, which covers its wait for the
+lock: past it the save stands, the professor is told the corrected PDF did
+not follow — a copy sent before its next annotate would carry the old one —
+and the reconcile catches up. Each file's MD5 is cached by path, size and
+nanosecond mtime, because an analyse annotates each clean copy as a call of
+its own.
+
+**An annotate leaves AMC's databases for the next other call**
+(`Sync.AroundAnnotate`; #338 review, PER-1, Miguel's choice among three).
+AMC rewrites `data/capture.sqlite` and `data/scoring.sqlite` on every
+`/annotate/copy` as a by-product — measured on the real worker, two
+identical annotates of one copy changed both and left the corrected PDF
+byte-identical — so an analyse's forty annotates uploaded a 5.7 MB
+`capture.sqlite` forty times, ~228 MB to keep the last one, where the
+whole loop needs ~18 MB. Those `data/*.sqlite` are left out of an
+annotate's hydrate uploads and its push; the next call of another kind
+uploads them in its hydrate (the disk's copy is the newer one), and so does
+the reconcile. Until then the bucket's databases are the ones the last
+analyse, re-read or reset left, which is what a restore needs: what an
+annotate adds is derived from them and from the database — it re-applies the
+overrides the server holds and recomputes the scores — and the next annotate
+re-derives it. The alternatives were a per-copy sync that pushes only
+`annotated/` with one full sync at the end of the loop (more code in the
+loop's callers), and one call that annotates N copies (holding the lock for
+the whole loop, which makes COR-2 worse).
+
+**A call on a project that exists nowhere is refused** before anything is
+created: no file on the volume, none in the bucket. No real call starts from
+nothing — the server writes a project's inputs before its first call — so it
+can only be one that queued behind its project's purge, and running it
+would re-create the directory and upload what the failed call leaves there,
+with no row left to find it (#338 review, SEC-1).
+
+Every Around logs one line, `files: synced`, with what each half moved and
+how long each part took — hydrate, call, push, the bytes, the files pruned
+and the ones an annotate deferred (PER-5).
 
 ### 5. New batches number past the store's
 
@@ -130,13 +182,30 @@ leaves the archived control whole for a retry; the reverse order would leave
 a purged student's scans in S3 with no row to retry from. The local store's
 `DeleteProject` deletes nothing, so local mode purges exactly as before.
 
+The three file steps run **under the worker lock**, which the purge only
+TRIES (`Analyzer.TryExclusive`): a worker busy on any job refuses it with a
+409 before anything is deleted (#338 review, SEC-1). Ordering alone was not
+enough: a push running beside the purge — an annotate loop releases the lock
+between copies, the reconcile walks every project — uploaded again what the
+S3 step had just deleted, and with the row gone nothing would ever find
+those objects. A call already queued for the control when the purge took the
+lock finds the project nowhere afterwards and is refused (§4). The lesson
+is in `apps/server/CLAUDE.md`'s purge rule: a destructive step on a store a
+sync repopulates runs under that sync's lock.
+
 ### 7. The reconcile, and the migration
 
 `filestore.Reconciler` does the hydrate's upload half for every project the
 database knows (archived controls and every run included), one at a time
-under the lock: it **never downloads and never deletes**, because at boot the
-volume may be the drill's empty one or a rollback's stale one. It runs at
-boot and daily at 03:00 UTC (the database backup's hour). The migration is
+under the lock and with the hydrate's one tie rule (at the same instant the
+disk's copy wins; #338 review, ARQ-3): it **never downloads and never
+deletes**, because at boot the volume may be the drill's empty one or a
+rollback's stale one. It re-reads the project list under each project's
+lock and skips one no longer on it, so a purge that landed after the walk
+began — it takes the same lock — cannot have what a failed RemoveAll left
+uploaded again (COR-10). It runs at boot and daily at 03:00 UTC (the
+database backup's hour), and it is also what carries the databases the
+annotates deferred. The migration is
 the same code run once as `server -sync-files`, against the bucket whatever
 the store says, before the flip (DEPLOY-JETSON.md).
 
@@ -196,8 +265,12 @@ dropped: it also fills `layout_char`.
 
 - **A worker operation is finished only when S3 holds its result**, and its
   duration grows by the push over the Jetson's uplink — a review save pushes
-  the corrected PDF and `capture.sqlite` (median 5.7 MB, max 9.6 MB). Measured
-  below after the merge.
+  the corrected PDF (~0.1 MB; AMC's databases wait for the next other call,
+  §4), an analyse its batch's images and `capture.sqlite` (median 5.7 MB, max
+  9.6 MB) once. Measured below after the merge.
+- **Between an annotate and the next call of another kind, the bucket's
+  `data/*.sqlite` are the previous call's** (§4). A restore in that window
+  re-derives what the annotates added on the next annotate of each copy.
 - **The merge is inert for the files**: the default is `local`. Flipping is
   Miguel's, after the migration.
 - **A leaked server key can delete the primary copy** (versioning is off by
@@ -220,5 +293,11 @@ dropped: it also fills `layout_char`.
 > - S3-CHECK §2: the ETag equalled the MD5 for the small and the 12 MB object.
 > - The migration: `-sync-files`' line (projects, files, bytes), and the
 >   bucket's object count beside a fresh census minus the denylist (AC-15).
-> - One analyse's and one review save's `files: pushed … took …` (AC-15).
+> - The uplink: one timed ~10 MB PutObject from the Jetson (#338 review,
+>   PER-5).
+> - One analyse JOB with N copies, end to end, under `local` and under `s3`,
+>   with the sum of its `files: synced` lines (`hydrate=`, `call=`, `push=`,
+>   `bytes=`, `deferred=`), and one review save end to end, its wait for the
+>   lock included (AC-15). These decide the deferred items PER-4 (bounded
+>   ranged reads) and PER-6 (a small upload pool).
 > - The drill (AC-16) and the rollback rehearsal (AC-18): pass / fail, date.

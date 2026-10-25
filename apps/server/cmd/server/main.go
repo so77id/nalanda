@@ -259,17 +259,14 @@ func run(logger *slog.Logger) error {
 	// and, under s3, the sync the worker client runs around every call.
 	fileStore, fileSync := buildFileStore(cfg, logger)
 	logger.Info("file store", "store", cfg.FilesStore, "bucket", cfg.FilesS3Bucket, "region", cfg.FilesS3Region)
-	amcClient := amcworker.New(amcworker.Config{BaseURL: cfg.AmcWorkerURL, Sync: fileSync})
+	amcClient := amcworker.New(amcworker.Config{BaseURL: cfg.AmcWorkerURL, Sync: workerSync(fileSync)})
 	// Under s3, the reconcile at boot and every day at 03:00 UTC (issue #338
-	// §5): what a rollback to local wrote meanwhile, and what a push a
-	// failure or a deadline cut short left behind, goes up.
-	if sync, ok := fileSync.(*filestore.Sync); ok {
-		go reconcileDaily(ctx, &filestore.Reconciler{
-			Sync:      sync,
-			Projects:  allProjects(controlStore, surveystore.New(db)),
-			Exclusive: amcClient.Exclusive,
-			Log:       logger,
-		}, logger)
+	// §5): what a rollback to local wrote meanwhile, what a push a failure or
+	// a deadline cut short left behind, and what the annotates deferred goes
+	// up.
+	if fileSync != nil {
+		go reconcileDaily(ctx, filestore.NewReconciler(fileSync,
+			allProjects(controlStore, surveystore.New(db)), amcClient.Exclusive, logger), logger)
 	}
 	controlsService := controls.NewService(controls.Service{
 		Bank:      liveBank,
@@ -496,15 +493,6 @@ func warnIfNobodyCanLogIn(ctx context.Context, users auth.UserStore, cfg config.
 	return nil
 }
 
-// buildDispatcher picks the transport for the selected mode.
-//
-// The switch is exhaustive over config's closed set and still ends in a
-// panic, which is not belt-and-braces theatre: config.Load is what refuses
-// an unknown mode, so reaching the default here means somebody added a
-// fifth EmailMode constant and did not come back to this function. A panic
-// at wiring time is the failure that gets noticed; a silent fall-through to
-// stub is a deployment that looks healthy and sends nothing
-// (backend-code-style.md §Errors — never in a request path, right here).
 // allProjects is every project the database knows — controls archived or
 // not, every survey run — as files.Store paths: what the reconcile walks.
 func allProjects(controlStore controls.Store, surveyStore survey.Store) func(context.Context) ([]string, error) {
@@ -565,15 +553,9 @@ func syncFiles(logger *slog.Logger) int {
 		return 1
 	}
 	defer func() { _ = db.Close() }()
-	store := filestore.NewS3(
-		filestore.NewS3Client(cfg.FilesS3Region, cfg.FilesS3AccessKeyID, cfg.FilesS3SecretAccessKey),
-		cfg.FilesS3Bucket)
-	rec := &filestore.Reconciler{
-		Sync:      filestore.NewSync(store, cfg.WorkDir, logger),
-		Projects:  allProjects(controlstore.New(db), surveystore.New(db)),
-		Exclusive: func(fn func() error) error { return fn() },
-		Log:       logger,
-	}
+	_, sync := newS3Sync(cfg, logger)
+	rec := filestore.NewReconciler(sync, allProjects(controlstore.New(db), surveystore.New(db)),
+		func(fn func() error) error { return fn() }, logger)
 	summary, err := rec.Run(ctx)
 	return syncFilesExit(summary, err, os.Stdout)
 }
@@ -599,22 +581,47 @@ func syncFilesExit(summary filestore.Summary, err error, out io.Writer) int {
 // panic at boot, never a quiet fall back to local — a server that looks
 // healthy and keeps nothing off the Jetson.
 //
-// The second value is the sync the worker client wraps each call in: nil —
-// a nil INTERFACE, never a nil *filestore.Sync inside one — under local,
-// whose files are the working copy itself.
-func buildFileStore(cfg config.Config, log *slog.Logger) (files.Store, amcworker.ProjectSync) {
+// The second value is the sync the worker client wraps each call in and the
+// reconcile walks with, or nil under local, whose files are the working copy
+// itself.
+func buildFileStore(cfg config.Config, log *slog.Logger) (files.Store, *filestore.Sync) {
 	switch cfg.FilesStore {
 	case config.FilesStoreLocal:
 		return filestore.NewLocal(cfg.WorkDir), nil
 	case config.FilesStoreS3:
-		client := filestore.NewS3Client(cfg.FilesS3Region, cfg.FilesS3AccessKeyID, cfg.FilesS3SecretAccessKey)
-		store := filestore.NewS3(client, cfg.FilesS3Bucket)
-		return store, filestore.NewSync(store, cfg.WorkDir, log)
+		return newS3Sync(cfg, log)
 	default:
 		panic("main.buildFileStore: no adapter for file store " + string(cfg.FilesStore))
 	}
 }
 
+// newS3Sync is the bucket's store and the sync over it, built the one way
+// both the server and -sync-files build them.
+func newS3Sync(cfg config.Config, log *slog.Logger) (*filestore.S3, *filestore.Sync) {
+	client := filestore.NewS3Client(cfg.FilesS3Region, cfg.FilesS3AccessKeyID, cfg.FilesS3SecretAccessKey)
+	store := filestore.NewS3(client, cfg.FilesS3Bucket)
+	return store, filestore.NewSync(store, cfg.WorkDir, log)
+}
+
+// workerSync is the sync the worker client is handed: a nil INTERFACE when
+// there is none, never a nil *filestore.Sync inside one, on which the
+// client would call Around.
+func workerSync(sync *filestore.Sync) amcworker.ProjectSync {
+	if sync == nil {
+		return nil
+	}
+	return sync
+}
+
+// buildDispatcher picks the transport for the selected mode.
+//
+// The switch is exhaustive over config's closed set and still ends in a
+// panic, which is not belt-and-braces theatre: config.Load is what refuses
+// an unknown mode, so reaching the default here means somebody added a
+// fifth EmailMode constant and did not come back to this function. A panic
+// at wiring time is the failure that gets noticed; a silent fall-through to
+// stub is a deployment that looks healthy and sends nothing
+// (backend-code-style.md §Errors — never in a request path, right here).
 func buildDispatcher(mode config.EmailMode, creds email.Credentials, log *slog.Logger) controls.Dispatcher {
 	switch mode {
 	case config.EmailModeStub:

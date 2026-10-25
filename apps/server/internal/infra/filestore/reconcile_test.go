@@ -23,16 +23,17 @@ import (
 func newReconciler(t *testing.T, bucket *s3test.Bucket, work string, projects ...string) (*filestore.Reconciler, *int) {
 	t.Helper()
 	locked := 0
-	log := slog.New(slog.NewTextHandler(io.Discard, nil))
-	return &filestore.Reconciler{
-		Sync:     filestore.NewSync(filestore.NewS3(bucket, "nalanda-test"), work, log),
-		Projects: func(context.Context) ([]string, error) { return projects, nil },
-		Exclusive: func(fn func() error) error {
+	return newReconcilerWith(t, bucket, work, func(context.Context) ([]string, error) { return projects, nil },
+		func(fn func() error) error {
 			locked++
 			return fn()
-		},
-		Log: log,
-	}, &locked
+		}), &locked
+}
+
+func newReconcilerWith(t *testing.T, bucket *s3test.Bucket, work string, projects func(context.Context) ([]string, error), exclusive func(func() error) error) *filestore.Reconciler {
+	t.Helper()
+	log := slog.New(slog.NewTextHandler(io.Discard, nil))
+	return filestore.NewReconciler(filestore.NewSync(filestore.NewS3(bucket, "nalanda-test"), work, log), projects, exclusive, log)
 }
 
 func writeUnder(t *testing.T, work, rel, content string) {
@@ -177,5 +178,78 @@ func TestTheDailyReconcileIsTheNextThreeOClockUTC(t *testing.T) {
 		if got := filestore.NextReconcile(at); got.Format(time.RFC3339) != want {
 			t.Errorf("NextReconcile(%s) = %s, want %s", now, got.Format(time.RFC3339), want)
 		}
+	}
+}
+
+// A purge that lands after the walk began — it takes the same lock, so it
+// lands between two projects — leaves the purged project off the list. What
+// a failed RemoveAll left on its disk must not go back up with no row to
+// find it (issue #338 review, COR-10).
+func TestTheReconcileSkipsAProjectPurgedSinceTheWalkBegan(t *testing.T) {
+	bucket := s3test.New()
+	work := t.TempDir()
+	writeUnder(t, work, "controls/A/out/sujet.pdf", "x")
+	writeUnder(t, work, "controls/PURGED/cr/name-1.jpg", "a student's name")
+	listed := []string{"controls/A", "controls/PURGED"}
+	r := newReconcilerWith(t, bucket, work,
+		func(context.Context) ([]string, error) { return slices.Clone(listed), nil },
+		func(fn func() error) error {
+			listed = []string{"controls/A"} // the purge, before this lock
+			return fn()
+		})
+
+	summary, err := r.Run(context.Background())
+	if err != nil || summary.Failed != 0 {
+		t.Fatalf("Run = %+v, %v", summary, err)
+	}
+	for _, key := range bucket.Keys() {
+		if strings.HasPrefix(key, "work/controls/PURGED/") {
+			t.Errorf("the reconcile uploaded %s of a purged project", key)
+		}
+	}
+	if !slices.Contains(bucket.Keys(), "work/controls/A/out/sujet.pdf") {
+		t.Error("the project still listed was not reconciled")
+	}
+}
+
+// The hydrate's tie rule, not its opposite (issue #338 review, ARQ-3): a
+// disk file as old as the bucket's object, with other bytes, goes up.
+func TestTheReconcileGivesATieToTheDiskLikeTheHydrate(t *testing.T) {
+	bucket := s3test.New()
+	at := time.Now().Add(-time.Hour).UTC().Truncate(time.Second)
+	bucket.Now = func() time.Time { return at }
+	bucket.Put("work/controls/ABC/data/capture.sqlite", []byte("bucket bytes"))
+	work := t.TempDir()
+	writeUnder(t, work, "controls/ABC/data/capture.sqlite", "disk bytes")
+	_ = os.Chtimes(filepath.Join(work, "controls/ABC/data/capture.sqlite"), at, at)
+	r, _ := newReconciler(t, bucket, work, "controls/ABC")
+
+	if _, err := r.Run(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if o, _ := bucket.Get("work/controls/ABC/data/capture.sqlite"); string(o.Body) != "disk bytes" {
+		t.Errorf("after a tie the bucket holds %q, want the disk's", o.Body)
+	}
+}
+
+func TestNewReconcilerRefusesAMissingDependency(t *testing.T) {
+	log := slog.New(slog.NewTextHandler(io.Discard, nil))
+	sync := filestore.NewSync(filestore.NewS3(s3test.New(), "nalanda-test"), t.TempDir(), log)
+	projects := func(context.Context) ([]string, error) { return nil, nil }
+	exclusive := func(fn func() error) error { return fn() }
+	for name, build := range map[string]func(){
+		"no sync":      func() { filestore.NewReconciler(nil, projects, exclusive, log) },
+		"no projects":  func() { filestore.NewReconciler(sync, nil, exclusive, log) },
+		"no exclusive": func() { filestore.NewReconciler(sync, projects, nil, log) },
+		"no logger":    func() { filestore.NewReconciler(sync, projects, exclusive, nil) },
+	} {
+		t.Run(name, func(t *testing.T) {
+			defer func() {
+				if recover() == nil {
+					t.Error("NewReconciler did not panic")
+				}
+			}()
+			build()
+		})
 	}
 }

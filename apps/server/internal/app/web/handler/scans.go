@@ -439,9 +439,9 @@ func (h *Controls) CloseCorrection(w http.ResponseWriter, r *http.Request) {
 
 // UploadsPDF serves an uploaded scan batch through the file store
 // (issue #204, #338). The batch name comes from a URL segment, so the pattern
-// above is the barrier: only the on-disk contract's shape can reach the
-// file system. The control must exist (same list-then-serve pattern as
-// servePDF); a batch that is not on disk is a 404.
+// above is the barrier: only the batch contract's shape can reach the store.
+// The control must exist (same list-then-serve pattern as servePDF); a batch
+// the store does not hold is a 404.
 func (h *Controls) UploadsPDF(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	batch := r.PathValue("batch")

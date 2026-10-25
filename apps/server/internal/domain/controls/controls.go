@@ -322,10 +322,10 @@ type GenerateRequest struct {
 
 // Assets is what a successful Generate returns: the printable sujet the
 // Service checks on disk before committing the row. The worker also produces
-// corrige.pdf and calage.xy in the same out/ directory, but WP-E never reads
-// them after generation — the download handlers (SujetPath, CorrigePath)
-// re-derive them from ProjectDir. WP-F will read them off the same
-// convention (see the ADR-0033 note next to ProjectDir).
+// corrige.pdf and calage.xy in the same out/ directory, but nothing reads
+// them back from here — the downloads (OpenSujet, OpenCorrige) re-derive
+// their paths with projectRel and open them through the file store (issue
+// #338).
 //
 // The narrower value here is the whole point: adding Corrige/Calage/Copies
 // as domain fields with no reader made them a shape a maintainer had to

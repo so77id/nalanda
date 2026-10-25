@@ -639,11 +639,12 @@ func TestAnUnhandledMailModePanicsRatherThanFallingBackToStub(t *testing.T) {
 // store looks healthy and keeps nothing off the Jetson.
 func TestEachFilesStoreSelectsItsOwnStore(t *testing.T) {
 	for _, tc := range []struct {
-		store          config.FilesStore
-		want, wantSync string
+		store    config.FilesStore
+		want     string
+		wantSync bool
 	}{
-		{config.FilesStoreLocal, "*filestore.Local", "<nil>"},
-		{config.FilesStoreS3, "*filestore.S3", "*filestore.Sync"},
+		{config.FilesStoreLocal, "*filestore.Local", false},
+		{config.FilesStoreS3, "*filestore.S3", true},
 	} {
 		t.Run(string(tc.store), func(t *testing.T) {
 			cfg := config.Config{
@@ -655,10 +656,10 @@ func TestEachFilesStoreSelectsItsOwnStore(t *testing.T) {
 			if got := fmt.Sprintf("%T", store); got != tc.want {
 				t.Errorf("%s selected %s, want %s", tc.store, got, tc.want)
 			}
-			// The worker client calls Around on any non-nil Sync: under
-			// local it must be a nil interface, under s3 the real one.
-			if gotSync := fmt.Sprintf("%T", sync); gotSync != tc.wantSync {
-				t.Errorf("%s selected the sync %s, want %s", tc.store, gotSync, tc.wantSync)
+			// The worker client calls Around on any non-nil ProjectSync:
+			// under local it must be a nil interface, under s3 the real one.
+			if got := workerSync(sync) != nil; got != tc.wantSync || (sync != nil) != tc.wantSync {
+				t.Errorf("%s selected a sync: %v (worker's %v), want %v", tc.store, sync != nil, got, tc.wantSync)
 			}
 		})
 	}
@@ -731,15 +732,12 @@ func TestSyncFilesExitsZeroWithItsSummaryAndNonZeroOnAnyFailure(t *testing.T) {
 func TestTheReconcileRunsAtBootThenWaitsForThreeOClock(t *testing.T) {
 	ran := make(chan struct{}, 4)
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
-	rec := &filestore.Reconciler{
-		Sync: filestore.NewSync(filestore.NewS3(s3test.New(), "nalanda-test"), t.TempDir(), log),
-		Projects: func(context.Context) ([]string, error) {
+	rec := filestore.NewReconciler(filestore.NewSync(filestore.NewS3(s3test.New(), "nalanda-test"), t.TempDir(), log),
+		func(context.Context) ([]string, error) {
 			ran <- struct{}{}
 			return nil, nil
 		},
-		Exclusive: func(fn func() error) error { return fn() },
-		Log:       log,
-	}
+		func(fn func() error) error { return fn() }, log)
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
 	go func() { reconcileDaily(ctx, rec, log); close(done) }()

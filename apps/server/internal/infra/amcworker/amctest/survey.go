@@ -32,7 +32,7 @@ func (f *Fake) GenerateSheet(_ context.Context, req survey.GenerateRequest) (sur
 			return survey.Assets{}, err
 		}
 	}
-	return survey.Assets{Sujet: sujetRel}, nil
+	return survey.Assets{Sujet: sujetRel}, f.notStored()
 }
 
 // SheetCallCount is how many sheets were generated.
@@ -47,6 +47,14 @@ var _ survey.Generator = (*Fake)(nil)
 // AnalyzeSheets is the survey reading (issue #311): it records the call
 // and returns the next of SurveyReports, or SurveyAnalyzeErr.
 func (f *Fake) AnalyzeSheets(_ context.Context, req survey.AnalyzeRequest) (survey.Report, error) {
+	report, err := f.nextSurveyReport(req)
+	if err != nil {
+		return survey.Report{}, err
+	}
+	return report, f.notStored()
+}
+
+func (f *Fake) nextSurveyReport(req survey.AnalyzeRequest) (survey.Report, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.SurveyAnalyzeCalls = append(f.SurveyAnalyzeCalls, req)

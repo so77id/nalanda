@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"github.com/so77id/nalanda/apps/server/internal/app/web/flash"
-	"github.com/so77id/nalanda/apps/server/internal/app/web/handler"
 	"github.com/so77id/nalanda/apps/server/internal/domain/controls"
 	"github.com/so77id/nalanda/apps/server/internal/domain/roster"
 )
@@ -810,10 +809,11 @@ func TestClearingAnOverrideRefilesTheCopyUnderTheAMCRead(t *testing.T) {
 // Issue #338, AC-7: the review save's annotate now carries a push to S3, so
 // it runs under its own deadline. Past it the save is still saved, the
 // failure is logged, and the professor is redirected — not left behind a
-// request that httpserver's WriteTimeout would cut.
+// request that httpserver's WriteTimeout would cut — and told the corrected
+// PDF did not follow (issue #338 review, COR-2).
 func TestSaveReviewPastItsAnnotateDeadlineStillSavesAndRedirects(t *testing.T) {
 	f, controlID := saveReviewFixture(t)
-	t.Cleanup(handler.SetReviewAnnotateDeadline(50 * time.Millisecond))
+	f.handler.ReviewAnnotateDeadline = 50 * time.Millisecond
 	f.fake.AnnotateBlocks = true
 
 	values := url.Values{}
@@ -845,5 +845,22 @@ func TestSaveReviewPastItsAnnotateDeadlineStillSavesAndRedirects(t *testing.T) {
 	}
 	if !overridden {
 		t.Error("the save was not kept when its annotate ran out of time")
+	}
+	if flash := readFlash(t, rec); !strings.Contains(flash, "el PDF corregido no se alcanzó a actualizar") {
+		t.Errorf("flash = %q, want it to say the corrected PDF did not follow", flash)
+	}
+}
+
+// An annotate that did complete says nothing about the PDF.
+func TestSaveReviewWhoseAnnotateCompletedSaysNothingAboutThePDF(t *testing.T) {
+	f, controlID := saveReviewFixture(t)
+	values := url.Values{}
+	values.Set("rut", "20111111")
+	values.Set("qq3", "2")
+	values.Set("qq4", "1")
+	values.Set("save", "1")
+	rec := postSaveReview(t, f, controlID, 1, values)
+	if flash := readFlash(t, rec); strings.Contains(flash, "PDF") {
+		t.Errorf("flash = %q after an annotate that completed", flash)
 	}
 }

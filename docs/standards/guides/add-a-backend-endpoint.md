@@ -354,6 +354,17 @@ that bypasses one still hits the others:
    typed. Mismatch → 422 re-render with the typed value echoed
    back.
 
+**And a destructive step on a store something else keeps repopulating runs
+under that writer's lock** (#338 review, SEC-5). The purge deletes a
+control's objects from S3 first; ordering made that correct and did not make
+it exclusive — a worker call's push, or the reconcile, running beside it
+uploaded again what had just been deleted, and with the row gone nothing
+would ever find those objects. The purge now takes the worker lock with a
+TRY (a 409 in Spanish when it is held, nothing deleted), the same way "Borrar
+escaneos" does, and the case that pins it interleaves the two
+(`TestAPurgeWhileTheWorkerIsBusyDeletesNothing`, the reconcile's
+`TestTheReconcileSkipsAProjectPurgedSinceTheWalkBegan`).
+
 Every layer of consequence beyond the DB row is **best-effort AFTER
 the load-bearing commit** — the DB `DELETE` commits, then
 `os.RemoveAll` (or its equivalent) drops the on-disk state, and a
@@ -438,8 +449,9 @@ Three rules, each bought by a review finding:
    synchronous AMC-worker calls are `handler.ScansReset` (#298, ADR-0075
    §5) and its survey twin `handler.Surveys.ScansReset` (#311, ADR-0081 §5):
    each only removes files, and never waits on the client's shared lock
-   (`TryLock` → `ErrAnalyzerBusy`, each domain its own). A third needs both
-   properties and an ADR. The
+   (it only tries it → `ErrAnalyzerBusy`, each domain its own). A third needs
+   both properties and an ADR. The purge (#338, ADR-0089 §6) takes the same
+   lock the same way without calling the worker. The
    deadline is not optional and it cannot be inherited: `http.Server`'s
    `WriteTimeout` **neither aborts a handler nor cancels `r.Context()`** —
    measured in the #271 review — so without a `context.WithTimeout` below it

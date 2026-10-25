@@ -1,7 +1,10 @@
-// Package filestore holds the adapters behind files.Store (issue #338).
-// Local reads the shared volume directly, which is what every read did
-// before S3 became the primary store and what NALANDA_FILES_STORE=local
-// keeps doing.
+// Package filestore holds the two adapters behind files.Store and what keeps
+// the second one current (issue #338, ADR-0089). Local reads the shared
+// volume directly, which is what every read did before S3 became the primary
+// store and what NALANDA_FILES_STORE=local keeps doing; S3 reads the bucket.
+// Sync keeps a project's working copy and its objects in step around each
+// worker call, and Reconciler uploads what the disk holds and the bucket
+// lacks, at boot, daily and on -sync-files.
 package filestore
 
 import (

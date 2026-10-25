@@ -126,8 +126,11 @@ Then, with a throwaway control (name it `S3-CHECK <date>`):
    `scans/list*.txt`. The review page shows every page image (each comes
    through `links.json`).
 4. **Correct a copy.** Save a review: `annotated/copy-N.pdf` appears and the
-   page shows it. The server log has `files: pushed … took …` — write the
-   duration of this push, and of the analyse's, into the ADR (AC-15).
+   page shows it. The save's `files: synced …` line has `deferred=` above 0
+   and `data/capture.sqlite`'s ETag in S3 is the analyse's — an annotate
+   leaves AMC's databases for the next other call (ADR-0089 §4); press
+   *Re-leer con otra sensibilidad* and it changes. Write the save's
+   `push=`, and the analyse job's lines summed, into the ADR (AC-15).
 5. **Borrar escaneos.** `scans/`, `cr/`, `uploads/`, `annotated/`, the
    capture and `links.json` leave S3; `inputs/`, `out/`, `layout.sqlite` and
    `report.sqlite` stay.
@@ -140,9 +143,10 @@ Then, with a throwaway control (name it `S3-CHECK <date>`):
 Revoke the server's key for a minute (deactivate it in IAM), and on any
 control: a download answers *No se pudo leer el archivo del
 almacenamiento…*; a job banner says *no se pudo sincronizar con S3; los
-archivos siguen en la Jetson*; a purge says the control *sigue archivado*
-and leaves it so. Reactivate the key; the next call, or the next boot's
-reconcile, finishes the copy.
+archivos siguen en la Jetson*; a review save says *el PDF corregido no se
+alcanzó a actualizar*; a purge says the control *sigue archivado* and leaves
+it so. Reactivate the key; the next call, or the next boot's reconcile,
+finishes the copy.
 
 ## 6. The mail attachment
 

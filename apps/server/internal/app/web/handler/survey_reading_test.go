@@ -743,3 +743,32 @@ func TestADecisionForAVanishedItemShowsTheCopyAgain(t *testing.T) {
 		t.Errorf("a vanished item: %d, want 409 showing the copy again", rec.Code)
 	}
 }
+
+// Issue #338 review, COR-1: a batch AMC read whose files did not reach S3
+// is stored, and the done job says where the files are.
+func TestABatchTheStoreDidNotTakeIsStoredAndSaysSo(t *testing.T) {
+	f := newSurveyFixture(t)
+	r := f.readableRun()
+	f.worker.SurveyReports = []survey.Report{{
+		Batch: survey.Batch{Captured: 1},
+		Copies: []survey.ReportCopy{{CopyNumber: 1, Pages: []int{1}, Answers: []survey.ReportAnswer{
+			answer(r.single, survey.AnswerOK, []int{2}),
+			answer(r.scale, survey.AnswerOK, []int{4}),
+			answer(r.contextQ, survey.AnswerOK, []int{1}),
+		}}},
+	}}
+	f.worker.NotStored = true
+
+	err := f.analyse(r, "batch-1.pdf")
+	var notice *jobs.Notice
+	if !errors.As(err, &notice) {
+		t.Fatalf("the job returned %v, want a done job's notice", err)
+	}
+	if !strings.Contains(notice.Message, "no se pudieron copiar a S3") {
+		t.Errorf("notice %q does not say the files are not in S3 yet", notice.Message)
+	}
+	counts, err := f.surveys.ReadingCounts(context.Background(), r.run.ID)
+	if err != nil || counts.Copies != 1 {
+		t.Errorf("counts = %+v, %v; want the copy stored", counts, err)
+	}
+}

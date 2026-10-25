@@ -99,13 +99,17 @@ func NewAnalyseHandler(svc *Service) jobs.Handler {
 // analyseNotice words what a successful analyse has to tell the professor
 // beyond "lista" (issue #298), or "" when there is nothing.
 //
-// Two facts, each its own sentence: pages the batch carried that AMC did
-// not recognise (those sheets were not read at all), and copies re-read
-// after their student had already been mailed — refused by nobody, since
+// Three facts, each its own sentence: pages the batch carried that AMC did
+// not recognise (those sheets were not read at all), copies re-read after
+// their student had already been mailed — refused by nobody, since
 // ADR-0073 owns re-sending per copy, but each is a student who may now
-// hold a stale grade, and the copies table is where to look.
+// hold a stale grade, and the copies table is where to look — and, since
+// #338, a read whose files did not reach S3: saved, and safe on the Jetson.
 func analyseNotice(r AnalyzeResult) string {
 	var parts []string
+	if r.NotStored {
+		parts = append(parts, readNotStored)
+	}
 	if b := r.Report.Batch; b != nil && b.Failed > 0 {
 		parts = append(parts, plural(b.Failed,
 			"1 página del lote no se reconoció y no fue leída.",
@@ -165,6 +169,15 @@ func NewAnnotateHandler(svc *Service) jobs.Handler {
 // next call's hydrate uploads what this one could not.
 const syncFailed = "no se pudo sincronizar con S3; los archivos siguen en la Jetson. Vuelve a intentarlo"
 
+// readNotStored and generatedNotStored are the notices of a job whose work
+// is DONE and whose files did not reach S3 (files.ErrNotStored, issue #338
+// review, COR-1): nothing to press again, since the next call on the
+// control or the nightly reconcile copies them from the Jetson.
+const (
+	readNotStored      = "La lectura quedó guardada, pero sus archivos no se pudieron copiar a S3: siguen en la Jetson y se copian en la próxima operación o en la copia de cada noche."
+	generatedNotStored = "Las hojas se generaron, pero no se pudieron copiar a S3: siguen en la Jetson y se copian en la copia de cada noche. Hasta entonces la descarga puede fallar."
+)
+
 // failureFromGenerateError translates a Service.GenerateAssets error
 // into the (banner, debug) pair. Same split shape as
 // failureFromAnalyzeError; kept separate because the sentinel set is
@@ -175,6 +188,8 @@ func failureFromGenerateError(err error) error {
 		return nil
 	}
 	switch {
+	case errors.Is(err, files.ErrNotStored):
+		return &jobs.Notice{Message: generatedNotStored}
 	case errors.Is(err, files.ErrSync):
 		return &jobs.Failure{Message: syncFailed, Detail: err.Error()}
 	case errors.Is(err, ErrControlNotFound):

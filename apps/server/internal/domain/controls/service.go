@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io/fs"
 	"log/slog"
 	"os"
 	"path"
@@ -342,18 +341,22 @@ func (s *Service) GenerateAssets(ctx context.Context, controlID string) error {
 		Source:  filepath.Join(project, "inputs", "source.tex"),
 		Copies:  control.Copies,
 	})
-	if err != nil {
+	// A sheet the store did not take is still generated (issue #338
+	// review, COR-1): it is checked like any other, and the not-stored
+	// error is returned for the job to word as a notice — a failure there
+	// would hide the downloads, and nothing could retry a generation.
+	if err != nil && !errors.Is(err, files.ErrNotStored) {
 		return err
 	}
 	sujetPath := filepath.Join(s.WorkDir, assets.Sujet)
-	info, err := os.Stat(sujetPath)
-	if err != nil {
-		return fmt.Errorf("%w: stat %s: %v", ErrSujetMissing, sujetPath, err)
+	info, statErr := os.Stat(sujetPath)
+	if statErr != nil {
+		return fmt.Errorf("%w: stat %s: %v", ErrSujetMissing, sujetPath, statErr)
 	}
 	if info.Size() == 0 {
 		return fmt.Errorf("%w: %s is 0 bytes", ErrSujetMissing, sujetPath)
 	}
-	return nil
+	return err
 }
 
 // List returns every control, delegating to the Store's own ordering
@@ -444,6 +447,16 @@ func (s *Service) Restore(ctx context.Context, id string) error {
 //     unrecoverable. Same "best-effort cleanup after the load-bearing
 //     commit" pattern as PrepareControl's `rollback` closure.
 //
+// Steps 2–4 run under the worker's lock (Analyzer.TryExclusive), and a
+// purge that finds the worker busy refuses with ErrAnalyzerBusy before
+// deleting anything (issue #338 review, SEC-1): a worker call's push — or
+// the reconcile — beside them would upload again what step 2 had just
+// deleted from S3, and step 3 leaves no row to find it by. The lock is
+// TRIED, never waited for, for the resets' reason: the professor is
+// waiting. A call already queued for this control when the purge took the
+// lock finds no project anywhere afterwards, and the file store's sync
+// refuses it before it creates anything.
+//
 // A parallel in-flight async job for this id is possible (§Async runner
 // interaction); the runner's MarkRunning / MarkDone / MarkFailed will
 // fail with ErrJobNotFound (issue #257 COR-3) and log a warning. No
@@ -456,18 +469,24 @@ func (s *Service) Purge(ctx context.Context, id string) error {
 	if control.DeletedAt == nil {
 		return fmt.Errorf("controls.Purge %s: %w", id, ErrCannotPurgeActive)
 	}
-	if err := s.Files.DeleteProject(ctx, projectRel(id)); err != nil {
-		return fmt.Errorf("controls.Purge %s: %w: %w", id, files.ErrSync, err)
-	}
-	if err := s.Store.PurgeControl(ctx, id); err != nil {
+	err = s.Analyzer.TryExclusive(func() error {
+		if err := s.Files.DeleteProject(ctx, projectRel(id)); err != nil {
+			return fmt.Errorf("controls.Purge %s: %w: %w", id, files.ErrSync, err)
+		}
+		if err := s.Store.PurgeControl(ctx, id); err != nil {
+			return fmt.Errorf("controls.Purge %s: %w", id, err)
+		}
+		projectDir := s.ProjectDir(id)
+		if err := os.RemoveAll(projectDir); err != nil {
+			s.Log.Warn("controls.Purge: file cleanup failed",
+				"control_id", id, "project", projectDir, "error", err)
+		}
+		return nil
+	})
+	if errors.Is(err, ErrAnalyzerBusy) {
 		return fmt.Errorf("controls.Purge %s: %w", id, err)
 	}
-	projectDir := s.ProjectDir(id)
-	if err := os.RemoveAll(projectDir); err != nil {
-		s.Log.Warn("controls.Purge: file cleanup failed",
-			"control_id", id, "project", projectDir, "error", err)
-	}
-	return nil
+	return err
 }
 
 // AssignCourse sets the course a control belongs to and rebuilds its
@@ -502,17 +521,20 @@ func (s *Service) AssignCourse(ctx context.Context, controlID string, courseID i
 }
 
 // ProjectDir is the directory (on the SERVER's side) where a control's
-// files live. Handlers use it to serve the PDF downloads (S8).
+// working copy lives: where the server writes a project's inputs and
+// batches, and what the purge removes after the rows. Nothing reads a
+// download from it since #338 — those open through the file store.
 //
 // The layout it encodes — controls/<id>/{inputs,out} — is a MODEL of
 // what the AMC worker writes at generation time (ADR-0030 §Operational
 // leaves the directory shape to the caller; we chose it and pass its
 // contents through to the worker). Nothing in this repo cross-checks the
 // two, so a change to where the worker writes its output must be paired
-// with a change here; a fixture-shape assertion between the amctest
-// stubs and these paths pins the current agreement (ARQ-8).
+// with a change in projectRel, which this derives from; a fixture-shape
+// assertion between the amctest stubs and these paths pins the current
+// agreement (ARQ-8).
 func (s *Service) ProjectDir(controlID string) string {
-	return filepath.Join(s.WorkDir, projectPrefix, controlID)
+	return filepath.Join(s.WorkDir, filepath.FromSlash(projectRel(controlID)))
 }
 
 // OpenSujet opens the control's printable sheet through the file store.
@@ -539,22 +561,17 @@ func (s *Service) OpenPoolJSON(ctx context.Context, controlID string) (files.Fil
 // and a PNG-only lookup answered 404 for every real scan. PNG wins when
 // both exist, so a future engine that produces both cannot silently flip
 // which image the reviewer sees.
+//
+// Only an ABSENT PNG falls through to the JPG: a store that failed is not a
+// page without a PNG, and the caller must hear it failed (files.OpenFirst,
+// which also lets S3 read the link map once for both names).
 func (s *Service) OpenScanPage(ctx context.Context, controlID string, copyNumber, page int) (files.File, string, error) {
-	base := fmt.Sprintf("copy-%d-page-%d", copyNumber, page)
-	var err error
-	for _, ext := range []string{".png", ".jpg"} {
-		var f files.File
-		f, err = s.Files.Open(ctx, projectRel(controlID, "scans", base+ext))
-		if err == nil {
-			return f, ext, nil
-		}
-		// Only an ABSENT PNG falls through to the JPG: a store that failed
-		// is not a page without a PNG, and the caller must hear it failed.
-		if !errors.Is(err, fs.ErrNotExist) {
-			return nil, "", err
-		}
+	base := projectRel(controlID, "scans", fmt.Sprintf("copy-%d-page-%d", copyNumber, page))
+	f, rel, err := files.OpenFirst(ctx, s.Files, base+".png", base+".jpg")
+	if err != nil {
+		return nil, "", err
 	}
-	return nil, "", err
+	return f, path.Ext(rel), nil
 }
 
 // OpenAnnotated opens a copy's corrected PDF through the file store.

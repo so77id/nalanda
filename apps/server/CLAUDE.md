@@ -374,12 +374,22 @@ the `avisoNo*` / `flash.Set(…)` string literals in `internal/app/web/handler/`
      WRITES — AMC works on local files, and the next worker call's hydrate
      uploads them. `grep -rnE 'os\.(Open|ReadFile|ReadDir)\(' internal/app
      internal/domain` lists exactly those.
-  2. **Every `amcworker.Client` call runs inside `c.inStep`, under
-     `generateLock`.** The sync (hydrate → call → push → prune) is part of
-     the critical section; a new worker call written outside it would act on a
-     project S3 has not brought back, and leave its result only on the disk.
-     `TestEveryWorkerCallRunsBetweenTheHydrateAndThePush` lists the calls;
-     add the new one there.
+  2. **Every `amcworker.Client` call goes through `c.serialised` (or
+     `c.trySerialised`, `c.serialisedAnnotate`)** — the worker lock and the
+     sync (hydrate → call → push → prune) in one helper, so a call cannot
+     take one without the other; a new worker call written outside them
+     would act on a project S3 has not brought back, and leave its result
+     only on the disk. The lock is a one-slot channel a waiting call gives up
+     on when its ctx ends — never a `sync.Mutex`, whose `Lock` held a review
+     save past its own deadline (#338 review, COR-2). `workerCalls` in
+     `amcworker/sync_test.go` lists every call, and two tests walk it: the
+     sync's halves around each call, and the lock held during each one's
+     sync (#338 review, COR-3 — the second test once covered one call, and
+     dropping the lock at two others left the suite green). Add the new call
+     to that table. An annotate's sync leaves AMC's `data/*.sqlite` for the
+     next other call (ADR-0089 §4); a push that fails after a call that
+     succeeded is `files.ErrNotStored` as well as `ErrSync`, and the calls
+     whose result the domain persists return it WITH that error.
   3. **Nothing is deleted from S3 because it is MISSING locally.** The prune
      deletes exactly what a call removed (the files before it minus the
      files after it); the purge's `DeleteProject` deletes a project; the
@@ -390,8 +400,10 @@ the `avisoNo*` / `flash.Set(…)` string literals in `internal/app/web/handler/`
      subsystems, and a store that cannot list refuses the upload: on an empty
      volume a disk-only count hands out `batch-1.pdf` again and the push
      overwrites the real one.
-  5. **The purge deletes the store's copy FIRST** (ADR-0052 as amended) and
-     a failure there is `files.ErrSync`, named in Spanish on the page. Any
+  5. **The purge deletes the store's copy FIRST** (ADR-0052 as amended),
+     under the worker lock it only TRIES (`Analyzer.TryExclusive`, 409 when
+     busy — the purge rule's fourth bullet below), and a failure there is
+     `files.ErrSync`, named in Spanish on the page. Any
      error a worker call, a job, a reset or a download meets from the store
      is named the same way — "no se pudo sincronizar con S3…" / "No se pudo
      leer el archivo del almacenamiento…" — never as a missing file and never
@@ -578,9 +590,9 @@ the `avisoNo*` / `flash.Set(…)` string literals in `internal/app/web/handler/`
      refuses with nothing destroyed. The reverse order leaves readings gone
      over a capture the next upload would re-analyse.
   2. **Synchronous, and it never WAITS.** It runs on the request goroutine
-     under `scansResetDeadline`. The client's lock is one mutex for every
-     control and ignores ctx, so `Client.ResetScans` uses `TryLock` and
-     answers `ErrAnalyzerBusy` (409) when another control's job holds it.
+     under `scansResetDeadline`. The client's lock is one for every control,
+     so `Client.ResetScans` only tries it (`trySerialised`) and answers
+     `ErrAnalyzerBusy` (409) when another control's job holds it.
   3. **Refused while THIS control's job is in flight** (409), since the job
      would write readings back over the wiped capture — and a jobs-store
      read error fails CLOSED. Both are status pages: a deliberate departure
@@ -608,7 +620,7 @@ the `avisoNo*` / `flash.Set(…)` string literals in `internal/app/web/handler/`
   match (issue #261, ADR-0052).** Purge is a two-step gate; a hand-typed
   `/controls/{id}/purge` on an active row must not delete grades. THREE
   independent layers enforce it, and adding a new path to the destructive
-  step must respect all three:
+  step must respect all three — and, since #338, the fourth rule below:
   1. `Store.PurgeControl` runs `DELETE FROM control WHERE id = ? AND
      deleted_at IS NOT NULL`. The `AND` is the schema-level belt: even
      if a caller skips the Service gate, an active row is untouched.
@@ -625,6 +637,14 @@ the `avisoNo*` / `flash.Set(…)` string literals in `internal/app/web/handler/`
      row with 404 before the form is rendered or the delete is
      attempted — the destructive form never surfaces for anything not
      archived.
+
+  4. **Since #338 the file steps run under the worker's lock**, which the
+     purge only TRIES (`Analyzer.TryExclusive` → `ErrAnalyzerBusy` → a 409
+     that says nothing was deleted). A destructive step on a store a sync
+     repopulates must hold that sync's lock: deleting S3 first made the
+     order right and not exclusive, and a push or the reconcile running
+     beside it re-uploaded a purged student's files with no row to find
+     them (#338 review, SEC-1/SEC-5). Its pins interleave the two.
 
   Post-DB the on-disk project directory is removed best-effort
   (`os.RemoveAll` warning-not-erroring; §Service.Purge doc). Forwarding

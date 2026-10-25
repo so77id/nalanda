@@ -66,18 +66,10 @@ func (s *Service) SaveUploadedBatch(ctx context.Context, surveyID, runID int64, 
 		next = max(next, uploads[len(uploads)-1].Number+1)
 	}
 	name := batchPrefix + strconv.Itoa(next) + batchExt
-	path := filepath.Join(dir, name)
-	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o644)
-	if err != nil {
-		return "", fmt.Errorf("survey: creating %s: %w", path, err)
-	}
-	if _, err := io.Copy(f, content); err != nil {
-		_ = f.Close()
-		_ = os.Remove(path) // a partial batch is not a batch
-		return "", fmt.Errorf("survey: writing %s: %w", path, err)
-	}
-	if err := f.Close(); err != nil {
-		return "", fmt.Errorf("survey: closing %s: %w", path, err)
+	// Whole or not at all, and never in place (files.WriteNew): a partial
+	// batch is not a batch, and a sync must never upload one.
+	if err := files.WriteNew(filepath.Join(dir, name), content); err != nil {
+		return "", fmt.Errorf("survey: %w", err)
 	}
 	return name, nil
 }
@@ -98,7 +90,7 @@ func nextLocalBatch(dir string) (int, error) {
 	return next, nil
 }
 
-// Upload is one batch on disk.
+// Upload is one batch in the file store.
 type Upload struct {
 	Number int
 	Name   string
@@ -143,6 +135,9 @@ type AnalyzeResult struct {
 	Failed   int
 	// Counts is the whole run's reading after the batch.
 	Counts ReadingCounts
+	// NotStored: the reading is saved, and the files it produced are on
+	// the volume but not yet in S3 (issue #338 review, COR-1).
+	NotStored bool
 }
 
 // Notice is the done job's sentence for the professor.
@@ -155,6 +150,9 @@ func (r AnalyzeResult) Notice() string {
 	msg += "."
 	if r.Failed > 0 {
 		msg += fmt.Sprintf(" %d página(s) no se reconocieron.", r.Failed)
+	}
+	if r.NotStored {
+		msg += " Los archivos de este lote no se pudieron copiar a S3: siguen en la Jetson y se copian en la próxima operación o en la copia de cada noche."
 	}
 	return msg
 }
@@ -182,14 +180,18 @@ func (s *Service) AnalyzeBatch(ctx context.Context, surveyID, runID int64, batch
 		Ticked:  DefaultTicked,
 		Unsure:  DefaultUnsure,
 	})
-	if err != nil {
+	// AMC read the batch and only the copy to S3 failed (issue #338
+	// review, COR-1): the reading is stored like any other — the capture
+	// has moved on, and the next call or the reconcile copies its files.
+	notStored := errors.Is(err, files.ErrNotStored)
+	if err != nil && !notStored {
 		return AnalyzeResult{}, err
 	}
 	if report.Batch.Captured == 0 {
 		return AnalyzeResult{}, fmt.Errorf("%w: %s: %d unrecognised pages",
 			ErrNothingCaptured, batch, report.Batch.Failed)
 	}
-	result := AnalyzeResult{Captured: report.Batch.Captured, Failed: report.Batch.Failed}
+	result := AnalyzeResult{Captured: report.Batch.Captured, Failed: report.Batch.Failed, NotStored: notStored}
 	recaptured := report.Batch.RecapturedCopies
 	printed, _, err := s.printedQuestions(ctx, run)
 	if err != nil {
@@ -353,16 +355,17 @@ func (s *Service) OpenScanImage(ctx context.Context, run Run, copyNumber, page i
 	if _, err := s.Store.CopyByNumber(ctx, run.ID, copyNumber); err != nil {
 		return nil, "", err
 	}
-	base := "copy-" + strconv.Itoa(copyNumber) + "-page-" + strconv.Itoa(page)
-	for _, ext := range []struct{ suffix, ctype string }{{".png", "image/png"}, {".jpg", "image/jpeg"}} {
-		f, err := s.Files.Open(ctx, runRel(run, "scans", base+ext.suffix))
-		if err == nil {
-			return f, ext.ctype, nil
-		}
-		// A store that failed is not a page with no image (issue #338).
-		if !errors.Is(err, fs.ErrNotExist) {
-			return nil, "", fmt.Errorf("survey: copy %d page %d of run %d: %w", copyNumber, page, run.ID, err)
-		}
+	base := runRel(run, "scans", "copy-"+strconv.Itoa(copyNumber)+"-page-"+strconv.Itoa(page))
+	// A store that failed is not a page with no image (issue #338):
+	// files.OpenFirst falls through on a missing PNG only.
+	f, rel, err := files.OpenFirst(ctx, s.Files, base+".png", base+".jpg")
+	switch {
+	case errors.Is(err, fs.ErrNotExist):
+		return nil, "", fmt.Errorf("survey: copy %d page %d of run %d: %w", copyNumber, page, run.ID, ErrCopyNotFound)
+	case err != nil:
+		return nil, "", fmt.Errorf("survey: copy %d page %d of run %d: %w", copyNumber, page, run.ID, err)
+	case strings.HasSuffix(rel, ".png"):
+		return f, "image/png", nil
 	}
-	return nil, "", fmt.Errorf("survey: copy %d page %d of run %d: %w", copyNumber, page, run.ID, ErrCopyNotFound)
+	return f, "image/jpeg", nil
 }

@@ -113,6 +113,11 @@ type AnalyzeResult struct {
 	// grade the new reading may have moved — ADR-0073 then derives the
 	// copy as stale — so the job's notice names the number.
 	RecapturedPublished int
+	// NotStored: the reading is saved, and the files it produced are on
+	// the volume but not yet in S3 (issue #338 review, COR-1). The next
+	// call on the control, or the reconcile, finishes the copy; the job's
+	// notice says so.
+	NotStored bool
 }
 
 // SaveUploadedBatchResult is what SaveUploadedBatch returns to the HTTP
@@ -163,7 +168,16 @@ func (s *Service) AnalyzeBatch(ctx context.Context, controlID, batchName string,
 		Ticked:  ticked,
 		Unsure:  unsure,
 	})
-	if err != nil {
+	// AMC captured the batch and only the copy to S3 failed (issue #338
+	// review, COR-1): the report is saved like any other. Dropping it would
+	// leave the readings behind a capture that has moved on — the
+	// re-captured copies' `manual` already cleared — for want of a copy the
+	// next call, or the reconcile, makes from the volume anyway.
+	notStored := errors.Is(err, files.ErrNotStored)
+	if notStored {
+		s.Log.Warn("controls.AnalyzeBatch: the read is saved, its files are not yet in S3",
+			"control", control.ID, "batch", batchName, "error", err)
+	} else if err != nil {
 		return AnalyzeResult{}, err
 	}
 	// Issue #298: a batch AMC recognised none of is refused before anything
@@ -185,7 +199,7 @@ func (s *Service) AnalyzeBatch(ctx context.Context, controlID, batchName string,
 	// altogether after the worker cleared `manual` (a restart mid-job): the
 	// server's overrides then outlive the image they were made on, and the
 	// next save of that copy re-applies them. ADR-0075 §Consequences.
-	result := AnalyzeResult{Report: report}
+	result := AnalyzeResult{Report: report, NotStored: notStored}
 	if report.Batch != nil && len(report.Batch.RecapturedCopies) > 0 {
 		published, err := s.Readings.ResetRecapturedCopies(ctx, control.ID, report.Batch.RecapturedCopies)
 		if err != nil {
@@ -1120,19 +1134,9 @@ func (s *Service) OpenUpload(ctx context.Context, controlID, name string) (files
 	return s.Files.Open(ctx, projectRel(controlID, uploadsDir, name))
 }
 
+// writeUpload writes an uploaded batch whole, never in place
+// (files.WriteNew), and closes its source.
 func writeUpload(path string, r io.ReadCloser) error {
 	defer func() { _ = r.Close() }()
-	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o644)
-	if err != nil {
-		return fmt.Errorf("open %s: %w", path, err)
-	}
-	if _, err := io.Copy(f, r); err != nil {
-		_ = f.Close()
-		_ = os.Remove(path)
-		return fmt.Errorf("copy to %s: %w", path, err)
-	}
-	if err := f.Close(); err != nil {
-		return fmt.Errorf("close %s: %w", path, err)
-	}
-	return nil
+	return files.WriteNew(path, r)
 }

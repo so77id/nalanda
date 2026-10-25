@@ -35,11 +35,16 @@ func newSyncRig(t *testing.T) *syncRig {
 	t.Helper()
 	bucket := s3test.New()
 	work := t.TempDir()
+	// The project exists: the server writes its inputs before any call.
+	dir := filepath.Join(work, "controls", "ABC")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
 	return &syncRig{
 		sync:   filestore.NewSync(filestore.NewS3(bucket, "nalanda-test"), work, slog.New(slog.NewTextHandler(io.Discard, nil))),
 		bucket: bucket,
 		work:   work,
-		dir:    filepath.Join(work, "controls", "ABC"),
+		dir:    dir,
 	}
 }
 
@@ -316,8 +321,28 @@ func TestAPushFailureFailsTheOperationAndKeepsTheLocalFiles(t *testing.T) {
 	if !errors.Is(err, files.ErrSync) {
 		t.Fatalf("Around = %v, want files.ErrSync", err)
 	}
+	// The call succeeded: its result is on the volume, and the caller may
+	// persist what it returned (issue #338 review, COR-1).
+	if !errors.Is(err, files.ErrNotStored) {
+		t.Errorf("Around = %v, want files.ErrNotStored after a call that succeeded", err)
+	}
 	if got := r.readLocal(t, "annotated/copy-1.pdf"); got != "%PDF-corregido" {
 		t.Errorf("the local file = %q", got)
+	}
+}
+
+// A hydrate that fails did no work: it is not ErrNotStored, so nobody
+// persists a result that does not exist.
+func TestAHydrateFailureIsNotAResultNotStored(t *testing.T) {
+	r := newSyncRig(t)
+	r.bucket.FailOn = func(op, _ string) error {
+		if op == "ListObjectsV2" {
+			return errors.New("dial tcp: i/o timeout")
+		}
+		return nil
+	}
+	if err := r.sync.Around(context.Background(), project, noop); errors.Is(err, files.ErrNotStored) {
+		t.Errorf("Around = %v, want no ErrNotStored for a call that never ran", err)
 	}
 }
 
@@ -522,4 +547,174 @@ func names(entries []os.DirEntry) []string {
 		out = append(out, e.Name())
 	}
 	return out
+}
+
+// --- the review's fixes (issue #338 review) ---------------------------------
+
+// PER-1: an annotate rewrites AMC's databases as a by-product. They stay out
+// of its push and of its hydrate's uploads, and the next call of another
+// kind carries them; the corrected PDF goes up at once.
+func TestAnAnnotateLeavesTheDatabasesForTheNextCall(t *testing.T) {
+	r := newSyncRig(t)
+	ctx := context.Background()
+	r.bucket.Now = func() time.Time { return time.Now().Add(-time.Hour) }
+	r.remote("data/capture.sqlite", "analysed")
+	r.remote("data/scoring.sqlite", "analysed")
+	if err := r.sync.Around(ctx, project, noop); err != nil {
+		t.Fatal(err)
+	}
+
+	annotate := func() error {
+		writeFile(t, r.dir, "data/capture.sqlite", "annotated bookkeeping")
+		writeFile(t, r.dir, "data/scoring.sqlite", "recomputed")
+		writeFile(t, r.dir, "annotated/copy-1.pdf", "%PDF-corregido")
+		return nil
+	}
+	if err := r.sync.AroundAnnotate(ctx, project, annotate); err != nil {
+		t.Fatal(err)
+	}
+	if body, _ := r.remoteBody("annotated/copy-1.pdf"); body != "%PDF-corregido" {
+		t.Errorf("the corrected PDF did not go up: %q", body)
+	}
+	for _, rel := range []string{"data/capture.sqlite", "data/scoring.sqlite"} {
+		if body, _ := r.remoteBody(rel); body != "analysed" {
+			t.Errorf("%s = %q after an annotate, want the analyse's", rel, body)
+		}
+	}
+	// A second annotate's hydrate finds the disk's databases newer, and
+	// leaves them as well.
+	if err := r.sync.AroundAnnotate(ctx, project, noop); err != nil {
+		t.Fatal(err)
+	}
+	if body, _ := r.remoteBody("data/capture.sqlite"); body != "analysed" {
+		t.Errorf("an annotate's hydrate uploaded the databases: %q", body)
+	}
+
+	if err := r.sync.Around(ctx, project, noop); err != nil {
+		t.Fatal(err)
+	}
+	if body, _ := r.remoteBody("data/capture.sqlite"); body != "annotated bookkeeping" {
+		t.Errorf("the next call did not carry what the annotate left: %q", body)
+	}
+}
+
+// SEC-1: a call on a project that exists nowhere — one that queued behind
+// its project's purge — is refused before anything is created, so what the
+// worker writes for it never reaches the bucket.
+func TestACallOnAProjectThatExistsNowhereIsRefused(t *testing.T) {
+	r := newSyncRig(t)
+	if err := os.Remove(r.dir); err != nil {
+		t.Fatal(err)
+	}
+	called := false
+	err := r.sync.Around(context.Background(), project, func() error { called = true; return nil })
+	if !errors.Is(err, files.ErrSync) || called {
+		t.Errorf("Around = %v, called = %v; want files.ErrSync and no call", err, called)
+	}
+	if _, err := os.Stat(r.dir); !errors.Is(err, os.ErrNotExist) {
+		t.Errorf("the refused call re-created the project's directory (%v)", err)
+	}
+}
+
+// ...while a project the bucket holds and the disk lost is exactly the one
+// the hydrate exists to bring back.
+func TestAProjectOnlyTheBucketHoldsIsBroughtBack(t *testing.T) {
+	r := newSyncRig(t)
+	if err := os.Remove(r.dir); err != nil {
+		t.Fatal(err)
+	}
+	r.remote("inputs/source.tex", "documentclass")
+	if err := r.sync.Around(context.Background(), project, noop); err != nil {
+		t.Fatal(err)
+	}
+	if got := r.readLocal(t, "inputs/source.tex"); got != "documentclass" {
+		t.Errorf("source.tex = %q", got)
+	}
+}
+
+// ARQ-3: at the same instant the disk's copy wins, in the hydrate as in the
+// reconcile.
+func TestTheHydrateGivesATieToTheDisk(t *testing.T) {
+	r := newSyncRig(t)
+	at := time.Now().Add(-time.Hour).UTC().Truncate(time.Second)
+	r.bucket.Now = func() time.Time { return at }
+	r.remote("data/capture.sqlite", "bucket bytes")
+	r.local(t, "data/capture.sqlite", "disk bytes")
+	_ = os.Chtimes(filepath.Join(r.dir, "data", "capture.sqlite"), at, at)
+
+	if err := r.sync.Around(context.Background(), project, noop); err != nil {
+		t.Fatal(err)
+	}
+	if got := r.readLocal(t, "data/capture.sqlite"); got != "disk bytes" {
+		t.Errorf("the disk now holds %q, want its own bytes", got)
+	}
+	if body, _ := r.remoteBody("data/capture.sqlite"); body != "disk bytes" {
+		t.Errorf("the bucket holds %q, want the disk's", body)
+	}
+}
+
+// COR-5, the disk's half of the link-map rule: links newer than a bucket
+// map that points elsewhere replace the map, and no local link is touched.
+func TestTheDisksNewerLinksReplaceTheBucketsMap(t *testing.T) {
+	r := newSyncRig(t)
+	r.bucket.Now = func() time.Time { return time.Now().Add(-time.Hour) }
+	r.remote(".nalanda/links.json", `{"scans/copy-1-page-1.jpg":"old-page.jpg"}`)
+	r.local(t, "scans/new-page.jpg", "jpeg")
+	if err := os.Symlink("new-page.jpg", filepath.Join(r.dir, "scans", "copy-1-page-1.jpg")); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := r.sync.Around(context.Background(), project, noop); err != nil {
+		t.Fatal(err)
+	}
+	if links := r.links(t); links["scans/copy-1-page-1.jpg"] != "new-page.jpg" || len(links) != 1 {
+		t.Errorf("links.json = %v, want the disk's", links)
+	}
+	if target, _ := os.Readlink(filepath.Join(r.dir, "scans", "copy-1-page-1.jpg")); target != "new-page.jpg" {
+		t.Errorf("the local link was rewritten to %q", target)
+	}
+}
+
+// COR-5, the other half: a bucket with no map gets the disk's even when the
+// call leaves the links alone. Without it every image of the review page
+// answers 404 for as long as no call happens to move a link.
+func TestABucketWithNoMapGetsTheDisksLinks(t *testing.T) {
+	r := newSyncRig(t)
+	r.local(t, "scans/page.jpg", "jpeg")
+	if err := os.Symlink("page.jpg", filepath.Join(r.dir, "scans", "copy-1-page-1.jpg")); err != nil {
+		t.Fatal(err)
+	}
+	if err := r.sync.Around(context.Background(), project, noop); err != nil {
+		t.Fatal(err)
+	}
+	if links := r.links(t); links["scans/copy-1-page-1.jpg"] != "page.jpg" {
+		t.Errorf("links.json = %v, want the disk's link", links)
+	}
+}
+
+// COR-4: a file rewritten between the scan that hashed it and the send is
+// refused by S3 (the fake as the real one), so the push fails rather than
+// storing bytes its ETag does not describe.
+func TestAFileRewrittenBetweenTheScanAndTheSendIsRefused(t *testing.T) {
+	r := newSyncRig(t)
+	err := r.sync.Around(context.Background(), project, func() error {
+		writeFile(t, r.dir, "annotated/copy-1.pdf", "%PDF-corregido")
+		writeFile(t, r.dir, "data/capture.sqlite", "as scanned")
+		// The annotated PDF goes up first; while it does, the database is
+		// rewritten under the push — to the same length, so only the
+		// digest can tell.
+		r.bucket.FailOn = func(op, key string) error {
+			if op == "PutObject" && strings.HasSuffix(key, "copy-1.pdf") {
+				writeFile(t, r.dir, "data/capture.sqlite", "as written")
+			}
+			return nil
+		}
+		return nil
+	})
+	if !errors.Is(err, files.ErrSync) {
+		t.Fatalf("Around = %v, want files.ErrSync", err)
+	}
+	if _, ok := r.remoteBody("data/capture.sqlite"); ok {
+		t.Error("a body that changed after its hash was stored")
+	}
 }

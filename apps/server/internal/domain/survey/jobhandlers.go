@@ -43,6 +43,11 @@ func EncodeAnalysePayload(surveyID int64, batch string) []byte {
 // finishes the copy.
 const syncFailed = "No se pudo sincronizar con S3; los archivos siguen en la Jetson. Vuelve a intentarlo."
 
+// sheetNotStored is the notice of a generation whose sheet is DONE and did
+// not reach S3 (files.ErrNotStored, issue #338 review, COR-1): nothing to
+// press again — the nightly reconcile copies it from the Jetson.
+const sheetNotStored = "La hoja se generó, pero no se pudo copiar a S3: sigue en la Jetson y se copia en la copia de cada noche. Hasta entonces la descarga puede fallar."
+
 // NewAnalyseHandler is the `survey_analyse` job: AnalyzeBatch (issue #311).
 // A done job's notice says what the batch read; every failure leaves the
 // uploaded batch where it is (apps/server/CLAUDE.md, #210).
@@ -103,6 +108,8 @@ func NewGenerateHandler(s *Service) jobs.Handler {
 		switch {
 		case err == nil:
 			return nil
+		case errors.Is(err, files.ErrNotStored):
+			return &jobs.Notice{Message: sheetNotStored}
 		case errors.Is(err, files.ErrSync):
 			return &jobs.Failure{Message: syncFailed, Detail: err.Error()}
 		case errors.Is(err, ErrGeneratorRefused):

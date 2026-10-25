@@ -12,8 +12,8 @@ import (
 // its own — no shared credentials file, no instance metadata, no AWS_*
 // variable, because the client is built from s3.Options rather than the
 // SDK's default config loader. Nor is there an endpoint override: HTTPS to
-// AWS is the only way out (issue #338 §8.4), and the bucket policy's
-// aws:SecureTransport refuses anything else besides.
+// AWS is the only way out (issue #338 §8.4), and the server user's IAM
+// policy denies any request without aws:SecureTransport besides.
 func NewS3Client(region, accessKeyID, secretAccessKey string) *s3.Client {
 	key := aws.Credentials{
 		AccessKeyID:     accessKeyID,

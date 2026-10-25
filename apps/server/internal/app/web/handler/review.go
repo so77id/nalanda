@@ -320,18 +320,31 @@ func (h *Controls) SaveReview(w http.ResponseWriter, r *http.Request) {
 	// the annotate with the same payload.
 	//
 	// Under its OWN deadline since #338, because the annotate now carries a
-	// push to S3 (the corrected PDF and capture.sqlite, up to ~10 MB over the
-	// Jetson's uplink). Past it the save still redirects; what the push did
-	// not finish is on the Jetson, newer than S3, and the next call on the
-	// control — or the reconcile — uploads it.
-	ctx, cancel := context.WithTimeout(r.Context(), reviewAnnotateDeadline)
+	// sync with S3 (the corrected PDF; AMC's databases wait for the next
+	// other call, PER-1) and waits for the worker's lock behind any other
+	// control's job — and stops waiting at the deadline (COR-2). Past it the
+	// save still redirects; what the push did not finish is on the Jetson,
+	// newer than S3, and the next call on the control — or the reconcile —
+	// uploads it.
+	//
+	// And the professor is told when the PDF did not follow (issue #338
+	// review, COR-2): the grade moved and the corrected PDF did not, and a
+	// copy sent from this page before its next annotate would mail the
+	// student the old one. Saving the copy again redoes it.
+	ctx, cancel := context.WithTimeout(r.Context(), h.ReviewAnnotateDeadline)
 	defer cancel()
+	message := buildSaveReviewFlash(result, blank)
 	if _, err := h.Service.Annotate(ctx, id, copyNumber); err != nil {
 		h.Log.Warn("save review: annotate failed", "control", id, "copy", copyNumber, "error", err)
+		message += "\n" + annotateNotUpdated
 	}
-	flash.Set(w, h.secureCookie, buildSaveReviewFlash(result, blank))
+	flash.Set(w, h.secureCookie, message)
 	http.Redirect(w, r, controlReviewURL(id, copyNumber), http.StatusSeeOther)
 }
+
+// annotateNotUpdated is the review save's line when its annotate did not
+// complete — the deadline, the worker refusing, or S3.
+const annotateNotUpdated = "La corrección quedó guardada, pero el PDF corregido no se alcanzó a actualizar. Vuelve a guardar esta copia antes de enviarla."
 
 // buildSaveReviewFlash turns a save result into the professor-visible
 // flash. Multi-line output is separated by "\n" — the layout template
@@ -429,12 +442,9 @@ func isValidRUT(s string) bool {
 	return true
 }
 
-// reviewAnnotateDeadline bounds the review save's annotate — the worker call
-// and its push to S3 — under httpserver's 30 s WriteTimeout, which neither
-// cancels the handler nor reaches the professor (add-a-backend-endpoint.md,
-// the same reason scansResetDeadline is 25). Twenty, to leave the redirect
-// its margin. A var so a test can wait less than twenty seconds for it.
-var reviewAnnotateDeadline = 20 * time.Second
+// defaultReviewAnnotateDeadline is Controls.ReviewAnnotateDeadline's
+// default (the reasoning is on the field).
+const defaultReviewAnnotateDeadline = 20 * time.Second
 
 // statusFor decides the AnswerStatus a saved edit lands at. For a simple
 // question with more than one mark the professor has produced something
@@ -457,8 +467,9 @@ func statusFor(marks []int, qtype controls.QuestionType) controls.AnswerStatus {
 // as /generate's response paths — so a fallback engine has to satisfy
 // the same names. The paper check (ADR-0030 §Not yet proven) is what
 // pins the exact filename against real AMC output. Until then the
-// endpoint answers 404 when the file is not on disk and the review
-// page shows a broken-image icon rather than failing the whole page.
+// endpoint answers 404 when the file store has no such image and the
+// review page shows a broken-image icon rather than failing the whole
+// page.
 func (h *Controls) PageImage(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	copyNumber, okCopy := parseCopyPathValue(r.PathValue("copy"))

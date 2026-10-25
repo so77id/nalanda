@@ -4,11 +4,13 @@
 // domain consumes them (backend-code-style.md §The dependency rule). This
 // package may see both domains; neither domain sees the other (ADR-0078).
 //
-// The wrapper here does two things AMC does not do for itself. It serialises
+// The wrapper here does three things AMC does not do for itself. It serialises
 // calls so two concurrent generations of the same project cannot race AMC's
-// sqlite state (ADR-0030 §The worker is threaded; AMC is not re-entrant), and
-// it turns transport failures into the domain's sentinels so a handler can tell
-// "operator misconfigured the URL" from "the worker refused the request".
+// sqlite state (ADR-0030 §The worker is threaded; AMC is not re-entrant); it
+// runs each call inside the file store's sync, so S3 holds what the call
+// produced (issue #338); and it turns transport failures into the domain's
+// sentinels so a handler can tell "operator misconfigured the URL" from "the
+// worker refused the request".
 package amcworker
 
 import (
@@ -22,15 +24,15 @@ import (
 	"net/url"
 	"path/filepath"
 	"strings"
-	"sync"
 
 	"github.com/so77id/nalanda/apps/server/internal/domain/controls"
+	"github.com/so77id/nalanda/apps/server/internal/domain/files"
 	"github.com/so77id/nalanda/apps/server/internal/domain/survey"
 )
 
 // Client is a controls.Generator against a running worker. Constructed once
-// in cmd/server; safe for concurrent use — every /generate call goes through
-// the same mutex.
+// in cmd/server; safe for concurrent use — every call goes through the same
+// lock.
 //
 // Deliberately narrow: this client only speaks the routes WP-E needs. The
 // analyse/associate/annotate half of the worker's contract lives in a
@@ -41,12 +43,20 @@ type Client struct {
 	base string
 	http *http.Client
 
-	// generateLock serialises /generate. AMC's state is sqlite files in the
+	// lock serialises every call. AMC's state is sqlite files in the
 	// project directory and two concurrent runs against one project would
 	// race them; the ADR spells out that a global lock is the worked-around
 	// price. It sits here rather than on the worker because Go's caller is
 	// where control lives, and the worker (§C9) has no auth to police it.
-	generateLock sync.Mutex
+	//
+	// A one-slot channel, not a sync.Mutex, since #338's review (COR-2): a
+	// call waiting for it stops waiting when its ctx ends. With a mutex a
+	// review save behind another control's analyse — whose hold now
+	// includes that analyse's hydrate and push — blocked for the whole
+	// hold, past its own deadline, and then skipped the annotate it had
+	// waited for. Taken only through serialised, trySerialised, Exclusive
+	// and TryExclusive.
+	lock chan struct{}
 
 	// sync keeps a project's files and the file store in step around each
 	// call (issue #338), or is nil with the local store.
@@ -56,11 +66,21 @@ type Client struct {
 // ProjectSync keeps one project's working copy on the volume and its copy in
 // the file store in step around a worker call (issue #338 §3):
 // filestore.Sync satisfies it. Around hydrates the project, runs call, then
-// pushes and prunes what the call did. Every call here runs it INSIDE
-// generateLock, so nothing mutates a project while it is being copied — the
+// pushes and prunes what the call did. Every call here runs it INSIDE the
+// worker lock, so nothing mutates a project while it is being copied — the
 // copy is part of the critical section, not something beside it.
+//
+// AroundAnnotate is Around for /annotate/copy, which rewrites AMC's
+// databases as a by-product on every call: it leaves them for the next
+// call of another kind rather than uploading them once per copy (issue #338
+// review, PER-1).
+//
+// A push that fails after a call that succeeded wraps files.ErrNotStored:
+// the work is done and on the volume, and the calls that return a result
+// worth keeping — an analyse's report — return it with that error.
 type ProjectSync interface {
 	Around(ctx context.Context, project string, call func() error) error
+	AroundAnnotate(ctx context.Context, project string, call func() error) error
 }
 
 // Config is what New takes. HTTPClient is optional: nil means the default
@@ -113,25 +133,99 @@ func New(cfg Config) *Client {
 	return &Client{
 		base: strings.TrimRight(cfg.BaseURL, "/"),
 		http: client,
+		lock: make(chan struct{}, 1),
 		sync: cfg.Sync,
 	}
 }
 
 // Exclusive runs fn under the worker lock: the reconcile's way of reading a
 // project no call is changing (issue #338). It waits, like every call but
-// the resets — the reconcile is background work with nobody waiting on it.
+// the resets and the purge — the reconcile is background work with nobody
+// waiting on it.
 func (c *Client) Exclusive(fn func() error) error {
-	c.generateLock.Lock()
-	defer c.generateLock.Unlock()
+	c.lock <- struct{}{}
+	defer c.release()
 	return fn()
 }
 
+// TryExclusive runs fn under the worker lock, or answers
+// controls.ErrAnalyzerBusy at once without running it: the purge's file
+// steps (issue #338 review, SEC-1). A worker call's push, or the reconcile,
+// running beside the purge would upload again what the purge had just
+// deleted from S3 — with no row left to find it. It never waits, for the
+// resets' reason: the caller is a request the professor is waiting on.
+func (c *Client) TryExclusive(fn func() error) error {
+	if !c.tryAcquire() {
+		return controls.ErrAnalyzerBusy
+	}
+	defer c.release()
+	return fn()
+}
+
+// serialised is the one way a call reaches the worker (issue #338 review,
+// ARQ-1): it waits for the lock — giving up when ctx ends — and runs call
+// inside the file store's sync. A rule that held only by being repeated at
+// every call site could be dropped at one of them with the whole suite
+// green, and was, by mutation.
+func (c *Client) serialised(ctx context.Context, project string, call func() error) error {
+	if err := c.acquire(ctx); err != nil {
+		return err
+	}
+	defer c.release()
+	return c.inStep(ctx, project, false, call)
+}
+
+// serialisedAnnotate is serialised for /annotate/copy: the sync leaves the
+// databases the annotate rewrites for the next other call
+// (ProjectSync.AroundAnnotate).
+func (c *Client) serialisedAnnotate(ctx context.Context, project string, call func() error) error {
+	if err := c.acquire(ctx); err != nil {
+		return err
+	}
+	defer c.release()
+	return c.inStep(ctx, project, true, call)
+}
+
+// trySerialised is serialised for a call that must never wait — the resets
+// (ADR-0075 §5): busy at once when the lock is held.
+func (c *Client) trySerialised(ctx context.Context, project string, busy error, call func() error) error {
+	if !c.tryAcquire() {
+		return busy
+	}
+	defer c.release()
+	return c.inStep(ctx, project, false, call)
+}
+
+// acquire waits for the lock until ctx ends.
+func (c *Client) acquire(ctx context.Context) error {
+	select {
+	case c.lock <- struct{}{}:
+		return nil
+	case <-ctx.Done():
+		return fmt.Errorf("amcworker: waiting for the worker: %w", ctx.Err())
+	}
+}
+
+func (c *Client) tryAcquire() bool {
+	select {
+	case c.lock <- struct{}{}:
+		return true
+	default:
+		return false
+	}
+}
+
+func (c *Client) release() { <-c.lock }
+
 // inStep runs call between the file store's hydrate and push for project.
-// The caller holds generateLock. A sync failure is returned as the sync
-// wrapped it (files.ErrSync); a worker failure as the call returned it.
-func (c *Client) inStep(ctx context.Context, project string, call func() error) error {
-	if c.sync == nil {
+// The caller holds the lock. A sync failure is returned as the sync wrapped
+// it (files.ErrSync); a worker failure as the call returned it.
+func (c *Client) inStep(ctx context.Context, project string, annotate bool, call func() error) error {
+	switch {
+	case c.sync == nil:
 		return call()
+	case annotate:
+		return c.sync.AroundAnnotate(ctx, filepath.ToSlash(project), call)
 	}
 	return c.sync.Around(ctx, filepath.ToSlash(project), call)
 }
@@ -142,13 +236,16 @@ func (c *Client) inStep(ctx context.Context, project string, call func() error) 
 // http.Request context with the target deadline (issue #166 AC-4). This
 // method does not add its own timeout — a second one would be a value the
 // domain does not know about, able to overrule what the handler set.
+//
+// A sheet generated whose copy to the store failed comes back with an error
+// wrapping files.ErrNotStored: it exists, on the volume.
 func (c *Client) Generate(ctx context.Context, req controls.GenerateRequest) (controls.Assets, error) {
 	sujet, err := c.generate(ctx, req.Project, req.Source, req.Copies,
 		controls.ErrGeneratorRefused, controls.ErrGeneratorUnavailable)
-	if err != nil {
+	if err != nil && !errors.Is(err, files.ErrNotStored) {
 		return controls.Assets{}, err
 	}
-	return controls.Assets{Sujet: sujet}, nil
+	return controls.Assets{Sujet: sujet}, err
 }
 
 // GenerateSheet is Generate for a survey run's sheet (issue #310): the same
@@ -157,15 +254,17 @@ func (c *Client) Generate(ctx context.Context, req controls.GenerateRequest) (co
 func (c *Client) GenerateSheet(ctx context.Context, req survey.GenerateRequest) (survey.Assets, error) {
 	sujet, err := c.generate(ctx, req.Project, req.Source, req.Copies,
 		survey.ErrGeneratorRefused, survey.ErrGeneratorUnavailable)
-	if err != nil {
+	if err != nil && !errors.Is(err, files.ErrNotStored) {
 		return survey.Assets{}, err
 	}
-	return survey.Assets{Sujet: sujet}, nil
+	return survey.Assets{Sujet: sujet}, err
 }
 
 // generate is POST /generate on the wire, for either domain: refused and
 // unavailable are the CALLER's sentinels, so each domain branches on its
-// own and neither imports the other's. Returns the subject PDF's path.
+// own and neither imports the other's. Returns the subject PDF's path —
+// with the error too when only the copy to the store failed
+// (files.ErrNotStored), since the sheet is generated.
 func (c *Client) generate(ctx context.Context, project, source string, copies int, refused, unavailable error) (string, error) {
 	if copies < 1 {
 		// Refused before we serialise, so a bad call does not wait behind
@@ -180,11 +279,8 @@ func (c *Client) generate(ctx context.Context, project, source string, copies in
 		return "", fmt.Errorf("%w: source path is required", refused)
 	}
 
-	c.generateLock.Lock()
-	defer c.generateLock.Unlock()
-
 	var sujet string
-	err := c.inStep(ctx, project, func() (err error) {
+	err := c.serialised(ctx, project, func() (err error) {
 		sujet, err = c.postGenerate(ctx, project, source, copies, refused, unavailable)
 		return err
 	})

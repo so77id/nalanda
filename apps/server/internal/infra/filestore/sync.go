@@ -5,9 +5,9 @@ import (
 	"context"
 	"crypto/md5"
 	"crypto/rand"
-	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"io/fs"
@@ -23,7 +23,6 @@ import (
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/aws/aws-sdk-go-v2/service/s3/types"
 
 	"github.com/so77id/nalanda/apps/server/internal/domain/files"
@@ -83,20 +82,69 @@ func NewSync(store *S3, workRoot string, log *slog.Logger) *Sync {
 // did — after a FAILED call too, since whatever it left is the latest
 // version (the batch-survives rule of #210). A hydrate failure returns
 // before call runs. A push failure is the operation's failure, wrapped as
-// files.ErrSync; when the call had failed as well, the call's error is the
+// files.ErrSync — and, after a call that SUCCEEDED, as files.ErrNotStored
+// too, because the worker's work is done and on the volume (issue #338
+// review, COR-1); when the call had failed as well, the call's error is the
 // one returned and the push's is logged. The local files are never touched
 // by a failure: the next call on the project, or the reconcile, finishes
 // the copy.
+//
+// A project with no file on the volume and none in the bucket is refused
+// before anything is created: no real call starts from nothing — the
+// server writes a project's inputs before its first call — so it can only
+// be a call that queued behind the purge of its project, and running it
+// would re-create the directory and upload what the failed call leaves
+// there, with no row left to find it (issue #338 review, SEC-1).
 func (s *Sync) Around(ctx context.Context, project string, call func() error) error {
+	return s.around(ctx, project, keptWhole, call)
+}
+
+// AroundAnnotate is Around for an /annotate/copy call (issue #338 review,
+// PER-1). AMC rewrites the project's databases (data/*.sqlite) on every
+// annotate as a by-product: it re-applies the overrides the server holds
+// and recomputes the scores — measured on the real worker, two identical
+// annotates of one copy changed capture.sqlite and scoring.sqlite and left
+// the corrected PDF byte-identical. Pushed per call, an analyse's forty
+// annotates uploaded a 5.7 MB capture.sqlite forty times (228 MB) to keep
+// the last one. So here those files are left out of the hydrate's uploads
+// and the push: the next call of another kind uploads them in its hydrate,
+// since the disk's copy is the newer one, and so does the reconcile. Until
+// then the bucket's databases are the ones the last other call left, which
+// is what a restore needs — what an annotate adds is derived from it and
+// from the database, and the next annotate re-derives it. Everything else,
+// the corrected PDF first, goes up as in Around, and whatever the call
+// needs from the bucket still comes down.
+func (s *Sync) AroundAnnotate(ctx context.Context, project string, call func() error) error {
+	return s.around(ctx, project, annotateDerived, call)
+}
+
+// keptWhole defers nothing: every file a call changes goes up.
+func keptWhole(string) bool { return false }
+
+// annotateDerived names the files an annotate rewrites only as a by-product,
+// which AroundAnnotate leaves for the next other call.
+func annotateDerived(rel string) bool {
+	return path.Dir(rel) == "data" && strings.HasSuffix(rel, ".sqlite")
+}
+
+func (s *Sync) around(ctx context.Context, project string, deferred func(rel string) bool, call func() error) error {
 	if err := validProject(project); err != nil {
 		return fmt.Errorf("%w: %w", files.ErrSync, err)
 	}
-	before, err := s.hydrate(ctx, project)
+	var stats syncStats
+	start := time.Now()
+	before, err := s.hydrate(ctx, project, deferred, &stats)
+	stats.hydrate = time.Since(start)
 	if err != nil {
 		return fmt.Errorf("%w: bring %s from the bucket: %w", files.ErrSync, project, err)
 	}
+	start = time.Now()
 	callErr := call()
-	pushErr := s.push(ctx, project, before)
+	stats.call = time.Since(start)
+	start = time.Now()
+	pushErr := s.push(ctx, project, before, deferred, &stats)
+	stats.push = time.Since(start)
+	s.log.Info("files: synced", stats.attrs(project)...)
 	if callErr != nil {
 		if pushErr != nil {
 			s.log.Error("files: push after a failed worker call", "project", project, "error", pushErr)
@@ -104,10 +152,44 @@ func (s *Sync) Around(ctx context.Context, project string, call func() error) er
 		return callErr
 	}
 	if pushErr != nil {
-		return fmt.Errorf("%w: keep %s in the bucket: %w", files.ErrSync, project, pushErr)
+		return fmt.Errorf("%w: %w: keep %s in the bucket: %w", files.ErrSync, files.ErrNotStored, project, pushErr)
 	}
 	return nil
 }
+
+// syncStats is one Around's line in the log: what each half moved and how
+// long each part took, the call included — the numbers ADR-0089
+// §Measurements asks for, which a push's duration alone hid (issue #338
+// review, PER-5).
+type syncStats struct {
+	hydrate, call, push time.Duration
+	downloaded          int
+	// uploadedFirst is what the hydrate uploaded before the call: a new
+	// batch, a source.tex, what a cut push left behind.
+	uploadedFirst int
+	uploaded      int
+	bytes         int64
+	pruned        int
+	// deferred is what an annotate left for the next other call.
+	deferred int
+}
+
+func (st syncStats) attrs(project string) []any {
+	ms := func(d time.Duration) time.Duration { return d.Round(time.Millisecond) }
+	return []any{"project", project,
+		"hydrate", ms(st.hydrate), "downloaded", st.downloaded, "uploaded_first", st.uploadedFirst,
+		"call", ms(st.call),
+		"push", ms(st.push), "uploaded", st.uploaded, "pruned", st.pruned,
+		"bytes", st.bytes, "deferred", st.deferred}
+}
+
+// errNoProject is a call on a project that exists nowhere (see Around).
+var errNoProject = errors.New("the project has no file on the volume nor in the bucket — purged, or never prepared")
+
+// bucketNewer is the one tie rule of the hydrate and the reconcile (issue
+// #338 review, ARQ-3): the bucket's copy wins only when it is strictly
+// newer. At the same instant the disk's does — it is where AMC wrote it.
+func bucketNewer(bucket, disk time.Time) bool { return bucket.After(disk) }
 
 // snapshot is a project's local files at one moment: what the push compares
 // against and what the prune subtracts.
@@ -131,54 +213,69 @@ type remoteObject struct {
 }
 
 // hydrate makes the disk and the bucket agree on project, the newer side
-// winning each file, and returns the snapshot the call starts from.
-func (s *Sync) hydrate(ctx context.Context, project string) (snapshot, error) {
+// winning each file, and returns the snapshot the call starts from. A file
+// deferred is never uploaded here; it still comes down when the bucket's is
+// the newer one.
+func (s *Sync) hydrate(ctx context.Context, project string, deferred func(string) bool, stats *syncStats) (snapshot, error) {
+	remote, links, err := s.remoteState(ctx, project)
+	if err != nil {
+		return snapshot{}, err
+	}
+	if len(remote.objects) == 0 && !remote.hasLinks {
+		if _, err := os.Stat(filepath.Join(s.root, filepath.FromSlash(project))); errors.Is(err, fs.ErrNotExist) {
+			return snapshot{}, errNoProject
+		}
+	}
 	root, err := s.openProject(project)
 	if err != nil {
 		return snapshot{}, err
 	}
 	defer func() { _ = root.Close() }()
-
-	remote, links, err := s.remoteState(ctx, project)
-	if err != nil {
-		return snapshot{}, err
-	}
 	local, err := s.scan(root)
 	if err != nil {
 		return snapshot{}, err
 	}
 
-	var downloaded, uploaded int
+	up := func(rel string, file diskFile) error {
+		if deferred(rel) {
+			stats.deferred++
+			return nil
+		}
+		if err := s.upload(ctx, root, project, rel, file); err != nil {
+			return err
+		}
+		stats.uploadedFirst++
+		stats.bytes += file.size
+		return nil
+	}
 	for _, rel := range slices.Sorted(maps.Keys(remote.objects)) {
 		obj := remote.objects[rel]
 		file, here := local.files[rel]
 		switch {
 		case here && file.md5 == etagMD5(obj.etag):
 			continue
-		case !here || obj.modTime.After(file.modTime):
+		case !here || bucketNewer(obj.modTime, file.modTime):
 			if err := s.download(ctx, root, project, rel, obj); err != nil {
 				return snapshot{}, err
 			}
-			downloaded++
+			stats.downloaded++
 		default:
-			if err := s.upload(ctx, root, project, rel, file); err != nil {
+			if err := up(rel, file); err != nil {
 				return snapshot{}, err
 			}
-			uploaded++
 		}
 	}
 	for _, rel := range slices.Sorted(maps.Keys(local.files)) {
 		if _, there := remote.objects[rel]; !there {
-			if err := s.upload(ctx, root, project, rel, local.files[rel]); err != nil {
+			if err := up(rel, local.files[rel]); err != nil {
 				return snapshot{}, err
 			}
-			uploaded++
 		}
 	}
 
 	// The link map, newer side winning as for a file: the bucket's when the
 	// disk has none (an empty volume) or older ones; the disk's otherwise.
-	if remote.hasLinks && (len(local.links) == 0 || remote.linksModTime.After(local.newestLink)) {
+	if remote.hasLinks && (len(local.links) == 0 || bucketNewer(remote.linksModTime, local.newestLink)) {
 		s.materialize(root, links)
 	} else if len(local.links) > 0 && !maps.Equal(local.links, links) {
 		if err := s.writeLinks(ctx, project, local.links); err != nil {
@@ -186,21 +283,14 @@ func (s *Sync) hydrate(ctx context.Context, project string) (snapshot, error) {
 		}
 	}
 
-	before, err := s.scan(root)
-	if err != nil {
-		return snapshot{}, err
-	}
-	if downloaded+uploaded > 0 {
-		s.log.Info("files: hydrated", "project", project, "downloaded", downloaded, "uploaded", uploaded)
-	}
-	return before, nil
+	return s.scan(root)
 }
 
 // push uploads what the call changed — the corrected PDFs first, since the
-// review page the professor is redirected to shows one next — rewrites the
-// link map when it moved, and prunes exactly what the call removed.
-func (s *Sync) push(ctx context.Context, project string, before snapshot) error {
-	start := time.Now()
+// review page the professor is redirected to shows one next — but what is
+// deferred, rewrites the link map when it moved, and prunes exactly what the
+// call removed.
+func (s *Sync) push(ctx context.Context, project string, before snapshot, deferred func(string) bool, stats *syncStats) error {
 	root, err := s.openProject(project)
 	if err != nil {
 		return err
@@ -213,9 +303,14 @@ func (s *Sync) push(ctx context.Context, project string, before snapshot) error 
 
 	var changed []string
 	for rel, file := range after.files {
-		if was, ok := before.files[rel]; !ok || was.md5 != file.md5 {
-			changed = append(changed, rel)
+		if was, ok := before.files[rel]; ok && was.md5 == file.md5 {
+			continue
 		}
+		if deferred(rel) {
+			stats.deferred++
+			continue
+		}
+		changed = append(changed, rel)
 	}
 	slices.SortFunc(changed, func(a, b string) int {
 		if pa, pb := strings.HasPrefix(a, "annotated/"), strings.HasPrefix(b, "annotated/"); pa != pb {
@@ -226,12 +321,12 @@ func (s *Sync) push(ctx context.Context, project string, before snapshot) error 
 		}
 		return strings.Compare(a, b)
 	})
-	var bytesUp int64
 	for _, rel := range changed {
 		if err := s.upload(ctx, root, project, rel, after.files[rel]); err != nil {
 			return err
 		}
-		bytesUp += after.files[rel].size
+		stats.uploaded++
+		stats.bytes += after.files[rel].size
 	}
 
 	if !maps.Equal(before.links, after.links) {
@@ -256,10 +351,7 @@ func (s *Sync) push(ctx context.Context, project string, before snapshot) error 
 	if err := s.store.deleteKeys(ctx, removed); err != nil {
 		return fmt.Errorf("prune: %w", err)
 	}
-	if len(changed)+len(removed) > 0 {
-		s.log.Info("files: pushed", "project", project, "uploaded", len(changed), "bytes", bytesUp,
-			"pruned", len(removed), "took", time.Since(start).Round(time.Millisecond))
-	}
+	stats.pruned = len(removed)
 	return nil
 }
 
@@ -394,11 +486,11 @@ func (s *Sync) download(ctx context.Context, root *os.Root, project, rel string,
 		}
 	}
 	key := KeyPrefix + project + "/" + rel
-	out, err := s.store.client.GetObject(ctx, &s3.GetObjectInput{Bucket: &s.store.bucket, Key: &key, IfMatch: &obj.etag})
+	body, err := s.store.get(ctx, key, obj.etag)
 	if err != nil {
 		return fmt.Errorf("get %s: %w", key, err)
 	}
-	defer func() { _ = out.Body.Close() }()
+	defer func() { _ = body.Close() }()
 
 	tmp := path.Join(path.Dir(rel), tempPrefix+randomSuffix())
 	f, err := root.OpenFile(filepath.FromSlash(tmp), os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o644)
@@ -406,7 +498,7 @@ func (s *Sync) download(ctx context.Context, root *os.Root, project, rel string,
 		return fmt.Errorf("create %s: %w", tmp, err)
 	}
 	sum := md5.New()
-	_, copyErr := io.Copy(io.MultiWriter(f, sum), out.Body)
+	_, copyErr := io.Copy(io.MultiWriter(f, sum), body)
 	closeErr := f.Close()
 	got := hex.EncodeToString(sum.Sum(nil))
 	switch {
@@ -429,10 +521,9 @@ func (s *Sync) download(ctx context.Context, root *os.Root, project, rel string,
 	return nil
 }
 
-// upload sends one local file whole, in a single PutObject — never the
-// SDK's multipart manager, so the object's ETag stays the MD5 the next
-// hydrate compares against — with Content-MD5, so S3 refuses a body that
-// changed between the scan and the send.
+// upload sends one local file whole, through S3.put: one PutObject with the
+// MD5 the scan computed, so S3 refuses a body that changed between the scan
+// and the send.
 func (s *Sync) upload(ctx context.Context, root *os.Root, project, rel string, file diskFile) error {
 	f, err := root.Open(filepath.FromSlash(rel))
 	if err != nil {
@@ -444,14 +535,7 @@ func (s *Sync) upload(ctx context.Context, root *os.Root, project, rel string, f
 		return err
 	}
 	key := KeyPrefix + project + "/" + rel
-	_, err = s.store.client.PutObject(ctx, &s3.PutObjectInput{
-		Bucket:        &s.store.bucket,
-		Key:           &key,
-		Body:          f,
-		ContentLength: aws.Int64(file.size),
-		ContentMD5:    aws.String(base64.StdEncoding.EncodeToString(raw)),
-	})
-	if err != nil {
+	if err := s.store.put(ctx, key, f, file.size, raw, ""); err != nil {
 		return fmt.Errorf("put %s: %w", key, err)
 	}
 	return nil
@@ -497,15 +581,7 @@ func (s *Sync) writeLinks(ctx context.Context, project string, links map[string]
 	}
 	sum := md5.Sum(body)
 	key := linksKey(project)
-	_, err = s.store.client.PutObject(ctx, &s3.PutObjectInput{
-		Bucket:        &s.store.bucket,
-		Key:           &key,
-		Body:          bytes.NewReader(body),
-		ContentLength: aws.Int64(int64(len(body))),
-		ContentMD5:    aws.String(base64.StdEncoding.EncodeToString(sum[:])),
-		ContentType:   aws.String("application/json"),
-	})
-	if err != nil {
+	if err := s.store.put(ctx, key, bytes.NewReader(body), int64(len(body)), sum[:], "application/json"); err != nil {
 		return fmt.Errorf("put %s: %w", key, err)
 	}
 	return nil
@@ -530,9 +606,10 @@ func linksKey(project string) string {
 	return KeyPrefix + project + "/" + files.ReservedDir + "/" + linksName
 }
 
-// tempPrefix names the sync's own temp files and links. The denylist skips
-// it, so one a crash left behind is never uploaded.
-const tempPrefix = ".nalanda-tmp-"
+// tempPrefix names the sync's own temp files and links, and the server's
+// batches while they are written (files.WriteNew). The denylist skips it, so
+// one a crash left behind is never uploaded.
+const tempPrefix = files.TempPrefix
 
 // annotateScratch is the file a failed annotate leaves at the project's
 // root (the worker's annotate-copy-N.txt).

@@ -141,7 +141,15 @@ type Controls struct {
 	// #339); StartScanUpload opens one under a control and
 	// CompleteScanUpload turns it into the control's next batch.
 	Uploads ScanUploads
-	Log     *slog.Logger
+	// ReviewAnnotateDeadline bounds the review save's annotate — the wait
+	// for the worker's lock, the worker call and its sync with S3 — under
+	// httpserver's 30 s WriteTimeout, which neither cancels the handler nor
+	// reaches the professor (add-a-backend-endpoint.md, the reason
+	// scansResetDeadline is 25). Optional: zero is twenty seconds, which
+	// leaves the redirect its margin; a test sets less (issue #338 review,
+	// ARQ-5 — it was a package variable with a setter).
+	ReviewAnnotateDeadline time.Duration
+	Log                    *slog.Logger
 
 	secureCookie bool
 }
@@ -171,6 +179,9 @@ func NewControls(deps Controls) *Controls {
 		panic("handler.NewControls: no logger")
 	}
 	deps.secureCookie = config.SecureFor(deps.PublicURL)
+	if deps.ReviewAnnotateDeadline == 0 {
+		deps.ReviewAnnotateDeadline = defaultReviewAnnotateDeadline
+	}
 	return &deps
 }
 

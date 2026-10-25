@@ -427,8 +427,10 @@ Miguel's, in this order. `B` is the bucket name.
    log says `file store store=s3 …` and `files: reconciled … failed=0` —
    the reconcile uploads what changed in the minutes since step 6. Pages may
    404 a file in those minutes; nothing is lost.
-8. **Measure** (AC-15, into ADR-0089 §Measurements): one analyse's and one
-   review save's `files: pushed … took …`. Run GMAIL-CHECK's test send
+8. **Measure** (AC-15, into ADR-0089 §Measurements): the uplink — one timed
+   ~10 MB `aws s3 cp` from the Jetson; one analyse JOB end to end with the
+   sum of its `files: synced …` lines (`hydrate=`, `call=`, `push=`,
+   `bytes=`); one review save end to end. Run GMAIL-CHECK's test send
    (AC-17): its attachment is read through the store now.
 
 ### Going back to the local store
@@ -450,8 +452,11 @@ Restore the database first (§Backups — the projects the reconcile and the
 pages know come from it), then bring the stack up with
 `NALANDA_FILES_STORE=s3` on an empty `amc-work`: pages read S3 straight
 away, and each worker call brings its project back before it runs. The
-known gap: the database can be a day behind the files, so a control created
-after the last backup has its files in S3 and no row.
+known gaps: the database can be a day behind the files, so a control created
+after the last backup has its files in S3 and no row; and a project's
+`data/*.sqlite` in S3 are the ones its last analyse, re-read or reset left,
+not what the annotates since rewrote (ADR-0089 §4) — the next annotate of
+each copy re-derives that from the database.
 
 ### The drill (AC-16)
 

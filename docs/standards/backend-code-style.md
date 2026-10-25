@@ -600,6 +600,17 @@ worth reading before writing Go in this repo:
   states plainly that swapping the two leaves every test green and why the
   distinguishing case is unreachable from a test. A comment that promises a
   guarantee the tests do not hold is worse than no comment.
+- **A rule that must hold at every call site of a type is a helper, not a
+  convention** — and the test named as its guard drives EVERY half of the
+  rule over a table of EVERY call site, or the rule says which half is
+  review-only. Worked case: `amcworker.Client`'s calls must each take the
+  worker lock AND run inside the file store's sync. #338 wrote the pair by
+  hand at six call sites, named a test that checked the sync half for all of
+  them and the lock half for one, and a mutation that dropped the lock at two
+  call sites left the suite green (#338 review, ARQ-1/COR-3). Now
+  `serialised`/`trySerialised` are the only way to the worker, and
+  `TestEveryWorkerCallsSyncRunsInsideTheWorkerLock` walks the same table as
+  `TestEveryWorkerCallRunsBetweenTheHydrateAndThePush`.
 
 ## Testing
 

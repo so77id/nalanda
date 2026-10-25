@@ -828,6 +828,21 @@ gap above now applies only to the one-request form a page without its script
 falls back to. The partials themselves sit on the volume this worker mounts
 as root — see §"Chunked uploads read the shared volume defensively".
 
+**Trigger status after #338 (S3 the primary store, 2026-10-25) — fired, and
+accepted for now** (#338 review, SEC-4). Under `NALANDA_FILES_STORE=s3` the
+hydrate restores into the project whatever bytes the bucket holds for it —
+batches, `source.tex` (recompiled by the analyse's `prepare --mode b`), AMC's
+SQLite databases — so "a batch arriving from another system" is now the
+bucket itself. Only the server's own key can write `work/`, and the bucket
+is private and TLS-only, so reaching the root worker's parsers this way
+needs that key; what it adds over the key's own read and delete is a path
+from a cloud credential to code running on the Jetson, through a ghostscript,
+poppler, OpenCV or pdflatex bug. Accepted on the same reasoning as the key's
+other residual (§"The work files live in S3, and S3 is an input"); the cheap
+half this note prescribes — `cap_drop: [ALL]`, `no-new-privileges`,
+`openin_any = p` — is the first thing to take when it is next revisited, and
+the leak of the server's key is now a reason to.
+
 **Named in advance, because WP-E will pull that trigger** (#147 review): a
 control source now includes code with `\lstinputlisting{<absolute path>}` —
 that is the documented shape, because a path relative to the `.tex` does not
@@ -963,8 +978,19 @@ databases. That is personal data (Ley 21.719) outside the box, so:
   versioning is off.
 - **Deletion path**: the purge deletes the project from S3 FIRST, then the
   rows, then the local copy (ADR-0052 as amended); a refused S3 step leaves
-  the archived control whole. The database backups keep a purged control's
-  rows thirty days, as before.
+  the archived control whole. The three steps run under the worker lock and
+  a busy worker refuses the purge (#338 review, SEC-1): a push or the
+  reconcile running beside it re-uploaded what it had deleted, leaving a
+  purged student's files in S3 with no row that could ever find them. The
+  database backups keep a purged control's rows thirty days, as before.
+  **Under `NALANDA_FILES_STORE=local` it deletes nothing from S3** (#338
+  review, SEC-2): once `-sync-files` has filled the bucket — the migration's
+  window, or after a rollback — a purge, or a "Borrar escaneos", in local
+  mode leaves those objects in `work/`, and a later flip back to `s3` brings
+  them back. DEPLOY-JETSON.md §"Going back to local" has the operator
+  remove the same keys by hand; until a purge under `local` also deletes
+  the S3 prefix when the bucket is configured (a follow-up), that step is
+  the deletion path in that mode.
 
 **S3 is also an INPUT.** Its keys become paths the worker — which runs as
 root — reads, and its link map becomes symlinks the review page serves. So
@@ -982,11 +1008,16 @@ line carries a key and the SDK's error, never a file's content or a
 credential (`config.Config` reports only whether the key is set).
 
 **The accepted residual**: a leaked server key can DELETE the primary copy —
-versioning is off by decision. Accepted because the Jetson keeps its full
-copy (no eviction in #338), so each side can rebuild the other; evicting the
-local copy needs its own decision, and this is why. The key also sits in the
-server's environment, as the backup's does in its own container
+versioning is off by decision — and can PLANT inputs the root worker parses
+(§"The control worker runs as root and parses scans there", trigger status
+after #338). Accepted because the Jetson keeps its full copy (no eviction in
+#338), so each side can rebuild the other; evicting the local copy needs its
+own decision, and this is why. The key also sits in the server's
+environment, as the backup's does in its own container
 (§"The Jetson sidecars run as root and carry AWS credentials in their env").
+Re-running the provisioning script never mints a second key for a user that
+has one (#338 review, SEC-3): rotating is a deliberate create, deploy,
+delete.
 
 **Review trigger**: evicting the local copy; enabling SSE-KMS on the bucket
 (the ETag stops being the MD5 the sync compares); a lifecycle rule or a
