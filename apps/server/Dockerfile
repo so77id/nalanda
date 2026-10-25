@@ -13,6 +13,31 @@
 # Pinned by digest, not only by tag: a tag is a moving pointer, and "the build
 # that worked last week" has to be reproducible for a project measured in years.
 #
+# A toolchain bump starts here and moves, in the same PR (#341):
+#   - go.mod's `go` line, kept equal to this image's patch (go.mod at or above
+#     it: backend-code-style.md §Version; the image at or above go.mod:
+#     testing-strategy.md §apps/server), and §Version's "currently" patch;
+#   - in testing-strategy.md §apps/server, where both protocols run in this
+#     image: the copies of this digest and its tag, the go1.x.y it names, and
+#     its govulncheck pin;
+#   - the govulncheck pin in .github/workflows/server.yml and in the tool
+#     registry of .claude/workflow-bindings.md.
+# And three checks the edits do not make by themselves:
+#   - the digest is the multi-arch INDEX digest, the top-level `Digest` of
+#     `docker buildx imagetools inspect golang:<x.y>-alpine` (MediaType
+#     ...image.index...), never one platform's manifest: --platform below
+#     needs both arches. Then the `go version` check in testing-strategy.md.
+#   - go.mod's `go` line also sets the binary's GODEBUG defaults, so a bump
+#     changes runtime behaviour without a code change. In the new image with
+#     the OLD line, `go list -f '{{.DefaultGODEBUG}}' ./cmd/server` names the
+#     defaults the move flips; read them and the release notes against this
+#     server and record the result in a commit body (#341 is the worked case).
+#   - this image's CA bundle is the one the scratch stage ships, so a new
+#     digest also moves production's trusted roots: list the subjects of
+#     /etc/ssl/certs/ca-certificates.crt in the old and new image, and check
+#     that every destination named at the COPY below keeps its root (#341:
+#     119 -> 118 roots; GTS R1/R3/R4 and Amazon Root CA 1 in both).
+#
 # --platform=${BUILDPLATFORM} pins the BUILDER to the runner's own arch. Without
 # it, buildx cross-compiling to linux/arm64 from an amd64 runner would run the
 # Go toolchain under qemu emulation — a few minutes turn into tens. With it,
@@ -20,7 +45,7 @@
 # tells it to CROSS-COMPILE for the target. Load-bearing on the CI runner
 # (issue #162 S11); a no-op on a local build where BUILDPLATFORM equals
 # TARGETPLATFORM.
-FROM --platform=${BUILDPLATFORM} golang:1.25-alpine@sha256:3eb6c2b3db8d55e38537302edb510b4417f8a115efbd5906d131ceba9468e29a AS build
+FROM --platform=${BUILDPLATFORM} golang:1.26-alpine@sha256:27f2d3b83cfc5803c8078f8e730af0f7c431bf067afaec8f60a36fb763187cba AS build
 
 # TARGETARCH is set by buildx from --platform; empty in a plain `docker build`,
 # where the `${TARGETARCH:-$(go env GOARCH)}` fallback below keeps Go writing
@@ -70,10 +95,11 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=${TARGETARCH:-$(go env GOARCH)} go build \
 # --- run ---------------------------------------------------------------------
 FROM scratch
 
-# Certificate authorities, for the OAuth calls WP-C2 will make. Nothing in this
-# WP talks to the network, but a scratch image has no CA bundle at all and the
-# failure it produces ("x509: certificate signed by unknown authority") sends
-# whoever meets it looking in entirely the wrong place.
+# Certificate authorities, for every outbound TLS call: Google OIDC, Gmail,
+# Canvas GraphQL and the question-bank fetch. A scratch image has no CA bundle
+# at all, and the failure it produces ("x509: certificate signed by unknown
+# authority") sends whoever meets it looking in entirely the wrong place. The
+# bundle comes from the builder, so it moves with the digest above.
 COPY --from=build /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 
 # Timestamps are UTC. Without zoneinfo, time.LoadLocation fails on scratch; the

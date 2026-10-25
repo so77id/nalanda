@@ -79,6 +79,9 @@ Repo-specific tools the review lenses run and fold into findings. Empty is valid
 
 ```
 apps/server (Go, added #149):
+  Every Go line below runs INSIDE the builder image the Dockerfile pins, with
+  the `docker run` prefix testing-strategy.md §apps/server writes for the two
+  protocols — never on a host toolchain, whose stdlib is not the one shipped.
   gofmt -l .        — L1. CAVEAT: it reports by PRINTING filenames and exits 0
                       either way, so a lens must test its OUTPUT, never its
                       status. A step written as `gofmt -l . && …` is green over
@@ -89,11 +92,12 @@ apps/server (Go, added #149):
                       is NOT optional: internal/architecture_test.go reads the
                       source tree rather than importing it, and Go's build cache
                       replayed a PASS through four real violations without it.
-  go run golang.org/x/vuln/cmd/govulncheck@v1.7.0 ./...
+  go run golang.org/x/vuln/cmd/govulncheck@v1.9.0 ./...
                     — security lens. Covers the dependency tree AND the stdlib of
-                      the toolchain go.mod declares. PINNED, not @latest: v1.8.0
-                      needs go >= 1.26 and, under GOTOOLCHAIN=auto, scans the
-                      wrong stdlib (testing-strategy.md §apps/server, #297).
+                      the toolchain go.mod declares. PINNED, not @latest, and the
+                      pin moves with go.mod's go line: a scanner that needs a
+                      newer Go, under GOTOOLCHAIN=auto, scans the wrong stdlib
+                      (testing-strategy.md §apps/server, #297).
   docker build + docker compose up -d --wait server
                     — the only way to see whether the binary starts on `scratch`
                       at all; the suite cannot.

@@ -13,7 +13,7 @@ still to come — see [What is not here yet](#what-is-not-here-yet).
 
 | | |
 |---|---|
-| Language | Go — the authoritative version is [`go.mod`](go.mod), and this table deliberately does not repeat it. Two places are kept in step with it on purpose: `backend-code-style.md` §Version, which quotes the current patch and says why, and the Dockerfile's pinned builder |
+| Language | Go — the authoritative version is [`go.mod`](go.mod), and this table deliberately does not repeat it. The places kept in step with it on purpose are listed where a bump starts, in the comment on the Dockerfile's pinned builder; `backend-code-style.md` §Version quotes the current patch and says why |
 | Database | SQLite via `modernc.org/sqlite` — pure Go, no CGO (ADR-0007) |
 | Migrations | `github.com/pressly/goose/v3`, embedded, applied at boot |
 | Routing | `net/http.ServeMux` — no router dependency |
@@ -72,10 +72,12 @@ NALANDA_GOOGLE_CLIENT_SECRET=placeholder-secret \
 curl -s http://127.0.0.1:8081/health      # backoffice surface
 curl -s http://127.0.0.1:8081/api/health  # API surface
 
-# Verify. The two protocols are defined in docs/standards/testing-strategy.md;
-# this is the per-commit one. Note the `test -z`: `gofmt -l` PRINTS the files it
-# objects to and exits 0 either way, so a bare `gofmt -l . && …` chain reads
-# like a gate and is not one.
+# Verify. The two protocols are defined in docs/standards/testing-strategy.md
+# §apps/server and run inside the builder image the Dockerfile pins, never on a
+# host Go: take the per-commit `docker run` line from there (from the repo
+# root). This is what it runs inside the image. Note the `test -z`: `gofmt -l`
+# PRINTS the files it objects to and exits 0 either way, so a bare
+# `gofmt -l . && …` chain reads like a gate and is not one.
 test -z "$(gofmt -l .)" && go vet ./... && go build ./... && go test ./...
 
 # Build the production image (16.4 MB, measured 2026-08-26 on darwin/arm64:
