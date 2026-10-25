@@ -362,6 +362,122 @@ sqlite3 "${LATEST%.gz}" 'SELECT COUNT(*) FROM users;'
 If either command errors, the backup did not round-trip and the ADR-0038 AC
 for backups has failed — do not delete the scratch copy, and open an issue.
 
+## The work files in S3 (#338)
+
+Under `NALANDA_FILES_STORE=s3` S3 is the PRIMARY copy of every project's
+files (`work/` in the same bucket as `backups/`), and `amc-work` is AMC's
+working copy: every page and download reads S3 through the server, and every
+worker call runs between a hydrate from S3 and a push to it (ADR-0089). The
+merge changed nothing by itself — the default is `local`. Everything below is
+Miguel's, in this order. `B` is the bucket name.
+
+### Moving the files to S3
+
+1. **Both images of the merge are live** — the server's and the worker's
+   (the worker's CD takes ~30 min under QEMU). The worker's carries the
+   catalog fix, which step 4 depends on.
+2. **Provision**: `infra/deploy/jetson/provision-jetson-iam.sh` from the
+   laptop (admin identity). Put its four `NALANDA_FILES_S3_*` lines in `.env`
+   with `NALANDA_FILES_STORE=local` (§"The `.env` on the Jetson"), then
+   `sudo docker-compose up -d --pull=never --force-recreate server`.
+3. **`apps/server/S3-CHECK.md` §1–§2** with the server's key.
+4. **Move AMC's misplaced catalogs** (18 on 2026-10-25: `controls/<id>catalog.pdf`
+   and `surveys/1/runs/1catalog.pdf`, root-owned, beside their projects).
+   The listing first — read it before running the second command:
+
+   ```bash
+   sudo docker-compose exec amc-worker sh -c 'cd /work &&
+     for f in controls/*catalog.pdf surveys/*/runs/*catalog.pdf; do
+       [ -e "$f" ] || continue; d="${f%catalog.pdf}"
+       if [ -d "$d" ]; then echo "move   $f -> $d/out/catalog.pdf"; else echo "delete $f (no project)"; fi
+     done'
+   ```
+
+   Then the same loop doing it:
+
+   ```bash
+   sudo docker-compose exec amc-worker sh -c 'cd /work &&
+     for f in controls/*catalog.pdf surveys/*/runs/*catalog.pdf; do
+       [ -e "$f" ] || continue; d="${f%catalog.pdf}"
+       if [ -d "$d" ]; then mkdir -p "$d/out" && mv "$f" "$d/out/catalog.pdf" &&
+         chown 65532:65532 "$d/out/catalog.pdf"; else rm "$f"; fi
+     done; find /work ! -uid 65532'
+   ```
+
+   The last `find` must list only `/work/questions.json` and
+   `/work/_pre-rescan-*` (AC-20).
+5. **No job in flight** — no control or run page shows "Procesando". The
+   migration runs in a container of its own and cannot hold the running
+   server's worker lock; a file a job rewrites mid-upload fails its
+   checksum, counts as a failed project, and goes up on the next run.
+6. **Migrate**:
+
+   ```bash
+   sudo docker-compose run --rm server -sync-files ; echo "exit $?"
+   ```
+
+   One line — `sync-files: N projects, M files uploaded (B bytes), 0 failed,
+   took T` — and `exit 0`. Run it again: 0 files. Compare
+   `aws s3 ls --recursive s3://$B/work/ | wc -l` with a fresh census of the
+   projects the database knows (the 2026-10-24 one is in #338), minus the
+   denylist (`scans/list*.txt`, `annotate-copy-N.txt`, SQLite's `-journal`,
+   `-wal`, `-shm`), plus one `links.json` per project with scans (AC-15).
+7. **Flip**: `NALANDA_FILES_STORE=s3` in `.env`, then
+   `sudo docker-compose up -d --pull=never --force-recreate server`. The boot
+   log says `file store store=s3 …` and `files: reconciled … failed=0` —
+   the reconcile uploads what changed in the minutes since step 6. Pages may
+   404 a file in those minutes; nothing is lost.
+8. **Measure** (AC-15, into ADR-0089 §Measurements): one analyse's and one
+   review save's `files: pushed … took …`. Run GMAIL-CHECK's test send
+   (AC-17): its attachment is read through the store now.
+
+### Going back to the local store
+
+`NALANDA_FILES_STORE=local` and recreate the server: the volume was never
+emptied, so the site works with no S3 call. Setting `s3` again, the boot
+reconcile uploads what was WRITTEN meanwhile (AC-18 rehearses both
+directions). **What was DELETED meanwhile is not deleted from S3** — the
+reconcile never deletes. So while rolled back, avoid "Borrar escaneos" and
+purges; if one happened, remove the same keys by hand before flipping back
+(`aws s3 rm --recursive s3://$B/work/controls/<id>/` for a purge; for a
+reset, its `scans/`, `cr/`, `uploads/` and `annotated/` prefixes, the
+capture, scoring and association databases and `.nalanda/links.json`) —
+otherwise the next call's hydrate brings them back.
+
+### After a disk loss
+
+Restore the database first (§Backups — the projects the reconcile and the
+pages know come from it), then bring the stack up with
+`NALANDA_FILES_STORE=s3` on an empty `amc-work`: pages read S3 straight
+away, and each worker call brings its project back before it runs. The
+known gap: the database can be a day behind the files, so a control created
+after the last backup has its files in S3 and no row.
+
+### The drill (AC-16)
+
+Run it when no professor is working. It mounts a FRESH, empty volume in place
+of `amc-work` (`infra/deploy/jetson/docker-compose.drill.yml`) and proves S3
+alone brings every file back.
+
+```bash
+sudo docker-compose exec amc-worker sh -c 'find /work -type f | wc -l; ls -lt --time-style=+%FT%T /work/controls | head -3' > /tmp/before-drill.txt
+sudo docker-compose stop server amc-worker
+sudo docker-compose -f docker-compose.yml -f ../deploy/jetson/docker-compose.jetson.yml \
+  -f ../deploy/jetson/docker-compose.drill.yml up -d --pull=never server amc-worker
+```
+
+1. An existing control's review page shows its scans and corrected PDFs, and
+   its batch downloads — from S3 (`exec amc-worker ls /work` shows only
+   `incoming`).
+2. A throwaway control (`DRILL <date>`) runs the loop: generate, upload its
+   own `sujet.pdf` as the batch, open a copy and save it, close, archive,
+   purge; `aws s3 ls s3://$B/work/controls/<id>/` is empty.
+3. Leave: `sudo docker-compose up -d --pull=never --force-recreate server
+   amc-worker` (the `.env`'s `COMPOSE_FILE`, without the drill), then
+   `sudo docker volume rm local_amc-work-drill`.
+4. The same `find | wc -l` and `ls -lt` as `/tmp/before-drill.txt`: the
+   real volume did not change.
+
 ## Health monitor
 
 The `monitor` compose service (built from `infra/deploy/jetson/Dockerfile.monitor`

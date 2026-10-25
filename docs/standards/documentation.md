@@ -366,9 +366,7 @@ spelling.
 
 ## The CHECK-document contract
 
-Four of these exist now — `apps/amc-worker/PAPER-CHECK.md` (#138), `apps/server/GOOGLE-CHECK.md` (#150), `apps/server/CANVAS-CHECK.md` (#271) and `apps/server/GMAIL-CHECK.md` (#273) — so the shape is a pattern rather than a handful of one-offs. #273's adds something the others do not have: a §6 whose job is to MEASURE a question its ADR could not settle from documentation, and to write the answer back into the ADR.md` (#138),
-`apps/server/GOOGLE-CHECK.md` (#150) and `apps/server/CANVAS-CHECK.md`
-(#271) — so the shape is a pattern rather than three one-offs. A CHECK
+Five of these exist now — `apps/amc-worker/PAPER-CHECK.md` (#138), `apps/server/GOOGLE-CHECK.md` (#150), `apps/server/CANVAS-CHECK.md` (#271), `apps/server/GMAIL-CHECK.md` (#273) and `apps/server/S3-CHECK.md` (#338) — so the shape is a pattern rather than a handful of one-offs. #273's added something the earlier ones did not have: a §6 whose job is to MEASURE a question its ADR could not settle from documentation, and to write the answer back into the ADR; #338's §1 does the same for what S3 answers a HEAD of a missing key. A CHECK
 document is what stands in for a test that cannot exist: it verifies
 something no code in this repository can reach.
 

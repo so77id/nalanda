@@ -940,6 +940,59 @@ server process (the per-upload lock is in
 memory), anything that writes into `incoming/` other than this package, or a
 route that serves a partial's bytes back.
 
+### The work files live in S3, and S3 is an input (accepted 2026-10-25, #338, ADR-0089)
+
+Under `NALANDA_FILES_STORE=s3` the PRIMARY copy of every project's files sits
+in the backups' bucket, under `work/`: the printed sheets and keys, the
+professor's scanned batches, the page images and the **handwritten-name
+crops**, the **corrected PDFs students are mailed**, and AMC's project
+databases. That is personal data (Ley 21.719) outside the box, so:
+
+- **Where and how**: the bucket's region (`us-east-1` is the provisioning
+  default); encrypted at rest (SSE-S3, `BucketKeyEnabled`) and in transit
+  (TLS — the server's policy denies any request without
+  `aws:SecureTransport`, and the client has no endpoint override); public
+  access blocked at all four levels.
+- **Who can read it**: the server's own IAM user, `nalanda-jetson-server`
+  (Get/Put/Delete and List on `work/*` only, nothing of `backups/`), and the
+  account root. The backup sidecar's user cannot reach `work/`. No
+  presigned URL is ever made: every byte a professor sees passes through the
+  server, behind the professor session.
+- **Retention**: as long as the control exists, by Miguel's decision — no
+  lifecycle rule reaches `work/` (the provisioning script refuses one), and
+  versioning is off.
+- **Deletion path**: the purge deletes the project from S3 FIRST, then the
+  rows, then the local copy (ADR-0052 as amended); a refused S3 step leaves
+  the archived control whole. The database backups keep a purged control's
+  rows thirty days, as before.
+
+**S3 is also an INPUT.** Its keys become paths the worker — which runs as
+root — reads, and its link map becomes symlinks the review page serves. So
+the sync treats the bucket as hostile: a key whose remainder is not a clean
+path of its own project fails the hydrate rather than being skipped; every
+download goes to a temp file beside its target, is MD5-checked against the
+ETag (an unverifiable multipart ETag is refused) and renamed into place;
+every local write goes through an `os.Root` on the project, so a directory
+replaced by a symlink cannot carry a write out — the fix §"Chunked uploads
+read the shared volume defensively" names for `incoming/` and defers, which
+#338 does not retrofit; a link is created only as an ADR-0037 name pointing
+at a bare file name of the same `scans/`; the link map is strict JSON of at
+most 1 MiB. Keys hold ids and file names, never a RUT or a name, and a log
+line carries a key and the SDK's error, never a file's content or a
+credential (`config.Config` reports only whether the key is set).
+
+**The accepted residual**: a leaked server key can DELETE the primary copy —
+versioning is off by decision. Accepted because the Jetson keeps its full
+copy (no eviction in #338), so each side can rebuild the other; evicting the
+local copy needs its own decision, and this is why. The key also sits in the
+server's environment, as the backup's does in its own container
+(§"The Jetson sidecars run as root and carry AWS credentials in their env").
+
+**Review trigger**: evicting the local copy; enabling SSE-KMS on the bucket
+(the ETag stops being the MD5 the sync compares); a lifecycle rule or a
+second writer on `work/`; any route that hands out an S3 URL instead of the
+bytes.
+
 ### `apps/server` joins the worker's compose network (accepted 2026-08-16, #149)
 
 WP-C1 adds a second service to `infra/local/docker-compose.yml`, which trips the
@@ -1065,6 +1118,10 @@ half first: `USER nonroot`, `read_only: true`, `tmpfs: [/tmp]`,
 `security_opt: [no-new-privileges:true]`, `cap_drop: [ALL]` on both compose
 services, and rebuild once. Moving the AWS secret to a `secrets:` mount is
 the second half and follows the same trigger.
+
+Since #338 the `server` container — which keeps the hardened posture these
+sidecars lack — carries an AWS key of its own too, its user's, with
+`DeleteObject` on `work/*`: §"The work files live in S3, and S3 is an input".
 
 ### The professor login is public, unrate-limited and remembered in memory (accepted 2026-08-16, #150; re-deferred 2026-08-17, #162)
 

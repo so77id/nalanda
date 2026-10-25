@@ -134,6 +134,16 @@ fact.
   `templates/partials/chunked_upload.html`. A change to the module is
   unfinished until the browser check in `testing-strategy.md` §`apps/server`
   ran: nothing in `go test` executes it.
+- `docs/decisions/0089-s3-is-the-primary-store-of-the-work-files.md` — S3 as
+  the PRIMARY store of every project's files (issue #338): the `files.Store`
+  port and its two adapters, the sync around every worker call (hydrate,
+  push, prune) inside the worker lock, the numbering past the store's
+  batches, the purge's S3-first order, the reconcile and `-sync-files`, the
+  server's own IAM user, and why S3 is treated as an input. Read before
+  touching `internal/domain/files`, `internal/infra/filestore`, any route or
+  service method that opens a work file, `amcworker.Client`'s calls, the
+  purge, or `NALANDA_FILES_*`. Its operating side is `S3-CHECK.md` and
+  `infra/local/DEPLOY-JETSON.md` §"The work files in S3".
 - `docs/security-notes.md` §"Logs and personal data" — read before adding any
   `slog` call on a path that holds a RUT, a name or a student address. The
   rule is that the identifier stays OUT of the line; the `_action` /
@@ -277,9 +287,11 @@ the `avisoNo*` / `flash.Set(…)` string literals in `internal/app/web/handler/`
   APPROXIMATE a per-row domain rule" — never by asking per row instead.
 - **Never add a dependency without discussing it.** `go.mod` is a manifest and
   the root `CLAUDE.md` rule applies to it unchanged. The direct set is exactly
-  `modernc.org/sqlite` and `github.com/pressly/goose/v3`; there is deliberately
-  no router, no test framework and no logging library. Never edit `go.sum` by
-  hand.
+  `modernc.org/sqlite`, `github.com/pressly/goose/v3` and, since #338,
+  `github.com/aws/aws-sdk-go-v2` (`aws` and `service/s3` only — the client is
+  built from `s3.Options`, so the SDK's `config` module is not needed and is
+  not to be added); there is deliberately no router, no test framework and no
+  logging library. Never edit `go.sum` by hand.
 - **`CGO_ENABLED=0` is load-bearing, not a flag someone once set.** It is what
   lets the binary run on `scratch`. A dependency that needs CGO produces a build
   that succeeds and a container that cannot start — the failure appears at
@@ -351,6 +363,54 @@ the `avisoNo*` / `flash.Set(…)` string literals in `internal/app/web/handler/`
   `oidctest.Provider`; the real round trip is `GOOGLE-CHECK.md`, and a change to
   the login path is unfinished while a human has not run it. Same rule, and the
   same reason, as `apps/amc-worker/PAPER-CHECK.md`.
+- **Every work file a page or a download hands out is read through
+  `files.Store` (issue #338, ADR-0089)**, and with `NALANDA_FILES_STORE=s3`
+  that store is S3, the PRIMARY copy. Six rules, each with its reason:
+  1. **No `os.Open`/`ReadFile`/`ReadDir` of a work file under `internal/app`
+     or `internal/domain`.** A handler calls a service method that opens
+     through `Files` (edge 4: never the store field from a handler). What
+     legitimately stays on the disk: the LOCAL half of a batch's numbering,
+     `internal/domain/uploads`' partials, the bank, and the files the server
+     WRITES — AMC works on local files, and the next worker call's hydrate
+     uploads them. `grep -rnE 'os\.(Open|ReadFile|ReadDir)\(' internal/app
+     internal/domain` lists exactly those.
+  2. **Every `amcworker.Client` call runs inside `c.inStep`, under
+     `generateLock`.** The sync (hydrate → call → push → prune) is part of
+     the critical section; a new worker call written outside it would act on a
+     project S3 has not brought back, and leave its result only on the disk.
+     `TestEveryWorkerCallRunsBetweenTheHydrateAndThePush` lists the calls;
+     add the new one there.
+  3. **Nothing is deleted from S3 because it is MISSING locally.** The prune
+     deletes exactly what a call removed (the files before it minus the
+     files after it); the purge's `DeleteProject` deletes a project; the
+     reconcile deletes nothing. A "make S3 match the disk" step anywhere is
+     the deletion-by-absence the design exists to rule out — an empty volume
+     would empty the bucket.
+  4. **A new batch numbers past the store's batches too**, in both
+     subsystems, and a store that cannot list refuses the upload: on an empty
+     volume a disk-only count hands out `batch-1.pdf` again and the push
+     overwrites the real one.
+  5. **The purge deletes the store's copy FIRST** (ADR-0052 as amended) and
+     a failure there is `files.ErrSync`, named in Spanish on the page. Any
+     error a worker call, a job, a reset or a download meets from the store
+     is named the same way — "no se pudo sincronizar con S3…" / "No se pudo
+     leer el archivo del almacenamiento…" — never as a missing file and never
+     in the SDK's words.
+  6. **S3 is an INPUT**: a key is a path only after `files.ValidRel` and the
+     project's own prefix; every local write of the sync goes through an
+     `os.Root` on the project; a link is created only as an ADR-0037 name
+     pointing at a bare file name (`docs/security-notes.md` §"The work files
+     live in S3, and S3 is an input").
+- **Nothing here can test S3, either (issue #338).** The suite drives
+  `internal/infra/filestore/s3test`, an in-memory bucket that keeps exactly
+  what the store relies on. What it cannot see: the SDK's signing, whether
+  this bucket's ETag is the MD5 the hydrate compares, what a HEAD of a
+  missing key answers to the server's key, whether the policy refuses
+  `backups/` and plain HTTP. A change to `internal/infra/filestore`, the
+  sync around the worker calls, the store's routes, the purge's S3 step,
+  `NALANDA_FILES_*` or the server's IAM policy is unfinished while a human
+  has not run [`S3-CHECK.md`](S3-CHECK.md). Same rule, and the same reason,
+  as the Google, Canvas and paper bullets.
 - **Nothing here can test Canvas, either (issue #271).** The suite drives
   `httptest` fakes in `internal/infra/canvas`, the way it drives
   `oidctest.Provider` for Google. What no test can see: whether the GraphQL

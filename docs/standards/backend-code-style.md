@@ -33,6 +33,7 @@ covers only what `gofmt` and `go vet` cannot.
   |---|---|
   | `modernc.org/sqlite` | Pure-Go SQLite. No CGO is what makes the production image a static binary on `scratch` (ADR-0007). |
   | `github.com/pressly/goose/v3` | Migrations as SQL files, embedded in the binary, applied at boot. |
+  | `github.com/aws/aws-sdk-go-v2` (`aws`, `service/s3`) | S3 as the primary store of the work files (#338, ADR-0089). Pure Go, so `CGO_ENABLED=0` still builds; the client is built from `s3.Options`, so the SDK's `config` module stays out. Hand-written SigV4 was the alternative, and more code to own than the dependency it avoids. |
 
 - **No router dependency.** `net/http.ServeMux` has method-and-pattern routing
   since Go 1.22, and putting the method in the pattern is what makes a wrong

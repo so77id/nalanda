@@ -16,11 +16,12 @@ still to come — see [What is not here yet](#what-is-not-here-yet).
 | Language | Go — the authoritative version is [`go.mod`](go.mod), and this table deliberately does not repeat it. The places kept in step with it on purpose are listed where a bump starts, in the comment on the Dockerfile's pinned builder; `backend-code-style.md` §Version quotes the current patch and says why |
 | Database | SQLite via `modernc.org/sqlite` — pure Go, no CGO (ADR-0007) |
 | Migrations | `github.com/pressly/goose/v3`, embedded, applied at boot |
+| Work files | the shared volume, or S3 via `github.com/aws/aws-sdk-go-v2` (`aws`, `service/s3`) — §"Where files live" (#338, ADR-0089) |
 | Routing | `net/http.ServeMux` — no router dependency |
 | Logging | `log/slog`, structured, to stderr |
 | Tests | `testing` + `net/http/httptest` — no framework |
 
-Those two are the **entire** direct dependency set, and adding to it is a PR
+Those three are the **entire** direct dependency set, and adding to it is a PR
 discussion (root `CLAUDE.md`). Rules for writing code here:
 [`docs/standards/backend-code-style.md`](../../docs/standards/backend-code-style.md).
 
@@ -165,6 +166,10 @@ internal/domain/   business types and the interfaces they need — PURE
                    sidecar, the per-upload locks, the eviction and the
                    sweep. Neutral — imports neither controls nor survey
                    (TestTheUploadsDomainImportsNeitherSubsystem)
+  files/           the port every work file is read through (issue #338,
+                   ADR-0089): Store (Open, List, DeleteProject), ValidRel,
+                   ErrSync. Neutral, like uploads
+                   (TestTheFilesDomainImportsNeitherSubsystem)
 internal/app/web/  the professor's backoffice
   handler/         one file per area: login, professors, profile, courses,
                    controls (+ scans, review, publish…) and surveys
@@ -179,6 +184,11 @@ internal/app/web/  the professor's backoffice
                    under js/ (the chunked upload since #339, ADR-0088)
 internal/app/api/  the JSON/WS surface — anonymous, no middleware (§C12)
 internal/infra/    adapters: config, storage, httpserver, httpjson, selfcheck
+  filestore/       files.Store's adapters (issue #338, ADR-0089): Local (the
+                   volume) and S3 (the bucket, under work/); the Sync every
+                   worker call runs in (hydrate, push, prune, the link
+                   map); the Reconciler (boot, 03:00 UTC, -sync-files);
+                   s3test/, the in-memory bucket the suite drives
   amcworker/       the AMC worker HTTP client (with generateLock mutex);
                    implements survey.Generator too (GenerateSheet, #310)
                    and survey.Analyzer (AnalyzeSheets, ResetSurveyScans,
@@ -219,6 +229,46 @@ When the domain needs something from outside it declares an interface and infra
 implements it — `health.Prober`, implemented by `storage.Prober`, is the worked
 example. Full statement: `docs/standards/backend-code-style.md` §The dependency
 rule.
+
+## Where files live
+
+Every file under a project the database knows — `controls/<id>/` and
+`surveys/<id>/runs/<id>/` — is read through `files.Store` (#338, ADR-0089).
+With `NALANDA_FILES_STORE=local` that is the shared volume, as before. With
+`s3` it is the bucket, under `work/` mirroring `/work`
+(`work/controls/<id>/uploads/batch-1.pdf`), and the volume is AMC's working
+copy: every worker call runs between a hydrate from S3 and a push to it,
+inside the worker lock, and S3 deletes only what the system deletes. The
+catalog, measured on the Jetson on 2026-10-24 (13 controls, ≈ 525 MB):
+
+| Path | Content | Written / rewritten | Deleted by | In S3 |
+|---|---|---|---|---|
+| `inputs/source.tex`, `inputs/question-*.txt` | the sheet's LaTeX, code listings | the server, at create | purge | yes |
+| `pool.json` | the drawn questions | the server, at create | purge | yes |
+| `inputs/amc-compiled*` | AMC's compile of the source | worker: generate, every analyse | purge | yes |
+| `out/sujet.pdf`, `out/corrige.pdf`, `out/calage.xy` | the printable sheet, the key, the calibration | worker: generate | purge | yes |
+| `out/catalog.pdf` | AMC's question catalog (beside the project before #338) | worker: generate | purge | yes |
+| `data/layout.sqlite` | AMC's layout | worker: generate | purge | yes |
+| `uploads/batch-N.pdf` | the professor's scan, write-once | the server, at upload | reset, purge | yes |
+| `scans/<batch>.pdf-page-*.jpg` | the pages AMC extracted | worker: analyse | reset, purge | yes |
+| `scans/copy-N-page-M.{jpg,png}` | ADR-0037's contract names — symlinks | worker: every analyse | reset, purge | as `.nalanda/links.json` |
+| `cr/page-*.jpg`, `cr/name-*.jpg` | layout images; the handwritten-name crops | worker: analyse | reset, purge | yes |
+| `data/capture.sqlite` | AMC's capture, the review's corrections mirrored in | worker: every analyse and every review save | reset, purge | yes |
+| `data/scoring.sqlite`, `data/association.sqlite` | scores; a forced RUT association | worker: analyse, re-read, annotate | reset, purge | yes |
+| `data/report.sqlite` | AMC's report | worker | purge only — survives a reset | yes |
+| `annotated/copy-N.pdf` | the corrected PDF a student is mailed | worker: review save, analyse, close | reset, purge | yes |
+| `scans/list*.txt` | getimages' input list | worker: analyse | reset | **no** — garbage |
+| `annotate-copy-N.txt` | a failed annotate's scratch | worker | — | **no** — garbage |
+| `*-journal`, `*-wal`, `*-shm` | SQLite's transients | AMC | — | **no** — transient |
+
+Survey runs have the same shape minus `pool.json`, `annotated/` and the
+association. Outside every project, and never uploaded: `incoming/` (#339's
+partials), `questions.json`, `_pre-rescan-*`, and the leftovers of purged
+controls (a directory with only `data/report.sqlite`). The rule the code
+implements is **every regular file and contract link under a project goes to
+S3, except the three garbage rows** — default-include, so a file AMC starts
+writing tomorrow is kept until somebody decides otherwise, rather than lost
+until somebody notices.
 
 ## `/health`
 
@@ -565,6 +615,7 @@ from `apps/server/`:
       built from your tip. Nothing in `go test` executes them.
 - [ ] **If you touched the login path**, [`GOOGLE-CHECK.md`](GOOGLE-CHECK.md) was run against a real Google OAuth client. No test in this repository reaches Google, so a green suite is not evidence that signing in still works.
 - [ ] **If you touched the publication path** — the Gmail adapter in `internal/infra/oidc/gmail.go`, the `/profile` connect flow, the transports in `internal/infra/email/`, the message builder, or `NALANDA_EMAIL_MODE` — [`GMAIL-CHECK.md`](GMAIL-CHECK.md) was run against the https URL. The suite drives `httptest` stand-ins for both Google and Gmail, so a green suite says nothing about whether the consent screen grants the scope, whether the redirect URI matches, or whether the message arrives readable. Its §6 also MEASURES the open question ADR-0072 could not settle from documentation
+- [ ] **If you touched where the work files live** — `internal/infra/filestore`, the sync around the worker calls in `internal/infra/amcworker`, a route or service method that opens a work file, the purge's S3 step, `NALANDA_FILES_*`, or `infra/deploy/jetson/nalanda-jetson-server-policy.json` — [`S3-CHECK.md`](S3-CHECK.md) was run against the real bucket. The suite drives an in-memory one, so a green suite says nothing about signing, about this bucket's ETag being the MD5 the sync compares, or about what the policy refuses
 - [ ] **If you touched the Canvas path** — the GraphQL queries in `internal/infra/canvas`, the normalisation in `internal/domain/canvas/roster.go`, the import in `handler.ImportCanvas` / `coursestore.SaveRoster`, the `/profile` token path, or `NALANDA_CANVAS_GRAPHQL_URL` — [`CANVAS-CHECK.md`](CANVAS-CHECK.md) was run against the real UDP instance. The suite drives `httptest` fakes, so a green suite is not evidence the import still works: #271's review found a state filter that emptied a whole past-term roster, and the suite was green throughout
 
 ## References
