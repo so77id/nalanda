@@ -139,6 +139,24 @@ func TestLocalListNamesTheFilesDirectlyUnderTheDirectory(t *testing.T) {
 	}
 }
 
+// The S3 store keeps symlinks in a link map, not as objects, so neither
+// store lists them: an entry is a regular file.
+func TestLocalListLeavesOutSymlinks(t *testing.T) {
+	root := t.TempDir()
+	writeFile(t, root, "controls/ABC/scans/batch-1.pdf-page-001-001.jpg", "jpeg")
+	if err := os.Symlink("batch-1.pdf-page-001-001.jpg", filepath.Join(root, "controls/ABC/scans/copy-1-page-1.jpg")); err != nil {
+		t.Fatal(err)
+	}
+
+	entries, err := filestore.NewLocal(root).List(context.Background(), "controls/ABC/scans")
+	if err != nil {
+		t.Fatalf("List: %v", err)
+	}
+	if len(entries) != 1 || entries[0].Name != "batch-1.pdf-page-001-001.jpg" {
+		t.Errorf("entries = %+v, want only the image, not its link", entries)
+	}
+}
+
 func TestLocalListOfAMissingDirectoryIsEmpty(t *testing.T) {
 	entries, err := filestore.NewLocal(t.TempDir()).List(context.Background(), "controls/ABC/uploads")
 	if err != nil || len(entries) != 0 {

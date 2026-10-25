@@ -32,6 +32,7 @@ func TestValidRelRefusesEveryPathThatIsNotCleanAndRelative(t *testing.T) {
 		{"parent segment", "controls/../ABC/out/sujet.pdf"},
 		{"leading parent", "../work/controls/ABC/pool.json"},
 		{"only a parent", ".."},
+		{"only a dot", "."},
 		{"dot segment", "controls/./ABC/pool.json"},
 		{"empty segment", "controls//ABC/pool.json"},
 		{"trailing slash", "controls/ABC/uploads/"},

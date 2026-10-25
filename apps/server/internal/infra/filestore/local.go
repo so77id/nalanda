@@ -54,7 +54,9 @@ func (l *Local) Open(_ context.Context, rel string) (files.File, error) {
 	return localFile{File: f, info: info}, nil
 }
 
-// List names the entries directly under relDir that are not directories.
+// List names the regular files directly under relDir. A symlink is not an
+// entry — the S3 store keeps symlinks in a link map, not as objects, and the
+// two stores answer alike.
 func (l *Local) List(_ context.Context, relDir string) ([]files.Entry, error) {
 	if err := files.ValidRel(relDir); err != nil {
 		return nil, err
@@ -68,7 +70,7 @@ func (l *Local) List(_ context.Context, relDir string) ([]files.Entry, error) {
 	}
 	entries := make([]files.Entry, 0, len(dirents))
 	for _, d := range dirents {
-		if d.IsDir() {
+		if !d.Type().IsRegular() {
 			continue
 		}
 		info, err := d.Info()

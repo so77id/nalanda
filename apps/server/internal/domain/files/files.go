@@ -70,7 +70,7 @@ func ValidRel(rel string) error {
 		return fmt.Errorf("%w: %q", ErrInvalidPath, rel)
 	}
 	for _, segment := range strings.Split(rel, "/") {
-		if segment == ".." || segment == ReservedDir {
+		if segment == "." || segment == ".." || segment == ReservedDir {
 			return fmt.Errorf("%w: %q", ErrInvalidPath, rel)
 		}
 	}
