@@ -78,3 +78,24 @@ describe('sequenceStepperHashLayout', () => {
     expect(at.y).toBeLessThan(cell.y + cell.h);
   });
 });
+
+describe('sequenceStepperHashLayout · resize draws old beside table', () => {
+  it('puts old to the left of table, both named, neither touching the other', () => {
+    const layout = layoutHash(7, 2, 3);
+    const old = layout.old!;
+    const lastOld = old.cell(2);
+    expect(lastOld.x + lastOld.w).toBeLessThan(layout.name.x - 30);
+    expect(old.name.x).toBeGreaterThan(30);
+    expect(layout.cell(6).x + layout.cell(6).w).toBeLessThanOrEqual(layout.width);
+    for (let i = 0; i < 3; i += 1) {
+      expect(old.cell(i).y).toBe(layout.cell(0).y);
+      expect(inside(old.node(i, 1), layout.width, layout.height)).toBe(true);
+    }
+  });
+
+  it('keeps the strip of an ordinary run where it was, unnamed and alone', () => {
+    const plain = layoutHash(7, 2);
+    expect(plain.old).toBeNull();
+    expect(plain.cell(0).x).toBe(14);
+  });
+});

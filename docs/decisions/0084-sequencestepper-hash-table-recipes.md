@@ -1,6 +1,6 @@
 # ADR-0084: `<SequenceStepper>` gains a hash table — a contiguous strip with each position's list hanging under its cell
 
-**Status:** Proposed — `hash-chaining` (`search`, `insert`, `remove`) shipped and its picture approved by the professor in `/catalog/c/SequenceStepper` (S1); the redimension (S2) and the open-addressing recipe (S3) close it
+**Status:** Proposed — `hash-chaining` (`search`, `insert`, `remove`, `resize`) shipped and its picture approved by the professor in `/catalog/c/SequenceStepper` (S1, S2); the open-addressing recipe (S3) closes it
 **Date:** 2026-10-13
 **Decision-makers:** Miguel Rodriguez
 **Source:** Issue #326 (Estructuras de Datos Avanzadas · Tablas Hash), slice S1.
@@ -94,11 +94,35 @@ reason.
 - **Two to eleven positions**; the drawing stops being legible on a slide past
   that.
 
+### 4b. `resize`, decided with the professor before it was drawn (S2)
+
+- **The new size is the first prime after twice the old one**
+  (`nextPrime(2 * table.length)`), not the double: the class teaches that the
+  division method wants a prime `M`, and doubling a prime gives an even
+  number. `nextPrime` is plumbing the class writes and says so.
+- **`add` resizes when `size == table.length`** — α = 1, one key per
+  position on average, which the class's cloakroom tells as one coat per
+  locker. Java's 0.75 is a fact the class names, not the rule it writes.
+- **`resize` puts every key back in through `add`**: `old = table`, a new
+  array, `size = 0`, and a walk over every list of `old` calling
+  `add(current.key)`. Moving the same nodes, as Java does, saves the
+  allocations and costs the class a listing it cannot read at a glance.
+- **The picture draws both arrays**, `old` to the left of `table`, each named
+  as the listing names it — `table` alone, then `table` and `old` while both
+  name one array, then `old` beside the new `table` — and every key leaves
+  its old position (drawn as moved) for the front of its new list, the chip
+  reading the new hash and the narration the old one. `size` is the
+  listing's field, so the readout falls to 0 and counts back up.
+- **A table of at most five positions**: the prime after ten is eleven, the
+  most the drawing holds. The class's own example grows from three to seven,
+  and the table it leaves is the one its later slides fill.
+
 ### 5. The operations, in the order the class needs them
 
 - **S1:** `search`, `insert`, `remove` on `hash-chaining` — the listings
   `contains`, `add` and `remove` the class writes.
-- **S2:** the redimension, a new table and every key reinserted.
+- **S2:** `resize` on `hash-chaining` — the method `add` calls when the table
+  is full (§4b).
 - **S3:** `hash-probing`, the keys in the array itself, with a mark where a
   key was removed.
 
@@ -123,10 +147,12 @@ None ships without a slide that mounts it (#296, ADR-0077 §5).
 ## Consequences
 
 - The validity matrix grows one row: `hash-chaining` × {`search`, `insert`,
-  `remove`}; `remove` is valid on nothing else
-  (`add-a-course-document.md` §5h carries it).
-- `SequenceStep` gains `hash`; `SequenceTrace` gains `hash` (positions and the
-  longest list any frame holds, so the canvas keeps one size);
+  `remove`, `resize`}; `resize` is valid on nothing else, and `remove` only
+  on the search trees besides (`add-a-course-document.md` §5h carries it).
+- `SequenceStep` gains `hash` (the table, the listing's `size`, and during
+  `resize` the old table); `SequenceTrace` gains `hash` (positions, the
+  longest list any frame holds and, for `resize`, the old positions, so the
+  canvas keeps one size);
   `SequenceInput` gains `keys` and `key`; the component's `value` and `target`
   accept text. The other recipes never set them.
 - **The picture exists only in a real browser.** The frames, the hashes and

@@ -30,14 +30,16 @@ import type {
   SequenceTrace,
 } from './sequenceStepperTrace';
 
-type HashOperation = 'search' | 'insert' | 'remove';
+type HashOperation = 'search' | 'insert' | 'remove' | 'resize';
 
 /**
  * The three listings as the class writes them. `add` asks `contains` first,
  * so the table never holds a key twice, and puts the new node at the FRONT of
  * its list — the one place a singly linked list reaches without a walk.
  * `remove` treats the first node apart because it has no node before it: the
- * course's lists never use a node of their own in front.
+ * course's lists never use a node of their own in front. `resize` is what
+ * `add` calls when `size == table.length`: a new array, and every key put back
+ * in through `add` itself, because where a key goes depends on the positions.
  */
 const CODE: Record<HashOperation, string> = {
   search: `boolean contains(String key) {
@@ -82,6 +84,18 @@ const CODE: Record<HashOperation, string> = {
     }
     return false;
 }`,
+  resize: `private void resize(int capacity) {
+    Node[] old = table;
+    table = new Node[capacity];
+    size = 0;
+    for (int i = 0; i < old.length; i++) {
+        Node current = old[i];
+        while (current != null) {
+            add(current.key);
+            current = current.next;
+        }
+    }
+}`,
 };
 
 /**
@@ -118,6 +132,22 @@ export function hashKey(key: string, m: number): number {
   return h;
 }
 
+/**
+ * The positions `resize` grows to: the first prime from `n` on. `add` calls it
+ * with `2 * table.length`, so the table keeps the prime size the division
+ * method asks for — doubling a prime would give an even number.
+ */
+export function nextPrime(n: number): number {
+  const isPrime = (p: number) => {
+    if (p < 2) return false;
+    for (let d = 2; d * d <= p; d += 1) if (p % d === 0) return false;
+    return true;
+  };
+  let p = n;
+  while (!isPrime(p)) p += 1;
+  return p;
+}
+
 interface Node {
   id: number;
   key: string;
@@ -143,8 +173,11 @@ class HashRecorder {
   bypass: HashFrame['bypass'];
   cost = 0;
   key = '';
+  /** `resize` only: the old table, and the listing's `size` while it counts again. */
+  old: { chains: Node[][]; bucket: number | null; aliased: boolean } | undefined;
+  size: number | undefined;
   readonly code: string;
-  readonly chains: Node[][];
+  chains: Node[][];
 
   constructor(code: string, chains: Node[][]) {
     this.code = code;
@@ -169,16 +202,30 @@ class HashRecorder {
     }
   }
 
-  push(kind: SequenceStepKind, lines: number[], description: string): void {
-    const chains: HashFrameNode[][] = this.chains.map((chain) =>
+  private paint(chains: Node[][]): HashFrameNode[][] {
+    return chains.map((chain) =>
       chain.map((n) => ({ id: n.id, key: n.key, state: this.state.get(n.id) ?? 'idle' })),
     );
+  }
+
+  push(kind: SequenceStepKind, lines: number[], description: string): void {
+    const chains = this.paint(this.chains);
     const hash: HashFrame = {
       chains,
       key: this.key,
       bucket: this.bucket,
+      // The field the listing keeps: the keys in `table`, except while
+      // `resize` has set it back to 0 and counts them in again.
+      size: this.size ?? chains.flat().length,
       pointers: this.pointers.map((p) => ({ ...p })),
     };
+    if (this.old !== undefined) {
+      hash.old = {
+        chains: this.paint(this.old.chains),
+        bucket: this.old.bucket,
+        aliased: this.old.aliased,
+      };
+    }
     if (this.fresh !== undefined) hash.fresh = { ...this.fresh };
     if (this.bypass !== undefined) hash.bypass = { ...this.bypass };
     // On the table, cells only count the keys: the view draws `hash.chains`,
@@ -242,19 +289,25 @@ function buildTable(input: SequenceInput): { m: number; chains: Node[][] } {
 }
 
 export function traceHash(operation: HashOperation, input: SequenceInput): SequenceTrace {
-  const keys = keysOf(input);
   const { m, chains } = buildTable(input);
   const code = CODE[operation];
   const rec = new HashRecorder(code, chains);
-  for (const key of keys) {
-    rec.reset(key);
-    if (operation === 'search') search(rec, m, key);
-    else if (operation === 'insert') insert(rec, m, key);
-    else remove(rec, m, key);
+  let buckets = m;
+  if (operation === 'resize') {
+    // One run: `resize` takes no key, and the table it leaves is the end.
+    buckets = resize(rec, m);
+  } else {
+    for (const key of keysOf(input)) {
+      rec.reset(key);
+      if (operation === 'search') search(rec, m, key);
+      else if (operation === 'insert') insert(rec, m, key);
+      else remove(rec, m, key);
+    }
   }
+  const lengths = (frame: HashFrameNode[][] | undefined) => (frame ?? []).map((c) => c.length);
   const longest = Math.max(
     1,
-    ...rec.steps.map((s) => Math.max(...s.hash!.chains.map((c) => c.length))),
+    ...rec.steps.flatMap((s) => [...lengths(s.hash!.chains), ...lengths(s.hash!.old?.chains)]),
   );
   return {
     steps: rec.steps,
@@ -262,7 +315,7 @@ export function traceHash(operation: HashOperation, input: SequenceInput): Seque
     maxCells: Math.max(...rec.steps.map((s) => s.cells.length)),
     align: 'left',
     hasCarry: false,
-    hash: { buckets: m, longest },
+    hash: operation === 'resize' ? { buckets, longest, oldBuckets: m } : { buckets, longest },
   };
 }
 
@@ -582,4 +635,111 @@ function shrink(
   rec.settle();
   rec.pointers = [];
   rec.push('done', [], `${q(key)} salió de la lista de la posición ${h}.`);
+}
+
+// ── resize: a new array, every key back in through add ────────────────────
+
+/** Runs `resize` over a table of `m` positions; returns the new number of positions. */
+function resize(rec: HashRecorder, m: number): number {
+  const code = rec.code;
+  const grown = nextPrime(2 * m);
+  if (grown > MAX_BUCKETS) {
+    throw new Error(
+      `resize llevaría la tabla de ${m} a ${grown} posiciones, y el dibujo lee bien hasta ${MAX_BUCKETS}: usa una tabla de a lo más ${MAX_BUCKETS >> 1} posiciones.`,
+    );
+  }
+  const total = rec.chains.flat().length;
+  rec.reset('');
+  rec.size = total;
+  rec.push(
+    'start',
+    [lineOf(code, 'private void resize(')],
+    `resize(${grown}): la tabla de ${m} posiciones pasa a tener ${grown}, el primo siguiente a 2 · ${m}.`,
+  );
+
+  const old = rec.chains;
+  rec.old = { chains: old, bucket: null, aliased: true };
+  rec.push(
+    'walk',
+    [lineOf(code, 'Node[] old = table')],
+    `old guarda la tabla de ${m} posiciones: sus claves no se pierden mientras table cambia.`,
+  );
+
+  rec.chains = Array.from({ length: grown }, () => []);
+  rec.old = { ...rec.old, aliased: false };
+  rec.push(
+    'build',
+    [lineOf(code, 'table = new Node[capacity]')],
+    `table es ahora un arreglo nuevo de ${grown} posiciones, vacío. Hasta que cada clave vuelva a entrar, la invariante no se cumple: cada clave está en la lista de su posición con ${m} posiciones, no con ${grown}.`,
+  );
+
+  rec.size = 0;
+  rec.push(
+    'shrink',
+    [lineOf(code, 'size = 0')],
+    'size vuelve a 0: add va a contar cada clave otra vez.',
+  );
+
+  for (let i = 0; i < m; i += 1) {
+    const chain = old[i]!;
+    rec.settle();
+    rec.old = { ...rec.old, bucket: i };
+    rec.pointers = [{ name: 'current', node: chain[0]?.id ?? null, old: true }];
+    if (chain.length === 0) {
+      rec.push(
+        'walk',
+        [lineOf(code, 'Node current = old[i]'), lineOf(code, 'while (current != null)')],
+        `old[${i}] está vacía: no hay claves que mover.`,
+      );
+      continue;
+    }
+    rec.push(
+      'walk',
+      [lineOf(code, 'Node current = old[i]')],
+      `current apunta al primer nodo de old[${i}], ${q(chain[0]!.key)}.`,
+    );
+    for (let k = 0; k < chain.length; k += 1) {
+      const node = chain[k]!;
+      const j = hashKey(node.key, grown);
+      // `add` builds a node of its own in the new table; the old one stays in
+      // `old`, already moved, as long as `old` names it.
+      const moved = nodeOf(node.key);
+      rec.chains[j]!.unshift(moved);
+      rec.state.set(node.id, 'visited');
+      rec.state.set(moved.id, 'new');
+      rec.key = node.key;
+      rec.bucket = j;
+      rec.size += 1;
+      rec.cost += 1;
+      rec.push(
+        'build',
+        [lineOf(code, 'add(current.key)')],
+        `add(${q(node.key)}): con ${grown} posiciones, hash(${q(node.key)}) = ${j}; con ${m} ${
+          j === i ? 'también era' : 'era'
+        } ${i}.`,
+      );
+      const next = chain[k + 1];
+      rec.state.set(moved.id, 'idle');
+      rec.pointers = [{ name: 'current', node: next?.id ?? null, old: true }];
+      rec.push(
+        'walk',
+        [lineOf(code, 'current = current.next')],
+        next === undefined
+          ? `current avanza a null: old[${i}] no tiene más claves.`
+          : `current avanza al siguiente nodo de old[${i}], ${q(next.key)}.`,
+      );
+    }
+  }
+
+  rec.old = undefined;
+  rec.pointers = [];
+  rec.bucket = null;
+  rec.key = '';
+  rec.state.clear();
+  rec.push(
+    'done',
+    [],
+    `${total === 1 ? 'La clave está' : `Las ${total} claves están`} en la tabla de ${grown} posiciones, cada una en la lista que nombra su hash: la invariante se cumple otra vez. old ya no la usa nadie.`,
+  );
+  return grown;
 }

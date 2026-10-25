@@ -960,9 +960,13 @@ ONE value through the code first, then the run beside it; a run of
 removals is chosen to go through every case of the rebalancing.
 Since #326 there is also `hash-chaining` (ADR-0084): a hash table drawn as a
 contiguous strip — `table`, with its index — with the list of each position
-hanging under its cell, and three operations, the class's `contains`, `add`
-and `remove`: `search` and `insert` keep their names from the other recipes,
-and `remove` shares its name with the search trees. Its keys are TEXT: `values` is the keys
+hanging under its cell, and four operations: the class's `contains`, `add`
+and `remove`, and `resize`, the method `add` calls when
+`size == table.length`. `search` and `insert` keep their names from the other
+recipes, `remove` shares its name with the search trees, and `resize` is
+valid on no other recipe. `resize` draws the old
+table beside the new one, of `nextPrime(2 * capacity)` positions, and puts
+every key back through `add`, so it takes a `capacity` of at most five. Its keys are TEXT: `values` is the keys
 already in the table, added in order, each at the front of the list of its
 position (`values={['Ana', 'Bea', 'Eva']}`), the key an operation works with
 is `target` (`search`, `remove`) or `value` (`insert`), and `capacity` is the
@@ -1046,13 +1050,14 @@ What is worth knowing before you write one:
   | `binary-tree`          | `preorder`, `inorder`, `postorder`, `height` (y ninguna otra receta acepta estas cuatro), y `search` |
   | `bst`                  | `search`, `insert`, `inorder`, `remove` (la última, solo en los árboles de búsqueda y en la tabla hash) |
   | `avl`                  | `rotate-right`, `rotate-left`, `rotate-left-right`, `rotate-right-left` (solo aquí), `insert`, `remove` |
-  | `hash-chaining`        | `search`, `insert`, `remove` (la última, compartida con los árboles de búsqueda) |
+  | `hash-chaining`        | `search`, `insert`, `remove` (compartida con los árboles de búsqueda), `resize` (solo aquí) |
 
   Anything else is an `<AuthoringError>` naming the operations that recipe does
   have; a heap operation on a Sequence recipe is refused pointing at
   `eda="heap-max"`, a traversal or `height` pointing at
-  `eda="binary-tree"`, a rotation at `eda="avl"`, and `remove` at
-  `eda="bst"`, `eda="avl"` or `eda="hash-chaining"`.
+  `eda="binary-tree"`, a rotation at `eda="avl"`, `remove` at
+  `eda="bst"`, `eda="avl"` or `eda="hash-chaining"`, and `resize` at
+  `eda="hash-chaining"`.
   Ask for one it does not and the answer tells you which to
   use instead.
 

@@ -103,6 +103,9 @@ export const OPERATIONS = [
   // the side the node leans, then the node (#322).
   'rotate-left-right',
   'rotate-right-left',
+  // The hash table's too: a new table of more positions, every key put back
+  // in through `add`, because the position a key hashes to depends on them.
+  'resize',
 ] as const;
 export type SequenceOperation = (typeof OPERATIONS)[number];
 
@@ -211,11 +214,20 @@ export interface HashFrame {
   chains: HashFrameNode[][];
   key: string;
   bucket: number | null;
+  /** The listing's `size` field, which `resize` sets back to 0 and counts again. */
+  size: number;
   /**
    * The references the listing holds into a list — `current`, `prev` — by
-   * node id; `null` when it points at null, past the end of the list.
+   * node id; `null` when it points at null, past the end of the list. `old`
+   * marks one that walks the old table during `resize`.
    */
-  pointers: { name: string; node: number | null }[];
+  pointers: { name: string; node: number | null; old?: boolean }[];
+  /**
+   * `resize` only: the table `old` names. `aliased` while `table` still
+   * names it too — the frame between `old = table` and the new array.
+   * `bucket` is the position of `old` the loop is reading.
+   */
+  old?: { chains: HashFrameNode[][]; bucket: number | null; aliased: boolean };
   /**
    * `add` only: the node built and not yet in its list. `next` is the id it
    * points at, `null` for null, and absent while the field is unassigned;
@@ -231,10 +243,14 @@ export interface HashFrame {
   bypass?: { bucket: number; from: number | null };
 }
 
-/** What a hash run needs to keep one canvas: its positions and its longest list. */
+/**
+ * What a hash run needs to keep one canvas: its positions, its longest list
+ * and — for `resize` — the positions of the old table drawn beside the new.
+ */
 export interface HashRun {
   buckets: number;
   longest: number;
+  oldBuckets?: number;
 }
 
 export interface SequenceCell {
@@ -624,11 +640,12 @@ export function isAvlOperation(operation: SequenceOperation): operation is AvlOp
 
 /**
  * What `hash-chaining` has a listing for (#326): the three operations of a
- * set of keys, as `contains`, `add` and `remove`. All three share their names
- * with other recipes — `search` and `insert` with the chains and the trees,
- * `remove` with the search trees.
+ * set of keys, as `contains`, `add` and `remove`, and the `resize` that `add`
+ * calls when the table is full. `search` and `insert` share their names with
+ * the chains and the trees, `remove` with the search trees; `resize` is the
+ * table's alone.
  */
-const HASH_CHAINING_OPERATION_NAMES = ['search', 'insert', 'remove'] as const;
+const HASH_CHAINING_OPERATION_NAMES = ['search', 'insert', 'remove', 'resize'] as const;
 export type HashChainingOperation = (typeof HASH_CHAINING_OPERATION_NAMES)[number];
 export const HASH_CHAINING_OPERATIONS: readonly SequenceOperation[] = HASH_CHAINING_OPERATION_NAMES;
 
@@ -644,6 +661,7 @@ export function isValidCombination(
   tail = false,
 ): boolean {
   if (recipe === 'hash-chaining') return HASH_CHAINING_OPERATIONS.includes(operation);
+  if (operation === 'resize') return false;
   const heapOperation = HEAP_OPERATIONS.includes(operation);
   if (recipe === 'heap-max') return heapOperation;
   if (recipe === 'binary-tree') return BINARY_TREE_OPERATIONS.includes(operation);
@@ -834,6 +852,7 @@ const METHOD_NAME: Record<SequenceOperation, string> = {
   'rotate-left': 'rotateLeft',
   'rotate-left-right': 'rotateLeftRight',
   'rotate-right-left': 'rotateRightLeft',
+  resize: 'resize',
 };
 
 // ── the array family ──────────────────────────────────────────────────────
@@ -841,7 +860,7 @@ const METHOD_NAME: Record<SequenceOperation, string> = {
 /** The operations the dynamic array has a listing for. */
 type ArrayOperation = Exclude<
   SequenceOperation,
-  'insert-ordered' | HeapOperation | TreeOperation | 'remove'
+  'insert-ordered' | HeapOperation | TreeOperation | 'remove' | 'resize'
 >;
 
 const ARRAY_CODE: Record<ArrayOperation, string> = {
@@ -1476,8 +1495,9 @@ function runArgs(operation: SequenceOperation, input: SequenceInput): string[] {
     case 'rotate-left-right':
     case 'rotate-right-left':
       return [];
-    // The hash table drives no program of its own: its key is the run.
-    case 'remove':
+    // The hash table drives no program of its own: its key is the run
+    // (`remove` is above, with the search trees').
+    case 'resize':
       return [];
   }
 }
@@ -1736,6 +1756,8 @@ function listCode(recipe: SequenceRecipe, operation: SequenceOperation, tail: bo
       throw new Error(
         'La búsqueda binaria necesita llegar a la posición del medio en un paso: es del arreglo, no de una lista.',
       );
+    case 'resize':
+      throw new Error(`«${operation}» es una operación de la tabla hash, no de una lista.`);
   }
 }
 

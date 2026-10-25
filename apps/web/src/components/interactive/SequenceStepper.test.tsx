@@ -1692,3 +1692,60 @@ describe('<SequenceStepper> · the hash-chaining recipe (#326)', () => {
     }
   });
 });
+
+describe('<SequenceStepper> · resize on hash-chaining (#326)', () => {
+  const full = {
+    eda: 'hash-chaining' as const,
+    operation: 'resize' as const,
+    values: ['Ana', 'Bea', 'Eva'],
+    capacity: 3,
+  };
+  const view = () => screen.getByTestId('hash-view');
+  const next = () => fireEvent.click(screen.getByRole('button', { name: 'Adelante' }));
+  const strips = () =>
+    [...view().querySelectorAll('[data-strip]')].map((s) => s.getAttribute('data-strip'));
+
+  it('names the arrays as the listing does: table, then table and old, then old beside table', () => {
+    renderIn('book', <SequenceStepper {...full} />);
+    expect(strips()).toEqual(['table']);
+    next();
+    expect(strips()).toEqual(['table old']);
+    next();
+    expect(strips()).toEqual(['old', 'table']);
+  });
+
+  it('shows the listing’s size going back to 0 and counting the keys in again', () => {
+    renderIn('book', <SequenceStepper {...full} />);
+    const size = () => screen.getByTestId('sequence-size').textContent;
+    expect(size()).toContain('3');
+    next();
+    next();
+    next();
+    expect(size()).toContain('0');
+    for (let i = 0; i < 60; i += 1) {
+      const button = screen.getByRole('button', { name: 'Adelante' });
+      if (button.getAttribute('aria-disabled') === 'true') break;
+      fireEvent.click(button);
+    }
+    expect(size()).toContain('3');
+  });
+
+  it('ends on the new table alone, seven positions, with every key in it', () => {
+    renderIn('book', <SequenceStepper {...full} />);
+    for (let i = 0; i < 60; i += 1) {
+      const button = screen.getByRole('button', { name: 'Adelante' });
+      if (button.getAttribute('aria-disabled') === 'true') break;
+      fireEvent.click(button);
+    }
+    expect(strips()).toEqual(['table']);
+    expect(view().querySelectorAll('[data-bucket]')).toHaveLength(7);
+    expect(
+      [...view().querySelectorAll('[data-node]')].map((n) => n.getAttribute('data-key')).sort(),
+    ).toEqual(['Ana', 'Bea', 'Eva']);
+  });
+
+  it('refuses a table it could not draw after growing', () => {
+    renderIn('book', <SequenceStepper {...full} capacity={7} />);
+    expect(screen.getByText(/17 posiciones/)).toBeInTheDocument();
+  });
+});

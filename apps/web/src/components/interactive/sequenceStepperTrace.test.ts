@@ -39,9 +39,12 @@ const SEQUENCE_RECIPES = RECIPES.filter(
 );
 /**
  * What a sweep over every recipe hands the hash table (#326): keys are text,
- * so they travel apart from `values`, and the other recipes ignore them.
+ * so they travel apart from `values`, and five positions, which `resize` can
+ * still grow (to 11). Handed to the hash recipe alone — `capacity` means a
+ * block on the dynamic array and the heap.
  */
-const HASH_INPUT = { keys: ['Ana', 'Bea', 'Eva', 'Sara'], key: 'Ana' };
+const HASH_INPUT = { keys: ['Ana', 'Bea', 'Eva', 'Sara'], key: 'Ana', capacity: 5 };
+const hashInputFor = (recipe: SequenceRecipe) => (recipe === 'hash-chaining' ? HASH_INPUT : {});
 /** The tree operations no other kind of recipe has (`search` is everyone's). */
 const TRAVERSALS = ['preorder', 'inorder', 'postorder'] as const;
 const TREE_ONLY: readonly SequenceOperation[] = [
@@ -81,7 +84,7 @@ describe('sequenceStepperTrace · the valid combinations', () => {
         if (HEAP_OPERATIONS.includes(operation)) continue;
         if (TREE_ONLY.includes(operation)) continue;
         // The hash table's own (#326).
-        if (operation === 'remove') continue;
+        if (operation === 'remove' || operation === 'resize') continue;
         if (operation === 'insert-ordered' && !recipe.startsWith('linked-list')) continue;
         if (operation === 'binary-search' && recipe !== 'dynamic-array') continue;
         expect(isValidCombination(recipe, operation), `${recipe} × ${operation}`).toBe(true);
@@ -125,7 +128,7 @@ describe('sequenceStepperTrace · the valid combinations', () => {
         const tail = recipe === 'linked-list-doubly' && operation === 'remove-last';
         if (!isValidCombination(recipe, operation, tail)) continue;
         const trace = traceFor(recipe, operation, {
-          ...HASH_INPUT,
+          ...hashInputFor(recipe),
           tail,
           // insert-ordered is the one operation with a precondition on the
           // input, and it is the widget's job to refuse an unsorted one — so
@@ -272,7 +275,7 @@ describe('sequenceStepperTrace · what the last frame is allowed to still say', 
       for (const operation of OPERATIONS) {
         if (!isValidCombination(recipe, operation)) continue;
         const trace = traceFor(recipe, operation, {
-          ...HASH_INPUT,
+          ...hashInputFor(recipe),
           values: startFor(recipe, operation),
           value: 9,
           index: 2,
@@ -490,7 +493,7 @@ describe('sequenceStepperTrace · the narration is Spanish prose', () => {
         if (!isValidCombination(recipe, operation)) continue;
         for (const tail of [false, true]) {
           const trace = traceFor(recipe, operation, {
-            ...HASH_INPUT,
+            ...hashInputFor(recipe),
             values: startFor(recipe, operation),
             value: 9,
             index: 2,
