@@ -390,9 +390,25 @@ the bucket name.
 1. **Both images of the merge are live** — the server's and the worker's
    (the worker's CD takes ~30 min under QEMU). The worker's carries the
    catalog fix, which step 4 depends on.
-2. **Provision**: `infra/deploy/jetson/provision-jetson-iam.sh` from the
-   laptop (admin identity). Put its four `NALANDA_FILES_S3_*` lines in `.env`
-   with `NALANDA_FILES_STORE=local` (§"The `.env` on the Jetson"), then
+2. **Update the box's checkout, then provision.** The images arrive from
+   GHCR through Watchtower, but the compose files every container is started
+   from are the checkout in `/opt/nalanda/repo` (owned by `jetson`, no
+   `sudo`), and nothing moves it to `main`: on 2026-10-25 it was at
+   `15e2a2c` (#286), whose `docker-compose.yml` passes no `NALANDA_FILES_*`
+   to the server and has no drill file. Without this step every variable
+   below is silently ignored and the server boots `store=local` whatever
+   `.env` says:
+
+   ```bash
+   cd /opt/nalanda/repo && git pull --ff-only origin main
+   grep -c 'NALANDA_FILES_' infra/local/docker-compose.yml   # 5
+   ```
+
+   Then `infra/deploy/jetson/provision-jetson-iam.sh` from the laptop
+   (admin identity), from a checkout at #338 or later — an older copy of the
+   script does not create the server's user and mints a second key for the
+   backup's. Put its four `NALANDA_FILES_S3_*` lines in `.env` with
+   `NALANDA_FILES_STORE=local` (§"The `.env` on the Jetson"), then
    `sudo docker-compose up -d --pull=never --force-recreate server`.
 3. **`apps/server/S3-CHECK.md` §1–§2** with the server's key, and the
    Jetson's clock: `timedatectl` says `System clock synchronized: yes` — the
