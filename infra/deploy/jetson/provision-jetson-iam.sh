@@ -1,7 +1,12 @@
 #!/usr/bin/env bash
 #
-# Provision the Nalanda backups bucket + the least-privilege IAM user the
-# Jetson uses to write into it (#162, ADR-0038).
+# Provision the Nalanda bucket + the two least-privilege IAM users the
+# Jetson uses: `nalanda-jetson` for the database backups under backups/
+# (#162, ADR-0038), and `nalanda-jetson-server` for the work files under
+# work/, which S3 keeps as their primary copy (#338). Two users so the
+# server's key — which can DELETE, the purge needs it — reaches nothing of
+# the backups, and the backup's key, which cannot delete, reaches nothing of
+# the work files.
 #
 # Idempotent: safe to re-run. Requires AWS admin credentials in the current
 # shell (NOT the Jetson creds). Run from a laptop with the AWS CLI installed,
@@ -23,9 +28,12 @@ set -euo pipefail
 
 USER_NAME="nalanda-jetson"
 POLICY_NAME="nalanda-jetson-s3-backups"
+SERVER_USER_NAME="nalanda-jetson-server"
+SERVER_POLICY_NAME="nalanda-jetson-s3-work"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 POLICY_TEMPLATE="${SCRIPT_DIR}/nalanda-jetson-user-policy.json"
+SERVER_POLICY_TEMPLATE="${SCRIPT_DIR}/nalanda-jetson-server-policy.json"
 LIFECYCLE_FILE="${SCRIPT_DIR}/nalanda-jetson-bucket-lifecycle.json"
 
 if [[ -z "${NALANDA_S3_BUCKET:-}" ]]; then
@@ -37,7 +45,7 @@ if [[ -z "${AWS_REGION:-}" ]]; then
   exit 1
 fi
 
-for f in "${POLICY_TEMPLATE}" "${LIFECYCLE_FILE}"; do
+for f in "${POLICY_TEMPLATE}" "${SERVER_POLICY_TEMPLATE}" "${LIFECYCLE_FILE}"; do
   if [[ ! -f "$f" ]]; then
     echo "error: expected file not found: $f" >&2
     exit 1
@@ -142,6 +150,46 @@ else
 fi
 
 echo ""
+echo "==> Ensuring IAM user '${SERVER_USER_NAME}' exists (the server's own, #338)..."
+if aws iam get-user --user-name "${SERVER_USER_NAME}" >/dev/null 2>&1; then
+  echo "    User already exists."
+else
+  aws iam create-user --user-name "${SERVER_USER_NAME}" \
+    --tags Key=Project,Value=nalanda Key=ManagedBy,Value=provision-jetson-iam.sh >/dev/null
+  echo "    Created user."
+fi
+
+echo "==> Attaching inline policy '${SERVER_POLICY_NAME}' (Get/Put/Delete + List on work/ only, TLS only)..."
+RENDERED_SERVER_POLICY="$(sed "s|\${NALANDA_S3_BUCKET}|${NALANDA_S3_BUCKET}|g" "${SERVER_POLICY_TEMPLATE}")"
+aws iam put-user-policy \
+  --user-name "${SERVER_USER_NAME}" \
+  --policy-name "${SERVER_POLICY_NAME}" \
+  --policy-document "${RENDERED_SERVER_POLICY}"
+echo "    Policy attached (GetObject + PutObject + DeleteObject + ListBucket on ${NALANDA_S3_BUCKET}/work/, nothing on backups/)."
+
+echo "==> Checking the server user's access keys..."
+SERVER_KEY_COUNT="$(aws iam list-access-keys --user-name "${SERVER_USER_NAME}" \
+  --query 'length(AccessKeyMetadata)' --output text)"
+if [[ "${SERVER_KEY_COUNT}" -ge 2 ]]; then
+  echo "    User already has ${SERVER_KEY_COUNT} access keys (max 2). Not creating a new one."
+  aws iam list-access-keys --user-name "${SERVER_USER_NAME}" \
+    --query 'AccessKeyMetadata[].{Id:AccessKeyId,Status:Status,Created:CreateDate}' --output table
+else
+  echo "==> Creating an access key for the server..."
+  read -r SERVER_KEY_ID SERVER_SECRET < <(aws iam create-access-key \
+    --user-name "${SERVER_USER_NAME}" \
+    --query 'AccessKey.[AccessKeyId,SecretAccessKey]' --output text)
+  echo ""
+  echo "    +--------------------------------------------------------------------+"
+  echo "    | SAVE THESE NOW — the server's secret is shown only once.          |"
+  echo "    +--------------------------------------------------------------------+"
+  echo "    NALANDA_FILES_S3_BUCKET=${NALANDA_S3_BUCKET}"
+  echo "    NALANDA_FILES_S3_REGION=${AWS_REGION}"
+  echo "    NALANDA_FILES_S3_ACCESS_KEY_ID=${SERVER_KEY_ID}"
+  echo "    NALANDA_FILES_S3_SECRET_ACCESS_KEY=${SERVER_SECRET}"
+fi
+
+echo ""
 echo "==> Verifying the bucket carries every safety we set (post-condition, #162 review SEC-5)..."
 # The script does not just apply the safeties, it READS THEM BACK. A future
 # console-clicky operator (or an aborted rerun) that disables lifecycle,
@@ -179,6 +227,27 @@ if [[ "${ENC_ALG}" != "AES256" ]]; then
 fi
 echo "    encryption: SSE-S3 (AES256) by default."
 
+# #338: work/ holds the PRIMARY copy of every scan and corrected PDF, so two
+# settings that are harmless for backups/ would quietly lose it. Versioning
+# stays off (Miguel's decision: the latest version only) — and since it is
+# off, a lifecycle rule reaching work/ would expire the only copy.
+VERSIONING="$(aws s3api get-bucket-versioning --bucket "${NALANDA_S3_BUCKET}" \
+  --query 'Status' --output text 2>/dev/null || true)"
+if [[ "${VERSIONING}" == "Enabled" ]]; then
+  echo "error: versioning is Enabled on ${NALANDA_S3_BUCKET}; #338 keeps the latest version only. Suspend it deliberately or update the ADR." >&2
+  exit 1
+fi
+echo "    versioning: off (latest version only)."
+
+UNSCOPED_RULES="$(aws s3api get-bucket-lifecycle-configuration --bucket "${NALANDA_S3_BUCKET}" \
+  --query 'Rules[?!(Filter.Prefix) || !starts_with(Filter.Prefix, `backups/`)].ID' \
+  --output text 2>/dev/null || true)"
+if [[ -n "${UNSCOPED_RULES}" && "${UNSCOPED_RULES}" != "None" ]]; then
+  echo "error: lifecycle rule(s) not scoped to backups/ on ${NALANDA_S3_BUCKET}: ${UNSCOPED_RULES}. One reaching work/ would expire the primary copy of the scans." >&2
+  exit 1
+fi
+echo "    lifecycle: every rule scoped to backups/ (work/ never expires)."
+
 cat <<'STEPS'
 
 ==> Next steps (on the Jetson):
@@ -196,6 +265,10 @@ cat <<'STEPS'
   4. Watch the first cron trigger land: it runs at 03:00 UTC in the container.
        docker compose logs -f backup
      (or trigger one immediately: `docker compose exec backup /usr/local/bin/backup.sh`.)
+  5. The server's own key (#338): the four NALANDA_FILES_S3_* lines above go
+     into the same infra/local/.env, beside — never instead of — the backup's
+     AWS_* ones. Then run apps/server/S3-CHECK.md before flipping
+     NALANDA_FILES_STORE to s3, and the migration in DEPLOY-JETSON.md.
 
 STEPS
 

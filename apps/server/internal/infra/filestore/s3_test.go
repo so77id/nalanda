@@ -399,3 +399,39 @@ func TestS3DeleteProjectFailsWhenAKeyIsRefused(t *testing.T) {
 		t.Errorf("DeleteProject = %v, want an error naming the refused key", err)
 	}
 }
+
+// S3 answers a HEAD of a missing key with 404 only to a caller that may
+// list the bucket; otherwise 403. The server's policy grants ListBucket
+// under a prefix condition, and whether a HEAD's implicit check passes it
+// is not documented — so a HEAD that fails for any other reason is checked
+// with a listing of that very key: absent there, it is a missing file (a
+// page's 404, and the PNG-then-JPG fall-through keeps working); present,
+// or the listing failing too, it is the store failing.
+func TestAForbiddenHeadOfAMissingKeyIsStillNotExist(t *testing.T) {
+	store, bucket := newS3(t)
+	bucket.Put("work/controls/ABC/out/sujet.pdf", []byte("%PDF"))
+	bucket.FailOn = func(op, _ string) error {
+		if op == "HeadObject" {
+			return errors.New("api error Forbidden: Forbidden")
+		}
+		return nil
+	}
+	ctx := context.Background()
+
+	if _, err := store.Open(ctx, "controls/ABC/out/missing.pdf"); !errors.Is(err, fs.ErrNotExist) {
+		t.Errorf("a forbidden HEAD of a missing key = %v, want fs.ErrNotExist", err)
+	}
+	// A missing key that is a PREFIX of one that exists is still missing.
+	if _, err := store.Open(ctx, "controls/ABC/out/sujet"); !errors.Is(err, fs.ErrNotExist) {
+		t.Errorf("a forbidden HEAD of a key that only prefixes another = %v, want fs.ErrNotExist", err)
+	}
+	_, err := store.Open(ctx, "controls/ABC/out/sujet.pdf")
+	if err == nil || errors.Is(err, fs.ErrNotExist) {
+		t.Errorf("a forbidden HEAD of a key that IS there = %v, want the store's failure", err)
+	}
+
+	bucket.FailOn = func(op, _ string) error { return errors.New("dial tcp: i/o timeout") }
+	if _, err := store.Open(ctx, "controls/ABC/out/missing.pdf"); err == nil || errors.Is(err, fs.ErrNotExist) {
+		t.Errorf("an unreachable store = %v, want its failure, not a missing file", err)
+	}
+}

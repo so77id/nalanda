@@ -1,0 +1,38 @@
+# The disk-loss drill (issue #338 AC-16; DEPLOY-JETSON.md §"The drill").
+#
+# Applied on TOP of the base file and the Jetson overlay, as a third -f:
+#
+#   docker-compose -f docker-compose.yml \
+#     -f ../deploy/jetson/docker-compose.jetson.yml \
+#     -f ../deploy/jetson/docker-compose.drill.yml up -d server amc-worker
+#
+# It swaps the shared work volume for a FRESH, EMPTY one — amc-work-drill —
+# on both containers and nothing else: the same database, the same bucket,
+# the same images. With NALANDA_FILES_STORE=s3 the server must then show an
+# existing control's scans, corrected PDF and batch from S3 alone, and a
+# throwaway control must run its whole loop, every input the worker needs
+# coming back from S3 first. The real amc-work volume is not mounted at
+# all, so the drill cannot change it; leaving the drill is starting the two
+# services again WITHOUT this file, and `docker volume rm` of the drill's
+# volume afterwards.
+#
+# A fresh volume comes up owned by 65532 because the server image ships a
+# non-empty /work (/work/incoming, #339; ADR-0034 §Consequences) — which is
+# what lets the server's hydrate write into it at all.
+#
+# `!override` replaces the base file's volume list rather than appending to
+# it (compose 2.24+; the Jetson runs 2.24, see DEPLOY-JETSON.md).
+
+services:
+  server:
+    volumes: !override
+      - server-data:/data
+      - amc-work-drill:/work
+      - ./questions.example.json:/work/questions.json:ro
+
+  amc-worker:
+    volumes: !override
+      - amc-work-drill:/work
+
+volumes:
+  amc-work-drill:

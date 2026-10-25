@@ -157,6 +157,17 @@ AWS_REGION=<the region>
 AWS_ACCESS_KEY_ID=<the printed key id>
 AWS_SECRET_ACCESS_KEY=<the printed secret>
 
+# Where the work files live (#338). `local` until the migration in
+# §"Moving the files to S3" has run; then `s3`, and S3 is the primary copy.
+# The four below are the SERVER's own IAM user (nalanda-jetson-server,
+# work/* only), printed by the same script — never the backup's AWS_* key
+# above, which cannot delete and must not reach work/.
+NALANDA_FILES_STORE=local
+NALANDA_FILES_S3_BUCKET=<the same bucket name>
+NALANDA_FILES_S3_REGION=<the same region>
+NALANDA_FILES_S3_ACCESS_KEY_ID=<the server's printed key id>
+NALANDA_FILES_S3_SECRET_ACCESS_KEY=<the server's printed secret>
+
 # Notifications (S8, S9): from @BotFather + @getidsbot.
 INFRA_TELEGRAM_TOKEN=<bot token from BotFather>
 ALLOWED_CHAT_IDS=<numeric chat id from getidsbot>

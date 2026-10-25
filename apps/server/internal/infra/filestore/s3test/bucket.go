@@ -224,7 +224,7 @@ func (b *Bucket) PutObject(_ context.Context, in *s3.PutObjectInput, _ ...func(*
 }
 
 // ListObjectsV2 lists in key order, rolling keys up to CommonPrefixes on
-// the delimiter, PageSize keys at a time.
+// the delimiter, PageSize (or the request's MaxKeys, if fewer) at a time.
 func (b *Bucket) ListObjectsV2(_ context.Context, in *s3.ListObjectsV2Input, _ ...func(*s3.Options)) (*s3.ListObjectsV2Output, error) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
@@ -247,6 +247,9 @@ func (b *Bucket) ListObjectsV2(_ context.Context, in *s3.ListObjectsV2Input, _ .
 	page := b.PageSize
 	if page <= 0 {
 		page = 1000
+	}
+	if max := int(aws.ToInt32(in.MaxKeys)); max > 0 && max < page {
+		page = max
 	}
 	out := &s3.ListObjectsV2Output{Prefix: in.Prefix}
 	seen := map[string]bool{}

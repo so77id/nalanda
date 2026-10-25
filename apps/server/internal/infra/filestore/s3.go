@@ -91,6 +91,9 @@ func (s *S3) Open(ctx context.Context, rel string) (files.File, error) {
 	key := KeyPrefix + rel
 	head, err := s.client.HeadObject(ctx, &s3.HeadObjectInput{Bucket: &s.bucket, Key: &key})
 	if err != nil {
+		if !notFound(err) && s.absent(ctx, key) {
+			return nil, fmt.Errorf("filestore: open %s: %w (the HEAD answered %v)", rel, fs.ErrNotExist, err)
+		}
 		return nil, s.fail("open", rel, err)
 	}
 	// The file keeps the request's ctx for the GET it issues later: an
@@ -175,6 +178,24 @@ func (s *S3) deleteKeys(ctx context.Context, keys []string) error {
 		}
 	}
 	return nil
+}
+
+// absent reports whether a listing of key finds no object of that very
+// name. S3 answers a HEAD of a missing key with 404 only to a caller allowed
+// to list the bucket, and 403 otherwise; the server's ListBucket carries a
+// prefix condition whose effect on a HEAD's implicit check AWS does not
+// document. A HEAD that failed for any reason but NotFound is therefore
+// checked here — one listing, only on the error path — so a missing file
+// reads as missing whichever way S3 answers. A listing that fails says
+// nothing, and the HEAD's own error stands.
+func (s *S3) absent(ctx context.Context, key string) bool {
+	out, err := s.client.ListObjectsV2(ctx, &s3.ListObjectsV2Input{
+		Bucket: &s.bucket, Prefix: &key, MaxKeys: aws.Int32(1),
+	})
+	if err != nil {
+		return false
+	}
+	return len(out.Contents) == 0 || aws.ToString(out.Contents[0].Key) != key
 }
 
 // each walks every object under prefix, page by page.

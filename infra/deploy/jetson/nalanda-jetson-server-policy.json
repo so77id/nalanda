@@ -1,0 +1,48 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "NalandaWorkFiles",
+      "Effect": "Allow",
+      "Action": [
+        "s3:GetObject",
+        "s3:PutObject",
+        "s3:DeleteObject"
+      ],
+      "Resource": [
+        "arn:aws:s3:::${NALANDA_S3_BUCKET}/work/*"
+      ]
+    },
+    {
+      "Sid": "NalandaWorkList",
+      "Effect": "Allow",
+      "Action": [
+        "s3:ListBucket"
+      ],
+      "Resource": [
+        "arn:aws:s3:::${NALANDA_S3_BUCKET}"
+      ],
+      "Condition": {
+        "StringLike": {
+          "s3:prefix": [
+            "work/*"
+          ]
+        }
+      }
+    },
+    {
+      "Sid": "NalandaWorkOverTLSOnly",
+      "Effect": "Deny",
+      "Action": "s3:*",
+      "Resource": [
+        "arn:aws:s3:::${NALANDA_S3_BUCKET}",
+        "arn:aws:s3:::${NALANDA_S3_BUCKET}/*"
+      ],
+      "Condition": {
+        "Bool": {
+          "aws:SecureTransport": "false"
+        }
+      }
+    }
+  ]
+}
