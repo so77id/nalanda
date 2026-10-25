@@ -338,9 +338,13 @@ dropped: it also fills `layout_char`.
 > **To fill in (owner: Miguel, deadline: one week after the flip, tracked in
 > #338 — which the PR references without closing, so it stays open until
 > these are in):**
-> - S3-CHECK §1: what HEAD of a missing key answered with the server's key
->   (404 or 403).
-> - S3-CHECK §2: the ETag equalled the MD5 for the small and the 12 MB object.
+> - ~~S3-CHECK §1: what HEAD of a missing key answered with the server's key
+>   (404 or 403).~~ **404** (2026-10-25, the laptop against
+>   `nalanda-jetson-backups`, at `62731c2`): the prefix-scoped `ListBucket`
+>   satisfies a HEAD's implicit check, so `S3.absent`'s listing never runs
+>   on this bucket — it stays, for a policy that would answer 403.
+> - ~~S3-CHECK §2: the ETag equalled the MD5 for the small and the 12 MB
+>   object.~~ **Yes, both** (same run): SSE-S3 single-part ETags are the MD5.
 > - The migration: `-sync-files`' line (projects, files, bytes), and the
 >   bucket's object count beside a fresh census minus the denylist (AC-15).
 > - The uplink: one timed ~10 MB PutObject from the Jetson (#338 review,

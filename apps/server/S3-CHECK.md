@@ -27,9 +27,49 @@ to this user (the policy grants `s3:ListBucket` only under a `work/*` prefix
 condition, and whether that satisfies a HEAD's implicit check is not
 documented — §1 measures it), whether the policy refuses what it must.
 
-**Last run: never.** AC-14 of #338 is this procedure on the laptop's compose
-stack, BEFORE the merge; AC-15…18 are the Jetson half, after it. Record each
-run's date, commit and result here, in the same shape as GMAIL-CHECK's.
+**Last run: PARTIAL, 2026-10-25, at `62731c2` (#338's AC-14, the laptop's
+compose stack against the real bucket `nalanda-jetson-backups`, us-east-1).**
+§0–§4 passed; §5 not run, by Miguel's decision (the Spanish messages it
+checks are pinned by the handler tests); §6 is the Jetson's (AC-17).
+AC-15…18 are the Jetson half, after the merge. Record each run's date, commit
+and result here.
+
+- **§0**: the server's user was created BY HAND in the IAM console, not with
+  the script — the inline policy `nalanda-jetson-s3-work` pasted from the
+  template with the bucket's name, one access key ("application running
+  outside AWS"). The bucket read back in the console: versioning off,
+  SSE-S3, public access blocked four ways, one lifecycle rule scoped to
+  `backups/`.
+- **§1**: every refusal answered AccessDenied (`backups/` list, put, delete;
+  a put outside `work/`; plain HTTP, as an explicit deny). **A HEAD of a
+  missing key answered 404**: the prefix-scoped `ListBucket` is enough, so
+  `absent`'s listing never runs on this bucket.
+- **§2**: the ETag equalled the MD5 for a 6-byte and a 12 MB single-part PUT.
+- **§3**: `-sync-files` on an empty database: `0 projects, 0 files uploaded
+  (0 bytes), 0 failed`, twice.
+- **§4**, a throwaway control: generated (13 objects, the catalog inside
+  `out/`); Range through the server `206 100`, If-Modified-Since `304`; a
+  batch read (through the chunked upload) with `scans/`, `cr/`, the capture
+  and `.nalanda/links.json` in S3 and no `scans/list*.txt`, page images on
+  the review page; a review save that pushed only the corrected PDF
+  (`deferred=3`) and left `capture.sqlite`'s ETag unchanged until the re-read
+  uploaded it (`uploaded_first=3`); "Borrar escaneos" with
+  `uploaded_first=0 pruned=20`, keeping `inputs/`, `pool.json`, `out/`,
+  `layout.sqlite`, `report.sqlite`; archive + purge leaving no key under
+  `work/`.
+- **Two setup facts for the next laptop run**: the stack's
+  `questions.example.json` is an EMPTY bank — point
+  `NALANDA_QUESTIONS_JSON_URL` at the published one; and a control needs a
+  course, which comes only from Canvas — with no master key the run inserted
+  a throwaway `course` row into the throwaway database. Run the stack under
+  its own project name (`docker compose -p s3check …`, `down -v` after), so
+  `-sync-files` sees no development project.
+- **Durations** (the laptop's link, not the Jetson's): a generate's push 2.3 s
+  for 11 files; a review save 3.6 s end to end (hydrate 0.7 s, call 2.4 s,
+  push 0.5 s); the analyse's push 2 min 57 s for 23 files and 3.3 MB — the
+  laptop's network was slow for those minutes: the same PUT path, probed
+  right then, took 7–28 s per 300 KB, and 0.3–1.3 s ten minutes later. Cause
+  unknown; not the code.
 
 ## 0. Prerequisites
 
