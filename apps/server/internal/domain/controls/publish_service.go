@@ -4,8 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"os"
-	"path/filepath"
+	"io"
 	"strings"
 
 	"github.com/so77id/nalanda/apps/server/internal/domain/gmail"
@@ -378,7 +377,7 @@ func (s *Service) Publish(ctx context.Context, controlID string, req PublishRequ
 			continue
 		}
 
-		message, ok := s.messageFor(control, code, sender, req, recipients, annotated, reading)
+		message, ok := s.messageFor(ctx, control, code, sender, req, recipients, annotated, reading)
 		if !ok {
 			// Deliverable on paper, and the corrected PDF is unreadable on
 			// the volume — the one refusal CopyPublicationFor cannot see,
@@ -546,7 +545,7 @@ func (s *Service) PublishOne(ctx context.Context, controlID string, copyNumber i
 		return &CopyNotDeliverableError{CopyNumber: copyNumber, Reason: reason}
 	}
 
-	message, ok := s.messageFor(control, code, sender, PublishRequest{
+	message, ok := s.messageFor(ctx, control, code, sender, PublishRequest{
 		ProfessorID: professorID,
 		Mode:        PublishModeReal,
 	}, recipients, annotated, reading)
@@ -711,14 +710,14 @@ func (s *Service) CopyPublications(ctx context.Context, c Control, readings []Re
 // would tell the professor about a problem they do not have, and the review
 // page is already where an unmatched copy is looked at.
 func (s *Service) messageFor(
-	control Control, code string, sender Sender, req PublishRequest,
+	ctx context.Context, control Control, code string, sender Sender, req PublishRequest,
 	recipients map[int64]Recipient, annotated map[int]AnnotatedCopy, reading Reading,
 ) (Message, bool) {
 	recipient, grade, _, ok := deliverableCopy(control, reading, recipients, annotated)
 	if !ok {
 		return Message{}, false
 	}
-	attachment, ok := s.attachmentFor(annotated[reading.CopyNumber])
+	attachment, ok := s.attachmentFor(ctx, annotated[reading.CopyNumber])
 	if !ok {
 		return Message{}, false
 	}
@@ -749,7 +748,7 @@ func (s *Service) messageFor(
 	return message, true
 }
 
-// attachmentFor reads one copy's corrected PDF off the shared volume.
+// attachmentFor reads one copy's corrected PDF through the file store.
 //
 // The RECORD's existence is deliverableCopy's question; this one is whether
 // the bytes are actually there. A file that is gone or empty means the copy
@@ -757,8 +756,13 @@ func (s *Service) messageFor(
 // thing the email exists to deliver, and a message saying "adjunto la
 // corrección" with nothing attached is worse than no message, because the
 // student now has to ask.
-func (s *Service) attachmentFor(record AnnotatedCopy) (Attachment, bool) {
-	content, err := os.ReadFile(filepath.Join(s.WorkDir, record.Path))
+func (s *Service) attachmentFor(ctx context.Context, record AnnotatedCopy) (Attachment, bool) {
+	var content []byte
+	f, err := s.OpenAnnotated(ctx, record)
+	if err == nil {
+		content, err = io.ReadAll(f)
+		_ = f.Close()
+	}
 	if err != nil || len(content) == 0 {
 		s.Log.Warn("controls.Publish: the annotated PDF is unreadable",
 			"control", record.ControlID, "copy", record.CopyNumber, "error", err)

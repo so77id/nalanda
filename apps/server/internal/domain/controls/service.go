@@ -8,6 +8,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/so77id/nalanda/apps/server/internal/domain/controls/tex"
@@ -495,6 +496,40 @@ func (s *Service) OpenCorrige(ctx context.Context, controlID string) (files.File
 // through the file store.
 func (s *Service) OpenPoolJSON(ctx context.Context, controlID string) (files.File, error) {
 	return s.Files.Open(ctx, projectRel(controlID, "pool.json"))
+}
+
+// OpenScanPage opens the scanned image of one page of a copy through the
+// file store, by its ADR-0037 contract name (scans/copy-N-page-M), and
+// says which extension it found. The extension follows whatever AMC's
+// `getimages` produced: PNG for a vector-sourced page, JPG for a
+// raster-sourced scan — Miguel's first real batch (2026-08-19) was JPG,
+// and a PNG-only lookup answered 404 for every real scan. PNG wins when
+// both exist, so a future engine that produces both cannot silently flip
+// which image the reviewer sees.
+func (s *Service) OpenScanPage(ctx context.Context, controlID string, copyNumber, page int) (files.File, string, error) {
+	base := fmt.Sprintf("copy-%d-page-%d", copyNumber, page)
+	var err error
+	for _, ext := range []string{".png", ".jpg"} {
+		var f files.File
+		if f, err = s.Files.Open(ctx, projectRel(controlID, "scans", base+ext)); err == nil {
+			return f, ext, nil
+		}
+	}
+	return nil, "", err
+}
+
+// OpenAnnotated opens a copy's corrected PDF through the file store.
+// Unlike the files the server names itself, record.Path arrives from the
+// worker's response through the database, so it is checked here: it must
+// name a file of the record's OWN control (files.ErrInvalidPath otherwise)
+// — inside the work root is not enough when a wrong row would show or mail
+// another student's paper. The store's ValidRel refuses the rest (`..`, an
+// absolute path).
+func (s *Service) OpenAnnotated(ctx context.Context, record AnnotatedCopy) (files.File, error) {
+	if !strings.HasPrefix(record.Path, projectRel(record.ControlID)+"/") {
+		return nil, fmt.Errorf("%w: %q is not a file of control %s", files.ErrInvalidPath, record.Path, record.ControlID)
+	}
+	return s.Files.Open(ctx, record.Path)
 }
 
 // projectRel names a file of the control's project the way files.Store
