@@ -365,18 +365,27 @@ escaneos" does, and the case that pins it interleaves the two
 (`TestAPurgeWhileTheWorkerIsBusyDeletesNothing`, the reconcile's
 `TestTheReconcileSkipsAProjectPurgedSinceTheWalkBegan`).
 
-Every layer of consequence beyond the DB row is **best-effort AFTER
-the load-bearing commit** — the DB `DELETE` commits, then
-`os.RemoveAll` (or its equivalent) drops the on-disk state, and a
-filesystem failure at that step is logged and swallowed. Forwarding
-the FS error would leave the caller believing the destructive
-operation failed when the row is already gone through the cascade
-and every referenced downstream is already unrecoverable. Same
+Every layer of consequence beyond the DB row that THIS app owns
+**locally** is **best-effort AFTER the load-bearing commit** — the DB
+`DELETE` commits, then `os.RemoveAll` (or its equivalent) drops the
+on-disk state, and a filesystem failure at that step is logged and
+swallowed. Forwarding the FS error would leave the caller believing the
+destructive operation failed when the row is already gone through the
+cascade and every referenced downstream is already unrecoverable. Same
 shape as `PrepareControl`'s rollback closure.
+
+**A copy OFF the box goes FIRST, and its failure fails the operation**
+(#338, ADR-0089 §6). Once the rows are gone nothing could find an S3 copy
+again, so the purge deletes the project from the file store before the
+rows; the bar is the one S3 meets — the step fails for network reasons, and
+the reverse order orphans personal data. A failure there leaves the row
+whole for a retry (502, "el control sigue archivado").
 
 Worked case: `handler.PurgeConfirm`/`handler.Purge` (both refuse
 `DeletedAt == nil` with 404), `Service.Purge` (returns
-`ErrCannotPurgeActive` vs `ErrControlNotFound`), `Store.PurgeControl`
+`ErrCannotPurgeActive` vs `ErrControlNotFound`; then, under
+`Analyzer.TryExclusive`, `Files.DeleteProject` → `Store.PurgeControl`
+→ `os.RemoveAll`), `Store.PurgeControl`
 (`DELETE FROM control WHERE id = ? AND deleted_at IS NOT NULL`).
 
 **Second worked case, and the order it reverses (#298, ADR-0075 §5):**
@@ -426,6 +435,23 @@ than a 404 so a double-click is not a stack trace.
 - [ ] Docs the change obligated ship in the same PR
       (`documentation.md`), and an ADR exists if the change was architectural
       (`documentation.md` §Rules 2).
+- [ ] A route that hands out a work file opens it through a service method
+      on `files.Store` (§"A route that hands out a work file" below), and
+      `apps/server/S3-CHECK.md` ran before the PR.
+
+## A route that hands out a work file
+
+Since #338 (ADR-0089) a work file — a sheet, a scan, a page image, a
+corrected PDF — may live in S3 rather than on the volume, so a route never
+opens one with `os.Open`. The chain: the handler validates the URL's
+segments, calls a service method that opens through `Service.Files`
+(`files.Store`), and serves it with `http.ServeContent` (Range and
+If-Modified-Since cost what they cost on disk; pass `f.ModTime()`), as
+`handler.serveControlFile` does. An error goes to `handler.fileUnavailable`:
+absence — or a path the store refuses — is the page's own 404, anything
+else is a 503 that says the STORE failed, never "no está disponible". A
+name that may be a PNG or a JPG opens with `files.OpenFirst`, which falls
+through on a missing file only. The route is inside `S3-CHECK.md`'s scope.
 
 ## A pattern the Canvas import adds — the third-party call inside the request
 
@@ -451,7 +477,10 @@ Three rules, each bought by a review finding:
    each only removes files, and never waits on the client's shared lock
    (it only tries it → `ErrAnalyzerBusy`, each domain its own). A third needs
    both properties and an ADR. The purge (#338, ADR-0089 §6) takes the same
-   lock the same way without calling the worker. The
+   lock the same way without calling the worker. And one long-standing call
+   WAITS for the lock: the review save's re-annotate (ADR-0048
+   §Consequences), bounded since #338 by `ReviewAnnotateDeadline` (20 s, the
+   wait included), past which the save stands with a flash. The
    deadline is not optional and it cannot be inherited: `http.Server`'s
    `WriteTimeout` **neither aborts a handler nor cancels `r.Context()`** —
    measured in the #271 review — so without a `context.WithTimeout` below it

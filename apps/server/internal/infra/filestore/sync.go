@@ -210,6 +210,13 @@ var errNoProject = errors.New("the project has no file on the volume nor in the 
 // bucketNewer is the one tie rule of the hydrate and the reconcile (issue
 // #338 review, ARQ-3): the bucket's copy wins only when it is strictly
 // newer. At the same instant the disk's does — it is where AMC wrote it.
+//
+// It compares two clocks, the Jetson's (the file's mtime) and S3's (the
+// object's LastModified), and the SDK corrects skew rather than refusing it,
+// so a drifted Jetson clock makes it prefer the wrong copy, silently.
+// Correctness rests on the Jetson's NTP; comparing against the ETag this
+// volume last synced is the deferred fix (#338 review, COR-9; ADR-0089
+// §Consequences).
 func bucketNewer(bucket, disk time.Time) bool { return bucket.After(disk) }
 
 // snapshot is a project's local files at one moment: what the push compares

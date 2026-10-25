@@ -839,9 +839,11 @@ needs that key; what it adds over the key's own read and delete is a path
 from a cloud credential to code running on the Jetson, through a ghostscript,
 poppler, OpenCV or pdflatex bug. Accepted on the same reasoning as the key's
 other residual (§"The work files live in S3, and S3 is an input"); the cheap
-half this note prescribes — `cap_drop: [ALL]`, `no-new-privileges`,
-`openin_any = p` — is the first thing to take when it is next revisited, and
-the leak of the server's key is now a reason to.
+half's compose part — `cap_drop: [ALL]`, `no-new-privileges`, tracked in
+#173 — is the first thing to take when it is next revisited, and the leak of
+the server's key is now a reason to; `openin_any = p` only together with the
+listing-shape change this note records below, since on its own it refuses
+the legitimate listings and produces no PDF.
 
 **Named in advance, because WP-E will pull that trigger** (#147 review): a
 control source now includes code with `\lstinputlisting{<absolute path>}` —
@@ -963,8 +965,9 @@ professor's scanned batches, the page images and the **handwritten-name
 crops**, the **corrected PDFs students are mailed**, and AMC's project
 databases. That is personal data (Ley 21.719) outside the box, so:
 
-- **Where and how**: the bucket's region (`us-east-1` is the provisioning
-  default); encrypted at rest (SSE-S3, `BucketKeyEnabled`) and in transit
+- **Where and how**: the bucket's region — the one Miguel provisioned it in
+  (`NALANDA_FILES_S3_REGION`; the documented invocation uses `us-east-1`, and
+  the script has no default); encrypted at rest (SSE-S3, `BucketKeyEnabled`) and in transit
   (TLS — the server's policy denies any request without
   `aws:SecureTransport`, and the client has no endpoint override); public
   access blocked at all four levels.
@@ -1440,6 +1443,14 @@ no store method deletes a course, a student or an enrolment. `withdrawn` is
 a state, not a deletion, and ADR-0069 §Decision 4 explains why the enrolment
 must survive — a student who dropped still sat the controls they sat. **A
 student who asks to be removed cannot be, today.**
+
+**Trigger status after #338 (2026-10-25) — not pulled; owed harder.** Under
+`NALANDA_FILES_STORE=s3` a student's per-copy files — the `scans/` pages,
+`cr/name-*.jpg`, `annotated/copy-N.pdf` — and the batch PDFs holding every
+sheet also sit in the bucket, under `work/controls/<id>/` (§"The work files
+live in S3, and S3 is an input"). A removal by hand deletes those keys too
+(`aws s3 rm`): removing them on the volume alone is undone by the next
+worker call's hydrate, which downloads what the disk lacks.
 
 Accepted because the fields are the working data of every query WP-2 and
 WP-3 run, and encrypting a join key would end the feature. The masking rule

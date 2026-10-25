@@ -126,6 +126,18 @@ it — script names, test titles, the fixture's own comments.
   irreplaceable once students wrote on it; `RESET_FILES` / `RESET_DIRS` in
   `worker.py` are the whole list. The server calls it before its own
   deletes, so this route must fail loudly rather than half-reset.
+- **Since #338 (ADR-0089), what a route leaves under `<project>/` is the
+  PRIMARY copy, in S3.** The server's sync uploads every regular file and
+  contract link under the project unless it is on the denylist, and prunes
+  from S3 what a route removes (so widening `RESET_FILES` / `RESET_DIRS`
+  deletes those files from S3 too). The catalog of what is kept, and the
+  denylist, live in `apps/server/README.md` §"Where files live" — a new
+  transient file is decided there, in the same PR. Write every output INSIDE
+  `<project>/`, never beside it: a file beside the project is never stored
+  nor purged (AMC's catalog was, until `--out-catalog` — ADR-0089 §10;
+  `tests/06-http.sh` and `08-survey.sh` pin it). A link under `scans/` must
+  point at a bare file name of the same `scans/`, or the sync leaves it out
+  (ADR-0089 §9).
 - **Never run `apt-get install` inside the image, and never add a package
   without discussing it.** `texlive-fonts-extra` is purged with
   `--force-depends`, so the package database is deliberately inconsistent

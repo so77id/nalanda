@@ -368,12 +368,24 @@ the `avisoNo*` / `flash.Set(…)` string literals in `internal/app/web/handler/`
   that store is S3, the PRIMARY copy. Six rules, each with its reason:
   1. **No `os.Open`/`ReadFile`/`ReadDir` of a work file under `internal/app`
      or `internal/domain`.** A handler calls a service method that opens
-     through `Files` (edge 4: never the store field from a handler). What
-     legitimately stays on the disk: the LOCAL half of a batch's numbering,
+     through `Files` (edge 4: never the store field from a handler — and its
+     grep below misses `.Files.`, so look for that too). It serves the file
+     with `handler.serveControlFile`, or passes the open's error to
+     `handler.fileUnavailable` (absent is the page's 404, anything else a 503
+     in Spanish), never an `errors.Is` ladder of its own; a page image that
+     may be PNG or JPG opens with `files.OpenFirst`. What legitimately stays
+     on the disk: the LOCAL half of a batch's numbering,
      `internal/domain/uploads`' partials, the bank, and the files the server
      WRITES — AMC works on local files, and the next worker call's hydrate
-     uploads them. `grep -rnE 'os\.(Open|ReadFile|ReadDir)\(' internal/app
-     internal/domain` lists exactly those.
+     uploads them. **A file the server writes into a project a sync may be
+     scanning** — a batch, anything on a request goroutine — **goes through
+     `files.WriteNew`**: it writes under `files.TempPrefix`, which the sync
+     never uploads, and links the file into place without replacing a name
+     that exists (#338 review, COR-8; written in place, half a batch could
+     reach S3). `os.WriteFile` stays right for a new project's inputs,
+     written before its row exists. `grep -rnE --exclude='*_test.go'
+     'os\.(Open|ReadFile|ReadDir)\(' internal/app internal/domain` lists
+     exactly the disk reads above: four lines today.
   2. **Every `amcworker.Client` call goes through `c.serialised` (or
      `c.trySerialised`, `c.serialisedAnnotate`)** — the worker lock and the
      sync (hydrate → call → push → prune) in one helper, so a call cannot
@@ -386,17 +398,34 @@ the `avisoNo*` / `flash.Set(…)` string literals in `internal/app/web/handler/`
      sync's halves around each call, and the lock held during each one's
      sync (#338 review, COR-3 — the second test once covered one call, and
      dropping the lock at two others left the suite green). Add the new call
-     to that table. An annotate's and a reset's sync leave AMC's
-     `data/*.sqlite` for the next other call (`AroundDeferringDatabases`,
-     ADR-0089 §4); a push that fails after a call that
-     succeeded is `files.ErrNotStored` as well as `ErrSync`, and the calls
-     whose result the domain persists return it WITH that error.
+     to that table. The helper is chosen by two questions: may the call WAIT
+     for the lock (`serialised`, `serialisedAnnotate`) or must it answer busy
+     at once (`trySerialised`)? And does the bucket need the `data/*.sqlite`
+     the call changes (`serialised`), or are they a by-product or a deletion
+     (`serialisedAnnotate`; `trySerialised` always defers them —
+     `AroundDeferringDatabases`, ADR-0089 §4)? Set the table's `defers`
+     column to match; a fourth combination is a new helper, never an inline
+     lock. A push that fails after a call that succeeded is
+     `files.ErrNotStored` inside `ErrSync`, so a consumer tests
+     `ErrNotStored` FIRST (`failureFromGenerateError` in jobhandlers.go). A
+     call whose result the domain persists returns it WITH that error and
+     joins `TestAResultTheStoreDidNotTakeIsStillReturned`'s table — except
+     `AnnotateCopy`, whose path would become an `annotated_copy` row
+     pointing at a PDF S3 may lack, where no row falls back to the raw scan
+     (ADR-0089 §4, `TestAnAnnotateTheStoreDidNotTakeReturnsNoPath`).
   3. **Nothing is deleted from S3 because it is MISSING locally.** The prune
      deletes exactly what a call removed (the files before it minus the
      files after it); the purge's `DeleteProject` deletes a project; the
      reconcile deletes nothing. A "make S3 match the disk" step anywhere is
      the deletion-by-absence the design exists to rule out — an empty volume
-     would empty the bucket.
+     would empty the bucket. The converse bites a NEW deletion: a work file
+     removed from the volume outside a worker call is UNDONE by the next
+     hydrate, which downloads what the disk lacks. So a new deletion of work
+     files goes through a worker call, whose prune carries it to S3 (as
+     "Borrar escaneos" does), or through a new `files.Store` method recorded
+     as an amendment to ADR-0089 — under the worker lock either way (the
+     purge rule's fourth bullet), the store's copy before the row a retry
+     would need (ADR-0089 §6).
   4. **A new batch numbers past the store's batches too**, in both
      subsystems, and a store that cannot list refuses the upload: on an empty
      volume a disk-only count hands out `batch-1.pdf` again and the push
@@ -406,9 +435,11 @@ the `avisoNo*` / `flash.Set(…)` string literals in `internal/app/web/handler/`
      busy — the purge rule's fourth bullet below), and a failure there is
      `files.ErrSync`, named in Spanish on the page. Any
      error a worker call, a job, a reset or a download meets from the store
-     is named the same way — "no se pudo sincronizar con S3…" / "No se pudo
-     leer el archivo del almacenamiento…" — never as a missing file and never
-     in the SDK's words.
+     is named as the store's failure — never as a missing file and never in
+     the SDK's words. The sentences: `syncFailed` (a job), `readNotStored` /
+     `generatedNotStored` / `sheetNotStored` (a done job whose files are not
+     in S3 yet), `resetSyncFailed` (a reset), the purge's own 502, and
+     `storeFailed` (a download), `annotateNotUpdated` (a review save).
   6. **S3 is an INPUT**: a key is a path only after `files.ValidRel` and the
      project's own prefix; every local write of the sync goes through an
      `os.Root` on the project; a link is created only as an ADR-0037 name
@@ -419,11 +450,12 @@ the `avisoNo*` / `flash.Set(…)` string literals in `internal/app/web/handler/`
   what the store relies on. What it cannot see: the SDK's signing, whether
   this bucket's ETag is the MD5 the hydrate compares, what a HEAD of a
   missing key answers to the server's key, whether the policy refuses
-  `backups/` and plain HTTP. A change to `internal/infra/filestore`, the
-  sync around the worker calls, the store's routes, the purge's S3 step,
-  `NALANDA_FILES_*` or the server's IAM policy is unfinished while a human
-  has not run [`S3-CHECK.md`](S3-CHECK.md). Same rule, and the same reason,
-  as the Google, Canvas and paper bullets.
+  `backups/` and plain HTTP. A change inside the scope [`S3-CHECK.md`](S3-CHECK.md)'s
+  first paragraph names — its one list — is unfinished while a human has
+  not run it. Same rule, and the same reason, as the Google, Canvas and
+  paper bullets. What goes to S3 and what does not, file by file, is
+  `README.md` §"Where files live" (the catalog, and the default-include
+  rule).
 - **Nothing here can test Canvas, either (issue #271).** The suite drives
   `httptest` fakes in `internal/infra/canvas`, the way it drives
   `oidctest.Provider` for Google. What no test can see: whether the GraphQL
@@ -545,7 +577,7 @@ the `avisoNo*` / `flash.Set(…)` string literals in `internal/app/web/handler/`
   WORK decides, not who it talks to.** An AMC-worker call is async by
   construction, and so is any loop the professor cannot wait on —
   `publish` is the worked non-worker case (forty Gmail calls plus forty
-  PDFs off the shared volume, against `httpserver.writeTimeout`'s 30 s).
+  PDFs off the file store, against `httpserver.writeTimeout`'s 30 s).
   A bounded third-party call the professor waits on stays synchronous
   under its own deadline (#271). Concretely: do NOT add a synchronous
   handler that calls `amcworker.Client` from the HTTP goroutine — split the sync half
@@ -556,7 +588,13 @@ the `avisoNo*` / `flash.Set(…)` string literals in `internal/app/web/handler/`
   `handler.Surveys.ScansReset` (#311, ADR-0081 §5, through
   `amcworker.Client.ResetSurveyScans` and the survey's own sentinels). Both
   only remove files and never wait on the client's lock; a third exception
-  needs the same two properties, and an ADR.
+  needs the same two properties, and an ADR. **And one long-standing call
+  that WAITS**: the review save's per-copy re-annotate (ADR-0048
+  §Consequences), on the request goroutine. Since #338 it is bounded by
+  `handler.Controls.ReviewAnnotateDeadline` (20 s, its wait for the lock
+  included — the lock gives up when the ctx ends), and past it the save
+  stands with a flash. Under `s3` every one of these runs inside the file
+  store's sync (ADR-0089 §4).
 - **A worker refusal on the async half leaves the row and files
   intact (issue #249, ADR-0050 §6 — amends ADR-0034 §Failure modes).**
   `GenerateAssets` returning `ErrGeneratorRefused` /

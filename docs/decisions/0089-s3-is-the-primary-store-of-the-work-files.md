@@ -6,8 +6,9 @@ the Jetson after it (AC-15…18); owner Miguel, the results written into
 §Measurements below
 **Date:** 2026-10-25
 **Decision-makers:** Miguel Rodriguez
-**Amends:** ADR-0038 (what leaves the box), ADR-0052 (the purge's order),
-ADR-0034 (`/work` becomes a working copy)
+**Amends:** ADR-0038 (what leaves the box), ADR-0052 (the purge's order,
+and its lock), ADR-0034 (`/work` becomes a working copy), ADR-0050 (the
+worker lock's shape), ADR-0075 (the reset under S3)
 **Source:** #338, refined with Miguel on 2026-10-24 (an interview, then the
 issue's specification); every decision in §1 is his.
 
@@ -94,8 +95,11 @@ PER-2: four requests per image became three).
 ### 4. The sync wraps every worker call, inside the worker lock
 
 `amcworker.Client` serialises every call behind one lock. Since #338 each
-call runs `filestore.Sync.Around` **inside** that lock, so nothing mutates a
-project while it is being copied — and there is one way in, the client's
+call runs `filestore.Sync.Around` **inside** that lock, so no worker call
+mutates a project while it is being copied — and the server's own writes into
+a live project appear whole: a batch is written under `files.TempPrefix`
+(`.nalanda-tmp-`, which the sync never uploads) and linked into place by
+`files.WriteNew` (#338 review, COR-8). There is one way in, the client's
 `serialised` helper (`serialisedAnnotate` for an annotate, `trySerialised`
 for the resets), so a call cannot take
 the lock without the sync or the sync without the lock;
@@ -119,8 +123,9 @@ used to wait out the whole hold and then skip the annotate it waited for:
    incomplete picture can never become a deletion.
 
 The push runs after a FAILED call too (#210's batch-survives rule). A sync
-failure is `files.ErrSync`, which the jobs, the resets and the purge name in
-Spanish ("no se pudo sincronizar con S3; los archivos siguen en la Jetson");
+failure is `files.ErrSync`, which the jobs name in Spanish ("no se pudo
+sincronizar con S3; los archivos siguen en la Jetson"), the resets as "las
+lecturas no se borraron" and the purge as "el control sigue archivado";
 the local files are never touched by it, and the next call or the reconcile
 finishes the copy. A push that fails after a call that SUCCEEDED also wraps
 `files.ErrNotStored` (#338 review, COR-1): the work is done and on the
@@ -273,7 +278,13 @@ dropped: it also fills `layout_char`.
 
 ## Consequences
 
-- **A worker operation is finished only when S3 holds its result**, and its
+- **A worker operation's work is done when the worker returns, and S3 holds
+  it after the push** (#338 review, COR-1: this bullet first said "a worker
+  operation is finished only when S3 holds its result", which §4's
+  ErrNotStored made false). When that push fails after a success, the job is
+  done with a notice and its files exist only on the Jetson until the next
+  call on that project or the 03:00 UTC reconcile: a disk loss in that window
+  loses them, and under `s3` their downloads fail meanwhile. The operation's
   duration grows by the push over the Jetson's uplink — a review save pushes
   the corrected PDF (~0.1 MB; AMC's databases wait for the next other call,
   §4), an analyse its batch's images and `capture.sqlite` (median 5.7 MB, max
@@ -281,8 +292,32 @@ dropped: it also fills `layout_char`.
 - **Between an annotate and the next call of another kind, the bucket's
   `data/*.sqlite` are the previous call's** (§4). A restore in that window
   re-derives what the annotates added on the next annotate of each copy.
-- **The merge is inert for the files**: the default is `local`. Flipping is
-  Miguel's, after the migration.
+- **The merge is inert for the files**: the default is `local`, and nothing
+  reads or writes S3 until the flip, which is Miguel's, after the migration.
+  Two behaviours change at the merge whatever the store (#338 review): the
+  purge refuses with a 409 while the worker is busy on any job (§6), and the
+  review save's annotate runs under its 20 s deadline and says so in the
+  flash when it did not complete (§4).
+- **The sync knows names from AMC's layout, not its schema** — the
+  `data/*.sqlite` deferral, the denylist, the contract-link shape (§9) — so
+  ADR-0031's confinement of AMC's SQLite schema to the worker still holds.
+  But §4's premise that an annotate's database writes are derived was
+  measured on AMC 1.6.0 (2026-10-25): an AMC upgrade or an engine swap
+  re-measures it (two identical annotates of one copy change only
+  `data/*.sqlite` and leave the PDF byte-identical) and re-checks the link
+  shape.
+- **"Newer" compares two clocks** — the Jetson's mtime against S3's
+  LastModified (`filestore.bucketNewer`). The SDK corrects clock skew by
+  default, so S3 does not refuse a Jetson whose clock drifted: the hydrate
+  would silently prefer the wrong copy. Correctness rests on the Jetson's
+  NTP (DEPLOY-JETSON checks it before the flip); comparing against the last
+  ETag this volume synced instead is the deferred fix (#338 review, COR-9).
+- **`/health` and the monitor do not see S3.** Under `s3` the signals are a
+  download's 503 ("No se pudo leer el archivo del almacenamiento"), a job's
+  banner or notice, a review save's flash, and the reconcile's `failed=`
+  count in the log; DEPLOY-JETSON §"Day-to-day operations" names the lines.
+  Reporting a failed reconcile through the backup's notify path is a
+  follow-up.
 - **A leaked server key can delete the primary copy** (versioning is off by
   decision). Accepted because the Jetson keeps its full copy — no eviction —
   so each side can rebuild the other. Evicting the local copy therefore needs
@@ -297,7 +332,9 @@ dropped: it also fills `layout_char`.
 
 ## Measurements
 
-> **To fill in (owner: Miguel; tracked in #338):**
+> **To fill in (owner: Miguel, deadline: one week after the flip, tracked in
+> #338 — which the PR references without closing, so it stays open until
+> these are in):**
 > - S3-CHECK §1: what HEAD of a missing key answered with the server's key
 >   (404 or 403).
 > - S3-CHECK §2: the ETag equalled the MD5 for the small and the 12 MB object.

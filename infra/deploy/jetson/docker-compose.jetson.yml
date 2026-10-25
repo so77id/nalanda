@@ -54,7 +54,8 @@ services:
     # network anyway (`http://amc-worker:8080`). The base file's loopback
     # publish is a dev convenience; production drops it. Compose merges lists
     # by appending — `!reset null` clears the field entirely (requires compose
-    # 2.24+; the Jetson runs 2.29.2).
+    # 2.24+; the Jetson runs v2.24.0, measured 2026-10-25 — DEPLOY-JETSON.md
+    # §"The drill (AC-16)").
     ports: !reset null
     labels:
       com.centurylinklabs.watchtower.enable: "true"

@@ -21,7 +21,8 @@
 # what lets the server's hydrate write into it at all.
 #
 # `!override` replaces the base file's volume list rather than appending to
-# it (compose 2.24+; the Jetson runs 2.24, see DEPLOY-JETSON.md).
+# it (compose 2.24+; the Jetson's measured version is in DEPLOY-JETSON.md
+# §"The drill (AC-16)").
 
 services:
   server:

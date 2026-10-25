@@ -611,7 +611,12 @@ worth reading before writing Go in this repo:
   `serialised`, `serialisedAnnotate` and `trySerialised` are the only way
   to the worker, and
   `TestEveryWorkerCallsSyncRunsInsideTheWorkerLock` walks the same table as
-  `TestEveryWorkerCallRunsBetweenTheHydrateAndThePush`.
+  `TestEveryWorkerCallRunsBetweenTheHydrateAndThePush`. **And the agent rule
+  for that kind names the helper** — the app's CLAUDE.md, in the same
+  commit — so the next writer finds it before writing the call site: #338's
+  review added `files.WriteNew`, `files.OpenFirst` and
+  `handler.fileUnavailable` and named none of them where an agent looks
+  until the documentation round (AGR-12).
 
 ## Testing
 

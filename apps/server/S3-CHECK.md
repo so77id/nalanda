@@ -1,12 +1,18 @@
 # S3-CHECK — the file store against the real bucket
 
-**Run this whenever the file store or the sync changes**: the adapters in
-`internal/infra/filestore/` (`s3.go`, `s3client.go`, `sync.go`,
-`reconcile.go`), the sync around the worker calls in
-`internal/infra/amcworker/`, the store's routes (every download and page
-image that goes through `files.Store`), the purge's S3 step in
-`internal/domain/controls/service.go`, `NALANDA_FILES_*`, or the server's IAM
-policy `infra/deploy/jetson/nalanda-jetson-server-policy.json` (issue #338).
+**Run this whenever the file store or the sync changes** — this paragraph
+is the one list; every other document that names this procedure points
+here: the adapters in `internal/infra/filestore/` (`s3.go`, `s3client.go`,
+`sync.go`, `reconcile.go`); the port's helpers in `internal/domain/files/`
+(`OpenFirst`, `WriteNew`); the sync around the worker calls in
+`internal/infra/amcworker/`; the store's routes — every handler that opens a
+work file through a service method or answers through
+`handler.fileUnavailable`; the numbering past the store's batches in
+`internal/domain/controls/scans.go` and `internal/domain/survey/scans.go`;
+the purge's S3 step in `internal/domain/controls/service.go`; the store's
+wiring in `cmd/server/main.go` (`buildFileStore`, the boot and 03:00 UTC
+reconcile, `-sync-files`); `NALANDA_FILES_*`; or the server's IAM policy
+`infra/deploy/jetson/nalanda-jetson-server-policy.json` (issue #338).
 
 It is an L8 manual procedure, in the same family and for the same reason as
 [`GOOGLE-CHECK.md`](GOOGLE-CHECK.md), [`GMAIL-CHECK.md`](GMAIL-CHECK.md) and
@@ -16,9 +22,10 @@ what the store relies on — single-part MD5 ETags, ranged and If-Match GETs,
 paged listings, DeleteObjects — and so says nothing about whether the real
 bucket does: whether the SDK signs, whether the ETag under the bucket's
 SSE-S3 encryption IS the MD5 the hydrate compares (it is the whole basis of
-"is S3 current?"), whether HeadObject on a missing key answers 404 rather
-than 403 to this user (it does only because the policy grants
-`s3:ListBucket`), whether the policy refuses what it must.
+"is S3 current?"), whether HeadObject on a missing key answers 404 or 403
+to this user (the policy grants `s3:ListBucket` only under a `work/*` prefix
+condition, and whether that satisfies a HEAD's implicit check is not
+documented — §1 measures it), whether the policy refuses what it must.
 
 **Last run: never.** AC-14 of #338 is this procedure on the laptop's compose
 stack, BEFORE the merge; AC-15…18 are the Jetson half, after it. Record each
@@ -67,9 +74,12 @@ with 404 only to a caller allowed to list the bucket, and the server's
 implicit check AWS does not document. Write down which one this bucket
 answered. Either is handled — the store confirms any HEAD failure that is
 not a 404 with a listing of that very key (`filestore.S3.absent`), so a
-missing file reads as missing (a page's 404, and the review page's
-PNG-then-JPG fall-through) — but a 403 costs one extra request per missing
-file, and the review page asks for a missing PNG before every JPG.
+missing file reads as missing (a page's 404) — but a 403 costs one extra
+listing per missing file opened by name (a sheet, a batch, a corrected PDF).
+Page images are resolved through `links.json` and never HEAD a missing PNG.
+If this bucket answers 403, note one more thing: a project with no
+`links.json` then reads as a store failure (503) on the review page, not as
+a page with no image.
 
 ## 2. The ETag is the MD5
 
@@ -131,9 +141,13 @@ Then, with a throwaway control (name it `S3-CHECK <date>`):
    leaves AMC's databases for the next other call (ADR-0089 §4); press
    *Re-leer con otra sensibilidad* and it changes. Write the save's
    `push=`, and the analyse job's lines summed, into the ADR (AC-15).
-5. **Borrar escaneos.** `scans/`, `cr/`, `uploads/`, `annotated/`, the
-   capture and `links.json` leave S3; `inputs/`, `out/`, `layout.sqlite` and
-   `report.sqlite` stay.
+5. **Borrar escaneos.** `scans/`, `cr/`, `uploads/`, `annotated/`,
+   `data/capture.sqlite`, `data/scoring.sqlite` (and `association.sqlite` if
+   there was one) and `.nalanda/links.json` leave S3 — the worker's
+   `RESET_FILES` / `RESET_DIRS`, carried by the prune; `inputs/`,
+   `pool.json`, `out/`, `layout.sqlite` and `report.sqlite` stay. The
+   reset's `files: synced` line has `uploaded_first=0`: it does not upload
+   the databases the annotates deferred (ADR-0089 §4).
 6. **Purge.** Archive and purge the control: `aws s3 ls
    s3://$B/work/controls/<id>/` is empty, and nothing else under `work/`
    changed.

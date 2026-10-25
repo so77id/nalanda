@@ -115,11 +115,11 @@ rules live in the plugin's `docs/defaults.md`. Engineering-practice doctrine
   [`apps/server/GMAIL-CHECK.md`](apps/server/GMAIL-CHECK.md) runs there
   too**: its §5c stops the container mid-run and its §5d needs a real
   student's inbox, so neither can be done anywhere else (#287, ADR-0073).
-  **And since #338, a change to where the work files live — the file store
-  in `internal/infra/filestore`, the sync around every worker call, the
-  purge's S3 step, `NALANDA_FILES_*`, or the server's IAM policy — is not
-  finished before [`apps/server/S3-CHECK.md`](apps/server/S3-CHECK.md)
-  runs against the real bucket**: with `NALANDA_FILES_STORE=s3` that bucket
+  **And since #338, a change to where the work files live — anything in
+  the scope the first paragraph of
+  [`apps/server/S3-CHECK.md`](apps/server/S3-CHECK.md) lists (its one home)
+  — is not finished before it runs against the real bucket**: with
+  `NALANDA_FILES_STORE=s3` that bucket
   is the PRIMARY copy of every scan and corrected PDF, and the suite only
   ever sees an in-memory one (ADR-0089).
   Mechanics and decisions: root `README.md` §"apps/server on the

@@ -137,8 +137,8 @@ const (
 	// KeyFilesS3Bucket is the bucket the files live in, under work/ — the
 	// backups' bucket, whose backups/ prefix this server never touches.
 	KeyFilesS3Bucket = "NALANDA_FILES_S3_BUCKET"
-	// KeyFilesS3Region is the bucket's region (the provisioning script's
-	// default is us-east-1).
+	// KeyFilesS3Region is the bucket's region: the AWS_REGION it was
+	// provisioned with (the provisioning script has no default).
 	KeyFilesS3Region = "NALANDA_FILES_S3_REGION"
 	// KeyFilesS3AccessKeyID and KeyFilesS3SecretAccessKey are the server's
 	// own IAM user (nalanda-jetson-server, work/* only), never the backup

@@ -5,6 +5,7 @@
 **Date:** 2026-09-22
 **Decision-makers:** Miguel Rodriguez
 **Amended by:** #311 (2026-10-05) — §5's reset gains a survey twin: "Borrar escaneos" on a survey run calls the same `/scans/reset` through `amcworker.Client.ResetSurveyScans`, with the same two properties (it only removes files; it never waits on the lock) and the same two departures from the fourth synchronous rule. It is the second synchronous worker call; ADR-0081 §5.
+**Amended by:** #338 (2026-10-25) — under `NALANDA_FILES_STORE=s3` §5's reset (and its survey twin) runs inside the file store's sync (ADR-0089 §4): its prune deletes the bucket's copies of what the worker removed, its sync leaves AMC's `data/*.sqlite` uploads alone (they are about to go), a store failure is a 502 that deletes no reading, and on an empty volume its hydrate downloads first and may use up the 25 s. The client's lock is now a one-slot channel, not a mutex: `generateLock.TryLock` → `Client.trySerialised` (the resets) and `Client.TryExclusive` (the purge, which takes the same lock without calling the worker).
 **Source:** #298, from a production incident on Control 7 (job 27,
 2026-09-22), unstuck by hand over ssh. Root cause found by reading AMC 1.6.0's
 own Perl on the Jetson; every consequence below re-measured in

@@ -48,6 +48,11 @@ NALANDA_CANVAS_GRAPHQL_URL=
      sets a 30-day lifecycle policy on the `backups/` prefix, creates the
      `nalanda-jetson` user with `s3:PutObject` + `s3:GetObject` + `s3:ListBucket` on that prefix only (Put for the daily backup, Get for the test-restore below, List for the lookup — no `DeleteObject`, so the lifecycle policy is the only thing that removes), and
      prints the access key ONCE.
+   - Since #338 it also creates the server's own user, `nalanda-jetson-server`
+     (Get/Put/Delete + List on `work/` only, TLS only), and prints its four
+     `NALANDA_FILES_S3_*` lines for §"The `.env` on the Jetson". Re-running it
+     never mints a second key for a user that has one: rotating is by hand —
+     `aws iam create-access-key`, deploy it, then delete the old key.
 2. **Telegram bot** for backup/monitor notifications.
    - Message [`@BotFather`](https://t.me/BotFather) on Telegram: `/newbot` →
      name it (suggestion: `nalanda_ops_bot`), copy the token.
@@ -275,6 +280,12 @@ after editing `.env`.
 
 ## Rollback
 
+**Under `NALANDA_FILES_STORE=s3`, a target image older than #338 (or one
+that reverts it) is also §"Going back to the local store"**: it ignores the
+variable and reads the volume, and a "Borrar escaneos" or a purge made on it
+deletes nothing from S3 — hold off on both until the re-upgrade, or remove
+their keys by hand as that section says.
+
 **FIRST, ask whether the bad SHA carried a migration that DROPPED or
 rebuilt anything:**
 
@@ -368,8 +379,11 @@ Under `NALANDA_FILES_STORE=s3` S3 is the PRIMARY copy of every project's
 files (`work/` in the same bucket as `backups/`), and `amc-work` is AMC's
 working copy: every page and download reads S3 through the server, and every
 worker call runs between a hydrate from S3 and a push to it (ADR-0089). The
-merge changed nothing by itself — the default is `local`. Everything below is
-Miguel's, in this order. `B` is the bucket name.
+merge moves no file — the default is `local` — but two behaviours change with
+it whatever the store: a purge refuses with a 409 while the worker is busy on
+any job, and a review save's annotate runs under a 20 s deadline and says so
+when it did not complete. Everything below is Miguel's, in this order. `B` is
+the bucket name.
 
 ### Moving the files to S3
 
@@ -380,7 +394,11 @@ Miguel's, in this order. `B` is the bucket name.
    laptop (admin identity). Put its four `NALANDA_FILES_S3_*` lines in `.env`
    with `NALANDA_FILES_STORE=local` (§"The `.env` on the Jetson"), then
    `sudo docker-compose up -d --pull=never --force-recreate server`.
-3. **`apps/server/S3-CHECK.md` §1–§2** with the server's key.
+3. **`apps/server/S3-CHECK.md` §1–§2** with the server's key, and the
+   Jetson's clock: `timedatectl` says `System clock synchronized: yes` — the
+   sync decides which copy is newer by comparing the Jetson's mtimes with
+   S3's times, and the SDK does not refuse a drifted clock (ADR-0089
+   §Consequences).
 4. **Move AMC's misplaced catalogs** (18 on 2026-10-25: `controls/<id>catalog.pdf`
    and `surveys/1/runs/1catalog.pdf`, root-owned, beside their projects).
    The listing first — read it before running the second command:
@@ -389,7 +407,7 @@ Miguel's, in this order. `B` is the bucket name.
    sudo docker-compose exec amc-worker sh -c 'cd /work &&
      for f in controls/*catalog.pdf surveys/*/runs/*catalog.pdf; do
        [ -e "$f" ] || continue; d="${f%catalog.pdf}"
-       if [ -d "$d" ]; then echo "move   $f -> $d/out/catalog.pdf"; else echo "delete $f (no project)"; fi
+       if [ -d "$d/out" ]; then echo "move   $f -> $d/out/catalog.pdf"; else echo "delete $f (no generated project)"; fi
      done'
    ```
 
@@ -399,13 +417,17 @@ Miguel's, in this order. `B` is the bucket name.
    sudo docker-compose exec amc-worker sh -c 'cd /work &&
      for f in controls/*catalog.pdf surveys/*/runs/*catalog.pdf; do
        [ -e "$f" ] || continue; d="${f%catalog.pdf}"
-       if [ -d "$d" ]; then mkdir -p "$d/out" && mv "$f" "$d/out/catalog.pdf" &&
+       if [ -d "$d/out" ]; then mv "$f" "$d/out/catalog.pdf" &&
          chown 65532:65532 "$d/out/catalog.pdf"; else rm "$f"; fi
      done; find /work ! -uid 65532'
    ```
 
-   The last `find` must list only `/work/questions.json` and
-   `/work/_pre-rescan-*` (AC-20).
+   A generated project always has `out/` (the worker's generate creates
+   it); a purged control's leftover directory holds only
+   `data/report.sqlite`, so the test is `out/`, not the directory: the
+   listing must say `delete` for every purged control's catalog (four on
+   2026-10-24), the ones beside such a leftover included. The last `find` must
+   list only `/work/questions.json` and `/work/_pre-rescan-*` (AC-20).
 5. **No job in flight** — no control or run page shows "Procesando". The
    migration runs in a container of its own and cannot hold the running
    server's worker lock; a file a job rewrites mid-upload fails its
@@ -421,16 +443,21 @@ Miguel's, in this order. `B` is the bucket name.
    `aws s3 ls --recursive s3://$B/work/ | wc -l` with a fresh census of the
    projects the database knows (the 2026-10-24 one is in #338), minus the
    denylist (`scans/list*.txt`, `annotate-copy-N.txt`, SQLite's `-journal`,
-   `-wal`, `-shm`), plus one `links.json` per project with scans (AC-15).
+   `-wal`, `-shm`, and any `.nalanda-tmp-*` a crash left), plus one
+   `links.json` per project with scans (AC-15).
 7. **Flip**: `NALANDA_FILES_STORE=s3` in `.env`, then
    `sudo docker-compose up -d --pull=never --force-recreate server`. The boot
    log says `file store store=s3 …` and `files: reconciled … failed=0` —
    the reconcile uploads what changed in the minutes since step 6. Pages may
    404 a file in those minutes; nothing is lost.
 8. **Measure** (AC-15, into ADR-0089 §Measurements): the uplink — one timed
-   ~10 MB `aws s3 cp` from the Jetson; one analyse JOB end to end with the
-   sum of its `files: synced …` lines (`hydrate=`, `call=`, `push=`,
-   `bytes=`); one review save end to end. Run GMAIL-CHECK's test send
+   ~10 MB single PUT with the server's key, which is what every upload of the
+   server is (`aws s3 cp` goes multipart above 8 MB): `head -c 10000000
+   /dev/urandom > /tmp/up && time aws s3api put-object --bucket $B --key
+   work/_s3check/uplink --body /tmp/up && aws s3api delete-object --bucket $B
+   --key work/_s3check/uplink`; one analyse JOB end to end with the sum of
+   its `files: synced …` lines (`hydrate=`, `call=`, `push=`, `bytes=`,
+   `deferred=`); one review save end to end. Run GMAIL-CHECK's test send
    (AC-17): its attachment is read through the store now.
 
 ### Going back to the local store
@@ -462,7 +489,11 @@ each copy re-derives that from the database.
 
 Run it when no professor is working. It mounts a FRESH, empty volume in place
 of `amc-work` (`infra/deploy/jetson/docker-compose.drill.yml`) and proves S3
-alone brings every file back.
+alone brings every file back. The override replaces the volume list with
+compose's `!override`, which needs docker-compose 2.24 or later — the Jetson
+runs v2.24.0 (`docker-compose version`, measured 2026-10-25), and the merged
+file was rendered with that exact binary before #338's PR (both services
+mount `amc-work-drill` at `/work`).
 
 ```bash
 sudo docker-compose exec amc-worker sh -c 'find /work -type f | wc -l; ls -lt --time-style=+%FT%T /work/controls | head -3' > /tmp/before-drill.txt
@@ -473,7 +504,8 @@ sudo docker-compose -f docker-compose.yml -f ../deploy/jetson/docker-compose.jet
 
 1. An existing control's review page shows its scans and corrected PDFs, and
    its batch downloads — from S3 (`exec amc-worker ls /work` shows only
-   `incoming`).
+   `incoming` and the empty `questions.json` mountpoint — no `controls/`, no
+   `surveys/`).
 2. A throwaway control (`DRILL <date>`) runs the loop: generate, upload its
    own `sujet.pdf` as the batch, open a copy and save it, close, archive,
    purge; `aws s3 ls s3://$B/work/controls/<id>/` is empty.
@@ -610,6 +642,15 @@ review, SEC-2).
   empty is re-seeded by the new server container; one left root-owned that
   already holds files needs `chown 65532:65532` on its root once, or the first
   `/generate` fails EACCES.
+- **Under `NALANDA_FILES_STORE=s3`, S3 failing** — `/health` and the monitor
+  do not see it. The signals: a download's 503 ("No se pudo leer el archivo
+  del almacenamiento"), a job banner or notice saying S3 was not reached, a
+  review save's flash. In the server log: `reading a work file` (a
+  download), `files: synced` (each worker call's sync, with its durations
+  and bytes), `files: reconcile` / `files: reconciled … failed=N` (boot and
+  03:00 UTC), `purge: file store`. Nothing is lost: the files are on the
+  Jetson, and the next call on the project or the next reconcile finishes
+  the copy; `apps/server/S3-CHECK.md` §5 is the dry run.
 - **Before changing the worker's corner-mark tolerance** (`MARK_TOLERANCE`,
   ADR-0085): `apps/amc-worker/tests/tools/regress-tolerance.py --old <the
   deployed value> --new <candidate>`, read-only over every control on this
