@@ -213,10 +213,11 @@ ARQ-1).
   the 15 s bound; 30 s offline, a `docker compose restart server` and a
   deleted session row each resumed from the server's `received` (5 MiB)
   without re-sending a byte; every stored batch hashed the same as its
-  source, and its analyse job finished. The module these numbers describe is
-  the one at 486bea8 (unchanged since): the clean, offline and Cancelar runs
-  were repeated on the stack built from 492dbd4, and the restart, the
-  session and a survey run with both offline and a restart on 479f8f2.
+  source, and its analyse job finished. Last run 2026-10-25, all six (clean,
+  offline, restart, session, Cancelar, and a survey run with both offline and
+  a restart) on the stack built from ee52a6d, go1.26.10: the branch had moved
+  onto #341's toolchain, so the earlier go1.25.13 runs no longer described
+  the binary that ships.
 - When a session expires mid-chunk the server answers the gate's 303 without
   reading the rest of the body, so the browser sees a reset and the page says
   "Sin conexión" for one back-off step before the status request finds the

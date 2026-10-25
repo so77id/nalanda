@@ -1088,9 +1088,6 @@ Registered in `docs/standards/testing-strategy.md` (the two-protocol rule).
   It runs `gofmt -l .` (must print NOTHING — it exits 0 either way, so the
   status is not the gate), then `go vet ./...`, `go build ./...`,
   `go test ./...`.
-- **While `govulncheck` is red on `main` (#341)**: read the dated note in
-  `testing-strategy.md` §`apps/server` before deciding a red pre-PR run is
-  yours — and never change `go.mod` to clear it inside an unrelated PR.
 - **Pre-PR**: NOT restated here. Run it line by line from
   `docs/standards/testing-strategy.md` §`apps/server`, which is its one home —
   this bullet used to be a copy and had already lost `govulncheck` and the

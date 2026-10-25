@@ -356,15 +356,6 @@ advisories; v1.8.0 also runs on 1.26.10 and is also clean). Raise it when
 `go.mod` moves to a toolchain a newer scanner supports, in every place the
 comment on the Dockerfile's pinned builder lists, together.
 
-**Known red on `main`, dated 2026-10-24 — remove when #341 merges, together
-with its pointer in `apps/server/CLAUDE.md` §Testing protocols.**
-`govulncheck@v1.7.0` reports 13 reachable standard-library advisories in
-go1.25.13 on `main` itself (GO-2026-6809, 6617, 6613, 6612, 6611, 6610, 6609,
-6608, 6607, 6605, 6603, 6600, 6599), fixed only on go1.26; #341 raises the
-toolchain. Until it merges, a PR that does not touch the toolchain runs the
-step anyway, confirms the reported IDs are EXACTLY that list — any other ID is
-the PR's to resolve — says so in its body, and leaves `go.mod` alone.
-
 **When the Dockerfile's builder digest changes, check it against `go.mod`:**
 
 ```bash
@@ -518,12 +509,14 @@ resume crosses several chunks and the analyse job reads real pages. The
 Playwright rig lives outside the tree, as #231's did (Playwright is not a
 dependency of this repo; the formal L5 suite is its own WP).
 
-**Last run**: 2026-10-24 — module at 486bea8 (unchanged since); clean upload,
-30 s offline and Cancelar on the stack built from 492dbd4;
-a `docker compose restart server` mid-upload, the session row deleted
+**Last run**: 2026-10-25, on the stack built from ee52a6d (go1.26.10, after
+the rebase onto #341's toolchain): a clean upload, 30 s offline, Cancelar, a
+`docker compose restart server` mid-upload, the session row deleted
 mid-upload then Reintentar after a new session, and a survey run with 30 s
-offline AND a restart, on the stack built from 479f8f2. Every stored batch
-hashed the same as its source and every analyse job finished.
+offline AND a restart. Every stored batch hashed the same as its source and
+every analyse job finished. The `amc-worker` must be running: with it down,
+every upload still lands and every analyse job fails at once with "el motor
+de lectura no está disponible".
 
 **A form-render test for an enum-valued input (radio or select) asserts the
 chosen value carries `checked` AND every other value does NOT, in the same
