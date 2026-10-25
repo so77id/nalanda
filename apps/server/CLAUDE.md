@@ -155,8 +155,9 @@ fact.
   Directory-shaped requests answer 404 (both trailing-slash AND bare-name
   — Go's default 301 on a bare directory is refused). The `/static/`
   URL prefix is a string literal spelled in router.go, in the template
-  that consumes the asset, and in the vendor README — a rename touches
-  all three; there is no shared constant on purpose (see the router
+  that consumes the asset, in the vendor README and, since #339, in
+  `templates/partials/chunked_upload.html` — a rename touches all four;
+  there is no shared constant on purpose (see the router
   entry's comment). **Stateful or shared first-party JS goes under
   `static/js/`, never inline in a template** (ADR-0047 §4, amended by #339):
   one more embed entry, no README, and a `static_test.go` case pinning

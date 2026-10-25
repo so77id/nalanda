@@ -231,14 +231,20 @@ rule the repo already applies to `proof-of-concept/`.
   > decide the owner; a NON-EMPTY server `/work` does. Since #339 the image
   > ships `/work/incoming` owned 65532, and the same `compose create` comes
   > up 65532. A volume that already has content is never re-seeded, so the
-  > Jetson's (seeded long ago) is untouched; a volume created by an older
-  > image with nothing in it needs its root chowned to 65532 once. `NALANDA_WORK_DIR` is where the
+  > Jetson's (seeded long ago) is untouched. A volume an older image left
+  > root-owned and STILL EMPTY is re-seeded by the new server image's
+  > container and needs nothing; one left root-owned that already holds
+  > files keeps that owner and needs its root chowned to 65532 once.
+
+  `NALANDA_WORK_DIR` is where the
   server sees this volume; the `.tex` the generator emits always uses `/work`
   absolute paths, because that is the WORKER's mount point regardless of
-  what the server names its own. Review trigger: any change to
-  `apps/server/Dockerfile`'s `/work` ownership, to the compose `depends_on`,
-  or to either container's UID. The compose path in the pre-PR protocol
-  (§`apps/server` of `testing-strategy.md`) still cannot exercise a real
+  what the server names its own. Review trigger (since #339): any change that
+  leaves the server image's `/work` EMPTY (dropping `/work/incoming` from the
+  Dockerfile's `mkdir`), changes its owner, or changes either container's
+  UID — the compose `depends_on` is no longer what this rule rests on. The
+  compose path in the pre-PR protocol (§`apps/server` of
+  `testing-strategy.md`) still cannot exercise a real
   `/generate`, so the L8 human check is where this rule fails last.
 
 ## References

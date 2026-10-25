@@ -356,7 +356,8 @@ advisories; v1.8.0 also runs on 1.26.10 and is also clean). Raise it when
 `go.mod` moves to a toolchain a newer scanner supports, in every place the
 comment on the Dockerfile's pinned builder lists, together.
 
-**Known red on `main`, dated 2026-10-24 — remove when #341 merges.**
+**Known red on `main`, dated 2026-10-24 — remove when #341 merges, together
+with its pointer in `apps/server/CLAUDE.md` §Testing protocols.**
 `govulncheck@v1.7.0` reports 13 reachable standard-library advisories in
 go1.25.13 on `main` itself (GO-2026-6809, 6617, 6613, 6612, 6611, 6610, 6609,
 6608, 6607, 6605, 6603, 6600, 6599), fixed only on go1.26; #341 raises the
@@ -495,9 +496,10 @@ under `/work` (`mkdir /work/controls: permission denied`). The cause, measured
 in #339's review: Docker re-seeds a volume every time it is mounted while still
 empty, and the server image's `/work` was empty, so the worker's seed won.
 The image now ships `/work/incoming` and a fresh volume comes up 65532
-(ADR-0034 §Consequences, corrected by #339); a volume left over from an older
-image, still empty, needs `docker run --rm -v <project>_amc-work:/work
-alpine chown 65532:65532 /work` once.
+(ADR-0034 §Consequences, corrected by #339). A volume an older image left
+root-owned and still EMPTY is re-seeded by the new server's container; only
+one left root-owned that already holds files needs `docker run --rm -v
+<project>_amc-work:/work alpine chown 65532:65532 /work` once.
 
 **Setting the check up**, since an agent cannot sign in through Google: run
 the stack under its own project name (`docker compose -p <name> -f

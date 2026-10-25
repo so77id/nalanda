@@ -474,8 +474,10 @@ review, SEC-2).
   `/work/incoming/<uid>.part` + `.json`, swept after 24 h idle; restarting
   the server mid-upload is safe (ADR-0088).
 - **A fresh `amc-work` volume** comes up owned by 65532 since #339 (ADR-0034
-  §Consequences, corrected); one created empty by an older server image needs
-  `chown 65532:65532` on its root once, or the first `/generate` fails EACCES.
+  §Consequences, corrected). One an older image left root-owned and still
+  empty is re-seeded by the new server container; one left root-owned that
+  already holds files needs `chown 65532:65532` on its root once, or the first
+  `/generate` fails EACCES.
 - **Before changing the worker's corner-mark tolerance** (`MARK_TOLERANCE`,
   ADR-0085): `apps/amc-worker/tests/tools/regress-tolerance.py --old <the
   deployed value> --new <candidate>`, read-only over every control on this

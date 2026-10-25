@@ -5,6 +5,7 @@
 **Date:** 2026-10-24
 **Decision-makers:** Miguel Rodriguez
 **Extends:** ADR-0047 §4 — the first first-party module under `/static/js/`.
+**Extends:** ADR-0036 — a header transport for the CSRF token (§4).
 **Source:** #339, from two failed uploads on the Jetson (2026-10-23),
 diagnosed from its request log. Decisions 1–3 below are Miguel's
 (2026-10-24); the rest was settled in the issue's specification.
