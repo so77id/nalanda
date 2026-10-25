@@ -413,7 +413,10 @@ the `avisoNo*` / `flash.Set(…)` string literals in `internal/app/web/handler/`
      database would otherwise be "saved" as a batch
      (`TestASymlinkedPartIsNeverFollowed`), and a FIFO would block `open(2)` —
      and through the eviction's mutex every Create
-     (`TestAFIFOOnTheSharedVolumeIsRefusedAndBlocksNothing`).
+     (`TestAFIFOOnTheSharedVolumeIsRefusedAndBlocksNothing`). What is NOT
+     defended: `incoming/` itself replaced by a symlink is followed — the
+     accepted residual in `docs/security-notes.md` §"Chunked uploads read
+     the shared volume defensively" (the fix is `os.OpenRoot`).
   3. **One `uploads.Service` per process**, built once in `cmd/server` and
      handed to `handler.Uploads`, `Controls` and `Surveys` alike. The
      per-upload lock that keeps a chunk, a complete and the sweep apart is in

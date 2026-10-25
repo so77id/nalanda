@@ -647,7 +647,10 @@ func TestAChunkSentAgainWhileTheFirstIsStillArrivingIsRefused(t *testing.T) {
 func TestAPartialLongerThanItsDeclaredSizeIsNoUpload(t *testing.T) {
 	root := t.TempDir()
 	s := newService(t, root)
-	up, _ := s.Create(professor, aControl, "scan.pdf", 100, nil)
+	up, err := s.Create(professor, aControl, "scan.pdf", 100, nil)
+	if err != nil {
+		t.Fatalf("Create: %v", err)
+	}
 	if err := os.WriteFile(filepath.Join(root, up.ID+".part"), aPDF(150), 0o644); err != nil {
 		t.Fatal(err)
 	}

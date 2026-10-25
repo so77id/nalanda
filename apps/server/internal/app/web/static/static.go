@@ -1,5 +1,6 @@
-// Package static serves the backoffice's vendored front-end assets — today,
-// PDF.js for the annotated-PDF viewer on the review page (issue #231). The
+// Package static serves the backoffice's front-end assets: vendored libraries
+// (PDF.js for the annotated-PDF viewer on the review page, issue #231) and
+// first-party modules (the chunked scan upload, issue #339). The
 // files are embedded into the binary through //go:embed so the container is
 // self-contained: no volume mount, no runtime download, no CSP allow-list
 // for a CDN host.
@@ -14,10 +15,10 @@
 // the embed line below. First-party behaviour lives under js/ (ADR-0047 §4:
 // no stateful script is authored inline in a template) — today the chunked
 // scan upload (#339) — with no README, since it is reviewed here like any
-// other code; it too is one more entry on the embed line. The explicit file list is deliberate: `all:vendor`
-// would silently ship every companion file that lands beside the library
-// (`.map`, `.sandbox.mjs`, translation JSON), which is exactly the surface
-// the vendor step exists to keep narrow.
+// other code; it too is one more entry on the embed line. The explicit file
+// list is deliberate: `all:vendor` would silently ship every companion file
+// that lands beside the library (`.map`, `.sandbox.mjs`, translation JSON),
+// which is exactly the surface the vendor step exists to keep narrow.
 package static
 
 import (
@@ -30,7 +31,7 @@ import (
 //go:embed vendor/pdfjs/pdf.mjs vendor/pdfjs/pdf.worker.mjs vendor/pdfjs/LICENSE vendor/pdfjs/README.md js/chunked_upload.mjs
 var files embed.FS
 
-// Handler returns an http.Handler serving the embedded vendor tree, rooted so
+// Handler returns an http.Handler serving the embedded tree, rooted so
 // that a request to `/vendor/pdfjs/pdf.mjs` resolves to `vendor/pdfjs/pdf.mjs`
 // inside the embed. The caller wraps it with http.StripPrefix if it mounts
 // under a longer path (the router does).

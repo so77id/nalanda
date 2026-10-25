@@ -235,7 +235,10 @@ func TestTheSweepWaitsForAnAppendInFlight(t *testing.T) {
 	root := t.TempDir()
 	s := newService(t, root)
 	source := aPDF(200)
-	up, _ := s.Create(professor, aControl, "scan.pdf", int64(len(source)), nil)
+	up, err := s.Create(professor, aControl, "scan.pdf", int64(len(source)), nil)
+	if err != nil {
+		t.Fatalf("Create: %v", err)
+	}
 	grownAt(t, root, up.ID, time.Now().Add(-2*uploads.IdleAfter))
 	growing := newGatedReader(source[:100])
 	appended := make(chan error, 1)
