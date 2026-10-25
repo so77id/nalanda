@@ -958,6 +958,19 @@ search tree's program of removals: the program beside the method and
 `balance`, walked for every call with its program line lit. A class walks
 ONE value through the code first, then the run beside it; a run of
 removals is chosen to go through every case of the rebalancing.
+Since #326 there is also `hash-chaining` (ADR-0084): a hash table drawn as a
+contiguous strip — `table`, with its index — with the list of each position
+hanging under its cell, and three operations, the class's `contains`, `add`
+and `remove`: `search` and `insert` keep their names from the other recipes,
+and `remove` shares its name with the search trees. Its keys are TEXT: `values` is the keys
+already in the table, added in order, each at the front of the list of its
+position (`values={['Ana', 'Bea', 'Eva']}`), the key an operation works with
+is `target` (`search`, `remove`) or `value` (`insert`), and `capacity` is the
+number of positions, two to eleven (seven when it is left out). The position
+drawn is the class's own `hash(String key)`, pinned against the JVM. A number
+where a key goes is refused, and so is text on any other recipe. Several keys
+replay the same listing over the same table, with no calling program, as on
+the tree.
 `values` is the starting contents; `value` feeds the inserts, `index` the
 positional operations (`get-at` included), and `target` the searches
 (`search`, `binary-search`), `insert-ordered`, and on the trees the node an
@@ -979,8 +992,8 @@ heap or a tree from nothing.
 
 The widget's own chrome carries a speed selector and, in the corner of the
 structure panel, two readouts: the live `size` (`n` on the heap, the name its
-listing uses) and the `capacidad` on the dynamic array and the heap. The tree
-gets neither: its listings have no size field to show (ADR-0083,
+listing uses; the hash table's keys on `hash-chaining`) and the `capacidad` on
+the dynamic array and the heap. The tree gets neither: its listings have no size field to show (ADR-0083,
 ADR-0074 §Amended by — #321). The
 elementary-operation count is not on screen: #294 took it off, because one
 run shows one number and one number is not a growth rate. Neither readout is
@@ -1031,14 +1044,15 @@ What is worth knowing before you write one:
   | `linked-list-circular` | `insert-first`                                                                          |
   | `heap-max`             | `insert`, `extract-max` (y ninguna otra receta acepta estas dos)                        |
   | `binary-tree`          | `preorder`, `inorder`, `postorder`, `height` (y ninguna otra receta acepta estas cuatro), y `search` |
-  | `bst`                  | `search`, `insert`, `inorder`, `remove` (la última, solo en los árboles de búsqueda: `bst` y `avl`) |
+  | `bst`                  | `search`, `insert`, `inorder`, `remove` (la última, solo en los árboles de búsqueda y en la tabla hash) |
   | `avl`                  | `rotate-right`, `rotate-left`, `rotate-left-right`, `rotate-right-left` (solo aquí), `insert`, `remove` |
+  | `hash-chaining`        | `search`, `insert`, `remove` (la última, compartida con los árboles de búsqueda) |
 
   Anything else is an `<AuthoringError>` naming the operations that recipe does
   have; a heap operation on a Sequence recipe is refused pointing at
   `eda="heap-max"`, a traversal or `height` pointing at
   `eda="binary-tree"`, a rotation at `eda="avl"`, and `remove` at
-  `eda="bst"` or `eda="avl"`.
+  `eda="bst"`, `eda="avl"` or `eda="hash-chaining"`.
   Ask for one it does not and the answer tells you which to
   use instead.
 
@@ -1050,7 +1064,8 @@ What is worth knowing before you write one:
 - **`method` and `receiver` show the listing under the document's own
   names** — on the chains and the heap. The trees ignore them: `binary-tree`
   has no calling program to rename, and the programs of `bst` and `avl`
-  always name the tree `tree`. A class that has just taught `pop` =
+  always name the tree `tree`; `hash-chaining` has no calling program
+  either, and ignores them. A class that has just taught `pop` =
   `deleteFirst` and then mounts
   the widget gets a listing saying `deleteFirst`, three times, over a
   variable called `list` — the pila's own method, wearing the chain's name.

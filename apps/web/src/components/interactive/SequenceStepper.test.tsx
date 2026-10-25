@@ -831,14 +831,16 @@ describe('<SequenceStepper> · the binary-tree recipe (#321)', () => {
   });
 
   it('points a removal asked of a sequence at the search trees', () => {
-    // `remove` is the search tree's and the AVL's; the AVL check used to catch
-    // it first and name the AVL alone.
+    // `remove` is the search tree's and the AVL's — and the hash table's
+    // (#326); the AVL check used to catch it first and name the AVL alone.
     renderIn(
       'book',
       <SequenceStepper eda="linked-list-singly" operation="remove" values={[7, 3, 1]} target={3} />,
     );
     expect(
-      screen.getByText(/es una operación del árbol de búsqueda\. Úsala con eda="bst" o eda="avl"/),
+      screen.getByText(
+        /de los árboles de búsqueda y de la tabla hash\. Úsala con eda="bst", eda="avl" o eda="hash-chaining"/,
+      ),
     ).toBeInTheDocument();
   });
 
@@ -1551,5 +1553,142 @@ describe('<SequenceStepper> · removing from the bst (#321)', () => {
     );
     expect(screen.getByText('eliminar')).toBeInTheDocument();
     expect(screen.getByText('sale')).toBeInTheDocument();
+  });
+});
+
+describe('<SequenceStepper> · the hash-chaining recipe (#326)', () => {
+  // M = 7: 0: Bea · 1: Juan → Eva · 4: Sara → Ana · 6: Leo (hashes pinned
+  // against the JVM in sequenceStepperHashTrace.test.ts).
+  const table = {
+    eda: 'hash-chaining' as const,
+    values: ['Ana', 'Bea', 'Eva', 'Leo', 'Sara', 'Juan'],
+    capacity: 7,
+  };
+  const view = () => screen.getByTestId('hash-view');
+  const next = () => fireEvent.click(screen.getByRole('button', { name: 'Adelante' }));
+  const walkToEnd = () => {
+    for (let i = 0; i < 60; i += 1) {
+      const button = screen.getByRole('button', { name: 'Adelante' });
+      if (button.getAttribute('aria-disabled') === 'true') break;
+      fireEvent.click(button);
+    }
+  };
+
+  it('draws one cell per position and one node per key', () => {
+    renderIn('book', <SequenceStepper {...table} operation="search" target="Ana" />);
+    expect(view().querySelectorAll('[data-bucket]')).toHaveLength(7);
+    expect(view().querySelectorAll('[data-node]')).toHaveLength(6);
+    expect(view()).toHaveAttribute(
+      'aria-label',
+      expect.stringContaining('Tabla hash de 7 posiciones con 6 claves'),
+    );
+  });
+
+  it('marks the position the hash names once its line has run, and not before', () => {
+    renderIn('book', <SequenceStepper {...table} operation="search" target="Ana" />);
+    expect(view().querySelector('[data-bucket][data-picked]')).toBeNull();
+    next();
+    expect(view().querySelector('[data-bucket][data-picked]')).toHaveAttribute('data-bucket', '4');
+    expect(view().querySelector('[data-key-chip]')).toHaveTextContent('hash("Ana") = 4');
+  });
+
+  it('builds the new node apart, then lets it into the front of its list, and counts it', () => {
+    renderIn('book', <SequenceStepper {...table} operation="insert" value="Teo" />);
+    expect(screen.getByTestId('sequence-size')).toHaveTextContent('6');
+    const seen = new Set<string>();
+    for (let i = 0; i < 60; i += 1) {
+      if (view().querySelector('[data-fresh]') !== null) seen.add('fresh');
+      const button = screen.getByRole('button', { name: 'Adelante' });
+      if (button.getAttribute('aria-disabled') === 'true') break;
+      fireEvent.click(button);
+    }
+    expect(seen).toContain('fresh');
+    expect(view().querySelector('[data-fresh]')).toBeNull();
+    const first = view().querySelector('[data-bucket="1"] [data-node]');
+    expect(first).toHaveAttribute('data-key', 'Teo');
+    expect(screen.getByTestId('sequence-size')).toHaveTextContent('7');
+  });
+
+  it('draws the link that skips a leaving node, and then takes the node away', () => {
+    renderIn('book', <SequenceStepper {...table} operation="remove" target="Ana" />);
+    let bypassed = false;
+    for (let i = 0; i < 60; i += 1) {
+      if (view().querySelector('[data-bypass]') !== null) {
+        bypassed = true;
+        expect(view().querySelector('[data-node][data-state="leaving"]')).toHaveAttribute(
+          'data-key',
+          'Ana',
+        );
+      }
+      const button = screen.getByRole('button', { name: 'Adelante' });
+      if (button.getAttribute('aria-disabled') === 'true') break;
+      fireEvent.click(button);
+    }
+    expect(bypassed).toBe(true);
+    expect(view().querySelector('[data-node][data-key="Ana"]')).toBeNull();
+    expect(screen.getByTestId('sequence-size')).toHaveTextContent('5');
+  });
+
+  it('names the references the listing holds beside the node they point at', () => {
+    renderIn('book', <SequenceStepper {...table} operation="search" target="Ana" />);
+    next();
+    expect(view().querySelector('[data-pointer="current"]')).toHaveTextContent('current');
+  });
+
+  it('refuses a number where a key goes', () => {
+    renderIn(
+      'book',
+      <SequenceStepper eda="hash-chaining" operation="search" values={['Ana', 3]} target="Ana" />,
+    );
+    expect(screen.getByText(/en hash-chaining las claves son textos/)).toBeInTheDocument();
+  });
+
+  it('refuses a numeric target on the table', () => {
+    renderIn('book', <SequenceStepper {...table} operation="search" target={3} />);
+    expect(screen.getByText(/es un texto en hash-chaining/)).toBeInTheDocument();
+  });
+
+  it('refuses a key on any other recipe', () => {
+    renderIn(
+      'book',
+      <SequenceStepper eda="linked-list-singly" operation="search" values={[1, 2]} target="Ana" />,
+    );
+    expect(screen.getByText(/solo hash-chaining trabaja con claves de texto/)).toBeInTheDocument();
+  });
+
+  it('refuses remove on a recipe that has no listing for it, and names the table among its homes', () => {
+    renderIn('book', <SequenceStepper eda="linked-list-singly" operation="remove" values={[1]} />);
+    expect(screen.getByText(/o eda="hash-chaining"/)).toBeInTheDocument();
+  });
+
+  it('refuses an operation the table has no listing for, naming the three it has', () => {
+    renderIn('book', <SequenceStepper {...table} operation="get-at" index={0} />);
+    expect(
+      screen.getByText(/la tabla hash tiene listado para: buscar, insertar, eliminar/),
+    ).toBeInTheDocument();
+  });
+
+  it('walks each of its operations to the last frame without an authoring error', () => {
+    for (const [operation, key] of [
+      ['search', 'Ivan'],
+      ['insert', 'Sara'],
+      ['remove', 'Sara'],
+    ] as const) {
+      const { unmount } = renderIn(
+        'book',
+        <SequenceStepper
+          {...table}
+          operation={operation}
+          {...(operation === 'insert' ? { value: key } : { target: key })}
+        />,
+      );
+      expect(document.querySelector('[data-authoring-error]')).toBeNull();
+      walkToEnd();
+      expect(screen.getByRole('button', { name: 'Adelante' })).toHaveAttribute(
+        'aria-disabled',
+        'true',
+      );
+      unmount();
+    }
   });
 });
