@@ -13,7 +13,7 @@ still to come — see [What is not here yet](#what-is-not-here-yet).
 
 | | |
 |---|---|
-| Language | Go — the authoritative version is [`go.mod`](go.mod), and this table deliberately does not repeat it. Two places are kept in step with it on purpose: `backend-code-style.md` §Version, which quotes the current patch and says why, and the Dockerfile's pinned builder |
+| Language | Go — the authoritative version is [`go.mod`](go.mod), and this table deliberately does not repeat it. The places kept in step with it on purpose are listed where a bump starts, in the comment on the Dockerfile's pinned builder; `backend-code-style.md` §Version quotes the current patch and says why |
 | Database | SQLite via `modernc.org/sqlite` — pure Go, no CGO (ADR-0007) |
 | Migrations | `github.com/pressly/goose/v3`, embedded, applied at boot |
 | Routing | `net/http.ServeMux` — no router dependency |

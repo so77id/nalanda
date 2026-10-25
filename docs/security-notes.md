@@ -23,6 +23,34 @@ names its trigger for re-evaluation — nothing is "accepted forever".
 
 ## Resolved advisories
 
+### GO-2026-6599 … GO-2026-6809 — 13 standard-library advisories on go1.25.13 (found 2026-10-24, RESOLVED by #341)
+
+- **Affected**: the shipped `apps/server` binary, built with go1.25.13.
+  `net/http` (GO-2026-6603, 6605, 6609, 6610, 6611, 6612, 6613, 6617),
+  `net/textproto` (6608), `crypto/tls` (6607) and `html/template` (6599,
+  6600) were published 2026-10-08 and fixed in go1.26.9 / go1.27.2;
+  `crypto/x509` (6809) was published 2026-10-21 and fixed only in go1.26.10 /
+  go1.27.3. govulncheck reported all 13 as reachable, through
+  `httpserver.Serve`, `email.GmailDispatcher.Send`, `middleware.WriteError`
+  and the handlers' form parsing.
+- **Why 1.25 had no fix**: Go supports a major release until there are two
+  newer ones, and go1.27.0 shipped 2026-08-19. Raising the toolchain was the
+  only resolution (`backend-code-style.md` §Version: never suppress a hit).
+- **Exposure**: the Jetson image built 2026-10-06 carried all 13 from their
+  publication until #341's image is deployed (`govulncheck -mode=binary` on
+  the published arm64 binary reported 13 on 2026-10-24). Nothing saw it in
+  between: `server.yml` runs only on a PR or a push that touches
+  `apps/server`, none happened from 2026-10-06 to 2026-10-24, and it was
+  #339's pre-PR gate that found them. A scheduled scan of the shipped binary
+  is a follow-up issue of #341's review.
+- **Resolution (#341)**: `go.mod` and the pinned builder moved to go1.26.10,
+  govulncheck to v1.9.0; the arm64 binary scans clean in binary mode. 1.26
+  rather than 1.27 because it was the measured one-major move the issue
+  specified (decided 2026-10-24).
+- **Review trigger**: Go 1.28's release (expected February 2027) ends fixes
+  for the 1.26 line, so the toolchain moves again then — or sooner, the first
+  time govulncheck reports a standard-library advisory with no 1.26 fix.
+
 ### GHSA-qwww-vcr4-c8h2 — react-router RSC-mode CSRF (deferred 2026-08-06, RESOLVED 2026-08-10)
 
 - **Affected**: `react-router` >=7.12.0 <8.3.0 (installed 7.18.2, transitive via

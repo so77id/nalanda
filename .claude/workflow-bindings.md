@@ -94,8 +94,7 @@ apps/server (Go, added #149):
                       the toolchain go.mod declares. PINNED, not @latest, and the
                       pin moves with go.mod's go line: a scanner that needs a
                       newer Go, under GOTOOLCHAIN=auto, scans the wrong stdlib
-                      (testing-strategy.md §apps/server, #297). v1.9.0 runs on
-                      go 1.26.10 (#341).
+                      (testing-strategy.md §apps/server, #297).
   docker build + docker compose up -d --wait server
                     — the only way to see whether the binary starts on `scratch`
                       at all; the suite cannot.

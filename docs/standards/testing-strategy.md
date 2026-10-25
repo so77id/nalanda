@@ -351,8 +351,8 @@ to close, while going green. So the pin is the newest release that runs on
 the toolchain `go.mod` declares and scans it: v1.7.0 while that was
 1.25.13, **v1.9.0 since `go.mod` moved to 1.26.10** (2026-10-24, #341 —
 the 1.25 line shipped no fix for 13 standard-library advisories, so the
-step stayed red until the move; v1.8.0 also runs on 1.26.10 and is also
-clean). Raise it when `go.mod` moves to a toolchain a newer scanner
+step stayed red until the move, `docs/security-notes.md` §Resolved
+advisories; v1.8.0 also runs on 1.26.10 and is also clean). Raise it when `go.mod` moves to a toolchain a newer scanner
 supports — in this file, in `.github/workflows/server.yml` and in the tool
 registry of `.claude/workflow-bindings.md` together.
 
