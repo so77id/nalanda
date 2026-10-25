@@ -372,6 +372,16 @@ colour); and three CSV exports. All of it is computed at request time from
 one aggregate query per set of copies (screen 6 runs two), never one per
 question; nothing is stored.
 
+Since issue #339 both scan forms — a control's and an open run's — upload in
+**resumable 1 MiB chunks** when the page's module (`static/js/chunked_upload.mjs`)
+loads, and post as one request as before when it does not (ADR-0088). The
+page shows progress and "Sin conexión, reintentando…" while the link is down,
+retries without giving up while the tab is open, says so when the session
+expired, and offers Cancelar. A reload or a page change abandons the upload.
+The partials wait in `<WorkDir>/incoming/`; a professor holds at most four
+(a fifth evicts the least recently grown), one idle for 24 h is swept at boot
+and hourly, and `docker compose restart server` mid-upload loses nothing.
+
 Routes today:
 
 | Route | What |
@@ -544,6 +554,10 @@ from `apps/server/`:
       (`testing-strategy.md` §Conventions (all apps)).
 - [ ] Docs that the change obligated ship in the same PR
       (`docs/standards/documentation.md`).
+- [ ] **If you touched `internal/app/web/static/js/` or a `<script>` under
+      `templates/`**, the browser check in `testing-strategy.md`
+      §`apps/server` (the paragraphs on browser scripts) ran against a stack
+      built from your tip. Nothing in `go test` executes them.
 - [ ] **If you touched the login path**, [`GOOGLE-CHECK.md`](GOOGLE-CHECK.md) was run against a real Google OAuth client. No test in this repository reaches Google, so a green suite is not evidence that signing in still works.
 - [ ] **If you touched the publication path** — the Gmail adapter in `internal/infra/oidc/gmail.go`, the `/profile` connect flow, the transports in `internal/infra/email/`, the message builder, or `NALANDA_EMAIL_MODE` — [`GMAIL-CHECK.md`](GMAIL-CHECK.md) was run against the https URL. The suite drives `httptest` stand-ins for both Google and Gmail, so a green suite says nothing about whether the consent screen grants the scope, whether the redirect URI matches, or whether the message arrives readable. Its §6 also MEASURES the open question ADR-0072 could not settle from documentation
 - [ ] **If you touched the Canvas path** — the GraphQL queries in `internal/infra/canvas`, the normalisation in `internal/domain/canvas/roster.go`, the import in `handler.ImportCanvas` / `coursestore.SaveRoster`, the `/profile` token path, or `NALANDA_CANVAS_GRAPHQL_URL` — [`CANVAS-CHECK.md`](CANVAS-CHECK.md) was run against the real UDP instance. The suite drives `httptest` fakes, so a green suite is not evidence the import still works: #271's review found a state filter that emptied a whole past-term roster, and the suite was green throughout

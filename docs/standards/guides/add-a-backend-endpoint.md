@@ -28,9 +28,9 @@ first when the endpoint needs a table it does not have.
 | | `internal/app/web` | `internal/app/api` |
 |---|---|---|
 | Reader | the professor, in a browser | `apps/web`, on a student's machine |
-| Renders | server-side `html/template` | JSON, and WebSocket later (ADR-0008) |
+| Renders | server-side `html/template` — plus JSON for a page's OWN script (§"A pattern the chunked upload adds") | JSON, and WebSocket later (ADR-0008) |
 | Auth | a session, via the middleware | none — anonymous, room codes (§C12) |
-| Errors | a page, in Spanish | a JSON body |
+| Errors | a page, in Spanish (a `{"message"}` body to a page's script) | a JSON body |
 
 The two never import each other, and `internal/architecture_test.go` fails the
 build if they do. What they share goes in `internal/domain`, or in
@@ -584,7 +584,7 @@ First worked case: the chunked scan upload (#339, ADR-0088,
 `survey_scans.go`). The backoffice renders pages, but a page's script that
 must talk to the server WITHOUT leaving the page gets JSON routes on the SAME
 surface, behind the same table — never on `/api`, which is anonymous by
-construction (§C12). Five rules:
+construction (§C12). Six rules:
 
 1. **Gated and in the table like any route.** A state-changing one carries
    the session's token in `X-CSRF-Token`
@@ -606,9 +606,18 @@ construction (§C12). Five rules:
    (`pageRefusal` for a screen, `Surveys.jsonRefusal` for the script) — copy
    that shape before duplicating a lookup.
 
-The script itself lives once in `templates/partials/` and is checked in a
-real browser on every change (`testing-strategy.md` §`apps/server`, "inline
-browser scripts").
+6. **The script hard-codes no route.** Its first URL comes from the page — a
+   `data-*` attribute the template writes from a `…PathFor` builder — and every
+   later one from the server's answer (`chunks`, `complete`), so `router.go`
+   stays the one place that decides the URL space.
+
+The script itself is a first-party module under `internal/app/web/static/js/`
+(ADR-0047 §4; `backend-code-style.md` §"Client-side JS in a server template")
+— worked case `chunked_upload.mjs` — and markup it drives that more than one
+page needs is a block in `templates/partials/`. Nothing in `go test` runs the
+module, so every change to it is checked in a real browser
+(`testing-strategy.md` §`apps/server`, the paragraph after "inline browser
+scripts").
 
 ## A file export (CSV)
 

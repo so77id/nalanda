@@ -362,7 +362,10 @@ several flash cookies in one response — the second overwrites the first.
 
 ### Client-side JS in a server template
 
-A one-page progressive enhancement is inline in the template that needs it.
+This section is the one home of the inline shapes still allowed (ADR-0047 §4,
+amended by #339): glue that binds a vendored library to a `data-*` attribute
+(the PDF.js boot in `review.html`), and a one-page progressive enhancement
+that holds no state, inline in the template that needs it.
 Worked case: the two-level cascade picker in `controls_form.html` (issue
 #228 S4) inlines ~110 lines of vanilla JS at the end of the form. The
 enhancement reads the flat `<select>`'s own `<optgroup>` structure — one

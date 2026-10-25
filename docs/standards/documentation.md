@@ -111,12 +111,26 @@ case: the deployed shape (#66).
    case (#327): `MARK_TOLERANCE` in `apps/amc-worker/worker.py` — the
    synthetic checks reject a band too narrow and stay green on one far too
    wide, so widening goes through `tests/tools/regress-tolerance.py` on real
-   scans (`apps/amc-worker/CLAUDE.md`, ADR-0085).
+   scans (`apps/amc-worker/CLAUDE.md`, ADR-0085). **A WP that touches a
+   deferral's area records "Trigger status after #N (date) — pulled | not
+   pulled" in place, and checks the trigger's premise against `main` as it
+   stands — its merge history, not only the WP's own diff.** Worked case
+   (#339): checking whether its script was "the second inline script" the
+   CSP trigger in `security-notes.md` names found two already on `main` since
+   the day the trigger was written (#234 and #236, three hours apart), never
+   recorded as fired.
 7. **Retiring a tool, a model or a DOCUMENT obligates a sweep**: in the same PR,
    grep ALL instruction surfaces (`CLAUDE.md` files, `.claude/skills/`,
    `.claude/agents/`, `docs/conventions.md`, standards) for the retired terms and
    update every hit. Partial migrations make instruction consistency depend on
-   which file an agent reads first.
+   which file an agent reads first. **A review fix that MOVES a file retires
+   its old location the same way**: grep docs, `CLAUDE.md` files and comments
+   for the old path and for the words that described it ("inline",
+   "partial"), and fix every hit in the same commit. Worked case (#339): the
+   page script moved from a template partial to `static/js/`; the ADR, the
+   style guide and `static.go` followed, but the endpoint guide, the
+   partial's own header and a `CLAUDE.md` reading list still pointed at the
+   partial, and the next review round had to find them.
 
    **A worked case the PR resolves is kept and rewritten as how it ended**, in
    the same PR — not deleted, and not left in the present tense. The case is

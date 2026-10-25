@@ -1,9 +1,10 @@
 # ADR-0088: Scan batches cross a slow link in resumable chunks
 
-**Status:** Accepted — pending the live check from a non-LAN network (#339
-AC-14)
+**Status:** Accepted — AC-14 live check outstanding (owner Miguel, tracked in
+#339, which stays open until it runs)
 **Date:** 2026-10-24
 **Decision-makers:** Miguel Rodriguez
+**Extends:** ADR-0047 §4 — the first first-party module under `/static/js/`.
 **Source:** #339, from two failed uploads on the Jetson (2026-10-23),
 diagnosed from its request log. Decisions 1–3 below are Miguel's
 (2026-10-24); the rest was settled in the issue's specification.
@@ -49,9 +50,12 @@ POST   /surveys/{id}/runs/{rid}/scans/uploads/{uid}/complete
   NALANDA_MAX_SCAN_MB`, a PDF name or type, and for a control the threshold
   band. The resolved thresholds ride with the upload to complete.
 - **chunk** appends at `offset`. A different offset is a 409 carrying what the
-  server holds, and writes nothing. A body over the 1 MiB chunk cap (checked
-  from `Content-Length` before a byte is read) or past the declared size is a
-  413, and writes nothing. A body cut part-way — the link dropped (400) or the
+  server holds, and writes nothing. A body that DECLARES more than the 1 MiB
+  chunk cap (`Content-Length`, checked before a byte is read), or that runs
+  past the upload's declared size, is a 413 and writes nothing. A body with no
+  `Content-Length` keeps what `MaxBytesReader` let through before refusing
+  (1 MiB), like any cut chunk, and its 413 carries `received`; the page never
+  sends one — `fetch` with a `Blob` body always declares its length. A body cut part-way — the link dropped (400) or the
   read deadline passed (408) — KEEPS the prefix that arrived: those are the
   right bytes at the right offset, so even a link too slow to carry a whole
   chunk inside 15 s progresses on every request.
@@ -76,8 +80,8 @@ stale because the professor signed in again in another tab.
 `<uid>.part` holds the bytes, and **its size is how many arrived** — no table,
 no counter, nothing that can disagree with the disk, which is what lets a
 server restart (a Watchtower deploy) lose nothing. `<uid>.json` holds the
-professor, the subject as `{kind, id}`, the name, the declared size and the
-subsystem's opaque metadata; it is written once, through a temp file
+professor, the subject (two flat fields, `subject_kind` and `subject_id`),
+the name, the declared size and the subsystem's opaque `meta`; it is written once, through a temp file
 (`<uid>.tmp`) and a rename. The package is neutral because the surveys may
 not import the controls (ADR-0078):
 `TestTheUploadsDomainImportsNeitherSubsystem` fails the build if it reaches
@@ -105,7 +109,22 @@ handler, which `cmd/server/main.go` constructs once.
 ### 3. Bounds (decisions 2 and 3)
 
 - 1 MiB chunks: the conservative bet against a proxy that caps or buffers
-  request bodies (Tailscale serve and Funnel are unmeasured; AC-14 measures).
+  request bodies. What is already known: the server is reached only through
+  `tailscale serve` (port 8443, `DEPLOY-JETSON.md` §The Funnel), which carried
+  the 11.4 MB batch of §Context in ONE request from the home LAN, and the two
+  cuts at exactly 15 s from the work network show it streams a body rather
+  than buffering it whole. What is not: Funnel ingress from a device outside
+  the tailnet.
+
+  > **Measurements to fill in (owner: Miguel, deadline: 2026-11-07, tracked in
+  > #339 — the PR is "Refs", so the issue stays open until this runs):**
+  > - one control upload and one survey-run upload from a non-LAN network,
+  >   through the public Funnel URL: whether every 1 MiB `PUT` answers 200 and
+  >   advances `received` by 1048576;
+  > - the request log's `duration_ms` range for those `PUT`s.
+  >
+  > A `PUT` that does not arrive whole, or a range near 15 s, reopens the
+  > first review trigger below.
 - At most 4 open uploads per professor. A fifth **removes their
   least-recently-grown partial instead of refusing**: a refusal would block a
   professor for up to a day behind partials they can neither see nor cancel.
@@ -121,9 +140,12 @@ handler, which `cmd/server/main.go` constructs once.
 
 `VerifyCSRF` accepts the token from `X-CSRF-Token`. When the header is present
 it is the ONLY token considered — compared in constant time, no fallback to a
-body field — and the body is not parsed, since a chunk is raw bytes. No CORS
-header is ever sent, so a cross-origin page cannot set it without a preflight
-the server refuses. The new routes are in the table, so
+body field — and the body is not parsed, since a chunk is raw bytes. The
+backoffice surface (`internal/app/web`) answers no CORS preflight, so a
+cross-origin page cannot set the header at all; `internal/app/api` is
+expected to answer CORS one day (§C12), which must never reach this surface.
+The CSRF decision itself — one token per session, constant-time comparison —
+is ADR-0036's, unchanged. The new routes are in the table, so
 `TestEveryStateChangingRouteVerifiesCSRF` covers them unchanged.
 
 ### 5. The one-request form stays, and says what happened
@@ -171,7 +193,7 @@ ARQ-1).
   global bound exists to close. Here every request still lives under 15 s.
 - **The tus protocol.** The right shape, but its server and client libraries
   are dependencies (`go.mod`'s direct set is deliberately two), and the five
-  routes above are all of it this needs.
+  kinds of request above (seven routes) are all of it this needs.
 - **A table for the offsets.** The offset IS the file's size; a row would be
   a second truth to keep in step with it, and a crash between the two would
   have to be repaired by someone.
@@ -190,7 +212,10 @@ ARQ-1).
   the 15 s bound; 30 s offline, a `docker compose restart server` and a
   deleted session row each resumed from the server's `received` (5 MiB)
   without re-sending a byte; every stored batch hashed the same as its
-  source, and its analyse job finished.
+  source, and its analyse job finished. The module these numbers describe is
+  the one at 486bea8 (unchanged since): the clean, offline and Cancelar runs
+  were repeated on the stack built from 492dbd4, and the restart, the
+  session and a survey run with both offline and a restart on 479f8f2.
 - When a session expires mid-chunk the server answers the gate's 303 without
   reading the rest of the body, so the browser sees a reset and the page says
   "Sin conexión" for one back-off step before the status request finds the
@@ -218,14 +243,21 @@ ARQ-1).
   lower `uploads.ChunkBytes` (the page takes the size from start's answer).
 - A second server process, or a second `uploads.Service`: the in-process
   per-upload lock stops serialising anything.
-- A third subsystem uploads batches: a new `uploads.SubjectKind`, its own
-  start/complete pair, and the sidecar's closed set grows with it.
+- A third subsystem uploads batches: a new `uploads.SubjectKind` (and the
+  same member in `jobs.SubjectKind`, which names it), its own start/complete
+  pair, and the sidecar's closed set grows with it.
+- Any CORS header reaching `internal/app/web` — for example a CORS
+  middleware mounted above both surfaces: the header-only token stops being
+  out of a cross-origin page's reach.
 
 ## References
 
 - #339 (the issue, with the measured incident and Miguel's decisions).
 - ADR-0050 (one in-process runner; one process), ADR-0078 (the survey
-  subsystem's boundary), ADR-0047 (what `/static/` is for).
+  subsystem's boundary), ADR-0047 (what `/static/` is for), ADR-0036 (the
+  CSRF decision §4 adds a transport to), ADR-0034 (the shared volume's
+  seeding rule, which #339 found wrong and amended), ADR-0079 (the job
+  subject's closed set, which `uploads.SubjectKind` mirrors).
 - `apps/server/CLAUDE.md` §"The uploaded scan batch survives…" and the
   chunked-upload bullet beside it.
 - `docs/security-notes.md` §"Chunked uploads read the shared volume

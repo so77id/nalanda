@@ -125,12 +125,15 @@ fact.
   `upsertReading`'s `ON CONFLICT` column list in
   `internal/infra/storage/controlstore/readings.go`.
 - `docs/decisions/0088-scan-batches-cross-a-slow-link-in-resumable-chunks.md`
-  — the chunked upload: the five routes and their JSON, the partials on the
-  shared volume and how they are read, the bounds, CSRF from
-  `X-CSRF-Token`, and the page's script. Read before touching
+  — the chunked upload: the five kinds of request (seven routes) and their
+  JSON, the partials on the shared volume and how they are read, the bounds,
+  CSRF from `X-CSRF-Token`, and the page's script. Read before touching
   `internal/domain/uploads`, `handler/uploads.go`, the start/complete
-  handlers of either subsystem, `VerifyCSRF`'s header or multipart branch, or
-  `templates/partials/chunked_upload.html`.
+  handlers of either subsystem, `VerifyCSRF`'s header or multipart branch,
+  `internal/app/web/static/js/chunked_upload.mjs`, or
+  `templates/partials/chunked_upload.html`. A change to the module is
+  unfinished until the browser check in `testing-strategy.md` §`apps/server`
+  ran: nothing in `go test` executes it.
 - `docs/security-notes.md` §"Logs and personal data" — read before adding any
   `slog` call on a path that holds a RUT, a name or a student address. The
   rule is that the identifier stays OUT of the line; the `_action` /
@@ -154,11 +157,14 @@ fact.
   URL prefix is a string literal spelled in router.go, in the template
   that consumes the asset, and in the vendor README — a rename touches
   all three; there is no shared constant on purpose (see the router
-  entry's comment). **First-party JS goes under `static/js/`, never inline
-  in a template** (ADR-0047 §4): one more embed entry, no README, and a
-  `static_test.go` case pinning `text/javascript` — worked case
-  `js/chunked_upload.mjs` (#339), loaded from
-  `templates/partials/chunked_upload.html`.
+  entry's comment). **Stateful or shared first-party JS goes under
+  `static/js/`, never inline in a template** (ADR-0047 §4, amended by #339):
+  one more embed entry, no README, and a `static_test.go` case pinning
+  `text/javascript` — worked case `js/chunked_upload.mjs` (#339), loaded from
+  `templates/partials/chunked_upload.html`. The inline shapes still allowed
+  (vendored-library glue, a one-page stateless enhancement) are in
+  `docs/standards/backend-code-style.md` §"Client-side JS in a server
+  template"; that section is their one home.
 - `README.md` §"What is not here yet" — before adding anything, check whether
   the work belongs to **WP-G** (publishing grades) or to the deletion path
   `security-notes.md` records as missing. **WP-C1, WP-C2,
@@ -1081,6 +1087,9 @@ Registered in `docs/standards/testing-strategy.md` (the two-protocol rule).
   It runs `gofmt -l .` (must print NOTHING — it exits 0 either way, so the
   status is not the gate), then `go vet ./...`, `go build ./...`,
   `go test ./...`.
+- **While `govulncheck` is red on `main` (#341)**: read the dated note in
+  `testing-strategy.md` §`apps/server` before deciding a red pre-PR run is
+  yours — and never change `go.mod` to clear it inside an unrelated PR.
 - **Pre-PR**: NOT restated here. Run it line by line from
   `docs/standards/testing-strategy.md` §`apps/server`, which is its one home —
   this bullet used to be a copy and had already lost `govulncheck` and the

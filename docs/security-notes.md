@@ -927,13 +927,16 @@ upload.
 session's token as `X-CSRF-Token`. When that header is present it is the ONLY
 token `VerifyCSRF` considers — compared in constant time, with no fallback to
 a body field, so a request cannot offer two tokens and win with either — and
-the body is left unparsed. Nothing on this server answers a CORS preflight, so
-a cross-origin page cannot set the header at all. A signed-in professor's
+the body is left unparsed. The backoffice surface (`internal/app/web`)
+answers no CORS preflight, so a cross-origin page cannot set the header at all;
+the API surface may answer CORS one day (design §C12), and that must never
+reach the backoffice. A signed-in professor's
 upload is authorised exactly as the multipart form's is: any professor may
 upload to any control or open run, and the uid adds only "the creator
 continues it".
 
-**Review trigger**: a second server process (the per-upload lock is in
+**Review trigger**: any CORS header reaching `internal/app/web`; a second
+server process (the per-upload lock is in
 memory), anything that writes into `incoming/` other than this package, or a
 route that serves a partial's bytes back.
 

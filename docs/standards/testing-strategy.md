@@ -356,6 +356,14 @@ advisories; v1.8.0 also runs on 1.26.10 and is also clean). Raise it when
 `go.mod` moves to a toolchain a newer scanner supports, in every place the
 comment on the Dockerfile's pinned builder lists, together.
 
+**Known red on `main`, dated 2026-10-24 — remove when #341 merges.**
+`govulncheck@v1.7.0` reports 13 reachable standard-library advisories in
+go1.25.13 on `main` itself (GO-2026-6809, 6617, 6613, 6612, 6611, 6610, 6609,
+6608, 6607, 6605, 6603, 6600, 6599), fixed only on go1.26; #341 raises the
+toolchain. Until it merges, a PR that does not touch the toolchain runs the
+step anyway, confirms the reported IDs are EXACTLY that list — any other ID is
+the PR's to resolve — says so in its body, and leaves `go.mod` alone.
+
 **When the Dockerfile's builder digest changes, check it against `go.mod`:**
 
 ```bash
@@ -481,14 +489,39 @@ mid-upload then a new one signed in before Reintentar — each ending with the
 stored `batch-N.pdf`'s sha256 equal to the source's. Two traps measured in
 #339: the redirect after complete is the SAME URL as the page, so wait for a
 navigation rather than a URL match (`waitForURL` resolves at once and the
-browser closes mid-upload); and a FRESH `amc-work` volume comes up
-root-owned under `docker compose create`/`up` although the server container
-is created first — its root carries the worker image's timestamp, so the
-worker's seed is the one that stuck — and the server cannot create anything
-under `/work` (`mkdir /work/controls: permission denied`) until the volume
-root is chowned to 65532. The cause past that measurement is not
-established, and the Dockerfile's comment that `depends_on` prevents it is
-contradicted by it.
+browser closes mid-upload); and a FRESH `amc-work` volume came up
+root-owned under `docker compose up`, so the server could not create anything
+under `/work` (`mkdir /work/controls: permission denied`). The cause, measured
+in #339's review: Docker re-seeds a volume every time it is mounted while still
+empty, and the server image's `/work` was empty, so the worker's seed won.
+The image now ships `/work/incoming` and a fresh volume comes up 65532
+(ADR-0034 §Consequences, corrected by #339); a volume left over from an older
+image, still empty, needs `docker run --rm -v <project>_amc-work:/work
+alpine chown 65532:65532 /work` once.
+
+**Setting the check up**, since an agent cannot sign in through Google: run
+the stack under its own project name (`docker compose -p <name> -f
+infra/local/docker-compose.yml up -d --build --wait`, with
+`NALANDA_QUESTIONS_JSON_URL` pointing at the published bank so a control can
+be created); insert a professor and a session straight into SQLite through a
+throwaway container on the `server-data` volume (`users` row, then a
+`user_sessions` row whose `token_hash` is the hex SHA-256 of a random token
+you keep, with its own `csrf_token` and `expires_at` a day out); create a
+course row, then a control (and a survey, a question and a run) through the
+real forms with `curl`, passing the cookie and the `csrf_token`; wait for the
+`jobs: job done` log line of each generation. The fixture: the control's or
+the run's own `out/sujet.pdf`, rasterised at 300 dpi (`gs -sDEVICE=png16m
+-r300` inside the worker) and rebuilt as a noisy JPEG PDF of ≥ 11 MB, so a
+resume crosses several chunks and the analyse job reads real pages. The
+Playwright rig lives outside the tree, as #231's did (Playwright is not a
+dependency of this repo; the formal L5 suite is its own WP).
+
+**Last run**: 2026-10-24 — module at 486bea8 (unchanged since); clean upload,
+30 s offline and Cancelar on the stack built from 492dbd4;
+a `docker compose restart server` mid-upload, the session row deleted
+mid-upload then Reintentar after a new session, and a survey run with 30 s
+offline AND a restart, on the stack built from 479f8f2. Every stored batch
+hashed the same as its source and every analyse job finished.
 
 **A form-render test for an enum-valued input (radio or select) asserts the
 chosen value carries `checked` AND every other value does NOT, in the same
