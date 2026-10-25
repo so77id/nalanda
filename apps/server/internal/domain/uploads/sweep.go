@@ -29,29 +29,29 @@ const (
 	SweepEvery = time.Hour
 )
 
-// Sweep removes every upload that has not grown for longer than idle, and
-// answers how many it removed. It reads only names that are an upload's own
+// Sweep removes every upload that has not grown for longer than IdleAfter,
+// and answers how many it removed. It reads only names that are an upload's own
 // (`<uid>.part`, `.json`, `.tmp` directly under Root); anything else on the
 // shared volume is logged and left where it is.
-func (s *Service) Sweep(now time.Time, idle time.Duration) (int, error) {
+func (s *Service) Sweep(now time.Time) (int, error) {
 	ids, err := s.onDisk()
 	if err != nil {
 		return 0, err
 	}
 	removed := 0
 	for _, id := range ids {
-		if s.sweepOne(id, now, idle) {
+		if s.sweepOne(id, now) {
 			removed++
 		}
 	}
 	return removed, nil
 }
 
-func (s *Service) sweepOne(id string, now time.Time, idle time.Duration) bool {
+func (s *Service) sweepOne(id string, now time.Time) bool {
 	unlock := s.locks.lock(id)
 	defer unlock()
 	last, ok := s.lastGrown(id)
-	if !ok || now.Sub(last) <= idle {
+	if !ok || now.Sub(last) <= IdleAfter {
 		return false
 	}
 	s.removeFiles(id)
@@ -69,7 +69,7 @@ func (s *Service) Watch(ctx context.Context, every time.Duration, now func() tim
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			if _, err := s.Sweep(now(), IdleAfter); err != nil {
+			if _, err := s.Sweep(now()); err != nil {
 				s.Log.Warn("uploads: sweeping idle partials", "error", err)
 			}
 		}
@@ -152,7 +152,7 @@ func (s *Service) onDisk() ([]string, error) {
 
 // uploadOf answers whose file a name is, if it is an upload's at all.
 func uploadOf(name string) (string, bool) {
-	for _, ext := range []string{extPart, extSidecar, extTemp} {
+	for _, ext := range ownExts {
 		if id, ok := strings.CutSuffix(name, ext); ok && isID(id) {
 			return id, true
 		}
@@ -165,7 +165,7 @@ func uploadOf(name string) (string, bool) {
 func (s *Service) lastGrown(id string) (time.Time, bool) {
 	var last time.Time
 	found := false
-	for _, ext := range []string{extPart, extSidecar, extTemp} {
+	for _, ext := range ownExts {
 		info, err := os.Lstat(s.path(id, ext))
 		if err != nil {
 			continue

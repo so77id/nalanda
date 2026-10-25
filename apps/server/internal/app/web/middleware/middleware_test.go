@@ -967,3 +967,24 @@ func TestVerifyCSRFRefusesAnUnparseableBody(t *testing.T) {
 		t.Errorf("status = %d, want 403", recorder.Code)
 	}
 }
+
+// Two X-CSRF-Token headers are refused, even when one of them is right: a
+// request offers one token or none.
+func TestVerifyCSRFRefusesARepeatedTokenHeader(t *testing.T) {
+	h := newHarness(t)
+	_, token := h.login(t, "profesora@example.com")
+	session, err := h.store.SessionByTokenHash(context.Background(), auth.HashToken(token))
+	if err != nil {
+		t.Fatalf("SessionByTokenHash: %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodPut, "/uploads/X?offset=0", strings.NewReader("chunk"))
+	req.Header[http.CanonicalHeaderKey(middleware.CSRFHeaderName)] = []string{session.CSRFToken, "a-csrf-token-from-somewhere-else"}
+	req.AddCookie(&http.Cookie{Name: middleware.SessionCookieName(true), Value: token})
+	recorder := httptest.NewRecorder()
+	h.auth.Resolve(h.auth.RequireProfessor(h.auth.VerifyCSRF(h.next()))).ServeHTTP(recorder, req)
+
+	if h.handlerRan || recorder.Code != http.StatusForbidden {
+		t.Errorf("handler ran = %v, status = %d; want a 403", h.handlerRan, recorder.Code)
+	}
+}

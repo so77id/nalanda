@@ -79,6 +79,11 @@ func composed(t *testing.T, prober health.Prober) (http.Handler, *authstore.Stor
 	// these cases exist to check to drift apart.
 	cstore := controlstore.New(db)
 	amcFake := &amctest.Fake{}
+	// ONE uploads.Service for every handler, as run() builds it: its
+	// per-upload locks only serialise within one instance (#339 review, COR-2).
+	sharedUploads := uploads.NewService(uploads.Service{
+		Root: filepath.Join(t.TempDir(), uploads.DirName), MaxBytes: 8 << 20, Log: logger,
+	})
 	sharedControls := controls.NewService(controls.Service{
 		// A real matcher over the same database. These cases are about
 		// the router's table, and an empty `student` table is the right
@@ -158,10 +163,8 @@ func composed(t *testing.T, prober health.Prober) (http.Handler, *authstore.Stor
 				Gmail:              connectedGmail{},
 				Jobs:               jstore,
 				Runner:             runner,
-				Uploads: uploads.NewService(uploads.Service{
-					Root: filepath.Join(t.TempDir(), uploads.DirName), MaxBytes: 8 << 20, Log: logger,
-				}),
-				Log: logger,
+				Uploads:            sharedUploads,
+				Log:                logger,
 			})
 		}(),
 		// Issue #271: the profile screen. Wired with a nil secret store —
@@ -237,16 +240,12 @@ func composed(t *testing.T, prober health.Prober) (http.Handler, *authstore.Stor
 			}, logger, time.Now),
 			Courses:   roster.NewService(coursestore.New(db), roster.NewCanvasSource(canvas.NewService(nil, unreachableCanvas{}))),
 			PublicURL: "https://nalanda.test",
-			Uploads: uploads.NewService(uploads.Service{
-				Root: filepath.Join(t.TempDir(), uploads.DirName), MaxBytes: 8 << 20, Log: logger,
-			}),
-			Log: logger,
+			Uploads:   sharedUploads,
+			Log:       logger,
 		}),
 		Uploads: handler.NewUploads(handler.Uploads{
-			Service: uploads.NewService(uploads.Service{
-				Root: filepath.Join(t.TempDir(), uploads.DirName), MaxBytes: 8 << 20, Log: logger,
-			}),
-			Log: logger,
+			Service: sharedUploads,
+			Log:     logger,
 		}),
 		Log: logger,
 	}, prober, logger), store

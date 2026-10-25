@@ -138,6 +138,9 @@ func TestAControlBatchUploadedInChunksIsSavedAndAnalysed(t *testing.T) {
 	if opened["complete"] != handler.ControlScanUploadCompletePathFor(controlID, uid) {
 		t.Errorf("complete = %v, want this control's complete route", opened["complete"])
 	}
+	if opened["chunks"] != handler.UploadPathFor(uid) {
+		t.Errorf("chunks = %v, want %s — the page's script takes the chunk route from here", opened["chunks"], handler.UploadPathFor(uid))
+	}
 	f.sendAll(t, uid, source)
 
 	rec = f.completeScanUpload(t, controlID, uid)
@@ -296,5 +299,40 @@ func TestAControlUploadThatIsNotAPDFIsRefusedAtComplete(t *testing.T) {
 	}
 	if got := f.batches(t, controlID); len(got) != 0 {
 		t.Errorf("bytes that are not a PDF became a batch: %v", got)
+	}
+}
+
+// #339 review, COR-3. Once SaveUploadedBatch returned, the batch is on disk
+// and the partial is gone, so the upload is FINISHED even if the analyse job
+// cannot be queued. A 500 there sent the page into a retry that found nothing
+// and reloaded with no word; the answer is the redirect, and the flash says
+// what did not happen.
+func TestAControlUploadSavedButNotQueuedStillFinishesAndSaysSo(t *testing.T) {
+	f := newControlsFixture(t)
+	controlID := f.createControl(t, "Control 1", 3)
+	source := scanPDF(5000)
+	uid := uploadID(t, f.startScanUpload(t, controlID, map[string]any{"size": len(source), "name": "lote.pdf"}))
+	f.sendAll(t, uid, source)
+	// The queue's insert fails from here on: what a broken jobs store does.
+	if _, err := f.db.Exec(`ALTER TABLE job RENAME TO job_unreachable`); err != nil {
+		t.Fatalf("breaking the queue: %v", err)
+	}
+
+	rec := f.completeScanUpload(t, controlID, uid)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200 — the batch is saved; body:\n%s", rec.Code, rec.Body.String())
+	}
+	if got := jsonBody(t, rec)["redirect"]; got != "/controls/"+controlID {
+		t.Errorf("redirect = %v, want the control's page", got)
+	}
+	if got := flashFromResponse(t, rec); !strings.Contains(got, "no pudo encolar") {
+		t.Errorf("flash = %q, want it to say the analysis was not queued", got)
+	}
+	if got := f.batches(t, controlID); len(got) != 1 || got[0] != "batch-1.pdf" {
+		t.Errorf("uploads = %v, want batch-1.pdf kept (the #210 rule)", got)
+	}
+	if left := f.incoming(t); len(left) != 0 {
+		t.Errorf("the partial outlived the batch: %v", left)
 	}
 }

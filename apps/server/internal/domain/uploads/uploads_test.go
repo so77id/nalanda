@@ -9,7 +9,9 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"sync/atomic"
+	"syscall"
 	"testing"
 	"time"
 
@@ -250,8 +252,8 @@ func TestCreateRefusesWhatItCannotHold(t *testing.T) {
 		{"a negative size", professor, aControl, "scan.pdf", -1, uploads.ErrInvalid},
 		{"no professor", 0, aControl, "scan.pdf", 10, uploads.ErrInvalid},
 		{"a subject kind nobody uploads to", professor, uploads.Subject{Kind: "course", ID: "3"}, "scan.pdf", 10, uploads.ErrInvalid},
-		{"a control id of the wrong shape", professor, uploads.Subject{Kind: uploads.SubjectControl, ID: "../x"}, "scan.pdf", 10, uploads.ErrInvalid},
-		{"a run id that is not a positive number", professor, uploads.Subject{Kind: uploads.SubjectSurveyRun, ID: "0"}, "scan.pdf", 10, uploads.ErrInvalid},
+		{"no subject id", professor, uploads.Subject{Kind: uploads.SubjectControl, ID: ""}, "scan.pdf", 10, uploads.ErrInvalid},
+		{"a subject id past 64 bytes", professor, uploads.Subject{Kind: uploads.SubjectSurveyRun, ID: strings.Repeat("7", 65)}, "scan.pdf", 10, uploads.ErrInvalid},
 		{"no name", professor, aControl, "", 10, uploads.ErrInvalid},
 		{"a name past 255 bytes", professor, aControl, strings.Repeat("a", 252) + ".pdf", 10, uploads.ErrInvalid},
 	}
@@ -569,4 +571,144 @@ func TestCreateIssuesAnIDOfTheDocumentedShape(t *testing.T) {
 		}
 		seen[up.ID] = true
 	}
+}
+
+// gatedReader is a chunk's body that stops on its first read until the test
+// opens the gate — a request the server is still reading, as when a link
+// stalls mid-chunk and the page has already given up on it.
+type gatedReader struct {
+	body    io.Reader
+	started chan struct{}
+	gate    chan struct{}
+	once    sync.Once
+}
+
+func newGatedReader(b []byte) *gatedReader {
+	return &gatedReader{body: bytes.NewReader(b), started: make(chan struct{}), gate: make(chan struct{})}
+}
+
+func (g *gatedReader) Read(p []byte) (int, error) {
+	g.once.Do(func() { close(g.started) })
+	<-g.gate
+	return g.body.Read(p)
+}
+
+// #339 review, COR-1. The page gives up on a stalled chunk, asks the status,
+// and sends the same offset again — while the server may STILL be reading the
+// first request. The upload's lock makes the second wait and then find the
+// offset taken; without it both append, the partial holds the chunk twice,
+// and complete saves a batch that is not the source.
+func TestAChunkSentAgainWhileTheFirstIsStillArrivingIsRefused(t *testing.T) {
+	s := newService(t, t.TempDir())
+	source := aPDF(200)
+	up, err := s.Create(professor, aControl, "scan.pdf", int64(len(source)), nil)
+	if err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+	stalled := newGatedReader(source[:100])
+	first := make(chan error, 1)
+	go func() {
+		_, err := s.Append(professor, up.ID, 0, stalled)
+		first <- err
+	}()
+	<-stalled.started
+
+	second := make(chan error, 1)
+	go func() {
+		_, err := s.Append(professor, up.ID, 0, bytes.NewReader(source[:100]))
+		second <- err
+	}()
+	// Without the lock the second append finishes inside this window.
+	var secondErr error
+	finished := false
+	select {
+	case secondErr = <-second:
+		finished = true
+	case <-time.After(200 * time.Millisecond):
+	}
+	close(stalled.gate)
+	if err := <-first; err != nil {
+		t.Fatalf("the stalled append: %v", err)
+	}
+	if !finished {
+		secondErr = <-second
+	}
+
+	if !errors.Is(secondErr, uploads.ErrOffsetMismatch) {
+		t.Errorf("the repeated chunk = %v, want ErrOffsetMismatch", secondErr)
+	}
+	if status, _ := s.Status(professor, up.ID); status.Received != 100 {
+		t.Errorf("the partial holds %d bytes, want 100 — the same chunk landed twice", status.Received)
+	}
+}
+
+// A partial whose sidecar declares fewer bytes than it holds was not written
+// by this package: no upload, rather than a batch with a tail nobody sent.
+func TestAPartialLongerThanItsDeclaredSizeIsNoUpload(t *testing.T) {
+	root := t.TempDir()
+	s := newService(t, root)
+	up, _ := s.Create(professor, aControl, "scan.pdf", 100, nil)
+	if err := os.WriteFile(filepath.Join(root, up.ID+".part"), aPDF(150), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := s.Status(professor, up.ID); !errors.Is(err, uploads.ErrNotFound) {
+		t.Errorf("Status = %v, want ErrNotFound", err)
+	}
+	if _, err := s.Append(professor, up.ID, 150, strings.NewReader("x")); !errors.Is(err, uploads.ErrNotFound) {
+		t.Errorf("Append = %v, want ErrNotFound", err)
+	}
+	var saved []byte
+	if _, err := s.Complete(professor, up.ID, aControl, keep(&saved)); !errors.Is(err, uploads.ErrNotFound) || saved != nil {
+		t.Errorf("Complete = %v (saved %d bytes), want ErrNotFound and nothing handed over", err, len(saved))
+	}
+}
+
+// within fails the test if f has not returned in time — the shape of a call
+// a FIFO would block for ever.
+func within(t *testing.T, what string, f func()) {
+	t.Helper()
+	done := make(chan struct{})
+	go func() {
+		f()
+		close(done)
+	}()
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		t.Fatalf("%s did not return: open(2) is blocked on a FIFO", what)
+	}
+}
+
+// #339 review, SEC-1. A FIFO planted under an upload's name (the worker mounts
+// this volume as root) must be refused like any other non-regular file, not
+// block open(2) — the eviction reads every sidecar under one mutex, so one
+// FIFO would otherwise stop every professor's next upload.
+func TestAFIFOOnTheSharedVolumeIsRefusedAndBlocksNothing(t *testing.T) {
+	root := t.TempDir()
+	s := newService(t, root)
+	up, _ := s.Create(professor, aControl, "scan.pdf", 100, nil)
+	sidecar := filepath.Join(root, up.ID+".json")
+	if err := os.Remove(sidecar); err != nil {
+		t.Fatal(err)
+	}
+	if err := syscall.Mkfifo(sidecar, 0o666); err != nil {
+		t.Fatalf("Mkfifo: %v", err)
+	}
+
+	within(t, "Status over a FIFO sidecar", func() {
+		if _, err := s.Status(professor, up.ID); !errors.Is(err, uploads.ErrNotFound) {
+			t.Errorf("Status = %v, want ErrNotFound", err)
+		}
+	})
+	within(t, "a Create that walks past a FIFO sidecar", func() {
+		if _, err := s.Create(professor+1, aControl, "scan.pdf", 100, nil); err != nil {
+			t.Errorf("Create = %v", err)
+		}
+	})
+	within(t, "a sweep that walks past a FIFO sidecar", func() {
+		if _, err := s.Sweep(time.Now()); err != nil {
+			t.Errorf("Sweep = %v", err)
+		}
+	})
 }

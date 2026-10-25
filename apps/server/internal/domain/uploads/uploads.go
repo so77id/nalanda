@@ -30,7 +30,6 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
-	"strconv"
 	"sync"
 )
 
@@ -51,16 +50,18 @@ type Subject struct {
 	ID   string
 }
 
-// valid reports whether the subject could name something. It checks shape
-// only: whether the control or the run EXISTS is the subsystem's question,
-// asked by the handler before Create and again by the save.
+// maxSubjectIDBytes bounds a subject's id, which keeps the sidecar small.
+const maxSubjectIDBytes = 64
+
+// valid reports whether the subject is one this package carries: a kind in
+// the closed set and an id that is present and bounded. The id's FORMAT is
+// the subsystem's (it checks it before Create, and its save checks the
+// subject exists); this package only compares it, and never builds a path
+// from it.
 func (s Subject) valid() bool {
 	switch s.Kind {
-	case SubjectControl:
-		return isID(s.ID)
-	case SubjectSurveyRun:
-		n, err := strconv.ParseInt(s.ID, 10, 64)
-		return err == nil && n > 0 && strconv.FormatInt(n, 10) == s.ID
+	case SubjectControl, SubjectSurveyRun:
+		return s.ID != "" && len(s.ID) <= maxSubjectIDBytes
 	}
 	return false
 }
@@ -279,9 +280,9 @@ func (s *Service) Remove(professor int64, id string) error {
 	return nil
 }
 
-// idEncoding is the alphabet of a control id (controls.NewID): base32 with no
-// padding, 26 characters for 128 bits. Repeated rather than imported, since
-// this package may depend on neither subsystem.
+// idEncoding is the uid's alphabet: base32 with no padding, 26 characters for
+// 128 bits — the shape controls.NewID gives a control, repeated rather than
+// imported, since this package may depend on neither subsystem.
 var idEncoding = base32.StdEncoding.WithPadding(base32.NoPadding)
 
 // idLength is what every uid measures.

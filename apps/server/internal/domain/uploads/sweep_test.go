@@ -91,7 +91,7 @@ func TestTheSweepRemovesOnlyPartialsIdlePastTheWindow(t *testing.T) {
 	grownAt(t, root, stale, now.Add(-uploads.IdleAfter-time.Minute))
 	grownAt(t, root, fresh, now.Add(-uploads.IdleAfter+time.Minute))
 
-	removed, err := s.Sweep(now, uploads.IdleAfter)
+	removed, err := s.Sweep(now)
 	if err != nil {
 		t.Fatalf("Sweep: %v", err)
 	}
@@ -130,7 +130,7 @@ func TestTheSweepRemovesWhatACrashedCreateLeft(t *testing.T) {
 		}
 	}
 
-	if _, err := s.Sweep(now, uploads.IdleAfter); err != nil {
+	if _, err := s.Sweep(now); err != nil {
 		t.Fatalf("Sweep: %v", err)
 	}
 	if left := entries(t, root); len(left) != 0 {
@@ -169,7 +169,7 @@ func TestTheSweepNeverDeletesANameOutsideThePattern(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if _, err := s.Sweep(time.Now(), uploads.IdleAfter); err != nil {
+	if _, err := s.Sweep(time.Now()); err != nil {
 		t.Fatalf("Sweep: %v", err)
 	}
 	// And the eviction walks the same directory.
@@ -225,5 +225,49 @@ func TestWatchSweepsOnEveryTickAndStopsWithTheContext(t *testing.T) {
 	}
 	if _, err := s.Status(professor, stale); !errors.Is(err, uploads.ErrNotFound) {
 		t.Errorf("the ticking sweep left the idle partial: %v", err)
+	}
+}
+
+// #339 review, COR-1: the sweep takes the upload's lock, so a partial that
+// looked idle a moment ago but is growing right now is not deleted under the
+// append that is growing it.
+func TestTheSweepWaitsForAnAppendInFlight(t *testing.T) {
+	root := t.TempDir()
+	s := newService(t, root)
+	source := aPDF(200)
+	up, _ := s.Create(professor, aControl, "scan.pdf", int64(len(source)), nil)
+	grownAt(t, root, up.ID, time.Now().Add(-2*uploads.IdleAfter))
+	growing := newGatedReader(source[:100])
+	appended := make(chan error, 1)
+	go func() {
+		_, err := s.Append(professor, up.ID, 0, growing)
+		appended <- err
+	}()
+	<-growing.started
+
+	swept := make(chan int, 1)
+	go func() {
+		n, _ := s.Sweep(time.Now())
+		swept <- n
+	}()
+	removed, finished := 0, false
+	select {
+	case removed = <-swept:
+		finished = true
+	case <-time.After(200 * time.Millisecond):
+	}
+	close(growing.gate)
+	if err := <-appended; err != nil {
+		t.Fatalf("the append: %v", err)
+	}
+	if !finished {
+		removed = <-swept
+	}
+
+	if removed != 0 {
+		t.Errorf("the sweep removed %d uploads, want 0 — it deleted a partial mid-append", removed)
+	}
+	if status, err := s.Status(professor, up.ID); err != nil || status.Received != 100 {
+		t.Errorf("after the sweep: %+v, %v; want the upload with 100 bytes", status, err)
 	}
 }

@@ -267,7 +267,8 @@ func (h *Controls) StartScanUpload(w http.ResponseWriter, r *http.Request) {
 			thresholdUnsure: strconv.FormatFloat(unsure, 'g', -1, 64),
 		})
 	if err != nil {
-		if uploadCreateRefusal(w, h.Log, err, h.MaxScanBytes) {
+		if status, body, ok := createRefusal(err, h.MaxScanBytes); ok {
+			writeUploadJSON(w, h.Log, status, body)
 			return
 		}
 		h.Log.Error("upload start: opening a chunked upload", "control", id, "error", err)
@@ -308,10 +309,12 @@ func (h *Controls) CompleteScanUpload(w http.ResponseWriter, r *http.Request) {
 			})
 			return err
 		})
+	if status, body, ok := completeRefusal(err, up); ok {
+		writeUploadJSON(w, h.Log, status, body)
+		return
+	}
 	switch {
 	case err == nil:
-	case uploadCompleteRefusal(w, h.Log, err, up):
-		return
 	case errors.Is(err, controls.ErrControlNotFound):
 		writeUploadJSON(w, h.Log, http.StatusNotFound, uploadMessage{Message: "Ese control no existe."})
 		return
@@ -325,12 +328,15 @@ func (h *Controls) CompleteScanUpload(w http.ResponseWriter, r *http.Request) {
 			uploadMessage{Message: "El servidor no pudo guardar el escaneo. Vuelve a intentarlo en unos minutos."})
 		return
 	}
+	// From here the batch is saved and the partial gone, so this upload is
+	// FINISHED whatever the queue says: a 500 would send the page into a
+	// retry that finds nothing and reloads with no word (#339 review,
+	// COR-3). The page goes to the control and the flash names the failure.
+	message := batchUploaded(save)
 	if err := h.submitAnalysis(r.Context(), id, save); err != nil {
-		writeUploadJSON(w, h.Log, http.StatusInternalServerError,
-			uploadMessage{Message: "El escaneo quedó guardado, pero el servidor no pudo encolar el análisis."})
-		return
+		message = fmt.Sprintf("Escaneo %d guardado, pero el servidor no pudo encolar su análisis. Vuelve a subir el mismo PDF en unos minutos.", save.BatchNumber)
 	}
-	flash.Set(w, h.secureCookie, batchUploaded(save))
+	flash.Set(w, h.secureCookie, message)
 	writeUploadJSON(w, h.Log, http.StatusOK, uploadFinished{Redirect: controlDetailURL(id)})
 }
 

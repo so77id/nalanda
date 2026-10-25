@@ -20,6 +20,9 @@ const (
 	extTemp    = ".tmp"
 )
 
+// ownExts is every name an upload may have, for the walks that need them all.
+var ownExts = []string{extPart, extSidecar, extTemp}
+
 // maxSidecarBytes bounds what is read back from a sidecar. Create refuses an
 // upload whose own sidecar would not fit, so the two can never disagree.
 const maxSidecarBytes = 16 << 10
@@ -163,13 +166,22 @@ func (s *Service) validSidecar(sc sidecar, id string) bool {
 // if it is a regular file: the worker shares this volume as root, and a
 // partial replaced by a link to the database must not be written through or
 // handed over as a batch.
+//
+// O_NONBLOCK is what lets the regular-file check run at all: a FIFO planted
+// under a sidecar's name would otherwise block open(2) for ever — and with it
+// every Create, since the eviction reads every sidecar under one mutex
+// (#339 review, SEC-1). On a regular file it changes nothing.
 func (s *Service) open(id, ext string, flag int) (*os.File, error) {
-	f, err := os.OpenFile(s.path(id, ext), flag|syscall.O_NOFOLLOW, 0)
+	f, err := os.OpenFile(s.path(id, ext), flag|syscall.O_NOFOLLOW|syscall.O_NONBLOCK, 0)
 	switch {
 	case errors.Is(err, fs.ErrNotExist):
 		return nil, ErrNotFound
 	case errors.Is(err, syscall.ELOOP):
 		s.Log.Warn("uploads: refusing a file that is a symlink", "upload", id, "file", id+ext)
+		return nil, ErrNotFound
+	case errors.Is(err, syscall.ENXIO):
+		// A FIFO opened for writing with nobody reading it.
+		s.Log.Warn("uploads: refusing a file that is not a regular file", "upload", id, "file", id+ext)
 		return nil, ErrNotFound
 	case err != nil:
 		return nil, fmt.Errorf("uploads: open %s: %w", id+ext, err)
@@ -256,7 +268,7 @@ func (s *Service) openPDF(id string) (*os.File, error) {
 // removeFiles deletes every file an upload may have. Best-effort: a file that
 // will not go is logged, and the sweep tries again.
 func (s *Service) removeFiles(id string) {
-	for _, ext := range []string{extPart, extSidecar, extTemp} {
+	for _, ext := range ownExts {
 		if err := os.Remove(s.path(id, ext)); err != nil && !errors.Is(err, fs.ErrNotExist) {
 			s.Log.Warn("uploads: removing a partial's file", "upload", id, "file", id+ext, "error", err)
 		}

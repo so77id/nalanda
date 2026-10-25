@@ -29,6 +29,12 @@ import (
 // bytes), its status (GET) and Cancelar (DELETE).
 const UploadPath = "/uploads/{uid}"
 
+// UploadPathFor builds one upload's URL — the start answer hands it to the
+// page's script, which then knows no route of its own.
+func UploadPathFor(uid string) string {
+	return "/uploads/" + uid
+}
+
 // Uploads serves the chunks of every upload, whatever it is for.
 type Uploads struct {
 	Service *uploads.Service
@@ -202,42 +208,40 @@ func readUploadStart(w http.ResponseWriter, r *http.Request, log *slog.Logger, m
 	return uploadStart{}, false
 }
 
-// writeUploadOpened answers a start that opened an upload: where to send its
-// chunks from, how large each may be, and the route that finishes it.
+// writeUploadOpened answers a start that opened an upload: where its chunks
+// go and from which offset, how large each may be, and the route that
+// finishes it.
 func writeUploadOpened(w http.ResponseWriter, log *slog.Logger, up uploads.Upload, complete string) {
 	writeUploadJSON(w, log, http.StatusCreated, uploadOpened{
-		Upload: up.ID, Received: up.Received, Chunk: uploads.ChunkBytes, Complete: complete,
+		Upload: up.ID, Received: up.Received, Chunk: uploads.ChunkBytes,
+		Chunks: UploadPathFor(up.ID), Complete: complete,
 	})
 }
 
-// uploadCreateRefusal answers a Create the domain refused. It reports
-// whether it wrote anything.
-func uploadCreateRefusal(w http.ResponseWriter, log *slog.Logger, err error, maxBytes int64) bool {
+// createRefusal is how the page hears a Create the domain refused; ok is
+// false for an error that is not a refusal (the caller logs it, 500).
+func createRefusal(err error, maxBytes int64) (status int, body any, ok bool) {
 	switch {
 	case errors.Is(err, uploads.ErrTooLarge):
-		writeUploadJSON(w, log, http.StatusRequestEntityTooLarge, uploadMessage{Message: fmt.Sprintf("El PDF excede el máximo de %d MB.", maxBytes>>20)})
+		return http.StatusRequestEntityTooLarge, uploadMessage{Message: fmt.Sprintf("El PDF excede el máximo de %d MB.", maxBytes>>20)}, true
 	case errors.Is(err, uploads.ErrInvalid):
-		writeUploadJSON(w, log, http.StatusBadRequest, uploadMessage{Message: "No se pudo empezar la subida con ese archivo."})
-	default:
-		return false
+		return http.StatusBadRequest, uploadMessage{Message: "No se pudo empezar la subida con ese archivo."}, true
 	}
-	return true
+	return 0, nil, false
 }
 
-// uploadCompleteRefusal answers a Complete the uploads package refused before
-// the subsystem's save ran. It reports whether it wrote anything.
-func uploadCompleteRefusal(w http.ResponseWriter, log *slog.Logger, err error, up uploads.Upload) bool {
+// completeRefusal is how the page hears a Complete the uploads package
+// refused before the subsystem's save ran; ok is false otherwise.
+func completeRefusal(err error, up uploads.Upload) (status int, body any, ok bool) {
 	switch {
 	case errors.Is(err, uploads.ErrNotFound):
-		writeUploadJSON(w, log, http.StatusNotFound, uploadMessage{Message: uploadNotFound})
+		return http.StatusNotFound, uploadMessage{Message: uploadNotFound}, true
 	case errors.Is(err, uploads.ErrIncomplete):
-		writeUploadJSON(w, log, http.StatusConflict, uploadRefusal{Message: "Todavía faltan partes del archivo por llegar.", Received: up.Received})
+		return http.StatusConflict, uploadRefusal{Message: "Todavía faltan partes del archivo por llegar.", Received: up.Received}, true
 	case errors.Is(err, uploads.ErrNotPDF):
-		writeUploadJSON(w, log, http.StatusBadRequest, uploadMessage{Message: "El archivo que llegó no es un PDF."})
-	default:
-		return false
+		return http.StatusBadRequest, uploadMessage{Message: "El archivo que llegó no es un PDF."}, true
 	}
-	return true
+	return 0, nil, false
 }
 
 // The JSON shapes the page reads. An error is always {"message"}, plus
@@ -261,6 +265,7 @@ type (
 		Upload   string `json:"upload"`
 		Received int64  `json:"received"`
 		Chunk    int64  `json:"chunk"`
+		Chunks   string `json:"chunks"`
 		Complete string `json:"complete"`
 	}
 	uploadFinished struct {

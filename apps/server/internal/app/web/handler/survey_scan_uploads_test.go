@@ -102,6 +102,9 @@ func TestARunBatchUploadedInChunksIsSavedAndQueuedForReading(t *testing.T) {
 	if got := jsonBody(t, rec)["complete"]; got != handler.SurveyRunScanUploadCompletePathFor(r.s.ID, r.run.ID, uid) {
 		t.Errorf("complete = %v, want this run's complete route", got)
 	}
+	if got := jsonBody(t, rec)["chunks"]; got != handler.UploadPathFor(uid) {
+		t.Errorf("chunks = %v, want %s", got, handler.UploadPathFor(uid))
+	}
 	f.sendAll(uid, source)
 
 	rec = f.completeRunUpload(r.s, r.run, uid)
@@ -238,4 +241,35 @@ func TestCompletingARunUploadEarlyElsewhereOrTwice(t *testing.T) {
 			t.Errorf("uploads = %v, want one batch", got)
 		}
 	})
+}
+
+// #339 review, COR-3, the run's twin: saved but not queued is finished, and
+// the flash says so.
+func TestARunUploadSavedButNotQueuedStillFinishesAndSaysSo(t *testing.T) {
+	f := newSurveyFixture(t)
+	r := f.readableRun()
+	source := scanPDF(4000)
+	uid := uploadID(t, f.startRunUpload(r.s, r.run, map[string]any{"size": len(source), "name": "hojas.pdf"}))
+	f.sendAll(uid, source)
+	if _, err := f.db.Exec(`ALTER TABLE job RENAME TO job_unreachable`); err != nil {
+		t.Fatalf("breaking the queue: %v", err)
+	}
+
+	rec := f.completeRunUpload(r.s, r.run, uid)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200 — the batch is saved; body:\n%s", rec.Code, rec.Body.String())
+	}
+	if got := jsonBody(t, rec)["redirect"]; got != handler.SurveyRunScansPathFor(r.s.ID, r.run.ID) {
+		t.Errorf("redirect = %v, want the run's scans", got)
+	}
+	if got := flashOf(t, rec); !strings.Contains(got, "no se pudo encolar") {
+		t.Errorf("flash = %q, want it to say the reading was not queued", got)
+	}
+	if got := f.runBatches(r.s, r.run); len(got) != 1 {
+		t.Errorf("uploads = %v, want the batch kept", got)
+	}
+	if left := f.incoming(); len(left) != 0 {
+		t.Errorf("the partial outlived the batch: %v", left)
+	}
 }

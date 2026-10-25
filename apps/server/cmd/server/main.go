@@ -317,7 +317,7 @@ func run(logger *slog.Logger) error {
 		MaxBytes: cfg.MaxScanBytes,
 		Log:      logger,
 	})
-	if removed, err := uploadsService.Sweep(time.Now(), uploads.IdleAfter); err != nil {
+	if removed, err := uploadsService.Sweep(time.Now()); err != nil {
 		logger.Warn("sweeping idle upload partials at boot", "error", err)
 	} else if removed > 0 {
 		logger.Info("swept idle upload partials at boot", "removed", removed)

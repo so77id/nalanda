@@ -6,11 +6,15 @@
 //
 // The URL space this handler owns is decided by the router — router.go picks
 // the mount point and http.StripPrefixes matching requests before they reach
-// Handler(). The on-disk root is `vendor/` (see the embed line below).
+// Handler(). The on-disk root is this directory: `vendor/` for vendored
+// libraries, `js/` for first-party modules (see the embed line below).
 //
 // Adding a new vendored library is a new subdirectory under vendor/ with its
 // own README (see vendor/pdfjs/README.md for the shape) and one more entry on
-// the embed line below. The explicit file list is deliberate: `all:vendor`
+// the embed line below. First-party behaviour lives under js/ (ADR-0047 §4:
+// no stateful script is authored inline in a template) — today the chunked
+// scan upload (#339) — with no README, since it is reviewed here like any
+// other code; it too is one more entry on the embed line. The explicit file list is deliberate: `all:vendor`
 // would silently ship every companion file that lands beside the library
 // (`.map`, `.sandbox.mjs`, translation JSON), which is exactly the surface
 // the vendor step exists to keep narrow.
@@ -23,7 +27,7 @@ import (
 	"strings"
 )
 
-//go:embed vendor/pdfjs/pdf.mjs vendor/pdfjs/pdf.worker.mjs vendor/pdfjs/LICENSE vendor/pdfjs/README.md
+//go:embed vendor/pdfjs/pdf.mjs vendor/pdfjs/pdf.worker.mjs vendor/pdfjs/LICENSE vendor/pdfjs/README.md js/chunked_upload.mjs
 var files embed.FS
 
 // Handler returns an http.Handler serving the embedded vendor tree, rooted so

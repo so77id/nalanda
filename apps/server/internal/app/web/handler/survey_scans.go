@@ -70,7 +70,7 @@ func (h *Surveys) RunScans(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	uploads, err := h.Service.Uploads(run)
+	batches, err := h.Service.Uploads(run)
 	if err != nil {
 		h.Log.Error("listing a run's uploads", "run", run.ID, "error", err)
 		middleware.WriteError(w, r, http.StatusInternalServerError, surveyBroke)
@@ -95,10 +95,10 @@ func (h *Surveys) RunScans(w http.ResponseWriter, r *http.Request) {
 		Clean:            counts.Clean(),
 		Pending:          counts.PendingCopies,
 	}
-	if run.State == survey.RunOpen && (survey.ScanSummary{Uploads: len(uploads), Copies: counts.Copies}).HasScans() {
+	if run.State == survey.RunOpen && (survey.ScanSummary{Uploads: len(batches), Copies: counts.Copies}).HasScans() {
 		page.ResetURL = SurveyRunScansResetConfirmPathFor(one.ID, run.ID)
 	}
-	for _, u := range uploads {
+	for _, u := range batches {
 		page.Uploads = append(page.Uploads, view.UploadRow{Name: u.Name, Size: humanBytes(u.Bytes)})
 	}
 	page.Flash = flash.Consume(w, r, h.secureCookie)
@@ -221,7 +221,8 @@ func (h *Surveys) StartScanUpload(w http.ResponseWriter, r *http.Request) {
 	}
 	up, err := h.Uploads.Create(professor.ID, runSubject(run), start.Name, start.Size, nil)
 	if err != nil {
-		if uploadCreateRefusal(w, h.Log, err, h.MaxScanBytes) {
+		if status, body, ok := createRefusal(err, h.MaxScanBytes); ok {
+			writeUploadJSON(w, h.Log, status, body)
 			return
 		}
 		h.Log.Error("surveys: opening a chunked upload", "run", run.ID, "error", err)
@@ -252,10 +253,12 @@ func (h *Surveys) CompleteScanUpload(w http.ResponseWriter, r *http.Request) {
 		batch, err = h.Service.SaveUploadedBatch(r.Context(), one.ID, run.ID, content)
 		return err
 	})
+	if status, body, ok := completeRefusal(err, up); ok {
+		writeUploadJSON(w, h.Log, status, body)
+		return
+	}
 	switch {
 	case err == nil:
-	case uploadCompleteRefusal(w, h.Log, err, up):
-		return
 	case errors.Is(err, survey.ErrRunNotOpen):
 		writeUploadJSON(w, h.Log, http.StatusConflict, uploadMessage{Message: runNotOpen})
 		return
@@ -265,11 +268,13 @@ func (h *Surveys) CompleteScanUpload(w http.ResponseWriter, r *http.Request) {
 			uploadMessage{Message: "El servidor no pudo guardar el escaneo. Vuelve a intentarlo en unos minutos."})
 		return
 	}
+	// The batch is saved and the partial gone: finished, whatever the
+	// queue says (#339 review, COR-3 — see CompleteScanUpload's twin).
+	message := batchReading(batch)
 	if err := h.submitReading(r.Context(), one, run, batch); err != nil {
-		writeUploadJSON(w, h.Log, http.StatusInternalServerError, uploadMessage{Message: readingNotQueued})
-		return
+		message = fmt.Sprintf("Lote %s guardado, pero no se pudo encolar su lectura. Vuelve a subir el mismo PDF en unos minutos.", batch)
 	}
-	flash.Set(w, h.secureCookie, batchReading(batch))
+	flash.Set(w, h.secureCookie, message)
 	writeUploadJSON(w, h.Log, http.StatusOK, uploadFinished{Redirect: SurveyRunScansPathFor(one.ID, run.ID)})
 }
 
