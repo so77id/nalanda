@@ -139,25 +139,38 @@ func (s *S3) DeleteProject(ctx context.Context, project string) error {
 		return err
 	}
 	prefix := KeyPrefix + project + "/"
-	var keys []types.ObjectIdentifier
+	var keys []string
 	if err := s.each(ctx, prefix, "", func(o types.Object) {
-		keys = append(keys, types.ObjectIdentifier{Key: o.Key})
+		keys = append(keys, aws.ToString(o.Key))
 	}); err != nil {
 		return fmt.Errorf("filestore: delete %s: list: %w", project, err)
 	}
+	if err := s.deleteKeys(ctx, keys); err != nil {
+		return fmt.Errorf("filestore: delete %s: %w", project, err)
+	}
+	return nil
+}
+
+// deleteKeys deletes keys in batches S3 accepts, reading the per-key
+// errors a 200 answer can carry.
+func (s *S3) deleteKeys(ctx context.Context, keys []string) error {
 	for len(keys) > 0 {
 		batch := keys[:min(len(keys), maxDeleteBatch)]
 		keys = keys[len(batch):]
+		ids := make([]types.ObjectIdentifier, len(batch))
+		for i := range batch {
+			ids[i] = types.ObjectIdentifier{Key: &batch[i]}
+		}
 		out, err := s.client.DeleteObjects(ctx, &s3.DeleteObjectsInput{
 			Bucket: &s.bucket,
-			Delete: &types.Delete{Objects: batch, Quiet: aws.Bool(true)},
+			Delete: &types.Delete{Objects: ids, Quiet: aws.Bool(true)},
 		})
 		if err != nil {
-			return fmt.Errorf("filestore: delete %s: %w", project, err)
+			return err
 		}
 		if len(out.Errors) > 0 {
 			first := out.Errors[0]
-			return fmt.Errorf("filestore: delete %s: %d key(s) refused, first %s: %s %s", project,
+			return fmt.Errorf("%d key(s) refused, first %s: %s %s",
 				len(out.Errors), aws.ToString(first.Key), aws.ToString(first.Code), aws.ToString(first.Message))
 		}
 	}

@@ -70,6 +70,18 @@ func (b *Bucket) Put(key string, body []byte) {
 	b.store(key, body)
 }
 
+// PutWithETag stores body under an ETag of the test's choosing — an object
+// whose bytes do not match its ETag, or one S3 would have given a
+// multipart ETag ("…-N"), neither of which a single PutObject produces.
+func (b *Bucket) PutWithETag(key string, body []byte, etag string) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	b.store(key, body)
+	o := b.objects[key]
+	o.ETag = etag
+	b.objects[key] = o
+}
+
 // Get returns what is stored under key.
 func (b *Bucket) Get(key string) (Object, bool) {
 	b.mu.Lock()

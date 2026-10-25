@@ -61,6 +61,13 @@ const ReservedDir = ".nalanda"
 // ErrInvalidPath is a path ValidRel refuses.
 var ErrInvalidPath = errors.New("files: invalid path")
 
+// ErrSync wraps every failure to keep a project's working copy and the
+// store in step around a worker call: the store unreachable, an object that
+// fails its checksum, a key that is not a clean path. Declared here, not by
+// the adapter, so the job handlers of both subsystems can tell it apart and
+// name it in Spanish without importing infra.
+var ErrSync = errors.New("files: the store could not be brought in step")
+
 // ValidRel accepts a clean, relative, slash-separated path: no leading
 // slash, no empty, "." or ".." segment, no trailing slash, no backslash, no
 // NUL, and nothing under ReservedDir. It is the one check between a value a
