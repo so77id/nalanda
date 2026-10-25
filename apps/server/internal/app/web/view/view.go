@@ -33,7 +33,11 @@ import (
 	"github.com/so77id/nalanda/apps/server/internal/domain/roster"
 )
 
-//go:embed templates/layout.html templates/pages/*.html
+// templates/partials holds blocks more than one page uses (the chunked
+// upload since #339); they are parsed into the layout, so every page's clone
+// can invoke them.
+//
+//go:embed templates/layout.html templates/partials/*.html templates/pages/*.html
 var files embed.FS
 
 var pages = mustParsePages()
@@ -551,6 +555,9 @@ type ControlDetailPage struct {
 	PoolJSONURL string
 	// ScansURL is the POST target of the upload form.
 	ScansURL string
+	// ChunkedUploadURL is where the page's script opens a chunked upload
+	// instead (issue #339); the form still posts to ScansURL without it.
+	ChunkedUploadURL string
 	// ShowAssociation gates the "Asociación" column (issue #272 S7).
 	//
 	// False for a control with no course, where every copy is unmatched
@@ -1010,7 +1017,7 @@ var templateFuncs = template.FuncMap{
 }
 
 func mustParsePages() map[string]*template.Template {
-	layout, err := template.New("layout.html").Funcs(templateFuncs).ParseFS(files, "templates/layout.html")
+	layout, err := template.New("layout.html").Funcs(templateFuncs).ParseFS(files, "templates/layout.html", "templates/partials/*.html")
 	if err != nil {
 		panic("view: parse layout: " + err.Error())
 	}

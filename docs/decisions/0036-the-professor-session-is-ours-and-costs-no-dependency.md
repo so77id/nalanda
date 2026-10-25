@@ -5,6 +5,10 @@ Hardened in part 2026-08-17 (#162, ADR-0038): the session and OAuth-state
 cookies carry the `__Host-` prefix in production, and `handler.clientIP`
 gained a proxy-trust switch. This ADR still governs the session shape;
 ADR-0038 §Decision records the cookie-name split and the switch.
+**Extended by:** ADR-0088 (#339) — the CSRF token may also travel in an
+`X-CSRF-Token` header (a page script's raw-bytes body); present, it is the
+only token considered and the body is not parsed. One token per session,
+constant-time, on every state-changing route — unchanged.
 **Date:** 2026-08-16
 **Decision-makers:** Miguel Rodriguez
 **Source:** #150 (WP-C2), ADR-0009, design `docs/design/2026-08-controles.md` §C12, §C13

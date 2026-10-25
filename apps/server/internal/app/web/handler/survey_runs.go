@@ -386,23 +386,27 @@ func (h *Surveys) renderRunEditForm(w http.ResponseWriter, r *http.Request, one 
 // surveyRun reads the {id} survey and its {rid} run, answering 404 itself
 // when either is absent — including a run of ANOTHER survey.
 func (h *Surveys) surveyRun(w http.ResponseWriter, r *http.Request) (survey.Survey, survey.Run, bool) {
-	one, ok := h.survey(w, r)
+	return h.findRun(r, pageRefusal(w, r))
+}
+
+func (h *Surveys) findRun(r *http.Request, refuse refusal) (survey.Survey, survey.Run, bool) {
+	one, ok := h.findSurvey(r, refuse)
 	if !ok {
 		return survey.Survey{}, survey.Run{}, false
 	}
 	rid, err := strconv.ParseInt(r.PathValue("rid"), 10, 64)
 	if err != nil || rid <= 0 {
-		middleware.WriteError(w, r, http.StatusNotFound, "Esa pasada no existe.")
+		refuse(http.StatusNotFound, "Esa pasada no existe.")
 		return survey.Survey{}, survey.Run{}, false
 	}
 	run, err := h.Service.Run(r.Context(), one.ID, rid)
 	switch {
 	case errors.Is(err, survey.ErrRunNotFound):
-		middleware.WriteError(w, r, http.StatusNotFound, "Esa pasada no existe.")
+		refuse(http.StatusNotFound, "Esa pasada no existe.")
 		return survey.Survey{}, survey.Run{}, false
 	case err != nil:
 		h.Log.Error("reading a run", "survey", one.ID, "run", rid, "error", err)
-		middleware.WriteError(w, r, http.StatusInternalServerError, surveyBroke)
+		refuse(http.StatusInternalServerError, surveyBroke)
 		return survey.Survey{}, survey.Run{}, false
 	}
 	return one, run, true

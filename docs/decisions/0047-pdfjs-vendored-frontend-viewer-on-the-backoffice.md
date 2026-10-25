@@ -2,6 +2,14 @@
 
 **Status:** Accepted
 **Date:** 2026-08-26
+**Amended by:** #339 (2026-10-24) — §4's inline exception also covers the
+one-page stateless enhancement `backend-code-style.md` already allowed (the
+section picker in `controls_form.html`, inline since #234). Stateful
+behaviour is a first-party module under `static/js/`, as §4 says, and since
+#339 so is behaviour more than one page needs.
+**Extended by:** ADR-0088 (#339) — the chunked upload is the first first-party
+`.mjs` under `static/js/`: one explicit embed entry, no README (reviewed as
+code), a `static_test.go` case pinning `text/javascript`.
 
 ## Context
 

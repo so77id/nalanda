@@ -1,0 +1,32 @@
+{{/*
+  The chunked scan upload (issue #339). A scan batch used to cross the link
+  as ONE request, and the server's 15 s read deadline bounds a request's
+  body, so a batch the link could not carry in 15 s never arrived. The
+  module static/js/chunked_upload.mjs, loaded by the second block below,
+  sends it instead in 1 MiB chunks, each its own short request, and resumes
+  from what the server holds after a dropped link, a restarted server or an
+  expired session. This file holds only markup.
+
+  Two blocks, both used by the control page and a run's scans page:
+  chunked_upload_status goes INSIDE a form[data-chunked-upload] (the
+  attribute is the URL that opens an upload), chunked_upload_script goes
+  once per page and loads the behaviour, which lives in
+  static/js/chunked_upload.mjs (ADR-0047 §4: no stateful script inline). The
+  form still posts to its one-request route, so a page whose script did not
+  load uploads as it always did.
+*/}}
+
+{{ define "chunked_upload_status" }}
+  <div class="chunked-upload" data-chunked-status hidden>
+    <progress max="1" value="0" aria-label="Progreso de la subida"></progress>
+    <p data-chunked-line role="status" aria-live="polite"></p>
+    <p>
+      <button type="button" data-chunked-retry hidden>Reintentar</button>
+      <button type="button" data-chunked-cancel>Cancelar</button>
+    </p>
+  </div>
+{{ end }}
+
+{{ define "chunked_upload_script" }}
+<script type="module" src="/static/js/chunked_upload.mjs"></script>
+{{ end }}

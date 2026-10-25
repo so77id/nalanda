@@ -3,7 +3,7 @@
 **Status:** Accepted
 **Date:** 2026-08-16
 **Decision-makers:** Miguel Rodriguez
-**Amended by:** #150 (2026-08-16) — the empty `00001_init.sql` was deleted and the auth schema numbered `00002`; the image measured 12.2 MB after the port · #166 (2026-08-17) — WP-E landed and the server now shares the `amc-work` named volume with `apps/amc-worker`; the two-container seeding-order rule is recorded in §Consequences · #249 (2026-08-27) — the "row is committed AND files are on disk, or neither" atomicity of `Service.Create` and `Service.UploadScan` is now bounded to their SYNC halves (`Service.PrepareControl`, `Service.SaveUploadedBatch`); the async halves (`Service.GenerateAssets`, `Service.AnalyzeBatch`) deliberately preserve the row + files on worker refusal so the professor does not lose the pool snapshot to a transient outage. The full runner design lives in ADR-0050 · #261 (2026-08-27) — deleting a control is now a two-step archive → purge, with soft-delete on `deleted_at` (migration `00013`) and a typed-name confirmation on the destructive step; the ON DELETE CASCADEs this ADR §Consequences left on `control_pregunta`, `copia`, `reading`, `answer`, `annotated_copy` and `job` are what makes the purge one statement. Full three-gate design in ADR-0052. · #271 (2026-09-05) — the roster, the Canvas client and the sealed professor token · **#287 (2026-09-08) — the THIRD atomicity shape (#273's "commit the row before the irreversible external effect") is REVERSED, and the reversal is what makes it a shape rather than a rule.** The record moved from the batch to the COPY (`reading.published_at` / `published_grade`, migration `00019`; `control.published_sent` dropped in `00020`), so the unit of irreversible work is one message and the row is committed immediately AFTER it. Stamping ahead only ever bought crash-safety for a batch that could not be resumed; a per-item record makes the run resumable and the trade disappears. The generalisation: **commit after the external effect when the effect can be split small enough to repeat safely, and before it when it cannot.** Full design in ADR-0073. · #310 (2026-10-05) — `job` left that cascade list: its subject became polymorphic (ADR-0079), the foreign key went with it, and `PurgeControl` deletes the jobs itself in the same transaction — the purge is one transaction, no longer one statement (ADR-0052's #310 amendment)
+**Amended by:** #150 (2026-08-16) — the empty `00001_init.sql` was deleted and the auth schema numbered `00002`; the image measured 12.2 MB after the port · #166 (2026-08-17) — WP-E landed and the server now shares the `amc-work` named volume with `apps/amc-worker`; the two-container seeding-order rule is recorded in §Consequences · #249 (2026-08-27) — the "row is committed AND files are on disk, or neither" atomicity of `Service.Create` and `Service.UploadScan` is now bounded to their SYNC halves (`Service.PrepareControl`, `Service.SaveUploadedBatch`); the async halves (`Service.GenerateAssets`, `Service.AnalyzeBatch`) deliberately preserve the row + files on worker refusal so the professor does not lose the pool snapshot to a transient outage. The full runner design lives in ADR-0050 · #261 (2026-08-27) — deleting a control is now a two-step archive → purge, with soft-delete on `deleted_at` (migration `00013`) and a typed-name confirmation on the destructive step; the ON DELETE CASCADEs this ADR §Consequences left on `control_pregunta`, `copia`, `reading`, `answer`, `annotated_copy` and `job` are what makes the purge one statement. Full three-gate design in ADR-0052. · #271 (2026-09-05) — the roster, the Canvas client and the sealed professor token · **#287 (2026-09-08) — the THIRD atomicity shape (#273's "commit the row before the irreversible external effect") is REVERSED, and the reversal is what makes it a shape rather than a rule.** The record moved from the batch to the COPY (`reading.published_at` / `published_grade`, migration `00019`; `control.published_sent` dropped in `00020`), so the unit of irreversible work is one message and the row is committed immediately AFTER it. Stamping ahead only ever bought crash-safety for a batch that could not be resumed; a per-item record makes the run resumable and the trade disappears. The generalisation: **commit after the external effect when the effect can be split small enough to repeat safely, and before it when it cannot.** Full design in ADR-0073. · #310 (2026-10-05) — `job` left that cascade list: its subject became polymorphic (ADR-0079), the foreign key went with it, and `PurgeControl` deletes the jobs itself in the same transaction — the purge is one transaction, no longer one statement (ADR-0052's #310 amendment) · **#339 (2026-10-24) — the amc-work seeding rule in §Consequences was WRONG**, measured and corrected in place below: Docker seeds a named volume every time it is mounted while still empty, so the server's EMPTY `/work` did not stick and `depends_on` protected nothing; the server image now ships a non-empty `/work` (`/work/incoming`, 65532)
 **Source:** #149 (WP-C1), design `docs/design/2026-08-controles.md` §C10, §C11 · #273 (2026-09-07) — publication adds `published_at`, `publication_mode` and `published_sent` on `control` and `gmail_address` on `users`, and a THIRD atomicity shape: the row is committed BEFORE an irreversible EXTERNAL effect, so a crash costs the un-sent half rather than a duplicate mailing. Every earlier rule here concerns rows and files on one box, both of which this server can undo; an email cannot be recalled. Full design in ADR-0072 §5.
 
 ## Context
@@ -215,13 +215,36 @@ rule the repo already applies to `proof-of-concept/`.
   2. `infra/local/docker-compose.yml` puts `depends_on: server` on
      `amc-worker` (`service_started`), so the server is the first container
      up in a fresh compose stack.
-  Removing either half re-opens the EACCES. `NALANDA_WORK_DIR` is where the
+  Removing either half re-opens the EACCES.
+
+  > **Corrected by #339 (2026-10-24).** Claimed above: Docker seeds a fresh
+  > volume from the FIRST container that touches it, so the two halves keep
+  > it 65532. Demonstrated otherwise, with `docker create` on scratch
+  > volumes: Docker seeds a named volume EVERY time a container mounts it
+  > while it is still EMPTY. The server image's `/work` was an empty
+  > directory, so after the server's seed the volume was still empty, the
+  > worker's mount seeded it again as `0:0` (its root carried the worker
+  > image's timestamp), and the server's next `os.MkdirAll` under `/work`
+  > failed EACCES; with one entry in the volume between the two, the
+  > worker's mount copied nothing. A fresh `docker compose create` came up
+  > `0:0` with both halves in place. **Honest statement:** the ORDER does not
+  > decide the owner; a NON-EMPTY server `/work` does. Since #339 the image
+  > ships `/work/incoming` owned 65532, and the same `compose create` comes
+  > up 65532. A volume that already has content is never re-seeded, so the
+  > Jetson's (seeded long ago) is untouched. A volume an older image left
+  > root-owned and STILL EMPTY is re-seeded by the new server image's
+  > container and needs nothing; one left root-owned that already holds
+  > files keeps that owner and needs its root chowned to 65532 once.
+
+  `NALANDA_WORK_DIR` is where the
   server sees this volume; the `.tex` the generator emits always uses `/work`
   absolute paths, because that is the WORKER's mount point regardless of
-  what the server names its own. Review trigger: any change to
-  `apps/server/Dockerfile`'s `/work` ownership, to the compose `depends_on`,
-  or to either container's UID. The compose path in the pre-PR protocol
-  (§`apps/server` of `testing-strategy.md`) still cannot exercise a real
+  what the server names its own. Review trigger (since #339): any change that
+  leaves the server image's `/work` EMPTY (dropping `/work/incoming` from the
+  Dockerfile's `mkdir`), changes its owner, or changes either container's
+  UID — the compose `depends_on` is no longer what this rule rests on. The
+  compose path in the pre-PR protocol (§`apps/server` of
+  `testing-strategy.md`) still cannot exercise a real
   `/generate`, so the L8 human check is where this rule fails last.
 
 ## References

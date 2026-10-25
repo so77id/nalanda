@@ -37,7 +37,9 @@ and the run is closed (ADR-0081). Since #312 a closed run has results:
 per-question statistics with a context filter, a comparison across closed
 runs and three CSV exports, computed at request time from `survey_mark`
 counts — one aggregate query per set of copies, never one per question, no
-new table (ADR-0082).
+new table (ADR-0082). Since #339 a scan batch — a control's or a run's — can
+also cross a slow link in resumable 1 MiB chunks, held on the shared volume
+by `internal/domain/uploads` until it is whole (ADR-0088).
 
 Commands, stack, configuration and layout live in `README.md` — one home per
 fact.
@@ -122,6 +124,16 @@ fact.
   `PublishOne` / `ResendToWholeCourse` / `PublicationCounts`, and
   `upsertReading`'s `ON CONFLICT` column list in
   `internal/infra/storage/controlstore/readings.go`.
+- `docs/decisions/0088-scan-batches-cross-a-slow-link-in-resumable-chunks.md`
+  — the chunked upload: the five kinds of request (seven routes) and their
+  JSON, the partials on the shared volume and how they are read, the bounds,
+  CSRF from `X-CSRF-Token`, and the page's script. Read before touching
+  `internal/domain/uploads`, `handler/uploads.go`, the start/complete
+  handlers of either subsystem, `VerifyCSRF`'s header or multipart branch,
+  `internal/app/web/static/js/chunked_upload.mjs`, or
+  `templates/partials/chunked_upload.html`. A change to the module is
+  unfinished until the browser check in `testing-strategy.md` §`apps/server`
+  ran: nothing in `go test` executes it.
 - `docs/security-notes.md` §"Logs and personal data" — read before adding any
   `slog` call on a path that holds a RUT, a name or a student address. The
   rule is that the identifier stays OUT of the line; the `_action` /
@@ -143,9 +155,17 @@ fact.
   Directory-shaped requests answer 404 (both trailing-slash AND bare-name
   — Go's default 301 on a bare directory is refused). The `/static/`
   URL prefix is a string literal spelled in router.go, in the template
-  that consumes the asset, and in the vendor README — a rename touches
-  all three; there is no shared constant on purpose (see the router
-  entry's comment).
+  that consumes the asset, in the vendor README and, since #339, in
+  `templates/partials/chunked_upload.html` — a rename touches all four;
+  there is no shared constant on purpose (see the router
+  entry's comment). **Stateful or shared first-party JS goes under
+  `static/js/`, never inline in a template** (ADR-0047 §4, amended by #339):
+  one more embed entry, no README, and a `static_test.go` case pinning
+  `text/javascript` — worked case `js/chunked_upload.mjs` (#339), loaded from
+  `templates/partials/chunked_upload.html`. The inline shapes still allowed
+  (vendored-library glue, a one-page stateless enhancement) are in
+  `docs/standards/backend-code-style.md` §"Client-side JS in a server
+  template"; that section is their one home.
 - `README.md` §"What is not here yet" — before adding anything, check whether
   the work belongs to **WP-G** (publishing grades) or to the deletion path
   `security-notes.md` records as missing. **WP-C1, WP-C2,
@@ -380,7 +400,42 @@ the `avisoNo*` / `flash.Set(…)` string literals in `internal/app/web/handler/`
   same rule** (#311): `survey.Service.SaveUploadedBatch` writes the batch
   on the request goroutine before `handler.Surveys.UploadScans` submits
   its `survey_analyse`, and nothing past that deletes it — only "Borrar
-  escaneos", through the worker.
+  escaneos", through the worker. **And the chunked path carries it too**
+  (#339, ADR-0088): `uploads.Service.Complete` hands the finished partial to
+  the SAME `SaveUploadedBatch` and removes the partial only after it returned;
+  the handler submits afterwards. The payload-and-Submit half is ONE function
+  per subsystem, shared by both upload paths (`Controls.submitAnalysis`,
+  `Surveys.submitReading`), so the two cannot drift apart.
+- **A chunked upload's partials live on the volume the worker mounts as
+  root, and there is ONE `uploads.Service` (issue #339, ADR-0088).** Five
+  rules, each with its reason:
+  1. **The partial's SIZE is what arrived.** No table, no counter: a restart
+     loses nothing because there is nothing else to lose. A cut chunk keeps
+     its prefix on purpose — it is the right bytes at the right offset.
+  2. **Only an upload's own names are ever touched** — `<uid>.part`,
+     `.json`, `.tmp` directly under `<WorkDir>/incoming/`; the sweep and the
+     eviction log anything else and leave it. Files are opened
+     `O_NOFOLLOW|O_NONBLOCK` and must be regular, and the sidecar is
+     re-validated on every read: a partial swapped for a symlink to the
+     database would otherwise be "saved" as a batch
+     (`TestASymlinkedPartIsNeverFollowed`), and a FIFO would block `open(2)` —
+     and through the eviction's mutex every Create
+     (`TestAFIFOOnTheSharedVolumeIsRefusedAndBlocksNothing`). What is NOT
+     defended: `incoming/` itself replaced by a symlink is followed — the
+     accepted residual in `docs/security-notes.md` §"Chunked uploads read
+     the shared volume defensively" (the fix is `os.OpenRoot`).
+  3. **One `uploads.Service` per process**, built once in `cmd/server` and
+     handed to `handler.Uploads`, `Controls` and `Surveys` alike. The
+     per-upload lock that keeps a chunk, a complete and the sweep apart is in
+     memory; a second instance serialises nothing.
+  4. **`internal/domain/uploads` imports neither subsystem**
+     (`TestTheUploadsDomainImportsNeitherSubsystem`): a subject is a kind and
+     an id, and a subsystem's own fields (a control's thresholds) ride as
+     opaque metadata.
+  5. **Never answer a slow upload with a longer read window.** Every chunk
+     lives under `httpserver.readTimeout`'s 15 s, which is the point of
+     chunking; a route that wants a long body is the case this protocol
+     exists to avoid.
 - **A new async operation (a new `jobs.Kind`) lands in FOUR
   coordinated places, and the runner's `NewRunner` panics at boot if
   any is missing (issue #249, ADR-0050).**

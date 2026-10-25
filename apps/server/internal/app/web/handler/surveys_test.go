@@ -20,6 +20,7 @@ import (
 	"github.com/so77id/nalanda/apps/server/internal/domain/jobs"
 	"github.com/so77id/nalanda/apps/server/internal/domain/roster"
 	"github.com/so77id/nalanda/apps/server/internal/domain/survey"
+	"github.com/so77id/nalanda/apps/server/internal/domain/uploads"
 	"github.com/so77id/nalanda/apps/server/internal/infra/amcworker/amctest"
 	"github.com/so77id/nalanda/apps/server/internal/infra/storage"
 	"github.com/so77id/nalanda/apps/server/internal/infra/storage/authstore"
@@ -48,6 +49,8 @@ type surveyFixture struct {
 	worker     *amctest.Fake
 	jobs       *jobstore.Store
 	runner     *jobs.Runner
+	// uploads holds the chunked uploads (issue #339) beside the batches.
+	uploads *uploads.Service
 }
 
 func newSurveyFixture(t *testing.T) *surveyFixture {
@@ -96,8 +99,12 @@ func newSurveyFixture(t *testing.T) *surveyFixture {
 		jobs.KindSurveyGenerate: survey.NewGenerateHandler(f.surveys),
 		jobs.KindSurveyAnalyse:  survey.NewAnalyseHandler(f.surveys),
 	}, log, func() time.Time { return f.now })
+	f.uploads = uploads.NewService(uploads.Service{
+		Root: filepath.Join(f.worker.WorkDir, uploads.DirName), MaxBytes: 5 << 20, Log: log,
+	})
 	f.handler = handler.NewSurveys(handler.Surveys{
 		Service:   f.surveys,
+		Uploads:   f.uploads,
 		Courses:   roster.NewService(courses, stubCourseSource{}),
 		Jobs:      f.jobs,
 		Runner:    f.runner,

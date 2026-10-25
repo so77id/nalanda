@@ -526,3 +526,33 @@ func TestTheSurveyDomainDoesNotImportControls(t *testing.T) {
 		t.Fatalf("found %d survey packages, want at least %d — if they moved, repoint surveySide", checked, len(surveySide))
 	}
 }
+
+// Issue #339. A chunked upload's partials are kept by internal/domain/uploads,
+// which BOTH subsystems use — so it may import neither, or the survey side
+// would reach the controls through it (ADR-0078) and the controls would reach
+// the surveys. It knows a subject only as a kind and an id.
+func TestTheUploadsDomainImportsNeitherSubsystem(t *testing.T) {
+	packages := readPackages(t)
+
+	uploads := domainPrefix + "/uploads"
+	subsystems := []string{
+		domainPrefix + "/controls",
+		domainPrefix + "/survey",
+		infraPrefix + "/storage/controlstore",
+		infraPrefix + "/storage/surveystore",
+	}
+
+	deps, ok := packages[uploads]
+	if !ok {
+		t.Fatalf("no package %s in the walk — if it moved, repoint this test", uploads)
+	}
+	for _, dep := range deps {
+		for _, prefix := range subsystems {
+			if inLayer(dep, prefix) {
+				t.Errorf("%s depends on %s.\nThe uploads package is shared by the controls and the "+
+					"surveys, so it may depend on neither (ADR-0078). It carries a subsystem's fields "+
+					"as opaque metadata instead.", uploads, dep)
+			}
+		}
+	}
+}

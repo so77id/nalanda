@@ -69,6 +69,11 @@ it — script names, test titles, the fixture's own comments.
   paraphrase the first two and silently omit the others.
 - **Anything the caller passes crosses the volume, not the wire.** Requests name
   paths under `/work`; PDFs and scans never travel as HTTP bodies.
+- **`/work/incoming/` belongs to `apps/server`** (chunked-upload partials,
+  ADR-0088). The worker never reads, writes, lists or cleans it, and an
+  operation that walks `/work` as a whole must skip it: anything else writing
+  there is a review trigger in `docs/security-notes.md` §"Chunked uploads read
+  the shared volume defensively".
 - **A new field in the `/analyse` or `/reanalyse` response body is
   OPTIONAL on the wire.** The server merges FIRST — this repo ships
   server and worker in the same monorepo but each has its own CD

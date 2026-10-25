@@ -466,6 +466,58 @@ part of its own pre-PR run. Worked case: #231 caught its own
 the tree; the tests said nothing until then. Same class as PAPER-CHECK
 above but scoped to the JS/browser edge.
 
+The same blindness covers a first-party module under `/static/js/`, and since
+#339 there is one, the first script on this surface that CHANGES state:
+`static/js/chunked_upload.mjs`, the chunked scan upload on the control page
+and a run's scans page (ADR-0088 §6). The suite pins only that it is served
+as `text/javascript` (`static_test.go`) and that both pages render the form's
+`data-chunked-upload`, the status block and the one `<script type="module"
+src>` tag (`chunked_form_test.go`). Its check is a Playwright run against
+the compose stack, with Chromium's upload throttled through CDP
+(`Network.emulateNetworkConditions`, `uploadThroughput: 125000` for 1
+Mbit/s): a clean upload, `offline: true` for 30 s mid-upload, a
+`docker compose restart server` mid-upload, and the session row deleted
+mid-upload then a new one signed in before Reintentar — each ending with the
+stored `batch-N.pdf`'s sha256 equal to the source's. Two traps measured in
+#339: the redirect after complete is the SAME URL as the page, so wait for a
+navigation rather than a URL match (`waitForURL` resolves at once and the
+browser closes mid-upload); and a FRESH `amc-work` volume came up
+root-owned under `docker compose up`, so the server could not create anything
+under `/work` (`mkdir /work/controls: permission denied`). The cause, measured
+in #339's review: Docker re-seeds a volume every time it is mounted while still
+empty, and the server image's `/work` was empty, so the worker's seed won.
+The image now ships `/work/incoming` and a fresh volume comes up 65532
+(ADR-0034 §Consequences, corrected by #339). A volume an older image left
+root-owned and still EMPTY is re-seeded by the new server's container; only
+one left root-owned that already holds files needs `docker run --rm -v
+<project>_amc-work:/work alpine chown 65532:65532 /work` once.
+
+**Setting the check up**, since an agent cannot sign in through Google: run
+the stack under its own project name (`docker compose -p <name> -f
+infra/local/docker-compose.yml up -d --build --wait`, with
+`NALANDA_QUESTIONS_JSON_URL` pointing at the published bank so a control can
+be created); insert a professor and a session straight into SQLite through a
+throwaway container on the `server-data` volume (`users` row, then a
+`user_sessions` row whose `token_hash` is the hex SHA-256 of a random token
+you keep, with its own `csrf_token` and `expires_at` a day out); create a
+course row, then a control (and a survey, a question and a run) through the
+real forms with `curl`, passing the cookie and the `csrf_token`; wait for the
+`jobs: job done` log line of each generation. The fixture: the control's or
+the run's own `out/sujet.pdf`, rasterised at 300 dpi (`gs -sDEVICE=png16m
+-r300` inside the worker) and rebuilt as a noisy JPEG PDF of ≥ 11 MB, so a
+resume crosses several chunks and the analyse job reads real pages. The
+Playwright rig lives outside the tree, as #231's did (Playwright is not a
+dependency of this repo; the formal L5 suite is its own WP).
+
+**Last run**: 2026-10-25, on the stack built from ee52a6d (go1.26.10, after
+the rebase onto #341's toolchain): a clean upload, 30 s offline, Cancelar, a
+`docker compose restart server` mid-upload, the session row deleted
+mid-upload then Reintentar after a new session, and a survey run with 30 s
+offline AND a restart. Every stored batch hashed the same as its source and
+every analyse job finished. The `amc-worker` must be running: with it down,
+every upload still lands and every analyse job fails at once with "el motor
+de lectura no está disponible".
+
 **A form-render test for an enum-valued input (radio or select) asserts the
 chosen value carries `checked` AND every other value does NOT, in the same
 test.** The pair kills two mutations at once — "both values render `checked`"

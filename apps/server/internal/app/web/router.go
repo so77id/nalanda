@@ -71,6 +71,11 @@ type Deps struct {
 	// ADR-0078) — its own handler struct, because the subsystem is a
 	// sibling of the controls and shares no handler with them.
 	Surveys *handler.Surveys
+	// Uploads is the chunked scan upload's subject-free half (issue #339):
+	// a chunk, its status and Cancelar, addressed by the upload's uid. The
+	// create and complete routes belong to the subsystem the batch is for,
+	// on Controls and Surveys.
+	Uploads *handler.Uploads
 	// Log is spelled the same here as in the two structs above.
 	Log *slog.Logger
 }
@@ -124,11 +129,14 @@ func routes(deps Deps) []Route {
 			// template does not verify (`Never let a comment claim what the
 			// suite does not verify`, apps/server/CLAUDE.md). The vendor
 			// README's §"How it is served" is the third copy of the URL and
-			// names this file; a rename touches all three.
+			// names this file, and since #339 the chunked-upload partial
+			// (templates/partials/chunked_upload.html) is the fourth; a
+			// rename touches all four.
 			Method: http.MethodGet, Path: "/static/",
 			Handler: http.StripPrefix("/static/", static.Handler()).ServeHTTP,
 			Public:  true,
-			Why: "vendored front-end assets (PDF.js today) — the review page loads pdf.mjs as an " +
+			Why: "front-end assets — vendored PDF.js and, since #339, the first-party chunked-upload module, " +
+				"neither holding anything session- or user-scoped (ADR-0047 §3) — the review page loads pdf.mjs as an " +
 				"ES module AFTER the professor has signed in, so the happy path carries a session " +
 				"cookie. What Public defends is the stale-tab case: if the session expires while " +
 				"the tab is open, gating the module would 302-redirect the import to the login " +
@@ -203,6 +211,17 @@ func routes(deps Deps) []Route {
 		{
 			Method: http.MethodPost, Path: handler.ControlScansPath,
 			Handler: deps.Controls.UploadScan,
+		},
+		// Issue #339: a batch in chunks — opened under the control,
+		// finished under it again. JSON for the page's script; CSRF by
+		// header, like the chunks themselves.
+		{
+			Method: http.MethodPost, Path: handler.ControlScanUploadsPath,
+			Handler: deps.Controls.StartScanUpload,
+		},
+		{
+			Method: http.MethodPost, Path: handler.ControlScanUploadCompletePath,
+			Handler: deps.Controls.CompleteScanUpload,
 		},
 		{
 			Method: http.MethodPost, Path: handler.ControlReanalyzePath,
@@ -355,6 +374,23 @@ func routes(deps Deps) []Route {
 			Method: http.MethodPost, Path: handler.JobDismissPath,
 			Handler: deps.Controls.DismissJob,
 		},
+		// Issue #339: one upload in progress, by its uid. Gated like every
+		// route; the PUT and the DELETE change state, so the table's CSRF
+		// rule applies to them — through the X-CSRF-Token header, since a
+		// chunk's body is raw bytes. JSON answers: the reader is the page's
+		// script, not the professor.
+		{
+			Method: http.MethodPut, Path: handler.UploadPath,
+			Handler: deps.Uploads.Append,
+		},
+		{
+			Method: http.MethodGet, Path: handler.UploadPath,
+			Handler: deps.Uploads.Status,
+		},
+		{
+			Method: http.MethodDelete, Path: handler.UploadPath,
+			Handler: deps.Uploads.Cancel,
+		},
 		// Epic #308: the survey screens (ADR-0078). Every one gated by
 		// default — a survey's bank and, later, its answers are course
 		// data — and every POST CSRF-verified by the table.
@@ -453,6 +489,16 @@ func routes(deps Deps) []Route {
 		{
 			Method: http.MethodGet, Path: handler.SurveyRunScansPath,
 			Handler: deps.Surveys.RunScans,
+		},
+		// Issue #339: a run's batch in chunks, opened and finished under
+		// the run (the controls' twin, ADR-0078 keeps them apart).
+		{
+			Method: http.MethodPost, Path: handler.SurveyRunScanUploadsPath,
+			Handler: deps.Surveys.StartScanUpload,
+		},
+		{
+			Method: http.MethodPost, Path: handler.SurveyRunScanUploadCompletePath,
+			Handler: deps.Surveys.CompleteScanUpload,
 		},
 		{
 			Method: http.MethodPost, Path: handler.SurveyRunScansPath,
@@ -632,6 +678,8 @@ func Router(deps Deps) http.Handler {
 		panic("web.Router: no admin bank handler")
 	case deps.Surveys == nil:
 		panic("web.Router: no surveys handlers")
+	case deps.Uploads == nil:
+		panic("web.Router: no uploads handlers")
 	case deps.Log == nil:
 		panic("web.Router: no logger")
 	}

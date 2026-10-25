@@ -28,9 +28,9 @@ first when the endpoint needs a table it does not have.
 | | `internal/app/web` | `internal/app/api` |
 |---|---|---|
 | Reader | the professor, in a browser | `apps/web`, on a student's machine |
-| Renders | server-side `html/template` | JSON, and WebSocket later (ADR-0008) |
+| Renders | server-side `html/template` — plus JSON for a page's OWN script (§"A pattern the chunked upload adds") | JSON, and WebSocket later (ADR-0008) |
 | Auth | a session, via the middleware | none — anonymous, room codes (§C12) |
-| Errors | a page, in Spanish | a JSON body |
+| Errors | a page, in Spanish (a `{"message"}` body to a page's script) | a JSON body |
 
 The two never import each other, and `internal/architecture_test.go` fails the
 build if they do. What they share goes in `internal/domain`, or in
@@ -576,6 +576,48 @@ first:
 Both directions of (2) and (3) are pinned by tests: a login nonce cannot
 complete the second grant, and its cookie cannot complete a login. Policy:
 ADR-0072 §2.
+
+## A pattern the chunked upload adds — JSON routes for a page's script
+
+First worked case: the chunked scan upload (#339, ADR-0088,
+`handler/uploads.go` and the start/complete pairs in `scans.go` and
+`survey_scans.go`). The backoffice renders pages, but a page's script that
+must talk to the server WITHOUT leaving the page gets JSON routes on the SAME
+surface, behind the same table — never on `/api`, which is anonymous by
+construction (§C12). Six rules:
+
+1. **Gated and in the table like any route.** A state-changing one carries
+   the session's token in `X-CSRF-Token`
+   (`middleware.CSRFHeaderName`), which the script reads from the page's own
+   `csrf_token` field; `VerifyCSRF` then leaves the body alone. The table's
+   CSRF guard covers it with no change.
+2. **An error is `{"message": "<Spanish>"}`**, which the script shows
+   verbatim — so it is written for the professor and carries no internal
+   error (that is logged). Add a field only when the script must ACT on it
+   (`received`, the number a resumed upload starts from).
+3. **No answer is cached** (`writeUploadJSON`: `no-store`, `nosniff`, then
+   `httpjson.Write`, which encodes before the header).
+4. **An expired session needs no JSON shape of its own.** The gate still
+   redirects to `/login`; `fetch` follows it and receives a page where JSON was
+   expected, and the shell's 403 for a token gone stale arrives the same way.
+   The script reads "not JSON" as "sign in again".
+5. **A lookup the screens share answers in the caller's format.** Rather
+   than a second copy of the survey and run lookups, they take a `refusal`
+   (`pageRefusal` for a screen, `Surveys.jsonRefusal` for the script) — copy
+   that shape before duplicating a lookup.
+
+6. **The script hard-codes no route.** Its first URL comes from the page — a
+   `data-*` attribute the template writes from a `…PathFor` builder — and every
+   later one from the server's answer (`chunks`, `complete`), so `router.go`
+   stays the one place that decides the URL space.
+
+The script itself is a first-party module under `internal/app/web/static/js/`
+(ADR-0047 §4; `backend-code-style.md` §"Client-side JS in a server template")
+— worked case `chunked_upload.mjs` — and markup it drives that more than one
+page needs is a block in `templates/partials/`. Nothing in `go test` runs the
+module, so every change to it is checked in a real browser
+(`testing-strategy.md` §`apps/server`, the paragraph after "inline browser
+scripts").
 
 ## A file export (CSV)
 

@@ -44,7 +44,7 @@ Environment variables, read once at boot. A required variable that is absent
 | `NALANDA_QUESTIONS_JSON_URL` | yes | The published question bank (ADR-0032). `http://`, `https://` or `file://`. Fetched at boot AND polled at `NALANDA_BANK_REFRESH_INTERVAL` cadence (issue #230, ADR-0032 §Addendum). A parse failure **at boot** is a startup panic; a failure **on a subsequent refresh** logs `WARN` and preserves the last-good snapshot — the server never nils the pointer. WP-E |
 | `NALANDA_AMC_WORKER_URL` | yes | The AMC worker's HTTP origin, e.g. `http://amc-worker:8080` in compose. Absolute http/https URL, no path. WP-E |
 | `NALANDA_WORK_DIR` | yes | Where the server sees the shared volume. The `.tex` generator emits `/work` absolute paths regardless (that is the worker's mount); this only decides where the server writes its files. WP-E |
-| `NALANDA_MAX_SCAN_MB` | no (`100`) | Largest scan PDF the upload handler accepts, in whole MB. A 4-page control at 300 dpi is roughly 3–5 MB; 100 fits a large class and refuses a runaway upload before it enters the worker. WP-F |
+| `NALANDA_MAX_SCAN_MB` | no (`100`) | Largest scan PDF the upload handler accepts, in whole MB. A 4-page control at 300 dpi is roughly 3–5 MB; 100 fits a large class and refuses a runaway upload before it enters the worker. Since #339 it is also the largest size a chunked upload may declare at start, and so bounds its partial on disk. WP-F |
 | `NALANDA_ANNOTATE_ENABLED` | no (`true`) | The annotate loop's master switch (issue #190). `false` turns the whole flow off: no `/annotate/copy` calls, no `annotated_copy` rows, the review page serves the raw scan — the escape hatch if the AMC-patching approach breaks against a real batch. Only `true`/`false`; a misspelling is a startup error |
 | `NALANDA_BANK_REFRESH_INTERVAL` | no (`5m`) | How often LiveBank polls `NALANDA_QUESTIONS_JSON_URL` for a fresh `questions.json` (issue #230). A Go duration; matches the Watchtower poll cadence on the Jetson so the server refreshes at the same rhythm as the container. `0s` disables the ticker — the manual admin button is then the only refresh path. A negative value is a startup error |
 | `NALANDA_SECRETS_MASTER_KEY` | no | The AES-256 key sealing `user_secrets` — the professor's Canvas API token (#271) and their Gmail refresh token (#273) (issue #271, ADR-0068). Base64 of exactly 32 bytes (`openssl rand -base64 32`). **Absent or empty is legal**: the server boots and the Canvas integration reports itself unconfigured, so a deploy that has not been given a key yet stays up instead of refusing to start (the Jetson restarts within five minutes of a merge, ADR-0038 — a required variable here would take production down in that window). **Present but not 32 bytes after decoding is a startup error** naming the variable; a typo must not read as "not configured". Never printed: `config.Config` reports only whether it is set. WP-1 of epic #270 |
@@ -155,17 +155,23 @@ internal/domain/   business types and the interfaces they need — PURE
                    (compare.go), pure arithmetic over the store's counts
     tex/           the anonymous sheet's AMC source, with its own TeX
                    escaper (security-notes.md)
+  uploads/         a scan batch crossing a slow link in chunks (issue #339,
+                   ADR-0088): `<WorkDir>/incoming/<uid>.part` + its
+                   sidecar, the per-upload locks, the eviction and the
+                   sweep. Neutral — imports neither controls nor survey
+                   (TestTheUploadsDomainImportsNeitherSubsystem)
 internal/app/web/  the professor's backoffice
   handler/         one file per area: login, professors, profile, courses,
                    controls (+ scans, review, publish…) and surveys
   middleware/      cookie → professor, the gate, CSRF, and the surface-agnostic request log
   oauthstate/      the single-use state nonces of the OAuth flow
   flash/           the one-shot POST/redirect/GET message cookie
-  view/            html/template, embedded — shell + pages
-  static/          vendored front-end assets (PDF.js today), embedded via
-                   //go:embed and served under /static/ (ADR-0047). New
-                   libraries land under vendor/<lib>/ with their own README
-                   (source, version, SHA-384, upgrade recipe).
+  view/            html/template, embedded — shell + partials + pages
+  static/          front-end assets embedded via //go:embed and served
+                   under /static/ (ADR-0047): vendored libraries (PDF.js
+                   today) under vendor/<lib>/ with their own README (source,
+                   version, SHA-384, upgrade recipe), and first-party modules
+                   under js/ (the chunked upload since #339, ADR-0088)
 internal/app/api/  the JSON/WS surface — anonymous, no middleware (§C12)
 internal/infra/    adapters: config, storage, httpserver, httpjson, selfcheck
   amcworker/       the AMC worker HTTP client (with generateLock mutex);
@@ -366,6 +372,16 @@ colour); and three CSV exports. All of it is computed at request time from
 one aggregate query per set of copies (screen 6 runs two), never one per
 question; nothing is stored.
 
+Since issue #339 both scan forms — a control's and an open run's — upload in
+**resumable 1 MiB chunks** when the page's module (`static/js/chunked_upload.mjs`)
+loads, and post as one request as before when it does not (ADR-0088). The
+page shows progress and "Sin conexión, reintentando…" while the link is down,
+retries without giving up while the tab is open, says so when the session
+expired, and offers Cancelar. A reload or a page change abandons the upload.
+The partials wait in `<WorkDir>/incoming/`; a professor holds at most four
+(a fifth evicts the least recently grown), one idle for 24 h is swept at boot
+and hourly, and `docker compose restart server` mid-upload loses nothing.
+
 Routes today:
 
 | Route | What |
@@ -381,7 +397,10 @@ Routes today:
 | `GET /controls/{id}` | Detail: metadata, PDF downloads (gated on the latest generate job reaching `done` — hidden while queued/running/failed since #257, so no button 404s), the Escaneos upload form, the Resultados table — which since #287 carries an **Envío** column on a graded control, rendering the four per-copy situations and, for a skipped copy, its reason — (after upload) the *Cerrar corrección* button, (once graded) the statistics panel — globals, histogram, boxplot, item analysis (issue #251) — and the publication block, where **Publicar** now sits beside the "Publicado el …" line rather than instead of it, with **Reenviar a todo el curso** in the slot "Deshacer la publicación" used to occupy. A failed publication's banner also renders the job's detail — which copies did not go out and the repair — and, while the professor's Gmail is disconnected, a link to `/profile` (issue #297; no other kind's detail is shown) |
 | `GET /controls/{id}/sujet.pdf` · `GET /controls/{id}/corrige.pdf` | Streamed from the shared volume |
 | `GET /controls/{id}/pool.json` | The pool snapshot written at Create time (issue #198) — attachment |
-| `POST /controls/{id}/scans` | Multipart PDF upload — writes the PDF to disk synchronously, then enqueues an `analyse` job. The runner hands the file to the worker's `/analyse`, persists the report and the pair, annotates clean copies and flips the state to `in_review`. Detail page's banner surfaces the running/done/failed state (issue #249). A second batch REPLACES the sheets it re-scans and adds the rest; a copy it re-captured loses its corrections and annotated PDF and keeps its publication record. A batch the worker recognised none of fails the job; a done job's banner says how many pages it could not place and how many published copies it re-read (issue #298, ADR-0075) |
+| `POST /controls/{id}/scans` | Multipart PDF upload — writes the PDF to disk synchronously, then enqueues an `analyse` job. The runner hands the file to the worker's `/analyse`, persists the report and the pair, annotates clean copies and flips the state to `in_review`. Detail page's banner surfaces the running/done/failed state (issue #249). A second batch REPLACES the sheets it re-scans and adds the rest; a copy it re-captured loses its corrections and annotated PDF and keeps its publication record. A batch the worker recognised none of fails the job; a done job's banner says how many pages it could not place and how many published copies it re-read (issue #298, ADR-0075). It is the form WITHOUT the page's script, which uploads in chunks instead (the next two rows); a body the 15 s read deadline cuts answers **408** "La subida tardó demasiado y se cortó…" with `WARN "upload body read timed out"`, never the 403 it used to (issue #339) |
+| `POST /controls/{id}/scans/uploads` | Opens a chunked upload of a batch (issue #339, ADR-0088) — JSON from the page's script, CSRF in `X-CSRF-Token`. Refuses before a byte travels what the form above refuses: an unknown control (404), a size over `NALANDA_MAX_SCAN_MB` (413), a name or type that is not a PDF or thresholds outside the band (400). Answers 201 `{upload, received, chunk, chunks, complete}` — `chunks` is the upload's `/uploads/{uid}`, so the page's script knows no route of its own; the thresholds ride with the upload |
+| `POST /controls/{id}/scans/uploads/{uid}/complete` | Turns a whole upload into the control's next `batch-N.pdf` through the same `SaveUploadedBatch`, removes the partial only after it returned, then enqueues the `analyse` job and sets the form's flash; answers `{redirect}`. 409 with `received` while bytes are missing, 404 for another control's or an unknown uid (a second complete included), 400 when the bytes are not a PDF |
+| `PUT /uploads/{uid}?offset=N` · `GET /uploads/{uid}` · `DELETE /uploads/{uid}` | One upload in progress, whatever it is for (issue #339, ADR-0088), reachable only by its creator. PUT appends ≤ 1 MiB of raw bytes at `offset` → `{received}`; a wrong offset is 409 with `received` and writes nothing, a chunk over 1 MiB or past the declared size 413, a body the deadline cut 408 and one the link cut 400 — both with `received`, keeping what arrived. GET answers `{received, size}`, never cached — the page's resync. DELETE is Cancelar (204). Unknown, foreign and malformed uids are one identical 404. JSON errors are `{"message"}` in Spanish |
 | `POST /controls/{id}/reanalyze` | Enqueues a `reanalyse` job: the runner re-reads the stored captures at new `ticked`/`unsure` thresholds without a new capture, re-scores at them, and re-annotates the clean copies (issue #197, async since #249) |
 | `POST /controls/{id}/close` | Moves the control to `graded` when every failure kind is resolved (WP-F S8), then fires `OnCorrectionClosed` (issue #190), then enqueues an `annotate` job as a defensive re-annotate pass (issue #249) |
 | `POST /jobs/{id}/dismiss` | On a TERMINAL job (`done`/`failed`), stamps `viewed_at` and redirects back to the page the banner lives on — the control's detail, or since #310 the survey run's dashboard. On a still-running job (`queued`/`running`) it is a plain redirect — no stamp, so the eventual done/failed banner is never pre-muted (issue #249, terminal-only narrowing in #257). The "Refrescar" / "Cerrar aviso" button on the banner posts here |
@@ -430,7 +449,8 @@ Routes today:
 | `GET /surveys/{id}/runs/{rid}/sujet.pdf` | The printable sheet, streamed once the latest `survey_generate` is done; 404 on a cancelled run, whose dashboard offers no actions |
 | `GET /surveys/{id}/runs/{rid}/edit` · `POST /surveys/{id}/runs/{rid}/edit` | Rename / re-date a run; the printed copies are not editable |
 | `POST /surveys/{id}/runs/{rid}/cancel` | Cancel an open run — refused with a flash while a job about it is queued or running, and once it has scans (an upload or a read copy, #311: "Borrar escaneos" first). A cancelled run stays listed and releases the bank |
-| `GET /surveys/{id}/runs/{rid}/scans` · `POST /surveys/{id}/runs/{rid}/scans` | Screen 10 (issue #311): the batches on disk and the reading totals; the multipart POST writes the PDF as the next `batch-N.pdf` BEFORE it queues `survey_analyse` (the controls' size limit), and lands back here. Only an open run takes scans |
+| `GET /surveys/{id}/runs/{rid}/scans` · `POST /surveys/{id}/runs/{rid}/scans` | Screen 10 (issue #311): the batches on disk and the reading totals; the multipart POST writes the PDF as the next `batch-N.pdf` BEFORE it queues `survey_analyse` (the controls' size limit), and lands back here. Only an open run takes scans. Like the control's, the POST is the form without the page's script, and its timed-out body answers 408 (issue #339) |
+| `POST /surveys/{id}/runs/{rid}/scans/uploads` · `POST /surveys/{id}/runs/{rid}/scans/uploads/{uid}/complete` | The controls' chunked pair for an OPEN run (issue #339, ADR-0088): start answers 409 on a run that is not open and refuses a size over the cap or a non-PDF before a byte travels; complete writes the run's next `batch-N.pdf` through `survey.SaveUploadedBatch` (409 if the run closed meanwhile), removes the partial, queues `survey_analyse` and answers `{redirect}` to screen 10. The chunks go to `/uploads/{uid}` |
 | `GET /surveys/{id}/runs/{rid}/scans/reset/confirm` · `POST /surveys/{id}/runs/{rid}/scans/reset` | "Borrar escaneos" (issue #311, ADR-0081 §5): both 404 on a run that is not open or has nothing to erase; the GET counts what goes and asks for `Pasada N`; the POST answers 409 while the run's job is in flight (a jobs-store read error fails closed) or the worker is busy, 422 on a wrong phrase, then calls the worker's `/scans/reset` FIRST and only then deletes the copies. Synchronous under a 25 s deadline |
 | `GET /surveys/{id}/runs/{rid}/review` · `GET`/`POST /surveys/{id}/runs/{rid}/review/{copy}` | Screen 11 (issue #311): the queue starts at the first copy that waits; a copy's page shows its scanned pages beside each doubtful answer, every alternative offered (detected ones marked). The POST records the decisions — one alternative on a single or scale, at least one on a multi, or "Descartar"; a blank one stays pending — and moves to the next copy that waits |
 | `GET /surveys/{id}/runs/{rid}/copies/{copy}/page/{n}` | A scanned page image of a copy the run read (the worker's `scans/copy-<n>-page-<p>`, PNG before JPG) |
@@ -534,6 +554,10 @@ from `apps/server/`:
       (`testing-strategy.md` §Conventions (all apps)).
 - [ ] Docs that the change obligated ship in the same PR
       (`docs/standards/documentation.md`).
+- [ ] **If you touched `internal/app/web/static/js/` or a `<script>` under
+      `templates/`**, the browser check in `testing-strategy.md`
+      §`apps/server` (the paragraphs on browser scripts) ran against a stack
+      built from your tip. Nothing in `go test` executes them.
 - [ ] **If you touched the login path**, [`GOOGLE-CHECK.md`](GOOGLE-CHECK.md) was run against a real Google OAuth client. No test in this repository reaches Google, so a green suite is not evidence that signing in still works.
 - [ ] **If you touched the publication path** — the Gmail adapter in `internal/infra/oidc/gmail.go`, the `/profile` connect flow, the transports in `internal/infra/email/`, the message builder, or `NALANDA_EMAIL_MODE` — [`GMAIL-CHECK.md`](GMAIL-CHECK.md) was run against the https URL. The suite drives `httptest` stand-ins for both Google and Gmail, so a green suite says nothing about whether the consent screen grants the scope, whether the redirect URI matches, or whether the message arrives readable. Its §6 also MEASURES the open question ADR-0072 could not settle from documentation
 - [ ] **If you touched the Canvas path** — the GraphQL queries in `internal/infra/canvas`, the normalisation in `internal/domain/canvas/roster.go`, the import in `handler.ImportCanvas` / `coursestore.SaveRoster`, the `/profile` token path, or `NALANDA_CANVAS_GRAPHQL_URL` — [`CANVAS-CHECK.md`](CANVAS-CHECK.md) was run against the real UDP instance. The suite drives `httptest` fakes, so a green suite is not evidence the import still works: #271's review found a state filter that emptied a whole past-term roster, and the suite was green throughout

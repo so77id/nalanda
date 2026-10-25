@@ -108,6 +108,20 @@ concrete tightening plan (nonce/hash for every existing inline
 script + `worker-src 'self' blob:` for the PDF.js worker's Blob
 fallback).
 
+**Trigger status after #339 (2026-10-24) — not pulled by #339, and
+already pulled before it was written.** #339's chunked upload adds no
+inline block: its behaviour is a first-party module under
+`/static/js/` (ADR-0047 §4), loaded by a `<script type="module" src>`
+tag, so a future `script-src 'self'` already covers it. But checking
+the count measured something older: `main` has carried TWO inline
+blocks since the day this note was written — the section picker in
+`controls_form.html` (#234, merged 2026-08-26 18:17) and this page's
+PDF.js boot in `review.html` (#236, 21:42 the same day). The "second
+inline script" this trigger names was therefore already on `main` when
+the trigger was written, and nobody recorded it as fired. The CSP ADR
+it asks for is still owed: a nonce or hash for those two blocks, plus
+`script-src 'self'` and the worker's `blob:`.
+
 ### Vendored front-end assets are scanned by hand at each upgrade (accepted 2026-08-26, #231, ADR-0047)
 
 **What.** Vendored JavaScript libraries under
@@ -805,6 +819,15 @@ integers only — the run's stored survey and run ids, the copy number and a pag
 bounded 1–99 — under the run's own project, and serves only a copy the run
 read.
 
+**Trigger status after #339 (chunked uploads, 2026-10-24) — not pulled.** A
+batch may now arrive in 1 MiB chunks instead of one request, but from the same
+signed-in professor off the same scanner, and the worker reads the same
+`batch-N.pdf`. What changed is the size bound: the chunked path IS bounded by
+`NALANDA_MAX_SCAN_MB` (declared at start, enforced per chunk), so the SEC-3
+gap above now applies only to the one-request form a page without its script
+falls back to. The partials themselves sit on the volume this worker mounts
+as root — see §"Chunked uploads read the shared volume defensively".
+
 **Named in advance, because WP-E will pull that trigger** (#147 review): a
 control source now includes code with `\lstinputlisting{<absolute path>}` —
 that is the documented shape, because a path relative to the `.tex` does not
@@ -859,6 +882,63 @@ trigger:
   step to take before the trigger fires — the blast-radius asymmetry
   paragraph in ADR-0038 §Consequences names why it becomes worth doing
   first once amc-worker sits behind Watchtower.
+
+### Chunked uploads read the shared volume defensively (accepted 2026-10-24, #339, ADR-0088)
+
+A scan batch crossing a slow link waits in `<WorkDir>/incoming/` as
+`<uid>.part` plus a `<uid>.json` sidecar, on the volume the AMC worker mounts
+read-write **as root** (§"The control worker runs as root…"). The worker
+never writes there, but a compromised worker could. So everything this server
+reads back from that directory is treated as hostile:
+
+- Only names that are an upload's own — `^<uid>\.(part|json|tmp)$`, the uid
+  26 characters of `[A-Z2-7]` — are ever opened, written or removed inside
+  `incoming/`; the sweep and the eviction log any other name and leave it. A
+  uid from a URL that is not that shape is refused before a path is built.
+- Files are opened with `O_NOFOLLOW|O_NONBLOCK` and must be regular files, so
+  a `.part` swapped for a symlink to the database is neither written through
+  nor "saved" as a batch (`TestASymlinkedPartIsNeverFollowed`), and a FIFO
+  planted under an upload's name is refused instead of blocking `open(2)` —
+  which, through the eviction's mutex, would have stopped every professor's
+  next upload (#339 review, SEC-1;
+  `TestAFIFOOnTheSharedVolumeIsRefusedAndBlocksNothing`).
+- The sidecar is re-validated on every read — its own uid, a subject kind in
+  the closed set, a positive professor, a size within `NALANDA_MAX_SCAN_MB`,
+  at most 16 KiB — and one that does not validate is "no such upload".
+- An unknown uid, another professor's and a malformed one answer the same 404
+  with the same body, so a uid cannot be probed.
+
+**The accepted residual**: a compromised worker can already rewrite every
+saved batch, every annotated PDF and every AMC project on the same volume; a
+partial gives it nothing more. One defence is deliberately NOT built:
+`incoming/` ITSELF is trusted to be the directory it was. `O_NOFOLLOW` guards
+only the last path component, so a worker that replaced `incoming` with a
+symlink would have new partials written, and stale uid-named files deleted,
+wherever it points that the server can write — on the Jetson that is `/data`,
+whose files (`nalanda.db`, `-wal`, `-shm`) match no uid (#339 review, SEC-2,
+demonstrated with a probe). The fix is to pin the directory once with
+`os.OpenRoot` and do every file operation through that handle; deferred,
+because it needs root code execution in the worker first. The disk a professor can occupy is bounded at
+four partials of `NALANDA_MAX_SCAN_MB` for at most a day; there is no global
+cap, because an eviction across professors would let one cancel another's
+upload.
+
+**CSRF by header.** The chunks are raw bytes, so the page's script sends the
+session's token as `X-CSRF-Token`. When that header is present it is the ONLY
+token `VerifyCSRF` considers — compared in constant time, with no fallback to
+a body field, so a request cannot offer two tokens and win with either — and
+the body is left unparsed. The backoffice surface (`internal/app/web`)
+answers no CORS preflight, so a cross-origin page cannot set the header at all;
+the API surface may answer CORS one day (design §C12), and that must never
+reach the backoffice. A signed-in professor's
+upload is authorised exactly as the multipart form's is: any professor may
+upload to any control or open run, and the uid adds only "the creator
+continues it".
+
+**Review trigger**: any CORS header reaching `internal/app/web`; a second
+server process (the per-upload lock is in
+memory), anything that writes into `incoming/` other than this package, or a
+route that serves a partial's bytes back.
 
 ### `apps/server` joins the worker's compose network (accepted 2026-08-16, #149)
 

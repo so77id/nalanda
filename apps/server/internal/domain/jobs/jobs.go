@@ -56,7 +56,9 @@ var ValidKinds = []Kind{KindGenerate, KindAnalyse, KindReanalyse, KindAnnotate, 
 // started as the controls' and every job was a control's; a survey run's
 // PDF and scans are minutes-class worker work too, and the one runner is
 // what serialises every call against the worker client's single lock, so
-// the queue's subject widened instead of a second queue appearing.
+// the queue's subject widened instead of a second queue appearing. The
+// chunked uploads keep the same members as uploads.SubjectKind (#339); a
+// subject added to either set belongs in the other too.
 type SubjectKind string
 
 const (

@@ -26,6 +26,7 @@ import (
 	"github.com/so77id/nalanda/apps/server/internal/domain/matching"
 	"github.com/so77id/nalanda/apps/server/internal/domain/roster"
 	"github.com/so77id/nalanda/apps/server/internal/domain/survey"
+	"github.com/so77id/nalanda/apps/server/internal/domain/uploads"
 	"github.com/so77id/nalanda/apps/server/internal/infra/amcworker/amctest"
 	"github.com/so77id/nalanda/apps/server/internal/infra/email"
 	"github.com/so77id/nalanda/apps/server/internal/infra/oidc/oidctest"
@@ -76,6 +77,11 @@ func deps(t *testing.T, prober health.Prober) web.Deps {
 	// these cases exist to check to drift apart.
 	cstore := controlstore.New(db)
 	amcFake := &amctest.Fake{}
+	// ONE uploads.Service for every handler, as run() builds it: its
+	// per-upload locks only serialise within one instance (#339 review, COR-2).
+	sharedUploads := uploads.NewService(uploads.Service{
+		Root: filepath.Join(t.TempDir(), uploads.DirName), MaxBytes: 8 << 20, Log: logger,
+	})
 	sharedControls := controls.NewService(controls.Service{
 		// A real matcher over the same database. These cases are about
 		// the router's table, and an empty `student` table is the right
@@ -155,6 +161,7 @@ func deps(t *testing.T, prober health.Prober) web.Deps {
 				Gmail:              connectedGmail{},
 				Jobs:               jstore,
 				Runner:             runner,
+				Uploads:            sharedUploads,
 				Log:                logger,
 			})
 		}(),
@@ -231,7 +238,12 @@ func deps(t *testing.T, prober health.Prober) web.Deps {
 			}, logger, time.Now),
 			Courses:   roster.NewService(coursestore.New(db), roster.NewCanvasSource(canvas.NewService(nil, unreachableCanvas{}))),
 			PublicURL: "https://nalanda.test",
+			Uploads:   sharedUploads,
 			Log:       logger,
+		}),
+		Uploads: handler.NewUploads(handler.Uploads{
+			Service: sharedUploads,
+			Log:     logger,
 		}),
 		Log: logger,
 	}
@@ -615,6 +627,7 @@ func TestRouterRefusesAnIncompleteDepsAtWiringTime(t *testing.T) {
 		{"no controls", func(d *web.Deps) { d.Controls = nil }},
 		{"no profile", func(d *web.Deps) { d.Profile = nil }},
 		{"no admin bank", func(d *web.Deps) { d.AdminBank = nil }},
+		{"no uploads", func(d *web.Deps) { d.Uploads = nil }},
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			d := deps(t, reachable)

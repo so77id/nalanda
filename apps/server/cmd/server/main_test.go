@@ -33,6 +33,7 @@ import (
 	"github.com/so77id/nalanda/apps/server/internal/domain/matching"
 	"github.com/so77id/nalanda/apps/server/internal/domain/roster"
 	"github.com/so77id/nalanda/apps/server/internal/domain/survey"
+	"github.com/so77id/nalanda/apps/server/internal/domain/uploads"
 	"github.com/so77id/nalanda/apps/server/internal/infra/amcworker/amctest"
 	"github.com/so77id/nalanda/apps/server/internal/infra/config"
 	"github.com/so77id/nalanda/apps/server/internal/infra/email"
@@ -78,6 +79,11 @@ func composed(t *testing.T, prober health.Prober) (http.Handler, *authstore.Stor
 	// these cases exist to check to drift apart.
 	cstore := controlstore.New(db)
 	amcFake := &amctest.Fake{}
+	// ONE uploads.Service for every handler, as run() builds it: its
+	// per-upload locks only serialise within one instance (#339 review, COR-2).
+	sharedUploads := uploads.NewService(uploads.Service{
+		Root: filepath.Join(t.TempDir(), uploads.DirName), MaxBytes: 8 << 20, Log: logger,
+	})
 	sharedControls := controls.NewService(controls.Service{
 		// A real matcher over the same database. These cases are about
 		// the router's table, and an empty `student` table is the right
@@ -157,6 +163,7 @@ func composed(t *testing.T, prober health.Prober) (http.Handler, *authstore.Stor
 				Gmail:              connectedGmail{},
 				Jobs:               jstore,
 				Runner:             runner,
+				Uploads:            sharedUploads,
 				Log:                logger,
 			})
 		}(),
@@ -233,7 +240,12 @@ func composed(t *testing.T, prober health.Prober) (http.Handler, *authstore.Stor
 			}, logger, time.Now),
 			Courses:   roster.NewService(coursestore.New(db), roster.NewCanvasSource(canvas.NewService(nil, unreachableCanvas{}))),
 			PublicURL: "https://nalanda.test",
+			Uploads:   sharedUploads,
 			Log:       logger,
+		}),
+		Uploads: handler.NewUploads(handler.Uploads{
+			Service: sharedUploads,
+			Log:     logger,
 		}),
 		Log: logger,
 	}, prober, logger), store

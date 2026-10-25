@@ -1,8 +1,10 @@
 package handler
 
 import (
+	"context"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"strconv"
 	"time"
@@ -12,6 +14,7 @@ import (
 	"github.com/so77id/nalanda/apps/server/internal/app/web/view"
 	"github.com/so77id/nalanda/apps/server/internal/domain/jobs"
 	"github.com/so77id/nalanda/apps/server/internal/domain/survey"
+	"github.com/so77id/nalanda/apps/server/internal/domain/uploads"
 )
 
 // A run's scans (issue #311, screen 10): upload a batch, see what was
@@ -24,6 +27,32 @@ const SurveyRunScansPath = "/surveys/{id}/runs/{rid}/scans"
 // SurveyRunScansPathFor builds the URL of a run's scans.
 func SurveyRunScansPathFor(surveyID, runID int64) string {
 	return SurveyRunPathFor(surveyID, runID) + "/scans"
+}
+
+// SurveyRunScanUploadsPath opens a chunked upload of a batch for an open run
+// (POST, JSON from the page's script; issue #339).
+const SurveyRunScanUploadsPath = "/surveys/{id}/runs/{rid}/scans/uploads"
+
+// SurveyRunScanUploadCompletePath turns a finished one into the run's next
+// batch and queues its reading.
+const SurveyRunScanUploadCompletePath = "/surveys/{id}/runs/{rid}/scans/uploads/{uid}/complete"
+
+// SurveyRunScanUploadsPathFor builds a run's start URL.
+func SurveyRunScanUploadsPathFor(surveyID, runID int64) string {
+	return SurveyRunScansPathFor(surveyID, runID) + "/uploads"
+}
+
+// SurveyRunScanUploadCompletePathFor builds the URL that finishes one upload.
+func SurveyRunScanUploadCompletePathFor(surveyID, runID int64, uid string) string {
+	return SurveyRunScanUploadsPathFor(surveyID, runID) + "/" + uid + "/complete"
+}
+
+// runNotOpen is what an upload to a closed or cancelled run reads.
+const runNotOpen = "Esta pasada ya no está abierta: no recibe escaneos."
+
+// runSubject is how the chunked uploads know a run.
+func runSubject(run survey.Run) uploads.Subject {
+	return uploads.Subject{Kind: uploads.SubjectSurveyRun, ID: strconv.FormatInt(run.ID, 10)}
 }
 
 // runTitle is how a run is named on its pages: "Pasada #3 · Mitad".
@@ -41,7 +70,7 @@ func (h *Surveys) RunScans(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	uploads, err := h.Service.Uploads(run)
+	batches, err := h.Service.Uploads(run)
 	if err != nil {
 		h.Log.Error("listing a run's uploads", "run", run.ID, "error", err)
 		middleware.WriteError(w, r, http.StatusInternalServerError, surveyBroke)
@@ -54,21 +83,22 @@ func (h *Surveys) RunScans(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	page := view.SurveyRunScansPage{
-		Page:         middleware.PageFor(r, "Escaneos · "+runTitle(run)),
-		RunTitle:     runTitle(run),
-		RunURL:       SurveyRunPathFor(one.ID, run.ID),
-		Banner:       runBanner(h.latestRunJob(r.Context(), run)),
-		CanUpload:    run.State == survey.RunOpen,
-		UploadAction: SurveyRunScansPathFor(one.ID, run.ID),
-		MaxMB:        h.MaxScanBytes >> 20,
-		Read:         counts.Copies,
-		Clean:        counts.Clean(),
-		Pending:      counts.PendingCopies,
+		Page:             middleware.PageFor(r, "Escaneos · "+runTitle(run)),
+		RunTitle:         runTitle(run),
+		RunURL:           SurveyRunPathFor(one.ID, run.ID),
+		Banner:           runBanner(h.latestRunJob(r.Context(), run)),
+		CanUpload:        run.State == survey.RunOpen,
+		UploadAction:     SurveyRunScansPathFor(one.ID, run.ID),
+		ChunkedUploadURL: SurveyRunScanUploadsPathFor(one.ID, run.ID),
+		MaxMB:            h.MaxScanBytes >> 20,
+		Read:             counts.Copies,
+		Clean:            counts.Clean(),
+		Pending:          counts.PendingCopies,
 	}
-	if run.State == survey.RunOpen && (survey.ScanSummary{Uploads: len(uploads), Copies: counts.Copies}).HasScans() {
+	if run.State == survey.RunOpen && (survey.ScanSummary{Uploads: len(batches), Copies: counts.Copies}).HasScans() {
 		page.ResetURL = SurveyRunScansResetConfirmPathFor(one.ID, run.ID)
 	}
-	for _, u := range uploads {
+	for _, u := range batches {
 		page.Uploads = append(page.Uploads, view.UploadRow{Name: u.Name, Size: humanBytes(u.Bytes)})
 	}
 	page.Flash = flash.Consume(w, r, h.secureCookie)
@@ -88,7 +118,7 @@ func (h *Surveys) UploadScans(w http.ResponseWriter, r *http.Request) {
 	}
 	back := SurveyRunScansPathFor(one.ID, run.ID)
 	if run.State != survey.RunOpen {
-		flash.Set(w, h.secureCookie, "Esta pasada ya no está abierta: no recibe escaneos.")
+		flash.Set(w, h.secureCookie, runNotOpen)
 		http.Redirect(w, r, SurveyRunPathFor(one.ID, run.ID), http.StatusSeeOther)
 		return
 	}
@@ -129,7 +159,7 @@ func (h *Surveys) UploadScans(w http.ResponseWriter, r *http.Request) {
 	batch, err := h.Service.SaveUploadedBatch(r.Context(), one.ID, run.ID, file)
 	switch {
 	case errors.Is(err, survey.ErrRunNotOpen):
-		flash.Set(w, h.secureCookie, "Esta pasada ya no está abierta: no recibe escaneos.")
+		flash.Set(w, h.secureCookie, runNotOpen)
 		http.Redirect(w, r, SurveyRunPathFor(one.ID, run.ID), http.StatusSeeOther)
 		return
 	case err != nil:
@@ -138,16 +168,114 @@ func (h *Surveys) UploadScans(w http.ResponseWriter, r *http.Request) {
 			"El servidor no pudo guardar el escaneo. Vuelve a intentarlo en unos minutos.")
 		return
 	}
-	if _, err := h.Runner.Submit(r.Context(), strconv.FormatInt(run.ID, 10), jobs.KindSurveyAnalyse,
-		survey.EncodeAnalysePayload(one.ID, batch)); err != nil {
-		// The batch stays on disk: a later upload or an operator can read it.
-		h.Log.Error("surveys: queueing a batch's reading", "run", run.ID, "batch", batch, "error", err)
-		middleware.WriteError(w, r, http.StatusInternalServerError,
-			"El escaneo quedó guardado, pero no se pudo encolar su lectura. Vuelve a intentarlo.")
+	if err := h.submitReading(r.Context(), one, run, batch); err != nil {
+		middleware.WriteError(w, r, http.StatusInternalServerError, readingNotQueued)
 		return
 	}
-	flash.Set(w, h.secureCookie, fmt.Sprintf("Lote %s subido. Se está leyendo: refresca cuando el aviso cambie.", batch))
+	flash.Set(w, h.secureCookie, batchReading(batch))
 	http.Redirect(w, r, back, http.StatusSeeOther)
+}
+
+// readingNotQueued is what both upload paths say when the batch is saved and
+// the queue refused it.
+const readingNotQueued = "El escaneo quedó guardado, pero no se pudo encolar su lectura. Vuelve a intentarlo."
+
+// submitReading queues the survey_analyse of a batch SaveUploadedBatch has
+// just written — the second of the two calls both upload paths make, in the
+// same order. The batch stays on disk whatever the queue answers: a later
+// upload or an operator can read it.
+func (h *Surveys) submitReading(ctx context.Context, one survey.Survey, run survey.Run, batch string) error {
+	if _, err := h.Runner.Submit(ctx, strconv.FormatInt(run.ID, 10), jobs.KindSurveyAnalyse,
+		survey.EncodeAnalysePayload(one.ID, batch)); err != nil {
+		h.Log.Error("surveys: queueing a batch's reading", "run", run.ID, "batch", batch, "error", err)
+		return err
+	}
+	return nil
+}
+
+// batchReading is the flash both upload paths leave on the run's scans.
+func batchReading(batch string) string {
+	return fmt.Sprintf("Lote %s subido. Se está leyendo: refresca cuando el aviso cambie.", batch)
+}
+
+// StartScanUpload opens a chunked upload of a batch for an open run (issue
+// #339), refusing at once what the one-request form would refuse: a run that
+// is not open, a size over the cap, a file that is not a PDF.
+func (h *Surveys) StartScanUpload(w http.ResponseWriter, r *http.Request) {
+	professor, ok := middleware.ProfessorFrom(r.Context())
+	if !ok {
+		writeUploadJSON(w, h.Log, http.StatusNotFound, uploadMessage{Message: "Esa pasada no existe."})
+		return
+	}
+	one, run, ok := h.findRun(r, h.jsonRefusal(w))
+	if !ok {
+		return
+	}
+	if run.State != survey.RunOpen {
+		writeUploadJSON(w, h.Log, http.StatusConflict, uploadMessage{Message: runNotOpen})
+		return
+	}
+	start, ok := readUploadStart(w, r, h.Log, h.MaxScanBytes)
+	if !ok {
+		return
+	}
+	up, err := h.Uploads.Create(professor.ID, runSubject(run), start.Name, start.Size, nil)
+	if err != nil {
+		if status, body, ok := createRefusal(err, h.MaxScanBytes); ok {
+			writeUploadJSON(w, h.Log, status, body)
+			return
+		}
+		h.Log.Error("surveys: opening a chunked upload", "run", run.ID, "error", err)
+		writeUploadJSON(w, h.Log, http.StatusInternalServerError, uploadMessage{Message: surveyBroke})
+		return
+	}
+	writeUploadOpened(w, h.Log, up, SurveyRunScanUploadCompletePathFor(one.ID, run.ID, up.ID))
+}
+
+// CompleteScanUpload turns a finished chunked upload into the run's next
+// batch: survey.SaveUploadedBatch writes it (and refuses a run that closed
+// meanwhile), the partial goes only after that returned, then the reading is
+// queued — the one-request form's two calls, in its order (#210).
+func (h *Surveys) CompleteScanUpload(w http.ResponseWriter, r *http.Request) {
+	professor, ok := middleware.ProfessorFrom(r.Context())
+	if !ok {
+		writeUploadJSON(w, h.Log, http.StatusNotFound, uploadMessage{Message: uploadNotFound})
+		return
+	}
+	one, run, ok := h.findRun(r, h.jsonRefusal(w))
+	if !ok {
+		return
+	}
+	uid := r.PathValue("uid")
+	var batch string
+	up, err := h.Uploads.Complete(professor.ID, uid, runSubject(run), func(_ uploads.Upload, content io.ReadCloser) error {
+		var err error
+		batch, err = h.Service.SaveUploadedBatch(r.Context(), one.ID, run.ID, content)
+		return err
+	})
+	if status, body, ok := completeRefusal(err, up); ok {
+		writeUploadJSON(w, h.Log, status, body)
+		return
+	}
+	switch {
+	case err == nil:
+	case errors.Is(err, survey.ErrRunNotOpen):
+		writeUploadJSON(w, h.Log, http.StatusConflict, uploadMessage{Message: runNotOpen})
+		return
+	default:
+		h.Log.Error("surveys: saving a chunked upload", "run", run.ID, "upload", uid, "error", err)
+		writeUploadJSON(w, h.Log, http.StatusInternalServerError,
+			uploadMessage{Message: "El servidor no pudo guardar el escaneo. Vuelve a intentarlo en unos minutos."})
+		return
+	}
+	// The batch is saved and the partial gone: finished, whatever the
+	// queue says (#339 review, COR-3 — see CompleteScanUpload's twin).
+	message := batchReading(batch)
+	if err := h.submitReading(r.Context(), one, run, batch); err != nil {
+		message = fmt.Sprintf("Lote %s guardado, pero no se pudo encolar su lectura. Vuelve a subir el mismo PDF en unos minutos.", batch)
+	}
+	flash.Set(w, h.secureCookie, message)
+	writeUploadJSON(w, h.Log, http.StatusOK, uploadFinished{Redirect: SurveyRunScansPathFor(one.ID, run.ID)})
 }
 
 // humanBytes is a file size as a professor reads it.

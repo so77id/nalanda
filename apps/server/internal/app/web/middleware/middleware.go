@@ -30,6 +30,7 @@ import (
 	"log/slog"
 	"mime"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 
@@ -82,6 +83,11 @@ func SessionCookieName(secure bool) string {
 
 // CSRFFieldName is the form field every state-changing request carries.
 const CSRFFieldName = "csrf_token"
+
+// CSRFHeaderName carries the token instead when the body is not a form: a
+// chunk of a resumable scan upload is raw bytes the page's script sends
+// (#339). The script reads the value from the page's own csrf_token field.
+const CSRFHeaderName = "X-CSRF-Token"
 
 // Auth holds what the middlewares need. Constructed once in cmd/server.
 type Auth struct {
@@ -297,6 +303,22 @@ func (a *Auth) VerifyCSRF(next http.Handler) http.Handler {
 			return
 		}
 
+		// A token in the header is the ONLY token considered, and the body is
+		// left alone: it is a chunk of raw bytes the handler reads (#339). No
+		// fallback to a form field, so a request cannot offer two tokens and
+		// win with either. A cross-origin page cannot set this header without
+		// a preflight, and nothing here ever answers one with CORS headers.
+		if values, present := r.Header[http.CanonicalHeaderKey(CSRFHeaderName)]; present {
+			if len(values) != 1 || !auth.VerifyCSRF(session.CSRFToken, values[0]) {
+				a.Log.Warn("refusing a request with no valid CSRF token",
+					"professor", session.UserID, "path", r.URL.Path, "method", r.Method, "via", "header")
+				renderForbidden(w, r)
+				return
+			}
+			next.ServeHTTP(w, r)
+			return
+		}
+
 		// Populate PostFormValue's map from whatever the request body actually
 		// is. Two cases to keep separate:
 		//
@@ -314,6 +336,18 @@ func (a *Auth) VerifyCSRF(next http.Handler) http.Handler {
 		//     never read. The gated test above pins the fix.
 		if isMultipart(r) {
 			if err := r.ParseMultipartForm(csrfMultipartMemoryLimit); err != nil {
+				// httpserver's read deadline bounds the BODY too, and this
+				// parse is where a scan batch the link cannot carry in time
+				// runs out of it. It used to fall into the 403 below and read
+				// as a permissions problem (#339).
+				if errors.Is(err, os.ErrDeadlineExceeded) {
+					a.Log.Warn("upload body read timed out",
+						"professor", session.UserID, "path", r.URL.Path, "error", err)
+					WriteError(w, r, http.StatusRequestTimeout, uploadTimedOut)
+					return
+				}
+				a.Log.Warn("refusing a multipart body that could not be read",
+					"professor", session.UserID, "path", r.URL.Path, "error", err)
 				renderForbidden(w, r)
 				return
 			}
@@ -351,6 +385,10 @@ func isMultipart(r *http.Request) bool {
 	}
 	return mt == "multipart/form-data"
 }
+
+// uploadTimedOut is what a professor reads when the read deadline cut their
+// upload: the cause, and the two things they can change.
+const uploadTimedOut = "La subida tardó demasiado y se cortó. Vuelve a intentarlo con una conexión más rápida o con un archivo más pequeño."
 
 // renderForbidden writes a 403 through the shell (AC-11). The plain-text
 // http.Error version was what a signed-in professor got when a form's CSRF

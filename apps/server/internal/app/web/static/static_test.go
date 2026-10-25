@@ -32,6 +32,13 @@ func TestPDFJSIsServedFromTheVendorSubtree(t *testing.T) {
 			wantSubstr:   "Mozilla Foundation",
 			wantCTPrefix: "text/javascript",
 		},
+		// First-party (#339): the scan forms load it as a module, so a
+		// non-JS MIME type would leave every upload on the one-request path.
+		{
+			path:         "/js/chunked_upload.mjs",
+			wantSubstr:   "form[data-chunked-upload]",
+			wantCTPrefix: "text/javascript",
+		},
 	}
 
 	for _, c := range cases {

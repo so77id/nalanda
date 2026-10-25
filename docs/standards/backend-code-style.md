@@ -119,6 +119,12 @@ other's code, the boundary is a named test in `internal/architecture_test.go`:
 the two sides as prefix lists, checked over `readPackages`'s transitive
 imports, with a non-vacuity floor on how many packages the walk saw. Worked
 case: `TestTheSurveyDomainDoesNotImportControls` (issue #309, ADR-0078).
+And the NEUTRAL package both siblings use gets one too: a test that it
+imports neither side, transitively, failing when the package is missing from
+the walk — otherwise "shared code goes in a neutral package" holds only
+until someone adds one import. Worked case:
+`TestTheUploadsDomainImportsNeitherSubsystem` (#339); `jobs`, the older
+neutral package, has no such guard yet.
 
 **When the domain needs something from outside, it declares the interface and
 infra implements it.** The worked example is `health.Prober`: declared in
@@ -270,8 +276,10 @@ import, WP-E's control creation, WP-F's review queue.
 
 ### Every page renders through the shell
 
-`internal/app/web/view` parses `templates/layout.html` once at package init
-and stitches every page under `templates/pages/*.html` onto a clone of it.
+`internal/app/web/view` parses `templates/layout.html` once at package init,
+with the blocks under `templates/partials/*.html` parsed into it so every page
+can invoke them (#339), and stitches every page under `templates/pages/*.html`
+onto a clone of it.
 The layout carries the two-half navigation, both themes (`color-scheme:
 light dark`, `currentColor` only), the embedded CSS, and the render of
 `.Flash`. `view.render` is the only writer: it buffers into memory, sets
@@ -354,8 +362,10 @@ several flash cookies in one response — the second overwrites the first.
 
 ### Client-side JS in a server template
 
-The backoffice serves no static assets today (no `/static/` mount), and a
-one-page progressive enhancement is inline in the template that needs it.
+This section is the one home of the inline shapes still allowed (ADR-0047 §4,
+amended by #339): glue that binds a vendored library to a `data-*` attribute
+(the PDF.js boot in `review.html`), and a one-page progressive enhancement
+that holds no state, inline in the template that needs it.
 Worked case: the two-level cascade picker in `controls_form.html` (issue
 #228 S4) inlines ~110 lines of vanilla JS at the end of the form. The
 enhancement reads the flat `<select>`'s own `<optgroup>` structure — one
@@ -363,9 +373,17 @@ source of truth — and hides the flat control while keeping it in the form
 so its value is what POSTs. Without JS the flat select is the whole UI;
 the handler contract is unchanged.
 
-A SECOND page adopting client-side behavior tips the balance: introduce a
-`/static/` mount under `internal/app/web` and move both scripts to files
-with SRI or an immutable path, rather than inlining a second block.
+Behaviour with state, or behaviour more than one page needs, is a
+first-party module under `internal/app/web/static/js/`, never an inline
+block (ADR-0047 §4): one more entry on `static.go`'s explicit embed line and
+a `static_test.go` case pinning it is served as `text/javascript`. Markup the
+module drives, if more than one page needs it, is a block in
+`templates/partials/`, which the layout parses for every page. Worked case:
+the chunked scan upload (#339, ADR-0088 §6) — `static/js/chunked_upload.mjs`
+enhances any form carrying `data-chunked-upload`, and the partial
+`chunked_upload.html` holds its status block and the one `<script
+type="module" src>` tag; without the module the form posts as it always did.
+(#339's first draft inlined the script in the partial; its review moved it.)
 
 ### Error pages — 404 / 403 / 500
 

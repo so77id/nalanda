@@ -1,9 +1,11 @@
 package handler
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -15,10 +17,29 @@ import (
 	"github.com/so77id/nalanda/apps/server/internal/app/web/middleware"
 	"github.com/so77id/nalanda/apps/server/internal/domain/controls"
 	"github.com/so77id/nalanda/apps/server/internal/domain/jobs"
+	"github.com/so77id/nalanda/apps/server/internal/domain/uploads"
 )
 
 // ControlScansPath is POST target for the upload form on /controls/:id.
 const ControlScansPath = "/controls/{id}/scans"
+
+// ControlScanUploadsPath opens a chunked upload of a scan batch (POST, JSON
+// from the page's script; issue #339). Its chunks then go to UploadPath.
+const ControlScanUploadsPath = "/controls/{id}/scans/uploads"
+
+// ControlScanUploadCompletePath turns a finished chunked upload into the
+// control's next batch and queues its reading.
+const ControlScanUploadCompletePath = "/controls/{id}/scans/uploads/{uid}/complete"
+
+// ControlScanUploadsPathFor builds a control's start URL.
+func ControlScanUploadsPathFor(id string) string {
+	return controlDetailURL(id) + "/scans/uploads"
+}
+
+// ControlScanUploadCompletePathFor builds the URL that finishes one upload.
+func ControlScanUploadCompletePathFor(id, uid string) string {
+	return ControlScanUploadsPathFor(id) + "/" + uid + "/complete"
+}
 
 // ControlReanalyzePath is POST target for the "re-leer con otra
 // sensibilidad" form.
@@ -176,6 +197,19 @@ func (h *Controls) UploadScan(w http.ResponseWriter, r *http.Request) {
 		}
 		return
 	}
+	if err := h.submitAnalysis(r.Context(), id, save); err != nil {
+		middleware.WriteError(w, r, http.StatusInternalServerError,
+			"El servidor no pudo encolar el análisis.")
+		return
+	}
+	flash.Set(w, h.secureCookie, batchUploaded(save))
+	http.Redirect(w, r, controlDetailURL(id), http.StatusSeeOther)
+}
+
+// submitAnalysis queues the reading of a batch SaveUploadedBatch has just
+// written — the second of the two calls both upload paths make, in the same
+// order, so the batch is on disk whatever the queue answers (#210).
+func (h *Controls) submitAnalysis(ctx context.Context, id string, save controls.SaveUploadedBatchResult) error {
 	payload, err := json.Marshal(controls.AnalysePayload{
 		BatchName: save.BatchName,
 		Ticked:    save.Ticked,
@@ -183,19 +217,127 @@ func (h *Controls) UploadScan(w http.ResponseWriter, r *http.Request) {
 	})
 	if err != nil {
 		h.Log.Error("controls: encode analyse payload", "control", id, "error", err)
-		middleware.WriteError(w, r, http.StatusInternalServerError,
-			"El servidor no pudo encolar el análisis.")
-		return
+		return err
 	}
-	if _, err := h.Runner.Submit(r.Context(), id, jobs.KindAnalyse, payload); err != nil {
+	if _, err := h.Runner.Submit(ctx, id, jobs.KindAnalyse, payload); err != nil {
 		h.Log.Error("controls: submit analyse job", "control", id, "error", err)
-		middleware.WriteError(w, r, http.StatusInternalServerError,
-			"El servidor no pudo encolar el análisis.")
+		return err
+	}
+	return nil
+}
+
+// batchUploaded is the flash both upload paths leave on the control's page.
+func batchUploaded(save controls.SaveUploadedBatchResult) string {
+	return fmt.Sprintf("Escaneo %d subido. Análisis encolado — refresca cuando el aviso cambie.", save.BatchNumber)
+}
+
+// StartScanUpload opens a chunked upload of a batch for this control (issue
+// #339). It checks everything the one-request form checks — the control, the
+// file's size and type, the threshold band — before a byte of the batch
+// travels, and keeps the resolved thresholds with the upload for complete.
+func (h *Controls) StartScanUpload(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	professor, ok := middleware.ProfessorFrom(r.Context())
+	if !ok || !isValidControlID(id) {
+		writeUploadJSON(w, h.Log, http.StatusNotFound, uploadMessage{Message: "Ese control no existe."})
 		return
 	}
-	flash.Set(w, h.secureCookie,
-		fmt.Sprintf("Escaneo %d subido. Análisis encolado — refresca cuando el aviso cambie.", save.BatchNumber))
-	http.Redirect(w, r, controlDetailURL(id), http.StatusSeeOther)
+	start, ok := readUploadStart(w, r, h.Log, h.MaxScanBytes)
+	if !ok {
+		return
+	}
+	control, err := h.Service.Get(r.Context(), id)
+	if err != nil {
+		if errors.Is(err, controls.ErrControlNotFound) {
+			writeUploadJSON(w, h.Log, http.StatusNotFound, uploadMessage{Message: "Ese control no existe."})
+			return
+		}
+		h.Log.Error("upload start: reading control for thresholds", "control", id, "error", err)
+		writeUploadJSON(w, h.Log, http.StatusInternalServerError, uploadMessage{Message: uploadBroke})
+		return
+	}
+	ticked, unsure, ok := resolveThresholds(start.Ticked, start.Unsure, control)
+	if !ok {
+		writeUploadJSON(w, h.Log, http.StatusBadRequest, uploadMessage{Message: "Los umbrales deben cumplir 0 < inseguro < marcado < 1."})
+		return
+	}
+	up, err := h.Uploads.Create(professor.ID, uploads.Subject{Kind: uploads.SubjectControl, ID: id}, start.Name, start.Size,
+		map[string]string{
+			thresholdTicked: strconv.FormatFloat(ticked, 'g', -1, 64),
+			thresholdUnsure: strconv.FormatFloat(unsure, 'g', -1, 64),
+		})
+	if err != nil {
+		if status, body, ok := createRefusal(err, h.MaxScanBytes); ok {
+			writeUploadJSON(w, h.Log, status, body)
+			return
+		}
+		h.Log.Error("upload start: opening a chunked upload", "control", id, "error", err)
+		writeUploadJSON(w, h.Log, http.StatusInternalServerError, uploadMessage{Message: uploadBroke})
+		return
+	}
+	writeUploadOpened(w, h.Log, up, ControlScanUploadCompletePathFor(id, up.ID))
+}
+
+// The metadata keys a control's thresholds ride in, from start to complete.
+const (
+	thresholdTicked = "ticked"
+	thresholdUnsure = "unsure"
+)
+
+// CompleteScanUpload turns a finished chunked upload into the control's next
+// batch: SaveUploadedBatch writes batch-N.pdf, the partial goes only after
+// that returned, and then the analyse job is queued — the one-request form's
+// two calls, in its order, so the batch survives anything after (#210). It
+// answers where the page should go; the flash is the form's.
+func (h *Controls) CompleteScanUpload(w http.ResponseWriter, r *http.Request) {
+	id, uid := r.PathValue("id"), r.PathValue("uid")
+	professor, ok := middleware.ProfessorFrom(r.Context())
+	if !ok || !isValidControlID(id) {
+		writeUploadJSON(w, h.Log, http.StatusNotFound, uploadMessage{Message: uploadNotFound})
+		return
+	}
+	var save controls.SaveUploadedBatchResult
+	up, err := h.Uploads.Complete(professor.ID, uid, uploads.Subject{Kind: uploads.SubjectControl, ID: id},
+		func(up uploads.Upload, content io.ReadCloser) error {
+			var err error
+			save, err = h.Service.SaveUploadedBatch(r.Context(), controls.UploadRequest{
+				ControlID: id,
+				Filename:  up.Name,
+				Content:   content,
+				Ticked:    parseFloatField(up.Meta[thresholdTicked], 0),
+				Unsure:    parseFloatField(up.Meta[thresholdUnsure], 0),
+			})
+			return err
+		})
+	if status, body, ok := completeRefusal(err, up); ok {
+		writeUploadJSON(w, h.Log, status, body)
+		return
+	}
+	switch {
+	case err == nil:
+	case errors.Is(err, controls.ErrControlNotFound):
+		writeUploadJSON(w, h.Log, http.StatusNotFound, uploadMessage{Message: "Ese control no existe."})
+		return
+	case errors.Is(err, controls.ErrAnalyzerRefused):
+		h.Log.Warn("controls: chunked upload rejected", "control", id, "error", err)
+		writeUploadJSON(w, h.Log, http.StatusBadRequest, uploadMessage{Message: "Los umbrales deben cumplir 0 < inseguro < marcado < 1."})
+		return
+	default:
+		h.Log.Error("controls: saving a chunked upload", "control", id, "upload", uid, "error", err)
+		writeUploadJSON(w, h.Log, http.StatusInternalServerError,
+			uploadMessage{Message: "El servidor no pudo guardar el escaneo. Vuelve a intentarlo en unos minutos."})
+		return
+	}
+	// From here the batch is saved and the partial gone, so this upload is
+	// FINISHED whatever the queue says: a 500 would send the page into a
+	// retry that finds nothing and reloads with no word (#339 review,
+	// COR-3). The page goes to the control and the flash names the failure.
+	message := batchUploaded(save)
+	if err := h.submitAnalysis(r.Context(), id, save); err != nil {
+		message = fmt.Sprintf("Escaneo %d guardado, pero el servidor no pudo encolar su análisis. Vuelve a subir el mismo PDF en unos minutos.", save.BatchNumber)
+	}
+	flash.Set(w, h.secureCookie, message)
+	writeUploadJSON(w, h.Log, http.StatusOK, uploadFinished{Redirect: controlDetailURL(id)})
 }
 
 // ReanalyzeScans handles POST /controls/:id/reanalyze. Reads
