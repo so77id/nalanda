@@ -79,6 +79,10 @@ type Store interface {
 	// RunsForSurvey returns the survey's runs, most recent number first.
 	RunsForSurvey(ctx context.Context, surveyID int64) ([]Run, error)
 
+	// AllRuns returns every run of every survey, whatever its state, in id
+	// order — the reconcile's list of run projects (issue #338).
+	AllRuns(ctx context.Context) ([]Run, error)
+
 	// RunQuestions returns a run's snapshot in printed order.
 	RunQuestions(ctx context.Context, runID int64) ([]RunQuestion, error)
 

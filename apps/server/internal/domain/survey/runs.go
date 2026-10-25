@@ -138,6 +138,22 @@ func (s *Service) OpenSheet(ctx context.Context, run Run) (files.File, error) {
 	return s.Files.Open(ctx, runRel(run, "out", "sujet.pdf"))
 }
 
+// RunProjectPaths names every run's project the way files.Store takes it —
+// the reconcile's list (issue #338). A function over the store rather than
+// a Service method, so the migration's -sync-files can run it with nothing
+// but the database.
+func RunProjectPaths(ctx context.Context, store Store) ([]string, error) {
+	runs, err := store.AllRuns(ctx)
+	if err != nil {
+		return nil, err
+	}
+	paths := make([]string, len(runs))
+	for i, run := range runs {
+		paths[i] = runRel(run)
+	}
+	return paths, nil
+}
+
 // runRel names a file of the run's project the way files.Store takes it:
 // relative to the work root, slash-separated.
 func runRel(run Run, parts ...string) string {

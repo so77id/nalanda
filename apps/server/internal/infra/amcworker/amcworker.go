@@ -117,6 +117,15 @@ func New(cfg Config) *Client {
 	}
 }
 
+// Exclusive runs fn under the worker lock: the reconcile's way of reading a
+// project no call is changing (issue #338). It waits, like every call but
+// the resets — the reconcile is background work with nobody waiting on it.
+func (c *Client) Exclusive(fn func() error) error {
+	c.generateLock.Lock()
+	defer c.generateLock.Unlock()
+	return fn()
+}
+
 // inStep runs call between the file store's hydrate and push for project.
 // The caller holds generateLock. A sync failure is returned as the sync
 // wrapped it (files.ErrSync); a worker failure as the call returned it.

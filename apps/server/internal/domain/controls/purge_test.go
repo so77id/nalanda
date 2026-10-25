@@ -128,3 +128,30 @@ func TestThePurgeDeletesS3BeforeTheRows(t *testing.T) {
 		t.Error("the retry left the row")
 	}
 }
+
+// Issue #338: the reconcile keeps an archived control's files too — they
+// are what a restore brings back.
+func TestProjectPathsNamesEveryControlArchivedOrNot(t *testing.T) {
+	svc, store, _, _ := newService(t)
+	ctx := context.Background()
+	active, err := createControlSync(ctx, svc, req(nil))
+	if err != nil {
+		t.Fatal(err)
+	}
+	archived, err := createControlSync(ctx, svc, req(func(r *controls.CreateRequest) { r.Name = "Archivado" }))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := svc.Archive(ctx, archived.ID); err != nil {
+		t.Fatal(err)
+	}
+
+	got, err := controls.ProjectPaths(ctx, store)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := map[string]bool{"controls/" + active.ID: true, "controls/" + archived.ID: true}
+	if len(got) != 2 || !want[got[0]] || !want[got[1]] {
+		t.Errorf("ProjectPaths = %v, want both controls", got)
+	}
+}

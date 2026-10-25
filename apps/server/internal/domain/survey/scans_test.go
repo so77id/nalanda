@@ -177,3 +177,20 @@ func TestARunsSyncFailureFailsItsJobInSpanish(t *testing.T) {
 		t.Errorf("banner = %q", failure.Message)
 	}
 }
+
+// allRunsStore answers two runs of two surveys.
+type allRunsStore struct{ *memStore }
+
+func (allRunsStore) AllRuns(context.Context) ([]survey.Run, error) {
+	return []survey.Run{{ID: 2, SurveyID: 1}, {ID: 7, SurveyID: 3}}, nil
+}
+
+func TestRunProjectPathsNamesEveryRunAsAStorePath(t *testing.T) {
+	got, err := survey.RunProjectPaths(context.Background(), allRunsStore{newMemStore()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 2 || got[0] != "surveys/1/runs/2" || got[1] != "surveys/3/runs/7" {
+		t.Errorf("RunProjectPaths = %v", got)
+	}
+}

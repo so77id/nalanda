@@ -370,6 +370,27 @@ func (s *Service) Get(ctx context.Context, id string) (Control, error) {
 	return s.Store.ControlByID(ctx, id)
 }
 
+// ProjectPaths names every control's project, archived or not, the way
+// files.Store takes it — the reconcile's list (issue #338): an archived
+// control's files are what a restore brings back. A function over the
+// store rather than a Service method, so the migration's -sync-files can
+// run it with nothing but the database.
+func ProjectPaths(ctx context.Context, store Store) ([]string, error) {
+	active, err := store.ListControls(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("controls.ProjectPaths: %w", err)
+	}
+	archived, err := store.ListArchivedControls(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("controls.ProjectPaths: %w", err)
+	}
+	paths := make([]string, 0, len(active)+len(archived))
+	for _, c := range append(active, archived...) {
+		paths = append(paths, projectRel(c.ID))
+	}
+	return paths, nil
+}
+
 // ArchivedList returns every archived control, deleted_at DESC (issue #261).
 // One door into the domain for the same reason as List; a handler that
 // reached into Store for one and Service for the other would re-open the

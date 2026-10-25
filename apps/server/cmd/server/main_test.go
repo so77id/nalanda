@@ -38,6 +38,7 @@ import (
 	"github.com/so77id/nalanda/apps/server/internal/infra/config"
 	"github.com/so77id/nalanda/apps/server/internal/infra/email"
 	"github.com/so77id/nalanda/apps/server/internal/infra/filestore"
+	"github.com/so77id/nalanda/apps/server/internal/infra/filestore/s3test"
 	"github.com/so77id/nalanda/apps/server/internal/infra/oidc/oidctest"
 	"github.com/so77id/nalanda/apps/server/internal/infra/storage"
 	"github.com/so77id/nalanda/apps/server/internal/infra/storage/authstore"
@@ -697,4 +698,64 @@ func (c connectedGmail) Connection(context.Context, int64) (gmail.Connection, er
 		address = "profesora@gmail.com"
 	}
 	return gmail.Connection{Address: address}, nil
+}
+
+// Issue #338, AC-9: -sync-files is the migration's one command — its exit
+// code is what the operator's procedure checks, and its line is what they
+// read before flipping the store.
+func TestSyncFilesExitsZeroWithItsSummaryAndNonZeroOnAnyFailure(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		summary filestore.Summary
+		err     error
+		code    int
+	}{
+		{"all reconciled", filestore.Summary{Projects: 16, Files: 1800, Bytes: 525_000_000}, nil, 0},
+		{"one project failed", filestore.Summary{Projects: 16, Files: 1700, Failed: 1}, nil, 1},
+		{"no project list", filestore.Summary{}, errors.New("database is locked"), 1},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var out strings.Builder
+			if got := syncFilesExit(tc.summary, tc.err, &out); got != tc.code {
+				t.Errorf("exit = %d, want %d", got, tc.code)
+			}
+			if tc.err == nil && !strings.Contains(out.String(), "projects") {
+				t.Errorf("no summary line: %q", out.String())
+			}
+		})
+	}
+}
+
+// The reconcile runs at BOOT, not first at 03:00: the boot is when a
+// rollback's delta, or a push a restart cut short, is waiting.
+func TestTheReconcileRunsAtBootThenWaitsForThreeOClock(t *testing.T) {
+	ran := make(chan struct{}, 4)
+	log := slog.New(slog.NewTextHandler(io.Discard, nil))
+	rec := &filestore.Reconciler{
+		Sync: filestore.NewSync(filestore.NewS3(s3test.New(), "nalanda-test"), t.TempDir(), log),
+		Projects: func(context.Context) ([]string, error) {
+			ran <- struct{}{}
+			return nil, nil
+		},
+		Exclusive: func(fn func() error) error { return fn() },
+		Log:       log,
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	go func() { reconcileDaily(ctx, rec, log); close(done) }()
+
+	select {
+	case <-ran:
+	case <-time.After(10 * time.Second):
+		t.Fatal("the reconcile did not run at boot")
+	}
+	cancel()
+	select {
+	case <-done:
+	case <-time.After(10 * time.Second):
+		t.Fatal("the reconcile loop did not stop with its context")
+	}
+	if len(ran) != 0 {
+		t.Errorf("the reconcile ran %d more time(s) before 03:00", len(ran))
+	}
 }

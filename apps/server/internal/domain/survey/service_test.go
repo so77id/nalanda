@@ -110,6 +110,8 @@ func (m *memStore) Run(context.Context, int64, int64) (survey.Run, error) {
 
 func (m *memStore) RunsForSurvey(context.Context, int64) ([]survey.Run, error) { return nil, nil }
 
+func (m *memStore) AllRuns(context.Context) ([]survey.Run, error) { return nil, nil }
+
 func (m *memStore) RunQuestions(context.Context, int64) ([]survey.RunQuestion, error) {
 	return nil, nil
 }

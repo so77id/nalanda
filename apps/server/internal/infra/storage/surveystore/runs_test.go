@@ -190,3 +190,29 @@ func TestOnlyAnOpenRunIsEdited(t *testing.T) {
 		t.Errorf("the cancelled run was renamed to %q", got.Name)
 	}
 }
+
+// Issue #338: the reconcile keeps every run's files, whatever its state or
+// survey — a cancelled run's printed sheet included.
+func TestAllRunsListsEveryRunOfEverySurvey(t *testing.T) {
+	f := newFixture(t)
+	s := f.createSurvey(t, "Banco")
+	other := f.createSurvey(t, "Otra")
+	first := f.createRun(t, s)
+	cancelled := f.createRun(t, s)
+	if err := f.store.CancelRun(f.ctx, s.ID, cancelled.ID, f.now); err != nil {
+		t.Fatalf("CancelRun: %v", err)
+	}
+	elsewhere := f.createRun(t, other)
+
+	runs, err := f.store.AllRuns(f.ctx)
+	if err != nil {
+		t.Fatalf("AllRuns: %v", err)
+	}
+	var ids []int64
+	for _, r := range runs {
+		ids = append(ids, r.ID)
+	}
+	if len(ids) != 3 || ids[0] != first.ID || ids[1] != cancelled.ID || ids[2] != elsewhere.ID {
+		t.Errorf("AllRuns = %v, want %d, %d, %d in id order", ids, first.ID, cancelled.ID, elsewhere.ID)
+	}
+}
