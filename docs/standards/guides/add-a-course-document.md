@@ -966,7 +966,13 @@ and `remove`, and `resize`, the method `add` calls when
 recipes, `remove` shares its name with the search trees, and `resize` is
 valid on no other recipe. `resize` draws the old
 table beside the new one, of `nextPrime(2 * capacity)` positions, and puts
-every key back through `add`, so it takes a `capacity` of at most five. Its keys are TEXT: `values` is the keys
+every key back through `add`, so it takes a `capacity` of at most five.
+`hash-probing` is the same set of keys with linear probing: `keys` and a
+parallel `deleted` drawn as two contiguous strips, the cursor `i` under them,
+and `search`, `insert` and `remove` — `remove` marks `deleted[i]` and leaves
+the key in its cell. The table keeps at least one cell empty, and
+`deleted={['Bea']}` starts it with marks, for a search that passes over one
+or an insertion that reuses one; `deleted` on any other recipe is refused. Its keys are TEXT: `values` is the keys
 already in the table, added in order, each at the front of the list of its
 position (`values={['Ana', 'Bea', 'Eva']}`), the key an operation works with
 is `target` (`search`, `remove`) or `value` (`insert`), and `capacity` is the
@@ -996,7 +1002,7 @@ heap or a tree from nothing.
 
 The widget's own chrome carries a speed selector and, in the corner of the
 structure panel, two readouts: the live `size` (`n` on the heap, the name its
-listing uses; the hash table's keys on `hash-chaining`) and the `capacidad` on
+listing uses; the keys on the two hash tables, not counting a marked one) and the `capacidad` on
 the dynamic array and the heap. The tree gets neither: its listings have no size field to show (ADR-0083,
 ADR-0074 §Amended by — #321). The
 elementary-operation count is not on screen: #294 took it off, because one
@@ -1048,15 +1054,17 @@ What is worth knowing before you write one:
   | `linked-list-circular` | `insert-first`                                                                          |
   | `heap-max`             | `insert`, `extract-max` (y ninguna otra receta acepta estas dos)                        |
   | `binary-tree`          | `preorder`, `inorder`, `postorder`, `height` (y ninguna otra receta acepta estas cuatro), y `search` |
-  | `bst`                  | `search`, `insert`, `inorder`, `remove` (la última, solo en los árboles de búsqueda y en la tabla hash) |
+  | `bst`                  | `search`, `insert`, `inorder`, `remove` (la última, solo en los árboles de búsqueda y en las tablas hash) |
   | `avl`                  | `rotate-right`, `rotate-left`, `rotate-left-right`, `rotate-right-left` (solo aquí), `insert`, `remove` |
   | `hash-chaining`        | `search`, `insert`, `remove` (compartida con los árboles de búsqueda), `resize` (solo aquí) |
+  | `hash-probing`         | `search`, `insert`, `remove` (compartida con los árboles de búsqueda y la otra tabla) |
 
   Anything else is an `<AuthoringError>` naming the operations that recipe does
   have; a heap operation on a Sequence recipe is refused pointing at
   `eda="heap-max"`, a traversal or `height` pointing at
   `eda="binary-tree"`, a rotation at `eda="avl"`, `remove` at
-  `eda="bst"`, `eda="avl"` or `eda="hash-chaining"`, and `resize` at
+  `eda="bst"`, `eda="avl"`, `eda="hash-chaining"` or `eda="hash-probing"`, and
+  `resize` at
   `eda="hash-chaining"`.
   Ask for one it does not and the answer tells you which to
   use instead.
@@ -1069,8 +1077,8 @@ What is worth knowing before you write one:
 - **`method` and `receiver` show the listing under the document's own
   names** — on the chains and the heap. The trees ignore them: `binary-tree`
   has no calling program to rename, and the programs of `bst` and `avl`
-  always name the tree `tree`; `hash-chaining` has no calling program
-  either, and ignores them. A class that has just taught `pop` =
+  always name the tree `tree`; the two hash tables have no calling
+  program either, and ignore them. A class that has just taught `pop` =
   `deleteFirst` and then mounts
   the widget gets a listing saying `deleteFirst`, three times, over a
   variable called `list` — the pila's own method, wearing the chain's name.

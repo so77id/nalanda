@@ -114,10 +114,10 @@ function lineAfter(code: string, anchor: string, fragment: string): number {
 }
 
 /** The most positions the drawing stays legible with, and the fewest that make a table. */
-const MIN_BUCKETS = 2;
-const MAX_BUCKETS = 11;
+export const MIN_BUCKETS = 2;
+export const MAX_BUCKETS = 11;
 /** The size the class's examples use when a slide does not say. */
-const DEFAULT_BUCKETS = 7;
+export const DEFAULT_BUCKETS = 7;
 
 /**
  * The class's hash: Horner's rule over the characters, reduced modulo `m` at
@@ -265,6 +265,11 @@ function keysOf(input: SequenceInput): string[] {
 
 /** The table the author writes: `keys` added in order, each at the front of its list. */
 function buildTable(input: SequenceInput): { m: number; chains: Node[][] } {
+  if (input.deleted !== undefined && input.deleted.length > 0) {
+    throw new Error(
+      'deleted marca claves borradas en la tabla con sondeo lineal (hash-probing); la tabla con listas saca el nodo de su lista y no deja marca.',
+    );
+  }
   const m = input.capacity ?? DEFAULT_BUCKETS;
   if (!Number.isInteger(m) || m < MIN_BUCKETS || m > MAX_BUCKETS) {
     throw new Error(

@@ -1,11 +1,11 @@
-# ADR-0084: `<SequenceStepper>` gains a hash table — a contiguous strip with each position's list hanging under its cell
+# ADR-0084: `<SequenceStepper>` gains the two hash tables — a contiguous strip with each position's list hanging under its cell, and the keys in the strip itself
 
-**Status:** Proposed — `hash-chaining` (`search`, `insert`, `remove`, `resize`) shipped and its picture approved by the professor in `/catalog/c/SequenceStepper` (S1, S2); the open-addressing recipe (S3) closes it
+**Status:** Accepted — `hash-chaining` (S1, S2) and `hash-probing` (S3) shipped; the professor approved the chaining picture in `/catalog/c/SequenceStepper` and decided the probing listing and picture before they were drawn, his review of the probing recipe in `/catalog` outstanding
 **Date:** 2026-10-13
 **Decision-makers:** Miguel Rodriguez
 **Source:** Issue #326 (Estructuras de Datos Avanzadas · Tablas Hash), slice S1.
-**Extends:** ADR-0074 — a recipe, `hash-chaining`, with a picture and
-operations of its own, the way ADR-0077 added the heap's and ADR-0083 the
+**Extends:** ADR-0074 — two recipes, `hash-chaining` and `hash-probing`, with
+pictures and operations of their own, the way ADR-0077 added the heap's and ADR-0083 the
 tree's. Both still hold entirely; nothing in ADR-0074 is amended.
 
 ## Context
@@ -117,14 +117,39 @@ reason.
   most the drawing holds. The class's own example grows from three to seven,
   and the table it leaves is the one its later slides fill.
 
+### 4c. `hash-probing`: the keys in the array, a parallel `deleted` (S3)
+
+Decided with the professor before it was drawn:
+
+- **A removed key is marked in a parallel `boolean[] deleted`**, and stays
+  in its cell: `contains` stops at the first null and passes over a mark,
+  `add` asks `contains` first and then takes the first cell that is null or
+  marked, `remove` sets `deleted[i] = true`. The alternatives: a sentinel
+  object compared with `==` — which would use on purpose the `==`/`equals`
+  trap the course teaches to avoid — and Sedgewick's reinsertion of the rest
+  of the cluster, which the class names and does not write.
+- **The picture is the code's state**: `keys` and `deleted` as two
+  contiguous strips, one over the other, both named; a marked key struck
+  through over `true`. The cursor `i` walks under them, and the chip over
+  the cell the hash named reads `hash("Eva") = 5`, as on the chaining table.
+- **At least one cell stays empty.** The invariant — between the position a
+  key hashes to and the cell it sits in there is no empty cell — is what
+  lets a search stop at the first null; a table with none would make the
+  search of a missing key never stop, so the widget refuses it.
+- **A slide may start from marks** (`deleted={['Bea']}`): the act needs a
+  search that passes over one and an insertion that reuses one.
+- The class's example is eleven positions where Ana and Bea collide at 5
+  and form a cluster with Leo at 4, and Tomas wraps from 10 to 0 — every
+  value pinned against the JVM.
+
 ### 5. The operations, in the order the class needs them
 
 - **S1:** `search`, `insert`, `remove` on `hash-chaining` — the listings
   `contains`, `add` and `remove` the class writes.
 - **S2:** `resize` on `hash-chaining` — the method `add` calls when the table
   is full (§4b).
-- **S3:** `hash-probing`, the keys in the array itself, with a mark where a
-  key was removed.
+- **S3:** `hash-probing` × {`search`, `insert`, `remove`} — the class's
+  `contains`, `add` and `remove` over `keys` and `deleted` (§4c).
 
 None ships without a slide that mounts it (#296, ADR-0077 §5).
 
@@ -146,17 +171,22 @@ None ships without a slide that mounts it (#296, ADR-0077 §5).
 
 ## Consequences
 
-- The validity matrix grows one row: `hash-chaining` × {`search`, `insert`,
-  `remove`, `resize`}; `resize` is valid on nothing else, and `remove` only
-  on the search trees besides (`add-a-course-document.md` §5h carries it).
+- The validity matrix grows two rows: `hash-chaining` × {`search`,
+  `insert`, `remove`, `resize`} and `hash-probing` × {`search`, `insert`,
+  `remove`}; `resize` is valid on `hash-chaining` only, and `remove` on the
+  two hash tables and the search trees (`add-a-course-document.md` §5h
+  carries it).
 - `SequenceStep` gains `hash` (the table, the listing's `size`, and during
   `resize` the old table); `SequenceTrace` gains `hash` (positions, the
   longest list any frame holds and, for `resize`, the old positions, so the
   canvas keeps one size);
-  `SequenceInput` gains `keys` and `key`; the component's `value` and `target`
-  accept text. The other recipes never set them.
+  `SequenceStep` and `SequenceTrace` also gain `probe` (`keys` and `deleted`
+  cell by cell, the hash's cell, the cursor, the listing's `size`; and the
+  positions); `SequenceInput` gains `keys`, `key` and `deleted`; the
+  component's `value` and `target` accept text, and it gains `deleted`. The
+  other recipes never set them.
 - **The picture exists only in a real browser.** The frames, the hashes and
   the geometry are pinned exactly (`sequenceStepperHashTrace.test.ts`,
-  `sequenceStepperHashLayout.test.ts`), and the component test pins which
+  `sequenceStepperProbeTrace.test.ts`, `sequenceStepperHashLayout.test.ts`), and the component test pins which
   positions, nodes, links and references are drawn; the paint is checked in
   the browser, in both themes.

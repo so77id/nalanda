@@ -27,10 +27,11 @@ tree `bst`. One thing here changes, for the tree only: the `size` readout
 assignment at a time, `insert` and `remove` rebalancing on the way back. Two
 things here change: the accent data state and the code panel holding several
 named listings (`Amended by: #322`, the last two amendments below).
-**Extended by:** ADR-0084 (#326) — a recipe for a hash table with a list
-per position, `hash-chaining` (`search`, `insert`, `remove`, `resize`), drawn as a
-contiguous strip with each position's list hanging under its cell; its keys
-are text. Nothing here changes.
+**Extended by:** ADR-0084 (#326) — two recipes for a hash table: with a list
+per position, `hash-chaining` (`search`, `insert`, `remove`, `resize`), drawn
+as a contiguous strip with each position's list hanging under its cell; and
+with linear probing, `hash-probing` (`search`, `insert`, `remove`), `keys`
+and `deleted` as two strips. Their keys are text. Nothing here changes.
 
 **Amended by:** #288, slide-by-slide review (2026-09-10) — a ninth operation,
 `get-at`. The class needs the operation the array answers with one

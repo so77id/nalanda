@@ -34,6 +34,7 @@ import {
 } from './sequenceStepperTraceShared';
 import { traceAvl } from './sequenceStepperAvlTrace';
 import { traceHash } from './sequenceStepperHashTrace';
+import { traceProbe } from './sequenceStepperProbeTrace';
 import { traceSearchTree, traceTree } from './sequenceStepperTreeTrace';
 
 export const RECIPES = [
@@ -61,6 +62,10 @@ export const RECIPES = [
   // position its hash names. Its keys are text, and its operations are the
   // ones a set of keys needs: search, insert, remove.
   'hash-chaining',
+  // The same set of keys with linear probing (#326): the keys live in the
+  // array itself, a taken cell sends a key to the next one, and a parallel
+  // `boolean[] deleted` marks a removed key so a search passes over it.
+  'hash-probing',
 ] as const;
 export type SequenceRecipe = (typeof RECIPES)[number];
 
@@ -253,6 +258,27 @@ export interface HashRun {
   oldBuckets?: number;
 }
 
+/** One cell of the probing table: the key in `keys[i]` (null if none ever was) and `deleted[i]`. */
+export interface ProbeCell {
+  key: string | null;
+  deleted: boolean;
+  state: SequenceCellState;
+}
+
+/**
+ * The probing table as one frame leaves it (#326): `keys` and `deleted` cell
+ * by cell. `home` is the position the hash of `key` named, and `at` the
+ * listing's cursor `i` — both null until the line that sets them runs.
+ */
+export interface ProbeFrame {
+  cells: ProbeCell[];
+  key: string;
+  home: number | null;
+  at: number | null;
+  /** The listing's `size`: the keys not marked. */
+  size: number;
+}
+
 export interface SequenceCell {
   /** Stable across frames — the view animates by identity, not by position. */
   id: number;
@@ -364,6 +390,8 @@ export interface SequenceStep {
   tree?: TreeFrame;
   /** The hash recipe only: the table this frame leaves. `cells` mirrors its keys. */
   hash?: HashFrame;
+  /** The probing recipe only: `keys` and `deleted` as this frame leaves them. */
+  probe?: ProbeFrame;
 }
 
 export interface SequenceTrace {
@@ -419,6 +447,8 @@ export interface SequenceTrace {
   tree?: TreeRun;
   /** The hash recipe only: what the whole run needs to keep one canvas. */
   hash?: HashRun;
+  /** The probing recipe only: its positions. */
+  probe?: { buckets: number };
 }
 
 /**
@@ -458,6 +488,11 @@ export interface SequenceInput {
    * (search, remove) or `value` (insert), the props every recipe uses.
    */
   key?: string | string[];
+  /**
+   * `hash-probing` only: keys of `keys` that were removed — each stays in its
+   * cell with `deleted[i]` set, so a slide can start from a table with marks.
+   */
+  deleted?: string[];
   /**
    * Required by every `insert-*` except `insert-ordered`, and by the heap's
    * `insert`. An ARRAY inserts
@@ -655,12 +690,24 @@ export function isHashChainingOperation(
   return HASH_CHAINING_OPERATIONS.includes(operation);
 }
 
+/** What `hash-probing` has a listing for (#326): `contains`, `add` and `remove`. */
+const HASH_PROBING_OPERATION_NAMES = ['search', 'insert', 'remove'] as const;
+export type HashProbingOperation = (typeof HASH_PROBING_OPERATION_NAMES)[number];
+export const HASH_PROBING_OPERATIONS: readonly SequenceOperation[] = HASH_PROBING_OPERATION_NAMES;
+
+export function isHashProbingOperation(
+  operation: SequenceOperation,
+): operation is HashProbingOperation {
+  return HASH_PROBING_OPERATIONS.includes(operation);
+}
+
 export function isValidCombination(
   recipe: SequenceRecipe,
   operation: SequenceOperation,
   tail = false,
 ): boolean {
   if (recipe === 'hash-chaining') return HASH_CHAINING_OPERATIONS.includes(operation);
+  if (recipe === 'hash-probing') return HASH_PROBING_OPERATIONS.includes(operation);
   if (operation === 'resize') return false;
   const heapOperation = HEAP_OPERATIONS.includes(operation);
   if (recipe === 'heap-max') return heapOperation;
@@ -728,6 +775,9 @@ export function traceFor(
   if (recipe === 'avl' && isAvlOperation(operation)) return traceAvl(operation, input);
   if (recipe === 'hash-chaining' && isHashChainingOperation(operation)) {
     return traceHash(operation, input);
+  }
+  if (recipe === 'hash-probing' && isHashProbingOperation(operation)) {
+    return traceProbe(operation, input);
   }
   return isList(recipe) ? traceList(recipe, operation, input) : traceArray(operation, input);
 }

@@ -6,6 +6,7 @@ import { AuthoringError } from '../AuthoringError';
 import { CodeStepper } from './CodeStepper';
 import { HashView } from './sequenceStepperHashView';
 import { HeapView } from './sequenceStepperHeapView';
+import { ProbeView } from './sequenceStepperProbeView';
 import { TreeView } from './sequenceStepperTreeView';
 import {
   BOX_H,
@@ -24,6 +25,7 @@ import {
   BST_OPERATIONS,
   CIRCULAR_OPERATIONS,
   HASH_CHAINING_OPERATIONS,
+  HASH_PROBING_OPERATIONS,
   DOUBLY_OPERATIONS,
   HEAP_OPERATIONS,
   OPERATIONS,
@@ -34,12 +36,14 @@ import {
   isBinaryTreeOperation,
   isBstOperation,
   isHashChainingOperation,
+  isHashProbingOperation,
   isValidCombination,
   traceFor,
   type AvlOperation,
   type BinaryTreeOperation,
   type BstOperation,
   type HashChainingOperation,
+  type HashProbingOperation,
   type SequenceCell,
   type SequenceOperation,
   type SequenceRecipe,
@@ -101,6 +105,12 @@ export interface SequenceStepperProps {
    * (`remove-first`, `remove-last`, `extract-max`). Default one.
    */
   times?: number;
+  /**
+   * `hash-probing` only: keys of `values` that were removed. Each stays in
+   * its cell with `deleted[i]` set, so a slide can start from a table with
+   * marks — a search passing over one, an insertion reusing it.
+   */
+  deleted?: string[];
   /**
    * The dynamic array and the heap: how many slots the block reserves (on
    * the heap, `data.length` with slot 0 included). Pass the same number to
@@ -199,15 +209,20 @@ function refusalReason(
       (o) => OPERATION_LABEL[o],
     ).join(', ')}.`;
   }
+  if (recipe === 'hash-probing') {
+    return `la tabla con sondeo lineal tiene listado para: ${HASH_PROBING_OPERATIONS.map(
+      (o) => OPERATION_LABEL[o],
+    ).join(', ')}.`;
+  }
   // The tree-only sets, not every tree operation: `search` and `insert` are
   // shared, and a structure that refuses them has its own reason. `remove` is
   // the search tree's and the AVL's both, so the AVL's own set is only its
-  // rotations — and the hash table's too (#326), so its refusal names all three.
+  // rotations — and the hash tables' too (#326), so its refusal names all four.
   if (AVL_ONLY_OPERATIONS.includes(operation)) {
     return 'es una operación del árbol AVL. Úsala con eda="avl".';
   }
   if (BST_ONLY_OPERATIONS.includes(operation)) {
-    return 'es una operación de los árboles de búsqueda y de la tabla hash. Úsala con eda="bst", eda="avl" o eda="hash-chaining".';
+    return 'es una operación de los árboles de búsqueda y de las tablas hash. Úsala con eda="bst", eda="avl", eda="hash-chaining" o eda="hash-probing".';
   }
   if (operation === 'resize') {
     return 'es una operación de la tabla hash. Úsala con eda="hash-chaining".';
@@ -237,6 +252,7 @@ const RECIPE_LABEL: Record<SequenceRecipe, string> = {
   bst: 'árbol binario de búsqueda',
   avl: 'árbol AVL',
   'hash-chaining': 'tabla hash con encadenamiento',
+  'hash-probing': 'tabla hash con sondeo lineal',
 };
 
 const OPERATION_LABEL: Record<SequenceOperation, string> = {
@@ -342,6 +358,9 @@ function runLegend(
   if (recipe === 'hash-chaining' && isHashChainingOperation(operation)) {
     return HASH_LEGEND[operation];
   }
+  if (recipe === 'hash-probing' && isHashProbingOperation(operation)) {
+    return PROBE_LEGEND[operation];
+  }
   return null;
 }
 
@@ -355,6 +374,11 @@ const HASH_LEGEND: Record<HashChainingOperation, [string, string][]> = {
     ['border-mark bg-mark-soft', 'reinsertada'],
     ['border-rule-strong bg-sunk', 'ya movida'],
   ],
+};
+const PROBE_LEGEND: Record<HashProbingOperation, [string, string][]> = {
+  search: [FOUND, UNDER_THE_EYE, COMPARED],
+  insert: [['border-mark bg-mark-soft', 'nuevo'], UNDER_THE_EYE, COMPARED],
+  remove: [UNDER_THE_EYE, ['border-rule bg-sunk', 'se marca'], COMPARED],
 };
 
 /** The most elements the picture stays legible with, measured on a slide. */
@@ -385,8 +409,8 @@ function readValues(key: string): { values: number[]; levelOrder?: (TreeValue | 
  *
  * One widget, two props that pick what it shows: `eda` selects the structure
  * (a dynamic array, a singly / doubly / circular list, a binary max-heap, a
- * linked binary tree or a hash table with chaining) and `operation` selects
- * the animation. The surface never
+ * linked binary tree, or a hash table with chaining or with linear probing)
+ * and `operation` selects the animation. The surface never
  * changes between combinations — code panel, structure, narration, controls —
  * so the reader learns one visual vocabulary and reads every structure of the
  * unit through it.
@@ -395,16 +419,18 @@ function readValues(key: string): { values: number[]; levelOrder?: (TreeValue | 
  * leaves the browser only the paint:
  * - frames: `sequenceStepperTrace` (the dispatcher, the chains and the heap),
  *   `sequenceStepperTreeTrace` (the binary tree and the search tree),
- *   `sequenceStepperAvlTrace` (the AVL tree, built on the tree's pieces) and
- *   `sequenceStepperHashTrace` (the hash table), all importing the leaf
- *   `sequenceStepperTraceShared` (the line a frame lights, the runs cap);
+ *   `sequenceStepperAvlTrace` (the AVL tree, built on the tree's pieces),
+ *   `sequenceStepperHashTrace` (the table with chaining) and
+ *   `sequenceStepperProbeTrace` (the table with linear probing), all importing
+ *   the leaf `sequenceStepperTraceShared` (the line a frame lights, the runs
+ *   cap);
  * - geometry: `sequenceStepperLayout` (a Sequence), `sequenceStepperHeapLayout`
  *   (the heap's tree and array), `sequenceStepperTreeLayout` (the tree), the
  *   last two sharing the leaf `sequenceStepperEdge`, and
- *   `sequenceStepperHashLayout` (the table and its lists);
+ *   `sequenceStepperHashLayout` (both hash tables);
  * - paint: the Sequence picture here, `sequenceStepperHeapView`,
- *   `sequenceStepperTreeView` and `sequenceStepperHashView`, with their
- *   colours in `sequenceStepperPaint`.
+ *   `sequenceStepperTreeView`, `sequenceStepperHashView` and
+ *   `sequenceStepperProbeView`, with their colours in `sequenceStepperPaint`.
  */
 export function SequenceStepper({
   eda,
@@ -422,6 +448,7 @@ export function SequenceStepper({
   tail = false,
   iterative = false,
   program = false,
+  deleted,
   autoplay = false,
   speed = 'normal',
   showCode = true,
@@ -499,13 +526,31 @@ export function SequenceStepper({
   }
   // The hash table's keys are text (#326): the class's table holds Strings,
   // and a number there would be hashed as nothing the listing computes.
-  const hash = recipe === 'hash-chaining';
+  const hash = recipe === 'hash-chaining' || recipe === 'hash-probing';
+  if (deleted !== undefined && recipe !== 'hash-probing') {
+    return (
+      <AuthoringError component="SequenceStepper">
+        <code>deleted</code> marca claves borradas en la tabla con sondeo lineal: solo hash-probing
+        lo acepta.
+      </AuthoringError>
+    );
+  }
+  if (
+    deleted !== undefined &&
+    !(Array.isArray(deleted) && deleted.every((d) => typeof d === 'string'))
+  ) {
+    return (
+      <AuthoringError component="SequenceStepper">
+        <code>deleted</code> es una lista de claves, como <code>{"deleted={['Bea']}"}</code>.
+      </AuthoringError>
+    );
+  }
   if (hash) {
     const notText = values.findIndex((v) => typeof v !== 'string');
     if (notText >= 0) {
       return (
         <AuthoringError component="SequenceStepper">
-          <code>values[{notText}]</code> no es una clave: en hash-chaining las claves son textos,
+          <code>values[{notText}]</code> no es una clave: en las tablas hash las claves son textos,
           como <code>{"values={['Ana', 'Bea']}"}</code>.
         </AuthoringError>
       );
@@ -516,7 +561,7 @@ export function SequenceStepper({
       return (
         <AuthoringError component="SequenceStepper">
           la clave de {op === 'insert' ? <code>value</code> : <code>target</code>} es un texto en
-          hash-chaining, como <code>{op === 'insert' ? 'value="Ana"' : 'target="Ana"'}</code>.
+          las tablas hash, como <code>{op === 'insert' ? 'value="Ana"' : 'target="Ana"'}</code>.
         </AuthoringError>
       );
     }
@@ -525,7 +570,7 @@ export function SequenceStepper({
     if (word !== undefined) {
       return (
         <AuthoringError component="SequenceStepper">
-          «{word}»: solo hash-chaining trabaja con claves de texto en <code>value</code> y{' '}
+          «{word}»: solo las tablas hash trabajan con claves de texto en <code>value</code> y{' '}
           <code>target</code>.
         </AuthoringError>
       );
@@ -588,6 +633,7 @@ export function SequenceStepper({
       tail={tail}
       iterative={iterative}
       program={program}
+      deleted={deleted}
       autoplay={autoplay}
       speed={speed}
       showCode={showCode}
@@ -612,6 +658,7 @@ interface BodyProps {
   tail: boolean;
   iterative: boolean;
   program: boolean;
+  deleted?: string[];
   autoplay: boolean;
   speed: StepSpeed;
   showCode: boolean;
@@ -634,6 +681,7 @@ function Body({
   tail,
   iterative,
   program,
+  deleted,
   autoplay,
   speed,
   showCode,
@@ -642,7 +690,7 @@ function Body({
   const mode = useMode();
   const heap = recipe === 'heap-max';
   const tree = recipe === 'binary-tree' || recipe === 'bst' || recipe === 'avl';
-  const hash = recipe === 'hash-chaining';
+  const hash = recipe === 'hash-chaining' || recipe === 'hash-probing';
   const legend = runLegend(recipe, operation);
   const isPresentation = mode === 'presentation';
   const outerRef = useRef<HTMLElement | null>(null);
@@ -662,6 +710,7 @@ function Body({
   const valueKey = String(value);
   const indexKey = String(index);
   const targetKey = String(target);
+  const deletedKey = JSON.stringify(deleted ?? []);
   const resetKey = [
     recipe,
     operation,
@@ -678,6 +727,7 @@ function Body({
     tail,
     iterative,
     program,
+    deletedKey,
   ].join('|');
 
   const built = useMemo((): { trace: SequenceTrace } | { error: string } => {
@@ -690,6 +740,7 @@ function Body({
           ...(hash
             ? {
                 keys: JSON.parse(valuesKey) as string[],
+                deleted: JSON.parse(deletedKey) as string[],
                 key: (operation === 'insert' ? value : target) as string | string[] | undefined,
               }
             : {}),
@@ -727,6 +778,7 @@ function Body({
     tail,
     iterative,
     program,
+    deletedKey,
   ]);
 
   const trace = 'trace' in built ? built.trace : null;
@@ -962,7 +1014,7 @@ function Body({
               {heap ? 'n' : 'size'}
             </div>
             <div className="min-w-11 rounded border border-rule bg-sunk px-2 py-1 text-lg font-semibold leading-none text-ink">
-              {step.hash?.size ?? step.heapSize ?? step.cells.length}
+              {step.probe?.size ?? step.hash?.size ?? step.heapSize ?? step.cells.length}
             </div>
             {step.capacity === undefined ? null : (
               <div className="mt-0.5 font-mono text-3xs text-ink-faint">
@@ -986,7 +1038,14 @@ function Body({
               was chrome that reset between runs with nothing to say.
             */}
           </div>
-          {trace.hash !== undefined && step.hash !== undefined ? (
+          {trace.probe !== undefined && step.probe !== undefined ? (
+            <ProbeView
+              probe={step.probe}
+              buckets={trace.probe.buckets}
+              description={step.description}
+              presentation={isPresentation}
+            />
+          ) : trace.hash !== undefined && step.hash !== undefined ? (
             <HashView
               hash={step.hash}
               run={trace.hash}
