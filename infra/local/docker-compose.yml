@@ -151,12 +151,14 @@ services:
       context: ../../apps/amc-worker
       dockerfile: Dockerfile
     image: nalanda/amc-worker:dev
-    # depends_on the server so THIS is the second container to mount the
-    # shared amc-work volume. Docker seeds a named volume from the first
-    # container that touches it, permissions included — and the server
-    # runs as UID 65532 while the worker runs as root. Without this
-    # order, root:root would seed /work and the server's first
-    # os.MkdirAll under /work would fail EACCES on the first /generate.
+    # depends_on the server so it starts first. The ORDER alone does not
+    # decide who owns the shared amc-work volume: Docker seeds a named
+    # volume every time a container mounts it while it is still EMPTY,
+    # permissions included, so an empty server seed was followed by the
+    # worker's root:root one and the server's first os.MkdirAll under /work
+    # failed EACCES on the first /generate (measured in #339; ADR-0034
+    # §Consequences, amended by #339). The server image's /work is now
+    # non-empty (/work/incoming, 65532), which is what makes its seed stick.
     # The failure is invisible to `compose up --wait` because that step
     # only probes /health.
     depends_on:

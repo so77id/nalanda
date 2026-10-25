@@ -31,7 +31,11 @@ const shutdownGrace = 10 * time.Second
 const (
 	// readHeaderTimeout bounds how long a client may take to send its headers.
 	readHeaderTimeout = 10 * time.Second
-	// readTimeout bounds headers plus body.
+	// readTimeout bounds headers plus body. It is NOT raised for slow
+	// uploads: a scan batch crosses in 1 MiB chunks precisely so every
+	// request fits inside it (ADR-0088; apps/server/CLAUDE.md, the
+	// chunked-upload rule 5). No test pins the value — bounds_test only
+	// checks that each bound is positive.
 	readTimeout = 15 * time.Second
 	// writeTimeout bounds how long a handler may take to write its response.
 	//

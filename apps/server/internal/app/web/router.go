@@ -129,11 +129,14 @@ func routes(deps Deps) []Route {
 			// template does not verify (`Never let a comment claim what the
 			// suite does not verify`, apps/server/CLAUDE.md). The vendor
 			// README's §"How it is served" is the third copy of the URL and
-			// names this file; a rename touches all three.
+			// names this file, and since #339 the chunked-upload partial
+			// (templates/partials/chunked_upload.html) is the fourth; a
+			// rename touches all four.
 			Method: http.MethodGet, Path: "/static/",
 			Handler: http.StripPrefix("/static/", static.Handler()).ServeHTTP,
 			Public:  true,
-			Why: "vendored front-end assets (PDF.js today) — the review page loads pdf.mjs as an " +
+			Why: "front-end assets — vendored PDF.js and, since #339, the first-party chunked-upload module, " +
+				"neither holding anything session- or user-scoped (ADR-0047 §3) — the review page loads pdf.mjs as an " +
 				"ES module AFTER the professor has signed in, so the happy path carries a session " +
 				"cookie. What Public defends is the stale-tab case: if the session expires while " +
 				"the tab is open, gating the module would 302-redirect the import to the login " +

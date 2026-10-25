@@ -70,14 +70,18 @@ COPY . .
 #
 #   /data — the SQLite database (this app's own volume, seeded once).
 #   /work — the SHARED volume with amc-worker (issue #166 WP-E, ADR-0034
-#           §Consequences). Both containers mount it. The compose file
-#           depends_on: server so THIS container is the one that seeds
-#           the volume the first time it comes up; without that, the
-#           worker (which runs as root) seeds it root:root and the
-#           server's first os.MkdirAll under /work fails EACCES on the
-#           first /generate — a failure invisible to `compose up --wait`
-#           because that step only probes /health.
-RUN mkdir -p /data /work && chown 65532:65532 /data /work
+#           §Consequences, amended by #339). Both containers mount it, and
+#           Docker seeds a named volume EVERY time a container mounts it
+#           while it is still EMPTY — not only the first time. An empty
+#           /work here therefore left the volume empty, the worker (root)
+#           seeded it again, and the server's first os.MkdirAll under /work
+#           failed EACCES on the first /generate, invisible to `compose up
+#           --wait` (measured in #339 with `docker create` on scratch
+#           volumes; `depends_on: server` did not prevent it). /work/incoming
+#           — the chunked upload's directory, the server's own — is what
+#           makes the volume non-empty after the server's seed, so the
+#           worker's mount no longer copies anything.
+RUN mkdir -p /data /work/incoming && chown -R 65532:65532 /data /work
 
 # CGO_ENABLED=0 is the load-bearing flag. With it on, the toolchain would link
 # against Alpine's musl and the binary would not run on `scratch` — and the

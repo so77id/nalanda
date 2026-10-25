@@ -34,7 +34,9 @@ import (
 )
 
 // SubjectKind names what an upload is FOR. A closed set, re-checked on every
-// read of a sidecar.
+// read of a sidecar. Its members are jobs.SubjectKind's (ADR-0079), kept as
+// a set of its own so this package depends on nothing; a subject added to
+// either set belongs in the other too.
 type SubjectKind string
 
 const (
