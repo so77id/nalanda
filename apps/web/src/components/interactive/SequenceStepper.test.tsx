@@ -1753,10 +1753,10 @@ describe('<SequenceStepper> · resize on hash-chaining (#326)', () => {
 });
 
 describe('<SequenceStepper> · the hash-probing recipe (#326)', () => {
-  // M = 11: 0 Tomas · 4 Leo · 5 Ana · 6 Bea · 10 Olga.
+  // M = 11: 0 Iván · 5 Ana · 6 Bea · 10 Olga.
   const table = {
     eda: 'hash-probing' as const,
-    values: ['Ana', 'Bea', 'Leo', 'Olga', 'Tomas'],
+    values: ['Ana', 'Bea', 'Olga', 'Iván'],
     capacity: 11,
   };
   const view = () => screen.getByTestId('probe-view');
@@ -1771,13 +1771,29 @@ describe('<SequenceStepper> · the hash-probing recipe (#326)', () => {
   it('draws one cell of keys and one of deleted per position, the keys in their cells', () => {
     renderIn('book', <SequenceStepper {...table} operation="search" target="Ana" />);
     expect(view().querySelectorAll('[data-cell]')).toHaveLength(11);
-    expect(view().querySelector('[data-cell="0"]')).toHaveAttribute('data-key', 'Tomas');
+    expect(view().querySelector('[data-cell="0"]')).toHaveAttribute('data-key', 'Iván');
     expect(view().querySelector('[data-cell="6"]')).toHaveAttribute('data-key', 'Bea');
-    expect(screen.getByTestId('sequence-size')).toHaveTextContent('5');
+    expect(screen.getByTestId('sequence-size')).toHaveTextContent('4');
+  });
+
+  it('shows used beside size, and keeps a marked cell in it', () => {
+    renderIn('book', <SequenceStepper {...table} operation="remove" target="Bea" />);
+    expect(screen.getByTestId('sequence-used')).toHaveTextContent('4');
+    walkToEnd();
+    expect(screen.getByTestId('sequence-size')).toHaveTextContent('3');
+    expect(screen.getByTestId('sequence-used')).toHaveTextContent('4');
+  });
+
+  it('shows no used readout on the table with chaining', () => {
+    renderIn(
+      'book',
+      <SequenceStepper eda="hash-chaining" operation="search" values={['Ana']} target="Ana" />,
+    );
+    expect(screen.queryByTestId('sequence-used')).toBeNull();
   });
 
   it('walks the cursor i from the hash, one cell at a time', () => {
-    renderIn('book', <SequenceStepper {...table} operation="search" target="Tomas" />);
+    renderIn('book', <SequenceStepper {...table} operation="search" target="Iván" />);
     expect(view().querySelector('[data-cursor]')).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Adelante' }));
     expect(view().querySelector('[data-cursor]')).toHaveAttribute('data-cursor', '10');
@@ -1791,7 +1807,7 @@ describe('<SequenceStepper> · the hash-probing recipe (#326)', () => {
     const cell = view().querySelector('[data-cell="6"]');
     expect(cell).toHaveAttribute('data-key', 'Bea');
     expect(cell).toHaveAttribute('data-deleted', 'true');
-    expect(screen.getByTestId('sequence-size')).toHaveTextContent('4');
+    expect(screen.getByTestId('sequence-size')).toHaveTextContent('3');
   });
 
   it('starts from the marks a slide asks for, and reuses one', () => {
@@ -1819,7 +1835,7 @@ describe('<SequenceStepper> · the hash-probing recipe (#326)', () => {
     expect(screen.getByText(/solo\s+hash-probing lo acepta/)).toBeInTheDocument();
   });
 
-  it('refuses a table with no empty cell, where a search could not stop', () => {
+  it('refuses a table more than half full, which add would have resized', () => {
     renderIn(
       'book',
       <SequenceStepper
@@ -1830,6 +1846,6 @@ describe('<SequenceStepper> · the hash-probing recipe (#326)', () => {
         capacity={3}
       />,
     );
-    expect(screen.getByText(/al menos una celda vacía/)).toBeInTheDocument();
+    expect(screen.getByText(/pasa de la mitad de la tabla/)).toBeInTheDocument();
   });
 });

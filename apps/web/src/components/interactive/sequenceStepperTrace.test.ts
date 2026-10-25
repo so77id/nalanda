@@ -44,7 +44,10 @@ const SEQUENCE_RECIPES = RECIPES.filter(
  * block on the dynamic array and the heap.
  */
 const HASH_INPUT = { keys: ['Ana', 'Bea', 'Eva', 'Sara'], key: 'Ana', capacity: 5 };
-const hashInputFor = (recipe: SequenceRecipe) => (recipe.startsWith('hash-') ? HASH_INPUT : {});
+/** The probing table may use at most half its cells, so it gets two keys of the four. */
+const PROBE_INPUT = { ...HASH_INPUT, keys: ['Ana', 'Bea'] };
+const hashInputFor = (recipe: SequenceRecipe) =>
+  recipe === 'hash-probing' ? PROBE_INPUT : recipe === 'hash-chaining' ? HASH_INPUT : {};
 /** The tree operations no other kind of recipe has (`search` is everyone's). */
 const TRAVERSALS = ['preorder', 'inorder', 'postorder'] as const;
 const TREE_ONLY: readonly SequenceOperation[] = [

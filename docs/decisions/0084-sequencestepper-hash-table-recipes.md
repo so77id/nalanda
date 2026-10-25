@@ -132,15 +132,28 @@ Decided with the professor before it was drawn:
   contiguous strips, one over the other, both named; a marked key struck
   through over `true`. The cursor `i` walks under them, and the chip over
   the cell the hash named reads `hash("Eva") = 5`, as on the chaining table.
-- **At least one cell stays empty.** The invariant — between the position a
-  key hashes to and the cell it sits in there is no empty cell — is what
-  lets a search stop at the first null; a table with none would make the
-  search of a missing key never stop, so the widget refuses it.
+- **At most half the cells are used, marks included** (the professor's
+  review, #326 S10b — the first version kept only "one cell empty", and its
+  class never resized, so a table filled by `add` sent the search of a
+  missing key into an endless loop). The invariant — between the position a
+  key hashes to and the cell it sits in there is no empty cell — is what lets
+  a search stop at the first null, and a null has to be there to stop at. The
+  class keeps a counter `used`, the cells that are not null, and its `add`
+  resizes when the new key would use more than half of them:
+  `if (2 * (used + 1) > keys.length) resize(nextPrime(2 * keys.length));`,
+  with a `resize` that puts back only the unmarked keys. The widget walks
+  that line and `if (keys[i] == null) used++;`, shows `used` under `size`,
+  and refuses a starting table past the half and an insertion that would
+  resize — it does not draw this table's resize, which the class shows as
+  code.
 - **A slide may start from marks** (`deleted={['Bea']}`): the act needs a
   search that passes over one and an insertion that reuses one.
-- The class's example is eleven positions where Ana and Bea collide at 5
-  and form a cluster with Leo at 4, and Tomas wraps from 10 to 0 — every
-  value pinned against the JVM.
+- The class's example is eleven positions where Ana and Bea collide at 5,
+  Olga sits at 10 and Iván wraps from 10 to 0; Luz, absent, hashes to 5, and
+  Eva enters at 7 — four used cells, so one insertion still leaves the table
+  at most half full. Every value pinned against the JVM. (The first example
+  had Leo at 4 and Tomas wrapping; five used cells left no room for an
+  insertion under the half rule.)
 
 ### 5. The operations, in the order the class needs them
 

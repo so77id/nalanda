@@ -23,10 +23,11 @@ import {
 
 /**
  * M = 11 (hashes pinned against the JVM in sequenceStepperHashTrace.test.ts):
- * Ana 5, Bea 5 → 6, Leo 4, Olga 10, Tomas 10 → 0 (around the end).
- * Cells: 0 Tomas · 4 Leo · 5 Ana · 6 Bea · 10 Olga.
+ * Ana 5, Bea 5 → 6, Olga 10, Iván 10 → 0 (around the end); Luz and Eva hash
+ * to 5 and are not in it. Cells: 0 Iván · 5 Ana · 6 Bea · 10 Olga — four used
+ * of eleven, so one more key still leaves the table at most half full.
  */
-const KEYS = ['Ana', 'Bea', 'Leo', 'Olga', 'Tomas'];
+const KEYS = ['Ana', 'Bea', 'Olga', 'Iván'];
 const M = 11;
 
 const run = (
@@ -78,11 +79,11 @@ describe('sequenceStepperTrace · hash-probing · the table the keys build', () 
   it('puts each key in the first free cell from its hash on, around the end', () => {
     const first = run('search', 'Ana').steps[0]!;
     expect(keysOf(first)).toEqual([
-      'Tomas',
+      'Iván',
       null,
       null,
       null,
-      'Leo',
+      null,
       'Ana',
       'Bea',
       null,
@@ -91,20 +92,23 @@ describe('sequenceStepperTrace · hash-probing · the table the keys build', () 
       'Olga',
     ]);
     expect(marksOf(first).every((m) => m === false)).toBe(true);
-    expect(first.probe!.size).toBe(5);
+    expect(first.probe!.size).toBe(4);
+    expect(first.probe!.used).toBe(4);
     expect(holds(first)).toBe(true);
   });
 
   it('marks the keys a slide says were removed, and leaves them in their cells', () => {
     const first = run('search', 'Ana', { deleted: ['Bea'] }).steps[0]!;
     expect(first.probe!.cells[6]).toMatchObject({ key: 'Bea', deleted: true });
-    expect(first.probe!.size).toBe(4);
+    expect(first.probe!.size).toBe(3);
+    // A marked cell is still used: a search goes past it.
+    expect(first.probe!.used).toBe(4);
   });
 });
 
 describe('sequenceStepperTrace · hash-probing · search', () => {
   it('starts at the hash and steps one cell at a time until it finds the key', () => {
-    const trace = run('search', 'Tomas');
+    const trace = run('search', 'Iván');
     const lines = trace.steps.map((s) => lit(trace, s));
     expect(lines[0]).toEqual(['boolean contains(String key) {']);
     expect(lines[1]).toEqual(['int i = hash(key);']);
@@ -116,17 +120,17 @@ describe('sequenceStepperTrace · hash-probing · search', () => {
     const hit = trace.steps.find((s) => s.kind === 'found')!;
     expect(lit(trace, hit)).toEqual(['if (!deleted[i] && keys[i].equals(key)) return true;']);
     expect(trace.steps.at(-1)!.description).toBe(
-      '«Tomas» está en la tabla: se miraron 2 celdas, desde la posición 10.',
+      '«Iván» está en la tabla: se miraron 2 celdas, desde la posición 10.',
     );
   });
 
   it('stops at the first empty cell: the key cannot be past it', () => {
-    const trace = run('search', 'Lia');
+    const trace = run('search', 'Luz');
     const stop = trace.steps.at(-2)!;
     expect(lit(trace, stop)).toEqual(['while (keys[i] != null) {', 'return false;']);
     expect(stop.probe!.at).toBe(7);
     expect(trace.steps.at(-1)!.description).toBe(
-      '«Lia» no está: se miraron 3 celdas ocupadas desde la posición 4, hasta la celda vacía 7.',
+      '«Luz» no está: se miraron 2 celdas ocupadas desde la posición 5, hasta la celda vacía 7.',
     );
   });
 
@@ -150,7 +154,31 @@ describe('sequenceStepperTrace · hash-probing · insert', () => {
     expect(placed.probe!.at).toBe(7);
     expect(placed.probe!.cells[7]).toMatchObject({ key: 'Eva', state: 'new' });
     expect(holds(trace.steps.at(-1)!)).toBe(true);
-    expect(trace.steps.at(-1)!.probe!.size).toBe(6);
+    expect(trace.steps.at(-1)!.probe!.size).toBe(5);
+  });
+
+  it('checks the table stays at most half full before placing the key', () => {
+    const trace = run('insert', 'Eva');
+    const check = trace.steps.find((s) => lit(trace, s)[0]!.startsWith('if (2 * (used + 1)'))!;
+    expect(lit(trace, check)).toEqual([
+      'if (2 * (used + 1) > keys.length) resize(nextPrime(2 * keys.length));',
+    ]);
+    expect(check.description).toContain('no se redimensiona');
+    expect(check.probe!.used).toBe(4);
+  });
+
+  it('counts a cell that was null in used, and only that one', () => {
+    const fresh = run('insert', 'Eva');
+    const counted = fresh.steps.find((s) => lit(fresh, s)[0] === 'if (keys[i] == null) used++;')!;
+    expect(counted.probe!.used).toBe(5);
+    expect(fresh.steps.at(-1)!.probe!.used).toBe(5);
+    const reused = run('insert', 'Eva', { deleted: ['Bea'] });
+    expect(reused.steps.at(-1)!.probe!.used).toBe(4);
+  });
+
+  it('refuses an insertion that would leave the table more than half full', () => {
+    // Five used of eleven: a sixth passes the half, and add would resize.
+    expect(() => run('insert', 'Luz', { keys: [...KEYS, 'Eva'] })).toThrow(/redimensiona/);
   });
 
   it('reuses a marked cell, and clears its mark', () => {
@@ -174,19 +202,21 @@ describe('sequenceStepperTrace · hash-probing · remove', () => {
     const marked = trace.steps.find((s) => lit(trace, s)[0] === 'deleted[i] = true;')!;
     expect(marked.probe!.cells[6]).toMatchObject({ key: 'Bea', deleted: true });
     expect(marked.description).toContain('la invariante');
-    expect(trace.steps.at(-1)!.probe!.size).toBe(4);
+    expect(trace.steps.at(-1)!.probe!.size).toBe(3);
+    // The mark keeps the cell used.
+    expect(trace.steps.at(-1)!.probe!.used).toBe(4);
     expect(holds(trace.steps.at(-1)!)).toBe(true);
   });
 
   it('answers false at the first empty cell when the key is not there', () => {
-    const trace = run('remove', 'Lia');
+    const trace = run('remove', 'Luz');
     expect(lit(trace, trace.steps.at(-2)!)).toEqual(['while (keys[i] != null) {', 'return false;']);
     expect(marksOf(trace.steps.at(-1)!).every((m) => m === false)).toBe(true);
   });
 });
 
 describe('sequenceStepperTrace · hash-probing · authoring guards', () => {
-  it('keeps at least one cell empty, or a search would never stop', () => {
+  it('refuses a table more than half full, which the class would have resized', () => {
     expect(() =>
       traceFor('hash-probing', 'search', {
         values: [],
@@ -194,11 +224,11 @@ describe('sequenceStepperTrace · hash-probing · authoring guards', () => {
         key: 'Ana',
         capacity: 3,
       }),
-    ).toThrow(/celda vacía/);
+    ).toThrow(/mitad/);
   });
 
   it('refuses a mark on a key the table does not hold', () => {
-    expect(() => run('search', 'Ana', { deleted: ['Lia'] })).toThrow(/«Lia»/);
+    expect(() => run('search', 'Ana', { deleted: ['Luz'] })).toThrow(/«Luz»/);
   });
 
   it('refuses a mark on the chaining table, which has no deleted array', () => {

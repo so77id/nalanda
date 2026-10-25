@@ -11,6 +11,13 @@
  * frame keeps, and the narration names: between the position a key hashes to
  * and the position it sits in there is no empty cell. That is why a search may
  * stop at the first null, and why removing a key cannot empty its cell.
+ *
+ * `used` counts the cells that are not null — keys and marks — and `add`
+ * resizes before a key would leave more than half of them used. That keeps an
+ * empty cell for every search to stop at, and keeps the expected cost the one
+ * the class quotes for a load factor of at most one half. The widget does not
+ * draw the probing table's resize: a slide whose insertion would trigger it is
+ * refused, and the class shows that method as code.
  */
 import { DEFAULT_BUCKETS, hashKey, MAX_BUCKETS, MIN_BUCKETS } from './sequenceStepperHashTrace';
 import { lineOf, requireRuns } from './sequenceStepperTraceShared';
@@ -46,10 +53,12 @@ const CODE: Record<ProbeOperation, string> = {
 }`,
   insert: `boolean add(String key) {
     if (contains(key)) return false;
+    if (2 * (used + 1) > keys.length) resize(nextPrime(2 * keys.length));
     int i = hash(key);
     while (keys[i] != null && !deleted[i]) {
         i = (i + 1) % keys.length;
     }
+    if (keys[i] == null) used++;
     keys[i] = key;
     deleted[i] = false;
     size++;
@@ -89,10 +98,16 @@ class ProbeRecorder {
   key = '';
   readonly code: string;
   readonly cells: Cell[];
+  /**
+   * The listing's `used`: kept as a counter, not read off the cells, because
+   * `used++` runs before `keys[i] = key` and its frame must already show it.
+   */
+  used: number;
 
   constructor(code: string, cells: Cell[]) {
     this.code = code;
     this.cells = cells;
+    this.used = cells.filter((c) => c.key !== null).length;
   }
 
   reset(key: string): void {
@@ -123,6 +138,7 @@ class ProbeRecorder {
       home: this.home,
       at: this.at,
       size: live.length,
+      used: this.used,
     };
     // The size readout counts the keys not marked; nothing reads a value here.
     const mirror: SequenceCell[] = live.map((c, i) => ({ id: i, value: 0, state: c.state }));
@@ -165,9 +181,10 @@ function buildTable(input: SequenceInput): { m: number; cells: Cell[] } {
     );
   }
   const keys = input.keys ?? [];
-  if (keys.length >= m) {
+  // Every key of `values` takes a cell, marked or not, so they all count as used.
+  if (2 * keys.length > m) {
     throw new Error(
-      `${keys.length} claves en ${m} posiciones: el sondeo lineal necesita al menos una celda vacía, o una búsqueda de una clave que no está no se detiene nunca.`,
+      `${keys.length} celdas usadas en ${m} posiciones: pasa de la mitad de la tabla, y add la habría redimensionado antes de llegar ahí. Con la tabla llena, una búsqueda de una clave que no está no se detendría nunca.`,
     );
   }
   const cells: Cell[] = Array.from({ length: m }, () => ({ key: null, deleted: false }));
@@ -351,7 +368,21 @@ function insert(rec: ProbeRecorder, m: number, key: string): void {
     `contains(${q(key)}) llega a la celda vacía ${i}: ${q(key)} no está.`,
   );
 
+  // The resize check: one frame on its line, or a refusal when the slide's
+  // table is too full for the widget, which does not draw this resize.
+  const checkLine = lineOf(code, 'if (2 * (used + 1) > keys.length)');
+  if (2 * (rec.used + 1) > m) {
+    throw new Error(
+      `Con ${rec.used} celdas usadas en ${m}, agregar ${q(key)} pasaría de la mitad de la tabla y add la redimensionaría: el widget no dibuja la redimensión del sondeo. Usa una tabla más grande o menos claves.`,
+    );
+  }
   rec.state.clear();
+  rec.push(
+    'compare',
+    [checkLine],
+    `2 · (used + 1) = ${2 * (rec.used + 1)}, no más que keys.length = ${m}: con la clave nueva, la tabla queda a lo más a medio llenar, y no se redimensiona.`,
+  );
+
   rec.at = h;
   rec.push('walk', [lineOf(code, 'int i = hash(key)')], `i = hash(${q(key)}) = ${h}.`);
 
@@ -381,6 +412,22 @@ function insert(rec: ProbeRecorder, m: number, key: string): void {
       ? `keys[${at}] tiene la marca de borrado: su celda se puede usar otra vez.`
       : `keys[${at}] es null: aquí entra ${q(key)}.`,
   );
+
+  const usedLine = lineOf(code, 'if (keys[i] == null) used++');
+  if (reused) {
+    rec.push(
+      'compare',
+      [usedLine],
+      `keys[${at}] tiene una marca, no es null: la celda ya contaba en used, que sigue en ${rec.used}.`,
+    );
+  } else {
+    rec.used += 1;
+    rec.push(
+      'grow',
+      [usedLine],
+      `keys[${at}] es null: una celda más pasa a estar usada, y used sube de ${rec.used - 1} a ${rec.used}.`,
+    );
+  }
 
   rec.cells[at] = { key, deleted: reused };
   rec.state.set(at, 'new');

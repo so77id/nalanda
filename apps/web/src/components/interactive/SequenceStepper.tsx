@@ -999,11 +999,26 @@ function Body({
               se busca el {step.seek}
             </div>
           ) : null}
+          {/* The probing table's second counter: the cells that are not null,
+              marks included — what its resize check reads (#326). Right of
+              `size`, as the class declares them, and not under it: stacked,
+              it reached down onto the last cell of the strip. */}
+          {step.probe === undefined ? null : (
+            <div
+              data-testid="sequence-used"
+              className="pointer-events-none absolute right-3 top-2 z-10 text-center"
+            >
+              <div className="font-mono text-3xs uppercase tracking-wide text-ink-faint">used</div>
+              <div className="min-w-11 rounded border border-rule bg-sunk px-2 py-1 text-lg font-semibold leading-none text-ink">
+                {step.probe.used}
+              </div>
+            </div>
+          )}
           {/* A tree's listing has no size field to show, so it gets no readout. */}
           <div
             data-testid="sequence-size"
             hidden={tree}
-            className="pointer-events-none absolute right-3 top-2 z-10 text-center"
+            className={`pointer-events-none absolute ${step.probe === undefined ? 'right-3' : 'right-16'} top-2 z-10 text-center`}
           >
             {/* The heap's listing calls the field `n`, and past it the array
                 still holds cells that are no longer in the heap — so the

@@ -277,6 +277,8 @@ export interface ProbeFrame {
   at: number | null;
   /** The listing's `size`: the keys not marked. */
   size: number;
+  /** The listing's `used`: the cells that are not null, keys and marks (#326 review). */
+  used: number;
 }
 
 export interface SequenceCell {

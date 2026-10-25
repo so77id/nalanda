@@ -27,7 +27,7 @@ export const sequenceStepperCatalogEntry: CatalogEntry = {
       name: 'values',
       type: '(number | string | null)[]',
       description:
-        "Required. The starting contents in reading order. Up to 8; beyond that the nodes stop being legible when projected. Up to 12 on `avl` × `insert` and `remove`, which build a real AVL, at most four levels tall with twelve nodes: enough for a removal that rotates at two levels. May be empty for the insert operations that need no existing element: `insert-first`, `insert-last`, `insert` on `heap-max`, which then starts at `new int[2]`, and `insert` on `bst` and `avl`, which then start from an empty tree. On `heap-max` it must already be a max-heap. On `binary-tree` it is the tree in LEVEL ORDER, `null` where a child is missing — `[3, 9, 1, 4, 7, null, 6]` is 3 over 9 and 1, 9 over 4 and 7, 1 over a lone right child 6 — and a `null` has no children written: the entries after it belong to the next node still waiting, so `[1, 2, null, 3, 4, null, null, 5]` hangs 5 under 4, not under 3 as the heap's numbering would. A value with no parent is refused, and so are gaps left over at the end. The cap counts nodes, not gaps. A value on `binary-tree` may also be a symbol, so an expression tree keeps its operators: `['*', '+', '−', 3, 4, 5, 1]` is (3 + 4) * (5 − 1). A `null` or a symbol on any other recipe is an authoring error. On `hash-chaining` it is the KEYS already in the table, text, added in order — each at the front of the list of its position: `['Ana', 'Bea', 'Eva']`; a key written twice is refused, and so is a number. On `hash-probing` it is the keys too, each placed in the first free cell from its hash on, and the table keeps at least one cell empty — a search for a key that is not there stops at the first null, and without one it would never stop.",
+        "Required. The starting contents in reading order. Up to 8; beyond that the nodes stop being legible when projected. Up to 12 on `avl` × `insert` and `remove`, which build a real AVL, at most four levels tall with twelve nodes: enough for a removal that rotates at two levels. May be empty for the insert operations that need no existing element: `insert-first`, `insert-last`, `insert` on `heap-max`, which then starts at `new int[2]`, and `insert` on `bst` and `avl`, which then start from an empty tree. On `heap-max` it must already be a max-heap. On `binary-tree` it is the tree in LEVEL ORDER, `null` where a child is missing — `[3, 9, 1, 4, 7, null, 6]` is 3 over 9 and 1, 9 over 4 and 7, 1 over a lone right child 6 — and a `null` has no children written: the entries after it belong to the next node still waiting, so `[1, 2, null, 3, 4, null, null, 5]` hangs 5 under 4, not under 3 as the heap's numbering would. A value with no parent is refused, and so are gaps left over at the end. The cap counts nodes, not gaps. A value on `binary-tree` may also be a symbol, so an expression tree keeps its operators: `['*', '+', '−', 3, 4, 5, 1]` is (3 + 4) * (5 − 1). A `null` or a symbol on any other recipe is an authoring error. On `hash-chaining` it is the KEYS already in the table, text, added in order — each at the front of the list of its position: `['Ana', 'Bea', 'Eva']`; a key written twice is refused, and so is a number. On `hash-probing` it is the keys too, each placed in the first free cell from its hash on, and they may fill at most half the cells, marks included: past that, the class's `add` would have resized first — and with the table full, a search for a key that is not there would never stop. An `insert` that would pass the half is refused too, since the widget does not draw this table's resize; `used`, the cells that are not null, is shown under `size`.",
     },
     {
       name: 'value',
@@ -556,12 +556,12 @@ export const sequenceStepperCatalogEntry: CatalogEntry = {
     },
     {
       title: 'Linear probing: a key that collides takes the next free cell, and a cluster grows',
-      code: "<SequenceStepper eda=\"hash-probing\" operation=\"insert\" values={['Ana', 'Bea', 'Leo', 'Olga', 'Tomas']} value=\"Eva\" capacity={11} />",
+      code: "<SequenceStepper eda=\"hash-probing\" operation=\"insert\" values={['Ana', 'Bea', 'Olga', 'Iván']} value=\"Eva\" capacity={11} />",
       render: () => (
         <SequenceStepper
           eda="hash-probing"
           operation="insert"
-          values={['Ana', 'Bea', 'Leo', 'Olga', 'Tomas']}
+          values={['Ana', 'Bea', 'Olga', 'Iván']}
           value="Eva"
           capacity={11}
         />
@@ -570,25 +570,25 @@ export const sequenceStepperCatalogEntry: CatalogEntry = {
     {
       title:
         'Searching with linear probing: it stops at the first empty cell, after the whole cluster',
-      code: "<SequenceStepper eda=\"hash-probing\" operation=\"search\" values={['Ana', 'Bea', 'Leo', 'Olga', 'Tomas']} target=\"Lia\" capacity={11} />",
+      code: "<SequenceStepper eda=\"hash-probing\" operation=\"search\" values={['Ana', 'Bea', 'Olga', 'Iván']} target=\"Luz\" capacity={11} />",
       render: () => (
         <SequenceStepper
           eda="hash-probing"
           operation="search"
-          values={['Ana', 'Bea', 'Leo', 'Olga', 'Tomas']}
-          target="Lia"
+          values={['Ana', 'Bea', 'Olga', 'Iván']}
+          target="Luz"
           capacity={11}
         />
       ),
     },
     {
       title: 'Removing with linear probing: the key is marked in deleted, never emptied',
-      code: "<SequenceStepper eda=\"hash-probing\" operation=\"remove\" values={['Ana', 'Bea', 'Leo', 'Olga', 'Tomas']} target=\"Bea\" capacity={11} />",
+      code: "<SequenceStepper eda=\"hash-probing\" operation=\"remove\" values={['Ana', 'Bea', 'Olga', 'Iván']} target=\"Bea\" capacity={11} />",
       render: () => (
         <SequenceStepper
           eda="hash-probing"
           operation="remove"
-          values={['Ana', 'Bea', 'Leo', 'Olga', 'Tomas']}
+          values={['Ana', 'Bea', 'Olga', 'Iván']}
           target="Bea"
           capacity={11}
         />
@@ -596,12 +596,12 @@ export const sequenceStepperCatalogEntry: CatalogEntry = {
     },
     {
       title: 'A search passes over a mark: the key may be after it',
-      code: "<SequenceStepper eda=\"hash-probing\" operation=\"search\" values={['Ana', 'Bea', 'Eva', 'Leo', 'Olga', 'Tomas']} target=\"Eva\" deleted={['Bea']} capacity={11} />",
+      code: "<SequenceStepper eda=\"hash-probing\" operation=\"search\" values={['Ana', 'Bea', 'Olga', 'Iván', 'Eva']} target=\"Eva\" deleted={['Bea']} capacity={11} />",
       render: () => (
         <SequenceStepper
           eda="hash-probing"
           operation="search"
-          values={['Ana', 'Bea', 'Eva', 'Leo', 'Olga', 'Tomas']}
+          values={['Ana', 'Bea', 'Olga', 'Iván', 'Eva']}
           target="Eva"
           deleted={['Bea']}
           capacity={11}
@@ -610,12 +610,12 @@ export const sequenceStepperCatalogEntry: CatalogEntry = {
     },
     {
       title: 'An insertion reuses a marked cell, after contains has walked past it',
-      code: "<SequenceStepper eda=\"hash-probing\" operation=\"insert\" values={['Ana', 'Bea', 'Leo', 'Olga', 'Tomas']} value=\"Eva\" deleted={['Bea']} capacity={11} />",
+      code: "<SequenceStepper eda=\"hash-probing\" operation=\"insert\" values={['Ana', 'Bea', 'Olga', 'Iván']} value=\"Eva\" deleted={['Bea']} capacity={11} />",
       render: () => (
         <SequenceStepper
           eda="hash-probing"
           operation="insert"
-          values={['Ana', 'Bea', 'Leo', 'Olga', 'Tomas']}
+          values={['Ana', 'Bea', 'Olga', 'Iván']}
           value="Eva"
           deleted={['Bea']}
           capacity={11}

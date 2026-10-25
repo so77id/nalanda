@@ -970,8 +970,11 @@ every key back through `add`, so it takes a `capacity` of at most five.
 `hash-probing` is the same set of keys with linear probing: `keys` and a
 parallel `deleted` drawn as two contiguous strips, the cursor `i` under them,
 and `search`, `insert` and `remove` — `remove` marks `deleted[i]` and leaves
-the key in its cell. The table keeps at least one cell empty, and
-`deleted={['Bea']}` starts it with marks, for a search that passes over one
+the key in its cell. Its listing keeps `used`, the cells that are not null,
+marks included, shown under `size`, and its `add` resizes before the new key
+would use more than half of them; the widget does not draw that resize, so it
+refuses a starting table past the half and an insertion that would trigger
+it. `deleted={['Bea']}` starts it with marks, for a search that passes over one
 or an insertion that reuses one; `deleted` on any other recipe is refused. Its keys are TEXT: `values` is the keys
 already in the table, added in order, each at the front of the list of its
 position (`values={['Ana', 'Bea', 'Eva']}`), the key an operation works with

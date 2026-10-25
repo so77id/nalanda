@@ -59,7 +59,21 @@ describe('sequenceStepperHashTrace · the hash the listing computes', () => {
         Ivan: 4,
         Mia: 6,
       },
-      11: { Ana: 5, Bea: 5, Eva: 5, Leo: 4, Sara: 0, Juan: 1, Olga: 10, Tomas: 10 },
+      11: {
+        Ana: 5,
+        Bea: 5,
+        Eva: 5,
+        Leo: 4,
+        Sara: 0,
+        Juan: 1,
+        Olga: 10,
+        Tomas: 10,
+        // The probing act's names since the review (#326): a key with an
+        // accent hashes by its UTF-16 code, 'á' = 225, as charAt reads it.
+        Iván: 10,
+        Luz: 5,
+        Iris: 8,
+      },
     };
     for (const [m, expected] of Object.entries(java)) {
       for (const [key, h] of Object.entries(expected)) {

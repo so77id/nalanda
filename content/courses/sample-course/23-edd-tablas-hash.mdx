@@ -1021,7 +1021,7 @@ resolver las colisiones guarda las claves en el propio arreglo.
 
 ## Sondeo lineal
 
-export const SONDEO = ['Tomas', null, null, null, 'Leo', 'Ana', 'Bea', null, null, null, 'Olga'];
+export const SONDEO = ['Iván', null, null, null, null, 'Ana', 'Bea', null, null, null, 'Olga'];
 
 <Slide title="Un abrigo por casillero">
 La otra manera de resolver las colisiones no usa listas: cada casillero guarda
@@ -1037,9 +1037,9 @@ $$\alpha < 1$$.
 
 <Casilleros
   cells={SONDEO}
-  notes={{ 0: 'h 10', 4: 'h 4', 5: 'h 5', 6: 'h 5', 10: 'h 10' }}
-  caption="11 casilleros: «Bea» tiene hash 5, ocupado por «Ana», y queda en el 6; «Tomas» tiene hash 10 y da la vuelta hasta el 0"
-  label="Once casilleros numerados del 0 al 10. Tomas está en el 0, Leo en el 4, Ana en el 5, Bea en el 6 y Olga en el 10. Sobre cada uno, su hash: Tomas 10, Leo 4, Ana 5, Bea 5 y Olga 10."
+  notes={{ 0: 'h 10', 5: 'h 5', 6: 'h 5', 10: 'h 10' }}
+  caption="11 casilleros: «Bea» tiene hash 5, ocupado por «Ana», y queda en el 6; «Iván» tiene hash 10 y da la vuelta hasta el 0"
+  label="Once casilleros numerados del 0 al 10. Iván está en el 0, Ana en el 5, Bea en el 6 y Olga en el 10. Sobre cada uno, su hash: Iván 10, Ana 5, Bea 5 y Olga 10."
 />
 
 </Slide>
@@ -1062,14 +1062,17 @@ celda ocupada no se puede volver a vaciar sin romperla.
 <Slide title="La clase de la tabla con sondeo lineal">
 Las claves se guardan en un arreglo de `String`, `null` donde no hay ninguna.
 Junto a él, un arreglo `deleted` del mismo largo marca las claves eliminadas.
-`hash(String key)` es la misma regla de Horner, con `keys.length` como
-$$M$$. Con una sola posición no quedaría ninguna vacía.
+`size` cuenta las claves, y `used` las celdas que no son `null`: las claves y
+también las marcas, que ocupan su celda igual que una clave. `hash(String key)`
+es la misma regla de Horner, con `keys.length` como $$M$$. Con una sola
+posición no quedaría ninguna vacía.
 
 ```java
 class ProbingHashTable {
     private String[] keys;
     private boolean[] deleted;
     private int size;
+    private int used;
 
     ProbingHashTable(int capacity) {
         if (capacity < 2) throw new IllegalArgumentException();
@@ -1088,10 +1091,10 @@ vacía. Por la invariante, la clave no puede estar después de esa celda vacía.
 
 <Casilleros
   cells={SONDEO}
-  paint={{ 4: 'visited', 5: 'visited', 6: 'visited', 7: 'focus' }}
-  notes={{ 4: '1', 5: '2', 6: '3', 7: '4' }}
-  caption="buscar «Lia»: su hash es 4; se miran el 4, el 5 y el 6, ocupados, y la celda 7, vacía, dice que no está"
-  label="Los once casilleros. La búsqueda de Lia mira el casillero 4, con Leo, el 5, con Ana, y el 6, con Bea, y se detiene en el 7, vacío: Lia no está."
+  paint={{ 5: 'visited', 6: 'visited', 7: 'focus' }}
+  notes={{ 5: '1', 6: '2', 7: '3' }}
+  caption="buscar «Luz»: su hash es 5; se miran el 5 y el 6, ocupados, y la celda 7, vacía, dice que no está"
+  label="Los once casilleros. La búsqueda de Luz mira el casillero 5, con Ana, y el 6, con Bea, y se detiene en el 7, vacío: Luz no está."
 />
 
 </Slide>
@@ -1100,22 +1103,25 @@ vacía. Por la invariante, la clave no puede estar después de esa celda vacía.
 <SequenceStepper
   eda="hash-probing"
   operation="search"
-  values={['Ana', 'Bea', 'Leo', 'Olga', 'Tomas']}
-  target={['Lia', 'Tomas']}
+  values={['Ana', 'Bea', 'Olga', 'Iván']}
+  target={['Luz', 'Iván']}
   capacity={11}
 />
 
 </Slide>
 
 <Slide title="Agregar con sondeo lineal">
-`add` pregunta primero con `contains` si la clave ya está. Si no está, avanza
-desde la celda de su hash hasta la primera libre y la deja ahí. Todas las
-celdas que pasó estaban ocupadas, así que la invariante se mantiene.
+`add` pregunta primero con `contains` si la clave ya está. Si no está, y la
+clave nueva dejaría usadas más de la mitad de las celdas, redimensiona la
+tabla, como la tabla con listas. Después avanza desde la celda de su hash
+hasta la primera libre y la deja ahí, y esa celda pasa a contar en `used`.
+Todas las celdas que pasó estaban ocupadas, así que la invariante se
+mantiene.
 
 <SequenceStepper
   eda="hash-probing"
   operation="insert"
-  values={['Ana', 'Bea', 'Leo', 'Olga', 'Tomas']}
+  values={['Ana', 'Bea', 'Olga', 'Iván']}
   value="Eva"
   capacity={11}
 />
@@ -1128,7 +1134,7 @@ quedó más allá, en el mismo tramo ocupado, tiene ahora una celda vacía entre
 su hash y su celda, y una búsqueda se detendría antes de llegar a ella.
 
 <Casilleros
-  cells={['Tomas', null, null, null, 'Leo', 'Ana', null, 'Eva', null, null, 'Olga']}
+  cells={['Iván', null, null, null, null, 'Ana', null, 'Eva', null, null, 'Olga']}
   paint={{ 5: 'visited', 6: 'focus' }}
   notes={{ 5: '1', 6: '2' }}
   caption="si «Bea» se eliminara vaciando la celda 6, buscar «Eva», de hash 5, se detendría en el 6 sin llegar al 7"
@@ -1142,7 +1148,7 @@ alternativa, que no se desarrolla aquí, es volver a insertar todas las claves
 que siguen a la eliminada en su tramo.
 
 <Casilleros
-  cells={['Tomas', null, null, null, 'Leo', 'Ana', 'Bea', 'Eva', null, null, 'Olga']}
+  cells={['Iván', null, null, null, null, 'Ana', 'Bea', 'Eva', null, null, 'Olga']}
   struck={[6]}
   paint={{ 5: 'visited', 6: 'visited', 7: 'found' }}
   notes={{ 5: '1', 6: '2', 7: '3' }}
@@ -1160,7 +1166,7 @@ para la invariante.
 <SequenceStepper
   eda="hash-probing"
   operation="remove"
-  values={['Ana', 'Bea', 'Leo', 'Olga', 'Tomas']}
+  values={['Ana', 'Bea', 'Olga', 'Iván']}
   target="Bea"
   capacity={11}
 />
@@ -1171,7 +1177,7 @@ para la invariante.
 <SequenceStepper
   eda="hash-probing"
   operation="search"
-  values={['Ana', 'Bea', 'Eva', 'Leo', 'Olga', 'Tomas']}
+  values={['Ana', 'Bea', 'Olga', 'Iván', 'Eva']}
   deleted={['Bea']}
   target="Eva"
   capacity={11}
@@ -1187,11 +1193,44 @@ marcada.
 <SequenceStepper
   eda="hash-probing"
   operation="insert"
-  values={['Ana', 'Bea', 'Leo', 'Olga', 'Tomas']}
+  values={['Ana', 'Bea', 'Olga', 'Iván']}
   deleted={['Bea']}
   value="Eva"
   capacity={11}
 />
+
+</Slide>
+
+<Slide title="La redimensión de la tabla con sondeo lineal">
+`add` redimensiona antes de que la clave nueva deje usadas más de la mitad de
+las celdas, contando las marcas. Así siempre quedan celdas vacías donde una
+búsqueda se detiene, y el costo esperado es el de un factor de carga de a lo
+más $$1/2$$.
+
+`resize` es el de la tabla con listas, con dos diferencias: recorre las celdas
+del arreglo viejo en lugar de sus listas, y salta las claves marcadas. La
+tabla nueva solo recibe las claves que siguen en el conjunto, así que las
+marcas desaparecen.
+
+```java
+private void resize(int capacity) {
+    String[] oldKeys = keys;
+    boolean[] oldDeleted = deleted;
+    keys = new String[capacity];
+    deleted = new boolean[capacity];
+    size = 0;
+    used = 0;
+    for (int i = 0; i < oldKeys.length; i++) {
+        if (oldKeys[i] != null && !oldDeleted[i]) {
+            add(oldKeys[i]);
+        }
+    }
+}
+```
+
+Recorre las $$M$$ celdas viejas y vuelve a agregar cada clave: cuesta
+$$\Theta(N + M)$$, y como el tamaño casi se duplica, sale $$\Theta(1)$$
+amortizado por inserción, igual que con listas.
 
 </Slide>
 
@@ -1202,10 +1241,10 @@ al final, haciéndolo más largo: mientras más largo es un racimo, más claves
 lo alcanzan y más rápido crece. Dos racimos que se tocan se funden en uno.
 
 <Casilleros
-  cells={['Tomas', null, null, null, 'Leo', 'Ana', 'Bea', 'Eva', 'Juan', null, 'Olga']}
-  paint={{ 4: 'visited', 5: 'visited', 6: 'visited', 7: 'visited', 8: 'visited', 9: 'mark' }}
-  caption="un racimo del 4 al 8: una clave con hash entre 4 y 9 termina en el 9, y el racimo crece hasta tocar el de «Olga» y «Tomas»"
-  label="Once casilleros con un racimo de cinco claves seguidas, del 4 al 8: Leo, Ana, Bea, Eva y Juan. El casillero 9 está destacado: ahí termina cualquier clave cuyo hash caiga entre el 4 y el 9."
+  cells={['Iván', null, null, null, null, 'Ana', 'Bea', 'Eva', null, null, 'Olga']}
+  paint={{ 5: 'visited', 6: 'visited', 7: 'visited', 8: 'mark' }}
+  caption="un racimo del 5 al 7: una clave con hash entre 5 y 8 termina en el 8, y con dos claves más el racimo se funde con el de «Olga» e «Iván»"
+  label="Once casilleros con un racimo de tres claves seguidas, del 5 al 7: Ana, Bea y Eva. El casillero 8 está destacado: ahí termina cualquier clave cuyo hash caiga entre el 5 y el 8. Olga, en el 10, e Iván, en el 0, forman otro racimo, que da la vuelta al final del arreglo."
 />
 
 Hay variantes que dispersan los saltos: el **sondeo cuadrático** prueba
@@ -1236,9 +1275,8 @@ Con $$\alpha$$ cerca de 1, los racimos hacen crecer ese costo muy rápido.
 </Slide>
 
 <Slide title="Costos de la tabla con sondeo lineal">
-La tabla se redimensiona antes de que $$\alpha$$ pase de $$1/2$$, contando
-también las celdas marcadas, que ocupan lugar igual que una clave. Al volver a
-agregar las claves en la tabla nueva, las marcas desaparecen.
+Con la redimensión de `add`, el factor de carga no pasa de $$1/2$$, contando
+también las celdas marcadas, que ocupan su celda igual que una clave.
 
 | Molde     | Operación       | Peor caso     | Esperado, con $$\alpha \le 1/2$$ | Invariante que restaura               |
 | --------- | --------------- | ------------- | -------------------------------- | ------------------------------------- |
@@ -1253,7 +1291,7 @@ agregar las claves en la tabla nueva, las marcas desaparecen.
 | ----------------------- | ---------------------------------------- | --------------------------------------------- |
 | Memoria por clave       | Un nodo aparte, con una referencia       | Una celda del arreglo, y un `boolean`         |
 | Dónde están las claves  | Repartidas por la memoria                | Seguidas en un arreglo, rápidas de recorrer   |
-| Factor de carga         | Puede pasar de 1                         | Menor que 1; en la práctica, a lo más 1/2     |
+| Factor de carga         | Puede pasar de 1; aquí, a lo más 1       | A lo más 1/2, contando las marcas             |
 | Eliminar                | Desenganchar el nodo                     | Marcar la celda                               |
 | Peor caso               | $$\Theta(N)$$                            | $$\Theta(N)$$                                 |
 
