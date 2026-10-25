@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"os"
 	"strconv"
 	"time"
 
@@ -263,7 +262,7 @@ func (h *Surveys) RunSheet(w http.ResponseWriter, r *http.Request) {
 		middleware.WriteError(w, r, http.StatusNotFound, "El PDF de esta pasada todavía no está listo.")
 		return
 	}
-	f, err := os.Open(h.Service.SheetPath(run))
+	f, err := h.Service.OpenSheet(r.Context(), run)
 	if err != nil {
 		h.Log.Error("opening a run's sheet", "run", run.ID, "error", err)
 		middleware.WriteError(w, r, http.StatusNotFound, "No se encontró el PDF de esta pasada.")

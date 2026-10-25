@@ -287,6 +287,7 @@ func run(logger *slog.Logger) error {
 		Generator: amcClient,
 		Analyzer:  amcClient,
 		WorkDir:   cfg.WorkDir,
+		Files:     fileStore,
 		Now:       time.Now,
 	})
 

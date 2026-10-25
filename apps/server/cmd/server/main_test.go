@@ -229,7 +229,8 @@ func composed(t *testing.T, prober health.Prober) (http.Handler, *authstore.Stor
 		// wires.
 		Surveys: handler.NewSurveys(handler.Surveys{
 			Service: survey.NewService(survey.Service{
-				Store: surveystore.New(db), Generator: &amctest.Fake{}, Analyzer: &amctest.Fake{}, WorkDir: t.TempDir(), Now: time.Now,
+				Store: surveystore.New(db), Generator: &amctest.Fake{}, Analyzer: &amctest.Fake{},
+				WorkDir: controlsWork, Files: filestore.NewLocal(controlsWork), Now: time.Now,
 			}),
 			Jobs: jobstore.New(db),
 			Runner: jobs.NewRunner(jobstore.New(db), jobs.Handlers{

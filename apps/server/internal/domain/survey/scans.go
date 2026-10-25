@@ -10,6 +10,8 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+
+	"github.com/so77id/nalanda/apps/server/internal/domain/files"
 )
 
 // A run's scans (issue #311), split the way the controls split them
@@ -46,7 +48,7 @@ func (s *Service) SaveUploadedBatch(ctx context.Context, surveyID, runID int64, 
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return "", fmt.Errorf("survey: preparing %s: %w", dir, err)
 	}
-	uploads, err := s.Uploads(run)
+	uploads, err := s.Uploads(ctx, run)
 	if err != nil {
 		return "", err
 	}
@@ -78,27 +80,20 @@ type Upload struct {
 	Bytes  int64
 }
 
-// Uploads lists the run's batches on disk, in upload order. None yet is
-// an empty list, not an error.
-func (s *Service) Uploads(run Run) ([]Upload, error) {
-	entries, err := os.ReadDir(s.uploadsDir(run))
-	if os.IsNotExist(err) {
-		return nil, nil
-	}
+// Uploads lists the run's batches the file store holds, in upload order.
+// None yet is an empty list, not an error.
+func (s *Service) Uploads(ctx context.Context, run Run) ([]Upload, error) {
+	entries, err := s.Files.List(ctx, runRel(run, uploadsDirName))
 	if err != nil {
 		return nil, fmt.Errorf("survey: listing run %d's uploads: %w", run.ID, err)
 	}
 	var out []Upload
 	for _, e := range entries {
-		n, ok := batchNumber(e.Name())
-		if !ok || e.IsDir() {
+		n, ok := batchNumber(e.Name)
+		if !ok {
 			continue
 		}
-		info, err := e.Info()
-		if err != nil {
-			return nil, fmt.Errorf("survey: reading %s: %w", e.Name(), err)
-		}
-		out = append(out, Upload{Number: n, Name: e.Name(), Bytes: info.Size()})
+		out = append(out, Upload{Number: n, Name: e.Name, Bytes: e.Size})
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].Number < out[j].Number })
 	return out, nil
@@ -275,7 +270,7 @@ func (s *Service) HasScans(ctx context.Context, run Run) (bool, error) {
 
 // ScanSummaryFor counts what a reset of the run would destroy.
 func (s *Service) ScanSummaryFor(ctx context.Context, run Run) (ScanSummary, error) {
-	uploads, err := s.Uploads(run)
+	uploads, err := s.Uploads(ctx, run)
 	if err != nil {
 		return ScanSummary{}, err
 	}
@@ -324,20 +319,20 @@ func (s *Service) ResetScans(ctx context.Context, surveyID, runID int64) error {
 	return nil
 }
 
-// ScanImage finds one page image of a copy the run READ — the worker's
-// `scans/copy-<n>-page-<p>` naming, PNG before JPG (the controls' rule: a
-// raster scan comes out as JPG). ErrCopyNotFound for a copy the run has
-// not read, or a page with no image.
-func (s *Service) ScanImage(ctx context.Context, run Run, copyNumber, page int) (path, contentType string, err error) {
+// OpenScanImage opens one page image of a copy the run READ, through the
+// file store — the worker's `scans/copy-<n>-page-<p>` naming, PNG before
+// JPG (the controls' rule: a raster scan comes out as JPG) — and says its
+// content type. ErrCopyNotFound for a copy the run has not read, or a page
+// with no image.
+func (s *Service) OpenScanImage(ctx context.Context, run Run, copyNumber, page int) (f files.File, contentType string, err error) {
 	if _, err := s.Store.CopyByNumber(ctx, run.ID, copyNumber); err != nil {
-		return "", "", err
+		return nil, "", err
 	}
-	base := filepath.Join(s.WorkDir, RunProject(run.SurveyID, run.ID), "scans",
-		"copy-"+strconv.Itoa(copyNumber)+"-page-"+strconv.Itoa(page))
+	base := "copy-" + strconv.Itoa(copyNumber) + "-page-" + strconv.Itoa(page)
 	for _, ext := range []struct{ suffix, ctype string }{{".png", "image/png"}, {".jpg", "image/jpeg"}} {
-		if _, err := os.Stat(base + ext.suffix); err == nil {
-			return base + ext.suffix, ext.ctype, nil
+		if f, err := s.Files.Open(ctx, runRel(run, "scans", base+ext.suffix)); err == nil {
+			return f, ext.ctype, nil
 		}
 	}
-	return "", "", fmt.Errorf("survey: copy %d page %d of run %d: %w", copyNumber, page, run.ID, ErrCopyNotFound)
+	return nil, "", fmt.Errorf("survey: copy %d page %d of run %d: %w", copyNumber, page, run.ID, ErrCopyNotFound)
 }

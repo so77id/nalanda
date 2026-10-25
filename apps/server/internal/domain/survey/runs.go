@@ -5,9 +5,11 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path"
 	"path/filepath"
 	"strconv"
 
+	"github.com/so77id/nalanda/apps/server/internal/domain/files"
 	"github.com/so77id/nalanda/apps/server/internal/domain/survey/tex"
 )
 
@@ -120,7 +122,7 @@ func (s *Service) GenerateRunSheet(ctx context.Context, surveyID, runID int64) e
 	if run.State != RunOpen {
 		return fmt.Errorf("survey: run %d is %s, not open", runID, run.State)
 	}
-	// The worker answers with the sheet's path; SheetPath derives the same
+	// The worker answers with the sheet's path; OpenSheet derives the same
 	// one from the worker's naming contract (ADR-0037), so it is not kept.
 	_, err = s.Generator.GenerateSheet(ctx, GenerateRequest{
 		Project: RunProject(surveyID, runID),
@@ -130,10 +132,16 @@ func (s *Service) GenerateRunSheet(ctx context.Context, surveyID, runID int64) e
 	return err
 }
 
-// SheetPath is where the server finds a run's printable PDF on the shared
-// volume — the worker's `out/sujet.pdf` naming (ADR-0037).
-func (s *Service) SheetPath(run Run) string {
-	return filepath.Join(s.WorkDir, RunProject(run.SurveyID, run.ID), "out", "sujet.pdf")
+// OpenSheet opens a run's printable PDF through the file store — the
+// worker's `out/sujet.pdf` naming (ADR-0037).
+func (s *Service) OpenSheet(ctx context.Context, run Run) (files.File, error) {
+	return s.Files.Open(ctx, runRel(run, "out", "sujet.pdf"))
+}
+
+// runRel names a file of the run's project the way files.Store takes it:
+// relative to the work root, slash-separated.
+func runRel(run Run, parts ...string) string {
+	return path.Join(append([]string{filepath.ToSlash(RunProject(run.SurveyID, run.ID))}, parts...)...)
 }
 
 // RunQuestions returns a run's snapshot in printed order.
@@ -177,7 +185,7 @@ func (s *Service) CancelRun(ctx context.Context, surveyID, runID int64) error {
 		// that can no longer be erased either.
 		return fmt.Errorf("survey: cancelling run %d: %w", runID, ErrRunNotCancellable)
 	}
-	uploads, err := s.Uploads(run)
+	uploads, err := s.Uploads(ctx, run)
 	if err != nil {
 		return err
 	}

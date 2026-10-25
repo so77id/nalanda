@@ -125,8 +125,10 @@ func TestTheGenerateJobAsksTheWorkerForTheRunsSheet(t *testing.T) {
 	if call.Project != project || call.Source != filepath.Join(project, "inputs", "source.tex") || call.Copies != 12 {
 		t.Errorf("worker call = %+v", call)
 	}
-	if _, err := os.Stat(f.surveys.SheetPath(run)); err != nil {
-		t.Errorf("no sheet where SheetPath says: %v", err)
+	if sheet, err := f.surveys.OpenSheet(context.Background(), run); err != nil {
+		t.Errorf("no sheet where OpenSheet looks: %v", err)
+	} else {
+		_ = sheet.Close()
 	}
 
 	// A refusal is a Spanish banner message, with the worker's words kept

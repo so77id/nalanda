@@ -70,7 +70,7 @@ func (h *Surveys) RunScans(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	batches, err := h.Service.Uploads(run)
+	batches, err := h.Service.Uploads(r.Context(), run)
 	if err != nil {
 		h.Log.Error("listing a run's uploads", "run", run.ID, "error", err)
 		middleware.WriteError(w, r, http.StatusInternalServerError, surveyBroke)

@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"os"
 	"strconv"
 	"strings"
 
@@ -188,12 +187,7 @@ func (h *Surveys) RunPage(w http.ResponseWriter, r *http.Request) {
 		middleware.WriteError(w, r, http.StatusNotFound, "Ese archivo no existe.")
 		return
 	}
-	path, ctype, err := h.Service.ScanImage(r.Context(), run, copyNumber, page)
-	if err != nil {
-		middleware.WriteError(w, r, http.StatusNotFound, "Ese archivo no existe.")
-		return
-	}
-	f, err := os.Open(path)
+	f, ctype, err := h.Service.OpenScanImage(r.Context(), run, copyNumber, page)
 	if err != nil {
 		middleware.WriteError(w, r, http.StatusNotFound, "Ese archivo no existe.")
 		return
