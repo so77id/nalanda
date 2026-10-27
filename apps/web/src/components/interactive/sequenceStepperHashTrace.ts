@@ -11,10 +11,10 @@
  * the narration names. A hash frame carries the whole table (`step.hash`);
  * `cells` mirrors its keys so the size readout counts them.
  *
- * The hash is the class's own, `h = (31 * h + key.charAt(i)) % table.length`,
- * computed here exactly as the JVM computes it (pinned against Java's output
- * in the suite), so the position the widget draws is the one the student's
- * program prints.
+ * The hash is the class's own, `h = (256 * h + key.charAt(i)) % table.length`:
+ * the key read as a number in base 256, as the class builds it, computed here
+ * exactly as the JVM computes it (pinned against Java's output in the suite),
+ * so the position the widget draws is the one the student's program prints.
  */
 import { lineOf, requireRuns } from './sequenceStepperTraceShared';
 // Types only: the dispatcher imports this module's `traceHash` as a value, so
@@ -115,15 +115,18 @@ export const MAX_BUCKETS = 11;
 /** The size the class's examples use when a slide does not say. */
 export const DEFAULT_BUCKETS = 7;
 
+/** The base the class reads a key in: one character per digit. */
+export const HASH_BASE = 256;
+
 /**
- * The class's hash: Horner's rule over the characters, reduced modulo `m` at
- * every step so the number never leaves `int`. `charCodeAt` is Java's
- * `charAt`: both read UTF-16 code units.
+ * The class's hash: Horner's rule over the characters in base 256, reduced
+ * modulo `m` at every step so the number never leaves `int`. `charCodeAt` is
+ * Java's `charAt`: both read UTF-16 code units.
  */
 export function hashKey(key: string, m: number): number {
   let h = 0;
   for (let i = 0; i < key.length; i += 1) {
-    h = (31 * h + key.charCodeAt(i)) % m;
+    h = (HASH_BASE * h + key.charCodeAt(i)) % m;
   }
   return h;
 }

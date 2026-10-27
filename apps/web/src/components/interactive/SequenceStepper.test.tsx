@@ -667,7 +667,7 @@ describe('<SequenceStepper> · the combinations 23-edd-tablas-hash mounts', () =
   // a frame that throws or refuses halfway is invisible to a mount. One value
   // per walk, the script every operation follows (#322, #326 review).
   const chained = ['Ana', 'Bea', 'Eva', 'Leo', 'Sara', 'Juan'];
-  const probed = ['Ana', 'Bea', 'Olga', 'Iván'];
+  const probed = ['Mia', 'Alba', 'Julia', 'Pablo'];
   const mounted: { act: string; slide: string; props: SequenceStepperProps }[] = [
     {
       act: 'Encadenamiento',
@@ -719,7 +719,7 @@ describe('<SequenceStepper> · the combinations 23-edd-tablas-hash mounts', () =
         eda: 'hash-probing',
         operation: 'search',
         values: probed,
-        target: 'Iván',
+        target: 'Pablo',
         capacity: 11,
       },
     },
@@ -741,7 +741,7 @@ describe('<SequenceStepper> · the combinations 23-edd-tablas-hash mounts', () =
         eda: 'hash-probing',
         operation: 'remove',
         values: probed,
-        target: 'Bea',
+        target: 'Alba',
         capacity: 11,
       },
     },
@@ -1660,7 +1660,7 @@ describe('<SequenceStepper> · removing from the bst (#321)', () => {
 });
 
 describe('<SequenceStepper> · the hash-chaining recipe (#326)', () => {
-  // M = 7: 0: Bea · 1: Juan → Eva · 4: Sara → Ana · 6: Leo (hashes pinned
+  // M = 7: 0: Eva · 1: Juan · 2: Leo → Ana · 3: Bea · 4: Sara (hashes pinned
   // against the JVM in sequenceStepperHashTrace.test.ts).
   const table = {
     eda: 'hash-chaining' as const,
@@ -1691,8 +1691,8 @@ describe('<SequenceStepper> · the hash-chaining recipe (#326)', () => {
     renderIn('book', <SequenceStepper {...table} operation="search" target="Ana" />);
     expect(view().querySelector('[data-bucket][data-picked]')).toBeNull();
     next();
-    expect(view().querySelector('[data-bucket][data-picked]')).toHaveAttribute('data-bucket', '4');
-    expect(view().querySelector('[data-key-chip]')).toHaveTextContent('hash("Ana") = 4');
+    expect(view().querySelector('[data-bucket][data-picked]')).toHaveAttribute('data-bucket', '2');
+    expect(view().querySelector('[data-key-chip]')).toHaveTextContent('hash("Ana") = 2');
   });
 
   it('builds the new node apart, then lets it into the front of its list, and counts it', () => {
@@ -1707,7 +1707,7 @@ describe('<SequenceStepper> · the hash-chaining recipe (#326)', () => {
     }
     expect(seen).toContain('fresh');
     expect(view().querySelector('[data-fresh]')).toBeNull();
-    const first = view().querySelector('[data-bucket="1"] [data-node]');
+    const first = view().querySelector('[data-bucket="4"] [data-node]');
     expect(first).toHaveAttribute('data-key', 'Teo');
     expect(screen.getByTestId('sequence-size')).toHaveTextContent('7');
   });
@@ -1856,10 +1856,10 @@ describe('<SequenceStepper> · resize on hash-chaining (#326)', () => {
 });
 
 describe('<SequenceStepper> · the hash-probing recipe (#326)', () => {
-  // M = 11: 0 Iván · 5 Ana · 6 Bea · 10 Olga.
+  // M = 11: 0 Pablo · 5 Mia · 6 Alba · 10 Julia.
   const table = {
     eda: 'hash-probing' as const,
-    values: ['Ana', 'Bea', 'Olga', 'Iván'],
+    values: ['Mia', 'Alba', 'Julia', 'Pablo'],
     capacity: 11,
   };
   const view = () => screen.getByTestId('probe-view');
@@ -1872,15 +1872,15 @@ describe('<SequenceStepper> · the hash-probing recipe (#326)', () => {
   };
 
   it('draws one cell of keys and one of deleted per position, the keys in their cells', () => {
-    renderIn('book', <SequenceStepper {...table} operation="search" target="Ana" />);
+    renderIn('book', <SequenceStepper {...table} operation="search" target="Mia" />);
     expect(view().querySelectorAll('[data-cell]')).toHaveLength(11);
-    expect(view().querySelector('[data-cell="0"]')).toHaveAttribute('data-key', 'Iván');
-    expect(view().querySelector('[data-cell="6"]')).toHaveAttribute('data-key', 'Bea');
+    expect(view().querySelector('[data-cell="0"]')).toHaveAttribute('data-key', 'Pablo');
+    expect(view().querySelector('[data-cell="6"]')).toHaveAttribute('data-key', 'Alba');
     expect(screen.getByTestId('sequence-size')).toHaveTextContent('4');
   });
 
   it('shows used beside size, and keeps a marked cell in it', () => {
-    renderIn('book', <SequenceStepper {...table} operation="remove" target="Bea" />);
+    renderIn('book', <SequenceStepper {...table} operation="remove" target="Alba" />);
     expect(screen.getByTestId('sequence-used')).toHaveTextContent('4');
     walkToEnd();
     expect(screen.getByTestId('sequence-size')).toHaveTextContent('3');
@@ -1896,7 +1896,7 @@ describe('<SequenceStepper> · the hash-probing recipe (#326)', () => {
   });
 
   it('walks the cursor i from the hash, one cell at a time', () => {
-    renderIn('book', <SequenceStepper {...table} operation="search" target="Iván" />);
+    renderIn('book', <SequenceStepper {...table} operation="search" target="Pablo" />);
     expect(view().querySelector('[data-cursor]')).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Adelante' }));
     expect(view().querySelector('[data-cursor]')).toHaveAttribute('data-cursor', '10');
@@ -1905,10 +1905,10 @@ describe('<SequenceStepper> · the hash-probing recipe (#326)', () => {
   });
 
   it('marks a removed key instead of emptying its cell', () => {
-    renderIn('book', <SequenceStepper {...table} operation="remove" target="Bea" />);
+    renderIn('book', <SequenceStepper {...table} operation="remove" target="Alba" />);
     walkToEnd();
     const cell = view().querySelector('[data-cell="6"]');
-    expect(cell).toHaveAttribute('data-key', 'Bea');
+    expect(cell).toHaveAttribute('data-key', 'Alba');
     expect(cell).toHaveAttribute('data-deleted', 'true');
     expect(screen.getByTestId('sequence-size')).toHaveTextContent('3');
   });
@@ -1916,7 +1916,7 @@ describe('<SequenceStepper> · the hash-probing recipe (#326)', () => {
   it('starts from the marks a slide asks for, and reuses one', () => {
     renderIn(
       'book',
-      <SequenceStepper {...table} operation="insert" value="Eva" deleted={['Bea']} />,
+      <SequenceStepper {...table} operation="insert" value="Eva" deleted={['Alba']} />,
     );
     expect(view().querySelector('[data-cell="6"]')).toHaveAttribute('data-deleted', 'true');
     walkToEnd();

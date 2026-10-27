@@ -23,11 +23,12 @@ import {
 
 /**
  * M = 11 (hashes pinned against the JVM in sequenceStepperHashTrace.test.ts):
- * Ana 5, Bea 5 → 6, Olga 10, Iván 10 → 0 (around the end); Luz and Eva hash
- * to 5 and are not in it. Cells: 0 Iván · 5 Ana · 6 Bea · 10 Olga — four used
- * of eleven, so one more key still leaves the table at most half full.
+ * Mia 5, Alba 5 → 6, Julia 10, Pablo 10 → 0 (around the end); Nico and Eva
+ * hash to 5 and are not in it. Cells: 0 Pablo · 5 Mia · 6 Alba · 10 Julia —
+ * four used of eleven, so one more key still leaves the table at most half
+ * full.
  */
-const KEYS = ['Ana', 'Bea', 'Olga', 'Iván'];
+const KEYS = ['Mia', 'Alba', 'Julia', 'Pablo'];
 const M = 11;
 
 const run = (
@@ -77,19 +78,19 @@ describe('sequenceStepperTrace · hash-probing · which operations it has', () =
 
 describe('sequenceStepperTrace · hash-probing · the table the keys build', () => {
   it('puts each key in the first free cell from its hash on, around the end', () => {
-    const first = run('search', 'Ana').steps[0]!;
+    const first = run('search', 'Mia').steps[0]!;
     expect(keysOf(first)).toEqual([
-      'Iván',
+      'Pablo',
       null,
       null,
       null,
       null,
-      'Ana',
-      'Bea',
+      'Mia',
+      'Alba',
       null,
       null,
       null,
-      'Olga',
+      'Julia',
     ]);
     expect(marksOf(first).every((m) => m === false)).toBe(true);
     expect(first.probe!.size).toBe(4);
@@ -98,8 +99,8 @@ describe('sequenceStepperTrace · hash-probing · the table the keys build', () 
   });
 
   it('marks the keys a slide says were removed, and leaves them in their cells', () => {
-    const first = run('search', 'Ana', { deleted: ['Bea'] }).steps[0]!;
-    expect(first.probe!.cells[6]).toMatchObject({ key: 'Bea', deleted: true });
+    const first = run('search', 'Mia', { deleted: ['Alba'] }).steps[0]!;
+    expect(first.probe!.cells[6]).toMatchObject({ key: 'Alba', deleted: true });
     expect(first.probe!.size).toBe(3);
     // A marked cell is still used: a search goes past it.
     expect(first.probe!.used).toBe(4);
@@ -108,34 +109,34 @@ describe('sequenceStepperTrace · hash-probing · the table the keys build', () 
 
 describe('sequenceStepperTrace · hash-probing · search', () => {
   it('starts at the hash and steps one cell at a time until it finds the key', () => {
-    const trace = run('search', 'Iván');
+    const trace = run('search', 'Pablo');
     const lines = trace.steps.map((s) => lit(trace, s));
     expect(lines[0]).toEqual(['public boolean contains(String key) {']);
     expect(lines[1]).toEqual(['int i = hash(key);']);
     expect(trace.steps[1]!.probe!.home).toBe(10);
     expect(trace.steps[1]!.probe!.at).toBe(10);
-    // Olga is at 10; the next cell is 0, around the end of the array.
+    // Julia is at 10; the next cell is 0, around the end of the array.
     const advance = trace.steps.find((s) => lit(trace, s)[0] === 'i = (i + 1) % keys.length;')!;
     expect(advance.probe!.at).toBe(0);
     const hit = trace.steps.find((s) => s.kind === 'found')!;
     expect(lit(trace, hit)).toEqual(['if (!deleted[i] && keys[i].equals(key)) return true;']);
     expect(trace.steps.at(-1)!.description).toBe(
-      '«Iván» está en la tabla: se miraron 2 celdas, desde la posición 10.',
+      '«Pablo» está en la tabla: se miraron 2 celdas, desde la posición 10.',
     );
   });
 
   it('stops at the first empty cell: the key cannot be past it', () => {
-    const trace = run('search', 'Luz');
+    const trace = run('search', 'Nico');
     const stop = trace.steps.at(-2)!;
     expect(lit(trace, stop)).toEqual(['while (keys[i] != null) {', 'return false;']);
     expect(stop.probe!.at).toBe(7);
     expect(trace.steps.at(-1)!.description).toBe(
-      '«Luz» no está: se miraron 2 celdas ocupadas desde la posición 5, hasta la celda vacía 7.',
+      '«Nico» no está: se miraron 2 celdas ocupadas desde la posición 5, hasta la celda vacía 7.',
     );
   });
 
   it('passes over a mark without stopping: the key may be after it', () => {
-    const trace = run('search', 'Eva', { keys: [...KEYS, 'Eva'], deleted: ['Bea'] });
+    const trace = run('search', 'Eva', { keys: [...KEYS, 'Eva'], deleted: ['Alba'] });
     const marked = trace.steps.find((s) => s.probe!.at === 6 && s.kind === 'compare')!;
     expect(marked.description).toBe('keys[6] tiene la marca de borrado: se sigue de largo.');
     expect(trace.steps.find((s) => s.kind === 'found')!.probe!.at).toBe(7);
@@ -172,17 +173,17 @@ describe('sequenceStepperTrace · hash-probing · insert', () => {
     const counted = fresh.steps.find((s) => lit(fresh, s)[0] === 'if (keys[i] == null) used++;')!;
     expect(counted.probe!.used).toBe(5);
     expect(fresh.steps.at(-1)!.probe!.used).toBe(5);
-    const reused = run('insert', 'Eva', { deleted: ['Bea'] });
+    const reused = run('insert', 'Eva', { deleted: ['Alba'] });
     expect(reused.steps.at(-1)!.probe!.used).toBe(4);
   });
 
   it('refuses an insertion that would leave the table more than half full', () => {
     // Five used of eleven: a sixth passes the half, and add would resize.
-    expect(() => run('insert', 'Luz', { keys: [...KEYS, 'Eva'] })).toThrow(/redimensiona/);
+    expect(() => run('insert', 'Nico', { keys: [...KEYS, 'Eva'] })).toThrow(/redimensiona/);
   });
 
   it('reuses a marked cell, and clears its mark', () => {
-    const trace = run('insert', 'Eva', { deleted: ['Bea'] });
+    const trace = run('insert', 'Eva', { deleted: ['Alba'] });
     const placed = trace.steps.find((s) => lit(trace, s)[0] === 'keys[i] = key;')!;
     expect(placed.probe!.at).toBe(6);
     const cleared = trace.steps.find((s) => lit(trace, s)[0] === 'deleted[i] = false;')!;
@@ -190,7 +191,7 @@ describe('sequenceStepperTrace · hash-probing · insert', () => {
   });
 
   it('refuses a key that is already there', () => {
-    const trace = run('insert', 'Bea');
+    const trace = run('insert', 'Alba');
     expect(lit(trace, trace.steps.at(-2)!)).toEqual(['if (contains(key)) return false;']);
     expect(keysOf(trace.steps.at(-1)!)).toEqual(keysOf(trace.steps[0]!));
   });
@@ -198,9 +199,9 @@ describe('sequenceStepperTrace · hash-probing · insert', () => {
 
 describe('sequenceStepperTrace · hash-probing · remove', () => {
   it('marks the cell instead of emptying it, and says why', () => {
-    const trace = run('remove', 'Bea');
+    const trace = run('remove', 'Alba');
     const marked = trace.steps.find((s) => lit(trace, s)[0] === 'deleted[i] = true;')!;
-    expect(marked.probe!.cells[6]).toMatchObject({ key: 'Bea', deleted: true });
+    expect(marked.probe!.cells[6]).toMatchObject({ key: 'Alba', deleted: true });
     expect(marked.description).toContain('la invariante');
     expect(trace.steps.at(-1)!.probe!.size).toBe(3);
     // The mark keeps the cell used.
@@ -209,7 +210,7 @@ describe('sequenceStepperTrace · hash-probing · remove', () => {
   });
 
   it('answers false at the first empty cell when the key is not there', () => {
-    const trace = run('remove', 'Luz');
+    const trace = run('remove', 'Nico');
     expect(lit(trace, trace.steps.at(-2)!)).toEqual(['while (keys[i] != null) {', 'return false;']);
     expect(marksOf(trace.steps.at(-1)!).every((m) => m === false)).toBe(true);
   });
@@ -220,24 +221,24 @@ describe('sequenceStepperTrace · hash-probing · authoring guards', () => {
     expect(() =>
       traceFor('hash-probing', 'search', {
         values: [],
-        keys: ['Ana', 'Bea', 'Eva'],
-        key: 'Ana',
+        keys: ['Mia', 'Alba', 'Eva'],
+        key: 'Mia',
         capacity: 3,
       }),
     ).toThrow(/mitad/);
   });
 
   it('refuses a mark on a key the table does not hold', () => {
-    expect(() => run('search', 'Ana', { deleted: ['Luz'] })).toThrow(/«Luz»/);
+    expect(() => run('search', 'Mia', { deleted: ['Nico'] })).toThrow(/«Nico»/);
   });
 
   it('refuses a mark on the chaining table, which has no deleted array', () => {
     expect(() =>
       traceFor('hash-chaining', 'search', {
         values: [],
-        keys: ['Ana'],
-        deleted: ['Ana'],
-        key: 'Ana',
+        keys: ['Mia'],
+        deleted: ['Mia'],
+        key: 'Mia',
         capacity: 7,
       }),
     ).toThrow(/sondeo/);

@@ -21,7 +21,7 @@ import {
 
 /**
  * Inserted in this order, each at the front of its list, they leave
- * 0: Bea · 1: Juan → Eva · 4: Sara → Ana · 6: Leo, and 2, 3, 5 empty.
+ * 0: Eva · 1: Juan · 2: Leo → Ana · 3: Bea · 4: Sara, and 5, 6 empty.
  */
 const KEYS = ['Ana', 'Bea', 'Eva', 'Leo', 'Sara', 'Juan'];
 const M = 7;
@@ -40,41 +40,38 @@ const chains = (step: SequenceStep): string[][] =>
 
 describe('sequenceStepperHashTrace · the hash the listing computes', () => {
   // Computed by the JVM (eclipse-temurin:21) running the class's own
-  // `hash(String key)` — `h = (31 * h + key.charAt(i)) % table.length` — so
+  // `hash(String key)` — `h = (256 * h + key.charAt(i)) % table.length` — so
   // the number the widget draws is the number the student's program prints.
   it('matches Java for every key the examples use', () => {
     const java: Record<number, Record<string, number>> = {
       3: { Ana: 2, Bea: 0, Eva: 2, Leo: 0, Sara: 1, Juan: 2 },
       5: { Ana: 2, Bea: 4, Eva: 4, Leo: 3, Sara: 1, Juan: 3 },
       7: {
-        Ana: 4,
-        Bea: 0,
-        Eva: 1,
-        Leo: 6,
-        Luis: 0,
+        Ana: 2,
+        Bea: 3,
+        Eva: 0,
+        Leo: 2,
         Sara: 4,
         Juan: 1,
         Pia: 5,
-        Ema: 2,
-        Ivan: 4,
-        Mia: 6,
-        // The chaining act's absent key since the review (#326).
-        Iris: 4,
+        Ema: 6,
+        Ivan: 2,
+        Teo: 4,
+        // The chaining act's absent key.
+        Carla: 2,
       },
       11: {
-        Ana: 5,
-        Bea: 5,
+        Mia: 5,
+        Alba: 5,
         Eva: 5,
-        Leo: 4,
+        Nico: 5,
+        Julia: 10,
+        Pablo: 10,
         Sara: 0,
-        Juan: 1,
-        Olga: 10,
-        Tomas: 10,
-        // The probing act's names since the review (#326): a key with an
-        // accent hashes by its UTF-16 code, 'á' = 225, as charAt reads it.
-        Iván: 10,
-        Luz: 5,
-        Iris: 8,
+        Bea: 4,
+        // A key with an accent hashes by its UTF-16 code, 'á' = 225, as
+        // charAt reads it.
+        Iván: 1,
       },
     };
     for (const [m, expected] of Object.entries(java)) {
@@ -111,7 +108,7 @@ describe('sequenceStepperTrace · hash-chaining · which operations it has', () 
 describe('sequenceStepperTrace · hash-chaining · the table the keys build', () => {
   it('puts every key in the list of its position, the newest at the front', () => {
     const first = run('search', 'Ana').steps[0]!;
-    expect(chains(first)).toEqual([['Bea'], ['Juan', 'Eva'], [], [], ['Sara', 'Ana'], [], ['Leo']]);
+    expect(chains(first)).toEqual([['Eva'], ['Juan'], ['Leo', 'Ana'], ['Bea'], ['Sara'], [], []]);
   });
 
   it('counts every key as a cell, so the size readout is the table’s size', () => {
@@ -131,15 +128,15 @@ describe('sequenceStepperTrace · hash-chaining · search', () => {
     const [start, hashed] = trace.steps;
     expect(lit(trace, start!)).toEqual(['public boolean contains(String key) {']);
     expect(lit(trace, hashed!)).toEqual(['Node current = table[hash(key)];']);
-    expect(hashed!.hash!.bucket).toBe(4);
-    expect(hashed!.hash!.pointers).toEqual([{ name: 'current', node: chainIds(hashed!, 4)[0] }]);
-    // Only the two nodes of position 4 are ever looked at.
+    expect(hashed!.hash!.bucket).toBe(2);
+    expect(hashed!.hash!.pointers).toEqual([{ name: 'current', node: chainIds(hashed!, 2)[0] }]);
+    // Only the two nodes of position 2 are ever looked at.
     const touched = new Set(
       trace.steps.flatMap((s) =>
         s.hash!.chains.flatMap((c) => c.filter((n) => n.state !== 'idle').map((n) => n.key)),
       ),
     );
-    expect([...touched].sort()).toEqual(['Ana', 'Sara']);
+    expect([...touched].sort()).toEqual(['Ana', 'Leo']);
   });
 
   it('finds a key behind another one, after one step along the list', () => {
@@ -148,9 +145,9 @@ describe('sequenceStepperTrace · hash-chaining · search', () => {
     expect(lines).toContainEqual(['current = current.next;']);
     const hit = trace.steps.find((s) => s.kind === 'found')!;
     expect(lit(trace, hit)).toEqual(['if (current.key.equals(key)) return true;']);
-    expect(hit.hash!.chains[4]!.map((n) => n.state)).toEqual(['visited', 'found']);
+    expect(hit.hash!.chains[2]!.map((n) => n.state)).toEqual(['visited', 'found']);
     expect(trace.steps.at(-1)!.description).toBe(
-      '«Ana» está en la tabla: se comparó con 2 claves, todas de la lista de la posición 4.',
+      '«Ana» está en la tabla: se comparó con 2 claves, todas de la lista de la posición 2.',
     );
   });
 
@@ -168,7 +165,7 @@ describe('sequenceStepperTrace · hash-chaining · search', () => {
   it('answers false when the list runs out, having compared only that list', () => {
     const trace = run('search', 'Ivan');
     expect(trace.steps.at(-1)!.description).toBe(
-      '«Ivan» no está: se comparó con las 2 claves de la lista de la posición 4.',
+      '«Ivan» no está: se comparó con las 2 claves de la lista de la posición 2.',
     );
   });
 
@@ -202,28 +199,28 @@ describe('sequenceStepperTrace · hash-chaining · insert', () => {
   });
 
   it('builds the node apart, links it, and only then lets it into the list', () => {
-    // Teo hashes to 1, in front of Juan → Eva.
+    // Teo hashes to 4, in front of Sara.
     const trace = run('insert', 'Teo');
     const at = (line: string) => trace.steps.find((s) => lit(trace, s)[0] === line)!;
     const created = at('Node fresh = new Node(key);');
     expect(created.hash!.fresh).toEqual({ id: expect.any(Number), key: 'Teo', held: false });
     const linked = at('fresh.next = table[i];');
-    expect(linked.hash!.fresh!.next).toBe(chainIds(linked, 1)[0]);
+    expect(linked.hash!.fresh!.next).toBe(chainIds(linked, 4)[0]);
     const held = at('table[i] = fresh;');
     expect(held.hash!.fresh!.held).toBe(true);
     // Until `size++` the list still reads the way it did.
-    expect(chains(held)[1]).toEqual(['Juan', 'Eva']);
+    expect(chains(held)[4]).toEqual(['Sara']);
     const landed = at('size++;');
     expect(landed.hash!.fresh).toBeUndefined();
-    expect(chains(landed)[1]).toEqual(['Teo', 'Juan', 'Eva']);
-    expect(landed.hash!.chains[1]![0]!.state).toBe('new');
+    expect(chains(landed)[4]).toEqual(['Teo', 'Sara']);
+    expect(landed.hash!.chains[4]![0]!.state).toBe('new');
     expect(landed.cells).toHaveLength(KEYS.length + 1);
   });
 
   it('links a node into an empty list with next = null', () => {
     const trace = run('insert', 'Ema');
     const linked = trace.steps.find((s) => lit(trace, s)[0] === 'fresh.next = table[i];')!;
-    expect(linked.hash!.bucket).toBe(2);
+    expect(linked.hash!.bucket).toBe(6);
     expect(linked.hash!.fresh!.next).toBeNull();
   });
 
@@ -238,17 +235,17 @@ describe('sequenceStepperTrace · hash-chaining · insert', () => {
 
   it('grows the table one key per run when given several', () => {
     const trace = run('insert', ['Ema', 'Pia'], []);
-    expect(chains(trace.steps.at(-1)!)).toEqual([[], [], ['Ema'], [], [], ['Pia'], []]);
+    expect(chains(trace.steps.at(-1)!)).toEqual([[], [], [], [], [], ['Pia'], ['Ema']]);
   });
 });
 
 describe('sequenceStepperTrace · hash-chaining · remove', () => {
   it('removes the first node of a list by moving table[i]', () => {
-    const trace = run('remove', 'Sara');
+    const trace = run('remove', 'Leo');
     const lines = trace.steps.map((s) => lit(trace, s));
     expect(lines).toContainEqual(['table[i] = table[i].next;']);
     expect(lines).not.toContainEqual(['Node prev = table[i];']);
-    expect(chains(trace.steps.at(-1)!)[4]).toEqual(['Ana']);
+    expect(chains(trace.steps.at(-1)!)[2]).toEqual(['Ana']);
   });
 
   it('removes a node further along through prev, without a node of its own in front', () => {
@@ -257,12 +254,12 @@ describe('sequenceStepperTrace · hash-chaining · remove', () => {
     expect(lines).toContainEqual(['Node prev = table[i];']);
     const unlinked = trace.steps.find((s) => lit(trace, s)[0] === 'prev.next = prev.next.next;')!;
     // The node is still drawn on the frame that skips it, leaving.
-    expect(unlinked.hash!.chains[4]!.map((n) => [n.key, n.state])).toEqual([
-      ['Sara', 'active'],
+    expect(unlinked.hash!.chains[2]!.map((n) => [n.key, n.state])).toEqual([
+      ['Leo', 'active'],
       ['Ana', 'leaving'],
     ]);
-    expect(unlinked.hash!.bypass).toEqual({ bucket: 4, from: 0 });
-    expect(chains(trace.steps.at(-1)!)[4]).toEqual(['Sara']);
+    expect(unlinked.hash!.bypass).toEqual({ bucket: 2, from: 0 });
+    expect(chains(trace.steps.at(-1)!)[2]).toEqual(['Leo']);
     expect(trace.steps.at(-1)!.cells).toHaveLength(KEYS.length - 1);
   });
 
@@ -291,7 +288,7 @@ describe('sequenceStepperTrace · hash-chaining · the invariant holds when each
       ['insert', 'Teo'],
       ['insert', 'Sara'],
       ['remove', 'Ana'],
-      ['remove', 'Sara'],
+      ['remove', 'Leo'],
       ['remove', 'Ivan'],
     ];
     for (const [operation, key] of cases) {
@@ -358,7 +355,7 @@ describe('sequenceStepperTrace · hash-chaining · authoring guards', () => {
 describe('sequenceStepperTrace · hash-chaining · resize', () => {
   // Three keys over three positions — size == table.length, the moment add
   // resizes (#326). With 3 positions: 0: Bea · 2: Eva → Ana. The new table has
-  // nextPrime(2 · 3) = 7, where Bea, Eva and Ana fall in 0, 1 and 4: the
+  // nextPrime(2 · 3) = 7, where Bea, Eva and Ana fall in 3, 0 and 2: the
   // class's running table before Leo, Sara and Juan arrive.
   const resize = () =>
     traceFor('hash-chaining', 'resize', { values: [], keys: ['Ana', 'Bea', 'Eva'], capacity: 3 });
@@ -410,17 +407,17 @@ describe('sequenceStepperTrace · hash-chaining · resize', () => {
     const trace = resize();
     const moves = trace.steps.filter((s) => lit(trace, s)[0] === 'add(current.key);');
     expect(moves.map((s) => s.description)).toEqual([
-      'add(«Bea»): con 7 posiciones, hash(«Bea») = 0; con 3 también era 0.',
-      'add(«Eva»): con 7 posiciones, hash(«Eva») = 1; con 3 era 2.',
-      'add(«Ana»): con 7 posiciones, hash(«Ana») = 4; con 3 era 2.',
+      'add(«Bea»): con 7 posiciones, hash(«Bea») = 3; con 3 era 0.',
+      'add(«Eva»): con 7 posiciones, hash(«Eva») = 0; con 3 era 2.',
+      'add(«Ana»): con 7 posiciones, hash(«Ana») = 2; con 3 también era 2.',
     ]);
-    expect(moves.map((s) => s.hash!.bucket)).toEqual([0, 1, 4]);
+    expect(moves.map((s) => s.hash!.bucket)).toEqual([3, 0, 2]);
   });
 
   it('ends with every key in the list of its position in the new table, and old gone', () => {
     const last = resize().steps.at(-1)!;
     expect(last.hash!.old).toBeUndefined();
-    expect(chains(last)).toEqual([['Bea'], ['Eva'], [], [], ['Ana'], [], []]);
+    expect(chains(last)).toEqual([['Eva'], [], ['Ana'], ['Bea'], [], [], []]);
     for (const [bucket, chain] of last.hash!.chains.entries()) {
       for (const node of chain) expect(hashKey(node.key, 7)).toBe(bucket);
     }

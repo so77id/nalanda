@@ -46,10 +46,15 @@ key an operation works with is `target` (`search`, `remove`) or `value`
 is text on any other recipe.
 
 The position drawn is computed by the class's `hash(String key)` — Horner's
-rule with 31, reduced modulo `table.length` at every step — exactly as the
+rule in base 256, reduced modulo `table.length` at every step — exactly as the
 JVM computes it: `sequenceStepperHashTrace.test.ts` pins the values against
 the output of `eclipse-temurin:21` running that method. The number on the
-slide is the number the student's program prints.
+slide is the number the student's program prints. The base is 256, not the 31
+of `String.hashCode()`, because the class builds the hash by reading a key as
+a number in base 256 and the listing must be that number; Java's 31 belongs to
+a hash that never takes the remainder, and the class explains it where
+`hashCode()` enters (professor's review, 2026-10-27: a base the slides never
+justify is not used).
 
 ### 3. `table` is a contiguous strip; the lists hang under it
 

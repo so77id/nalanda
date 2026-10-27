@@ -7,7 +7,7 @@ export const sequenceStepperCatalogEntry: CatalogEntry = {
   name: 'SequenceStepper',
   family: 'interactive',
   description:
-    'One step-through widget for the whole Sequence family. `eda` picks the structure it draws — a dynamic array, or a singly / doubly / circular linked list — and `operation` picks the animation it replays over it. Code panel on top, the structure as a hand-written SVG below, narration and controls at the foot; the surface is identical across all combinations, so the reader learns one visual vocabulary and reads every structure of the unit through it. ADR-0074. Since #304 it also draws a binary max-heap (`heap-max`, ADR-0077): the same array as the complete binary tree it encodes and as `data[0..]`, side by side on a slide and stacked in the book. Since #321 it draws a linked binary tree (`binary-tree`): every node in the column of its inorder position, with a strip underneath that a traversal fills one visit at a time — so the inorder lands under its own nodes and the other two orders visibly do not. A second tree recipe, `bst`, keeps the search-tree invariant: its `search` fades the side the invariant rules out, and its `insert` lands each value in a column reserved from the first frame, with no strip under it: a search tree keeps no array (#322); its `remove` names the successor it copies. Since #322 a third tree recipe, `avl`, rotates: one frame per reference the method changes, every node held at its level until the caller takes `q` (a reference pointing up gets an arrowhead), and the inorder in the strip unchanged from the first frame to the last; its `insert` and `remove` write the balance factor of every node beside it and rebalance on the way back. Since #322 the dynamic array also runs `binary-search`, the iterative method the course writes over `data` and `size`, the half each comparison rules out faded and dashed. Since #326 it draws the two hash tables (ADR-0084). With a list per position (`hash-chaining`): `table` as a contiguous strip with its index, each position\'s list hanging under its cell, and the position the hash of the key names outlined under a chip that reads `hash("Ana") = 4` — the class\'s own hash, pinned against the JVM. With linear probing (`hash-probing`): `keys` and `deleted` as two contiguous strips, a removed key struck through over `true`, and the cursor `i` walking under them.',
+    'One step-through widget for the whole Sequence family. `eda` picks the structure it draws — a dynamic array, or a singly / doubly / circular linked list — and `operation` picks the animation it replays over it. Code panel on top, the structure as a hand-written SVG below, narration and controls at the foot; the surface is identical across all combinations, so the reader learns one visual vocabulary and reads every structure of the unit through it. ADR-0074. Since #304 it also draws a binary max-heap (`heap-max`, ADR-0077): the same array as the complete binary tree it encodes and as `data[0..]`, side by side on a slide and stacked in the book. Since #321 it draws a linked binary tree (`binary-tree`): every node in the column of its inorder position, with a strip underneath that a traversal fills one visit at a time — so the inorder lands under its own nodes and the other two orders visibly do not. A second tree recipe, `bst`, keeps the search-tree invariant: its `search` fades the side the invariant rules out, and its `insert` lands each value in a column reserved from the first frame, with no strip under it: a search tree keeps no array (#322); its `remove` names the successor it copies. Since #322 a third tree recipe, `avl`, rotates: one frame per reference the method changes, every node held at its level until the caller takes `q` (a reference pointing up gets an arrowhead), and the inorder in the strip unchanged from the first frame to the last; its `insert` and `remove` write the balance factor of every node beside it and rebalance on the way back. Since #322 the dynamic array also runs `binary-search`, the iterative method the course writes over `data` and `size`, the half each comparison rules out faded and dashed. Since #326 it draws the two hash tables (ADR-0084). With a list per position (`hash-chaining`): `table` as a contiguous strip with its index, each position\'s list hanging under its cell, and the position the hash of the key names outlined under a chip that reads `hash("Ana") = 2` — the class\'s own hash, Horner in base 256, pinned against the JVM. With linear probing (`hash-probing`): `keys` and `deleted` as two contiguous strips, a removed key struck through over `true`, and the cursor `i` walking under them.',
   whenToUse:
     "When a class of the Estructuras de Datos or the Estructuras de Datos Avanzadas unit shows an operation running over a sequence structure, `insert` / `extract-max` running over a binary max-heap (`heap-max`), a traversal, the height or a search over a linked binary tree (`binary-tree`), an operation of the search tree (`bst`), a rotation, insertion or removal of the AVL tree (`avl`), or `contains`, `add` or `remove` over a hash table with chaining (`hash-chaining`) or with linear probing (`hash-probing`) — and especially when it shows the SAME operation over two structures to contrast their cost, which is two nearly identical tags. Not for sorting algorithms (`<SortStepper>`) and not for hand-authored memory pictures (`<StepShow>` + `<MemoryVisual>`). For a binary search: this widget's `binary-search` in the data-structure units; `<BinarySearchOnArray>` in the divide and conquer class, whose recursion it shows (ADR-0059, `Amended by: #322`).",
   props: [
@@ -556,12 +556,12 @@ export const sequenceStepperCatalogEntry: CatalogEntry = {
     },
     {
       title: 'Linear probing: a key that collides takes the next free cell, and a cluster grows',
-      code: "<SequenceStepper eda=\"hash-probing\" operation=\"insert\" values={['Ana', 'Bea', 'Olga', 'Iván']} value=\"Eva\" capacity={11} />",
+      code: "<SequenceStepper eda=\"hash-probing\" operation=\"insert\" values={['Mia', 'Alba', 'Julia', 'Pablo']} value=\"Eva\" capacity={11} />",
       render: () => (
         <SequenceStepper
           eda="hash-probing"
           operation="insert"
-          values={['Ana', 'Bea', 'Olga', 'Iván']}
+          values={['Mia', 'Alba', 'Julia', 'Pablo']}
           value="Eva"
           capacity={11}
         />
@@ -570,54 +570,54 @@ export const sequenceStepperCatalogEntry: CatalogEntry = {
     {
       title:
         'Searching with linear probing: it stops at the first empty cell, after the whole cluster',
-      code: "<SequenceStepper eda=\"hash-probing\" operation=\"search\" values={['Ana', 'Bea', 'Olga', 'Iván']} target=\"Luz\" capacity={11} />",
+      code: "<SequenceStepper eda=\"hash-probing\" operation=\"search\" values={['Mia', 'Alba', 'Julia', 'Pablo']} target=\"Nico\" capacity={11} />",
       render: () => (
         <SequenceStepper
           eda="hash-probing"
           operation="search"
-          values={['Ana', 'Bea', 'Olga', 'Iván']}
-          target="Luz"
+          values={['Mia', 'Alba', 'Julia', 'Pablo']}
+          target="Nico"
           capacity={11}
         />
       ),
     },
     {
       title: 'Removing with linear probing: the key is marked in deleted, never emptied',
-      code: "<SequenceStepper eda=\"hash-probing\" operation=\"remove\" values={['Ana', 'Bea', 'Olga', 'Iván']} target=\"Bea\" capacity={11} />",
+      code: "<SequenceStepper eda=\"hash-probing\" operation=\"remove\" values={['Mia', 'Alba', 'Julia', 'Pablo']} target=\"Alba\" capacity={11} />",
       render: () => (
         <SequenceStepper
           eda="hash-probing"
           operation="remove"
-          values={['Ana', 'Bea', 'Olga', 'Iván']}
-          target="Bea"
+          values={['Mia', 'Alba', 'Julia', 'Pablo']}
+          target="Alba"
           capacity={11}
         />
       ),
     },
     {
       title: 'A search passes over a mark: the key may be after it',
-      code: "<SequenceStepper eda=\"hash-probing\" operation=\"search\" values={['Ana', 'Bea', 'Olga', 'Iván', 'Eva']} target=\"Eva\" deleted={['Bea']} capacity={11} />",
+      code: "<SequenceStepper eda=\"hash-probing\" operation=\"search\" values={['Mia', 'Alba', 'Julia', 'Pablo', 'Eva']} target=\"Eva\" deleted={['Alba']} capacity={11} />",
       render: () => (
         <SequenceStepper
           eda="hash-probing"
           operation="search"
-          values={['Ana', 'Bea', 'Olga', 'Iván', 'Eva']}
+          values={['Mia', 'Alba', 'Julia', 'Pablo', 'Eva']}
           target="Eva"
-          deleted={['Bea']}
+          deleted={['Alba']}
           capacity={11}
         />
       ),
     },
     {
       title: 'An insertion reuses a marked cell, after contains has walked past it',
-      code: "<SequenceStepper eda=\"hash-probing\" operation=\"insert\" values={['Ana', 'Bea', 'Olga', 'Iván']} value=\"Eva\" deleted={['Bea']} capacity={11} />",
+      code: "<SequenceStepper eda=\"hash-probing\" operation=\"insert\" values={['Mia', 'Alba', 'Julia', 'Pablo']} value=\"Eva\" deleted={['Alba']} capacity={11} />",
       render: () => (
         <SequenceStepper
           eda="hash-probing"
           operation="insert"
-          values={['Ana', 'Bea', 'Olga', 'Iván']}
+          values={['Mia', 'Alba', 'Julia', 'Pablo']}
           value="Eva"
-          deleted={['Bea']}
+          deleted={['Alba']}
           capacity={11}
         />
       ),
