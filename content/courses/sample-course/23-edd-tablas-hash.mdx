@@ -2,10 +2,26 @@
 id: edd-tablas-hash
 title: Estructuras de Datos Avanzadas · Tablas Hash
 presentation: explicit
-questions: none
+questions: pool
 ---
 
-{/* `none` es un TODAVÍA NO, no una decisión: el valor se fija con el profesor al cerrar #326 (S15), con las preguntas aprobadas de a dos. */}
+{/* `pool`: un conjunto sin expectativa por sección, como Árboles I y II: cada */}
+{/* <Slide> es un h2, y exigir una pregunta por lámina serían cerca de */}
+{/* cincuenta. Lo que el pool tiene que garantizar es densidad por RANGO: un */}
+{/* control se pide sobre un rango de secciones y cada copia saca cuatro, así */}
+{/* que un rango con menos de cuatro preguntas se rechaza (ErrPoolTooSmall). */}
+{/* COBERTURA. 12 preguntas, de una sola correcta, aprobadas por el profesor */}
+{/* (#326, S15) sobre la primera mitad, hasta el método de la división. */}
+{/* Rangos que SÍ llenan una copia de cuatro: */}
+{/*   · la clase entera: 12. */}
+{/*   · el acto Funciones hash: 4. */}
+{/*   · la apertura junto con Funciones: 5. */}
+{/*   · Funciones junto con Funciones hash: 7. */}
+{/*   · Funciones hash junto con El cálculo de una función hash: 7. */}
+{/* Rangos que NO, y es deliberado: */}
+{/*   · la apertura sola (2), Funciones sola (3) y El cálculo sola (3). */}
+{/*   · El cálculo desde Primo o potencia de 2: ninguna. El profesor cerró */}
+{/*     el banco en el método de la división. */}
 
 # Estructuras de Datos Avanzadas · Tablas Hash
 
@@ -1300,8 +1316,9 @@ las mismas letras en otro orden suman lo mismo, y colisionan siempre.
   label="Cuatro nombres y un tramo de ocho casilleros, del 391 al 398. Sara va al 391, Juan al 398, e Irma y Mari, que tienen las mismas letras, van los dos al 393, destacado."
 />
 
-La suma, además, puede pasarse del último casillero: en una tabla de 10 000
-casilleros, un nombre de hasta ocho letras no alcanza, pero uno más largo sí.
+La suma, además, puede pasarse del último casillero: en una tabla de 1 000
+casilleros, un nombre de hasta ocho letras no alcanza, pero uno más largo sí
+puede.
 Es un segundo problema que queda abierto: la regla tiene que entregar siempre
 una posición que exista en la tabla.
 
@@ -1859,3 +1876,139 @@ Queda la segunda decisión, que es de la tabla: qué hacer cuando dos claves
 colisionan. Ninguna función lo evita, y pasa pronto, con la tabla casi vacía.
 
 </Slide>
+
+<Questions>
+
+<Question id="hash-limite-de-comparar" anchor="el-limite-de-comparar">
+
+Con N claves, ¿cuántas comparaciones hace como mínimo, en el peor caso, cualquier búsqueda que encuentra una clave comparándola con las guardadas?
+
+- [x] Al menos log₂(N + 1)
+- [ ] Al menos N
+- [ ] Al menos la raíz cuadrada de N
+- [ ] Una sola, si las claves están ordenadas
+
+</Question>
+
+<Question id="hash-fichas-un-solo-paso" anchor="las-fichas-de-un-guardarropa">
+
+¿Por qué con fichas numeradas el guardarropa guarda y busca un abrigo en un solo paso?
+
+- [x] El número de la ficha es el del casillero, y hay un casillero para cada ficha posible
+- [ ] Los abrigos se cuelgan en orden alfabético por el nombre de su dueño
+- [ ] Quien atiende recuerda en qué casillero dejó cada abrigo
+- [ ] Hay más casilleros que personas en el teatro
+
+</Question>
+
+<Question id="hash-cuando-no-es-funcion" anchor="una-sola-imagen-por-elemento">
+
+¿Cuándo una regla **no** es una función?
+
+- [x] Cuando de algún elemento del dominio salen dos flechas, o ninguna
+- [ ] Cuando a un elemento del codominio llegan dos flechas
+- [ ] Cuando a algún elemento del codominio no llega ninguna flecha
+- [ ] Cuando el dominio tiene más elementos que el codominio
+
+</Question>
+
+<Question id="hash-que-es-sobreyectiva" anchor="funciones-sobreyectivas">
+
+¿Qué significa que una función f : A → B sea sobreyectiva?
+
+- [x] Todo elemento de B es imagen de al menos un elemento de A
+- [ ] Elementos distintos de A tienen imágenes distintas
+- [ ] Todo elemento de B es imagen de exactamente un elemento de A
+- [ ] Todo elemento de A tiene exactamente una imagen en B
+
+</Question>
+
+<Question id="hash-que-concluye-la-inyectividad" anchor="funciones-inyectivas">
+
+Si f es inyectiva y f(a₁) = f(a₂), ¿qué se puede concluir?
+
+- [x] Que a₁ = a₂
+- [ ] Que f también es sobreyectiva
+- [ ] Que a₁ y a₂ colisionan
+- [ ] Nada: dos elementos distintos pueden tener la misma imagen
+
+</Question>
+
+<Question id="hash-por-que-no-inyectiva" anchor="ninguna-funcion-hash-es-inyectiva">
+
+¿Por qué ninguna función hash puede ser inyectiva?
+
+- [x] El universo de claves tiene más elementos que las M posiciones del arreglo
+- [ ] Calcular una posición distinta para cada clave costaría demasiado
+- [ ] Una función sobreyectiva nunca puede ser también inyectiva
+- [ ] Las claves reales se parecen entre sí
+
+</Question>
+
+<Question id="hash-cuando-usar-perfecta" anchor="funciones-hash-perfectas">
+
+¿Cuándo se puede usar una función hash perfecta?
+
+- [x] Cuando las claves que se van a guardar se conocen de antemano y no cambian
+- [ ] Cuando la tabla guarda pocas claves
+- [ ] Cuando el tamaño de la tabla es un número primo
+- [ ] Cuando la función reparte las claves de manera uniforme
+
+</Question>
+
+<Question id="hash-que-muestra-el-cumpleanos" anchor="la-paradoja-del-cumpleanos">
+
+¿Qué muestra la paradoja del cumpleaños sobre una tabla hash?
+
+- [x] Que las colisiones aparecen con la tabla casi vacía, mucho antes de llenarla
+- [ ] Que con una buena función hash las colisiones se pueden evitar
+- [ ] Que las colisiones solo aparecen cuando hay más claves que posiciones
+- [ ] Que con menos de 23 claves no hay colisiones
+
+</Question>
+
+<Question id="hash-que-exige-uniforme" anchor="los-requisitos-de-una-funcion-hash">
+
+¿Qué exige que una función hash sea uniforme?
+
+- [x] Que cada posición reciba más o menos la misma cantidad de claves
+- [ ] Que la misma clave dé siempre la misma posición
+- [ ] Que calcularla no dependa de cuántas claves haya en la tabla
+- [ ] Que dos claves distintas nunca den la misma posición
+
+</Question>
+
+<Question id="hash-por-que-base-256" anchor="de-un-texto-a-un-numero">
+
+¿Por qué conviene leer un nombre como un número en base 256, en vez de sumar sus letras?
+
+- [x] Cada letra pesa según su lugar, así que dos nombres distintos dan números distintos
+- [ ] Da números más chicos, que caben en la tabla
+- [ ] Ignora las letras repetidas del nombre
+- [ ] Solo usa las primeras letras, que son las que más cambian
+
+</Question>
+
+<Question id="hash-por-que-m-primo" anchor="la-eleccion-de-m">
+
+¿Por qué conviene que M sea primo en el método de la división?
+
+- [x] El resto depende de todo el número, no solo de una parte
+- [ ] La división por un número primo es más rápida
+- [ ] Con M primo la tabla nunca tiene colisiones
+- [ ] Un M primo deja más posiciones libres
+
+</Question>
+
+<Question id="hash-resto-en-cada-paso" anchor="el-resto-en-cada-paso">
+
+¿Por qué el método `hash` puede tomar el resto en cada paso de Horner, sin calcular el número completo?
+
+- [x] El resto de una suma o de un producto solo depende de los restos de sus partes
+- [ ] Los códigos de las letras son menores que M
+- [ ] Horner no usa multiplicaciones
+- [ ] Cambia la posición final, pero reparte igual de bien
+
+</Question>
+
+</Questions>
