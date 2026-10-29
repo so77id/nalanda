@@ -2939,25 +2939,9 @@ $$\Theta(N^2)$$ en total.
 
 </Slide>
 
-<Slide title="Listas que se vuelven árboles">
-Una manera de defenderse es limitar el daño. Una lista larga se puede
-reemplazar por un **árbol de búsqueda balanceado**, como un AVL: cuando la
-lista de una posición pasa de cierto largo, sus claves se guardan en un árbol,
-y buscar en esa posición cuesta $$O(\log N)$$ en lugar de $$\Theta(N)$$. Las
-posiciones con pocas claves siguen siendo listas, que para dos o tres claves
-son más baratas que un árbol.
-
-Así lo hace la tabla hash de Java: en una tabla de al menos 64 posiciones, una
-lista que llega a más de 8 nodos se vuelve un árbol rojo-negro, otro árbol de
-búsqueda balanceado, y si vuelve a bajar a 6, el árbol vuelve a ser una lista.
-El $$O(\log N)$$ se cumple con claves que se pueden comparar, como los
-`String`.
-
-</Slide>
-
 <Slide title="Hashing universal">
 El ataque funciona porque quien ataca conoce la función hash: con ella calcula
-de antemano qué claves chocan. La otra defensa es quitarle ese dato. En vez de
+de antemano qué claves chocan. Una defensa es quitarle ese dato. En vez de
 usar siempre la misma función, la tabla elige una al azar cuando se crea. Por
 ejemplo, podría elegir al azar la base con que lee los nombres en lugar de usar
 siempre 256: sin saber la base, nadie puede calcular qué nombres van a caer
@@ -2969,10 +2953,25 @@ de una tabla con listas vuelve a ser $$\Theta(1)$$, porque lo que es al azar
 ahora es la función que eligió la tabla, no las claves que llegan. Lo
 demostraron Carter y Wegman en 1979.
 
-En la práctica, los lenguajes combinan las dos defensas. Python elige un número
-al azar cada vez que arranca un programa y lo mezcla en el hash de los textos,
-así que el mismo nombre cae en otra posición en cada ejecución. Java no elige
-nada al azar, y se defiende con los árboles.
+En la práctica, Python aplica esta idea: elige un número al azar cada vez que
+arranca un programa y lo mezcla en el hash de los textos, así que el mismo
+nombre cae en otra posición en cada ejecución.
+
+</Slide>
+
+<Slide title="Listas que se vuelven árboles">
+La otra defensa no evita que las claves choquen: limita el daño. Una lista
+larga se puede reemplazar por un **árbol de búsqueda balanceado**, como un
+AVL: cuando la lista de una posición pasa de cierto largo, sus claves se
+guardan en un árbol, y buscar en esa posición cuesta $$O(\log N)$$ en lugar de
+$$\Theta(N)$$. Las posiciones con pocas claves siguen siendo listas, que para
+dos o tres claves son más baratas que un árbol.
+
+Así lo hace la tabla hash de Java, que no elige su función al azar: en una
+tabla de al menos 64 posiciones, una lista que llega a más de 8 nodos se
+vuelve un árbol rojo-negro, otro árbol de búsqueda balanceado, y si vuelve a
+bajar a 6, el árbol vuelve a ser una lista. El $$O(\log N)$$ se cumple con
+claves que se pueden comparar, como los `String`.
 
 </Slide>
 
