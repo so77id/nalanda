@@ -28,10 +28,11 @@ export const VOTED_TREE = { v: '13.959.276-K', l: { v: '13.180.992-1', l: { v: '
 
 export const ABSENT = '20.118.702-8';
 
-{/* KeySet — a set drawn as what the contract sees: a rounded region holding its elements as chips, with no positions and no order. `probe` draws a question over it — a chip «¿x?» with an arrow — that lands on the chip that answers it, painted `keep`, or on the edge of the region when nothing answers. `tones` paints chips `mark`: what the slide points at. File-local (add-a-course-document.md §6e-quater): no catalog entry, one consumer. */}
+{/* KeySet — a set drawn as what the contract sees: a rounded region holding its elements as chips, with no positions and no order. `probe` draws a question over it — a chip «¿x?» with an arrow — that lands on the chip that answers it, painted `keep`, or on the edge of the region when nothing answers. `tones` paints chips `mark`: what the slide points at. `values` writes each key's value after it, «key → value», for a map; the question still names the key alone. File-local (add-a-course-document.md §6e-quater): no catalog entry, one consumer. */}
 
-export function KeySet({ title, keys, probe, tones = {}, caption, label, id }) {
-  const chipW = 112;
+export function KeySet({ title, keys, probe, tones = {}, values, caption, label, id }) {
+  const text = (k) => (values ? `${k} → ${values[k]}` : k);
+  const chipW = Math.max(112, ...keys.map((k) => text(k).length * 7.6 + 20));
   const chipH = 30;
   const gap = 12;
   const inner = 16;
@@ -39,7 +40,7 @@ export function KeySet({ title, keys, probe, tones = {}, caption, label, id }) {
   const rows = Math.ceil(keys.length / perRow);
   const blobW = perRow * chipW + (perRow - 1) * gap + 2 * inner;
   const blobH = rows * chipH + (rows - 1) * gap + 2 * inner;
-  const probeW = chipW + 26;
+  const probeW = 138;
   const blobY = probe ? 12 + chipH + 46 : 26;
   const width = Math.max(blobW + 24, caption ? caption.length * 6.6 + 24 : 0);
   const blobX = (width - blobW) / 2;
@@ -68,7 +69,7 @@ export function KeySet({ title, keys, probe, tones = {}, caption, label, id }) {
         return (
           <g key={k}>
             <rect x={chipX(n)} y={chipY(n)} width={chipW} height={chipH} rx="15" style={{ fill, stroke }} strokeWidth={n === at || tones[k] ? 2.2 : 1.2} />
-            <text x={chipX(n) + chipW / 2} y={chipY(n) + chipH / 2 + 5} textAnchor="middle" fontSize="13" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{k}</text>
+            <text x={chipX(n) + chipW / 2} y={chipY(n) + chipH / 2 + 5} textAnchor="middle" fontSize="13" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{text(k)}</text>
           </g>
         );
       })}
@@ -86,15 +87,16 @@ export function KeySet({ title, keys, probe, tones = {}, caption, label, id }) {
   );
 }
 
-{/* ChainTable — a hash table with chaining drawn still, with nodes wide enough for a RUT. COPIES the look of the hash-chaining recipe of <SequenceStepper> (sequenceStepperHashLayout.ts: a contiguous strip with its index, nodes with the key over a `next` field, lists hanging down, `null` where one ends), as the file-local `Chains` of 23-edd-tablas-hash.mdx does at a narrower node; neither copy is tested, so a change in the recipe is carried to both by hand and checked in a browser. Not `Chains` itself: that one draws names in 56 px, and a RUT needs twice that. `order` numbers every node in the order a walk over the table meets it — position by position, each list from its front —, `tones` paints a key's node (`keep`, `mark`, `visited`, `faint`), `picked` outlines the position a search goes to, and `window={[from, to]}` draws only those positions, with «…» where the table goes on, as `Chains` does, so two drawings side by side keep a size a projector can read. File-local (§6e-quater). */}
+{/* ChainTable — a hash table with chaining drawn still, with nodes wide enough for a RUT. COPIES the look of the hash-chaining recipe of <SequenceStepper> (sequenceStepperHashLayout.ts: a contiguous strip with its index, nodes with the key over a `next` field, lists hanging down, `null` where one ends), as the file-local `Chains` of 23-edd-tablas-hash.mdx does at a narrower node; neither copy is tested, so a change in the recipe is carried to both by hand and checked in a browser. Not `Chains` itself: that one draws names in 56 px, and a RUT needs twice that. `order` numbers every node in the order a walk over the table meets it — position by position, each list from its front —, `tones` paints a key's node (`keep`, `mark`, `visited`, `faint`), `values` adds a band under each key with its value, the node of a map: key, value, `next`; `picked` outlines the position a search goes to, and `window={[from, to]}` draws only those positions, with «…» where the table goes on, as `Chains` does, so two drawings side by side keep a size a projector can read. File-local (§6e-quater). */}
 
-export function ChainTable({ chains, tones = {}, order = false, picked, window: shown, caption, label }) {
+export function ChainTable({ chains, tones = {}, values, order = false, picked, window: shown, caption, label }) {
   const pad = 12;
   const pitch = 108;
   const cellH = 30;
   const nodeW = 98;
   const keyH = 24;
-  const nodeH = 36;
+  const valueH = values ? 20 : 0;
+  const nodeH = keyH + valueH + 12;
   const gap = 18;
   const indexY = 18;
   const cellY = 26;
@@ -144,10 +146,16 @@ export function ChainTable({ chains, tones = {}, order = false, picked, window: 
                   <rect x={cx - nodeW / 2} y={y} width={nodeW} height={nodeH} rx="3" style={{ fill: t ? fill[t] : 'var(--color-surface)', stroke: t ? stroke[t] : 'var(--color-rule)' }} strokeWidth={t === 'keep' || t === 'mark' ? 2.2 : 1.2} />
                   <line x1={cx - nodeW / 2} y1={y + keyH} x2={cx + nodeW / 2} y2={y + keyH} style={{ stroke: t ? stroke[t] : 'var(--color-rule)' }} strokeWidth="1" />
                   <text x={cx} y={y + keyH / 2 + 5} textAnchor="middle" fontSize="12.5" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{key}</text>
+                  {values ? (
+                    <g>
+                      <line x1={cx - nodeW / 2} y1={y + keyH + valueH} x2={cx + nodeW / 2} y2={y + keyH + valueH} style={{ stroke: t ? stroke[t] : 'var(--color-rule)' }} strokeWidth="1" />
+                      <text x={cx} y={y + keyH + valueH / 2 + 4} textAnchor="middle" fontSize="11.5" style={{ fill: 'var(--color-ink-soft)' }}>{values[key]}</text>
+                    </g>
+                  ) : null}
                   {k < chain.length - 1 ? (
                     <g>
-                      <circle cx={cx} cy={y + keyH + (nodeH - keyH) / 2} r="2.5" style={{ fill: 'var(--color-ink-soft)' }} />
-                      <line x1={cx} y1={y + keyH + (nodeH - keyH) / 2} x2={cx} y2={nodeY(k + 1) - 2} style={{ stroke: 'var(--color-ink-soft)' }} strokeWidth="1.4" />
+                      <circle cx={cx} cy={y + keyH + valueH + (nodeH - keyH - valueH) / 2} r="2.5" style={{ fill: 'var(--color-ink-soft)' }} />
+                      <line x1={cx} y1={y + keyH + valueH + (nodeH - keyH - valueH) / 2} x2={cx} y2={nodeY(k + 1) - 2} style={{ stroke: 'var(--color-ink-soft)' }} strokeWidth="1.4" />
                       <path d={`M ${cx - 4} ${nodeY(k + 1) - 7} L ${cx} ${nodeY(k + 1) - 1} L ${cx + 4} ${nodeY(k + 1) - 7} z`} style={{ fill: 'var(--color-ink-soft)' }} />
                     </g>
                   ) : (
@@ -175,14 +183,14 @@ export function ChainTable({ chains, tones = {}, order = false, picked, window: 
   );
 }
 
-{/* KeyTree — a binary search tree whose keys are too wide for <BinaryPicture>'s circles: the same placement (every node in the column of its inorder position, on the row of its depth) and the same tones and inorder colour (design-system.md §The tree figures' palette), with each node a pill as wide as a RUT. `order` numbers the nodes in inorder, as BinaryPicture's `visits="in"` does, and `strip` writes the inorder under the tree, each key in its node's column, which is why the row comes out sorted. `minColumns` widens the canvas as BinaryPicture's does, so a tree drawn beside a wider figure comes out at the same size. `tones` paints a node and its slot in the strip. File-local (§6e-quater); BinaryPicture is the component, this only exists because a RUT does not fit in it. */}
+{/* KeyTree — a binary search tree whose keys are too wide for <BinaryPicture>'s circles: the same placement (every node in the column of its inorder position, on the row of its depth) and the same tones and inorder colour (design-system.md §The tree figures' palette), with each node a pill as wide as a RUT. `order` numbers the nodes in inorder, as BinaryPicture's `visits="in"` does, and `strip` writes the inorder under the tree, each key in its node's column, which is why the row comes out sorted. `values` writes each key's value under it inside a taller node, the node of a map. `minColumns` widens the canvas as BinaryPicture's does, so a tree drawn beside a wider figure comes out at the same size. `tones` paints a node and its slot in the strip. File-local (§6e-quater); BinaryPicture is the component, this only exists because a RUT does not fit in it. */}
 
-export function KeyTree({ tree, tones = {}, order = false, strip = false, minColumns = 0, caption, label }) {
+export function KeyTree({ tree, tones = {}, values, order = false, strip = false, minColumns = 0, caption, label }) {
   const pad = 12;
   const nodeW = 98;
-  const nodeH = 30;
+  const nodeH = values ? 42 : 30;
   const colW = 108;
-  const levelH = 62;
+  const levelH = values ? 70 : 62;
   const slotH = 30;
   const nodes = [];
   const place = (t, depth) => {
@@ -219,8 +227,11 @@ export function KeyTree({ tree, tones = {}, order = false, strip = false, minCol
         const [fill, stroke, weight] = paint(n.v);
         return (
           <g key={n.v} opacity={tones[n.v] === 'faint' ? 0.45 : undefined}>
-            <rect x={cx(n.v) - nodeW / 2} y={cy(n.depth) - nodeH / 2} width={nodeW} height={nodeH} rx={nodeH / 2} style={{ fill, stroke }} strokeWidth={weight} />
-            <text x={cx(n.v)} y={cy(n.depth) + 5} textAnchor="middle" fontSize="12.5" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{n.v}</text>
+            <rect x={cx(n.v) - nodeW / 2} y={cy(n.depth) - nodeH / 2} width={nodeW} height={nodeH} rx={values ? 12 : nodeH / 2} style={{ fill, stroke }} strokeWidth={weight} />
+            <text x={cx(n.v)} y={cy(n.depth) + (values ? -2 : 5)} textAnchor="middle" fontSize="12.5" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{n.v}</text>
+            {values ? (
+              <text x={cx(n.v)} y={cy(n.depth) + 14} textAnchor="middle" fontSize="11.5" style={{ fill: 'var(--color-ink-soft)' }}>{values[n.v]}</text>
+            ) : null}
             {order ? (
               <g>
                 <circle cx={cx(n.v) - nodeW / 2 + 6} cy={cy(n.depth) - nodeH / 2} r="8.5" strokeWidth="2" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-accent)' }} />
@@ -973,9 +984,238 @@ además un solo elemento: el segundo `add` retorna falso.
 
 ## Map · Diccionario
 
+{/* The mesa each voter voted at: the value the registry keeps beside each RUT. Two voters share mesa 1, two mesa 2 and two mesa 3, so the drawings show values repeating while keys never do. MESA_TEXT is the same, as the drawings write it. */}
+
+export const MESA_TEXT = { '18.155.218-2': 'mesa 3', '13.180.992-1': 'mesa 1', '13.959.276-K': 'mesa 3', '17.814.358-1': 'mesa 2', '22.715.853-0': 'mesa 1', '12.547.354-7': 'mesa 2' };
+
+<Slide title="El registro con la mesa de cada votante">
+Al cerrar, el registro publica en qué mesa votó cada persona, y si alguien
+reclama, se busca su RUT y se responde su mesa. Un conjunto de RUTs no
+alcanza: sabe si un RUT está, pero no guarda nada junto a él. Lo que hace
+falta es un **par** por persona, el RUT y su mesa, y buscar el par por el
+RUT.
+
+<KeySet
+  id="mesas"
+  title="votaron, con su mesa"
+  keys={VOTED}
+  values={MESA_TEXT}
+  probe="13.959.276-K"
+  caption="¿13.959.276-K? votó en la mesa 3"
+  label="Un conjunto de seis pares, cada RUT con la mesa donde votó: 18.155.218-2, mesa 3; 13.180.992-1, mesa 1; 13.959.276-K, mesa 3; 17.814.358-1, mesa 2; 22.715.853-0, mesa 1; 12.547.354-7, mesa 2. La pregunta por 13.959.276-K llega a su par, destacado: votó en la mesa 3."
+/>
+
+El RUT sigue sin repetirse, y la mesa sí se repite: dos personas pueden haber
+votado en la misma.
+
+</Slide>
+
+<Slide title="El TDA Map">
+Un **Map** —en español, **diccionario**— es una colección de pares
+**clave-valor** en la que cada clave está una sola vez: un Set de claves con
+un valor pegado a cada una.
+
+<div style={{ border: '1px solid var(--color-rule)', borderRadius: '8px', overflow: 'hidden', margin: '1.25rem 0' }}>
+  <div style={{ background: 'var(--color-sunk)', padding: '0.55rem 0.9rem', borderBottom: '1px solid var(--color-rule)', fontWeight: 700 }}>Map <span style={{ fontWeight: 400, color: 'var(--color-ink-faint)' }}>· el contrato</span></div>
+  <div style={{ display: 'grid', gridTemplateColumns: 'max-content 1fr', columnGap: '2rem' }}>
+  <div style={{ gridColumn: '1 / -1', padding: '0.7rem 0.9rem 0.15rem', fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.08em', color: 'var(--color-ink-faint)' }}>CREAR</div>
+  <code style={{ padding: `0.15rem 0 0.7rem 0.9rem`, whiteSpace: 'nowrap' }}>build()</code>
+  <span style={{ padding: `0.15rem 0.9rem 0.7rem 0` }}>crea un diccionario vacío</span>
+  <div style={{ gridColumn: '1 / -1', borderTop: '1px solid var(--color-rule)', padding: '0.7rem 0.9rem 0.15rem', fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.08em', color: 'var(--color-keep)' }}>CONSULTAR · no cambian nada</div>
+  <code style={{ padding: `0.15rem 0 0.3rem 0.9rem`, whiteSpace: 'nowrap' }}>get(k) → valor</code>
+  <span style={{ padding: `0.15rem 0.9rem 0.3rem 0` }}>retorna el valor de la clave k, o ninguno si k no está</span>
+  <code style={{ padding: `0.15rem 0 0.3rem 0.9rem`, whiteSpace: 'nowrap' }}>containsKey(k) → booleano</code>
+  <span style={{ padding: `0.15rem 0.9rem 0.3rem 0` }}>retorna verdadero si la clave k está</span>
+  <code style={{ padding: `0.15rem 0 0.3rem 0.9rem`, whiteSpace: 'nowrap' }}>size() → entero</code>
+  <span style={{ padding: `0.15rem 0.9rem 0.3rem 0` }}>retorna cuántos pares tiene el diccionario</span>
+  <code style={{ padding: `0.15rem 0 0.3rem 0.9rem`, whiteSpace: 'nowrap' }}>keys() → recorrido</code>
+  <span style={{ padding: `0.15rem 0.9rem 0.3rem 0` }}>entrega cada clave exactamente una vez</span>
+  <code style={{ padding: `0.15rem 0 0.7rem 0.9rem`, whiteSpace: 'nowrap' }}>values() → recorrido</code>
+  <span style={{ padding: `0.15rem 0.9rem 0.7rem 0` }}>entrega el valor de cada clave, una vez por clave</span>
+  <div style={{ gridColumn: '1 / -1', borderTop: '1px solid var(--color-rule)', padding: '0.7rem 0.9rem 0.15rem', fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.08em', color: 'var(--color-accent)' }}>MODIFICAR · cambian el estado</div>
+  <code style={{ padding: `0.15rem 0 0.3rem 0.9rem`, whiteSpace: 'nowrap' }}>put(k, v) → valor</code>
+  <span style={{ padding: `0.15rem 0.9rem 0.3rem 0` }}>asocia v a la clave k; si k ya estaba, reemplaza su valor y retorna el anterior</span>
+  <code style={{ padding: `0.15rem 0 0.7rem 0.9rem`, whiteSpace: 'nowrap' }}>remove(k) → valor</code>
+  <span style={{ padding: `0.15rem 0.9rem 0.7rem 0` }}>saca el par de la clave k y retorna su valor</span>
+  </div>
+  <div style={{ padding: '0.65rem 0.9rem', borderTop: '1px solid var(--color-rule)', background: 'var(--color-sunk)' }}>
+    <div style={{ fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.08em', color: 'var(--color-ink-faint)' }}>LO QUE NO DICE</div>
+    <div style={{ marginTop: '0.35rem' }}>Dónde se guardan los pares, cuánto cuesta cada operación ni en qué orden se recorren las claves. Las claves no se repiten; los valores, sí.</div>
+  </div>
+</div>
+
+</Slide>
+
+<Slide title="Las reglas del contrato Map">
+Un diccionario es una **función** de sus claves en sus valores: a cada clave
+guardada le corresponde un solo valor, y dos claves pueden tener el mismo.
+
+$$
+m : K \to V
+$$
+
+se lee «$$m$$ va del conjunto $$K$$ de las claves guardadas al conjunto $$V$$
+de los valores». De ahí salen las reglas:
+
+- **`put(k, v)` con una clave que ya está no agrega un par**: reemplaza su
+  valor y retorna el que tenía. Una clave nunca queda dos veces.
+- **`get(k)` de una clave que no está no retorna ningún valor.** Quien llama
+  lo distingue del valor de una clave que sí está.
+- **Qué claves son iguales lo decide el tipo de las claves**, como en el Set.
+  El valor no interviene en ninguna búsqueda.
+
+La palabra **colección** tiene aquí su sentido general, un grupo de elementos
+guardados juntos. En Java es además el nombre de la interfaz
+`java.util.Collection`, que extienden `List`, `Set` y `Queue` y que `Map` no
+extiende: sus elementos son pares, no valores sueltos.
+
+</Slide>
+
+<Slide title="Map en Java">
+Java declara el contrato en la interfaz `java.util.Map<K, V>`, con `K` el tipo
+de las claves y `V` el de los valores:
+
+| El TDA          | Java `Map<K, V>`                  |
+| --------------- | --------------------------------- |
+| `get(k)`        | `get(k)`, que retorna `null` si `k` no está |
+| `containsKey(k)` | `containsKey(k)`                 |
+| `size()`        | `size()`                          |
+| `keys()`        | `keySet()`, un `Set` con las claves |
+| `values()`      | `values()`                        |
+| `put(k, v)`     | `put(k, v)`, que retorna `null` si `k` era nueva |
+| `remove(k)`     | `remove(k)`, que retorna `null` si `k` no estaba |
+
+Como `get` responde `null` cuando la clave no está, un valor `null` guardado
+no se distingue de una clave ausente: para saber si una clave está se
+pregunta con `containsKey`. `getOrDefault(k, d)` retorna el valor de `k`, o
+`d` si no está, y evita la pregunta cuando hay un valor que sirve por omisión.
+
+</Slide>
+
+<Slide title="Un Map sobre una tabla hash">
+Las dos implementaciones del Set guardan también un diccionario: cada nodo
+lleva su valor además de la clave. Las operaciones son las mismas, buscando
+siempre por la clave.
+
+En la tabla hash, la clave decide la posición, y el valor viaja en el nodo
+sin intervenir: `get` recorre la lista de la posición de la clave y retorna
+el valor del nodo que la tiene; `put` hace lo mismo y, si la encuentra,
+reemplaza el valor en ese nodo.
+
+<ChainTable
+  chains={RUT_TABLE}
+  values={MESA_TEXT}
+  picked={4}
+  tones={{ '13.959.276-K': 'keep' }}
+  caption="get de 13.959.276-K: la posición de su hashCode, y el valor de su nodo"
+  label="Una tabla de siete posiciones con los seis RUT como claves; cada nodo guarda el RUT, debajo la mesa y al final su next. La posición 4 está destacada, y en su lista, el nodo de 13.959.276-K, que guarda la mesa 3."
+/>
+
+</Slide>
+
+<Slide title="Un Map sobre un árbol AVL">
+En el árbol, la clave decide el camino: cada nodo guarda la clave y el
+valor, y la invariante de orden mira solo las claves. `get` baja comparando
+claves y retorna el valor del nodo donde termina; el recorrido en inorden
+entrega los pares ordenados por clave.
+
+<KeyTree
+  tree={VOTED_TREE}
+  values={MESA_TEXT}
+  tones={{ '13.959.276-K': 'keep' }}
+  minColumns={6}
+  caption="cada nodo guarda la clave y su valor; el orden es el de las claves"
+  label="El árbol AVL con los seis RUT como claves y la mesa de cada uno debajo. La raíz es 13.959.276-K, mesa 3, destacada; a su izquierda, 13.180.992-1, mesa 1, con 12.547.354-7, mesa 2; a su derecha, 18.155.218-2, mesa 3, con 17.814.358-1, mesa 2, y 22.715.853-0, mesa 1."
+/>
+
+</Slide>
+
+<Slide title="Costos de las dos implementaciones del Map">
+| Operación                | Tabla hash, esperado     | Árbol AVL, peor caso |
+| ------------------------ | ------------------------ | -------------------- |
+| `get(k)`, `containsKey(k)` | $$\Theta(1)$$          | $$O(\log N)$$        |
+| `put(k, v)`              | $$\Theta(1)$$ amortizado | $$O(\log N)$$        |
+| `remove(k)`              | $$\Theta(1)$$            | $$O(\log N)$$        |
+| `keys()`, `values()`     | $$\Theta(N + M)$$        | $$\Theta(N)$$        |
+| La clave menor, la siguiente a `k` | $$\Theta(N + M)$$ | $$O(\log N)$$  |
+
+Son los costos del Set: el valor viaja con su clave y no cambia ningún
+recorrido. En el peor caso, la tabla cuesta $$\Theta(N)$$ por operación,
+como antes. La elección es también la misma: **si las preguntas no dependen
+del orden de las claves, la tabla hash; si dependen, el árbol.**
+
+</Slide>
+
 <SectionBreak />
 
 ## HashMap y TreeMap
+
+<Slide title="La clase HashMap">
+Java implementa el contrato Map sobre una tabla hash con listas en la clase
+`java.util.HashMap`. El registro guarda la mesa de cada `Rut`:
+
+```java
+Map<Rut, Integer> table = new HashMap<>();
+table.put(new Rut(18155218, '2'), 3);
+table.put(new Rut(13180992, '1'), 1);
+// un put por cada voto
+
+table.get(new Rut(13959276, 'K'));         // 3
+table.get(new Rut(20118702, '8'));         // null: no votó
+table.getOrDefault(new Rut(20118702, '8'), 0); // 0
+table.put(new Rut(13180992, '1'), 4);      // 1: la mesa anterior
+table.remove(new Rut(13180992, '1'));      // 4
+```
+
+`get` encuentra el par con un `Rut` nuevo, distinto del objeto que se guardó,
+porque `Rut` escribe `equals` y `hashCode`: la clave de un `HashMap` cumple el
+mismo contrato que el elemento de un `HashSet`. `get`, `put` y `remove`
+cuestan $$\Theta(1)$$ esperado.
+
+</Slide>
+
+<Slide title="La clase TreeMap">
+Java implementa el contrato Map sobre un árbol rojo-negro en la clase
+`java.util.TreeMap`. Recorre los pares en el orden de sus claves, y responde
+las preguntas que dependen de ese orden con métodos que no son parte del
+contrato:
+
+| Pregunta                          | Método                       |
+| --------------------------------- | ---------------------------- |
+| La clave menor, la mayor          | `firstKey()`, `lastKey()`    |
+| La siguiente a `k`, la anterior   | `higherKey(k)`, `lowerKey(k)` |
+| La primera desde `k`, la última hasta `k` | `ceilingKey(k)`, `floorKey(k)` |
+| Los pares con clave entre `a` y `b` | `subMap(a, b)`             |
+
+```java
+TreeMap<Rut, Integer> tree = new TreeMap<>();
+// un put por cada voto
+tree.firstKey();                          // 12.547.354-7
+tree.floorKey(new Rut(20118702, '8'));     // 18.155.218-2
+tree.subMap(new Rut(13000000, '0'), new Rut(18000000, '0'));
+// {13.180.992-1=1, 13.959.276-K=3, 17.814.358-1=2}
+```
+
+Cada una cuesta $$O(\log N)$$, y `subMap` además lo que mide el tramo.
+
+</Slide>
+
+<Slide title="Las claves de un HashMap y de un TreeMap">
+Lo que una tabla hash y un árbol de búsqueda piden de sus elementos lo piden
+de sus claves, y de sus valores nada:
+
+|                      | `HashMap`                                         | `TreeMap`                                            |
+| -------------------- | ------------------------------------------------- | ---------------------------------------------------- |
+| Cómo ubica una clave | Su `hashCode`, y `equals` en la lista             | `compareTo`, o el `Comparator` del constructor       |
+| Lo que exige         | `equals` y `hashCode` con los mismos campos       | Un orden que responda 0 cuando `equals` es verdadero |
+| Si falta             | Una clave igual no se encuentra                   | El primer `put` lanza `ClassCastException`           |
+
+En los dos, **una clave no cambia mientras está en el diccionario**: la tabla
+la dejaría en la lista de su `hashCode` viejo, y el árbol, en el lugar de su
+orden viejo. Un valor, en cambio, puede cambiar cuando haga falta: ninguna
+búsqueda lo mira.
+
+</Slide>
 
 <SectionBreak />
 
