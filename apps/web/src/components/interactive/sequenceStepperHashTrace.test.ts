@@ -515,3 +515,115 @@ describe('sequenceStepperTrace · hash-chaining · a program of insertions or re
     ).toThrow(/programa/);
   });
 });
+
+describe('sequenceStepperTrace · hash-chaining · insertions that grow the table', () => {
+  // `grow` (#326 review): add with the line that resizes, and resize walked
+  // inside the run in a listing of its own, so a run of insertions shows the
+  // table growing — from 2 positions to 5, then to 11 — and every key moving.
+  const GROWN = ['Ana', 'Bea', 'Eva', 'Leo', 'Sara', 'Juan', 'Teo'];
+  const grow = (program = false): SequenceTrace =>
+    traceFor('hash-chaining', 'insert', {
+      values: [],
+      keys: [],
+      key: GROWN,
+      capacity: 2,
+      grow: true,
+      program,
+    });
+
+  const lines = (code: string, lit: number[] | undefined): string[] => {
+    const all = code.split('\n');
+    return (lit ?? []).map((n) => all[n - 1]!.trim());
+  };
+
+  it('lists add with the line that resizes, and resize beside it', () => {
+    const trace = grow();
+    expect(trace.row!.map((l) => l.name)).toEqual(['add', 'resize']);
+    expect(trace.code).toContain('if (size == table.length)');
+    expect(trace.code).toContain('resize(nextPrime(2 * table.length));');
+    expect(trace.row![1]!.code).toContain('private void resize(int capacity) {');
+  });
+
+  it('grows from 2 positions to 5 and then to 11, before the third and the sixth key', () => {
+    const trace = grow();
+    const sizes = trace.steps.map((s) => s.hash!.chains.length);
+    expect([...new Set(sizes)]).toEqual([2, 5, 11]);
+    const resizing = trace.steps.filter((s) =>
+      lines(trace.row![1]!.code, s.rowLines?.[1]).includes('private void resize(int capacity) {'),
+    );
+    expect(resizing.map((s) => s.hash!.key)).toEqual(['', '']);
+    const starts = trace.steps.filter((s) => s.kind === 'start' && s.hash!.key !== '');
+    expect(starts.map((s) => s.hash!.chains.length)).toEqual([2, 2, 2, 5, 5, 5, 11]);
+  });
+
+  it('keeps the call to resize lit in add while resize runs', () => {
+    const trace = grow();
+    const inside = trace.steps.filter((s) => (s.rowLines?.[1] ?? []).length > 0);
+    expect(inside.length).toBeGreaterThan(0);
+    for (const step of inside) {
+      expect(lines(trace.code, step.rowLines![0])).toEqual([
+        'if (size == table.length)',
+        'resize(nextPrime(2 * table.length));',
+      ]);
+    }
+  });
+
+  it('checks the size on every insertion, and only resizes when it equals the positions', () => {
+    const trace = grow();
+    const checks = trace.steps.filter(
+      (s) =>
+        lines(trace.code, s.rowLines?.[0]).join() === 'if (size == table.length)' &&
+        (s.rowLines?.[1] ?? []).length === 0,
+    );
+    expect(checks).toHaveLength(GROWN.length);
+  });
+
+  it('ends with every key in the list its hash names in the table of 11', () => {
+    const last = grow().steps.at(-1)!;
+    expect(chains(last)).toEqual([
+      ['Ana', 'Sara'],
+      [],
+      [],
+      [],
+      ['Teo', 'Bea'],
+      ['Eva'],
+      [],
+      [],
+      [],
+      ['Juan', 'Leo'],
+      [],
+    ]);
+    for (const [bucket, chain] of last.hash!.chains.entries()) {
+      for (const node of chain) expect(hashKey(node.key, 11)).toBe(bucket);
+    }
+  });
+
+  it('sizes the drawing for the largest table and the largest old one', () => {
+    const run = grow().hash!;
+    expect(run.buckets).toBe(11);
+    expect(run.oldBuckets).toBe(5);
+  });
+
+  it('runs as a program beside add and resize', () => {
+    const trace = grow(true);
+    expect(trace.row!.map((l) => l.name)).toEqual(['programa', 'add', 'resize']);
+    // Beside two methods the constructor breaks, so the program stays narrow.
+    expect(trace.row![0]!.code.split('\n')).toEqual([
+      'ChainedHashTable names =',
+      '        new ChainedHashTable(2);',
+      ...GROWN.map((k) => `names.add("${k}");`),
+    ]);
+    const leo = trace.steps.filter((s) => s.rowLines?.[0]?.[0] === 6);
+    expect(leo.length).toBeGreaterThan(0);
+    expect(trace.steps[0]!.rowLines).toEqual([[1, 2], [], []]);
+  });
+
+  it('grows only the insertion of the table with lists', () => {
+    expect(() =>
+      traceFor('hash-chaining', 'search', { values: [], keys: KEYS, key: 'Ana', grow: true }),
+    ).toThrow(/grow/);
+    expect(() =>
+      traceFor('hash-probing', 'insert', { values: [], keys: [], key: 'Ana', grow: true }),
+    ).toThrow(/grow/);
+  });
+});

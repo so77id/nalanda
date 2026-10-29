@@ -155,9 +155,16 @@ export interface SequenceStepperProps {
    * every insertion. `remove` with `target` an array: the program that builds
    * the tree from `values` and removes each target, beside the method it
    * calls (and `balance`, on `avl`), walked for every removal with the
-   * program's line lit.
+   * program's line lit. Since #326 also on `hash-chaining` and
+   * `hash-probing` × `insert` and `remove`: the table created, the keys of
+   * `values` added, one call per key, beside the method.
    */
   program?: boolean;
+  /**
+   * `hash-chaining` × `insert` only (#326): `add` with the line that resizes,
+   * and `resize` walked inside the run in a listing of its own beside it.
+   */
+  grow?: boolean;
   /** Playback default. Off unless the author asks (rule Peli 1/2). */
   autoplay?: boolean;
   /** `slow` ≈ 1200ms/step, `normal` ≈ 700ms, `fast` ≈ 300ms. */
@@ -448,6 +455,7 @@ export function SequenceStepper({
   tail = false,
   iterative = false,
   program = false,
+  grow = false,
   deleted,
   autoplay = false,
   speed = 'normal',
@@ -633,6 +641,7 @@ export function SequenceStepper({
       tail={tail}
       iterative={iterative}
       program={program}
+      grow={grow}
       deleted={deleted}
       autoplay={autoplay}
       speed={speed}
@@ -658,6 +667,7 @@ interface BodyProps {
   tail: boolean;
   iterative: boolean;
   program: boolean;
+  grow: boolean;
   deleted?: string[];
   autoplay: boolean;
   speed: StepSpeed;
@@ -681,6 +691,7 @@ function Body({
   tail,
   iterative,
   program,
+  grow,
   deleted,
   autoplay,
   speed,
@@ -727,6 +738,7 @@ function Body({
     tail,
     iterative,
     program,
+    grow,
     deletedKey,
   ].join('|');
 
@@ -756,6 +768,7 @@ function Body({
           tail,
           iterative,
           program,
+          grow,
         }),
       };
     } catch (cause) {
@@ -778,6 +791,7 @@ function Body({
     tail,
     iterative,
     program,
+    grow,
     deletedKey,
   ]);
 
@@ -865,7 +879,12 @@ function Body({
                   !isPresentation
                     ? 'grid grid-cols-1 gap-px bg-rule'
                     : trace.row.length === 3
-                      ? 'grid grid-cols-[minmax(0,1fr)_minmax(0,2fr)_minmax(0,2fr)] gap-px bg-rule'
+                      ? trace.hash !== undefined
+                        ? // A hash table's program opens on a constructor longer
+                          // than a fifth of the width; its methods are short
+                          // enough to share what it leaves (#326, `grow`).
+                          'grid grid-cols-[max-content_minmax(0,1fr)_minmax(0,1fr)] gap-px bg-rule'
+                        : 'grid grid-cols-[minmax(0,1fr)_minmax(0,2fr)_minmax(0,2fr)] gap-px bg-rule'
                       : 'grid grid-cols-2 gap-px bg-rule'
                 }
               >

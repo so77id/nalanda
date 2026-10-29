@@ -77,7 +77,17 @@ export interface HashLayout extends HashStrip {
   width: number;
   height: number;
   old: HashStrip | null;
+  /**
+   * A resize too wide for one row (#326 review, `grow`): `old` takes the top
+   * strip, where the table was, and the table drawn while `resize` runs takes
+   * this one, under it. `null` when the two fit side by side.
+   */
+  below: HashStrip | null;
+  stacked: boolean;
 }
+
+/** Past this many positions between `old` and `table`, they are stacked instead of side by side. */
+const SIDE_BY_SIDE = 12;
 
 /** Room left of a named strip for its name. */
 const NAME_W = 52;
@@ -96,7 +106,7 @@ export function layoutHash(buckets: number, longest: number, oldBuckets = 0): Ha
   const bandY = PAD;
   const cellY = bandY + BAND_H + INDEX_H;
   const nodeY = (k: number) => cellY + CELL_H + GAP + k * (NODE_H + GAP);
-  const strip = (origin: number): HashStrip => {
+  const strip = (origin: number, dy = 0): HashStrip => {
     const cx = (bucket: number) => origin + (bucket + 0.5) * PITCH;
     const box = (bucket: number, y: number, w: number, h: number): HashBox => ({
       x: cx(bucket) - w / 2,
@@ -106,26 +116,41 @@ export function layoutHash(buckets: number, longest: number, oldBuckets = 0): Ha
       cx: cx(bucket),
     });
     return {
-      cell: (bucket) => box(bucket, cellY, CELL_W, CELL_H),
-      index: (bucket) => ({ x: cx(bucket), y: cellY - 7 }),
-      node: (bucket, k) => box(bucket, nodeY(k), NODE_W, NODE_H),
-      band: (bucket) => box(bucket, bandY, NODE_W, NODE_H),
+      cell: (bucket) => box(bucket, dy + cellY, CELL_W, CELL_H),
+      index: (bucket) => ({ x: cx(bucket), y: dy + cellY - 7 }),
+      node: (bucket, k) => box(bucket, dy + nodeY(k), NODE_W, NODE_H),
+      band: (bucket) => box(bucket, dy + bandY, NODE_W, NODE_H),
       nullAt: (bucket, length) => ({
         x: cx(bucket),
-        y: length === 0 ? cellY + CELL_H / 2 + 4 : nodeY(length) - GAP + 13,
+        y: dy + (length === 0 ? cellY + CELL_H / 2 + 4 : nodeY(length) - GAP + 13),
       }),
       bypassX: (bucket) => cx(bucket) + NODE_W / 2 + 12,
-      name: { x: origin - 8, y: cellY + CELL_H / 2 + 4 },
+      name: { x: origin - 8, y: dy + cellY + CELL_H / 2 + 4 },
     };
   };
+  const stripH = nodeY(Math.max(longest, 1)) - GAP + NULL_H;
+  if (oldBuckets > 0 && oldBuckets + buckets > SIDE_BY_SIDE) {
+    const origin = PAD + NAME_W;
+    const top = strip(origin);
+    return {
+      ...top,
+      width: origin + buckets * PITCH + PAD,
+      height: 2 * stripH + SEP + PAD,
+      old: top,
+      below: strip(origin, stripH + SEP),
+      stacked: true,
+    };
+  }
   const named = oldBuckets > 0;
   const oldOrigin = PAD + NAME_W;
   const tableOrigin = named ? oldOrigin + oldBuckets * PITCH + SEP + NAME_W : PAD;
   return {
     ...strip(tableOrigin),
     width: tableOrigin + buckets * PITCH + PAD,
-    height: nodeY(Math.max(longest, 1)) - GAP + NULL_H + PAD,
+    height: stripH + PAD,
     old: named ? strip(oldOrigin) : null,
+    below: null,
+    stacked: false,
   };
 }
 

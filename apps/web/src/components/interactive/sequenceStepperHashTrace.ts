@@ -95,6 +95,23 @@ const CODE: Record<HashOperation, string> = {
 };
 
 /**
+ * `add` as the class writes it once the table resizes (#326 review, `grow`):
+ * the size check before the key goes in, and the call to `resize` on a line of
+ * its own, so the listing fits a third of a slide beside `resize`.
+ */
+const GROW_CODE = `public boolean add(String key) {
+    if (contains(key)) return false;
+    if (size == table.length)
+        resize(nextPrime(2 * table.length));
+    int i = hash(key);
+    Node fresh = new Node(key);
+    fresh.next = table[i];
+    table[i] = fresh;
+    size++;
+    return true;
+}`;
+
+/**
  * The 1-based line of the first line containing `fragment` AFTER the line
  * containing `anchor`. `remove` says `return false;`, `size--;` and
  * `return true;` twice each — once for the first node, once further along —
@@ -177,6 +194,13 @@ class HashRecorder {
   size: number | undefined;
   readonly code: string;
   chains: Node[][];
+  /**
+   * `grow` only: frames light two listings, `add` and `resize`. While
+   * `resize` runs, `lane` holds the lines of `add` that called it, which stay
+   * lit; the frame's own lines are then `resize`'s.
+   */
+  rows = false;
+  lane: number[] | null = null;
 
   constructor(code: string, chains: Node[][]) {
     this.code = code;
@@ -232,11 +256,13 @@ class HashRecorder {
     const cells: SequenceCell[] = chains
       .flat()
       .map((n) => ({ id: n.id, value: 0, state: n.state }));
+    const own = [...new Set(lines)];
     this.steps.push({
       kind,
       cells,
       pointers: [],
-      highlightLines: [...new Set(lines)],
+      highlightLines: this.lane ?? own,
+      ...(this.rows ? { rowLines: this.lane === null ? [own, []] : [this.lane, own] } : {}),
       description,
       cost: this.cost,
       hash,
@@ -294,8 +320,10 @@ function buildTable(input: SequenceInput): { m: number; chains: Node[][] } {
 
 export function traceHash(operation: HashOperation, input: SequenceInput): SequenceTrace {
   const { m, chains } = buildTable(input);
-  const code = CODE[operation];
+  const growing = input.grow === true;
+  const code = growing ? GROW_CODE : CODE[operation];
   const rec = new HashRecorder(code, chains);
+  rec.rows = growing;
   let buckets = m;
   if (operation === 'resize') {
     // One run: `resize` takes no key, and the table it leaves is the end.
@@ -303,9 +331,9 @@ export function traceHash(operation: HashOperation, input: SequenceInput): Seque
   } else {
     for (const key of keysOf(input)) {
       rec.reset(key);
-      if (operation === 'search') search(rec, m, key);
-      else if (operation === 'insert') insert(rec, m, key);
-      else remove(rec, m, key);
+      if (operation === 'search') search(rec, buckets, key);
+      else if (operation === 'insert') buckets = insert(rec, buckets, key, growing);
+      else remove(rec, buckets, key);
     }
   }
   const lengths = (frame: HashFrameNode[][] | undefined) => (frame ?? []).map((c) => c.length);
@@ -313,6 +341,27 @@ export function traceHash(operation: HashOperation, input: SequenceInput): Seque
     1,
     ...rec.steps.flatMap((s) => [...lengths(s.hash!.chains), ...lengths(s.hash!.old?.chains)]),
   );
+  if (growing) {
+    // The canvas keeps one size for the whole run: the largest table any frame
+    // holds, and the largest old one a resize draws beside or above it.
+    const widest = Math.max(...rec.steps.map((s) => s.hash!.chains.length));
+    const oldest = Math.max(0, ...rec.steps.map((s) => s.hash!.old?.chains.length ?? 0));
+    return {
+      steps: rec.steps,
+      code,
+      row: [
+        { name: 'add', code },
+        { name: 'resize', code: CODE.resize },
+      ],
+      maxCells: Math.max(...rec.steps.map((s) => s.cells.length)),
+      align: 'left',
+      hasCarry: false,
+      hash:
+        oldest > 0
+          ? { buckets: widest, longest, oldBuckets: oldest }
+          : { buckets: widest, longest },
+    };
+  }
   return {
     steps: rec.steps,
     code,
@@ -407,10 +456,10 @@ function search(rec: HashRecorder, m: number, key: string): void {
 
 // ── insert: contains first, then a new node at the front of its list ──────
 
-function insert(rec: HashRecorder, m: number, key: string): void {
+function insert(rec: HashRecorder, m: number, key: string, growing = false): number {
   const code = rec.code;
-  const h = hashKey(key, m);
-  const chain = rec.chains[h]!;
+  let h = hashKey(key, m);
+  let chain = rec.chains[h]!;
   const callLine = lineOf(code, 'if (contains(key))');
   rec.push('start', [lineOf(code, 'boolean add(')], `Agregar ${q(key)}.`);
 
@@ -441,7 +490,7 @@ function insert(rec: HashRecorder, m: number, key: string): void {
         [],
         `${q(key)} ya estaba: la tabla no cambia, porque guarda cada clave una vez.`,
       );
-      return;
+      return m;
     }
     rec.state.set(node.id, 'active');
     const last = k === chain.length - 1;
@@ -455,6 +504,33 @@ function insert(rec: HashRecorder, m: number, key: string): void {
   }
 
   rec.settle();
+  if (growing) {
+    const check = lineOf(code, 'if (size == table.length)');
+    const size = rec.chains.flat().length;
+    if (size === m) {
+      rec.push(
+        'compare',
+        [check],
+        `size == table.length: hay ${size} claves en ${m} posiciones. Antes de agregar ${q(key)}, la tabla crece.`,
+      );
+      rec.lane = [check, lineOf(code, 'resize(nextPrime')];
+      m = resize(rec, m, CODE.resize);
+      rec.lane = null;
+      // resize counted its keys back in on its own `size`; from here the
+      // readout is the table's again.
+      rec.size = undefined;
+      rec.key = key;
+      h = hashKey(key, m);
+      chain = rec.chains[h]!;
+    } else {
+      rec.push(
+        'compare',
+        [check],
+        `size es ${size} y table.length es ${m}: queda espacio, y la tabla no crece.`,
+      );
+    }
+    rec.bucket = h;
+  }
   rec.push('walk', [lineOf(code, 'int i = hash(key)')], `i = hash(${q(key)}) = ${h}.`);
 
   const fresh = nodeOf(key);
@@ -499,6 +575,7 @@ function insert(rec: HashRecorder, m: number, key: string): void {
     [],
     `${q(key)} entró al frente de la lista de la posición ${h}, sin recorrer nada más que esa lista.`,
   );
+  return m;
 }
 
 // ── remove: the first node apart, the rest through prev ───────────────────
@@ -644,8 +721,7 @@ function shrink(
 // ── resize: a new array, every key back in through add ────────────────────
 
 /** Runs `resize` over a table of `m` positions; returns the new number of positions. */
-function resize(rec: HashRecorder, m: number): number {
-  const code = rec.code;
+function resize(rec: HashRecorder, m: number, code: string = rec.code): number {
   const grown = nextPrime(2 * m);
   if (grown > MAX_BUCKETS) {
     throw new Error(

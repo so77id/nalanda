@@ -49,7 +49,13 @@ export function HashView({
   // `resize` only: which array each strip draws, and under which names.
   const old = layout.old;
   const tableOnLeft =
-    old !== null && hash.old === undefined && hash.chains.length === run.oldBuckets;
+    !layout.stacked &&
+    old !== null &&
+    hash.old === undefined &&
+    hash.chains.length === run.oldBuckets;
+  // Stacked (#326, `grow`): the table holds the top strip, and while `resize`
+  // runs `old` takes it and the new table is drawn under it.
+  const tableStrip = layout.below !== null && hash.old !== undefined ? layout.below : layout;
 
   return (
     <div
@@ -111,7 +117,7 @@ export function HashView({
           <Strip strip={old} chains={hash.chains} picked={null} pointers={[]} names={['table']} />
         ) : hash.old?.aliased === true ? null : (
           <Strip
-            strip={layout}
+            strip={tableStrip}
             chains={hash.chains}
             picked={bucket}
             pointers={mine}
@@ -124,11 +130,11 @@ export function HashView({
         {/* The key looked for, over the position its hash named — or, until
             that line runs, over no position at all, at the strip's start. */}
         {fresh !== undefined ? (
-          <FreshNode hash={hash} strip={layout} />
+          <FreshNode hash={hash} strip={tableStrip} />
         ) : hash.key === '' ? null : (
           <KeyChip
             hash={hash}
-            box={layout.band(bucket ?? 0)}
+            box={tableStrip.band(bucket ?? 0)}
             picked={bucket !== null}
             width={layout.width}
           />

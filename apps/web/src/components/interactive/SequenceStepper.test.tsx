@@ -728,6 +728,19 @@ describe('<SequenceStepper> · the combinations 23-edd-tablas-hash mounts', () =
     },
     {
       act: 'La redimensión',
+      slide: 'Inserciones que hacen crecer la tabla',
+      props: {
+        eda: 'hash-chaining',
+        operation: 'insert',
+        values: [],
+        value: ['Ana', 'Bea', 'Eva', 'Leo', 'Sara', 'Juan', 'Teo'],
+        capacity: 2,
+        program: true,
+        grow: true,
+      },
+    },
+    {
+      act: 'La redimensión',
       slide: 'El código de la redimensión',
       props: {
         eda: 'hash-chaining',

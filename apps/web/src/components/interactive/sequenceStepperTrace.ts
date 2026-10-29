@@ -538,6 +538,13 @@ export interface SequenceInput {
    */
   program?: boolean;
   /**
+   * `hash-chaining` × `insert` only (#326 review): `add` with the line that
+   * resizes when `size == table.length`, and `resize` walked inside the run in
+   * a listing of its own beside it, so a run of insertions shows the table
+   * growing and every key moving to its new position.
+   */
+  grow?: boolean;
+  /**
    * The name the LISTING shows the method under, when the document presents
    * the structure through a TDA that calls it something else. A class that
    * has just taught `pop` = `deleteFirst` mounts the widget and the widget
@@ -745,6 +752,11 @@ export function traceFor(
       `Solo la inserción y la eliminación se muestran como programa: program va con eda="bst", "avl", "hash-chaining" o "hash-probing", y operation="insert" o "remove"; no con «${operation}».`,
     );
   }
+  if (input.grow === true && !(recipe === 'hash-chaining' && operation === 'insert')) {
+    throw new Error(
+      `grow va con eda="hash-chaining" y operation="insert": es add que redimensiona la tabla con listas; no con «${recipe}» × «${operation}».`,
+    );
+  }
   if (input.program === true && input.iterative === true) {
     throw new Error(
       'Un programa no lleva el listado iterativo al lado: el programa ocupa esa columna. Usa program o iterative, no los dos.',
@@ -816,18 +828,26 @@ function hashProgram(
   const runs = Array.isArray(input.key) ? input.key : [input.key];
   const call = operation === 'insert' ? 'add' : 'remove';
   const capacity = input.capacity ?? walked.hash?.buckets ?? walked.probe?.buckets;
-  const built = 1 + keys.length;
+  // Beside two methods (`grow`) the program gets the width its longest line
+  // needs, so the constructor breaks where Java allows it and leaves the
+  // methods their room.
+  const create = walked.row
+    ? [`${type} names =`, `        new ${type}(${capacity});`]
+    : [`${type} names = new ${type}(${capacity});`];
+  const built = create.length + keys.length;
   const code = [
-    `${type} names = new ${type}(${capacity});`,
+    ...create,
     ...keys.map((k) => `names.add("${k}");`),
     ...runs.map((k) => `names.${call}("${k}");`),
   ].join('\n');
   const first = walked.steps[0]!;
+  const openingLines = Array.from({ length: built }, (_, i) => i + 1);
   const opening: SequenceStep = {
     ...first,
     kind: 'start',
-    highlightLines: Array.from({ length: built }, (_, i) => i + 1),
+    highlightLines: openingLines,
     alongsideLines: [],
+    ...(walked.row ? { rowLines: [openingLines, ...walked.row.map(() => [])] } : {}),
     description:
       keys.length === 0
         ? `La tabla, vacía: ${capacity} posiciones.`
@@ -836,11 +856,25 @@ function hashProgram(
     ...(first.probe ? { probe: { ...first.probe, key: '', home: null, at: null } } : {}),
   };
   // A run starts where the method is called, at its public method's frame.
+  // A run starts at the public method's frame; a `resize` inside a run opens
+  // with a frame of its own, and carries the run's key as nothing — it is not
+  // a new call of the program.
   let run = -1;
   const steps = walked.steps.map((step) => {
-    if (step.kind === 'start') run += 1;
-    return { ...step, highlightLines: [built + run + 1], alongsideLines: step.highlightLines };
+    if (step.kind === 'start' && (step.hash?.key ?? step.probe?.key ?? '') !== '') run += 1;
+    const call = [built + run + 1];
+    return walked.row
+      ? { ...step, highlightLines: call, rowLines: [call, ...(step.rowLines ?? [])] }
+      : { ...step, highlightLines: call, alongsideLines: step.highlightLines };
   });
+  if (walked.row) {
+    return {
+      ...walked,
+      code,
+      row: [{ name: 'programa', code }, ...walked.row],
+      steps: [opening, ...steps],
+    };
+  }
   return {
     ...walked,
     code,

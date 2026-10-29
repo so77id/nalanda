@@ -2420,7 +2420,8 @@ tantas claves como posiciones, la redimensiona.
 ```java
 public boolean add(String key) {
     if (contains(key)) return false;
-    if (size == table.length) resize(nextPrime(2 * table.length));
+    if (size == table.length)
+        resize(nextPrime(2 * table.length));
     int i = hash(key);
     Node fresh = new Node(key);
     fresh.next = table[i];
@@ -2443,6 +2444,22 @@ como redimensiona cuando $$N = M$$, cuesta $$\Theta(N)$$ en total.
   operation="resize"
   values={['Ana', 'Bea', 'Eva']}
   capacity={3}
+/>
+
+</Slide>
+
+<Slide title="Inserciones que hacen crecer la tabla">
+Una seguidilla de inserciones hace crecer la tabla dos veces, y cada vez todas
+sus claves pasan a su posición en la tabla nueva.
+
+<SequenceStepper
+  eda="hash-chaining"
+  operation="insert"
+  values={[]}
+  value={['Ana', 'Bea', 'Eva', 'Leo', 'Sara', 'Juan', 'Teo']}
+  capacity={2}
+  program
+  grow
 />
 
 </Slide>

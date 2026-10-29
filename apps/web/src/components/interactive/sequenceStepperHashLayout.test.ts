@@ -130,3 +130,28 @@ describe('sequenceStepperHashLayout · the probing table', () => {
     expect(inside(layout.cell(4), layout.width, layout.height)).toBe(true);
   });
 });
+
+describe('layoutHash · a resize too wide to draw side by side', () => {
+  // `grow` (#326 review) resizes 5 → 11: sixteen positions in a row would
+  // shrink every node past reading, so the two tables are stacked — `old` on
+  // top, where the table was, and the new one under it.
+  it('stacks old over the table once the two pass twelve positions', () => {
+    const stacked = layoutHash(11, 2, 5);
+    expect(stacked.stacked).toBe(true);
+    expect(stacked.below).not.toBeNull();
+    const below = stacked.below!;
+    // The table's strip starts under the longest list of old, null included.
+    expect(below.band(0).y).toBeGreaterThan(stacked.old!.nullAt(0, 2).y);
+    // Both strips share the left edge, so a key's column reads straight down.
+    expect(below.cell(0).x).toBe(stacked.old!.cell(0).x);
+    expect(stacked.width).toBeLessThan(layoutHash(16, 2).width);
+    expect(stacked.height).toBeGreaterThan(below.nullAt(0, 2).y);
+  });
+
+  it('keeps a resize that fits side by side as it was', () => {
+    const side = layoutHash(7, 2, 3);
+    expect(side.stacked).toBe(false);
+    expect(side.below).toBeNull();
+    expect(side.cell(0).x).toBeGreaterThan(side.old!.cell(2).x);
+  });
+});
