@@ -28,9 +28,9 @@ export const VOTED_TREE = { v: '13.959.276-K', l: { v: '13.180.992-1', l: { v: '
 
 export const ABSENT = '20.118.702-8';
 
-{/* KeySet — a set drawn as what the contract sees: a rounded region holding its elements as chips, with no positions and no order. `probe` draws a question over it — a chip «¿x?» with an arrow — that lands on the chip that answers it, painted `keep`, or on the edge of the region when nothing answers. File-local (add-a-course-document.md §6e-quater): no catalog entry, one consumer. */}
+{/* KeySet — a set drawn as what the contract sees: a rounded region holding its elements as chips, with no positions and no order. `probe` draws a question over it — a chip «¿x?» with an arrow — that lands on the chip that answers it, painted `keep`, or on the edge of the region when nothing answers. `tones` paints chips `mark`: what the slide points at. File-local (add-a-course-document.md §6e-quater): no catalog entry, one consumer. */}
 
-export function KeySet({ title, keys, probe, caption, label, id }) {
+export function KeySet({ title, keys, probe, tones = {}, caption, label, id }) {
   const chipW = 112;
   const chipH = 30;
   const gap = 12;
@@ -62,12 +62,16 @@ export function KeySet({ title, keys, probe, caption, label, id }) {
       </defs>
       <rect x={blobX} y={blobY} width={blobW} height={blobH} rx="18" style={{ fill: 'var(--color-sunk)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.4" />
       <text x={blobX + 14} y={blobY - 8} fontSize="12" fontWeight="700" style={{ fill: 'var(--color-ink-soft)' }}>{title}</text>
-      {keys.map((k, n) => (
-        <g key={k}>
-          <rect x={chipX(n)} y={chipY(n)} width={chipW} height={chipH} rx="15" style={{ fill: n === at ? 'var(--color-keep-soft)' : 'var(--color-surface)', stroke: n === at ? 'var(--color-keep)' : 'var(--color-rule-strong)' }} strokeWidth={n === at ? 2.2 : 1.2} />
-          <text x={chipX(n) + chipW / 2} y={chipY(n) + chipH / 2 + 5} textAnchor="middle" fontSize="13" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{k}</text>
-        </g>
-      ))}
+      {keys.map((k, n) => {
+        const fill = n === at ? 'var(--color-keep-soft)' : tones[k] === 'mark' ? 'var(--color-mark-soft)' : 'var(--color-surface)';
+        const stroke = n === at ? 'var(--color-keep)' : tones[k] === 'mark' ? 'var(--color-mark)' : 'var(--color-rule-strong)';
+        return (
+          <g key={k}>
+            <rect x={chipX(n)} y={chipY(n)} width={chipW} height={chipH} rx="15" style={{ fill, stroke }} strokeWidth={n === at || tones[k] ? 2.2 : 1.2} />
+            <text x={chipX(n) + chipW / 2} y={chipY(n) + chipH / 2 + 5} textAnchor="middle" fontSize="13" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{k}</text>
+          </g>
+        );
+      })}
       {probe !== undefined ? (
         <g>
           <rect x={probeX - probeW / 2} y={12} width={probeW} height={chipH} rx="15" style={{ fill: 'var(--color-surface)', stroke: arrow }} strokeWidth="1.6" strokeDasharray={at >= 0 ? undefined : '5 4'} />
@@ -82,9 +86,9 @@ export function KeySet({ title, keys, probe, caption, label, id }) {
   );
 }
 
-{/* ChainTable — a hash table with chaining drawn still, with nodes wide enough for a RUT. COPIES the look of the hash-chaining recipe of <SequenceStepper> (sequenceStepperHashLayout.ts: a contiguous strip with its index, nodes with the key over a `next` field, lists hanging down, `null` where one ends), as the file-local `Chains` of 23-edd-tablas-hash.mdx does at a narrower node; neither copy is tested, so a change in the recipe is carried to both by hand and checked in a browser. Not `Chains` itself: that one draws names in 56 px, and a RUT needs twice that. `order` numbers every node in the order a walk over the table meets it — position by position, each list from its front —, `tones` paints a key's node (`keep`, `mark`, `faint`). File-local (§6e-quater). */}
+{/* ChainTable — a hash table with chaining drawn still, with nodes wide enough for a RUT. COPIES the look of the hash-chaining recipe of <SequenceStepper> (sequenceStepperHashLayout.ts: a contiguous strip with its index, nodes with the key over a `next` field, lists hanging down, `null` where one ends), as the file-local `Chains` of 23-edd-tablas-hash.mdx does at a narrower node; neither copy is tested, so a change in the recipe is carried to both by hand and checked in a browser. Not `Chains` itself: that one draws names in 56 px, and a RUT needs twice that. `order` numbers every node in the order a walk over the table meets it — position by position, each list from its front —, `tones` paints a key's node (`keep`, `mark`, `visited`, `faint`), `picked` outlines the position a search goes to, and `window={[from, to]}` draws only those positions, with «…» where the table goes on, as `Chains` does, so two drawings side by side keep a size a projector can read. File-local (§6e-quater). */}
 
-export function ChainTable({ chains, tones = {}, order = false, caption, label }) {
+export function ChainTable({ chains, tones = {}, order = false, picked, window: shown, caption, label }) {
   const pad = 12;
   const pitch = 108;
   const cellH = 30;
@@ -94,26 +98,35 @@ export function ChainTable({ chains, tones = {}, order = false, caption, label }
   const gap = 18;
   const indexY = 18;
   const cellY = 26;
-  const longest = Math.max(1, ...chains.map((c) => c.length));
-  const stripW = chains.length * pitch;
-  const width = Math.max(2 * pad + stripW, caption ? caption.length * 6.6 + 24 : 0);
+  const [lo, hi] = shown ?? [0, chains.length - 1];
+  const longest = Math.max(1, ...chains.slice(lo, hi + 1).map((c) => c.length));
+  const stripW = (hi - lo + 1) * pitch;
+  const width = Math.max(2 * pad + stripW + (shown ? 40 : 0), caption ? caption.length * 6.6 + 24 : 0);
   const left = (width - stripW) / 2;
   const nodeY = (k) => cellY + cellH + gap + k * (nodeH + gap);
   const height = nodeY(longest) - gap + 18 + (caption ? 30 : 6);
-  const fill = { keep: 'var(--color-keep-soft)', mark: 'var(--color-mark-soft)', faint: 'var(--color-surface)' };
-  const stroke = { keep: 'var(--color-keep)', mark: 'var(--color-mark)', faint: 'var(--color-rule)' };
+  const fill = { keep: 'var(--color-keep-soft)', mark: 'var(--color-mark-soft)', visited: 'var(--color-sunk)', faint: 'var(--color-surface)' };
+  const stroke = { keep: 'var(--color-keep)', mark: 'var(--color-mark)', visited: 'var(--color-rule-strong)', faint: 'var(--color-rule)' };
   const rank = {};
   chains.flat().forEach((key, n) => {
     rank[key] = n + 1;
   });
   return (
     <svg viewBox={`0 0 ${width} ${height}`} style={{ width: '100%', maxWidth: `${Math.round(width * 1.3)}px`, height: 'auto', display: 'block', margin: '0.4rem auto' }} role="img" aria-label={label}>
+      {lo > 0 ? (
+        <text x={left - 12} y={cellY + cellH / 2 + 4} textAnchor="middle" fontSize="13" style={{ fill: 'var(--color-ink-faint)' }}>…</text>
+      ) : null}
+      {hi < chains.length - 1 ? (
+        <text x={left + stripW + 12} y={cellY + cellH / 2 + 4} textAnchor="middle" fontSize="13" style={{ fill: 'var(--color-ink-faint)' }}>…</text>
+      ) : null}
       {chains.map((chain, i) => {
-        const cx = left + i * pitch + pitch / 2;
+        if (i < lo || i > hi) return null;
+        const x0 = left + (i - lo) * pitch;
+        const cx = x0 + pitch / 2;
         return (
           <g key={i}>
-            <text x={cx} y={indexY} textAnchor="middle" fontSize="11" style={{ fill: 'var(--color-ink-faint)' }}>{i}</text>
-            <rect x={left + i * pitch} y={cellY} width={pitch} height={cellH} style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.2" />
+            <text x={cx} y={indexY} textAnchor="middle" fontSize="11" fontWeight={picked === i ? 700 : 400} style={{ fill: picked === i ? 'var(--color-ink)' : 'var(--color-ink-faint)' }}>{i}</text>
+            <rect x={x0} y={cellY} width={pitch} height={cellH} style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.2" />
             {chain.length === 0 ? (
               <text x={cx} y={cellY + cellH / 2 + 4} textAnchor="middle" fontSize="11" style={{ fill: 'var(--color-ink-faint)' }}>null</text>
             ) : (
@@ -128,7 +141,7 @@ export function ChainTable({ chains, tones = {}, order = false, caption, label }
               const t = tones[key];
               return (
                 <g key={key} opacity={t === 'faint' ? 0.45 : undefined}>
-                  <rect x={cx - nodeW / 2} y={y} width={nodeW} height={nodeH} rx="3" style={{ fill: t ? fill[t] : 'var(--color-surface)', stroke: t ? stroke[t] : 'var(--color-rule)' }} strokeWidth={t && t !== 'faint' ? 2.2 : 1.2} />
+                  <rect x={cx - nodeW / 2} y={y} width={nodeW} height={nodeH} rx="3" style={{ fill: t ? fill[t] : 'var(--color-surface)', stroke: t ? stroke[t] : 'var(--color-rule)' }} strokeWidth={t === 'keep' || t === 'mark' ? 2.2 : 1.2} />
                   <line x1={cx - nodeW / 2} y1={y + keyH} x2={cx + nodeW / 2} y2={y + keyH} style={{ stroke: t ? stroke[t] : 'var(--color-rule)' }} strokeWidth="1" />
                   <text x={cx} y={y + keyH / 2 + 5} textAnchor="middle" fontSize="12.5" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{key}</text>
                   {k < chain.length - 1 ? (
@@ -149,6 +162,9 @@ export function ChainTable({ chains, tones = {}, order = false, caption, label }
                 </g>
               );
             })}
+            {picked === i ? (
+              <rect x={x0} y={cellY} width={pitch} height={cellH} fill="none" style={{ stroke: 'var(--color-focus)' }} strokeWidth="2.4" />
+            ) : null}
           </g>
         );
       })}
@@ -529,6 +545,274 @@ la más barata durante el día.
 <SectionBreak />
 
 ## HashSet y TreeSet
+
+{/* The registry again, now as Rut objects: the same six voters placed by the hashCode the class writes, 31 · number + dv, reduced with the remainder by M = 7, each at the front of its list in the order they arrive. Computed: 12.547.354-7 → 388968029 → 2, 22.715.853-0 → 704191491 → 3, 13.180.992-1 → 408610801 → 4, 13.959.276-K → 432737631 → 4, 17.814.358-1 → 552245147 → 6, 18.155.218-2 → 562811808 → 6. RUT_TABLE_FIXED is the same table after the node of 13.180.992-1 has its fields changed to 13.180.993-K (408610858 → 5) where it stands. */}
+
+export const RUT_TABLE = [[], [], ['12.547.354-7'], ['22.715.853-0'], ['13.959.276-K', '13.180.992-1'], [], ['17.814.358-1', '18.155.218-2']];
+
+export const RUT_TABLE_FIXED = [[], [], ['12.547.354-7'], ['22.715.853-0'], ['13.959.276-K', '13.180.993-K'], [], ['17.814.358-1', '18.155.218-2']];
+
+<Slide title="La clase HashSet">
+Java implementa el contrato Set sobre una tabla hash con listas en la clase
+`java.util.HashSet`. El registro de votantes se escribe con las operaciones
+del contrato, y la variable se declara del tipo del contrato, `Set`: solo la
+línea que crea el conjunto nombra la estructura.
+
+```java
+Set<String> voted = new HashSet<>();
+voted.add("18.155.218-2");
+voted.add("13.180.992-1");
+voted.add("13.959.276-K");
+voted.add("17.814.358-1");
+voted.add("22.715.853-0");
+voted.add("12.547.354-7");
+
+voted.add("13.180.992-1");      // false: ya votó
+voted.contains("13.959.276-K"); // true
+voted.contains("20.118.702-8"); // false
+voted.size();                   // 6
+```
+
+`add`, `remove` y `contains` cuestan $$\Theta(1)$$ esperado, como en la tabla
+con listas: la tabla de `HashSet` empieza con 16 posiciones y duplica su
+tamaño cuando el factor de carga pasa de $$0{,}75$$.
+
+</Slide>
+
+<Slide title="El recorrido de un HashSet">
+Un `for` recorre el conjunto con su `iterator()`, que entrega cada elemento
+una vez, en el orden de las posiciones de la tabla:
+
+```java
+for (String rut : voted) {
+    System.out.println(rut);
+}
+```
+
+```text
+13.180.992-1
+18.155.218-2
+13.959.276-K
+12.547.354-7
+22.715.853-0
+17.814.358-1
+```
+
+No es el orden en que votaron ni el de los RUTs: es el que dejó la función
+hash de `String` con el tamaño de esa tabla, y cambia si la tabla crece. Un
+programa que necesite otro orden no puede contar con este.
+
+</Slide>
+
+<Slide title="El mismo RUT escrito de dos maneras">
+Un RUT se puede escribir con puntos o sin ellos, y una mesa lo escribe de una
+manera y otra mesa de la otra. Para un `HashSet<String>`, dos textos distintos
+son dos elementos distintos, aunque nombren a la misma persona: `add` del
+segundo retorna verdadero, y el registro la cuenta dos veces.
+
+<KeySet
+  id="dos-escrituras"
+  title="votaron"
+  keys={['18.155.218-2', '13.180.992-1', '13.959.276-K', '17.814.358-1', '22.715.853-0', '12.547.354-7', '13180992-1']}
+  tones={{ '13.180.992-1': 'mark', '13180992-1': 'mark' }}
+  caption="13.180.992-1 y 13180992-1: siete elementos para seis personas"
+  label="El conjunto de los que votaron, con siete elementos: los seis RUTs del registro y, además, 13180992-1, sin puntos. 13.180.992-1 y 13180992-1 están destacados: son la misma persona escrita de dos maneras."
+/>
+
+Lo que identifica a una persona es el número de su RUT, no la manera de
+escribirlo. Hace falta un tipo para el RUT, con su propia regla para decidir
+cuándo dos son iguales.
+
+</Slide>
+
+<Slide title="Una clase para el RUT">
+Un `Rut` guarda el número y el dígito verificador por separado. Cada mesa lee
+el texto, le quita los puntos y separa el número del dígito, así que las dos
+escrituras dan el mismo `Rut`.
+
+```java
+class Rut {
+    private final int number;
+    private final char dv;
+
+    Rut(int number, char dv) {
+        if (number <= 0) throw new IllegalArgumentException();
+        this.number = number;
+        this.dv = dv;
+    }
+}
+```
+
+Con esta clase, el registro todavía cuenta dos veces:
+
+```java
+Set<Rut> voted = new HashSet<>();
+voted.add(new Rut(13180992, '1'));
+voted.add(new Rut(13180992, '1')); // true: lo agrega otra vez
+voted.size();                      // 2
+```
+
+Para decidir si un elemento ya está, `HashSet` pregunta con `equals`, y el
+`equals` que `Rut` hereda de `Object` responde verdadero solo para el mismo
+objeto. Dos objetos con los mismos campos son, para él, dos elementos.
+
+</Slide>
+
+<Slide title="La igualdad de dos RUT">
+`equals` es el método que decide si dos objetos son iguales. `Rut` lo
+reescribe para comparar los campos: dos RUT son iguales si tienen el mismo
+número y el mismo dígito.
+
+```java
+@Override
+public boolean equals(Object other) {
+    if (!(other instanceof Rut)) return false;
+    Rut r = (Rut) other;
+    return number == r.number && dv == r.dv;
+}
+```
+
+`equals` recibe un `Object`, porque cualquier objeto se puede comparar con
+cualquier otro: si el otro no es un `Rut`, no es igual. `@Override` le pide
+al compilador que verifique que el método reemplaza al de `Object`; con un
+parámetro de otro tipo, el compilador lo rechaza.
+
+</Slide>
+
+<Slide title="Un equals sin hashCode">
+Con `equals`, los dos `Rut` son iguales, y el registro sigue contándolos dos
+veces: `contains` de una copia retorna falso. La tabla no compara un elemento
+con todos los que guarda. Le pide su número al método **`hashCode`**, lo
+reduce a una posición y compara con `equals` solo los elementos de esa lista.
+El `hashCode` que `Rut` hereda de `Object` da, en la práctica, un número
+distinto para cada objeto, así que dos RUT iguales caen en posiciones
+distintas, y `equals` nunca llega a compararlos.
+
+<ChainTable
+  chains={[[], [], [], [], [], ['13.180.992-1'], []]}
+  picked={4}
+  caption="en una ejecución, el RUT guardado quedó en la posición 5, y su copia lo busca en la 4"
+  label="Una tabla de siete posiciones con un solo RUT, 13.180.992-1, en la lista de la posición 5. La posición 4 está destacada: ahí busca la copia, y su lista está vacía."
+/>
+
+$$
+895\,328\,852 \bmod 7 = 5, \qquad 1\,304\,836\,502 \bmod 7 = 4
+$$
+
+`HashSet` además compara los `hashCode` antes de llamar a `equals`, así que
+dos objetos iguales con números distintos no se encuentran ni cuando caen en
+la misma lista.
+
+</Slide>
+
+<Slide title="El contrato entre equals y hashCode">
+Para que una tabla hash encuentre un objeto, su `equals` y su `hashCode` tienen
+que cumplir un contrato:
+
+$$
+a.\text{equals}(b) \;\Rightarrow\; a.\text{hashCode}() = b.\text{hashCode}()
+$$
+
+que se lee «si $$a$$ es igual a $$b$$, sus `hashCode` son iguales». Al revés
+no hace falta: dos objetos distintos pueden tener el mismo `hashCode`, y esa
+colisión la resuelve la lista. Por eso los dos métodos se escriben juntos y
+con los mismos campos:
+
+```java
+@Override
+public int hashCode() {
+    return 31 * number + dv;
+}
+```
+
+Dos RUT iguales tienen el mismo número y el mismo dígito, y con eso el mismo
+`hashCode`. Es la regla de Horner con base 31 sobre los campos, la misma que
+usa `String.hashCode` sobre sus caracteres.
+
+</Slide>
+
+<Slide title="Un RUT encontrado por su hashCode">
+Con los dos métodos, cada `Rut` cae en la posición de su `hashCode`, y una
+copia cae en la misma. `contains` recorre esa sola lista y compara con
+`equals` cada elemento hasta dar con el igual. El registro vuelve a contar
+una vez a cada persona.
+
+<ChainTable
+  chains={RUT_TABLE}
+  picked={4}
+  tones={{ '13.959.276-K': 'visited', '13.180.992-1': 'keep' }}
+  caption="buscar una copia de 13.180.992-1: la posición 4, y en su lista, el segundo"
+  label="Una tabla de siete posiciones con los seis RUT como objetos Rut, cada uno en la posición de su hashCode. La posición 4 está destacada: guarda 13.959.276-K y después 13.180.992-1. La búsqueda compara con 13.959.276-K, que no es igual, y encuentra 13.180.992-1."
+/>
+
+$$
+31 \cdot 13\,180\,992 + 49 = 408\,610\,801, \qquad 408\,610\,801 \bmod 7 = 4
+$$
+
+El 49 es el código del carácter `'1'`.
+
+</Slide>
+
+<Slide title="Objects.hash como atajo">
+Escribir la combinación a mano es fácil con dos campos y propenso a errores
+con muchos. `java.util.Objects.hash` la hace para cualquier cantidad de
+campos:
+
+```java
+@Override
+public int hashCode() {
+    return Objects.hash(number, dv);
+}
+```
+
+Combina los campos con la misma regla —multiplica por 31 y suma el
+siguiente—, así que cumple el contrato si recibe los mismos campos que compara
+`equals`. El número que da no es el mismo que el de la versión escrita a mano,
+y no importa: el contrato pide que dos RUT iguales tengan el mismo
+`hashCode`, no un número en particular.
+
+</Slide>
+
+<Slide title="Una clave que cambia después de entrar">
+La otra falla aparece con objetos que pueden cambiar. Si `Rut` tuviera un
+método para corregir un RUT mal digitado, cambiando sus campos, corregir uno
+que ya está en el conjunto lo deja perdido en él:
+
+```java
+Rut typed = new Rut(13180992, '1');
+voted.add(typed);
+typed.fix(13180993, 'K');  // corrige los campos
+voted.contains(typed);     // false
+```
+
+El objeto sigue en la lista de la posición que le tocó al entrar. Buscado con
+su valor nuevo, la tabla mira la posición del `hashCode` nuevo; buscado con el
+valor viejo, llega a su lista, pero `equals` dice que ya no es ese RUT.
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '1rem 2rem', alignItems: 'end' }}>
+<ChainTable
+  chains={RUT_TABLE_FIXED}
+  window={[3, 6]}
+  picked={5}
+  tones={{ '13.180.993-K': 'mark' }}
+  caption="buscar 13.180.993-K: la posición 5, vacía"
+  label="Las posiciones 3 a 6 de la tabla. El nodo corregido, ahora 13.180.993-K, sigue en la lista de la posición 4. La búsqueda de 13.180.993-K va a la posición 5, destacada, cuya lista está vacía."
+/>
+<ChainTable
+  chains={RUT_TABLE_FIXED}
+  window={[3, 6]}
+  picked={4}
+  tones={{ '13.959.276-K': 'visited', '13.180.993-K': 'mark' }}
+  caption="buscar 13.180.992-1: la posición 4, sin un igual"
+  label="Las mismas posiciones. La búsqueda de 13.180.992-1 va a la posición 4, destacada, y compara con 13.959.276-K y con el nodo corregido, 13.180.993-K: ninguno es igual."
+/>
+</div>
+
+**Un objeto que está en un conjunto no cambia los campos que usan `equals` y
+`hashCode`.** Por eso los campos de `Rut` son `final`: un RUT corregido es otro
+objeto, que entra después de sacar el anterior.
+
+</Slide>
 
 <SectionBreak />
 
