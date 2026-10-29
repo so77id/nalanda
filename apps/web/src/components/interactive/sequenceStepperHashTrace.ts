@@ -329,11 +329,17 @@ export function traceHash(operation: HashOperation, input: SequenceInput): Seque
     // One run: `resize` takes no key, and the table it leaves is the end.
     buckets = resize(rec, m);
   } else {
-    for (const key of keysOf(input)) {
+    for (const [run, key] of keysOf(input).entries()) {
+      const from = rec.steps.length;
       rec.reset(key);
       if (operation === 'search') search(rec, buckets, key);
       else if (operation === 'insert') buckets = insert(rec, buckets, key, growing);
       else remove(rec, buckets, key);
+      if (growing) {
+        // Every frame of the run is about this key; its last frame has added it.
+        for (const step of rec.steps.slice(from)) step.queue = { done: run, at: run };
+        rec.steps.at(-1)!.queue = { done: run + 1, at: null };
+      }
     }
   }
   const lengths = (frame: HashFrameNode[][] | undefined) => (frame ?? []).map((c) => c.length);
@@ -354,6 +360,7 @@ export function traceHash(operation: HashOperation, input: SequenceInput): Seque
         { name: 'resize', code: CODE.resize },
       ],
       beside: true,
+      queue: keysOf(input),
       maxCells: Math.max(...rec.steps.map((s) => s.cells.length)),
       align: 'left',
       hasCarry: false,

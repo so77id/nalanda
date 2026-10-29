@@ -850,6 +850,39 @@ function Body({
         title={heading}
         stepIndex={playback.stepIndex}
         totalSteps={totalSteps}
+        extra={
+          trace.queue === undefined ? undefined : (
+            // The keys a growing run adds (#326 review): with no program
+            // beside the listings, the run says here which key it is on.
+            <ol aria-label="Claves por agregar" className="m-0 flex list-none flex-wrap gap-1 p-0">
+              {trace.queue.map((key, i) => {
+                const state =
+                  i < (step.queue?.done ?? 0)
+                    ? 'done'
+                    : i === step.queue?.at
+                      ? 'current'
+                      : 'pending';
+                return (
+                  <li
+                    key={`${i}-${key}`}
+                    data-queue-state={state}
+                    aria-current={state === 'current' ? 'step' : undefined}
+                    className={`m-0 rounded border px-1.5 py-0.5 font-mono ${isPresentation ? 'text-sm' : 'text-xs'} ${
+                      state === 'done'
+                        ? 'border-rule text-ink-faint line-through'
+                        : state === 'current'
+                          ? 'border-focus bg-surface font-semibold text-ink'
+                          : 'border-rule-strong bg-surface text-ink-soft'
+                    }`}
+                  >
+                    {key}
+                    {state === 'done' ? <span className="sr-only"> (agregada)</span> : null}
+                  </li>
+                );
+              })}
+            </ol>
+          )
+        }
       />
 
       {/*

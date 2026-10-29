@@ -254,7 +254,12 @@ its listings in a column on the left, 38% of the width, and the table on the
 right with that column's height (`SequenceTrace.beside`) — the professor's
 review measured the nodes too small with the listings above. The slide runs
 it without `program`: three listings in that column do not fit its height,
-and the key being added is on the chip over the table and in the narration. Pinned in `sequenceStepperHashTrace.test.ts` (the sizes 2, 5, 11,
+and the key being added is on the chip over the table and in the narration.
+The run then names its keys in the widget's header instead (`queue` on the
+trace, `queue` on every step): the one being added outlined, the ones added
+struck through — the professor asked for the run to stay visible without a
+program, and under `size`, where he first placed it, the table of eleven
+reaches. Pinned in `sequenceStepperHashTrace.test.ts` (the sizes 2, 5, 11,
 the lines lit in each listing, the final table against the hash) and
 `sequenceStepperHashLayout.test.ts` (the stacked strips); the slide is walked to
 its last frame in `SequenceStepper.test.tsx`.

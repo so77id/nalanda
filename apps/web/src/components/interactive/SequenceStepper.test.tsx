@@ -1988,3 +1988,34 @@ describe('<SequenceStepper> · the hash-probing recipe (#326)', () => {
     expect(screen.getByText(/pasa de la mitad de la tabla/)).toBeInTheDocument();
   });
 });
+
+describe('<SequenceStepper> · the keys a growing run adds, in its header', () => {
+  it('marks the key being added, and strikes the ones added', () => {
+    renderIn(
+      'presentation',
+      <SequenceStepper
+        eda="hash-chaining"
+        operation="insert"
+        values={[]}
+        value={['Ana', 'Bea', 'Eva']}
+        capacity={2}
+        grow
+      />,
+    );
+    const list = screen.getByRole('list', { name: 'Claves por agregar' });
+    const items = within(list).getAllByRole('listitem');
+    expect(items.map((li) => li.textContent?.replace(' (agregada)', ''))).toEqual([
+      'Ana',
+      'Bea',
+      'Eva',
+    ]);
+    expect(items[0]).toHaveAttribute('aria-current', 'step');
+    expect(items.map((li) => li.dataset.queueState)).toEqual(['current', 'pending', 'pending']);
+    for (let i = 0; i < 400; i += 1) {
+      const next = screen.getByRole('button', { name: 'Adelante' });
+      if (next.getAttribute('aria-disabled') === 'true') break;
+      fireEvent.click(next);
+    }
+    expect(items.map((li) => li.dataset.queueState)).toEqual(['done', 'done', 'done']);
+  });
+});

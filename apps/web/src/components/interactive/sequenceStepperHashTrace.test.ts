@@ -627,3 +627,39 @@ describe('sequenceStepperTrace · hash-chaining · insertions that grow the tabl
     ).toThrow(/grow/);
   });
 });
+
+describe('sequenceStepperTrace · hash-chaining · the keys a growing run still has to add', () => {
+  // The professor's review: with no program beside it, the run names its
+  // keys in the widget's header, the one being added marked and the ones
+  // added struck through. The trace says which is which at every frame.
+  const GROWN = ['Ana', 'Bea', 'Eva', 'Leo', 'Sara', 'Juan', 'Teo'];
+  const trace = traceFor('hash-chaining', 'insert', {
+    values: [],
+    keys: [],
+    key: GROWN,
+    capacity: 2,
+    grow: true,
+  });
+
+  it('lists the keys of the run in order', () => {
+    expect(trace.queue).toEqual(GROWN);
+  });
+
+  it('marks the key being added, through the resize its insertion runs', () => {
+    expect(trace.steps[0]!.queue).toEqual({ done: 0, at: 0 });
+    const eva = trace.steps.findIndex((s) => s.kind === 'start' && s.hash!.key === 'Eva');
+    const leo = trace.steps.findIndex((s) => s.kind === 'start' && s.hash!.key === 'Leo');
+    for (const step of trace.steps.slice(eva, leo - 1)) {
+      expect(step.queue).toEqual({ done: 2, at: 2 });
+    }
+    // Eva's run ends with Eva added; the next frame starts Leo's.
+    expect(trace.steps[leo - 1]!.queue).toEqual({ done: 3, at: null });
+    expect(trace.steps[leo]!.queue).toEqual({ done: 3, at: 3 });
+  });
+
+  it('ends with every key added, and never takes one back', () => {
+    expect(trace.steps.at(-1)!.queue).toEqual({ done: GROWN.length, at: null });
+    const done = trace.steps.map((s) => s.queue!.done);
+    expect(done).toEqual([...done].sort((a, b) => a - b));
+  });
+});

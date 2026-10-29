@@ -318,6 +318,11 @@ export interface SequenceStep {
   /** The lines each listing of `trace.row` lights at this moment, in the same order. */
   rowLines?: number[][];
   /**
+   * A run with `queue` only: how many of its keys this frame has already
+   * added, and which one it is adding (`null` between two of them).
+   */
+  queue?: { done: number; at: number | null };
+  /**
    * The value a search is looking for, written beside the structure on every
    * frame of its run (#322): the narration names it once, and a reader who
    * joins mid-walk should not have to scroll back to learn what is sought.
@@ -432,6 +437,12 @@ export interface SequenceTrace {
    * (#326 review, `grow`).
    */
   beside?: boolean;
+  /**
+   * The keys a growing run adds, in order (#326 review, `grow`): with no
+   * program beside the listings, the header names them, the one being added
+   * marked and the ones added struck through (`SequenceStep.queue`).
+   */
+  queue?: string[];
   /**
    * The most cells any frame holds. The view lays out for THIS, not for the
    * current frame, so the drawing keeps one size from the first frame to the
@@ -855,6 +866,7 @@ function hashProgram(
     highlightLines: openingLines,
     alongsideLines: [],
     ...(walked.row ? { rowLines: [openingLines, ...walked.row.map(() => [])] } : {}),
+    ...(walked.queue ? { queue: { done: 0, at: null } } : {}),
     description:
       keys.length === 0
         ? `La tabla, vacía: ${capacity} posiciones.`
