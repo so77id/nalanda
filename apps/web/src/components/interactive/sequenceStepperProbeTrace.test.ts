@@ -244,3 +244,44 @@ describe('sequenceStepperTrace · hash-probing · authoring guards', () => {
     ).toThrow(/sondeo/);
   });
 });
+
+describe('sequenceStepperTrace · hash-probing · a program of insertions or removals', () => {
+  const program = (
+    operation: 'insert' | 'remove',
+    key: string[],
+    extra: { keys?: string[]; deleted?: string[] } = {},
+  ): SequenceTrace =>
+    traceFor('hash-probing', operation, {
+      values: [],
+      keys: extra.keys ?? [],
+      deleted: extra.deleted,
+      key,
+      capacity: M,
+      program: true,
+    });
+
+  it('creates the table with its own class and calls the method once per key', () => {
+    const trace = program('insert', ['Mia', 'Alba']);
+    expect(trace.code.split('\n')).toEqual([
+      'ProbingHashTable names = new ProbingHashTable(11);',
+      'names.add("Mia");',
+      'names.add("Alba");',
+    ]);
+    expect(trace.alongside).toBe(run('insert', 'Nico').code);
+    // Alba collides with Mia at 5 and lands one cell further.
+    expect(keysOf(trace.steps.at(-1)!)[6]).toBe('Alba');
+    expect(trace.steps[0]!.probe!.at).toBeNull();
+  });
+
+  it('removes from the table the program built, its call lit while remove runs', () => {
+    const trace = program('remove', ['Mia'], { keys: KEYS });
+    const lines = trace.code.split('\n');
+    expect(lines.at(-1)).toBe('names.remove("Mia");');
+    expect(trace.steps.slice(1).every((s) => s.highlightLines[0] === lines.length)).toBe(true);
+    expect(marksOf(trace.steps.at(-1)!)[5]).toBe(true);
+  });
+
+  it('refuses a starting table with marks: no program of adds writes one', () => {
+    expect(() => program('remove', ['Mia'], { keys: KEYS, deleted: ['Alba'] })).toThrow(/marca/);
+  });
+});

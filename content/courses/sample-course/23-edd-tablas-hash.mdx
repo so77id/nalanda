@@ -2145,6 +2145,22 @@ un número fijo de asignaciones: cuesta lo mismo que la búsqueda.
 
 </Slide>
 
+<Slide title="Inserciones en una misma tabla">
+Una seguidilla de inserciones arma la tabla desde vacía. Cada clave entra al
+frente de la lista de su posición; dos claves de la misma posición quedan en
+la misma lista, y una clave que ya está no entra dos veces.
+
+<SequenceStepper
+  eda="hash-chaining"
+  operation="insert"
+  values={[]}
+  value={['Ana', 'Bea', 'Eva', 'Leo', 'Sara', 'Ana']}
+  capacity={7}
+  program
+/>
+
+</Slide>
+
 <Slide title="Eliminar en una tabla con listas">
 **Eliminar** saca una clave sin romper ninguna invariante: recibe la clave y
 responde si estaba. La busca en la lista de su posición, y cómo la desengancha
@@ -2190,6 +2206,21 @@ cuesta lo mismo que la búsqueda.
   values={['Ana', 'Bea', 'Eva', 'Leo', 'Sara', 'Juan']}
   target="Ana"
   capacity={7}
+/>
+
+</Slide>
+
+<Slide title="Eliminaciones en una misma tabla">
+Una seguidilla de eliminaciones pasa por los tres casos: una clave después de
+otra en su lista, la primera de una lista y una que no está.
+
+<SequenceStepper
+  eda="hash-chaining"
+  operation="remove"
+  values={['Ana', 'Bea', 'Eva', 'Leo', 'Sara', 'Juan']}
+  target={['Ana', 'Leo', 'Carla']}
+  capacity={7}
+  program
 />
 
 </Slide>

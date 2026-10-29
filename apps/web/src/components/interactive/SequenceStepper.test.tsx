@@ -693,6 +693,18 @@ describe('<SequenceStepper> · the combinations 23-edd-tablas-hash mounts', () =
     },
     {
       act: 'Encadenamiento',
+      slide: 'Inserciones en una misma tabla',
+      props: {
+        eda: 'hash-chaining',
+        operation: 'insert',
+        values: [],
+        value: ['Ana', 'Bea', 'Eva', 'Leo', 'Sara', 'Ana'],
+        capacity: 7,
+        program: true,
+      },
+    },
+    {
+      act: 'Encadenamiento',
       slide: 'El código de la eliminación',
       props: {
         eda: 'hash-chaining',
@@ -700,6 +712,18 @@ describe('<SequenceStepper> · the combinations 23-edd-tablas-hash mounts', () =
         values: chained,
         target: 'Ana',
         capacity: 7,
+      },
+    },
+    {
+      act: 'Encadenamiento',
+      slide: 'Eliminaciones en una misma tabla',
+      props: {
+        eda: 'hash-chaining',
+        operation: 'remove',
+        values: chained,
+        target: ['Ana', 'Leo', 'Carla'],
+        capacity: 7,
+        program: true,
       },
     },
     {

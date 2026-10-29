@@ -7,6 +7,8 @@
 **Extends:** ADR-0074 — two recipes, `hash-chaining` and `hash-probing`, with
 pictures and operations of their own, the way ADR-0077 added the heap's and ADR-0083 the
 tree's. Both still hold entirely; nothing in ADR-0074 is amended.
+**Amended by:** #326 review (2026-10-29) — both recipes run `insert` and
+`remove` as a program, §Amendment.
 
 ## Context
 
@@ -210,3 +212,23 @@ None ships without a slide that mounts it (#296, ADR-0077 §5).
   `sequenceStepperProbeTrace.test.ts`, `sequenceStepperHashLayout.test.ts`), and the component test pins which
   positions, nodes, links and references are drawn; the paint is checked in
   the browser, in both themes.
+
+## Amendment — a program of insertions or removals (#326 review, 2026-10-29)
+
+The professor asked for what Árboles II and the heap have after each
+operation's code: a run of several insertions, and one of removals, the
+method beside the program that calls it, to see the structure go through a
+series of steps. The recipes replayed several keys over one table already,
+with no calling program; `program` now holds on both of them for `insert` and
+`remove`, in the search trees' shape (#322): the program on the left — the
+table created, the keys of `values` added one per line, one call per key of
+the run — and the method on the right, walked for every call with the
+program's line lit (`listingNames` `programa`, `método`). The table is named
+`names`, the class's own name for a table of names; `method` and `receiver`
+stay ignored. A starting table with `deleted` marks is refused under
+`program`: no program of `add`s writes a mark, and a program that removes
+first would be a run the slide did not ask for. The wrapper is one function
+over both traces (`hashProgram` in `sequenceStepperTrace.ts`), pinned in
+`sequenceStepperHashTrace.test.ts` and `sequenceStepperProbeTrace.test.ts`,
+and the class's two program slides are walked to their last frame in
+`SequenceStepper.test.tsx`.

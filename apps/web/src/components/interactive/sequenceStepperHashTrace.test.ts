@@ -430,3 +430,88 @@ describe('sequenceStepperTrace · hash-chaining · resize', () => {
     ).toThrow(/17 posiciones/);
   });
 });
+
+describe('sequenceStepperTrace · hash-chaining · a program of insertions or removals', () => {
+  // The run the class shows after each operation's code (#326 review, as the
+  // search trees' «Inserciones en un mismo árbol»): the program on the left,
+  // the method it calls on the right, both lit at every frame.
+  const program = (
+    operation: 'insert' | 'remove',
+    key: string[],
+    keys: string[] = [],
+  ): SequenceTrace =>
+    traceFor('hash-chaining', operation, { values: [], keys, key, capacity: M, program: true });
+
+  const litProgram = (trace: SequenceTrace, step: SequenceStep): string[] => {
+    const lines = trace.code.split('\n');
+    return step.highlightLines.map((n) => lines[n - 1]!.trim());
+  };
+  const litMethod = (trace: SequenceTrace, step: SequenceStep): string[] => {
+    const lines = trace.alongside!.split('\n');
+    return (step.alongsideLines ?? []).map((n) => lines[n - 1]!.trim());
+  };
+
+  it('writes the program that creates the table and calls add once per key', () => {
+    const trace = program('insert', ['Ana', 'Bea', 'Leo']);
+    expect(trace.code).toBe(
+      [
+        'ChainedHashTable names = new ChainedHashTable(7);',
+        'names.add("Ana");',
+        'names.add("Bea");',
+        'names.add("Leo");',
+      ].join('\n'),
+    );
+    expect(trace.listingNames).toEqual(['programa', 'método']);
+    expect(trace.alongside).toBe(run('insert', 'Ana').code);
+  });
+
+  it('opens on the empty table, with only the line that creates it lit', () => {
+    const trace = program('insert', ['Ana', 'Bea']);
+    const first = trace.steps[0]!;
+    expect(litProgram(trace, first)).toEqual(['ChainedHashTable names = new ChainedHashTable(7);']);
+    expect(first.alongsideLines).toEqual([]);
+    expect(chains(first).flat()).toEqual([]);
+  });
+
+  it('keeps the running call lit while the method walks it', () => {
+    const trace = program('insert', ['Ana', 'Leo']);
+    const walked = trace.steps.slice(1);
+    const calls = walked.map((s) => litProgram(trace, s)[0]);
+    const firstOfLeo = calls.indexOf('names.add("Leo");');
+    expect(calls.slice(0, firstOfLeo).every((c) => c === 'names.add("Ana");')).toBe(true);
+    expect(calls.slice(firstOfLeo).every((c) => c === 'names.add("Leo");')).toBe(true);
+    // The method beside it is walked line by line, as a single run walks it.
+    expect(litMethod(trace, walked[0]!)).toEqual(['public boolean add(String key) {']);
+    expect(litMethod(trace, walked[firstOfLeo]!)).toEqual(['public boolean add(String key) {']);
+    // Leo collides with Ana at 2 and goes in front of her.
+    expect(chains(trace.steps.at(-1)!)[2]).toEqual(['Leo', 'Ana']);
+  });
+
+  it('builds a removal program from the table values give, and lights those lines first', () => {
+    const trace = program('remove', ['Ana', 'Leo', 'Carla'], KEYS);
+    expect(trace.code.split('\n')).toEqual([
+      'ChainedHashTable names = new ChainedHashTable(7);',
+      ...KEYS.map((k) => `names.add("${k}");`),
+      'names.remove("Ana");',
+      'names.remove("Leo");',
+      'names.remove("Carla");',
+    ]);
+    const first = trace.steps[0]!;
+    expect(first.highlightLines).toEqual([1, 2, 3, 4, 5, 6, 7]);
+    expect(chains(first)).toEqual(chains(run('remove', 'Ana').steps[0]!));
+    expect(trace.alongside).toBe(run('remove', 'Ana').code);
+    expect(chains(trace.steps.at(-1)!)[2]).toEqual([]);
+  });
+
+  it('runs only insertions and removals as a program', () => {
+    expect(() =>
+      traceFor('hash-chaining', 'search', {
+        values: [],
+        keys: KEYS,
+        key: ['Ana', 'Bea'],
+        capacity: M,
+        program: true,
+      }),
+    ).toThrow(/programa/);
+  });
+});

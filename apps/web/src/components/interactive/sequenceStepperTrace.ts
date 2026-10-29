@@ -736,11 +736,13 @@ export function traceFor(
 ): SequenceTrace {
   if (
     input.program === true &&
-    !(recipe === 'bst' && (operation === 'insert' || operation === 'remove')) &&
-    !(recipe === 'avl' && (operation === 'insert' || operation === 'remove'))
+    !(
+      ['bst', 'avl', 'hash-chaining', 'hash-probing'].includes(recipe) &&
+      (operation === 'insert' || operation === 'remove')
+    )
   ) {
     throw new Error(
-      `Solo la inserción y la eliminación se muestran como programa: program va con eda="bst" o eda="avl", y operation="insert" o "remove"; no con «${operation}».`,
+      `Solo la inserción y la eliminación se muestran como programa: program va con eda="bst", "avl", "hash-chaining" o "hash-probing", y operation="insert" o "remove"; no con «${operation}».`,
     );
   }
   if (input.program === true && input.iterative === true) {
@@ -776,12 +778,76 @@ export function traceFor(
   if (recipe === 'bst' && isBstOperation(operation)) return traceSearchTree(operation, input);
   if (recipe === 'avl' && isAvlOperation(operation)) return traceAvl(operation, input);
   if (recipe === 'hash-chaining' && isHashChainingOperation(operation)) {
-    return traceHash(operation, input);
+    const walked = traceHash(operation, input);
+    return input.program === true
+      ? hashProgram('ChainedHashTable', operation, input, walked)
+      : walked;
   }
   if (recipe === 'hash-probing' && isHashProbingOperation(operation)) {
-    return traceProbe(operation, input);
+    const walked = traceProbe(operation, input);
+    return input.program === true
+      ? hashProgram('ProbingHashTable', operation, input, walked)
+      : walked;
   }
   return isList(recipe) ? traceList(recipe, operation, input) : traceArray(operation, input);
+}
+
+/**
+ * Insertions or removals on a hash table run by a program (#326 review, the
+ * shape of the search trees' programs, #322): the program on the left — the
+ * table created, the keys of `keys` added, one call per key of the run — and
+ * the method it calls on the right, walked for every call the way a single
+ * run walks it. The program's line stays lit while the method runs, so the
+ * reader sees which call the method is in. A starting table with marks has
+ * no program that writes it, short of removals the slide did not ask for.
+ */
+function hashProgram(
+  type: 'ChainedHashTable' | 'ProbingHashTable',
+  operation: 'insert' | 'remove' | 'search' | 'resize',
+  input: SequenceInput,
+  walked: SequenceTrace,
+): SequenceTrace {
+  if ((input.deleted ?? []).length > 0) {
+    throw new Error(
+      'Un programa arma su tabla con add, y una marca de deleted no sale de ahí: el programa empieza sin marcas.',
+    );
+  }
+  const keys = input.keys ?? [];
+  const runs = Array.isArray(input.key) ? input.key : [input.key];
+  const call = operation === 'insert' ? 'add' : 'remove';
+  const capacity = input.capacity ?? walked.hash?.buckets ?? walked.probe?.buckets;
+  const built = 1 + keys.length;
+  const code = [
+    `${type} names = new ${type}(${capacity});`,
+    ...keys.map((k) => `names.add("${k}");`),
+    ...runs.map((k) => `names.${call}("${k}");`),
+  ].join('\n');
+  const first = walked.steps[0]!;
+  const opening: SequenceStep = {
+    ...first,
+    kind: 'start',
+    highlightLines: Array.from({ length: built }, (_, i) => i + 1),
+    alongsideLines: [],
+    description:
+      keys.length === 0
+        ? `La tabla, vacía: ${capacity} posiciones.`
+        : `La tabla, con las ${keys.length} claves que el programa agregó.`,
+    ...(first.hash ? { hash: { ...first.hash, key: '', bucket: null, pointers: [] } } : {}),
+    ...(first.probe ? { probe: { ...first.probe, key: '', home: null, at: null } } : {}),
+  };
+  // A run starts where the method is called, at its public method's frame.
+  let run = -1;
+  const steps = walked.steps.map((step) => {
+    if (step.kind === 'start') run += 1;
+    return { ...step, highlightLines: [built + run + 1], alongsideLines: step.highlightLines };
+  });
+  return {
+    ...walked,
+    code,
+    alongside: walked.code,
+    listingNames: ['programa', 'método'],
+    steps: [opening, ...steps],
+  };
 }
 
 // ── shared helpers ────────────────────────────────────────────────────────

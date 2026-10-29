@@ -415,7 +415,7 @@ them):
    a slide after the single run: the program beside the method, the method
    walked again for every call with the program's line lit (Miguel's
    review, #322: the search tree's removals, the AVL's insertions and
-   removals). Only the search tree's insertions run as one frame per
+   removals; #326: the hash table's insertions and removals). Only the search tree's insertions run as one frame per
    program line with the tree drawn after each, because what they teach is
    the tree a run builds, not the descent (`add-a-course-document.md`
    §5h).
