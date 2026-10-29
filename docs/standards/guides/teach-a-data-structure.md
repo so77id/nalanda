@@ -2,7 +2,8 @@
 
 The shape every class of the **Estructuras de Datos** unit takes — and of
 **Estructuras de Datos Avanzadas**, the unit that continues it with the
-non-linear structures (the trees, then the heap; #321). Born with #277, the
+non-linear structures (the trees, then the heap; #321) and the hash table
+(#326), which the class on Set and Map is to follow. Born with #277, the
 first unit's first class, which is also its worked example.
 
 This is the third layer of the course-authoring stack, and the three do not
@@ -144,11 +145,20 @@ has no shortcut, because the heap only knows where the first one is). The
 book-only `## Lo que sigue` that named the trees as the next class is gone:
 #321 moved the trees AHEAD of the heap, which made that sentence false, and
 removed the heading and its prose at the professor's call. Its `<Questions>`
-block, which sat under that heading, stays where it was. That leaves #304 last
+block, which sat under that heading, stays where it was. That left #304 last
 on the teaching path with no closing, which is where #294 stood when it
-shipped. Still a stated deviation, not a new shape: the rule above is
-unchanged, and the class that comes to follow #304 on the path is what makes
-its closing owed again.
+shipped — a stated deviation, not a new shape: the rule above was unchanged,
+and the class that came to follow #304 on the path made its closing owed
+again.
+
+**#326 paid it back.** Tablas Hash follows the heap on the teaching path, and
+its first PR (#347) gave the heap a book-only `## Lo que sigue` born from the heap's own
+last cost row: `contains(x)` is $$\Theta(N)$$ because the heap only knows
+where the first element is, and a hash table answers it in constant expected
+time by giving up order altogether. Tablas Hash itself closes on a named
+trade — the order a hash table does not keep, and what a balanced search tree
+charges to keep it — and its `## Lo que sigue` names Set and Map in prose,
+with no wiki-link, because that class does not exist yet (§5).
 
 **#277 also cut its own act 4.** An earlier draft closed with a recap act
 ("un contrato para los dos arreglos") that restated the TDA, put the two cost
@@ -405,10 +415,13 @@ them):
    a slide after the single run: the program beside the method, the method
    walked again for every call with the program's line lit (Miguel's
    review, #322: the search tree's removals, the AVL's insertions and
-   removals). Only the search tree's insertions run as one frame per
+   removals; #326: the hash table's insertions and removals). Only the search tree's insertions run as one frame per
    program line with the tree drawn after each, because what they teach is
    the tree a run builds, not the descent (`add-a-course-document.md`
-   §5h).
+   §5h). A run that shows a hash table growing (`grow`) is the other
+   exception: several insertions with no program, `resize` listed under
+   `add` in the column a program would take, and the keys named in the
+   widget's header (#326).
 4. **The cost**, one sentence closing the code slide's paragraph: what it
    costs and why («baja por un solo camino: $$O(h)$$»). The table of every
    operation stays at the end of the act (§4).
@@ -418,6 +431,19 @@ earlier, and their members follow one rule: `public` for what the structure
 offers, `private` for the recursive helpers and for the fields. Worked case:
 the search tree's section of `22-edd-arboles-ii.mdx` — buscar, insertar, el
 inorden, eliminar.
+
+**A structure with no recursion keeps the same four beats** (#326, the hash
+tables, written before this section and brought to it in the review): the
+class slides before «Buscar…», never between an operation's slide and its
+code — the chaining act first had the node and the table there; a search's
+two outcomes drawn side by side, found and not found; the cases a single run
+does not reach drawn, not walked a second time — the removal at the front of
+a list, the insertion over a marked cell, the search that passes a mark,
+which the first draft walked on slides of their own; and the code slide
+naming the method public and closing on its cost in one sentence («Recorre
+una sola lista: cuesta lo que mide la lista de esa posición, más el cálculo
+del hash»). Constructors carry no
+modifier, as in every class of the unit.
 
 ### 5. Close on a loose end, not a summary
 
@@ -657,15 +683,18 @@ its fence text and read the result next to the step's own caption.
 
 **What that widget is, concretely** (ADR-0074): `eda` picks the structure —
 a dynamic array, a singly / doubly / circular list, (since #304, ADR-0077) a
-binary max-heap, (since #321, ADR-0083) a linked binary tree, or (since #322)
-the search tree `bst` (ADR-0083) and the AVL tree `avl` (ADR-0086) — and
-`operation` picks which of the nine Sequence operations (and `binary-search`
-on the dynamic array), the heap's own two, the tree's traversals, height and
-search, the search tree's insertion and removal, or the AVL's rotations, to
+binary max-heap, (since #321, ADR-0083) a linked binary tree, (since #322)
+the search tree `bst` (ADR-0083) and the AVL tree `avl` (ADR-0086), or
+(since #326, ADR-0084) a hash table with chaining or with linear probing —
+and `operation` picks which of the nine Sequence operations (and
+`binary-search` on the dynamic array), the heap's own two, the tree's
+traversals, height and search, the search tree's insertion and removal, the
+AVL's rotations, or the table's search, insert, remove and resize, to
 animate over it. The full matrix is `add-a-course-document.md` §5h. (A fixed-capacity
 `array` recipe was deleted by #304, never having had a reader; ADR-0074
 §Amended by #304.) The surface never changes
-between combinations, which is the point: the reader learns one visual
+between combinations — save a growing hash-table run, whose listings go beside
+the table on a slide (ADR-0074 §Amended by #326) — which is the point: the reader learns one visual
 vocabulary and reads every structure of the unit through it, comparing COST
 rather than re-reading a new widget.
 
@@ -697,6 +726,14 @@ walked an assignment at a time, and `insert` and `remove` that rebalance on
 the way back with `balance` listed beside them (ADR-0083 for `bst`,
 ADR-0086 for `avl`). Both were designed with the professor slide by slide on
 the running widget.
+
+**The fifth and sixth are the two hash tables** (#326, ADR-0084):
+`hash-chaining` draws `table` as a contiguous strip with each position's list
+hanging under its cell, and `hash-probing` draws `keys` and its parallel
+`deleted` as two strips with the cursor `i` under them. Their keys are text,
+and the position drawn is the class's own `hash`, pinned against the JVM. The
+professor's first review rejected cells with gaps between them: an array is
+drawn flush, and only nodes stand apart.
 
 **It does not replace `<StepShow>` + `<MemoryVisual>`**, which stay the pair
 for author-written pictures, whose truth is the author's (ADR-0049).

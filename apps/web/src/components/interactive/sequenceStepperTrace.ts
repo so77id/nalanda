@@ -33,6 +33,8 @@ import {
   type ListingPairs,
 } from './sequenceStepperTraceShared';
 import { traceAvl } from './sequenceStepperAvlTrace';
+import { traceHash } from './sequenceStepperHashTrace';
+import { traceProbe } from './sequenceStepperProbeTrace';
 import { traceSearchTree, traceTree } from './sequenceStepperTreeTrace';
 
 export const RECIPES = [
@@ -55,6 +57,15 @@ export const RECIPES = [
   // a rotation changes links, not the inorder, so it shares the tree view
   // and the column of every node.
   'avl',
+  // A hash table with one list per position (#326): `table[i]` is the first
+  // node of the list of position `i`, and every key lives in the list of the
+  // position its hash names. Its keys are text, and its operations are the
+  // ones a set of keys needs: search, insert, remove.
+  'hash-chaining',
+  // The same set of keys with linear probing (#326): the keys live in the
+  // array itself, a taken cell sends a key to the next one, and a parallel
+  // `boolean[] deleted` marks a removed key so a search passes over it.
+  'hash-probing',
 ] as const;
 export type SequenceRecipe = (typeof RECIPES)[number];
 
@@ -85,7 +96,9 @@ export const OPERATIONS = [
   'postorder',
   'height',
   // The search tree's own (#321): the removal, down one path to the node
-  // and down another to its successor.
+  // and down another to its successor. The hash table shares it (#326): take
+  // a key out, wherever its list keeps it — one name per idea across the
+  // recipes, as `search` and `insert` already are.
   'remove',
   // The AVL tree's own (#322): the rotation, the tool its insertions and
   // removals use to keep the shape, shown on its own first.
@@ -95,6 +108,9 @@ export const OPERATIONS = [
   // the side the node leans, then the node (#322).
   'rotate-left-right',
   'rotate-right-left',
+  // The hash table's too: a new table of more positions, every key put back
+  // in through `add`, because the position a key hashes to depends on them.
+  'resize',
 ] as const;
 export type SequenceOperation = (typeof OPERATIONS)[number];
 
@@ -187,6 +203,89 @@ export interface TreeFrame {
   probe?: { parent: number; side: 'left' | 'right' };
 }
 
+/** One node of a list of the hash table: its key and its paint. */
+export interface HashFrameNode {
+  id: number;
+  key: string;
+  state: SequenceCellState;
+}
+
+/**
+ * The hash table as one frame leaves it (#326): one list per position of
+ * `table`, its first node first. `bucket` is the position the hash of `key`
+ * named — `null` until the line that computes it runs.
+ */
+export interface HashFrame {
+  chains: HashFrameNode[][];
+  key: string;
+  bucket: number | null;
+  /** The listing's `size` field, which `resize` sets back to 0 and counts again. */
+  size: number;
+  /**
+   * The references the listing holds into a list — `current`, `prev` — by
+   * node id; `null` when it points at null, past the end of the list. `old`
+   * marks one that walks the old table during `resize`.
+   */
+  pointers: { name: string; node: number | null; old?: boolean }[];
+  /**
+   * `resize` only: the table `old` names. `aliased` while `table` still
+   * names it too — the frame between `old = table` and the new array.
+   * `bucket` is the position of `old` the loop is reading.
+   */
+  old?: { chains: HashFrameNode[][]; bucket: number | null; aliased: boolean };
+  /**
+   * `add` only: the node built and not yet in its list. `next` is the id it
+   * points at, `null` for null, and absent while the field is unassigned;
+   * `held` once `table[i]` points at it, the frame before it takes its place.
+   */
+  fresh?: { id: number; key: string; next?: number | null; held: boolean };
+  /**
+   * `remove` only: the link that skips the leaving node — from the node at
+   * `from` in the list of `bucket`, or from `table[bucket]` itself when
+   * `from` is null. Drawn for the one frame between the assignment and
+   * `size--`, while the leaving node is still on screen.
+   */
+  bypass?: { bucket: number; from: number | null };
+}
+
+/**
+ * What a hash run needs to keep one canvas: its positions, its longest list
+ * and — for `resize` — the positions of the old table drawn beside the new.
+ */
+export interface HashRun {
+  buckets: number;
+  longest: number;
+  oldBuckets?: number;
+}
+
+/** One cell of the probing table: the key in `keys[i]` (null if none ever was) and `deleted[i]`. */
+export interface ProbeCell {
+  key: string | null;
+  deleted: boolean;
+  state: SequenceCellState;
+}
+
+/**
+ * The probing table as one frame leaves it (#326): `keys` and `deleted` cell
+ * by cell. `home` is the position the hash of `key` named, and `at` the
+ * listing's cursor `i` — both null until the line that sets them runs.
+ */
+export interface ProbeFrame {
+  cells: ProbeCell[];
+  key: string;
+  home: number | null;
+  at: number | null;
+  /** The listing's `size`: the keys not marked. */
+  size: number;
+  /** The listing's `used`: the cells that are not null, keys and marks (#326 review). */
+  used: number;
+  /**
+   * `grow` only, while `resize` runs: `oldKeys` and `oldDeleted` as the
+   * frame leaves them, and the cell the resize loop is on.
+   */
+  old?: { cells: ProbeCell[]; at: number | null };
+}
+
 export interface SequenceCell {
   /** Stable across frames — the view animates by identity, not by position. */
   id: number;
@@ -223,6 +322,11 @@ export interface SequenceStep {
   calleeLines?: number[][];
   /** The lines each listing of `trace.row` lights at this moment, in the same order. */
   rowLines?: number[][];
+  /**
+   * A run with `queue` only: how many of its keys this frame has already
+   * added, and which one it is adding (`null` between two of them).
+   */
+  queue?: { done: number; at: number | null };
   /**
    * The value a search is looking for, written beside the structure on every
    * frame of its run (#322): the narration names it once, and a reader who
@@ -296,6 +400,10 @@ export interface SequenceStep {
   cost: number;
   /** Tree recipes only: the tree this frame leaves. `cells` mirrors its nodes. */
   tree?: TreeFrame;
+  /** `hash-chaining` only: the table this frame leaves. `cells` mirrors its keys. */
+  hash?: HashFrame;
+  /** The probing recipe only: `keys` and `deleted` as this frame leaves them. */
+  probe?: ProbeFrame;
 }
 
 export interface SequenceTrace {
@@ -328,6 +436,20 @@ export interface SequenceTrace {
    */
   row?: { name: string; code: string }[];
   /**
+   * On a slide, the listings in a column on the left and the structure on the
+   * right, instead of one over the other: a table that grows draws two
+   * tables stacked, taller than the panel under a row of listings leaves it
+   * (#326 review, `grow`). The number is the listings' share of the width, in
+   * percent: the least that keeps their longest line whole.
+   */
+  beside?: number;
+  /**
+   * The keys a growing run adds, in order (#326 review, `grow`): the header
+   * names them, the one being added marked and the ones added struck through
+   * (`SequenceStep.queue`).
+   */
+  queue?: string[];
+  /**
    * The most cells any frame holds. The view lays out for THIS, not for the
    * current frame, so the drawing keeps one size from the first frame to the
    * last — a chain that resizes under the reader on every insertion is a
@@ -349,6 +471,10 @@ export interface SequenceTrace {
   hasCarry: boolean;
   /** Tree recipes only: what the whole run needs to keep one canvas. */
   tree?: TreeRun;
+  /** `hash-chaining` only: what the whole run needs to keep one canvas. */
+  hash?: HashRun;
+  /** The probing recipe only: its positions. */
+  probe?: { buckets: number; oldBuckets?: number };
 }
 
 /**
@@ -376,6 +502,18 @@ export interface SequenceInput {
    * built by inserting, so its shape has to be written out.
    */
   levelOrder?: (TreeValue | null)[];
+  /**
+   * The hash tables only: the keys already in the table, added in this order.
+   * Keys are text — the class's tables hold `String`s — so they travel apart
+   * from the numeric `values`.
+   */
+  keys?: string[];
+  /**
+   * The hash tables only: the key the operation works with. An ARRAY runs it
+   * once per key over the same table. The component reads it from `target`
+   * (search, remove) or `value` (insert), the props every recipe uses.
+   */
+  key?: string | string[];
   /**
    * Required by every `insert-*` except `insert-ordered`, and by the heap's
    * `insert`. An ARRAY inserts
@@ -418,6 +556,14 @@ export interface SequenceInput {
    * calls, walked for every removal.
    */
   program?: boolean;
+  /**
+   * `hash-chaining` and `hash-probing` × `insert` (#326 review): `add` with the
+   * line that resizes — when `size == table.length` with lists, when
+   * `2 * (used + 1) > keys.length` with probing — and `resize` walked inside
+   * the run in a listing of its own beside it, so a run of insertions shows
+   * the table growing and every key moving to its new position.
+   */
+  grow?: boolean;
   /**
    * The name the LISTING shows the method under, when the document presents
    * the structure through a TDA that calls it something else. A class that
@@ -499,7 +645,9 @@ const BINARY_TREE_ONLY_NAMES = ['preorder', 'inorder', 'postorder', 'height'] as
  * The search trees' own operation (#322), which chooses a side at every node:
  * `bst` has it, and `avl` has it too, as the search tree's with `balance` on
  * the way back. It is "only" against every structure that is not a search
- * tree, which is what the refusal reasons ask.
+ * tree, which is what the refusal reasons ask — save the hash tables (#326),
+ * which take a key out under the same name and are let through before the
+ * trees' checks run.
  */
 const BST_ONLY_NAMES = ['remove'] as const;
 export const BST_ONLY_OPERATIONS: readonly SequenceOperation[] = BST_ONLY_NAMES;
@@ -554,11 +702,42 @@ export function isAvlOperation(operation: SequenceOperation): operation is AvlOp
   return AVL_OPERATIONS.includes(operation);
 }
 
+/**
+ * What `hash-chaining` has a listing for (#326): the three operations of a
+ * set of keys, as `contains`, `add` and `remove`, and the `resize` that `add`
+ * calls when the table is full. `search` and `insert` share their names with
+ * the chains and the trees, `remove` with the search trees; `resize` is the
+ * table's alone.
+ */
+const HASH_CHAINING_OPERATION_NAMES = ['search', 'insert', 'remove', 'resize'] as const;
+export type HashChainingOperation = (typeof HASH_CHAINING_OPERATION_NAMES)[number];
+export const HASH_CHAINING_OPERATIONS: readonly SequenceOperation[] = HASH_CHAINING_OPERATION_NAMES;
+
+export function isHashChainingOperation(
+  operation: SequenceOperation,
+): operation is HashChainingOperation {
+  return HASH_CHAINING_OPERATIONS.includes(operation);
+}
+
+/** What `hash-probing` has a listing for (#326): `contains`, `add` and `remove`. */
+const HASH_PROBING_OPERATION_NAMES = ['search', 'insert', 'remove'] as const;
+export type HashProbingOperation = (typeof HASH_PROBING_OPERATION_NAMES)[number];
+export const HASH_PROBING_OPERATIONS: readonly SequenceOperation[] = HASH_PROBING_OPERATION_NAMES;
+
+export function isHashProbingOperation(
+  operation: SequenceOperation,
+): operation is HashProbingOperation {
+  return HASH_PROBING_OPERATIONS.includes(operation);
+}
+
 export function isValidCombination(
   recipe: SequenceRecipe,
   operation: SequenceOperation,
   tail = false,
 ): boolean {
+  if (recipe === 'hash-chaining') return HASH_CHAINING_OPERATIONS.includes(operation);
+  if (recipe === 'hash-probing') return HASH_PROBING_OPERATIONS.includes(operation);
+  if (operation === 'resize') return false;
   const heapOperation = HEAP_OPERATIONS.includes(operation);
   if (recipe === 'heap-max') return heapOperation;
   if (recipe === 'binary-tree') return BINARY_TREE_OPERATIONS.includes(operation);
@@ -584,12 +763,40 @@ export function traceFor(
 ): SequenceTrace {
   if (
     input.program === true &&
-    !(recipe === 'bst' && (operation === 'insert' || operation === 'remove')) &&
-    !(recipe === 'avl' && (operation === 'insert' || operation === 'remove'))
+    !(
+      ['bst', 'avl', 'hash-chaining', 'hash-probing'].includes(recipe) &&
+      (operation === 'insert' || operation === 'remove')
+    )
   ) {
     throw new Error(
-      `Solo la inserción y la eliminación se muestran como programa: program va con eda="bst" o eda="avl", y operation="insert" o "remove"; no con «${operation}».`,
+      `Solo la inserción y la eliminación se muestran como programa: program va con eda="bst", "avl", "hash-chaining" o "hash-probing", y operation="insert" o "remove"; no con «${operation}».`,
     );
+  }
+  if (
+    input.grow === true &&
+    !((recipe === 'hash-chaining' || recipe === 'hash-probing') && operation === 'insert')
+  ) {
+    throw new Error(
+      `grow va con eda="hash-chaining" o "hash-probing" y operation="insert": es add que redimensiona la tabla; no con «${recipe}» × «${operation}».`,
+    );
+  }
+  if (input.grow === true && input.program === true) {
+    throw new Error(
+      'grow no va con program: add y resize ya ocupan la columna de los listados junto a las dos tablas, y un programa no cabe. La seguidilla nombra sus claves arriba del widget.',
+    );
+  }
+  if (input.grow === true) {
+    // The header strikes every key of the run as added, and add returns false
+    // for one the table already holds (#331 review).
+    const seen = new Set(input.keys ?? []);
+    for (const key of asRuns(input.key)) {
+      if (seen.has(key)) {
+        throw new Error(
+          `«${key}» ya está en la tabla cuando la seguidilla la agrega: add devuelve false, y la lista de arriba la tacharía como agregada. Con grow, cada clave se agrega una vez.`,
+        );
+      }
+      seen.add(key);
+    }
   }
   if (input.program === true && input.iterative === true) {
     throw new Error(
@@ -623,6 +830,12 @@ export function traceFor(
   }
   if (recipe === 'bst' && isBstOperation(operation)) return traceSearchTree(operation, input);
   if (recipe === 'avl' && isAvlOperation(operation)) return traceAvl(operation, input);
+  if (recipe === 'hash-chaining' && isHashChainingOperation(operation)) {
+    return traceHash(operation, input);
+  }
+  if (recipe === 'hash-probing' && isHashProbingOperation(operation)) {
+    return traceProbe(operation, input);
+  }
   return isList(recipe) ? traceList(recipe, operation, input) : traceArray(operation, input);
 }
 
@@ -746,12 +959,16 @@ const METHOD_NAME: Record<SequenceOperation, string> = {
   'rotate-left': 'rotateLeft',
   'rotate-left-right': 'rotateLeftRight',
   'rotate-right-left': 'rotateRightLeft',
+  resize: 'resize',
 };
 
 // ── the array family ──────────────────────────────────────────────────────
 
 /** The operations the dynamic array has a listing for. */
-type ArrayOperation = Exclude<SequenceOperation, 'insert-ordered' | HeapOperation | TreeOperation>;
+type ArrayOperation = Exclude<
+  SequenceOperation,
+  'insert-ordered' | HeapOperation | TreeOperation | 'remove' | 'resize'
+>;
 
 const ARRAY_CODE: Record<ArrayOperation, string> = {
   'get-at': `int getAt(int i) {
@@ -1385,6 +1602,10 @@ function runArgs(operation: SequenceOperation, input: SequenceInput): string[] {
     case 'rotate-left-right':
     case 'rotate-right-left':
       return [];
+    // The hash table drives no program of its own: its key is the run
+    // (`remove` is above, with the search trees').
+    case 'resize':
+      return [];
   }
 }
 
@@ -1629,16 +1850,21 @@ function listCode(recipe: SequenceRecipe, operation: SequenceOperation, tail: bo
     case 'inorder':
     case 'postorder':
     case 'height':
-    case 'remove':
     case 'rotate-right':
     case 'rotate-left':
     case 'rotate-left-right':
     case 'rotate-right-left':
       throw new Error(`«${operation}» es una operación de árbol, no de una lista.`);
+    case 'remove':
+      throw new Error(
+        '«remove» es una operación de los árboles de búsqueda y de la tabla hash, no de una lista.',
+      );
     case 'binary-search':
       throw new Error(
         'La búsqueda binaria necesita llegar a la posición del medio en un paso: es del arreglo, no de una lista.',
       );
+    case 'resize':
+      throw new Error(`«${operation}» es una operación de la tabla hash, no de una lista.`);
   }
 }
 

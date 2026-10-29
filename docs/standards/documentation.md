@@ -218,6 +218,10 @@ exactly the kind of claim that turned out to be wrong. Worked cases (issue #76):
 ADR-0019 §3/§7, where a draft asserted the checker was beyond the student's reach
 and the review forged a green board twice in a browser; and ADR-0020 §6, where
 capping the output was written up as a fix and measured, twice, not to be one.
+The same holds for a decision withdrawn before it ever shipped: ADR-0084 §4c
+keeps its `deleted` bullet, followed by a note naming the amendment that
+withdrew it (#331's review, 2026-10-29), so the next author who wants marks on
+a starting table finds why there are none.
 
 **A guard is evidence only if it can fail for the reason you are citing.** An
 invariant written as "X never reaches Y" is proven by walking the graph, not by

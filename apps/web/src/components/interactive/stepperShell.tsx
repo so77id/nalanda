@@ -131,6 +131,8 @@ export interface StepperHeaderProps {
   title?: string;
   stepIndex: number;
   totalSteps: number;
+  /** Shown after the title, in the room the header leaves (#326: the keys a run adds). */
+  extra?: ReactNode;
 }
 
 /**
@@ -139,7 +141,7 @@ export interface StepperHeaderProps {
  * reader's anchor for "where are we in the algo run" (ANCLA · qué
  * significa).
  */
-export function StepperHeader({ kind, title, stepIndex, totalSteps }: StepperHeaderProps) {
+export function StepperHeader({ kind, title, stepIndex, totalSteps, extra }: StepperHeaderProps) {
   const progressPct = totalSteps > 1 ? ((stepIndex + 1) / totalSteps) * 100 : 100;
   return (
     <header className="flex items-center justify-between gap-3 bg-sunk px-3 py-2">
@@ -148,6 +150,7 @@ export function StepperHeader({ kind, title, stepIndex, totalSteps }: StepperHea
           {kind}
         </span>
         {title === undefined ? null : <h4 className="m-0 text-sm font-medium text-ink">{title}</h4>}
+        {extra}
       </div>
       <div className="flex items-center gap-2.5">
         <span className="font-mono text-xs text-ink-faint">paso</span>

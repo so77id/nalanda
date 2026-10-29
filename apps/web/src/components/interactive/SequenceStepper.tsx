@@ -4,7 +4,9 @@ import { useMemo, useRef } from 'react';
 import { useMode } from '../../presentation';
 import { AuthoringError } from '../AuthoringError';
 import { CodeStepper } from './CodeStepper';
+import { HashView } from './sequenceStepperHashView';
 import { HeapView } from './sequenceStepperHeapView';
+import { ProbeView } from './sequenceStepperProbeView';
 import { TreeView } from './sequenceStepperTreeView';
 import {
   BOX_H,
@@ -23,6 +25,8 @@ import {
   BINARY_TREE_OPERATIONS,
   BST_OPERATIONS,
   CIRCULAR_OPERATIONS,
+  HASH_CHAINING_OPERATIONS,
+  HASH_PROBING_OPERATIONS,
   DOUBLY_OPERATIONS,
   HEAP_OPERATIONS,
   OPERATIONS,
@@ -32,11 +36,15 @@ import {
   isAvlOperation,
   isBinaryTreeOperation,
   isBstOperation,
+  isHashChainingOperation,
+  isHashProbingOperation,
   isValidCombination,
   traceFor,
   type AvlOperation,
   type BinaryTreeOperation,
   type BstOperation,
+  type HashChainingOperation,
+  type HashProbingOperation,
   type SequenceCell,
   type SequenceOperation,
   type SequenceRecipe,
@@ -65,16 +73,19 @@ export interface SequenceStepperProps {
    * missing (`[3, 9, 1, 4, 7, null, 6]`) — the one recipe that takes a gap,
    * and a gap has no children written (ADR-0083 §4) — and a value may be a
    * symbol, so an expression tree keeps its operators as operators:
-   * `['*', '+', '−', 3, 4, 5, 1]` is (3 + 4) * (5 − 1).
+   * `['*', '+', '−', 3, 4, 5, 1]` is (3 + 4) * (5 − 1). On the hash tables it
+   * is the KEYS already in the table, text, added in this order — on
+   * `hash-chaining` each at the front of the list of its position, on
+   * `hash-probing` in the first free cell from its hash: `['Ana', 'Bea', 'Eva']`.
    */
   values?: (TreeValue | null)[];
   /**
    * The value to insert. Required by every `insert-*` but `insert-ordered`,
    * and by the heap's `insert`. An ARRAY inserts each value in turn over the
    * same structure, so a slide can show it growing instead of one insertion
-   * in isolation.
+   * in isolation. On the hash tables, the key `insert` adds — text.
    */
-  value?: number | number[];
+  value?: number | string | (number | string)[];
   /**
    * The position to act on. Required by `get-at`, `insert-at` and
    * `remove-at`. An ARRAY runs the operation once per index, in order over
@@ -87,9 +98,10 @@ export interface SequenceStepperProps {
    * ARRAY searches each in turn, so one widget can show the hit at the
    * front, the hit at the back and the value that is not there. On the
    * trees, the node an operation acts on: `remove` on `bst`,
-   * the node that rotates on `avl`.
+   * the node that rotates on `avl`. On the hash tables, the key `search`
+   * and `remove` work with — text.
    */
-  target?: number | number[];
+  target?: number | string | (number | string)[];
   /**
    * How many times to run an operation that takes no argument
    * (`remove-first`, `remove-last`, `extract-max`). Default one.
@@ -99,7 +111,8 @@ export interface SequenceStepperProps {
    * The dynamic array and the heap: how many slots the block reserves (on
    * the heap, `data.length` with slot 0 included). Pass the same number to
    * the pair of slides that show one structure before and after an
-   * operation, or the block changes width between them.
+   * operation, or the block changes width between them. The hash tables:
+   * the number of positions, two to eleven, seven when left out.
    */
   capacity?: number;
   /**
@@ -139,9 +152,16 @@ export interface SequenceStepperProps {
    * every insertion. `remove` with `target` an array: the program that builds
    * the tree from `values` and removes each target, beside the method it
    * calls (and `balance`, on `avl`), walked for every removal with the
-   * program's line lit.
+   * program's line lit. Since #326 also on `hash-chaining` and
+   * `hash-probing` × `insert` and `remove`: the table created, the keys of
+   * `values` added, one call per key, beside the method.
    */
   program?: boolean;
+  /**
+   * `hash-chaining` and `hash-probing` × `insert` (#326): `add` with the line that resizes,
+   * and `resize` walked inside the run in a listing of its own under it.
+   */
+  grow?: boolean;
   /** Playback default. Off unless the author asks (rule Peli 1/2). */
   autoplay?: boolean;
   /** `slow` ≈ 1200ms/step, `normal` ≈ 700ms, `fast` ≈ 300ms. */
@@ -188,15 +208,28 @@ function refusalReason(
       ', ',
     )}.`;
   }
+  if (recipe === 'hash-chaining') {
+    return `la tabla hash tiene listado para: ${HASH_CHAINING_OPERATIONS.map(
+      (o) => OPERATION_LABEL[o],
+    ).join(', ')}.`;
+  }
+  if (recipe === 'hash-probing') {
+    return `la tabla con sondeo lineal tiene listado para: ${HASH_PROBING_OPERATIONS.map(
+      (o) => OPERATION_LABEL[o],
+    ).join(', ')}.`;
+  }
   // The tree-only sets, not every tree operation: `search` and `insert` are
   // shared, and a structure that refuses them has its own reason. `remove` is
   // the search tree's and the AVL's both, so the AVL's own set is only its
-  // rotations.
+  // rotations — and the hash tables' too (#326), so its refusal names all four.
   if (AVL_ONLY_OPERATIONS.includes(operation)) {
     return 'es una operación del árbol AVL. Úsala con eda="avl".';
   }
   if (BST_ONLY_OPERATIONS.includes(operation)) {
-    return 'es una operación del árbol de búsqueda. Úsala con eda="bst" o eda="avl".';
+    return 'es una operación de los árboles de búsqueda y de las tablas hash. Úsala con eda="bst", eda="avl", eda="hash-chaining" o eda="hash-probing".';
+  }
+  if (operation === 'resize') {
+    return 'es una operación de la tabla hash. Úsala con eda="hash-chaining".';
   }
   if (TREE_ONLY_OPERATIONS.includes(operation)) {
     return 'es una operación de árbol. Úsala con eda="binary-tree".';
@@ -222,6 +255,8 @@ const RECIPE_LABEL: Record<SequenceRecipe, string> = {
   'binary-tree': 'árbol binario',
   bst: 'árbol binario de búsqueda',
   avl: 'árbol AVL',
+  'hash-chaining': 'tabla hash con encadenamiento',
+  'hash-probing': 'tabla hash con sondeo lineal',
 };
 
 const OPERATION_LABEL: Record<SequenceOperation, string> = {
@@ -246,6 +281,7 @@ const OPERATION_LABEL: Record<SequenceOperation, string> = {
   'rotate-left': 'rotar a la izquierda',
   'rotate-left-right': 'rotación doble a la derecha',
   'rotate-right-left': 'rotación doble a la izquierda',
+  resize: 'redimensionar',
 };
 
 const UNDER_THE_EYE: [string, string] = ['border-focus bg-surface', 'bajo la mirada'];
@@ -311,9 +347,9 @@ const AVL_LEGEND: Record<AvlOperation, [string, string][]> = {
 };
 
 /**
- * The legend of a run that paints its own states — a tree's, and the array's
- * binary search, which rules out cells the way the search tree rules out
- * subtrees — or null for the default one.
+ * The legend of a run that paints its own states — a tree's, a hash table's,
+ * and the array's binary search, which rules out cells the way the search
+ * tree rules out subtrees — or null for the default one.
  */
 function runLegend(
   recipe: SequenceRecipe,
@@ -323,8 +359,31 @@ function runLegend(
   if (recipe === 'binary-tree' && isBinaryTreeOperation(operation)) return TREE_LEGEND[operation];
   if (recipe === 'bst' && isBstOperation(operation)) return SEARCH_TREE_LEGEND[operation];
   if (recipe === 'avl' && isAvlOperation(operation)) return AVL_LEGEND[operation];
+  if (recipe === 'hash-chaining' && isHashChainingOperation(operation)) {
+    return HASH_LEGEND[operation];
+  }
+  if (recipe === 'hash-probing' && isHashProbingOperation(operation)) {
+    return PROBE_LEGEND[operation];
+  }
   return null;
 }
+
+/** The legend of a hash run, by operation: each names only the states it paints. */
+const COMPARED: [string, string] = ['border-rule-strong bg-sunk', 'ya comparada'];
+const HASH_LEGEND: Record<HashChainingOperation, [string, string][]> = {
+  search: [FOUND, UNDER_THE_EYE, COMPARED],
+  insert: [['border-mark bg-mark-soft', 'nuevo'], UNDER_THE_EYE, COMPARED],
+  remove: [UNDER_THE_EYE, ['border-rule bg-sunk', 'sale'], COMPARED],
+  resize: [
+    ['border-mark bg-mark-soft', 'reinsertada'],
+    ['border-rule-strong bg-sunk', 'ya movida'],
+  ],
+};
+const PROBE_LEGEND: Record<HashProbingOperation, [string, string][]> = {
+  search: [FOUND, UNDER_THE_EYE, COMPARED],
+  insert: [['border-mark bg-mark-soft', 'nuevo'], UNDER_THE_EYE, COMPARED],
+  remove: [UNDER_THE_EYE, ['border-rule bg-sunk', 'se marca'], COMPARED],
+};
 
 /** The most elements the picture stays legible with, measured on a slide. */
 const MAX_VALUES = 8;
@@ -350,11 +409,12 @@ function readValues(key: string): { values: number[]; levelOrder?: (TreeValue | 
 /**
  * `<SequenceStepper>` — the step-through widget of the Estructuras de Datos
  * and Estructuras de Datos Avanzadas units (ADR-0074, extended by ADR-0077,
- * ADR-0083 and ADR-0086).
+ * ADR-0083, ADR-0084 and ADR-0086).
  *
  * One widget, two props that pick what it shows: `eda` selects the structure
- * (a dynamic array, a singly / doubly / circular list, a binary max-heap or a
- * linked binary tree) and `operation` selects the animation. The surface never
+ * (a dynamic array, a singly / doubly / circular list, a binary max-heap, a
+ * linked binary tree, or a hash table with chaining or with linear probing)
+ * and `operation` selects the animation. The surface never
  * changes between combinations — code panel, structure, narration, controls —
  * so the reader learns one visual vocabulary and reads every structure of the
  * unit through it.
@@ -362,15 +422,19 @@ function readValues(key: string): { values: number[]; levelOrder?: (TreeValue | 
  * The modules, every one but the painters pure and pinned by the suite, which
  * leaves the browser only the paint:
  * - frames: `sequenceStepperTrace` (the dispatcher, the chains and the heap),
- *   `sequenceStepperTreeTrace` (the binary tree and the search tree) and
- *   `sequenceStepperAvlTrace` (the AVL tree, built on the tree's pieces), all
- *   importing the leaf `sequenceStepperTraceShared` (the line a frame lights,
- *   the runs cap);
+ *   `sequenceStepperTreeTrace` (the binary tree and the search tree),
+ *   `sequenceStepperAvlTrace` (the AVL tree, built on the tree's pieces),
+ *   `sequenceStepperHashTrace` (the table with chaining) and
+ *   `sequenceStepperProbeTrace` (the table with linear probing, built on the
+ *   chaining table's pieces), all importing the leaf
+ *   `sequenceStepperTraceShared` (the line a frame lights, the runs cap);
  * - geometry: `sequenceStepperLayout` (a Sequence), `sequenceStepperHeapLayout`
- *   (the heap's tree and array) and `sequenceStepperTreeLayout` (the tree),
- *   the last two sharing the leaf `sequenceStepperEdge`;
- * - paint: the Sequence picture here, `sequenceStepperHeapView` and
- *   `sequenceStepperTreeView`, with their colours in `sequenceStepperPaint`.
+ *   (the heap's tree and array), `sequenceStepperTreeLayout` (the tree), the
+ *   last two sharing the leaf `sequenceStepperEdge`, and
+ *   `sequenceStepperHashLayout` (both hash tables);
+ * - paint: the Sequence picture here, `sequenceStepperHeapView`,
+ *   `sequenceStepperTreeView`, `sequenceStepperHashView` and
+ *   `sequenceStepperProbeView`, with their colours in `sequenceStepperPaint`.
  */
 export function SequenceStepper({
   eda,
@@ -388,6 +452,7 @@ export function SequenceStepper({
   tail = false,
   iterative = false,
   program = false,
+  grow = false,
   autoplay = false,
   speed = 'normal',
   showCode = true,
@@ -463,6 +528,40 @@ export function SequenceStepper({
       </AuthoringError>
     );
   }
+  // The hash table's keys are text (#326): the class's table holds Strings,
+  // and a number there would be hashed as nothing the listing computes.
+  const hashTable = recipe === 'hash-chaining' || recipe === 'hash-probing';
+  if (hashTable) {
+    const notText = values.findIndex((v) => typeof v !== 'string');
+    if (notText >= 0) {
+      return (
+        <AuthoringError component="SequenceStepper">
+          <code>values[{notText}]</code> no es una clave: en las tablas hash las claves son textos,
+          como <code>{"values={['Ana', 'Bea']}"}</code>.
+        </AuthoringError>
+      );
+    }
+    const arg = op === 'insert' ? value : op === 'resize' ? undefined : target;
+    const args = arg === undefined ? [] : Array.isArray(arg) ? arg : [arg];
+    if (args.some((a) => typeof a !== 'string')) {
+      return (
+        <AuthoringError component="SequenceStepper">
+          la clave de {op === 'insert' ? <code>value</code> : <code>target</code>} es un texto en
+          las tablas hash, como <code>{op === 'insert' ? 'value="Ana"' : 'target="Ana"'}</code>.
+        </AuthoringError>
+      );
+    }
+  } else {
+    const word = [value, target].flat().find((a) => typeof a === 'string');
+    if (word !== undefined) {
+      return (
+        <AuthoringError component="SequenceStepper">
+          «{word}»: solo las tablas hash trabajan con claves de texto en <code>value</code> y{' '}
+          <code>target</code>.
+        </AuthoringError>
+      );
+    }
+  }
   // A gap only means something in a tree written in level order; anywhere
   // else `null` would be read as a value, and `Number(null)` is 0.
   if (recipe !== 'binary-tree' && values.some((v) => v === null)) {
@@ -475,7 +574,7 @@ export function SequenceStepper({
   // A symbol only means something as an operator of an expression tree;
   // anywhere else it would be read as a number, and `Number('+')` is NaN.
   const symbol = values.find((v) => typeof v === 'string');
-  if (recipe !== 'binary-tree' && symbol !== undefined) {
+  if (recipe !== 'binary-tree' && !hashTable && symbol !== undefined) {
     return (
       <AuthoringError component="SequenceStepper">
         «{symbol}»: solo binary-tree acepta símbolos en <code>values</code>.
@@ -490,8 +589,9 @@ export function SequenceStepper({
   // counting only `value` let an ordered slide draw past the cap.
   const grows = op.startsWith('insert');
   const from = op === 'insert-ordered' ? target : value;
-  // A single value counts as one, alone or in a list.
-  const inserted = grows ? asRuns(from).length : 0;
+  // A single value counts as one, alone or in a list — a hash table's key
+  // (text) as much as a number.
+  const inserted = grows ? asRuns<number | string>(from).length : 0;
   const cap =
     recipe === 'avl' && (op === 'insert' || op === 'remove') ? MAX_AVL_VALUES : MAX_VALUES;
   if (drawn + inserted > cap) {
@@ -519,6 +619,7 @@ export function SequenceStepper({
       tail={tail}
       iterative={iterative}
       program={program}
+      grow={grow}
       autoplay={autoplay}
       speed={speed}
       showCode={showCode}
@@ -531,9 +632,9 @@ interface BodyProps {
   recipe: SequenceRecipe;
   operation: SequenceOperation;
   values: (TreeValue | null)[];
-  value?: number | number[];
+  value?: number | string | (number | string)[];
   index?: number | number[];
-  target?: number | number[];
+  target?: number | string | (number | string)[];
   times?: number;
   capacity?: number;
   method?: string;
@@ -543,6 +644,7 @@ interface BodyProps {
   tail: boolean;
   iterative: boolean;
   program: boolean;
+  grow: boolean;
   autoplay: boolean;
   speed: StepSpeed;
   showCode: boolean;
@@ -565,6 +667,7 @@ function Body({
   tail,
   iterative,
   program,
+  grow,
   autoplay,
   speed,
   showCode,
@@ -573,6 +676,7 @@ function Body({
   const mode = useMode();
   const heap = recipe === 'heap-max';
   const tree = recipe === 'binary-tree' || recipe === 'bst' || recipe === 'avl';
+  const hashTable = recipe === 'hash-chaining' || recipe === 'hash-probing';
   const legend = runLegend(recipe, operation);
   const isPresentation = mode === 'presentation';
   const outerRef = useRef<HTMLElement | null>(null);
@@ -608,16 +712,26 @@ function Body({
     tail,
     iterative,
     program,
+    grow,
   ].join('|');
 
   const built = useMemo((): { trace: SequenceTrace } | { error: string } => {
     try {
       return {
         trace: traceFor(recipe, operation, {
-          ...readValues(valuesKey),
-          value,
+          // A hash table's `values` are its keys, read as text below.
+          ...(hashTable ? { values: [] } : readValues(valuesKey)),
+          // The guards in `SequenceStepper` already refused a number where a
+          // key goes and text anywhere else, so these narrowings only say so.
+          ...(hashTable
+            ? {
+                keys: JSON.parse(valuesKey) as string[],
+                key: (operation === 'insert' ? value : target) as string | string[] | undefined,
+              }
+            : {}),
+          value: hashTable ? undefined : (value as number | number[] | undefined),
           index,
-          target,
+          target: hashTable ? undefined : (target as number | number[] | undefined),
           times,
           capacity,
           method,
@@ -627,6 +741,7 @@ function Body({
           tail,
           iterative,
           program,
+          grow,
         }),
       };
     } catch (cause) {
@@ -649,6 +764,7 @@ function Body({
     tail,
     iterative,
     program,
+    grow,
   ]);
 
   const trace = 'trace' in built ? built.trace : null;
@@ -682,6 +798,9 @@ function Body({
   // line at 1440px.
   const heading = title ?? OPERATION_LABEL[operation];
   const atEnd = playback.stepIndex >= totalSteps - 1;
+  // The listings' share of a slide when they go beside the structure; with
+  // the listings hidden, the structure keeps the whole width (#331 review).
+  const beside = isPresentation && showCode ? trace.beside : undefined;
 
   return (
     <figure
@@ -706,18 +825,35 @@ function Body({
         title={heading}
         stepIndex={playback.stepIndex}
         totalSteps={totalSteps}
+        extra={
+          trace.queue === undefined ? undefined : (
+            <RunQueue keys={trace.queue} at={step.queue} large={isPresentation} />
+          )
+        }
       />
 
       {/*
-        Stacked in BOTH modes, and the panels share a 1px rule rather than
+        Stacked in both modes, and the panels share a 1px rule rather than
         each carrying a border of its own — the shape `<StepShow>` uses, which
         is the widget the sibling class of this unit is built on. Two columns
         were wrong for the same reason recorded there: the structure is a
         horizontal chain, so halving its width halves the drawing, and the
         node labels land near the size where a projector loses them. Stacking
-        gives the listing and the chain the full width each.
+        gives the listing and the chain the full width each. The exception is
+        a trace with `beside`, on a slide (below).
       */}
-      <div className="flex flex-col gap-px bg-rule">
+      <div
+        className={beside !== undefined ? 'grid gap-px bg-rule' : 'flex flex-col gap-px bg-rule'}
+        style={
+          beside !== undefined
+            ? // The listings over each other on the left, the structure on the
+              // right (#326 review, `grow`): two stacked tables need the height
+              // a row of listings above them took away. The share is the
+              // trace's, the least that keeps its longest line whole.
+              { gridTemplateColumns: `minmax(0,${beside}fr) minmax(0,${100 - beside}fr)` }
+            : undefined
+        }
+      >
         {showCode ? (
           <div
             className={
@@ -732,7 +868,7 @@ function Body({
               // book's column holds them one over the other.
               <div
                 className={
-                  !isPresentation
+                  !isPresentation || beside !== undefined
                     ? 'grid grid-cols-1 gap-px bg-rule'
                     : trace.row.length === 3
                       ? 'grid grid-cols-[minmax(0,1fr)_minmax(0,2fr)_minmax(0,2fr)] gap-px bg-rule'
@@ -869,11 +1005,26 @@ function Body({
               se busca el {step.seek}
             </div>
           ) : null}
+          {/* The probing table's second counter: the cells that are not null,
+              marks included — what its resize check reads (#326). Right of
+              `size`, as the class declares them, and not under it: stacked,
+              it reached down onto the last cell of the strip. */}
+          {step.probe === undefined ? null : (
+            <div
+              data-testid="sequence-used"
+              className="pointer-events-none absolute right-3 top-2 z-10 text-center"
+            >
+              <div className="font-mono text-3xs uppercase tracking-wide text-ink-faint">used</div>
+              <div className="min-w-11 rounded border border-rule bg-sunk px-2 py-1 text-lg font-semibold leading-none text-ink">
+                {step.probe.used}
+              </div>
+            </div>
+          )}
           {/* A tree's listing has no size field to show, so it gets no readout. */}
           <div
             data-testid="sequence-size"
             hidden={tree}
-            className="pointer-events-none absolute right-3 top-2 z-10 text-center"
+            className={`pointer-events-none absolute ${step.probe === undefined ? 'right-3' : 'right-16'} top-2 z-10 text-center`}
           >
             {/* The heap's listing calls the field `n`, and past it the array
                 still holds cells that are no longer in the heap — so the
@@ -884,7 +1035,7 @@ function Body({
               {heap ? 'n' : 'size'}
             </div>
             <div className="min-w-11 rounded border border-rule bg-sunk px-2 py-1 text-lg font-semibold leading-none text-ink">
-              {step.heapSize ?? step.cells.length}
+              {step.probe?.size ?? step.hash?.size ?? step.heapSize ?? step.cells.length}
             </div>
             {step.capacity === undefined ? null : (
               <div className="mt-0.5 font-mono text-3xs text-ink-faint">
@@ -908,7 +1059,24 @@ function Body({
               was chrome that reset between runs with nothing to say.
             */}
           </div>
-          {trace.tree !== undefined && step.tree !== undefined ? (
+          {trace.probe !== undefined && step.probe !== undefined ? (
+            <ProbeView
+              probe={step.probe}
+              buckets={trace.probe.buckets}
+              oldBuckets={trace.probe.oldBuckets}
+              description={step.description}
+              presentation={isPresentation}
+              tall={beside !== undefined}
+            />
+          ) : trace.hash !== undefined && step.hash !== undefined ? (
+            <HashView
+              hash={step.hash}
+              run={trace.hash}
+              description={step.description}
+              presentation={isPresentation}
+              tall={beside !== undefined}
+            />
+          ) : trace.tree !== undefined && step.tree !== undefined ? (
             <TreeView
               tree={step.tree}
               run={trace.tree}
@@ -1014,6 +1182,45 @@ function Body({
         </span>
       </div>
     </figure>
+  );
+}
+
+/**
+ * The keys a growing run adds (#326 review): the run says in the header which
+ * key it is on — the ones added struck through, the one being added outlined.
+ */
+function RunQueue({
+  keys,
+  at,
+  large,
+}: {
+  keys: string[];
+  at: SequenceStep['queue'];
+  large: boolean;
+}) {
+  return (
+    <ol aria-label="Claves por agregar" className="m-0 flex list-none flex-wrap gap-1 p-0">
+      {keys.map((key, i) => {
+        const state = i < (at?.done ?? 0) ? 'done' : i === at?.at ? 'current' : 'pending';
+        return (
+          <li
+            key={`${i}-${key}`}
+            data-queue-state={state}
+            aria-current={state === 'current' ? 'step' : undefined}
+            className={`m-0 rounded border px-1.5 py-0.5 font-mono ${large ? 'text-sm' : 'text-xs'} ${
+              state === 'done'
+                ? 'border-rule text-ink-faint line-through'
+                : state === 'current'
+                  ? 'border-focus bg-surface font-semibold text-ink'
+                  : 'border-rule-strong bg-surface text-ink-soft'
+            }`}
+          >
+            {key}
+            {state === 'done' ? <span className="sr-only"> (agregada)</span> : null}
+          </li>
+        );
+      })}
+    </ol>
   );
 }
 
