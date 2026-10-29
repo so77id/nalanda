@@ -1798,7 +1798,7 @@ check(refused, true);
 
 </Slide>
 
-{/* GroupPicture — records of a course and a grade grouped by course: the records in a row as they arrive, and under them one box per course, in the order the courses first appear, with that course's grades in the order they came. `upto` draws only the groups of the first records (the rest of the layout stays reserved, so the frames of the walk keep one size), `at` outlines the record being read, `fresh` paints the grade just added `mark`, and `arrows` joins every record to its grade, numbered by arrival — the hand run. `id` prefixes the arrow's marker. */}
+{/* GroupPicture — records of a course and a grade grouped by course: the records in a row as they arrive, and under them one box per course, in the order the courses first appear, with that course's grades in the order they came. `upto` draws only the groups of the first records (the rest of the layout stays reserved, so the frames of the walk keep one size), `at` outlines the record being read, `fresh` paints the grade just added `mark`, and `arrows` joins every record to its grade, numbered by arrival — the hand run; the course names go on last, over a halo of the ground, so an arrow never crosses one. `id` prefixes the arrow's marker. */}
 
 export function GroupPicture({ records, upto = records.length, at = -1, fresh = -1, arrows = false, id, label }) {
   const chipW = 96;
@@ -1847,10 +1847,7 @@ export function GroupPicture({ records, upto = records.length, at = -1, fresh = 
       })}
       {courses.map((c) =>
         shown(c) ? (
-          <g key={`b${c}`}>
-            <text x={boxX(c) + 10} y={boxY - 7} fontSize="12" fontWeight="700" style={{ fill: 'var(--color-ink-soft)' }}>{c}</text>
-            <rect x={boxX(c)} y={boxY} width={boxW} height={boxH} rx="12" style={{ fill: 'var(--color-sunk)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.3" />
-          </g>
+          <rect key={`b${c}`} x={boxX(c)} y={boxY} width={boxW} height={boxH} rx="12" style={{ fill: 'var(--color-sunk)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.3" />
         ) : null,
       )}
       {records.map(([, g], j) => {
@@ -1870,6 +1867,11 @@ export function GroupPicture({ records, upto = records.length, at = -1, fresh = 
           </g>
         );
       })}
+      {courses.map((c) =>
+        shown(c) ? (
+          <text key={`t${c}`} x={boxX(c) + 10} y={boxY - 7} fontSize="12" fontWeight="700" paintOrder="stroke" strokeWidth="4" style={{ fill: 'var(--color-ink-soft)', stroke: 'var(--color-ground)' }}>{c}</text>
+        ) : null,
+      )}
     </svg>
   );
 }

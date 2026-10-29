@@ -364,6 +364,19 @@ split across two slides — and beat 3's hand runs drawn as one column per
 state (the pending stack after every `next`, the two inorders crossed one
 comparison at a time), the shape the heap class's Top-K strip set.
 
+`content/courses/sample-course/24-edd-set-map.mdx` — four worked exercises
+(el primer voto repetido, una agenda de horas, las notas de cada curso, el
+mínimo y el máximo de una ventana de precios) and four posed (votantes
+distintos, la próxima salida, la frecuencia de las palabras, el evento más
+cercano), one of each kind per class it teaches: `HashSet`, `TreeSet`,
+`HashMap`, `TreeMap`. The window is the first exercise whose beat 2 takes
+both forms on two slides — recomputing each window is slow, and keeping the
+minimum in a variable is wrong the moment it leaves — and the second whose
+listing is built in pieces before the walk, as #304's merge was. Its walk,
+a twenty-five-line listing, goes `beside` its frame; the agenda's tried the
+same and went back to stacked, because its frame — a day drawn as a line —
+was unreadable in half a slide.
+
 **Its sibling for the question bank already exists**:
 [`write-control-questions.md`](write-control-questions.md) governs the
 questions at the end of a document. An exercise and a question are different

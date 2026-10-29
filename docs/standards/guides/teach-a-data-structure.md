@@ -2,8 +2,8 @@
 
 The shape every class of the **Estructuras de Datos** unit takes — and of
 **Estructuras de Datos Avanzadas**, the unit that continues it with the
-non-linear structures (the trees, then the heap; #321) and the hash table
-(#326), which the class on Set and Map is to follow. Born with #277, the
+non-linear structures (the trees, then the heap; #321), the hash table
+(#326) and the TDAs Set and Map (#350), which close it. Born with #277, the
 first unit's first class, which is also its worked example.
 
 This is the third layer of the course-authoring stack, and the three do not
@@ -157,8 +157,12 @@ last cost row: `contains(x)` is $$\Theta(N)$$ because the heap only knows
 where the first element is, and a hash table answers it in constant expected
 time by giving up order altogether. Tablas Hash itself closes on a named
 trade — the order a hash table does not keep, and what a balanced search tree
-charges to keep it — and its `## Lo que sigue` names Set and Map in prose,
-with no wiki-link, because that class does not exist yet (§5).
+charges to keep it — and its `## Lo que sigue` named Set and Map in prose,
+with no wiki-link, because that class did not exist yet (§5); #350, which
+wrote it, added the wiki-link to that same paragraph. Set and Map closes on
+the trade a probabilistic structure makes — a «quizás» instead of a «sí»,
+for a few bits per element — and its book-only `## Lo que sigue` names the
+graphs unit in prose, again with no wiki-link.
 
 **#277 also cut its own act 4.** An earlier draft closed with a recap act
 ("un contrato para los dos arreglos") that restated the TDA, put the two cost
@@ -213,7 +217,8 @@ not clash for Sequence, so #277 deliberately adds no caveat. **They do clash
 for a map**, so the class that introduces the Map/diccionario TDA owes the
 distinction one sentence — otherwise a student who bound the word to Java's
 interface will trip on "un mapa es una colección". Same family as the
-`interface` overload that #277 had to untangle in its own Act 1.
+`interface` overload that #277 had to untangle in its own Act 1. #350 pays
+it on the slide _Las reglas del contrato Map_.
 
 A TDA is introduced as a **contract**, on one slide, in a card the unit reuses
 for every TDA it defines. The card is language-independent on purpose — Java's
@@ -272,6 +277,16 @@ needs a TDA card should do the extraction rather than make it five.
 chose to copy it a fifth time rather than grow a course-document PR by a
 component, a catalog entry and four re-verified classes. The extraction is
 tracked in **#305**; the sixth card waits for it.
+
+**It waited for nothing: #350 made six and seven, and says so.** Set and Map
+are two contracts, and the professor chose at the start of that WP to copy
+the card twice — one per contract, each followed by its slide of the
+contract in Java — rather than let either go without one or block the class
+on the extraction. The issue had planned no card at all, on the argument
+that the template did not fit a class comparing two implementations; this
+section had already said the opposite (the Set and Map class «brings its own
+card»), and the moulds fit both contracts as they stand. #305 now owes the
+extraction of seven copies.
 
 Costs never appear in the contract. They belong to an implementation, and
 putting them here is the single mistake that collapses the TDA/EDA distinction
