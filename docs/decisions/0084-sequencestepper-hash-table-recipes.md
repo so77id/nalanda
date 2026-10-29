@@ -151,7 +151,10 @@ Decided with the professor before it was drawn:
   class keeps a counter `used`, the cells that are not null, and its `add`
   resizes when the new key would use more than half of them:
   `if (2 * (used + 1) > keys.length) resize(nextPrime(2 * keys.length));`,
-  with a `resize` that puts back only the unmarked keys. The widget walks
+  under a comment that reads it as `used + 1 > keys.length / 2` with the 2
+  moved across (the professor's review, 2026-10-29: the doubled side hid the
+  half the prose names), with a `resize` that puts back only the unmarked
+  keys. The widget walks
   that line and `if (keys[i] == null) used++;`, shows `used` under `size`,
   and refuses a starting table past the half and an insertion that would
   resize — it does not draw this table's resize, which the class shows as

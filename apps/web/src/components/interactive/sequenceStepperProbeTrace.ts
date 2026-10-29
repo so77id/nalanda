@@ -53,6 +53,7 @@ const CODE: Record<ProbeOperation, string> = {
 }`,
   insert: `public boolean add(String key) {
     if (contains(key)) return false;
+    // equivale a used + 1 > keys.length / 2, con el 2 al otro lado
     if (2 * (used + 1) > keys.length) resize(nextPrime(2 * keys.length));
     int i = hash(key);
     while (keys[i] != null && !deleted[i]) {
