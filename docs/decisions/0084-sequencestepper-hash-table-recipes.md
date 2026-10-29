@@ -220,16 +220,17 @@ None ships without a slide that mounts it (#296, ADR-0077 §5).
 
 ## Consequences
 
-- **Open, for the professor (#331 review, 2026-10-29): the probing table's
-  worst case with marks.** The class's `add` resizes on `used`, marks
-  included, to `nextPrime(2 * keys.length)` whatever `size` is, so adds and
-  removes of distinct keys grow M while N stays small — measured on JDK 21
-  with the class's own `ProbingHashTable`: adding and removing `"K0"` to
-  `"K11"` in turn, from 2 cells, ends at M = 23, `size` 0, `used` 4 (`used`
-  depends on the keys; M = 23 does not). A search walks every used cell of its
-  run, so the cost table's worst case Θ(N) holds only without marks. The
-  content records it at the slide «Costos de la tabla con sondeo lineal»;
-  the choice (Θ(M) in the table, or a `resize` sized from `size`) is his.
+- **The probing table's worst case is Θ(M), not Θ(N)** (the professor's
+  decision, 2026-10-29, after the pre-PR review measured it). The class's
+  `add` resizes on `used`, marks included, to `nextPrime(2 * keys.length)`
+  whatever `size` is, so adds and removes of distinct keys grow M while N
+  stays small — on JDK 21 with the class's own `ProbingHashTable`, adding and
+  removing `"K0"` to `"K11"` in turn, from 2 cells, ends at M = 23, `size` 0,
+  `used` 4 (`used` depends on the keys; M = 23 does not). A search walks
+  every used cell of its run, marks included, so the slides «Costos de la
+  tabla con sondeo lineal» and «Listas frente a sondeo lineal» give Θ(M) and
+  say why. Sizing `resize` from `size` would have fixed the cause; he kept
+  the class's code and corrected the cost.
 - The validity matrix grows two rows: `hash-chaining` × {`search`,
   `insert`, `remove`, `resize`} and `hash-probing` × {`search`, `insert`,
   `remove`}; `resize` is valid on `hash-chaining` only, and `remove` on the

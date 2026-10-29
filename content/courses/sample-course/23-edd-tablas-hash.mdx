@@ -2886,20 +2886,16 @@ promedio a lo más 2,5 celdas.
 
 </Slide>
 
-{/* OPEN, for the professor (#331 review, 2026-10-29): the worst case below is
-    Θ(N), but a search walks every USED cell of its run, marks included, and
-    `add` resizes on `used` to nextPrime(2M) whatever N is. So adds and removes
-    of distinct keys grow M while N stays small: measured on JDK 21 with the
-    class's ProbingHashTable, adding and removing "K0" to "K11" in turn from
-    2 cells ends at M = 23, size 0, used 4. Either the worst case is Θ(M) (or Θ(used)), or `resize`
-    sizes the table from `size` instead. Left as is; the choice is his. */}
-
 <Slide title="Costos de la tabla con sondeo lineal">
 | Molde     | Operación       | Peor caso     | Esperado, con $$\alpha \le 1/2$$ | Invariante que restaura               |
 | --------- | --------------- | ------------- | -------------------------------- | ------------------------------------- |
-| consultar | `contains(key)` | $$\Theta(N)$$ | $$\Theta(1)$$                    | Ninguna: no cambia la tabla           |
-| modificar | `add(key)`      | $$\Theta(N)$$ | $$\Theta(1)$$ amortizado         | La clave entra una vez, en la primera celda libre desde su hash, y la tabla crece antes si $$\alpha$$ pasaría de $$1/2$$; `size` sube |
-| modificar | `remove(key)`   | $$\Theta(N)$$ | $$\Theta(1)$$                    | La clave queda marcada y su celda no se vacía; `size` baja |
+| consultar | `contains(key)` | $$\Theta(M)$$ | $$\Theta(1)$$                    | Ninguna: no cambia la tabla           |
+| modificar | `add(key)`      | $$\Theta(M)$$ | $$\Theta(1)$$ amortizado         | La clave entra una vez, en la primera celda libre desde su hash, y la tabla crece antes si $$\alpha$$ pasaría de $$1/2$$; `size` sube |
+| modificar | `remove(key)`   | $$\Theta(M)$$ | $$\Theta(1)$$                    | La clave queda marcada y su celda no se vacía; `size` baja |
+
+El peor caso se mide en celdas y no en claves: una búsqueda también recorre
+las celdas marcadas, que no cuentan en $$N$$. Por eso es $$\Theta(M)$$, con
+$$M$$ el tamaño de la tabla.
 
 </Slide>
 
@@ -2910,7 +2906,7 @@ promedio a lo más 2,5 celdas.
 | Dónde están las claves  | Repartidas por la memoria                | Seguidas en un arreglo, rápidas de recorrer   |
 | Factor de carga         | A lo más 1, por la redimensión           | A lo más 1/2, por la redimensión, con las marcas |
 | Eliminar                | Desenganchar el nodo                     | Marcar la celda                               |
-| Peor caso               | $$\Theta(N)$$                            | $$\Theta(N)$$                                 |
+| Peor caso               | $$\Theta(N)$$                            | $$\Theta(M)$$, por las marcas                 |
 
 Las dos dan $$\Theta(1)$$ esperado. El sondeo lineal ahorra objetos y
 aprovecha que las celdas de un arreglo están seguidas en la memoria; las
