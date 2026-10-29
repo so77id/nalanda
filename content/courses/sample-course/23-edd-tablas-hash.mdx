@@ -2672,8 +2672,8 @@ $$
 
 <Slide title="El código de la inserción con sondeo lineal">
 `add` es el método público de la inserción: después de `contains`, redimensiona
-si la clave nueva dejaría usadas más de la mitad de las celdas, avanza desde el
-hash hasta la primera celda libre y deja ahí la clave; si esa celda era
+si la clave nueva dejaría ocupadas más de la mitad de las celdas, contando las
+marcadas, avanza desde el hash hasta la primera celda libre y deja ahí la clave; si esa celda era
 `null`, `used` cuenta una más. Recorre el mismo tramo que la búsqueda: cuesta
 lo mismo, más la redimensión cuando toca.
 
@@ -2700,6 +2700,39 @@ en la primera.
   capacity={11}
   program
 />
+
+</Slide>
+
+<Slide title="La redimensión de la tabla con sondeo lineal">
+Para que siempre queden celdas vacías donde una búsqueda se detenga, y los
+tramos ocupados sean cortos, `add` redimensiona antes de que la clave nueva
+deje ocupadas más de la mitad de las celdas, contando las marcadas, que
+también ocupan su celda. Así el factor de carga no pasa de $$1/2$$.
+
+`resize` es el de la tabla con listas, con dos diferencias: recorre las celdas
+del arreglo viejo en lugar de sus listas, y salta las claves marcadas. La
+tabla nueva solo recibe las claves que siguen en el conjunto, así que las
+marcas desaparecen.
+
+```java
+private void resize(int capacity) {
+    String[] oldKeys = keys;
+    boolean[] oldDeleted = deleted;
+    keys = new String[capacity];
+    deleted = new boolean[capacity];
+    size = 0;
+    used = 0;
+    for (int i = 0; i < oldKeys.length; i++) {
+        if (oldKeys[i] != null && !oldDeleted[i]) {
+            add(oldKeys[i]);
+        }
+    }
+}
+```
+
+Recorre las $$M$$ celdas viejas y vuelve a agregar cada clave: cuesta
+$$\Theta(N + M)$$, y como el tamaño pasa a más del doble, sale $$\Theta(1)$$
+amortizado por inserción, igual que con listas.
 
 </Slide>
 
@@ -2842,41 +2875,8 @@ Con $$\alpha$$ cerca de 1, los racimos hacen crecer ese costo muy rápido.
 | 0,75       | 2,5                     | 8,5               |
 | 0,9        | 5,5                     | 50,5              |
 
-Con $$\alpha$$ a lo más $$1/2$$, una búsqueda mira en promedio a lo más 2,5
-celdas.
-
-</Slide>
-
-<Slide title="La redimensión de la tabla con sondeo lineal">
-Para que $$\alpha$$ no pase de $$1/2$$, `add` redimensiona antes de que la clave
-nueva deje usadas más de la mitad de las celdas, contando las marcas, que
-también ocupan celda. Así siempre quedan celdas vacías donde una búsqueda se
-detiene.
-
-`resize` es el de la tabla con listas, con dos diferencias: recorre las celdas
-del arreglo viejo en lugar de sus listas, y salta las claves marcadas. La
-tabla nueva solo recibe las claves que siguen en el conjunto, así que las
-marcas desaparecen.
-
-```java
-private void resize(int capacity) {
-    String[] oldKeys = keys;
-    boolean[] oldDeleted = deleted;
-    keys = new String[capacity];
-    deleted = new boolean[capacity];
-    size = 0;
-    used = 0;
-    for (int i = 0; i < oldKeys.length; i++) {
-        if (oldKeys[i] != null && !oldDeleted[i]) {
-            add(oldKeys[i]);
-        }
-    }
-}
-```
-
-Recorre las $$M$$ celdas viejas y vuelve a agregar cada clave: cuesta
-$$\Theta(N + M)$$, y como el tamaño pasa a más del doble, sale $$\Theta(1)$$
-amortizado por inserción, igual que con listas.
+Con la redimensión, $$\alpha$$ no pasa de $$1/2$$, y una búsqueda mira en
+promedio a lo más 2,5 celdas.
 
 </Slide>
 
