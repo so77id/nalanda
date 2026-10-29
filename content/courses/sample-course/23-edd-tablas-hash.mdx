@@ -2956,19 +2956,23 @@ El $$O(\log N)$$ se cumple con claves que se pueden comparar, como los
 </Slide>
 
 <Slide title="Hashing universal">
-La otra manera de defenderse es que nadie sepa qué función usa la tabla. El
-**hashing universal** elige la función al azar, de una familia de funciones,
-cada vez que se crea una tabla. Con listas, para cualquier conjunto de claves
-—también uno elegido para dañar— la lista que recorre una operación tiene en
-promedio a lo más $$1 + \alpha$$ claves, así que su costo esperado es
-$$\Theta(1)$$: el azar está en la función, no en los datos. Es un resultado de
-Carter y Wegman, que se cita sin demostrarlo. El sondeo lineal necesita
-familias más exigentes, pero la idea es la misma.
+El ataque funciona porque quien ataca conoce la función hash: con ella calcula
+de antemano qué claves chocan. La otra defensa es quitarle ese dato. En vez de
+usar siempre la misma función, la tabla elige una al azar cuando se crea. Por
+ejemplo, podría elegir al azar la base con que lee los nombres en lugar de usar
+siempre 256: sin saber la base, nadie puede calcular qué nombres van a caer
+juntos.
 
-Los lenguajes combinan las defensas. Python elige al azar, cada vez que
-arranca un programa, una parte del cálculo del hash de los `String`. Java no
-lo hace, y limita el daño con los árboles: aunque todas las claves caigan en
-la misma posición, buscar cuesta $$O(\log N)$$ si se pueden comparar.
+A esta idea se le llama **hashing universal**. Con ella no hay una lista de
+claves que sea mala de antemano: llegue la lista que llegue, el costo esperado
+de una tabla con listas vuelve a ser $$\Theta(1)$$, porque lo que es al azar
+ahora es la función que eligió la tabla, no las claves que llegan. Lo
+demostraron Carter y Wegman en 1979.
+
+En la práctica, los lenguajes combinan las dos defensas. Python elige un número
+al azar cada vez que arranca un programa y lo mezcla en el hash de los textos,
+así que el mismo nombre cae en otra posición en cada ejecución. Java no elige
+nada al azar, y se defiende con los árboles.
 
 </Slide>
 
