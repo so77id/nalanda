@@ -2521,9 +2521,11 @@ $$
 | modificar | `add(key)`      | $$\Theta(N)$$ | $$\Theta(1)$$ amortizado | La clave entra una vez, en su lista, y la tabla crece antes si $$\alpha$$ llegó a 1 |
 | modificar | `remove(key)`   | $$\Theta(N)$$ | $$\Theta(1)$$ | La clave sale de su lista, las demás quedan; `size` baja en 1 |
 
-Las listas tienen, sin embargo, un precio que la tabla no muestra: un nodo
-aparte por cada clave, con su referencia, en otro lugar de la memoria. La otra
-manera de resolver las colisiones guarda las claves en el propio arreglo.
+Los costos no lo muestran, pero las listas tienen un precio: cada clave
+necesita un nodo propio, con su referencia al siguiente, y esos nodos quedan
+repartidos por la memoria, así que recorrer una lista es saltar de un lugar a
+otro. La otra manera de resolver las colisiones no usa nodos: guarda las
+claves en las celdas del propio arreglo, una al lado de la otra.
 
 </Slide>
 
