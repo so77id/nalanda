@@ -2384,15 +2384,22 @@ $$
 
 <Slide title="El tamaño nuevo">
 El arreglo nuevo tiene que ser bastante más grande, para que la próxima
-redimensión tarde en llegar, y su tamaño tiene que ser primo, como pide el
-método de la división. Duplicarlo daría un número par, así que la tabla nueva
-tiene el primer primo desde $$2M$$, un poco más que el doble. Buscarlo no
-depende de la tabla: se prueban los números desde $$2M$$ hasta dar con uno sin
-divisores.
+redimensión tarde en llegar. Cuánto más depende del método que calcula la
+posición:
+
+- con el **método de la división**, el tamaño tiene que ser primo, y el doble
+  de un primo es par: la tabla nueva tiene el primer primo desde $$2M$$, un
+  poco más que el doble;
+- con el **método de la multiplicación**, el tamaño es una potencia de 2, y la
+  tabla simplemente se duplica.
 
 $$
-3 \;\to\; 7 \;\to\; 17 \;\to\; 37 \;\to\; 79
+\text{división: } 3 \to 7 \to 17 \to 37 \qquad \text{multiplicación: } 4 \to 8 \to 16 \to 32
 $$
+
+`ChainedHashTable` usa la división: `add` le pasa a `nextPrime` el doble del
+tamaño, y `nextPrime` prueba los números desde ahí hasta dar con uno sin
+divisores.
 
 ```java
 private static int nextPrime(int n) {
