@@ -1,5 +1,6 @@
 import { layoutProbe, type ProbeStrip } from './sequenceStepperHashLayout';
 import { CELL_FILL, CELL_STROKE } from './sequenceStepperPaint';
+import { KeyChip } from './sequenceStepperHashView';
 import type { ProbeCell, ProbeFrame } from './sequenceStepperTrace';
 
 // ── the probing table: every key in the array itself (#326) ───────────────
@@ -61,8 +62,9 @@ export function ProbeView({
         // On a slide the panel above caps its height and scrolls past it, and
         // a projected slide cannot be scrolled: `100%` of a parent that has
         // only a max-height constrains nothing, so the cap is restated here,
-        // less the panel's padding (p-3, 12px a side). Measured on #326's
-        // `add` slide, whose drawing ran 11px past the panel.
+        // less the panel's padding: 56px on top (pt-14, the room for the
+        // readouts) and 12px below (p-3). Measured on #326's `add` slide,
+        // whose drawing ran 11px past the panel.
         style={{
           maxWidth: `${layout.width * 1.4}px`,
           maxHeight: presentation ? `calc(${cap} - 68px)` : '100%',
@@ -100,43 +102,16 @@ export function ProbeView({
           at={probe.at}
         />
 
-        {probe.key === '' ? null : <Chip probe={probe} strip={tableStrip} width={layout.width} />}
+        {probe.key === '' ? null : (
+          <KeyChip
+            name={probe.key}
+            at={probe.home}
+            box={tableStrip.band(probe.home ?? 0)}
+            width={layout.width}
+          />
+        )}
       </svg>
     </div>
-  );
-}
-
-/** The key the run works with, over the cell its hash names once that line has run. */
-function Chip({ probe, strip, width }: { probe: ProbeFrame; strip: ProbeStrip; width: number }) {
-  const picked = probe.home !== null;
-  const label = picked ? `hash("${probe.key}") = ${probe.home}` : `"${probe.key}"`;
-  const box = strip.band(probe.home ?? 0);
-  // 13px monospace advances ~7.8px per character; the rest is the pill's padding.
-  const w = Math.max(box.w, label.length * 7.8 + 20);
-  const x = Math.min(Math.max(box.cx - w / 2, 2), width - w - 2);
-  return (
-    <g data-key-chip data-picked={picked || undefined}>
-      <rect
-        x={x}
-        y={box.y + 6}
-        width={w}
-        height={box.h - 12}
-        rx={11}
-        fill="var(--color-surface)"
-        stroke={picked ? 'var(--color-focus)' : 'var(--color-rule-strong)'}
-        strokeWidth={picked ? 2 : 1.2}
-      />
-      <text
-        x={x + w / 2}
-        y={box.y + box.h / 2 + 5}
-        textAnchor="middle"
-        fontSize="13"
-        fontFamily="var(--font-mono, monospace)"
-        fill="var(--color-ink)"
-      >
-        {label}
-      </text>
-    </g>
   );
 }
 

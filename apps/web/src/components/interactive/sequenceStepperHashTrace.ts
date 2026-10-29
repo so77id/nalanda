@@ -20,6 +20,7 @@ import { lineOf, requireRuns } from './sequenceStepperTraceShared';
 // Types only: the dispatcher imports this module's `traceHash` as a value, so
 // a value imported back from it would close a runtime cycle (ADR-0083 §1).
 import type {
+  HashChainingOperation,
   HashFrame,
   HashFrameNode,
   SequenceCell,
@@ -29,8 +30,6 @@ import type {
   SequenceStepKind,
   SequenceTrace,
 } from './sequenceStepperTrace';
-
-type HashOperation = 'search' | 'insert' | 'remove' | 'resize';
 
 /**
  * The listings as the class writes them, a guard that only returns on one
@@ -43,7 +42,7 @@ type HashOperation = 'search' | 'insert' | 'remove' | 'resize';
  * `add` calls when `size == table.length`: a new array, and every key put back
  * in through `add` itself, because where a key goes depends on the positions.
  */
-const CODE: Record<HashOperation, string> = {
+const CODE: Record<HashChainingOperation, string> = {
   search: `public boolean contains(String key) {
     Node current = table[hash(key)];
     while (current != null) {
@@ -173,7 +172,7 @@ let nextId = 0;
 const nodeOf = (key: string): Node => ({ id: (nextId += 1), key });
 
 /** A key in the narration. */
-const q = (key: string) => `«${key}»`;
+export const q = (key: string) => `«${key}»`;
 
 /**
  * The frame list every operation is written into. It owns the table, the
@@ -270,8 +269,13 @@ class HashRecorder {
   }
 }
 
+/**
+ * What the two tables read alike, written once — the probing trace imports it
+ * from here (#331 review: each carried a copy, and one comment had drifted).
+ */
+
 /** The keys a run is asked for: one runs the operation once, an array once each. */
-function keysOf(input: SequenceInput): string[] {
+export function keysOf(input: SequenceInput): string[] {
   const key = input.key;
   if (key === undefined) {
     throw new Error(
@@ -288,22 +292,20 @@ function keysOf(input: SequenceInput): string[] {
   return keys;
 }
 
-/** The table the author writes: `keys` added in order, each at the front of its list. */
-function buildTable(input: SequenceInput): { m: number; chains: Node[][] } {
-  if (input.deleted !== undefined && input.deleted.length > 0) {
-    throw new Error(
-      'deleted marca claves borradas en la tabla con sondeo lineal (hash-probing); la tabla con listas saca el nodo de su lista y no deja marca.',
-    );
-  }
+/**
+ * The table the author writes, checked: its positions within what a slide
+ * reads, and its keys text, each once.
+ */
+export function tableKeys(input: SequenceInput): { m: number; keys: string[] } {
   const m = input.capacity ?? DEFAULT_BUCKETS;
   if (!Number.isInteger(m) || m < MIN_BUCKETS || m > MAX_BUCKETS) {
     throw new Error(
       `La tabla tiene ${m} posiciones: entre ${MIN_BUCKETS} y ${MAX_BUCKETS}, que es lo que el dibujo lee bien en una lámina.`,
     );
   }
-  const chains: Node[][] = Array.from({ length: m }, () => []);
+  const keys = input.keys ?? [];
   const seen = new Set<string>();
-  for (const key of input.keys ?? []) {
+  for (const key of keys) {
     if (typeof key !== 'string' || key.length === 0) {
       throw new Error('Cada clave es un texto no vacío, como "Ana".');
     }
@@ -313,14 +315,96 @@ function buildTable(input: SequenceInput): { m: number; chains: Node[][] } {
       );
     }
     seen.add(key);
-    chains[hashKey(key, m)]!.unshift(nodeOf(key));
   }
+  return { m, keys };
+}
+
+/** A growing run's header: every frame of a key's run is about it, and its last has added it. */
+export function stampQueue(steps: SequenceStep[], from: number, run: number): void {
+  for (const step of steps.slice(from)) step.queue = { done: run, at: run };
+  steps.at(-1)!.queue = { done: run + 1, at: null };
+}
+
+/** The table the author writes: `keys` added in order, each at the front of its list. */
+function buildTable(input: SequenceInput): { m: number; chains: Node[][] } {
+  const { m, keys } = tableKeys(input);
+  const chains: Node[][] = Array.from({ length: m }, () => []);
+  for (const key of keys) chains[hashKey(key, m)]!.unshift(nodeOf(key));
   return { m, chains };
 }
 
-export function traceHash(operation: HashOperation, input: SequenceInput): SequenceTrace {
+export function traceHash(operation: HashChainingOperation, input: SequenceInput): SequenceTrace {
+  const walked = walkHash(operation, input);
+  return input.program === true
+    ? hashProgram('ChainedHashTable', operation, input, walked)
+    : walked;
+}
+
+/**
+ * Insertions or removals on a hash table run by a program (#326 review, the
+ * shape of the search trees' programs, #322): the program on the left — the
+ * table created, the keys of `keys` added, one call per key of the run — and
+ * the method it calls on the right, walked for every call the way a single
+ * run walks it. The program's line stays lit while the method runs, so the
+ * reader sees which call the method is in.
+ */
+export function hashProgram(
+  type: 'ChainedHashTable' | 'ProbingHashTable',
+  operation: HashChainingOperation,
+  input: SequenceInput,
+  walked: SequenceTrace,
+): SequenceTrace {
+  const keys = input.keys ?? [];
+  const runs = Array.isArray(input.key) ? input.key : [input.key];
+  const call = operation === 'insert' ? 'add' : 'remove';
+  const capacity = input.capacity ?? walked.hash?.buckets ?? walked.probe?.buckets;
+  const built = 1 + keys.length;
+  const code = [
+    `${type} names = new ${type}(${capacity});`,
+    ...keys.map((k) => `names.add("${k}");`),
+    ...runs.map((k) => `names.${call}("${k}");`),
+  ].join('\n');
+  const first = walked.steps[0]!;
+  const openingLines = Array.from({ length: built }, (_, i) => i + 1);
+  const opening: SequenceStep = {
+    ...first,
+    kind: 'start',
+    highlightLines: openingLines,
+    alongsideLines: [],
+    description:
+      keys.length === 0
+        ? `La tabla, vacía: ${capacity} posiciones.`
+        : `La tabla, con las ${keys.length} claves que el programa agregó.`,
+    ...(first.hash ? { hash: { ...first.hash, key: '', bucket: null, pointers: [] } } : {}),
+    ...(first.probe ? { probe: { ...first.probe, key: '', home: null, at: null } } : {}),
+  };
+  // A run starts where the method is called, at its public method's frame.
+  let run = -1;
+  const steps = walked.steps.map((step) => {
+    if (step.kind === 'start') run += 1;
+    const lit = [built + run + 1];
+    return { ...step, highlightLines: lit, alongsideLines: step.highlightLines };
+  });
+  return {
+    ...walked,
+    code,
+    alongside: walked.code,
+    listingNames: ['programa', 'método'],
+    steps: [opening, ...steps],
+  };
+}
+
+function walkHash(operation: HashChainingOperation, input: SequenceInput): SequenceTrace {
   const { m, chains } = buildTable(input);
   const growing = input.grow === true;
+  const start = (input.keys ?? []).length;
+  if (growing && start > m) {
+    // Probing refuses its unreachable starts in buildTable; this is the
+    // chaining one (#331 review).
+    throw new Error(
+      `${start} claves en ${m} posiciones: add habría redimensionado la tabla al encontrar size == table.length, así que con grow la tabla empieza con a lo más ${m} claves.`,
+    );
+  }
   const code = growing ? GROW_CODE : CODE[operation];
   const rec = new HashRecorder(code, chains);
   rec.rows = growing;
@@ -335,11 +419,7 @@ export function traceHash(operation: HashOperation, input: SequenceInput): Seque
       if (operation === 'search') search(rec, buckets, key);
       else if (operation === 'insert') buckets = insert(rec, buckets, key, growing);
       else remove(rec, buckets, key);
-      if (growing) {
-        // Every frame of the run is about this key; its last frame has added it.
-        for (const step of rec.steps.slice(from)) step.queue = { done: run, at: run };
-        rec.steps.at(-1)!.queue = { done: run + 1, at: null };
-      }
+      if (growing) stampQueue(rec.steps, from, run);
     }
   }
   const lengths = (frame: HashFrameNode[][] | undefined) => (frame ?? []).map((c) => c.length);

@@ -63,7 +63,7 @@ content/courses/sample-course/
 ├── 20-edd-priority-queue-heap.mdx  # presentation: explicit, questions: pool (16) — <SequenceStepper eda="heap-max"> ×4 + <StepShow> ×3 + <Exercise> ×4 (three worked on slides, one posed) + <PresentationWide> ×3 + 23 file-local figure components and LIST_COLORS (§6e-quater) + a TDA card (the fifth copy)
 ├── 21-edd-arboles-i.mdx       # presentation: explicit, questions: pool (19) — opens the Estructuras de Datos Avanzadas unit, ahead of chapter 20 in index.yaml; <SequenceStepper eda="binary-tree"> ×5 (its worked case, ADR-0083) + <StepShow> ×12 + <SideBySide> ×3 + <Exercise> ×5 (three worked, each on its slide — the widest level's and the calculator's in a scrolling window, being longer than 32 lines — and two posed) + <PresentationWide> ×18 + <BinaryPicture> ×162, <NodeGraph> ×2 and <OrderRule> ×6 (the content components #322 promoted from it, §6e-quinquies) + five file-local figure components (HierarchyPicture, TreeMemory, BinaryMemory, TokenRow, StackRow); the search tree moved to Árboles II (#322)
 ├── 22-edd-arboles-ii.mdx      # presentation: explicit, questions: pool (20, each with one correct alternative, approved two at a time, closed at the AVL's insertion) — the second class of the Estructuras de Datos Avanzadas unit, after edd-arboles-i in index.yaml and closing toward edd-priority-queue-heap: a growing set from the sorted array to the search tree, its operations, the unbalance, the rotations, the AVL tree and the other trees; <SequenceStepper> ×18 (bst ×9, every operation in the theory-cases-code-cost order and its code public over private, avl ×8 — the avl recipe's worked case, ADR-0086 —, dynamic-array — the binary search, its worked case, ADR-0074 §Amended by #322) + <BinaryPicture> ×177 (§6e-quinquies, triangles for the generic rotation, splits for the binary search's decisions) + <NodeGraph> ×2 + <OrderRule> + <PresentationWide> ×9 + <StepShow> ×3 (the iterator's whole class in one, `beside` its drawing on the slide) + <Exercise> ×6 (three worked, each with its program on a slide — the iterator's and the intersection's in a scrolling window —, and three posed, book-only) + eight file-local figure components (SortedRow, OrderSides, and the exercises' ValueBox, StackColumn, PendingStack, PendingStrip, CrossStrip, AnswerRow: the iterator's pending stack in the stack class's idiom, and the hand runs of the iterator and the intersection drawn one column per state, as the heap class's TopKStrip)
-├── 23-edd-tablas-hash.mdx     # presentation: explicit, questions: pool (12 so far, each with one correct alternative, all in the first half up to the division method; the second half's come with #326's S15) — after chapter 20 in index.yaml, the hash table as a structure with no TDA card: the problem of searching without comparing, the functions (definition, range, surjective, injective, bijective), the hash function and its requirements, how to calculate one (division with Horner in base 256, multiplication with the golden ratio), chaining, resizing, linear probing, the worst case (keys chosen to collide, lists that become trees, universal hashing) and beyond the tables (hash functions elsewhere, the order the scatter does not keep); keys of any type (hashCode and equals) and Java's own tables wait for the Set and Map class; <SequenceStepper eda="hash-chaining"> ×7 (three of them programs, one of them growing the table with `grow`) and eda="hash-probing" ×5 (one of them a program, one growing the table; their worked case, ADR-0084; one value per walk, every operation in the operation-cases-code-cost order and its code public, the other cases drawn) + <StepShow> ×1 + <BinaryPicture> ×1 + <PresentationWide> ×1 + thirteen file-local figure components (Casilleros, Reparto, Universo, Sagital, Elecciones, Tiradas, Abanico, Vara, Franja, HornerPaso, Pasos, Listas, Agregados)
+├── 23-edd-tablas-hash.mdx     # presentation: explicit, questions: pool (12 so far, each with one correct alternative, all in the first half up to the division method; the second half's come with #326's S15) — after chapter 20 in index.yaml, the hash table as a structure with no TDA card: the problem of searching without comparing, the functions (definition, range, surjective, injective, bijective), the hash function and its requirements, how to calculate one (division with Horner in base 256, multiplication with the golden ratio), chaining, resizing, linear probing, the worst case (keys chosen to collide, lists that become trees, universal hashing) and beyond the tables (hash functions elsewhere, the order the scatter does not keep); keys of any type (hashCode and equals) and Java's own tables wait for the Set and Map class; <SequenceStepper eda="hash-chaining"> ×7 (three of them programs, one of them growing the table with `grow`) and eda="hash-probing" ×5 (one of them a program, one growing the table; their worked case, ADR-0084; one value per walk, every operation in the operation-cases-code-cost order and its code public, the other cases drawn) + <StepShow> ×1 + <BinaryPicture> ×1 + <PresentationWide> ×1 + thirteen file-local figure components (Lockers, Distribution, Universe, ArrowDiagram, FreeChoices, Throws, UniformFan, Yardstick, RangeBand, HornerStep, StepBoxes, Chains, AddCosts)
 ├── tda-eda-invariante.svg, arreglo-memoria.svg, arreglo-alocacion.svg, arreglo-invariante-valido.svg, arreglo-invariantes.svg, regla-del-cuarto.svg, costo-acumulado.svg   # assets for chapter 17
 └── index.yaml                 # the ordered teaching path
 ```
@@ -972,10 +972,10 @@ parallel `deleted` drawn as two contiguous strips, the cursor `i` under them,
 and `search`, `insert` and `remove` — `remove` marks `deleted[i]` and leaves
 the key in its cell. Its listing keeps `used`, the cells that are not null,
 marks included, shown under `size`, and its `add` resizes before the new key
-would use more than half of them; the widget does not draw that resize, so it
-refuses a starting table past the half and an insertion that would trigger
-it. `deleted={['Bea']}` starts it with marks, for a search that passes over one
-or an insertion that reuses one; `deleted` on any other recipe is refused. Its keys are TEXT: `values` is the keys
+would use more than half of them; it refuses a starting table past the half,
+and, without `grow`, an insertion that would trigger that resize. A table
+starts with no marks: they come from `remove`, and a later removal of the
+same program walks past them. Its keys are TEXT: `values` is the keys
 already in the table, added in order, each at the front of the list of its
 position (`values={['Ana', 'Bea', 'Eva']}`), the key an operation works with
 is `target` (`search`, `remove`) or `value` (`insert`), and `capacity` is the
@@ -988,15 +988,17 @@ trees: the table created (`ChainedHashTable names = new ChainedHashTable(7);`,
 or `ProbingHashTable`), the keys of `values` added one per line, and one call
 per key of the run; every call is walked through the method with its program
 line lit (#326 review: «Inserciones en una misma tabla», «Eliminaciones en una
-misma tabla»). A starting table with `deleted` marks has no such program and
-is refused. `grow` (on `hash-chaining` and `hash-probing` × `insert`) lists `add` with the
+misma tabla»). `grow` (on `hash-chaining` and `hash-probing` × `insert`, never
+with `program`) lists `add` with the
 lines that resize and `resize` beside it, and walks `resize` inside the run
 whenever an insertion finds as many keys as positions. On a slide its
 listings go in a column on the left and the table on the right; a resize whose
 two tables pass twelve positions together draws `old` on top and the new
 table under it («Inserciones que hacen crecer la tabla»: from `capacity={2}`,
 2 → 5 → 11; on the probing table «Una tabla con sondeo que crece», the old
-arrays over the new ones, a marked key left behind).
+arrays over the new ones). A growing run refuses a key it would add twice and,
+on `hash-chaining`, a starting table with more keys than positions: `add`
+would have resized it already.
 `values` is the starting contents; `value` feeds the inserts, `index` the
 positional operations (`get-at` included), and `target` the searches
 (`search`, `binary-search`), `insert-ordered`, and on the trees the node an
@@ -1128,8 +1130,12 @@ What is worth knowing before you write one:
   start as a max-heap, a `capacity` that is not an integer or is too small for
   `values`, `values` that are not sorted with no repeats on `binary-search`,
   an unknown recipe, a pair the recipe does not offer, `program` together
-  with `iterative`, or more nodes than the cap below — each renders an
-  `<AuthoringError>` naming the problem.
+  with `iterative` or with `grow`, or more nodes than the cap below — each renders an
+  `<AuthoringError>` naming the problem. A combination of two props that
+  each has its slide is not thereby supported: when it would need code of
+  its own and no slide mounts it, `traceFor` refuses it instead of carrying
+  that code (#331 review: `program` with `grow` had a constructor on two
+  lines, a row of three listings and a layout branch no trace reached).
 
   **`npm run test` does NOT see these.** The widget is registered lazily, so
   `app/contentRenders.test.tsx` paints the `<Suspense>` fallback and never

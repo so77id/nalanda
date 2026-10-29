@@ -53,13 +53,19 @@ export function HashView({
   // `resize` only: which array each strip draws, and under which names.
   const old = layout.old;
   const tableOnLeft =
-    !layout.stacked &&
+    layout.below === null &&
     old !== null &&
     hash.old === undefined &&
     hash.chains.length === run.oldBuckets;
   // Stacked (#326, `grow`): the table holds the top strip, and while `resize`
-  // runs `old` takes it and the new table is drawn under it.
-  const tableStrip = layout.below !== null && hash.old !== undefined ? layout.below : layout;
+  // runs `old` takes it and the new table is drawn under it. Side by side, a
+  // table of the old size is the left strip, and the key, the position it
+  // picked and the node add builds go there with it (#331 review).
+  const tableStrip = tableOnLeft
+    ? old
+    : layout.below !== null && hash.old !== undefined
+      ? layout.below
+      : layout;
 
   return (
     <div
@@ -117,9 +123,7 @@ export function HashView({
             names={hash.old.aliased ? ['table', 'old'] : ['old']}
           />
         ) : null}
-        {old !== null && tableOnLeft ? (
-          <Strip strip={old} chains={hash.chains} picked={null} pointers={[]} names={['table']} />
-        ) : hash.old?.aliased === true ? null : (
+        {hash.old?.aliased === true ? null : (
           <Strip
             strip={tableStrip}
             chains={hash.chains}
@@ -137,9 +141,9 @@ export function HashView({
           <FreshNode hash={hash} strip={tableStrip} />
         ) : hash.key === '' ? null : (
           <KeyChip
-            hash={hash}
+            name={hash.key}
+            at={bucket}
             box={tableStrip.band(bucket ?? 0)}
-            picked={bucket !== null}
             width={layout.width}
           />
         )}
@@ -483,18 +487,24 @@ function PointerTag({ name, box }: { name: string; box: HashBox }) {
 }
 
 /** The key the run works with, and — once computed — the position its hash names. */
-function KeyChip({
-  hash,
+/**
+ * The key looked for, over the position its hash named — or, until that line
+ * runs, over no position, at the strip's start. Both tables draw it (#331
+ * review: the probing view carried a copy).
+ */
+export function KeyChip({
+  name,
+  at,
   box,
-  picked,
   width,
 }: {
-  hash: HashFrame;
+  name: string;
+  at: number | null;
   box: HashBox;
-  picked: boolean;
   width: number;
 }) {
-  const label = picked ? `hash("${hash.key}") = ${hash.bucket}` : `"${hash.key}"`;
+  const picked = at !== null;
+  const label = picked ? `hash("${name}") = ${at}` : `"${name}"`;
   // 13px monospace advances ~7.8px per character; the rest is the pill's padding.
   const w = Math.max(box.w, label.length * 7.8 + 20);
   // Centred over its position, but never past either edge of the canvas.

@@ -48,12 +48,6 @@ export const sequenceStepperCatalogEntry: CatalogEntry = {
         'The value looked for. Required by `search`, by `binary-search` (one target with `iterative`) and by `insert-ordered`, which also refuses a starting list that is not already sorted. An ARRAY searches each in turn — the hit at the front, the hit at the back and the value that is not there, in one widget. On the trees it is the node an operation acts on: `remove` on `bst` and `avl`, and the node that rotates on `avl`. On `hash-chaining` it is the KEY `search` and `remove` work with, text (`target="Ana"`); text on any other recipe is refused.',
     },
     {
-      name: 'deleted',
-      type: 'string[]',
-      description:
-        '`hash-probing` only. Keys of `values` that were removed: each stays in its cell with `deleted[i]` set, struck through, `true` under it — so a slide can start from a table with marks and show a search passing over one or an insertion reusing it. A key not in `values` is refused, and so is `deleted` on any other recipe.',
-    },
-    {
       name: 'times',
       type: 'number',
       description:
@@ -105,13 +99,13 @@ export const sequenceStepperCatalogEntry: CatalogEntry = {
       name: 'program',
       type: 'boolean',
       description:
-        '`bst` × `insert` from `values={[]}`, or `bst` × `remove` with `target` an array. On `insert` the listing becomes the program that builds the tree — `BST<Integer> tree = new BST<>();`, then one `tree.insert(x);` per value — one frame per line, the tree drawn after each with the new leaf marked and the way it came down lit: what a run of insertions builds, not the descent inside the method. On `remove` the program — the tree built from `values` by a loop of insertions, then one `tree.remove(x);` per target — is listed beside the method it calls, each under its own heading: every removal is walked through the method as a single one is, its program line lit the whole time, so one tree goes through every case in turn (a leaf, one child, two children, the root, a value that is not there). The program takes the width its lines need and the method the rest; in the book the program goes on top. `avl` × `insert` from `values={[]}`, and `avl` × `remove` from the tree `values` builds, are shown as `remove` is on `bst`: the program — the tree created, the values inserted, one call per line — beside the method and `balance`, walked for every call, its program line lit the whole time. `hash-chaining` and `hash-probing` × `insert` and `remove` are shown the same way (#326): the program — `ChainedHashTable names = new ChainedHashTable(7);` (or `ProbingHashTable`), the keys of `values` added, one `names.add(…)` or `names.remove(…)` per key of the run — beside the method, every call walked with its program line lit; a starting table with `deleted` marks is refused, since no program of adds writes one. Anywhere else it is an authoring error. Default `false`.',
+        '`bst` × `insert` from `values={[]}`, or `bst` × `remove` with `target` an array. On `insert` the listing becomes the program that builds the tree — `BST<Integer> tree = new BST<>();`, then one `tree.insert(x);` per value — one frame per line, the tree drawn after each with the new leaf marked and the way it came down lit: what a run of insertions builds, not the descent inside the method. On `remove` the program — the tree built from `values` by a loop of insertions, then one `tree.remove(x);` per target — is listed beside the method it calls, each under its own heading: every removal is walked through the method as a single one is, its program line lit the whole time, so one tree goes through every case in turn (a leaf, one child, two children, the root, a value that is not there). The program takes the width its lines need and the method the rest; in the book the program goes on top. `avl` × `insert` from `values={[]}`, and `avl` × `remove` from the tree `values` builds, are shown as `remove` is on `bst`: the program — the tree created, the values inserted, one call per line — beside the method and `balance`, walked for every call, its program line lit the whole time. `hash-chaining` and `hash-probing` × `insert` and `remove` are shown the same way (#326): the program — `ChainedHashTable names = new ChainedHashTable(7);` (or `ProbingHashTable`), the keys of `values` added, one `names.add(…)` or `names.remove(…)` per key of the run — beside the method, every call walked with its program line lit. Anywhere else it is an authoring error. Default `false`.',
     },
     {
       name: 'grow',
       type: 'boolean',
       description:
-        '`hash-chaining` and `hash-probing` × `insert` (#326). The listing is `add` with the two lines that resize — `if (size == table.length)` and, under it, `resize(nextPrime(2 * table.length));` — and `resize` is listed beside it: when an insertion finds as many keys as positions, `resize` is walked inside the run, its line lit in its own listing while the call stays lit in `add`, the old table drawn with the new one, and the insertion then goes on in the larger table. On a slide the listings go in a column on the left, two fifths of the width (with `program`, the program first), and the table on the right with the height of that column. A resize whose two tables pass twelve positions together draws `old` on top and the new table under it instead of side by side, on narrower columns. With no program beside the listings, the header names the keys of the run in order, the one being added outlined and the ones added struck through. Positions stay within two to eleven, so from `capacity={2}` a run grows twice, 2 → 5 → 11. On `hash-probing` the listings are add, its comment and resize call each on two lines, and the class `resize`, in a column of two fifths; while `resize` runs, `oldKeys` and `oldDeleted` are drawn over the new arrays with the cursor on the old cell, on narrower cells, and a marked key does not come back. Anywhere else it is an authoring error. Default `false`.',
+        '`hash-chaining` and `hash-probing` × `insert` (#326). The listing is `add` with the two lines that resize — `if (size == table.length)` and, under it, `resize(nextPrime(2 * table.length));` — and `resize` is listed beside it: when an insertion finds as many keys as positions, `resize` is walked inside the run, its line lit in its own listing while the call stays lit in `add`, the old table drawn with the new one, and the insertion then goes on in the larger table. On a slide the listings go in a column on the left, two fifths of the width, and the table on the right with the height of that column. A resize whose two tables pass twelve positions together draws `old` on top and the new table under it instead of side by side, on narrower columns. The header names the keys of the run in order, the one being added outlined and the ones added struck through; a key the run adds twice, or one already in `values`, is refused, and so is `program`, which has no room beside the two listings. Positions stay within two to eleven, so from `capacity={2}` a run grows twice, 2 → 5 → 11. On `hash-probing` the listings are add, its comment and resize call each on two lines, and the class `resize`, in a column of two fifths; while `resize` runs, `oldKeys` and `oldDeleted` are drawn over the new arrays with the cursor on the old cell, on narrower cells. Anywhere else it is an authoring error. Default `false`.',
     },
     {
       name: 'autoplay',
@@ -601,30 +595,16 @@ export const sequenceStepperCatalogEntry: CatalogEntry = {
       ),
     },
     {
-      title: 'A search passes over a mark: the key may be after it',
-      code: "<SequenceStepper eda=\"hash-probing\" operation=\"search\" values={['Mia', 'Alba', 'Julia', 'Pablo', 'Eva']} target=\"Eva\" deleted={['Alba']} capacity={11} />",
+      title: 'A second removal passes over the mark the first left: the key may be after it',
+      code: "<SequenceStepper eda=\"hash-probing\" operation=\"remove\" values={['Mia', 'Alba', 'Julia', 'Pablo', 'Eva']} target={['Alba', 'Eva']} capacity={11} program />",
       render: () => (
         <SequenceStepper
           eda="hash-probing"
-          operation="search"
+          operation="remove"
           values={['Mia', 'Alba', 'Julia', 'Pablo', 'Eva']}
-          target="Eva"
-          deleted={['Alba']}
+          target={['Alba', 'Eva']}
           capacity={11}
-        />
-      ),
-    },
-    {
-      title: 'An insertion reuses a marked cell, after contains has walked past it',
-      code: "<SequenceStepper eda=\"hash-probing\" operation=\"insert\" values={['Mia', 'Alba', 'Julia', 'Pablo']} value=\"Eva\" deleted={['Alba']} capacity={11} />",
-      render: () => (
-        <SequenceStepper
-          eda="hash-probing"
-          operation="insert"
-          values={['Mia', 'Alba', 'Julia', 'Pablo']}
-          value="Eva"
-          deleted={['Alba']}
-          capacity={11}
+          program
         />
       ),
     },

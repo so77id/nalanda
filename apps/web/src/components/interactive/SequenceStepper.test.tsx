@@ -1973,31 +1973,6 @@ describe('<SequenceStepper> · the hash-probing recipe (#326)', () => {
     expect(screen.getByTestId('sequence-size')).toHaveTextContent('3');
   });
 
-  it('starts from the marks a slide asks for, and reuses one', () => {
-    renderIn(
-      'book',
-      <SequenceStepper {...table} operation="insert" value="Eva" deleted={['Alba']} />,
-    );
-    expect(view().querySelector('[data-cell="6"]')).toHaveAttribute('data-deleted', 'true');
-    walkToEnd();
-    expect(view().querySelector('[data-cell="6"]')).toHaveAttribute('data-key', 'Eva');
-    expect(view().querySelector('[data-cell="6"]')).not.toHaveAttribute('data-deleted');
-  });
-
-  it('refuses deleted on any other recipe', () => {
-    renderIn(
-      'book',
-      <SequenceStepper
-        eda="hash-chaining"
-        operation="search"
-        values={['Ana']}
-        target="Ana"
-        deleted={['Ana']}
-      />,
-    );
-    expect(screen.getByText(/solo\s+hash-probing lo acepta/)).toBeInTheDocument();
-  });
-
   it('refuses a table more than half full, which add would have resized', () => {
     renderIn(
       'book',
@@ -2010,6 +1985,42 @@ describe('<SequenceStepper> · the hash-probing recipe (#326)', () => {
       />,
     );
     expect(screen.getByText(/pasa de la mitad de la tabla/)).toBeInTheDocument();
+  });
+});
+
+describe('<SequenceStepper> · a growing run drawn side by side', () => {
+  // Old and new tables together fit twelve positions, so the run draws them
+  // side by side; before the first resize the table is the left strip, and
+  // the key and the node add builds go over it (#331 review, COR-1).
+  it('outlines the position the hash picked, with the key over the drawn table', () => {
+    renderIn(
+      'book',
+      <SequenceStepper
+        eda="hash-chaining"
+        operation="insert"
+        values={[]}
+        value={['Ana', 'Bea', 'Eva']}
+        capacity={2}
+        grow
+      />,
+    );
+    const view = () => screen.getByTestId('hash-view');
+    const hashed = () =>
+      view().querySelector('[data-key-chip]')?.textContent?.startsWith('hash("Ana")') === true;
+    for (let i = 0; i < 40 && !hashed(); i += 1) {
+      fireEvent.click(screen.getByRole('button', { name: 'Adelante' }));
+    }
+    expect(hashed()).toBe(true);
+    expect(view().querySelector('[data-bucket][data-picked]')).not.toBeNull();
+    const cells = [...view().querySelectorAll('[data-bucket] > rect')];
+    const left = Math.min(...cells.map((r) => Number(r.getAttribute('x'))));
+    const right = Math.max(
+      ...cells.map((r) => Number(r.getAttribute('x')) + Number(r.getAttribute('width'))),
+    );
+    const chip = view().querySelector('[data-key-chip] > rect')!;
+    const centre = Number(chip.getAttribute('x')) + Number(chip.getAttribute('width')) / 2;
+    expect(centre).toBeGreaterThanOrEqual(left);
+    expect(centre).toBeLessThanOrEqual(right);
   });
 });
 

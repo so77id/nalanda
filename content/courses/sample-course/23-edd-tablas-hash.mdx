@@ -34,9 +34,10 @@ rápida de ellas compara más veces mientras más datos guarda. Para que la
 respuesta cueste lo mismo con mil datos que con un millón, hace falta otra
 manera de buscar.
 
-{/* Casilleros — the cloakroom drawn as the unit draws an array: a contiguous strip of cells, the index over each, a name or nothing inside. `paint` colours a cell as the widget does (focus: under the eye; visited: already looked at; found: the one looked for; mark: just written), `notes` writes a short mark over a cell — a visit order, a shift, a hash — and `struck` strikes a key through: the mark of a removed key in the probing table. File-local (add-a-course-document.md §6e-quater). */}
+{/* Lockers — the cloakroom drawn as the unit draws an array: a contiguous strip of cells, the index over each, a name or nothing inside. `paint` colours a cell as the widget does (focus: under the eye; visited: already looked at; found: the one looked for; mark: just written), `notes` writes a short mark over a cell — a visit order, a shift, a hash — and `struck` strikes a key through: the mark of a removed key in the probing table. File-local (add-a-course-document.md §6e-quater). */}
 
-export function Casilleros({ cells, index, paint = {}, notes = {}, struck = [], caption, label, cell = 64 }) {
+export function Lockers({ cells, paint = {}, notes = {}, struck = [], caption, label }) {
+  const cell = 64;
   const pad = 12;
   const noteY = 15;
   const indexY = 31;
@@ -60,7 +61,7 @@ export function Casilleros({ cells, index, paint = {}, notes = {}, struck = [], 
             {notes[i] ? (
               <text x={x + cell / 2} y={noteY} textAnchor="middle" fontSize="12" fontWeight="700" style={{ fill: 'var(--color-ink-soft)' }}>{notes[i]}</text>
             ) : null}
-            <text x={x + cell / 2} y={indexY} textAnchor="middle" fontSize="11" style={{ fill: 'var(--color-ink-faint)' }}>{index ? index[i] : i}</text>
+            <text x={x + cell / 2} y={indexY} textAnchor="middle" fontSize="11" style={{ fill: 'var(--color-ink-faint)' }}>{i}</text>
             <rect x={x} y={cellY} width={cell} height={cellH} style={{ fill: p ? fill[p] : 'var(--color-surface)', stroke: p ? stroke[p] : 'var(--color-rule-strong)' }} strokeWidth={p && p !== 'visited' ? 2.4 : 1.2} />
             {cells[i] ? (
               <text x={x + cell / 2} y={cellY + cellH / 2 + 5} textAnchor="middle" fontSize="14" fontWeight="600" textDecoration={struck.includes(i) ? 'line-through' : undefined} style={{ fill: struck.includes(i) ? 'var(--color-ink-faint)' : 'var(--color-ink)' }}>{cells[i]}</text>
@@ -75,9 +76,9 @@ export function Casilleros({ cells, index, paint = {}, notes = {}, struck = [], 
   );
 }
 
-{/* Reparto — where a rule sends each key: the keys as chips in a row, the positions as a contiguous strip under them, one arrow per key down to its position. A position that receives two keys or more is painted `mark` and its count written under it: a collision. `contents` writes inside the cells (a coat already there) and `hit` paints one cell as found. File-local (§6e-quater). */}
+{/* Distribution — where a rule sends each key: the keys as chips in a row, the positions as a contiguous strip under them, one arrow per key down to its position. A position that receives two keys or more is painted `mark` and its count written under it: a collision. `contents` writes inside the cells (a coat already there) and `hit` paints one cell as found. File-local (§6e-quater). */}
 
-export function Reparto({ keys, cells, index, contents = [], hit, caption, label, cell = 56, id }) {
+export function Distribution({ keys, cells, index, contents = [], hit, caption, label, cell = 56, id }) {
   const pad = 12;
   const chipH = 28;
   const chipGap = 10;
@@ -145,7 +146,7 @@ export const LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
 
 {/* The tree a search over seven names follows when it compares: the opening's "El límite de comparar" draws it to show that comparing never goes below log N. In alphabetical order, so its inorder is the sorted array a binary search would halve. */}
 
-export const DECISIONES = { v: 'Leo', l: { v: 'Bea', l: { v: 'Ana' }, r: { v: 'Eva' } }, r: { v: 'Sol', l: { v: 'Luz' }, r: { v: 'Teo' } } };
+export const DECISION_TREE = { v: 'Leo', l: { v: 'Bea', l: { v: 'Ana' }, r: { v: 'Eva' } }, r: { v: 'Sol', l: { v: 'Luz' }, r: { v: 'Teo' } } };
 
 <Slide title="Buscar un dato">
 Muchos programas repiten millones de veces una misma pregunta: si un dato
@@ -196,7 +197,7 @@ comparación, con el elemento del medio, y cada búsqueda es un camino desde la
 raíz hacia abajo, con una comparación por nivel.
 
 <BinaryPicture
-  tree={DECISIONES}
+  tree={DECISION_TREE}
   path={['Leo', 'Bea', 'Eva']}
   tones={{ Eva: 'keep' }}
   levelNotes={['1 nodo', '2 nodos', '4 nodos']}
@@ -233,7 +234,7 @@ cientos de personas piden su abrigo a la vez, y nadie compara nombres: la
 ficha dice en qué casillero está cada uno. Con la ficha, guardar, buscar y
 retirar un abrigo toman un solo paso: ir al casillero de ese número.
 
-<Reparto
+<Distribution
   id="ficha"
   keys={[{ name: 'ficha 5', to: 5 }]}
   cells={8}
@@ -251,9 +252,9 @@ hay un casillero para cada ficha posible.
 
 </Slide>
 
-{/* Universo — the keys a cloakroom can be asked for, against the ones it keeps and the lockers it has: a large box for U, every possible key, dotted; a dashed cluster inside it for the keys stored; an arrow with a question mark to the strip of M lockers. File-local (§6e-quater). */}
+{/* Universe — the keys a cloakroom can be asked for, against the ones it keeps and the lockers it has: a large box for U, every possible key, dotted; a dashed cluster inside it for the keys stored; an arrow with a question mark to the strip of M lockers. File-local (§6e-quater). */}
 
-export function Universo({ stored, cells, caption, label, id }) {
+export function Universe({ stored, cells, caption, label, id }) {
   const pad = 14;
   const boxW = 300;
   const boxH = 176;
@@ -319,7 +320,7 @@ $$26^5 = 11\,881\,376$$ nombres de cinco letras, y en una noche se guardan
 unos cientos de abrigos. Al conjunto de todas las claves posibles se le llama
 **universo**, $$U$$.
 
-<Universo
+<Universe
   id="universo"
   stored={['Ana', 'Bea', 'Eva', 'Leo', 'Sara', 'Juan']}
   cells={7}
@@ -338,7 +339,7 @@ Lo que falta es una regla: recibe un nombre y entrega un casillero, siempre el
 mismo para el mismo nombre, para que lo guardado se encuentre donde se dejó.
 Dibujada, la regla es una flecha desde cada nombre hasta su casillero.
 
-<Reparto
+<Distribution
   id="regla"
   keys={[{ name: 'Ana', to: 2 }, { name: 'Bea', to: 3 }, { name: 'Eva', to: 0 }, { name: 'Sara', to: 4 }]}
   cells={7}
@@ -357,9 +358,9 @@ uno.
 
 ## Funciones
 
-{/* Sagital — a function drawn as school draws it, a diagrama sagital: the domain and the codomain as two ovals, an arrow from each element to its image. `arrows` lists [from, to] index pairs, or [from, to, tone] to paint one, `mark` for the arrow to look at and `flag` for a wrong one; `clash` paints mark every image that receives two arrows or more, with the arrows that reach it; `hit` paints keep every image that receives one, the range; `more` writes ⋮ under the domain, which has more elements than are drawn; `tones` paints some domain elements, `{ index: 'mark' | 'flag' }`, and `toTones` some codomain elements the same way, over what `clash` and `hit` would paint. File-local (add-a-course-document.md §6e-quater). */}
+{/* ArrowDiagram — a function drawn as school draws it, a diagrama sagital: the domain and the codomain as two ovals, an arrow from each element to its image. `arrows` lists [from, to] index pairs, or [from, to, tone] to paint one, `mark` for the arrow to look at and `flag` for a wrong one; `clash` paints mark every image that receives two arrows or more, with the arrows that reach it; `hit` paints keep every image that receives one, the range; `more` writes ⋮ under the domain, which has more elements than are drawn; `tones` paints some domain elements, `{ index: 'mark' | 'flag' }`, and `toTones` some codomain elements the same way, over what `clash` and `hit` would paint. File-local (add-a-course-document.md §6e-quater). */}
 
-export function Sagital({ from, to, arrows, fromTitle, toTitle, more = false, clash = false, hit = false, tones = {}, toTones = {}, caption, label, id }) {
+export function ArrowDiagram({ from, to, arrows, fromTitle, toTitle, more = false, clash = false, hit = false, tones = {}, toTones = {}, caption, label, id }) {
   const rowH = 30;
   const nL = from.length + (more ? 1 : 0);
   const rows = Math.max(nL, to.length);
@@ -430,7 +431,7 @@ export function Sagital({ from, to, arrows, fromTitle, toTitle, more = false, cl
   );
 }
 
-export const SAGITAL_GRID = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '1rem', alignItems: 'end' };
+export const ARROW_GRID = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '1rem', alignItems: 'end' };
 
 <Slide title="La definición de función">
 Una **función** es una regla que a cada elemento de un conjunto le asigna
@@ -448,7 +449,7 @@ elemento del dominio hasta su imagen. Por ejemplo, la regla que a cada persona
 le asigna su mes de cumpleaños es una función, porque cada persona cumple años
 en un solo mes.
 
-<Sagital
+<ArrowDiagram
   id="mes"
   from={['Ana', 'Bea', 'Eva', 'Leo']}
   to={['enero', 'marzo', 'julio', 'octubre']}
@@ -469,8 +470,8 @@ $$
 En una función, de cada elemento del dominio sale **exactamente una** flecha:
 si de alguno salen dos, o ninguna, la regla no es una función.
 
-<div style={SAGITAL_GRID}>
-<Sagital
+<div style={ARROW_GRID}>
+<ArrowDiagram
   id="si-funcion"
   from={['Ana', 'Bea', 'Eva', 'Leo']}
   to={['enero', 'marzo', 'julio', 'octubre']}
@@ -480,7 +481,7 @@ si de alguno salen dos, o ninguna, la regla no es una función.
   caption="el mes de cumpleaños: es una función"
   label="El mes de cumpleaños de cada persona: de cada una sale exactamente una flecha. Ana va a marzo, Bea a enero, Eva a marzo y Leo a julio. Es una función."
 />
-<Sagital
+<ArrowDiagram
   id="no-funcion"
   from={['Ana', 'Bea', 'Eva', 'Leo']}
   to={['enero', 'marzo', 'julio', 'octubre']}
@@ -508,7 +509,7 @@ son los elementos del codominio a los que llega al menos una flecha. El
 recorrido siempre está dentro del codominio, y puede ser todo el codominio o
 solo una parte.
 
-<Sagital
+<ArrowDiagram
   id="mes-recorrido"
   from={['Ana', 'Bea', 'Eva', 'Leo']}
   to={['enero', 'marzo', 'julio', 'octubre']}
@@ -545,7 +546,7 @@ $$
 
 En el diagrama, a cada elemento del codominio llega al menos una flecha.
 
-<Sagital
+<ArrowDiagram
   id="sobreyectiva"
   from={['Ana', 'Bea', 'Eva', 'Leo', 'Sol']}
   to={['enero', 'marzo', 'julio', 'octubre']}
@@ -576,8 +577,8 @@ $$A$$, si $$f(a_1) = f(a_2)$$, entonces $$a_1$$ y $$a_2$$ son el mismo
 elemento». En el diagrama, a ningún elemento del codominio llega más de una
 flecha.
 
-<div style={SAGITAL_GRID}>
-<Sagital
+<div style={ARROW_GRID}>
+<ArrowDiagram
   id="ficha-inyectiva"
   from={['Ana', 'Bea', 'Eva', 'Leo']}
   to={['1', '2', '3', '4', '5']}
@@ -587,7 +588,7 @@ flecha.
   caption="la ficha de cada abrigo: es inyectiva"
   label="Un diagrama de flechas de cuatro personas a cinco fichas, del 1 al 5. Ana va a la 3, Bea a la 1, Eva a la 5 y Leo a la 2: a cada ficha llega a lo más una flecha. Es inyectiva."
 />
-<Sagital
+<ArrowDiagram
   id="mes-no-inyectiva"
   from={['Ana', 'Bea', 'Eva', 'Leo']}
   to={['enero', 'marzo', 'julio', 'octubre']}
@@ -619,7 +620,7 @@ que se lee «$$f$$ es biyectiva si y solo si, para todo $$b$$ en $$B$$, existe
 un único $$a$$ en $$A$$ tal que $$f(a) = b$$». En el diagrama, a cada elemento
 del codominio llega exactamente una flecha.
 
-<Sagital
+<ArrowDiagram
   id="ficha-biyectiva"
   from={['Ana', 'Bea', 'Eva', 'Leo']}
   to={['1', '2', '3', '4']}
@@ -643,7 +644,7 @@ cualquiera —un nombre, un número, un texto— y la convierte en una posición
 del arreglo, calculada a partir de la clave sola, sin mirar las otras claves
 guardadas.
 
-<Pasos
+<StepBoxes
   id="idea"
   boxes={[{ title: 'clave', text: '«Ana»' }, { title: 'posición', text: '2' }]}
   steps={['función hash']}
@@ -678,7 +679,7 @@ posición de una clave $$k$$ es su imagen, $$h(k)$$, y guardar, buscar y
 retirar $$k$$ empiezan por calcular $$h(k)$$ e ir directo a ese casillero. El
 arreglo, junto con su función hash, es una **tabla hash**.
 
-<Sagital
+<ArrowDiagram
   id="hash"
   from={['Ana', 'Bea', 'Eva', 'Sara']}
   to={['0', '1', '2', '3', '4', '5', '6']}
@@ -707,7 +708,7 @@ por casillero. Una función hash que hiciera lo mismo sería **inyectiva**: cada
 casillero guardaría a lo más una clave, y buscar una clave sería ir a su
 casillero y mirar una sola.
 
-<Sagital
+<ArrowDiagram
   id="hash-inyectiva"
   from={['Ana', 'Bea', 'Eva', 'Sara']}
   to={['0', '1', '2', '3', '4', '5', '6']}
@@ -730,7 +731,7 @@ el arreglo. Lo asegura el **principio del palomar**, también llamado
 **principio de Dirichlet**: si se reparten más palomas que nidos, algún nido
 recibe al menos dos.
 
-<Sagital
+<ArrowDiagram
   id="palomar"
   from={['Ana', 'Bea', 'Eva', 'Leo']}
   to={['0', '1', '2']}
@@ -776,7 +777,7 @@ $$
 
 y cuando las dos se guardan, **colisionan**: les toca el mismo casillero.
 
-<Reparto
+<Distribution
   id="choque"
   keys={[{ name: 'Eva', to: 0 }, { name: 'Ana', to: 2 }, { name: 'Bea', to: 3 }, { name: 'Sara', to: 4 }, { name: 'Leo', to: 2 }]}
   cells={7}
@@ -802,8 +803,8 @@ función es biyectiva sobre ellas —cada casillero recibe una clave y ninguno
 sobra— y se llama **perfecta mínima**. Pero es perfecta solo para esas claves:
 una clave nueva puede caer donde ya hay otra.
 
-<div style={SAGITAL_GRID}>
-<Sagital
+<div style={ARROW_GRID}>
+<ArrowDiagram
   id="perfecta"
   from={['Ana', 'Bea', 'Eva']}
   to={['0', '1', '2']}
@@ -813,7 +814,7 @@ una clave nueva puede caer donde ya hay otra.
   caption="perfecta mínima: cada clave en su casillero, y ninguno sobra"
   label="Un diagrama de flechas de las tres claves guardadas, Ana, Bea y Eva, a tres posiciones, del 0 al 2. Ana va al 2, Bea al 0 y Eva al 1: cada posición recibe exactamente una clave."
 />
-<Sagital
+<ArrowDiagram
   id="perfecta-nueva"
   from={['Ana', 'Bea', 'Eva', 'Leo']}
   to={['0', '1', '2']}
@@ -852,9 +853,9 @@ días, las $$M = 365$$ posiciones.
 
 </Slide>
 
-{/* Elecciones — keys arriving one by one without colliding: one row per key, the M positions, the ones the earlier keys took greyed with their name, the free ones outlined, and at the right how many of the M are still free for this key. File-local (§6e-quater). */}
+{/* FreeChoices — keys arriving one by one without colliding: one row per key, the M positions, the ones the earlier keys took greyed with their name, the free ones outlined, and at the right how many of the M are still free for this key. File-local (§6e-quater). */}
 
-export function Elecciones({ rows, cells, caption, label }) {
+export function FreeChoices({ rows, cells, caption, label }) {
   const pad = 12;
   const nameW = 70;
   const cell = 56;
@@ -911,7 +912,7 @@ $$
 P(\text{sin colisiones}) = \frac{M}{M} \cdot \frac{M - 1}{M} \cdot \frac{M - 2}{M} \cdots \frac{M - N + 1}{M}.
 $$
 
-<Elecciones
+<FreeChoices
   rows={[
     { name: 'Ana', taken: {} },
     { name: 'Bea', taken: { 2: 'Ana' } },
@@ -933,9 +934,9 @@ de una en diez millones.
 
 </Slide>
 
-{/* Tiradas — keys arriving one by one into M positions, one row per key: the keys already in, the new one outlined, and the first that lands on an occupied position painted mark with ×2. Drawn twice: a real random run (Python's random, seed 13, M = 16), and the keys 1 to 8 under the multiplication with the golden ratio (M = 8). File-local (§6e-quater). */}
+{/* Throws — keys arriving one by one into M positions, one row per key: the keys already in, the new one outlined, and the first that lands on an occupied position painted mark with ×2. Drawn twice: a real random run (Python's random, seed 13, M = 16), and the keys 1 to 8 under the multiplication with the golden ratio (M = 8). File-local (§6e-quater). */}
 
-export function Tiradas({ keys, cells, caption, label }) {
+export function Throws({ keys, cells, caption, label }) {
   const pad = 12;
   const labelW = 64;
   const cell = 36;
@@ -986,7 +987,7 @@ Lanzar las claves al azar en una tabla, una por una, muestra cuándo llega la
 primera colisión: alrededor de las $$\sqrt{M}$$ claves, muy lejos de $$M$$, con
 la tabla casi vacía.
 
-<Tiradas
+<Throws
   keys={[
     { name: 'Ana', to: 8 },
     { name: 'Bea', to: 9 },
@@ -1016,8 +1017,8 @@ recorrido nunca recibe una clave, y las demás reciben más. Y que ninguna
 reciba muchas más de $$N / M$$ claves, porque una función sobreyectiva igual
 puede cargar una sola posición.
 
-<div style={SAGITAL_GRID}>
-<Sagital
+<div style={ARROW_GRID}>
+<ArrowDiagram
   id="dispareja"
   from={['Ana', 'Bea', 'Eva', 'Leo', 'Sol', 'Teo']}
   to={['0', '1', '2']}
@@ -1028,7 +1029,7 @@ puede cargar una sola posición.
   caption="dispareja: la 0 recibe cuatro claves y la 2 queda vacía"
   label="Seis claves, Ana, Bea, Eva, Leo, Sol y Teo, a tres posiciones. Ana, Bea, Eva y Leo van a la 0; Sol y Teo, a la 1. La 2 no recibe ninguna. La 0, con sus cuatro flechas, y la 2, vacía, están destacadas."
 />
-<Sagital
+<ArrowDiagram
   id="pareja"
   from={['Ana', 'Bea', 'Eva', 'Leo', 'Sol', 'Teo']}
   to={['0', '1', '2']}
@@ -1046,9 +1047,10 @@ $$
 
 </Slide>
 
-{/* Abanico — the uniform hashing assumption drawn: one key over the strip of M positions, an arrow to each, every position with the same probability 1/M written inside. File-local (§6e-quater). */}
+{/* UniformFan — the uniform hashing assumption drawn: one key over the strip of M positions, an arrow to each, every position with the same probability 1/M written inside. File-local (§6e-quater). */}
 
-export function Abanico({ name, cells, caption, label, id, cell = 56 }) {
+export function UniformFan({ name, cells, caption, label, id }) {
+  const cell = 56;
   const pad = 12;
   const chipH = 28;
   const chipW = Math.max(52, name.length * 8.4 + 18);
@@ -1101,7 +1103,7 @@ para todas las posiciones». Además, dónde cae una clave no cambia dónde cae
 otra. Como todas las posiciones tienen la misma probabilidad, todas reciben,
 en promedio, la misma cantidad de claves: $$N / M$$, el reparto parejo.
 
-<Abanico
+<UniformFan
   id="uniforme"
   name="Ana"
   cells={7}
@@ -1151,9 +1153,9 @@ naturaleza distinta.
 
 ## El cálculo de una función hash
 
-{/* Vara — the three requirements of a hash function as three chips, the yardstick every attempt in this act is measured with: `true` paints a chip keep with ✓, `false` flag with ✗, and an omitted one stays neutral with a question mark. `note` adds a short qualifier after the chips. File-local (§6e-quater). */}
+{/* Yardstick — the three requirements of a hash function as three chips, the yardstick every attempt in this act is measured with: `true` paints a chip keep with ✓, `false` flag with ✗, and an omitted one stays neutral with a question mark. `note` adds a short qualifier after the chips. File-local (§6e-quater). */}
 
-export function Vara({ determinista, eficiente, uniforme, note }) {
+export function Yardstick({ deterministic, efficient, uniform, note }) {
   const chip = (name, ok) => {
     const tone = ok === undefined ? null : ok ? 'keep' : 'flag';
     return (
@@ -1166,9 +1168,9 @@ export function Vara({ determinista, eficiente, uniforme, note }) {
   };
   return (
     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.6rem', justifyContent: 'center', alignItems: 'center', margin: '0.8rem 0' }}>
-      {chip('determinista', determinista)}
-      {chip('eficiente', eficiente)}
-      {chip('uniforme', uniforme)}
+      {chip('determinista', deterministic)}
+      {chip('eficiente', efficient)}
+      {chip('uniforme', uniform)}
       {note ? <span style={{ fontSize: '0.85em', color: 'var(--color-ink-soft)' }}>{note}</span> : null}
     </div>
   );
@@ -1179,7 +1181,7 @@ La función hash tiene que convertir un nombre, como «Ana», en el número de u
 casillero, y cumplir los tres requisitos: ser determinista, eficiente y
 uniforme.
 
-<Pasos
+<StepBoxes
   id="entrada"
   boxes={[{ title: 'clave', text: '«Ana»' }, { title: 'posición', text: '?' }]}
   steps={['¿cómo?']}
@@ -1195,7 +1197,7 @@ reales se parecen entre sí —muchos empiezan con la misma letra o terminan
 igual—, y una regla descuidada los junta en pocos casilleros. Bajo cada regla,
 estas tres marcas dicen qué requisitos cumple:
 
-<Vara />
+<Yardstick />
 
 </Slide>
 
@@ -1208,7 +1210,7 @@ nombres no se reparten parejo: unas letras juntan muchos nombres, mientras
 otras dejan sus casilleros vacíos.
 
 <PresentationWide fraction={0.9}>
-<Reparto
+<Distribution
   id="inicial"
   keys={[
     { name: 'Ana', to: 0 },
@@ -1230,7 +1232,7 @@ otras dejan sus casilleros vacíos.
 />
 </PresentationWide>
 
-<Vara determinista eficiente uniforme={false} />
+<Yardstick deterministic efficient uniform={false} />
 
 </Slide>
 
@@ -1245,7 +1247,7 @@ nombres comparten sus primeras letras, y todos los que empiezan igual caen en
 el mismo casillero. Y la mayoría de las combinaciones de tres letras no es el
 comienzo de ningún nombre, así que sus casilleros quedan siempre vacíos.
 
-<Reparto
+<Distribution
   id="prefijo"
   keys={[
     { name: 'María', to: 2 },
@@ -1265,13 +1267,13 @@ comienzo de ningún nombre, así que sus casilleros quedan siempre vacíos.
 La regla sigue mirando solo una parte del nombre, y hereda los parecidos de
 esa parte.
 
-<Vara determinista eficiente uniforme={false} />
+<Yardstick deterministic efficient uniform={false} />
 
 </Slide>
 
-{/* Franja — the range of a rule over the whole codomain: a bar for the positions from 0 to M − 1, and painted on it the stretch the rule can reach. File-local (§6e-quater). */}
+{/* RangeBand — the range of a rule over the whole codomain: a bar for the positions from 0 to M − 1, and painted on it the stretch the rule can reach. File-local (§6e-quater). */}
 
-export function Franja({ total, from, to, caption, label }) {
+export function RangeBand({ total, from, to, caption, label }) {
   const pad = 14;
   const barW = 600;
   const barH = 26;
@@ -1309,7 +1311,7 @@ las mismas letras en otro orden suman lo mismo, y colisionan siempre.
 | «Irma»   | 73 + 114 + 109 + 97       | 393  |
 | «Mari»   | 77 + 97 + 114 + 105       | 393  |
 
-<Reparto
+<Distribution
   id="suma"
   keys={[{ name: 'Sara', to: 0 }, { name: 'Irma', to: 2 }, { name: 'Mari', to: 2 }, { name: 'Juan', to: 7 }]}
   cells={8}
@@ -1336,7 +1338,7 @@ a ocho letras suma entre 259 y 944. Todos los nombres caen en esa franja, y los
 demás casilleros no reciben nunca una clave: la suma está lejos de ser
 sobreyectiva.
 
-<Franja
+<RangeBand
   total={10000}
   from={259}
   to={944}
@@ -1354,7 +1356,7 @@ $$
 La suma no sirve como función hash: no mira el orden de las letras y, por
 grande que sea la tabla, da apenas unos cientos de valores distintos.
 
-<Vara determinista eficiente uniforme={false} />
+<Yardstick deterministic efficient uniform={false} />
 
 </Slide>
 
@@ -1403,7 +1405,7 @@ que se lee «$$x$$ módulo $$M$$». El resto de dividir por $$M$$ siempre está
 entre $$0$$ y $$M - 1$$. Con esto, la función hash queda en **dos pasos**: de
 la clave a un número, y del número a una posición.
 
-<Pasos
+<StepBoxes
   id="division"
   boxes={[{ title: 'clave', text: '«Ana»' }, { title: 'número', text: '4 288 097' }, { title: 'posición', text: '2' }]}
   steps={['base 256', 'mod 7']}
@@ -1503,9 +1505,9 @@ la cuenta más grande, 1 633, queda muy lejos del límite de un `int`.
 
 </Slide>
 
-{/* HornerPaso — a frame of hash("Ana") walked in <StepShow>: the key as a row of characters with their codes, the one at i outlined; the box h with its value; the step's arithmetic beside it; a one-line note under all of it. Fixed size, so the slide never rescales between frames (#321). File-local (§6e-quater). */}
+{/* HornerStep — a frame of hash("Ana") walked in <StepShow>: the key as a row of characters with their codes, the one at i outlined; the box h with its value; the step's arithmetic beside it; a one-line note under all of it. Fixed size, so the slide never rescales between frames (#321). File-local (§6e-quater). */}
 
-export function HornerPaso({ word, i = -1, h, calc, note, m }) {
+export function HornerStep({ word, i = -1, h, calc, note, m }) {
   const X = 96;
   const W = 44;
   const chars = word.split('');
@@ -1553,34 +1555,34 @@ El método `hash` de la tabla calcula la posición con la regla de Horner en bas
 }`}
 >
   <Step lines={[2, 3]}>
-    <HornerPaso word="Ana" m={7} note="«Ana» no es null: tiene una posición." />
+    <HornerStep word="Ana" m={7} note="«Ana» no es null: tiene una posición." />
   </Step>
   <Step lines={[4]}>
-    <HornerPaso word="Ana" m={7} h={0} note="h parte en 0." />
+    <HornerStep word="Ana" m={7} h={0} note="h parte en 0." />
   </Step>
   <Step lines={[5]}>
-    <HornerPaso word="Ana" m={7} h={0} i={0} note="i = 0 es menor que 3: se procesa el primer carácter." />
+    <HornerStep word="Ana" m={7} h={0} i={0} note="i = 0 es menor que 3: se procesa el primer carácter." />
   </Step>
   <Step lines={[6]}>
-    <HornerPaso word="Ana" m={7} h={2} i={0} calc="(256 · 0 + 65) % 7 = 65 % 7 = 2" note="'A' entra en h con su código, 65." />
+    <HornerStep word="Ana" m={7} h={2} i={0} calc="(256 · 0 + 65) % 7 = 65 % 7 = 2" note="'A' entra en h con su código, 65." />
   </Step>
   <Step lines={[5]}>
-    <HornerPaso word="Ana" m={7} h={2} i={1} note="i = 1: el segundo carácter." />
+    <HornerStep word="Ana" m={7} h={2} i={1} note="i = 1: el segundo carácter." />
   </Step>
   <Step lines={[6]}>
-    <HornerPaso word="Ana" m={7} h={6} i={1} calc="(256 · 2 + 110) % 7 = 622 % 7 = 6" note="Lo anterior se multiplica por 256 y entra 'n', 110." />
+    <HornerStep word="Ana" m={7} h={6} i={1} calc="(256 · 2 + 110) % 7 = 622 % 7 = 6" note="Lo anterior se multiplica por 256 y entra 'n', 110." />
   </Step>
   <Step lines={[5]}>
-    <HornerPaso word="Ana" m={7} h={6} i={2} note="i = 2: el tercer carácter." />
+    <HornerStep word="Ana" m={7} h={6} i={2} note="i = 2: el tercer carácter." />
   </Step>
   <Step lines={[6]}>
-    <HornerPaso word="Ana" m={7} h={2} i={2} calc="(256 · 6 + 97) % 7 = 1633 % 7 = 2" note="Otra vez por 256, y entra 'a', 97." />
+    <HornerStep word="Ana" m={7} h={2} i={2} calc="(256 · 6 + 97) % 7 = 1633 % 7 = 2" note="Otra vez por 256, y entra 'a', 97." />
   </Step>
   <Step lines={[5]}>
-    <HornerPaso word="Ana" m={7} h={2} i={3} note="i = 3 ya no es menor que 3: el ciclo termina." />
+    <HornerStep word="Ana" m={7} h={2} i={3} note="i = 3 ya no es menor que 3: el ciclo termina." />
   </Step>
   <Step lines={[8]}>
-    <HornerPaso word="Ana" m={7} h={2} note="hash(«Ana») es 2: la posición de «Ana» en una tabla de 7." />
+    <HornerStep word="Ana" m={7} h={2} note="hash(«Ana») es 2: la posición de «Ana» en una tabla de 7." />
   </Step>
 </StepShow>
 
@@ -1588,7 +1590,7 @@ El método hace una multiplicación, una suma y un resto por carácter, así que
 cuesta $$\Theta(L)$$, con $$L$$ el largo de la clave, sin importar cuántas
 claves haya en la tabla.
 
-<Vara determinista eficiente uniforme note="con un tamaño primo" />
+<Yardstick deterministic efficient uniform note="con un tamaño primo" />
 
 </Slide>
 
@@ -1661,7 +1663,7 @@ de a un paso fijo, se reparten por toda la tabla: con $$M = 8$$, las claves 1
 a 8 ocupan las ocho posiciones, una cada una.
 Al método con esta constante se le llama **hashing de Fibonacci**.
 
-<Tiradas
+<Throws
   keys={[
     { name: '1', to: 4 },
     { name: '2', to: 1 },
@@ -1690,7 +1692,7 @@ $$
 8k \bmod 16 = \begin{cases} 0 & \text{si } k \text{ es par} \\ 8 & \text{si } k \text{ es impar} \end{cases}
 $$
 
-<Reparto
+<Distribution
   id="patron-division"
   keys={[{ name: '8', to: 8 }, { name: '16', to: 0 }, { name: '24', to: 8 }, { name: '32', to: 0 }, { name: '40', to: 8 }, { name: '48', to: 0 }, { name: '56', to: 8 }, { name: '64', to: 0 }]}
   cells={16}
@@ -1703,7 +1705,7 @@ Es justo lo que evita un $$M$$ primo: con $$M = 17$$, las mismas claves caen en
 ocho posiciones distintas. La multiplicación las reparte aunque el tamaño sea
 potencia de 2, porque mira el número completo:
 
-<Reparto
+<Distribution
   id="patron-multiplicacion"
   keys={[{ name: '64', to: 8 }, { name: '56', to: 9 }, { name: '48', to: 10 }, { name: '40', to: 11 }, { name: '32', to: 12 }, { name: '24', to: 13 }, { name: '16', to: 14 }, { name: '8', to: 15 }]}
   cells={16}
@@ -1742,7 +1744,7 @@ en cambio, ese número no cabe en un `int` apenas el texto es un poco largo,
 mientras que la división se puede aplicar en cada paso de Horner y sirve para
 textos de cualquier largo.
 
-<Vara determinista eficiente uniforme note="con un tamaño potencia de 2" />
+<Yardstick deterministic efficient uniform note="con un tamaño potencia de 2" />
 
 </Slide>
 
@@ -1767,9 +1769,9 @@ que crecen duplicando su tamaño.
 
 </Slide>
 
-{/* Pasos — the steps from a key to its position, each value in a box and the step written over the arrow between them: one step for the idea of a hash function, and the two a library splits it into (the key, the integer its type turns it into, the position the table takes from that integer). File-local (§6e-quater). */}
+{/* StepBoxes — the steps from a key to its position, each value in a box and the step written over the arrow between them: one step for the idea of a hash function, and the two a library splits it into (the key, the integer its type turns it into, the position the table takes from that integer). File-local (§6e-quater). */}
 
-export function Pasos({ boxes, steps, caption, label, id }) {
+export function StepBoxes({ boxes, steps, caption, label, id }) {
   const pad = 14;
   const boxW = 120;
   const boxH = 44;
@@ -1822,7 +1824,7 @@ En Java, el primer paso es el método `hashCode()`, que tiene todo objeto, y el
 segundo lo da la tabla. Para un `Integer`, `hashCode()` devuelve el mismo
 número.
 
-<Pasos
+<StepBoxes
   id="pasos"
   boxes={[{ title: 'clave', text: '2024' }, { title: 'número', text: '2024' }, { title: 'posición', text: '1' }]}
   steps={['hashCode()', 'mod 7']}
@@ -1873,7 +1875,7 @@ porque recorre la clave una sola vez, sin importar cuántas claves haya en la
 tabla; y uniforme, porque mira la clave completa y la reparte con un $$M$$
 primo o con la razón áurea.
 
-<Vara determinista eficiente uniforme />
+<Yardstick deterministic efficient uniform />
 
 Queda la segunda decisión, que es de la tabla: qué hacer cuando dos claves
 colisionan. Ninguna función lo evita, y pasa pronto, con la tabla casi vacía.
@@ -1884,9 +1886,9 @@ colisionan. Ninguna función lo evita, y pasa pronto, con la tabla casi vacía.
 
 ## Encadenamiento
 
-{/* Listas — a hash table with chaining drawn still: `table` as a contiguous strip with its index, each position's list hanging under its cell, `null` where a list ends. COPIES the look of the hash-chaining recipe of <SequenceStepper> (sequenceStepperHashLayout.ts: contiguous cells, nodes with the key over a `next` field, lists hanging down) at a smaller pitch, so a still figure and the widget beside it read alike; nothing tests the copy, so a change there is carried here by hand and checked in a browser. `picked` outlines a position, `only` fades the others, `paint` colours a key's node, and `cut` names the key leaving its list: its node dashed and struck through, and the link that skips it — out of the field that pointed at it, to the right, down past it, into the node after it or to `null` — drawn as the widget's unlink frame draws it (sequenceStepperHashView.tsx, `Bypass`). `window={[from, to]}` draws only those positions, with «…» where the table goes on, so two drawings side by side keep a size a projector can read. File-local (§6e-quater). */}
+{/* Chains — a hash table with chaining drawn still: `table` as a contiguous strip with its index, each position's list hanging under its cell, `null` where a list ends. COPIES the look of the hash-chaining recipe of <SequenceStepper> (sequenceStepperHashLayout.ts: contiguous cells, nodes with the key over a `next` field, lists hanging down) at a smaller pitch, so a still figure and the widget beside it read alike; nothing tests the copy, so a change there is carried here by hand and checked in a browser. `picked` outlines a position, `only` fades the others, `paint` colours a key's node, and `cut` names the key leaving its list: its node dashed and struck through, and the link that skips it — out of the field that pointed at it, to the right, down past it, into the node after it or to `null` — drawn as the widget's unlink frame draws it (sequenceStepperHashView.tsx, `Bypass`). `window={[from, to]}` draws only those positions, with «…» where the table goes on, so two drawings side by side keep a size a projector can read. File-local (§6e-quater). */}
 
-export function Listas({ chains, picked, only = false, paint = {}, cut, window: shown, caption, label }) {
+export function Chains({ chains, picked, only = false, paint = {}, cut, window: shown, caption, label }) {
   const pad = 12;
   const pitch = 78;
   const cellH = 30;
@@ -1979,7 +1981,7 @@ export function Listas({ chains, picked, only = false, paint = {}, cut, window: 
   );
 }
 
-export const TABLA = [['Eva'], ['Juan'], ['Leo', 'Ana'], ['Bea'], ['Sara'], [], []];
+export const CHAIN_TABLE = [['Eva'], ['Juan'], ['Leo', 'Ana'], ['Bea'], ['Sara'], [], []];
 
 <Slide title="Una lista en cada posición">
 Dos claves que colisionan tienen la misma posición, y si cada posición guarda
@@ -1991,8 +1993,8 @@ posición `i`, o `null` si ninguna clave cae ahí.
 
 A esta forma de resolver las colisiones se le llama **encadenamiento**.
 
-<Listas
-  chains={TABLA}
+<Chains
+  chains={CHAIN_TABLE}
   caption="siete posiciones; una de ellas guarda dos claves"
   label="Una tabla de siete posiciones con encadenamiento. De la posición 0 cuelga Eva; de la 1, Juan; de la 2, Leo y después Ana; de la 3, Bea; de la 4, Sara. Las posiciones 5 y 6 guardan null."
 />
@@ -2063,8 +2065,8 @@ búsqueda termina al encontrarla o al llegar a `null`: como cada clave está en
 la lista de su posición, no puede estar en ninguna otra.
 
 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '1rem 2rem', alignItems: 'end' }}>
-<Listas
-  chains={TABLA}
+<Chains
+  chains={CHAIN_TABLE}
   picked={2}
   only
   window={[1, 3]}
@@ -2072,8 +2074,8 @@ la lista de su posición, no puede estar en ninguna otra.
   caption="buscar «Ana»: la encuentra en su lista"
   label="La tabla de siete posiciones con la posición 2 destacada y las demás atenuadas. La búsqueda de Ana compara primero con Leo y después con Ana, donde la encuentra."
 />
-<Listas
-  chains={TABLA}
+<Chains
+  chains={CHAIN_TABLE}
   picked={2}
   only
   window={[1, 3]}
@@ -2114,7 +2116,7 @@ está, crea un nodo y lo engancha al **frente** de la lista de su posición, el
 El orden dentro de una lista no importa: ninguna invariante lo pide, solo que
 la clave esté en la lista de su posición.
 
-<Listas
+<Chains
   chains={[['Eva'], ['Juan'], ['Leo', 'Ana'], ['Bea'], ['Teo', 'Sara'], [], []]}
   picked={4}
   paint={{ Teo: 'mark' }}
@@ -2173,8 +2175,8 @@ depende de dónde está:
 Ninguna otra clave cambia de lista, así que ninguna invariante se rompe.
 
 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '1rem 2rem', alignItems: 'end' }}>
-<Listas
-  chains={TABLA}
+<Chains
+  chains={CHAIN_TABLE}
   picked={2}
   only
   window={[1, 3]}
@@ -2182,8 +2184,8 @@ Ninguna otra clave cambia de lista, así que ninguna invariante se rompe.
   caption="eliminar «Leo»: table[2] salta a «Ana»"
   label="La tabla de siete posiciones con la posición 2 destacada y las demás atenuadas. De ella cuelgan Leo y después Ana. Leo, el primer nodo, sale: está tachado y con borde punteado, y una flecha nueva va desde table[2] directo a Ana, saltándolo."
 />
-<Listas
-  chains={TABLA}
+<Chains
+  chains={CHAIN_TABLE}
   picked={2}
   only
   window={[1, 3]}
@@ -2238,8 +2240,8 @@ que se lee «alfa es la cantidad de claves dividida por la de posiciones». En e
 guardarropa, es cuántos abrigos cuelgan en promedio de cada casillero. Bajo el
 supuesto de dispersión uniforme, una lista mide en promedio $$\alpha$$ nodos.
 
-<Listas
-  chains={TABLA}
+<Chains
+  chains={CHAIN_TABLE}
   caption="seis claves en siete posiciones"
   label="La tabla de siete posiciones con seis claves: Eva, Juan, Leo, Ana, Bea y Sara. Su factor de carga es seis séptimos, casi 0,86."
 />
@@ -2295,9 +2297,9 @@ $$
 
 ## La redimensión
 
-{/* Agregados — what each of a run of `add`s costs: one unit to put the key in, plus every key a `resize` moves on the `add` that triggers it. Bars, one per insertion, a moved count over each spike. File-local (§6e-quater). */}
+{/* AddCosts — what each of a run of `add`s costs: one unit to put the key in, plus every key a `resize` moves on the `add` that triggers it. Bars, one per insertion, a moved count over each spike. File-local (§6e-quater). */}
 
-export function Agregados({ moves, total, caption, label }) {
+export function AddCosts({ moves, total, caption, label }) {
   const pad = 14;
   const bw = 24;
   const unit = 7;
@@ -2362,13 +2364,13 @@ entrar con su hash calculado de nuevo, en la lista de su posición en la tabla
 nueva.
 
 <div style={{ display: 'grid', gridTemplateColumns: '3fr 7fr', gap: '1rem 2rem', alignItems: 'end' }}>
-<Listas
+<Chains
   chains={[['Bea'], [], ['Eva', 'Ana']]}
   paint={{ Bea: 'mark', Eva: 'mark' }}
   caption="con M = 3"
   label="La tabla con tres posiciones: de la 0 cuelga Bea, la 1 está vacía y de la 2 cuelgan Eva y después Ana. Bea y Eva están destacadas."
 />
-<Listas
+<Chains
   chains={[['Eva'], [], ['Ana'], ['Bea'], [], [], []]}
   paint={{ Bea: 'mark', Eva: 'mark' }}
   caption="con M = 7: «Bea» y «Eva» cambian de posición"
@@ -2499,7 +2501,7 @@ Repartido entre las $$N$$ inserciones, cada `add` paga en promedio menos de dos
 movimientos además del suyo: redimensionar le cuesta $$\Theta(1)$$
 **amortizado** a cada inserción, igual que agregar en el arreglo dinámico.
 
-<Agregados
+<AddCosts
   moves={[0, 0, 0, 3, 0, 0, 0, 7, 0, 0, 0, 0, 0, 0, 0, 0, 0, 17, 0, 0]}
   total={20}
   caption="20 inserciones desde 3 posiciones: la tabla crece a 7, 17 y 37"
@@ -2533,7 +2535,7 @@ claves en las celdas del propio arreglo, una al lado de la otra.
 
 ## Sondeo lineal
 
-export const SONDEO = ['Pablo', null, null, null, null, 'Mia', 'Alba', null, null, null, 'Julia'];
+export const PROBE_CELLS = ['Pablo', null, null, null, null, 'Mia', 'Alba', null, null, null, 'Julia'];
 
 <Slide title="Una clave en cada posición">
 Si cada celda del arreglo guarda una sola clave, una clave cuya celda ya está
@@ -2545,8 +2547,8 @@ A esta forma de resolver las colisiones se le llama **sondeo lineal** (en
 inglés, *linear probing*): «sondeo» porque prueba celdas, y «lineal» porque las
 prueba de a una, en orden.
 
-<Casilleros
-  cells={SONDEO}
+<Lockers
+  cells={PROBE_CELLS}
   notes={{ 0: 'h 10', 5: 'h 5', 6: 'h 5', 10: 'h 10' }}
   caption="11 celdas: «Alba» encuentra ocupada la celda de su hash y queda en la siguiente; «Pablo» da la vuelta hasta el 0"
   label="Once celdas numeradas del 0 al 10. Pablo está en el 0, Mia en el 5, Alba en el 6 y Julia en el 10. Sobre cada uno, su hash: Pablo 10, Mia 5, Alba 5 y Julia 10."
@@ -2610,16 +2612,16 @@ al final del arreglo, hasta encontrarla o llegar a una celda vacía. Como entre
 el hash de una clave y su celda no hay celdas vacías, la clave no puede estar
 más allá de esa celda vacía.
 
-<Casilleros
-  cells={SONDEO}
+<Lockers
+  cells={PROBE_CELLS}
   paint={{ 10: 'visited', 0: 'found' }}
   notes={{ 10: '1', 0: '2' }}
   caption="buscar «Pablo»: su posición la ocupa «Julia»; la búsqueda da la vuelta y lo encuentra en el 0"
   label="Las once celdas. La búsqueda de Pablo mira la celda 10, con Julia, da la vuelta al final del arreglo y lo encuentra en el 0."
 />
 
-<Casilleros
-  cells={SONDEO}
+<Lockers
+  cells={PROBE_CELLS}
   paint={{ 5: 'visited', 6: 'visited', 7: 'focus' }}
   notes={{ 5: '1', 6: '2', 7: '3' }}
   caption="buscar «Nico»: se miran el 5 y el 6, ocupados, y la celda 7, vacía, dice que no está"
@@ -2656,7 +2658,7 @@ listas. Después avanza desde la celda de su hash hasta la primera libre y deja
 ahí la clave. Todas las celdas que pasó estaban ocupadas, así que entre su
 hash y su celda no queda ninguna vacía.
 
-<Casilleros
+<Lockers
   cells={['Pablo', null, null, null, null, 'Mia', 'Alba', 'Eva', null, null, 'Julia']}
   paint={{ 5: 'visited', 6: 'visited', 7: 'mark' }}
   notes={{ 5: '1', 6: '2', 7: '3' }}
@@ -2746,7 +2748,7 @@ su celda dejaría un hueco: una clave que quedó más allá, en el mismo tramo
 ocupado, tendría una celda vacía entre su hash y su celda, y una búsqueda se
 detendría antes de llegar a ella.
 
-<Casilleros
+<Lockers
   cells={['Pablo', null, null, null, null, 'Mia', null, 'Eva', null, null, 'Julia']}
   paint={{ 5: 'visited', 6: 'focus' }}
   notes={{ 5: '1', 6: '2' }}
@@ -2763,7 +2765,7 @@ que en el guardarropa dijera «aquí hubo un abrigo». La búsqueda pasa sobre l
 marca sin detenerse, y `add` puede volver a usar esa celda. Otra manera es
 volver a insertar todas las claves que siguen a la eliminada en su tramo.
 
-<Casilleros
+<Lockers
   cells={['Pablo', null, null, null, null, 'Mia', 'Alba', 'Eva', null, null, 'Julia']}
   struck={[6]}
   paint={{ 5: 'visited', 6: 'visited', 7: 'found' }}
@@ -2813,7 +2815,7 @@ las marcas, y solo entonces `add` vuelve al hash y deja la clave en la
 primera celda libre o marcada. Si se quedara en la primera marca sin
 preguntar, una clave que ya estaba más adelante quedaría dos veces.
 
-<Casilleros
+<Lockers
   cells={['Pablo', null, null, null, null, 'Mia', 'Alba', null, null, null, 'Julia']}
   struck={[6]}
   paint={{ 5: 'visited', 6: 'visited', 7: 'focus' }}
@@ -2822,7 +2824,7 @@ preguntar, una clave que ya estaba más adelante quedaría dos veces.
   label="Las once celdas con Alba tachada en el 6. La búsqueda de Eva mira el 5, con Mia, pasa sobre la marca del 6 y se detiene en el 7, vacío."
 />
 
-<Casilleros
+<Lockers
   cells={['Pablo', null, null, null, null, 'Mia', 'Eva', null, null, null, 'Julia']}
   paint={{ 6: 'mark' }}
   caption="add vuelve a la posición de su hash y deja a «Eva» en la primera celda libre o marcada: la 6"
@@ -2841,7 +2843,7 @@ hash cae en cualquier celda de un racimo recorre el resto del racimo y queda
 al final, haciéndolo más largo: mientras más largo es un racimo, más claves
 lo alcanzan y más rápido crece. Dos racimos que se tocan se funden en uno.
 
-<Casilleros
+<Lockers
   cells={['Pablo', null, null, null, null, 'Mia', 'Alba', 'Eva', null, null, 'Julia']}
   paint={{ 5: 'visited', 6: 'visited', 7: 'visited', 8: 'mark' }}
   caption="un racimo del 5 al 7; con dos claves más, se funde con el de «Julia» y «Pablo»"
@@ -2888,7 +2890,7 @@ promedio a lo más 2,5 celdas.
 | Molde     | Operación       | Peor caso     | Esperado, con $$\alpha \le 1/2$$ | Invariante que restaura               |
 | --------- | --------------- | ------------- | -------------------------------- | ------------------------------------- |
 | consultar | `contains(key)` | $$\Theta(N)$$ | $$\Theta(1)$$                    | Ninguna: no cambia la tabla           |
-| modificar | `add(key)`      | $$\Theta(N)$$ | $$\Theta(1)$$                    | La clave entra una vez, en la primera celda libre desde su hash; `size` sube |
+| modificar | `add(key)`      | $$\Theta(N)$$ | $$\Theta(1)$$ amortizado         | La clave entra una vez, en la primera celda libre desde su hash, y la tabla crece antes si $$\alpha$$ pasaría de $$1/2$$; `size` sube |
 | modificar | `remove(key)`   | $$\Theta(N)$$ | $$\Theta(1)$$                    | La clave queda marcada y su celda no se vacía; `size` baja |
 
 </Slide>
@@ -2920,7 +2922,7 @@ como el universo de claves es mucho más grande que la tabla, a cada posición
 le corresponden muchísimas claves. Si las que llegan son justo esas, todas
 caen en la misma posición, y cada operación cuesta $$\Theta(N)$$.
 
-<Listas
+<Chains
   chains={[[], [], ['Lucas', 'Carla', 'Leo', 'Ana'], [], [], [], []]}
   picked={2}
   caption="cuatro claves en la posición 2, y las otras seis posiciones vacías"

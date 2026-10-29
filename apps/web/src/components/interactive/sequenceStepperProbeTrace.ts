@@ -7,7 +7,10 @@
  * `keys[i]` holds a key or null, and a parallel `boolean[] deleted` marks a
  * key removed: the key stays in its cell, a search passes over the mark, and
  * an insertion may reuse it (the professor's choice, S3 — a sentinel compared
- * with `==` would teach the trap the course warns against). The invariant every
+ * with `==` would teach the trap the course warns against). Marks come from
+ * `remove` alone: every run starts from a table its keys were added to, so
+ * the widget walks `add` and `resize` over tables without marks, and the
+ * slides draw the reuse of one. The invariant every
  * frame keeps, and the narration names: between the position a key hashes to
  * and the position it sits in there is no empty cell. That is why a search may
  * stop at the first null, and why removing a key cannot empty its cell.
@@ -15,21 +18,25 @@
  * `used` counts the cells that are not null — keys and marks — and `add`
  * resizes before a key would leave more than half of them used. That keeps an
  * empty cell for every search to stop at, and keeps the expected cost the one
- * the class quotes for a load factor of at most one half. The widget does not
- * draw the probing table's resize: a slide whose insertion would trigger it is
- * refused, and the class shows that method as code.
+ * the class quotes for a load factor of at most one half. Without `grow`, a
+ * slide whose insertion would trigger that resize is refused; with it, the
+ * resize is walked inside the run, the old arrays drawn over the new ones.
  */
 import {
-  DEFAULT_BUCKETS,
   hashKey,
+  hashProgram,
+  keysOf,
   MAX_BUCKETS,
-  MIN_BUCKETS,
   nextPrime,
+  q,
+  stampQueue,
+  tableKeys,
 } from './sequenceStepperHashTrace';
-import { lineOf, requireRuns } from './sequenceStepperTraceShared';
+import { lineOf } from './sequenceStepperTraceShared';
 // Types only: the dispatcher imports this module's `traceProbe` as a value, so
 // a value imported back from it would close a runtime cycle (ADR-0083 §1).
 import type {
+  HashProbingOperation,
   ProbeCell,
   ProbeFrame,
   SequenceCell,
@@ -40,15 +47,13 @@ import type {
   SequenceTrace,
 } from './sequenceStepperTrace';
 
-type ProbeOperation = 'search' | 'insert' | 'remove';
-
 /**
  * The three listings as the class writes them. `contains` stops at the first
  * null — the invariant guarantees the key is not past it — and passes over a
  * mark; `add` asks `contains` first and then takes the first cell that is
  * null or marked; `remove` marks instead of emptying.
  */
-const CODE: Record<ProbeOperation, string> = {
+const CODE: Record<HashProbingOperation, string> = {
   search: `public boolean contains(String key) {
     int i = hash(key);
     while (keys[i] != null) {
@@ -126,9 +131,6 @@ interface Cell {
   deleted: boolean;
 }
 
-/** A key in the narration. */
-const q = (key: string) => `«${key}»`;
-
 /** One more step to the right, around the end of the array. */
 const step = (i: number, m: number) => (i + 1) % m;
 
@@ -151,11 +153,18 @@ class ProbeRecorder {
    * `used++` runs before `keys[i] = key` and its frame must already show it.
    */
   used: number;
+  /**
+   * The listing's `size`, a counter for the same reason: it changes on
+   * `size++`, `size--` and `size = 0`, not on the line that writes the cell
+   * (#331 review).
+   */
+  size: number;
 
   constructor(code: string, cells: Cell[]) {
     this.code = code;
     this.cells = cells;
     this.used = cells.filter((c) => c.key !== null).length;
+    this.size = cells.filter((c) => c.key !== null && !c.deleted).length;
   }
 
   reset(key: string): void {
@@ -185,7 +194,7 @@ class ProbeRecorder {
       key: this.key,
       home: this.home,
       at: this.at,
-      size: live.length,
+      size: this.size,
       used: this.used,
     };
     if (this.old !== undefined) {
@@ -199,7 +208,8 @@ class ProbeRecorder {
         at,
       };
     }
-    // The size readout counts the keys not marked; nothing reads a value here.
+    // One shared cell per key not marked; the readouts read `probe`, and
+    // nothing reads a value here.
     const mirror: SequenceCell[] = live.map((c, i) => ({ id: i, value: 0, state: c.state }));
     const own = [...new Set(lines)];
     this.steps.push({
@@ -215,68 +225,32 @@ class ProbeRecorder {
   }
 }
 
-/** The keys a run is asked for. */
-function keysOf(input: SequenceInput): string[] {
-  const key = input.key;
-  if (key === undefined) {
-    throw new Error(
-      'Falta la clave con que trabaja la operación: target para buscar o eliminar, value para insertar.',
-    );
-  }
-  const keys = Array.isArray(key) ? key : [key];
-  requireRuns(keys.length);
-  for (const k of keys) {
-    if (typeof k !== 'string' || k.length === 0) {
-      throw new Error('Cada clave es un texto no vacío, como "Ana".');
-    }
-  }
-  return keys;
-}
-
-/** The table the author writes: `keys` added in order with linear probing, then `deleted` marked. */
+/** The table the author writes: `keys` added in order with linear probing. */
 function buildTable(input: SequenceInput): { m: number; cells: Cell[] } {
-  const m = input.capacity ?? DEFAULT_BUCKETS;
-  if (!Number.isInteger(m) || m < MIN_BUCKETS || m > MAX_BUCKETS) {
-    throw new Error(
-      `La tabla tiene ${m} posiciones: entre ${MIN_BUCKETS} y ${MAX_BUCKETS}, que es lo que el dibujo lee bien en una lámina.`,
-    );
-  }
-  const keys = input.keys ?? [];
-  // Every key of `values` takes a cell, marked or not, so they all count as used.
+  const { m, keys } = tableKeys(input);
+  // Every key of `values` takes a cell, so they all count as used.
   if (2 * keys.length > m) {
     throw new Error(
       `${keys.length} celdas usadas en ${m} posiciones: pasa de la mitad de la tabla, y add la habría redimensionado antes de llegar ahí. Con la tabla llena, una búsqueda de una clave que no está no se detendría nunca.`,
     );
   }
   const cells: Cell[] = Array.from({ length: m }, () => ({ key: null, deleted: false }));
-  const seen = new Set<string>();
   for (const key of keys) {
-    if (typeof key !== 'string' || key.length === 0) {
-      throw new Error('Cada clave es un texto no vacío, como "Ana".');
-    }
-    if (seen.has(key)) {
-      throw new Error(
-        `La clave ${q(key)} está dos veces en values: una tabla guarda cada clave una vez.`,
-      );
-    }
-    seen.add(key);
     let i = hashKey(key, m);
     while (cells[i]!.key !== null) i = step(i, m);
     cells[i] = { key, deleted: false };
   }
-  for (const key of input.deleted ?? []) {
-    const at = cells.findIndex((c) => c.key === key);
-    if (at < 0) {
-      throw new Error(
-        `deleted marca ${q(key)}, que no está en values: solo se marca una clave que la tabla guarda.`,
-      );
-    }
-    cells[at] = { key, deleted: true };
-  }
   return { m, cells };
 }
 
-export function traceProbe(operation: ProbeOperation, input: SequenceInput): SequenceTrace {
+export function traceProbe(operation: HashProbingOperation, input: SequenceInput): SequenceTrace {
+  const walked = walkProbe(operation, input);
+  return input.program === true
+    ? hashProgram('ProbingHashTable', operation, input, walked)
+    : walked;
+}
+
+function walkProbe(operation: HashProbingOperation, input: SequenceInput): SequenceTrace {
   const keys = keysOf(input);
   const { m: first, cells } = buildTable(input);
   const growing = input.grow === true;
@@ -290,11 +264,7 @@ export function traceProbe(operation: ProbeOperation, input: SequenceInput): Seq
     if (operation === 'search') search(rec, m, key);
     else if (operation === 'insert') m = insert(rec, m, key, growing);
     else remove(rec, m, key);
-    if (growing) {
-      // Every frame of the run is about this key; its last frame has added it.
-      for (const step of rec.steps.slice(from)) step.queue = { done: run, at: run };
-      rec.steps.at(-1)!.queue = { done: run + 1, at: null };
-    }
+    if (growing) stampQueue(rec.steps, from, run);
   }
   if (growing) {
     const widest = Math.max(...rec.steps.map((s) => s.probe!.cells.length));
@@ -424,7 +394,7 @@ function insert(rec: ProbeRecorder, m: number, key: string, growing = false): nu
     const cell = rec.cells[i]!;
     rec.settle();
     rec.cost += 1;
-    if (!cell.deleted && cell.key === key) {
+    if (cell.key === key) {
       rec.state.set(i, 'found');
       rec.push(
         'found',
@@ -443,9 +413,7 @@ function insert(rec: ProbeRecorder, m: number, key: string, growing = false): nu
     rec.push(
       'compare',
       [callLine],
-      cell.deleted
-        ? `contains(${q(key)}) pasa sobre la marca de la celda ${i}.`
-        : `contains(${q(key)}) mira la celda ${i}: ${q(cell.key!)} no es ${q(key)}.`,
+      `contains(${q(key)}) mira la celda ${i}: ${q(cell.key!)} no es ${q(key)}.`,
     );
     i = step(i, m);
   }
@@ -456,8 +424,8 @@ function insert(rec: ProbeRecorder, m: number, key: string, growing = false): nu
     `contains(${q(key)}) llega a la celda vacía ${i}: ${q(key)} no está.`,
   );
 
-  // The resize check: one frame on its line, or a refusal when the slide's
-  // table is too full for the widget, which does not draw this resize.
+  // The resize check: one frame on its line. Past the half, a growing run
+  // walks the resize; any other run is refused, since it does not draw it.
   const checkLine = lineOf(code, 'if (2 * (used + 1) > keys.length)');
   if (2 * (rec.used + 1) > m) {
     if (!growing) {
@@ -471,7 +439,7 @@ function insert(rec: ProbeRecorder, m: number, key: string, growing = false): nu
       [checkLine],
       `2 · (used + 1) = ${2 * (rec.used + 1)}, más que keys.length = ${m}: con ${q(key)}, la tabla pasaría de la mitad. Antes de agregarla, crece.`,
     );
-    rec.lane = [...new Set([checkLine, lineOf(code, 'resize(nextPrime')])];
+    rec.lane = [checkLine, lineOf(code, 'resize(nextPrime')];
     m = resize(rec, m);
     rec.lane = null;
     rec.key = key;
@@ -490,7 +458,7 @@ function insert(rec: ProbeRecorder, m: number, key: string, growing = false): nu
 
   const whileLine = lineOf(code, 'while (keys[i] != null && !deleted[i])');
   let at = h;
-  while (rec.cells[at]!.key !== null && !rec.cells[at]!.deleted) {
+  while (rec.cells[at]!.key !== null) {
     rec.settle();
     rec.state.set(at, 'active');
     rec.push('compare', [whileLine], `keys[${at}] está ocupada por ${q(rec.cells[at]!.key!)}.`);
@@ -506,48 +474,25 @@ function insert(rec: ProbeRecorder, m: number, key: string, growing = false): nu
     );
   }
   rec.settle();
-  const reused = rec.cells[at]!.deleted;
+  rec.push('compare', [whileLine], `keys[${at}] es null: aquí entra ${q(key)}.`);
+
+  rec.used += 1;
   rec.push(
-    'compare',
-    [whileLine],
-    reused
-      ? `keys[${at}] tiene la marca de borrado: su celda se puede usar otra vez.`
-      : `keys[${at}] es null: aquí entra ${q(key)}.`,
+    'grow',
+    [lineOf(code, 'if (keys[i] == null) used++')],
+    `keys[${at}] es null: una celda más pasa a estar usada, y used sube de ${rec.used - 1} a ${rec.used}.`,
   );
 
-  const usedLine = lineOf(code, 'if (keys[i] == null) used++');
-  if (reused) {
-    rec.push(
-      'compare',
-      [usedLine],
-      `keys[${at}] tiene una marca, no es null: la celda ya contaba en used, que sigue en ${rec.used}.`,
-    );
-  } else {
-    rec.used += 1;
-    rec.push(
-      'grow',
-      [usedLine],
-      `keys[${at}] es null: una celda más pasa a estar usada, y used sube de ${rec.used - 1} a ${rec.used}.`,
-    );
-  }
-
-  rec.cells[at] = { key, deleted: reused };
+  rec.cells[at] = { key, deleted: false };
   rec.state.set(at, 'new');
   rec.push(
     'build',
     [lineOf(code, 'keys[i] = key')],
     `keys[${at}] = ${q(key)}. Entre su hash, ${h}, y su celda, ${at}, no hay ninguna vacía: la invariante se mantiene.`,
   );
-  rec.cells[at] = { key, deleted: false };
-  rec.push(
-    'build',
-    [lineOf(code, 'deleted[i] = false')],
-    reused
-      ? `deleted[${at}] = false: la marca se borra, la celda vuelve a tener una clave.`
-      : `deleted[${at}] = false.`,
-  );
-  const before = rec.cells.filter((c) => c.key !== null && !c.deleted).length - 1;
-  rec.push('grow', [lineOf(code, 'size++')], `size pasa de ${before} a ${before + 1}.`);
+  rec.push('build', [lineOf(code, 'deleted[i] = false')], `deleted[${at}] = false.`);
+  rec.size += 1;
+  rec.push('grow', [lineOf(code, 'size++')], `size pasa de ${rec.size - 1} a ${rec.size}.`);
   rec.push(
     'done',
     [lineOf(code, 'return true')],
@@ -565,9 +510,9 @@ function insert(rec: ProbeRecorder, m: number, key: string, growing = false): nu
 /**
  * `resize` inside a growing run: the old arrays kept, new ones of the next
  * prime past twice the size, `size` and `used` back to 0, and one frame per
- * old cell — empty or marked, it is skipped; otherwise `add` puts its key in
- * the first free cell from its hash in the new table. The marks do not come
- * along. Returns the new number of cells.
+ * old cell — an empty one is skipped; otherwise `add` puts its key in the
+ * first free cell from its hash in the new table. A growing run only adds, so
+ * its table has no marks to leave behind. Returns the new number of cells.
  */
 function resize(rec: ProbeRecorder, m: number): number {
   const code = RESIZE_CODE;
@@ -578,7 +523,7 @@ function resize(rec: ProbeRecorder, m: number): number {
     );
   }
   const old = rec.cells;
-  const total = old.filter((c) => c.key !== null && !c.deleted).length;
+  const total = old.filter((c) => c.key !== null).length;
   rec.reset('');
   rec.push(
     'start',
@@ -598,6 +543,7 @@ function resize(rec: ProbeRecorder, m: number): number {
     `keys y deleted son arreglos nuevos de ${grown} celdas, vacíos.`,
   );
   rec.used = 0;
+  rec.size = 0;
   rec.push(
     'shrink',
     [lineOf(code, 'size = 0'), lineOf(code, 'used = 0')],
@@ -611,14 +557,8 @@ function resize(rec: ProbeRecorder, m: number): number {
     rec.state.clear();
     rec.key = '';
     rec.home = null;
-    if (cell.key === null || cell.deleted) {
-      rec.push(
-        'walk',
-        [loop, check],
-        cell.key === null
-          ? `oldKeys[${i}] es null: no hay clave que mover.`
-          : `oldKeys[${i}] es ${q(cell.key)}, marcada: no vuelve a entrar, y su marca no pasa a la tabla nueva.`,
-      );
+    if (cell.key === null) {
+      rec.push('walk', [loop, check], `oldKeys[${i}] es null: no hay clave que mover.`);
       continue;
     }
     const home = hashKey(cell.key, grown);
@@ -626,6 +566,7 @@ function resize(rec: ProbeRecorder, m: number): number {
     while (rec.cells[j]!.key !== null) j = step(j, grown);
     rec.cells[j] = { key: cell.key, deleted: false };
     rec.used += 1;
+    rec.size += 1;
     rec.state.set(j, 'new');
     rec.key = cell.key;
     rec.home = home;
@@ -644,7 +585,7 @@ function resize(rec: ProbeRecorder, m: number): number {
   rec.push(
     'done',
     [],
-    `${total === 1 ? 'La clave está' : `Las ${total} claves están`} en la tabla de ${grown} celdas, cada una en la primera celda libre desde su hash: la invariante se cumple otra vez, y no queda ninguna marca.`,
+    `${total === 1 ? 'La clave está' : `Las ${total} claves están`} en la tabla de ${grown} celdas, cada una en la primera celda libre desde su hash: la invariante se cumple otra vez.`,
   );
   return grown;
 }
@@ -680,8 +621,8 @@ function remove(rec: ProbeRecorder, m: number, key: string): void {
     [lineOf(code, 'deleted[i] = true')],
     `deleted[${where}] = true: la clave queda marcada, no borrada. Si la celda quedara vacía, una búsqueda se detendría en ella y no llegaría a las claves que están después; con la marca, la invariante se mantiene.`,
   );
-  const live = rec.cells.filter((c) => c.key !== null && !c.deleted).length;
-  rec.push('shrink', [lineOf(code, 'size--')], `size pasa de ${live + 1} a ${live}.`);
+  rec.size -= 1;
+  rec.push('shrink', [lineOf(code, 'size--')], `size pasa de ${rec.size + 1} a ${rec.size}.`);
   rec.push(
     'done',
     [lineOf(code, 'return true')],

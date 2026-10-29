@@ -158,9 +158,13 @@ Decided with the professor before it was drawn:
   that line and `if (keys[i] == null) used++;`, shows `used` under `size`,
   and refuses a starting table past the half and an insertion that would
   resize — it does not draw this table's resize, which the class shows as
-  code.
+  code. (Since the `grow` amendment below it does, in a growing run; any
+  other run still refuses that insertion.)
 - **A slide may start from marks** (`deleted={['Bea']}`): the act needs a
-  search that passes over one and an insertion that reuses one.
+  search that passes over one and an insertion that reuses one. *Withdrawn
+  by the pre-PR review (amendment below): no slide mounted it — the act
+  draws the reuse of a mark as a figure — so marks come from `remove`
+  alone.*
 - The class's example is eleven positions where Ana and Bea collide at 5,
   Olga sits at 10 and Iván wraps from 10 to 0; Luz, absent, hashes to 5, and
   Eva enters at 7 — four used cells, so one insertion still leaves the table
@@ -208,9 +212,9 @@ None ships without a slide that mounts it (#296, ADR-0077 §5).
   canvas keeps one size);
   `SequenceStep` and `SequenceTrace` also gain `probe` (`keys` and `deleted`
   cell by cell, the hash's cell, the cursor, the listing's `size`; and the
-  positions); `SequenceInput` gains `keys`, `key` and `deleted`; the
-  component's `value` and `target` accept text, and it gains `deleted`. The
-  other recipes never set them.
+  positions); `SequenceInput` gains `keys` and `key`; the component's
+  `value` and `target` accept text. (Both gained `deleted` too, until the
+  pre-PR review removed it.) The other recipes never set them.
 - **The picture exists only in a real browser.** The frames, the hashes and
   the geometry are pinned exactly (`sequenceStepperHashTrace.test.ts`,
   `sequenceStepperProbeTrace.test.ts`, `sequenceStepperHashLayout.test.ts`), and the component test pins which
@@ -229,10 +233,8 @@ table created, the keys of `values` added one per line, one call per key of
 the run — and the method on the right, walked for every call with the
 program's line lit (`listingNames` `programa`, `método`). The table is named
 `names`, the class's own name for a table of names; `method` and `receiver`
-stay ignored. A starting table with `deleted` marks is refused under
-`program`: no program of `add`s writes a mark, and a program that removes
-first would be a run the slide did not ask for. The wrapper is one function
-over both traces (`hashProgram` in `sequenceStepperTrace.ts`), pinned in
+stay ignored. The wrapper is one function
+over both traces (`hashProgram`, in `sequenceStepperHashTrace.ts` since the pre-PR review), pinned in
 `sequenceStepperHashTrace.test.ts` and `sequenceStepperProbeTrace.test.ts`,
 and the class's two program slides are walked to their last frame in
 `SequenceStepper.test.tsx`.
@@ -257,7 +259,8 @@ its listings in a column on the left, 38% of the width, and the table on the
 right with that column's height (`SequenceTrace.beside`) — the professor's
 review measured the nodes too small with the listings above. The slide runs
 it without `program`: three listings in that column do not fit its height,
-and the key being added is on the chip over the table and in the narration.
+and the key being added is on the chip over the table and in the narration
+(`traceFor` refuses the two together since the pre-PR review).
 The run then names its keys in the widget's header instead (`queue` on the
 trace, `queue` on every step): the one being added outlined, the ones added
 struck through — the professor asked for the run to stay visible without a
@@ -274,8 +277,8 @@ trigger one. `grow` now holds on `hash-probing` × `insert`: when
 `2 * (used + 1) > keys.length`, the class's `resize` is walked in a second
 listing — the old arrays kept as `oldKeys` and `oldDeleted`, new ones of the
 next prime past twice the size, `size` and `used` back to 0, and one frame
-per old cell, a null or marked one skipped and any other key put by `add` in
-the first free cell from its hash in the new table — while the call stays
+per old cell, a null one skipped and any other key put by `add` in the
+first free cell from its hash in the new table — while the call stays
 lit in `add` (`ProbeFrame.old`). The drawing stacks the old arrays over the
 new ones (`layoutProbe`'s `old` and `below`, with room for the longer names)
 and the run keeps the canvas of its largest tables. As on the chaining
@@ -288,3 +291,34 @@ cells, the call lit, every old key in the first free cell from its hash, the
 final table and its invariant) and `sequenceStepperHashLayout.test.ts`; the
 slide «Una tabla con sondeo que crece» is walked to its last frame in
 `SequenceStepper.test.tsx`.
+
+## Amendment — the pre-PR review (#331, 2026-10-29)
+
+The review pipeline over the whole class changed six things, each pinned by
+a test written first:
+
+- **`deleted` is gone** (ADR-0077 §5: a prop no slide mounts is removed
+  before merge). The slide «Agregar sobre una celda marcada» draws the reuse
+  of a mark with two figures, as the class draws every case, so the prop had
+  no reader. Marks now come from `remove` alone, and every run starts from a
+  table its keys were added to; the probing trace lost the branches only a
+  table that started with marks reached — `add` passing over a mark and
+  reusing it, `resize` skipping one. A later removal in the same program
+  still walks past the mark an earlier one left, and removing a key already
+  marked answers `false`: both pinned in `sequenceStepperProbeTrace.test.ts`.
+- **`program` with `grow` is refused.** The combination had code of its own
+  (a constructor on two lines, a row of three listings, a layout branch no
+  trace could reach) and no slide.
+- **`grow` refuses what `add` could not have produced**: a chaining table
+  that starts with more keys than positions, and a key the run adds twice or
+  that is already in `values`, which the header would strike as added.
+- **A growing run drawn side by side** (old and new together within twelve
+  positions) draws the table, the position its hash picked, the key chip
+  and the node `add` builds on the same strip; before, the table sat on the
+  left strip and the chip and node over the empty right one.
+- **The probing `size` readout is a counter**, as `used` already was: it
+  changes on `size++`, `size--` and `size = 0`, not a frame before on the
+  line that writes the cell.
+- **The stacked bypass** runs midway between two columns at the narrower
+  pitch; at 12px from the node it lay on the next column's border.
+

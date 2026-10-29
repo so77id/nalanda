@@ -400,7 +400,7 @@ export interface SequenceStep {
   cost: number;
   /** Tree recipes only: the tree this frame leaves. `cells` mirrors its nodes. */
   tree?: TreeFrame;
-  /** The hash recipe only: the table this frame leaves. `cells` mirrors its keys. */
+  /** `hash-chaining` only: the table this frame leaves. `cells` mirrors its keys. */
   hash?: HashFrame;
   /** The probing recipe only: `keys` and `deleted` as this frame leaves them. */
   probe?: ProbeFrame;
@@ -471,7 +471,7 @@ export interface SequenceTrace {
   hasCarry: boolean;
   /** Tree recipes only: what the whole run needs to keep one canvas. */
   tree?: TreeRun;
-  /** The hash recipe only: what the whole run needs to keep one canvas. */
+  /** `hash-chaining` only: what the whole run needs to keep one canvas. */
   hash?: HashRun;
   /** The probing recipe only: its positions. */
   probe?: { buckets: number; oldBuckets?: number };
@@ -503,22 +503,17 @@ export interface SequenceInput {
    */
   levelOrder?: (TreeValue | null)[];
   /**
-   * The hash recipe only: the keys already in the table, added in this order,
-   * each at the front of the list of its position. Keys are text — the class's
-   * table holds `String`s — so they travel apart from the numeric `values`.
+   * The hash tables only: the keys already in the table, added in this order.
+   * Keys are text — the class's tables hold `String`s — so they travel apart
+   * from the numeric `values`.
    */
   keys?: string[];
   /**
-   * The hash recipe only: the key the operation works with. An ARRAY runs it
+   * The hash tables only: the key the operation works with. An ARRAY runs it
    * once per key over the same table. The component reads it from `target`
    * (search, remove) or `value` (insert), the props every recipe uses.
    */
   key?: string | string[];
-  /**
-   * `hash-probing` only: keys of `keys` that were removed — each stays in its
-   * cell with `deleted[i]` set, so a slide can start from a table with marks.
-   */
-  deleted?: string[];
   /**
    * Required by every `insert-*` except `insert-ordered`, and by the heap's
    * `insert`. An ARRAY inserts
@@ -562,10 +557,11 @@ export interface SequenceInput {
    */
   program?: boolean;
   /**
-   * `hash-chaining` and `hash-probing` × `insert` (#326 review): `add` with the line that
-   * resizes when `size == table.length`, and `resize` walked inside the run in
-   * a listing of its own beside it, so a run of insertions shows the table
-   * growing and every key moving to its new position.
+   * `hash-chaining` and `hash-probing` × `insert` (#326 review): `add` with the
+   * line that resizes — when `size == table.length` with lists, when
+   * `2 * (used + 1) > keys.length` with probing — and `resize` walked inside
+   * the run in a listing of its own beside it, so a run of insertions shows
+   * the table growing and every key moving to its new position.
    */
   grow?: boolean;
   /**
@@ -784,6 +780,24 @@ export function traceFor(
       `grow va con eda="hash-chaining" o "hash-probing" y operation="insert": es add que redimensiona la tabla; no con «${recipe}» × «${operation}».`,
     );
   }
+  if (input.grow === true && input.program === true) {
+    throw new Error(
+      'grow no va con program: add y resize ya ocupan la columna de los listados junto a las dos tablas, y un programa no cabe. La seguidilla nombra sus claves arriba del widget.',
+    );
+  }
+  if (input.grow === true) {
+    // The header strikes every key of the run as added, and add returns false
+    // for one the table already holds (#331 review).
+    const seen = new Set(input.keys ?? []);
+    for (const key of asRuns(input.key)) {
+      if (seen.has(key)) {
+        throw new Error(
+          `«${key}» ya está en la tabla cuando la seguidilla la agrega: add devuelve false, y la lista de arriba la tacharía como agregada. Con grow, cada clave se agrega una vez.`,
+        );
+      }
+      seen.add(key);
+    }
+  }
   if (input.program === true && input.iterative === true) {
     throw new Error(
       'Un programa no lleva el listado iterativo al lado: el programa ocupa esa columna. Usa program o iterative, no los dos.',
@@ -817,99 +831,12 @@ export function traceFor(
   if (recipe === 'bst' && isBstOperation(operation)) return traceSearchTree(operation, input);
   if (recipe === 'avl' && isAvlOperation(operation)) return traceAvl(operation, input);
   if (recipe === 'hash-chaining' && isHashChainingOperation(operation)) {
-    const walked = traceHash(operation, input);
-    return input.program === true
-      ? hashProgram('ChainedHashTable', operation, input, walked)
-      : walked;
+    return traceHash(operation, input);
   }
   if (recipe === 'hash-probing' && isHashProbingOperation(operation)) {
-    const walked = traceProbe(operation, input);
-    return input.program === true
-      ? hashProgram('ProbingHashTable', operation, input, walked)
-      : walked;
+    return traceProbe(operation, input);
   }
   return isList(recipe) ? traceList(recipe, operation, input) : traceArray(operation, input);
-}
-
-/**
- * Insertions or removals on a hash table run by a program (#326 review, the
- * shape of the search trees' programs, #322): the program on the left — the
- * table created, the keys of `keys` added, one call per key of the run — and
- * the method it calls on the right, walked for every call the way a single
- * run walks it. The program's line stays lit while the method runs, so the
- * reader sees which call the method is in. A starting table with marks has
- * no program that writes it, short of removals the slide did not ask for.
- */
-function hashProgram(
-  type: 'ChainedHashTable' | 'ProbingHashTable',
-  operation: 'insert' | 'remove' | 'search' | 'resize',
-  input: SequenceInput,
-  walked: SequenceTrace,
-): SequenceTrace {
-  if ((input.deleted ?? []).length > 0) {
-    throw new Error(
-      'Un programa arma su tabla con add, y una marca de deleted no sale de ahí: el programa empieza sin marcas.',
-    );
-  }
-  const keys = input.keys ?? [];
-  const runs = Array.isArray(input.key) ? input.key : [input.key];
-  const call = operation === 'insert' ? 'add' : 'remove';
-  const capacity = input.capacity ?? walked.hash?.buckets ?? walked.probe?.buckets;
-  // Beside two methods (`grow`) the program gets the width its longest line
-  // needs, so the constructor breaks where Java allows it and leaves the
-  // methods their room.
-  const create = walked.row
-    ? [`${type} names =`, `        new ${type}(${capacity});`]
-    : [`${type} names = new ${type}(${capacity});`];
-  const built = create.length + keys.length;
-  const code = [
-    ...create,
-    ...keys.map((k) => `names.add("${k}");`),
-    ...runs.map((k) => `names.${call}("${k}");`),
-  ].join('\n');
-  const first = walked.steps[0]!;
-  const openingLines = Array.from({ length: built }, (_, i) => i + 1);
-  const opening: SequenceStep = {
-    ...first,
-    kind: 'start',
-    highlightLines: openingLines,
-    alongsideLines: [],
-    ...(walked.row ? { rowLines: [openingLines, ...walked.row.map(() => [])] } : {}),
-    ...(walked.queue ? { queue: { done: 0, at: null } } : {}),
-    description:
-      keys.length === 0
-        ? `La tabla, vacía: ${capacity} posiciones.`
-        : `La tabla, con las ${keys.length} claves que el programa agregó.`,
-    ...(first.hash ? { hash: { ...first.hash, key: '', bucket: null, pointers: [] } } : {}),
-    ...(first.probe ? { probe: { ...first.probe, key: '', home: null, at: null } } : {}),
-  };
-  // A run starts where the method is called, at its public method's frame.
-  // A run starts at the public method's frame; a `resize` inside a run opens
-  // with a frame of its own, and carries the run's key as nothing — it is not
-  // a new call of the program.
-  let run = -1;
-  const steps = walked.steps.map((step) => {
-    if (step.kind === 'start' && (step.hash?.key ?? step.probe?.key ?? '') !== '') run += 1;
-    const call = [built + run + 1];
-    return walked.row
-      ? { ...step, highlightLines: call, rowLines: [call, ...(step.rowLines ?? [])] }
-      : { ...step, highlightLines: call, alongsideLines: step.highlightLines };
-  });
-  if (walked.row) {
-    return {
-      ...walked,
-      code,
-      row: [{ name: 'programa', code }, ...walked.row],
-      steps: [opening, ...steps],
-    };
-  }
-  return {
-    ...walked,
-    code,
-    alongside: walked.code,
-    listingNames: ['programa', 'método'],
-    steps: [opening, ...steps],
-  };
 }
 
 // ── shared helpers ────────────────────────────────────────────────────────

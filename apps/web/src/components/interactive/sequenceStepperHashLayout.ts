@@ -18,16 +18,23 @@
  * Above the strip there is one band, over the position the hash picked: the
  * key being searched for sits there, and so does the node `add` builds before
  * it enters its list — so the key and the node it becomes occupy one place.
+ *
+ * COPIED: the file-local `Chains` of `23-edd-tablas-hash.mdx` draws its still
+ * tables with this look at a smaller pitch (a contiguous strip, nodes with the
+ * key over a `next` field, lists hanging down), and its `cut` draws the link
+ * that skips a node as `Bypass` in `sequenceStepperHashView.tsx` does, so a
+ * figure and the widget beside it read alike. That copy is the one that fails
+ * late — nothing tests a document's own components — so a change here is
+ * carried there by hand and checked in a browser.
  */
 
-/** Horizontal room per position. */
-const PITCH = 96;
 /**
- * A cell of `table` takes the whole pitch, so the strip is contiguous: an
- * array is drawn flush, as `dynamic-array` draws it, and only the NODES — loose
- * objects in memory — stand apart (Miguel's review of S1).
+ * Horizontal room per position. A cell of `table` takes the whole pitch, so
+ * the strip is contiguous: an array is drawn flush, as `dynamic-array` draws
+ * it, and only the NODES — loose objects in memory — stand apart (Miguel's
+ * review of S1).
  */
-const CELL_W = PITCH;
+const PITCH = 96;
 const CELL_H = 30;
 /** A node of a list: the key on top, its `next` field below. */
 export const NODE_W = 60;
@@ -83,7 +90,6 @@ export interface HashLayout extends HashStrip {
    * this one, under it. `null` when the two fit side by side.
    */
   below: HashStrip | null;
-  stacked: boolean;
 }
 
 /** Past this many positions between `old` and `table`, they are stacked instead of side by side. */
@@ -91,8 +97,8 @@ const SIDE_BY_SIDE = 12;
 /**
  * The column of a position when the tables are stacked: eleven positions at
  * the usual pitch made the canvas wider than its panel, and every node
- * smaller (#326 review). A node and its link still fit, with the bypass clear
- * of the next column.
+ * smaller (#326 review). A node and its link still fit, with the bypass
+ * midway between two columns.
  */
 const STACKED_PITCH = 72;
 
@@ -104,10 +110,10 @@ const SEP = 24;
 /**
  * `buckets` is `table.length` and `longest` the longest list any frame of the
  * run holds. Both come from the whole run, so the canvas keeps one size from
- * the first frame to the last. `oldBuckets` is given only by `resize`, which
- * draws the old table to the left of the new one, each strip named as the
- * listing names it; every other run draws one strip, unnamed, where it always
- * was.
+ * the first frame to the last. `oldBuckets` is given by `resize` and by a
+ * `grow` run: the old table is drawn to the left of the new one, or over it
+ * when the two pass twelve positions, each strip named as the listing names
+ * it; every other run draws one strip, unnamed, where it always was.
  */
 export function layoutHash(buckets: number, longest: number, oldBuckets = 0): HashLayout {
   const bandY = PAD;
@@ -123,7 +129,7 @@ export function layoutHash(buckets: number, longest: number, oldBuckets = 0): Ha
       cx: cx(bucket),
     });
     return {
-      cell: (bucket) => box(bucket, dy + cellY, pitch === PITCH ? CELL_W : pitch, CELL_H),
+      cell: (bucket) => box(bucket, dy + cellY, pitch, CELL_H),
       index: (bucket) => ({ x: cx(bucket), y: dy + cellY - 7 }),
       node: (bucket, k) => box(bucket, dy + nodeY(k), NODE_W, NODE_H),
       band: (bucket) => box(bucket, dy + bandY, NODE_W, NODE_H),
@@ -131,7 +137,9 @@ export function layoutHash(buckets: number, longest: number, oldBuckets = 0): Ha
         x: cx(bucket),
         y: dy + (length === 0 ? cellY + CELL_H / 2 + 4 : nodeY(length) - GAP + 13),
       }),
-      bypassX: (bucket) => cx(bucket) + NODE_W / 2 + 12,
+      // Midway between two columns of nodes at the narrower pitch, whose gap
+      // is 12: the usual offset of 12 landed on the next column's edge.
+      bypassX: (bucket) => cx(bucket) + NODE_W / 2 + Math.min(12, (pitch - NODE_W) / 2),
       name: { x: origin - 8, y: dy + cellY + CELL_H / 2 + 4 },
     };
   };
@@ -145,7 +153,6 @@ export function layoutHash(buckets: number, longest: number, oldBuckets = 0): Ha
       height: 2 * stripH + SEP + PAD,
       old: top,
       below: strip(origin, stripH + SEP, STACKED_PITCH),
-      stacked: true,
     };
   }
   const named = oldBuckets > 0;
@@ -157,7 +164,6 @@ export function layoutHash(buckets: number, longest: number, oldBuckets = 0): Ha
     height: stripH + PAD,
     old: named ? strip(oldOrigin) : null,
     below: null,
-    stacked: false,
   };
 }
 

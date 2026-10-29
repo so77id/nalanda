@@ -521,14 +521,13 @@ describe('sequenceStepperTrace · hash-chaining · insertions that grow the tabl
   // inside the run in a listing of its own, so a run of insertions shows the
   // table growing — from 2 positions to 5, then to 11 — and every key moving.
   const GROWN = ['Ana', 'Bea', 'Eva', 'Leo', 'Sara', 'Juan', 'Teo'];
-  const grow = (program = false): SequenceTrace =>
+  const grow = (): SequenceTrace =>
     traceFor('hash-chaining', 'insert', {
       values: [],
       keys: [],
       key: GROWN,
       capacity: 2,
       grow: true,
-      program,
     });
 
   const lines = (code: string, lit: number[] | undefined): string[] => {
@@ -604,18 +603,60 @@ describe('sequenceStepperTrace · hash-chaining · insertions that grow the tabl
     expect(run.oldBuckets).toBe(5);
   });
 
-  it('runs as a program beside add and resize', () => {
-    const trace = grow(true);
-    expect(trace.row!.map((l) => l.name)).toEqual(['programa', 'add', 'resize']);
-    // Beside two methods the constructor breaks, so the program stays narrow.
-    expect(trace.row![0]!.code.split('\n')).toEqual([
-      'ChainedHashTable names =',
-      '        new ChainedHashTable(2);',
-      ...GROWN.map((k) => `names.add("${k}");`),
-    ]);
-    const leo = trace.steps.filter((s) => s.rowLines?.[0]?.[0] === 6);
-    expect(leo.length).toBeGreaterThan(0);
-    expect(trace.steps[0]!.rowLines).toEqual([[1, 2], [], []]);
+  it('refuses a program: three listings do not fit beside the tables', () => {
+    // The slide runs it without one, and the header names the keys instead
+    // (#331 review, ARC-4).
+    for (const recipe of ['hash-chaining', 'hash-probing'] as const) {
+      expect(() =>
+        traceFor(recipe, 'insert', {
+          values: [],
+          keys: [],
+          key: ['Ana', 'Bea', 'Eva'],
+          capacity: 2,
+          grow: true,
+          program: true,
+        }),
+      ).toThrow(/program/);
+    }
+  });
+
+  it('refuses a starting table add would already have resized', () => {
+    // Four keys in three positions: the fourth add would have found
+    // size == table.length and grown the table first (#331 review, COR-2).
+    expect(() =>
+      traceFor('hash-chaining', 'insert', {
+        values: [],
+        keys: ['Ana', 'Bea', 'Eva', 'Leo'],
+        key: 'Sara',
+        capacity: 3,
+        grow: true,
+      }),
+    ).toThrow(/redimensionado/);
+  });
+
+  it('refuses a key the run would add twice: the header would strike it as added', () => {
+    // add returns false for it, and the list in the header has no state for
+    // that (#331 review, COR-7).
+    for (const recipe of ['hash-chaining', 'hash-probing'] as const) {
+      expect(() =>
+        traceFor(recipe, 'insert', {
+          values: [],
+          keys: [],
+          key: ['Ana', 'Ana'],
+          capacity: 2,
+          grow: true,
+        }),
+      ).toThrow(/«Ana»/);
+      expect(() =>
+        traceFor(recipe, 'insert', {
+          values: [],
+          keys: ['Ana'],
+          key: ['Ana'],
+          capacity: 3,
+          grow: true,
+        }),
+      ).toThrow(/«Ana»/);
+    }
   });
 
   it('grows only an insertion', () => {

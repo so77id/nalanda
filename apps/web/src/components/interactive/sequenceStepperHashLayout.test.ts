@@ -137,7 +137,6 @@ describe('layoutHash · a resize too wide to draw side by side', () => {
   // top, where the table was, and the new one under it.
   it('stacks old over the table once the two pass twelve positions', () => {
     const stacked = layoutHash(11, 2, 5);
-    expect(stacked.stacked).toBe(true);
     expect(stacked.below).not.toBeNull();
     const below = stacked.below!;
     // The table's strip starts under the longest list of old, null included.
@@ -148,9 +147,18 @@ describe('layoutHash · a resize too wide to draw side by side', () => {
     expect(stacked.height).toBeGreaterThan(below.nullAt(0, 2).y);
   });
 
+  it('keeps the bypass clear of the next column at the narrower pitch', () => {
+    // On the growing slide «Teo» enters position 4 and «Eva» sits in 5: a
+    // link down the bypass ran along her border (#331 review, COR-8).
+    const below = layoutHash(11, 2, 5).below!;
+    for (let i = 0; i < 10; i += 1) {
+      expect(below.bypassX(i)).toBeGreaterThan(below.node(i, 0).x + below.node(i, 0).w);
+      expect(below.bypassX(i)).toBeLessThan(below.node(i + 1, 0).x);
+    }
+  });
+
   it('keeps a resize that fits side by side as it was', () => {
     const side = layoutHash(7, 2, 3);
-    expect(side.stacked).toBe(false);
     expect(side.below).toBeNull();
     expect(side.cell(0).x).toBeGreaterThan(side.old!.cell(2).x);
   });

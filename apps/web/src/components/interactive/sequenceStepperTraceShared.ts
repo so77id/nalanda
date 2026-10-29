@@ -36,7 +36,7 @@ export function lineOf(code: string, fragment: string): number {
  * through here, so the multi-run shape is one rule rather than one per
  * operation.
  */
-export const asRuns = (v: number | number[] | undefined): number[] =>
+export const asRuns = <T>(v: T | T[] | undefined): T[] =>
   v === undefined ? [] : Array.isArray(v) ? v : [v];
 
 /**

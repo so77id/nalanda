@@ -34,12 +34,11 @@ const M = 11;
 const run = (
   operation: SequenceOperation,
   key: string | string[],
-  extra: { keys?: string[]; deleted?: string[] } = {},
+  extra: { keys?: string[] } = {},
 ): SequenceTrace =>
   traceFor('hash-probing', operation, {
     values: [],
     keys: extra.keys ?? KEYS,
-    deleted: extra.deleted,
     key,
     capacity: M,
   });
@@ -97,14 +96,6 @@ describe('sequenceStepperTrace · hash-probing · the table the keys build', () 
     expect(first.probe!.used).toBe(4);
     expect(holds(first)).toBe(true);
   });
-
-  it('marks the keys a slide says were removed, and leaves them in their cells', () => {
-    const first = run('search', 'Mia', { deleted: ['Alba'] }).steps[0]!;
-    expect(first.probe!.cells[6]).toMatchObject({ key: 'Alba', deleted: true });
-    expect(first.probe!.size).toBe(3);
-    // A marked cell is still used: a search goes past it.
-    expect(first.probe!.used).toBe(4);
-  });
 });
 
 describe('sequenceStepperTrace · hash-probing · search', () => {
@@ -133,13 +124,6 @@ describe('sequenceStepperTrace · hash-probing · search', () => {
     expect(trace.steps.at(-1)!.description).toBe(
       '«Nico» no está: se miraron 2 celdas ocupadas desde la posición 5, hasta la celda vacía 7.',
     );
-  });
-
-  it('passes over a mark without stopping: the key may be after it', () => {
-    const trace = run('search', 'Eva', { keys: [...KEYS, 'Eva'], deleted: ['Alba'] });
-    const marked = trace.steps.find((s) => s.probe!.at === 6 && s.kind === 'compare')!;
-    expect(marked.description).toBe('keys[6] tiene la marca de borrado: se sigue de largo.');
-    expect(trace.steps.find((s) => s.kind === 'found')!.probe!.at).toBe(7);
   });
 });
 
@@ -173,21 +157,11 @@ describe('sequenceStepperTrace · hash-probing · insert', () => {
     const counted = fresh.steps.find((s) => lit(fresh, s)[0] === 'if (keys[i] == null) used++;')!;
     expect(counted.probe!.used).toBe(5);
     expect(fresh.steps.at(-1)!.probe!.used).toBe(5);
-    const reused = run('insert', 'Eva', { deleted: ['Alba'] });
-    expect(reused.steps.at(-1)!.probe!.used).toBe(4);
   });
 
   it('refuses an insertion that would leave the table more than half full', () => {
     // Five used of eleven: a sixth passes the half, and add would resize.
     expect(() => run('insert', 'Nico', { keys: [...KEYS, 'Eva'] })).toThrow(/redimensiona/);
-  });
-
-  it('reuses a marked cell, and clears its mark', () => {
-    const trace = run('insert', 'Eva', { deleted: ['Alba'] });
-    const placed = trace.steps.find((s) => lit(trace, s)[0] === 'keys[i] = key;')!;
-    expect(placed.probe!.at).toBe(6);
-    const cleared = trace.steps.find((s) => lit(trace, s)[0] === 'deleted[i] = false;')!;
-    expect(cleared.probe!.cells[6]).toMatchObject({ key: 'Eva', deleted: false });
   });
 
   it('refuses a key that is already there', () => {
@@ -216,6 +190,45 @@ describe('sequenceStepperTrace · hash-probing · remove', () => {
   });
 });
 
+describe('sequenceStepperTrace · hash-probing · the size readout', () => {
+  // `size` is the listing's field: it changes on the line that changes it,
+  // not a frame before (#331 review, COR-4).
+  const at = (trace: SequenceTrace, line: string) =>
+    trace.steps.find((s) => lit(trace, s)[0] === line)!.probe!.size;
+
+  it('rises on size++ when the key takes an empty cell', () => {
+    const trace = run('insert', 'Eva');
+    expect(at(trace, 'keys[i] = key;')).toBe(4);
+    expect(at(trace, 'deleted[i] = false;')).toBe(4);
+    expect(at(trace, 'size++;')).toBe(5);
+  });
+
+  it('drops on size--, not on the mark', () => {
+    const trace = run('remove', 'Alba');
+    expect(at(trace, 'deleted[i] = true;')).toBe(4);
+    expect(at(trace, 'size--;')).toBe(3);
+  });
+
+  it('goes back to 0 on size = 0 while resize runs, and counts each key add puts back', () => {
+    const trace = traceFor('hash-probing', 'insert', {
+      values: [],
+      keys: [],
+      key: ['Teo', 'Julia'],
+      capacity: 2,
+      grow: true,
+    });
+    const resizeLines = trace.row![1]!.code.split('\n');
+    const inResize = (line: string) =>
+      trace.steps.filter((s) =>
+        (s.rowLines?.[1] ?? []).some((n) => resizeLines[n - 1]!.trim() === line),
+      );
+    expect(inResize('keys = new String[capacity];').map((s) => s.probe!.size)).toEqual([1]);
+    expect(inResize('size = 0;').map((s) => s.probe!.size)).toEqual([0]);
+    expect(inResize('add(oldKeys[i]);').map((s) => s.probe!.size)).toEqual([1]);
+    expect(trace.steps.at(-1)!.probe!.size).toBe(2);
+  });
+});
+
 describe('sequenceStepperTrace · hash-probing · authoring guards', () => {
   it('refuses a table more than half full, which the class would have resized', () => {
     expect(() =>
@@ -227,34 +240,17 @@ describe('sequenceStepperTrace · hash-probing · authoring guards', () => {
       }),
     ).toThrow(/mitad/);
   });
-
-  it('refuses a mark on a key the table does not hold', () => {
-    expect(() => run('search', 'Mia', { deleted: ['Nico'] })).toThrow(/«Nico»/);
-  });
-
-  it('refuses a mark on the chaining table, which has no deleted array', () => {
-    expect(() =>
-      traceFor('hash-chaining', 'search', {
-        values: [],
-        keys: ['Mia'],
-        deleted: ['Mia'],
-        key: 'Mia',
-        capacity: 7,
-      }),
-    ).toThrow(/sondeo/);
-  });
 });
 
 describe('sequenceStepperTrace · hash-probing · a program of insertions or removals', () => {
   const program = (
     operation: 'insert' | 'remove',
     key: string[],
-    extra: { keys?: string[]; deleted?: string[] } = {},
+    extra: { keys?: string[] } = {},
   ): SequenceTrace =>
     traceFor('hash-probing', operation, {
       values: [],
       keys: extra.keys ?? [],
-      deleted: extra.deleted,
       key,
       capacity: M,
       program: true,
@@ -281,8 +277,36 @@ describe('sequenceStepperTrace · hash-probing · a program of insertions or rem
     expect(marksOf(trace.steps.at(-1)!)[5]).toBe(true);
   });
 
-  it('refuses a starting table with marks: no program of adds writes one', () => {
-    expect(() => program('remove', ['Mia'], { keys: KEYS, deleted: ['Alba'] })).toThrow(/marca/);
+  it('walks a later removal past the mark an earlier one left', () => {
+    // Marks come from remove alone: Eva hashes to 5 and sits at 7, past
+    // Alba's cell, which the first removal marked.
+    const trace = program('remove', ['Alba', 'Eva'], { keys: [...KEYS, 'Eva'] });
+    const passed = trace.steps.filter((s) => s.description.includes('marca de borrado: se sigue'));
+    expect(passed.map((s) => s.probe!.at)).toEqual([6]);
+    expect(marksOf(trace.steps.at(-1)!)).toEqual([
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      true,
+      false,
+      false,
+      false,
+    ]);
+  });
+
+  it('answers false for a key already marked: a mark is not the key', () => {
+    // The walk passes over Alba's own mark and stops at the null after it
+    // (#331 review, COR-3).
+    const trace = program('remove', ['Alba', 'Alba'], { keys: KEYS });
+    const second = trace.steps.filter((s) => s.kind === 'start').at(-1)!;
+    const after = trace.steps.slice(trace.steps.indexOf(second));
+    expect(after.some((s) => s.kind === 'found')).toBe(false);
+    expect(after.at(-1)!.description).toBe('«Alba» no estaba: la tabla no cambia.');
+    expect(trace.steps.at(-1)!.probe!.size).toBe(3);
   });
 });
 
