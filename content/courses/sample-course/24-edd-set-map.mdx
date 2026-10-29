@@ -18,9 +18,513 @@ preguntas que la tabla no sabe responder. Separar lo que se pregunta de cómo
 se guarda permite escribir un programa una sola vez y elegir después la
 estructura que lo hace más barato.
 
+{/* The running example: the RUTs that have voted, as text with its dots, as a carnet prints them. Eight digits each, so the order of the text is the order of the numbers until the class says otherwise, and check digits that are valid under módulo 11. VOTED lists them in the order they arrive; VOTED_TABLE is the chaining table with M = 7 those arrivals build under the hash class's own `hash` (Horner, base 256, over the text with its dots, each key at the FRONT of its list), and VOTED_TREE is the AVL tree the same arrivals build. Computed by a script, not drawn by hand; the output is quoted in the commit that brought them. ABSENT is a RUT that has not voted: valid check digit, position 5 of the table, empty. */}
+
+export const VOTED = ['18.155.218-2', '13.180.992-1', '13.959.276-K', '17.814.358-1', '22.715.853-0', '12.547.354-7'];
+
+export const VOTED_TABLE = [['17.814.358-1', '18.155.218-2'], ['12.547.354-7'], [], ['13.180.992-1'], ['22.715.853-0'], [], ['13.959.276-K']];
+
+export const VOTED_TREE = { v: '13.959.276-K', l: { v: '13.180.992-1', l: { v: '12.547.354-7' } }, r: { v: '18.155.218-2', l: { v: '17.814.358-1' }, r: { v: '22.715.853-0' } } };
+
+export const ABSENT = '20.118.702-8';
+
+{/* KeySet — a set drawn as what the contract sees: a rounded region holding its elements as chips, with no positions and no order. `probe` draws a question over it — a chip «¿x?» with an arrow — that lands on the chip that answers it, painted `keep`, or on the edge of the region when nothing answers. File-local (add-a-course-document.md §6e-quater): no catalog entry, one consumer. */}
+
+export function KeySet({ title, keys, probe, caption, label, id }) {
+  const chipW = 112;
+  const chipH = 30;
+  const gap = 12;
+  const inner = 16;
+  const perRow = 3;
+  const rows = Math.ceil(keys.length / perRow);
+  const blobW = perRow * chipW + (perRow - 1) * gap + 2 * inner;
+  const blobH = rows * chipH + (rows - 1) * gap + 2 * inner;
+  const probeW = chipW + 26;
+  const blobY = probe ? 12 + chipH + 46 : 26;
+  const width = Math.max(blobW + 24, caption ? caption.length * 6.6 + 24 : 0);
+  const blobX = (width - blobW) / 2;
+  const height = blobY + blobH + (caption ? 34 : 12);
+  const chipX = (n) => blobX + inner + (n % perRow) * (chipW + gap);
+  const chipY = (n) => blobY + inner + Math.floor(n / perRow) * (chipH + gap);
+  const at = probe === undefined ? -1 : keys.indexOf(probe);
+  // The question sits over the chip that answers it, so its arrow goes
+  // straight down: it must land in the first row to cross no other chip.
+  const probeX = at >= 0 ? chipX(at) + chipW / 2 : width / 2;
+  const toX = probeX;
+  const toY = at >= 0 ? chipY(at) - 4 : blobY - 4;
+  const arrow = at >= 0 ? 'var(--color-keep)' : 'var(--color-ink-soft)';
+  return (
+    <svg viewBox={`0 0 ${width} ${height}`} style={{ width: '100%', maxWidth: `${Math.round(width * 1.3)}px`, height: 'auto', display: 'block', margin: '0.4rem auto' }} role="img" aria-label={label}>
+      <defs>
+        <marker id={`${id}-punta`} markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+          <path d="M0,0 L8,4 L0,8 z" style={{ fill: arrow }} />
+        </marker>
+      </defs>
+      <rect x={blobX} y={blobY} width={blobW} height={blobH} rx="18" style={{ fill: 'var(--color-sunk)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.4" />
+      <text x={blobX + 14} y={blobY - 8} fontSize="12" fontWeight="700" style={{ fill: 'var(--color-ink-soft)' }}>{title}</text>
+      {keys.map((k, n) => (
+        <g key={k}>
+          <rect x={chipX(n)} y={chipY(n)} width={chipW} height={chipH} rx="15" style={{ fill: n === at ? 'var(--color-keep-soft)' : 'var(--color-surface)', stroke: n === at ? 'var(--color-keep)' : 'var(--color-rule-strong)' }} strokeWidth={n === at ? 2.2 : 1.2} />
+          <text x={chipX(n) + chipW / 2} y={chipY(n) + chipH / 2 + 5} textAnchor="middle" fontSize="13" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{k}</text>
+        </g>
+      ))}
+      {probe !== undefined ? (
+        <g>
+          <rect x={probeX - probeW / 2} y={12} width={probeW} height={chipH} rx="15" style={{ fill: 'var(--color-surface)', stroke: arrow }} strokeWidth="1.6" strokeDasharray={at >= 0 ? undefined : '5 4'} />
+          <text x={probeX} y={12 + chipH / 2 + 5} textAnchor="middle" fontSize="13" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{`¿${probe}?`}</text>
+          <line x1={probeX} y1={12 + chipH + 2} x2={toX} y2={toY} style={{ stroke: arrow }} strokeWidth="1.6" markerEnd={`url(#${id}-punta)`} />
+        </g>
+      ) : null}
+      {caption ? (
+        <text x={width / 2} y={height - 10} textAnchor="middle" fontSize="12" style={{ fill: 'var(--color-ink-soft)' }}>{caption}</text>
+      ) : null}
+    </svg>
+  );
+}
+
+{/* ChainTable — a hash table with chaining drawn still, with nodes wide enough for a RUT. COPIES the look of the hash-chaining recipe of <SequenceStepper> (sequenceStepperHashLayout.ts: a contiguous strip with its index, nodes with the key over a `next` field, lists hanging down, `null` where one ends), as the file-local `Chains` of 23-edd-tablas-hash.mdx does at a narrower node; neither copy is tested, so a change in the recipe is carried to both by hand and checked in a browser. Not `Chains` itself: that one draws names in 56 px, and a RUT needs twice that. `order` numbers every node in the order a walk over the table meets it — position by position, each list from its front —, `tones` paints a key's node (`keep`, `mark`, `faint`). File-local (§6e-quater). */}
+
+export function ChainTable({ chains, tones = {}, order = false, caption, label }) {
+  const pad = 12;
+  const pitch = 108;
+  const cellH = 30;
+  const nodeW = 98;
+  const keyH = 24;
+  const nodeH = 36;
+  const gap = 18;
+  const indexY = 18;
+  const cellY = 26;
+  const longest = Math.max(1, ...chains.map((c) => c.length));
+  const stripW = chains.length * pitch;
+  const width = Math.max(2 * pad + stripW, caption ? caption.length * 6.6 + 24 : 0);
+  const left = (width - stripW) / 2;
+  const nodeY = (k) => cellY + cellH + gap + k * (nodeH + gap);
+  const height = nodeY(longest) - gap + 18 + (caption ? 30 : 6);
+  const fill = { keep: 'var(--color-keep-soft)', mark: 'var(--color-mark-soft)', faint: 'var(--color-surface)' };
+  const stroke = { keep: 'var(--color-keep)', mark: 'var(--color-mark)', faint: 'var(--color-rule)' };
+  const rank = {};
+  chains.flat().forEach((key, n) => {
+    rank[key] = n + 1;
+  });
+  return (
+    <svg viewBox={`0 0 ${width} ${height}`} style={{ width: '100%', maxWidth: `${Math.round(width * 1.3)}px`, height: 'auto', display: 'block', margin: '0.4rem auto' }} role="img" aria-label={label}>
+      {chains.map((chain, i) => {
+        const cx = left + i * pitch + pitch / 2;
+        return (
+          <g key={i}>
+            <text x={cx} y={indexY} textAnchor="middle" fontSize="11" style={{ fill: 'var(--color-ink-faint)' }}>{i}</text>
+            <rect x={left + i * pitch} y={cellY} width={pitch} height={cellH} style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.2" />
+            {chain.length === 0 ? (
+              <text x={cx} y={cellY + cellH / 2 + 4} textAnchor="middle" fontSize="11" style={{ fill: 'var(--color-ink-faint)' }}>null</text>
+            ) : (
+              <g>
+                <circle cx={cx} cy={cellY + cellH / 2} r="3" style={{ fill: 'var(--color-ink-soft)' }} />
+                <line x1={cx} y1={cellY + cellH / 2} x2={cx} y2={nodeY(0) - 2} style={{ stroke: 'var(--color-ink-soft)' }} strokeWidth="1.4" />
+                <path d={`M ${cx - 4} ${nodeY(0) - 7} L ${cx} ${nodeY(0) - 1} L ${cx + 4} ${nodeY(0) - 7} z`} style={{ fill: 'var(--color-ink-soft)' }} />
+              </g>
+            )}
+            {chain.map((key, k) => {
+              const y = nodeY(k);
+              const t = tones[key];
+              return (
+                <g key={key} opacity={t === 'faint' ? 0.45 : undefined}>
+                  <rect x={cx - nodeW / 2} y={y} width={nodeW} height={nodeH} rx="3" style={{ fill: t ? fill[t] : 'var(--color-surface)', stroke: t ? stroke[t] : 'var(--color-rule)' }} strokeWidth={t && t !== 'faint' ? 2.2 : 1.2} />
+                  <line x1={cx - nodeW / 2} y1={y + keyH} x2={cx + nodeW / 2} y2={y + keyH} style={{ stroke: t ? stroke[t] : 'var(--color-rule)' }} strokeWidth="1" />
+                  <text x={cx} y={y + keyH / 2 + 5} textAnchor="middle" fontSize="12.5" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{key}</text>
+                  {k < chain.length - 1 ? (
+                    <g>
+                      <circle cx={cx} cy={y + keyH + (nodeH - keyH) / 2} r="2.5" style={{ fill: 'var(--color-ink-soft)' }} />
+                      <line x1={cx} y1={y + keyH + (nodeH - keyH) / 2} x2={cx} y2={nodeY(k + 1) - 2} style={{ stroke: 'var(--color-ink-soft)' }} strokeWidth="1.4" />
+                      <path d={`M ${cx - 4} ${nodeY(k + 1) - 7} L ${cx} ${nodeY(k + 1) - 1} L ${cx + 4} ${nodeY(k + 1) - 7} z`} style={{ fill: 'var(--color-ink-soft)' }} />
+                    </g>
+                  ) : (
+                    <text x={cx} y={y + nodeH + 13} textAnchor="middle" fontSize="10" style={{ fill: 'var(--color-ink-faint)' }}>null</text>
+                  )}
+                  {order ? (
+                    <g>
+                      <circle cx={cx - nodeW / 2} cy={y} r="8.5" strokeWidth="2" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-ink-soft)' }} />
+                      <text x={cx - nodeW / 2} y={y + 3.8} textAnchor="middle" fontSize="10.5" fontWeight="700" style={{ fill: 'var(--color-ink)' }}>{rank[key]}</text>
+                    </g>
+                  ) : null}
+                </g>
+              );
+            })}
+          </g>
+        );
+      })}
+      {caption ? (
+        <text x={width / 2} y={height - 8} textAnchor="middle" fontSize="12" style={{ fill: 'var(--color-ink-soft)' }}>{caption}</text>
+      ) : null}
+    </svg>
+  );
+}
+
+{/* KeyTree — a binary search tree whose keys are too wide for <BinaryPicture>'s circles: the same placement (every node in the column of its inorder position, on the row of its depth) and the same tones and inorder colour (design-system.md §The tree figures' palette), with each node a pill as wide as a RUT. `order` numbers the nodes in inorder, as BinaryPicture's `visits="in"` does, and `strip` writes the inorder under the tree, each key in its node's column, which is why the row comes out sorted. `minColumns` widens the canvas as BinaryPicture's does, so a tree drawn beside a wider figure comes out at the same size. `tones` paints a node and its slot in the strip. File-local (§6e-quater); BinaryPicture is the component, this only exists because a RUT does not fit in it. */}
+
+export function KeyTree({ tree, tones = {}, order = false, strip = false, minColumns = 0, caption, label }) {
+  const pad = 12;
+  const nodeW = 98;
+  const nodeH = 30;
+  const colW = 108;
+  const levelH = 62;
+  const slotH = 30;
+  const nodes = [];
+  const place = (t, depth) => {
+    if (!t) return;
+    place(t.l, depth + 1);
+    nodes.push({ v: t.v, l: t.l, r: t.r, depth, column: nodes.length });
+    place(t.r, depth + 1);
+  };
+  place(tree, 0);
+  const column = Object.fromEntries(nodes.map((n) => [n.v, n.column]));
+  const deepest = Math.max(...nodes.map((n) => n.depth));
+  const treeW = nodes.length * colW;
+  const width = Math.max(2 * pad + Math.max(nodes.length, minColumns) * colW, caption ? caption.length * 6.6 + 24 : 0);
+  const left = (width - treeW) / 2;
+  const cx = (v) => left + column[v] * colW + colW / 2;
+  const cy = (depth) => pad + 8 + nodeH / 2 + depth * levelH;
+  const stripY = cy(deepest) + nodeH / 2 + 28;
+  const bottom = strip ? stripY + slotH : cy(deepest) + nodeH / 2;
+  const height = bottom + (caption ? 34 : 12);
+  const tone = {
+    keep: ['var(--color-keep-soft)', 'var(--color-keep)', 2.2],
+    focus: ['var(--color-surface)', 'var(--color-focus)', 2.4],
+    mark: ['var(--color-mark-soft)', 'var(--color-mark)', 2.2],
+  };
+  const paint = (v) => tone[tones[v]] ?? ['var(--color-surface)', 'var(--color-rule-strong)', 1.3];
+  return (
+    <svg viewBox={`0 0 ${width} ${height}`} style={{ width: '100%', maxWidth: `${Math.round(width * 1.3)}px`, height: 'auto', display: 'block', margin: '0.4rem auto' }} role="img" aria-label={label}>
+      {nodes.flatMap((n) =>
+        [n.l, n.r].filter(Boolean).map((child) => (
+          <line key={`e${child.v}`} x1={cx(n.v)} y1={cy(n.depth) + nodeH / 2} x2={cx(child.v)} y2={cy(n.depth + 1) - nodeH / 2} style={{ stroke: 'var(--color-rule-strong)' }} strokeWidth="1.4" />
+        )),
+      )}
+      {nodes.map((n) => {
+        const [fill, stroke, weight] = paint(n.v);
+        return (
+          <g key={n.v} opacity={tones[n.v] === 'faint' ? 0.45 : undefined}>
+            <rect x={cx(n.v) - nodeW / 2} y={cy(n.depth) - nodeH / 2} width={nodeW} height={nodeH} rx={nodeH / 2} style={{ fill, stroke }} strokeWidth={weight} />
+            <text x={cx(n.v)} y={cy(n.depth) + 5} textAnchor="middle" fontSize="12.5" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{n.v}</text>
+            {order ? (
+              <g>
+                <circle cx={cx(n.v) - nodeW / 2 + 6} cy={cy(n.depth) - nodeH / 2} r="8.5" strokeWidth="2" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-accent)' }} />
+                <text x={cx(n.v) - nodeW / 2 + 6} y={cy(n.depth) - nodeH / 2 + 3.8} textAnchor="middle" fontSize="10.5" fontWeight="700" style={{ fill: 'var(--color-ink)' }}>{n.column + 1}</text>
+              </g>
+            ) : null}
+            {strip ? (
+              <g>
+                <line x1={cx(n.v)} y1={cy(n.depth) + nodeH / 2 + 3} x2={cx(n.v)} y2={stripY - 3} style={{ stroke: 'var(--color-rule)' }} strokeWidth="1" strokeDasharray="2 4" />
+                <rect x={left + n.column * colW} y={stripY} width={colW} height={slotH} style={{ fill: tones[n.v] === 'keep' ? 'var(--color-keep-soft)' : 'var(--color-surface)', stroke: 'var(--color-accent)' }} strokeWidth="1.6" />
+                <text x={cx(n.v)} y={stripY + slotH / 2 + 5} textAnchor="middle" fontSize="12.5" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{n.v}</text>
+              </g>
+            ) : null}
+          </g>
+        );
+      })}
+      {caption ? (
+        <text x={width / 2} y={height - 10} textAnchor="middle" fontSize="12" style={{ fill: 'var(--color-ink-soft)' }}>{caption}</text>
+      ) : null}
+    </svg>
+  );
+}
+
+<Slide title="Un registro de votantes">
+En una elección con varias mesas, cada persona vota una sola vez, en
+cualquiera de ellas. Antes de entregar el voto, la mesa le pregunta al
+registro si ese RUT ya votó, en esa mesa o en otra; al cerrar, el registro
+informa cuántas personas votaron. Lo que el registro guarda es un
+**conjunto** de RUTs que crece durante el día, y sobre él se hacen tres cosas:
+
+- **preguntar** si un RUT está;
+- **agregar** un RUT, que nunca queda dos veces;
+- **contar** cuántos RUTs hay.
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '1rem 2rem', alignItems: 'end' }}>
+<KeySet
+  id="voto-esta"
+  title="votaron"
+  keys={VOTED}
+  probe="13.959.276-K"
+  caption="¿13.959.276-K? está: ya votó"
+  label="Un conjunto de seis RUTs que ya votaron: 18.155.218-2, 13.180.992-1, 12.547.354-7, 17.814.358-1, 22.715.853-0 y 13.959.276-K. Sobre él, la pregunta por 13.959.276-K, con una flecha que llega a ese mismo RUT dentro del conjunto, destacado: ya votó."
+/>
+<KeySet
+  id="voto-no-esta"
+  title="votaron"
+  keys={VOTED}
+  probe={ABSENT}
+  caption="¿20.118.702-8? no está: puede votar"
+  label="El mismo conjunto de seis RUTs. Sobre él, la pregunta por 20.118.702-8, con una flecha que llega al borde del conjunto sin encontrarlo: no ha votado."
+/>
+</div>
+
+</Slide>
+
+<Slide title="El registro en una tabla hash y en un árbol AVL">
+Dos estructuras de la unidad ya hacen las tres operaciones. La **tabla hash
+con listas** calcula la posición de cada RUT y recorre solo la lista de esa
+posición: cuesta $$\Theta(1)$$ esperado. El **árbol AVL** compara y baja por
+un solo camino, de altura acotada: cuesta $$O(\log N)$$ en el peor caso. Las
+dos guardan los mismos RUTs, cada uno una sola vez.
+
+<ChainTable
+  chains={VOTED_TABLE}
+  caption="la tabla: cada RUT en la lista de su posición"
+  label="Una tabla hash con encadenamiento de siete posiciones. De la posición 0 cuelgan 17.814.358-1 y después 18.155.218-2; de la 1, 12.547.354-7; de la 3, 13.180.992-1; de la 4, 22.715.853-0; de la 6, 13.959.276-K. Las posiciones 2 y 5 guardan null."
+/>
+
+<KeyTree
+  tree={VOTED_TREE}
+  minColumns={7}
+  caption="el árbol: los menores a la izquierda de cada nodo, los mayores a su derecha"
+  label="Un árbol AVL con los mismos seis RUTs. La raíz es 13.959.276-K; a su izquierda, 13.180.992-1, con 12.547.354-7 como hijo izquierdo; a su derecha, 18.155.218-2, con 17.814.358-1 y 22.715.853-0 debajo."
+/>
+
+$$
+h(\text{«17.814.358-1»}) = h(\text{«18.155.218-2»}) = 0
+$$
+
+</Slide>
+
+<Slide title="Dos clases para las mismas tres operaciones">
+Las dos estructuras resuelven el registro, pero no se usan de la misma
+manera. Sus métodos públicos hacen lo mismo con otros nombres, y no
+responden lo mismo:
+
+| Operación | Tabla hash con listas          | Árbol AVL                   |
+| --------- | ------------------------------ | --------------------------- |
+| Preguntar | `boolean contains(String key)` | `boolean contains(T target)` |
+| Agregar   | `boolean add(String key)`      | `void insert(T value)`      |
+| Sacar     | `boolean remove(String key)`   | `void remove(T value)`      |
+
+Un programa escrito para la tabla llama a `add` en cada voto; cambiarla por
+el árbol obliga a reescribir cada una de esas llamadas, y `insert` ya no
+responde si el RUT era nuevo. Elegir la estructura no debería cambiar el
+programa que la usa.
+
+Lo que hace falta es fijar las operaciones —sus nombres, lo que reciben y lo
+que responden— sin decir cómo se guardan los elementos. Eso es un **tipo de
+dato abstracto** (TDA), y el de una colección sin repetidos se llama **Set**.
+
+</Slide>
+
 <SectionBreak />
 
 ## Set · Conjunto
+
+<Slide title="El TDA Set">
+Un **Set** —en español, **conjunto**— es una colección de elementos **sin
+repetidos**: cada elemento está una vez o no está. No hay posiciones, ni un
+primero ni un último.
+
+<div style={{ border: '1px solid var(--color-rule)', borderRadius: '8px', overflow: 'hidden', margin: '1.25rem 0' }}>
+  <div style={{ background: 'var(--color-sunk)', padding: '0.55rem 0.9rem', borderBottom: '1px solid var(--color-rule)', fontWeight: 700 }}>Set <span style={{ fontWeight: 400, color: 'var(--color-ink-faint)' }}>· el contrato</span></div>
+  <div style={{ display: 'grid', gridTemplateColumns: 'max-content 1fr', columnGap: '2rem' }}>
+  <div style={{ gridColumn: '1 / -1', padding: '0.7rem 0.9rem 0.15rem', fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.08em', color: 'var(--color-ink-faint)' }}>CREAR</div>
+  <code style={{ padding: `0.15rem 0 0.7rem 0.9rem`, whiteSpace: 'nowrap' }}>build()</code>
+  <span style={{ padding: `0.15rem 0.9rem 0.7rem 0` }}>crea un conjunto vacío</span>
+  <div style={{ gridColumn: '1 / -1', borderTop: '1px solid var(--color-rule)', padding: '0.7rem 0.9rem 0.15rem', fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.08em', color: 'var(--color-keep)' }}>CONSULTAR · no cambian nada</div>
+  <code style={{ padding: `0.15rem 0 0.3rem 0.9rem`, whiteSpace: 'nowrap' }}>contains(x) → booleano</code>
+  <span style={{ padding: `0.15rem 0.9rem 0.3rem 0` }}>retorna verdadero si x está en el conjunto</span>
+  <code style={{ padding: `0.15rem 0 0.3rem 0.9rem`, whiteSpace: 'nowrap' }}>size() → entero</code>
+  <span style={{ padding: `0.15rem 0.9rem 0.3rem 0` }}>retorna cuántos elementos tiene el conjunto</span>
+  <code style={{ padding: `0.15rem 0 0.7rem 0.9rem`, whiteSpace: 'nowrap' }}>iterator() → recorrido</code>
+  <span style={{ padding: `0.15rem 0.9rem 0.7rem 0` }}>entrega cada elemento del conjunto exactamente una vez</span>
+  <div style={{ gridColumn: '1 / -1', borderTop: '1px solid var(--color-rule)', padding: '0.7rem 0.9rem 0.15rem', fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.08em', color: 'var(--color-accent)' }}>MODIFICAR · cambian el estado</div>
+  <code style={{ padding: `0.15rem 0 0.3rem 0.9rem`, whiteSpace: 'nowrap' }}>add(x) → booleano</code>
+  <span style={{ padding: `0.15rem 0.9rem 0.3rem 0` }}>agrega x si no estaba; retorna verdadero si lo agregó</span>
+  <code style={{ padding: `0.15rem 0 0.7rem 0.9rem`, whiteSpace: 'nowrap' }}>remove(x) → booleano</code>
+  <span style={{ padding: `0.15rem 0.9rem 0.7rem 0` }}>saca x si estaba; retorna verdadero si lo sacó</span>
+  </div>
+  <div style={{ padding: '0.65rem 0.9rem', borderTop: '1px solid var(--color-rule)', background: 'var(--color-sunk)' }}>
+    <div style={{ fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.08em', color: 'var(--color-ink-faint)' }}>LO QUE NO DICE</div>
+    <div style={{ marginTop: '0.35rem' }}>Dónde se guardan los elementos ni cuánto cuesta cada operación. Tampoco en qué orden los entrega el recorrido: un conjunto no tiene orden, y nada permite pedir «el tercero».</div>
+  </div>
+</div>
+
+</Slide>
+
+<Slide title="Las reglas del contrato Set">
+El Set es el conjunto de las matemáticas, que no distingue cuántas veces ni en
+qué orden se escribe un elemento:
+
+$$
+\{a, b, a\} = \{a, b\} = \{b, a\}
+$$
+
+Se lee «el conjunto de $$a$$, $$b$$ y $$a$$ es el mismo que el de $$a$$ y
+$$b$$». La cantidad de elementos de un conjunto $$A$$ se escribe $$|A|$$, y es
+lo que retorna `size()`. De ahí salen las reglas del contrato:
+
+- **`add(x)` de un elemento que ya está no lo agrega otra vez.** El conjunto
+  queda igual y `add` retorna falso: quien llama sabe si el elemento era
+  nuevo sin preguntar antes.
+- **`remove(x)` de un elemento que no está no cambia nada**, y retorna falso.
+- **El recorrido entrega cada elemento exactamente una vez**, en un orden que
+  el contrato no promete.
+
+Qué significa que dos elementos sean **iguales** no lo decide el conjunto: lo
+decide el tipo de los elementos. El conjunto solo pregunta.
+
+</Slide>
+
+<Slide title="Set en Java">
+Java declara el contrato en la interfaz `java.util.Set`, con los mismos
+nombres:
+
+| El TDA        | Java `Set<E>`                     |
+| ------------- | --------------------------------- |
+| `contains(x)` | `contains(x)`                     |
+| `size()`      | `size()`                          |
+| `iterator()`  | `iterator()`, o un `for` sobre el conjunto |
+| `add(x)`      | `add(x)`                          |
+| `remove(x)`   | `remove(x)`                       |
+
+```java
+public interface Set<E> {
+    boolean contains(Object o);
+    int size();
+    Iterator<E> iterator();
+    boolean add(E e);
+    boolean remove(Object o);
+}
+```
+
+La interfaz trae además otros métodos —`isEmpty`, `addAll`, `clear`— que no
+son parte del TDA: son comodidades escritas sobre estos cinco. Una interfaz
+no se puede instanciar; quien guarda los elementos es una clase que la
+implementa.
+
+</Slide>
+
+<Slide title="Un Set sobre una tabla hash">
+La tabla hash con listas ya cumple el contrato. Su primera invariante,
+**ninguna clave está dos veces**, es la regla del Set, y sus tres métodos
+públicos son las tres operaciones: `contains` recorre una sola lista, `add`
+pregunta antes con `contains` y `remove` desengancha el nodo. `size()`
+retorna el contador `size` que la tabla ya lleva.
+
+- **Lo que paga.** Las tres operaciones cuestan $$\Theta(1)$$ esperado,
+  siempre que la función hash reparta parejo y la tabla crezca con las claves;
+  si todas caen en la misma lista, $$\Theta(N)$$.
+- **Lo que no sabe hacer.** Nada que dependa del orden. La función reparte las
+  claves sin relación con su orden, así que el recorrido, que va posición por
+  posición, las entrega en un orden que no significa nada.
+
+<ChainTable
+  chains={VOTED_TABLE}
+  order
+  caption="el recorrido va posición por posición: el primero es 17.814.358-1, el tercero 12.547.354-7"
+  label="La tabla de siete posiciones con los seis RUTs, numerados en el orden en que el recorrido los entrega, posición por posición: 1, 17.814.358-1; 2, 18.155.218-2; 3, 12.547.354-7; 4, 13.180.992-1; 5, 22.715.853-0; 6, 13.959.276-K. El orden no es el de los RUTs."
+/>
+
+</Slide>
+
+<Slide title="Un Set sobre un árbol AVL">
+El árbol AVL también cumple el contrato. Su invariante de orden impide que un
+valor esté dos veces —uno igual no estaría ni a la izquierda ni a la
+derecha—, y sus tres operaciones bajan por un solo camino. Para responder lo
+que pide `add`, basta con preguntar antes con `contains`, como hace la tabla.
+
+- **Lo que paga.** Las tres operaciones cuestan $$O(\log N)$$ en el peor
+  caso, llegue lo que llegue: la invariante de balance acota la altura. Cada
+  modificación lo paga con las rotaciones y las alturas que actualiza al
+  volver.
+- **Lo que sabe hacer además.** El recorrido en inorden entrega los
+  elementos ordenados, y el menor, el mayor o el siguiente a uno dado se
+  encuentran bajando un camino.
+
+<KeyTree
+  tree={VOTED_TREE}
+  order
+  strip
+  caption="el inorden del árbol: los mismos seis RUTs, de menor a mayor"
+  label="El árbol AVL con los seis RUTs, con 13.959.276-K en la raíz y cada nodo numerado en inorden: 1, 12.547.354-7; 2, 13.180.992-1; 3, 13.959.276-K; 4, 17.814.358-1; 5, 18.155.218-2; 6, 22.715.853-0. Debajo, en una fila, el inorden: cada RUT bajo su nodo, de menor a mayor."
+/>
+
+</Slide>
+
+<Slide title="Costos de las dos implementaciones">
+| Operación     | Tabla hash, esperado        | Tabla hash, peor caso | Árbol AVL, peor caso |
+| ------------- | --------------------------- | --------------------- | -------------------- |
+| `contains(x)` | $$\Theta(1)$$               | $$\Theta(N)$$         | $$O(\log N)$$        |
+| `add(x)`      | $$\Theta(1)$$ amortizado    | $$\Theta(N)$$         | $$O(\log N)$$        |
+| `remove(x)`   | $$\Theta(1)$$               | $$\Theta(N)$$         | $$O(\log N)$$        |
+| `size()`      | $$\Theta(1)$$               | $$\Theta(1)$$         | $$\Theta(1)$$        |
+| `iterator()`  | $$\Theta(N + M)$$           | $$\Theta(N + M)$$     | $$\Theta(N)$$        |
+
+$$M$$ es el tamaño de la tabla. `size()` cuesta $$\Theta(1)$$ en las dos
+porque cada una lleva un contador que sube con `add` y baja con `remove`, y
+un recorrido de la tabla pasa por todas sus posiciones, también por las
+vacías.
+
+**Memoria.** Las dos ocupan $$\Theta(N)$$, pagada de otra forma. La tabla
+paga el arreglo de $$M$$ posiciones, que la redimensión mantiene en al menos
+$$N$$, y un nodo por clave con una referencia al siguiente. El árbol no tiene
+arreglo, y paga un nodo por clave con dos referencias, una por hijo, y su
+altura.
+
+</Slide>
+
+<Slide title="Las preguntas que dependen del orden">
+Algunos problemas piden más que las tres operaciones: preguntas que dependen
+del **orden** de los elementos.
+
+- recorrerlos en orden;
+- el menor o el mayor;
+- el siguiente o el anterior a uno dado;
+- todos los que caen entre dos valores.
+
+En el árbol, los elementos de un tramo del orden son un tramo seguido de su
+inorden: se llega al primero bajando un camino, y desde ahí el inorden
+entrega los demás, uno detrás del otro.
+
+<KeyTree
+  tree={VOTED_TREE}
+  strip
+  tones={{ '13.180.992-1': 'keep', '13.959.276-K': 'keep', '17.814.358-1': 'keep' }}
+  caption="entre 13 y 18 millones, en el árbol: un tramo seguido del inorden"
+  label="El árbol AVL de los seis RUTs, con 13.180.992-1, 13.959.276-K y 17.814.358-1 destacados, los que están entre 13 y 18 millones. En la fila del inorden, los tres son casillas seguidas."
+/>
+
+</Slide>
+
+<Slide title="Un tramo del orden en la tabla hash">
+En la tabla, los elementos de un tramo del orden están repartidos por
+cualquier posición: la función hash manda a dos claves vecinas en el orden a
+posiciones que no tienen relación entre sí. Nada indica dónde está el
+primero ni cuál sigue, y para encontrarlos hay que mirar cada clave de la
+tabla.
+
+<ChainTable
+  chains={VOTED_TABLE}
+  tones={{ '13.180.992-1': 'keep', '13.959.276-K': 'keep', '17.814.358-1': 'keep' }}
+  caption="los RUTs entre 13 y 18 millones, en la tabla: en las posiciones 0, 3 y 6"
+  label="La tabla de siete posiciones con los mismos tres RUTs destacados: 17.814.358-1 en la posición 0, 13.180.992-1 en la 3 y 13.959.276-K en la 6, separados por las demás claves."
+/>
+
+</Slide>
+
+<Slide title="Tabla hash o árbol según el orden">
+| Pregunta                             | Tabla hash                 | Árbol AVL           |
+| ------------------------------------ | -------------------------- | ------------------- |
+| ¿Está $$x$$?                         | $$\Theta(1)$$ esperado     | $$O(\log N)$$       |
+| El menor, o el mayor                 | $$\Theta(N + M)$$          | $$O(\log N)$$       |
+| El siguiente a $$x$$                 | $$\Theta(N + M)$$          | $$O(\log N)$$       |
+| Los $$k$$ que están entre $$a$$ y $$b$$ | $$\Theta(N + M)$$       | $$O(\log N + k)$$   |
+| Todos, en orden                      | $$\Theta(M + N \log N)$$   | $$\Theta(N)$$       |
+
+En la tabla, cada pregunta sobre el orden mira todas las claves, y la última
+además las ordena. En el árbol, el tramo entre $$a$$ y $$b$$ se encuentra
+bajando un camino, y después se entregan sus $$k$$ elementos en inorden.
+
+**Si el problema solo pregunta, agrega y saca, la tabla hash; si pregunta
+por el orden, el árbol.** Una pregunta por el orden que se hace una sola vez,
+al final —la lista de votantes ordenada por RUT, al cerrar—, no cambia la
+elección: se ordena una vez, en $$\Theta(N \log N)$$, y la tabla sigue siendo
+la más barata durante el día.
+
+</Slide>
 
 <SectionBreak />
 
