@@ -1959,10 +1959,11 @@ export function Listas({ chains, picked, only = false, paint = {}, caption, labe
 export const TABLA = [['Eva'], ['Juan'], ['Leo', 'Ana'], ['Bea'], ['Sara'], [], []];
 
 <Slide title="Una lista en cada casillero">
-La primera manera de guardar claves que colisionan es dejar que cada posición
-guarde varias. En el guardarropa, cada casillero tiene varios ganchos; en la
-tabla, cada posición guarda una **lista enlazada** con todas las claves que
-caen en ella. `table[i]` es una referencia al primer nodo de la lista de la
+Dos claves que colisionan tienen la misma posición, y si cada posición guarda
+una sola clave, la segunda no tiene dónde quedar. Para guardar las dos, cada
+posición tiene que poder guardar varias. En el guardarropa, cada casillero
+tiene varios ganchos; en la tabla, cada posición guarda una **lista enlazada**
+con todas las claves que caen en ella. `table[i]` es una referencia al primer nodo de la lista de la
 posición `i`, o `null` si ninguna clave cae ahí.
 
 A esta forma de resolver las colisiones se le llama **encadenamiento**.
@@ -1988,8 +1989,8 @@ $$
    invariante que hace barata la búsqueda: para saber si una clave está, basta
    mirar una sola lista.
 
-La tercera es también la que cobra. La posición de una clave depende del
-tamaño de la tabla, así que si la tabla cambia de tamaño, cada clave tiene que
+La tercera es también la que encarece una operación. La posición de una clave
+depende del tamaño de la tabla, así que si la tabla cambia de tamaño, cada clave tiene que
 moverse a la lista de su nueva posición.
 
 </Slide>
@@ -2013,8 +2014,9 @@ class Node {
 
 <Slide title="La clase de la tabla con listas">
 La tabla es el arreglo de referencias al primer nodo de cada lista, más el
-contador `size`. Una tabla necesita al menos una posición, y `hash(String
-key)` es el método privado de la regla de Horner, dentro de esta clase.
+contador `size`. Una tabla necesita al menos una posición. El método
+`hash(String key)`, el de la regla de Horner, es un método privado de
+`ChainedHashTable`.
 
 ```java
 class ChainedHashTable {
@@ -2034,8 +2036,8 @@ class ChainedHashTable {
 **Buscar** responde si una clave está en la tabla: recibe la clave, responde
 sí o no, y no cambia nada. Se calcula la posición de la clave y se recorre
 solo la lista de esa posición, comparando cada clave con la buscada. La
-búsqueda termina al encontrarla o al llegar a `null`: por la invariante, la
-clave no puede estar en ninguna otra lista.
+búsqueda termina al encontrarla o al llegar a `null`: como cada clave está en
+la lista de su posición, no puede estar en ninguna otra.
 
 Las claves son `String`, y se comparan con `equals`, que compara los
 caracteres; `==` compararía las referencias.
@@ -2082,13 +2084,13 @@ cálculo del hash.
 </Slide>
 
 <Slide title="Agregar en una tabla con listas">
-**Agregar** guarda una clave nueva sin romper la invariante: recibe la clave y
+**Agregar** guarda una clave nueva sin romper ninguna invariante: recibe la clave y
 responde si la agregó. Primero pregunta con `contains` si la clave ya está: si
 está, no la agrega, porque la tabla guarda cada clave una sola vez. Si no
 está, crea un nodo y lo engancha al **frente** de la lista de su posición, el
 único lugar de una lista simplemente enlazada al que se llega sin recorrerla.
-El orden dentro de una lista no importa: lo único que la invariante pide es
-que la clave esté en la lista de su posición.
+El orden dentro de una lista no importa: ninguna invariante lo pide, solo que
+la clave esté en la lista de su posición.
 
 <Listas
   chains={[['Eva'], ['Juan'], ['Leo', 'Ana'], ['Bea'], ['Teo', 'Sara'], [], []]}
@@ -2105,9 +2107,10 @@ $$
 </Slide>
 
 <Slide title="El código de la inserción">
-`add` es público. Después de `contains`, construye el nodo nuevo aparte, lo
-enlaza al primero de la lista y recién entonces `table[i]` pasa a apuntarlo,
-como en cualquier inserción al frente de una lista. Fuera de `contains` hace
+`add` es el método público de la inserción: después de `contains`, construye
+el nodo nuevo aparte, lo enlaza al primero de la lista y solo entonces
+`table[i]` pasa a apuntarlo, como en cualquier inserción al frente de una
+lista. Fuera de `contains` hace
 un número fijo de asignaciones: cuesta lo mismo que la búsqueda.
 
 <SequenceStepper
@@ -2121,15 +2124,15 @@ un número fijo de asignaciones: cuesta lo mismo que la búsqueda.
 </Slide>
 
 <Slide title="Eliminar en una tabla con listas">
-**Eliminar** saca una clave sin romper la invariante: recibe la clave y
+**Eliminar** saca una clave sin romper ninguna invariante: recibe la clave y
 responde si estaba. La busca en la lista de su posición, y cómo la desengancha
 depende de dónde está:
 
 - si está en el **primer nodo**, `table[i]` pasa a su siguiente;
-- si está más adelante, `prev` recorre la lista hasta el **nodo anterior** al
-  que sale, y `prev.next` salta al siguiente.
+- si está más adelante, se recorre la lista hasta el **nodo anterior** al que
+  sale, y ese nodo pasa a apuntar al siguiente.
 
-Ninguna otra clave cambia de lista, así que la invariante se mantiene.
+Ninguna otra clave cambia de lista, así que ninguna invariante se rompe.
 
 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '1rem 2rem', alignItems: 'end' }}>
 <Listas
@@ -2166,16 +2169,18 @@ cuesta lo mismo que la búsqueda.
 </Slide>
 
 <Slide title="El factor de carga">
-El **factor de carga** de una tabla es
+Las tres operaciones recorren una sola lista, así que cuestan lo que mide la
+lista de la posición de la clave. Cuánto mide depende de cuántas claves hay por
+posición: con $$N$$ claves en $$M$$ posiciones, un reparto parejo le da a cada
+una $$N / M$$. Ese cociente es el **factor de carga** de la tabla,
 
 $$
 \alpha = \frac{N}{M},
 $$
 
-la cantidad de claves por posición: en el guardarropa, cuántos abrigos cuelgan
-en promedio de cada casillero. Si la función hash reparte parejo, cada clave
-cae en cada posición con probabilidad $$1 / M$$, y una lista mide en promedio
-$$N / M = \alpha$$ nodos.
+que se lee «alfa es la cantidad de claves dividida por la de posiciones». En el
+guardarropa, es cuántos abrigos cuelgan en promedio de cada casillero. Bajo el
+supuesto de dispersión uniforme, una lista mide en promedio $$\alpha$$ nodos.
 
 <Listas
   chains={TABLA}
@@ -2191,20 +2196,13 @@ $$
 
 <Slide title="El costo esperado y el peor caso">
 Buscar una clave que no está recorre una lista entera, y una que está recorre
-en promedio la mitad. Si la función reparte parejo, las dos cuestan en
-promedio $$\Theta(1 + \alpha)$$: calcular el hash más recorrer una lista de
-largo esperado $$\alpha$$ (resultado que se cita, sin demostrarlo). Con
-$$\alpha$$ acotado por una constante, eso es $$\Theta(1)$$.
+en promedio la mitad. Bajo el supuesto de dispersión uniforme, las dos cuestan
+en promedio $$\Theta(1 + \alpha)$$: calcular el hash, que no depende de $$N$$,
+más recorrer una lista de largo esperado $$\alpha$$. Con $$\alpha$$ acotado por
+una constante, eso es $$\Theta(1)$$.
 
 Nada impide, sin embargo, el peor caso: si todas las claves caen en la misma
 posición, la tabla es una sola lista, y buscar cuesta $$\Theta(N)$$.
-
-<Listas
-  chains={[[], [], [], ['Ana', 'Leo', 'Eva', 'Bea'], [], [], []]}
-  picked={3}
-  caption="si todas las claves caen en la posición 3, la tabla es una lista de N nodos"
-  label="Una tabla de siete posiciones donde las cuatro claves, Ana, Leo, Eva y Bea, cuelgan todas de la posición 3, en una sola lista. Las demás posiciones guardan null."
-/>
 
 </Slide>
 
