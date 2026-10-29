@@ -1798,7 +1798,696 @@ check(refused, true);
 
 </Slide>
 
-Dos ejercicios más, propuestos, para resolver sin ver la respuesta:
+{/* GroupPicture — records of a course and a grade grouped by course: the records in a row as they arrive, and under them one box per course, in the order the courses first appear, with that course's grades in the order they came. `upto` draws only the groups of the first records (the rest of the layout stays reserved, so the frames of the walk keep one size), `at` outlines the record being read, `fresh` paints the grade just added `mark`, and `arrows` joins every record to its grade, numbered by arrival — the hand run. `id` prefixes the arrow's marker. */}
+
+export function GroupPicture({ records, upto = records.length, at = -1, fresh = -1, arrows = false, id, label }) {
+  const chipW = 96;
+  const chipH = 28;
+  const gap = 8;
+  const pad = 12;
+  const gradeW = 52;
+  const boxPad = 10;
+  const boxGap = 22;
+  const courses = [...new Set(records.map((r) => r[0]))];
+  const slot = records.map((r, j) => records.slice(0, j).filter((s) => s[0] === r[0]).length);
+  const slots = Math.max(...courses.map((c) => records.filter((r) => r[0] === c).length));
+  const boxW = slots * gradeW + (slots - 1) * 6 + 2 * boxPad;
+  const rowW = records.length * chipW + (records.length - 1) * gap;
+  const groupsW = courses.length * boxW + (courses.length - 1) * boxGap;
+  const width = 2 * pad + Math.max(rowW, groupsW);
+  const left = (width - rowW) / 2;
+  const gleft = (width - groupsW) / 2;
+  const indexY = pad + 10;
+  const rowY = indexY + 8;
+  const boxY = rowY + chipH + (arrows ? 78 : 44);
+  const boxH = chipH + 2 * boxPad;
+  const height = boxY + boxH + 12;
+  const recordX = (j) => left + j * (chipW + gap) + chipW / 2;
+  const boxX = (c) => gleft + courses.indexOf(c) * (boxW + boxGap);
+  const gradeX = (j) => boxX(records[j][0]) + boxPad + slot[j] * (gradeW + 6);
+  const shown = (c) => records.slice(0, upto).some((r) => r[0] === c);
+  return (
+    <svg viewBox={`0 0 ${width} ${height}`} style={{ width: '100%', maxWidth: `${Math.round(width * 1.3)}px`, height: 'auto', display: 'block', margin: '0.4rem auto' }} role="img" aria-label={label}>
+      {arrows ? (
+        <defs>
+          <marker id={`${id}-punta`} markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto">
+            <path d="M0,0 L7,3.5 L0,7 z" style={{ fill: 'var(--color-ink-soft)' }} />
+          </marker>
+        </defs>
+      ) : null}
+      {records.map(([c, g], j) => {
+        const ring = j === at;
+        return (
+          <g key={`r${j}`} opacity={upto < records.length && j < at ? 0.5 : undefined}>
+            <text x={recordX(j)} y={indexY} textAnchor="middle" fontSize="11" fontWeight={ring ? 700 : 400} style={{ fill: ring ? 'var(--color-ink)' : 'var(--color-ink-faint)' }}>{j}</text>
+            <rect x={recordX(j) - chipW / 2} y={rowY} width={chipW} height={chipH} rx="14" style={{ fill: 'var(--color-surface)', stroke: ring ? 'var(--color-focus)' : 'var(--color-rule-strong)' }} strokeWidth={ring ? 2.6 : 1.2} />
+            <text x={recordX(j)} y={rowY + chipH / 2 + 5} textAnchor="middle" fontSize="12.5" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{`${c} · ${g}`}</text>
+          </g>
+        );
+      })}
+      {courses.map((c) =>
+        shown(c) ? (
+          <g key={`b${c}`}>
+            <text x={boxX(c) + 10} y={boxY - 7} fontSize="12" fontWeight="700" style={{ fill: 'var(--color-ink-soft)' }}>{c}</text>
+            <rect x={boxX(c)} y={boxY} width={boxW} height={boxH} rx="12" style={{ fill: 'var(--color-sunk)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.3" />
+          </g>
+        ) : null,
+      )}
+      {records.map(([, g], j) => {
+        if (j >= upto) return null;
+        const tone = j === fresh ? 'mark' : undefined;
+        return (
+          <g key={`g${j}`}>
+            {arrows ? (
+              <g>
+                <line x1={recordX(j)} y1={rowY + chipH + 2} x2={gradeX(j) + gradeW / 2} y2={boxY + boxPad - 4} style={{ stroke: 'var(--color-ink-soft)' }} strokeWidth="1.3" markerEnd={`url(#${id}-punta)`} />
+                <circle cx={recordX(j)} cy={rowY + chipH + 16} r="8" strokeWidth="1.6" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-ink-soft)' }} />
+                <text x={recordX(j)} y={rowY + chipH + 19.5} textAnchor="middle" fontSize="10" fontWeight="700" style={{ fill: 'var(--color-ink)' }}>{j + 1}</text>
+              </g>
+            ) : null}
+            <rect x={gradeX(j)} y={boxY + boxPad} width={gradeW} height={chipH} rx="14" style={{ fill: tone ? 'var(--color-mark-soft)' : 'var(--color-surface)', stroke: tone ? 'var(--color-mark)' : 'var(--color-rule-strong)' }} strokeWidth={tone ? 2.2 : 1.2} />
+            <text x={gradeX(j) + gradeW / 2} y={boxY + boxPad + chipH / 2 + 5} textAnchor="middle" fontSize="12.5" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{g}</text>
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
+
+{/* The grades of a test as they arrive: course and grade, in the grade's Spanish writing. */}
+
+export const GRADES = [['1A', '5,5'], ['1B', '6,2'], ['1A', '4,0'], ['2A', '6,8'], ['1B', '3,9']];
+
+<Slide title="Las notas de cada curso">
+Un colegio recibe las notas de una prueba a medida que los profesores las
+ingresan, cada una con su curso y en cualquier orden. Para revisarlas, hace
+falta separarlas por curso: **agrupar** quiere decir juntar, para cada curso,
+todas sus notas, en el orden en que llegaron.
+
+<GroupPicture
+  records={GRADES}
+  label="Cinco registros, en el orden en que llegan: 1A con 5,5; 1B con 6,2; 1A con 4,0; 2A con 6,8; 1B con 3,9. Debajo, los grupos: 1A con 5,5 y 4,0; 1B con 6,2 y 3,9; 2A con 6,8."
+/>
+
+El programa recibe los cursos y las notas en dos arreglos del mismo largo,
+`courses[i]` y `grades[i]` el curso y la nota del registro `i`, y responde un
+diccionario que lleva cada curso a la lista de sus notas:
+
+```java
+static Map<String, List<Double>> byCourse(
+        String[] courses, double[] grades)
+```
+
+**Entrada.** A lo más $$10^5$$ registros. $$N$$ es su cantidad, y $$C$$, la de
+cursos distintos. Arreglos de largos distintos son un error:
+`IllegalArgumentException`.
+
+**Salida.** Cada curso con sus notas en el orden en que llegaron. Sin
+registros, un diccionario vacío.
+
+</Slide>
+
+<Slide title="Recorrer los registros una vez por curso">
+Lo primero que se piensa es armar los grupos de a uno: tomar un curso, recorrer
+todos los registros guardando las notas de ese curso, y repetir con el
+siguiente. Responde bien, y recorre los $$N$$ registros una vez por cada uno de
+los $$C$$ cursos:
+
+$$
+C \cdot N \in \Theta(N^2) \quad \text{cuando casi cada registro es de un curso distinto}
+$$
+
+Cada registro, en cambio, sabe a qué grupo va: el de su curso. Lo que hace
+falta es llegar a ese grupo sin buscarlo.
+
+</Slide>
+
+<Slide title="Una lista por curso">
+La idea es recorrer los registros una sola vez, y llevar cada nota a la lista
+de su curso, que se crea la primera vez que el curso aparece. Para llegar a la
+lista de un curso se pregunta por su nombre: es un **diccionario** que lleva
+cada curso a su lista, y como ninguna pregunta depende del orden de los
+cursos, un **`HashMap`** la responde en tiempo constante esperado.
+
+<GroupPicture
+  id="grupos"
+  records={GRADES}
+  arrows
+  label="Los cinco registros, numerados del 1 al 5 por orden de llegada, cada uno con una flecha a su nota dentro del grupo de su curso. El 1 y el 3 bajan al grupo 1A; el 2 y el 5, al 1B; el 4, al 2A."
+/>
+
+</Slide>
+
+<Slide title="Notas por curso · la solución">
+Si el curso no tiene lista todavía, `get` retorna `null`, y la lista se crea y
+se guarda antes de agregar la nota. La lista que guarda el diccionario es el
+mismo objeto que `group`: agregarle una nota no exige otro `put`.
+
+<StepShow
+  language="java"
+  code={`static Map<String, List<Double>> byCourse(
+          String[] courses, double[] grades) {
+      if (courses.length != grades.length) {
+          throw new IllegalArgumentException();
+      }
+      Map<String, List<Double>> groups = new HashMap<>();
+      for (int i = 0; i < courses.length; i++) {
+          List<Double> group = groups.get(courses[i]);
+          if (group == null) {
+              group = new ArrayList<>();
+              groups.put(courses[i], group);
+          }
+          group.add(grades[i]);
+      }
+      return groups;
+  }`}
+>
+  <Step lines={[6]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>groups arranca vacío.</div>
+    <GroupPicture records={GRADES} upto={0} label="Los cinco registros, ninguno leído. Ningún grupo todavía." />
+  </Step>
+  <Step lines={[7, 8, 9, 10, 11, 13]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>1A no tiene lista: se crea, y recibe el 5,5.</div>
+    <GroupPicture records={GRADES} upto={1} at={0} fresh={0} label="Se lee el registro 0, 1A con 5,5. Aparece el grupo 1A con el 5,5, recién agregado." />
+  </Step>
+  <Step lines={[7, 8, 9, 10, 11, 13]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>1B no tiene lista: se crea, y recibe el 6,2.</div>
+    <GroupPicture records={GRADES} upto={2} at={1} fresh={1} label="Se lee el registro 1, 1B con 6,2. Aparece el grupo 1B con el 6,2." />
+  </Step>
+  <Step lines={[7, 8, 9, 13]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>1A ya tiene lista: get la retorna, y recibe el 4,0.</div>
+    <GroupPicture records={GRADES} upto={3} at={2} fresh={2} label="Se lee el registro 2, 1A con 4,0. El grupo 1A tiene ahora 5,5 y 4,0, recién agregado." />
+  </Step>
+  <Step lines={[7, 8, 9, 10, 11, 13]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>2A no tiene lista: se crea, y recibe el 6,8.</div>
+    <GroupPicture records={GRADES} upto={4} at={3} fresh={3} label="Se lee el registro 3, 2A con 6,8. Aparece el grupo 2A con el 6,8." />
+  </Step>
+  <Step lines={[7, 8, 9, 13]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>1B ya tiene lista, y recibe el 3,9.</div>
+    <GroupPicture records={GRADES} upto={5} at={4} fresh={4} label="Se lee el registro 4, 1B con 3,9. El grupo 1B tiene ahora 6,2 y 3,9, recién agregado." />
+  </Step>
+  <Step lines={[15]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Los tres grupos, cada uno con sus notas en el orden en que llegaron.</div>
+    <GroupPicture records={GRADES} upto={5} label="Los tres grupos completos: 1A con 5,5 y 4,0; 1B con 6,2 y 3,9; 2A con 6,8." />
+  </Step>
+</StepShow>
+
+</Slide>
+
+<Slide title="Un curso solo, ningún registro y el costo de agrupar">
+Si todos los registros son de un mismo curso, el diccionario tiene un solo
+grupo con todas las notas; sin registros, el ciclo no corre y el diccionario
+sale vacío. Si los arreglos no tienen el mismo largo, la función lanza la
+excepción antes de leer un registro.
+
+**Tiempo.** Cada registro hace un `get`, a lo más un `put` y un `add` al final
+de una lista: $$\Theta(1)$$ esperado cada uno, y $$\Theta(N)$$ esperado en
+total, sin importar cuántos cursos haya.
+
+**Memoria.** Las listas guardan las $$N$$ notas, y el diccionario, los $$C$$
+cursos: $$\Theta(N + C)$$, que es $$\Theta(N)$$ porque no hay más cursos que
+registros.
+
+</Slide>
+
+<Slide title="Notas por curso · el programa completo">
+<PresentationWide fraction={0.75}>
+<Exercise title="Las notas de cada curso">
+
+```java starter
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+class Solution {
+    static Map<String, List<Double>> byCourse(
+            String[] courses, double[] grades) {
+        if (courses.length != grades.length) {
+            throw new IllegalArgumentException();
+        }
+        Map<String, List<Double>> groups = new HashMap<>();
+        for (int i = 0; i < courses.length; i++) {
+            List<Double> group = groups.get(courses[i]);
+            if (group == null) {
+                group = new ArrayList<>();
+                groups.put(courses[i], group);
+            }
+            group.add(grades[i]);
+        }
+        return groups;
+    }
+}
+```
+
+```java test
+java.util.Map<String, java.util.List<Double>> g = Solution.byCourse(
+    new String[] {"1A", "1B", "1A", "2A", "1B"},
+    new double[] {5.5, 6.2, 4.0, 6.8, 3.9});
+check(g.size(), 3);
+check(g.get("1A"), Arrays.asList(5.5, 4.0));
+check(g.get("1B"), Arrays.asList(6.2, 3.9));
+check(g.get("2A"), Arrays.asList(6.8));
+check(Solution.byCourse(new String[] {"3B", "3B"},
+    new double[] {7.0, 1.0}).get("3B"), Arrays.asList(7.0, 1.0));
+check(Solution.byCourse(new String[] {}, new double[] {}).size(), 0);
+boolean refused = false;
+try { Solution.byCourse(new String[] {"1A"}, new double[] {}); }
+catch (IllegalArgumentException e) { refused = true; }
+check(refused, true);
+```
+
+</Exercise>
+</PresentationWide>
+
+</Slide>
+
+{/* PriceRow — prices in the order they come, as cells with their position over them, and under them the spans asked about: a bracket from one position to another with a text under it, one span per row. `tones` paints cells by position (`mark`, `faint`). */}
+
+export function PriceRow({ prices, spans = [], tones = {}, caption, label }) {
+  const cell = 48;
+  const pad = 14;
+  const rowW = prices.length * cell;
+  const textW = Math.max(0, ...spans.map((s) => s.text.length * 6.8 + 24));
+  const width = Math.max(2 * pad + rowW + textW, caption ? caption.length * 6.6 + 24 : 0);
+  const left = pad;
+  const indexY = pad + 10;
+  const cellY = indexY + 8;
+  const spanY = (n) => cellY + cell + 18 + n * 26;
+  const height = spanY(spans.length) - 8 + (caption ? 26 : 4);
+  return (
+    <svg viewBox={`0 0 ${width} ${height}`} style={{ width: '100%', maxWidth: `${Math.round(width * 1.3)}px`, height: 'auto', display: 'block', margin: '0.4rem auto' }} role="img" aria-label={label}>
+      {prices.map((p, i) => {
+        const t = tones[i];
+        return (
+          <g key={i} opacity={t === 'faint' ? 0.45 : undefined}>
+            <text x={left + i * cell + cell / 2} y={indexY} textAnchor="middle" fontSize="11" style={{ fill: 'var(--color-ink-faint)' }}>{i}</text>
+            <rect x={left + i * cell} y={cellY} width={cell} height={cell} style={{ fill: t === 'mark' ? 'var(--color-mark-soft)' : 'var(--color-surface)', stroke: t === 'mark' ? 'var(--color-mark)' : 'var(--color-rule-strong)' }} strokeWidth={t === 'mark' ? 2.2 : 1.2} />
+            <text x={left + i * cell + cell / 2} y={cellY + cell / 2 + 6} textAnchor="middle" fontSize="16" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{p}</text>
+          </g>
+        );
+      })}
+      {spans.map((s, n) => {
+        const x1 = left + s.from * cell + 6;
+        const x2 = left + (s.to + 1) * cell - 6;
+        const y = spanY(n);
+        return (
+          <g key={`s${n}`}>
+            <path d={`M ${x1} ${y - 8} V ${y} H ${x2} V ${y - 8}`} fill="none" style={{ stroke: 'var(--color-accent)' }} strokeWidth="1.8" />
+            <text x={left + rowW + 14} y={y + 1} fontSize="12.5" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{s.text}</text>
+          </g>
+        );
+      })}
+      {caption ? (
+        <text x={width / 2} y={height - 8} textAnchor="middle" fontSize="12" style={{ fill: 'var(--color-ink-soft)' }}>{caption}</text>
+      ) : null}
+    </svg>
+  );
+}
+
+{/* WindowStrip — the hand run of the window exercise, one column per window: its prices on top, then the prices it holds in order, each with how many times it is in the window, and its minimum and maximum at the bottom. The heap class's TopKStrip is the same shape. */}
+
+export function WindowStrip({ steps, slots, label }) {
+  const colW = 136;
+  const pad = 12;
+  const chipW = 76;
+  const chipH = 26;
+  const topY = pad + 14;
+  const mapY = topY + 44;
+  const footY = mapY + slots * (chipH + 6) + 18;
+  const width = 2 * pad + steps.length * colW;
+  const height = footY + 12;
+  return (
+    <svg viewBox={`0 0 ${width} ${height}`} style={{ width: '100%', maxWidth: `${Math.round(width * 1.3)}px`, height: 'auto', display: 'block', margin: '0.4rem auto' }} role="img" aria-label={label}>
+      {steps.map((s, c) => {
+        const cx = pad + c * colW + colW / 2;
+        return (
+          <g key={c}>
+            <text x={cx} y={topY - 4} textAnchor="middle" fontSize="11" style={{ fill: 'var(--color-ink-faint)' }}>{`ventana ${c}`}</text>
+            <text x={cx} y={topY + 16} textAnchor="middle" fontSize="15" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{s.window.join('  ')}</text>
+            {s.counts.map(([p, n], k) => (
+              <g key={p}>
+                <rect x={cx - chipW / 2} y={mapY + k * (chipH + 6)} width={chipW} height={chipH} rx="13" style={{ fill: s.fresh === p ? 'var(--color-mark-soft)' : 'var(--color-sunk)', stroke: s.fresh === p ? 'var(--color-mark)' : 'var(--color-rule-strong)' }} strokeWidth={s.fresh === p ? 2 : 1.1} />
+                <text x={cx} y={mapY + k * (chipH + 6) + chipH / 2 + 5} textAnchor="middle" fontSize="12.5" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{`${p}  ×${n}`}</text>
+              </g>
+            ))}
+            <text x={cx} y={footY} textAnchor="middle" fontSize="12.5" fontWeight="700" style={{ fill: 'var(--color-ink-soft)' }}>{`mín ${s.counts[0][0]} · máx ${s.counts[s.counts.length - 1][0]}`}</text>
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
+
+{/* WindowFrame — one frame of the walk of minMax, sized for a listing set beside it: the prices with the window bracketed under them (`from`..`to`), the price that came in painted `mark` and the one that left faint; under them the TreeMap `window`, its prices in order each with its count, the first and the last marked as the minimum and the maximum once the window is full; and the rows of `answer` written so far. `slots` and `rows` reserve the widest map and the longest answer the walk reaches, so every frame keeps one size. */}
+
+export function WindowFrame({ prices, from, to, entered, left: gone, counts, full = false, answer, slots, rows, label }) {
+  const cell = 40;
+  const pad = 12;
+  const chipW = 62;
+  const chipH = 26;
+  const rowW = prices.length * cell;
+  const mapW = slots * chipW + (slots - 1) * 6;
+  const width = 2 * pad + Math.max(rowW, mapW, rows * 64);
+  const left = (width - rowW) / 2;
+  const indexY = pad + 10;
+  const cellY = indexY + 6;
+  const bracketY = cellY + cell + 10;
+  const mapY = bracketY + 40;
+  const mapX = (width - mapW) / 2;
+  const answerY = mapY + chipH + 42;
+  const height = answerY + chipH + 12;
+  const answerX = (width - rows * 64) / 2;
+  return (
+    <svg viewBox={`0 0 ${width} ${height}`} style={{ width: '100%', maxWidth: `${Math.round(width * 1.3)}px`, height: 'auto', display: 'block', margin: '0.4rem auto' }} role="img" aria-label={label}>
+      {prices.map((p, i) => {
+        const tone = i === entered ? 'mark' : undefined;
+        return (
+          <g key={i} opacity={i === gone ? 0.4 : undefined}>
+            <text x={left + i * cell + cell / 2} y={indexY} textAnchor="middle" fontSize="10.5" style={{ fill: 'var(--color-ink-faint)' }}>{i}</text>
+            <rect x={left + i * cell} y={cellY} width={cell} height={cell} style={{ fill: tone ? 'var(--color-mark-soft)' : 'var(--color-surface)', stroke: tone ? 'var(--color-mark)' : 'var(--color-rule-strong)' }} strokeWidth={tone ? 2.2 : 1.2} strokeDasharray={i === gone ? '4 3' : undefined} />
+            <text x={left + i * cell + cell / 2} y={cellY + cell / 2 + 5} textAnchor="middle" fontSize="15" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{p}</text>
+          </g>
+        );
+      })}
+      {to >= from ? (
+        <path d={`M ${left + from * cell + 4} ${bracketY - 6} V ${bracketY} H ${left + (to + 1) * cell - 4} V ${bracketY - 6}`} fill="none" style={{ stroke: 'var(--color-accent)' }} strokeWidth="1.8" />
+      ) : null}
+      <text x={mapX} y={mapY - 8} fontSize="11.5" fontWeight="700" style={{ fill: 'var(--color-ink-soft)' }}>window</text>
+      {counts.map(([p, n], k) => {
+        const x = mapX + k * (chipW + 6);
+        const end = full && (k === 0 || k === counts.length - 1);
+        return (
+          <g key={p}>
+            <rect x={x} y={mapY} width={chipW} height={chipH} rx="13" style={{ fill: 'var(--color-sunk)', stroke: end ? 'var(--color-keep)' : 'var(--color-rule-strong)' }} strokeWidth={end ? 2.2 : 1.1} />
+            <text x={x + chipW / 2} y={mapY + chipH / 2 + 5} textAnchor="middle" fontSize="12.5" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{`${p}  ×${n}`}</text>
+            {full && k === 0 ? (
+              <text x={x + chipW / 2} y={mapY + chipH + 14} textAnchor="middle" fontSize="11" fontWeight="700" style={{ fill: 'var(--color-keep)' }}>mín</text>
+            ) : null}
+            {full && k === counts.length - 1 ? (
+              <text x={x + chipW / 2} y={mapY + chipH + 14} textAnchor="middle" fontSize="11" fontWeight="700" style={{ fill: 'var(--color-keep)' }}>máx</text>
+            ) : null}
+          </g>
+        );
+      })}
+      <text x={answerX} y={answerY - 8} fontSize="11.5" fontWeight="700" style={{ fill: 'var(--color-ink-soft)' }}>answer</text>
+      {answer.map(([lo, hi], r) => (
+        <g key={`a${r}`}>
+          <rect x={answerX + r * 64} y={answerY} width={58} height={chipH} rx="4" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.1" />
+          <text x={answerX + r * 64 + 29} y={answerY + chipH / 2 + 5} textAnchor="middle" fontSize="12.5" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{`${lo}, ${hi}`}</text>
+        </g>
+      ))}
+    </svg>
+  );
+}
+
+{/* The window exercise's example: six prices, windows of three. The 3 repeats, so one of them leaves the window while the other stays. */}
+
+export const PRICES = [5, 3, 3, 8, 6, 2];
+
+<Slide title="El mínimo y el máximo de una ventana de precios">
+Una aplicación de inversiones muestra, junto al precio de una acción, el
+mínimo y el máximo de los últimos $$K$$ precios, y los actualiza con cada
+precio nuevo. Los $$K$$ precios más recientes forman la **ventana**: con cada
+precio que llega, entra uno a la ventana y sale el más antiguo.
+
+<PriceRow
+  prices={PRICES}
+  spans={[
+    { from: 0, to: 2, text: 'mín 3 · máx 5' },
+    { from: 1, to: 3, text: 'mín 3 · máx 8' },
+    { from: 2, to: 4, text: 'mín 3 · máx 8' },
+    { from: 3, to: 5, text: 'mín 2 · máx 8' },
+  ]}
+  caption="seis precios, K = 3: cuatro ventanas, cada una con su mínimo y su máximo"
+  label="Seis precios en orden: 5, 3, 3, 8, 6 y 2. Debajo, las cuatro ventanas de tres precios: de la posición 0 a la 2, mínimo 3 y máximo 5; de la 1 a la 3, mínimo 3 y máximo 8; de la 2 a la 4, mínimo 3 y máximo 8; de la 3 a la 5, mínimo 2 y máximo 8."
+/>
+
+```java
+static int[][] minMax(int[] prices, int k)
+```
+
+**Entrada.** `prices`, a lo más $$10^5$$ enteros, y `k`, el largo de la
+ventana, con $$1 \le k \le N$$; fuera de ese rango, la función lanza
+`IllegalArgumentException`.
+
+**Salida.** Una fila por ventana, de la primera a la última, cada una con el
+mínimo y el máximo de esa ventana: $$N - k + 1$$ filas.
+
+</Slide>
+
+<Slide title="Recalcular cada ventana">
+Lo primero que se piensa es recorrer cada ventana para encontrar su mínimo y
+su máximo. Responde bien, y cada una de las $$N - K + 1$$ ventanas recorre sus
+$$K$$ precios:
+
+$$
+(N - K + 1) \cdot K \in \Theta(N \cdot K)
+$$
+
+Con $$10^5$$ precios y una ventana de $$10^4$$, son unos $$9 \cdot 10^8$$
+pasos. Y entre una ventana y la siguiente cambian solo dos precios: el que
+entra y el que sale.
+
+</Slide>
+
+<Slide title="El mínimo que sale de la ventana">
+Si solo cambian dos precios, se puede llevar el mínimo en una variable y
+compararlo con el que entra. Funciona hasta que el precio que **sale** es el
+mínimo: la variable ya no sirve, y lo que queda en la ventana no dice cuál es
+el nuevo mínimo sin recorrerla.
+
+<PriceRow
+  prices={PRICES}
+  tones={{ 0: 'faint', 1: 'mark' }}
+  spans={[{ from: 2, to: 4, text: 'sale un 3, el mínimo: ¿queda otro?' }]}
+  caption="al pasar a la tercera ventana sale un 3; queda el otro, y el mínimo sigue siendo 3"
+  label="Los seis precios, con la posición 0 atenuada y la 1, un 3, destacada: es el precio que sale al pasar a la tercera ventana, de la posición 2 a la 4, y era el mínimo. En esa ventana queda el 3 de la posición 2."
+/>
+
+Hace falta, además, saber si el precio que sale **se repite** dentro de la
+ventana: si queda otro igual, el mínimo no cambia.
+
+</Slide>
+
+<Slide title="Los precios de la ventana, en orden y contados">
+La idea es guardar los precios de la ventana **en orden**, para que el mínimo
+sea el primero y el máximo el último, y **contados**: cada precio con cuántas
+veces está. El que entra suma uno a su cuenta; el que sale resta uno, y deja la
+ventana solo cuando su cuenta llega a cero. Un conjunto ordenado no alcanza,
+porque guardaría una sola vez un precio que se repite: lo que hace falta es un **diccionario
+ordenado** de cada precio a su cuenta, un **`TreeMap<Integer, Integer>`**, que
+entrega el primero y el último en $$O(\log K)$$.
+
+<WindowStrip
+  slots={3}
+  steps={[
+    { window: [5, 3, 3], counts: [[3, 2], [5, 1]] },
+    { window: [3, 3, 8], counts: [[3, 2], [8, 1]], fresh: 8 },
+    { window: [3, 8, 6], counts: [[3, 1], [6, 1], [8, 1]], fresh: 6 },
+    { window: [8, 6, 2], counts: [[2, 1], [6, 1], [8, 1]], fresh: 2 },
+  ]}
+  label="Cuatro columnas, una por ventana. Ventana 5, 3, 3: el 3 dos veces y el 5 una; mínimo 3, máximo 5. Ventana 3, 3, 8: entró el 8 y salió el 5; el 3 dos veces y el 8 una; mínimo 3, máximo 8. Ventana 3, 8, 6: entró el 6 y salió un 3, que sigue una vez; mínimo 3, máximo 8. Ventana 8, 6, 2: entró el 2 y salió el último 3; mínimo 2, máximo 8."
+/>
+
+</Slide>
+
+<Slide title="Ventana · entra un precio">
+El precio que entra suma uno a su cuenta. `getOrDefault` responde 0 si el
+precio no estaba, así que un precio nuevo entra con cuenta 1 sin preguntar
+antes.
+
+```java
+int in = prices[i];
+window.put(in, window.getOrDefault(in, 0) + 1);
+```
+
+<WindowFrame prices={PRICES} from={0} to={2} entered={2} counts={[[3, 2], [5, 1]]} answer={[]} slots={4} rows={4} label="Los seis precios, con la ventana de la posición 0 a la 2 y el precio de la posición 2, un 3, recién entrado. window: el 3 con cuenta 2 y el 5 con cuenta 1." />
+
+</Slide>
+
+<Slide title="Ventana · sale un precio">
+Desde que la ventana está llena, cada precio que entra hace salir al de
+`k` posiciones atrás. Su cuenta baja en uno, y si llega a cero el precio deja
+el diccionario: así el primero y el último son siempre precios que están en
+la ventana.
+
+```java
+if (i >= k) {
+    int out = prices[i - k];
+    int left = window.get(out) - 1;
+    if (left == 0) {
+        window.remove(out);
+    } else {
+        window.put(out, left);
+    }
+}
+```
+
+<WindowFrame prices={PRICES} from={2} to={4} entered={4} left={1} counts={[[3, 1], [6, 1], [8, 1]]} full answer={[[3, 5], [3, 8]]} slots={4} rows={4} label="La ventana de la posición 2 a la 4: entró el 6 y salió el 3 de la posición 1, atenuado. window: el 3 con cuenta 1, porque queda el de la posición 2; el 6 y el 8 con cuenta 1." />
+
+</Slide>
+
+<Slide title="Ventana · el mínimo y el máximo">
+Desde que la ventana tiene `k` precios, cada vuelta escribe una fila: el
+mínimo es la primera clave del diccionario, y el máximo, la última.
+
+```java
+if (i >= k - 1) {
+    answer[i - k + 1] = new int[] {
+        window.firstKey(), window.lastKey()};
+}
+```
+
+<WindowFrame prices={PRICES} from={0} to={2} entered={2} counts={[[3, 2], [5, 1]]} full answer={[[3, 5]]} slots={4} rows={4} label="La primera ventana completa, de la posición 0 a la 2. window: el 3 con cuenta 2, marcado como el mínimo, y el 5 con cuenta 1, marcado como el máximo. answer tiene su primera fila: 3 y 5." />
+
+</Slide>
+
+<Slide title="Ventana · la solución">
+Las tres piezas, en una vuelta por precio: entra el precio, sale el de `k`
+posiciones atrás si la ventana ya estaba llena, y se escribe la fila de la
+ventana si ya tiene `k` precios.
+
+<StepShow
+  language="java"
+  beside
+  code={`static int[][] minMax(int[] prices, int k) {
+      if (k < 1 || k > prices.length) {
+          throw new IllegalArgumentException();
+      }
+      TreeMap<Integer, Integer> window = new TreeMap<>();
+      int[][] answer = new int[prices.length - k + 1][];
+      for (int i = 0; i < prices.length; i++) {
+          int in = prices[i];
+          window.put(in, window.getOrDefault(in, 0) + 1);
+          if (i >= k) {
+              int out = prices[i - k];
+              int left = window.get(out) - 1;
+              if (left == 0) {
+                  window.remove(out);
+              } else {
+                  window.put(out, left);
+              }
+          }
+          if (i >= k - 1) {
+              answer[i - k + 1] = new int[] {
+                  window.firstKey(), window.lastKey()};
+          }
+      }
+      return answer;
+  }`}
+>
+  <Step lines={[5, 6]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>window y answer arrancan vacíos.</div>
+    <WindowFrame prices={PRICES} from={0} to={-1} counts={[]} answer={[]} slots={4} rows={4} label="Los seis precios, ninguno en la ventana. window vacío, answer vacío." />
+  </Step>
+  <Step lines={[7, 8, 9]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Entra el 5.</div>
+    <WindowFrame prices={PRICES} from={0} to={0} entered={0} counts={[[5, 1]]} answer={[]} slots={4} rows={4} label="Entra el 5 de la posición 0. window: el 5 con cuenta 1." />
+  </Step>
+  <Step lines={[7, 8, 9]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Entra un 3.</div>
+    <WindowFrame prices={PRICES} from={0} to={1} entered={1} counts={[[3, 1], [5, 1]]} answer={[]} slots={4} rows={4} label="Entra el 3 de la posición 1. window: el 3 y el 5, cada uno con cuenta 1." />
+  </Step>
+  <Step lines={[7, 8, 9, 19, 20, 21]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Entra otro 3: su cuenta sube a 2. La ventana está llena: fila 3, 5.</div>
+    <WindowFrame prices={PRICES} from={0} to={2} entered={2} counts={[[3, 2], [5, 1]]} full answer={[[3, 5]]} slots={4} rows={4} label="Entra el 3 de la posición 2. window: el 3 con cuenta 2 y el 5 con cuenta 1. La primera fila de answer: 3 y 5." />
+  </Step>
+  <Step lines={[7, 8, 9, 10, 11, 12, 13, 14, 19, 20, 21]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Entra el 8 y sale el 5, que estaba una vez: deja window. Fila 3, 8.</div>
+    <WindowFrame prices={PRICES} from={1} to={3} entered={3} left={0} counts={[[3, 2], [8, 1]]} full answer={[[3, 5], [3, 8]]} slots={4} rows={4} label="Entra el 8 de la posición 3 y sale el 5 de la posición 0, atenuado. window: el 3 con cuenta 2 y el 8 con cuenta 1. answer: 3, 5 y 3, 8." />
+  </Step>
+  <Step lines={[7, 8, 9, 10, 11, 12, 13, 15, 16, 19, 20, 21]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Entra el 6 y sale un 3: queda el otro, con cuenta 1. Fila 3, 8.</div>
+    <WindowFrame prices={PRICES} from={2} to={4} entered={4} left={1} counts={[[3, 1], [6, 1], [8, 1]]} full answer={[[3, 5], [3, 8], [3, 8]]} slots={4} rows={4} label="Entra el 6 de la posición 4 y sale el 3 de la posición 1, atenuado. window: el 3, el 6 y el 8, cada uno con cuenta 1. answer: 3, 5; 3, 8; y 3, 8." />
+  </Step>
+  <Step lines={[7, 8, 9, 10, 11, 12, 13, 14, 19, 20, 21]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Entra el 2 y sale el último 3: deja window. Fila 2, 8.</div>
+    <WindowFrame prices={PRICES} from={3} to={5} entered={5} left={2} counts={[[2, 1], [6, 1], [8, 1]]} full answer={[[3, 5], [3, 8], [3, 8], [2, 8]]} slots={4} rows={4} label="Entra el 2 de la posición 5 y sale el 3 de la posición 2, atenuado. window: el 2, el 6 y el 8. answer: 3, 5; 3, 8; 3, 8; y 2, 8." />
+  </Step>
+  <Step lines={[24]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Las cuatro filas, una por ventana.</div>
+    <WindowFrame prices={PRICES} from={3} to={5} counts={[[2, 1], [6, 1], [8, 1]]} full answer={[[3, 5], [3, 8], [3, 8], [2, 8]]} slots={4} rows={4} label="El resultado: answer con sus cuatro filas, 3 y 5, 3 y 8, 3 y 8, 2 y 8." />
+  </Step>
+</StepShow>
+
+</Slide>
+
+<Slide title="Una ventana de un precio y el costo de la ventana">
+Con $$k = 1$$, cada ventana tiene un solo precio, y su mínimo y su máximo son
+ese precio; con $$k = N$$, hay una sola ventana. Un `k` menor que 1 o mayor que
+$$N$$ no define ninguna ventana, y la función lo rechaza antes de empezar, lo
+que incluye a un arreglo vacío.
+
+**Tiempo.** Cada precio entra una vez y sale a lo más una vez, y cada fila
+lee la primera y la última clave. El diccionario nunca guarda más de $$k$$
+precios, así que cada una de esas operaciones cuesta $$O(\log k)$$:
+
+$$
+\underbrace{N \cdot O(\log k)}_{\text{entra}} + \underbrace{N \cdot O(\log k)}_{\text{sale}} + \underbrace{(N - k + 1) \cdot O(\log k)}_{\text{las filas}} = O(N \log k)
+$$
+
+**Memoria.** El diccionario guarda a lo más $$k$$ precios, y la respuesta,
+$$N - k + 1$$ filas: $$\Theta(N)$$.
+
+</Slide>
+
+<Slide title="Ventana · el programa completo">
+<PresentationWide fraction={0.75}>
+<Exercise title="El mínimo y el máximo de una ventana de precios">
+
+```java starter
+import java.util.TreeMap;
+
+class Solution {
+    static int[][] minMax(int[] prices, int k) {
+        if (k < 1 || k > prices.length) {
+            throw new IllegalArgumentException();
+        }
+        TreeMap<Integer, Integer> window = new TreeMap<>();
+        int[][] answer = new int[prices.length - k + 1][];
+        for (int i = 0; i < prices.length; i++) {
+            int in = prices[i];
+            window.put(in, window.getOrDefault(in, 0) + 1);
+            if (i >= k) {
+                int out = prices[i - k];
+                int left = window.get(out) - 1;
+                if (left == 0) {
+                    window.remove(out);
+                } else {
+                    window.put(out, left);
+                }
+            }
+            if (i >= k - 1) {
+                answer[i - k + 1] = new int[] {
+                    window.firstKey(), window.lastKey()};
+            }
+        }
+        return answer;
+    }
+}
+```
+
+```java test
+check(Solution.minMax(new int[] {5, 3, 3, 8, 6, 2}, 3),
+    new int[][] {{3, 5}, {3, 8}, {3, 8}, {2, 8}});
+check(Solution.minMax(new int[] {4, 9, 1}, 1),
+    new int[][] {{4, 4}, {9, 9}, {1, 1}});
+check(Solution.minMax(new int[] {4, 9, 1}, 3), new int[][] {{1, 9}});
+check(Solution.minMax(new int[] {7, 7, 7, 7}, 2),
+    new int[][] {{7, 7}, {7, 7}, {7, 7}});
+boolean refused = false;
+try { Solution.minMax(new int[] {}, 1); }
+catch (IllegalArgumentException e) { refused = true; }
+check(refused, true);
+```
+
+</Exercise>
+</PresentationWide>
+
+</Slide>
+
+Cuatro ejercicios más, propuestos, para resolver sin ver la respuesta:
 
 <Exercise title="Votantes distintos">
 
@@ -1895,6 +2584,128 @@ class Solution {
             answers[i] = next == null ? -1 : next;
         }
         return answers;
+    }
+}
+```
+
+</Exercise>
+
+<Exercise title="La frecuencia de las palabras">
+
+Un texto viene en minúsculas, con las palabras separadas por un espacio y sin
+signos de puntuación. Escribamos `frequencies`, que recibe el texto y responde
+un diccionario que lleva cada palabra a cuántas veces aparece.
+
+Con «el voto es el voto», responde el → 2, voto → 2 y es → 1. Con un texto
+vacío, un diccionario vacío: `split` sobre un texto vacío entrega una palabra
+vacía, que no es una palabra del texto.
+
+Contar cada palabra recorriendo el texto entero una vez por palabra distinta
+cuesta $$\Theta(N \cdot D)$$, con $$D$$ las palabras distintas. Un diccionario
+de cada palabra a su cuenta las cuenta todas en una sola pasada.
+
+```java starter
+import java.util.HashMap;
+import java.util.Map;
+
+class Solution {
+    static Map<String, Integer> frequencies(String text) {
+        return new HashMap<>();
+    }
+}
+```
+
+```java test
+java.util.Map<String, Integer> f = Solution.frequencies("el voto es el voto");
+check(f.size(), 3);
+check(f.get("el"), Integer.valueOf(2));
+check(f.get("voto"), Integer.valueOf(2));
+check(f.get("es"), Integer.valueOf(1));
+check(Solution.frequencies("hola").get("hola"), Integer.valueOf(1));
+check(Solution.frequencies("").size(), 0);
+```
+
+```java solution
+import java.util.HashMap;
+import java.util.Map;
+
+class Solution {
+    static Map<String, Integer> frequencies(String text) {
+        Map<String, Integer> counts = new HashMap<>();
+        if (text.isEmpty()) {
+            return counts;
+        }
+        for (String word : text.split(" ")) {
+            counts.put(word, counts.getOrDefault(word, 0) + 1);
+        }
+        return counts;
+    }
+}
+```
+
+</Exercise>
+
+<Exercise title="El evento más cercano">
+
+Un calendario guarda eventos por día del año, del 1 al 365, a lo más uno por
+día, con su nombre. Escribamos `nearest`, que recibe los días y los nombres de
+los eventos, en dos arreglos del mismo largo, y un día, y responde el nombre
+del evento más cercano a ese día, antes o después. Si dos eventos están a la
+misma distancia, responde el anterior; sin eventos, `null`. Arreglos de largos
+distintos son un error: `IllegalArgumentException`.
+
+Con un certamen el día 40, un feriado el 75 y una entrega el 120, el día 60
+está a 20 días del certamen y a 15 del feriado: responde «feriado». El día 100
+responde «entrega», y el día 10, «certamen».
+
+Recorrer todos los eventos cuesta $$\Theta(N)$$. En un diccionario ordenado
+por día, el evento más cercano es el último anterior al día o el primero
+posterior, y `floorKey` y `ceilingKey` los encuentran en $$O(\log N)$$.
+
+```java starter
+class Solution {
+    static String nearest(int[] days, String[] names, int day) {
+        return null;
+    }
+}
+```
+
+```java test
+int[] days = {75, 40, 120};
+String[] names = {"feriado", "certamen", "entrega"};
+check(Solution.nearest(days, names, 60), "feriado");
+check(Solution.nearest(days, names, 100), "entrega");
+check(Solution.nearest(days, names, 10), "certamen");
+check(Solution.nearest(days, names, 75), "feriado");
+check(Solution.nearest(new int[] {10, 20}, new String[] {"a", "b"}, 15), "a");
+check(Solution.nearest(new int[] {}, new String[] {}, 15), null);
+boolean refused = false;
+try { Solution.nearest(new int[] {1}, new String[] {}, 1); }
+catch (IllegalArgumentException e) { refused = true; }
+check(refused, true);
+```
+
+```java solution
+import java.util.TreeMap;
+
+class Solution {
+    static String nearest(int[] days, String[] names, int day) {
+        if (days.length != names.length) {
+            throw new IllegalArgumentException();
+        }
+        TreeMap<Integer, String> calendar = new TreeMap<>();
+        for (int i = 0; i < days.length; i++) {
+            calendar.put(days[i], names[i]);
+        }
+        Integer before = calendar.floorKey(day);
+        Integer after = calendar.ceilingKey(day);
+        if (before == null && after == null) {
+            return null;
+        }
+        if (after == null || (before != null && day - before <= after - day)) {
+            return calendar.get(before);
+        }
+        return calendar.get(after);
     }
 }
 ```
