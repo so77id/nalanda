@@ -2383,23 +2383,25 @@ $$
 </Slide>
 
 <Slide title="El tamaño nuevo">
-El arreglo nuevo tiene que ser bastante más grande, para que la próxima
-redimensión tarde en llegar. Cuánto más depende del método que calcula la
-posición:
+El arreglo nuevo tiene que tener al menos el doble de posiciones: así la
+próxima redimensión llega solo después de otras tantas inserciones, y su costo
+se reparte entre ellas. Cómo se llega a ese tamaño depende del método que
+calcula la posición:
 
 - con el **método de la división**, el tamaño tiene que ser primo, y el doble
-  de un primo es par: la tabla nueva tiene el primer primo desde $$2M$$, un
-  poco más que el doble;
-- con el **método de la multiplicación**, el tamaño es una potencia de 2, y la
-  tabla simplemente se duplica.
+  de un primo es par: se busca el primer primo después del doble, $$2M$$;
+- con el **método de la multiplicación**, el tamaño es una potencia de 2, y
+  basta duplicarla.
 
 $$
 \text{división: } 3 \to 7 \to 17 \to 37 \qquad \text{multiplicación: } 4 \to 8 \to 16 \to 32
 $$
 
-`ChainedHashTable` usa la división: `add` le pasa a `nextPrime` el doble del
-tamaño, y `nextPrime` prueba los números desde ahí hasta dar con uno sin
-divisores.
+</Slide>
+
+<Slide title="La búsqueda del primo">
+`add` le pasa a `nextPrime` el doble del tamaño, y `nextPrime` prueba los
+números desde ahí, uno a uno, hasta dar con uno sin divisores.
 
 ```java
 private static int nextPrime(int n) {
@@ -2478,11 +2480,9 @@ sus claves pasan a su posición en la tabla nueva.
 </Slide>
 
 <Slide title="El costo amortizado de la inserción">
-Redimensionar cuesta $$\Theta(N)$$, pero pasa pocas veces: después de cada
-redimensión la tabla tiene más del doble de posiciones, y la siguiente llega
-solo cuando se agregaron otras tantas claves. Cada redimensión mueve más del
-doble de claves que la anterior, así que, al agregar $$N$$ claves, entre todas
-mueven menos de $$2N$$:
+Redimensionar cuesta $$\Theta(N)$$, pero pasa pocas veces. Cada redimensión
+mueve más del doble de claves que la anterior, así que, al agregar $$N$$
+claves, entre todas mueven menos de $$2N$$:
 
 $$
 N + \frac{N}{2} + \frac{N}{4} + \cdots < 2N
