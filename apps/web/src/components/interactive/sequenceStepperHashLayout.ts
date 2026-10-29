@@ -88,6 +88,13 @@ export interface HashLayout extends HashStrip {
 
 /** Past this many positions between `old` and `table`, they are stacked instead of side by side. */
 const SIDE_BY_SIDE = 12;
+/**
+ * The column of a position when the tables are stacked: eleven positions at
+ * the usual pitch made the canvas wider than its panel, and every node
+ * smaller (#326 review). A node and its link still fit, with the bypass clear
+ * of the next column.
+ */
+const STACKED_PITCH = 72;
 
 /** Room left of a named strip for its name. */
 const NAME_W = 52;
@@ -106,8 +113,8 @@ export function layoutHash(buckets: number, longest: number, oldBuckets = 0): Ha
   const bandY = PAD;
   const cellY = bandY + BAND_H + INDEX_H;
   const nodeY = (k: number) => cellY + CELL_H + GAP + k * (NODE_H + GAP);
-  const strip = (origin: number, dy = 0): HashStrip => {
-    const cx = (bucket: number) => origin + (bucket + 0.5) * PITCH;
+  const strip = (origin: number, dy = 0, pitch = PITCH): HashStrip => {
+    const cx = (bucket: number) => origin + (bucket + 0.5) * pitch;
     const box = (bucket: number, y: number, w: number, h: number): HashBox => ({
       x: cx(bucket) - w / 2,
       y,
@@ -116,7 +123,7 @@ export function layoutHash(buckets: number, longest: number, oldBuckets = 0): Ha
       cx: cx(bucket),
     });
     return {
-      cell: (bucket) => box(bucket, dy + cellY, CELL_W, CELL_H),
+      cell: (bucket) => box(bucket, dy + cellY, pitch === PITCH ? CELL_W : pitch, CELL_H),
       index: (bucket) => ({ x: cx(bucket), y: dy + cellY - 7 }),
       node: (bucket, k) => box(bucket, dy + nodeY(k), NODE_W, NODE_H),
       band: (bucket) => box(bucket, dy + bandY, NODE_W, NODE_H),
@@ -131,13 +138,13 @@ export function layoutHash(buckets: number, longest: number, oldBuckets = 0): Ha
   const stripH = nodeY(Math.max(longest, 1)) - GAP + NULL_H;
   if (oldBuckets > 0 && oldBuckets + buckets > SIDE_BY_SIDE) {
     const origin = PAD + NAME_W;
-    const top = strip(origin);
+    const top = strip(origin, 0, STACKED_PITCH);
     return {
       ...top,
-      width: origin + buckets * PITCH + PAD,
+      width: origin + buckets * STACKED_PITCH + PAD,
       height: 2 * stripH + SEP + PAD,
       old: top,
-      below: strip(origin, stripH + SEP),
+      below: strip(origin, stripH + SEP, STACKED_PITCH),
       stacked: true,
     };
   }

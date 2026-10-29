@@ -241,16 +241,20 @@ resizes — the size check, and the call to `resize` on a line of its own, so it
 fits beside another listing — and `resize` beside it (`row`, `rowLines`):
 when an insertion finds as many keys as positions, `resize` is walked inside
 the run with the call lit in `add`, and the insertion goes on in the larger
-table, its hash computed with the new size. With `program` the three listings
-go abreast, the program as wide as its lines (its constructor breaks in two)
-and the methods sharing the rest; a resize's own frame is not a new call of
-the program. The canvas keeps one size for the run: the largest table and the
-largest old one. Two growths from two positions end at eleven, and five and
-eleven side by side would draw sixteen positions in a row, so a resize whose
-two tables pass twelve positions together stacks them instead — `old` on top,
-where the table was, and the new table under it, columns aligned
-(`layoutHash`'s `below`); the side-by-side resize of three into seven is
-unchanged. Pinned in `sequenceStepperHashTrace.test.ts` (the sizes 2, 5, 11,
+table, its hash computed with the new size; a resize's own frame is not a new
+call of a program. The canvas keeps one size for the run: the largest table
+and the largest old one. Two growths from two positions end at eleven, and
+five and eleven side by side would draw sixteen positions in a row, so a
+resize whose two tables pass twelve positions together stacks them instead —
+`old` on top, where the table was, and the new table under it, columns
+aligned and narrower (`layoutHash`'s `below`, a pitch of 72); the side-by-side
+resize of three into seven is unchanged. Stacked, the drawing is taller than
+the panel a row of listings leaves under it, so on a slide a growing run puts
+its listings in a column on the left, 38% of the width, and the table on the
+right with that column's height (`SequenceTrace.beside`) — the professor's
+review measured the nodes too small with the listings above. The slide runs
+it without `program`: three listings in that column do not fit its height,
+and the key being added is on the chip over the table and in the narration. Pinned in `sequenceStepperHashTrace.test.ts` (the sizes 2, 5, 11,
 the lines lit in each listing, the final table against the hash) and
 `sequenceStepperHashLayout.test.ts` (the stacked strips); the slide is walked to
 its last frame in `SequenceStepper.test.tsx`.

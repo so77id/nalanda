@@ -26,12 +26,16 @@ export function HashView({
   run,
   description,
   presentation,
+  tall = false,
 }: {
   hash: HashFrame;
   run: HashRun;
   description: string;
   presentation: boolean;
+  /** Beside its listings (`grow`): the panel takes their height, not the usual cap. */
+  tall?: boolean;
 }) {
+  const cap = tall ? 'min(64vh, 580px)' : 'min(46vh, 440px)';
   const layout = layoutHash(run.buckets, run.longest, run.oldBuckets);
   const keys = hash.chains.flat().map((n) => n.key);
   const oldNote =
@@ -60,7 +64,7 @@ export function HashView({
   return (
     <div
       className="flex items-center justify-center overflow-x-auto p-3"
-      style={{ maxHeight: presentation ? 'min(46vh, 440px)' : undefined }}
+      style={{ maxHeight: presentation ? cap : undefined }}
     >
       <svg
         data-testid="hash-view"
@@ -73,7 +77,7 @@ export function HashView({
         // `add` slide, whose drawing ran 11px past the panel.
         style={{
           maxWidth: `${layout.width * 1.4}px`,
-          maxHeight: presentation ? 'calc(min(46vh, 440px) - 24px)' : '100%',
+          maxHeight: presentation ? `calc(${cap} - 24px)` : '100%',
         }}
         role="img"
         aria-label={summary}

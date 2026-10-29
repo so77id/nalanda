@@ -735,7 +735,6 @@ describe('<SequenceStepper> · the combinations 23-edd-tablas-hash mounts', () =
         values: [],
         value: ['Ana', 'Bea', 'Eva', 'Leo', 'Sara', 'Juan', 'Teo'],
         capacity: 2,
-        program: true,
         grow: true,
       },
     },

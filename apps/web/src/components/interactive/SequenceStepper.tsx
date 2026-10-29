@@ -861,7 +861,16 @@ function Body({
         node labels land near the size where a projector loses them. Stacking
         gives the listing and the chain the full width each.
       */}
-      <div className="flex flex-col gap-px bg-rule">
+      <div
+        className={
+          isPresentation && trace?.beside === true
+            ? // The listings over each other on the left, the structure on the
+              // right (#326 review, `grow`): two stacked tables need the height
+              // a row of listings above them took away.
+              'grid grid-cols-[minmax(0,38fr)_minmax(0,62fr)] gap-px bg-rule'
+            : 'flex flex-col gap-px bg-rule'
+        }
+      >
         {showCode ? (
           <div
             className={
@@ -876,7 +885,7 @@ function Body({
               // book's column holds them one over the other.
               <div
                 className={
-                  !isPresentation
+                  !isPresentation || trace.beside === true
                     ? 'grid grid-cols-1 gap-px bg-rule'
                     : trace.row.length === 3
                       ? trace.hash !== undefined
@@ -1085,6 +1094,7 @@ function Body({
               run={trace.hash}
               description={step.description}
               presentation={isPresentation}
+              tall={trace.beside === true}
             />
           ) : trace.tree !== undefined && step.tree !== undefined ? (
             <TreeView

@@ -426,6 +426,13 @@ export interface SequenceTrace {
    */
   row?: { name: string; code: string }[];
   /**
+   * On a slide, the listings in a column on the left and the structure on the
+   * right, instead of one over the other: a table that grows draws two
+   * tables stacked, taller than the panel under a row of listings leaves it
+   * (#326 review, `grow`).
+   */
+  beside?: boolean;
+  /**
    * The most cells any frame holds. The view lays out for THIS, not for the
    * current frame, so the drawing keeps one size from the first frame to the
    * last — a chain that resizes under the reader on every insertion is a

@@ -353,6 +353,7 @@ export function traceHash(operation: HashOperation, input: SequenceInput): Seque
         { name: 'add', code },
         { name: 'resize', code: CODE.resize },
       ],
+      beside: true,
       maxCells: Math.max(...rec.steps.map((s) => s.cells.length)),
       align: 'left',
       hasCarry: false,

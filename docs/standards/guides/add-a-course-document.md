@@ -991,10 +991,11 @@ line lit (#326 review: «Inserciones en una misma tabla», «Eliminaciones en un
 misma tabla»). A starting table with `deleted` marks has no such program and
 is refused. `grow` (on `hash-chaining` × `insert` only) lists `add` with the
 lines that resize and `resize` beside it, and walks `resize` inside the run
-whenever an insertion finds as many keys as positions — with `program`, three
-listings abreast; a resize whose two tables pass twelve positions together
-draws `old` on top and the new table under it («Inserciones que hacen crecer
-la tabla»: from `capacity={2}`, 2 → 5 → 11).
+whenever an insertion finds as many keys as positions. On a slide its
+listings go in a column on the left and the table on the right; a resize whose
+two tables pass twelve positions together draws `old` on top and the new
+table under it («Inserciones que hacen crecer la tabla»: from `capacity={2}`,
+2 → 5 → 11).
 `values` is the starting contents; `value` feeds the inserts, `index` the
 positional operations (`get-at` included), and `target` the searches
 (`search`, `binary-search`), `insert-ordered`, and on the trees the node an
