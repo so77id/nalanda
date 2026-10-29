@@ -2250,7 +2250,7 @@ $$
 
 </Slide>
 
-<Slide title="El costo esperado y el peor caso">
+<Slide title="Las dos condiciones del costo constante">
 Buscar, agregar y eliminar hacen el mismo trabajo: calculan la posición de la
 clave y recorren la lista de esa posición, hasta dar con la clave o hasta el
 final. Por eso las tres cuestan lo mismo en promedio,
@@ -2262,17 +2262,20 @@ $$
 el 1 por calcular la posición, que no depende de $$N$$, y el $$\alpha$$ por
 recorrer la lista.
 
-Ese costo no es constante mientras $$M$$ esté fijo: cada clave nueva sube
-$$\alpha = N / M$$, y $$\Theta(1 + \alpha)$$ crece de forma lineal con las
-claves.
+Ese costo es constante solo si se cumplen dos condiciones, y cada una tiene su
+responsable:
+
+- **La función hash reparte parejo.** Si no, las claves se juntan en pocas
+  listas y, en el extremo, caen todas en la misma: una sola lista de $$N$$
+  nodos, que cuesta $$\Theta(N)$$ recorrer. Es tarea de la función: que sea
+  uniforme.
+- **La tabla crece con las claves.** Aunque la función reparta perfecto, con
+  $$M$$ fijo cada clave nueva sube $$\alpha = N / M$$, y el costo crece de
+  forma lineal con las claves. Es tarea de la tabla.
 
 $$
 M = 7, \quad N = 700 \quad \Rightarrow \quad \alpha = 100
 $$
-
-El peor caso es otro: si todas las claves caen en la misma posición, la tabla
-es una sola lista de $$N$$ nodos, y cada operación cuesta $$\Theta(N)$$ sea
-cual sea el factor de carga.
 
 </Slide>
 
