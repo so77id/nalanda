@@ -1221,6 +1221,686 @@ búsqueda lo mira.
 
 ## Ejercicios
 
+{/* RutRow — a sequence of RUTs in the order they arrive: a row of chips with the position over each. `at` outlines the one being read, `tones` paints chips by position (`keep`: the answer, `mark`: a repetition, `faint`: not read yet), and `arcs` joins pairs of positions [earlier, later] with a curve over the row — a RUT and its repetition, or a comparison. File-local (add-a-course-document.md §6e-quater), like every figure below. */}
+
+export function RutRow({ ruts, at = -1, tones = {}, arcs = [], caption, label }) {
+  const chipW = 112;
+  const chipH = 30;
+  const gap = 8;
+  const pad = 12;
+  const arcH = arcs.length ? 46 : 0;
+  const rowW = ruts.length * chipW + Math.max(0, ruts.length - 1) * gap;
+  const width = Math.max(2 * pad + Math.max(rowW, chipW), caption ? caption.length * 6.6 + 24 : 0);
+  const left = (width - rowW) / 2;
+  const indexY = pad + arcH + 10;
+  const chipY = indexY + 8;
+  const height = chipY + chipH + (caption ? 34 : 12);
+  const cx = (i) => left + i * (chipW + gap) + chipW / 2;
+  const paint = {
+    keep: ['var(--color-keep-soft)', 'var(--color-keep)'],
+    mark: ['var(--color-mark-soft)', 'var(--color-mark)'],
+  };
+  return (
+    <svg viewBox={`0 0 ${width} ${height}`} style={{ width: '100%', maxWidth: `${Math.round(width * 1.3)}px`, height: 'auto', display: 'block', margin: '0.4rem auto' }} role="img" aria-label={label}>
+      {arcs.map(([a, b]) => {
+        const lift = Math.min(arcH - 6, 16 + 9 * (b - a));
+        const y0 = indexY - 12;
+        return (
+          <path key={`a${a}-${b}`} d={`M ${cx(b)} ${y0} C ${cx(b)} ${y0 - lift}, ${cx(a)} ${y0 - lift}, ${cx(a)} ${y0}`} fill="none" style={{ stroke: 'var(--color-mark)' }} strokeWidth="1.8" />
+        );
+      })}
+      {ruts.length === 0 ? (
+        <text x={width / 2} y={chipY + chipH / 2 + 5} textAnchor="middle" fontSize="13" style={{ fill: 'var(--color-ink-faint)' }}>ningún RUT</text>
+      ) : null}
+      {ruts.map((r, i) => {
+        const [fill, stroke] = paint[tones[i]] ?? ['var(--color-surface)', 'var(--color-rule-strong)'];
+        const ring = i === at;
+        return (
+          <g key={i} opacity={tones[i] === 'faint' ? 0.45 : undefined}>
+            <text x={cx(i)} y={indexY} textAnchor="middle" fontSize="11" fontWeight={ring ? 700 : 400} style={{ fill: ring ? 'var(--color-ink)' : 'var(--color-ink-faint)' }}>{i}</text>
+            <rect x={cx(i) - chipW / 2} y={chipY} width={chipW} height={chipH} rx="15" style={{ fill, stroke: ring ? 'var(--color-focus)' : stroke }} strokeWidth={ring ? 2.6 : tones[i] && tones[i] !== 'faint' ? 2.2 : 1.2} />
+            <text x={cx(i)} y={chipY + chipH / 2 + 5} textAnchor="middle" fontSize="13" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{r}</text>
+          </g>
+        );
+      })}
+      {caption ? (
+        <text x={width / 2} y={height - 10} textAnchor="middle" fontSize="12" style={{ fill: 'var(--color-ink-soft)' }}>{caption}</text>
+      ) : null}
+    </svg>
+  );
+}
+
+{/* SeenStrip — a hand run of the repeated-vote idea, one column per RUT read: the RUT on top and, under it, the RUTs seen so far, the one just remembered painted `mark`. The last column may be the answer: its RUT painted `keep`, over the same set, unchanged. The heap class's TopKStrip is the same shape (20-edd-priority-queue-heap.mdx). */}
+
+export function SeenStrip({ steps, slots, label }) {
+  const chipW = 112;
+  const chipH = 28;
+  const colW = 128;
+  const pad = 12;
+  const readY = pad + 18;
+  const seenY = readY + chipH + 30;
+  const width = 2 * pad + steps.length * colW;
+  const height = seenY + 16 + slots * (chipH + 6) + 8;
+  return (
+    <svg viewBox={`0 0 ${width} ${height}`} style={{ width: '100%', maxWidth: `${Math.round(width * 1.3)}px`, height: 'auto', display: 'block', margin: '0.4rem auto' }} role="img" aria-label={label}>
+      {steps.map((s, c) => {
+        const x = pad + c * colW + (colW - chipW) / 2;
+        return (
+          <g key={c}>
+            <text x={x + chipW / 2} y={readY - 6} textAnchor="middle" fontSize="11" style={{ fill: 'var(--color-ink-faint)' }}>{`lee el ${c}`}</text>
+            <rect x={x} y={readY} width={chipW} height={chipH} rx="14" style={{ fill: s.found ? 'var(--color-keep-soft)' : 'var(--color-surface)', stroke: s.found ? 'var(--color-keep)' : 'var(--color-focus)' }} strokeWidth="2.2" />
+            <text x={x + chipW / 2} y={readY + chipH / 2 + 5} textAnchor="middle" fontSize="12.5" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{s.read}</text>
+            <text x={x + chipW / 2} y={seenY - 10} textAnchor="middle" fontSize="11" fontWeight="700" style={{ fill: s.found ? 'var(--color-keep)' : 'var(--color-ink-soft)' }}>{s.found ? 'ya estaba' : 'vistos'}</text>
+            {s.seen.map((r, k) => (
+              <g key={r}>
+                <rect x={x} y={seenY + k * (chipH + 6)} width={chipW} height={chipH} rx="14" style={{ fill: r === s.read && !s.found ? 'var(--color-mark-soft)' : 'var(--color-sunk)', stroke: r === s.read && !s.found ? 'var(--color-mark)' : 'var(--color-rule-strong)' }} strokeWidth={r === s.read && !s.found ? 2 : 1.1} />
+                <text x={x + chipW / 2} y={seenY + k * (chipH + 6) + chipH / 2 + 5} textAnchor="middle" fontSize="12.5" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{r}</text>
+              </g>
+            ))}
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
+
+{/* SeenFrame — one frame of the walk of firstRepeated: the RUTs in their order with the one being read outlined, those already read faint, and under them the set `seen` as it stands, the RUT `add` just put in painted `mark`, the one `add` refused painted `keep`. Its size never changes between frames: `slots` reserves the widest set the walk reaches. */}
+
+export function SeenFrame({ ruts, at = -1, seen, fresh, found, slots, label }) {
+  const chipW = 112;
+  const chipH = 28;
+  const gap = 8;
+  const pad = 12;
+  const rowW = ruts.length * chipW + (ruts.length - 1) * gap;
+  const setW = slots * chipW + (slots - 1) * gap + 28;
+  const width = 2 * pad + Math.max(rowW, setW);
+  const left = (width - rowW) / 2;
+  const setX = (width - setW) / 2;
+  const indexY = pad + 10;
+  const rowY = indexY + 8;
+  const setY = rowY + chipH + 34;
+  const setH = chipH + 24;
+  const height = setY + setH + 12;
+  return (
+    <svg viewBox={`0 0 ${width} ${height}`} style={{ width: '100%', maxWidth: `${Math.round(width * 1.3)}px`, height: 'auto', display: 'block', margin: '0.4rem auto' }} role="img" aria-label={label}>
+      {ruts.map((r, i) => {
+        const x = left + i * (chipW + gap);
+        const ring = i === at;
+        return (
+          <g key={i} opacity={i < at ? 0.5 : undefined}>
+            <text x={x + chipW / 2} y={indexY} textAnchor="middle" fontSize="11" fontWeight={ring ? 700 : 400} style={{ fill: ring ? 'var(--color-ink)' : 'var(--color-ink-faint)' }}>{i}</text>
+            <rect x={x} y={rowY} width={chipW} height={chipH} rx="14" style={{ fill: 'var(--color-surface)', stroke: ring ? 'var(--color-focus)' : 'var(--color-rule-strong)' }} strokeWidth={ring ? 2.6 : 1.2} />
+            <text x={x + chipW / 2} y={rowY + chipH / 2 + 5} textAnchor="middle" fontSize="12.5" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{r}</text>
+          </g>
+        );
+      })}
+      <text x={setX + 12} y={setY - 7} fontSize="12" fontWeight="700" style={{ fill: 'var(--color-ink-soft)' }}>seen</text>
+      <rect x={setX} y={setY} width={setW} height={setH} rx="16" style={{ fill: 'var(--color-sunk)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.3" />
+      {seen.map((r, k) => {
+        const tone = r === found ? 'keep' : r === fresh ? 'mark' : undefined;
+        return (
+          <g key={r}>
+            <rect x={setX + 14 + k * (chipW + gap)} y={setY + 12} width={chipW} height={chipH} rx="14" style={{ fill: tone ? `var(--color-${tone}-soft)` : 'var(--color-surface)', stroke: tone ? `var(--color-${tone})` : 'var(--color-rule-strong)' }} strokeWidth={tone ? 2.2 : 1.2} />
+            <text x={setX + 14 + k * (chipW + gap) + chipW / 2} y={setY + 12 + chipH / 2 + 5} textAnchor="middle" fontSize="12.5" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{r}</text>
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
+
+{/* The repeated-vote exercise's example: five arrivals in which 13.180.992-1 repeats at position 3 and 18.155.218-2, the first to arrive, repeats only at 4. */}
+
+export const REPEATS = ['18.155.218-2', '13.180.992-1', '13.959.276-K', '13.180.992-1', '18.155.218-2'];
+
+<Slide title="El primer voto repetido">
+Un sistema de votación electrónica recibe los RUTs en el orden en que se
+presentan a votar, y tiene que detectar el primer intento de votar dos veces.
+
+El **primer voto repetido** es la primera posición cuyo RUT ya apareció antes.
+No es el RUT que llegó primero de los que se repiten: es el que se repite
+primero.
+
+<RutRow
+  ruts={REPEATS}
+  tones={{ 3: 'keep' }}
+  arcs={[[1, 3], [0, 4]]}
+  caption="13.180.992-1 se repite en la posición 3, antes que 18.155.218-2, en la 4"
+  label="Cinco RUTs en el orden en que llegan: 18.155.218-2, 13.180.992-1, 13.959.276-K, 13.180.992-1 y 18.155.218-2. Un arco une las posiciones 1 y 3, el mismo RUT, y otro las posiciones 0 y 4. La posición 3 está destacada: es el primer voto repetido."
+/>
+
+El programa recibe los RUTs en el orden en que llegan, todos escritos de la
+misma manera, y responde el RUT del primer voto repetido, o `null` si nadie
+votó dos veces:
+
+```java
+static String firstRepeated(String[] ruts)
+```
+
+**Entrada.** `ruts`, a lo más $$10^5$$ RUTs. $$N$$ es su largo.
+
+**Salida.** El RUT del primer voto repetido, o `null`. Sin RUTs, `null`.
+
+</Slide>
+
+<Slide title="Comparar con todos los anteriores">
+Lo primero que se piensa es comparar cada RUT con todos los que llegaron
+antes. Es correcto, y es lento: el RUT de la posición $$i$$ hace $$i$$
+comparaciones, y cuando nadie repite, todos las hacen.
+
+<RutRow
+  ruts={['18.155.218-2', '13.180.992-1', '13.959.276-K', '17.814.358-1', '22.715.853-0']}
+  at={4}
+  arcs={[[0, 4], [1, 4], [2, 4], [3, 4]]}
+  caption="el de la posición 4 se compara con los cuatro anteriores"
+  label="Cinco RUTs distintos. El de la posición 4, destacado, tiene un arco hacia cada uno de los cuatro anteriores: cuatro comparaciones."
+/>
+
+$$
+0 + 1 + 2 + \cdots + (N - 1) = \frac{N(N - 1)}{2} \in \Theta(N^2)
+$$
+
+Con $$10^5$$ RUTs son unos $$5 \cdot 10^9$$ comparaciones. Cada RUT nuevo no
+necesita saber **en qué posición** estuvo antes, ni compararse uno por uno:
+solo necesita saber **si** ya pasó.
+
+</Slide>
+
+<Slide title="Recordar los RUTs vistos">
+La idea es llevar los RUTs que ya pasaron. Cada RUT que llega hace una sola
+pregunta, si ya pasó: si pasó, es la respuesta; si no, se recuerda y se
+sigue. La pregunta no depende del orden en que pasaron, y lo que se guarda
+no se repite: es un **conjunto**, y como ninguna pregunta depende del orden,
+una tabla hash, un **`HashSet`**, la responde en tiempo constante esperado.
+
+<SeenStrip
+  slots={3}
+  steps={[
+    { read: '18.155.218-2', seen: ['18.155.218-2'] },
+    { read: '13.180.992-1', seen: ['18.155.218-2', '13.180.992-1'] },
+    { read: '13.959.276-K', seen: ['18.155.218-2', '13.180.992-1', '13.959.276-K'] },
+    { read: '13.180.992-1', seen: ['18.155.218-2', '13.180.992-1', '13.959.276-K'], found: true },
+  ]}
+  label="Cuatro columnas, una por RUT leído. Lee 18.155.218-2: no estaba, y queda entre los vistos. Lee 13.180.992-1: no estaba, y queda. Lee 13.959.276-K: no estaba, y queda; los vistos son tres. Lee 13.180.992-1 otra vez: ya estaba entre los vistos, y es la respuesta."
+/>
+
+</Slide>
+
+<Slide title="Primera repetición · la solución">
+`add` hace las dos cosas a la vez: agrega el RUT si no estaba, y su respuesta
+dice si estaba. Cuando retorna falso, el RUT ya había pasado.
+
+<StepShow
+  language="java"
+  code={`static String firstRepeated(String[] ruts) {
+      Set<String> seen = new HashSet<>();
+      for (String rut : ruts) {
+          if (!seen.add(rut)) {
+              return rut;
+          }
+      }
+      return null;
+  }`}
+>
+  <Step lines={[2]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>seen arranca vacío.</div>
+    <SeenFrame ruts={REPEATS} seen={[]} slots={3} label="Los cinco RUTs, ninguno leído todavía. El conjunto seen, vacío." />
+  </Step>
+  <Step lines={[3, 4]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Llega 18.155.218-2: no estaba, add lo agrega y retorna true.</div>
+    <SeenFrame ruts={REPEATS} at={0} seen={['18.155.218-2']} fresh="18.155.218-2" slots={3} label="Se lee la posición 0, 18.155.218-2. seen: 18.155.218-2, recién agregado." />
+  </Step>
+  <Step lines={[3, 4]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Llega 13.180.992-1: no estaba, y queda en seen.</div>
+    <SeenFrame ruts={REPEATS} at={1} seen={['18.155.218-2', '13.180.992-1']} fresh="13.180.992-1" slots={3} label="Se lee la posición 1, 13.180.992-1. seen: 18.155.218-2 y 13.180.992-1, recién agregado." />
+  </Step>
+  <Step lines={[3, 4]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Llega 13.959.276-K: no estaba, y queda en seen.</div>
+    <SeenFrame ruts={REPEATS} at={2} seen={['18.155.218-2', '13.180.992-1', '13.959.276-K']} fresh="13.959.276-K" slots={3} label="Se lee la posición 2, 13.959.276-K. seen: 18.155.218-2, 13.180.992-1 y 13.959.276-K, recién agregado." />
+  </Step>
+  <Step lines={[4, 5]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Llega 13.180.992-1: ya estaba, add retorna false, y es el primer voto repetido.</div>
+    <SeenFrame ruts={REPEATS} at={3} seen={['18.155.218-2', '13.180.992-1', '13.959.276-K']} found="13.180.992-1" slots={3} label="Se lee la posición 3, 13.180.992-1, que ya está en seen, destacado. La función retorna 13.180.992-1 sin leer la posición 4." />
+  </Step>
+</StepShow>
+
+</Slide>
+
+<Slide title="Sin repeticiones y el costo de la primera repetición">
+Si nadie vota dos veces, todos los `add` retornan verdadero, el ciclo termina
+y la función retorna `null`: es el caso que recorre los $$N$$ RUTs. Sin RUTs,
+el ciclo no corre; con uno solo, no tiene con quién repetirse.
+
+<RutRow
+  ruts={['18.155.218-2', '13.180.992-1', '13.959.276-K']}
+  caption="tres RUTs distintos: firstRepeated retorna null"
+  label="Tres RUTs distintos, 18.155.218-2, 13.180.992-1 y 13.959.276-K, sin ningún arco entre ellos: nadie repite, y la función retorna null."
+/>
+
+**Tiempo.** Cada RUT hace un solo `add`, que cuesta $$\Theta(1)$$ esperado en
+una tabla hash, así que la función cuesta $$O(N)$$ esperado: termina antes
+si encuentra la repetición. Si la función hash juntara todos los RUTs en una
+misma lista, cada `add` la recorrería entera, y el total sería $$\Theta(N^2)$$.
+
+**Memoria.** `seen` guarda a lo más los $$N$$ RUTs: $$O(N)$$.
+
+</Slide>
+
+<Slide title="Primera repetición · el programa completo">
+<PresentationWide fraction={0.75}>
+<Exercise title="El primer voto repetido">
+
+```java starter
+import java.util.HashSet;
+import java.util.Set;
+
+class Solution {
+    static String firstRepeated(String[] ruts) {
+        Set<String> seen = new HashSet<>();
+        for (String rut : ruts) {
+            if (!seen.add(rut)) {
+                return rut;
+            }
+        }
+        return null;
+    }
+}
+```
+
+```java test
+check(Solution.firstRepeated(new String[] {"18.155.218-2", "13.180.992-1",
+    "13.959.276-K", "13.180.992-1", "18.155.218-2"}), "13.180.992-1");
+check(Solution.firstRepeated(new String[] {"18.155.218-2", "13.180.992-1",
+    "13.959.276-K"}), null);
+check(Solution.firstRepeated(new String[] {"9.876.543-3", "9.876.543-3"}), "9.876.543-3");
+check(Solution.firstRepeated(new String[] {"9.876.543-3"}), null);
+check(Solution.firstRepeated(new String[] {}), null);
+```
+
+</Exercise>
+</PresentationWide>
+
+</Slide>
+
+{/* TimeLine — a day of the agenda, from 8:00 to 18:00: an axis with the hours, a dot on every time taken with its hour over it. `fresh` paints the time just booked `mark`, `gone` draws a cancelled one dashed and struck, and `from`/`to` lay a band under the axis over the interval asked for, the times inside it painted `keep`. Times are integers HHMM, as the exercise writes them. The size never changes, so the frames of one walk keep one scale. */}
+
+export function TimeLine({ times, fresh, gone, from, to, caption, label }) {
+  const pad = 22;
+  const perHour = 80;
+  const first = 8;
+  const hours = 10;
+  const width = 2 * pad + hours * perHour;
+  const axisY = 58;
+  const height = axisY + 54 + (caption ? 22 : 0);
+  const minutes = (t) => Math.floor(t / 100) * 60 + (t % 100);
+  const x = (t) => pad + ((minutes(t) - first * 60) / 60) * perHour;
+  const text = (t) => `${Math.floor(t / 100)}:${String(t % 100).padStart(2, '0')}`;
+  const inside = (t) => from !== undefined && t >= from && t <= to;
+  const all = gone !== undefined ? [...times, gone] : times;
+  return (
+    <svg viewBox={`0 0 ${width} ${height}`} style={{ width: '100%', maxWidth: `${Math.round(width * 1.3)}px`, height: 'auto', display: 'block', margin: '0.4rem auto' }} role="img" aria-label={label}>
+      {from !== undefined ? (
+        <rect x={x(from)} y={axisY + 8} width={Math.max(4, x(to) - x(from))} height="12" rx="3" style={{ fill: 'var(--color-keep-soft)', stroke: 'var(--color-keep)' }} strokeWidth="1.4" />
+      ) : null}
+      <line x1={pad} y1={axisY} x2={width - pad} y2={axisY} style={{ stroke: 'var(--color-rule-strong)' }} strokeWidth="1.4" />
+      {Array.from({ length: hours + 1 }, (_, h) => (
+        <g key={h}>
+          <line x1={pad + h * perHour} y1={axisY - 4} x2={pad + h * perHour} y2={axisY + 4} style={{ stroke: 'var(--color-rule-strong)' }} strokeWidth="1.2" />
+          <text x={pad + h * perHour} y={axisY + 36} textAnchor="middle" fontSize="11" style={{ fill: 'var(--color-ink-faint)' }}>{`${first + h}:00`}</text>
+        </g>
+      ))}
+      {all.map((t, n) => {
+        const isGone = t === gone;
+        const tone = isGone ? undefined : t === fresh ? 'mark' : inside(t) ? 'keep' : undefined;
+        const lift = n % 2 === 0 ? 0 : 0;
+        return (
+          <g key={`${t}-${n}`} opacity={isGone ? 0.55 : undefined}>
+            <circle cx={x(t)} cy={axisY} r="6.5" style={{ fill: tone ? `var(--color-${tone}-soft)` : 'var(--color-surface)', stroke: tone ? `var(--color-${tone})` : 'var(--color-ink-soft)' }} strokeWidth={tone ? 2.2 : 1.6} strokeDasharray={isGone ? '3 2' : undefined} />
+            <text x={x(t)} y={axisY - 14 - lift} textAnchor="middle" fontSize="12" fontWeight="600" textDecoration={isGone ? 'line-through' : undefined} style={{ fill: 'var(--color-ink)' }}>{text(t)}</text>
+          </g>
+        );
+      })}
+      {caption ? (
+        <text x={width / 2} y={height - 6} textAnchor="middle" fontSize="12" style={{ fill: 'var(--color-ink-soft)' }}>{caption}</text>
+      ) : null}
+    </svg>
+  );
+}
+
+{/* The agenda's taken times when the interval is asked, as a search tree with their hours as keys: any shape is one TreeSet could hold, and the class draws only its inorder. */}
+
+export const AGENDA_TREE = { v: '9:30', l: { v: '9:00' }, r: { v: '14:30', l: { v: '10:00' } } };
+
+<Slide title="Una agenda de horas">
+Un consultorio agenda horas a lo largo del día: se agenda una hora, se
+cancela otra, y en cualquier momento la recepción pregunta cuáles están
+tomadas entre dos horas, por ejemplo para avisarles a todos los de la tarde
+que el médico viene atrasado. Las horas se escriben como enteros `HHMM`:
+`930` son las 9:30, y el orden de los enteros es el de las horas.
+
+**Entre `from` y `to`** quiere decir las horas tomadas que no son anteriores
+a `from` ni posteriores a `to`: las dos de los extremos cuentan.
+
+<TimeLine
+  times={[900, 930, 1000, 1430]}
+  from={930}
+  to={1430}
+  caption="entre 9:30 y 14:30, con las dos incluidas: 9:30, 10:00 y 14:30"
+  label="Una línea del día, de 8:00 a 18:00, con horas tomadas a las 9:00, 9:30, 10:00 y 14:30. Una franja marca el intervalo de 9:30 a 14:30, y las horas 9:30, 10:00 y 14:30, dentro de él, están destacadas."
+/>
+
+```java
+class Agenda {
+    boolean book(int time)  // falso si ya estaba tomada
+    boolean cancel(int time) // falso si no estaba tomada
+    List<Integer> between(int from, int to) // en orden
+}
+```
+
+**Entrada.** A lo más $$10^5$$ llamadas, en cualquier orden. $$N$$ es la
+cantidad de horas tomadas, y $$k$$, la de horas que entrega `between`.
+
+</Slide>
+
+<Slide title="Una agenda de ejemplo">
+Una seguidilla de llamadas, con lo que responde cada una:
+
+| Llamada                | Responde               | Horas tomadas después          |
+| ---------------------- | ---------------------- | ------------------------------ |
+| `book(1100)`           | `true`                 | 11:00                          |
+| `book(930)`            | `true`                 | 9:30, 11:00                    |
+| `book(1430)`           | `true`                 | 9:30, 11:00, 14:30             |
+| `book(900)`            | `true`                 | 9:00, 9:30, 11:00, 14:30       |
+| `book(1000)`           | `true`                 | 9:00, 9:30, 10:00, 11:00, 14:30 |
+| `book(930)`            | `false`: ya estaba     | las mismas                     |
+| `cancel(1100)`         | `true`                 | 9:00, 9:30, 10:00, 14:30       |
+| `between(930, 1430)`   | `[930, 1000, 1430]`    | las mismas                     |
+| `between(1500, 1700)`  | `[]`                   | las mismas                     |
+
+Pedir un intervalo con `from` después de `to` es un error, y `between` lanza
+`IllegalArgumentException`.
+
+</Slide>
+
+<Slide title="Una lista ordenada o una sin orden">
+Guardar las horas en un arreglo obliga a elegir. **Sin orden**, `between`
+tiene que mirar todas las horas para saber cuáles caen en el intervalo, y
+agendar y cancelar también: una hora se agenda una sola vez, así que antes
+hay que buscarla entre todas. **Ordenado**, una búsqueda binaria encuentra la
+hora o la primera del intervalo, y las demás vienen seguidas, pero agendar y
+cancelar corren una posición todas las horas posteriores.
+
+| Arreglo     | `book`, `cancel` | `between`          |
+| ----------- | ---------------- | ------------------ |
+| Sin orden   | $$\Theta(N)$$    | $$\Theta(N)$$      |
+| Ordenado    | $$\Theta(N)$$    | $$O(\log N + k)$$  |
+
+Ninguno de los dos agenda en menos de $$\Theta(N)$$. Con $$10^5$$ llamadas
+sobre una agenda que crece, eso es del orden de mil millones de pasos.
+
+</Slide>
+
+<Slide title="Un orden que se mantiene al agendar">
+Lo que pide `between` es el orden: que las horas de un intervalo estén
+seguidas, para encontrar la primera y avanzar hasta pasar la última. Lo que
+piden `book` y `cancel` es no correr nada para mantener ese orden. Las dos
+cosas juntas las da un **árbol de búsqueda balanceado**: agrega y saca bajando
+un camino, y su inorden entrega las horas ordenadas. En Java, un
+**`TreeSet<Integer>`**.
+
+<KeyTree
+  tree={AGENDA_TREE}
+  strip
+  tones={{ '9:30': 'keep', '10:00': 'keep', '14:30': 'keep' }}
+  caption="entre 9:30 y 14:30: desde 9:30, el inorden hasta pasar 14:30"
+  label="Un árbol de búsqueda con las horas tomadas: 9:30 en la raíz, 9:00 a su izquierda y 14:30 a su derecha, con 10:00 como hijo izquierdo de 14:30. Debajo, el inorden: 9:00, 9:30, 10:00 y 14:30. 9:30, 10:00 y 14:30 están destacadas y son casillas seguidas del inorden."
+/>
+
+</Slide>
+
+<Slide title="Agenda · la solución">
+Cada método es una operación del `TreeSet`: `book` es `add` y `cancel` es
+`remove`, y los dos responden lo que el contrato del Set ya responde.
+`between` pide el tramo con `subSet`, con los dos extremos incluidos, y lo
+copia a una lista.
+
+<StepShow
+  language="java"
+  code={`class Agenda {
+      private TreeSet<Integer> times = new TreeSet<>();
+
+      public boolean book(int time) {
+          return times.add(time);
+      }
+
+      public boolean cancel(int time) {
+          return times.remove(time);
+      }
+
+      public List<Integer> between(int from, int to) {
+          if (from > to) {
+              throw new IllegalArgumentException();
+          }
+          return new ArrayList<>(
+              times.subSet(from, true, to, true));
+      }
+  }`}
+>
+  <Step lines={[2]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>La agenda arranca sin horas tomadas.</div>
+    <TimeLine times={[]} label="La línea del día, de 8:00 a 18:00, sin horas tomadas." />
+  </Step>
+  <Step lines={[4, 5]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>book(1100): las 11:00 no estaban; retorna true.</div>
+    <TimeLine times={[1100]} fresh={1100} label="La línea del día con las 11:00, recién agendadas." />
+  </Step>
+  <Step lines={[4, 5]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>book(930): retorna true.</div>
+    <TimeLine times={[930, 1100]} fresh={930} label="Las horas tomadas: 9:30, recién agendada, y 11:00." />
+  </Step>
+  <Step lines={[4, 5]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>book(1430): retorna true.</div>
+    <TimeLine times={[930, 1100, 1430]} fresh={1430} label="Las horas tomadas: 9:30, 11:00 y 14:30, recién agendada." />
+  </Step>
+  <Step lines={[4, 5]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>book(900): retorna true.</div>
+    <TimeLine times={[900, 930, 1100, 1430]} fresh={900} label="Las horas tomadas: 9:00, recién agendada, 9:30, 11:00 y 14:30." />
+  </Step>
+  <Step lines={[4, 5]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>book(1000): retorna true.</div>
+    <TimeLine times={[900, 930, 1000, 1100, 1430]} fresh={1000} label="Las horas tomadas: 9:00, 9:30, 10:00, recién agendada, 11:00 y 14:30." />
+  </Step>
+  <Step lines={[4, 5]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>book(930): ya estaba tomada; add retorna false y nada cambia.</div>
+    <TimeLine times={[900, 930, 1000, 1100, 1430]} label="Las horas tomadas no cambian: 9:00, 9:30, 10:00, 11:00 y 14:30." />
+  </Step>
+  <Step lines={[8, 9]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>cancel(1100): estaba; remove la saca y retorna true.</div>
+    <TimeLine times={[900, 930, 1000, 1430]} gone={1100} label="Las horas tomadas: 9:00, 9:30, 10:00 y 14:30. Las 11:00, canceladas, aparecen tachadas." />
+  </Step>
+  <Step lines={[12, 13, 16, 17]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>between(930, 1430): el tramo de 9:30 a 14:30, incluidas: [930, 1000, 1430].</div>
+    <TimeLine times={[900, 930, 1000, 1430]} from={930} to={1430} label="Las horas tomadas, con la franja de 9:30 a 14:30: 9:30, 10:00 y 14:30 caen dentro y están destacadas." />
+  </Step>
+  <Step lines={[12, 13, 16, 17]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>between(1500, 1700): ninguna hora cae en el tramo; la lista sale vacía.</div>
+    <TimeLine times={[900, 930, 1000, 1430]} from={1500} to={1700} label="Las horas tomadas, con la franja de 15:00 a 17:00: ninguna cae dentro." />
+  </Step>
+</StepShow>
+
+</Slide>
+
+<Slide title="Un intervalo vacío y el costo de la agenda">
+`between` con `from` después de `to` lanza la excepción antes de mirar la
+agenda. Un intervalo sin horas tomadas, o una agenda vacía, entregan una
+lista vacía, y una hora igual a `from` o a `to` entra en la respuesta.
+
+**Tiempo.** `book` y `cancel` son una operación del árbol cada una:
+$$O(\log N)$$. `between` baja hasta la primera hora del tramo en
+$$O(\log N)$$ y después entrega las $$k$$ siguientes del inorden, así que
+cuesta $$O(\log N + k)$$, sin importar cuántas horas haya fuera del tramo.
+
+**Memoria.** El árbol guarda las $$N$$ horas tomadas, y cada `between`, una
+lista de $$k$$: $$\Theta(N + k)$$.
+
+</Slide>
+
+<Slide title="Agenda · el programa completo">
+<PresentationWide fraction={0.75}>
+<Exercise title="Una agenda de horas">
+
+```java starter
+import java.util.ArrayList;
+import java.util.List;
+import java.util.TreeSet;
+
+class Agenda {
+    private TreeSet<Integer> times = new TreeSet<>();
+
+    public boolean book(int time) {
+        return times.add(time);
+    }
+
+    public boolean cancel(int time) {
+        return times.remove(time);
+    }
+
+    public List<Integer> between(int from, int to) {
+        if (from > to) {
+            throw new IllegalArgumentException();
+        }
+        return new ArrayList<>(
+            times.subSet(from, true, to, true));
+    }
+}
+```
+
+```java test
+Agenda a = new Agenda();
+check(a.book(1100), true);
+check(a.book(930), true);
+check(a.book(1430), true);
+check(a.book(900), true);
+check(a.book(1000), true);
+check(a.book(930), false);
+check(a.cancel(1100), true);
+check(a.cancel(1100), false);
+check(a.between(930, 1430), Arrays.asList(930, 1000, 1430));
+check(a.between(1500, 1700), Arrays.asList());
+check(new Agenda().between(800, 1800), Arrays.asList());
+boolean refused = false;
+try { a.between(1430, 930); } catch (IllegalArgumentException e) { refused = true; }
+check(refused, true);
+```
+
+</Exercise>
+</PresentationWide>
+
+</Slide>
+
+Dos ejercicios más, propuestos, para resolver sin ver la respuesta:
+
+<Exercise title="Votantes distintos">
+
+Un registro recibe los RUTs de quienes votaron en un día, todos escritos de la
+misma manera, y algunos repetidos, porque una persona intentó votar más de una
+vez. Escribamos `countDistinct`, que recibe los RUTs y responde cuántas
+personas distintas votaron.
+
+Con 18.155.218-2, 13.180.992-1, 18.155.218-2 y 13.959.276-K, responde 3. Sin
+RUTs, responde 0.
+
+Ordenar los RUTs y contar los cambios entre vecinos responde bien, y cuesta
+$$\Theta(N \log N)$$. Un conjunto no guarda repetidos, y cuántos elementos
+tiene es justo la respuesta.
+
+```java starter
+class Solution {
+    static int countDistinct(String[] ruts) {
+        return 0;
+    }
+}
+```
+
+```java test
+check(Solution.countDistinct(new String[] {"18.155.218-2", "13.180.992-1",
+    "18.155.218-2", "13.959.276-K"}), 3);
+check(Solution.countDistinct(new String[] {"9.876.543-3", "9.876.543-3"}), 1);
+check(Solution.countDistinct(new String[] {"13.180.992-1"}), 1);
+check(Solution.countDistinct(new String[] {}), 0);
+```
+
+```java solution
+import java.util.HashSet;
+import java.util.Set;
+
+class Solution {
+    static int countDistinct(String[] ruts) {
+        Set<String> seen = new HashSet<>();
+        for (String rut : ruts) {
+            seen.add(rut);
+        }
+        return seen.size();
+    }
+}
+```
+
+</Exercise>
+
+<Exercise title="La próxima salida">
+
+Un terminal de buses tiene las salidas del día como enteros `HHMM`, sin
+repetidos y en cualquier orden, y a lo largo del día los pasajeros preguntan,
+a una hora dada, cuál es la próxima salida: la primera estrictamente
+posterior. Escribamos `nextDepartures`, que recibe las salidas y las horas de
+las consultas, y responde, para cada consulta, la próxima salida, o `-1` si
+ya no queda ninguna.
+
+Con las salidas 715, 900, 1230 y 1800, a las 830 la próxima es 900; a las 900,
+la siguiente es 1230, porque tiene que ser posterior; y a las 1900 no queda
+ninguna, así que responde -1.
+
+Recorrer todas las salidas en cada consulta cuesta $$\Theta(N)$$ por
+consulta. Un `TreeSet` responde «la primera estrictamente mayor que $$x$$»
+con un solo método, en $$O(\log N)$$.
+
+```java starter
+class Solution {
+    static int[] nextDepartures(int[] departures, int[] queries) {
+        return new int[queries.length];
+    }
+}
+```
+
+```java test
+check(Solution.nextDepartures(new int[] {1230, 715, 1800, 900},
+    new int[] {830, 900, 1900, 600}), new int[] {900, 1230, -1, 715});
+check(Solution.nextDepartures(new int[] {}, new int[] {1000}), new int[] {-1});
+check(Solution.nextDepartures(new int[] {1000}, new int[] {}), new int[] {});
+check(Solution.nextDepartures(new int[] {1000}, new int[] {1000}), new int[] {-1});
+```
+
+```java solution
+import java.util.TreeSet;
+
+class Solution {
+    static int[] nextDepartures(int[] departures, int[] queries) {
+        TreeSet<Integer> times = new TreeSet<>();
+        for (int d : departures) {
+            times.add(d);
+        }
+        int[] answers = new int[queries.length];
+        for (int i = 0; i < queries.length; i++) {
+            Integer next = times.higher(queries[i]);
+            answers[i] = next == null ? -1 : next;
+        }
+        return answers;
+    }
+}
+```
+
+</Exercise>
+
 <SectionBreak />
 
 ## Más allá de Set y Map
