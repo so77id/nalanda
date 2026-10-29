@@ -2516,7 +2516,7 @@ $$
 | Molde     | Operación       | Peor caso     | Esperado      | Invariante que restaura                        |
 | --------- | --------------- | ------------- | ------------- | ---------------------------------------------- |
 | consultar | `contains(key)` | $$\Theta(N)$$ | $$\Theta(1)$$ | Ninguna: no cambia la tabla                    |
-| modificar | <code style={{ color: 'var(--color-keep)' }}>add(key)</code> | $$\Theta(N)$$ | <span style={{ color: 'var(--color-keep)', fontWeight: 700 }}>$$\Theta(1)$$ amortizado</span> | La clave entra una vez, en su lista, y la tabla crece antes si $$\alpha$$ llegó a 1 |
+| modificar | `add(key)`      | $$\Theta(N)$$ | $$\Theta(1)$$ amortizado | La clave entra una vez, en su lista, y la tabla crece antes si $$\alpha$$ llegó a 1 |
 | modificar | `remove(key)`   | $$\Theta(N)$$ | $$\Theta(1)$$ | La clave sale de su lista, las demás quedan; `size` baja en 1 |
 
 Las listas tienen, sin embargo, un precio que la tabla no muestra: un nodo
