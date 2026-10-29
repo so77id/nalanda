@@ -355,6 +355,19 @@ describe('sequenceStepperTrace · hash-probing · insertions that grow the table
     }
   });
 
+  it('names the hash of the key again once the table has grown', () => {
+    // After resize the chip read "Julia" over cell 0, with the narration at
+    // hash(«Julia») = 1 (#331 review, COR-R-1).
+    for (const key of ['Julia', 'Pia']) {
+      const hashed = trace.steps.find(
+        (s) => s.probe!.key === key && s.description.startsWith(`i = hash(«${key}»)`),
+      )!;
+      const m = hashed.probe!.cells.length;
+      expect(hashed.probe!.home).toBe(hashKey(key, m));
+      expect(hashed.probe!.at).toBe(hashKey(key, m));
+    }
+  });
+
   it('puts every old key back in the first free cell from its hash in the new table', () => {
     const settled = trace.steps.filter(
       (s, i) => s.probe!.old === undefined && trace.steps[i - 1]?.probe!.old !== undefined,

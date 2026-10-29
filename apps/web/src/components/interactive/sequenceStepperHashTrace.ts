@@ -96,7 +96,8 @@ const CODE: Record<HashChainingOperation, string> = {
 /**
  * `add` as the class writes it once the table resizes (#326 review, `grow`):
  * the size check before the key goes in, and the call to `resize` on a line of
- * its own, so the listing fits a third of a slide beside `resize`.
+ * its own, so the listing fits the column it shares with `resize` (38% of a
+ * slide, `beside` below).
  */
 const GROW_CODE = `public boolean add(String key) {
     if (contains(key)) return false;
@@ -269,10 +270,7 @@ class HashRecorder {
   }
 }
 
-/**
- * What the two tables read alike, written once — the probing trace imports it
- * from here (#331 review: each carried a copy, and one comment had drifted).
- */
+// ── shared with the probing trace ─────────────────────────────────────────
 
 /** The keys a run is asked for: one runs the operation once, an array once each. */
 export function keysOf(input: SequenceInput): string[] {
@@ -439,6 +437,9 @@ function walkHash(operation: HashChainingOperation, input: SequenceInput): Seque
         { name: 'add', code },
         { name: 'resize', code: CODE.resize },
       ],
+      // The listings' share: the least that keeps add's and resize's longest
+      // lines whole at the slide's font; above the stacked tables instead,
+      // the professor measured the nodes too small (#326 review).
       beside: 38,
       queue: keysOf(input),
       maxCells: Math.max(...rec.steps.map((s) => s.cells.length)),

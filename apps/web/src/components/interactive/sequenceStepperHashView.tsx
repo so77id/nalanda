@@ -50,7 +50,7 @@ export function HashView({
   const fresh = hash.fresh;
   const bucket = hash.bucket;
   const mine = hash.pointers.filter((p) => p.old !== true);
-  // `resize` only: which array each strip draws, and under which names.
+  // `resize` and a `grow` run: which array each strip draws, and under which names.
   const old = layout.old;
   const tableOnLeft =
     layout.below === null &&
@@ -486,7 +486,6 @@ function PointerTag({ name, box }: { name: string; box: HashBox }) {
   );
 }
 
-/** The key the run works with, and — once computed — the position its hash names. */
 /**
  * The key looked for, over the position its hash named — or, until that line
  * runs, over no position, at the strip's start. Both tables draw it (#331

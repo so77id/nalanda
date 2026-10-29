@@ -2021,6 +2021,34 @@ describe('<SequenceStepper> · a growing run drawn side by side', () => {
     const centre = Number(chip.getAttribute('x')) + Number(chip.getAttribute('width')) / 2;
     expect(centre).toBeGreaterThanOrEqual(left);
     expect(centre).toBeLessThanOrEqual(right);
+    // The node add builds goes over the same strip.
+    for (let i = 0; i < 40 && view().querySelector('[data-fresh]') === null; i += 1) {
+      fireEvent.click(screen.getByRole('button', { name: 'Adelante' }));
+    }
+    const node = view().querySelector('[data-fresh] rect')!;
+    expect(Number(node.getAttribute('x'))).toBeGreaterThanOrEqual(left);
+    expect(Number(node.getAttribute('x')) + Number(node.getAttribute('width'))).toBeLessThanOrEqual(
+      right,
+    );
+  });
+
+  it('keeps the drawing full width on a slide when the listings are hidden', () => {
+    // The listings' column of a growing run exists only with the listings
+    // (#331 review, COR-10).
+    renderIn(
+      'presentation',
+      <SequenceStepper
+        eda="hash-chaining"
+        operation="insert"
+        values={[]}
+        value={['Ana', 'Bea', 'Eva']}
+        capacity={2}
+        grow
+        showCode={false}
+      />,
+    );
+    const figure = screen.getByTestId('hash-view').closest('figure')!;
+    expect(figure.querySelector('[style*="grid-template-columns"]')).toBeNull();
   });
 });
 

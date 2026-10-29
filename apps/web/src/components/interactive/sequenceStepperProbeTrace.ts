@@ -277,6 +277,8 @@ function walkProbe(operation: HashProbingOperation, input: SequenceInput): Seque
         { name: 'resize', code: RESIZE_CODE },
       ],
       queue: keys,
+      // As on the chaining table (38 there): the least share that keeps the
+      // longest line whole — here add's two-line comment, the widest line.
       beside: 40,
       maxCells: Math.max(...rec.steps.map((s) => s.cells.length)),
       align: 'left',
@@ -444,6 +446,8 @@ function insert(rec: ProbeRecorder, m: number, key: string, growing = false): nu
     rec.lane = null;
     rec.key = key;
     h = hashKey(key, m);
+    // resize left no key and no home: the chip names this key's hash again.
+    rec.home = h;
   } else {
     rec.state.clear();
     rec.push(

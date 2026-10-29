@@ -634,6 +634,18 @@ describe('sequenceStepperTrace · hash-chaining · insertions that grow the tabl
     ).toThrow(/redimensionado/);
   });
 
+  it('takes a starting table with as many keys as positions, and grows on its first add', () => {
+    // size == table.length is a state add leaves; only past it is refused.
+    const trace = traceFor('hash-chaining', 'insert', {
+      values: [],
+      keys: ['Ana', 'Bea', 'Eva'],
+      key: 'Sara',
+      capacity: 3,
+      grow: true,
+    });
+    expect(trace.steps.at(-1)!.hash!.chains.length).toBe(7);
+  });
+
   it('refuses a key the run would add twice: the header would strike it as added', () => {
     // add returns false for it, and the list in the header has no state for
     // that (#331 review, COR-7).

@@ -444,9 +444,9 @@ export interface SequenceTrace {
    */
   beside?: number;
   /**
-   * The keys a growing run adds, in order (#326 review, `grow`): with no
-   * program beside the listings, the header names them, the one being added
-   * marked and the ones added struck through (`SequenceStep.queue`).
+   * The keys a growing run adds, in order (#326 review, `grow`): the header
+   * names them, the one being added marked and the ones added struck through
+   * (`SequenceStep.queue`).
    */
   queue?: string[];
   /**

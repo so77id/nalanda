@@ -111,7 +111,8 @@ export interface SequenceStepperProps {
    * The dynamic array and the heap: how many slots the block reserves (on
    * the heap, `data.length` with slot 0 included). Pass the same number to
    * the pair of slides that show one structure before and after an
-   * operation, or the block changes width between them.
+   * operation, or the block changes width between them. The hash tables:
+   * the number of positions, two to eleven, seven when left out.
    */
   capacity?: number;
   /**
@@ -158,7 +159,7 @@ export interface SequenceStepperProps {
   program?: boolean;
   /**
    * `hash-chaining` and `hash-probing` × `insert` (#326): `add` with the line that resizes,
-   * and `resize` walked inside the run in a listing of its own beside it.
+   * and `resize` walked inside the run in a listing of its own under it.
    */
   grow?: boolean;
   /** Playback default. Off unless the author asks (rule Peli 1/2). */
@@ -424,9 +425,9 @@ function readValues(key: string): { values: number[]; levelOrder?: (TreeValue | 
  *   `sequenceStepperTreeTrace` (the binary tree and the search tree),
  *   `sequenceStepperAvlTrace` (the AVL tree, built on the tree's pieces),
  *   `sequenceStepperHashTrace` (the table with chaining) and
- *   `sequenceStepperProbeTrace` (the table with linear probing), all importing
- *   the leaf `sequenceStepperTraceShared` (the line a frame lights, the runs
- *   cap);
+ *   `sequenceStepperProbeTrace` (the table with linear probing, built on the
+ *   chaining table's pieces), all importing the leaf
+ *   `sequenceStepperTraceShared` (the line a frame lights, the runs cap);
  * - geometry: `sequenceStepperLayout` (a Sequence), `sequenceStepperHeapLayout`
  *   (the heap's tree and array), `sequenceStepperTreeLayout` (the tree), the
  *   last two sharing the leaf `sequenceStepperEdge`, and
@@ -867,7 +868,7 @@ function Body({
               // book's column holds them one over the other.
               <div
                 className={
-                  !isPresentation || trace.beside !== undefined
+                  !isPresentation || beside !== undefined
                     ? 'grid grid-cols-1 gap-px bg-rule'
                     : trace.row.length === 3
                       ? 'grid grid-cols-[minmax(0,1fr)_minmax(0,2fr)_minmax(0,2fr)] gap-px bg-rule'
@@ -1065,7 +1066,7 @@ function Body({
               oldBuckets={trace.probe.oldBuckets}
               description={step.description}
               presentation={isPresentation}
-              tall={trace.beside !== undefined}
+              tall={beside !== undefined}
             />
           ) : trace.hash !== undefined && step.hash !== undefined ? (
             <HashView
@@ -1073,7 +1074,7 @@ function Body({
               run={trace.hash}
               description={step.description}
               presentation={isPresentation}
-              tall={trace.beside !== undefined}
+              tall={beside !== undefined}
             />
           ) : trace.tree !== undefined && step.tree !== undefined ? (
             <TreeView
@@ -1184,19 +1185,9 @@ function Body({
   );
 }
 
-// ── the picture ───────────────────────────────────────────────────────────
-
 /**
- * The note sits UNDER its box and is left-aligned to it, never centred above
- * it: a pointer arrow lands on the box's centre from above, and a centred note
- * was drawn straight through by it ("nu|evo"). Left-aligning also keeps it
- * clear of the vertical leg of the circular recipe's closing arc, which rises
- * to the same centre from below.
- */
-/**
- * The keys a growing run adds (#326 review): with no program beside the
- * listings, the run says in the header which key it is on — the ones added
- * struck through, the one being added outlined.
+ * The keys a growing run adds (#326 review): the run says in the header which
+ * key it is on — the ones added struck through, the one being added outlined.
  */
 function RunQueue({
   keys,
@@ -1233,6 +1224,15 @@ function RunQueue({
   );
 }
 
+// ── the picture ───────────────────────────────────────────────────────────
+
+/**
+ * The note sits UNDER its box and is left-aligned to it, never centred above
+ * it: a pointer arrow lands on the box's centre from above, and a centred note
+ * was drawn straight through by it ("nu|evo"). Left-aligning also keeps it
+ * clear of the vertical leg of the circular recipe's closing arc, which rises
+ * to the same centre from below.
+ */
 function CellNote({ cell, x, y }: { cell: SequenceCell; x: number; y: number }) {
   const note = CELL_NOTE[cell.state];
   if (note === undefined) return null;
