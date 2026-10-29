@@ -2898,7 +2898,7 @@ promedio a lo más 2,5 celdas.
 | ----------------------- | ---------------------------------------- | --------------------------------------------- |
 | Memoria por clave       | Un nodo aparte, con una referencia       | Una celda del arreglo, y un `boolean`         |
 | Dónde están las claves  | Repartidas por la memoria                | Seguidas en un arreglo, rápidas de recorrer   |
-| Factor de carga         | Puede pasar de 1; aquí, a lo más 1       | A lo más 1/2, contando las marcas             |
+| Factor de carga         | A lo más 1, por la redimensión           | A lo más 1/2, por la redimensión, con las marcas |
 | Eliminar                | Desenganchar el nodo                     | Marcar la celda                               |
 | Peor caso               | $$\Theta(N)$$                            | $$\Theta(N)$$                                 |
 
