@@ -2536,22 +2536,20 @@ claves en las celdas del propio arreglo, una al lado de la otra.
 export const SONDEO = ['Pablo', null, null, null, null, 'Mia', 'Alba', null, null, null, 'Julia'];
 
 <Slide title="Una clave en cada posición">
-La otra manera de resolver las colisiones no usa listas: cada casillero guarda
-a lo más una clave, y todas viven en el propio arreglo. Si el casillero que
-indica el hash está ocupado, la clave prueba el siguiente, y el siguiente,
-hasta dar con uno libre; después del último viene el primero. En el
-guardarropa, si el casillero de un abrigo está ocupado, se cuelga en el
-próximo libre.
+Si cada celda del arreglo guarda una sola clave, una clave cuya celda ya está
+ocupada tiene que quedar en otra. La regla más simple es probar la celda
+siguiente, y la siguiente, hasta dar con una libre; después de la última viene
+la primera.
 
-A esta forma de resolver las colisiones se le llama **sondeo lineal**, y
-necesita que haya siempre más casilleros que claves: $$N < M$$, es decir,
-$$\alpha < 1$$.
+A esta forma de resolver las colisiones se le llama **sondeo lineal** (en
+inglés, *linear probing*): «sondeo» porque prueba celdas, y «lineal» porque las
+prueba de a una, en orden.
 
 <Casilleros
   cells={SONDEO}
   notes={{ 0: 'h 10', 5: 'h 5', 6: 'h 5', 10: 'h 10' }}
-  caption="11 casilleros: «Alba» encuentra ocupada la posición de su hash y queda en la siguiente; «Pablo» da la vuelta hasta el 0"
-  label="Once casilleros numerados del 0 al 10. Pablo está en el 0, Mia en el 5, Alba en el 6 y Julia en el 10. Sobre cada uno, su hash: Pablo 10, Mia 5, Alba 5 y Julia 10."
+  caption="11 celdas: «Alba» encuentra ocupada la celda de su hash y queda en la siguiente; «Pablo» da la vuelta hasta el 0"
+  label="Once celdas numeradas del 0 al 10. Pablo está en el 0, Mia en el 5, Alba en el 6 y Julia en el 10. Sobre cada uno, su hash: Pablo 10, Mia 5, Alba 5 y Julia 10."
 />
 
 $$
@@ -2567,24 +2565,26 @@ $$
 1. **Ninguna clave está dos veces.** Como en la tabla con listas, la tabla
    guarda un conjunto.
 2. **Siempre queda al menos una celda vacía.** Es lo que garantiza que una
-   búsqueda termine aunque la clave no esté.
-3. **Entre la posición `hash(key)` y la celda de `key` no hay ninguna celda
+   búsqueda termine aunque la clave no esté: sin celdas vacías, daría vueltas
+   para siempre.
+3. **Entre la celda `hash(key)` y la celda de `key` no hay ninguna celda
    vacía.** Una clave queda en la primera celda libre desde su hash, así que
    todas las anteriores estaban ocupadas cuando entró.
 
 La tercera es la que hace correcta la búsqueda: al llegar a una celda vacía,
-la clave buscada no puede estar más allá. Y es también la que cobra: una
-celda ocupada no se puede volver a vaciar sin romperla.
+la clave buscada no puede estar más allá. Y es también la que complica
+eliminar: una celda ocupada no se puede volver a vaciar sin romperla.
 
 </Slide>
 
 <Slide title="La clase de la tabla con sondeo lineal">
 Las claves se guardan en un arreglo de `String`, `null` donde no hay ninguna.
-Junto a él, un arreglo `deleted` del mismo largo marca las claves eliminadas.
-`size` cuenta las claves, y `used` las celdas que no son `null`: las claves y
-también las marcas, que ocupan su celda igual que una clave. `hash(String key)`
-es la misma regla de Horner, con `keys.length` como $$M$$. Con una sola
-posición no quedaría ninguna vacía.
+Como una celda ocupada no se puede vaciar, eliminar una clave no la borra: la
+marca en un arreglo paralelo del mismo largo, `deleted`. `size` cuenta las
+claves que siguen en la tabla, y `used` las celdas que no son `null`, las de
+las claves y también las marcadas. `hash(String key)` es la misma regla de
+Horner, con `keys.length` como $$M$$, y una tabla necesita al menos dos celdas:
+con una sola, no quedaría ninguna vacía.
 
 ```java
 class ProbingHashTable {
@@ -2604,18 +2604,18 @@ class ProbingHashTable {
 </Slide>
 
 <Slide title="Buscar con sondeo lineal">
-**Buscar** responde si una clave está, como en la tabla con listas: recibe la
-clave, responde sí o no, y no cambia nada. Se empieza en la celda de su hash y
-se avanza de a una, dando la vuelta al final del arreglo, hasta encontrarla o
-llegar a una celda vacía. Por la invariante, la clave no puede estar después
-de esa celda vacía.
+**Buscar** responde si una clave está: recibe la clave, responde sí o no, y no
+cambia nada. Empieza en la celda de su hash y avanza de a una, dando la vuelta
+al final del arreglo, hasta encontrarla o llegar a una celda vacía. Como entre
+el hash de una clave y su celda no hay celdas vacías, la clave no puede estar
+más allá de esa celda vacía.
 
 <Casilleros
   cells={SONDEO}
   paint={{ 10: 'visited', 0: 'found' }}
   notes={{ 10: '1', 0: '2' }}
   caption="buscar «Pablo»: su posición la ocupa «Julia»; la búsqueda da la vuelta y lo encuentra en el 0"
-  label="Los once casilleros. La búsqueda de Pablo mira el casillero 10, con Julia, da la vuelta al final del arreglo y lo encuentra en el 0."
+  label="Las once celdas. La búsqueda de Pablo mira la celda 10, con Julia, da la vuelta al final del arreglo y lo encuentra en el 0."
 />
 
 <Casilleros
@@ -2623,7 +2623,7 @@ de esa celda vacía.
   paint={{ 5: 'visited', 6: 'visited', 7: 'focus' }}
   notes={{ 5: '1', 6: '2', 7: '3' }}
   caption="buscar «Nico»: se miran el 5 y el 6, ocupados, y la celda 7, vacía, dice que no está"
-  label="Los once casilleros. La búsqueda de Nico mira el casillero 5, con Mia, y el 6, con Alba, y se detiene en el 7, vacío: Nico no está."
+  label="Las once celdas. La búsqueda de Nico mira la celda 5, con Mia, y el 6, con Alba, y se detiene en el 7, vacío: Nico no está."
 />
 
 $$
@@ -2633,9 +2633,9 @@ $$
 </Slide>
 
 <Slide title="El código de la búsqueda con sondeo lineal">
-`contains` es público: empieza en la celda del hash y avanza con `i`, dando la
-vuelta con el resto, hasta la clave o una celda vacía; una clave marcada como
-eliminada no cuenta. Mira las celdas de un solo tramo ocupado: cuesta lo que
+`contains` es el método público de la búsqueda: empieza en la celda del hash y
+avanza con `i`, dando la vuelta con el resto, hasta la clave o una celda vacía;
+una clave marcada no cuenta como encontrada. Mira las celdas de un solo tramo ocupado: cuesta lo que
 mide ese tramo, más el cálculo del hash.
 
 <SequenceStepper
@@ -2649,19 +2649,19 @@ mide ese tramo, más el cálculo del hash.
 </Slide>
 
 <Slide title="Agregar con sondeo lineal">
-**Agregar** guarda una clave nueva sin romper la invariante: recibe la clave y
-responde si la agregó. Primero pregunta con `contains` si la clave ya está. Si
-no está, y la clave nueva dejaría usadas más de la mitad de las celdas,
-redimensiona la tabla, como la tabla con listas. Después avanza desde la celda
-de su hash hasta la primera libre y la deja ahí. Todas las celdas que pasó
-estaban ocupadas, así que la invariante se mantiene.
+**Agregar** guarda una clave nueva sin romper ninguna invariante: recibe la
+clave y responde si la agregó. Primero pregunta con `contains` si la clave ya
+está, y si la tabla se está llenando, la redimensiona, como la tabla con
+listas. Después avanza desde la celda de su hash hasta la primera libre y deja
+ahí la clave. Todas las celdas que pasó estaban ocupadas, así que entre su
+hash y su celda no queda ninguna vacía.
 
 <Casilleros
   cells={['Pablo', null, null, null, null, 'Mia', 'Alba', 'Eva', null, null, 'Julia']}
   paint={{ 5: 'visited', 6: 'visited', 7: 'mark' }}
   notes={{ 5: '1', 6: '2', 7: '3' }}
   caption="agregar «Eva»: el 5 y el 6 están ocupados, y entra en el 7"
-  label="Los once casilleros después de agregar a Eva. Su hash es 5: el casillero 5, con Mia, y el 6, con Alba, están ocupados, y Eva queda en el 7, destacada como nueva."
+  label="Las once celdas después de agregar a Eva. Su hash es 5: la celda 5, con Mia, y el 6, con Alba, están ocupados, y Eva queda en el 7, destacada como nueva."
 />
 
 $$
@@ -2671,10 +2671,11 @@ $$
 </Slide>
 
 <Slide title="El código de la inserción con sondeo lineal">
-`add` es público. Después de `contains` y de la redimensión, si toca, avanza
-desde el hash hasta la primera celda libre; si esa celda era `null`, `used`
-cuenta una celda más. Recorre el mismo tramo que la búsqueda: cuesta lo mismo,
-más la redimensión cuando toca.
+`add` es el método público de la inserción: después de `contains`, redimensiona
+si la clave nueva dejaría usadas más de la mitad de las celdas, avanza desde el
+hash hasta la primera celda libre y deja ahí la clave; si esa celda era
+`null`, `used` cuenta una más. Recorre el mismo tramo que la búsqueda: cuesta
+lo mismo, más la redimensión cuando toca.
 
 <SequenceStepper
   eda="hash-probing"
@@ -2686,29 +2687,44 @@ más la redimensión cuando toca.
 
 </Slide>
 
+<Slide title="Inserciones en una misma tabla con sondeo">
+Una seguidilla de inserciones arma la tabla desde vacía: cada clave queda en la
+primera celda libre desde su hash, y la que se pasa de la última celda sigue
+en la primera.
+
+<SequenceStepper
+  eda="hash-probing"
+  operation="insert"
+  values={[]}
+  value={['Mia', 'Alba', 'Julia', 'Pablo', 'Eva']}
+  capacity={11}
+  program
+/>
+
+</Slide>
+
 <Slide title="Eliminar sin vaciar la celda">
 **Eliminar** saca una clave: recibe la clave y responde si estaba. Pero vaciar
-la celda de una clave eliminada rompe la invariante. Una clave que
-quedó más allá, en el mismo tramo ocupado, tiene ahora una celda vacía entre
-su hash y su celda, y una búsqueda se detendría antes de llegar a ella.
+su celda dejaría un hueco: una clave que quedó más allá, en el mismo tramo
+ocupado, tendría una celda vacía entre su hash y su celda, y una búsqueda se
+detendría antes de llegar a ella.
 
 <Casilleros
   cells={['Pablo', null, null, null, null, 'Mia', null, 'Eva', null, null, 'Julia']}
   paint={{ 5: 'visited', 6: 'focus' }}
   notes={{ 5: '1', 6: '2' }}
   caption="si «Alba» se eliminara vaciando la celda 6, buscar «Eva» se detendría en el 6 sin llegar al 7"
-  label="Los once casilleros con la celda 6 vacía. Eva, de hash 5, está en el 7. Su búsqueda mira el 5, con Mia, y se detiene en el 6, vacío, sin llegar a Eva."
+  label="Las once celdas con la celda 6 vacía. Eva, de hash 5, está en el 7. Su búsqueda mira el 5, con Mia, y se detiene en el 6, vacío, sin llegar a Eva."
 />
 
 $$
 h(\text{«Eva»}) = 5
 $$
 
-Por eso una clave eliminada se **marca** en lugar de borrarse: en el
-guardarropa, un cartel que dice «aquí hubo un abrigo». La búsqueda pasa sobre
-la marca sin detenerse, y `add` puede volver a usar esa celda. Otra
-alternativa, que no se desarrolla aquí, es volver a insertar todas las claves
-que siguen a la eliminada en su tramo.
+Por eso una clave eliminada se **marca** en lugar de borrarse, como un cartel
+que en el guardarropa dijera «aquí hubo un abrigo». La búsqueda pasa sobre la
+marca sin detenerse, y `add` puede volver a usar esa celda. Otra manera es
+volver a insertar todas las claves que siguen a la eliminada en su tramo.
 
 <Casilleros
   cells={['Pablo', null, null, null, null, 'Mia', 'Alba', 'Eva', null, null, 'Julia']}
@@ -2716,16 +2732,16 @@ que siguen a la eliminada en su tramo.
   paint={{ 5: 'visited', 6: 'visited', 7: 'found' }}
   notes={{ 5: '1', 6: '2', 7: '3' }}
   caption="con «Alba» marcada, la búsqueda de «Eva» pasa sobre la marca y la encuentra en el 7"
-  label="Los once casilleros con Alba tachada en la celda 6: tiene la marca de borrado. La búsqueda de Eva mira el 5, pasa sobre la marca del 6 y la encuentra en el 7."
+  label="Las once celdas con Alba tachada en la celda 6: tiene la marca de borrado. La búsqueda de Eva mira el 5, pasa sobre la marca del 6 y la encuentra en el 7."
 />
 
 </Slide>
 
 <Slide title="El código de la eliminación con sondeo lineal">
-`remove` es público: busca la clave como `contains` y, al encontrarla, solo
-pone `deleted[i]` en `true`. La clave sigue en su celda, y la celda sigue
-ocupada para la invariante y para `used`. Recorre el tramo como la búsqueda:
-cuesta lo mismo.
+`remove` es el método público de la eliminación: busca la clave como
+`contains` y, al encontrarla, solo pone `deleted[i]` en `true`. La clave sigue
+en su celda, que sigue ocupada para la búsqueda y para `used`. Recorre el tramo
+como la búsqueda: cuesta lo mismo.
 
 <SequenceStepper
   eda="hash-probing"
@@ -2737,10 +2753,26 @@ cuesta lo mismo.
 
 </Slide>
 
+<Slide title="Eliminaciones en una misma tabla con sondeo">
+Una seguidilla de eliminaciones pasa por los tres casos: una clave en medio de
+su tramo, que queda marcada; una que no está, cuya búsqueda pasa sobre la
+marca; y una que se encuentra después de dar la vuelta al final del arreglo.
+
+<SequenceStepper
+  eda="hash-probing"
+  operation="remove"
+  values={['Mia', 'Alba', 'Julia', 'Pablo', 'Eva']}
+  target={['Alba', 'Nico', 'Pablo']}
+  capacity={11}
+  program
+/>
+
+</Slide>
+
 <Slide title="Agregar sobre una celda marcada">
 Una celda marcada se puede volver a usar, pero no antes de saber que la clave
 no está más allá de la marca. `contains` recorre el tramo entero, pasando sobre
-las marcas, y recién entonces `add` vuelve al hash y deja la clave en la
+las marcas, y solo entonces `add` vuelve al hash y deja la clave en la
 primera celda libre o marcada. Si se quedara en la primera marca sin
 preguntar, una clave que ya estaba más adelante quedaría dos veces.
 
@@ -2750,14 +2782,14 @@ preguntar, una clave que ya estaba más adelante quedaría dos veces.
   paint={{ 5: 'visited', 6: 'visited', 7: 'focus' }}
   notes={{ 5: '1', 6: '2', 7: '3' }}
   caption="contains(«Eva») pasa sobre la marca de «Alba» y se detiene en el 7, vacío: «Eva» no está"
-  label="Los once casilleros con Alba tachada en el 6. La búsqueda de Eva mira el 5, con Mia, pasa sobre la marca del 6 y se detiene en el 7, vacío."
+  label="Las once celdas con Alba tachada en el 6. La búsqueda de Eva mira el 5, con Mia, pasa sobre la marca del 6 y se detiene en el 7, vacío."
 />
 
 <Casilleros
   cells={['Pablo', null, null, null, null, 'Mia', 'Eva', null, null, null, 'Julia']}
   paint={{ 6: 'mark' }}
   caption="add vuelve a la posición de su hash y deja a «Eva» en la primera celda libre o marcada: la 6"
-  label="Los once casilleros después de agregar a Eva: quedó en el 6, la celda que tenía la marca de Alba, y la marca desapareció."
+  label="Las once celdas después de agregar a Eva: quedó en el 6, la celda que tenía la marca de Alba, y la marca desapareció."
 />
 
 $$
@@ -2766,11 +2798,60 @@ $$
 
 </Slide>
 
+<Slide title="Los racimos">
+Las celdas ocupadas forman tramos seguidos, los **racimos**. Una clave cuyo
+hash cae en cualquier celda de un racimo recorre el resto del racimo y queda
+al final, haciéndolo más largo: mientras más largo es un racimo, más claves
+lo alcanzan y más rápido crece. Dos racimos que se tocan se funden en uno.
+
+<Casilleros
+  cells={['Pablo', null, null, null, null, 'Mia', 'Alba', 'Eva', null, null, 'Julia']}
+  paint={{ 5: 'visited', 6: 'visited', 7: 'visited', 8: 'mark' }}
+  caption="un racimo del 5 al 7; con dos claves más, se funde con el de «Julia» y «Pablo»"
+  label="Once celdas con un racimo de tres claves seguidas, del 5 al 7: Mia, Alba y Eva. La celda 8 está destacada: ahí termina cualquier clave cuyo hash caiga entre el 5 y el 8. Julia, en el 10, y Pablo, en el 0, forman otro racimo, que da la vuelta al final del arreglo."
+/>
+
+$$
+5 \le h(k) \le 8 \;\Longrightarrow\; k \text{ queda en el } 8
+$$
+
+Hay variantes que dispersan los saltos: el **sondeo cuadrático** prueba
+$$h + 1, h + 4, h + 9, \ldots$$, y el **doble hashing** salta con un paso que
+calcula una segunda función hash. Las dos rompen los racimos, a cambio de
+una búsqueda menos simple. Las tres forman la familia del **direccionamiento
+abierto** (en inglés, *open addressing*): todas guardan las claves en el
+propio arreglo.
+
+</Slide>
+
+<Slide title="El costo del sondeo lineal">
+Bajo el supuesto de dispersión uniforme, Knuth calculó cuántas celdas mira en
+promedio una búsqueda:
+
+$$
+\text{si la clave está:}\quad \frac{1}{2}\left(1 + \frac{1}{1 - \alpha}\right)
+\qquad\qquad
+\text{si no está:}\quad \frac{1}{2}\left(1 + \frac{1}{(1 - \alpha)^2}\right)
+$$
+
+Con $$\alpha$$ cerca de 1, los racimos hacen crecer ese costo muy rápido.
+
+| $$\alpha$$ | Celdas si la clave está | Celdas si no está |
+| ---------- | ----------------------- | ----------------- |
+| 0,5        | 1,5                     | 2,5               |
+| 0,75       | 2,5                     | 8,5               |
+| 0,9        | 5,5                     | 50,5              |
+
+Con $$\alpha$$ a lo más $$1/2$$, una búsqueda mira en promedio a lo más 2,5
+celdas.
+
+</Slide>
+
 <Slide title="La redimensión de la tabla con sondeo lineal">
-`add` redimensiona antes de que la clave nueva deje usadas más de la mitad de
-las celdas, contando las marcas. Así siempre quedan celdas vacías donde una
-búsqueda se detiene, y el costo esperado es el de un factor de carga de a lo
-más $$1/2$$.
+Para que $$\alpha$$ no pase de $$1/2$$, `add` redimensiona antes de que la clave
+nueva deje usadas más de la mitad de las celdas, contando las marcas, que
+también ocupan celda. Así siempre quedan celdas vacías donde una búsqueda se
+detiene.
 
 `resize` es el de la tabla con listas, con dos diferencias: recorre las celdas
 del arreglo viejo en lugar de sus listas, y salta las claves marcadas. La
@@ -2794,64 +2875,17 @@ private void resize(int capacity) {
 ```
 
 Recorre las $$M$$ celdas viejas y vuelve a agregar cada clave: cuesta
-$$\Theta(N + M)$$, y como el tamaño casi se duplica, sale $$\Theta(1)$$
+$$\Theta(N + M)$$, y como el tamaño pasa a más del doble, sale $$\Theta(1)$$
 amortizado por inserción, igual que con listas.
 
 </Slide>
 
-<Slide title="Los racimos">
-Las celdas ocupadas forman tramos seguidos, los **racimos**. Una clave cuyo
-hash cae en cualquier celda de un racimo recorre el resto del racimo y queda
-al final, haciéndolo más largo: mientras más largo es un racimo, más claves
-lo alcanzan y más rápido crece. Dos racimos que se tocan se funden en uno.
-
-<Casilleros
-  cells={['Pablo', null, null, null, null, 'Mia', 'Alba', 'Eva', null, null, 'Julia']}
-  paint={{ 5: 'visited', 6: 'visited', 7: 'visited', 8: 'mark' }}
-  caption="un racimo del 5 al 7; con dos claves más, se funde con el de «Julia» y «Pablo»"
-  label="Once casilleros con un racimo de tres claves seguidas, del 5 al 7: Mia, Alba y Eva. El casillero 8 está destacado: ahí termina cualquier clave cuyo hash caiga entre el 5 y el 8. Julia, en el 10, y Pablo, en el 0, forman otro racimo, que da la vuelta al final del arreglo."
-/>
-
-$$
-5 \le h(k) \le 8 \;\Longrightarrow\; k \text{ queda en el } 8
-$$
-
-Hay variantes que dispersan los saltos: el **sondeo cuadrático** prueba
-$$h + 1, h + 4, h + 9, \ldots$$, y el **doble hashing** salta con un paso que
-calcula una segunda función hash. Las dos rompen los racimos, a cambio de
-una búsqueda menos simple.
-
-</Slide>
-
-<Slide title="El costo del sondeo lineal">
-Si la función reparte parejo, Knuth calculó cuántas celdas mira en promedio
-una búsqueda (resultado que se cita, sin demostrarlo):
-
-$$
-\text{si la clave está:}\quad \frac{1}{2}\left(1 + \frac{1}{1 - \alpha}\right)
-\qquad\qquad
-\text{si no está:}\quad \frac{1}{2}\left(1 + \frac{1}{(1 - \alpha)^2}\right)
-$$
-
-Con $$\alpha$$ cerca de 1, los racimos hacen crecer ese costo muy rápido.
-
-| $$\alpha$$ | Celdas si la clave está | Celdas si no está |
-| ---------- | ----------------------- | ----------------- |
-| 0,5        | 1,5                     | 2,5               |
-| 0,75       | 2,5                     | 8,5               |
-| 0,9        | 5,5                     | 50,5              |
-
-</Slide>
-
 <Slide title="Costos de la tabla con sondeo lineal">
-Con la redimensión de `add`, el factor de carga no pasa de $$1/2$$, contando
-también las celdas marcadas, que ocupan su celda igual que una clave.
-
 | Molde     | Operación       | Peor caso     | Esperado, con $$\alpha \le 1/2$$ | Invariante que restaura               |
 | --------- | --------------- | ------------- | -------------------------------- | ------------------------------------- |
 | consultar | `contains(key)` | $$\Theta(N)$$ | $$\Theta(1)$$                    | Ninguna: no cambia la tabla           |
-| modificar | `add(key)`      | $$\Theta(N)$$ | $$\Theta(1)$$                    | Ninguna celda vacía antes de la nueva |
-| modificar | `remove(key)`   | $$\Theta(N)$$ | $$\Theta(1)$$                    | La celda queda ocupada, con su marca  |
+| modificar | `add(key)`      | $$\Theta(N)$$ | $$\Theta(1)$$                    | La clave entra una vez, en la primera celda libre desde su hash; `size` sube |
+| modificar | `remove(key)`   | $$\Theta(N)$$ | $$\Theta(1)$$                    | La clave queda marcada y su celda no se vacía; `size` baja |
 
 </Slide>
 

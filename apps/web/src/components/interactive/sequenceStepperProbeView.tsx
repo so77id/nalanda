@@ -36,8 +36,11 @@ export function ProbeView({
   }${marked.length === 0 ? '' : `; con marca de borrado: ${marked.join(', ')}`}. ${description}`;
 
   return (
+    // `pt-14`: the panel writes `size` and `used` over its top-right corner, and
+    // this strip runs the panel's whole width, so the chip over the last cell
+    // landed under them (#326, `hash("Julia") = 10`). The drawing starts below.
     <div
-      className="flex items-center justify-center overflow-x-auto p-3"
+      className="flex items-center justify-center overflow-x-auto p-3 pt-14"
       style={{ maxHeight: presentation ? 'min(46vh, 440px)' : undefined }}
     >
       <svg
@@ -51,7 +54,7 @@ export function ProbeView({
         // `add` slide, whose drawing ran 11px past the panel.
         style={{
           maxWidth: `${layout.width * 1.4}px`,
-          maxHeight: presentation ? 'calc(min(46vh, 440px) - 24px)' : '100%',
+          maxHeight: presentation ? 'calc(min(46vh, 440px) - 68px)' : '100%',
         }}
         role="img"
         aria-label={summary}

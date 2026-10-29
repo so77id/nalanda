@@ -781,6 +781,30 @@ describe('<SequenceStepper> · the combinations 23-edd-tablas-hash mounts', () =
         capacity: 11,
       },
     },
+    {
+      act: 'Sondeo lineal',
+      slide: 'Inserciones en una misma tabla con sondeo',
+      props: {
+        eda: 'hash-probing',
+        operation: 'insert',
+        values: [],
+        value: ['Mia', 'Alba', 'Julia', 'Pablo', 'Eva'],
+        capacity: 11,
+        program: true,
+      },
+    },
+    {
+      act: 'Sondeo lineal',
+      slide: 'Eliminaciones en una misma tabla con sondeo',
+      props: {
+        eda: 'hash-probing',
+        operation: 'remove',
+        values: ['Mia', 'Alba', 'Julia', 'Pablo', 'Eva'],
+        target: ['Alba', 'Nico', 'Pablo'],
+        capacity: 11,
+        program: true,
+      },
+    },
   ];
 
   it.each(mounted)('$act · $slide', ({ props }) => {
