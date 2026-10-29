@@ -301,11 +301,14 @@ describe('sequenceStepperTrace · hash-probing · insertions that grow the table
   const listing = (code: string, lit: number[] | undefined) =>
     (lit ?? []).map((n) => code.split('\n')[n - 1]!.trim());
 
-  it('lists add as the class writes it, and resize beside it', () => {
+  it('lists add with its resize call on a line of its own, and resize under it', () => {
     expect(trace.row!.map((l) => l.name)).toEqual(['add', 'resize']);
-    // Half a slide holds add's resize line whole, so the listing is the one
-    // a single insertion shows.
-    expect(trace.code).toBe(run('insert', 'Nico').code);
+    // Two fifths of a slide do not hold the one-line check, so the comment
+    // and the call each take two lines; the code is the same.
+    const lines = trace.code.split('\n').map((l) => l.trim());
+    expect(lines).toContain('if (2 * (used + 1) > keys.length)');
+    expect(lines).toContain('resize(nextPrime(2 * keys.length));');
+    expect(trace.beside).toBe(40);
     expect(trace.row![1]!.code).toContain('if (oldKeys[i] != null && !oldDeleted[i]) {');
   });
 
@@ -322,7 +325,8 @@ describe('sequenceStepperTrace · hash-probing · insertions that grow the table
     expect(inside.length).toBeGreaterThan(0);
     for (const step of inside) {
       expect(listing(trace.code, step.rowLines![0])).toEqual([
-        'if (2 * (used + 1) > keys.length) resize(nextPrime(2 * keys.length));',
+        'if (2 * (used + 1) > keys.length)',
+        'resize(nextPrime(2 * keys.length));',
       ]);
     }
   });

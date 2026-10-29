@@ -21,6 +21,7 @@ export function ProbeView({
   oldBuckets = 0,
   description,
   presentation,
+  tall = false,
 }: {
   probe: ProbeFrame;
   buckets: number;
@@ -28,7 +29,10 @@ export function ProbeView({
   oldBuckets?: number;
   description: string;
   presentation: boolean;
+  /** Beside its listings (`grow`): the panel takes their height, not the usual cap. */
+  tall?: boolean;
 }) {
+  const cap = tall ? 'min(64vh, 580px)' : 'min(46vh, 440px)';
   const layout = layoutProbe(buckets, oldBuckets);
   // While `resize` runs, the old arrays take the top strip and the new ones
   // are drawn under them; otherwise the table holds the top strip.
@@ -48,7 +52,7 @@ export function ProbeView({
     // landed under them (#326, `hash("Julia") = 10`). The drawing starts below.
     <div
       className="flex items-center justify-center overflow-x-auto p-3 pt-14"
-      style={{ maxHeight: presentation ? 'min(46vh, 440px)' : undefined }}
+      style={{ maxHeight: presentation ? cap : undefined }}
     >
       <svg
         data-testid="probe-view"
@@ -61,7 +65,7 @@ export function ProbeView({
         // `add` slide, whose drawing ran 11px past the panel.
         style={{
           maxWidth: `${layout.width * 1.4}px`,
-          maxHeight: presentation ? 'calc(min(46vh, 440px) - 68px)' : '100%',
+          maxHeight: presentation ? `calc(${cap} - 68px)` : '100%',
         }}
         role="img"
         aria-label={summary}

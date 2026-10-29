@@ -85,6 +85,27 @@ const CODE: Record<ProbeOperation, string> = {
 }`,
 };
 
+/**
+ * `add` beside its drawing (`grow`): the comment and the resize call each on
+ * two lines, so the listing fits the two fifths of a slide its column gets.
+ */
+const GROW_CODE = `public boolean add(String key) {
+    if (contains(key)) return false;
+    // equivale a used + 1 > keys.length / 2,
+    // con el 2 al otro lado
+    if (2 * (used + 1) > keys.length)
+        resize(nextPrime(2 * keys.length));
+    int i = hash(key);
+    while (keys[i] != null && !deleted[i]) {
+        i = (i + 1) % keys.length;
+    }
+    if (keys[i] == null) used++;
+    keys[i] = key;
+    deleted[i] = false;
+    size++;
+    return true;
+}`;
+
 /** The class's `resize`: new arrays, and every key that is not marked back in through `add`. */
 const RESIZE_CODE = `private void resize(int capacity) {
     String[] oldKeys = keys;
@@ -259,7 +280,7 @@ export function traceProbe(operation: ProbeOperation, input: SequenceInput): Seq
   const keys = keysOf(input);
   const { m: first, cells } = buildTable(input);
   const growing = input.grow === true;
-  const code = CODE[operation];
+  const code = growing ? GROW_CODE : CODE[operation];
   const rec = new ProbeRecorder(code, cells);
   rec.rows = growing;
   let m = first;
@@ -286,6 +307,7 @@ export function traceProbe(operation: ProbeOperation, input: SequenceInput): Seq
         { name: 'resize', code: RESIZE_CODE },
       ],
       queue: keys,
+      beside: 40,
       maxCells: Math.max(...rec.steps.map((s) => s.cells.length)),
       align: 'left',
       hasCarry: false,

@@ -201,6 +201,12 @@ export interface ProbeLayout extends ProbeStrip {
 
 /** Room left of the strips for `oldKeys` and `oldDeleted`, when a resize draws them. */
 const PROBE_OLD_NAME_W = 92;
+/**
+ * A cell when two tables are stacked: beside its listings the canvas gets
+ * three fifths of a slide, and eleven cells at the usual pitch made every
+ * key smaller (#326 review). A five-letter key still fits its cell.
+ */
+const PROBE_STACKED_PITCH = 64;
 
 /**
  * `keys` and `deleted` are two arrays the class declares side by side, so
@@ -213,7 +219,8 @@ const PROBE_OLD_NAME_W = 92;
 export function layoutProbe(buckets: number, oldBuckets = 0): ProbeLayout {
   const resizing = oldBuckets > 0;
   const origin = PAD + (resizing ? PROBE_OLD_NAME_W : PROBE_NAME_W);
-  const cx = (bucket: number) => origin + (bucket + 0.5) * PROBE_PITCH;
+  const pitch = resizing ? PROBE_STACKED_PITCH : PROBE_PITCH;
+  const cx = (bucket: number) => origin + (bucket + 0.5) * pitch;
   const bandY = PAD;
   const cellY = bandY + BAND_H + INDEX_H;
   const markY = cellY + PROBE_CELL_H;
@@ -228,8 +235,8 @@ export function layoutProbe(buckets: number, oldBuckets = 0): ProbeLayout {
       cx: cx(bucket),
     });
     return {
-      cell: (bucket) => box(bucket, cellY, PROBE_PITCH, PROBE_CELL_H),
-      mark: (bucket) => box(bucket, markY, PROBE_PITCH, MARK_H),
+      cell: (bucket) => box(bucket, cellY, pitch, PROBE_CELL_H),
+      mark: (bucket) => box(bucket, markY, pitch, MARK_H),
       index: (bucket) => ({ x: cx(bucket), y: dy + cellY - 7 }),
       band: (bucket) => box(bucket, bandY, NODE_W, NODE_H),
       cursor: (bucket) => ({
@@ -247,7 +254,7 @@ export function layoutProbe(buckets: number, oldBuckets = 0): ProbeLayout {
   const top = strip(0);
   return {
     ...top,
-    width: origin + buckets * PROBE_PITCH + PAD,
+    width: origin + buckets * pitch + PAD,
     height: resizing ? 2 * tableH + SEP + PAD : tableH + PAD,
     old: resizing ? top : null,
     below: resizing ? strip(tableH + SEP) : null,

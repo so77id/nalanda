@@ -439,9 +439,10 @@ export interface SequenceTrace {
    * On a slide, the listings in a column on the left and the structure on the
    * right, instead of one over the other: a table that grows draws two
    * tables stacked, taller than the panel under a row of listings leaves it
-   * (#326 review, `grow`).
+   * (#326 review, `grow`). The number is the listings' share of the width, in
+   * percent: the least that keeps their longest line whole.
    */
-  beside?: boolean;
+  beside?: number;
   /**
    * The keys a growing run adds, in order (#326 review, `grow`): with no
    * program beside the listings, the header names them, the one being added

@@ -896,12 +896,20 @@ function Body({
       */}
       <div
         className={
-          isPresentation && trace?.beside === true
+          isPresentation && trace?.beside !== undefined
+            ? 'grid gap-px bg-rule'
+            : 'flex flex-col gap-px bg-rule'
+        }
+        style={
+          isPresentation && trace?.beside !== undefined
             ? // The listings over each other on the left, the structure on the
               // right (#326 review, `grow`): two stacked tables need the height
-              // a row of listings above them took away.
-              'grid grid-cols-[minmax(0,38fr)_minmax(0,62fr)] gap-px bg-rule'
-            : 'flex flex-col gap-px bg-rule'
+              // a row of listings above them took away. The share is the
+              // trace's, the least that keeps its longest line whole.
+              {
+                gridTemplateColumns: `minmax(0,${trace.beside}fr) minmax(0,${100 - trace.beside}fr)`,
+              }
+            : undefined
         }
       >
         {showCode ? (
@@ -918,7 +926,7 @@ function Body({
               // book's column holds them one over the other.
               <div
                 className={
-                  !isPresentation || trace.beside === true
+                  !isPresentation || trace.beside !== undefined
                     ? 'grid grid-cols-1 gap-px bg-rule'
                     : trace.row.length === 3
                       ? trace.hash !== undefined
@@ -927,11 +935,7 @@ function Body({
                           // enough to share what it leaves (#326, `grow`).
                           'grid grid-cols-[max-content_minmax(0,1fr)_minmax(0,1fr)] gap-px bg-rule'
                         : 'grid grid-cols-[minmax(0,1fr)_minmax(0,2fr)_minmax(0,2fr)] gap-px bg-rule'
-                      : trace.probe !== undefined
-                        ? // The probing table's add has the longer lines: its
-                          // resize check is one line, and resize's are shorter.
-                          'grid grid-cols-[minmax(0,4fr)_minmax(0,3fr)] gap-px bg-rule'
-                        : 'grid grid-cols-2 gap-px bg-rule'
+                      : 'grid grid-cols-2 gap-px bg-rule'
                 }
               >
                 {trace.row.map((listing, i) => (
@@ -1125,6 +1129,7 @@ function Body({
               oldBuckets={trace.probe.oldBuckets}
               description={step.description}
               presentation={isPresentation}
+              tall={trace.beside !== undefined}
             />
           ) : trace.hash !== undefined && step.hash !== undefined ? (
             <HashView
@@ -1132,7 +1137,7 @@ function Body({
               run={trace.hash}
               description={step.description}
               presentation={isPresentation}
-              tall={trace.beside === true}
+              tall={trace.beside !== undefined}
             />
           ) : trace.tree !== undefined && step.tree !== undefined ? (
             <TreeView

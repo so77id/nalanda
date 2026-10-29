@@ -278,10 +278,12 @@ per old cell, a null or marked one skipped and any other key put by `add` in
 the first free cell from its hash in the new table — while the call stays
 lit in `add` (`ProbeFrame.old`). The drawing stacks the old arrays over the
 new ones (`layoutProbe`'s `old` and `below`, with room for the longer names)
-and the run keeps the canvas of its largest tables. The listings stay above
-the drawing, which is wide and short: `add` as a single insertion shows it,
-its resize line whole in four sevenths of the width. The run names its keys
-in the header. Pinned in `sequenceStepperProbeTrace.test.ts` (2, 5 and 11
+and the run keeps the canvas of its largest tables. As on the chaining
+slide, the listings go in a column on the left and the tables on the right
+(the professor's review): `beside` is now the listings' share of the width,
+38 on the chaining table and 40 here, the least that keeps the longest line
+whole, so add's comment and resize call each take two lines; stacked, the
+cells are 64 wide instead of 80. The run names its keys in the header. Pinned in `sequenceStepperProbeTrace.test.ts` (2, 5 and 11
 cells, the call lit, every old key in the first free cell from its hash, the
 final table and its invariant) and `sequenceStepperHashLayout.test.ts`; the
 slide «Una tabla con sondeo que crece» is walked to its last frame in
