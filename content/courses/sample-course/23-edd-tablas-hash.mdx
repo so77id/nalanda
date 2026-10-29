@@ -2418,6 +2418,12 @@ private static boolean isPrime(int n) {
 }
 ```
 
+En la práctica, las bibliotecas que usan tamaños primos no los buscan en cada
+redimensión: los guardan en una lista calculada de antemano y toman de ella el
+primero desde el doble, como el `unordered_map` de C++ que trae GCC o el
+`Dictionary` de C#. Las que usan potencias de 2, como `HashMap` de Java o
+`dict` de Python, no tienen nada que buscar.
+
 </Slide>
 
 <Slide title="La inserción con redimensión">
