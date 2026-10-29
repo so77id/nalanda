@@ -323,21 +323,6 @@ export function stampQueue(steps: SequenceStep[], from: number, run: number): vo
   steps.at(-1)!.queue = { done: run + 1, at: null };
 }
 
-/** The table the author writes: `keys` added in order, each at the front of its list. */
-function buildTable(input: SequenceInput): { m: number; chains: Node[][] } {
-  const { m, keys } = tableKeys(input);
-  const chains: Node[][] = Array.from({ length: m }, () => []);
-  for (const key of keys) chains[hashKey(key, m)]!.unshift(nodeOf(key));
-  return { m, chains };
-}
-
-export function traceHash(operation: HashChainingOperation, input: SequenceInput): SequenceTrace {
-  const walked = walkHash(operation, input);
-  return input.program === true
-    ? hashProgram('ChainedHashTable', operation, input, walked)
-    : walked;
-}
-
 /**
  * Insertions or removals on a hash table run by a program (#326 review, the
  * shape of the search trees' programs, #322): the program on the left — the
@@ -392,6 +377,23 @@ export function hashProgram(
   };
 }
 
+// ── the chaining table ────────────────────────────────────────────────────
+
+/** The table the author writes: `keys` added in order, each at the front of its list. */
+function buildTable(input: SequenceInput): { m: number; chains: Node[][] } {
+  const { m, keys } = tableKeys(input);
+  const chains: Node[][] = Array.from({ length: m }, () => []);
+  for (const key of keys) chains[hashKey(key, m)]!.unshift(nodeOf(key));
+  return { m, chains };
+}
+
+export function traceHash(operation: HashChainingOperation, input: SequenceInput): SequenceTrace {
+  const walked = walkHash(operation, input);
+  return input.program === true
+    ? hashProgram('ChainedHashTable', operation, input, walked)
+    : walked;
+}
+
 function walkHash(operation: HashChainingOperation, input: SequenceInput): SequenceTrace {
   const { m, chains } = buildTable(input);
   const growing = input.grow === true;
@@ -437,9 +439,10 @@ function walkHash(operation: HashChainingOperation, input: SequenceInput): Seque
         { name: 'add', code },
         { name: 'resize', code: CODE.resize },
       ],
-      // The listings' share: the least that keeps add's and resize's longest
-      // lines whole at the slide's font; above the stacked tables instead,
-      // the professor measured the nodes too small (#326 review).
+      // The listings' share, measured on «Inserciones que hacen crecer la
+      // tabla» at 1440×900: at 36% add's widest line ran 21px past its
+      // column, at 38 every line is whole. Above the stacked tables instead,
+      // the professor found the nodes too small (#326 review).
       beside: 38,
       queue: keysOf(input),
       maxCells: Math.max(...rec.steps.map((s) => s.cells.length)),

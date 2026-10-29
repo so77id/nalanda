@@ -419,9 +419,9 @@ them):
    program line with the tree drawn after each, because what they teach is
    the tree a run builds, not the descent (`add-a-course-document.md`
    §5h). A run that shows a hash table growing (`grow`) is the other
-   exception: several insertions with no program, `add` and `resize` side
-   by side and the keys named in the widget's header, because the two
-   listings fill the column a program would take (#326).
+   exception: several insertions with no program, `resize` listed under
+   `add` in the column a program would take, and the keys named in the
+   widget's header (#326).
 4. **The cost**, one sentence closing the code slide's paragraph: what it
    costs and why («baja por un solo camino: $$O(h)$$»). The table of every
    operation stays at the end of the act (§4).

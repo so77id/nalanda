@@ -1,13 +1,14 @@
 # ADR-0084: `<SequenceStepper>` gains the two hash tables — a contiguous strip with each position's list hanging under its cell, and the keys in the strip itself
 
-**Status:** Accepted — `hash-chaining` (S1, S2) and `hash-probing` (S3) shipped; the professor approved the chaining picture in `/catalog/c/SequenceStepper` and decided the probing listing and picture before they were drawn, and reviewed both tables on the class's slides (2026-10-28 and 29)
+**Status:** Accepted — `hash-chaining` (S1, S2) and `hash-probing` (S3) shipped; the professor approved the chaining picture in `/catalog/c/SequenceStepper` and decided the probing listing and picture before they were drawn, and reviewed both tables on the class's slides (2026-10-29)
 **Date:** 2026-10-13
 **Decision-makers:** Miguel Rodriguez
 **Source:** Issue #326 (Estructuras de Datos Avanzadas · Tablas Hash), slice S1.
 **Extends:** ADR-0074 — two recipes, `hash-chaining` and `hash-probing`, with
 pictures and operations of their own, the way ADR-0077 added the heap's and ADR-0083 the
-tree's. Both still hold entirely. ADR-0074 is amended once, by the growing
-runs' layout and header (its `Amended by: #326`).
+tree's. Both still hold entirely. ADR-0074 is amended once (its
+`Amended by: #326`): the growing runs' layout and header, and the probing
+table's `used` readout.
 **Amended by:** #326 review (2026-10-29) — both recipes run `insert` and
 `remove` as a program, and both tables' insertions can resize inside the run
 (`grow`), §Amendment.
@@ -223,8 +224,9 @@ None ships without a slide that mounts it (#296, ADR-0077 §5).
   worst case with marks.** The class's `add` resizes on `used`, marks
   included, to `nextPrime(2 * keys.length)` whatever `size` is, so adds and
   removes of distinct keys grow M while N stays small — measured on JDK 21
-  with the class's own `ProbingHashTable`: 12 add/remove pairs from 2 cells
-  end at M = 23, `size` 0, `used` 4. A search walks every used cell of its
+  with the class's own `ProbingHashTable`: adding and removing `"K0"` to
+  `"K11"` in turn, from 2 cells, ends at M = 23, `size` 0, `used` 4 (`used`
+  depends on the keys; M = 23 does not). A search walks every used cell of its
   run, so the cost table's worst case Θ(N) holds only without marks. The
   content records it at the slide «Costos de la tabla con sondeo lineal»;
   the choice (Θ(M) in the table, or a `resize` sized from `size`) is his.

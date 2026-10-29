@@ -2049,6 +2049,8 @@ describe('<SequenceStepper> · a growing run drawn side by side', () => {
     );
     const figure = screen.getByTestId('hash-view').closest('figure')!;
     expect(figure.querySelector('[style*="grid-template-columns"]')).toBeNull();
+    // With no column of listings to match, the panel keeps the usual cap.
+    expect(screen.getByTestId('hash-view').parentElement!.style.maxHeight).toContain('46vh');
   });
 });
 

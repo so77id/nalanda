@@ -277,8 +277,10 @@ function walkProbe(operation: HashProbingOperation, input: SequenceInput): Seque
         { name: 'resize', code: RESIZE_CODE },
       ],
       queue: keys,
-      // As on the chaining table (38 there): the least share that keeps the
-      // longest line whole — here add's two-line comment, the widest line.
+      // As on the chaining table, measured on «Una tabla con sondeo que crece»
+      // at 1440×900: at 38% resize's widest line,
+      // `if (oldKeys[i] != null && !oldDeleted[i]) {`, ran 2px past its
+      // column; at 40 every line is whole.
       beside: 40,
       maxCells: Math.max(...rec.steps.map((s) => s.cells.length)),
       align: 'left',

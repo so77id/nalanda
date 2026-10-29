@@ -682,7 +682,7 @@ describe('sequenceStepperTrace · hash-chaining · insertions that grow the tabl
 });
 
 describe('sequenceStepperTrace · hash-chaining · the keys a growing run still has to add', () => {
-  // The professor's review: with no program beside it, the run names its
+  // The professor's review: the run names its
   // keys in the widget's header, the one being added marked and the ones
   // added struck through. The trace says which is which at every frame.
   const GROWN = ['Ana', 'Bea', 'Eva', 'Leo', 'Sara', 'Juan', 'Teo'];

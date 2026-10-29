@@ -79,7 +79,10 @@ export interface HashStrip {
   name: { x: number; y: number };
 }
 
-/** The `table` strip, and — for `resize` only — the `old` strip to its left. */
+/**
+ * The `table` strip, and — for `resize` and a `grow` run — the `old` strip, to
+ * its left or, when the two are stacked (`below`), over the new table.
+ */
 export interface HashLayout extends HashStrip {
   width: number;
   height: number;

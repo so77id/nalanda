@@ -2890,8 +2890,8 @@ promedio a lo más 2,5 celdas.
     Θ(N), but a search walks every USED cell of its run, marks included, and
     `add` resizes on `used` to nextPrime(2M) whatever N is. So adds and removes
     of distinct keys grow M while N stays small: measured on JDK 21 with the
-    class's ProbingHashTable, 12 add/remove pairs from 2 cells end at M = 23,
-    size 0, used 4. Either the worst case is Θ(M) (or Θ(used)), or `resize`
+    class's ProbingHashTable, adding and removing "K0" to "K11" in turn from
+    2 cells ends at M = 23, size 0, used 4. Either the worst case is Θ(M) (or Θ(used)), or `resize`
     sizes the table from `size` instead. Left as is; the choice is his. */}
 
 <Slide title="Costos de la tabla con sondeo lineal">
