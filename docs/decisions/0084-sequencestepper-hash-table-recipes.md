@@ -52,9 +52,11 @@ the output of `eclipse-temurin:21` running that method. The number on the
 slide is the number the student's program prints. The base is 256, not the 31
 of `String.hashCode()`, because the class builds the hash by reading a key as
 a number in base 256 and the listing must be that number; Java's 31 belongs to
-a hash that never takes the remainder, and the class explains it where
+a hash that never takes the remainder, and it is explained where
 `hashCode()` enters (professor's review, 2026-10-27: a base the slides never
-justify is not used).
+justify is not used). That is the Set and Map class: the act on keys of any
+type, with `hashCode` and `equals`, moved there in the review of 2026-10-28,
+with Java's own tables.
 
 ### 3. `table` is a contiguous strip; the lists hang under it
 

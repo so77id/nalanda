@@ -2742,284 +2742,77 @@ también las celdas marcadas, que ocupan su celda igual que una clave.
 
 Las dos dan $$\Theta(1)$$ esperado. El sondeo lineal ahorra objetos y
 aprovecha que las celdas de un arreglo están seguidas en la memoria; las
-listas toleran mejor una tabla llena y eliminan sin dejar rastro. Las dos,
-tal como están escritas, solo guardan claves `String`.
+listas toleran mejor una tabla llena y eliminan sin dejar rastro. Java y C++
+usan listas; Python, Rust y Go usan variantes del sondeo.
 
 </Slide>
 
 <SectionBreak />
 
-## Una tabla para cualquier clave
+## El peor caso de una tabla hash
 
-<Slide title="Claves que son objetos">
-Las dos tablas guardan claves `String`. Para guardar claves de cualquier tipo
-—personas, puntos, fechas— la tabla necesita dos cosas de cada clave: un
-número para calcular su posición, y una manera de decidir si dos claves son la
-misma. Java se las da a todo objeto: los métodos `hashCode()` y
-`equals(Object)`, que toda clase hereda de `Object`.
+<Slide title="Claves elegidas para colisionar">
+El costo esperado de las dos tablas descansa en el supuesto de dispersión
+uniforme, y ninguna función fija lo cumple con todos los conjuntos de claves:
+como el universo de claves es mucho más grande que la tabla, a cada posición
+le corresponden muchísimas claves. Si las que llegan son justo esas, todas
+caen en la misma posición, y cada operación cuesta $$\Theta(N)$$.
 
-La tabla usa `hashCode()` en lugar de su propio ciclo, y `equals` para
-comparar, como ya hacía con los `String`. El `hashCode()` de un `String`
-también es la regla de Horner, pero no toma el resto: no conoce $$M$$, así que
-deja que el `int` se desborde y se queda con sus 32 bits más bajos. Por eso no
-usa base 256: multiplicar por 256 corre el número 8 bits, y en 32 bits solo
-sobrevivirían los cuatro últimos caracteres, así que «Mariana» y «Juliana»
-darían lo mismo. Usa base 31, que es impar, y con ella todos los caracteres
-siguen contando.
-
-El `int` desbordado puede quedar negativo, y en Java el resto de un número
-negativo es negativo, así que la posición se calcula con `Math.floorMod`, que
-siempre da un resultado entre 0 y $$M - 1$$.
-
-| Clave              | `hashCode()`   | `hashCode() % 7` | `Math.floorMod(hashCode(), 7)` |
-| ------------------ | -------------- | ---------------- | ------------------------------ |
-| «Ana»              | 65 972         | 4                | 4                              |
-| «Constantinopla»   | −324 698 497   | −4               | 3                              |
-
-</Slide>
-
-<Slide title="La tabla genérica">
-Con un tipo `T` para las claves, el nodo pasa a ser `Node<T>`, con un campo
-`T key`, y `hash` deja el ciclo de Horner en manos de `hashCode()`. Un arreglo
-de un tipo genérico no se puede crear directamente: se crea un arreglo de
-`Node` y se convierte.
-
-```java
-class ChainedHashTable<T> {
-    private Node<T>[] table;
-    private int size;
-
-    ChainedHashTable(int capacity) {
-        if (capacity < 1) throw new IllegalArgumentException();
-        table = (Node<T>[]) new Node[capacity];
-    }
-
-    private int hash(T key) {
-        if (key == null) throw new IllegalArgumentException();
-        return Math.floorMod(key.hashCode(), table.length);
-    }
-}
-```
-
-`contains`, `add` y `remove` no cambian: solo reciben un `T` en lugar de un
-`String`, y siguen comparando con `equals`.
-
-</Slide>
-
-<Slide title="El contrato entre hashCode y equals">
-La tabla busca una clave en la lista de **su** posición, y dentro de ella
-compara con `equals`. Para que eso funcione, `hashCode` y `equals` tienen que
-cumplir un contrato:
-
-> si `a.equals(b)`, entonces `a.hashCode() == b.hashCode()`.
-
-Dos claves iguales tienen que ir a la misma posición, o la búsqueda de una
-mira la lista equivocada y no encuentra la otra. Lo inverso no es necesario:
-dos claves distintas pueden tener el mismo `hashCode`, y eso es solo una
-colisión, que la tabla ya sabe resolver.
-
-</Slide>
-
-<Slide title="Un contrato roto">
-Una `Persona` cuya igualdad es el RUT sobrescribe `equals`, pero si no
-sobrescribe `hashCode`, hereda el de `Object`, que depende de cada objeto en
-memoria. Dos personas iguales tienen entonces `hashCode` distintos: caen en
-listas distintas, y `contains` busca en la que no es.
-
-<Reparto
-  id="contrato"
-  keys={[{ name: 'Ana · 12345, agregada', to: 2 }, { name: 'Ana · 12345, buscada', to: 5 }]}
-  cells={7}
-  caption="dos personas iguales con el hashCode de Object: por ejemplo, la 2 y la 5; en la JVM, contains acertó solo por azar"
-  label="Dos objetos Persona iguales, Ana con RUT 12345: el que se agregó va a la posición 2 y el que se busca a la 5, porque cada uno tiene el hashCode heredado de Object."
+<Listas
+  chains={[[], [], ['Lucas', 'Carla', 'Leo', 'Ana'], [], [], [], []]}
+  picked={2}
+  caption="cuatro claves en la posición 2, y las otras seis posiciones vacías"
+  label="Una tabla de siete posiciones con encadenamiento. De la posición 2, destacada, cuelga una lista de cuatro nodos: Lucas, Carla, Leo y Ana. Las otras seis posiciones guardan null."
 />
 
 $$
-\frac{146 \text{ aciertos}}{1000 \text{ búsquedas}} = 14{,}6\,\% \;\approx\; \frac{1}{7}
+h(\text{«Ana»}) = h(\text{«Leo»}) = h(\text{«Carla»}) = h(\text{«Lucas»}) = 2
 $$
 
-El error no se ve al compilar ni al ejecutar: la tabla simplemente responde
-que la clave no está. Una clase que sobrescribe `equals` sobrescribe
-también `hashCode`.
-
-</Slide>
-
-<Slide title="Escribir hashCode">
-`hashCode` combina los mismos campos que compara `equals`, con la regla de
-Horner y la base 31 de `String`: cada campo multiplica lo anterior por 31 y
-suma su propio valor.
-Para un `Punto` con campos `x` e `y`:
-
-```java
-@Override
-public boolean equals(Object o) {
-    if (!(o instanceof Punto)) return false;
-    Punto p = (Punto) o;
-    return x == p.x && y == p.y;
-}
-
-@Override
-public int hashCode() {
-    return 31 * x + y;
-}
-```
-
-Dos puntos iguales tienen los mismos `x` e `y`, y por lo tanto el mismo
-`hashCode`. `Objects.hash(x, y)`, de `java.util.Objects`, hace la misma
-cuenta con cualquier cantidad de campos, y un `record` trae `equals` y
-`hashCode` ya escritos con todos sus campos.
-
-</Slide>
-
-<Slide title="Claves que cambian">
-Si una clave cambia después de agregarse, cambia también su `hashCode`. La
-clave sigue en la lista de la posición que tenía al entrar, pero una búsqueda
-la busca en la posición nueva: la tabla la pierde, y ni ella misma ni una
-igual a la original se encuentran.
-
-<Reparto
-  id="mutable"
-  keys={[{ name: '(3, 4), al agregarlo', to: 6 }, { name: '(5, 4), al buscarlo', to: 5 }]}
-  cells={7}
-  contents={[null, null, null, null, null, null, '(5, 4)']}
-  caption="con 7 posiciones, el punto entra en la 6; cambia x a 5 y la búsqueda va a la 5"
-  label="Un punto agregado como (3, 4) entra en la posición 6. Después su x cambia a 5: el mismo objeto, ahora (5, 4), sigue guardado en la 6, pero su búsqueda va a la posición 5."
-/>
-
-$$
-\begin{gathered}
-(3, 4): \quad 31 \cdot 3 + 4 = 97, \qquad 97 \bmod 7 = 6 \\
-(5, 4): \quad 31 \cdot 5 + 4 = 159, \qquad 159 \bmod 7 = 5
-\end{gathered}
-$$
-
-Por eso las claves de una tabla hash son **inmutables**: `String`, `Integer`,
-un `record`, o una clase cuyos campos son `final`. Las tablas de la biblioteca
-de Java funcionan exactamente así: piden las claves con `hashCode` y
-`equals`, y confían en ese contrato.
-
-</Slide>
-
-<SectionBreak />
-
-## Las tablas hash de Java
-
-<Slide title="La clase HashSet">
-`java.util.HashSet<E>` es una tabla hash de claves de cualquier tipo, con las
-mismas tres operaciones: `add`, `contains` y `remove`, que devuelven
-`boolean` como las de la tabla con listas, más `size`.
-
-```java
-Set<String> guardarropa = new HashSet<>();
-guardarropa.add("Ana");
-guardarropa.add("Sara");
-guardarropa.add("Ana");                         // false: ya estaba
-System.out.println(guardarropa.contains("Sara")); // true
-guardarropa.remove("Sara");
-System.out.println(guardarropa.size());           // 1
-```
-
-Por dentro, un `HashSet` es un `HashMap` —una tabla que guarda junto a cada
-clave un valor— en el que todas las claves comparten un mismo valor que nadie
-lee.
-
-</Slide>
-
-<Slide title="Por dentro de HashMap">
-`HashMap` resuelve las colisiones con **listas**, como la tabla con listas, y
-elige otro tamaño: una potencia de 2, que empieza en 16 y se duplica cuando el
-factor de carga pasa de **0,75**. Con $$M = 2^k$$, la posición es
-`hash & (M - 1)`: los $$k$$ bits bajos del hash, que se calculan más rápido
-que un resto.
-
-Usar solo los bits bajos es justo lo que hace mala una potencia de 2: dos
-claves que difieren solo en sus bits altos colisionan. Por eso `HashMap` no
-usa `hashCode()` directamente, sino que antes lo mezcla, combinando sus 16
-bits altos con los 16 bajos:
-
-```java
-h ^ (h >>> 16)
-```
-
-Así, los bits altos de la clave también deciden su posición.
+Con datos comunes eso casi nunca pasa, pero quien conoce la función puede
+elegir esas claves a propósito. En 2011 se mostró que servidores web de varios
+lenguajes dejaban de responder con una sola petición que traía miles de
+parámetros con nombres elegidos para colisionar: guardarlos costaba
+$$\Theta(N^2)$$ en total.
 
 </Slide>
 
 <Slide title="Listas que se vuelven árboles">
-Si muchas claves caen en la misma posición, su lista se vuelve larga y
-buscar en ella cuesta $$\Theta(N)$$. `HashMap` se defiende: cuando una lista
-llega a más de 8 nodos y la tabla tiene al menos 64 posiciones, convierte esa
-lista en un **árbol rojo-negro**, un árbol de búsqueda balanceado. Si la
-tabla es más chica, en cambio, la duplica, para repartir la lista.
+Una manera de defenderse es limitar el daño. Una lista larga se puede
+reemplazar por un **árbol de búsqueda balanceado**, como un AVL: cuando la
+lista de una posición pasa de cierto largo, sus claves se guardan en un árbol,
+y buscar en esa posición cuesta $$O(\log N)$$ en lugar de $$\Theta(N)$$. Las
+posiciones con pocas claves siguen siendo listas, que para dos o tres claves
+son más baratas que un árbol.
 
-Con claves comparables, como `String`, buscar en esa posición pasa a costar
-$$O(\log N)$$ en lugar de $$\Theta(N)$$. Si la lista vuelve a bajar a 6 nodos,
-el árbol vuelve a ser una lista.
-
-</Slide>
-
-<Slide title="Cuándo se rompe el costo esperado">
-El $$\Theta(1)$$ esperado descansa en un supuesto: que la función hash reparte
-las claves parejo, como si las repartiera al azar. Es un supuesto sobre los
-datos, no una garantía, y hay cinco maneras de romperlo:
-
-1. **Una función hash pobre**, como la inicial del nombre, que junta las claves
-   en pocas posiciones.
-2. **Claves elegidas por un adversario.** Quien conoce la función puede elegir
-   claves que caigan todas en la misma posición. En 2011 se mostró que
-   servidores web de varios lenguajes se caían con una sola petición que
-   traía miles de parámetros con nombres elegidos para colisionar.
-3. **Un factor de carga que crece** sin redimensionar.
-4. **Claves que cambian** después de agregarse.
-5. **Un contrato roto** entre `hashCode` y `equals`.
+Así lo hace la tabla hash de Java: en una tabla de al menos 64 posiciones, una
+lista que llega a más de 8 nodos se vuelve un árbol rojo-negro, otro árbol de
+búsqueda balanceado, y si vuelve a bajar a 6, el árbol vuelve a ser una lista.
+El $$O(\log N)$$ se cumple con claves que se pueden comparar, como los
+`String`.
 
 </Slide>
 
 <Slide title="Hashing universal">
-Contra el adversario, la defensa es que no sepa qué función se usa. El
+La otra manera de defenderse es que nadie sepa qué función usa la tabla. El
 **hashing universal** elige la función al azar, de una familia de funciones,
-al crear la tabla. Para cualquier conjunto de claves —también uno elegido para
-dañar— el costo esperado de cada operación es $$\Theta(1)$$, porque el azar
-está en la función y no en los datos (resultado de Carter y Wegman, que se
-cita sin demostrarlo).
+cada vez que se crea una tabla. Con listas, para cualquier conjunto de claves
+—también uno elegido para dañar— la lista que recorre una operación tiene en
+promedio a lo más $$1 + \alpha$$ claves, así que su costo esperado es
+$$\Theta(1)$$: el azar está en la función, no en los datos. Es un resultado de
+Carter y Wegman, que se cita sin demostrarlo. El sondeo lineal necesita
+familias más exigentes, pero la idea es la misma.
 
 Los lenguajes combinan las defensas. Python elige al azar, cada vez que
 arranca un programa, una parte del cálculo del hash de los `String`. Java no
 lo hace, y limita el daño con los árboles: aunque todas las claves caigan en
-la misma posición, buscar cuesta $$O(\log N)$$ si son comparables.
+la misma posición, buscar cuesta $$O(\log N)$$ si se pueden comparar.
 
 </Slide>
 
-<Slide title="Costos de HashSet">
-| Operación       | Esperado      | Peor caso, claves comparables | Peor caso, claves no comparables |
-| --------------- | ------------- | ----------------------------- | -------------------------------- |
-| `add(x)`        | $$\Theta(1)$$ amortizado | $$O(\log N)$$      | $$\Theta(N)$$                    |
-| `contains(x)`   | $$\Theta(1)$$ | $$O(\log N)$$                 | $$\Theta(N)$$                    |
-| `remove(x)`     | $$\Theta(1)$$ | $$O(\log N)$$                 | $$\Theta(N)$$                    |
-| `size()`        | $$\Theta(1)$$ | $$\Theta(1)$$                 | $$\Theta(1)$$                    |
+<SectionBreak />
 
-El esperado es el de una tabla con un factor de carga acotado, y el peor caso
-el de una posición donde caen todas las claves, ya convertida en árbol.
-
-</Slide>
-
-<Slide title="Las tablas hash de otros lenguajes">
-Cada biblioteca elige su manera de resolver las colisiones según lo que más le
-cuesta.
-
-| Lenguaje | Tabla                  | Colisiones                                             |
-| -------- | ---------------------- | ------------------------------------------------------ |
-| Java     | `HashMap`, `HashSet`   | Listas, que se vuelven árboles si crecen               |
-| C++      | `std::unordered_map`   | Listas                                                 |
-| Python   | `dict`, `set`          | Sondeo, con saltos que no son de a una celda           |
-| Rust     | `HashMap`              | Sondeo, en una tabla que revisa varias celdas a la vez |
-| Go       | `map`                  | Sondeo, desde la versión 1.24; antes, listas           |
-
-Las listas convienen cuando cada clave ya es un objeto aparte en la memoria;
-el sondeo, cuando las claves caben en el arreglo y recorrer celdas seguidas es
-lo más rápido que puede hacer el procesador. No hay una respuesta única.
-
-</Slide>
+## Más allá de las tablas hash
 
 <Slide title="Funciones hash fuera de las tablas">
 Una función que resume un dato en un número sirve para más que ubicar claves,
@@ -3204,3 +2997,5 @@ claves y responden las mismas tres operaciones, a precios distintos. Los TDAs
 **Set** y **Map** —este último con un valor junto a cada clave— formalizan el
 contrato que las dos cumplen, y permiten compararlas como dos implementaciones
 del mismo contrato para decidir cuándo usar cada una.
+Ahí aparecen también las tablas hash de Java, `HashSet` y `HashMap`, y cómo
+calcula Java el hash de una clave de cualquier tipo.
