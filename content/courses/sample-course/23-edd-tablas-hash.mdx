@@ -2255,11 +2255,20 @@ $$
 Buscar una clave que no está recorre una lista entera, y una que está recorre
 en promedio la mitad. Bajo el supuesto de dispersión uniforme, las dos cuestan
 en promedio $$\Theta(1 + \alpha)$$: calcular el hash, que no depende de $$N$$,
-más recorrer una lista de largo esperado $$\alpha$$. Con $$\alpha$$ acotado por
-una constante, eso es $$\Theta(1)$$.
+más recorrer una lista de largo esperado $$\alpha$$.
 
-Nada impide, sin embargo, el peor caso: si todas las claves caen en la misma
-posición, la tabla es una sola lista, y buscar cuesta $$\Theta(N)$$.
+Ese costo es constante solo si $$\alpha$$ no crece. Pero con $$M$$ fijo,
+$$\alpha = N / M$$ crece con cada clave que se agrega, y $$\Theta(1 + \alpha)$$
+es $$\Theta(N)$$: listas $$M$$ veces más cortas que una sola, pero que igual
+crecen con cada clave nueva.
+
+$$
+M = 7, \quad N = 700 \quad \Rightarrow \quad \alpha = 100
+$$
+
+Y aunque $$\alpha$$ se mantenga chico, nada impide el peor caso: si todas las
+claves caen en la misma posición, la tabla es una sola lista, y buscar cuesta
+$$\Theta(N)$$.
 
 </Slide>
 
@@ -2271,9 +2280,8 @@ posición, la tabla es una sola lista, y buscar cuesta $$\Theta(N)$$.
 | modificar | `add(key)`                | $$\Theta(N)$$ | $$\Theta(1 + \alpha)$$ | La clave, una vez, en la lista de su hash |
 | modificar | `remove(key)`             | $$\Theta(N)$$ | $$\Theta(1 + \alpha)$$ | Las demás, en la lista de su hash         |
 
-El peor caso de `add` es el de `contains`, que corre antes de enganchar. Con
-$$M$$ fijo, $$\alpha$$ crece con cada clave que se agrega, y con él el costo
-esperado: para que se mantenga constante, la tabla tiene que crecer con
+El peor caso de `add` es el de `contains`, que corre antes de enganchar. Para
+que el costo esperado sea constante, la tabla tiene que crecer junto con
 $$N$$.
 
 </Slide>
