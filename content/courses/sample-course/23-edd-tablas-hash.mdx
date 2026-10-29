@@ -2479,9 +2479,17 @@ sus claves pasan a su posición en la tabla nueva.
 </Slide>
 
 <Slide title="El costo amortizado de la inserción">
-Redimensionar cuesta $$\Theta(N)$$, pero pasa pocas veces. Cada redimensión
-mueve más del doble de claves que la anterior, así que, al agregar $$N$$
-claves, entre todas mueven menos de $$2N$$:
+Agregar hace dos cosas que cuestan. La primera es buscar la clave en su lista,
+como buscar y eliminar, y con la redimensión el factor de carga nunca pasa
+de 1:
+
+$$
+\alpha = \frac{N}{M} \le 1 \quad \Rightarrow \quad \Theta(1 + \alpha) = \Theta(1)
+$$
+
+La segunda es redimensionar, que cuesta $$\Theta(N)$$ pero pasa pocas veces.
+Cada redimensión mueve más del doble de claves que la anterior, así que, al
+agregar $$N$$ claves, entre todas mueven menos de $$2N$$ claves:
 
 $$
 N + \frac{N}{2} + \frac{N}{4} + \cdots < 2N
@@ -2505,9 +2513,6 @@ $$
 </Slide>
 
 <Slide title="Costos con redimensión">
-Con la redimensión, $$\alpha \le 1$$, y el costo esperado de las tres
-operaciones es constante: lo mismo con mil claves que con un millón.
-
 | Molde     | Operación       | Peor caso     | Esperado      | Invariante que restaura                        |
 | --------- | --------------- | ------------- | ------------- | ---------------------------------------------- |
 | consultar | `contains(key)` | $$\Theta(N)$$ | $$\Theta(1)$$ | Ninguna: no cambia la tabla                    |
