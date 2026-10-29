@@ -2479,9 +2479,9 @@ sus claves pasan a su posición en la tabla nueva.
 </Slide>
 
 <Slide title="El costo amortizado de la inserción">
-Agregar hace dos cosas que cuestan. La primera es buscar la clave en su lista,
-como buscar y eliminar, y con la redimensión el factor de carga nunca pasa
-de 1:
+Agregar hace dos cosas que cuestan. La primera es revisar si la clave ya está,
+recorriendo la lista de su posición: el mismo recorrido de las operaciones de
+buscar y de eliminar. Con la redimensión, el factor de carga nunca pasa de 1:
 
 $$
 \alpha = \frac{N}{M} \le 1 \quad \Rightarrow \quad \Theta(1 + \alpha) = \Theta(1)
