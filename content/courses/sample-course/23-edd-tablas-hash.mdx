@@ -1981,7 +1981,7 @@ export function Listas({ chains, picked, only = false, paint = {}, cut, window: 
 
 export const TABLA = [['Eva'], ['Juan'], ['Leo', 'Ana'], ['Bea'], ['Sara'], [], []];
 
-<Slide title="Una lista en cada casillero">
+<Slide title="Una lista en cada posición">
 Dos claves que colisionan tienen la misma posición, y si cada posición guarda
 una sola clave, la segunda no tiene dónde quedar. Para guardar las dos, cada
 posición tiene que poder guardar varias. En el guardarropa, cada casillero
@@ -2339,39 +2339,60 @@ export function Agregados({ moves, total, caption, label }) {
 }
 
 <Slide title="Una tabla que crece">
-Con $$M$$ fijo, cada clave que se agrega sube el factor de carga
-$$\alpha = N / M$$, y con él el largo esperado de las listas. Para que buscar
-siga costando $$\Theta(1)$$ en promedio, la tabla tiene que crecer junto con
-$$N$$: en el guardarropa, abrir más casilleros cuando los que hay se llenan.
+Para que la tabla crezca junto con las claves, se le pone un límite al factor
+de carga. Cuando ya tiene tantas claves como posiciones, antes de agregar otra
+se crea un arreglo más grande y las claves pasan a él: la tabla se
+**redimensiona**. Con esa regla el factor de carga nunca pasa de 1,
 
-La regla es redimensionar cuando hay tantas claves como posiciones, cuando
-`size == table.length`, es decir, cuando $$\alpha$$ llega a 1: un abrigo por
-casillero, en promedio. Así, $$\alpha$$ nunca pasa de 1.
+$$
+\alpha = \frac{N}{M} \le 1,
+$$
+
+y el costo esperado de las tres operaciones, $$\Theta(1 + \alpha)$$, queda
+acotado por una constante.
 
 </Slide>
 
 <Slide title="Por qué las claves cambian de posición">
-La posición de una clave es el resto de dividir por $$M$$, así que al cambiar
-$$M$$ cambia la posición de casi todas. Una tabla nueva no se llena copiando
-las listas a las mismas posiciones: la invariante pide que cada clave esté en
-la lista de **su** posición, y con el $$M$$ nuevo esa posición es otra. Cada
-clave tiene que volver a entrar, con su hash recalculado.
+Un arreglo no se alarga: el más grande es un arreglo nuevo, y las claves
+tienen que pasar a él. Pero no a la misma posición que tenían. La posición es
+el resto de dividir el número de la clave por $$M$$, y con otro $$M$$ el resto
+es otro, así que casi todas las claves cambian de posición. Cada una vuelve a
+entrar con su hash calculado de nuevo, en la lista de su posición en la tabla
+nueva.
 
-| Clave  | $$h$$, con $$M = 3$$ | $$h$$, con $$M = 7$$ |
-| ------ | -------------------- | -------------------- |
-| «Ana»  | 2                    | 2                    |
-| «Bea»  | 0                    | 3                    |
-| «Eva»  | 2                    | 0                    |
+<div style={{ display: 'grid', gridTemplateColumns: '3fr 7fr', gap: '1rem 2rem', alignItems: 'end' }}>
+<Listas
+  chains={[['Bea'], [], ['Eva', 'Ana']]}
+  paint={{ Bea: 'mark', Eva: 'mark' }}
+  caption="con M = 3"
+  label="La tabla con tres posiciones: de la 0 cuelga Bea, la 1 está vacía y de la 2 cuelgan Eva y después Ana. Bea y Eva están destacadas."
+/>
+<Listas
+  chains={[['Eva'], [], ['Ana'], ['Bea'], [], [], []]}
+  paint={{ Bea: 'mark', Eva: 'mark' }}
+  caption="con M = 7: «Bea» y «Eva» cambian de posición"
+  label="La tabla nueva, con siete posiciones: Eva cuelga de la 0, Ana de la 2 y Bea de la 3; las demás están vacías. Bea pasó de la 0 a la 3 y Eva de la 2 a la 0, las dos destacadas; Ana sigue en la 2."
+/>
+</div>
+
+$$
+\text{«Bea»}: \quad 4\,351\,329 \bmod 3 = 0, \qquad 4\,351\,329 \bmod 7 = 3
+$$
 
 </Slide>
 
 <Slide title="El tamaño nuevo">
-La tabla nueva tiene el primer primo desde $$2M$$: así el tamaño se mantiene
-primo, como pide el método de la división, y casi se duplica. Duplicar sin más
-daría un número par.
+El arreglo nuevo tiene que ser bastante más grande, para que la próxima
+redimensión tarde en llegar, y su tamaño tiene que ser primo, como pide el
+método de la división. Duplicarlo daría un número par, así que la tabla nueva
+tiene el primer primo desde $$2M$$, un poco más que el doble. Buscarlo no
+depende de la tabla: se prueban los números desde $$2M$$ hasta dar con uno sin
+divisores.
 
-La búsqueda del primo es una función auxiliar que no lleva ninguna idea de la
-tabla: prueba los números desde $$2M$$ hasta dar con uno sin divisores.
+$$
+3 \;\to\; 7 \;\to\; 17 \;\to\; 37 \;\to\; 79
+$$
 
 ```java
 private static int nextPrime(int n) {
@@ -2393,8 +2414,8 @@ private static boolean isPrime(int n) {
 </Slide>
 
 <Slide title="La inserción con redimensión">
-`add` gana una línea: antes de enganchar la clave nueva, si la tabla está
-llena, la redimensiona.
+`add` gana una línea: antes de enganchar la clave nueva, si la tabla ya tiene
+tantas claves como posiciones, la redimensiona.
 
 ```java
 public boolean add(String key) {
@@ -2412,13 +2433,10 @@ public boolean add(String key) {
 </Slide>
 
 <Slide title="El código de la redimensión">
-`resize` es privado: solo lo llama `add`. Guarda la tabla vieja en `old`, crea
-el arreglo nuevo, pone `size` en 0 y vuelve a agregar con `add` cada clave de
-las listas de `old`. Mientras corre, las claves que todavía no vuelven a
-entrar están en la lista de su posición vieja: la invariante se restaura
-clave por clave. Recorre las $$M$$ posiciones viejas y vuelve a agregar las
-$$N$$ claves, cada una en $$\Theta(1)$$ esperado: cuesta $$\Theta(N + M)$$, y
-como redimensiona cuando $$N = M$$, $$\Theta(N)$$.
+`resize` es privado: solo lo llama `add`. Guarda el arreglo viejo en `old`,
+crea el nuevo, pone `size` en 0 y vuelve a agregar con `add` cada clave de
+`old`. Recorre las $$M$$ posiciones viejas y vuelve a agregar las $$N$$ claves;
+como redimensiona cuando $$N = M$$, cuesta $$\Theta(N)$$ en total.
 
 <SequenceStepper
   eda="hash-chaining"
@@ -2430,15 +2448,19 @@ como redimensiona cuando $$N = M$$, $$\Theta(N)$$.
 </Slide>
 
 <Slide title="El costo amortizado de la inserción">
-Una redimensión es cara, pero rara: después de redimensionar, el tamaño casi
-se duplicó, y la próxima solo llega cuando se agregaron otras tantas claves.
-Repartido entre todas las inserciones, el costo de las redimensiones es
-constante. Cada redimensión mueve las claves que hay en ese momento, y cada
-una mueve al menos el doble que la anterior: si la última movió $$k$$ claves,
-la anterior movió menos de $$k/2$$, la de antes menos de $$k/4$$, y así. En
-total, al agregar $$N$$ claves se mueven menos de
-$$N + N/2 + N/4 + \cdots < 2N$$, y cada `add` paga en promedio menos de dos
-movimientos además del suyo: $$\Theta(1)$$ **amortizado**.
+Redimensionar cuesta $$\Theta(N)$$, pero pasa pocas veces: después de cada
+redimensión la tabla tiene más del doble de posiciones, y la siguiente llega
+solo cuando se agregaron otras tantas claves. Cada redimensión mueve más del
+doble de claves que la anterior, así que, al agregar $$N$$ claves, entre todas
+mueven menos de $$2N$$:
+
+$$
+N + \frac{N}{2} + \frac{N}{4} + \cdots < 2N
+$$
+
+Repartido entre las $$N$$ inserciones, cada `add` paga en promedio menos de dos
+movimientos además del suyo: cuesta $$\Theta(1)$$ **amortizado**, el mismo
+resultado del arreglo dinámico.
 
 <Agregados
   moves={[0, 0, 0, 3, 0, 0, 0, 7, 0, 0, 0, 0, 0, 0, 0, 0, 0, 17, 0, 0]}
@@ -2454,10 +2476,8 @@ $$
 </Slide>
 
 <Slide title="Costos con redimensión">
-Con la redimensión, $$\alpha$$ no pasa de 1, y el costo esperado de las tres
-operaciones es constante. El de `add` es amortizado: la inserción que
-redimensiona cuesta $$\Theta(N)$$ siempre, no por azar, y ese costo se reparte
-entre las inserciones que llenaron la tabla.
+Con la redimensión, $$\alpha \le 1$$, y el costo esperado de las tres
+operaciones es constante: lo mismo con mil claves que con un millón.
 
 | Molde     | Operación       | Peor caso     | Esperado      | Invariante que restaura                        |
 | --------- | --------------- | ------------- | ------------- | ---------------------------------------------- |
@@ -2465,11 +2485,9 @@ entre las inserciones que llenaron la tabla.
 | modificar | <code style={{ color: 'var(--color-keep)' }}>add(key)</code> | $$\Theta(N)$$ | <span style={{ color: 'var(--color-keep)', fontWeight: 700 }}>$$\Theta(1)$$ amortizado</span> | La clave entra una vez, en su lista, y la tabla crece antes si $$\alpha$$ llegó a 1 |
 | modificar | `remove(key)`   | $$\Theta(N)$$ | $$\Theta(1)$$ | La clave sale de su lista, las demás quedan; `size` baja en 1 |
 
-Las tres cuestan $$\Theta(1)$$ en promedio, lo mismo con mil claves que con un
-millón: el objetivo se cumple en el caso esperado. Pero las listas tienen un
-precio que el costo no muestra: una referencia y un objeto aparte por cada clave, que el
-programa tiene que ir a buscar a otro lugar de la memoria. La otra manera de
-resolver las colisiones guarda las claves en el propio arreglo.
+Las listas tienen, sin embargo, un precio que la tabla no muestra: un nodo
+aparte por cada clave, con su referencia, en otro lugar de la memoria. La otra
+manera de resolver las colisiones guarda las claves en el propio arreglo.
 
 </Slide>
 
@@ -2479,7 +2497,7 @@ resolver las colisiones guarda las claves en el propio arreglo.
 
 export const SONDEO = ['Pablo', null, null, null, null, 'Mia', 'Alba', null, null, null, 'Julia'];
 
-<Slide title="Un abrigo por casillero">
+<Slide title="Una clave en cada posición">
 La otra manera de resolver las colisiones no usa listas: cada casillero guarda
 a lo más una clave, y todas viven en el propio arreglo. Si el casillero que
 indica el hash está ocupado, la clave prueba el siguiente, y el siguiente,
