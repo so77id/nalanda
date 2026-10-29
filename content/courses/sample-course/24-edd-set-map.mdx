@@ -814,6 +814,161 @@ objeto, que entra después de sacar el anterior.
 
 </Slide>
 
+{/* A seventh voter with a seven-digit RUT, 9.876.543-3 (valid check digit), arriving last. BY_TEXT is the AVL tree the seven arrivals build when they are compared as text, as String.compareTo compares them; BY_NUMBER is the one they build compared by their numbers. Computed like the registry's; both inorders match the TreeSet runs quoted in the commit. */}
+
+export const BY_TEXT = { v: '13.959.276-K', l: { v: '13.180.992-1', l: { v: '12.547.354-7' } }, r: { v: '18.155.218-2', l: { v: '17.814.358-1' }, r: { v: '22.715.853-0', r: { v: '9.876.543-3' } } } };
+
+export const BY_NUMBER = { v: '13.959.276-K', l: { v: '12.547.354-7', l: { v: '9.876.543-3' }, r: { v: '13.180.992-1' } }, r: { v: '18.155.218-2', l: { v: '17.814.358-1' }, r: { v: '22.715.853-0' } } };
+
+<Slide title="La clase TreeSet">
+Java implementa el contrato Set sobre un árbol de búsqueda balanceado en la
+clase `java.util.TreeSet`. Su árbol es un **rojo-negro**, otro árbol de
+búsqueda balanceado como el AVL, y `add`, `remove` y `contains` cuestan
+$$O(\log N)$$ en el peor caso. En el registro cambia solo la línea que crea el
+conjunto:
+
+```java
+Set<String> voted = new TreeSet<>();
+// un add por cada voto
+for (String rut : voted) {
+    System.out.println(rut);
+}
+```
+
+```text
+12.547.354-7
+13.180.992-1
+13.959.276-K
+17.814.358-1
+18.155.218-2
+22.715.853-0
+```
+
+El recorrido de un `TreeSet` es el inorden de su árbol: entrega los elementos
+de menor a mayor. Para eso tiene que poder compararlos, y un `String` sabe
+compararse: su `compareTo` ordena los textos.
+
+</Slide>
+
+<Slide title="Las preguntas del orden en TreeSet">
+`TreeSet` responde también las preguntas que dependen del orden, con métodos
+que no son parte del contrato Set. Por eso, para usarlos, la variable se
+declara `TreeSet`:
+
+| Pregunta                          | Método                 | Costo              |
+| --------------------------------- | ---------------------- | ------------------ |
+| El menor, el mayor                | `first()`, `last()`    | $$O(\log N)$$      |
+| El siguiente a $$x$$, el anterior | `higher(x)`, `lower(x)` | $$O(\log N)$$     |
+| El primero desde $$x$$, el último hasta $$x$$ | `ceiling(x)`, `floor(x)` | $$O(\log N)$$ |
+| Los $$k$$ entre $$a$$ y $$b$$     | `subSet(a, b)`         | $$O(\log N + k)$$  |
+
+```java
+TreeSet<String> voted = new TreeSet<>();
+// un add por cada voto
+voted.first();                 // "12.547.354-7"
+voted.higher("13.180.992-1");  // "13.959.276-K"
+voted.floor("20.118.702-8");   // "18.155.218-2"
+voted.subSet("13.000.000", "18.000.000");
+// [13.180.992-1, 13.959.276-K, 17.814.358-1]
+```
+
+`ceiling` y `floor` aceptan un valor que no está: responden el elemento más
+cercano por arriba o por abajo. `subSet(a, b)` incluye a `a` y deja fuera a
+`b`.
+
+</Slide>
+
+<Slide title="El orden de los textos">
+`String.compareTo` compara dos textos carácter por carácter, de izquierda a
+derecha, y decide el primer carácter distinto. Entre RUTs del mismo largo, ese
+orden es el de los números. Un RUT con un dígito menos ya no: su primer
+dígito se compara con el primero de los demás, que vale diez veces más, y el
+orden de los textos deja de ser el de los números.
+
+<KeyTree
+  tree={BY_TEXT}
+  strip
+  tones={{ '9.876.543-3': 'mark' }}
+  caption="como texto, 9.876.543-3 va después de 22.715.853-0"
+  label="Un árbol de búsqueda con siete RUTs comparados como texto. 9.876.543-3, destacado, quedó como el hijo derecho de 22.715.853-0, el mayor. En la fila del inorden es el último, después de 22.715.853-0."
+/>
+
+Con ese votante, `first()` ya no responde el RUT menor. El orden de `String`
+no es el que el registro necesita, y hay dos maneras de darle otro.
+
+</Slide>
+
+<Slide title="Un orden natural para Rut">
+La primera es que la clase traiga su propio orden. `Rut` implementa
+`Comparable<Rut>`, y su `compareTo` es su **orden natural**: responde un
+número negativo, cero o positivo según el RUT sea menor, igual o mayor que el
+otro.
+
+```java
+class Rut implements Comparable<Rut> {
+    // los campos, el constructor, equals y hashCode
+
+    @Override
+    public int compareTo(Rut other) {
+        if (number != other.number) {
+            return Integer.compare(number, other.number);
+        }
+        return Character.compare(dv, other.dv);
+    }
+}
+```
+
+`TreeSet<Rut>` ordena con ese `compareTo`, y su `first()` es el RUT de menor
+número. Una clase que no implementa `Comparable` no se puede guardar en un
+`TreeSet` sin más: el primer `add` lanza `ClassCastException`.
+
+`TreeSet` no usa `equals` ni `hashCode`: decide si un elemento ya está con
+`compareTo`. Por eso `compareTo` compara los mismos campos que `equals`, y
+responde 0 exactamente cuando `equals` responde verdadero.
+
+</Slide>
+
+<Slide title="Un orden pasado al constructor">
+La segunda manera sirve cuando el tipo no trae el orden que hace falta, o no
+trae ninguno: el orden se le pasa al construir el conjunto, como un
+`Comparator`. El registro puede seguir guardando textos y compararlos por el
+número de su RUT:
+
+```java
+static int numberOf(String rut) {
+    int dash = rut.indexOf('-');
+    if (dash < 0) throw new IllegalArgumentException();
+    return Integer.parseInt(rut.substring(0, dash).replace(".", ""));
+}
+
+TreeSet<String> voted = new TreeSet<>(
+    (a, b) -> Integer.compare(numberOf(a), numberOf(b)));
+```
+
+`numberOf` no lleva ninguna idea: es el número del RUT, sin puntos ni dígito,
+escrito en Java.
+
+**`Comparable` pone el orden en la clase, y hay uno solo; `Comparator` lo
+elige quien crea el conjunto, y puede haber tantos como haga falta.**
+
+</Slide>
+
+<Slide title="El registro ordenado por número">
+Con el comparador, el inorden del árbol es el de los números, y el RUT de un
+dígito menos queda donde le corresponde. Como `TreeSet` decide con su
+comparación si un elemento ya está, las dos escrituras del mismo RUT son
+además un solo elemento: el segundo `add` retorna falso.
+
+<KeyTree
+  tree={BY_NUMBER}
+  strip
+  tones={{ '9.876.543-3': 'keep' }}
+  caption="por número, 9.876.543-3 es el primero"
+  label="El árbol de búsqueda con los mismos siete RUTs, comparados por su número. 9.876.543-3, destacado, es el hijo izquierdo de 12.547.354-7, y en la fila del inorden es el primero."
+/>
+
+</Slide>
+
 <SectionBreak />
 
 ## Map · Diccionario
