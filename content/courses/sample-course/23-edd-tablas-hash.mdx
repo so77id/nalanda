@@ -2226,10 +2226,9 @@ otra en su lista, la primera de una lista y una que no está.
 </Slide>
 
 <Slide title="El factor de carga">
-Las tres operaciones recorren una sola lista, así que cuestan lo que mide la
-lista de la posición de la clave. Cuánto mide depende de cuántas claves hay por
-posición: con $$N$$ claves en $$M$$ posiciones, un reparto parejo le da a cada
-una $$N / M$$. Ese cociente es el **factor de carga** de la tabla,
+Cuánto mide una lista depende de cuántas claves hay por posición: con $$N$$
+claves en $$M$$ posiciones, un reparto parejo le da a cada una $$N / M$$. Ese
+cociente es el **factor de carga** de la tabla,
 
 $$
 \alpha = \frac{N}{M},
@@ -2252,37 +2251,38 @@ $$
 </Slide>
 
 <Slide title="El costo esperado y el peor caso">
-Buscar una clave que no está recorre una lista entera, y una que está recorre
-en promedio la mitad. Bajo el supuesto de dispersión uniforme, las dos cuestan
-en promedio $$\Theta(1 + \alpha)$$: calcular el hash, que no depende de $$N$$,
-más recorrer una lista de largo esperado $$\alpha$$.
+Buscar, agregar y eliminar hacen el mismo trabajo: calculan la posición de la
+clave y recorren la lista de esa posición, hasta dar con la clave o hasta el
+final. Por eso las tres cuestan lo mismo en promedio,
 
-Ese costo es constante solo si $$\alpha$$ no crece. Pero con $$M$$ fijo,
-$$\alpha = N / M$$ crece con cada clave que se agrega, y $$\Theta(1 + \alpha)$$
-es $$\Theta(N)$$: listas $$M$$ veces más cortas que una sola, pero que igual
-crecen con cada clave nueva.
+$$
+\Theta(1 + \alpha),
+$$
+
+el 1 por calcular la posición, que no depende de $$N$$, y el $$\alpha$$ por
+recorrer la lista.
+
+Ese costo no es constante mientras $$M$$ esté fijo: cada clave nueva sube
+$$\alpha = N / M$$, y $$\Theta(1 + \alpha)$$ crece de forma lineal con las
+claves.
 
 $$
 M = 7, \quad N = 700 \quad \Rightarrow \quad \alpha = 100
 $$
 
-Y aunque $$\alpha$$ se mantenga chico, nada impide el peor caso: si todas las
-claves caen en la misma posición, la tabla es una sola lista, y buscar cuesta
-$$\Theta(N)$$.
+El peor caso es otro: si todas las claves caen en la misma posición, la tabla
+es una sola lista de $$N$$ nodos, y cada operación cuesta $$\Theta(N)$$ sea
+cual sea el factor de carga.
 
 </Slide>
 
 <Slide title="Costos de la tabla con listas">
-| Molde     | Operación                 | Peor caso     | Esperado               | Invariante que restaura                   |
-| --------- | ------------------------- | ------------- | ---------------------- | ----------------------------------------- |
-| crear     | `ChainedHashTable(M)`     | $$\Theta(M)$$ | $$\Theta(M)$$          | Listas vacías                             |
-| consultar | `contains(key)`           | $$\Theta(N)$$ | $$\Theta(1 + \alpha)$$ | Ninguna: no cambia la tabla               |
-| modificar | `add(key)`                | $$\Theta(N)$$ | $$\Theta(1 + \alpha)$$ | La clave, una vez, en la lista de su hash |
-| modificar | `remove(key)`             | $$\Theta(N)$$ | $$\Theta(1 + \alpha)$$ | Las demás, en la lista de su hash         |
-
-El peor caso de `add` es el de `contains`, que corre antes de enganchar. Para
-que el costo esperado sea constante, la tabla tiene que crecer junto con
-$$N$$.
+| Molde     | Operación             | Peor caso     | Esperado                 | Invariante que restaura                                   |
+| --------- | --------------------- | ------------- | ------------------------ | --------------------------------------------------------- |
+| crear     | `ChainedHashTable(M)` | $$\Theta(M)$$ | $$\Theta(M)$$            | Las tres: sin claves, y `size` en 0                       |
+| consultar | `contains(key)`       | $$\Theta(N)$$ | $${\Theta(1 + \alpha)}$$ | Ninguna: no cambia la tabla                               |
+| modificar | `add(key)`            | $$\Theta(N)$$ | $${\Theta(1 + \alpha)}$$ | La clave entra una vez, en su lista; `size` sube en 1     |
+| modificar | `remove(key)`         | $$\Theta(N)$$ | $${\Theta(1 + \alpha)}$$ | La clave sale de su lista, las demás quedan; `size` baja en 1 |
 
 </Slide>
 
@@ -2457,8 +2457,8 @@ entre las inserciones que llenaron la tabla.
 | Molde     | Operación       | Peor caso     | Esperado      | Invariante que restaura                        |
 | --------- | --------------- | ------------- | ------------- | ---------------------------------------------- |
 | consultar | `contains(key)` | $$\Theta(N)$$ | $$\Theta(1)$$ | Ninguna: no cambia la tabla                    |
-| modificar | <code style={{ color: 'var(--color-keep)' }}>add(key)</code> | $$\Theta(N)$$ | <span style={{ color: 'var(--color-keep)', fontWeight: 700 }}>$$\Theta(1)$$ amortizado</span> | La clave, una vez, en la lista de su hash, con $$\alpha \le 1$$ |
-| modificar | `remove(key)`   | $$\Theta(N)$$ | $$\Theta(1)$$ | Las demás, en la lista de su hash              |
+| modificar | <code style={{ color: 'var(--color-keep)' }}>add(key)</code> | $$\Theta(N)$$ | <span style={{ color: 'var(--color-keep)', fontWeight: 700 }}>$$\Theta(1)$$ amortizado</span> | La clave entra una vez, en su lista, y la tabla crece antes si $$\alpha$$ llegó a 1 |
+| modificar | `remove(key)`   | $$\Theta(N)$$ | $$\Theta(1)$$ | La clave sale de su lista, las demás quedan; `size` baja en 1 |
 
 Las tres cuestan $$\Theta(1)$$ en promedio, lo mismo con mil claves que con un
 millón: el objetivo se cumple en el caso esperado. Pero las listas tienen un
