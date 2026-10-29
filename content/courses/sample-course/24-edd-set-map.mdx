@@ -2716,4 +2716,54 @@ class Solution {
 
 ## Más allá de Set y Map
 
+<Slide title="Conjuntos y diccionarios para casos especiales">
+`HashSet` y `TreeSet` están escritos sobre `HashMap` y `TreeMap`: sus
+elementos son las claves de un diccionario cuyo valor no se usa, el mismo
+objeto de relleno para todas. Alrededor de esos cuatro hay otros, exactos
+como ellos, que cambian algo de la estructura para un caso que se repite:
+
+| Estructura          | Qué cambia                                                           | Un uso                                                     |
+| ------------------- | -------------------------------------------------------------------- | ---------------------------------------------------------- |
+| `LinkedHashMap`     | Una tabla hash que además enlaza sus pares en el orden en que entraron, o en el de su último uso | Un caché que descarta el dato usado hace más tiempo        |
+| *Trie*              | Un árbol para claves de texto, con una letra por nivel               | Autocompletar: todas las palabras que empiezan con un prefijo |
+| `BitSet`            | Un conjunto de enteros pequeños guardado como un bit por entero posible | Marcar cuáles de un millón de números aparecen, en 125 KB  |
+| `EnumMap`           | Un diccionario cuyas claves son los valores de un `enum`, guardado en un arreglo | Un horario por día de la semana                         |
+| `ConcurrentHashMap` | Una tabla hash que varios hilos usan a la vez sin corromperla        | El caché compartido de un servidor                         |
+| Árbol B+            | Un diccionario ordenado en disco, con cientos de claves por nodo     | Los índices de una base de datos                           |
+
+Para seguir: la documentación de `java.util`, y Sedgewick y Wayne,
+*Algorithms*, §3.5 y §5.2.
+
+</Slide>
+
+<Slide title="Respuestas aproximadas a cambio de memoria">
+Un Set responde `contains` con certeza porque guarda cada elemento entero, y
+eso cuesta memoria: mil millones de direcciones web ocupan decenas de
+gigabytes. Si en lugar de «sí» se acepta un «**quizás**», el conjunto puede
+guardar unos pocos bits por elemento.
+
+- **Un filtro de Bloom** responde si un elemento está con un «no», que es
+  seguro, o con un «quizás», que se equivoca pocas veces: con unos diez bits
+  por elemento, una de cada cien. Las primeras versiones de Chrome lo usaban
+  para decidir si una dirección podía ser peligrosa antes de consultar al
+  servidor: solo los «quizás» llegaban a él.
+- **HyperLogLog** estima cuántos elementos distintos hay sin guardarlos: unos
+  pocos kilobytes para miles de millones de visitantes distintos, con un error
+  de alrededor del 1 %.
+- **Count-Min Sketch** estima cuántas veces apareció cada elemento, como un
+  diccionario de frecuencias que nunca cuenta de menos.
+
+Las tres renuncian a la respuesta exacta, y a cambio ocupan una memoria que no
+crece con el tamaño de los elementos. Para seguir: Mitzenmacher y Upfal,
+*Probability and Computing*.
+
+</Slide>
+
 ## Lo que sigue
+
+Un conjunto guarda elementos sueltos, y un diccionario, una relación de cada
+clave con un valor. Muchos problemas relacionan elementos entre sí: las
+calles que unen dos esquinas, las personas que se conocen, las páginas que
+enlazan a otras. La próxima unidad estudia esas estructuras, los **grafos**,
+y en ellos el diccionario reaparece: un grafo se guarda como un Map de cada
+elemento al conjunto de los elementos con que se relaciona.
