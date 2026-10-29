@@ -22,9 +22,9 @@ questions: pool
 {/*   · la apertura sola (2), Funciones sola (3) y El cálculo sola (3). */}
 {/*   · El cálculo desde Primo o potencia de 2: ninguna. El profesor cerró */}
 {/*     el banco de la primera mitad en el método de la división. */}
-{/*   · Encadenamiento y todo lo que sigue: ninguna TODAVÍA. Sus preguntas */}
-{/*     se aprueban con el profesor al cerrar la revisión de esas láminas */}
-{/*     (S15), y este comentario se rehace entonces. */}
+{/*   · Encadenamiento y todo lo que sigue: ninguna. El profesor decidió no */}
+{/*     escribirlas por ahora (#326, 29-10-2026), así que un control sobre */}
+{/*     esas secciones se rechaza (ErrPoolTooSmall). */}
 
 # Estructuras de Datos Avanzadas · Tablas Hash
 
@@ -2885,6 +2885,14 @@ Con la redimensión, $$\alpha$$ no pasa de $$1/2$$, y una búsqueda mira en
 promedio a lo más 2,5 celdas.
 
 </Slide>
+
+{/* OPEN, for the professor (#331 review, 2026-10-29): the worst case below is
+    Θ(N), but a search walks every USED cell of its run, marks included, and
+    `add` resizes on `used` to nextPrime(2M) whatever N is. So adds and removes
+    of distinct keys grow M while N stays small: measured on JDK 21 with the
+    class's ProbingHashTable, 12 add/remove pairs from 2 cells end at M = 23,
+    size 0, used 4. Either the worst case is Θ(M) (or Θ(used)), or `resize`
+    sizes the table from `size` instead. Left as is; the choice is his. */}
 
 <Slide title="Costos de la tabla con sondeo lineal">
 | Molde     | Operación       | Peor caso     | Esperado, con $$\alpha \le 1/2$$ | Invariante que restaura               |

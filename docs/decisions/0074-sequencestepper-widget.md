@@ -31,7 +31,10 @@ named listings (`Amended by: #322`, the last two amendments below).
 per position, `hash-chaining` (`search`, `insert`, `remove`, `resize`), drawn
 as a contiguous strip with each position's list hanging under its cell; and
 with linear probing, `hash-probing` (`search`, `insert`, `remove`), `keys`
-and `deleted` as two strips. Their keys are text. Nothing here changes.
+and `deleted` as two strips. Their keys are text. Two things here change: a
+growing run puts its listings beside the structure on a slide and names its
+keys in the header, and the probing table adds a `used` readout (both
+`Amended by: #326`, the last amendment below).
 
 **Amended by:** #288, slide-by-slide review (2026-09-10) — a ninth operation,
 `get-at`. The class needs the operation the array answers with one
@@ -452,6 +455,23 @@ and `row` stack; the recursive/iterative pair and the two simple rotations
 stay side by side.
 `iterative` and `program` are props of the widget, valid where the trace's
 `PAIRED` and program lists say; the mechanisms are ADR-0083 §3 and ADR-0086.
+
+**Amended by:** #326 (2026-10-29) — **on a slide, the listings may go beside
+the structure, and a run may name its keys in the header.** A trace may set
+`beside`, the listings' share of the width: on a slide the listings then go
+in a column on the left and the structure on the right, instead of over it;
+in the book nothing changes. The hash tables' growing runs (`grow`) set it —
+38% with lists, 40% with probing — because their two tables stacked are
+taller than the panel a row of listings leaves, and the professor measured
+the nodes too small with the listings above. The same runs name their keys
+in the header (`queue`, through `StepperHeader`'s `extra` slot), the one
+being added outlined and the ones added struck through. And the probing
+table adds a readout, `used`, to the right of `size` — the cells that are not
+null, marks included — as #321 changed the tree's. The bar for the next
+trace that sets `beside`: its drawing, at its run's largest size, is taller
+than the panel a row of listings leaves under it, and its share is the least
+that keeps the longest listing line whole, measured on its slide.
+Mechanism: ADR-0084 §Amendment.
 
 **Source:** Issue #288 — Course document "Estructuras de Datos · Listas
 Enlazadas". The class shows nine operations over five structures, and

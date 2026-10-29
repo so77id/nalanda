@@ -94,7 +94,9 @@ array `data[0..]` with an index rail. Both are painted from one cell state,
 so the pair a `swap` exchanges is lit in the tree and in the array in the
 same frame. **Stacked in the book, side by side on a slide** — inside the
 structure panel; the listing stays above the structure in both modes, as
-`SequenceStepper.tsx` records for every recipe ("Stacked in BOTH modes"). The
+`SequenceStepper.tsx` records for every recipe ("Stacked in BOTH modes") —
+the one exception since #326 is a trace with `beside`, ADR-0074's
+`Amended by: #326`. The
 tree and the array go side by side for the reason that comment gives, read
 the other way round: a chain is wide and loses legibility when halved; a tree
 of eight is narrow and tall, and the correspondence between the two pictures

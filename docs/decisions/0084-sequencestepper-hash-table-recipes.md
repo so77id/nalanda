@@ -1,15 +1,19 @@
 # ADR-0084: `<SequenceStepper>` gains the two hash tables — a contiguous strip with each position's list hanging under its cell, and the keys in the strip itself
 
-**Status:** Accepted — `hash-chaining` (S1, S2) and `hash-probing` (S3) shipped; the professor approved the chaining picture in `/catalog/c/SequenceStepper` and decided the probing listing and picture before they were drawn, his review of the probing recipe in `/catalog` outstanding
+**Status:** Accepted — `hash-chaining` (S1, S2) and `hash-probing` (S3) shipped; the professor approved the chaining picture in `/catalog/c/SequenceStepper` and decided the probing listing and picture before they were drawn, and reviewed both tables on the class's slides (2026-10-28 and 29)
 **Date:** 2026-10-13
 **Decision-makers:** Miguel Rodriguez
 **Source:** Issue #326 (Estructuras de Datos Avanzadas · Tablas Hash), slice S1.
 **Extends:** ADR-0074 — two recipes, `hash-chaining` and `hash-probing`, with
 pictures and operations of their own, the way ADR-0077 added the heap's and ADR-0083 the
-tree's. Both still hold entirely; nothing in ADR-0074 is amended.
+tree's. Both still hold entirely. ADR-0074 is amended once, by the growing
+runs' layout and header (its `Amended by: #326`).
 **Amended by:** #326 review (2026-10-29) — both recipes run `insert` and
-`remove` as a program, and `hash-chaining`'s insertion can resize inside the
-run (`grow`), §Amendment.
+`remove` as a program, and both tables' insertions can resize inside the run
+(`grow`), §Amendment.
+**Amended by:** #331 pre-PR review (2026-10-29) — `deleted` withdrawn,
+`program` with `grow` refused, `grow` refuses inputs `add` could not have
+produced, §Amendment — the pre-PR review.
 
 ## Context
 
@@ -37,7 +41,14 @@ leaving node. The trace lives in its own pure module
 (`sequenceStepperHashTrace.ts`), dispatched from `traceFor` and importing only
 types from the dispatcher (ADR-0083 §1's rule against a runtime cycle); the
 geometry in `sequenceStepperHashLayout.ts` and the painter in
-`sequenceStepperHashView.tsx`, as the heap's and the tree's do.
+`sequenceStepperHashView.tsx`, as the heap's and the tree's do. The probing
+table (§4c) is built on those pieces: `sequenceStepperProbeTrace.ts` imports
+the hash, `nextPrime`, the input readers and `hashProgram` from the chaining
+trace, `sequenceStepperProbeView.tsx` reuses its `KeyChip`, and both tables
+share `sequenceStepperHashLayout.ts` — as ADR-0086 builds the AVL on the
+tree's pieces. The edge is one way: a value imported from the probing modules
+into the chaining ones would close a runtime cycle nothing in the suite
+guards (ADR-0083 §1).
 
 ### 2. Keys are text, and the hash is the class's own
 
@@ -59,7 +70,10 @@ a hash that never takes the remainder, and it is explained where
 `hashCode()` enters (professor's review, 2026-10-27: a base the slides never
 justify is not used). That is the Set and Map class: the act on keys of any
 type, with `hashCode` and `equals`, moved there in the review of 2026-10-28,
-with Java's own tables.
+with Java's own tables. Their eleven drafted slides (the acts «Una tabla para
+cualquier clave» and «Las tablas hash de Java») are in this class's history at
+`db0f5bb`, the parent of the commit that removed them, reachable from PR #331
+(`refs/pull/331/head`).
 
 ### 3. `table` is a contiguous strip; the lists hang under it
 
@@ -78,7 +92,7 @@ reason.
 
 - **The hash, before anything else.** A frame of its own lights the line that
   computes it; from then on a chip over the position reads
-  `hash("Ana") = 4` and the position is outlined. Before it, the chip holds
+  `hash("Ana") = 2` (with seven positions) and the position is outlined. Before it, the chip holds
   the key alone.
 - **`add` asks `contains` first and puts the node at the front.** The walk
   `contains` makes is drawn while the one line `if (contains(key))` stays lit
@@ -125,7 +139,7 @@ reason.
   listing's field, so the readout falls to 0 and counts back up.
 - **A table of at most five positions**: the prime after ten is eleven, the
   most the drawing holds. The class's own example grows from three to seven,
-  and the table it leaves is the one its later slides fill.
+  into the table the chaining act's slides already filled.
 
 ### 4c. `hash-probing`: the keys in the array, a parallel `deleted` (S3)
 
@@ -155,7 +169,8 @@ Decided with the professor before it was drawn:
   moved across (the professor's review, 2026-10-29: the doubled side hid the
   half the prose names), with a `resize` that puts back only the unmarked
   keys. The widget walks
-  that line and `if (keys[i] == null) used++;`, shows `used` under `size`,
+  that line and `if (keys[i] == null) used++;`, shows `used` to the right of
+  `size` (under it, the counter reached down onto the strip's last cell),
   and refuses a starting table past the half and an insertion that would
   resize — it does not draw this table's resize, which the class shows as
   code. (Since the `grow` amendment below it does, in a growing run; any
@@ -165,12 +180,15 @@ Decided with the professor before it was drawn:
   by the pre-PR review (amendment below): no slide mounted it — the act
   draws the reuse of a mark as a figure — so marks come from `remove`
   alone.*
-- The class's example is eleven positions where Ana and Bea collide at 5,
-  Olga sits at 10 and Iván wraps from 10 to 0; Luz, absent, hashes to 5, and
-  Eva enters at 7 — four used cells, so one insertion still leaves the table
-  at most half full. Every value pinned against the JVM. (The first example
-  had Leo at 4 and Tomas wrapping; five used cells left no room for an
-  insertion under the half rule.)
+- The class's example is eleven positions where Mia and Alba collide at 5
+  (Alba lands at 6), Julia sits at 10 and Pablo wraps from 10 to 0; Nico,
+  absent, hashes to 5, and Eva enters at 7 — four used cells, so one
+  insertion still leaves the table at most half full. Every value pinned
+  against the JVM. (The first example had Leo at 4 and Tomas wrapping; five
+  used cells left no room for an insertion under the half rule. The second —
+  Ana and Bea at 5, Olga at 10, Iván wrapping — was computed in base 31,
+  before §2 moved the hash to base 256, where those names fall elsewhere;
+  the pre-PR review caught it.)
 
 ### 5. The operations, in the order the class needs them
 
@@ -201,6 +219,15 @@ None ships without a slide that mounts it (#296, ADR-0077 §5).
 
 ## Consequences
 
+- **Open, for the professor (#331 review, 2026-10-29): the probing table's
+  worst case with marks.** The class's `add` resizes on `used`, marks
+  included, to `nextPrime(2 * keys.length)` whatever `size` is, so adds and
+  removes of distinct keys grow M while N stays small — measured on JDK 21
+  with the class's own `ProbingHashTable`: 12 add/remove pairs from 2 cells
+  end at M = 23, `size` 0, `used` 4. A search walks every used cell of its
+  run, so the cost table's worst case Θ(N) holds only without marks. The
+  content records it at the slide «Costos de la tabla con sondeo lineal»;
+  the choice (Θ(M) in the table, or a `resize` sized from `size`) is his.
 - The validity matrix grows two rows: `hash-chaining` × {`search`,
   `insert`, `remove`, `resize`} and `hash-probing` × {`search`, `insert`,
   `remove`}; `resize` is valid on `hash-chaining` only, and `remove` on the
@@ -236,14 +263,15 @@ program's line lit (`listingNames` `programa`, `método`). The table is named
 stay ignored. The wrapper is one function
 over both traces (`hashProgram`, in `sequenceStepperHashTrace.ts` since the pre-PR review), pinned in
 `sequenceStepperHashTrace.test.ts` and `sequenceStepperProbeTrace.test.ts`,
-and the class's two program slides are walked to their last frame in
+and the class's three program slides (two on the chaining table, one on the
+probing table) are walked to their last frame in
 `SequenceStepper.test.tsx`.
 
 **`grow`: a run of insertions that resizes (same review).** The professor
 asked to see the table grow inside a run of insertions, twice. `grow` on
 `hash-chaining` × `insert` lists `add` as the class writes it once the table
 resizes — the size check, and the call to `resize` on a line of its own, so it
-fits beside another listing — and `resize` beside it (`row`, `rowLines`):
+fits a narrow column — and `resize` under it (`row`, `rowLines`):
 when an insertion finds as many keys as positions, `resize` is walked inside
 the run with the call lit in `add`, and the insertion goes on in the larger
 table, its hash computed with the new size; a resize's own frame is not a new

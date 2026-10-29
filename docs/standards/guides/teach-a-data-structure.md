@@ -3,7 +3,7 @@
 The shape every class of the **Estructuras de Datos** unit takes — and of
 **Estructuras de Datos Avanzadas**, the unit that continues it with the
 non-linear structures (the trees, then the heap; #321) and the hash table
-that closes it (#326). Born with #277, the
+(#326), which the class on Set and Map is to follow. Born with #277, the
 first unit's first class, which is also its worked example.
 
 This is the third layer of the course-authoring stack, and the three do not
@@ -145,14 +145,14 @@ has no shortcut, because the heap only knows where the first one is). The
 book-only `## Lo que sigue` that named the trees as the next class is gone:
 #321 moved the trees AHEAD of the heap, which made that sentence false, and
 removed the heading and its prose at the professor's call. Its `<Questions>`
-block, which sat under that heading, stays where it was. That leaves #304 last
+block, which sat under that heading, stays where it was. That left #304 last
 on the teaching path with no closing, which is where #294 stood when it
-shipped. Still a stated deviation, not a new shape: the rule above is
-unchanged, and the class that comes to follow #304 on the path is what makes
-its closing owed again.
+shipped — a stated deviation, not a new shape: the rule above was unchanged,
+and the class that came to follow #304 on the path made its closing owed
+again.
 
 **#326 paid it back.** Tablas Hash follows the heap on the teaching path, and
-its PR gave the heap a book-only `## Lo que sigue` born from the heap's own
+its first PR (#347) gave the heap a book-only `## Lo que sigue` born from the heap's own
 last cost row: `contains(x)` is $$\Theta(N)$$ because the heap only knows
 where the first element is, and a hash table answers it in constant expected
 time by giving up order altogether. Tablas Hash itself closes on a named
@@ -418,7 +418,10 @@ them):
    removals; #326: the hash table's insertions and removals). Only the search tree's insertions run as one frame per
    program line with the tree drawn after each, because what they teach is
    the tree a run builds, not the descent (`add-a-course-document.md`
-   §5h).
+   §5h). A run that shows a hash table growing (`grow`) is the other
+   exception: several insertions with no program, `add` and `resize` side
+   by side and the keys named in the widget's header, because the two
+   listings fill the column a program would take (#326).
 4. **The cost**, one sentence closing the code slide's paragraph: what it
    costs and why («baja por un solo camino: $$O(h)$$»). The table of every
    operation stays at the end of the act (§4).
@@ -437,8 +440,9 @@ two outcomes drawn side by side, found and not found; the cases a single run
 does not reach drawn, not walked a second time — the removal at the front of
 a list, the insertion over a marked cell, the search that passes a mark,
 which the first draft walked on slides of their own; and the code slide
-naming the method public and closing on its cost in one sentence («recorre
-una sola lista: cuesta lo que mide esa lista»). Constructors carry no
+naming the method public and closing on its cost in one sentence («Recorre
+una sola lista: cuesta lo que mide la lista de esa posición, más el cálculo
+del hash»). Constructors carry no
 modifier, as in every class of the unit.
 
 ### 5. Close on a loose end, not a summary
@@ -689,7 +693,8 @@ AVL's rotations, or the table's search, insert, remove and resize, to
 animate over it. The full matrix is `add-a-course-document.md` §5h. (A fixed-capacity
 `array` recipe was deleted by #304, never having had a reader; ADR-0074
 §Amended by #304.) The surface never changes
-between combinations, which is the point: the reader learns one visual
+between combinations — save a growing hash-table run, whose listings go beside
+the table on a slide (ADR-0074 §Amended by #326) — which is the point: the reader learns one visual
 vocabulary and reads every structure of the unit through it, comparing COST
 rather than re-reading a new widget.
 
