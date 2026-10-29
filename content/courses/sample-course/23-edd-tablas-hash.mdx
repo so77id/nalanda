@@ -1722,13 +1722,13 @@ clase, y `table.length` es $$M$$.
 private static final double A = (Math.sqrt(5) - 1) / 2;
 
 private int hash(int x) {
-    double producto = x * A;
-    double decimal = producto - Math.floor(producto);
-    return (int) (decimal * table.length);
+    double product = x * A;
+    double fraction = product - Math.floor(product);
+    return (int) (fraction * table.length);
 }
 ```
 
-`Math.floor` redondea hacia abajo, así que `producto - Math.floor(producto)`
+`Math.floor` redondea hacia abajo, así que `product - Math.floor(product)`
 es la parte decimal, y convertir a `int` redondea hacia abajo la posición. Con
 $$x = 8$$ y $$M = 16$$:
 
