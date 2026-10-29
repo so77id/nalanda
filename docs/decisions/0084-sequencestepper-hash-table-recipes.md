@@ -266,3 +266,23 @@ reaches. Pinned in `sequenceStepperHashTrace.test.ts` (the sizes 2, 5, 11,
 the lines lit in each listing, the final table against the hash) and
 `sequenceStepperHashLayout.test.ts` (the stacked strips); the slide is walked to
 its last frame in `SequenceStepper.test.tsx`.
+
+**`grow` on the probing table (same review).** The professor asked for the
+probing run to resize too, after the resize slide, as the chaining one does.
+The recipe had no resize of its own and refused any insertion that would
+trigger one. `grow` now holds on `hash-probing` × `insert`: when
+`2 * (used + 1) > keys.length`, the class's `resize` is walked in a second
+listing — the old arrays kept as `oldKeys` and `oldDeleted`, new ones of the
+next prime past twice the size, `size` and `used` back to 0, and one frame
+per old cell, a null or marked one skipped and any other key put by `add` in
+the first free cell from its hash in the new table — while the call stays
+lit in `add` (`ProbeFrame.old`). The drawing stacks the old arrays over the
+new ones (`layoutProbe`'s `old` and `below`, with room for the longer names)
+and the run keeps the canvas of its largest tables. The listings stay above
+the drawing, which is wide and short: `add` as a single insertion shows it,
+its resize line whole in four sevenths of the width. The run names its keys
+in the header. Pinned in `sequenceStepperProbeTrace.test.ts` (2, 5 and 11
+cells, the call lit, every old key in the first free cell from its hash, the
+final table and its invariant) and `sequenceStepperHashLayout.test.ts`; the
+slide «Una tabla con sondeo que crece» is walked to its last frame in
+`SequenceStepper.test.tsx`.

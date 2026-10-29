@@ -618,12 +618,12 @@ describe('sequenceStepperTrace · hash-chaining · insertions that grow the tabl
     expect(trace.steps[0]!.rowLines).toEqual([[1, 2], [], []]);
   });
 
-  it('grows only the insertion of the table with lists', () => {
+  it('grows only an insertion', () => {
     expect(() =>
       traceFor('hash-chaining', 'search', { values: [], keys: KEYS, key: 'Ana', grow: true }),
     ).toThrow(/grow/);
     expect(() =>
-      traceFor('hash-probing', 'insert', { values: [], keys: [], key: 'Ana', grow: true }),
+      traceFor('hash-probing', 'search', { values: [], keys: [], key: 'Ana', grow: true }),
     ).toThrow(/grow/);
   });
 });

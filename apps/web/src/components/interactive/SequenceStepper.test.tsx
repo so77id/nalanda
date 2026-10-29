@@ -783,14 +783,14 @@ describe('<SequenceStepper> · the combinations 23-edd-tablas-hash mounts', () =
     },
     {
       act: 'Sondeo lineal',
-      slide: 'Inserciones en una misma tabla con sondeo',
+      slide: 'Una tabla con sondeo que crece',
       props: {
         eda: 'hash-probing',
         operation: 'insert',
         values: [],
-        value: ['Mia', 'Alba', 'Julia', 'Pablo', 'Eva'],
-        capacity: 11,
-        program: true,
+        value: ['Teo', 'Julia', 'Pia', 'Sol', 'Pablo'],
+        capacity: 2,
+        grow: true,
       },
     },
     {

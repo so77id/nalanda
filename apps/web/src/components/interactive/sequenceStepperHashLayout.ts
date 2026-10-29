@@ -173,9 +173,8 @@ const CURSOR_H = 34;
 /** Room left of the strips for their names, `keys` and `deleted`. */
 const PROBE_NAME_W = 64;
 
-export interface ProbeLayout {
-  width: number;
-  height: number;
+/** One table of the probing recipe: `keys` and `deleted`, and the cursor under them. */
+export interface ProbeStrip {
   /** `keys[i]`. */
   cell: (bucket: number) => HashBox;
   /** `deleted[i]`, right under its key. */
@@ -188,42 +187,69 @@ export interface ProbeLayout {
   names: { keys: { x: number; y: number }; deleted: { x: number; y: number } };
 }
 
+export interface ProbeLayout extends ProbeStrip {
+  width: number;
+  height: number;
+  /**
+   * A resize (`grow`, #326 review): `oldKeys` and `oldDeleted` on the top
+   * strip, where the table was, and the new arrays on `below` while `resize`
+   * runs. Both `null` when the run never resizes.
+   */
+  old: ProbeStrip | null;
+  below: ProbeStrip | null;
+}
+
+/** Room left of the strips for `oldKeys` and `oldDeleted`, when a resize draws them. */
+const PROBE_OLD_NAME_W = 92;
+
 /**
  * `keys` and `deleted` are two arrays the class declares side by side, so
  * they are drawn as two contiguous strips, one over the other, each cell of
  * `deleted` right under the key it marks — and both named, as the listing
- * names them. The cursor `i` is the listing's too, and walks under them.
+ * names them. The cursor `i` is the listing's too, and walks under them. A run
+ * that resizes (`oldBuckets`) stacks two such tables, the old over the new,
+ * columns aligned.
  */
-export function layoutProbe(buckets: number): ProbeLayout {
-  const origin = PAD + PROBE_NAME_W;
+export function layoutProbe(buckets: number, oldBuckets = 0): ProbeLayout {
+  const resizing = oldBuckets > 0;
+  const origin = PAD + (resizing ? PROBE_OLD_NAME_W : PROBE_NAME_W);
   const cx = (bucket: number) => origin + (bucket + 0.5) * PROBE_PITCH;
   const bandY = PAD;
   const cellY = bandY + BAND_H + INDEX_H;
   const markY = cellY + PROBE_CELL_H;
   const cursorY = markY + MARK_H;
-  const box = (bucket: number, y: number, w: number, h: number): HashBox => ({
-    x: cx(bucket) - w / 2,
-    y,
-    w,
-    h,
-    cx: cx(bucket),
-  });
+  const tableH = cursorY + CURSOR_H;
+  const strip = (dy: number): ProbeStrip => {
+    const box = (bucket: number, y: number, w: number, h: number): HashBox => ({
+      x: cx(bucket) - w / 2,
+      y: dy + y,
+      w,
+      h,
+      cx: cx(bucket),
+    });
+    return {
+      cell: (bucket) => box(bucket, cellY, PROBE_PITCH, PROBE_CELL_H),
+      mark: (bucket) => box(bucket, markY, PROBE_PITCH, MARK_H),
+      index: (bucket) => ({ x: cx(bucket), y: dy + cellY - 7 }),
+      band: (bucket) => box(bucket, bandY, NODE_W, NODE_H),
+      cursor: (bucket) => ({
+        x: cx(bucket),
+        tip: dy + cursorY + 3,
+        tail: dy + cursorY + 18,
+        label: dy + cursorY + 30,
+      }),
+      names: {
+        keys: { x: origin - 8, y: dy + cellY + PROBE_CELL_H / 2 + 4 },
+        deleted: { x: origin - 8, y: dy + markY + MARK_H / 2 + 4 },
+      },
+    };
+  };
+  const top = strip(0);
   return {
+    ...top,
     width: origin + buckets * PROBE_PITCH + PAD,
-    height: cursorY + CURSOR_H + PAD,
-    cell: (bucket) => box(bucket, cellY, PROBE_PITCH, PROBE_CELL_H),
-    mark: (bucket) => box(bucket, markY, PROBE_PITCH, MARK_H),
-    index: (bucket) => ({ x: cx(bucket), y: cellY - 7 }),
-    band: (bucket) => box(bucket, bandY, NODE_W, NODE_H),
-    cursor: (bucket) => ({
-      x: cx(bucket),
-      tip: cursorY + 3,
-      tail: cursorY + 18,
-      label: cursorY + 30,
-    }),
-    names: {
-      keys: { x: origin - 8, y: cellY + PROBE_CELL_H / 2 + 4 },
-      deleted: { x: origin - 8, y: markY + MARK_H / 2 + 4 },
-    },
+    height: resizing ? 2 * tableH + SEP + PAD : tableH + PAD,
+    old: resizing ? top : null,
+    below: resizing ? strip(tableH + SEP) : null,
   };
 }

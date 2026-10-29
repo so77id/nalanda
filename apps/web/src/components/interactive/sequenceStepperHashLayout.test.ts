@@ -155,3 +155,24 @@ describe('layoutHash · a resize too wide to draw side by side', () => {
     expect(side.cell(0).x).toBeGreaterThan(side.old!.cell(2).x);
   });
 });
+
+describe('layoutProbe · a resize, the old arrays over the new ones', () => {
+  it('stacks oldKeys and oldDeleted over keys and deleted, with room for the longer names', () => {
+    const stacked = layoutProbe(11, 5);
+    expect(stacked.old).not.toBeNull();
+    expect(stacked.below).not.toBeNull();
+    const old = stacked.old!;
+    const below = stacked.below!;
+    expect(below.band(0).y).toBeGreaterThan(old.cursor(0).label);
+    expect(below.cell(0).x).toBe(old.cell(0).x);
+    // `oldDeleted` is ten characters at 12px: its name ends left of the strip.
+    expect(old.names.deleted.x - 10 * 7.5).toBeGreaterThan(0);
+    expect(stacked.height).toBeGreaterThan(below.cursor(0).label);
+  });
+
+  it('draws one table, unchanged, when there is no resize', () => {
+    const one = layoutProbe(11);
+    expect(one.old).toBeNull();
+    expect(one.below).toBeNull();
+  });
+});

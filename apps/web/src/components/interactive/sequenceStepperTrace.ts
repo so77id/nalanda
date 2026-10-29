@@ -279,6 +279,11 @@ export interface ProbeFrame {
   size: number;
   /** The listing's `used`: the cells that are not null, keys and marks (#326 review). */
   used: number;
+  /**
+   * `grow` only, while `resize` runs: `oldKeys` and `oldDeleted` as the
+   * frame leaves them, and the cell the resize loop is on.
+   */
+  old?: { cells: ProbeCell[]; at: number | null };
 }
 
 export interface SequenceCell {
@@ -468,7 +473,7 @@ export interface SequenceTrace {
   /** The hash recipe only: what the whole run needs to keep one canvas. */
   hash?: HashRun;
   /** The probing recipe only: its positions. */
-  probe?: { buckets: number };
+  probe?: { buckets: number; oldBuckets?: number };
 }
 
 /**
@@ -556,7 +561,7 @@ export interface SequenceInput {
    */
   program?: boolean;
   /**
-   * `hash-chaining` × `insert` only (#326 review): `add` with the line that
+   * `hash-chaining` and `hash-probing` × `insert` (#326 review): `add` with the line that
    * resizes when `size == table.length`, and `resize` walked inside the run in
    * a listing of its own beside it, so a run of insertions shows the table
    * growing and every key moving to its new position.
@@ -770,9 +775,12 @@ export function traceFor(
       `Solo la inserción y la eliminación se muestran como programa: program va con eda="bst", "avl", "hash-chaining" o "hash-probing", y operation="insert" o "remove"; no con «${operation}».`,
     );
   }
-  if (input.grow === true && !(recipe === 'hash-chaining' && operation === 'insert')) {
+  if (
+    input.grow === true &&
+    !((recipe === 'hash-chaining' || recipe === 'hash-probing') && operation === 'insert')
+  ) {
     throw new Error(
-      `grow va con eda="hash-chaining" y operation="insert": es add que redimensiona la tabla con listas; no con «${recipe}» × «${operation}».`,
+      `grow va con eda="hash-chaining" o "hash-probing" y operation="insert": es add que redimensiona la tabla; no con «${recipe}» × «${operation}».`,
     );
   }
   if (input.program === true && input.iterative === true) {

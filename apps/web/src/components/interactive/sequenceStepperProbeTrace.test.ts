@@ -285,3 +285,80 @@ describe('sequenceStepperTrace · hash-probing · a program of insertions or rem
     expect(() => program('remove', ['Mia'], { keys: KEYS, deleted: ['Alba'] })).toThrow(/marca/);
   });
 });
+
+describe('sequenceStepperTrace · hash-probing · insertions that grow the table', () => {
+  // `grow` on the probing table (#326 review): add with its resize, and the
+  // resize walked inside the run — the old arrays over the new ones, every
+  // key that is not marked back in through add — from 2 cells to 5, to 11.
+  const GROWN = ['Teo', 'Julia', 'Pia', 'Sol', 'Pablo'];
+  const trace = traceFor('hash-probing', 'insert', {
+    values: [],
+    keys: [],
+    key: GROWN,
+    capacity: 2,
+    grow: true,
+  });
+  const listing = (code: string, lit: number[] | undefined) =>
+    (lit ?? []).map((n) => code.split('\n')[n - 1]!.trim());
+
+  it('lists add as the class writes it, and resize beside it', () => {
+    expect(trace.row!.map((l) => l.name)).toEqual(['add', 'resize']);
+    // Half a slide holds add's resize line whole, so the listing is the one
+    // a single insertion shows.
+    expect(trace.code).toBe(run('insert', 'Nico').code);
+    expect(trace.row![1]!.code).toContain('if (oldKeys[i] != null && !oldDeleted[i]) {');
+  });
+
+  it('grows from 2 cells to 5 and then to 11, before the second and the third key', () => {
+    expect([...new Set(trace.steps.map((s) => s.probe!.cells.length))]).toEqual([2, 5, 11]);
+    const starts = trace.steps.filter((s) => s.kind === 'start' && s.probe!.key !== '');
+    expect(starts.map((s) => s.probe!.cells.length)).toEqual([2, 2, 5, 11, 11]);
+    const olds = trace.steps.filter((s) => s.probe!.old !== undefined);
+    expect([...new Set(olds.map((s) => s.probe!.old!.cells.length))]).toEqual([2, 5]);
+  });
+
+  it('keeps the call to resize lit in add while resize runs', () => {
+    const inside = trace.steps.filter((s) => (s.rowLines?.[1] ?? []).length > 0);
+    expect(inside.length).toBeGreaterThan(0);
+    for (const step of inside) {
+      expect(listing(trace.code, step.rowLines![0])).toEqual([
+        'if (2 * (used + 1) > keys.length) resize(nextPrime(2 * keys.length));',
+      ]);
+    }
+  });
+
+  it('puts every old key back in the first free cell from its hash in the new table', () => {
+    const settled = trace.steps.filter(
+      (s, i) => s.probe!.old === undefined && trace.steps[i - 1]?.probe!.old !== undefined,
+    );
+    expect(settled.map((s) => keysOf(s))).toEqual([
+      [null, 'Teo', null, null, null],
+      [null, null, null, null, 'Teo', null, null, null, null, null, 'Julia'],
+    ]);
+  });
+
+  it('ends with Pia past the end, and Sol and Pablo on the cluster that crosses it', () => {
+    const last = trace.steps.at(-1)!;
+    expect(keysOf(last)).toEqual([
+      'Pia',
+      'Sol',
+      'Pablo',
+      null,
+      'Teo',
+      null,
+      null,
+      null,
+      null,
+      null,
+      'Julia',
+    ]);
+    expect(holds(last)).toBe(true);
+    expect(last.probe!.used).toBe(GROWN.length);
+  });
+
+  it('names the keys of the run in the header, and sizes the drawing for both tables', () => {
+    expect(trace.queue).toEqual(GROWN);
+    expect(trace.steps.at(-1)!.queue).toEqual({ done: GROWN.length, at: null });
+    expect(trace.probe).toEqual({ buckets: 11, oldBuckets: 5 });
+  });
+});

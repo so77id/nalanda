@@ -161,7 +161,7 @@ export interface SequenceStepperProps {
    */
   program?: boolean;
   /**
-   * `hash-chaining` × `insert` only (#326): `add` with the line that resizes,
+   * `hash-chaining` and `hash-probing` × `insert` (#326): `add` with the line that resizes,
    * and `resize` walked inside the run in a listing of its own beside it.
    */
   grow?: boolean;
@@ -927,7 +927,11 @@ function Body({
                           // enough to share what it leaves (#326, `grow`).
                           'grid grid-cols-[max-content_minmax(0,1fr)_minmax(0,1fr)] gap-px bg-rule'
                         : 'grid grid-cols-[minmax(0,1fr)_minmax(0,2fr)_minmax(0,2fr)] gap-px bg-rule'
-                      : 'grid grid-cols-2 gap-px bg-rule'
+                      : trace.probe !== undefined
+                        ? // The probing table's add has the longer lines: its
+                          // resize check is one line, and resize's are shorter.
+                          'grid grid-cols-[minmax(0,4fr)_minmax(0,3fr)] gap-px bg-rule'
+                        : 'grid grid-cols-2 gap-px bg-rule'
                 }
               >
                 {trace.row.map((listing, i) => (
@@ -1118,6 +1122,7 @@ function Body({
             <ProbeView
               probe={step.probe}
               buckets={trace.probe.buckets}
+              oldBuckets={trace.probe.oldBuckets}
               description={step.description}
               presentation={isPresentation}
             />

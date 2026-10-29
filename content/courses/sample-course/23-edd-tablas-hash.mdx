@@ -2687,27 +2687,16 @@ lo mismo, más la redimensión cuando toca.
 
 </Slide>
 
-<Slide title="Inserciones en una misma tabla con sondeo">
-Una seguidilla de inserciones arma la tabla desde vacía: cada clave queda en la
-primera celda libre desde su hash, y la que se pasa de la última celda sigue
-en la primera.
-
-<SequenceStepper
-  eda="hash-probing"
-  operation="insert"
-  values={[]}
-  value={['Mia', 'Alba', 'Julia', 'Pablo', 'Eva']}
-  capacity={11}
-  program
-/>
-
-</Slide>
-
 <Slide title="La redimensión de la tabla con sondeo lineal">
 Para que siempre queden celdas vacías donde una búsqueda se detenga, y los
 tramos ocupados sean cortos, `add` redimensiona antes de que la clave nueva
-deje ocupadas más de la mitad de las celdas, contando las marcadas, que
-también ocupan su celda. Así el factor de carga no pasa de $$1/2$$.
+deje ocupadas más de la mitad de las celdas. En el sondeo, el factor de carga
+cuenta todas las celdas ocupadas, `used`, también las marcadas, que ocupan su
+celda igual que una clave; con esa regla, nunca pasa de un medio:
+
+$$
+\alpha = \frac{\texttt{used}}{M} \le \frac{1}{2}
+$$
 
 `resize` es el de la tabla con listas, con dos diferencias: recorre las celdas
 del arreglo viejo en lugar de sus listas, y salta las claves marcadas. La
@@ -2733,6 +2722,21 @@ private void resize(int capacity) {
 Recorre las $$M$$ celdas viejas y vuelve a agregar cada clave: cuesta
 $$\Theta(N + M)$$, y como el tamaño pasa a más del doble, sale $$\Theta(1)$$
 amortizado por inserción, igual que con listas.
+
+</Slide>
+
+<Slide title="Una tabla con sondeo que crece">
+Una seguidilla de inserciones hace crecer la tabla dos veces, y en cada
+redimensión las claves pasan a la primera celda libre desde su hash.
+
+<SequenceStepper
+  eda="hash-probing"
+  operation="insert"
+  values={[]}
+  value={['Teo', 'Julia', 'Pia', 'Sol', 'Pablo']}
+  capacity={2}
+  grow
+/>
 
 </Slide>
 

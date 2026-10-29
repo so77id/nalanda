@@ -1,6 +1,6 @@
-import { layoutProbe } from './sequenceStepperHashLayout';
+import { layoutProbe, type ProbeStrip } from './sequenceStepperHashLayout';
 import { CELL_FILL, CELL_STROKE } from './sequenceStepperPaint';
-import type { ProbeFrame } from './sequenceStepperTrace';
+import type { ProbeCell, ProbeFrame } from './sequenceStepperTrace';
 
 // ── the probing table: every key in the array itself (#326) ───────────────
 
@@ -18,15 +18,22 @@ import type { ProbeFrame } from './sequenceStepperTrace';
 export function ProbeView({
   probe,
   buckets,
+  oldBuckets = 0,
   description,
   presentation,
 }: {
   probe: ProbeFrame;
   buckets: number;
+  /** `grow`: the largest old table a resize of the run draws over the new one. */
+  oldBuckets?: number;
   description: string;
   presentation: boolean;
 }) {
-  const layout = layoutProbe(buckets);
+  const layout = layoutProbe(buckets, oldBuckets);
+  // While `resize` runs, the old arrays take the top strip and the new ones
+  // are drawn under them; otherwise the table holds the top strip.
+  const resizing = probe.old !== undefined && layout.old !== null && layout.below !== null;
+  const tableStrip: ProbeStrip = resizing ? layout.below! : layout;
   const live = probe.cells.filter((c) => c.key !== null && !c.deleted).map((c) => c.key);
   const marked = probe.cells.filter((c) => c.deleted).map((c) => c.key);
   const summary = `Tabla hash con sondeo lineal de ${buckets} posiciones con ${
@@ -72,130 +79,37 @@ export function ProbeView({
           </marker>
         </defs>
 
-        {(['keys', 'deleted'] as const).map((name) => (
-          <text
-            key={name}
-            x={layout.names[name].x}
-            y={layout.names[name].y}
-            textAnchor="end"
-            fontSize="12"
-            fontWeight="700"
-            fontFamily="var(--font-mono, monospace)"
-            fill="var(--color-ink-soft)"
-          >
-            {name}
-          </text>
-        ))}
+        {resizing ? (
+          <ProbeTable
+            strip={layout.old!}
+            cells={probe.old!.cells}
+            names={['oldKeys', 'oldDeleted']}
+            home={null}
+            at={probe.old!.at}
+          />
+        ) : null}
+        <ProbeTable
+          strip={tableStrip}
+          cells={probe.cells}
+          names={['keys', 'deleted']}
+          home={probe.home}
+          at={probe.at}
+        />
 
-        {probe.cells.map((cell, i) => {
-          const box = layout.cell(i);
-          const mark = layout.mark(i);
-          const index = layout.index(i);
-          const home = probe.home === i;
-          const strong = cell.state !== 'idle' && cell.state !== 'visited';
-          return (
-            <g
-              key={i}
-              data-cell={i}
-              data-key={cell.key ?? undefined}
-              data-deleted={cell.deleted || undefined}
-              data-state={cell.state}
-            >
-              <text
-                x={index.x}
-                y={index.y}
-                textAnchor="middle"
-                fontSize="11"
-                fill={home ? 'var(--color-ink)' : 'var(--color-ink-faint)'}
-                fontWeight={home ? 700 : 400}
-              >
-                {i}
-              </text>
-              <rect
-                x={box.x}
-                y={box.y}
-                width={box.w}
-                height={box.h}
-                fill={CELL_FILL[cell.state]}
-                stroke={CELL_STROKE[cell.state]}
-                strokeWidth={strong ? 2.4 : 1.2}
-              />
-              <text
-                x={box.cx}
-                y={box.y + box.h / 2 + 5}
-                textAnchor="middle"
-                fontSize={cell.key === null ? 11 : 14}
-                fontWeight={cell.key === null ? 400 : 600}
-                fill={
-                  cell.key === null || cell.deleted ? 'var(--color-ink-faint)' : 'var(--color-ink)'
-                }
-                textDecoration={cell.deleted ? 'line-through' : undefined}
-              >
-                {cell.key ?? 'null'}
-              </text>
-              <rect
-                x={mark.x}
-                y={mark.y}
-                width={mark.w}
-                height={mark.h}
-                fill={cell.deleted ? 'var(--color-sunk)' : 'var(--color-surface)'}
-                stroke="var(--color-rule-strong)"
-                strokeWidth={1}
-              />
-              <text
-                x={mark.cx}
-                y={mark.y + mark.h / 2 + 4}
-                textAnchor="middle"
-                fontSize="10"
-                fontFamily="var(--font-mono, monospace)"
-                fontWeight={cell.deleted ? 700 : 400}
-                fill={cell.deleted ? 'var(--color-ink)' : 'var(--color-ink-faint)'}
-              >
-                {cell.deleted ? 'true' : 'false'}
-              </text>
-            </g>
-          );
-        })}
-
-        {probe.at === null ? null : (
-          <g data-cursor={probe.at}>
-            <line
-              x1={layout.cursor(probe.at).x}
-              y1={layout.cursor(probe.at).tail}
-              x2={layout.cursor(probe.at).x}
-              y2={layout.cursor(probe.at).tip}
-              stroke="var(--color-focus)"
-              strokeWidth={2}
-              markerEnd="url(#probe-arrow-focus)"
-            />
-            <text
-              x={layout.cursor(probe.at).x}
-              y={layout.cursor(probe.at).label}
-              textAnchor="middle"
-              fontSize="12"
-              fontWeight="700"
-              fontFamily="var(--font-mono, monospace)"
-              fill="var(--color-ink-soft)"
-            >
-              i
-            </text>
-          </g>
-        )}
-
-        {probe.key === '' ? null : <Chip probe={probe} layout={layout} />}
+        {probe.key === '' ? null : <Chip probe={probe} strip={tableStrip} width={layout.width} />}
       </svg>
     </div>
   );
 }
 
 /** The key the run works with, over the cell its hash names once that line has run. */
-function Chip({ probe, layout }: { probe: ProbeFrame; layout: ReturnType<typeof layoutProbe> }) {
+function Chip({ probe, strip, width }: { probe: ProbeFrame; strip: ProbeStrip; width: number }) {
   const picked = probe.home !== null;
   const label = picked ? `hash("${probe.key}") = ${probe.home}` : `"${probe.key}"`;
-  const box = layout.band(probe.home ?? 0);
+  const box = strip.band(probe.home ?? 0);
   // 13px monospace advances ~7.8px per character; the rest is the pill's padding.
   const w = Math.max(box.w, label.length * 7.8 + 20);
-  const x = Math.min(Math.max(box.cx - w / 2, 2), layout.width - w - 2);
+  const x = Math.min(Math.max(box.cx - w / 2, 2), width - w - 2);
   return (
     <g data-key-chip data-picked={picked || undefined}>
       <rect
@@ -218,6 +132,139 @@ function Chip({ probe, layout }: { probe: ProbeFrame; layout: ReturnType<typeof 
       >
         {label}
       </text>
+    </g>
+  );
+}
+
+/**
+ * One table: its two arrays named, each cell with its index, its key and its
+ * mark, and the cursor `i` under the cell it is on. Drawn once, or twice while
+ * `resize` runs — the old arrays over the new ones.
+ */
+function ProbeTable({
+  strip,
+  cells,
+  names,
+  home,
+  at,
+}: {
+  strip: ProbeStrip;
+  cells: ProbeCell[];
+  names: [string, string];
+  home: number | null;
+  at: number | null;
+}) {
+  return (
+    <g data-table={names[0]}>
+      {(['keys', 'deleted'] as const).map((slot, n) => (
+        <text
+          key={slot}
+          x={strip.names[slot].x}
+          y={strip.names[slot].y}
+          textAnchor="end"
+          fontSize="12"
+          fontWeight="700"
+          fontFamily="var(--font-mono, monospace)"
+          fill="var(--color-ink-soft)"
+        >
+          {names[n]}
+        </text>
+      ))}
+
+      {cells.map((cell, i) => {
+        const box = strip.cell(i);
+        const mark = strip.mark(i);
+        const index = strip.index(i);
+        const isHome = home === i;
+        const strong = cell.state !== 'idle' && cell.state !== 'visited';
+        return (
+          <g
+            key={i}
+            data-cell={i}
+            data-key={cell.key ?? undefined}
+            data-deleted={cell.deleted || undefined}
+            data-state={cell.state}
+          >
+            <text
+              x={index.x}
+              y={index.y}
+              textAnchor="middle"
+              fontSize="11"
+              fill={isHome ? 'var(--color-ink)' : 'var(--color-ink-faint)'}
+              fontWeight={isHome ? 700 : 400}
+            >
+              {i}
+            </text>
+            <rect
+              x={box.x}
+              y={box.y}
+              width={box.w}
+              height={box.h}
+              fill={CELL_FILL[cell.state]}
+              stroke={CELL_STROKE[cell.state]}
+              strokeWidth={strong ? 2.4 : 1.2}
+            />
+            <text
+              x={box.cx}
+              y={box.y + box.h / 2 + 5}
+              textAnchor="middle"
+              fontSize={cell.key === null ? 11 : 14}
+              fontWeight={cell.key === null ? 400 : 600}
+              fill={
+                cell.key === null || cell.deleted ? 'var(--color-ink-faint)' : 'var(--color-ink)'
+              }
+              textDecoration={cell.deleted ? 'line-through' : undefined}
+            >
+              {cell.key ?? 'null'}
+            </text>
+            <rect
+              x={mark.x}
+              y={mark.y}
+              width={mark.w}
+              height={mark.h}
+              fill={cell.deleted ? 'var(--color-sunk)' : 'var(--color-surface)'}
+              stroke="var(--color-rule-strong)"
+              strokeWidth={1}
+            />
+            <text
+              x={mark.cx}
+              y={mark.y + mark.h / 2 + 4}
+              textAnchor="middle"
+              fontSize="10"
+              fontFamily="var(--font-mono, monospace)"
+              fontWeight={cell.deleted ? 700 : 400}
+              fill={cell.deleted ? 'var(--color-ink)' : 'var(--color-ink-faint)'}
+            >
+              {cell.deleted ? 'true' : 'false'}
+            </text>
+          </g>
+        );
+      })}
+
+      {at === null ? null : (
+        <g data-cursor={at}>
+          <line
+            x1={strip.cursor(at).x}
+            y1={strip.cursor(at).tail}
+            x2={strip.cursor(at).x}
+            y2={strip.cursor(at).tip}
+            stroke="var(--color-focus)"
+            strokeWidth={2}
+            markerEnd="url(#probe-arrow-focus)"
+          />
+          <text
+            x={strip.cursor(at).x}
+            y={strip.cursor(at).label}
+            textAnchor="middle"
+            fontSize="12"
+            fontWeight="700"
+            fontFamily="var(--font-mono, monospace)"
+            fill="var(--color-ink-soft)"
+          >
+            i
+          </text>
+        </g>
+      )}
     </g>
   );
 }
