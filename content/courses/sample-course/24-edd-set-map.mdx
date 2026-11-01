@@ -1865,23 +1865,29 @@ check(refused, true);
 
 </Slide>
 
-{/* TimeLine — a day of the agenda, from 8:00 to 18:00: an axis with the hours, a dot on every time taken with its hour over it. `fresh` paints the time just booked `mark`, `gone` draws a cancelled one dashed and struck, and `from`/`to` lay a band under the axis over the interval asked for, the times inside it painted `keep`. Times are integers HHMM, as the exercise writes them. The size never changes, so the frames of one walk keep one scale. */}
+{/* TimeLine — one day of the agenda: an axis with its hours, from `first` for `hours` hours at `perHour` pixels each, a dot on every time taken with its hour over it. Times are written HHMM inside the drawing; the exercise turns them into minutes with `at`. `gap` lays the band of that many minutes on each side of every time taken, the minutes it closes; `asked` is a time someone tries to book, its label one row higher so it never covers a neighbour's, painted `flag` when `refused` and `mark` when it is booked; `near` paints the times it is measured against `keep`; and `from`/`to` lay a band under the axis over the interval asked for, the times inside it painted `keep`. `day` names the day over the axis's start. The walk draws in AgendaColumn instead: beside a listing of 29 lines, a day's axis is too wide to read. */}
 
-export function TimeLine({ times, fresh, gone, from, to, caption, label }) {
+export function TimeLine({ times, day, first = 8, hours = 10, perHour = 80, gap, asked, refused = false, near = [], from, to, caption, label }) {
   const pad = 22;
-  const perHour = 80;
-  const first = 8;
-  const hours = 10;
   const width = 2 * pad + hours * perHour;
-  const axisY = 58;
+  const axisY = 70;
   const height = axisY + 54 + (caption ? 22 : 0);
   const minutes = (t) => Math.floor(t / 100) * 60 + (t % 100);
   const x = (t) => pad + ((minutes(t) - first * 60) / 60) * perHour;
   const text = (t) => `${Math.floor(t / 100)}:${String(t % 100).padStart(2, '0')}`;
   const inside = (t) => from !== undefined && t >= from && t <= to;
-  const all = gone !== undefined ? [...times, gone] : times;
+  const span = gap ? (gap / 60) * perHour : 0;
+  const askTone = refused ? 'flag' : 'mark';
   return (
     <svg viewBox={`0 0 ${width} ${height}`} style={{ width: '100%', maxWidth: `${Math.round(width * 1.3)}px`, height: 'auto', display: 'block', margin: '0.4rem auto' }} role="img" aria-label={label}>
+      {day !== undefined ? (
+        <text x={pad} y={16} fontSize="12" fontWeight="700" style={{ fill: 'var(--color-ink-soft)' }}>{`día ${day}`}</text>
+      ) : null}
+      {gap
+        ? times.map((t) => (
+            <rect key={`z${t}`} x={x(t) - span} y={axisY - 8} width={2 * span} height="16" rx="3" style={{ fill: 'var(--color-sunk)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1" strokeDasharray="3 2" />
+          ))
+        : null}
       {from !== undefined ? (
         <rect x={x(from)} y={axisY + 8} width={Math.max(4, x(to) - x(from))} height="12" rx="3" style={{ fill: 'var(--color-keep-soft)', stroke: 'var(--color-keep)' }} strokeWidth="1.4" />
       ) : null}
@@ -1892,17 +1898,22 @@ export function TimeLine({ times, fresh, gone, from, to, caption, label }) {
           <text x={pad + h * perHour} y={axisY + 36} textAnchor="middle" fontSize="11" style={{ fill: 'var(--color-ink-faint)' }}>{`${first + h}:00`}</text>
         </g>
       ))}
-      {all.map((t, n) => {
-        const isGone = t === gone;
-        const tone = isGone ? undefined : t === fresh ? 'mark' : inside(t) ? 'keep' : undefined;
-        const lift = n % 2 === 0 ? 0 : 0;
+      {times.map((t) => {
+        const tone = near.includes(t) || inside(t) ? 'keep' : undefined;
         return (
-          <g key={`${t}-${n}`} opacity={isGone ? 0.55 : undefined}>
-            <circle cx={x(t)} cy={axisY} r="6.5" style={{ fill: tone ? `var(--color-${tone}-soft)` : 'var(--color-surface)', stroke: tone ? `var(--color-${tone})` : 'var(--color-ink-soft)' }} strokeWidth={tone ? 2.2 : 1.6} strokeDasharray={isGone ? '3 2' : undefined} />
-            <text x={x(t)} y={axisY - 14 - lift} textAnchor="middle" fontSize="12" fontWeight="600" textDecoration={isGone ? 'line-through' : undefined} style={{ fill: 'var(--color-ink)' }}>{text(t)}</text>
+          <g key={t}>
+            <circle cx={x(t)} cy={axisY} r="6.5" style={{ fill: tone ? `var(--color-${tone}-soft)` : 'var(--color-surface)', stroke: tone ? `var(--color-${tone})` : 'var(--color-ink-soft)' }} strokeWidth={tone ? 2.2 : 1.6} />
+            <text x={x(t)} y={axisY - 14} textAnchor="middle" fontSize="12" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{text(t)}</text>
           </g>
         );
       })}
+      {asked !== undefined ? (
+        <g>
+          <line x1={x(asked)} y1={axisY - 30} x2={x(asked)} y2={axisY - 8} style={{ stroke: `var(--color-${askTone})` }} strokeWidth="1.4" />
+          <circle cx={x(asked)} cy={axisY} r="6.5" style={{ fill: `var(--color-${askTone}-soft)`, stroke: `var(--color-${askTone})` }} strokeWidth="2.2" />
+          <text x={x(asked)} y={axisY - 34} textAnchor="middle" fontSize="12" fontWeight="700" style={{ fill: `var(--color-${askTone})` }}>{text(asked)}</text>
+        </g>
+      ) : null}
       {caption ? (
         <text x={width / 2} y={height - 6} textAnchor="middle" fontSize="12" style={{ fill: 'var(--color-ink-soft)' }}>{caption}</text>
       ) : null}
@@ -1910,109 +1921,212 @@ export function TimeLine({ times, fresh, gone, from, to, caption, label }) {
   );
 }
 
-{/* The agenda's taken times when the interval is asked, as a search tree with their hours as keys: any shape is one TreeSet could hold, and the class draws only its inorder. */}
+{/* AgendaColumn — one frame of the walk of the agenda, sized for the column beside its listing: the times taken as chips in their order, top to bottom — the inorder of the TreeSet —, with `slots` rows reserved so every frame keeps one size. `asked` is the time being booked, in its place in the order, painted `mark` when it is booked and `flag`, dashed, when `refused`; `near` paints its neighbours `keep` with how far each is written beside it, in `flag` when it is closer than 20 minutes; `gone` is a cancelled time, faint and struck; `from`/`to` bracket the times between them, or say that none is. Times are HHMM, as in TimeLine. */}
 
-export const AGENDA_TREE = { v: '9:30', l: { v: '9:00' }, r: { v: '14:30', l: { v: '10:00' } } };
+export function AgendaColumn({ times, slots, asked, refused = false, near = [], gone, from, to, label }) {
+  const chipW = 96;
+  const chipH = 30;
+  const gapY = 10;
+  const pad = 14;
+  const left = 64;
+  const width = left + chipW + 120;
+  const top = pad + 22;
+  const height = top + slots * (chipH + gapY) - gapY + pad;
+  const minutes = (t) => Math.floor(t / 100) * 60 + (t % 100);
+  const text = (t) => `${Math.floor(t / 100)}:${String(t % 100).padStart(2, '0')}`;
+  const rows = [...times, ...(gone !== undefined ? [gone] : []), ...(asked !== undefined ? [asked] : [])].sort((a, b) => a - b);
+  const y = (i) => top + i * (chipH + gapY);
+  const inRange = (t) => from !== undefined && t >= from && t <= to && t !== gone;
+  const ranged = rows.map((t, i) => (inRange(t) ? i : -1)).filter((i) => i >= 0);
+  return (
+    <svg viewBox={`0 0 ${width} ${height}`} style={{ width: '100%', maxWidth: `${Math.round(width * 1.6)}px`, height: 'auto', display: 'block', margin: '0.4rem auto' }} role="img" aria-label={label}>
+      <text x={left} y={pad + 8} fontSize="12" fontWeight="700" style={{ fill: 'var(--color-ink-soft)' }}>times, en orden</text>
+      {rows.length === 0 ? (
+        <text x={left + chipW / 2} y={y(0) + chipH / 2 + 5} textAnchor="middle" fontSize="13" style={{ fill: 'var(--color-ink-faint)' }}>ninguna</text>
+      ) : null}
+      {ranged.length ? (
+        <g>
+          <path d={`M ${left - 8} ${y(ranged[0]) + 2} H ${left - 16} V ${y(ranged[ranged.length - 1]) + chipH - 2} H ${left - 8}`} fill="none" style={{ stroke: 'var(--color-keep)' }} strokeWidth="2" />
+          <text x={left - 22} y={(y(ranged[0]) + y(ranged[ranged.length - 1]) + chipH) / 2 + 4} textAnchor="end" fontSize="11.5" fontWeight="700" style={{ fill: 'var(--color-keep)' }}>entre</text>
+        </g>
+      ) : null}
+      {from !== undefined && ranged.length === 0 ? (
+        <text x={width / 2} y={y(rows.length) + chipH / 2 + 5} textAnchor="middle" fontSize="12" fontWeight="700" style={{ fill: 'var(--color-ink-soft)' }}>{`entre ${text(from)} y ${text(to)}: ninguna`}</text>
+      ) : null}
+      {rows.map((t, i) => {
+        const isAsked = t === asked;
+        const isGone = t === gone;
+        const tone = isAsked ? (refused ? 'flag' : 'mark') : near.includes(t) || inRange(t) ? 'keep' : undefined;
+        const far = isAsked || !near.includes(t) ? null : Math.abs(minutes(asked) - minutes(t));
+        return (
+          <g key={t} opacity={isGone ? 0.5 : undefined}>
+            <rect x={left} y={y(i)} width={chipW} height={chipH} rx="15" style={{ fill: tone ? `var(--color-${tone}-soft)` : 'var(--color-surface)', stroke: tone ? `var(--color-${tone})` : 'var(--color-rule-strong)' }} strokeWidth={tone ? 2.2 : 1.2} strokeDasharray={(isAsked && refused) || isGone ? '4 3' : undefined} />
+            <text x={left + chipW / 2} y={y(i) + chipH / 2 + 5} textAnchor="middle" fontSize="14" fontWeight="600" textDecoration={isGone ? 'line-through' : undefined} style={{ fill: 'var(--color-ink)' }}>{text(t)}</text>
+            {isAsked ? (
+              <text x={left + chipW + 12} y={y(i) + chipH / 2 + 5} fontSize="12.5" fontWeight="700" style={{ fill: `var(--color-${refused ? 'flag' : 'mark'})` }}>{refused ? 'no se agenda' : 'se agenda'}</text>
+            ) : null}
+            {far !== null ? (
+              <text x={left + chipW + 12} y={y(i) + chipH / 2 + 5} fontSize="12.5" fontWeight={far < 20 ? 700 : 400} style={{ fill: far < 20 ? 'var(--color-flag)' : 'var(--color-ink-soft)' }}>{`a ${far} min`}</text>
+            ) : null}
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
 
-<Slide title="Una agenda de horas">
-Un consultorio agenda horas a lo largo del día: se agenda una hora, se
-cancela otra, y en cualquier momento la recepción pregunta cuáles están
-tomadas entre dos horas, por ejemplo para avisarles a todos los de la tarde
-que el médico viene atrasado. Las horas se escriben como enteros `HHMM`:
-`930` son las 9:30, y el orden de los enteros es el de las horas.
+{/* The agenda's taken times when 14:15 is asked for, as a search tree keyed by their hours: any shape is one a TreeSet could hold, and the class draws only the two neighbours and the inorder. */}
 
-**Entre `from` y `to`** quiere decir las horas tomadas que no son anteriores
-a `from` ni posteriores a `to`: las dos de los extremos cuentan.
+export const AGENDA_TREE = { v: '10:00', l: { v: '9:30' }, r: { v: '14:30', l: { v: '11:00' } } };
+
+<Slide title="Una agenda de horas con separación mínima">
+Un consultorio agenda horas en cualquier día, sin un último día. Una consulta
+dura 20 minutos, así que una hora nueva no se agenda a **menos de 20
+minutos** de otra ya tomada, antes o después; a 20 minutos justos, sí. Se
+cancelan horas, y en cualquier momento la recepción pregunta cuáles están
+tomadas **entre** dos instantes, con los dos extremos incluidos, por ejemplo
+para avisarles a todos los de la tarde que el médico viene atrasado.
 
 <TimeLine
-  times={[900, 930, 1000, 1430]}
-  from={930}
-  to={1430}
-  caption="entre 9:30 y 14:30, con las dos incluidas: 9:30, 10:00 y 14:30"
-  label="Una línea del día, de 8:00 a 18:00, con horas tomadas a las 9:00, 9:30, 10:00 y 14:30. Una franja marca el intervalo de 9:30 a 14:30, y las horas 9:30, 10:00 y 14:30, dentro de él, están destacadas."
+  day={3}
+  times={[930, 1100, 1430]}
+  gap={20}
+  asked={940}
+  refused
+  caption="cada hora tomada cierra 20 minutos a cada lado: a las 9:40 no se agenda"
+  label="La línea del día 3, de 8:00 a 18:00, con horas tomadas a las 9:30, 11:00 y 14:30, cada una con una franja de 20 minutos a cada lado. Se pide agendar las 9:40, que cae en la franja de 9:30 y está marcada como rechazada."
 />
+
+Un instante es un entero: los minutos desde la medianoche del primer día, el
+día 0. `at(día, hora, minuto)` hace esa cuenta.
 
 ```java
 class Agenda {
-    boolean book(int time)  // falso si ya estaba tomada
+    static int at(int day, int hour, int minute)
+    boolean book(int time)   // falso si queda a menos de 20 de otra
     boolean cancel(int time) // falso si no estaba tomada
     List<Integer> between(int from, int to) // en orden
 }
 ```
 
-**Entrada.** A lo más $$10^5$$ llamadas, en cualquier orden. $$N$$ es la
-cantidad de horas tomadas, y $$k$$, la de horas que entrega `between`.
+**Entrada.** A lo más $$10^5$$ llamadas, en cualquier orden y con instantes de
+cualquier día. $$N$$ es la cantidad de horas tomadas, y $$k$$, la de horas que
+entrega `between`.
 
 </Slide>
 
 <Slide title="Una agenda de ejemplo">
-Una seguidilla de llamadas, con lo que responde cada una:
+Una seguidilla de llamadas del día 3, con lo que responde cada una:
 
-| Llamada                | Responde               | Horas tomadas después          |
-| ---------------------- | ---------------------- | ------------------------------ |
-| `book(1100)`           | `true`                 | 11:00                          |
-| `book(930)`            | `true`                 | 9:30, 11:00                    |
-| `book(1430)`           | `true`                 | 9:30, 11:00, 14:30             |
-| `book(900)`            | `true`                 | 9:00, 9:30, 11:00, 14:30       |
-| `book(1000)`           | `true`                 | 9:00, 9:30, 10:00, 11:00, 14:30 |
-| `book(930)`            | `false`: ya estaba     | las mismas                     |
-| `cancel(1100)`         | `true`                 | 9:00, 9:30, 10:00, 14:30       |
-| `between(930, 1430)`   | `[930, 1000, 1430]`    | las mismas                     |
-| `between(1500, 1700)`  | `[]`                   | las mismas                     |
+| Llamada                             | Responde                    | Horas tomadas después           |
+| ----------------------------------- | --------------------------- | ------------------------------- |
+| `book(at(3, 11, 0))`                | `true`                      | 11:00                           |
+| `book(at(3, 9, 30))`                | `true`                      | 9:30, 11:00                     |
+| `book(at(3, 14, 30))`               | `true`                      | 9:30, 11:00, 14:30              |
+| `book(at(3, 9, 40))`                | `false`: a 10 de 9:30       | las mismas                      |
+| `book(at(3, 10, 0))`                | `true`                      | 9:30, 10:00, 11:00, 14:30       |
+| `book(at(3, 14, 15))`               | `false`: a 15 de 14:30      | las mismas                      |
+| `cancel(at(3, 11, 0))`              | `true`                      | 9:30, 10:00, 14:30              |
+| `between(at(3, 9, 30), at(3, 14, 30))` | las de 9:30, 10:00 y 14:30 | las mismas                   |
+| `between(at(3, 15, 0), at(3, 17, 0))`  | ninguna                    | las mismas                   |
+
+<TimeLine
+  day={3}
+  times={[930, 1000, 1430]}
+  from={930}
+  to={1430}
+  caption="entre 9:30 y 14:30, con los dos extremos: 9:30, 10:00 y 14:30"
+  label="La línea del día 3 con horas tomadas a las 9:30, 10:00 y 14:30, y una franja de 9:30 a 14:30: las tres caen dentro y están destacadas."
+/>
 
 Pedir un intervalo con `from` después de `to` es un error, y `between` lanza
 `IllegalArgumentException`.
 
 </Slide>
 
-<Slide title="Una lista ordenada o una sin orden">
-Guardar las horas en un arreglo obliga a elegir. **Sin orden**, `between`
-tiene que mirar todas las horas para saber cuáles caen en el intervalo, y
-agendar y cancelar también: una hora se agenda una sola vez, así que antes
-hay que buscarla entre todas. **Ordenado**, una búsqueda binaria encuentra la
-hora o la primera del intervalo, y las demás vienen seguidas, pero agendar y
-cancelar corren una posición todas las horas posteriores.
+<Slide title="Un arreglo ordenado o uno sin orden">
+Guardar las horas en un arreglo obliga a elegir. **Sin orden**, `book` tiene
+que mirar todas las horas para saber si alguna queda a menos de 20 minutos, y
+`between`, para saber cuáles caen en el intervalo. **Ordenado**, una búsqueda
+binaria encuentra en $$O(\log N)$$ las horas vecinas de la nueva y la primera
+del intervalo, pero agendar y cancelar corren una posición todas las horas
+posteriores.
 
 | Arreglo     | `book`, `cancel` | `between`          |
 | ----------- | ---------------- | ------------------ |
 | Sin orden   | $$\Theta(N)$$    | $$\Theta(N)$$      |
 | Ordenado    | $$\Theta(N)$$    | $$O(\log N + k)$$  |
 
-Ninguno de los dos agenda en menos de $$\Theta(N)$$. Con $$10^5$$ llamadas
-sobre una agenda que crece, eso es del orden de mil millones de pasos.
+Un casillero por cada minuto posible, con el acceso directo de un arreglo,
+tampoco sirve: la agenda no tiene último día, y el universo de los minutos no
+tiene fin. Con $$10^5$$ llamadas sobre una agenda que crece, un costo de
+$$\Theta(N)$$ por hora agendada suma miles de millones de pasos.
+
+</Slide>
+
+<Slide title="Las horas vecinas de una hora nueva">
+Para saber si una hora nueva queda a menos de 20 minutos de otra no hace
+falta mirarlas todas: basta con dos, la última tomada que no es posterior a
+ella y la primera que no es anterior. Si esas dos quedan a 20 minutos o más,
+todas las demás quedan más lejos.
+
+<TimeLine
+  day={3}
+  times={[930, 1000, 1100, 1430]}
+  gap={20}
+  asked={1415}
+  refused
+  near={[1100, 1430]}
+  caption="14:15: la anterior, 11:00, queda a 195 minutos; la siguiente, 14:30, a 15: no se agenda"
+  label="La línea del día 3 con horas tomadas a las 9:30, 10:00, 11:00 y 14:30, cada una con su franja de 20 minutos. Se pide agendar las 14:15, marcada como rechazada; sus dos vecinas, 11:00 y 14:30, están destacadas."
+/>
 
 </Slide>
 
 <Slide title="Un orden que se mantiene al agendar">
-Lo que pide `between` es el orden: que las horas de un intervalo estén
-seguidas, para encontrar la primera y avanzar hasta pasar la última. Lo que
-piden `book` y `cancel` es no correr nada para mantener ese orden. Las dos
-cosas juntas las da un **árbol de búsqueda balanceado**: agrega y saca bajando
-un camino, y su inorden entrega las horas ordenadas. En Java, un
-**`TreeSet<Integer>`**.
+Lo que piden `book` y `between` es el orden: las dos vecinas de una hora y las
+horas seguidas de un intervalo. Lo que piden `book` y `cancel` es no correr
+nada para mantenerlo. Las dos cosas juntas las da un **conjunto ordenado**
+sobre un **árbol de búsqueda balanceado**: las dos vecinas se encuentran
+bajando un camino, agregar y sacar también, y su inorden entrega las horas en
+orden.
 
 <KeyTree
   tree={AGENDA_TREE}
   strip
-  tones={{ '9:30': 'keep', '10:00': 'keep', '14:30': 'keep' }}
-  caption="entre 9:30 y 14:30: desde 9:30, el inorden hasta pasar 14:30"
-  label="Un árbol de búsqueda con las horas tomadas: 9:30 en la raíz, 9:00 a su izquierda y 14:30 a su derecha, con 10:00 como hijo izquierdo de 14:30. Debajo, el inorden: 9:00, 9:30, 10:00 y 14:30. 9:30, 10:00 y 14:30 están destacadas y son casillas seguidas del inorden."
+  tones={{ '11:00': 'keep', '14:30': 'keep' }}
+  caption="14:15 cae entre 11:00 y 14:30, seguidas en el inorden"
+  label="Un árbol de búsqueda con las horas tomadas: 10:00 en la raíz, 9:30 a su izquierda y 14:30 a su derecha, con 11:00 como hijo izquierdo de 14:30. Debajo, el inorden: 9:30, 10:00, 11:00 y 14:30. 11:00 y 14:30, las vecinas de 14:15, están destacadas y son casillas seguidas del inorden."
 />
 
 </Slide>
 
 <Slide title="Agenda · la solución">
-Cada método es una operación del `TreeSet`: `book` es `add` y `cancel` es
-`remove`, y los dos responden lo que el contrato del Set ya responde.
-`between` pide el tramo con `subSet`, con los dos extremos incluidos, y lo
-copia a una lista.
+En Java, ese conjunto ordenado es un `TreeSet<Integer>`: `floor` y `ceiling`
+responden las dos vecinas, y `floor` incluye una hora igual, a 0 minutos.
+`between` copia el tramo de `subSet` a una lista nueva. `at` no lleva ninguna
+idea: es la cuenta de los minutos.
 
 <StepShow
   language="java"
+  beside
   code={`class Agenda {
+      static final int GAP = 20;
       private TreeSet<Integer> times = new TreeSet<>();
 
+      static int at(int day, int hour, int minute) {
+          return (day * 24 + hour) * 60 + minute;
+      }
+
       public boolean book(int time) {
+          Integer before = times.floor(time);
+          Integer after = times.ceiling(time);
+          if (before != null && time - before < GAP) {
+              return false;
+          }
+          if (after != null && after - time < GAP) {
+              return false;
+          }
           return times.add(time);
       }
 
@@ -2021,67 +2135,80 @@ copia a una lista.
       }
 
       public List<Integer> between(int from, int to) {
-          if (from > to) {
-              throw new IllegalArgumentException();
-          }
           return new ArrayList<>(
               times.subSet(from, true, to, true));
       }
   }`}
 >
-  <Step lines={[2]}>
+  <Step lines={[3]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>La agenda arranca sin horas tomadas.</div>
-    <TimeLine times={[]} label="La línea del día, de 8:00 a 18:00, sin horas tomadas." />
+    <AgendaColumn slots={5} times={[]} label="Ninguna hora tomada." />
   </Step>
-  <Step lines={[4, 5]}>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>book(1100): las 11:00 no estaban; retorna true.</div>
-    <TimeLine times={[1100]} fresh={1100} label="La línea del día con las 11:00, recién agendadas." />
+  <Step lines={[9, 10, 11, 18]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>book(at(3, 11, 0)): no hay vecinas; se agenda.</div>
+    <AgendaColumn slots={5} times={[]} asked={1100} label="Se pide 11:00, sin horas tomadas: no tiene vecinas, y se agenda." />
   </Step>
-  <Step lines={[4, 5]}>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>book(930): retorna true.</div>
-    <TimeLine times={[930, 1100]} fresh={930} label="Las horas tomadas: 9:30, recién agendada, y 11:00." />
+  <Step lines={[9, 10, 11, 18]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>book(at(3, 9, 30)): la siguiente, 11:00, a 90; se agenda.</div>
+    <AgendaColumn slots={5} times={[1100]} asked={930} near={[1100]} label="Se pide 9:30. Su siguiente, 11:00, queda a 90 minutos, y se agenda." />
   </Step>
-  <Step lines={[4, 5]}>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>book(1430): retorna true.</div>
-    <TimeLine times={[930, 1100, 1430]} fresh={1430} label="Las horas tomadas: 9:30, 11:00 y 14:30, recién agendada." />
+  <Step lines={[9, 10, 11, 18]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>book(at(3, 14, 30)): la anterior, 11:00, a 210; se agenda.</div>
+    <AgendaColumn slots={5} times={[930, 1100]} asked={1430} near={[1100]} label="Se pide 14:30. Su anterior, 11:00, queda a 210 minutos, y se agenda." />
   </Step>
-  <Step lines={[4, 5]}>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>book(900): retorna true.</div>
-    <TimeLine times={[900, 930, 1100, 1430]} fresh={900} label="Las horas tomadas: 9:00, recién agendada, 9:30, 11:00 y 14:30." />
+  <Step lines={[9, 10, 11, 12, 13]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>book(at(3, 9, 40)): la anterior, 9:30, a 10: false.</div>
+    <AgendaColumn slots={5} times={[930, 1100, 1430]} asked={940} refused near={[930, 1100]} label="Se pide 9:40, entre 9:30 y 11:00. 9:30 queda a 10 minutos, menos de 20: no se agenda." />
   </Step>
-  <Step lines={[4, 5]}>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>book(1000): retorna true.</div>
-    <TimeLine times={[900, 930, 1000, 1100, 1430]} fresh={1000} label="Las horas tomadas: 9:00, 9:30, 10:00, recién agendada, 11:00 y 14:30." />
+  <Step lines={[9, 10, 11, 18]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>book(at(3, 10, 0)): 9:30 a 30 y 11:00 a 60; se agenda.</div>
+    <AgendaColumn slots={5} times={[930, 1100, 1430]} asked={1000} near={[930, 1100]} label="Se pide 10:00, entre 9:30, a 30 minutos, y 11:00, a 60: se agenda." />
   </Step>
-  <Step lines={[4, 5]}>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>book(930): ya estaba tomada; add retorna false y nada cambia.</div>
-    <TimeLine times={[900, 930, 1000, 1100, 1430]} label="Las horas tomadas no cambian: 9:00, 9:30, 10:00, 11:00 y 14:30." />
+  <Step lines={[9, 10, 11, 12, 15, 16]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>book(at(3, 14, 15)): la siguiente, 14:30, a 15: false.</div>
+    <AgendaColumn slots={5} times={[930, 1000, 1100, 1430]} asked={1415} refused near={[1100, 1430]} label="Se pide 14:15, entre 11:00, a 195 minutos, y 14:30, a 15, menos de 20: no se agenda." />
   </Step>
-  <Step lines={[8, 9]}>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>cancel(1100): estaba; remove la saca y retorna true.</div>
-    <TimeLine times={[900, 930, 1000, 1430]} gone={1100} label="Las horas tomadas: 9:00, 9:30, 10:00 y 14:30. Las 11:00, canceladas, aparecen tachadas." />
+  <Step lines={[21, 22]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>cancel(at(3, 11, 0)): estaba; remove la saca y retorna true.</div>
+    <AgendaColumn slots={5} times={[930, 1000, 1430]} gone={1100} label="Las horas tomadas: 9:30, 10:00 y 14:30. Las 11:00, canceladas, aparecen tachadas." />
   </Step>
-  <Step lines={[12, 13, 16, 17]}>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>between(930, 1430): el tramo de 9:30 a 14:30, incluidas: [930, 1000, 1430].</div>
-    <TimeLine times={[900, 930, 1000, 1430]} from={930} to={1430} label="Las horas tomadas, con la franja de 9:30 a 14:30: 9:30, 10:00 y 14:30 caen dentro y están destacadas." />
+  <Step lines={[25, 26, 27]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>between de 9:30 a 14:30: 9:30, 10:00 y 14:30, con los extremos.</div>
+    <AgendaColumn slots={5} times={[930, 1000, 1430]} from={930} to={1430} label="Las horas tomadas, 9:30, 10:00 y 14:30, las tres dentro del tramo de 9:30 a 14:30." />
   </Step>
-  <Step lines={[12, 13, 16, 17]}>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>between(1500, 1700): ninguna hora cae en el tramo; la lista sale vacía.</div>
-    <TimeLine times={[900, 930, 1000, 1430]} from={1500} to={1700} label="Las horas tomadas, con la franja de 15:00 a 17:00: ninguna cae dentro." />
+  <Step lines={[25, 26, 27]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>between de 15:00 a 17:00: ninguna; la lista sale vacía.</div>
+    <AgendaColumn slots={5} times={[930, 1000, 1430]} from={1500} to={1700} label="Las horas tomadas, 9:30, 10:00 y 14:30; ninguna está entre 15:00 y 17:00." />
   </Step>
 </StepShow>
 
 </Slide>
 
-<Slide title="Un intervalo vacío y el costo de la agenda">
-`between` con `from` después de `to` lanza la excepción antes de mirar la
-agenda. Un intervalo sin horas tomadas, o una agenda vacía, entregan una
-lista vacía, y una hora igual a `from` o a `to` entra en la respuesta.
+<Slide title="Una hora justa, un intervalo vacío y el costo de la agenda">
+Una hora a 20 minutos justos de otra se agenda: la regla rechaza solo las que
+quedan a menos. Una hora igual a una tomada queda a 0 minutos y se rechaza, y
+dos horas de días distintos se miden igual, por sus minutos, también cuando
+las separa una medianoche. Con `from` después de `to`, `subSet` lanza
+`IllegalArgumentException` antes de copiar nada, y un intervalo sin horas
+tomadas, o una agenda vacía, entregan una lista vacía.
 
-**Tiempo.** `book` y `cancel` son una operación del árbol cada una:
-$$O(\log N)$$. `between` baja hasta la primera hora del tramo en
-$$O(\log N)$$ y después entrega las $$k$$ siguientes del inorden, así que
-cuesta $$O(\log N + k)$$, sin importar cuántas horas haya fuera del tramo.
+<TimeLine
+  day={3}
+  first={9}
+  hours={3}
+  perHour={120}
+  times={[1000]}
+  gap={20}
+  asked={1020}
+  caption="10:20 queda a 20 minutos justos de 10:00: se agenda"
+  label="La línea del día 3, de 9:00 a 12:00, con las 10:00 tomadas y su franja de 20 minutos. Se pide 10:20, justo en el borde de la franja, y se agenda."
+/>
+
+**Tiempo.** `book` busca las dos vecinas y a lo más agrega: tres operaciones
+del árbol, $$O(\log N)$$. `cancel` es una, $$O(\log N)$$. `between` baja hasta
+la primera hora del tramo en $$O(\log N)$$ y después entrega las $$k$$
+siguientes del inorden: $$O(\log N + k)$$, sin importar cuántas horas haya
+fuera del tramo.
 
 **Memoria.** El árbol guarda las $$N$$ horas tomadas, y cada `between`, una
 lista de $$k$$: $$\Theta(N + k)$$.
@@ -2090,7 +2217,7 @@ lista de $$k$$: $$\Theta(N + k)$$.
 
 <Slide title="Agenda · el programa completo">
 <PresentationWide fraction={0.75}>
-<Exercise title="Una agenda de horas">
+<Exercise title="Una agenda de horas con separación mínima">
 
 ```java starter
 import java.util.ArrayList;
@@ -2098,9 +2225,22 @@ import java.util.List;
 import java.util.TreeSet;
 
 class Agenda {
+    static final int GAP = 20;
     private TreeSet<Integer> times = new TreeSet<>();
 
+    static int at(int day, int hour, int minute) {
+        return (day * 24 + hour) * 60 + minute;
+    }
+
     public boolean book(int time) {
+        Integer before = times.floor(time);
+        Integer after = times.ceiling(time);
+        if (before != null && time - before < GAP) {
+            return false;
+        }
+        if (after != null && after - time < GAP) {
+            return false;
+        }
         return times.add(time);
     }
 
@@ -2109,9 +2249,6 @@ class Agenda {
     }
 
     public List<Integer> between(int from, int to) {
-        if (from > to) {
-            throw new IllegalArgumentException();
-        }
         return new ArrayList<>(
             times.subSet(from, true, to, true));
     }
@@ -2120,19 +2257,29 @@ class Agenda {
 
 ```java test
 Agenda a = new Agenda();
-check(a.book(1100), true);
-check(a.book(930), true);
-check(a.book(1430), true);
-check(a.book(900), true);
-check(a.book(1000), true);
-check(a.book(930), false);
-check(a.cancel(1100), true);
-check(a.cancel(1100), false);
-check(a.between(930, 1430), Arrays.asList(930, 1000, 1430));
-check(a.between(1500, 1700), Arrays.asList());
-check(new Agenda().between(800, 1800), Arrays.asList());
+check(a.book(Agenda.at(3, 11, 0)), true);
+check(a.book(Agenda.at(3, 9, 30)), true);
+check(a.book(Agenda.at(3, 14, 30)), true);
+check(a.book(Agenda.at(3, 9, 40)), false);
+check(a.book(Agenda.at(3, 10, 0)), true);
+check(a.book(Agenda.at(3, 14, 15)), false);
+check(a.book(Agenda.at(3, 9, 30)), false);
+check(a.cancel(Agenda.at(3, 11, 0)), true);
+check(a.cancel(Agenda.at(3, 11, 0)), false);
+check(a.between(Agenda.at(3, 9, 30), Agenda.at(3, 14, 30)),
+    Arrays.asList(Agenda.at(3, 9, 30), Agenda.at(3, 10, 0),
+        Agenda.at(3, 14, 30)));
+check(a.between(Agenda.at(3, 15, 0), Agenda.at(3, 17, 0)), Arrays.asList());
+check(a.book(Agenda.at(3, 10, 19)), false);
+check(a.book(Agenda.at(3, 10, 20)), true);
+check(a.book(Agenda.at(4, 9, 30)), true);
+check(a.book(Agenda.at(400, 23, 50)), true);
+check(a.book(Agenda.at(401, 0, 5)), false);
+check(a.book(Agenda.at(1000000, 9, 0)), true);
+check(new Agenda().between(0, Agenda.at(1000, 0, 0)), Arrays.asList());
 boolean refused = false;
-try { a.between(1430, 930); } catch (IllegalArgumentException e) { refused = true; }
+try { a.between(Agenda.at(3, 14, 30), Agenda.at(3, 9, 30)); }
+catch (IllegalArgumentException e) { refused = true; }
 check(refused, true);
 ```
 
