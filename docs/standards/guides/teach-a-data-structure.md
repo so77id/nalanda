@@ -232,6 +232,22 @@ interface will trip on "un mapa es una colección". Same family as the
 `interface` overload that #277 had to untangle in its own Act 1. #350 pays
 it on the slide _Las reglas del contrato Map_.
 
+**Two slides come before the card, in every class that defines a TDA**
+(#294 Stack and Queue, #304 Priority Queue, #350 Set and Map). First the
+problem or the idea, drawn: what the collection does that a known one does
+not (_Una pila_, _Una cola de prioridad_, _Un registro de votantes_). Then
+«X en la vida real»: four cases from outside programming, each a bold lead
+and one sentence, closed by the sentence that names what the four share —
+«Los cuatro hacen lo mismo…». The card's operations are born there, each one
+something the problem or a case asks for. #350's first draft had its problem
+slide ask for «preguntar, agregar, contar», then compared two classes on
+`remove` and put a walk in the card that nothing had asked for, and it had
+no real-life slide at all; the professor's review (2026-11-01) restored both.
+Where the TDA is named may move: #294 and #304 name it at the end of the
+real-life slide, #350 one slide later, once the two classes of the unit that
+already implement Set, with different method names, have made the case for
+a contract.
+
 A TDA is introduced as a **contract**, on one slide, in a card the unit reuses
 for every TDA it defines. The card is language-independent on purpose — Java's
 names for the same contract get their own slide afterwards.
@@ -416,6 +432,15 @@ every cell would read «Ninguna: no cambia el árbol», which teaches nothing �
 Miguel's review of #321's binary-tree costs, where the traversals, the
 height and the search are the whole table. The column comes back as soon as one row
 modifies the structure.
+
+**#350 drops the column although its rows modify, and that is a stated
+deviation.** Set and Map presents no structure of its own: its cost tables
+compare the chaining table and the AVL tree, each taught in its own class
+with its invariants and a table that carries the column. A column per
+implementation would double a table whose point is the comparison, to
+restate what those classes already derived; the slides before each table say
+which invariant pays for what (_Un Set sobre una tabla hash_, _Un Set sobre
+un árbol AVL_).
 
 ### 4bis. Teach every operation with the same script
 
