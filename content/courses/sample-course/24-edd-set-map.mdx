@@ -258,13 +258,14 @@ export function KeyTree({ tree, tones = {}, values, order = false, strip = false
 <Slide title="Un registro de votantes">
 En una elección con varias mesas, cada persona vota una sola vez, en
 cualquiera de ellas. Antes de entregar el voto, la mesa le pregunta al
-registro si ese RUT ya votó, en esa mesa o en otra; al cerrar, el registro
-informa cuántas personas votaron. Lo que el registro guarda es un
-**conjunto** de RUTs que crece durante el día, y sobre él se hacen tres cosas:
+registro si ese RUT ya votó, en esa mesa o en otra. Lo que el registro guarda
+es un **conjunto** de RUTs que crece durante el día, y sobre él se hace esto:
 
 - **preguntar** si un RUT está;
 - **agregar** un RUT, que nunca queda dos veces;
-- **contar** cuántos RUTs hay.
+- **sacar** un RUT que una mesa registró mal digitado;
+- **contar** cuántos RUTs hay, al cerrar;
+- **recorrer** los RUTs, para publicar la lista de quienes votaron.
 
 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '1rem 2rem', alignItems: 'end' }}>
 <KeySet
@@ -287,9 +288,31 @@ informa cuántas personas votaron. Lo que el registro guarda es un
 
 </Slide>
 
+<Slide title="Conjuntos en la vida real">
+Un conjunto aparece en cualquier lugar donde importa si algo está, no cuántas
+veces ni en qué orden.
+
+- **El corrector ortográfico.** Guarda las palabras válidas del idioma y, por
+  cada palabra escrita, pregunta si está; la que no está se subraya.
+- **Los números bloqueados del teléfono.** Cada llamada que entra pregunta si
+  su número está entre los bloqueados. Bloquear agrega un número, y
+  desbloquear lo saca.
+- **Los ramos aprobados de un estudiante.** Inscribir un ramo pregunta si su
+  prerrequisito está entre los aprobados, y cada semestre agrega los que
+  aprobó.
+- **Las páginas que visita un buscador.** El programa que recorre la web
+  sigue los enlaces de cada página y, antes de visitar una, pregunta si ya
+  pasó por ella: sin esa pregunta, recorrería las mismas páginas para
+  siempre.
+
+Los cuatro hacen lo mismo que el registro: preguntar si un elemento está,
+agregarlo y sacarlo, sin que ninguno quede dos veces.
+
+</Slide>
+
 <Slide title="El registro en una tabla hash y en un árbol AVL">
-Dos estructuras de la unidad ya hacen las tres operaciones. La **tabla hash
-con listas** calcula la posición de cada RUT y recorre solo la lista de esa
+Dos estructuras de la unidad ya preguntan, agregan y sacan sin repetidos. La
+**tabla hash con listas** calcula la posición de cada RUT y recorre solo la lista de esa
 posición: cuesta $$\Theta(1)$$ esperado. El **árbol AVL** compara y baja por
 un solo camino, de altura acotada: cuesta $$O(\log N)$$ en el peor caso. Las
 dos guardan los mismos RUTs, cada uno una sola vez.
@@ -307,13 +330,9 @@ dos guardan los mismos RUTs, cada uno una sola vez.
   label="Un árbol AVL con los mismos seis RUTs. La raíz es 13.959.276-K; a su izquierda, 13.180.992-1, con 12.547.354-7 como hijo izquierdo; a su derecha, 18.155.218-2, con 17.814.358-1 y 22.715.853-0 debajo."
 />
 
-$$
-h(\text{«17.814.358-1»}) = h(\text{«18.155.218-2»}) = 0
-$$
-
 </Slide>
 
-<Slide title="Dos clases para las mismas tres operaciones">
+<Slide title="Dos clases para las mismas operaciones">
 Las dos estructuras resuelven el registro, pero no se usan de la misma
 manera. Sus métodos públicos hacen lo mismo con otros nombres, y no
 responden lo mismo:
@@ -989,11 +1008,16 @@ además un solo elemento: el segundo `add` retorna falso.
 export const MESA_TEXT = { '18.155.218-2': 'mesa 3', '13.180.992-1': 'mesa 1', '13.959.276-K': 'mesa 3', '17.814.358-1': 'mesa 2', '22.715.853-0': 'mesa 1', '12.547.354-7': 'mesa 2' };
 
 <Slide title="El registro con la mesa de cada votante">
-Al cerrar, el registro publica en qué mesa votó cada persona, y si alguien
-reclama, se busca su RUT y se responde su mesa. Un conjunto de RUTs no
-alcanza: sabe si un RUT está, pero no guarda nada junto a él. Lo que hace
-falta es un **par** por persona, el RUT y su mesa, y buscar el par por el
-RUT.
+El registro guarda además en qué mesa votó cada persona: si alguien reclama,
+se busca su RUT y se responde su mesa. Un conjunto de RUTs no alcanza: sabe si
+un RUT está, pero no guarda nada junto a él. Lo que hace falta es un **par**
+por persona, el RUT y su mesa, y sobre los pares:
+
+- **buscar** la mesa de un RUT;
+- **guardar** el par cuando la persona vota;
+- **corregir** la mesa de un par mal anotado, sin agregar otro;
+- **sacar** el par de un RUT registrado por error;
+- **recorrer** los pares, para publicarlos al cerrar.
 
 <KeySet
   id="mesas"
@@ -1007,6 +1031,25 @@ RUT.
 
 El RUT sigue sin repetirse, y la mesa sí se repite: dos personas pueden haber
 votado en la misma.
+
+</Slide>
+
+<Slide title="Diccionarios en la vida real">
+Un diccionario aparece en cualquier lugar donde algo se busca por un nombre o
+un código para obtener otra cosa.
+
+- **Los contactos del teléfono.** Cada nombre lleva a un número; guardar un
+  contacto con un nombre que ya está cambia su número.
+- **Un diccionario de la lengua.** Cada palabra lleva a su definición, y
+  buscar es dar la palabra.
+- **La caja de un supermercado.** Cada código de barras lleva a un producto
+  y su precio; un precio nuevo reemplaza al anterior.
+- **Un carrito de compras.** Cada producto lleva a la cantidad que se lleva:
+  agregar uno más cambia la cantidad, no agrega otro producto.
+
+Los cuatro hacen lo mismo que el registro: buscar un valor por su clave,
+guardar y corregir el valor de una clave, y sacarla, con cada clave una sola
+vez.
 
 </Slide>
 
@@ -1163,8 +1206,8 @@ table.put(new Rut(13180992, '1'), 1);
 table.get(new Rut(13959276, 'K'));         // 3
 table.get(new Rut(20118702, '8'));         // null: no votó
 table.getOrDefault(new Rut(20118702, '8'), 0); // 0
-table.put(new Rut(13180992, '1'), 4);      // 1: la mesa anterior
-table.remove(new Rut(13180992, '1'));      // 4
+table.put(new Rut(13180992, '1'), 4);      // corrige la mesa: 1, la anterior
+table.remove(new Rut(13180992, '1'));      // un registro por error: 4
 ```
 
 `get` encuentra el par con un `Rut` nuevo, distinto del objeto que se guardó,
