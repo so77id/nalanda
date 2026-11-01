@@ -2288,13 +2288,13 @@ check(refused, true);
 
 </Slide>
 
-{/* PriceRow — prices in the order they come, as cells with their position over them, and under them the spans asked about: a bracket from one position to another with a text under it, one span per row. `tones` paints cells by position (`mark`, `faint`). */}
+{/* PriceRow — prices in the order they come, as cells with their position over them, and under them the spans asked about: a bracket from one position to another with a text under it, one span per row, and after the text an optional `note` in `flag`, for what a wrong idea answers there. `tones` paints cells by position (`mark`, `faint`). */}
 
 export function PriceRow({ prices, spans = [], tones = {}, caption, label }) {
   const cell = 48;
   const pad = 14;
   const rowW = prices.length * cell;
-  const textW = Math.max(0, ...spans.map((s) => s.text.length * 6.8 + 24));
+  const textW = Math.max(0, ...spans.map((s) => (s.text.length + (s.note ? s.note.length + 2 : 0)) * 6.8 + 24));
   const width = Math.max(2 * pad + rowW + textW, caption ? caption.length * 6.6 + 24 : 0);
   const left = pad;
   const indexY = pad + 10;
@@ -2320,7 +2320,10 @@ export function PriceRow({ prices, spans = [], tones = {}, caption, label }) {
         return (
           <g key={`s${n}`}>
             <path d={`M ${x1} ${y - 8} V ${y} H ${x2} V ${y - 8}`} fill="none" style={{ stroke: 'var(--color-accent)' }} strokeWidth="1.8" />
-            <text x={left + rowW + 14} y={y + 1} fontSize="12.5" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{s.text}</text>
+            <text x={left + rowW + 14} y={y + 1} fontSize="12.5" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>
+              {s.text}
+              {s.note ? <tspan dx="10" style={{ fill: 'var(--color-flag)' }}>{s.note}</tspan> : null}
+            </text>
           </g>
         );
       })}
@@ -2367,7 +2370,7 @@ export function WindowStrip({ steps, slots, label }) {
 
 {/* WindowFrame — one frame of the walk of minMax, sized for a listing set beside it: the prices with the window bracketed under them (`from`..`to`), the price that came in painted `mark` and the one that left faint; under them the TreeMap `window`, its prices in order each with its count, the first and the last marked as the minimum and the maximum once the window is full; and the rows of `answer` written so far. `slots` and `rows` reserve the widest map and the longest answer the walk reaches, so every frame keeps one size. */}
 
-export function WindowFrame({ prices, from, to, entered, left: gone, counts, full = false, answer, slots, rows, label }) {
+export function WindowFrame({ prices, from, to, entered, out: gone, counts, full = false, answer, slots, rows, label }) {
   const cell = 40;
   const pad = 12;
   const chipW = 62;
@@ -2433,8 +2436,8 @@ export const PRICES = [5, 3, 3, 8, 6, 2];
 
 <Slide title="El mínimo y el máximo de una ventana de precios">
 Una aplicación de inversiones muestra, junto al precio de una acción, el
-mínimo y el máximo de los últimos $$K$$ precios, y los actualiza con cada
-precio nuevo. Los $$K$$ precios más recientes forman la **ventana**: con cada
+mínimo y el máximo de los últimos $$k$$ precios, y los actualiza con cada
+precio nuevo. Los $$k$$ precios más recientes forman la **ventana**: con cada
 precio que llega, entra uno a la ventana y sale el más antiguo.
 
 <PriceRow
@@ -2445,7 +2448,7 @@ precio que llega, entra uno a la ventana y sale el más antiguo.
     { from: 2, to: 4, text: 'mín 3 · máx 8' },
     { from: 3, to: 5, text: 'mín 2 · máx 8' },
   ]}
-  caption="seis precios, K = 3: cuatro ventanas, cada una con su mínimo y su máximo"
+  caption="seis precios, k = 3: cuatro ventanas, cada una con su mínimo y su máximo"
   label="Seis precios en orden: 5, 3, 3, 8, 6 y 2. Debajo, las cuatro ventanas de tres precios: de la posición 0 a la 2, mínimo 3 y máximo 5; de la 1 a la 3, mínimo 3 y máximo 8; de la 2 a la 4, mínimo 3 y máximo 8; de la 3 a la 5, mínimo 2 y máximo 8."
 />
 
@@ -2453,9 +2456,9 @@ precio que llega, entra uno a la ventana y sale el más antiguo.
 static int[][] minMax(int[] prices, int k)
 ```
 
-**Entrada.** `prices`, a lo más $$10^5$$ enteros, y `k`, el largo de la
-ventana, con $$1 \le k \le N$$; fuera de ese rango, la función lanza
-`IllegalArgumentException`.
+**Entrada.** `prices`, a lo más $$10^5$$ enteros; $$N$$ es su largo. `k` es el
+largo de la ventana, con $$1 \le k \le N$$; fuera de ese rango, la función
+lanza `IllegalArgumentException`.
 
 **Salida.** Una fila por ventana, de la primera a la última, cada una con el
 mínimo y el máximo de esa ventana: $$N - k + 1$$ filas.
@@ -2464,11 +2467,11 @@ mínimo y el máximo de esa ventana: $$N - k + 1$$ filas.
 
 <Slide title="Recalcular cada ventana">
 Lo primero que se piensa es recorrer cada ventana para encontrar su mínimo y
-su máximo. Responde bien, y cada una de las $$N - K + 1$$ ventanas recorre sus
-$$K$$ precios:
+su máximo. Responde bien, y cada una de las $$N - k + 1$$ ventanas recorre sus
+$$k$$ precios:
 
 $$
-(N - K + 1) \cdot K \in \Theta(N \cdot K)
+(N - k + 1) \cdot k \in \Theta(N \cdot k)
 $$
 
 Con $$10^5$$ precios y una ventana de $$10^4$$, son unos $$9 \cdot 10^8$$
@@ -2480,19 +2483,34 @@ entra y el que sale.
 <Slide title="El mínimo que sale de la ventana">
 Si solo cambian dos precios, se puede llevar el mínimo en una variable y
 compararlo con el que entra. Funciona hasta que el precio que **sale** es el
-mínimo: la variable ya no sirve, y lo que queda en la ventana no dice cuál es
-el nuevo mínimo sin recorrerla.
+mínimo: la variable sigue recordando un precio que ya no está en la ventana,
+y lo que queda no dice cuál es el nuevo mínimo sin recorrerla.
+
+<PriceRow
+  prices={[2, 5, 6]}
+  tones={{ 0: 'mark' }}
+  spans={[
+    { from: 0, to: 1, text: 'mín 2' },
+    { from: 1, to: 2, text: 'mín 5', note: 'la variable dice 2' },
+  ]}
+  caption="k = 2: el 2 sale con la primera ventana, y la variable lo sigue dando como mínimo"
+  label="Tres precios, 2, 5 y 6, con el 2 destacado, y ventanas de dos. La primera, 2 y 5, tiene mínimo 2. La segunda, 5 y 6, tiene mínimo 5, pero la variable sigue diciendo 2, un precio que ya salió."
+/>
+
+</Slide>
+
+<Slide title="Un mínimo que se repite">
+Saber que el mínimo salió tampoco basta. Si en la ventana queda otro precio
+igual, el mínimo no cambia: hace falta saber cuántas veces está cada precio
+en la ventana, no solo si está.
 
 <PriceRow
   prices={PRICES}
   tones={{ 0: 'faint', 1: 'mark' }}
-  spans={[{ from: 2, to: 4, text: 'sale un 3, el mínimo: ¿queda otro?' }]}
-  caption="al pasar a la tercera ventana sale un 3; queda el otro, y el mínimo sigue siendo 3"
+  spans={[{ from: 2, to: 4, text: 'sale un 3, el mínimo: queda otro' }]}
+  caption="al pasar a la tercera ventana sale un 3; queda el de la posición 2, y el mínimo sigue siendo 3"
   label="Los seis precios, con la posición 0 atenuada y la 1, un 3, destacada: es el precio que sale al pasar a la tercera ventana, de la posición 2 a la 4, y era el mínimo. En esa ventana queda el 3 de la posición 2."
 />
-
-Hace falta, además, saber si el precio que sale **se repite** dentro de la
-ventana: si queda otro igual, el mínimo no cambia.
 
 </Slide>
 
@@ -2500,10 +2518,7 @@ ventana: si queda otro igual, el mínimo no cambia.
 La idea es guardar los precios de la ventana **en orden**, para que el mínimo
 sea el primero y el máximo el último, y **contados**: cada precio con cuántas
 veces está. El que entra suma uno a su cuenta; el que sale resta uno, y deja la
-ventana solo cuando su cuenta llega a cero. Un conjunto ordenado no alcanza,
-porque guardaría una sola vez un precio que se repite: lo que hace falta es un **diccionario
-ordenado** de cada precio a su cuenta, un **`TreeMap<Integer, Integer>`**, que
-entrega el primero y el último en $$O(\log K)$$.
+ventana solo cuando su cuenta llega a cero.
 
 <WindowStrip
   slots={3}
@@ -2516,10 +2531,16 @@ entrega el primero y el último en $$O(\log K)$$.
   label="Cuatro columnas, una por ventana. Ventana 5, 3, 3: el 3 dos veces y el 5 una; mínimo 3, máximo 5. Ventana 3, 3, 8: entró el 8 y salió el 5; el 3 dos veces y el 8 una; mínimo 3, máximo 8. Ventana 3, 8, 6: entró el 6 y salió un 3, que sigue una vez; mínimo 3, máximo 8. Ventana 8, 6, 2: entró el 2 y salió el último 3; mínimo 2, máximo 8."
 />
 
+Un conjunto ordenado no alcanza, porque guardaría una sola vez un precio que
+se repite: lo que hace falta es un **diccionario ordenado** de cada precio a
+su cuenta, sobre un **árbol de búsqueda balanceado**, que entrega el primero y
+el último en $$O(\log k)$$.
+
 </Slide>
 
 <Slide title="Ventana · entra un precio">
-El precio que entra suma uno a su cuenta. `getOrDefault` responde 0 si el
+En Java, ese diccionario ordenado es un `TreeMap<Integer, Integer>`, y aquí
+se llama `window`. El precio que entra suma uno a su cuenta. `getOrDefault` responde 0 si el
 precio no estaba, así que un precio nuevo entra con cuenta 1 sin preguntar
 antes.
 
@@ -2541,16 +2562,16 @@ la ventana.
 ```java
 if (i >= k) {
     int out = prices[i - k];
-    int left = window.get(out) - 1;
-    if (left == 0) {
+    int remaining = window.get(out) - 1;
+    if (remaining == 0) {
         window.remove(out);
     } else {
-        window.put(out, left);
+        window.put(out, remaining);
     }
 }
 ```
 
-<WindowFrame prices={PRICES} from={2} to={4} entered={4} left={1} counts={[[3, 1], [6, 1], [8, 1]]} full answer={[[3, 5], [3, 8]]} slots={4} rows={4} label="La ventana de la posición 2 a la 4: entró el 6 y salió el 3 de la posición 1, atenuado. window: el 3 con cuenta 1, porque queda el de la posición 2; el 6 y el 8 con cuenta 1." />
+<WindowFrame prices={PRICES} from={2} to={4} entered={4} out={1} counts={[[3, 1], [6, 1], [8, 1]]} full answer={[[3, 5], [3, 8]]} slots={4} rows={4} label="La ventana de la posición 2 a la 4: entró el 6 y salió el 3 de la posición 1, atenuado. window: el 3 con cuenta 1, porque queda el de la posición 2; el 6 y el 8 con cuenta 1." />
 
 </Slide>
 
@@ -2588,11 +2609,11 @@ ventana si ya tiene `k` precios.
           window.put(in, window.getOrDefault(in, 0) + 1);
           if (i >= k) {
               int out = prices[i - k];
-              int left = window.get(out) - 1;
-              if (left == 0) {
+              int remaining = window.get(out) - 1;
+              if (remaining == 0) {
                   window.remove(out);
               } else {
-                  window.put(out, left);
+                  window.put(out, remaining);
               }
           }
           if (i >= k - 1) {
@@ -2621,15 +2642,15 @@ ventana si ya tiene `k` precios.
   </Step>
   <Step lines={[7, 8, 9, 10, 11, 12, 13, 14, 19, 20, 21]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Entra el 8 y sale el 5, que estaba una vez: deja window. Fila 3, 8.</div>
-    <WindowFrame prices={PRICES} from={1} to={3} entered={3} left={0} counts={[[3, 2], [8, 1]]} full answer={[[3, 5], [3, 8]]} slots={4} rows={4} label="Entra el 8 de la posición 3 y sale el 5 de la posición 0, atenuado. window: el 3 con cuenta 2 y el 8 con cuenta 1. answer: 3, 5 y 3, 8." />
+    <WindowFrame prices={PRICES} from={1} to={3} entered={3} out={0} counts={[[3, 2], [8, 1]]} full answer={[[3, 5], [3, 8]]} slots={4} rows={4} label="Entra el 8 de la posición 3 y sale el 5 de la posición 0, atenuado. window: el 3 con cuenta 2 y el 8 con cuenta 1. answer: 3, 5 y 3, 8." />
   </Step>
   <Step lines={[7, 8, 9, 10, 11, 12, 13, 15, 16, 19, 20, 21]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Entra el 6 y sale un 3: queda el otro, con cuenta 1. Fila 3, 8.</div>
-    <WindowFrame prices={PRICES} from={2} to={4} entered={4} left={1} counts={[[3, 1], [6, 1], [8, 1]]} full answer={[[3, 5], [3, 8], [3, 8]]} slots={4} rows={4} label="Entra el 6 de la posición 4 y sale el 3 de la posición 1, atenuado. window: el 3, el 6 y el 8, cada uno con cuenta 1. answer: 3, 5; 3, 8; y 3, 8." />
+    <WindowFrame prices={PRICES} from={2} to={4} entered={4} out={1} counts={[[3, 1], [6, 1], [8, 1]]} full answer={[[3, 5], [3, 8], [3, 8]]} slots={4} rows={4} label="Entra el 6 de la posición 4 y sale el 3 de la posición 1, atenuado. window: el 3, el 6 y el 8, cada uno con cuenta 1. answer: 3, 5; 3, 8; y 3, 8." />
   </Step>
   <Step lines={[7, 8, 9, 10, 11, 12, 13, 14, 19, 20, 21]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Entra el 2 y sale el último 3: deja window. Fila 2, 8.</div>
-    <WindowFrame prices={PRICES} from={3} to={5} entered={5} left={2} counts={[[2, 1], [6, 1], [8, 1]]} full answer={[[3, 5], [3, 8], [3, 8], [2, 8]]} slots={4} rows={4} label="Entra el 2 de la posición 5 y sale el 3 de la posición 2, atenuado. window: el 2, el 6 y el 8. answer: 3, 5; 3, 8; 3, 8; y 2, 8." />
+    <WindowFrame prices={PRICES} from={3} to={5} entered={5} out={2} counts={[[2, 1], [6, 1], [8, 1]]} full answer={[[3, 5], [3, 8], [3, 8], [2, 8]]} slots={4} rows={4} label="Entra el 2 de la posición 5 y sale el 3 de la posición 2, atenuado. window: el 2, el 6 y el 8. answer: 3, 5; 3, 8; 3, 8; y 2, 8." />
   </Step>
   <Step lines={[24]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Las cuatro filas, una por ventana.</div>
@@ -2646,14 +2667,15 @@ $$N$$ no define ninguna ventana, y la función lo rechaza antes de empezar, lo
 que incluye a un arreglo vacío.
 
 **Tiempo.** Cada precio entra una vez y sale a lo más una vez, y cada fila
-lee la primera y la última clave. El diccionario nunca guarda más de $$k$$
-precios, así que cada una de esas operaciones cuesta $$O(\log k)$$:
+lee la primera y la última clave. El diccionario guarda a lo más $$k + 1$$
+precios —el que entra, por un instante, antes de que salga el más antiguo—,
+así que cada una de esas operaciones cuesta $$O(\log k)$$:
 
 $$
 \underbrace{N \cdot O(\log k)}_{\text{entra}} + \underbrace{N \cdot O(\log k)}_{\text{sale}} + \underbrace{(N - k + 1) \cdot O(\log k)}_{\text{las filas}} = O(N \log k)
 $$
 
-**Memoria.** El diccionario guarda a lo más $$k$$ precios, y la respuesta,
+**Memoria.** El diccionario guarda a lo más $$k + 1$$ precios, y la respuesta,
 $$N - k + 1$$ filas: $$\Theta(N)$$.
 
 </Slide>
@@ -2677,11 +2699,11 @@ class Solution {
             window.put(in, window.getOrDefault(in, 0) + 1);
             if (i >= k) {
                 int out = prices[i - k];
-                int left = window.get(out) - 1;
-                if (left == 0) {
+                int remaining = window.get(out) - 1;
+                if (remaining == 0) {
                     window.remove(out);
                 } else {
-                    window.put(out, left);
+                    window.put(out, remaining);
                 }
             }
             if (i >= k - 1) {
@@ -2702,8 +2724,17 @@ check(Solution.minMax(new int[] {4, 9, 1}, 1),
 check(Solution.minMax(new int[] {4, 9, 1}, 3), new int[][] {{1, 9}});
 check(Solution.minMax(new int[] {7, 7, 7, 7}, 2),
     new int[][] {{7, 7}, {7, 7}, {7, 7}});
+check(Solution.minMax(new int[] {2, 5, 6}, 2), new int[][] {{2, 5}, {5, 6}});
 boolean refused = false;
 try { Solution.minMax(new int[] {}, 1); }
+catch (IllegalArgumentException e) { refused = true; }
+check(refused, true);
+refused = false;
+try { Solution.minMax(new int[] {4, 9}, 0); }
+catch (IllegalArgumentException e) { refused = true; }
+check(refused, true);
+refused = false;
+try { Solution.minMax(new int[] {4, 9}, 3); }
 catch (IllegalArgumentException e) { refused = true; }
 check(refused, true);
 ```
