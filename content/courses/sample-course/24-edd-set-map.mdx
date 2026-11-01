@@ -1460,9 +1460,7 @@ solo necesita saber **si** ya pasó.
 <Slide title="Recordar los RUTs vistos">
 La idea es llevar los RUTs que ya pasaron. Cada RUT que llega hace una sola
 pregunta, si ya pasó: si pasó, es la respuesta; si no, se recuerda y se
-sigue. La pregunta no depende del orden en que pasaron, y lo que se guarda
-no se repite: es un **conjunto**, y como ninguna pregunta depende del orden,
-una tabla hash, un **`HashSet`**, la responde en tiempo constante esperado.
+sigue.
 
 <SeenStrip
   slots={3}
@@ -1475,11 +1473,16 @@ una tabla hash, un **`HashSet`**, la responde en tiempo constante esperado.
   label="Cuatro columnas, una por RUT leído. Lee 18.155.218-2: no estaba, y queda entre los vistos. Lee 13.180.992-1: no estaba, y queda. Lee 13.959.276-K: no estaba, y queda; los vistos son tres. Lee 13.180.992-1 otra vez: ya estaba entre los vistos, y es la respuesta."
 />
 
+Lo que se recuerda no se repite, y la pregunta no depende del orden en que
+pasaron: es un **conjunto**, y sobre una **tabla hash** la responde en tiempo
+constante esperado.
+
 </Slide>
 
 <Slide title="Primera repetición · la solución">
-`add` hace las dos cosas a la vez: agrega el RUT si no estaba, y su respuesta
-dice si estaba. Cuando retorna falso, el RUT ya había pasado.
+En Java, ese conjunto es un `HashSet`. Su `add` hace las dos cosas a la vez:
+agrega el RUT si no estaba, y su respuesta dice si estaba. Cuando retorna
+falso, el RUT ya había pasado.
 
 <StepShow
   language="java"
@@ -1566,6 +1569,295 @@ check(Solution.firstRepeated(new String[] {"18.155.218-2", "13.180.992-1",
 check(Solution.firstRepeated(new String[] {"9.876.543-3", "9.876.543-3"}), "9.876.543-3");
 check(Solution.firstRepeated(new String[] {"9.876.543-3"}), null);
 check(Solution.firstRepeated(new String[] {}), null);
+```
+
+</Exercise>
+</PresentationWide>
+
+</Slide>
+
+{/* GroupPicture — records of a key and a grade grouped by key: the records in a row as they arrive, and under them one box per key, in the order the keys first appear, with that key's grades in the order they came. `upto` draws only the groups of the first records (the rest of the layout stays reserved, so the frames of the walk keep one size), `at` outlines the record being read, `fresh` paints the grade just added `mark`, and `arrows` joins every record to its grade, numbered by arrival — the hand run —, the arrow of a key's first record painted `mark`: the one that creates its list. Each key is written under its box, where no arrow reaches, and the boxes spread under the row so the arrows stay short. `id` prefixes the arrows' markers. */}
+
+export function GroupPicture({ records, upto = records.length, at = -1, fresh = -1, arrows = false, id, caption, label }) {
+  const text = ([k, g]) => `${k} · ${g}`;
+  const chipW = Math.max(96, ...records.map((r) => text(r).length * 7.4 + 20));
+  const chipH = 28;
+  const gap = 8;
+  const pad = 12;
+  const gradeW = 52;
+  const boxPad = 10;
+  const keys = [...new Set(records.map((r) => r[0]))];
+  const slot = records.map((r, j) => records.slice(0, j).filter((s) => s[0] === r[0]).length);
+  const slots = Math.max(...keys.map((k) => records.filter((r) => r[0] === k).length));
+  const boxW = Math.max(slots * gradeW + (slots - 1) * 6 + 2 * boxPad, ...keys.map((k) => k.length * 7.4 + 20));
+  const rowW = records.length * chipW + (records.length - 1) * gap;
+  const boxGap = keys.length > 1 ? Math.max(22, (0.8 * rowW - keys.length * boxW) / (keys.length - 1)) : 0;
+  const groupsW = keys.length * boxW + (keys.length - 1) * boxGap;
+  const width = 2 * pad + Math.max(rowW, groupsW, caption ? caption.length * 6.6 : 0);
+  const left = (width - rowW) / 2;
+  const gleft = (width - groupsW) / 2;
+  const indexY = pad + 10;
+  const rowY = indexY + 8;
+  const boxY = rowY + chipH + (arrows ? 78 : 44);
+  const boxH = chipH + 2 * boxPad;
+  const height = boxY + boxH + 22 + (caption ? 30 : 6);
+  const recordX = (j) => left + j * (chipW + gap) + chipW / 2;
+  const boxX = (k) => gleft + keys.indexOf(k) * (boxW + boxGap);
+  const gradeX = (j) => boxX(records[j][0]) + boxPad + slot[j] * (gradeW + 6);
+  const shown = (k) => records.slice(0, upto).some((r) => r[0] === k);
+  const ink = (j) => (slot[j] === 0 ? 'var(--color-mark)' : 'var(--color-ink-soft)');
+  return (
+    <svg viewBox={`0 0 ${width} ${height}`} style={{ width: '100%', maxWidth: `${Math.round(width * 1.3)}px`, height: 'auto', display: 'block', margin: '0.4rem auto' }} role="img" aria-label={label}>
+      {arrows ? (
+        <defs>
+          <marker id={`${id}-punta`} markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto">
+            <path d="M0,0 L7,3.5 L0,7 z" style={{ fill: 'var(--color-ink-soft)' }} />
+          </marker>
+          <marker id={`${id}-punta-nueva`} markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto">
+            <path d="M0,0 L7,3.5 L0,7 z" style={{ fill: 'var(--color-mark)' }} />
+          </marker>
+        </defs>
+      ) : null}
+      {records.map((r, j) => {
+        const ring = j === at;
+        return (
+          <g key={`r${j}`} opacity={upto < records.length && j < at ? 0.5 : undefined}>
+            <text x={recordX(j)} y={indexY} textAnchor="middle" fontSize="11" fontWeight={ring ? 700 : 400} style={{ fill: ring ? 'var(--color-ink)' : 'var(--color-ink-faint)' }}>{j}</text>
+            <rect x={recordX(j) - chipW / 2} y={rowY} width={chipW} height={chipH} rx="14" style={{ fill: 'var(--color-surface)', stroke: ring ? 'var(--color-focus)' : 'var(--color-rule-strong)' }} strokeWidth={ring ? 2.6 : 1.2} />
+            <text x={recordX(j)} y={rowY + chipH / 2 + 5} textAnchor="middle" fontSize="12.5" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{text(r)}</text>
+          </g>
+        );
+      })}
+      {keys.map((k) =>
+        shown(k) ? (
+          <rect key={`b${k}`} x={boxX(k)} y={boxY} width={boxW} height={boxH} rx="12" style={{ fill: 'var(--color-sunk)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.3" />
+        ) : null,
+      )}
+      {records.map(([, g], j) => {
+        if (j >= upto) return null;
+        const tone = j === fresh ? 'mark' : undefined;
+        return (
+          <g key={`g${j}`}>
+            {arrows ? (
+              <g>
+                <line x1={recordX(j)} y1={rowY + chipH + 2} x2={gradeX(j) + gradeW / 2} y2={boxY + boxPad - 4} style={{ stroke: ink(j) }} strokeWidth={slot[j] === 0 ? 1.8 : 1.3} markerEnd={`url(#${id}-${slot[j] === 0 ? 'punta-nueva' : 'punta'})`} />
+                <circle cx={recordX(j)} cy={rowY + chipH + 16} r="8" strokeWidth="1.6" style={{ fill: 'var(--color-surface)', stroke: ink(j) }} />
+                <text x={recordX(j)} y={rowY + chipH + 19.5} textAnchor="middle" fontSize="10" fontWeight="700" style={{ fill: 'var(--color-ink)' }}>{j + 1}</text>
+              </g>
+            ) : null}
+            <rect x={gradeX(j)} y={boxY + boxPad} width={gradeW} height={chipH} rx="14" style={{ fill: tone ? 'var(--color-mark-soft)' : 'var(--color-surface)', stroke: tone ? 'var(--color-mark)' : 'var(--color-rule-strong)' }} strokeWidth={tone ? 2.2 : 1.2} />
+            <text x={gradeX(j) + gradeW / 2} y={boxY + boxPad + chipH / 2 + 5} textAnchor="middle" fontSize="12.5" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{g}</text>
+          </g>
+        );
+      })}
+      {keys.map((k) =>
+        shown(k) ? (
+          <text key={`t${k}`} x={boxX(k) + boxW / 2} y={boxY + boxH + 16} textAnchor="middle" fontSize="12" fontWeight="700" style={{ fill: 'var(--color-ink-soft)' }}>{k}</text>
+        ) : null,
+      )}
+      {caption ? (
+        <text x={width / 2} y={height - 10} textAnchor="middle" fontSize="12" style={{ fill: 'var(--color-ink-soft)' }}>{caption}</text>
+      ) : null}
+    </svg>
+  );
+}
+
+{/* The grades of a semester as they arrive: the student's RUT and the grade, in the grade's Spanish writing. 13.180.992-1 gets a 6,2 twice, so the running example itself keeps a repeated grade. */}
+
+export const GRADES = [['18.155.218-2', '5,5'], ['13.180.992-1', '6,2'], ['18.155.218-2', '4,0'], ['13.959.276-K', '6,8'], ['13.180.992-1', '6,2']];
+
+<Slide title="Las notas de cada estudiante">
+Un sistema académico recibe las notas del semestre a medida que los
+profesores las ingresan, cada una con el RUT del estudiante y en cualquier
+orden. Para el informe de cada estudiante hace falta **agrupar**: juntar, para
+cada RUT, todas sus notas, en el orden en que llegaron, también las que se
+repiten.
+
+<GroupPicture
+  records={GRADES}
+  caption="cada RUT con sus notas, en el orden en que llegaron"
+  label="Cinco registros, en el orden en que llegan: 18.155.218-2 con 5,5; 13.180.992-1 con 6,2; 18.155.218-2 con 4,0; 13.959.276-K con 6,8; 13.180.992-1 con 6,2. Debajo, los grupos: 18.155.218-2 con 5,5 y 4,0; 13.180.992-1 con 6,2 y 6,2; 13.959.276-K con 6,8."
+/>
+
+El programa recibe los RUTs y las notas en dos arreglos del mismo largo,
+`ruts[i]` y `grades[i]` el RUT y la nota del registro `i`, y responde un
+diccionario que lleva cada RUT a la lista de sus notas:
+
+```java
+static Map<String, List<Double>> byStudent(
+        String[] ruts, double[] grades)
+```
+
+**Entrada.** A lo más $$10^5$$ registros, con los RUTs escritos todos de la
+misma manera. $$N$$ es su cantidad, y $$E$$, la de estudiantes distintos.
+Arreglos de largos distintos son un error: `IllegalArgumentException`.
+
+**Salida.** Cada RUT con sus notas en el orden en que llegaron. Sin
+registros, un diccionario vacío.
+
+</Slide>
+
+<Slide title="Recorrer los registros una vez por estudiante">
+Lo primero que se piensa es armar los grupos de a uno: tomar un estudiante,
+recorrer todos los registros guardando sus notas, y repetir con el siguiente.
+Responde bien, y recorre los $$N$$ registros una vez por cada uno de los
+$$E$$ estudiantes. Un estudiante tiene pocas notas en un semestre: si tiene a
+lo más $$c$$, hay al menos $$N / c$$ estudiantes, y
+
+$$
+\frac{N^2}{c} \;\le\; E \cdot N \;\le\; N^2
+$$
+
+se lee «el trabajo queda entre $$N^2$$ dividido por $$c$$ y $$N^2$$»: es
+$$\Theta(N^2)$$. Con $$10^5$$ registros y unas cinco notas por estudiante, son
+$$2 \cdot 10^4$$ estudiantes y unos $$2 \cdot 10^9$$ pasos.
+
+Cada registro, en cambio, sabe a qué grupo va: el de su RUT. Lo que hace falta
+es llegar a ese grupo sin buscarlo.
+
+</Slide>
+
+<Slide title="Una lista por estudiante">
+La idea es recorrer los registros una sola vez y llevar cada nota a la lista
+de su estudiante, que se crea la primera vez que su RUT aparece.
+
+<GroupPicture
+  id="grupos"
+  records={GRADES}
+  arrows
+  caption="las flechas destacadas crean la lista de su RUT; las otras llegan a una que ya existe"
+  label="Los cinco registros, numerados del 1 al 5 por orden de llegada, cada uno con una flecha a su nota dentro del grupo de su RUT. Las flechas 1, 2 y 4, destacadas, crean los grupos de 18.155.218-2, 13.180.992-1 y 13.959.276-K; la 3 llega al grupo de 18.155.218-2 y la 5 al de 13.180.992-1, que ya existían."
+/>
+
+Para llegar a la lista de un RUT se pregunta por el RUT: es un
+**diccionario** de cada RUT a su lista, y como ninguna pregunta depende del
+orden de los RUTs, sobre una **tabla hash** responde en tiempo constante
+esperado.
+
+</Slide>
+
+<Slide title="Notas por estudiante · la solución">
+En Java, ese diccionario es un `HashMap`. Si el RUT no tiene lista todavía,
+`get` retorna `null`, y la lista se crea y se guarda antes de agregar la nota.
+La lista que guarda el diccionario es el mismo objeto que `group`: agregarle
+una nota no exige otro `put`.
+
+<StepShow
+  language="java"
+  code={`static Map<String, List<Double>> byStudent(
+          String[] ruts, double[] grades) {
+      if (ruts.length != grades.length) {
+          throw new IllegalArgumentException();
+      }
+      Map<String, List<Double>> groups = new HashMap<>();
+      for (int i = 0; i < ruts.length; i++) {
+          List<Double> group = groups.get(ruts[i]);
+          if (group == null) {
+              group = new ArrayList<>();
+              groups.put(ruts[i], group);
+          }
+          group.add(grades[i]);
+      }
+      return groups;
+  }`}
+>
+  <Step lines={[6]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>groups arranca vacío.</div>
+    <GroupPicture records={GRADES} upto={0} label="Los cinco registros, ninguno leído. Ningún grupo todavía." />
+  </Step>
+  <Step lines={[7, 8, 9, 10, 11, 13]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>18.155.218-2 no tiene lista: se crea, y recibe el 5,5.</div>
+    <GroupPicture records={GRADES} upto={1} at={0} fresh={0} label="Se lee el registro 0, 18.155.218-2 con 5,5. Aparece el grupo de 18.155.218-2 con el 5,5, recién agregado." />
+  </Step>
+  <Step lines={[7, 8, 9, 10, 11, 13]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>13.180.992-1 no tiene lista: se crea, y recibe el 6,2.</div>
+    <GroupPicture records={GRADES} upto={2} at={1} fresh={1} label="Se lee el registro 1, 13.180.992-1 con 6,2. Aparece el grupo de 13.180.992-1 con el 6,2." />
+  </Step>
+  <Step lines={[7, 8, 9, 13]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>18.155.218-2 ya tiene lista: get la retorna, y recibe el 4,0.</div>
+    <GroupPicture records={GRADES} upto={3} at={2} fresh={2} label="Se lee el registro 2, 18.155.218-2 con 4,0. El grupo de 18.155.218-2 tiene ahora 5,5 y 4,0, recién agregado." />
+  </Step>
+  <Step lines={[7, 8, 9, 10, 11, 13]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>13.959.276-K no tiene lista: se crea, y recibe el 6,8.</div>
+    <GroupPicture records={GRADES} upto={4} at={3} fresh={3} label="Se lee el registro 3, 13.959.276-K con 6,8. Aparece el grupo de 13.959.276-K con el 6,8." />
+  </Step>
+  <Step lines={[7, 8, 9, 13]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>13.180.992-1 ya tiene lista, y recibe otro 6,2: la lista guarda cada registro.</div>
+    <GroupPicture records={GRADES} upto={5} at={4} fresh={4} label="Se lee el registro 4, 13.180.992-1 con 6,2. El grupo de 13.180.992-1 tiene ahora 6,2 y 6,2, el segundo recién agregado." />
+  </Step>
+  <Step lines={[15]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Los tres grupos, cada uno con sus notas en el orden en que llegaron.</div>
+    <GroupPicture records={GRADES} upto={5} label="Los tres grupos completos: 18.155.218-2 con 5,5 y 4,0; 13.180.992-1 con 6,2 y 6,2; 13.959.276-K con 6,8." />
+  </Step>
+</StepShow>
+
+</Slide>
+
+<Slide title="Un solo estudiante, ningún registro y el costo de agrupar">
+Si todos los registros son del mismo RUT, el diccionario tiene un solo grupo
+con todas las notas, y una nota repetida queda dos veces, porque la lista
+guarda cada registro. Sin registros, el ciclo no corre y el diccionario sale
+vacío. Si los arreglos no tienen el mismo largo, la función lanza la
+excepción antes de leer un registro.
+
+**Tiempo.** Cada registro hace un `get`, que cuesta $$\Theta(1)$$ esperado, y
+a lo más un `put` y un `add` al final de una lista, que cuestan
+$$\Theta(1)$$ amortizado: el `put` porque la tabla a veces crece, y el `add`
+porque el arreglo de la lista también. En total, $$\Theta(N)$$ esperado, sin
+importar cuántos estudiantes haya.
+
+**Memoria.** Las listas guardan las $$N$$ notas, y el diccionario, los $$E$$
+RUTs: $$\Theta(N + E)$$, que es $$\Theta(N)$$ porque no hay más estudiantes
+que registros.
+
+</Slide>
+
+<Slide title="Notas por estudiante · el programa completo">
+<PresentationWide fraction={0.75}>
+<Exercise title="Las notas de cada estudiante">
+
+```java starter
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+class Solution {
+    static Map<String, List<Double>> byStudent(
+            String[] ruts, double[] grades) {
+        if (ruts.length != grades.length) {
+            throw new IllegalArgumentException();
+        }
+        Map<String, List<Double>> groups = new HashMap<>();
+        for (int i = 0; i < ruts.length; i++) {
+            List<Double> group = groups.get(ruts[i]);
+            if (group == null) {
+                group = new ArrayList<>();
+                groups.put(ruts[i], group);
+            }
+            group.add(grades[i]);
+        }
+        return groups;
+    }
+}
+```
+
+```java test
+java.util.Map<String, java.util.List<Double>> g = Solution.byStudent(
+    new String[] {"18.155.218-2", "13.180.992-1", "18.155.218-2",
+        "13.959.276-K", "13.180.992-1"},
+    new double[] {5.5, 6.2, 4.0, 6.8, 6.2});
+check(g.size(), 3);
+check(g.get("18.155.218-2"), Arrays.asList(5.5, 4.0));
+check(g.get("13.180.992-1"), Arrays.asList(6.2, 6.2));
+check(g.get("13.959.276-K"), Arrays.asList(6.8));
+check(Solution.byStudent(new String[] {"9.876.543-3", "9.876.543-3"},
+    new double[] {7.0, 1.0}).get("9.876.543-3"), Arrays.asList(7.0, 1.0));
+check(Solution.byStudent(new String[] {}, new double[] {}).size(), 0);
+boolean refused = false;
+try { Solution.byStudent(new String[] {"9.876.543-3"}, new double[] {}); }
+catch (IllegalArgumentException e) { refused = true; }
+check(refused, true);
 ```
 
 </Exercise>
@@ -1841,272 +2133,6 @@ check(a.between(1500, 1700), Arrays.asList());
 check(new Agenda().between(800, 1800), Arrays.asList());
 boolean refused = false;
 try { a.between(1430, 930); } catch (IllegalArgumentException e) { refused = true; }
-check(refused, true);
-```
-
-</Exercise>
-</PresentationWide>
-
-</Slide>
-
-{/* GroupPicture — records of a course and a grade grouped by course: the records in a row as they arrive, and under them one box per course, in the order the courses first appear, with that course's grades in the order they came. `upto` draws only the groups of the first records (the rest of the layout stays reserved, so the frames of the walk keep one size), `at` outlines the record being read, `fresh` paints the grade just added `mark`, and `arrows` joins every record to its grade, numbered by arrival — the hand run; the course names go on last, over a halo of the ground, so an arrow never crosses one. `id` prefixes the arrow's marker. */}
-
-export function GroupPicture({ records, upto = records.length, at = -1, fresh = -1, arrows = false, id, label }) {
-  const chipW = 96;
-  const chipH = 28;
-  const gap = 8;
-  const pad = 12;
-  const gradeW = 52;
-  const boxPad = 10;
-  const boxGap = 22;
-  const courses = [...new Set(records.map((r) => r[0]))];
-  const slot = records.map((r, j) => records.slice(0, j).filter((s) => s[0] === r[0]).length);
-  const slots = Math.max(...courses.map((c) => records.filter((r) => r[0] === c).length));
-  const boxW = slots * gradeW + (slots - 1) * 6 + 2 * boxPad;
-  const rowW = records.length * chipW + (records.length - 1) * gap;
-  const groupsW = courses.length * boxW + (courses.length - 1) * boxGap;
-  const width = 2 * pad + Math.max(rowW, groupsW);
-  const left = (width - rowW) / 2;
-  const gleft = (width - groupsW) / 2;
-  const indexY = pad + 10;
-  const rowY = indexY + 8;
-  const boxY = rowY + chipH + (arrows ? 78 : 44);
-  const boxH = chipH + 2 * boxPad;
-  const height = boxY + boxH + 12;
-  const recordX = (j) => left + j * (chipW + gap) + chipW / 2;
-  const boxX = (c) => gleft + courses.indexOf(c) * (boxW + boxGap);
-  const gradeX = (j) => boxX(records[j][0]) + boxPad + slot[j] * (gradeW + 6);
-  const shown = (c) => records.slice(0, upto).some((r) => r[0] === c);
-  return (
-    <svg viewBox={`0 0 ${width} ${height}`} style={{ width: '100%', maxWidth: `${Math.round(width * 1.3)}px`, height: 'auto', display: 'block', margin: '0.4rem auto' }} role="img" aria-label={label}>
-      {arrows ? (
-        <defs>
-          <marker id={`${id}-punta`} markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto">
-            <path d="M0,0 L7,3.5 L0,7 z" style={{ fill: 'var(--color-ink-soft)' }} />
-          </marker>
-        </defs>
-      ) : null}
-      {records.map(([c, g], j) => {
-        const ring = j === at;
-        return (
-          <g key={`r${j}`} opacity={upto < records.length && j < at ? 0.5 : undefined}>
-            <text x={recordX(j)} y={indexY} textAnchor="middle" fontSize="11" fontWeight={ring ? 700 : 400} style={{ fill: ring ? 'var(--color-ink)' : 'var(--color-ink-faint)' }}>{j}</text>
-            <rect x={recordX(j) - chipW / 2} y={rowY} width={chipW} height={chipH} rx="14" style={{ fill: 'var(--color-surface)', stroke: ring ? 'var(--color-focus)' : 'var(--color-rule-strong)' }} strokeWidth={ring ? 2.6 : 1.2} />
-            <text x={recordX(j)} y={rowY + chipH / 2 + 5} textAnchor="middle" fontSize="12.5" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{`${c} · ${g}`}</text>
-          </g>
-        );
-      })}
-      {courses.map((c) =>
-        shown(c) ? (
-          <rect key={`b${c}`} x={boxX(c)} y={boxY} width={boxW} height={boxH} rx="12" style={{ fill: 'var(--color-sunk)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.3" />
-        ) : null,
-      )}
-      {records.map(([, g], j) => {
-        if (j >= upto) return null;
-        const tone = j === fresh ? 'mark' : undefined;
-        return (
-          <g key={`g${j}`}>
-            {arrows ? (
-              <g>
-                <line x1={recordX(j)} y1={rowY + chipH + 2} x2={gradeX(j) + gradeW / 2} y2={boxY + boxPad - 4} style={{ stroke: 'var(--color-ink-soft)' }} strokeWidth="1.3" markerEnd={`url(#${id}-punta)`} />
-                <circle cx={recordX(j)} cy={rowY + chipH + 16} r="8" strokeWidth="1.6" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-ink-soft)' }} />
-                <text x={recordX(j)} y={rowY + chipH + 19.5} textAnchor="middle" fontSize="10" fontWeight="700" style={{ fill: 'var(--color-ink)' }}>{j + 1}</text>
-              </g>
-            ) : null}
-            <rect x={gradeX(j)} y={boxY + boxPad} width={gradeW} height={chipH} rx="14" style={{ fill: tone ? 'var(--color-mark-soft)' : 'var(--color-surface)', stroke: tone ? 'var(--color-mark)' : 'var(--color-rule-strong)' }} strokeWidth={tone ? 2.2 : 1.2} />
-            <text x={gradeX(j) + gradeW / 2} y={boxY + boxPad + chipH / 2 + 5} textAnchor="middle" fontSize="12.5" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{g}</text>
-          </g>
-        );
-      })}
-      {courses.map((c) =>
-        shown(c) ? (
-          <text key={`t${c}`} x={boxX(c) + 10} y={boxY - 7} fontSize="12" fontWeight="700" paintOrder="stroke" strokeWidth="4" style={{ fill: 'var(--color-ink-soft)', stroke: 'var(--color-ground)' }}>{c}</text>
-        ) : null,
-      )}
-    </svg>
-  );
-}
-
-{/* The grades of a test as they arrive: course and grade, in the grade's Spanish writing. */}
-
-export const GRADES = [['1A', '5,5'], ['1B', '6,2'], ['1A', '4,0'], ['2A', '6,8'], ['1B', '3,9']];
-
-<Slide title="Las notas de cada curso">
-Un colegio recibe las notas de una prueba a medida que los profesores las
-ingresan, cada una con su curso y en cualquier orden. Para revisarlas, hace
-falta separarlas por curso: **agrupar** quiere decir juntar, para cada curso,
-todas sus notas, en el orden en que llegaron.
-
-<GroupPicture
-  records={GRADES}
-  label="Cinco registros, en el orden en que llegan: 1A con 5,5; 1B con 6,2; 1A con 4,0; 2A con 6,8; 1B con 3,9. Debajo, los grupos: 1A con 5,5 y 4,0; 1B con 6,2 y 3,9; 2A con 6,8."
-/>
-
-El programa recibe los cursos y las notas en dos arreglos del mismo largo,
-`courses[i]` y `grades[i]` el curso y la nota del registro `i`, y responde un
-diccionario que lleva cada curso a la lista de sus notas:
-
-```java
-static Map<String, List<Double>> byCourse(
-        String[] courses, double[] grades)
-```
-
-**Entrada.** A lo más $$10^5$$ registros. $$N$$ es su cantidad, y $$C$$, la de
-cursos distintos. Arreglos de largos distintos son un error:
-`IllegalArgumentException`.
-
-**Salida.** Cada curso con sus notas en el orden en que llegaron. Sin
-registros, un diccionario vacío.
-
-</Slide>
-
-<Slide title="Recorrer los registros una vez por curso">
-Lo primero que se piensa es armar los grupos de a uno: tomar un curso, recorrer
-todos los registros guardando las notas de ese curso, y repetir con el
-siguiente. Responde bien, y recorre los $$N$$ registros una vez por cada uno de
-los $$C$$ cursos:
-
-$$
-C \cdot N \in \Theta(N^2) \quad \text{cuando casi cada registro es de un curso distinto}
-$$
-
-Cada registro, en cambio, sabe a qué grupo va: el de su curso. Lo que hace
-falta es llegar a ese grupo sin buscarlo.
-
-</Slide>
-
-<Slide title="Una lista por curso">
-La idea es recorrer los registros una sola vez, y llevar cada nota a la lista
-de su curso, que se crea la primera vez que el curso aparece. Para llegar a la
-lista de un curso se pregunta por su nombre: es un **diccionario** que lleva
-cada curso a su lista, y como ninguna pregunta depende del orden de los
-cursos, un **`HashMap`** la responde en tiempo constante esperado.
-
-<GroupPicture
-  id="grupos"
-  records={GRADES}
-  arrows
-  label="Los cinco registros, numerados del 1 al 5 por orden de llegada, cada uno con una flecha a su nota dentro del grupo de su curso. El 1 y el 3 bajan al grupo 1A; el 2 y el 5, al 1B; el 4, al 2A."
-/>
-
-</Slide>
-
-<Slide title="Notas por curso · la solución">
-Si el curso no tiene lista todavía, `get` retorna `null`, y la lista se crea y
-se guarda antes de agregar la nota. La lista que guarda el diccionario es el
-mismo objeto que `group`: agregarle una nota no exige otro `put`.
-
-<StepShow
-  language="java"
-  code={`static Map<String, List<Double>> byCourse(
-          String[] courses, double[] grades) {
-      if (courses.length != grades.length) {
-          throw new IllegalArgumentException();
-      }
-      Map<String, List<Double>> groups = new HashMap<>();
-      for (int i = 0; i < courses.length; i++) {
-          List<Double> group = groups.get(courses[i]);
-          if (group == null) {
-              group = new ArrayList<>();
-              groups.put(courses[i], group);
-          }
-          group.add(grades[i]);
-      }
-      return groups;
-  }`}
->
-  <Step lines={[6]}>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>groups arranca vacío.</div>
-    <GroupPicture records={GRADES} upto={0} label="Los cinco registros, ninguno leído. Ningún grupo todavía." />
-  </Step>
-  <Step lines={[7, 8, 9, 10, 11, 13]}>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>1A no tiene lista: se crea, y recibe el 5,5.</div>
-    <GroupPicture records={GRADES} upto={1} at={0} fresh={0} label="Se lee el registro 0, 1A con 5,5. Aparece el grupo 1A con el 5,5, recién agregado." />
-  </Step>
-  <Step lines={[7, 8, 9, 10, 11, 13]}>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>1B no tiene lista: se crea, y recibe el 6,2.</div>
-    <GroupPicture records={GRADES} upto={2} at={1} fresh={1} label="Se lee el registro 1, 1B con 6,2. Aparece el grupo 1B con el 6,2." />
-  </Step>
-  <Step lines={[7, 8, 9, 13]}>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>1A ya tiene lista: get la retorna, y recibe el 4,0.</div>
-    <GroupPicture records={GRADES} upto={3} at={2} fresh={2} label="Se lee el registro 2, 1A con 4,0. El grupo 1A tiene ahora 5,5 y 4,0, recién agregado." />
-  </Step>
-  <Step lines={[7, 8, 9, 10, 11, 13]}>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>2A no tiene lista: se crea, y recibe el 6,8.</div>
-    <GroupPicture records={GRADES} upto={4} at={3} fresh={3} label="Se lee el registro 3, 2A con 6,8. Aparece el grupo 2A con el 6,8." />
-  </Step>
-  <Step lines={[7, 8, 9, 13]}>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>1B ya tiene lista, y recibe el 3,9.</div>
-    <GroupPicture records={GRADES} upto={5} at={4} fresh={4} label="Se lee el registro 4, 1B con 3,9. El grupo 1B tiene ahora 6,2 y 3,9, recién agregado." />
-  </Step>
-  <Step lines={[15]}>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Los tres grupos, cada uno con sus notas en el orden en que llegaron.</div>
-    <GroupPicture records={GRADES} upto={5} label="Los tres grupos completos: 1A con 5,5 y 4,0; 1B con 6,2 y 3,9; 2A con 6,8." />
-  </Step>
-</StepShow>
-
-</Slide>
-
-<Slide title="Un curso solo, ningún registro y el costo de agrupar">
-Si todos los registros son de un mismo curso, el diccionario tiene un solo
-grupo con todas las notas; sin registros, el ciclo no corre y el diccionario
-sale vacío. Si los arreglos no tienen el mismo largo, la función lanza la
-excepción antes de leer un registro.
-
-**Tiempo.** Cada registro hace un `get`, a lo más un `put` y un `add` al final
-de una lista: $$\Theta(1)$$ esperado cada uno, y $$\Theta(N)$$ esperado en
-total, sin importar cuántos cursos haya.
-
-**Memoria.** Las listas guardan las $$N$$ notas, y el diccionario, los $$C$$
-cursos: $$\Theta(N + C)$$, que es $$\Theta(N)$$ porque no hay más cursos que
-registros.
-
-</Slide>
-
-<Slide title="Notas por curso · el programa completo">
-<PresentationWide fraction={0.75}>
-<Exercise title="Las notas de cada curso">
-
-```java starter
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-
-class Solution {
-    static Map<String, List<Double>> byCourse(
-            String[] courses, double[] grades) {
-        if (courses.length != grades.length) {
-            throw new IllegalArgumentException();
-        }
-        Map<String, List<Double>> groups = new HashMap<>();
-        for (int i = 0; i < courses.length; i++) {
-            List<Double> group = groups.get(courses[i]);
-            if (group == null) {
-                group = new ArrayList<>();
-                groups.put(courses[i], group);
-            }
-            group.add(grades[i]);
-        }
-        return groups;
-    }
-}
-```
-
-```java test
-java.util.Map<String, java.util.List<Double>> g = Solution.byCourse(
-    new String[] {"1A", "1B", "1A", "2A", "1B"},
-    new double[] {5.5, 6.2, 4.0, 6.8, 3.9});
-check(g.size(), 3);
-check(g.get("1A"), Arrays.asList(5.5, 4.0));
-check(g.get("1B"), Arrays.asList(6.2, 3.9));
-check(g.get("2A"), Arrays.asList(6.8));
-check(Solution.byCourse(new String[] {"3B", "3B"},
-    new double[] {7.0, 1.0}).get("3B"), Arrays.asList(7.0, 1.0));
-check(Solution.byCourse(new String[] {}, new double[] {}).size(), 0);
-boolean refused = false;
-try { Solution.byCourse(new String[] {"1A"}, new double[] {}); }
-catch (IllegalArgumentException e) { refused = true; }
 check(refused, true);
 ```
 
