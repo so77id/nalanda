@@ -2789,29 +2789,6 @@ Para seguir: la documentación de `java.util`, y Sedgewick y Wayne,
 
 </Slide>
 
-<Slide title="Respuestas aproximadas a cambio de memoria">
-Un Set responde `contains` con certeza porque guarda cada elemento entero, y
-eso cuesta memoria: mil millones de direcciones web ocupan decenas de
-gigabytes. Si en lugar de «sí» se acepta un «**quizás**», el conjunto puede
-guardar unos pocos bits por elemento.
-
-- **Un filtro de Bloom** responde si un elemento está con un «no», que es
-  seguro, o con un «quizás», que se equivoca pocas veces: con unos diez bits
-  por elemento, una de cada cien. Las primeras versiones de Chrome lo usaban
-  para decidir si una dirección podía ser peligrosa antes de consultar al
-  servidor: solo los «quizás» llegaban a él.
-- **HyperLogLog** estima cuántos elementos distintos hay sin guardarlos: unos
-  pocos kilobytes para miles de millones de visitantes distintos, con un error
-  de alrededor del 1 %.
-- **Count-Min Sketch** estima cuántas veces apareció cada elemento, como un
-  diccionario de frecuencias que nunca cuenta de menos.
-
-Las tres renuncian a la respuesta exacta, y a cambio ocupan una memoria que no
-crece con el tamaño de los elementos. Para seguir: Mitzenmacher y Upfal,
-*Probability and Computing*.
-
-</Slide>
-
 ## Lo que sigue
 
 Un conjunto guarda elementos sueltos, y un diccionario, una relación de cada

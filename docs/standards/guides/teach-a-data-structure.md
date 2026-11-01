@@ -159,10 +159,22 @@ time by giving up order altogether. Tablas Hash itself closes on a named
 trade — the order a hash table does not keep, and what a balanced search tree
 charges to keep it — and its `## Lo que sigue` named Set and Map in prose,
 with no wiki-link, because that class did not exist yet (§5); #350, which
-wrote it, added the wiki-link to that same paragraph. Set and Map closes on
-the trade a probabilistic structure makes — a «quizás» instead of a «sí»,
-for a few bits per element — and its book-only `## Lo que sigue` names the
-graphs unit in prose, again with no wiki-link.
+wrote it, added the wiki-link to that same paragraph. Its book-only
+`## Lo que sigue` names the graphs unit in prose, again with no wiki-link.
+
+**Set and Map keeps its trade in the middle, and that is a stated
+deviation.** Its first draft closed on the trade a probabilistic structure
+makes — a «quizás» instead of a «sí», for a few bits per element: Bloom
+filters, HyperLogLog, Count-Min Sketch. The professor cut that slide in the
+review (2026-11-01): the students have no context for it, and none of the
+courses surveyed for #350 shows probabilistic sets next to the ADT (CS106B
+leaves them to a late lecture on esoteric structures, Sedgewick to an
+exercise). The deck now ends on the table of exact variants, _Conjuntos y
+diccionarios para casos especiales_, which names structures and makes no
+trade. The class's trade is the slide _Tabla hash o árbol según el orden_:
+the order a hash table gives up, what each ordered question then costs it,
+and the balanced tree that keeps the order for $$O(\log N)$$ per operation —
+the way #304 kept its trade inside a cost slide when its hinge was cut.
 
 **#277 also cut its own act 4.** An earlier draft closed with a recap act
 ("un contrato para los dos arreglos") that restated the TDA, put the two cost
