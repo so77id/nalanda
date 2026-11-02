@@ -10,21 +10,27 @@ questions: pool
 {/* cien. Lo que el pool tiene que garantizar es densidad por RANGO: un */}
 {/* control se pide sobre un rango de secciones y cada copia saca cuatro, así */}
 {/* que un rango con menos de cuatro preguntas se rechaza (ErrPoolTooSmall). */}
-{/* COBERTURA. 12 preguntas, de una sola correcta, aprobadas por el profesor */}
-{/* (#326, S15) sobre la primera mitad, hasta el método de la división. */}
+{/* COBERTURA. 20 preguntas, de una sola correcta, aprobadas por el profesor: */}
+{/* 12 sobre la primera mitad, hasta el método de la división (#326, S15), y */}
+{/* 8 sobre Encadenamiento y La redimensión (#326, 02-11-2026). */}
 {/* Rangos que SÍ llenan una copia de cuatro: */}
-{/*   · la clase entera: 12. */}
+{/*   · la clase entera: 20. */}
 {/*   · el acto Funciones hash: 4. */}
 {/*   · la apertura junto con Funciones: 5. */}
 {/*   · Funciones junto con Funciones hash: 7. */}
 {/*   · Funciones hash junto con El cálculo de una función hash: 7. */}
+{/*   · el acto Encadenamiento: 4. */}
+{/*   · el acto La redimensión: 4. */}
+{/*   · Encadenamiento junto con La redimensión: 8. */}
+{/*   · cualquier rango que empiece en Encadenamiento o La redimensión y */}
+{/*     siga hasta el final de la clase: 8 o 4. */}
 {/* Rangos que NO, y es deliberado: */}
 {/*   · la apertura sola (2), Funciones sola (3) y El cálculo sola (3). */}
 {/*   · El cálculo desde Primo o potencia de 2: ninguna. El profesor cerró */}
 {/*     el banco de la primera mitad en el método de la división. */}
-{/*   · Encadenamiento y todo lo que sigue: ninguna. El profesor decidió no */}
-{/*     escribirlas por ahora (#326, 29-10-2026), así que un control sobre */}
-{/*     esas secciones se rechaza (ErrPoolTooSmall). */}
+{/*   · Sondeo lineal, El peor caso de una tabla hash y Más allá de las */}
+{/*     tablas hash: ninguna, por decisión del profesor (02-11-2026). Un */}
+{/*     control solo sobre esos actos se rechaza (ErrPoolTooSmall). */}
 
 # Estructuras de Datos Avanzadas · Tablas Hash
 
@@ -3156,6 +3162,94 @@ Si f es inyectiva y f(a₁) = f(a₂), ¿qué se puede concluir?
 - [ ] Los códigos de las letras son menores que M
 - [ ] Horner no usa multiplicaciones
 - [ ] Cambia la posición final, pero reparte igual de bien
+
+</Question>
+
+<Question id="hash-busqueda-una-lista" anchor="buscar-en-una-tabla-con-listas">
+
+¿Por qué una búsqueda en una tabla hash con listas recorre solo la lista de una posición?
+
+- [x] Cada clave está en la lista de la posición que le da su hash
+- [ ] Las claves de cada lista están ordenadas de menor a mayor
+- [ ] El arreglo `table` está ordenado por clave
+- [ ] Cada posición guarda a lo más una clave
+
+</Question>
+
+<Question id="hash-agregar-al-frente" anchor="agregar-en-una-tabla-con-listas">
+
+Al agregar una clave nueva en una tabla con listas, ¿dónde queda su nodo?
+
+- [x] Al frente de la lista de su posición
+- [ ] Al final de la lista de su posición
+- [ ] En la primera posición vacía de la tabla
+- [ ] En la lista más corta de la tabla
+
+</Question>
+
+<Question id="hash-que-es-factor-de-carga" anchor="el-factor-de-carga">
+
+¿Qué es el factor de carga de una tabla hash?
+
+- [x] La cantidad de claves dividida por la cantidad de posiciones
+- [ ] La cantidad de posiciones dividida por la cantidad de claves
+- [ ] El largo de la lista más larga de la tabla
+- [ ] La cantidad de posiciones que no guardan ninguna clave
+
+</Question>
+
+<Question id="hash-por-que-crecer" anchor="las-dos-condiciones-del-costo-constante">
+
+Aunque la función hash reparta las claves de forma pareja, ¿por qué la tabla con listas también tiene que crecer?
+
+- [x] Con las posiciones fijas, cada clave nueva alarga las listas
+- [ ] Porque una tabla llena deja de aceptar claves nuevas
+- [ ] Porque con muchas claves la función deja de repartir parejo
+- [ ] Porque las colisiones solo ocurren en las tablas pequeñas
+
+</Question>
+
+<Question id="hash-cuando-redimensionar" anchor="una-tabla-que-crece">
+
+¿Cuándo se redimensiona una tabla hash con listas?
+
+- [x] Cuando ya tiene tantas claves como posiciones, antes de agregar otra
+- [ ] Cuando alguna de sus listas llega a tener dos claves
+- [ ] Cuando ya no le quedan posiciones vacías
+- [ ] Cada vez que se le agrega una clave
+
+</Question>
+
+<Question id="hash-por-que-cambian-de-posicion" anchor="por-que-las-claves-cambian-de-posicion">
+
+Al redimensionar una tabla hash, ¿por qué las claves no pueden quedar en la misma posición que tenían?
+
+- [x] Su posición depende del tamaño de la tabla, y el tamaño cambió
+- [ ] El arreglo nuevo guarda sus posiciones en otro orden
+- [ ] El arreglo viejo se borra antes de mover las claves
+- [ ] Las listas largas tienen que repartirse entre varias posiciones
+
+</Question>
+
+<Question id="hash-tamano-nuevo-division" anchor="el-tamano-nuevo">
+
+Con el método de la división, ¿qué tamaño tiene la tabla después de redimensionarse?
+
+- [x] El primer primo después del doble del tamaño anterior
+- [ ] Exactamente el doble del tamaño anterior
+- [ ] La siguiente potencia de 2 del tamaño anterior
+- [ ] El tamaño anterior más uno
+
+</Question>
+
+<Question id="hash-por-que-amortizado" anchor="el-costo-amortizado-de-la-insercion">
+
+Redimensionar cuesta tiempo lineal. ¿Por qué entonces agregar cuesta tiempo constante amortizado?
+
+- [x] Cada redimensión al menos duplica la tabla, así que pasa pocas veces
+- [ ] Al redimensionar solo se mueven las claves nuevas
+- [ ] Redimensionar cuesta lo mismo que agregar una clave
+- [ ] Después de redimensionar ya no quedan colisiones
 
 </Question>
 
