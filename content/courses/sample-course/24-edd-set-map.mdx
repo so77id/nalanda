@@ -796,26 +796,91 @@ voted.size();   // 2
 ```
 
 La tabla no compara un elemento con todos los que guarda. Busca en dos pasos,
-como la tabla con listas: le pide su número al método **`hashCode`** y lo
-reduce a una posición, y solo después compara con `equals` los elementos de
-esa lista. El `hashCode` que `Rut` hereda de `Object` da, en la práctica, un
-número distinto para cada objeto, así que `b` se busca en otra posición que
-`a`, y `equals` nunca llega a compararlos.
+como la tabla con listas:
 
-<ChainTable
-  chains={[[], [], [], [], [], ['13.180.992-1'], []]}
-  picked={4}
-  caption="con 7 posiciones, en una ejecución: a quedó en la 5, y b se busca en la 4"
-  label="Una tabla de siete posiciones con un solo RUT, 13.180.992-1, el objeto a, en la lista de la posición 5. La posición 4 está destacada: ahí se busca b, y su lista está vacía."
+1. le pide su número al método **`hashCode`** del elemento, y lo reduce a una
+   posición;
+2. compara con `equals` solo los elementos de la lista de esa posición.
+
+`Rut` escribió `equals`, pero no `hashCode`, y usa el que hereda de `Object`.
+Ese `hashCode` no mira los campos: da un número propio de cada objeto. `a` y
+`b`, iguales para `equals`, reciben números distintos, caen en posiciones
+distintas, y `equals` nunca llega a compararlos.
+
+</Slide>
+
+{/* StepBoxes — COPIES the figure of the same name in 23-edd-tablas-hash.mdx: the steps from a key to its position, each value in a box with its title over it and the step written over the arrow between them. Here each row is one Rut object: its RUT, the number the inherited hashCode gave it in one run, and the position that number takes in a table of 7. Boxes are wider than 23's, for a ten-digit number. File-local (add-a-course-document.md §6e-quater). */}
+
+export function StepBoxes({ boxes, steps, caption, label, id }) {
+  const pad = 14;
+  const boxW = 150;
+  const boxH = 44;
+  const gap = 150;
+  const top = 26;
+  const core = 2 * pad + boxes.length * boxW + (boxes.length - 1) * gap;
+  const width = Math.max(core, caption ? caption.length * 6.6 + 24 : 0);
+  const left = (width - core) / 2 + pad;
+  const height = top + boxH + (caption ? 40 : 12);
+  const bx = (i) => left + i * (boxW + gap);
+  return (
+    <svg viewBox={`0 0 ${width} ${height}`} style={{ width: '100%', maxWidth: `${Math.round(width * 1.3)}px`, height: 'auto', display: 'block', margin: '0.4rem auto' }} role="img" aria-label={label}>
+      <defs>
+        <marker id={`${id}-punta`} markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+          <path d="M0,0 L8,4 L0,8 z" style={{ fill: 'var(--color-ink-soft)' }} />
+        </marker>
+      </defs>
+      {boxes.map((b, i) => (
+        <g key={`b${i}`}>
+          <text x={bx(i) + boxW / 2} y={top - 9} textAnchor="middle" fontSize="12" style={{ fill: 'var(--color-ink-faint)' }}>{b.title}</text>
+          <rect x={bx(i)} y={top} width={boxW} height={boxH} rx="4" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.4" />
+          <text x={bx(i) + boxW / 2} y={top + boxH / 2 + 6} textAnchor="middle" fontSize="16" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{b.text}</text>
+        </g>
+      ))}
+      {steps.map((s, i) => (
+        <g key={`s${i}`}>
+          <line x1={bx(i) + boxW + 6} y1={top + boxH / 2} x2={bx(i + 1) - 8} y2={top + boxH / 2} style={{ stroke: 'var(--color-ink-soft)' }} strokeWidth="1.6" markerEnd={`url(#${id}-punta)`} />
+          <text x={bx(i) + boxW + gap / 2} y={top + boxH / 2 - 8} textAnchor="middle" fontSize="13" fontFamily="var(--font-mono, monospace)" style={{ fill: 'var(--color-ink-soft)' }}>{s}</text>
+        </g>
+      ))}
+      {caption ? (
+        <text x={width / 2} y={height - 8} textAnchor="middle" fontSize="12" style={{ fill: 'var(--color-ink-soft)' }}>{caption}</text>
+      ) : null}
+    </svg>
+  );
+}
+
+<Slide title="El mismo RUT en dos posiciones">
+Para verlo, una tabla de 7 posiciones que reduce cada número con el resto de
+dividirlo por 7. En una ejecución, el `hashCode` heredado le dio a `a` y a `b`
+dos números sin relación con el RUT, que además cambian de una ejecución a
+otra:
+
+<StepBoxes
+  id="paso-a"
+  boxes={[{ title: 'el objeto a', text: '13.180.992-1' }, { title: 'su número', text: '895 328 852' }, { title: 'su posición', text: '5' }]}
+  steps={['hashCode()', 'mod 7']}
+  label="El objeto a, con el RUT 13.180.992-1. Una flecha rotulada hashCode lleva al número 895 328 852; otra rotulada mod 7 lleva a la posición 5."
+/>
+
+<StepBoxes
+  id="paso-b"
+  boxes={[{ title: 'el objeto b', text: '13.180.992-1' }, { title: 'su número', text: '1 304 836 502' }, { title: 'su posición', text: '4' }]}
+  steps={['hashCode()', 'mod 7']}
+  label="El objeto b, con el mismo RUT 13.180.992-1. Una flecha rotulada hashCode lleva al número 1 304 836 502, otro; otra rotulada mod 7 lleva a la posición 4."
 />
 
 $$
 895\,328\,852 \bmod 7 = 5, \qquad 1\,304\,836\,502 \bmod 7 = 4
 $$
 
-`HashSet` además compara los `hashCode` antes de llamar a `equals`, así que
-dos objetos iguales con números distintos no se encuentran ni cuando caen en
-la misma lista.
+Se lee «el resto de dividir el primer número por 7 es 5, y el del segundo, 4».
+
+<ChainTable
+  chains={[[], [], [], [], [], ['13.180.992-1'], []]}
+  picked={4}
+  caption="add(b) busca en la posición 4, vacía: no encuentra a a, y agrega a b"
+  label="Una tabla de siete posiciones con un solo RUT, 13.180.992-1, el objeto a, en la lista de la posición 5. La posición 4 está destacada: ahí busca add(b), y su lista está vacía."
+/>
 
 </Slide>
 
@@ -829,8 +894,18 @@ $$
 
 que se lee «si $$a$$ es igual a $$b$$, sus `hashCode` son iguales». Al revés
 no hace falta: dos objetos distintos pueden tener el mismo `hashCode`, y esa
-colisión la resuelve la lista. Por eso los dos métodos se escriben juntos y
-con los mismos campos:
+colisión la resuelve la lista.
+
+Por eso los dos métodos se escriben juntos y con los mismos campos: si
+`hashCode` calcula su número solo con los campos que compara `equals`, dos
+objetos iguales dan el mismo número.
+
+</Slide>
+
+<Slide title="Un hashCode para Rut">
+El `hashCode` de `Rut` combina los dos campos que compara `equals` con la
+regla de Horner: el número es el primer dígito, y el dígito verificador, el
+segundo.
 
 ```java
 @Override
@@ -839,15 +914,40 @@ public int hashCode() {
 }
 ```
 
-Dos RUT iguales tienen el mismo número y el mismo dígito, y con eso el mismo
-`hashCode`. Es la regla de Horner con base 31 sobre los campos, la misma que
-usa `String.hashCode` sobre sus caracteres.
+`dv` es un `char`, y en una cuenta Java lo usa como el entero de su código:
+de 48 a 57 para los caracteres `'0'` a `'9'`, y 75 para `'K'`. Dos RUT iguales
+tienen el mismo número y el mismo dígito, y con eso el mismo `hashCode`.
+
+</Slide>
+
+<Slide title="Por qué la base 31">
+El número del RUT ya es lo que da Horner en base 10 sobre sus dígitos. Lo que
+falta es agregarle el dígito verificador como un dígito más, y la base 10 no
+alcanza: el código del dígito verificador vale entre 48 y 75, no entre 0 y 9,
+y se mezcla con las cifras del número. Dos RUT distintos pueden dar el mismo
+resultado:
+
+| RUT          | $$10 \cdot$$ número $$+$$ dv | $$31 \cdot$$ número $$+$$ dv |
+| ------------ | --------------------------- | --------------------------- |
+| 13.903.998-K | 139 040 055                 | 431 024 013                 |
+| 13.904.000-7 | 139 040 055                 | 431 024 055                 |
+
+Con una base de 28 o más eso no pasa. Los códigos de dos dígitos
+verificadores difieren a lo más en 27, menos que la base, así que
+
+$$
+31 \cdot n + d = 31 \cdot n' + d' \;\Rightarrow\; n = n' \text{ y } d = d'
+$$
+
+se lee «si dos RUT dan el mismo número con base 31, tienen el mismo número y
+el mismo dígito»: son el mismo RUT. Java usa 31 en `String.hashCode` y en
+`Objects.hash`, y `Rut` usa la misma.
 
 </Slide>
 
 <Slide title="Un RUT encontrado por su hashCode">
-Con los dos métodos, cada `Rut` cae en la posición de su `hashCode`, y una
-copia cae en la misma. `contains` recorre esa sola lista y compara con
+Con los dos métodos, `a` y `b` dan el mismo número y caen en la misma
+posición. `contains` recorre esa sola lista y compara con
 `equals` cada elemento hasta dar con el igual. El registro vuelve a contar
 una vez a cada persona:
 
@@ -861,7 +961,7 @@ voted.size();   // 1
   chains={RUT_TABLE}
   picked={4}
   tones={{ '13.959.276-K': 'visited', '13.180.992-1': 'keep' }}
-  caption="con 7 posiciones, una copia de 13.180.992-1 va a la 4, y en su lista es el segundo"
+  caption="con 7 posiciones, b va a la 4, y equals lo encuentra igual al segundo de su lista, a"
   label="Una tabla de siete posiciones con los seis RUT como objetos Rut, cada uno en la posición de su hashCode. La posición 4 está destacada: guarda 13.959.276-K y después 13.180.992-1. La búsqueda compara con 13.959.276-K, que no es igual, y encuentra 13.180.992-1."
 />
 
@@ -869,7 +969,8 @@ $$
 31 \cdot 13\,180\,992 + 49 = 408\,610\,801, \qquad 408\,610\,801 \bmod 7 = 4
 $$
 
-El 49 es el código del carácter `'1'`.
+Se lee «31 por el número, más 49, el código de `'1'`, da 408 610 801, y el
+resto de dividirlo por 7 es 4».
 
 </Slide>
 
