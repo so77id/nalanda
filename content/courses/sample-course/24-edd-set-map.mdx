@@ -28,6 +28,10 @@ export const VOTED_TREE = { v: '13.959.276-K', l: { v: '13.180.992-1', l: { v: '
 
 export const ABSENT = '20.118.702-8';
 
+{/* codeText — a caption or a title whose Java names go between backticks: each one is drawn bold in the code face, as the prose sets them, so a variable named «a» is not read as the preposition. A figure measures its caption with the backticks removed. */}
+
+export const codeText = (text) => text.split(/(`[^`]+`)/).map((part, i) => (part.startsWith('`') ? <tspan key={i} fontFamily="var(--font-mono, monospace)" fontWeight="700">{part.slice(1, -1)}</tspan> : part));
+
 {/* KeySet — a set drawn as what the contract sees: a rounded region holding its elements as chips, with no positions and no order. `probe` draws a question over it — a chip «¿x?» with an arrow — that lands on the chip that answers it, painted `keep`, or on the edge of the region when nothing answers. `adds` draws the same chip as an element arriving, «+ x», instead of a question. `tones` paints chips `mark`: what the slide points at. `values` writes each key's value after it, «key → value», for a map; the question still names the key alone. File-local (add-a-course-document.md §6e-quater): no catalog entry, one consumer. */}
 
 export function KeySet({ title, keys, probe, adds = false, tones = {}, values, caption, label, id }) {
@@ -103,7 +107,7 @@ export function ChainTable({ chains, tones = {}, values, order = false, picked, 
   const [lo, hi] = shown ?? [0, chains.length - 1];
   const longest = Math.max(1, ...chains.slice(lo, hi + 1).map((c) => c.length));
   const stripW = (hi - lo + 1) * pitch;
-  const width = Math.max(2 * pad + stripW + (shown ? 40 : 0), caption ? caption.length * 6.6 + 24 : 0);
+  const width = Math.max(2 * pad + stripW + (shown ? 40 : 0), caption ? caption.replace(/`/g, '').length * 6.6 + 24 : 0);
   const left = (width - stripW) / 2;
   const nodeY = (k) => cellY + cellH + gap + k * (nodeH + gap);
   const height = nodeY(longest) - gap + 18 + (caption ? 30 : 6);
@@ -177,7 +181,7 @@ export function ChainTable({ chains, tones = {}, values, order = false, picked, 
         );
       })}
       {caption ? (
-        <text x={width / 2} y={height - 8} textAnchor="middle" fontSize="12" style={{ fill: 'var(--color-ink-soft)' }}>{caption}</text>
+        <text x={width / 2} y={height - 8} textAnchor="middle" fontSize="12" style={{ fill: 'var(--color-ink-soft)' }}>{codeText(caption)}</text>
       ) : null}
     </svg>
   );
@@ -831,7 +835,7 @@ export function StepBoxes({ boxes, steps, caption, label, id }) {
       </defs>
       {boxes.map((b, i) => (
         <g key={`b${i}`}>
-          <text x={bx(i) + boxW / 2} y={top - 9} textAnchor="middle" fontSize="12" style={{ fill: 'var(--color-ink-faint)' }}>{b.title}</text>
+          <text x={bx(i) + boxW / 2} y={top - 9} textAnchor="middle" fontSize="12" style={{ fill: 'var(--color-ink-faint)' }}>{codeText(b.title)}</text>
           <rect x={bx(i)} y={top} width={boxW} height={boxH} rx="4" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.4" />
           <text x={bx(i) + boxW / 2} y={top + boxH / 2 + 6} textAnchor="middle" fontSize="16" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{b.text}</text>
         </g>
@@ -857,14 +861,14 @@ otra:
 
 <StepBoxes
   id="paso-a"
-  boxes={[{ title: 'el objeto a', text: '13.180.992-1' }, { title: 'su número', text: '895 328 852' }, { title: 'su posición', text: '5' }]}
+  boxes={[{ title: 'el objeto `a`', text: '13.180.992-1' }, { title: 'su número', text: '895 328 852' }, { title: 'su posición', text: '5' }]}
   steps={['hashCode()', 'mod 7']}
   label="El objeto a, con el RUT 13.180.992-1. Una flecha rotulada hashCode lleva al número 895 328 852; otra rotulada mod 7 lleva a la posición 5."
 />
 
 <StepBoxes
   id="paso-b"
-  boxes={[{ title: 'el objeto b', text: '13.180.992-1' }, { title: 'su número', text: '1 304 836 502' }, { title: 'su posición', text: '4' }]}
+  boxes={[{ title: 'el objeto `b`', text: '13.180.992-1' }, { title: 'su número', text: '1 304 836 502' }, { title: 'su posición', text: '4' }]}
   steps={['hashCode()', 'mod 7']}
   label="El objeto b, con el mismo RUT 13.180.992-1. Una flecha rotulada hashCode lleva al número 1 304 836 502, otro; otra rotulada mod 7 lleva a la posición 4."
 />
@@ -873,13 +877,12 @@ $$
 895\,328\,852 \bmod 7 = 5, \qquad 1\,304\,836\,502 \bmod 7 = 4
 $$
 
-Se lee «el resto de dividir el primer número por 7 es 5, y el del segundo, 4».
-
 <ChainTable
-  chains={[[], [], [], [], [], ['13.180.992-1'], []]}
+  chains={[[], [], [], [], ['13.180.992-1'], ['13.180.992-1'], []]}
   picked={4}
-  caption="add(b) busca en la posición 4, vacía: no encuentra a a, y agrega a b"
-  label="Una tabla de siete posiciones con un solo RUT, 13.180.992-1, el objeto a, en la lista de la posición 5. La posición 4 está destacada: ahí busca add(b), y su lista está vacía."
+  tones={{ '13.180.992-1': 'mark' }}
+  caption="`add(b)` buscó en la 4, que estaba vacía, y dejó `b` ahí: el mismo RUT quedó dos veces, en la 4 y en la 5"
+  label="La tabla de siete posiciones después de agregar los dos objetos. El RUT 13.180.992-1 está dos veces, destacado: el objeto b en la lista de la posición 4, también destacada, y el objeto a en la lista de la posición 5."
 />
 
 </Slide>
@@ -961,7 +964,7 @@ voted.size();   // 1
   chains={RUT_TABLE}
   picked={4}
   tones={{ '13.959.276-K': 'visited', '13.180.992-1': 'keep' }}
-  caption="con 7 posiciones, b va a la 4, y equals lo encuentra igual al segundo de su lista, a"
+  caption="con 7 posiciones, `b` va a la 4, y `equals` lo encuentra igual al segundo de su lista, `a`"
   label="Una tabla de siete posiciones con los seis RUT como objetos Rut, cada uno en la posición de su hashCode. La posición 4 está destacada: guarda 13.959.276-K y después 13.180.992-1. La búsqueda compara con 13.959.276-K, que no es igual, y encuentra 13.180.992-1."
 />
 
