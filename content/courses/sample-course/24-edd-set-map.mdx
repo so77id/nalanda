@@ -111,8 +111,8 @@ export function ChainTable({ chains, tones = {}, values, order = false, picked, 
   const left = (width - stripW) / 2;
   const nodeY = (k) => cellY + cellH + gap + k * (nodeH + gap);
   const height = nodeY(longest) - gap + 18 + (caption ? 30 : 6);
-  const fill = { keep: 'var(--color-keep-soft)', mark: 'var(--color-mark-soft)', visited: 'var(--color-sunk)', faint: 'var(--color-surface)' };
-  const stroke = { keep: 'var(--color-keep)', mark: 'var(--color-mark)', visited: 'var(--color-rule-strong)', faint: 'var(--color-rule)' };
+  const fill = { keep: 'var(--color-keep-soft)', mark: 'var(--color-mark-soft)', flag: 'var(--color-flag-soft)', visited: 'var(--color-sunk)', faint: 'var(--color-surface)' };
+  const stroke = { keep: 'var(--color-keep)', mark: 'var(--color-mark)', flag: 'var(--color-flag)', visited: 'var(--color-rule-strong)', faint: 'var(--color-rule)' };
   const rank = {};
   chains.flat().forEach((key, n) => {
     rank[key] = n + 1;
@@ -977,26 +977,6 @@ resto de dividirlo por 7 es 4».
 
 </Slide>
 
-<Slide title="Objects.hash como atajo">
-Escribir la combinación a mano es fácil con dos campos y propenso a errores
-con muchos. `java.util.Objects.hash` la hace para cualquier cantidad de
-campos:
-
-```java
-@Override
-public int hashCode() {
-    return Objects.hash(number, dv);
-}
-```
-
-Combina los campos con la misma regla —multiplica por 31 y suma el
-siguiente—, así que cumple el contrato si recibe los mismos campos que compara
-`equals`. El número que da no es el mismo que el de la versión escrita a mano,
-y no importa: el contrato pide que dos RUT iguales tengan el mismo
-`hashCode`, no un número en particular.
-
-</Slide>
-
 <Slide title="Una clave que cambia después de entrar">
 La otra falla aparece con objetos que pueden cambiar. Si `Rut` tuviera un
 método para corregir un RUT mal digitado, cambiando sus campos, corregir uno
@@ -1035,6 +1015,133 @@ valor viejo, llega a su lista, pero `equals` dice que ya no es ese RUT.
 **Un objeto que está en un conjunto no cambia los campos que usan `equals` y
 `hashCode`.** Por eso los campos de `Rut` son `final`: un RUT corregido es otro
 objeto, que entra después de sacar el anterior.
+
+</Slide>
+
+<Slide title="Cómo escribir un hashCode">
+La receta de `Rut` sirve para cualquier clase. El contrato solo pide que dos
+objetos iguales den el mismo número; para que además la tabla reparta parejo,
+un `hashCode` cumple los requisitos de toda función hash:
+
+- **Determinista:** usa solo los campos que compara `equals`, y que no cambian
+  mientras el objeto está en una tabla.
+- **Uniforme:** usa todos esos campos, no una parte.
+- **Eficiente:** hace una cuenta por campo.
+
+Cada campo se convierte en un `int` con el `hashCode` de su tipo, y los campos
+se combinan con Horner: el resultado se multiplica por 31 y se le suma el
+número del campo siguiente.
+
+| Campo                       | Su número                                                       |
+| --------------------------- | --------------------------------------------------------------- |
+| `int`                       | el mismo                                                        |
+| `char`                      | su código                                                       |
+| `long`, `double`, `boolean` | `Long.hashCode(x)`, `Double.hashCode(x)`, `Boolean.hashCode(x)` |
+| `String` u otro objeto      | su `hashCode()`, o 0 si es `null`                               |
+| Un arreglo                  | `Arrays.hashCode(a)`                                            |
+
+Cualquier multiplicador impar sirve, y Java usa 31. Uno par, cuando el `int`
+se desborda, va perdiendo los bits de los primeros campos.
+
+</Slide>
+
+<Slide title="Un hashCode constante">
+Un `hashCode` que retorna siempre el mismo número cumple el contrato: dos
+objetos iguales dan el mismo número, porque todos lo dan.
+
+```java
+@Override
+public int hashCode() {
+    return 0;
+}
+```
+
+No es uniforme. Todos los elementos caen en la misma lista, y cada búsqueda
+la recorre entera: la tabla pasa a costar $$\Theta(N)$$ por operación, lo que
+cuesta una lista enlazada.
+
+<ChainTable
+  chains={[['12.547.354-7', '22.715.853-0', '17.814.358-1', '13.959.276-K', '13.180.992-1', '18.155.218-2'], [], [], [], [], [], []]}
+  tones={{ '12.547.354-7': 'flag', '22.715.853-0': 'flag', '17.814.358-1': 'flag', '13.959.276-K': 'flag', '13.180.992-1': 'flag', '18.155.218-2': 'flag' }}
+  caption="con `return 0;`, los seis RUTs en la lista de la posición 0"
+  label="Una tabla de siete posiciones con los seis RUTs del registro, todos en una sola lista, la de la posición 0, destacados como un error. Las otras seis posiciones guardan null."
+/>
+
+</Slide>
+
+<Slide title="Una mesa con tres campos">
+Una mesa de votación se identifica por su comuna, su local y su número: dos
+mesas con el mismo número en locales distintos son mesas distintas.
+`VotingTable` compara los tres campos en `equals`, y los textos, con su propio
+`equals`:
+
+```java
+class VotingTable {
+    private final String commune;
+    private final String place;
+    private final int number;
+
+    // el constructor rechaza textos null
+
+    @Override
+    public boolean equals(Object other) {
+        if (!(other instanceof VotingTable)) return false;
+        VotingTable t = (VotingTable) other;
+        return number == t.number
+            && commune.equals(t.commune)
+            && place.equals(t.place);
+    }
+}
+```
+
+</Slide>
+
+<Slide title="El hashCode de una mesa">
+`hashCode` usa los mismos tres campos, con la receta: parte del número del
+primer campo, y por cada campo siguiente multiplica por 31 y le suma su
+número.
+
+```java
+@Override
+public int hashCode() {
+    int result = commune.hashCode();
+    result = 31 * result + place.hashCode();
+    result = 31 * result + number;
+    return result;
+}
+```
+
+Cada texto aporta su `String.hashCode`, que ya es Horner sobre sus
+caracteres, y el número de la mesa se suma como está. Dos mesas iguales
+tienen los mismos tres campos, y con eso el mismo número.
+
+</Slide>
+
+<Slide title="Las mesas en un conjunto">
+Con los dos métodos, una copia de una mesa se encuentra, y una mesa de otro
+local no:
+
+```java
+Set<VotingTable> closed = new HashSet<>();
+closed.add(new VotingTable("Ñuñoa", "Liceo 7", 3));
+closed.contains(new VotingTable("Ñuñoa", "Liceo 7", 3)); // true
+closed.contains(new VotingTable("Ñuñoa", "Liceo 8", 3)); // false
+```
+
+`java.util.Objects.hash` hace la misma receta en una línea, con los campos
+que recibe:
+
+```java
+@Override
+public int hashCode() {
+    return Objects.hash(commune, place, number);
+}
+```
+
+Cumple el contrato si recibe los mismos campos que compara `equals`. Su número
+no es el de la versión escrita a mano —su receta parte de 1, no del primer
+campo—, y no importa: el contrato no pide un número en particular. Es algo
+más lento, porque arma un arreglo con los campos.
 
 </Slide>
 
