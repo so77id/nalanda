@@ -729,7 +729,7 @@ cuándo dos son iguales.
 <Slide title="Una clase para el RUT">
 Un `Rut` guarda el número y el dígito verificador por separado. Cada mesa lee
 el texto, le quita los puntos y separa el número del dígito, así que las dos
-escrituras dan el mismo `Rut`.
+escrituras dan un `Rut` con los mismos campos.
 
 ```java
 class Rut {
@@ -744,25 +744,23 @@ class Rut {
 }
 ```
 
-Con esta clase, el registro todavía cuenta dos veces:
+Pero son dos objetos, y para Java todavía no son el mismo RUT:
 
 ```java
-Set<Rut> voted = new HashSet<>();
-voted.add(new Rut(13180992, '1'));
-voted.add(new Rut(13180992, '1')); // true: lo agrega otra vez
-voted.size();                      // 2
+Rut a = new Rut(13180992, '1');
+Rut b = new Rut(13180992, '1');
+a.equals(b);   // false
 ```
 
-Para decidir si un elemento ya está, `HashSet` pregunta con `equals`, y el
-`equals` que `Rut` hereda de `Object` responde verdadero solo para el mismo
-objeto. Dos objetos con los mismos campos son, para él, dos elementos.
+`equals` es el método que decide si dos objetos son iguales, y el que `Rut`
+hereda de `Object` hace lo mismo que `==`: responde verdadero solo para el
+mismo objeto.
 
 </Slide>
 
 <Slide title="La igualdad de dos RUT">
-`equals` es el método que decide si dos objetos son iguales. `Rut` lo
-reescribe para comparar los campos: dos RUT son iguales si tienen el mismo
-número y el mismo dígito.
+`Rut` reescribe `equals` para comparar los campos: dos RUT son iguales si
+tienen el mismo número y el mismo dígito.
 
 ```java
 @Override
@@ -778,22 +776,37 @@ cualquier otro: si el otro no es un `Rut`, no es igual. `@Override` le pide
 al compilador que verifique que el método reemplaza al de `Object`; con un
 parámetro de otro tipo, el compilador lo rechaza.
 
+Con este `equals`, las dos lecturas son el mismo RUT:
+
+```java
+a.equals(b);   // true
+```
+
 </Slide>
 
 <Slide title="Un equals sin hashCode">
-Con `equals`, los dos `Rut` son iguales, y el registro sigue contándolos dos
-veces: `contains` de una copia retorna falso. La tabla no compara un elemento
-con todos los que guarda. Le pide su número al método **`hashCode`**, lo
-reduce a una posición y compara con `equals` solo los elementos de esa lista.
-El `hashCode` que `Rut` hereda de `Object` da, en la práctica, un número
-distinto para cada objeto, así que dos RUT iguales caen en posiciones
-distintas, y `equals` nunca llega a compararlos.
+Con `equals`, `a` y `b` son iguales, pero el registro todavía los cuenta dos
+veces:
+
+```java
+Set<Rut> voted = new HashSet<>();
+voted.add(a);
+voted.add(b);   // true: lo agrega otra vez
+voted.size();   // 2
+```
+
+La tabla no compara un elemento con todos los que guarda. Busca en dos pasos,
+como la tabla con listas: le pide su número al método **`hashCode`** y lo
+reduce a una posición, y solo después compara con `equals` los elementos de
+esa lista. El `hashCode` que `Rut` hereda de `Object` da, en la práctica, un
+número distinto para cada objeto, así que `b` se busca en otra posición que
+`a`, y `equals` nunca llega a compararlos.
 
 <ChainTable
   chains={[[], [], [], [], [], ['13.180.992-1'], []]}
   picked={4}
-  caption="con 7 posiciones, en una ejecución: el RUT guardado quedó en la 5, y su copia lo busca en la 4"
-  label="Una tabla de siete posiciones con un solo RUT, 13.180.992-1, en la lista de la posición 5. La posición 4 está destacada: ahí busca la copia, y su lista está vacía."
+  caption="con 7 posiciones, en una ejecución: a quedó en la 5, y b se busca en la 4"
+  label="Una tabla de siete posiciones con un solo RUT, 13.180.992-1, el objeto a, en la lista de la posición 5. La posición 4 está destacada: ahí se busca b, y su lista está vacía."
 />
 
 $$
@@ -836,7 +849,13 @@ usa `String.hashCode` sobre sus caracteres.
 Con los dos métodos, cada `Rut` cae en la posición de su `hashCode`, y una
 copia cae en la misma. `contains` recorre esa sola lista y compara con
 `equals` cada elemento hasta dar con el igual. El registro vuelve a contar
-una vez a cada persona.
+una vez a cada persona:
+
+```java
+voted.add(a);
+voted.add(b);   // false: ya está
+voted.size();   // 1
+```
 
 <ChainTable
   chains={RUT_TABLE}
