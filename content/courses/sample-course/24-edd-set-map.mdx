@@ -450,40 +450,117 @@ derecha—, y sus tres operaciones bajan por un solo camino. Su `insert` y su
 </Slide>
 
 <Slide title="Costos de las dos implementaciones">
-| Operación     | Tabla hash, esperado        | Tabla hash, peor caso | Árbol AVL, peor caso |
-| ------------- | --------------------------- | --------------------- | -------------------- |
-| `contains(x)` | $$\Theta(1)$$               | $$\Theta(N)$$         | $$O(\log N)$$        |
-| `add(x)`      | $$\Theta(1)$$ amortizado    | $$\Theta(N)$$         | $$O(\log N)$$        |
-| `remove(x)`   | $$\Theta(1)$$               | $$\Theta(N)$$         | $$O(\log N)$$        |
-| `size()`      | $$\Theta(1)$$               | $$\Theta(1)$$         | $$\Theta(1)$$        |
-| `iterator()`  | $$\Theta(N + M)$$           | $$\Theta(N + M)$$     | $$\Theta(N)$$        |
+| Operación     | Tabla hash, esperado     | Tabla hash, peor caso | Árbol AVL, esperado | Árbol AVL, peor caso |
+| ------------- | ------------------------ | --------------------- | ------------------- | -------------------- |
+| `contains(x)` | $$\Theta(1)$$            | $$\Theta(N)$$         | $$O(\log N)$$       | $$O(\log N)$$        |
+| `add(x)`      | $$\Theta(1)$$ amortizado | $$\Theta(N)$$         | $$O(\log N)$$       | $$O(\log N)$$        |
+| `remove(x)`   | $$\Theta(1)$$            | $$\Theta(N)$$         | $$O(\log N)$$       | $$O(\log N)$$        |
+| `size()`      | $$\Theta(1)$$            | $$\Theta(1)$$         | $$\Theta(1)$$       | $$\Theta(1)$$        |
+| `iterator()`  | $$\Theta(N + M)$$        | $$\Theta(N + M)$$     | $$\Theta(N)$$       | $$\Theta(N)$$        |
 
-$$M$$ es el tamaño de la tabla. `size()` cuesta $$\Theta(1)$$ en las dos
-porque cada una lleva un contador que sube con `add` y baja con `remove`, y
-un recorrido de la tabla pasa por todas sus posiciones, también por las
-vacías.
+El caso esperado de la tabla supone que la función hash reparte las claves
+parejo; si todas caen en la misma lista, cada operación la recorre entera. El
+árbol no supone nada: la invariante de balance acota su altura llegue lo que
+llegue, y sus dos columnas son iguales.
 
-**Memoria.** Las dos ocupan $$\Theta(N)$$, pagada de otra forma. La tabla
-paga el arreglo de $$M$$ posiciones, que la redimensión mantiene en al menos
-$$N$$, y un nodo por clave con una referencia al siguiente. El árbol no tiene
-arreglo, y paga un nodo por clave con dos referencias, una por hijo, y su
-altura.
+$$M$$ es la cantidad de posiciones del arreglo de la tabla. `size()` cuesta
+$$\Theta(1)$$ en las dos porque cada una lleva un contador que sube con `add`
+y baja con `remove`. Recorrer la tabla cuesta $$\Theta(N + M)$$ porque pasa por
+todas sus posiciones, también por las vacías.
+
+</Slide>
+
+<Slide title="La memoria de las dos implementaciones">
+La tabla guarda el arreglo de $$M$$ posiciones y un nodo por clave, con la
+clave y una referencia al siguiente de su lista. Ocupa $$\Theta(N + M)$$, que
+crece con la mayor de las dos cantidades:
+
+- **Mientras solo entran claves**, cada redimensión duplica $$M$$ cuando $$N$$
+  lo alcanza. $$M$$ crece al ritmo de $$N$$, y la tabla ocupa $$\Theta(N)$$.
+- **Al sacar claves**, la tabla no se achica. Si salen casi todas, sigue
+  pagando el arreglo que tenía, y $$M$$ puede ser mucho mayor que $$N$$.
+
+<ChainTable
+  chains={[[], [], [], [], [], [], ['13.959.276-K']]}
+  caption="después de sacar cinco de los seis RUTs: siete posiciones para uno"
+  label="La tabla de siete posiciones después de sacar cinco de sus seis RUTs. Solo la posición 6 guarda un RUT, 13.959.276-K; las otras seis guardan null."
+/>
+
+El árbol no tiene arreglo. Guarda un nodo por clave, con la clave, una
+referencia a cada hijo y su altura, y ocupa $$\Theta(N)$$ siempre.
 
 </Slide>
 
 <Slide title="Las preguntas que dependen del orden">
-La lista que el registro publica al cerrar va ordenada por RUT, y el contrato
-no promete ningún orden. Esa y otras preguntas dependen del **orden** de los
-elementos:
+Las operaciones del contrato miran un elemento a la vez: si está, agregarlo o
+sacarlo. Otras preguntas dependen del **orden** de los elementos, de cuál va
+antes que cuál. La lista que el registro publica al cerrar, ordenada por RUT,
+es una de ellas. Las más comunes son:
 
-- recorrerlos en orden;
+- recorrer los elementos de menor a mayor;
 - el menor o el mayor;
 - el siguiente o el anterior a uno dado;
 - todos los que caen entre dos valores.
 
-En el árbol, los elementos de un tramo del orden son un tramo seguido de su
-inorden: se llega al primero bajando un camino, y desde ahí el inorden
-entrega los demás, uno detrás del otro.
+Ninguna es parte del contrato Set. Las dos implementaciones pueden
+responderlas, pero a precios muy distintos: una guarda los elementos sin
+relación con su orden, y la otra, ordenados.
+
+</Slide>
+
+<Slide title="El orden en la tabla hash">
+La función hash reparte las claves por el arreglo sin ninguna relación con su
+orden: dos claves vecinas en el orden caen en posiciones que no tienen nada
+que ver. Eso hace barato preguntar si una clave está, y deja a la tabla sin
+atajo para el orden. Nada indica dónde está la menor ni cuál sigue a una
+clave dada, así que cada pregunta mira todas las posiciones:
+
+- **la menor, la mayor o la siguiente a una dada:** recorre la tabla entera
+  quedándose con la que busca, en $$\Theta(N + M)$$;
+- **las que caen entre dos valores:** recorre la tabla entera y separa las
+  del tramo, también en $$\Theta(N + M)$$;
+- **todas en orden:** las copia a una lista y la ordena, en
+  $$\Theta(M + N \log N)$$.
+
+<ChainTable
+  chains={VOTED_TABLE}
+  tones={{ '13.180.992-1': 'keep', '13.959.276-K': 'keep', '17.814.358-1': 'keep' }}
+  caption="los RUTs entre 13 y 18 millones, en la tabla: en las posiciones 0, 3 y 6"
+  label="La tabla de siete posiciones con tres RUTs destacados, los que están entre 13 y 18 millones: 17.814.358-1 en la posición 0, 13.180.992-1 en la 3 y 13.959.276-K en la 6, separados por las demás claves."
+/>
+
+</Slide>
+
+<Slide title="El orden en el árbol AVL">
+En el árbol, el orden está en su forma: la invariante de orden pone a la
+izquierda de cada nodo todo lo menor que él, y a su derecha todo lo mayor.
+Por eso el inorden entrega los valores de menor a mayor, y las preguntas por
+un valor se responden bajando un solo camino, de largo $$O(\log N)$$:
+
+- **todos en orden:** el inorden, en $$\Theta(N)$$;
+- **el menor:** bajar por la izquierda hasta el último nodo; **el mayor**,
+  por la derecha;
+- **el siguiente a $$x$$:** bajar desde la raíz, a la izquierda en cada valor
+  mayor que $$x$$ y a la derecha en los demás, anotando cada mayor; el último
+  anotado es el siguiente. **El anterior**, al revés.
+
+<KeyTree
+  tree={VOTED_TREE}
+  strip
+  tones={{ '13.959.276-K': 'focus', '18.155.218-2': 'focus', '17.814.358-1': 'keep' }}
+  caption="el siguiente a 13.959.276-K: el último mayor del camino, 17.814.358-1, justo después en el inorden"
+  label="El árbol AVL de los seis RUTs. El camino que busca el siguiente a 13.959.276-K está destacado: parte en la raíz, 13.959.276-K, que no es mayor, y baja a la derecha; pasa por 18.155.218-2, mayor, lo anota y baja a la izquierda; llega a 17.814.358-1, mayor, lo anota, y no tiene hijo izquierdo. 17.814.358-1, el último anotado, es la respuesta, y en la fila del inorden va justo después de 13.959.276-K."
+/>
+
+</Slide>
+
+<Slide title="Un tramo del orden en el árbol">
+En la fila del inorden, los valores que caen entre $$a$$ y $$b$$ son casillas
+seguidas. Para entregarlos se baja hasta el primero que no es menor que $$a$$,
+por un camino de largo $$O(\log N)$$, y desde ahí se sigue el inorden, uno
+detrás del otro, hasta pasar $$b$$. Si el tramo tiene $$k$$ valores, cuesta
+$$O(\log N + k)$$: un camino para llegar y un paso por cada valor que
+entrega.
 
 <KeyTree
   tree={VOTED_TREE}
@@ -491,22 +568,6 @@ entrega los demás, uno detrás del otro.
   tones={{ '13.180.992-1': 'keep', '13.959.276-K': 'keep', '17.814.358-1': 'keep' }}
   caption="entre 13 y 18 millones, en el árbol: un tramo seguido del inorden"
   label="El árbol AVL de los seis RUTs, con 13.180.992-1, 13.959.276-K y 17.814.358-1 destacados, los que están entre 13 y 18 millones. En la fila del inorden, los tres son casillas seguidas."
-/>
-
-</Slide>
-
-<Slide title="Un tramo del orden en la tabla hash">
-En la tabla, los elementos de un tramo del orden están repartidos por
-cualquier posición: la función hash manda a dos claves vecinas en el orden a
-posiciones que no tienen relación entre sí. Nada indica dónde está el
-primero ni cuál sigue, y para encontrarlos hay que mirar cada clave de la
-tabla.
-
-<ChainTable
-  chains={VOTED_TABLE}
-  tones={{ '13.180.992-1': 'keep', '13.959.276-K': 'keep', '17.814.358-1': 'keep' }}
-  caption="los RUTs entre 13 y 18 millones, en la tabla: en las posiciones 0, 3 y 6"
-  label="La tabla de siete posiciones con los mismos tres RUTs destacados: 17.814.358-1 en la posición 0, 13.180.992-1 en la 3 y 13.959.276-K en la 6, separados por las demás claves."
 />
 
 </Slide>
@@ -520,15 +581,15 @@ tabla.
 | Los $$k$$ que están entre $$a$$ y $$b$$ | $$\Theta(N + M)$$       | $$O(\log N + k)$$   |
 | Todos, en orden                      | $$\Theta(M + N \log N)$$   | $$\Theta(N)$$       |
 
-En la tabla, cada pregunta sobre el orden mira todas las claves, y la última
-además las ordena. En el árbol, el tramo entre $$a$$ y $$b$$ se encuentra
-bajando un camino, y después se entregan sus $$k$$ elementos en inorden.
+**Si entre las preguntas que se le harán al conjunto están las del orden,
+conviene implementarlo con un árbol; si no hay ninguna, con una tabla hash**,
+que responde las tres operaciones del contrato en $$\Theta(1)$$ esperado,
+contra el $$O(\log N)$$ del árbol.
 
-**Si el problema solo pregunta, agrega y saca, la tabla hash; si pregunta
-por el orden, el árbol.** Una pregunta por el orden que se hace una sola vez,
-al final —la lista de votantes ordenada por RUT, al cerrar—, no cambia la
-elección: se ordena una vez, en $$\Theta(N \log N)$$, y la tabla sigue siendo
-la más barata durante el día.
+Una pregunta por el orden que se hace una sola vez, al final, no cambia la
+elección. El registro ordena su lista una vez, al cerrar, en
+$$\Theta(M + N \log N)$$, y durante el día la tabla sigue siendo la más
+barata.
 
 </Slide>
 
