@@ -253,7 +253,9 @@ its idea gets a slide of its own between the problem and the real-life one.**
 #350's Set has three slides before the card: the problem ends on «Lo que el
 registro guarda es un conjunto», _Un conjunto_ gives the idea with its
 notation (`{a, b, a} = {a, b}`, `|A|`) drawn on the running
-example, and only then the real-life cases. The professor's second review
+example, and only then the real-life cases. The problem slide stands alone
+before the first heading, because the registry opens both TDAs; the
+`## Set · Conjunto` act opens on the idea. The professor's second review
 (2026-11-02) asked for that order: the notation had sat on the rules slide,
 after the card, so the class defined the TDA of an idea it had not yet
 given. The same review cut the two slides that stood between the real-life
