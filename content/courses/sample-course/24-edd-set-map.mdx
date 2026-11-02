@@ -572,7 +572,7 @@ entrega.
 
 </Slide>
 
-<Slide title="Tabla hash o árbol según el orden">
+<Slide title="Los costos de las preguntas por el orden">
 | Pregunta                             | Tabla hash                 | Árbol AVL           |
 | ------------------------------------ | -------------------------- | ------------------- |
 | ¿Está $$x$$?                         | $$\Theta(1)$$ esperado     | $$O(\log N)$$       |
@@ -581,15 +581,36 @@ entrega.
 | Los $$k$$ que están entre $$a$$ y $$b$$ | $$\Theta(N + M)$$       | $$O(\log N + k)$$   |
 | Todos, en orden                      | $$\Theta(M + N \log N)$$   | $$\Theta(N)$$       |
 
-**Si entre las preguntas que se le harán al conjunto están las del orden,
-conviene implementarlo con un árbol; si no hay ninguna, con una tabla hash**,
-que responde las tres operaciones del contrato en $$\Theta(1)$$ esperado,
-contra el $$O(\log N)$$ del árbol.
+La tabla responde cada pregunta por el orden mirando todas sus posiciones, y
+para entregarlos todos en orden, además los ordena. El árbol las responde
+bajando un camino, o con el inorden. En la única pregunta que no depende del
+orden, si un elemento está, gana la tabla: $$\Theta(1)$$ esperado contra
+$$O(\log N)$$.
 
-Una pregunta por el orden que se hace una sola vez, al final, no cambia la
-elección. El registro ordena su lista una vez, al cerrar, en
-$$\Theta(M + N \log N)$$, y durante el día la tabla sigue siendo la más
-barata.
+</Slide>
+
+<Slide title="Tabla hash o árbol según el orden">
+La elección depende de qué preguntas se le harán al conjunto, y de cuántas
+veces:
+
+- **Si entre ellas están las del orden, y se hacen una y otra vez**, conviene
+  un árbol: las responde bajando un camino, y la tabla miraría todas sus
+  posiciones en cada una.
+- **Si no hay ninguna**, conviene una tabla hash: responde las tres
+  operaciones del contrato en $$\Theta(1)$$ esperado, contra el
+  $$O(\log N)$$ del árbol.
+- **Si hay una sola, al final**, también conviene la tabla: se ordena una
+  vez, cuando hace falta.
+
+El registro es este último caso. Durante el día, cada voto pregunta si el RUT
+está y lo agrega, mientras la persona espera en la mesa: cada voto cuesta
+$$\Theta(1)$$ esperado con la tabla y $$O(\log N)$$ con el árbol. La lista
+ordenada se pide una sola vez, al cerrar, cuando ya nadie espera: la tabla
+copia sus RUTs a una lista y la ordena, en $$\Theta(M + N \log N)$$.
+
+En el total del día, los dos gastan $$\Theta(N \log N)$$, la tabla en el caso
+esperado. Lo que cambia es cuándo se paga el orden: la tabla lo paga una vez,
+al final, y el árbol lo cobra en cada voto.
 
 </Slide>
 
