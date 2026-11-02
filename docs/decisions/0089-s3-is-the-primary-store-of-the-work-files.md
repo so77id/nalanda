@@ -345,13 +345,43 @@ dropped: it also fills `layout_char`.
 >   on this bucket — it stays, for a policy that would answer 403.
 > - ~~S3-CHECK §2: the ETag equalled the MD5 for the small and the 12 MB
 >   object.~~ **Yes, both** (same run): SSE-S3 single-part ETags are the MD5.
-> - The migration: `-sync-files`' line (projects, files, bytes), and the
->   bucket's object count beside a fresh census minus the denylist (AC-15).
-> - The uplink: one timed ~10 MB PutObject from the Jetson (#338 review,
->   PER-5).
+> - ~~The migration: `-sync-files`' line (projects, files, bytes), and the
+>   bucket's object count beside a fresh census minus the denylist
+>   (AC-15).~~ **2026-10-25, the Jetson at `58f1f89`**: 14 projects (13
+>   controls, one survey run); pass 1 `598 files (208,122,473 bytes)`,
+>   stopped by hand after 10 min 13 s on a stalled connection (DEPLOY-JETSON
+>   §"Moving the files to S3", step 6); pass 2 `952 files (318,746,689
+>   bytes), 0 failed, took 25m54s`; pass 3 `0 files uploaded`, exit 0 — 1550
+>   files, 527 MB. The census by `skipped`'s rules: 1561 keys (1550 files +
+>   11 link maps); the bucket: 1561 objects, none missing, none extra,
+>   **1550/1550 ETags equal to the local MD5**, and the 11 `links.json`
+>   equal to the volume's `scans/` symlinks. AMC's 18 stray catalogs before
+>   it: 14 moved into `out/`, 4 of purged controls deleted (AC-20).
+> - ~~The uplink: one timed ~10 MB PutObject from the Jetson (#338 review,
+>   PER-5).~~ **10 MB in 9 s** (same day, the backup sidecar's aws CLI with
+>   the server's key). Not a constant: the speed is the connection's —
+>   1 MB on three fresh connections took 5 s, 59 s and 5 s, and the
+>   migration's first connection crawled at ~18 KB/s under ~15 %
+>   retransmission at a 137 ms RTT, while the same box uploads 1 MB to
+>   Cloudflare in 0.15 s. A GET of an 8.3 MB batch took 6 s, a 287 KB page
+>   image 3 s, a 155 KB corrected PDF 4 s — the CLI's start-up is most of
+>   the small ones. So a push after a call can take minutes when its
+>   connection is a bad one, inside the worker lock; what does not get up
+>   stays on the volume for the next call's hydrate (its upload half) or the
+>   03:00 reconcile.
 > - One analyse JOB with N copies, end to end, under `local` and under `s3`,
 >   with the sum of its `files: synced` lines (`hydrate=`, `call=`, `push=`,
 >   `bytes=`, `deferred=`), and one review save end to end, its wait for the
 >   lock included (AC-15). These decide the deferred items PER-4 (bounded
 >   ranged reads) and PER-6 (a small upload pool).
 > - The drill (AC-16) and the rollback rehearsal (AC-18): pass / fail, date.
+>   **Rollback rehearsal: PASS, 2026-10-25** — `s3` → `local` (boot
+>   `store=local`, health 200, no S3 call) → `s3` (boot reconcile
+>   `projects=14 files=0 bytes=0 failed=0`), the bucket's 1561 objects
+>   unchanged. Nothing was written in between, so the reconcile's upload of
+>   what a rollback wrote was not exercised here —
+>   `TestTheReconcileUploadsWhatTheBucketLacksOrHoldsOlder` pins it.
+>   **The drill's boot on the empty volume** (same day): `files: reconciled
+>   projects=14 files=0 bytes=0 failed=0 took=28ms`, and the bucket's 1561
+>   keys and ETags identical before and after — an empty volume uploads
+>   nothing and deletes nothing.
