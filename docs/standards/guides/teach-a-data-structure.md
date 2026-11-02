@@ -232,7 +232,8 @@ interface will trip on "un mapa es una colección". Same family as the
 `interface` overload that #277 had to untangle in its own Act 1. #350 pays
 it on the slide _Las reglas del contrato Map_.
 
-**Two slides come before the card, in every class that defines a TDA**
+**The problem and the real-life cases come before the card, in every class
+that defines a TDA**
 (#294 Stack and Queue, #304 Priority Queue, #350 Set and Map). First the
 problem or the idea, drawn: what the collection does that a known one does
 not (_Una pila_, _Una cola de prioridad_, _Un registro de votantes_). Then
@@ -243,10 +244,25 @@ something the problem or a case asks for. #350's first draft had its problem
 slide ask for «preguntar, agregar, contar», then compared two classes on
 `remove` and put a walk in the card that nothing had asked for, and it had
 no real-life slide at all; the professor's review (2026-11-01) restored both.
-Where the TDA is named may move: #294 and #304 name it at the end of the
-real-life slide, #350 one slide later, once the two classes of the unit that
-already implement Set, with different method names, have made the case for
-a contract.
+The TDA is named at the end of the real-life slide, «… un tipo de dato
+abstracto (TDA) llamado…», in #294, #304 and #350's Set; #350's Map still
+names it on the card.
+
+**When the collection is a mathematical object the students already know,
+its idea gets a slide of its own between the problem and the real-life one.**
+#350's Set has three slides before the card: the problem ends on «Lo que el
+registro guarda es un conjunto», _Un conjunto_ gives the idea with its
+notation (`{a, b, a} = {a, b}`, `|A|`) drawn on the running
+example, and only then the real-life cases. The professor's second review
+(2026-11-02) asked for that order: the notation had sat on the rules slide,
+after the card, so the class defined the TDA of an idea it had not yet
+given. The same review cut the two slides that stood between the real-life
+slide and the card, where the unit's two classes, with different method
+names, made the case for a contract: #277 already taught what a TDA is, and
+both slides repeated the implementation slides that follow. The Java
+interface moved with them, to open the Java act (_Set en Java_ before
+_La clase HashSet_), as _Stack en Java_ closes #294's theory rather than
+interrupting it.
 
 A TDA is introduced as a **contract**, on one slide, in a card the unit reuses
 for every TDA it defines. The card is language-independent on purpose — Java's
