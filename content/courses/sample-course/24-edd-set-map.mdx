@@ -923,7 +923,7 @@ tienen el mismo número y el mismo dígito, y con eso el mismo `hashCode`.
 
 </Slide>
 
-<Slide title="Por qué la base 31">
+<Slide title="La base 10 no alcanza">
 El número del RUT ya es lo que da Horner en base 10 sobre sus dígitos. Lo que
 falta es agregarle el dígito verificador como un dígito más, y la base 10 no
 alcanza: el código del dígito verificador vale entre 48 y 75, no entre 0 y 9,
@@ -935,15 +935,31 @@ resultado:
 | 13.903.998-K | 139 040 055                 | 431 024 013                 |
 | 13.904.000-7 | 139 040 055                 | 431 024 055                 |
 
-Con una base de 28 o más eso no pasa. Los códigos de dos dígitos
-verificadores difieren a lo más en 27, menos que la base, así que
+Con base 31, los mismos dos RUT dan números distintos.
+
+</Slide>
+
+<Slide title="Por qué la base 31">
+Dos RUT, uno con número $$n$$ y código de dígito verificador $$d$$, y otro con
+$$n'$$ y $$d'$$, dan el mismo resultado con una base $$b$$ cuando
 
 $$
-31 \cdot n + d = 31 \cdot n' + d' \;\Rightarrow\; n = n' \text{ y } d = d'
+b \cdot n + d = b \cdot n' + d' \quad\Longleftrightarrow\quad b \cdot (n - n') = d' - d
 $$
 
-se lee «si dos RUT dan el mismo número con base 31, tienen el mismo número y
-el mismo dígito»: son el mismo RUT. Java usa 31 en `String.hashCode` y en
+Se lee «la base por la diferencia de los números es igual a la diferencia de
+los códigos». A la izquierda hay un múltiplo de $$b$$. A la derecha, la
+diferencia de dos códigos, que está entre $$-27$$ y $$27$$, porque los códigos
+van de 48 a 75.
+
+- **Con base 10** hay múltiplos de 10 en ese rango. Los dos RUT de la tabla
+  tienen $$n - n' = -2$$ y $$d' - d = 55 - 75 = -20$$: los dos lados valen
+  $$-20$$.
+- **Con base 31**, el único múltiplo de 31 entre $$-27$$ y $$27$$ es el 0.
+  Entonces $$n = n'$$, y con eso $$d = d'$$: dos RUT que dan el mismo número
+  son el mismo RUT.
+
+Sirve cualquier base de 28 o más. Java usa 31 en `String.hashCode` y en
 `Objects.hash`, y `Rut` usa la misma.
 
 </Slide>
@@ -971,9 +987,6 @@ voted.size();   // 1
 $$
 31 \cdot 13\,180\,992 + 49 = 408\,610\,801, \qquad 408\,610\,801 \bmod 7 = 4
 $$
-
-Se lee «31 por el número, más 49, el código de `'1'`, da 408 610 801, y el
-resto de dividirlo por 7 es 4».
 
 </Slide>
 
