@@ -19,16 +19,16 @@
  * key being searched for sits there, and so does the node `add` builds before
  * it enters its list — so the key and the node it becomes occupy one place.
  *
- * COPIED: the file-local `Chains` of `23-edd-tablas-hash.mdx` draws its still
- * tables with this look at a smaller pitch (a contiguous strip, nodes with the
- * key over a `next` field, lists hanging down), and its `cut` draws the link
- * that skips a node as `Bypass` in `sequenceStepperHashView.tsx` does, so a
- * figure and the widget beside it read alike. The file-local `ChainTable` of
- * `24-edd-set-map.mdx` copies the same look with nodes wide enough for a RUT,
- * and a band for a map's value. Those copies are the ones that fail late —
- * nothing tests a document's own components — so a change here is carried
- * to both by hand and checked in a browser.
+ * The still `<ChainTable>` (`media/ChainTable.tsx`) draws tables with this
+ * look — a contiguous strip, nodes with the key over a `next` field, lists
+ * hanging down, and a link that skips a node drawn as `Bypass` in
+ * `sequenceStepperHashView.tsx` draws it — at its own pitch, and takes the
+ * cell and node heights from `../hashGeometry.ts`, the module both import, so
+ * a figure and the widget beside it read alike. Until #353 the figure was a
+ * copy local to each of two documents, kept level by hand.
  */
+
+import { HASH_CELL_H, HASH_NODE_KEY_H, HASH_NODE_LINK_H } from '../hashGeometry';
 
 /**
  * Horizontal room per position. A cell of `table` takes the whole pitch, so
@@ -37,11 +37,11 @@
  * review of S1).
  */
 const PITCH = 96;
-const CELL_H = 30;
+export const CELL_H = HASH_CELL_H;
 /** A node of a list: the key on top, its `next` field below. */
 export const NODE_W = 60;
-export const NODE_KEY_H = 22;
-export const NODE_LINK_H = 12;
+export const NODE_KEY_H = HASH_NODE_KEY_H;
+export const NODE_LINK_H = HASH_NODE_LINK_H;
 const NODE_H = NODE_KEY_H + NODE_LINK_H;
 /** Vertical room between a cell and its first node, and between two nodes. */
 const GAP = 20;

@@ -3,6 +3,7 @@ import {
   NodeGraph,
   OrderRule,
   StepBoxes,
+  ChainTable,
   Explanation,
   Figure,
   LazyBenchmark,
@@ -88,6 +89,9 @@ export const mdxComponents = {
   // Not lazy, for BinaryPicture's reasons: a figure promoted from Tablas Hash
   // when Set y Map wanted it (#353), a pure SVG with no package of its own.
   StepBoxes,
+  // Not lazy, for the same reasons: the chain table both hash classes drew
+  // with a copy of their own until #353.
+  ChainTable,
   // Not lazy: it is one iframe. Measured on the shipped build, registering it
   // eagerly costs the entry chunk 1,463 bytes of component code, and it pulls in
   // no package the first paint did not already need. (That figure used to be

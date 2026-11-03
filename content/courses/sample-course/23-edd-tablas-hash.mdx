@@ -1848,101 +1848,6 @@ colisionan. Ninguna función lo evita, y pasa pronto, con la tabla casi vacía.
 
 ## Encadenamiento
 
-{/* Chains — a hash table with chaining drawn still: `table` as a contiguous strip with its index, each position's list hanging under its cell, `null` where a list ends. COPIES the look of the hash-chaining recipe of <SequenceStepper> (sequenceStepperHashLayout.ts: contiguous cells, nodes with the key over a `next` field, lists hanging down) at a smaller pitch, so a still figure and the widget beside it read alike; nothing tests the copy, so a change there is carried here by hand and checked in a browser. `picked` outlines a position, `only` fades the others, `paint` colours a key's node, and `cut` names the key leaving its list: its node dashed and struck through, and the link that skips it — out of the field that pointed at it, to the right, down past it, into the node after it or to `null` — drawn as the widget's unlink frame draws it (sequenceStepperHashView.tsx, `Bypass`). `window={[from, to]}` draws only those positions, with «…» where the table goes on, so two drawings side by side keep a size a projector can read. File-local (§6e-quater). 24-edd-set-map.mdx copies the look as `ChainTable`, with nodes wide enough for a RUT and a band for a map's value; a change here is carried there by hand. */}
-
-export function Chains({ chains, picked, only = false, paint = {}, cut, window: shown, caption, label }) {
-  const pad = 12;
-  const pitch = 78;
-  const cellH = 30;
-  const nodeW = 56;
-  const keyH = 22;
-  const nodeH = 34;
-  const gap = 18;
-  const indexY = 18;
-  const cellY = 26;
-  const [lo, hi] = shown ?? [0, chains.length - 1];
-  const longest = Math.max(1, ...chains.slice(lo, hi + 1).map((c) => c.length));
-  const stripW = (hi - lo + 1) * pitch;
-  const width = Math.max(2 * pad + stripW + (shown ? 40 : 0), caption ? caption.length * 6.6 + 24 : 0);
-  const left = (width - stripW) / 2;
-  const nodeY = (k) => cellY + cellH + gap + k * (nodeH + gap);
-  const height = nodeY(longest) - gap + 18 + (caption ? 30 : 6);
-  const fill = { mark: 'var(--color-mark-soft)', found: 'var(--color-keep-soft)', visited: 'var(--color-sunk)', focus: 'var(--color-surface)' };
-  const stroke = { mark: 'var(--color-mark)', found: 'var(--color-keep)', visited: 'var(--color-rule-strong)', focus: 'var(--color-focus)' };
-  return (
-    <svg viewBox={`0 0 ${width} ${height}`} style={{ width: '100%', maxWidth: `${Math.round(width * 1.3)}px`, height: 'auto', display: 'block', margin: '0.4rem auto' }} role="img" aria-label={label}>
-      {lo > 0 ? (
-        <text x={left - 12} y={cellY + cellH / 2 + 4} textAnchor="middle" fontSize="13" style={{ fill: 'var(--color-ink-faint)' }}>…</text>
-      ) : null}
-      {hi < chains.length - 1 ? (
-        <text x={left + stripW + 12} y={cellY + cellH / 2 + 4} textAnchor="middle" fontSize="13" style={{ fill: 'var(--color-ink-faint)' }}>…</text>
-      ) : null}
-      {chains.map((chain, i) => {
-        if (i < lo || i > hi) return null;
-        const cx = left + (i - lo) * pitch + pitch / 2;
-        const isPicked = picked === i;
-        const faded = only && picked !== undefined && !isPicked;
-        return (
-          <g key={i} opacity={faded ? 0.4 : undefined}>
-            <text x={cx} y={indexY} textAnchor="middle" fontSize="11" fontWeight={isPicked ? 700 : 400} style={{ fill: isPicked ? 'var(--color-ink)' : 'var(--color-ink-faint)' }}>{i}</text>
-            <rect x={left + (i - lo) * pitch} y={cellY} width={pitch} height={cellH} style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.2" />
-            {chain.length === 0 ? (
-              <text x={cx} y={cellY + cellH / 2 + 4} textAnchor="middle" fontSize="11" style={{ fill: 'var(--color-ink-faint)' }}>null</text>
-            ) : (
-              <g>
-                <circle cx={cx} cy={cellY + cellH / 2} r="3" style={{ fill: 'var(--color-ink-soft)' }} />
-                <line x1={cx} y1={cellY + cellH / 2} x2={cx} y2={nodeY(0) - 2} style={{ stroke: 'var(--color-ink-soft)' }} strokeWidth="1.4" />
-                <path d={`M ${cx - 4} ${nodeY(0) - 7} L ${cx} ${nodeY(0) - 1} L ${cx + 4} ${nodeY(0) - 7} z`} style={{ fill: 'var(--color-ink-soft)' }} />
-              </g>
-            )}
-            {chain.map((key, k) => {
-              const y = nodeY(k);
-              const p = paint[key];
-              const leaving = key === cut;
-              return (
-                <g key={key}>
-                  <rect x={cx - nodeW / 2} y={y} width={nodeW} height={nodeH} rx="3" style={{ fill: leaving ? 'var(--color-sunk)' : p ? fill[p] : 'var(--color-surface)', stroke: leaving ? 'var(--color-rule)' : p ? stroke[p] : 'var(--color-rule)' }} strokeWidth={leaving || (p && p !== 'visited') ? 2.4 : 1.2} strokeDasharray={leaving ? '4 3' : undefined} />
-                  <line x1={cx - nodeW / 2} y1={y + keyH} x2={cx + nodeW / 2} y2={y + keyH} style={{ stroke: p ? stroke[p] : 'var(--color-rule)' }} strokeWidth="1" />
-                  <text x={cx} y={y + keyH / 2 + 5} textAnchor="middle" fontSize="13" fontWeight="600" textDecoration={leaving ? 'line-through' : undefined} style={{ fill: 'var(--color-ink)' }}>{key}</text>
-                  {k < chain.length - 1 ? (
-                    <g>
-                      <circle cx={cx} cy={y + keyH + (nodeH - keyH) / 2} r="2.5" style={{ fill: 'var(--color-ink-soft)' }} />
-                      <line x1={cx} y1={y + keyH + (nodeH - keyH) / 2} x2={cx} y2={nodeY(k + 1) - 2} style={{ stroke: 'var(--color-ink-soft)' }} strokeWidth="1.4" />
-                      <path d={`M ${cx - 4} ${nodeY(k + 1) - 7} L ${cx} ${nodeY(k + 1) - 1} L ${cx + 4} ${nodeY(k + 1) - 7} z`} style={{ fill: 'var(--color-ink-soft)' }} />
-                    </g>
-                  ) : (
-                    <text x={cx} y={y + nodeH + 13} textAnchor="middle" fontSize="10" style={{ fill: 'var(--color-ink-faint)' }}>null</text>
-                  )}
-                </g>
-              );
-            })}
-            {chain.includes(cut) ? (() => {
-              const k = chain.indexOf(cut);
-              const fromY = k === 0 ? cellY + cellH / 2 : nodeY(k - 1) + keyH + (nodeH - keyH) / 2;
-              const last = k === chain.length - 1;
-              const endY = last ? nodeY(k) + nodeH + 9 : nodeY(k + 1) + 8;
-              const endX = last ? cx + 14 : cx + nodeW / 2 + 1;
-              const x = cx + nodeW / 2 + 12;
-              return (
-                <g>
-                  <path d={`M ${cx} ${fromY} H ${x} V ${endY} H ${endX + 6}`} fill="none" style={{ stroke: 'var(--color-focus)' }} strokeWidth="1.8" />
-                  <path d={`M ${endX + 7} ${endY - 4} L ${endX} ${endY} L ${endX + 7} ${endY + 4} z`} style={{ fill: 'var(--color-focus)' }} />
-                </g>
-              );
-            })() : null}
-            {isPicked ? (
-              <rect x={left + (i - lo) * pitch} y={cellY} width={pitch} height={cellH} fill="none" style={{ stroke: 'var(--color-focus)' }} strokeWidth="2.4" />
-            ) : null}
-          </g>
-        );
-      })}
-      {caption ? (
-        <text x={width / 2} y={height - 8} textAnchor="middle" fontSize="12" style={{ fill: 'var(--color-ink-soft)' }}>{caption}</text>
-      ) : null}
-    </svg>
-  );
-}
-
 export const CHAIN_TABLE = [['Eva'], ['Juan'], ['Leo', 'Ana'], ['Bea'], ['Sara'], [], []];
 
 <Slide title="Una lista en cada posición">
@@ -1955,7 +1860,7 @@ posición `i`, o `null` si ninguna clave cae ahí.
 
 A esta forma de resolver las colisiones se le llama **encadenamiento**.
 
-<Chains
+<ChainTable
   chains={CHAIN_TABLE}
   caption="siete posiciones; una de ellas guarda dos claves"
   label="Una tabla de siete posiciones con encadenamiento. De la posición 0 cuelga Eva; de la 1, Juan; de la 2, Leo y después Ana; de la 3, Bea; de la 4, Sara. Las posiciones 5 y 6 guardan null."
@@ -2027,21 +1932,21 @@ búsqueda termina al encontrarla o al llegar a `null`: como cada clave está en
 la lista de su posición, no puede estar en ninguna otra.
 
 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '1rem 2rem', alignItems: 'end' }}>
-<Chains
+<ChainTable
   chains={CHAIN_TABLE}
   picked={2}
   only
   window={[1, 3]}
-  paint={{ Leo: 'visited', Ana: 'found' }}
+  tones={{ Leo: 'visited', Ana: 'keep' }}
   caption="buscar «Ana»: la encuentra en su lista"
   label="La tabla de siete posiciones con la posición 2 destacada y las demás atenuadas. La búsqueda de Ana compara primero con Leo y después con Ana, donde la encuentra."
 />
-<Chains
+<ChainTable
   chains={CHAIN_TABLE}
   picked={2}
   only
   window={[1, 3]}
-  paint={{ Leo: 'visited', Ana: 'visited' }}
+  tones={{ Leo: 'visited', Ana: 'visited' }}
   caption="buscar «Carla»: llega a null sin hallarla"
   label="La misma tabla con la posición 2 destacada. La búsqueda de Carla compara con Leo y con Ana, llega al null del final de la lista y no la encuentra."
 />
@@ -2078,10 +1983,10 @@ está, crea un nodo y lo engancha al **frente** de la lista de su posición, el
 El orden dentro de una lista no importa: ninguna invariante lo pide, solo que
 la clave esté en la lista de su posición.
 
-<Chains
+<ChainTable
   chains={[['Eva'], ['Juan'], ['Leo', 'Ana'], ['Bea'], ['Teo', 'Sara'], [], []]}
   picked={4}
-  paint={{ Teo: 'mark' }}
+  tones={{ Teo: 'mark' }}
   caption="agregar «Teo»: entra al frente de su lista, delante de «Sara»"
   label="La tabla después de agregar a Teo: de la posición 4 cuelgan ahora Teo y Sara, con Teo al frente y destacado como nuevo."
 />
@@ -2137,7 +2042,7 @@ depende de dónde está:
 Ninguna otra clave cambia de lista, así que ninguna invariante se rompe.
 
 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '1rem 2rem', alignItems: 'end' }}>
-<Chains
+<ChainTable
   chains={CHAIN_TABLE}
   picked={2}
   only
@@ -2146,7 +2051,7 @@ Ninguna otra clave cambia de lista, así que ninguna invariante se rompe.
   caption="eliminar «Leo»: table[2] salta a «Ana»"
   label="La tabla de siete posiciones con la posición 2 destacada y las demás atenuadas. De ella cuelgan Leo y después Ana. Leo, el primer nodo, sale: está tachado y con borde punteado, y una flecha nueva va desde table[2] directo a Ana, saltándolo."
 />
-<Chains
+<ChainTable
   chains={CHAIN_TABLE}
   picked={2}
   only
@@ -2202,7 +2107,7 @@ que se lee «alfa es la cantidad de claves dividida por la de posiciones». En e
 guardarropa, es cuántos abrigos cuelgan en promedio de cada casillero. Bajo el
 supuesto de dispersión uniforme, una lista mide en promedio $$\alpha$$ nodos.
 
-<Chains
+<ChainTable
   chains={CHAIN_TABLE}
   caption="seis claves en siete posiciones"
   label="La tabla de siete posiciones con seis claves: Eva, Juan, Leo, Ana, Bea y Sara. Su factor de carga es seis séptimos, casi 0,86."
@@ -2326,15 +2231,15 @@ entrar con su hash calculado de nuevo, en la lista de su posición en la tabla
 nueva.
 
 <div style={{ display: 'grid', gridTemplateColumns: '3fr 7fr', gap: '1rem 2rem', alignItems: 'end' }}>
-<Chains
+<ChainTable
   chains={[['Bea'], [], ['Eva', 'Ana']]}
-  paint={{ Bea: 'mark', Eva: 'mark' }}
+  tones={{ Bea: 'mark', Eva: 'mark' }}
   caption="con M = 3"
   label="La tabla con tres posiciones: de la 0 cuelga Bea, la 1 está vacía y de la 2 cuelgan Eva y después Ana. Bea y Eva están destacadas."
 />
-<Chains
+<ChainTable
   chains={[['Eva'], [], ['Ana'], ['Bea'], [], [], []]}
-  paint={{ Bea: 'mark', Eva: 'mark' }}
+  tones={{ Bea: 'mark', Eva: 'mark' }}
   caption="con M = 7: «Bea» y «Eva» cambian de posición"
   label="La tabla nueva, con siete posiciones: Eva cuelga de la 0, Ana de la 2 y Bea de la 3; las demás están vacías. Bea pasó de la 0 a la 3 y Eva de la 2 a la 0, las dos destacadas; Ana sigue en la 2."
 />
@@ -2888,7 +2793,7 @@ como el universo de claves es mucho más grande que la tabla, a cada posición
 le corresponden muchísimas claves. Si las que llegan son justo esas, todas
 caen en la misma posición, y cada operación cuesta $$\Theta(N)$$.
 
-<Chains
+<ChainTable
   chains={[[], [], ['Lucas', 'Carla', 'Leo', 'Ana'], [], [], [], []]}
   picked={2}
   caption="cuatro claves en la posición 2, y las otras seis posiciones vacías"

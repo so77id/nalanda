@@ -43,6 +43,7 @@ import { binaryPictureCatalogEntry } from './media/BinaryPicture.catalog';
 import { nodeGraphCatalogEntry } from './media/NodeGraph.catalog';
 import { orderRuleCatalogEntry } from './media/OrderRule.catalog';
 import { stepBoxesCatalogEntry } from './media/StepBoxes.catalog';
+import { chainTableCatalogEntry } from './media/ChainTable.catalog';
 import { figureCatalogEntry } from './media/Figure.catalog';
 import { mathTexCatalogEntry } from './media/Math.catalog';
 import { pdfEmbedCatalogEntry } from './media/PdfEmbed.catalog';
@@ -68,6 +69,7 @@ export const catalogEntries: CatalogEntry[] = [
   nodeGraphCatalogEntry,
   orderRuleCatalogEntry,
   stepBoxesCatalogEntry,
+  chainTableCatalogEntry,
   mathTexCatalogEntry,
   sheetEmbedCatalogEntry,
   pdfEmbedCatalogEntry,
