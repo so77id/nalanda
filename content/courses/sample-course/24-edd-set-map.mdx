@@ -187,7 +187,7 @@ export function KeyTree({ tree, tones = {}, values, order = false, strip = false
   };
   place(tree, 0);
   const column = Object.fromEntries(nodes.map((n) => [n.v, n.column]));
-  const deepest = Math.max(...nodes.map((n) => n.depth));
+  const deepest = Math.max(0, ...nodes.map((n) => n.depth));
   const treeW = nodes.length * colW;
   const width = Math.max(2 * pad + nodes.length * colW, captionWidth(caption));
   const left = (width - treeW) / 2;
@@ -2607,7 +2607,7 @@ export function SeenFrame({ ruts, at = -1, seen, fresh, found, slots, label }) {
   const chipH = 28;
   const gap = 8;
   const pad = 12;
-  const rowW = ruts.length * chipW + (ruts.length - 1) * gap;
+  const rowW = ruts.length * chipW + Math.max(0, ruts.length - 1) * gap;
   const setW = slots * chipW + (slots - 1) * gap + 28;
   const width = 2 * pad + Math.max(rowW, setW);
   const left = (width - rowW) / 2;
@@ -2844,11 +2844,11 @@ export function TimeLine({ times, day, first = 8, hours = 10, perHour = 80, gap,
           <text x={pad + h * perHour} y={axisY + 36} textAnchor="middle" fontSize="11" style={{ fill: 'var(--color-ink-faint)' }}>{`${first + h}:00`}</text>
         </g>
       ))}
-      {times.map((t) => {
+      {times.map((t, i) => {
         const tone = near.includes(t) || inside(t) ? 'keep' : undefined;
         return (
-          <g key={t}>
-            <circle cx={x(t)} cy={axisY} r="6.5" style={{ fill: tone ? `var(--color-${tone}-soft)` : 'var(--color-surface)', stroke: tone ? `var(--color-${tone})` : 'var(--color-ink-soft)' }} strokeWidth={tone ? 2.2 : 1.6} />
+          <g key={i}>
+            <circle cx={x(t)} cy={axisY} r="6.5" style={paint(tone, ['var(--color-surface)', 'var(--color-ink-soft)'])} strokeWidth={tone ? 2.2 : 1.6} />
             <text x={x(t)} y={axisY - 14} textAnchor="middle" fontSize="12" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{text(t)}</text>
           </g>
         );
@@ -2856,7 +2856,7 @@ export function TimeLine({ times, day, first = 8, hours = 10, perHour = 80, gap,
       {asked !== undefined ? (
         <g>
           <line x1={x(asked)} y1={axisY - 30} x2={x(asked)} y2={axisY - 8} style={{ stroke: `var(--color-${askTone})` }} strokeWidth="1.4" />
-          <circle cx={x(asked)} cy={axisY} r="6.5" style={{ fill: `var(--color-${askTone}-soft)`, stroke: `var(--color-${askTone})` }} strokeWidth="2.2" />
+          <circle cx={x(asked)} cy={axisY} r="6.5" style={paint(askTone)} strokeWidth="2.2" />
           <text x={x(asked)} y={axisY - 34} textAnchor="middle" fontSize="12" fontWeight="700" style={{ fill: `var(--color-${askTone})` }}>{text(asked)}</text>
         </g>
       ) : null}
@@ -2903,7 +2903,7 @@ export function AgendaColumn({ times, slots, asked, refused = false, near = [], 
         const tone = isAsked ? (refused ? 'flag' : 'mark') : near.includes(t) || inRange(t) ? 'keep' : undefined;
         const far = isAsked || !near.includes(t) ? null : Math.abs(minutes(asked) - minutes(t));
         return (
-          <g key={t} opacity={isGone ? 0.5 : undefined}>
+          <g key={`${i}-${t}`} opacity={isGone ? 0.5 : undefined}>
             <rect x={left} y={y(i)} width={chipW} height={chipH} rx="15" style={paint(tone)} strokeWidth={tone ? 2.2 : 1.2} strokeDasharray={(isAsked && refused) || isGone ? '4 3' : undefined} />
             <text x={left + chipW / 2} y={y(i) + chipH / 2 + 5} textAnchor="middle" fontSize="14" fontWeight="600" textDecoration={isGone ? 'line-through' : undefined} style={{ fill: 'var(--color-ink)' }}>{text(t)}</text>
             {isAsked ? (
@@ -3293,7 +3293,9 @@ export function WindowStrip({ steps, slots, label }) {
                 <text x={cx} y={mapY + k * (chipH + 6) + chipH / 2 + 5} textAnchor="middle" fontSize="12.5" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{`${p}  ×${n}`}</text>
               </g>
             ))}
-            <text x={cx} y={footY} textAnchor="middle" fontSize="12.5" fontWeight="700" style={{ fill: 'var(--color-ink-soft)' }}>{`mín ${s.counts[0][0]} · máx ${s.counts[s.counts.length - 1][0]}`}</text>
+            {s.counts.length ? (
+              <text x={cx} y={footY} textAnchor="middle" fontSize="12.5" fontWeight="700" style={{ fill: 'var(--color-ink-soft)' }}>{`mín ${s.counts[0][0]} · máx ${s.counts[s.counts.length - 1][0]}`}</text>
+            ) : null}
           </g>
         );
       })}
