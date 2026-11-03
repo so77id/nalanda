@@ -369,6 +369,12 @@ and whether anything clips — the scale recipe is in
       another one.
 - [ ] The `<Exercise>` runs in `npm run preview` against the real JVM and its
       `test` fence passes — nothing in the build or the suite executes Java.
+- [ ] Each rule the statement states — a tie-break, a duplicate refused, a
+      capacity, a boundary — has a test case that only that rule decides, and
+      the tempting wrong version (the rule dropped, `<` for `<=`) fails it.
+      #352's review found two that passed: an enrollment whose duplicate the
+      capacity refused first, and a tie the `HashMap`'s order happened to
+      break the right way.
 - [ ] The checklists of [`add-a-course-document.md`](add-a-course-document.md),
       [`course-content-style.md`](course-content-style.md) and
       [`teach-a-data-structure.md`](teach-a-data-structure.md) all pass — this

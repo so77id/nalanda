@@ -329,7 +329,7 @@ points here for the tokens rather than restating them.
 ## The tree figures' palette (#322)
 
 The Estructuras de Datos Avanzadas unit draws trees with `<BinaryPicture>`
-and the tree recipes of `<SequenceStepper>`, and three of their categories
+and the tree recipes of `<SequenceStepper>`, and four of their categories
 take a colour each from tokens that already mean something else. The mapping
 is fixed, so a reader meets the same colours in both Árboles classes:
 
@@ -345,6 +345,14 @@ is fixed, so a reader meets the same colours in both Árboles classes:
   after it that tones a subtree): the node `accent`, the smaller side
   `focus`, the larger `keep`; `mark` stays for what breaks a rule. Second
   signal: the `< x` and `> x` labels and the words «menores» and «mayores».
+- **A red-black node's colour** (Set y Map's file-local `KeyTree`, tones
+  `black` and `red`): a black node is filled and stroked `ink` with its key
+  in `ground`, the pair `palette.test.ts` already holds at 4.5:1 as `ink` on
+  `ground` (contrast is a property of the pair, so the reverse holds too); a
+  red node is `flag-soft` stroked `flag`, the palette's only red, used here
+  for the colour the concept is named after, not for an error. Second
+  signal: the caption says which are filled and which are red, and the
+  label names each node's colour (#352's review).
 
 Like the TDA card's moulds, these are not new product meanings: they are
 scoped to the tree figures, and none of them is load-bearing, because each

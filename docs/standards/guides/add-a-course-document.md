@@ -1419,6 +1419,15 @@ What that costs, and the rules that follow from it:
   definitions (`documentation.md`, "Two shapes"). Worked case: Árboles II's
   `ValueBox` is the heap class's `NumBox` without its struck-through and faint
   tones (#322 review).
+- **A size difference is a prop, not another figure.** A file-local
+  component whose diff from another document's is a few constants and props
+  that only add is the same figure, and the second document promotes it.
+  When the work package cannot promote, the copy ships with a tracked
+  promotion issue — the #305 shape — and both definitions name each other.
+  Worked case: #352's review found Set y Map's `StepBoxes` and `ChainTable`
+  copied from Tablas Hash with a two-line diff and a wider node, and neither
+  Tablas Hash copy named them; the back-references landed after the merge
+  and the promotion is its own issue.
 
 6e-quinquies. **Draw a binary tree: `<BinaryPicture>`**, a static figure with
 the geometry of the binary-tree recipe of `<SequenceStepper>` — every node in
