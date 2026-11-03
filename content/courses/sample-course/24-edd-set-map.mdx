@@ -84,6 +84,34 @@ export const SURFACE = ['var(--color-surface)', 'var(--color-rule-strong)'];
 export const SUNK = ['var(--color-sunk)', 'var(--color-rule-strong)'];
 export const paint = (tone, [fill, stroke] = SURFACE) => (tone ? { fill: `var(--color-${tone}-soft)`, stroke: `var(--color-${tone})` } : { fill, stroke });
 
+{/* ChipRow and PriceCells — the two rows the exercises draw, each in a still figure and in the frames of a walk: ChipRow the RUTs in the order they arrive (RutRow, SeenFrame), PriceCells the prices (PriceRow, WindowFrame), each item with its position over it. They are pieces, not figures: a <g>'s worth, placed by the figure that holds them. The size is a prop — a frame draws smaller, to fit beside its listing. `at` outlines the item being read; `tone`, `mark`, `dim` and `dashed` say, per position, how an item is drawn. */}
+
+export function ChipRow({ items, left, indexY, chipY, chipW, chipH, gap, font, at = -1, tone = () => undefined, dim = () => false }) {
+  return items.map((item, i) => {
+    const x = left + i * (chipW + gap);
+    const ring = i === at;
+    const t = tone(i);
+    const { fill, stroke } = paint(t);
+    return (
+      <g key={i} opacity={dim(i) ? 0.5 : undefined}>
+        <text x={x + chipW / 2} y={indexY} textAnchor="middle" fontSize="11" fontWeight={ring ? 700 : 400} style={{ fill: ring ? 'var(--color-ink)' : 'var(--color-ink-faint)' }}>{i}</text>
+        <rect x={x} y={chipY} width={chipW} height={chipH} rx={chipH / 2} style={{ fill, stroke: ring ? 'var(--color-focus)' : stroke }} strokeWidth={ring ? 2.6 : t ? 2.2 : 1.2} />
+        <text x={x + chipW / 2} y={chipY + chipH / 2 + 5} textAnchor="middle" fontSize={font} fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{item}</text>
+      </g>
+    );
+  });
+}
+
+export function PriceCells({ prices, left, indexY, cellY, cell, font, indexFont = 11, mark = () => false, dim = () => false, dashed = () => false }) {
+  return prices.map((price, i) => (
+    <g key={i} opacity={dim(i) ? 0.45 : undefined}>
+      <text x={left + i * cell + cell / 2} y={indexY} textAnchor="middle" fontSize={indexFont} style={{ fill: 'var(--color-ink-faint)' }}>{i}</text>
+      <rect x={left + i * cell} y={cellY} width={cell} height={cell} style={paint(mark(i) && 'mark')} strokeWidth={mark(i) ? 2.2 : 1.2} strokeDasharray={dashed(i) ? '4 3' : undefined} />
+      <text x={left + i * cell + cell / 2} y={cellY + cell / 2 + Math.ceil(font / 3)} textAnchor="middle" fontSize={font} fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{price}</text>
+    </g>
+  ));
+}
+
 {/* KeySet — a set drawn as what the contract sees: a rounded region holding its elements as chips, with no positions and no order. `probe` draws a question over it — a chip «¿x?» with an arrow — that lands on the chip that answers it, painted `keep`, or on the edge of the region when nothing answers. `adds` draws the same chip as an element arriving, «+ x», instead of a question. `tones` paints chips `mark`: what the slide points at. `values` writes each key's value after it, «key → value», for a map; the question still names the key alone. File-local (add-a-course-document.md §6e-quater): no catalog entry, one consumer. */}
 
 export function KeySet({ title, keys, probe, adds = false, tones = {}, values, caption, label, id }) {
@@ -2523,9 +2551,6 @@ export function RutRow({ ruts, at = -1, tones = {}, arcs = [], caption, label })
   const chipY = indexY + 8;
   const height = chipY + chipH + (caption ? 34 : 12);
   const cx = (i) => left + i * (chipW + gap) + chipW / 2;
-  const paint = {
-    keep: ['var(--color-keep-soft)', 'var(--color-keep)'],
-  };
   return (
     <Figure width={width} height={height} label={label}>
       {arcs.map(([a, b]) => {
@@ -2535,17 +2560,7 @@ export function RutRow({ ruts, at = -1, tones = {}, arcs = [], caption, label })
           <path key={`a${a}-${b}`} d={`M ${cx(b)} ${y0} C ${cx(b)} ${y0 - lift}, ${cx(a)} ${y0 - lift}, ${cx(a)} ${y0}`} fill="none" style={{ stroke: 'var(--color-mark)' }} strokeWidth="1.8" />
         );
       })}
-      {ruts.map((r, i) => {
-        const [fill, stroke] = paint[tones[i]] ?? ['var(--color-surface)', 'var(--color-rule-strong)'];
-        const ring = i === at;
-        return (
-          <g key={i}>
-            <text x={cx(i)} y={indexY} textAnchor="middle" fontSize="11" fontWeight={ring ? 700 : 400} style={{ fill: ring ? 'var(--color-ink)' : 'var(--color-ink-faint)' }}>{i}</text>
-            <rect x={cx(i) - chipW / 2} y={chipY} width={chipW} height={chipH} rx="15" style={{ fill, stroke: ring ? 'var(--color-focus)' : stroke }} strokeWidth={ring ? 2.6 : tones[i] ? 2.2 : 1.2} />
-            <text x={cx(i)} y={chipY + chipH / 2 + 5} textAnchor="middle" fontSize="13" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{r}</text>
-          </g>
-        );
-      })}
+      <ChipRow items={ruts} left={left} indexY={indexY} chipY={chipY} chipW={chipW} chipH={chipH} gap={gap} font={13} at={at} tone={(i) => tones[i]} />
       <Caption width={width} height={height} text={caption} />
     </Figure>
   );
@@ -2604,24 +2619,14 @@ export function SeenFrame({ ruts, at = -1, seen, fresh, found, slots, label }) {
   const height = setY + setH + 12;
   return (
     <Figure width={width} height={height} label={label}>
-      {ruts.map((r, i) => {
-        const x = left + i * (chipW + gap);
-        const ring = i === at;
-        return (
-          <g key={i} opacity={i < at ? 0.5 : undefined}>
-            <text x={x + chipW / 2} y={indexY} textAnchor="middle" fontSize="11" fontWeight={ring ? 700 : 400} style={{ fill: ring ? 'var(--color-ink)' : 'var(--color-ink-faint)' }}>{i}</text>
-            <rect x={x} y={rowY} width={chipW} height={chipH} rx="14" style={{ fill: 'var(--color-surface)', stroke: ring ? 'var(--color-focus)' : 'var(--color-rule-strong)' }} strokeWidth={ring ? 2.6 : 1.2} />
-            <text x={x + chipW / 2} y={rowY + chipH / 2 + 5} textAnchor="middle" fontSize="12.5" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{r}</text>
-          </g>
-        );
-      })}
+      <ChipRow items={ruts} left={left} indexY={indexY} chipY={rowY} chipW={chipW} chipH={chipH} gap={gap} font={12.5} at={at} dim={(i) => i < at} />
       <text x={setX + 12} y={setY - 7} fontSize="12" fontWeight="700" style={{ fill: 'var(--color-ink-soft)' }}>{codeText('`seen`')}</text>
       <rect x={setX} y={setY} width={setW} height={setH} rx="16" style={{ fill: 'var(--color-sunk)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.3" />
       {seen.map((r, k) => {
         const tone = r === found ? 'keep' : r === fresh ? 'mark' : undefined;
         return (
           <g key={r}>
-            <rect x={setX + 14 + k * (chipW + gap)} y={setY + 12} width={chipW} height={chipH} rx="14" style={{ fill: tone ? `var(--color-${tone}-soft)` : 'var(--color-surface)', stroke: tone ? `var(--color-${tone})` : 'var(--color-rule-strong)' }} strokeWidth={tone ? 2.2 : 1.2} />
+            <rect x={setX + 14 + k * (chipW + gap)} y={setY + 12} width={chipW} height={chipH} rx="14" style={paint(tone)} strokeWidth={tone ? 2.2 : 1.2} />
             <text x={setX + 14 + k * (chipW + gap) + chipW / 2} y={setY + 12 + chipH / 2 + 5} textAnchor="middle" fontSize="12.5" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{r}</text>
           </g>
         );
@@ -2899,7 +2904,7 @@ export function AgendaColumn({ times, slots, asked, refused = false, near = [], 
         const far = isAsked || !near.includes(t) ? null : Math.abs(minutes(asked) - minutes(t));
         return (
           <g key={t} opacity={isGone ? 0.5 : undefined}>
-            <rect x={left} y={y(i)} width={chipW} height={chipH} rx="15" style={{ fill: tone ? `var(--color-${tone}-soft)` : 'var(--color-surface)', stroke: tone ? `var(--color-${tone})` : 'var(--color-rule-strong)' }} strokeWidth={tone ? 2.2 : 1.2} strokeDasharray={(isAsked && refused) || isGone ? '4 3' : undefined} />
+            <rect x={left} y={y(i)} width={chipW} height={chipH} rx="15" style={paint(tone)} strokeWidth={tone ? 2.2 : 1.2} strokeDasharray={(isAsked && refused) || isGone ? '4 3' : undefined} />
             <text x={left + chipW / 2} y={y(i) + chipH / 2 + 5} textAnchor="middle" fontSize="14" fontWeight="600" textDecoration={isGone ? 'line-through' : undefined} style={{ fill: 'var(--color-ink)' }}>{text(t)}</text>
             {isAsked ? (
               <text x={left + chipW + 12} y={y(i) + chipH / 2 + 5} fontSize="12.5" fontWeight="700" style={{ fill: `var(--color-${refused ? 'flag' : 'mark'})` }}>{refused ? 'no se agenda' : 'se agenda'}</text>
@@ -3242,16 +3247,7 @@ export function PriceRow({ prices, spans = [], tones = {}, caption, label }) {
   const height = spanY(spans.length) - 8 + (caption ? 26 : 4);
   return (
     <Figure width={width} height={height} label={label}>
-      {prices.map((p, i) => {
-        const t = tones[i];
-        return (
-          <g key={i} opacity={t === 'faint' ? 0.45 : undefined}>
-            <text x={left + i * cell + cell / 2} y={indexY} textAnchor="middle" fontSize="11" style={{ fill: 'var(--color-ink-faint)' }}>{i}</text>
-            <rect x={left + i * cell} y={cellY} width={cell} height={cell} style={paint(t === 'mark' && 'mark')} strokeWidth={t === 'mark' ? 2.2 : 1.2} />
-            <text x={left + i * cell + cell / 2} y={cellY + cell / 2 + 6} textAnchor="middle" fontSize="16" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{p}</text>
-          </g>
-        );
-      })}
+      <PriceCells prices={prices} left={left} indexY={indexY} cellY={cellY} cell={cell} font={16} mark={(i) => tones[i] === 'mark'} dim={(i) => tones[i] === 'faint'} />
       {spans.map((s, n) => {
         const x1 = left + s.from * cell + 6;
         const x2 = left + (s.to + 1) * cell - 6;
@@ -3326,16 +3322,7 @@ export function WindowFrame({ prices, from, to, entered, out: gone, counts, full
   const answerX = (width - rows * 64) / 2;
   return (
     <Figure width={width} height={height} label={label}>
-      {prices.map((p, i) => {
-        const tone = i === entered ? 'mark' : undefined;
-        return (
-          <g key={i} opacity={i === gone ? 0.4 : undefined}>
-            <text x={left + i * cell + cell / 2} y={indexY} textAnchor="middle" fontSize="10.5" style={{ fill: 'var(--color-ink-faint)' }}>{i}</text>
-            <rect x={left + i * cell} y={cellY} width={cell} height={cell} style={paint(tone && 'mark')} strokeWidth={tone ? 2.2 : 1.2} strokeDasharray={i === gone ? '4 3' : undefined} />
-            <text x={left + i * cell + cell / 2} y={cellY + cell / 2 + 5} textAnchor="middle" fontSize="15" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{p}</text>
-          </g>
-        );
-      })}
+      <PriceCells prices={prices} left={left} indexY={indexY} cellY={cellY} cell={cell} font={15} indexFont={10.5} mark={(i) => i === entered} dim={(i) => i === gone} dashed={(i) => i === gone} />
       {to >= from ? (
         <path d={`M ${left + from * cell + 4} ${bracketY - 6} V ${bracketY} H ${left + (to + 1) * cell - 4} V ${bracketY - 6}`} fill="none" style={{ stroke: 'var(--color-accent)' }} strokeWidth="1.8" />
       ) : null}
