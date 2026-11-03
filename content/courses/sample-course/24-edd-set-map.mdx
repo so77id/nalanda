@@ -2,12 +2,40 @@
 id: edd-set-map
 title: Estructuras de Datos Avanzadas · TDAs Set y Map
 presentation: explicit
-questions: none
+questions: pool
 ---
 
-{/* `none` es un todavía-no, no una decisión: el banco se escribe en un WP */}
-{/* aparte después del merge de #350, cuando la revisión lámina a lámina ya */}
-{/* cerró el material, como hicieron Tablas Hash (#348) y las clases antes. */}
+{/* `pool`: un conjunto sin expectativa por sección, como Árboles I y II y */}
+{/* Tablas Hash: cada <Slide> es un h2, y exigir una pregunta por lámina */}
+{/* serían más de cien. Lo que el pool tiene que garantizar es densidad por */}
+{/* RANGO: un control se pide sobre un rango de secciones y cada copia saca */}
+{/* cuatro, así que un rango con menos de cuatro preguntas se rechaza */}
+{/* (ErrPoolTooSmall). */}
+{/* COBERTURA. 22 preguntas, de una sola correcta, aprobadas por el */}
+{/* profesor de a dos (#350, 03-11-2026): */}
+{/*   · la apertura, Un registro de votantes: ninguna. */}
+{/*   · Set · Conjunto: 6. */}
+{/*   · HashSet: 2. */}
+{/*   · Diseñar una clave: 4. */}
+{/*   · TreeSet y el orden de una clave: 3. */}
+{/*   · Map · Diccionario: 4. */}
+{/*   · HashMap y TreeMap: 3. El profesor cerró el banco en Agrupar con un */}
+{/*     Map. */}
+{/*   · Ejercicios, Más allá de Set y Map y Lo que sigue: ninguna, por */}
+{/*     decisión, como en las clases anteriores. */}
+{/* Rangos que SÍ llenan una copia de cuatro: */}
+{/*   · la clase entera: 22. */}
+{/*   · el acto Set · Conjunto, con o sin la apertura: 6. */}
+{/*   · el acto Diseñar una clave: 4. */}
+{/*   · el acto Map · Diccionario: 4. */}
+{/*   · dos actos seguidos cualesquiera, de Set · Conjunto a HashMap y */}
+{/*     TreeMap: de 6 a 8. */}
+{/*   · cualquier rango que llegue al final de la clase desde Map · */}
+{/*     Diccionario o antes. */}
+{/* Rangos que NO, y es deliberado: */}
+{/*   · HashSet solo (2), TreeSet y el orden de una clave solo (3) y */}
+{/*     HashMap y TreeMap solo (3), también hasta el final de la clase (3). */}
+{/*   · la apertura sola, los ejercicios, Más allá y Lo que sigue: ninguna. */}
 
 # Estructuras de Datos Avanzadas · TDAs Set y Map
 
@@ -4847,6 +4875,252 @@ Para seguir: la documentación de `java.util`, y Sedgewick y Wayne,
 *Algorithms*, §3.5 y §5.2.
 
 </Slide>
+
+<Questions>
+
+<Question id="set-contrato-orden" anchor="el-tda-set">
+
+¿Qué dice el contrato Set sobre el orden en que su recorrido entrega los elementos?
+
+- [x] Nada: el contrato no promete ningún orden
+- [ ] Que los entrega de menor a mayor
+- [ ] Que los entrega en el orden en que llegaron
+- [ ] Que los entrega en el orden de sus posiciones
+
+</Question>
+
+<Question id="set-add-repetido" anchor="las-reglas-del-contrato-set">
+
+¿Qué hace `add(x)` en un Set cuando `x` ya está?
+
+- [x] Deja el conjunto igual y retorna falso
+- [ ] Agrega `x` otra vez y retorna verdadero
+- [ ] Lanza una excepción por el elemento repetido
+- [ ] Deja el conjunto igual y retorna verdadero
+
+</Question>
+
+<Question id="set-arbol-peor-caso" anchor="un-set-sobre-un-arbol-avl">
+
+¿Por qué las operaciones de un Set sobre un árbol AVL cuestan lo mismo en el peor caso que en el esperado?
+
+- [x] La invariante de balance acota su altura
+- [ ] La invariante de orden impide los repetidos
+- [ ] Sus rotaciones dejan el árbol completo
+- [ ] Cada operación recorre el árbol entero
+
+</Question>
+
+<Question id="set-tabla-hash-menor" anchor="el-orden-en-la-tabla-hash">
+
+¿Cómo encuentra un Set sobre una tabla hash su elemento menor?
+
+- [x] Recorre la tabla entera, quedándose con el menor
+- [ ] Toma el primer elemento de la posición 0
+- [ ] Baja por la izquierda hasta el último nodo
+- [ ] Calcula la función hash del menor y va a esa posición
+
+</Question>
+
+<Question id="set-arbol-tramo" anchor="un-tramo-del-orden-en-el-arbol">
+
+En un Set sobre un árbol AVL, ¿qué cuesta entregar los k elementos que caen entre dos valores a y b?
+
+- [x] Un camino hasta el primero y un paso por cada uno
+- [ ] Un camino desde la raíz por cada uno de los k
+- [ ] Recorrer el árbol entero y separar los del tramo
+- [ ] Un solo camino, sin importar cuántos sean
+
+</Question>
+
+<Question id="set-tabla-o-arbol-orden-al-final" anchor="tabla-hash-o-arbol-segun-el-orden">
+
+Un conjunto recibe muchas preguntas de si un elemento está y, una sola vez al final, entrega sus elementos ordenados. ¿Qué implementación conviene?
+
+- [x] Una tabla hash: ordena sus elementos una sola vez, al final
+- [ ] Una tabla hash: su recorrido ya los entrega ordenados
+- [ ] Un árbol AVL: es el único que entrega los elementos ordenados
+- [ ] Da lo mismo: cada pregunta cuesta lo mismo en las dos
+
+</Question>
+
+<Question id="hashset-hashcode-y-equals" anchor="lo-que-la-tabla-le-pide-a-un-elemento">
+
+¿Qué métodos del elemento usa un `HashSet` para saber si ese elemento está?
+
+- [x] `hashCode` para la posición y `equals` para comparar
+- [ ] Solo `equals`, comparando con todos los elementos
+- [ ] Solo `hashCode`: el mismo número es el mismo elemento
+- [ ] `compareTo` para bajar y `equals` para confirmar
+
+</Question>
+
+<Question id="hashset-copia-de-un-texto" anchor="los-tipos-de-java-ya-traen-equals-y-hashcode">
+
+Un `HashSet<String>` guarda "hola". ¿Qué retorna `contains(new String("hola"))`?
+
+- [x] `true`: sus `equals` y `hashCode` miran las letras
+- [ ] `false`: la copia es otro objeto
+- [ ] `false`: la copia tiene otro `hashCode`
+- [ ] `true`: `contains` compara con `==`
+
+</Question>
+
+<Question id="clave-equals-sin-hashcode" anchor="un-equals-sin-hashcode">
+
+Una clase reescribe `equals` pero no `hashCode`. ¿Qué pasa al agregar a un `HashSet` dos objetos iguales para `equals`?
+
+- [x] Quedan los dos: sus `hashCode` heredados difieren
+- [ ] Queda uno solo: `equals` los reconoce iguales
+- [ ] No compila: falta reescribir `hashCode`
+- [ ] Queda el segundo, que reemplaza al primero
+
+</Question>
+
+<Question id="clave-contrato-equals-hashcode" anchor="lo-que-se-le-pide-a-la-funcion-hash">
+
+¿Qué exige el contrato entre `equals` y `hashCode`?
+
+- [x] Dos objetos iguales dan el mismo `hashCode`
+- [ ] Dos objetos distintos dan `hashCode` distintos
+- [ ] Cada objeto da un `hashCode` propio
+- [ ] `equals` compara los `hashCode` de los dos
+
+</Question>
+
+<Question id="clave-hashcode-constante" anchor="un-hashcode-constante">
+
+¿Qué pasa con un `HashSet` si el `hashCode` de sus elementos retorna siempre 0?
+
+- [x] Funciona, pero cada operación tiene costo lineal
+- [ ] No funciona: rompe el contrato con `equals`
+- [ ] Funciona, y cada operación mantiene costo constante
+- [ ] No funciona: todos los elementos son iguales
+
+</Question>
+
+<Question id="clave-campos-de-identidad" anchor="que-identifica-a-un-elemento">
+
+Una mesa de votación tiene comuna, local, número y si ya cerró. ¿Qué campos deben usar su `equals` y su `hashCode`?
+
+- [x] Comuna, local y número: no cambian durante el día
+- [ ] Los cuatro: `hashCode` reparte mejor con todos
+- [ ] Solo el número: es el que distingue a cada mesa
+- [ ] Comuna y local: el número se repite en cada local
+
+</Question>
+
+<Question id="treeset-recorrido" anchor="el-recorrido-de-un-treeset">
+
+¿En qué orden entrega sus elementos un `for` sobre un `TreeSet`?
+
+- [x] De menor a mayor, según su `compareTo`
+- [ ] En el orden en que se agregaron
+- [ ] Por niveles del árbol, desde la raíz
+- [ ] En el de las posiciones de su tabla
+
+</Question>
+
+<Question id="treeset-compareto" anchor="lo-que-el-arbol-le-pide-a-un-elemento">
+
+¿Con qué decide un `TreeSet` si un elemento ya está?
+
+- [x] Con `compareTo`, cuando la comparación da 0
+- [ ] Con `equals`, al comparar con cada nodo
+- [ ] Con `hashCode`, como lo hace el `HashSet`
+- [ ] Con `==`, comparando las referencias
+
+</Question>
+
+<Question id="treeset-orden-de-una-clave" anchor="el-orden-de-una-clave">
+
+¿Qué campos compara el `compareTo` de una clave, y en qué orden?
+
+- [x] Los de la identidad, en cascada desde el más importante
+- [ ] Solo el campo más importante, como el número del RUT
+- [ ] Todos los campos, incluidos los que cambian
+- [ ] Los de la identidad, combinados con la base 31
+
+</Question>
+
+<Question id="map-que-se-repite" anchor="un-diccionario">
+
+En un Map que guarda la mesa de cada RUT, ¿qué puede repetirse?
+
+- [x] Los valores: en una mesa votan varias personas
+- [ ] Las claves: una persona vota en varias mesas
+- [ ] Las claves y los valores, sin restricción
+- [ ] Ninguno de los dos: ambos son únicos
+
+</Question>
+
+<Question id="map-put-clave-repetida" anchor="las-reglas-del-contrato-map">
+
+¿Qué hace `put(k, v)` en un Map cuando la clave `k` ya está?
+
+- [x] Reemplaza su valor y retorna el que tenía
+- [ ] Agrega otro par con la misma clave
+- [ ] Deja el valor anterior y retorna falso
+- [ ] Lanza una excepción por la clave repetida
+
+</Question>
+
+<Question id="map-el-valor-no-busca" anchor="un-set-de-claves-con-un-valor">
+
+¿Qué mira un Map para encontrar el par de una clave?
+
+- [x] Solo la clave: el valor viaja con ella
+- [ ] La clave y el valor, los dos juntos
+- [ ] Solo el valor, que es lo que se busca
+- [ ] La clave, y el valor si dos claves chocan
+
+</Question>
+
+<Question id="map-tabla-o-arbol" anchor="costos-de-las-dos-implementaciones-del-map">
+
+Un Map de RUT a mesa solo responde la mesa de un RUT dado. ¿Qué implementación conviene?
+
+- [x] Una tabla hash: ninguna pregunta depende del orden
+- [ ] Un árbol: los RUT se pueden ordenar
+- [ ] Una tabla hash: entrega los pares ordenados
+- [ ] Da lo mismo: el valor no cambia los costos
+
+</Question>
+
+<Question id="treemap-recorrido" anchor="el-recorrido-de-un-treemap">
+
+Un `TreeMap` guarda la mesa de cada RUT. ¿En qué orden entrega sus pares un `for`?
+
+- [x] Por RUT: el árbol ordena las claves
+- [ ] Por mesa: el árbol ordena los valores
+- [ ] Por RUT y, si empatan, por mesa
+- [ ] En el orden en que se guardaron
+
+</Question>
+
+<Question id="map-contar-sin-if" anchor="contar-en-java">
+
+Para contar con un Map, ¿por qué no basta con `put(k, get(k) + 1)` para cada `k`?
+
+- [x] Una clave nueva da `null`, y sumarle 1 lanza una excepción
+- [ ] Agregaría la clave otra vez en vez de reemplazarla
+- [ ] `get` recorre el Map entero, y el conteo sería lento
+- [ ] Contaría dos veces la primera aparición
+
+</Question>
+
+<Question id="map-por-que-agrupar" anchor="agrupar-con-un-map">
+
+Un Map guarda la mesa de cada RUT. ¿Por qué hace falta otro Map para saber quiénes votaron en una mesa?
+
+- [x] Un Map busca solo por clave, y la mesa es su valor
+- [ ] Un Map no repite valores, y la mesa se repite
+- [ ] Buscar por valor es constante, pero da un solo RUT
+- [ ] El Map nuevo ordena los RUT de cada mesa
+
+</Question>
+
+</Questions>
 
 ## Lo que sigue
 
