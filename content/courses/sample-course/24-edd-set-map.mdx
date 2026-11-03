@@ -1975,9 +1975,9 @@ Al revisar un orden se buscan tres errores, y se separan por lo que provocan.
 
 ## Map · Diccionario
 
-{/* The mesa each voter voted at: the value the registry keeps beside each RUT. Two voters share mesa 1, two mesa 2 and two mesa 3, so the drawings show values repeating while keys never do. MESA_TEXT is the same, as the drawings write it. */}
+{/* The mesa each voter voted at: the value the registry keeps beside each RUT. Two voters share mesa 1, one votes at mesa 2 and three at mesa 3, so the drawings show values repeating while keys never do, and counting and grouping give a different number for each mesa. MESA_TEXT is the same, as the drawings write it. */}
 
-export const MESA_TEXT = { '18.155.218-2': 'mesa 3', '13.180.992-1': 'mesa 1', '13.959.276-K': 'mesa 3', '17.814.358-1': 'mesa 2', '22.715.853-0': 'mesa 1', '12.547.354-7': 'mesa 2' };
+export const MESA_TEXT = { '18.155.218-2': 'mesa 3', '13.180.992-1': 'mesa 1', '13.959.276-K': 'mesa 3', '17.814.358-1': 'mesa 3', '22.715.853-0': 'mesa 1', '12.547.354-7': 'mesa 2' };
 
 <Slide title="El registro con la mesa de cada votante">
 El registro guarda además en qué mesa votó cada persona: si alguien reclama,
@@ -1998,21 +1998,22 @@ por persona, el RUT y su mesa, y sobre los pares:
   values={MESA_TEXT}
   probe="13.959.276-K"
   caption="¿13.959.276-K? votó en la mesa 3"
-  label="Un conjunto de seis pares, cada RUT con la mesa donde votó: 18.155.218-2, mesa 3; 13.180.992-1, mesa 1; 13.959.276-K, mesa 3; 17.814.358-1, mesa 2; 22.715.853-0, mesa 1; 12.547.354-7, mesa 2. La pregunta por 13.959.276-K llega a su par, destacado: votó en la mesa 3."
+  label="Un conjunto de seis pares, cada RUT con la mesa donde votó: 18.155.218-2, mesa 3; 13.180.992-1, mesa 1; 13.959.276-K, mesa 3; 17.814.358-1, mesa 3; 22.715.853-0, mesa 1; 12.547.354-7, mesa 2. La pregunta por 13.959.276-K llega a su par, destacado: votó en la mesa 3."
 />
 
 Lo que el registro guarda ahora es un **diccionario**: para cada RUT, su mesa.
 
 </Slide>
 
-{/* ArrowMap — a dictionary drawn as a function, the way mathematics draws one: the keys in a box on the left, the values in a box on the right, one arrow from each key to its value. Each value is written once, level with the keys that reach it, so the arrows do not cross when the keys come grouped by value. File-local (add-a-course-document.md §6e-quater). */}
+{/* ArrowMap — a dictionary drawn as a function, the way mathematics draws one: the keys in a box on the left, the values in a box on the right, one arrow from each key to its value. Each value is written once, level with the keys that reach it, so the arrows do not cross when the keys come grouped by value. With next, a third box chains a second dictionary that takes each value to next[value], as counting takes each mesa to how many arrows reach it. File-local (add-a-course-document.md §6e-quater). */}
 
-export function ArrowMap({ keys, values, keyTitle, valueTitle, caption, label, id }) {
+export function ArrowMap({ keys, values, keyTitle, valueTitle, next, nextTitle, caption, label, id }) {
   const pad = 14;
   const rowH = 34;
   const keyW = 132;
   const valW = 96;
   const gap = 220;
+  const nextGap = 120;
   const top = 34;
   const boxPad = 10;
   const distinct = [];
@@ -2025,10 +2026,11 @@ export function ArrowMap({ keys, values, keyTitle, valueTitle, caption, label, i
     return ys.reduce((a, b) => a + b, 0) / ys.length;
   };
   const boxH = keys.length * rowH + 2 * boxPad;
-  const core = 2 * pad + keyW + gap + valW;
+  const core = 2 * pad + keyW + gap + valW + (next ? nextGap + valW : 0);
   const width = Math.max(core, caption ? caption.replace(/`/g, '').length * 6.6 + 24 : 0);
   const left = (width - core) / 2 + pad;
   const valX = left + keyW + gap;
+  const nextX = valX + valW + nextGap;
   const height = top + boxH + (caption ? 34 : 12);
   return (
     <svg viewBox={`0 0 ${width} ${height}`} style={{ width: '100%', maxWidth: `${Math.round(width * 1.3)}px`, height: 'auto', display: 'block', margin: '0.4rem auto' }} role="img" aria-label={label}>
@@ -2050,6 +2052,18 @@ export function ArrowMap({ keys, values, keyTitle, valueTitle, caption, label, i
       {distinct.map((v) => (
         <text key={v} x={valX + valW / 2} y={valY(v) + 5} textAnchor="middle" fontSize="13" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{v}</text>
       ))}
+      {next ? (
+        <g>
+          <rect x={nextX} y={top} width={valW} height={boxH} rx="14" style={{ fill: 'var(--color-sunk)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.3" />
+          <text x={nextX + valW / 2} y={top - 10} textAnchor="middle" fontSize="12" fontWeight="700" style={{ fill: 'var(--color-ink-soft)' }}>{nextTitle}</text>
+          {distinct.map((v) => (
+            <g key={`n${v}`}>
+              <line x1={valX + valW + 4} y1={valY(v)} x2={nextX - 8} y2={valY(v)} style={{ stroke: 'var(--color-ink-soft)' }} strokeWidth="1.4" markerEnd={`url(#${id}-punta)`} />
+              <text x={nextX + valW / 2} y={valY(v) + 5} textAnchor="middle" fontSize="13" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{next[v]}</text>
+            </g>
+          ))}
+        </g>
+      ) : null}
       {caption ? (
         <text x={width / 2} y={height - 10} textAnchor="middle" fontSize="12" style={{ fill: 'var(--color-ink-soft)' }}>{caption}</text>
       ) : null}
@@ -2071,12 +2085,12 @@ tener el mismo: una persona vota en una sola mesa, y en una mesa votan muchas.
 
 <ArrowMap
   id="funcion"
-  keys={['18.155.218-2', '13.959.276-K', '13.180.992-1', '22.715.853-0', '17.814.358-1', '12.547.354-7']}
+  keys={['18.155.218-2', '13.959.276-K', '17.814.358-1', '13.180.992-1', '22.715.853-0', '12.547.354-7']}
   values={MESA_TEXT}
   keyTitle="claves: los RUT"
   valueTitle="valores: las mesas"
-  caption="de cada RUT sale una sola flecha; a cada mesa llegan dos"
-  label="Un diagrama de flechas. A la izquierda, seis RUT; a la derecha, tres mesas. 18.155.218-2 y 13.959.276-K apuntan a la mesa 3; 13.180.992-1 y 22.715.853-0, a la mesa 1; 17.814.358-1 y 12.547.354-7, a la mesa 2."
+  caption="de cada RUT sale una sola flecha; a una mesa pueden llegar varias"
+  label="Un diagrama de flechas. A la izquierda, seis RUT; a la derecha, tres mesas. 18.155.218-2, 13.959.276-K y 17.814.358-1 apuntan a la mesa 3; 13.180.992-1 y 22.715.853-0, a la mesa 1; 12.547.354-7, a la mesa 2."
 />
 
 </Slide>
@@ -2194,7 +2208,7 @@ entrega los pares ordenados por clave.
   tones={{ '13.959.276-K': 'keep' }}
   minColumns={6}
   caption="cada nodo guarda la clave y su valor; el orden es el de las claves"
-  label="El árbol AVL con los seis RUT como claves y la mesa de cada uno debajo. La raíz es 13.959.276-K, mesa 3, destacada; a su izquierda, 13.180.992-1, mesa 1, con 12.547.354-7, mesa 2; a su derecha, 18.155.218-2, mesa 3, con 17.814.358-1, mesa 2, y 22.715.853-0, mesa 1."
+  label="El árbol AVL con los seis RUT como claves y la mesa de cada uno debajo. La raíz es 13.959.276-K, mesa 3, destacada; a su izquierda, 13.180.992-1, mesa 1, con 12.547.354-7, mesa 2; a su derecha, 18.155.218-2, mesa 3, con 17.814.358-1, mesa 3, y 22.715.853-0, mesa 1."
 />
 
 </Slide>
@@ -2330,7 +2344,7 @@ for (Map.Entry<String, Integer> e : tableOf.entrySet()) {
 13.959.276-K mesa 3
 12.547.354-7 mesa 2
 22.715.853-0 mesa 1
-17.814.358-1 mesa 2
+17.814.358-1 mesa 3
 ```
 
 Es el orden del recorrido del `HashSet` con los mismos RUT: el que deja la
@@ -2371,7 +2385,7 @@ for (Map.Entry<String, Integer> e : tableOf.entrySet()) {
 12.547.354-7 mesa 2
 13.180.992-1 mesa 1
 13.959.276-K mesa 3
-17.814.358-1 mesa 2
+17.814.358-1 mesa 3
 18.155.218-2 mesa 3
 22.715.853-0 mesa 1
 ```
@@ -2411,11 +2425,28 @@ sus $$k$$ pares en orden, uno por paso.
 <Slide title="Contar con un Map">
 Un Map cuenta cuántas veces aparece cada cosa: lo que se cuenta es la clave, y
 cuántas veces apareció, su valor. Para saber cuántos votaron en cada mesa, se
-recorren las mesas del registro `tableOf`, una por RUT, y cada mesa cae en uno
-de dos casos:
+recorren las mesas del registro, una por RUT, y cada mesa cae en uno de dos
+casos:
 
 - **todavía no está en el conteo**: entra con 1;
 - **ya está**: su cuenta sube en uno.
+
+<ArrowMap
+  id="conteo"
+  keys={['13.180.992-1', '22.715.853-0', '12.547.354-7', '18.155.218-2', '13.959.276-K', '17.814.358-1']}
+  values={MESA_TEXT}
+  next={{ 'mesa 1': '2', 'mesa 2': '1', 'mesa 3': '3' }}
+  keyTitle="el registro: los RUT"
+  valueTitle="sus mesas"
+  nextTitle="el conteo"
+  caption="a cada mesa, el conteo le asigna cuántas flechas le llegan"
+  label="Un diagrama de flechas en tres columnas. A la izquierda, los seis RUT del registro; al centro, sus mesas; a la derecha, el conteo. 13.180.992-1 y 22.715.853-0 apuntan a la mesa 1, y la mesa 1 apunta a 2; 12.547.354-7 apunta a la mesa 2, y la mesa 2 apunta a 1; 18.155.218-2, 13.959.276-K y 17.814.358-1 apuntan a la mesa 3, y la mesa 3 apunta a 3."
+/>
+
+</Slide>
+
+<Slide title="Contar en Java">
+`containsKey` dice en cuál de los dos casos está cada mesa:
 
 ```java
 Map<Integer, Integer> votersAt = new HashMap<>();
@@ -2429,9 +2460,9 @@ for (int table : tableOf.values()) {      // la mesa de cada RUT
 }
 ```
 
-Con los seis RUT del registro, cada una de las tres mesas termina con 2
-votantes. `getOrDefault` junta los dos casos en una línea, porque una mesa que
-no está cuenta 0:
+`getOrDefault(table, 0)` retorna la cuenta de la mesa, o 0 si todavía no
+está. Sumarle 1 cubre los dos casos en una línea: una mesa nueva queda en 1,
+y una que ya estaba sube en uno.
 
 ```java
 votersAt.put(table, votersAt.getOrDefault(table, 0) + 1);
@@ -2444,14 +2475,14 @@ cada una.
 
 <Slide title="Agrupar con un Map">
 Un Map también agrupa: la clave es el grupo, y el valor, una lista con lo que
-cae en él. Los RUT que votaron en cada mesa son el registro con las flechas al
-revés: de cada mesa, sus RUT.
+cae en él. Los RUT que votaron en cada mesa se arman dando vuelta el registro:
+en vez de la mesa de cada RUT, los RUT de cada mesa.
 
-| Mesa | Sus RUT                    |
-| ---- | -------------------------- |
-| 1    | 13.180.992-1, 22.715.853-0 |
-| 2    | 12.547.354-7, 17.814.358-1 |
-| 3    | 18.155.218-2, 13.959.276-K |
+| Mesa | Sus RUT                                  |
+| ---- | ---------------------------------------- |
+| 1    | 13.180.992-1, 22.715.853-0               |
+| 2    | 12.547.354-7                             |
+| 3    | 18.155.218-2, 13.959.276-K, 17.814.358-1 |
 
 Para armarlo, se recorren los pares del registro, y cada uno cae en uno de dos
 casos:
