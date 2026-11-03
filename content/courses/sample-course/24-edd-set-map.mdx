@@ -1297,44 +1297,6 @@ dígito mal digitado es otro RUT, y los dos campos son su identidad.
 
 </Slide>
 
-<Slide title="La receta de una clave">
-Con los campos de la identidad elegidos, los dos métodos salen de una
-receta:
-
-1. **`equals`:** `instanceof` y el cast, y después cada campo: con `==` si es
-   primitivo, y con su `equals` si es un objeto.
-2. **`hashCode`:** el número del primer campo y, por cada campo siguiente,
-   multiplicar por 31 y sumar su número.
-Al terminar, un chequeo: dos elementos iguales para `equals` dan el mismo
-`hashCode`.
-
-</Slide>
-
-<Slide title="Una función hash para cualquier clave">
-La construcción del RUT sirve para cualquier clave: cada campo se convierte
-en un número con la función hash de su tipo, y los números se combinan con
-Horner y una base impar. Con tres campos:
-
-$$
-h = (h_1 \cdot 31 + h_2) \cdot 31 + h_3
-$$
-
-se lee «el número del primer campo por 31, más el del segundo; todo eso por
-31, más el del tercero». En Java, el número de cada campo es:
-
-| Campo                       | Su número                                                       |
-| --------------------------- | --------------------------------------------------------------- |
-| `int`                       | el mismo                                                        |
-| `char`                      | su código                                                       |
-| `long`, `double`, `boolean` | `Long.hashCode(x)`, `Double.hashCode(x)`, `Boolean.hashCode(x)` |
-| `String` u otro objeto      | su `hashCode()`, o 0 si es `null`                               |
-| Un arreglo                  | `Arrays.hashCode(a)`                                            |
-
-Con campos como los textos, los choques no se pueden evitar del todo: la base
-los reparte, pero no los elimina.
-
-</Slide>
-
 <Slide title="Una mesa de votación">
 Una mesa se identifica por su comuna, su local y su número, que son `final`;
 si ya cerró es un dato, y queda fuera. `equals` compara los tres campos de la
@@ -1392,6 +1354,44 @@ reported.add(new VotingTable("Ñuñoa", "Liceo 7", 3));
 reported.contains(new VotingTable("Ñuñoa", "Liceo 7", 3)); // true
 reported.contains(new VotingTable("Ñuñoa", "Liceo 8", 3)); // false
 ```
+
+</Slide>
+
+<Slide title="La receta de una clave">
+Lo que se hizo con la mesa sirve para cualquier clase: con los campos de la
+identidad elegidos, los dos métodos salen de una receta:
+
+1. **`equals`:** `instanceof` y el cast, y después cada campo: con `==` si es
+   primitivo, y con su `equals` si es un objeto.
+2. **`hashCode`:** el número del primer campo y, por cada campo siguiente,
+   multiplicar por 31 y sumar su número.
+Al terminar, un chequeo: dos elementos iguales para `equals` dan el mismo
+`hashCode`.
+
+</Slide>
+
+<Slide title="Una función hash para cualquier clave">
+La construcción del RUT y de la mesa sirve para cualquier clave: cada campo se convierte
+en un número con la función hash de su tipo, y los números se combinan con
+Horner y una base impar. Con tres campos:
+
+$$
+h = (h_1 \cdot 31 + h_2) \cdot 31 + h_3
+$$
+
+se lee «el número del primer campo por 31, más el del segundo; todo eso por
+31, más el del tercero». En Java, el número de cada campo es:
+
+| Campo                       | Su número                                                       |
+| --------------------------- | --------------------------------------------------------------- |
+| `int`                       | el mismo                                                        |
+| `char`                      | su código                                                       |
+| `long`, `double`, `boolean` | `Long.hashCode(x)`, `Double.hashCode(x)`, `Boolean.hashCode(x)` |
+| `String` u otro objeto      | su `hashCode()`, o 0 si es `null`                               |
+| Un arreglo                  | `Arrays.hashCode(a)`                                            |
+
+Con campos como los textos, los choques no se pueden evitar del todo: la base
+los reparte, pero no los elimina.
 
 </Slide>
 
