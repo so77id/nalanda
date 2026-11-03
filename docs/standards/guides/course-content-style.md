@@ -229,7 +229,7 @@ Two consequences worth spelling out, because #288 hit both:
 
 **A domain's own name is not a Spanish identifier.** `Rut` and its field `dv`
 (dígito verificador) name a Chilean document that has no English name the
-student will meet: every RUT library and form writes `rut` and `dv`, so they
+student will meet: RUT libraries and forms write `rut` and `dv`, so they
 pass the rule's own test — the vocabulary keeps working outside the page. The
 rule is for words the Java world names in English (`Nodo` is `Node`), not for
 the domain's proper nouns. #352's review flagged `dv` and kept it for that

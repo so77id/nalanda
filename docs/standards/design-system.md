@@ -328,10 +328,11 @@ points here for the tokens rather than restating them.
 
 ## The tree figures' palette (#322)
 
-The Estructuras de Datos Avanzadas unit draws trees with `<BinaryPicture>`
-and the tree recipes of `<SequenceStepper>`, and four of their categories
-take a colour each from tokens that already mean something else. The mapping
-is fixed, so a reader meets the same colours in both Árboles classes:
+The Estructuras de Datos Avanzadas unit draws trees with `<BinaryPicture>`,
+the tree recipes of `<SequenceStepper>` and, in Set y Map, a file-local
+`KeyTree`, and four of their categories take a colour each from tokens that
+already mean something else. The mapping is fixed, so a reader meets the same
+colours in every class of the unit:
 
 - **A traversal** (`VISIT_COLOR` in `BinaryPicture.tsx`, and the `tone`
   Árboles I gives each traversal's `<OrderRule>`, whose default is

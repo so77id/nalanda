@@ -46,7 +46,7 @@ preguntas que la tabla no sabe responder. Separar lo que se pregunta de cómo
 se guarda permite escribir un programa una sola vez y elegir después la
 estructura que lo hace más barato.
 
-{/* The running example: the RUTs that have voted, as text with its dots, as a carnet prints them. Eight digits each, so the order of the text is the order of the numbers until the class says otherwise, and check digits that are valid under módulo 11. The numbers are invented, taken from no roster; only their check digits are computed. VOTED lists them in the order they arrive; VOTED_TABLE is the chaining table with M = 7 those arrivals build under the hash class's own `hash` (Horner, base 256, over the text with its dots, each key at the FRONT of its list), and VOTED_TREE is the AVL tree the same arrivals build. Computed by a script, not drawn by hand; the output is quoted in the commit that brought them. ABSENT is a RUT that has not voted: valid check digit, position 5 of the table, empty. */}
+{/* The running example: the RUTs that have voted, as text with its dots, as a carnet prints them. Eight digits each, so the order of the text is the order of the numbers until the class says otherwise, and check digits that are valid under módulo 11. Every RUT in this file is invented, taken from no roster; only the check digits are computed. VOTED lists them in the order they arrive; VOTED_TABLE is the chaining table with M = 7 those arrivals build under the hash class's own `hash` (Horner, base 256, over the text with its dots, each key at the FRONT of its list), and VOTED_TREE is the AVL tree the same arrivals build. Computed by a script, not drawn by hand; the output is quoted in the commit that brought them. ABSENT is a RUT that has not voted: valid check digit, position 5 of the table, empty. */}
 
 export const VOTED = ['18.155.218-2', '13.180.992-1', '13.959.276-K', '17.814.358-1', '22.715.853-0', '12.547.354-7'];
 
@@ -1567,7 +1567,7 @@ $$\Theta(1)$$ esperado de la tabla, y a cambio guarda todo en orden.
 
 </Slide>
 
-{/* RB_TREE — the registry's AVL tree painted with colours that satisfy the red-black rules (black root, no red node with a red child, the same number of black nodes on every path to null). It is also the tree java.util.TreeMap builds from those arrivals, colours included (read by reflection over its entries); the slide claims only that the colours are valid. */}
+{/* RB_TONES — the registry's AVL tree painted with colours that satisfy the red-black rules (black root, no red node with a red child, the same number of black nodes on every path to null). It is also the tree java.util.TreeMap builds from those arrivals, colours included (read by reflection over its entries); the slide claims only that the colours are valid. */}
 
 export const RB_TONES = { '13.959.276-K': 'black', '13.180.992-1': 'black', '18.155.218-2': 'black', '12.547.354-7': 'red', '17.814.358-1': 'red', '22.715.853-0': 'red' };
 
@@ -1801,10 +1801,10 @@ digitado, son distintos para `equals` y dan 0 en `compareTo`, y el `TreeSet`
 los toma por el mismo:
 
 ```java
-Rut a = new Rut(13180992, '1');            // bien digitado
-Rut wrong = new Rut(13180992, '2');        // el dígito, mal digitado
-new HashSet<>(Arrays.asList(a, wrong)).size();   // 2
-new TreeSet<>(Arrays.asList(a, wrong)).size();   // 1
+Rut a = new Rut(13180992, '1');                 // bien digitado
+Rut wrong = new Rut(13180992, '2');             // el dígito, mal digitado
+new HashSet<>(Arrays.asList(a, wrong)).size();  // 2
+new TreeSet<>(Arrays.asList(a, wrong)).size();  // 1
 ```
 
 </Slide>
