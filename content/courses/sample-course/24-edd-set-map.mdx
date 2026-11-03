@@ -1328,6 +1328,10 @@ class VotingTable {
 `hashCode` usa los mismos tres campos: parte del número del primer campo, y
 por cada campo siguiente multiplica por 31 y le suma su número.
 
+$$
+h(\text{mesa}) = \big(h(\text{comuna}) \cdot 31 + h(\text{local})\big) \cdot 31 + \text{número}
+$$
+
 ```java
 @Override
 public int hashCode() {
