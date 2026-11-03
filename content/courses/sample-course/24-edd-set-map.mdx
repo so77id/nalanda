@@ -2292,6 +2292,33 @@ retorna el valor del par que saca. Las tres cuestan $$\Theta(1)$$ esperado.
 
 </Slide>
 
+<Slide title="La clase TreeMap">
+Java implementa el contrato Map sobre un árbol rojo-negro en la clase
+`java.util.TreeMap`. Recorre los pares en el orden de sus claves, y responde
+las preguntas que dependen de ese orden con los métodos de otro contrato, la
+interfaz `NavigableMap`, que `TreeMap` implementa:
+
+| Pregunta                                      | Método                         | Costo              |
+| --------------------------------------------- | ------------------------------ | ------------------ |
+| La clave menor, la mayor                      | `firstKey()`, `lastKey()`      | $$O(\log N)$$      |
+| La siguiente a $$x$$, la anterior             | `higherKey(x)`, `lowerKey(x)`  | $$O(\log N)$$      |
+| La primera desde $$x$$, la última hasta $$x$$ | `ceilingKey(x)`, `floorKey(x)` | $$O(\log N)$$      |
+| Los $$k$$ pares con clave entre $$a$$ y $$b$$ | `subMap(a, b)`                 | $$O(\log N + k)$$  |
+
+```java
+NavigableMap<Rut, Integer> tree = new TreeMap<>();
+// un put por cada voto
+tree.firstKey();                       // el Rut 12.547.354-7
+tree.floorKey(new Rut(20118702, '8'));  // el Rut 18.155.218-2
+tree.subMap(new Rut(13000000, '0'), new Rut(18000000, '0'));
+// los pares de 13.180.992-1, 13.959.276-K y 17.814.358-1
+```
+
+`subMap` baja $$O(\log N)$$ hasta la primera clave del tramo y después entrega
+sus $$k$$ pares en orden, uno por paso: en total, $$O(\log N + k)$$.
+
+</Slide>
+
 <Slide title="Recorrer un Map">
 Un `Map` no es una `Collection` de Java, como sí lo son `List` y `Set`: guarda
 pares, no elementos sueltos, así que no se recorre directo con un `for`. Se
@@ -2340,82 +2367,6 @@ tabla crece.
 
 </Slide>
 
-<Slide title="Contar con un Map">
-El uso más común de un Map es contar: la clave es lo que se cuenta, y el
-valor, cuántas veces apareció. Para contar los votos de cada mesa, cada voto
-le suma uno al valor de su mesa, partiendo de 0 si la mesa todavía no está:
-
-```java
-Map<VotingTable, Integer> votes = new HashMap<>();
-// por cada voto, en la mesa table:
-votes.put(table, votes.getOrDefault(table, 0) + 1);
-```
-
-`merge` hace lo mismo en una línea: si la mesa no está, guarda 1, y si está,
-le suma 1 a lo que tenía.
-
-```java
-votes.merge(table, 1, Integer::sum);
-```
-
-Las dos buscan la mesa con el `hashCode` y el `equals` de `VotingTable`, y
-cuestan $$\Theta(1)$$ esperado.
-
-</Slide>
-
-<Slide title="Agrupar con un Map">
-El otro uso común es agrupar: la clave es el grupo, y el valor, una lista con
-lo que cae en él. Para juntar los RUT de cada mesa, la lista de una mesa se
-crea la primera vez que aparece:
-
-```java
-Map<VotingTable, List<Rut>> voters = new HashMap<>();
-// por cada voto, del RUT rut en la mesa table:
-List<Rut> group = voters.get(table);
-if (group == null) {
-    group = new ArrayList<>();
-    voters.put(table, group);
-}
-group.add(rut);
-```
-
-Los dos errores típicos son olvidar el `put` de la lista nueva, y crear una
-lista nueva en cada voto, que borra la anterior. `computeIfAbsent` hace lo
-mismo en una línea, sin ninguno de los dos:
-
-```java
-voters.computeIfAbsent(table, t -> new ArrayList<>()).add(rut);
-```
-
-</Slide>
-
-<Slide title="La clase TreeMap">
-Java implementa el contrato Map sobre un árbol rojo-negro en la clase
-`java.util.TreeMap`. Recorre los pares en el orden de sus claves, y responde
-las preguntas que dependen de ese orden con los métodos de otro contrato, la
-interfaz `NavigableMap`, que `TreeMap` implementa:
-
-| Pregunta                                      | Método                         | Costo              |
-| --------------------------------------------- | ------------------------------ | ------------------ |
-| La clave menor, la mayor                      | `firstKey()`, `lastKey()`      | $$O(\log N)$$      |
-| La siguiente a $$x$$, la anterior             | `higherKey(x)`, `lowerKey(x)`  | $$O(\log N)$$      |
-| La primera desde $$x$$, la última hasta $$x$$ | `ceilingKey(x)`, `floorKey(x)` | $$O(\log N)$$      |
-| Los $$k$$ pares con clave entre $$a$$ y $$b$$ | `subMap(a, b)`                 | $$O(\log N + k)$$  |
-
-```java
-NavigableMap<Rut, Integer> tree = new TreeMap<>();
-// un put por cada voto
-tree.firstKey();                       // el Rut 12.547.354-7
-tree.floorKey(new Rut(20118702, '8'));  // el Rut 18.155.218-2
-tree.subMap(new Rut(13000000, '0'), new Rut(18000000, '0'));
-// los pares de 13.180.992-1, 13.959.276-K y 17.814.358-1
-```
-
-`subMap` baja $$O(\log N)$$ hasta la primera clave del tramo y después entrega
-sus $$k$$ pares en orden, uno por paso: en total, $$O(\log N + k)$$.
-
-</Slide>
-
 <Slide title="El recorrido de un TreeMap">
 El mismo `for` recorre un `TreeMap` en el inorden de su árbol: los pares salen
 ordenados por clave.
@@ -2439,6 +2390,60 @@ for (Map.Entry<String, Integer> e : tableOf.entrySet()) {
 
 Las mesas salen en cualquier orden: el árbol ordena las claves, y cada valor
 viaja con la suya.
+
+</Slide>
+
+<Slide title="Contar con un Map">
+Contar es el uso más común de un Map. Para saber cuántos votos tiene cada
+mesa, la clave es la mesa, y el valor, cuántos votos lleva. Cada voto hace dos
+pasos:
+
+1. lee cuántos votos lleva su mesa, o 0 si la mesa todavía no está;
+2. guarda ese número más uno.
+
+```java
+Map<VotingTable, Integer> votes = new HashMap<>();
+for (VotingTable table : ballots) {   // la mesa de cada voto
+    votes.put(table, votes.getOrDefault(table, 0) + 1);
+}
+```
+
+`merge` hace los dos pasos en una sola llamada: si la mesa no está, guarda 1,
+y si está, le suma 1 a lo que tenía.
+
+```java
+votes.merge(table, 1, Integer::sum);
+```
+
+</Slide>
+
+<Slide title="Agrupar con un Map">
+Agrupar es el otro uso común: la clave es el grupo, y el valor, una lista con
+lo que cae en él. Para juntar los RUT que votaron en cada mesa, cada voto hace
+tres pasos:
+
+1. busca la lista de su mesa;
+2. si la mesa todavía no tiene lista, crea una vacía y la guarda;
+3. agrega el RUT a esa lista.
+
+```java
+Map<VotingTable, List<Rut>> voters = new HashMap<>();
+// por cada voto: el RUT rut votó en la mesa table
+List<Rut> group = voters.get(table);     // 1
+if (group == null) {                     // 2
+    group = new ArrayList<>();
+    voters.put(table, group);
+}
+group.add(rut);                          // 3
+```
+
+Si falta el `put` del paso 2, la lista nueva se pierde; si se crea una lista
+en cada voto, se borra la anterior. `computeIfAbsent` hace los pasos 1 y 2
+juntos, y retorna la lista de la mesa:
+
+```java
+voters.computeIfAbsent(table, t -> new ArrayList<>()).add(rut);
+```
 
 </Slide>
 
