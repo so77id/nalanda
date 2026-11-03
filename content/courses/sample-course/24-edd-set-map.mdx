@@ -2429,9 +2429,9 @@ for (int table : tableOf.values()) {      // la mesa de cada RUT
 }
 ```
 
-Con los seis RUT, cada mesa termina en 2: las dos flechas que llegan a cada
-mesa en el dibujo del diccionario. `getOrDefault` junta los dos casos en una
-línea, porque una mesa que no está cuenta 0:
+Con los seis RUT del registro, cada una de las tres mesas termina con 2
+votantes. `getOrDefault` junta los dos casos en una línea, porque una mesa que
+no está cuenta 0:
 
 ```java
 votersAt.put(table, votersAt.getOrDefault(table, 0) + 1);
