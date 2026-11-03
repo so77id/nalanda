@@ -218,6 +218,8 @@ export function KeyTree({ tree, tones = {}, values, order = false, strip = false
     keep: ['var(--color-keep-soft)', 'var(--color-keep)', 2.2],
     focus: ['var(--color-surface)', 'var(--color-focus)', 2.4],
     mark: ['var(--color-mark-soft)', 'var(--color-mark)', 2.2],
+    black: ['var(--color-ink)', 'var(--color-ink)', 2.2],
+    red: ['var(--color-flag-soft)', 'var(--color-flag)', 2.4],
   };
   const paint = (v) => tone[tones[v]] ?? ['var(--color-surface)', 'var(--color-rule-strong)', 1.3];
   return (
@@ -232,7 +234,7 @@ export function KeyTree({ tree, tones = {}, values, order = false, strip = false
         return (
           <g key={n.v} opacity={tones[n.v] === 'faint' ? 0.45 : undefined}>
             <rect x={cx(n.v) - nodeW / 2} y={cy(n.depth) - nodeH / 2} width={nodeW} height={nodeH} rx={values ? 12 : nodeH / 2} style={{ fill, stroke }} strokeWidth={weight} />
-            <text x={cx(n.v)} y={cy(n.depth) + (values ? -2 : 5)} textAnchor="middle" fontSize="12.5" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{n.v}</text>
+            <text x={cx(n.v)} y={cy(n.depth) + (values ? -2 : 5)} textAnchor="middle" fontSize="12.5" fontWeight="600" style={{ fill: tones[n.v] === 'black' ? 'var(--color-ground)' : 'var(--color-ink)' }}>{n.v}</text>
             {values ? (
               <text x={cx(n.v)} y={cy(n.depth) + 14} textAnchor="middle" fontSize="11.5" style={{ fill: 'var(--color-ink-soft)' }}>{values[n.v]}</text>
             ) : null}
@@ -1525,14 +1527,64 @@ que provocan.
 
 <Slide title="La clase TreeSet">
 Java implementa el contrato Set sobre un árbol de búsqueda balanceado en la
-clase `java.util.TreeSet`. Su árbol es un **rojo-negro**, otro árbol de
-búsqueda balanceado como el AVL, y `add`, `remove` y `contains` cuestan
-$$O(\log N)$$ en el peor caso. En el registro cambia solo la línea que crea el
+clase `java.util.TreeSet`. En el registro cambia solo la línea que crea el
 conjunto:
 
 ```java
 Set<String> voted = new TreeSet<>();
-// un add por cada voto
+```
+
+`add`, `remove` y `contains` cuestan $$O(\log N)$$ en el peor caso, llegue lo
+que llegue: es lo que promete un árbol balanceado. No tiene el
+$$\Theta(1)$$ esperado de la tabla, y a cambio guarda todo en orden.
+
+</Slide>
+
+{/* RB_TREE — the registry's AVL tree painted with colours that satisfy the red-black rules (black root, no red node with a red child, the same number of black nodes on every path to null). Not the tree Java builds from those arrivals: the slide says only that the colours are valid. */}
+
+export const RB_TONES = { '13.959.276-K': 'black', '13.180.992-1': 'black', '18.155.218-2': 'black', '12.547.354-7': 'red', '17.814.358-1': 'red', '22.715.853-0': 'red' };
+
+<Slide title="El árbol rojo-negro">
+El árbol de `TreeSet` no es un AVL: es un **árbol rojo-negro**, otro árbol de
+búsqueda balanceado. Cada nodo es rojo o negro, y la invariante de balance son
+tres reglas sobre los colores:
+
+- la raíz es negra;
+- un nodo rojo no tiene hijos rojos;
+- todos los caminos desde un nodo hasta un `null` pasan por la misma cantidad
+  de nodos negros.
+
+<KeyTree
+  tree={VOTED_TREE}
+  tones={RB_TONES}
+  caption="el árbol del registro con colores que cumplen las reglas: rellenos, los negros; en rojo, los rojos"
+  label="El árbol de los seis RUTs pintado como rojo-negro. Negros: la raíz, 13.959.276-K, y sus dos hijos, 13.180.992-1 y 18.155.218-2. Rojos: las tres hojas, 12.547.354-7, 17.814.358-1 y 22.715.853-0. Todo camino desde la raíz hasta un null pasa por dos nodos negros."
+/>
+
+</Slide>
+
+<Slide title="AVL o rojo-negro">
+Los dos garantizan $$O(\log N)$$, y se equilibran de manera distinta:
+
+|                         | Árbol AVL                                       | Árbol rojo-negro                   |
+| ----------------------- | ----------------------------------------------- | ---------------------------------- |
+| Invariante de balance   | las alturas de los hijos difieren a lo más en 1 | las reglas de los colores          |
+| Altura, a lo más        | cerca de $$1{,}44 \cdot \log_2 N$$              | cerca de $$2 \cdot \log_2 N$$      |
+| Rotaciones al insertar  | a lo más una, simple o doble                    | a lo más dos                       |
+| Rotaciones al eliminar  | hasta una por nivel                             | a lo más tres                      |
+
+El AVL es más bajo, y busca un poco más rápido. El rojo-negro modifica con
+menos rotaciones, y por eso lo usan Java, la biblioteca de C++ y el núcleo de
+Linux. Buscar, recorrer en inorden y responder las preguntas del orden se hace
+igual en los dos, así que los dibujos siguen con el árbol AVL.
+
+</Slide>
+
+<Slide title="El recorrido de un TreeSet">
+Un `for` recorre el `TreeSet` con su `iterator()`, que entrega los elementos en
+el inorden del árbol: de menor a mayor.
+
+```java
 for (String rut : voted) {
     System.out.println(rut);
 }
@@ -1547,9 +1599,7 @@ for (String rut : voted) {
 22.715.853-0
 ```
 
-El recorrido de un `TreeSet` es el inorden de su árbol: entrega los elementos
-de menor a mayor. Para eso tiene que poder compararlos, y un `String` sabe
-compararse: su `compareTo` ordena los textos.
+Es el orden de los textos: un `String` sabe compararse con su `compareTo`.
 
 </Slide>
 
@@ -1587,15 +1637,8 @@ cercano por arriba o por abajo. `subSet(a, b)` incluye a `a` y deja fuera a
 Un `TreeSet` ubica un elemento como el árbol AVL: lo compara con el de cada
 nodo y baja a la izquierda o a la derecha. No calcula ningún número ni usa
 `equals`: necesita un **orden**, y con él decide también si un elemento ya
-está. En Java, el orden es el método **`compareTo`** de la interfaz
-`Comparable`, que escribe el tipo del elemento. Los tipos de Java ya lo
-traen:
-
-| Tipo        | `compareTo`              |
-| ----------- | ------------------------ |
-| `String`    | el orden del diccionario |
-| `Integer`   | el orden de los números  |
-| `Character` | el orden de los códigos  |
+está, cuando la comparación da 0. En Java, el orden es el método
+**`compareTo`** de la interfaz `Comparable`, que escribe el tipo del elemento.
 
 <KeyTree
   tree={VOTED_TREE}
@@ -1603,6 +1646,28 @@ traen:
   caption="buscar 12.547.354-7: compara con 13.959.276-K y con 13.180.992-1, y baja hasta él"
   label="El árbol AVL de los seis RUTs. El camino de la búsqueda de 12.547.354-7 está destacado: compara con la raíz, 13.959.276-K, y baja a la izquierda; compara con 13.180.992-1 y baja a la izquierda; llega a 12.547.354-7."
 />
+
+</Slide>
+
+<Slide title="Los tipos de Java ya traen compareTo">
+`String`, `Integer` y los demás tipos de Java implementan `Comparable`, y por
+eso funcionan en un `TreeSet` sin hacer nada:
+
+| Tipo        | `compareTo`              |
+| ----------- | ------------------------ |
+| `String`    | el orden del diccionario |
+| `Integer`   | el orden de los números  |
+| `Character` | el orden de los códigos  |
+
+Una copia de un texto compara 0 con el original, y el árbol la encuentra:
+
+```java
+Set<String> words = new TreeSet<>();
+words.add("hola");
+String copy = new String("hola");   // otro objeto, las mismas letras
+"hola".compareTo(copy);             // 0
+words.contains(copy);               // true
+```
 
 </Slide>
 
@@ -1648,9 +1713,58 @@ sorted.add(a);      // ClassCastException
 
 </Slide>
 
+<Slide title="Lo que se le pide a un orden">
+El `compareTo` de una clave cumple un contrato, para que el árbol baje por él
+sin perderse.
+
+**Signos opuestos.** Si $$a$$ va antes que $$b$$, entonces $$b$$ va después
+que $$a$$:
+
+$$
+\operatorname{signo}\big(a.\text{compareTo}(b)\big) = -\operatorname{signo}\big(b.\text{compareTo}(a)\big)
+$$
+
+**Transitivo.** Si $$a$$ va antes que $$b$$, y $$b$$ antes que $$c$$, entonces
+$$a$$ va antes que $$c$$.
+
+**Consistente con `equals`.** Responde 0 exactamente cuando las dos claves son
+iguales:
+
+$$
+a.\text{compareTo}(b) = 0 \;\Longleftrightarrow\; a.\text{equals}(b)
+$$
+
+Java exige los dos primeros, y el tercero solo lo recomienda. Sin él, un
+`TreeSet` y un `HashSet` con los mismos elementos guardan cosas distintas.
+
+</Slide>
+
+<Slide title="Un primer intento: comparar solo el número">
+El intento más simple compara solo el número del RUT:
+
+```java
+@Override
+public int compareTo(Rut other) {
+    return Integer.compare(number, other.number);
+}
+```
+
+Ordena bien y cumple los dos primeros requisitos, pero no es consistente con
+`equals`. Dos RUT con el mismo número y distinto dígito, como uno mal
+digitado, son distintos para `equals` y dan 0 en `compareTo`, y el `TreeSet`
+los toma por el mismo:
+
+```java
+Rut wrong = new Rut(13180992, '2');        // el dígito, mal digitado
+new HashSet<>(List.of(a, wrong)).size();   // 2
+new TreeSet<>(List.of(a, wrong)).size();   // 1
+```
+
+</Slide>
+
 <Slide title="El orden de los RUT">
-`Rut` implementa `Comparable<Rut>`, y su `compareTo` compara en cascada:
-primero el número y, si empatan, el dígito.
+La cascada lo arregla: primero el número y, si empatan, el dígito. Así usa los
+mismos dos campos que `equals`, y da 0 solo para el mismo RUT.
 
 ```java
 class Rut implements Comparable<Rut> {
@@ -1683,27 +1797,55 @@ RUT de siete dígitos queda primero.
   label="El árbol de búsqueda con los mismos siete RUTs, comparados por su número. 9.876.543-3, destacado, es el hijo izquierdo de 12.547.354-7, y en la fila del inorden es el primero."
 />
 
-El `TreeSet` no usa `equals` ni `hashCode`: decide si un elemento ya está con
-`compareTo`. Para que guarde lo mismo que un `HashSet`, `compareTo` compara los
-mismos campos que `equals` y responde 0 exactamente cuando `equals` responde
-verdadero.
+Y como `compareTo` usa los mismos campos que `equals`, el `TreeSet` guarda lo
+mismo que un `HashSet`.
+
+</Slide>
+
+{/* The registry's AVL tree after the node of 13.180.992-1 has its fields changed to 23.180.992-9 (valid check digit) where it stands: left of the root, though now larger than every RUT on the right. */}
+
+export const VOTED_TREE_FIXED = { v: '13.959.276-K', l: { v: '23.180.992-9', l: { v: '12.547.354-7' } }, r: { v: '18.155.218-2', l: { v: '17.814.358-1' }, r: { v: '22.715.853-0' } } };
+
+<Slide title="Una clave que cambia en un árbol">
+Un campo que usa `compareTo` tampoco puede cambiar. Si `Rut` tuviera un método
+para corregir sus campos, corregir un RUT que ya está en el `TreeSet` del
+registro lo dejaría en el lugar de su valor viejo, del lado equivocado:
+
+```java
+Rut typed = new Rut(13180992, '1');
+sorted.add(typed);
+typed.fix(23180992, '9');   // corrige los campos
+sorted.contains(typed);     // false
+```
+
+<KeyTree
+  tree={VOTED_TREE_FIXED}
+  tones={{ '13.959.276-K': 'focus', '18.155.218-2': 'focus', '22.715.853-0': 'focus', '23.180.992-9': 'mark' }}
+  caption="buscar 23.180.992-9: baja por la derecha, y el nodo corregido quedó a la izquierda"
+  label="El árbol del registro con el nodo de 13.180.992-1 corregido a 23.180.992-9, destacado, todavía como hijo izquierdo de la raíz. La búsqueda de 23.180.992-9 compara con la raíz, 13.959.276-K, y baja a la derecha; después pasa por 18.155.218-2 y por 22.715.853-0, y termina en un null sin encontrarlo."
+/>
+
+Por eso los campos de `Rut` son `final`, también para el árbol.
 
 </Slide>
 
 <Slide title="El orden de una clave">
-Para cualquier clase, `compareTo` sale de los mismos campos de la identidad
-que `equals`:
+Lo que se hizo con el RUT sirve para cualquier clase: `compareTo` compara en
+cascada los mismos campos de la identidad que `equals`, desde el más
+importante. Si la clave $$x$$ tiene campos de $$c_1$$ a $$c_k$$, y la clave
+$$y$$, de $$c'_1$$ a $$c'_k$$:
 
-1. compara en cascada, desde el campo más importante, y responde en el
-   primero que no empata;
-2. compara los números con `Integer.compare`, nunca con una resta, y los
-   objetos con su propio `compareTo`.
+$$
+x < y \;\Longleftrightarrow\; c_1 < c'_1 \;\text{ o }\; \big(c_1 = c'_1 \text{ y } c_2 < c'_2\big) \;\text{ o }\; \cdots
+$$
 
-Si la clase no se puede cambiar, o hace falta otro orden, el orden se le pasa
-al `TreeSet` como un `Comparator`, con las mismas reglas.
+Se lee «$$x$$ va antes que $$y$$ si su primer campo es menor, o si empatan en
+el primero y su segundo es menor, y así»: es el orden del diccionario, campo
+por campo.
 
-Al terminar, un chequeo: `compareTo` responde 0 exactamente cuando `equals`
-responde verdadero.
+Al escribirlo, `Integer.compare` para los números, nunca una resta, y el
+propio `compareTo` para los objetos. Al terminar, un chequeo: `compareTo`
+responde 0 exactamente cuando `equals` responde verdadero.
 
 </Slide>
 
@@ -1759,12 +1901,46 @@ mesa, por RUT.
 
 </Slide>
 
-<Slide title="Errores en el orden">
-| Error                                                   | Lo que pasa                                                                                                               |
-| ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| `compareTo` con menos campos que `equals`               | El `TreeSet` guarda menos que el `HashSet`: si compara solo el número, dos mesas 3 de locales distintos son una sola. |
-| `compareTo` con una resta, como `number - other.number` | Con números grandes la resta se desborda, y el orden sale al revés.                                                       |
-| Un campo del orden que cambia                           | El elemento queda en el lugar de su orden viejo, y el `TreeSet` ya no lo encuentra.                                      |
+<Slide title="Un orden pasado al constructor">
+Cuando la clase no se puede cambiar, o hace falta un segundo orden, el orden se
+le pasa al `TreeSet` al crearlo, como un `Comparator`. Para listar primero
+todas las mesas 1, después las 2, y así, `VotingTable` agrega tres métodos de
+acceso, y el comparador se arma en cascada:
+
+```java
+String commune() { return commune; }
+String place() { return place; }
+int number() { return number; }
+
+Comparator<VotingTable> byNumber = Comparator
+    .comparingInt(VotingTable::number)
+    .thenComparing(VotingTable::commune)
+    .thenComparing(VotingTable::place);
+Set<VotingTable> tables = new TreeSet<>(byNumber);
+```
+
+Usa los mismos tres campos en otro orden de importancia, así que sigue siendo
+consistente con `equals`. **`Comparable` pone un orden en la clase, y hay uno
+solo; `Comparator` lo elige quien crea el conjunto, y puede haber tantos como
+haga falta.**
+
+</Slide>
+
+<Slide title="Errores al escribir compareTo">
+Al revisar un orden se buscan tres errores, y se separan por lo que provocan.
+
+**Juntan elementos distintos.**
+
+- `compareTo` con menos campos que `equals`: si compara solo el número, dos
+  mesas 3 de locales distintos son una sola para el `TreeSet`.
+
+**Pierden elementos.**
+
+- `compareTo` con una resta, como `number - other.number`: con números grandes
+  la resta se desborda, el signo sale al revés, y el árbol baja por el lado
+  equivocado.
+- Un campo del orden que cambia: el elemento queda en el lugar de su valor
+  viejo, y el `TreeSet` ya no lo encuentra.
 
 </Slide>
 
