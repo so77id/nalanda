@@ -953,15 +953,17 @@ cuesta una lista enlazada.
 
 </Slide>
 
-<Slide title="La base 10 no alcanza">
-Para repartir, la función usa los dos campos del RUT, combinados con Horner.
-El número ya es lo que da Horner en base 10 sobre sus dígitos, así que lo
-natural es agregarle el dígito verificador como un dígito más, con base 10.
+<Slide title="Qué base elegir">
+Para repartir, la función usa los dos campos del RUT, combinados con Horner, y
+queda elegir la base. Horner suma «dígitos» multiplicados por potencias de la
+base, y la base tiene que ser mayor que lo que difieren esos dígitos: si no,
+dos claves distintas pueden compensarse y dar el mismo número.
 
-En Java, un `char` en una cuenta vale el entero de su código: de 48 a 57 para
-los caracteres `'0'` a `'9'`, y 75 para `'K'`. Por eso la base 10 no alcanza:
-el código del dígito verificador no está entre 0 y 9, y se mezcla con las
-cifras del número. Dos RUT distintos dan el mismo resultado:
+El número del RUT ya es lo que da Horner en base 10 sobre sus dígitos, así que
+lo natural sería agregarle el dígito verificador como un dígito más, con base
+10. Pero en Java un `char` en una cuenta vale el entero de su código: de 48 a
+57 para los caracteres `'0'` a `'9'`, y 75 para `'K'`. Esos códigos difieren
+hasta en 27, más que la base, y dos RUT distintos dan el mismo resultado:
 
 | RUT          | $$10 \cdot$$ número $$+$$ dv | $$31 \cdot$$ número $$+$$ dv |
 | ------------ | --------------------------- | --------------------------- |
@@ -1065,8 +1067,27 @@ franja de $$-27$$ a $$27$$ donde cae la diferencia de dos códigos:
   RUT que dan el mismo número son el mismo RUT.
 
 Sirve cualquier base de 28 o más, porque su primer múltiplo ya salta la
-franja. Java usa 31 en `String.hashCode` y en `Objects.hash`, y `Rut` usa la
-misma.
+franja.
+
+</Slide>
+
+<Slide title="Por qué Java usa 31">
+`String.hashCode` combina los códigos de sus caracteres con Horner y base 31,
+y el mismo argumento explica la elección. Las letras de `'a'` a `'z'` tienen
+códigos de 97 a 122, que difieren a lo más en 25: con base 31, dos palabras
+distintas del mismo largo dan números distintos mientras la cuenta no se
+desborde, hasta cinco letras. Con base 10 chocan enseguida:
+
+| Palabra | $$10 \cdot$$ primera $$+$$ segunda | $$31 \cdot$$ primera $$+$$ segunda |
+| ------- | --------------------------------- | --------------------------------- |
+| «al»    | 1 078                             | 3 115                             |
+| «bb»    | 1 078                             | 3 136                             |
+
+Además, 31 es impar: una base par, cuando el `int` se desborda, va perdiendo
+los bits de los primeros caracteres. Y es barata: multiplicar por 31 es
+multiplicar por 32 y restar una vez, y multiplicar por 32 es correr los bits
+cinco lugares. Que además sea primo es una tradición, no una necesidad.
+`Objects.hash` y `Rut` usan la misma base.
 
 </Slide>
 
@@ -1187,9 +1208,8 @@ se lee «el número del primer campo por 31, más el del segundo; todo eso por
 | `String` u otro objeto      | su `hashCode()`, o 0 si es `null`                               |
 | Un arreglo                  | `Arrays.hashCode(a)`                                            |
 
-Cualquier base impar sirve, y Java usa 31. Una par, cuando el `int` se
-desborda, va perdiendo los bits de los primeros campos. Con campos como los
-textos, los choques no se pueden evitar del todo; la base los reparte.
+Con campos como los textos, los choques no se pueden evitar del todo: la base
+los reparte, pero no los elimina.
 
 </Slide>
 
