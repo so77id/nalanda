@@ -2480,9 +2480,9 @@ mesas de distintos locales.
 
 </Slide>
 
-{/* GroupMap — a dictionary whose values are lists: the keys in a box on the left, and from each key an arrow to its list, drawn as a row of chips inside its own frame. It draws what grouping builds, each mesa with the RUTs that voted there. File-local (add-a-course-document.md §6e-quater). */}
+{/* GroupMap — a dictionary whose values are lists: the keys in a box on the left, and from each key an arrow to its list, drawn as a row of chips inside its own frame. It draws what grouping builds, each mesa with the RUTs that voted there, and each section with its students. `rows` and `slots` reserve the rows and the places per list a walk reaches, so its frames keep one size; `picked` outlines the key a request asks for, and `fresh` paints `mark` the item it just added to that key's list. File-local (add-a-course-document.md §6e-quater). */}
 
-export function GroupMap({ groups, keyTitle, valueTitle, caption, label, id }) {
+export function GroupMap({ groups, rows = groups.length, slots, picked, fresh, keyTitle, valueTitle, caption, label, id }) {
   const pad = 14;
   const keyW = 96;
   const gap = 110;
@@ -2493,14 +2493,14 @@ export function GroupMap({ groups, keyTitle, valueTitle, caption, label, id }) {
   const rowH = 52;
   const top = 34;
   const boxPad = 8;
-  const most = Math.max(...groups.map(([, items]) => items.length));
+  const most = slots || Math.max(1, ...groups.map(([, items]) => items.length));
   const listW = (n) => n * chipW + (n - 1) * chipGap + 2 * listPad;
   const core = 2 * pad + keyW + gap + listW(most);
   const width = Math.max(core, caption ? caption.length * 6.6 + 24 : 0);
   const left = (width - core) / 2 + pad;
   const listX = left + keyW + gap;
   const rowY = (i) => top + boxPad + i * rowH + rowH / 2;
-  const boxH = groups.length * rowH + 2 * boxPad;
+  const boxH = rows * rowH + 2 * boxPad;
   const height = top + boxH + (caption ? 34 : 12);
   return (
     <svg viewBox={`0 0 ${width} ${height}`} style={{ width: '100%', maxWidth: `${Math.round(width * 1.3)}px`, height: 'auto', display: 'block', margin: '0.4rem auto' }} role="img" aria-label={label}>
@@ -2514,15 +2514,21 @@ export function GroupMap({ groups, keyTitle, valueTitle, caption, label, id }) {
       <text x={listX} y={top - 10} fontSize="12" fontWeight="700" style={{ fill: 'var(--color-ink-soft)' }}>{valueTitle}</text>
       {groups.map(([k, items], i) => (
         <g key={k}>
+          {k === picked ? (
+            <rect x={left + 8} y={rowY(i) - 15} width={keyW - 16} height={30} rx="15" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-focus)' }} strokeWidth="2.2" />
+          ) : null}
           <text x={left + keyW / 2} y={rowY(i) + 5} textAnchor="middle" fontSize="13" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{k}</text>
           <line x1={left + keyW + 4} y1={rowY(i)} x2={listX - 8} y2={rowY(i)} style={{ stroke: 'var(--color-ink-soft)' }} strokeWidth="1.4" markerEnd={`url(#${id}-punta)`} />
-          <rect x={listX} y={rowY(i) - chipH / 2 - listPad} width={listW(items.length)} height={chipH + 2 * listPad} rx="10" style={{ fill: 'var(--color-sunk)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.3" />
-          {items.map((item, j) => (
-            <g key={item}>
-              <rect x={listX + listPad + j * (chipW + chipGap)} y={rowY(i) - chipH / 2} width={chipW} height={chipH} rx="14" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.2" />
-              <text x={listX + listPad + j * (chipW + chipGap) + chipW / 2} y={rowY(i) + 5} textAnchor="middle" fontSize="12.5" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{item}</text>
-            </g>
-          ))}
+          <rect x={listX} y={rowY(i) - chipH / 2 - listPad} width={listW(slots || Math.max(1, items.length))} height={chipH + 2 * listPad} rx="10" style={{ fill: 'var(--color-sunk)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.3" />
+          {items.map((item, j) => {
+            const just = k === picked && item === fresh;
+            return (
+              <g key={item}>
+                <rect x={listX + listPad + j * (chipW + chipGap)} y={rowY(i) - chipH / 2} width={chipW} height={chipH} rx="14" style={{ fill: just ? 'var(--color-mark-soft)' : 'var(--color-surface)', stroke: just ? 'var(--color-mark)' : 'var(--color-rule-strong)' }} strokeWidth={just ? 2 : 1.2} />
+                <text x={listX + listPad + j * (chipW + chipGap) + chipW / 2} y={rowY(i) + 5} textAnchor="middle" fontSize="12.5" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{item}</text>
+              </g>
+            );
+          })}
         </g>
       ))}
       {caption ? (
@@ -3763,6 +3769,534 @@ check(refused, true);
 refused = false;
 try { Solution.minMax(new int[] {4, 9}, 3); }
 catch (IllegalArgumentException e) { refused = true; }
+check(refused, true);
+```
+
+</Exercise>
+</PresentationWide>
+
+</Slide>
+
+{/* EnrollStrip — the hand run of the enrollment idea, one column per request: on top what it asks (enroll in a section, or drop from one) and the RUT, under it the verdict, and under that every section with its students in order, the one just added painted `mark`. `slots` is the capacity: the places each section draws. */}
+
+export function EnrollStrip({ sections, slots, steps, label }) {
+  const chipW = 112;
+  const chipH = 26;
+  const colW = 128;
+  const pad = 12;
+  const askY = pad + 10;
+  const rutY = askY + 8;
+  const verdictY = rutY + chipH + 16;
+  const sectionY = verdictY + 14;
+  const blockH = 22 + slots * (chipH + 5) + 14;
+  const width = 2 * pad + steps.length * colW;
+  const height = sectionY + sections.length * blockH;
+  const tone = (v) => (v === 'entra' ? 'var(--color-keep)' : v === 'sale' ? 'var(--color-ink-soft)' : 'var(--color-flag)');
+  return (
+    <svg viewBox={`0 0 ${width} ${height}`} style={{ width: '100%', maxWidth: `${Math.round(width * 1.3)}px`, height: 'auto', display: 'block', margin: '0.4rem auto' }} role="img" aria-label={label}>
+      {steps.map((st, c) => {
+        const x = pad + c * colW + (colW - chipW) / 2;
+        return (
+          <g key={c}>
+            <text x={x + chipW / 2} y={askY} textAnchor="middle" fontSize="11" style={{ fill: 'var(--color-ink-faint)' }}>{st.drop ? `retira de ${st.section}` : `inscribe en ${st.section}`}</text>
+            <rect x={x} y={rutY} width={chipW} height={chipH} rx="13" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-focus)' }} strokeWidth="2" />
+            <text x={x + chipW / 2} y={rutY + chipH / 2 + 5} textAnchor="middle" fontSize="12.5" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{st.rut}</text>
+            <text x={x + chipW / 2} y={verdictY} textAnchor="middle" fontSize="11.5" fontWeight="700" style={{ fill: tone(st.verdict) }}>{st.verdict}</text>
+            {sections.map((name, k) => {
+              const y = sectionY + k * blockH;
+              const ruts = st.rosters[name] || [];
+              return (
+                <g key={name}>
+                  <text x={x + chipW / 2} y={y + 14} textAnchor="middle" fontSize="11" fontWeight="700" style={{ fill: 'var(--color-ink-soft)' }}>{name}</text>
+                  <rect x={x - 4} y={y + 20} width={chipW + 8} height={slots * (chipH + 5) + 3} rx="10" style={{ fill: 'var(--color-sunk)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.1" />
+                  {ruts.map((r, j) => {
+                    const just = name === st.section && r === st.rut && st.verdict === 'entra';
+                    return (
+                      <g key={r}>
+                        <rect x={x} y={y + 24 + j * (chipH + 5)} width={chipW} height={chipH} rx="13" style={{ fill: just ? 'var(--color-mark-soft)' : 'var(--color-surface)', stroke: just ? 'var(--color-mark)' : 'var(--color-rule-strong)' }} strokeWidth={just ? 2 : 1.1} />
+                        <text x={x + chipW / 2} y={y + 24 + j * (chipH + 5) + chipH / 2 + 5} textAnchor="middle" fontSize="12.5" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{r}</text>
+                      </g>
+                    );
+                  })}
+                </g>
+              );
+            })}
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
+
+{/* The requests of the enrollment exercise, with capacity 2: what each asks, its verdict, and every section after it. 13.959.276-K ends in both sections of EDA, the rule the statement allows. */}
+
+export const ENROLL_STEPS = [
+  { section: 'EDA 2', rut: '13.959.276-K', verdict: 'entra', rosters: { 'EDA 2': ['13.959.276-K'] } },
+  { section: 'EDA 1', rut: '18.155.218-2', verdict: 'entra', rosters: { 'EDA 1': ['18.155.218-2'], 'EDA 2': ['13.959.276-K'] } },
+  { section: 'EDA 1', rut: '13.959.276-K', verdict: 'entra', rosters: { 'EDA 1': ['13.959.276-K', '18.155.218-2'], 'EDA 2': ['13.959.276-K'] } },
+  { section: 'EDA 1', rut: '18.155.218-2', verdict: 'ya está', rosters: { 'EDA 1': ['13.959.276-K', '18.155.218-2'], 'EDA 2': ['13.959.276-K'] } },
+  { section: 'EDA 1', rut: '13.180.992-1', verdict: 'llena', rosters: { 'EDA 1': ['13.959.276-K', '18.155.218-2'], 'EDA 2': ['13.959.276-K'] } },
+  { section: 'EDA 1', rut: '18.155.218-2', drop: true, verdict: 'sale', rosters: { 'EDA 1': ['13.959.276-K'], 'EDA 2': ['13.959.276-K'] } },
+];
+
+<Slide title="Las inscripciones de un semestre">
+Durante el período de inscripción, un sistema recibe pedidos para inscribir y
+para retirar estudiantes de las **secciones** de los ramos. Una sección la
+identifican la sigla de su ramo y su número. Todas tienen el mismo **cupo**, y
+una sección que lo completó rechaza la inscripción siguiente. Un estudiante
+puede estar en dos secciones, también del mismo ramo. En cualquier momento se
+pregunta cuántos inscritos tiene una sección y su **nómina**: sus inscritos en
+orden de RUT.
+
+<GroupMap
+  id="nomina"
+  groups={[
+    ['EDA 1', ['13.959.276-K', '18.155.218-2']],
+    ['EDA 2', ['13.959.276-K']],
+  ]}
+  slots={2}
+  keyTitle="las secciones"
+  valueTitle="su nómina, en orden de RUT"
+  caption="con cupo 2, EDA 1 está llena, y 13.959.276-K está en las dos secciones"
+  label="Dos secciones, cada una con una flecha a su nómina. EDA 1 lleva a 13.959.276-K y 18.155.218-2, los dos lugares del cupo ocupados; EDA 2 lleva a 13.959.276-K y a un lugar libre."
+/>
+
+</Slide>
+
+<Slide title="Lo que recibe y responde el sistema de inscripción">
+Cada estudiante es un `Rut`, la clase de los votantes, con su `equals`, su
+`hashCode` y su `compareTo`. Cada sección es un `Section`, que se crea con la
+sigla y el número en cada pedido. El sistema es la clase `Enrollment`:
+
+```java
+class Enrollment {
+    Enrollment(int capacity)
+    // falso si el RUT ya está o si la sección está llena
+    boolean enroll(Section section, Rut rut)
+    // falso si el RUT no estaba
+    boolean drop(Section section, Rut rut)
+    int count(Section section)
+    // los inscritos, en orden de RUT
+    List<Rut> roster(Section section)
+}
+```
+
+**Entrada.** A lo más $$10^5$$ llamadas. El cupo es al menos 1; si no, el
+constructor lanza `IllegalArgumentException`. $$N$$ es la cantidad de
+inscripciones vigentes, $$S$$ la de secciones, y $$k$$ la de inscritos de una
+sección.
+
+</Slide>
+
+<Slide title="Unas inscripciones de ejemplo">
+Una seguidilla de pedidos, con cupo 2, y lo que responde cada uno:
+
+| Pedido                                | Responde                            |
+| ------------------------------------- | ----------------------------------- |
+| inscribir 13.959.276-K en EDA 2       | `true`                              |
+| inscribir 18.155.218-2 en EDA 1       | `true`                              |
+| inscribir 13.959.276-K en EDA 1       | `true`: está también en EDA 2       |
+| inscribir 18.155.218-2 en EDA 1       | `false`: ya está                    |
+| inscribir 13.180.992-1 en EDA 1       | `false`: EDA 1 está llena           |
+| la nómina de EDA 1                    | 13.959.276-K y 18.155.218-2         |
+| retirar 18.155.218-2 de EDA 1         | `true`                              |
+| retirar 18.155.218-2 de EDA 1         | `false`: ya no estaba               |
+| cuántos inscritos tiene EDA 1         | 1                                   |
+| cuántos inscritos tiene CAL 1         | 0: nadie se inscribió en ella       |
+
+</Slide>
+
+<Slide title="Una lista de inscripciones">
+Guardar cada inscripción como un par, el RUT y su sección, en una lista
+responde bien, y recorre la lista entera en cada pedido: para saber si el RUT
+ya está, cuántos tiene la sección y si queda cupo. Cada llamada cuesta
+$$\Theta(N)$$, y la nómina, además, ordenar los inscritos de la sección:
+
+$$
+O(N + k \log k)
+$$
+
+Con $$10^5$$ llamadas sobre una lista que crece, son miles de millones de
+pasos. Un arreglo con un casillero por sección tampoco sirve, porque una sigla
+es un texto y no una posición, y ordenar una sola vez no alcanza, porque las
+inscripciones cambian entre una pregunta y la siguiente.
+
+</Slide>
+
+<Slide title="La sigla sola no identifica una sección">
+Juntar los inscritos por la sigla parece bastar: cada ramo, con sus
+estudiantes. Pero dos secciones del mismo ramo tienen cada una su cupo y su
+nómina, y con la sigla sola son la misma: el pedido a una sección encuentra los
+inscritos de la otra, y rechaza a quien ya está en ella o cuenta un cupo que no
+es el suyo.
+
+<GroupMap
+  id="sigla"
+  groups={[['EDA', ['13.959.276-K', '18.155.218-2']]]}
+  slots={2}
+  keyTitle="claves: las siglas"
+  valueTitle="sus inscritos"
+  caption="13.959.276-K pide EDA 1: la clave EDA ya lo tiene, por EDA 2, y lo rechaza"
+  label="Una sola clave, EDA, con una flecha a 13.959.276-K, inscrito en EDA 2, y 18.155.218-2, inscrito en EDA 1. El pedido de 13.959.276-K a EDA 1 cae en la misma clave, lo encuentra ya inscrito y lo rechaza."
+/>
+
+Una sección la identifican sus dos datos juntos, la sigla y el número.
+
+</Slide>
+
+<Slide title="Los inscritos de cada sección, pedido a pedido">
+La idea es guardar, para cada sección, sus inscritos, y llegar a ellos
+preguntando por la sección, sin mirar las demás. Un pedido de inscripción busca
+su sección: si no está, todavía nadie se inscribió en ella; si está, revisa si
+le queda cupo y si el RUT ya está. Los inscritos de una sección no se repiten,
+y se mantienen en orden mientras entran y salen.
+
+<EnrollStrip
+  sections={['EDA 1', 'EDA 2']}
+  slots={2}
+  steps={ENROLL_STEPS}
+  label="Seis columnas, una por pedido, con cupo 2. Inscribe 13.959.276-K en EDA 2: entra. Inscribe 18.155.218-2 en EDA 1: entra. Inscribe 13.959.276-K en EDA 1: entra, y queda antes que 18.155.218-2. Inscribe 18.155.218-2 en EDA 1: ya está. Inscribe 13.180.992-1 en EDA 1: llena. Retira 18.155.218-2 de EDA 1: sale; EDA 1 queda con 13.959.276-K, y EDA 2 también."
+/>
+
+Es un **diccionario** de cada sección a sus inscritos. A una sección solo se le
+pregunta por su identidad, nunca por un orden, así que va sobre una **tabla
+hash**. Los inscritos de cada sección son un **conjunto ordenado** sobre un
+**árbol**: no repite un RUT, agrega y saca en $$O(\log k)$$, y entrega la
+nómina en orden sin ordenarla.
+
+</Slide>
+
+<Slide title="Una sección que el diccionario no encuentra">
+Cada pedido trae su propio objeto `Section`, creado con la sigla y el número.
+Sin `equals` ni `hashCode`, `Section` usa los que hereda de `Object`, que
+miran el objeto y no sus campos: dos secciones con la misma sigla y el mismo
+número son dos claves distintas, y la segunda no encuentra a la primera.
+
+```java
+Map<Section, Integer> seats = new HashMap<>();
+seats.put(new Section("EDA", 1), 2);
+seats.get(new Section("EDA", 1));      // null: otra clave
+seats.put(new Section("EDA", 1), 1);   // otro par, no corrige
+seats.size();                          // 2
+```
+
+En las inscripciones, cada pedido abriría una sección nueva: el mismo RUT
+entraría dos veces, el cupo nunca se llenaría, y la nómina saldría vacía.
+
+</Slide>
+
+<Slide title="La clase Section">
+`Section` escribe `equals` y `hashCode` con sus dos campos, la sigla y el
+número. Dos secciones son iguales si coinciden en los dos, y el `hashCode`
+parte del de la sigla, lo multiplica por 31 y le suma el número:
+
+$$
+h(\text{sección}) = h(\text{sigla}) \cdot 31 + \text{número}
+$$
+
+```java
+class Section {
+    private final String course;
+    private final int number;
+    // el constructor rechaza una sigla null
+
+    @Override
+    public boolean equals(Object other) {
+        if (!(other instanceof Section)) return false;
+        Section s = (Section) other;
+        return number == s.number && course.equals(s.course);
+    }
+
+    @Override
+    public int hashCode() {
+        return 31 * course.hashCode() + number;
+    }
+}
+```
+
+</Slide>
+
+<Slide title="Inscripciones · inscribir">
+`Enrollment` guarda un `HashMap` de cada sección a un `TreeSet` de sus RUTs.
+Inscribir busca el conjunto de la sección, y si no está, lo crea vacío y lo
+guarda; después rechaza si está lleno, y si no, `add` agrega el RUT y su
+respuesta dice si ya estaba.
+
+<StepShow
+  language="java"
+  beside
+  code={`class Enrollment {
+      private final int capacity;
+      private Map<Section, TreeSet<Rut>> rosters =
+          new HashMap<>();
+
+      Enrollment(int capacity) {
+          if (capacity < 1) {
+              throw new IllegalArgumentException();
+          }
+          this.capacity = capacity;
+      }
+
+      public boolean enroll(Section section, Rut rut) {
+          TreeSet<Rut> enrolled = rosters.get(section);
+          if (enrolled == null) {
+              enrolled = new TreeSet<>();
+              rosters.put(section, enrolled);
+          }
+          if (enrolled.size() == capacity) {
+              return false;
+          }
+          return enrolled.add(rut);
+      }
+
+      // drop, count y roster
+  }`}
+>
+  <Step lines={[3, 4]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>rosters arranca vacío: ninguna sección tiene inscritos.</div>
+    <GroupMap id="inscritos" groups={[]} rows={2} slots={2} keyTitle="rosters" valueTitle="los inscritos, en orden" label="El diccionario rosters, sin ninguna sección." />
+  </Step>
+  <Step lines={[13, 14, 15, 16, 17, 19, 22]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>enroll de 13.959.276-K en EDA 2: EDA 2 no estaba; se crea su conjunto, y entra.</div>
+    <GroupMap id="inscritos" groups={[['EDA 2', ['13.959.276-K']]]} rows={2} slots={2} picked="EDA 2" fresh="13.959.276-K" keyTitle="rosters" valueTitle="los inscritos, en orden" label="EDA 2, destacada, con 13.959.276-K, recién agregado." />
+  </Step>
+  <Step lines={[13, 14, 15, 16, 17, 19, 22]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>enroll de 18.155.218-2 en EDA 1: EDA 1 no estaba; se crea su conjunto, y entra.</div>
+    <GroupMap id="inscritos" groups={[['EDA 2', ['13.959.276-K']], ['EDA 1', ['18.155.218-2']]]} rows={2} slots={2} picked="EDA 1" fresh="18.155.218-2" keyTitle="rosters" valueTitle="los inscritos, en orden" label="EDA 2 con 13.959.276-K; EDA 1, destacada, con 18.155.218-2, recién agregado." />
+  </Step>
+  <Step lines={[13, 14, 15, 19, 22]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>enroll de 13.959.276-K en EDA 1: hay cupo, y entra antes que 18.155.218-2, por su número.</div>
+    <GroupMap id="inscritos" groups={[['EDA 2', ['13.959.276-K']], ['EDA 1', ['13.959.276-K', '18.155.218-2']]]} rows={2} slots={2} picked="EDA 1" fresh="13.959.276-K" keyTitle="rosters" valueTitle="los inscritos, en orden" label="EDA 2 con 13.959.276-K; EDA 1, destacada, con 13.959.276-K, recién agregado y primero, y 18.155.218-2." />
+  </Step>
+  <Step lines={[13, 14, 15, 19, 22]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>enroll de 18.155.218-2 en EDA 1, otro objeto igual: add responde false, ya está.</div>
+    <GroupMap id="inscritos" groups={[['EDA 2', ['13.959.276-K']], ['EDA 1', ['13.959.276-K', '18.155.218-2']]]} rows={2} slots={2} picked="EDA 1" keyTitle="rosters" valueTitle="los inscritos, en orden" label="EDA 1, destacada, con 13.959.276-K y 18.155.218-2: nada cambia." />
+  </Step>
+  <Step lines={[13, 14, 15, 19, 20]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>enroll de 13.180.992-1 en EDA 1: tiene 2, el cupo; responde false.</div>
+    <GroupMap id="inscritos" groups={[['EDA 2', ['13.959.276-K']], ['EDA 1', ['13.959.276-K', '18.155.218-2']]]} rows={2} slots={2} picked="EDA 1" keyTitle="rosters" valueTitle="los inscritos, en orden" label="EDA 1, destacada, llena con 13.959.276-K y 18.155.218-2: nada cambia." />
+  </Step>
+</StepShow>
+
+</Slide>
+
+<Slide title="Inscripciones · retirar, contar y la nómina">
+Retirar, contar y la nómina buscan el conjunto de la sección, y una sección sin
+conjunto no tiene inscritos. La nómina copia el conjunto a una lista, que sale
+en el orden del árbol.
+
+<StepShow
+  language="java"
+  code={`public boolean drop(Section section, Rut rut) {
+      TreeSet<Rut> enrolled = rosters.get(section);
+      return enrolled != null && enrolled.remove(rut);
+  }
+
+  public int count(Section section) {
+      TreeSet<Rut> enrolled = rosters.get(section);
+      return enrolled == null ? 0 : enrolled.size();
+  }
+
+  public List<Rut> roster(Section section) {
+      TreeSet<Rut> enrolled = rosters.get(section);
+      if (enrolled == null) {
+          return new ArrayList<>();
+      }
+      return new ArrayList<>(enrolled);
+  }`}
+>
+  <Step lines={[11, 12, 13, 16]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>roster de EDA 1: una lista con su conjunto, en el orden del árbol.</div>
+    <GroupMap id="inscritos" groups={[['EDA 2', ['13.959.276-K']], ['EDA 1', ['13.959.276-K', '18.155.218-2']]]} rows={2} slots={2} picked="EDA 1" keyTitle="rosters" valueTitle="los inscritos, en orden" label="EDA 1, destacada: su nómina es 13.959.276-K y 18.155.218-2, en ese orden." />
+  </Step>
+  <Step lines={[1, 2, 3]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>drop de 18.155.218-2 en EDA 1: estaba; remove lo saca y responde true.</div>
+    <GroupMap id="inscritos" groups={[['EDA 2', ['13.959.276-K']], ['EDA 1', ['13.959.276-K']]]} rows={2} slots={2} picked="EDA 1" keyTitle="rosters" valueTitle="los inscritos, en orden" label="EDA 1, destacada, con 13.959.276-K; EDA 2 con 13.959.276-K." />
+  </Step>
+  <Step lines={[1, 2, 3]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>drop de 18.155.218-2 en EDA 1 otra vez: ya no estaba; remove responde false.</div>
+    <GroupMap id="inscritos" groups={[['EDA 2', ['13.959.276-K']], ['EDA 1', ['13.959.276-K']]]} rows={2} slots={2} picked="EDA 1" keyTitle="rosters" valueTitle="los inscritos, en orden" label="EDA 1, destacada, con 13.959.276-K: nada cambia." />
+  </Step>
+  <Step lines={[6, 7, 8]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>count de EDA 1: el tamaño de su conjunto, 1.</div>
+    <GroupMap id="inscritos" groups={[['EDA 2', ['13.959.276-K']], ['EDA 1', ['13.959.276-K']]]} rows={2} slots={2} picked="EDA 1" keyTitle="rosters" valueTitle="los inscritos, en orden" label="EDA 1, destacada, con un inscrito." />
+  </Step>
+  <Step lines={[6, 7, 8]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>count de CAL 1: no está en rosters, y responde 0.</div>
+    <GroupMap id="inscritos" groups={[['EDA 2', ['13.959.276-K']], ['EDA 1', ['13.959.276-K']]]} rows={2} slots={2} keyTitle="rosters" valueTitle="los inscritos, en orden" label="EDA 2 y EDA 1, cada una con 13.959.276-K; CAL 1 no aparece." />
+  </Step>
+</StepShow>
+
+</Slide>
+
+<Slide title="Una sección sin inscritos, un RUT de siete dígitos y el costo de las inscripciones">
+Una sección que nunca recibió un pedido no está en el diccionario: `count`
+responde 0, `roster` una lista vacía, y `drop` falso. Con cupo 1, la segunda
+inscripción de una sección se rechaza, y un cupo menor que 1 lo rechaza el
+constructor. La nómina sigue el orden de `Rut`, por número: un RUT de siete
+dígitos va primero, donde el orden de los textos lo pondría último.
+
+<GroupMap
+  id="siete"
+  groups={[['EDA 2', ['9.876.543-3', '13.959.276-K']]]}
+  slots={2}
+  picked="EDA 2"
+  fresh="9.876.543-3"
+  keyTitle="la sección"
+  valueTitle="su nómina"
+  caption="9.876.543-3 entra a EDA 2 y queda primero: el orden de Rut es el de los números"
+  label="EDA 2, destacada, con 9.876.543-3, recién agregado y primero, y 13.959.276-K."
+/>
+
+**Tiempo.** Encontrar la sección cuesta $$\Theta(1)$$ esperado: su `hashCode`
+y un `equals`. `enroll` y `drop` agregan o sacan en el árbol de la sección, en
+$$O(\log k)$$; `count` lee el tamaño del conjunto, y `roster` copia sus $$k$$
+RUTs en orden, en $$\Theta(k)$$.
+
+**Memoria.** Cada inscripción vigente es un nodo de un árbol, y cada sección,
+un par del diccionario: $$\Theta(N + S)$$.
+
+</Slide>
+
+<Slide title="Inscripciones · el programa completo">
+<PresentationWide fraction={0.75}>
+<Exercise title="Las inscripciones de un semestre">
+
+```java starter
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.TreeSet;
+
+class Rut implements Comparable<Rut> {
+    private final int number;
+    private final char dv;
+
+    Rut(int number, char dv) {
+        if (number <= 0) throw new IllegalArgumentException();
+        this.number = number;
+        this.dv = dv;
+    }
+
+    @Override
+    public boolean equals(Object other) {
+        if (!(other instanceof Rut)) return false;
+        Rut r = (Rut) other;
+        return number == r.number && dv == r.dv;
+    }
+
+    @Override
+    public int hashCode() {
+        return 31 * number + dv;
+    }
+
+    @Override
+    public int compareTo(Rut other) {
+        int byNumber = Integer.compare(number, other.number);
+        if (byNumber != 0) return byNumber;
+        return Character.compare(dv, other.dv);
+    }
+}
+
+class Section {
+    private final String course;
+    private final int number;
+
+    Section(String course, int number) {
+        if (course == null) throw new IllegalArgumentException();
+        this.course = course;
+        this.number = number;
+    }
+
+    @Override
+    public boolean equals(Object other) {
+        if (!(other instanceof Section)) return false;
+        Section s = (Section) other;
+        return number == s.number && course.equals(s.course);
+    }
+
+    @Override
+    public int hashCode() {
+        return 31 * course.hashCode() + number;
+    }
+}
+
+class Enrollment {
+    private final int capacity;
+    private Map<Section, TreeSet<Rut>> rosters =
+        new HashMap<>();
+
+    Enrollment(int capacity) {
+        if (capacity < 1) {
+            throw new IllegalArgumentException();
+        }
+        this.capacity = capacity;
+    }
+
+    public boolean enroll(Section section, Rut rut) {
+        TreeSet<Rut> enrolled = rosters.get(section);
+        if (enrolled == null) {
+            enrolled = new TreeSet<>();
+            rosters.put(section, enrolled);
+        }
+        if (enrolled.size() == capacity) {
+            return false;
+        }
+        return enrolled.add(rut);
+    }
+
+    public boolean drop(Section section, Rut rut) {
+        TreeSet<Rut> enrolled = rosters.get(section);
+        return enrolled != null && enrolled.remove(rut);
+    }
+
+    public int count(Section section) {
+        TreeSet<Rut> enrolled = rosters.get(section);
+        return enrolled == null ? 0 : enrolled.size();
+    }
+
+    public List<Rut> roster(Section section) {
+        TreeSet<Rut> enrolled = rosters.get(section);
+        if (enrolled == null) {
+            return new ArrayList<>();
+        }
+        return new ArrayList<>(enrolled);
+    }
+}
+```
+
+```java test
+Enrollment e = new Enrollment(2);
+Rut a = new Rut(18155218, '2');
+Rut b = new Rut(13180992, '1');
+Rut c = new Rut(13959276, 'K');
+check(e.enroll(new Section("EDA", 2), c), true);
+check(e.enroll(new Section("EDA", 1), a), true);
+check(e.enroll(new Section("EDA", 1), c), true);
+check(e.enroll(new Section("EDA", 1), new Rut(18155218, '2')), false);
+check(e.enroll(new Section("EDA", 1), b), false);
+check(e.roster(new Section("EDA", 1)), Arrays.asList(c, a));
+check(e.drop(new Section("EDA", 1), a), true);
+check(e.drop(new Section("EDA", 1), a), false);
+check(e.count(new Section("EDA", 1)), 1);
+check(e.count(new Section("EDA", 2)), 1);
+check(e.count(new Section("CAL", 1)), 0);
+check(e.roster(new Section("CAL", 1)), Arrays.asList());
+check(e.drop(new Section("CAL", 1), a), false);
+check(e.enroll(new Section("EDA", 1), b), true);
+Rut seven = new Rut(9876543, '3');
+check(e.enroll(new Section("EDA", 2), seven), true);
+check(e.roster(new Section("EDA", 2)), Arrays.asList(seven, c));
+check(new Section("EDA", 1).equals(new Section("EDA", 2)), false);
+check(new Section("EDA", 1).equals(new Section("CAL", 1)), false);
+check(new Section("EDA", 1).hashCode() == new Section("EDA", 1).hashCode(), true);
+Enrollment one = new Enrollment(1);
+check(one.enroll(new Section("EDA", 1), a), true);
+check(one.enroll(new Section("EDA", 1), b), false);
+boolean refused = false;
+try { new Enrollment(0); }
+catch (IllegalArgumentException err) { refused = true; }
 check(refused, true);
 ```
 

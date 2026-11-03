@@ -235,6 +235,13 @@ appeared inside the walk under a promise to write them "al final".
   too long to stack over it (`teach-a-data-structure.md` §6bis). Building
   in pieces is for a listing whose parts are steps of one algorithm, as
   #304's merge; a class whose parts are methods is walked whole.
+- **Unless the class does not fit and its methods call nothing of each
+  other.** #350's enrollments — a constructor and four methods, 39 lines —
+  walked whole beside its drawing measured 0.563 against the 0.70 floor.
+  Its methods share a field and call nothing of each other, so it walks the
+  constructor and `enroll` on one slide (0.769, the rest of the class a
+  one-line comment) and `drop`, `count` and `roster` stacked on the next
+  (0.775). The iterator's rule stands where methods call each other.
 - **A helper slide comes immediately before the listing slide** when the
   helpers and the walk do not fit together. This guide said the opposite
   first — "helpers get no slide of their own, plumbing with a slide of its
@@ -399,9 +406,10 @@ split across two slides — and beat 3's hand runs drawn as one column per
 state (the pending stack after every `next`, the two inorders crossed one
 comparison at a time), the shape the heap class's Top-K strip set.
 
-`content/courses/sample-course/24-edd-set-map.mdx` — three worked exercises
+`content/courses/sample-course/24-edd-set-map.mdx` — four worked exercises
 (el primer voto repetido, una agenda de horas con separación mínima, el
-mínimo y el máximo de una ventana de precios), two solved in the book only
+mínimo y el máximo de una ventana de precios, las inscripciones de un
+semestre), two solved in the book only
 (las notas de cada estudiante, votantes distintos con y sin puntos — the
 third shape above) and three posed (el conteo de votos, la próxima salida, el
 evento más cercano), across the four classes it teaches: `HashSet`,
@@ -413,6 +421,14 @@ keeping the minimum in a variable is wrong the moment it leaves — and its
 listing is built in pieces before the walk, as #304's merge was. The
 agenda's walk is a 29-line class `beside` a column of its times in order
 (`AgendaColumn`): a day drawn as an axis was unreadable in half a slide.
+
+The enrollments are the exam-shaped one Miguel asked for: a problem that
+ends in writing a key class with its `equals` and `hashCode`, as a written
+control asks. Its beat 2 takes both forms — a list of pairs is slow, and the
+course code alone as the key merges two sections — and its beat 4 first
+shows the key failing on a plain `HashMap` (two equal sections, two keys)
+before `Section` writes its two methods; `Rut` is given, the theory's own,
+and orders each section's roster.
 
 Miguel's review of the first draft (2026-11-01) rewrote four of the eight,
 and two rules above come from it: the counterexample that has to break the
