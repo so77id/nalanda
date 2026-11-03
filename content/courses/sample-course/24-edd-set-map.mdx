@@ -1412,6 +1412,33 @@ los reparte, pero no los elimina.
 
 </Slide>
 
+<Slide title="Cuando el número se desborda">
+Con cada campo, el número se multiplica por 31 y crece rápido. Un `int` guarda
+32 bits: si la cuenta pasa de su máximo, 2 147 483 647, da la vuelta y sigue
+desde su mínimo, −2 147 483 648, sin ningún aviso. Por eso un `hashCode` puede
+ser negativo. En la mesa pasa a mitad de la cuenta:
+
+```java
+int partial = 31 * "Ñuñoa".hashCode() + "Liceo 7".hashCode();
+// -659691704: la cuenta dio la vuelta
+```
+
+No rompe nada: la vuelta es determinista, y los mismos campos dan siempre el
+mismo número. El `HashSet` usa tablas cuyo tamaño es una potencia de 2 y se
+queda con los bits bajos del número, así que la posición siempre es una de la
+tabla, aunque el número sea negativo.
+
+La trampa aparece en una tabla propia que reduce con `%`: en Java, el resto de
+un número negativo es negativo, y la posición quedaría fuera del arreglo.
+`Math.floorMod` da siempre un resto que no es negativo:
+
+```java
+int a = -7 % 3;                // -1: fuera del arreglo
+int b = Math.floorMod(-7, 3);  // 2
+```
+
+</Slide>
+
 <Slide title="Una clave hecha de otras claves">
 Un vocal de mesa se identifica por la persona y por la mesa donde trabaja: sus
 campos son un `Rut` y una `VotingTable`, dos clases que ya tienen su `equals` y
