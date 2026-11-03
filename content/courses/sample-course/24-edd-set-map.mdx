@@ -2001,8 +2001,83 @@ por persona, el RUT y su mesa, y sobre los pares:
   label="Un conjunto de seis pares, cada RUT con la mesa donde votó: 18.155.218-2, mesa 3; 13.180.992-1, mesa 1; 13.959.276-K, mesa 3; 17.814.358-1, mesa 2; 22.715.853-0, mesa 1; 12.547.354-7, mesa 2. La pregunta por 13.959.276-K llega a su par, destacado: votó en la mesa 3."
 />
 
-El RUT sigue sin repetirse, y la mesa sí se repite: dos personas pueden haber
-votado en la misma.
+Lo que el registro guarda ahora es un **diccionario**: para cada RUT, su mesa.
+
+</Slide>
+
+{/* ArrowMap — a dictionary drawn as a function, the way mathematics draws one: the keys in a box on the left, the values in a box on the right, one arrow from each key to its value. Each value is written once, level with the keys that reach it, so the arrows do not cross when the keys come grouped by value. File-local (add-a-course-document.md §6e-quater). */}
+
+export function ArrowMap({ keys, values, keyTitle, valueTitle, caption, label, id }) {
+  const pad = 14;
+  const rowH = 34;
+  const keyW = 132;
+  const valW = 96;
+  const gap = 220;
+  const top = 34;
+  const boxPad = 10;
+  const distinct = [];
+  keys.forEach((k) => {
+    if (!distinct.includes(values[k])) distinct.push(values[k]);
+  });
+  const keyY = (i) => top + boxPad + i * rowH + rowH / 2;
+  const valY = (v) => {
+    const ys = keys.map((k, i) => (values[k] === v ? keyY(i) : null)).filter((y) => y !== null);
+    return ys.reduce((a, b) => a + b, 0) / ys.length;
+  };
+  const boxH = keys.length * rowH + 2 * boxPad;
+  const core = 2 * pad + keyW + gap + valW;
+  const width = Math.max(core, caption ? caption.replace(/`/g, '').length * 6.6 + 24 : 0);
+  const left = (width - core) / 2 + pad;
+  const valX = left + keyW + gap;
+  const height = top + boxH + (caption ? 34 : 12);
+  return (
+    <svg viewBox={`0 0 ${width} ${height}`} style={{ width: '100%', maxWidth: `${Math.round(width * 1.3)}px`, height: 'auto', display: 'block', margin: '0.4rem auto' }} role="img" aria-label={label}>
+      <defs>
+        <marker id={`${id}-punta`} markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+          <path d="M0,0 L8,4 L0,8 z" style={{ fill: 'var(--color-ink-soft)' }} />
+        </marker>
+      </defs>
+      <rect x={left} y={top} width={keyW} height={boxH} rx="14" style={{ fill: 'var(--color-sunk)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.3" />
+      <rect x={valX} y={top} width={valW} height={boxH} rx="14" style={{ fill: 'var(--color-sunk)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.3" />
+      <text x={left + keyW / 2} y={top - 10} textAnchor="middle" fontSize="12" fontWeight="700" style={{ fill: 'var(--color-ink-soft)' }}>{keyTitle}</text>
+      <text x={valX + valW / 2} y={top - 10} textAnchor="middle" fontSize="12" fontWeight="700" style={{ fill: 'var(--color-ink-soft)' }}>{valueTitle}</text>
+      {keys.map((k, i) => (
+        <g key={k}>
+          <text x={left + keyW / 2} y={keyY(i) + 5} textAnchor="middle" fontSize="13" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{k}</text>
+          <line x1={left + keyW + 4} y1={keyY(i)} x2={valX - 8} y2={valY(values[k])} style={{ stroke: 'var(--color-ink-soft)' }} strokeWidth="1.4" markerEnd={`url(#${id}-punta)`} />
+        </g>
+      ))}
+      {distinct.map((v) => (
+        <text key={v} x={valX + valW / 2} y={valY(v) + 5} textAnchor="middle" fontSize="13" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{v}</text>
+      ))}
+      {caption ? (
+        <text x={width / 2} y={height - 10} textAnchor="middle" fontSize="12" style={{ fill: 'var(--color-ink-soft)' }}>{caption}</text>
+      ) : null}
+    </svg>
+  );
+}
+
+<Slide title="Un diccionario">
+Un **diccionario** le asocia a cada **clave** un **valor**: a cada RUT, la
+mesa donde votó. Es una función de las claves en los valores:
+
+$$
+m : K \to V
+$$
+
+que se lee «$$m$$ va del conjunto $$K$$ de las claves guardadas al conjunto
+$$V$$ de los valores». Cada clave tiene un solo valor, y dos claves pueden
+tener el mismo: una persona vota en una sola mesa, y en una mesa votan muchas.
+
+<ArrowMap
+  id="funcion"
+  keys={['18.155.218-2', '13.959.276-K', '13.180.992-1', '22.715.853-0', '17.814.358-1', '12.547.354-7']}
+  values={MESA_TEXT}
+  keyTitle="claves: los RUT"
+  valueTitle="valores: las mesas"
+  caption="de cada RUT sale una sola flecha; a cada mesa llegan dos"
+  label="Un diagrama de flechas. A la izquierda, seis RUT; a la derecha, tres mesas. 18.155.218-2 y 13.959.276-K apuntan a la mesa 3; 13.180.992-1 y 22.715.853-0, a la mesa 1; 17.814.358-1 y 12.547.354-7, a la mesa 2."
+/>
 
 </Slide>
 
@@ -2014,21 +2089,21 @@ un código para obtener otra cosa.
   contacto con un nombre que ya está cambia su número.
 - **Un diccionario de la lengua.** Cada palabra lleva a su definición, y
   buscar es dar la palabra.
-- **La caja de un supermercado.** Cada código de barras lleva a un producto
-  y su precio; un precio nuevo reemplaza al anterior.
 - **Un carrito de compras.** Cada producto lleva a la cantidad que se lleva:
   agregar uno más cambia la cantidad, no agrega otro producto.
+- **Los cursos de un colegio.** Cada curso lleva a la lista de sus alumnos, y
+  matricular a uno lo agrega a la lista de su curso.
 
 Los cuatro hacen lo mismo que el registro: buscar un valor por su clave,
 guardar y corregir el valor de una clave, y sacarla, con cada clave una sola
-vez.
+vez. Ese comportamiento está definido en un **tipo de dato abstracto** (TDA)
+llamado **Map**.
 
 </Slide>
 
 <Slide title="El TDA Map">
-Un **Map** —en español, **diccionario**— es una colección de pares
-**clave-valor** en la que cada clave está una sola vez: un Set de claves con
-un valor pegado a cada una.
+Un **Map** —en español, **diccionario**— guarda un valor por cada clave, y
+cada clave una sola vez.
 
 <div style={{ border: '1px solid var(--color-rule)', borderRadius: '8px', overflow: 'hidden', margin: '1.25rem 0' }}>
   <div style={{ background: 'var(--color-sunk)', padding: '0.55rem 0.9rem', borderBottom: '1px solid var(--color-rule)', fontWeight: 700 }}>Map <span style={{ fontWeight: 400, color: 'var(--color-ink-faint)' }}>· el contrato</span></div>
@@ -2062,15 +2137,8 @@ un valor pegado a cada una.
 </Slide>
 
 <Slide title="Las reglas del contrato Map">
-Un diccionario es una **función** de sus claves en sus valores: a cada clave
-guardada le corresponde un solo valor, y dos claves pueden tener el mismo.
-
-$$
-m : K \to V
-$$
-
-se lee «$$m$$ va del conjunto $$K$$ de las claves guardadas al conjunto $$V$$
-de los valores». De ahí salen las reglas:
+Como un diccionario es una función de sus claves en sus valores, de ahí salen
+las reglas:
 
 - **`put(k, v)` con una clave que ya está no agrega un par**: reemplaza su
   valor y retorna el que tenía. Así, cada clave está una sola vez.
@@ -2086,32 +2154,23 @@ extiende: sus elementos son pares, no valores sueltos.
 
 </Slide>
 
-<Slide title="Map en Java">
-Java declara el contrato en la interfaz `java.util.Map<K, V>`, con `K` el tipo
-de las claves y `V` el de los valores:
+<Slide title="Un Set de claves con un valor">
+Un Map es un Set de claves al que cada clave le lleva pegado un valor. El
+valor viaja con su clave, y nada que busque lo mira: ni la función hash, ni la
+igualdad, ni el orden. Por eso todo lo del Set sirve sin cambios:
 
-| El TDA          | Java `Map<K, V>`                  |
-| --------------- | --------------------------------- |
-| `get(k)`        | `get(k)`, que retorna `null` si `k` no está |
-| `containsKey(k)` | `containsKey(k)`                 |
-| `size()`        | `size()`                          |
-| `keys()`        | `keySet()`, un `Set` con las claves |
-| `values()`      | `values()`                        |
-| `put(k, v)`     | `put(k, v)`, que retorna `null` si `k` era nueva |
-| `remove(k)`     | `remove(k)`, que retorna `null` si `k` no estaba |
+- las dos implementaciones, la tabla hash y el árbol, guardan el valor en el
+  nodo de su clave;
+- los costos son los del Set, y la elección entre tabla y árbol, la misma;
+- una clave se diseña igual que un elemento del Set: con `equals` y
+  `hashCode` para la tabla, y con `compareTo` para el árbol.
 
-Como `get` responde `null` cuando la clave no está, un valor `null` guardado
-no se distingue de una clave ausente: para saber si una clave está se
-pregunta con `containsKey`. `getOrDefault(k, d)` retorna el valor de `k`, o
-`d` si no está, y evita la pregunta cuando hay un valor que sirve por omisión.
+Lo nuevo es lo que se hace con el valor: leerlo, reemplazarlo, y recorrerlo
+junto a su clave.
 
 </Slide>
 
 <Slide title="Un Map sobre una tabla hash">
-Las dos implementaciones del Set guardan también un diccionario: cada nodo
-lleva su valor además de la clave. Las operaciones son las mismas, buscando
-siempre por la clave.
-
 En la tabla hash, la clave decide la posición, y el valor viaja en el nodo
 sin intervenir: `get` recorre la lista de la posición de la clave y retorna
 el valor del nodo que la tiene; `put` hace lo mismo y, si la encuentra,
@@ -2165,6 +2224,45 @@ del orden de las claves, la tabla hash; si dependen, el árbol.**
 
 ## HashMap y TreeMap
 
+<Slide title="Map en Java">
+Java declara el contrato en la interfaz `java.util.Map<K, V>`, con `K` el tipo
+de las claves y `V` el de los valores:
+
+| El TDA          | Java `Map<K, V>`                  |
+| --------------- | --------------------------------- |
+| `get(k)`        | `get(k)`, que retorna `null` si `k` no está |
+| `containsKey(k)` | `containsKey(k)`                 |
+| `size()`        | `size()`                          |
+| `keys()`        | `keySet()`, un `Set` con las claves |
+| `values()`      | `values()`                        |
+| `put(k, v)`     | `put(k, v)`, que retorna `null` si `k` era nueva |
+| `remove(k)`     | `remove(k)`, que retorna `null` si `k` no estaba |
+
+Como `get` responde `null` cuando la clave no está, un valor `null` guardado
+no se distingue de una clave ausente: para saber si una clave está se
+pregunta con `containsKey`. `getOrDefault(k, d)` retorna el valor de `k`, o
+`d` si no está, y evita la pregunta cuando hay un valor que sirve por omisión.
+
+</Slide>
+
+<Slide title="Las claves de un Map ya las sabemos construir">
+Lo que una tabla hash y un árbol de búsqueda piden de sus elementos lo piden
+de sus claves, y de sus valores nada. Las claves se diseñan como los elementos
+del Set, así que `Rut` y `VotingTable` sirven sin cambiar nada:
+
+|                      | `HashMap`                                         | `TreeMap`                                            |
+| -------------------- | ------------------------------------------------- | ---------------------------------------------------- |
+| Cómo ubica una clave | Su `hashCode`, y `equals` en la lista             | `compareTo`, o el `Comparator` del constructor       |
+| Lo que exige         | `equals` y `hashCode` con los mismos campos       | Un orden que responda 0 cuando `equals` es verdadero |
+| Si falta             | Una clave igual no se encuentra                   | El primer `put` lanza `ClassCastException`           |
+
+En los dos, **una clave no cambia mientras está en el diccionario**: la tabla
+la dejaría en la lista de su `hashCode` viejo, y el árbol, en el lugar de su
+orden viejo. Un valor, en cambio, puede cambiar cuando haga falta: ninguna
+búsqueda lo mira.
+
+</Slide>
+
 <Slide title="La clase HashMap">
 Java implementa el contrato Map sobre una tabla hash con listas en la clase
 `java.util.HashMap`. El registro guarda la mesa de cada `Rut`:
@@ -2186,6 +2284,74 @@ tableOf.remove(new Rut(13180992, '1'));          // por error: 4
 porque `Rut` escribe `equals` y `hashCode`: la clave de un `HashMap` cumple el
 mismo contrato que el elemento de un `HashSet`. `get`, `put` y `remove`
 cuestan $$\Theta(1)$$ esperado.
+
+</Slide>
+
+<Slide title="Recorrer un Map">
+Un Map se recorre de tres maneras: por sus claves, por sus valores o por sus
+pares. Cada par es un `Map.Entry`, con `getKey()` y `getValue()`:
+
+```java
+for (Rut rut : tableOf.keySet()) { }       // las claves
+for (int table : tableOf.values()) { }     // los valores
+for (Map.Entry<Rut, Integer> e : tableOf.entrySet()) {
+    Rut rut = e.getKey();                   // el par: un RUT
+    int table = e.getValue();               // y su mesa
+}
+```
+
+En un `HashMap`, el orden de los tres no significa nada; en un `TreeMap`, va
+por clave. Recorrer los pares cuesta lo mismo que recorrer las claves, y
+ahorra un `get` por cada una.
+
+</Slide>
+
+<Slide title="Contar con un Map">
+El uso más común de un Map es contar: la clave es lo que se cuenta, y el
+valor, cuántas veces apareció. Para contar los votos de cada mesa, cada voto
+le suma uno al valor de su mesa, partiendo de 0 si la mesa todavía no está:
+
+```java
+Map<VotingTable, Integer> votes = new HashMap<>();
+// por cada voto, en la mesa table:
+votes.put(table, votes.getOrDefault(table, 0) + 1);
+```
+
+`merge` hace lo mismo en una línea: si la mesa no está, guarda 1, y si está,
+le suma 1 a lo que tenía.
+
+```java
+votes.merge(table, 1, Integer::sum);
+```
+
+Las dos buscan la mesa con el `hashCode` y el `equals` de `VotingTable`, y
+cuestan $$\Theta(1)$$ esperado.
+
+</Slide>
+
+<Slide title="Agrupar con un Map">
+El otro uso común es agrupar: la clave es el grupo, y el valor, una lista con
+lo que cae en él. Para juntar los RUT de cada mesa, la lista de una mesa se
+crea la primera vez que aparece:
+
+```java
+Map<VotingTable, List<Rut>> voters = new HashMap<>();
+// por cada voto, del RUT rut en la mesa table:
+List<Rut> group = voters.get(table);
+if (group == null) {
+    group = new ArrayList<>();
+    voters.put(table, group);
+}
+group.add(rut);
+```
+
+Los dos errores típicos son olvidar el `put` de la lista nueva, y crear una
+lista nueva en cada voto, que borra la anterior. `computeIfAbsent` hace lo
+mismo en una línea, sin ninguno de los dos:
+
+```java
+voters.computeIfAbsent(table, t -> new ArrayList<>()).add(rut);
+```
 
 </Slide>
 
@@ -2212,23 +2378,6 @@ tree.subMap(new Rut(13000000, '0'), new Rut(18000000, '0'));
 ```
 
 Cada una cuesta $$O(\log N)$$, y `subMap` además lo que mide el tramo.
-
-</Slide>
-
-<Slide title="Las claves de un HashMap y de un TreeMap">
-Lo que una tabla hash y un árbol de búsqueda piden de sus elementos lo piden
-de sus claves, y de sus valores nada:
-
-|                      | `HashMap`                                         | `TreeMap`                                            |
-| -------------------- | ------------------------------------------------- | ---------------------------------------------------- |
-| Cómo ubica una clave | Su `hashCode`, y `equals` en la lista             | `compareTo`, o el `Comparator` del constructor       |
-| Lo que exige         | `equals` y `hashCode` con los mismos campos       | Un orden que responda 0 cuando `equals` es verdadero |
-| Si falta             | Una clave igual no se encuentra                   | El primer `put` lanza `ClassCastException`           |
-
-En los dos, **una clave no cambia mientras está en el diccionario**: la tabla
-la dejaría en la lista de su `hashCode` viejo, y el árbol, en el lugar de su
-orden viejo. Un valor, en cambio, puede cambiar cuando haga falta: ninguna
-búsqueda lo mira.
 
 </Slide>
 
