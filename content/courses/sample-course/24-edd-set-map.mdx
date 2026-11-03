@@ -2408,85 +2408,80 @@ sus $$k$$ pares en orden, uno por paso.
 
 </Slide>
 
-<Slide title="Una tabla de tramos">
-Un local que reparte sus mesas por tramos de RUT no necesita guardar la mesa
-de cada RUT: basta un par por mesa, con el número donde empieza su tramo y la
-mesa. La mesa de un RUT es la del último tramo que empieza en su número o
-antes, la pregunta que responde `floorEntry`:
-
-```java
-NavigableMap<Integer, Integer> tableFrom = new TreeMap<>();
-tableFrom.put(1, 1);           // la mesa 1, desde el RUT 1
-tableFrom.put(12000000, 2);    // la mesa 2, desde el 12.000.000
-tableFrom.put(18000000, 3);    // la mesa 3, desde el 18.000.000
-
-tableFrom.floorEntry(13180992).getValue();   // 2
-tableFrom.floorEntry(9876543).getValue();    // 1
-tableFrom.floorEntry(22715853).getValue();   // 3
-```
-
-Basta el número del RUT, porque el dígito verificador no cambia el tramo.
-`get` no sirve: retorna `null` para un RUT que no empieza un tramo, y un
-`HashMap` no tiene otra manera de buscar. Cada consulta cuesta
-$$O(\log N)$$, con $$N$$ la cantidad de tramos, y si el local abre una mesa,
-un `put` parte un tramo en dos.
-
-</Slide>
-
 <Slide title="Contar con un Map">
-Contar es el uso más común de un Map. Para saber cuántos votos tiene cada
-mesa, la clave es la mesa, y el valor, cuántos votos lleva. Cada voto hace dos
-pasos:
+Un Map cuenta cuántas veces aparece cada cosa: lo que se cuenta es la clave, y
+cuántas veces apareció, su valor. Para saber cuántos votaron en cada mesa, se
+recorren las mesas del registro `tableOf`, una por RUT, y cada mesa cae en uno
+de dos casos:
 
-1. lee cuántos votos lleva su mesa, o 0 si la mesa todavía no está;
-2. guarda ese número más uno.
+- **todavía no está en el conteo**: entra con 1;
+- **ya está**: su cuenta sube en uno.
 
 ```java
-Map<VotingTable, Integer> votes = new HashMap<>();
-for (VotingTable table : ballots) {   // la mesa de cada voto
-    votes.put(table, votes.getOrDefault(table, 0) + 1);
+Map<Integer, Integer> votersAt = new HashMap<>();
+for (int table : tableOf.values()) {      // la mesa de cada RUT
+    if (!votersAt.containsKey(table)) {
+        votersAt.put(table, 1);           // no está: entra con 1
+    } else {
+        int count = votersAt.get(table);
+        votersAt.put(table, count + 1);   // ya está: uno más
+    }
 }
 ```
 
-`merge` hace los dos pasos en una sola llamada: si la mesa no está, guarda 1,
-y si está, le suma 1 a lo que tenía.
+Con los seis RUT, cada mesa termina en 2: las dos flechas que llegan a cada
+mesa en el dibujo del diccionario. `getOrDefault` junta los dos casos en una
+línea, porque una mesa que no está cuenta 0:
 
 ```java
-votes.merge(table, 1, Integer::sum);
+votersAt.put(table, votersAt.getOrDefault(table, 0) + 1);
 ```
 
-Contado en un `TreeMap`, el recorrido entrega después las mesas en orden, con
-sus votos.
+Contar $$N$$ cosas cuesta $$\Theta(N)$$ esperado: una búsqueda y un `put` por
+cada una.
 
 </Slide>
 
 <Slide title="Agrupar con un Map">
-Agrupar es el otro uso común: la clave es el grupo, y el valor, una lista con
-lo que cae en él. Para juntar los RUT que votaron en cada mesa, cada voto hace
-tres pasos:
+Un Map también agrupa: la clave es el grupo, y el valor, una lista con lo que
+cae en él. Los RUT que votaron en cada mesa son el registro con las flechas al
+revés: de cada mesa, sus RUT.
 
-1. busca la lista de su mesa;
-2. si la mesa todavía no tiene lista, crea una vacía y la guarda;
-3. agrega el RUT a esa lista.
+| Mesa | Sus RUT                    |
+| ---- | -------------------------- |
+| 1    | 13.180.992-1, 22.715.853-0 |
+| 2    | 12.547.354-7, 17.814.358-1 |
+| 3    | 18.155.218-2, 13.959.276-K |
+
+Para armarlo, se recorren los pares del registro, y cada uno cae en uno de dos
+casos:
+
+- **su mesa todavía no tiene lista**: se crea una vacía, se guarda, y recibe
+  el RUT;
+- **su mesa ya tiene lista**: recibe el RUT.
+
+</Slide>
+
+<Slide title="Agrupar en Java">
+`get` dice en cuál de los dos casos está cada par: retorna `null` si la mesa
+todavía no tiene lista.
 
 ```java
-Map<VotingTable, List<Rut>> voters = new HashMap<>();
-// por cada voto: el RUT rut votó en la mesa table
-List<Rut> group = voters.get(table);     // 1
-if (group == null) {                     // 2
-    group = new ArrayList<>();
-    voters.put(table, group);
+Map<Integer, List<String>> rutsAt = new HashMap<>();
+for (Map.Entry<String, Integer> e : tableOf.entrySet()) {
+    String rut = e.getKey();
+    int table = e.getValue();
+    List<String> group = rutsAt.get(table);
+    if (group == null) {             // no tiene lista
+        group = new ArrayList<>();   // se crea
+        rutsAt.put(table, group);    // y se guarda
+    }
+    group.add(rut);                  // recibe el RUT
 }
-group.add(rut);                          // 3
 ```
 
-Si falta el `put` del paso 2, la lista nueva se pierde; si se crea una lista
-en cada voto, se borra la anterior. `computeIfAbsent` hace los pasos 1 y 2
-juntos, y retorna la lista de la mesa:
-
-```java
-voters.computeIfAbsent(table, t -> new ArrayList<>()).add(rut);
-```
+La lista guardada en el Map es el mismo objeto que `group`: agregarle un RUT
+no necesita otro `put`. Agrupar $$N$$ pares cuesta $$\Theta(N)$$ esperado.
 
 </Slide>
 
