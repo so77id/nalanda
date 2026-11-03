@@ -923,52 +923,10 @@ tienen el mismo número y el mismo dígito, y con eso el mismo `hashCode`.
 
 </Slide>
 
-<Slide title="La base 10 no alcanza">
-El número del RUT ya es lo que da Horner en base 10 sobre sus dígitos. Lo que
-falta es agregarle el dígito verificador como un dígito más, y la base 10 no
-alcanza: el código del dígito verificador vale entre 48 y 75, no entre 0 y 9,
-y se mezcla con las cifras del número. Dos RUT distintos pueden dar el mismo
-resultado:
-
-| RUT          | $$10 \cdot$$ número $$+$$ dv | $$31 \cdot$$ número $$+$$ dv |
-| ------------ | --------------------------- | --------------------------- |
-| 13.903.998-K | 139 040 055                 | 431 024 013                 |
-| 13.904.000-7 | 139 040 055                 | 431 024 055                 |
-
-Con base 31, los mismos dos RUT dan números distintos.
-
-</Slide>
-
-<Slide title="Por qué la base 31">
-Dos RUT, uno con número $$n$$ y código de dígito verificador $$d$$, y otro con
-$$n'$$ y $$d'$$, dan el mismo resultado con una base $$b$$ cuando
-
-$$
-b \cdot n + d = b \cdot n' + d' \quad\Longleftrightarrow\quad b \cdot (n - n') = d' - d
-$$
-
-Se lee «la base por la diferencia de los números es igual a la diferencia de
-los códigos». A la izquierda hay un múltiplo de $$b$$. A la derecha, la
-diferencia de dos códigos, que está entre $$-27$$ y $$27$$, porque los códigos
-van de 48 a 75.
-
-- **Con base 10** hay múltiplos de 10 en ese rango. Los dos RUT de la tabla
-  tienen $$n - n' = -2$$ y $$d' - d = 55 - 75 = -20$$: los dos lados valen
-  $$-20$$.
-- **Con base 31**, el único múltiplo de 31 entre $$-27$$ y $$27$$ es el 0.
-  Entonces $$n = n'$$, y con eso $$d = d'$$: dos RUT que dan el mismo número
-  son el mismo RUT.
-
-Sirve cualquier base de 28 o más. Java usa 31 en `String.hashCode` y en
-`Objects.hash`, y `Rut` usa la misma.
-
-</Slide>
-
-<Slide title="Un RUT encontrado por su hashCode">
-Con los dos métodos, `a` y `b` dan el mismo número y caen en la misma
-posición. `contains` recorre esa sola lista y compara con
-`equals` cada elemento hasta dar con el igual. El registro vuelve a contar
-una vez a cada persona:
+<Slide title="El mismo RUT en la misma posición">
+Con el `hashCode` nuevo, `a` y `b` tienen los mismos campos, así que la cuenta
+es la misma para los dos: dan el mismo número y caen en la misma posición. Ahí
+`equals` los compara, y el registro cuenta una vez a cada persona:
 
 ```java
 voted.add(a);
@@ -976,17 +934,31 @@ voted.add(b);   // false: ya está
 voted.size();   // 1
 ```
 
-<ChainTable
-  chains={RUT_TABLE}
-  picked={4}
-  tones={{ '13.959.276-K': 'visited', '13.180.992-1': 'keep' }}
-  caption="con 7 posiciones, `b` va a la 4, y `equals` lo encuentra igual al segundo de su lista, `a`"
-  label="Una tabla de siete posiciones con los seis RUT como objetos Rut, cada uno en la posición de su hashCode. La posición 4 está destacada: guarda 13.959.276-K y después 13.180.992-1. La búsqueda compara con 13.959.276-K, que no es igual, y encuentra 13.180.992-1."
+<StepBoxes
+  id="mismo-a"
+  boxes={[{ title: 'el objeto `a`', text: '13.180.992-1' }, { title: 'su número', text: '408 610 801' }, { title: 'su posición', text: '4' }]}
+  steps={['hashCode()', 'mod 7']}
+  label="El objeto a, con el RUT 13.180.992-1. Una flecha rotulada hashCode lleva al número 408 610 801; otra rotulada mod 7 lleva a la posición 4."
+/>
+
+<StepBoxes
+  id="mismo-b"
+  boxes={[{ title: 'el objeto `b`', text: '13.180.992-1' }, { title: 'su número', text: '408 610 801' }, { title: 'su posición', text: '4' }]}
+  steps={['hashCode()', 'mod 7']}
+  label="El objeto b, con el mismo RUT. El mismo número, 408 610 801, y la misma posición, 4."
 />
 
 $$
 31 \cdot 13\,180\,992 + 49 = 408\,610\,801, \qquad 408\,610\,801 \bmod 7 = 4
 $$
+
+<ChainTable
+  chains={[[], [], [], [], ['13.180.992-1'], [], []]}
+  picked={4}
+  tones={{ '13.180.992-1': 'keep' }}
+  caption="`add(b)` busca en la 4, y `equals` da con `a`: el registro cuenta una persona"
+  label="Una tabla de siete posiciones con un solo RUT, 13.180.992-1, el objeto a, en la lista de la posición 4, destacada: ahí busca add(b), y equals lo encuentra igual."
+/>
 
 </Slide>
 
@@ -1028,6 +1000,124 @@ valor viejo, llega a su lista, pero `equals` dice que ya no es ese RUT.
 **Un objeto que está en un conjunto no cambia los campos que usan `equals` y
 `hashCode`.** Por eso los campos de `Rut` son `final`: un RUT corregido es otro
 objeto, que entra después de sacar el anterior.
+
+</Slide>
+
+<Slide title="La base 10 no alcanza">
+El contrato ya se cumple: dos RUT iguales dan el mismo número. Para que la
+tabla además reparta parejo, dos RUT distintos deberían dar números
+distintos, y ahí importa la base.
+
+El número del RUT ya es lo que da Horner en base 10 sobre sus dígitos, así que
+lo natural sería agregarle el dígito verificador como un dígito más, con base
+10. No alcanza: el código del dígito verificador vale entre 48 y 75, no entre
+0 y 9, y se mezcla con las cifras del número. Dos RUT distintos dan el mismo
+resultado:
+
+| RUT          | $$10 \cdot$$ número $$+$$ dv | $$31 \cdot$$ número $$+$$ dv |
+| ------------ | --------------------------- | --------------------------- |
+| 13.903.998-K | 139 040 055                 | 431 024 013                 |
+| 13.904.000-7 | 139 040 055                 | 431 024 055                 |
+
+Con base 31, los mismos dos RUT dan números distintos.
+
+</Slide>
+
+<Slide title="Cuándo chocan dos RUT">
+Para saber qué bases sirven, hay que ver cuándo chocan dos RUT. Uno tiene
+número $$n$$ y código de dígito verificador $$d$$; el otro, $$n'$$ y $$d'$$.
+Con una base $$b$$, chocan cuando dan el mismo resultado:
+
+$$
+b \cdot n + d = b \cdot n' + d'
+$$
+
+Restando $$b \cdot n'$$ y $$d$$ a los dos lados, y sacando $$b$$ como factor:
+
+$$
+b \cdot n - b \cdot n' = d' - d \quad\Longrightarrow\quad b \cdot (n - n') = d' - d
+$$
+
+Se lee «la base por la diferencia de los números es igual a la diferencia de
+los códigos». Cada lado puede valer solo algunas cosas:
+
+- **A la izquierda**, $$n - n'$$ es un entero, así que el lado es un múltiplo
+  de $$b$$: $$0$$, $$\pm b$$, $$\pm 2b$$, y así.
+- **A la derecha**, los códigos van de 48, el de `'0'`, a 75, el de `'K'`. La
+  diferencia de dos de ellos está entre $$48 - 75 = -27$$ y $$75 - 48 = 27$$.
+
+Si los dos lados valen 0, los RUT tienen el mismo número y el mismo código:
+son el mismo RUT. Dos RUT distintos chocan solo si algún múltiplo de $$b$$
+distinto de 0 cae entre $$-27$$ y $$27$$.
+
+</Slide>
+
+{/* MultiplesLine — the multiples of each base near 0, one row per base, over the band where the difference of two check-digit codes can fall (−27 to 27, shaded). A multiple inside the band other than 0 is a collision between two different RUTs, drawn in flag; 0, the same RUT, in keep; the ones outside, faint. `mark` rings one multiple: the table's −20. File-local (add-a-course-document.md §6e-quater). */}
+
+export function MultiplesLine({ rows, from = -40, to = 40, band = 27, caption, label }) {
+  const pad = 16;
+  const labelW = 74;
+  const unit = 8;
+  const axisW = (to - from) * unit;
+  const width = Math.max(2 * pad + labelW + axisW, caption ? caption.replace(/`/g, '').length * 6.6 + 24 : 0);
+  const left = (width - (labelW + axisW)) / 2 + labelW;
+  const x = (v) => left + (v - from) * unit;
+  const top = 34;
+  const rowH = 58;
+  const height = top + rows.length * rowH + (caption ? 30 : 8);
+  return (
+    <svg viewBox={`0 0 ${width} ${height}`} style={{ width: '100%', maxWidth: `${Math.round(width * 1.3)}px`, height: 'auto', display: 'block', margin: '0.4rem auto' }} role="img" aria-label={label}>
+      <rect x={x(-band)} y={top - 6} width={2 * band * unit} height={rows.length * rowH - 4} rx="4" style={{ fill: 'var(--color-sunk)', stroke: 'var(--color-rule)' }} strokeWidth="1" />
+      <text x={x(0)} y={top - 14} textAnchor="middle" fontSize="12" style={{ fill: 'var(--color-ink-soft)' }}>{`diferencia de dos códigos: de −${band} a ${band}`}</text>
+      {rows.map((r, i) => {
+        const y = top + i * rowH + 20;
+        const multiples = [];
+        for (let k = Math.ceil(from / r.base); k * r.base <= to; k++) multiples.push(k * r.base);
+        return (
+          <g key={r.base}>
+            <text x={x(from) - 14} y={y + 5} textAnchor="end" fontSize="13" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{`base ${r.base}`}</text>
+            <line x1={x(from)} y1={y} x2={x(to)} y2={y} style={{ stroke: 'var(--color-rule-strong)' }} strokeWidth="1.4" />
+            {multiples.map((m) => {
+              const inside = Math.abs(m) <= band;
+              const color = m === 0 ? 'var(--color-keep)' : inside ? 'var(--color-flag)' : 'var(--color-ink-faint)';
+              return (
+                <g key={m}>
+                  {r.mark === m ? <circle cx={x(m)} cy={y} r="9.5" fill="none" style={{ stroke: 'var(--color-flag)' }} strokeWidth="1.8" /> : null}
+                  <circle cx={x(m)} cy={y} r="5" style={{ fill: color }} />
+                  <text x={x(m)} y={y + 22} textAnchor="middle" fontSize="12" fontWeight={inside ? 700 : 400} style={{ fill: inside ? 'var(--color-ink)' : 'var(--color-ink-faint)' }}>{m < 0 ? `−${-m}` : `${m}`}</text>
+                </g>
+              );
+            })}
+          </g>
+        );
+      })}
+      {caption ? (
+        <text x={width / 2} y={height - 8} textAnchor="middle" fontSize="12" style={{ fill: 'var(--color-ink-soft)' }}>{codeText(caption)}</text>
+      ) : null}
+    </svg>
+  );
+}
+
+<Slide title="Por qué la base 31">
+La recta muestra los múltiplos de cada base cerca del 0 y, sombreada, la
+franja de $$-27$$ a $$27$$ donde cae la diferencia de dos códigos:
+
+<MultiplesLine
+  rows={[{ base: 10, mark: -20 }, { base: 31 }]}
+  caption="en la franja, los múltiplos de 10 distintos de 0 son choques; de 31, solo cae el 0"
+  label="Dos rectas de −40 a 40 sobre una franja sombreada de −27 a 27. En la de base 10, los múltiplos −40, −30, −20, −10, 0, 10, 20, 30 y 40; dentro de la franja caen −20, −10, 10 y 20, en rojo, y el 0, en verde; el −20 está encerrado en un círculo. En la de base 31, los múltiplos −31, 0 y 31: solo el 0 cae dentro de la franja."
+/>
+
+- **Con base 10**, los múltiplos $$-20$$, $$-10$$, $$10$$ y $$20$$ caen en la
+  franja: hay RUT distintos que chocan. Los dos de la tabla tienen
+  $$n - n' = -2$$, y los dos lados valen $$10 \cdot (-2) = -20 = 55 - 75$$.
+- **Con base 31**, el múltiplo más cercano al 0, el 31, ya queda afuera, y
+  dentro solo cae el 0. Entonces $$n - n' = 0$$, y con eso $$d' - d = 0$$: dos
+  RUT que dan el mismo número son el mismo RUT.
+
+Sirve cualquier base de 28 o más, porque su primer múltiplo ya salta la
+franja. Java usa 31 en `String.hashCode` y en `Objects.hash`, y `Rut` usa la
+misma.
 
 </Slide>
 
