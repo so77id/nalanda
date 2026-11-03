@@ -730,6 +730,31 @@ cuándo dos son iguales.
 
 </Slide>
 
+<Slide title="Lo que la tabla le pide a su clave">
+Un tipo propio tiene que darle a la tabla lo que un texto ya trae. La tabla
+busca en dos pasos, como la tabla con listas:
+
+1. calcula un número de la clave con una **función hash**, y lo reduce a una
+   posición;
+2. compara la clave buscada con las de la lista de esa posición, con una
+   **igualdad**.
+
+Un `String` trae las dos cosas. Un tipo nuevo tiene que definirlas. En Java
+son dos métodos que todo objeto hereda de `Object`: **`hashCode`**, que da el
+número, y **`equals`**, que compara. Los heredados miran el objeto, no sus
+campos: dos objetos con los mismos campos son distintos para `equals`, y
+`hashCode` les da números distintos.
+
+<ChainTable
+  chains={RUT_TABLE}
+  picked={4}
+  tones={{ '13.959.276-K': 'visited', '13.180.992-1': 'keep' }}
+  caption="buscar 13.180.992-1: su número lleva a la posición 4, y la igualdad recorre esa lista hasta dar con él"
+  label="Una tabla de siete posiciones con los seis RUT del registro, cada uno en la posición de su número. La posición 4 está destacada: ahí lleva el número de 13.180.992-1. En su lista, la igualdad compara primero con 13.959.276-K, que no es igual, y después encuentra 13.180.992-1."
+/>
+
+</Slide>
+
 <Slide title="Una clase para el RUT">
 Un `Rut` guarda el número y el dígito verificador por separado. Cada mesa lee
 el texto, le quita los puntos y separa el número del dígito, así que las dos
@@ -756,9 +781,8 @@ Rut b = new Rut(13180992, '1');
 a.equals(b);   // false
 ```
 
-`equals` es el método que decide si dos objetos son iguales, y el que `Rut`
-hereda de `Object` hace lo mismo que `==`: responde verdadero solo para el
-mismo objeto.
+El `equals` que `Rut` hereda de `Object` hace lo mismo que `==`: responde
+verdadero solo para el mismo objeto.
 
 </Slide>
 
@@ -799,17 +823,11 @@ voted.add(b);   // true: lo agrega otra vez
 voted.size();   // 2
 ```
 
-La tabla no compara un elemento con todos los que guarda. Busca en dos pasos,
-como la tabla con listas:
-
-1. le pide su número al método **`hashCode`** del elemento, y lo reduce a una
-   posición;
-2. compara con `equals` solo los elementos de la lista de esa posición.
-
-`Rut` escribió `equals`, pero no `hashCode`, y usa el que hereda de `Object`.
-Ese `hashCode` no mira los campos: da un número propio de cada objeto. `a` y
-`b`, iguales para `equals`, reciben números distintos, caen en posiciones
-distintas, y `equals` nunca llega a compararlos.
+Escribir `equals` arregla solo el segundo paso de la búsqueda. El primero
+sigue usando el `hashCode` que `Rut` hereda de `Object`, que no mira los
+campos: da un número propio de cada objeto. `a` y `b`, iguales para `equals`,
+reciben números distintos, caen en posiciones distintas, y `equals` nunca
+llega a compararlos.
 
 </Slide>
 
@@ -887,132 +905,63 @@ $$
 
 </Slide>
 
-<Slide title="El contrato entre equals y hashCode">
-Para que una tabla hash encuentre un objeto, su `equals` y su `hashCode` tienen
-que cumplir un contrato:
+<Slide title="Lo que se le pide a la función hash">
+La función hash de una clave cumple los tres requisitos de toda función hash,
+mirados desde su igualdad:
+
+- **Determinista:** dos claves iguales dan el mismo número. Para eso usa solo
+  los campos que compara la igualdad, y campos que no cambian mientras la
+  clave está en una tabla.
+- **Uniforme:** reparte las claves distintas. Para eso usa todos esos campos,
+  no una parte.
+- **Eficiente:** hace una cuenta por campo.
+
+En Java, el primer requisito es el contrato entre `equals` y `hashCode`:
 
 $$
 a.\text{equals}(b) \;\Rightarrow\; a.\text{hashCode}() = b.\text{hashCode}()
 $$
 
 que se lee «si $$a$$ es igual a $$b$$, sus `hashCode` son iguales». Al revés
-no hace falta: dos objetos distintos pueden tener el mismo `hashCode`, y esa
+no hace falta: dos claves distintas pueden dar el mismo número, y esa
 colisión la resuelve la lista.
-
-Por eso los dos métodos se escriben juntos y con los mismos campos: si
-`hashCode` calcula su número solo con los campos que compara `equals`, dos
-objetos iguales dan el mismo número.
 
 </Slide>
 
-<Slide title="Un hashCode para Rut">
-El `hashCode` de `Rut` combina los dos campos que compara `equals` con la
-regla de Horner: el número es el primer dígito, y el dígito verificador, el
-segundo.
+<Slide title="Un hashCode constante">
+El intento más simple es un `hashCode` que retorna siempre el mismo número.
+Es determinista y cumple el contrato: dos RUT iguales dan el mismo número,
+porque todos lo dan.
 
 ```java
 @Override
 public int hashCode() {
-    return 31 * number + dv;
+    return 0;
 }
 ```
 
-`dv` es un `char`, y en una cuenta Java lo usa como el entero de su código:
-de 48 a 57 para los caracteres `'0'` a `'9'`, y 75 para `'K'`. Dos RUT iguales
-tienen el mismo número y el mismo dígito, y con eso el mismo `hashCode`.
-
-</Slide>
-
-<Slide title="El mismo RUT en la misma posición">
-Con el `hashCode` nuevo, `a` y `b` tienen los mismos campos, así que la cuenta
-es la misma para los dos: dan el mismo número y caen en la misma posición. Ahí
-`equals` los compara, y el registro cuenta una vez a cada persona:
-
-```java
-voted.add(a);
-voted.add(b);   // false: ya está
-voted.size();   // 1
-```
-
-<StepBoxes
-  id="mismo-a"
-  boxes={[{ title: 'el objeto `a`', text: '13.180.992-1' }, { title: 'su número', text: '408 610 801' }, { title: 'su posición', text: '4' }]}
-  steps={['hashCode()', 'mod 7']}
-  label="El objeto a, con el RUT 13.180.992-1. Una flecha rotulada hashCode lleva al número 408 610 801; otra rotulada mod 7 lleva a la posición 4."
-/>
-
-<StepBoxes
-  id="mismo-b"
-  boxes={[{ title: 'el objeto `b`', text: '13.180.992-1' }, { title: 'su número', text: '408 610 801' }, { title: 'su posición', text: '4' }]}
-  steps={['hashCode()', 'mod 7']}
-  label="El objeto b, con el mismo RUT. El mismo número, 408 610 801, y la misma posición, 4."
-/>
-
-$$
-31 \cdot 13\,180\,992 + 49 = 408\,610\,801, \qquad 408\,610\,801 \bmod 7 = 4
-$$
+No es uniforme. Todos los elementos caen en la misma lista, y cada búsqueda
+la recorre entera: la tabla pasa a costar $$\Theta(N)$$ por operación, lo que
+cuesta una lista enlazada.
 
 <ChainTable
-  chains={[[], [], [], [], ['13.180.992-1'], [], []]}
-  picked={4}
-  tones={{ '13.180.992-1': 'keep' }}
-  caption="`add(b)` busca en la 4, y `equals` da con `a`: el registro cuenta una persona"
-  label="Una tabla de siete posiciones con un solo RUT, 13.180.992-1, el objeto a, en la lista de la posición 4, destacada: ahí busca add(b), y equals lo encuentra igual."
+  chains={[['12.547.354-7', '22.715.853-0', '17.814.358-1', '13.959.276-K', '13.180.992-1', '18.155.218-2'], [], [], [], [], [], []]}
+  tones={{ '12.547.354-7': 'flag', '22.715.853-0': 'flag', '17.814.358-1': 'flag', '13.959.276-K': 'flag', '13.180.992-1': 'flag', '18.155.218-2': 'flag' }}
+  caption="con `return 0;`, los seis RUTs en la lista de la posición 0"
+  label="Una tabla de siete posiciones con los seis RUTs del registro, todos en una sola lista, la de la posición 0, destacados como un error. Las otras seis posiciones guardan null."
 />
-
-</Slide>
-
-<Slide title="Una clave que cambia después de entrar">
-La otra falla aparece con objetos que pueden cambiar. Si `Rut` tuviera un
-método para corregir un RUT mal digitado, cambiando sus campos, corregir uno
-que ya está en el conjunto lo deja perdido en él:
-
-```java
-Rut typed = new Rut(13180992, '1');
-voted.add(typed);
-typed.fix(13180993, 'K');  // corrige los campos
-voted.contains(typed);     // false
-```
-
-El objeto sigue en la lista de la posición que le tocó al entrar. Buscado con
-su valor nuevo, la tabla mira la posición del `hashCode` nuevo; buscado con el
-valor viejo, llega a su lista, pero `equals` dice que ya no es ese RUT.
-
-<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '1rem 2rem', alignItems: 'end' }}>
-<ChainTable
-  chains={RUT_TABLE_FIXED}
-  window={[3, 6]}
-  picked={5}
-  tones={{ '13.180.993-K': 'mark' }}
-  caption="buscar 13.180.993-K: la posición 5, vacía"
-  label="Las posiciones 3 a 6 de la tabla. El nodo corregido, ahora 13.180.993-K, sigue en la lista de la posición 4. La búsqueda de 13.180.993-K va a la posición 5, destacada, cuya lista está vacía."
-/>
-<ChainTable
-  chains={RUT_TABLE_FIXED}
-  window={[3, 6]}
-  picked={4}
-  tones={{ '13.959.276-K': 'visited', '13.180.993-K': 'mark' }}
-  caption="buscar 13.180.992-1: la posición 4, sin un igual"
-  label="Las mismas posiciones. La búsqueda de 13.180.992-1 va a la posición 4, destacada, y compara con 13.959.276-K y con el nodo corregido, 13.180.993-K: ninguno es igual."
-/>
-</div>
-
-**Un objeto que está en un conjunto no cambia los campos que usan `equals` y
-`hashCode`.** Por eso los campos de `Rut` son `final`: un RUT corregido es otro
-objeto, que entra después de sacar el anterior.
 
 </Slide>
 
 <Slide title="La base 10 no alcanza">
-El contrato ya se cumple: dos RUT iguales dan el mismo número. Para que la
-tabla además reparta parejo, dos RUT distintos deberían dar números
-distintos, y ahí importa la base.
+Para repartir, la función usa los dos campos del RUT, combinados con Horner.
+El número ya es lo que da Horner en base 10 sobre sus dígitos, así que lo
+natural es agregarle el dígito verificador como un dígito más, con base 10.
 
-El número del RUT ya es lo que da Horner en base 10 sobre sus dígitos, así que
-lo natural sería agregarle el dígito verificador como un dígito más, con base
-10. No alcanza: el código del dígito verificador vale entre 48 y 75, no entre
-0 y 9, y se mezcla con las cifras del número. Dos RUT distintos dan el mismo
-resultado:
+En Java, un `char` en una cuenta vale el entero de su código: de 48 a 57 para
+los caracteres `'0'` a `'9'`, y 75 para `'K'`. Por eso la base 10 no alcanza:
+el código del dígito verificador no está entre 0 y 9, y se mezcla con las
+cifras del número. Dos RUT distintos dan el mismo resultado:
 
 | RUT          | $$10 \cdot$$ número $$+$$ dv | $$31 \cdot$$ número $$+$$ dv |
 | ------------ | --------------------------- | --------------------------- |
@@ -1121,19 +1070,114 @@ misma.
 
 </Slide>
 
-<Slide title="Cómo escribir un hashCode">
-La receta de `Rut` sirve para cualquier clase. El contrato solo pide que dos
-objetos iguales den el mismo número; para que además la tabla reparta parejo,
-un `hashCode` cumple los requisitos de toda función hash:
+<Slide title="El hashCode de Rut">
+Con base 31, la construcción está completa: el número del RUT por 31, más el
+código de su dígito verificador.
 
-- **Determinista:** usa solo los campos que compara `equals`, y que no cambian
-  mientras el objeto está en una tabla.
-- **Uniforme:** usa todos esos campos, no una parte.
-- **Eficiente:** hace una cuenta por campo.
+```java
+@Override
+public int hashCode() {
+    return 31 * number + dv;
+}
+```
 
-Cada campo se convierte en un `int` con el `hashCode` de su tipo, y los campos
-se combinan con Horner: el resultado se multiplica por 31 y se le suma el
-número del campo siguiente.
+Cumple los tres requisitos. Es determinista, porque usa solo los dos campos
+que compara `equals`, que son `final`; uniforme, porque usa los dos y la base
+31 separa dos RUT distintos; y eficiente: una multiplicación y una suma.
+
+</Slide>
+
+<Slide title="El mismo RUT en la misma posición">
+Con el `hashCode` nuevo, `a` y `b` tienen los mismos campos, así que la cuenta
+es la misma para los dos: dan el mismo número y caen en la misma posición. Ahí
+`equals` los compara, y el registro cuenta una vez a cada persona:
+
+```java
+voted.add(a);
+voted.add(b);   // false: ya está
+voted.size();   // 1
+```
+
+<StepBoxes
+  id="mismo-a"
+  boxes={[{ title: 'el objeto `a`', text: '13.180.992-1' }, { title: 'su número', text: '408 610 801' }, { title: 'su posición', text: '4' }]}
+  steps={['hashCode()', 'mod 7']}
+  label="El objeto a, con el RUT 13.180.992-1. Una flecha rotulada hashCode lleva al número 408 610 801; otra rotulada mod 7 lleva a la posición 4."
+/>
+
+<StepBoxes
+  id="mismo-b"
+  boxes={[{ title: 'el objeto `b`', text: '13.180.992-1' }, { title: 'su número', text: '408 610 801' }, { title: 'su posición', text: '4' }]}
+  steps={['hashCode()', 'mod 7']}
+  label="El objeto b, con el mismo RUT. El mismo número, 408 610 801, y la misma posición, 4."
+/>
+
+$$
+31 \cdot 13\,180\,992 + 49 = 408\,610\,801, \qquad 408\,610\,801 \bmod 7 = 4
+$$
+
+<ChainTable
+  chains={[[], [], [], [], ['13.180.992-1'], [], []]}
+  picked={4}
+  tones={{ '13.180.992-1': 'keep' }}
+  caption="`add(b)` busca en la 4, y `equals` da con `a`: el registro cuenta una persona"
+  label="Una tabla de siete posiciones con un solo RUT, 13.180.992-1, el objeto a, en la lista de la posición 4, destacada: ahí busca add(b), y equals lo encuentra igual."
+/>
+
+</Slide>
+
+<Slide title="Una clave que cambia después de entrar">
+La función hash es determinista solo si los campos que usa no cambian. Si
+`Rut` tuviera un método para corregir un RUT mal digitado, cambiando sus
+campos, corregir uno que ya está en el conjunto lo deja perdido en él:
+
+```java
+Rut typed = new Rut(13180992, '1');
+voted.add(typed);
+typed.fix(13180993, 'K');  // corrige los campos
+voted.contains(typed);     // false
+```
+
+El objeto sigue en la lista de la posición que le tocó al entrar. Buscado con
+su valor nuevo, la tabla mira la posición del `hashCode` nuevo; buscado con el
+valor viejo, llega a su lista, pero `equals` dice que ya no es ese RUT.
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '1rem 2rem', alignItems: 'end' }}>
+<ChainTable
+  chains={RUT_TABLE_FIXED}
+  window={[3, 6]}
+  picked={5}
+  tones={{ '13.180.993-K': 'mark' }}
+  caption="buscar 13.180.993-K: la posición 5, vacía"
+  label="Las posiciones 3 a 6 de la tabla. El nodo corregido, ahora 13.180.993-K, sigue en la lista de la posición 4. La búsqueda de 13.180.993-K va a la posición 5, destacada, cuya lista está vacía."
+/>
+<ChainTable
+  chains={RUT_TABLE_FIXED}
+  window={[3, 6]}
+  picked={4}
+  tones={{ '13.959.276-K': 'visited', '13.180.993-K': 'mark' }}
+  caption="buscar 13.180.992-1: la posición 4, sin un igual"
+  label="Las mismas posiciones. La búsqueda de 13.180.992-1 va a la posición 4, destacada, y compara con 13.959.276-K y con el nodo corregido, 13.180.993-K: ninguno es igual."
+/>
+</div>
+
+**Un objeto que está en un conjunto no cambia los campos que usan `equals` y
+`hashCode`.** Por eso los campos de `Rut` son `final`: un RUT corregido es otro
+objeto, que entra después de sacar el anterior.
+
+</Slide>
+
+<Slide title="Una función hash para cualquier clave">
+La construcción del RUT sirve para cualquier clave: cada campo se convierte
+en un número con la función hash de su tipo, y los números se combinan con
+Horner y una base impar. Con tres campos:
+
+$$
+h = (h_1 \cdot 31 + h_2) \cdot 31 + h_3
+$$
+
+se lee «el número del primer campo por 31, más el del segundo; todo eso por
+31, más el del tercero». En Java, el número de cada campo es:
 
 | Campo                       | Su número                                                       |
 | --------------------------- | --------------------------------------------------------------- |
@@ -1143,32 +1187,9 @@ número del campo siguiente.
 | `String` u otro objeto      | su `hashCode()`, o 0 si es `null`                               |
 | Un arreglo                  | `Arrays.hashCode(a)`                                            |
 
-Cualquier multiplicador impar sirve, y Java usa 31. Uno par, cuando el `int`
-se desborda, va perdiendo los bits de los primeros campos.
-
-</Slide>
-
-<Slide title="Un hashCode constante">
-Un `hashCode` que retorna siempre el mismo número cumple el contrato: dos
-objetos iguales dan el mismo número, porque todos lo dan.
-
-```java
-@Override
-public int hashCode() {
-    return 0;
-}
-```
-
-No es uniforme. Todos los elementos caen en la misma lista, y cada búsqueda
-la recorre entera: la tabla pasa a costar $$\Theta(N)$$ por operación, lo que
-cuesta una lista enlazada.
-
-<ChainTable
-  chains={[['12.547.354-7', '22.715.853-0', '17.814.358-1', '13.959.276-K', '13.180.992-1', '18.155.218-2'], [], [], [], [], [], []]}
-  tones={{ '12.547.354-7': 'flag', '22.715.853-0': 'flag', '17.814.358-1': 'flag', '13.959.276-K': 'flag', '13.180.992-1': 'flag', '18.155.218-2': 'flag' }}
-  caption="con `return 0;`, los seis RUTs en la lista de la posición 0"
-  label="Una tabla de siete posiciones con los seis RUTs del registro, todos en una sola lista, la de la posición 0, destacados como un error. Las otras seis posiciones guardan null."
-/>
+Cualquier base impar sirve, y Java usa 31. Una par, cuando el `int` se
+desborda, va perdiendo los bits de los primeros campos. Con campos como los
+textos, los choques no se pueden evitar del todo; la base los reparte.
 
 </Slide>
 
@@ -1200,9 +1221,8 @@ class VotingTable {
 </Slide>
 
 <Slide title="El hashCode de una mesa">
-`hashCode` usa los mismos tres campos, con la receta: parte del número del
-primer campo, y por cada campo siguiente multiplica por 31 y le suma su
-número.
+`hashCode` usa los mismos tres campos: parte del número del primer campo, y
+por cada campo siguiente multiplica por 31 y le suma su número.
 
 ```java
 @Override
