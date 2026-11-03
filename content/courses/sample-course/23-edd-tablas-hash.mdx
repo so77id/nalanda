@@ -1775,7 +1775,7 @@ que crecen duplicando su tamaño.
 
 </Slide>
 
-{/* StepBoxes — the steps from a key to its position, each value in a box and the step written over the arrow between them: one step for the idea of a hash function, and the two a library splits it into (the key, the integer its type turns it into, the position the table takes from that integer). File-local (§6e-quater). */}
+{/* StepBoxes — the steps from a key to its position, each value in a box and the step written over the arrow between them: one step for the idea of a hash function, and the two a library splits it into (the key, the integer its type turns it into, the position the table takes from that integer). File-local (§6e-quater). 24-edd-set-map.mdx copies it with wider boxes and its titles in the code face; a change here is carried there by hand. */}
 
 export function StepBoxes({ boxes, steps, caption, label, id }) {
   const pad = 14;
@@ -1892,7 +1892,7 @@ colisionan. Ninguna función lo evita, y pasa pronto, con la tabla casi vacía.
 
 ## Encadenamiento
 
-{/* Chains — a hash table with chaining drawn still: `table` as a contiguous strip with its index, each position's list hanging under its cell, `null` where a list ends. COPIES the look of the hash-chaining recipe of <SequenceStepper> (sequenceStepperHashLayout.ts: contiguous cells, nodes with the key over a `next` field, lists hanging down) at a smaller pitch, so a still figure and the widget beside it read alike; nothing tests the copy, so a change there is carried here by hand and checked in a browser. `picked` outlines a position, `only` fades the others, `paint` colours a key's node, and `cut` names the key leaving its list: its node dashed and struck through, and the link that skips it — out of the field that pointed at it, to the right, down past it, into the node after it or to `null` — drawn as the widget's unlink frame draws it (sequenceStepperHashView.tsx, `Bypass`). `window={[from, to]}` draws only those positions, with «…» where the table goes on, so two drawings side by side keep a size a projector can read. File-local (§6e-quater). */}
+{/* Chains — a hash table with chaining drawn still: `table` as a contiguous strip with its index, each position's list hanging under its cell, `null` where a list ends. COPIES the look of the hash-chaining recipe of <SequenceStepper> (sequenceStepperHashLayout.ts: contiguous cells, nodes with the key over a `next` field, lists hanging down) at a smaller pitch, so a still figure and the widget beside it read alike; nothing tests the copy, so a change there is carried here by hand and checked in a browser. `picked` outlines a position, `only` fades the others, `paint` colours a key's node, and `cut` names the key leaving its list: its node dashed and struck through, and the link that skips it — out of the field that pointed at it, to the right, down past it, into the node after it or to `null` — drawn as the widget's unlink frame draws it (sequenceStepperHashView.tsx, `Bypass`). `window={[from, to]}` draws only those positions, with «…» where the table goes on, so two drawings side by side keep a size a projector can read. File-local (§6e-quater). 24-edd-set-map.mdx copies the look as `ChainTable`, with nodes wide enough for a RUT and a band for a map's value; a change here is carried there by hand. */}
 
 export function Chains({ chains, picked, only = false, paint = {}, cut, window: shown, caption, label }) {
   const pad = 12;

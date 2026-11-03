@@ -46,7 +46,7 @@ preguntas que la tabla no sabe responder. Separar lo que se pregunta de cómo
 se guarda permite escribir un programa una sola vez y elegir después la
 estructura que lo hace más barato.
 
-{/* The running example: the RUTs that have voted, as text with its dots, as a carnet prints them. Eight digits each, so the order of the text is the order of the numbers until the class says otherwise, and check digits that are valid under módulo 11. VOTED lists them in the order they arrive; VOTED_TABLE is the chaining table with M = 7 those arrivals build under the hash class's own `hash` (Horner, base 256, over the text with its dots, each key at the FRONT of its list), and VOTED_TREE is the AVL tree the same arrivals build. Computed by a script, not drawn by hand; the output is quoted in the commit that brought them. ABSENT is a RUT that has not voted: valid check digit, position 5 of the table, empty. */}
+{/* The running example: the RUTs that have voted, as text with its dots, as a carnet prints them. Eight digits each, so the order of the text is the order of the numbers until the class says otherwise, and check digits that are valid under módulo 11. The numbers are invented, taken from no roster; only their check digits are computed. VOTED lists them in the order they arrive; VOTED_TABLE is the chaining table with M = 7 those arrivals build under the hash class's own `hash` (Horner, base 256, over the text with its dots, each key at the FRONT of its list), and VOTED_TREE is the AVL tree the same arrivals build. Computed by a script, not drawn by hand; the output is quoted in the commit that brought them. ABSENT is a RUT that has not voted: valid check digit, position 5 of the table, empty. */}
 
 export const VOTED = ['18.155.218-2', '13.180.992-1', '13.959.276-K', '17.814.358-1', '22.715.853-0', '12.547.354-7'];
 
@@ -119,7 +119,7 @@ export function KeySet({ title, keys, probe, adds = false, tones = {}, values, c
   );
 }
 
-{/* ChainTable — a hash table with chaining drawn still, with nodes wide enough for a RUT. COPIES the look of the hash-chaining recipe of <SequenceStepper> (sequenceStepperHashLayout.ts: a contiguous strip with its index, nodes with the key over a `next` field, lists hanging down, `null` where one ends), as the file-local `Chains` of 23-edd-tablas-hash.mdx does at a narrower node; neither copy is tested, so a change in the recipe is carried to both by hand and checked in a browser. Not `Chains` itself: that one draws names in 56 px, and a RUT needs twice that. `order` numbers every node in the order a walk over the table meets it — position by position, each list from its front —, `tones` paints a key's node (`keep`, `mark`, `visited`, `faint`), `values` adds a band under each key with its value, the node of a map: key, value, `next`; `picked` outlines the position a search goes to, and `window={[from, to]}` draws only those positions, with «…» where the table goes on, as `Chains` does, so two drawings side by side keep a size a projector can read. File-local (§6e-quater). */}
+{/* ChainTable — a hash table with chaining drawn still, with nodes wide enough for a RUT. COPIES the look of the hash-chaining recipe of <SequenceStepper> (sequenceStepperHashLayout.ts: a contiguous strip with its index, nodes with the key over a `next` field, lists hanging down, `null` where one ends), as the file-local `Chains` of 23-edd-tablas-hash.mdx does at a narrower node; neither copy is tested, so a change in the recipe is carried to both by hand and checked in a browser. Not `Chains` itself: that one draws names in 56 px, and a RUT needs twice that. `order` numbers every node in the order a walk over the table meets it — position by position, each list from its front —, `tones` paints a key's node (`keep`, `mark`, `flag`, `visited`), `values` adds a band under each key with its value, the node of a map: key, value, `next`; `picked` outlines the position a search goes to, and `window={[from, to]}` draws only those positions, with «…» where the table goes on, as `Chains` does, so two drawings side by side keep a size a projector can read. File-local (§6e-quater). */}
 
 export function ChainTable({ chains, tones = {}, values, order = false, picked, window: shown, caption, label }) {
   const pad = 12;
@@ -139,8 +139,8 @@ export function ChainTable({ chains, tones = {}, values, order = false, picked, 
   const left = (width - stripW) / 2;
   const nodeY = (k) => cellY + cellH + gap + k * (nodeH + gap);
   const height = nodeY(longest) - gap + 18 + (caption ? 30 : 6);
-  const fill = { keep: 'var(--color-keep-soft)', mark: 'var(--color-mark-soft)', flag: 'var(--color-flag-soft)', visited: 'var(--color-sunk)', faint: 'var(--color-surface)' };
-  const stroke = { keep: 'var(--color-keep)', mark: 'var(--color-mark)', flag: 'var(--color-flag)', visited: 'var(--color-rule-strong)', faint: 'var(--color-rule)' };
+  const fill = { keep: 'var(--color-keep-soft)', mark: 'var(--color-mark-soft)', flag: 'var(--color-flag-soft)', visited: 'var(--color-sunk)' };
+  const stroke = { keep: 'var(--color-keep)', mark: 'var(--color-mark)', flag: 'var(--color-flag)', visited: 'var(--color-rule-strong)' };
   const rank = {};
   chains.flat().forEach((key, n) => {
     rank[key] = n + 1;
@@ -174,7 +174,7 @@ export function ChainTable({ chains, tones = {}, values, order = false, picked, 
               const y = nodeY(k);
               const t = tones[key];
               return (
-                <g key={key} opacity={t === 'faint' ? 0.45 : undefined}>
+                <g key={key}>
                   <rect x={cx - nodeW / 2} y={y} width={nodeW} height={nodeH} rx="3" style={{ fill: t ? fill[t] : 'var(--color-surface)', stroke: t ? stroke[t] : 'var(--color-rule)' }} strokeWidth={t === 'keep' || t === 'mark' ? 2.2 : 1.2} />
                   <line x1={cx - nodeW / 2} y1={y + keyH} x2={cx + nodeW / 2} y2={y + keyH} style={{ stroke: t ? stroke[t] : 'var(--color-rule)' }} strokeWidth="1" />
                   <text x={cx} y={y + keyH / 2 + 5} textAnchor="middle" fontSize="12.5" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{key}</text>
@@ -215,9 +215,9 @@ export function ChainTable({ chains, tones = {}, values, order = false, picked, 
   );
 }
 
-{/* KeyTree — a binary search tree whose keys are too wide for <BinaryPicture>'s circles: the same placement (every node in the column of its inorder position, on the row of its depth) and the same tones and inorder colour (design-system.md §The tree figures' palette), with each node a pill as wide as a RUT. `order` numbers the nodes in inorder, as BinaryPicture's `visits="in"` does, and `strip` writes the inorder under the tree, each key in its node's column, which is why the row comes out sorted. `values` writes each key's value under it inside a taller node, the node of a map. `minColumns` widens the canvas as BinaryPicture's does, so a tree drawn beside a wider figure comes out at the same size. `tones` paints a node and its slot in the strip. File-local (§6e-quater); BinaryPicture is the component, this only exists because a RUT does not fit in it. */}
+{/* KeyTree — a binary search tree whose keys are too wide for <BinaryPicture>'s circles: the same placement (every node in the column of its inorder position, on the row of its depth) and the same tones and inorder colour (design-system.md §The tree figures' palette), with each node a pill as wide as a RUT. `order` numbers the nodes in inorder, as BinaryPicture's `visits="in"` does, and `strip` writes the inorder under the tree, each key in its node's column, which is why the row comes out sorted. `values` writes each key's value under it inside a taller node, the node of a map. `tones` paints a node and its slot in the strip. File-local (§6e-quater); BinaryPicture is the component, this only exists because a RUT does not fit in it. */}
 
-export function KeyTree({ tree, tones = {}, values, order = false, strip = false, minColumns = 0, caption, label }) {
+export function KeyTree({ tree, tones = {}, values, order = false, strip = false, caption, label }) {
   const pad = 12;
   const nodeW = 98;
   const nodeH = values ? 42 : 30;
@@ -235,7 +235,7 @@ export function KeyTree({ tree, tones = {}, values, order = false, strip = false
   const column = Object.fromEntries(nodes.map((n) => [n.v, n.column]));
   const deepest = Math.max(...nodes.map((n) => n.depth));
   const treeW = nodes.length * colW;
-  const width = Math.max(2 * pad + Math.max(nodes.length, minColumns) * colW, caption ? caption.length * 6.6 + 24 : 0);
+  const width = Math.max(2 * pad + nodes.length * colW, caption ? caption.length * 6.6 + 24 : 0);
   const left = (width - treeW) / 2;
   const cx = (v) => left + column[v] * colW + colW / 2;
   const cy = (depth) => pad + 8 + nodeH / 2 + depth * levelH;
@@ -260,7 +260,7 @@ export function KeyTree({ tree, tones = {}, values, order = false, strip = false
       {nodes.map((n) => {
         const [fill, stroke, weight] = paint(n.v);
         return (
-          <g key={n.v} opacity={tones[n.v] === 'faint' ? 0.45 : undefined}>
+          <g key={n.v}>
             <rect x={cx(n.v) - nodeW / 2} y={cy(n.depth) - nodeH / 2} width={nodeW} height={nodeH} rx={values ? 12 : nodeH / 2} style={{ fill, stroke }} strokeWidth={weight} />
             <text x={cx(n.v)} y={cy(n.depth) + (values ? -2 : 5)} textAnchor="middle" fontSize="12.5" fontWeight="600" style={{ fill: tones[n.v] === 'black' ? 'var(--color-ground)' : 'var(--color-ink)' }}>{n.v}</text>
             {values ? (
@@ -1064,7 +1064,8 @@ $$
 
 {/* BandLine — the results one RUT number can give with base b, b · n + 48 to b · n + 75 (one per check-digit code, '0' to '9' and 'K'), as a bar, one row per number n, n + 1, n + 2, each starting b further along. With base 10 the bars overlap; `mark` draws a dashed line through one shared result and a flag dot on each row that reaches it, with the check digit that gets there. With `gaps`, the values no number reaches, between one bar and the next, are shaded keep. Each end is labelled with its expression in n. File-local (add-a-course-document.md §6e-quater). */}
 
-export function BandLine({ base, rows = 3, from, to, mark, gaps = false, caption, label, id }) {
+export function BandLine({ base, from, to, mark, gaps = false, caption, label }) {
+  const rows = 3;
   const pad = 16;
   const labelW = 56;
   const axisW = 620;
@@ -1125,7 +1126,6 @@ $$
 El número siguiente da otros 28, que empiezan $$b$$ más arriba.
 
 <BandLine
-  id="tramos-10"
   base={10}
   from={44}
   to={100}
@@ -1135,7 +1135,6 @@ El número siguiente da otros 28, que empiezan $$b$$ más arriba.
 />
 
 <BandLine
-  id="tramos-31"
   base={31}
   from={44}
   to={142}
@@ -1568,7 +1567,7 @@ $$\Theta(1)$$ esperado de la tabla, y a cambio guarda todo en orden.
 
 </Slide>
 
-{/* RB_TREE — the registry's AVL tree painted with colours that satisfy the red-black rules (black root, no red node with a red child, the same number of black nodes on every path to null). Not the tree Java builds from those arrivals: the slide says only that the colours are valid. */}
+{/* RB_TREE — the registry's AVL tree painted with colours that satisfy the red-black rules (black root, no red node with a red child, the same number of black nodes on every path to null). It is also the tree java.util.TreeMap builds from those arrivals, colours included (read by reflection over its entries); the slide claims only that the colours are valid. */}
 
 export const RB_TONES = { '13.959.276-K': 'black', '13.180.992-1': 'black', '18.155.218-2': 'black', '12.547.354-7': 'red', '17.814.358-1': 'red', '22.715.853-0': 'red' };
 
@@ -1804,8 +1803,8 @@ los toma por el mismo:
 ```java
 Rut a = new Rut(13180992, '1');            // bien digitado
 Rut wrong = new Rut(13180992, '2');        // el dígito, mal digitado
-new HashSet<>(List.of(a, wrong)).size();   // 2
-new TreeSet<>(List.of(a, wrong)).size();   // 1
+new HashSet<>(Arrays.asList(a, wrong)).size();   // 2
+new TreeSet<>(Arrays.asList(a, wrong)).size();   // 1
 ```
 
 </Slide>
@@ -2003,7 +2002,7 @@ Al revisar un orden se buscan tres errores, y se separan por lo que provocan.
 
 ## Map · Diccionario
 
-{/* The mesa each voter voted at: the value the registry keeps beside each RUT. Two voters share mesa 1, one votes at mesa 2 and three at mesa 3, so the drawings show values repeating while keys never do, and counting and grouping give a different number for each mesa. MESA_TEXT is the same, as the drawings write it. */}
+{/* The mesa each voter voted at: the value the registry keeps beside each RUT. Two voters share mesa 1, one votes at mesa 2 and three at mesa 3, so the drawings show values repeating while keys never do, and counting and grouping give a different number for each mesa. MESA_TEXT writes each mesa as the drawings do, «mesa N». */}
 
 export const MESA_TEXT = { '18.155.218-2': 'mesa 3', '13.180.992-1': 'mesa 1', '13.959.276-K': 'mesa 3', '17.814.358-1': 'mesa 3', '22.715.853-0': 'mesa 1', '12.547.354-7': 'mesa 2' };
 
@@ -2236,7 +2235,6 @@ entrega los pares ordenados por clave.
   tree={VOTED_TREE}
   values={MESA_TEXT}
   tones={{ '13.959.276-K': 'keep' }}
-  minColumns={6}
   caption="cada nodo guarda la clave y su valor; el orden es el de las claves"
   label="El árbol AVL con los seis RUT como claves y la mesa de cada uno debajo. La raíz es 13.959.276-K, mesa 3, destacada; a su izquierda, 13.180.992-1, mesa 1, con 12.547.354-7, mesa 2; a su derecha, 18.155.218-2, mesa 3, con 17.814.358-1, mesa 3, y 22.715.853-0, mesa 1."
 />
@@ -2622,7 +2620,7 @@ no necesita otro `put`. Agrupar $$N$$ pares cuesta $$\Theta(N)$$ esperado.
 
 ## Ejercicios
 
-{/* RutRow — a sequence of RUTs in the order they arrive: a row of chips with the position over each. `at` outlines the one being read, `tones` paints chips by position (`keep`: the answer, `mark`: a repetition, `faint`: not read yet), and `arcs` joins pairs of positions [earlier, later] with a curve over the row — a RUT and its repetition, or a comparison. File-local (add-a-course-document.md §6e-quater), like every figure below. */}
+{/* RutRow — a sequence of RUTs in the order they arrive: a row of chips with the position over each. `at` outlines the one being read, `tones` paints chips by position (`keep`: the answer), and `arcs` joins pairs of positions [earlier, later] with a curve over the row — a RUT and its repetition, or a comparison. File-local (add-a-course-document.md §6e-quater), like every figure below. */}
 
 export function RutRow({ ruts, at = -1, tones = {}, arcs = [], caption, label }) {
   const chipW = 112;
@@ -2639,7 +2637,6 @@ export function RutRow({ ruts, at = -1, tones = {}, arcs = [], caption, label })
   const cx = (i) => left + i * (chipW + gap) + chipW / 2;
   const paint = {
     keep: ['var(--color-keep-soft)', 'var(--color-keep)'],
-    mark: ['var(--color-mark-soft)', 'var(--color-mark)'],
   };
   return (
     <svg viewBox={`0 0 ${width} ${height}`} style={{ width: '100%', maxWidth: `${Math.round(width * 1.3)}px`, height: 'auto', display: 'block', margin: '0.4rem auto' }} role="img" aria-label={label}>
@@ -2650,16 +2647,13 @@ export function RutRow({ ruts, at = -1, tones = {}, arcs = [], caption, label })
           <path key={`a${a}-${b}`} d={`M ${cx(b)} ${y0} C ${cx(b)} ${y0 - lift}, ${cx(a)} ${y0 - lift}, ${cx(a)} ${y0}`} fill="none" style={{ stroke: 'var(--color-mark)' }} strokeWidth="1.8" />
         );
       })}
-      {ruts.length === 0 ? (
-        <text x={width / 2} y={chipY + chipH / 2 + 5} textAnchor="middle" fontSize="13" style={{ fill: 'var(--color-ink-faint)' }}>ningún RUT</text>
-      ) : null}
       {ruts.map((r, i) => {
         const [fill, stroke] = paint[tones[i]] ?? ['var(--color-surface)', 'var(--color-rule-strong)'];
         const ring = i === at;
         return (
-          <g key={i} opacity={tones[i] === 'faint' ? 0.45 : undefined}>
+          <g key={i}>
             <text x={cx(i)} y={indexY} textAnchor="middle" fontSize="11" fontWeight={ring ? 700 : 400} style={{ fill: ring ? 'var(--color-ink)' : 'var(--color-ink-faint)' }}>{i}</text>
-            <rect x={cx(i) - chipW / 2} y={chipY} width={chipW} height={chipH} rx="15" style={{ fill, stroke: ring ? 'var(--color-focus)' : stroke }} strokeWidth={ring ? 2.6 : tones[i] && tones[i] !== 'faint' ? 2.2 : 1.2} />
+            <rect x={cx(i) - chipW / 2} y={chipY} width={chipW} height={chipH} rx="15" style={{ fill, stroke: ring ? 'var(--color-focus)' : stroke }} strokeWidth={ring ? 2.6 : tones[i] ? 2.2 : 1.2} />
             <text x={cx(i)} y={chipY + chipH / 2 + 5} textAnchor="middle" fontSize="13" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{r}</text>
           </g>
         );
@@ -3861,8 +3855,8 @@ export function EnrollStrip({ sections, slots, steps, label }) {
 export const ENROLL_STEPS = [
   { section: 'EDA 2', rut: '13.959.276-K', verdict: 'entra', rosters: { 'EDA 2': ['13.959.276-K'] } },
   { section: 'EDA 1', rut: '18.155.218-2', verdict: 'entra', rosters: { 'EDA 1': ['18.155.218-2'], 'EDA 2': ['13.959.276-K'] } },
+  { section: 'EDA 1', rut: '18.155.218-2', verdict: 'ya está', rosters: { 'EDA 1': ['18.155.218-2'], 'EDA 2': ['13.959.276-K'] } },
   { section: 'EDA 1', rut: '13.959.276-K', verdict: 'entra', rosters: { 'EDA 1': ['13.959.276-K', '18.155.218-2'], 'EDA 2': ['13.959.276-K'] } },
-  { section: 'EDA 1', rut: '18.155.218-2', verdict: 'ya está', rosters: { 'EDA 1': ['13.959.276-K', '18.155.218-2'], 'EDA 2': ['13.959.276-K'] } },
   { section: 'EDA 1', rut: '13.180.992-1', verdict: 'llena', rosters: { 'EDA 1': ['13.959.276-K', '18.155.218-2'], 'EDA 2': ['13.959.276-K'] } },
   { section: 'EDA 1', rut: '18.155.218-2', drop: true, verdict: 'sale', rosters: { 'EDA 1': ['13.959.276-K'], 'EDA 2': ['13.959.276-K'] } },
 ];
@@ -3923,8 +3917,8 @@ Una seguidilla de pedidos, con cupo 2, y lo que responde cada uno:
 | ------------------------------------- | ----------------------------------- |
 | inscribir 13.959.276-K en EDA 2       | `true`                              |
 | inscribir 18.155.218-2 en EDA 1       | `true`                              |
-| inscribir 13.959.276-K en EDA 1       | `true`: está también en EDA 2       |
 | inscribir 18.155.218-2 en EDA 1       | `false`: ya está                    |
+| inscribir 13.959.276-K en EDA 1       | `true`: está también en EDA 2       |
 | inscribir 13.180.992-1 en EDA 1       | `false`: EDA 1 está llena           |
 | la nómina de EDA 1                    | 13.959.276-K y 18.155.218-2         |
 | retirar 18.155.218-2 de EDA 1         | `true`                              |
@@ -3983,7 +3977,7 @@ y se mantienen en orden mientras entran y salen.
   sections={['EDA 1', 'EDA 2']}
   slots={2}
   steps={ENROLL_STEPS}
-  label="Seis columnas, una por pedido, con cupo 2. Inscribe 13.959.276-K en EDA 2: entra. Inscribe 18.155.218-2 en EDA 1: entra. Inscribe 13.959.276-K en EDA 1: entra, y queda antes que 18.155.218-2. Inscribe 18.155.218-2 en EDA 1: ya está. Inscribe 13.180.992-1 en EDA 1: llena. Retira 18.155.218-2 de EDA 1: sale; EDA 1 queda con 13.959.276-K, y EDA 2 también."
+  label="Seis columnas, una por pedido, con cupo 2. Inscribe 13.959.276-K en EDA 2: entra. Inscribe 18.155.218-2 en EDA 1: entra. Inscribe 18.155.218-2 en EDA 1: ya está. Inscribe 13.959.276-K en EDA 1: entra, y queda antes que 18.155.218-2. Inscribe 13.180.992-1 en EDA 1: llena. Retira 18.155.218-2 de EDA 1: sale; EDA 1 queda con 13.959.276-K, y EDA 2 también."
 />
 
 Es un **diccionario** de cada sección a sus inscritos. A una sección solo se le
@@ -4082,27 +4076,27 @@ respuesta dice si ya estaba.
 >
   <Step lines={[3, 4]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>rosters arranca vacío: ninguna sección tiene inscritos.</div>
-    <GroupMap id="inscritos" groups={[]} rows={2} slots={2} keyTitle="rosters" valueTitle="los inscritos, en orden" label="El diccionario rosters, sin ninguna sección." />
+    <GroupMap id="inscritos-inscribir" groups={[]} rows={2} slots={2} keyTitle="rosters" valueTitle="los inscritos, en orden" label="El diccionario rosters, sin ninguna sección." />
   </Step>
   <Step lines={[13, 14, 15, 16, 17, 19, 22]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>enroll de 13.959.276-K en EDA 2: EDA 2 no estaba; se crea su conjunto, y entra.</div>
-    <GroupMap id="inscritos" groups={[['EDA 2', ['13.959.276-K']]]} rows={2} slots={2} picked="EDA 2" fresh="13.959.276-K" keyTitle="rosters" valueTitle="los inscritos, en orden" label="EDA 2, destacada, con 13.959.276-K, recién agregado." />
+    <GroupMap id="inscritos-inscribir" groups={[['EDA 2', ['13.959.276-K']]]} rows={2} slots={2} picked="EDA 2" fresh="13.959.276-K" keyTitle="rosters" valueTitle="los inscritos, en orden" label="EDA 2, destacada, con 13.959.276-K, recién agregado." />
   </Step>
   <Step lines={[13, 14, 15, 16, 17, 19, 22]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>enroll de 18.155.218-2 en EDA 1: EDA 1 no estaba; se crea su conjunto, y entra.</div>
-    <GroupMap id="inscritos" groups={[['EDA 2', ['13.959.276-K']], ['EDA 1', ['18.155.218-2']]]} rows={2} slots={2} picked="EDA 1" fresh="18.155.218-2" keyTitle="rosters" valueTitle="los inscritos, en orden" label="EDA 2 con 13.959.276-K; EDA 1, destacada, con 18.155.218-2, recién agregado." />
+    <GroupMap id="inscritos-inscribir" groups={[['EDA 2', ['13.959.276-K']], ['EDA 1', ['18.155.218-2']]]} rows={2} slots={2} picked="EDA 1" fresh="18.155.218-2" keyTitle="rosters" valueTitle="los inscritos, en orden" label="EDA 2 con 13.959.276-K; EDA 1, destacada, con 18.155.218-2, recién agregado." />
+  </Step>
+  <Step lines={[13, 14, 15, 19, 22]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>enroll de 18.155.218-2 en EDA 1, otro objeto igual: hay cupo, pero add responde false: ya está.</div>
+    <GroupMap id="inscritos-inscribir" groups={[['EDA 2', ['13.959.276-K']], ['EDA 1', ['18.155.218-2']]]} rows={2} slots={2} picked="EDA 1" keyTitle="rosters" valueTitle="los inscritos, en orden" label="EDA 1, destacada, con 18.155.218-2: nada cambia." />
   </Step>
   <Step lines={[13, 14, 15, 19, 22]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>enroll de 13.959.276-K en EDA 1: hay cupo, y entra antes que 18.155.218-2, por su número.</div>
-    <GroupMap id="inscritos" groups={[['EDA 2', ['13.959.276-K']], ['EDA 1', ['13.959.276-K', '18.155.218-2']]]} rows={2} slots={2} picked="EDA 1" fresh="13.959.276-K" keyTitle="rosters" valueTitle="los inscritos, en orden" label="EDA 2 con 13.959.276-K; EDA 1, destacada, con 13.959.276-K, recién agregado y primero, y 18.155.218-2." />
-  </Step>
-  <Step lines={[13, 14, 15, 19, 22]}>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>enroll de 18.155.218-2 en EDA 1, otro objeto igual: add responde false, ya está.</div>
-    <GroupMap id="inscritos" groups={[['EDA 2', ['13.959.276-K']], ['EDA 1', ['13.959.276-K', '18.155.218-2']]]} rows={2} slots={2} picked="EDA 1" keyTitle="rosters" valueTitle="los inscritos, en orden" label="EDA 1, destacada, con 13.959.276-K y 18.155.218-2: nada cambia." />
+    <GroupMap id="inscritos-inscribir" groups={[['EDA 2', ['13.959.276-K']], ['EDA 1', ['13.959.276-K', '18.155.218-2']]]} rows={2} slots={2} picked="EDA 1" fresh="13.959.276-K" keyTitle="rosters" valueTitle="los inscritos, en orden" label="EDA 2 con 13.959.276-K; EDA 1, destacada, con 13.959.276-K, recién agregado y primero, y 18.155.218-2." />
   </Step>
   <Step lines={[13, 14, 15, 19, 20]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>enroll de 13.180.992-1 en EDA 1: tiene 2, el cupo; responde false.</div>
-    <GroupMap id="inscritos" groups={[['EDA 2', ['13.959.276-K']], ['EDA 1', ['13.959.276-K', '18.155.218-2']]]} rows={2} slots={2} picked="EDA 1" keyTitle="rosters" valueTitle="los inscritos, en orden" label="EDA 1, destacada, llena con 13.959.276-K y 18.155.218-2: nada cambia." />
+    <GroupMap id="inscritos-inscribir" groups={[['EDA 2', ['13.959.276-K']], ['EDA 1', ['13.959.276-K', '18.155.218-2']]]} rows={2} slots={2} picked="EDA 1" keyTitle="rosters" valueTitle="los inscritos, en orden" label="EDA 1, destacada, llena con 13.959.276-K y 18.155.218-2: nada cambia." />
   </Step>
 </StepShow>
 
@@ -4135,23 +4129,23 @@ en el orden del árbol.
 >
   <Step lines={[11, 12, 13, 16]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>roster de EDA 1: una lista con su conjunto, en el orden del árbol.</div>
-    <GroupMap id="inscritos" groups={[['EDA 2', ['13.959.276-K']], ['EDA 1', ['13.959.276-K', '18.155.218-2']]]} rows={2} slots={2} picked="EDA 1" keyTitle="rosters" valueTitle="los inscritos, en orden" label="EDA 1, destacada: su nómina es 13.959.276-K y 18.155.218-2, en ese orden." />
+    <GroupMap id="inscritos-retirar" groups={[['EDA 2', ['13.959.276-K']], ['EDA 1', ['13.959.276-K', '18.155.218-2']]]} rows={2} slots={2} picked="EDA 1" keyTitle="rosters" valueTitle="los inscritos, en orden" label="EDA 1, destacada: su nómina es 13.959.276-K y 18.155.218-2, en ese orden." />
   </Step>
   <Step lines={[1, 2, 3]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>drop de 18.155.218-2 en EDA 1: estaba; remove lo saca y responde true.</div>
-    <GroupMap id="inscritos" groups={[['EDA 2', ['13.959.276-K']], ['EDA 1', ['13.959.276-K']]]} rows={2} slots={2} picked="EDA 1" keyTitle="rosters" valueTitle="los inscritos, en orden" label="EDA 1, destacada, con 13.959.276-K; EDA 2 con 13.959.276-K." />
+    <GroupMap id="inscritos-retirar" groups={[['EDA 2', ['13.959.276-K']], ['EDA 1', ['13.959.276-K']]]} rows={2} slots={2} picked="EDA 1" keyTitle="rosters" valueTitle="los inscritos, en orden" label="EDA 1, destacada, con 13.959.276-K; EDA 2 con 13.959.276-K." />
   </Step>
   <Step lines={[1, 2, 3]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>drop de 18.155.218-2 en EDA 1 otra vez: ya no estaba; remove responde false.</div>
-    <GroupMap id="inscritos" groups={[['EDA 2', ['13.959.276-K']], ['EDA 1', ['13.959.276-K']]]} rows={2} slots={2} picked="EDA 1" keyTitle="rosters" valueTitle="los inscritos, en orden" label="EDA 1, destacada, con 13.959.276-K: nada cambia." />
+    <GroupMap id="inscritos-retirar" groups={[['EDA 2', ['13.959.276-K']], ['EDA 1', ['13.959.276-K']]]} rows={2} slots={2} picked="EDA 1" keyTitle="rosters" valueTitle="los inscritos, en orden" label="EDA 1, destacada, con 13.959.276-K: nada cambia." />
   </Step>
   <Step lines={[6, 7, 8]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>count de EDA 1: el tamaño de su conjunto, 1.</div>
-    <GroupMap id="inscritos" groups={[['EDA 2', ['13.959.276-K']], ['EDA 1', ['13.959.276-K']]]} rows={2} slots={2} picked="EDA 1" keyTitle="rosters" valueTitle="los inscritos, en orden" label="EDA 1, destacada, con un inscrito." />
+    <GroupMap id="inscritos-retirar" groups={[['EDA 2', ['13.959.276-K']], ['EDA 1', ['13.959.276-K']]]} rows={2} slots={2} picked="EDA 1" keyTitle="rosters" valueTitle="los inscritos, en orden" label="EDA 1, destacada, con un inscrito." />
   </Step>
   <Step lines={[6, 7, 8]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>count de CAL 1: no está en rosters, y responde 0.</div>
-    <GroupMap id="inscritos" groups={[['EDA 2', ['13.959.276-K']], ['EDA 1', ['13.959.276-K']]]} rows={2} slots={2} keyTitle="rosters" valueTitle="los inscritos, en orden" label="EDA 2 y EDA 1, cada una con 13.959.276-K; CAL 1 no aparece." />
+    <GroupMap id="inscritos-retirar" groups={[['EDA 2', ['13.959.276-K']], ['EDA 1', ['13.959.276-K']]]} rows={2} slots={2} keyTitle="rosters" valueTitle="los inscritos, en orden" label="EDA 2 y EDA 1, cada una con 13.959.276-K; CAL 1 no aparece." />
   </Step>
 </StepShow>
 
@@ -4224,6 +4218,11 @@ class Rut implements Comparable<Rut> {
         int byNumber = Integer.compare(number, other.number);
         if (byNumber != 0) return byNumber;
         return Character.compare(dv, other.dv);
+    }
+
+    @Override
+    public String toString() {
+        return number + "-" + dv;
     }
 }
 
@@ -4301,8 +4300,8 @@ Rut b = new Rut(13180992, '1');
 Rut c = new Rut(13959276, 'K');
 check(e.enroll(new Section("EDA", 2), c), true);
 check(e.enroll(new Section("EDA", 1), a), true);
-check(e.enroll(new Section("EDA", 1), c), true);
 check(e.enroll(new Section("EDA", 1), new Rut(18155218, '2')), false);
+check(e.enroll(new Section("EDA", 1), c), true);
 check(e.enroll(new Section("EDA", 1), b), false);
 check(e.roster(new Section("EDA", 1)), Arrays.asList(c, a));
 check(e.drop(new Section("EDA", 1), a), true);
@@ -4585,6 +4584,7 @@ check(t.get("Araya"), Integer.valueOf(1));
 check(Solution.winner(votes), "Rojas");
 check(Solution.winner(new String[] {"Soto", "Soto", "Araya"}), "Soto");
 check(Solution.winner(new String[] {"Soto", "Araya"}), "Araya");
+check(Solution.winner(new String[] {"Rojas", "Araya"}), "Araya");
 check(Solution.tally(new String[] {}).size(), 0);
 check(Solution.winner(new String[] {}), null);
 ```
