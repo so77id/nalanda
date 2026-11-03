@@ -2248,11 +2248,13 @@ Lo que una tabla hash y un árbol de búsqueda piden de sus elementos lo piden
 de sus claves, y de sus valores nada. Las claves se diseñan como los elementos
 del Set, así que `Rut` y `VotingTable` sirven sin cambiar nada:
 
-|                      | `HashMap`                                         | `TreeMap`                                            |
-| -------------------- | ------------------------------------------------- | ---------------------------------------------------- |
-| Cómo ubica una clave | Su `hashCode`, y `equals` en la lista             | `compareTo`, o el `Comparator` del constructor       |
-| Lo que exige         | `equals` y `hashCode` con los mismos campos       | Un orden que responda 0 cuando `equals` es verdadero |
-| Si falta             | Una clave igual no se encuentra                   | El primer `put` lanza `ClassCastException`           |
+- **`HashMap`** ubica una clave con su `hashCode` y la compara con `equals`.
+  Si la clase no los escribe, `get` con una copia de la clave no encuentra su
+  par, porque los heredados miran el objeto y no sus campos.
+- **`TreeMap`** ubica una clave con `compareTo`, o con el `Comparator` que
+  recibe al crearse. Si la clase no implementa `Comparable` y no hay
+  `Comparator`, el primer `put` lanza `ClassCastException`: no tiene con qué
+  comparar.
 
 En los dos, **una clave no cambia mientras está en el diccionario**: la tabla
 la dejaría en la lista de su `hashCode` viejo, y el árbol, en el lugar de su
@@ -2263,25 +2265,24 @@ búsqueda lo mira.
 
 <Slide title="La clase HashMap">
 Java implementa el contrato Map sobre una tabla hash con listas en la clase
-`java.util.HashMap`. El registro guarda la mesa de cada `Rut`:
+`java.util.HashMap`. El registro guarda la mesa de cada `Rut`, y cada
+operación del registro es un método:
 
 ```java
 Map<Rut, Integer> tableOf = new HashMap<>();
-tableOf.put(new Rut(18155218, '2'), 3);
-tableOf.put(new Rut(13180992, '1'), 1);
-// un put por cada voto
+Rut a = new Rut(13180992, '1');
 
-tableOf.get(new Rut(13959276, 'K'));             // 3
-tableOf.get(new Rut(20118702, '8'));             // null: no votó
-tableOf.getOrDefault(new Rut(20118702, '8'), 0); // 0
-tableOf.put(new Rut(13180992, '1'), 4);          // corrige: 1
-tableOf.remove(new Rut(13180992, '1'));          // por error: 4
+tableOf.put(a, 1);                    // guarda la mesa 1
+tableOf.get(new Rut(13180992, '1'));  // 1: otro objeto igual
+tableOf.put(a, 4);                    // corrige: retorna 1
+tableOf.remove(a);                    // saca: retorna 4
+tableOf.get(a);                       // null: ya no está
 ```
 
-`get` encuentra el par con un `Rut` nuevo, distinto del objeto que se guardó,
-porque `Rut` escribe `equals` y `hashCode`: la clave de un `HashMap` cumple el
-mismo contrato que el elemento de un `HashSet`. `get`, `put` y `remove`
-cuestan $$\Theta(1)$$ esperado.
+`get` encuentra el par aunque reciba otro objeto, porque busca con el
+`hashCode` y el `equals` de `Rut`, los mismos que usa el `HashSet`. `put` sobre
+una clave que ya está reemplaza su valor y retorna el que tenía, y `remove`
+retorna el valor del par que saca. Las tres cuestan $$\Theta(1)$$ esperado.
 
 </Slide>
 
@@ -2303,6 +2304,33 @@ for (Map.Entry<Rut, Integer> e : tableOf.entrySet()) {
 En un `HashMap`, el orden de los tres no significa nada; en un `TreeMap`, va
 por clave. Recorrer los pares cuesta lo mismo que recorrer las claves, y
 ahorra un `get` por cada una.
+
+</Slide>
+
+<Slide title="El recorrido de un HashMap">
+Un `for` sobre los pares recorre un `HashMap` en el orden de las posiciones de
+su tabla. Con el registro guardando cada RUT como texto:
+
+```java
+Map<String, Integer> tableOf = new HashMap<>();
+// un put por cada voto
+for (Map.Entry<String, Integer> e : tableOf.entrySet()) {
+    System.out.println(e.getKey() + " mesa " + e.getValue());
+}
+```
+
+```text
+13.180.992-1 mesa 1
+18.155.218-2 mesa 3
+13.959.276-K mesa 3
+12.547.354-7 mesa 2
+22.715.853-0 mesa 1
+17.814.358-1 mesa 2
+```
+
+Es el orden del recorrido del `HashSet` con los mismos RUT: el que deja la
+función hash, que no es el de los RUT ni el de las mesas, y que cambia si la
+tabla crece.
 
 </Slide>
 
@@ -2361,12 +2389,12 @@ Java implementa el contrato Map sobre un árbol rojo-negro en la clase
 las preguntas que dependen de ese orden con los métodos de otro contrato, la
 interfaz `NavigableMap`, que `TreeMap` implementa:
 
-| Pregunta                          | Método                       |
-| --------------------------------- | ---------------------------- |
-| La clave menor, la mayor          | `firstKey()`, `lastKey()`    |
-| La siguiente a `k`, la anterior   | `higherKey(k)`, `lowerKey(k)` |
-| La primera desde `k`, la última hasta `k` | `ceilingKey(k)`, `floorKey(k)` |
-| Los pares con clave entre `a` y `b` | `subMap(a, b)`             |
+| Pregunta                                      | Método                         | Costo              |
+| --------------------------------------------- | ------------------------------ | ------------------ |
+| La clave menor, la mayor                      | `firstKey()`, `lastKey()`      | $$O(\log N)$$      |
+| La siguiente a $$x$$, la anterior             | `higherKey(x)`, `lowerKey(x)`  | $$O(\log N)$$      |
+| La primera desde $$x$$, la última hasta $$x$$ | `ceilingKey(x)`, `floorKey(x)` | $$O(\log N)$$      |
+| Los $$k$$ pares con clave entre $$a$$ y $$b$$ | `subMap(a, b)`                 | $$O(\log N + k)$$  |
 
 ```java
 NavigableMap<Rut, Integer> tree = new TreeMap<>();
@@ -2377,7 +2405,34 @@ tree.subMap(new Rut(13000000, '0'), new Rut(18000000, '0'));
 // los pares de 13.180.992-1, 13.959.276-K y 17.814.358-1
 ```
 
-Cada una cuesta $$O(\log N)$$, y `subMap` además lo que mide el tramo.
+`subMap` baja $$O(\log N)$$ hasta la primera clave del tramo y después entrega
+sus $$k$$ pares en orden, uno por paso: en total, $$O(\log N + k)$$.
+
+</Slide>
+
+<Slide title="El recorrido de un TreeMap">
+El mismo `for` recorre un `TreeMap` en el inorden de su árbol: los pares salen
+ordenados por clave.
+
+```java
+Map<String, Integer> tableOf = new TreeMap<>();
+// un put por cada voto
+for (Map.Entry<String, Integer> e : tableOf.entrySet()) {
+    System.out.println(e.getKey() + " mesa " + e.getValue());
+}
+```
+
+```text
+12.547.354-7 mesa 2
+13.180.992-1 mesa 1
+13.959.276-K mesa 3
+17.814.358-1 mesa 2
+18.155.218-2 mesa 3
+22.715.853-0 mesa 1
+```
+
+Las mesas salen en cualquier orden: el árbol ordena las claves, y cada valor
+viaja con la suya.
 
 </Slide>
 
