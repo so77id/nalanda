@@ -2292,33 +2292,6 @@ retorna el valor del par que saca. Las tres cuestan $$\Theta(1)$$ esperado.
 
 </Slide>
 
-<Slide title="La clase TreeMap">
-Java implementa el contrato Map sobre un árbol rojo-negro en la clase
-`java.util.TreeMap`. Recorre los pares en el orden de sus claves, y responde
-las preguntas que dependen de ese orden con los métodos de otro contrato, la
-interfaz `NavigableMap`, que `TreeMap` implementa:
-
-| Pregunta                                      | Método                         | Costo              |
-| --------------------------------------------- | ------------------------------ | ------------------ |
-| La clave menor, la mayor                      | `firstKey()`, `lastKey()`      | $$O(\log N)$$      |
-| La siguiente a $$x$$, la anterior             | `higherKey(x)`, `lowerKey(x)`  | $$O(\log N)$$      |
-| La primera desde $$x$$, la última hasta $$x$$ | `ceilingKey(x)`, `floorKey(x)` | $$O(\log N)$$      |
-| Los $$k$$ pares con clave entre $$a$$ y $$b$$ | `subMap(a, b)`                 | $$O(\log N + k)$$  |
-
-```java
-NavigableMap<Rut, Integer> tree = new TreeMap<>();
-// un put por cada voto
-tree.firstKey();                       // el Rut 12.547.354-7
-tree.floorKey(new Rut(20118702, '8'));  // el Rut 18.155.218-2
-tree.subMap(new Rut(13000000, '0'), new Rut(18000000, '0'));
-// los pares de 13.180.992-1, 13.959.276-K y 17.814.358-1
-```
-
-`subMap` baja $$O(\log N)$$ hasta la primera clave del tramo y después entrega
-sus $$k$$ pares en orden, uno por paso: en total, $$O(\log N + k)$$.
-
-</Slide>
-
 <Slide title="Recorrer un Map">
 Un `Map` no es una `Collection` de Java, como sí lo son `List` y `Set`: guarda
 pares, no elementos sueltos, así que no se recorre directo con un `for`. Se
@@ -2334,9 +2307,8 @@ for (Map.Entry<Rut, Integer> e : tableOf.entrySet()) {
 }
 ```
 
-En un `HashMap`, el orden de los tres no significa nada; en un `TreeMap`, va
-por clave. Recorrer los pares cuesta lo mismo que recorrer las claves, y
-ahorra un `get` por cada una.
+Recorrer los pares cuesta lo mismo que recorrer las claves, y ahorra un `get`
+por cada una. El orden en que salen depende de la clase.
 
 </Slide>
 
@@ -2367,6 +2339,22 @@ tabla crece.
 
 </Slide>
 
+<Slide title="La clase TreeMap">
+Java implementa el contrato Map sobre un árbol rojo-negro en la clase
+`java.util.TreeMap`. En el registro cambia solo la línea que crea el
+diccionario:
+
+```java
+Map<Rut, Integer> tableOf = new TreeMap<>();
+```
+
+`put`, `get` y `remove` hacen lo mismo que en el `HashMap`, pero ubican la
+clave con el `compareTo` de `Rut`, el mismo que usa el `TreeSet`. Cuestan
+$$O(\log N)$$ en el peor caso, y a cambio el diccionario guarda sus pares
+ordenados por clave.
+
+</Slide>
+
 <Slide title="El recorrido de un TreeMap">
 El mismo `for` recorre un `TreeMap` en el inorden de su árbol: los pares salen
 ordenados por clave.
@@ -2393,6 +2381,58 @@ viaja con la suya.
 
 </Slide>
 
+<Slide title="Las preguntas del orden en TreeMap">
+`TreeMap` responde también las preguntas que dependen del orden de las
+claves, con los métodos de la interfaz `NavigableMap`, que implementa. Cada
+pregunta viene en dos versiones: la que termina en `Key` retorna la clave, y
+la que termina en `Entry`, el par, con su valor.
+
+| Pregunta                                      | La clave                       | El par                             | Costo             |
+| --------------------------------------------- | ------------------------------ | ---------------------------------- | ----------------- |
+| La menor, la mayor                            | `firstKey()`, `lastKey()`      | `firstEntry()`, `lastEntry()`      | $$O(\log N)$$     |
+| La siguiente a $$x$$, la anterior             | `higherKey(x)`, `lowerKey(x)`  | `higherEntry(x)`, `lowerEntry(x)`  | $$O(\log N)$$     |
+| La primera desde $$x$$, la última hasta $$x$$ | `ceilingKey(x)`, `floorKey(x)` | `ceilingEntry(x)`, `floorEntry(x)` | $$O(\log N)$$     |
+| Los $$k$$ pares entre $$a$$ y $$b$$           | —                              | `subMap(a, b)`                     | $${O(\log N + k)}$$ |
+
+```java
+NavigableMap<Rut, Integer> tableOf = new TreeMap<>();
+// un put por cada voto
+tableOf.firstEntry();                        // 12.547.354-7, mesa 2
+tableOf.floorEntry(new Rut(20118702, '8'));  // 18.155.218-2, mesa 3
+tableOf.subMap(new Rut(13000000, '0'), new Rut(18000000, '0'));
+// los pares de 13.180.992-1, 13.959.276-K y 17.814.358-1
+```
+
+`subMap` baja $$O(\log N)$$ hasta la primera clave del tramo y después entrega
+sus $$k$$ pares en orden, uno por paso.
+
+</Slide>
+
+<Slide title="Una tabla de tramos">
+Un local que reparte sus mesas por tramos de RUT no necesita guardar la mesa
+de cada RUT: basta un par por mesa, con el número donde empieza su tramo y la
+mesa. La mesa de un RUT es la del último tramo que empieza en su número o
+antes, la pregunta que responde `floorEntry`:
+
+```java
+NavigableMap<Integer, Integer> tableFrom = new TreeMap<>();
+tableFrom.put(1, 1);           // la mesa 1, desde el RUT 1
+tableFrom.put(12000000, 2);    // la mesa 2, desde el 12.000.000
+tableFrom.put(18000000, 3);    // la mesa 3, desde el 18.000.000
+
+tableFrom.floorEntry(13180992).getValue();   // 2
+tableFrom.floorEntry(9876543).getValue();    // 1
+tableFrom.floorEntry(22715853).getValue();   // 3
+```
+
+Basta el número del RUT, porque el dígito verificador no cambia el tramo.
+`get` no sirve: retorna `null` para un RUT que no empieza un tramo, y un
+`HashMap` no tiene otra manera de buscar. Cada consulta cuesta
+$$O(\log N)$$, con $$N$$ la cantidad de tramos, y si el local abre una mesa,
+un `put` parte un tramo en dos.
+
+</Slide>
+
 <Slide title="Contar con un Map">
 Contar es el uso más común de un Map. Para saber cuántos votos tiene cada
 mesa, la clave es la mesa, y el valor, cuántos votos lleva. Cada voto hace dos
@@ -2414,6 +2454,9 @@ y si está, le suma 1 a lo que tenía.
 ```java
 votes.merge(table, 1, Integer::sum);
 ```
+
+Contado en un `TreeMap`, el recorrido entrega después las mesas en orden, con
+sus votos.
 
 </Slide>
 
