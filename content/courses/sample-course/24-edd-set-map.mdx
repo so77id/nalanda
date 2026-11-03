@@ -1792,9 +1792,8 @@ class Rut implements Comparable<Rut> {
 
     @Override
     public int compareTo(Rut other) {
-        if (number != other.number) {
-            return Integer.compare(number, other.number);
-        }
+        int byNumber = Integer.compare(number, other.number);
+        if (byNumber != 0) return byNumber;
         return Character.compare(dv, other.dv);
     }
 }
