@@ -2,8 +2,8 @@
 
 The shape every class of the **Estructuras de Datos** unit takes — and of
 **Estructuras de Datos Avanzadas**, the unit that continues it with the
-non-linear structures (the trees, then the heap; #321) and the hash table
-(#326), which the class on Set and Map is to follow. Born with #277, the
+non-linear structures (the trees, then the heap; #321), the hash table
+(#326) and the TDAs Set and Map (#350), which close it. Born with #277, the
 first unit's first class, which is also its worked example.
 
 This is the third layer of the course-authoring stack, and the three do not
@@ -157,8 +157,24 @@ last cost row: `contains(x)` is $$\Theta(N)$$ because the heap only knows
 where the first element is, and a hash table answers it in constant expected
 time by giving up order altogether. Tablas Hash itself closes on a named
 trade — the order a hash table does not keep, and what a balanced search tree
-charges to keep it — and its `## Lo que sigue` names Set and Map in prose,
-with no wiki-link, because that class does not exist yet (§5).
+charges to keep it — and its `## Lo que sigue` named Set and Map in prose,
+with no wiki-link, because that class did not exist yet (§5); #350, which
+wrote it, added the wiki-link to that same paragraph. Its book-only
+`## Lo que sigue` names the graphs unit in prose, again with no wiki-link.
+
+**Set and Map keeps its trade in the middle, and that is a stated
+deviation.** Its first draft closed on the trade a probabilistic structure
+makes — a «quizás» instead of a «sí», for a few bits per element: Bloom
+filters, HyperLogLog, Count-Min Sketch. The professor cut that slide in the
+review (2026-11-01): the students have no context for it, and none of the
+courses surveyed for #350 shows probabilistic sets next to the ADT (CS106B
+leaves them to a late lecture on esoteric structures, Sedgewick to an
+exercise). The deck now ends on the table of exact variants, _Conjuntos y
+diccionarios para casos especiales_, which names structures and makes no
+trade. The class's trade is the slide _Tabla hash o árbol según el orden_:
+the order a hash table gives up, what each ordered question then costs it,
+and the balanced tree that keeps the order for $$O(\log N)$$ per operation —
+the way #304 kept its trade inside a cost slide when its hinge was cut.
 
 **#277 also cut its own act 4.** An earlier draft closed with a recap act
 ("un contrato para los dos arreglos") that restated the TDA, put the two cost
@@ -213,7 +229,46 @@ not clash for Sequence, so #277 deliberately adds no caveat. **They do clash
 for a map**, so the class that introduces the Map/diccionario TDA owes the
 distinction one sentence — otherwise a student who bound the word to Java's
 interface will trip on "un mapa es una colección". Same family as the
-`interface` overload that #277 had to untangle in its own Act 1.
+`interface` overload that #277 had to untangle in its own Act 1. #350 pays
+it on _Recorrer un Map_, where the distinction does work: a Map is not a
+Java `Collection`, so a `for` cannot walk it, and it is traversed through
+`keySet()`, `values()` or `entrySet()`. It first stood on the rules slide as
+a vocabulary note, and the professor's review (2026-11-03) found it
+unclear there.
+
+**The problem and the real-life cases come before the card, in every class
+that defines a TDA**
+(#294 Stack and Queue, #304 Priority Queue, #350 Set and Map). First the
+problem or the idea, drawn: what the collection does that a known one does
+not (_Una pila_, _Una cola de prioridad_, _Un registro de votantes_). Then
+«X en la vida real»: four cases from outside programming, each a bold lead
+and one sentence, closed by the sentence that names what the four share —
+«Los cuatro hacen lo mismo…». The card's operations are born there, each one
+something the problem or a case asks for. #350's first draft had its problem
+slide ask for «preguntar, agregar, contar», then compared two classes on
+`remove` and put a walk in the card that nothing had asked for, and it had
+no real-life slide at all; the professor's review (2026-11-01) restored both.
+The TDA is named at the end of the real-life slide, «… un tipo de dato
+abstracto (TDA) llamado…», in #294, #304 and #350's Set; #350's Map still
+names it on the card.
+
+**When the collection is a mathematical object the students already know,
+its idea gets a slide of its own between the problem and the real-life one.**
+#350's Set has three slides before the card: the problem ends on «Lo que el
+registro guarda es un conjunto», _Un conjunto_ gives the idea with its
+notation (`{a, b, a} = {a, b}`, `|A|`) drawn on the running
+example, and only then the real-life cases. The problem slide stands alone
+before the first heading, because the registry opens both TDAs; the
+`## Set · Conjunto` act opens on the idea. The professor's second review
+(2026-11-02) asked for that order: the notation had sat on the rules slide,
+after the card, so the class defined the TDA of an idea it had not yet
+given. The same review cut the two slides that stood between the real-life
+slide and the card, where the unit's two classes, with different method
+names, made the case for a contract: #277 already taught what a TDA is, and
+both slides repeated the implementation slides that follow. The Java
+interface moved with them, to open the Java act (_Set en Java_ before
+_La clase HashSet_), as _Stack en Java_ closes #294's theory rather than
+interrupting it.
 
 A TDA is introduced as a **contract**, on one slide, in a card the unit reuses
 for every TDA it defines. The card is language-independent on purpose — Java's
@@ -272,6 +327,16 @@ needs a TDA card should do the extraction rather than make it five.
 chose to copy it a fifth time rather than grow a course-document PR by a
 component, a catalog entry and four re-verified classes. The extraction is
 tracked in **#305**; the sixth card waits for it.
+
+**It waited for nothing: #350 made six and seven, and says so.** Set and Map
+are two contracts, and the professor chose at the start of that WP to copy
+the card twice — one per contract, each followed by its slide of the
+contract in Java — rather than let either go without one or block the class
+on the extraction. The issue had planned no card at all, on the argument
+that the template did not fit a class comparing two implementations; this
+section had already said the opposite (the Set and Map class «brings its own
+card»), and the moulds fit both contracts as they stand. #305 now owes the
+extraction of seven copies.
 
 Costs never appear in the contract. They belong to an implementation, and
 putting them here is the single mistake that collapses the TDA/EDA distinction
@@ -389,6 +454,15 @@ every cell would read «Ninguna: no cambia el árbol», which teaches nothing �
 Miguel's review of #321's binary-tree costs, where the traversals, the
 height and the search are the whole table. The column comes back as soon as one row
 modifies the structure.
+
+**#350 drops the column although its rows modify, and that is a stated
+deviation.** Set and Map presents no structure of its own: its cost tables
+compare the chaining table and the AVL tree, each taught in its own class
+with its invariants and a table that carries the column. A column per
+implementation would double a table whose point is the comparison, to
+restate what those classes already derived; the slides before each table say
+which invariant pays for what (_Un Set sobre una tabla hash_, _Un Set sobre
+un árbol AVL_).
 
 ### 4bis. Teach every operation with the same script
 

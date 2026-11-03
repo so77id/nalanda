@@ -36,6 +36,7 @@ entries:
       - docId: edd-arboles-ii
       - docId: edd-priority-queue-heap
       - docId: edd-tablas-hash
+      - docId: edd-set-map
   - label: Evaluaciones
     children:
       - docId: control-1

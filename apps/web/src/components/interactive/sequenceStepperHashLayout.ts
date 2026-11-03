@@ -23,9 +23,11 @@
  * tables with this look at a smaller pitch (a contiguous strip, nodes with the
  * key over a `next` field, lists hanging down), and its `cut` draws the link
  * that skips a node as `Bypass` in `sequenceStepperHashView.tsx` does, so a
- * figure and the widget beside it read alike. That copy is the one that fails
- * late — nothing tests a document's own components — so a change here is
- * carried there by hand and checked in a browser.
+ * figure and the widget beside it read alike. The file-local `ChainTable` of
+ * `24-edd-set-map.mdx` copies the same look with nodes wide enough for a RUT,
+ * and a band for a map's value. Those copies are the ones that fail late —
+ * nothing tests a document's own components — so a change here is carried
+ * to both by hand and checked in a browser.
  */
 
 /**

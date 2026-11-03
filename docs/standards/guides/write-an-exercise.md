@@ -79,6 +79,16 @@ else — is what a control or an exam asks for. Both are legitimate; what is
 not legitimate is drifting between them inside one bank, because the reader
 cannot tell how much thinking is expected of them.
 
+**A third shape: solved in the book.** A statement and the program that
+solves it, book-only, with no beat on a slide: the `<Exercise>` carries the
+finished program as `starter`, the `test` cases, and no `solution`. It is for
+a problem whose walk the class already gives — its idea and its code are the
+theory's own — so working it on slides would show the room the same thing
+twice, while the runnable program still earns its place in the book. #350
+moved two exercises there in Miguel's review (2026-11-03): the grades grouped
+by student, once the Map's grouping slides walked the same code, and the
+`Rut`'s `equals` and `hashCode`, which the key act builds step by step.
+
 ## The five beats
 
 ### 1. The problem
@@ -139,6 +149,27 @@ Two forms are known, and either one answers the beat:
 **A third form may appear. Classify it here when it does**, so the next author
 finds it instead of re-deciding. If neither form applies, skip the beat and
 say so in one line — never invent difficulty.
+
+**The counterexample breaks the idea on the input it draws.** #350's window
+drew the minimum leaving on the running example (5 3 3 8 6 2, windows of
+three), where another 3 stays: the tempting variable answered every row
+right, and the slide showed nothing break. A separate input does it now —
+2 5 6 with windows of two, where the variable still answers 2 after the 2
+has left. Beat 2's counterexample is the one input besides the running
+example that the rule below allows.
+
+**Check the statement against every tool the course has taught, not only
+the one the class just did.** #350's first agenda kept its times as `HHMM`
+within one day: at most 1440 keys, the direct-access case Tablas Hash teaches
+with its cloakroom, and a `boolean[2400]` passed every test while beat 2
+claimed that no array books in less than Θ(N). Its posed «next departure»
+had fixed departures, which a sorted array and a binary search answer as
+well as the tree; its «nearest event» built the tree on every call and lost
+to the scan it claimed to beat. A bounded integer key admits direct
+addressing, data that never changes admits sorting once, and a structure
+built per query pays its construction every time. The review rewrote all
+three: instants with no last day, departures that change, a dictionary
+that lasts between queries.
 
 Why it is not optional: the class has just taught the structure, so "use a
 stack" is telegraphed. The counterexample is what turns the structure from an
@@ -204,6 +235,13 @@ appeared inside the walk under a promise to write them "al final".
   too long to stack over it (`teach-a-data-structure.md` §6bis). Building
   in pieces is for a listing whose parts are steps of one algorithm, as
   #304's merge; a class whose parts are methods is walked whole.
+- **Unless the class does not fit and its methods call nothing of each
+  other.** #350's enrollments — a constructor and four methods, 39 lines —
+  walked whole beside its drawing measured 0.563 against the 0.70 floor.
+  Its methods share a field and call nothing of each other, so it walks the
+  constructor and `enroll` on one slide (0.769, the rest of the class a
+  one-line comment) and `drop`, `count` and `roster` stacked on the next
+  (0.775). The iterator's rule stands where methods call each other.
 - **A helper slide comes immediately before the listing slide** when the
   helpers and the walk do not fit together. This guide said the opposite
   first — "helpers get no slide of their own, plumbing with a slide of its
@@ -305,6 +343,10 @@ and whether anything clips — the scale recipe is in
       own data (pairs, tokens, bounds).
 - [ ] Beat 2 gives a counterexample **or** the problem's reason to exist — or
       is skipped in one explicit line.
+- [ ] Beat 2's counterexample breaks the tempting idea on the input it
+      draws, and no tool already taught — direct addressing for a bounded
+      key, sorting once for data that never changes — solves the problem as
+      well as the one the exercise teaches.
 - [ ] Beat 3 contains no code and no identifier from the listing, and the
       structure is named there for the first time.
 - [ ] Beat 3's hand run is a drawing, with the values in it and in its
@@ -363,6 +405,35 @@ in one widget `beside` its tree and stack, after the professor rejected it
 split across two slides — and beat 3's hand runs drawn as one column per
 state (the pending stack after every `next`, the two inorders crossed one
 comparison at a time), the shape the heap class's Top-K strip set.
+
+`content/courses/sample-course/24-edd-set-map.mdx` — four worked exercises
+(el primer voto repetido, una agenda de horas con separación mínima, el
+mínimo y el máximo de una ventana de precios, las inscripciones de un
+semestre), two solved in the book only
+(las notas de cada estudiante, votantes distintos con y sin puntos — the
+third shape above) and three posed (el conteo de votos, la próxima salida, el
+evento más cercano), across the four classes it teaches: `HashSet`,
+`HashMap`, `TreeSet`, `TreeMap`. The posed ones are guided, and one of them is
+a key of its own: the dates of the nearest event are a `Day` whose `compareTo`
+the student writes, and `Day.daysBetween` is given. The window's
+beat 2 takes both forms on two slides — recomputing each window is slow,
+keeping the minimum in a variable is wrong the moment it leaves — and its
+listing is built in pieces before the walk, as #304's merge was. The
+agenda's walk is a 29-line class `beside` a column of its times in order
+(`AgendaColumn`): a day drawn as an axis was unreadable in half a slide.
+
+The enrollments are the exam-shaped one Miguel asked for: a problem that
+ends in writing a key class with its `equals` and `hashCode`, as a written
+control asks. Its beat 2 takes both forms — a list of pairs is slow, and the
+course code alone as the key merges two sections — and its beat 4 first
+shows the key failing on a plain `HashMap` (two equal sections, two keys)
+before `Section` writes its two methods; `Rut` is given, the theory's own,
+and orders each section's roster.
+
+Miguel's review of the first draft (2026-11-01) rewrote four of the eight,
+and two rules above come from it: the counterexample that has to break the
+idea on the input it shows (beat 2), and the statement checked against
+every tool already taught (beat 2).
 
 **Its sibling for the question bank already exists**:
 [`write-control-questions.md`](write-control-questions.md) governs the
