@@ -79,6 +79,16 @@ else — is what a control or an exam asks for. Both are legitimate; what is
 not legitimate is drifting between them inside one bank, because the reader
 cannot tell how much thinking is expected of them.
 
+**A third shape: solved in the book.** A statement and the program that
+solves it, book-only, with no beat on a slide: the `<Exercise>` carries the
+finished program as `starter`, the `test` cases, and no `solution`. It is for
+a problem whose walk the class already gives — its idea and its code are the
+theory's own — so working it on slides would show the room the same thing
+twice, while the runnable program still earns its place in the book. #350
+moved two exercises there in Miguel's review (2026-11-03): the grades grouped
+by student, once the Map's grouping slides walked the same code, and the
+`Rut`'s `equals` and `hashCode`, which the key act builds step by step.
+
 ## The five beats
 
 ### 1. The problem
@@ -389,14 +399,15 @@ split across two slides — and beat 3's hand runs drawn as one column per
 state (the pending stack after every `next`, the two inorders crossed one
 comparison at a time), the shape the heap class's Top-K strip set.
 
-`content/courses/sample-course/24-edd-set-map.mdx` — four worked exercises
-(el primer voto repetido, las notas de cada estudiante, una agenda de horas
-con separación mínima, el mínimo y el máximo de una ventana de precios) and
-four posed (el conteo de votos, votantes distintos con y sin puntos, la
-próxima salida, el evento más cercano), two per class it teaches:
-`HashSet`, `HashMap`, `TreeSet`, `TreeMap`. The posed ones are guided, and
-one of them is the class's key of its own: `countDistinct` and `Rut.parse`
-are given, and the student writes `equals` and `hashCode`. The window's
+`content/courses/sample-course/24-edd-set-map.mdx` — three worked exercises
+(el primer voto repetido, una agenda de horas con separación mínima, el
+mínimo y el máximo de una ventana de precios), two solved in the book only
+(las notas de cada estudiante, votantes distintos con y sin puntos — the
+third shape above) and three posed (el conteo de votos, la próxima salida, el
+evento más cercano), across the four classes it teaches: `HashSet`,
+`HashMap`, `TreeSet`, `TreeMap`. The posed ones are guided, and one of them is
+a key of its own: the dates of the nearest event are a `Day` whose `compareTo`
+the student writes, and `Day.daysBetween` is given. The window's
 beat 2 takes both forms on two slides — recomputing each window is slow,
 keeping the minimum in a variable is wrong the moment it leaves — and its
 listing is built in pieces before the walk, as #304's merge was. The

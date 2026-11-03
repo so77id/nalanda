@@ -2892,295 +2892,6 @@ check(Solution.firstRepeated(new String[] {}), null);
 
 </Slide>
 
-{/* GroupPicture — records of a key and a grade grouped by key: the records in a row as they arrive, and under them one box per key, in the order the keys first appear, with that key's grades in the order they came. `upto` draws only the groups of the first records (the rest of the layout stays reserved, so the frames of the walk keep one size), `at` outlines the record being read, `fresh` paints the grade just added `mark`, and `arrows` joins every record to its grade, numbered by arrival — the hand run —, the arrow of a key's first record painted `mark`: the one that creates its list. Each key is written under its box, where no arrow reaches, and the boxes spread under the row so the arrows stay short. `id` prefixes the arrows' markers. */}
-
-export function GroupPicture({ records, upto = records.length, at = -1, fresh = -1, arrows = false, id, caption, label }) {
-  const text = ([k, g]) => `${k} · ${g}`;
-  const chipW = Math.max(96, ...records.map((r) => text(r).length * 7.4 + 20));
-  const chipH = 28;
-  const gap = 8;
-  const pad = 12;
-  const gradeW = 52;
-  const boxPad = 10;
-  const keys = [...new Set(records.map((r) => r[0]))];
-  const slot = records.map((r, j) => records.slice(0, j).filter((s) => s[0] === r[0]).length);
-  const slots = Math.max(...keys.map((k) => records.filter((r) => r[0] === k).length));
-  const boxW = Math.max(slots * gradeW + (slots - 1) * 6 + 2 * boxPad, ...keys.map((k) => k.length * 7.4 + 20));
-  const rowW = records.length * chipW + (records.length - 1) * gap;
-  const boxGap = keys.length > 1 ? Math.max(22, (0.8 * rowW - keys.length * boxW) / (keys.length - 1)) : 0;
-  const groupsW = keys.length * boxW + (keys.length - 1) * boxGap;
-  const width = 2 * pad + Math.max(rowW, groupsW, caption ? caption.length * 6.6 : 0);
-  const left = (width - rowW) / 2;
-  const gleft = (width - groupsW) / 2;
-  const indexY = pad + 10;
-  const rowY = indexY + 8;
-  const boxY = rowY + chipH + (arrows ? 78 : 44);
-  const boxH = chipH + 2 * boxPad;
-  const height = boxY + boxH + 22 + (caption ? 30 : 6);
-  const recordX = (j) => left + j * (chipW + gap) + chipW / 2;
-  const boxX = (k) => gleft + keys.indexOf(k) * (boxW + boxGap);
-  const gradeX = (j) => boxX(records[j][0]) + boxPad + slot[j] * (gradeW + 6);
-  const shown = (k) => records.slice(0, upto).some((r) => r[0] === k);
-  const ink = (j) => (slot[j] === 0 ? 'var(--color-mark)' : 'var(--color-ink-soft)');
-  return (
-    <svg viewBox={`0 0 ${width} ${height}`} style={{ width: '100%', maxWidth: `${Math.round(width * 1.3)}px`, height: 'auto', display: 'block', margin: '0.4rem auto' }} role="img" aria-label={label}>
-      {arrows ? (
-        <defs>
-          <marker id={`${id}-punta`} markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto">
-            <path d="M0,0 L7,3.5 L0,7 z" style={{ fill: 'var(--color-ink-soft)' }} />
-          </marker>
-          <marker id={`${id}-punta-nueva`} markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto">
-            <path d="M0,0 L7,3.5 L0,7 z" style={{ fill: 'var(--color-mark)' }} />
-          </marker>
-        </defs>
-      ) : null}
-      {records.map((r, j) => {
-        const ring = j === at;
-        return (
-          <g key={`r${j}`} opacity={upto < records.length && j < at ? 0.5 : undefined}>
-            <text x={recordX(j)} y={indexY} textAnchor="middle" fontSize="11" fontWeight={ring ? 700 : 400} style={{ fill: ring ? 'var(--color-ink)' : 'var(--color-ink-faint)' }}>{j}</text>
-            <rect x={recordX(j) - chipW / 2} y={rowY} width={chipW} height={chipH} rx="14" style={{ fill: 'var(--color-surface)', stroke: ring ? 'var(--color-focus)' : 'var(--color-rule-strong)' }} strokeWidth={ring ? 2.6 : 1.2} />
-            <text x={recordX(j)} y={rowY + chipH / 2 + 5} textAnchor="middle" fontSize="12.5" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{text(r)}</text>
-          </g>
-        );
-      })}
-      {keys.map((k) =>
-        shown(k) ? (
-          <rect key={`b${k}`} x={boxX(k)} y={boxY} width={boxW} height={boxH} rx="12" style={{ fill: 'var(--color-sunk)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.3" />
-        ) : null,
-      )}
-      {records.map(([, g], j) => {
-        if (j >= upto) return null;
-        const tone = j === fresh ? 'mark' : undefined;
-        return (
-          <g key={`g${j}`}>
-            {arrows ? (
-              <g>
-                <line x1={recordX(j)} y1={rowY + chipH + 2} x2={gradeX(j) + gradeW / 2} y2={boxY + boxPad - 4} style={{ stroke: ink(j) }} strokeWidth={slot[j] === 0 ? 1.8 : 1.3} markerEnd={`url(#${id}-${slot[j] === 0 ? 'punta-nueva' : 'punta'})`} />
-                <circle cx={recordX(j)} cy={rowY + chipH + 16} r="8" strokeWidth="1.6" style={{ fill: 'var(--color-surface)', stroke: ink(j) }} />
-                <text x={recordX(j)} y={rowY + chipH + 19.5} textAnchor="middle" fontSize="10" fontWeight="700" style={{ fill: 'var(--color-ink)' }}>{j + 1}</text>
-              </g>
-            ) : null}
-            <rect x={gradeX(j)} y={boxY + boxPad} width={gradeW} height={chipH} rx="14" style={{ fill: tone ? 'var(--color-mark-soft)' : 'var(--color-surface)', stroke: tone ? 'var(--color-mark)' : 'var(--color-rule-strong)' }} strokeWidth={tone ? 2.2 : 1.2} />
-            <text x={gradeX(j) + gradeW / 2} y={boxY + boxPad + chipH / 2 + 5} textAnchor="middle" fontSize="12.5" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{g}</text>
-          </g>
-        );
-      })}
-      {keys.map((k) =>
-        shown(k) ? (
-          <text key={`t${k}`} x={boxX(k) + boxW / 2} y={boxY + boxH + 16} textAnchor="middle" fontSize="12" fontWeight="700" style={{ fill: 'var(--color-ink-soft)' }}>{k}</text>
-        ) : null,
-      )}
-      {caption ? (
-        <text x={width / 2} y={height - 10} textAnchor="middle" fontSize="12" style={{ fill: 'var(--color-ink-soft)' }}>{caption}</text>
-      ) : null}
-    </svg>
-  );
-}
-
-{/* The grades of a semester as they arrive: the student's RUT and the grade, in the grade's Spanish writing. 13.180.992-1 gets a 6,2 twice, so the running example itself keeps a repeated grade. */}
-
-export const GRADES = [['18.155.218-2', '5,5'], ['13.180.992-1', '6,2'], ['18.155.218-2', '4,0'], ['13.959.276-K', '6,8'], ['13.180.992-1', '6,2']];
-
-<Slide title="Las notas de cada estudiante">
-Un sistema académico recibe las notas del semestre a medida que los
-profesores las ingresan, cada una con el RUT del estudiante y en cualquier
-orden. Para el informe de cada estudiante hace falta **agrupar**: juntar, para
-cada RUT, todas sus notas, en el orden en que llegaron, también las que se
-repiten.
-
-<GroupPicture
-  records={GRADES}
-  caption="cada RUT con sus notas, en el orden en que llegaron"
-  label="Cinco registros, en el orden en que llegan: 18.155.218-2 con 5,5; 13.180.992-1 con 6,2; 18.155.218-2 con 4,0; 13.959.276-K con 6,8; 13.180.992-1 con 6,2. Debajo, los grupos: 18.155.218-2 con 5,5 y 4,0; 13.180.992-1 con 6,2 y 6,2; 13.959.276-K con 6,8."
-/>
-
-El programa recibe los RUTs y las notas en dos arreglos del mismo largo,
-`ruts[i]` y `grades[i]` el RUT y la nota del registro `i`, y responde un
-diccionario que lleva cada RUT a la lista de sus notas:
-
-```java
-static Map<String, List<Double>> byStudent(
-        String[] ruts, double[] grades)
-```
-
-**Entrada.** A lo más $$10^5$$ registros, con los RUTs escritos todos de la
-misma manera. $$N$$ es su cantidad, y $$E$$, la de estudiantes distintos.
-Arreglos de largos distintos son un error: `IllegalArgumentException`.
-
-**Salida.** Cada RUT con sus notas en el orden en que llegaron. Sin
-registros, un diccionario vacío.
-
-</Slide>
-
-<Slide title="Recorrer los registros una vez por estudiante">
-Lo primero que se piensa es armar los grupos de a uno: tomar un estudiante,
-recorrer todos los registros guardando sus notas, y repetir con el siguiente.
-Responde bien, y recorre los $$N$$ registros una vez por cada uno de los
-$$E$$ estudiantes. Un estudiante tiene pocas notas en un semestre: si tiene a
-lo más $$c$$, hay al menos $$N / c$$ estudiantes, y
-
-$$
-\frac{N^2}{c} \;\le\; E \cdot N \;\le\; N^2
-$$
-
-se lee «el trabajo queda entre $$N^2$$ dividido por $$c$$ y $$N^2$$»: es
-$$\Theta(N^2)$$. Con $$10^5$$ registros y unas cinco notas por estudiante, son
-$$2 \cdot 10^4$$ estudiantes y unos $$2 \cdot 10^9$$ pasos.
-
-Cada registro, en cambio, sabe a qué grupo va: el de su RUT. Lo que hace falta
-es llegar a ese grupo sin buscarlo.
-
-</Slide>
-
-<Slide title="Una lista por estudiante">
-La idea es recorrer los registros una sola vez y llevar cada nota a la lista
-de su estudiante, que se crea la primera vez que su RUT aparece.
-
-<GroupPicture
-  id="grupos"
-  records={GRADES}
-  arrows
-  caption="las flechas destacadas crean la lista de su RUT; las otras llegan a una que ya existe"
-  label="Los cinco registros, numerados del 1 al 5 por orden de llegada, cada uno con una flecha a su nota dentro del grupo de su RUT. Las flechas 1, 2 y 4, destacadas, crean los grupos de 18.155.218-2, 13.180.992-1 y 13.959.276-K; la 3 llega al grupo de 18.155.218-2 y la 5 al de 13.180.992-1, que ya existían."
-/>
-
-Para llegar a la lista de un RUT se pregunta por el RUT: es un
-**diccionario** de cada RUT a su lista, y como ninguna pregunta depende del
-orden de los RUTs, sobre una **tabla hash** responde en tiempo constante
-esperado.
-
-</Slide>
-
-<Slide title="Notas por estudiante · la solución">
-En Java, ese diccionario es un `HashMap`. Si el RUT no tiene lista todavía,
-`get` retorna `null`, y la lista se crea y se guarda antes de agregar la nota.
-La lista que guarda el diccionario es el mismo objeto que `group`: agregarle
-una nota no exige otro `put`.
-
-<StepShow
-  language="java"
-  code={`static Map<String, List<Double>> byStudent(
-          String[] ruts, double[] grades) {
-      if (ruts.length != grades.length) {
-          throw new IllegalArgumentException();
-      }
-      Map<String, List<Double>> groups = new HashMap<>();
-      for (int i = 0; i < ruts.length; i++) {
-          List<Double> group = groups.get(ruts[i]);
-          if (group == null) {
-              group = new ArrayList<>();
-              groups.put(ruts[i], group);
-          }
-          group.add(grades[i]);
-      }
-      return groups;
-  }`}
->
-  <Step lines={[6]}>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>groups arranca vacío.</div>
-    <GroupPicture records={GRADES} upto={0} label="Los cinco registros, ninguno leído. Ningún grupo todavía." />
-  </Step>
-  <Step lines={[7, 8, 9, 10, 11, 13]}>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>18.155.218-2 no tiene lista: se crea, y recibe el 5,5.</div>
-    <GroupPicture records={GRADES} upto={1} at={0} fresh={0} label="Se lee el registro 0, 18.155.218-2 con 5,5. Aparece el grupo de 18.155.218-2 con el 5,5, recién agregado." />
-  </Step>
-  <Step lines={[7, 8, 9, 10, 11, 13]}>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>13.180.992-1 no tiene lista: se crea, y recibe el 6,2.</div>
-    <GroupPicture records={GRADES} upto={2} at={1} fresh={1} label="Se lee el registro 1, 13.180.992-1 con 6,2. Aparece el grupo de 13.180.992-1 con el 6,2." />
-  </Step>
-  <Step lines={[7, 8, 9, 13]}>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>18.155.218-2 ya tiene lista: get la retorna, y recibe el 4,0.</div>
-    <GroupPicture records={GRADES} upto={3} at={2} fresh={2} label="Se lee el registro 2, 18.155.218-2 con 4,0. El grupo de 18.155.218-2 tiene ahora 5,5 y 4,0, recién agregado." />
-  </Step>
-  <Step lines={[7, 8, 9, 10, 11, 13]}>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>13.959.276-K no tiene lista: se crea, y recibe el 6,8.</div>
-    <GroupPicture records={GRADES} upto={4} at={3} fresh={3} label="Se lee el registro 3, 13.959.276-K con 6,8. Aparece el grupo de 13.959.276-K con el 6,8." />
-  </Step>
-  <Step lines={[7, 8, 9, 13]}>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>13.180.992-1 ya tiene lista, y recibe otro 6,2: la lista guarda cada registro.</div>
-    <GroupPicture records={GRADES} upto={5} at={4} fresh={4} label="Se lee el registro 4, 13.180.992-1 con 6,2. El grupo de 13.180.992-1 tiene ahora 6,2 y 6,2, el segundo recién agregado." />
-  </Step>
-  <Step lines={[15]}>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Los tres grupos, cada uno con sus notas en el orden en que llegaron.</div>
-    <GroupPicture records={GRADES} upto={5} label="Los tres grupos completos: 18.155.218-2 con 5,5 y 4,0; 13.180.992-1 con 6,2 y 6,2; 13.959.276-K con 6,8." />
-  </Step>
-</StepShow>
-
-</Slide>
-
-<Slide title="Un solo estudiante, ningún registro y el costo de agrupar">
-Si todos los registros son del mismo RUT, el diccionario tiene un solo grupo
-con todas las notas, y una nota repetida aparece dos veces, porque la lista
-guarda cada registro. Sin registros, el ciclo no corre y el diccionario sale
-vacío. Si los arreglos no tienen el mismo largo, la función lanza la
-excepción antes de leer un registro.
-
-**Tiempo.** Cada registro hace un `get`, que cuesta $$\Theta(1)$$ esperado, y
-a lo más un `put` y un `add` al final de una lista, que cuestan
-$$\Theta(1)$$ amortizado: el `put` porque la tabla a veces crece, y el `add`
-porque el arreglo de la lista también. En total, $$\Theta(N)$$ esperado, sin
-importar cuántos estudiantes haya.
-
-**Memoria.** Las listas guardan las $$N$$ notas, y el diccionario, los $$E$$
-RUTs: $$\Theta(N + E)$$, que es $$\Theta(N)$$ porque no hay más estudiantes
-que registros.
-
-</Slide>
-
-<Slide title="Notas por estudiante · el programa completo">
-<PresentationWide fraction={0.75}>
-<Exercise title="Las notas de cada estudiante">
-
-```java starter
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-
-class Solution {
-    static Map<String, List<Double>> byStudent(
-            String[] ruts, double[] grades) {
-        if (ruts.length != grades.length) {
-            throw new IllegalArgumentException();
-        }
-        Map<String, List<Double>> groups = new HashMap<>();
-        for (int i = 0; i < ruts.length; i++) {
-            List<Double> group = groups.get(ruts[i]);
-            if (group == null) {
-                group = new ArrayList<>();
-                groups.put(ruts[i], group);
-            }
-            group.add(grades[i]);
-        }
-        return groups;
-    }
-}
-```
-
-```java test
-java.util.Map<String, java.util.List<Double>> g = Solution.byStudent(
-    new String[] {"18.155.218-2", "13.180.992-1", "18.155.218-2",
-        "13.959.276-K", "13.180.992-1"},
-    new double[] {5.5, 6.2, 4.0, 6.8, 6.2});
-check(g.size(), 3);
-check(g.get("18.155.218-2"), Arrays.asList(5.5, 4.0));
-check(g.get("13.180.992-1"), Arrays.asList(6.2, 6.2));
-check(g.get("13.959.276-K"), Arrays.asList(6.8));
-check(Solution.byStudent(new String[] {"9.876.543-3", "9.876.543-3"},
-    new double[] {7.0, 1.0}).get("9.876.543-3"), Arrays.asList(7.0, 1.0));
-check(Solution.byStudent(new String[] {}, new double[] {}).size(), 0);
-boolean refused = false;
-try { Solution.byStudent(new String[] {"9.876.543-3"}, new double[] {}); }
-catch (IllegalArgumentException e) { refused = true; }
-check(refused, true);
-```
-
-</Exercise>
-</PresentationWide>
-
-</Slide>
-
 {/* TimeLine — one day of the agenda: an axis with its hours, from `first` for `hours` hours at `perHour` pixels each, a dot on every time taken with its hour over it. Times are written HHMM inside the drawing; the exercise turns them into minutes with `at`. `gap` lays the band of that many minutes on each side of every time taken, the minutes it closes; `asked` is a time someone tries to book, its label one row higher so it never covers a neighbour's, painted `flag` when `refused` and `mark` when it is booked; `near` paints the times it is measured against `keep`; and `from`/`to` lay a band under the axis over the interval asked for, the times inside it painted `keep`. `day` names the day over the axis's start. The walk draws in AgendaColumn instead: beside a listing of 29 lines, a day's axis is too wide to read. */}
 
 export function TimeLine({ times, day, first = 8, hours = 10, perHour = 80, gap, asked, refused = false, near = [], from, to, caption, label }) {
@@ -4060,6 +3771,212 @@ check(refused, true);
 
 </Slide>
 
+{/* GroupPicture — records of a key and a grade grouped by key: the records in a row as they arrive, and under them one box per key, in the order the keys first appear, with that key's grades in the order they came. Each key is written under its box, and the boxes spread under the row. */}
+
+export function GroupPicture({ records, caption, label }) {
+  const text = ([k, g]) => `${k} · ${g}`;
+  const chipW = Math.max(96, ...records.map((r) => text(r).length * 7.4 + 20));
+  const chipH = 28;
+  const gap = 8;
+  const pad = 12;
+  const gradeW = 52;
+  const boxPad = 10;
+  const keys = [...new Set(records.map((r) => r[0]))];
+  const slot = records.map((r, j) => records.slice(0, j).filter((s) => s[0] === r[0]).length);
+  const slots = Math.max(...keys.map((k) => records.filter((r) => r[0] === k).length));
+  const boxW = Math.max(slots * gradeW + (slots - 1) * 6 + 2 * boxPad, ...keys.map((k) => k.length * 7.4 + 20));
+  const rowW = records.length * chipW + (records.length - 1) * gap;
+  const boxGap = keys.length > 1 ? Math.max(22, (0.8 * rowW - keys.length * boxW) / (keys.length - 1)) : 0;
+  const groupsW = keys.length * boxW + (keys.length - 1) * boxGap;
+  const width = 2 * pad + Math.max(rowW, groupsW, caption ? caption.length * 6.6 : 0);
+  const left = (width - rowW) / 2;
+  const gleft = (width - groupsW) / 2;
+  const indexY = pad + 10;
+  const rowY = indexY + 8;
+  const boxY = rowY + chipH + 44;
+  const boxH = chipH + 2 * boxPad;
+  const height = boxY + boxH + 22 + (caption ? 30 : 6);
+  const recordX = (j) => left + j * (chipW + gap) + chipW / 2;
+  const boxX = (k) => gleft + keys.indexOf(k) * (boxW + boxGap);
+  const gradeX = (j) => boxX(records[j][0]) + boxPad + slot[j] * (gradeW + 6);
+  return (
+    <svg viewBox={`0 0 ${width} ${height}`} style={{ width: '100%', maxWidth: `${Math.round(width * 1.3)}px`, height: 'auto', display: 'block', margin: '0.4rem auto' }} role="img" aria-label={label}>
+      {records.map((r, j) => (
+        <g key={`r${j}`}>
+          <text x={recordX(j)} y={indexY} textAnchor="middle" fontSize="11" style={{ fill: 'var(--color-ink-faint)' }}>{j}</text>
+          <rect x={recordX(j) - chipW / 2} y={rowY} width={chipW} height={chipH} rx="14" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.2" />
+          <text x={recordX(j)} y={rowY + chipH / 2 + 5} textAnchor="middle" fontSize="12.5" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{text(r)}</text>
+        </g>
+      ))}
+      {keys.map((k) => (
+        <rect key={`b${k}`} x={boxX(k)} y={boxY} width={boxW} height={boxH} rx="12" style={{ fill: 'var(--color-sunk)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.3" />
+      ))}
+      {records.map(([, g], j) => (
+        <g key={`g${j}`}>
+          <rect x={gradeX(j)} y={boxY + boxPad} width={gradeW} height={chipH} rx="14" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.2" />
+          <text x={gradeX(j) + gradeW / 2} y={boxY + boxPad + chipH / 2 + 5} textAnchor="middle" fontSize="12.5" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{g}</text>
+        </g>
+      ))}
+      {keys.map((k) => (
+        <text key={`t${k}`} x={boxX(k) + boxW / 2} y={boxY + boxH + 16} textAnchor="middle" fontSize="12" fontWeight="700" style={{ fill: 'var(--color-ink-soft)' }}>{k}</text>
+      ))}
+      {caption ? (
+        <text x={width / 2} y={height - 10} textAnchor="middle" fontSize="12" style={{ fill: 'var(--color-ink-soft)' }}>{caption}</text>
+      ) : null}
+    </svg>
+  );
+}
+
+{/* The grades of a semester as they arrive: the student's RUT and the grade, in the grade's Spanish writing. 13.180.992-1 gets a 6,2 twice, so the example itself keeps a repeated grade. */}
+
+export const GRADES = [['18.155.218-2', '5,5'], ['13.180.992-1', '6,2'], ['18.155.218-2', '4,0'], ['13.959.276-K', '6,8'], ['13.180.992-1', '6,2']];
+
+Dos ejercicios más, con el código que los resuelve:
+
+<Exercise title="Las notas de cada estudiante">
+
+Un sistema académico recibe las notas del semestre a medida que los
+profesores las ingresan, cada una con el RUT del estudiante y en cualquier
+orden. Para el informe de cada estudiante hace falta juntar, para cada RUT,
+todas sus notas, en el orden en que llegaron, también las que se repiten.
+
+<GroupPicture
+  records={GRADES}
+  caption="cada RUT con sus notas, en el orden en que llegaron"
+  label="Cinco registros, en el orden en que llegan: 18.155.218-2 con 5,5; 13.180.992-1 con 6,2; 18.155.218-2 con 4,0; 13.959.276-K con 6,8; 13.180.992-1 con 6,2. Debajo, los grupos: 18.155.218-2 con 5,5 y 4,0; 13.180.992-1 con 6,2 y 6,2; 13.959.276-K con 6,8."
+/>
+
+`byStudent` recibe los RUTs y las notas en dos arreglos del mismo largo,
+`ruts[i]` y `grades[i]` el RUT y la nota del registro `i`, y responde un
+diccionario que lleva cada RUT a la lista de sus notas. A lo más $$10^5$$
+registros, con los RUTs escritos todos de la misma manera. Arreglos de largos
+distintos son un error, `IllegalArgumentException`, y sin registros responde
+un diccionario vacío.
+
+Es agrupar: un `HashMap` de cada RUT a su lista, que se crea la primera vez
+que el RUT aparece. Con $$N$$ registros, cuesta $$\Theta(N)$$ esperado.
+
+```java starter
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+class Solution {
+    static Map<String, List<Double>> byStudent(
+            String[] ruts, double[] grades) {
+        if (ruts.length != grades.length) {
+            throw new IllegalArgumentException();
+        }
+        Map<String, List<Double>> groups = new HashMap<>();
+        for (int i = 0; i < ruts.length; i++) {
+            List<Double> group = groups.get(ruts[i]);
+            if (group == null) {
+                group = new ArrayList<>();
+                groups.put(ruts[i], group);
+            }
+            group.add(grades[i]);
+        }
+        return groups;
+    }
+}
+```
+
+```java test
+java.util.Map<String, java.util.List<Double>> g = Solution.byStudent(
+    new String[] {"18.155.218-2", "13.180.992-1", "18.155.218-2",
+        "13.959.276-K", "13.180.992-1"},
+    new double[] {5.5, 6.2, 4.0, 6.8, 6.2});
+check(g.size(), 3);
+check(g.get("18.155.218-2"), Arrays.asList(5.5, 4.0));
+check(g.get("13.180.992-1"), Arrays.asList(6.2, 6.2));
+check(g.get("13.959.276-K"), Arrays.asList(6.8));
+check(Solution.byStudent(new String[] {"9.876.543-3", "9.876.543-3"},
+    new double[] {7.0, 1.0}).get("9.876.543-3"), Arrays.asList(7.0, 1.0));
+check(Solution.byStudent(new String[] {}, new double[] {}).size(), 0);
+boolean refused = false;
+try { Solution.byStudent(new String[] {"9.876.543-3"}, new double[] {}); }
+catch (IllegalArgumentException e) { refused = true; }
+check(refused, true);
+```
+
+</Exercise>
+
+<Exercise title="Votantes distintos con y sin puntos">
+
+Las mesas envían los RUTs de quienes votaron, unas con puntos y otras sin
+ellos: 13.180.992-1 y 13180992-1 son la misma persona. `countDistinct` lee cada
+texto con `Rut.parse`, que le quita los puntos y separa el número del dígito,
+y guarda cada `Rut` en un `HashSet`. A lo más $$10^5$$ RUTs.
+
+Con 13.180.992-1, 13180992-1 y 18.155.218-2, `countDistinct` responde 2. Con
+9.876.543-3, 9876543-3 y 9.876.543-3, responde 1, y sin RUTs, 0.
+
+Para que el conjunto cuente personas y no textos, `Rut` escribe `equals` y
+`hashCode` juntos, con los mismos campos. Con los que hereda de `Object`, dos
+objetos con los mismos campos son distintos, y el primer caso respondería 3.
+
+```java starter
+import java.util.HashSet;
+import java.util.Set;
+
+class Rut {
+    private final int number;
+    private final char dv;
+
+    Rut(int number, char dv) {
+        if (number <= 0) throw new IllegalArgumentException();
+        this.number = number;
+        this.dv = dv;
+    }
+
+    static Rut parse(String text) {
+        String clean = text.replace(".", "");
+        int dash = clean.indexOf('-');
+        return new Rut(Integer.parseInt(clean.substring(0, dash)),
+            clean.charAt(dash + 1));
+    }
+
+    @Override
+    public boolean equals(Object other) {
+        if (!(other instanceof Rut)) return false;
+        Rut r = (Rut) other;
+        return number == r.number && dv == r.dv;
+    }
+
+    @Override
+    public int hashCode() {
+        return 31 * number + dv;
+    }
+}
+
+class Solution {
+    static int countDistinct(String[] ruts) {
+        Set<Rut> seen = new HashSet<>();
+        for (String text : ruts) {
+            seen.add(Rut.parse(text));
+        }
+        return seen.size();
+    }
+}
+```
+
+```java test
+check(Solution.countDistinct(new String[] {"13.180.992-1", "13180992-1",
+    "18.155.218-2"}), 2);
+check(Solution.countDistinct(new String[] {"9.876.543-3", "9876543-3",
+    "9.876.543-3"}), 1);
+check(Solution.countDistinct(new String[] {"13.180.992-1", "18.155.218-2"}), 2);
+check(Solution.countDistinct(new String[] {}), 0);
+check(Rut.parse("13.180.992-1").equals(Rut.parse("13180992-1")), true);
+check(Rut.parse("13.180.992-1").equals(Rut.parse("18.155.218-2")), false);
+check(Rut.parse("13.180.992-1").hashCode()
+    == Rut.parse("13180992-1").hashCode(), true);
+check(Rut.parse("13.180.992-1").equals("13.180.992-1"), false);
+```
+
+</Exercise>
+
 Ejercicios propuestos, para resolver sin ver la respuesta:
 
 <Exercise title="El conteo de votos">
@@ -4138,117 +4055,6 @@ class Solution {
             }
         }
         return best;
-    }
-}
-```
-
-</Exercise>
-
-<Exercise title="Votantes distintos con y sin puntos">
-
-Las mesas envían los RUTs de quienes votaron, unas con puntos y otras sin
-ellos: 13.180.992-1 y 13180992-1 son la misma persona. `countDistinct` ya
-está escrita: lee cada texto con `Rut.parse`, que le quita los puntos y separa
-el número del dígito y no lleva ninguna idea, y guarda cada `Rut` en un
-`HashSet`. Escribamos lo que le falta a `Rut` para que el conjunto cuente
-personas y no textos. A lo más $$10^5$$ RUTs.
-
-Con 13.180.992-1, 13180992-1 y 18.155.218-2, `countDistinct` responde 2. Con
-9.876.543-3, 9876543-3 y 9.876.543-3, responde 1, y sin RUTs, 0.
-
-Tal como está, responde 3 en el primer caso: el `equals` que `Rut` hereda de
-`Object` distingue dos objetos con los mismos campos, y el `hashCode` heredado
-los manda a posiciones distintas. El conjunto encuentra un `Rut` igual solo si
-los dos métodos se escriben juntos, con los mismos campos.
-
-```java starter
-import java.util.HashSet;
-import java.util.Set;
-
-class Rut {
-    private final int number;
-    private final char dv;
-
-    Rut(int number, char dv) {
-        if (number <= 0) throw new IllegalArgumentException();
-        this.number = number;
-        this.dv = dv;
-    }
-
-    static Rut parse(String text) {
-        String clean = text.replace(".", "");
-        int dash = clean.indexOf('-');
-        return new Rut(Integer.parseInt(clean.substring(0, dash)),
-            clean.charAt(dash + 1));
-    }
-}
-
-class Solution {
-    static int countDistinct(String[] ruts) {
-        Set<Rut> seen = new HashSet<>();
-        for (String text : ruts) {
-            seen.add(Rut.parse(text));
-        }
-        return seen.size();
-    }
-}
-```
-
-```java test
-check(Solution.countDistinct(new String[] {"13.180.992-1", "13180992-1",
-    "18.155.218-2"}), 2);
-check(Solution.countDistinct(new String[] {"9.876.543-3", "9876543-3",
-    "9.876.543-3"}), 1);
-check(Solution.countDistinct(new String[] {"13.180.992-1", "18.155.218-2"}), 2);
-check(Solution.countDistinct(new String[] {}), 0);
-check(Rut.parse("13.180.992-1").equals(Rut.parse("13180992-1")), true);
-check(Rut.parse("13.180.992-1").equals(Rut.parse("18.155.218-2")), false);
-check(Rut.parse("13.180.992-1").hashCode()
-    == Rut.parse("13180992-1").hashCode(), true);
-check(Rut.parse("13.180.992-1").equals("13.180.992-1"), false);
-```
-
-```java solution
-import java.util.HashSet;
-import java.util.Set;
-
-class Rut {
-    private final int number;
-    private final char dv;
-
-    Rut(int number, char dv) {
-        if (number <= 0) throw new IllegalArgumentException();
-        this.number = number;
-        this.dv = dv;
-    }
-
-    static Rut parse(String text) {
-        String clean = text.replace(".", "");
-        int dash = clean.indexOf('-');
-        return new Rut(Integer.parseInt(clean.substring(0, dash)),
-            clean.charAt(dash + 1));
-    }
-
-    @Override
-    public boolean equals(Object other) {
-        if (!(other instanceof Rut)) return false;
-        Rut r = (Rut) other;
-        return number == r.number && dv == r.dv;
-    }
-
-    @Override
-    public int hashCode() {
-        return 31 * number + dv;
-    }
-}
-
-class Solution {
-    static int countDistinct(String[] ruts) {
-        Set<Rut> seen = new HashSet<>();
-        for (String text : ruts) {
-            seen.add(Rut.parse(text));
-        }
-        return seen.size();
     }
 }
 ```
@@ -4344,77 +4150,140 @@ class Terminal {
 
 <Exercise title="El evento más cercano">
 
-Un calendario guarda eventos con su nombre, a lo más uno por día, en días
-contados desde el día 0 y sin un último día. Escribamos la clase `Events`:
-`add` guarda un evento, y si el día ya tenía uno, el nuevo lo reemplaza;
-`nearest` responde el nombre del evento más cercano a un día, antes o después:
-si dos están a la misma distancia, el anterior, y sin eventos, `null`. A lo más
-$$10^5$$ llamadas; $$N$$ es la cantidad de días con evento.
+Un calendario guarda eventos con su nombre, a lo más uno por fecha. Una fecha
+es un `Day`, con su año, su mes y su día. Escribamos el `compareTo` de `Day`,
+que ordena por año, después por mes y después por día, y la clase `Events`:
+`add` guarda un evento, y si la fecha ya tenía uno, el nuevo lo reemplaza;
+`nearest` responde el nombre del evento más cercano a una fecha, antes o
+después: si dos están a la misma distancia, el anterior, y sin eventos,
+`null`. `Day.daysBetween(a, b)` ya está escrita y no lleva ninguna idea: cuenta
+los días del calendario de `a` a `b`. A lo más $$10^5$$ llamadas; $$N$$ es la
+cantidad de fechas con evento.
 
-Con un certamen el día 40, un feriado el 75 y una entrega el 120, el día 60
-está a 20 días del certamen y a 15 del feriado: responde «feriado». El día 100
-responde «entrega»; el 10, «certamen», y el 200, «entrega», la última. Si el
-día 75 recibe un «paseo», el día 60 responde «paseo».
+El 31 de diciembre de 2025 va antes que el 1 de enero de 2026, aunque su mes y
+su día sean mayores. Con un certamen el 10 de abril de 2026, el feriado del 21
+de mayo y una entrega el 26 de junio, el 5 de mayo está a 25 días del certamen
+y a 16 del feriado: responde «feriado». El 10 de junio responde «entrega»; el
+1 de marzo, «certamen», y el 1 de diciembre, «entrega», la última. Si el 21 de
+mayo recibe un «paseo», el 5 de mayo responde «paseo».
 
 Recorrer todos los eventos en cada consulta cuesta $$\Theta(N)$$. En un
-diccionario ordenado por día, que se arma una vez y dura entre las consultas,
-el evento más cercano es el último que no es posterior al día o el primero que
-no es anterior, y `floorKey` y `ceilingKey` los encuentran en
-$$O(\log N)$$.
+diccionario ordenado por fecha, el evento más cercano es el del último par que
+no es posterior a la fecha o el del primero que no es anterior, y
+`floorEntry` y `ceilingEntry` los entregan, con su nombre, en $$O(\log N)$$.
+El árbol ordena las fechas con el `compareTo` de `Day`.
 
 ```java starter
-class Events {
-    public void add(int day, String name) {
+import java.time.LocalDate;
+
+class Day implements Comparable<Day> {
+    private final int year;
+    private final int month;
+    private final int day;
+
+    Day(int year, int month, int day) {
+        this.year = year;
+        this.month = month;
+        this.day = day;
     }
 
-    public String nearest(int day) {
+    static int daysBetween(Day a, Day b) {
+        return (int) (LocalDate.of(b.year, b.month, b.day).toEpochDay()
+            - LocalDate.of(a.year, a.month, a.day).toEpochDay());
+    }
+
+    @Override
+    public int compareTo(Day other) {
+        return 0;
+    }
+}
+
+class Events {
+    public void add(Day day, String name) {
+    }
+
+    public String nearest(Day day) {
         return null;
     }
 }
 ```
 
 ```java test
+check(new Day(2025, 12, 31).compareTo(new Day(2026, 1, 1)) < 0, true);
+check(new Day(2026, 3, 31).compareTo(new Day(2026, 4, 1)) < 0, true);
+check(new Day(2026, 4, 1).compareTo(new Day(2026, 3, 31)) > 0, true);
+check(new Day(2026, 5, 21).compareTo(new Day(2026, 5, 21)), 0);
 Events e = new Events();
-e.add(75, "feriado");
-e.add(40, "certamen");
-e.add(120, "entrega");
-check(e.nearest(60), "feriado");
-check(e.nearest(100), "entrega");
-check(e.nearest(10), "certamen");
-check(e.nearest(200), "entrega");
-check(e.nearest(75), "feriado");
-check(e.nearest(80), "feriado");
-e.add(75, "paseo");
-check(e.nearest(60), "paseo");
+e.add(new Day(2026, 5, 21), "feriado");
+e.add(new Day(2026, 4, 10), "certamen");
+e.add(new Day(2026, 6, 26), "entrega");
+check(e.nearest(new Day(2026, 5, 5)), "feriado");
+check(e.nearest(new Day(2026, 6, 10)), "entrega");
+check(e.nearest(new Day(2026, 3, 1)), "certamen");
+check(e.nearest(new Day(2026, 12, 1)), "entrega");
+check(e.nearest(new Day(2026, 5, 21)), "feriado");
+e.add(new Day(2026, 5, 21), "paseo");
+check(e.nearest(new Day(2026, 5, 5)), "paseo");
 Events tie = new Events();
-tie.add(10, "a");
-tie.add(20, "b");
-check(tie.nearest(15), "a");
-check(new Events().nearest(15), null);
-e.add(5000, "aniversario");
-check(e.nearest(4000), "aniversario");
+tie.add(new Day(2026, 1, 10), "a");
+tie.add(new Day(2026, 1, 20), "b");
+check(tie.nearest(new Day(2026, 1, 15)), "a");
+Events turn = new Events();
+turn.add(new Day(2025, 12, 30), "cierre");
+turn.add(new Day(2026, 1, 9), "inicio");
+check(turn.nearest(new Day(2026, 1, 2)), "cierre");
+check(new Events().nearest(new Day(2026, 1, 1)), null);
 ```
 
 ```java solution
+import java.time.LocalDate;
+import java.util.Map;
 import java.util.TreeMap;
 
-class Events {
-    private TreeMap<Integer, String> calendar = new TreeMap<>();
+class Day implements Comparable<Day> {
+    private final int year;
+    private final int month;
+    private final int day;
 
-    public void add(int day, String name) {
+    Day(int year, int month, int day) {
+        this.year = year;
+        this.month = month;
+        this.day = day;
+    }
+
+    static int daysBetween(Day a, Day b) {
+        return (int) (LocalDate.of(b.year, b.month, b.day).toEpochDay()
+            - LocalDate.of(a.year, a.month, a.day).toEpochDay());
+    }
+
+    @Override
+    public int compareTo(Day other) {
+        int byYear = Integer.compare(year, other.year);
+        if (byYear != 0) return byYear;
+        int byMonth = Integer.compare(month, other.month);
+        if (byMonth != 0) return byMonth;
+        return Integer.compare(day, other.day);
+    }
+}
+
+class Events {
+    private TreeMap<Day, String> calendar = new TreeMap<>();
+
+    public void add(Day day, String name) {
         calendar.put(day, name);
     }
 
-    public String nearest(int day) {
-        Integer before = calendar.floorKey(day);
-        Integer after = calendar.ceilingKey(day);
+    public String nearest(Day day) {
+        Map.Entry<Day, String> before = calendar.floorEntry(day);
+        Map.Entry<Day, String> after = calendar.ceilingEntry(day);
         if (before == null && after == null) {
             return null;
         }
-        if (after == null || before != null && day - before <= after - day) {
-            return calendar.get(before);
+        if (after == null || before != null
+                && Day.daysBetween(before.getKey(), day) <= Day.daysBetween(day, after.getKey())) {
+            return before.getValue();
         }
-        return calendar.get(after);
+        return after.getValue();
     }
 }
 ```
