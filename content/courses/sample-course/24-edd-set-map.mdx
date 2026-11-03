@@ -2473,16 +2473,75 @@ cada una.
 
 </Slide>
 
+{/* GroupMap — a dictionary whose values are lists: the keys in a box on the left, and from each key an arrow to its list, drawn as a row of chips inside its own frame. It draws what grouping builds, each mesa with the RUTs that voted there. File-local (add-a-course-document.md §6e-quater). */}
+
+export function GroupMap({ groups, keyTitle, valueTitle, caption, label, id }) {
+  const pad = 14;
+  const keyW = 96;
+  const gap = 110;
+  const chipW = 112;
+  const chipH = 28;
+  const chipGap = 6;
+  const listPad = 6;
+  const rowH = 52;
+  const top = 34;
+  const boxPad = 8;
+  const most = Math.max(...groups.map(([, items]) => items.length));
+  const listW = (n) => n * chipW + (n - 1) * chipGap + 2 * listPad;
+  const core = 2 * pad + keyW + gap + listW(most);
+  const width = Math.max(core, caption ? caption.length * 6.6 + 24 : 0);
+  const left = (width - core) / 2 + pad;
+  const listX = left + keyW + gap;
+  const rowY = (i) => top + boxPad + i * rowH + rowH / 2;
+  const boxH = groups.length * rowH + 2 * boxPad;
+  const height = top + boxH + (caption ? 34 : 12);
+  return (
+    <svg viewBox={`0 0 ${width} ${height}`} style={{ width: '100%', maxWidth: `${Math.round(width * 1.3)}px`, height: 'auto', display: 'block', margin: '0.4rem auto' }} role="img" aria-label={label}>
+      <defs>
+        <marker id={`${id}-punta`} markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+          <path d="M0,0 L8,4 L0,8 z" style={{ fill: 'var(--color-ink-soft)' }} />
+        </marker>
+      </defs>
+      <rect x={left} y={top} width={keyW} height={boxH} rx="14" style={{ fill: 'var(--color-sunk)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.3" />
+      <text x={left + keyW / 2} y={top - 10} textAnchor="middle" fontSize="12" fontWeight="700" style={{ fill: 'var(--color-ink-soft)' }}>{keyTitle}</text>
+      <text x={listX} y={top - 10} fontSize="12" fontWeight="700" style={{ fill: 'var(--color-ink-soft)' }}>{valueTitle}</text>
+      {groups.map(([k, items], i) => (
+        <g key={k}>
+          <text x={left + keyW / 2} y={rowY(i) + 5} textAnchor="middle" fontSize="13" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{k}</text>
+          <line x1={left + keyW + 4} y1={rowY(i)} x2={listX - 8} y2={rowY(i)} style={{ stroke: 'var(--color-ink-soft)' }} strokeWidth="1.4" markerEnd={`url(#${id}-punta)`} />
+          <rect x={listX} y={rowY(i) - chipH / 2 - listPad} width={listW(items.length)} height={chipH + 2 * listPad} rx="10" style={{ fill: 'var(--color-sunk)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.3" />
+          {items.map((item, j) => (
+            <g key={item}>
+              <rect x={listX + listPad + j * (chipW + chipGap)} y={rowY(i) - chipH / 2} width={chipW} height={chipH} rx="14" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.2" />
+              <text x={listX + listPad + j * (chipW + chipGap) + chipW / 2} y={rowY(i) + 5} textAnchor="middle" fontSize="12.5" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{item}</text>
+            </g>
+          ))}
+        </g>
+      ))}
+      {caption ? (
+        <text x={width / 2} y={height - 10} textAnchor="middle" fontSize="12" style={{ fill: 'var(--color-ink-soft)' }}>{caption}</text>
+      ) : null}
+    </svg>
+  );
+}
+
 <Slide title="Agrupar con un Map">
 Un Map también agrupa: la clave es el grupo, y el valor, una lista con lo que
 cae en él. Los RUT que votaron en cada mesa se arman dando vuelta el registro:
 en vez de la mesa de cada RUT, los RUT de cada mesa.
 
-| Mesa | Sus RUT                                  |
-| ---- | ---------------------------------------- |
-| 1    | 13.180.992-1, 22.715.853-0               |
-| 2    | 12.547.354-7                             |
-| 3    | 18.155.218-2, 13.959.276-K, 17.814.358-1 |
+<GroupMap
+  id="grupos"
+  groups={[
+    ['mesa 1', ['13.180.992-1', '22.715.853-0']],
+    ['mesa 2', ['12.547.354-7']],
+    ['mesa 3', ['18.155.218-2', '13.959.276-K', '17.814.358-1']],
+  ]}
+  keyTitle="claves: las mesas"
+  valueTitle="valores: la lista de sus RUT"
+  caption="cada mesa lleva a la lista de los RUT que votaron en ella"
+  label="Un diagrama de flechas. A la izquierda, tres mesas; de cada una sale una flecha a una lista de RUT. La mesa 1 lleva a la lista 13.180.992-1, 22.715.853-0; la mesa 2, a la lista 12.547.354-7; la mesa 3, a la lista 18.155.218-2, 13.959.276-K, 17.814.358-1."
+/>
 
 Para armarlo, se recorren los pares del registro, y cada uno cae en uno de dos
 casos:
