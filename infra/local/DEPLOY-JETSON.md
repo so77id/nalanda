@@ -387,6 +387,21 @@ the bucket name.
 
 ### Moving the files to S3
 
+**Archive the volume before step 4**, the first step that deletes anything
+(and step 7 is the first after which the sync may rewrite a file on the
+volume): the steps below never empty `amc-work`, but they are the ones
+that change it, and the archive is the only copy that is neither on this
+disk nor the thing being migrated. On 2026-10-25 it was taken right after
+the merge, before Watchtower restarted anything — 1632 files, 339 MB
+compressed — and copied to the laptop:
+
+```bash
+mkdir -p ~/nalanda-backups && cd ~/nalanda-backups &&
+  F=amc-work-pre-338-$(date -u +%Y%m%dT%H%MZ).tar.gz &&
+  docker exec local-amc-worker-1 tar czf - -C /work . > "$F" && sha256sum "$F"
+docker exec local-amc-worker-1 find /work -type f | wc -l   # = tar tzvf "$F" | grep -c '^-'
+```
+
 1. **Both images of the merge are live** — the server's and the worker's
    (the worker's CD takes ~30 min under QEMU). The worker's carries the
    catalog fix, which step 4 depends on.
@@ -461,6 +476,17 @@ the bucket name.
    denylist (`scans/list*.txt`, `annotate-copy-N.txt`, SQLite's `-journal`,
    `-wal`, `-shm`, and any `.nalanda-tmp-*` a crash left), plus one
    `links.json` per project with scans (AC-15).
+
+   **A pass that crawls can be stopped and run again.** Each pass uploads
+   over ONE keep-alive connection, and from the Jetson to us-east-1 the
+   speed is the connection's: on 2026-10-25 the first pass's sat at
+   `cwnd:2` with ~15 % of its segments retransmitted (`sudo nsenter -t
+   <pid of the server-run container> -n ss -ti`), while three fresh
+   connections moved 1 MB in 5 s, 59 s and 5 s — the kernel is 4.9-tegra,
+   cubic or reno, no BBR. `docker stop` of the `server-run` container
+   cancels the pass: the PUT in flight leaves no object, the cancelled
+   projects count as failed (`context canceled`), and the next pass, on a
+   new connection, skips everything already up.
 7. **Flip**: `NALANDA_FILES_STORE=s3` in `.env`, then
    `sudo docker-compose up -d --pull=never --force-recreate server`. The boot
    log says `file store store=s3 …` and `files: reconciled … failed=0` —
