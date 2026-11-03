@@ -2147,11 +2147,6 @@ las reglas:
 - **Qué claves son iguales lo decide el tipo de las claves**, como en el Set.
   El valor no interviene en ninguna búsqueda.
 
-La palabra **colección** tiene aquí su sentido general, un grupo de elementos
-guardados juntos. En Java es además el nombre de la interfaz
-`java.util.Collection`, que extienden `List`, `Set` y `Queue` y que `Map` no
-extiende: sus elementos son pares, no valores sueltos.
-
 </Slide>
 
 <Slide title="Un Set de claves con un valor">
@@ -2234,14 +2229,17 @@ de las claves y `V` el de los valores:
 | `containsKey(k)` | `containsKey(k)`                 |
 | `size()`        | `size()`                          |
 | `keys()`        | `keySet()`, un `Set` con las claves |
-| `values()`      | `values()`                        |
+| `values()`      | `values()`, una `Collection` con el valor de cada clave |
 | `put(k, v)`     | `put(k, v)`, que retorna `null` si `k` era nueva |
 | `remove(k)`     | `remove(k)`, que retorna `null` si `k` no estaba |
 
-Como `get` responde `null` cuando la clave no está, un valor `null` guardado
-no se distingue de una clave ausente: para saber si una clave está se
-pregunta con `containsKey`. `getOrDefault(k, d)` retorna el valor de `k`, o
-`d` si no está, y evita la pregunta cuando hay un valor que sirve por omisión.
+`keySet()` y `values()` entregan las claves y los valores en el orden en que la
+estructura recorre sus pares: el de las posiciones en un `HashMap`, y el de
+las claves en un `TreeMap`. `values()` no es un `Set`, porque dos claves pueden
+tener el mismo valor.
+
+Para saber si una clave está se usa `containsKey`, y para leer un valor con
+uno por omisión, `getOrDefault(k, d)`, que retorna `d` si `k` no está.
 
 </Slide>
 
@@ -2288,8 +2286,10 @@ cuestan $$\Theta(1)$$ esperado.
 </Slide>
 
 <Slide title="Recorrer un Map">
-Un Map se recorre de tres maneras: por sus claves, por sus valores o por sus
-pares. Cada par es un `Map.Entry`, con `getKey()` y `getValue()`:
+Un `Map` no es una `Collection` de Java, como sí lo son `List` y `Set`: guarda
+pares, no elementos sueltos, así que no se recorre directo con un `for`. Se
+recorre de tres maneras: por sus claves, por sus valores o por sus pares. Cada
+par es un `Map.Entry`, con `getKey()` y `getValue()`:
 
 ```java
 for (Rut rut : tableOf.keySet()) { }       // las claves

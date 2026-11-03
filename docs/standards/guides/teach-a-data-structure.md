@@ -230,7 +230,11 @@ for a map**, so the class that introduces the Map/diccionario TDA owes the
 distinction one sentence — otherwise a student who bound the word to Java's
 interface will trip on "un mapa es una colección". Same family as the
 `interface` overload that #277 had to untangle in its own Act 1. #350 pays
-it on the slide _Las reglas del contrato Map_.
+it on _Recorrer un Map_, where the distinction does work: a Map is not a
+Java `Collection`, so a `for` cannot walk it, and it is traversed through
+`keySet()`, `values()` or `entrySet()`. It first stood on the rules slide as
+a vocabulary note, and the professor's review (2026-11-03) found it
+unclear there.
 
 **The problem and the real-life cases come before the card, in every class
 that defines a TDA**
