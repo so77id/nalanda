@@ -709,9 +709,123 @@ lista que el registro publica ordenada por RUT no puede contar con este orden.
 
 </Slide>
 
+<Slide title="La clase TreeSet">
+Java implementa el contrato Set sobre un árbol de búsqueda balanceado en la
+clase `java.util.TreeSet`. Su árbol es un **rojo-negro**, otro árbol de
+búsqueda balanceado como el AVL, y `add`, `remove` y `contains` cuestan
+$$O(\log N)$$ en el peor caso. En el registro cambia solo la línea que crea el
+conjunto:
+
+```java
+Set<String> voted = new TreeSet<>();
+// un add por cada voto
+for (String rut : voted) {
+    System.out.println(rut);
+}
+```
+
+```text
+12.547.354-7
+13.180.992-1
+13.959.276-K
+17.814.358-1
+18.155.218-2
+22.715.853-0
+```
+
+El recorrido de un `TreeSet` es el inorden de su árbol: entrega los elementos
+de menor a mayor. Para eso tiene que poder compararlos, y un `String` sabe
+compararse: su `compareTo` ordena los textos.
+
+</Slide>
+
+<Slide title="Las preguntas del orden en TreeSet">
+`TreeSet` responde también las preguntas que dependen del orden, con métodos
+que no son parte del contrato Set: Java los declara en otro contrato, la
+interfaz `NavigableSet`, que `TreeSet` implementa. Para usarlos, la variable
+se declara de ese tipo:
+
+| Pregunta                          | Método                 | Costo              |
+| --------------------------------- | ---------------------- | ------------------ |
+| El menor, el mayor                | `first()`, `last()`    | $$O(\log N)$$      |
+| El siguiente a $$x$$, el anterior | `higher(x)`, `lower(x)` | $$O(\log N)$$     |
+| El primero desde $$x$$, el último hasta $$x$$ | `ceiling(x)`, `floor(x)` | $$O(\log N)$$ |
+| Los $$k$$ entre $$a$$ y $$b$$     | `subSet(a, b)`, `subSet(a, true, b, true)` | $$O(\log N + k)$$ |
+
+```java
+NavigableSet<String> voted = new TreeSet<>();
+// un add por cada voto
+voted.first();                 // "12.547.354-7"
+voted.higher("13.180.992-1");  // "13.959.276-K"
+voted.floor("20.118.702-8");   // "18.155.218-2"
+voted.subSet("13.000.000", "18.000.000");
+// [13.180.992-1, 13.959.276-K, 17.814.358-1]
+```
+
+`ceiling` y `floor` aceptan un valor que no está: responden el elemento más
+cercano por arriba o por abajo. `subSet(a, b)` incluye a `a` y deja fuera a
+`b`; con cuatro argumentos, cada booleano dice si su extremo entra, y
+`subSet(a, true, b, true)` incluye a los dos.
+
+</Slide>
+
+<Slide title="Lo que la tabla y el árbol le piden a un elemento">
+Las dos clases guardan elementos de cualquier tipo, y a cada uno le piden
+algo para ubicarlo. La tabla busca en dos pasos, como la tabla con listas:
+
+1. calcula un número del elemento con una **función hash**, y lo reduce a una
+   posición;
+2. compara el elemento buscado con los de la lista de esa posición, con una
+   **igualdad**.
+
+El árbol compara el elemento con el de cada nodo y baja a la izquierda o a la
+derecha: necesita un **orden**. En Java, cada cosa es un método que el tipo
+del elemento escribe: **`hashCode`** da el número, **`equals`** decide la
+igualdad y **`compareTo`** decide el orden.
+
+<ChainTable
+  chains={RUT_TABLE}
+  picked={4}
+  tones={{ '13.959.276-K': 'visited', '13.180.992-1': 'keep' }}
+  caption="buscar 13.180.992-1: su número lleva a la posición 4, y la igualdad recorre esa lista hasta dar con él"
+  label="Una tabla de siete posiciones con los seis RUT del registro, cada uno en la posición de su número. La posición 4 está destacada: ahí lleva el número de 13.180.992-1. En su lista, la igualdad compara primero con 13.959.276-K, que no es igual, y después encuentra 13.180.992-1."
+/>
+
+</Slide>
+
+<Slide title="Los tipos de Java ya traen los tres métodos">
+`String`, `Integer` y los demás tipos de Java traen los tres métodos escritos
+por contenido, y por eso funcionan en las dos clases sin hacer nada:
+
+| Tipo        | `equals`          | `hashCode`                              | `compareTo`              |
+| ----------- | ----------------- | --------------------------------------- | ------------------------ |
+| `String`    | las mismas letras | Horner con base 31 sobre sus caracteres | el orden del diccionario |
+| `Integer`   | el mismo valor    | el valor mismo                          | el orden de los números  |
+| `Character` | el mismo carácter | su código                               | el orden de los códigos  |
+
+Los demás envoltorios, como `Long`, `Double` y `Boolean`, también. Una copia de
+un texto es otro objeto, pero tiene las mismas letras y el mismo número, y la
+tabla la encuentra:
+
+```java
+Set<String> words = new HashSet<>();
+words.add("hola");
+String copy = new String("hola");   // otro objeto, las mismas letras
+words.contains(copy);               // true
+"hola".hashCode();                  // 3208380
+copy.hashCode();                    // 3208380
+```
+
+</Slide>
+
+<SectionBreak />
+
+## Diseñar una clave
+
 <Slide title="El mismo RUT escrito de dos maneras">
-Un RUT se puede escribir con puntos o sin ellos, y una mesa lo escribe de una
-manera y otra mesa de la otra. Para un `HashSet<String>`, dos textos distintos
+Guardar los RUT como textos tiene dos problemas. El primero es que un RUT se
+puede escribir con puntos o sin ellos, y una mesa lo escribe de una manera y
+otra mesa de la otra. Para un `HashSet<String>`, dos textos distintos
 son dos elementos distintos, aunque nombren a la misma persona: `add` del
 segundo retorna verdadero, y el registro la cuenta dos veces.
 
@@ -725,33 +839,36 @@ segundo retorna verdadero, y el registro la cuenta dos veces.
 />
 
 Lo que identifica a una persona es el número de su RUT, no la manera de
-escribirlo. Hace falta un tipo para el RUT, con su propia regla para decidir
-cuándo dos son iguales.
+escribirlo.
 
 </Slide>
 
-<Slide title="Lo que la tabla le pide a su clave">
-Un tipo propio tiene que darle a la tabla lo que un texto ya trae. La tabla
-busca en dos pasos, como la tabla con listas:
+{/* A seventh voter with a seven-digit RUT, 9.876.543-3 (valid check digit), arriving last. BY_TEXT is the AVL tree the seven arrivals build when they are compared as text, as String.compareTo compares them; BY_NUMBER is the one they build compared by their numbers. Computed like the registry's; both inorders match the TreeSet runs quoted in the commit. */}
 
-1. calcula un número de la clave con una **función hash**, y lo reduce a una
-   posición;
-2. compara la clave buscada con las de la lista de esa posición, con una
-   **igualdad**.
+export const BY_TEXT = { v: '13.959.276-K', l: { v: '13.180.992-1', l: { v: '12.547.354-7' } }, r: { v: '18.155.218-2', l: { v: '17.814.358-1' }, r: { v: '22.715.853-0', r: { v: '9.876.543-3' } } } };
 
-Un `String` trae las dos cosas. Un tipo nuevo tiene que definirlas. En Java
-son dos métodos que todo objeto hereda de `Object`: **`hashCode`**, que da el
-número, y **`equals`**, que compara. Los heredados miran el objeto, no sus
-campos: dos objetos con los mismos campos son distintos para `equals`, y
-`hashCode` les da números distintos.
+export const BY_NUMBER = { v: '13.959.276-K', l: { v: '12.547.354-7', l: { v: '9.876.543-3' }, r: { v: '13.180.992-1' } }, r: { v: '18.155.218-2', l: { v: '17.814.358-1' }, r: { v: '22.715.853-0' } } };
 
-<ChainTable
-  chains={RUT_TABLE}
-  picked={4}
-  tones={{ '13.959.276-K': 'visited', '13.180.992-1': 'keep' }}
-  caption="buscar 13.180.992-1: su número lleva a la posición 4, y la igualdad recorre esa lista hasta dar con él"
-  label="Una tabla de siete posiciones con los seis RUT del registro, cada uno en la posición de su número. La posición 4 está destacada: ahí lleva el número de 13.180.992-1. En su lista, la igualdad compara primero con 13.959.276-K, que no es igual, y después encuentra 13.180.992-1."
+<Slide title="El orden de los textos">
+El segundo aparece en un `TreeSet`. `String.compareTo` compara dos textos
+carácter por carácter, de izquierda a derecha, y decide el primer carácter distinto. Entre RUTs del mismo largo, ese
+orden es el de los números. Un RUT con un dígito menos ya no: su primer
+dígito se compara con el primero de los demás, que vale diez veces más, y el
+orden de los textos deja de ser el de los números.
+
+<KeyTree
+  tree={BY_TEXT}
+  strip
+  tones={{ '9.876.543-3': 'mark' }}
+  caption="como texto, 9.876.543-3 va después de 22.715.853-0"
+  label="Un árbol de búsqueda con siete RUTs comparados como texto. 9.876.543-3, destacado, quedó como el hijo derecho de 22.715.853-0, el mayor. En la fila del inorden es el último, después de 22.715.853-0."
 />
+
+Con ese votante, el recorrido ya no entrega la lista ordenada por RUT que el
+registro publica, y `first()` ya no responde el RUT menor.
+
+Los dos problemas tienen la misma causa: un texto no sabe que es un RUT. Hace
+falta un tipo propio, con su igualdad, su función hash y su orden.
 
 </Slide>
 
@@ -783,6 +900,27 @@ a.equals(b);   // false
 
 El `equals` que `Rut` hereda de `Object` hace lo mismo que `==`: responde
 verdadero solo para el mismo objeto.
+
+</Slide>
+
+<Slide title="El RUT en un HashSet y en un TreeSet">
+Con la clase recién escrita, ninguna de las dos colecciones funciona. `Rut`
+hereda de `Object` un `equals` y un `hashCode` que miran el objeto y no sus
+campos, y no trae ningún `compareTo`:
+
+```java
+Set<Rut> voted = new HashSet<>();
+voted.add(a);
+voted.add(b);       // true: lo agrega otra vez
+voted.size();       // 2
+
+Set<Rut> sorted = new TreeSet<>();
+sorted.add(a);      // ClassCastException
+```
+
+El `HashSet` cuenta dos veces a la misma persona. El `TreeSet` ni siquiera
+parte: para ubicar el primer elemento tiene que compararlo, y `Rut` no sabe
+compararse. Hay que escribir los tres métodos, empezando por la igualdad.
 
 </Slide>
 
@@ -1161,6 +1299,48 @@ $$
 
 </Slide>
 
+<Slide title="El orden de los RUT">
+El último método es el orden. `Rut` implementa `Comparable<Rut>`, y su
+`compareTo` compara en cascada: primero el número y, si empatan, el dígito.
+
+```java
+class Rut implements Comparable<Rut> {
+    // los campos, el constructor, equals y hashCode
+
+    @Override
+    public int compareTo(Rut other) {
+        if (number != other.number) {
+            return Integer.compare(number, other.number);
+        }
+        return Character.compare(dv, other.dv);
+    }
+}
+```
+
+Es la cascada de siempre: responde en el número si los números difieren, y
+solo si empatan mira el dígito.
+
+</Slide>
+
+<Slide title="Los RUT en un TreeSet">
+Con `compareTo`, el `TreeSet` ya acepta los `Rut`, y los ordena por número: el
+RUT de siete dígitos queda primero.
+
+<KeyTree
+  tree={BY_NUMBER}
+  strip
+  tones={{ '9.876.543-3': 'keep' }}
+  caption="por número, 9.876.543-3 es el primero"
+  label="El árbol de búsqueda con los mismos siete RUTs, comparados por su número. 9.876.543-3, destacado, es el hijo izquierdo de 12.547.354-7, y en la fila del inorden es el primero."
+/>
+
+El `TreeSet` no usa `equals` ni `hashCode`: decide si un elemento ya está con
+`compareTo`. Para que guarde lo mismo que un `HashSet`, `compareTo` compara los
+mismos campos que `equals` y responde 0 exactamente cuando `equals` responde
+verdadero.
+
+</Slide>
+
 <Slide title="Una clave que cambia después de entrar">
 La función hash es determinista solo si los campos que usa no cambian. Si
 `Rut` tuviera un método para corregir un RUT mal digitado, cambiando sus
@@ -1196,9 +1376,58 @@ valor viejo, llega a su lista, pero `equals` dice que ya no es ese RUT.
 />
 </div>
 
-**Un objeto que está en un conjunto no cambia los campos que usan `equals` y
-`hashCode`.** Por eso los campos de `Rut` son `final`: un RUT corregido es otro
+En un `TreeSet` pasa lo mismo: el objeto queda en el lugar de su orden viejo.
+**Un objeto que está en un conjunto no cambia los campos que usan `equals`,
+`hashCode` y `compareTo`.** Por eso los campos de `Rut` son `final`: un RUT corregido es otro
 objeto, que entra después de sacar el anterior.
+
+</Slide>
+
+<Slide title="Qué identifica a un elemento">
+Para cualquier clase, el diseño parte del problema: qué hace que dos
+elementos sean el mismo. Esos son los **campos de la identidad**, y los tres
+métodos usan esos y ningún otro.
+
+- **Un dato que cambia no es identidad.** Lo que le pasa a un elemento con el
+  tiempo no lo convierte en otro.
+- **Un campo que se calcula de otros puede quedar fuera.** No dice nada que
+  los demás no digan.
+- **Los campos de la identidad son `final`.** Así nada los cambia mientras el
+  elemento está en una colección.
+
+| Campo de una mesa de votación | ¿Identidad?               |
+| ----------------------------- | ------------------------- |
+| la comuna                     | sí                        |
+| el local                      | sí                        |
+| el número                     | sí                        |
+| si ya cerró                   | no: cambia durante el día |
+| los votos emitidos            | no: cambian con cada voto |
+
+En el RUT, el dígito verificador se calcula del número. Si el constructor de
+`Rut` lo verificara, el número solo bastaría; no lo verifica, así que un
+dígito mal digitado es otro RUT, y los dos campos son su identidad.
+
+</Slide>
+
+<Slide title="La receta de una clave">
+Con los campos de la identidad elegidos, los tres métodos salen de una
+receta:
+
+1. **`equals`:** `instanceof` y el cast, y después cada campo: con `==` si es
+   primitivo, y con su `equals` si es un objeto.
+2. **`hashCode`:** el número del primer campo y, por cada campo siguiente,
+   multiplicar por 31 y sumar su número.
+3. **`compareTo`:** en cascada, desde el campo más importante, respondiendo en
+   el primero que no empata; con `Integer.compare` para los números, nunca con
+   una resta.
+
+Si la clase no se puede cambiar, o hace falta otro orden, el orden se le pasa
+al `TreeSet` como un `Comparator`, con las mismas reglas.
+
+Al terminar, dos chequeos:
+
+- dos elementos iguales para `equals` dan el mismo `hashCode`;
+- `compareTo` responde 0 exactamente cuando `equals` responde verdadero.
 
 </Slide>
 
@@ -1227,17 +1456,17 @@ los reparte, pero no los elimina.
 
 </Slide>
 
-<Slide title="Una mesa con tres campos">
-Una mesa de votación se identifica por su comuna, su local y su número: dos
-mesas con el mismo número en locales distintos son mesas distintas.
-`VotingTable` compara los tres campos en `equals`, y los textos, con su propio
-`equals`:
+<Slide title="Una mesa de votación">
+Una mesa se identifica por su comuna, su local y su número, que son `final`;
+si ya cerró es un dato, y queda fuera. `equals` compara los tres campos de la
+identidad: el número con `==`, y los textos con su propio `equals`.
 
 ```java
-class VotingTable {
+class VotingTable implements Comparable<VotingTable> {
     private final String commune;
     private final String place;
     private final int number;
+    private boolean closed;   // un dato: cambia durante el día
 
     // el constructor rechaza textos null
 
@@ -1274,19 +1503,52 @@ tienen los mismos tres campos, y con eso el mismo número.
 
 </Slide>
 
-<Slide title="Las mesas en un conjunto">
-Con los dos métodos, una copia de una mesa se encuentra, y una mesa de otro
-local no:
+<Slide title="El orden de una mesa">
+`compareTo` ordena las mesas por comuna, después por local y después por
+número, en cascada:
 
 ```java
-Set<VotingTable> closed = new HashSet<>();
-closed.add(new VotingTable("Ñuñoa", "Liceo 7", 3));
-closed.contains(new VotingTable("Ñuñoa", "Liceo 7", 3)); // true
-closed.contains(new VotingTable("Ñuñoa", "Liceo 8", 3)); // false
+@Override
+public int compareTo(VotingTable other) {
+    int byCommune = commune.compareTo(other.commune);
+    if (byCommune != 0) return byCommune;
+    int byPlace = place.compareTo(other.place);
+    if (byPlace != 0) return byPlace;
+    return Integer.compare(number, other.number);
+}
 ```
 
-`java.util.Objects.hash` hace la misma receta en una línea, con los campos
-que recibe:
+Usa los mismos tres campos que `equals`, así que responde 0 exactamente cuando
+las dos mesas son iguales. `closed` no aparece en ninguno de los tres métodos.
+
+</Slide>
+
+<Slide title="Las mesas en un HashSet y en un TreeSet">
+Con los tres métodos, las mesas funcionan en las dos colecciones. El `HashSet`
+encuentra una copia, y no confunde una mesa con otra de otro local:
+
+```java
+Set<VotingTable> reported = new HashSet<>();
+reported.add(new VotingTable("Ñuñoa", "Liceo 7", 3));
+reported.contains(new VotingTable("Ñuñoa", "Liceo 7", 3)); // true
+reported.contains(new VotingTable("Ñuñoa", "Liceo 8", 3)); // false
+```
+
+El `TreeSet` las recorre por comuna, local y número:
+
+```java
+Set<VotingTable> tables = new TreeSet<>();
+tables.add(new VotingTable("Ñuñoa", "Liceo 8", 1));
+tables.add(new VotingTable("Maipú", "Escuela 2", 4));
+tables.add(new VotingTable("Ñuñoa", "Liceo 7", 3));
+// Maipú Escuela 2 4, Ñuñoa Liceo 7 3, Ñuñoa Liceo 8 1
+```
+
+</Slide>
+
+<Slide title="Objects.hash como atajo">
+`java.util.Objects.hash` hace la receta del `hashCode` en una línea, con los
+campos que recibe:
 
 ```java
 @Override
@@ -1302,167 +1564,70 @@ más lento, porque arma un arreglo con los campos.
 
 </Slide>
 
-{/* A seventh voter with a seven-digit RUT, 9.876.543-3 (valid check digit), arriving last. BY_TEXT is the AVL tree the seven arrivals build when they are compared as text, as String.compareTo compares them; BY_NUMBER is the one they build compared by their numbers. Computed like the registry's; both inorders match the TreeSet runs quoted in the commit. */}
-
-export const BY_TEXT = { v: '13.959.276-K', l: { v: '13.180.992-1', l: { v: '12.547.354-7' } }, r: { v: '18.155.218-2', l: { v: '17.814.358-1' }, r: { v: '22.715.853-0', r: { v: '9.876.543-3' } } } };
-
-export const BY_NUMBER = { v: '13.959.276-K', l: { v: '12.547.354-7', l: { v: '9.876.543-3' }, r: { v: '13.180.992-1' } }, r: { v: '18.155.218-2', l: { v: '17.814.358-1' }, r: { v: '22.715.853-0' } } };
-
-<Slide title="La clase TreeSet">
-Java implementa el contrato Set sobre un árbol de búsqueda balanceado en la
-clase `java.util.TreeSet`. Su árbol es un **rojo-negro**, otro árbol de
-búsqueda balanceado como el AVL, y `add`, `remove` y `contains` cuestan
-$$O(\log N)$$ en el peor caso. En el registro cambia solo la línea que crea el
-conjunto:
+<Slide title="Una clave hecha de otras claves">
+Un vocal de mesa se identifica por la persona y por la mesa donde trabaja: sus
+campos son un `Rut` y una `VotingTable`, dos clases que ya tienen sus tres
+métodos. La receta no cambia, y cada método le pide a cada campo el suyo:
 
 ```java
-Set<String> voted = new TreeSet<>();
-// un add por cada voto
-for (String rut : voted) {
-    System.out.println(rut);
-}
-```
-
-```text
-12.547.354-7
-13.180.992-1
-13.959.276-K
-17.814.358-1
-18.155.218-2
-22.715.853-0
-```
-
-El recorrido de un `TreeSet` es el inorden de su árbol: entrega los elementos
-de menor a mayor. Para eso tiene que poder compararlos, y un `String` sabe
-compararse: su `compareTo` ordena los textos.
-
-</Slide>
-
-<Slide title="Las preguntas del orden en TreeSet">
-`TreeSet` responde también las preguntas que dependen del orden, con métodos
-que no son parte del contrato Set: Java los declara en otro contrato, la
-interfaz `NavigableSet`, que `TreeSet` implementa. Para usarlos, la variable
-se declara de ese tipo:
-
-| Pregunta                          | Método                 | Costo              |
-| --------------------------------- | ---------------------- | ------------------ |
-| El menor, el mayor                | `first()`, `last()`    | $$O(\log N)$$      |
-| El siguiente a $$x$$, el anterior | `higher(x)`, `lower(x)` | $$O(\log N)$$     |
-| El primero desde $$x$$, el último hasta $$x$$ | `ceiling(x)`, `floor(x)` | $$O(\log N)$$ |
-| Los $$k$$ entre $$a$$ y $$b$$     | `subSet(a, b)`, `subSet(a, true, b, true)` | $$O(\log N + k)$$ |
-
-```java
-NavigableSet<String> voted = new TreeSet<>();
-// un add por cada voto
-voted.first();                 // "12.547.354-7"
-voted.higher("13.180.992-1");  // "13.959.276-K"
-voted.floor("20.118.702-8");   // "18.155.218-2"
-voted.subSet("13.000.000", "18.000.000");
-// [13.180.992-1, 13.959.276-K, 17.814.358-1]
-```
-
-`ceiling` y `floor` aceptan un valor que no está: responden el elemento más
-cercano por arriba o por abajo. `subSet(a, b)` incluye a `a` y deja fuera a
-`b`; con cuatro argumentos, cada booleano dice si su extremo entra, y
-`subSet(a, true, b, true)` incluye a los dos.
-
-</Slide>
-
-<Slide title="El orden de los textos">
-`String.compareTo` compara dos textos carácter por carácter, de izquierda a
-derecha, y decide el primer carácter distinto. Entre RUTs del mismo largo, ese
-orden es el de los números. Un RUT con un dígito menos ya no: su primer
-dígito se compara con el primero de los demás, que vale diez veces más, y el
-orden de los textos deja de ser el de los números.
-
-<KeyTree
-  tree={BY_TEXT}
-  strip
-  tones={{ '9.876.543-3': 'mark' }}
-  caption="como texto, 9.876.543-3 va después de 22.715.853-0"
-  label="Un árbol de búsqueda con siete RUTs comparados como texto. 9.876.543-3, destacado, quedó como el hijo derecho de 22.715.853-0, el mayor. En la fila del inorden es el último, después de 22.715.853-0."
-/>
-
-Con ese votante, el recorrido ya no entrega la lista ordenada por RUT que el
-registro publica, y `first()` ya no responde el RUT menor. El orden de
-`String` no es el que el registro necesita, y hay dos maneras de darle otro.
-
-</Slide>
-
-<Slide title="Un orden natural para Rut">
-La primera es que la clase traiga su propio orden. `Rut` implementa
-`Comparable<Rut>`, y su `compareTo` es su **orden natural**: responde un
-número negativo, cero o positivo según el RUT sea menor, igual o mayor que el
-otro.
-
-```java
-class Rut implements Comparable<Rut> {
-    // los campos, el constructor, equals y hashCode
+class PollWorker implements Comparable<PollWorker> {
+    private final Rut person;
+    private final VotingTable table;
 
     @Override
-    public int compareTo(Rut other) {
-        if (number != other.number) {
-            return Integer.compare(number, other.number);
-        }
-        return Character.compare(dv, other.dv);
+    public boolean equals(Object other) {
+        if (!(other instanceof PollWorker)) return false;
+        PollWorker w = (PollWorker) other;
+        return person.equals(w.person) && table.equals(w.table);
+    }
+
+    @Override
+    public int hashCode() {
+        return 31 * person.hashCode() + table.hashCode();
     }
 }
 ```
 
-`TreeSet<Rut>` ordena con ese `compareTo`, y su `first()` es el RUT de menor
-número. Una clase que no implementa `Comparable` no se puede guardar en un
-`TreeSet` sin más: el primer `add` lanza `ClassCastException`.
-
-`TreeSet` no usa `equals` ni `hashCode`: decide si un elemento ya está con
-`compareTo`. Para que un `TreeSet` y un `HashSet` con los mismos elementos
-guarden lo mismo, `compareTo` compara los mismos campos que `equals` y
-responde 0 exactamente cuando `equals` responde verdadero.
+`equals` usa el `equals` del `Rut` y el de la mesa, y `hashCode` combina sus
+dos `hashCode` con la receta.
 
 </Slide>
 
-<Slide title="Un orden pasado al constructor">
-La segunda manera sirve cuando el tipo no trae el orden que hace falta, o no
-trae ninguno: el orden se le pasa al construir el conjunto, como un
-`Comparator`. El registro puede seguir guardando textos y compararlos por el
-número de su RUT:
+<Slide title="El orden de un vocal de mesa">
+`compareTo` también le pide el orden a cada campo, en cascada: primero la
+mesa, con el `compareTo` de `VotingTable`, y si es la misma, la persona, con
+el de `Rut`.
 
 ```java
-static int numberOf(String rut) {
-    int dash = rut.indexOf('-');
-    if (dash < 0) throw new IllegalArgumentException();
-    return Integer.parseInt(rut.substring(0, dash).replace(".", ""));
+@Override
+public int compareTo(PollWorker other) {
+    int byTable = table.compareTo(other.table);
+    if (byTable != 0) return byTable;
+    return person.compareTo(other.person);
 }
-
-NavigableSet<String> voted = new TreeSet<>(
-    (a, b) -> Integer.compare(numberOf(a), numberOf(b)));
 ```
 
-`numberOf` no lleva ninguna idea: es el número del RUT, sin puntos ni dígito,
-escrito en Java.
-
-**`Comparable` pone el orden en la clase, y hay uno solo; `Comparator` lo
-elige quien crea el conjunto, y puede haber tantos como haga falta.**
+Así, en un `TreeSet`, los vocales de una mesa quedan juntos, y dentro de cada
+mesa, por RUT.
 
 </Slide>
 
-<Slide title="El registro ordenado por número">
-Con el comparador, el inorden del árbol es el de los números, y el RUT de un
-dígito menos queda donde le corresponde.
+<Slide title="Errores en equals y hashCode">
+| Error                                                     | Lo que pasa                                                                                                                  |
+| --------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `equals(VotingTable t)` en vez de `equals(Object other)`  | Es otro método, no el de `Object`: la colección sigue llamando al heredado, y una copia no se encuentra. `@Override` lo detecta. |
+| `hashCode` usa un campo que `equals` no compara           | Dos elementos iguales pueden dar números distintos: rompe el contrato.                                                        |
+| `hashCode` deja fuera un campo que `equals` compara       | Cumple el contrato, pero reparte peor: chocan los elementos que solo difieren en ese campo.                                   |
+| `hashCode` suma los campos, como `number + dv`            | Los campos se compensan: 13.180.999-9 y 13.181.000-8 dan los dos 13 181 056.                                                  |
 
-Este orden responde 0 para dos textos que `String.equals` distingue: las dos
-escrituras del mismo RUT tienen el mismo número. Como `TreeSet` decide con su
-comparación si un elemento ya está, el segundo `add` retorna falso, y el
-registro cuenta una persona donde un `HashSet<String>` contaría dos. Con un
-orden que no coincide con `equals`, cambiar la clase cambia lo que el programa
-responde.
+</Slide>
 
-<KeyTree
-  tree={BY_NUMBER}
-  strip
-  tones={{ '9.876.543-3': 'keep' }}
-  caption="por número, 9.876.543-3 es el primero"
-  label="El árbol de búsqueda con los mismos siete RUTs, comparados por su número. 9.876.543-3, destacado, es el hijo izquierdo de 12.547.354-7, y en la fila del inorden es el primero."
-/>
+<Slide title="Errores en el orden y en los campos">
+| Error                                                  | Lo que pasa                                                                                              |
+| ------------------------------------------------------ | -------------------------------------------------------------------------------------------------------- |
+| `compareTo` con menos campos que `equals`              | El `TreeSet` guarda menos que el `HashSet`: si compara solo el número, dos mesas 3 de locales distintos son una sola. |
+| `compareTo` con una resta, como `number - other.number` | Con números grandes la resta se desborda, y el orden sale al revés.                                      |
+| Un campo de la identidad que no es `final`             | Si cambia mientras el elemento está en una colección, queda perdido en ella.                             |
 
 </Slide>
 
