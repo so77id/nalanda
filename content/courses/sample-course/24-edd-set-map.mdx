@@ -2134,8 +2134,10 @@ cada clave una sola vez.
   <span style={{ padding: `0.15rem 0.9rem 0.3rem 0` }}>retorna cuántos pares tiene el diccionario</span>
   <code style={{ padding: `0.15rem 0 0.3rem 0.9rem`, whiteSpace: 'nowrap' }}>keys() → recorrido</code>
   <span style={{ padding: `0.15rem 0.9rem 0.3rem 0` }}>entrega cada clave exactamente una vez</span>
-  <code style={{ padding: `0.15rem 0 0.7rem 0.9rem`, whiteSpace: 'nowrap' }}>values() → recorrido</code>
-  <span style={{ padding: `0.15rem 0.9rem 0.7rem 0` }}>entrega el valor de cada clave, una vez por clave</span>
+  <code style={{ padding: `0.15rem 0 0.3rem 0.9rem`, whiteSpace: 'nowrap' }}>values() → recorrido</code>
+  <span style={{ padding: `0.15rem 0.9rem 0.3rem 0` }}>entrega el valor de cada clave, una vez por clave</span>
+  <code style={{ padding: `0.15rem 0 0.7rem 0.9rem`, whiteSpace: 'nowrap' }}>entries() → recorrido</code>
+  <span style={{ padding: `0.15rem 0.9rem 0.7rem 0` }}>entrega cada par, su clave y su valor, una vez por clave</span>
   <div style={{ gridColumn: '1 / -1', borderTop: '1px solid var(--color-rule)', padding: '0.7rem 0.9rem 0.15rem', fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.08em', color: 'var(--color-accent)' }}>MODIFICAR · cambian el estado</div>
   <code style={{ padding: `0.15rem 0 0.3rem 0.9rem`, whiteSpace: 'nowrap' }}>put(k, v) → valor</code>
   <span style={{ padding: `0.15rem 0.9rem 0.3rem 0` }}>asocia v a la clave k; si k ya estaba, reemplaza su valor y retorna el anterior</span>
@@ -2219,7 +2221,7 @@ entrega los pares ordenados por clave.
 | `get(k)`, `containsKey(k)` | $$\Theta(1)$$          | $$O(\log N)$$        |
 | `put(k, v)`              | $$\Theta(1)$$ amortizado | $$O(\log N)$$        |
 | `remove(k)`              | $$\Theta(1)$$            | $$O(\log N)$$        |
-| `keys()`, `values()`     | $$\Theta(N + M)$$        | $$\Theta(N)$$        |
+| `keys()`, `values()`, `entries()` | $$\Theta(N + M)$$ | $$\Theta(N)$$   |
 | La clave menor, la siguiente a `k` | $$\Theta(N + M)$$ | $$O(\log N)$$  |
 
 Son los costos del Set: el valor viaja con su clave y no cambia ningún
@@ -2244,6 +2246,7 @@ de las claves y `V` el de los valores:
 | `size()`        | `size()`                          |
 | `keys()`        | `keySet()`, un `Set` con las claves |
 | `values()`      | `values()`, una `Collection` con el valor de cada clave |
+| `entries()`     | `entrySet()`, un `Set` con los pares |
 | `put(k, v)`     | `put(k, v)`, que retorna `null` si `k` era nueva |
 | `remove(k)`     | `remove(k)`, que retorna `null` si `k` no estaba |
 
@@ -2252,8 +2255,9 @@ de las claves y `V` el de los valores:
 <Slide title="Tres diferencias con el TDA">
 Tres cosas cambian en Java respecto de la tarjeta del Map:
 
-- **Las claves se piden con `keySet()`, no con `keys()`.** Java le pone ese
-  nombre porque entrega un `Set`: las claves no se repiten.
+- **Las claves y los pares se piden con `keySet()` y `entrySet()`, no con
+  `keys()` y `entries()`.** Java les pone ese nombre porque entregan un `Set`:
+  ni las claves ni los pares se repiten.
 - **Los valores se piden con `values()`, que no es un `Set`**, porque dos
   claves pueden tener el mismo valor. Claves y valores salen en el mismo
   orden: el de las posiciones en un `HashMap`, y el de las claves en un
@@ -2460,7 +2464,8 @@ for (int table : tableOf.values()) {      // la mesa de cada RUT
 }
 ```
 
-`getOrDefault(table, 0)` retorna la cuenta de la mesa, o 0 si todavía no
+El `if` no sobra: `votersAt.get(table) + 1` con una mesa que todavía no está le
+suma 1 a `null`, y lanza `NullPointerException`. `getOrDefault(table, 0)` retorna la cuenta de la mesa, o 0 si todavía no
 está. Sumarle 1 cubre los dos casos en una línea: una mesa nueva queda en 1,
 y una que ya estaba sube en uno.
 
@@ -2469,7 +2474,9 @@ votersAt.put(table, votersAt.getOrDefault(table, 0) + 1);
 ```
 
 Contar $$N$$ cosas cuesta $$\Theta(N)$$ esperado: una búsqueda y un `put` por
-cada una.
+cada una. Con mesas numeradas 1, 2 y 3 bastaría un arreglo, con la mesa como
+posición: el acceso directo. El Map cuenta cualquier clave: nombres, RUT,
+mesas de distintos locales.
 
 </Slide>
 
@@ -2526,9 +2533,11 @@ export function GroupMap({ groups, keyTitle, valueTitle, caption, label, id }) {
 }
 
 <Slide title="Agrupar con un Map">
-Un Map también agrupa: la clave es el grupo, y el valor, una lista con lo que
-cae en él. Los RUT que votaron en cada mesa se arman dando vuelta el registro:
-en vez de la mesa de cada RUT, los RUT de cada mesa.
+El registro responde en qué mesa votó un RUT, pero no quiénes votaron en una
+mesa: un Map busca solo por su clave, y encontrar un valor exige recorrerlo
+entero, en $$\Theta(N)$$. Si esa pregunta se repite, conviene otro Map, con la
+mesa como clave: agrupar. La clave es el grupo, y el valor, una lista con lo
+que cae en él.
 
 <GroupMap
   id="grupos"
