@@ -1375,16 +1375,18 @@ Al terminar, un chequeo: dos elementos iguales para `equals` dan el mismo
 </Slide>
 
 <Slide title="Una función hash para cualquier clave">
-La construcción del RUT y de la mesa sirve para cualquier clave: cada campo se convierte
-en un número con la función hash de su tipo, y los números se combinan con
-Horner y una base impar. Con tres campos:
+La construcción del RUT y de la mesa sirve para cualquier clave. Si la clave
+$$x$$ tiene $$k$$ campos, de $$c_1$$ a $$c_k$$, cada campo se convierte en un
+número con la función hash de su tipo, $$h(c_i)$$, y los números se combinan
+con la base 31:
 
 $$
-h = (h_1 \cdot 31 + h_2) \cdot 31 + h_3
+h(x) = h(c_1) \cdot 31^{k-1} + h(c_2) \cdot 31^{k-2} + \cdots + h(c_k)
 $$
 
-se lee «el número del primer campo por 31, más el del segundo; todo eso por
-31, más el del tercero». En Java, el número de cada campo es:
+Se lee «cada campo pesa 31 veces más que el siguiente». El código no calcula
+potencias: multiplica por 31 y suma el campo siguiente, una vez por campo, y da
+lo mismo. En Java, el número de cada campo es:
 
 | Campo                       | Su número                                                       |
 | --------------------------- | --------------------------------------------------------------- |
@@ -1396,24 +1398,6 @@ se lee «el número del primer campo por 31, más el del segundo; todo eso por
 
 Con campos como los textos, los choques no se pueden evitar del todo: la base
 los reparte, pero no los elimina.
-
-</Slide>
-
-<Slide title="Objects.hash como atajo">
-`java.util.Objects.hash` hace la receta del `hashCode` en una línea, con los
-campos que recibe:
-
-```java
-@Override
-public int hashCode() {
-    return Objects.hash(commune, place, number);
-}
-```
-
-Cumple el contrato si recibe los mismos campos que compara `equals`. Su número
-no es el de la versión escrita a mano —su receta parte de 1, no del primer
-campo—, y no importa: el contrato no pide un número en particular. Es algo
-más lento, porque arma un arreglo con los campos.
 
 </Slide>
 
@@ -1447,14 +1431,53 @@ dos `hashCode` con la receta.
 
 </Slide>
 
-<Slide title="Errores en equals y hashCode">
-| Error                                                     | Lo que pasa                                                                                                                  |
-| --------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| `equals(VotingTable t)` en vez de `equals(Object other)`  | Es otro método, no el de `Object`: la colección sigue llamando al heredado, y una copia no se encuentra. `@Override` lo detecta. |
-| `hashCode` usa un campo que `equals` no compara           | Dos elementos iguales pueden dar números distintos: rompe el contrato.                                                        |
-| `hashCode` deja fuera un campo que `equals` compara       | Cumple el contrato, pero reparte peor: chocan los elementos que solo difieren en ese campo.                                   |
-| `hashCode` suma los campos, como `number + dv`            | Los campos se compensan: 13.180.999-9 y 13.181.000-8 dan los dos 13 181 056.                                                  |
-| Un campo de la identidad que no es `final`                | Si cambia mientras el elemento está en el `HashSet`, queda perdido en él.                                                     |
+<Slide title="Objects.hash como atajo">
+`java.util.Objects.hash` hace la receta en una línea: llama al `hashCode` de
+cada campo que recibe y los combina con la base 31. Para la mesa:
+
+```java
+@Override
+public int hashCode() {
+    return Objects.hash(commune, place, number);
+}
+```
+
+Sirve igual cuando los campos son clases propias, porque a cada uno le pide su
+`hashCode`. El del vocal de mesa usa el de `Rut` y el de `VotingTable`:
+
+```java
+@Override
+public int hashCode() {
+    return Objects.hash(person, table);
+}
+```
+
+Cumple el contrato si recibe los mismos campos que compara `equals`. Su número
+no es el de la versión escrita a mano, porque su receta parte de 1, y no
+importa: el contrato no pide un número en particular. Es algo más lento,
+porque arma un arreglo con los campos.
+
+</Slide>
+
+<Slide title="Errores al escribir equals y hashCode">
+Al revisar una clave se buscan cinco errores frecuentes, y se separan por lo
+que provocan.
+
+**Rompen la tabla: una copia no se encuentra.**
+
+- `equals(VotingTable t)` en vez de `equals(Object other)`: es otro método, y
+  la colección sigue llamando al heredado. `@Override` lo detecta.
+- `hashCode` con un campo que `equals` no compara, como `closed`: dos mesas
+  iguales dan números distintos y caen en listas distintas.
+- Un campo de la identidad que cambia: el elemento queda en la lista de su
+  número viejo.
+
+**Hacen la tabla más lenta: la copia se encuentra, pero hay más choques.**
+
+- `hashCode` sin uno de los campos de `equals`: chocan las claves que solo
+  difieren en ese campo.
+- `hashCode` que suma los campos, como `number + dv`: los campos se
+  compensan, y 13.180.999-9 y 13.181.000-8 dan lo mismo.
 
 </Slide>
 
