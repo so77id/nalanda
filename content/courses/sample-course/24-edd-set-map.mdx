@@ -1870,17 +1870,21 @@ responde 0 exactamente cuando `equals` responde verdadero.
 </Slide>
 
 <Slide title="El orden de una mesa">
-`VotingTable` implementa `Comparable<VotingTable>`, y su `compareTo` ordena las
-mesas por comuna, después por local y después por número, en cascada:
+La mesa se ordena por comuna, después por local y después por número, en
+cascada:
 
 ```java
-@Override
-public int compareTo(VotingTable other) {
-    int byCommune = commune.compareTo(other.commune);
-    if (byCommune != 0) return byCommune;
-    int byPlace = place.compareTo(other.place);
-    if (byPlace != 0) return byPlace;
-    return Integer.compare(number, other.number);
+class VotingTable implements Comparable<VotingTable> {
+    // los campos, el constructor, equals y hashCode
+
+    @Override
+    public int compareTo(VotingTable other) {
+        int byCommune = commune.compareTo(other.commune);
+        if (byCommune != 0) return byCommune;
+        int byPlace = place.compareTo(other.place);
+        if (byPlace != 0) return byPlace;
+        return Integer.compare(number, other.number);
+    }
 }
 ```
 
@@ -1903,16 +1907,20 @@ tables.add(new VotingTable("Ñuñoa", "Liceo 7", 3));
 </Slide>
 
 <Slide title="El orden de un vocal de mesa">
-`PollWorker` implementa `Comparable<PollWorker>`, y su `compareTo` le pide el
-orden a cada campo, en cascada: primero la mesa, con el `compareTo` de
-`VotingTable`, y si es la misma, la persona, con el de `Rut`.
+El vocal de mesa le pide el orden a cada campo, en cascada: primero la mesa,
+con el `compareTo` de `VotingTable`, y si es la misma, la persona, con el de
+`Rut`.
 
 ```java
-@Override
-public int compareTo(PollWorker other) {
-    int byTable = table.compareTo(other.table);
-    if (byTable != 0) return byTable;
-    return person.compareTo(other.person);
+class PollWorker implements Comparable<PollWorker> {
+    // los campos, equals y hashCode
+
+    @Override
+    public int compareTo(PollWorker other) {
+        int byTable = table.compareTo(other.table);
+        if (byTable != 0) return byTable;
+        return person.compareTo(other.person);
+    }
 }
 ```
 
