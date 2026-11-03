@@ -2233,13 +2233,19 @@ de las claves y `V` el de los valores:
 | `put(k, v)`     | `put(k, v)`, que retorna `null` si `k` era nueva |
 | `remove(k)`     | `remove(k)`, que retorna `null` si `k` no estaba |
 
-`keySet()` y `values()` entregan las claves y los valores en el orden en que la
-estructura recorre sus pares: el de las posiciones en un `HashMap`, y el de
-las claves en un `TreeMap`. `values()` no es un `Set`, porque dos claves pueden
-tener el mismo valor.
+</Slide>
 
-Para saber si una clave está se usa `containsKey`, y para leer un valor con
-uno por omisión, `getOrDefault(k, d)`, que retorna `d` si `k` no está.
+<Slide title="Tres diferencias con el TDA">
+Tres cosas cambian en Java respecto de la tarjeta del Map:
+
+- **Las claves se piden con `keySet()`, no con `keys()`.** Java le pone ese
+  nombre porque entrega un `Set`: las claves no se repiten.
+- **Los valores se piden con `values()`, que no es un `Set`**, porque dos
+  claves pueden tener el mismo valor. Claves y valores salen en el mismo
+  orden: el de las posiciones en un `HashMap`, y el de las claves en un
+  `TreeMap`.
+- **`get` de una clave que no está retorna `null`.** Para leer con un valor
+  por omisión está `getOrDefault(k, d)`, que retorna `d` si `k` no está.
 
 </Slide>
 
