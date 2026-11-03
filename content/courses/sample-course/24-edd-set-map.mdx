@@ -995,18 +995,28 @@ cuesta una lista enlazada.
 </Slide>
 
 <Slide title="Qué base elegir">
-El número del RUT ya está escrito en base 10, así que lo natural sería
-agregarle el dígito verificador como una cifra más: $$10 \cdot n + d$$, con
-$$n$$ el número y $$d$$ el dígito. Pero en Java el dígito es un `char`, y en
-una cuenta vale su código: de 48 a 57 para `'0'` a `'9'`, y 75 para `'K'`. No
-cabe en una cifra, y dos RUT distintos chocan:
+Lo natural sería agregarle al número del RUT el dígito verificador como una
+cifra más: $$10 \cdot n + d$$, con $$n$$ el número y $$d$$ el dígito. Pero en
+Java el dígito es un `char`, y en una cuenta vale su código: de 48 a 57 para
+`'0'` a `'9'`, y 75 para `'K'`. Esos códigos tienen dos cifras, y se meten en
+las del número:
 
-| RUT          | $$10 \cdot n + d$$ | $$31 \cdot n + d$$ |
-| ------------ | ------------------ | ------------------ |
-| 13.903.998-K | 139 040 055        | 431 024 013        |
-| 13.904.000-7 | 139 040 055        | 431 024 055        |
+$$
+\begin{aligned}
+10 \cdot 13\,903\,998 + 75 &= 139\,039\,980 + 75 = 139\,040\,055 \\
+10 \cdot 13\,904\,000 + 55 &= 139\,040\,000 + 55 = 139\,040\,055
+\end{aligned}
+$$
 
-Con base 31, los mismos dos RUT dan números distintos.
+El código de la K, 75, es 20 más que el del 7, 55, y con base 10 sumar 20 al
+final es lo mismo que sumarle 2 al número. Por eso un RUT terminado en K choca
+con el que está dos números más arriba, si ese termina en 7.
+
+Un RUT en particular rara vez choca así, pero en un registro de millones pasa
+miles de veces: entre los números 1 y 27 000 000 hay 4 864 parejas. Ninguna
+rompe la tabla, porque la lista resuelve cada choque, pero cada una alarga una
+lista, y una base mejor las evita todas: con 31, los mismos dos RUT dan
+$$431\,024\,013$$ y $$431\,024\,055$$.
 
 </Slide>
 
