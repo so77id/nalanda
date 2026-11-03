@@ -1249,9 +1249,31 @@ objeto, que entra después de sacar el anterior.
 
 </Slide>
 
+<Slide title="Las mesas que ya cerraron">
+El RUT es un caso; la misma pregunta aparece con cualquier clase propia. El
+registro guarda también las **mesas de votación**. Cada mesa está en un local
+de votación, un liceo o una escuela de una comuna, y dentro de su local tiene
+un número. Al cerrar, cada mesa avisa que terminó, y el registro lleva el
+conjunto de las mesas que ya cerraron: un `HashSet` de mesas.
+
+<KeySet
+  id="mesas-cerradas"
+  title="cerraron"
+  keys={['Ñuñoa · Liceo 7 · mesa 3', 'Ñuñoa · Liceo 8 · mesa 1', 'Maipú · Escuela 2 · mesa 4']}
+  caption="tres mesas que ya cerraron, cada una con su comuna, su local y su número"
+  label="Un conjunto con tres mesas: la mesa 3 del Liceo 7 de Ñuñoa, la mesa 1 del Liceo 8 de Ñuñoa y la mesa 4 de la Escuela 2 de Maipú."
+/>
+
+Durante el día se anota además, de cada mesa, si ya cerró y cuántos votos
+lleva. Para guardarlas hace falta una clase, `VotingTable`, con su `equals` y
+su `hashCode`, y la pregunta de diseño es la misma que con el RUT: qué hace
+que dos mesas sean la misma.
+
+</Slide>
+
 <Slide title="Qué identifica a un elemento">
-Para cualquier clase, el diseño parte del problema: qué hace que dos
-elementos sean el mismo. Esos son los **campos de la identidad**, y `equals` y
+Como con el RUT, el diseño parte del problema: qué hace que dos elementos
+sean el mismo. Esos son los **campos de la identidad**, y `equals` y
 `hashCode` usan esos y ningún otro.
 
 - **Un dato que cambia no es identidad.** Lo que le pasa a un elemento con el
