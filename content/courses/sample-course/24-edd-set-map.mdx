@@ -995,21 +995,16 @@ cuesta una lista enlazada.
 </Slide>
 
 <Slide title="Qué base elegir">
-Para repartir, la función usa los dos campos del RUT, combinados con Horner, y
-queda elegir la base. Horner suma «dígitos» multiplicados por potencias de la
-base, y la base tiene que ser mayor que lo que difieren esos dígitos: si no,
-dos claves distintas pueden compensarse y dar el mismo número.
+El número del RUT ya está escrito en base 10, así que lo natural sería
+agregarle el dígito verificador como una cifra más: $$10 \cdot n + d$$, con
+$$n$$ el número y $$d$$ el dígito. Pero en Java el dígito es un `char`, y en
+una cuenta vale su código: de 48 a 57 para `'0'` a `'9'`, y 75 para `'K'`. No
+cabe en una cifra, y dos RUT distintos chocan:
 
-El número del RUT ya es lo que da Horner en base 10 sobre sus dígitos, así que
-lo natural sería agregarle el dígito verificador como un dígito más, con base
-10. Pero en Java un `char` en una cuenta vale el entero de su código: de 48 a
-57 para los caracteres `'0'` a `'9'`, y 75 para `'K'`. Esos códigos difieren
-hasta en 27, más que la base, y dos RUT distintos dan el mismo resultado:
-
-| RUT          | $$10 \cdot$$ número $$+$$ dv | $$31 \cdot$$ número $$+$$ dv |
-| ------------ | --------------------------- | --------------------------- |
-| 13.903.998-K | 139 040 055                 | 431 024 013                 |
-| 13.904.000-7 | 139 040 055                 | 431 024 055                 |
+| RUT          | $$10 \cdot n + d$$ | $$31 \cdot n + d$$ |
+| ------------ | ------------------ | ------------------ |
+| 13.903.998-K | 139 040 055        | 431 024 013        |
+| 13.904.000-7 | 139 040 055        | 431 024 055        |
 
 Con base 31, los mismos dos RUT dan números distintos.
 
@@ -1067,22 +1062,10 @@ export function BandLine({ base, rows = 3, from, to, mark, gaps = false, caption
   );
 }
 
-<Slide title="Los resultados de un número de RUT">
-Con una base $$b$$, un RUT de número $$n$$ y código de dígito verificador $$d$$
-da $$b \cdot n + d$$. Un mismo número puede llevar cualquiera de los once
-dígitos verificadores, y sus códigos van de 48, el de `'0'`, a 75, el de
-`'K'`. Por eso los resultados posibles de un número caen en un **tramo** de 28
-valores seguidos:
-
-$$
-b \cdot n + 48 \;\le\; h \;\le\; b \cdot n + 75
-$$
-
-que se lee «los resultados del número $$n$$ van de $$b \cdot n + 48$$ a
-$$b \cdot n + 75$$». El tramo del número siguiente es igual de largo y empieza
-$$b$$ más arriba. Si $$b$$ es menor que 28, el tramo siguiente empieza antes
-de que termine el anterior: los dos se pisan, y un mismo resultado puede ser
-de dos RUT distintos.
+<Slide title="Por qué la base 31">
+Un número de RUT puede llevar cualquiera de los once dígitos, así que da 28
+resultados seguidos, de $$b \cdot n + 48$$ a $$b \cdot n + 75$$. El número
+siguiente da otros 28, que empiezan $$b$$ más arriba.
 
 <BandLine
   id="tramos-10"
@@ -1090,22 +1073,9 @@ de dos RUT distintos.
   from={44}
   to={100}
   mark={{ value: 75, rows: [0, 2], notes: ['dígito K', 'dígito 7'] }}
-  caption="con base 10, 10n + 75 está en el tramo de n con el dígito K, y en el de n + 2 con el 7"
-  label="Tres barras, una por número: la de n va de 10n + 48 a 10n + 75; la de n + 1, de 10n + 58 a 10n + 85; la de n + 2, de 10n + 68 a 10n + 95. Cada una empieza 10 después de la anterior y mide 28, así que se pisan. Una línea roja punteada en 10n + 75 cruza la barra de n, en su dígito K, y la de n + 2, en su dígito 7."
+  caption="base 10: los tramos se pisan, y n con K y n + 2 con 7 dan el mismo valor"
+  label="Tres barras, una por número, con base 10: la de n va de 10n + 48 a 10n + 75; la de n + 1, de 10n + 58 a 10n + 85; la de n + 2, de 10n + 68 a 10n + 95. Se pisan. Una línea roja punteada en 10n + 75 cruza la barra de n, en su dígito K, y la de n + 2, en su dígito 7."
 />
-
-Con $$n = 13\,903\,998$$ son los dos RUT de la tabla: 13.903.998-K y
-13.904.000-7 dan los dos $$139\,040\,055$$. El tramo de $$n + 1$$ también pasa
-por $$10 \cdot n + 75$$, pero ahí haría falta el código 65, que no es de ningún
-dígito verificador.
-
-</Slide>
-
-<Slide title="Por qué la base 31">
-Con base 31 los tramos siguen midiendo 28 valores, pero avanzan de a 31. El
-tramo de $$n$$ termina en $$31 \cdot n + 75$$, y el de $$n + 1$$ empieza en
-$$31 \cdot n + 31 + 48 = 31 \cdot n + 79$$: entre los dos quedan tres valores
-que ningún RUT da, y los tramos nunca se tocan.
 
 <BandLine
   id="tramos-31"
@@ -1113,36 +1083,32 @@ que ningún RUT da, y los tramos nunca se tocan.
   from={44}
   to={142}
   gaps
-  caption="con base 31, entre un tramo y el siguiente quedan tres valores sin usar"
-  label="Tres barras, una por número: la de n va de 31n + 48 a 31n + 75; la de n + 1, de 31n + 79 a 31n + 106; la de n + 2, de 31n + 110 a 31n + 137. Entre una barra y la siguiente hay una franja sombreada de tres valores, sin usar: las barras no se tocan."
+  caption="base 31: entre un tramo y el siguiente sobran tres valores, y no se tocan"
+  label="Tres barras, una por número, con base 31: la de n va de 31n + 48 a 31n + 75; la de n + 1, de 31n + 79 a 31n + 106; la de n + 2, de 31n + 110 a 31n + 137. Entre una barra y la siguiente hay una franja de tres valores sin usar."
 />
 
-Así, cada resultado es de un solo número. Y dentro de su tramo, cada
-dígito verificador da un resultado distinto, porque su código es distinto:
-dos RUT distintos dan siempre números distintos.
-
-Los tramos se separan cuando la base es al menos su largo, 28: sirve
-cualquier base de 28 o más, y 31 lo es.
+Con base 10, cada tramo empieza antes de que termine el anterior, y dos RUT
+distintos pueden dar lo mismo. Con base 31 no se tocan: cada resultado es de
+un solo RUT. Sirve cualquier base de 28 o más.
 
 </Slide>
 
 <Slide title="Por qué Java usa 31">
-`String.hashCode` combina los códigos de sus caracteres con Horner y base 31,
-y el mismo argumento explica la elección. Las letras de `'a'` a `'z'` tienen
-códigos de 97 a 122, que difieren a lo más en 25: con base 31, dos palabras
-distintas del mismo largo dan números distintos mientras la cuenta no se
-desborde, hasta cinco letras. Con base 10 chocan enseguida:
+Java usa 31 en `String.hashCode` y en `Objects.hash`, por tres razones:
+
+- **Es mayor que lo que difieren las letras.** Los códigos de `'a'` a `'z'`
+  difieren a lo más en 25, así que dos palabras cortas del mismo largo no se
+  compensan.
+- **Es impar.** Una base par, cuando el `int` se desborda, va perdiendo los
+  bits de los primeros caracteres.
+- **Es barata.** Multiplicar por 31 es multiplicar por 32 y restar una vez.
+
+Con base 10, en cambio, dos palabras chocan enseguida:
 
 | Palabra | $$10 \cdot$$ primera $$+$$ segunda | $$31 \cdot$$ primera $$+$$ segunda |
 | ------- | --------------------------------- | --------------------------------- |
 | «al»    | 1 078                             | 3 115                             |
 | «bb»    | 1 078                             | 3 136                             |
-
-Además, 31 es impar: una base par, cuando el `int` se desborda, va perdiendo
-los bits de los primeros caracteres. Y es barata: multiplicar por 31 es
-multiplicar por 32 y restar una vez, y multiplicar por 32 es correr los bits
-cinco lugares. Que además sea primo es una tradición, no una necesidad.
-`Objects.hash` y `Rut` usan la misma base.
 
 </Slide>
 
