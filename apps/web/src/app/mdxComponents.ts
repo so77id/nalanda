@@ -2,6 +2,7 @@ import {
   BinaryPicture,
   NodeGraph,
   OrderRule,
+  StepBoxes,
   Explanation,
   Figure,
   LazyBenchmark,
@@ -84,6 +85,9 @@ export const mdxComponents = {
   // chunk 2,846 bytes raw, 878 with gzip -9.
   NodeGraph,
   OrderRule,
+  // Not lazy, for BinaryPicture's reasons: a figure promoted from Tablas Hash
+  // when Set y Map wanted it (#353), a pure SVG with no package of its own.
+  StepBoxes,
   // Not lazy: it is one iframe. Measured on the shipped build, registering it
   // eagerly costs the entry chunk 1,463 bytes of component code, and it pulls in
   // no package the first paint did not already need. (That figure used to be

@@ -902,46 +902,6 @@ llega a compararlos.
 
 </Slide>
 
-{/* StepBoxes — COPIES the figure of the same name in 23-edd-tablas-hash.mdx: the steps from a key to its position, each value in a box with its title over it and the step written over the arrow between them. Here each row is one Rut object: its RUT, the number the inherited hashCode gave it in one run, and the position that number takes in a table of 7. Boxes are wider than 23's, for a ten-digit number. File-local (add-a-course-document.md §6e-quater). */}
-
-export function StepBoxes({ boxes, steps, caption, label, id }) {
-  const pad = 14;
-  const boxW = 150;
-  const boxH = 44;
-  const gap = 150;
-  const top = 26;
-  const core = 2 * pad + boxes.length * boxW + (boxes.length - 1) * gap;
-  const width = Math.max(core, caption ? caption.length * 6.6 + 24 : 0);
-  const left = (width - core) / 2 + pad;
-  const height = top + boxH + (caption ? 40 : 12);
-  const bx = (i) => left + i * (boxW + gap);
-  return (
-    <svg viewBox={`0 0 ${width} ${height}`} style={{ width: '100%', maxWidth: `${Math.round(width * 1.3)}px`, height: 'auto', display: 'block', margin: '0.4rem auto' }} role="img" aria-label={label}>
-      <defs>
-        <marker id={`${id}-punta`} markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
-          <path d="M0,0 L8,4 L0,8 z" style={{ fill: 'var(--color-ink-soft)' }} />
-        </marker>
-      </defs>
-      {boxes.map((b, i) => (
-        <g key={`b${i}`}>
-          <text x={bx(i) + boxW / 2} y={top - 9} textAnchor="middle" fontSize="12" style={{ fill: 'var(--color-ink-faint)' }}>{codeText(b.title)}</text>
-          <rect x={bx(i)} y={top} width={boxW} height={boxH} rx="4" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.4" />
-          <text x={bx(i) + boxW / 2} y={top + boxH / 2 + 6} textAnchor="middle" fontSize="16" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{b.text}</text>
-        </g>
-      ))}
-      {steps.map((s, i) => (
-        <g key={`s${i}`}>
-          <line x1={bx(i) + boxW + 6} y1={top + boxH / 2} x2={bx(i + 1) - 8} y2={top + boxH / 2} style={{ stroke: 'var(--color-ink-soft)' }} strokeWidth="1.6" markerEnd={`url(#${id}-punta)`} />
-          <text x={bx(i) + boxW + gap / 2} y={top + boxH / 2 - 8} textAnchor="middle" fontSize="13" fontFamily="var(--font-mono, monospace)" style={{ fill: 'var(--color-ink-soft)' }}>{s}</text>
-        </g>
-      ))}
-      {caption ? (
-        <text x={width / 2} y={height - 8} textAnchor="middle" fontSize="12" style={{ fill: 'var(--color-ink-soft)' }}>{caption}</text>
-      ) : null}
-    </svg>
-  );
-}
-
 <Slide title="El mismo RUT en dos posiciones">
 Para verlo, una tabla de 7 posiciones que reduce cada número con el resto de
 dividirlo por 7. En una ejecución, el `hashCode` heredado le dio a `a` y a `b`
@@ -949,15 +909,15 @@ dos números sin relación con el RUT, que además cambian de una ejecución a
 otra:
 
 <StepBoxes
-  id="paso-a"
   boxes={[{ title: 'el objeto `a`', text: '13.180.992-1' }, { title: 'su número', text: '895 328 852' }, { title: 'su posición', text: '5' }]}
+  boxWidth={150}
   steps={['hashCode()', 'mod 7']}
   label="El objeto a, con el RUT 13.180.992-1. Una flecha rotulada hashCode lleva al número 895 328 852; otra rotulada mod 7 lleva a la posición 5."
 />
 
 <StepBoxes
-  id="paso-b"
   boxes={[{ title: 'el objeto `b`', text: '13.180.992-1' }, { title: 'su número', text: '1 304 836 502' }, { title: 'su posición', text: '4' }]}
+  boxWidth={150}
   steps={['hashCode()', 'mod 7']}
   label="El objeto b, con el mismo RUT 13.180.992-1. Una flecha rotulada hashCode lleva al número 1 304 836 502, otro; otra rotulada mod 7 lleva a la posición 4."
 />
@@ -1210,15 +1170,15 @@ voted.size();   // 1
 ```
 
 <StepBoxes
-  id="mismo-a"
   boxes={[{ title: 'el objeto `a`', text: '13.180.992-1' }, { title: 'su número', text: '408 610 801' }, { title: 'su posición', text: '4' }]}
+  boxWidth={150}
   steps={['hashCode()', 'mod 7']}
   label="El objeto a, con el RUT 13.180.992-1. Una flecha rotulada hashCode lleva al número 408 610 801; otra rotulada mod 7 lleva a la posición 4."
 />
 
 <StepBoxes
-  id="mismo-b"
   boxes={[{ title: 'el objeto `b`', text: '13.180.992-1' }, { title: 'su número', text: '408 610 801' }, { title: 'su posición', text: '4' }]}
+  boxWidth={150}
   steps={['hashCode()', 'mod 7']}
   label="El objeto b, con el mismo RUT. El mismo número, 408 610 801, y la misma posición, 4."
 />

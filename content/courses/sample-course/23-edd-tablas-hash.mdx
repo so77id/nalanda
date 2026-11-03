@@ -651,7 +651,6 @@ del arreglo, calculada a partir de la clave sola, sin mirar las otras claves
 guardadas.
 
 <StepBoxes
-  id="idea"
   boxes={[{ title: 'clave', text: '«Ana»' }, { title: 'posición', text: '2' }]}
   steps={['función hash']}
   caption="la función hash recibe la clave y entrega su posición"
@@ -1188,7 +1187,6 @@ casillero, y cumplir los tres requisitos: ser determinista, eficiente y
 uniforme.
 
 <StepBoxes
-  id="entrada"
   boxes={[{ title: 'clave', text: '«Ana»' }, { title: 'posición', text: '?' }]}
   steps={['¿cómo?']}
   caption="falta la regla que lleva cada nombre a su casillero"
@@ -1412,7 +1410,6 @@ entre $$0$$ y $$M - 1$$. Con esto, la función hash queda en **dos pasos**: de
 la clave a un número, y del número a una posición.
 
 <StepBoxes
-  id="division"
   boxes={[{ title: 'clave', text: '«Ana»' }, { title: 'número', text: '4 288 097' }, { title: 'posición', text: '2' }]}
   steps={['base 256', 'mod 7']}
   caption="«Ana», leído en base 256 y llevado a siete posiciones"
@@ -1775,46 +1772,6 @@ que crecen duplicando su tamaño.
 
 </Slide>
 
-{/* StepBoxes — the steps from a key to its position, each value in a box and the step written over the arrow between them: one step for the idea of a hash function, and the two a library splits it into (the key, the integer its type turns it into, the position the table takes from that integer). File-local (§6e-quater). 24-edd-set-map.mdx copies it with wider boxes and its titles in the code face; a change here is carried there by hand. */}
-
-export function StepBoxes({ boxes, steps, caption, label, id }) {
-  const pad = 14;
-  const boxW = 120;
-  const boxH = 44;
-  const gap = 150;
-  const top = 26;
-  const core = 2 * pad + boxes.length * boxW + (boxes.length - 1) * gap;
-  const width = Math.max(core, caption ? caption.length * 6.6 + 24 : 0);
-  const left = (width - core) / 2 + pad;
-  const height = top + boxH + (caption ? 40 : 12);
-  const bx = (i) => left + i * (boxW + gap);
-  return (
-    <svg viewBox={`0 0 ${width} ${height}`} style={{ width: '100%', maxWidth: `${Math.round(width * 1.3)}px`, height: 'auto', display: 'block', margin: '0.4rem auto' }} role="img" aria-label={label}>
-      <defs>
-        <marker id={`${id}-punta`} markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
-          <path d="M0,0 L8,4 L0,8 z" style={{ fill: 'var(--color-ink-soft)' }} />
-        </marker>
-      </defs>
-      {boxes.map((b, i) => (
-        <g key={`b${i}`}>
-          <text x={bx(i) + boxW / 2} y={top - 9} textAnchor="middle" fontSize="12" style={{ fill: 'var(--color-ink-faint)' }}>{b.title}</text>
-          <rect x={bx(i)} y={top} width={boxW} height={boxH} rx="4" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.4" />
-          <text x={bx(i) + boxW / 2} y={top + boxH / 2 + 6} textAnchor="middle" fontSize="16" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{b.text}</text>
-        </g>
-      ))}
-      {steps.map((s, i) => (
-        <g key={`s${i}`}>
-          <line x1={bx(i) + boxW + 6} y1={top + boxH / 2} x2={bx(i + 1) - 8} y2={top + boxH / 2} style={{ stroke: 'var(--color-ink-soft)' }} strokeWidth="1.6" markerEnd={`url(#${id}-punta)`} />
-          <text x={bx(i) + boxW + gap / 2} y={top + boxH / 2 - 8} textAnchor="middle" fontSize="13" fontFamily="var(--font-mono, monospace)" style={{ fill: 'var(--color-ink-soft)' }}>{s}</text>
-        </g>
-      ))}
-      {caption ? (
-        <text x={width / 2} y={height - 8} textAnchor="middle" fontSize="12" style={{ fill: 'var(--color-ink-soft)' }}>{caption}</text>
-      ) : null}
-    </svg>
-  );
-}
-
 <Slide title="De la clave a la posición en dos pasos">
 La división y la multiplicación dan solo el segundo paso, del número a una
 posición, y no les importa de qué tipo era la clave. El primer paso, de la
@@ -1831,7 +1788,6 @@ segundo lo da la tabla. Para un `Integer`, `hashCode()` devuelve el mismo
 número.
 
 <StepBoxes
-  id="pasos"
   boxes={[{ title: 'clave', text: '2024' }, { title: 'número', text: '2024' }, { title: 'posición', text: '1' }]}
   steps={['hashCode()', 'mod 7']}
   label="Tres cajas unidas por flechas. La clave, el entero 2024; una flecha rotulada hashCode lleva al número 2024, el mismo; otra flecha rotulada mod 7 lleva a la posición 1."

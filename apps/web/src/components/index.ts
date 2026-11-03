@@ -49,6 +49,7 @@ export { MdxPre } from './MdxPre';
 export { BinaryPicture } from './media/BinaryPicture';
 export { NodeGraph } from './media/NodeGraph';
 export { OrderRule } from './media/OrderRule';
+export { StepBoxes } from './media/StepBoxes';
 export { Figure } from './media/Figure';
 export { MathTex } from './media/Math';
 export type { MathTexProps } from './media/Math';
