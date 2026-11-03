@@ -2424,13 +2424,13 @@ mesas de distintos locales.
 
 </Slide>
 
-{/* GroupMap — a dictionary whose values are lists: the keys in a box on the left, and from each key an arrow to its list, drawn as a row of chips inside its own frame. It draws what grouping builds, each mesa with the RUTs that voted there, and each section with its students. `rows` and `slots` reserve the rows and the places per list a walk reaches, so its frames keep one size; `picked` outlines the key a request asks for, and `fresh` paints `mark` the item it just added to that key's list. File-local (add-a-course-document.md §6e-quater). */}
+{/* GroupMap — a dictionary whose values are lists: the keys in a box on the left, and from each key an arrow to its list, drawn as a row of chips inside its own frame. It draws what grouping builds, each mesa with the RUTs that voted there, and each section with its students. The key box is as wide as its widest key, a RUT's or a mesa's, and `itemW` sets an item's width: 112 for a RUT, less for a grade. `rows` and `slots` reserve the rows and the places per list a walk reaches, so its frames keep one size; `picked` outlines the key a request asks for, and `fresh` paints `mark` the item it just added to that key's list. File-local (add-a-course-document.md §6e-quater). */}
 
-export function GroupMap({ groups, rows = groups.length, slots, picked, fresh, keyTitle, valueTitle, caption, label, id }) {
+export function GroupMap({ groups, rows = groups.length, slots, picked, fresh, itemW = 112, keyTitle, valueTitle, caption, label, id }) {
   const pad = 14;
-  const keyW = 96;
+  const keyW = Math.max(96, ...groups.map(([k]) => k.length * 7.4 + 20));
   const gap = 110;
-  const chipW = 112;
+  const chipW = itemW;
   const chipH = 28;
   const chipGap = 6;
   const listPad = 6;
@@ -2439,7 +2439,8 @@ export function GroupMap({ groups, rows = groups.length, slots, picked, fresh, k
   const boxPad = 8;
   const most = slots || Math.max(1, ...groups.map(([, items]) => items.length));
   const listW = (n) => n * chipW + (n - 1) * chipGap + 2 * listPad;
-  const core = 2 * pad + keyW + gap + listW(most);
+  const titleW = valueTitle ? valueTitle.replace(/`/g, '').length * 7 : 0;
+  const core = 2 * pad + keyW + gap + Math.max(listW(most), titleW);
   const width = Math.max(core, captionWidth(caption));
   const left = (width - core) / 2 + pad;
   const listX = left + keyW + gap;
@@ -2467,7 +2468,7 @@ export function GroupMap({ groups, rows = groups.length, slots, picked, fresh, k
           {items.map((item, j) => {
             const just = k === picked && item === fresh;
             return (
-              <g key={item}>
+              <g key={`${j}-${item}`}>
                 <rect x={listX + listPad + j * (chipW + chipGap)} y={rowY(i) - chipH / 2} width={chipW} height={chipH} rx="14" style={paint(just && 'mark')} strokeWidth={just ? 2 : 1.2} />
                 <text x={listX + listPad + j * (chipW + chipGap) + chipW / 2} y={rowY(i) + 5} textAnchor="middle" fontSize="12.5" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{item}</text>
               </g>
@@ -4203,64 +4204,6 @@ check(refused, true);
 
 </Slide>
 
-{/* GroupPicture — records of a key and a grade grouped by key: the records in a row as they arrive, and under them one box per key, in the order the keys first appear, with that key's grades in the order they came. Each key is written under its box, and the boxes spread under the row. */}
-
-export function GroupPicture({ records, caption, label }) {
-  const text = ([k, g]) => `${k} · ${g}`;
-  const chipW = Math.max(96, ...records.map((r) => text(r).length * 7.4 + 20));
-  const chipH = 28;
-  const gap = 8;
-  const pad = 12;
-  const gradeW = 52;
-  const boxPad = 10;
-  const keys = [...new Set(records.map((r) => r[0]))];
-  const slot = records.map((r, j) => records.slice(0, j).filter((s) => s[0] === r[0]).length);
-  const slots = Math.max(...keys.map((k) => records.filter((r) => r[0] === k).length));
-  const boxW = Math.max(slots * gradeW + (slots - 1) * 6 + 2 * boxPad, ...keys.map((k) => k.length * 7.4 + 20));
-  const rowW = records.length * chipW + (records.length - 1) * gap;
-  const boxGap = keys.length > 1 ? Math.max(22, (0.8 * rowW - keys.length * boxW) / (keys.length - 1)) : 0;
-  const groupsW = keys.length * boxW + (keys.length - 1) * boxGap;
-  const width = 2 * pad + Math.max(rowW, groupsW, caption ? caption.length * 6.6 : 0);
-  const left = (width - rowW) / 2;
-  const gleft = (width - groupsW) / 2;
-  const indexY = pad + 10;
-  const rowY = indexY + 8;
-  const boxY = rowY + chipH + 44;
-  const boxH = chipH + 2 * boxPad;
-  const height = boxY + boxH + 22 + (caption ? 30 : 6);
-  const recordX = (j) => left + j * (chipW + gap) + chipW / 2;
-  const boxX = (k) => gleft + keys.indexOf(k) * (boxW + boxGap);
-  const gradeX = (j) => boxX(records[j][0]) + boxPad + slot[j] * (gradeW + 6);
-  return (
-    <Figure width={width} height={height} label={label}>
-      {records.map((r, j) => (
-        <g key={`r${j}`}>
-          <text x={recordX(j)} y={indexY} textAnchor="middle" fontSize="11" style={{ fill: 'var(--color-ink-faint)' }}>{j}</text>
-          <rect x={recordX(j) - chipW / 2} y={rowY} width={chipW} height={chipH} rx="14" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.2" />
-          <text x={recordX(j)} y={rowY + chipH / 2 + 5} textAnchor="middle" fontSize="12.5" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{text(r)}</text>
-        </g>
-      ))}
-      {keys.map((k) => (
-        <rect key={`b${k}`} x={boxX(k)} y={boxY} width={boxW} height={boxH} rx="12" style={{ fill: 'var(--color-sunk)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.3" />
-      ))}
-      {records.map(([, g], j) => (
-        <g key={`g${j}`}>
-          <rect x={gradeX(j)} y={boxY + boxPad} width={gradeW} height={chipH} rx="14" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.2" />
-          <text x={gradeX(j) + gradeW / 2} y={boxY + boxPad + chipH / 2 + 5} textAnchor="middle" fontSize="12.5" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{g}</text>
-        </g>
-      ))}
-      {keys.map((k) => (
-        <text key={`t${k}`} x={boxX(k) + boxW / 2} y={boxY + boxH + 16} textAnchor="middle" fontSize="12" fontWeight="700" style={{ fill: 'var(--color-ink-soft)' }}>{k}</text>
-      ))}
-      <Caption width={width} height={height} text={caption} />
-    </Figure>
-  );
-}
-
-{/* The grades of a semester as they arrive: the student's RUT and the grade, in the grade's Spanish writing. 13.180.992-1 gets a 6,2 twice, so the example itself keeps a repeated grade. */}
-
-export const GRADES = [['18.155.218-2', '5,5'], ['13.180.992-1', '6,2'], ['18.155.218-2', '4,0'], ['13.959.276-K', '6,8'], ['13.180.992-1', '6,2']];
-
 Dos ejercicios más, con el código que los resuelve:
 
 <Exercise title="Las notas de cada estudiante">
@@ -4270,10 +4213,18 @@ profesores las ingresan, cada una con el RUT del estudiante y en cualquier
 orden. Para el informe de cada estudiante hace falta juntar, para cada RUT,
 todas sus notas, en el orden en que llegaron, también las que se repiten.
 
-<GroupPicture
-  records={GRADES}
-  caption="cada RUT con sus notas, en el orden en que llegaron"
-  label="Cinco registros, en el orden en que llegan: 18.155.218-2 con 5,5; 13.180.992-1 con 6,2; 18.155.218-2 con 4,0; 13.959.276-K con 6,8; 13.180.992-1 con 6,2. Debajo, los grupos: 18.155.218-2 con 5,5 y 4,0; 13.180.992-1 con 6,2 y 6,2; 13.959.276-K con 6,8."
+<GroupMap
+  id="notas"
+  groups={[
+    ['18.155.218-2', ['5,5', '4,0']],
+    ['13.180.992-1', ['6,2', '6,2']],
+    ['13.959.276-K', ['6,8']],
+  ]}
+  itemW={52}
+  keyTitle="cada RUT"
+  valueTitle="sus notas, en el orden en que llegaron"
+  caption="la lista de cada RUT guarda cada registro, también la nota repetida"
+  label="Tres RUT, cada uno con una flecha a la lista de sus notas en el orden en que llegaron: 18.155.218-2 con 5,5 y 4,0; 13.180.992-1 con 6,2 y 6,2; 13.959.276-K con 6,8."
 />
 
 `byStudent` recibe los RUTs y las notas en dos arreglos del mismo largo,
