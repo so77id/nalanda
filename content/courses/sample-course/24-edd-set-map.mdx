@@ -1121,21 +1121,31 @@ un solo RUT. Sirve cualquier base de 28 o más.
 </Slide>
 
 <Slide title="Por qué Java usa 31">
-Java usa 31 en `String.hashCode` y en `Objects.hash`, por tres razones:
+Java usa 31 en `String.hashCode` y en `Objects.hash`, por tres razones.
 
-- **Es mayor que lo que difieren las letras.** Los códigos de `'a'` a `'z'`
-  difieren a lo más en 25, así que dos palabras cortas del mismo largo no se
-  compensan.
-- **Es impar.** Una base par, cuando el `int` se desborda, va perdiendo los
-  bits de los primeros caracteres.
-- **Es barata.** Multiplicar por 31 es multiplicar por 32 y restar una vez.
-
-Con base 10, en cambio, dos palabras chocan enseguida:
+**Es mayor que lo que difieren las letras.** Los códigos de `'a'` a `'z'`
+difieren a lo más en 25, así que dos palabras cortas del mismo largo no se
+compensan. Con base 10 chocan enseguida:
 
 | Palabra | $$10 \cdot$$ primera $$+$$ segunda | $$31 \cdot$$ primera $$+$$ segunda |
 | ------- | --------------------------------- | --------------------------------- |
 | «al»    | 1 078                             | 3 115                             |
 | «bb»    | 1 078                             | 3 136                             |
+
+**Es impar.** Una base par, cuando el `int` se desborda, va perdiendo los bits
+de los primeros caracteres.
+
+**Es barata.** Multiplicar por 31 es multiplicar por 32 y restar una vez, y
+como 32 es una potencia de 2, multiplicar por 32 es correr los bits cinco
+lugares a la izquierda:
+
+$$
+31 \cdot x = 2^5 \cdot x - x
+$$
+
+```java
+int h = (x << 5) - x;   // lo mismo que 31 * x
+```
 
 </Slide>
 
@@ -1150,9 +1160,12 @@ public int hashCode() {
 }
 ```
 
-Cumple los tres requisitos. Es determinista, porque usa solo los dos campos
-que compara `equals`, que son `final`; uniforme, porque usa los dos y la base
-31 separa dos RUT distintos; y eficiente: una multiplicación y una suma.
+Cumple los tres requisitos:
+
+- **Determinista:** usa solo los dos campos que compara `equals`, que son
+  `final`.
+- **Uniforme:** usa los dos, y la base 31 separa dos RUT distintos.
+- **Eficiente:** hace una multiplicación y una suma.
 
 </Slide>
 
