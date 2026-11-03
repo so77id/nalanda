@@ -1951,7 +1951,7 @@ Lo que el registro guarda ahora es un **diccionario**: para cada RUT, su mesa.
 
 </Slide>
 
-{/* ArrowMap — a dictionary drawn as a function, the way mathematics draws one: the keys in a box on the left, the values in a box on the right, one arrow from each key to its value. Each value is written once, level with the keys that reach it, so the arrows do not cross when the keys come grouped by value. With next, a third box chains a second dictionary that takes each value to next[value], as counting takes each mesa to how many arrows reach it. File-local (add-a-course-document.md §6e-quater). */}
+{/* ArrowMap — a dictionary drawn as a function, the way mathematics draws one: the keys in a box on the left, the values in a box on the right, one arrow from each key to its value. Each value is written once, level with the keys that reach it, so the arrows do not cross when the keys come grouped by value. With next, a third box chains a second dictionary that takes each value to next[value], as counting takes each mesa to how many arrows reach it. File-local (add-a-course-document.md §6e-quater). Not 23-edd-tablas-hash.mdx's `ArrowDiagram`, the school's diagrama sagital in two ovals, on purpose: that one draws a whole codomain, the elements no arrow reaches included, which is what a collision and the range are read from; a dictionary draws only the values its keys reach, level with them, and chains a second dictionary beside it. */}
 
 export function ArrowMap({ keys, values, keyTitle, valueTitle, next, nextTitle, caption, label, id }) {
   const pad = 14;
