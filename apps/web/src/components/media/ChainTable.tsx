@@ -1,11 +1,16 @@
 import { AuthoringError } from '../AuthoringError';
 import { type ChainTableSize, chainTableLayout } from './chainTableLayout';
+import { codeText } from './figureText';
 
 /** How a key's node is painted: found (`keep`), new or broken (`mark`), a wrong turn (`flag`), passed over (`visited`). */
 export type ChainTableTone = 'keep' | 'mark' | 'flag' | 'visited';
 
 export interface ChainTableProps {
-  /** One list per position of the table, each from its first node: `[['Eva'], [], ['Leo', 'Ana']]`. */
+  /**
+   * One list per position of the table, each from its first node: `[['Eva'], [], ['Leo', 'Ana']]`.
+   * A key may be written twice — a class without its `equals` leaves one RUT in two lists —,
+   * and its tone, `cut` and value then reach every node that holds it.
+   */
   chains: string[][];
   /** `name` for short keys, `rut` for keys as wide as a RUT. Default `name`. */
   size?: ChainTableSize;
@@ -44,19 +49,6 @@ const STROKE: Record<ChainTableTone, string> = {
 /** The tones drawn with the widget's strong stroke (`sequenceStepperHashView.tsx`). */
 const STRONG = new Set<ChainTableTone>(['keep', 'mark']);
 
-/** A caption, with each part between backticks in the code face, as the course writes code in prose. */
-function codeText(text: string) {
-  return text.split(/(`[^`]+`)/).map((part, i) =>
-    part.startsWith('`') ? (
-      <tspan key={i} fontFamily="var(--font-mono, monospace)" fontWeight="700">
-        {part.slice(1, -1)}
-      </tspan>
-    ) : (
-      part
-    ),
-  );
-}
-
 /** The arrowhead at the end of a reference, pointing down onto `y`. */
 function Head({ x, y }: { x: number; y: number }) {
   return (
@@ -67,12 +59,22 @@ function Head({ x, y }: { x: number; y: number }) {
   );
 }
 
+/** The link that skips a node being removed, where `chainTableLayout`'s `bypass` puts it. */
+function Bypass({ line, head }: { line: string; head: string }) {
+  return (
+    <g data-bypass>
+      <path d={line} fill="none" style={{ stroke: 'var(--color-focus)' }} strokeWidth="1.8" />
+      <path d={head} style={{ fill: 'var(--color-focus)' }} />
+    </g>
+  );
+}
+
 /**
  * A hash table with chaining drawn still: the table as a contiguous strip with
  * its index, each position's list hanging under its cell, `null` where a list
  * ends — the look of the hash recipe of `<SequenceStepper>`, whose cell and
- * node heights it shares (`hashGeometry.ts`), so a figure and the widget beside
- * it read alike.
+ * node heights it shares (`hashGeometry.ts`; the key field of `size="rut"` is
+ * two units taller), so a figure and the widget beside it read alike.
  *
  * Promoted from the figures local to Tablas Hash (`Chains`) and Set y Map
  * (`ChainTable`) when the second document copied the first (#353,
@@ -127,11 +129,9 @@ export function ChainTable(props: ChainTableProps) {
     caption,
   });
   const { width, height, lo, hi, left, stripW, pitch, cellY, cellH, indexY } = layout;
-  const { nodeW, keyH, keyFont, valueH, nodeH, cellX, cx: colX, nodeY } = layout;
-  const rank: Record<string, number> = {};
-  chains.flat().forEach((key, n) => {
-    rank[key] = n + 1;
-  });
+  const { nodeW, keyH, keyFont, valueH, nodeH, cellX, cx: colX, nodeY, linkY, bypass } = layout;
+  // The walk's count before each position: by place, not by key, since a key may be written twice.
+  const before = chains.map((_, i) => chains.slice(0, i).flat().length);
   return (
     <svg
       viewBox={`0 0 ${width} ${height}`}
@@ -173,7 +173,6 @@ export function ChainTable(props: ChainTableProps) {
         const cx = colX(i);
         const isPicked = picked === i;
         const faded = only && picked !== undefined && !isPicked;
-        const link = (k: number) => nodeY(k) + keyH + valueH + (nodeH - keyH - valueH) / 2;
         return (
           <g key={i} opacity={faded ? 0.4 : undefined}>
             <text
@@ -239,7 +238,7 @@ export function ChainTable(props: ChainTableProps) {
                   : 'var(--color-rule)';
               const line = tone ? STROKE[tone] : 'var(--color-rule)';
               return (
-                <g key={key}>
+                <g key={k}>
                   <rect
                     x={cx - nodeW / 2}
                     y={y}
@@ -294,13 +293,13 @@ export function ChainTable(props: ChainTableProps) {
                     <g>
                       <circle
                         cx={cx}
-                        cy={link(k)}
+                        cy={linkY(k)}
                         r="2.5"
                         style={{ fill: 'var(--color-ink-soft)' }}
                       />
                       <line
                         x1={cx}
-                        y1={link(k)}
+                        y1={linkY(k)}
                         x2={cx}
                         y2={nodeY(k + 1) - 2}
                         style={{ stroke: 'var(--color-ink-soft)' }}
@@ -320,7 +319,7 @@ export function ChainTable(props: ChainTableProps) {
                     </text>
                   )}
                   {order ? (
-                    <g>
+                    <g data-order>
                       <circle
                         cx={cx - nodeW / 2}
                         cy={y}
@@ -336,37 +335,16 @@ export function ChainTable(props: ChainTableProps) {
                         fontWeight="700"
                         style={{ fill: 'var(--color-ink)' }}
                       >
-                        {rank[key]}
+                        {before[i] + k + 1}
                       </text>
                     </g>
                   ) : null}
                 </g>
               );
             })}
-            {cut !== undefined && chain.includes(cut)
-              ? (() => {
-                  const k = chain.indexOf(cut);
-                  const fromY = k === 0 ? cellY + cellH / 2 : link(k - 1);
-                  const last = k === chain.length - 1;
-                  const endY = last ? nodeY(k) + nodeH + 9 : nodeY(k + 1) + 8;
-                  const endX = last ? cx + 14 : cx + nodeW / 2 + 1;
-                  const x = cx + nodeW / 2 + 12;
-                  return (
-                    <g data-bypass>
-                      <path
-                        d={`M ${cx} ${fromY} H ${x} V ${endY} H ${endX + 6}`}
-                        fill="none"
-                        style={{ stroke: 'var(--color-focus)' }}
-                        strokeWidth="1.8"
-                      />
-                      <path
-                        d={`M ${endX + 7} ${endY - 4} L ${endX} ${endY} L ${endX + 7} ${endY + 4} z`}
-                        style={{ fill: 'var(--color-focus)' }}
-                      />
-                    </g>
-                  );
-                })()
-              : null}
+            {cut !== undefined && chain.includes(cut) ? (
+              <Bypass {...bypass(i, chain.length, chain.indexOf(cut))} />
+            ) : null}
             {isPicked ? (
               <rect
                 x={x0}

@@ -1,4 +1,5 @@
 import { HASH_CELL_H, HASH_NODE_KEY_H, HASH_NODE_LINK_H } from '../hashGeometry';
+import { captionWidth } from './figureText';
 
 /**
  * Where `<ChainTable>` puts its strip, its lists and its nodes, as numbers the
@@ -25,7 +26,8 @@ export const CHAIN_TABLE_SIZES: Record<ChainTableSize, SizeSpec> = {
   // narrower pitch than the widget's 96, so seven positions fit beside prose.
   name: { pitch: 78, nodeW: 56, keyH: HASH_NODE_KEY_H, keyFont: 13 },
   // Set y Map's RUTs (`13.180.992-1`), twice as wide as a name, in a key field
-  // two units taller for the smaller face that fits them.
+  // two units taller than the widget's for the smaller face that fits them:
+  // the one height this size does not take from `hashGeometry.ts`.
   rut: { pitch: 108, nodeW: 98, keyH: 24, keyFont: 12.5 },
 };
 
@@ -39,8 +41,6 @@ const GAP = 18;
 const INDEX_Y = 18;
 /** The y of the strip's top edge. */
 const CELL_Y = 26;
-/** What one caption character takes, in the figure's units, to widen the canvas for it. */
-const CAPTION_CHAR_W = 6.6;
 
 export interface ChainTableLayoutOptions {
   size?: ChainTableSize;
@@ -76,6 +76,15 @@ export interface ChainTableLayout {
   cx: (i: number) => number;
   /** The y of the top of the `k`-th node of a list, 0 the first. */
   nodeY: (k: number) => number;
+  /** The y of the middle of the `k`-th node's link field, where its reference starts. */
+  linkY: (k: number) => number;
+  /**
+   * The link that skips the `k`-th node of position `i`'s list of `length`
+   * nodes, as two paths: the line, from the reference that pointed at the
+   * node — the cell's, for the first — out to its right and down, and the
+   * head, onto the node after it or, past the last, beside its `null`.
+   */
+  bypass: (i: number, length: number, k: number) => { line: string; head: string };
 }
 
 export function chainTableLayout(
@@ -88,12 +97,25 @@ export function chainTableLayout(
   const [lo, hi] = window ?? [0, chains.length - 1];
   const longest = Math.max(1, ...chains.slice(lo, hi + 1).map((c) => c.length));
   const stripW = (hi - lo + 1) * pitch;
-  const captionW = caption ? caption.replace(/`/g, '').length * CAPTION_CHAR_W + 24 : 0;
-  const width = Math.max(2 * PAD + stripW + (window ? 40 : 0), captionW);
+  const width = Math.max(2 * PAD + stripW + (window ? 40 : 0), captionWidth(caption));
   const left = (width - stripW) / 2;
   const nodeY = (k: number) => CELL_Y + HASH_CELL_H + GAP + k * (nodeH + GAP);
   const height = nodeY(longest) - GAP + 18 + (caption ? 30 : 6);
   const cellX = (i: number) => left + (i - lo) * pitch;
+  const cx = (i: number) => cellX(i) + pitch / 2;
+  const linkY = (k: number) => nodeY(k) + keyH + valueH + HASH_NODE_LINK_H / 2;
+  const bypass = (i: number, length: number, k: number) => {
+    const c = cx(i);
+    const fromY = k === 0 ? CELL_Y + HASH_CELL_H / 2 : linkY(k - 1);
+    const last = k === length - 1;
+    const endY = last ? nodeY(k) + nodeH + 9 : nodeY(k + 1) + 8;
+    const endX = last ? c + 14 : c + nodeW / 2 + 1;
+    const x = c + nodeW / 2 + 12;
+    return {
+      line: `M ${c} ${fromY} H ${x} V ${endY} H ${endX + 6}`,
+      head: `M ${endX + 7} ${endY - 4} L ${endX} ${endY} L ${endX + 7} ${endY + 4} z`,
+    };
+  };
   return {
     width,
     height,
@@ -112,7 +134,9 @@ export function chainTableLayout(
     linkH: HASH_NODE_LINK_H,
     nodeH,
     cellX,
-    cx: (i: number) => cellX(i) + pitch / 2,
+    cx,
     nodeY,
+    linkY,
+    bypass,
   };
 }

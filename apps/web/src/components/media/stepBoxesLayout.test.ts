@@ -26,6 +26,12 @@ describe('stepBoxesLayout', () => {
     expect(long.height).toBeGreaterThan(short.height);
   });
 
+  it('measures a caption by what it shows, not its backticks', () => {
+    const plain = stepBoxesLayout(2, 120, 'x'.repeat(200));
+    const coded = stepBoxesLayout(2, 120, '`' + 'x'.repeat(200) + '`');
+    expect(coded.width).toBe(plain.width);
+  });
+
   it('draws the boxes of Tablas Hash at the size they were drawn by hand', () => {
     // The numbers Tablas Hash's file-local copy typed by hand before #353: pad 14, boxes of 120, gaps of 150.
     const layout = stepBoxesLayout(3, 120);

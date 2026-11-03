@@ -21,7 +21,7 @@
  *
  * The still `<ChainTable>` (`media/ChainTable.tsx`) draws tables with this
  * look — a contiguous strip, nodes with the key over a `next` field, lists
- * hanging down, and a link that skips a node drawn as `Bypass` in
+ * hanging down, and a link that skips a node the way `Bypass` in
  * `sequenceStepperHashView.tsx` draws it — at its own pitch, and takes the
  * cell and node heights from `../hashGeometry.ts`, the module both import, so
  * a figure and the widget beside it read alike. Until #353 the figure was a
@@ -37,7 +37,7 @@ import { HASH_CELL_H, HASH_NODE_KEY_H, HASH_NODE_LINK_H } from '../hashGeometry'
  * review of S1).
  */
 const PITCH = 96;
-export const CELL_H = HASH_CELL_H;
+const CELL_H = HASH_CELL_H;
 /** A node of a list: the key on top, its `next` field below. */
 export const NODE_W = 60;
 export const NODE_KEY_H = HASH_NODE_KEY_H;

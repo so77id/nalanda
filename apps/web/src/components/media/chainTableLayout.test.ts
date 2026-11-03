@@ -1,23 +1,17 @@
 import { describe, expect, it } from 'vitest';
 
-import { HASH_CELL_H, HASH_NODE_KEY_H, HASH_NODE_LINK_H } from '../hashGeometry';
-import { CELL_H, NODE_KEY_H, NODE_LINK_H } from '../interactive/sequenceStepperHashLayout';
+import { layoutHash, NODE_KEY_H } from '../interactive/sequenceStepperHashLayout';
 import { CHAIN_TABLE_SIZES, CHAIN_VALUE_H, chainTableLayout } from './chainTableLayout';
 
 const TABLE = [['Eva'], ['Juan'], ['Leo', 'Ana'], ['Bea'], ['Sara'], [], []];
 
 describe('chainTableLayout', () => {
-  it('draws a cell and the fields of a node at the heights the widget draws them', () => {
+  it('draws a cell and a node at the heights the widget draws them', () => {
+    const widget = layoutHash(TABLE.length, 2);
     const layout = chainTableLayout(TABLE);
-    expect(layout.cellH).toBe(CELL_H);
+    expect(layout.cellH).toBe(widget.cell(0).h);
+    expect(layout.nodeH).toBe(widget.node(0, 0).h);
     expect(layout.keyH).toBe(NODE_KEY_H);
-    expect(layout.linkH).toBe(NODE_LINK_H);
-    expect(layout.nodeH).toBe(NODE_KEY_H + NODE_LINK_H);
-    expect([CELL_H, NODE_KEY_H, NODE_LINK_H]).toEqual([
-      HASH_CELL_H,
-      HASH_NODE_KEY_H,
-      HASH_NODE_LINK_H,
-    ]);
   });
 
   it('draws the strip contiguous, one pitch per position', () => {
@@ -46,6 +40,39 @@ describe('chainTableLayout', () => {
     const layout = chainTableLayout(TABLE);
     expect(layout.width).toBe(2 * 12 + 7 * 78);
     expect(layout.height).toBe(layout.nodeY(2) - 18 + 18 + 6);
+  });
+
+  it('draws Set y Map tables at the size they were drawn by hand', () => {
+    // The numbers Set y Map's file-local ChainTable typed by hand before #353:
+    // pitch 108, nodes of 98, a key field of 24 in a 12.5 face, a value band of 20.
+    expect(CHAIN_TABLE_SIZES.rut).toEqual({ pitch: 108, nodeW: 98, keyH: 24, keyFont: 12.5 });
+    expect(CHAIN_VALUE_H).toBe(20);
+    const map = chainTableLayout(TABLE, { size: 'rut', values: true });
+    expect(map.width).toBe(2 * 12 + 7 * 108);
+    expect(map.nodeH).toBe(24 + 20 + 12);
+  });
+
+  it("starts a reference in the middle of its node's link field", () => {
+    const layout = chainTableLayout(TABLE);
+    expect(layout.linkY(0)).toBe(layout.nodeY(0) + layout.keyH + layout.linkH / 2);
+    const map = chainTableLayout(TABLE, { values: true });
+    expect(map.linkY(0) - layout.linkY(0)).toBe(CHAIN_VALUE_H);
+  });
+
+  it('runs the link that skips a node from the reference that pointed at it', () => {
+    // Position 2 of TABLE sits at x 207: the strip starts at 12, each pitch is 78.
+    const layout = chainTableLayout(TABLE);
+    expect(layout.cx(2)).toBe(207);
+    // The first node: from the middle of the cell, out past the column, down onto the node after it.
+    expect(layout.bypass(2, 2, 0)).toEqual({
+      line: 'M 207 41 H 247 V 134 H 242',
+      head: 'M 243 130 L 236 134 L 243 138 z',
+    });
+    // The last node: from the reference of the one before it, down beside its null.
+    expect(layout.bypass(2, 2, 1)).toEqual({
+      line: 'M 207 102 H 247 V 169 H 227',
+      head: 'M 228 165 L 221 169 L 228 173 z',
+    });
   });
 
   it('draws a window of positions with room for the «…» on each side', () => {

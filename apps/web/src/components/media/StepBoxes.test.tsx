@@ -42,6 +42,36 @@ describe('StepBoxes', () => {
     expect(code?.getAttribute('font-family')).toContain('mono');
   });
 
+  it('draws every box as wide as boxWidth, on a canvas that holds them', () => {
+    const { container } = render(
+      <StepBoxes boxes={BOXES} steps={['base 256', 'mod 7']} boxWidth={150} label={LABEL} />,
+    );
+    const widths = [...container.querySelectorAll('rect')].map((r) => r.getAttribute('width'));
+    expect(widths).toEqual(['150', '150', '150']);
+    // pad 14 on each side, three boxes of 150, two steps of 150; titles, boxes and a margin
+    expect(container.querySelector('svg')?.getAttribute('viewBox')).toBe(
+      `0 0 ${2 * 14 + 3 * 150 + 2 * 150} ${26 + 44 + 12}`,
+    );
+  });
+
+  it('writes its caption under the boxes, a backticked part in the code face', () => {
+    const height = (container: HTMLElement) =>
+      Number(container.querySelector('svg')?.getAttribute('viewBox')?.split(' ')[3]);
+    const plain = render(<StepBoxes boxes={BOXES} steps={['base 256', 'mod 7']} label={LABEL} />);
+    const { container } = render(
+      <StepBoxes
+        boxes={BOXES}
+        steps={['base 256', 'mod 7']}
+        caption="la posición de `Ana`"
+        label={LABEL}
+      />,
+    );
+    expect(height(container)).toBeGreaterThan(height(plain.container));
+    const caption = [...container.querySelectorAll('svg > text')].at(-1);
+    expect(caption?.textContent).toBe('la posición de Ana');
+    expect(caption?.querySelector('tspan')?.textContent).toBe('Ana');
+  });
+
   it('gives every figure its own arrowhead, so two on one page never share an id', () => {
     const { container } = render(
       <>
@@ -78,6 +108,11 @@ describe('StepBoxes', () => {
     const { container } = render(
       <StepBoxes boxes={BOXES} steps={['base 256', 'mod 7']} label="" />,
     );
+    expect(container.querySelector('[data-authoring-error]')).not.toBeNull();
+  });
+
+  it('tells the author when there is one box only', () => {
+    const { container } = render(<StepBoxes boxes={BOXES.slice(0, 1)} steps={[]} label={LABEL} />);
     expect(container.querySelector('[data-authoring-error]')).not.toBeNull();
   });
 

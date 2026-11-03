@@ -17,7 +17,7 @@ export const chainTableCatalogEntry: CatalogEntry = {
       name: 'chains',
       type: 'string[][]',
       description:
-        'One list per position of the table, each from its first node. At least one position.',
+        'One list per position of the table, each from its first node. At least one position. A key may be written in two nodes (a class without its equals leaves one RUT in two lists); its tone, cut and value reach every node that holds it.',
     },
     {
       name: 'size',

@@ -1,6 +1,7 @@
 import { useId } from 'react';
 
 import { AuthoringError } from '../AuthoringError';
+import { codeText } from './figureText';
 import { STEP_BOX_W, stepBoxesLayout } from './stepBoxesLayout';
 
 /** A box of the chain: what is in it, and the title written over it. */
@@ -18,22 +19,10 @@ export interface StepBoxesProps {
   steps: string[];
   /** Width of every box, for values wider than a short key. Default 120. */
   boxWidth?: number;
+  /** A line under the boxes; a part between backticks is drawn in the code face. */
   caption?: string;
   /** What the figure shows, in Spanish: its accessible name. Required. */
   label: string;
-}
-
-/** A title, with each part between backticks in the code face, as the course writes code in prose. */
-function codeText(text: string) {
-  return text.split(/(`[^`]+`)/).map((part, i) =>
-    part.startsWith('`') ? (
-      <tspan key={i} fontFamily="var(--font-mono, monospace)" fontWeight="700">
-        {part.slice(1, -1)}
-      </tspan>
-    ) : (
-      part
-    ),
-  );
 }
 
 /**
@@ -154,7 +143,7 @@ export function StepBoxes({ boxes, steps, boxWidth = STEP_BOX_W, caption, label 
           fontSize="12"
           style={{ fill: 'var(--color-ink-soft)' }}
         >
-          {caption}
+          {codeText(caption)}
         </text>
       ) : null}
     </svg>

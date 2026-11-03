@@ -1,3 +1,6 @@
+import { readdirSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
+
 import { describe, expect, it } from 'vitest';
 
 import { loadCatalog } from '../catalog';
@@ -45,6 +48,35 @@ describe('catalog completeness (ADR-0010 / ADR-0014)', () => {
         componentNames,
         `catalog entry <${entry.name}> is documented but not registered in the MDX map`,
       ).toContain(entry.name);
+    }
+  });
+});
+
+// A document's own export takes the name over inside that document: MDX binds
+// a local name before the map, so `<Figure src alt>` in a document that
+// exports a `Figure` of its own draws that one, with no authoring error
+// (add-a-course-document.md §6e-quater; #353's review found Set y Map's frame
+// named so).
+describe('file-local components', () => {
+  const courses = join(process.cwd(), '../../content/courses');
+  const documents = readdirSync(courses, { recursive: true, encoding: 'utf8' }).filter((file) =>
+    file.endsWith('.mdx'),
+  );
+  const registered = Object.keys(map).filter((key) => /^[A-Z]/.test(key));
+
+  it('reads the course documents (guards against a vacuous check)', () => {
+    expect(documents.length).toBeGreaterThan(0);
+  });
+
+  it('no document exports a component under a registered name', () => {
+    for (const file of documents) {
+      const source = readFileSync(join(courses, file), 'utf8');
+      for (const [, name] of source.matchAll(/^export (?:function|const) ([A-Z]\w*)/gm)) {
+        expect(
+          registered,
+          `${file} exports ${name}, the name of a registered component`,
+        ).not.toContain(name);
+      }
     }
   });
 });

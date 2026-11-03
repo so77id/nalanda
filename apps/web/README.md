@@ -61,10 +61,14 @@ src/
 │                         # media: Figure, Math, the embeds (SheetEmbed, PdfEmbed,
 │                         #   VideoEmbed, EmbedFrame), and the tree figures
 │                         #   BinaryPicture (+ binaryPictureLayout.ts), NodeGraph,
-│                         #   OrderRule (#322),
-│                         # + AuthoringError and treeGeometry.ts (the sizes the tree
-│                         #   figure and the tree stepper share): shared across
-│                         #   families, not content components
+│                         #   OrderRule (#322), and the hash figures StepBoxes
+│                         #   (+ stepBoxesLayout.ts) and ChainTable
+│                         #   (+ chainTableLayout.ts) (#353), with figureText.tsx,
+│                         #   the code face and caption measure both draw with
+│                         # + AuthoringError, treeGeometry.ts (the sizes the tree
+│                         #   figure and the tree stepper share) and hashGeometry.ts
+│                         #   (the heights the chain table and the hash stepper
+│                         #   share): shared across families, not content components
 │                         # + MdxPre: the pre→component seam (registered in the SHELL's
 │                         #   map, not a catalog component), embedded.ts: the context by
 │                         #   which a framing container tells its children so

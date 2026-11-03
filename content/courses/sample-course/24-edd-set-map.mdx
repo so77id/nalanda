@@ -60,20 +60,17 @@ export const ABSENT = '20.118.702-8';
 
 export const codeText = (text) => text.split(/(`[^`]+`)/).map((part, i) => (part.startsWith('`') ? <tspan key={i} fontFamily="var(--font-mono, monospace)" fontWeight="700">{part.slice(1, -1)}</tspan> : part));
 
-{/* Figure, Caption and captionWidth — what every figure below shares, written once (§6e-quater: §6e-ter's rules discharged at the definition). Figure is the <svg> frame: the viewBox, the width a projector can read (`grow` times the drawing's own, 1.3 unless a narrow figure needs more), role="img" and the Spanish label. Caption writes the line under a figure through codeText, `inset` above the bottom edge; captionWidth is the canvas a caption needs, measured with its backticks removed, since they are not drawn. */}
+{/* Frame and captionWidth — what every figure below shares, written once (§6e-quater: §6e-ter's rules discharged at the definition). Frame is the <svg> frame: the viewBox, the width a projector can read (`grow` times the drawing's own, 1.3 unless a narrow figure needs more), role="img" and the Spanish label, and its `caption` the line under the figure, written through codeText `inset` above the bottom edge. It is not called Figure: that is the registered image component, and an export of this file by that name would hide it here (§6e-quater). captionWidth is the canvas a caption needs, measured with its backticks removed, since they are not drawn. */}
 
-export function Figure({ width, height, grow = 1.3, label, children }) {
+export function Frame({ width, height, grow = 1.3, label, caption, inset = 10, children }) {
   return (
     <svg viewBox={`0 0 ${width} ${height}`} style={{ width: '100%', maxWidth: `${Math.round(width * grow)}px`, height: 'auto', display: 'block', margin: '0.4rem auto' }} role="img" aria-label={label}>
       {children}
+      {caption ? (
+        <text x={width / 2} y={height - inset} textAnchor="middle" fontSize="12" style={{ fill: 'var(--color-ink-soft)' }}>{codeText(caption)}</text>
+      ) : null}
     </svg>
   );
-}
-
-export function Caption({ width, height, inset = 10, text }) {
-  return text ? (
-    <text x={width / 2} y={height - inset} textAnchor="middle" fontSize="12" style={{ fill: 'var(--color-ink-soft)' }}>{codeText(text)}</text>
-  ) : null;
 }
 
 export const captionWidth = (text) => (text ? text.replace(/`/g, '').length * 6.6 + 24 : 0);
@@ -139,7 +136,7 @@ export function KeySet({ title, keys, probe, adds = false, tones = {}, values, c
   const toY = at >= 0 ? chipY(at) - 4 : blobY - 4;
   const arrow = at >= 0 ? 'var(--color-keep)' : 'var(--color-ink-soft)';
   return (
-    <Figure width={width} height={height} label={label}>
+    <Frame width={width} height={height} label={label} caption={caption}>
       <defs>
         <marker id={`${id}-punta`} markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
           <path d="M0,0 L8,4 L0,8 z" style={{ fill: arrow }} />
@@ -148,8 +145,7 @@ export function KeySet({ title, keys, probe, adds = false, tones = {}, values, c
       <rect x={blobX} y={blobY} width={blobW} height={blobH} rx="18" style={{ fill: 'var(--color-sunk)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.4" />
       <text x={blobX + 14} y={blobY - 8} fontSize="12" fontWeight="700" style={{ fill: 'var(--color-ink-soft)' }}>{title}</text>
       {keys.map((k, n) => {
-        const fill = n === at ? 'var(--color-keep-soft)' : tones[k] === 'mark' ? 'var(--color-mark-soft)' : 'var(--color-surface)';
-        const stroke = n === at ? 'var(--color-keep)' : tones[k] === 'mark' ? 'var(--color-mark)' : 'var(--color-rule-strong)';
+        const { fill, stroke } = paint(n === at ? 'keep' : tones[k]);
         return (
           <g key={k}>
             <rect x={chipX(n)} y={chipY(n)} width={chipW} height={chipH} rx="15" style={{ fill, stroke }} strokeWidth={n === at || tones[k] ? 2.2 : 1.2} />
@@ -164,8 +160,7 @@ export function KeySet({ title, keys, probe, adds = false, tones = {}, values, c
           <line x1={probeX} y1={12 + chipH + 2} x2={toX} y2={toY} style={{ stroke: arrow }} strokeWidth="1.6" markerEnd={`url(#${id}-punta)`} />
         </g>
       ) : null}
-      <Caption width={width} height={height} text={caption} />
-    </Figure>
+    </Frame>
   );
 }
 
@@ -203,16 +198,16 @@ export function KeyTree({ tree, tones = {}, values, order = false, strip = false
     black: ['var(--color-ink)', 'var(--color-ink)', 2.2],
     red: ['var(--color-flag-soft)', 'var(--color-flag)', 2.4],
   };
-  const paint = (v) => tone[tones[v]] ?? ['var(--color-surface)', 'var(--color-rule-strong)', 1.3];
+  const look = (v) => tone[tones[v]] ?? ['var(--color-surface)', 'var(--color-rule-strong)', 1.3];
   return (
-    <Figure width={width} height={height} label={label}>
+    <Frame width={width} height={height} label={label} caption={caption}>
       {nodes.flatMap((n) =>
         [n.l, n.r].filter(Boolean).map((child) => (
           <line key={`e${child.v}`} x1={cx(n.v)} y1={cy(n.depth) + nodeH / 2} x2={cx(child.v)} y2={cy(n.depth + 1) - nodeH / 2} style={{ stroke: 'var(--color-rule-strong)' }} strokeWidth="1.4" />
         )),
       )}
       {nodes.map((n) => {
-        const [fill, stroke, weight] = paint(n.v);
+        const [fill, stroke, weight] = look(n.v);
         return (
           <g key={n.v}>
             <rect x={cx(n.v) - nodeW / 2} y={cy(n.depth) - nodeH / 2} width={nodeW} height={nodeH} rx={values ? 12 : nodeH / 2} style={{ fill, stroke }} strokeWidth={weight} />
@@ -236,8 +231,7 @@ export function KeyTree({ tree, tones = {}, values, order = false, strip = false
           </g>
         );
       })}
-      <Caption width={width} height={height} text={caption} />
-    </Figure>
+    </Frame>
   );
 }
 
@@ -1000,7 +994,7 @@ export function BandLine({ base, from, to, mark, gaps = false, caption, label })
   const end = (v) => `${base}n + ${v}`;
   const bands = Array.from({ length: rows }, (_, i) => ({ i, lo: i * base + 48, hi: i * base + 75 }));
   return (
-    <Figure width={width} height={height} label={label}>
+    <Frame width={width} height={height} label={label} caption={caption} inset={8}>
       {gaps
         ? bands.slice(0, -1).map((b) => (
             <g key={`gap${b.i}`}>
@@ -1026,8 +1020,7 @@ export function BandLine({ base, from, to, mark, gaps = false, caption, label })
             </g>
           ))
         : null}
-      <Caption width={width} height={height} inset={8} text={caption} />
-    </Figure>
+    </Frame>
   );
 }
 
@@ -1979,7 +1972,7 @@ export function ArrowMap({ keys, values, keyTitle, valueTitle, next, nextTitle, 
   const nextX = valX + valW + nextGap;
   const height = top + boxH + (caption ? 34 : 12);
   return (
-    <Figure width={width} height={height} label={label}>
+    <Frame width={width} height={height} label={label} caption={caption}>
       <defs>
         <marker id={`${id}-punta`} markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
           <path d="M0,0 L8,4 L0,8 z" style={{ fill: 'var(--color-ink-soft)' }} />
@@ -2010,8 +2003,7 @@ export function ArrowMap({ keys, values, keyTitle, valueTitle, next, nextTitle, 
           ))}
         </g>
       ) : null}
-      <Caption width={width} height={height} text={caption} />
-    </Figure>
+    </Frame>
   );
 }
 
@@ -2137,7 +2129,7 @@ reemplaza el valor en ese nodo.
   values={MESA_TEXT}
   picked={4}
   tones={{ '13.959.276-K': 'keep' }}
-  caption="get de 13.959.276-K: la posición de su hashCode, y el valor de su nodo"
+  caption="`get` de 13.959.276-K: la posición de su `hashCode`, y el valor de su nodo"
   label="Una tabla de siete posiciones con los seis RUT como claves; cada nodo guarda el RUT, debajo la mesa y al final su next. La posición 4 está destacada, y en su lista, el nodo de 13.959.276-K, que guarda la mesa 3."
 />
 
@@ -2448,7 +2440,7 @@ export function GroupMap({ groups, rows = groups.length, slots, picked, fresh, i
   const boxH = rows * rowH + 2 * boxPad;
   const height = top + boxH + (caption ? 34 : 12);
   return (
-    <Figure width={width} height={height} label={label}>
+    <Frame width={width} height={height} label={label} caption={caption}>
       <defs>
         <marker id={`${id}-punta`} markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
           <path d="M0,0 L8,4 L0,8 z" style={{ fill: 'var(--color-ink-soft)' }} />
@@ -2476,8 +2468,7 @@ export function GroupMap({ groups, rows = groups.length, slots, picked, fresh, i
           })}
         </g>
       ))}
-      <Caption width={width} height={height} text={caption} />
-    </Figure>
+    </Frame>
   );
 }
 
@@ -2553,7 +2544,7 @@ export function RutRow({ ruts, at = -1, tones = {}, arcs = [], caption, label })
   const height = chipY + chipH + (caption ? 34 : 12);
   const cx = (i) => left + i * (chipW + gap) + chipW / 2;
   return (
-    <Figure width={width} height={height} label={label}>
+    <Frame width={width} height={height} label={label} caption={caption}>
       {arcs.map(([a, b]) => {
         const lift = Math.min(arcH - 6, 16 + 9 * (b - a));
         const y0 = indexY - 12;
@@ -2562,8 +2553,7 @@ export function RutRow({ ruts, at = -1, tones = {}, arcs = [], caption, label })
         );
       })}
       <ChipRow items={ruts} left={left} indexY={indexY} chipY={chipY} chipW={chipW} chipH={chipH} gap={gap} font={13} at={at} tone={(i) => tones[i]} />
-      <Caption width={width} height={height} text={caption} />
-    </Figure>
+    </Frame>
   );
 }
 
@@ -2579,7 +2569,7 @@ export function SeenStrip({ steps, slots, label }) {
   const width = 2 * pad + steps.length * colW;
   const height = seenY + 16 + slots * (chipH + 6) + 8;
   return (
-    <Figure width={width} height={height} label={label}>
+    <Frame width={width} height={height} label={label}>
       {steps.map((s, c) => {
         const x = pad + c * colW + (colW - chipW) / 2;
         return (
@@ -2597,7 +2587,7 @@ export function SeenStrip({ steps, slots, label }) {
           </g>
         );
       })}
-    </Figure>
+    </Frame>
   );
 }
 
@@ -2619,7 +2609,7 @@ export function SeenFrame({ ruts, at = -1, seen, fresh, found, slots, label }) {
   const setH = chipH + 24;
   const height = setY + setH + 12;
   return (
-    <Figure width={width} height={height} label={label}>
+    <Frame width={width} height={height} label={label}>
       <ChipRow items={ruts} left={left} indexY={indexY} chipY={rowY} chipW={chipW} chipH={chipH} gap={gap} font={12.5} at={at} dim={(i) => i < at} />
       <text x={setX + 12} y={setY - 7} fontSize="12" fontWeight="700" style={{ fill: 'var(--color-ink-soft)' }}>{codeText('`seen`')}</text>
       <rect x={setX} y={setY} width={setW} height={setH} rx="16" style={{ fill: 'var(--color-sunk)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.3" />
@@ -2632,7 +2622,7 @@ export function SeenFrame({ ruts, at = -1, seen, fresh, found, slots, label }) {
           </g>
         );
       })}
-    </Figure>
+    </Frame>
   );
 }
 
@@ -2763,7 +2753,7 @@ el ciclo no corre; con uno solo, no tiene con quién repetirse.
 
 <RutRow
   ruts={['18.155.218-2', '13.180.992-1', '13.959.276-K']}
-  caption="tres RUTs distintos: firstRepeated retorna null"
+  caption="tres RUTs distintos: `firstRepeated` retorna `null`"
   label="Tres RUTs distintos, 18.155.218-2, 13.180.992-1 y 13.959.276-K, sin ningún arco entre ellos: nadie repite, y la función retorna null."
 />
 
@@ -2826,7 +2816,7 @@ export function TimeLine({ times, day, first = 8, hours = 10, perHour = 80, gap,
   const span = gap ? (gap / 60) * perHour : 0;
   const askTone = refused ? 'flag' : 'mark';
   return (
-    <Figure width={width} height={height} label={label}>
+    <Frame width={width} height={height} label={label} caption={caption} inset={6}>
       {day !== undefined ? (
         <text x={pad} y={16} fontSize="12" fontWeight="700" style={{ fill: 'var(--color-ink-soft)' }}>{`día ${day}`}</text>
       ) : null}
@@ -2861,8 +2851,7 @@ export function TimeLine({ times, day, first = 8, hours = 10, perHour = 80, gap,
           <text x={x(asked)} y={axisY - 34} textAnchor="middle" fontSize="12" fontWeight="700" style={{ fill: `var(--color-${askTone})` }}>{text(asked)}</text>
         </g>
       ) : null}
-      <Caption width={width} height={height} inset={6} text={caption} />
-    </Figure>
+    </Frame>
   );
 }
 
@@ -2879,13 +2868,13 @@ export function AgendaColumn({ times, slots, asked, refused = false, near = [], 
   const height = top + slots * (chipH + gapY) - gapY + pad;
   const minutes = (t) => Math.floor(t / 100) * 60 + (t % 100);
   const text = (t) => `${Math.floor(t / 100)}:${String(t % 100).padStart(2, '0')}`;
-  const rows = [...times, ...(gone !== undefined ? [gone] : []), ...(asked !== undefined ? [asked] : [])].sort((a, b) => a - b);
+  const rows = [...new Set([...times, ...(gone !== undefined ? [gone] : []), ...(asked !== undefined ? [asked] : [])])].sort((a, b) => a - b);
   const y = (i) => top + i * (chipH + gapY);
   const inRange = (t) => from !== undefined && t >= from && t <= to && t !== gone;
   const ranged = rows.map((t, i) => (inRange(t) ? i : -1)).filter((i) => i >= 0);
   return (
-    <Figure width={width} height={height} grow={1.6} label={label}>
-      <text x={left} y={pad + 8} fontSize="12" fontWeight="700" style={{ fill: 'var(--color-ink-soft)' }}>times, en orden</text>
+    <Frame width={width} height={height} grow={1.6} label={label}>
+      <text x={left} y={pad + 8} fontSize="12" fontWeight="700" style={{ fill: 'var(--color-ink-soft)' }}>{codeText('`times`, en orden')}</text>
       {rows.length === 0 ? (
         <text x={left + chipW / 2} y={y(0) + chipH / 2 + 5} textAnchor="middle" fontSize="13" style={{ fill: 'var(--color-ink-faint)' }}>ninguna</text>
       ) : null}
@@ -2916,7 +2905,7 @@ export function AgendaColumn({ times, slots, asked, refused = false, near = [], 
           </g>
         );
       })}
-    </Figure>
+    </Frame>
   );
 }
 
@@ -3247,7 +3236,7 @@ export function PriceRow({ prices, spans = [], tones = {}, caption, label }) {
   const spanY = (n) => cellY + cell + 18 + n * 26;
   const height = spanY(spans.length) - 8 + (caption ? 26 : 4);
   return (
-    <Figure width={width} height={height} label={label}>
+    <Frame width={width} height={height} label={label} caption={caption} inset={8}>
       <PriceCells prices={prices} left={left} indexY={indexY} cellY={cellY} cell={cell} font={16} mark={(i) => tones[i] === 'mark'} dim={(i) => tones[i] === 'faint'} />
       {spans.map((s, n) => {
         const x1 = left + s.from * cell + 6;
@@ -3263,8 +3252,7 @@ export function PriceRow({ prices, spans = [], tones = {}, caption, label }) {
           </g>
         );
       })}
-      <Caption width={width} height={height} inset={8} text={caption} />
-    </Figure>
+    </Frame>
   );
 }
 
@@ -3281,7 +3269,7 @@ export function WindowStrip({ steps, slots, label }) {
   const width = 2 * pad + steps.length * colW;
   const height = footY + 12;
   return (
-    <Figure width={width} height={height} label={label}>
+    <Frame width={width} height={height} label={label}>
       {steps.map((s, c) => {
         const cx = pad + c * colW + colW / 2;
         return (
@@ -3300,7 +3288,7 @@ export function WindowStrip({ steps, slots, label }) {
           </g>
         );
       })}
-    </Figure>
+    </Frame>
   );
 }
 
@@ -3324,7 +3312,7 @@ export function WindowFrame({ prices, from, to, entered, out: gone, counts, full
   const height = answerY + chipH + 12;
   const answerX = (width - rows * 64) / 2;
   return (
-    <Figure width={width} height={height} label={label}>
+    <Frame width={width} height={height} label={label}>
       <PriceCells prices={prices} left={left} indexY={indexY} cellY={cellY} cell={cell} font={15} indexFont={10.5} mark={(i) => i === entered} dim={(i) => i === gone} dashed={(i) => i === gone} />
       {to >= from ? (
         <path d={`M ${left + from * cell + 4} ${bracketY - 6} V ${bracketY} H ${left + (to + 1) * cell - 4} V ${bracketY - 6}`} fill="none" style={{ stroke: 'var(--color-accent)' }} strokeWidth="1.8" />
@@ -3353,7 +3341,7 @@ export function WindowFrame({ prices, from, to, entered, out: gone, counts, full
           <text x={answerX + r * 64 + 29} y={answerY + chipH / 2 + 5} textAnchor="middle" fontSize="12.5" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{`${lo}, ${hi}`}</text>
         </g>
       ))}
-    </Figure>
+    </Frame>
   );
 }
 
@@ -3687,7 +3675,7 @@ export function EnrollStrip({ sections, slots, steps, label }) {
   const height = sectionY + sections.length * blockH;
   const tone = (v) => (v === 'entra' ? 'var(--color-keep)' : v === 'sale' ? 'var(--color-ink-soft)' : 'var(--color-flag)');
   return (
-    <Figure width={width} height={height} label={label}>
+    <Frame width={width} height={height} label={label}>
       {steps.map((st, c) => {
         const x = pad + c * colW + (colW - chipW) / 2;
         return (
@@ -3718,7 +3706,7 @@ export function EnrollStrip({ sections, slots, steps, label }) {
           </g>
         );
       })}
-    </Figure>
+    </Frame>
   );
 }
 
@@ -4038,7 +4026,7 @@ dígitos va primero, donde el orden de los textos lo pondría último.
   fresh="9.876.543-3"
   keyTitle="la sección"
   valueTitle="su nómina"
-  caption="9.876.543-3 entra a EDA 2 y queda primero: el orden de Rut es el de los números"
+  caption="9.876.543-3 entra a EDA 2 y queda primero: el orden de `Rut` es el de los números"
   label="EDA 2, destacada, con 9.876.543-3, recién agregado y primero, y 13.959.276-K."
 />
 
