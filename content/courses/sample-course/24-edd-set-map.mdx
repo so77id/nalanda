@@ -56,9 +56,33 @@ export const VOTED_TREE = { v: '13.959.276-K', l: { v: '13.180.992-1', l: { v: '
 
 export const ABSENT = '20.118.702-8';
 
-{/* codeText — a caption or a title whose Java names go between backticks: each one is drawn bold in the code face, as the prose sets them, so a variable named «a» is not read as the preposition. A figure measures its caption with the backticks removed. */}
+{/* codeText — a caption or a title whose Java names go between backticks: each one is drawn bold in the code face, as the prose sets them, so a variable named «a» is not read as the preposition. */}
 
 export const codeText = (text) => text.split(/(`[^`]+`)/).map((part, i) => (part.startsWith('`') ? <tspan key={i} fontFamily="var(--font-mono, monospace)" fontWeight="700">{part.slice(1, -1)}</tspan> : part));
+
+{/* Figure, Caption and captionWidth — what every figure below shares, written once (§6e-quater: §6e-ter's rules discharged at the definition). Figure is the <svg> frame: the viewBox, the width a projector can read (`grow` times the drawing's own, 1.3 unless a narrow figure needs more), role="img" and the Spanish label. Caption writes the line under a figure through codeText, `inset` above the bottom edge; captionWidth is the canvas a caption needs, measured with its backticks removed, since they are not drawn. */}
+
+export function Figure({ width, height, grow = 1.3, label, children }) {
+  return (
+    <svg viewBox={`0 0 ${width} ${height}`} style={{ width: '100%', maxWidth: `${Math.round(width * grow)}px`, height: 'auto', display: 'block', margin: '0.4rem auto' }} role="img" aria-label={label}>
+      {children}
+    </svg>
+  );
+}
+
+export function Caption({ width, height, inset = 10, text }) {
+  return text ? (
+    <text x={width / 2} y={height - inset} textAnchor="middle" fontSize="12" style={{ fill: 'var(--color-ink-soft)' }}>{codeText(text)}</text>
+  ) : null;
+}
+
+export const captionWidth = (text) => (text ? text.replace(/`/g, '').length * 6.6 + 24 : 0);
+
+{/* paint — the fill and stroke of a highlighted shape: a tone's soft fill and its full stroke, or the shape's own base when it has no tone. SURFACE and SUNK are the two bases the figures use. */}
+
+export const SURFACE = ['var(--color-surface)', 'var(--color-rule-strong)'];
+export const SUNK = ['var(--color-sunk)', 'var(--color-rule-strong)'];
+export const paint = (tone, [fill, stroke] = SURFACE) => (tone ? { fill: `var(--color-${tone}-soft)`, stroke: `var(--color-${tone})` } : { fill, stroke });
 
 {/* KeySet — a set drawn as what the contract sees: a rounded region holding its elements as chips, with no positions and no order. `probe` draws a question over it — a chip «¿x?» with an arrow — that lands on the chip that answers it, painted `keep`, or on the edge of the region when nothing answers. `adds` draws the same chip as an element arriving, «+ x», instead of a question. `tones` paints chips `mark`: what the slide points at. `values` writes each key's value after it, «key → value», for a map; the question still names the key alone. File-local (add-a-course-document.md §6e-quater): no catalog entry, one consumer. */}
 
@@ -74,7 +98,7 @@ export function KeySet({ title, keys, probe, adds = false, tones = {}, values, c
   const blobH = rows * chipH + (rows - 1) * gap + 2 * inner;
   const probeW = 138;
   const blobY = probe ? 12 + chipH + 46 : 26;
-  const width = Math.max(blobW + 24, caption ? caption.length * 6.6 + 24 : 0);
+  const width = Math.max(blobW + 24, captionWidth(caption));
   const blobX = (width - blobW) / 2;
   const height = blobY + blobH + (caption ? 34 : 12);
   const chipX = (n) => blobX + inner + (n % perRow) * (chipW + gap);
@@ -87,7 +111,7 @@ export function KeySet({ title, keys, probe, adds = false, tones = {}, values, c
   const toY = at >= 0 ? chipY(at) - 4 : blobY - 4;
   const arrow = at >= 0 ? 'var(--color-keep)' : 'var(--color-ink-soft)';
   return (
-    <svg viewBox={`0 0 ${width} ${height}`} style={{ width: '100%', maxWidth: `${Math.round(width * 1.3)}px`, height: 'auto', display: 'block', margin: '0.4rem auto' }} role="img" aria-label={label}>
+    <Figure width={width} height={height} label={label}>
       <defs>
         <marker id={`${id}-punta`} markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
           <path d="M0,0 L8,4 L0,8 z" style={{ fill: arrow }} />
@@ -112,10 +136,8 @@ export function KeySet({ title, keys, probe, adds = false, tones = {}, values, c
           <line x1={probeX} y1={12 + chipH + 2} x2={toX} y2={toY} style={{ stroke: arrow }} strokeWidth="1.6" markerEnd={`url(#${id}-punta)`} />
         </g>
       ) : null}
-      {caption ? (
-        <text x={width / 2} y={height - 10} textAnchor="middle" fontSize="12" style={{ fill: 'var(--color-ink-soft)' }}>{caption}</text>
-      ) : null}
-    </svg>
+      <Caption width={width} height={height} text={caption} />
+    </Figure>
   );
 }
 
@@ -139,7 +161,7 @@ export function KeyTree({ tree, tones = {}, values, order = false, strip = false
   const column = Object.fromEntries(nodes.map((n) => [n.v, n.column]));
   const deepest = Math.max(...nodes.map((n) => n.depth));
   const treeW = nodes.length * colW;
-  const width = Math.max(2 * pad + nodes.length * colW, caption ? caption.length * 6.6 + 24 : 0);
+  const width = Math.max(2 * pad + nodes.length * colW, captionWidth(caption));
   const left = (width - treeW) / 2;
   const cx = (v) => left + column[v] * colW + colW / 2;
   const cy = (depth) => pad + 8 + nodeH / 2 + depth * levelH;
@@ -155,7 +177,7 @@ export function KeyTree({ tree, tones = {}, values, order = false, strip = false
   };
   const paint = (v) => tone[tones[v]] ?? ['var(--color-surface)', 'var(--color-rule-strong)', 1.3];
   return (
-    <svg viewBox={`0 0 ${width} ${height}`} style={{ width: '100%', maxWidth: `${Math.round(width * 1.3)}px`, height: 'auto', display: 'block', margin: '0.4rem auto' }} role="img" aria-label={label}>
+    <Figure width={width} height={height} label={label}>
       {nodes.flatMap((n) =>
         [n.l, n.r].filter(Boolean).map((child) => (
           <line key={`e${child.v}`} x1={cx(n.v)} y1={cy(n.depth) + nodeH / 2} x2={cx(child.v)} y2={cy(n.depth + 1) - nodeH / 2} style={{ stroke: 'var(--color-rule-strong)' }} strokeWidth="1.4" />
@@ -186,10 +208,8 @@ export function KeyTree({ tree, tones = {}, values, order = false, strip = false
           </g>
         );
       })}
-      {caption ? (
-        <text x={width / 2} y={height - 10} textAnchor="middle" fontSize="12" style={{ fill: 'var(--color-ink-soft)' }}>{caption}</text>
-      ) : null}
-    </svg>
+      <Caption width={width} height={height} text={caption} />
+    </Figure>
   );
 }
 
@@ -943,7 +963,7 @@ export function BandLine({ base, from, to, mark, gaps = false, caption, label })
   const barH = 16;
   const top = gaps ? 34 : 18;
   const unit = axisW / (to - from);
-  const width = Math.max(2 * pad + labelW + axisW, caption ? caption.replace(/`/g, '').length * 6.6 + 24 : 0);
+  const width = Math.max(2 * pad + labelW + axisW, captionWidth(caption));
   const left = (width - (labelW + axisW)) / 2 + labelW;
   const x = (v) => left + (v - from) * unit;
   const barY = (i) => top + i * rowH + 16;
@@ -952,7 +972,7 @@ export function BandLine({ base, from, to, mark, gaps = false, caption, label })
   const end = (v) => `${base}n + ${v}`;
   const bands = Array.from({ length: rows }, (_, i) => ({ i, lo: i * base + 48, hi: i * base + 75 }));
   return (
-    <svg viewBox={`0 0 ${width} ${height}`} style={{ width: '100%', maxWidth: `${Math.round(width * 1.3)}px`, height: 'auto', display: 'block', margin: '0.4rem auto' }} role="img" aria-label={label}>
+    <Figure width={width} height={height} label={label}>
       {gaps
         ? bands.slice(0, -1).map((b) => (
             <g key={`gap${b.i}`}>
@@ -978,10 +998,8 @@ export function BandLine({ base, from, to, mark, gaps = false, caption, label })
             </g>
           ))
         : null}
-      {caption ? (
-        <text x={width / 2} y={height - 8} textAnchor="middle" fontSize="12" style={{ fill: 'var(--color-ink-soft)' }}>{codeText(caption)}</text>
-      ) : null}
-    </svg>
+      <Caption width={width} height={height} inset={8} text={caption} />
+    </Figure>
   );
 }
 
@@ -1927,13 +1945,13 @@ export function ArrowMap({ keys, values, keyTitle, valueTitle, next, nextTitle, 
   };
   const boxH = keys.length * rowH + 2 * boxPad;
   const core = 2 * pad + keyW + gap + valW + (next ? nextGap + valW : 0);
-  const width = Math.max(core, caption ? caption.replace(/`/g, '').length * 6.6 + 24 : 0);
+  const width = Math.max(core, captionWidth(caption));
   const left = (width - core) / 2 + pad;
   const valX = left + keyW + gap;
   const nextX = valX + valW + nextGap;
   const height = top + boxH + (caption ? 34 : 12);
   return (
-    <svg viewBox={`0 0 ${width} ${height}`} style={{ width: '100%', maxWidth: `${Math.round(width * 1.3)}px`, height: 'auto', display: 'block', margin: '0.4rem auto' }} role="img" aria-label={label}>
+    <Figure width={width} height={height} label={label}>
       <defs>
         <marker id={`${id}-punta`} markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
           <path d="M0,0 L8,4 L0,8 z" style={{ fill: 'var(--color-ink-soft)' }} />
@@ -1941,8 +1959,8 @@ export function ArrowMap({ keys, values, keyTitle, valueTitle, next, nextTitle, 
       </defs>
       <rect x={left} y={top} width={keyW} height={boxH} rx="14" style={{ fill: 'var(--color-sunk)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.3" />
       <rect x={valX} y={top} width={valW} height={boxH} rx="14" style={{ fill: 'var(--color-sunk)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.3" />
-      <text x={left + keyW / 2} y={top - 10} textAnchor="middle" fontSize="12" fontWeight="700" style={{ fill: 'var(--color-ink-soft)' }}>{keyTitle}</text>
-      <text x={valX + valW / 2} y={top - 10} textAnchor="middle" fontSize="12" fontWeight="700" style={{ fill: 'var(--color-ink-soft)' }}>{valueTitle}</text>
+      <text x={left + keyW / 2} y={top - 10} textAnchor="middle" fontSize="12" fontWeight="700" style={{ fill: 'var(--color-ink-soft)' }}>{codeText(keyTitle)}</text>
+      <text x={valX + valW / 2} y={top - 10} textAnchor="middle" fontSize="12" fontWeight="700" style={{ fill: 'var(--color-ink-soft)' }}>{codeText(valueTitle)}</text>
       {keys.map((k, i) => (
         <g key={k}>
           <text x={left + keyW / 2} y={keyY(i) + 5} textAnchor="middle" fontSize="13" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{k}</text>
@@ -1955,7 +1973,7 @@ export function ArrowMap({ keys, values, keyTitle, valueTitle, next, nextTitle, 
       {next ? (
         <g>
           <rect x={nextX} y={top} width={valW} height={boxH} rx="14" style={{ fill: 'var(--color-sunk)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.3" />
-          <text x={nextX + valW / 2} y={top - 10} textAnchor="middle" fontSize="12" fontWeight="700" style={{ fill: 'var(--color-ink-soft)' }}>{nextTitle}</text>
+          <text x={nextX + valW / 2} y={top - 10} textAnchor="middle" fontSize="12" fontWeight="700" style={{ fill: 'var(--color-ink-soft)' }}>{codeText(nextTitle)}</text>
           {distinct.map((v) => (
             <g key={`n${v}`}>
               <line x1={valX + valW + 4} y1={valY(v)} x2={nextX - 8} y2={valY(v)} style={{ stroke: 'var(--color-ink-soft)' }} strokeWidth="1.4" markerEnd={`url(#${id}-punta)`} />
@@ -1964,10 +1982,8 @@ export function ArrowMap({ keys, values, keyTitle, valueTitle, next, nextTitle, 
           ))}
         </g>
       ) : null}
-      {caption ? (
-        <text x={width / 2} y={height - 10} textAnchor="middle" fontSize="12" style={{ fill: 'var(--color-ink-soft)' }}>{caption}</text>
-      ) : null}
-    </svg>
+      <Caption width={width} height={height} text={caption} />
+    </Figure>
   );
 }
 
@@ -2396,22 +2412,22 @@ export function GroupMap({ groups, rows = groups.length, slots, picked, fresh, k
   const most = slots || Math.max(1, ...groups.map(([, items]) => items.length));
   const listW = (n) => n * chipW + (n - 1) * chipGap + 2 * listPad;
   const core = 2 * pad + keyW + gap + listW(most);
-  const width = Math.max(core, caption ? caption.length * 6.6 + 24 : 0);
+  const width = Math.max(core, captionWidth(caption));
   const left = (width - core) / 2 + pad;
   const listX = left + keyW + gap;
   const rowY = (i) => top + boxPad + i * rowH + rowH / 2;
   const boxH = rows * rowH + 2 * boxPad;
   const height = top + boxH + (caption ? 34 : 12);
   return (
-    <svg viewBox={`0 0 ${width} ${height}`} style={{ width: '100%', maxWidth: `${Math.round(width * 1.3)}px`, height: 'auto', display: 'block', margin: '0.4rem auto' }} role="img" aria-label={label}>
+    <Figure width={width} height={height} label={label}>
       <defs>
         <marker id={`${id}-punta`} markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
           <path d="M0,0 L8,4 L0,8 z" style={{ fill: 'var(--color-ink-soft)' }} />
         </marker>
       </defs>
       <rect x={left} y={top} width={keyW} height={boxH} rx="14" style={{ fill: 'var(--color-sunk)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.3" />
-      <text x={left + keyW / 2} y={top - 10} textAnchor="middle" fontSize="12" fontWeight="700" style={{ fill: 'var(--color-ink-soft)' }}>{keyTitle}</text>
-      <text x={listX} y={top - 10} fontSize="12" fontWeight="700" style={{ fill: 'var(--color-ink-soft)' }}>{valueTitle}</text>
+      <text x={left + keyW / 2} y={top - 10} textAnchor="middle" fontSize="12" fontWeight="700" style={{ fill: 'var(--color-ink-soft)' }}>{codeText(keyTitle)}</text>
+      <text x={listX} y={top - 10} fontSize="12" fontWeight="700" style={{ fill: 'var(--color-ink-soft)' }}>{codeText(valueTitle)}</text>
       {groups.map(([k, items], i) => (
         <g key={k}>
           {k === picked ? (
@@ -2424,17 +2440,15 @@ export function GroupMap({ groups, rows = groups.length, slots, picked, fresh, k
             const just = k === picked && item === fresh;
             return (
               <g key={item}>
-                <rect x={listX + listPad + j * (chipW + chipGap)} y={rowY(i) - chipH / 2} width={chipW} height={chipH} rx="14" style={{ fill: just ? 'var(--color-mark-soft)' : 'var(--color-surface)', stroke: just ? 'var(--color-mark)' : 'var(--color-rule-strong)' }} strokeWidth={just ? 2 : 1.2} />
+                <rect x={listX + listPad + j * (chipW + chipGap)} y={rowY(i) - chipH / 2} width={chipW} height={chipH} rx="14" style={paint(just && 'mark')} strokeWidth={just ? 2 : 1.2} />
                 <text x={listX + listPad + j * (chipW + chipGap) + chipW / 2} y={rowY(i) + 5} textAnchor="middle" fontSize="12.5" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{item}</text>
               </g>
             );
           })}
         </g>
       ))}
-      {caption ? (
-        <text x={width / 2} y={height - 10} textAnchor="middle" fontSize="12" style={{ fill: 'var(--color-ink-soft)' }}>{caption}</text>
-      ) : null}
-    </svg>
+      <Caption width={width} height={height} text={caption} />
+    </Figure>
   );
 }
 
@@ -2503,7 +2517,7 @@ export function RutRow({ ruts, at = -1, tones = {}, arcs = [], caption, label })
   const pad = 12;
   const arcH = arcs.length ? 46 : 0;
   const rowW = ruts.length * chipW + Math.max(0, ruts.length - 1) * gap;
-  const width = Math.max(2 * pad + Math.max(rowW, chipW), caption ? caption.length * 6.6 + 24 : 0);
+  const width = Math.max(2 * pad + Math.max(rowW, chipW), captionWidth(caption));
   const left = (width - rowW) / 2;
   const indexY = pad + arcH + 10;
   const chipY = indexY + 8;
@@ -2513,7 +2527,7 @@ export function RutRow({ ruts, at = -1, tones = {}, arcs = [], caption, label })
     keep: ['var(--color-keep-soft)', 'var(--color-keep)'],
   };
   return (
-    <svg viewBox={`0 0 ${width} ${height}`} style={{ width: '100%', maxWidth: `${Math.round(width * 1.3)}px`, height: 'auto', display: 'block', margin: '0.4rem auto' }} role="img" aria-label={label}>
+    <Figure width={width} height={height} label={label}>
       {arcs.map(([a, b]) => {
         const lift = Math.min(arcH - 6, 16 + 9 * (b - a));
         const y0 = indexY - 12;
@@ -2532,10 +2546,8 @@ export function RutRow({ ruts, at = -1, tones = {}, arcs = [], caption, label })
           </g>
         );
       })}
-      {caption ? (
-        <text x={width / 2} y={height - 10} textAnchor="middle" fontSize="12" style={{ fill: 'var(--color-ink-soft)' }}>{caption}</text>
-      ) : null}
-    </svg>
+      <Caption width={width} height={height} text={caption} />
+    </Figure>
   );
 }
 
@@ -2551,25 +2563,25 @@ export function SeenStrip({ steps, slots, label }) {
   const width = 2 * pad + steps.length * colW;
   const height = seenY + 16 + slots * (chipH + 6) + 8;
   return (
-    <svg viewBox={`0 0 ${width} ${height}`} style={{ width: '100%', maxWidth: `${Math.round(width * 1.3)}px`, height: 'auto', display: 'block', margin: '0.4rem auto' }} role="img" aria-label={label}>
+    <Figure width={width} height={height} label={label}>
       {steps.map((s, c) => {
         const x = pad + c * colW + (colW - chipW) / 2;
         return (
           <g key={c}>
             <text x={x + chipW / 2} y={readY - 6} textAnchor="middle" fontSize="11" style={{ fill: 'var(--color-ink-faint)' }}>{`lee el ${c}`}</text>
-            <rect x={x} y={readY} width={chipW} height={chipH} rx="14" style={{ fill: s.found ? 'var(--color-keep-soft)' : 'var(--color-surface)', stroke: s.found ? 'var(--color-keep)' : 'var(--color-focus)' }} strokeWidth="2.2" />
+            <rect x={x} y={readY} width={chipW} height={chipH} rx="14" style={paint(s.found && 'keep', ['var(--color-surface)', 'var(--color-focus)'])} strokeWidth="2.2" />
             <text x={x + chipW / 2} y={readY + chipH / 2 + 5} textAnchor="middle" fontSize="12.5" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{s.read}</text>
             <text x={x + chipW / 2} y={seenY - 10} textAnchor="middle" fontSize="11" fontWeight="700" style={{ fill: s.found ? 'var(--color-keep)' : 'var(--color-ink-soft)' }}>{s.found ? 'ya estaba' : 'vistos'}</text>
             {s.seen.map((r, k) => (
               <g key={r}>
-                <rect x={x} y={seenY + k * (chipH + 6)} width={chipW} height={chipH} rx="14" style={{ fill: r === s.read && !s.found ? 'var(--color-mark-soft)' : 'var(--color-sunk)', stroke: r === s.read && !s.found ? 'var(--color-mark)' : 'var(--color-rule-strong)' }} strokeWidth={r === s.read && !s.found ? 2 : 1.1} />
+                <rect x={x} y={seenY + k * (chipH + 6)} width={chipW} height={chipH} rx="14" style={paint(r === s.read && !s.found && 'mark', SUNK)} strokeWidth={r === s.read && !s.found ? 2 : 1.1} />
                 <text x={x + chipW / 2} y={seenY + k * (chipH + 6) + chipH / 2 + 5} textAnchor="middle" fontSize="12.5" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{r}</text>
               </g>
             ))}
           </g>
         );
       })}
-    </svg>
+    </Figure>
   );
 }
 
@@ -2591,7 +2603,7 @@ export function SeenFrame({ ruts, at = -1, seen, fresh, found, slots, label }) {
   const setH = chipH + 24;
   const height = setY + setH + 12;
   return (
-    <svg viewBox={`0 0 ${width} ${height}`} style={{ width: '100%', maxWidth: `${Math.round(width * 1.3)}px`, height: 'auto', display: 'block', margin: '0.4rem auto' }} role="img" aria-label={label}>
+    <Figure width={width} height={height} label={label}>
       {ruts.map((r, i) => {
         const x = left + i * (chipW + gap);
         const ring = i === at;
@@ -2603,7 +2615,7 @@ export function SeenFrame({ ruts, at = -1, seen, fresh, found, slots, label }) {
           </g>
         );
       })}
-      <text x={setX + 12} y={setY - 7} fontSize="12" fontWeight="700" style={{ fill: 'var(--color-ink-soft)' }}>seen</text>
+      <text x={setX + 12} y={setY - 7} fontSize="12" fontWeight="700" style={{ fill: 'var(--color-ink-soft)' }}>{codeText('`seen`')}</text>
       <rect x={setX} y={setY} width={setW} height={setH} rx="16" style={{ fill: 'var(--color-sunk)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.3" />
       {seen.map((r, k) => {
         const tone = r === found ? 'keep' : r === fresh ? 'mark' : undefined;
@@ -2614,7 +2626,7 @@ export function SeenFrame({ ruts, at = -1, seen, fresh, found, slots, label }) {
           </g>
         );
       })}
-    </svg>
+    </Figure>
   );
 }
 
@@ -2808,7 +2820,7 @@ export function TimeLine({ times, day, first = 8, hours = 10, perHour = 80, gap,
   const span = gap ? (gap / 60) * perHour : 0;
   const askTone = refused ? 'flag' : 'mark';
   return (
-    <svg viewBox={`0 0 ${width} ${height}`} style={{ width: '100%', maxWidth: `${Math.round(width * 1.3)}px`, height: 'auto', display: 'block', margin: '0.4rem auto' }} role="img" aria-label={label}>
+    <Figure width={width} height={height} label={label}>
       {day !== undefined ? (
         <text x={pad} y={16} fontSize="12" fontWeight="700" style={{ fill: 'var(--color-ink-soft)' }}>{`día ${day}`}</text>
       ) : null}
@@ -2843,10 +2855,8 @@ export function TimeLine({ times, day, first = 8, hours = 10, perHour = 80, gap,
           <text x={x(asked)} y={axisY - 34} textAnchor="middle" fontSize="12" fontWeight="700" style={{ fill: `var(--color-${askTone})` }}>{text(asked)}</text>
         </g>
       ) : null}
-      {caption ? (
-        <text x={width / 2} y={height - 6} textAnchor="middle" fontSize="12" style={{ fill: 'var(--color-ink-soft)' }}>{caption}</text>
-      ) : null}
-    </svg>
+      <Caption width={width} height={height} inset={6} text={caption} />
+    </Figure>
   );
 }
 
@@ -2868,7 +2878,7 @@ export function AgendaColumn({ times, slots, asked, refused = false, near = [], 
   const inRange = (t) => from !== undefined && t >= from && t <= to && t !== gone;
   const ranged = rows.map((t, i) => (inRange(t) ? i : -1)).filter((i) => i >= 0);
   return (
-    <svg viewBox={`0 0 ${width} ${height}`} style={{ width: '100%', maxWidth: `${Math.round(width * 1.6)}px`, height: 'auto', display: 'block', margin: '0.4rem auto' }} role="img" aria-label={label}>
+    <Figure width={width} height={height} grow={1.6} label={label}>
       <text x={left} y={pad + 8} fontSize="12" fontWeight="700" style={{ fill: 'var(--color-ink-soft)' }}>times, en orden</text>
       {rows.length === 0 ? (
         <text x={left + chipW / 2} y={y(0) + chipH / 2 + 5} textAnchor="middle" fontSize="13" style={{ fill: 'var(--color-ink-faint)' }}>ninguna</text>
@@ -2900,7 +2910,7 @@ export function AgendaColumn({ times, slots, asked, refused = false, near = [], 
           </g>
         );
       })}
-    </svg>
+    </Figure>
   );
 }
 
@@ -3224,20 +3234,20 @@ export function PriceRow({ prices, spans = [], tones = {}, caption, label }) {
   const pad = 14;
   const rowW = prices.length * cell;
   const textW = Math.max(0, ...spans.map((s) => (s.text.length + (s.note ? s.note.length + 2 : 0)) * 6.8 + 24));
-  const width = Math.max(2 * pad + rowW + textW, caption ? caption.length * 6.6 + 24 : 0);
+  const width = Math.max(2 * pad + rowW + textW, captionWidth(caption));
   const left = pad;
   const indexY = pad + 10;
   const cellY = indexY + 8;
   const spanY = (n) => cellY + cell + 18 + n * 26;
   const height = spanY(spans.length) - 8 + (caption ? 26 : 4);
   return (
-    <svg viewBox={`0 0 ${width} ${height}`} style={{ width: '100%', maxWidth: `${Math.round(width * 1.3)}px`, height: 'auto', display: 'block', margin: '0.4rem auto' }} role="img" aria-label={label}>
+    <Figure width={width} height={height} label={label}>
       {prices.map((p, i) => {
         const t = tones[i];
         return (
           <g key={i} opacity={t === 'faint' ? 0.45 : undefined}>
             <text x={left + i * cell + cell / 2} y={indexY} textAnchor="middle" fontSize="11" style={{ fill: 'var(--color-ink-faint)' }}>{i}</text>
-            <rect x={left + i * cell} y={cellY} width={cell} height={cell} style={{ fill: t === 'mark' ? 'var(--color-mark-soft)' : 'var(--color-surface)', stroke: t === 'mark' ? 'var(--color-mark)' : 'var(--color-rule-strong)' }} strokeWidth={t === 'mark' ? 2.2 : 1.2} />
+            <rect x={left + i * cell} y={cellY} width={cell} height={cell} style={paint(t === 'mark' && 'mark')} strokeWidth={t === 'mark' ? 2.2 : 1.2} />
             <text x={left + i * cell + cell / 2} y={cellY + cell / 2 + 6} textAnchor="middle" fontSize="16" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{p}</text>
           </g>
         );
@@ -3256,10 +3266,8 @@ export function PriceRow({ prices, spans = [], tones = {}, caption, label }) {
           </g>
         );
       })}
-      {caption ? (
-        <text x={width / 2} y={height - 8} textAnchor="middle" fontSize="12" style={{ fill: 'var(--color-ink-soft)' }}>{caption}</text>
-      ) : null}
-    </svg>
+      <Caption width={width} height={height} inset={8} text={caption} />
+    </Figure>
   );
 }
 
@@ -3276,7 +3284,7 @@ export function WindowStrip({ steps, slots, label }) {
   const width = 2 * pad + steps.length * colW;
   const height = footY + 12;
   return (
-    <svg viewBox={`0 0 ${width} ${height}`} style={{ width: '100%', maxWidth: `${Math.round(width * 1.3)}px`, height: 'auto', display: 'block', margin: '0.4rem auto' }} role="img" aria-label={label}>
+    <Figure width={width} height={height} label={label}>
       {steps.map((s, c) => {
         const cx = pad + c * colW + colW / 2;
         return (
@@ -3285,7 +3293,7 @@ export function WindowStrip({ steps, slots, label }) {
             <text x={cx} y={topY + 16} textAnchor="middle" fontSize="15" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{s.window.join('  ')}</text>
             {s.counts.map(([p, n], k) => (
               <g key={p}>
-                <rect x={cx - chipW / 2} y={mapY + k * (chipH + 6)} width={chipW} height={chipH} rx="13" style={{ fill: s.fresh === p ? 'var(--color-mark-soft)' : 'var(--color-sunk)', stroke: s.fresh === p ? 'var(--color-mark)' : 'var(--color-rule-strong)' }} strokeWidth={s.fresh === p ? 2 : 1.1} />
+                <rect x={cx - chipW / 2} y={mapY + k * (chipH + 6)} width={chipW} height={chipH} rx="13" style={paint(s.fresh === p && 'mark', SUNK)} strokeWidth={s.fresh === p ? 2 : 1.1} />
                 <text x={cx} y={mapY + k * (chipH + 6) + chipH / 2 + 5} textAnchor="middle" fontSize="12.5" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{`${p}  ×${n}`}</text>
               </g>
             ))}
@@ -3293,7 +3301,7 @@ export function WindowStrip({ steps, slots, label }) {
           </g>
         );
       })}
-    </svg>
+    </Figure>
   );
 }
 
@@ -3317,13 +3325,13 @@ export function WindowFrame({ prices, from, to, entered, out: gone, counts, full
   const height = answerY + chipH + 12;
   const answerX = (width - rows * 64) / 2;
   return (
-    <svg viewBox={`0 0 ${width} ${height}`} style={{ width: '100%', maxWidth: `${Math.round(width * 1.3)}px`, height: 'auto', display: 'block', margin: '0.4rem auto' }} role="img" aria-label={label}>
+    <Figure width={width} height={height} label={label}>
       {prices.map((p, i) => {
         const tone = i === entered ? 'mark' : undefined;
         return (
           <g key={i} opacity={i === gone ? 0.4 : undefined}>
             <text x={left + i * cell + cell / 2} y={indexY} textAnchor="middle" fontSize="10.5" style={{ fill: 'var(--color-ink-faint)' }}>{i}</text>
-            <rect x={left + i * cell} y={cellY} width={cell} height={cell} style={{ fill: tone ? 'var(--color-mark-soft)' : 'var(--color-surface)', stroke: tone ? 'var(--color-mark)' : 'var(--color-rule-strong)' }} strokeWidth={tone ? 2.2 : 1.2} strokeDasharray={i === gone ? '4 3' : undefined} />
+            <rect x={left + i * cell} y={cellY} width={cell} height={cell} style={paint(tone && 'mark')} strokeWidth={tone ? 2.2 : 1.2} strokeDasharray={i === gone ? '4 3' : undefined} />
             <text x={left + i * cell + cell / 2} y={cellY + cell / 2 + 5} textAnchor="middle" fontSize="15" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{p}</text>
           </g>
         );
@@ -3331,7 +3339,7 @@ export function WindowFrame({ prices, from, to, entered, out: gone, counts, full
       {to >= from ? (
         <path d={`M ${left + from * cell + 4} ${bracketY - 6} V ${bracketY} H ${left + (to + 1) * cell - 4} V ${bracketY - 6}`} fill="none" style={{ stroke: 'var(--color-accent)' }} strokeWidth="1.8" />
       ) : null}
-      <text x={mapX} y={mapY - 8} fontSize="11.5" fontWeight="700" style={{ fill: 'var(--color-ink-soft)' }}>window</text>
+      <text x={mapX} y={mapY - 8} fontSize="11.5" fontWeight="700" style={{ fill: 'var(--color-ink-soft)' }}>{codeText('`window`')}</text>
       {counts.map(([p, n], k) => {
         const x = mapX + k * (chipW + 6);
         const end = full && (k === 0 || k === counts.length - 1);
@@ -3348,14 +3356,14 @@ export function WindowFrame({ prices, from, to, entered, out: gone, counts, full
           </g>
         );
       })}
-      <text x={answerX} y={answerY - 8} fontSize="11.5" fontWeight="700" style={{ fill: 'var(--color-ink-soft)' }}>answer</text>
+      <text x={answerX} y={answerY - 8} fontSize="11.5" fontWeight="700" style={{ fill: 'var(--color-ink-soft)' }}>{codeText('`answer`')}</text>
       {answer.map(([lo, hi], r) => (
         <g key={`a${r}`}>
           <rect x={answerX + r * 64} y={answerY} width={58} height={chipH} rx="4" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.1" />
           <text x={answerX + r * 64 + 29} y={answerY + chipH / 2 + 5} textAnchor="middle" fontSize="12.5" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{`${lo}, ${hi}`}</text>
         </g>
       ))}
-    </svg>
+    </Figure>
   );
 }
 
@@ -3689,7 +3697,7 @@ export function EnrollStrip({ sections, slots, steps, label }) {
   const height = sectionY + sections.length * blockH;
   const tone = (v) => (v === 'entra' ? 'var(--color-keep)' : v === 'sale' ? 'var(--color-ink-soft)' : 'var(--color-flag)');
   return (
-    <svg viewBox={`0 0 ${width} ${height}`} style={{ width: '100%', maxWidth: `${Math.round(width * 1.3)}px`, height: 'auto', display: 'block', margin: '0.4rem auto' }} role="img" aria-label={label}>
+    <Figure width={width} height={height} label={label}>
       {steps.map((st, c) => {
         const x = pad + c * colW + (colW - chipW) / 2;
         return (
@@ -3709,7 +3717,7 @@ export function EnrollStrip({ sections, slots, steps, label }) {
                     const just = name === st.section && r === st.rut && st.verdict === 'entra';
                     return (
                       <g key={r}>
-                        <rect x={x} y={y + 24 + j * (chipH + 5)} width={chipW} height={chipH} rx="13" style={{ fill: just ? 'var(--color-mark-soft)' : 'var(--color-surface)', stroke: just ? 'var(--color-mark)' : 'var(--color-rule-strong)' }} strokeWidth={just ? 2 : 1.1} />
+                        <rect x={x} y={y + 24 + j * (chipH + 5)} width={chipW} height={chipH} rx="13" style={paint(just && 'mark')} strokeWidth={just ? 2 : 1.1} />
                         <text x={x + chipW / 2} y={y + 24 + j * (chipH + 5) + chipH / 2 + 5} textAnchor="middle" fontSize="12.5" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{r}</text>
                       </g>
                     );
@@ -3720,7 +3728,7 @@ export function EnrollStrip({ sections, slots, steps, label }) {
           </g>
         );
       })}
-    </svg>
+    </Figure>
   );
 }
 
@@ -3950,27 +3958,27 @@ respuesta dice si ya estaba.
 >
   <Step lines={[3, 4]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>rosters arranca vacío: ninguna sección tiene inscritos.</div>
-    <GroupMap id="inscritos-inscribir" groups={[]} rows={2} slots={2} keyTitle="rosters" valueTitle="los inscritos, en orden" label="El diccionario rosters, sin ninguna sección." />
+    <GroupMap id="inscritos-inscribir" groups={[]} rows={2} slots={2} keyTitle="`rosters`" valueTitle="los inscritos, en orden" label="El diccionario rosters, sin ninguna sección." />
   </Step>
   <Step lines={[13, 14, 15, 16, 17, 19, 22]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>enroll de 13.959.276-K en EDA 2: EDA 2 no estaba; se crea su conjunto, y entra.</div>
-    <GroupMap id="inscritos-inscribir" groups={[['EDA 2', ['13.959.276-K']]]} rows={2} slots={2} picked="EDA 2" fresh="13.959.276-K" keyTitle="rosters" valueTitle="los inscritos, en orden" label="EDA 2, destacada, con 13.959.276-K, recién agregado." />
+    <GroupMap id="inscritos-inscribir" groups={[['EDA 2', ['13.959.276-K']]]} rows={2} slots={2} picked="EDA 2" fresh="13.959.276-K" keyTitle="`rosters`" valueTitle="los inscritos, en orden" label="EDA 2, destacada, con 13.959.276-K, recién agregado." />
   </Step>
   <Step lines={[13, 14, 15, 16, 17, 19, 22]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>enroll de 18.155.218-2 en EDA 1: EDA 1 no estaba; se crea su conjunto, y entra.</div>
-    <GroupMap id="inscritos-inscribir" groups={[['EDA 2', ['13.959.276-K']], ['EDA 1', ['18.155.218-2']]]} rows={2} slots={2} picked="EDA 1" fresh="18.155.218-2" keyTitle="rosters" valueTitle="los inscritos, en orden" label="EDA 2 con 13.959.276-K; EDA 1, destacada, con 18.155.218-2, recién agregado." />
+    <GroupMap id="inscritos-inscribir" groups={[['EDA 2', ['13.959.276-K']], ['EDA 1', ['18.155.218-2']]]} rows={2} slots={2} picked="EDA 1" fresh="18.155.218-2" keyTitle="`rosters`" valueTitle="los inscritos, en orden" label="EDA 2 con 13.959.276-K; EDA 1, destacada, con 18.155.218-2, recién agregado." />
   </Step>
   <Step lines={[13, 14, 15, 19, 22]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>enroll de 18.155.218-2 en EDA 1, otro objeto igual: hay cupo, pero add responde false: ya está.</div>
-    <GroupMap id="inscritos-inscribir" groups={[['EDA 2', ['13.959.276-K']], ['EDA 1', ['18.155.218-2']]]} rows={2} slots={2} picked="EDA 1" keyTitle="rosters" valueTitle="los inscritos, en orden" label="EDA 1, destacada, con 18.155.218-2: nada cambia." />
+    <GroupMap id="inscritos-inscribir" groups={[['EDA 2', ['13.959.276-K']], ['EDA 1', ['18.155.218-2']]]} rows={2} slots={2} picked="EDA 1" keyTitle="`rosters`" valueTitle="los inscritos, en orden" label="EDA 1, destacada, con 18.155.218-2: nada cambia." />
   </Step>
   <Step lines={[13, 14, 15, 19, 22]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>enroll de 13.959.276-K en EDA 1: hay cupo, y entra antes que 18.155.218-2, por su número.</div>
-    <GroupMap id="inscritos-inscribir" groups={[['EDA 2', ['13.959.276-K']], ['EDA 1', ['13.959.276-K', '18.155.218-2']]]} rows={2} slots={2} picked="EDA 1" fresh="13.959.276-K" keyTitle="rosters" valueTitle="los inscritos, en orden" label="EDA 2 con 13.959.276-K; EDA 1, destacada, con 13.959.276-K, recién agregado y primero, y 18.155.218-2." />
+    <GroupMap id="inscritos-inscribir" groups={[['EDA 2', ['13.959.276-K']], ['EDA 1', ['13.959.276-K', '18.155.218-2']]]} rows={2} slots={2} picked="EDA 1" fresh="13.959.276-K" keyTitle="`rosters`" valueTitle="los inscritos, en orden" label="EDA 2 con 13.959.276-K; EDA 1, destacada, con 13.959.276-K, recién agregado y primero, y 18.155.218-2." />
   </Step>
   <Step lines={[13, 14, 15, 19, 20]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>enroll de 13.180.992-1 en EDA 1: tiene 2, el cupo; responde false.</div>
-    <GroupMap id="inscritos-inscribir" groups={[['EDA 2', ['13.959.276-K']], ['EDA 1', ['13.959.276-K', '18.155.218-2']]]} rows={2} slots={2} picked="EDA 1" keyTitle="rosters" valueTitle="los inscritos, en orden" label="EDA 1, destacada, llena con 13.959.276-K y 18.155.218-2: nada cambia." />
+    <GroupMap id="inscritos-inscribir" groups={[['EDA 2', ['13.959.276-K']], ['EDA 1', ['13.959.276-K', '18.155.218-2']]]} rows={2} slots={2} picked="EDA 1" keyTitle="`rosters`" valueTitle="los inscritos, en orden" label="EDA 1, destacada, llena con 13.959.276-K y 18.155.218-2: nada cambia." />
   </Step>
 </StepShow>
 
@@ -4003,23 +4011,23 @@ en el orden del árbol.
 >
   <Step lines={[11, 12, 13, 16]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>roster de EDA 1: una lista con su conjunto, en el orden del árbol.</div>
-    <GroupMap id="inscritos-retirar" groups={[['EDA 2', ['13.959.276-K']], ['EDA 1', ['13.959.276-K', '18.155.218-2']]]} rows={2} slots={2} picked="EDA 1" keyTitle="rosters" valueTitle="los inscritos, en orden" label="EDA 1, destacada: su nómina es 13.959.276-K y 18.155.218-2, en ese orden." />
+    <GroupMap id="inscritos-retirar" groups={[['EDA 2', ['13.959.276-K']], ['EDA 1', ['13.959.276-K', '18.155.218-2']]]} rows={2} slots={2} picked="EDA 1" keyTitle="`rosters`" valueTitle="los inscritos, en orden" label="EDA 1, destacada: su nómina es 13.959.276-K y 18.155.218-2, en ese orden." />
   </Step>
   <Step lines={[1, 2, 3]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>drop de 18.155.218-2 en EDA 1: estaba; remove lo saca y responde true.</div>
-    <GroupMap id="inscritos-retirar" groups={[['EDA 2', ['13.959.276-K']], ['EDA 1', ['13.959.276-K']]]} rows={2} slots={2} picked="EDA 1" keyTitle="rosters" valueTitle="los inscritos, en orden" label="EDA 1, destacada, con 13.959.276-K; EDA 2 con 13.959.276-K." />
+    <GroupMap id="inscritos-retirar" groups={[['EDA 2', ['13.959.276-K']], ['EDA 1', ['13.959.276-K']]]} rows={2} slots={2} picked="EDA 1" keyTitle="`rosters`" valueTitle="los inscritos, en orden" label="EDA 1, destacada, con 13.959.276-K; EDA 2 con 13.959.276-K." />
   </Step>
   <Step lines={[1, 2, 3]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>drop de 18.155.218-2 en EDA 1 otra vez: ya no estaba; remove responde false.</div>
-    <GroupMap id="inscritos-retirar" groups={[['EDA 2', ['13.959.276-K']], ['EDA 1', ['13.959.276-K']]]} rows={2} slots={2} picked="EDA 1" keyTitle="rosters" valueTitle="los inscritos, en orden" label="EDA 1, destacada, con 13.959.276-K: nada cambia." />
+    <GroupMap id="inscritos-retirar" groups={[['EDA 2', ['13.959.276-K']], ['EDA 1', ['13.959.276-K']]]} rows={2} slots={2} picked="EDA 1" keyTitle="`rosters`" valueTitle="los inscritos, en orden" label="EDA 1, destacada, con 13.959.276-K: nada cambia." />
   </Step>
   <Step lines={[6, 7, 8]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>count de EDA 1: el tamaño de su conjunto, 1.</div>
-    <GroupMap id="inscritos-retirar" groups={[['EDA 2', ['13.959.276-K']], ['EDA 1', ['13.959.276-K']]]} rows={2} slots={2} picked="EDA 1" keyTitle="rosters" valueTitle="los inscritos, en orden" label="EDA 1, destacada, con un inscrito." />
+    <GroupMap id="inscritos-retirar" groups={[['EDA 2', ['13.959.276-K']], ['EDA 1', ['13.959.276-K']]]} rows={2} slots={2} picked="EDA 1" keyTitle="`rosters`" valueTitle="los inscritos, en orden" label="EDA 1, destacada, con un inscrito." />
   </Step>
   <Step lines={[6, 7, 8]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>count de CAL 1: no está en rosters, y responde 0.</div>
-    <GroupMap id="inscritos-retirar" groups={[['EDA 2', ['13.959.276-K']], ['EDA 1', ['13.959.276-K']]]} rows={2} slots={2} keyTitle="rosters" valueTitle="los inscritos, en orden" label="EDA 2 y EDA 1, cada una con 13.959.276-K; CAL 1 no aparece." />
+    <GroupMap id="inscritos-retirar" groups={[['EDA 2', ['13.959.276-K']], ['EDA 1', ['13.959.276-K']]]} rows={2} slots={2} keyTitle="`rosters`" valueTitle="los inscritos, en orden" label="EDA 2 y EDA 1, cada una con 13.959.276-K; CAL 1 no aparece." />
   </Step>
 </StepShow>
 
@@ -4235,7 +4243,7 @@ export function GroupPicture({ records, caption, label }) {
   const boxX = (k) => gleft + keys.indexOf(k) * (boxW + boxGap);
   const gradeX = (j) => boxX(records[j][0]) + boxPad + slot[j] * (gradeW + 6);
   return (
-    <svg viewBox={`0 0 ${width} ${height}`} style={{ width: '100%', maxWidth: `${Math.round(width * 1.3)}px`, height: 'auto', display: 'block', margin: '0.4rem auto' }} role="img" aria-label={label}>
+    <Figure width={width} height={height} label={label}>
       {records.map((r, j) => (
         <g key={`r${j}`}>
           <text x={recordX(j)} y={indexY} textAnchor="middle" fontSize="11" style={{ fill: 'var(--color-ink-faint)' }}>{j}</text>
@@ -4255,10 +4263,8 @@ export function GroupPicture({ records, caption, label }) {
       {keys.map((k) => (
         <text key={`t${k}`} x={boxX(k) + boxW / 2} y={boxY + boxH + 16} textAnchor="middle" fontSize="12" fontWeight="700" style={{ fill: 'var(--color-ink-soft)' }}>{k}</text>
       ))}
-      {caption ? (
-        <text x={width / 2} y={height - 10} textAnchor="middle" fontSize="12" style={{ fill: 'var(--color-ink-soft)' }}>{caption}</text>
-      ) : null}
-    </svg>
+      <Caption width={width} height={height} text={caption} />
+    </Figure>
   );
 }
 
