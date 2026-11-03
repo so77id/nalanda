@@ -27,7 +27,7 @@ describe('stepBoxesLayout', () => {
   });
 
   it('draws the boxes of Tablas Hash at the size they were drawn by hand', () => {
-    // 23-edd-tablas-hash.mdx's file-local copy: pad 14, boxes of 120, gaps of 150.
+    // The numbers Tablas Hash's file-local copy typed by hand before #353: pad 14, boxes of 120, gaps of 150.
     const layout = stepBoxesLayout(3, 120);
     expect(layout.width).toBe(2 * 14 + 3 * 120 + 2 * 150);
     expect(layout.height).toBe(26 + 44 + 12);

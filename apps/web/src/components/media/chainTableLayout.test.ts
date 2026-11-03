@@ -42,7 +42,7 @@ describe('chainTableLayout', () => {
   });
 
   it('draws Tablas Hash tables at the size they were drawn by hand', () => {
-    // 23-edd-tablas-hash.mdx's file-local Chains: pad 12, pitch 78, gap 18.
+    // The numbers Tablas Hash's file-local Chains typed by hand before #353: pad 12, pitch 78, gap 18.
     const layout = chainTableLayout(TABLE);
     expect(layout.width).toBe(2 * 12 + 7 * 78);
     expect(layout.height).toBe(layout.nodeY(2) - 18 + 18 + 6);

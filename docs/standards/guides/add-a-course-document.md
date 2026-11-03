@@ -1424,10 +1424,25 @@ What that costs, and the rules that follow from it:
   that only add is the same figure, and the second document promotes it.
   When the work package cannot promote, the copy ships with a tracked
   promotion issue — the #305 shape — and both definitions name each other.
-  Worked case: #352's review found Set y Map's `StepBoxes` and `ChainTable`
-  copied from Tablas Hash with a two-line diff and a wider node, and neither
-  Tablas Hash copy named them; the back-references landed after the merge
-  and the promotion is its own issue.
+  Worked case: #352's review found Set y Map's `StepBoxes` copied from Tablas
+  Hash with a two-line diff, and its `ChainTable` drawing Tablas Hash's
+  `Chains` with a wider node and a value band; neither Tablas Hash copy named
+  them. The back-references landed after the merge, and #353 then promoted
+  both: `<StepBoxes>`, whose one difference became `boxWidth`, and
+  `<ChainTable>`, whose two node sizes became `size="name"` and `size="rut"`
+  and whose heights come from `hashGeometry.ts`, the module the widget's
+  layout imports too. Of the two documents' 127 figures, the only one the
+  promotions changed in a browser were the 7 Set y Map tables with a strong
+  node, drawn at the widget's stroke.
+- **A hand-run strip is a promotion candidate, and the next one promotes
+  it.** One column per state — the step on top, its verdict, and under it
+  what the structure holds, the newest item painted — is drawn six times in
+  the unit, each with its own data: the heap class's `TopKStrip`, Árboles
+  II's `PendingStrip` and `CrossStrip`, and Set y Map's `SeenStrip`,
+  `WindowStrip` and `EnrollStrip`. They share a skeleton but not their
+  contents, so the copy rule above does not bind them; the next document
+  that wants a strip writes a shared `<HandRun>` (a column of a head chip, a
+  verdict and a stack with tones) instead of a seventh copy (#352's review).
 
 6e-quinquies. **Draw a binary tree: `<BinaryPicture>`**, a static figure with
 the geometry of the binary-tree recipe of `<SequenceStepper>` — every node in
@@ -1497,6 +1512,26 @@ wanted them (#322):
 
 Both are pure markup with no package of their own and register eagerly, as
 `<BinaryPicture>` does; their catalog pages carry the props.
+
+Two more came out of Tablas Hash when Set y Map wanted them (#353):
+
+- **`<StepBoxes>`** draws the steps of a computation as a chain of boxes —
+  a key, the number its type gives it, the position a table takes from it —
+  with each step written over the arrow between two boxes. A title may write
+  a Java name between backticks to draw it in the code face; `boxWidth`
+  widens the boxes for a value as wide as a RUT.
+- **`<ChainTable>`** draws a hash table with chaining in one state: the
+  strip with its index, each position's list hanging under its cell, `null`
+  where a list ends — the look of `<SequenceStepper eda="hash-chaining">`,
+  whose cell and node heights it shares. `picked` and `only` show where a
+  search goes, `tones` what it passes over and finds, `cut` a removal and
+  the link that skips the node, `values` the node of a map, `order` the
+  order a traversal meets the nodes, `window` part of the table;
+  `size="rut"` widens the nodes for a RUT. To walk an operation step by
+  step, the widget is the tool; this one is the still picture beside it.
+
+Both register eagerly, for the same reasons; their catalog pages carry the
+props.
 
 6f. **An authoring error does not fail the build**, on purpose: writing the
 slides before drawing the diagrams is a real order of work, and gating the
