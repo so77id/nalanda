@@ -996,10 +996,15 @@ cuesta una lista enlazada.
 
 <Slide title="Qué base elegir">
 Lo natural sería agregarle al número del RUT el dígito verificador como una
-cifra más: $$10 \cdot n + d$$, con $$n$$ el número y $$d$$ el dígito. Pero en
-Java el dígito es un `char`, y en una cuenta vale su código: de 48 a 57 para
-`'0'` a `'9'`, y 75 para `'K'`. Esos códigos tienen dos cifras, y se meten en
-las del número:
+cifra más, con base 10:
+
+$$
+10 \cdot n + d
+$$
+
+con $$n$$ el número y $$d$$ el dígito. Pero en Java el dígito es un `char`, y en
+una cuenta vale su código: de 48 a 57 para `'0'` a `'9'`, y 75 para `'K'`. Esos
+códigos tienen dos cifras, y se meten en las del número:
 
 $$
 \begin{aligned}
@@ -1015,8 +1020,15 @@ con el que está dos números más arriba, si ese termina en 7.
 Un RUT en particular rara vez choca así, pero en un registro de millones pasa
 miles de veces: entre los números 1 y 27 000 000 hay 4 864 parejas. Ninguna
 rompe la tabla, porque la lista resuelve cada choque, pero cada una alarga una
-lista, y una base mejor las evita todas: con 31, los mismos dos RUT dan
-$$431\,024\,013$$ y $$431\,024\,055$$.
+lista, y una base mejor las evita todas. Con 31, los mismos dos RUT dan números
+distintos:
+
+$$
+\begin{aligned}
+31 \cdot 13\,903\,998 + 75 &= 431\,024\,013 \\
+31 \cdot 13\,904\,000 + 55 &= 431\,024\,055
+\end{aligned}
+$$
 
 </Slide>
 
@@ -1073,9 +1085,14 @@ export function BandLine({ base, rows = 3, from, to, mark, gaps = false, caption
 }
 
 <Slide title="Por qué la base 31">
-Un número de RUT puede llevar cualquiera de los once dígitos, así que da 28
-resultados seguidos, de $$b \cdot n + 48$$ a $$b \cdot n + 75$$. El número
-siguiente da otros 28, que empiezan $$b$$ más arriba.
+Un número de RUT puede llevar cualquiera de los once dígitos, así que con una
+base $$b$$ da 28 resultados seguidos:
+
+$$
+b \cdot n + 48 \;\le\; h \;\le\; b \cdot n + 75
+$$
+
+El número siguiente da otros 28, que empiezan $$b$$ más arriba.
 
 <BandLine
   id="tramos-10"
