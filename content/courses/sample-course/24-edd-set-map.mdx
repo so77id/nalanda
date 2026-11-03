@@ -974,74 +974,51 @@ Con base 31, los mismos dos RUT dan números distintos.
 
 </Slide>
 
-<Slide title="Cuándo chocan dos RUT">
-Para saber qué bases sirven, hay que ver cuándo chocan dos RUT. Uno tiene
-número $$n$$ y código de dígito verificador $$d$$; el otro, $$n'$$ y $$d'$$.
-Con una base $$b$$, chocan cuando dan el mismo resultado:
+{/* BandLine — the results one RUT number can give with base b, b · n + 48 to b · n + 75 (one per check-digit code, '0' to '9' and 'K'), as a bar, one row per number n, n + 1, n + 2, each starting b further along. With base 10 the bars overlap; `mark` draws a dashed line through one shared result and a flag dot on each row that reaches it, with the check digit that gets there. With `gaps`, the values no number reaches, between one bar and the next, are shaded keep. Each end is labelled with its expression in n. File-local (add-a-course-document.md §6e-quater). */}
 
-$$
-b \cdot n + d = b \cdot n' + d'
-$$
-
-Restando $$b \cdot n'$$ y $$d$$ a los dos lados, y sacando $$b$$ como factor:
-
-$$
-b \cdot n - b \cdot n' = d' - d \quad\Longrightarrow\quad b \cdot (n - n') = d' - d
-$$
-
-Se lee «la base por la diferencia de los números es igual a la diferencia de
-los códigos». Cada lado puede valer solo algunas cosas:
-
-- **A la izquierda**, $$n - n'$$ es un entero, así que el lado es un múltiplo
-  de $$b$$: $$0$$, $$\pm b$$, $$\pm 2b$$, y así.
-- **A la derecha**, los códigos van de 48, el de `'0'`, a 75, el de `'K'`. La
-  diferencia de dos de ellos está entre $$48 - 75 = -27$$ y $$75 - 48 = 27$$.
-
-Si los dos lados valen 0, los RUT tienen el mismo número y el mismo código:
-son el mismo RUT. Dos RUT distintos chocan solo si algún múltiplo de $$b$$
-distinto de 0 cae entre $$-27$$ y $$27$$.
-
-</Slide>
-
-{/* MultiplesLine — the multiples of each base near 0, one row per base, over the band where the difference of two check-digit codes can fall (−27 to 27, shaded). A multiple inside the band other than 0 is a collision between two different RUTs, drawn in flag; 0, the same RUT, in keep; the ones outside, faint. `mark` rings one multiple: the table's −20. File-local (add-a-course-document.md §6e-quater). */}
-
-export function MultiplesLine({ rows, from = -40, to = 40, band = 27, caption, label }) {
+export function BandLine({ base, rows = 3, from, to, mark, gaps = false, caption, label, id }) {
   const pad = 16;
-  const labelW = 74;
-  const unit = 8;
-  const axisW = (to - from) * unit;
+  const labelW = 56;
+  const axisW = 620;
+  const rowH = 46;
+  const barH = 16;
+  const top = gaps ? 34 : 18;
+  const unit = axisW / (to - from);
   const width = Math.max(2 * pad + labelW + axisW, caption ? caption.replace(/`/g, '').length * 6.6 + 24 : 0);
   const left = (width - (labelW + axisW)) / 2 + labelW;
   const x = (v) => left + (v - from) * unit;
-  const top = 34;
-  const rowH = 58;
-  const height = top + rows.length * rowH + (caption ? 30 : 8);
+  const barY = (i) => top + i * rowH + 16;
+  const bottom = top + rows * rowH;
+  const height = bottom + (caption ? 30 : 8);
+  const end = (v) => `${base}n + ${v}`;
+  const bands = Array.from({ length: rows }, (_, i) => ({ i, lo: i * base + 48, hi: i * base + 75 }));
   return (
     <svg viewBox={`0 0 ${width} ${height}`} style={{ width: '100%', maxWidth: `${Math.round(width * 1.3)}px`, height: 'auto', display: 'block', margin: '0.4rem auto' }} role="img" aria-label={label}>
-      <rect x={x(-band)} y={top - 6} width={2 * band * unit} height={rows.length * rowH - 4} rx="4" style={{ fill: 'var(--color-sunk)', stroke: 'var(--color-rule)' }} strokeWidth="1" />
-      <text x={x(0)} y={top - 14} textAnchor="middle" fontSize="12" style={{ fill: 'var(--color-ink-soft)' }}>{`diferencia de dos códigos: de −${band} a ${band}`}</text>
-      {rows.map((r, i) => {
-        const y = top + i * rowH + 20;
-        const multiples = [];
-        for (let k = Math.ceil(from / r.base); k * r.base <= to; k++) multiples.push(k * r.base);
-        return (
-          <g key={r.base}>
-            <text x={x(from) - 14} y={y + 5} textAnchor="end" fontSize="13" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{`base ${r.base}`}</text>
-            <line x1={x(from)} y1={y} x2={x(to)} y2={y} style={{ stroke: 'var(--color-rule-strong)' }} strokeWidth="1.4" />
-            {multiples.map((m) => {
-              const inside = Math.abs(m) <= band;
-              const color = m === 0 ? 'var(--color-keep)' : inside ? 'var(--color-flag)' : 'var(--color-ink-faint)';
-              return (
-                <g key={m}>
-                  {r.mark === m ? <circle cx={x(m)} cy={y} r="9.5" fill="none" style={{ stroke: 'var(--color-flag)' }} strokeWidth="1.8" /> : null}
-                  <circle cx={x(m)} cy={y} r="5" style={{ fill: color }} />
-                  <text x={x(m)} y={y + 22} textAnchor="middle" fontSize="12" fontWeight={inside ? 700 : 400} style={{ fill: inside ? 'var(--color-ink)' : 'var(--color-ink-faint)' }}>{m < 0 ? `−${-m}` : `${m}`}</text>
-                </g>
-              );
-            })}
-          </g>
-        );
-      })}
+      {gaps
+        ? bands.slice(0, -1).map((b) => (
+            <g key={`gap${b.i}`}>
+              <rect x={x(b.hi + 0.5)} y={top - 6} width={(base - 28) * unit} height={bottom - top + 2} style={{ fill: 'var(--color-keep-soft)' }} />
+              <text x={x(b.hi + 0.5) + ((base - 28) * unit) / 2} y={top - 12} textAnchor="middle" fontSize="11" style={{ fill: 'var(--color-keep)' }}>sin usar</text>
+            </g>
+          ))
+        : null}
+      {mark ? <line x1={x(mark.value)} y1={top - 4} x2={x(mark.value)} y2={bottom} style={{ stroke: 'var(--color-flag)' }} strokeWidth="1.4" strokeDasharray="4 3" /> : null}
+      {bands.map((b) => (
+        <g key={b.i}>
+          <text x={left - 14} y={barY(b.i) + barH / 2 + 5} textAnchor="end" fontSize="13" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{b.i === 0 ? 'n' : `n + ${b.i}`}</text>
+          <rect x={x(b.lo)} y={barY(b.i)} width={(b.hi - b.lo) * unit} height={barH} rx="3" style={{ fill: 'var(--color-sunk)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.2" />
+          <text x={x(b.lo)} y={barY(b.i) - 5} textAnchor="start" fontSize="11" style={{ fill: 'var(--color-ink-soft)' }}>{end(b.lo)}</text>
+          <text x={x(b.hi)} y={barY(b.i) - 5} textAnchor="end" fontSize="11" style={{ fill: 'var(--color-ink-soft)' }}>{end(b.hi)}</text>
+        </g>
+      ))}
+      {mark
+        ? mark.rows.map((r, k) => (
+            <g key={`m${r}`}>
+              <circle cx={x(mark.value)} cy={barY(r) + barH / 2} r="5" style={{ fill: 'var(--color-flag)' }} />
+              <text x={x(mark.value) + 9} y={barY(r) + barH / 2 + 4} fontSize="11.5" fontWeight="700" style={{ fill: 'var(--color-flag)' }}>{mark.notes[k]}</text>
+            </g>
+          ))
+        : null}
       {caption ? (
         <text x={width / 2} y={height - 8} textAnchor="middle" fontSize="12" style={{ fill: 'var(--color-ink-soft)' }}>{codeText(caption)}</text>
       ) : null}
@@ -1049,25 +1026,62 @@ export function MultiplesLine({ rows, from = -40, to = 40, band = 27, caption, l
   );
 }
 
-<Slide title="Por qué la base 31">
-La recta muestra los múltiplos de cada base cerca del 0 y, sombreada, la
-franja de $$-27$$ a $$27$$ donde cae la diferencia de dos códigos:
+<Slide title="Los resultados de un número de RUT">
+Con una base $$b$$, un RUT de número $$n$$ y código de dígito verificador $$d$$
+da $$b \cdot n + d$$. Un mismo número puede llevar cualquiera de los once
+dígitos verificadores, y sus códigos van de 48, el de `'0'`, a 75, el de
+`'K'`. Por eso los resultados posibles de un número caen en un **tramo** de 28
+valores seguidos:
 
-<MultiplesLine
-  rows={[{ base: 10, mark: -20 }, { base: 31 }]}
-  caption="en la franja, los múltiplos de 10 distintos de 0 son choques; de 31, solo cae el 0"
-  label="Dos rectas de −40 a 40 sobre una franja sombreada de −27 a 27. En la de base 10, los múltiplos −40, −30, −20, −10, 0, 10, 20, 30 y 40; dentro de la franja caen −20, −10, 10 y 20, en rojo, y el 0, en verde; el −20 está encerrado en un círculo. En la de base 31, los múltiplos −31, 0 y 31: solo el 0 cae dentro de la franja."
+$$
+b \cdot n + 48 \;\le\; h \;\le\; b \cdot n + 75
+$$
+
+que se lee «los resultados del número $$n$$ van de $$b \cdot n + 48$$ a
+$$b \cdot n + 75$$». El tramo del número siguiente es igual de largo y empieza
+$$b$$ más arriba. Si $$b$$ es menor que 28, el tramo siguiente empieza antes
+de que termine el anterior: los dos se pisan, y un mismo resultado puede ser
+de dos RUT distintos.
+
+<BandLine
+  id="tramos-10"
+  base={10}
+  from={44}
+  to={100}
+  mark={{ value: 75, rows: [0, 2], notes: ['dígito K', 'dígito 7'] }}
+  caption="con base 10, 10n + 75 está en el tramo de n con el dígito K, y en el de n + 2 con el 7"
+  label="Tres barras, una por número: la de n va de 10n + 48 a 10n + 75; la de n + 1, de 10n + 58 a 10n + 85; la de n + 2, de 10n + 68 a 10n + 95. Cada una empieza 10 después de la anterior y mide 28, así que se pisan. Una línea roja punteada en 10n + 75 cruza la barra de n, en su dígito K, y la de n + 2, en su dígito 7."
 />
 
-- **Con base 10**, los múltiplos $$-20$$, $$-10$$, $$10$$ y $$20$$ caen en la
-  franja: hay RUT distintos que chocan. Los dos de la tabla tienen
-  $$n - n' = -2$$, y los dos lados valen $$10 \cdot (-2) = -20 = 55 - 75$$.
-- **Con base 31**, el múltiplo más cercano al 0, el 31, ya queda afuera, y
-  dentro solo cae el 0. Entonces $$n - n' = 0$$, y con eso $$d' - d = 0$$: dos
-  RUT que dan el mismo número son el mismo RUT.
+Con $$n = 13\,903\,998$$ son los dos RUT de la tabla: 13.903.998-K y
+13.904.000-7 dan los dos $$139\,040\,055$$. El tramo de $$n + 1$$ también pasa
+por $$10 \cdot n + 75$$, pero ahí haría falta el código 65, que no es de ningún
+dígito verificador.
 
-Sirve cualquier base de 28 o más, porque su primer múltiplo ya salta la
-franja.
+</Slide>
+
+<Slide title="Por qué la base 31">
+Con base 31 los tramos siguen midiendo 28 valores, pero avanzan de a 31. El
+tramo de $$n$$ termina en $$31 \cdot n + 75$$, y el de $$n + 1$$ empieza en
+$$31 \cdot n + 31 + 48 = 31 \cdot n + 79$$: entre los dos quedan tres valores
+que ningún RUT da, y los tramos nunca se tocan.
+
+<BandLine
+  id="tramos-31"
+  base={31}
+  from={44}
+  to={142}
+  gaps
+  caption="con base 31, entre un tramo y el siguiente quedan tres valores sin usar"
+  label="Tres barras, una por número: la de n va de 31n + 48 a 31n + 75; la de n + 1, de 31n + 79 a 31n + 106; la de n + 2, de 31n + 110 a 31n + 137. Entre una barra y la siguiente hay una franja sombreada de tres valores, sin usar: las barras no se tocan."
+/>
+
+Así, cada resultado es de un solo número. Y dentro de su tramo, cada
+dígito verificador da un resultado distinto, porque su código es distinto:
+dos RUT distintos dan siempre números distintos.
+
+Los tramos se separan cuando la base es al menos su largo, 28: sirve
+cualquier base de 28 o más, y 31 lo es.
 
 </Slide>
 
