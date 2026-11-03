@@ -1701,8 +1701,9 @@ esto, si trae su propio orden.
 </Slide>
 
 <Slide title="El RUT en un TreeSet">
-Sin `compareTo`, el `TreeSet` ni siquiera parte: para ubicar el primer
-elemento tiene que compararlo, y `Rut` no sabe compararse.
+La clase `Rut` de la tabla hash, con su `equals` y su `hashCode`, todavía no
+sirve en un `TreeSet`: le falta un orden. Sin `compareTo`, el `TreeSet` ni
+siquiera parte, porque para ubicar el primer elemento tiene que compararlo.
 
 ```java
 Set<Rut> sorted = new TreeSet<>();
@@ -1714,28 +1715,42 @@ sorted.add(a);      // ClassCastException
 </Slide>
 
 <Slide title="Lo que se le pide a un orden">
-El `compareTo` de una clave cumple un contrato, para que el árbol baje por él
-sin perderse.
+Para que el árbol baje por él sin perderse, el `compareTo` de una clave cumple
+tres requisitos.
 
-**Signos opuestos.** Si $$a$$ va antes que $$b$$, entonces $$b$$ va después
+**1. Signos opuestos.** Si $$a$$ va antes que $$b$$, entonces $$b$$ va después
 que $$a$$:
 
 $$
 \operatorname{signo}\big(a.\text{compareTo}(b)\big) = -\operatorname{signo}\big(b.\text{compareTo}(a)\big)
 $$
 
-**Transitivo.** Si $$a$$ va antes que $$b$$, y $$b$$ antes que $$c$$, entonces
-$$a$$ va antes que $$c$$.
+**2. Transitividad.** Si $$a$$ va antes que $$b$$, y $$b$$ antes que $$c$$,
+entonces $$a$$ va antes que $$c$$:
 
-**Consistente con `equals`.** Responde 0 exactamente cuando las dos claves son
-iguales:
+$$
+a.\text{compareTo}(b) < 0 \;\text{ y }\; b.\text{compareTo}(c) < 0 \;\Longrightarrow\; a.\text{compareTo}(c) < 0
+$$
+
+**3. Consistencia con `equals`.** Responde 0 exactamente cuando las dos claves
+son iguales:
 
 $$
 a.\text{compareTo}(b) = 0 \;\Longleftrightarrow\; a.\text{equals}(b)
 $$
 
-Java exige los dos primeros, y el tercero solo lo recomienda. Sin él, un
-`TreeSet` y un `HashSet` con los mismos elementos guardan cosas distintas.
+</Slide>
+
+<Slide title="Qué pasa si un orden no los cumple">
+Los requisitos 1 y 2 los exige Java. Sin ellos, el árbol deja cada elemento
+según comparaciones que se contradicen, y después las búsquedas bajan por el
+lado equivocado: el `TreeSet` pierde elementos.
+
+El requisito 3 Java solo lo recomienda, porque un `TreeSet` funciona sin él.
+Pero el `TreeSet` decide si una clave ya está con `compareTo`, y el `HashSet`
+con `equals`: si los dos no coinciden, el `TreeSet` toma por iguales dos
+claves que `equals` distingue, y guarda menos elementos que un `HashSet` con
+las mismas claves.
 
 </Slide>
 
@@ -1743,18 +1758,23 @@ Java exige los dos primeros, y el tercero solo lo recomienda. Sin él, un
 El intento más simple compara solo el número del RUT:
 
 ```java
-@Override
-public int compareTo(Rut other) {
-    return Integer.compare(number, other.number);
+class Rut implements Comparable<Rut> {
+    // los campos, el constructor, equals y hashCode
+
+    @Override
+    public int compareTo(Rut other) {
+        return Integer.compare(number, other.number);
+    }
 }
 ```
 
-Ordena bien y cumple los dos primeros requisitos, pero no es consistente con
-`equals`. Dos RUT con el mismo número y distinto dígito, como uno mal
+Ordena bien y cumple los requisitos 1 y 2, pero no el 3: no es consistente
+con `equals`. Dos RUT con el mismo número y distinto dígito, como uno mal
 digitado, son distintos para `equals` y dan 0 en `compareTo`, y el `TreeSet`
 los toma por el mismo:
 
 ```java
+Rut a = new Rut(13180992, '1');            // bien digitado
 Rut wrong = new Rut(13180992, '2');        // el dígito, mal digitado
 new HashSet<>(List.of(a, wrong)).size();   // 2
 new TreeSet<>(List.of(a, wrong)).size();   // 1
