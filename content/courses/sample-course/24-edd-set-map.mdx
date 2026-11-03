@@ -1384,9 +1384,20 @@ $$
 h(x) = h(c_1) \cdot 31^{k-1} + h(c_2) \cdot 31^{k-2} + \cdots + h(c_k)
 $$
 
-Se lee «cada campo pesa 31 veces más que el siguiente». El código no calcula
-potencias: multiplica por 31 y suma el campo siguiente, una vez por campo, y da
-lo mismo. En Java, el número de cada campo es:
+Se lee «cada campo pesa 31 veces más que el siguiente». Con Horner, la misma
+suma se calcula sin potencias, multiplicando por 31 y sumando el campo
+siguiente, una vez por campo:
+
+$$
+h(x) = \Big( \cdots \big( h(c_1) \cdot 31 + h(c_2) \big) \cdot 31 + \cdots \Big) \cdot 31 + h(c_k)
+$$
+
+Es la forma que escribe el código.
+
+</Slide>
+
+<Slide title="El número de cada campo">
+En Java, el número de cada campo, $$h(c_i)$$, depende de su tipo:
 
 | Campo                       | Su número                                                       |
 | --------------------------- | --------------------------------------------------------------- |
