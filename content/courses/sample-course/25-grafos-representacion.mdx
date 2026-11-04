@@ -485,6 +485,122 @@ reducir la ciudad a vértices y aristas: un **modelo** del problema.
 
 ## Modelar un problema como grafo
 
+<Slide title="Las preguntas de un modelo">
+Modelar un problema como grafo es responder cuatro preguntas antes de
+resolver nada:
+
+1. **¿Qué es un vértice?** Las cosas del problema: personas, esquinas,
+   ramos, aeropuertos.
+2. **¿Qué es una arista?** La relación que importa entre dos de esas cosas.
+3. **¿Tiene dirección?** Si la relación puede ir de una cosa a otra sin
+   volver.
+4. **¿Tiene pesos?** Si cada relación trae un número que el problema usa.
+
+Un mismo conjunto de cosas da grafos distintos según la relación que se
+mire.
+
+</Slide>
+
+<Slide title="Una red de amistades y una de seguidores">
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '0.5rem 2rem', alignItems: 'end' }}>
+<NodeGraph
+  cols={4}
+  rows={2}
+  nodes={[{ v: 'Ana', x: 0, y: 0 }, { v: 'Beto', x: 2, y: 0 }, { v: 'Caro', x: 1, y: 1 }, { v: 'Dani', x: 3, y: 1 }]}
+  edges={[['Ana', 'Beto'], ['Ana', 'Caro'], ['Beto', 'Caro'], ['Caro', 'Dani']]}
+  caption="amistad: va en los dos sentidos, sin dirección"
+  label="Una red de amistades: Ana es amiga de Beto y de Caro, Beto de Caro, y Caro de Dani. Las aristas no tienen dirección."
+/>
+<NodeGraph
+  cols={4}
+  rows={2}
+  directed
+  nodes={[{ v: 'Ana', x: 0, y: 0 }, { v: 'Beto', x: 2, y: 0 }, { v: 'Caro', x: 1, y: 1 }, { v: 'Dani', x: 3, y: 1 }]}
+  edges={[['Ana', 'Beto'], ['Beto', 'Ana'], ['Ana', 'Caro'], ['Dani', 'Caro']]}
+  caption="seguir: puede ir en un solo sentido"
+  label="Una red de seguidores entre las mismas personas: Ana y Beto se siguen, Ana sigue a Caro y Dani sigue a Caro. Las aristas son flechas."
+/>
+</div>
+
+- **Vértices**: las personas, en los dos grafos.
+- **Aristas**: en el primero, ser amigos, que va en los dos sentidos; en el
+  segundo, seguir a alguien, que no obliga a la otra persona.
+- **Pesos**: ninguno. Una amistad o un seguidor no traen un número.
+
+</Slide>
+
+<Slide title="Un mapa de calles y una malla curricular">
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '0.5rem 2rem', alignItems: 'end' }}>
+<NodeGraph
+  cols={3}
+  rows={3}
+  directed
+  nodes={[{ v: 'A', x: 0, y: 0 }, { v: 'B', x: 2, y: 0 }, { v: 'C', x: 0, y: 2 }, { v: 'D', x: 2, y: 2 }]}
+  edges={[['A', 'B', 4], ['B', 'A', 4], ['A', 'C', 3], ['C', 'D', 5], ['D', 'B', 2]]}
+  caption="calles: minutos y sentidos"
+  label="Cuatro esquinas, A, B, C y D, con los minutos de cada tramo: entre A y B, 4 en cada sentido; de A a C, 3; de C a D, 5; de D a B, 2. Los tramos de un solo sentido son flechas."
+/>
+<NodeGraph
+  cols={5}
+  rows={2}
+  directed
+  nodes={[{ v: 'Cálculo I', x: 0, y: 0 }, { v: 'Cálculo II', x: 3, y: 0 }, { v: 'Álgebra', x: 0, y: 1 }, { v: 'Ecuaciones', x: 3, y: 1 }]}
+  edges={[['Cálculo I', 'Cálculo II'], ['Cálculo II', 'Ecuaciones'], ['Álgebra', 'Ecuaciones']]}
+  caption="malla: del prerrequisito al ramo"
+  label="Cuatro ramos con sus prerrequisitos: Cálculo I antes de Cálculo II, y Cálculo II y Álgebra antes de Ecuaciones. Cada flecha va del prerrequisito al ramo."
+/>
+</div>
+
+- **El mapa**: las esquinas son vértices, cada tramo de calle es una arista
+  con los minutos como peso, y una calle de un solo sentido es una flecha.
+- **La malla**: los ramos son vértices, y cada prerrequisito es una flecha
+  que va del ramo que se aprueba antes al que lo pide.
+
+</Slide>
+
+<Slide title="Grafos que no se guardan">
+En algunos problemas el grafo es enorme, pero sus aristas siguen una regla, y
+los vecinos de un vértice se calculan cuando se necesitan, sin guardar el
+grafo. Es un **grafo implícito**.
+
+- **Una grilla**, como un laberinto o un mapa por celdas: cada celda es un
+  vértice, y sus vecinas son las celdas a las que se pasa en un paso.
+- **Un candado de cuatro ruedas**: cada combinación es un vértice, y una
+  arista une dos combinaciones que se diferencian en girar una rueda una
+  posición. Son $$10^4$$ vértices, y cada uno tiene 8 vecinos.
+
+<NodeGraph
+  cols={5}
+  rows={3}
+  nodes={[{ v: '1000', x: 0, y: 0 }, { v: '0100', x: 1.33, y: 0 }, { v: '0010', x: 2.67, y: 0 }, { v: '0001', x: 4, y: 0 }, { v: '0000', x: 2, y: 1 }, { v: '9000', x: 0, y: 2 }, { v: '0900', x: 1.33, y: 2 }, { v: '0090', x: 2.67, y: 2 }, { v: '0009', x: 4, y: 2 }]}
+  edges={[['0000', '1000'], ['0000', '0100'], ['0000', '0010'], ['0000', '0001'], ['0000', '9000'], ['0000', '0900'], ['0000', '0090'], ['0000', '0009']]}
+  tones={{ '0000': 'mark' }}
+  caption="0000 y sus 8 vecinos: cada rueda, una posición hacia arriba o hacia abajo"
+  label="La combinación 0000, destacada, unida con sus ocho vecinas: 1000, 0100, 0010 y 0001 arriba, y 9000, 0900, 0090 y 0009 abajo. Cada una gira una sola rueda una posición."
+/>
+
+</Slide>
+
+<Slide title="De nombres a números">
+Un programa numera los vértices de $$0$$ a $$V - 1$$: así un vértice sirve de
+índice en un arreglo. Los nombres del problema se traducen a esos números al
+leerlos, con dos estructuras:
+
+- un **Map** del nombre a su número, para traducir al leer;
+- una **lista** del número a su nombre, para traducir de vuelta al escribir
+  la respuesta.
+
+Cada nombre nuevo recibe el siguiente número libre.
+
+| Nombre   | Número |
+| -------- | ------ |
+| Santiago | 0      |
+| Lima     | 1      |
+| Bogotá   | 2      |
+| Quito    | 3      |
+
+</Slide>
+
 <SectionBreak />
 
 ## Graph · Grafo
