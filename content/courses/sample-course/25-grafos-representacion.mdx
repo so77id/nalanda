@@ -605,9 +605,306 @@ Cada nombre nuevo recibe el siguiente número libre.
 
 ## Graph · Grafo
 
+<Slide title="El TDA Graph">
+Un **Graph** —en español, **grafo**— guarda vértices numerados y las aristas
+entre ellos, y responde quiénes son los vecinos de cada vértice.
+
+<div style={{ border: '1px solid var(--color-rule)', borderRadius: '8px', overflow: 'hidden', margin: '1.25rem 0' }}>
+  <div style={{ background: 'var(--color-sunk)', padding: '0.55rem 0.9rem', borderBottom: '1px solid var(--color-rule)', fontWeight: 700 }}>Graph <span style={{ fontWeight: 400, color: 'var(--color-ink-faint)' }}>· el contrato</span></div>
+  <div style={{ display: 'grid', gridTemplateColumns: 'max-content 1fr', columnGap: '2rem' }}>
+  <div style={{ gridColumn: '1 / -1', padding: '0.7rem 0.9rem 0.15rem', fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.08em', color: 'var(--color-ink-faint)' }}>CREAR</div>
+  <code style={{ padding: `0.15rem 0 0.7rem 0.9rem`, whiteSpace: 'nowrap' }}>Graph(V)</code>
+  <span style={{ padding: `0.15rem 0.9rem 0.7rem 0` }}>crea un grafo con V vértices, numerados de 0 a V − 1, y sin aristas</span>
+  <div style={{ gridColumn: '1 / -1', borderTop: '1px solid var(--color-rule)', padding: '0.7rem 0.9rem 0.15rem', fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.08em', color: 'var(--color-keep)' }}>CONSULTAR · no cambian nada</div>
+  <code style={{ padding: `0.15rem 0 0.3rem 0.9rem`, whiteSpace: 'nowrap' }}>V() → entero</code>
+  <span style={{ padding: `0.15rem 0.9rem 0.3rem 0` }}>retorna cuántos vértices tiene el grafo</span>
+  <code style={{ padding: `0.15rem 0 0.3rem 0.9rem`, whiteSpace: 'nowrap' }}>E() → entero</code>
+  <span style={{ padding: `0.15rem 0.9rem 0.3rem 0` }}>retorna cuántas aristas tiene el grafo</span>
+  <code style={{ padding: `0.15rem 0 0.3rem 0.9rem`, whiteSpace: 'nowrap' }}>adj(v) → recorrido</code>
+  <span style={{ padding: `0.15rem 0.9rem 0.3rem 0` }}>entrega cada vecino de v</span>
+  <code style={{ padding: `0.15rem 0 0.7rem 0.9rem`, whiteSpace: 'nowrap' }}>hasEdge(v, w) → booleano</code>
+  <span style={{ padding: `0.15rem 0.9rem 0.7rem 0` }}>retorna verdadero si hay una arista entre v y w</span>
+  <div style={{ gridColumn: '1 / -1', borderTop: '1px solid var(--color-rule)', padding: '0.7rem 0.9rem 0.15rem', fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.08em', color: 'var(--color-accent)' }}>MODIFICAR · cambian el estado</div>
+  <code style={{ padding: `0.15rem 0 0.7rem 0.9rem`, whiteSpace: 'nowrap' }}>addEdge(v, w)</code>
+  <span style={{ padding: `0.15rem 0.9rem 0.7rem 0` }}>agrega una arista entre v y w</span>
+  </div>
+  <div style={{ padding: '0.65rem 0.9rem', borderTop: '1px solid var(--color-rule)', background: 'var(--color-sunk)' }}>
+    <div style={{ fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.08em', color: 'var(--color-ink-faint)' }}>LO QUE NO DICE</div>
+    <div style={{ marginTop: '0.35rem' }}>Cómo se guardan las aristas, cuánto cuesta cada operación, en qué orden entrega adj los vecinos ni qué pasa al agregar una arista que ya estaba.</div>
+  </div>
+</div>
+
+</Slide>
+
+<Slide title="Las reglas del contrato Graph">
+Un grafo sin dirección cumple dos invariantes:
+
+1. **Cada arista se ve desde sus dos extremos**: `w` está entre los vecinos
+   de `v` si y solo si `v` está entre los vecinos de `w`. Por eso `addEdge(v,
+   w)` deja la arista en los dos lados.
+2. **`E()` cuenta cada arista una vez**, aunque se vea desde dos vértices.
+
+Los vértices no cambian: el contrato no agrega ni saca vértices, y cada
+vértice es un número de $$0$$ a $$V - 1$$.
+
+</Slide>
+
+<Slide title="El contrato Graph en Java">
+Java no trae un grafo, así que escribimos el contrato como una interfaz:
+
+```java
+public interface Graph {
+    int V();
+    int E();
+    Iterable<Integer> adj(int v);
+    boolean hasEdge(int v, int w);
+    void addEdge(int v, int w);
+}
+```
+
+`adj` retorna un `Iterable<Integer>`: lo que se puede recorrer con un `for`.
+El constructor no va en la interfaz; cada clase que la implementa recibe
+`V` en el suyo.
+
+</Slide>
+
+<Slide title="El grado como cliente del contrato">
+El grado de un vértice se calcula solo con el contrato: recorrer sus vecinos y
+contarlos. El método no sabe cómo está guardado el grafo, y sirve para
+cualquier implementación.
+
+```java
+static int degree(Graph g, int v) {
+    int count = 0;
+    for (int w : g.adj(v)) {
+        count++;
+    }
+    return count;
+}
+```
+
+Su costo es el de recorrer `adj(v)`, y ese costo lo decide la implementación.
+
+</Slide>
+
 <SectionBreak />
 
 ## Matriz y listas de adyacencia
+
+{/* AdjMatrix — an adjacency matrix as Java holds it: `rows[v][w]` is the text of the cell in row v and column w ('true', 'false', a weight, '∞'), with the vertex numbers along the top and the left. A cell that holds an edge — anything but 'false', '∞' or '' — is tinted mark-soft; `mark` outlines the cells [v, w] the slide talks about. File-local, with AdjLists below: the two drawings of the implementations act. */}
+
+export function AdjMatrix({ rows, mark = [], caption, label }) {
+  const n = rows.length;
+  const cw = 50;
+  const ch = 30;
+  const head = 26;
+  const pad = 10;
+  const gridW = head + n * cw;
+  const width = Math.max(gridW + 2 * pad, caption ? caption.length * 6.6 + 24 : 0);
+  const left = (width - gridW) / 2;
+  const top = pad;
+  const height = top + head + n * ch + (caption ? 34 : pad);
+  const marked = new Set(mark.map(([v, w]) => `${v},${w}`));
+  const empty = (t) => t === 'false' || t === '∞' || t === '';
+  const cells = [];
+  for (let v = 0; v < n; v++) {
+    cells.push(<text key={`r${v}`} x={left + head / 2} y={top + head + v * ch + ch / 2 + 5} textAnchor="middle" fontSize="13" fontWeight="600" style={{ fill: 'var(--color-ink-faint)' }}>{v}</text>);
+    cells.push(<text key={`c${v}`} x={left + head + v * cw + cw / 2} y={top + head / 2 + 5} textAnchor="middle" fontSize="13" fontWeight="600" style={{ fill: 'var(--color-ink-faint)' }}>{v}</text>);
+    for (let w = 0; w < n; w++) {
+      const t = String(rows[v][w]);
+      const hot = marked.has(`${v},${w}`);
+      cells.push(
+        <g key={`${v},${w}`}>
+          <rect x={left + head + w * cw} y={top + head + v * ch} width={cw} height={ch} style={{ fill: empty(t) ? 'var(--color-surface)' : 'var(--color-mark-soft)', stroke: hot ? 'var(--color-mark)' : 'var(--color-rule-strong)' }} strokeWidth={hot ? 2.4 : 1} />
+          <text x={left + head + w * cw + cw / 2} y={top + head + v * ch + ch / 2 + 4} textAnchor="middle" fontSize="12" fontFamily="var(--font-mono, monospace)" style={{ fill: empty(t) ? 'var(--color-ink-faint)' : 'var(--color-ink)' }}>{t}</text>
+        </g>,
+      );
+    }
+  }
+  return (
+    <svg viewBox={`0 0 ${width} ${height}`} style={{ width: '100%', maxWidth: `${Math.round(width * 1.3)}px`, height: 'auto', display: 'block', margin: '0.4rem auto' }} role="img" aria-label={label}>
+      {cells}
+      {caption ? (
+        <text x={width / 2} y={height - 12} textAnchor="middle" fontSize="12" style={{ fill: 'var(--color-ink-soft)' }}>{caption}</text>
+      ) : null}
+    </svg>
+  );
+}
+
+{/* AdjLists — adjacency lists as Java holds them: one row per vertex, its number in a box, then the chips of its list in the order they were added. A chip's text is what the list stores: a neighbour, or a neighbour and a weight. `mark` lists the [vertex, position] chips the slide talks about. */}
+
+export function AdjLists({ lists, mark = [], caption, label }) {
+  const rowH = 36;
+  const box = 30;
+  const chipH = 26;
+  const gap = 8;
+  const pad = 12;
+  const chipW = (t) => Math.max(32, String(t).length * 8 + 16);
+  const rowW = (l) => box + 24 + l.reduce((acc, t) => acc + chipW(t) + gap, 0);
+  const innerW = Math.max(...lists.map(rowW), box + 24 + 40);
+  const width = Math.max(innerW + 2 * pad, caption ? caption.length * 6.6 + 24 : 0);
+  const left = pad + (width - 2 * pad - innerW) / 2;
+  const height = pad + lists.length * rowH + (caption ? 30 : pad);
+  const marked = new Set(mark.map(([v, i]) => `${v},${i}`));
+  return (
+    <svg viewBox={`0 0 ${width} ${height}`} style={{ width: '100%', maxWidth: `${Math.round(width * 1.3)}px`, height: 'auto', display: 'block', margin: '0.4rem auto' }} role="img" aria-label={label}>
+      {lists.map((l, v) => {
+        const y = pad + v * rowH;
+        let x = left + box + 24;
+        return (
+          <g key={v}>
+            <rect x={left} y={y} width={box} height={box} style={{ fill: 'var(--color-sunk)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1" />
+            <text x={left + box / 2} y={y + box / 2 + 5} textAnchor="middle" fontSize="13" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{v}</text>
+            <line x1={left + box} y1={y + box / 2} x2={left + box + 18} y2={y + box / 2} style={{ stroke: 'var(--color-rule-strong)' }} strokeWidth="1.3" />
+            {l.map((t, i) => {
+              const w = chipW(t);
+              const hot = marked.has(`${v},${i}`);
+              const cx = x;
+              x += w + gap;
+              return (
+                <g key={i}>
+                  <rect x={cx} y={y + (box - chipH) / 2} width={w} height={chipH} rx="6" style={{ fill: hot ? 'var(--color-mark-soft)' : 'var(--color-surface)', stroke: hot ? 'var(--color-mark)' : 'var(--color-rule-strong)' }} strokeWidth={hot ? 2.2 : 1} />
+                  <text x={cx + w / 2} y={y + box / 2 + 4} textAnchor="middle" fontSize="12" fontFamily="var(--font-mono, monospace)" style={{ fill: 'var(--color-ink)' }}>{t}</text>
+                </g>
+              );
+            })}
+          </g>
+        );
+      })}
+      {caption ? (
+        <text x={width / 2} y={height - 10} textAnchor="middle" fontSize="12" style={{ fill: 'var(--color-ink-soft)' }}>{caption}</text>
+      ) : null}
+    </svg>
+  );
+}
+
+<Slide title="Una matriz de adyacencia">
+Una **matriz de adyacencia** es una tabla de $$V \times V$$ booleanos: la
+casilla de la fila `v` y la columna `w` es verdadera si hay una arista entre
+`v` y `w`. En un grafo sin dirección cada arista llena dos casillas, una a
+cada lado de la diagonal, y la matriz queda simétrica.
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.5rem 2rem', alignItems: 'center' }}>
+<NodeGraph
+  cols={3}
+  rows={3}
+  nodes={[{ v: 0, x: 0, y: 0 }, { v: 1, x: 2, y: 0 }, { v: 2, x: 1, y: 1 }, { v: 3, x: 1, y: 2 }]}
+  edges={[[0, 1], [0, 2], [1, 2], [2, 3]]}
+  markEdges={[[2, 3]]}
+  caption="cuatro vértices y cuatro aristas"
+  label="Un grafo de cuatro vértices, 0 a 3, con las aristas 0-1, 0-2, 1-2 y 2-3; la arista 2-3 marcada."
+/>
+<AdjMatrix
+  rows={[['false', 'true', 'true', 'false'], ['true', 'false', 'true', 'false'], ['true', 'true', 'false', 'true'], ['false', 'false', 'true', 'false']]}
+  mark={[[2, 3], [3, 2]]}
+  caption="la arista 2-3 llena [2][3] y [3][2]"
+  label="Su matriz de adyacencia de 4 por 4. Son verdaderas las casillas [0][1], [0][2], [1][0], [1][2], [2][0], [2][1], [2][3] y [3][2]; marcadas, [2][3] y [3][2], las dos de la arista 2-3."
+/>
+</div>
+
+</Slide>
+
+<Slide title="El código de la matriz">
+```java
+public class AdjMatrixGraph implements Graph {
+    private final boolean[][] matrix;
+    private int E;
+
+    public AdjMatrixGraph(int V) {
+        matrix = new boolean[V][V];
+    }
+
+    public int V() { return matrix.length; }
+
+    public int E() { return E; }
+
+    public boolean hasEdge(int v, int w) { return matrix[v][w]; }
+
+    public Iterable<Integer> adj(int v) {
+        List<Integer> neighbors = new ArrayList<>();
+        for (int w = 0; w < matrix.length; w++) {
+            if (matrix[v][w]) {
+                neighbors.add(w);
+            }
+        }
+        return neighbors;
+    }
+
+    public void addEdge(int v, int w) {
+        if (!matrix[v][w]) {
+            E++;
+        }
+        matrix[v][w] = true;
+        matrix[w][v] = true;
+    }
+}
+```
+
+`hasEdge` mira una casilla. `adj(v)` recorre la fila completa de `v` para
+encontrar sus vecinos, aunque sean pocos. `addEdge` llena las dos casillas y
+cuenta la arista solo si no estaba.
+
+</Slide>
+
+<Slide title="Unas listas de adyacencia">
+Unas **listas de adyacencia** guardan, por cada vértice, una lista con sus
+vecinos. En un grafo sin dirección cada arista aparece dos veces: en la lista
+de cada uno de sus extremos.
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.5rem 2rem', alignItems: 'center' }}>
+<NodeGraph
+  cols={3}
+  rows={3}
+  nodes={[{ v: 0, x: 0, y: 0 }, { v: 1, x: 2, y: 0 }, { v: 2, x: 1, y: 1 }, { v: 3, x: 1, y: 2 }]}
+  edges={[[0, 1], [0, 2], [1, 2], [2, 3]]}
+  markEdges={[[2, 3]]}
+  caption="el mismo grafo"
+  label="El mismo grafo de cuatro vértices, con las aristas 0-1, 0-2, 1-2 y 2-3; la arista 2-3 marcada."
+/>
+<AdjLists
+  lists={[[1, 2], [0, 2], [0, 1, 3], [2]]}
+  mark={[[2, 2], [3, 0]]}
+  caption="la arista 2-3: un 3 en la lista de 2 y un 2 en la de 3"
+  label="Sus listas de adyacencia: 0 tiene a 1 y 2; 1 tiene a 0 y 2; 2 tiene a 0, 1 y 3; 3 tiene a 2. Marcados, el 3 en la lista de 2 y el 2 en la lista de 3: la arista 2-3."
+/>
+</div>
+
+</Slide>
+
+<Slide title="El código de las listas">
+```java
+public class AdjListGraph implements Graph {
+    private final List<List<Integer>> lists;
+    private int E;
+
+    public AdjListGraph(int V) {
+        lists = new ArrayList<>();
+        for (int v = 0; v < V; v++) {
+            lists.add(new ArrayList<>());
+        }
+    }
+
+    public int V() { return lists.size(); }
+
+    public int E() { return E; }
+
+    public boolean hasEdge(int v, int w) { return lists.get(v).contains(w); }
+
+    public Iterable<Integer> adj(int v) { return lists.get(v); }
+
+    public void addEdge(int v, int w) {
+        lists.get(v).add(w);
+        lists.get(w).add(v);
+        E++;
+    }
+}
+```
+
+`adj(v)` entrega la lista de `v` tal como está. `hasEdge` la recorre buscando
+a `w`. `addEdge` agrega al final de las dos listas, sin revisar si la arista
+ya estaba: agregarla dos veces deja dos aristas.
+
+</Slide>
 
 {/* GridCells — a grid of `rows` × `cols` cells, the cell `at` ([row, col]) painted mark and its neighbours in `ways` directions (4: the ones that share a side; 8: also the ones that share a corner) painted mark-soft, each numbered by the order the code visits them, so the drawing shows what the arrays of displacements reach and that a cell on the border has fewer. File-local (add-a-course-document.md §6e-quater): a grid is a graph no other document draws. */}
 
