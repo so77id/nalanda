@@ -35,7 +35,8 @@ export const stepBoxesCatalogEntry: CatalogEntry = {
     {
       name: 'caption',
       type: 'string',
-      description: 'A line under the figure; the canvas widens to hold it.',
+      description:
+        'A line under the figure; the canvas widens to hold it. A part between backticks is drawn in the code face.',
     },
     {
       name: 'label',

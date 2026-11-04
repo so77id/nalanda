@@ -1389,10 +1389,10 @@ What that costs, and the rules that follow from it:
   y Map's svg frame named so and renamed it `Frame`;
   `app/mdxComponents.test.ts` now fails on a document that exports a
   registered name.
-- **Nothing else lints or tests it.** Past its name, it is the one piece of
-  React in the repo with no gate at all, so it is checked the way a figure is
-  checked — in a browser,
-  over both grounds, walking every frame. For the same reason a prop no call
+- **Nothing else lints or tests it.** Past its name and the palette guard's
+  ban on raw colours (`architecture.test.ts` reads every document), no gate
+  sees it, so it is checked the way a figure is checked — in a browser, over
+  both grounds, walking every frame. For the same reason a prop no call
   site passes, or a branch no call site reaches, is removed before merge: the
   review of #304 found nine of them left over from redraws. One exception, and
   the bar for the next: a prop that a copy of the component on a stacked
@@ -1525,9 +1525,9 @@ Two more came out of Tablas Hash when Set y Map wanted them (#353):
 
 - **`<StepBoxes>`** draws the steps of a computation as a chain of boxes —
   a key, the number its type gives it, the position a table takes from it —
-  with each step written over the arrow between two boxes. A title may write
-  a Java name between backticks to draw it in the code face; `boxWidth`
-  widens the boxes for a value as wide as a RUT.
+  with each step written over the arrow between two boxes. A title or the
+  caption may write a Java name between backticks to draw it in the code
+  face; `boxWidth` widens the boxes for a value as wide as a RUT.
 - **`<ChainTable>`** draws a hash table with chaining in one state: the
   strip with its index, each position's list hanging under its cell, `null`
   where a list ends — the look of `<SequenceStepper eda="hash-chaining">`,
@@ -1537,8 +1537,9 @@ Two more came out of Tablas Hash when Set y Map wanted them (#353):
   order a traversal meets the nodes, `window` part of the table;
   `size="rut"` widens the nodes for a RUT, in a key field two units taller
   than the widget's. A key may be written in two nodes — a class without its
-  `equals` leaves one RUT in two lists — and its tone reaches both. To walk an operation step by
-  step, the widget is the tool; this one is the still picture beside it.
+  `equals` leaves one RUT in two lists — and its tone reaches both. To walk
+  an operation step by step, the widget is the tool; this one is the still
+  picture beside it.
 
 Both register eagerly, for the same reasons; their catalog pages carry the
 props.

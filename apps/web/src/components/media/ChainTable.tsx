@@ -8,8 +8,8 @@ export type ChainTableTone = 'keep' | 'mark' | 'flag' | 'visited';
 export interface ChainTableProps {
   /**
    * One list per position of the table, each from its first node: `[['Eva'], [], ['Leo', 'Ana']]`.
-   * A key may be written twice — a class without its `equals` leaves one RUT in two lists —,
-   * and its tone, `cut` and value then reach every node that holds it.
+   * A key may be written twice — a class without its `equals` leaves one RUT in two lists —:
+   * its tone and value reach every node that holds it, and `cut` the first one of each list.
    */
   chains: string[][];
   /** `name` for short keys, `rut` for keys as wide as a RUT. Default `name`. */
@@ -20,7 +20,7 @@ export interface ChainTableProps {
   only?: boolean;
   /** A tone per key. */
   tones?: Record<string, ChainTableTone>;
-  /** The key being removed: its node struck through, and the link that skips it drawn. */
+  /** The key being removed: its node — the first of its list, as a list's `remove` takes — struck through, and the link that skips it drawn. */
   cut?: string;
   /** A map's value per key, drawn in a band under the key: the node of a map. */
   values?: Record<string, string>;
@@ -225,7 +225,7 @@ export function ChainTable(props: ChainTableProps) {
             {chain.map((key, k) => {
               const y = nodeY(k);
               const tone = tones[key];
-              const leaving = key === cut;
+              const leaving = key === cut && k === chain.indexOf(cut);
               const fill = leaving
                 ? 'var(--color-sunk)'
                 : tone

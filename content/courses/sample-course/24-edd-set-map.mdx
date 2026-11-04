@@ -60,7 +60,7 @@ export const ABSENT = '20.118.702-8';
 
 export const codeText = (text) => text.split(/(`[^`]+`)/).map((part, i) => (part.startsWith('`') ? <tspan key={i} fontFamily="var(--font-mono, monospace)" fontWeight="700">{part.slice(1, -1)}</tspan> : part));
 
-{/* Frame and captionWidth — what every figure below shares, written once (§6e-quater: §6e-ter's rules discharged at the definition). Frame is the <svg> frame: the viewBox, the width a projector can read (`grow` times the drawing's own, 1.3 unless a narrow figure needs more), role="img" and the Spanish label, and its `caption` the line under the figure, written through codeText `inset` above the bottom edge. It is not called Figure: that is the registered image component, and an export of this file by that name would hide it here (§6e-quater). captionWidth is the canvas a caption needs, measured with its backticks removed, since they are not drawn. */}
+{/* Frame and captionWidth — what every figure below shares, written once (§6e-quater: §6e-ter's rules discharged at the definition). Frame is the <svg> frame: the viewBox, the width a projector can read (`grow` times the drawing's own, 1.3 unless a narrow figure needs more), role="img" and the Spanish label, and its `caption` the line under the figure, written through codeText, `inset` above the bottom edge. It is not called Figure: that is the registered image component, and an export of this file by that name would hide it here (§6e-quater). captionWidth is the canvas a caption needs, measured with its backticks removed, since they are not drawn. */}
 
 export function Frame({ width, height, grow = 1.3, label, caption, inset = 10, children }) {
   return (

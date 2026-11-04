@@ -68,6 +68,7 @@ describe('ChainTable', () => {
       'line-through',
     );
     expect(leo.querySelector('rect')?.getAttribute('stroke-dasharray')).toBe('4 3');
+    expect(leo.querySelector('rect')?.getAttribute('stroke-width')).toBe('2.4');
     expect(
       node(container, 'Ana').querySelector('rect')?.getAttribute('stroke-dasharray'),
     ).toBeNull();
@@ -128,6 +129,19 @@ describe('ChainTable', () => {
     expect(strong).toHaveLength(3);
   });
 
+  it('removes the first node of a list that holds the key twice, as remove does', () => {
+    const rut = '13.180.992-1';
+    const { container } = render(
+      <ChainTable chains={[[rut, rut]]} size="rut" cut={rut} label="El mismo RUT dos veces." />,
+    );
+    const struck = [...container.querySelectorAll('text')].filter(
+      (t) => t.getAttribute('text-decoration') === 'line-through',
+    );
+    expect(struck).toHaveLength(1);
+    expect(container.querySelectorAll('rect[stroke-dasharray]')).toHaveLength(1);
+    expect(container.querySelectorAll('[data-bypass]')).toHaveLength(1);
+  });
+
   it('draws only a window of positions, with «…» on each side the table goes on', () => {
     const { container } = render(<ChainTable chains={TABLE} window={[1, 3]} label={LABEL} />);
     const t = texts(container);
@@ -186,6 +200,7 @@ describe('ChainTable', () => {
     const outside = (window: [number, number]) =>
       errorOf(render(<ChainTable chains={TABLE} window={window} label={LABEL} />).container);
     expect(outside([5, 9])).not.toBeNull();
+    expect(outside([-1, 3])).not.toBeNull();
     expect(outside([0, 7])).not.toBeNull();
     expect(outside([3, 2])).not.toBeNull();
     expect(outside([0, 6])).toBeNull();

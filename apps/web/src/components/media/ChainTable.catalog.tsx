@@ -7,7 +7,7 @@ export const chainTableCatalogEntry: CatalogEntry = {
   name: 'ChainTable',
   family: 'media',
   description:
-    "A hash table with chaining drawn still: the table as a contiguous strip with its index, each position's list hanging under its cell, null where a list ends. It shares the cell and node heights of <SequenceStepper>'s hash recipe, so a figure and the widget beside it read alike.",
+    'A hash table with chaining drawn still: the table as a contiguous strip with its index, each position\'s list hanging under its cell, null where a list ends. It shares the cell and node heights of <SequenceStepper>\'s hash recipe (at size="rut" the key field is two units taller), so a figure and the widget beside it read alike.',
   whenToUse:
     'Where a class shows a hash table in one state rather than walking it: the table after some insertions, a search going to its position (picked, only), what a search passes over and finds (tones), a removal and the link that skips the node (cut), the same keys at two sizes, the node of a map with its value (values), or the order a traversal meets the nodes (order). Use size="rut" for keys as wide as a RUT. To walk the operation step by step, use <SequenceStepper eda="hash-chaining"> instead. ' +
     'Promoted from the figures local to edd-tablas-hash and edd-set-map when the second document copied the first (#353, add-a-course-document.md §6e-quater). ' +
@@ -17,13 +17,14 @@ export const chainTableCatalogEntry: CatalogEntry = {
       name: 'chains',
       type: 'string[][]',
       description:
-        'One list per position of the table, each from its first node. At least one position. A key may be written in two nodes (a class without its equals leaves one RUT in two lists); its tone, cut and value reach every node that holds it.',
+        'One list per position of the table, each from its first node. At least one position. A key may be written in two nodes (a class without its equals leaves one RUT in two lists); its tone and value reach every node that holds it, and cut removes the first one of each list, as remove does on a list.',
     },
     {
       name: 'size',
       type: "'name' | 'rut'",
       default: "'name'",
-      description: 'How wide a node is drawn: for a short name, or for a key as wide as a RUT.',
+      description:
+        "How wide a node is drawn: for a short name, or for a key as wide as a RUT, whose key field is two units taller than the widget's for the smaller face it takes.",
     },
     {
       name: 'picked',

@@ -3,7 +3,9 @@
  * hash recipe of `<SequenceStepper>` (`interactive/sequenceStepperHashLayout.ts`)
  * and the static `<ChainTable>` (`media/chainTableLayout.ts`). A class puts a
  * still table beside the widget and the reader compares them cell for cell, so
- * the cell and the two fields of a node are the same height in both.
+ * the cell and the two fields of a node are the same height in both — but
+ * for the key field of the still table's `rut` size, two units taller for the
+ * smaller face a RUT is drawn in (`CHAIN_TABLE_SIZES`).
  *
  * Only the heights: the still table is drawn at its own pitch — narrower for
  * a name, wider for a RUT — because a slide holds it beside prose, while the
