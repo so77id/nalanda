@@ -135,6 +135,31 @@ describe('layoutNodeGraph', () => {
     expect(dist(at.get('B')!, x2, y2)).toBeCloseTo(0, 0);
   });
 
+  it('grows the drawing when a note falls below its last row', () => {
+    // B's only edge leaves upwards, so its note goes below it.
+    const nodes: NodeGraphNode[] = [
+      { v: 'A', x: 0, y: 0 },
+      { v: 'B', x: 0, y: 1 },
+    ];
+    const plain = layoutNodeGraph({
+      nodes,
+      edges: [['A', 'B']],
+      cols: 1,
+      rows: 2,
+      directed: false,
+    });
+    const noted = layoutNodeGraph({
+      nodes,
+      edges: [['A', 'B']],
+      cols: 1,
+      rows: 2,
+      directed: false,
+      noted: ['B'],
+    });
+    expect(noted.noteAt.get('B')!.y).toBeGreaterThan(plain.drawingH - 18);
+    expect(noted.drawingH).toBeGreaterThanOrEqual(noted.noteAt.get('B')!.y + 10);
+  });
+
   it('keeps a circles-only drawing exactly where it was before #356', () => {
     // Árboles I and II mount these; their geometry must not move.
     const { width, drawingH, at } = layoutNodeGraph({

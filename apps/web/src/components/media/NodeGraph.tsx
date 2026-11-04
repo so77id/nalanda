@@ -103,6 +103,7 @@ function Graph({
     rows,
     directed,
     captionChars: caption ? caption.length : 0,
+    noted: Object.keys(notes),
   });
   const { width, drawingH, at, halfW, noteAt } = layout;
   const height = drawingH + (caption ? 20 : 0);

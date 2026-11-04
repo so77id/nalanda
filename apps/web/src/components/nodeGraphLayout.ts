@@ -62,6 +62,8 @@ export interface NodeGraphLayoutInput {
    * to centre, as the strokes of a figure meet at its points.
    */
   trim?: boolean;
+  /** The nodes that carry a note: the drawing grows if one falls below its last row. */
+  noted?: string[];
 }
 
 export const NODE_R = TREE_NODE_R;
@@ -123,12 +125,13 @@ export function layoutNodeGraph({
   directed,
   captionChars = 0,
   trim = true,
+  noted = [],
 }: NodeGraphLayoutInput): NodeGraphLayout {
   const r = NODE_R;
   const drawingW = 2 * PAD + cols * PITCH;
   let width = Math.max(drawingW, captionChars ? captionChars * 6.6 + 24 : 0);
   let offset = (width - drawingW) / 2;
-  const drawingH = 2 * PAD + 2 * r + (rows - 1) * LEVEL_H;
+  let drawingH = 2 * PAD + 2 * r + (rows - 1) * LEVEL_H;
   const halfW = new Map(nodes.map((n) => [String(n.v), nodeHalfWidth(String(n.v))]));
 
   // A pill in the first or last column may reach past the grid: make room.
@@ -224,6 +227,12 @@ export function layoutNodeGraph({
     const u = { x: Math.cos(best), y: Math.sin(best) };
     const reach = borderDistance(halfW.get(k)!, u) + NOTE_GAP;
     noteAt.set(k, { x: r1(p.x + u.x * reach), y: r1(p.y + u.y * reach) });
+  }
+
+  // A note under a node of the last row would sit on the caption: make room.
+  for (const k of noted) {
+    const note = noteAt.get(String(k));
+    if (note && note.y + NOTE_GAP + 8 > drawingH) drawingH = note.y + NOTE_GAP + 8;
   }
 
   return { width, drawingH, at, halfW, edges: laid, noteAt };
