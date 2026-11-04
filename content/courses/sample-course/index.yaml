@@ -37,6 +37,10 @@ entries:
       - docId: edd-priority-queue-heap
       - docId: edd-tablas-hash
       - docId: edd-set-map
+  - label: Grafos
+    levelName: Unidad
+    children:
+      - docId: grafos-representacion
   - label: Evaluaciones
     children:
       - docId: control-1
