@@ -1505,6 +1505,15 @@ points are lettered vertices (Königsberg). Put a point wherever strokes meet
 or cross — the class builds each figure's graph that way. It loads on
 demand, like `<HanoiPlayground>`; its catalog page carries the props.
 
+**`<ProblemMap map="grafos" at="<this document's id>" />`** (#356) shows a
+unit's problem map, read from ONE file,
+`content/courses/sample-course/grafos.problems.yaml`: `docs` lists the
+unit's documents in order, and each problem has its `question`, the
+`solvedIn` document (none: it stays open in the course) and its `tool`. Each
+row's state — solved here, solved before, pending, open — is computed from
+`at`, so no document names another by number and the copies cannot drift. A
+new row, or a new document of the unit, is an edit to that file only.
+
 6f. **An authoring error does not fail the build**, on purpose: writing the
 slides before drawing the diagrams is a real order of work, and gating the
 build would take the dev server with it. A missing image, a `<Figure>` with no

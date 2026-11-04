@@ -2,6 +2,7 @@ import {
   BinaryPicture,
   NodeGraph,
   OrderRule,
+  ProblemMap,
   Explanation,
   Figure,
   LazyBenchmark,
@@ -88,6 +89,11 @@ export const mdxComponents = {
   // commit, the entry chunk grew 3,834 bytes raw, 1,405 with gzip -9.
   NodeGraph,
   OrderRule,
+  // Not lazy either: a static table every Grafos document closes on (#356).
+  // Measured on the shipped build against #356's S3 commit, the component,
+  // its loader and the grafos map's text cost the entry chunk 4,101 bytes
+  // raw, 1,466 with gzip -9; the map grows with each class's rows.
+  ProblemMap,
   // Not lazy: it is one iframe. Measured on the shipped build, registering it
   // eagerly costs the entry chunk 1,463 bytes of component code, and it pulls in
   // no package the first paint did not already need. (That figure used to be

@@ -51,6 +51,7 @@ export { LazyMermaid } from './interactive/lazyMermaid';
 export { MdxPre } from './MdxPre';
 export { BinaryPicture } from './media/BinaryPicture';
 export { NodeGraph } from './media/NodeGraph';
+export { ProblemMap } from './media/ProblemMap';
 export { OrderRule } from './media/OrderRule';
 export { Figure } from './media/Figure';
 export { MathTex } from './media/Math';
