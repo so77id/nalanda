@@ -1305,6 +1305,270 @@ casillas, casi todas falsas.
 
 ## Ejercicios
 
+<Slide title="Las rutas de una aerolínea">
+Una aerolínea publica sus rutas como un texto, una ruta por línea: los
+códigos de los dos aeropuertos que une. Cada ruta se vuela en los dos
+sentidos. La aerolínea quiere saber cuál es su aeropuerto con más rutas, y
+a qué aeropuertos vuela desde ahí.
+
+```text
+SCL LIM
+SCL EZE
+SCL GRU
+LIM BOG
+LIM MIA
+BOG MIA
+LIM GRU
+```
+
+**Entrada.** Las rutas, a lo más $$10^5$$, sin repetir ninguna. $$R$$ es la
+cantidad de rutas y $$A$$, la de aeropuertos.
+
+**Salida.** El código del aeropuerto con más rutas —si hay empate, el que
+aparece primero en el texto— y los códigos de sus destinos.
+
+</Slide>
+
+<Slide title="Rutas aéreas · el grafo">
+Los aeropuertos son los vértices y cada ruta es una arista sin dirección,
+porque se vuela en los dos sentidos. Las rutas no traen un número que el
+problema use: no hay pesos. El aeropuerto con más rutas es el vértice de
+mayor grado, y sus destinos son sus vecinos.
+
+<NodeGraph
+  cols={5}
+  rows={3}
+  nodes={[{ v: 'SCL', x: 0, y: 1 }, { v: 'EZE', x: 0, y: 2 }, { v: 'LIM', x: 2, y: 1 }, { v: 'GRU', x: 1, y: 0 }, { v: 'BOG', x: 4, y: 0 }, { v: 'MIA', x: 4, y: 2 }]}
+  edges={[['SCL', 'LIM'], ['SCL', 'EZE'], ['SCL', 'GRU'], ['LIM', 'BOG'], ['LIM', 'MIA'], ['BOG', 'MIA'], ['LIM', 'GRU']]}
+  notes={{ SCL: 3, EZE: 1, LIM: 4, GRU: 2, BOG: 2, MIA: 2 }}
+  tones={{ LIM: 'mark' }}
+  caption="LIM tiene 4 rutas: a SCL, BOG, MIA y GRU"
+  label="El grafo de las siete rutas con el grado de cada aeropuerto: SCL 3, EZE 1, LIM 4, GRU 2, BOG 2 y MIA 2. LIM, destacado, es el de más rutas."
+/>
+
+Contar cuántas líneas nombra cada código da los grados, pero no los
+destinos. Buscar los destinos recorriendo el texto completo por cada
+aeropuerto cuesta $$\Theta(A \cdot R)$$. Con el grafo armado, los destinos
+son la lista de un vértice.
+
+</Slide>
+
+<Slide title="Rutas aéreas · la solución">
+Al leer cada línea, los dos códigos se traducen a números con `idOf`, y la
+ruta se guarda. Con la cantidad de aeropuertos conocida se arma el grafo, se
+busca el vértice de mayor grado y se escriben los nombres de sus vecinos.
+
+```java
+static void busiest(Scanner in) {
+    List<int[]> routes = new ArrayList<>();
+    while (in.hasNext()) {
+        int v = idOf(in.next());
+        int w = idOf(in.next());
+        routes.add(new int[] {v, w});
+    }
+    Graph g = new AdjListGraph(names.size());
+    for (int[] r : routes) {
+        g.addEdge(r[0], r[1]);
+    }
+    int best = 0;
+    int bestDegree = degree(g, 0);
+    for (int v = 1; v < g.V(); v++) {
+        int d = degree(g, v);
+        if (d > bestDegree) {
+            best = v;
+            bestDegree = d;
+        }
+    }
+    System.out.print(names.get(best) + ":");
+    for (int w : g.adj(best)) {
+        System.out.print(" " + names.get(w));
+    }
+    System.out.println();
+}
+```
+
+El `>` estricto deja, en un empate, el vértice de número menor: el que
+apareció primero en el texto.
+
+</Slide>
+
+<Slide title="Rutas aéreas · el costo">
+- **Tiempo.** Leer las $$R$$ rutas cuesta $$\Theta(R)$$ esperado, por el `Map`
+  de `idOf`. Calcular el grado de cada vértice recorre todas las listas, que
+  suman $$2R$$ entradas: $$\Theta(A + R)$$.
+- **Memoria.** La lista de rutas, el `Map`, los nombres y el grafo:
+  $$\Theta(A + R)$$.
+
+Si el texto repitiera una ruta, el grafo la guardaría dos veces y la contaría
+dos veces en el grado: el enunciado lo descarta.
+
+</Slide>
+
+<Slide title="Una figura de un solo trazo, y desde dónde">
+Dada una figura conexa, el programa responde si se puede dibujar de un solo
+trazo y, si se puede, desde qué punto empezar.
+
+**Entrada.** Un grafo conexo con $$V$$ puntos, numerados de $$0$$ a
+$$V - 1$$, y $$E$$ trazos entre ellos, como lista de aristas.
+
+**Salida.** Un punto donde empezar, o $$-1$$ si la figura no se puede
+dibujar de un solo trazo.
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '0.5rem 2rem', alignItems: 'end' }}>
+<NodeGraph
+  cols={3}
+  rows={4}
+  nodes={[{ v: 0, x: 1, y: 0 }, { v: 1, x: 0, y: 1 }, { v: 2, x: 2, y: 1 }, { v: 5, x: 1, y: 2 }, { v: 3, x: 0, y: 3 }, { v: 4, x: 2, y: 3 }]}
+  edges={[[0, 1], [0, 2], [1, 2], [1, 3], [2, 4], [3, 4], [1, 5], [5, 4], [2, 5], [5, 3]]}
+  caption="la casa: empieza en 3"
+  label="La casa numerada de 0 a 5. La respuesta es 3, una de sus dos esquinas de abajo."
+/>
+<NodeGraph
+  cols={3}
+  rows={3}
+  nodes={[{ v: 0, x: 0, y: 0 }, { v: 1, x: 2, y: 0 }, { v: 4, x: 1, y: 1 }, { v: 2, x: 0, y: 2 }, { v: 3, x: 2, y: 2 }]}
+  edges={[[0, 1], [2, 3], [0, 2], [1, 3], [0, 4], [4, 3], [1, 4], [4, 2]]}
+  caption="el sobre: −1"
+  label="El sobre numerado de 0 a 4. La respuesta es menos 1: no se puede."
+/>
+</div>
+
+</Slide>
+
+<Slide title="Un solo trazo · la idea">
+Probar todos los órdenes de los trazos funciona, pero $$E$$ trazos se pueden
+ordenar de $$E!$$ maneras. La regla de Euler responde sin probar ninguno: en
+un grafo conexo, lo deciden los vértices de grado impar.
+
+- **Ninguno**: cualquier punto sirve, y el trazo vuelve a él.
+- **Dos**: hay que empezar en uno de los dos.
+- **Más de dos**: no se puede.
+
+Basta con calcular el grado de cada vértice y quedarse con los impares.
+
+</Slide>
+
+<Slide title="Un solo trazo · la solución">
+```java
+static int startOf(Graph g) {
+    List<Integer> odd = new ArrayList<>();
+    for (int v = 0; v < g.V(); v++) {
+        if (degree(g, v) % 2 == 1) {
+            odd.add(v);
+        }
+    }
+    if (odd.isEmpty()) {
+        return 0;
+    }
+    if (odd.size() == 2) {
+        return odd.get(0);
+    }
+    return -1;
+}
+```
+
+Sin vértices impares, cualquier punto sirve, y el método responde el $$0$$.
+Con dos, el trazo empieza en el primero y termina en el segundo.
+
+- **Tiempo.** El grado de cada vértice recorre su lista: $$\Theta(V + E)$$
+  en total.
+- **Memoria.** La lista de impares: $$O(V)$$.
+
+La respuesta vale solo si el grafo es conexo, como dice el enunciado: dos
+figuras separadas pueden tener sus grados pares y no dibujarse de un trazo.
+
+</Slide>
+
+<Slide title="Sugerir amigos">
+Una red social sugiere a cada persona a alguien que todavía no es su amigo:
+la persona con más **amigos en común** con ella.
+
+**Entrada.** Las amistades de $$V$$ personas, numeradas de $$0$$ a $$V - 1$$,
+y la persona `u` que recibe la sugerencia.
+
+**Salida.** La persona que no es `u` ni amiga de `u` con más amigos en común
+con `u` —si hay empate, la de número menor—, o $$-1$$ si nadie tiene un amigo
+en común con `u`.
+
+<NodeGraph
+  cols={5}
+  rows={3}
+  nodes={[{ v: 'Ana', x: 0, y: 1 }, { v: 'Beto', x: 2, y: 0 }, { v: 'Caro', x: 2, y: 2 }, { v: 'Dani', x: 4, y: 1 }, { v: 'Eva', x: 4, y: 0 }]}
+  edges={[['Ana', 'Beto'], ['Ana', 'Caro'], ['Beto', 'Dani'], ['Caro', 'Dani'], ['Beto', 'Eva']]}
+  tones={{ Ana: 'mark', Dani: 'keep' }}
+  caption="para Ana: Dani, con 2 amigos en común; Eva tiene 1"
+  label="Ana, destacada, es amiga de Beto y de Caro. Beto es amigo de Dani y de Eva, y Caro de Dani. Dani, sugerido, comparte dos amigos con Ana; Eva comparte uno."
+/>
+
+</Slide>
+
+<Slide title="Sugerir amigos · la idea">
+Contar los amigos en común de `u` con cada otra persona, uno por uno, compara
+listas de amigos para cada persona de la red, aunque casi todas estén lejos
+de `u`.
+
+Un amigo en común con `w` es un amigo `x` de `u` que también es amigo de `w`.
+Al revés: cada amigo `x` de `u` le suma un amigo en común a **cada uno de sus
+propios amigos**. Basta con recorrer los amigos de los amigos de `u`, con un
+contador por persona, y saltarse a `u` y a quienes ya son sus amigos.
+
+<NodeGraph
+  cols={5}
+  rows={3}
+  nodes={[{ v: 'Ana', x: 0, y: 1 }, { v: 'Beto', x: 2, y: 0 }, { v: 'Caro', x: 2, y: 2 }, { v: 'Dani', x: 4, y: 1 }, { v: 'Eva', x: 4, y: 0 }]}
+  edges={[['Ana', 'Beto'], ['Ana', 'Caro'], ['Beto', 'Dani'], ['Caro', 'Dani'], ['Beto', 'Eva']]}
+  markEdges={[['Beto', 'Dani'], ['Caro', 'Dani'], ['Beto', 'Eva']]}
+  notes={{ Dani: 2, Eva: 1 }}
+  tones={{ Ana: 'mark' }}
+  caption="los amigos de los amigos de Ana, con su cuenta"
+  label="Desde Beto y Caro, los amigos de Ana, se marcan sus amistades: Beto suma uno a Dani y a Eva, y Caro suma uno a Dani. Dani queda con 2 y Eva con 1."
+/>
+
+</Slide>
+
+<Slide title="Sugerir amigos · la solución">
+```java
+static int suggest(Graph g, int u) {
+    boolean[] friend = new boolean[g.V()];
+    for (int x : g.adj(u)) {
+        friend[x] = true;
+    }
+    int[] common = new int[g.V()];
+    for (int x : g.adj(u)) {
+        for (int w : g.adj(x)) {
+            if (w != u && !friend[w]) {
+                common[w]++;
+            }
+        }
+    }
+    int best = -1;
+    for (int w = 0; w < g.V(); w++) {
+        if (common[w] > 0 && (best == -1 || common[w] > common[best])) {
+            best = w;
+        }
+    }
+    return best;
+}
+```
+
+`friend` marca a los amigos de `u` para saltarlos en tiempo constante, sin
+preguntar `hasEdge`, que en listas recorrería la lista de `u` cada vez.
+
+</Slide>
+
+<Slide title="Sugerir amigos · el costo">
+- **Tiempo.** Recorrer los amigos de los amigos de `u` cuesta la suma de los
+  grados de los amigos de `u`, a lo más $$2E$$. Crear los dos arreglos y
+  buscar el mayor cuesta $$\Theta(V)$$. En total, $$O(V + E)$$, y casi siempre
+  mucho menos que $$E$$ en el recorrido: solo se miran las personas a dos
+  pasos de `u`.
+- **Memoria.** Los dos arreglos: $$\Theta(V)$$.
+
+Si `u` no tiene amigos, o sus amigos no tienen otros amigos, ningún contador
+sube y el método retorna $$-1$$.
+
+</Slide>
+
 <SectionBreak />
 
 ## Más allá de la matriz y las listas
