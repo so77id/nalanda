@@ -14,7 +14,7 @@ own home in [`write-control-questions.md`](write-control-questions.md),
 because a question is a measurement and its wording rules follow from that.
 
 The **shape** of a class in the Estructuras de Datos and Estructuras de Datos
-Avanzadas units — the acts and the
+Avanzadas units, and in the graphs unit after them (#354) — the acts and the
 four questions they answer, the TDA card, the invariant list, the cost table,
 the closing trade — is a third
 layer, in [`teach-a-data-structure.md`](teach-a-data-structure.md). It decides
@@ -226,6 +226,14 @@ Two consequences worth spelling out, because #288 hit both:
   word.** «El nodo anterior apunta a 9» is prose; `prev` is the variable. A
   blanket rename of one into the other produces sentences like «el nodo prev al
   último», which is neither. Rename the identifiers, then read the prose back.
+
+**A domain's own name is not a Spanish identifier.** `Rut` and its field `dv`
+(dígito verificador) name a Chilean document that has no English name the
+student will meet: RUT libraries and forms write `rut` and `dv`, so they
+pass the rule's own test — the vocabulary keeps working outside the page. The
+rule is for words the Java world names in English (`Nodo` is `Node`), not for
+the domain's proper nouns. #352's review flagged `dv` and kept it for that
+reason.
 
 ## 6. Where this fits with other rules
 

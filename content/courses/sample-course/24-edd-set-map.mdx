@@ -46,7 +46,7 @@ preguntas que la tabla no sabe responder. Separar lo que se pregunta de cómo
 se guarda permite escribir un programa una sola vez y elegir después la
 estructura que lo hace más barato.
 
-{/* The running example: the RUTs that have voted, as text with its dots, as a carnet prints them. Eight digits each, so the order of the text is the order of the numbers until the class says otherwise, and check digits that are valid under módulo 11. VOTED lists them in the order they arrive; VOTED_TABLE is the chaining table with M = 7 those arrivals build under the hash class's own `hash` (Horner, base 256, over the text with its dots, each key at the FRONT of its list), and VOTED_TREE is the AVL tree the same arrivals build. Computed by a script, not drawn by hand; the output is quoted in the commit that brought them. ABSENT is a RUT that has not voted: valid check digit, position 5 of the table, empty. */}
+{/* The running example: the RUTs that have voted, as text with its dots, as a carnet prints them. Eight digits each, so the order of the text is the order of the numbers until the class says otherwise, and check digits that are valid under módulo 11. Every RUT in this file is invented, taken from no roster; only the check digits are computed. VOTED lists them in the order they arrive; VOTED_TABLE is the chaining table with M = 7 those arrivals build under the hash class's own `hash` (Horner, base 256, over the text with its dots, each key at the FRONT of its list), and VOTED_TREE is the AVL tree the same arrivals build. Computed by a script, not drawn by hand; the output is quoted in the commit that brought them. ABSENT is a RUT that has not voted: valid check digit, position 5 of the table, empty. */}
 
 export const VOTED = ['18.155.218-2', '13.180.992-1', '13.959.276-K', '17.814.358-1', '22.715.853-0', '12.547.354-7'];
 
@@ -56,9 +56,58 @@ export const VOTED_TREE = { v: '13.959.276-K', l: { v: '13.180.992-1', l: { v: '
 
 export const ABSENT = '20.118.702-8';
 
-{/* codeText — a caption or a title whose Java names go between backticks: each one is drawn bold in the code face, as the prose sets them, so a variable named «a» is not read as the preposition. A figure measures its caption with the backticks removed. */}
+{/* codeText — a caption or a title whose Java names go between backticks: each one is drawn bold in the code face, as the prose sets them, so a variable named «a» is not read as the preposition. It and captionWidth below copy apps/web/src/components/media/figureText.tsx, the tested original, which a document cannot import: these copies fail late, in a browser, so a change to either side is carried to the other. */}
 
-export const codeText = (text) => text.split(/(`[^`]+`)/).map((part, i) => (part.startsWith('`') ? <tspan key={i} fontFamily="var(--font-mono, monospace)" fontWeight="700">{part.slice(1, -1)}</tspan> : part));
+export const codeText = (text) => (text ?? '').split(/(`[^`]+`)/).map((part, i) => (part.startsWith('`') ? <tspan key={i} fontFamily="var(--font-mono, monospace)" fontWeight="700">{part.slice(1, -1)}</tspan> : part));
+
+{/* Frame and captionWidth — what every figure below shares, written once (§6e-quater: §6e-ter's rules discharged at the definition). Frame is the <svg> frame: the viewBox, the width a projector can read (`grow` times the drawing's own, 1.3 unless a narrow figure needs more), role="img" and the Spanish label, and its `caption` the line under the figure, written through codeText, `inset` above the bottom edge. It is not called Figure: that is the registered image component, and an export of this file by that name would hide it here (§6e-quater). captionWidth is the canvas a caption needs, measured with its backticks removed, since they are not drawn. */}
+
+export function Frame({ width, height, grow = 1.3, label, caption, inset = 10, children }) {
+  return (
+    <svg viewBox={`0 0 ${width} ${height}`} style={{ width: '100%', maxWidth: `${Math.round(width * grow)}px`, height: 'auto', display: 'block', margin: '0.4rem auto' }} role="img" aria-label={label}>
+      {children}
+      {caption ? (
+        <text x={width / 2} y={height - inset} textAnchor="middle" fontSize="12" style={{ fill: 'var(--color-ink-soft)' }}>{codeText(caption)}</text>
+      ) : null}
+    </svg>
+  );
+}
+
+export const captionWidth = (text) => (text ? text.replace(/`/g, '').length * 6.6 + 24 : 0);
+
+{/* paint — the fill and stroke of a highlighted shape: a tone's soft fill and its full stroke, or the shape's own base when it has no tone. SURFACE and SUNK are the two bases the figures use. */}
+
+export const SURFACE = ['var(--color-surface)', 'var(--color-rule-strong)'];
+export const SUNK = ['var(--color-sunk)', 'var(--color-rule-strong)'];
+export const paint = (tone, [fill, stroke] = SURFACE) => (tone ? { fill: `var(--color-${tone}-soft)`, stroke: `var(--color-${tone})` } : { fill, stroke });
+
+{/* ChipRow and PriceCells — the two rows the exercises draw, each in a still figure and in the frames of a walk: ChipRow the RUTs in the order they arrive (RutRow, SeenFrame), PriceCells the prices (PriceRow, WindowFrame), each item with its position over it. They are pieces, not figures: a <g>'s worth, placed by the figure that holds them. The size is a prop — a frame draws smaller, to fit beside its listing. `at` outlines the item being read; `tone`, `mark`, `dim` and `dashed` say, per position, how an item is drawn. */}
+
+export function ChipRow({ items, left, indexY, chipY, chipW, chipH, gap, font, at = -1, tone = () => undefined, dim = () => false }) {
+  return items.map((item, i) => {
+    const x = left + i * (chipW + gap);
+    const ring = i === at;
+    const t = tone(i);
+    const { fill, stroke } = paint(t);
+    return (
+      <g key={i} opacity={dim(i) ? 0.5 : undefined}>
+        <text x={x + chipW / 2} y={indexY} textAnchor="middle" fontSize="11" fontWeight={ring ? 700 : 400} style={{ fill: ring ? 'var(--color-ink)' : 'var(--color-ink-faint)' }}>{i}</text>
+        <rect x={x} y={chipY} width={chipW} height={chipH} rx={chipH / 2} style={{ fill, stroke: ring ? 'var(--color-focus)' : stroke }} strokeWidth={ring ? 2.6 : t ? 2.2 : 1.2} />
+        <text x={x + chipW / 2} y={chipY + chipH / 2 + 5} textAnchor="middle" fontSize={font} fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{item}</text>
+      </g>
+    );
+  });
+}
+
+export function PriceCells({ prices, left, indexY, cellY, cell, font, indexFont = 11, mark = () => false, dim = () => false, dashed = () => false }) {
+  return prices.map((price, i) => (
+    <g key={i} opacity={dim(i) ? 0.45 : undefined}>
+      <text x={left + i * cell + cell / 2} y={indexY} textAnchor="middle" fontSize={indexFont} style={{ fill: 'var(--color-ink-faint)' }}>{i}</text>
+      <rect x={left + i * cell} y={cellY} width={cell} height={cell} style={paint(mark(i) && 'mark')} strokeWidth={mark(i) ? 2.2 : 1.2} strokeDasharray={dashed(i) ? '4 3' : undefined} />
+      <text x={left + i * cell + cell / 2} y={cellY + cell / 2 + Math.ceil(font / 3)} textAnchor="middle" fontSize={font} fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{price}</text>
+    </g>
+  ));
+}
 
 {/* KeySet — a set drawn as what the contract sees: a rounded region holding its elements as chips, with no positions and no order. `probe` draws a question over it — a chip «¿x?» with an arrow — that lands on the chip that answers it, painted `keep`, or on the edge of the region when nothing answers. `adds` draws the same chip as an element arriving, «+ x», instead of a question. `tones` paints chips `mark`: what the slide points at. `values` writes each key's value after it, «key → value», for a map; the question still names the key alone. File-local (add-a-course-document.md §6e-quater): no catalog entry, one consumer. */}
 
@@ -74,7 +123,7 @@ export function KeySet({ title, keys, probe, adds = false, tones = {}, values, c
   const blobH = rows * chipH + (rows - 1) * gap + 2 * inner;
   const probeW = 138;
   const blobY = probe ? 12 + chipH + 46 : 26;
-  const width = Math.max(blobW + 24, caption ? caption.length * 6.6 + 24 : 0);
+  const width = Math.max(blobW + 24, captionWidth(caption));
   const blobX = (width - blobW) / 2;
   const height = blobY + blobH + (caption ? 34 : 12);
   const chipX = (n) => blobX + inner + (n % perRow) * (chipW + gap);
@@ -87,7 +136,7 @@ export function KeySet({ title, keys, probe, adds = false, tones = {}, values, c
   const toY = at >= 0 ? chipY(at) - 4 : blobY - 4;
   const arrow = at >= 0 ? 'var(--color-keep)' : 'var(--color-ink-soft)';
   return (
-    <svg viewBox={`0 0 ${width} ${height}`} style={{ width: '100%', maxWidth: `${Math.round(width * 1.3)}px`, height: 'auto', display: 'block', margin: '0.4rem auto' }} role="img" aria-label={label}>
+    <Frame width={width} height={height} label={label} caption={caption}>
       <defs>
         <marker id={`${id}-punta`} markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
           <path d="M0,0 L8,4 L0,8 z" style={{ fill: arrow }} />
@@ -96,8 +145,7 @@ export function KeySet({ title, keys, probe, adds = false, tones = {}, values, c
       <rect x={blobX} y={blobY} width={blobW} height={blobH} rx="18" style={{ fill: 'var(--color-sunk)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.4" />
       <text x={blobX + 14} y={blobY - 8} fontSize="12" fontWeight="700" style={{ fill: 'var(--color-ink-soft)' }}>{title}</text>
       {keys.map((k, n) => {
-        const fill = n === at ? 'var(--color-keep-soft)' : tones[k] === 'mark' ? 'var(--color-mark-soft)' : 'var(--color-surface)';
-        const stroke = n === at ? 'var(--color-keep)' : tones[k] === 'mark' ? 'var(--color-mark)' : 'var(--color-rule-strong)';
+        const { fill, stroke } = paint(n === at ? 'keep' : tones[k]);
         return (
           <g key={k}>
             <rect x={chipX(n)} y={chipY(n)} width={chipW} height={chipH} rx="15" style={{ fill, stroke }} strokeWidth={n === at || tones[k] ? 2.2 : 1.2} />
@@ -112,112 +160,13 @@ export function KeySet({ title, keys, probe, adds = false, tones = {}, values, c
           <line x1={probeX} y1={12 + chipH + 2} x2={toX} y2={toY} style={{ stroke: arrow }} strokeWidth="1.6" markerEnd={`url(#${id}-punta)`} />
         </g>
       ) : null}
-      {caption ? (
-        <text x={width / 2} y={height - 10} textAnchor="middle" fontSize="12" style={{ fill: 'var(--color-ink-soft)' }}>{caption}</text>
-      ) : null}
-    </svg>
+    </Frame>
   );
 }
 
-{/* ChainTable — a hash table with chaining drawn still, with nodes wide enough for a RUT. COPIES the look of the hash-chaining recipe of <SequenceStepper> (sequenceStepperHashLayout.ts: a contiguous strip with its index, nodes with the key over a `next` field, lists hanging down, `null` where one ends), as the file-local `Chains` of 23-edd-tablas-hash.mdx does at a narrower node; neither copy is tested, so a change in the recipe is carried to both by hand and checked in a browser. Not `Chains` itself: that one draws names in 56 px, and a RUT needs twice that. `order` numbers every node in the order a walk over the table meets it — position by position, each list from its front —, `tones` paints a key's node (`keep`, `mark`, `visited`, `faint`), `values` adds a band under each key with its value, the node of a map: key, value, `next`; `picked` outlines the position a search goes to, and `window={[from, to]}` draws only those positions, with «…» where the table goes on, as `Chains` does, so two drawings side by side keep a size a projector can read. File-local (§6e-quater). */}
+{/* KeyTree — a binary search tree whose keys are too wide for <BinaryPicture>'s circles: the same placement (every node in the column of its inorder position, on the row of its depth) and the same tones and inorder colour (design-system.md §The tree figures' palette), with each node a pill as wide as a RUT. `order` numbers the nodes in inorder, as BinaryPicture's `visits="in"` does, and `strip` writes the inorder under the tree, each key in its node's column, which is why the row comes out sorted. `values` writes each key's value under it inside a taller node, the node of a map. `tones` paints a node and its slot in the strip. File-local (§6e-quater); BinaryPicture is the component, this only exists because a RUT does not fit in it. */}
 
-export function ChainTable({ chains, tones = {}, values, order = false, picked, window: shown, caption, label }) {
-  const pad = 12;
-  const pitch = 108;
-  const cellH = 30;
-  const nodeW = 98;
-  const keyH = 24;
-  const valueH = values ? 20 : 0;
-  const nodeH = keyH + valueH + 12;
-  const gap = 18;
-  const indexY = 18;
-  const cellY = 26;
-  const [lo, hi] = shown ?? [0, chains.length - 1];
-  const longest = Math.max(1, ...chains.slice(lo, hi + 1).map((c) => c.length));
-  const stripW = (hi - lo + 1) * pitch;
-  const width = Math.max(2 * pad + stripW + (shown ? 40 : 0), caption ? caption.replace(/`/g, '').length * 6.6 + 24 : 0);
-  const left = (width - stripW) / 2;
-  const nodeY = (k) => cellY + cellH + gap + k * (nodeH + gap);
-  const height = nodeY(longest) - gap + 18 + (caption ? 30 : 6);
-  const fill = { keep: 'var(--color-keep-soft)', mark: 'var(--color-mark-soft)', flag: 'var(--color-flag-soft)', visited: 'var(--color-sunk)', faint: 'var(--color-surface)' };
-  const stroke = { keep: 'var(--color-keep)', mark: 'var(--color-mark)', flag: 'var(--color-flag)', visited: 'var(--color-rule-strong)', faint: 'var(--color-rule)' };
-  const rank = {};
-  chains.flat().forEach((key, n) => {
-    rank[key] = n + 1;
-  });
-  return (
-    <svg viewBox={`0 0 ${width} ${height}`} style={{ width: '100%', maxWidth: `${Math.round(width * 1.3)}px`, height: 'auto', display: 'block', margin: '0.4rem auto' }} role="img" aria-label={label}>
-      {lo > 0 ? (
-        <text x={left - 12} y={cellY + cellH / 2 + 4} textAnchor="middle" fontSize="13" style={{ fill: 'var(--color-ink-faint)' }}>…</text>
-      ) : null}
-      {hi < chains.length - 1 ? (
-        <text x={left + stripW + 12} y={cellY + cellH / 2 + 4} textAnchor="middle" fontSize="13" style={{ fill: 'var(--color-ink-faint)' }}>…</text>
-      ) : null}
-      {chains.map((chain, i) => {
-        if (i < lo || i > hi) return null;
-        const x0 = left + (i - lo) * pitch;
-        const cx = x0 + pitch / 2;
-        return (
-          <g key={i}>
-            <text x={cx} y={indexY} textAnchor="middle" fontSize="11" fontWeight={picked === i ? 700 : 400} style={{ fill: picked === i ? 'var(--color-ink)' : 'var(--color-ink-faint)' }}>{i}</text>
-            <rect x={x0} y={cellY} width={pitch} height={cellH} style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.2" />
-            {chain.length === 0 ? (
-              <text x={cx} y={cellY + cellH / 2 + 4} textAnchor="middle" fontSize="11" style={{ fill: 'var(--color-ink-faint)' }}>null</text>
-            ) : (
-              <g>
-                <circle cx={cx} cy={cellY + cellH / 2} r="3" style={{ fill: 'var(--color-ink-soft)' }} />
-                <line x1={cx} y1={cellY + cellH / 2} x2={cx} y2={nodeY(0) - 2} style={{ stroke: 'var(--color-ink-soft)' }} strokeWidth="1.4" />
-                <path d={`M ${cx - 4} ${nodeY(0) - 7} L ${cx} ${nodeY(0) - 1} L ${cx + 4} ${nodeY(0) - 7} z`} style={{ fill: 'var(--color-ink-soft)' }} />
-              </g>
-            )}
-            {chain.map((key, k) => {
-              const y = nodeY(k);
-              const t = tones[key];
-              return (
-                <g key={key} opacity={t === 'faint' ? 0.45 : undefined}>
-                  <rect x={cx - nodeW / 2} y={y} width={nodeW} height={nodeH} rx="3" style={{ fill: t ? fill[t] : 'var(--color-surface)', stroke: t ? stroke[t] : 'var(--color-rule)' }} strokeWidth={t === 'keep' || t === 'mark' ? 2.2 : 1.2} />
-                  <line x1={cx - nodeW / 2} y1={y + keyH} x2={cx + nodeW / 2} y2={y + keyH} style={{ stroke: t ? stroke[t] : 'var(--color-rule)' }} strokeWidth="1" />
-                  <text x={cx} y={y + keyH / 2 + 5} textAnchor="middle" fontSize="12.5" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{key}</text>
-                  {values ? (
-                    <g>
-                      <line x1={cx - nodeW / 2} y1={y + keyH + valueH} x2={cx + nodeW / 2} y2={y + keyH + valueH} style={{ stroke: t ? stroke[t] : 'var(--color-rule)' }} strokeWidth="1" />
-                      <text x={cx} y={y + keyH + valueH / 2 + 4} textAnchor="middle" fontSize="11.5" style={{ fill: 'var(--color-ink-soft)' }}>{values[key]}</text>
-                    </g>
-                  ) : null}
-                  {k < chain.length - 1 ? (
-                    <g>
-                      <circle cx={cx} cy={y + keyH + valueH + (nodeH - keyH - valueH) / 2} r="2.5" style={{ fill: 'var(--color-ink-soft)' }} />
-                      <line x1={cx} y1={y + keyH + valueH + (nodeH - keyH - valueH) / 2} x2={cx} y2={nodeY(k + 1) - 2} style={{ stroke: 'var(--color-ink-soft)' }} strokeWidth="1.4" />
-                      <path d={`M ${cx - 4} ${nodeY(k + 1) - 7} L ${cx} ${nodeY(k + 1) - 1} L ${cx + 4} ${nodeY(k + 1) - 7} z`} style={{ fill: 'var(--color-ink-soft)' }} />
-                    </g>
-                  ) : (
-                    <text x={cx} y={y + nodeH + 13} textAnchor="middle" fontSize="10" style={{ fill: 'var(--color-ink-faint)' }}>null</text>
-                  )}
-                  {order ? (
-                    <g>
-                      <circle cx={cx - nodeW / 2} cy={y} r="8.5" strokeWidth="2" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-ink-soft)' }} />
-                      <text x={cx - nodeW / 2} y={y + 3.8} textAnchor="middle" fontSize="10.5" fontWeight="700" style={{ fill: 'var(--color-ink)' }}>{rank[key]}</text>
-                    </g>
-                  ) : null}
-                </g>
-              );
-            })}
-            {picked === i ? (
-              <rect x={x0} y={cellY} width={pitch} height={cellH} fill="none" style={{ stroke: 'var(--color-focus)' }} strokeWidth="2.4" />
-            ) : null}
-          </g>
-        );
-      })}
-      {caption ? (
-        <text x={width / 2} y={height - 8} textAnchor="middle" fontSize="12" style={{ fill: 'var(--color-ink-soft)' }}>{codeText(caption)}</text>
-      ) : null}
-    </svg>
-  );
-}
-
-{/* KeyTree — a binary search tree whose keys are too wide for <BinaryPicture>'s circles: the same placement (every node in the column of its inorder position, on the row of its depth) and the same tones and inorder colour (design-system.md §The tree figures' palette), with each node a pill as wide as a RUT. `order` numbers the nodes in inorder, as BinaryPicture's `visits="in"` does, and `strip` writes the inorder under the tree, each key in its node's column, which is why the row comes out sorted. `values` writes each key's value under it inside a taller node, the node of a map. `minColumns` widens the canvas as BinaryPicture's does, so a tree drawn beside a wider figure comes out at the same size. `tones` paints a node and its slot in the strip. File-local (§6e-quater); BinaryPicture is the component, this only exists because a RUT does not fit in it. */}
-
-export function KeyTree({ tree, tones = {}, values, order = false, strip = false, minColumns = 0, caption, label }) {
+export function KeyTree({ tree, tones = {}, values, order = false, strip = false, caption, label }) {
   const pad = 12;
   const nodeW = 98;
   const nodeH = values ? 42 : 30;
@@ -233,9 +182,9 @@ export function KeyTree({ tree, tones = {}, values, order = false, strip = false
   };
   place(tree, 0);
   const column = Object.fromEntries(nodes.map((n) => [n.v, n.column]));
-  const deepest = Math.max(...nodes.map((n) => n.depth));
+  const deepest = Math.max(0, ...nodes.map((n) => n.depth));
   const treeW = nodes.length * colW;
-  const width = Math.max(2 * pad + Math.max(nodes.length, minColumns) * colW, caption ? caption.length * 6.6 + 24 : 0);
+  const width = Math.max(2 * pad + nodes.length * colW, captionWidth(caption));
   const left = (width - treeW) / 2;
   const cx = (v) => left + column[v] * colW + colW / 2;
   const cy = (depth) => pad + 8 + nodeH / 2 + depth * levelH;
@@ -249,18 +198,18 @@ export function KeyTree({ tree, tones = {}, values, order = false, strip = false
     black: ['var(--color-ink)', 'var(--color-ink)', 2.2],
     red: ['var(--color-flag-soft)', 'var(--color-flag)', 2.4],
   };
-  const paint = (v) => tone[tones[v]] ?? ['var(--color-surface)', 'var(--color-rule-strong)', 1.3];
+  const look = (v) => tone[tones[v]] ?? ['var(--color-surface)', 'var(--color-rule-strong)', 1.3];
   return (
-    <svg viewBox={`0 0 ${width} ${height}`} style={{ width: '100%', maxWidth: `${Math.round(width * 1.3)}px`, height: 'auto', display: 'block', margin: '0.4rem auto' }} role="img" aria-label={label}>
+    <Frame width={width} height={height} label={label} caption={caption}>
       {nodes.flatMap((n) =>
         [n.l, n.r].filter(Boolean).map((child) => (
           <line key={`e${child.v}`} x1={cx(n.v)} y1={cy(n.depth) + nodeH / 2} x2={cx(child.v)} y2={cy(n.depth + 1) - nodeH / 2} style={{ stroke: 'var(--color-rule-strong)' }} strokeWidth="1.4" />
         )),
       )}
       {nodes.map((n) => {
-        const [fill, stroke, weight] = paint(n.v);
+        const [fill, stroke, weight] = look(n.v);
         return (
-          <g key={n.v} opacity={tones[n.v] === 'faint' ? 0.45 : undefined}>
+          <g key={n.v}>
             <rect x={cx(n.v) - nodeW / 2} y={cy(n.depth) - nodeH / 2} width={nodeW} height={nodeH} rx={values ? 12 : nodeH / 2} style={{ fill, stroke }} strokeWidth={weight} />
             <text x={cx(n.v)} y={cy(n.depth) + (values ? -2 : 5)} textAnchor="middle" fontSize="12.5" fontWeight="600" style={{ fill: tones[n.v] === 'black' ? 'var(--color-ground)' : 'var(--color-ink)' }}>{n.v}</text>
             {values ? (
@@ -282,10 +231,7 @@ export function KeyTree({ tree, tones = {}, values, order = false, strip = false
           </g>
         );
       })}
-      {caption ? (
-        <text x={width / 2} y={height - 10} textAnchor="middle" fontSize="12" style={{ fill: 'var(--color-ink-soft)' }}>{caption}</text>
-      ) : null}
-    </svg>
+    </Frame>
   );
 }
 
@@ -449,6 +395,7 @@ retorna el contador `size` que la tabla ya lleva.
   posición, las entrega en un orden que no significa nada.
 
 <ChainTable
+  size="rut"
   chains={VOTED_TABLE}
   order
   caption="el recorrido va posición por posición: 17.814.358-1 sale antes que 12.547.354-7"
@@ -515,6 +462,7 @@ crece con la mayor de las dos cantidades:
   pagando el arreglo que tenía, y $$M$$ puede ser mucho mayor que $$N$$.
 
 <ChainTable
+  size="rut"
   chains={[[], [], [], [], [], [], ['13.959.276-K']]}
   caption="después de sacar cinco de los seis RUTs: siete posiciones para uno"
   label="La tabla de siete posiciones después de sacar cinco de sus seis RUTs. Solo la posición 6 guarda un RUT, 13.959.276-K; las otras seis guardan null."
@@ -557,6 +505,7 @@ clave dada, así que cada pregunta mira todas las posiciones:
   $$\Theta(M + N \log N)$$.
 
 <ChainTable
+  size="rut"
   chains={VOTED_TABLE}
   tones={{ '13.180.992-1': 'keep', '13.959.276-K': 'keep', '17.814.358-1': 'keep' }}
   caption="los RUTs entre 13 y 18 millones, en la tabla: en las posiciones 0, 3 y 6"
@@ -751,6 +700,7 @@ dos pasos, como la tabla con listas:
 En Java, las dos cosas son métodos que escribe el tipo del elemento:
 **`hashCode`** da el número, y **`equals`** decide la igualdad.
 <ChainTable
+  size="rut"
   chains={RUT_TABLE}
   picked={4}
   tones={{ '13.959.276-K': 'visited', '13.180.992-1': 'keep' }}
@@ -902,46 +852,6 @@ llega a compararlos.
 
 </Slide>
 
-{/* StepBoxes — COPIES the figure of the same name in 23-edd-tablas-hash.mdx: the steps from a key to its position, each value in a box with its title over it and the step written over the arrow between them. Here each row is one Rut object: its RUT, the number the inherited hashCode gave it in one run, and the position that number takes in a table of 7. Boxes are wider than 23's, for a ten-digit number. File-local (add-a-course-document.md §6e-quater). */}
-
-export function StepBoxes({ boxes, steps, caption, label, id }) {
-  const pad = 14;
-  const boxW = 150;
-  const boxH = 44;
-  const gap = 150;
-  const top = 26;
-  const core = 2 * pad + boxes.length * boxW + (boxes.length - 1) * gap;
-  const width = Math.max(core, caption ? caption.length * 6.6 + 24 : 0);
-  const left = (width - core) / 2 + pad;
-  const height = top + boxH + (caption ? 40 : 12);
-  const bx = (i) => left + i * (boxW + gap);
-  return (
-    <svg viewBox={`0 0 ${width} ${height}`} style={{ width: '100%', maxWidth: `${Math.round(width * 1.3)}px`, height: 'auto', display: 'block', margin: '0.4rem auto' }} role="img" aria-label={label}>
-      <defs>
-        <marker id={`${id}-punta`} markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
-          <path d="M0,0 L8,4 L0,8 z" style={{ fill: 'var(--color-ink-soft)' }} />
-        </marker>
-      </defs>
-      {boxes.map((b, i) => (
-        <g key={`b${i}`}>
-          <text x={bx(i) + boxW / 2} y={top - 9} textAnchor="middle" fontSize="12" style={{ fill: 'var(--color-ink-faint)' }}>{codeText(b.title)}</text>
-          <rect x={bx(i)} y={top} width={boxW} height={boxH} rx="4" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.4" />
-          <text x={bx(i) + boxW / 2} y={top + boxH / 2 + 6} textAnchor="middle" fontSize="16" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{b.text}</text>
-        </g>
-      ))}
-      {steps.map((s, i) => (
-        <g key={`s${i}`}>
-          <line x1={bx(i) + boxW + 6} y1={top + boxH / 2} x2={bx(i + 1) - 8} y2={top + boxH / 2} style={{ stroke: 'var(--color-ink-soft)' }} strokeWidth="1.6" markerEnd={`url(#${id}-punta)`} />
-          <text x={bx(i) + boxW + gap / 2} y={top + boxH / 2 - 8} textAnchor="middle" fontSize="13" fontFamily="var(--font-mono, monospace)" style={{ fill: 'var(--color-ink-soft)' }}>{s}</text>
-        </g>
-      ))}
-      {caption ? (
-        <text x={width / 2} y={height - 8} textAnchor="middle" fontSize="12" style={{ fill: 'var(--color-ink-soft)' }}>{caption}</text>
-      ) : null}
-    </svg>
-  );
-}
-
 <Slide title="El mismo RUT en dos posiciones">
 Para verlo, una tabla de 7 posiciones que reduce cada número con el resto de
 dividirlo por 7. En una ejecución, el `hashCode` heredado le dio a `a` y a `b`
@@ -949,15 +859,15 @@ dos números sin relación con el RUT, que además cambian de una ejecución a
 otra:
 
 <StepBoxes
-  id="paso-a"
   boxes={[{ title: 'el objeto `a`', text: '13.180.992-1' }, { title: 'su número', text: '895 328 852' }, { title: 'su posición', text: '5' }]}
+  boxWidth={150}
   steps={['hashCode()', 'mod 7']}
   label="El objeto a, con el RUT 13.180.992-1. Una flecha rotulada hashCode lleva al número 895 328 852; otra rotulada mod 7 lleva a la posición 5."
 />
 
 <StepBoxes
-  id="paso-b"
   boxes={[{ title: 'el objeto `b`', text: '13.180.992-1' }, { title: 'su número', text: '1 304 836 502' }, { title: 'su posición', text: '4' }]}
+  boxWidth={150}
   steps={['hashCode()', 'mod 7']}
   label="El objeto b, con el mismo RUT 13.180.992-1. Una flecha rotulada hashCode lleva al número 1 304 836 502, otro; otra rotulada mod 7 lleva a la posición 4."
 />
@@ -967,6 +877,7 @@ $$
 $$
 
 <ChainTable
+  size="rut"
   chains={[[], [], [], [], ['13.180.992-1'], ['13.180.992-1'], []]}
   picked={4}
   tones={{ '13.180.992-1': 'mark' }}
@@ -1016,6 +927,7 @@ la recorre entera: la tabla pasa a costar $$\Theta(N)$$ por operación, lo que
 cuesta una lista enlazada.
 
 <ChainTable
+  size="rut"
   chains={[['12.547.354-7', '22.715.853-0', '17.814.358-1', '13.959.276-K', '13.180.992-1', '18.155.218-2'], [], [], [], [], [], []]}
   tones={{ '12.547.354-7': 'flag', '22.715.853-0': 'flag', '17.814.358-1': 'flag', '13.959.276-K': 'flag', '13.180.992-1': 'flag', '18.155.218-2': 'flag' }}
   caption="con `return 0;`, los seis RUTs en la lista de la posición 0"
@@ -1064,7 +976,8 @@ $$
 
 {/* BandLine — the results one RUT number can give with base b, b · n + 48 to b · n + 75 (one per check-digit code, '0' to '9' and 'K'), as a bar, one row per number n, n + 1, n + 2, each starting b further along. With base 10 the bars overlap; `mark` draws a dashed line through one shared result and a flag dot on each row that reaches it, with the check digit that gets there. With `gaps`, the values no number reaches, between one bar and the next, are shaded keep. Each end is labelled with its expression in n. File-local (add-a-course-document.md §6e-quater). */}
 
-export function BandLine({ base, rows = 3, from, to, mark, gaps = false, caption, label, id }) {
+export function BandLine({ base, from, to, mark, gaps = false, caption, label }) {
+  const rows = 3;
   const pad = 16;
   const labelW = 56;
   const axisW = 620;
@@ -1072,7 +985,7 @@ export function BandLine({ base, rows = 3, from, to, mark, gaps = false, caption
   const barH = 16;
   const top = gaps ? 34 : 18;
   const unit = axisW / (to - from);
-  const width = Math.max(2 * pad + labelW + axisW, caption ? caption.replace(/`/g, '').length * 6.6 + 24 : 0);
+  const width = Math.max(2 * pad + labelW + axisW, captionWidth(caption));
   const left = (width - (labelW + axisW)) / 2 + labelW;
   const x = (v) => left + (v - from) * unit;
   const barY = (i) => top + i * rowH + 16;
@@ -1081,7 +994,7 @@ export function BandLine({ base, rows = 3, from, to, mark, gaps = false, caption
   const end = (v) => `${base}n + ${v}`;
   const bands = Array.from({ length: rows }, (_, i) => ({ i, lo: i * base + 48, hi: i * base + 75 }));
   return (
-    <svg viewBox={`0 0 ${width} ${height}`} style={{ width: '100%', maxWidth: `${Math.round(width * 1.3)}px`, height: 'auto', display: 'block', margin: '0.4rem auto' }} role="img" aria-label={label}>
+    <Frame width={width} height={height} label={label} caption={caption} inset={8}>
       {gaps
         ? bands.slice(0, -1).map((b) => (
             <g key={`gap${b.i}`}>
@@ -1107,10 +1020,7 @@ export function BandLine({ base, rows = 3, from, to, mark, gaps = false, caption
             </g>
           ))
         : null}
-      {caption ? (
-        <text x={width / 2} y={height - 8} textAnchor="middle" fontSize="12" style={{ fill: 'var(--color-ink-soft)' }}>{codeText(caption)}</text>
-      ) : null}
-    </svg>
+    </Frame>
   );
 }
 
@@ -1125,7 +1035,6 @@ $$
 El número siguiente da otros 28, que empiezan $$b$$ más arriba.
 
 <BandLine
-  id="tramos-10"
   base={10}
   from={44}
   to={100}
@@ -1135,7 +1044,6 @@ El número siguiente da otros 28, que empiezan $$b$$ más arriba.
 />
 
 <BandLine
-  id="tramos-31"
   base={31}
   from={44}
   to={142}
@@ -1211,15 +1119,15 @@ voted.size();   // 1
 ```
 
 <StepBoxes
-  id="mismo-a"
   boxes={[{ title: 'el objeto `a`', text: '13.180.992-1' }, { title: 'su número', text: '408 610 801' }, { title: 'su posición', text: '4' }]}
+  boxWidth={150}
   steps={['hashCode()', 'mod 7']}
   label="El objeto a, con el RUT 13.180.992-1. Una flecha rotulada hashCode lleva al número 408 610 801; otra rotulada mod 7 lleva a la posición 4."
 />
 
 <StepBoxes
-  id="mismo-b"
   boxes={[{ title: 'el objeto `b`', text: '13.180.992-1' }, { title: 'su número', text: '408 610 801' }, { title: 'su posición', text: '4' }]}
+  boxWidth={150}
   steps={['hashCode()', 'mod 7']}
   label="El objeto b, con el mismo RUT. El mismo número, 408 610 801, y la misma posición, 4."
 />
@@ -1229,6 +1137,7 @@ $$
 $$
 
 <ChainTable
+  size="rut"
   chains={[[], [], [], [], ['13.180.992-1'], [], []]}
   picked={4}
   tones={{ '13.180.992-1': 'keep' }}
@@ -1256,6 +1165,7 @@ valor viejo, llega a su lista, pero `equals` dice que ya no es ese RUT.
 
 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '1rem 2rem', alignItems: 'end' }}>
 <ChainTable
+  size="rut"
   chains={RUT_TABLE_FIXED}
   window={[3, 6]}
   picked={5}
@@ -1264,6 +1174,7 @@ valor viejo, llega a su lista, pero `equals` dice que ya no es ese RUT.
   label="Las posiciones 3 a 6 de la tabla. El nodo corregido, ahora 13.180.993-K, sigue en la lista de la posición 4. La búsqueda de 13.180.993-K va a la posición 5, destacada, cuya lista está vacía."
 />
 <ChainTable
+  size="rut"
   chains={RUT_TABLE_FIXED}
   window={[3, 6]}
   picked={4}
@@ -1568,7 +1479,7 @@ $$\Theta(1)$$ esperado de la tabla, y a cambio guarda todo en orden.
 
 </Slide>
 
-{/* RB_TREE — the registry's AVL tree painted with colours that satisfy the red-black rules (black root, no red node with a red child, the same number of black nodes on every path to null). Not the tree Java builds from those arrivals: the slide says only that the colours are valid. */}
+{/* RB_TONES — the registry's AVL tree painted with colours that satisfy the red-black rules (black root, no red node with a red child, the same number of black nodes on every path to null). It is also the tree java.util.TreeMap builds from those arrivals, colours included (read by reflection over its entries); the slide claims only that the colours are valid. */}
 
 export const RB_TONES = { '13.959.276-K': 'black', '13.180.992-1': 'black', '18.155.218-2': 'black', '12.547.354-7': 'red', '17.814.358-1': 'red', '22.715.853-0': 'red' };
 
@@ -1802,10 +1713,10 @@ digitado, son distintos para `equals` y dan 0 en `compareTo`, y el `TreeSet`
 los toma por el mismo:
 
 ```java
-Rut a = new Rut(13180992, '1');            // bien digitado
-Rut wrong = new Rut(13180992, '2');        // el dígito, mal digitado
-new HashSet<>(List.of(a, wrong)).size();   // 2
-new TreeSet<>(List.of(a, wrong)).size();   // 1
+Rut a = new Rut(13180992, '1');                 // bien digitado
+Rut wrong = new Rut(13180992, '2');             // el dígito, mal digitado
+new HashSet<>(Arrays.asList(a, wrong)).size();  // 2
+new TreeSet<>(Arrays.asList(a, wrong)).size();  // 1
 ```
 
 </Slide>
@@ -2003,7 +1914,7 @@ Al revisar un orden se buscan tres errores, y se separan por lo que provocan.
 
 ## Map · Diccionario
 
-{/* The mesa each voter voted at: the value the registry keeps beside each RUT. Two voters share mesa 1, one votes at mesa 2 and three at mesa 3, so the drawings show values repeating while keys never do, and counting and grouping give a different number for each mesa. MESA_TEXT is the same, as the drawings write it. */}
+{/* The mesa each voter voted at: the value the registry keeps beside each RUT. Two voters share mesa 1, one votes at mesa 2 and three at mesa 3, so the drawings show values repeating while keys never do, and counting and grouping give a different number for each mesa. MESA_TEXT writes each mesa as the drawings do, «mesa N». */}
 
 export const MESA_TEXT = { '18.155.218-2': 'mesa 3', '13.180.992-1': 'mesa 1', '13.959.276-K': 'mesa 3', '17.814.358-1': 'mesa 3', '22.715.853-0': 'mesa 1', '12.547.354-7': 'mesa 2' };
 
@@ -2033,7 +1944,7 @@ Lo que el registro guarda ahora es un **diccionario**: para cada RUT, su mesa.
 
 </Slide>
 
-{/* ArrowMap — a dictionary drawn as a function, the way mathematics draws one: the keys in a box on the left, the values in a box on the right, one arrow from each key to its value. Each value is written once, level with the keys that reach it, so the arrows do not cross when the keys come grouped by value. With next, a third box chains a second dictionary that takes each value to next[value], as counting takes each mesa to how many arrows reach it. File-local (add-a-course-document.md §6e-quater). */}
+{/* ArrowMap — a dictionary drawn as a function, the way mathematics draws one: the keys in a box on the left, the values in a box on the right, one arrow from each key to its value. Each value is written once, level with the keys that reach it, so the arrows do not cross when the keys come grouped by value. With next, a third box chains a second dictionary that takes each value to next[value], as counting takes each mesa to how many arrows reach it. File-local (add-a-course-document.md §6e-quater). Not 23-edd-tablas-hash.mdx's `ArrowDiagram`, the school's diagrama sagital in two ovals, on purpose: that one draws a whole codomain, the elements no arrow reaches included, which is what a collision and the range are read from; a dictionary draws only the values its keys reach, level with them, and chains a second dictionary beside it. */}
 
 export function ArrowMap({ keys, values, keyTitle, valueTitle, next, nextTitle, caption, label, id }) {
   const pad = 14;
@@ -2055,13 +1966,13 @@ export function ArrowMap({ keys, values, keyTitle, valueTitle, next, nextTitle, 
   };
   const boxH = keys.length * rowH + 2 * boxPad;
   const core = 2 * pad + keyW + gap + valW + (next ? nextGap + valW : 0);
-  const width = Math.max(core, caption ? caption.replace(/`/g, '').length * 6.6 + 24 : 0);
+  const width = Math.max(core, captionWidth(caption));
   const left = (width - core) / 2 + pad;
   const valX = left + keyW + gap;
   const nextX = valX + valW + nextGap;
   const height = top + boxH + (caption ? 34 : 12);
   return (
-    <svg viewBox={`0 0 ${width} ${height}`} style={{ width: '100%', maxWidth: `${Math.round(width * 1.3)}px`, height: 'auto', display: 'block', margin: '0.4rem auto' }} role="img" aria-label={label}>
+    <Frame width={width} height={height} label={label} caption={caption}>
       <defs>
         <marker id={`${id}-punta`} markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
           <path d="M0,0 L8,4 L0,8 z" style={{ fill: 'var(--color-ink-soft)' }} />
@@ -2069,8 +1980,8 @@ export function ArrowMap({ keys, values, keyTitle, valueTitle, next, nextTitle, 
       </defs>
       <rect x={left} y={top} width={keyW} height={boxH} rx="14" style={{ fill: 'var(--color-sunk)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.3" />
       <rect x={valX} y={top} width={valW} height={boxH} rx="14" style={{ fill: 'var(--color-sunk)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.3" />
-      <text x={left + keyW / 2} y={top - 10} textAnchor="middle" fontSize="12" fontWeight="700" style={{ fill: 'var(--color-ink-soft)' }}>{keyTitle}</text>
-      <text x={valX + valW / 2} y={top - 10} textAnchor="middle" fontSize="12" fontWeight="700" style={{ fill: 'var(--color-ink-soft)' }}>{valueTitle}</text>
+      <text x={left + keyW / 2} y={top - 10} textAnchor="middle" fontSize="12" fontWeight="700" style={{ fill: 'var(--color-ink-soft)' }}>{codeText(keyTitle)}</text>
+      <text x={valX + valW / 2} y={top - 10} textAnchor="middle" fontSize="12" fontWeight="700" style={{ fill: 'var(--color-ink-soft)' }}>{codeText(valueTitle)}</text>
       {keys.map((k, i) => (
         <g key={k}>
           <text x={left + keyW / 2} y={keyY(i) + 5} textAnchor="middle" fontSize="13" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{k}</text>
@@ -2083,7 +1994,7 @@ export function ArrowMap({ keys, values, keyTitle, valueTitle, next, nextTitle, 
       {next ? (
         <g>
           <rect x={nextX} y={top} width={valW} height={boxH} rx="14" style={{ fill: 'var(--color-sunk)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.3" />
-          <text x={nextX + valW / 2} y={top - 10} textAnchor="middle" fontSize="12" fontWeight="700" style={{ fill: 'var(--color-ink-soft)' }}>{nextTitle}</text>
+          <text x={nextX + valW / 2} y={top - 10} textAnchor="middle" fontSize="12" fontWeight="700" style={{ fill: 'var(--color-ink-soft)' }}>{codeText(nextTitle)}</text>
           {distinct.map((v) => (
             <g key={`n${v}`}>
               <line x1={valX + valW + 4} y1={valY(v)} x2={nextX - 8} y2={valY(v)} style={{ stroke: 'var(--color-ink-soft)' }} strokeWidth="1.4" markerEnd={`url(#${id}-punta)`} />
@@ -2092,10 +2003,7 @@ export function ArrowMap({ keys, values, keyTitle, valueTitle, next, nextTitle, 
           ))}
         </g>
       ) : null}
-      {caption ? (
-        <text x={width / 2} y={height - 10} textAnchor="middle" fontSize="12" style={{ fill: 'var(--color-ink-soft)' }}>{caption}</text>
-      ) : null}
-    </svg>
+    </Frame>
   );
 }
 
@@ -2216,11 +2124,12 @@ el valor del nodo que la tiene; `put` hace lo mismo y, si la encuentra,
 reemplaza el valor en ese nodo.
 
 <ChainTable
+  size="rut"
   chains={RUT_TABLE}
   values={MESA_TEXT}
   picked={4}
   tones={{ '13.959.276-K': 'keep' }}
-  caption="get de 13.959.276-K: la posición de su hashCode, y el valor de su nodo"
+  caption="`get` de 13.959.276-K: la posición de su `hashCode`, y el valor de su nodo"
   label="Una tabla de siete posiciones con los seis RUT como claves; cada nodo guarda el RUT, debajo la mesa y al final su next. La posición 4 está destacada, y en su lista, el nodo de 13.959.276-K, que guarda la mesa 3."
 />
 
@@ -2236,7 +2145,6 @@ entrega los pares ordenados por clave.
   tree={VOTED_TREE}
   values={MESA_TEXT}
   tones={{ '13.959.276-K': 'keep' }}
-  minColumns={6}
   caption="cada nodo guarda la clave y su valor; el orden es el de las claves"
   label="El árbol AVL con los seis RUT como claves y la mesa de cada uno debajo. La raíz es 13.959.276-K, mesa 3, destacada; a su izquierda, 13.180.992-1, mesa 1, con 12.547.354-7, mesa 2; a su derecha, 18.155.218-2, mesa 3, con 17.814.358-1, mesa 3, y 22.715.853-0, mesa 1."
 />
@@ -2508,13 +2416,13 @@ mesas de distintos locales.
 
 </Slide>
 
-{/* GroupMap — a dictionary whose values are lists: the keys in a box on the left, and from each key an arrow to its list, drawn as a row of chips inside its own frame. It draws what grouping builds, each mesa with the RUTs that voted there, and each section with its students. `rows` and `slots` reserve the rows and the places per list a walk reaches, so its frames keep one size; `picked` outlines the key a request asks for, and `fresh` paints `mark` the item it just added to that key's list. File-local (add-a-course-document.md §6e-quater). */}
+{/* GroupMap — a dictionary whose values are lists: the keys in a box on the left, and from each key an arrow to its list, drawn as a row of chips inside its own frame. It draws what grouping builds, each mesa with the RUTs that voted there, and each section with its students. The key box is as wide as its widest key, a RUT's or a mesa's, and `itemW` sets an item's width: 112 for a RUT, less for a grade. `rows` and `slots` reserve the rows and the places per list a walk reaches, so its frames keep one size; `picked` outlines the key a request asks for, and `fresh` paints `mark` the item it just added to that key's list. File-local (add-a-course-document.md §6e-quater). */}
 
-export function GroupMap({ groups, rows = groups.length, slots, picked, fresh, keyTitle, valueTitle, caption, label, id }) {
+export function GroupMap({ groups, rows = groups.length, slots, picked, fresh, itemW = 112, keyTitle, valueTitle, caption, label, id }) {
   const pad = 14;
-  const keyW = 96;
+  const keyW = Math.max(96, ...groups.map(([k]) => k.length * 7.4 + 20));
   const gap = 110;
-  const chipW = 112;
+  const chipW = itemW;
   const chipH = 28;
   const chipGap = 6;
   const listPad = 6;
@@ -2523,23 +2431,24 @@ export function GroupMap({ groups, rows = groups.length, slots, picked, fresh, k
   const boxPad = 8;
   const most = slots || Math.max(1, ...groups.map(([, items]) => items.length));
   const listW = (n) => n * chipW + (n - 1) * chipGap + 2 * listPad;
-  const core = 2 * pad + keyW + gap + listW(most);
-  const width = Math.max(core, caption ? caption.length * 6.6 + 24 : 0);
+  const titleW = valueTitle ? valueTitle.replace(/`/g, '').length * 7 : 0;
+  const core = 2 * pad + keyW + gap + Math.max(listW(most), titleW);
+  const width = Math.max(core, captionWidth(caption));
   const left = (width - core) / 2 + pad;
   const listX = left + keyW + gap;
   const rowY = (i) => top + boxPad + i * rowH + rowH / 2;
   const boxH = rows * rowH + 2 * boxPad;
   const height = top + boxH + (caption ? 34 : 12);
   return (
-    <svg viewBox={`0 0 ${width} ${height}`} style={{ width: '100%', maxWidth: `${Math.round(width * 1.3)}px`, height: 'auto', display: 'block', margin: '0.4rem auto' }} role="img" aria-label={label}>
+    <Frame width={width} height={height} label={label} caption={caption}>
       <defs>
         <marker id={`${id}-punta`} markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
           <path d="M0,0 L8,4 L0,8 z" style={{ fill: 'var(--color-ink-soft)' }} />
         </marker>
       </defs>
       <rect x={left} y={top} width={keyW} height={boxH} rx="14" style={{ fill: 'var(--color-sunk)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.3" />
-      <text x={left + keyW / 2} y={top - 10} textAnchor="middle" fontSize="12" fontWeight="700" style={{ fill: 'var(--color-ink-soft)' }}>{keyTitle}</text>
-      <text x={listX} y={top - 10} fontSize="12" fontWeight="700" style={{ fill: 'var(--color-ink-soft)' }}>{valueTitle}</text>
+      <text x={left + keyW / 2} y={top - 10} textAnchor="middle" fontSize="12" fontWeight="700" style={{ fill: 'var(--color-ink-soft)' }}>{codeText(keyTitle)}</text>
+      <text x={listX} y={top - 10} fontSize="12" fontWeight="700" style={{ fill: 'var(--color-ink-soft)' }}>{codeText(valueTitle)}</text>
       {groups.map(([k, items], i) => (
         <g key={k}>
           {k === picked ? (
@@ -2551,18 +2460,15 @@ export function GroupMap({ groups, rows = groups.length, slots, picked, fresh, k
           {items.map((item, j) => {
             const just = k === picked && item === fresh;
             return (
-              <g key={item}>
-                <rect x={listX + listPad + j * (chipW + chipGap)} y={rowY(i) - chipH / 2} width={chipW} height={chipH} rx="14" style={{ fill: just ? 'var(--color-mark-soft)' : 'var(--color-surface)', stroke: just ? 'var(--color-mark)' : 'var(--color-rule-strong)' }} strokeWidth={just ? 2 : 1.2} />
+              <g key={`${j}-${item}`}>
+                <rect x={listX + listPad + j * (chipW + chipGap)} y={rowY(i) - chipH / 2} width={chipW} height={chipH} rx="14" style={paint(just && 'mark')} strokeWidth={just ? 2 : 1.2} />
                 <text x={listX + listPad + j * (chipW + chipGap) + chipW / 2} y={rowY(i) + 5} textAnchor="middle" fontSize="12.5" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{item}</text>
               </g>
             );
           })}
         </g>
       ))}
-      {caption ? (
-        <text x={width / 2} y={height - 10} textAnchor="middle" fontSize="12" style={{ fill: 'var(--color-ink-soft)' }}>{caption}</text>
-      ) : null}
-    </svg>
+    </Frame>
   );
 }
 
@@ -2622,7 +2528,7 @@ no necesita otro `put`. Agrupar $$N$$ pares cuesta $$\Theta(N)$$ esperado.
 
 ## Ejercicios
 
-{/* RutRow — a sequence of RUTs in the order they arrive: a row of chips with the position over each. `at` outlines the one being read, `tones` paints chips by position (`keep`: the answer, `mark`: a repetition, `faint`: not read yet), and `arcs` joins pairs of positions [earlier, later] with a curve over the row — a RUT and its repetition, or a comparison. File-local (add-a-course-document.md §6e-quater), like every figure below. */}
+{/* RutRow — a sequence of RUTs in the order they arrive: a row of chips with the position over each. `at` outlines the one being read, `tones` paints chips by position (`keep`: the answer), and `arcs` joins pairs of positions [earlier, later] with a curve over the row — a RUT and its repetition, or a comparison. File-local (add-a-course-document.md §6e-quater), like every figure below. */}
 
 export function RutRow({ ruts, at = -1, tones = {}, arcs = [], caption, label }) {
   const chipW = 112;
@@ -2631,18 +2537,14 @@ export function RutRow({ ruts, at = -1, tones = {}, arcs = [], caption, label })
   const pad = 12;
   const arcH = arcs.length ? 46 : 0;
   const rowW = ruts.length * chipW + Math.max(0, ruts.length - 1) * gap;
-  const width = Math.max(2 * pad + Math.max(rowW, chipW), caption ? caption.length * 6.6 + 24 : 0);
+  const width = Math.max(2 * pad + Math.max(rowW, chipW), captionWidth(caption));
   const left = (width - rowW) / 2;
   const indexY = pad + arcH + 10;
   const chipY = indexY + 8;
   const height = chipY + chipH + (caption ? 34 : 12);
   const cx = (i) => left + i * (chipW + gap) + chipW / 2;
-  const paint = {
-    keep: ['var(--color-keep-soft)', 'var(--color-keep)'],
-    mark: ['var(--color-mark-soft)', 'var(--color-mark)'],
-  };
   return (
-    <svg viewBox={`0 0 ${width} ${height}`} style={{ width: '100%', maxWidth: `${Math.round(width * 1.3)}px`, height: 'auto', display: 'block', margin: '0.4rem auto' }} role="img" aria-label={label}>
+    <Frame width={width} height={height} label={label} caption={caption}>
       {arcs.map(([a, b]) => {
         const lift = Math.min(arcH - 6, 16 + 9 * (b - a));
         const y0 = indexY - 12;
@@ -2650,24 +2552,8 @@ export function RutRow({ ruts, at = -1, tones = {}, arcs = [], caption, label })
           <path key={`a${a}-${b}`} d={`M ${cx(b)} ${y0} C ${cx(b)} ${y0 - lift}, ${cx(a)} ${y0 - lift}, ${cx(a)} ${y0}`} fill="none" style={{ stroke: 'var(--color-mark)' }} strokeWidth="1.8" />
         );
       })}
-      {ruts.length === 0 ? (
-        <text x={width / 2} y={chipY + chipH / 2 + 5} textAnchor="middle" fontSize="13" style={{ fill: 'var(--color-ink-faint)' }}>ningún RUT</text>
-      ) : null}
-      {ruts.map((r, i) => {
-        const [fill, stroke] = paint[tones[i]] ?? ['var(--color-surface)', 'var(--color-rule-strong)'];
-        const ring = i === at;
-        return (
-          <g key={i} opacity={tones[i] === 'faint' ? 0.45 : undefined}>
-            <text x={cx(i)} y={indexY} textAnchor="middle" fontSize="11" fontWeight={ring ? 700 : 400} style={{ fill: ring ? 'var(--color-ink)' : 'var(--color-ink-faint)' }}>{i}</text>
-            <rect x={cx(i) - chipW / 2} y={chipY} width={chipW} height={chipH} rx="15" style={{ fill, stroke: ring ? 'var(--color-focus)' : stroke }} strokeWidth={ring ? 2.6 : tones[i] && tones[i] !== 'faint' ? 2.2 : 1.2} />
-            <text x={cx(i)} y={chipY + chipH / 2 + 5} textAnchor="middle" fontSize="13" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{r}</text>
-          </g>
-        );
-      })}
-      {caption ? (
-        <text x={width / 2} y={height - 10} textAnchor="middle" fontSize="12" style={{ fill: 'var(--color-ink-soft)' }}>{caption}</text>
-      ) : null}
-    </svg>
+      <ChipRow items={ruts} left={left} indexY={indexY} chipY={chipY} chipW={chipW} chipH={chipH} gap={gap} font={13} at={at} tone={(i) => tones[i]} />
+    </Frame>
   );
 }
 
@@ -2683,25 +2569,25 @@ export function SeenStrip({ steps, slots, label }) {
   const width = 2 * pad + steps.length * colW;
   const height = seenY + 16 + slots * (chipH + 6) + 8;
   return (
-    <svg viewBox={`0 0 ${width} ${height}`} style={{ width: '100%', maxWidth: `${Math.round(width * 1.3)}px`, height: 'auto', display: 'block', margin: '0.4rem auto' }} role="img" aria-label={label}>
+    <Frame width={width} height={height} label={label}>
       {steps.map((s, c) => {
         const x = pad + c * colW + (colW - chipW) / 2;
         return (
           <g key={c}>
             <text x={x + chipW / 2} y={readY - 6} textAnchor="middle" fontSize="11" style={{ fill: 'var(--color-ink-faint)' }}>{`lee el ${c}`}</text>
-            <rect x={x} y={readY} width={chipW} height={chipH} rx="14" style={{ fill: s.found ? 'var(--color-keep-soft)' : 'var(--color-surface)', stroke: s.found ? 'var(--color-keep)' : 'var(--color-focus)' }} strokeWidth="2.2" />
+            <rect x={x} y={readY} width={chipW} height={chipH} rx="14" style={paint(s.found && 'keep', ['var(--color-surface)', 'var(--color-focus)'])} strokeWidth="2.2" />
             <text x={x + chipW / 2} y={readY + chipH / 2 + 5} textAnchor="middle" fontSize="12.5" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{s.read}</text>
             <text x={x + chipW / 2} y={seenY - 10} textAnchor="middle" fontSize="11" fontWeight="700" style={{ fill: s.found ? 'var(--color-keep)' : 'var(--color-ink-soft)' }}>{s.found ? 'ya estaba' : 'vistos'}</text>
             {s.seen.map((r, k) => (
               <g key={r}>
-                <rect x={x} y={seenY + k * (chipH + 6)} width={chipW} height={chipH} rx="14" style={{ fill: r === s.read && !s.found ? 'var(--color-mark-soft)' : 'var(--color-sunk)', stroke: r === s.read && !s.found ? 'var(--color-mark)' : 'var(--color-rule-strong)' }} strokeWidth={r === s.read && !s.found ? 2 : 1.1} />
+                <rect x={x} y={seenY + k * (chipH + 6)} width={chipW} height={chipH} rx="14" style={paint(r === s.read && !s.found && 'mark', SUNK)} strokeWidth={r === s.read && !s.found ? 2 : 1.1} />
                 <text x={x + chipW / 2} y={seenY + k * (chipH + 6) + chipH / 2 + 5} textAnchor="middle" fontSize="12.5" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{r}</text>
               </g>
             ))}
           </g>
         );
       })}
-    </svg>
+    </Frame>
   );
 }
 
@@ -2712,7 +2598,7 @@ export function SeenFrame({ ruts, at = -1, seen, fresh, found, slots, label }) {
   const chipH = 28;
   const gap = 8;
   const pad = 12;
-  const rowW = ruts.length * chipW + (ruts.length - 1) * gap;
+  const rowW = ruts.length * chipW + Math.max(0, ruts.length - 1) * gap;
   const setW = slots * chipW + (slots - 1) * gap + 28;
   const width = 2 * pad + Math.max(rowW, setW);
   const left = (width - rowW) / 2;
@@ -2723,30 +2609,20 @@ export function SeenFrame({ ruts, at = -1, seen, fresh, found, slots, label }) {
   const setH = chipH + 24;
   const height = setY + setH + 12;
   return (
-    <svg viewBox={`0 0 ${width} ${height}`} style={{ width: '100%', maxWidth: `${Math.round(width * 1.3)}px`, height: 'auto', display: 'block', margin: '0.4rem auto' }} role="img" aria-label={label}>
-      {ruts.map((r, i) => {
-        const x = left + i * (chipW + gap);
-        const ring = i === at;
-        return (
-          <g key={i} opacity={i < at ? 0.5 : undefined}>
-            <text x={x + chipW / 2} y={indexY} textAnchor="middle" fontSize="11" fontWeight={ring ? 700 : 400} style={{ fill: ring ? 'var(--color-ink)' : 'var(--color-ink-faint)' }}>{i}</text>
-            <rect x={x} y={rowY} width={chipW} height={chipH} rx="14" style={{ fill: 'var(--color-surface)', stroke: ring ? 'var(--color-focus)' : 'var(--color-rule-strong)' }} strokeWidth={ring ? 2.6 : 1.2} />
-            <text x={x + chipW / 2} y={rowY + chipH / 2 + 5} textAnchor="middle" fontSize="12.5" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{r}</text>
-          </g>
-        );
-      })}
-      <text x={setX + 12} y={setY - 7} fontSize="12" fontWeight="700" style={{ fill: 'var(--color-ink-soft)' }}>seen</text>
+    <Frame width={width} height={height} label={label}>
+      <ChipRow items={ruts} left={left} indexY={indexY} chipY={rowY} chipW={chipW} chipH={chipH} gap={gap} font={12.5} at={at} dim={(i) => i < at} />
+      <text x={setX + 12} y={setY - 7} fontSize="12" fontWeight="700" style={{ fill: 'var(--color-ink-soft)' }}>{codeText('`seen`')}</text>
       <rect x={setX} y={setY} width={setW} height={setH} rx="16" style={{ fill: 'var(--color-sunk)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.3" />
       {seen.map((r, k) => {
         const tone = r === found ? 'keep' : r === fresh ? 'mark' : undefined;
         return (
           <g key={r}>
-            <rect x={setX + 14 + k * (chipW + gap)} y={setY + 12} width={chipW} height={chipH} rx="14" style={{ fill: tone ? `var(--color-${tone}-soft)` : 'var(--color-surface)', stroke: tone ? `var(--color-${tone})` : 'var(--color-rule-strong)' }} strokeWidth={tone ? 2.2 : 1.2} />
+            <rect x={setX + 14 + k * (chipW + gap)} y={setY + 12} width={chipW} height={chipH} rx="14" style={paint(tone)} strokeWidth={tone ? 2.2 : 1.2} />
             <text x={setX + 14 + k * (chipW + gap) + chipW / 2} y={setY + 12 + chipH / 2 + 5} textAnchor="middle" fontSize="12.5" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{r}</text>
           </g>
         );
       })}
-    </svg>
+    </Frame>
   );
 }
 
@@ -2877,7 +2753,7 @@ el ciclo no corre; con uno solo, no tiene con quién repetirse.
 
 <RutRow
   ruts={['18.155.218-2', '13.180.992-1', '13.959.276-K']}
-  caption="tres RUTs distintos: firstRepeated retorna null"
+  caption="tres RUTs distintos: `firstRepeated` retorna `null`"
   label="Tres RUTs distintos, 18.155.218-2, 13.180.992-1 y 13.959.276-K, sin ningún arco entre ellos: nadie repite, y la función retorna null."
 />
 
@@ -2940,7 +2816,7 @@ export function TimeLine({ times, day, first = 8, hours = 10, perHour = 80, gap,
   const span = gap ? (gap / 60) * perHour : 0;
   const askTone = refused ? 'flag' : 'mark';
   return (
-    <svg viewBox={`0 0 ${width} ${height}`} style={{ width: '100%', maxWidth: `${Math.round(width * 1.3)}px`, height: 'auto', display: 'block', margin: '0.4rem auto' }} role="img" aria-label={label}>
+    <Frame width={width} height={height} label={label} caption={caption} inset={6}>
       {day !== undefined ? (
         <text x={pad} y={16} fontSize="12" fontWeight="700" style={{ fill: 'var(--color-ink-soft)' }}>{`día ${day}`}</text>
       ) : null}
@@ -2959,11 +2835,11 @@ export function TimeLine({ times, day, first = 8, hours = 10, perHour = 80, gap,
           <text x={pad + h * perHour} y={axisY + 36} textAnchor="middle" fontSize="11" style={{ fill: 'var(--color-ink-faint)' }}>{`${first + h}:00`}</text>
         </g>
       ))}
-      {times.map((t) => {
+      {times.map((t, i) => {
         const tone = near.includes(t) || inside(t) ? 'keep' : undefined;
         return (
-          <g key={t}>
-            <circle cx={x(t)} cy={axisY} r="6.5" style={{ fill: tone ? `var(--color-${tone}-soft)` : 'var(--color-surface)', stroke: tone ? `var(--color-${tone})` : 'var(--color-ink-soft)' }} strokeWidth={tone ? 2.2 : 1.6} />
+          <g key={i}>
+            <circle cx={x(t)} cy={axisY} r="6.5" style={paint(tone, ['var(--color-surface)', 'var(--color-ink-soft)'])} strokeWidth={tone ? 2.2 : 1.6} />
             <text x={x(t)} y={axisY - 14} textAnchor="middle" fontSize="12" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{text(t)}</text>
           </g>
         );
@@ -2971,14 +2847,11 @@ export function TimeLine({ times, day, first = 8, hours = 10, perHour = 80, gap,
       {asked !== undefined ? (
         <g>
           <line x1={x(asked)} y1={axisY - 30} x2={x(asked)} y2={axisY - 8} style={{ stroke: `var(--color-${askTone})` }} strokeWidth="1.4" />
-          <circle cx={x(asked)} cy={axisY} r="6.5" style={{ fill: `var(--color-${askTone}-soft)`, stroke: `var(--color-${askTone})` }} strokeWidth="2.2" />
+          <circle cx={x(asked)} cy={axisY} r="6.5" style={paint(askTone)} strokeWidth="2.2" />
           <text x={x(asked)} y={axisY - 34} textAnchor="middle" fontSize="12" fontWeight="700" style={{ fill: `var(--color-${askTone})` }}>{text(asked)}</text>
         </g>
       ) : null}
-      {caption ? (
-        <text x={width / 2} y={height - 6} textAnchor="middle" fontSize="12" style={{ fill: 'var(--color-ink-soft)' }}>{caption}</text>
-      ) : null}
-    </svg>
+    </Frame>
   );
 }
 
@@ -2995,13 +2868,13 @@ export function AgendaColumn({ times, slots, asked, refused = false, near = [], 
   const height = top + slots * (chipH + gapY) - gapY + pad;
   const minutes = (t) => Math.floor(t / 100) * 60 + (t % 100);
   const text = (t) => `${Math.floor(t / 100)}:${String(t % 100).padStart(2, '0')}`;
-  const rows = [...times, ...(gone !== undefined ? [gone] : []), ...(asked !== undefined ? [asked] : [])].sort((a, b) => a - b);
+  const rows = [...new Set([...times, ...(gone !== undefined ? [gone] : []), ...(asked !== undefined ? [asked] : [])])].sort((a, b) => a - b);
   const y = (i) => top + i * (chipH + gapY);
   const inRange = (t) => from !== undefined && t >= from && t <= to && t !== gone;
   const ranged = rows.map((t, i) => (inRange(t) ? i : -1)).filter((i) => i >= 0);
   return (
-    <svg viewBox={`0 0 ${width} ${height}`} style={{ width: '100%', maxWidth: `${Math.round(width * 1.6)}px`, height: 'auto', display: 'block', margin: '0.4rem auto' }} role="img" aria-label={label}>
-      <text x={left} y={pad + 8} fontSize="12" fontWeight="700" style={{ fill: 'var(--color-ink-soft)' }}>times, en orden</text>
+    <Frame width={width} height={height} grow={1.6} label={label}>
+      <text x={left} y={pad + 8} fontSize="12" fontWeight="700" style={{ fill: 'var(--color-ink-soft)' }}>{codeText('`times`, en orden')}</text>
       {rows.length === 0 ? (
         <text x={left + chipW / 2} y={y(0) + chipH / 2 + 5} textAnchor="middle" fontSize="13" style={{ fill: 'var(--color-ink-faint)' }}>ninguna</text>
       ) : null}
@@ -3020,8 +2893,8 @@ export function AgendaColumn({ times, slots, asked, refused = false, near = [], 
         const tone = isAsked ? (refused ? 'flag' : 'mark') : near.includes(t) || inRange(t) ? 'keep' : undefined;
         const far = isAsked || !near.includes(t) ? null : Math.abs(minutes(asked) - minutes(t));
         return (
-          <g key={t} opacity={isGone ? 0.5 : undefined}>
-            <rect x={left} y={y(i)} width={chipW} height={chipH} rx="15" style={{ fill: tone ? `var(--color-${tone}-soft)` : 'var(--color-surface)', stroke: tone ? `var(--color-${tone})` : 'var(--color-rule-strong)' }} strokeWidth={tone ? 2.2 : 1.2} strokeDasharray={(isAsked && refused) || isGone ? '4 3' : undefined} />
+          <g key={`${i}-${t}`} opacity={isGone ? 0.5 : undefined}>
+            <rect x={left} y={y(i)} width={chipW} height={chipH} rx="15" style={paint(tone)} strokeWidth={tone ? 2.2 : 1.2} strokeDasharray={(isAsked && refused) || isGone ? '4 3' : undefined} />
             <text x={left + chipW / 2} y={y(i) + chipH / 2 + 5} textAnchor="middle" fontSize="14" fontWeight="600" textDecoration={isGone ? 'line-through' : undefined} style={{ fill: 'var(--color-ink)' }}>{text(t)}</text>
             {isAsked ? (
               <text x={left + chipW + 12} y={y(i) + chipH / 2 + 5} fontSize="12.5" fontWeight="700" style={{ fill: `var(--color-${refused ? 'flag' : 'mark'})` }}>{refused ? 'no se agenda' : 'se agenda'}</text>
@@ -3032,7 +2905,7 @@ export function AgendaColumn({ times, slots, asked, refused = false, near = [], 
           </g>
         );
       })}
-    </svg>
+    </Frame>
   );
 }
 
@@ -3356,24 +3229,15 @@ export function PriceRow({ prices, spans = [], tones = {}, caption, label }) {
   const pad = 14;
   const rowW = prices.length * cell;
   const textW = Math.max(0, ...spans.map((s) => (s.text.length + (s.note ? s.note.length + 2 : 0)) * 6.8 + 24));
-  const width = Math.max(2 * pad + rowW + textW, caption ? caption.length * 6.6 + 24 : 0);
+  const width = Math.max(2 * pad + rowW + textW, captionWidth(caption));
   const left = pad;
   const indexY = pad + 10;
   const cellY = indexY + 8;
   const spanY = (n) => cellY + cell + 18 + n * 26;
   const height = spanY(spans.length) - 8 + (caption ? 26 : 4);
   return (
-    <svg viewBox={`0 0 ${width} ${height}`} style={{ width: '100%', maxWidth: `${Math.round(width * 1.3)}px`, height: 'auto', display: 'block', margin: '0.4rem auto' }} role="img" aria-label={label}>
-      {prices.map((p, i) => {
-        const t = tones[i];
-        return (
-          <g key={i} opacity={t === 'faint' ? 0.45 : undefined}>
-            <text x={left + i * cell + cell / 2} y={indexY} textAnchor="middle" fontSize="11" style={{ fill: 'var(--color-ink-faint)' }}>{i}</text>
-            <rect x={left + i * cell} y={cellY} width={cell} height={cell} style={{ fill: t === 'mark' ? 'var(--color-mark-soft)' : 'var(--color-surface)', stroke: t === 'mark' ? 'var(--color-mark)' : 'var(--color-rule-strong)' }} strokeWidth={t === 'mark' ? 2.2 : 1.2} />
-            <text x={left + i * cell + cell / 2} y={cellY + cell / 2 + 6} textAnchor="middle" fontSize="16" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{p}</text>
-          </g>
-        );
-      })}
+    <Frame width={width} height={height} label={label} caption={caption} inset={8}>
+      <PriceCells prices={prices} left={left} indexY={indexY} cellY={cellY} cell={cell} font={16} mark={(i) => tones[i] === 'mark'} dim={(i) => tones[i] === 'faint'} />
       {spans.map((s, n) => {
         const x1 = left + s.from * cell + 6;
         const x2 = left + (s.to + 1) * cell - 6;
@@ -3388,10 +3252,7 @@ export function PriceRow({ prices, spans = [], tones = {}, caption, label }) {
           </g>
         );
       })}
-      {caption ? (
-        <text x={width / 2} y={height - 8} textAnchor="middle" fontSize="12" style={{ fill: 'var(--color-ink-soft)' }}>{caption}</text>
-      ) : null}
-    </svg>
+    </Frame>
   );
 }
 
@@ -3408,7 +3269,7 @@ export function WindowStrip({ steps, slots, label }) {
   const width = 2 * pad + steps.length * colW;
   const height = footY + 12;
   return (
-    <svg viewBox={`0 0 ${width} ${height}`} style={{ width: '100%', maxWidth: `${Math.round(width * 1.3)}px`, height: 'auto', display: 'block', margin: '0.4rem auto' }} role="img" aria-label={label}>
+    <Frame width={width} height={height} label={label}>
       {steps.map((s, c) => {
         const cx = pad + c * colW + colW / 2;
         return (
@@ -3417,15 +3278,17 @@ export function WindowStrip({ steps, slots, label }) {
             <text x={cx} y={topY + 16} textAnchor="middle" fontSize="15" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{s.window.join('  ')}</text>
             {s.counts.map(([p, n], k) => (
               <g key={p}>
-                <rect x={cx - chipW / 2} y={mapY + k * (chipH + 6)} width={chipW} height={chipH} rx="13" style={{ fill: s.fresh === p ? 'var(--color-mark-soft)' : 'var(--color-sunk)', stroke: s.fresh === p ? 'var(--color-mark)' : 'var(--color-rule-strong)' }} strokeWidth={s.fresh === p ? 2 : 1.1} />
+                <rect x={cx - chipW / 2} y={mapY + k * (chipH + 6)} width={chipW} height={chipH} rx="13" style={paint(s.fresh === p && 'mark', SUNK)} strokeWidth={s.fresh === p ? 2 : 1.1} />
                 <text x={cx} y={mapY + k * (chipH + 6) + chipH / 2 + 5} textAnchor="middle" fontSize="12.5" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{`${p}  ×${n}`}</text>
               </g>
             ))}
-            <text x={cx} y={footY} textAnchor="middle" fontSize="12.5" fontWeight="700" style={{ fill: 'var(--color-ink-soft)' }}>{`mín ${s.counts[0][0]} · máx ${s.counts[s.counts.length - 1][0]}`}</text>
+            {s.counts.length ? (
+              <text x={cx} y={footY} textAnchor="middle" fontSize="12.5" fontWeight="700" style={{ fill: 'var(--color-ink-soft)' }}>{`mín ${s.counts[0][0]} · máx ${s.counts[s.counts.length - 1][0]}`}</text>
+            ) : null}
           </g>
         );
       })}
-    </svg>
+    </Frame>
   );
 }
 
@@ -3449,21 +3312,12 @@ export function WindowFrame({ prices, from, to, entered, out: gone, counts, full
   const height = answerY + chipH + 12;
   const answerX = (width - rows * 64) / 2;
   return (
-    <svg viewBox={`0 0 ${width} ${height}`} style={{ width: '100%', maxWidth: `${Math.round(width * 1.3)}px`, height: 'auto', display: 'block', margin: '0.4rem auto' }} role="img" aria-label={label}>
-      {prices.map((p, i) => {
-        const tone = i === entered ? 'mark' : undefined;
-        return (
-          <g key={i} opacity={i === gone ? 0.4 : undefined}>
-            <text x={left + i * cell + cell / 2} y={indexY} textAnchor="middle" fontSize="10.5" style={{ fill: 'var(--color-ink-faint)' }}>{i}</text>
-            <rect x={left + i * cell} y={cellY} width={cell} height={cell} style={{ fill: tone ? 'var(--color-mark-soft)' : 'var(--color-surface)', stroke: tone ? 'var(--color-mark)' : 'var(--color-rule-strong)' }} strokeWidth={tone ? 2.2 : 1.2} strokeDasharray={i === gone ? '4 3' : undefined} />
-            <text x={left + i * cell + cell / 2} y={cellY + cell / 2 + 5} textAnchor="middle" fontSize="15" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{p}</text>
-          </g>
-        );
-      })}
+    <Frame width={width} height={height} label={label}>
+      <PriceCells prices={prices} left={left} indexY={indexY} cellY={cellY} cell={cell} font={15} indexFont={10.5} mark={(i) => i === entered} dim={(i) => i === gone} dashed={(i) => i === gone} />
       {to >= from ? (
         <path d={`M ${left + from * cell + 4} ${bracketY - 6} V ${bracketY} H ${left + (to + 1) * cell - 4} V ${bracketY - 6}`} fill="none" style={{ stroke: 'var(--color-accent)' }} strokeWidth="1.8" />
       ) : null}
-      <text x={mapX} y={mapY - 8} fontSize="11.5" fontWeight="700" style={{ fill: 'var(--color-ink-soft)' }}>window</text>
+      <text x={mapX} y={mapY - 8} fontSize="11.5" fontWeight="700" style={{ fill: 'var(--color-ink-soft)' }}>{codeText('`window`')}</text>
       {counts.map(([p, n], k) => {
         const x = mapX + k * (chipW + 6);
         const end = full && (k === 0 || k === counts.length - 1);
@@ -3480,14 +3334,14 @@ export function WindowFrame({ prices, from, to, entered, out: gone, counts, full
           </g>
         );
       })}
-      <text x={answerX} y={answerY - 8} fontSize="11.5" fontWeight="700" style={{ fill: 'var(--color-ink-soft)' }}>answer</text>
+      <text x={answerX} y={answerY - 8} fontSize="11.5" fontWeight="700" style={{ fill: 'var(--color-ink-soft)' }}>{codeText('`answer`')}</text>
       {answer.map(([lo, hi], r) => (
         <g key={`a${r}`}>
           <rect x={answerX + r * 64} y={answerY} width={58} height={chipH} rx="4" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.1" />
           <text x={answerX + r * 64 + 29} y={answerY + chipH / 2 + 5} textAnchor="middle" fontSize="12.5" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{`${lo}, ${hi}`}</text>
         </g>
       ))}
-    </svg>
+    </Frame>
   );
 }
 
@@ -3821,7 +3675,7 @@ export function EnrollStrip({ sections, slots, steps, label }) {
   const height = sectionY + sections.length * blockH;
   const tone = (v) => (v === 'entra' ? 'var(--color-keep)' : v === 'sale' ? 'var(--color-ink-soft)' : 'var(--color-flag)');
   return (
-    <svg viewBox={`0 0 ${width} ${height}`} style={{ width: '100%', maxWidth: `${Math.round(width * 1.3)}px`, height: 'auto', display: 'block', margin: '0.4rem auto' }} role="img" aria-label={label}>
+    <Frame width={width} height={height} label={label}>
       {steps.map((st, c) => {
         const x = pad + c * colW + (colW - chipW) / 2;
         return (
@@ -3841,7 +3695,7 @@ export function EnrollStrip({ sections, slots, steps, label }) {
                     const just = name === st.section && r === st.rut && st.verdict === 'entra';
                     return (
                       <g key={r}>
-                        <rect x={x} y={y + 24 + j * (chipH + 5)} width={chipW} height={chipH} rx="13" style={{ fill: just ? 'var(--color-mark-soft)' : 'var(--color-surface)', stroke: just ? 'var(--color-mark)' : 'var(--color-rule-strong)' }} strokeWidth={just ? 2 : 1.1} />
+                        <rect x={x} y={y + 24 + j * (chipH + 5)} width={chipW} height={chipH} rx="13" style={paint(just && 'mark')} strokeWidth={just ? 2 : 1.1} />
                         <text x={x + chipW / 2} y={y + 24 + j * (chipH + 5) + chipH / 2 + 5} textAnchor="middle" fontSize="12.5" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{r}</text>
                       </g>
                     );
@@ -3852,7 +3706,7 @@ export function EnrollStrip({ sections, slots, steps, label }) {
           </g>
         );
       })}
-    </svg>
+    </Frame>
   );
 }
 
@@ -3861,8 +3715,8 @@ export function EnrollStrip({ sections, slots, steps, label }) {
 export const ENROLL_STEPS = [
   { section: 'EDA 2', rut: '13.959.276-K', verdict: 'entra', rosters: { 'EDA 2': ['13.959.276-K'] } },
   { section: 'EDA 1', rut: '18.155.218-2', verdict: 'entra', rosters: { 'EDA 1': ['18.155.218-2'], 'EDA 2': ['13.959.276-K'] } },
+  { section: 'EDA 1', rut: '18.155.218-2', verdict: 'ya está', rosters: { 'EDA 1': ['18.155.218-2'], 'EDA 2': ['13.959.276-K'] } },
   { section: 'EDA 1', rut: '13.959.276-K', verdict: 'entra', rosters: { 'EDA 1': ['13.959.276-K', '18.155.218-2'], 'EDA 2': ['13.959.276-K'] } },
-  { section: 'EDA 1', rut: '18.155.218-2', verdict: 'ya está', rosters: { 'EDA 1': ['13.959.276-K', '18.155.218-2'], 'EDA 2': ['13.959.276-K'] } },
   { section: 'EDA 1', rut: '13.180.992-1', verdict: 'llena', rosters: { 'EDA 1': ['13.959.276-K', '18.155.218-2'], 'EDA 2': ['13.959.276-K'] } },
   { section: 'EDA 1', rut: '18.155.218-2', drop: true, verdict: 'sale', rosters: { 'EDA 1': ['13.959.276-K'], 'EDA 2': ['13.959.276-K'] } },
 ];
@@ -3923,8 +3777,8 @@ Una seguidilla de pedidos, con cupo 2, y lo que responde cada uno:
 | ------------------------------------- | ----------------------------------- |
 | inscribir 13.959.276-K en EDA 2       | `true`                              |
 | inscribir 18.155.218-2 en EDA 1       | `true`                              |
-| inscribir 13.959.276-K en EDA 1       | `true`: está también en EDA 2       |
 | inscribir 18.155.218-2 en EDA 1       | `false`: ya está                    |
+| inscribir 13.959.276-K en EDA 1       | `true`: está también en EDA 2       |
 | inscribir 13.180.992-1 en EDA 1       | `false`: EDA 1 está llena           |
 | la nómina de EDA 1                    | 13.959.276-K y 18.155.218-2         |
 | retirar 18.155.218-2 de EDA 1         | `true`                              |
@@ -3983,7 +3837,7 @@ y se mantienen en orden mientras entran y salen.
   sections={['EDA 1', 'EDA 2']}
   slots={2}
   steps={ENROLL_STEPS}
-  label="Seis columnas, una por pedido, con cupo 2. Inscribe 13.959.276-K en EDA 2: entra. Inscribe 18.155.218-2 en EDA 1: entra. Inscribe 13.959.276-K en EDA 1: entra, y queda antes que 18.155.218-2. Inscribe 18.155.218-2 en EDA 1: ya está. Inscribe 13.180.992-1 en EDA 1: llena. Retira 18.155.218-2 de EDA 1: sale; EDA 1 queda con 13.959.276-K, y EDA 2 también."
+  label="Seis columnas, una por pedido, con cupo 2. Inscribe 13.959.276-K en EDA 2: entra. Inscribe 18.155.218-2 en EDA 1: entra. Inscribe 18.155.218-2 en EDA 1: ya está. Inscribe 13.959.276-K en EDA 1: entra, y queda antes que 18.155.218-2. Inscribe 13.180.992-1 en EDA 1: llena. Retira 18.155.218-2 de EDA 1: sale; EDA 1 queda con 13.959.276-K, y EDA 2 también."
 />
 
 Es un **diccionario** de cada sección a sus inscritos. A una sección solo se le
@@ -4082,27 +3936,27 @@ respuesta dice si ya estaba.
 >
   <Step lines={[3, 4]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>rosters arranca vacío: ninguna sección tiene inscritos.</div>
-    <GroupMap id="inscritos" groups={[]} rows={2} slots={2} keyTitle="rosters" valueTitle="los inscritos, en orden" label="El diccionario rosters, sin ninguna sección." />
+    <GroupMap id="inscritos-inscribir" groups={[]} rows={2} slots={2} keyTitle="`rosters`" valueTitle="los inscritos, en orden" label="El diccionario rosters, sin ninguna sección." />
   </Step>
   <Step lines={[13, 14, 15, 16, 17, 19, 22]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>enroll de 13.959.276-K en EDA 2: EDA 2 no estaba; se crea su conjunto, y entra.</div>
-    <GroupMap id="inscritos" groups={[['EDA 2', ['13.959.276-K']]]} rows={2} slots={2} picked="EDA 2" fresh="13.959.276-K" keyTitle="rosters" valueTitle="los inscritos, en orden" label="EDA 2, destacada, con 13.959.276-K, recién agregado." />
+    <GroupMap id="inscritos-inscribir" groups={[['EDA 2', ['13.959.276-K']]]} rows={2} slots={2} picked="EDA 2" fresh="13.959.276-K" keyTitle="`rosters`" valueTitle="los inscritos, en orden" label="EDA 2, destacada, con 13.959.276-K, recién agregado." />
   </Step>
   <Step lines={[13, 14, 15, 16, 17, 19, 22]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>enroll de 18.155.218-2 en EDA 1: EDA 1 no estaba; se crea su conjunto, y entra.</div>
-    <GroupMap id="inscritos" groups={[['EDA 2', ['13.959.276-K']], ['EDA 1', ['18.155.218-2']]]} rows={2} slots={2} picked="EDA 1" fresh="18.155.218-2" keyTitle="rosters" valueTitle="los inscritos, en orden" label="EDA 2 con 13.959.276-K; EDA 1, destacada, con 18.155.218-2, recién agregado." />
+    <GroupMap id="inscritos-inscribir" groups={[['EDA 2', ['13.959.276-K']], ['EDA 1', ['18.155.218-2']]]} rows={2} slots={2} picked="EDA 1" fresh="18.155.218-2" keyTitle="`rosters`" valueTitle="los inscritos, en orden" label="EDA 2 con 13.959.276-K; EDA 1, destacada, con 18.155.218-2, recién agregado." />
+  </Step>
+  <Step lines={[13, 14, 15, 19, 22]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>enroll de 18.155.218-2 en EDA 1, otro objeto igual: hay cupo, pero add responde false: ya está.</div>
+    <GroupMap id="inscritos-inscribir" groups={[['EDA 2', ['13.959.276-K']], ['EDA 1', ['18.155.218-2']]]} rows={2} slots={2} picked="EDA 1" keyTitle="`rosters`" valueTitle="los inscritos, en orden" label="EDA 1, destacada, con 18.155.218-2: nada cambia." />
   </Step>
   <Step lines={[13, 14, 15, 19, 22]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>enroll de 13.959.276-K en EDA 1: hay cupo, y entra antes que 18.155.218-2, por su número.</div>
-    <GroupMap id="inscritos" groups={[['EDA 2', ['13.959.276-K']], ['EDA 1', ['13.959.276-K', '18.155.218-2']]]} rows={2} slots={2} picked="EDA 1" fresh="13.959.276-K" keyTitle="rosters" valueTitle="los inscritos, en orden" label="EDA 2 con 13.959.276-K; EDA 1, destacada, con 13.959.276-K, recién agregado y primero, y 18.155.218-2." />
-  </Step>
-  <Step lines={[13, 14, 15, 19, 22]}>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>enroll de 18.155.218-2 en EDA 1, otro objeto igual: add responde false, ya está.</div>
-    <GroupMap id="inscritos" groups={[['EDA 2', ['13.959.276-K']], ['EDA 1', ['13.959.276-K', '18.155.218-2']]]} rows={2} slots={2} picked="EDA 1" keyTitle="rosters" valueTitle="los inscritos, en orden" label="EDA 1, destacada, con 13.959.276-K y 18.155.218-2: nada cambia." />
+    <GroupMap id="inscritos-inscribir" groups={[['EDA 2', ['13.959.276-K']], ['EDA 1', ['13.959.276-K', '18.155.218-2']]]} rows={2} slots={2} picked="EDA 1" fresh="13.959.276-K" keyTitle="`rosters`" valueTitle="los inscritos, en orden" label="EDA 2 con 13.959.276-K; EDA 1, destacada, con 13.959.276-K, recién agregado y primero, y 18.155.218-2." />
   </Step>
   <Step lines={[13, 14, 15, 19, 20]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>enroll de 13.180.992-1 en EDA 1: tiene 2, el cupo; responde false.</div>
-    <GroupMap id="inscritos" groups={[['EDA 2', ['13.959.276-K']], ['EDA 1', ['13.959.276-K', '18.155.218-2']]]} rows={2} slots={2} picked="EDA 1" keyTitle="rosters" valueTitle="los inscritos, en orden" label="EDA 1, destacada, llena con 13.959.276-K y 18.155.218-2: nada cambia." />
+    <GroupMap id="inscritos-inscribir" groups={[['EDA 2', ['13.959.276-K']], ['EDA 1', ['13.959.276-K', '18.155.218-2']]]} rows={2} slots={2} picked="EDA 1" keyTitle="`rosters`" valueTitle="los inscritos, en orden" label="EDA 1, destacada, llena con 13.959.276-K y 18.155.218-2: nada cambia." />
   </Step>
 </StepShow>
 
@@ -4135,23 +3989,23 @@ en el orden del árbol.
 >
   <Step lines={[11, 12, 13, 16]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>roster de EDA 1: una lista con su conjunto, en el orden del árbol.</div>
-    <GroupMap id="inscritos" groups={[['EDA 2', ['13.959.276-K']], ['EDA 1', ['13.959.276-K', '18.155.218-2']]]} rows={2} slots={2} picked="EDA 1" keyTitle="rosters" valueTitle="los inscritos, en orden" label="EDA 1, destacada: su nómina es 13.959.276-K y 18.155.218-2, en ese orden." />
+    <GroupMap id="inscritos-retirar" groups={[['EDA 2', ['13.959.276-K']], ['EDA 1', ['13.959.276-K', '18.155.218-2']]]} rows={2} slots={2} picked="EDA 1" keyTitle="`rosters`" valueTitle="los inscritos, en orden" label="EDA 1, destacada: su nómina es 13.959.276-K y 18.155.218-2, en ese orden." />
   </Step>
   <Step lines={[1, 2, 3]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>drop de 18.155.218-2 en EDA 1: estaba; remove lo saca y responde true.</div>
-    <GroupMap id="inscritos" groups={[['EDA 2', ['13.959.276-K']], ['EDA 1', ['13.959.276-K']]]} rows={2} slots={2} picked="EDA 1" keyTitle="rosters" valueTitle="los inscritos, en orden" label="EDA 1, destacada, con 13.959.276-K; EDA 2 con 13.959.276-K." />
+    <GroupMap id="inscritos-retirar" groups={[['EDA 2', ['13.959.276-K']], ['EDA 1', ['13.959.276-K']]]} rows={2} slots={2} picked="EDA 1" keyTitle="`rosters`" valueTitle="los inscritos, en orden" label="EDA 1, destacada, con 13.959.276-K; EDA 2 con 13.959.276-K." />
   </Step>
   <Step lines={[1, 2, 3]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>drop de 18.155.218-2 en EDA 1 otra vez: ya no estaba; remove responde false.</div>
-    <GroupMap id="inscritos" groups={[['EDA 2', ['13.959.276-K']], ['EDA 1', ['13.959.276-K']]]} rows={2} slots={2} picked="EDA 1" keyTitle="rosters" valueTitle="los inscritos, en orden" label="EDA 1, destacada, con 13.959.276-K: nada cambia." />
+    <GroupMap id="inscritos-retirar" groups={[['EDA 2', ['13.959.276-K']], ['EDA 1', ['13.959.276-K']]]} rows={2} slots={2} picked="EDA 1" keyTitle="`rosters`" valueTitle="los inscritos, en orden" label="EDA 1, destacada, con 13.959.276-K: nada cambia." />
   </Step>
   <Step lines={[6, 7, 8]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>count de EDA 1: el tamaño de su conjunto, 1.</div>
-    <GroupMap id="inscritos" groups={[['EDA 2', ['13.959.276-K']], ['EDA 1', ['13.959.276-K']]]} rows={2} slots={2} picked="EDA 1" keyTitle="rosters" valueTitle="los inscritos, en orden" label="EDA 1, destacada, con un inscrito." />
+    <GroupMap id="inscritos-retirar" groups={[['EDA 2', ['13.959.276-K']], ['EDA 1', ['13.959.276-K']]]} rows={2} slots={2} picked="EDA 1" keyTitle="`rosters`" valueTitle="los inscritos, en orden" label="EDA 1, destacada, con un inscrito." />
   </Step>
   <Step lines={[6, 7, 8]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>count de CAL 1: no está en rosters, y responde 0.</div>
-    <GroupMap id="inscritos" groups={[['EDA 2', ['13.959.276-K']], ['EDA 1', ['13.959.276-K']]]} rows={2} slots={2} keyTitle="rosters" valueTitle="los inscritos, en orden" label="EDA 2 y EDA 1, cada una con 13.959.276-K; CAL 1 no aparece." />
+    <GroupMap id="inscritos-retirar" groups={[['EDA 2', ['13.959.276-K']], ['EDA 1', ['13.959.276-K']]]} rows={2} slots={2} keyTitle="`rosters`" valueTitle="los inscritos, en orden" label="EDA 2 y EDA 1, cada una con 13.959.276-K; CAL 1 no aparece." />
   </Step>
 </StepShow>
 
@@ -4172,7 +4026,7 @@ dígitos va primero, donde el orden de los textos lo pondría último.
   fresh="9.876.543-3"
   keyTitle="la sección"
   valueTitle="su nómina"
-  caption="9.876.543-3 entra a EDA 2 y queda primero: el orden de Rut es el de los números"
+  caption="9.876.543-3 entra a EDA 2 y queda primero: el orden de `Rut` es el de los números"
   label="EDA 2, destacada, con 9.876.543-3, recién agregado y primero, y 13.959.276-K."
 />
 
@@ -4224,6 +4078,11 @@ class Rut implements Comparable<Rut> {
         int byNumber = Integer.compare(number, other.number);
         if (byNumber != 0) return byNumber;
         return Character.compare(dv, other.dv);
+    }
+
+    @Override
+    public String toString() {
+        return number + "-" + dv;
     }
 }
 
@@ -4301,8 +4160,8 @@ Rut b = new Rut(13180992, '1');
 Rut c = new Rut(13959276, 'K');
 check(e.enroll(new Section("EDA", 2), c), true);
 check(e.enroll(new Section("EDA", 1), a), true);
-check(e.enroll(new Section("EDA", 1), c), true);
 check(e.enroll(new Section("EDA", 1), new Rut(18155218, '2')), false);
+check(e.enroll(new Section("EDA", 1), c), true);
 check(e.enroll(new Section("EDA", 1), b), false);
 check(e.roster(new Section("EDA", 1)), Arrays.asList(c, a));
 check(e.drop(new Section("EDA", 1), a), true);
@@ -4333,66 +4192,6 @@ check(refused, true);
 
 </Slide>
 
-{/* GroupPicture — records of a key and a grade grouped by key: the records in a row as they arrive, and under them one box per key, in the order the keys first appear, with that key's grades in the order they came. Each key is written under its box, and the boxes spread under the row. */}
-
-export function GroupPicture({ records, caption, label }) {
-  const text = ([k, g]) => `${k} · ${g}`;
-  const chipW = Math.max(96, ...records.map((r) => text(r).length * 7.4 + 20));
-  const chipH = 28;
-  const gap = 8;
-  const pad = 12;
-  const gradeW = 52;
-  const boxPad = 10;
-  const keys = [...new Set(records.map((r) => r[0]))];
-  const slot = records.map((r, j) => records.slice(0, j).filter((s) => s[0] === r[0]).length);
-  const slots = Math.max(...keys.map((k) => records.filter((r) => r[0] === k).length));
-  const boxW = Math.max(slots * gradeW + (slots - 1) * 6 + 2 * boxPad, ...keys.map((k) => k.length * 7.4 + 20));
-  const rowW = records.length * chipW + (records.length - 1) * gap;
-  const boxGap = keys.length > 1 ? Math.max(22, (0.8 * rowW - keys.length * boxW) / (keys.length - 1)) : 0;
-  const groupsW = keys.length * boxW + (keys.length - 1) * boxGap;
-  const width = 2 * pad + Math.max(rowW, groupsW, caption ? caption.length * 6.6 : 0);
-  const left = (width - rowW) / 2;
-  const gleft = (width - groupsW) / 2;
-  const indexY = pad + 10;
-  const rowY = indexY + 8;
-  const boxY = rowY + chipH + 44;
-  const boxH = chipH + 2 * boxPad;
-  const height = boxY + boxH + 22 + (caption ? 30 : 6);
-  const recordX = (j) => left + j * (chipW + gap) + chipW / 2;
-  const boxX = (k) => gleft + keys.indexOf(k) * (boxW + boxGap);
-  const gradeX = (j) => boxX(records[j][0]) + boxPad + slot[j] * (gradeW + 6);
-  return (
-    <svg viewBox={`0 0 ${width} ${height}`} style={{ width: '100%', maxWidth: `${Math.round(width * 1.3)}px`, height: 'auto', display: 'block', margin: '0.4rem auto' }} role="img" aria-label={label}>
-      {records.map((r, j) => (
-        <g key={`r${j}`}>
-          <text x={recordX(j)} y={indexY} textAnchor="middle" fontSize="11" style={{ fill: 'var(--color-ink-faint)' }}>{j}</text>
-          <rect x={recordX(j) - chipW / 2} y={rowY} width={chipW} height={chipH} rx="14" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.2" />
-          <text x={recordX(j)} y={rowY + chipH / 2 + 5} textAnchor="middle" fontSize="12.5" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{text(r)}</text>
-        </g>
-      ))}
-      {keys.map((k) => (
-        <rect key={`b${k}`} x={boxX(k)} y={boxY} width={boxW} height={boxH} rx="12" style={{ fill: 'var(--color-sunk)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.3" />
-      ))}
-      {records.map(([, g], j) => (
-        <g key={`g${j}`}>
-          <rect x={gradeX(j)} y={boxY + boxPad} width={gradeW} height={chipH} rx="14" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.2" />
-          <text x={gradeX(j) + gradeW / 2} y={boxY + boxPad + chipH / 2 + 5} textAnchor="middle" fontSize="12.5" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{g}</text>
-        </g>
-      ))}
-      {keys.map((k) => (
-        <text key={`t${k}`} x={boxX(k) + boxW / 2} y={boxY + boxH + 16} textAnchor="middle" fontSize="12" fontWeight="700" style={{ fill: 'var(--color-ink-soft)' }}>{k}</text>
-      ))}
-      {caption ? (
-        <text x={width / 2} y={height - 10} textAnchor="middle" fontSize="12" style={{ fill: 'var(--color-ink-soft)' }}>{caption}</text>
-      ) : null}
-    </svg>
-  );
-}
-
-{/* The grades of a semester as they arrive: the student's RUT and the grade, in the grade's Spanish writing. 13.180.992-1 gets a 6,2 twice, so the example itself keeps a repeated grade. */}
-
-export const GRADES = [['18.155.218-2', '5,5'], ['13.180.992-1', '6,2'], ['18.155.218-2', '4,0'], ['13.959.276-K', '6,8'], ['13.180.992-1', '6,2']];
-
 Dos ejercicios más, con el código que los resuelve:
 
 <Exercise title="Las notas de cada estudiante">
@@ -4402,10 +4201,18 @@ profesores las ingresan, cada una con el RUT del estudiante y en cualquier
 orden. Para el informe de cada estudiante hace falta juntar, para cada RUT,
 todas sus notas, en el orden en que llegaron, también las que se repiten.
 
-<GroupPicture
-  records={GRADES}
-  caption="cada RUT con sus notas, en el orden en que llegaron"
-  label="Cinco registros, en el orden en que llegan: 18.155.218-2 con 5,5; 13.180.992-1 con 6,2; 18.155.218-2 con 4,0; 13.959.276-K con 6,8; 13.180.992-1 con 6,2. Debajo, los grupos: 18.155.218-2 con 5,5 y 4,0; 13.180.992-1 con 6,2 y 6,2; 13.959.276-K con 6,8."
+<GroupMap
+  id="notas"
+  groups={[
+    ['18.155.218-2', ['5,5', '4,0']],
+    ['13.180.992-1', ['6,2', '6,2']],
+    ['13.959.276-K', ['6,8']],
+  ]}
+  itemW={52}
+  keyTitle="cada RUT"
+  valueTitle="sus notas, en el orden en que llegaron"
+  caption="la lista de cada RUT guarda cada registro, también la nota repetida"
+  label="Tres RUT, cada uno con una flecha a la lista de sus notas en el orden en que llegaron: 18.155.218-2 con 5,5 y 4,0; 13.180.992-1 con 6,2 y 6,2; 13.959.276-K con 6,8."
 />
 
 `byStudent` recibe los RUTs y las notas en dos arreglos del mismo largo,
@@ -4585,6 +4392,7 @@ check(t.get("Araya"), Integer.valueOf(1));
 check(Solution.winner(votes), "Rojas");
 check(Solution.winner(new String[] {"Soto", "Soto", "Araya"}), "Soto");
 check(Solution.winner(new String[] {"Soto", "Araya"}), "Araya");
+check(Solution.winner(new String[] {"Rojas", "Araya"}), "Araya");
 check(Solution.tally(new String[] {}).size(), 0);
 check(Solution.winner(new String[] {}), null);
 ```

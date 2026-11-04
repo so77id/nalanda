@@ -30,7 +30,7 @@ Any solvable problem presented in any class of the course — any unit, whether
 or not the class is about a data structure. Do not use it for the exposition
 of a structure or a technique; that is `teach-a-data-structure.md`.
 
-## Two kinds, and they differ by who does the work
+## Three kinds, and they differ by who does the work
 
 - **A worked exercise** shows all five beats. Its `<Exercise>` carries the
   finished algorithm as `starter`, so the reader runs it, breaks it and plays
@@ -39,6 +39,9 @@ of a structure or a technique; that is `teach-a-data-structure.md`.
   the work being handed to the student, so putting them on a slide would be
   answering the question. Its `<Exercise>` carries a skeleton `starter`, the
   `test` cases, and a `solution` fence.
+- **An exercise solved in the book** ships the statement and the program that
+  solves it, and no slide: its `<Exercise>` carries the finished program as
+  `starter` and the `test` cases, with no `solution` (the third kind, below).
 
 **And they differ in where the runnable block lives.** A worked exercise's
 `<Exercise>` goes INSIDE a `<Slide>`, wrapped in `<PresentationWide>`, because
@@ -49,7 +52,7 @@ course to ship on slides; the twelve before them were all book-only, and
 #294's own acceptance criteria forbade it before the slide-by-slide review
 reversed the call.
 
-Both are `<Exercise title="…">` with ```` ```java starter ```` and
+All three are `<Exercise title="…">` with ```` ```java starter ```` and
 ```` ```java test ```` fences; only the posed one adds ```` ```java solution ````.
 #294 ships four worked and no posed ones — its five were cut. The posed
 shape is not hypothetical, though: eleven of them already ship, six in
@@ -79,7 +82,7 @@ else — is what a control or an exam asks for. Both are legitimate; what is
 not legitimate is drifting between them inside one bank, because the reader
 cannot tell how much thinking is expected of them.
 
-**A third shape: solved in the book.** A statement and the program that
+**The third kind: solved in the book.** A statement and the program that
 solves it, book-only, with no beat on a slide: the `<Exercise>` carries the
 finished program as `starter`, the `test` cases, and no `solution`. It is for
 a problem whose walk the class already gives — its idea and its code are the
@@ -200,6 +203,10 @@ under it runs `5 1 9 3 7 2 8` through the K best so far, the worst on top;
 the min-heap is named only after it. The rule came out of the
 professor's review of #304: concrete values («el 9», `data[8]`) appear only in
 drawings and their captions, never as «insertemos un 9…» in the prose.
+Six such strips — one column per state — are file-local copies across three
+classes, and the next one is not a seventh: the document that wants one
+promotes `<HandRun>` and moves the six onto it
+([`add-a-course-document.md`](add-a-course-document.md) §6e-quater).
 An idea with several parts gets several pictures, one per part.
 
 > **Test.** Can it be executed by hand on that example without writing a line
@@ -236,7 +243,7 @@ appeared inside the walk under a promise to write them "al final".
   in pieces is for a listing whose parts are steps of one algorithm, as
   #304's merge; a class whose parts are methods is walked whole.
 - **Unless the class does not fit and its methods call nothing of each
-  other.** #350's enrollments — a constructor and four methods, 39 lines —
+  other.** #350's enrollments — a constructor and four methods, 42 lines —
   walked whole beside its drawing measured 0.563 against the 0.70 floor.
   Its methods share a field and call nothing of each other, so it walks the
   constructor and `enroll` on one slide (0.769, the rest of the class a
@@ -339,6 +346,10 @@ and whether anything clips — the scale recipe is in
 - [ ] Beat 1 names a function with its signature, its ranges and its return,
       and closes on solved examples including a failing one and the degenerate
       input.
+- [ ] An exercise solved in the book carries beat 1 and the program that
+      solves it as `starter`, with `test` cases that pass against it; it
+      owes no slide and no `solution` fence, and the items for beats 2 to 5
+      below do not apply to it (§Three kinds).
 - [ ] Beat 1 contains no word about the solution, and carries the problem's
       own data (pairs, tokens, bounds).
 - [ ] Beat 2 gives a counterexample **or** the problem's reason to exist — or
@@ -350,7 +361,10 @@ and whether anything clips — the scale recipe is in
 - [ ] Beat 3 contains no code and no identifier from the listing, and the
       structure is named there for the first time.
 - [ ] Beat 3's hand run is a drawing, with the values in it and in its
-      caption; the prose states the rule and names none.
+      caption; the prose states the rule and names none. One drawn as a
+      column per state promotes `<HandRun>`, or uses it once it exists —
+      never a seventh file-local strip (`add-a-course-document.md`
+      §6e-quater).
 - [ ] A listing whose parts are steps of one algorithm is built a
       fragment per slide before the full walk; a class whose methods call
       each other is walked whole in one widget, `beside` its drawing when it
@@ -369,6 +383,12 @@ and whether anything clips — the scale recipe is in
       another one.
 - [ ] The `<Exercise>` runs in `npm run preview` against the real JVM and its
       `test` fence passes — nothing in the build or the suite executes Java.
+- [ ] Each rule the statement states — a tie-break, a duplicate refused, a
+      capacity, a boundary — has a test case that only that rule decides, and
+      the tempting wrong version (the rule dropped, `<` for `<=`) fails it.
+      #352's review found two that passed: an enrollment whose duplicate the
+      capacity refused first, and a tie the `HashMap`'s order happened to
+      break the right way.
 - [ ] The checklists of [`add-a-course-document.md`](add-a-course-document.md),
       [`course-content-style.md`](course-content-style.md) and
       [`teach-a-data-structure.md`](teach-a-data-structure.md) all pass — this
@@ -404,14 +424,15 @@ walked whole — the iterator's constructor, `pushLeft`, `hasNext` and `next`
 in one widget `beside` its tree and stack, after the professor rejected it
 split across two slides — and beat 3's hand runs drawn as one column per
 state (the pending stack after every `next`, the two inorders crossed one
-comparison at a time), the shape the heap class's Top-K strip set.
+comparison at a time), the shape the heap class's Top-K strip set — six
+copies of it now, which the next strip promotes.
 
 `content/courses/sample-course/24-edd-set-map.mdx` — four worked exercises
 (el primer voto repetido, una agenda de horas con separación mínima, el
 mínimo y el máximo de una ventana de precios, las inscripciones de un
 semestre), two solved in the book only
 (las notas de cada estudiante, votantes distintos con y sin puntos — the
-third shape above) and three posed (el conteo de votos, la próxima salida, el
+third kind above) and three posed (el conteo de votos, la próxima salida, el
 evento más cercano), across the four classes it teaches: `HashSet`,
 `HashMap`, `TreeSet`, `TreeMap`. The posed ones are guided, and one of them is
 a key of its own: the dates of the nearest event are a `Day` whose `compareTo`
