@@ -1,4 +1,4 @@
-import { TREE_NODE_R } from '../treeGeometry';
+import { TREE_NODE_R } from './treeGeometry';
 
 /** A node of the drawing: its value, and its place on the grid in columns and rows. */
 export interface NodeGraphNode {
@@ -57,6 +57,11 @@ export interface NodeGraphLayoutInput {
   directed: boolean;
   /** The caption's length, which may widen the drawing. */
   captionChars?: number;
+  /**
+   * Stop each edge at its nodes' borders (the default), or run it from centre
+   * to centre, as the strokes of a figure meet at its points.
+   */
+  trim?: boolean;
 }
 
 export const NODE_R = TREE_NODE_R;
@@ -117,6 +122,7 @@ export function layoutNodeGraph({
   rows,
   directed,
   captionChars = 0,
+  trim = true,
 }: NodeGraphLayoutInput): NodeGraphLayout {
   const r = NODE_R;
   const drawingW = 2 * PAD + cols * PITCH;
@@ -171,8 +177,8 @@ export function layoutNodeGraph({
     const inn = unit(q.x - c.x, q.y - c.y);
     leaving.get(from)!.push(Math.atan2(out.y, out.x));
     leaving.get(to)!.push(Math.atan2(-inn.y, -inn.x));
-    const startGap = borderDistance(halfW.get(from)!, out);
-    const endGap = borderDistance(halfW.get(to)!, { x: -inn.x, y: -inn.y });
+    const startGap = trim ? borderDistance(halfW.get(from)!, out) : 0;
+    const endGap = trim ? borderDistance(halfW.get(to)!, { x: -inn.x, y: -inn.y }) : 0;
     const start = { x: p.x + out.x * startGap, y: p.y + out.y * startGap };
     const tip = { x: q.x - inn.x * endGap, y: q.y - inn.y * endGap };
     const end = directed

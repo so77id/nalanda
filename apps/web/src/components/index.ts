@@ -22,6 +22,9 @@ export { LazyCallStack } from './interactive/lazyCallStack';
 // the tower/disc animation glue. Guarded by `src/architecture.test.ts`
 // (per-name `hanoiplayground`). ADR-0055.
 export { LazyHanoiPlayground } from './interactive/lazyHanoiPlayground';
+// Lazy like HanoiPlayground: the trace-without-lifting-the-pen widget of
+// Grafos · Modelo y representación (#356).
+export { LazyPenTrace } from './interactive/lazyPenTrace';
 // Lazy for pattern consistency and for the CodeMirror-gutter future
 // extension the ADR anticipates (ADR-0045).
 export { LazyComplexityCounter } from './interactive/lazyComplexityCounter';

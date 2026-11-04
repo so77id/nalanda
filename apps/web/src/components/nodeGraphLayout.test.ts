@@ -121,6 +121,20 @@ describe('layoutNodeGraph', () => {
     }
   });
 
+  it('runs an edge from centre to centre when told not to trim it, as a figure', () => {
+    const { edges, at } = layoutNodeGraph({
+      nodes: TWO,
+      edges: [['A', 'B']],
+      cols: 3,
+      rows: 1,
+      directed: false,
+      trim: false,
+    });
+    const [x1, y1, x2, y2] = nums(edges[0].d);
+    expect(dist(at.get('A')!, x1, y1)).toBeCloseTo(0, 0);
+    expect(dist(at.get('B')!, x2, y2)).toBeCloseTo(0, 0);
+  });
+
   it('keeps a circles-only drawing exactly where it was before #356', () => {
     // Árboles I and II mount these; their geometry must not move.
     const { width, drawingH, at } = layoutNodeGraph({

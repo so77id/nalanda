@@ -20,6 +20,7 @@ import { complexityCounterCatalogEntry } from './interactive/ComplexityCounter.c
 import { complexityExerciseCatalogEntry } from './interactive/ComplexityExercise.catalog';
 import { complexityHierarchyCatalogEntry } from './interactive/ComplexityHierarchy.catalog';
 import { hanoiPlaygroundCatalogEntry } from './interactive/HanoiPlayground.catalog';
+import { penTraceCatalogEntry } from './interactive/PenTrace.catalog';
 import { mathPlotCatalogEntry } from './interactive/MathPlot.catalog';
 import { exerciseCatalogEntry } from './interactive/Exercise.catalog';
 import { explanationCatalogEntry } from './interactive/Explanation.catalog';
@@ -95,6 +96,7 @@ export const catalogEntries: CatalogEntry[] = [
   karatsubaVizCatalogEntry,
   callStackCatalogEntry,
   hanoiPlaygroundCatalogEntry,
+  penTraceCatalogEntry,
   stepShowCatalogEntry,
   stepCatalogEntry,
   fibMemoStepsCatalogEntry,

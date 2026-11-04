@@ -1480,7 +1480,14 @@ wanted them (#322):
 - **`<NodeGraph>`** draws nodes at explicit grid positions joined by edges —
   for what `<BinaryPicture>` cannot draw because it is not a tree: a node with
   three children, a node with two parents. The counterexamples to a tree's
-  invariants; `mark` on the node and the edges that break the rule.
+  invariants; `mark` on the node and the edges that break the rule. Since
+  #356 it is also the Grafos unit's drawing of a graph: `directed` for
+  arrows, `[from, to, weight]` to write a weight on an edge, the same pair
+  twice for two parallel edges (they bend apart), `notes` for a short note
+  beside a vertex (its degree), and a label longer than two characters in a
+  pill. The tones keep the design system's meanings — an odd-degree vertex
+  is `mark`, not `flag` — and a drawing with weights names its vertices with
+  letters, so a vertex never reads as a weight.
 - **`<OrderRule>`** writes a traversal's rule as pills joined by arrows
   (`izquierda → raíz → derecha`), in the traversal's colour. It goes first on
   the slide that introduces a traversal, before the drawing that walks it and
@@ -1488,6 +1495,15 @@ wanted them (#322):
 
 Both are pure markup with no package of their own and register eagerly, as
 `<BinaryPicture>` does; their catalog pages carry the props.
+
+**`<PenTrace>`** (#356) is the experiment before Euler's rule: a figure the
+reader traces without lifting the pen, pressing the points one after
+another. It refuses a jump and a stroke drawn twice, and says how many
+strokes are left, when the tracing is stuck and when it is done. `figure`
+draws unlabelled dots, so the figure looks like the drawing; without it the
+points are lettered vertices (Königsberg). Put a point wherever strokes meet
+or cross — the class builds each figure's graph that way. It loads on
+demand, like `<HanoiPlayground>`; its catalog page carries the props.
 
 6f. **An authoring error does not fail the build**, on purpose: writing the
 slides before drawing the diagrams is a real order of work, and gating the

@@ -1,7 +1,12 @@
 import { AuthoringError } from '../AuthoringError';
-import { NODE_R, layoutNodeGraph, type NodeGraphEdge, type NodeGraphNode } from './nodeGraphLayout';
+import {
+  NODE_R,
+  layoutNodeGraph,
+  type NodeGraphEdge,
+  type NodeGraphNode,
+} from '../nodeGraphLayout';
 
-export type { NodeGraphEdge, NodeGraphNode } from './nodeGraphLayout';
+export type { NodeGraphEdge, NodeGraphNode } from '../nodeGraphLayout';
 
 /** What a tone says: `mark` look here, `flag` this is wrong, `keep` this is done. */
 export type NodeGraphTone = 'mark' | 'flag' | 'keep';
