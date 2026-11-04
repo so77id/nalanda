@@ -310,6 +310,177 @@ y una suma de números impares es par solo si son una cantidad par.
 
 ## Dibujar sin levantar el lápiz
 
+<Slide title="Una figura de un solo trazo">
+Un juego antiguo pide dibujar una figura de un solo trazo: sin levantar el
+lápiz del papel y sin pasar dos veces por la misma línea. Algunas figuras se
+pueden dibujar así y otras no, y a simple vista no se nota cuál es cuál.
+
+En cada figura, el lápiz baja en un punto y pasa de punto en punto por las
+líneas que todavía no dibujó.
+
+<PenTrace
+  figure
+  cols={4}
+  rows={4}
+  nodes={[{ v: 'A', x: 2, y: 0 }, { v: 'B', x: 3.902, y: 1.239 }, { v: 'C', x: 3.176, y: 3.244 }, { v: 'D', x: 0.824, y: 3.244 }, { v: 'E', x: 0.098, y: 1.239 }, { v: 'F', x: 2.449, y: 1.239 }, { v: 'G', x: 2.727, y: 2.005 }, { v: 'H', x: 2.0, y: 2.478 }, { v: 'I', x: 1.273, y: 2.005 }, { v: 'J', x: 1.551, y: 1.239 }]}
+  edges={[['A', 'F'], ['F', 'G'], ['G', 'C'], ['B', 'G'], ['G', 'H'], ['H', 'D'], ['C', 'H'], ['H', 'I'], ['I', 'E'], ['D', 'I'], ['I', 'J'], ['J', 'A'], ['E', 'J'], ['J', 'F'], ['F', 'B']]}
+  label="La estrella de cinco puntas, para dibujar de un solo trazo."
+/>
+
+</Slide>
+
+<Slide title="La casa">
+<PenTrace
+  figure
+  cols={3}
+  rows={4}
+  nodes={[{ v: 'A', x: 1, y: 0 }, { v: 'B', x: 0, y: 1 }, { v: 'C', x: 2, y: 1 }, { v: 'F', x: 1, y: 2 }, { v: 'D', x: 0, y: 3 }, { v: 'E', x: 2, y: 3 }]}
+  edges={[['A', 'B'], ['A', 'C'], ['B', 'C'], ['B', 'D'], ['C', 'E'], ['D', 'E'], ['B', 'F'], ['F', 'E'], ['C', 'F'], ['F', 'D']]}
+  label="La casa: un cuadrado con sus dos diagonales y un techo, para dibujar de un solo trazo."
+/>
+
+</Slide>
+
+<Slide title="El sobre">
+<PenTrace
+  figure
+  cols={3}
+  rows={3}
+  nodes={[{ v: 'A', x: 0, y: 0 }, { v: 'B', x: 2, y: 0 }, { v: 'E', x: 1, y: 1 }, { v: 'C', x: 0, y: 2 }, { v: 'D', x: 2, y: 2 }]}
+  edges={[['A', 'B'], ['C', 'D'], ['A', 'C'], ['B', 'D'], ['A', 'E'], ['E', 'D'], ['B', 'E'], ['E', 'C']]}
+  label="El sobre: un rectángulo con sus dos diagonales, para dibujar de un solo trazo."
+/>
+
+</Slide>
+
+<Slide title="El grafo de cada figura">
+Cada figura es un grafo: un vértice en cada punto donde las líneas se juntan
+o se cruzan, y una arista por cada línea entre dos de esos puntos. Dibujar la
+figura de un solo trazo es recorrer todas las aristas del grafo, cada una
+exactamente una vez.
+
+<NodeGraph
+  cols={5}
+  rows={5}
+  nodes={[{ v: 'A', x: 2.5, y: 0 }, { v: 'B', x: 4.878, y: 1.549 }, { v: 'C', x: 3.97, y: 4.055 }, { v: 'D', x: 1.03, y: 4.055 }, { v: 'E', x: 0.122, y: 1.549 }, { v: 'F', x: 3.061, y: 1.549 }, { v: 'G', x: 3.409, y: 2.506 }, { v: 'H', x: 2.5, y: 3.098 }, { v: 'I', x: 1.591, y: 2.506 }, { v: 'J', x: 1.939, y: 1.549 }]}
+  edges={[['A', 'F'], ['F', 'G'], ['G', 'C'], ['B', 'G'], ['G', 'H'], ['H', 'D'], ['C', 'H'], ['H', 'I'], ['I', 'E'], ['D', 'I'], ['I', 'J'], ['J', 'A'], ['E', 'J'], ['J', 'F'], ['F', 'B']]}
+  notes={{ A: 2, B: 2, C: 2, D: 2, E: 2, F: 4, G: 4, H: 4, I: 4, J: 4 }}
+  caption="la estrella: ningún vértice impar"
+  label="El grafo de la estrella: las cinco puntas, A a E, con grado 2, y los cinco cruces del centro, F a J, con grado 4. Ningún vértice tiene grado impar."
+/>
+
+</Slide>
+
+<Slide title="La casa y el sobre como grafos">
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.5rem 2rem', alignItems: 'end' }}>
+<NodeGraph
+  cols={3}
+  rows={4}
+  nodes={[{ v: 'A', x: 1, y: 0 }, { v: 'B', x: 0, y: 1 }, { v: 'C', x: 2, y: 1 }, { v: 'F', x: 1, y: 2 }, { v: 'D', x: 0, y: 3 }, { v: 'E', x: 2, y: 3 }]}
+  edges={[['A', 'B'], ['A', 'C'], ['B', 'C'], ['B', 'D'], ['C', 'E'], ['D', 'E'], ['B', 'F'], ['F', 'E'], ['C', 'F'], ['F', 'D']]}
+  notes={{ A: 2, B: 4, C: 4, D: 3, E: 3, F: 4 }}
+  tones={{ D: 'mark', E: 'mark' }}
+  caption="la casa: 2 vértices impares"
+  label="El grafo de la casa con el grado de cada vértice: A 2, B 4, C 4, F 4, y las dos esquinas de abajo, D y E, destacadas, con grado 3."
+/>
+<NodeGraph
+  cols={3}
+  rows={3}
+  nodes={[{ v: 'A', x: 0, y: 0 }, { v: 'B', x: 2, y: 0 }, { v: 'E', x: 1, y: 1 }, { v: 'C', x: 0, y: 2 }, { v: 'D', x: 2, y: 2 }]}
+  edges={[['A', 'B'], ['C', 'D'], ['A', 'C'], ['B', 'D'], ['A', 'E'], ['E', 'D'], ['B', 'E'], ['E', 'C']]}
+  notes={{ A: 3, B: 3, C: 3, D: 3, E: 4 }}
+  tones={{ A: 'mark', B: 'mark', C: 'mark', D: 'mark' }}
+  caption="el sobre: 4 vértices impares"
+  label="El grafo del sobre con el grado de cada vértice: las cuatro esquinas, destacadas, con grado 3, y el cruce del centro, E, con grado 4."
+/>
+</div>
+
+</Slide>
+
+<SectionBreak />
+
+## Euler y los vértices impares
+
+<Slide title="Cada paso por un vértice usa dos aristas">
+Cuando el recorrido pasa por un vértice, llega por una arista y sale por otra.
+Cada paso usa **dos** aristas del vértice, y como ninguna arista se repite, un
+vértice por el que el recorrido solo pasa tiene que tener grado par.
+
+<NodeGraph
+  cols={4}
+  rows={3}
+  directed
+  nodes={[{ v: 'A', x: 0, y: 0 }, { v: 'B', x: 3, y: 0 }, { v: 'X', x: 1.5, y: 1 }, { v: 'C', x: 0, y: 2 }, { v: 'D', x: 3, y: 2 }]}
+  edges={[['A', 'X'], ['X', 'B'], ['C', 'X'], ['X', 'D']]}
+  tones={{ X: 'mark' }}
+  caption="dos pasos por X: llega de A y sale a B, llega de C y sale a D"
+  label="Un vértice X, destacado, con cuatro aristas: el recorrido llega desde A y sale hacia B, y más tarde llega desde C y sale hacia D. Cada paso usa dos de sus aristas."
+/>
+
+Solo dos vértices escapan de esa cuenta: el del **comienzo**, donde el
+recorrido sale sin haber llegado, y el del **final**, donde llega sin volver a
+salir. Si el recorrido termina donde empezó, ese vértice también usa sus
+aristas de a dos.
+
+</Slide>
+
+<Slide title="La regla de Euler">
+En un grafo conexo, la cantidad de vértices de grado impar decide si se puede
+recorrer cada arista exactamente una vez:
+
+- **Ninguno impar**: se puede, partiendo de cualquier vértice, y el recorrido
+  termina donde empezó.
+- **Dos impares**: se puede, partiendo de uno de los dos y terminando en el
+  otro.
+- **Más de dos impares**: no se puede.
+
+Un solo vértice impar no ocurre nunca: los vértices de grado impar son
+siempre una cantidad par. Que las dos primeras condiciones alcancen también
+es de Euler, y se demuestra construyendo el recorrido.
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '0.5rem 1.5rem' }}>
+<div style={{ textAlign: 'center' }}><strong>La estrella</strong><br />ningún impar: se dibuja y se vuelve al inicio</div>
+<div style={{ textAlign: 'center' }}><strong>La casa</strong><br />dos impares: de una esquina de abajo a la otra</div>
+<div style={{ textAlign: 'center' }}><strong>El sobre</strong><br />cuatro impares: no se puede</div>
+</div>
+
+</Slide>
+
+<Slide title="El paseo por Königsberg">
+El paseo por Königsberg es el mismo juego: un recorrido que cruce cada
+puente, cada arista, exactamente una vez.
+
+<PenTrace
+  cols={3}
+  rows={3}
+  nodes={[{ v: 'B', x: 1, y: 0 }, { v: 'A', x: 0, y: 1 }, { v: 'D', x: 2, y: 1 }, { v: 'C', x: 1, y: 2 }]}
+  edges={[['A', 'B'], ['A', 'B'], ['A', 'C'], ['A', 'C'], ['A', 'D'], ['B', 'D'], ['C', 'D']]}
+  label="Königsberg como grafo: cuatro vértices, A, B, C y D, y siete aristas, para cruzarlas todas una sola vez."
+/>
+
+</Slide>
+
+<Slide title="Königsberg no tiene paseo">
+Los cuatro vértices de Königsberg tienen grado impar. Son más de dos, así que
+no existe un paseo que cruce cada puente exactamente una vez, parta donde
+parta.
+
+<NodeGraph
+  cols={3}
+  rows={3}
+  nodes={[{ v: 'B', x: 1, y: 0 }, { v: 'A', x: 0, y: 1 }, { v: 'D', x: 2, y: 1 }, { v: 'C', x: 1, y: 2 }]}
+  edges={[['A', 'B'], ['A', 'B'], ['A', 'C'], ['A', 'C'], ['A', 'D'], ['B', 'D'], ['C', 'D']]}
+  notes={{ A: 5, B: 3, C: 3, D: 3 }}
+  tones={{ A: 'mark', B: 'mark', C: 'mark', D: 'mark' }}
+  caption="cuatro vértices de grado impar: no hay paseo"
+  label="El grafo de Königsberg con sus cuatro vértices destacados y su grado: A 5, B 3, C 3 y D 3. Los cuatro son impares."
+/>
+
+La respuesta no salió de probar paseos, sino de contar los grados. Bastó
+reducir la ciudad a vértices y aristas: un **modelo** del problema.
+
+</Slide>
+
 <SectionBreak />
 
 ## Modelar un problema como grafo
