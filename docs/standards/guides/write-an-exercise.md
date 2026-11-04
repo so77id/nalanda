@@ -39,6 +39,9 @@ of a structure or a technique; that is `teach-a-data-structure.md`.
   the work being handed to the student, so putting them on a slide would be
   answering the question. Its `<Exercise>` carries a skeleton `starter`, the
   `test` cases, and a `solution` fence.
+- **An exercise solved in the book** ships the statement and the program that
+  solves it, and no slide: its `<Exercise>` carries the finished program as
+  `starter` and the `test` cases, with no `solution` (the third kind, below).
 
 **And they differ in where the runnable block lives.** A worked exercise's
 `<Exercise>` goes INSIDE a `<Slide>`, wrapped in `<PresentationWide>`, because
@@ -49,7 +52,7 @@ course to ship on slides; the twelve before them were all book-only, and
 #294's own acceptance criteria forbade it before the slide-by-slide review
 reversed the call.
 
-Both are `<Exercise title="…">` with ```` ```java starter ```` and
+All three are `<Exercise title="…">` with ```` ```java starter ```` and
 ```` ```java test ```` fences; only the posed one adds ```` ```java solution ````.
 #294 ships four worked and no posed ones — its five were cut. The posed
 shape is not hypothetical, though: eleven of them already ship, six in
@@ -345,8 +348,8 @@ and whether anything clips — the scale recipe is in
       input.
 - [ ] An exercise solved in the book carries beat 1 and the program that
       solves it as `starter`, with `test` cases that pass against it; it
-      owes no slide and no `solution` fence, and the beat items below do not
-      apply to it (§Three kinds).
+      owes no slide and no `solution` fence, and the items for beats 2 to 5
+      below do not apply to it (§Three kinds).
 - [ ] Beat 1 contains no word about the solution, and carries the problem's
       own data (pairs, tokens, bounds).
 - [ ] Beat 2 gives a counterexample **or** the problem's reason to exist — or
@@ -429,7 +432,7 @@ copies of it now, which the next strip promotes.
 mínimo y el máximo de una ventana de precios, las inscripciones de un
 semestre), two solved in the book only
 (las notas de cada estudiante, votantes distintos con y sin puntos — the
-third shape above) and three posed (el conteo de votos, la próxima salida, el
+third kind above) and three posed (el conteo de votos, la próxima salida, el
 evento más cercano), across the four classes it teaches: `HashSet`,
 `HashMap`, `TreeSet`, `TreeMap`. The posed ones are guided, and one of them is
 a key of its own: the dates of the nearest event are a `Day` whose `compareTo`

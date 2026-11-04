@@ -48,7 +48,8 @@ describe('StepBoxes', () => {
     );
     const widths = [...container.querySelectorAll('rect')].map((r) => r.getAttribute('width'));
     expect(widths).toEqual(['150', '150', '150']);
-    // pad 14 on each side, three boxes of 150, two steps of 150; titles, boxes and a margin
+    // The numbers Set y Map's file-local copy typed by hand before #353: pad 14
+    // on each side, three boxes of 150, two steps of 150; titles, boxes and a margin.
     expect(container.querySelector('svg')?.getAttribute('viewBox')).toBe(
       `0 0 ${2 * 14 + 3 * 150 + 2 * 150} ${26 + 44 + 12}`,
     );

@@ -340,10 +340,11 @@ card»), and the moulds fit both contracts as they stand. #305 now owes the
 extraction of seven copies.
 
 **What the next card does is decided when its class is refined, with the
-professor.** The class that defines the next TDA — the graphs unit's (#354)
-— settles it at the start of its WP: #305 first, as a WP of its own before
-the class, or an eighth copy, stated here as a deviation like the fifth,
-sixth and seventh. Neither is the default, and the author does not pick one
+professor, and written in its issue.** The class that defines the next TDA —
+the graphs unit's (#354) — settles it then: #305 first, as a WP of its own
+before the class, or an eighth copy, stated here as a deviation like the
+fifth, sixth and seventh. If the issue is silent — #356's, refined before
+this rule, is — the developer asks the professor before the card's slice. Neither is the default, and the author does not pick one
 silently. Until #305 lands, the copy's source stays _El TDA Sequence_ in
 `17-edd-introduccion.mdx`.
 

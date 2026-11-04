@@ -11,7 +11,7 @@ You are writing course material: a new sección/presentación, an exercise page,
 any content unit. No app code is involved — everything happens under `content/`.
 
 **If the document is a class of the Estructuras de Datos or Estructuras de
-Datos Avanzadas unit, read
+Datos Avanzadas unit, or of the graphs unit after them (#354), read
 [`teach-a-data-structure.md`](teach-a-data-structure.md) BEFORE drafting.** It
 fixes the shape — the acts and the four questions they answer, the TDA card,
 the invariant list, the cost table with its invariant column, the closing
@@ -1443,12 +1443,12 @@ What that costs, and the rules that follow from it:
   stated exception — `<BinaryPicture>`'s circles do not hold a RUT, and the
   class shipped a pill-shaped copy rather than grow the component — and the
   next document that wants a wide-key tree adds the prop instead of a
-  second fork. Worked case: #352's review found Set y Map's `StepBoxes` copied from Tablas
+  second fork, and moves `KeyTree` onto it in the same WP. Worked case: #352's review found Set y Map's `StepBoxes` copied from Tablas
   Hash with a two-line diff, and its `ChainTable` drawing Tablas Hash's
   `Chains` with a wider node and a value band; neither Tablas Hash copy named
   them. The back-references landed after the merge, and #353 then promoted
   both: `<StepBoxes>`, whose two differences became `boxWidth` and titles
-  always in the code face, and
+  always read through `codeText` (a backticked name in the code face), and
   `<ChainTable>`, whose two node sizes became `size="name"` and `size="rut"`
   and whose heights come from `hashGeometry.ts`, the module the widget's
   layout imports too. Of the two documents' 127 figures, the only ones the
@@ -1469,7 +1469,12 @@ What that costs, and the rules that follow from it:
   review). It is promoted like any figure, through
   [`add-a-content-component.md`](add-a-content-component.md), and the same WP
   moves the six strips onto it, as #322 and #353 deleted the copies they
-  promoted (the professor's decision in #353's review).
+  promoted (the professor's decision in #353's review). The six are what its
+  props must draw — `CrossStrip` and `WindowStrip` have no stack, so the
+  shape above is the common case, not the whole set — and one that does not
+  fit stays as a stated exception, named in that WP. Moving them rewrites
+  and re-checks three published classes (20, 22 and 24) in a browser, so the
+  class that needs the first strip sizes it when it is refined.
 
 6e-quinquies. **Draw a binary tree: `<BinaryPicture>`**, a static figure with
 the geometry of the binary-tree recipe of `<SequenceStepper>` — every node in
@@ -1971,8 +1976,10 @@ asking, and the difference is most of the value.
    not compile ships with a green build and a green suite. Open the document
    before the PR (`npm run build && npm run preview`, then
    `/nalanda/d/<id>`) and run every exercise you added: no amber authoring
-   banner, the cases pass against a correct solution, and they fail against the
-   starter. If a `<SideBySide>` or a `<Slide>` is involved, look at it in
+   banner, the cases pass against a correct solution, and they fail against a
+   skeleton starter; where the starter is the finished program (worked,
+   solved in the book), each rule has a case only it decides
+   (`write-an-exercise.md` §Checklist). If a `<SideBySide>` or a `<Slide>` is involved, look at it in
    presentation mode too — `/d/<id>/present`. A listing wider than the slide is
    **panned with a one-finger drag inside it** on a touch device, and that drag
    no longer advances the deck (#103, ADR-0013 §5.2) — so its tail is reachable,

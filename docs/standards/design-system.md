@@ -43,7 +43,7 @@ was found by looking at a screenshot.
 | `rule-strong`                                     | Borders that _are_ the signal                                          | ≥3:1. This is why `rule` and `rule-strong` are two tokens                                                                                                     |
 | `accent`                                          | Links, active state, emphasis                                          | AA-legal luminance of the seed hue; held to 4.5:1                                                                                                             |
 | `accent-pop`                                      | Section titles, filled buttons, chips                                  | The raw seed hue; large-text / non-text UI floor (3:1 on `ground` and `surface`)                                                                              |
-| `flag`                                            | Errors, warnings, diagnostics                                          | Semantic, never decorative — one scoped exception, a red-black tree's red node (§The tree figures' palette)                                                   |
+| `flag`                                            | Errors, warnings, diagnostics; in a figure, a refused or discarded outcome | Semantic, never decorative — one scoped exception, a red-black tree's red node (§The tree figures' palette)                                                   |
 | `mark`                                            | The element the reader should look at NOW: just inserted, just changed | Semantic, and NOT a status. `flag` says something is wrong and `keep` says something succeeded; a freshly inserted node is neither (#288, ADR-0026 §Addendum) |
 | `keep`                                            | Success, passing cases, the run button                                 | Semantic                                                                                                                                                      |
 | `accent-soft` `flag-soft` `keep-soft` `mark-soft` | Tinted grounds for chips and callouts                                  | Only ever under their own foreground                                                                                                                          |
@@ -360,7 +360,8 @@ Like the TDA card's moulds, these are not new product meanings: they are
 scoped to the tree figures, and none of them is load-bearing, because each
 category is also told without colour. `focus` keeps its own meaning
 everywhere else — the ring — and is used here on strokes only; `flag` keeps
-its own, an error, everywhere outside a red-black node.
+its own — an error, or in a figure a refused or discarded outcome — everywhere
+outside a red-black node.
 
 **`focus` is not a text colour.** It is held to the 3:1 non-text floor
 (`UI_TOKENS` in `palette.test.ts`), and measured as text it fails: light
