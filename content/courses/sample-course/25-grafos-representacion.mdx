@@ -906,6 +906,208 @@ ya estaba: agregarla dos veces deja dos aristas.
 
 </Slide>
 
+<Slide title="Un grafo dirigido">
+En un grafo dirigido, `addEdge(v, w)` agrega solo la flecha de `v` a `w`. Cada
+implementación cambia una línea: la matriz llena una sola casilla y deja de
+ser simétrica, y la flecha aparece solo en la lista de `v`. `adj(v)` entrega
+entonces los vértices a los que llegan las flechas que salen de `v`.
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '0.5rem 1.5rem', alignItems: 'center' }}>
+<NodeGraph
+  cols={3}
+  rows={3}
+  directed
+  nodes={[{ v: 0, x: 0, y: 0 }, { v: 1, x: 2, y: 0 }, { v: 2, x: 1, y: 1 }, { v: 3, x: 1, y: 2 }]}
+  edges={[[0, 1], [0, 2], [1, 2], [2, 3]]}
+  markEdges={[[2, 3]]}
+  caption="las mismas aristas, con dirección"
+  label="El grafo de cuatro vértices con flechas: de 0 a 1, de 0 a 2, de 1 a 2 y de 2 a 3; la flecha de 2 a 3 marcada."
+/>
+<AdjMatrix
+  rows={[['false', 'true', 'true', 'false'], ['false', 'false', 'true', 'false'], ['false', 'false', 'false', 'true'], ['false', 'false', 'false', 'false']]}
+  mark={[[2, 3]]}
+  caption="2 → 3 llena solo [2][3]"
+  label="Su matriz: verdaderas solo [0][1], [0][2], [1][2] y [2][3]. La matriz ya no es simétrica; marcada, [2][3]."
+/>
+<AdjLists
+  lists={[[1, 2], [2], [3], []]}
+  mark={[[2, 0]]}
+  caption="2 → 3 solo en la lista de 2"
+  label="Sus listas: 0 tiene a 1 y 2; 1 tiene a 2; 2 tiene a 3; 3 tiene una lista vacía. Marcado, el 3 en la lista de 2."
+/>
+</div>
+
+```java
+public void addEdge(int v, int w) {   // la matriz, dirigida
+    if (!matrix[v][w]) {
+        E++;
+    }
+    matrix[v][w] = true;
+}
+
+public void addEdge(int v, int w) {   // las listas, dirigidas
+    lists.get(v).add(w);
+    E++;
+}
+```
+
+</Slide>
+
+<Slide title="El grado de entrada en un grafo dirigido">
+`adj(v)` entrega las flechas que salen de `v`, así que el grado de salida
+sale de recorrer `adj(v)`. Las flechas que **llegan** a `v` no están en su
+lista: están repartidas en las listas de los otros vértices. Para contarlas
+hay que recorrer todas las listas, o la columna de `v` en la matriz.
+
+```java
+static int inDegree(Graph g, int v) {
+    int count = 0;
+    for (int u = 0; u < g.V(); u++) {
+        for (int w : g.adj(u)) {
+            if (w == v) {
+                count++;
+            }
+        }
+    }
+    return count;
+}
+```
+
+Con listas cuesta $$\Theta(V + E)$$, porque pasa por cada lista y por cada
+flecha.
+
+</Slide>
+
+<Slide title="Un grafo con pesos en la matriz">
+Con pesos, la casilla guarda el peso de la arista en vez de un booleano. Una
+casilla sin arista no puede guardar $$0$$, porque una arista de peso $$0$$
+existe: un tramo que no cuesta nada. Guarda un valor que ningún peso puede
+tomar, $$\infty$$, que en Java es el entero más grande, `Integer.MAX_VALUE`.
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.5rem 2rem', alignItems: 'center' }}>
+<NodeGraph
+  cols={3}
+  rows={3}
+  nodes={[{ v: 'A', x: 0, y: 0 }, { v: 'B', x: 2, y: 0 }, { v: 'C', x: 1, y: 1 }, { v: 'D', x: 1, y: 2 }]}
+  edges={[['A', 'B', 7], ['A', 'C', 3], ['B', 'C', 2], ['C', 'D', 4]]}
+  caption="A = 0, B = 1, C = 2, D = 3"
+  label="Un grafo con pesos de cuatro vértices, A, B, C y D, que son los vértices 0, 1, 2 y 3: A-B pesa 7, A-C 3, B-C 2 y C-D 4."
+/>
+<AdjMatrix
+  rows={[['∞', '7', '3', '∞'], ['7', '∞', '2', '∞'], ['3', '2', '∞', '4'], ['∞', '∞', '4', '∞']]}
+  mark={[[2, 3], [3, 2]]}
+  caption="cada peso dos veces; ∞ donde no hay arista"
+  label="Su matriz de pesos: [0][1] y [1][0] valen 7, [0][2] y [2][0] valen 3, [1][2] y [2][1] valen 2, [2][3] y [3][2] valen 4, y todas las demás casillas valen infinito."
+/>
+</div>
+
+```java
+static final int INFINITY = Integer.MAX_VALUE;
+
+public WeightedMatrixGraph(int V) {
+    weight = new int[V][V];
+    for (int[] row : weight) {
+        Arrays.fill(row, INFINITY);
+    }
+}
+
+public void addEdge(int v, int w, int cost) {
+    weight[v][w] = cost;
+    weight[w][v] = cost;
+}
+```
+
+</Slide>
+
+<Slide title="Un grafo con pesos en las listas">
+Con pesos, cada entrada de una lista guarda el vecino y el peso de la arista
+que lleva a él. Una clase chica, `Edge`, los junta:
+
+```java
+public class Edge {
+    public final int to;
+    public final int weight;
+
+    public Edge(int to, int weight) {
+        this.to = to;
+        this.weight = weight;
+    }
+}
+```
+
+<AdjLists
+  lists={[['1 · 7', '2 · 3'], ['0 · 7', '2 · 2'], ['0 · 3', '1 · 2', '3 · 4'], ['2 · 4']]}
+  mark={[[2, 2], [3, 0]]}
+  caption="cada entrada: vecino · peso"
+  label="Las listas con pesos del mismo grafo: 0 tiene a 1 con peso 7 y a 2 con peso 3; 1 tiene a 0 con 7 y a 2 con 2; 2 tiene a 0 con 3, a 1 con 2 y a 3 con 4; 3 tiene a 2 con 4. Marcadas, las dos entradas de la arista 2-3."
+/>
+
+```java
+public void addEdge(int v, int w, int weight) {
+    lists.get(v).add(new Edge(w, weight));
+    lists.get(w).add(new Edge(v, weight));
+    E++;
+}
+```
+
+Las listas pasan a ser `List<List<Edge>>`, y `adj(v)` entrega objetos `Edge`.
+
+</Slide>
+
+<Slide title="La lista de aristas">
+Un grafo llega a un programa casi siempre como una **lista de aristas**: en
+la primera línea, la cantidad de vértices y la de aristas; después, una línea
+por arista con sus dos extremos. En un grafo sin dirección cada arista aparece
+**una** vez en la entrada, y `addEdge` la deja en dos listas.
+
+```text
+4 4
+0 1
+0 2
+1 2
+2 3
+```
+
+```java
+static Graph read(Scanner in) {
+    int V = in.nextInt();
+    int E = in.nextInt();
+    Graph g = new AdjListGraph(V);
+    for (int i = 0; i < E; i++) {
+        int v = in.nextInt();
+        int w = in.nextInt();
+        g.addEdge(v, w);
+    }
+    return g;
+}
+```
+
+</Slide>
+
+<Slide title="De nombres a números en Java">
+Cuando la entrada trae nombres, cada nombre se traduce a su número al leerlo.
+Un `Map` guarda el número de cada nombre, y una lista guarda el nombre de cada
+número, en el orden en que aparecieron:
+
+```java
+Map<String, Integer> ids = new HashMap<>();
+List<String> names = new ArrayList<>();
+
+int idOf(String name) {
+    if (!ids.containsKey(name)) {
+        ids.put(name, names.size());
+        names.add(name);
+    }
+    return ids.get(name);
+}
+```
+
+Un nombre que llega por primera vez recibe el número `names.size()`, el
+siguiente libre. `names.get(v)` devuelve el nombre del vértice `v` al escribir
+la respuesta.
+
+</Slide>
+
 {/* GridCells — a grid of `rows` × `cols` cells, the cell `at` ([row, col]) painted mark and its neighbours in `ways` directions (4: the ones that share a side; 8: also the ones that share a corner) painted mark-soft, each numbered by the order the code visits them, so the drawing shows what the arrays of displacements reach and that a cell on the border has fewer. File-local (add-a-course-document.md §6e-quater): a grid is a graph no other document draws. */}
 
 export function GridCells({ rows, cols, at, ways = 4, caption, label }) {
@@ -976,6 +1178,37 @@ grilla.
 <GridCells rows={5} cols={5} at={[2, 2]} ways={8} caption="en 8 direcciones: 8 vecinas" label="La misma grilla con la celda del centro destacada y sus 8 vecinas marcadas y numeradas: las cuatro de los lados y las cuatro diagonales." />
 <GridCells rows={5} cols={5} at={[0, 0]} ways={8} caption="en una esquina, en 8: 3 vecinas" label="La misma grilla con la celda de la esquina de arriba a la izquierda destacada y solo 3 vecinas marcadas: la de la derecha, la de abajo y la diagonal." />
 </div>
+
+</Slide>
+
+<Slide title="El código de las vecinas">
+Las vecinas no se guardan: se calculan con dos arreglos de desplazamientos,
+uno para la fila y otro para la columna. Cada posición `k` es un paso, y una
+vecina cuenta solo si cae dentro de la grilla.
+
+```java
+static final int[] DR = {-1, 1, 0, 0};
+static final int[] DC = {0, 0, -1, 1};
+
+static List<int[]> neighbors(int r, int c, int rows, int cols) {
+    List<int[]> result = new ArrayList<>();
+    for (int k = 0; k < DR.length; k++) {
+        int nr = r + DR[k];
+        int nc = c + DC[k];
+        if (nr >= 0 && nr < rows && nc >= 0 && nc < cols) {
+            result.add(new int[] {nr, nc});
+        }
+    }
+    return result;
+}
+```
+
+En 8 direcciones cambian solo los arreglos; el método queda igual:
+
+```java
+static final int[] DR = {-1, -1, -1, 0, 0, 1, 1, 1};
+static final int[] DC = {-1, 0, 1, -1, 1, -1, 0, 1};
+```
 
 </Slide>
 
