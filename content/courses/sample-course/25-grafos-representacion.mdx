@@ -1216,6 +1216,91 @@ static final int[] DC = {-1, 0, 1, -1, 1, -1, 0, 1};
 
 ## Costos y memoria
 
+<Slide title="Costos de las dos implementaciones">
+| Molde     | Operación          | Matriz                  | Listas                            | Invariante que restaura                          |
+| --------- | ------------------ | ----------------------- | --------------------------------- | ------------------------------------------------ |
+| crear     | `Graph(V)`         | $$\Theta(V^2)$$         | $$\Theta(V)$$                     | —                                                |
+| consultar | `V()`, `E()`       | $$\Theta(1)$$           | $$\Theta(1)$$                     | Ninguna: no cambian nada                         |
+| consultar | recorrer `adj(v)`  | $$\Theta(V)$$           | $$\Theta(\operatorname{grado}(v))$$ | Ninguna                                          |
+| consultar | `hasEdge(v, w)`    | <span style={{ color: 'var(--color-keep)', fontWeight: 700 }}>$$\Theta(1)$$</span> | $$\Theta(\operatorname{grado}(v))$$ | Ninguna                                          |
+| modificar | `addEdge(v, w)`    | $$\Theta(1)$$           | $$\Theta(1)$$                     | La arista queda en los dos lados y se cuenta una vez |
+
+La matriz responde si hay una arista mirando una casilla, pero para dar los
+vecinos de `v` recorre su fila completa, tenga `v` muchos o pocos. Las listas
+entregan los vecinos sin mirar a nadie más, y pagan esa misma cuenta cuando se
+les pregunta por una arista.
+
+</Slide>
+
+<Slide title="La memoria de las dos implementaciones">
+- **La matriz** guarda $$V^2$$ casillas, haya las aristas que haya:
+  $$\Theta(V^2)$$.
+- **Las listas** guardan una lista por vértice y una entrada por cada extremo
+  de cada arista. En un grafo sin dirección son $$2E$$ entradas:
+  $$\Theta(V + E)$$.
+
+En un grafo sin dirección, sin aristas repetidas ni aristas de un vértice a sí
+mismo, cada par de vértices tiene a lo más una arista, así que
+
+$$
+E \le \frac{V(V - 1)}{2}
+$$
+
+Se lee «$$E$$ es a lo más $$V$$ por $$V - 1$$, dividido en dos». Un grafo con
+cerca de ese máximo es **denso**; uno con muchas menos aristas, cerca de
+$$V$$, es **disperso**.
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.5rem 2rem', alignItems: 'end' }}>
+<NodeGraph
+  cols={3}
+  rows={3}
+  nodes={[{ v: 'A', x: 1, y: 0 }, { v: 'B', x: 0, y: 1 }, { v: 'C', x: 2, y: 1 }, { v: 'D', x: 0.5, y: 2 }, { v: 'E', x: 1.5, y: 2 }]}
+  edges={[['A', 'B'], ['A', 'C'], ['A', 'D'], ['A', 'E'], ['B', 'C'], ['B', 'D'], ['B', 'E'], ['C', 'D'], ['C', 'E'], ['D', 'E']]}
+  caption="denso: 10 aristas de 10 posibles"
+  label="Un grafo denso de cinco vértices: cada vértice está unido con los otros cuatro, diez aristas en total."
+/>
+<NodeGraph
+  cols={3}
+  rows={3}
+  nodes={[{ v: 'A', x: 1, y: 0 }, { v: 'B', x: 0, y: 1 }, { v: 'C', x: 2, y: 1 }, { v: 'D', x: 0.5, y: 2 }, { v: 'E', x: 1.5, y: 2 }]}
+  edges={[['A', 'B'], ['A', 'C'], ['B', 'D'], ['C', 'E']]}
+  caption="disperso: 4 aristas de 10 posibles"
+  label="Un grafo disperso con los mismos cinco vértices y solo cuatro aristas: A con B y con C, B con D y C con E."
+/>
+</div>
+
+</Slide>
+
+<Slide title="Recorrer todos los vecinos de todos los vértices">
+Muchos problemas recorren los vecinos de cada vértice del grafo.
+
+- **Con la matriz**, cada vértice recorre su fila: $$V$$ filas de $$V$$
+  casillas, $$\Theta(V^2)$$.
+- **Con listas**, cada vértice recorre su lista, y la suma de los largos de
+  las listas es la suma de los grados, que es $$2E$$. Sumando la visita a cada
+  vértice, $$\Theta(V + E)$$.
+
+$$\Theta(V + E)$$ es lo que cuesta leer el grafo una vez: es **tiempo lineal**
+en el tamaño del grafo, y ningún programa que mire cada arista puede hacerlo
+en menos.
+
+</Slide>
+
+<Slide title="Matriz o listas">
+Un grafo real casi siempre es disperso: en un mapa, cada esquina tiene unas
+pocas calles; en una red social de millones de personas, cada una tiene unos
+cientos de amigos. Una matriz para un millón de vértices tendría $$10^{12}$$
+casillas, casi todas falsas.
+
+- **La matriz** responde si dos vértices son vecinos en tiempo constante, y
+  lo paga con $$\Theta(V^2)$$ de memoria y con recorrer filas completas.
+  Conviene cuando el grafo es denso y chico.
+- **Las listas** pagan $$\Theta(\operatorname{grado}(v))$$ para responder si
+  dos vértices son vecinos, y a cambio ocupan $$\Theta(V + E)$$ y entregan los
+  vecinos sin mirar a nadie más. Son la elección por omisión.
+
+</Slide>
+
 <SectionBreak />
 
 ## Ejercicios
