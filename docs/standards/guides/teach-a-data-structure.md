@@ -3,8 +3,10 @@
 The shape every class of the **Estructuras de Datos** unit takes — and of
 **Estructuras de Datos Avanzadas**, the unit that continues it with the
 non-linear structures (the trees, then the heap; #321), the hash table
-(#326) and the TDAs Set and Map (#350), which close it. Born with #277, the
-first unit's first class, which is also its worked example.
+(#326) and the TDAs Set and Map (#350), which close it — and of one class
+beyond them, Grafos · Modelo y representación (#356), the structure class
+that opens the Grafos unit. Born with #277, the first unit's first class,
+which is also its worked example.
 
 This is the third layer of the course-authoring stack, and the three do not
 overlap:
@@ -23,13 +25,17 @@ either of the other two.
 
 You are writing a class of the Estructuras de Datos unit or of Estructuras de
 Datos Avanzadas — a TDA, a structure that implements one, or a family of
-variants. The two units are one sequence of
+variants — or the class of a later unit whose subject is a structure: the
+Grafos unit opens with one (#356), the Graph TDA with its matrix and its
+lists, and everything structural the unit needs is born there. The two units are one sequence of
 classes that all answer the same four questions about a different object, and
 the reader learns the answers faster because the questions never move.
 
 Do **not** use it for a class that is not about a data structure: a class about
 an algorithm design technique (divide y conquista, ordenamiento) has its own
-arc and its worked cases are chapters 15 and 16.
+arc and its worked cases are chapters 15 and 16. So do the Grafos classes
+after the first (traversals, the minimum spanning tree, the shortest paths):
+they use the structure the first one builds and add none of their own.
 
 ## Worked example
 
