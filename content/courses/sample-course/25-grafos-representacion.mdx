@@ -1573,14 +1573,115 @@ sube y el método retorna $$-1$$.
 
 ## Más allá de la matriz y las listas
 
+<Slide title="Un Map de cada vértice a sus vecinos">
+Cuando los vértices tienen nombre, un `Map` puede guardar el grafo sin
+traducir nada: de cada nombre al **conjunto** de sus vecinos.
+
+```java
+Map<String, Set<String>> adj = new HashMap<>();
+
+void addEdge(String v, String w) {
+    if (!adj.containsKey(v)) {
+        adj.put(v, new HashSet<>());
+    }
+    if (!adj.containsKey(w)) {
+        adj.put(w, new HashSet<>());
+    }
+    adj.get(v).add(w);
+    adj.get(w).add(v);
+}
+```
+
+- **Lo que gana.** Los vértices se llaman como en el problema, y preguntar si
+  hay una arista cuesta $$\Theta(1)$$ esperado, como en la matriz, con la
+  memoria de las listas, $$\Theta(V + E)$$.
+- **Lo que pierde.** Un conjunto no guarda dos veces el mismo vecino, así que
+  no caben aristas repetidas, como los dos puentes entre la isla y una orilla.
+  Un `HashSet` entrega los vecinos en un orden que nadie elige; un `TreeSet`
+  los ordena, a cambio de $$O(\log V)$$ por operación. Y cada entrada pesa
+  más que un entero en una lista.
+
+</Slide>
+
+<Slide title="La matriz de incidencia">
+Una **matriz de incidencia** tiene una fila por vértice y una columna por
+arista: la casilla de `v` y `e` marca si `v` es un extremo de la arista `e`.
+Cada columna tiene exactamente dos marcas.
+
+| Vértice | a   | b   | c   | d   |
+| ------- | --- | --- | --- | --- |
+| 0       | 1   | 1   |     |     |
+| 1       | 1   |     | 1   |     |
+| 2       |     | 1   | 1   | 1   |
+| 3       |     |     |     | 1   |
+
+La tabla es del grafo de cuatro vértices con las aristas a = 0-1, b = 0-2,
+c = 1-2 y d = 2-3. Ocupa $$\Theta(V \cdot E)$$ y responde mal las preguntas
+de un programa, así que aparece en la matemática de los grafos —circuitos,
+álgebra lineal— más que en el código.
+
+</Slide>
+
+<Slide title="Pasar una vez por cada vértice">
+El juego de Euler pide pasar una vez por cada **arista**. Su gemelo pide pasar
+una vez por cada **vértice** y volver al inicio: es un **ciclo hamiltoniano**,
+por William Hamilton, que lo propuso como un juego en 1857.
+
+<NodeGraph
+  cols={3}
+  rows={3}
+  nodes={[{ v: 'A', x: 0, y: 0 }, { v: 'B', x: 2, y: 0 }, { v: 'C', x: 1, y: 1 }, { v: 'D', x: 0, y: 2 }, { v: 'E', x: 2, y: 2 }]}
+  edges={[['A', 'B'], ['A', 'C'], ['B', 'C'], ['C', 'D'], ['C', 'E'], ['D', 'E'], ['B', 'E'], ['A', 'D']]}
+  markEdges={[['A', 'B'], ['B', 'E'], ['E', 'C'], ['C', 'D'], ['D', 'A']]}
+  caption="A, B, E, C, D y de vuelta a A: cada vértice una vez"
+  label="Cinco vértices con ocho aristas. Marcado, el ciclo A, B, E, C, D, que vuelve a A pasando una vez por cada vértice."
+/>
+
+Se parecen, y no se resuelven igual. Para Euler, contar grados basta. Para
+Hamilton no se conoce ninguna regla así: probar todos los órdenes de los
+vértices siempre responde, pero son $$V!$$, y nadie conoce una forma rápida
+de responder para cualquier grafo.
+
+</Slide>
+
+<Slide title="Los cuatro colores">
+Pintar un mapa para que dos países con frontera tengan colores distintos es
+un problema de grafos: cada país es un vértice, y cada frontera, una arista.
+Pintar es dar a cada vértice un color distinto del de sus vecinos.
+
+<NodeGraph
+  cols={4}
+  rows={4}
+  nodes={[{ v: 'Perú', x: 0, y: 0 }, { v: 'Brasil', x: 3, y: 0.5 }, { v: 'Bolivia', x: 1.3, y: 1 }, { v: 'Chile', x: 0, y: 2 }, { v: 'Paraguay', x: 2.5, y: 2 }, { v: 'Argentina', x: 1, y: 3 }, { v: 'Uruguay', x: 3, y: 3 }]}
+  edges={[['Chile', 'Argentina'], ['Chile', 'Bolivia'], ['Chile', 'Perú'], ['Perú', 'Bolivia'], ['Perú', 'Brasil'], ['Bolivia', 'Argentina'], ['Bolivia', 'Brasil'], ['Bolivia', 'Paraguay'], ['Argentina', 'Paraguay'], ['Argentina', 'Brasil'], ['Argentina', 'Uruguay'], ['Paraguay', 'Brasil'], ['Brasil', 'Uruguay']]}
+  notes={{ Bolivia: 1, Uruguay: 1, Chile: 2, Brasil: 2, Perú: 3, Argentina: 3, Paraguay: 4 }}
+  caption="siete países, cuatro colores: el número de cada uno"
+  label="Siete países de Sudamérica y sus fronteras, cada uno con un color numerado: Bolivia y Uruguay 1, Chile y Brasil 2, Perú y Argentina 3, Paraguay 4. Ningún par de vecinos comparte número."
+/>
+
+Cuatro colores alcanzan para cualquier mapa dibujado en un plano: se demostró
+en 1976, con la ayuda de un computador. Saber si **tres** alcanzan para un
+mapa dado es otra cosa: nadie conoce una forma rápida de responderlo.
+
+</Slide>
+
 <SectionBreak />
 
 ## El mapa de problemas
 
 <Slide title="El mapa de problemas">
+Algunas preguntas sobre grafos ya tienen respuesta con los grados y las
+listas de adyacencia. Otras piden herramientas nuevas, y de algunas nadie
+conoce una forma rápida de responderlas.
 
 <ProblemMap map="grafos" at="grafos-representacion" />
 
 </Slide>
 
 ## Lo que sigue
+
+Con un grafo guardado, la pregunta siguiente es a dónde se llega desde un
+vértice: si hay un camino entre dos esquinas, cuántas islas tiene un mapa,
+por dónde se sale de un laberinto con menos pasos. Ninguna se responde
+mirando un vértice y sus vecinos: hay que **recorrer** el grafo, de vecino en
+vecino, sin perderse en sus ciclos.
