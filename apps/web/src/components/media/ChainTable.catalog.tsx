@@ -41,7 +41,7 @@ export const chainTableCatalogEntry: CatalogEntry = {
       name: 'tones',
       type: "Record<string, 'keep' | 'mark' | 'flag' | 'visited'>",
       description:
-        'A tone per key: found (keep), new or broken (mark), a wrong turn (flag), passed over (visited). keep and mark take the strong stroke.',
+        'A tone per key: found (keep), the node to look at now, just added or just changed (mark), a wrong turn (flag), passed over (visited). keep and mark take the strong stroke.',
     },
     {
       name: 'cut',

@@ -2,7 +2,7 @@ import { AuthoringError } from '../AuthoringError';
 import { type ChainTableSize, chainTableLayout } from './chainTableLayout';
 import { codeText } from './figureText';
 
-/** How a key's node is painted: found (`keep`), new or broken (`mark`), a wrong turn (`flag`), passed over (`visited`). */
+/** How a key's node is painted: found (`keep`), the node to look at now — just added, or just changed (`mark`) —, a wrong turn (`flag`), passed over (`visited`). */
 export type ChainTableTone = 'keep' | 'mark' | 'flag' | 'visited';
 
 export interface ChainTableProps {

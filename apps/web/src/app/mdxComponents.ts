@@ -90,8 +90,10 @@ export const mdxComponents = {
   // Hash when Set y Map wanted them (#353), pure SVG with no package of their
   // own — the steps from a key to its position, and the chain table both hash
   // classes drew with a copy of their own. Measured on the shipped build the
-  // same way, with #353's review fixes, the two cost the entry chunk 8,220
-  // bytes raw, 2,256 with gzip -9.
+  // same way, on the tree of a5f5e40 (the figures' last code change), the two
+  // cost the entry chunk 8,238 bytes raw and about 2,255 with gzip -9 — the
+  // gzip figure moves by a few bytes with the hashed names of the chunks the
+  // entry imports.
   StepBoxes,
   ChainTable,
   // Not lazy: it is one iframe. Measured on the shipped build, registering it

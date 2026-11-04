@@ -64,7 +64,7 @@ content/courses/sample-course/
 ├── 21-edd-arboles-i.mdx       # presentation: explicit, questions: pool (19) — opens the Estructuras de Datos Avanzadas unit, ahead of chapter 20 in index.yaml; <SequenceStepper eda="binary-tree"> ×5 (its worked case, ADR-0083) + <StepShow> ×12 + <SideBySide> ×3 + <Exercise> ×5 (three worked, each on its slide — the widest level's and the calculator's in a scrolling window, being longer than 32 lines — and two posed) + <PresentationWide> ×18 + <BinaryPicture> ×162, <NodeGraph> ×2 and <OrderRule> ×6 (the content components #322 promoted from it, §6e-quinquies) + five file-local figure components (HierarchyPicture, TreeMemory, BinaryMemory, TokenRow, StackRow); the search tree moved to Árboles II (#322)
 ├── 22-edd-arboles-ii.mdx      # presentation: explicit, questions: pool (20, each with one correct alternative, approved two at a time, closed at the AVL's insertion) — the second class of the Estructuras de Datos Avanzadas unit, after edd-arboles-i in index.yaml and closing toward edd-priority-queue-heap: a growing set from the sorted array to the search tree, its operations, the unbalance, the rotations, the AVL tree and the other trees; <SequenceStepper> ×18 (bst ×9, every operation in the theory-cases-code-cost order and its code public over private, avl ×8 — the avl recipe's worked case, ADR-0086 —, dynamic-array — the binary search, its worked case, ADR-0074 §Amended by #322) + <BinaryPicture> ×177 (§6e-quinquies, triangles for the generic rotation, splits for the binary search's decisions) + <NodeGraph> ×2 + <OrderRule> + <PresentationWide> ×9 + <StepShow> ×3 (the iterator's whole class in one, `beside` its drawing on the slide) + <Exercise> ×6 (three worked, each with its program on a slide — the iterator's and the intersection's in a scrolling window —, and three posed, book-only) + eight file-local figure components (SortedRow, OrderSides, and the exercises' ValueBox, StackColumn, PendingStack, PendingStrip, CrossStrip, AnswerRow: the iterator's pending stack in the stack class's idiom, and the hand runs of the iterator and the intersection drawn one column per state, as the heap class's TopKStrip)
 ├── 23-edd-tablas-hash.mdx     # presentation: explicit, questions: pool (20, each with one correct alternative: 12 in the first half up to the division method, and 8 on chaining and resizing; linear probing, the worst case and the closing have none, by the professor's decision, so a control over only those is refused) — after chapter 20 in index.yaml, the hash table as a structure with no TDA card: the problem of searching without comparing, the functions (definition, range, surjective, injective, bijective), the hash function and its requirements, how to calculate one (division with Horner in base 256, multiplication with the golden ratio), chaining, resizing, linear probing, the worst case (keys chosen to collide, lists that become trees, universal hashing) and beyond the tables (hash functions elsewhere, the order the scatter does not keep); keys of any type (hashCode and equals) and Java's own tables wait for the Set and Map class; <SequenceStepper eda="hash-chaining"> ×7 (two of them programs, one growing the table with `grow`) and eda="hash-probing" ×5 (one of them a program, one growing the table; their worked case, ADR-0084; one value per walk, every operation in the operation-cases-code-cost order and its code public, the other cases drawn) + <StepShow> ×1 + <BinaryPicture> ×1 + <PresentationWide> ×1 + eleven file-local figure components (Lockers, Distribution, Universe, ArrowDiagram, FreeChoices, Throws, UniformFan, Yardstick, RangeBand, HornerStep, AddCosts) and the content components <StepBoxes> and <ChainTable>, promoted from here when Set y Map wanted them (#353)
-├── 24-edd-set-map.mdx         # presentation: explicit, questions: pool (22, each with one correct alternative, approved two at a time and closed at grouping with a Map; HashSet alone, TreeSet alone and HashMap y TreeMap alone carry fewer than four, and the opening, the exercises and the closing none, so a control over only those is refused) — the last class of Estructuras de Datos Avanzadas, after edd-tablas-hash in index.yaml, whose closing wiki-links it: one thread, a voting registry of RUTs; the Set TDA (the registry, the idea of a set with its notation, and four real-life sets before the card; card, rules), its two implementations (the chaining table and the AVL tree, what each pays and cannot do) and when each, the order questions born from the registry's list published by RUT, Set in Java, then HashSet complete before TreeSet: HashSet over Java's own types (what the table asks of an element — a hash function and an equality — and that String, Integer and Character already bring equals and hashCode); a «Diseñar una clave» act, each idea followed by its Java — the RUT as text counted twice, the Rut class failing in a HashSet, equals, a hashCode built step by step (the contract, a constant first try, which base to choose, the stretch of results each RUT number takes with base 10 and with base 31, why Java uses 31 for text), the same RUT in the same position, the key that changes, then any class: the voting tables that closed, what identifies an element, a voting table's equals and hashCode (with its formula) and the tables in a HashSet, the recipe and its check, the general formula as a sum of powers of 31 and in Horner form, the number of each field type, when the number overflows (a negative hashCode, Math.floorMod), a key made of other keys (a poll worker: a Rut and a table), Objects.hash for both, and the errors in equals and hashCode split by what they cause; then a «TreeSet y el orden de una clave» act on the same path — TreeSet with its O(log N) guarantee, the red-black tree Java actually uses (its three colour rules drawn on the registry's tree, and a table against the AVL: height, rotations, who uses it; the drawings stay AVL because searching and the inorder are the same), its traversal and order questions, what the tree asks of an element (an order, compareTo), Java's types bringing compareTo; the RUT's text order, the Rut failing in a TreeSet, what is asked of an order (the compareTo contract as three numbered requirements, consistency with equals the third) and what breaking each does, a first try comparing only the number (a HashSet keeps 2 where the TreeSet keeps 1), the cascade compareTo, the RUTs in a TreeSet, a key that changes inside a tree; then any class — the order of a key as the dictionary's order field by field, the voting table's and the poll worker's compareTo, a Comparator passed to the constructor for a second order, and the errors in compareTo split by what they cause, the Map TDA (the registry ending on a dictionary, a dictionary as a function drawn as arrows from keys to values, four real-life dictionaries closing on the TDA's name before the card; card, rules, the sentence §2 of teach-a-data-structure.md owes «colección», a Set of keys whose value no search looks at, the two implementations and their costs) with Map in Java (its three differences from the card), the keys the Set already taught to build, then HashMap complete before TreeMap: HashMap, traversing by keys, values and pairs, and its traversal order; TreeMap, its traversal by key, and its order questions in their Key and Entry versions; then the uses common to both, over the registry already built: counting the voters of each table (the idea drawn as the registry chained to the count, then its Java: the two cases with containsKey, then getOrDefault) and grouping each table's RUTs (the idea with its result drawn as each table's list, then its Java, the get-null-put pattern), and what is left to study (the exact variants; the probabilistic slide was cut in the review, and the class keeps its trade in the slide on choosing a hash table or a tree by order); two TDA cards (the sixth and seventh copies, #305) + <StepShow> ×5 + <Exercise> ×9 (four worked, each with its program on a slide, the last of them exam-shaped — the enrollments of a semester, whose Section key the student designs, its walk split by method because the class does not fit beside its drawing; two solved in the book only, the statement and the program that solves it — the grades grouped by student, which the Map's grouping slides already walk, and the Rut's equals and hashCode, which the key act already builds; and three posed, book-only, one of them a date class whose compareTo the student writes) + <PresentationWide> ×4 + <StepBoxes> ×4 and <ChainTable size="rut"> ×10 (the content components, promoted from Tablas Hash, #353) + fourteen file-local figure components (ArrowMap, for a dictionary as a function, and chained to a second one for the count; GroupMap, for a dictionary whose values are lists, also each frame of the enrollments' walk and the grades of the exercise solved in the book; KeySet and KeyTree for the RUTs, too wide for <BinaryPicture>; BandLine, for why the base is 31; RutRow, SeenStrip, SeenFrame, TimeLine, AgendaColumn, PriceRow, WindowStrip, WindowFrame and EnrollStrip for the exercises; and the shared Frame, ChipRow and PriceCells they are drawn with), zero <SequenceStepper>
+├── 24-edd-set-map.mdx         # presentation: explicit, questions: pool (22, each with one correct alternative, approved two at a time and closed at grouping with a Map; HashSet alone, TreeSet alone and HashMap y TreeMap alone carry fewer than four, and the opening, the exercises and the closing none, so a control over only those is refused) — the last class of Estructuras de Datos Avanzadas, after edd-tablas-hash in index.yaml, whose closing wiki-links it: one thread, a voting registry of RUTs; the Set TDA (the registry, the idea of a set with its notation, and four real-life sets before the card; card, rules), its two implementations (the chaining table and the AVL tree, what each pays and cannot do) and when each, the order questions born from the registry's list published by RUT, Set in Java, then HashSet complete before TreeSet: HashSet over Java's own types (what the table asks of an element — a hash function and an equality — and that String, Integer and Character already bring equals and hashCode); a «Diseñar una clave» act, each idea followed by its Java — the RUT as text counted twice, the Rut class failing in a HashSet, equals, a hashCode built step by step (the contract, a constant first try, which base to choose, the stretch of results each RUT number takes with base 10 and with base 31, why Java uses 31 for text), the same RUT in the same position, the key that changes, then any class: the voting tables that closed, what identifies an element, a voting table's equals and hashCode (with its formula) and the tables in a HashSet, the recipe and its check, the general formula as a sum of powers of 31 and in Horner form, the number of each field type, when the number overflows (a negative hashCode, Math.floorMod), a key made of other keys (a poll worker: a Rut and a table), Objects.hash for both, and the errors in equals and hashCode split by what they cause; then a «TreeSet y el orden de una clave» act on the same path — TreeSet with its O(log N) guarantee, the red-black tree Java actually uses (its three colour rules drawn on the registry's tree, and a table against the AVL: height, rotations, who uses it; the drawings stay AVL because searching and the inorder are the same), its traversal and order questions, what the tree asks of an element (an order, compareTo), Java's types bringing compareTo; the RUT's text order, the Rut failing in a TreeSet, what is asked of an order (the compareTo contract as three numbered requirements, consistency with equals the third) and what breaking each does, a first try comparing only the number (a HashSet keeps 2 where the TreeSet keeps 1), the cascade compareTo, the RUTs in a TreeSet, a key that changes inside a tree; then any class — the order of a key as the dictionary's order field by field, the voting table's and the poll worker's compareTo, a Comparator passed to the constructor for a second order, and the errors in compareTo split by what they cause, the Map TDA (the registry ending on a dictionary, a dictionary as a function drawn as arrows from keys to values, four real-life dictionaries closing on the TDA's name before the card; card, rules, a Set of keys whose value no search looks at, the two implementations and their costs) with Map in Java (its three differences from the card), the keys the Set already taught to build, then HashMap complete before TreeMap: HashMap, traversing by keys, values and pairs (where the sentence §2 of teach-a-data-structure.md owes «colección» lives: a Map is not a Java Collection), and its traversal order; TreeMap, its traversal by key, and its order questions in their Key and Entry versions; then the uses common to both, over the registry already built: counting the voters of each table (the idea drawn as the registry chained to the count, then its Java: the two cases with containsKey, then getOrDefault) and grouping each table's RUTs (the idea with its result drawn as each table's list, then its Java, the get-null-put pattern), and what is left to study (the exact variants; the probabilistic slide was cut in the review, and the class keeps its trade in the slide on choosing a hash table or a tree by order); two TDA cards (the sixth and seventh copies, #305) + <StepShow> ×5 + <Exercise> ×9 (four worked, each with its program on a slide, the last of them exam-shaped — the enrollments of a semester, whose Section key the student designs, its walk split by method because the class does not fit beside its drawing; two solved in the book only, the statement and the program that solves it — the grades grouped by student, which the Map's grouping slides already walk, and the Rut's equals and hashCode, which the key act already builds; and three posed, book-only, one of them a date class whose compareTo the student writes) + <PresentationWide> ×4 + <StepBoxes> ×4 and <ChainTable size="rut"> ×10 (the content components, promoted from Tablas Hash, #353) + fourteen file-local figure components (ArrowMap, for a dictionary as a function, and chained to a second one for the count; GroupMap, for a dictionary whose values are lists, also each frame of the enrollments' walk and the grades of the exercise solved in the book; KeySet, the set as the contract sees it, and KeyTree, for RUTs too wide for <BinaryPicture>; BandLine, for why the base is 31; RutRow, SeenStrip, SeenFrame, TimeLine, AgendaColumn, PriceRow, WindowStrip, WindowFrame and EnrollStrip for the exercises) and the three pieces they are drawn with (Frame, ChipRow and PriceCells), zero <SequenceStepper>
 ├── tda-eda-invariante.svg, arreglo-memoria.svg, arreglo-alocacion.svg, arreglo-invariante-valido.svg, arreglo-invariantes.svg, regla-del-cuarto.svg, costo-acumulado.svg   # assets for chapter 17
 └── index.yaml                 # the ordered teaching path
 ```
@@ -476,8 +476,10 @@ This section is the mechanics — the tag and its fences. That guide is the
 shape: the five beats a worked exercise moves through, the rule that nothing
 is called before it is written, and the split between a worked exercise
 (all five beats, the finished algorithm as `starter`, and its runnable block
-ships on a slide) and a posed one (beat 1 and stop, a skeleton `starter`, a
-`solution` fence, and it stays book-only).
+ships on a slide), a posed one (beat 1 and stop, a skeleton `starter`, a
+`solution` fence, and it stays book-only), and one solved in the book (the
+statement and the finished program as `starter`, its `test` cases, no
+`solution`, book-only).
 
 ````mdx
 <Exercise title="¿Es par?">
@@ -1324,7 +1326,8 @@ the page, and inline SVG is the page.
   the `#fdfbf9` / `#2b221d` values 6e-bis licenses for an `<img>`. Those
   paint a theme-blind rectangle inside a themed page. **Text takes a text
   token** (`ink`, `ink-soft`, `ink-faint`, `accent`, `flag`, `keep`,
-  `mark`): `focus` and `rule-strong` are strokes only, and so is a coloured
+  `mark`, and `ground` on an `ink` fill only, a red-black tree's black
+  node): `focus` and `rule-strong` are strokes only, and so is a coloured
   disc under a digit (`design-system.md` §The pairing table and §The tree
   figures' palette, #322).
 - **No opaque panel and no contrast arithmetic.** The tokens are already
@@ -1369,8 +1372,10 @@ What that costs, and the rules that follow from it:
   so at the definition so the next reader does not go looking for its catalog
   page.
 - **It stays file-local, and the SECOND document that wants it promotes it**
-  through [`add-a-content-component.md`](add-a-content-component.md). Same
-  threshold shape `teach-a-data-structure.md` §2 uses for the TDA card.
+  through [`add-a-content-component.md`](add-a-content-component.md). (The
+  TDA card, inline JSX rather than a figure, set its threshold at the third
+  copy instead, and the extraction is overdue: `teach-a-data-structure.md`
+  §2.)
 - **§6e-ter's rules are discharged once, at the definition** rather than per
   call site: `role="img"` with a Spanish `aria-label` composed from the props,
   palette tokens only, prefixed `id`s, camelCase attributes. That is most of
@@ -1389,10 +1394,11 @@ What that costs, and the rules that follow from it:
   y Map's svg frame named so and renamed it `Frame`;
   `app/mdxComponents.test.ts` now fails on a document that exports a
   registered name.
-- **Nothing else lints or tests it.** Past its name and the palette guard's
-  ban on raw colours (`architecture.test.ts` reads every document), no gate
-  sees it, so it is checked the way a figure is checked — in a browser, over
-  both grounds, walking every frame. For the same reason a prop no call
+- **Nothing else checks what it draws.** Past its name, the palette guard's
+  ban on raw colours (`apps/web/src/architecture.test.ts` reads every
+  document) and `app/contentRenders.test.tsx`, which fails only when it
+  throws, no gate sees its output, so it is checked the way a figure is
+  checked — in a browser, over both grounds, walking every frame. For the same reason a prop no call
   site passes, or a branch no call site reaches, is removed before merge: the
   review of #304 found nine of them left over from redraws. One exception, and
   the bar for the next: a prop that a copy of the component on a stacked
@@ -1432,25 +1438,38 @@ What that costs, and the rules that follow from it:
   that only add is the same figure, and the second document promotes it.
   When the work package cannot promote, the copy ships with a tracked
   promotion issue — the #305 shape — and both definitions name each other.
-  Worked case: #352's review found Set y Map's `StepBoxes` copied from Tablas
+  The same holds against a registered component: a file-local figure that
+  forks one for its size is a prop owed to it. Set y Map's `KeyTree` is the
+  stated exception — `<BinaryPicture>`'s circles do not hold a RUT, and the
+  class shipped a pill-shaped copy rather than grow the component — and the
+  next document that wants a wide-key tree adds the prop instead of a
+  second fork. Worked case: #352's review found Set y Map's `StepBoxes` copied from Tablas
   Hash with a two-line diff, and its `ChainTable` drawing Tablas Hash's
   `Chains` with a wider node and a value band; neither Tablas Hash copy named
   them. The back-references landed after the merge, and #353 then promoted
-  both: `<StepBoxes>`, whose one difference became `boxWidth`, and
+  both: `<StepBoxes>`, whose two differences became `boxWidth` and titles
+  always in the code face, and
   `<ChainTable>`, whose two node sizes became `size="name"` and `size="rut"`
   and whose heights come from `hashGeometry.ts`, the module the widget's
-  layout imports too. Of the two documents' 127 figures, the only one the
-  promotions changed in a browser were the 7 Set y Map tables with a strong
-  node, drawn at the widget's stroke.
+  layout imports too. Of the two documents' 127 figures, the only ones the
+  promotions changed in a browser were the 7 Set y Map tables with a `keep`
+  or `mark` node, drawn at the widget's stroke (2.4 for 2.2). The two
+  layouts' tests pin the numbers each deleted copy had typed by hand, naming
+  the copy, so the suite and not only a screenshot holds a promotion to the
+  same picture.
 - **A hand-run strip is a promotion candidate, and the next one promotes
   it.** One column per state — the step on top, its verdict, and under it
   what the structure holds, the newest item painted — is drawn six times in
   the unit, each with its own data: the heap class's `TopKStrip`, Árboles
   II's `PendingStrip` and `CrossStrip`, and Set y Map's `SeenStrip`,
   `WindowStrip` and `EnrollStrip`. They share a skeleton but not their
-  contents, so the copy rule above does not bind them; the next document
-  that wants a strip writes a shared `<HandRun>` (a column of a head chip, a
-  verdict and a stack with tones) instead of a seventh copy (#352's review).
+  contents, so the size-difference rule above does not bind them; the next
+  document that wants a strip writes a shared `<HandRun>` (a column of a head
+  chip, a verdict and a stack with tones) instead of a seventh copy (#352's
+  review). It is promoted like any figure, through
+  [`add-a-content-component.md`](add-a-content-component.md), and the same WP
+  moves the six strips onto it, as #322 and #353 deleted the copies they
+  promoted (the professor's decision in #353's review).
 
 6e-quinquies. **Draw a binary tree: `<BinaryPicture>`**, a static figure with
 the geometry of the binary-tree recipe of `<SequenceStepper>` — every node in
@@ -1521,7 +1540,9 @@ wanted them (#322):
 Both are pure markup with no package of their own and register eagerly, as
 `<BinaryPicture>` does; their catalog pages carry the props.
 
-Two more came out of Tablas Hash when Set y Map wanted them (#353):
+6e-sexies. **Draw a hash table or a key's steps: `<ChainTable>`,
+`<StepBoxes>`.** Two figures came out of Tablas Hash when Set y Map wanted
+them (#353):
 
 - **`<StepBoxes>`** draws the steps of a computation as a chain of boxes —
   a key, the number its type gives it, the position a table takes from it —
@@ -1541,8 +1562,8 @@ Two more came out of Tablas Hash when Set y Map wanted them (#353):
   an operation step by step, the widget is the tool; this one is the still
   picture beside it.
 
-Both register eagerly, for the same reasons; their catalog pages carry the
-props.
+Both register eagerly, for `<BinaryPicture>`'s reasons; their catalog pages
+carry the props.
 
 6f. **An authoring error does not fail the build**, on purpose: writing the
 slides before drawing the diagrams is a real order of work, and gating the
@@ -2035,7 +2056,10 @@ last block, so no stale copies accumulate.
       or the suite can see the drawing (that is the trade-off the ADR
       superseding 0028 records — the truth-preservation is yours now).
 - [ ] Every exercise opened in `npm run preview` and actually run: no authoring
-      banner, cases pass against a correct solution and fail against the starter.
+      banner, cases pass against a correct solution and fail against a
+      skeleton starter; where the starter is the finished program (worked,
+      solved in the book), each rule has a case only it decides
+      (`write-an-exercise.md` §Checklist).
       Nothing in the build or the suite can check this for you.
 - [ ] Every `<PredictOutput>` opened in `npm run preview` and revealed: no
       authoring banner, the snippet actually runs to completion (no Java
@@ -2094,7 +2118,8 @@ last block, so no stale copies accumulate.
       suite cannot see any of this — a voice violation ships past a green
       build unless a human catches it here (course-content-style.md §6).
 - [ ] If the document belongs to the **Estructuras de Datos** or **Estructuras
-      de Datos Avanzadas** unit, its shape
+      de Datos Avanzadas** unit, or to the graphs unit after them (#354), its
+      shape
       checked against
       [`teach-a-data-structure.md`](teach-a-data-structure.md) §Checklist —
       the act shape, the TDA card, the invariant list, the cost table with

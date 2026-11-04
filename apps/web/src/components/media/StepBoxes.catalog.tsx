@@ -9,7 +9,7 @@ export const stepBoxesCatalogEntry: CatalogEntry = {
   description:
     'A chain of values, each in a box with a title over it, and the step that takes one value to the next written over the arrow between them — a key, the number its type turns it into, the position a table takes from that number.',
   whenToUse:
-    'Where a class names the steps of a computation and the values each one gives: the hash function as a single step and as the two a library splits it into, or what one object gets at each step. Titles may write a name between backticks to draw it in the code face; a wider value takes a wider box through boxWidth. ' +
+    'Where a class names the steps of a computation and the values each one gives: the hash function as a single step and as the two a library splits it into, or what one object gets at each step. Titles may write a name between backticks to draw it in the code face; a wider value takes a wider box through boxWidth. To walk a computation frame by frame, use a <StepShow>; for a formula with no values, write it as LaTeX. ' +
     'Promoted from a figure local to edd-tablas-hash when edd-set-map became the second document to want it (#353, add-a-course-document.md §6e-quater). ' +
     'A missing label, fewer than two boxes, or a number of steps other than one fewer than the boxes renders an authoring error.',
   props: [
