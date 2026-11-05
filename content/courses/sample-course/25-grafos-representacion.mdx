@@ -1071,9 +1071,15 @@ Se lee «$$n$$ por $$n - 1$$, dividido en dos».
 
 <Slide title="Árboles">
 Un **árbol** es un grafo conexo y sin ciclos. Entre dos de sus vértices hay
-exactamente un camino simple. Un árbol con $$V$$ vértices tiene exactamente
-$$V - 1$$ aristas: con una menos deja de ser conexo, y con una más cierra un
-ciclo. Un árbol con raíz es un árbol en el que se elige un vértice como raíz.
+exactamente un camino simple, y tiene una arista menos que vértices:
+
+$$
+|E| = |V| - 1
+$$
+
+Se lee «la cantidad de aristas es la de vértices menos uno». Con una arista
+menos deja de ser conexo, y con una más cierra un ciclo. Un árbol con raíz es
+un árbol en el que se elige un vértice como raíz.
 
 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.5rem 2rem', alignItems: 'end' }}>
 <NodeGraph
@@ -1081,7 +1087,7 @@ ciclo. Un árbol con raíz es un árbol en el que se elige un vértice como raí
   rows={3}
   nodes={[{ v: 'A', x: 1, y: 0 }, { v: 'B', x: 0, y: 1 }, { v: 'C', x: 2, y: 1 }, { v: 'D', x: 0, y: 2 }, { v: 'E', x: 2, y: 2 }]}
   edges={[['A', 'B'], ['A', 'C'], ['B', 'D'], ['C', 'E']]}
-  caption="V = 5 y 4 aristas: un árbol"
+  caption="|V| = 5 y |E| = 4: un árbol"
   label="Un árbol de cinco vértices y cuatro aristas: A unido con B y con C, B con D y C con E."
 />
 <NodeGraph
@@ -1640,10 +1646,17 @@ export function AdjLists({ lists, mark = [], caption, label }) {
 }
 
 <Slide title="Una matriz de adyacencia">
-Una **matriz de adyacencia** es una tabla de $$V \times V$$ booleanos: la
-casilla de la fila `v` y la columna `w` es verdadera si hay una arista entre
-`v` y `w`. En un grafo sin dirección cada arista llena dos casillas, una a
-cada lado de la diagonal, y la matriz queda simétrica.
+Una **matriz de adyacencia** es una tabla de $$V \times V$$ booleanos, con una
+casilla por cada par de vértices:
+
+$$
+M[u][v] = \text{verdadero} \iff uv \in E
+$$
+
+Se lee «la casilla de la fila $$u$$ y la columna $$v$$ es verdadera si y solo si
+la arista $$uv$$ está en $$E$$». En un grafo sin dirección cada arista llena dos
+casillas, una a cada lado de la diagonal, y la matriz queda simétrica:
+$$M[u][v] = M[v][u]$$.
 
 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.5rem 2rem', alignItems: 'center' }}>
 <NodeGraph
@@ -1711,8 +1724,15 @@ orilla de Königsberg quedarían como uno.
 
 <Slide title="Unas listas de adyacencia">
 Unas **listas de adyacencia** guardan, por cada vértice, una lista con sus
-vecinos. En un grafo sin dirección cada arista aparece dos veces: en la lista
-de cada uno de sus extremos.
+vecinos: la lista de $$v$$ tiene un $$w$$ por cada arista $$vw$$ de $$E$$.
+
+$$
+|\mathrm{adj}(v)| = \operatorname{grado}(v)
+$$
+
+Se lee «el largo de la lista de $$v$$ es el grado de $$v$$». En un grafo sin
+dirección cada arista aparece dos veces: en la lista de cada uno de sus
+extremos.
 
 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.5rem 2rem', alignItems: 'center' }}>
 <NodeGraph
@@ -1838,7 +1858,9 @@ la respuesta.
 En un grafo dirigido, `addEdge(v, w)` agrega solo la flecha de `v` a `w`. Cada
 implementación cambia una línea: la matriz llena una sola casilla y deja de
 ser simétrica, y la flecha aparece solo en la lista de `v`. `adj(v)` entrega
-entonces los vértices a los que llegan las flechas que salen de `v`.
+entonces los vértices a los que llegan las flechas que salen de `v`. En
+símbolos, $$M[u][v]$$ es verdadera si y solo si $$(u, v) \in E$$, y
+$$|\mathrm{adj}(v)| = \operatorname{grado}^+(v)$$.
 
 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '0.5rem 1.5rem', alignItems: 'center' }}>
 <NodeGraph
@@ -1935,8 +1957,14 @@ Las dos implementaciones con pesos cumplen este contrato.
 </Slide>
 
 <Slide title="Un grafo con pesos en la matriz">
-Con pesos, la casilla guarda el peso de la arista en vez de un booleano. Una
-casilla sin arista no puede guardar $$0$$, porque una arista de peso $$0$$
+Con pesos, la casilla guarda el peso de la arista en vez de un booleano:
+
+$$
+M[u][v] = \begin{cases} w(u, v) & \text{si } uv \in E \\ \infty & \text{si no} \end{cases}
+$$
+
+Se lee «la casilla de $$u$$ y $$v$$ guarda el peso de $$uv$$ si la arista
+existe, e infinito si no». Una casilla sin arista no puede guardar $$0$$, porque una arista de peso $$0$$
 existe: un tramo que no cuesta nada. Guarda un valor que ningún peso puede
 tomar, $$\infty$$, que en Java es el entero más grande, `Integer.MAX_VALUE`.
 
@@ -2005,7 +2033,8 @@ arista solo si no estaba.
 
 <Slide title="Un grafo con pesos en las listas">
 Con pesos, cada entrada de una lista es un `Edge`: el vecino y el peso de la
-arista que lleva a él.
+arista que lleva a él. La lista de $$u$$ tiene un par $$(v, w(u, v))$$ por cada
+arista $$uv$$ de $$E$$: `to` es $$v$$ y `weight` es $$w(u, v)$$.
 
 <AdjLists
   lists={[['1 · 7', '2 · 3'], ['0 · 7', '2 · 2'], ['0 · 3', '1 · 2', '3 · 4'], ['2 · 4']]}
@@ -2054,11 +2083,18 @@ les pregunta por una arista.
 <Slide title="La memoria de las dos implementaciones">
 - **La matriz** guarda $$V^2$$ casillas, haya las aristas que haya:
   $$\Theta(V^2)$$.
-- **Las listas** guardan una lista por vértice y una entrada por cada extremo
-  de cada arista. En un grafo sin dirección son $$2E$$ entradas:
-  $$\Theta(V + E)$$.
+- **Las listas** guardan una lista por vértice y una entrada por extremo de
+  arista: $$\Theta(V + E)$$.
 
-Cuál ocupa menos depende de cuántas aristas tiene el grafo.
+Las entradas de las listas se cuentan con el lema del apretón de manos:
+
+$$
+\sum_{v} |\mathrm{adj}(v)| = \sum_{v} \operatorname{grado}(v) = 2E
+$$
+
+Se lee «la suma de los largos de las listas es la suma de los grados, que es
+dos veces la cantidad de aristas». Cuál ocupa menos depende de cuántas aristas
+tiene el grafo.
 
 </Slide>
 
