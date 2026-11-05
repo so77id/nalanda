@@ -151,11 +151,35 @@ zona, un punto; cada puente, una línea.
 
 </Slide>
 
-<Slide title="Vértices, aristas y vecinos">
-<Split ratio="60/40">
+<Slide title="El paseo por Königsberg">
+Con cada zona como un punto y cada puente como una línea, el paseo es pasar
+por cada línea del dibujo una sola vez, sin saltar de un punto a otro.
+Probemos:
 
+<PenTrace
+  cols={3}
+  rows={3}
+  nodes={[{ v: 'B', x: 1, y: 0 }, { v: 'A', x: 0, y: 1 }, { v: 'D', x: 2, y: 1 }, { v: 'C', x: 1, y: 2 }]}
+  edges={[['A', 'B'], ['A', 'B'], ['A', 'C'], ['A', 'C'], ['A', 'D'], ['B', 'D'], ['C', 'D']]}
+  label="Königsberg como puntos y líneas: cuatro puntos, A, B, C y D, y siete líneas. Dos líneas unen A con B, dos unen A con C, y una une A con D, B con D y C con D. Para recorrerlas todas sin pasar dos veces por la misma."
+/>
+
+Que nadie lo lograra no demuestra que sea imposible: quizás nadie probó el
+orden correcto. Para estar seguros probando, habría que intentar todos los
+órdenes de los puentes, y con $$n$$ puentes hay $$n!$$ órdenes, que crecen tan
+rápido que probarlos todos deja de ser posible. Hace falta otra cosa: una
+razón que descarte todos los órdenes a la vez, sin probar ninguno.
+
+</Slide>
+
+<SectionBreak />
+
+## Las partes de un grafo
+
+<Slide title="Vértices y aristas">
 Un **grafo** tiene **vértices**, los puntos, y **aristas**, las líneas. Cada
-arista une dos vértices.
+arista une dos vértices. Escribimos $$V$$ para la cantidad de vértices y $$E$$
+para la cantidad de aristas.
 
 <NodeGraph
   cols={3}
@@ -164,85 +188,9 @@ arista une dos vértices.
   edges={[['A', 'B'], ['A', 'B'], ['A', 'C'], ['A', 'C'], ['A', 'D'], ['B', 'D'], ['C', 'D']]}
   tones={{ A: 'mark' }}
   markEdges={[['A', 'D']]}
-  caption="un vértice, A, y una arista, A-D"
-  label="El grafo de Königsberg con el vértice A destacado y la arista entre A y D marcada."
+  caption="el vértice A y la arista A-D; V = 4 y E = 7"
+  label="El grafo de Königsberg: cuatro vértices, A, B, C y D, y siete aristas. Marcados, el vértice A y la arista entre A y D."
 />
-
-</Split>
-
-<Split ratio="40/60">
-
-<NodeGraph
-  cols={3}
-  rows={3}
-  nodes={[{ v: 'B', x: 1, y: 0 }, { v: 'A', x: 0, y: 1 }, { v: 'D', x: 2, y: 1 }, { v: 'C', x: 1, y: 2 }]}
-  edges={[['A', 'B'], ['A', 'B'], ['A', 'C'], ['A', 'C'], ['A', 'D'], ['B', 'D'], ['C', 'D']]}
-  tones={{ D: 'mark', A: 'keep', B: 'keep', C: 'keep' }}
-  caption="los vecinos de D: A, B y C"
-  label="El grafo de Königsberg con D destacado y sus tres vecinos, A, B y C, marcados."
-/>
-
-Dos vértices unidos por una arista son **vecinos**, o **adyacentes**. Un
-vértice puede tener muchos vecinos, o ninguno.
-
-</Split>
-
-<Split ratio="60/40">
-
-Entre dos vértices puede haber más de una arista, como los dos puentes entre
-la isla y una orilla: son **aristas paralelas**. Cada una cuenta por separado.
-
-<NodeGraph
-  cols={3}
-  rows={3}
-  nodes={[{ v: 'B', x: 1, y: 0 }, { v: 'A', x: 0, y: 1 }, { v: 'D', x: 2, y: 1 }, { v: 'C', x: 1, y: 2 }]}
-  edges={[['A', 'B'], ['A', 'B'], ['A', 'C'], ['A', 'C'], ['A', 'D'], ['B', 'D'], ['C', 'D']]}
-  markEdges={[['A', 'B']]}
-  caption="dos aristas paralelas entre A y B"
-  label="El grafo de Königsberg con las dos aristas entre A y B marcadas."
-/>
-
-</Split>
-
-</Slide>
-
-<Slide title="El grado de un vértice">
-<Split ratio="60/40">
-
-El **grado** de un vértice es la cantidad de aristas que lo tocan. Las
-aristas paralelas cuentan cada una: los dos puentes entre A y B suman dos al
-grado de A.
-
-<NodeGraph
-  cols={3}
-  rows={3}
-  nodes={[{ v: 'B', x: 1, y: 0 }, { v: 'A', x: 0, y: 1 }, { v: 'D', x: 2, y: 1 }, { v: 'C', x: 1, y: 2 }]}
-  edges={[['A', 'B'], ['A', 'B'], ['A', 'C'], ['A', 'C'], ['A', 'D'], ['B', 'D'], ['C', 'D']]}
-  tones={{ A: 'mark' }}
-  markEdges={[['A', 'B'], ['A', 'C'], ['A', 'D']]}
-  notes={{ A: 5 }}
-  caption="A toca cinco aristas: grado 5"
-  label="El grafo de Königsberg con A destacado y sus cinco aristas marcadas: dos hacia B, dos hacia C y una hacia D. A tiene grado 5."
-/>
-
-</Split>
-
-<Split ratio="40/60">
-
-<NodeGraph
-  cols={3}
-  rows={3}
-  nodes={[{ v: 'B', x: 1, y: 0 }, { v: 'A', x: 0, y: 1 }, { v: 'D', x: 2, y: 1 }, { v: 'C', x: 1, y: 2 }]}
-  edges={[['A', 'B'], ['A', 'B'], ['A', 'C'], ['A', 'C'], ['A', 'D'], ['B', 'D'], ['C', 'D']]}
-  notes={{ A: 5, B: 3, C: 3, D: 3 }}
-  caption="V = 4 y E = 7; al lado de cada vértice, su grado"
-  label="El grafo de Königsberg con el grado de cada vértice: A 5, y B, C y D, 3. Tiene 4 vértices y 7 aristas."
-/>
-
-Escribimos **V** para la cantidad de vértices y **E** para la cantidad de
-aristas. Al lado de cada vértice va su grado.
-
-</Split>
 
 </Slide>
 
@@ -279,57 +227,104 @@ dos no, y los tres responden igual la pregunta del paseo.
 />
 </div>
 
-<Split ratio="60/40">
+</Slide>
 
-Si además se cambian los nombres de los vértices, puede seguir siendo el
-mismo grafo con otros nombres. Cuando cada vértice de uno se puede emparejar
-con uno del otro de modo que las aristas coincidan, los dos grafos son
-**isomorfos**.
+<Slide title="Grafos isomorfos">
+Si además se cambian los nombres de los vértices, puede seguir siendo el mismo
+grafo con otros nombres. Cuando cada vértice de uno se puede emparejar con uno
+del otro de modo que las aristas coincidan, los dos grafos son **isomorfos**.
 
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.5rem 2rem', alignItems: 'end' }}>
+<NodeGraph
+  cols={3}
+  rows={3}
+  nodes={[{ v: 'B', x: 1, y: 0 }, { v: 'A', x: 0, y: 1 }, { v: 'D', x: 2, y: 1 }, { v: 'C', x: 1, y: 2 }]}
+  edges={[['A', 'B'], ['A', 'B'], ['A', 'C'], ['A', 'C'], ['A', 'D'], ['B', 'D'], ['C', 'D']]}
+  caption="Königsberg, con letras"
+  label="El grafo de Königsberg en rombo: B arriba, A a la izquierda, D a la derecha y C abajo, con sus siete aristas."
+/>
 <NodeGraph
   cols={3}
   rows={3}
   nodes={[{ v: 1, x: 0, y: 0 }, { v: 2, x: 2, y: 0 }, { v: 3, x: 0, y: 2 }, { v: 4, x: 2, y: 2 }]}
   edges={[[1, 2], [1, 2], [1, 3], [1, 3], [1, 4], [2, 4], [3, 4]]}
-  caption="A↔1, B↔2, C↔3, D↔4"
+  caption="A↔1, B↔2, C↔3 y D↔4"
   label="Un grafo con los vértices 1, 2, 3 y 4 y siete aristas: dos entre 1 y 2, dos entre 1 y 3, y una entre 1 y 4, 2 y 4, y 3 y 4. Emparejando A con 1, B con 2, C con 3 y D con 4, las aristas coinciden con las de Königsberg."
 />
-
-</Split>
+</div>
 
 </Slide>
 
-<Slide title="El paseo por Königsberg">
-Con cada zona como un punto y cada puente como una línea, el paseo es pasar
-por cada línea del grafo una sola vez, sin saltar de un punto a otro.
-Probemos:
+<Slide title="Los vecinos de un vértice">
+Dos vértices unidos por una arista son **vecinos**, o **adyacentes**. Un
+vértice puede tener muchos vecinos, o ninguno.
 
-<PenTrace
+<NodeGraph
   cols={3}
   rows={3}
   nodes={[{ v: 'B', x: 1, y: 0 }, { v: 'A', x: 0, y: 1 }, { v: 'D', x: 2, y: 1 }, { v: 'C', x: 1, y: 2 }]}
   edges={[['A', 'B'], ['A', 'B'], ['A', 'C'], ['A', 'C'], ['A', 'D'], ['B', 'D'], ['C', 'D']]}
-  label="Königsberg como puntos y líneas: cuatro puntos, A, B, C y D, y siete líneas. Dos líneas unen A con B, dos unen A con C, y una une A con D, B con D y C con D. Para recorrerlas todas sin pasar dos veces por la misma."
+  tones={{ D: 'mark', A: 'keep', B: 'keep', C: 'keep' }}
+  caption="los vecinos de D: A, B y C"
+  label="El grafo de Königsberg con D destacado y sus tres vecinos, A, B y C, marcados."
 />
 
-Que nadie lo lograra no demuestra que sea imposible: quizás nadie probó el
-orden correcto. Para estar seguros probando, habría que intentar todos los
-órdenes de los puentes, y con $$E$$ puentes hay $$E!$$ órdenes, que crecen tan
-rápido que probarlos todos deja de ser posible. Hace falta otra cosa: una
-razón que descarte todos los órdenes a la vez, sin probar ninguno.
+</Slide>
+
+<Slide title="Aristas paralelas">
+Entre dos vértices puede haber más de una arista, como los dos puentes entre la
+isla y una orilla: son **aristas paralelas**. Cada una cuenta por separado.
+
+<NodeGraph
+  cols={3}
+  rows={3}
+  nodes={[{ v: 'B', x: 1, y: 0 }, { v: 'A', x: 0, y: 1 }, { v: 'D', x: 2, y: 1 }, { v: 'C', x: 1, y: 2 }]}
+  edges={[['A', 'B'], ['A', 'B'], ['A', 'C'], ['A', 'C'], ['A', 'D'], ['B', 'D'], ['C', 'D']]}
+  markEdges={[['A', 'B']]}
+  caption="dos aristas paralelas entre A y B"
+  label="El grafo de Königsberg con las dos aristas entre A y B marcadas."
+/>
+
+</Slide>
+
+<Slide title="El grado de un vértice">
+El **grado** de un vértice es la cantidad de aristas que lo tocan. Las aristas
+paralelas cuentan cada una: los dos puentes entre A y B suman dos al grado de A.
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.5rem 2rem', alignItems: 'end' }}>
+<NodeGraph
+  cols={3}
+  rows={3}
+  nodes={[{ v: 'B', x: 1, y: 0 }, { v: 'A', x: 0, y: 1 }, { v: 'D', x: 2, y: 1 }, { v: 'C', x: 1, y: 2 }]}
+  edges={[['A', 'B'], ['A', 'B'], ['A', 'C'], ['A', 'C'], ['A', 'D'], ['B', 'D'], ['C', 'D']]}
+  tones={{ A: 'mark' }}
+  markEdges={[['A', 'B'], ['A', 'C'], ['A', 'D']]}
+  notes={{ A: 5 }}
+  caption="A toca cinco aristas: grado 5"
+  label="El grafo de Königsberg con A destacado y sus cinco aristas marcadas: dos hacia B, dos hacia C y una hacia D. A tiene grado 5."
+/>
+<NodeGraph
+  cols={3}
+  rows={3}
+  nodes={[{ v: 'B', x: 1, y: 0 }, { v: 'A', x: 0, y: 1 }, { v: 'D', x: 2, y: 1 }, { v: 'C', x: 1, y: 2 }]}
+  edges={[['A', 'B'], ['A', 'B'], ['A', 'C'], ['A', 'C'], ['A', 'D'], ['B', 'D'], ['C', 'D']]}
+  notes={{ A: 5, B: 3, C: 3, D: 3 }}
+  caption="el grado de cada vértice"
+  label="El grafo de Königsberg con el grado de cada vértice: A 5, y B, C y D, 3."
+/>
+</div>
 
 </Slide>
 
 <SectionBreak />
 
-## La respuesta de Euler
+## Caminos y ciclos
 
-<Slide title="Caminos y ciclos">
-<Split ratio="60/40">
-
-Un **camino** es una secuencia de vértices en la que cada uno es vecino del
-siguiente y ninguna arista se repite. Puede pasar varias veces por el mismo
-vértice. Su **largo** es la cantidad de aristas que recorre.
+<Slide title="Caminos">
+El paseo va de zona en zona por los puentes; en el grafo, de vértice en
+vértice por las aristas. Un **camino** es una secuencia de vértices en la que
+cada uno es vecino del siguiente y ninguna arista se repite. Puede pasar varias
+veces por el mismo vértice. Su **largo** es la cantidad de aristas que recorre.
 
 <NodeGraph
   cols={3}
@@ -341,9 +336,38 @@ vértice. Su **largo** es la cantidad de aristas que recorre.
   label="Dos triángulos que comparten el vértice C. Marcado, el camino A, B, C, D, E, C: recorre cinco aristas y pasa dos veces por C."
 />
 
-</Split>
+</Slide>
 
-<Split ratio="40/60">
+<Slide title="Caminos simples">
+Un camino es **simple** si no repite vértices. Un camino que pasa dos veces por
+el mismo vértice no es simple.
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.5rem 2rem', alignItems: 'end' }}>
+<NodeGraph
+  cols={3}
+  rows={3}
+  nodes={[{ v: 'A', x: 0, y: 0 }, { v: 'B', x: 0, y: 2 }, { v: 'C', x: 1, y: 1 }, { v: 'D', x: 2, y: 0 }, { v: 'E', x: 2, y: 2 }]}
+  edges={[['A', 'B'], ['A', 'C'], ['B', 'C'], ['C', 'D'], ['C', 'E'], ['D', 'E']]}
+  markEdges={[['A', 'B'], ['B', 'C'], ['C', 'D']]}
+  caption="A, B, C, D: simple"
+  label="Dos triángulos que comparten el vértice C. Marcado, el camino A, B, C, D, que no repite ningún vértice."
+/>
+<NodeGraph
+  cols={3}
+  rows={3}
+  nodes={[{ v: 'A', x: 0, y: 0 }, { v: 'B', x: 0, y: 2 }, { v: 'C', x: 1, y: 1 }, { v: 'D', x: 2, y: 0 }, { v: 'E', x: 2, y: 2 }]}
+  edges={[['A', 'B'], ['A', 'C'], ['B', 'C'], ['C', 'D'], ['C', 'E'], ['D', 'E']]}
+  tones={{ C: 'flag' }}
+  markEdges={[['A', 'B'], ['B', 'C'], ['C', 'D'], ['D', 'E'], ['E', 'C']]}
+  caption="A, B, C, D, E, C: repite C"
+  label="Los mismos dos triángulos. Marcado, el camino A, B, C, D, E, C, que pasa dos veces por C, destacado: no es simple."
+/>
+</div>
+
+</Slide>
+
+<Slide title="Ciclos">
+Si un camino termina en el vértice donde empezó, es un **ciclo**.
 
 <NodeGraph
   cols={3}
@@ -352,14 +376,70 @@ vértice. Su **largo** es la cantidad de aristas que recorre.
   edges={[['A', 'B'], ['A', 'C'], ['B', 'C'], ['C', 'D'], ['C', 'E'], ['D', 'E']]}
   markEdges={[['C', 'D'], ['D', 'E'], ['E', 'C']]}
   caption="C, D, E, C: un ciclo de largo 3"
-  label="Los mismos dos triángulos. Marcado, el ciclo C, D, E, que vuelve a C."
+  label="Dos triángulos que comparten el vértice C. Marcado, el ciclo C, D, E, que vuelve a C."
 />
 
-Si un camino termina en el vértice donde empezó, es un **ciclo**.
+</Slide>
 
-</Split>
+<Slide title="Ciclos simples">
+Un ciclo es **simple** si no repite vértices, salvo el primero, que también es
+el último.
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.5rem 2rem', alignItems: 'end' }}>
+<NodeGraph
+  cols={3}
+  rows={3}
+  nodes={[{ v: 'A', x: 0, y: 0 }, { v: 'B', x: 0, y: 2 }, { v: 'C', x: 1, y: 1 }, { v: 'D', x: 2, y: 0 }, { v: 'E', x: 2, y: 2 }]}
+  edges={[['A', 'B'], ['A', 'C'], ['B', 'C'], ['C', 'D'], ['C', 'E'], ['D', 'E']]}
+  markEdges={[['A', 'B'], ['B', 'C'], ['C', 'A']]}
+  caption="A, B, C, A: simple"
+  label="Dos triángulos que comparten el vértice C. Marcado, el ciclo A, B, C, que vuelve a A sin repetir otro vértice."
+/>
+<NodeGraph
+  cols={3}
+  rows={3}
+  nodes={[{ v: 'A', x: 0, y: 0 }, { v: 'B', x: 0, y: 2 }, { v: 'C', x: 1, y: 1 }, { v: 'D', x: 2, y: 0 }, { v: 'E', x: 2, y: 2 }]}
+  edges={[['A', 'B'], ['A', 'C'], ['B', 'C'], ['C', 'D'], ['C', 'E'], ['D', 'E']]}
+  tones={{ C: 'flag' }}
+  markEdges={[['A', 'B'], ['B', 'C'], ['C', 'D'], ['D', 'E'], ['E', 'C'], ['C', 'A']]}
+  caption="A, B, C, D, E, C, A: repite C"
+  label="Los mismos dos triángulos. Marcado, el ciclo A, B, C, D, E, C, A, que recorre las seis aristas y pasa dos veces por C, destacado: no es simple."
+/>
+</div>
 
 </Slide>
+
+<Slide title="Grafos conexos">
+Un grafo es **conexo** si hay un camino entre cada par de vértices. Si no lo
+es, se parte en **componentes**: los grupos de vértices que se alcanzan entre
+sí y que no alcanzan a ningún otro.
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.5rem 2rem', alignItems: 'end' }}>
+<NodeGraph
+  cols={5}
+  rows={3}
+  nodes={[{ v: 'A', x: 0, y: 0 }, { v: 'B', x: 0, y: 2 }, { v: 'C', x: 1, y: 1 }, { v: 'D', x: 3, y: 1 }, { v: 'E', x: 4, y: 0 }, { v: 'F', x: 4, y: 2 }]}
+  edges={[['A', 'B'], ['B', 'C'], ['C', 'A'], ['D', 'E'], ['E', 'F'], ['F', 'D'], ['C', 'D']]}
+  markEdges={[['C', 'D']]}
+  caption="conexo: una componente"
+  label="Dos triángulos, A, B y C, y D, E y F, unidos por la arista C-D, marcada: hay un camino entre cada par de vértices."
+/>
+<NodeGraph
+  cols={5}
+  rows={3}
+  nodes={[{ v: 'A', x: 0, y: 0 }, { v: 'B', x: 0, y: 2 }, { v: 'C', x: 1, y: 1 }, { v: 'D', x: 3, y: 1 }, { v: 'E', x: 4, y: 0 }, { v: 'F', x: 4, y: 2 }]}
+  edges={[['A', 'B'], ['B', 'C'], ['C', 'A'], ['D', 'E'], ['E', 'F'], ['F', 'D']]}
+  tones={{ D: 'mark', E: 'mark', F: 'mark' }}
+  caption="no conexo: dos componentes"
+  label="Los mismos dos triángulos sin la arista C-D: A, B y C en uno, y D, E y F, destacados, en el otro. Ninguna arista los une: son dos componentes."
+/>
+</div>
+
+</Slide>
+
+<SectionBreak />
+
+## La respuesta de Euler
 
 <Slide title="Cada paso por un vértice usa dos aristas">
 Un paseo que cruza cada puente una vez es un camino que usa todas las
@@ -430,12 +510,8 @@ la cantidad de vértices de grado impar es par.**
 
 <Slide title="Un grafo en dos pedazos">
 En este grafo todos los vértices tienen grado par, y aun así ningún camino
-usa todas sus aristas: tiene dos pedazos, y ninguna arista lleva de uno al
-otro.
-
-Un grafo es **conexo** si hay un camino entre cada par de vértices. Si no lo
-es, se parte en **componentes**: los grupos de vértices que se alcanzan entre
-sí y que no alcanzan a ningún otro.
+usa todas sus aristas: no es conexo, y ninguna arista lleva de una componente
+a la otra.
 
 <NodeGraph
   cols={7}
@@ -1096,43 +1172,6 @@ tomarlo: la malla no puede tener un ciclo.
 />
 </div>
 </div>
-
-</Slide>
-
-<Slide title="Caminos y ciclos simples">
-<Split ratio="60/40">
-
-Un camino es **simple** si no repite vértices. Un camino que pasa dos veces
-por el mismo vértice no es simple.
-
-<NodeGraph
-  cols={3}
-  rows={3}
-  nodes={[{ v: 'A', x: 0, y: 0 }, { v: 'B', x: 0, y: 2 }, { v: 'C', x: 1, y: 1 }, { v: 'D', x: 2, y: 0 }, { v: 'E', x: 2, y: 2 }]}
-  edges={[['A', 'B'], ['A', 'C'], ['B', 'C'], ['C', 'D'], ['C', 'E'], ['D', 'E']]}
-  markEdges={[['A', 'B'], ['B', 'C'], ['C', 'D']]}
-  caption="A, B, C, D: un camino simple"
-  label="Dos triángulos que comparten el vértice C. Marcado, el camino A, B, C, D, que no repite ningún vértice."
-/>
-
-</Split>
-
-<Split ratio="40/60">
-
-<NodeGraph
-  cols={3}
-  rows={3}
-  nodes={[{ v: 'A', x: 0, y: 0 }, { v: 'B', x: 0, y: 2 }, { v: 'C', x: 1, y: 1 }, { v: 'D', x: 2, y: 0 }, { v: 'E', x: 2, y: 2 }]}
-  edges={[['A', 'B'], ['A', 'C'], ['B', 'C'], ['C', 'D'], ['C', 'E'], ['D', 'E']]}
-  markEdges={[['A', 'B'], ['B', 'C'], ['C', 'A']]}
-  caption="A, B, C, A: un ciclo simple"
-  label="Los mismos dos triángulos. Marcado, el ciclo A, B, C, que vuelve a A sin repetir otro vértice."
-/>
-
-Un ciclo es **simple** si no repite vértices, salvo el primero, que también es
-el último.
-
-</Split>
 
 </Slide>
 
