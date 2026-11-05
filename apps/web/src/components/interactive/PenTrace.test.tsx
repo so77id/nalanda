@@ -321,12 +321,28 @@ const KONIGSBERG: PenTraceProps = {
     'Königsberg como puntos y líneas: cuatro puntos, A, B, C y D, y siete líneas. Dos líneas unen A con B, dos unen A con C, y una une A con D, B con D y C con D. Para recorrerlas todas sin pasar dos veces por la misma.',
 };
 
+const KONIGSBERG_PLUS_BC: PenTraceProps = {
+  ...KONIGSBERG,
+  solvable: true,
+  edges: [...KONIGSBERG.edges, ['B', 'C']],
+  label:
+    'Königsberg con un octavo puente entre B y C, para recorrer cada arista una sola vez. Tiene dos vértices impares, A y D.',
+};
+const KONIGSBERG_PLUS_BC_AD: PenTraceProps = {
+  ...KONIGSBERG_PLUS_BC,
+  edges: [...KONIGSBERG_PLUS_BC.edges, ['A', 'D']],
+  label:
+    'Königsberg con dos puentes más, entre B y C y entre A y D, para recorrer cada arista una sola vez. No tiene vértices impares.',
+};
+
 describe('the combinations 25-grafos-representacion mounts', () => {
   it.each([
     ['Una figura de un solo trazo · la estrella', STAR, 15],
     ['Una figura de un solo trazo · la casa', HOUSE, 10],
     ['Una figura de un solo trazo · el sobre', ENVELOPE, 8],
     ['El paseo por Königsberg · Königsberg', KONIGSBERG, 7],
+    ['Un camino euleriano y un ciclo euleriano · un puente más', KONIGSBERG_PLUS_BC, 8],
+    ['Un camino euleriano y un ciclo euleriano · dos puentes más', KONIGSBERG_PLUS_BC_AD, 9],
   ] as const)('%s', (_slide, props, strokes) => {
     const { container } = render(<PenTrace {...props} />);
     expect(container.querySelector('[data-authoring-error]')).toBeNull();
