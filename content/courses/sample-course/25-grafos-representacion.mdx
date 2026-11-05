@@ -180,47 +180,6 @@ aunque se vean distintos.
 
 </Slide>
 
-<Slide title="Grafos dirigidos">
-En algunos problemas, una arista tiene dirección: seguir a alguien en una red
-social no obliga a que esa persona nos siga. En un **grafo dirigido**, cada
-arista va de un vértice a otro y se dibuja como una flecha.
-
-Cada vértice tiene entonces dos grados: el **grado de salida**, las flechas
-que salen de él, y el **grado de entrada**, las flechas que llegan a él.
-
-<NodeGraph
-  cols={4}
-  rows={2}
-  directed
-  nodes={[{ v: 'Ana', x: 0, y: 0 }, { v: 'Beto', x: 2, y: 0 }, { v: 'Caro', x: 1, y: 1 }, { v: 'Dani', x: 3, y: 1 }]}
-  edges={[['Ana', 'Beto'], ['Beto', 'Ana'], ['Ana', 'Caro'], ['Caro', 'Beto'], ['Dani', 'Caro']]}
-  tones={{ Beto: 'mark' }}
-  caption="Beto: grado de entrada 2, grado de salida 1"
-  label="Quién sigue a quién, con flechas: Ana y Beto se siguen entre sí, Ana sigue a Caro, Caro sigue a Beto y Dani sigue a Caro. Beto, destacado, tiene grado de entrada 2 y grado de salida 1."
-/>
-
-</Slide>
-
-<Slide title="Grafos con pesos">
-En otros problemas, cada arista lleva un número: los minutos que toma un
-tramo de calle, los kilómetros de una ruta, lo que cuesta tender un cable. Es
-un **grafo con pesos**, o **ponderado**, y el número de cada arista es su
-**peso**.
-
-<NodeGraph
-  cols={3}
-  rows={3}
-  nodes={[{ v: 'A', x: 0, y: 0 }, { v: 'B', x: 2, y: 0 }, { v: 'C', x: 1, y: 1 }, { v: 'D', x: 0, y: 2 }, { v: 'E', x: 2, y: 2 }]}
-  edges={[['A', 'B', 7], ['A', 'C', 3], ['B', 'C', 2], ['C', 'D', 4], ['C', 'E', 6], ['D', 'E', 5], ['B', 'E', 9]]}
-  caption="cinco esquinas y los minutos de cada tramo"
-  label="Un mapa de cinco esquinas, A a E, con los minutos de cada tramo: A-B 7, A-C 3, B-C 2, C-D 4, C-E 6, D-E 5 y B-E 9."
-/>
-
-Un grafo puede ser dirigido y con pesos a la vez: las calles de un solo
-sentido, con sus minutos.
-
-</Slide>
-
 <SectionBreak />
 
 ## Euler y los vértices impares
@@ -452,6 +411,13 @@ mire.
 </Slide>
 
 <Slide title="Una red de amistades y una de seguidores">
+Las mismas personas dan dos grafos según la relación que se mire. Ser amigos
+va en los dos sentidos; seguir a alguien en una red social, no: no obliga a
+que esa persona nos siga. En un **grafo dirigido**, cada arista va de un
+vértice a otro y se dibuja como una flecha, y cada vértice tiene dos grados:
+el **grado de salida**, las flechas que salen de él, y el **grado de
+entrada**, las que llegan a él.
+
 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '0.5rem 2rem', alignItems: 'end' }}>
 <NodeGraph
   cols={4}
@@ -466,20 +432,25 @@ mire.
   rows={2}
   directed
   nodes={[{ v: 'Ana', x: 0, y: 0 }, { v: 'Beto', x: 2, y: 0 }, { v: 'Caro', x: 1, y: 1 }, { v: 'Dani', x: 3, y: 1 }]}
-  edges={[['Ana', 'Beto'], ['Beto', 'Ana'], ['Ana', 'Caro'], ['Dani', 'Caro']]}
-  caption="seguir: puede ir en un solo sentido"
-  label="Una red de seguidores entre las mismas personas: Ana y Beto se siguen, Ana sigue a Caro y Dani sigue a Caro. Las aristas son flechas."
+  edges={[['Ana', 'Beto'], ['Beto', 'Ana'], ['Ana', 'Caro'], ['Caro', 'Beto'], ['Dani', 'Caro']]}
+  tones={{ Beto: 'mark' }}
+  caption="seguir: Beto tiene grado de entrada 2 y de salida 1"
+  label="Quién sigue a quién, con flechas: Ana y Beto se siguen entre sí, Ana sigue a Caro, Caro sigue a Beto y Dani sigue a Caro. Beto, destacado, tiene grado de entrada 2 y grado de salida 1."
 />
 </div>
 
 - **Vértices**: las personas, en los dos grafos.
-- **Aristas**: en el primero, ser amigos, que va en los dos sentidos; en el
-  segundo, seguir a alguien, que no obliga a la otra persona.
+- **Aristas**: ser amigos, sin dirección; seguir a alguien, con dirección.
 - **Pesos**: ninguno. Una amistad o un seguidor no traen un número.
 
 </Slide>
 
 <Slide title="Un mapa de calles y una malla curricular">
+En un mapa de calles, cada tramo trae un número que el problema usa: los
+minutos que toma. Es un **grafo con pesos**, o **ponderado**, y el número de
+cada arista es su **peso**. Un grafo puede ser dirigido y con pesos a la vez:
+las calles de un solo sentido, con sus minutos.
+
 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '0.5rem 2rem', alignItems: 'end' }}>
 <NodeGraph
   cols={3}
@@ -504,15 +475,19 @@ mire.
 - **El mapa**: las esquinas son vértices, cada tramo de calle es una arista
   con los minutos como peso, y una calle de un solo sentido es una flecha.
 - **La malla**: los ramos son vértices, y cada prerrequisito es una flecha
-  que va del ramo que se aprueba antes al que lo pide.
+  que va del ramo que se aprueba antes al que lo pide. Si un ramo terminara
+  pidiéndose a sí mismo, de prerrequisito en prerrequisito, nadie podría
+  tomarlo: la malla no puede tener un ciclo.
 
 </Slide>
 
-<Slide title="Árboles">
-Un **árbol** es un grafo conexo y sin ciclos. Con $$V$$ vértices tiene
-exactamente $$V - 1$$ aristas: con una menos deja de ser conexo, y con una
-más cierra un ciclo. Un árbol con raíz es un árbol en el que se elige un
-vértice como raíz.
+<Slide title="Ciclos y árboles">
+Un camino es **simple** si no repite vértices, y un ciclo es **simple** si no
+repite vértices salvo el primero, que es también el último. Un **árbol** es
+un grafo conexo y sin ciclos: entre dos de sus vértices hay exactamente un
+camino simple. Con $$V$$ vértices tiene exactamente $$V - 1$$ aristas: con
+una menos deja de ser conexo, y con una más cierra un ciclo. Un árbol con
+raíz es un árbol en el que se elige un vértice como raíz.
 
 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.5rem 2rem', alignItems: 'end' }}>
 <NodeGraph
@@ -536,6 +511,31 @@ vértice como raíz.
 
 </Slide>
 
+<Slide title="Un grafo de estados">
+Un barquero tiene que cruzar un río con un lobo, una cabra y un repollo. El
+bote lleva al barquero y a lo más una cosa más. Si el barquero no está, el
+lobo se come a la cabra y la cabra se come el repollo.
+
+Cada **estado**, lo que sigue en la orilla de partida, es un vértice, y cada
+viaje del bote que no deja a nadie en peligro es una arista. Los estados
+donde algo se come no son vértices. Cruzar el río es llegar de un vértice a
+otro.
+
+<NodeGraph
+  cols={12}
+  rows={3}
+  nodes={[{ v: 'BLCR', x: 0, y: 1 }, { v: 'LR', x: 1.5, y: 1 }, { v: 'BLR', x: 3, y: 1 }, { v: 'R', x: 4.5, y: 0 }, { v: 'L', x: 4.5, y: 2 }, { v: 'BCR', x: 6, y: 0 }, { v: 'BLC', x: 6, y: 2 }, { v: 'C', x: 7.5, y: 1 }, { v: 'BC', x: 9, y: 1 }, { v: 'nadie', x: 10.5, y: 1 }]}
+  edges={[['BLCR', 'LR'], ['LR', 'BLR'], ['BLR', 'R'], ['BLR', 'L'], ['R', 'BCR'], ['L', 'BLC'], ['BCR', 'C'], ['BLC', 'C'], ['C', 'BC'], ['BC', 'nadie']]}
+  tones={{ BLCR: 'mark', nadie: 'keep' }}
+  caption="en la orilla de partida: B, el barquero; L, el lobo; C, la cabra; R, el repollo"
+  label="Los diez estados del cruce, nombrados por lo que sigue en la orilla de partida. BLCR, destacado, es el comienzo, y nadie, destacado, es el final. BLCR se une con LR, LR con BLR, y BLR con R y con L. R se une con BCR y L con BLC; BCR y BLC se unen con C, C con BC, y BC con nadie."
+/>
+
+Un candado de cuatro ruedas es lo mismo: cada combinación es un estado, y
+girar una rueda una posición pasa de un estado a otro.
+
+</Slide>
+
 <Slide title="Grafos que no se guardan">
 En algunos problemas el grafo es enorme, pero sus aristas siguen una regla, y
 los vecinos de un vértice se calculan cuando se necesitan, sin guardar el
@@ -556,6 +556,24 @@ grafo. Es un **grafo implícito**.
   caption="0000 y sus 8 vecinos: cada rueda, una posición hacia arriba o hacia abajo"
   label="La combinación 0000, destacada, unida con sus ocho vecinas: 1000, 0100, 0010 y 0001 arriba, y 9000, 0900, 0090 y 0009 abajo. Cada una gira una sola rueda una posición."
 />
+
+</Slide>
+
+<Slide title="Las preguntas detrás de las situaciones">
+Situaciones que no se parecen le hacen la misma pregunta a su grafo, y cada
+pregunta tiene nombre:
+
+| Situaciones | La pregunta | Lo que la responde |
+| --- | --- | --- |
+| el paseo por Königsberg · la figura de un solo trazo · el camión de la basura | ¿Se puede pasar por cada arista una sola vez? Es el **camino euleriano**. | los grados |
+| la red de seguidores | ¿Quién tiene más seguidores? | los grados de entrada |
+| el lobo, la cabra y el repollo · el candado | ¿Se puede llegar de un vértice a otro? Es la **alcanzabilidad**. | ? |
+| el mapa de calles | ¿Qué camino toma menos tiempo? Es el **camino más corto**. | ? |
+| la malla curricular | ¿En qué orden se toman los ramos? Es el **orden topológico**. | ? |
+
+Las dos primeras se responden mirando cada vértice por separado y contando
+sus aristas. Las otras piden seguir caminos de vértice en vértice, y para
+responderlas con un programa, primero hay que guardar el grafo.
 
 </Slide>
 
