@@ -1391,26 +1391,6 @@ responderlas con un programa, primero hay que guardar el grafo.
 
 ## Graph · Grafo
 
-<Slide title="De nombres a números">
-Un programa numera los vértices de $$0$$ a $$V - 1$$: así un vértice sirve de
-índice en un arreglo. Los nombres del problema se traducen a esos números al
-leerlos, con dos estructuras:
-
-- un **Map** del nombre a su número, para traducir al leer;
-- una **lista** del número a su nombre, para traducir de vuelta al escribir
-  la respuesta.
-
-Cada nombre nuevo recibe el siguiente número libre.
-
-| Nombre   | Número |
-| -------- | ------ |
-| Santiago | 0      |
-| Lima     | 1      |
-| Bogotá   | 2      |
-| Quito    | 3      |
-
-</Slide>
-
 <Slide title="Un grafo como lista de aristas">
 Un grafo llega a un programa casi siempre como una **lista de aristas**: en
 la primera línea, la cantidad de vértices y la de aristas; después, una línea
@@ -1671,8 +1651,9 @@ public class AdjMatrixGraph implements Graph {
 
 `hasEdge` mira una casilla. `adj(v)` recorre la fila completa de `v` para
 encontrar sus vecinos, aunque sean pocos. `addEdge` llena las dos casillas y
-cuenta la arista solo si no estaba: una casilla no guarda dos aristas, y los
-dos puentes entre la isla y una orilla de Königsberg quedarían como uno.
+cuenta la arista solo si no estaba: una casilla no guarda dos aristas, así que
+la matriz no admite aristas paralelas, y los dos puentes entre la isla y una
+orilla de Königsberg quedarían como uno.
 
 </Slide>
 
@@ -1757,10 +1738,30 @@ static Graph read(Scanner in) {
 
 </Slide>
 
+<Slide title="De nombres a números">
+La lista de aristas trae números, pero un problema casi siempre trae nombres:
+ciudades, personas, ramos. El grafo numera sus vértices de $$0$$ a $$V - 1$$
+para usarlos como índices, así que los nombres se traducen a esos números al
+leerlos, con dos estructuras:
+
+- un **Map** del nombre a su número, para traducir al leer;
+- una **lista** del número a su nombre, para traducir de vuelta al escribir
+  la respuesta.
+
+Cada nombre nuevo recibe el siguiente número libre.
+
+| Nombre   | Número |
+| -------- | ------ |
+| Santiago | 0      |
+| Lima     | 1      |
+| Bogotá   | 2      |
+| Quito    | 3      |
+
+</Slide>
+
 <Slide title="De nombres a números en Java">
-Cuando la entrada trae nombres, cada nombre se traduce a su número al leerlo.
-Un `Map` guarda el número de cada nombre, y una lista guarda el nombre de cada
-número, en el orden en que aparecieron:
+En Java, las dos estructuras son un `HashMap` del nombre a su número y un
+`ArrayList` con los nombres, en el orden en que aparecieron:
 
 ```java
 Map<String, Integer> ids = new HashMap<>();
