@@ -326,7 +326,7 @@ describe('the combinations 25-grafos-representacion mounts', () => {
     ['Una figura de un solo trazo · la estrella', STAR, 15],
     ['Una figura de un solo trazo · la casa', HOUSE, 10],
     ['Una figura de un solo trazo · el sobre', ENVELOPE, 8],
-    ['Lo que importa del mapa · Königsberg', KONIGSBERG, 7],
+    ['El paseo por Königsberg · Königsberg', KONIGSBERG, 7],
   ] as const)('%s', (_slide, props, strokes) => {
     const { container } = render(<PenTrace {...props} />);
     expect(container.querySelector('[data-authoring-error]')).toBeNull();

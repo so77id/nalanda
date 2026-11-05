@@ -22,32 +22,84 @@ memoria, y hay más de una forma de hacerlo, cada una con su precio.
 
 ## Los puentes de Königsberg
 
-{/* KonigsbergMap — the city as a map, before any graph: the river with its fork, the island A, the two banks B and C, the land D between the two arms, and the seven bridges as short bars. Schematic, not to scale; the water is `sunk`, the bridges `ink-soft`. File-local: only this class draws the city. */}
+{/* KonigsbergMap — Königsberg in one frame, at the three stages of the abstraction (#356): `city` the town as it is, houses in their blocks and the seven bridges in `mark`; `map` only land, water (`sunk`) and bridges, the zones lettered A to D; `graph` only a point on each zone and a line for each bridge, every line passing where its bridge stands, so the stages line up when shown side by side. Schematic, not to scale. File-local: only this class draws the city. */}
 
-export function KonigsbergMap({ caption, label }) {
+export function KonigsbergMap({ stage = 'map', caption, label }) {
   const width = 520;
   const height = 290 + (caption ? 24 : 0);
-  const bridge = (x, y, w, h, k) => (
-    <rect key={k} x={x} y={y} width={w} height={h} rx="2" style={{ fill: 'var(--color-ink-soft)' }} />
-  );
-  const name = (x, y, t) => (
-    <text x={x} y={y} textAnchor="middle" fontSize="20" fontWeight="700" style={{ fill: 'var(--color-ink)' }}>{t}</text>
+  const water = [[0, 105], [300, 105], [520, 45], [520, 95], [360, 150], [520, 205], [520, 255], [300, 195], [0, 195]];
+  const bridges = [[125, 101, 10, 28], [212, 101, 10, 28], [125, 171, 10, 28], [212, 171, 10, 28], [258, 145, 104, 10], [435, 62, 10, 64], [435, 174, 10, 64]];
+  const inWater = (px, py) => {
+    let c = false;
+    for (let i = 0, j = water.length - 1; i < water.length; j = i++) {
+      const [xi, yi] = water[i];
+      const [xj, yj] = water[j];
+      if ((yi > py) !== (yj > py) && px < ((xj - xi) * (py - yi)) / (yj - yi) + xi) c = !c;
+    }
+    return c;
+  };
+  const onIsland = (px, py) => ((px - 175) / 74) ** 2 + ((py - 150) / 18) ** 2 <= 1;
+  const nearBridge = (x, y, w, h) => bridges.some(([bx, by, bw, bh]) => x < bx + bw + 7 && x + w > bx - 7 && y < by + bh + 7 && y + h > by - 7);
+  const blocks = [];
+  if (stage === 'city') {
+    for (let row = 0, y = 8; y < 280; row++, y += 22) {
+      for (let x = 6 + (row % 2) * 14; x < 500; x += 34) {
+        const w = 27;
+        const h = 15;
+        const corners = [[x - 3, y - 3], [x + w + 3, y - 3], [x - 3, y + h + 3], [x + w + 3, y + h + 3]];
+        const land = corners.every(([cx, cy]) => !inWater(cx, cy)) || corners.every(([cx, cy]) => onIsland(cx, cy));
+        if (land && !nearBridge(x, y, w, h)) blocks.push([x, y, w, h]);
+      }
+    }
+  }
+  const point = { A: [175, 150], B: [175, 52], C: [175, 248], D: [470, 150] };
+  const lines = [
+    'M 175 150 Q 85 129 175 52',
+    'M 175 150 Q 259 129 175 52',
+    'M 175 150 Q 85 171 175 248',
+    'M 175 150 Q 259 171 175 248',
+    'M 175 150 L 470 150',
+    'M 175 52 Q 360 52 440 94 Q 470 112 470 150',
+    'M 175 248 Q 360 248 440 206 Q 470 188 470 150',
+  ];
+  const name = (x, y, t, size) => (
+    <text x={x} y={y} textAnchor="middle" fontSize={size} fontWeight="700" style={{ fill: 'var(--color-ink)' }}>{t}</text>
   );
   return (
-    <svg viewBox={`0 0 ${width} ${height}`} style={{ width: '100%', maxWidth: '560px', height: 'auto', display: 'block', margin: '0.6rem auto' }} role="img" aria-label={label}>
-      <polygon points="0,105 300,105 520,45 520,95 360,150 520,205 520,255 300,195 0,195" style={{ fill: 'var(--color-sunk)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.2" />
-      <ellipse cx="175" cy="150" rx="85" ry="25" style={{ fill: 'var(--color-ground)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.2" />
-      {bridge(125, 101, 10, 28, 'ab1')}
-      {bridge(212, 101, 10, 28, 'ab2')}
-      {bridge(125, 171, 10, 28, 'ac1')}
-      {bridge(212, 171, 10, 28, 'ac2')}
-      {bridge(258, 145, 104, 10, 'ad')}
-      {bridge(435, 62, 10, 64, 'bd')}
-      {bridge(435, 174, 10, 64, 'cd')}
-      {name(175, 60, 'B')}
-      {name(175, 258, 'C')}
-      {name(175, 157, 'A')}
-      {name(480, 157, 'D')}
+    <svg viewBox={stage === 'graph' ? '70 18 450 264' : `0 0 ${width} ${height}`} style={{ width: '100%', maxWidth: stage === 'graph' ? '320px' : '560px', height: 'auto', display: 'block', margin: '0.6rem auto' }} role="img" aria-label={label}>
+      {stage === 'graph' ? null : (
+        <>
+          <polygon points={water.map((p) => p.join(',')).join(' ')} style={{ fill: 'var(--color-sunk)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.2" />
+          <ellipse cx="175" cy="150" rx="85" ry="25" style={{ fill: 'var(--color-ground)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.2" />
+          {blocks.map(([x, y, w, h], k) => (
+            <rect key={`h${k}`} x={x} y={y} width={w} height={h} rx="1.5" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="0.8" />
+          ))}
+          {bridges.map(([x, y, w, h], k) => (
+            <rect key={`b${k}`} x={x} y={y} width={w} height={h} rx="2" style={{ fill: stage === 'city' ? 'var(--color-mark)' : 'var(--color-ink-soft)' }} />
+          ))}
+        </>
+      )}
+      {stage === 'map' ? (
+        <>
+          {name(175, 64, 'B', 28)}
+          {name(175, 266, 'C', 28)}
+          {name(175, 160, 'A', 28)}
+          {name(482, 160, 'D', 28)}
+        </>
+      ) : null}
+      {stage === 'graph' ? (
+        <>
+          {lines.map((d, k) => (
+            <path key={`l${k}`} d={d} fill="none" style={{ stroke: 'var(--color-rule-strong)' }} strokeWidth="2.1" />
+          ))}
+          {Object.entries(point).map(([v, [x, y]]) => (
+            <g key={v}>
+              <circle cx={x} cy={y} r="28" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="2.1" />
+              {name(x, y + 8, v, 23)}
+            </g>
+          ))}
+        </>
+      ) : null}
       {caption ? (
         <text x={width / 2} y={height - 8} textAnchor="middle" fontSize="13" style={{ fill: 'var(--color-ink-soft)' }}>{caption}</text>
       ) : null}
@@ -62,8 +114,9 @@ tierra que queda entre los dos brazos en que el río se separa. Siete puentes
 las unían.
 
 <KonigsbergMap
-  caption="cuatro zonas de tierra y siete puentes"
-  label="Un mapa esquemático de Königsberg: el río cruza de izquierda a derecha y se separa en dos brazos. Arriba la orilla B, abajo la orilla C, la isla A en medio del río y la zona D entre los dos brazos. Dos puentes unen A con B, dos unen A con C, y uno une A con D, B con D y C con D."
+  stage="city"
+  caption="el río Pregel, sus orillas, una isla y siete puentes"
+  label="La ciudad de Königsberg: casas en sus manzanas a los dos lados de un río que la cruza de izquierda a derecha y se separa en dos brazos, una isla con casas en medio del río, y siete puentes destacados entre las zonas de tierra."
 />
 
 Sus habitantes se preguntaban si se podía dar un paseo que cruzara cada
@@ -119,12 +172,34 @@ cuál.
 
 ## Vértices y aristas
 
-<Slide title="Lo que importa del mapa">
+<Slide title="De la ciudad al grafo">
 Para la pregunta del paseo no importa la forma de las orillas, ni el largo de
 los puentes, ni dónde está cada uno. Solo importa **qué zonas une cada
-puente**. En 1736, Leonhard Euler convirtió cada zona en un punto y cada
-puente en una línea entre los dos puntos que une. El paseo se vuelve el mismo
-juego del lápiz: pasar por cada línea una sola vez.
+puente**. En 1736, Leonhard Euler dibujó la ciudad quedándose solo con eso:
+cada zona, un punto; cada puente, una línea entre los dos puntos que une.
+
+<div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'center', gap: '0.5rem 0.75rem' }}>
+<figure style={{ flex: '1 1 200px', margin: 0, textAlign: 'center' }}>
+<KonigsbergMap stage="city" label="La ciudad de Königsberg, con sus casas, el río, la isla y los siete puentes destacados." />
+<figcaption style={{ fontSize: '0.85rem', color: 'var(--color-ink-soft)' }}>la ciudad</figcaption>
+</figure>
+<span aria-hidden="true" style={{ fontSize: '1.6rem', color: 'var(--color-ink-soft)' }}>→</span>
+<figure style={{ flex: '1 1 200px', margin: 0, textAlign: 'center' }}>
+<KonigsbergMap stage="map" label="La misma ciudad sin casas: solo las cuatro zonas de tierra, A, B, C y D, el agua y los siete puentes." />
+<figcaption style={{ fontSize: '0.85rem', color: 'var(--color-ink-soft)' }}>solo tierra, agua y puentes</figcaption>
+</figure>
+<span aria-hidden="true" style={{ fontSize: '1.6rem', color: 'var(--color-ink-soft)' }}>→</span>
+<figure style={{ flex: '1 1 200px', margin: 0, textAlign: 'center' }}>
+<KonigsbergMap stage="graph" label="Solo un punto por zona, A, B, C y D, y una línea por puente, cada una donde estaba su puente: dos entre A y B, dos entre A y C, y una entre A y D, B y D, y C y D." />
+<figcaption style={{ fontSize: '0.85rem', color: 'var(--color-ink-soft)' }}>solo qué se une con qué</figcaption>
+</figure>
+</div>
+
+</Slide>
+
+<Slide title="El paseo por Königsberg">
+Con cada zona como un punto y cada puente como una línea, el paseo es el
+mismo juego del lápiz: pasar por cada línea una sola vez.
 
 <PenTrace
   cols={3}
@@ -160,24 +235,33 @@ aristas. El **grado** de un vértice es la cantidad de aristas que lo tocan.
 <Slide title="La forma y la posición no importan">
 Un grafo no dice dónde va cada vértice ni cómo se dibuja cada arista. Dos
 dibujos con los mismos vértices y las mismas aristas son el **mismo grafo**,
-aunque se vean distintos.
+aunque se vean distintos. El primero sigue el mapa de la ciudad y los otros
+dos no, y los tres responden igual la pregunta del paseo.
 
-<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.5rem 2rem', alignItems: 'end' }}>
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '0.5rem 1.5rem', alignItems: 'end' }}>
 <NodeGraph
   cols={3}
-  rows={2}
-  nodes={[{ v: 'A', x: 0, y: 0 }, { v: 'B', x: 2, y: 0 }, { v: 'C', x: 0, y: 1 }, { v: 'D', x: 2, y: 1 }]}
-  edges={[['A', 'B'], ['A', 'C'], ['B', 'D'], ['C', 'D'], ['A', 'D']]}
-  caption="un dibujo"
-  label="Un grafo de cuatro vértices dibujado como un cuadrado: A arriba a la izquierda, B arriba a la derecha, C abajo a la izquierda y D abajo a la derecha; aristas A-B, A-C, B-D, C-D y la diagonal A-D."
+  rows={3}
+  nodes={[{ v: 'B', x: 0, y: 0 }, { v: 'A', x: 0, y: 1 }, { v: 'C', x: 0, y: 2 }, { v: 'D', x: 2, y: 1 }]}
+  edges={[['A', 'B'], ['A', 'B'], ['A', 'C'], ['A', 'C'], ['A', 'D'], ['B', 'D'], ['C', 'D']]}
+  caption="como en el mapa"
+  label="El grafo de Königsberg dibujado como el mapa: B arriba, A al medio, C abajo y D a la derecha, con sus siete aristas."
 />
 <NodeGraph
-  cols={4}
-  rows={2}
-  nodes={[{ v: 'C', x: 0, y: 1 }, { v: 'A', x: 1, y: 0 }, { v: 'D', x: 2, y: 1 }, { v: 'B', x: 3, y: 0 }]}
-  edges={[['A', 'B'], ['A', 'C'], ['B', 'D'], ['C', 'D'], ['A', 'D']]}
-  caption="otro dibujo del mismo grafo"
-  label="El mismo grafo dibujado en zigzag: C, A, D y B de izquierda a derecha, alternando abajo y arriba; las mismas cinco aristas A-B, A-C, B-D, C-D y A-D."
+  cols={3}
+  rows={3}
+  nodes={[{ v: 'B', x: 1, y: 0 }, { v: 'A', x: 0, y: 1 }, { v: 'D', x: 2, y: 1 }, { v: 'C', x: 1, y: 2 }]}
+  edges={[['A', 'B'], ['A', 'B'], ['A', 'C'], ['A', 'C'], ['A', 'D'], ['B', 'D'], ['C', 'D']]}
+  caption="en rombo"
+  label="El mismo grafo en rombo: B arriba, A a la izquierda, D a la derecha y C abajo, con las mismas siete aristas."
+/>
+<NodeGraph
+  cols={3}
+  rows={3}
+  nodes={[{ v: 'B', x: 0, y: 0 }, { v: 'C', x: 2, y: 0 }, { v: 'A', x: 1, y: 1 }, { v: 'D', x: 1, y: 2 }]}
+  edges={[['A', 'B'], ['A', 'B'], ['A', 'C'], ['A', 'C'], ['A', 'D'], ['B', 'D'], ['C', 'D']]}
+  caption="con A en el centro"
+  label="El mismo grafo con A en el centro, B y C arriba y D abajo, con las mismas siete aristas."
 />
 </div>
 
