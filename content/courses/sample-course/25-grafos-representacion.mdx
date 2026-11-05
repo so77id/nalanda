@@ -394,6 +394,81 @@ convertir la ciudad en vértices y aristas: un **modelo** del problema.
 
 <SectionBreak />
 
+## De un paseo a una teoría
+
+{/* Milestones — a row of dated milestones over one rule, each a year in `accent` and a short line in `ink-soft`, wrapping into rows on a narrow screen. File-local: only the origin of graphs needs a timeline. */}
+
+export function Milestones({ items, label }) {
+  return (
+    <div role="list" aria-label={label} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(96px, 1fr))', gap: '0.9rem 0.6rem', margin: '1.25rem 0', borderTop: '2px solid var(--color-rule-strong)', paddingTop: '0.9rem' }}>
+      {items.map(([year, text]) => (
+        <div role="listitem" key={year} style={{ position: 'relative' }}>
+          <span aria-hidden="true" style={{ position: 'absolute', top: '-1.32rem', left: 0, width: '0.75rem', height: '0.75rem', borderRadius: '50%', background: 'var(--color-accent)' }} />
+          <div style={{ fontWeight: 700, color: 'var(--color-accent)' }}>{year}</div>
+          <div style={{ fontSize: '0.85rem', lineHeight: 1.35, color: 'var(--color-ink-soft)' }}>{text}</div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+<Slide title="El origen de los grafos">
+Euler presentó su solución en 1735 a la Academia de Ciencias de San
+Petersburgo y la publicó con fecha de 1736, en latín: *Solutio problematis ad
+geometriam situs pertinentis*, «solución de un problema de la geometría de la
+posición». Con ese nombre, tomado de Leibniz, decía que el problema no se
+resolvía midiendo nada, sino mirando qué está unido con qué. Ese artículo se
+considera el primero de la teoría de grafos.
+
+<Milestones
+  label="Hitos de la historia de los grafos, de 1736 a 1998."
+  items={[
+    ['1736', 'Euler y el paseo por Königsberg'],
+    ['1857', 'Hamilton: un juego de pasar una vez por cada vértice'],
+    ['1878', 'Sylvester usa la palabra «grafo»'],
+    ['1930', 'Jarník: conectar todo al menor costo'],
+    ['1936', 'Kőnig escribe el primer libro de grafos'],
+    ['1956–59', 'Kruskal, Prim y Dijkstra: algoritmos para computadores'],
+    ['1976', 'los cuatro colores, demostrado con un computador'],
+    ['1998', 'un buscador ordena la web como un grafo'],
+  ]}
+/>
+
+</Slide>
+
+<Slide title="Los grafos hoy">
+Las mismas ideas responden hoy preguntas de todos los días. En todas, las
+cosas son vértices y lo que las une, aristas:
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '0.75rem', margin: '1rem 0' }}>
+<div style={{ border: '1px solid var(--color-rule)', borderRadius: '8px', padding: '0.6rem 0.8rem', background: 'var(--color-surface)' }}><strong>Una aplicación de mapas</strong><br />¿Qué ruta toma menos tiempo hasta el destino?</div>
+<div style={{ border: '1px solid var(--color-rule)', borderRadius: '8px', padding: '0.6rem 0.8rem', background: 'var(--color-surface)' }}><strong>Una red social</strong><br />¿A quién le sugiere un amigo a cada persona?</div>
+<div style={{ border: '1px solid var(--color-rule)', borderRadius: '8px', padding: '0.6rem 0.8rem', background: 'var(--color-surface)' }}><strong>Un buscador</strong><br />¿Qué páginas importan más, según los enlaces que reciben?</div>
+<div style={{ border: '1px solid var(--color-rule)', borderRadius: '8px', padding: '0.6rem 0.8rem', background: 'var(--color-surface)' }}><strong>Internet</strong><br />¿Por qué camino viaja cada mensaje?</div>
+<div style={{ border: '1px solid var(--color-rule)', borderRadius: '8px', padding: '0.6rem 0.8rem', background: 'var(--color-surface)' }}><strong>La red eléctrica o de agua</strong><br />¿Cómo se conecta todo gastando lo mínimo?</div>
+<div style={{ border: '1px solid var(--color-rule)', borderRadius: '8px', padding: '0.6rem 0.8rem', background: 'var(--color-surface)' }}><strong>Un videojuego</strong><br />¿Cómo llega un personaje de un lugar a otro?</div>
+</div>
+
+</Slide>
+
+<Slide title="Por qué estudiar grafos">
+- **Pocas ideas resuelven muchos problemas.** Unos pocos algoritmos de grafos
+  responden preguntas de áreas que no se parecen en nada: aprenderlos una vez
+  sirve para todas.
+- **Aparecen en todas partes.** En algoritmos, redes, inteligencia artificial
+  y compiladores, y son uno de los temas más frecuentes en las entrevistas
+  técnicas de programación.
+- **Todavía hay preguntas abiertas.** Para algunos problemas de grafos que se
+  ven tan simples como el de Königsberg no se conoce un algoritmo eficiente.
+  Saber si existe es la pregunta **P frente a NP**: ¿todo problema cuya
+  solución se puede comprobar eficientemente también se puede encontrar
+  eficientemente? Es uno de los siete Problemas del Milenio, con un premio de
+  un millón de dólares.
+
+</Slide>
+
+<SectionBreak />
+
 ## Modelar un problema como grafo
 
 <Slide title="Una figura de un solo trazo">
