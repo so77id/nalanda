@@ -407,6 +407,30 @@ convertir la ciudad en vértices y aristas: un **modelo** del problema.
 
 </Slide>
 
+<Slide title="Reducir un problema a otro">
+El paseo por Königsberg y la figura de un solo trazo hacen la misma pregunta
+sobre un grafo: ¿hay un camino euleriano? El camión de la basura de un barrio
+también la hace: quiere pasar una vez por cada cuadra, sin repetir ninguna.
+Las esquinas son los vértices y las cuadras, las aristas.
+
+<NodeGraph
+  cols={5}
+  rows={2}
+  nodes={[{ v: 'A', x: 0, y: 0 }, { v: 'B', x: 2, y: 0 }, { v: 'C', x: 4, y: 0 }, { v: 'D', x: 0, y: 1 }, { v: 'E', x: 2, y: 1 }, { v: 'F', x: 4, y: 1 }]}
+  edges={[['A', 'B'], ['B', 'C'], ['D', 'E'], ['E', 'F'], ['A', 'D'], ['B', 'E'], ['C', 'F']]}
+  notes={{ A: 2, B: 3, C: 2, D: 2, E: 3, F: 2 }}
+  tones={{ B: 'mark', E: 'mark' }}
+  caption="dos esquinas impares, B y E: el camión parte en una y termina en la otra"
+  label="Un barrio de seis esquinas, A a F, y siete cuadras: A-B, B-C, D-E, E-F, A-D, B-E y C-F. Las esquinas de los extremos tienen grado 2; B y E, destacadas, tienen grado 3."
+/>
+
+Convertir un problema en otro que ya sabemos resolver, de modo que la
+respuesta del segundo responda el primero, es **reducir un problema a otro**.
+El paseo, la figura y el camión se reducen al camino euleriano, y la regla de
+Euler responde los tres.
+
+</Slide>
+
 <SectionBreak />
 
 ## Modelar un problema como grafo
