@@ -138,3 +138,125 @@ describe('PenTrace', () => {
     expect(container.querySelector('[data-authoring-error]')).not.toBeNull();
   });
 });
+
+// PenTrace loads lazily, so app/contentRenders.test.tsx paints its Suspense
+// fallback and never sees an authoring error a mount would show: each one
+// 25-grafos-representacion mounts is pinned here, named by its slide.
+const STAR: PenTraceProps = {
+  figure: true,
+  cols: 4,
+  rows: 4,
+  nodes: [
+    { v: 'A', x: 2, y: 0 },
+    { v: 'B', x: 3.902, y: 1.239 },
+    { v: 'C', x: 3.176, y: 3.244 },
+    { v: 'D', x: 0.824, y: 3.244 },
+    { v: 'E', x: 0.098, y: 1.239 },
+    { v: 'F', x: 2.449, y: 1.239 },
+    { v: 'G', x: 2.727, y: 2.005 },
+    { v: 'H', x: 2.0, y: 2.478 },
+    { v: 'I', x: 1.273, y: 2.005 },
+    { v: 'J', x: 1.551, y: 1.239 },
+  ],
+  edges: [
+    ['A', 'F'],
+    ['F', 'G'],
+    ['G', 'C'],
+    ['B', 'G'],
+    ['G', 'H'],
+    ['H', 'D'],
+    ['C', 'H'],
+    ['H', 'I'],
+    ['I', 'E'],
+    ['D', 'I'],
+    ['I', 'J'],
+    ['J', 'A'],
+    ['E', 'J'],
+    ['J', 'F'],
+    ['F', 'B'],
+  ],
+  label: 'La estrella de cinco puntas, para dibujar de un solo trazo.',
+};
+const HOUSE: PenTraceProps = {
+  figure: true,
+  cols: 3,
+  rows: 4,
+  nodes: [
+    { v: 'A', x: 1, y: 0 },
+    { v: 'B', x: 0, y: 1 },
+    { v: 'C', x: 2, y: 1 },
+    { v: 'F', x: 1, y: 2 },
+    { v: 'D', x: 0, y: 3 },
+    { v: 'E', x: 2, y: 3 },
+  ],
+  edges: [
+    ['A', 'B'],
+    ['A', 'C'],
+    ['B', 'C'],
+    ['B', 'D'],
+    ['C', 'E'],
+    ['D', 'E'],
+    ['B', 'F'],
+    ['F', 'E'],
+    ['C', 'F'],
+    ['F', 'D'],
+  ],
+  label: 'La casa: un cuadrado con sus dos diagonales y un techo, para dibujar de un solo trazo.',
+};
+const ENVELOPE: PenTraceProps = {
+  figure: true,
+  cols: 3,
+  rows: 3,
+  nodes: [
+    { v: 'A', x: 0, y: 0 },
+    { v: 'B', x: 2, y: 0 },
+    { v: 'E', x: 1, y: 1 },
+    { v: 'C', x: 0, y: 2 },
+    { v: 'D', x: 2, y: 2 },
+  ],
+  edges: [
+    ['A', 'B'],
+    ['C', 'D'],
+    ['A', 'C'],
+    ['B', 'D'],
+    ['A', 'E'],
+    ['E', 'D'],
+    ['B', 'E'],
+    ['E', 'C'],
+  ],
+  label: 'El sobre: un rectángulo con sus dos diagonales, para dibujar de un solo trazo.',
+};
+const KONIGSBERG: PenTraceProps = {
+  cols: 3,
+  rows: 3,
+  nodes: [
+    { v: 'B', x: 1, y: 0 },
+    { v: 'A', x: 0, y: 1 },
+    { v: 'D', x: 2, y: 1 },
+    { v: 'C', x: 1, y: 2 },
+  ],
+  edges: [
+    ['A', 'B'],
+    ['A', 'B'],
+    ['A', 'C'],
+    ['A', 'C'],
+    ['A', 'D'],
+    ['B', 'D'],
+    ['C', 'D'],
+  ],
+  label:
+    'Königsberg como puntos y líneas: cuatro puntos, A, B, C y D, y siete líneas. Dos líneas unen A con B, dos unen A con C, y una une A con D, B con D y C con D. Para recorrerlas todas sin pasar dos veces por la misma.',
+};
+
+describe('the combinations 25-grafos-representacion mounts', () => {
+  it.each([
+    ['Una figura de un solo trazo · la estrella', STAR, 15],
+    ['Una figura de un solo trazo · la casa', HOUSE, 10],
+    ['Una figura de un solo trazo · el sobre', ENVELOPE, 8],
+    ['Lo que importa del mapa · Königsberg', KONIGSBERG, 7],
+  ] as const)('%s', (_slide, props, strokes) => {
+    const { container } = render(<PenTrace {...props} />);
+    expect(container.querySelector('[data-authoring-error]')).toBeNull();
+    expect(container.querySelectorAll('[data-stroke]')).toHaveLength(strokes);
+  });
+});
