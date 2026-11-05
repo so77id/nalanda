@@ -1396,8 +1396,8 @@ aparece primero en el texto— y los códigos de sus destinos.
 <Slide title="Rutas aéreas · el grafo">
 Los aeropuertos son los vértices y cada ruta es una arista sin dirección,
 porque se vuela en los dos sentidos. Las rutas no traen un número que el
-problema use: no hay pesos. El aeropuerto con más rutas es el vértice de
-mayor grado, y sus destinos son sus vecinos.
+problema use: no hay pesos. El problema se reduce a buscar el vértice de
+mayor grado y entregar sus vecinos.
 
 <NodeGraph
   cols={5}
@@ -1501,8 +1501,9 @@ dibujar de un solo trazo.
 
 <Slide title="Un solo trazo · la idea">
 Probar todos los órdenes de los trazos funciona, pero $$E$$ trazos se pueden
-ordenar de $$E!$$ maneras. La regla de Euler responde sin probar ninguno: en
-un grafo conexo, lo deciden los vértices de grado impar.
+ordenar de $$E!$$ maneras. El problema se reduce al camino euleriano, y la
+regla de Euler responde sin probar ninguno: en un grafo conexo, lo deciden los
+vértices de grado impar.
 
 - **Ninguno**: cualquier punto sirve, y el trazo vuelve a él.
 - **Dos**: hay que empezar en uno de los dos.
@@ -1573,8 +1574,9 @@ de `u`.
 
 Un amigo en común con `w` es un amigo `x` de `u` que también es amigo de `w`.
 Al revés: cada amigo `x` de `u` le suma un amigo en común a **cada uno de sus
-propios amigos**. Basta con recorrer los amigos de los amigos de `u`, con un
-contador por persona, y saltarse a `u` y a quienes ya son sus amigos.
+propios amigos**. El problema se reduce a recorrer los vecinos de los vecinos
+de `u`, con un contador por persona, saltándose a `u` y a quienes ya son sus
+amigos.
 
 <NodeGraph
   cols={5}
@@ -1667,29 +1669,11 @@ void addEdge(String v, String w) {
 
 </Slide>
 
-<Slide title="La matriz de incidencia">
-Una **matriz de incidencia** tiene una fila por vértice y una columna por
-arista: la casilla de `v` y `e` marca si `v` es un extremo de la arista `e`.
-Cada columna tiene exactamente dos marcas.
-
-| Vértice | a   | b   | c   | d   |
-| ------- | --- | --- | --- | --- |
-| 0       | 1   | 1   |     |     |
-| 1       | 1   |     | 1   |     |
-| 2       |     | 1   | 1   | 1   |
-| 3       |     |     |     | 1   |
-
-La tabla es del grafo de cuatro vértices con las aristas a = 0-1, b = 0-2,
-c = 1-2 y d = 2-3. Ocupa $$\Theta(V \cdot E)$$ y responde mal las preguntas
-de un programa, así que aparece en la matemática de los grafos —circuitos,
-álgebra lineal— más que en el código.
-
-</Slide>
-
 <Slide title="Pasar una vez por cada vértice">
 El juego de Euler pide pasar una vez por cada **arista**. Su gemelo pide pasar
 una vez por cada **vértice** y volver al inicio: es un **ciclo hamiltoniano**,
-por William Hamilton, que lo propuso como un juego en 1857.
+un ciclo simple que pasa por todos los vértices, por William Hamilton, que lo
+propuso como un juego en 1857.
 
 <NodeGraph
   cols={3}
@@ -1703,8 +1687,8 @@ por William Hamilton, que lo propuso como un juego en 1857.
 
 Se parecen, y no se resuelven igual. Para Euler, contar grados basta. Para
 Hamilton no se conoce ninguna regla así: probar todos los órdenes de los
-vértices siempre responde, pero son $$V!$$, y nadie conoce una forma rápida
-de responder para cualquier grafo.
+vértices siempre responde, pero son $$V!$$, y no se conoce un algoritmo
+eficiente que responda para cualquier grafo.
 
 </Slide>
 
@@ -1718,21 +1702,25 @@ Pintar es dar a cada vértice un color distinto del de sus vecinos.
   rows={4}
   nodes={[{ v: 'Perú', x: 0, y: 0 }, { v: 'Brasil', x: 3, y: 0.5 }, { v: 'Bolivia', x: 1.3, y: 1 }, { v: 'Chile', x: 0, y: 2 }, { v: 'Paraguay', x: 2.5, y: 2 }, { v: 'Argentina', x: 1, y: 3 }, { v: 'Uruguay', x: 3, y: 3 }]}
   edges={[['Chile', 'Argentina'], ['Chile', 'Bolivia'], ['Chile', 'Perú'], ['Perú', 'Bolivia'], ['Perú', 'Brasil'], ['Bolivia', 'Argentina'], ['Bolivia', 'Brasil'], ['Bolivia', 'Paraguay'], ['Argentina', 'Paraguay'], ['Argentina', 'Brasil'], ['Argentina', 'Uruguay'], ['Paraguay', 'Brasil'], ['Brasil', 'Uruguay']]}
-  notes={{ Bolivia: 1, Uruguay: 1, Chile: 2, Brasil: 2, Perú: 3, Argentina: 3, Paraguay: 4 }}
-  caption="siete países, cuatro colores: el número de cada uno"
-  label="Siete países de Sudamérica y sus fronteras, cada uno con un color numerado: Bolivia y Uruguay 1, Chile y Brasil 2, Perú y Argentina 3, Paraguay 4. Ningún par de vecinos comparte número."
+  tones={{ Bolivia: 'mark', Uruguay: 'mark', Chile: 'keep', Brasil: 'keep', Perú: 'flag', Argentina: 'flag' }}
+  caption="siete países y cuatro colores: ningún par de vecinos comparte color"
+  label="Siete países de Sudamérica y sus fronteras, pintados con cuatro colores: Bolivia y Uruguay de un color, Chile y Brasil de otro, Perú y Argentina de un tercero y Paraguay del cuarto. Ningún par de vecinos comparte color."
 />
+
+Los días de exámenes son el mismo problema: cada ramo es un vértice, dos
+ramos con alumnos en común se unen con una arista, y cada color es un día.
 
 Cuatro colores alcanzan para cualquier mapa dibujado en un plano: se demostró
 en 1976, con la ayuda de un computador. Saber si **tres** alcanzan para un
-mapa dado es otra cosa: nadie conoce una forma rápida de responderlo.
+mapa dado es otra cosa: no se conoce un algoritmo eficiente que lo responda.
 
 </Slide>
 
 ## Lo que sigue
 
 Con un grafo guardado, la pregunta siguiente es a dónde se llega desde un
-vértice: si hay un camino entre dos esquinas, cuántas islas tiene un mapa,
+vértice, la **alcanzabilidad**: si hay un camino entre dos esquinas, si el
+barquero cruza el río, cuántas islas tiene un mapa,
 por dónde se sale de un laberinto con menos pasos. Ninguna se responde
 mirando un vértice y sus vecinos: hay que **recorrer** el grafo, de vecino en
 vecino, sin perderse en sus ciclos.
