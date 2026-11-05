@@ -205,6 +205,55 @@ describe('PenTrace', () => {
     expect(drawn(container)).toBe(before);
   });
 
+  it('stops the failed attempts at a press, drops the message and goes on by hand', () => {
+    vi.useFakeTimers();
+    const { container } = render(<PenTrace {...SQUARE_WITH_DIAGONALS} solvable />);
+    fireEvent.click(screen.getByRole('button', { name: /Resolver/ }));
+    tick(4);
+    press('A');
+    expect(container.querySelector('[data-start]')?.getAttribute('data-point')).toBe('A');
+    expect(drawn(container)).toBe(0);
+    expect(said()).toBe('Quedan 6 trazos por dibujar.');
+    tick(10);
+    expect(drawn(container)).toBe(0);
+    press('B');
+    expect(drawn(container)).toBe(1);
+  });
+
+  it('keeps searching on a question still open, never saying whether a tracing exists', () => {
+    vi.useFakeTimers();
+    const { container } = render(<PenTrace {...SQUARE_WITH_DIAGONALS} keepTrying />);
+    expect(screen.queryByRole('button', { name: /Resolver/ })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: /Buscar solución/ }));
+    tick(3);
+    expect(drawn(container)).toBeGreaterThan(0);
+    const starts = new Set<string>();
+    for (let i = 0; i < 80; i++) {
+      tick(1);
+      expect(said()).not.toMatch(/no se puede/);
+      const start = container.querySelector('[data-start]')?.getAttribute('data-point');
+      if (start) starts.add(start);
+    }
+    expect(starts.size).toBe(Math.min(ATTEMPTS, 4));
+  });
+
+  it('stops searching at a press, and goes on by hand from that point', () => {
+    vi.useFakeTimers();
+    const { container } = render(<PenTrace {...SQUARE_WITH_DIAGONALS} keepTrying />);
+    fireEvent.click(screen.getByRole('button', { name: /Buscar solución/ }));
+    tick(5);
+    press('C');
+    expect(container.querySelector('[data-start]')?.getAttribute('data-point')).toBe('C');
+    expect(said()).toBe('Quedan 6 trazos por dibujar.');
+    tick(10);
+    expect(drawn(container)).toBe(0);
+  });
+
+  it('tells the author when a figure asks both to be solved and to be searched', () => {
+    const { container } = render(<PenTrace {...KITE} solvable keepTrying />);
+    expect(container.querySelector('[data-authoring-error]')).not.toBeNull();
+  });
+
   it('starts again from nothing, stopping a solution under way', () => {
     vi.useFakeTimers();
     const { container } = render(<PenTrace {...KITE} solvable />);
@@ -339,6 +388,8 @@ const KONIGSBERG: PenTraceProps = {
     'Königsberg como puntos y líneas: cuatro puntos, A, B, C y D, y siete líneas. Dos líneas unen A con B, dos unen A con C, y una une A con D, B con D y C con D. Para recorrerlas todas sin pasar dos veces por la misma.',
 };
 
+const KONIGSBERG_WALK: PenTraceProps = { ...KONIGSBERG, keepTrying: true };
+
 const KONIGSBERG_PLUS_BC: PenTraceProps = {
   ...KONIGSBERG,
   solvable: true,
@@ -358,7 +409,7 @@ describe('the combinations 25-grafos-representacion mounts', () => {
     ['Una figura de un solo trazo · la estrella', STAR, 15],
     ['Una figura de un solo trazo · la casa', HOUSE, 10],
     ['Una figura de un solo trazo · el sobre', ENVELOPE, 8],
-    ['El paseo por Königsberg · Königsberg', KONIGSBERG, 7],
+    ['El paseo por Königsberg · Königsberg', KONIGSBERG_WALK, 7],
     ['Un camino euleriano y un ciclo euleriano · un puente más', KONIGSBERG_PLUS_BC, 8],
     ['Un camino euleriano y un ciclo euleriano · dos puentes más', KONIGSBERG_PLUS_BC_AD, 9],
   ] as const)('%s', (_slide, props, strokes) => {

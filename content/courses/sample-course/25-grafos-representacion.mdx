@@ -152,11 +152,12 @@ zona, un punto; cada puente, una línea.
 </Slide>
 
 <Slide title="El paseo por Königsberg">
-Con cada zona como un punto y cada puente como una línea, el paseo es pasar
-por cada línea del dibujo una sola vez, sin saltar de un punto a otro.
-Probemos:
+En el dibujo, el paseo es pasar el lápiz por todas las líneas sin levantarlo
+y sin repetir ninguna: cada línea dibujada es un puente cruzado. Se puede
+probar a mano, o con Buscar solución:
 
 <PenTrace
+  keepTrying
   cols={3}
   rows={3}
   nodes={[{ v: 'B', x: 1, y: 0 }, { v: 'A', x: 0, y: 1 }, { v: 'D', x: 2, y: 1 }, { v: 'C', x: 1, y: 2 }]}
@@ -164,11 +165,12 @@ Probemos:
   label="Königsberg como puntos y líneas: cuatro puntos, A, B, C y D, y siete líneas. Dos líneas unen A con B, dos unen A con C, y una une A con D, B con D y C con D. Para recorrerlas todas sin pasar dos veces por la misma."
 />
 
-Que nadie lo lograra no demuestra que sea imposible: quizás nadie probó el
-orden correcto. Para estar seguros probando, habría que intentar todos los
-órdenes de los puentes, y con $$n$$ puentes hay $$n!$$ órdenes, que crecen tan
-rápido que probarlos todos deja de ser posible. Hace falta otra cosa: una
-razón que descarte todos los órdenes a la vez, sin probar ninguno.
+Cada intento cruza los puentes en un orden: uno primero, otro después, hasta
+cruzarlos todos o quedarse sin salida. Que nadie lo lograra no prueba que sea
+imposible: quizás nadie probó el orden bueno. Pero los órdenes son demasiados
+para probarlos todos: con siete puentes hay 5040, y cada puente más los
+multiplica; con veinte, son más de dos trillones. Hace falta una razón que
+descarte todos los órdenes a la vez, sin probar ninguno.
 
 </Slide>
 

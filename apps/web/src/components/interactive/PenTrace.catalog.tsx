@@ -7,11 +7,11 @@ export const penTraceCatalogEntry: CatalogEntry = {
   name: 'PenTrace',
   family: 'interactive',
   description:
-    'A figure to trace without lifting the pen. The reader presses a point to put the pen down, then, one after another, the points to draw the strokes to; a drawn stroke turns keep and thick, the rest stays dashed. It refuses a jump to a point no free stroke reaches and a stroke drawn twice, and a live status line says how many strokes are left, when the tracing is stuck (in flag) and when it is done (in keep) — and whether it ended where it began. The starting point keeps a ring; Deshacer and Empezar de nuevo undo. With `solvable`, a Resolver button draws one way to trace the figure, stroke by stroke from its starting point, or, when there is none, says so in red in the status line, without saying why, and loops through failed attempts from different starting points, each drawn as far as it gets.',
+    'A figure to trace without lifting the pen. The reader presses a point to put the pen down, then, one after another, the points to draw the strokes to; a drawn stroke turns keep and thick, the rest stays dashed. It refuses a jump to a point no free stroke reaches and a stroke drawn twice, and a live status line says how many strokes are left, when the tracing is stuck (in flag) and when it is done (in keep) — and whether it ended where it began. The starting point keeps a ring; Deshacer and Empezar de nuevo undo. With `solvable`, a Resolver button draws one way to trace the figure, stroke by stroke from its starting point, or, when there is none, says so in red in the status line, without saying why, and loops through failed attempts from different starting points, each drawn as far as it gets. With `keepTrying` instead, a search button loops through those attempts forever and never says whether a tracing exists: the question is still open. A press on a point stops either loop and puts the pen down there, by hand.',
   whenToUse:
     'When a slide asks the reader to TRY a drawing before the rule that decides it: the house, the envelope, the star, Königsberg (grafos-representacion, #356). The rule itself — the degrees, the odd vertices — is a static <NodeGraph> with notes; PenTrace is the experiment, not the explanation. ' +
     '`figure` draws the points as small unlabelled dots with strokes meeting at their centres, so the figure looks like the drawing; without it, the points are lettered vertices on <NodeGraph>’s geometry, for a graph such as Königsberg, whose parallel strokes bend apart. ' +
-    'Place a vertex at every point where strokes meet or cross, as the class teaches. Loaded on demand like <HanoiPlayground>, its precedent. Two runtime contracts: a missing `label` and a stroke that names an undrawn point each render an authoring error.',
+    'Place a vertex at every point where strokes meet or cross, as the class teaches. Loaded on demand like <HanoiPlayground>, its precedent. Three runtime contracts: a missing `label`, a stroke that names an undrawn point, and `solvable` together with `keepTrying` each render an authoring error.',
   props: [
     {
       name: 'nodes',
@@ -39,6 +39,13 @@ export const penTraceCatalogEntry: CatalogEntry = {
       default: 'false',
       description:
         'A Resolver button: it draws one solution stroke by stroke (Hierholzer’s walk from the first odd point, or the first point when none is odd). When there is none it says the figure cannot be traced from any point and loops through up to five failed attempts, one from each of the first points, each drawn as far as it gets; Empezar de nuevo stops the loop. The why stays out: that is Euler’s rule.',
+    },
+    {
+      name: 'keepTrying',
+      type: 'boolean',
+      default: 'false',
+      description:
+        'A search button instead of Resolver, for a question the document has not answered yet: it loops through the same failed attempts forever, and the status line only says how each one goes — never that the figure has no tracing. A press on a point stops the loop and goes on by hand; so does Empezar de nuevo. Not together with `solvable`.',
     },
     {
       name: 'label',
@@ -127,8 +134,9 @@ export const penTraceCatalogEntry: CatalogEntry = {
       ),
     },
     {
-      title: 'Königsberg: lettered vertices and parallel strokes',
+      title: 'Königsberg: lettered vertices and parallel strokes, and a search that never answers',
       code: `<PenTrace
+  keepTrying
   cols={3}
   rows={3}
   nodes={[{ v: 'B', x: 1, y: 0 }, { v: 'A', x: 0, y: 1 }, { v: 'D', x: 2, y: 1 }, { v: 'C', x: 1, y: 2 }]}
@@ -137,6 +145,7 @@ export const penTraceCatalogEntry: CatalogEntry = {
 />`,
       render: () => (
         <PenTrace
+          keepTrying
           cols={3}
           rows={3}
           nodes={[

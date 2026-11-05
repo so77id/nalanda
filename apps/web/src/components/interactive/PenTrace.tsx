@@ -1,4 +1,4 @@
-import { Lightbulb, RotateCcw, Undo2 } from 'lucide-react';
+import { Lightbulb, RotateCcw, Search, Undo2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
 import { AuthoringError } from '../AuthoringError';
@@ -33,6 +33,13 @@ export interface PenTraceProps {
    * stroke, or says there is none. Without the why: that is Euler's rule.
    */
   solvable?: boolean;
+  /**
+   * Offer a «Buscar solución» button instead: it tries one walk after another,
+   * in a loop that never ends, without saying whether a tracing exists. For a
+   * question the document has not answered yet (Königsberg, before Euler).
+   * The opposite of `solvable`; a document asks for one or the other.
+   */
+  keepTrying?: boolean;
   /** What the drawing is, in Spanish: its accessible name. Required. */
   label: string;
 }
@@ -43,7 +50,7 @@ export const STEP_MS = 450;
 /** How many steps a failed attempt stays stuck on screen before the next one. */
 export const STUCK_STEPS = 3;
 
-/** How many failed attempts a figure with no solution shows, in a loop. */
+/** How many attempts a loop shows, one from each of the first points. */
 export const ATTEMPTS = 5;
 
 const DOT_R = 6;
@@ -77,7 +84,36 @@ export function PenTrace(props: PenTraceProps) {
       </AuthoringError>
     );
   }
+  if (props.solvable && props.keepTrying) {
+    return (
+      <AuthoringError component="PenTrace">
+        pide resolver y buscar a la vez: usa solvable o keepTrying, no los dos.
+      </AuthoringError>
+    );
+  }
   return <Tracer {...props} />;
+}
+
+/**
+ * The frames of a loop of attempts: each one drawn stroke by stroke from one
+ * of the first points, as far as it gets, then held for a few steps.
+ */
+function attemptFrames(edges: NodeGraphEdge[], nodes: NodeGraphNode[]): TraceState[] {
+  const tries = attempts(
+    edges,
+    nodes.map((n) => String(n.v)),
+    ATTEMPTS,
+  );
+  const frames: TraceState[] = [];
+  for (const tryPoints of tries) {
+    let t = EMPTY_TRACE;
+    for (const p of tryPoints) {
+      t = step(edges, t, p)!;
+      frames.push(t);
+    }
+    for (let k = 0; k < STUCK_STEPS; k++) frames.push(t);
+  }
+  return frames;
 }
 
 function Tracer({
@@ -87,6 +123,7 @@ function Tracer({
   rows,
   figure = false,
   solvable = false,
+  keepTrying = false,
   label,
 }: PenTraceProps) {
   const [trace, setTrace] = useState<TraceState>(EMPTY_TRACE);
@@ -94,7 +131,7 @@ function Tracer({
   /** The tracings still to show of a solution under way, one per step. */
   const [frames, setFrames] = useState<TraceState[] | null>(null);
   const [impossible, setImpossible] = useState(false);
-  /** For a figure with no solution: failed attempts shown in a loop, and where it is. */
+  /** Attempts shown in a loop, and where it is: a figure with no solution, or a search. */
   const [loop, setLoop] = useState<{ frames: TraceState[]; at: number } | null>(null);
   const solving = frames !== null || loop !== null;
 
@@ -123,12 +160,17 @@ function Tracer({
   const here = trace.path[trace.path.length - 1];
   const drawn = new Set(trace.used);
 
+  /** A press stops a loop of attempts and puts the pen down by hand; a solution under way ignores it. */
   const press = (v: string) => {
-    if (state === 'done' || solving) return;
-    const next = step(edges, trace, v);
+    if (frames !== null) return;
+    const looping = loop !== null;
+    if (!looping && state === 'done') return;
+    const from = looping ? EMPTY_TRACE : trace;
+    const next = step(edges, from, v);
+    setLoop(null);
     setImpossible(false);
     setRefused(next === null);
-    if (next !== null) setTrace(next);
+    setTrace(next ?? from);
   };
   const reset = (next: TraceState) => {
     setFrames(null);
@@ -137,30 +179,26 @@ function Tracer({
     setRefused(false);
     setTrace(next);
   };
+  /** Loop through attempts; `impossible` also says that no tracing exists. */
+  const tryOver = (impossible: boolean) => {
+    const loopFrames = attemptFrames(edges, nodes);
+    setRefused(false);
+    setImpossible(impossible);
+    setTrace(EMPTY_TRACE);
+    setLoop(loopFrames.length > 0 ? { frames: loopFrames, at: 0 } : null);
+  };
   const resolve = () => {
+    if (keepTrying) {
+      tryOver(false);
+      return;
+    }
     const points = solve(
       edges,
       nodes.map((n) => String(n.v)),
     );
     setRefused(false);
     if (points === null) {
-      const tries = attempts(
-        edges,
-        nodes.map((n) => String(n.v)),
-        ATTEMPTS,
-      );
-      const loopFrames: TraceState[] = [];
-      for (const tryPoints of tries) {
-        let t = EMPTY_TRACE;
-        for (const p of tryPoints) {
-          t = step(edges, t, p)!;
-          loopFrames.push(t);
-        }
-        for (let k = 0; k < STUCK_STEPS; k++) loopFrames.push(t);
-      }
-      setImpossible(true);
-      setTrace(EMPTY_TRACE);
-      setLoop(loopFrames.length > 0 ? { frames: loopFrames, at: 0 } : null);
+      tryOver(true);
       return;
     }
     const steps: TraceState[] = [];
@@ -246,7 +284,8 @@ function Tracer({
                 }
               }}
               style={{
-                cursor: state === 'done' || solving ? 'default' : 'pointer',
+                cursor:
+                  frames !== null || (loop === null && state === 'done') ? 'default' : 'pointer',
                 outline: 'none',
               }}
               className="group"
@@ -299,14 +338,22 @@ function Tracer({
           {message}
         </p>
         <span className="ml-auto flex flex-wrap justify-end gap-2">
-          {solvable ? (
+          {solvable || keepTrying ? (
             <button
               type="button"
               onClick={resolve}
               disabled={solving || state === 'done'}
               className={BUTTON}
             >
-              <Lightbulb size={12} aria-hidden /> Resolver
+              {keepTrying ? (
+                <>
+                  <Search size={12} aria-hidden /> Buscar solución
+                </>
+              ) : (
+                <>
+                  <Lightbulb size={12} aria-hidden /> Resolver
+                </>
+              )}
             </button>
           ) : null}
           <button

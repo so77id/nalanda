@@ -1508,7 +1508,11 @@ or cross — the class builds each figure's graph that way. `solvable` adds a
 Resolver button that draws one solution stroke by stroke, or says the figure
 cannot be traced from any point, without saying why (the why is Euler's rule),
 and loops through failed attempts from different points; Empezar de nuevo
-stops it.
+stops it. `keepTrying` is the other choice, for a question the class has not
+answered yet (Königsberg before Euler): a Buscar solución button loops through
+those attempts forever and never says whether a tracing exists. A press on a
+point stops either loop and goes on by hand. A mount asking for both is an
+authoring error.
 It loads on demand, like `<HanoiPlayground>`; its catalog page carries the
 props.
 
