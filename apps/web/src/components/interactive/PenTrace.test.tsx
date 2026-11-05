@@ -1,8 +1,8 @@
-import { fireEvent, render, screen } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { act, fireEvent, render, screen } from '@testing-library/react';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { ModeProvider } from '../../presentation';
-import { PenTrace, type PenTraceProps } from './PenTrace';
+import { PenTrace, STEP_MS, type PenTraceProps } from './PenTrace';
 
 /** A triangle A, B, C with a tail C–D: it can be traced from D, ending at C. */
 const KITE: PenTraceProps = {
@@ -25,6 +25,28 @@ const KITE: PenTraceProps = {
 
 /** A triangle alone: every tracing ends where it began. */
 const TRIANGLE: PenTraceProps = { ...KITE, edges: KITE.edges.slice(0, 3) };
+
+/** Four points, each joined to the other three: four odd points, no solution. */
+const SQUARE_WITH_DIAGONALS: PenTraceProps = {
+  ...KITE,
+  edges: [
+    ['A', 'B'],
+    ['A', 'C'],
+    ['A', 'D'],
+    ['B', 'C'],
+    ['B', 'D'],
+    ['C', 'D'],
+  ],
+};
+
+afterEach(() => {
+  vi.useRealTimers();
+});
+
+/** Let `n` steps of a solution go by: each one is scheduled after the last renders. */
+const tick = (n: number) => {
+  for (let i = 0; i < n; i++) act(() => vi.advanceTimersByTime(STEP_MS));
+};
 
 const press = (...points: string[]) => {
   for (const p of points) fireEvent.click(screen.getByRole('button', { name: `Punto ${p}` }));
@@ -128,6 +150,54 @@ describe('PenTrace', () => {
     expect(slide).toBe(book);
   });
 
+  it('offers to solve only when the figure asks for it', () => {
+    render(<PenTrace {...KITE} />);
+    expect(screen.queryByRole('button', { name: /Resolver/ })).toBeNull();
+  });
+
+  it('draws a solution stroke by stroke, from the point it starts at', () => {
+    vi.useFakeTimers();
+    const { container } = render(<PenTrace {...KITE} solvable />);
+    fireEvent.click(screen.getByRole('button', { name: /Resolver/ }));
+    tick(1);
+    expect(container.querySelector('[data-start]')).not.toBeNull();
+    expect(drawn(container)).toBe(0);
+    tick(1);
+    expect(drawn(container)).toBe(1);
+    tick(KITE.edges.length);
+    expect(statusOf(container)).toBe('done');
+    expect(drawn(container)).toBe(KITE.edges.length);
+    expect(said()).toMatch(/^Figura completa/);
+  });
+
+  it('says when a figure cannot be drawn in one stroke, and draws nothing', () => {
+    const { container } = render(<PenTrace {...SQUARE_WITH_DIAGONALS} solvable />);
+    fireEvent.click(screen.getByRole('button', { name: /Resolver/ }));
+    expect(said()).toBe('Esta figura no se puede dibujar de un solo trazo, empiece donde empiece.');
+    expect(drawn(container)).toBe(0);
+  });
+
+  it('ignores the points while it shows a solution', () => {
+    vi.useFakeTimers();
+    const { container } = render(<PenTrace {...KITE} solvable />);
+    fireEvent.click(screen.getByRole('button', { name: /Resolver/ }));
+    tick(2);
+    const before = drawn(container);
+    press('A', 'B', 'C', 'D');
+    expect(drawn(container)).toBe(before);
+  });
+
+  it('starts again from nothing, stopping a solution under way', () => {
+    vi.useFakeTimers();
+    const { container } = render(<PenTrace {...KITE} solvable />);
+    fireEvent.click(screen.getByRole('button', { name: /Resolver/ }));
+    tick(2);
+    fireEvent.click(screen.getByRole('button', { name: /Empezar de nuevo/ }));
+    tick(10);
+    expect(statusOf(container)).toBe('empty');
+    expect(drawn(container)).toBe(0);
+  });
+
   it('tells the author when the label is missing', () => {
     const { container } = render(<PenTrace {...KITE} label="" />);
     expect(container.querySelector('[data-authoring-error]')).not.toBeNull();
@@ -144,6 +214,7 @@ describe('PenTrace', () => {
 // 25-grafos-representacion mounts is pinned here, named by its slide.
 const STAR: PenTraceProps = {
   figure: true,
+  solvable: true,
   cols: 4,
   rows: 4,
   nodes: [
@@ -179,6 +250,7 @@ const STAR: PenTraceProps = {
 };
 const HOUSE: PenTraceProps = {
   figure: true,
+  solvable: true,
   cols: 3,
   rows: 4,
   nodes: [
@@ -205,6 +277,7 @@ const HOUSE: PenTraceProps = {
 };
 const ENVELOPE: PenTraceProps = {
   figure: true,
+  solvable: true,
   cols: 3,
   rows: 3,
   nodes: [

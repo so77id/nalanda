@@ -1504,8 +1504,11 @@ another. It refuses a jump and a stroke drawn twice, and says how many
 strokes are left, when the tracing is stuck and when it is done. `figure`
 draws unlabelled dots, so the figure looks like the drawing; without it the
 points are lettered vertices (Königsberg). Put a point wherever strokes meet
-or cross — the class builds each figure's graph that way. It loads on
-demand, like `<HanoiPlayground>`; its catalog page carries the props.
+or cross — the class builds each figure's graph that way. `solvable` adds a
+Resolver button that draws one solution stroke by stroke, or says the figure
+cannot be traced from any point, without saying why: the why is Euler's rule.
+It loads on demand, like `<HanoiPlayground>`; its catalog page carries the
+props.
 
 6f. **An authoring error does not fail the build**, on purpose: writing the
 slides before drawing the diagrams is a real order of work, and gating the

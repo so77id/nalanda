@@ -1,5 +1,5 @@
-import { RotateCcw, Undo2 } from 'lucide-react';
-import { useState } from 'react';
+import { Lightbulb, RotateCcw, Undo2 } from 'lucide-react';
+import { useEffect, useState } from 'react';
 
 import { AuthoringError } from '../AuthoringError';
 import {
@@ -11,6 +11,7 @@ import {
 import {
   EMPTY_TRACE,
   remaining,
+  solve,
   status,
   step,
   undo,
@@ -26,9 +27,17 @@ export interface PenTraceProps {
   rows: number;
   /** Draw the points as small dots, the way the figure looks, not as lettered vertices. */
   figure?: boolean;
+  /**
+   * Offer a «Resolver» button: it draws one way to trace the figure, stroke by
+   * stroke, or says there is none. Without the why: that is Euler's rule.
+   */
+  solvable?: boolean;
   /** What the drawing is, in Spanish: its accessible name. Required. */
   label: string;
 }
+
+/** How long each step of a solution stays on screen, in milliseconds. */
+export const STEP_MS = 450;
 
 const DOT_R = 6;
 /** The invisible circle a press lands on, larger than a dot. */
@@ -64,9 +73,31 @@ export function PenTrace(props: PenTraceProps) {
   return <Tracer {...props} />;
 }
 
-function Tracer({ nodes, edges, cols, rows, figure = false, label }: PenTraceProps) {
+function Tracer({
+  nodes,
+  edges,
+  cols,
+  rows,
+  figure = false,
+  solvable = false,
+  label,
+}: PenTraceProps) {
   const [trace, setTrace] = useState<TraceState>(EMPTY_TRACE);
   const [refused, setRefused] = useState(false);
+  /** The tracings still to show of a solution under way, one per step. */
+  const [frames, setFrames] = useState<TraceState[] | null>(null);
+  const [impossible, setImpossible] = useState(false);
+  const solving = frames !== null;
+
+  useEffect(() => {
+    if (frames === null) return;
+    const id = window.setTimeout(() => {
+      const [first, ...rest] = frames;
+      setTrace(first);
+      setFrames(rest.length > 0 ? rest : null);
+    }, STEP_MS);
+    return () => window.clearTimeout(id);
+  }, [frames]);
   const layout = layoutNodeGraph({ nodes, edges, cols, rows, directed: false, trim: !figure });
   const { width, drawingH, at } = layout;
   const state = status(edges, trace);
@@ -75,19 +106,48 @@ function Tracer({ nodes, edges, cols, rows, figure = false, label }: PenTracePro
   const drawn = new Set(trace.used);
 
   const press = (v: string) => {
-    if (state === 'done') return;
+    if (state === 'done' || solving) return;
     const next = step(edges, trace, v);
+    setImpossible(false);
     setRefused(next === null);
     if (next !== null) setTrace(next);
   };
   const reset = (next: TraceState) => {
+    setFrames(null);
+    setImpossible(false);
     setRefused(false);
     setTrace(next);
   };
+  const resolve = () => {
+    const points = solve(
+      edges,
+      nodes.map((n) => String(n.v)),
+    );
+    setRefused(false);
+    if (points === null) {
+      setImpossible(true);
+      return;
+    }
+    const steps: TraceState[] = [];
+    points.reduce((t, p) => {
+      const next = step(edges, t, p)!;
+      steps.push(next);
+      return next;
+    }, EMPTY_TRACE);
+    setImpossible(false);
+    setTrace(EMPTY_TRACE);
+    setFrames(steps);
+  };
 
-  const message = say(state, refused, remaining(edges, trace), trace);
+  const message = impossible
+    ? 'Esta figura no se puede dibujar de un solo trazo, empiece donde empiece.'
+    : say(state, refused, remaining(edges, trace), trace);
   const messageClass =
-    state === 'done' ? 'text-keep' : state === 'stuck' || refused ? 'text-flag' : 'text-ink';
+    state === 'done'
+      ? 'text-keep'
+      : state === 'stuck' || refused || impossible
+        ? 'text-flag'
+        : 'text-ink';
 
   return (
     <div
@@ -150,7 +210,10 @@ function Tracer({ nodes, edges, cols, rows, figure = false, label }: PenTracePro
                   press(v);
                 }
               }}
-              style={{ cursor: state === 'done' ? 'default' : 'pointer', outline: 'none' }}
+              style={{
+                cursor: state === 'done' || solving ? 'default' : 'pointer',
+                outline: 'none',
+              }}
               className="group"
             >
               <circle cx={x} cy={y} r={HIT_R} fill="transparent" />
@@ -200,11 +263,21 @@ function Tracer({ nodes, edges, cols, rows, figure = false, label }: PenTracePro
         <p role="status" aria-live="polite" className={messageClass}>
           {message}
         </p>
-        <span className="ml-auto flex gap-2">
+        <span className="ml-auto flex flex-wrap justify-end gap-2">
+          {solvable ? (
+            <button
+              type="button"
+              onClick={resolve}
+              disabled={solving || state === 'done'}
+              className={BUTTON}
+            >
+              <Lightbulb size={12} aria-hidden /> Resolver
+            </button>
+          ) : null}
           <button
             type="button"
             onClick={() => reset(undo(trace))}
-            disabled={trace.path.length === 0}
+            disabled={trace.path.length === 0 || solving}
             className={BUTTON}
           >
             <Undo2 size={12} aria-hidden /> Deshacer
@@ -212,7 +285,7 @@ function Tracer({ nodes, edges, cols, rows, figure = false, label }: PenTracePro
           <button
             type="button"
             onClick={() => reset(EMPTY_TRACE)}
-            disabled={trace.path.length === 0}
+            disabled={trace.path.length === 0 && !solving && !impossible}
             className={BUTTON}
           >
             <RotateCcw size={12} aria-hidden /> Empezar de nuevo
@@ -232,7 +305,7 @@ const TONE_OF: Record<TraceStatus, 'mark' | 'flag' | 'keep'> = {
 };
 
 const BUTTON =
-  'flex items-center gap-1 rounded border border-rule bg-surface px-2 py-1 text-ink-soft hover:text-ink disabled:opacity-40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus';
+  'flex items-center gap-1 whitespace-nowrap rounded border border-rule bg-surface px-2 py-1 text-ink-soft hover:text-ink disabled:opacity-40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus';
 
 /** The status line, in the course's voice. */
 function say(state: TraceStatus, refused: boolean, left: number, trace: TraceState): string {

@@ -63,3 +63,43 @@ export function status(edges: NodeGraphEdge[], state: TraceState): TraceStatus {
   );
   return canGoOn ? 'drawing' : 'stuck';
 }
+
+/**
+ * A way to draw every stroke once without lifting the pen, as the points to
+ * press in order, or `null` when there is none: a figure with more than two
+ * odd points, or in more than one piece. It starts at the first odd point in
+ * `order` — the first point, when none is odd — and walks the strokes with
+ * Hierholzer's method: go on while the point has a free stroke, back up when
+ * it has none, and splice in the loops left behind. Parallel strokes count
+ * apart (#356).
+ */
+export function solve(edges: NodeGraphEdge[], order: string[]): string[] | null {
+  const strokesAt = new Map<string, number[]>();
+  edges.forEach(([a, b], k) => {
+    for (const v of [String(a), String(b)]) strokesAt.set(v, [...(strokesAt.get(v) ?? []), k]);
+  });
+  if (strokesAt.size === 0) return null;
+  const named = order.map(String);
+  const points = [
+    ...named.filter((v) => strokesAt.has(v)),
+    ...[...strokesAt.keys()].filter((v) => !named.includes(v)),
+  ];
+  const odd = points.filter((v) => strokesAt.get(v)!.length % 2 === 1);
+  if (odd.length !== 0 && odd.length !== 2) return null;
+
+  const drawn = new Set<number>();
+  const pending = [odd[0] ?? points[0]];
+  const tour: string[] = [];
+  while (pending.length > 0) {
+    const v = pending[pending.length - 1];
+    const free = strokesAt.get(v)!.find((k) => !drawn.has(k));
+    if (free === undefined) {
+      tour.push(pending.pop()!);
+    } else {
+      drawn.add(free);
+      const [a, b] = edges[free];
+      pending.push(String(a) === v ? String(b) : String(a));
+    }
+  }
+  return drawn.size === edges.length ? tour.reverse() : null;
+}
