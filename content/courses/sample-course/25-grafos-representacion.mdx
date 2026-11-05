@@ -179,18 +179,90 @@ descarte todos los órdenes a la vez, sin probar ninguno.
 
 ## Las partes de un grafo
 
+<Slide title="Los vértices">
+Cada zona de tierra es un **vértice**, un punto del dibujo. Los vértices forman
+un conjunto, que se llama $$V$$. Las llaves encierran los elementos de un
+conjunto, y en un conjunto el orden no importa:
+
+$$
+V = \{A, B, C, D\} \qquad |V| = 4
+$$
+
+Se lee «$$V$$ es el conjunto de A, B, C y D, y tiene cuatro elementos».
+
+<div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'center', gap: '0.5rem 1rem' }}>
+<figure style={{ flex: '1 1 220px', maxWidth: '320px', margin: 0, textAlign: 'center' }}>
+<KonigsbergMap stage="map" label="Königsberg sin casas: las cuatro zonas de tierra, A, B, C y D, el agua y los siete puentes." />
+<figcaption style={{ fontSize: '0.85rem', color: 'var(--color-ink-soft)' }}>cuatro zonas de tierra</figcaption>
+</figure>
+<span aria-hidden="true" style={{ fontSize: '1.6rem', color: 'var(--color-ink-soft)' }}>→</span>
+<div style={{ flex: '1 1 160px', maxWidth: '240px' }}>
+<NodeGraph
+  cols={3}
+  rows={3}
+  nodes={[{ v: 'B', x: 0, y: 0 }, { v: 'A', x: 0, y: 1 }, { v: 'C', x: 0, y: 2 }, { v: 'D', x: 2, y: 1 }]}
+  edges={[]}
+  caption="cuatro vértices"
+  label="Cuatro vértices, A, B, C y D, uno por zona, en el lugar de cada zona y sin líneas."
+/>
+</div>
+</div>
+
+</Slide>
+
+<Slide title="Las aristas">
+Cada puente es una **arista**: une dos vértices, sus **extremos**. El puente se
+cruza en los dos sentidos, así que la arista no tiene dirección, y se escribe
+como el conjunto de sus dos extremos.
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '0.75rem 2rem', alignItems: 'center' }}>
+<NodeGraph
+  cols={3}
+  rows={3}
+  nodes={[{ v: 'B', x: 1, y: 0 }, { v: 'A', x: 0, y: 1 }, { v: 'D', x: 2, y: 1 }, { v: 'C', x: 1, y: 2 }]}
+  edges={[['A', 'B'], ['A', 'B'], ['A', 'C'], ['A', 'C'], ['A', 'D'], ['B', 'D'], ['C', 'D']]}
+  markEdges={[['A', 'D']]}
+  caption="la arista {A, D}, o AD"
+  label="El grafo de Königsberg con la arista entre A y D marcada: el puente entre la isla y la zona del este."
+/>
+<div style={{ display: 'grid', gap: '0.6rem' }}>
+<div style={{ border: '1px solid var(--color-rule)', borderRadius: '8px', padding: '0.5rem 0.9rem 0.1rem', background: 'var(--color-surface)' }}>
+
+**Llaves: un conjunto.** El orden no importa.
+
+$$
+\{A, D\} = \{D, A\}
+$$
+
+</div>
+<div style={{ border: '1px solid var(--color-rule)', borderRadius: '8px', padding: '0.5rem 0.9rem 0.1rem', background: 'var(--color-surface)' }}>
+
+**Paréntesis: un par ordenado.** El orden importa.
+
+$$
+(A, D) \neq (D, A)
+$$
+
+</div>
+</div>
+</div>
+
+Como en un conjunto el orden no importa, la arista $$\{A, D\}$$ se abrevia
+$$AD$$, o $$DA$$: es la misma arista.
+
+</Slide>
+
 <Slide title="Qué es un grafo">
-Un grafo tiene dos partes: sus **vértices**, los puntos, y sus **aristas**, las
-líneas. Cada arista une dos vértices y se nombra por sus dos extremos, como
-$$AB$$. Un grafo se escribe
+Un **grafo** es el par formado por sus vértices y sus aristas:
 
 $$
 G = (V, E)
 $$
 
-y se lee «$$G$$ es el par formado por los vértices $$V$$ y las aristas $$E$$».
-La cantidad de vértices es $$|V|$$ y la de aristas, $$|E|$$; por costumbre, en
-las cuentas se escriben simplemente $$V$$ y $$E$$.
+Se lee «$$G$$ es el par formado por $$V$$ y $$E$$»: un par ordenado, primero
+los vértices y después las aristas. $$E$$ reúne las aristas y puede repetir
+una, como los dos puentes entre A y B, así que no se escribe entre llaves. Por
+costumbre, en las cuentas se escribe $$V$$ y $$E$$ en vez de $$|V|$$ y $$|E|$$.
 
 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.5rem 2rem', alignItems: 'center' }}>
 <NodeGraph
@@ -208,7 +280,7 @@ V = \{A, B, C, D\}
 $$
 
 $$
-E = \{AB, AB, AC, AC, AD, BD, CD\}
+E:\ AB,\ AB,\ AC,\ AC,\ AD,\ BD,\ CD
 $$
 
 $$
@@ -914,8 +986,9 @@ cosas son vértices y lo que las une, aristas:
 Las mismas personas dan dos grafos según la relación que se mire. Ser amigos
 va en los dos sentidos; seguir a alguien en una red social, no: no obliga a
 que esa persona nos siga. En un **grafo dirigido**, cada arista va de un
-vértice a otro y se dibuja como una flecha. La arista es un par ordenado
-$$(u, v)$$, de $$u$$ a $$v$$, y $$(u, v)$$ no es lo mismo que $$(v, u)$$.
+vértice a otro y se dibuja como una flecha. En vez del conjunto $$\{u, v\}$$,
+la arista es el par ordenado $$(u, v)$$: va de $$u$$ a $$v$$, y
+$$(u, v) \neq (v, u)$$.
 
 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '0.5rem 2rem', alignItems: 'end' }}>
 <NodeGraph
