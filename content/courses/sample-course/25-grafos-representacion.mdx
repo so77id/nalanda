@@ -512,9 +512,15 @@ número de su paso.
 </Slide>
 
 <Slide title="Caminos simples">
-Un camino es **simple** si pasa una sola vez por cada vértice: todos sus
-vértices son distintos, $$v_i \ne v_j$$ siempre que $$i \ne j$$. Basta un
-vértice repetido para que no lo sea.
+Un camino es **simple** si no pasa dos veces por el mismo vértice: en el
+recorrido, cada posición tiene un vértice distinto.
+
+$$
+v_i \ne v_j \quad \text{si } i \ne j
+$$
+
+Se lee «dos posiciones distintas del camino tienen vértices distintos». A la
+derecha, C está en dos posiciones, $$v_2$$ y $$v_5$$: ese camino no es simple.
 
 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.5rem 2rem', alignItems: 'end' }}>
 <NodeGraph
@@ -564,9 +570,13 @@ una arista, $$k \ge 1$$, y su largo se cuenta igual que el de un camino.
 </Slide>
 
 <Slide title="Ciclos simples">
-Un ciclo es **simple** si no repite vértices, salvo el último, que tiene que ser
-el primero para cerrar el ciclo: $$v_0, v_1, \dots, v_{k-1}$$ son todos
-distintos.
+Un ciclo es **simple** si no pasa dos veces por el mismo vértice. El único que
+se repite es el del comienzo, que vuelve al final para cerrar el ciclo,
+$$v_k = v_0$$; los demás, $$v_0, v_1, \dots, v_{k-1}$$, son todos distintos.
+
+A la derecha hay un ciclo que no es simple: vuelve a A, pero pasa dos veces por
+C. Sigue siendo un ciclo, porque no repite aristas. Algunos libros lo llaman
+**circuito** y reservan «ciclo» para el simple.
 
 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.5rem 2rem', alignItems: 'end' }}>
 <NodeGraph
