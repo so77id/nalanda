@@ -210,24 +210,46 @@ Se lee «$$V$$ es el conjunto de A, B, C y D, y tiene cuatro elementos».
 </Slide>
 
 <Slide title="Las aristas">
-Cada puente es una **arista**: une dos vértices, sus **extremos**. El puente se
+Cada puente es una **arista**: une dos vértices, sus **extremos**. Un puente se
 cruza en los dos sentidos, así que la arista no tiene dirección, y se escribe
-como el conjunto de sus dos extremos.
+entre llaves: $$\{A, D\}$$. Si fuera de un solo sentido, como una calle, la
+arista tendría dirección: se dibuja como una flecha y se escribe entre
+paréntesis, $$(A, D)$$, de A a D.
 
-<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '0.75rem 2rem', alignItems: 'center' }}>
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.5rem 2rem', alignItems: 'end' }}>
 <NodeGraph
   cols={3}
   rows={3}
   nodes={[{ v: 'B', x: 1, y: 0 }, { v: 'A', x: 0, y: 1 }, { v: 'D', x: 2, y: 1 }, { v: 'C', x: 1, y: 2 }]}
   edges={[['A', 'B'], ['A', 'B'], ['A', 'C'], ['A', 'C'], ['A', 'D'], ['B', 'D'], ['C', 'D']]}
+  tones={{ A: 'mark', D: 'mark' }}
   markEdges={[['A', 'D']]}
-  caption="la arista {A, D}, o AD"
-  label="El grafo de Königsberg con la arista entre A y D marcada: el puente entre la isla y la zona del este."
+  caption="sin dirección: {A, D}"
+  label="El grafo de Königsberg, sin dirección, con la arista entre A y D marcada y sus dos extremos destacados."
 />
-<div style={{ display: 'grid', gap: '0.6rem' }}>
+<NodeGraph
+  cols={3}
+  rows={3}
+  directed
+  nodes={[{ v: 'B', x: 1, y: 0 }, { v: 'A', x: 0, y: 1 }, { v: 'D', x: 2, y: 1 }, { v: 'C', x: 1, y: 2 }]}
+  edges={[['A', 'B'], ['B', 'A'], ['A', 'C'], ['C', 'A'], ['A', 'D'], ['D', 'B'], ['C', 'D']]}
+  tones={{ A: 'mark', D: 'mark' }}
+  markEdges={[['A', 'D']]}
+  caption="con dirección: (A, D), de A a D"
+  label="Los mismos cuatro vértices con flechas: de A a B y de B a A, de A a C y de C a A, de A a D, de D a B y de C a D. Marcada, la flecha de A a D."
+/>
+</div>
+
+</Slide>
+
+<Slide title="Conjuntos y tuplas">
+Las llaves y los paréntesis son dos formas de agrupar elementos, y se leen
+distinto:
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '0.75rem 1.5rem', margin: '1rem 0' }}>
 <div style={{ border: '1px solid var(--color-rule)', borderRadius: '8px', padding: '0.5rem 0.9rem 0.1rem', background: 'var(--color-surface)' }}>
 
-**Llaves: un conjunto.** El orden no importa.
+**Un conjunto**, entre llaves: sus elementos no tienen orden y no se repiten.
 
 $$
 \{A, D\} = \{D, A\}
@@ -236,7 +258,8 @@ $$
 </div>
 <div style={{ border: '1px solid var(--color-rule)', borderRadius: '8px', padding: '0.5rem 0.9rem 0.1rem', background: 'var(--color-surface)' }}>
 
-**Paréntesis: un par ordenado.** El orden importa.
+**Una tupla**, entre paréntesis: sus elementos van en orden. Una tupla de dos
+elementos es un **par ordenado**.
 
 $$
 (A, D) \neq (D, A)
@@ -244,10 +267,13 @@ $$
 
 </div>
 </div>
-</div>
 
-Como en un conjunto el orden no importa, la arista $$\{A, D\}$$ se abrevia
-$$AD$$, o $$DA$$: es la misma arista.
+Así se leen las dos aristas:
+
+- **Sin dirección**, la arista es un conjunto: $$\{A, D\}$$ es la misma que
+  $$\{D, A\}$$, y se abrevia $$AD$$, o $$DA$$.
+- **Con dirección**, la arista es un par ordenado: $$(A, D)$$ va de A a D, y
+  $$(D, A)$$ sería otra arista, de D a A.
 
 </Slide>
 
@@ -258,9 +284,10 @@ $$
 G = (V, E)
 $$
 
-Se lee «$$G$$ es el par formado por $$V$$ y $$E$$»: un par ordenado, primero
-los vértices y después las aristas. $$E$$ reúne las aristas y puede repetir
-una, como los dos puentes entre A y B, así que no se escribe entre llaves. Por
+Se lee «$$G$$ es el par formado por $$V$$ y $$E$$»: una tupla, primero los
+vértices y después las aristas. $$E$$ reúne las aristas y puede repetir una,
+como los dos puentes entre A y B; un conjunto no repite, así que $$E$$ no se
+escribe entre llaves. Por
 costumbre, en las cuentas se escribe $$V$$ y $$E$$ en vez de $$|V|$$ y $$|E|$$.
 
 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.5rem 2rem', alignItems: 'center' }}>
