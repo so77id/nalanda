@@ -491,10 +491,12 @@ $$
 v_0 \to v_1 \to \cdots \to v_k
 $$
 
-Se lee «de $$v_0$$ a $$v_1$$, de $$v_1$$ a $$v_2$$, y así hasta $$v_k$$». Cada
-flecha cruza una arista, $$v_i v_{i+1} \in E$$: marca el orden del recorrido,
-no una dirección. Un camino puede volver a pasar por un vértice, y su **largo**
-es la cantidad de aristas que cruza, $$k$$. En el dibujo, cada arista lleva el
+Se lee «de $$v_0$$ a $$v_1$$, de $$v_1$$ a $$v_2$$, y así hasta $$v_k$$». El
+subíndice es la posición en el recorrido, no el nombre del vértice: en el
+dibujo, $$v_0 = A$$, $$v_1 = B$$, $$v_2 = C$$, y C vuelve como $$v_5$$. Cada
+flecha cruza la arista entre un vértice y el que le sigue, $$v_i v_{i+1} \in E$$,
+y marca el orden del recorrido, no una dirección. El **largo** del camino es la
+cantidad de aristas que cruza, $$k$$; en el dibujo, cada arista lleva el
 número de su paso.
 
 <NodeGraph
