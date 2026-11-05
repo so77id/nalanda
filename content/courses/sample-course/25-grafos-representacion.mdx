@@ -1838,16 +1838,49 @@ les pregunta por una arista.
   de cada arista. En un grafo sin dirección son $$2E$$ entradas:
   $$\Theta(V + E)$$.
 
-En un grafo sin dirección, sin aristas repetidas ni aristas de un vértice a sí
-mismo, cada par de vértices tiene a lo más una arista, así que
+Cuál ocupa menos depende de cuántas aristas tiene el grafo.
+
+</Slide>
+
+{/* SelfLoop — a vertex with a self-loop beside a plain edge, drawn by hand because <NodeGraph> has no self-loops. Styled as NodeGraph (rule-strong lines, surface vertices, 14px letters). File-local. */}
+
+export function SelfLoop({ label }) {
+  return (
+    <figure style={{ margin: '0.4rem auto', textAlign: 'center' }}>
+      <svg viewBox="0 0 220 120" style={{ width: '100%', maxWidth: '260px', height: 'auto', display: 'block', margin: '0 auto' }} role="img" aria-label={label}>
+        <path d="M 58 66 C 26 6, 106 6, 74 66" fill="none" style={{ stroke: 'var(--color-mark)' }} strokeWidth="2.6" />
+        <line x1="83" y1="80" x2="143" y2="80" style={{ stroke: 'var(--color-rule-strong)' }} strokeWidth="1.3" />
+        <circle cx="66" cy="80" r="17" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.3" />
+        <text x="66" y="85" textAnchor="middle" fontSize="14" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>A</text>
+        <circle cx="160" cy="80" r="17" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.3" />
+        <text x="160" y="85" textAnchor="middle" fontSize="14" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>B</text>
+      </svg>
+      <figcaption style={{ fontSize: '0.8rem', color: 'var(--color-ink-soft)' }}>un lazo en A</figcaption>
+    </figure>
+  );
+}
+
+<Slide title="Grafos densos y dispersos">
+<Split ratio="60/40">
+
+Una arista que une un vértice consigo mismo es un **lazo**. Un grafo sin
+aristas paralelas ni lazos es **simple**: cada par de sus vértices tiene a lo
+más una arista.
+
+<SelfLoop label="Dos vértices, A y B, unidos por una arista, y un lazo marcado que sale de A y vuelve a A." />
+
+</Split>
+
+En un grafo simple sin dirección, entonces,
 
 $$
 E \le \frac{V(V - 1)}{2}
 $$
 
-Se lee «$$E$$ es a lo más $$V$$ por $$V - 1$$, dividido en dos». Un grafo con
-cerca de ese máximo es **denso**; uno con muchas menos aristas, cerca de
-$$V$$, es **disperso**.
+Se lee «$$E$$ es a lo más $$V$$ por $$V - 1$$, dividido en dos». Un grafo
+simple con todas sus aristas posibles es **completo**. Uno con cerca de ese
+máximo es **denso**, y uno con muchas menos aristas, cerca de $$V$$, es
+**disperso**.
 
 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.5rem 2rem', alignItems: 'end' }}>
 <NodeGraph
@@ -1855,8 +1888,8 @@ $$V$$, es **disperso**.
   rows={3}
   nodes={[{ v: 'A', x: 1, y: 0 }, { v: 'B', x: 0, y: 1 }, { v: 'C', x: 2, y: 1 }, { v: 'D', x: 0.5, y: 2 }, { v: 'E', x: 1.5, y: 2 }]}
   edges={[['A', 'B'], ['A', 'C'], ['A', 'D'], ['A', 'E'], ['B', 'C'], ['B', 'D'], ['B', 'E'], ['C', 'D'], ['C', 'E'], ['D', 'E']]}
-  caption="denso: 10 aristas de 10 posibles"
-  label="Un grafo denso de cinco vértices: cada vértice está unido con los otros cuatro, diez aristas en total."
+  caption="completo: 10 aristas de 10 posibles"
+  label="Un grafo completo de cinco vértices: cada vértice está unido con los otros cuatro, diez aristas en total."
 />
 <NodeGraph
   cols={3}
@@ -2328,7 +2361,7 @@ void addEdge(String v, String w) {
   hay una arista cuesta $$\Theta(1)$$ esperado, como en la matriz, con la
   memoria de las listas, $$\Theta(V + E)$$.
 - **Lo que pierde.** Un conjunto no guarda dos veces el mismo vecino, así que
-  no caben aristas repetidas, como los dos puentes entre la isla y una orilla.
+  no caben aristas paralelas, como los dos puentes entre la isla y una orilla.
   Un `HashSet` entrega los vecinos en un orden que nadie elige; un `TreeSet`
   los ordena, a cambio de $$O(\log V)$$ por operación. Y cada entrada pesa
   más que un entero en una lista.
