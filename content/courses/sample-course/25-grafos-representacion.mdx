@@ -273,7 +273,8 @@ Así se leen las dos aristas:
 - **Sin dirección**, la arista es un conjunto: $$\{A, D\}$$ es la misma que
   $$\{D, A\}$$, y se abrevia $$AD$$, o $$DA$$.
 - **Con dirección**, la arista es un par ordenado: $$(A, D)$$ va de A a D, y
-  $$(D, A)$$ sería otra arista, de D a A.
+  también se abrevia $$AD$$. Pero aquí el orden importa: $$AD \neq DA$$, y
+  $$DA$$ sería otra arista, de D a A.
 
 </Slide>
 
@@ -1013,8 +1014,8 @@ Las mismas personas dan dos grafos según la relación que se mire. Ser amigos
 va en los dos sentidos; seguir a alguien en una red social, no: no obliga a
 que esa persona nos siga. En un **grafo dirigido**, cada arista va de un
 vértice a otro y se dibuja como una flecha. En vez del conjunto $$\{u, v\}$$,
-la arista es el par ordenado $$(u, v)$$: va de $$u$$ a $$v$$, y
-$$(u, v) \neq (v, u)$$.
+la arista es el par ordenado $$(u, v)$$, abreviado $$uv$$: va de $$u$$ a
+$$v$$, y $$uv \neq vu$$.
 
 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '0.5rem 2rem', alignItems: 'end' }}>
 <NodeGraph
