@@ -1043,6 +1043,34 @@ flecha.
 
 </Slide>
 
+<Slide title="Un grafo con pesos en Java">
+Con pesos, el contrato cambia: `addEdge` recibe el peso de la arista, y
+`adj(v)` entrega cada vecino junto con el peso de la arista que lleva a él.
+Una clase chica, `Edge`, junta los dos, y el contrato es otra interfaz:
+
+```java
+public class Edge {
+    public final int to;
+    public final int weight;
+
+    public Edge(int to, int weight) {
+        this.to = to;
+        this.weight = weight;
+    }
+}
+
+public interface WeightedGraph {
+    int V();
+    int E();
+    Iterable<Edge> adj(int v);
+    void addEdge(int v, int w, int weight);
+}
+```
+
+Las dos implementaciones con pesos cumplen este contrato.
+
+</Slide>
+
 <Slide title="Un grafo con pesos en la matriz">
 Con pesos, la casilla guarda el peso de la arista en vez de un booleano. Una
 casilla sin arista no puede guardar $$0$$, porque una arista de peso $$0$$
@@ -1066,39 +1094,55 @@ tomar, $$\infty$$, que en Java es el entero más grande, `Integer.MAX_VALUE`.
 />
 </div>
 
-```java
-static final int INFINITY = Integer.MAX_VALUE;
+</Slide>
 
-public WeightedMatrixGraph(int V) {
-    weight = new int[V][V];
-    for (int[] row : weight) {
-        Arrays.fill(row, INFINITY);
+<Slide title="El código de la matriz con pesos">
+```java
+public class WeightedMatrixGraph implements WeightedGraph {
+    static final int INFINITY = Integer.MAX_VALUE;
+    private final int[][] weight;
+    private int E;
+
+    public WeightedMatrixGraph(int V) {
+        weight = new int[V][V];
+        for (int[] row : weight) {
+            Arrays.fill(row, INFINITY);
+        }
+    }
+
+    public int V() { return weight.length; }
+
+    public int E() { return E; }
+
+    public Iterable<Edge> adj(int v) {
+        List<Edge> edges = new ArrayList<>();
+        for (int w = 0; w < weight.length; w++) {
+            if (weight[v][w] != INFINITY) {
+                edges.add(new Edge(w, weight[v][w]));
+            }
+        }
+        return edges;
+    }
+
+    public void addEdge(int v, int w, int weight) {
+        if (this.weight[v][w] == INFINITY) {
+            E++;
+        }
+        this.weight[v][w] = weight;
+        this.weight[w][v] = weight;
     }
 }
-
-public void addEdge(int v, int w, int cost) {
-    weight[v][w] = cost;
-    weight[w][v] = cost;
-}
 ```
+
+`adj(v)` recorre la fila de `v` y arma un `Edge` por cada casilla que no
+vale $$\infty$$. `addEdge` escribe el peso en las dos casillas y cuenta la
+arista solo si no estaba.
 
 </Slide>
 
 <Slide title="Un grafo con pesos en las listas">
-Con pesos, cada entrada de una lista guarda el vecino y el peso de la arista
-que lleva a él. Una clase chica, `Edge`, los junta:
-
-```java
-public class Edge {
-    public final int to;
-    public final int weight;
-
-    public Edge(int to, int weight) {
-        this.to = to;
-        this.weight = weight;
-    }
-}
-```
+Con pesos, cada entrada de una lista es un `Edge`: el vecino y el peso de la
+arista que lleva a él.
 
 <AdjLists
   lists={[['1 · 7', '2 · 3'], ['0 · 7', '2 · 2'], ['0 · 3', '1 · 2', '3 · 4'], ['2 · 4']]}
@@ -1108,6 +1152,10 @@ public class Edge {
 />
 
 ```java
+private final List<List<Edge>> lists;
+
+public Iterable<Edge> adj(int v) { return lists.get(v); }
+
 public void addEdge(int v, int w, int weight) {
     lists.get(v).add(new Edge(w, weight));
     lists.get(w).add(new Edge(v, weight));
@@ -1115,7 +1163,8 @@ public void addEdge(int v, int w, int weight) {
 }
 ```
 
-Las listas pasan a ser `List<List<Edge>>`, y `adj(v)` entrega objetos `Edge`.
+La clase, `WeightedListGraph`, implementa `WeightedGraph` y cambia solo
+esto: el constructor, `V()` y `E()` quedan como en las listas sin pesos.
 
 </Slide>
 
