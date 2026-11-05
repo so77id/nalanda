@@ -279,43 +279,67 @@ Así se leen las dos aristas:
 </Slide>
 
 <Slide title="Qué es un grafo">
-Un **grafo** es el par formado por sus vértices y sus aristas:
+Un **grafo** se describe con dos conjuntos: $$V$$, el de sus vértices, y $$E$$,
+el de sus aristas. Se escribe como un par ordenado, primero los vértices y
+después las aristas:
 
 $$
 G = (V, E)
 $$
 
-Se lee «$$G$$ es el par formado por $$V$$ y $$E$$»: una tupla, primero los
-vértices y después las aristas. $$E$$ reúne las aristas y puede repetir una,
-como los dos puentes entre A y B; un conjunto no repite, así que $$E$$ no se
-escribe entre llaves. Por
-costumbre, en las cuentas se escribe $$V$$ y $$E$$ en vez de $$|V|$$ y $$|E|$$.
+Se lee «el grafo $$G$$, con los vértices $$V$$ y las aristas $$E$$». Los dos
+grafos de abajo tienen los mismos vértices, $$V = \{A, B, C, D\}$$. Cambia cómo
+se escribe cada arista: entre llaves si no tiene dirección, entre paréntesis si
+la tiene.
 
-<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.5rem 2rem', alignItems: 'center' }}>
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '0.75rem 1.5rem' }}>
+<div style={{ border: '1px solid var(--color-rule)', borderRadius: '8px', padding: '0.4rem 0.9rem 0.1rem', background: 'var(--color-surface)' }}>
+
+**Sin dirección**
+
 <NodeGraph
   cols={3}
   rows={3}
-  nodes={[{ v: 'B', x: 1, y: 0 }, { v: 'A', x: 0, y: 1 }, { v: 'D', x: 2, y: 1 }, { v: 'C', x: 1, y: 2 }]}
-  edges={[['A', 'B'], ['A', 'B'], ['A', 'C'], ['A', 'C'], ['A', 'D'], ['B', 'D'], ['C', 'D']]}
-  caption="el grafo de Königsberg"
-  label="El grafo de Königsberg: cuatro vértices, A, B, C y D, y siete aristas: dos entre A y B, dos entre A y C, y una entre A y D, B y D, y C y D."
+  nodes={[{ v: 'A', x: 0, y: 0 }, { v: 'B', x: 2, y: 0 }, { v: 'C', x: 1, y: 1 }, { v: 'D', x: 1, y: 2 }]}
+  edges={[['A', 'B'], ['A', 'C'], ['B', 'C'], ['C', 'D']]}
+  label="Un grafo sin dirección de cuatro vértices: A, B y C forman un triángulo, y C se une con D."
 />
-<div>
 
 $$
-V = \{A, B, C, D\}
-$$
-
-$$
-E:\ AB,\ AB,\ AC,\ AC,\ AD,\ BD,\ CD
+E = \{\{A, B\}, \{A, C\}, \{B, C\}, \{C, D\}\}
 $$
 
 $$
-|V| = 4 \qquad |E| = 7
+E = \{AB, AC, BC, CD\}
+$$
+
+</div>
+<div style={{ border: '1px solid var(--color-rule)', borderRadius: '8px', padding: '0.4rem 0.9rem 0.1rem', background: 'var(--color-surface)' }}>
+
+**Con dirección**
+
+<NodeGraph
+  cols={3}
+  rows={3}
+  directed
+  nodes={[{ v: 'A', x: 0, y: 0 }, { v: 'B', x: 2, y: 0 }, { v: 'C', x: 1, y: 1 }, { v: 'D', x: 1, y: 2 }]}
+  edges={[['A', 'B'], ['B', 'C'], ['C', 'A'], ['C', 'D']]}
+  label="Los mismos cuatro vértices con flechas: de A a B, de B a C, de C a A y de C a D."
+/>
+
+$$
+E = \{(A, B), (B, C), (C, A), (C, D)\}
+$$
+
+$$
+E = \{AB, BC, CA, CD\}
 $$
 
 </div>
 </div>
+
+La cantidad de vértices es $$|V|$$ y la de aristas, $$|E|$$. Por costumbre, en
+las cuentas se escriben simplemente $$V$$ y $$E$$.
 
 </Slide>
 
@@ -403,7 +427,8 @@ Un vértice puede tener muchos vecinos, o ninguno.
 <Slide title="Aristas paralelas">
 Entre dos vértices puede haber más de una arista, como los dos puentes entre la
 isla y una orilla: son **aristas paralelas**. Cada una cuenta por separado, así
-que $$E$$ puede tener la misma arista más de una vez.
+que $$E$$ tiene la misma arista más de una vez, y deja de ser un conjunto, que
+no repite: en Königsberg, $$AB$$ y $$AC$$ están dos veces.
 
 <NodeGraph
   cols={3}
