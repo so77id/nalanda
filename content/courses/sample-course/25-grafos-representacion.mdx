@@ -797,13 +797,11 @@ mire.
 
 </Slide>
 
-<Slide title="Una red de amistades y una de seguidores">
+<Slide title="Grafos dirigidos">
 Las mismas personas dan dos grafos según la relación que se mire. Ser amigos
 va en los dos sentidos; seguir a alguien en una red social, no: no obliga a
 que esa persona nos siga. En un **grafo dirigido**, cada arista va de un
-vértice a otro y se dibuja como una flecha, y cada vértice tiene dos grados:
-el **grado de salida**, las flechas que salen de él, y el **grado de
-entrada**, las que llegan a él.
+vértice a otro y se dibuja como una flecha.
 
 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '0.5rem 2rem', alignItems: 'end' }}>
 <NodeGraph
@@ -811,7 +809,7 @@ entrada**, las que llegan a él.
   rows={2}
   nodes={[{ v: 'Ana', x: 0, y: 0 }, { v: 'Beto', x: 2, y: 0 }, { v: 'Caro', x: 1, y: 1 }, { v: 'Dani', x: 3, y: 1 }]}
   edges={[['Ana', 'Beto'], ['Ana', 'Caro'], ['Beto', 'Caro'], ['Caro', 'Dani']]}
-  caption="amistad: va en los dos sentidos, sin dirección"
+  caption="amistad: sin dirección"
   label="Una red de amistades: Ana es amiga de Beto y de Caro, Beto de Caro, y Caro de Dani. Las aristas no tienen dirección."
 />
 <NodeGraph
@@ -820,15 +818,55 @@ entrada**, las que llegan a él.
   directed
   nodes={[{ v: 'Ana', x: 0, y: 0 }, { v: 'Beto', x: 2, y: 0 }, { v: 'Caro', x: 1, y: 1 }, { v: 'Dani', x: 3, y: 1 }]}
   edges={[['Ana', 'Beto'], ['Beto', 'Ana'], ['Ana', 'Caro'], ['Caro', 'Beto'], ['Dani', 'Caro']]}
-  tones={{ Beto: 'mark' }}
-  caption="seguir: Beto tiene grado de entrada 2 y de salida 1"
-  label="Quién sigue a quién, con flechas: Ana y Beto se siguen entre sí, Ana sigue a Caro, Caro sigue a Beto y Dani sigue a Caro. Beto, destacado, tiene grado de entrada 2 y grado de salida 1."
+  caption="seguir: con dirección"
+  label="Quién sigue a quién, con flechas: Ana y Beto se siguen entre sí, Ana sigue a Caro, Caro sigue a Beto y Dani sigue a Caro."
 />
 </div>
 
 - **Vértices**: las personas, en los dos grafos.
 - **Aristas**: ser amigos, sin dirección; seguir a alguien, con dirección.
 - **Pesos**: ninguno. Una amistad o un seguidor no traen un número.
+
+</Slide>
+
+<Slide title="Grado de entrada y de salida">
+<Split ratio="60/40">
+
+En un grafo dirigido, cada vértice tiene dos grados. El **grado de salida**
+cuenta las flechas que salen de él: las personas que sigue.
+
+<NodeGraph
+  cols={4}
+  rows={2}
+  directed
+  nodes={[{ v: 'Ana', x: 0, y: 0 }, { v: 'Beto', x: 2, y: 0 }, { v: 'Caro', x: 1, y: 1 }, { v: 'Dani', x: 3, y: 1 }]}
+  edges={[['Ana', 'Beto'], ['Beto', 'Ana'], ['Ana', 'Caro'], ['Caro', 'Beto'], ['Dani', 'Caro']]}
+  tones={{ Beto: 'mark' }}
+  markEdges={[['Beto', 'Ana']]}
+  caption="Beto sigue a una: grado de salida 1"
+  label="La red de seguidores con Beto destacado y su única flecha que sale, hacia Ana, marcada: grado de salida 1."
+/>
+
+</Split>
+
+<Split ratio="40/60">
+
+<NodeGraph
+  cols={4}
+  rows={2}
+  directed
+  nodes={[{ v: 'Ana', x: 0, y: 0 }, { v: 'Beto', x: 2, y: 0 }, { v: 'Caro', x: 1, y: 1 }, { v: 'Dani', x: 3, y: 1 }]}
+  edges={[['Ana', 'Beto'], ['Beto', 'Ana'], ['Ana', 'Caro'], ['Caro', 'Beto'], ['Dani', 'Caro']]}
+  tones={{ Beto: 'mark' }}
+  markEdges={[['Ana', 'Beto'], ['Caro', 'Beto']]}
+  caption="a Beto lo siguen dos: grado de entrada 2"
+  label="La misma red con Beto destacado y las dos flechas que llegan a él, desde Ana y desde Caro, marcadas: grado de entrada 2."
+/>
+
+El **grado de entrada** cuenta las flechas que llegan a él: las personas que
+lo siguen. En un grafo sin dirección los dos son el mismo número, el grado.
+
+</Split>
 
 </Slide>
 
@@ -1014,15 +1052,50 @@ tomarlo: la malla no puede tener un ciclo.
 
 </Slide>
 
-<Slide title="Ciclos y árboles">
-Un camino es **simple** si no repite vértices, y un ciclo es **simple** si no
-repite vértices salvo el primero, que es también el último. Un **árbol** es
-un grafo conexo y sin ciclos: entre dos de sus vértices hay exactamente un
-camino simple. Con $$V$$ vértices tiene exactamente $$V - 1$$ aristas: con
-una menos deja de ser conexo, y con una más cierra un ciclo. Un árbol con
-raíz es un árbol en el que se elige un vértice como raíz.
+<Slide title="Caminos y ciclos simples">
+<Split ratio="60/40">
 
-<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.5rem 2rem', alignItems: 'end' }}>
+Un camino es **simple** si no repite vértices. Un camino que pasa dos veces
+por el mismo vértice no es simple.
+
+<NodeGraph
+  cols={3}
+  rows={3}
+  nodes={[{ v: 'A', x: 0, y: 0 }, { v: 'B', x: 0, y: 2 }, { v: 'C', x: 1, y: 1 }, { v: 'D', x: 2, y: 0 }, { v: 'E', x: 2, y: 2 }]}
+  edges={[['A', 'B'], ['A', 'C'], ['B', 'C'], ['C', 'D'], ['C', 'E'], ['D', 'E']]}
+  markEdges={[['A', 'B'], ['B', 'C'], ['C', 'D']]}
+  caption="A, B, C, D: un camino simple"
+  label="Dos triángulos que comparten el vértice C. Marcado, el camino A, B, C, D, que no repite ningún vértice."
+/>
+
+</Split>
+
+<Split ratio="40/60">
+
+<NodeGraph
+  cols={3}
+  rows={3}
+  nodes={[{ v: 'A', x: 0, y: 0 }, { v: 'B', x: 0, y: 2 }, { v: 'C', x: 1, y: 1 }, { v: 'D', x: 2, y: 0 }, { v: 'E', x: 2, y: 2 }]}
+  edges={[['A', 'B'], ['A', 'C'], ['B', 'C'], ['C', 'D'], ['C', 'E'], ['D', 'E']]}
+  markEdges={[['A', 'B'], ['B', 'C'], ['C', 'A']]}
+  caption="A, B, C, A: un ciclo simple"
+  label="Los mismos dos triángulos. Marcado, el ciclo A, B, C, que vuelve a A sin repetir otro vértice."
+/>
+
+Un ciclo es **simple** si no repite vértices, salvo el primero, que también es
+el último.
+
+</Split>
+
+</Slide>
+
+<Slide title="Árboles">
+<Split ratio="60/40">
+
+Un **árbol** es un grafo conexo y sin ciclos. Entre dos de sus vértices hay
+exactamente un camino simple. Un árbol con raíz es un árbol en el que se elige
+un vértice como raíz.
+
 <NodeGraph
   cols={3}
   rows={3}
@@ -1031,16 +1104,25 @@ raíz es un árbol en el que se elige un vértice como raíz.
   caption="V = 5 y 4 aristas: un árbol"
   label="Un árbol de cinco vértices y cuatro aristas: A unido con B y con C, B con D y C con E."
 />
+
+</Split>
+
+<Split ratio="40/60">
+
 <NodeGraph
   cols={3}
   rows={3}
   nodes={[{ v: 'A', x: 1, y: 0 }, { v: 'B', x: 0, y: 1 }, { v: 'C', x: 2, y: 1 }, { v: 'D', x: 0, y: 2 }, { v: 'E', x: 2, y: 2 }]}
   edges={[['A', 'B'], ['A', 'C'], ['B', 'D'], ['C', 'E'], ['D', 'E']]}
   markEdges={[['D', 'E']]}
-  caption="una arista más, D-E, cierra un ciclo"
+  caption="una arista más cierra un ciclo"
   label="El mismo árbol con una quinta arista, D-E, marcada: cierra el ciclo A, B, D, E, C, y ya no es un árbol."
 />
-</div>
+
+Un árbol con $$V$$ vértices tiene exactamente $$V - 1$$ aristas: con una
+menos deja de ser conexo, y con una más cierra un ciclo.
+
+</Split>
 
 </Slide>
 
