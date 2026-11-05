@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   NODE_R,
   layoutNodeGraph,
+  pointOnEdge,
   type NodeGraphEdge,
   type NodeGraphNode,
   type Point,
@@ -68,6 +69,21 @@ describe('layoutNodeGraph', () => {
     const b = at.get('B')!;
     expect(edges[0].weight).toBe('7');
     expect(edges[0].weightAt).toEqual({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 });
+  });
+
+  it('finds a point along each edge, its middle apart for parallel edges', () => {
+    const { edges, at } = lay(TWO, [
+      ['A', 'B'],
+      ['A', 'B'],
+      ['A', 'B'],
+    ]);
+    const a = at.get('A')!;
+    const b = at.get('B')!;
+    expect(pointOnEdge(edges[1], 0)).toEqual(a);
+    expect(pointOnEdge(edges[1], 1)).toEqual(b);
+    const middles = edges.map((e) => pointOnEdge(e, 0.5));
+    expect(middles).toContainEqual({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 });
+    expect(new Set(middles.map((m) => `${m.x},${m.y}`)).size).toBe(3);
   });
 
   it('puts a note on the side its edges leave free', () => {

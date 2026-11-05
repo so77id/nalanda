@@ -31,6 +31,27 @@ export interface LaidEdge {
   weight?: string;
   /** Where the weight's chip goes: the middle of the drawn edge. */
   weightAt?: Point;
+  /**
+   * The edge as a quadratic curve between the two node centres, untrimmed: a
+   * straight edge has its control point in the middle. `pointOnEdge` reads it.
+   */
+  curve: { from: Point; control: Point; to: Point };
+}
+
+/**
+ * The point a fraction `t` of the way along an edge, from its `from` node
+ * (t = 0) to its `to` node (t = 1). At t = 1/2 it is the middle of the drawn
+ * line, on its bulge when it is one of several parallel edges.
+ */
+export function pointOnEdge(edge: LaidEdge, t: number): Point {
+  const { from, control, to } = edge.curve;
+  const a = (1 - t) * (1 - t);
+  const b = 2 * (1 - t) * t;
+  const c = t * t;
+  return {
+    x: r1(a * from.x + b * control.x + c * to.x),
+    y: r1(a * from.y + b * control.y + c * to.y),
+  };
 }
 
 export interface NodeGraphLayout {
@@ -208,7 +229,8 @@ export function layoutNodeGraph({
       weight === undefined
         ? undefined
         : { x: r1(mid.x + normal.x * bulge), y: r1(mid.y + normal.y * bulge) };
-    return { key: `${from}>${to}`, from, to, d, arrow, weight, weightAt };
+    const curve = { from: p, control: c, to: q };
+    return { key: `${from}>${to}`, from, to, d, arrow, weight, weightAt, curve };
   });
 
   const noteAt = new Map<string, Point>();

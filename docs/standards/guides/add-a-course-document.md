@@ -1501,7 +1501,10 @@ Both are pure markup with no package of their own and register eagerly, as
 **`<PenTrace>`** (#356) is the experiment before Euler's rule: a figure the
 reader traces without lifting the pen, pressing the points one after
 another. It refuses a jump and a stroke drawn twice, and says how many
-strokes are left, when the tracing is stuck and when it is done. `figure`
+strokes are left, when the tracing is stuck and when it is done. The last
+stroke drawn is marked; on a lettered graph every drawn stroke carries its
+step number and a line below writes the points in order, so the order of a
+tracing — Resolver's included — stays readable after it is drawn. `figure`
 draws unlabelled dots, so the figure looks like the drawing; without it the
 points are lettered vertices (Königsberg). Put a point wherever strokes meet
 or cross — the class builds each figure's graph that way. `solvable` adds a

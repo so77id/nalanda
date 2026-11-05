@@ -123,6 +123,43 @@ describe('PenTrace', () => {
     expect(statusOf(container)).toBe('empty');
   });
 
+  it('numbers each drawn stroke by the step that drew it, on a lettered graph', () => {
+    const { container } = render(<PenTrace {...KITE} />);
+    press('D', 'C', 'A');
+    const steps = [...container.querySelectorAll('[data-step]')].map((g) => [
+      g.getAttribute('data-step'),
+      g.getAttribute('data-of'),
+    ]);
+    expect(steps).toEqual([
+      ['1', '3'],
+      ['2', '2'],
+    ]);
+  });
+
+  it('marks the last stroke drawn', () => {
+    const { container } = render(<PenTrace {...KITE} />);
+    press('D', 'C', 'A');
+    const last = container.querySelectorAll('[data-stroke][data-last]');
+    expect(last).toHaveLength(1);
+    expect(last[0].getAttribute('data-stroke')).toBe('2');
+  });
+
+  it('writes the points below in the order the pen visits them', () => {
+    const { container } = render(<PenTrace {...KITE} />);
+    const order = () => container.querySelector('[data-trace-order]')!.textContent!.trim();
+    expect(order()).toBe('');
+    press('D', 'C', 'A');
+    expect(order()).toBe('D → C → A');
+  });
+
+  it('keeps a figure without step numbers or the order of its points', () => {
+    const { container } = render(<PenTrace {...KITE} figure />);
+    press('D', 'C', 'A');
+    expect(container.querySelector('[data-step]')).toBeNull();
+    expect(container.querySelector('[data-trace-order]')).toBeNull();
+    expect(container.querySelector('[data-stroke][data-last]')).not.toBeNull();
+  });
+
   it('presses a point from the keyboard', () => {
     const { container } = render(<PenTrace {...KITE} />);
     fireEvent.keyDown(screen.getByRole('button', { name: 'Punto C' }), { key: 'Enter' });

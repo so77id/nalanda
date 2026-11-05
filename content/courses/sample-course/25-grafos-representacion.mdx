@@ -617,11 +617,16 @@ Un puente más cambiaría la respuesta:
 </Slide>
 
 <Slide title="Un camino euleriano y un ciclo euleriano">
-Con un puente más entre B y C, Königsberg tendría un camino euleriano, de A a
-D. Con otro más entre A y D, tendría un ciclo euleriano. Resolver dibuja uno
-de cada uno, arista por arista.
+Con un puente más, a Königsberg le quedarían solo dos vértices de grado impar,
+y tendría un camino euleriano: parte en uno de los dos y termina en el otro.
+Con dos puentes más, no le quedaría ninguno impar, y tendría un ciclo
+euleriano: termina donde empezó.
 
-<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '0.5rem 1.5rem', alignItems: 'end' }}>
+Resolver dibuja uno de cada uno. Cada puente lleva el número del paso en que se
+cruza, y debajo queda el orden de los vértices.
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '0.5rem 1.5rem', alignItems: 'start' }}>
+<figure style={{ margin: 0 }}>
 <PenTrace
   solvable
   cols={3}
@@ -630,6 +635,9 @@ de cada uno, arista por arista.
   edges={[['A', 'B'], ['A', 'B'], ['A', 'C'], ['A', 'C'], ['A', 'D'], ['B', 'D'], ['C', 'D'], ['B', 'C']]}
   label="Königsberg con un octavo puente entre B y C, para recorrer cada arista una sola vez. Tiene dos vértices impares, A y D."
 />
+<figcaption style={{ marginTop: '-1rem', textAlign: 'center', fontSize: '0.85rem', color: 'var(--color-ink-soft)' }}>un puente más, B-C: un camino de A a D</figcaption>
+</figure>
+<figure style={{ margin: 0 }}>
 <PenTrace
   solvable
   cols={3}
@@ -638,6 +646,8 @@ de cada uno, arista por arista.
   edges={[['A', 'B'], ['A', 'B'], ['A', 'C'], ['A', 'C'], ['A', 'D'], ['B', 'D'], ['C', 'D'], ['B', 'C'], ['A', 'D']]}
   label="Königsberg con dos puentes más, entre B y C y entre A y D, para recorrer cada arista una sola vez. No tiene vértices impares."
 />
+<figcaption style={{ marginTop: '-1rem', textAlign: 'center', fontSize: '0.85rem', color: 'var(--color-ink-soft)' }}>dos puentes más, B-C y A-D: un ciclo</figcaption>
+</figure>
 </div>
 
 </Slide>

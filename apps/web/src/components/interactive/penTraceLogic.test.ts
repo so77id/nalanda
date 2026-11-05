@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import type { NodeGraphEdge } from '../nodeGraphLayout';
+import { NODE_R, layoutNodeGraph, type NodeGraphEdge } from '../nodeGraphLayout';
 import {
   EMPTY_TRACE,
   attempts,
@@ -8,6 +8,7 @@ import {
   solve,
   status,
   step,
+  stepMarks,
   undo,
   type TraceState,
 } from './penTraceLogic';
@@ -188,5 +189,70 @@ describe('attempts', () => {
 
   it('skips a point no stroke reaches', () => {
     expect(attempts(KITE, ['Z', 'A'], 2).map((t) => t[0])).toEqual(['A']);
+  });
+});
+
+describe('stepMarks', () => {
+  // Königsberg with a bridge B–C: B–C and A–D cross at the middle of the drawing.
+  const nodes = [
+    { v: 'B', x: 1, y: 0 },
+    { v: 'A', x: 0, y: 1 },
+    { v: 'D', x: 2, y: 1 },
+    { v: 'C', x: 1, y: 2 },
+  ];
+  const edges: NodeGraphEdge[] = [
+    ['A', 'B'],
+    ['A', 'B'],
+    ['A', 'C'],
+    ['A', 'C'],
+    ['A', 'D'],
+    ['B', 'D'],
+    ['C', 'D'],
+    ['B', 'C'],
+  ];
+  const layout = layoutNodeGraph({ nodes, edges, cols: 3, rows: 3, directed: false, trim: true });
+  const SPACE = { gap: 16, clear: NODE_R + 8, side: 9 };
+  const walk = (...points: string[]) => points.reduce((t, p) => step(edges, t, p)!, EMPTY_TRACE);
+
+  it('numbers each drawn stroke by its step, at the middle of the stroke when it is free', () => {
+    const marks = stepMarks(layout, walk('A', 'D', 'B'), SPACE);
+    expect(marks.map((m) => [m.stroke, m.step])).toEqual([
+      [4, 1],
+      [5, 2],
+    ]);
+    const ad = layout.edges[4].curve;
+    expect(marks[0]).toMatchObject({
+      x: (ad.from.x + ad.to.x) / 2,
+      y: (ad.from.y + ad.to.y) / 2,
+    });
+  });
+
+  it.each([
+    ['one more bridge, B–C', edges],
+    ['two more bridges, B–C and A–D', [...edges, ['A', 'D']] as NodeGraphEdge[]],
+  ])('keeps every number off the points and apart from the others: %s', (_name, graph) => {
+    const laid = layoutNodeGraph({
+      nodes,
+      edges: graph,
+      cols: 3,
+      rows: 3,
+      directed: false,
+      trim: true,
+    });
+    const tour = solve(
+      graph,
+      nodes.map((n) => n.v),
+    )!;
+    const trace = tour.reduce((t, p) => step(graph, t, p)!, EMPTY_TRACE);
+    const marks = stepMarks(laid, trace, SPACE);
+    expect(marks).toHaveLength(graph.length);
+    for (const m of marks) {
+      for (const p of laid.at.values()) {
+        expect(Math.hypot(m.x - p.x, m.y - p.y)).toBeGreaterThanOrEqual(SPACE.clear);
+      }
+      for (const o of marks) {
+        if (o !== m) expect(Math.hypot(m.x - o.x, m.y - o.y)).toBeGreaterThanOrEqual(SPACE.gap);
+      }
+    }
   });
 });

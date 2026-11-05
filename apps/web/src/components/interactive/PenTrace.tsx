@@ -1,5 +1,5 @@
 import { Lightbulb, RotateCcw, Search, Undo2 } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { Fragment, useEffect, useState } from 'react';
 
 import { AuthoringError } from '../AuthoringError';
 import {
@@ -15,6 +15,7 @@ import {
   solve,
   status,
   step,
+  stepMarks,
   undo,
   type TraceState,
   type TraceStatus,
@@ -54,6 +55,14 @@ export const STUCK_STEPS = 3;
 export const ATTEMPTS = 5;
 
 const DOT_R = 6;
+/** The circle that carries a drawn stroke's step number, on a lettered graph. */
+const STEP_R = 7;
+/**
+ * How far a step number keeps from the others (two circles and a little air)
+ * and from a point's centre (the point, the circle and a little air), and how
+ * far it steps off its stroke when the stroke has no room left.
+ */
+const STEP_SPACE = { gap: 2 * STEP_R + 2, clear: NODE_R + STEP_R + 1, side: STEP_R + 2 };
 /** The invisible circle a press lands on, larger than a dot. */
 const HIT_R = 16;
 
@@ -159,6 +168,7 @@ function Tracer({
   const start = trace.path[0];
   const here = trace.path[trace.path.length - 1];
   const drawn = new Set(trace.used);
+  const lastStroke = trace.used[trace.used.length - 1];
 
   /** A press stops a loop of attempts and puts the pen down by hand; a solution under way ignores it. */
   const press = (v: string) => {
@@ -245,20 +255,54 @@ function Tracer({
       >
         {layout.edges.map((e, i) => {
           const done = drawn.has(i);
+          const last = i === lastStroke;
           return (
             <path
               key={`${e.key}#${i}`}
               data-stroke={i}
               data-drawn={done ? '' : undefined}
+              data-last={last ? '' : undefined}
               d={e.d}
               fill="none"
-              style={{ stroke: done ? 'var(--color-keep)' : 'var(--color-rule-strong)' }}
+              style={{
+                stroke: last
+                  ? 'var(--color-mark)'
+                  : done
+                    ? 'var(--color-keep)'
+                    : 'var(--color-rule-strong)',
+              }}
               strokeWidth={done ? 3.4 : 1.4}
               strokeDasharray={done ? undefined : '4 4'}
               strokeLinecap="round"
             />
           );
         })}
+        {figure
+          ? null
+          : stepMarks(layout, trace, STEP_SPACE).map(({ stroke, step, x, y }) => {
+              const tone = stroke === lastStroke ? 'mark' : 'keep';
+              return (
+                <g key={`step${stroke}`} data-step={step} data-of={stroke} aria-hidden="true">
+                  <circle
+                    cx={x}
+                    cy={y}
+                    r={STEP_R}
+                    style={{ fill: 'var(--color-surface)', stroke: `var(--color-${tone})` }}
+                    strokeWidth={1.6}
+                  />
+                  <text
+                    x={x}
+                    y={y + 3.5}
+                    textAnchor="middle"
+                    fontSize="10"
+                    fontWeight="700"
+                    style={{ fill: 'var(--color-ink)' }}
+                  >
+                    {step}
+                  </text>
+                </g>
+              );
+            })}
         {nodes.map((n) => {
           const v = String(n.v);
           const { x, y } = at.get(v)!;
@@ -333,6 +377,21 @@ function Tracer({
           );
         })}
       </svg>
+      {figure ? null : (
+        <p
+          data-trace-order
+          className="min-h-6 px-3 pb-2 text-center font-mono text-xs text-ink-soft"
+        >
+          {trace.path.map((p, i) => (
+            <Fragment key={i}>
+              {i > 0 ? <span aria-hidden="true"> → </span> : null}
+              <span className={i === trace.path.length - 1 ? 'font-bold text-ink' : undefined}>
+                {p}
+              </span>
+            </Fragment>
+          ))}
+        </p>
+      )}
       <div className="flex flex-wrap items-center gap-2 border-t border-rule bg-sunk px-3 py-2 text-xs">
         <p role="status" aria-live="polite" className={messageClass}>
           {message}

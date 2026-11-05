@@ -1,4 +1,4 @@
-import type { NodeGraphEdge } from '../nodeGraphLayout';
+import { pointOnEdge, type NodeGraphEdge, type NodeGraphLayout } from '../nodeGraphLayout';
 
 /** A tracing in progress: the points visited, in order, and the strokes drawn. */
 export interface TraceState {
@@ -131,4 +131,68 @@ export function attempts(edges: NodeGraphEdge[], order: string[], count: number)
       state = { path: [...state.path, next], used: [...state.used, k] };
     }
   });
+}
+
+/** A drawn stroke's step number and where it is written. */
+export interface StepMark {
+  stroke: number;
+  step: number;
+  x: number;
+  y: number;
+}
+
+/**
+ * Where along its stroke a step number may go, best first: the middle, then
+ * a little nearer where the step began, a little nearer where it ended, and
+ * so on outwards.
+ */
+const SPOTS = [0.5, 0.44, 0.56, 0.38, 0.62, 0.32, 0.68, 0.26, 0.74, 0.2, 0.8, 0.14, 0.86];
+
+/**
+ * The step numbers of a tracing on a laid-out graph: each drawn stroke gets
+ * the number of the step that drew it, at the middle of the stroke, or at the
+ * first spot along it that is at least `gap` from every number written
+ * before and `clear` from every point's centre. When the stroke has no such
+ * spot — where several strokes cross — the number steps `side` off the
+ * stroke, beside it. Failing even that, it takes the spot off the points
+ * that stands furthest from the numbers already written.
+ */
+export function stepMarks(
+  { edges, at }: Pick<NodeGraphLayout, 'edges' | 'at'>,
+  trace: TraceState,
+  { gap, clear, side }: { gap: number; clear: number; side: number },
+): StepMark[] {
+  const marks: StepMark[] = [];
+  const points = [...at.values()];
+  const nearest = (p: { x: number; y: number }, qs: { x: number; y: number }[]) =>
+    Math.min(Infinity, ...qs.map((q) => Math.hypot(p.x - q.x, p.y - q.y)));
+  trace.used.forEach((k, i) => {
+    const edge = edges[k];
+    const forward = edge.from === trace.path[i];
+    const along = (t: number) => pointOnEdge(edge, forward ? t : 1 - t);
+    const beside = (t: number, sign: number) => {
+      const p = along(t);
+      const a = along(t - 0.01);
+      const b = along(t + 0.01);
+      const len = Math.hypot(b.x - a.x, b.y - a.y) || 1;
+      return {
+        x: p.x - ((b.y - a.y) / len) * side * sign,
+        y: p.y + ((b.x - a.x) / len) * side * sign,
+      };
+    };
+    const spots = [...SPOTS.map(along), ...SPOTS.flatMap((t) => [beside(t, 1), beside(t, -1)])];
+    const clearOfPoints = spots.filter((p) => nearest(p, points) >= clear);
+    const free =
+      clearOfPoints.find((p) => nearest(p, marks) >= gap) ??
+      [...(clearOfPoints.length > 0 ? clearOfPoints : spots)].sort(
+        (p, q) => nearest(q, marks) - nearest(p, marks),
+      )[0];
+    marks.push({
+      stroke: k,
+      step: i + 1,
+      x: Math.round(free.x * 10) / 10,
+      y: Math.round(free.y * 10) / 10,
+    });
+  });
+  return marks;
 }
