@@ -10,6 +10,7 @@ import {
 } from '../nodeGraphLayout';
 import {
   EMPTY_TRACE,
+  attempts,
   remaining,
   solve,
   status,
@@ -38,6 +39,12 @@ export interface PenTraceProps {
 
 /** How long each step of a solution stays on screen, in milliseconds. */
 export const STEP_MS = 450;
+
+/** How many steps a failed attempt stays stuck on screen before the next one. */
+export const STUCK_STEPS = 3;
+
+/** How many failed attempts a figure with no solution shows, in a loop. */
+export const ATTEMPTS = 5;
 
 const DOT_R = 6;
 /** The invisible circle a press lands on, larger than a dot. */
@@ -87,7 +94,9 @@ function Tracer({
   /** The tracings still to show of a solution under way, one per step. */
   const [frames, setFrames] = useState<TraceState[] | null>(null);
   const [impossible, setImpossible] = useState(false);
-  const solving = frames !== null;
+  /** For a figure with no solution: failed attempts shown in a loop, and where it is. */
+  const [loop, setLoop] = useState<{ frames: TraceState[]; at: number } | null>(null);
+  const solving = frames !== null || loop !== null;
 
   useEffect(() => {
     if (frames === null) return;
@@ -98,6 +107,15 @@ function Tracer({
     }, STEP_MS);
     return () => window.clearTimeout(id);
   }, [frames]);
+
+  useEffect(() => {
+    if (loop === null) return;
+    const id = window.setTimeout(() => {
+      setTrace(loop.frames[loop.at]);
+      setLoop({ frames: loop.frames, at: (loop.at + 1) % loop.frames.length });
+    }, STEP_MS);
+    return () => window.clearTimeout(id);
+  }, [loop]);
   const layout = layoutNodeGraph({ nodes, edges, cols, rows, directed: false, trim: !figure });
   const { width, drawingH, at } = layout;
   const state = status(edges, trace);
@@ -114,6 +132,7 @@ function Tracer({
   };
   const reset = (next: TraceState) => {
     setFrames(null);
+    setLoop(null);
     setImpossible(false);
     setRefused(false);
     setTrace(next);
@@ -125,7 +144,23 @@ function Tracer({
     );
     setRefused(false);
     if (points === null) {
+      const tries = attempts(
+        edges,
+        nodes.map((n) => String(n.v)),
+        ATTEMPTS,
+      );
+      const loopFrames: TraceState[] = [];
+      for (const tryPoints of tries) {
+        let t = EMPTY_TRACE;
+        for (const p of tryPoints) {
+          t = step(edges, t, p)!;
+          loopFrames.push(t);
+        }
+        for (let k = 0; k < STUCK_STEPS; k++) loopFrames.push(t);
+      }
       setImpossible(true);
+      setTrace(EMPTY_TRACE);
+      setLoop(loopFrames.length > 0 ? { frames: loopFrames, at: 0 } : null);
       return;
     }
     const steps: TraceState[] = [];

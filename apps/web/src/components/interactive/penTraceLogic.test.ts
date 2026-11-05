@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import type { NodeGraphEdge } from '../nodeGraphLayout';
 import {
   EMPTY_TRACE,
+  attempts,
   remaining,
   solve,
   status,
@@ -168,5 +169,24 @@ describe('solve', () => {
 
   it('has no solution when the strokes are in two pieces', () => {
     expect(solve(TWO_TRIANGLES, ['A', 'B', 'C', 'D', 'E', 'F'])).toBeNull();
+  });
+});
+
+describe('attempts', () => {
+  it('tries once from each of the first points, in the order given', () => {
+    const tries = attempts(ENVELOPE, ['A', 'B', 'E', 'C', 'D'], 4);
+    expect(tries.map((t) => t[0])).toEqual(['A', 'B', 'E', 'C']);
+  });
+
+  it('ends every try stuck, with strokes still to draw', () => {
+    for (const points of attempts(KONIGSBERG, ['B', 'A', 'D', 'C'], 4)) {
+      const state = walk(KONIGSBERG, points)!;
+      expect(status(KONIGSBERG, state)).toBe('stuck');
+      expect(remaining(KONIGSBERG, state)).toBeGreaterThan(0);
+    }
+  });
+
+  it('skips a point no stroke reaches', () => {
+    expect(attempts(KITE, ['Z', 'A'], 2).map((t) => t[0])).toEqual(['A']);
   });
 });

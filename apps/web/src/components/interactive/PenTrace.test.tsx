@@ -2,7 +2,7 @@ import { act, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { ModeProvider } from '../../presentation';
-import { PenTrace, STEP_MS, type PenTraceProps } from './PenTrace';
+import { ATTEMPTS, PenTrace, STEP_MS, type PenTraceProps } from './PenTrace';
 
 /** A triangle A, B, C with a tail C–D: it can be traced from D, ending at C. */
 const KITE: PenTraceProps = {
@@ -170,11 +170,29 @@ describe('PenTrace', () => {
     expect(said()).toMatch(/^Figura completa/);
   });
 
-  it('says when a figure cannot be drawn in one stroke, and draws nothing', () => {
+  it('says at once when a figure cannot be drawn in one stroke', () => {
     const { container } = render(<PenTrace {...SQUARE_WITH_DIAGONALS} solvable />);
     fireEvent.click(screen.getByRole('button', { name: /Resolver/ }));
     expect(said()).toBe('Esta figura no se puede dibujar de un solo trazo, empiece donde empiece.');
     expect(drawn(container)).toBe(0);
+  });
+
+  it('loops through failed attempts when there is none, keeping the message', () => {
+    vi.useFakeTimers();
+    const { container } = render(<PenTrace {...SQUARE_WITH_DIAGONALS} solvable />);
+    fireEvent.click(screen.getByRole('button', { name: /Resolver/ }));
+    tick(3);
+    expect(drawn(container)).toBeGreaterThan(0);
+    expect(said()).toBe('Esta figura no se puede dibujar de un solo trazo, empiece donde empiece.');
+    const starts = new Set<string>();
+    for (let i = 0; i < 80; i++) {
+      tick(1);
+      const start = container.querySelector('[data-start]')?.getAttribute('data-point');
+      if (start) starts.add(start);
+      if (statusOf(container) === 'done') throw new Error('an attempt drew every stroke');
+    }
+    expect(starts.size).toBe(Math.min(ATTEMPTS, 4));
+    expect(said()).toBe('Esta figura no se puede dibujar de un solo trazo, empiece donde empiece.');
   });
 
   it('ignores the points while it shows a solution', () => {

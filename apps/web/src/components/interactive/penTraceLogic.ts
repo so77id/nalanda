@@ -103,3 +103,32 @@ export function solve(edges: NodeGraphEdge[], order: string[]): string[] | null 
   }
   return drawn.size === edges.length ? tour.reverse() : null;
 }
+
+/**
+ * Up to `count` ways of trying to draw a figure that has no solution, as the
+ * points to press in order: from each of the first points of `order` that
+ * have a stroke, the pen keeps taking the first free stroke at the point it is
+ * on, and stops where none is left. Every attempt ends stuck with strokes
+ * still to draw, because the figure has no tracing (#356).
+ */
+export function attempts(edges: NodeGraphEdge[], order: string[], count: number): string[][] {
+  const ends = new Set(edges.flatMap(([a, b]) => [String(a), String(b)]));
+  const starts = order
+    .map(String)
+    .filter((v) => ends.has(v))
+    .slice(0, count);
+  return starts.map((start) => {
+    let state: TraceState = { path: [start], used: [] };
+    for (;;) {
+      const here = state.path[state.path.length - 1];
+      const taken = new Set(state.used);
+      const k = edges.findIndex(
+        ([a, b], i) => !taken.has(i) && (String(a) === here || String(b) === here),
+      );
+      if (k === -1) return state.path;
+      const [a, b] = edges[k];
+      const next = String(a) === here ? String(b) : String(a);
+      state = { path: [...state.path, next], used: [...state.used, k] };
+    }
+  });
+}

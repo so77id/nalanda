@@ -1506,7 +1506,9 @@ draws unlabelled dots, so the figure looks like the drawing; without it the
 points are lettered vertices (Königsberg). Put a point wherever strokes meet
 or cross — the class builds each figure's graph that way. `solvable` adds a
 Resolver button that draws one solution stroke by stroke, or says the figure
-cannot be traced from any point, without saying why: the why is Euler's rule.
+cannot be traced from any point, without saying why (the why is Euler's rule),
+and loops through failed attempts from different points; Empezar de nuevo
+stops it.
 It loads on demand, like `<HanoiPlayground>`; its catalog page carries the
 props.
 

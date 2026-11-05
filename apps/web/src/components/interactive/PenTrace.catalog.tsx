@@ -7,7 +7,7 @@ export const penTraceCatalogEntry: CatalogEntry = {
   name: 'PenTrace',
   family: 'interactive',
   description:
-    'A figure to trace without lifting the pen. The reader presses a point to put the pen down, then, one after another, the points to draw the strokes to; a drawn stroke turns keep and thick, the rest stays dashed. It refuses a jump to a point no free stroke reaches and a stroke drawn twice, and a live status line says how many strokes are left, when the tracing is stuck (in flag) and when it is done (in keep) — and whether it ended where it began. The starting point keeps a ring; Deshacer and Empezar de nuevo undo. With `solvable`, a Resolver button draws one way to trace the figure, stroke by stroke from its starting point, or says in the status line that there is none, without saying why.',
+    'A figure to trace without lifting the pen. The reader presses a point to put the pen down, then, one after another, the points to draw the strokes to; a drawn stroke turns keep and thick, the rest stays dashed. It refuses a jump to a point no free stroke reaches and a stroke drawn twice, and a live status line says how many strokes are left, when the tracing is stuck (in flag) and when it is done (in keep) — and whether it ended where it began. The starting point keeps a ring; Deshacer and Empezar de nuevo undo. With `solvable`, a Resolver button draws one way to trace the figure, stroke by stroke from its starting point, or, when there is none, says so in red in the status line, without saying why, and loops through failed attempts from different starting points, each drawn as far as it gets.',
   whenToUse:
     'When a slide asks the reader to TRY a drawing before the rule that decides it: the house, the envelope, the star, Königsberg (grafos-representacion, #356). The rule itself — the degrees, the odd vertices — is a static <NodeGraph> with notes; PenTrace is the experiment, not the explanation. ' +
     '`figure` draws the points as small unlabelled dots with strokes meeting at their centres, so the figure looks like the drawing; without it, the points are lettered vertices on <NodeGraph>’s geometry, for a graph such as Königsberg, whose parallel strokes bend apart. ' +
@@ -38,7 +38,7 @@ export const penTraceCatalogEntry: CatalogEntry = {
       type: 'boolean',
       default: 'false',
       description:
-        'A Resolver button: it draws one solution stroke by stroke (Hierholzer’s walk from the first odd point, or the first point when none is odd), or says the figure cannot be traced from any point. The why stays out: that is Euler’s rule, which the class teaches after the game.',
+        'A Resolver button: it draws one solution stroke by stroke (Hierholzer’s walk from the first odd point, or the first point when none is odd). When there is none it says the figure cannot be traced from any point and loops through up to five failed attempts, one from each of the first points, each drawn as far as it gets; Empezar de nuevo stops the loop. The why stays out: that is Euler’s rule.',
     },
     {
       name: 'label',
