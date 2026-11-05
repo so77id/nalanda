@@ -635,61 +635,31 @@ entre sí, pero desde los que no se llega a ningún vértice de otro grupo.
 
 </Slide>
 
-<Slide title="Caminos y ciclos eulerianos">
-Un **camino euleriano** es un camino que usa todas las aristas del grafo. Como
-ningún camino repite aristas, pasa por cada una exactamente una vez, y su largo
-es $$|E|$$. Si además vuelve al vértice donde partió, es un **ciclo
-euleriano**.
-
-<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.5rem 2rem', alignItems: 'end' }}>
-<NodeGraph
-  cols={3}
-  rows={3}
-  nodes={[{ v: 'A', x: 0, y: 0 }, { v: 'B', x: 2, y: 0 }, { v: 'C', x: 0, y: 2 }, { v: 'D', x: 2, y: 2 }]}
-  edges={[['A', 'B'], ['B', 'D'], ['D', 'C'], ['C', 'A'], ['A', 'D']]}
-  walk={['A', 'B', 'D', 'C', 'A', 'D']}
-  caption="A → B → D → C → A → D: un camino euleriano"
-  label="Un cuadrado con una diagonal de A a D. Marcado y numerado, el camino de A a B, a D, a C, a A y a D: usa las cinco aristas, una vez cada una."
-/>
-<NodeGraph
-  cols={3}
-  rows={3}
-  nodes={[{ v: 'A', x: 0, y: 0 }, { v: 'B', x: 0, y: 2 }, { v: 'C', x: 1, y: 1 }, { v: 'D', x: 2, y: 0 }, { v: 'E', x: 2, y: 2 }]}
-  edges={[['A', 'B'], ['A', 'C'], ['B', 'C'], ['C', 'D'], ['C', 'E'], ['D', 'E']]}
-  walk={['A', 'B', 'C', 'D', 'E', 'C', 'A']}
-  caption="A → B → C → D → E → C → A: un ciclo euleriano"
-  label="Dos triángulos que comparten el vértice C. Marcado y numerado, el ciclo de A a B, a C, a D, a E, otra vez a C y de vuelta a A: usa las seis aristas, una vez cada una."
-/>
-</div>
-
-</Slide>
-
 <SectionBreak />
 
 ## La respuesta de Euler
 
 <Slide title="La pregunta de Königsberg">
 Con estas palabras, la pregunta del paseo cabe en una línea. Cruzar un puente es
-usar una arista, y no cruzar ninguno dos veces es lo que pide todo camino. Un
-paseo que cruza cada puente una vez es un camino euleriano:
+usar una arista, y no cruzar ninguno dos veces es lo que pide todo camino. El
+paseo que cruza cada puente una vez es un camino que usa todas las aristas:
 
 <NodeGraph
   cols={3}
   rows={3}
   nodes={[{ v: 'B', x: 1, y: 0 }, { v: 'A', x: 0, y: 1 }, { v: 'D', x: 2, y: 1 }, { v: 'C', x: 1, y: 2 }]}
   edges={[['A', 'B'], ['A', 'B'], ['A', 'C'], ['A', 'C'], ['A', 'D'], ['B', 'D'], ['C', 'D']]}
-  caption="¿tiene este grafo un camino euleriano?"
+  caption="¿hay un camino que use todas las aristas?"
   label="El grafo de Königsberg: cuatro vértices, A, B, C y D, y siete aristas. Dos unen A con B, dos unen A con C, y una une A con D, B con D y C con D."
 />
 
 </Slide>
 
 <Slide title="Cada paso por un vértice usa dos aristas">
-Supongamos que el paseo existe: un camino euleriano. Miremos un vértice por el
-que ese camino pasa, sin empezar ni terminar en él: llega por una arista y sale
-por otra. Cada pasada usa **dos** aristas del vértice, y como
-ninguna arista se repite, sus aristas se gastan de a dos: su grado tiene que
-ser par.
+Supongamos que ese camino existe. Miremos un vértice por el que el camino pasa,
+sin empezar ni terminar en él: llega por una arista y sale por otra. Cada pasada
+usa **dos** aristas del vértice, y como ninguna arista se repite, sus aristas se
+gastan de a dos: su grado tiene que ser par.
 
 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.5rem 2rem', alignItems: 'end' }}>
 <NodeGraph
@@ -717,14 +687,14 @@ ser par.
 Solo dos vértices escapan de esa cuenta: el del **comienzo**, de donde el
 camino sale sin haber llegado, y el del **final**, adonde llega sin volver a
 salir. En un ciclo el comienzo y el final son el mismo vértice, y ese también
-usa sus aristas de a dos. **Un camino euleriano deja, a lo más, dos vértices de
-grado impar: su comienzo y su final.**
+usa sus aristas de a dos. **Un camino que usa todas las aristas deja, a lo más,
+dos vértices de grado impar: su comienzo y su final.**
 
 </Slide>
 
 <Slide title="Königsberg no tiene paseo">
-Los cuatro vértices de Königsberg tienen grado impar, y un camino euleriano
-deja a lo más dos. No hay paseo, parta donde parta.
+Los cuatro vértices de Königsberg tienen grado impar, y un camino que usa todas
+las aristas deja a lo más dos. No hay paseo, parta donde parta.
 
 <NodeGraph
   cols={3}
@@ -743,13 +713,42 @@ problema, y contar sus grados.
 
 </Slide>
 
+<Slide title="Caminos y ciclos eulerianos">
+Desde Euler, un camino que usa todas las aristas del grafo se llama **camino
+euleriano**. Como ningún camino repite aristas, pasa por cada una exactamente
+una vez, y su largo es $$|E|$$. Si además vuelve al vértice donde partió, es un
+**ciclo euleriano**.
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.5rem 2rem', alignItems: 'end' }}>
+<NodeGraph
+  cols={3}
+  rows={3}
+  nodes={[{ v: 'A', x: 0, y: 0 }, { v: 'B', x: 2, y: 0 }, { v: 'C', x: 0, y: 2 }, { v: 'D', x: 2, y: 2 }]}
+  edges={[['A', 'B'], ['B', 'D'], ['D', 'C'], ['C', 'A'], ['A', 'D']]}
+  walk={['A', 'B', 'D', 'C', 'A', 'D']}
+  caption="A → B → D → C → A → D: un camino euleriano"
+  label="Un cuadrado con una diagonal de A a D. Marcado y numerado, el camino de A a B, a D, a C, a A y a D: usa las cinco aristas, una vez cada una."
+/>
+<NodeGraph
+  cols={3}
+  rows={3}
+  nodes={[{ v: 'A', x: 0, y: 0 }, { v: 'B', x: 0, y: 2 }, { v: 'C', x: 1, y: 1 }, { v: 'D', x: 2, y: 0 }, { v: 'E', x: 2, y: 2 }]}
+  edges={[['A', 'B'], ['A', 'C'], ['B', 'C'], ['C', 'D'], ['C', 'E'], ['D', 'E']]}
+  walk={['A', 'B', 'C', 'D', 'E', 'C', 'A']}
+  caption="A → B → C → D → E → C → A: un ciclo euleriano"
+  label="Dos triángulos que comparten el vértice C. Marcado y numerado, el ciclo de A a B, a C, a D, a E, otra vez a C y de vuelta a A: usa las seis aristas, una vez cada una."
+/>
+</div>
+
+</Slide>
+
 <Slide title="Los vértices de grado impar son una cantidad par">
 A Königsberg le sobran vértices impares. La pregunta que sigue es cuándo sí hay
 un camino euleriano, y la cuenta ya dice algo: quedan impares, a lo más, el
-comienzo y el final. Que quede uno solo no pasa nunca, y lo dice una suma. En una reunión, si cada persona cuenta
-cuántas manos estrechó y sumamos esos números, cada apretón queda contado dos
-veces. En un grafo, cada arista suma uno al grado de cada uno de sus dos
-extremos:
+comienzo y el final. Que quede uno solo no pasa nunca, y lo dice una suma. En
+una reunión, si cada persona cuenta cuántas manos estrechó y sumamos esos
+números, cada apretón queda contado dos veces. En un grafo, cada arista suma uno
+al grado de cada uno de sus dos extremos:
 
 $$
 \sum_{v} \operatorname{grado}(v) = 2E
