@@ -633,39 +633,185 @@ entrada**, las que llegan a él.
 
 </Slide>
 
-<Slide title="Un mapa de calles y una malla curricular">
+{/* StreetPlan — a street map in one frame at two stages of the modelling pattern (#356): `city` the four streets with their blocks of buildings, one-way arrows and the minutes each stretch takes; `streets` only the corners, lettered, and the stretches with their minutes and senses. The third stage is the graph, a <NodeGraph> beside it. File-local. */}
+
+export function StreetPlan({ stage = 'city', label }) {
+  const at = { A: [80, 60], B: [240, 60], C: [80, 180], D: [240, 180] };
+  const stretches = [['A', 'B', 4, true], ['A', 'C', 3, false], ['C', 'D', 5, false], ['D', 'B', 2, false]];
+  const tip = (x1, y1, x2, y2) => {
+    const d = Math.hypot(x2 - x1, y2 - y1);
+    const ux = (x2 - x1) / d;
+    const uy = (y2 - y1) / d;
+    const bx = x2 - ux * 9;
+    const by = y2 - uy * 9;
+    return `${x2},${y2} ${bx - uy * 5},${by + ux * 5} ${bx + uy * 5},${by - ux * 5}`;
+  };
+  const blocks = [];
+  if (stage === 'city') {
+    for (const [x0, x1] of [[22, 70], [90, 230], [250, 298]]) {
+      for (const [y0, y1] of [[22, 50], [70, 170], [190, 218]]) {
+        const n = Math.max(1, Math.round((x1 - x0) / 50));
+        const m = Math.max(1, Math.round((y1 - y0) / 50));
+        const w = (x1 - x0 - (n - 1) * 5) / n;
+        const h = (y1 - y0 - (m - 1) * 5) / m;
+        for (let i = 0; i < n; i++) for (let j = 0; j < m; j++) blocks.push([x0 + i * (w + 5), y0 + j * (h + 5), w, h]);
+      }
+    }
+  }
+  return (
+    <svg viewBox="0 0 320 240" style={{ width: '100%', maxWidth: '340px', height: 'auto', display: 'block', margin: '0.4rem auto' }} role="img" aria-label={label}>
+      {stage === 'city'
+        ? [[12, 60, 308, 60], [12, 180, 308, 180], [80, 12, 80, 228], [240, 12, 240, 228]].map(([x1, y1, x2, y2], k) => (
+            <line key={`s${k}`} x1={x1} y1={y1} x2={x2} y2={y2} style={{ stroke: 'var(--color-sunk)' }} strokeWidth="18" />
+          ))
+        : null}
+      {blocks.map(([x, y, w, h], k) => (
+        <rect key={`b${k}`} x={x} y={y} width={w} height={h} rx="2" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="0.8" />
+      ))}
+      {stretches.map(([v, w, minutes, both], k) => {
+        const [x1, y1] = at[v];
+        const [x2, y2] = at[w];
+        const mx = (x1 + x2) / 2;
+        const my = (y1 + y2) / 2;
+        const ux = (x2 - x1) / Math.hypot(x2 - x1, y2 - y1);
+        const uy = (y2 - y1) / Math.hypot(x2 - x1, y2 - y1);
+        const chipX = mx + (uy !== 0 ? 30 : 0);
+        const chipY = my + (uy !== 0 ? 0 : -19);
+        return (
+          <g key={`t${k}`}>
+            {stage === 'streets' ? <line x1={x1} y1={y1} x2={x2} y2={y2} style={{ stroke: 'var(--color-rule-strong)' }} strokeWidth="2" /> : null}
+            <polygon points={tip(mx - ux * 14, my - uy * 14, mx + ux * 14, my + uy * 14)} style={{ fill: 'var(--color-ink-soft)' }} />
+            {both ? <polygon points={tip(mx + ux * 14, my + uy * 14, mx - ux * 14, my - uy * 14)} style={{ fill: 'var(--color-ink-soft)' }} /> : null}
+            <rect x={chipX - 25} y={chipY - 10} width="50" height="20" rx="5" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule)' }} strokeWidth="1" />
+            <text x={chipX} y={chipY + 5} textAnchor="middle" fontSize="13" style={{ fill: 'var(--color-ink)' }}>{minutes} min</text>
+          </g>
+        );
+      })}
+      {stage === 'streets'
+        ? Object.entries(at).map(([v, [x, y]]) => (
+            <g key={v}>
+              <circle cx={x} cy={y} r="13" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.4" />
+              <text x={x} y={y + 5} textAnchor="middle" fontSize="14" fontWeight="700" style={{ fill: 'var(--color-ink)' }}>{v}</text>
+            </g>
+          ))
+        : null}
+    </svg>
+  );
+}
+
+<Slide title="Un mapa de calles">
 En un mapa de calles, cada tramo trae un número que el problema usa: los
 minutos que toma. Es un **grafo con pesos**, o **ponderado**, y el número de
 cada arista es su **peso**. Un grafo puede ser dirigido y con pesos a la vez:
-las calles de un solo sentido, con sus minutos.
+una calle de un solo sentido es una flecha, con sus minutos.
 
-<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '0.5rem 2rem', alignItems: 'end' }}>
+<div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'center', gap: '0.5rem 0.75rem' }}>
+<figure style={{ flex: '1 1 190px', margin: 0, textAlign: 'center' }}>
+<StreetPlan stage="city" label="Un plano con cuatro calles que se cruzan en cuatro esquinas, con edificios en las manzanas, flechas de sentido y los minutos de cada tramo: 4 en la calle de arriba, en los dos sentidos; 3 en la de la izquierda, hacia abajo; 5 en la de abajo, hacia la derecha; y 2 en la de la derecha, hacia arriba." />
+<figcaption style={{ fontSize: '0.85rem', color: 'var(--color-ink-soft)' }}>el plano</figcaption>
+</figure>
+<span aria-hidden="true" style={{ fontSize: '1.6rem', color: 'var(--color-ink-soft)' }}>→</span>
+<figure style={{ flex: '1 1 190px', margin: 0, textAlign: 'center' }}>
+<StreetPlan stage="streets" label="El mismo plano sin edificios: las esquinas A, B, C y D, y los cuatro tramos con sus minutos y sentidos." />
+<figcaption style={{ fontSize: '0.85rem', color: 'var(--color-ink-soft)' }}>esquinas, tramos, minutos y sentidos</figcaption>
+</figure>
+<span aria-hidden="true" style={{ fontSize: '1.6rem', color: 'var(--color-ink-soft)' }}>→</span>
+<div style={{ flex: '1 1 190px' }}>
 <NodeGraph
   cols={3}
   rows={3}
   directed
   nodes={[{ v: 'A', x: 0, y: 0 }, { v: 'B', x: 2, y: 0 }, { v: 'C', x: 0, y: 2 }, { v: 'D', x: 2, y: 2 }]}
   edges={[['A', 'B', 4], ['B', 'A', 4], ['A', 'C', 3], ['C', 'D', 5], ['D', 'B', 2]]}
-  caption="calles: minutos y sentidos"
+  caption="el grafo"
   label="Cuatro esquinas, A, B, C y D, con los minutos de cada tramo: entre A y B, 4 en cada sentido; de A a C, 3; de C a D, 5; de D a B, 2. Los tramos de un solo sentido son flechas."
 />
+</div>
+</div>
+
+</Slide>
+
+{/* Curriculum — a curriculum at two stages of the modelling pattern (#356): `table` the courses by semester, each saying which course it asks for; `arrows` the same courses with an arrow from each prerequisite to the course that asks for it. The third stage is the graph, a <NodeGraph> beside it. File-local. */}
+
+export function Curriculum({ stage = 'table', label }) {
+  const W = 118;
+  const H = 50;
+  const at = { 'Cálculo I': [72, 52], 'Álgebra': [206, 52], 'Cálculo II': [72, 146], 'Ecuaciones': [139, 240] };
+  const asks = { 'Cálculo II': ['pide Cálculo I'], 'Ecuaciones': ['pide Cálculo II', 'y Álgebra'] };
+  const arrows = [['Cálculo I', 'Cálculo II'], ['Cálculo II', 'Ecuaciones'], ['Álgebra', 'Ecuaciones']];
+  const tip = (x1, y1, x2, y2) => {
+    const d = Math.hypot(x2 - x1, y2 - y1);
+    const ux = (x2 - x1) / d;
+    const uy = (y2 - y1) / d;
+    const bx = x2 - ux * 10;
+    const by = y2 - uy * 10;
+    return `${x2},${y2} ${bx - uy * 5.5},${by + ux * 5.5} ${bx + uy * 5.5},${by - ux * 5.5}`;
+  };
+  return (
+    <svg viewBox="0 0 278 282" style={{ width: '100%', maxWidth: '300px', height: 'auto', display: 'block', margin: '0.4rem auto' }} role="img" aria-label={label}>
+      {stage === 'table'
+        ? ['1.er semestre', '2.º semestre', '3.er semestre'].map((t, k) => (
+            <text key={t} x="13" y={20 + 94 * k} fontSize="12" fontWeight="600" style={{ fill: 'var(--color-ink-faint)' }}>{t}</text>
+          ))
+        : null}
+      {stage === 'arrows'
+        ? arrows.map(([v, w]) => {
+            const [x1, y1] = [at[v][0], at[v][1] + H / 2];
+            const [x2, y2] = [at[w][0] + (v === 'Álgebra' ? 24 : v === 'Cálculo II' ? -24 : 0), at[w][1] - H / 2];
+            return (
+              <g key={`${v}-${w}`}>
+                <line x1={x1} y1={y1} x2={x2} y2={y2} style={{ stroke: 'var(--color-ink-soft)' }} strokeWidth="1.8" />
+                <polygon points={tip(x1, y1, x2, y2)} style={{ fill: 'var(--color-ink-soft)' }} />
+              </g>
+            );
+          })
+        : null}
+      {Object.entries(at).map(([name, [x, y]]) => {
+        const lines = stage === 'table' ? asks[name] ?? [] : [];
+        const top = y - 6 - lines.length * 7;
+        return (
+          <g key={name}>
+            <rect x={x - W / 2} y={y - H / 2} width={W} height={H} rx="6" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.2" />
+            <text x={x} y={top + 11} textAnchor="middle" fontSize="15" fontWeight="700" style={{ fill: 'var(--color-ink)' }}>{name}</text>
+            {lines.map((t, k) => (
+              <text key={t} x={x} y={top + 26 + 13 * k} textAnchor="middle" fontSize="12" style={{ fill: 'var(--color-ink-soft)' }}>{t}</text>
+            ))}
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
+
+<Slide title="Una malla curricular">
+En una malla, los ramos son vértices, y cada prerrequisito es una flecha que
+va del ramo que se aprueba antes al que lo pide. Si un ramo terminara
+pidiéndose a sí mismo, de prerrequisito en prerrequisito, nadie podría
+tomarlo: la malla no puede tener un ciclo.
+
+<div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'center', gap: '0.5rem 0.75rem' }}>
+<figure style={{ flex: '1 1 190px', margin: 0, textAlign: 'center' }}>
+<Curriculum stage="table" label="Una malla de tres semestres: Cálculo I y Álgebra en el primero, Cálculo II en el segundo, que pide Cálculo I, y Ecuaciones en el tercero, que pide Cálculo II y Álgebra." />
+<figcaption style={{ fontSize: '0.85rem', color: 'var(--color-ink-soft)' }}>la malla</figcaption>
+</figure>
+<span aria-hidden="true" style={{ fontSize: '1.6rem', color: 'var(--color-ink-soft)' }}>→</span>
+<figure style={{ flex: '1 1 190px', margin: 0, textAlign: 'center' }}>
+<Curriculum stage="arrows" label="Los mismos ramos con una flecha de cada prerrequisito al ramo que lo pide: de Cálculo I a Cálculo II, de Cálculo II a Ecuaciones y de Álgebra a Ecuaciones." />
+<figcaption style={{ fontSize: '0.85rem', color: 'var(--color-ink-soft)' }}>qué ramo pide cuál</figcaption>
+</figure>
+<span aria-hidden="true" style={{ fontSize: '1.6rem', color: 'var(--color-ink-soft)' }}>→</span>
+<div style={{ flex: '1 1 190px' }}>
 <NodeGraph
-  cols={5}
-  rows={2}
+  cols={3}
+  rows={3}
   directed
-  nodes={[{ v: 'Cálculo I', x: 0, y: 0 }, { v: 'Cálculo II', x: 3, y: 0 }, { v: 'Álgebra', x: 0, y: 1 }, { v: 'Ecuaciones', x: 3, y: 1 }]}
+  nodes={[{ v: 'Cálculo I', x: 0, y: 0 }, { v: 'Álgebra', x: 2, y: 0 }, { v: 'Cálculo II', x: 0, y: 1 }, { v: 'Ecuaciones', x: 1, y: 2 }]}
   edges={[['Cálculo I', 'Cálculo II'], ['Cálculo II', 'Ecuaciones'], ['Álgebra', 'Ecuaciones']]}
-  caption="malla: del prerrequisito al ramo"
+  caption="el grafo"
   label="Cuatro ramos con sus prerrequisitos: Cálculo I antes de Cálculo II, y Cálculo II y Álgebra antes de Ecuaciones. Cada flecha va del prerrequisito al ramo."
 />
 </div>
-
-- **El mapa**: las esquinas son vértices, cada tramo de calle es una arista
-  con los minutos como peso, y una calle de un solo sentido es una flecha.
-- **La malla**: los ramos son vértices, y cada prerrequisito es una flecha
-  que va del ramo que se aprueba antes al que lo pide. Si un ramo terminara
-  pidiéndose a sí mismo, de prerrequisito en prerrequisito, nadie podría
-  tomarlo: la malla no puede tener un ciclo.
+</div>
 
 </Slide>
 
@@ -699,15 +845,65 @@ raíz es un árbol en el que se elige un vértice como raíz.
 
 </Slide>
 
+{/* River — the ferryman's crossing at two stages of the modelling pattern (#356): `river` the two banks, the river and the boat, with the ferryman, the wolf, the goat and the cabbage on the starting bank; `states` two trips written as states, what stays on the starting bank, so the state graph beside it reads. File-local. */}
+
+export function River({ stage = 'river', label }) {
+  const tag = (x, y, t, k) => (
+    <g key={k}>
+      <rect x={x - 42} y={y - 12} width="84" height="24" rx="12" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.2" />
+      <text x={x} y={y + 4} textAnchor="middle" fontSize="12" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{t}</text>
+    </g>
+  );
+  const arrow = (x1, x2, y, text, k) => (
+    <g key={k}>
+      <line x1={x1} y1={y} x2={x2 - 8} y2={y} style={{ stroke: 'var(--color-ink-soft)' }} strokeWidth="1.6" />
+      <polygon points={`${x2},${y} ${x2 - 9},${y - 5} ${x2 - 9},${y + 5}`} style={{ fill: 'var(--color-ink-soft)' }} />
+      <text x={(x1 + x2) / 2} y={y + 18} textAnchor="middle" fontSize="10.5" style={{ fill: 'var(--color-ink-soft)' }}>{text}</text>
+    </g>
+  );
+  return (
+    <svg viewBox="0 0 320 180" style={{ width: '100%', maxWidth: '340px', height: 'auto', display: 'block', margin: '0.4rem auto' }} role="img" aria-label={label}>
+      {stage === 'river' ? (
+        <>
+          <rect x="112" y="8" width="96" height="164" style={{ fill: 'var(--color-sunk)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1" />
+          {['barquero', 'lobo', 'cabra', 'repollo'].map((t, k) => tag(56, 34 + 38 * k, t, t))}
+          <polygon points="122,82 168,82 160,100 130,100" style={{ fill: 'var(--color-rule-strong)' }} />
+          <line x1="128" y1="66" x2="192" y2="66" style={{ stroke: 'var(--color-ink-soft)' }} strokeWidth="1.4" strokeDasharray="4 4" />
+          <polygon points="200,66 191,61 191,71" style={{ fill: 'var(--color-ink-soft)' }} />
+          <text x="264" y="94" textAnchor="middle" fontSize="11" style={{ fill: 'var(--color-ink-faint)' }}>la otra orilla</text>
+        </>
+      ) : (
+        <>
+          {tag(52, 52, 'BLCR', 'a')}
+          {arrow(98, 222, 52, 'cruza con la cabra', 'x')}
+          {tag(268, 52, 'LR', 'b')}
+          {tag(52, 128, 'LR', 'c')}
+          {arrow(98, 222, 128, 'vuelve solo', 'y')}
+          {tag(268, 128, 'BLR', 'd')}
+        </>
+      )}
+    </svg>
+  );
+}
+
 <Slide title="Un grafo de estados">
 Un barquero tiene que cruzar un río con un lobo, una cabra y un repollo. El
-bote lleva al barquero y a lo más una cosa más. Si el barquero no está, el
-lobo se come a la cabra y la cabra se come el repollo.
+bote lleva al barquero y a lo más una cosa más, y si el barquero no está, el
+lobo se come a la cabra y la cabra se come el repollo. Cada **estado**, lo que
+sigue en la orilla de partida, es un vértice, y cada viaje que no deja a
+nadie en peligro es una arista. Cruzar el río es llegar de un vértice a otro.
 
-Cada **estado**, lo que sigue en la orilla de partida, es un vértice, y cada
-viaje del bote que no deja a nadie en peligro es una arista. Los estados
-donde algo se come no son vértices. Cruzar el río es llegar de un vértice a
-otro.
+<div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'center', gap: '0.5rem 0.75rem' }}>
+<figure style={{ flex: '1 1 190px', margin: 0, textAlign: 'center' }}>
+<River stage="river" label="Un río entre dos orillas. En la orilla de partida están el barquero, el lobo, la cabra y el repollo, y en el agua, el bote, con una flecha hacia la otra orilla." />
+<figcaption style={{ fontSize: '0.85rem', color: 'var(--color-ink-soft)' }}>el río</figcaption>
+</figure>
+<span aria-hidden="true" style={{ fontSize: '1.6rem', color: 'var(--color-ink-soft)' }}>→</span>
+<figure style={{ flex: '1 1 190px', margin: 0, textAlign: 'center' }}>
+<River stage="states" label="Dos viajes escritos como estados: de BLCR, todos en la orilla de partida, a LR, cuando el barquero cruza con la cabra; y de LR a BLR, cuando vuelve solo." />
+<figcaption style={{ fontSize: '0.85rem', color: 'var(--color-ink-soft)' }}>quién queda en la orilla de partida</figcaption>
+</figure>
+</div>
 
 <NodeGraph
   cols={12}
@@ -719,8 +915,9 @@ otro.
   label="Los diez estados del cruce, nombrados por lo que sigue en la orilla de partida. BLCR, destacado, es el comienzo, y nadie, destacado, es el final. BLCR se une con LR, LR con BLR, y BLR con R y con L. R se une con BCR y L con BLC; BCR y BLC se unen con C, C con BC, y BC con nadie."
 />
 
-Un candado de cuatro ruedas es lo mismo: cada combinación es un estado, y
-girar una rueda una posición pasa de un estado a otro.
+En el grafo completo no aparecen los estados donde algo se come: no son
+vértices. Un candado de cuatro ruedas es lo mismo: cada combinación es un
+estado, y girar una rueda una posición pasa de un estado a otro.
 
 </Slide>
 
