@@ -125,58 +125,12 @@ qué.
 
 </Slide>
 
-<SectionBreak />
-
-## Dibujar sin levantar el lápiz
-
-<Slide title="Una figura de un solo trazo">
-Un juego antiguo pide dibujar una figura de un solo trazo: sin levantar el
-lápiz del papel y sin pasar dos veces por la misma línea. El lápiz baja en un
-punto y pasa de punto en punto por las líneas que todavía no dibujó. Algunas
-figuras se pueden dibujar así y otras no, y a simple vista no se nota cuál es
-cuál.
-
-<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '0.5rem 1.5rem', alignItems: 'end' }}>
-<PenTrace
-  figure
-  solvable
-  cols={4}
-  rows={4}
-  nodes={[{ v: 'A', x: 2, y: 0 }, { v: 'B', x: 3.902, y: 1.239 }, { v: 'C', x: 3.176, y: 3.244 }, { v: 'D', x: 0.824, y: 3.244 }, { v: 'E', x: 0.098, y: 1.239 }, { v: 'F', x: 2.449, y: 1.239 }, { v: 'G', x: 2.727, y: 2.005 }, { v: 'H', x: 2.0, y: 2.478 }, { v: 'I', x: 1.273, y: 2.005 }, { v: 'J', x: 1.551, y: 1.239 }]}
-  edges={[['A', 'F'], ['F', 'G'], ['G', 'C'], ['B', 'G'], ['G', 'H'], ['H', 'D'], ['C', 'H'], ['H', 'I'], ['I', 'E'], ['D', 'I'], ['I', 'J'], ['J', 'A'], ['E', 'J'], ['J', 'F'], ['F', 'B']]}
-  label="La estrella de cinco puntas, para dibujar de un solo trazo."
-/>
-<PenTrace
-  figure
-  solvable
-  cols={3}
-  rows={4}
-  nodes={[{ v: 'A', x: 1, y: 0 }, { v: 'B', x: 0, y: 1 }, { v: 'C', x: 2, y: 1 }, { v: 'F', x: 1, y: 2 }, { v: 'D', x: 0, y: 3 }, { v: 'E', x: 2, y: 3 }]}
-  edges={[['A', 'B'], ['A', 'C'], ['B', 'C'], ['B', 'D'], ['C', 'E'], ['D', 'E'], ['B', 'F'], ['F', 'E'], ['C', 'F'], ['F', 'D']]}
-  label="La casa: un cuadrado con sus dos diagonales y un techo, para dibujar de un solo trazo."
-/>
-<PenTrace
-  figure
-  solvable
-  cols={3}
-  rows={3}
-  nodes={[{ v: 'A', x: 0, y: 0 }, { v: 'B', x: 2, y: 0 }, { v: 'E', x: 1, y: 1 }, { v: 'C', x: 0, y: 2 }, { v: 'D', x: 2, y: 2 }]}
-  edges={[['A', 'B'], ['C', 'D'], ['A', 'C'], ['B', 'D'], ['A', 'E'], ['E', 'D'], ['B', 'E'], ['E', 'C']]}
-  label="El sobre: un rectángulo con sus dos diagonales, para dibujar de un solo trazo."
-/>
-</div>
-
-</Slide>
-
-<SectionBreak />
-
-## Vértices y aristas
-
 <Slide title="De la ciudad al grafo">
 Para la pregunta del paseo no importa la forma de las orillas, ni el largo de
 los puentes, ni dónde está cada uno. Solo importa **qué zonas une cada
-puente**. En 1736, Leonhard Euler dibujó la ciudad quedándose solo con eso:
-cada zona, un punto; cada puente, una línea entre los dos puntos que une.
+puente**. En 1736, Leonhard Euler se quedó solo con eso: nombró cada zona con
+una letra y cada puente por las dos zonas que une. Hoy lo dibujamos así: cada
+zona, un punto; cada puente, una línea.
 
 <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'center', gap: '0.5rem 0.75rem' }}>
 <figure style={{ flex: '1 1 200px', margin: 0, textAlign: 'center' }}>
@@ -194,20 +148,6 @@ cada zona, un punto; cada puente, una línea entre los dos puntos que une.
 <figcaption style={{ fontSize: '0.85rem', color: 'var(--color-ink-soft)' }}>solo qué se une con qué</figcaption>
 </figure>
 </div>
-
-</Slide>
-
-<Slide title="El paseo por Königsberg">
-Con cada zona como un punto y cada puente como una línea, el paseo es el
-mismo juego del lápiz: pasar por cada línea una sola vez.
-
-<PenTrace
-  cols={3}
-  rows={3}
-  nodes={[{ v: 'B', x: 1, y: 0 }, { v: 'A', x: 0, y: 1 }, { v: 'D', x: 2, y: 1 }, { v: 'C', x: 1, y: 2 }]}
-  edges={[['A', 'B'], ['A', 'B'], ['A', 'C'], ['A', 'C'], ['A', 'D'], ['B', 'D'], ['C', 'D']]}
-  label="Königsberg como puntos y líneas: cuatro puntos, A, B, C y D, y siete líneas. Dos líneas unen A con B, dos unen A con C, y una une A con D, B con D y C con D. Para recorrerlas todas sin pasar dos veces por la misma."
-/>
 
 </Slide>
 
@@ -267,62 +207,30 @@ dos no, y los tres responden igual la pregunta del paseo.
 
 </Slide>
 
-<SectionBreak />
+<Slide title="El paseo por Königsberg">
+Con cada zona como un punto y cada puente como una línea, el paseo es pasar
+por cada línea del grafo una sola vez, sin saltar de un punto a otro.
+Probemos:
 
-## Euler y los vértices impares
-
-<Slide title="El grafo de cada figura">
-Cada figura es un grafo: un vértice en cada punto donde las líneas se juntan
-o se cruzan, y una arista por cada línea entre dos de esos puntos. Dibujar
-una figura de un solo trazo es pasar por todas sus aristas, cada una
-exactamente una vez, y el paseo por Königsberg pide lo mismo.
-
-<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '0.5rem 2rem', alignItems: 'end' }}>
-<NodeGraph
-  cols={5}
-  rows={5}
-  nodes={[{ v: 'A', x: 2.5, y: 0 }, { v: 'B', x: 4.878, y: 1.549 }, { v: 'C', x: 3.97, y: 4.055 }, { v: 'D', x: 1.03, y: 4.055 }, { v: 'E', x: 0.122, y: 1.549 }, { v: 'F', x: 3.061, y: 1.549 }, { v: 'G', x: 3.409, y: 2.506 }, { v: 'H', x: 2.5, y: 3.098 }, { v: 'I', x: 1.591, y: 2.506 }, { v: 'J', x: 1.939, y: 1.549 }]}
-  edges={[['A', 'F'], ['F', 'G'], ['G', 'C'], ['B', 'G'], ['G', 'H'], ['H', 'D'], ['C', 'H'], ['H', 'I'], ['I', 'E'], ['D', 'I'], ['I', 'J'], ['J', 'A'], ['E', 'J'], ['J', 'F'], ['F', 'B']]}
-  notes={{ A: 2, B: 2, C: 2, D: 2, E: 2, F: 4, G: 4, H: 4, I: 4, J: 4 }}
-  caption="la estrella: ningún vértice impar"
-  label="El grafo de la estrella: las cinco puntas, A a E, con grado 2, y los cinco cruces del centro, F a J, con grado 4. Ningún vértice tiene grado impar."
-/>
-<NodeGraph
-  cols={3}
-  rows={4}
-  nodes={[{ v: 'A', x: 1, y: 0 }, { v: 'B', x: 0, y: 1 }, { v: 'C', x: 2, y: 1 }, { v: 'F', x: 1, y: 2 }, { v: 'D', x: 0, y: 3 }, { v: 'E', x: 2, y: 3 }]}
-  edges={[['A', 'B'], ['A', 'C'], ['B', 'C'], ['B', 'D'], ['C', 'E'], ['D', 'E'], ['B', 'F'], ['F', 'E'], ['C', 'F'], ['F', 'D']]}
-  notes={{ A: 2, B: 4, C: 4, D: 3, E: 3, F: 4 }}
-  tones={{ D: 'mark', E: 'mark' }}
-  caption="la casa: 2 vértices impares"
-  label="El grafo de la casa con el grado de cada vértice: A 2, B 4, C 4, F 4, y las dos esquinas de abajo, D y E, destacadas, con grado 3."
-/>
-<NodeGraph
-  cols={3}
-  rows={3}
-  nodes={[{ v: 'A', x: 0, y: 0 }, { v: 'B', x: 2, y: 0 }, { v: 'E', x: 1, y: 1 }, { v: 'C', x: 0, y: 2 }, { v: 'D', x: 2, y: 2 }]}
-  edges={[['A', 'B'], ['C', 'D'], ['A', 'C'], ['B', 'D'], ['A', 'E'], ['E', 'D'], ['B', 'E'], ['E', 'C']]}
-  notes={{ A: 3, B: 3, C: 3, D: 3, E: 4 }}
-  tones={{ A: 'mark', B: 'mark', C: 'mark', D: 'mark' }}
-  caption="el sobre: 4 vértices impares"
-  label="El grafo del sobre con el grado de cada vértice: las cuatro esquinas, destacadas, con grado 3, y el cruce del centro, E, con grado 4."
-/>
-<NodeGraph
+<PenTrace
   cols={3}
   rows={3}
   nodes={[{ v: 'B', x: 1, y: 0 }, { v: 'A', x: 0, y: 1 }, { v: 'D', x: 2, y: 1 }, { v: 'C', x: 1, y: 2 }]}
   edges={[['A', 'B'], ['A', 'B'], ['A', 'C'], ['A', 'C'], ['A', 'D'], ['B', 'D'], ['C', 'D']]}
-  notes={{ A: 5, B: 3, C: 3, D: 3 }}
-  tones={{ A: 'mark', B: 'mark', C: 'mark', D: 'mark' }}
-  caption="Königsberg: 4 vértices impares"
-  label="El grafo de Königsberg con el grado de cada vértice: A 5, y B, C y D, 3. Los cuatro, destacados, tienen grado impar."
+  label="Königsberg como puntos y líneas: cuatro puntos, A, B, C y D, y siete líneas. Dos líneas unen A con B, dos unen A con C, y una une A con D, B con D y C con D. Para recorrerlas todas sin pasar dos veces por la misma."
 />
-</div>
+
+Probar órdenes no dice si el paseo es imposible: el bueno podría ser uno que
+nadie probó.
 
 </Slide>
 
+<SectionBreak />
+
+## La respuesta de Euler
+
 <Slide title="Cada paso por un vértice usa dos aristas">
-Dibujar una figura de un solo trazo es seguir un **camino**: una secuencia de
+Un paseo que cruza cada puente una vez es un **camino**: una secuencia de
 vértices en la que cada uno es vecino del siguiente y ninguna arista se
 repite. Un camino puede pasar varias veces por el mismo vértice, y si termina
 donde empezó es un **ciclo**.
@@ -391,8 +299,9 @@ la cantidad de vértices de grado impar es par.**
 </Slide>
 
 <Slide title="Un grafo en dos pedazos">
-En este grafo todos los vértices tienen grado par, y aun así no se dibuja de
-un solo trazo: tiene dos pedazos, y ninguna arista lleva de uno al otro.
+En este grafo todos los vértices tienen grado par, y aun así ningún camino
+usa todas sus aristas: tiene dos pedazos, y ninguna arista lleva de uno al
+otro.
 
 Un grafo es **conexo** si hay un camino entre cada par de vértices. Si no lo
 es, se parte en **componentes**: los grupos de vértices que se alcanzan entre
@@ -424,10 +333,40 @@ Un solo vértice impar no ocurre nunca: los vértices de grado impar son
 siempre una cantidad par. Que las dos primeras condiciones alcancen también
 es de Euler, y se demuestra construyendo el camino.
 
-<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '0.5rem 1.5rem' }}>
-<div style={{ textAlign: 'center' }}><strong>La estrella</strong><br />ningún impar: se dibuja y se vuelve al inicio</div>
-<div style={{ textAlign: 'center' }}><strong>La casa</strong><br />dos impares: de una esquina de abajo a la otra</div>
-<div style={{ textAlign: 'center' }}><strong>El sobre</strong><br />cuatro impares: no se puede</div>
+Un puente más cambiaría la respuesta:
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '0.5rem 1.5rem', alignItems: 'end' }}>
+<NodeGraph
+  cols={3}
+  rows={3}
+  nodes={[{ v: 'B', x: 1, y: 0 }, { v: 'A', x: 0, y: 1 }, { v: 'D', x: 2, y: 1 }, { v: 'C', x: 1, y: 2 }]}
+  edges={[['A', 'B'], ['A', 'B'], ['A', 'C'], ['A', 'C'], ['A', 'D'], ['B', 'D'], ['C', 'D']]}
+  notes={{ A: 5, B: 3, C: 3, D: 3 }}
+  tones={{ A: 'mark', B: 'mark', C: 'mark', D: 'mark' }}
+  caption="como es: no hay camino"
+  label="Königsberg como es, con sus grados: A 5, y B, C y D, 3. Los cuatro, destacados, son impares: no hay camino euleriano."
+/>
+<NodeGraph
+  cols={3}
+  rows={3}
+  nodes={[{ v: 'B', x: 1, y: 0 }, { v: 'A', x: 0, y: 1 }, { v: 'D', x: 2, y: 1 }, { v: 'C', x: 1, y: 2 }]}
+  edges={[['A', 'B'], ['A', 'B'], ['A', 'C'], ['A', 'C'], ['A', 'D'], ['B', 'D'], ['C', 'D'], ['B', 'C']]}
+  markEdges={[['B', 'C']]}
+  notes={{ A: 5, B: 4, C: 4, D: 3 }}
+  tones={{ A: 'mark', D: 'mark' }}
+  caption="un puente B-C más: de A a D"
+  label="Königsberg con un octavo puente, marcado, entre B y C. Los grados quedan A 5, B 4, C 4 y D 3: dos impares, A y D, destacados, y el camino va de uno al otro."
+/>
+<NodeGraph
+  cols={3}
+  rows={3}
+  nodes={[{ v: 'B', x: 1, y: 0 }, { v: 'A', x: 0, y: 1 }, { v: 'D', x: 2, y: 1 }, { v: 'C', x: 1, y: 2 }]}
+  edges={[['A', 'B'], ['A', 'B'], ['A', 'C'], ['A', 'C'], ['A', 'D'], ['B', 'D'], ['C', 'D'], ['B', 'C'], ['A', 'D']]}
+  markEdges={[['B', 'C']]}
+  notes={{ A: 6, B: 4, C: 4, D: 4 }}
+  caption="y otro A-D: vuelve al inicio"
+  label="Königsberg con dos puentes más, entre B y C y entre A y D. Los grados quedan A 6, B 4, C 4 y D 4: ningún impar, y el camino vuelve a donde empezó."
+/>
 </div>
 
 </Slide>
@@ -450,6 +389,97 @@ vez, parta donde parta.
 
 La respuesta no salió de probar paseos, sino de contar los grados. Bastó
 convertir la ciudad en vértices y aristas: un **modelo** del problema.
+
+</Slide>
+
+<SectionBreak />
+
+## Modelar un problema como grafo
+
+<Slide title="Una figura de un solo trazo">
+Un juego de lápiz y papel hace la misma pregunta que el paseo: dibujar una
+figura de un solo trazo, sin levantar el lápiz y sin pasar dos veces por la
+misma línea. El lápiz baja en un punto y pasa de punto en punto por las
+líneas que todavía no dibujó. Algunas figuras se pueden dibujar así y otras
+no; el botón Resolver de cada una muestra una forma de hacerlo, o dice que no
+la hay.
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '0.5rem 1.5rem', alignItems: 'end' }}>
+<PenTrace
+  figure
+  solvable
+  cols={4}
+  rows={4}
+  nodes={[{ v: 'A', x: 2, y: 0 }, { v: 'B', x: 3.902, y: 1.239 }, { v: 'C', x: 3.176, y: 3.244 }, { v: 'D', x: 0.824, y: 3.244 }, { v: 'E', x: 0.098, y: 1.239 }, { v: 'F', x: 2.449, y: 1.239 }, { v: 'G', x: 2.727, y: 2.005 }, { v: 'H', x: 2.0, y: 2.478 }, { v: 'I', x: 1.273, y: 2.005 }, { v: 'J', x: 1.551, y: 1.239 }]}
+  edges={[['A', 'F'], ['F', 'G'], ['G', 'C'], ['B', 'G'], ['G', 'H'], ['H', 'D'], ['C', 'H'], ['H', 'I'], ['I', 'E'], ['D', 'I'], ['I', 'J'], ['J', 'A'], ['E', 'J'], ['J', 'F'], ['F', 'B']]}
+  label="La estrella de cinco puntas, para dibujar de un solo trazo."
+/>
+<PenTrace
+  figure
+  solvable
+  cols={3}
+  rows={4}
+  nodes={[{ v: 'A', x: 1, y: 0 }, { v: 'B', x: 0, y: 1 }, { v: 'C', x: 2, y: 1 }, { v: 'F', x: 1, y: 2 }, { v: 'D', x: 0, y: 3 }, { v: 'E', x: 2, y: 3 }]}
+  edges={[['A', 'B'], ['A', 'C'], ['B', 'C'], ['B', 'D'], ['C', 'E'], ['D', 'E'], ['B', 'F'], ['F', 'E'], ['C', 'F'], ['F', 'D']]}
+  label="La casa: un cuadrado con sus dos diagonales y un techo, para dibujar de un solo trazo."
+/>
+<PenTrace
+  figure
+  solvable
+  cols={3}
+  rows={3}
+  nodes={[{ v: 'A', x: 0, y: 0 }, { v: 'B', x: 2, y: 0 }, { v: 'E', x: 1, y: 1 }, { v: 'C', x: 0, y: 2 }, { v: 'D', x: 2, y: 2 }]}
+  edges={[['A', 'B'], ['C', 'D'], ['A', 'C'], ['B', 'D'], ['A', 'E'], ['E', 'D'], ['B', 'E'], ['E', 'C']]}
+  label="El sobre: un rectángulo con sus dos diagonales, para dibujar de un solo trazo."
+/>
+</div>
+
+</Slide>
+
+<Slide title="El grafo de cada figura">
+Cada figura es un grafo: un vértice en cada punto donde las líneas se juntan
+o se cruzan, y una arista por cada línea entre dos de esos puntos. Dibujarla
+de un solo trazo es encontrar un camino euleriano, y la regla de Euler lo
+decide sin probar ningún orden: la estrella se dibuja y vuelve al inicio, la
+casa va de una esquina de abajo a la otra, y el sobre no se puede.
+
+<div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem 1.5rem', alignItems: 'flex-end' }}>
+<div style={{ flex: '1.6 1 260px' }}>
+<NodeGraph
+  cols={5}
+  rows={5}
+  nodes={[{ v: 'A', x: 2.5, y: 0 }, { v: 'B', x: 4.878, y: 1.549 }, { v: 'C', x: 3.97, y: 4.055 }, { v: 'D', x: 1.03, y: 4.055 }, { v: 'E', x: 0.122, y: 1.549 }, { v: 'F', x: 3.061, y: 1.549 }, { v: 'G', x: 3.409, y: 2.506 }, { v: 'H', x: 2.5, y: 3.098 }, { v: 'I', x: 1.591, y: 2.506 }, { v: 'J', x: 1.939, y: 1.549 }]}
+  edges={[['A', 'F'], ['F', 'G'], ['G', 'C'], ['B', 'G'], ['G', 'H'], ['H', 'D'], ['C', 'H'], ['H', 'I'], ['I', 'E'], ['D', 'I'], ['I', 'J'], ['J', 'A'], ['E', 'J'], ['J', 'F'], ['F', 'B']]}
+  notes={{ A: 2, B: 2, C: 2, D: 2, E: 2, F: 4, G: 4, H: 4, I: 4, J: 4 }}
+  caption="la estrella: ningún impar"
+  label="El grafo de la estrella: las cinco puntas, A a E, con grado 2, y los cinco cruces del centro, F a J, con grado 4. Ningún vértice tiene grado impar."
+/>
+</div>
+<div style={{ flex: '1 1 180px' }}>
+<NodeGraph
+  cols={3}
+  rows={4}
+  nodes={[{ v: 'A', x: 1, y: 0 }, { v: 'B', x: 0, y: 1 }, { v: 'C', x: 2, y: 1 }, { v: 'F', x: 1, y: 2 }, { v: 'D', x: 0, y: 3 }, { v: 'E', x: 2, y: 3 }]}
+  edges={[['A', 'B'], ['A', 'C'], ['B', 'C'], ['B', 'D'], ['C', 'E'], ['D', 'E'], ['B', 'F'], ['F', 'E'], ['C', 'F'], ['F', 'D']]}
+  notes={{ A: 2, B: 4, C: 4, D: 3, E: 3, F: 4 }}
+  tones={{ D: 'mark', E: 'mark' }}
+  caption="la casa: dos impares"
+  label="El grafo de la casa con el grado de cada vértice: A 2, B 4, C 4, F 4, y las dos esquinas de abajo, D y E, destacadas, con grado 3."
+/>
+</div>
+<div style={{ flex: '1 1 180px' }}>
+<NodeGraph
+  cols={3}
+  rows={3}
+  nodes={[{ v: 'A', x: 0, y: 0 }, { v: 'B', x: 2, y: 0 }, { v: 'E', x: 1, y: 1 }, { v: 'C', x: 0, y: 2 }, { v: 'D', x: 2, y: 2 }]}
+  edges={[['A', 'B'], ['C', 'D'], ['A', 'C'], ['B', 'D'], ['A', 'E'], ['E', 'D'], ['B', 'E'], ['E', 'C']]}
+  notes={{ A: 3, B: 3, C: 3, D: 3, E: 4 }}
+  tones={{ A: 'mark', B: 'mark', C: 'mark', D: 'mark' }}
+  caption="el sobre: cuatro impares"
+  label="El grafo del sobre con el grado de cada vértice: las cuatro esquinas, destacadas, con grado 3, y el cruce del centro, E, con grado 4."
+/>
+</div>
+</div>
 
 </Slide>
 
@@ -476,10 +506,6 @@ El paseo, la figura y el camión se reducen al camino euleriano, y la regla de
 Euler responde los tres.
 
 </Slide>
-
-<SectionBreak />
-
-## Modelar un problema como grafo
 
 <Slide title="Las preguntas de un modelo">
 Modelar un problema como grafo es responder cuatro preguntas antes de
@@ -641,6 +667,10 @@ responderlas con un programa, primero hay que guardar el grafo.
 
 </Slide>
 
+<SectionBreak />
+
+## Graph · Grafo
+
 <Slide title="De nombres a números">
 Un programa numera los vértices de $$0$$ a $$V - 1$$: así un vértice sirve de
 índice en un arreglo. Los nombres del problema se traducen a esos números al
@@ -660,10 +690,6 @@ Cada nombre nuevo recibe el siguiente número libre.
 | Quito    | 3      |
 
 </Slide>
-
-<SectionBreak />
-
-## Graph · Grafo
 
 <Slide title="Un grafo como lista de aristas">
 Un grafo llega a un programa casi siempre como una **lista de aristas**: en
