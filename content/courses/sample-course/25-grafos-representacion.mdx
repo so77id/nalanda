@@ -151,14 +151,83 @@ zona, un punto; cada puente, una línea.
 
 </Slide>
 
-<Slide title="Un grafo">
-Un **grafo** tiene **vértices** y **aristas**, y cada arista une dos
-vértices. Dos vértices unidos por una arista son **vecinos**. Entre dos
-vértices puede haber más de una arista, como los dos puentes entre la isla y
-una orilla.
+<Slide title="Vértices, aristas y vecinos">
+<Split ratio="60/40">
 
-Escribimos $$V$$ para la cantidad de vértices y $$E$$ para la cantidad de
-aristas. El **grado** de un vértice es la cantidad de aristas que lo tocan.
+Un **grafo** tiene **vértices**, los puntos, y **aristas**, las líneas. Cada
+arista une dos vértices.
+
+<NodeGraph
+  cols={3}
+  rows={3}
+  nodes={[{ v: 'B', x: 1, y: 0 }, { v: 'A', x: 0, y: 1 }, { v: 'D', x: 2, y: 1 }, { v: 'C', x: 1, y: 2 }]}
+  edges={[['A', 'B'], ['A', 'B'], ['A', 'C'], ['A', 'C'], ['A', 'D'], ['B', 'D'], ['C', 'D']]}
+  tones={{ A: 'mark' }}
+  markEdges={[['A', 'D']]}
+  caption="un vértice, A, y una arista, A-D"
+  label="El grafo de Königsberg con el vértice A destacado y la arista entre A y D marcada."
+/>
+
+</Split>
+
+<Split ratio="40/60">
+
+<NodeGraph
+  cols={3}
+  rows={3}
+  nodes={[{ v: 'B', x: 1, y: 0 }, { v: 'A', x: 0, y: 1 }, { v: 'D', x: 2, y: 1 }, { v: 'C', x: 1, y: 2 }]}
+  edges={[['A', 'B'], ['A', 'B'], ['A', 'C'], ['A', 'C'], ['A', 'D'], ['B', 'D'], ['C', 'D']]}
+  tones={{ D: 'mark', A: 'keep', B: 'keep', C: 'keep' }}
+  caption="los vecinos de D: A, B y C"
+  label="El grafo de Königsberg con D destacado y sus tres vecinos, A, B y C, marcados."
+/>
+
+Dos vértices unidos por una arista son **vecinos**, o **adyacentes**. Un
+vértice puede tener muchos vecinos, o ninguno.
+
+</Split>
+
+<Split ratio="60/40">
+
+Entre dos vértices puede haber más de una arista, como los dos puentes entre
+la isla y una orilla: son **aristas paralelas**. Cada una cuenta por separado.
+
+<NodeGraph
+  cols={3}
+  rows={3}
+  nodes={[{ v: 'B', x: 1, y: 0 }, { v: 'A', x: 0, y: 1 }, { v: 'D', x: 2, y: 1 }, { v: 'C', x: 1, y: 2 }]}
+  edges={[['A', 'B'], ['A', 'B'], ['A', 'C'], ['A', 'C'], ['A', 'D'], ['B', 'D'], ['C', 'D']]}
+  markEdges={[['A', 'B']]}
+  caption="dos aristas paralelas entre A y B"
+  label="El grafo de Königsberg con las dos aristas entre A y B marcadas."
+/>
+
+</Split>
+
+</Slide>
+
+<Slide title="El grado de un vértice">
+<Split ratio="60/40">
+
+El **grado** de un vértice es la cantidad de aristas que lo tocan. Las
+aristas paralelas cuentan cada una: los dos puentes entre A y B suman dos al
+grado de A.
+
+<NodeGraph
+  cols={3}
+  rows={3}
+  nodes={[{ v: 'B', x: 1, y: 0 }, { v: 'A', x: 0, y: 1 }, { v: 'D', x: 2, y: 1 }, { v: 'C', x: 1, y: 2 }]}
+  edges={[['A', 'B'], ['A', 'B'], ['A', 'C'], ['A', 'C'], ['A', 'D'], ['B', 'D'], ['C', 'D']]}
+  tones={{ A: 'mark' }}
+  markEdges={[['A', 'B'], ['A', 'C'], ['A', 'D']]}
+  notes={{ A: 5 }}
+  caption="A toca cinco aristas: grado 5"
+  label="El grafo de Königsberg con A destacado y sus cinco aristas marcadas: dos hacia B, dos hacia C y una hacia D. A tiene grado 5."
+/>
+
+</Split>
+
+<Split ratio="40/60">
 
 <NodeGraph
   cols={3}
@@ -166,9 +235,14 @@ aristas. El **grado** de un vértice es la cantidad de aristas que lo tocan.
   nodes={[{ v: 'B', x: 1, y: 0 }, { v: 'A', x: 0, y: 1 }, { v: 'D', x: 2, y: 1 }, { v: 'C', x: 1, y: 2 }]}
   edges={[['A', 'B'], ['A', 'B'], ['A', 'C'], ['A', 'C'], ['A', 'D'], ['B', 'D'], ['C', 'D']]}
   notes={{ A: 5, B: 3, C: 3, D: 3 }}
-  caption="V = 4, E = 7; al lado de cada vértice, su grado"
-  label="El grafo de Königsberg con el grado de cada vértice: A tiene grado 5, y B, C y D, grado 3. Tiene 4 vértices y 7 aristas."
+  caption="V = 4 y E = 7; al lado de cada vértice, su grado"
+  label="El grafo de Königsberg con el grado de cada vértice: A 5, y B, C y D, 3. Tiene 4 vértices y 7 aristas."
 />
+
+Escribimos **V** para la cantidad de vértices y **E** para la cantidad de
+aristas. Al lado de cada vértice va su grado.
+
+</Split>
 
 </Slide>
 
@@ -220,8 +294,11 @@ Probemos:
   label="Königsberg como puntos y líneas: cuatro puntos, A, B, C y D, y siete líneas. Dos líneas unen A con B, dos unen A con C, y una une A con D, B con D y C con D. Para recorrerlas todas sin pasar dos veces por la misma."
 />
 
-Probar órdenes no dice si el paseo es imposible: el bueno podría ser uno que
-nadie probó.
+Que nadie lo lograra no demuestra que sea imposible: quizás nadie probó el
+orden correcto. Para estar seguros probando, habría que intentar todos los
+órdenes de los puentes, y con $$E$$ puentes hay $$E!$$ órdenes, que crecen tan
+rápido que probarlos todos deja de ser posible. Hace falta otra cosa: una
+razón que descarte todos los órdenes a la vez, sin probar ninguno.
 
 </Slide>
 
