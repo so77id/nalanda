@@ -491,9 +491,11 @@ v_0 \to v_1 \to \cdots \to v_k
 $$
 
 - El subíndice es la posición: $$v_0$$ es el primer vértice y $$v_k$$, el último.
-- Cada flecha cruza una arista, $$v_i v_{i+1} \in E$$: indica el orden, no una
-  dirección.
-- El **largo** es la cantidad de aristas que cruza: $$k$$.
+- Cada flecha cruza la arista entre dos vértices seguidos, así que las aristas
+  del camino son $$v_0 v_1,\ v_1 v_2,\ \dots,\ v_{k-1} v_k$$. La flecha indica
+  el orden, no una dirección.
+- El **largo** de un camino es su cantidad de aristas, una por flecha:
+  $$v_0 \to v_1 \to \cdots \to v_k$$ tiene largo $$k$$.
 
 <NodeGraph
   cols={3}
@@ -508,15 +510,12 @@ $$
 </Slide>
 
 <Slide title="Caminos simples">
-Un camino es **simple** si no pasa dos veces por el mismo vértice: en el
-recorrido, cada posición tiene un vértice distinto.
+Un camino es **simple** si no repite vértices: cada vértice aparece una sola
+vez.
 
 $$
-v_i \ne v_j \quad \text{si } i \ne j
+v_0, v_1, \dots, v_k \ \text{son todos distintos}
 $$
-
-Se lee «dos posiciones distintas del camino tienen vértices distintos». A la
-derecha, C está en dos posiciones, $$v_2$$ y $$v_5$$: ese camino no es simple.
 
 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.5rem 2rem', alignItems: 'end' }}>
 <NodeGraph
@@ -540,18 +539,18 @@ derecha, C está en dos posiciones, $$v_2$$ y $$v_5$$: ese camino no es simple.
 />
 </div>
 
+A la derecha, C aparece dos veces: ese camino no es simple.
+
 </Slide>
 
 <Slide title="Ciclos">
-Un **ciclo** es un camino que vuelve al vértice donde empezó: el último vértice
-es el primero.
+Un **ciclo** es un camino que termina donde empezó: desde su último vértice,
+una arista más lo devuelve al primero. Como todo camino, no repite aristas, y su
+largo se cuenta igual: una arista por flecha.
 
 $$
-v_0 \to v_1 \to \cdots \to v_k \qquad \text{con } v_k = v_0
+v_0 \to v_1 \to \cdots \to v_k \to v_0
 $$
-
-Se lee «un camino de $$v_0$$ que termina otra vez en $$v_0$$». Cruza al menos
-una arista, $$k \ge 1$$, y su largo se cuenta igual que el de un camino.
 
 <NodeGraph
   cols={3}
@@ -566,13 +565,13 @@ una arista, $$k \ge 1$$, y su largo se cuenta igual que el de un camino.
 </Slide>
 
 <Slide title="Ciclos simples">
-Un ciclo es **simple** si no pasa dos veces por el mismo vértice. El único que
-se repite es el del comienzo, que vuelve al final para cerrar el ciclo,
-$$v_k = v_0$$; los demás, $$v_0, v_1, \dots, v_{k-1}$$, son todos distintos.
+Un **ciclo simple** es un camino simple que vuelve al vértice donde partió:
 
-A la derecha hay un ciclo que no es simple: vuelve a A, pero pasa dos veces por
-C. Sigue siendo un ciclo, porque no repite aristas. Algunos libros lo llaman
-**circuito** y reservan «ciclo» para el simple.
+$$
+v_0 \to v_1 \to \cdots \to v_k \to v_0 \qquad v_0, v_1, \dots, v_k \ \text{son todos distintos}
+$$
+
+El único vértice que se repite es $$v_0$$, que cierra el ciclo.
 
 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.5rem 2rem', alignItems: 'end' }}>
 <NodeGraph
@@ -596,14 +595,22 @@ C. Sigue siendo un ciclo, porque no repite aristas. Algunos libros lo llaman
 />
 </div>
 
+A la derecha, el ciclo vuelve a A pero pasa dos veces por C: es un ciclo, porque
+no repite aristas, pero no es simple. Algunos libros lo llaman **circuito** y
+reservan «ciclo» para el simple.
+
 </Slide>
 
 <Slide title="Grafos conexos">
 Un grafo es **conexo** si desde cualquier vértice se puede llegar a cualquier
-otro: para todo par de vértices $$u$$ y $$v$$ hay un camino de $$u$$ a $$v$$. Si
-no lo es,
-se parte en **componentes**: grupos de vértices que se alcanzan entre sí, pero
-desde los que no se llega a ningún vértice de otro grupo.
+otro por un camino:
+
+$$
+\text{para todo } u, v \in V \text{ hay un camino } u \to \cdots \to v
+$$
+
+Si no es conexo, se parte en **componentes**: grupos de vértices que se alcanzan
+entre sí, pero desde los que no se llega a ningún vértice de otro grupo.
 
 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.5rem 2rem', alignItems: 'end' }}>
 <NodeGraph
