@@ -483,21 +483,17 @@ cantidad de aristas que lo tocan. Las aristas paralelas cuentan cada una: los do
 ## Caminos y ciclos
 
 <Slide title="Caminos">
-Un **camino** recorre el grafo de vértice en vértice por sus aristas, como el
-paseo recorre la ciudad de zona en zona por sus puentes, y no repite ninguna
-arista. Se escribe con los vértices en el orden en que se visitan:
+Un **camino** recorre el grafo de vértice en vértice por sus aristas, sin
+repetir ninguna. Se escribe con sus vértices en orden:
 
 $$
 v_0 \to v_1 \to \cdots \to v_k
 $$
 
-Se lee «de $$v_0$$ a $$v_1$$, de $$v_1$$ a $$v_2$$, y así hasta $$v_k$$». El
-subíndice es la posición en el recorrido, no el nombre del vértice: en el
-dibujo, $$v_0 = A$$, $$v_1 = B$$, $$v_2 = C$$, y C vuelve como $$v_5$$. Cada
-flecha cruza la arista entre un vértice y el que le sigue, $$v_i v_{i+1} \in E$$,
-y marca el orden del recorrido, no una dirección. El **largo** del camino es la
-cantidad de aristas que cruza, $$k$$; en el dibujo, cada arista lleva el
-número de su paso.
+- El subíndice es la posición: $$v_0$$ es el primer vértice y $$v_k$$, el último.
+- Cada flecha cruza una arista, $$v_i v_{i+1} \in E$$: indica el orden, no una
+  dirección.
+- El **largo** es la cantidad de aristas que cruza: $$k$$.
 
 <NodeGraph
   cols={3}
