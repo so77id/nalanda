@@ -601,6 +601,29 @@ Cada nombre nuevo recibe el siguiente número libre.
 
 ## Graph · Grafo
 
+<Slide title="Un grafo como lista de aristas">
+Un grafo llega a un programa casi siempre como una **lista de aristas**: en
+la primera línea, la cantidad de vértices y la de aristas; después, una línea
+por arista con sus dos extremos. En un grafo sin dirección cada arista
+aparece una sola vez.
+
+```text
+4 4
+0 1
+0 2
+1 2
+2 3
+```
+
+Guardar esas líneas tal cual, como una lista de pares, alcanza para contar
+las aristas, pero no para la pregunta que más se le hace a un grafo: quiénes
+son los vecinos de un vértice. Para saber los vecinos de `2` hay que leer las
+$$E$$ aristas buscando las que lo tocan, y hacerlo para cada vértice cuesta
+$$\Theta(V \cdot E)$$. El grafo tiene que guardarse de modo que esa pregunta
+se responda sin leerlo entero.
+
+</Slide>
+
 <Slide title="El TDA Graph">
 Un **Graph** —en español, **grafo**— guarda vértices numerados y las aristas
 entre ellos, y responde quiénes son los vecinos de cada vértice.
@@ -838,7 +861,8 @@ public class AdjMatrixGraph implements Graph {
 
 `hasEdge` mira una casilla. `adj(v)` recorre la fila completa de `v` para
 encontrar sus vecinos, aunque sean pocos. `addEdge` llena las dos casillas y
-cuenta la arista solo si no estaba.
+cuenta la arista solo si no estaba: una casilla no guarda dos aristas, y los
+dos puentes entre la isla y una orilla de Königsberg quedarían como uno.
 
 </Slide>
 
@@ -898,7 +922,52 @@ public class AdjListGraph implements Graph {
 
 `adj(v)` entrega la lista de `v` tal como está. `hasEdge` la recorre buscando
 a `w`. `addEdge` agrega al final de las dos listas, sin revisar si la arista
-ya estaba: agregarla dos veces deja dos aristas.
+ya estaba: agregarla dos veces deja dos aristas, como los dos puentes de
+Königsberg.
+
+</Slide>
+
+<Slide title="Leer un grafo">
+La lista de aristas se lee línea a línea. Cada arista entra con `addEdge`, que
+en un grafo sin dirección la deja en las dos listas:
+
+```java
+static Graph read(Scanner in) {
+    int V = in.nextInt();
+    int E = in.nextInt();
+    Graph g = new AdjListGraph(V);
+    for (int i = 0; i < E; i++) {
+        int v = in.nextInt();
+        int w = in.nextInt();
+        g.addEdge(v, w);
+    }
+    return g;
+}
+```
+
+</Slide>
+
+<Slide title="De nombres a números en Java">
+Cuando la entrada trae nombres, cada nombre se traduce a su número al leerlo.
+Un `Map` guarda el número de cada nombre, y una lista guarda el nombre de cada
+número, en el orden en que aparecieron:
+
+```java
+Map<String, Integer> ids = new HashMap<>();
+List<String> names = new ArrayList<>();
+
+int idOf(String name) {
+    if (!ids.containsKey(name)) {
+        ids.put(name, names.size());
+        names.add(name);
+    }
+    return ids.get(name);
+}
+```
+
+Un nombre que llega por primera vez recibe el número `names.size()`, el
+siguiente libre. `names.get(v)` devuelve el nombre del vértice `v` al escribir
+la respuesta.
 
 </Slide>
 
@@ -1047,60 +1116,6 @@ public void addEdge(int v, int w, int weight) {
 ```
 
 Las listas pasan a ser `List<List<Edge>>`, y `adj(v)` entrega objetos `Edge`.
-
-</Slide>
-
-<Slide title="La lista de aristas">
-Un grafo llega a un programa casi siempre como una **lista de aristas**: en
-la primera línea, la cantidad de vértices y la de aristas; después, una línea
-por arista con sus dos extremos. En un grafo sin dirección cada arista aparece
-**una** vez en la entrada, y `addEdge` la deja en dos listas.
-
-```text
-4 4
-0 1
-0 2
-1 2
-2 3
-```
-
-```java
-static Graph read(Scanner in) {
-    int V = in.nextInt();
-    int E = in.nextInt();
-    Graph g = new AdjListGraph(V);
-    for (int i = 0; i < E; i++) {
-        int v = in.nextInt();
-        int w = in.nextInt();
-        g.addEdge(v, w);
-    }
-    return g;
-}
-```
-
-</Slide>
-
-<Slide title="De nombres a números en Java">
-Cuando la entrada trae nombres, cada nombre se traduce a su número al leerlo.
-Un `Map` guarda el número de cada nombre, y una lista guarda el nombre de cada
-número, en el orden en que aparecieron:
-
-```java
-Map<String, Integer> ids = new HashMap<>();
-List<String> names = new ArrayList<>();
-
-int idOf(String name) {
-    if (!ids.containsKey(name)) {
-        ids.put(name, names.size());
-        names.add(name);
-    }
-    return ids.get(name);
-}
-```
-
-Un nombre que llega por primera vez recibe el número `names.size()`, el
-siguiente libre. `names.get(v)` devuelve el nombre del vértice `v` al escribir
-la respuesta.
 
 </Slide>
 
