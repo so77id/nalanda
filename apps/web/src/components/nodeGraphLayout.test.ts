@@ -4,6 +4,7 @@ import {
   NODE_R,
   layoutNodeGraph,
   pointOnEdge,
+  walkStrokes,
   type NodeGraphEdge,
   type NodeGraphNode,
   type Point,
@@ -84,6 +85,17 @@ describe('layoutNodeGraph', () => {
     const middles = edges.map((e) => pointOnEdge(e, 0.5));
     expect(middles).toContainEqual({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 });
     expect(new Set(middles.map((m) => `${m.x},${m.y}`)).size).toBe(3);
+  });
+
+  it('finds the edge each step of a walk takes, parallel ones in turn', () => {
+    const edges: NodeGraphEdge[] = [
+      ['A', 'B'],
+      ['A', 'B'],
+      ['B', 'C'],
+    ];
+    expect(walkStrokes(edges, ['C', 'B', 'A', 'B'], false)).toEqual([2, 0, 1]);
+    expect(walkStrokes(edges, ['A', 'C'], false)).toBeNull();
+    expect(walkStrokes(edges, ['B', 'A'], true)).toBeNull();
   });
 
   it('puts a note on the side its edges leave free', () => {

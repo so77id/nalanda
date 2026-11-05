@@ -1,7 +1,11 @@
 import { AuthoringError } from '../AuthoringError';
 import {
   NODE_R,
+  STEP_R,
+  STEP_SPACE,
   layoutNodeGraph,
+  stepMarks,
+  walkStrokes,
   type NodeGraphEdge,
   type NodeGraphNode,
 } from '../nodeGraphLayout';
@@ -25,6 +29,12 @@ export interface NodeGraphProps {
   tones?: Record<string, NodeGraphTone>;
   /** Edges painted thicker in mark; in an undirected graph, either order matches. */
   markEdges?: NodeGraphEdge[];
+  /**
+   * A walk, as the vertices it visits in order: its edges are marked and each
+   * carries the number of its step, as `<PenTrace>` numbers a tracing.
+   * Parallel edges are walked in turn.
+   */
+  walk?: (string | number)[];
   /** A short note beside a node, keyed by value: its degree, for instance. */
   notes?: Record<string, string | number>;
   caption?: string;
@@ -80,6 +90,13 @@ export function NodeGraph(props: NodeGraphProps) {
       </AuthoringError>
     );
   }
+  if (props.walk && walkStrokes(edges, props.walk, props.directed ?? false) === null) {
+    return (
+      <AuthoringError component="NodeGraph">
+        tiene un recorrido que da un paso por donde no hay arista.
+      </AuthoringError>
+    );
+  }
   return <Graph {...props} />;
 }
 
@@ -91,6 +108,7 @@ function Graph({
   directed = false,
   tones = {},
   markEdges = [],
+  walk = [],
   notes = {},
   caption,
   label,
@@ -110,6 +128,8 @@ function Graph({
   const marked = new Set(
     markEdges.flatMap(([a, b]) => (directed ? [`${a}>${b}`] : [`${a}>${b}`, `${b}>${a}`])),
   );
+  const walked = walkStrokes(edges, walk, directed) ?? [];
+  const steps = stepMarks(layout, { path: walk.map(String), used: walked }, STEP_SPACE);
   return (
     <svg
       viewBox={`0 0 ${width} ${height}`}
@@ -124,7 +144,7 @@ function Graph({
       aria-label={label}
     >
       {layout.edges.map((e, i) => {
-        const hot = marked.has(e.key);
+        const hot = marked.has(e.key) || walked.includes(i);
         const color = hot ? 'var(--color-mark)' : 'var(--color-rule-strong)';
         return (
           <g key={`${e.key}#${i}`} data-edge={e.key} data-marked={hot ? '' : undefined}>
@@ -138,6 +158,27 @@ function Graph({
           <WeightChip key={`w${e.key}#${i}`} text={e.weight} x={e.weightAt.x} y={e.weightAt.y} />
         ) : null,
       )}
+      {steps.map(({ stroke, step, x, y }) => (
+        <g key={`step${stroke}`} data-step={step} data-of={stroke}>
+          <circle
+            cx={x}
+            cy={y}
+            r={STEP_R}
+            style={{ fill: 'var(--color-surface)', stroke: 'var(--color-mark)' }}
+            strokeWidth={1.6}
+          />
+          <text
+            x={x}
+            y={y + 3.5}
+            textAnchor="middle"
+            fontSize="10"
+            fontWeight="700"
+            style={{ fill: 'var(--color-ink)' }}
+          >
+            {step}
+          </text>
+        </g>
+      ))}
       {nodes.map((n) => {
         const value = String(n.v);
         const tone = (tones[value] as NodeGraphTone | undefined) ?? 'idle';

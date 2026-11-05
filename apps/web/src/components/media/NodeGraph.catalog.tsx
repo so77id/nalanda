@@ -48,6 +48,12 @@ export const nodeGraphCatalogEntry: CatalogEntry = {
         'Edges painted thicker in mark: a path, the edges that break a rule. In an undirected graph either order matches; in a directed one, only the order given.',
     },
     {
+      name: 'walk',
+      type: '(string | number)[]',
+      description:
+        'A walk, as the vertices it visits in order: its edges are marked and each carries the number of its step, placed as <PenTrace> places its own (stepMarks in nodeGraphLayout.ts). Parallel edges are walked in turn. A step with no edge left between its two vertices renders an authoring error.',
+    },
+    {
       name: 'notes',
       type: 'Record<label, string | number>',
       default: '{}',

@@ -483,33 +483,36 @@ cantidad de aristas que lo tocan. Las aristas paralelas cuentan cada una: los do
 ## Caminos y ciclos
 
 <Slide title="Caminos">
-El paseo va de zona en zona por los puentes; en el grafo, de vértice en
-vértice por las aristas. Un **camino** es una secuencia de vértices en la que
-cada uno es vecino del siguiente y ninguna arista se repite:
+Un **camino** recorre el grafo de vértice en vértice por sus aristas, como el
+paseo recorre la ciudad de zona en zona por sus puentes, y no repite ninguna
+arista. Se escribe con los vértices en el orden en que se visitan:
 
 $$
-v_0, v_1, \dots, v_k \qquad \text{con } v_i v_{i+1} \in E
+v_0 \to v_1 \to \cdots \to v_k
 $$
 
-Se lee «de $$v_0$$ a $$v_k$$, cada vértice unido al siguiente por una arista».
-Puede pasar varias veces por el mismo vértice. Su **largo** es la cantidad de
-aristas que recorre, $$k$$.
+Se lee «de $$v_0$$ a $$v_1$$, de $$v_1$$ a $$v_2$$, y así hasta $$v_k$$». Cada
+flecha cruza una arista, $$v_i v_{i+1} \in E$$: marca el orden del recorrido,
+no una dirección. Un camino puede volver a pasar por un vértice, y su **largo**
+es la cantidad de aristas que cruza, $$k$$. En el dibujo, cada arista lleva el
+número de su paso.
 
 <NodeGraph
   cols={3}
   rows={3}
   nodes={[{ v: 'A', x: 0, y: 0 }, { v: 'B', x: 0, y: 2 }, { v: 'C', x: 1, y: 1 }, { v: 'D', x: 2, y: 0 }, { v: 'E', x: 2, y: 2 }]}
   edges={[['A', 'B'], ['A', 'C'], ['B', 'C'], ['C', 'D'], ['C', 'E'], ['D', 'E']]}
-  markEdges={[['A', 'B'], ['B', 'C'], ['C', 'D'], ['D', 'E'], ['E', 'C']]}
-  caption="A, B, C, D, E, C: largo 5"
-  label="Dos triángulos que comparten el vértice C. Marcado, el camino A, B, C, D, E, C: recorre cinco aristas y pasa dos veces por C."
+  walk={['A', 'B', 'C', 'D', 'E', 'C']}
+  caption="A → B → C → D → E → C: largo 5"
+  label="Dos triángulos que comparten el vértice C. Marcado y numerado, el camino de A a B, a C, a D, a E y otra vez a C: cruza cinco aristas y pasa dos veces por C."
 />
 
 </Slide>
 
 <Slide title="Caminos simples">
-Un camino es **simple** si no repite vértices: $$v_i \ne v_j$$ siempre que
-$$i \ne j$$. Un camino que pasa dos veces por el mismo vértice no es simple.
+Un camino es **simple** si pasa una sola vez por cada vértice: todos sus
+vértices son distintos, $$v_i \ne v_j$$ siempre que $$i \ne j$$. Basta un
+vértice repetido para que no lo sea.
 
 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.5rem 2rem', alignItems: 'end' }}>
 <NodeGraph
@@ -517,9 +520,9 @@ $$i \ne j$$. Un camino que pasa dos veces por el mismo vértice no es simple.
   rows={3}
   nodes={[{ v: 'A', x: 0, y: 0 }, { v: 'B', x: 0, y: 2 }, { v: 'C', x: 1, y: 1 }, { v: 'D', x: 2, y: 0 }, { v: 'E', x: 2, y: 2 }]}
   edges={[['A', 'B'], ['A', 'C'], ['B', 'C'], ['C', 'D'], ['C', 'E'], ['D', 'E']]}
-  markEdges={[['A', 'B'], ['B', 'C'], ['C', 'D']]}
-  caption="A, B, C, D: simple"
-  label="Dos triángulos que comparten el vértice C. Marcado, el camino A, B, C, D, que no repite ningún vértice."
+  walk={['A', 'B', 'C', 'D']}
+  caption="A → B → C → D: simple"
+  label="Dos triángulos que comparten el vértice C. Marcado y numerado, el camino de A a B, a C y a D, que no repite ningún vértice."
 />
 <NodeGraph
   cols={3}
@@ -527,33 +530,41 @@ $$i \ne j$$. Un camino que pasa dos veces por el mismo vértice no es simple.
   nodes={[{ v: 'A', x: 0, y: 0 }, { v: 'B', x: 0, y: 2 }, { v: 'C', x: 1, y: 1 }, { v: 'D', x: 2, y: 0 }, { v: 'E', x: 2, y: 2 }]}
   edges={[['A', 'B'], ['A', 'C'], ['B', 'C'], ['C', 'D'], ['C', 'E'], ['D', 'E']]}
   tones={{ C: 'flag' }}
-  markEdges={[['A', 'B'], ['B', 'C'], ['C', 'D'], ['D', 'E'], ['E', 'C']]}
-  caption="A, B, C, D, E, C: repite C"
-  label="Los mismos dos triángulos. Marcado, el camino A, B, C, D, E, C, que pasa dos veces por C, destacado: no es simple."
+  walk={['A', 'B', 'C', 'D', 'E', 'C']}
+  caption="A → B → C → D → E → C: repite C"
+  label="Los mismos dos triángulos. Marcado y numerado, el camino de A a B, a C, a D, a E y otra vez a C, que pasa dos veces por C, destacado: no es simple."
 />
 </div>
 
 </Slide>
 
 <Slide title="Ciclos">
-Si un camino termina en el vértice donde empezó, es un **ciclo**: un camino
-$$v_0, v_1, \dots, v_k$$ con $$k \ge 1$$ y $$v_0 = v_k$$.
+Un **ciclo** es un camino que vuelve al vértice donde empezó: el último vértice
+es el primero.
+
+$$
+v_0 \to v_1 \to \cdots \to v_k \qquad \text{con } v_k = v_0
+$$
+
+Se lee «un camino de $$v_0$$ que termina otra vez en $$v_0$$». Cruza al menos
+una arista, $$k \ge 1$$, y su largo se cuenta igual que el de un camino.
 
 <NodeGraph
   cols={3}
   rows={3}
   nodes={[{ v: 'A', x: 0, y: 0 }, { v: 'B', x: 0, y: 2 }, { v: 'C', x: 1, y: 1 }, { v: 'D', x: 2, y: 0 }, { v: 'E', x: 2, y: 2 }]}
   edges={[['A', 'B'], ['A', 'C'], ['B', 'C'], ['C', 'D'], ['C', 'E'], ['D', 'E']]}
-  markEdges={[['C', 'D'], ['D', 'E'], ['E', 'C']]}
-  caption="C, D, E, C: un ciclo de largo 3"
-  label="Dos triángulos que comparten el vértice C. Marcado, el ciclo C, D, E, que vuelve a C."
+  walk={['C', 'D', 'E', 'C']}
+  caption="C → D → E → C: un ciclo de largo 3"
+  label="Dos triángulos que comparten el vértice C. Marcado y numerado, el ciclo de C a D, a E y de vuelta a C."
 />
 
 </Slide>
 
 <Slide title="Ciclos simples">
-Un ciclo es **simple** si no repite vértices, salvo el primero, que también es
-el último: $$v_0, v_1, \dots, v_{k-1}$$ son todos distintos.
+Un ciclo es **simple** si no repite vértices, salvo el último, que tiene que ser
+el primero para cerrar el ciclo: $$v_0, v_1, \dots, v_{k-1}$$ son todos
+distintos.
 
 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.5rem 2rem', alignItems: 'end' }}>
 <NodeGraph
@@ -561,9 +572,9 @@ el último: $$v_0, v_1, \dots, v_{k-1}$$ son todos distintos.
   rows={3}
   nodes={[{ v: 'A', x: 0, y: 0 }, { v: 'B', x: 0, y: 2 }, { v: 'C', x: 1, y: 1 }, { v: 'D', x: 2, y: 0 }, { v: 'E', x: 2, y: 2 }]}
   edges={[['A', 'B'], ['A', 'C'], ['B', 'C'], ['C', 'D'], ['C', 'E'], ['D', 'E']]}
-  markEdges={[['A', 'B'], ['B', 'C'], ['C', 'A']]}
-  caption="A, B, C, A: simple"
-  label="Dos triángulos que comparten el vértice C. Marcado, el ciclo A, B, C, que vuelve a A sin repetir otro vértice."
+  walk={['A', 'B', 'C', 'A']}
+  caption="A → B → C → A: simple"
+  label="Dos triángulos que comparten el vértice C. Marcado y numerado, el ciclo de A a B, a C y de vuelta a A, sin repetir otro vértice."
 />
 <NodeGraph
   cols={3}
@@ -571,18 +582,20 @@ el último: $$v_0, v_1, \dots, v_{k-1}$$ son todos distintos.
   nodes={[{ v: 'A', x: 0, y: 0 }, { v: 'B', x: 0, y: 2 }, { v: 'C', x: 1, y: 1 }, { v: 'D', x: 2, y: 0 }, { v: 'E', x: 2, y: 2 }]}
   edges={[['A', 'B'], ['A', 'C'], ['B', 'C'], ['C', 'D'], ['C', 'E'], ['D', 'E']]}
   tones={{ C: 'flag' }}
-  markEdges={[['A', 'B'], ['B', 'C'], ['C', 'D'], ['D', 'E'], ['E', 'C'], ['C', 'A']]}
-  caption="A, B, C, D, E, C, A: repite C"
-  label="Los mismos dos triángulos. Marcado, el ciclo A, B, C, D, E, C, A, que recorre las seis aristas y pasa dos veces por C, destacado: no es simple."
+  walk={['A', 'B', 'C', 'D', 'E', 'C', 'A']}
+  caption="A → B → C → D → E → C → A: repite C"
+  label="Los mismos dos triángulos. Marcado y numerado, el ciclo de A a B, a C, a D, a E, otra vez a C y de vuelta a A: cruza las seis aristas y pasa dos veces por C, destacado. No es simple."
 />
 </div>
 
 </Slide>
 
 <Slide title="Grafos conexos">
-Un grafo es **conexo** si hay un camino entre cada par de vértices: para todo
-par $$u, v \in V$$, hay un camino de $$u$$ a $$v$$. Si no lo es, se parte en **componentes**: los grupos de vértices que se alcanzan entre
-sí y que no alcanzan a ningún otro.
+Un grafo es **conexo** si desde cualquier vértice se puede llegar a cualquier
+otro: para todo par de vértices $$u$$ y $$v$$ hay un camino de $$u$$ a $$v$$. Si
+no lo es,
+se parte en **componentes**: grupos de vértices que se alcanzan entre sí, pero
+desde los que no se llega a ningún vértice de otro grupo.
 
 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.5rem 2rem', alignItems: 'end' }}>
 <NodeGraph
@@ -590,9 +603,9 @@ sí y que no alcanzan a ningún otro.
   rows={3}
   nodes={[{ v: 'A', x: 0, y: 0 }, { v: 'B', x: 0, y: 2 }, { v: 'C', x: 1, y: 1 }, { v: 'D', x: 3, y: 1 }, { v: 'E', x: 4, y: 0 }, { v: 'F', x: 4, y: 2 }]}
   edges={[['A', 'B'], ['B', 'C'], ['C', 'A'], ['D', 'E'], ['E', 'F'], ['F', 'D'], ['C', 'D']]}
-  markEdges={[['C', 'D']]}
-  caption="conexo: una componente"
-  label="Dos triángulos, A, B y C, y D, E y F, unidos por la arista C-D, marcada: hay un camino entre cada par de vértices."
+  walk={['A', 'C', 'D', 'F']}
+  caption="conexo: A → C → D → F"
+  label="Dos triángulos, A, B y C, y D, E y F, unidos por la arista C-D. Marcado y numerado, un camino de A a C, a D y a F: se llega de un triángulo al otro."
 />
 <NodeGraph
   cols={5}
@@ -600,7 +613,7 @@ sí y que no alcanzan a ningún otro.
   nodes={[{ v: 'A', x: 0, y: 0 }, { v: 'B', x: 0, y: 2 }, { v: 'C', x: 1, y: 1 }, { v: 'D', x: 3, y: 1 }, { v: 'E', x: 4, y: 0 }, { v: 'F', x: 4, y: 2 }]}
   edges={[['A', 'B'], ['B', 'C'], ['C', 'A'], ['D', 'E'], ['E', 'F'], ['F', 'D']]}
   tones={{ D: 'mark', E: 'mark', F: 'mark' }}
-  caption="no conexo: dos componentes"
+  caption="dos componentes: de A no se llega a F"
   label="Los mismos dos triángulos sin la arista C-D: A, B y C en uno, y D, E y F, destacados, en el otro. Ninguna arista los une: son dos componentes."
 />
 </div>
@@ -612,12 +625,11 @@ sí y que no alcanzan a ningún otro.
 ## La respuesta de Euler
 
 <Slide title="Cada paso por un vértice usa dos aristas">
-Un paseo que cruza cada puente una vez es un camino que usa todas las
-aristas del grafo.
-
-Cuando el camino pasa por un vértice, llega por una arista y sale por otra.
-Cada paso usa **dos** aristas del vértice, y como ninguna arista se repite, un
-vértice por el que el camino solo pasa tiene que tener grado par.
+El paseo sería un camino que cruza todas las aristas del grafo. Miremos un
+vértice por el que ese camino pasa, sin empezar ni terminar en él: llega por una
+arista y sale por otra. Cada pasada usa **dos** aristas del vértice, y como
+ninguna arista se repite, sus aristas se gastan de a dos: su grado tiene que
+ser par.
 
 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.5rem 2rem', alignItems: 'end' }}>
 <NodeGraph
@@ -627,7 +639,7 @@ vértice por el que el camino solo pasa tiene que tener grado par.
   edges={[['A', 'X'], ['X', 'B'], ['C', 'X'], ['X', 'D']]}
   markEdges={[['A', 'X'], ['X', 'B']]}
   tones={{ X: 'mark' }}
-  caption="un paso por X: llega de A y sale a B"
+  caption="A → X → B: llega por una, sale por otra"
   label="Un vértice X, destacado, con cuatro aristas. Marcadas, las dos que usa un paso del camino: llega desde A y sale hacia B."
 />
 <NodeGraph
@@ -637,14 +649,15 @@ vértice por el que el camino solo pasa tiene que tener grado par.
   edges={[['A', 'X'], ['X', 'B'], ['C', 'X'], ['X', 'D']]}
   markEdges={[['C', 'X'], ['X', 'D']]}
   tones={{ X: 'mark' }}
-  caption="otro paso: llega de C y sale a D"
+  caption="C → X → D: otra pasada, otras dos"
   label="El mismo vértice X. Marcadas, las dos aristas que usa un segundo paso: llega desde C y sale hacia D."
 />
 </div>
 
-Solo dos vértices escapan de esa cuenta: el del **comienzo**, donde el camino
-sale sin haber llegado, y el del **final**, donde llega sin volver a salir. En
-un ciclo los dos son el mismo vértice, y también usa sus aristas de a dos.
+Solo dos vértices escapan de esa cuenta: el del **comienzo**, de donde el
+camino sale sin haber llegado, y el del **final**, adonde llega sin volver a
+salir. En un ciclo el comienzo y el final son el mismo vértice, y ese también
+usa sus aristas de a dos.
 
 </Slide>
 

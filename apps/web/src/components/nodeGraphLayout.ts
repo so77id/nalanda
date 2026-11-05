@@ -267,3 +267,103 @@ const angleBetween = (a: number, b: number) => {
   const d = Math.abs(a - b) % (2 * Math.PI);
   return d > Math.PI ? 2 * Math.PI - d : d;
 };
+
+/** The circle that carries a step number on a walked edge. */
+export const STEP_R = 7;
+
+/**
+ * How far a step number keeps from the others (two circles and a little air)
+ * and from a vertex's centre (the vertex, the circle and a little air), and
+ * how far it steps off its edge when the edge has no room left.
+ */
+export const STEP_SPACE = { gap: 2 * STEP_R + 2, clear: NODE_R + STEP_R + 1, side: STEP_R + 2 };
+
+/**
+ * The edge each step of a walk takes: for each pair of consecutive vertices,
+ * the first edge between them not taken yet, so parallel edges are walked in
+ * turn. In a directed graph an edge is taken only from its first vertex.
+ * `null` when a step has no edge left to take.
+ */
+export function walkStrokes(
+  edges: NodeGraphEdge[],
+  walk: (string | number)[],
+  directed: boolean,
+): number[] | null {
+  const used: number[] = [];
+  for (let i = 0; i + 1 < walk.length; i++) {
+    const a = String(walk[i]);
+    const b = String(walk[i + 1]);
+    const k = edges.findIndex(
+      ([u, v], j) =>
+        !used.includes(j) &&
+        ((String(u) === a && String(v) === b) || (!directed && String(u) === b && String(v) === a)),
+    );
+    if (k === -1) return null;
+    used.push(k);
+  }
+  return used;
+}
+
+/** A drawn stroke's step number and where it is written. */
+export interface StepMark {
+  stroke: number;
+  step: number;
+  x: number;
+  y: number;
+}
+
+/**
+ * Where along its stroke a step number may go, best first: the middle, then
+ * a little nearer where the step began, a little nearer where it ended, and
+ * so on outwards.
+ */
+const SPOTS = [0.5, 0.44, 0.56, 0.38, 0.62, 0.32, 0.68, 0.26, 0.74, 0.2, 0.8, 0.14, 0.86];
+
+/**
+ * The step numbers of a tracing on a laid-out graph: each drawn stroke gets
+ * the number of the step that drew it, at the middle of the stroke, or at the
+ * first spot along it that is at least `gap` from every number written
+ * before and `clear` from every point's centre. When the stroke has no such
+ * spot — where several strokes cross — the number steps `side` off the
+ * stroke, beside it. Failing even that, it takes the spot off the points
+ * that stands furthest from the numbers already written.
+ */
+export function stepMarks(
+  { edges, at }: Pick<NodeGraphLayout, 'edges' | 'at'>,
+  trace: { path: string[]; used: number[] },
+  { gap, clear, side }: { gap: number; clear: number; side: number },
+): StepMark[] {
+  const marks: StepMark[] = [];
+  const points = [...at.values()];
+  const nearest = (p: { x: number; y: number }, qs: { x: number; y: number }[]) =>
+    Math.min(Infinity, ...qs.map((q) => Math.hypot(p.x - q.x, p.y - q.y)));
+  trace.used.forEach((k, i) => {
+    const edge = edges[k];
+    const forward = edge.from === trace.path[i];
+    const along = (t: number) => pointOnEdge(edge, forward ? t : 1 - t);
+    const beside = (t: number, sign: number) => {
+      const p = along(t);
+      const a = along(t - 0.01);
+      const b = along(t + 0.01);
+      const len = Math.hypot(b.x - a.x, b.y - a.y) || 1;
+      return {
+        x: p.x - ((b.y - a.y) / len) * side * sign,
+        y: p.y + ((b.x - a.x) / len) * side * sign,
+      };
+    };
+    const spots = [...SPOTS.map(along), ...SPOTS.flatMap((t) => [beside(t, 1), beside(t, -1)])];
+    const clearOfPoints = spots.filter((p) => nearest(p, points) >= clear);
+    const free =
+      clearOfPoints.find((p) => nearest(p, marks) >= gap) ??
+      [...(clearOfPoints.length > 0 ? clearOfPoints : spots)].sort(
+        (p, q) => nearest(q, marks) - nearest(p, marks),
+      )[0];
+    marks.push({
+      stroke: k,
+      step: i + 1,
+      x: Math.round(free.x * 10) / 10,
+      y: Math.round(free.y * 10) / 10,
+    });
+  });
+  return marks;
+}

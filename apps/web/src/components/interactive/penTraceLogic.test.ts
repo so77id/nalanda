@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { NODE_R, layoutNodeGraph, type NodeGraphEdge } from '../nodeGraphLayout';
+import { NODE_R, layoutNodeGraph, stepMarks, type NodeGraphEdge } from '../nodeGraphLayout';
 import {
   EMPTY_TRACE,
   attempts,
@@ -8,7 +8,6 @@ import {
   solve,
   status,
   step,
-  stepMarks,
   undo,
   type TraceState,
 } from './penTraceLogic';

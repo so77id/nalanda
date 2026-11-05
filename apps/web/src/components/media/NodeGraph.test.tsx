@@ -4,6 +4,28 @@ import { describe, expect, it } from 'vitest';
 import { ModeProvider } from '../../presentation';
 import { NodeGraph, type NodeGraphProps } from './NodeGraph';
 
+/** Two triangles that share C: a walk A, B, C, D, E, C passes C twice. */
+const BOWTIE: NodeGraphProps = {
+  cols: 3,
+  rows: 3,
+  nodes: [
+    { v: 'A', x: 0, y: 0 },
+    { v: 'B', x: 0, y: 2 },
+    { v: 'C', x: 1, y: 1 },
+    { v: 'D', x: 2, y: 0 },
+    { v: 'E', x: 2, y: 2 },
+  ],
+  edges: [
+    ['A', 'B'],
+    ['A', 'C'],
+    ['B', 'C'],
+    ['C', 'D'],
+    ['C', 'E'],
+    ['D', 'E'],
+  ],
+  label: 'Dos triángulos que comparten C.',
+};
+
 /** A node with three children: the drawing that breaks "a lo más dos hijos". */
 const THREE_CHILDREN: NodeGraphProps = {
   cols: 3,
@@ -200,6 +222,43 @@ describe('NodeGraph', () => {
       ]),
     );
     expect(shapes).toEqual({ A: 'circle', Beto: 'pill' });
+  });
+
+  it('numbers the edges of a walk by its steps, and marks them', () => {
+    const { container } = render(<NodeGraph {...BOWTIE} walk={['A', 'B', 'C', 'D', 'E', 'C']} />);
+    const steps = [...container.querySelectorAll('[data-step]')].map((g) => [
+      g.getAttribute('data-step'),
+      g.getAttribute('data-of'),
+    ]);
+    expect(steps).toEqual([
+      ['1', '0'],
+      ['2', '2'],
+      ['3', '3'],
+      ['4', '5'],
+      ['5', '4'],
+    ]);
+    expect(container.querySelectorAll('[data-edge][data-marked]')).toHaveLength(5);
+  });
+
+  it('walks parallel edges one after the other', () => {
+    const { container } = render(
+      <NodeGraph
+        {...BOWTIE}
+        edges={[
+          ['A', 'B'],
+          ['A', 'B'],
+        ]}
+        walk={['A', 'B', 'A']}
+      />,
+    );
+    expect(
+      [...container.querySelectorAll('[data-step]')].map((g) => g.getAttribute('data-of')),
+    ).toEqual(['0', '1']);
+  });
+
+  it('tells the author when a walk steps where no edge goes', () => {
+    const { container } = render(<NodeGraph {...BOWTIE} walk={['A', 'D']} />);
+    expect(container.querySelector('[data-authoring-error]')).not.toBeNull();
   });
 
   it('tells the author when an edge names a node that is not drawn', () => {

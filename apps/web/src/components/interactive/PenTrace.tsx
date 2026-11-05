@@ -4,7 +4,10 @@ import { Fragment, useEffect, useState } from 'react';
 import { AuthoringError } from '../AuthoringError';
 import {
   NODE_R,
+  STEP_R,
+  STEP_SPACE,
   layoutNodeGraph,
+  stepMarks,
   type NodeGraphEdge,
   type NodeGraphNode,
 } from '../nodeGraphLayout';
@@ -15,7 +18,6 @@ import {
   solve,
   status,
   step,
-  stepMarks,
   undo,
   type TraceState,
   type TraceStatus,
@@ -55,14 +57,6 @@ export const STUCK_STEPS = 3;
 export const ATTEMPTS = 5;
 
 const DOT_R = 6;
-/** The circle that carries a drawn stroke's step number, on a lettered graph. */
-const STEP_R = 7;
-/**
- * How far a step number keeps from the others (two circles and a little air)
- * and from a point's centre (the point, the circle and a little air), and how
- * far it steps off its stroke when the stroke has no room left.
- */
-const STEP_SPACE = { gap: 2 * STEP_R + 2, clear: NODE_R + STEP_R + 1, side: STEP_R + 2 };
 /** The invisible circle a press lands on, larger than a dot. */
 const HIT_R = 16;
 
