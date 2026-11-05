@@ -126,11 +126,9 @@ qué.
 </Slide>
 
 <Slide title="De la ciudad al grafo">
-Para la pregunta del paseo no importa la forma de las orillas, ni el largo de
-los puentes, ni dónde está cada uno. Solo importa **qué zonas une cada
-puente**. En 1736, Leonhard Euler se quedó solo con eso: nombró cada zona con
-una letra y cada puente por las dos zonas que une. Hoy lo dibujamos así: cada
-zona, un punto; cada puente, una línea.
+Para el paseo no importan la forma de las orillas ni el largo de los puentes:
+solo importa qué zonas une cada puente. En 1736, Leonhard Euler se quedó solo
+con eso.
 
 <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'center', gap: '0.5rem 0.75rem' }}>
 <figure style={{ flex: '1 1 200px', margin: 0, textAlign: 'center' }}>
@@ -149,10 +147,13 @@ zona, un punto; cada puente, una línea.
 </figure>
 </div>
 
+Hoy lo dibujamos con un punto por zona y una línea por puente. A este dibujo
+lo llamamos **grafo**.
+
 </Slide>
 
 <Slide title="El paseo por Königsberg">
-En el dibujo, el paseo es pasar el lápiz por todas las líneas sin levantarlo
+En el grafo, el paseo es pasar el lápiz por todas las líneas sin levantarlo
 y sin repetir ninguna: cada línea dibujada es un puente cruzado. Se puede
 probar a mano, o con Buscar solución:
 
@@ -178,21 +179,44 @@ descarte todos los órdenes a la vez, sin probar ninguno.
 
 ## Las partes de un grafo
 
-<Slide title="Vértices y aristas">
-Un **grafo** tiene **vértices**, los puntos, y **aristas**, las líneas. Cada
-arista une dos vértices. Escribimos $$V$$ para la cantidad de vértices y $$E$$
-para la cantidad de aristas.
+<Slide title="Qué es un grafo">
+Un grafo tiene dos partes: sus **vértices**, los puntos, y sus **aristas**, las
+líneas. Cada arista une dos vértices y se nombra por sus dos extremos, como
+$$AB$$. Un grafo se escribe
 
+$$
+G = (V, E)
+$$
+
+y se lee «$$G$$ es el par formado por los vértices $$V$$ y las aristas $$E$$».
+La cantidad de vértices es $$|V|$$ y la de aristas, $$|E|$$; por costumbre, en
+las cuentas se escriben simplemente $$V$$ y $$E$$.
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.5rem 2rem', alignItems: 'center' }}>
 <NodeGraph
   cols={3}
   rows={3}
   nodes={[{ v: 'B', x: 1, y: 0 }, { v: 'A', x: 0, y: 1 }, { v: 'D', x: 2, y: 1 }, { v: 'C', x: 1, y: 2 }]}
   edges={[['A', 'B'], ['A', 'B'], ['A', 'C'], ['A', 'C'], ['A', 'D'], ['B', 'D'], ['C', 'D']]}
-  tones={{ A: 'mark' }}
-  markEdges={[['A', 'D']]}
-  caption="el vértice A y la arista A-D; V = 4 y E = 7"
-  label="El grafo de Königsberg: cuatro vértices, A, B, C y D, y siete aristas. Marcados, el vértice A y la arista entre A y D."
+  caption="el grafo de Königsberg"
+  label="El grafo de Königsberg: cuatro vértices, A, B, C y D, y siete aristas: dos entre A y B, dos entre A y C, y una entre A y D, B y D, y C y D."
 />
+<div>
+
+$$
+V = \{A, B, C, D\}
+$$
+
+$$
+E = \{AB, AB, AC, AC, AD, BD, CD\}
+$$
+
+$$
+|V| = 4 \qquad |E| = 7
+$$
+
+</div>
+</div>
 
 </Slide>
 
