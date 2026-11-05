@@ -859,6 +859,194 @@ cosas son vértices y lo que las une, aristas:
 
 <SectionBreak />
 
+## Clases de grafos
+
+<Slide title="Grafos dirigidos">
+Las mismas personas dan dos grafos según la relación que se mire. Ser amigos
+va en los dos sentidos; seguir a alguien en una red social, no: no obliga a
+que esa persona nos siga. En un **grafo dirigido**, cada arista va de un
+vértice a otro y se dibuja como una flecha.
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '0.5rem 2rem', alignItems: 'end' }}>
+<NodeGraph
+  cols={4}
+  rows={2}
+  nodes={[{ v: 'Ana', x: 0, y: 0 }, { v: 'Beto', x: 2, y: 0 }, { v: 'Caro', x: 1, y: 1 }, { v: 'Dani', x: 3, y: 1 }]}
+  edges={[['Ana', 'Beto'], ['Ana', 'Caro'], ['Beto', 'Caro'], ['Caro', 'Dani']]}
+  caption="amistad: sin dirección"
+  label="Una red de amistades: Ana es amiga de Beto y de Caro, Beto de Caro, y Caro de Dani. Las aristas no tienen dirección."
+/>
+<NodeGraph
+  cols={4}
+  rows={2}
+  directed
+  nodes={[{ v: 'Ana', x: 0, y: 0 }, { v: 'Beto', x: 2, y: 0 }, { v: 'Caro', x: 1, y: 1 }, { v: 'Dani', x: 3, y: 1 }]}
+  edges={[['Ana', 'Beto'], ['Beto', 'Ana'], ['Ana', 'Caro'], ['Caro', 'Beto'], ['Dani', 'Caro']]}
+  caption="seguir: con dirección"
+  label="Quién sigue a quién, con flechas: Ana y Beto se siguen entre sí, Ana sigue a Caro, Caro sigue a Beto y Dani sigue a Caro."
+/>
+</div>
+
+</Slide>
+
+<Slide title="Grado de entrada y de salida">
+En un grafo dirigido, cada vértice tiene dos grados. El **grado de salida**
+cuenta las flechas que salen de él: las personas que sigue. El **grado de
+entrada** cuenta las flechas que llegan a él: las personas que lo siguen. En
+un grafo sin dirección los dos son el mismo número, el grado.
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.5rem 2rem', alignItems: 'end' }}>
+<NodeGraph
+  cols={4}
+  rows={2}
+  directed
+  nodes={[{ v: 'Ana', x: 0, y: 0 }, { v: 'Beto', x: 2, y: 0 }, { v: 'Caro', x: 1, y: 1 }, { v: 'Dani', x: 3, y: 1 }]}
+  edges={[['Ana', 'Beto'], ['Beto', 'Ana'], ['Ana', 'Caro'], ['Caro', 'Beto'], ['Dani', 'Caro']]}
+  tones={{ Beto: 'mark' }}
+  markEdges={[['Beto', 'Ana']]}
+  caption="Beto sigue a una: grado de salida 1"
+  label="La red de seguidores con Beto destacado y su única flecha que sale, hacia Ana, marcada: grado de salida 1."
+/>
+<NodeGraph
+  cols={4}
+  rows={2}
+  directed
+  nodes={[{ v: 'Ana', x: 0, y: 0 }, { v: 'Beto', x: 2, y: 0 }, { v: 'Caro', x: 1, y: 1 }, { v: 'Dani', x: 3, y: 1 }]}
+  edges={[['Ana', 'Beto'], ['Beto', 'Ana'], ['Ana', 'Caro'], ['Caro', 'Beto'], ['Dani', 'Caro']]}
+  tones={{ Beto: 'mark' }}
+  markEdges={[['Ana', 'Beto'], ['Caro', 'Beto']]}
+  caption="a Beto lo siguen dos: grado de entrada 2"
+  label="La misma red con Beto destacado y las dos flechas que llegan a él, desde Ana y desde Caro, marcadas: grado de entrada 2."
+/>
+</div>
+
+</Slide>
+
+<Slide title="Grafos con pesos">
+En muchos problemas, cada relación trae un número que el problema usa: los
+minutos de un tramo, el precio de un pasaje, la distancia entre dos ciudades.
+Un grafo así es un **grafo con pesos**, o **ponderado**, y el número de cada
+arista es su **peso**. Un grafo puede ser dirigido y con pesos a la vez.
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.5rem 2rem', alignItems: 'end' }}>
+<NodeGraph
+  cols={3}
+  rows={3}
+  nodes={[{ v: 'B', x: 1, y: 0 }, { v: 'A', x: 0, y: 1 }, { v: 'C', x: 2, y: 1 }, { v: 'D', x: 1, y: 2 }]}
+  edges={[['A', 'B', 7], ['B', 'C', 2], ['A', 'D', 3], ['D', 'C', 4], ['B', 'D', 5]]}
+  caption="con pesos"
+  label="Cuatro vértices con un peso en cada arista: A-B pesa 7, B-C 2, A-D 3, D-C 4 y B-D 5."
+/>
+<NodeGraph
+  cols={3}
+  rows={3}
+  directed
+  nodes={[{ v: 'B', x: 1, y: 0 }, { v: 'A', x: 0, y: 1 }, { v: 'C', x: 2, y: 1 }, { v: 'D', x: 1, y: 2 }]}
+  edges={[['A', 'B', 7], ['B', 'C', 2], ['A', 'D', 3], ['D', 'C', 4], ['D', 'B', 5]]}
+  caption="dirigido y con pesos"
+  label="Los mismos vértices con flechas y pesos: de A a B pesa 7, de B a C 2, de A a D 3, de D a C 4 y de D a B 5."
+/>
+</div>
+
+</Slide>
+
+{/* SelfLoop — a vertex with a self-loop beside a plain edge, drawn by hand because <NodeGraph> has no self-loops. Styled as NodeGraph (rule-strong lines, surface vertices, 14px letters). File-local. */}
+
+export function SelfLoop({ label }) {
+  return (
+    <figure style={{ margin: '0.4rem auto', textAlign: 'center' }}>
+      <svg viewBox="0 0 220 120" style={{ width: '100%', maxWidth: '260px', height: 'auto', display: 'block', margin: '0 auto' }} role="img" aria-label={label}>
+        <path d="M 58 66 C 26 6, 106 6, 74 66" fill="none" style={{ stroke: 'var(--color-mark)' }} strokeWidth="2.6" />
+        <line x1="83" y1="80" x2="143" y2="80" style={{ stroke: 'var(--color-rule-strong)' }} strokeWidth="1.3" />
+        <circle cx="66" cy="80" r="17" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.3" />
+        <text x="66" y="85" textAnchor="middle" fontSize="14" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>A</text>
+        <circle cx="160" cy="80" r="17" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.3" />
+        <text x="160" y="85" textAnchor="middle" fontSize="14" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>B</text>
+      </svg>
+      <figcaption style={{ fontSize: '0.8rem', color: 'var(--color-ink-soft)' }}>un lazo en A</figcaption>
+    </figure>
+  );
+}
+
+<Slide title="Lazos">
+Una arista que une un vértice consigo mismo es un **lazo**: una página web que
+se enlaza a sí misma, por ejemplo.
+
+<SelfLoop label="Dos vértices, A y B, unidos por una arista, y un lazo marcado que sale de A y vuelve a A." />
+
+</Slide>
+
+<Slide title="Grafos simples">
+Un grafo sin aristas paralelas ni lazos es **simple**: cada par de sus
+vértices tiene a lo más una arista.
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.5rem 2rem', alignItems: 'end' }}>
+<NodeGraph
+  cols={3}
+  rows={3}
+  nodes={[{ v: 'B', x: 1, y: 0 }, { v: 'A', x: 0, y: 1 }, { v: 'D', x: 2, y: 1 }, { v: 'C', x: 1, y: 2 }]}
+  edges={[['A', 'B'], ['A', 'C'], ['A', 'D'], ['B', 'D'], ['C', 'D']]}
+  caption="simple: una arista por par"
+  label="Los cuatro vértices de Königsberg con una sola arista entre cada par unido: A-B, A-C, A-D, B-D y C-D. Es un grafo simple."
+/>
+<NodeGraph
+  cols={3}
+  rows={3}
+  nodes={[{ v: 'B', x: 1, y: 0 }, { v: 'A', x: 0, y: 1 }, { v: 'D', x: 2, y: 1 }, { v: 'C', x: 1, y: 2 }]}
+  edges={[['A', 'B'], ['A', 'B'], ['A', 'C'], ['A', 'C'], ['A', 'D'], ['B', 'D'], ['C', 'D']]}
+  markEdges={[['A', 'B'], ['A', 'C']]}
+  caption="no simple: aristas paralelas"
+  label="El grafo de Königsberg con sus aristas paralelas marcadas, las dos entre A y B y las dos entre A y C: no es un grafo simple."
+/>
+</div>
+
+</Slide>
+
+<Slide title="Grafos completos">
+Un grafo simple con todas sus aristas posibles es **completo**: cada vértice
+está unido con todos los demás.
+
+<NodeGraph
+  cols={3}
+  rows={3}
+  nodes={[{ v: 'A', x: 1, y: 0 }, { v: 'B', x: 0, y: 1 }, { v: 'C', x: 2, y: 1 }, { v: 'D', x: 0.5, y: 2 }, { v: 'E', x: 1.5, y: 2 }]}
+  edges={[['A', 'B'], ['A', 'C'], ['A', 'D'], ['A', 'E'], ['B', 'C'], ['B', 'D'], ['B', 'E'], ['C', 'D'], ['C', 'E'], ['D', 'E']]}
+  caption="cada vértice unido con los otros cuatro"
+  label="Un grafo completo de cinco vértices: cada vértice está unido con los otros cuatro, diez aristas en total."
+/>
+
+</Slide>
+
+<Slide title="Árboles">
+Un **árbol** es un grafo conexo y sin ciclos. Entre dos de sus vértices hay
+exactamente un camino simple. Un árbol con $$V$$ vértices tiene exactamente
+$$V - 1$$ aristas: con una menos deja de ser conexo, y con una más cierra un
+ciclo. Un árbol con raíz es un árbol en el que se elige un vértice como raíz.
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.5rem 2rem', alignItems: 'end' }}>
+<NodeGraph
+  cols={3}
+  rows={3}
+  nodes={[{ v: 'A', x: 1, y: 0 }, { v: 'B', x: 0, y: 1 }, { v: 'C', x: 2, y: 1 }, { v: 'D', x: 0, y: 2 }, { v: 'E', x: 2, y: 2 }]}
+  edges={[['A', 'B'], ['A', 'C'], ['B', 'D'], ['C', 'E']]}
+  caption="V = 5 y 4 aristas: un árbol"
+  label="Un árbol de cinco vértices y cuatro aristas: A unido con B y con C, B con D y C con E."
+/>
+<NodeGraph
+  cols={3}
+  rows={3}
+  nodes={[{ v: 'A', x: 1, y: 0 }, { v: 'B', x: 0, y: 1 }, { v: 'C', x: 2, y: 1 }, { v: 'D', x: 0, y: 2 }, { v: 'E', x: 2, y: 2 }]}
+  edges={[['A', 'B'], ['A', 'C'], ['B', 'D'], ['C', 'E'], ['D', 'E']]}
+  markEdges={[['D', 'E']]}
+  caption="una arista más cierra un ciclo"
+  label="El mismo árbol con una quinta arista, D-E, marcada: cierra el ciclo A, B, D, E, C, y ya no es un árbol."
+/>
+</div>
+
+</Slide>
+
+<SectionBreak />
+
 ## Modelar un problema como grafo
 
 <Slide title="Las preguntas de un modelo">
@@ -921,79 +1109,6 @@ relación que se mire.
 
 </div>
 </div>
-
-</Slide>
-
-<Slide title="Grafos dirigidos">
-Las mismas personas dan dos grafos según la relación que se mire. Ser amigos
-va en los dos sentidos; seguir a alguien en una red social, no: no obliga a
-que esa persona nos siga. En un **grafo dirigido**, cada arista va de un
-vértice a otro y se dibuja como una flecha.
-
-<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '0.5rem 2rem', alignItems: 'end' }}>
-<NodeGraph
-  cols={4}
-  rows={2}
-  nodes={[{ v: 'Ana', x: 0, y: 0 }, { v: 'Beto', x: 2, y: 0 }, { v: 'Caro', x: 1, y: 1 }, { v: 'Dani', x: 3, y: 1 }]}
-  edges={[['Ana', 'Beto'], ['Ana', 'Caro'], ['Beto', 'Caro'], ['Caro', 'Dani']]}
-  caption="amistad: sin dirección"
-  label="Una red de amistades: Ana es amiga de Beto y de Caro, Beto de Caro, y Caro de Dani. Las aristas no tienen dirección."
-/>
-<NodeGraph
-  cols={4}
-  rows={2}
-  directed
-  nodes={[{ v: 'Ana', x: 0, y: 0 }, { v: 'Beto', x: 2, y: 0 }, { v: 'Caro', x: 1, y: 1 }, { v: 'Dani', x: 3, y: 1 }]}
-  edges={[['Ana', 'Beto'], ['Beto', 'Ana'], ['Ana', 'Caro'], ['Caro', 'Beto'], ['Dani', 'Caro']]}
-  caption="seguir: con dirección"
-  label="Quién sigue a quién, con flechas: Ana y Beto se siguen entre sí, Ana sigue a Caro, Caro sigue a Beto y Dani sigue a Caro."
-/>
-</div>
-
-- **Vértices**: las personas, en los dos grafos.
-- **Aristas**: ser amigos, sin dirección; seguir a alguien, con dirección.
-- **Pesos**: ninguno. Una amistad o un seguidor no traen un número.
-
-</Slide>
-
-<Slide title="Grado de entrada y de salida">
-<Split ratio="60/40">
-
-En un grafo dirigido, cada vértice tiene dos grados. El **grado de salida**
-cuenta las flechas que salen de él: las personas que sigue.
-
-<NodeGraph
-  cols={4}
-  rows={2}
-  directed
-  nodes={[{ v: 'Ana', x: 0, y: 0 }, { v: 'Beto', x: 2, y: 0 }, { v: 'Caro', x: 1, y: 1 }, { v: 'Dani', x: 3, y: 1 }]}
-  edges={[['Ana', 'Beto'], ['Beto', 'Ana'], ['Ana', 'Caro'], ['Caro', 'Beto'], ['Dani', 'Caro']]}
-  tones={{ Beto: 'mark' }}
-  markEdges={[['Beto', 'Ana']]}
-  caption="Beto sigue a una: grado de salida 1"
-  label="La red de seguidores con Beto destacado y su única flecha que sale, hacia Ana, marcada: grado de salida 1."
-/>
-
-</Split>
-
-<Split ratio="40/60">
-
-<NodeGraph
-  cols={4}
-  rows={2}
-  directed
-  nodes={[{ v: 'Ana', x: 0, y: 0 }, { v: 'Beto', x: 2, y: 0 }, { v: 'Caro', x: 1, y: 1 }, { v: 'Dani', x: 3, y: 1 }]}
-  edges={[['Ana', 'Beto'], ['Beto', 'Ana'], ['Ana', 'Caro'], ['Caro', 'Beto'], ['Dani', 'Caro']]}
-  tones={{ Beto: 'mark' }}
-  markEdges={[['Ana', 'Beto'], ['Caro', 'Beto']]}
-  caption="a Beto lo siguen dos: grado de entrada 2"
-  label="La misma red con Beto destacado y las dos flechas que llegan a él, desde Ana y desde Caro, marcadas: grado de entrada 2."
-/>
-
-El **grado de entrada** cuenta las flechas que llegan a él: las personas que
-lo siguen. En un grafo sin dirección los dos son el mismo número, el grado.
-
-</Split>
 
 </Slide>
 
@@ -1064,10 +1179,9 @@ export function StreetPlan({ stage = 'city', label }) {
 }
 
 <Slide title="Un mapa de calles">
-En un mapa de calles, cada tramo trae un número que el problema usa: los
-minutos que toma. Es un **grafo con pesos**, o **ponderado**, y el número de
-cada arista es su **peso**. Un grafo puede ser dirigido y con pesos a la vez:
-una calle de un solo sentido es una flecha, con sus minutos.
+En un mapa de calles, las esquinas son vértices y los tramos, aristas. Cada
+tramo trae los minutos que toma: es su peso. Una calle de un solo sentido es
+una flecha, así que el grafo es dirigido y con pesos.
 
 <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'center', gap: '0.5rem 0.75rem' }}>
 <figure style={{ flex: '1 1 190px', margin: 0, textAlign: 'center' }}>
@@ -1176,43 +1290,6 @@ tomarlo: la malla no puede tener un ciclo.
 />
 </div>
 </div>
-
-</Slide>
-
-<Slide title="Árboles">
-<Split ratio="60/40">
-
-Un **árbol** es un grafo conexo y sin ciclos. Entre dos de sus vértices hay
-exactamente un camino simple. Un árbol con raíz es un árbol en el que se elige
-un vértice como raíz.
-
-<NodeGraph
-  cols={3}
-  rows={3}
-  nodes={[{ v: 'A', x: 1, y: 0 }, { v: 'B', x: 0, y: 1 }, { v: 'C', x: 2, y: 1 }, { v: 'D', x: 0, y: 2 }, { v: 'E', x: 2, y: 2 }]}
-  edges={[['A', 'B'], ['A', 'C'], ['B', 'D'], ['C', 'E']]}
-  caption="V = 5 y 4 aristas: un árbol"
-  label="Un árbol de cinco vértices y cuatro aristas: A unido con B y con C, B con D y C con E."
-/>
-
-</Split>
-
-<Split ratio="40/60">
-
-<NodeGraph
-  cols={3}
-  rows={3}
-  nodes={[{ v: 'A', x: 1, y: 0 }, { v: 'B', x: 0, y: 1 }, { v: 'C', x: 2, y: 1 }, { v: 'D', x: 0, y: 2 }, { v: 'E', x: 2, y: 2 }]}
-  edges={[['A', 'B'], ['A', 'C'], ['B', 'D'], ['C', 'E'], ['D', 'E']]}
-  markEdges={[['D', 'E']]}
-  caption="una arista más cierra un ciclo"
-  label="El mismo árbol con una quinta arista, D-E, marcada: cierra el ciclo A, B, D, E, C, y ya no es un árbol."
-/>
-
-Un árbol con $$V$$ vértices tiene exactamente $$V - 1$$ aristas: con una
-menos deja de ser conexo, y con una más cierra un ciclo.
-
-</Split>
 
 </Slide>
 
@@ -1932,45 +2009,17 @@ Cuál ocupa menos depende de cuántas aristas tiene el grafo.
 
 </Slide>
 
-{/* SelfLoop — a vertex with a self-loop beside a plain edge, drawn by hand because <NodeGraph> has no self-loops. Styled as NodeGraph (rule-strong lines, surface vertices, 14px letters). File-local. */}
-
-export function SelfLoop({ label }) {
-  return (
-    <figure style={{ margin: '0.4rem auto', textAlign: 'center' }}>
-      <svg viewBox="0 0 220 120" style={{ width: '100%', maxWidth: '260px', height: 'auto', display: 'block', margin: '0 auto' }} role="img" aria-label={label}>
-        <path d="M 58 66 C 26 6, 106 6, 74 66" fill="none" style={{ stroke: 'var(--color-mark)' }} strokeWidth="2.6" />
-        <line x1="83" y1="80" x2="143" y2="80" style={{ stroke: 'var(--color-rule-strong)' }} strokeWidth="1.3" />
-        <circle cx="66" cy="80" r="17" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.3" />
-        <text x="66" y="85" textAnchor="middle" fontSize="14" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>A</text>
-        <circle cx="160" cy="80" r="17" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.3" />
-        <text x="160" y="85" textAnchor="middle" fontSize="14" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>B</text>
-      </svg>
-      <figcaption style={{ fontSize: '0.8rem', color: 'var(--color-ink-soft)' }}>un lazo en A</figcaption>
-    </figure>
-  );
-}
-
 <Slide title="Grafos densos y dispersos">
-<Split ratio="60/40">
-
-Una arista que une un vértice consigo mismo es un **lazo**. Un grafo sin
-aristas paralelas ni lazos es **simple**: cada par de sus vértices tiene a lo
-más una arista.
-
-<SelfLoop label="Dos vértices, A y B, unidos por una arista, y un lazo marcado que sale de A y vuelve a A." />
-
-</Split>
-
-En un grafo simple sin dirección, entonces,
+En un grafo simple sin dirección, cada par de vértices tiene a lo más una
+arista, así que
 
 $$
 E \le \frac{V(V - 1)}{2}
 $$
 
-Se lee «$$E$$ es a lo más $$V$$ por $$V - 1$$, dividido en dos». Un grafo
-simple con todas sus aristas posibles es **completo**. Uno con cerca de ese
-máximo es **denso**, y uno con muchas menos aristas, cerca de $$V$$, es
-**disperso**.
+Se lee «$$E$$ es a lo más $$V$$ por $$V - 1$$, dividido en dos», y un grafo
+completo llega justo a ese máximo. Un grafo con cerca de ese máximo es
+**denso**, y uno con muchas menos aristas, cerca de $$V$$, es **disperso**.
 
 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.5rem 2rem', alignItems: 'end' }}>
 <NodeGraph
@@ -1978,8 +2027,8 @@ máximo es **denso**, y uno con muchas menos aristas, cerca de $$V$$, es
   rows={3}
   nodes={[{ v: 'A', x: 1, y: 0 }, { v: 'B', x: 0, y: 1 }, { v: 'C', x: 2, y: 1 }, { v: 'D', x: 0.5, y: 2 }, { v: 'E', x: 1.5, y: 2 }]}
   edges={[['A', 'B'], ['A', 'C'], ['A', 'D'], ['A', 'E'], ['B', 'C'], ['B', 'D'], ['B', 'E'], ['C', 'D'], ['C', 'E'], ['D', 'E']]}
-  caption="completo: 10 aristas de 10 posibles"
-  label="Un grafo completo de cinco vértices: cada vértice está unido con los otros cuatro, diez aristas en total."
+  caption="denso: 10 aristas de 10 posibles"
+  label="Un grafo denso de cinco vértices, completo: cada vértice está unido con los otros cuatro, diez aristas en total."
 />
 <NodeGraph
   cols={3}
