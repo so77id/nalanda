@@ -42,7 +42,6 @@ import { memoryVisualCatalogEntry } from './interactive/MemoryVisual.catalog';
 import { stepCatalogEntry, stepShowCatalogEntry } from './interactive/StepShow.catalog';
 import { binaryPictureCatalogEntry } from './media/BinaryPicture.catalog';
 import { nodeGraphCatalogEntry } from './media/NodeGraph.catalog';
-import { problemMapCatalogEntry } from './media/ProblemMap.catalog';
 import { orderRuleCatalogEntry } from './media/OrderRule.catalog';
 import { figureCatalogEntry } from './media/Figure.catalog';
 import { mathTexCatalogEntry } from './media/Math.catalog';
@@ -67,7 +66,6 @@ export const catalogEntries: CatalogEntry[] = [
   figureCatalogEntry,
   binaryPictureCatalogEntry,
   nodeGraphCatalogEntry,
-  problemMapCatalogEntry,
   orderRuleCatalogEntry,
   mathTexCatalogEntry,
   sheetEmbedCatalogEntry,
