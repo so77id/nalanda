@@ -221,8 +221,8 @@ $$
 </Slide>
 
 <Slide title="La forma y la posición no importan">
-Un grafo no dice dónde va cada vértice ni cómo se dibuja cada arista. Dos
-dibujos con los mismos vértices y las mismas aristas son el **mismo grafo**,
+Un grafo no dice dónde va cada vértice ni cómo se dibuja cada arista: en
+$$G = (V, E)$$ no hay posiciones. Dos dibujos con los mismos vértices y las mismas aristas son el **mismo grafo**,
 aunque se vean distintos. El primero sigue el mapa de la ciudad y los otros
 dos no, y los tres responden igual la pregunta del paseo.
 
@@ -258,7 +258,10 @@ dos no, y los tres responden igual la pregunta del paseo.
 <Slide title="Grafos isomorfos">
 Si además se cambian los nombres de los vértices, puede seguir siendo el mismo
 grafo con otros nombres. Cuando cada vértice de uno se puede emparejar con uno
-del otro de modo que las aristas coincidan, los dos grafos son **isomorfos**.
+del otro de modo que las aristas coincidan, los dos grafos son **isomorfos**:
+$$G_1 \cong G_2$$, que se lee «$$G_1$$ es isomorfo a $$G_2$$». El emparejamiento
+es una función biyectiva $$f\colon V_1 \to V_2$$ que conserva las aristas:
+entre $$u$$ y $$v$$ hay tantas como entre $$f(u)$$ y $$f(v)$$.
 
 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.5rem 2rem', alignItems: 'end' }}>
 <NodeGraph
@@ -274,7 +277,7 @@ del otro de modo que las aristas coincidan, los dos grafos son **isomorfos**.
   rows={3}
   nodes={[{ v: 1, x: 0, y: 0 }, { v: 2, x: 2, y: 0 }, { v: 3, x: 0, y: 2 }, { v: 4, x: 2, y: 2 }]}
   edges={[[1, 2], [1, 2], [1, 3], [1, 3], [1, 4], [2, 4], [3, 4]]}
-  caption="A↔1, B↔2, C↔3 y D↔4"
+  caption="f(A) = 1, f(B) = 2, f(C) = 3, f(D) = 4"
   label="Un grafo con los vértices 1, 2, 3 y 4 y siete aristas: dos entre 1 y 2, dos entre 1 y 3, y una entre 1 y 4, 2 y 4, y 3 y 4. Emparejando A con 1, B con 2, C con 3 y D con 4, las aristas coinciden con las de Königsberg."
 />
 </div>
@@ -282,8 +285,9 @@ del otro de modo que las aristas coincidan, los dos grafos son **isomorfos**.
 </Slide>
 
 <Slide title="Los vecinos de un vértice">
-Dos vértices unidos por una arista son **vecinos**, o **adyacentes**. Un
-vértice puede tener muchos vecinos, o ninguno.
+Dos vértices unidos por una arista son **vecinos**, o **adyacentes**: $$u$$ y
+$$v$$ son vecinos si $$uv \in E$$, que se lee «la arista $$uv$$ está en $$E$$».
+Un vértice puede tener muchos vecinos, o ninguno.
 
 <NodeGraph
   cols={3}
@@ -299,7 +303,8 @@ vértice puede tener muchos vecinos, o ninguno.
 
 <Slide title="Aristas paralelas">
 Entre dos vértices puede haber más de una arista, como los dos puentes entre la
-isla y una orilla: son **aristas paralelas**. Cada una cuenta por separado.
+isla y una orilla: son **aristas paralelas**. Cada una cuenta por separado, así
+que $$E$$ puede tener la misma arista más de una vez.
 
 <NodeGraph
   cols={3}
@@ -307,15 +312,15 @@ isla y una orilla: son **aristas paralelas**. Cada una cuenta por separado.
   nodes={[{ v: 'B', x: 1, y: 0 }, { v: 'A', x: 0, y: 1 }, { v: 'D', x: 2, y: 1 }, { v: 'C', x: 1, y: 2 }]}
   edges={[['A', 'B'], ['A', 'B'], ['A', 'C'], ['A', 'C'], ['A', 'D'], ['B', 'D'], ['C', 'D']]}
   markEdges={[['A', 'B']]}
-  caption="dos aristas paralelas entre A y B"
+  caption="dos aristas paralelas: AB está dos veces en E"
   label="El grafo de Königsberg con las dos aristas entre A y B marcadas."
 />
 
 </Slide>
 
 <Slide title="El grado de un vértice">
-El **grado** de un vértice es la cantidad de aristas que lo tocan. Las aristas
-paralelas cuentan cada una: los dos puentes entre A y B suman dos al grado de A.
+El **grado** de un vértice $$v$$, que se escribe $$\operatorname{grado}(v)$$, es la
+cantidad de aristas que lo tocan. Las aristas paralelas cuentan cada una: los dos puentes entre A y B suman dos al grado de A.
 
 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.5rem 2rem', alignItems: 'end' }}>
 <NodeGraph
@@ -326,7 +331,7 @@ paralelas cuentan cada una: los dos puentes entre A y B suman dos al grado de A.
   tones={{ A: 'mark' }}
   markEdges={[['A', 'B'], ['A', 'C'], ['A', 'D']]}
   notes={{ A: 5 }}
-  caption="A toca cinco aristas: grado 5"
+  caption="A toca cinco aristas: grado(A) = 5"
   label="El grafo de Königsberg con A destacado y sus cinco aristas marcadas: dos hacia B, dos hacia C y una hacia D. A tiene grado 5."
 />
 <NodeGraph
@@ -349,8 +354,15 @@ paralelas cuentan cada una: los dos puentes entre A y B suman dos al grado de A.
 <Slide title="Caminos">
 El paseo va de zona en zona por los puentes; en el grafo, de vértice en
 vértice por las aristas. Un **camino** es una secuencia de vértices en la que
-cada uno es vecino del siguiente y ninguna arista se repite. Puede pasar varias
-veces por el mismo vértice. Su **largo** es la cantidad de aristas que recorre.
+cada uno es vecino del siguiente y ninguna arista se repite:
+
+$$
+v_0, v_1, \dots, v_k \qquad \text{con } v_i v_{i+1} \in E
+$$
+
+Se lee «de $$v_0$$ a $$v_k$$, cada vértice unido al siguiente por una arista».
+Puede pasar varias veces por el mismo vértice. Su **largo** es la cantidad de
+aristas que recorre, $$k$$.
 
 <NodeGraph
   cols={3}
@@ -365,8 +377,8 @@ veces por el mismo vértice. Su **largo** es la cantidad de aristas que recorre.
 </Slide>
 
 <Slide title="Caminos simples">
-Un camino es **simple** si no repite vértices. Un camino que pasa dos veces por
-el mismo vértice no es simple.
+Un camino es **simple** si no repite vértices: $$v_i \ne v_j$$ siempre que
+$$i \ne j$$. Un camino que pasa dos veces por el mismo vértice no es simple.
 
 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.5rem 2rem', alignItems: 'end' }}>
 <NodeGraph
@@ -393,7 +405,8 @@ el mismo vértice no es simple.
 </Slide>
 
 <Slide title="Ciclos">
-Si un camino termina en el vértice donde empezó, es un **ciclo**.
+Si un camino termina en el vértice donde empezó, es un **ciclo**: un camino
+$$v_0, v_1, \dots, v_k$$ con $$k \ge 1$$ y $$v_0 = v_k$$.
 
 <NodeGraph
   cols={3}
@@ -409,7 +422,7 @@ Si un camino termina en el vértice donde empezó, es un **ciclo**.
 
 <Slide title="Ciclos simples">
 Un ciclo es **simple** si no repite vértices, salvo el primero, que también es
-el último.
+el último: $$v_0, v_1, \dots, v_{k-1}$$ son todos distintos.
 
 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.5rem 2rem', alignItems: 'end' }}>
 <NodeGraph
@@ -436,8 +449,8 @@ el último.
 </Slide>
 
 <Slide title="Grafos conexos">
-Un grafo es **conexo** si hay un camino entre cada par de vértices. Si no lo
-es, se parte en **componentes**: los grupos de vértices que se alcanzan entre
+Un grafo es **conexo** si hay un camino entre cada par de vértices: para todo
+par $$u, v \in V$$, hay un camino de $$u$$ a $$v$$. Si no lo es, se parte en **componentes**: los grupos de vértices que se alcanzan entre
 sí y que no alcanzan a ningún otro.
 
 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.5rem 2rem', alignItems: 'end' }}>
@@ -891,7 +904,8 @@ cosas son vértices y lo que las une, aristas:
 Las mismas personas dan dos grafos según la relación que se mire. Ser amigos
 va en los dos sentidos; seguir a alguien en una red social, no: no obliga a
 que esa persona nos siga. En un **grafo dirigido**, cada arista va de un
-vértice a otro y se dibuja como una flecha.
+vértice a otro y se dibuja como una flecha. La arista es un par ordenado
+$$(u, v)$$, de $$u$$ a $$v$$, y $$(u, v)$$ no es lo mismo que $$(v, u)$$.
 
 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '0.5rem 2rem', alignItems: 'end' }}>
 <NodeGraph
@@ -918,8 +932,9 @@ vértice a otro y se dibuja como una flecha.
 <Slide title="Grado de entrada y de salida">
 En un grafo dirigido, cada vértice tiene dos grados. El **grado de salida**
 cuenta las flechas que salen de él: las personas que sigue. El **grado de
-entrada** cuenta las flechas que llegan a él: las personas que lo siguen. En
-un grafo sin dirección los dos son el mismo número, el grado.
+entrada** cuenta las flechas que llegan a él: las personas que lo siguen. Se
+escriben $$\operatorname{grado}^+(v)$$, el de salida, y $$\operatorname{grado}^-(v)$$, el
+de entrada. En un grafo sin dirección los dos son el mismo número, el grado.
 
 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.5rem 2rem', alignItems: 'end' }}>
 <NodeGraph
@@ -930,7 +945,7 @@ un grafo sin dirección los dos son el mismo número, el grado.
   edges={[['Ana', 'Beto'], ['Beto', 'Ana'], ['Ana', 'Caro'], ['Caro', 'Beto'], ['Dani', 'Caro']]}
   tones={{ Beto: 'mark' }}
   markEdges={[['Beto', 'Ana']]}
-  caption="Beto sigue a una: grado de salida 1"
+  caption="Beto sigue a una: grado⁺(Beto) = 1"
   label="La red de seguidores con Beto destacado y su única flecha que sale, hacia Ana, marcada: grado de salida 1."
 />
 <NodeGraph
@@ -941,7 +956,7 @@ un grafo sin dirección los dos son el mismo número, el grado.
   edges={[['Ana', 'Beto'], ['Beto', 'Ana'], ['Ana', 'Caro'], ['Caro', 'Beto'], ['Dani', 'Caro']]}
   tones={{ Beto: 'mark' }}
   markEdges={[['Ana', 'Beto'], ['Caro', 'Beto']]}
-  caption="a Beto lo siguen dos: grado de entrada 2"
+  caption="a Beto lo siguen dos: grado⁻(Beto) = 2"
   label="La misma red con Beto destacado y las dos flechas que llegan a él, desde Ana y desde Caro, marcadas: grado de entrada 2."
 />
 </div>
@@ -949,10 +964,11 @@ un grafo sin dirección los dos son el mismo número, el grado.
 </Slide>
 
 <Slide title="Grafos con pesos">
-En muchos problemas, cada relación trae un número que el problema usa: los
-minutos de un tramo, el precio de un pasaje, la distancia entre dos ciudades.
-Un grafo así es un **grafo con pesos**, o **ponderado**, y el número de cada
-arista es su **peso**. Un grafo puede ser dirigido y con pesos a la vez.
+En muchos problemas, cada relación trae un número: los minutos de un tramo,
+el precio de un pasaje. Un grafo así es un **grafo con pesos**, o
+**ponderado**, y el número de cada arista es su **peso**, $$w(u, v)$$. Los
+pesos son una función $$w\colon E \to \mathbb{R}$$, que se lee «$$w$$ le da un
+número real a cada arista». Un grafo puede ser dirigido y con pesos a la vez.
 
 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.5rem 2rem', alignItems: 'end' }}>
 <NodeGraph
@@ -995,8 +1011,8 @@ export function SelfLoop({ label }) {
 }
 
 <Slide title="Lazos">
-Una arista que une un vértice consigo mismo es un **lazo**: una página web que
-se enlaza a sí misma, por ejemplo.
+Una arista que une un vértice consigo mismo es un **lazo**, la arista $$vv$$:
+una página web que se enlaza a sí misma, por ejemplo.
 
 <SelfLoop label="Dos vértices, A y B, unidos por una arista, y un lazo marcado que sale de A y vuelve a A." />
 
@@ -1004,7 +1020,9 @@ se enlaza a sí misma, por ejemplo.
 
 <Slide title="Grafos simples">
 Un grafo sin aristas paralelas ni lazos es **simple**: cada par de sus
-vértices tiene a lo más una arista.
+vértices tiene a lo más una arista. En un grafo simple, $$E$$ es un conjunto de
+pares $$\{u, v\}$$ con $$u \ne v$$: no repite aristas ni une un vértice consigo
+mismo.
 
 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.5rem 2rem', alignItems: 'end' }}>
 <NodeGraph
@@ -1030,14 +1048,22 @@ vértices tiene a lo más una arista.
 
 <Slide title="Grafos completos">
 Un grafo simple con todas sus aristas posibles es **completo**: cada vértice
-está unido con todos los demás.
+está unido con todos los demás. El completo de $$n$$ vértices se escribe
+$$K_n$$. Cada uno de sus $$n$$ vértices se une con los otros $$n - 1$$, y así
+cada arista se cuenta dos veces:
+
+$$
+\frac{n(n - 1)}{2}
+$$
+
+Se lee «$$n$$ por $$n - 1$$, dividido en dos».
 
 <NodeGraph
   cols={3}
   rows={3}
   nodes={[{ v: 'A', x: 1, y: 0 }, { v: 'B', x: 0, y: 1 }, { v: 'C', x: 2, y: 1 }, { v: 'D', x: 0.5, y: 2 }, { v: 'E', x: 1.5, y: 2 }]}
   edges={[['A', 'B'], ['A', 'C'], ['A', 'D'], ['A', 'E'], ['B', 'C'], ['B', 'D'], ['B', 'E'], ['C', 'D'], ['C', 'E'], ['D', 'E']]}
-  caption="cada vértice unido con los otros cuatro"
+  caption="K₅: 5 · 4 / 2 = 10 aristas"
   label="Un grafo completo de cinco vértices: cada vértice está unido con los otros cuatro, diez aristas en total."
 />
 
@@ -2046,7 +2072,8 @@ $$
 
 Se lee «$$E$$ es a lo más $$V$$ por $$V - 1$$, dividido en dos», y un grafo
 completo llega justo a ese máximo. Un grafo con cerca de ese máximo es
-**denso**, y uno con muchas menos aristas, cerca de $$V$$, es **disperso**.
+**denso**, y uno con muchas menos aristas, cerca de $$V$$, es **disperso**. En
+las cuentas de costo, denso es $$E = \Theta(V^2)$$, y disperso, $$E = O(V)$$.
 
 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.5rem 2rem', alignItems: 'end' }}>
 <NodeGraph
@@ -2180,13 +2207,15 @@ export function GridCells({ rows, cols, at, ways = 4, caption, label }) {
 }
 
 <Slide title="Las vecinas de una celda">
-En una grilla, cada celda es un vértice, y sus vecinas son las celdas a las
-que se pasa en un paso. Hay dos formas clásicas de dar ese paso:
+En una grilla, cada celda es un vértice: la celda $$(r, c)$$ de la fila $$r$$ y
+la columna $$c$$. Sus vecinas son las celdas a las que se pasa en un paso. Hay
+dos formas clásicas de dar ese paso:
 
-- **En 4 direcciones**: arriba, abajo, a la izquierda y a la derecha. Son
-  vecinas las celdas que comparten un lado.
-- **En 8 direcciones**: además, las cuatro diagonales. Son vecinas las celdas
-  que comparten un lado o una esquina.
+- **En 4 direcciones**: arriba, abajo, a la izquierda y a la derecha,
+  $$(r \pm 1, c)$$ y $$(r, c \pm 1)$$. Son vecinas las celdas que comparten un
+  lado.
+- **En 8 direcciones**: además, las cuatro diagonales, $$(r \pm 1, c \pm 1)$$.
+  Son vecinas las celdas que comparten un lado o una esquina.
 
 Una celda del borde tiene menos vecinas, porque algunos pasos salen de la
 grilla.
