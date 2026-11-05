@@ -783,17 +783,64 @@ Euler responde los tres.
 
 <Slide title="Las preguntas de un modelo">
 Modelar un problema como grafo es responder cuatro preguntas antes de
-resolver nada:
+resolver nada. Un mismo conjunto de cosas da grafos distintos según la
+relación que se mire.
 
-1. **¿Qué es un vértice?** Las cosas del problema: personas, esquinas,
-   ramos, aeropuertos.
-2. **¿Qué es una arista?** La relación que importa entre dos de esas cosas.
-3. **¿Tiene dirección?** Si la relación puede ir de una cosa a otra sin
-   volver.
-4. **¿Tiene pesos?** Si cada relación trae un número que el problema usa.
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(380px, 1fr))', gap: '0.75rem', margin: '1rem 0' }}>
+<div style={{ border: '1px solid var(--color-rule)', borderRadius: '8px', padding: '0.5rem 0.8rem 0.2rem', background: 'var(--color-surface)' }}>
 
-Un mismo conjunto de cosas da grafos distintos según la relación que se
-mire.
+**¿Qué es un vértice?** Las cosas del problema: personas, esquinas, ramos, aeropuertos.
+
+<NodeGraph
+  cols={5}
+  rows={1}
+  nodes={[{ v: 'A', x: 0, y: 0 }, { v: 'B', x: 2, y: 0 }, { v: 'C', x: 4, y: 0 }]}
+  edges={[]}
+  label="Tres vértices, A, B y C, sin aristas: las cosas del problema."
+/>
+
+</div>
+<div style={{ border: '1px solid var(--color-rule)', borderRadius: '8px', padding: '0.5rem 0.8rem 0.2rem', background: 'var(--color-surface)' }}>
+
+**¿Qué es una arista?** La relación que importa entre dos de esas cosas.
+
+<NodeGraph
+  cols={5}
+  rows={1}
+  nodes={[{ v: 'A', x: 0, y: 0 }, { v: 'B', x: 2, y: 0 }, { v: 'C', x: 4, y: 0 }]}
+  edges={[['A', 'B'], ['B', 'C']]}
+  label="Los mismos tres vértices unidos por dos aristas, A con B y B con C."
+/>
+
+</div>
+<div style={{ border: '1px solid var(--color-rule)', borderRadius: '8px', padding: '0.5rem 0.8rem 0.2rem', background: 'var(--color-surface)' }}>
+
+**¿Tiene dirección?** Si la relación puede ir de una cosa a otra sin volver.
+
+<NodeGraph
+  cols={5}
+  rows={1}
+  nodes={[{ v: 'A', x: 0, y: 0 }, { v: 'B', x: 2, y: 0 }, { v: 'C', x: 4, y: 0 }]}
+  directed
+  edges={[['A', 'B'], ['B', 'C']]}
+  label="Los mismos vértices con flechas: de A a B y de B a C."
+/>
+
+</div>
+<div style={{ border: '1px solid var(--color-rule)', borderRadius: '8px', padding: '0.5rem 0.8rem 0.2rem', background: 'var(--color-surface)' }}>
+
+**¿Tiene pesos?** Si cada relación trae un número que el problema usa.
+
+<NodeGraph
+  cols={5}
+  rows={1}
+  nodes={[{ v: 'A', x: 0, y: 0 }, { v: 'B', x: 2, y: 0 }, { v: 'C', x: 4, y: 0 }]}
+  edges={[['A', 'B', 4], ['B', 'C', 7]]}
+  label="Los mismos vértices con pesos: la arista de A a B pesa 4 y la de B a C, 7."
+/>
+
+</div>
+</div>
 
 </Slide>
 
