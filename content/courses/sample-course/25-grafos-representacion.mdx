@@ -548,10 +548,53 @@ cosas son vértices y lo que las une, aristas:
 
 ## Modelar un problema como grafo
 
+<Slide title="El problema del camino euleriano">
+La regla de Euler no habla de puentes ni de ciudades: vale para cualquier
+grafo. Resolver Königsberg resolvió un problema general, el del **camino
+euleriano**: dado un grafo, ¿hay un camino que use cada arista exactamente una
+vez? Un grafo que tiene un ciclo euleriano se llama **euleriano**.
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '0.5rem 1.5rem', alignItems: 'end' }}>
+<NodeGraph
+  cols={3}
+  rows={3}
+  nodes={[{ v: 'A', x: 0, y: 0 }, { v: 'B', x: 0, y: 2 }, { v: 'C', x: 1, y: 1 }, { v: 'D', x: 2, y: 0 }, { v: 'E', x: 2, y: 2 }]}
+  edges={[['A', 'B'], ['A', 'C'], ['B', 'C'], ['C', 'D'], ['C', 'E'], ['D', 'E']]}
+  notes={{ A: 2, B: 2, C: 4, D: 2, E: 2 }}
+  caption="ningún impar: un ciclo"
+  label="Dos triángulos que comparten el vértice C: C tiene grado 4 y los demás, grado 2. Ningún impar: hay un ciclo euleriano."
+/>
+<NodeGraph
+  cols={3}
+  rows={3}
+  nodes={[{ v: 'A', x: 0, y: 0 }, { v: 'B', x: 2, y: 0 }, { v: 'C', x: 0, y: 2 }, { v: 'D', x: 2, y: 2 }]}
+  edges={[['A', 'B'], ['B', 'D'], ['D', 'C'], ['C', 'A'], ['A', 'D']]}
+  notes={{ A: 3, B: 2, C: 2, D: 3 }}
+  tones={{ A: 'mark', D: 'mark' }}
+  caption="dos impares: de A a D"
+  label="Un cuadrado con una diagonal de A a D: A y D, destacados, tienen grado 3, y B y C, grado 2. Dos impares: hay un camino euleriano de A a D."
+/>
+<NodeGraph
+  cols={3}
+  rows={3}
+  nodes={[{ v: 'A', x: 0, y: 0 }, { v: 'B', x: 2, y: 0 }, { v: 'C', x: 0, y: 2 }, { v: 'D', x: 2, y: 2 }]}
+  edges={[['A', 'B'], ['B', 'D'], ['D', 'C'], ['C', 'A'], ['A', 'D'], ['B', 'C']]}
+  notes={{ A: 3, B: 3, C: 3, D: 3 }}
+  tones={{ A: 'mark', B: 'mark', C: 'mark', D: 'mark' }}
+  caption="cuatro impares: no hay"
+  label="Un cuadrado con sus dos diagonales: los cuatro vértices, destacados, tienen grado 3. Más de dos impares: no hay camino euleriano."
+/>
+</div>
+
+Cada vez que una situación se modela como un grafo y la pregunta es esa, la
+regla la responde, venga de donde venga el grafo.
+
+</Slide>
+
 <Slide title="Una figura de un solo trazo">
-Un juego de lápiz y papel hace la misma pregunta que el paseo: dibujar una
-figura de un solo trazo, sin levantar el lápiz y sin pasar dos veces por la
-misma línea. El lápiz baja en un punto y pasa de punto en punto por las
+Un juego de lápiz y papel es otro caso del mismo problema: dibujar una figura
+de un solo trazo, sin levantar el lápiz y sin pasar dos veces por la misma
+línea. El lápiz baja en un punto y pasa de punto en punto por las
 líneas que todavía no dibujó. Algunas figuras se pueden dibujar así y otras
 no; el botón Resolver de cada una muestra una forma de hacerlo, o dice que no
 la hay.
