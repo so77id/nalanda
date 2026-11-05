@@ -212,9 +212,9 @@ Se lee «$$V$$ es el conjunto de A, B, C y D, y tiene cuatro elementos».
 <Slide title="Las aristas">
 Cada puente es una **arista**: une dos vértices, sus **extremos**. Un puente se
 cruza en los dos sentidos, así que la arista no tiene dirección, y se escribe
-entre llaves: $$\{A, D\}$$. Si fuera de un solo sentido, como una calle, la
-arista tendría dirección: se dibuja como una flecha y se escribe entre
-paréntesis, $$(A, D)$$, de A a D.
+entre llaves: $$\{A, D\}$$. Si fuera de un solo sentido, como una calle,
+tendría dirección, y una arista con dirección se llama **arco**: se dibuja como
+una flecha y se escribe entre paréntesis, $$(A, D)$$, de A a D.
 
 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.5rem 2rem', alignItems: 'end' }}>
 <NodeGraph
@@ -224,7 +224,7 @@ paréntesis, $$(A, D)$$, de A a D.
   edges={[['A', 'B'], ['A', 'B'], ['A', 'C'], ['A', 'C'], ['A', 'D'], ['B', 'D'], ['C', 'D']]}
   tones={{ A: 'mark', D: 'mark' }}
   markEdges={[['A', 'D']]}
-  caption="sin dirección: {A, D}"
+  caption="una arista: {A, D}"
   label="El grafo de Königsberg, sin dirección, con la arista entre A y D marcada y sus dos extremos destacados."
 />
 <NodeGraph
@@ -235,8 +235,8 @@ paréntesis, $$(A, D)$$, de A a D.
   edges={[['A', 'B'], ['B', 'A'], ['A', 'C'], ['C', 'A'], ['A', 'D'], ['D', 'B'], ['C', 'D']]}
   tones={{ A: 'mark', D: 'mark' }}
   markEdges={[['A', 'D']]}
-  caption="con dirección: (A, D), de A a D"
-  label="Los mismos cuatro vértices con flechas: de A a B y de B a A, de A a C y de C a A, de A a D, de D a B y de C a D. Marcada, la flecha de A a D."
+  caption="un arco: (A, D), de A a D"
+  label="Los mismos cuatro vértices con flechas: de A a B y de B a A, de A a C y de C a A, de A a D, de D a B y de C a D. Marcado, el arco de A a D."
 />
 </div>
 
@@ -268,19 +268,19 @@ $$
 </div>
 </div>
 
-Así se leen las dos aristas:
+Así se leen una arista y un arco:
 
-- **Sin dirección**, la arista es un conjunto: $$\{A, D\}$$ es la misma que
+- **Una arista**, sin dirección, es un conjunto: $$\{A, D\}$$ es la misma que
   $$\{D, A\}$$, y se abrevia $$AD$$, o $$DA$$.
-- **Con dirección**, la arista es un par ordenado: $$(A, D)$$ va de A a D, y
+- **Un arco**, con dirección, es un par ordenado: $$(A, D)$$ va de A a D, y
   también se abrevia $$AD$$. Pero aquí el orden importa: $$AD \neq DA$$, y
-  $$DA$$ sería otra arista, de D a A.
+  $$DA$$ sería otro arco, de D a A.
 
 </Slide>
 
 <Slide title="Qué es un grafo">
 Un **grafo** se describe con dos conjuntos: $$V$$, el de sus vértices, y $$E$$,
-el de sus aristas. Se escribe como un par ordenado, primero los vértices y
+el de sus aristas, o de sus arcos si tienen dirección. Se escribe como un par ordenado, primero los vértices y
 después las aristas:
 
 $$
@@ -288,9 +288,9 @@ G = (V, E)
 $$
 
 Se lee «el grafo $$G$$, con los vértices $$V$$ y las aristas $$E$$». Los dos
-grafos de abajo tienen los mismos vértices, $$V = \{A, B, C, D\}$$. Cambia cómo
-se escribe cada arista: entre llaves si no tiene dirección, entre paréntesis si
-la tiene.
+grafos de abajo tienen los mismos vértices, $$V = \{A, B, C, D\}$$. Cambia lo
+que hay en $$E$$: aristas entre llaves en uno, arcos entre paréntesis en el
+otro.
 
 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '0.75rem 1.5rem' }}>
 <div style={{ border: '1px solid var(--color-rule)', borderRadius: '8px', padding: '0.4rem 0.9rem 0.1rem', background: 'var(--color-surface)' }}>
@@ -1043,10 +1043,10 @@ cosas son vértices y lo que las une, aristas:
 <Slide title="Grafos dirigidos">
 Las mismas personas dan dos grafos según la relación que se mire. Ser amigos
 va en los dos sentidos; seguir a alguien en una red social, no: no obliga a
-que esa persona nos siga. En un **grafo dirigido**, cada arista va de un
-vértice a otro y se dibuja como una flecha. En vez del conjunto $$\{u, v\}$$,
-la arista es el par ordenado $$(u, v)$$, abreviado $$uv$$: va de $$u$$ a
-$$v$$, y $$uv \neq vu$$.
+que esa persona nos siga. Un **grafo dirigido** tiene arcos en vez de aristas:
+cada uno va de un vértice a otro y se dibuja como una flecha. En vez del
+conjunto $$\{u, v\}$$, el arco es el par ordenado $$(u, v)$$, abreviado
+$$uv$$: va de $$u$$ a $$v$$, y $$uv \neq vu$$.
 
 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '0.5rem 2rem', alignItems: 'end' }}>
 <NodeGraph
@@ -1072,8 +1072,8 @@ $$v$$, y $$uv \neq vu$$.
 
 <Slide title="Grado de entrada y de salida">
 En un grafo dirigido, cada vértice tiene dos grados. El **grado de salida**
-cuenta las flechas que salen de él: las personas que sigue. El **grado de
-entrada** cuenta las flechas que llegan a él: las personas que lo siguen. Se
+cuenta los arcos que salen de él: las personas que sigue. El **grado de
+entrada** cuenta los arcos que llegan a él: las personas que lo siguen. Se
 escriben $$\operatorname{grado}^+(v)$$, el de salida, y $$\operatorname{grado}^-(v)$$, el
 de entrada. En un grafo sin dirección los dos son el mismo número, el grado.
 
@@ -1087,7 +1087,7 @@ de entrada. En un grafo sin dirección los dos son el mismo número, el grado.
   tones={{ Beto: 'mark' }}
   markEdges={[['Beto', 'Ana']]}
   caption="Beto sigue a una: grado⁺(Beto) = 1"
-  label="La red de seguidores con Beto destacado y su única flecha que sale, hacia Ana, marcada: grado de salida 1."
+  label="La red de seguidores con Beto destacado y su único arco que sale, hacia Ana, marcado: grado de salida 1."
 />
 <NodeGraph
   cols={4}
@@ -1098,7 +1098,7 @@ de entrada. En un grafo sin dirección los dos son el mismo número, el grado.
   tones={{ Beto: 'mark' }}
   markEdges={[['Ana', 'Beto'], ['Caro', 'Beto']]}
   caption="a Beto lo siguen dos: grado⁻(Beto) = 2"
-  label="La misma red con Beto destacado y las dos flechas que llegan a él, desde Ana y desde Caro, marcadas: grado de entrada 2."
+  label="La misma red con Beto destacado y los dos arcos que llegan a él, desde Ana y desde Caro, marcados: grado de entrada 2."
 />
 </div>
 
@@ -1109,7 +1109,8 @@ En muchos problemas, cada relación trae un número: los minutos de un tramo,
 el precio de un pasaje. Un grafo así es un **grafo con pesos**, o
 **ponderado**, y el número de cada arista es su **peso**, $$w(u, v)$$. Los
 pesos son una función $$w\colon E \to \mathbb{R}$$, que se lee «$$w$$ le da un
-número real a cada arista». Un grafo puede ser dirigido y con pesos a la vez.
+número real a cada arista». Un grafo puede ser dirigido y con pesos a la vez:
+cada arco trae su peso.
 
 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.5rem 2rem', alignItems: 'end' }}>
 <NodeGraph
@@ -1380,7 +1381,7 @@ export function StreetPlan({ stage = 'city', label }) {
 <Slide title="Un mapa de calles">
 En un mapa de calles, las esquinas son vértices y los tramos, aristas. Cada
 tramo trae los minutos que toma: es su peso. Una calle de un solo sentido es
-una flecha, así que el grafo es dirigido y con pesos.
+un arco, así que el grafo es dirigido y con pesos.
 
 <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'center', gap: '0.5rem 0.75rem' }}>
 <figure style={{ flex: '1 1 190px', margin: 0, textAlign: 'center' }}>
@@ -1461,8 +1462,8 @@ export function Curriculum({ stage = 'table', label }) {
 }
 
 <Slide title="Una malla curricular">
-En una malla, los ramos son vértices, y cada prerrequisito es una flecha que
-va del ramo que se aprueba antes al que lo pide. Si un ramo terminara
+En una malla, los ramos son vértices, y cada prerrequisito es un arco que va
+del ramo que se aprueba antes al que lo pide. Si un ramo terminara
 pidiéndose a sí mismo, de prerrequisito en prerrequisito, nadie podría
 tomarlo: la malla no puede tener un ciclo.
 
@@ -1485,7 +1486,7 @@ tomarlo: la malla no puede tener un ciclo.
   nodes={[{ v: 'Cálculo I', x: 0, y: 0 }, { v: 'Álgebra', x: 2, y: 0 }, { v: 'Cálculo II', x: 0, y: 1 }, { v: 'Ecuaciones', x: 1, y: 2 }]}
   edges={[['Cálculo I', 'Cálculo II'], ['Cálculo II', 'Ecuaciones'], ['Álgebra', 'Ecuaciones']]}
   caption="el grafo"
-  label="Cuatro ramos con sus prerrequisitos: Cálculo I antes de Cálculo II, y Cálculo II y Álgebra antes de Ecuaciones. Cada flecha va del prerrequisito al ramo."
+  label="Cuatro ramos con sus prerrequisitos: Cálculo I antes de Cálculo II, y Cálculo II y Álgebra antes de Ecuaciones. Cada arco va del prerrequisito al ramo."
 />
 </div>
 </div>
@@ -1996,10 +1997,10 @@ la respuesta.
 </Slide>
 
 <Slide title="Un grafo dirigido">
-En un grafo dirigido, `addEdge(v, w)` agrega solo la flecha de `v` a `w`. Cada
+En un grafo dirigido, `addEdge(v, w)` agrega solo el arco de `v` a `w`. Cada
 implementación cambia una línea: la matriz llena una sola casilla y deja de
-ser simétrica, y la flecha aparece solo en la lista de `v`. `adj(v)` entrega
-entonces los vértices a los que llegan las flechas que salen de `v`. En
+ser simétrica, y el arco aparece solo en la lista de `v`. `adj(v)` entrega
+entonces los vértices a los que llegan los arcos que salen de `v`. En
 símbolos, $$M[u][v]$$ es verdadera si y solo si $$(u, v) \in E$$, y
 $$|\mathrm{adj}(v)| = \operatorname{grado}^+(v)$$.
 
@@ -2011,8 +2012,8 @@ $$|\mathrm{adj}(v)| = \operatorname{grado}^+(v)$$.
   nodes={[{ v: 0, x: 0, y: 0 }, { v: 1, x: 2, y: 0 }, { v: 2, x: 1, y: 1 }, { v: 3, x: 1, y: 2 }]}
   edges={[[0, 1], [0, 2], [1, 2], [2, 3]]}
   markEdges={[[2, 3]]}
-  caption="las mismas aristas, con dirección"
-  label="El grafo de cuatro vértices con flechas: de 0 a 1, de 0 a 2, de 1 a 2 y de 2 a 3; la flecha de 2 a 3 marcada."
+  caption="los mismos pares, ahora arcos"
+  label="El grafo de cuatro vértices con flechas: de 0 a 1, de 0 a 2, de 1 a 2 y de 2 a 3; el arco de 2 a 3 marcado."
 />
 <AdjMatrix
   rows={[['false', 'true', 'true', 'false'], ['false', 'false', 'true', 'false'], ['false', 'false', 'false', 'true'], ['false', 'false', 'false', 'false']]}
@@ -2045,8 +2046,8 @@ public void addEdge(int v, int w) {   // las listas, dirigidas
 </Slide>
 
 <Slide title="El grado de entrada en un grafo dirigido">
-`adj(v)` entrega las flechas que salen de `v`, así que el grado de salida
-sale de recorrer `adj(v)`. Las flechas que **llegan** a `v` no están en su
+`adj(v)` entrega los arcos que salen de `v`, así que el grado de salida
+sale de recorrer `adj(v)`. Los arcos que **llegan** a `v` no están en su
 lista: están repartidas en las listas de los otros vértices. Para contarlas
 hay que recorrer todas las listas, o la columna de `v` en la matriz.
 
@@ -2065,7 +2066,7 @@ static int inDegree(Graph g, int v) {
 ```
 
 Con listas cuesta $$\Theta(V + E)$$, porque pasa por cada lista y por cada
-flecha.
+arco.
 
 </Slide>
 
