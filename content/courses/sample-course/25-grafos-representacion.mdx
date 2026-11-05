@@ -221,131 +221,6 @@ sentido, con sus minutos.
 
 </Slide>
 
-<Slide title="Caminos y ciclos">
-Un **camino** es una secuencia de vértices en la que cada uno es vecino del
-siguiente y ninguno se repite. Su **largo** es la cantidad de aristas que
-recorre. Un **ciclo** es un camino que vuelve al vértice donde empezó sin
-usar dos veces la misma arista.
-
-<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.5rem 2rem', alignItems: 'end' }}>
-<NodeGraph
-  cols={3}
-  rows={3}
-  nodes={[{ v: 'A', x: 0, y: 0 }, { v: 'B', x: 2, y: 0 }, { v: 'C', x: 1, y: 1 }, { v: 'D', x: 0, y: 2 }, { v: 'E', x: 2, y: 2 }]}
-  edges={[['A', 'B'], ['A', 'C'], ['B', 'C'], ['C', 'D'], ['C', 'E'], ['D', 'E'], ['B', 'E']]}
-  markEdges={[['A', 'C'], ['C', 'E'], ['E', 'B']]}
-  caption="el camino A, C, E, B: largo 3"
-  label="Cinco vértices con siete aristas. Marcado, el camino A, C, E, B, que recorre tres aristas."
-/>
-<NodeGraph
-  cols={3}
-  rows={3}
-  nodes={[{ v: 'A', x: 0, y: 0 }, { v: 'B', x: 2, y: 0 }, { v: 'C', x: 1, y: 1 }, { v: 'D', x: 0, y: 2 }, { v: 'E', x: 2, y: 2 }]}
-  edges={[['A', 'B'], ['A', 'C'], ['B', 'C'], ['C', 'D'], ['C', 'E'], ['D', 'E'], ['B', 'E']]}
-  markEdges={[['C', 'D'], ['D', 'E'], ['E', 'C']]}
-  caption="el ciclo C, D, E, C"
-  label="El mismo grafo. Marcado, el ciclo C, D, E, que vuelve a C."
-/>
-</div>
-
-</Slide>
-
-<Slide title="Conexo y componentes">
-Un grafo es **conexo** si hay un camino entre cada par de vértices. Si no lo
-es, se parte en **componentes**: los grupos de vértices que se alcanzan entre
-sí y que no alcanzan a ningún otro.
-
-<NodeGraph
-  cols={5}
-  rows={2}
-  nodes={[{ v: 'A', x: 0, y: 0 }, { v: 'B', x: 1, y: 1 }, { v: 'C', x: 0, y: 1 }, { v: 'D', x: 3, y: 0 }, { v: 'E', x: 4, y: 0 }, { v: 'F', x: 3.5, y: 1 }]}
-  edges={[['A', 'B'], ['A', 'C'], ['B', 'C'], ['D', 'E'], ['E', 'F']]}
-  tones={{ D: 'mark', E: 'mark', F: 'mark' }}
-  caption="no es conexo: dos componentes, A B C y D E F"
-  label="Un grafo de seis vértices sin camino entre los dos grupos: A, B y C unidos en un triángulo, y D, E y F, destacados, unidos en una línea. Son dos componentes."
-/>
-
-</Slide>
-
-<Slide title="Árboles">
-Un **árbol** es un grafo conexo y sin ciclos. Con $$V$$ vértices tiene
-exactamente $$V - 1$$ aristas: con una menos deja de ser conexo, y con una
-más cierra un ciclo. Un árbol con raíz es un árbol en el que se elige un
-vértice como raíz.
-
-<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.5rem 2rem', alignItems: 'end' }}>
-<NodeGraph
-  cols={3}
-  rows={3}
-  nodes={[{ v: 'A', x: 1, y: 0 }, { v: 'B', x: 0, y: 1 }, { v: 'C', x: 2, y: 1 }, { v: 'D', x: 0, y: 2 }, { v: 'E', x: 2, y: 2 }]}
-  edges={[['A', 'B'], ['A', 'C'], ['B', 'D'], ['C', 'E']]}
-  caption="V = 5 y 4 aristas: un árbol"
-  label="Un árbol de cinco vértices y cuatro aristas: A unido con B y con C, B con D y C con E."
-/>
-<NodeGraph
-  cols={3}
-  rows={3}
-  nodes={[{ v: 'A', x: 1, y: 0 }, { v: 'B', x: 0, y: 1 }, { v: 'C', x: 2, y: 1 }, { v: 'D', x: 0, y: 2 }, { v: 'E', x: 2, y: 2 }]}
-  edges={[['A', 'B'], ['A', 'C'], ['B', 'D'], ['C', 'E'], ['D', 'E']]}
-  markEdges={[['D', 'E']]}
-  caption="una arista más, D-E, cierra un ciclo"
-  label="El mismo árbol con una quinta arista, D-E, marcada: cierra el ciclo A, B, D, E, C, y ya no es un árbol."
-/>
-</div>
-
-</Slide>
-
-<SectionBreak />
-
-## El lema del apretón de manos
-
-<Slide title="Cada arista suma dos grados">
-En una reunión, cada persona saluda con un apretón de manos a algunas de las
-otras. Si cada una cuenta cuántas manos estrechó y sumamos esos números, cada
-apretón queda contado dos veces, una por cada persona que participó.
-
-En un grafo pasa lo mismo: cada arista toca dos vértices y suma uno al grado
-de cada uno.
-
-$$
-\sum_{v} \operatorname{grado}(v) = 2E
-$$
-
-Se lee «la suma de los grados de todos los vértices es dos veces la cantidad
-de aristas». Es el **lema del apretón de manos**.
-
-<NodeGraph
-  cols={3}
-  rows={3}
-  nodes={[{ v: 'A', x: 1, y: 0 }, { v: 'B', x: 0, y: 1 }, { v: 'C', x: 1, y: 2 }, { v: 'D', x: 2, y: 1 }]}
-  edges={[['A', 'B'], ['A', 'C'], ['A', 'D'], ['B', 'C'], ['C', 'D']]}
-  notes={{ A: 3, B: 2, C: 3, D: 2 }}
-  caption="3 + 2 + 3 + 2 = 10 = 2 · 5 aristas"
-  label="Un grafo de cuatro vértices y cinco aristas con el grado de cada vértice: A 3, B 2, C 3 y D 2. La suma es 10, el doble de las 5 aristas."
-/>
-
-</Slide>
-
-<Slide title="Los vértices de grado impar son una cantidad par">
-La suma de los grados es par, porque es $$2E$$. Los vértices de grado par
-suman un número par, así que los de grado impar también suman un número par,
-y una suma de números impares es par solo si son una cantidad par.
-
-**En todo grafo, la cantidad de vértices de grado impar es par.**
-
-<NodeGraph
-  cols={3}
-  rows={3}
-  nodes={[{ v: 'A', x: 1, y: 0 }, { v: 'B', x: 0, y: 1 }, { v: 'C', x: 1, y: 2 }, { v: 'D', x: 2, y: 1 }]}
-  edges={[['A', 'B'], ['A', 'C'], ['A', 'D'], ['B', 'C'], ['C', 'D']]}
-  notes={{ A: 3, B: 2, C: 3, D: 2 }}
-  tones={{ A: 'mark', C: 'mark' }}
-  caption="dos vértices de grado impar: A y C"
-  label="El mismo grafo con A y C destacados: son los dos vértices de grado impar, con grado 3."
-/>
-
-</Slide>
-
 <SectionBreak />
 
 ## Euler y los vértices impares
@@ -401,41 +276,107 @@ exactamente una vez, y el paseo por Königsberg pide lo mismo.
 </Slide>
 
 <Slide title="Cada paso por un vértice usa dos aristas">
-Cuando el recorrido pasa por un vértice, llega por una arista y sale por otra.
-Cada paso usa **dos** aristas del vértice, y como ninguna arista se repite, un
-vértice por el que el recorrido solo pasa tiene que tener grado par.
+Dibujar una figura de un solo trazo es seguir un **camino**: una secuencia de
+vértices en la que cada uno es vecino del siguiente y ninguna arista se
+repite. Un camino puede pasar varias veces por el mismo vértice, y si termina
+donde empezó es un **ciclo**.
 
+Cuando el camino pasa por un vértice, llega por una arista y sale por otra.
+Cada paso usa **dos** aristas del vértice, y como ninguna arista se repite, un
+vértice por el que el camino solo pasa tiene que tener grado par.
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.5rem 2rem', alignItems: 'end' }}>
 <NodeGraph
   cols={4}
   rows={3}
-  directed
   nodes={[{ v: 'A', x: 0, y: 0 }, { v: 'B', x: 3, y: 0 }, { v: 'X', x: 1.5, y: 1 }, { v: 'C', x: 0, y: 2 }, { v: 'D', x: 3, y: 2 }]}
   edges={[['A', 'X'], ['X', 'B'], ['C', 'X'], ['X', 'D']]}
+  markEdges={[['A', 'X'], ['X', 'B']]}
   tones={{ X: 'mark' }}
-  caption="dos pasos por X: llega de A y sale a B, llega de C y sale a D"
-  label="Un vértice X, destacado, con cuatro aristas: el recorrido llega desde A y sale hacia B, y más tarde llega desde C y sale hacia D. Cada paso usa dos de sus aristas."
+  caption="un paso por X: llega de A y sale a B"
+  label="Un vértice X, destacado, con cuatro aristas. Marcadas, las dos que usa un paso del camino: llega desde A y sale hacia B."
+/>
+<NodeGraph
+  cols={4}
+  rows={3}
+  nodes={[{ v: 'A', x: 0, y: 0 }, { v: 'B', x: 3, y: 0 }, { v: 'X', x: 1.5, y: 1 }, { v: 'C', x: 0, y: 2 }, { v: 'D', x: 3, y: 2 }]}
+  edges={[['A', 'X'], ['X', 'B'], ['C', 'X'], ['X', 'D']]}
+  markEdges={[['C', 'X'], ['X', 'D']]}
+  tones={{ X: 'mark' }}
+  caption="otro paso: llega de C y sale a D"
+  label="El mismo vértice X. Marcadas, las dos aristas que usa un segundo paso: llega desde C y sale hacia D."
+/>
+</div>
+
+Solo dos vértices escapan de esa cuenta: el del **comienzo**, donde el camino
+sale sin haber llegado, y el del **final**, donde llega sin volver a salir. En
+un ciclo los dos son el mismo vértice, y también usa sus aristas de a dos.
+
+</Slide>
+
+<Slide title="Los vértices de grado impar son una cantidad par">
+La cuenta deja como impares, a lo más, el comienzo y el final. Que quede uno
+solo no pasa nunca, y lo dice una suma. En una reunión, si cada persona cuenta
+cuántas manos estrechó y sumamos esos números, cada apretón queda contado dos
+veces. En un grafo, cada arista suma uno al grado de cada uno de sus dos
+extremos:
+
+$$
+\sum_{v} \operatorname{grado}(v) = 2E
+$$
+
+Se lee «la suma de los grados de todos los vértices es dos veces la cantidad
+de aristas»: es el **lema del apretón de manos**. La suma es par; los vértices
+de grado par suman un número par, así que los de grado impar también, y una
+suma de números impares es par solo si son una cantidad par. **En todo grafo,
+la cantidad de vértices de grado impar es par.**
+
+<NodeGraph
+  cols={3}
+  rows={3}
+  nodes={[{ v: 'A', x: 1, y: 0 }, { v: 'B', x: 0, y: 1 }, { v: 'C', x: 1, y: 2 }, { v: 'D', x: 2, y: 1 }]}
+  edges={[['A', 'B'], ['A', 'C'], ['A', 'D'], ['B', 'C'], ['C', 'D']]}
+  notes={{ A: 3, B: 2, C: 3, D: 2 }}
+  tones={{ A: 'mark', C: 'mark' }}
+  caption="3 + 2 + 3 + 2 = 10 = 2 · 5 aristas; los impares son A y C"
+  label="Un grafo de cuatro vértices y cinco aristas con el grado de cada vértice: A 3, B 2, C 3 y D 2. La suma es 10, el doble de las 5 aristas. A y C, destacados, son los dos vértices de grado impar."
 />
 
-Solo dos vértices escapan de esa cuenta: el del **comienzo**, donde el
-recorrido sale sin haber llegado, y el del **final**, donde llega sin volver a
-salir. Si el recorrido termina donde empezó, ese vértice también usa sus
-aristas de a dos.
+</Slide>
+
+<Slide title="Un grafo en dos pedazos">
+En este grafo todos los vértices tienen grado par, y aun así no se dibuja de
+un solo trazo: tiene dos pedazos, y ninguna arista lleva de uno al otro.
+
+Un grafo es **conexo** si hay un camino entre cada par de vértices. Si no lo
+es, se parte en **componentes**: los grupos de vértices que se alcanzan entre
+sí y que no alcanzan a ningún otro.
+
+<NodeGraph
+  cols={7}
+  rows={2}
+  nodes={[{ v: 'A', x: 0, y: 0 }, { v: 'B', x: 2, y: 0 }, { v: 'C', x: 1, y: 1 }, { v: 'D', x: 4, y: 0 }, { v: 'E', x: 6, y: 0 }, { v: 'F', x: 5, y: 1 }]}
+  edges={[['A', 'B'], ['B', 'C'], ['C', 'A'], ['D', 'E'], ['E', 'F'], ['F', 'D']]}
+  notes={{ A: 2, B: 2, C: 2, D: 2, E: 2, F: 2 }}
+  tones={{ D: 'mark', E: 'mark', F: 'mark' }}
+  caption="todos los grados son 2, y hay dos componentes: A B C y D E F"
+  label="Dos triángulos separados: A, B y C en uno, y D, E y F, destacados, en el otro. Cada vértice tiene grado 2, y ninguna arista une los dos triángulos: son dos componentes."
+/>
 
 </Slide>
 
 <Slide title="La regla de Euler">
-En un grafo conexo, la cantidad de vértices de grado impar decide si se puede
-recorrer cada arista exactamente una vez:
+En un grafo conexo, la cantidad de vértices de grado impar decide si hay un
+**camino euleriano**, uno que usa cada arista exactamente una vez:
 
-- **Ninguno impar**: se puede, partiendo de cualquier vértice, y el recorrido
-  termina donde empezó.
-- **Dos impares**: se puede, partiendo de uno de los dos y terminando en el
-  otro.
-- **Más de dos impares**: no se puede.
+- **Ninguno impar**: hay uno que parte de cualquier vértice y termina donde
+  empezó, un **ciclo euleriano**.
+- **Dos impares**: hay uno que parte de uno de los dos y termina en el otro.
+- **Más de dos impares**: no hay ninguno.
 
 Un solo vértice impar no ocurre nunca: los vértices de grado impar son
 siempre una cantidad par. Que las dos primeras condiciones alcancen también
-es de Euler, y se demuestra construyendo el recorrido.
+es de Euler, y se demuestra construyendo el camino.
 
 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '0.5rem 1.5rem' }}>
 <div style={{ textAlign: 'center' }}><strong>La estrella</strong><br />ningún impar: se dibuja y se vuelve al inicio</div>
@@ -447,8 +388,8 @@ es de Euler, y se demuestra construyendo el recorrido.
 
 <Slide title="Königsberg no tiene paseo">
 Los cuatro vértices de Königsberg tienen grado impar. Son más de dos, así que
-no existe un paseo que cruce cada puente exactamente una vez, parta donde
-parta.
+no hay un camino euleriano: ningún paseo cruza cada puente exactamente una
+vez, parta donde parta.
 
 <NodeGraph
   cols={3}
@@ -462,7 +403,7 @@ parta.
 />
 
 La respuesta no salió de probar paseos, sino de contar los grados. Bastó
-reducir la ciudad a vértices y aristas: un **modelo** del problema.
+convertir la ciudad en vértices y aristas: un **modelo** del problema.
 
 </Slide>
 
@@ -540,6 +481,34 @@ mire.
   con los minutos como peso, y una calle de un solo sentido es una flecha.
 - **La malla**: los ramos son vértices, y cada prerrequisito es una flecha
   que va del ramo que se aprueba antes al que lo pide.
+
+</Slide>
+
+<Slide title="Árboles">
+Un **árbol** es un grafo conexo y sin ciclos. Con $$V$$ vértices tiene
+exactamente $$V - 1$$ aristas: con una menos deja de ser conexo, y con una
+más cierra un ciclo. Un árbol con raíz es un árbol en el que se elige un
+vértice como raíz.
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.5rem 2rem', alignItems: 'end' }}>
+<NodeGraph
+  cols={3}
+  rows={3}
+  nodes={[{ v: 'A', x: 1, y: 0 }, { v: 'B', x: 0, y: 1 }, { v: 'C', x: 2, y: 1 }, { v: 'D', x: 0, y: 2 }, { v: 'E', x: 2, y: 2 }]}
+  edges={[['A', 'B'], ['A', 'C'], ['B', 'D'], ['C', 'E']]}
+  caption="V = 5 y 4 aristas: un árbol"
+  label="Un árbol de cinco vértices y cuatro aristas: A unido con B y con C, B con D y C con E."
+/>
+<NodeGraph
+  cols={3}
+  rows={3}
+  nodes={[{ v: 'A', x: 1, y: 0 }, { v: 'B', x: 0, y: 1 }, { v: 'C', x: 2, y: 1 }, { v: 'D', x: 0, y: 2 }, { v: 'E', x: 2, y: 2 }]}
+  edges={[['A', 'B'], ['A', 'C'], ['B', 'D'], ['C', 'E'], ['D', 'E']]}
+  markEdges={[['D', 'E']]}
+  caption="una arista más, D-E, cierra un ciclo"
+  label="El mismo árbol con una quinta arista, D-E, marcada: cierra el ciclo A, B, D, E, C, y ya no es un árbol."
+/>
+</div>
 
 </Slide>
 
