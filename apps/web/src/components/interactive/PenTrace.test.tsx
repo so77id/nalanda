@@ -447,8 +447,8 @@ describe('the combinations 25-grafos-representacion mounts', () => {
     ['Una figura de un solo trazo · la casa', HOUSE, 10],
     ['Una figura de un solo trazo · el sobre', ENVELOPE, 8],
     ['El paseo por Königsberg · Königsberg', KONIGSBERG_WALK, 7],
-    ['Un camino euleriano y un ciclo euleriano · un puente más', KONIGSBERG_PLUS_BC, 8],
-    ['Un camino euleriano y un ciclo euleriano · dos puentes más', KONIGSBERG_PLUS_BC_AD, 9],
+    ['Königsberg con más puentes · un puente más', KONIGSBERG_PLUS_BC, 8],
+    ['Königsberg con más puentes · dos puentes más', KONIGSBERG_PLUS_BC_AD, 9],
   ] as const)('%s', (_slide, props, strokes) => {
     const { container } = render(<PenTrace {...props} />);
     expect(container.querySelector('[data-authoring-error]')).toBeNull();
