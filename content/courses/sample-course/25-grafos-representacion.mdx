@@ -898,11 +898,14 @@ cruza, y debajo queda el orden de los vértices.
 
 ## El problema del camino euleriano
 
-<Slide title="La regla vale para cualquier grafo">
-La regla de Euler no habla de puentes ni de ciudades: vale para cualquier
-grafo. Resolver Königsberg resolvió un problema general, el **problema del
-camino euleriano**: dado un grafo, ¿hay un camino que use cada arista
-exactamente una vez?
+<Slide title="Un problema de computación">
+La regla de Euler no habla de puentes ni de ciudades: sirve para cualquier
+grafo. Una pregunta que se hace sobre cualquier entrada, y no sobre un caso, es
+un **problema**. Este es el **problema del camino euleriano**:
+
+- **Entrada**: un grafo.
+- **Pregunta**: ¿tiene un camino que use todas las aristas?
+- **Respuesta**: la regla de Euler, que cuenta los vértices de grado impar.
 
 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '0.5rem 1.5rem', alignItems: 'end' }}>
 <NodeGraph
@@ -936,18 +939,15 @@ exactamente una vez?
 />
 </div>
 
-Cada vez que una situación se modela como un grafo y la pregunta es esa, la
-regla la responde, venga de donde venga el grafo.
+Para contar los grados, la regla mira cada arista una vez: del orden de $$E$$
+pasos. Probar los órdenes de las aristas, como en el paseo, son $$E!$$.
 
 </Slide>
 
 <Slide title="Una figura de un solo trazo">
-Un juego de lápiz y papel es otro caso del mismo problema: dibujar una figura
-de un solo trazo, sin levantar el lápiz y sin pasar dos veces por la misma
-línea. El lápiz baja en un punto y pasa de punto en punto por las
-líneas que todavía no dibujó. Algunas figuras se pueden dibujar así y otras
-no; el botón Resolver de cada una muestra una forma de hacerlo, o dice que no
-la hay.
+Un juego de lápiz y papel hace la misma pregunta: dibujar una figura de un solo
+trazo, sin levantar el lápiz y sin repetir ninguna línea. Algunas figuras se
+pueden y otras no; Resolver muestra cómo, o dice que no se puede.
 
 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '0.5rem 1.5rem', alignItems: 'end' }}>
 <PenTrace
@@ -1028,29 +1028,46 @@ casa va de una esquina de abajo a la otra, y el sobre no se puede.
 
 </Slide>
 
-<Slide title="Reducir un problema a otro">
-El paseo por Königsberg y la figura de un solo trazo hacen la misma pregunta
-sobre un grafo: ¿hay un camino euleriano? El camión de la basura de un barrio
-también la hace: quiere pasar una vez por cada cuadra, sin repetir ninguna.
-Las esquinas son los vértices y las cuadras, las aristas.
+<Slide title="El camión de la basura">
+El camión de la basura de un barrio quiere pasar una vez por cada cuadra, sin
+repetir ninguna. Las esquinas son vértices y las cuadras, aristas, y la pregunta
+es otra vez si hay un camino que use todas las aristas.
 
 <NodeGraph
   cols={5}
   rows={2}
   nodes={[{ v: 'A', x: 0, y: 0 }, { v: 'B', x: 2, y: 0 }, { v: 'C', x: 4, y: 0 }, { v: 'D', x: 0, y: 1 }, { v: 'E', x: 2, y: 1 }, { v: 'F', x: 4, y: 1 }]}
   edges={[['A', 'B'], ['B', 'C'], ['D', 'E'], ['E', 'F'], ['A', 'D'], ['B', 'E'], ['C', 'F']]}
+  walk={['B', 'A', 'D', 'E', 'B', 'C', 'F', 'E']}
   notes={{ A: 2, B: 3, C: 2, D: 2, E: 3, F: 2 }}
   tones={{ B: 'mark', E: 'mark' }}
-  caption="dos esquinas impares, B y E: el camión parte en una y termina en la otra"
-  label="Un barrio de seis esquinas, A a F, y siete cuadras: A-B, B-C, D-E, E-F, A-D, B-E y C-F. Las esquinas de los extremos tienen grado 2; B y E, destacadas, tienen grado 3."
+  caption="B → A → D → E → B → C → F → E: cada cuadra una vez"
+  label="Un barrio de seis esquinas, A a F, y siete cuadras: A-B, B-C, D-E, E-F, A-D, B-E y C-F. B y E, destacadas, tienen grado 3, y las demás, grado 2. Marcado y numerado, el recorrido de B a A, a D, a E, a B, a C, a F y a E, que pasa una vez por cada cuadra."
 />
 
-Convertir un problema en otro que ya sabemos resolver, de modo que la
-respuesta del segundo responda el primero, es **reducir un problema a otro**.
-El paseo, la figura y el camión se reducen al camino euleriano, y la regla de
-Euler responde los tres. No toda pregunta tiene una regla tan simple: pasar una
-vez por cada **vértice**, en vez de por cada arista, se parece mucho y no tiene
-ninguna conocida.
+Hay dos esquinas impares, B y E: el camión puede hacerlo si parte en una y
+termina en la otra.
+
+</Slide>
+
+<Slide title="Reducir un problema a otro">
+El paseo, la figura y el camión parecen problemas distintos, pero modelados
+como grafos hacen la misma pregunta:
+
+| Situación | Vértices | Aristas | La pregunta |
+| --- | --- | --- | --- |
+| el paseo por Königsberg | las zonas | los puentes | ¿cruzar cada puente una vez? |
+| la figura de un solo trazo | los puntos | las líneas | ¿dibujar cada línea una vez? |
+| el camión de la basura | las esquinas | las cuadras | ¿pasar una vez por cada cuadra? |
+
+Convertir un problema en otro que ya sabemos resolver, de modo que la respuesta
+del segundo responda el primero, es **reducir un problema a otro**. Los tres se
+reducen al camino euleriano, y la regla de Euler responde los tres.
+
+Con los grafos isomorfos pasaba lo mismo, en su forma más directa: si dos grafos
+son isomorfos, responder una pregunta sobre uno es responderla sobre el otro.
+Reducir va más allá: los tres grafos de la tabla no se parecen, pero basta con
+que la pregunta sobre ellos sea la misma.
 
 </Slide>
 
@@ -1104,7 +1121,7 @@ cosas son vértices y lo que las une, aristas:
 
 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '0.75rem', margin: '1rem 0' }}>
 <div style={{ border: '1px solid var(--color-rule)', borderRadius: '8px', padding: '0.6rem 0.8rem', background: 'var(--color-surface)' }}><strong>Una aplicación de mapas</strong><br />¿Qué ruta toma menos tiempo hasta el destino?</div>
-<div style={{ border: '1px solid var(--color-rule)', borderRadius: '8px', padding: '0.6rem 0.8rem', background: 'var(--color-surface)' }}><strong>Una red social</strong><br />¿A quién le sugiere un amigo a cada persona?</div>
+<div style={{ border: '1px solid var(--color-rule)', borderRadius: '8px', padding: '0.6rem 0.8rem', background: 'var(--color-surface)' }}><strong>Una red social</strong><br />¿Qué amistades nuevas le sugiere a cada persona?</div>
 <div style={{ border: '1px solid var(--color-rule)', borderRadius: '8px', padding: '0.6rem 0.8rem', background: 'var(--color-surface)' }}><strong>Un buscador</strong><br />¿Qué páginas importan más, según los enlaces que reciben?</div>
 <div style={{ border: '1px solid var(--color-rule)', borderRadius: '8px', padding: '0.6rem 0.8rem', background: 'var(--color-surface)' }}><strong>Internet</strong><br />¿Por qué camino viaja cada mensaje?</div>
 <div style={{ border: '1px solid var(--color-rule)', borderRadius: '8px', padding: '0.6rem 0.8rem', background: 'var(--color-surface)' }}><strong>La red eléctrica o de agua</strong><br />¿Cómo se conecta todo gastando lo mínimo?</div>
@@ -1120,12 +1137,14 @@ cosas son vértices y lo que las une, aristas:
 - **Aparecen en todas partes.** En algoritmos, redes, inteligencia artificial
   y compiladores, y son uno de los temas más frecuentes en las entrevistas
   técnicas de programación.
-- **Todavía hay preguntas abiertas.** Para algunos problemas de grafos que se
-  ven tan simples como el de Königsberg no se conoce un algoritmo eficiente.
-  Saber si existe es la pregunta **P frente a NP**: ¿todo problema cuya
-  solución se puede comprobar eficientemente también se puede encontrar
-  eficientemente? Es uno de los siete Problemas del Milenio, con un premio de
-  un millón de dólares.
+- **Todavía hay preguntas abiertas.** Algunos problemas piden **encontrar** una
+  respuesta, o la mejor; otros, solo **saber si existe** una; y otros,
+  **comprobar** si una respuesta que nos dan es correcta. Comprobar suele ser
+  lo fácil: un sudoku lleno se revisa en un minuto, y llenarlo cuesta mucho más.
+  Nadie sabe si todo problema cuya respuesta se comprueba rápido también se
+  puede encontrar rápido. Es la pregunta **P frente a NP**, uno de los siete
+  Problemas del Milenio, con un premio de un millón de dólares, y muchos
+  problemas de grafos están en el centro de ella.
 
 </Slide>
 
