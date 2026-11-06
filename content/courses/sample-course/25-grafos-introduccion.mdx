@@ -2,12 +2,21 @@
 id: grafos-introduccion
 title: Grafos · Introducción
 presentation: explicit
-questions: none
+questions: pool
 ---
 
-{/* `none` es un todavía-no, no una decisión: el banco se escribe en un WP */}
-{/* aparte después del merge de #356, cuando la revisión lámina a lámina ya */}
-{/* cerró el material, como hicieron las clases anteriores. */}
+{/* `pool`: un conjunto sin expectativa por sección, como las clases de */}
+{/* Estructuras de Datos Avanzadas: cada <Slide> es un h2. Lo que el pool */}
+{/* garantiza es densidad por RANGO (ErrPoolTooSmall bajo cuatro). */}
+{/* COBERTURA. 16 preguntas, de una sola correcta, aprobadas por Miguel una */}
+{/* a una (#356, 06-11): definiciones, la regla de Euler y los tipos. Por */}
+{/* acto: Königsberg 0, Las partes de un grafo 2, Caminos y ciclos 1, La */}
+{/* respuesta de Euler 4, El problema del camino euleriano 1, De un paseo a */}
+{/* una teoría 0, Tipos por arista 3, Tipos por forma 5. Un rango sirve si */}
+{/* suma cuatro: Euler solo, Tipos por forma solo, los dos de tipos juntos, */}
+{/* o de Las partes de un grafo hasta Euler. Un control solo sobre */}
+{/* Königsberg, Las partes, Caminos, el problema, la historia o Tipos por */}
+{/* arista se rechaza. */}
 
 # Grafos · Introducción
 
@@ -1730,6 +1739,186 @@ dirigido.
 | | ¿Tiene ciclos? | árbol · DAG |
 
 </Slide>
+
+<Questions>
+
+<Question id="grafos-isomorfos" anchor="grafos-isomorfos">
+
+¿Qué significa que dos grafos sean isomorfos?
+
+- [x] Que renombrando los vértices de uno se obtienen exactamente las aristas del otro
+- [ ] Que tienen la misma cantidad de vértices y de aristas
+- [ ] Que sus dibujos tienen la misma forma
+- [ ] Que tienen las mismas aristas, pero con otra dirección
+
+</Question>
+
+<Question id="grafos-grado" anchor="el-grado-de-un-vertice">
+
+¿Qué es el grado de un vértice?
+
+- [x] La cantidad de aristas que lo tocan, contando cada arista paralela
+- [ ] La cantidad de vecinos distintos que tiene
+- [ ] La cantidad de vértices que se alcanzan desde él
+- [ ] La cantidad de caminos que empiezan en él
+
+</Question>
+
+<Question id="grafos-camino-simple" anchor="caminos-simples">
+
+¿Qué exige un camino simple que un camino no exige?
+
+- [x] Que no repita vértices
+- [ ] Que no repita aristas
+- [ ] Que termine donde empezó
+- [ ] Que use todas las aristas
+
+</Question>
+
+<Question id="grafos-euler-dos-impares" anchor="la-regla-de-euler">
+
+Un grafo conexo tiene exactamente dos vértices de grado impar. ¿Qué se puede afirmar?
+
+- [x] Tiene un camino euleriano que va de un impar al otro
+- [ ] Tiene un ciclo euleriano
+- [ ] No tiene ningún camino euleriano
+- [ ] Tiene un camino euleriano que parte de cualquier vértice
+
+</Question>
+
+<Question id="grafos-camino-euleriano" anchor="caminos-y-ciclos-eulerianos">
+
+¿Qué es un camino euleriano?
+
+- [x] Un camino que usa cada arista del grafo exactamente una vez
+- [ ] Un camino que pasa exactamente una vez por cada vértice
+- [ ] Un camino que vuelve al vértice donde empezó
+- [ ] Un camino que no repite ningún vértice
+
+</Question>
+
+<Question id="grafos-nunca-un-impar" anchor="nunca-queda-un-solo-vertice-impar">
+
+¿Por qué ningún grafo tiene un solo vértice de grado impar?
+
+- [x] La suma de los grados es el doble de las aristas, un número par
+- [ ] Todo vértice tiene grado par
+- [ ] Cada arista une dos vértices de grado impar
+- [ ] Solo los grafos no conexos tienen vértices impares
+
+</Question>
+
+<Question id="grafos-konigsberg-sin-paseo" anchor="konigsberg-no-tiene-paseo">
+
+¿Por qué en Königsberg no hay un paseo que cruce cada puente una vez?
+
+- [x] Sus cuatro vértices tienen grado impar, y un camino deja a lo más dos
+- [ ] Tiene dos puentes entre la isla y cada orilla
+- [ ] Su grafo no es conexo
+- [ ] Tiene más puentes que zonas de tierra
+
+</Question>
+
+<Question id="grafos-reducir" anchor="reducir-un-problema-a-otro">
+
+¿Qué es reducir un problema a otro?
+
+- [x] Convertirlo en otro que ya sabemos resolver
+- [ ] Quitarle aristas hasta que sea más fácil
+- [ ] Resolver solo un caso pequeño del problema
+- [ ] Dibujar su grafo sin cruces
+
+</Question>
+
+<Question id="grafos-grado-de-entrada" anchor="grado-de-entrada-y-de-salida">
+
+En una red de seguidores, ¿qué cuenta el grado de entrada de una persona?
+
+- [x] Cuántas personas la siguen
+- [ ] A cuántas personas sigue
+- [ ] Cuántos seguidores mutuos tiene
+- [ ] Cuántas personas hay en la red
+
+</Question>
+
+<Question id="grafos-ponderado" anchor="grafos-ponderados">
+
+¿Qué distingue a un grafo ponderado?
+
+- [x] Cada arista trae un número, su peso
+- [ ] Cada vértice trae un número, su peso
+- [ ] Sus aristas tienen dirección
+- [ ] Tiene más aristas que vértices
+
+</Question>
+
+<Question id="grafos-konigsberg-multigrafo" anchor="simples-multigrafos-y-pseudografos">
+
+¿De qué tipo es el grafo de Königsberg?
+
+- [x] Un multigrafo
+- [ ] Un grafo simple
+- [ ] Un grafo dirigido
+- [ ] Un árbol
+
+</Question>
+
+<Question id="grafos-k5-aristas" anchor="grafos-completos">
+
+¿Cuántas aristas tiene el grafo completo de 5 vértices, K₅?
+
+- [x] 10
+- [ ] 20
+- [ ] 25
+- [ ] 5
+
+</Question>
+
+<Question id="grafos-denso" anchor="grafos-densos-y-dispersos">
+
+¿Cuándo es denso un grafo?
+
+- [x] Cuando tiene cerca del máximo de aristas posibles
+- [ ] Cuando tiene muchos vértices
+- [ ] Cuando tiene aristas paralelas
+- [ ] Cuando todos sus vértices tienen grado par
+
+</Question>
+
+<Question id="grafos-fuertemente-conexo" anchor="fuertemente-y-debilmente-conexos">
+
+¿Cuándo es fuertemente conexo un grafo dirigido?
+
+- [x] Cuando desde cualquier vértice se llega a cualquier otro siguiendo las flechas
+- [ ] Cuando se llega de cualquier vértice a cualquier otro ignorando las flechas
+- [ ] Cuando todos sus vértices tienen el mismo grado de entrada y de salida
+- [ ] Cuando tiene al menos un ciclo dirigido
+
+</Question>
+
+<Question id="grafos-arbol-aristas" anchor="arboles">
+
+Un grafo de tipo árbol tiene 8 vértices. ¿Cuántas aristas tiene?
+
+- [x] 7
+- [ ] 8
+- [ ] 28
+- [ ] 16
+
+</Question>
+
+<Question id="grafos-dag" anchor="dag-grafos-dirigidos-aciclicos">
+
+¿Qué es un DAG?
+
+- [x] Un grafo dirigido sin ciclos
+- [ ] Un grafo no dirigido sin ciclos
+- [ ] Un grafo dirigido fuertemente conexo
+- [ ] Un grafo dirigido con un solo ciclo
+
+</Question>
+
+</Questions>
 
 ## Lo que sigue
 
