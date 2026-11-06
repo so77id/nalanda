@@ -640,55 +640,90 @@ entre sí, pero desde los que no se llega a ningún vértice de otro grupo.
 ## La respuesta de Euler
 
 <Slide title="La pregunta de Königsberg">
-Con estas palabras, la pregunta del paseo cabe en una línea. Cruzar un puente es
-usar una arista, y no cruzar ninguno dos veces es lo que pide todo camino. El
-paseo que cruza cada puente una vez es un camino que usa todas las aristas:
+Ahora que tenemos más palabras para hablar de un grafo, podemos volver a hacer
+la pregunta del paseo, esta vez en términos de grafos:
 
+| En la ciudad | En el grafo |
+| --- | --- |
+| una zona de tierra | un vértice |
+| un puente | una arista |
+| un paseo que no cruza dos veces el mismo puente | un camino |
+| cruzar todos los puentes | usar todas las aristas |
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.5rem 2rem', alignItems: 'center' }}>
+<KonigsbergMap stage="map" label="Königsberg sin casas: las cuatro zonas de tierra, A, B, C y D, el agua y los siete puentes." />
 <NodeGraph
   cols={3}
   rows={3}
   nodes={[{ v: 'B', x: 1, y: 0 }, { v: 'A', x: 0, y: 1 }, { v: 'D', x: 2, y: 1 }, { v: 'C', x: 1, y: 2 }]}
   edges={[['A', 'B'], ['A', 'B'], ['A', 'C'], ['A', 'C'], ['A', 'D'], ['B', 'D'], ['C', 'D']]}
-  caption="¿hay un camino que use todas las aristas?"
   label="El grafo de Königsberg: cuatro vértices, A, B, C y D, y siete aristas. Dos unen A con B, dos unen A con C, y una une A con D, B con D y C con D."
 />
+</div>
+
+La pregunta del paseo queda así: **¿hay un camino que use todas las aristas?**
 
 </Slide>
 
 <Slide title="Cada paso por un vértice usa dos aristas">
-Supongamos que ese camino existe. Miremos un vértice por el que el camino pasa,
-sin empezar ni terminar en él: llega por una arista y sale por otra. Cada pasada
-usa **dos** aristas del vértice, y como ninguna arista se repite, sus aristas se
-gastan de a dos: su grado tiene que ser par.
+Supongamos que ese camino existe y miremos un vértice X. Cada vez que el camino
+lo visita, hace una de tres cosas:
 
-<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.5rem 2rem', alignItems: 'end' }}>
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '0 2rem', alignItems: 'end' }}>
 <NodeGraph
-  cols={4}
-  rows={3}
-  nodes={[{ v: 'A', x: 0, y: 0 }, { v: 'B', x: 3, y: 0 }, { v: 'X', x: 1.5, y: 1 }, { v: 'C', x: 0, y: 2 }, { v: 'D', x: 3, y: 2 }]}
-  edges={[['A', 'X'], ['X', 'B'], ['C', 'X'], ['X', 'D']]}
-  markEdges={[['A', 'X'], ['X', 'B']]}
+  cols={5}
+  rows={1}
+  nodes={[{ v: 'A', x: 0, y: 0 }, { v: 'X', x: 2, y: 0 }, { v: 'B', x: 4, y: 0 }]}
+  edges={[['A', 'X'], ['X', 'B']]}
+  walk={['A', 'X', 'B']}
+  notes={{ X: 2 }}
   tones={{ X: 'mark' }}
-  caption="A → X → B: llega por una, sale por otra"
-  label="Un vértice X, destacado, con cuatro aristas. Marcadas, las dos que usa un paso del camino: llega desde A y sale hacia B."
+  caption="pasa: llega y sale, 2 aristas"
+  label="Un trozo del camino: llega a X desde A en el paso 1 y sale hacia B en el paso 2. Usa dos aristas de X."
 />
 <NodeGraph
-  cols={4}
-  rows={3}
-  nodes={[{ v: 'A', x: 0, y: 0 }, { v: 'B', x: 3, y: 0 }, { v: 'X', x: 1.5, y: 1 }, { v: 'C', x: 0, y: 2 }, { v: 'D', x: 3, y: 2 }]}
-  edges={[['A', 'X'], ['X', 'B'], ['C', 'X'], ['X', 'D']]}
-  markEdges={[['C', 'X'], ['X', 'D']]}
+  cols={5}
+  rows={1}
+  nodes={[{ v: 'X', x: 2, y: 0 }, { v: 'B', x: 4, y: 0 }]}
+  edges={[['X', 'B']]}
+  walk={['X', 'B']}
+  notes={{ X: 1 }}
   tones={{ X: 'mark' }}
-  caption="C → X → D: otra pasada, otras dos"
-  label="El mismo vértice X. Marcadas, las dos aristas que usa un segundo paso: llega desde C y sale hacia D."
+  caption="comienza: solo sale, 1 arista"
+  label="El comienzo del camino: sale de X hacia B en el paso 1, sin haber llegado. Usa una arista de X."
+/>
+<NodeGraph
+  cols={5}
+  rows={1}
+  nodes={[{ v: 'A', x: 0, y: 0 }, { v: 'X', x: 2, y: 0 }]}
+  edges={[['A', 'X']]}
+  markEdges={[['A', 'X']]}
+  notes={{ X: 1 }}
+  tones={{ X: 'mark' }}
+  caption="termina: solo llega, 1 arista"
+  label="El final del camino: su última arista llega a X desde A, marcada, y ya no sale. Usa una arista de X."
+/>
+<NodeGraph
+  cols={5}
+  rows={2}
+  nodes={[{ v: 'A', x: 1, y: 0 }, { v: 'B', x: 3, y: 0 }, { v: 'X', x: 2, y: 1 }, { v: 'C', x: 4, y: 1 }]}
+  edges={[['X', 'A'], ['A', 'B'], ['B', 'X'], ['X', 'C']]}
+  walk={['X', 'A', 'B', 'X', 'C']}
+  notes={{ X: 3 }}
+  tones={{ X: 'mark' }}
+  caption="comienza y vuelve a pasar: 1 + 2 = 3"
+  label="Un camino que comienza en X, va a A y a B, vuelve a pasar por X y sale hacia C. X usa una arista al comenzar y dos al pasar: su grado es 3, impar."
 />
 </div>
 
-Solo dos vértices escapan de esa cuenta: el del **comienzo**, de donde el
-camino sale sin haber llegado, y el del **final**, adonde llega sin volver a
-salir. En un ciclo el comienzo y el final son el mismo vértice, y ese también
-usa sus aristas de a dos. **Un camino que usa todas las aristas deja, a lo más,
-dos vértices de grado impar: su comienzo y su final.**
+Como el camino usa todas las aristas y no repite ninguna, el grado de X es la
+suma de lo que usa en cada visita: dos por cada vez que pasa, y una si comienza
+o termina en X. Si el camino solo pasa por X, su grado es par. Queda impar solo
+donde el camino comienza o termina.
+
+**Un camino que usa todas las aristas deja, a lo más, dos vértices de grado
+impar: su comienzo y su final.** Si vuelve a donde empezó, el comienzo y el
+final son el mismo vértice, suman dos, y queda par.
 
 </Slide>
 
@@ -742,23 +777,24 @@ una vez, y su largo es $$|E|$$. Si además vuelve al vértice donde partió, es 
 
 </Slide>
 
-<Slide title="Los vértices de grado impar son una cantidad par">
-A Königsberg le sobran vértices impares. La pregunta que sigue es cuándo sí hay
-un camino euleriano, y la cuenta ya dice algo: quedan impares, a lo más, el
-comienzo y el final. Que quede uno solo no pasa nunca, y lo dice una suma. En
-una reunión, si cada persona cuenta cuántas manos estrechó y sumamos esos
-números, cada apretón queda contado dos veces. En un grafo, cada arista suma uno
-al grado de cada uno de sus dos extremos:
+<Slide title="Nunca queda un solo vértice impar">
+Ahora la pregunta al revés: ¿cuándo sí hay un camino euleriano? Antes, una
+duda: ¿puede un grafo tener un solo vértice de grado impar? Nunca, y se ve
+sumando grados.
+
+- Cada arista toca dos vértices: suma uno al grado de cada uno.
+- Al sumar los grados de todos los vértices, cada arista se cuenta dos veces:
 
 $$
 \sum_{v} \operatorname{grado}(v) = 2E
 $$
 
-Se lee «la suma de los grados de todos los vértices es dos veces la cantidad
-de aristas»: es el **lema del apretón de manos**. La suma es par; los vértices
-de grado par suman un número par, así que los de grado impar también, y una
-suma de números impares es par solo si son una cantidad par. **En todo grafo,
-la cantidad de vértices de grado impar es par.**
+- La suma es par. Y una suma es par solo si sus números impares vienen de a
+  pares: con un solo impar, la suma sería impar.
+
+**En todo grafo, la cantidad de vértices de grado impar es par**: 0, 2, 4…,
+nunca 1. Se llama **lema del apretón de manos**: en una reunión, cada apretón
+lo cuentan las dos personas que se dieron la mano.
 
 <NodeGraph
   cols={3}
@@ -773,11 +809,12 @@ la cantidad de vértices de grado impar es par.**
 
 </Slide>
 
-<Slide title="Un grafo en dos pedazos">
-En este grafo todos los vértices tienen grado par, y aun así ningún camino
-usa todas sus aristas: no es conexo, y ninguna arista lleva de una componente
-a la otra.
+<Slide title="El grafo tiene que ser conexo">
+Contar grados no basta: para que un camino use todas las aristas, el grafo
+tiene que ser **conexo**. Si está partido en dos componentes, ningún camino
+pasa de una a la otra, aunque todos los grados sean pares.
 
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '0.5rem 2rem', alignItems: 'end' }}>
 <NodeGraph
   cols={7}
   rows={2}
@@ -785,9 +822,21 @@ a la otra.
   edges={[['A', 'B'], ['B', 'C'], ['C', 'A'], ['D', 'E'], ['E', 'F'], ['F', 'D']]}
   notes={{ A: 2, B: 2, C: 2, D: 2, E: 2, F: 2 }}
   tones={{ D: 'mark', E: 'mark', F: 'mark' }}
-  caption="todos los grados son 2, y hay dos componentes: A B C y D E F"
-  label="Dos triángulos separados: A, B y C en uno, y D, E y F, destacados, en el otro. Cada vértice tiene grado 2, y ninguna arista une los dos triángulos: son dos componentes."
+  caption="dos componentes: ningún camino usa todas las aristas"
+  label="Dos triángulos separados: A, B y C en uno, y D, E y F, destacados, en el otro. Todos los vértices tienen grado 2, pero ninguna arista une los dos triángulos: ningún camino usa todas las aristas."
 />
+<NodeGraph
+  cols={7}
+  rows={2}
+  nodes={[{ v: 'A', x: 0, y: 0 }, { v: 'B', x: 2, y: 0 }, { v: 'C', x: 1, y: 1 }, { v: 'D', x: 4, y: 0 }, { v: 'E', x: 6, y: 0 }, { v: 'F', x: 5, y: 1 }]}
+  edges={[['A', 'B'], ['B', 'C'], ['C', 'A'], ['D', 'E'], ['E', 'F'], ['F', 'D'], ['C', 'F']]}
+  walk={['C', 'A', 'B', 'C', 'F', 'D', 'E', 'F']}
+  notes={{ A: 2, B: 2, C: 3, D: 2, E: 2, F: 3 }}
+  tones={{ C: 'mark', F: 'mark' }}
+  caption="unidos por C-F: C → A → B → C → F → D → E → F"
+  label="Los mismos dos triángulos, unidos por una arista entre C y F. Ahora C y F, destacados, tienen grado 3. Marcado y numerado, un camino de C a A, a B, a C, a F, a D, a E y a F: usa las siete aristas."
+/>
+</div>
 
 </Slide>
 
@@ -805,48 +854,14 @@ siempre una cantidad par. Euler probó en 1736 que con más de dos impares no ha
 camino. Que con ninguno o dos sí lo haya lo demostró Carl Hierholzer en 1873,
 construyendo el camino.
 
-Un puente más cambiaría la respuesta:
-
-<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '0.5rem 1.5rem', alignItems: 'end' }}>
-<NodeGraph
-  cols={3}
-  rows={3}
-  nodes={[{ v: 'B', x: 1, y: 0 }, { v: 'A', x: 0, y: 1 }, { v: 'D', x: 2, y: 1 }, { v: 'C', x: 1, y: 2 }]}
-  edges={[['A', 'B'], ['A', 'B'], ['A', 'C'], ['A', 'C'], ['A', 'D'], ['B', 'D'], ['C', 'D']]}
-  notes={{ A: 5, B: 3, C: 3, D: 3 }}
-  tones={{ A: 'mark', B: 'mark', C: 'mark', D: 'mark' }}
-  caption="como es: no hay camino"
-  label="Königsberg como es, con sus grados: A 5, y B, C y D, 3. Los cuatro, destacados, son impares: no hay camino euleriano."
-/>
-<NodeGraph
-  cols={3}
-  rows={3}
-  nodes={[{ v: 'B', x: 1, y: 0 }, { v: 'A', x: 0, y: 1 }, { v: 'D', x: 2, y: 1 }, { v: 'C', x: 1, y: 2 }]}
-  edges={[['A', 'B'], ['A', 'B'], ['A', 'C'], ['A', 'C'], ['A', 'D'], ['B', 'D'], ['C', 'D'], ['B', 'C']]}
-  markEdges={[['B', 'C']]}
-  notes={{ A: 5, B: 4, C: 4, D: 3 }}
-  tones={{ A: 'mark', D: 'mark' }}
-  caption="un puente B-C más: de A a D"
-  label="Königsberg con un octavo puente, marcado, entre B y C. Los grados quedan A 5, B 4, C 4 y D 3: dos impares, A y D, destacados, y el camino va de uno al otro."
-/>
-<NodeGraph
-  cols={3}
-  rows={3}
-  nodes={[{ v: 'B', x: 1, y: 0 }, { v: 'A', x: 0, y: 1 }, { v: 'D', x: 2, y: 1 }, { v: 'C', x: 1, y: 2 }]}
-  edges={[['A', 'B'], ['A', 'B'], ['A', 'C'], ['A', 'C'], ['A', 'D'], ['B', 'D'], ['C', 'D'], ['B', 'C'], ['A', 'D']]}
-  markEdges={[['B', 'C']]}
-  notes={{ A: 6, B: 4, C: 4, D: 4 }}
-  caption="y otro A-D: vuelve al inicio"
-  label="Königsberg con dos puentes más, entre B y C y entre A y D. Los grados quedan A 6, B 4, C 4 y D 4: ningún impar, y el camino vuelve a donde empezó."
-/>
-</div>
+¿Y si Königsberg tuviera un puente más? ¿Y dos?
 
 </Slide>
 
 <Slide title="Königsberg con más puentes">
-Con un puente más, a Königsberg le quedarían solo dos vértices de grado impar,
-y tendría un camino euleriano: parte en uno de los dos y termina en el otro.
-Con dos puentes más, no le quedaría ninguno impar, y tendría un ciclo
+Con un puente más entre B y C, B y C pasan de grado 3 a 4. Quedan dos impares,
+A y D, y hay un camino euleriano: parte en uno y termina en el otro. Con otro
+más entre A y D, A pasa a 6 y D a 4. No queda ninguno impar, y hay un ciclo
 euleriano: termina donde empezó.
 
 Resolver dibuja uno de cada uno. Cada puente lleva el número del paso en que se
