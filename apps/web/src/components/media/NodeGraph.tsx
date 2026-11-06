@@ -1,47 +1,74 @@
 import { AuthoringError } from '../AuthoringError';
-import { TREE_NODE_R } from '../treeGeometry';
+import {
+  NODE_R,
+  STEP_R,
+  STEP_SPACE,
+  layoutNodeGraph,
+  stepMarks,
+  walkStrokes,
+  type NodeGraphEdge,
+  type NodeGraphNode,
+} from '../nodeGraphLayout';
 
-/** A node of the drawing: its value, and its place on the grid in columns and rows. */
-export interface NodeGraphNode {
-  v: number | string;
-  /** Column, from 0; a half places it between two columns. */
-  x: number;
-  /** Row, from 0 at the top. */
-  y: number;
-}
+export type { NodeGraphEdge, NodeGraphNode } from '../nodeGraphLayout';
 
-/** An edge, from one node's value to another's. */
-export type NodeGraphEdge = [number | string, number | string];
+/** What a tone says: `mark` look here, `flag` this is wrong, `keep` this is done. */
+export type NodeGraphTone = 'mark' | 'flag' | 'keep';
 
 export interface NodeGraphProps {
   nodes: NodeGraphNode[];
+  /** `[from, to]`, or `[from, to, weight]` to write a weight on the edge. */
   edges: NodeGraphEdge[];
   /** How many columns the grid has. */
   cols: number;
   /** How many rows the grid has. */
   rows: number;
-  /** `mark` on the node that breaks the rule the drawing shows, keyed by value. */
-  tones?: Record<string, 'mark'>;
-  /** The edges that break it, painted in mark too. */
+  /** Arrows: every edge goes from its first node to its second. */
+  directed?: boolean;
+  /** A tone on a node, keyed by value. */
+  tones?: Record<string, NodeGraphTone>;
+  /** Edges painted thicker in mark; in an undirected graph, either order matches. */
   markEdges?: NodeGraphEdge[];
+  /**
+   * A walk, as the vertices it visits in order: its edges are marked and each
+   * carries the number of its step, as `<PenTrace>` numbers a tracing.
+   * Parallel edges are walked in turn.
+   */
+  walk?: (string | number)[];
+  /** A short note beside a node, keyed by value: its degree, for instance. */
+  notes?: Record<string, string | number>;
   caption?: string;
   /** What the figure shows, in Spanish: its accessible name. Required. */
   label: string;
 }
 
-const PITCH = 52;
-const LEVEL_H = 58;
-const PAD = 18;
+type Paint = NodeGraphTone | 'idle';
+
+const FILL: Record<Paint, string> = {
+  idle: 'var(--color-surface)',
+  mark: 'var(--color-mark-soft)',
+  flag: 'var(--color-flag-soft)',
+  keep: 'var(--color-keep-soft)',
+};
+const STROKE: Record<Paint, string> = {
+  idle: 'var(--color-rule-strong)',
+  mark: 'var(--color-mark)',
+  flag: 'var(--color-flag)',
+  keep: 'var(--color-keep)',
+};
 
 /**
- * Nodes at explicit grid positions, joined by edges: for a shape no tree
- * layout can draw — a node with three children, a node with two parents —
- * which is what a counterexample to a tree's invariants looks like. The nodes
- * are `<BinaryPicture>`'s circles; a node or an edge in `mark` is the one that
- * breaks the rule.
+ * A graph drawn at explicit grid positions: vertices joined by edges, with
+ * arrows when it is directed, a weight on an edge, a note beside a vertex.
+ * Also the shape no tree layout can draw — a node with three children, a node
+ * with two parents — which is what a counterexample to a tree's invariants
+ * looks like.
  *
  * Promoted from a figure local to Árboles I when Árboles II became the second
- * document to want it (#322, `add-a-course-document.md` §6e-quater).
+ * document to want it (#322, `add-a-course-document.md` §6e-quater); #356 gave
+ * it what the Grafos unit draws: arrows, weights, edges between the same two
+ * vertices, notes, names in pills, and the `flag` and `keep` tones. Its
+ * geometry is the pure `nodeGraphLayout.ts`.
  */
 export function NodeGraph(props: NodeGraphProps) {
   const { nodes, edges, markEdges = [], label } = props;
@@ -53,11 +80,20 @@ export function NodeGraph(props: NodeGraphProps) {
     );
   }
   const known = new Set(nodes.map((n) => String(n.v)));
-  const stray = [...edges, ...markEdges].flat().find((v) => !known.has(String(v)));
+  const stray = [...edges, ...markEdges]
+    .flatMap((e) => [e[0], e[1]])
+    .find((v) => !known.has(String(v)));
   if (stray !== undefined) {
     return (
       <AuthoringError component="NodeGraph">
         tiene una arista que llega a {String(stray)}, que no está entre los nodos.
+      </AuthoringError>
+    );
+  }
+  if (props.walk && walkStrokes(edges, props.walk, props.directed ?? false) === null) {
+    return (
+      <AuthoringError component="NodeGraph">
+        tiene un recorrido que da un paso por donde no hay arista.
       </AuthoringError>
     );
   }
@@ -69,24 +105,31 @@ function Graph({
   edges,
   cols,
   rows,
+  directed = false,
   tones = {},
   markEdges = [],
+  walk = [],
+  notes = {},
   caption,
   label,
 }: NodeGraphProps) {
-  const r = TREE_NODE_R;
-  const drawingW = 2 * PAD + cols * PITCH;
-  const width = Math.max(drawingW, caption ? caption.length * 6.6 + 24 : 0);
-  const offset = (width - drawingW) / 2;
-  const treeH = 2 * PAD + 2 * r + (rows - 1) * LEVEL_H;
-  const height = treeH + (caption ? 20 : 0);
-  const at = new Map(
-    nodes.map((n) => [
-      String(n.v),
-      { x: offset + PAD + (n.x + 0.5) * PITCH, y: PAD + r + n.y * LEVEL_H },
-    ]),
+  const r = NODE_R;
+  const layout = layoutNodeGraph({
+    nodes,
+    edges,
+    cols,
+    rows,
+    directed,
+    captionChars: caption ? caption.length : 0,
+    noted: Object.keys(notes),
+  });
+  const { width, drawingH, at, halfW, noteAt } = layout;
+  const height = drawingH + (caption ? 20 : 0);
+  const marked = new Set(
+    markEdges.flatMap(([a, b]) => (directed ? [`${a}>${b}`] : [`${a}>${b}`, `${b}>${a}`])),
   );
-  const marked = new Set(markEdges.map(([a, b]) => `${a}>${b}`));
+  const walked = walkStrokes(edges, walk, directed) ?? [];
+  const steps = stepMarks(layout, { path: walk.map(String), used: walked }, STEP_SPACE);
   return (
     <svg
       viewBox={`0 0 ${width} ${height}`}
@@ -100,42 +143,61 @@ function Graph({
       role="img"
       aria-label={label}
     >
-      {edges.map(([a, b]) => {
-        const p = at.get(String(a))!;
-        const c = at.get(String(b))!;
-        const dx = c.x - p.x;
-        const dy = c.y - p.y;
-        const len = Math.hypot(dx, dy);
-        const hot = marked.has(`${a}>${b}`);
+      {layout.edges.map((e, i) => {
+        const hot = marked.has(e.key) || walked.includes(i);
+        const color = hot ? 'var(--color-mark)' : 'var(--color-rule-strong)';
         return (
-          <line
-            key={`${a}>${b}`}
-            data-edge={`${a}>${b}`}
-            data-marked={hot ? '' : undefined}
-            x1={p.x + (dx / len) * r}
-            y1={p.y + (dy / len) * r}
-            x2={c.x - (dx / len) * r}
-            y2={c.y - (dy / len) * r}
-            style={{ stroke: hot ? 'var(--color-mark)' : 'var(--color-rule-strong)' }}
-            strokeWidth={hot ? 2.6 : 1.3}
-          />
+          <g key={`${e.key}#${i}`} data-edge={e.key} data-marked={hot ? '' : undefined}>
+            <path d={e.d} fill="none" style={{ stroke: color }} strokeWidth={hot ? 2.6 : 1.3} />
+            {e.arrow ? <polygon points={e.arrow} style={{ fill: color }} /> : null}
+          </g>
         );
       })}
+      {layout.edges.map((e, i) =>
+        e.weight !== undefined && e.weightAt ? (
+          <WeightChip key={`w${e.key}#${i}`} text={e.weight} x={e.weightAt.x} y={e.weightAt.y} />
+        ) : null,
+      )}
+      {steps.map(({ stroke, step, x, y }) => (
+        <g key={`step${stroke}`} data-step={step} data-of={stroke}>
+          <circle
+            cx={x}
+            cy={y}
+            r={STEP_R}
+            style={{ fill: 'var(--color-surface)', stroke: 'var(--color-mark)' }}
+            strokeWidth={1.6}
+          />
+          <text
+            x={x}
+            y={y + 3.5}
+            textAnchor="middle"
+            fontSize="10"
+            fontWeight="700"
+            style={{ fill: 'var(--color-ink)' }}
+          >
+            {step}
+          </text>
+        </g>
+      ))}
       {nodes.map((n) => {
-        const hot = tones[String(n.v)] === 'mark';
-        const { x, y } = at.get(String(n.v))!;
+        const value = String(n.v);
+        const tone = (tones[value] as NodeGraphTone | undefined) ?? 'idle';
+        const hot = tone !== 'idle';
+        const { x, y } = at.get(value)!;
+        const hw = halfW.get(value)!;
+        const note = notes[value];
+        const shape = hw > r ? 'pill' : 'circle';
+        const paint = {
+          style: { fill: FILL[tone], stroke: STROKE[tone] },
+          strokeWidth: hot ? 2.2 : 1.3,
+        };
         return (
-          <g key={`n${n.v}`} data-node data-value={n.v} data-tone={hot ? 'mark' : 'idle'}>
-            <circle
-              cx={x}
-              cy={y}
-              r={r}
-              style={{
-                fill: hot ? 'var(--color-mark-soft)' : 'var(--color-surface)',
-                stroke: hot ? 'var(--color-mark)' : 'var(--color-rule-strong)',
-              }}
-              strokeWidth={hot ? 2.2 : 1.3}
-            />
+          <g key={`n${value}`} data-node data-value={n.v} data-tone={tone} data-shape={shape}>
+            {shape === 'circle' ? (
+              <circle cx={x} cy={y} r={r} {...paint} />
+            ) : (
+              <rect x={x - hw} y={y - r} width={2 * hw} height={2 * r} rx={r} {...paint} />
+            )}
             <text
               x={x}
               y={y + 5}
@@ -146,13 +208,26 @@ function Graph({
             >
               {n.v}
             </text>
+            {note !== undefined ? (
+              <text
+                data-note={note}
+                x={noteAt.get(value)!.x}
+                y={noteAt.get(value)!.y + 4.5}
+                textAnchor="middle"
+                fontSize="12"
+                fontWeight="600"
+                style={{ fill: hot ? STROKE[tone] : 'var(--color-ink-soft)' }}
+              >
+                {note}
+              </text>
+            ) : null}
           </g>
         );
       })}
       {caption ? (
         <text
           x={width / 2}
-          y={treeH + 12}
+          y={drawingH + 12}
           textAnchor="middle"
           fontSize="12"
           style={{ fill: 'var(--color-ink-soft)' }}
@@ -161,5 +236,30 @@ function Graph({
         </text>
       ) : null}
     </svg>
+  );
+}
+
+/**
+ * An edge's weight, centred on the line with no box: a halo in the page's
+ * ground colour hides the line behind the digits.
+ */
+function WeightChip({ text, x, y }: { text: string; x: number; y: number }) {
+  return (
+    <g data-weight={text}>
+      <text
+        x={x}
+        y={y + 4.5}
+        textAnchor="middle"
+        fontSize="13"
+        fontWeight="600"
+        style={{ fill: 'var(--color-ink)' }}
+        stroke="var(--color-ground)"
+        strokeWidth={5}
+        strokeLinejoin="round"
+        paintOrder="stroke"
+      >
+        {text}
+      </text>
+    </g>
   );
 }

@@ -1,0 +1,459 @@
+import { Lightbulb, RotateCcw, Search, Undo2 } from 'lucide-react';
+import { Fragment, useEffect, useState } from 'react';
+
+import { AuthoringError } from '../AuthoringError';
+import {
+  NODE_R,
+  STEP_R,
+  STEP_SPACE,
+  layoutNodeGraph,
+  stepMarks,
+  type NodeGraphEdge,
+  type NodeGraphNode,
+} from '../nodeGraphLayout';
+import {
+  EMPTY_TRACE,
+  attempts,
+  remaining,
+  solve,
+  status,
+  step,
+  undo,
+  type TraceState,
+  type TraceStatus,
+} from './penTraceLogic';
+
+export interface PenTraceProps {
+  nodes: NodeGraphNode[];
+  /** The strokes, by their two points; the same pair twice is two strokes. */
+  edges: NodeGraphEdge[];
+  cols: number;
+  rows: number;
+  /** Draw the points as small dots, the way the figure looks, not as lettered vertices. */
+  figure?: boolean;
+  /**
+   * Offer a «Resolver» button: it draws one way to trace the figure, stroke by
+   * stroke, or says there is none. Without the why: that is Euler's rule.
+   */
+  solvable?: boolean;
+  /**
+   * Offer a «Buscar solución» button instead: it tries one walk after another,
+   * in a loop that never ends, without saying whether a tracing exists. For a
+   * question the document has not answered yet (Königsberg, before Euler).
+   * The opposite of `solvable`; a document asks for one or the other.
+   */
+  keepTrying?: boolean;
+  /** What the drawing is, in Spanish: its accessible name. Required. */
+  label: string;
+}
+
+/** How long each step of a solution stays on screen, in milliseconds. */
+export const STEP_MS = 450;
+
+/** How many steps a failed attempt stays stuck on screen before the next one. */
+export const STUCK_STEPS = 3;
+
+/** How many attempts a loop shows, one from each of the first points. */
+export const ATTEMPTS = 5;
+
+const DOT_R = 6;
+/** The invisible circle a press lands on, larger than a dot. */
+const HIT_R = 16;
+
+/**
+ * A figure to trace without lifting the pen: press a point to put the pen
+ * down, then, one after another, the points to draw the strokes to. The pen
+ * cannot jump to a point no free stroke reaches, nor go over a stroke twice;
+ * the status line says when the tracing is stuck and when it is done, and
+ * whether it ended where it began. Drawn on `<NodeGraph>`'s geometry
+ * (`nodeGraphLayout.ts`) after `<HanoiPlayground>`'s shape (#356); the rules
+ * are the pure `penTraceLogic.ts`.
+ */
+export function PenTrace(props: PenTraceProps) {
+  const { nodes, edges, label } = props;
+  if (label === undefined || label === '') {
+    return (
+      <AuthoringError component="PenTrace">
+        necesita un label que describa la figura, en español.
+      </AuthoringError>
+    );
+  }
+  const known = new Set(nodes.map((n) => String(n.v)));
+  const stray = edges.flatMap((e) => [e[0], e[1]]).find((v) => !known.has(String(v)));
+  if (stray !== undefined) {
+    return (
+      <AuthoringError component="PenTrace">
+        tiene un trazo que llega a {String(stray)}, que no está entre los puntos.
+      </AuthoringError>
+    );
+  }
+  if (props.solvable && props.keepTrying) {
+    return (
+      <AuthoringError component="PenTrace">
+        pide resolver y buscar a la vez: usa solvable o keepTrying, no los dos.
+      </AuthoringError>
+    );
+  }
+  return <Tracer {...props} />;
+}
+
+/**
+ * The frames of a loop of attempts: each one drawn stroke by stroke from one
+ * of the first points, as far as it gets, then held for a few steps.
+ */
+function attemptFrames(edges: NodeGraphEdge[], nodes: NodeGraphNode[]): TraceState[] {
+  const tries = attempts(
+    edges,
+    nodes.map((n) => String(n.v)),
+    ATTEMPTS,
+  );
+  const frames: TraceState[] = [];
+  for (const tryPoints of tries) {
+    let t = EMPTY_TRACE;
+    for (const p of tryPoints) {
+      t = step(edges, t, p)!;
+      frames.push(t);
+    }
+    for (let k = 0; k < STUCK_STEPS; k++) frames.push(t);
+  }
+  return frames;
+}
+
+function Tracer({
+  nodes,
+  edges,
+  cols,
+  rows,
+  figure = false,
+  solvable = false,
+  keepTrying = false,
+  label,
+}: PenTraceProps) {
+  const [trace, setTrace] = useState<TraceState>(EMPTY_TRACE);
+  const [refused, setRefused] = useState(false);
+  /** The tracings still to show of a solution under way, one per step. */
+  const [frames, setFrames] = useState<TraceState[] | null>(null);
+  const [impossible, setImpossible] = useState(false);
+  /** Attempts shown in a loop, and where it is: a figure with no solution, or a search. */
+  const [loop, setLoop] = useState<{ frames: TraceState[]; at: number } | null>(null);
+  const solving = frames !== null || loop !== null;
+
+  useEffect(() => {
+    if (frames === null) return;
+    const id = window.setTimeout(() => {
+      const [first, ...rest] = frames;
+      setTrace(first);
+      setFrames(rest.length > 0 ? rest : null);
+    }, STEP_MS);
+    return () => window.clearTimeout(id);
+  }, [frames]);
+
+  useEffect(() => {
+    if (loop === null) return;
+    const id = window.setTimeout(() => {
+      setTrace(loop.frames[loop.at]);
+      setLoop({ frames: loop.frames, at: (loop.at + 1) % loop.frames.length });
+    }, STEP_MS);
+    return () => window.clearTimeout(id);
+  }, [loop]);
+  const layout = layoutNodeGraph({ nodes, edges, cols, rows, directed: false, trim: !figure });
+  const { width, drawingH, at } = layout;
+  const state = status(edges, trace);
+  const start = trace.path[0];
+  const here = trace.path[trace.path.length - 1];
+  const drawn = new Set(trace.used);
+  const lastStroke = trace.used[trace.used.length - 1];
+
+  /** A press stops a loop of attempts and puts the pen down by hand; a solution under way ignores it. */
+  const press = (v: string) => {
+    if (frames !== null) return;
+    const looping = loop !== null;
+    if (!looping && state === 'done') return;
+    const from = looping ? EMPTY_TRACE : trace;
+    const next = step(edges, from, v);
+    setLoop(null);
+    setImpossible(false);
+    setRefused(next === null);
+    setTrace(next ?? from);
+  };
+  const reset = (next: TraceState) => {
+    setFrames(null);
+    setLoop(null);
+    setImpossible(false);
+    setRefused(false);
+    setTrace(next);
+  };
+  /** Loop through attempts; `impossible` also says that no tracing exists. */
+  const tryOver = (impossible: boolean) => {
+    const loopFrames = attemptFrames(edges, nodes);
+    setRefused(false);
+    setImpossible(impossible);
+    setTrace(EMPTY_TRACE);
+    setLoop(loopFrames.length > 0 ? { frames: loopFrames, at: 0 } : null);
+  };
+  const resolve = () => {
+    if (keepTrying) {
+      tryOver(false);
+      return;
+    }
+    const points = solve(
+      edges,
+      nodes.map((n) => String(n.v)),
+    );
+    setRefused(false);
+    if (points === null) {
+      tryOver(true);
+      return;
+    }
+    const steps: TraceState[] = [];
+    points.reduce((t, p) => {
+      const next = step(edges, t, p)!;
+      steps.push(next);
+      return next;
+    }, EMPTY_TRACE);
+    setImpossible(false);
+    setTrace(EMPTY_TRACE);
+    setFrames(steps);
+  };
+
+  const message = impossible
+    ? 'Esta figura no se puede dibujar de un solo trazo, empiece donde empiece.'
+    : say(state, refused, remaining(edges, trace), trace);
+  const messageClass =
+    state === 'done'
+      ? 'text-keep'
+      : state === 'stuck' || refused || impossible
+        ? 'text-flag'
+        : 'text-ink';
+
+  return (
+    <div
+      data-pen-trace
+      data-status={state}
+      className="not-prose my-6 overflow-hidden rounded-lg border border-rule bg-surface text-ink"
+    >
+      <header className="flex flex-wrap items-center gap-2 bg-sunk px-3 py-1.5">
+        <span className="rounded bg-accent-soft px-1.5 py-0.5 font-mono text-3xs tracking-wide text-accent uppercase">
+          sin levantar el lápiz
+        </span>
+        <span className="ml-auto font-mono text-3xs text-ink-faint">
+          trazos: {trace.used.length} / {edges.length}
+        </span>
+      </header>
+      <svg
+        viewBox={`0 0 ${width} ${drawingH}`}
+        style={{ width: '100%', maxWidth: `${Math.round(width * 1.4)}px`, height: 'auto' }}
+        className="mx-auto block"
+        role="group"
+        aria-label={label}
+      >
+        {layout.edges.map((e, i) => {
+          const done = drawn.has(i);
+          const last = i === lastStroke;
+          return (
+            <path
+              key={`${e.key}#${i}`}
+              data-stroke={i}
+              data-drawn={done ? '' : undefined}
+              data-last={last ? '' : undefined}
+              d={e.d}
+              fill="none"
+              style={{
+                stroke: last
+                  ? 'var(--color-mark)'
+                  : done
+                    ? 'var(--color-keep)'
+                    : 'var(--color-rule-strong)',
+              }}
+              strokeWidth={done ? 3.4 : 1.4}
+              strokeDasharray={done ? undefined : '4 4'}
+              strokeLinecap="round"
+            />
+          );
+        })}
+        {figure
+          ? null
+          : stepMarks(layout, trace, STEP_SPACE).map(({ stroke, step, x, y }) => {
+              const tone = stroke === lastStroke ? 'mark' : 'keep';
+              return (
+                <g key={`step${stroke}`} data-step={step} data-of={stroke} aria-hidden="true">
+                  <circle
+                    cx={x}
+                    cy={y}
+                    r={STEP_R}
+                    style={{ fill: 'var(--color-surface)', stroke: `var(--color-${tone})` }}
+                    strokeWidth={1.6}
+                  />
+                  <text
+                    x={x}
+                    y={y + 3.5}
+                    textAnchor="middle"
+                    fontSize="10"
+                    fontWeight="700"
+                    style={{ fill: 'var(--color-ink)' }}
+                  >
+                    {step}
+                  </text>
+                </g>
+              );
+            })}
+        {nodes.map((n) => {
+          const v = String(n.v);
+          const { x, y } = at.get(v)!;
+          const current = v === here;
+          const tone = current ? TONE_OF[state] : null;
+          const fill = tone ? `var(--color-${tone}-soft)` : 'var(--color-surface)';
+          const stroke = tone ? `var(--color-${tone})` : 'var(--color-rule-strong)';
+          const r = figure ? (current ? DOT_R + 2 : DOT_R) : NODE_R;
+          return (
+            <g
+              key={v}
+              data-point={v}
+              data-current={current ? '' : undefined}
+              data-start={v === start ? '' : undefined}
+              role="button"
+              tabIndex={0}
+              aria-label={`Punto ${v}`}
+              onClick={() => press(v)}
+              onKeyDown={(ev) => {
+                if (ev.key === 'Enter' || ev.key === ' ') {
+                  ev.preventDefault();
+                  press(v);
+                }
+              }}
+              style={{
+                cursor:
+                  frames !== null || (loop === null && state === 'done') ? 'default' : 'pointer',
+                outline: 'none',
+              }}
+              className="group"
+            >
+              <circle cx={x} cy={y} r={HIT_R} fill="transparent" />
+              {v === start ? (
+                <circle
+                  cx={x}
+                  cy={y}
+                  r={r + 5}
+                  fill="none"
+                  style={{ stroke: 'var(--color-ink-soft)' }}
+                  strokeWidth={1.4}
+                />
+              ) : null}
+              <circle
+                cx={x}
+                cy={y}
+                r={r}
+                style={{ fill, stroke }}
+                strokeWidth={current ? 2.4 : 1.4}
+              />
+              {figure ? null : (
+                <text
+                  x={x}
+                  y={y + 5}
+                  textAnchor="middle"
+                  fontSize="14"
+                  fontWeight="600"
+                  style={{ fill: 'var(--color-ink)', pointerEvents: 'none' }}
+                >
+                  {v}
+                </text>
+              )}
+              <circle
+                cx={x}
+                cy={y}
+                r={r + 9}
+                fill="none"
+                className="opacity-0 group-focus-visible:opacity-100"
+                style={{ stroke: 'var(--color-focus)' }}
+                strokeWidth={2}
+              />
+            </g>
+          );
+        })}
+      </svg>
+      {figure ? null : (
+        <p
+          data-trace-order
+          className="min-h-6 px-3 pb-2 text-center font-mono text-xs text-ink-soft"
+        >
+          {trace.path.map((p, i) => (
+            <Fragment key={i}>
+              {i > 0 ? <span aria-hidden="true"> → </span> : null}
+              <span className={i === trace.path.length - 1 ? 'font-bold text-ink' : undefined}>
+                {p}
+              </span>
+            </Fragment>
+          ))}
+        </p>
+      )}
+      <div className="flex flex-wrap items-center gap-2 border-t border-rule bg-sunk px-3 py-2 text-xs">
+        <p role="status" aria-live="polite" className={messageClass}>
+          {message}
+        </p>
+        <span className="ml-auto flex flex-wrap justify-end gap-2">
+          {solvable || keepTrying ? (
+            <button
+              type="button"
+              onClick={resolve}
+              disabled={solving || state === 'done'}
+              className={BUTTON}
+            >
+              {keepTrying ? (
+                <>
+                  <Search size={12} aria-hidden /> Buscar solución
+                </>
+              ) : (
+                <>
+                  <Lightbulb size={12} aria-hidden /> Resolver
+                </>
+              )}
+            </button>
+          ) : null}
+          <button
+            type="button"
+            onClick={() => reset(undo(trace))}
+            disabled={trace.path.length === 0 || solving}
+            className={BUTTON}
+          >
+            <Undo2 size={12} aria-hidden /> Deshacer
+          </button>
+          <button
+            type="button"
+            onClick={() => reset(EMPTY_TRACE)}
+            disabled={trace.path.length === 0 && !solving && !impossible}
+            className={BUTTON}
+          >
+            <RotateCcw size={12} aria-hidden /> Empezar de nuevo
+          </button>
+        </span>
+      </div>
+    </div>
+  );
+}
+
+/** The tone of the point the pen is on: look here, stuck, or finished. */
+const TONE_OF: Record<TraceStatus, 'mark' | 'flag' | 'keep'> = {
+  empty: 'mark',
+  drawing: 'mark',
+  stuck: 'flag',
+  done: 'keep',
+};
+
+const BUTTON =
+  'flex items-center gap-1 whitespace-nowrap rounded border border-rule bg-surface px-2 py-1 text-ink-soft hover:text-ink disabled:opacity-40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus';
+
+/** The status line, in the course's voice. */
+function say(state: TraceStatus, refused: boolean, left: number, trace: TraceState): string {
+  const strokes = (one: string, many: string) => (left === 1 ? one : many);
+  if (state === 'empty') return 'Elijamos un punto para bajar el lápiz.';
+  if (state === 'done') {
+    const closed = trace.path[0] === trace.path[trace.path.length - 1];
+    return `Figura completa, sin levantar el lápiz. ${closed ? 'Termina donde empezó.' : 'Termina en otro punto.'}`;
+  }
+  if (state === 'stuck') {
+    return `Sin salida: ${strokes('queda un trazo', `quedan ${left} trazos`)} y ninguno sale de este punto.`;
+  }
+  if (refused)
+    return 'Hasta ese punto no hay un trazo libre: el lápiz no salta ni repite un trazo.';
+  return `${strokes('Queda un trazo', `Quedan ${left} trazos`)} por dibujar.`;
+}

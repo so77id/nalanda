@@ -1,0 +1,1928 @@
+---
+id: grafos-introduccion
+title: Grafos · Introducción
+presentation: explicit
+questions: pool
+---
+
+{/* `pool`: un conjunto sin expectativa por sección, como las clases de */}
+{/* Estructuras de Datos Avanzadas: cada <Slide> es un h2. Lo que el pool */}
+{/* garantiza es densidad por RANGO (ErrPoolTooSmall bajo cuatro). */}
+{/* COBERTURA. 16 preguntas, de una sola correcta, aprobadas por Miguel una */}
+{/* a una (#356, 06-11): definiciones, la regla de Euler y los tipos. Por */}
+{/* acto: Königsberg 0, Las partes de un grafo 2, Caminos y ciclos 1, La */}
+{/* respuesta de Euler 4, El problema del camino euleriano 1, De un paseo a */}
+{/* una teoría 0, Tipos por arista 3, Tipos por forma 5. Un rango sirve si */}
+{/* suma cuatro: Euler solo, Tipos por forma solo, los dos de tipos juntos, */}
+{/* o de Las partes de un grafo hasta Euler. Un control solo sobre */}
+{/* Königsberg, Las partes, Caminos, el problema, la historia o Tipos por */}
+{/* arista se rechaza. */}
+
+# Grafos · Introducción
+
+Una ciudad tiene esquinas unidas por calles; una red social, personas que se
+siguen; una malla curricular, ramos que piden otros antes. Los tres problemas
+hablan de cosas y de cuáles están unidas, y de nada más. Un **grafo** guarda
+exactamente eso, y con él preguntas que parecen distintas resultan ser la
+misma.
+
+<SectionBreak />
+
+## Los puentes de Königsberg
+
+{/* KonigsbergMap — Königsberg in one frame, at the three stages of the abstraction (#356): `city` the town as it is, houses in their blocks and the seven bridges in `mark`; `map` only land, water (`sunk`) and bridges, the zones lettered A to D; `graph` only a point on each zone and a line for each bridge, every line passing where its bridge stands, so the stages line up when shown side by side. Schematic, not to scale. File-local: only this class draws the city. */}
+
+export function KonigsbergMap({ stage = 'map', caption, label }) {
+  const width = 520;
+  const height = 290 + (caption ? 24 : 0);
+  const water = [[0, 105], [300, 105], [520, 45], [520, 95], [360, 150], [520, 205], [520, 255], [300, 195], [0, 195]];
+  const bridges = [[125, 101, 10, 28], [212, 101, 10, 28], [125, 171, 10, 28], [212, 171, 10, 28], [258, 145, 104, 10], [435, 62, 10, 64], [435, 174, 10, 64]];
+  const inWater = (px, py) => {
+    let c = false;
+    for (let i = 0, j = water.length - 1; i < water.length; j = i++) {
+      const [xi, yi] = water[i];
+      const [xj, yj] = water[j];
+      if ((yi > py) !== (yj > py) && px < ((xj - xi) * (py - yi)) / (yj - yi) + xi) c = !c;
+    }
+    return c;
+  };
+  const onIsland = (px, py) => ((px - 175) / 74) ** 2 + ((py - 150) / 18) ** 2 <= 1;
+  const nearBridge = (x, y, w, h) => bridges.some(([bx, by, bw, bh]) => x < bx + bw + 7 && x + w > bx - 7 && y < by + bh + 7 && y + h > by - 7);
+  const blocks = [];
+  if (stage === 'city') {
+    for (let row = 0, y = 8; y < 280; row++, y += 22) {
+      for (let x = 6 + (row % 2) * 14; x < 500; x += 34) {
+        const w = 27;
+        const h = 15;
+        const corners = [[x - 3, y - 3], [x + w + 3, y - 3], [x - 3, y + h + 3], [x + w + 3, y + h + 3]];
+        const land = corners.every(([cx, cy]) => !inWater(cx, cy)) || corners.every(([cx, cy]) => onIsland(cx, cy));
+        if (land && !nearBridge(x, y, w, h)) blocks.push([x, y, w, h]);
+      }
+    }
+  }
+  const point = { A: [175, 150], B: [175, 52], C: [175, 248], D: [470, 150] };
+  const lines = [
+    'M 175 150 Q 85 129 175 52',
+    'M 175 150 Q 259 129 175 52',
+    'M 175 150 Q 85 171 175 248',
+    'M 175 150 Q 259 171 175 248',
+    'M 175 150 L 470 150',
+    'M 175 52 Q 360 52 440 94 Q 470 112 470 150',
+    'M 175 248 Q 360 248 440 206 Q 470 188 470 150',
+  ];
+  const name = (x, y, t, size) => (
+    <text x={x} y={y} textAnchor="middle" fontSize={size} fontWeight="700" style={{ fill: 'var(--color-ink)' }}>{t}</text>
+  );
+  return (
+    <svg viewBox={stage === 'graph' ? '70 18 450 264' : `0 0 ${width} ${height}`} style={{ width: '100%', maxWidth: stage === 'graph' ? '320px' : '560px', height: 'auto', display: 'block', margin: '0.6rem auto' }} role="img" aria-label={label}>
+      {stage === 'graph' ? null : (
+        <>
+          <polygon points={water.map((p) => p.join(',')).join(' ')} style={{ fill: 'var(--color-sunk)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.2" />
+          <ellipse cx="175" cy="150" rx="85" ry="25" style={{ fill: 'var(--color-ground)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.2" />
+          {blocks.map(([x, y, w, h], k) => (
+            <rect key={`h${k}`} x={x} y={y} width={w} height={h} rx="1.5" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="0.8" />
+          ))}
+          {bridges.map(([x, y, w, h], k) => (
+            <rect key={`b${k}`} x={x} y={y} width={w} height={h} rx="2" style={{ fill: stage === 'city' ? 'var(--color-mark)' : 'var(--color-ink-soft)' }} />
+          ))}
+        </>
+      )}
+      {stage === 'map' ? (
+        <>
+          {name(175, 64, 'B', 28)}
+          {name(175, 266, 'C', 28)}
+          {name(175, 160, 'A', 28)}
+          {name(482, 160, 'D', 28)}
+        </>
+      ) : null}
+      {stage === 'graph' ? (
+        <>
+          {lines.map((d, k) => (
+            <path key={`l${k}`} d={d} fill="none" style={{ stroke: 'var(--color-rule-strong)' }} strokeWidth="2.1" />
+          ))}
+          {Object.entries(point).map(([v, [x, y]]) => (
+            <g key={v}>
+              <circle cx={x} cy={y} r="28" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="2.1" />
+              {name(x, y + 8, v, 23)}
+            </g>
+          ))}
+        </>
+      ) : null}
+      {caption ? (
+        <text x={width / 2} y={height - 8} textAnchor="middle" fontSize="13" style={{ fill: 'var(--color-ink-soft)' }}>{caption}</text>
+      ) : null}
+    </svg>
+  );
+}
+
+<Slide title="Los siete puentes de Königsberg">
+La ciudad de Königsberg, en el siglo XVIII, estaba partida por el río Pregel
+en cuatro zonas de tierra: las dos orillas, una isla en medio del río y la
+tierra que queda entre los dos brazos en que el río se separa. Siete puentes
+las unían.
+
+<KonigsbergMap
+  stage="city"
+  caption="el río Pregel, sus orillas, una isla y siete puentes"
+  label="La ciudad de Königsberg: casas en sus manzanas a los dos lados de un río que la cruza de izquierda a derecha y se separa en dos brazos, una isla con casas en medio del río, y siete puentes destacados entre las zonas de tierra."
+/>
+
+Sus habitantes se preguntaban si se podía dar un paseo que cruzara cada
+puente **exactamente una vez**. Nadie lo lograba, y nadie sabía explicar por
+qué.
+
+</Slide>
+
+<Slide title="De la ciudad al grafo">
+Para el paseo no importan la forma de las orillas ni el largo de los puentes:
+solo importa qué zonas une cada puente. En 1736, Leonhard Euler se quedó solo
+con eso.
+
+<div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'center', gap: '0.5rem 0.75rem' }}>
+<figure style={{ flex: '1 1 200px', margin: 0, textAlign: 'center' }}>
+<KonigsbergMap stage="city" label="La ciudad de Königsberg, con sus casas, el río, la isla y los siete puentes destacados." />
+<figcaption style={{ fontSize: '0.85rem', color: 'var(--color-ink-soft)' }}>la ciudad</figcaption>
+</figure>
+<span aria-hidden="true" style={{ fontSize: '1.6rem', color: 'var(--color-ink-soft)' }}>→</span>
+<figure style={{ flex: '1 1 200px', margin: 0, textAlign: 'center' }}>
+<KonigsbergMap stage="map" label="La misma ciudad sin casas: solo las cuatro zonas de tierra, A, B, C y D, el agua y los siete puentes." />
+<figcaption style={{ fontSize: '0.85rem', color: 'var(--color-ink-soft)' }}>solo tierra, agua y puentes</figcaption>
+</figure>
+<span aria-hidden="true" style={{ fontSize: '1.6rem', color: 'var(--color-ink-soft)' }}>→</span>
+<figure style={{ flex: '1 1 200px', margin: 0, textAlign: 'center' }}>
+<KonigsbergMap stage="graph" label="Solo un punto por zona, A, B, C y D, y una línea por puente, cada una donde estaba su puente: dos entre A y B, dos entre A y C, y una entre A y D, B y D, y C y D." />
+<figcaption style={{ fontSize: '0.85rem', color: 'var(--color-ink-soft)' }}>solo qué se une con qué</figcaption>
+</figure>
+</div>
+
+Hoy lo dibujamos con un punto por zona y una línea por puente. A este dibujo
+lo llamamos **grafo**.
+
+</Slide>
+
+<Slide title="El paseo por Königsberg">
+En el grafo, el paseo es pasar el lápiz por todas las líneas sin levantarlo
+y sin repetir ninguna: cada línea dibujada es un puente cruzado. Se puede
+probar a mano, o con Buscar solución:
+
+<PenTrace
+  keepTrying
+  cols={3}
+  rows={3}
+  nodes={[{ v: 'B', x: 1, y: 0 }, { v: 'A', x: 0, y: 1 }, { v: 'D', x: 2, y: 1 }, { v: 'C', x: 1, y: 2 }]}
+  edges={[['A', 'B'], ['A', 'B'], ['A', 'C'], ['A', 'C'], ['A', 'D'], ['B', 'D'], ['C', 'D']]}
+  label="Königsberg como puntos y líneas: cuatro puntos, A, B, C y D, y siete líneas. Dos líneas unen A con B, dos unen A con C, y una une A con D, B con D y C con D. Para recorrerlas todas sin pasar dos veces por la misma."
+/>
+
+Cada intento cruza los puentes en un orden: uno primero, otro después, hasta
+cruzarlos todos o quedarse sin salida. Que nadie lo lograra no prueba que sea
+imposible: quizás nadie probó el orden bueno. Pero los órdenes son demasiados
+para probarlos todos: con siete puentes hay 5040, y cada puente más los
+multiplica; con veinte, son más de dos trillones. Hace falta una razón que
+descarte todos los órdenes a la vez, sin probar ninguno.
+
+</Slide>
+
+<SectionBreak />
+
+## Las partes de un grafo
+
+<Slide title="Los vértices">
+Cada zona de tierra es un **vértice**, un punto del dibujo. Los vértices forman
+un conjunto, que se llama $$V$$:
+
+$$
+V = \{A, B, C, D\} \qquad |V| = 4
+$$
+
+Se lee «$$V$$ es el conjunto de A, B, C y D, y tiene cuatro elementos».
+
+<div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'center', gap: '0.5rem 1rem' }}>
+<figure style={{ flex: '1 1 220px', maxWidth: '320px', margin: 0, textAlign: 'center' }}>
+<KonigsbergMap stage="map" label="Königsberg sin casas: las cuatro zonas de tierra, A, B, C y D, el agua y los siete puentes." />
+<figcaption style={{ fontSize: '0.85rem', color: 'var(--color-ink-soft)' }}>cuatro zonas de tierra</figcaption>
+</figure>
+<span aria-hidden="true" style={{ fontSize: '1.6rem', color: 'var(--color-ink-soft)' }}>→</span>
+<div style={{ flex: '1 1 160px', maxWidth: '240px' }}>
+<NodeGraph
+  cols={3}
+  rows={3}
+  nodes={[{ v: 'B', x: 0, y: 0 }, { v: 'A', x: 0, y: 1 }, { v: 'C', x: 0, y: 2 }, { v: 'D', x: 2, y: 1 }]}
+  edges={[]}
+  caption="cuatro vértices"
+  label="Cuatro vértices, A, B, C y D, uno por zona, en el lugar de cada zona y sin líneas."
+/>
+</div>
+</div>
+
+</Slide>
+
+<Slide title="Las aristas">
+Cada puente es una **arista**: une dos vértices, sus **extremos**. Un puente se
+cruza en los dos sentidos, así que la arista no tiene dirección, y se escribe
+entre llaves: $$\{A, D\}$$. Si fuera de un solo sentido, como una calle,
+tendría dirección, y una arista con dirección se llama **arco**: se dibuja como
+una flecha y se escribe entre paréntesis, $$(A, D)$$, de A a D.
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.5rem 2rem', alignItems: 'end' }}>
+<NodeGraph
+  cols={3}
+  rows={3}
+  nodes={[{ v: 'B', x: 1, y: 0 }, { v: 'A', x: 0, y: 1 }, { v: 'D', x: 2, y: 1 }, { v: 'C', x: 1, y: 2 }]}
+  edges={[['A', 'B'], ['A', 'B'], ['A', 'C'], ['A', 'C'], ['A', 'D'], ['B', 'D'], ['C', 'D']]}
+  tones={{ A: 'mark', D: 'mark' }}
+  markEdges={[['A', 'D']]}
+  caption="una arista: {A, D}"
+  label="El grafo de Königsberg, sin dirección, con la arista entre A y D marcada y sus dos extremos destacados."
+/>
+<NodeGraph
+  cols={3}
+  rows={3}
+  directed
+  nodes={[{ v: 'B', x: 1, y: 0 }, { v: 'A', x: 0, y: 1 }, { v: 'D', x: 2, y: 1 }, { v: 'C', x: 1, y: 2 }]}
+  edges={[['A', 'B'], ['B', 'A'], ['A', 'C'], ['C', 'A'], ['A', 'D'], ['D', 'B'], ['C', 'D']]}
+  tones={{ A: 'mark', D: 'mark' }}
+  markEdges={[['A', 'D']]}
+  caption="un arco: (A, D), de A a D"
+  label="Los mismos cuatro vértices con flechas: de A a B y de B a A, de A a C y de C a A, de A a D, de D a B y de C a D. Marcado, el arco de A a D."
+/>
+</div>
+
+</Slide>
+
+<Slide title="Conjuntos y tuplas">
+Las llaves y los paréntesis son dos formas de agrupar elementos, y se leen
+distinto:
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '0.75rem 1.5rem', margin: '1rem 0' }}>
+<div style={{ border: '1px solid var(--color-rule)', borderRadius: '8px', padding: '0.5rem 0.9rem 0.1rem', background: 'var(--color-surface)' }}>
+
+**Un conjunto**, entre llaves: sus elementos no tienen orden y no se repiten.
+
+$$
+\{A, D\} = \{D, A\}
+$$
+
+</div>
+<div style={{ border: '1px solid var(--color-rule)', borderRadius: '8px', padding: '0.5rem 0.9rem 0.1rem', background: 'var(--color-surface)' }}>
+
+**Una tupla**, entre paréntesis: sus elementos van en orden. Una tupla de dos
+elementos es un **par ordenado**.
+
+$$
+(A, D) \neq (D, A)
+$$
+
+</div>
+</div>
+
+Así se leen una arista y un arco:
+
+- **Una arista**, sin dirección, es un conjunto: $$\{A, D\}$$ es la misma que
+  $$\{D, A\}$$, y se abrevia $$AD$$, o $$DA$$.
+- **Un arco**, con dirección, es un par ordenado: $$(A, D)$$ va de A a D, y
+  también se abrevia $$AD$$. Pero aquí el orden importa: $$AD \neq DA$$, y
+  $$DA$$ sería otro arco, de D a A.
+
+</Slide>
+
+<Slide title="Qué es un grafo">
+Un **grafo** se describe con dos conjuntos: $$V$$, el de sus vértices, y $$E$$,
+el de sus aristas, o de sus arcos si tienen dirección. Se escribe como un par ordenado, primero los vértices y
+después las aristas:
+
+$$
+G = (V, E)
+$$
+
+Se lee «el grafo $$G$$, con los vértices $$V$$ y las aristas $$E$$». Los dos
+grafos de abajo tienen los mismos vértices, $$V = \{A, B, C, D\}$$. Cambia lo
+que hay en $$E$$: aristas entre llaves en uno, arcos entre paréntesis en el
+otro.
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '0.75rem 1.5rem' }}>
+<div style={{ border: '1px solid var(--color-rule)', borderRadius: '8px', padding: '0.4rem 0.9rem 0.1rem', background: 'var(--color-surface)' }}>
+
+**Sin dirección**
+
+<NodeGraph
+  cols={3}
+  rows={3}
+  nodes={[{ v: 'A', x: 0, y: 0 }, { v: 'B', x: 2, y: 0 }, { v: 'C', x: 1, y: 1 }, { v: 'D', x: 1, y: 2 }]}
+  edges={[['A', 'B'], ['A', 'C'], ['B', 'C'], ['C', 'D']]}
+  label="Un grafo sin dirección de cuatro vértices: A, B y C forman un triángulo, y C se une con D."
+/>
+
+$$
+E = \{\{A, B\}, \{A, C\}, \{B, C\}, \{C, D\}\}
+$$
+
+$$
+E = \{AB, AC, BC, CD\}
+$$
+
+</div>
+<div style={{ border: '1px solid var(--color-rule)', borderRadius: '8px', padding: '0.4rem 0.9rem 0.1rem', background: 'var(--color-surface)' }}>
+
+**Con dirección**
+
+<NodeGraph
+  cols={3}
+  rows={3}
+  directed
+  nodes={[{ v: 'A', x: 0, y: 0 }, { v: 'B', x: 2, y: 0 }, { v: 'C', x: 1, y: 1 }, { v: 'D', x: 1, y: 2 }]}
+  edges={[['A', 'B'], ['B', 'C'], ['C', 'A'], ['C', 'D']]}
+  label="Los mismos cuatro vértices con flechas: de A a B, de B a C, de C a A y de C a D."
+/>
+
+$$
+E = \{(A, B), (B, C), (C, A), (C, D)\}
+$$
+
+$$
+E = \{AB, BC, CA, CD\}
+$$
+
+</div>
+</div>
+
+La cantidad de vértices es $$|V|$$ y la de aristas, $$|E|$$. Por costumbre, en
+las cuentas se escriben simplemente $$V$$ y $$E$$.
+
+</Slide>
+
+<Slide title="La forma y la posición no importan">
+Un grafo no dice dónde va cada vértice ni cómo se dibuja cada arista: en
+$$G = (V, E)$$ no hay posiciones. Dos dibujos con los mismos vértices y las
+mismas aristas son el **mismo grafo**, aunque se vean distintos. El dibujo no
+tiene que copiar cómo están las cosas en el mundo real: un vértice puede ir en
+cualquier lugar, y una arista larga o curva une lo mismo que una corta y recta.
+Conviene elegir el dibujo que mejor deja ver la estructura.
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '0.5rem 1.5rem', alignItems: 'end' }}>
+<NodeGraph
+  cols={3}
+  rows={3}
+  nodes={[{ v: 'B', x: 0, y: 0 }, { v: 'A', x: 0, y: 1 }, { v: 'C', x: 0, y: 2 }, { v: 'D', x: 2, y: 1 }]}
+  edges={[['A', 'B'], ['A', 'B'], ['A', 'C'], ['A', 'C'], ['A', 'D'], ['B', 'D'], ['C', 'D']]}
+  caption="como en el mapa"
+  label="El grafo de Königsberg dibujado como el mapa: B arriba, A al medio, C abajo y D a la derecha, con sus siete aristas."
+/>
+<NodeGraph
+  cols={3}
+  rows={3}
+  nodes={[{ v: 'B', x: 1, y: 0 }, { v: 'A', x: 0, y: 1 }, { v: 'D', x: 2, y: 1 }, { v: 'C', x: 1, y: 2 }]}
+  edges={[['A', 'B'], ['A', 'B'], ['A', 'C'], ['A', 'C'], ['A', 'D'], ['B', 'D'], ['C', 'D']]}
+  caption="en rombo"
+  label="El mismo grafo en rombo: B arriba, A a la izquierda, D a la derecha y C abajo, con las mismas siete aristas."
+/>
+<NodeGraph
+  cols={3}
+  rows={3}
+  nodes={[{ v: 'B', x: 0, y: 0 }, { v: 'C', x: 2, y: 0 }, { v: 'A', x: 1, y: 1 }, { v: 'D', x: 1, y: 2 }]}
+  edges={[['A', 'B'], ['A', 'B'], ['A', 'C'], ['A', 'C'], ['A', 'D'], ['B', 'D'], ['C', 'D']]}
+  caption="con A en el centro"
+  label="El mismo grafo con A en el centro, B y C arriba y D abajo, con las mismas siete aristas."
+/>
+</div>
+
+</Slide>
+
+<Slide title="Grafos isomorfos">
+Dos situaciones distintas pueden dar el mismo grafo con otros nombres. Un museo
+de cuatro salas unidas por siete puertas da el grafo de la derecha: si las
+salas 1, 2, 3 y 4 se renombran A, B, C y D, sus aristas son las de Königsberg.
+Los dos grafos son **isomorfos**: $$G_1 \cong G_2$$, que se lee «$$G_1$$ es
+isomorfo a $$G_2$$».
+
+Una pregunta sobre un grafo depende solo de sus vértices y sus aristas, así que
+tiene la misma respuesta en los dos: pasar una vez por cada puerta del museo es
+el mismo problema que cruzar una vez cada puente. Lo que se resuelva para uno
+queda resuelto para el otro.
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.5rem 2rem', alignItems: 'end' }}>
+<NodeGraph
+  cols={3}
+  rows={3}
+  nodes={[{ v: 'B', x: 1, y: 0 }, { v: 'A', x: 0, y: 1 }, { v: 'D', x: 2, y: 1 }, { v: 'C', x: 1, y: 2 }]}
+  edges={[['A', 'B'], ['A', 'B'], ['A', 'C'], ['A', 'C'], ['A', 'D'], ['B', 'D'], ['C', 'D']]}
+  caption="Königsberg: zonas y puentes"
+  label="El grafo de Königsberg en rombo: B arriba, A a la izquierda, D a la derecha y C abajo, con sus siete aristas."
+/>
+<NodeGraph
+  cols={3}
+  rows={3}
+  nodes={[{ v: 1, x: 0, y: 0 }, { v: 2, x: 2, y: 0 }, { v: 3, x: 0, y: 2 }, { v: 4, x: 2, y: 2 }]}
+  edges={[[1, 2], [1, 2], [1, 3], [1, 3], [1, 4], [2, 4], [3, 4]]}
+  caption="el museo: salas y puertas"
+  label="Un grafo con los vértices 1, 2, 3 y 4 y siete aristas: dos entre 1 y 2, dos entre 1 y 3, y una entre 1 y 4, 2 y 4, y 3 y 4. Son cuatro salas de un museo y siete puertas. Emparejando A con 1, B con 2, C con 3 y D con 4, las aristas coinciden con las de Königsberg."
+/>
+</div>
+
+</Slide>
+
+<Slide title="Los vecinos de un vértice">
+Dos vértices unidos por una arista son **vecinos**, o **adyacentes**: $$u$$ y
+$$v$$ son vecinos si $$uv \in E$$, que se lee «la arista $$uv$$ está en $$E$$».
+Un vértice puede tener muchos vecinos, o ninguno.
+
+<NodeGraph
+  cols={3}
+  rows={3}
+  nodes={[{ v: 'B', x: 1, y: 0 }, { v: 'A', x: 0, y: 1 }, { v: 'D', x: 2, y: 1 }, { v: 'C', x: 1, y: 2 }]}
+  edges={[['A', 'B'], ['A', 'B'], ['A', 'C'], ['A', 'C'], ['A', 'D'], ['B', 'D'], ['C', 'D']]}
+  tones={{ D: 'mark', A: 'keep', B: 'keep', C: 'keep' }}
+  caption="los vecinos de D: A, B y C"
+  label="El grafo de Königsberg con D destacado y sus tres vecinos, A, B y C, marcados."
+/>
+
+</Slide>
+
+<Slide title="Aristas paralelas">
+Entre dos vértices puede haber más de una arista, como los dos puentes entre la
+isla y una orilla: son **aristas paralelas**. Cada una cuenta por separado, así
+que $$E$$ tiene la misma arista más de una vez, y deja de ser un conjunto, que
+no repite: en Königsberg, $$AB$$ y $$AC$$ están dos veces. Un grafo con aristas
+paralelas se llama **multigrafo**: Königsberg es uno.
+
+<NodeGraph
+  cols={3}
+  rows={3}
+  nodes={[{ v: 'B', x: 1, y: 0 }, { v: 'A', x: 0, y: 1 }, { v: 'D', x: 2, y: 1 }, { v: 'C', x: 1, y: 2 }]}
+  edges={[['A', 'B'], ['A', 'B'], ['A', 'C'], ['A', 'C'], ['A', 'D'], ['B', 'D'], ['C', 'D']]}
+  markEdges={[['A', 'B']]}
+  caption="dos aristas paralelas: AB está dos veces en E"
+  label="El grafo de Königsberg con las dos aristas entre A y B marcadas."
+/>
+
+</Slide>
+
+<Slide title="El grado de un vértice">
+El **grado** de un vértice $$v$$, que se escribe $$\operatorname{grado}(v)$$, es la
+cantidad de aristas que lo tocan. Las aristas paralelas cuentan cada una: los dos puentes entre A y B suman dos al grado de A.
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.5rem 2rem', alignItems: 'end' }}>
+<NodeGraph
+  cols={3}
+  rows={3}
+  nodes={[{ v: 'B', x: 1, y: 0 }, { v: 'A', x: 0, y: 1 }, { v: 'D', x: 2, y: 1 }, { v: 'C', x: 1, y: 2 }]}
+  edges={[['A', 'B'], ['A', 'B'], ['A', 'C'], ['A', 'C'], ['A', 'D'], ['B', 'D'], ['C', 'D']]}
+  tones={{ A: 'mark' }}
+  markEdges={[['A', 'B'], ['A', 'C'], ['A', 'D']]}
+  notes={{ A: 5 }}
+  caption="A toca cinco aristas: grado(A) = 5"
+  label="El grafo de Königsberg con A destacado y sus cinco aristas marcadas: dos hacia B, dos hacia C y una hacia D. A tiene grado 5."
+/>
+<NodeGraph
+  cols={3}
+  rows={3}
+  nodes={[{ v: 'B', x: 1, y: 0 }, { v: 'A', x: 0, y: 1 }, { v: 'D', x: 2, y: 1 }, { v: 'C', x: 1, y: 2 }]}
+  edges={[['A', 'B'], ['A', 'B'], ['A', 'C'], ['A', 'C'], ['A', 'D'], ['B', 'D'], ['C', 'D']]}
+  notes={{ A: 5, B: 3, C: 3, D: 3 }}
+  caption="el grado de cada vértice"
+  label="El grafo de Königsberg con el grado de cada vértice: A 5, y B, C y D, 3."
+/>
+</div>
+
+</Slide>
+
+<SectionBreak />
+
+## Caminos y ciclos
+
+<Slide title="Caminos">
+Un **camino** recorre el grafo de vértice en vértice por sus aristas, sin
+repetir ninguna. Se escribe con sus vértices en orden:
+
+$$
+v_0 \to v_1 \to \cdots \to v_k
+$$
+
+- El subíndice es la posición: $$v_0$$ es el primer vértice y $$v_k$$, el último.
+- Cada flecha cruza la arista entre dos vértices seguidos, así que las aristas
+  del camino son $$v_0 v_1,\ v_1 v_2,\ \dots,\ v_{k-1} v_k$$. La flecha indica
+  el orden, no una dirección.
+- El **largo** de un camino es su cantidad de aristas, una por flecha:
+  $$v_0 \to v_1 \to \cdots \to v_k$$ tiene largo $$k$$.
+
+<NodeGraph
+  cols={3}
+  rows={3}
+  nodes={[{ v: 'A', x: 0, y: 0 }, { v: 'B', x: 0, y: 2 }, { v: 'C', x: 1, y: 1 }, { v: 'D', x: 2, y: 0 }, { v: 'E', x: 2, y: 2 }]}
+  edges={[['A', 'B'], ['A', 'C'], ['B', 'C'], ['C', 'D'], ['C', 'E'], ['D', 'E']]}
+  walk={['A', 'B', 'C', 'D', 'E', 'C']}
+  caption="A → B → C → D → E → C: largo 5"
+  label="Dos triángulos que comparten el vértice C. Marcado y numerado, el camino de A a B, a C, a D, a E y otra vez a C: cruza cinco aristas y pasa dos veces por C."
+/>
+
+</Slide>
+
+<Slide title="Caminos simples">
+Un camino es **simple** si no repite vértices: cada vértice aparece una sola
+vez.
+
+$$
+v_0, v_1, \dots, v_k \ \text{son todos distintos}
+$$
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.5rem 2rem', alignItems: 'end' }}>
+<NodeGraph
+  cols={3}
+  rows={3}
+  nodes={[{ v: 'A', x: 0, y: 0 }, { v: 'B', x: 0, y: 2 }, { v: 'C', x: 1, y: 1 }, { v: 'D', x: 2, y: 0 }, { v: 'E', x: 2, y: 2 }]}
+  edges={[['A', 'B'], ['A', 'C'], ['B', 'C'], ['C', 'D'], ['C', 'E'], ['D', 'E']]}
+  walk={['A', 'B', 'C', 'D']}
+  caption="A → B → C → D: simple"
+  label="Dos triángulos que comparten el vértice C. Marcado y numerado, el camino de A a B, a C y a D, que no repite ningún vértice."
+/>
+<NodeGraph
+  cols={3}
+  rows={3}
+  nodes={[{ v: 'A', x: 0, y: 0 }, { v: 'B', x: 0, y: 2 }, { v: 'C', x: 1, y: 1 }, { v: 'D', x: 2, y: 0 }, { v: 'E', x: 2, y: 2 }]}
+  edges={[['A', 'B'], ['A', 'C'], ['B', 'C'], ['C', 'D'], ['C', 'E'], ['D', 'E']]}
+  tones={{ C: 'flag' }}
+  walk={['A', 'B', 'C', 'D', 'E', 'C']}
+  caption="A → B → C → D → E → C: repite C"
+  label="Los mismos dos triángulos. Marcado y numerado, el camino de A a B, a C, a D, a E y otra vez a C, que pasa dos veces por C, destacado: no es simple."
+/>
+</div>
+
+A la derecha, C aparece dos veces: ese camino no es simple.
+
+</Slide>
+
+<Slide title="Ciclos">
+Un **ciclo** es un camino que termina donde empezó: desde su último vértice,
+una arista más lo devuelve al primero. Como todo camino, no repite aristas, y su
+largo se cuenta igual: una arista por flecha.
+
+$$
+v_0 \to v_1 \to \cdots \to v_k \to v_0
+$$
+
+<NodeGraph
+  cols={3}
+  rows={3}
+  nodes={[{ v: 'A', x: 0, y: 0 }, { v: 'B', x: 0, y: 2 }, { v: 'C', x: 1, y: 1 }, { v: 'D', x: 2, y: 0 }, { v: 'E', x: 2, y: 2 }]}
+  edges={[['A', 'B'], ['A', 'C'], ['B', 'C'], ['C', 'D'], ['C', 'E'], ['D', 'E']]}
+  walk={['C', 'D', 'E', 'C']}
+  caption="C → D → E → C: un ciclo de largo 3"
+  label="Dos triángulos que comparten el vértice C. Marcado y numerado, el ciclo de C a D, a E y de vuelta a C."
+/>
+
+</Slide>
+
+<Slide title="Ciclos simples">
+Un **ciclo simple** es un camino simple que vuelve al vértice donde partió:
+
+$$
+v_0 \to v_1 \to \cdots \to v_k \to v_0 \qquad v_0, v_1, \dots, v_k \ \text{son todos distintos}
+$$
+
+El único vértice que se repite es $$v_0$$, que cierra el ciclo.
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.5rem 2rem', alignItems: 'end' }}>
+<NodeGraph
+  cols={3}
+  rows={3}
+  nodes={[{ v: 'A', x: 0, y: 0 }, { v: 'B', x: 0, y: 2 }, { v: 'C', x: 1, y: 1 }, { v: 'D', x: 2, y: 0 }, { v: 'E', x: 2, y: 2 }]}
+  edges={[['A', 'B'], ['A', 'C'], ['B', 'C'], ['C', 'D'], ['C', 'E'], ['D', 'E']]}
+  walk={['A', 'B', 'C', 'A']}
+  caption="A → B → C → A: simple"
+  label="Dos triángulos que comparten el vértice C. Marcado y numerado, el ciclo de A a B, a C y de vuelta a A, sin repetir otro vértice."
+/>
+<NodeGraph
+  cols={3}
+  rows={3}
+  nodes={[{ v: 'A', x: 0, y: 0 }, { v: 'B', x: 0, y: 2 }, { v: 'C', x: 1, y: 1 }, { v: 'D', x: 2, y: 0 }, { v: 'E', x: 2, y: 2 }]}
+  edges={[['A', 'B'], ['A', 'C'], ['B', 'C'], ['C', 'D'], ['C', 'E'], ['D', 'E']]}
+  tones={{ C: 'flag' }}
+  walk={['A', 'B', 'C', 'D', 'E', 'C', 'A']}
+  caption="A → B → C → D → E → C → A: repite C"
+  label="Los mismos dos triángulos. Marcado y numerado, el ciclo de A a B, a C, a D, a E, otra vez a C y de vuelta a A: cruza las seis aristas y pasa dos veces por C, destacado. No es simple."
+/>
+</div>
+
+A la derecha, el ciclo vuelve a A pero pasa dos veces por C: es un ciclo, porque
+no repite aristas, pero no es simple. Algunos libros lo llaman **circuito** y
+reservan «ciclo» para el simple.
+
+</Slide>
+
+<Slide title="Grafos conexos">
+Un grafo es **conexo** si desde cualquier vértice se puede llegar a cualquier
+otro por un camino:
+
+$$
+\text{para todo } u, v \in V \text{ hay un camino } u \to \cdots \to v
+$$
+
+Si no es conexo, se parte en **componentes**: grupos de vértices que se alcanzan
+entre sí, pero desde los que no se llega a ningún vértice de otro grupo.
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.5rem 2rem', alignItems: 'end' }}>
+<NodeGraph
+  cols={5}
+  rows={3}
+  nodes={[{ v: 'A', x: 0, y: 0 }, { v: 'B', x: 0, y: 2 }, { v: 'C', x: 1, y: 1 }, { v: 'D', x: 3, y: 1 }, { v: 'E', x: 4, y: 0 }, { v: 'F', x: 4, y: 2 }]}
+  edges={[['A', 'B'], ['B', 'C'], ['C', 'A'], ['D', 'E'], ['E', 'F'], ['F', 'D'], ['C', 'D']]}
+  walk={['A', 'C', 'D', 'F']}
+  caption="conexo: A → C → D → F"
+  label="Dos triángulos, A, B y C, y D, E y F, unidos por la arista C-D. Marcado y numerado, un camino de A a C, a D y a F: se llega de un triángulo al otro."
+/>
+<NodeGraph
+  cols={5}
+  rows={3}
+  nodes={[{ v: 'A', x: 0, y: 0 }, { v: 'B', x: 0, y: 2 }, { v: 'C', x: 1, y: 1 }, { v: 'D', x: 3, y: 1 }, { v: 'E', x: 4, y: 0 }, { v: 'F', x: 4, y: 2 }]}
+  edges={[['A', 'B'], ['B', 'C'], ['C', 'A'], ['D', 'E'], ['E', 'F'], ['F', 'D']]}
+  tones={{ D: 'mark', E: 'mark', F: 'mark' }}
+  caption="dos componentes: de A no se llega a F"
+  label="Los mismos dos triángulos sin la arista C-D: A, B y C en uno, y D, E y F, destacados, en el otro. Ninguna arista los une: son dos componentes."
+/>
+</div>
+
+</Slide>
+
+<SectionBreak />
+
+## La respuesta de Euler
+
+<Slide title="La pregunta de Königsberg">
+Ahora que tenemos más palabras para hablar de un grafo, podemos volver a hacer
+la pregunta del paseo, esta vez en términos de grafos:
+
+| En la ciudad | En el grafo |
+| --- | --- |
+| una zona de tierra | un vértice |
+| un puente | una arista |
+| un paseo que no cruza dos veces el mismo puente | un camino |
+| cruzar todos los puentes | usar todas las aristas |
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.5rem 2rem', alignItems: 'center' }}>
+<KonigsbergMap stage="map" label="Königsberg sin casas: las cuatro zonas de tierra, A, B, C y D, el agua y los siete puentes." />
+<NodeGraph
+  cols={3}
+  rows={3}
+  nodes={[{ v: 'B', x: 1, y: 0 }, { v: 'A', x: 0, y: 1 }, { v: 'D', x: 2, y: 1 }, { v: 'C', x: 1, y: 2 }]}
+  edges={[['A', 'B'], ['A', 'B'], ['A', 'C'], ['A', 'C'], ['A', 'D'], ['B', 'D'], ['C', 'D']]}
+  label="El grafo de Königsberg: cuatro vértices, A, B, C y D, y siete aristas. Dos unen A con B, dos unen A con C, y una une A con D, B con D y C con D."
+/>
+</div>
+
+La pregunta del paseo queda así: **¿hay un camino que use todas las aristas?**
+
+</Slide>
+
+<Slide title="Cada paso por un vértice usa dos aristas">
+Supongamos que ese camino existe y miremos un vértice X. Cada vez que el camino
+lo visita, hace una de tres cosas:
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '0 2rem', alignItems: 'end' }}>
+<NodeGraph
+  cols={5}
+  rows={1}
+  nodes={[{ v: 'A', x: 0, y: 0 }, { v: 'X', x: 2, y: 0 }, { v: 'B', x: 4, y: 0 }]}
+  edges={[['A', 'X'], ['X', 'B']]}
+  walk={['A', 'X', 'B']}
+  notes={{ X: 2 }}
+  tones={{ X: 'mark' }}
+  caption="pasa: llega y sale, 2 aristas"
+  label="Un trozo del camino: llega a X desde A en el paso 1 y sale hacia B en el paso 2. Usa dos aristas de X."
+/>
+<NodeGraph
+  cols={5}
+  rows={1}
+  nodes={[{ v: 'X', x: 2, y: 0 }, { v: 'B', x: 4, y: 0 }]}
+  edges={[['X', 'B']]}
+  walk={['X', 'B']}
+  notes={{ X: 1 }}
+  tones={{ X: 'mark' }}
+  caption="comienza: solo sale, 1 arista"
+  label="El comienzo del camino: sale de X hacia B en el paso 1, sin haber llegado. Usa una arista de X."
+/>
+<NodeGraph
+  cols={5}
+  rows={1}
+  nodes={[{ v: 'A', x: 0, y: 0 }, { v: 'X', x: 2, y: 0 }]}
+  edges={[['A', 'X']]}
+  markEdges={[['A', 'X']]}
+  notes={{ X: 1 }}
+  tones={{ X: 'mark' }}
+  caption="termina: solo llega, 1 arista"
+  label="El final del camino: su última arista llega a X desde A, marcada, y ya no sale. Usa una arista de X."
+/>
+<NodeGraph
+  cols={5}
+  rows={2}
+  nodes={[{ v: 'A', x: 1, y: 0 }, { v: 'B', x: 3, y: 0 }, { v: 'X', x: 2, y: 1 }, { v: 'C', x: 4, y: 1 }]}
+  edges={[['X', 'A'], ['A', 'B'], ['B', 'X'], ['X', 'C']]}
+  walk={['X', 'A', 'B', 'X', 'C']}
+  notes={{ X: 3 }}
+  tones={{ X: 'mark' }}
+  caption="comienza y vuelve a pasar: 1 + 2 = 3"
+  label="Un camino que comienza en X, va a A y a B, vuelve a pasar por X y sale hacia C. X usa una arista al comenzar y dos al pasar: su grado es 3, impar."
+/>
+</div>
+
+Como el camino usa todas las aristas y no repite ninguna, el grado de X es la
+suma de lo que usa en cada visita: dos por cada vez que pasa, y una si comienza
+o termina en X. Si el camino solo pasa por X, su grado es par. Queda impar solo
+donde el camino comienza o termina.
+
+**Un camino que usa todas las aristas deja, a lo más, dos vértices de grado
+impar: su comienzo y su final.** Si vuelve a donde empezó, el comienzo y el
+final son el mismo vértice, suman dos, y queda par.
+
+</Slide>
+
+<Slide title="Königsberg no tiene paseo">
+Los cuatro vértices de Königsberg tienen grado impar, y un camino que usa todas
+las aristas deja a lo más dos. No hay paseo, parta donde parta.
+
+<NodeGraph
+  cols={3}
+  rows={3}
+  nodes={[{ v: 'B', x: 1, y: 0 }, { v: 'A', x: 0, y: 1 }, { v: 'D', x: 2, y: 1 }, { v: 'C', x: 1, y: 2 }]}
+  edges={[['A', 'B'], ['A', 'B'], ['A', 'C'], ['A', 'C'], ['A', 'D'], ['B', 'D'], ['C', 'D']]}
+  notes={{ A: 5, B: 3, C: 3, D: 3 }}
+  tones={{ A: 'mark', B: 'mark', C: 'mark', D: 'mark' }}
+  caption="cuatro vértices de grado impar: no hay paseo"
+  label="El grafo de Königsberg con sus cuatro vértices destacados y su grado: A 5, B 3, C 3 y D 3. Los cuatro son impares."
+/>
+
+Es la razón que faltaba: descarta los 5040 órdenes a la vez, sin probar
+ninguno. Bastó convertir la ciudad en vértices y aristas, un **modelo** del
+problema, y contar sus grados.
+
+</Slide>
+
+<Slide title="Caminos y ciclos eulerianos">
+Desde Euler, un camino que usa todas las aristas del grafo se llama **camino
+euleriano**. Como ningún camino repite aristas, pasa por cada una exactamente
+una vez, y su largo es $$|E|$$. Si además vuelve al vértice donde partió, es un
+**ciclo euleriano**.
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.5rem 2rem', alignItems: 'end' }}>
+<NodeGraph
+  cols={3}
+  rows={3}
+  nodes={[{ v: 'A', x: 0, y: 0 }, { v: 'B', x: 2, y: 0 }, { v: 'C', x: 0, y: 2 }, { v: 'D', x: 2, y: 2 }]}
+  edges={[['A', 'B'], ['B', 'D'], ['D', 'C'], ['C', 'A'], ['A', 'D']]}
+  walk={['A', 'B', 'D', 'C', 'A', 'D']}
+  caption="A → B → D → C → A → D: un camino euleriano"
+  label="Un cuadrado con una diagonal de A a D. Marcado y numerado, el camino de A a B, a D, a C, a A y a D: usa las cinco aristas, una vez cada una."
+/>
+<NodeGraph
+  cols={3}
+  rows={3}
+  nodes={[{ v: 'A', x: 0, y: 0 }, { v: 'B', x: 0, y: 2 }, { v: 'C', x: 1, y: 1 }, { v: 'D', x: 2, y: 0 }, { v: 'E', x: 2, y: 2 }]}
+  edges={[['A', 'B'], ['A', 'C'], ['B', 'C'], ['C', 'D'], ['C', 'E'], ['D', 'E']]}
+  walk={['A', 'B', 'C', 'D', 'E', 'C', 'A']}
+  caption="A → B → C → D → E → C → A: un ciclo euleriano"
+  label="Dos triángulos que comparten el vértice C. Marcado y numerado, el ciclo de A a B, a C, a D, a E, otra vez a C y de vuelta a A: usa las seis aristas, una vez cada una."
+/>
+</div>
+
+</Slide>
+
+<Slide title="Nunca queda un solo vértice impar">
+Ahora la pregunta al revés: ¿cuándo sí hay un camino euleriano? Antes, una
+duda: ¿puede un grafo tener un solo vértice de grado impar? Nunca, y se ve
+sumando grados.
+
+- Cada arista toca dos vértices: suma uno al grado de cada uno.
+- Al sumar los grados de todos los vértices, cada arista se cuenta dos veces:
+
+$$
+\sum_{v} \operatorname{grado}(v) = 2E
+$$
+
+- La suma es par. Y una suma es par solo si sus números impares vienen de a
+  pares: con un solo impar, la suma sería impar.
+
+**En todo grafo, la cantidad de vértices de grado impar es par**: 0, 2, 4…,
+nunca 1. Se llama **lema del apretón de manos**: en una reunión, cada apretón
+lo cuentan las dos personas que se dieron la mano.
+
+<NodeGraph
+  cols={3}
+  rows={3}
+  nodes={[{ v: 'A', x: 1, y: 0 }, { v: 'B', x: 0, y: 1 }, { v: 'C', x: 1, y: 2 }, { v: 'D', x: 2, y: 1 }]}
+  edges={[['A', 'B'], ['A', 'C'], ['A', 'D'], ['B', 'C'], ['C', 'D']]}
+  notes={{ A: 3, B: 2, C: 3, D: 2 }}
+  tones={{ A: 'mark', C: 'mark' }}
+  caption="3 + 2 + 3 + 2 = 10 = 2 · 5 aristas; los impares son A y C"
+  label="Un grafo de cuatro vértices y cinco aristas con el grado de cada vértice: A 3, B 2, C 3 y D 2. La suma es 10, el doble de las 5 aristas. A y C, destacados, son los dos vértices de grado impar."
+/>
+
+</Slide>
+
+<Slide title="El grafo tiene que ser conexo">
+Contar grados no basta: para que un camino use todas las aristas, el grafo
+tiene que ser **conexo**. Si está partido en dos componentes, ningún camino
+pasa de una a la otra, aunque todos los grados sean pares.
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '0.5rem 2rem', alignItems: 'end' }}>
+<NodeGraph
+  cols={7}
+  rows={2}
+  nodes={[{ v: 'A', x: 0, y: 0 }, { v: 'B', x: 2, y: 0 }, { v: 'C', x: 1, y: 1 }, { v: 'D', x: 4, y: 0 }, { v: 'E', x: 6, y: 0 }, { v: 'F', x: 5, y: 1 }]}
+  edges={[['A', 'B'], ['B', 'C'], ['C', 'A'], ['D', 'E'], ['E', 'F'], ['F', 'D']]}
+  notes={{ A: 2, B: 2, C: 2, D: 2, E: 2, F: 2 }}
+  tones={{ D: 'mark', E: 'mark', F: 'mark' }}
+  caption="dos componentes: ningún camino usa todas las aristas"
+  label="Dos triángulos separados: A, B y C en uno, y D, E y F, destacados, en el otro. Todos los vértices tienen grado 2, pero ninguna arista une los dos triángulos: ningún camino usa todas las aristas."
+/>
+<NodeGraph
+  cols={7}
+  rows={2}
+  nodes={[{ v: 'A', x: 0, y: 0 }, { v: 'B', x: 2, y: 0 }, { v: 'C', x: 1, y: 1 }, { v: 'D', x: 4, y: 0 }, { v: 'E', x: 6, y: 0 }, { v: 'F', x: 5, y: 1 }]}
+  edges={[['A', 'B'], ['B', 'C'], ['C', 'A'], ['D', 'E'], ['E', 'F'], ['F', 'D'], ['C', 'F']]}
+  walk={['C', 'A', 'B', 'C', 'F', 'D', 'E', 'F']}
+  notes={{ A: 2, B: 2, C: 3, D: 2, E: 2, F: 3 }}
+  tones={{ C: 'mark', F: 'mark' }}
+  caption="unidos por C-F: C → A → B → C → F → D → E → F"
+  label="Los mismos dos triángulos, unidos por una arista entre C y F. Ahora C y F, destacados, tienen grado 3. Marcado y numerado, un camino de C a A, a B, a C, a F, a D, a E y a F: usa las siete aristas."
+/>
+</div>
+
+</Slide>
+
+<Slide title="La regla de Euler">
+En un grafo conexo, la cantidad de vértices de grado impar decide si hay un
+camino euleriano:
+
+- **Ninguno impar**: hay un ciclo euleriano, que parte de cualquier vértice y
+  vuelve a él.
+- **Dos impares**: hay uno que parte de uno de los dos y termina en el otro.
+- **Más de dos impares**: no hay ninguno.
+
+Un solo vértice impar no ocurre nunca: los vértices de grado impar son
+siempre una cantidad par. Euler probó en 1736 que con más de dos impares no hay
+camino. Que con ninguno o dos sí lo haya lo demostró Carl Hierholzer en 1873,
+construyendo el camino.
+
+¿Y si Königsberg tuviera un puente más? ¿Y dos?
+
+</Slide>
+
+<Slide title="Königsberg con más puentes">
+Con un puente más entre B y C, B y C pasan de grado 3 a 4. Quedan dos impares,
+A y D, y hay un camino euleriano: parte en uno y termina en el otro. Con otro
+más entre A y D, A pasa a 6 y D a 4. No queda ninguno impar, y hay un ciclo
+euleriano: termina donde empezó.
+
+Resolver dibuja uno de cada uno. Cada puente lleva el número del paso en que se
+cruza, y debajo queda el orden de los vértices.
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '0.5rem 1.5rem', alignItems: 'start' }}>
+<figure style={{ margin: 0 }}>
+<PenTrace
+  solvable
+  cols={3}
+  rows={3}
+  nodes={[{ v: 'B', x: 1, y: 0 }, { v: 'A', x: 0, y: 1 }, { v: 'D', x: 2, y: 1 }, { v: 'C', x: 1, y: 2 }]}
+  edges={[['A', 'B'], ['A', 'B'], ['A', 'C'], ['A', 'C'], ['A', 'D'], ['B', 'D'], ['C', 'D'], ['B', 'C']]}
+  label="Königsberg con un octavo puente entre B y C, para recorrer cada arista una sola vez. Tiene dos vértices impares, A y D."
+/>
+<figcaption style={{ marginTop: '-1rem', textAlign: 'center', fontSize: '0.85rem', color: 'var(--color-ink-soft)' }}>un puente más, B-C: un camino de A a D</figcaption>
+</figure>
+<figure style={{ margin: 0 }}>
+<PenTrace
+  solvable
+  cols={3}
+  rows={3}
+  nodes={[{ v: 'B', x: 1, y: 0 }, { v: 'A', x: 0, y: 1 }, { v: 'D', x: 2, y: 1 }, { v: 'C', x: 1, y: 2 }]}
+  edges={[['A', 'B'], ['A', 'B'], ['A', 'C'], ['A', 'C'], ['A', 'D'], ['B', 'D'], ['C', 'D'], ['B', 'C'], ['A', 'D']]}
+  label="Königsberg con dos puentes más, entre B y C y entre A y D, para recorrer cada arista una sola vez. No tiene vértices impares."
+/>
+<figcaption style={{ marginTop: '-1rem', textAlign: 'center', fontSize: '0.85rem', color: 'var(--color-ink-soft)' }}>dos puentes más, B-C y A-D: un ciclo</figcaption>
+</figure>
+</div>
+
+</Slide>
+
+<SectionBreak />
+
+## El problema del camino euleriano
+
+<Slide title="Un problema de computación">
+La regla de Euler no habla de puentes ni de ciudades: sirve para cualquier
+grafo. Una pregunta que se hace sobre cualquier entrada, y no sobre un caso, es
+un **problema**. Este es el **problema del camino euleriano**:
+
+- **Entrada**: un grafo.
+- **Pregunta**: ¿tiene un camino que use todas las aristas?
+- **Respuesta**: la regla de Euler, que cuenta los vértices de grado impar.
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '0.5rem 1.5rem', alignItems: 'end' }}>
+<NodeGraph
+  cols={3}
+  rows={3}
+  nodes={[{ v: 'A', x: 0, y: 0 }, { v: 'B', x: 0, y: 2 }, { v: 'C', x: 1, y: 1 }, { v: 'D', x: 2, y: 0 }, { v: 'E', x: 2, y: 2 }]}
+  edges={[['A', 'B'], ['A', 'C'], ['B', 'C'], ['C', 'D'], ['C', 'E'], ['D', 'E']]}
+  notes={{ A: 2, B: 2, C: 4, D: 2, E: 2 }}
+  caption="ningún impar: un ciclo"
+  label="Dos triángulos que comparten el vértice C: C tiene grado 4 y los demás, grado 2. Ningún impar: hay un ciclo euleriano."
+/>
+<NodeGraph
+  cols={3}
+  rows={3}
+  nodes={[{ v: 'A', x: 0, y: 0 }, { v: 'B', x: 2, y: 0 }, { v: 'C', x: 0, y: 2 }, { v: 'D', x: 2, y: 2 }]}
+  edges={[['A', 'B'], ['B', 'D'], ['D', 'C'], ['C', 'A'], ['A', 'D']]}
+  notes={{ A: 3, B: 2, C: 2, D: 3 }}
+  tones={{ A: 'mark', D: 'mark' }}
+  caption="dos impares: de A a D"
+  label="Un cuadrado con una diagonal de A a D: A y D, destacados, tienen grado 3, y B y C, grado 2. Dos impares: hay un camino euleriano de A a D."
+/>
+<NodeGraph
+  cols={3}
+  rows={3}
+  nodes={[{ v: 'A', x: 0, y: 0 }, { v: 'B', x: 2, y: 0 }, { v: 'C', x: 0, y: 2 }, { v: 'D', x: 2, y: 2 }]}
+  edges={[['A', 'B'], ['B', 'D'], ['D', 'C'], ['C', 'A'], ['A', 'D'], ['B', 'C']]}
+  notes={{ A: 3, B: 3, C: 3, D: 3 }}
+  tones={{ A: 'mark', B: 'mark', C: 'mark', D: 'mark' }}
+  caption="cuatro impares: no hay"
+  label="Un cuadrado con sus dos diagonales: los cuatro vértices, destacados, tienen grado 3. Más de dos impares: no hay camino euleriano."
+/>
+</div>
+
+Para contar los grados, la regla mira cada arista una vez: del orden de $$E$$
+pasos. Probar los órdenes de las aristas, como en el paseo, son $$E!$$.
+
+</Slide>
+
+<Slide title="Una figura de un solo trazo">
+Un juego de lápiz y papel hace la misma pregunta: dibujar una figura de un solo
+trazo, sin levantar el lápiz y sin repetir ninguna línea. Algunas figuras se
+pueden y otras no; Resolver muestra cómo, o dice que no se puede.
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '0.5rem 1.5rem', alignItems: 'end' }}>
+<PenTrace
+  figure
+  solvable
+  cols={4}
+  rows={4}
+  nodes={[{ v: 'A', x: 2, y: 0 }, { v: 'B', x: 3.902, y: 1.239 }, { v: 'C', x: 3.176, y: 3.244 }, { v: 'D', x: 0.824, y: 3.244 }, { v: 'E', x: 0.098, y: 1.239 }, { v: 'F', x: 2.449, y: 1.239 }, { v: 'G', x: 2.727, y: 2.005 }, { v: 'H', x: 2.0, y: 2.478 }, { v: 'I', x: 1.273, y: 2.005 }, { v: 'J', x: 1.551, y: 1.239 }]}
+  edges={[['A', 'F'], ['F', 'G'], ['G', 'C'], ['B', 'G'], ['G', 'H'], ['H', 'D'], ['C', 'H'], ['H', 'I'], ['I', 'E'], ['D', 'I'], ['I', 'J'], ['J', 'A'], ['E', 'J'], ['J', 'F'], ['F', 'B']]}
+  label="La estrella de cinco puntas, para dibujar de un solo trazo."
+/>
+<PenTrace
+  figure
+  solvable
+  cols={3}
+  rows={4}
+  nodes={[{ v: 'A', x: 1, y: 0 }, { v: 'B', x: 0, y: 1 }, { v: 'C', x: 2, y: 1 }, { v: 'F', x: 1, y: 2 }, { v: 'D', x: 0, y: 3 }, { v: 'E', x: 2, y: 3 }]}
+  edges={[['A', 'B'], ['A', 'C'], ['B', 'C'], ['B', 'D'], ['C', 'E'], ['D', 'E'], ['B', 'F'], ['F', 'E'], ['C', 'F'], ['F', 'D']]}
+  label="La casa: un cuadrado con sus dos diagonales y un techo, para dibujar de un solo trazo."
+/>
+<PenTrace
+  figure
+  solvable
+  cols={3}
+  rows={3}
+  nodes={[{ v: 'A', x: 0, y: 0 }, { v: 'B', x: 2, y: 0 }, { v: 'E', x: 1, y: 1 }, { v: 'C', x: 0, y: 2 }, { v: 'D', x: 2, y: 2 }]}
+  edges={[['A', 'B'], ['C', 'D'], ['A', 'C'], ['B', 'D'], ['A', 'E'], ['E', 'D'], ['B', 'E'], ['E', 'C']]}
+  label="El sobre: un rectángulo con sus dos diagonales, para dibujar de un solo trazo."
+/>
+</div>
+
+</Slide>
+
+<Slide title="El grafo de cada figura">
+Cada figura es un grafo: un vértice en cada punto donde las líneas se juntan
+o se cruzan, y una arista por cada línea entre dos de esos puntos. Dibujarla
+de un solo trazo es encontrar un camino euleriano, y la regla de Euler lo
+decide sin probar ningún orden: la estrella se dibuja y vuelve al inicio, la
+casa va de una esquina de abajo a la otra, y el sobre no se puede.
+
+<div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem 1.5rem', alignItems: 'flex-end' }}>
+<div style={{ flex: '1.6 1 260px' }}>
+<NodeGraph
+  cols={5}
+  rows={5}
+  nodes={[{ v: 'A', x: 2.5, y: 0 }, { v: 'B', x: 4.878, y: 1.549 }, { v: 'C', x: 3.97, y: 4.055 }, { v: 'D', x: 1.03, y: 4.055 }, { v: 'E', x: 0.122, y: 1.549 }, { v: 'F', x: 3.061, y: 1.549 }, { v: 'G', x: 3.409, y: 2.506 }, { v: 'H', x: 2.5, y: 3.098 }, { v: 'I', x: 1.591, y: 2.506 }, { v: 'J', x: 1.939, y: 1.549 }]}
+  edges={[['A', 'F'], ['F', 'G'], ['G', 'C'], ['B', 'G'], ['G', 'H'], ['H', 'D'], ['C', 'H'], ['H', 'I'], ['I', 'E'], ['D', 'I'], ['I', 'J'], ['J', 'A'], ['E', 'J'], ['J', 'F'], ['F', 'B']]}
+  notes={{ A: 2, B: 2, C: 2, D: 2, E: 2, F: 4, G: 4, H: 4, I: 4, J: 4 }}
+  caption="la estrella: ningún impar"
+  label="El grafo de la estrella: las cinco puntas, A a E, con grado 2, y los cinco cruces del centro, F a J, con grado 4. Ningún vértice tiene grado impar."
+/>
+</div>
+<div style={{ flex: '1 1 180px' }}>
+<NodeGraph
+  cols={3}
+  rows={4}
+  nodes={[{ v: 'A', x: 1, y: 0 }, { v: 'B', x: 0, y: 1 }, { v: 'C', x: 2, y: 1 }, { v: 'F', x: 1, y: 2 }, { v: 'D', x: 0, y: 3 }, { v: 'E', x: 2, y: 3 }]}
+  edges={[['A', 'B'], ['A', 'C'], ['B', 'C'], ['B', 'D'], ['C', 'E'], ['D', 'E'], ['B', 'F'], ['F', 'E'], ['C', 'F'], ['F', 'D']]}
+  notes={{ A: 2, B: 4, C: 4, D: 3, E: 3, F: 4 }}
+  tones={{ D: 'mark', E: 'mark' }}
+  caption="la casa: dos impares"
+  label="El grafo de la casa con el grado de cada vértice: A 2, B 4, C 4, F 4, y las dos esquinas de abajo, D y E, destacadas, con grado 3."
+/>
+</div>
+<div style={{ flex: '1 1 180px' }}>
+<NodeGraph
+  cols={3}
+  rows={3}
+  nodes={[{ v: 'A', x: 0, y: 0 }, { v: 'B', x: 2, y: 0 }, { v: 'E', x: 1, y: 1 }, { v: 'C', x: 0, y: 2 }, { v: 'D', x: 2, y: 2 }]}
+  edges={[['A', 'B'], ['C', 'D'], ['A', 'C'], ['B', 'D'], ['A', 'E'], ['E', 'D'], ['B', 'E'], ['E', 'C']]}
+  notes={{ A: 3, B: 3, C: 3, D: 3, E: 4 }}
+  tones={{ A: 'mark', B: 'mark', C: 'mark', D: 'mark' }}
+  caption="el sobre: cuatro impares"
+  label="El grafo del sobre con el grado de cada vértice: las cuatro esquinas, destacadas, con grado 3, y el cruce del centro, E, con grado 4."
+/>
+</div>
+</div>
+
+</Slide>
+
+<Slide title="El camión de la basura">
+El camión de la basura de un barrio quiere pasar una vez por cada cuadra, sin
+repetir ninguna. Las esquinas son vértices y las cuadras, aristas, y la pregunta
+es otra vez si hay un camino que use todas las aristas.
+
+<NodeGraph
+  cols={5}
+  rows={2}
+  nodes={[{ v: 'A', x: 0, y: 0 }, { v: 'B', x: 2, y: 0 }, { v: 'C', x: 4, y: 0 }, { v: 'D', x: 0, y: 1 }, { v: 'E', x: 2, y: 1 }, { v: 'F', x: 4, y: 1 }]}
+  edges={[['A', 'B'], ['B', 'C'], ['D', 'E'], ['E', 'F'], ['A', 'D'], ['B', 'E'], ['C', 'F']]}
+  walk={['B', 'A', 'D', 'E', 'B', 'C', 'F', 'E']}
+  notes={{ A: 2, B: 3, C: 2, D: 2, E: 3, F: 2 }}
+  tones={{ B: 'mark', E: 'mark' }}
+  caption="B → A → D → E → B → C → F → E: cada cuadra una vez"
+  label="Un barrio de seis esquinas, A a F, y siete cuadras: A-B, B-C, D-E, E-F, A-D, B-E y C-F. B y E, destacadas, tienen grado 3, y las demás, grado 2. Marcado y numerado, el recorrido de B a A, a D, a E, a B, a C, a F y a E, que pasa una vez por cada cuadra."
+/>
+
+Hay dos esquinas impares, B y E: el camión puede hacerlo si parte en una y
+termina en la otra.
+
+</Slide>
+
+<Slide title="Reducir un problema a otro">
+El paseo, la figura y el camión parecen problemas distintos, pero modelados
+como grafos hacen la misma pregunta:
+
+| Situación | Vértices | Aristas | La pregunta |
+| --- | --- | --- | --- |
+| el paseo por Königsberg | las zonas | los puentes | ¿cruzar cada puente una vez? |
+| la figura de un solo trazo | los puntos | las líneas | ¿dibujar cada línea una vez? |
+| el camión de la basura | las esquinas | las cuadras | ¿pasar una vez por cada cuadra? |
+
+Convertir un problema en otro que ya sabemos resolver, de modo que la respuesta
+del segundo responda el primero, es **reducir un problema a otro**. Los tres se
+reducen al camino euleriano, y la regla de Euler responde los tres.
+
+Con los grafos isomorfos pasaba lo mismo, en su forma más directa: si dos grafos
+son isomorfos, responder una pregunta sobre uno es responderla sobre el otro.
+Reducir va más allá: los tres grafos de la tabla no se parecen, pero basta con
+que la pregunta sobre ellos sea la misma.
+
+</Slide>
+
+<SectionBreak />
+
+## De un paseo a una teoría
+
+{/* Milestones — a row of dated milestones over one rule, each a year in `accent` and a short line in `ink-soft`, wrapping into rows on a narrow screen. File-local: only the origin of graphs needs a timeline. */}
+
+export function Milestones({ items, label }) {
+  return (
+    <div role="list" aria-label={label} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(96px, 1fr))', gap: '0.9rem 0.6rem', margin: '1.25rem 0', borderTop: '2px solid var(--color-rule-strong)', paddingTop: '0.9rem' }}>
+      {items.map(([year, text]) => (
+        <div role="listitem" key={year} style={{ position: 'relative' }}>
+          <span aria-hidden="true" style={{ position: 'absolute', top: '-1.32rem', left: 0, width: '0.75rem', height: '0.75rem', borderRadius: '50%', background: 'var(--color-accent)' }} />
+          <div style={{ fontWeight: 700, color: 'var(--color-accent)' }}>{year}</div>
+          <div style={{ fontSize: '0.85rem', lineHeight: 1.35, color: 'var(--color-ink-soft)' }}>{text}</div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+<Slide title="El origen de los grafos">
+Euler presentó su solución en 1735 a la Academia de Ciencias de San
+Petersburgo y la publicó con fecha de 1736, en latín: *Solutio problematis ad
+geometriam situs pertinentis*, «solución de un problema de la geometría de la
+posición». Con ese nombre, tomado de Leibniz, decía que el problema no se
+resolvía midiendo nada, sino mirando qué está unido con qué. Ese artículo se
+considera el primero de la teoría de grafos.
+
+<Milestones
+  label="Hitos de la historia de los grafos, de 1736 a 1998."
+  items={[
+    ['1736', 'Euler y el paseo por Königsberg'],
+    ['1857', 'Hamilton: un juego de pasar una vez por cada vértice'],
+    ['1878', 'Sylvester usa la palabra «grafo»'],
+    ['1930', 'Jarník: conectar todo al menor costo'],
+    ['1936', 'Kőnig escribe el primer libro de grafos'],
+    ['1956–59', 'Kruskal, Prim y Dijkstra: algoritmos para computadores'],
+    ['1976', 'los cuatro colores, demostrado con un computador'],
+    ['1998', 'un buscador ordena la web como un grafo'],
+  ]}
+/>
+
+</Slide>
+
+<Slide title="Los grafos hoy">
+Las mismas ideas responden hoy preguntas de todos los días. En todas, las
+cosas son vértices y lo que las une, aristas:
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '0.75rem', margin: '1rem 0' }}>
+<div style={{ border: '1px solid var(--color-rule)', borderRadius: '8px', padding: '0.6rem 0.8rem', background: 'var(--color-surface)' }}><strong>Una aplicación de mapas</strong><br />¿Qué ruta toma menos tiempo hasta el destino?</div>
+<div style={{ border: '1px solid var(--color-rule)', borderRadius: '8px', padding: '0.6rem 0.8rem', background: 'var(--color-surface)' }}><strong>Una red social</strong><br />¿Qué amistades nuevas le sugiere a cada persona?</div>
+<div style={{ border: '1px solid var(--color-rule)', borderRadius: '8px', padding: '0.6rem 0.8rem', background: 'var(--color-surface)' }}><strong>Un buscador</strong><br />¿Qué páginas importan más, según los enlaces que reciben?</div>
+<div style={{ border: '1px solid var(--color-rule)', borderRadius: '8px', padding: '0.6rem 0.8rem', background: 'var(--color-surface)' }}><strong>Internet</strong><br />¿Por qué camino viaja cada mensaje?</div>
+<div style={{ border: '1px solid var(--color-rule)', borderRadius: '8px', padding: '0.6rem 0.8rem', background: 'var(--color-surface)' }}><strong>La red eléctrica o de agua</strong><br />¿Cómo se conecta todo gastando lo mínimo?</div>
+<div style={{ border: '1px solid var(--color-rule)', borderRadius: '8px', padding: '0.6rem 0.8rem', background: 'var(--color-surface)' }}><strong>Un videojuego</strong><br />¿Cómo llega un personaje de un lugar a otro?</div>
+</div>
+
+</Slide>
+
+<Slide title="Por qué estudiar grafos">
+- **Pocas ideas resuelven muchos problemas.** Unos pocos algoritmos de grafos
+  responden preguntas de áreas que no se parecen en nada: aprenderlos una vez
+  sirve para todas.
+- **Aparecen en todas partes.** En algoritmos, redes, inteligencia artificial
+  y compiladores, y son uno de los temas más frecuentes en las entrevistas
+  técnicas de programación.
+- **Todavía hay preguntas abiertas.** Algunos problemas piden **encontrar** una
+  respuesta, o la mejor; otros, solo **saber si existe** una; y otros,
+  **comprobar** si una respuesta que nos dan es correcta. Comprobar suele ser
+  lo fácil: un sudoku lleno se revisa en un minuto, y llenarlo cuesta mucho más.
+  Nadie sabe si todo problema cuya respuesta se comprueba rápido también se
+  puede encontrar rápido. Es la pregunta **P frente a NP**, uno de los siete
+  Problemas del Milenio, con un premio de un millón de dólares, y muchos
+  problemas de grafos están en el centro de ella.
+
+</Slide>
+
+<SectionBreak />
+
+## Tipos de grafos: por tipo de arista
+
+<Slide title="Grafos no dirigidos">
+Un grafo es **no dirigido** si sus aristas no tienen dirección: la arista
+$$\{u, v\}$$ une $$u$$ con $$v$$ en los dos sentidos, y $$uv = vu$$. Así es la
+amistad: si Ana es amiga de Beto, Beto es amigo de Ana. Todos los grafos vistos
+hasta aquí, Königsberg incluido, son no dirigidos.
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '0.5rem 1.5rem', alignItems: 'end' }}>
+<NodeGraph
+  cols={4}
+  rows={2}
+  nodes={[{ v: 'Ana', x: 0, y: 0 }, { v: 'Beto', x: 2, y: 0 }, { v: 'Caro', x: 1, y: 1 }, { v: 'Dani', x: 3, y: 1 }]}
+  edges={[['Ana', 'Beto'], ['Ana', 'Caro'], ['Beto', 'Caro'], ['Caro', 'Dani']]}
+  caption="amistad"
+  label="Una red de amistades: Ana es amiga de Beto y de Caro, Beto de Caro, y Caro de Dani. Las aristas no tienen dirección."
+/>
+<NodeGraph
+  cols={5}
+  rows={2}
+  nodes={[{ v: 'Valparaíso', x: 0.5, y: 0 }, { v: 'Santiago', x: 3.5, y: 0 }, { v: 'San Antonio', x: 0.5, y: 1 }, { v: 'Rancagua', x: 3.5, y: 1 }]}
+  edges={[['Valparaíso', 'Santiago'], ['Valparaíso', 'San Antonio'], ['Santiago', 'San Antonio'], ['Santiago', 'Rancagua']]}
+  caption="carreteras de doble sentido"
+  label="Cuatro ciudades unidas por carreteras de doble sentido: Valparaíso con Santiago y con San Antonio, Santiago con San Antonio y con Rancagua."
+/>
+<NodeGraph
+  cols={5}
+  rows={2}
+  nodes={[{ v: 'PC 1', x: 0, y: 0 }, { v: 'PC 2', x: 0, y: 1 }, { v: 'Router', x: 2, y: 0.5 }, { v: 'Impresora', x: 4, y: 0.5 }]}
+  edges={[['PC 1', 'Router'], ['PC 2', 'Router'], ['Router', 'Impresora']]}
+  caption="computadores unidos por cables"
+  label="Una red de computadores: el PC 1, el PC 2 y la impresora, cada uno unido por un cable al router."
+/>
+</div>
+
+</Slide>
+
+<Slide title="Grafos dirigidos">
+Un grafo es **dirigido** si sus aristas tienen dirección. Cada una es un
+**arco** $$(u, v)$$, abreviado $$uv$$, que va de $$u$$ a $$v$$, y se dibuja como
+una flecha: $$uv \neq vu$$. Así es seguir a alguien en una red social: que Ana
+siga a Beto no obliga a Beto a seguir a Ana.
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '0.5rem 1.5rem', alignItems: 'end' }}>
+<NodeGraph
+  cols={4}
+  rows={2}
+  directed
+  nodes={[{ v: 'Ana', x: 0, y: 0 }, { v: 'Beto', x: 2, y: 0 }, { v: 'Caro', x: 1, y: 1 }, { v: 'Dani', x: 3, y: 1 }]}
+  edges={[['Ana', 'Beto'], ['Beto', 'Ana'], ['Ana', 'Caro'], ['Caro', 'Beto'], ['Dani', 'Caro']]}
+  caption="seguir en una red social"
+  label="Quién sigue a quién, con flechas: Ana y Beto se siguen entre sí, Ana sigue a Caro, Caro sigue a Beto y Dani sigue a Caro."
+/>
+<NodeGraph
+  cols={3}
+  rows={3}
+  directed
+  nodes={[{ v: 'A', x: 0, y: 0 }, { v: 'B', x: 2, y: 0 }, { v: 'C', x: 0, y: 2 }, { v: 'D', x: 2, y: 2 }]}
+  edges={[['A', 'B'], ['B', 'D'], ['D', 'C'], ['C', 'A']]}
+  caption="calles de un solo sentido"
+  label="Cuatro esquinas, A, B, C y D, unidas por calles de un solo sentido: de A a B, de B a D, de D a C y de C a A."
+/>
+<NodeGraph
+  cols={5}
+  rows={2}
+  directed
+  nodes={[{ v: 'Inicio', x: 0.5, y: 0 }, { v: 'Blog', x: 3.5, y: 0 }, { v: 'Contacto', x: 2, y: 1 }]}
+  edges={[['Inicio', 'Blog'], ['Blog', 'Inicio'], ['Inicio', 'Contacto'], ['Blog', 'Contacto']]}
+  caption="páginas web y sus enlaces"
+  label="Tres páginas web: Inicio y Blog se enlazan entre sí, y las dos enlazan a Contacto, que no enlaza a ninguna."
+/>
+</div>
+
+</Slide>
+
+<Slide title="Grado de entrada y de salida">
+En un grafo dirigido, cada vértice tiene dos grados. El **grado de salida**,
+$$\operatorname{grado}^+(v)$$, cuenta los arcos que salen de $$v$$, y el
+**grado de entrada**, $$\operatorname{grado}^-(v)$$, los que llegan a él. En una
+red de seguidores, el de salida es a cuántos sigue una persona, y el de entrada,
+cuántos la siguen.
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.5rem 2rem', alignItems: 'end' }}>
+<NodeGraph
+  cols={4}
+  rows={2}
+  directed
+  nodes={[{ v: 'Ana', x: 0, y: 0 }, { v: 'Beto', x: 2, y: 0 }, { v: 'Caro', x: 1, y: 1 }, { v: 'Dani', x: 3, y: 1 }]}
+  edges={[['Ana', 'Beto'], ['Beto', 'Ana'], ['Ana', 'Caro'], ['Caro', 'Beto'], ['Dani', 'Caro']]}
+  tones={{ Beto: 'mark' }}
+  markEdges={[['Beto', 'Ana']]}
+  caption="Beto sigue a una: grado⁺(Beto) = 1"
+  label="La red de seguidores con Beto destacado y su único arco que sale, hacia Ana, marcado: grado de salida 1."
+/>
+<NodeGraph
+  cols={4}
+  rows={2}
+  directed
+  nodes={[{ v: 'Ana', x: 0, y: 0 }, { v: 'Beto', x: 2, y: 0 }, { v: 'Caro', x: 1, y: 1 }, { v: 'Dani', x: 3, y: 1 }]}
+  edges={[['Ana', 'Beto'], ['Beto', 'Ana'], ['Ana', 'Caro'], ['Caro', 'Beto'], ['Dani', 'Caro']]}
+  tones={{ Beto: 'mark' }}
+  markEdges={[['Ana', 'Beto'], ['Caro', 'Beto']]}
+  caption="a Beto lo siguen dos: grado⁻(Beto) = 2"
+  label="La misma red con Beto destacado y los dos arcos que llegan a él, desde Ana y desde Caro, marcados: grado de entrada 2."
+/>
+</div>
+
+</Slide>
+
+<Slide title="Grafos ponderados">
+Un grafo es **ponderado** si cada arista trae un número, su **peso**
+$$w(u, v)$$: los minutos de un tramo, los kilómetros de una carretera, el precio
+de un vuelo. Los pesos son una función $$w\colon E \to \mathbb{R}$$, que le da
+un número real a cada arista. Un grafo puede ser dirigido y ponderado a la vez:
+cada arco trae su peso.
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '0.5rem 1.5rem', alignItems: 'end' }}>
+<NodeGraph
+  cols={3}
+  rows={3}
+  nodes={[{ v: 'B', x: 1, y: 0 }, { v: 'A', x: 0, y: 1 }, { v: 'C', x: 2, y: 1 }, { v: 'D', x: 1, y: 2 }]}
+  edges={[['A', 'B', 7], ['B', 'C', 2], ['A', 'D', 3], ['D', 'C', 4], ['B', 'D', 5]]}
+  caption="minutos entre esquinas"
+  label="Cuatro esquinas unidas por tramos con los minutos que toma cada uno: A-B 7, B-C 2, A-D 3, D-C 4 y B-D 5."
+/>
+<NodeGraph
+  cols={5}
+  rows={3}
+  nodes={[{ v: 'Valparaíso', x: 0.5, y: 0 }, { v: 'Santiago', x: 3.5, y: 0 }, { v: 'San Antonio', x: 0.5, y: 2 }, { v: 'Rancagua', x: 3.5, y: 2 }]}
+  edges={[['Valparaíso', 'Santiago', 116], ['Valparaíso', 'San Antonio', 95], ['Santiago', 'San Antonio', 113], ['Santiago', 'Rancagua', 87]]}
+  caption="kilómetros por carretera"
+  label="Cuatro ciudades con los kilómetros de carretera entre ellas: Valparaíso-Santiago 116, Valparaíso-San Antonio 95, Santiago-San Antonio 113 y Santiago-Rancagua 87."
+/>
+<NodeGraph
+  cols={5}
+  rows={3}
+  directed
+  nodes={[{ v: 'Lima', x: 0.5, y: 0 }, { v: 'Buenos Aires', x: 3.5, y: 0 }, { v: 'Santiago', x: 2, y: 2 }]}
+  edges={[['Santiago', 'Lima', 180], ['Lima', 'Santiago', 200], ['Santiago', 'Buenos Aires', 120], ['Buenos Aires', 'Lima', 250]]}
+  caption="el precio de cada vuelo, en dólares"
+  label="Vuelos entre tres ciudades, con su precio en dólares: de Santiago a Lima 180, de Lima a Santiago 200, de Santiago a Buenos Aires 120 y de Buenos Aires a Lima 250. Es dirigido y ponderado."
+/>
+</div>
+
+</Slide>
+
+<Slide title="Lazos">
+Un **lazo** es una arista que une un vértice consigo mismo, la arista $$vv$$.
+Aparece cuando algo se puede relacionar consigo mismo: el tiempo que sigue igual
+de un día al otro, un torniquete que sigue cerrado, una página que se enlaza a
+sí misma.
+
+<div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: '0.5rem 2rem', alignItems: 'flex-end' }}>
+<div style={{ flex: '0 1 340px' }}>
+<NodeGraph
+  cols={5}
+  rows={3}
+  directed
+  nodes={[{ v: 'Sol', x: 0.5, y: 1.8 }, { v: 'Nublado', x: 2, y: 0.7 }, { v: 'Lluvia', x: 3.5, y: 1.8 }]}
+  edges={[['Sol', 'Nublado'], ['Nublado', 'Sol'], ['Nublado', 'Lluvia'], ['Lluvia', 'Nublado'], ['Sol', 'Sol'], ['Nublado', 'Nublado'], ['Lluvia', 'Lluvia']]}
+  markEdges={[['Sol', 'Sol'], ['Nublado', 'Nublado'], ['Lluvia', 'Lluvia']]}
+  caption="el tiempo de un día al siguiente"
+  label="El tiempo de un día al siguiente: de sol se puede pasar a nublado y de vuelta, y de nublado a lluvia y de vuelta. Cada uno tiene un lazo, marcado: mañana puede seguir igual que hoy."
+/>
+</div>
+<div style={{ flex: '0 1 340px' }}>
+<NodeGraph
+  cols={5}
+  rows={3}
+  directed
+  nodes={[{ v: 'Cerrado', x: 0.6, y: 1.5 }, { v: 'Abierto', x: 3.4, y: 1.5 }]}
+  edges={[['Cerrado', 'Abierto', 'moneda'], ['Abierto', 'Cerrado', 'pasar'], ['Cerrado', 'Cerrado', 'empujar'], ['Abierto', 'Abierto', 'moneda']]}
+  markEdges={[['Cerrado', 'Cerrado'], ['Abierto', 'Abierto']]}
+  caption="el torniquete del metro"
+  label="Los dos estados del torniquete del metro. Una moneda lo abre y pasar lo cierra. Empujarlo cerrado lo deja cerrado, y otra moneda abierto lo deja abierto: los dos lazos, marcados."
+/>
+</div>
+<div style={{ flex: '0 1 340px' }}>
+<NodeGraph
+  cols={5}
+  rows={3}
+  directed
+  nodes={[{ v: 'Inicio', x: 0.6, y: 1.3 }, { v: 'Blog', x: 3.4, y: 0.6 }, { v: 'Contacto', x: 3.4, y: 2 }]}
+  edges={[['Inicio', 'Blog'], ['Blog', 'Inicio'], ['Inicio', 'Contacto'], ['Inicio', 'Inicio']]}
+  markEdges={[['Inicio', 'Inicio']]}
+  caption="una página que se enlaza a sí misma"
+  label="Tres páginas web: Inicio y Blog se enlazan entre sí, e Inicio enlaza a Contacto. Inicio tiene un lazo, marcado: su logo la enlaza a sí misma."
+/>
+</div>
+</div>
+
+</Slide>
+
+<Slide title="Simples, multigrafos y pseudografos">
+Las aristas paralelas y los lazos separan tres tipos de grafos:
+
+- **Grafo simple**: a lo más una arista entre dos vértices, y sin lazos. $$E$$ es un
+  conjunto de pares $$\{u, v\}$$ con $$u \ne v$$.
+- **Multigrafo**: puede tener aristas paralelas, pero no lazos. $$E$$ deja de
+  ser un conjunto, porque repite aristas. Königsberg es uno.
+- **Pseudografo**: puede tener aristas paralelas y también lazos, $$vv$$. En un
+  dominó, cada ficha une sus dos números, y los dobles son lazos.
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '0.5rem 1.5rem', alignItems: 'end' }}>
+<NodeGraph
+  cols={3}
+  rows={3}
+  nodes={[{ v: 'Ana', x: 0, y: 0.5 }, { v: 'Beto', x: 2, y: 0.5 }, { v: 'Caro', x: 1, y: 1.8 }]}
+  edges={[['Ana', 'Beto'], ['Ana', 'Caro'], ['Beto', 'Caro']]}
+  caption="grafo simple: la amistad"
+  label="Ana, Beto y Caro, amigos entre sí: una arista por par y ningún lazo. Es un grafo simple."
+/>
+<NodeGraph
+  cols={3}
+  rows={3}
+  nodes={[{ v: 'B', x: 1, y: 0 }, { v: 'A', x: 0, y: 1 }, { v: 'D', x: 2, y: 1 }, { v: 'C', x: 1, y: 2 }]}
+  edges={[['A', 'B'], ['A', 'B'], ['A', 'C'], ['A', 'C'], ['A', 'D'], ['B', 'D'], ['C', 'D']]}
+  markEdges={[['A', 'B'], ['A', 'C']]}
+  caption="multigrafo: Königsberg"
+  label="El grafo de Königsberg: dos aristas paralelas entre A y B y dos entre A y C, marcadas. Es un multigrafo."
+/>
+<NodeGraph
+  cols={3}
+  rows={3}
+  nodes={[{ v: '0', x: 1, y: 0.6 }, { v: '1', x: 0.1, y: 1.8 }, { v: '2', x: 1.9, y: 1.8 }]}
+  edges={[['0', '1'], ['0', '2'], ['1', '2'], ['0', '0'], ['1', '1'], ['2', '2']]}
+  markEdges={[['0', '0'], ['1', '1'], ['2', '2']]}
+  caption="pseudografo: el dominó del 0 al 2"
+  label="Las seis fichas de un dominó con los números 0, 1 y 2. Cada ficha es una arista entre sus dos números: 0-1, 0-2 y 1-2, y los dobles 0-0, 1-1 y 2-2 son lazos, marcados. Es un pseudografo."
+/>
+</div>
+
+Casi todos los grafos de este curso son simples.
+
+</Slide>
+
+<SectionBreak />
+
+## Tipos de grafos: por la forma del grafo
+
+<Slide title="Grafos completos">
+Un grafo simple es **completo** si cada vértice está unido con todos los demás:
+tiene todas las aristas posibles. El completo de $$n$$ vértices se escribe
+$$K_n$$, y sus aristas se cuentan en dos pasos:
+
+- Cada uno de los $$n$$ vértices se une con los otros $$n - 1$$: son
+  $$n(n - 1)$$ extremos de arista.
+- Cada arista tiene dos extremos, así que quedó contada dos veces.
+
+$$
+|E| = \frac{n(n - 1)}{2}
+$$
+
+Es el máximo de aristas que puede tener un grafo simple de $$n$$ vértices.
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '0.5rem 1.5rem', alignItems: 'end' }}>
+<NodeGraph
+  cols={3}
+  rows={3}
+  nodes={[{ v: 'A', x: 1, y: 0 }, { v: 'B', x: 0, y: 1 }, { v: 'C', x: 2, y: 1 }, { v: 'D', x: 0.5, y: 2 }, { v: 'E', x: 1.5, y: 2 }]}
+  edges={[['A', 'B'], ['A', 'C'], ['A', 'D'], ['A', 'E'], ['B', 'C'], ['B', 'D'], ['B', 'E'], ['C', 'D'], ['C', 'E'], ['D', 'E']]}
+  caption="K₅: 5 · 4 / 2 = 10 aristas"
+  label="Un grafo completo de cinco vértices: cada vértice está unido con los otros cuatro, diez aristas en total."
+/>
+<NodeGraph
+  cols={5}
+  rows={3}
+  nodes={[{ v: 'Chile', x: 0, y: 0 }, { v: 'Perú', x: 4, y: 0 }, { v: 'Brasil', x: 0, y: 2 }, { v: 'Uruguay', x: 4, y: 2 }]}
+  edges={[['Chile', 'Perú'], ['Chile', 'Brasil'], ['Chile', 'Uruguay'], ['Perú', 'Brasil'], ['Perú', 'Uruguay'], ['Brasil', 'Uruguay']]}
+  caption="un torneo de 4: 4 · 3 / 2 = 6 partidos"
+  label="Un torneo de todos contra todos entre Chile, Perú, Brasil y Uruguay: cada par de equipos juega una vez, seis partidos. Es K₄."
+/>
+</div>
+
+</Slide>
+
+<Slide title="Grafos densos y dispersos">
+El completo marca el máximo: un grafo simple de $$n$$ vértices tiene a lo más
+$$\frac{n(n - 1)}{2}$$ aristas. Según cuántas tiene de ese máximo, un grafo es:
+
+- **denso**, si tiene cerca del máximo: casi todos los vértices están unidos con
+  casi todos;
+- **disperso**, si tiene muchas menos: cada vértice está unido con unos pocos.
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '0.5rem 2rem', alignItems: 'end' }}>
+<NodeGraph
+  cols={5}
+  rows={3}
+  nodes={[{ v: 'Ana', x: 2, y: 0 }, { v: 'Beto', x: 0.3, y: 0.9 }, { v: 'Caro', x: 3.7, y: 0.9 }, { v: 'Dani', x: 0.9, y: 2 }, { v: 'Eva', x: 3.1, y: 2 }]}
+  edges={[['Ana', 'Beto'], ['Ana', 'Caro'], ['Ana', 'Dani'], ['Ana', 'Eva'], ['Beto', 'Caro'], ['Beto', 'Dani'], ['Caro', 'Eva'], ['Dani', 'Eva']]}
+  caption="denso: un grupo de amigos, 8 de 10 aristas"
+  label="Cinco amigos, Ana, Beto, Caro, Dani y Eva, unidos por ocho de las diez aristas posibles: casi todos se conocen con casi todos. Es denso."
+/>
+<NodeGraph
+  cols={5}
+  rows={3}
+  nodes={[{ v: 'Arica', x: 0.5, y: 0 }, { v: 'Iquique', x: 0.5, y: 1 }, { v: 'Calama', x: 3.5, y: 1 }, { v: 'Antofagasta', x: 1.5, y: 2 }, { v: 'Copiapó', x: 4, y: 2 }]}
+  edges={[['Arica', 'Iquique'], ['Iquique', 'Antofagasta'], ['Calama', 'Antofagasta'], ['Antofagasta', 'Copiapó']]}
+  caption="disperso: carreteras del norte, 4 de 10 aristas"
+  label="Cinco ciudades del norte de Chile unidas por carreteras: Arica con Iquique, Iquique con Antofagasta, Calama con Antofagasta y Antofagasta con Copiapó. Cuatro de las diez aristas posibles: es disperso."
+/>
+</div>
+
+</Slide>
+
+<Slide title="Grafos conexos">
+Como vimos con los caminos, un grafo es **conexo** si desde cualquier vértice se
+llega a cualquier otro. La palabra es para grafos **no dirigidos**: en ellos
+cada arista se recorre en los dos sentidos.
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '0.5rem 2rem', alignItems: 'end' }}>
+<NodeGraph
+  cols={5}
+  rows={2}
+  nodes={[{ v: 'PC 1', x: 0, y: 0 }, { v: 'PC 2', x: 0, y: 1 }, { v: 'Router', x: 2, y: 0.5 }, { v: 'Impresora', x: 4, y: 0.5 }]}
+  edges={[['PC 1', 'Router'], ['PC 2', 'Router'], ['Router', 'Impresora']]}
+  caption="conexo: todos se alcanzan por la red"
+  label="Una red de computadores: el PC 1, el PC 2 y la impresora unidos al router. Desde cualquiera se llega a cualquier otro: es conexo."
+/>
+<NodeGraph
+  cols={5}
+  rows={3}
+  nodes={[{ v: 'Osorno', x: 0.5, y: 0 }, { v: 'Puerto Montt', x: 3.5, y: 0 }, { v: 'Ancud', x: 0.5, y: 2 }, { v: 'Castro', x: 3.5, y: 2 }]}
+  edges={[['Osorno', 'Puerto Montt'], ['Ancud', 'Castro']]}
+  tones={{ Ancud: 'mark', Castro: 'mark' }}
+  caption="no conexo: de Castro no se llega a Osorno"
+  label="Carreteras entre cuatro ciudades: Osorno con Puerto Montt en el continente, y Ancud con Castro, destacadas, en Chiloé. Ninguna carretera cruza el canal: son dos componentes."
+/>
+</div>
+
+A la derecha, las carreteras del sur de Chile. Osorno y Puerto Montt están
+unidas, y Ancud y Castro también, pero Chiloé es una isla sin puente: ninguna
+carretera cruza el canal de Chacao. Desde Castro no se llega en auto a Osorno, y
+el grafo se parte en dos componentes, el continente y la isla.
+
+</Slide>
+
+<Slide title="Fuertemente y débilmente conexos">
+En un grafo **dirigido**, un camino tiene que seguir las flechas, y llegar de
+$$u$$ a $$v$$ no asegura poder volver de $$v$$ a $$u$$. Por eso «conexo» se
+divide en dos:
+
+- **Fuertemente conexo**: desde cualquier vértice se llega a cualquier otro
+  siguiendo las flechas. Para todo $$u, v \in V$$ hay un camino
+  $$u \to \cdots \to v$$ que sigue los arcos.
+- **Débilmente conexo**: se llega de cualquiera a cualquiera solo si se ignoran
+  las flechas, es decir, el grafo sin flechas es conexo.
+
+Todo grafo fuertemente conexo es también débilmente conexo. Las calles de una
+ciudad, con sus sentidos, deberían ser fuertemente conexas.
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '0.5rem 1.5rem', alignItems: 'end' }}>
+<NodeGraph
+  cols={5}
+  rows={3}
+  directed
+  nodes={[{ v: 'A', x: 0, y: 0 }, { v: 'B', x: 2, y: 0 }, { v: 'C', x: 0, y: 2 }, { v: 'D', x: 2, y: 2 }]}
+  edges={[['A', 'B'], ['B', 'D'], ['D', 'C'], ['C', 'A']]}
+  caption="fuertemente conexo: se llega a todas las esquinas"
+  label="Cuatro esquinas con calles de un solo sentido en vuelta a la manzana, de A a B, a D, a C y de vuelta a A: desde cualquier esquina se llega a cualquier otra. Es fuertemente conexo."
+/>
+<NodeGraph
+  cols={5}
+  rows={3}
+  directed
+  nodes={[{ v: 'A', x: 0, y: 0 }, { v: 'B', x: 2, y: 0 }, { v: 'C', x: 0, y: 2 }, { v: 'D', x: 2, y: 2 }, { v: 'E', x: 4, y: 0 }]}
+  edges={[['A', 'B'], ['B', 'D'], ['D', 'C'], ['C', 'A'], ['B', 'E']]}
+  tones={{ E: 'flag' }}
+  caption="débilmente conexo: de E no se vuelve"
+  label="La misma manzana con una calle de un solo sentido de B a E, que no tiene salida. Sin mirar los sentidos todo está unido, pero desde E, destacada, no se llega a ninguna otra esquina: es débilmente conexo, no fuertemente."
+/>
+</div>
+
+</Slide>
+
+<Slide title="Árboles">
+Un **árbol** es un grafo no dirigido, conexo y sin ciclos. Entre dos de sus
+vértices hay exactamente un camino simple, y tiene una arista menos que
+vértices:
+
+$$
+|E| = |V| - 1
+$$
+
+Con una arista menos deja de ser conexo, y con una más cierra un ciclo. Ningún
+vértice de un árbol es especial: no tiene arriba ni abajo.
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '0.5rem 2rem', alignItems: 'end' }}>
+<NodeGraph
+  cols={5}
+  rows={3}
+  nodes={[{ v: 'D', x: 0, y: 1.5 }, { v: 'B', x: 1, y: 0.5 }, { v: 'A', x: 2, y: 1.5 }, { v: 'C', x: 3, y: 0.5 }, { v: 'E', x: 4, y: 1.5 }]}
+  edges={[['A', 'B'], ['A', 'C'], ['B', 'D'], ['C', 'E']]}
+  caption="|V| = 5 y |E| = 4: un árbol"
+  label="Un árbol de cinco vértices y cuatro aristas, dibujado en zigzag: D con B, B con A, A con C y C con E. Ningún vértice está arriba de los otros."
+/>
+<NodeGraph
+  cols={5}
+  rows={3}
+  nodes={[{ v: 'D', x: 0, y: 1.5 }, { v: 'B', x: 1, y: 0.5 }, { v: 'A', x: 2, y: 1.5 }, { v: 'C', x: 3, y: 0.5 }, { v: 'E', x: 4, y: 1.5 }]}
+  edges={[['A', 'B'], ['A', 'C'], ['B', 'D'], ['C', 'E'], ['B', 'C']]}
+  markEdges={[['B', 'C']]}
+  caption="una arista más, B-C, cierra un ciclo"
+  label="El mismo árbol con una quinta arista, B-C, marcada: cierra el ciclo B, A, C, y ya no es un árbol."
+/>
+</div>
+
+</Slide>
+
+<Slide title="Árboles con raíz">
+Un **árbol con raíz** es un árbol en el que se elige un vértice, la **raíz**.
+Elegirla ordena todo lo demás: los vecinos de la raíz son sus **hijos**, los
+vecinos de cada hijo, salvo su padre, son los hijos de ese hijo, y así hacia
+abajo. Así son los árboles binarios y los heaps.
+
+Elegir la raíz le da a cada arista una dirección, de padre a hijo. Por eso un
+árbol con raíz se dibuja también como un grafo dirigido: desde la raíz hay
+exactamente un camino a cada vértice. Cualquier vértice puede ser la raíz.
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '0.5rem 1.5rem', alignItems: 'end' }}>
+<NodeGraph
+  cols={3}
+  rows={3}
+  directed
+  nodes={[{ v: 'A', x: 1, y: 0 }, { v: 'B', x: 0, y: 1 }, { v: 'C', x: 2, y: 1 }, { v: 'D', x: 0, y: 2 }, { v: 'E', x: 2, y: 2 }]}
+  edges={[['A', 'B'], ['A', 'C'], ['B', 'D'], ['C', 'E']]}
+  tones={{ A: 'mark' }}
+  caption="el mismo árbol, con raíz A"
+  label="El árbol de la lámina anterior con A, destacada, como raíz: A arriba, sus hijos B y C, y abajo D, hijo de B, y E, hijo de C. Cada arco va de padre a hijo."
+/>
+<NodeGraph
+  cols={3}
+  rows={4}
+  directed
+  nodes={[{ v: 'B', x: 1, y: 0 }, { v: 'D', x: 0, y: 1 }, { v: 'A', x: 2, y: 1 }, { v: 'C', x: 2, y: 2 }, { v: 'E', x: 2, y: 3 }]}
+  edges={[['B', 'D'], ['B', 'A'], ['A', 'C'], ['C', 'E']]}
+  tones={{ B: 'mark' }}
+  caption="el mismo árbol, con raíz B"
+  label="El mismo árbol con B, destacada, como raíz: B arriba, sus hijos D y A, A con su hijo C, y C con su hijo E. Las aristas son las mismas; cambian sus direcciones."
+/>
+<NodeGraph
+  cols={5}
+  rows={3}
+  directed
+  nodes={[{ v: 'Inicio', x: 2, y: 0 }, { v: 'Fotos', x: 0.5, y: 1 }, { v: 'Tareas', x: 3.5, y: 1 }, { v: 'Viaje', x: 0.5, y: 2 }, { v: 'Grafos', x: 3.5, y: 2 }]}
+  edges={[['Inicio', 'Fotos'], ['Inicio', 'Tareas'], ['Fotos', 'Viaje'], ['Tareas', 'Grafos']]}
+  tones={{ Inicio: 'mark' }}
+  caption="las carpetas, con raíz Inicio"
+  label="Las carpetas de un computador como árbol con raíz: Inicio, destacada, contiene Fotos y Tareas; Fotos contiene Viaje y Tareas contiene Grafos. Cada arco va de una carpeta a la que contiene."
+/>
+</div>
+
+</Slide>
+
+<Slide title="DAG: grafos dirigidos acíclicos">
+Un **DAG** es un grafo dirigido sin ciclos: siguiendo las flechas, nunca se
+vuelve a un vértice por el que ya se pasó. El nombre es la sigla de *directed
+acyclic graph*.
+
+Los DAG aparecen cuando unas cosas dependen de otras: una malla curricular, una
+receta, las tareas de un proyecto. Si los prerrequisitos de una malla formaran
+un ciclo, ningún ramo de ese ciclo se podría tomar primero.
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '0.5rem 1.5rem', alignItems: 'end' }}>
+<NodeGraph
+  cols={3}
+  rows={3}
+  directed
+  nodes={[{ v: 'Cálculo I', x: 0, y: 0 }, { v: 'Álgebra', x: 2, y: 0 }, { v: 'Cálculo II', x: 0, y: 1 }, { v: 'Ecuaciones', x: 1, y: 2 }]}
+  edges={[['Cálculo I', 'Cálculo II'], ['Cálculo II', 'Ecuaciones'], ['Álgebra', 'Ecuaciones']]}
+  caption="una malla: un DAG"
+  label="Una malla como grafo dirigido: arcos de Cálculo I a Cálculo II, de Cálculo II a Ecuaciones y de Álgebra a Ecuaciones. No hay ningún ciclo."
+/>
+<NodeGraph
+  cols={3}
+  rows={3}
+  directed
+  nodes={[{ v: 'A', x: 0, y: 0 }, { v: 'B', x: 2, y: 0 }, { v: 'C', x: 0, y: 2 }, { v: 'D', x: 2, y: 2 }]}
+  edges={[['A', 'B'], ['A', 'C'], ['B', 'D'], ['C', 'D']]}
+  caption="un cuadrado sin ciclo: de D no se vuelve a A"
+  label="Un cuadrado con los arcos de A a B, de A a C, de B a D y de C a D. Sus líneas forman un cuadrado, pero siguiendo las flechas nunca se vuelve a A: es un DAG."
+/>
+<NodeGraph
+  cols={5}
+  rows={3}
+  directed
+  nodes={[{ v: 'Harina', x: 0, y: 0 }, { v: 'Huevos', x: 2, y: 0 }, { v: 'Leche', x: 4, y: 0 }, { v: 'Masa', x: 2, y: 1 }, { v: 'Torta', x: 2, y: 2 }]}
+  edges={[['Harina', 'Masa'], ['Huevos', 'Masa'], ['Leche', 'Masa'], ['Masa', 'Torta']]}
+  caption="una receta"
+  label="Una receta como grafo dirigido: la harina, los huevos y la leche van a la masa, y la masa va a la torta. No hay ningún ciclo."
+/>
+</div>
+
+</Slide>
+
+<Slide title="Fuentes y sumideros">
+En un grafo dirigido, una **fuente** es un vértice al que no llega ningún arco,
+$$\operatorname{grado}^-(v) = 0$$, y un **sumidero**, uno del que no sale
+ninguno, $$\operatorname{grado}^+(v) = 0$$. Como en un río: el agua nace en la
+fuente y termina en el sumidero.
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '0.5rem 1.5rem', alignItems: 'end' }}>
+<NodeGraph
+  cols={3}
+  rows={3}
+  directed
+  nodes={[{ v: 'Cálculo I', x: 0, y: 0 }, { v: 'Álgebra', x: 2, y: 0 }, { v: 'Cálculo II', x: 0, y: 1 }, { v: 'Ecuaciones', x: 1, y: 2 }]}
+  edges={[['Cálculo I', 'Cálculo II'], ['Cálculo II', 'Ecuaciones'], ['Álgebra', 'Ecuaciones']]}
+  tones={{ 'Cálculo I': 'mark', 'Álgebra': 'mark', 'Ecuaciones': 'flag' }}
+  caption="fuentes: Cálculo I y Álgebra · sumidero: Ecuaciones"
+  label="La misma malla. Cálculo I y Álgebra, destacados, son fuentes: no piden ningún ramo. Ecuaciones, destacado en otro color, es un sumidero: no es prerrequisito de ninguno."
+/>
+<NodeGraph
+  cols={5}
+  rows={3}
+  directed
+  nodes={[{ v: 'Harina', x: 0, y: 0 }, { v: 'Huevos', x: 2, y: 0 }, { v: 'Leche', x: 4, y: 0 }, { v: 'Masa', x: 2, y: 1 }, { v: 'Torta', x: 2, y: 2 }]}
+  edges={[['Harina', 'Masa'], ['Huevos', 'Masa'], ['Leche', 'Masa'], ['Masa', 'Torta']]}
+  tones={{ Harina: 'mark', Huevos: 'mark', Leche: 'mark', Torta: 'flag' }}
+  caption="fuentes: los ingredientes · sumidero: la torta"
+  label="La misma receta. La harina, los huevos y la leche, destacados, son fuentes: a ellos no llega ningún arco. La torta, destacada en otro color, es un sumidero: de ella no sale ninguno."
+/>
+</div>
+
+En una malla, las fuentes son los ramos que se pueden tomar primero; en una
+receta, los ingredientes.
+
+</Slide>
+
+<Slide title="Muchos otros tipos">
+Hay muchos más tipos de grafos, cada uno con su teoría. Por ejemplo, un grafo es
+**planar** si se puede dibujar sin que dos aristas se crucen. A veces un dibujo
+tiene cruces y otro del mismo grafo no:
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '0.5rem 1.5rem', alignItems: 'end' }}>
+<NodeGraph
+  cols={3}
+  rows={3}
+  nodes={[{ v: 'A', x: 0, y: 0 }, { v: 'B', x: 2, y: 0 }, { v: 'C', x: 0, y: 2 }, { v: 'D', x: 2, y: 2 }]}
+  edges={[['A', 'B'], ['B', 'D'], ['D', 'C'], ['C', 'A'], ['A', 'D'], ['B', 'C']]}
+  markEdges={[['A', 'D'], ['B', 'C']]}
+  caption="K₄ con un cruce"
+  label="El grafo completo de cuatro vértices dibujado como un cuadrado con sus dos diagonales, marcadas, que se cruzan."
+/>
+<NodeGraph
+  cols={3}
+  rows={3}
+  nodes={[{ v: 'A', x: 1, y: 0 }, { v: 'B', x: 0, y: 2 }, { v: 'C', x: 2, y: 2 }, { v: 'D', x: 1, y: 1.3 }]}
+  edges={[['A', 'B'], ['A', 'C'], ['B', 'C'], ['A', 'D'], ['B', 'D'], ['C', 'D']]}
+  caption="el mismo K₄ sin cruces: planar"
+  label="El mismo grafo completo de cuatro vértices, dibujado como un triángulo con D en el centro unido a las tres esquinas. Ninguna arista se cruza: es planar."
+/>
+<NodeGraph
+  cols={5}
+  rows={3}
+  nodes={[{ v: 'Perú', x: 0.5, y: 0 }, { v: 'Bolivia', x: 3.5, y: 0.5 }, { v: 'Chile', x: 0.5, y: 2 }, { v: 'Argentina', x: 3.5, y: 2 }]}
+  edges={[['Chile', 'Perú'], ['Perú', 'Bolivia'], ['Chile', 'Bolivia'], ['Bolivia', 'Argentina'], ['Chile', 'Argentina']]}
+  caption="países vecinos: siempre planar"
+  label="Cuatro países con una arista entre cada par de vecinos: Chile con Perú, Bolivia y Argentina; Perú con Bolivia; Bolivia con Argentina. Ninguna arista se cruza."
+/>
+</div>
+
+Los tipos de esta sección son los que usa el curso.
+
+</Slide>
+
+<Slide title="Las preguntas de un grafo">
+Cada tipo responde una pregunta sobre el grafo, y las respuestas se combinan:
+un mapa de calles es dirigido y ponderado, y Königsberg es un multigrafo no
+dirigido.
+
+| | Pregunta | Tipos |
+| --- | --- | --- |
+| **tipo de arista** | ¿La relación va en los dos sentidos? | no dirigido · dirigido |
+| | ¿Trae un número? | sin pesos · ponderado |
+| | ¿Se repiten aristas, o hay lazos? | simple · multigrafo · pseudografo |
+| **forma del grafo** | ¿Cuántas aristas tiene? | completo, denso o disperso |
+| | ¿Se llega de cualquier vértice a cualquier otro? | conexo (no dirigido) · fuertemente o débilmente conexo (dirigido) |
+| | ¿Tiene ciclos? | árbol · DAG |
+
+</Slide>
+
+<Questions>
+
+<Question id="grafos-isomorfos" anchor="grafos-isomorfos">
+
+¿Qué significa que dos grafos sean isomorfos?
+
+- [x] Que renombrando los vértices de uno se obtienen exactamente las aristas del otro
+- [ ] Que tienen la misma cantidad de vértices y de aristas
+- [ ] Que sus dibujos tienen la misma forma
+- [ ] Que tienen las mismas aristas, pero con otra dirección
+
+</Question>
+
+<Question id="grafos-grado" anchor="el-grado-de-un-vertice">
+
+¿Qué es el grado de un vértice?
+
+- [x] La cantidad de aristas que lo tocan, contando cada arista paralela
+- [ ] La cantidad de vecinos distintos que tiene
+- [ ] La cantidad de vértices que se alcanzan desde él
+- [ ] La cantidad de caminos que empiezan en él
+
+</Question>
+
+<Question id="grafos-camino-simple" anchor="caminos-simples">
+
+¿Qué exige un camino simple que un camino no exige?
+
+- [x] Que no repita vértices
+- [ ] Que no repita aristas
+- [ ] Que termine donde empezó
+- [ ] Que use todas las aristas
+
+</Question>
+
+<Question id="grafos-euler-dos-impares" anchor="la-regla-de-euler">
+
+Un grafo conexo tiene exactamente dos vértices de grado impar. ¿Qué se puede afirmar?
+
+- [x] Tiene un camino euleriano que va de un impar al otro
+- [ ] Tiene un ciclo euleriano
+- [ ] No tiene ningún camino euleriano
+- [ ] Tiene un camino euleriano que parte de cualquier vértice
+
+</Question>
+
+<Question id="grafos-camino-euleriano" anchor="caminos-y-ciclos-eulerianos">
+
+¿Qué es un camino euleriano?
+
+- [x] Un camino que usa cada arista del grafo exactamente una vez
+- [ ] Un camino que pasa exactamente una vez por cada vértice
+- [ ] Un camino que vuelve al vértice donde empezó
+- [ ] Un camino que no repite ningún vértice
+
+</Question>
+
+<Question id="grafos-nunca-un-impar" anchor="nunca-queda-un-solo-vertice-impar">
+
+¿Por qué ningún grafo tiene un solo vértice de grado impar?
+
+- [x] La suma de los grados es el doble de las aristas, un número par
+- [ ] Todo vértice tiene grado par
+- [ ] Cada arista une dos vértices de grado impar
+- [ ] Solo los grafos no conexos tienen vértices impares
+
+</Question>
+
+<Question id="grafos-konigsberg-sin-paseo" anchor="konigsberg-no-tiene-paseo">
+
+¿Por qué en Königsberg no hay un paseo que cruce cada puente una vez?
+
+- [x] Sus cuatro vértices tienen grado impar, y un camino deja a lo más dos
+- [ ] Tiene dos puentes entre la isla y cada orilla
+- [ ] Su grafo no es conexo
+- [ ] Tiene más puentes que zonas de tierra
+
+</Question>
+
+<Question id="grafos-reducir" anchor="reducir-un-problema-a-otro">
+
+¿Qué es reducir un problema a otro?
+
+- [x] Convertirlo en otro que ya sabemos resolver
+- [ ] Quitarle aristas hasta que sea más fácil
+- [ ] Resolver solo un caso pequeño del problema
+- [ ] Dibujar su grafo sin cruces
+
+</Question>
+
+<Question id="grafos-grado-de-entrada" anchor="grado-de-entrada-y-de-salida">
+
+En una red de seguidores, ¿qué cuenta el grado de entrada de una persona?
+
+- [x] Cuántas personas la siguen
+- [ ] A cuántas personas sigue
+- [ ] Cuántos seguidores mutuos tiene
+- [ ] Cuántas personas hay en la red
+
+</Question>
+
+<Question id="grafos-ponderado" anchor="grafos-ponderados">
+
+¿Qué distingue a un grafo ponderado?
+
+- [x] Cada arista trae un número, su peso
+- [ ] Cada vértice trae un número, su peso
+- [ ] Sus aristas tienen dirección
+- [ ] Tiene más aristas que vértices
+
+</Question>
+
+<Question id="grafos-konigsberg-multigrafo" anchor="simples-multigrafos-y-pseudografos">
+
+¿De qué tipo es el grafo de Königsberg?
+
+- [x] Un multigrafo
+- [ ] Un grafo simple
+- [ ] Un grafo dirigido
+- [ ] Un árbol
+
+</Question>
+
+<Question id="grafos-k5-aristas" anchor="grafos-completos">
+
+¿Cuántas aristas tiene el grafo completo de 5 vértices, K₅?
+
+- [x] 10
+- [ ] 20
+- [ ] 25
+- [ ] 5
+
+</Question>
+
+<Question id="grafos-denso" anchor="grafos-densos-y-dispersos">
+
+¿Cuándo es denso un grafo?
+
+- [x] Cuando tiene cerca del máximo de aristas posibles
+- [ ] Cuando tiene muchos vértices
+- [ ] Cuando tiene aristas paralelas
+- [ ] Cuando todos sus vértices tienen grado par
+
+</Question>
+
+<Question id="grafos-fuertemente-conexo" anchor="fuertemente-y-debilmente-conexos">
+
+¿Cuándo es fuertemente conexo un grafo dirigido?
+
+- [x] Cuando desde cualquier vértice se llega a cualquier otro siguiendo las flechas
+- [ ] Cuando se llega de cualquier vértice a cualquier otro ignorando las flechas
+- [ ] Cuando todos sus vértices tienen el mismo grado de entrada y de salida
+- [ ] Cuando tiene al menos un ciclo dirigido
+
+</Question>
+
+<Question id="grafos-arbol-aristas" anchor="arboles">
+
+Un grafo de tipo árbol tiene 8 vértices. ¿Cuántas aristas tiene?
+
+- [x] 7
+- [ ] 8
+- [ ] 28
+- [ ] 16
+
+</Question>
+
+<Question id="grafos-dag" anchor="dag-grafos-dirigidos-aciclicos">
+
+¿Qué es un DAG?
+
+- [x] Un grafo dirigido sin ciclos
+- [ ] Un grafo no dirigido sin ciclos
+- [ ] Un grafo dirigido fuertemente conexo
+- [ ] Un grafo dirigido con un solo ciclo
+
+</Question>
+
+</Questions>
+
+## Lo que sigue
+
+Con las palabras y los tipos de grafos, falta construir un grafo desde un
+problema y guardarlo en un programa: **modelar** una situación, decidir qué son
+sus vértices y sus aristas, y elegir cómo guardarlo en memoria, con una matriz
+o con listas, cada una con su precio.

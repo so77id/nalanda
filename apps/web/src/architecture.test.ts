@@ -549,6 +549,26 @@ describe('architecture: the hanoiplayground widget stays out of the entry chunk'
   });
 });
 
+describe('architecture: the pentrace widget stays out of the entry chunk', () => {
+  // PenTrace pulls only React state, lucide icons and NodeGraph's geometry —
+  // no heavy package — but one class mounts it, so it loads on demand like
+  // HanoiPlayground, its precedent, and stays off every other page's first
+  // paint (#356).
+  const ALLOWED = ['components/interactive/lazyPenTrace.tsx'];
+
+  it('is imported only by its lazy wrapper', () => {
+    expect(
+      violations(
+        (_fileTop, _importTop, importRel, file) =>
+          importRel.toLowerCase().replace(/\.(ts|tsx|js|jsx|mjs|cjs)$/, '') ===
+            'components/interactive/pentrace' &&
+          !file.includes('.test.') &&
+          !ALLOWED.includes(file),
+      ),
+    ).toEqual([]);
+  });
+});
+
 describe('architecture: the fibmemosteps widget stays out of the entry chunk', () => {
   // FibMemoSteps composes <StepShow> (which itself pulls CodeStepper +
   // CodeMirror). It ships its own lazy wrapper AND appears in StepShow's

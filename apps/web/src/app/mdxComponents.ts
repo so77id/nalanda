@@ -14,6 +14,7 @@ import {
   LazyCallStack,
   LazyCodeEditor,
   LazyHanoiPlayground,
+  LazyPenTrace,
   LazyComplexityCounter,
   LazyComplexityExercise,
   LazyComplexityHierarchy,
@@ -83,7 +84,10 @@ export const mdxComponents = {
   // from Árboles I when Árboles II wanted them (#322, the counterexamples to
   // a tree's invariants and the rule of a traversal). Measured on the
   // shipped build the same way, on the same tree, the two cost the entry
-  // chunk 2,846 bytes raw, 878 with gzip -9.
+  // chunk 2,846 bytes raw, 878 with gzip -9. #356 made NodeGraph the Grafos
+  // unit's drawing (arrows, weights, parallel edges, notes, pills, and its
+  // geometry in components/nodeGraphLayout.ts): main against #356's S2
+  // commit, the entry chunk grew 3,834 bytes raw, 1,405 with gzip -9.
   NodeGraph,
   OrderRule,
   // Not lazy, for BinaryPicture's reasons: two figures promoted from Tablas
@@ -218,6 +222,7 @@ export const mdxComponents = {
   // the boundary is uniform across interactive widgets. Guarded by
   // architecture.test.ts. ADR-0055.
   HanoiPlayground: LazyHanoiPlayground,
+  PenTrace: LazyPenTrace,
   // The lazy wrapper, not the widget itself: `<StepShow>` mounts a
   // `<CodeStepper>` that uses CodeMirror + `useGrammar` for the same syntax
   // highlighting every other `java` fence gets on the site. Registering the
