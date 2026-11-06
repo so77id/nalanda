@@ -4,8 +4,8 @@ The shape every class of the **Estructuras de Datos** unit takes — and of
 **Estructuras de Datos Avanzadas**, the unit that continues it with the
 non-linear structures (the trees, then the heap; #321), the hash table
 (#326) and the TDAs Set and Map (#350), which close it — and of one class
-beyond them, Grafos · Modelo y representación (#356), the structure class
-that opens the Grafos unit. Born with #277, the first unit's first class,
+beyond them, Grafos · TDA y modelado (#363), the structure class of the
+Grafos unit, its class 2. Born with #277, the first unit's first class,
 which is also its worked example.
 
 This is the third layer of the course-authoring stack, and the three do not

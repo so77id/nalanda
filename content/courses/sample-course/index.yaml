@@ -40,7 +40,7 @@ entries:
   - label: Grafos
     levelName: Unidad
     children:
-      - docId: grafos-representacion
+      - docId: grafos-introduccion
   - label: Evaluaciones
     children:
       - docId: control-1

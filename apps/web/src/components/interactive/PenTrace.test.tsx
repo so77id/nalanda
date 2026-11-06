@@ -315,7 +315,7 @@ describe('PenTrace', () => {
 
 // PenTrace loads lazily, so app/contentRenders.test.tsx paints its Suspense
 // fallback and never sees an authoring error a mount would show: each one
-// 25-grafos-representacion mounts is pinned here, named by its slide.
+// 25-grafos-introduccion mounts is pinned here, named by its slide.
 const STAR: PenTraceProps = {
   figure: true,
   solvable: true,
@@ -441,7 +441,7 @@ const KONIGSBERG_PLUS_BC_AD: PenTraceProps = {
     'Königsberg con dos puentes más, entre B y C y entre A y D, para recorrer cada arista una sola vez. No tiene vértices impares.',
 };
 
-describe('the combinations 25-grafos-representacion mounts', () => {
+describe('the combinations 25-grafos-introduccion mounts', () => {
   it.each([
     ['Una figura de un solo trazo · la estrella', STAR, 15],
     ['Una figura de un solo trazo · la casa', HOUSE, 10],

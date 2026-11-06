@@ -23,7 +23,7 @@ export { LazyCallStack } from './interactive/lazyCallStack';
 // (per-name `hanoiplayground`). ADR-0055.
 export { LazyHanoiPlayground } from './interactive/lazyHanoiPlayground';
 // Lazy like HanoiPlayground: the trace-without-lifting-the-pen widget of
-// Grafos · Modelo y representación (#356).
+// Grafos · Introducción (#356).
 export { LazyPenTrace } from './interactive/lazyPenTrace';
 // Lazy for pattern consistency and for the CodeMirror-gutter future
 // extension the ADR anticipates (ADR-0045).
