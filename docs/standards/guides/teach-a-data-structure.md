@@ -3,10 +3,9 @@
 The shape every class of the **Estructuras de Datos** unit takes — and of
 **Estructuras de Datos Avanzadas**, the unit that continues it with the
 non-linear structures (the trees, then the heap; #321), the hash table
-(#326) and the TDAs Set and Map (#350), which close it — and of one class
-beyond them, Grafos · TDA y modelado (#363), the structure class of the
-Grafos unit, its class 2. Born with #277, the first unit's first class,
-which is also its worked example.
+(#326) and the TDAs Set and Map (#350), which close it — and of the graphs
+unit after them, whose epic (#354) adopts this guide unchanged. Born with
+#277, the first unit's first class, which is also its worked example.
 
 This is the third layer of the course-authoring stack, and the three do not
 overlap:
@@ -23,11 +22,9 @@ either of the other two.
 
 ## When to use
 
-You are writing a class of the Estructuras de Datos unit or of Estructuras de
-Datos Avanzadas — a TDA, a structure that implements one, or a family of
-variants — or the class of a later unit whose subject is a structure: the
-Grafos unit opens with one (#356), the Graph TDA with its matrix and its
-lists, and everything structural the unit needs is born there. The two units are one sequence of
+You are writing a class of the Estructuras de Datos unit, of Estructuras de
+Datos Avanzadas or of the graphs unit after them (#354) — a TDA, a structure
+that implements one, or a family of variants. The units are one sequence of
 classes that all answer the same four questions about a different object, and
 the reader learns the answers faster because the questions never move.
 
@@ -255,8 +252,8 @@ slide ask for «preguntar, agregar, contar», then compared two classes on
 `remove` and put a walk in the card that nothing had asked for, and it had
 no real-life slide at all; the professor's review (2026-11-01) restored both.
 The TDA is named at the end of the real-life slide, «… un tipo de dato
-abstracto (TDA) llamado…», in #294, #304 and #350's Set; #350's Map still
-names it on the card.
+abstracto (TDA) llamado…», in #294, #304 and both of #350's TDAs, Set and
+Map.
 
 **When the collection is a mathematical object the students already know,
 its idea gets a slide of its own between the problem and the real-life one.**
@@ -326,13 +323,13 @@ registry in `mdxComponents.ts` and `components/index.ts`, a catalog entry
 with Spanish live examples, per-mode tests) PLUS rewriting two already
 published documents and re-verifying three classes in a browser, which is a
 WP of its own and not a slice of a course-document WP. The next class that
-needs a TDA card should do the extraction rather than make it five.
+needed a TDA card was to do the extraction rather than make it five.
 
 **It did make it five, and that is a stated deviation, not a silent one.**
 #304 (Priority Queue y Heap) needed a card for its TDA, and the professor
 chose to copy it a fifth time rather than grow a course-document PR by a
 component, a catalog entry and four re-verified classes. The extraction is
-tracked in **#305**; the sixth card waits for it.
+tracked in **#305**; the sixth card was to wait for it.
 
 **It waited for nothing: #350 made six and seven, and says so.** Set and Map
 are two contracts, and the professor chose at the start of that WP to copy
@@ -343,6 +340,15 @@ that the template did not fit a class comparing two implementations; this
 section had already said the opposite (the Set and Map class «brings its own
 card»), and the moulds fit both contracts as they stand. #305 now owes the
 extraction of seven copies.
+
+**What the next card does is decided when its class is refined, with the
+professor, and written in its issue.** The class that defines the next TDA —
+the graphs unit's (#354) — settles it then: #305 first, as a WP of its own
+before the class, or an eighth copy, stated here as a deviation like the
+fifth, sixth and seventh. If the issue is silent — #356's, refined before
+this rule, is — the developer asks the professor before the card's slice. Neither is the default, and the author does not pick one
+silently. Until #305 lands, the copy's source stays _El TDA Sequence_ in
+`17-edd-introduccion.mdx`.
 
 Costs never appear in the contract. They belong to an implementation, and
 putting them here is the single mistake that collapses the TDA/EDA distinction
@@ -874,13 +880,20 @@ wins — #304's planner orders its tasks with one comparator lambda and an
       card of §2, built with inline `style` + palette tokens and closing on a
       `LO QUE NO DICE` block. No cost anywhere in it. Java's names for the
       same contract, if the class needs them, on the slide after.
+- [ ] Every TDA card is preceded by its problem, drawn, and a «… en la vida
+      real» slide of four cases closed by the sentence that names the TDA —
+      and, for a mathematical object the students already know, an idea
+      slide between the two. Each of the card's operations is asked for
+      there first (§2).
 - [ ] Invariants as a numbered list, property first, consequence second, and
       the expensive one named as such.
 - [ ] What an operation breaks, keeps or restores is named _la invariante_
       (feminine) — in the prose, in every widget's narration, and in the
       templates above you copy from; a TDA's exit rule stays _regla_ (§3).
 - [ ] Every operation in the cost table carries the invariant it restores
-      (a table where every row only consults drops that column, §4),
+      (a table where every row only consults drops that column, and so does
+      #350's, which compares implementations whose own classes carried it,
+      a stated deviation; §4),
       and the table leads with a `Molde` column grouping the operations by
       crear / consultar / modificar. An `Amortizado` column only where a row
       actually differs — and a SECOND table, for a structure derived from the
