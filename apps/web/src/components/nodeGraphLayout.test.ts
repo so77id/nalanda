@@ -98,6 +98,53 @@ describe('layoutNodeGraph', () => {
     expect(walkStrokes(edges, ['B', 'A'], true)).toBeNull();
   });
 
+  it('draws a self-loop as a curve that leaves and returns to its node, where there is room', () => {
+    const layout = layoutNodeGraph({
+      cols: 3,
+      rows: 2,
+      nodes: [
+        { v: 'A', x: 0, y: 1 },
+        { v: 'B', x: 2, y: 1 },
+      ],
+      edges: [
+        ['A', 'B'],
+        ['A', 'A', 3],
+      ],
+      directed: true,
+    });
+    const loop = layout.edges[1];
+    const a = layout.at.get('A')!;
+    expect(loop.from).toBe('A');
+    expect(loop.to).toBe('A');
+    expect(loop.d).toMatch(/^M[\d.]+,[\d.]+ C/);
+    expect(loop.arrow).toBeDefined();
+    // The edge to B leaves to the right, leaving the top free: the loop goes up, its weight on top.
+    expect(loop.weightAt!.y).toBeLessThan(a.y - 40);
+    expect(Math.abs(loop.weightAt!.x - a.x)).toBeLessThan(1);
+    expect(pointOnEdge(loop, 0.5).y).toBeLessThan(a.y - 30);
+  });
+
+  it('turns a self-loop away from edges that leave its node upwards', () => {
+    const layout = layoutNodeGraph({
+      cols: 3,
+      rows: 2,
+      nodes: [
+        { v: 'A', x: 0, y: 1 },
+        { v: 'B', x: 0, y: 0 },
+        { v: 'C', x: 2, y: 0 },
+      ],
+      edges: [
+        ['A', 'B'],
+        ['A', 'C'],
+        ['A', 'A'],
+      ],
+      directed: false,
+    });
+    const a = layout.at.get('A')!;
+    const apex = pointOnEdge(layout.edges[2], 0.5);
+    expect(apex.y).toBeGreaterThan(a.y - 1);
+  });
+
   it('puts a note on the side its edges leave free', () => {
     const { noteAt, at } = lay(TWO, [['A', 'B']]);
     // A's only edge leaves to the right, so its note goes to the left.

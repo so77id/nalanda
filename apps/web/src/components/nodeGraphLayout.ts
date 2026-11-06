@@ -180,9 +180,10 @@ export function layoutNodeGraph({
   // The directions in which edges leave each node, to keep notes off them.
   const leaving = new Map<string, number[]>([...at.keys()].map((k) => [k, []]));
 
-  const laid = edges.map((edge): LaidEdge => {
+  const laid = edges.map((edge): LaidEdge | null => {
     const from = String(edge[0]);
     const to = String(edge[1]);
+    if (from === to) return null; // A self-loop: laid below, once the other edges are.
     const pair = pairOf(from, to);
     const n = groups.get(pair)!;
     const i = seen.get(pair) ?? 0;
@@ -233,6 +234,60 @@ export function layoutNodeGraph({
     return { key: `${from}>${to}`, from, to, d, arrow, weight, weightAt, curve };
   });
 
+  // Self-loops leave their node where its other edges leave the most room,
+  // a second loop on the same node a little larger than the first.
+  const loopsAt = new Map<string, number>();
+  edges.forEach((edge, k) => {
+    const v = String(edge[0]);
+    if (v !== String(edge[1])) return;
+    const p = at.get(v)!;
+    const i = loopsAt.get(v) ?? 0;
+    loopsAt.set(v, i + 1);
+    const dirs = leaving.get(v)!;
+    const angle = freestDirection(dirs);
+    dirs.push(angle);
+    // Built from the point where the loop's direction meets the node's border,
+    // so a wide pill gets as round a loop as a circle does.
+    const u = { x: Math.cos(angle), y: Math.sin(angle) };
+    const n = { x: -u.y, y: u.x };
+    const border = trim ? borderDistance(halfW.get(v)!, u) : 0;
+    const base = { x: p.x + u.x * (border - 2), y: p.y + u.y * (border - 2) };
+    const len = LOOP_LEN * (1 + 0.45 * i);
+    const along = (k: number, side: number) => ({
+      x: base.x + u.x * k + n.x * side,
+      y: base.y + u.y * k + n.y * side,
+    });
+    const s0 = along(0, LOOP_FOOT);
+    const tip = along(0, -LOOP_FOOT);
+    const c1 = along(len, len * 0.75);
+    const c2 = along(len, -len * 0.75);
+    const inn = unit(tip.x - c2.x, tip.y - c2.y);
+    const end = directed
+      ? { x: tip.x - inn.x * ARROW_L * 0.8, y: tip.y - inn.y * ARROW_L * 0.8 }
+      : tip;
+    const d = `M${r1(s0.x)},${r1(s0.y)} C${r1(c1.x)},${r1(c1.y)} ${r1(c2.x)},${r1(c2.y)} ${r1(end.x)},${r1(end.y)}`;
+    let arrow: string | undefined;
+    if (directed) {
+      const back = { x: tip.x - inn.x * ARROW_L, y: tip.y - inn.y * ARROW_L };
+      const side = { x: -inn.y * ARROW_HALF_W, y: inn.x * ARROW_HALF_W };
+      arrow = [
+        [tip.x, tip.y],
+        [back.x + side.x, back.y + side.y],
+        [back.x - side.x, back.y - side.y],
+      ]
+        .map(([x, y]) => `${r1(x)},${r1(y)}`)
+        .join(' ');
+    }
+    // A cubic's middle sits three quarters of the way to its control points.
+    const apex = along(len * 0.75, 0);
+    const weight = edge.length === 3 ? String(edge[2]) : undefined;
+    const weightAt =
+      weight === undefined ? undefined : { x: r1(apex.x + u.x * 12), y: r1(apex.y + u.y * 12) };
+    // A quadratic through the apex at its middle, so pointOnEdge finds the loop.
+    const curve = { from: p, control: { x: 2 * apex.x - p.x, y: 2 * apex.y - p.y }, to: p };
+    laid[k] = { key: `${v}>${v}`, from: v, to: v, d, arrow, weight, weightAt, curve };
+  });
+
   const noteAt = new Map<string, Point>();
   for (const [k, p] of at) {
     const dirs = leaving.get(k)!;
@@ -257,11 +312,35 @@ export function layoutNodeGraph({
     if (note && note.y + NOTE_GAP + 8 > drawingH) drawingH = note.y + NOTE_GAP + 8;
   }
 
-  return { width, drawingH, at, halfW, edges: laid, noteAt };
+  return { width, drawingH, at, halfW, edges: laid as LaidEdge[], noteAt };
 }
 
 /** Eight directions, upper right first, then clockwise — SVG's y grows downwards. */
 const NOTE_DIRECTIONS = [-1, 0, 1, 2, 3, 4, 5, 6].map((i) => (i * Math.PI) / 4);
+
+/** How far a self-loop's control points reach past the node's border, and how far apart its two feet stand. */
+const LOOP_LEN = 40;
+const LOOP_FOOT = 8;
+
+/**
+ * Where a self-loop goes: straight up when its node's other edges leave a
+ * sixth of a turn free on either side, otherwise the direction farthest from all of them.
+ */
+function freestDirection(dirs: number[]): number {
+  const order = [6, 5, 7, 4, 0, 3, 1, 2].map((i) => (i * Math.PI) / 4);
+  const gap = (a: number) =>
+    dirs.length === 0 ? Math.PI : Math.min(...dirs.map((d) => angleBetween(a, d)));
+  if (gap(order[0]) >= Math.PI / 3 - 1e-9) return order[0];
+  let best = order[0];
+  let bestGap = -1;
+  for (const a of order) {
+    if (gap(a) > bestGap + 1e-9) {
+      best = a;
+      bestGap = gap(a);
+    }
+  }
+  return best;
+}
 
 const angleBetween = (a: number, b: number) => {
   const d = Math.abs(a - b) % (2 * Math.PI);

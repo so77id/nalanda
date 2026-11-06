@@ -7,10 +7,10 @@ export const nodeGraphCatalogEntry: CatalogEntry = {
   name: 'NodeGraph',
   family: 'media',
   description:
-    "A graph at explicit grid positions: vertices joined by edges, with arrows when it is directed, a weight on an edge, a note beside a vertex (its degree, say). Edges between the same two vertices bend apart, so a multigraph's parallel edges and a pair of opposite arrows both stay visible. A label of one or two characters sits in <BinaryPicture>'s circle; a longer one, a name, in a pill. Static: it draws one moment, and an algorithm run is <SequenceStepper>'s.",
+    "A graph at explicit grid positions: vertices joined by edges, with arrows when it is directed, a weight centred on an edge, a self-loop, a note beside a vertex (its degree, say). Edges between the same two vertices bend apart, so a multigraph's parallel edges and a pair of opposite arrows both stay visible. A label of one or two characters sits in <BinaryPicture>'s circle; a longer one, a name, in a pill. Static: it draws one moment, and an algorithm run is <SequenceStepper>'s.",
   whenToUse:
     'When a slide shows a graph as a drawing: the model of a problem, a definition (directed, weighted, a path, a component), the degrees behind a rule. Also the counterexample to a tree that <BinaryPicture> cannot draw because its layout assumes a tree — a node with three children, a node with two parents. ' +
-    'Promoted from a figure local to edd-arboles-i when edd-arboles-ii became the second document to want it (#322, add-a-course-document.md §6e-quater); #356 added arrows, weights, parallel edges, notes, pills and the flag and keep tones for the Grafos unit. ' +
+    'Promoted from a figure local to edd-arboles-i when edd-arboles-ii became the second document to want it (#322, add-a-course-document.md §6e-quater); #356 added arrows, weights, parallel edges, self-loops, walks, notes, pills and the flag and keep tones for the Grafos unit. ' +
     'Tones keep the design system’s meanings: mark is “look here” (an odd-degree vertex is not wrong), flag is wrong, keep is done. In a drawing with weights, name the vertices with letters so their names do not read as weights. ' +
     'Two runtime contracts, because MDX is not typechecked: a missing `label` renders an authoring error, and so does an edge that names a node the drawing does not have.',
   props: [
@@ -24,7 +24,7 @@ export const nodeGraphCatalogEntry: CatalogEntry = {
       name: 'edges',
       type: '[from, to][] | [from, to, weight][]',
       description:
-        'The edges, by the labels of their two ends; a third element is written on the edge as its weight. The same pair twice draws two edges, bent apart.',
+        "The edges, by the labels of their two ends; a third element is written on the edge as its weight, or as a word (an action, in a state graph). The same pair twice draws two edges, bent apart. An edge from a vertex to itself is a self-loop: it leaves upwards when the vertex's other edges leave that room, otherwise where they leave the most, so give the vertex room on that side.",
     },
     { name: 'cols', type: 'number', description: 'How many columns the grid has.' },
     { name: 'rows', type: 'number', description: 'How many rows the grid has.' },

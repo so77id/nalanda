@@ -239,26 +239,24 @@ function Graph({
   );
 }
 
-/** An edge's weight, on a chip that hides the line behind it. */
+/**
+ * An edge's weight, centred on the line with no box: a halo in the page's
+ * ground colour hides the line behind the digits.
+ */
 function WeightChip({ text, x, y }: { text: string; x: number; y: number }) {
-  const w = text.length * 7 + 8;
   return (
     <g data-weight={text}>
-      <rect
-        x={x - w / 2}
-        y={y - 9}
-        width={w}
-        height={18}
-        rx={4}
-        style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule)' }}
-        strokeWidth={1}
-      />
       <text
         x={x}
         y={y + 4.5}
         textAnchor="middle"
-        fontSize="12"
+        fontSize="13"
+        fontWeight="600"
         style={{ fill: 'var(--color-ink)' }}
+        stroke="var(--color-ground)"
+        strokeWidth={5}
+        strokeLinejoin="round"
+        paintOrder="stroke"
       >
         {text}
       </text>
