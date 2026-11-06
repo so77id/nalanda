@@ -41,6 +41,7 @@ entries:
     levelName: Unidad
     children:
       - docId: grafos-introduccion
+      - docId: grafos-tda-modelado
   - label: Evaluaciones
     children:
       - docId: control-1

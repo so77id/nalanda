@@ -1,0 +1,1872 @@
+---
+id: grafos-tda-modelado
+title: Grafos · TDA y modelado
+presentation: explicit
+questions: none
+---
+
+{/* Seeded from #356 when the first Grafos class was split (2026-11-06): its */}
+{/* modelling, data-structure, implicit-graph and exercise sections, verbatim, */}
+{/* to be refined and reviewed slide by slide in this class's own issue. */}
+
+# Grafos · TDA y modelado
+
+Un grafo sirve para responder preguntas sobre un problema, pero antes hay que
+construirlo: decidir qué son sus vértices y sus aristas. Y para que un programa
+responda, hay que guardarlo en memoria, con más de una forma de hacerlo, cada
+una con su precio.
+
+<SectionBreak />
+
+## Modelar un problema como grafo
+
+<Slide title="Las preguntas de un modelo">
+Modelar un problema como grafo es responder cuatro preguntas antes de
+resolver nada. Un mismo conjunto de cosas da grafos distintos según la
+relación que se mire.
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(380px, 1fr))', gap: '0.75rem', margin: '1rem 0' }}>
+<div style={{ border: '1px solid var(--color-rule)', borderRadius: '8px', padding: '0.5rem 0.8rem 0.2rem', background: 'var(--color-surface)' }}>
+
+**¿Qué es un vértice?** Las cosas del problema: personas, esquinas, ramos, aeropuertos.
+
+<NodeGraph
+  cols={5}
+  rows={1}
+  nodes={[{ v: 'A', x: 0, y: 0 }, { v: 'B', x: 2, y: 0 }, { v: 'C', x: 4, y: 0 }]}
+  edges={[]}
+  label="Tres vértices, A, B y C, sin aristas: las cosas del problema."
+/>
+
+</div>
+<div style={{ border: '1px solid var(--color-rule)', borderRadius: '8px', padding: '0.5rem 0.8rem 0.2rem', background: 'var(--color-surface)' }}>
+
+**¿Qué es una arista?** La relación que importa entre dos de esas cosas.
+
+<NodeGraph
+  cols={5}
+  rows={1}
+  nodes={[{ v: 'A', x: 0, y: 0 }, { v: 'B', x: 2, y: 0 }, { v: 'C', x: 4, y: 0 }]}
+  edges={[['A', 'B'], ['B', 'C']]}
+  label="Los mismos tres vértices unidos por dos aristas, A con B y B con C."
+/>
+
+</div>
+<div style={{ border: '1px solid var(--color-rule)', borderRadius: '8px', padding: '0.5rem 0.8rem 0.2rem', background: 'var(--color-surface)' }}>
+
+**¿Tiene dirección?** Si la relación puede ir de una cosa a otra sin volver.
+
+<NodeGraph
+  cols={5}
+  rows={1}
+  nodes={[{ v: 'A', x: 0, y: 0 }, { v: 'B', x: 2, y: 0 }, { v: 'C', x: 4, y: 0 }]}
+  directed
+  edges={[['A', 'B'], ['B', 'C']]}
+  label="Los mismos vértices con flechas: de A a B y de B a C."
+/>
+
+</div>
+<div style={{ border: '1px solid var(--color-rule)', borderRadius: '8px', padding: '0.5rem 0.8rem 0.2rem', background: 'var(--color-surface)' }}>
+
+**¿Tiene pesos?** Si cada relación trae un número que el problema usa.
+
+<NodeGraph
+  cols={5}
+  rows={1}
+  nodes={[{ v: 'A', x: 0, y: 0 }, { v: 'B', x: 2, y: 0 }, { v: 'C', x: 4, y: 0 }]}
+  edges={[['A', 'B', 4], ['B', 'C', 7]]}
+  label="Los mismos vértices con pesos: la arista de A a B pesa 4 y la de B a C, 7."
+/>
+
+</div>
+</div>
+
+</Slide>
+
+{/* StreetPlan — a street map in one frame at two stages of the modelling pattern (#356): `city` the four streets with their blocks of buildings, one-way arrows and the minutes each stretch takes; `streets` only the corners, lettered, and the stretches with their minutes and senses. The third stage is the graph, a <NodeGraph> beside it. File-local. */}
+
+export function StreetPlan({ stage = 'city', label }) {
+  const at = { A: [80, 60], B: [240, 60], C: [80, 180], D: [240, 180] };
+  const stretches = [['A', 'B', 4, true], ['A', 'C', 3, false], ['C', 'D', 5, false], ['D', 'B', 2, false]];
+  const tip = (x1, y1, x2, y2) => {
+    const d = Math.hypot(x2 - x1, y2 - y1);
+    const ux = (x2 - x1) / d;
+    const uy = (y2 - y1) / d;
+    const bx = x2 - ux * 9;
+    const by = y2 - uy * 9;
+    return `${x2},${y2} ${bx - uy * 5},${by + ux * 5} ${bx + uy * 5},${by - ux * 5}`;
+  };
+  const blocks = [];
+  if (stage === 'city') {
+    for (const [x0, x1] of [[22, 70], [90, 230], [250, 298]]) {
+      for (const [y0, y1] of [[22, 50], [70, 170], [190, 218]]) {
+        const n = Math.max(1, Math.round((x1 - x0) / 50));
+        const m = Math.max(1, Math.round((y1 - y0) / 50));
+        const w = (x1 - x0 - (n - 1) * 5) / n;
+        const h = (y1 - y0 - (m - 1) * 5) / m;
+        for (let i = 0; i < n; i++) for (let j = 0; j < m; j++) blocks.push([x0 + i * (w + 5), y0 + j * (h + 5), w, h]);
+      }
+    }
+  }
+  return (
+    <svg viewBox="0 0 320 240" style={{ width: '100%', maxWidth: '340px', height: 'auto', display: 'block', margin: '0.4rem auto' }} role="img" aria-label={label}>
+      {stage === 'city'
+        ? [[12, 60, 308, 60], [12, 180, 308, 180], [80, 12, 80, 228], [240, 12, 240, 228]].map(([x1, y1, x2, y2], k) => (
+            <line key={`s${k}`} x1={x1} y1={y1} x2={x2} y2={y2} style={{ stroke: 'var(--color-sunk)' }} strokeWidth="18" />
+          ))
+        : null}
+      {blocks.map(([x, y, w, h], k) => (
+        <rect key={`b${k}`} x={x} y={y} width={w} height={h} rx="2" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="0.8" />
+      ))}
+      {stretches.map(([v, w, minutes, both], k) => {
+        const [x1, y1] = at[v];
+        const [x2, y2] = at[w];
+        const mx = (x1 + x2) / 2;
+        const my = (y1 + y2) / 2;
+        const ux = (x2 - x1) / Math.hypot(x2 - x1, y2 - y1);
+        const uy = (y2 - y1) / Math.hypot(x2 - x1, y2 - y1);
+        const chipX = mx + (uy !== 0 ? 30 : 0);
+        const chipY = my + (uy !== 0 ? 0 : -19);
+        return (
+          <g key={`t${k}`}>
+            {stage === 'streets' ? <line x1={x1} y1={y1} x2={x2} y2={y2} style={{ stroke: 'var(--color-rule-strong)' }} strokeWidth="2" /> : null}
+            <polygon points={tip(mx - ux * 14, my - uy * 14, mx + ux * 14, my + uy * 14)} style={{ fill: 'var(--color-ink-soft)' }} />
+            {both ? <polygon points={tip(mx + ux * 14, my + uy * 14, mx - ux * 14, my - uy * 14)} style={{ fill: 'var(--color-ink-soft)' }} /> : null}
+            <rect x={chipX - 25} y={chipY - 10} width="50" height="20" rx="5" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule)' }} strokeWidth="1" />
+            <text x={chipX} y={chipY + 5} textAnchor="middle" fontSize="13" style={{ fill: 'var(--color-ink)' }}>{minutes} min</text>
+          </g>
+        );
+      })}
+      {stage === 'streets'
+        ? Object.entries(at).map(([v, [x, y]]) => (
+            <g key={v}>
+              <circle cx={x} cy={y} r="13" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.4" />
+              <text x={x} y={y + 5} textAnchor="middle" fontSize="14" fontWeight="700" style={{ fill: 'var(--color-ink)' }}>{v}</text>
+            </g>
+          ))
+        : null}
+    </svg>
+  );
+}
+
+<Slide title="Un mapa de calles">
+En un mapa de calles, las esquinas son vértices y los tramos, aristas. Cada
+tramo trae los minutos que toma: es su peso. Una calle de un solo sentido es
+un arco, así que el grafo es dirigido y con pesos.
+
+<div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'center', gap: '0.5rem 0.75rem' }}>
+<figure style={{ flex: '1 1 190px', margin: 0, textAlign: 'center' }}>
+<StreetPlan stage="city" label="Un plano con cuatro calles que se cruzan en cuatro esquinas, con edificios en las manzanas, flechas de sentido y los minutos de cada tramo: 4 en la calle de arriba, en los dos sentidos; 3 en la de la izquierda, hacia abajo; 5 en la de abajo, hacia la derecha; y 2 en la de la derecha, hacia arriba." />
+<figcaption style={{ fontSize: '0.85rem', color: 'var(--color-ink-soft)' }}>el plano</figcaption>
+</figure>
+<span aria-hidden="true" style={{ fontSize: '1.6rem', color: 'var(--color-ink-soft)' }}>→</span>
+<figure style={{ flex: '1 1 190px', margin: 0, textAlign: 'center' }}>
+<StreetPlan stage="streets" label="El mismo plano sin edificios: las esquinas A, B, C y D, y los cuatro tramos con sus minutos y sentidos." />
+<figcaption style={{ fontSize: '0.85rem', color: 'var(--color-ink-soft)' }}>esquinas, tramos, minutos y sentidos</figcaption>
+</figure>
+<span aria-hidden="true" style={{ fontSize: '1.6rem', color: 'var(--color-ink-soft)' }}>→</span>
+<div style={{ flex: '1 1 190px' }}>
+<NodeGraph
+  cols={3}
+  rows={3}
+  directed
+  nodes={[{ v: 'A', x: 0, y: 0 }, { v: 'B', x: 2, y: 0 }, { v: 'C', x: 0, y: 2 }, { v: 'D', x: 2, y: 2 }]}
+  edges={[['A', 'B', 4], ['B', 'A', 4], ['A', 'C', 3], ['C', 'D', 5], ['D', 'B', 2]]}
+  caption="el grafo"
+  label="Cuatro esquinas, A, B, C y D, con los minutos de cada tramo: entre A y B, 4 en cada sentido; de A a C, 3; de C a D, 5; de D a B, 2. Los tramos de un solo sentido son flechas."
+/>
+</div>
+</div>
+
+</Slide>
+
+{/* Curriculum — a curriculum at two stages of the modelling pattern (#356): `table` the courses by semester, each saying which course it asks for; `arrows` the same courses with an arrow from each prerequisite to the course that asks for it. The third stage is the graph, a <NodeGraph> beside it. File-local. */}
+
+export function Curriculum({ stage = 'table', label }) {
+  const W = 118;
+  const H = 50;
+  const at = { 'Cálculo I': [72, 52], 'Álgebra': [206, 52], 'Cálculo II': [72, 146], 'Ecuaciones': [139, 240] };
+  const asks = { 'Cálculo II': ['pide Cálculo I'], 'Ecuaciones': ['pide Cálculo II', 'y Álgebra'] };
+  const arrows = [['Cálculo I', 'Cálculo II'], ['Cálculo II', 'Ecuaciones'], ['Álgebra', 'Ecuaciones']];
+  const tip = (x1, y1, x2, y2) => {
+    const d = Math.hypot(x2 - x1, y2 - y1);
+    const ux = (x2 - x1) / d;
+    const uy = (y2 - y1) / d;
+    const bx = x2 - ux * 10;
+    const by = y2 - uy * 10;
+    return `${x2},${y2} ${bx - uy * 5.5},${by + ux * 5.5} ${bx + uy * 5.5},${by - ux * 5.5}`;
+  };
+  return (
+    <svg viewBox="0 0 278 282" style={{ width: '100%', maxWidth: '300px', height: 'auto', display: 'block', margin: '0.4rem auto' }} role="img" aria-label={label}>
+      {stage === 'table'
+        ? ['1.er semestre', '2.º semestre', '3.er semestre'].map((t, k) => (
+            <text key={t} x="13" y={20 + 94 * k} fontSize="12" fontWeight="600" style={{ fill: 'var(--color-ink-faint)' }}>{t}</text>
+          ))
+        : null}
+      {stage === 'arrows'
+        ? arrows.map(([v, w]) => {
+            const [x1, y1] = [at[v][0], at[v][1] + H / 2];
+            const [x2, y2] = [at[w][0] + (v === 'Álgebra' ? 24 : v === 'Cálculo II' ? -24 : 0), at[w][1] - H / 2];
+            return (
+              <g key={`${v}-${w}`}>
+                <line x1={x1} y1={y1} x2={x2} y2={y2} style={{ stroke: 'var(--color-ink-soft)' }} strokeWidth="1.8" />
+                <polygon points={tip(x1, y1, x2, y2)} style={{ fill: 'var(--color-ink-soft)' }} />
+              </g>
+            );
+          })
+        : null}
+      {Object.entries(at).map(([name, [x, y]]) => {
+        const lines = stage === 'table' ? asks[name] ?? [] : [];
+        const top = y - 6 - lines.length * 7;
+        return (
+          <g key={name}>
+            <rect x={x - W / 2} y={y - H / 2} width={W} height={H} rx="6" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.2" />
+            <text x={x} y={top + 11} textAnchor="middle" fontSize="15" fontWeight="700" style={{ fill: 'var(--color-ink)' }}>{name}</text>
+            {lines.map((t, k) => (
+              <text key={t} x={x} y={top + 26 + 13 * k} textAnchor="middle" fontSize="12" style={{ fill: 'var(--color-ink-soft)' }}>{t}</text>
+            ))}
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
+
+<Slide title="Una malla curricular">
+En una malla, los ramos son vértices, y cada prerrequisito es un arco que va
+del ramo que se aprueba antes al que lo pide. Si un ramo terminara
+pidiéndose a sí mismo, de prerrequisito en prerrequisito, nadie podría
+tomarlo: la malla no puede tener un ciclo.
+
+<div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'center', gap: '0.5rem 0.75rem' }}>
+<figure style={{ flex: '1 1 190px', margin: 0, textAlign: 'center' }}>
+<Curriculum stage="table" label="Una malla de tres semestres: Cálculo I y Álgebra en el primero, Cálculo II en el segundo, que pide Cálculo I, y Ecuaciones en el tercero, que pide Cálculo II y Álgebra." />
+<figcaption style={{ fontSize: '0.85rem', color: 'var(--color-ink-soft)' }}>la malla</figcaption>
+</figure>
+<span aria-hidden="true" style={{ fontSize: '1.6rem', color: 'var(--color-ink-soft)' }}>→</span>
+<figure style={{ flex: '1 1 190px', margin: 0, textAlign: 'center' }}>
+<Curriculum stage="arrows" label="Los mismos ramos con una flecha de cada prerrequisito al ramo que lo pide: de Cálculo I a Cálculo II, de Cálculo II a Ecuaciones y de Álgebra a Ecuaciones." />
+<figcaption style={{ fontSize: '0.85rem', color: 'var(--color-ink-soft)' }}>qué ramo pide cuál</figcaption>
+</figure>
+<span aria-hidden="true" style={{ fontSize: '1.6rem', color: 'var(--color-ink-soft)' }}>→</span>
+<div style={{ flex: '1 1 190px' }}>
+<NodeGraph
+  cols={3}
+  rows={3}
+  directed
+  nodes={[{ v: 'Cálculo I', x: 0, y: 0 }, { v: 'Álgebra', x: 2, y: 0 }, { v: 'Cálculo II', x: 0, y: 1 }, { v: 'Ecuaciones', x: 1, y: 2 }]}
+  edges={[['Cálculo I', 'Cálculo II'], ['Cálculo II', 'Ecuaciones'], ['Álgebra', 'Ecuaciones']]}
+  caption="el grafo"
+  label="Cuatro ramos con sus prerrequisitos: Cálculo I antes de Cálculo II, y Cálculo II y Álgebra antes de Ecuaciones. Cada arco va del prerrequisito al ramo."
+/>
+</div>
+</div>
+
+</Slide>
+
+{/* River — the ferryman's crossing at two stages of the modelling pattern (#356): `river` the two banks, the river and the boat, with the ferryman, the wolf, the goat and the cabbage on the starting bank; `states` two trips written as states, what stays on the starting bank, so the state graph beside it reads. File-local. */}
+
+export function River({ stage = 'river', label }) {
+  const tag = (x, y, t, k) => (
+    <g key={k}>
+      <rect x={x - 42} y={y - 12} width="84" height="24" rx="12" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.2" />
+      <text x={x} y={y + 4} textAnchor="middle" fontSize="12" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{t}</text>
+    </g>
+  );
+  const arrow = (x1, x2, y, text, k) => (
+    <g key={k}>
+      <line x1={x1} y1={y} x2={x2 - 8} y2={y} style={{ stroke: 'var(--color-ink-soft)' }} strokeWidth="1.6" />
+      <polygon points={`${x2},${y} ${x2 - 9},${y - 5} ${x2 - 9},${y + 5}`} style={{ fill: 'var(--color-ink-soft)' }} />
+      <text x={(x1 + x2) / 2} y={y + 18} textAnchor="middle" fontSize="10.5" style={{ fill: 'var(--color-ink-soft)' }}>{text}</text>
+    </g>
+  );
+  return (
+    <svg viewBox="0 0 320 180" style={{ width: '100%', maxWidth: '340px', height: 'auto', display: 'block', margin: '0.4rem auto' }} role="img" aria-label={label}>
+      {stage === 'river' ? (
+        <>
+          <rect x="112" y="8" width="96" height="164" style={{ fill: 'var(--color-sunk)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1" />
+          {['barquero', 'lobo', 'cabra', 'repollo'].map((t, k) => tag(56, 34 + 38 * k, t, t))}
+          <polygon points="122,82 168,82 160,100 130,100" style={{ fill: 'var(--color-rule-strong)' }} />
+          <line x1="128" y1="66" x2="192" y2="66" style={{ stroke: 'var(--color-ink-soft)' }} strokeWidth="1.4" strokeDasharray="4 4" />
+          <polygon points="200,66 191,61 191,71" style={{ fill: 'var(--color-ink-soft)' }} />
+          <text x="264" y="94" textAnchor="middle" fontSize="11" style={{ fill: 'var(--color-ink-faint)' }}>la otra orilla</text>
+        </>
+      ) : (
+        <>
+          {tag(52, 52, 'BLCR', 'a')}
+          {arrow(98, 222, 52, 'cruza con la cabra', 'x')}
+          {tag(268, 52, 'LR', 'b')}
+          {tag(52, 128, 'LR', 'c')}
+          {arrow(98, 222, 128, 'vuelve solo', 'y')}
+          {tag(268, 128, 'BLR', 'd')}
+        </>
+      )}
+    </svg>
+  );
+}
+
+<Slide title="Un grafo de estados">
+Un barquero tiene que cruzar un río con un lobo, una cabra y un repollo. El
+bote lleva al barquero y a lo más una cosa más, y si el barquero no está, el
+lobo se come a la cabra y la cabra se come el repollo. Cada **estado**, lo que
+sigue en la orilla de partida, es un vértice, y cada viaje que no deja a
+nadie en peligro es una arista. Cruzar el río es llegar de un vértice a otro.
+
+<div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'center', gap: '0.5rem 0.75rem' }}>
+<figure style={{ flex: '1 1 190px', margin: 0, textAlign: 'center' }}>
+<River stage="river" label="Un río entre dos orillas. En la orilla de partida están el barquero, el lobo, la cabra y el repollo, y en el agua, el bote, con una flecha hacia la otra orilla." />
+<figcaption style={{ fontSize: '0.85rem', color: 'var(--color-ink-soft)' }}>el río</figcaption>
+</figure>
+<span aria-hidden="true" style={{ fontSize: '1.6rem', color: 'var(--color-ink-soft)' }}>→</span>
+<figure style={{ flex: '1 1 190px', margin: 0, textAlign: 'center' }}>
+<River stage="states" label="Dos viajes escritos como estados: de BLCR, todos en la orilla de partida, a LR, cuando el barquero cruza con la cabra; y de LR a BLR, cuando vuelve solo." />
+<figcaption style={{ fontSize: '0.85rem', color: 'var(--color-ink-soft)' }}>quién queda en la orilla de partida</figcaption>
+</figure>
+</div>
+
+<NodeGraph
+  cols={12}
+  rows={3}
+  nodes={[{ v: 'BLCR', x: 0, y: 1 }, { v: 'LR', x: 1.5, y: 1 }, { v: 'BLR', x: 3, y: 1 }, { v: 'R', x: 4.5, y: 0 }, { v: 'L', x: 4.5, y: 2 }, { v: 'BCR', x: 6, y: 0 }, { v: 'BLC', x: 6, y: 2 }, { v: 'C', x: 7.5, y: 1 }, { v: 'BC', x: 9, y: 1 }, { v: 'nadie', x: 10.5, y: 1 }]}
+  edges={[['BLCR', 'LR'], ['LR', 'BLR'], ['BLR', 'R'], ['BLR', 'L'], ['R', 'BCR'], ['L', 'BLC'], ['BCR', 'C'], ['BLC', 'C'], ['C', 'BC'], ['BC', 'nadie']]}
+  tones={{ BLCR: 'mark', nadie: 'keep' }}
+  caption="en la orilla de partida: B, el barquero; L, el lobo; C, la cabra; R, el repollo"
+  label="Los diez estados del cruce, nombrados por lo que sigue en la orilla de partida. BLCR, destacado, es el comienzo, y nadie, destacado, es el final. BLCR se une con LR, LR con BLR, y BLR con R y con L. R se une con BCR y L con BLC; BCR y BLC se unen con C, C con BC, y BC con nadie."
+/>
+
+En el grafo completo no aparecen los estados donde algo se come: no son
+vértices. Un candado de cuatro ruedas es lo mismo: cada combinación es un
+estado, y girar una rueda una posición pasa de un estado a otro.
+
+</Slide>
+
+<Slide title="Las preguntas detrás de las situaciones">
+Situaciones que no se parecen le hacen la misma pregunta a su grafo, y cada
+pregunta tiene nombre:
+
+| Situaciones | La pregunta | Lo que la responde |
+| --- | --- | --- |
+| el paseo por Königsberg · la figura de un solo trazo · el camión de la basura | ¿Se puede pasar por cada arista una sola vez? Es el **camino euleriano**. | los grados |
+| la red de seguidores | ¿Quién tiene más seguidores? | los grados de entrada |
+| el lobo, la cabra y el repollo · el candado | ¿Se puede llegar de un vértice a otro? Es la **alcanzabilidad**. | ? |
+| el mapa de calles | ¿Qué camino toma menos tiempo? Es el **camino más corto**. | ? |
+| la malla curricular | ¿En qué orden se toman los ramos? Es el **orden topológico**. | ? |
+
+Las dos primeras se responden mirando cada vértice por separado y contando
+sus aristas. Las otras piden seguir caminos de vértice en vértice, y para
+responderlas con un programa, primero hay que guardar el grafo.
+
+</Slide>
+
+<SectionBreak />
+
+## Graph · Grafo
+
+<Slide title="Un grafo como lista de aristas">
+Un grafo llega a un programa casi siempre como una **lista de aristas**: en la
+primera línea, la cantidad de vértices y la de aristas; después, una línea por
+arista con sus dos extremos. Cada línea es una arista del dibujo.
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.5rem 2rem', alignItems: 'center' }}>
+<div>
+
+```text
+4 4
+0 1
+0 2
+1 2
+2 3
+```
+
+</div>
+<NodeGraph
+  cols={3}
+  rows={3}
+  nodes={[{ v: 0, x: 0, y: 0 }, { v: 1, x: 2, y: 0 }, { v: 2, x: 1, y: 1 }, { v: 3, x: 1, y: 2 }]}
+  edges={[[0, 1, '01'], [0, 2, '02'], [1, 2, '12'], [2, 3, '23']]}
+  caption="cada arista, con su nombre"
+  label="El grafo de la lista: cuatro vértices, 0 a 3, y cuatro aristas, cada una rotulada con su nombre: 01, 02, 12 y 23."
+/>
+</div>
+
+Guardar esas líneas tal cual alcanza para contar las aristas, pero no para la
+pregunta que más se le hace a un grafo: quiénes son los vecinos de un vértice.
+Para saber los vecinos de `2` hay que leer las $$E$$ aristas buscando las que
+lo tocan, y hacerlo para cada vértice cuesta $$\Theta(V \cdot E)$$. El grafo
+tiene que guardarse de modo que esa pregunta se responda sin leerlo entero.
+
+</Slide>
+
+<Slide title="El TDA Graph">
+Un **Graph** —en español, **grafo**— guarda vértices numerados y las aristas
+entre ellos, y responde quiénes son los vecinos de cada vértice.
+
+<div style={{ border: '1px solid var(--color-rule)', borderRadius: '8px', overflow: 'hidden', margin: '1.25rem 0' }}>
+  <div style={{ background: 'var(--color-sunk)', padding: '0.55rem 0.9rem', borderBottom: '1px solid var(--color-rule)', fontWeight: 700 }}>Graph <span style={{ fontWeight: 400, color: 'var(--color-ink-faint)' }}>· el contrato</span></div>
+  <div style={{ display: 'grid', gridTemplateColumns: 'max-content 1fr', columnGap: '2rem' }}>
+  <div style={{ gridColumn: '1 / -1', padding: '0.7rem 0.9rem 0.15rem', fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.08em', color: 'var(--color-ink-faint)' }}>CREAR</div>
+  <code style={{ padding: `0.15rem 0 0.7rem 0.9rem`, whiteSpace: 'nowrap' }}>Graph(V)</code>
+  <span style={{ padding: `0.15rem 0.9rem 0.7rem 0` }}>crea un grafo con V vértices, numerados de 0 a V − 1, y sin aristas</span>
+  <div style={{ gridColumn: '1 / -1', borderTop: '1px solid var(--color-rule)', padding: '0.7rem 0.9rem 0.15rem', fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.08em', color: 'var(--color-keep)' }}>CONSULTAR · no cambian nada</div>
+  <code style={{ padding: `0.15rem 0 0.3rem 0.9rem`, whiteSpace: 'nowrap' }}>V() → entero</code>
+  <span style={{ padding: `0.15rem 0.9rem 0.3rem 0` }}>retorna cuántos vértices tiene el grafo</span>
+  <code style={{ padding: `0.15rem 0 0.3rem 0.9rem`, whiteSpace: 'nowrap' }}>E() → entero</code>
+  <span style={{ padding: `0.15rem 0.9rem 0.3rem 0` }}>retorna cuántas aristas tiene el grafo</span>
+  <code style={{ padding: `0.15rem 0 0.3rem 0.9rem`, whiteSpace: 'nowrap' }}>adj(v) → recorrido</code>
+  <span style={{ padding: `0.15rem 0.9rem 0.3rem 0` }}>entrega cada vecino de v</span>
+  <code style={{ padding: `0.15rem 0 0.7rem 0.9rem`, whiteSpace: 'nowrap' }}>hasEdge(v, w) → booleano</code>
+  <span style={{ padding: `0.15rem 0.9rem 0.7rem 0` }}>retorna verdadero si hay una arista entre v y w</span>
+  <div style={{ gridColumn: '1 / -1', borderTop: '1px solid var(--color-rule)', padding: '0.7rem 0.9rem 0.15rem', fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.08em', color: 'var(--color-accent)' }}>MODIFICAR · cambian el estado</div>
+  <code style={{ padding: `0.15rem 0 0.7rem 0.9rem`, whiteSpace: 'nowrap' }}>addEdge(v, w)</code>
+  <span style={{ padding: `0.15rem 0.9rem 0.7rem 0` }}>agrega una arista entre v y w</span>
+  </div>
+  <div style={{ padding: '0.65rem 0.9rem', borderTop: '1px solid var(--color-rule)', background: 'var(--color-sunk)' }}>
+    <div style={{ fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.08em', color: 'var(--color-ink-faint)' }}>LO QUE NO DICE</div>
+    <div style={{ marginTop: '0.35rem' }}>Cómo se guardan las aristas, cuánto cuesta cada operación, en qué orden entrega adj los vecinos ni qué pasa al agregar una arista que ya estaba.</div>
+  </div>
+</div>
+
+</Slide>
+
+<Slide title="Las reglas del contrato Graph">
+Un grafo sin dirección cumple dos invariantes:
+
+1. **Cada arista se ve desde sus dos extremos**: `w` está entre los vecinos
+   de `v` si y solo si `v` está entre los vecinos de `w`. Por eso `addEdge(v,
+   w)` deja la arista en los dos lados.
+2. **`E()` cuenta cada arista una vez**, aunque se vea desde dos vértices.
+
+Los vértices no cambian: el contrato no agrega ni saca vértices, y cada
+vértice es un número de $$0$$ a $$V - 1$$.
+
+</Slide>
+
+<Slide title="El contrato Graph en Java">
+Java no trae un grafo, así que escribimos el contrato como una interfaz:
+
+```java
+public interface Graph {
+    int V();
+    int E();
+    Iterable<Integer> adj(int v);
+    boolean hasEdge(int v, int w);
+    void addEdge(int v, int w);
+}
+```
+
+`adj` retorna un `Iterable<Integer>`: lo que se puede recorrer con un `for`.
+El constructor no va en la interfaz; cada clase que la implementa recibe
+`V` en el suyo.
+
+</Slide>
+
+<SectionBreak />
+
+## Matriz de adyacencia
+
+{/* AdjMatrix — an adjacency matrix as Java holds it: `rows[v][w]` is the text of the cell in row v and column w ('true', 'false', a weight, '∞'), with the vertex numbers along the top and the left. A cell that holds an edge — anything but 'false', '∞' or '' — is tinted mark-soft; `mark` outlines the cells [v, w] the slide talks about. File-local, with AdjLists below: the two drawings of the implementations act. */}
+
+export function AdjMatrix({ rows, mark = [], caption, label }) {
+  const n = rows.length;
+  const cw = 50;
+  const ch = 30;
+  const head = 26;
+  const pad = 10;
+  const gridW = head + n * cw;
+  const width = Math.max(gridW + 2 * pad, caption ? caption.length * 6.6 + 24 : 0);
+  const left = (width - gridW) / 2;
+  const top = pad;
+  const height = top + head + n * ch + (caption ? 34 : pad);
+  const marked = new Set(mark.map(([v, w]) => `${v},${w}`));
+  const empty = (t) => t === 'false' || t === '∞' || t === '';
+  const cells = [];
+  for (let v = 0; v < n; v++) {
+    cells.push(<text key={`r${v}`} x={left + head / 2} y={top + head + v * ch + ch / 2 + 5} textAnchor="middle" fontSize="13" fontWeight="600" style={{ fill: 'var(--color-ink-faint)' }}>{v}</text>);
+    cells.push(<text key={`c${v}`} x={left + head + v * cw + cw / 2} y={top + head / 2 + 5} textAnchor="middle" fontSize="13" fontWeight="600" style={{ fill: 'var(--color-ink-faint)' }}>{v}</text>);
+    for (let w = 0; w < n; w++) {
+      const t = String(rows[v][w]);
+      const hot = marked.has(`${v},${w}`);
+      cells.push(
+        <g key={`${v},${w}`}>
+          <rect x={left + head + w * cw} y={top + head + v * ch} width={cw} height={ch} style={{ fill: empty(t) ? 'var(--color-surface)' : 'var(--color-mark-soft)', stroke: hot ? 'var(--color-mark)' : 'var(--color-rule-strong)' }} strokeWidth={hot ? 2.4 : 1} />
+          <text x={left + head + w * cw + cw / 2} y={top + head + v * ch + ch / 2 + 4} textAnchor="middle" fontSize="12" fontFamily="var(--font-mono, monospace)" style={{ fill: empty(t) ? 'var(--color-ink-faint)' : 'var(--color-ink)' }}>{t}</text>
+        </g>,
+      );
+    }
+  }
+  return (
+    <svg viewBox={`0 0 ${width} ${height}`} style={{ width: '100%', maxWidth: `${Math.round(width * 1.3)}px`, height: 'auto', display: 'block', margin: '0.4rem auto' }} role="img" aria-label={label}>
+      {cells}
+      {caption ? (
+        <text x={width / 2} y={height - 12} textAnchor="middle" fontSize="12" style={{ fill: 'var(--color-ink-soft)' }}>{caption}</text>
+      ) : null}
+    </svg>
+  );
+}
+
+{/* AdjLists — adjacency lists as Java holds them: one row per vertex, its number in a box, then the chips of its list in the order they were added. A chip's text is what the list stores: a neighbour, or a neighbour and a weight. `mark` lists the [vertex, position] chips the slide talks about. */}
+
+export function AdjLists({ lists, mark = [], caption, label }) {
+  const rowH = 36;
+  const box = 30;
+  const chipH = 26;
+  const gap = 8;
+  const pad = 12;
+  const chipW = (t) => Math.max(32, String(t).length * 8 + 16);
+  const rowW = (l) => box + 24 + l.reduce((acc, t) => acc + chipW(t) + gap, 0);
+  const innerW = Math.max(...lists.map(rowW), box + 24 + 40);
+  const width = Math.max(innerW + 2 * pad, caption ? caption.length * 6.6 + 24 : 0);
+  const left = pad + (width - 2 * pad - innerW) / 2;
+  const height = pad + lists.length * rowH + (caption ? 30 : pad);
+  const marked = new Set(mark.map(([v, i]) => `${v},${i}`));
+  return (
+    <svg viewBox={`0 0 ${width} ${height}`} style={{ width: '100%', maxWidth: `${Math.round(width * 1.3)}px`, height: 'auto', display: 'block', margin: '0.4rem auto' }} role="img" aria-label={label}>
+      {lists.map((l, v) => {
+        const y = pad + v * rowH;
+        let x = left + box + 24;
+        return (
+          <g key={v}>
+            <rect x={left} y={y} width={box} height={box} style={{ fill: 'var(--color-sunk)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1" />
+            <text x={left + box / 2} y={y + box / 2 + 5} textAnchor="middle" fontSize="13" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{v}</text>
+            <line x1={left + box} y1={y + box / 2} x2={left + box + 18} y2={y + box / 2} style={{ stroke: 'var(--color-rule-strong)' }} strokeWidth="1.3" />
+            {l.map((t, i) => {
+              const w = chipW(t);
+              const hot = marked.has(`${v},${i}`);
+              const cx = x;
+              x += w + gap;
+              return (
+                <g key={i}>
+                  <rect x={cx} y={y + (box - chipH) / 2} width={w} height={chipH} rx="6" style={{ fill: hot ? 'var(--color-mark-soft)' : 'var(--color-surface)', stroke: hot ? 'var(--color-mark)' : 'var(--color-rule-strong)' }} strokeWidth={hot ? 2.2 : 1} />
+                  <text x={cx + w / 2} y={y + box / 2 + 4} textAnchor="middle" fontSize="12" fontFamily="var(--font-mono, monospace)" style={{ fill: 'var(--color-ink)' }}>{t}</text>
+                </g>
+              );
+            })}
+          </g>
+        );
+      })}
+      {caption ? (
+        <text x={width / 2} y={height - 10} textAnchor="middle" fontSize="12" style={{ fill: 'var(--color-ink-soft)' }}>{caption}</text>
+      ) : null}
+    </svg>
+  );
+}
+
+<Slide title="Una matriz de adyacencia">
+Una **matriz de adyacencia** es una tabla de $$V \times V$$ booleanos, con una
+casilla por cada par de vértices:
+
+$$
+M[u][v] = \text{verdadero} \iff uv \in E
+$$
+
+Se lee «la casilla de la fila $$u$$ y la columna $$v$$ es verdadera si y solo si
+la arista $$uv$$ está en $$E$$». Es su primera invariante. La segunda: en un
+grafo no dirigido cada arista llena dos casillas, una a cada lado de la
+diagonal, y la matriz es simétrica, $$M[u][v] = M[v][u]$$.
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.5rem 2rem', alignItems: 'center' }}>
+<NodeGraph
+  cols={3}
+  rows={3}
+  nodes={[{ v: 0, x: 0, y: 0 }, { v: 1, x: 2, y: 0 }, { v: 2, x: 1, y: 1 }, { v: 3, x: 1, y: 2 }]}
+  edges={[[0, 1], [0, 2], [1, 2], [2, 3]]}
+  markEdges={[[2, 3]]}
+  caption="cuatro vértices y cuatro aristas"
+  label="Un grafo de cuatro vértices, 0 a 3, con las aristas 0-1, 0-2, 1-2 y 2-3; la arista 2-3 marcada."
+/>
+<AdjMatrix
+  rows={[['false', 'true', 'true', 'false'], ['true', 'false', 'true', 'false'], ['true', 'true', 'false', 'true'], ['false', 'false', 'true', 'false']]}
+  mark={[[2, 3], [3, 2]]}
+  caption="la arista 2-3 llena [2][3] y [3][2]"
+  label="Su matriz de adyacencia de 4 por 4. Son verdaderas las casillas [0][1], [0][2], [1][0], [1][2], [2][0], [2][1], [2][3] y [3][2]; marcadas, [2][3] y [3][2], las dos de la arista 2-3."
+/>
+</div>
+
+</Slide>
+
+<Slide title="Construir la matriz">
+La clase guarda la tabla y la cantidad de aristas. El constructor crea la
+matriz con todas sus casillas en `false`, y cada `addEdge` llena las dos
+casillas de su arista. Las aristas son las de la lista, una por una:
+
+<StepShow
+  language="java"
+  title="La matriz, arista por arista"
+  code={`public class AdjMatrixGraph implements Graph {
+    private final boolean[][] matrix;
+    private int E;
+
+    public AdjMatrixGraph(int V) {
+        matrix = new boolean[V][V];
+    }
+
+    public void addEdge(int v, int w) {
+        if (!matrix[v][w]) {
+            E++;
+        }
+        matrix[v][w] = true;
+        matrix[w][v] = true;
+    }
+}`}
+>
+  <Step lines={[6]}>
+    <AdjMatrix
+      rows={[['false', 'false', 'false', 'false'], ['false', 'false', 'false', 'false'], ['false', 'false', 'false', 'false'], ['false', 'false', 'false', 'false']]}
+      mark={[]}
+      caption="new boolean[4][4]: todas en false, E = 0"
+      label="Una matriz de 4 por 4 con todas las casillas en false."
+    />
+  </Step>
+  <Step lines={[10, 11, 13, 14]}>
+    <AdjMatrix
+      rows={[['false', 'true', 'false', 'false'], ['true', 'false', 'false', 'false'], ['false', 'false', 'false', 'false'], ['false', 'false', 'false', 'false']]}
+      mark={[[0, 1], [1, 0]]}
+      caption="addEdge(0, 1): [0][1] y [1][0], E = 1"
+      label="Después de addEdge(0, 1). Verdaderas: [0][1], [1][0]. Marcadas, [0][1] y [1][0]."
+    />
+  </Step>
+  <Step lines={[10, 11, 13, 14]}>
+    <AdjMatrix
+      rows={[['false', 'true', 'true', 'false'], ['true', 'false', 'false', 'false'], ['true', 'false', 'false', 'false'], ['false', 'false', 'false', 'false']]}
+      mark={[[0, 2], [2, 0]]}
+      caption="addEdge(0, 2): [0][2] y [2][0], E = 2"
+      label="Después de addEdge(0, 2). Verdaderas: [0][1], [0][2], [1][0], [2][0]. Marcadas, [0][2] y [2][0]."
+    />
+  </Step>
+  <Step lines={[10, 11, 13, 14]}>
+    <AdjMatrix
+      rows={[['false', 'true', 'true', 'false'], ['true', 'false', 'true', 'false'], ['true', 'true', 'false', 'false'], ['false', 'false', 'false', 'false']]}
+      mark={[[1, 2], [2, 1]]}
+      caption="addEdge(1, 2): [1][2] y [2][1], E = 3"
+      label="Después de addEdge(1, 2). Verdaderas: [0][1], [0][2], [1][0], [1][2], [2][0], [2][1]. Marcadas, [1][2] y [2][1]."
+    />
+  </Step>
+  <Step lines={[10, 11, 13, 14]}>
+    <AdjMatrix
+      rows={[['false', 'true', 'true', 'false'], ['true', 'false', 'true', 'false'], ['true', 'true', 'false', 'true'], ['false', 'false', 'true', 'false']]}
+      mark={[[2, 3], [3, 2]]}
+      caption="addEdge(2, 3): [2][3] y [3][2], E = 4"
+      label="Después de addEdge(2, 3). Verdaderas: [0][1], [0][2], [1][0], [1][2], [2][0], [2][1], [2][3], [3][2]. Marcadas, [2][3] y [3][2]."
+    />
+  </Step>
+</StepShow>
+
+Crear la matriz cuesta $$\Theta(V^2)$$, porque son $$V^2$$ casillas, y cada
+`addEdge` escribe dos: $$\Theta(1)$$. Cuenta la arista solo si no estaba, y
+una casilla no guarda dos aristas: la matriz no admite aristas paralelas.
+
+</Slide>
+
+<Slide title="¿Hay una arista? En la matriz">
+`hasEdge(v, w)` responde mirando una sola casilla, $$M[v][w]$$:
+
+```java
+public boolean hasEdge(int v, int w) { return matrix[v][w]; }
+```
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.5rem 2rem', alignItems: 'end' }}>
+<AdjMatrix
+  rows={[['false', 'true', 'true', 'false'], ['true', 'false', 'true', 'false'], ['true', 'true', 'false', 'true'], ['false', 'false', 'true', 'false']]}
+  mark={[[2, 3]]}
+  caption="hasEdge(2, 3): [2][3] es true"
+  label="La matriz completa del grafo. Marcada, la casilla [2][3], que es true: hay una arista entre 2 y 3."
+/>
+<AdjMatrix
+  rows={[['false', 'true', 'true', 'false'], ['true', 'false', 'true', 'false'], ['true', 'true', 'false', 'true'], ['false', 'false', 'true', 'false']]}
+  mark={[[1, 3]]}
+  caption="hasEdge(1, 3): [1][3] es false"
+  label="La misma matriz. Marcada, la casilla [1][3], que es false: no hay arista entre 1 y 3."
+/>
+</div>
+
+Cuesta $$\Theta(1)$$, tenga el grafo las aristas que tenga.
+
+</Slide>
+
+<Slide title="Los vecinos en la matriz">
+`adj(v)` recorre la fila de `v` casilla por casilla y guarda cada `w` cuya
+casilla es verdadera. El vértice 3 tiene un solo vecino, y aun así se miran las
+cuatro casillas de su fila:
+
+<StepShow
+  language="java"
+  title="adj(3) en la matriz"
+  code={`public Iterable<Integer> adj(int v) {
+    List<Integer> neighbors = new ArrayList<>();
+    for (int w = 0; w < matrix.length; w++) {
+        if (matrix[v][w]) {
+            neighbors.add(w);
+        }
+    }
+    return neighbors;
+}`}
+>
+  <Step lines={[3, 4]}>
+    <AdjMatrix
+      rows={[['false', 'true', 'true', 'false'], ['true', 'false', 'true', 'false'], ['true', 'true', 'false', 'true'], ['false', 'false', 'true', 'false']]}
+      mark={[[3, 0]]}
+      caption="w = 0: [3][0] es false"
+      label="La fila 3 de la matriz, con la casilla [3][0] marcada: es false, así que 0 no es vecino de 3."
+    />
+  </Step>
+  <Step lines={[3, 4]}>
+    <AdjMatrix
+      rows={[['false', 'true', 'true', 'false'], ['true', 'false', 'true', 'false'], ['true', 'true', 'false', 'true'], ['false', 'false', 'true', 'false']]}
+      mark={[[3, 1]]}
+      caption="w = 1: [3][1] es false"
+      label="La fila 3 de la matriz, con la casilla [3][1] marcada: es false, así que 1 no es vecino de 3."
+    />
+  </Step>
+  <Step lines={[3, 4, 5]}>
+    <AdjMatrix
+      rows={[['false', 'true', 'true', 'false'], ['true', 'false', 'true', 'false'], ['true', 'true', 'false', 'true'], ['false', 'false', 'true', 'false']]}
+      mark={[[3, 2]]}
+      caption="w = 2: [3][2] es true, 2 es vecino"
+      label="La fila 3 de la matriz, con la casilla [3][2] marcada: es true, así que 2 es vecino de 3."
+    />
+  </Step>
+  <Step lines={[3, 4]}>
+    <AdjMatrix
+      rows={[['false', 'true', 'true', 'false'], ['true', 'false', 'true', 'false'], ['true', 'true', 'false', 'true'], ['false', 'false', 'true', 'false']]}
+      mark={[[3, 3]]}
+      caption="w = 3: [3][3] es false"
+      label="La fila 3 de la matriz, con la casilla [3][3] marcada: es false, así que 3 no es vecino de 3."
+    />
+  </Step>
+  <Step lines={[7]}>
+    <AdjMatrix
+      rows={[['false', 'true', 'true', 'false'], ['true', 'false', 'true', 'false'], ['true', 'true', 'false', 'true'], ['false', 'false', 'true', 'false']]}
+      mark={[[3, 0], [3, 1], [3, 2], [3, 3]]}
+      caption="retorna [2]: miró las 4 casillas"
+      label="La fila 3 completa marcada: adj(3) miró sus cuatro casillas para encontrar un solo vecino, el 2."
+    />
+  </Step>
+</StepShow>
+
+Recorre la fila completa: $$\Theta(V)$$, aunque `v` tenga pocos vecinos.
+
+</Slide>
+
+<SectionBreak />
+
+## Listas de adyacencia
+
+<Slide title="Unas listas de adyacencia">
+Unas **listas de adyacencia** guardan, por cada vértice, una lista con sus
+vecinos: la lista de $$v$$ tiene un $$w$$ por cada arista $$vw$$ de $$E$$.
+
+$$
+|\mathrm{adj}(v)| = \operatorname{grado}(v)
+$$
+
+Se lee «el largo de la lista de $$v$$ es el grado de $$v$$». Es su invariante,
+junto con esta: en un grafo no dirigido cada arista aparece dos veces, en la
+lista de cada uno de sus extremos.
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.5rem 2rem', alignItems: 'center' }}>
+<NodeGraph
+  cols={3}
+  rows={3}
+  nodes={[{ v: 0, x: 0, y: 0 }, { v: 1, x: 2, y: 0 }, { v: 2, x: 1, y: 1 }, { v: 3, x: 1, y: 2 }]}
+  edges={[[0, 1], [0, 2], [1, 2], [2, 3]]}
+  markEdges={[[2, 3]]}
+  caption="el mismo grafo"
+  label="El mismo grafo de cuatro vértices, con las aristas 0-1, 0-2, 1-2 y 2-3; la arista 2-3 marcada."
+/>
+<AdjLists
+  lists={[[1, 2], [0, 2], [0, 1, 3], [2]]}
+  mark={[[2, 2], [3, 0]]}
+  caption="la arista 2-3: un 3 en la lista de 2 y un 2 en la de 3"
+  label="Sus listas de adyacencia: 0 tiene a 1 y 2; 1 tiene a 0 y 2; 2 tiene a 0, 1 y 3; 3 tiene a 2. Marcados, el 3 en la lista de 2 y el 2 en la lista de 3: la arista 2-3."
+/>
+</div>
+
+</Slide>
+
+<Slide title="Construir las listas">
+La clase guarda una lista por vértice y la cantidad de aristas. El constructor
+crea las $$V$$ listas vacías, y cada `addEdge` agrega cada extremo al final de
+la lista del otro. Las aristas son las mismas:
+
+<StepShow
+  language="java"
+  title="Las listas, arista por arista"
+  code={`public class AdjListGraph implements Graph {
+    private final List<List<Integer>> lists;
+    private int E;
+
+    public AdjListGraph(int V) {
+        lists = new ArrayList<>();
+        for (int v = 0; v < V; v++) {
+            lists.add(new ArrayList<>());
+        }
+    }
+
+    public void addEdge(int v, int w) {
+        lists.get(v).add(w);
+        lists.get(w).add(v);
+        E++;
+    }
+}`}
+>
+  <Step lines={[7, 8]}>
+    <AdjLists
+      lists={[[], [], [], []]}
+      mark={[]}
+      caption="cuatro listas vacías, E = 0"
+      label="Cuatro listas, una por vértice, todas vacías."
+    />
+  </Step>
+  <Step lines={[13, 14, 15]}>
+    <AdjLists
+      lists={[[1], [0], [], []]}
+      mark={[[0, 0], [1, 0]]}
+      caption="addEdge(0, 1): un 1 al final de la lista de 0 y un 0 al de 1"
+      label="Después de addEdge(0, 1): la lista de 0 tiene 1; la lista de 1 tiene 0; la lista de 2 está vacía; la lista de 3 está vacía. Marcados, los dos agregados."
+    />
+  </Step>
+  <Step lines={[13, 14, 15]}>
+    <AdjLists
+      lists={[[1, 2], [0], [0], []]}
+      mark={[[0, 1], [2, 0]]}
+      caption="addEdge(0, 2): un 2 al final de la lista de 0 y un 0 al de 2"
+      label="Después de addEdge(0, 2): la lista de 0 tiene 1, 2; la lista de 1 tiene 0; la lista de 2 tiene 0; la lista de 3 está vacía. Marcados, los dos agregados."
+    />
+  </Step>
+  <Step lines={[13, 14, 15]}>
+    <AdjLists
+      lists={[[1, 2], [0, 2], [0, 1], []]}
+      mark={[[1, 1], [2, 1]]}
+      caption="addEdge(1, 2): un 2 al final de la lista de 1 y un 1 al de 2"
+      label="Después de addEdge(1, 2): la lista de 0 tiene 1, 2; la lista de 1 tiene 0, 2; la lista de 2 tiene 0, 1; la lista de 3 está vacía. Marcados, los dos agregados."
+    />
+  </Step>
+  <Step lines={[13, 14, 15]}>
+    <AdjLists
+      lists={[[1, 2], [0, 2], [0, 1, 3], [2]]}
+      mark={[[2, 2], [3, 0]]}
+      caption="addEdge(2, 3): un 3 al final de la lista de 2 y un 2 al de 3"
+      label="Después de addEdge(2, 3): la lista de 0 tiene 1, 2; la lista de 1 tiene 0, 2; la lista de 2 tiene 0, 1, 3; la lista de 3 tiene 2. Marcados, los dos agregados."
+    />
+  </Step>
+</StepShow>
+
+Crear las listas cuesta $$\Theta(V)$$, y cada `addEdge` agrega dos entradas:
+$$\Theta(1)$$. No revisa si la arista ya estaba: agregarla dos veces deja dos
+aristas, como los dos puentes de Königsberg.
+
+</Slide>
+
+<Slide title="¿Hay una arista? En las listas">
+`hasEdge(v, w)` recorre la lista de `v` buscando a `w`. Para saber si hay una
+arista entre 2 y 3, revisa la lista de 2 hasta encontrar el 3:
+
+<StepShow
+  language="java"
+  title="hasEdge(2, 3) en las listas"
+  code={`public boolean hasEdge(int v, int w) {
+    for (int x : lists.get(v)) {
+        if (x == w) {
+            return true;
+        }
+    }
+    return false;
+}`}
+>
+  <Step lines={[2, 3]}>
+    <AdjLists
+      lists={[[1, 2], [0, 2], [0, 1, 3], [2]]}
+      mark={[[2, 0]]}
+      caption="x = 0: no es 3, sigue"
+      label="La lista de 2, con su entrada 0 marcada: no es 3, así que sigue buscando."
+    />
+  </Step>
+  <Step lines={[2, 3]}>
+    <AdjLists
+      lists={[[1, 2], [0, 2], [0, 1, 3], [2]]}
+      mark={[[2, 1]]}
+      caption="x = 1: no es 3, sigue"
+      label="La lista de 2, con su entrada 1 marcada: no es 3, así que sigue buscando."
+    />
+  </Step>
+  <Step lines={[2, 3, 4]}>
+    <AdjLists
+      lists={[[1, 2], [0, 2], [0, 1, 3], [2]]}
+      mark={[[2, 2]]}
+      caption="x = 3: es 3, retorna true"
+      label="La lista de 2, con su entrada 3 marcada: es la que se busca, hasEdge(2, 3) retorna true."
+    />
+  </Step>
+</StepShow>
+
+En el peor caso recorre la lista entera: $$\Theta(\operatorname{grado}(v))$$.
+
+</Slide>
+
+<Slide title="Los vecinos en las listas">
+`adj(v)` entrega la lista de `v` tal como está, sin mirar a nadie más:
+
+```java
+public Iterable<Integer> adj(int v) { return lists.get(v); }
+```
+
+<AdjLists
+  lists={[[1, 2], [0, 2], [0, 1, 3], [2]]}
+  mark={[[2, 0], [2, 1], [2, 2]]}
+  caption="adj(2): la lista de 2, entera"
+  label="Las listas del grafo, con la lista de 2 marcada entera: 0, 1 y 3, sus tres vecinos."
+/>
+
+Entregarla cuesta $$\Theta(1)$$, y recorrerla, lo que mide:
+$$\Theta(\operatorname{grado}(v))$$.
+
+</Slide>
+
+<Slide title="Un mismo cliente, dos costos">
+El grado de un vértice se calcula solo con el contrato: recorrer sus vecinos y
+contarlos. El método no sabe cómo está guardado el grafo, así que funciona con
+la matriz y con las listas:
+
+```java
+static int degree(Graph g, int v) {
+    int count = 0;
+    for (int w : g.adj(v)) {
+        count++;
+    }
+    return count;
+}
+```
+
+Lo que cambia es su costo, porque lo pone `adj(v)`:
+
+- con la **matriz**, $$\Theta(V)$$: recorre la fila completa;
+- con las **listas**, $$\Theta(\operatorname{grado}(v))$$: recorre solo los
+  vecinos.
+
+Un algoritmo escrito con el contrato sirve para cualquier implementación, y la
+implementación decide cuánto cuesta.
+
+</Slide>
+
+<Slide title="Leer un grafo">
+La lista de aristas se lee línea a línea. Cada arista entra con `addEdge`, que
+en un grafo sin dirección la deja en las dos listas:
+
+```java
+static Graph read(Scanner in) {
+    int V = in.nextInt();
+    int E = in.nextInt();
+    Graph g = new AdjListGraph(V);
+    for (int i = 0; i < E; i++) {
+        int v = in.nextInt();
+        int w = in.nextInt();
+        g.addEdge(v, w);
+    }
+    return g;
+}
+```
+
+</Slide>
+
+<Slide title="De nombres a números">
+La lista de aristas trae números, pero un problema casi siempre trae nombres:
+ciudades, personas, ramos. El grafo numera sus vértices de $$0$$ a $$V - 1$$
+para usarlos como índices, así que los nombres se traducen a esos números al
+leerlos, con dos estructuras:
+
+- un **Map** del nombre a su número, para traducir al leer;
+- una **lista** del número a su nombre, para traducir de vuelta al escribir
+  la respuesta.
+
+Cada nombre nuevo recibe el siguiente número libre.
+
+| Nombre   | Número |
+| -------- | ------ |
+| Santiago | 0      |
+| Lima     | 1      |
+| Bogotá   | 2      |
+| Quito    | 3      |
+
+</Slide>
+
+<Slide title="De nombres a números en Java">
+En Java, las dos estructuras son un `HashMap` del nombre a su número y un
+`ArrayList` con los nombres, en el orden en que aparecieron:
+
+```java
+Map<String, Integer> ids = new HashMap<>();
+List<String> names = new ArrayList<>();
+
+int idOf(String name) {
+    if (!ids.containsKey(name)) {
+        ids.put(name, names.size());
+        names.add(name);
+    }
+    return ids.get(name);
+}
+```
+
+Un nombre que llega por primera vez recibe el número `names.size()`, el
+siguiente libre. `names.get(v)` devuelve el nombre del vértice `v` al escribir
+la respuesta.
+
+</Slide>
+
+<SectionBreak />
+
+## Grafos dirigidos y con pesos
+
+<Slide title="Un grafo dirigido">
+En un grafo dirigido, `addEdge(v, w)` agrega solo el arco de `v` a `w`. Cada
+implementación es otra clase que cumple el mismo contrato, y cambia una línea:
+la que dejaba la arista también del otro lado. En símbolos, $$M[u][v]$$ es
+verdadera si y solo si $$(u, v) \in E$$, y
+$$|\mathrm{adj}(v)| = \operatorname{grado}^+(v)$$.
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '0.5rem 1.5rem', alignItems: 'center' }}>
+<NodeGraph
+  cols={3}
+  rows={3}
+  directed
+  nodes={[{ v: 0, x: 0, y: 0 }, { v: 1, x: 2, y: 0 }, { v: 2, x: 1, y: 1 }, { v: 3, x: 1, y: 2 }]}
+  edges={[[0, 1], [0, 2], [1, 2], [2, 3]]}
+  caption="los mismos pares, ahora arcos"
+  label="El grafo de cuatro vértices con flechas: de 0 a 1, de 0 a 2, de 1 a 2 y de 2 a 3."
+/>
+<AdjMatrix
+  rows={[['false', 'true', 'true', 'false'], ['false', 'false', 'true', 'false'], ['false', 'false', 'false', 'true'], ['false', 'false', 'false', 'false']]}
+  mark={[[2, 3]]}
+  caption="2 → 3 llena solo [2][3]: ya no es simétrica"
+  label="Su matriz: verdaderas solo [0][1], [0][2], [1][2] y [2][3]. Ya no es simétrica; marcada, [2][3]."
+/>
+</div>
+
+</Slide>
+
+<Slide title="Construir un grafo dirigido">
+`AdjListDigraph` es la clase de las listas sin la línea que agregaba el otro
+extremo. Las mismas aristas, ahora arcos, entran una por una:
+
+<StepShow
+  language="java"
+  title="Las listas dirigidas, arco por arco"
+  code={`public class AdjListDigraph implements Graph {
+    private final List<List<Integer>> lists;
+    private int E;
+
+    public AdjListDigraph(int V) {
+        lists = new ArrayList<>();
+        for (int v = 0; v < V; v++) {
+            lists.add(new ArrayList<>());
+        }
+    }
+
+    public void addEdge(int v, int w) {
+        lists.get(v).add(w);
+        E++;
+    }
+}`}
+>
+  <Step lines={[7, 8]}>
+    <AdjLists
+      lists={[[], [], [], []]}
+      mark={[]}
+      caption="cuatro listas vacías"
+      label="Cuatro listas vacías."
+    />
+  </Step>
+  <Step lines={[13, 14]}>
+    <AdjLists
+      lists={[[1], [], [], []]}
+      mark={[[0, 0]]}
+      caption="addEdge(0, 1): un 1 solo en la lista de 0"
+      label="Después de addEdge(0, 1) dirigido: la lista de 0 tiene 1; la lista de 1 está vacía; la lista de 2 está vacía; la lista de 3 está vacía. Marcado, el 1 agregado en la lista de 0."
+    />
+  </Step>
+  <Step lines={[13, 14]}>
+    <AdjLists
+      lists={[[1, 2], [], [], []]}
+      mark={[[0, 1]]}
+      caption="addEdge(0, 2): un 2 solo en la lista de 0"
+      label="Después de addEdge(0, 2) dirigido: la lista de 0 tiene 1, 2; la lista de 1 está vacía; la lista de 2 está vacía; la lista de 3 está vacía. Marcado, el 2 agregado en la lista de 0."
+    />
+  </Step>
+  <Step lines={[13, 14]}>
+    <AdjLists
+      lists={[[1, 2], [2], [], []]}
+      mark={[[1, 0]]}
+      caption="addEdge(1, 2): un 2 solo en la lista de 1"
+      label="Después de addEdge(1, 2) dirigido: la lista de 0 tiene 1, 2; la lista de 1 tiene 2; la lista de 2 está vacía; la lista de 3 está vacía. Marcado, el 2 agregado en la lista de 1."
+    />
+  </Step>
+  <Step lines={[13, 14]}>
+    <AdjLists
+      lists={[[1, 2], [2], [3], []]}
+      mark={[[2, 0]]}
+      caption="addEdge(2, 3): un 3 solo en la lista de 2"
+      label="Después de addEdge(2, 3) dirigido: la lista de 0 tiene 1, 2; la lista de 1 tiene 2; la lista de 2 tiene 3; la lista de 3 está vacía. Marcado, el 3 agregado en la lista de 2."
+    />
+  </Step>
+</StepShow>
+
+Cada arco aparece en una sola lista, la de su origen: `adj(v)` entrega los
+vértices a los que llegan los arcos que salen de `v`.
+
+</Slide>
+
+<Slide title="El grado de entrada en un grafo dirigido">
+`adj(v)` entrega los arcos que salen de `v`, así que el grado de salida
+sale de recorrer `adj(v)`. Los arcos que **llegan** a `v` no están en su
+lista: están repartidas en las listas de los otros vértices. Para contarlas
+hay que recorrer todas las listas, o la columna de `v` en la matriz.
+
+```java
+static int inDegree(Graph g, int v) {
+    int count = 0;
+    for (int u = 0; u < g.V(); u++) {
+        for (int w : g.adj(u)) {
+            if (w == v) {
+                count++;
+            }
+        }
+    }
+    return count;
+}
+```
+
+Con listas cuesta $$\Theta(V + E)$$, porque pasa por cada lista y por cada
+arco.
+
+</Slide>
+
+<Slide title="Un grafo con pesos en Java">
+Con pesos, el contrato cambia: `addEdge` recibe el peso de la arista, y
+`adj(v)` entrega cada vecino junto con el peso de la arista que lleva a él.
+Una clase chica, `Edge`, junta los dos, y el contrato es otra interfaz:
+
+```java
+public class Edge {
+    public final int to;
+    public final int weight;
+
+    public Edge(int to, int weight) {
+        this.to = to;
+        this.weight = weight;
+    }
+}
+
+public interface WeightedGraph {
+    int V();
+    int E();
+    Iterable<Edge> adj(int v);
+    void addEdge(int v, int w, int weight);
+}
+```
+
+Las dos implementaciones con pesos cumplen este contrato.
+
+</Slide>
+
+<Slide title="Un grafo con pesos en la matriz">
+Con pesos, la casilla guarda el peso de la arista en vez de un booleano:
+
+$$
+M[u][v] = \begin{cases} w(u, v) & \text{si } uv \in E \\ \infty & \text{si no} \end{cases}
+$$
+
+Se lee «la casilla de $$u$$ y $$v$$ guarda el peso de $$uv$$ si la arista
+existe, e infinito si no». Una casilla sin arista no puede guardar $$0$$, porque una arista de peso $$0$$
+existe: un tramo que no cuesta nada. Guarda un valor que ningún peso puede
+tomar, $$\infty$$, que en Java es el entero más grande, `Integer.MAX_VALUE`.
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.5rem 2rem', alignItems: 'center' }}>
+<NodeGraph
+  cols={3}
+  rows={3}
+  nodes={[{ v: 'A', x: 0, y: 0 }, { v: 'B', x: 2, y: 0 }, { v: 'C', x: 1, y: 1 }, { v: 'D', x: 1, y: 2 }]}
+  edges={[['A', 'B', 7], ['A', 'C', 3], ['B', 'C', 2], ['C', 'D', 4]]}
+  caption="A = 0, B = 1, C = 2, D = 3"
+  label="Un grafo con pesos de cuatro vértices, A, B, C y D, que son los vértices 0, 1, 2 y 3: A-B pesa 7, A-C 3, B-C 2 y C-D 4."
+/>
+<AdjMatrix
+  rows={[['∞', '7', '3', '∞'], ['7', '∞', '2', '∞'], ['3', '2', '∞', '4'], ['∞', '∞', '4', '∞']]}
+  mark={[[2, 3], [3, 2]]}
+  caption="cada peso dos veces; ∞ donde no hay arista"
+  label="Su matriz de pesos: [0][1] y [1][0] valen 7, [0][2] y [2][0] valen 3, [1][2] y [2][1] valen 2, [2][3] y [3][2] valen 4, y todas las demás casillas valen infinito."
+/>
+</div>
+
+</Slide>
+
+<Slide title="Construir la matriz con pesos">
+`WeightedMatrixGraph` implementa `WeightedGraph`. El constructor llena todas
+las casillas con $$\infty$$, y cada `addEdge` escribe el peso en las dos
+casillas de su arista. Las aristas son las mismas, ahora con pesos:
+
+<StepShow
+  language="java"
+  title="La matriz con pesos, arista por arista"
+  code={`public class WeightedMatrixGraph implements WeightedGraph {
+    static final int INFINITY = Integer.MAX_VALUE;
+    private final int[][] weight;
+    private int E;
+
+    public WeightedMatrixGraph(int V) {
+        weight = new int[V][V];
+        for (int[] row : weight) {
+            Arrays.fill(row, INFINITY);
+        }
+    }
+
+    public void addEdge(int v, int w, int weight) {
+        if (this.weight[v][w] == INFINITY) {
+            E++;
+        }
+        this.weight[v][w] = weight;
+        this.weight[w][v] = weight;
+    }
+}`}
+>
+  <Step lines={[7, 8, 9]}>
+    <AdjMatrix
+      rows={[['∞', '∞', '∞', '∞'], ['∞', '∞', '∞', '∞'], ['∞', '∞', '∞', '∞'], ['∞', '∞', '∞', '∞']]}
+      mark={[]}
+      caption="todas las casillas en ∞"
+      label="Una matriz de 4 por 4 con todas las casillas en infinito."
+    />
+  </Step>
+  <Step lines={[14, 15, 17, 18]}>
+    <AdjMatrix
+      rows={[['∞', '7', '∞', '∞'], ['7', '∞', '∞', '∞'], ['∞', '∞', '∞', '∞'], ['∞', '∞', '∞', '∞']]}
+      mark={[[0, 1], [1, 0]]}
+      caption="addEdge(0, 1, 7): 7 en [0][1] y [1][0]"
+      label="Después de addEdge(0, 1, 7): el peso 7 en las casillas [0][1] y [1][0], marcadas; las casillas sin arista siguen en infinito."
+    />
+  </Step>
+  <Step lines={[14, 15, 17, 18]}>
+    <AdjMatrix
+      rows={[['∞', '7', '3', '∞'], ['7', '∞', '∞', '∞'], ['3', '∞', '∞', '∞'], ['∞', '∞', '∞', '∞']]}
+      mark={[[0, 2], [2, 0]]}
+      caption="addEdge(0, 2, 3): 3 en [0][2] y [2][0]"
+      label="Después de addEdge(0, 2, 3): el peso 3 en las casillas [0][2] y [2][0], marcadas; las casillas sin arista siguen en infinito."
+    />
+  </Step>
+  <Step lines={[14, 15, 17, 18]}>
+    <AdjMatrix
+      rows={[['∞', '7', '3', '∞'], ['7', '∞', '2', '∞'], ['3', '2', '∞', '∞'], ['∞', '∞', '∞', '∞']]}
+      mark={[[1, 2], [2, 1]]}
+      caption="addEdge(1, 2, 2): 2 en [1][2] y [2][1]"
+      label="Después de addEdge(1, 2, 2): el peso 2 en las casillas [1][2] y [2][1], marcadas; las casillas sin arista siguen en infinito."
+    />
+  </Step>
+  <Step lines={[14, 15, 17, 18]}>
+    <AdjMatrix
+      rows={[['∞', '7', '3', '∞'], ['7', '∞', '2', '∞'], ['3', '2', '∞', '4'], ['∞', '∞', '4', '∞']]}
+      mark={[[2, 3], [3, 2]]}
+      caption="addEdge(2, 3, 4): 4 en [2][3] y [3][2]"
+      label="Después de addEdge(2, 3, 4): el peso 4 en las casillas [2][3] y [3][2], marcadas; las casillas sin arista siguen en infinito."
+    />
+  </Step>
+</StepShow>
+
+`adj(v)` recorre la fila de `v` y arma un `Edge` por cada casilla que no vale
+$$\infty$$: sigue costando $$\Theta(V)$$.
+
+</Slide>
+
+<Slide title="Construir las listas con pesos">
+`WeightedListGraph` también implementa `WeightedGraph`. Cada entrada de una
+lista es un `Edge`: el vecino y el peso de la arista que lleva a él. La lista de
+$$u$$ tiene un par $$(v, w(u, v))$$ por cada arista $$uv$$ de $$E$$:
+
+<StepShow
+  language="java"
+  title="Las listas con pesos, arista por arista"
+  code={`public class WeightedListGraph implements WeightedGraph {
+    private final List<List<Edge>> lists;
+    private int E;
+
+    public WeightedListGraph(int V) {
+        lists = new ArrayList<>();
+        for (int v = 0; v < V; v++) {
+            lists.add(new ArrayList<>());
+        }
+    }
+
+    public Iterable<Edge> adj(int v) { return lists.get(v); }
+
+    public void addEdge(int v, int w, int weight) {
+        lists.get(v).add(new Edge(w, weight));
+        lists.get(w).add(new Edge(v, weight));
+        E++;
+    }
+}`}
+>
+  <Step lines={[7, 8]}>
+    <AdjLists
+      lists={[[], [], [], []]}
+      mark={[]}
+      caption="cuatro listas vacías"
+      label="Cuatro listas vacías."
+    />
+  </Step>
+  <Step lines={[15, 16, 17]}>
+    <AdjLists
+      lists={[['1 · 7'], ['0 · 7'], [], []]}
+      mark={[[0, 0], [1, 0]]}
+      caption="addEdge(0, 1, 7): 1 · 7 en la lista de 0 y 0 · 7 en la de 1"
+      label="Después de addEdge(0, 1, 7): la lista de 0 tiene 1 · 7; la lista de 1 tiene 0 · 7; la lista de 2 está vacía; la lista de 3 está vacía. Marcadas, las dos entradas agregadas."
+    />
+  </Step>
+  <Step lines={[15, 16, 17]}>
+    <AdjLists
+      lists={[['1 · 7', '2 · 3'], ['0 · 7'], ['0 · 3'], []]}
+      mark={[[0, 1], [2, 0]]}
+      caption="addEdge(0, 2, 3): 2 · 3 en la lista de 0 y 0 · 3 en la de 2"
+      label="Después de addEdge(0, 2, 3): la lista de 0 tiene 1 · 7, 2 · 3; la lista de 1 tiene 0 · 7; la lista de 2 tiene 0 · 3; la lista de 3 está vacía. Marcadas, las dos entradas agregadas."
+    />
+  </Step>
+  <Step lines={[15, 16, 17]}>
+    <AdjLists
+      lists={[['1 · 7', '2 · 3'], ['0 · 7', '2 · 2'], ['0 · 3', '1 · 2'], []]}
+      mark={[[1, 1], [2, 1]]}
+      caption="addEdge(1, 2, 2): 2 · 2 en la lista de 1 y 1 · 2 en la de 2"
+      label="Después de addEdge(1, 2, 2): la lista de 0 tiene 1 · 7, 2 · 3; la lista de 1 tiene 0 · 7, 2 · 2; la lista de 2 tiene 0 · 3, 1 · 2; la lista de 3 está vacía. Marcadas, las dos entradas agregadas."
+    />
+  </Step>
+  <Step lines={[15, 16, 17]}>
+    <AdjLists
+      lists={[['1 · 7', '2 · 3'], ['0 · 7', '2 · 2'], ['0 · 3', '1 · 2', '3 · 4'], ['2 · 4']]}
+      mark={[[2, 2], [3, 0]]}
+      caption="addEdge(2, 3, 4): 3 · 4 en la lista de 2 y 2 · 4 en la de 3"
+      label="Después de addEdge(2, 3, 4): la lista de 0 tiene 1 · 7, 2 · 3; la lista de 1 tiene 0 · 7, 2 · 2; la lista de 2 tiene 0 · 3, 1 · 2, 3 · 4; la lista de 3 tiene 2 · 4. Marcadas, las dos entradas agregadas."
+    />
+  </Step>
+</StepShow>
+
+`adj(v)` entrega la lista de `v` con sus pesos, igual que sin pesos.
+
+</Slide>
+
+<SectionBreak />
+
+## Costos y memoria
+
+<Slide title="Costos de las dos implementaciones">
+| Molde     | Operación          | Matriz                  | Listas                            | Invariante que restaura                          |
+| --------- | ------------------ | ----------------------- | --------------------------------- | ------------------------------------------------ |
+| crear     | `Graph(V)`         | $$\Theta(V^2)$$         | $$\Theta(V)$$                     | —                                                |
+| consultar | `V()`, `E()`       | $$\Theta(1)$$           | $$\Theta(1)$$                     | Ninguna: no cambian nada                         |
+| consultar | recorrer `adj(v)`  | $$\Theta(V)$$           | $$\Theta(\operatorname{grado}(v))$$ | Ninguna                                          |
+| consultar | `hasEdge(v, w)`    | <span style={{ color: 'var(--color-keep)', fontWeight: 700 }}>$$\Theta(1)$$</span> | $$\Theta(\operatorname{grado}(v))$$ | Ninguna                                          |
+| modificar | `addEdge(v, w)`    | $$\Theta(1)$$           | $$\Theta(1)$$                     | La arista queda en los dos lados y se cuenta una vez |
+
+La matriz responde si hay una arista mirando una casilla, pero para dar los
+vecinos de `v` recorre su fila completa, tenga `v` muchos o pocos. Las listas
+entregan los vecinos sin mirar a nadie más, y pagan esa misma cuenta cuando se
+les pregunta por una arista.
+
+</Slide>
+
+<Slide title="La memoria de las dos implementaciones">
+- **La matriz** guarda $$V^2$$ casillas, haya las aristas que haya:
+  $$\Theta(V^2)$$.
+- **Las listas** guardan una lista por vértice y una entrada por extremo de
+  arista: $$\Theta(V + E)$$.
+
+Las entradas de las listas se cuentan con el lema del apretón de manos:
+
+$$
+\sum_{v} |\mathrm{adj}(v)| = \sum_{v} \operatorname{grado}(v) = 2E
+$$
+
+Se lee «la suma de los largos de las listas es la suma de los grados, que es
+dos veces la cantidad de aristas». Cuál ocupa menos depende de cuántas aristas
+tiene el grafo.
+
+</Slide>
+
+<Slide title="Densos y dispersos en los costos">
+Un grafo **denso** tiene cerca del máximo de aristas, $$\frac{V(V - 1)}{2}$$, y
+uno **disperso**, muchas menos. En las cuentas de costo se escriben así:
+
+$$
+\text{denso: } E = \Theta(V^2) \qquad \text{disperso: } E = O(V)
+$$
+
+Se lee «en un grafo denso, $$E$$ crece como $$V$$ al cuadrado; en uno disperso,
+como mucho como $$V$$».
+
+</Slide>
+
+<Slide title="Recorrer todos los vecinos de todos los vértices">
+Muchos problemas recorren los vecinos de cada vértice del grafo.
+
+- **Con la matriz**, cada vértice recorre su fila: $$V$$ filas de $$V$$
+  casillas, $$\Theta(V^2)$$.
+- **Con listas**, cada vértice recorre su lista, y la suma de los largos de
+  las listas es la suma de los grados, que es $$2E$$. Sumando la visita a cada
+  vértice, $$\Theta(V + E)$$.
+
+$$\Theta(V + E)$$ es lo que cuesta leer el grafo una vez: es **tiempo lineal**
+en el tamaño del grafo, y ningún programa que mire cada arista puede hacerlo
+en menos.
+
+</Slide>
+
+<Slide title="Matriz o listas">
+Un grafo real casi siempre es disperso: en un mapa, cada esquina tiene unas
+pocas calles; en una red social de millones de personas, cada una tiene unos
+cientos de amigos. Una matriz para un millón de vértices tendría $$10^{12}$$
+casillas, casi todas falsas.
+
+- **La matriz** responde si dos vértices son vecinos en tiempo constante, y
+  lo paga con $$\Theta(V^2)$$ de memoria y con recorrer filas completas.
+  Conviene cuando el grafo es denso y chico.
+- **Las listas** pagan $$\Theta(\operatorname{grado}(v))$$ para responder si
+  dos vértices son vecinos, y a cambio ocupan $$\Theta(V + E)$$ y entregan los
+  vecinos sin mirar a nadie más. Son la elección por omisión.
+
+</Slide>
+
+<Slide title="¿Y si cada lista fuera un conjunto?">
+Las listas pagan $$\Theta(\operatorname{grado}(v))$$ por `hasEdge`, porque
+guardan los vecinos en el orden en que llegaron y hay que recorrerlos para
+encontrar uno. ¿Y si los vecinos de cada vértice se guardaran en un conjunto?
+Un `Map` de cada vértice al **conjunto** de sus vecinos, que además deja usar
+los nombres del problema sin traducirlos:
+
+```java
+Map<String, Set<String>> adj = new HashMap<>();
+
+void addEdge(String v, String w) {
+    if (!adj.containsKey(v)) {
+        adj.put(v, new HashSet<>());
+    }
+    if (!adj.containsKey(w)) {
+        adj.put(w, new HashSet<>());
+    }
+    adj.get(v).add(w);
+    adj.get(w).add(v);
+}
+```
+
+- **Lo que gana.** `hasEdge` cuesta $$\Theta(1)$$ esperado, como en la matriz,
+  con la memoria de las listas, $$\Theta(V + E)$$.
+- **Lo que pierde.** Un conjunto no guarda dos veces el mismo vecino, así que
+  no caben aristas paralelas. Un `HashSet` entrega los vecinos en un orden que
+  nadie elige, y cada entrada pesa más que un entero en una lista.
+
+</Slide>
+
+<SectionBreak />
+
+## Grafos que no se guardan
+
+<Slide title="Un grafo implícito">
+A veces no hace falta guardar el grafo, ni en una matriz ni en listas: sus
+aristas siguen una regla, y los vecinos de un vértice se calculan cuando se
+necesitan. Es un **grafo implícito**.
+
+- **El candado de cuatro ruedas**: son $$10^4$$ combinaciones, y los 8
+  vecinos de cada una salen de girar una rueda una posición hacia arriba o
+  hacia abajo.
+- **Una grilla**, como un laberinto o un mapa por celdas: cada celda es un
+  vértice, y sus vecinas son las celdas a las que se pasa en un paso.
+
+<NodeGraph
+  cols={5}
+  rows={3}
+  nodes={[{ v: '1000', x: 0, y: 0 }, { v: '0100', x: 1.33, y: 0 }, { v: '0010', x: 2.67, y: 0 }, { v: '0001', x: 4, y: 0 }, { v: '0000', x: 2, y: 1 }, { v: '9000', x: 0, y: 2 }, { v: '0900', x: 1.33, y: 2 }, { v: '0090', x: 2.67, y: 2 }, { v: '0009', x: 4, y: 2 }]}
+  edges={[['0000', '1000'], ['0000', '0100'], ['0000', '0010'], ['0000', '0001'], ['0000', '9000'], ['0000', '0900'], ['0000', '0090'], ['0000', '0009']]}
+  tones={{ '0000': 'mark' }}
+  caption="0000 y sus 8 vecinos: cada rueda, una posición hacia arriba o hacia abajo"
+  label="La combinación 0000, destacada, unida con sus ocho vecinas: 1000, 0100, 0010 y 0001 arriba, y 9000, 0900, 0090 y 0009 abajo. Cada una gira una sola rueda una posición."
+/>
+
+</Slide>
+
+{/* GridCells — a grid of `rows` × `cols` cells, the cell `at` ([row, col]) painted mark and its neighbours in `ways` directions (4: the ones that share a side; 8: also the ones that share a corner) painted mark-soft, each numbered by the order the code visits them, so the drawing shows what the arrays of displacements reach and that a cell on the border has fewer. File-local (add-a-course-document.md §6e-quater): a grid is a graph no other document draws. */}
+
+export function GridCells({ rows, cols, at, ways = 4, caption, label }) {
+  const cell = 34;
+  const pad = 14;
+  const gridW = cols * cell;
+  const width = Math.max(gridW + 2 * pad, caption ? caption.length * 6.6 + 24 : 0);
+  const left = (width - gridW) / 2;
+  const height = pad + rows * cell + (caption ? 34 : pad);
+  const steps = ways === 8
+    ? [[-1, -1], [-1, 0], [-1, 1], [0, -1], [0, 1], [1, -1], [1, 0], [1, 1]]
+    : [[-1, 0], [1, 0], [0, -1], [0, 1]];
+  const order = new Map();
+  steps.forEach(([dr, dc]) => {
+    const r = at[0] + dr;
+    const c = at[1] + dc;
+    if (r >= 0 && r < rows && c >= 0 && c < cols) order.set(`${r},${c}`, order.size + 1);
+  });
+  const cells = [];
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      const here = r === at[0] && c === at[1];
+      const n = order.get(`${r},${c}`);
+      cells.push(
+        <g key={`${r},${c}`}>
+          <rect
+            x={left + c * cell}
+            y={pad + r * cell}
+            width={cell}
+            height={cell}
+            style={{
+              fill: here ? 'var(--color-mark)' : n ? 'var(--color-mark-soft)' : 'var(--color-surface)',
+              stroke: 'var(--color-rule-strong)',
+            }}
+            strokeWidth="1"
+          />
+          {n ? (
+            <text x={left + c * cell + cell / 2} y={pad + r * cell + cell / 2 + 5} textAnchor="middle" fontSize="13" fontWeight="600" style={{ fill: 'var(--color-mark)' }}>{n}</text>
+          ) : null}
+        </g>,
+      );
+    }
+  }
+  return (
+    <svg viewBox={`0 0 ${width} ${height}`} style={{ width: '100%', maxWidth: `${Math.round(width * 1.3)}px`, height: 'auto', display: 'block', margin: '0.4rem auto' }} role="img" aria-label={label}>
+      {cells}
+      {caption ? (
+        <text x={width / 2} y={height - 12} textAnchor="middle" fontSize="12" style={{ fill: 'var(--color-ink-soft)' }}>{caption}</text>
+      ) : null}
+    </svg>
+  );
+}
+
+<Slide title="Las vecinas de una celda">
+En una grilla, cada celda es un vértice: la celda $$(r, c)$$ de la fila $$r$$ y
+la columna $$c$$. Sus vecinas son las celdas a las que se pasa en un paso. Hay
+dos formas clásicas de dar ese paso:
+
+- **En 4 direcciones**: arriba, abajo, a la izquierda y a la derecha,
+  $$(r \pm 1, c)$$ y $$(r, c \pm 1)$$. Son vecinas las celdas que comparten un
+  lado.
+- **En 8 direcciones**: además, las cuatro diagonales, $$(r \pm 1, c \pm 1)$$.
+  Son vecinas las celdas que comparten un lado o una esquina.
+
+Una celda del borde tiene menos vecinas, porque algunos pasos salen de la
+grilla.
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '0.5rem 1.5rem', alignItems: 'end' }}>
+<GridCells rows={5} cols={5} at={[2, 2]} ways={4} caption="en 4 direcciones: 4 vecinas" label="Una grilla de 5 por 5 con la celda del centro destacada y sus 4 vecinas marcadas y numeradas: arriba, abajo, izquierda y derecha." />
+<GridCells rows={5} cols={5} at={[2, 2]} ways={8} caption="en 8 direcciones: 8 vecinas" label="La misma grilla con la celda del centro destacada y sus 8 vecinas marcadas y numeradas: las cuatro de los lados y las cuatro diagonales." />
+<GridCells rows={5} cols={5} at={[0, 0]} ways={8} caption="en una esquina, en 8: 3 vecinas" label="La misma grilla con la celda de la esquina de arriba a la izquierda destacada y solo 3 vecinas marcadas: la de la derecha, la de abajo y la diagonal." />
+</div>
+
+</Slide>
+
+<Slide title="El código de las vecinas">
+Las vecinas no se guardan: se calculan con dos arreglos de desplazamientos,
+uno para la fila y otro para la columna. Cada posición `k` es un paso, y una
+vecina cuenta solo si cae dentro de la grilla.
+
+```java
+static final int[] DR = {-1, 1, 0, 0};
+static final int[] DC = {0, 0, -1, 1};
+
+static List<int[]> neighbors(int r, int c, int rows, int cols) {
+    List<int[]> result = new ArrayList<>();
+    for (int k = 0; k < DR.length; k++) {
+        int nr = r + DR[k];
+        int nc = c + DC[k];
+        if (nr >= 0 && nr < rows && nc >= 0 && nc < cols) {
+            result.add(new int[] {nr, nc});
+        }
+    }
+    return result;
+}
+```
+
+En 8 direcciones cambian solo los arreglos; el método queda igual:
+
+```java
+static final int[] DR = {-1, -1, -1, 0, 0, 1, 1, 1};
+static final int[] DC = {-1, 0, 1, -1, 1, -1, 0, 1};
+```
+
+</Slide>
+
+<SectionBreak />
+
+## Ejercicios
+
+<Slide title="Las rutas de una aerolínea">
+Una aerolínea publica sus rutas como un texto, una ruta por línea: los
+códigos de los dos aeropuertos que une. Cada ruta se vuela en los dos
+sentidos. La aerolínea quiere saber cuál es su aeropuerto con más rutas, y
+a qué aeropuertos vuela desde ahí.
+
+```text
+SCL LIM
+SCL EZE
+SCL GRU
+LIM BOG
+LIM MIA
+BOG MIA
+LIM GRU
+```
+
+**Entrada.** Las rutas, a lo más $$10^5$$, sin repetir ninguna. $$R$$ es la
+cantidad de rutas y $$A$$, la de aeropuertos.
+
+**Salida.** El código del aeropuerto con más rutas —si hay empate, el que
+aparece primero en el texto— y los códigos de sus destinos.
+
+</Slide>
+
+<Slide title="Rutas aéreas · el grafo">
+Los aeropuertos son los vértices y cada ruta es una arista sin dirección,
+porque se vuela en los dos sentidos. Las rutas no traen un número que el
+problema use: no hay pesos. El problema se reduce a buscar el vértice de
+mayor grado y entregar sus vecinos.
+
+<NodeGraph
+  cols={5}
+  rows={3}
+  nodes={[{ v: 'SCL', x: 0, y: 1 }, { v: 'EZE', x: 0, y: 2 }, { v: 'LIM', x: 2, y: 1 }, { v: 'GRU', x: 1, y: 0 }, { v: 'BOG', x: 4, y: 0 }, { v: 'MIA', x: 4, y: 2 }]}
+  edges={[['SCL', 'LIM'], ['SCL', 'EZE'], ['SCL', 'GRU'], ['LIM', 'BOG'], ['LIM', 'MIA'], ['BOG', 'MIA'], ['LIM', 'GRU']]}
+  notes={{ SCL: 3, EZE: 1, LIM: 4, GRU: 2, BOG: 2, MIA: 2 }}
+  tones={{ LIM: 'mark' }}
+  caption="LIM tiene 4 rutas: a SCL, BOG, MIA y GRU"
+  label="El grafo de las siete rutas con el grado de cada aeropuerto: SCL 3, EZE 1, LIM 4, GRU 2, BOG 2 y MIA 2. LIM, destacado, es el de más rutas."
+/>
+
+Contar cuántas líneas nombra cada código da los grados, pero no los
+destinos. Buscar los destinos recorriendo el texto completo por cada
+aeropuerto cuesta $$\Theta(A \cdot R)$$. Con el grafo armado, los destinos
+son la lista de un vértice.
+
+</Slide>
+
+<Slide title="Rutas aéreas · la solución">
+Al leer cada línea, los dos códigos se traducen a números con `idOf`, y la
+ruta se guarda. Con la cantidad de aeropuertos conocida se arma el grafo, se
+busca el vértice de mayor grado y se escriben los nombres de sus vecinos.
+
+```java
+static void busiest(Scanner in) {
+    List<int[]> routes = new ArrayList<>();
+    while (in.hasNext()) {
+        int v = idOf(in.next());
+        int w = idOf(in.next());
+        routes.add(new int[] {v, w});
+    }
+    Graph g = new AdjListGraph(names.size());
+    for (int[] r : routes) {
+        g.addEdge(r[0], r[1]);
+    }
+    int best = 0;
+    int bestDegree = degree(g, 0);
+    for (int v = 1; v < g.V(); v++) {
+        int d = degree(g, v);
+        if (d > bestDegree) {
+            best = v;
+            bestDegree = d;
+        }
+    }
+    System.out.print(names.get(best) + ":");
+    for (int w : g.adj(best)) {
+        System.out.print(" " + names.get(w));
+    }
+    System.out.println();
+}
+```
+
+El `>` estricto deja, en un empate, el vértice de número menor: el que
+apareció primero en el texto.
+
+</Slide>
+
+<Slide title="Rutas aéreas · el costo">
+- **Tiempo.** Leer las $$R$$ rutas cuesta $$\Theta(R)$$ esperado, por el `Map`
+  de `idOf`. Calcular el grado de cada vértice recorre todas las listas, que
+  suman $$2R$$ entradas: $$\Theta(A + R)$$.
+- **Memoria.** La lista de rutas, el `Map`, los nombres y el grafo:
+  $$\Theta(A + R)$$.
+
+Si el texto repitiera una ruta, el grafo la guardaría dos veces y la contaría
+dos veces en el grado: el enunciado lo descarta.
+
+</Slide>
+
+<Slide title="Una figura de un solo trazo, y desde dónde">
+Dada una figura conexa, el programa responde si se puede dibujar de un solo
+trazo y, si se puede, desde qué punto empezar.
+
+**Entrada.** Un grafo conexo con $$V$$ puntos, numerados de $$0$$ a
+$$V - 1$$, y $$E$$ trazos entre ellos, como lista de aristas.
+
+**Salida.** Un punto donde empezar, o $$-1$$ si la figura no se puede
+dibujar de un solo trazo.
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '0.5rem 2rem', alignItems: 'end' }}>
+<NodeGraph
+  cols={3}
+  rows={4}
+  nodes={[{ v: 0, x: 1, y: 0 }, { v: 1, x: 0, y: 1 }, { v: 2, x: 2, y: 1 }, { v: 5, x: 1, y: 2 }, { v: 3, x: 0, y: 3 }, { v: 4, x: 2, y: 3 }]}
+  edges={[[0, 1], [0, 2], [1, 2], [1, 3], [2, 4], [3, 4], [1, 5], [5, 4], [2, 5], [5, 3]]}
+  caption="la casa: empieza en 3"
+  label="La casa numerada de 0 a 5. La respuesta es 3, una de sus dos esquinas de abajo."
+/>
+<NodeGraph
+  cols={3}
+  rows={3}
+  nodes={[{ v: 0, x: 0, y: 0 }, { v: 1, x: 2, y: 0 }, { v: 4, x: 1, y: 1 }, { v: 2, x: 0, y: 2 }, { v: 3, x: 2, y: 2 }]}
+  edges={[[0, 1], [2, 3], [0, 2], [1, 3], [0, 4], [4, 3], [1, 4], [4, 2]]}
+  caption="el sobre: −1"
+  label="El sobre numerado de 0 a 4. La respuesta es menos 1: no se puede."
+/>
+</div>
+
+</Slide>
+
+<Slide title="Un solo trazo · la idea">
+Probar todos los órdenes de los trazos funciona, pero $$E$$ trazos se pueden
+ordenar de $$E!$$ maneras. El problema se reduce al camino euleriano, y la
+regla de Euler responde sin probar ninguno: en un grafo conexo, lo deciden los
+vértices de grado impar.
+
+- **Ninguno**: cualquier punto sirve, y el trazo vuelve a él.
+- **Dos**: hay que empezar en uno de los dos.
+- **Más de dos**: no se puede.
+
+Basta con calcular el grado de cada vértice y quedarse con los impares.
+
+</Slide>
+
+<Slide title="Un solo trazo · la solución">
+```java
+static int startOf(Graph g) {
+    List<Integer> odd = new ArrayList<>();
+    for (int v = 0; v < g.V(); v++) {
+        if (degree(g, v) % 2 == 1) {
+            odd.add(v);
+        }
+    }
+    if (odd.isEmpty()) {
+        return 0;
+    }
+    if (odd.size() == 2) {
+        return odd.get(0);
+    }
+    return -1;
+}
+```
+
+Sin vértices impares, cualquier punto sirve, y el método responde el $$0$$.
+Con dos, el trazo empieza en el primero y termina en el segundo.
+
+- **Tiempo.** El grado de cada vértice recorre su lista: $$\Theta(V + E)$$
+  en total.
+- **Memoria.** La lista de impares: $$O(V)$$.
+
+La respuesta vale solo si el grafo es conexo, como dice el enunciado: dos
+figuras separadas pueden tener sus grados pares y no dibujarse de un trazo.
+
+</Slide>
+
+<Slide title="Sugerir amigos">
+Una red social sugiere a cada persona a alguien que todavía no es su amigo:
+la persona con más **amigos en común** con ella.
+
+**Entrada.** Las amistades de $$V$$ personas, numeradas de $$0$$ a $$V - 1$$,
+y la persona `u` que recibe la sugerencia.
+
+**Salida.** La persona que no es `u` ni amiga de `u` con más amigos en común
+con `u` —si hay empate, la de número menor—, o $$-1$$ si nadie tiene un amigo
+en común con `u`.
+
+<NodeGraph
+  cols={5}
+  rows={3}
+  nodes={[{ v: 'Ana', x: 0, y: 1 }, { v: 'Beto', x: 2, y: 0 }, { v: 'Caro', x: 2, y: 2 }, { v: 'Dani', x: 4, y: 1 }, { v: 'Eva', x: 4, y: 0 }]}
+  edges={[['Ana', 'Beto'], ['Ana', 'Caro'], ['Beto', 'Dani'], ['Caro', 'Dani'], ['Beto', 'Eva']]}
+  tones={{ Ana: 'mark', Dani: 'keep' }}
+  caption="para Ana: Dani, con 2 amigos en común; Eva tiene 1"
+  label="Ana, destacada, es amiga de Beto y de Caro. Beto es amigo de Dani y de Eva, y Caro de Dani. Dani, sugerido, comparte dos amigos con Ana; Eva comparte uno."
+/>
+
+</Slide>
+
+<Slide title="Sugerir amigos · la idea">
+Contar los amigos en común de `u` con cada otra persona, uno por uno, compara
+listas de amigos para cada persona de la red, aunque casi todas estén lejos
+de `u`.
+
+Un amigo en común con `w` es un amigo `x` de `u` que también es amigo de `w`.
+Al revés: cada amigo `x` de `u` le suma un amigo en común a **cada uno de sus
+propios amigos**. El problema se reduce a recorrer los vecinos de los vecinos
+de `u`, con un contador por persona, saltándose a `u` y a quienes ya son sus
+amigos.
+
+<NodeGraph
+  cols={5}
+  rows={3}
+  nodes={[{ v: 'Ana', x: 0, y: 1 }, { v: 'Beto', x: 2, y: 0 }, { v: 'Caro', x: 2, y: 2 }, { v: 'Dani', x: 4, y: 1 }, { v: 'Eva', x: 4, y: 0 }]}
+  edges={[['Ana', 'Beto'], ['Ana', 'Caro'], ['Beto', 'Dani'], ['Caro', 'Dani'], ['Beto', 'Eva']]}
+  markEdges={[['Beto', 'Dani'], ['Caro', 'Dani'], ['Beto', 'Eva']]}
+  notes={{ Dani: 2, Eva: 1 }}
+  tones={{ Ana: 'mark' }}
+  caption="los amigos de los amigos de Ana, con su cuenta"
+  label="Desde Beto y Caro, los amigos de Ana, se marcan sus amistades: Beto suma uno a Dani y a Eva, y Caro suma uno a Dani. Dani queda con 2 y Eva con 1."
+/>
+
+</Slide>
+
+<Slide title="Sugerir amigos · la solución">
+```java
+static int suggest(Graph g, int u) {
+    boolean[] friend = new boolean[g.V()];
+    for (int x : g.adj(u)) {
+        friend[x] = true;
+    }
+    int[] common = new int[g.V()];
+    for (int x : g.adj(u)) {
+        for (int w : g.adj(x)) {
+            if (w != u && !friend[w]) {
+                common[w]++;
+            }
+        }
+    }
+    int best = -1;
+    for (int w = 0; w < g.V(); w++) {
+        if (common[w] > 0 && (best == -1 || common[w] > common[best])) {
+            best = w;
+        }
+    }
+    return best;
+}
+```
+
+`friend` marca a los amigos de `u` para saltarlos en tiempo constante, sin
+preguntar `hasEdge`, que en listas recorrería la lista de `u` cada vez.
+
+</Slide>
+
+<Slide title="Sugerir amigos · el costo">
+- **Tiempo.** Recorrer los amigos de los amigos de `u` cuesta la suma de los
+  grados de los amigos de `u`, a lo más $$2E$$. Crear los dos arreglos y
+  buscar el mayor cuesta $$\Theta(V)$$. En total, $$O(V + E)$$, y casi siempre
+  mucho menos que $$E$$ en el recorrido: solo se miran las personas a dos
+  pasos de `u`.
+- **Memoria.** Los dos arreglos: $$\Theta(V)$$.
+
+Si `u` no tiene amigos, o sus amigos no tienen otros amigos, ningún contador
+sube y el método retorna $$-1$$.
+
+</Slide>
+
+
+## Lo que sigue
+
+Con el grafo guardado, la pregunta siguiente es a dónde se llega desde un
+vértice: si hay un camino entre dos esquinas, cuántas islas tiene un mapa, por
+dónde se sale de un laberinto con menos pasos. Ninguna se responde mirando un
+vértice y sus vecinos: hay que **recorrer** el grafo, de vecino en vecino, sin
+perderse en sus ciclos.
