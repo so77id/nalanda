@@ -1731,57 +1731,6 @@ dirigido.
 
 </Slide>
 
-<SectionBreak />
-
-## Más allá
-
-<Slide title="Pasar una vez por cada vértice">
-El juego de Euler pide pasar una vez por cada **arista**. Su gemelo pide pasar
-una vez por cada **vértice** y volver al inicio: es un **ciclo hamiltoniano**,
-un ciclo simple que pasa por todos los vértices, por William Hamilton, que lo
-propuso como un juego en 1857.
-
-<NodeGraph
-  cols={3}
-  rows={3}
-  nodes={[{ v: 'A', x: 0, y: 0 }, { v: 'B', x: 2, y: 0 }, { v: 'C', x: 1, y: 1 }, { v: 'D', x: 0, y: 2 }, { v: 'E', x: 2, y: 2 }]}
-  edges={[['A', 'B'], ['A', 'C'], ['B', 'C'], ['C', 'D'], ['C', 'E'], ['D', 'E'], ['B', 'E'], ['A', 'D']]}
-  walk={['A', 'B', 'E', 'C', 'D', 'A']}
-  caption="A → B → E → C → D → A: cada vértice una vez"
-  label="Cinco vértices con ocho aristas. Marcado y numerado, el ciclo de A a B, a E, a C, a D y de vuelta a A, que pasa una vez por cada vértice."
-/>
-
-Se parecen, y no se resuelven igual. Para Euler, contar grados basta. Para
-Hamilton no se conoce ninguna regla así: probar todos los órdenes de los
-vértices siempre responde, pero son $$V!$$, y no se conoce un algoritmo
-eficiente que responda para cualquier grafo.
-
-</Slide>
-
-<Slide title="Los cuatro colores">
-Pintar un mapa para que dos países con frontera tengan colores distintos es
-un problema de grafos: cada país es un vértice, y cada frontera, una arista.
-Pintar es dar a cada vértice un color distinto del de sus vecinos.
-
-<NodeGraph
-  cols={4}
-  rows={4}
-  nodes={[{ v: 'Perú', x: 0, y: 0 }, { v: 'Brasil', x: 3, y: 0.5 }, { v: 'Bolivia', x: 1.3, y: 1 }, { v: 'Chile', x: 0, y: 2 }, { v: 'Paraguay', x: 2.5, y: 2 }, { v: 'Argentina', x: 1, y: 3 }, { v: 'Uruguay', x: 3, y: 3 }]}
-  edges={[['Chile', 'Argentina'], ['Chile', 'Bolivia'], ['Chile', 'Perú'], ['Perú', 'Bolivia'], ['Perú', 'Brasil'], ['Bolivia', 'Argentina'], ['Bolivia', 'Brasil'], ['Bolivia', 'Paraguay'], ['Argentina', 'Paraguay'], ['Argentina', 'Brasil'], ['Argentina', 'Uruguay'], ['Paraguay', 'Brasil'], ['Brasil', 'Uruguay']]}
-  tones={{ Bolivia: 'mark', Uruguay: 'mark', Chile: 'keep', Brasil: 'keep', Perú: 'flag', Argentina: 'flag' }}
-  caption="siete países y cuatro colores: ningún par de vecinos comparte color"
-  label="Siete países de Sudamérica y sus fronteras, pintados con cuatro colores: Bolivia y Uruguay de un color, Chile y Brasil de otro, Perú y Argentina de un tercero y Paraguay del cuarto. Ningún par de vecinos comparte color."
-/>
-
-Los días de exámenes son el mismo problema: cada ramo es un vértice, dos
-ramos con alumnos en común se unen con una arista, y cada color es un día.
-
-Cuatro colores alcanzan para cualquier mapa dibujado en un plano: se demostró
-en 1976, con la ayuda de un computador. Saber si **tres** alcanzan para un
-mapa dado es otra cosa: no se conoce un algoritmo eficiente que lo responda.
-
-</Slide>
-
 ## Lo que sigue
 
 Con las palabras y los tipos de grafos, falta construir un grafo desde un
