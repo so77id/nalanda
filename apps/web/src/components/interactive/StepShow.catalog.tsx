@@ -64,6 +64,24 @@ export const stepShowCatalogEntry: CatalogEntry = {
         'On a slide, the drawing sits beside the listing instead of under it, and the widget breaks out to three quarters of the viewport instead of half. The book ignores it and stacks. For a long listing with a small drawing; default false.',
     },
     {
+      name: 'program',
+      type: 'string',
+      description:
+        'The program that calls the listing, shown over it as a listing of its own headed «programa», with `code` under it headed `codeName`; each <Step> lights `programLines` in it and `lines` in `code`. For a walk whose lesson is a call and what it does inside — the calls addEdge(0, 1)… over addEdge itself (#363), as <SequenceStepper program> does for its methods. Optional; without it, `code` alone and unheaded.',
+    },
+    {
+      name: 'ratio',
+      type: 'string',
+      description:
+        'With `beside`, how the slide splits between code and drawing, as "code/drawing" percentages; default "55/45". "40/60" for short listings beside a drawing of two pictures stacked (#363). Ignored in the book and without `beside`.',
+    },
+    {
+      name: 'codeName',
+      type: 'string',
+      description:
+        'The heading of `code` when `program` is given. Defaults to the Spanish word for method.',
+    },
+    {
       name: 'children',
       type: 'MDX',
       description:
@@ -71,6 +89,33 @@ export const stepShowCatalogEntry: CatalogEntry = {
     },
   ],
   examples: [
+    {
+      title: 'A program over the method it calls (`program`)',
+      code: `<StepShow language="java" program={program} codeName="sumar" code={code}>
+  <Step programLines={[1]} lines={[1, 2]}>
+    <p>sumar(2, 3) retorna 5, y a vale 5.</p>
+  </Step>
+  <Step programLines={[2]} lines={[1, 2]}>
+    <p>sumar(5, 4) retorna 9, y b vale 9.</p>
+  </Step>
+</StepShow>`,
+      render: () => (
+        <StepShow
+          language="java"
+          title="Dos llamadas a sumar"
+          program={`int a = sumar(2, 3);\nint b = sumar(a, 4);`}
+          codeName="sumar"
+          code={`static int sumar(int x, int y) {\n    return x + y;\n}`}
+        >
+          <Step programLines={[1]} lines={[1, 2]}>
+            <p className="m-0">sumar(2, 3) retorna 5, y a vale 5.</p>
+          </Step>
+          <Step programLines={[2]} lines={[1, 2]}>
+            <p className="m-0">sumar(5, 4) retorna 9, y b vale 9.</p>
+          </Step>
+        </StepShow>
+      ),
+    },
     {
       title: 'Two labels, one box — no runtime',
       code: `<StepShow code={code} language="java" title="Alias">
@@ -142,6 +187,12 @@ export const stepCatalogEntry: CatalogEntry = {
       type: 'number[]',
       description:
         '1-based line numbers to highlight while this step is showing. May be empty — a step whose lesson is what appears beside the code, not which line is running, does not need a highlight.',
+    },
+    {
+      name: 'programLines',
+      type: 'number[]',
+      description:
+        'The 1-based lines lit in the StepShow’s `program` listing at this step — the call the step is inside. Ignored when the StepShow has no `program`.',
     },
     {
       name: 'children',

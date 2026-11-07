@@ -7,6 +7,11 @@ export interface StepProps {
    * code, not which line is currently running.
    */
   lines: number[];
+  /**
+   * 1-based lines to highlight in the `<StepShow>`'s `program` listing, when
+   * it has one: the call this step is inside. Ignored without `program`.
+   */
+  programLines?: number[];
   /** Any JSX. Rendered in the visual panel when this step is showing. */
   children?: ReactNode;
 }

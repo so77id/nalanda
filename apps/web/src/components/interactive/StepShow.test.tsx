@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { ModeProvider } from '../../presentation';
 import { useViewportBreakout } from '../useViewportBreakout';
 import { Step, StepShow } from './StepShow';
+import { besideColumns } from './stepShowLayout';
 
 // The breakout writes width/marginLeft after MEASURING an ancestor transform,
 // which jsdom cannot produce — so the hook is stubbed and what the test pins
@@ -304,6 +305,50 @@ describe('StepShow', () => {
     fireEvent.click(screen.getByRole('button', { name: /adelante/i }));
     expect(live?.textContent).toMatch(/Paso 2 de 2/);
     expect(live?.textContent).toMatch(/líneas 7 y 8/);
+  });
+
+  it('sets a named program over the named listing, each lit with its own lines', () => {
+    render(
+      <StepShow code={CODE} program={'f(1);\nf(2);'} codeName="f" language="java">
+        <Step lines={[7]} programLines={[1]}>
+          <span>a</span>
+        </Step>
+        <Step lines={[8]} programLines={[2]}>
+          <span>b</span>
+        </Step>
+      </StepShow>,
+    );
+
+    const listings = screen.getAllByTestId('stepshow-listing');
+    expect(listings.map((l) => l.getAttribute('data-listing'))).toEqual(['programa', 'f']);
+    const lit = (i: number) => highlightedLines(listings[i]!);
+    expect([lit(0), lit(1)]).toEqual([[1], [7]]);
+
+    const live = document.querySelector('[aria-live="polite"]');
+    expect(live?.textContent).toMatch(/programa: línea 1; f: línea 7/);
+
+    fireEvent.click(screen.getByRole('button', { name: /adelante/i }));
+    expect([lit(0), lit(1)]).toEqual([[2], [8]]);
+  });
+
+  it('reads a beside ratio as the two columns, and falls back on a malformed one', () => {
+    expect(besideColumns('40/60')).toBe('minmax(0,40fr) minmax(0,60fr)');
+    expect(besideColumns(undefined)).toBeUndefined();
+    expect(besideColumns('40')).toBeUndefined();
+    expect(besideColumns('0/100')).toBeUndefined();
+  });
+
+  it('shows one unnamed listing when no program is given', () => {
+    render(
+      <StepShow code={CODE} language="java">
+        <Step lines={[7]}>
+          <span>a</span>
+        </Step>
+      </StepShow>,
+    );
+
+    expect(screen.queryAllByTestId('stepshow-listing')).toHaveLength(0);
+    expect(screen.getAllByTestId('code-listing')).toHaveLength(1);
   });
 
   it('ignores non-Step children so an author cannot accidentally count prose', () => {

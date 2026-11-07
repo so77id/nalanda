@@ -7,6 +7,7 @@ import { AuthoringError } from '../AuthoringError';
 import { CodeStepper } from './CodeStepper';
 import { Step } from './Step';
 import { ControlButton } from './stepperShell';
+import { besideColumns } from './stepShowLayout';
 import type { StepProps } from './Step';
 import { useViewportBreakout } from '../useViewportBreakout';
 
@@ -40,6 +41,25 @@ export interface StepShowProps {
    * ~700px, and two columns shrink the drawing to unreadable (#116).
    */
   beside?: boolean;
+  /**
+   * The program that calls the listing, shown over it as a listing of its
+   * own, headed «programa», with `code` under it headed `codeName`. Each
+   * `<Step>` lights its own lines in both: `programLines` here, `lines` in
+   * `code`. For a walk whose lesson is a call and what it does inside — the
+   * calls `addEdge(0, 1)`, `addEdge(0, 2)`… over `addEdge` itself (#363) —
+   * the way `<SequenceStepper program>` sets a program beside its method
+   * (#322). Without it the widget shows `code` alone, unheaded, as before.
+   */
+  program?: string;
+  /**
+   * With `beside`, how the slide's width splits between the code and the
+   * drawing, as "code/drawing" percentages. Default "55/45". A walk whose
+   * drawing carries two pictures over each other — a graph over its matrix —
+   * and whose listings are short asks for "40/60" (#363).
+   */
+  ratio?: string;
+  /** The heading of `code` when `program` is given. Default «método». */
+  codeName?: string;
   /** `<Step>` elements. Order is step order; anything else is ignored. */
   children?: ReactNode;
 }
@@ -86,6 +106,9 @@ export function StepShow({
   autoplay = false,
   speed = 'normal',
   beside = false,
+  program,
+  ratio,
+  codeName = 'método',
   children,
 }: StepShowProps) {
   const steps = Children.toArray(children).filter(
@@ -206,6 +229,7 @@ export function StepShow({
 
   const current = steps[clamped]!;
   const currentLines = current.props.lines ?? [];
+  const currentProgramLines = current.props.programLines ?? [];
   const currentVisual = current.props.children;
   const first = clamped === 0;
   const last = clamped === count - 1;
@@ -255,13 +279,30 @@ export function StepShow({
       */}
       <div
         data-layout={isBeside ? 'beside' : 'stacked'}
+        style={
+          isBeside && besideColumns(ratio) !== undefined
+            ? { gridTemplateColumns: besideColumns(ratio) }
+            : undefined
+        }
         className={
           isBeside
             ? 'grid grid-cols-[minmax(0,1fr)_minmax(0,0.8fr)] gap-px bg-rule'
             : 'flex flex-col gap-px bg-rule'
         }
       >
-        <CodeStepper code={code} highlightLines={currentLines} language={language} />
+        {program === undefined ? (
+          <CodeStepper code={code} highlightLines={currentLines} language={language} />
+        ) : (
+          <div className="flex flex-col gap-px bg-rule">
+            <Listing
+              name="programa"
+              code={program}
+              lines={currentProgramLines}
+              language={language}
+            />
+            <Listing name={codeName} code={code} lines={currentLines} language={language} />
+          </div>
+        )}
         <div
           className={
             isBeside
@@ -341,9 +382,38 @@ export function StepShow({
           served `lang="es"` (root CLAUDE.md §Language).
         */}
         <span role="status" aria-live="polite" className="sr-only">
-          {`Paso ${clamped + 1} de ${count}, ${describeLines(currentLines)}.`}
+          {program === undefined
+            ? `Paso ${clamped + 1} de ${count}, ${describeLines(currentLines)}.`
+            : `Paso ${clamped + 1} de ${count}, programa: ${describeLines(currentProgramLines)}; ${codeName}: ${describeLines(currentLines)}.`}
         </span>
       </footer>
+    </div>
+  );
+}
+
+/**
+ * One named listing of a two-listing walk: the heading the reader uses to tell
+ * the program from the method, over the listing with its own lit lines. The
+ * heading reads like `<SequenceStepper>`'s, so the two widgets name their
+ * listings the same way.
+ */
+function Listing({
+  name,
+  code,
+  lines,
+  language,
+}: {
+  name: string;
+  code: string;
+  lines: number[];
+  language: string | undefined;
+}) {
+  return (
+    <div data-testid="stepshow-listing" data-listing={name} className="flex flex-col bg-surface">
+      <div className="px-3 pt-1 font-mono text-3xs uppercase tracking-wide text-ink-faint">
+        {name}
+      </div>
+      <CodeStepper code={code} highlightLines={lines} language={language} />
     </div>
   );
 }
