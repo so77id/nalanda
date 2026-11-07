@@ -2021,8 +2021,370 @@ check(Solution.celebrity(new boolean[][] {{f}}), 0);
 
 </Slide>
 
-{/* Exercise 3, «Ciudades con distancias» (S11): weighted edges */}
-{/* («Santiago Valparaíso 116»); each city's nearest neighbouring city. */}
+{/* Exercise 3: roads between cities, with their length in kilometres. */}
+
+<Slide title="La ciudad vecina más cercana">
+Una red de carreteras une ciudades, cada carretera con su largo en
+kilómetros. Para cada ciudad, se quiere su **ciudad vecina más cercana**: de
+las ciudades unidas a ella por una carretera directa, la que está a menos
+kilómetros.
+
+<NodeGraph
+  cols={4}
+  rows={5}
+  nodes={[{ v: 'Quillota', x: 1, y: 0 }, { v: 'Valparaíso', x: 0, y: 1.3 }, { v: 'Santiago', x: 2.4, y: 1.3 }, { v: 'Rancagua', x: 2.4, y: 2.8 }, { v: 'Talca', x: 2.4, y: 4.2 }]}
+  edges={[['Santiago', 'Valparaíso', 116], ['Santiago', 'Rancagua', 87], ['Rancagua', 'Talca', 172], ['Valparaíso', 'Quillota', 52], ['Quillota', 'Santiago', 125]]}
+  markEdges={[['Santiago', 'Rancagua'], ['Valparaíso', 'Quillota'], ['Rancagua', 'Talca']]}
+  caption="Santiago y Rancagua, a 87 km, son vecinas más cercanas la una de la otra"
+  label="Cinco ciudades y sus carreteras: Santiago con Valparaíso a 116 km, con Rancagua a 87 y con Quillota a 125; Rancagua con Talca a 172; Valparaíso con Quillota a 52. Marcadas, las carreteras que son la más corta de alguna ciudad: Santiago-Rancagua, Valparaíso-Quillota y Rancagua-Talca."
+/>
+
+El programa recibe las carreteras, una por línea con las dos ciudades y el
+largo, y responde la vecina más cercana de cada ciudad, en el orden en que
+las ciudades aparecen:
+
+```java
+static String[] nearest(String[] roads)
+```
+
+**Entrada.** A lo más $$10^5$$ carreteras, sin repetir, de largo entero. Los
+nombres no tienen espacios.
+
+**Salida.** Un nombre por ciudad. Si dos carreteras de una ciudad empatan,
+gana la que aparece primero. Sin carreteras, un arreglo vacío.
+
+</Slide>
+
+<Slide title="Ciudad vecina · el modelo">
+- **Los vértices** son las ciudades, numeradas en el orden en que aparecen.
+- **Las aristas** son las carreteras, sin dirección: se recorren en los dos
+  sentidos. Su **peso** es el largo en kilómetros, un entero.
+- **La pregunta**: para cada vértice, la arista de menor peso entre las suyas,
+  y el vértice al otro extremo.
+- **El tamaño**: $$E \le 10^5$$ y $$V \le 2 \cdot 10^5$$. Se guarda en listas
+  con pesos.
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '0.5rem 2rem', alignItems: 'center' }}>
+<div>
+
+```text
+Santiago Valparaíso 116
+Santiago Rancagua 87
+Rancagua Talca 172
+Valparaíso Quillota 52
+Quillota Santiago 125
+```
+
+</div>
+<NodeGraph
+  cols={4}
+  rows={5}
+  nodes={[{ v: '4 Quillota', x: 1, y: 0 }, { v: '1 Valparaíso', x: 0, y: 1.3 }, { v: '0 Santiago', x: 2.4, y: 1.3 }, { v: '2 Rancagua', x: 2.4, y: 2.8 }, { v: '3 Talca', x: 2.4, y: 4.2 }]}
+  edges={[['0 Santiago', '1 Valparaíso', 116], ['0 Santiago', '2 Rancagua', 87], ['2 Rancagua', '3 Talca', 172], ['1 Valparaíso', '4 Quillota', 52], ['4 Quillota', '0 Santiago', 125]]}
+  caption="cada línea, una arista con su peso"
+  label="Las cinco líneas y su grafo con pesos: Santiago es el 0, Valparaíso el 1, Rancagua el 2, Talca el 3 y Quillota el 4, con una arista por carretera y su largo como peso."
+/>
+</div>
+
+</Slide>
+
+<Slide title="Ciudad vecina · todas las carreteras por ciudad">
+Lo primero que se piensa es, para cada ciudad, leer todas las carreteras y
+quedarse con la más corta de las que la tocan. Es correcto, y cada ciudad lee
+las $$E$$ carreteras, aunque solo unas pocas sean suyas.
+
+<NodeGraph
+  cols={4}
+  rows={5}
+  nodes={[{ v: 'Quillota', x: 1, y: 0 }, { v: 'Valparaíso', x: 0, y: 1.3 }, { v: 'Santiago', x: 2.4, y: 1.3 }, { v: 'Rancagua', x: 2.4, y: 2.8 }, { v: 'Talca', x: 2.4, y: 4.2 }]}
+  edges={[['Santiago', 'Valparaíso', 116], ['Santiago', 'Rancagua', 87], ['Rancagua', 'Talca', 172], ['Valparaíso', 'Quillota', 52], ['Quillota', 'Santiago', 125]]}
+  tones={{ Talca: 'mark' }}
+  markEdges={[['Santiago', 'Valparaíso'], ['Santiago', 'Rancagua'], ['Rancagua', 'Talca'], ['Valparaíso', 'Quillota'], ['Quillota', 'Santiago']]}
+  caption="para Talca se leen las 5 carreteras, y solo 1 es suya"
+  label="Talca, destacada, y las cinco carreteras marcadas: para encontrar su vecina más cercana se leen todas, y solo la de Rancagua la toca."
+/>
+
+Son $$V \cdot E$$ lecturas: con $$2 \cdot 10^5$$ ciudades y $$10^5$$
+carreteras, $$2 \cdot 10^{10}$$.
+
+</Slide>
+
+<Slide title="Ciudad vecina · la idea">
+Si cada ciudad tiene a mano solo sus carreteras, su vecina más cercana es el
+menor peso de esa colección: se mira cada carretera de la ciudad una vez. Y
+cada carretera pertenece a dos ciudades, así que entre todas se miran
+$$2E$$ carreteras. Es exactamente lo que guardan las **listas de adyacencia
+con pesos**.
+
+<AdjLists
+  lists={[['1 · 116', '2 · 87', '4 · 125'], ['0 · 116', '4 · 52'], ['0 · 87', '3 · 172'], ['2 · 172'], ['1 · 52', '0 · 125']]}
+  mark={[[0, 1], [1, 1], [2, 0], [3, 0], [4, 0]]}
+  caption="el menor peso de cada lista: Santiago 0, Valparaíso 1, Rancagua 2, Talca 3, Quillota 4"
+  label="Las listas con pesos: Santiago, el 0, tiene a 1 a 116, 2 a 87 y 4 a 125; Valparaíso, el 1, a 0 a 116 y 4 a 52; Rancagua, el 2, a 0 a 87 y 3 a 172; Talca, el 3, a 2 a 172; Quillota, el 4, a 1 a 52 y 0 a 125. Marcado en cada lista el menor peso: 2 a 87 para Santiago, 4 a 52 para Valparaíso, 0 a 87 para Rancagua, 2 a 172 para Talca y 1 a 52 para Quillota."
+/>
+
+</Slide>
+
+<Slide title="Ciudad vecina · de nombres a números">
+El método lee las carreteras dos veces. La primera vuelta numera las
+ciudades, que son las dos primeras palabras de cada línea; la tercera es el
+largo, y se deja para después:
+
+```java
+Map<String, Integer> ids = new HashMap<>();
+List<String> names = new ArrayList<>();
+for (String line : roads) {
+    String[] parts = line.split(" ");
+    for (int i = 0; i < 2; i++) {
+        if (!ids.containsKey(parts[i])) {
+            ids.put(parts[i], names.size());
+            names.add(parts[i]);
+        }
+    }
+}
+```
+
+| `v`            | 0          | 1            | 2          | 3       | 4          |
+| -------------- | ---------- | ------------ | ---------- | ------- | ---------- |
+| `names.get(v)` | `Santiago` | `Valparaíso` | `Rancagua` | `Talca` | `Quillota` |
+
+</Slide>
+
+<Slide title="Ciudad vecina · el grafo con pesos">
+La segunda vuelta crea el grafo con pesos y agrega cada carretera con el
+número de sus dos ciudades y su largo, que `Integer.parseInt` convierte de
+texto a entero. `addEdge` la deja en las dos listas, como un `Edge` en cada
+sentido:
+
+```java
+WeightedGraph g = new WeightedListGraph(names.size());
+for (String line : roads) {
+    String[] parts = line.split(" ");
+    g.addEdge(ids.get(parts[0]), ids.get(parts[1]),
+            Integer.parseInt(parts[2]));
+}
+```
+
+<AdjLists
+  lists={[['1 · 116', '2 · 87', '4 · 125'], ['0 · 116', '4 · 52'], ['0 · 87', '3 · 172'], ['2 · 172'], ['1 · 52', '0 · 125']]}
+  mark={[]}
+  caption="Santiago 0, Valparaíso 1, Rancagua 2, Talca 3, Quillota 4"
+  label="Las listas con pesos: Santiago, el 0, tiene a 1 a 116, 2 a 87 y 4 a 125; Valparaíso, el 1, a 0 a 116 y 4 a 52; Rancagua, el 2, a 0 a 87 y 3 a 172; Talca, el 3, a 2 a 172; Quillota, el 4, a 1 a 52 y 0 a 125."
+/>
+
+</Slide>
+
+<Slide title="Ciudad vecina · la solución">
+Por cada vértice, el método recorre su lista y se queda con el `Edge` de menor
+peso; su `to` es la vecina más cercana. Como el `<` es estricto, en un empate
+queda la carretera que llegó primero a la lista.
+
+<StepShow
+  language="java"
+  title="nearest(roads): una lista por ciudad"
+  code={`String[] result = new String[g.V()];
+  for (int v = 0; v < g.V(); v++) {
+      Edge best = null;
+      for (Edge e : g.adj(v)) {
+          if (best == null || e.weight < best.weight) {
+              best = e;
+          }
+      }
+      result[v] = names.get(best.to);
+  }
+  return result;`}
+>
+  <Step lines={[2, 3, 4, 5, 6, 9]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>v = 0, Santiago: el menor peso de su lista es 87, hacia el 2.</div>
+    <AdjLists
+      lists={[['1 · 116', '2 · 87', '4 · 125'], ['0 · 116', '4 · 52'], ['0 · 87', '3 · 172'], ['2 · 172'], ['1 · 52', '0 · 125']]}
+      mark={[[0, 1]]}
+      caption="Santiago: Rancagua, a 87"
+      label="Las listas con pesos: Santiago, el 0, tiene a 1 a 116, 2 a 87 y 4 a 125; Valparaíso, el 1, a 0 a 116 y 4 a 52; Rancagua, el 2, a 0 a 87 y 3 a 172; Talca, el 3, a 2 a 172; Quillota, el 4, a 1 a 52 y 0 a 125. Marcada, Santiago: Rancagua, a 87."
+    />
+  </Step>
+  <Step lines={[2, 3, 4, 5, 6, 9]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>v = 1, Valparaíso: el menor es 52, hacia el 4.</div>
+    <AdjLists
+      lists={[['1 · 116', '2 · 87', '4 · 125'], ['0 · 116', '4 · 52'], ['0 · 87', '3 · 172'], ['2 · 172'], ['1 · 52', '0 · 125']]}
+      mark={[[1, 1]]}
+      caption="Valparaíso: Quillota, a 52"
+      label="Las listas con pesos: Santiago, el 0, tiene a 1 a 116, 2 a 87 y 4 a 125; Valparaíso, el 1, a 0 a 116 y 4 a 52; Rancagua, el 2, a 0 a 87 y 3 a 172; Talca, el 3, a 2 a 172; Quillota, el 4, a 1 a 52 y 0 a 125. Marcada, Valparaíso: Quillota, a 52."
+    />
+  </Step>
+  <Step lines={[2, 3, 4, 5, 6, 9]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>v = 2, Rancagua: el menor es 87, hacia el 0.</div>
+    <AdjLists
+      lists={[['1 · 116', '2 · 87', '4 · 125'], ['0 · 116', '4 · 52'], ['0 · 87', '3 · 172'], ['2 · 172'], ['1 · 52', '0 · 125']]}
+      mark={[[2, 0]]}
+      caption="Rancagua: Santiago, a 87"
+      label="Las listas con pesos: Santiago, el 0, tiene a 1 a 116, 2 a 87 y 4 a 125; Valparaíso, el 1, a 0 a 116 y 4 a 52; Rancagua, el 2, a 0 a 87 y 3 a 172; Talca, el 3, a 2 a 172; Quillota, el 4, a 1 a 52 y 0 a 125. Marcada, Rancagua: Santiago, a 87."
+    />
+  </Step>
+  <Step lines={[2, 3, 4, 5, 6, 9]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>v = 3, Talca: su única ruta, 172, hacia el 2.</div>
+    <AdjLists
+      lists={[['1 · 116', '2 · 87', '4 · 125'], ['0 · 116', '4 · 52'], ['0 · 87', '3 · 172'], ['2 · 172'], ['1 · 52', '0 · 125']]}
+      mark={[[3, 0]]}
+      caption="Talca: Rancagua, a 172"
+      label="Las listas con pesos: Santiago, el 0, tiene a 1 a 116, 2 a 87 y 4 a 125; Valparaíso, el 1, a 0 a 116 y 4 a 52; Rancagua, el 2, a 0 a 87 y 3 a 172; Talca, el 3, a 2 a 172; Quillota, el 4, a 1 a 52 y 0 a 125. Marcada, Talca: Rancagua, a 172."
+    />
+  </Step>
+  <Step lines={[2, 3, 4, 5, 6, 9]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>v = 4, Quillota: el menor es 52, hacia el 1.</div>
+    <AdjLists
+      lists={[['1 · 116', '2 · 87', '4 · 125'], ['0 · 116', '4 · 52'], ['0 · 87', '3 · 172'], ['2 · 172'], ['1 · 52', '0 · 125']]}
+      mark={[[4, 0]]}
+      caption="Quillota: Valparaíso, a 52"
+      label="Las listas con pesos: Santiago, el 0, tiene a 1 a 116, 2 a 87 y 4 a 125; Valparaíso, el 1, a 0 a 116 y 4 a 52; Rancagua, el 2, a 0 a 87 y 3 a 172; Talca, el 3, a 2 a 172; Quillota, el 4, a 1 a 52 y 0 a 125. Marcada, Quillota: Valparaíso, a 52."
+    />
+  </Step>
+  <Step lines={[11]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Retorna una ciudad por vértice, en el orden de los números.</div>
+    <AdjLists
+      lists={[['1 · 116', '2 · 87', '4 · 125'], ['0 · 116', '4 · 52'], ['0 · 87', '3 · 172'], ['2 · 172'], ['1 · 52', '0 · 125']]}
+      mark={[[0, 1], [1, 1], [2, 0], [3, 0], [4, 0]]}
+      caption="Rancagua, Quillota, Santiago, Rancagua, Valparaíso"
+      label="Las listas con pesos: Santiago, el 0, tiene a 1 a 116, 2 a 87 y 4 a 125; Valparaíso, el 1, a 0 a 116 y 4 a 52; Rancagua, el 2, a 0 a 87 y 3 a 172; Talca, el 3, a 2 a 172; Quillota, el 4, a 1 a 52 y 0 a 125. Marcada, Rancagua, Quillota, Santiago, Rancagua, Valparaíso."
+    />
+  </Step>
+</StepShow>
+
+</Slide>
+
+<Slide title="Ciudad vecina · casos y costo">
+Cada ciudad aparece en alguna carretera, así que ninguna lista está vacía y
+`best` nunca queda en `null`. En un empate, el `<` estricto conserva la
+primera carretera de la lista.
+
+<NodeGraph
+  cols={4}
+  rows={2}
+  nodes={[{ v: 'Linares', x: 0, y: 0 }, { v: 'Talca', x: 1.5, y: 1 }, { v: 'Curicó', x: 3, y: 0 }]}
+  edges={[['Talca', 'Linares', 50], ['Talca', 'Curicó', 50]]}
+  markEdges={[['Talca', 'Linares']]}
+  tones={{ Talca: 'mark' }}
+  caption="«Talca Linares 50» llegó antes que «Talca Curicó 50»: gana Linares"
+  label="Talca, destacada, con dos carreteras de 50 km, a Linares y a Curicó. Marcada, la de Linares, que llegó primero a la lista de Talca y gana el empate."
+/>
+
+Sin carreteras no hay ciudades, y el resultado es un arreglo vacío.
+
+**Tiempo.** Leer y numerar cuesta $$\Theta(E)$$ esperado, por el `HashMap`;
+crear el grafo, $$\Theta(V + E)$$; y buscar el menor de cada lista recorre
+las $$2E$$ entradas una vez: $$\Theta(V + E)$$ en total.
+
+**Memoria.** Las listas con pesos, $$\Theta(V + E)$$.
+
+</Slide>
+
+<Slide title="Ciudad vecina · el programa completo">
+<PresentationWide fraction={0.75}>
+<Exercise title="La ciudad vecina más cercana">
+
+```java starter
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+class Edge {
+    final int from;
+    final int to;
+    final int weight;
+
+    Edge(int from, int to, int weight) {
+        this.from = from;
+        this.to = to;
+        this.weight = weight;
+    }
+}
+
+interface WeightedGraph {
+    int V();
+    int E();
+    Iterable<Edge> adj(int v);
+    boolean hasEdge(int v, int w);
+    void addEdge(int v, int w, int weight);
+}
+
+class WeightedListGraph implements WeightedGraph {
+    private final List<List<Edge>> lists;
+    private int E;
+
+    WeightedListGraph(int V) {
+        lists = new ArrayList<>();
+        for (int v = 0; v < V; v++) {
+            lists.add(new ArrayList<>());
+        }
+    }
+
+    public int V() { return lists.size(); }
+    public int E() { return E; }
+    public Iterable<Edge> adj(int v) { return lists.get(v); }
+
+    public boolean hasEdge(int v, int w) {
+        for (Edge e : lists.get(v)) {
+            if (e.to == w) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public void addEdge(int v, int w, int weight) {
+        lists.get(v).add(new Edge(v, w, weight));
+        lists.get(w).add(new Edge(w, v, weight));
+        E++;
+    }
+}
+
+class Solution {
+    static String[] nearest(String[] roads) {
+        Map<String, Integer> ids = new HashMap<>();
+        List<String> names = new ArrayList<>();
+        for (String line : roads) {
+            String[] parts = line.split(" ");
+            for (int i = 0; i < 2; i++) {
+                if (!ids.containsKey(parts[i])) {
+                    ids.put(parts[i], names.size());
+                    names.add(parts[i]);
+                }
+            }
+        }
+        WeightedGraph g = new WeightedListGraph(names.size());
+        for (String line : roads) {
+            String[] parts = line.split(" ");
+            g.addEdge(ids.get(parts[0]), ids.get(parts[1]),
+                    Integer.parseInt(parts[2]));
+        }
+        String[] result = new String[g.V()];
+        for (int v = 0; v < g.V(); v++) {
+            Edge best = null;
+            for (Edge e : g.adj(v)) {
+                if (best == null || e.weight < best.weight) {
+                    best = e;
+                }
+            }
+            result[v] = names.get(best.to);
+        }
+        return result;
+    }
+}
+```
+
+```java test
+String[] roads = {"Santiago Valparaíso 116", "Santiago Rancagua 87", "Rancagua Talca 172", "Valparaíso Quillota 52", "Quillota Santiago 125"};
+check(Solution.nearest(roads), new String[] {"Rancagua", "Quillota", "Santiago", "Rancagua", "Valparaíso"});
+check(Solution.nearest(new String[] {"Santiago Rancagua 87"}), new String[] {"Rancagua", "Santiago"});
+check(Solution.nearest(new String[] {"Talca Linares 50", "Talca Curicó 50"}), new String[] {"Linares", "Talca", "Talca"});
+check(Solution.nearest(new String[] {}), new String[] {});
+```
+
+</Exercise>
+</PresentationWide>
+
+</Slide>
 
 {/* Exercise 4, «Laberinto» (S12): a character grid; implicit by position; */}
 {/* 4-vecindad / 8-vecindad (von Neumann / Moore), code and answer both */}
