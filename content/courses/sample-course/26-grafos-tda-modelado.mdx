@@ -669,6 +669,10 @@ Se lee «el largo de la lista de $$v$$ es el grado de $$v$$». Es su invariante,
 junto con esta: en un grafo no dirigido cada arista aparece dos veces, en la
 lista de cada uno de sus extremos.
 
+Cada lista guarda solo los vecinos, en el orden en que llegaron. Esa
+invariante es la que entrega los vecinos sin mirar a nadie más, y la que
+obliga a recorrer una lista para saber si un vértice está en ella.
+
 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.5rem 2rem', alignItems: 'center' }}>
 <NodeGraph
   cols={3}
@@ -763,9 +767,9 @@ aristas, como los dos puentes de Königsberg.
 
 </Slide>
 
-<Slide title="¿Hay una arista? En las listas">
-`hasEdge(v, w)` recorre la lista de `v` buscando a `w`. Para saber si hay una
-arista entre 2 y 3, revisa la lista de 2 hasta encontrar el 3:
+<Slide title="Buscar una arista en las listas">
+`hasEdge(v, w)` recorre la lista de `v` buscando a `w`, hasta encontrarlo o
+hasta terminar la lista:
 
 <StepShow
   language="java"
@@ -830,7 +834,7 @@ $$\Theta(\operatorname{grado}(v))$$.
 
 {/* Variants of the lists: only what changes (S7). */}
 
-<Slide title="Construir un grafo dirigido">
+<Slide title="Un grafo dirigido en las listas">
 `AdjListDigraph` es la clase de las listas sin la línea que agregaba el otro
 extremo. Las mismas aristas, ahora arcos, entran una por una:
 
@@ -927,9 +931,9 @@ arco.
 </Slide>
 
 <Slide title="Construir las listas con pesos">
-`WeightedListGraph` también implementa `WeightedGraph`. Cada entrada de una
-lista es un `Edge`: el vecino y el peso de la arista que lleva a él. La lista de
-$$u$$ tiene un par $$(v, w(u, v))$$ por cada arista $$uv$$ de $$E$$:
+`WeightedListGraph` también implementa `WeightedGraph`. Cada entrada de la
+lista de `v` es un `Edge` que sale de `v`; el dibujo muestra su vecino y su
+peso. Una arista con pesos queda dos veces, una en cada sentido:
 
 <StepShow
   language="java"
@@ -945,11 +949,9 @@ $$u$$ tiene un par $$(v, w(u, v))$$ por cada arista $$uv$$ de $$E$$:
         }
     }
 
-    public Iterable<Edge> adj(int v) { return lists.get(v); }
-
     public void addEdge(int v, int w, int weight) {
-        lists.get(v).add(new Edge(w, weight));
-        lists.get(w).add(new Edge(v, weight));
+        lists.get(v).add(new Edge(v, w, weight));
+        lists.get(w).add(new Edge(w, v, weight));
         E++;
     }
 }`}
@@ -962,7 +964,7 @@ $$u$$ tiene un par $$(v, w(u, v))$$ por cada arista $$uv$$ de $$E$$:
       label="Cuatro listas vacías."
     />
   </Step>
-  <Step lines={[15, 16, 17]}>
+  <Step lines={[13, 14, 15]}>
     <AdjLists
       lists={[['1 · 7'], ['0 · 7'], [], []]}
       mark={[[0, 0], [1, 0]]}
@@ -970,7 +972,7 @@ $$u$$ tiene un par $$(v, w(u, v))$$ por cada arista $$uv$$ de $$E$$:
       label="Después de addEdge(0, 1, 7): la lista de 0 tiene 1 · 7; la lista de 1 tiene 0 · 7; la lista de 2 está vacía; la lista de 3 está vacía. Marcadas, las dos entradas agregadas."
     />
   </Step>
-  <Step lines={[15, 16, 17]}>
+  <Step lines={[13, 14, 15]}>
     <AdjLists
       lists={[['1 · 7', '2 · 3'], ['0 · 7'], ['0 · 3'], []]}
       mark={[[0, 1], [2, 0]]}
@@ -978,7 +980,7 @@ $$u$$ tiene un par $$(v, w(u, v))$$ por cada arista $$uv$$ de $$E$$:
       label="Después de addEdge(0, 2, 3): la lista de 0 tiene 1 · 7, 2 · 3; la lista de 1 tiene 0 · 7; la lista de 2 tiene 0 · 3; la lista de 3 está vacía. Marcadas, las dos entradas agregadas."
     />
   </Step>
-  <Step lines={[15, 16, 17]}>
+  <Step lines={[13, 14, 15]}>
     <AdjLists
       lists={[['1 · 7', '2 · 3'], ['0 · 7', '2 · 2'], ['0 · 3', '1 · 2'], []]}
       mark={[[1, 1], [2, 1]]}
@@ -986,7 +988,7 @@ $$u$$ tiene un par $$(v, w(u, v))$$ por cada arista $$uv$$ de $$E$$:
       label="Después de addEdge(1, 2, 2): la lista de 0 tiene 1 · 7, 2 · 3; la lista de 1 tiene 0 · 7, 2 · 2; la lista de 2 tiene 0 · 3, 1 · 2; la lista de 3 está vacía. Marcadas, las dos entradas agregadas."
     />
   </Step>
-  <Step lines={[15, 16, 17]}>
+  <Step lines={[13, 14, 15]}>
     <AdjLists
       lists={[['1 · 7', '2 · 3'], ['0 · 7', '2 · 2'], ['0 · 3', '1 · 2', '3 · 4'], ['2 · 4']]}
       mark={[[2, 2], [3, 0]]}
@@ -1000,10 +1002,28 @@ $$u$$ tiene un par $$(v, w(u, v))$$ por cada arista $$uv$$ de $$E$$:
 
 </Slide>
 
-{/* S7: the lists' own memory and price, Θ(V + E), then the comparison. */}
-{/* Still to add: one value per vertex in an array (boolean[], int[]), and */}
-{/* one line each on parallel edges and self-loops. The closing trade stays */}
-{/* the last slide of the act. */}
+<Slide title="La memoria y el precio de las listas">
+Las listas guardan una lista por vértice y una entrada por cada extremo de
+arista: ocupan $$\Theta(V + E)$$ de memoria. Las entradas se cuentan sumando
+los largos de las listas:
+
+$$
+\sum_{v} |\mathrm{adj}(v)| = \sum_{v} \operatorname{grado}(v) = 2E
+$$
+
+Se lee «la suma de los largos de las listas es la suma de los grados, que es
+dos veces la cantidad de aristas».
+
+- **Lo que hace barato.** Crearlas cuesta $$\Theta(V)$$, `addEdge` agrega dos
+  entradas en $$\Theta(1)$$, y `adj(v)` entrega la lista sin mirar a nadie
+  más: recorrerla cuesta $$\Theta(\operatorname{grado}(v))$$.
+- **Lo que hace caro.** `hasEdge(v, w)` recorre la lista de `v`:
+  $$\Theta(\operatorname{grado}(v))$$ en el peor caso.
+- **Lo que puede guardar.** Una arista repetida queda dos veces, así que las
+  listas admiten aristas paralelas, y un lazo deja a `v` dos veces en su
+  propia lista: suma 2 a su grado.
+
+</Slide>
 
 <Slide title="Un mismo cliente, dos costos">
 El grado de un vértice se calcula solo con el contrato: recorrer sus vecinos y
@@ -1047,24 +1067,6 @@ les pregunta por una arista.
 
 </Slide>
 
-<Slide title="La memoria de las dos implementaciones">
-- **La matriz** guarda $$V^2$$ casillas, haya las aristas que haya:
-  $$\Theta(V^2)$$.
-- **Las listas** guardan una lista por vértice y una entrada por extremo de
-  arista: $$\Theta(V + E)$$.
-
-Las entradas de las listas se cuentan con el lema del apretón de manos:
-
-$$
-\sum_{v} |\mathrm{adj}(v)| = \sum_{v} \operatorname{grado}(v) = 2E
-$$
-
-Se lee «la suma de los largos de las listas es la suma de los grados, que es
-dos veces la cantidad de aristas». Cuál ocupa menos depende de cuántas aristas
-tiene el grafo.
-
-</Slide>
-
 <Slide title="Densos y dispersos en los costos">
 Un grafo **denso** tiene cerca del máximo de aristas, $$\frac{V(V - 1)}{2}$$, y
 uno **disperso**, muchas menos. En las cuentas de costo se escriben así:
@@ -1093,6 +1095,49 @@ en menos.
 
 </Slide>
 
+<Slide title="Un dato por vértice en un arreglo">
+Como los vértices son los números de $$0$$ a $$V - 1$$, lo que un algoritmo
+sabe de cada vértice se guarda en un arreglo de largo $$V$$, indexado por el
+vértice: si ya pasó por él, cuántos vecinos tiene, desde dónde llegó. Leer o
+escribir el dato de un vértice cuesta $$\Theta(1)$$.
+
+El grado de todos los vértices, por ejemplo, queda en un `int[]` después de
+recorrer los vecinos de cada uno:
+
+<Split ratio="60/40">
+
+```java
+static int[] degrees(Graph g) {
+    int[] degree = new int[g.V()];
+    for (int v = 0; v < g.V(); v++) {
+        for (int w : g.adj(v)) {
+            degree[v]++;
+        }
+    }
+    return degree;
+}
+```
+
+<div>
+<AdjLists
+  lists={[[1, 2], [0, 2], [0, 1, 3], [2]]}
+  caption="las listas del grafo"
+  label="Las listas de adyacencia: 0 tiene a 1 y 2; 1 tiene a 0 y 2; 2 tiene a 0, 1 y 3; 3 tiene a 2."
+/>
+
+| `v`         | 0   | 1   | 2   | 3   |
+| ----------- | --- | --- | --- | --- |
+| `degree[v]` | 2   | 2   | 3   | 1   |
+
+</div>
+
+</Split>
+
+Con listas cuesta $$\Theta(V + E)$$: el recorrido de todos los vecinos de
+todos los vértices, más un $$\Theta(1)$$ por cada uno.
+
+</Slide>
+
 <Slide title="Matriz o listas">
 Un grafo real casi siempre es disperso: en un mapa, cada esquina tiene unas
 pocas calles; en una red social de millones de personas, cada una tiene unos
@@ -1108,7 +1153,7 @@ casillas, casi todas falsas.
 
 </Slide>
 
-<Slide title="¿Y si cada lista fuera un conjunto?">
+<Slide title="Los vecinos de cada vértice en un conjunto">
 Las listas pagan $$\Theta(\operatorname{grado}(v))$$ por `hasEdge`, porque
 guardan los vecinos en el orden en que llegaron y hay que recorrerlos para
 encontrar uno. ¿Y si los vecinos de cada vértice se guardaran en un conjunto?
