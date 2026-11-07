@@ -14,10 +14,11 @@ questions: none
 
 # Grafos · TDA y modelado
 
-Un grafo sirve para responder preguntas sobre un problema, pero antes hay que
-construirlo: decidir qué son sus vértices y sus aristas. Y para que un programa
-responda, hay que guardarlo en memoria, con más de una forma de hacerlo, cada
-una con su precio.
+Para que un programa responda preguntas sobre un grafo, primero tiene que
+guardarlo en memoria, y hay más de una forma de hacerlo, cada una con su
+precio. Y para tener un grafo, primero hay que construirlo desde el problema:
+decidir qué son sus vértices y sus aristas. Es **modelar** el problema como un
+grafo.
 
 <SectionBreak />
 
@@ -52,9 +53,54 @@ arista con sus dos extremos. Cada línea es una arista del dibujo.
 
 Guardar esas líneas tal cual alcanza para contar las aristas, pero no para la
 pregunta que más se le hace a un grafo: quiénes son los vecinos de un vértice.
-Para saber los vecinos de `2` hay que leer las $$E$$ aristas buscando las que
-lo tocan, y hacerlo para cada vértice cuesta $$\Theta(V \cdot E)$$. El grafo
-tiene que guardarse de modo que esa pregunta se responda sin leerlo entero.
+Para saber los vecinos de un vértice hay que leer las $$E$$ aristas buscando
+las que lo tocan, y hacerlo para cada vértice cuesta $$\Theta(V \cdot E)$$. El
+grafo tiene que guardarse de modo que esa pregunta se responda sin leerlo
+entero.
+
+</Slide>
+
+<Slide title="Un grafo con vértices numerados">
+Un grafo es un par $$G = (V, E)$$: un conjunto de vértices y un conjunto de
+aristas, cada una entre dos vértices. En un programa, los $$V$$ vértices se
+numeran de $$0$$ a $$V - 1$$, y una arista es el par de números de sus
+extremos. Así, un vértice sirve de índice: el vértice $$v$$ es la posición
+$$v$$ de un arreglo.
+
+<NodeGraph
+  cols={3}
+  rows={3}
+  nodes={[{ v: 0, x: 0, y: 0 }, { v: 1, x: 2, y: 0 }, { v: 2, x: 1, y: 1 }, { v: 3, x: 1, y: 2 }]}
+  edges={[[0, 1], [0, 2], [1, 2], [2, 3]]}
+  caption="V = 4, numerados de 0 a 3; E = {01, 02, 12, 23}"
+  label="Un grafo de cuatro vértices, numerados 0, 1, 2 y 3, con las aristas 0-1, 0-2, 1-2 y 2-3."
+/>
+
+Los nombres del problema, como personas o ciudades, se traducen a esos
+números al construir el grafo.
+
+</Slide>
+
+<Slide title="Grafos en la vida real">
+Un grafo aparece en cualquier programa que guarda cosas y cuáles están unidas
+entre sí.
+
+- **Una red social.** Guarda quién es amigo de quién, muestra los amigos de
+  cada persona y pregunta si dos personas ya son amigas antes de sugerirlas.
+  Cada amistad nueva agrega una arista, y la red cuenta cuántas personas y
+  cuántas amistades tiene.
+- **Una aplicación de mapas.** Guarda qué esquinas une cada calle y, para
+  avanzar por una ruta, pregunta a qué esquinas se llega desde la actual.
+- **Una aerolínea.** Guarda sus rutas, responde si hay un vuelo directo entre
+  dos ciudades y entrega los destinos de cada aeropuerto. Abrir una ruta
+  agrega una arista.
+- **Un buscador.** Guarda los enlaces entre páginas y, por cada página,
+  recorre las páginas a las que enlaza.
+
+Los cuatro hacen lo mismo: entregar los vecinos de un vértice, preguntar si
+dos vértices están unidos, agregar aristas y contar vértices y aristas. Ese
+comportamiento está definido en un **tipo de dato abstracto** (TDA) llamado
+**Graph**.
 
 </Slide>
 
@@ -89,7 +135,7 @@ entre ellos, y responde quiénes son los vecinos de cada vértice.
 
 </Slide>
 
-<Slide title="Las reglas del contrato Graph">
+<Slide title="Las invariantes de Graph">
 Un grafo sin dirección cumple dos invariantes:
 
 1. **Cada arista se ve desde sus dos extremos**: `w` está entre los vecinos
