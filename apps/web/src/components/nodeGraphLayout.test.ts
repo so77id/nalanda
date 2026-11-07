@@ -2,8 +2,11 @@ import { describe, expect, it } from 'vitest';
 
 import {
   NODE_R,
+  STEP_SPACE,
+  crowdedVertices,
   layoutNodeGraph,
   pointOnEdge,
+  stepMarks,
   walkStrokes,
   type NodeGraphEdge,
   type NodeGraphNode,
@@ -145,6 +148,97 @@ describe('layoutNodeGraph', () => {
     expect(apex.y).toBeGreaterThan(a.y - 1);
   });
 
+  it('draws parallel edges through the middle where their weights sit', () => {
+    for (const n of [2, 3]) {
+      const edges: NodeGraphEdge[] = Array.from({ length: n }, (_, i) => ['A', 'B', i + 1]);
+      const { edges: laid } = layoutNodeGraph({
+        nodes: TWO,
+        edges,
+        cols: 3,
+        rows: 1,
+        directed: false,
+      });
+      for (const e of laid) {
+        const nums = e.d.match(/-?[\d.]+/g)!.map(Number);
+        if (nums.length < 6) continue; // the straight one
+        const [sx, sy, cx, cy, ex, ey] = nums;
+        const mx = sx / 4 + cx / 2 + ex / 4;
+        const my = sy / 4 + cy / 2 + ey / 4;
+        expect(Math.hypot(mx - e.weightAt!.x, my - e.weightAt!.y)).toBeLessThan(0.5);
+      }
+    }
+  });
+
+  it.each([
+    [
+      'a diagonal pair',
+      [
+        { v: 'A', x: 0, y: 1 },
+        { v: 'B', x: 1, y: 0 },
+      ],
+    ],
+    [
+      'a horizontal pair',
+      [
+        { v: 'A', x: 0, y: 0 },
+        { v: 'B', x: 2, y: 0 },
+      ],
+    ],
+  ] as const)(
+    'keeps each arrowhead along the curve it ends: %s of opposite arcs',
+    (_name, nodes) => {
+      const { edges: laid } = layoutNodeGraph({
+        nodes: [...nodes],
+        edges: [
+          ['A', 'B'],
+          ['B', 'A'],
+          ['A', 'B'],
+        ],
+        cols: 3,
+        rows: 2,
+        directed: true,
+      });
+      for (const e of laid) {
+        // A straight arc is `M start L end`; a bent one `M start Q control end`.
+        const nums = e.d.match(/-?[\d.]+/g)!.map(Number);
+        const [cx, cy, ex, ey] = nums.length === 4 ? nums : nums.slice(2);
+        const [tip, b1, b2] = e.arrow!.split(' ').map((pt) => pt.split(',').map(Number));
+        const base = [(b1[0] + b2[0]) / 2, (b1[1] + b2[1]) / 2];
+        const curveAngle = Math.atan2(ey - cy, ex - cx);
+        const arrowAngle = Math.atan2(tip[1] - base[1], tip[0] - base[0]);
+        const apart = Math.abs(
+          Math.atan2(Math.sin(curveAngle - arrowAngle), Math.cos(curveAngle - arrowAngle)),
+        );
+        expect(apart).toBeLessThan((2 * Math.PI) / 180);
+      }
+    },
+  );
+
+  it('walks a self-loop, directed or not', () => {
+    const edges: NodeGraphEdge[] = [
+      ['A', 'B'],
+      ['A', 'A'],
+    ];
+    expect(walkStrokes(edges, ['B', 'A', 'A'], false)).toEqual([0, 1]);
+    expect(walkStrokes(edges, ['A', 'A', 'B'], true)).toEqual([1, 0]);
+    expect(walkStrokes(edges, ['B', 'A', 'A'], true)).toBeNull();
+  });
+
+  it('turns two self-loops on one node different ways', () => {
+    const { edges: laid } = layoutNodeGraph({
+      nodes: [{ v: 'A', x: 1, y: 1 }],
+      edges: [
+        ['A', 'A'],
+        ['A', 'A'],
+      ],
+      cols: 3,
+      rows: 3,
+      directed: false,
+    });
+    const [first, second] = laid.map((e) => pointOnEdge(e, 0.5));
+    expect(Math.hypot(first.x - second.x, first.y - second.y)).toBeGreaterThan(20);
+  });
+
   it('puts a note on the side its edges leave free', () => {
     const { noteAt, at } = lay(TWO, [['A', 'B']]);
     // A's only edge leaves to the right, so its note goes to the left.
@@ -250,5 +344,69 @@ describe('layoutNodeGraph', () => {
     expect(width).toBe(2 * 18 + 3 * 52);
     expect(drawingH).toBe(2 * 18 + 2 * NODE_R + 58);
     expect(at.get('+')).toEqual({ x: 18 + 1.5 * 52, y: 18 + NODE_R });
+  });
+});
+
+describe('crowdedVertices', () => {
+  it('finds two vertices in one place, or with one value', () => {
+    expect(crowdedVertices(TWO)).toBeNull();
+    expect(crowdedVertices([...TWO, { v: 'C', x: 0, y: 0 }])).toEqual(['A', 'C']);
+    expect(crowdedVertices([...TWO, { v: 'A', x: 1, y: 1 }])).toEqual(['A', 'A']);
+  });
+});
+
+describe('stepMarks', () => {
+  // Königsberg with a bridge B–C: B–C and A–D cross at the middle of the drawing.
+  const nodes: NodeGraphNode[] = [
+    { v: 'B', x: 1, y: 0 },
+    { v: 'A', x: 0, y: 1 },
+    { v: 'D', x: 2, y: 1 },
+    { v: 'C', x: 1, y: 2 },
+  ];
+  const edges: NodeGraphEdge[] = [
+    ['A', 'B'],
+    ['A', 'B'],
+    ['A', 'C'],
+    ['A', 'C'],
+    ['A', 'D'],
+    ['B', 'D'],
+    ['C', 'D'],
+    ['B', 'C'],
+  ];
+  const traced = (graph: NodeGraphEdge[], ...path: string[]) => ({
+    path,
+    used: walkStrokes(graph, path, false)!,
+  });
+
+  it('numbers each drawn stroke by its step, at the middle of the stroke when it is free', () => {
+    const layout = layoutNodeGraph({ nodes, edges, cols: 3, rows: 3, directed: false });
+    const marks = stepMarks(layout, traced(edges, 'A', 'D', 'B'));
+    expect(marks.map((m) => [m.stroke, m.step])).toEqual([
+      [4, 1],
+      [5, 2],
+    ]);
+    const ad = layout.edges[4].curve;
+    expect(marks[0]).toMatchObject({
+      x: (ad.from.x + ad.to.x) / 2,
+      y: (ad.from.y + ad.to.y) / 2,
+    });
+  });
+
+  it.each([
+    ['one more bridge, B–C', edges, 'ABACADBCD'],
+    ['two more bridges, B–C and A–D', [...edges, ['A', 'D']] as NodeGraphEdge[], 'BABDACADCB'],
+  ])('keeps every number off the points and apart from the others: %s', (_name, graph, tour) => {
+    const laid = layoutNodeGraph({ nodes, edges: graph, cols: 3, rows: 3, directed: false });
+    const marks = stepMarks(laid, traced(graph, ...tour.split('')));
+    expect(marks).toHaveLength(graph.length);
+    for (const m of marks) {
+      for (const p of laid.at.values()) {
+        expect(Math.hypot(m.x - p.x, m.y - p.y)).toBeGreaterThanOrEqual(STEP_SPACE.clear);
+      }
+      for (const o of marks) {
+        if (o !== m)
+          expect(Math.hypot(m.x - o.x, m.y - o.y)).toBeGreaterThanOrEqual(STEP_SPACE.gap);
+      }
+    }
   });
 });

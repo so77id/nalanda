@@ -1,16 +1,14 @@
 import { AuthoringError } from '../AuthoringError';
 import {
   NODE_R,
-  STEP_R,
-  STEP_SPACE,
+  crowdedVertices,
   layoutNodeGraph,
   stepMarks,
   walkStrokes,
   type NodeGraphEdge,
   type NodeGraphNode,
 } from '../nodeGraphLayout';
-
-export type { NodeGraphEdge, NodeGraphNode } from '../nodeGraphLayout';
+import { StepBadge } from '../StepBadge';
 
 /** What a tone says: `mark` look here, `flag` this is wrong, `keep` this is done. */
 export type NodeGraphTone = 'mark' | 'flag' | 'keep';
@@ -26,7 +24,7 @@ export interface NodeGraphProps {
   /** Arrows: every edge goes from its first node to its second. */
   directed?: boolean;
   /** A tone on a node, keyed by value. */
-  tones?: Record<string, NodeGraphTone>;
+  tones?: Partial<Record<string, NodeGraphTone>>;
   /** Edges painted thicker in mark; in an undirected graph, either order matches. */
   markEdges?: NodeGraphEdge[];
   /**
@@ -64,11 +62,7 @@ const STROKE: Record<Paint, string> = {
  * with two parents — which is what a counterexample to a tree's invariants
  * looks like.
  *
- * Promoted from a figure local to Árboles I when Árboles II became the second
- * document to want it (#322, `add-a-course-document.md` §6e-quater); #356 gave
- * it what the Grafos unit draws: arrows, weights, edges between the same two
- * vertices, notes, names in pills, and the `flag` and `keep` tones. Its
- * geometry is the pure `nodeGraphLayout.ts`.
+ * Its geometry is the pure `nodeGraphLayout.ts`.
  */
 export function NodeGraph(props: NodeGraphProps) {
   const { nodes, edges, markEdges = [], label } = props;
@@ -90,10 +84,18 @@ export function NodeGraph(props: NodeGraphProps) {
       </AuthoringError>
     );
   }
+  const crowded = crowdedVertices(nodes);
+  if (crowded !== null) {
+    return (
+      <AuthoringError component="NodeGraph">
+        tiene dos nodos en el mismo lugar o con el mismo valor: {crowded[0]} y {crowded[1]}.
+      </AuthoringError>
+    );
+  }
   if (props.walk && walkStrokes(edges, props.walk, props.directed ?? false) === null) {
     return (
       <AuthoringError component="NodeGraph">
-        tiene un recorrido que da un paso por donde no hay arista.
+        tiene un recorrido que da un paso por donde no hay arista, o que repite una arista.
       </AuthoringError>
     );
   }
@@ -129,7 +131,7 @@ function Graph({
     markEdges.flatMap(([a, b]) => (directed ? [`${a}>${b}`] : [`${a}>${b}`, `${b}>${a}`])),
   );
   const walked = walkStrokes(edges, walk, directed) ?? [];
-  const steps = stepMarks(layout, { path: walk.map(String), used: walked }, STEP_SPACE);
+  const steps = stepMarks(layout, { path: walk.map(String), used: walked });
   return (
     <svg
       viewBox={`0 0 ${width} ${height}`}
@@ -159,33 +161,15 @@ function Graph({
         ) : null,
       )}
       {steps.map(({ stroke, step, x, y }) => (
-        <g key={`step${stroke}`} data-step={step} data-of={stroke}>
-          <circle
-            cx={x}
-            cy={y}
-            r={STEP_R}
-            style={{ fill: 'var(--color-surface)', stroke: 'var(--color-mark)' }}
-            strokeWidth={1.6}
-          />
-          <text
-            x={x}
-            y={y + 3.5}
-            textAnchor="middle"
-            fontSize="10"
-            fontWeight="700"
-            style={{ fill: 'var(--color-ink)' }}
-          >
-            {step}
-          </text>
-        </g>
+        <StepBadge key={`step${stroke}`} stroke={stroke} step={step} x={x} y={y} tone="mark" />
       ))}
       {nodes.map((n) => {
         const value = String(n.v);
-        const tone = (tones[value] as NodeGraphTone | undefined) ?? 'idle';
+        const tone = (Object.hasOwn(tones, value) ? tones[value] : undefined) ?? 'idle';
         const hot = tone !== 'idle';
         const { x, y } = at.get(value)!;
         const hw = halfW.get(value)!;
-        const note = notes[value];
+        const note = Object.hasOwn(notes, value) ? notes[value] : undefined;
         const shape = hw > r ? 'pill' : 'circle';
         const paint = {
           style: { fill: FILL[tone], stroke: STROKE[tone] },

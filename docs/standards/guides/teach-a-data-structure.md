@@ -3,8 +3,9 @@
 The shape every class of the **Estructuras de Datos** unit takes — and of
 **Estructuras de Datos Avanzadas**, the unit that continues it with the
 non-linear structures (the trees, then the heap; #321), the hash table
-(#326) and the TDAs Set and Map (#350), which close it — and of the graphs
-unit after them, whose epic (#354) adopts this guide unchanged. Born with
+(#326) and the TDAs Set and Map (#350), which close it — and of the
+structure class of the graphs unit after them (its class 2, #363), which
+adopts this guide unchanged. Born with
 #277, the first unit's first class, which is also its worked example.
 
 This is the third layer of the course-authoring stack, and the three do not
@@ -23,16 +24,18 @@ either of the other two.
 ## When to use
 
 You are writing a class of the Estructuras de Datos unit, of Estructuras de
-Datos Avanzadas or of the graphs unit after them (#354) — a TDA, a structure
-that implements one, or a family of variants. The units are one sequence of
+Datos Avanzadas, or the structure class of the graphs unit (its class 2,
+#363) — a TDA, a structure that implements one, or a family of variants. The units are one sequence of
 classes that all answer the same four questions about a different object, and
 the reader learns the answers faster because the questions never move.
 
 Do **not** use it for a class that is not about a data structure: a class about
 an algorithm design technique (divide y conquista, ordenamiento) has its own
-arc and its worked cases are chapters 15 and 16. So do the Grafos classes
-after the first (traversals, the minimum spanning tree, the shortest paths):
-they use the structure the first one builds and add none of their own.
+arc and its worked cases are chapters 15 and 16. Nor for the other Grafos
+classes: the introduction (#356), which poses the problem and the types of
+graphs, and the algorithm classes after the structure class (traversals,
+the minimum spanning tree, the shortest paths, P y NP). They use the
+structure class 2 (#363) builds and add none of their own.
 
 ## Worked example
 
@@ -163,7 +166,8 @@ trade — the order a hash table does not keep, and what a balanced search tree
 charges to keep it — and its `## Lo que sigue` named Set and Map in prose,
 with no wiki-link, because that class did not exist yet (§5); #350, which
 wrote it, added the wiki-link to that same paragraph. Its book-only
-`## Lo que sigue` names the graphs unit in prose, again with no wiki-link.
+`## Lo que sigue` named the graphs unit in prose, again with no wiki-link,
+and #356, which wrote Grafos · Introducción, linked it from that paragraph.
 
 **Set and Map keeps its trade in the middle, and that is a stated
 deviation.** Its first draft closed on the trade a probabilistic structure
@@ -343,10 +347,10 @@ extraction of seven copies.
 
 **What the next card does is decided when its class is refined, with the
 professor, and written in its issue.** The class that defines the next TDA —
-the graphs unit's (#354) — settles it then: #305 first, as a WP of its own
-before the class, or an eighth copy, stated here as a deviation like the
-fifth, sixth and seventh. If the issue is silent — #356's, refined before
-this rule, is — the developer asks the professor before the card's slice. Neither is the default, and the author does not pick one
+the graphs unit's structure class, #363 — settles it then: #305 first, as a
+WP of its own before the class, or an eighth copy, stated here as a
+deviation like the fifth, sixth and seventh. If the issue is silent, the
+developer asks the professor before the card's slice. Neither is the default, and the author does not pick one
 silently. Until #305 lands, the copy's source stays _El TDA Sequence_ in
 `17-edd-introduccion.mdx`.
 

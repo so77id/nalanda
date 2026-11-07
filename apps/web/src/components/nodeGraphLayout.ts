@@ -29,19 +29,22 @@ export interface LaidEdge {
   /** The arrowhead's three corners, the tip first, when the graph is directed. */
   arrow?: string;
   weight?: string;
-  /** Where the weight's chip goes: the middle of the drawn edge. */
+  /** Where the weight is written: the middle of the drawn edge, or just past a self-loop's apex. */
   weightAt?: Point;
   /**
-   * The edge as a quadratic curve between the two node centres, untrimmed: a
-   * straight edge has its control point in the middle. `pointOnEdge` reads it.
+   * The edge as a quadratic curve. A straight edge runs between the two node
+   * centres, with its control point in the middle; a bent one is the curve as
+   * drawn, trimmed at the borders and at an arrowhead's base. Either way its
+   * middle is on the drawn line. `pointOnEdge` reads it.
    */
   curve: { from: Point; control: Point; to: Point };
 }
 
 /**
- * The point a fraction `t` of the way along an edge, from its `from` node
- * (t = 0) to its `to` node (t = 1). At t = 1/2 it is the middle of the drawn
- * line, on its bulge when it is one of several parallel edges.
+ * The point a fraction `t` of the way along an edge's `curve`, from the end
+ * at its `from` node (t = 0) to the end at its `to` node (t = 1). At t = 1/2
+ * it is the middle of the drawn line, on its bulge when it is one of several
+ * parallel edges.
  */
 export function pointOnEdge(edge: LaidEdge, t: number): Point {
   const { from, control, to } = edge.curve;
@@ -88,17 +91,17 @@ export interface NodeGraphLayoutInput {
 }
 
 export const NODE_R = TREE_NODE_R;
-export const PITCH = 52;
-export const LEVEL_H = 58;
-export const PAD = 18;
+const PITCH = 52;
+const LEVEL_H = 58;
+const PAD = 18;
 /** How far apart two edges between the same two nodes bulge, at their middle. */
-export const BEND = 14;
-export const ARROW_L = 9;
-export const ARROW_HALF_W = 4.5;
+const BEND = 14;
+const ARROW_L = 9;
+const ARROW_HALF_W = 4.5;
 /** How far beyond a node's border its note sits. */
-export const NOTE_GAP = 10;
+const NOTE_GAP = 10;
 /** The width of one character of a node's label (14 px, semibold), for a pill. */
-export const LABEL_CHAR_W = 8.4;
+const LABEL_CHAR_W = 8.4;
 /** The least room left between a pill and the drawing's side. */
 const SIDE_MARGIN = 6;
 
@@ -109,7 +112,7 @@ const unit = (dx: number, dy: number): Point => {
 const r1 = (n: number) => Math.round(n * 10) / 10;
 
 /** A node's half width: a circle up to two characters, a pill beyond. */
-export function nodeHalfWidth(label: string): number {
+function nodeHalfWidth(label: string): number {
   const chars = [...label].length;
   return chars <= 2 ? NODE_R : Math.max(NODE_R, (chars * LABEL_CHAR_W + 16) / 2);
 }
@@ -119,7 +122,7 @@ export function nodeHalfWidth(label: string): number {
  * vector). A pill is the set of points within the radius of a horizontal
  * segment; a circle is the pill whose segment has no length.
  */
-export function borderDistance(halfW: number, u: Point): number {
+function borderDistance(halfW: number, u: Point): number {
   const r = NODE_R;
   const a = halfW - r;
   if (a <= 0) return r;
@@ -213,6 +216,16 @@ export function layoutNodeGraph({
       bulge === 0
         ? `M${r1(start.x)},${r1(start.y)} L${r1(end.x)},${r1(end.y)}`
         : `M${r1(start.x)},${r1(start.y)} Q${r1(c.x)},${r1(c.y)} ${r1(end.x)},${r1(end.y)}`;
+    // A bent edge is drawn trimmed, so its weight and step numbers follow the
+    // drawn curve: its middle is ¼·start + ½·control + ¼·end. Keeping the
+    // control `c` keeps the curve leaving along `out` and arriving along `inn`,
+    // the direction its arrowhead is built on.
+    const drawn =
+      bulge === 0 ? { from: p, control: c, to: q } : { from: start, control: c, to: end };
+    const middle = {
+      x: drawn.from.x / 4 + drawn.control.x / 2 + drawn.to.x / 4,
+      y: drawn.from.y / 4 + drawn.control.y / 2 + drawn.to.y / 4,
+    };
     let arrow: string | undefined;
     if (directed) {
       const base = { x: tip.x - inn.x * ARROW_L, y: tip.y - inn.y * ARROW_L };
@@ -226,11 +239,8 @@ export function layoutNodeGraph({
         .join(' ');
     }
     const weight = edge.length === 3 ? String(edge[2]) : undefined;
-    const weightAt =
-      weight === undefined
-        ? undefined
-        : { x: r1(mid.x + normal.x * bulge), y: r1(mid.y + normal.y * bulge) };
-    const curve = { from: p, control: c, to: q };
+    const weightAt = weight === undefined ? undefined : { x: r1(middle.x), y: r1(middle.y) };
+    const curve = drawn;
     return { key: `${from}>${to}`, from, to, d, arrow, weight, weightAt, curve };
   });
 
@@ -401,20 +411,21 @@ const SPOTS = [0.5, 0.44, 0.56, 0.38, 0.62, 0.32, 0.68, 0.26, 0.74, 0.2, 0.8, 0.
 /**
  * The step numbers of a tracing on a laid-out graph: each drawn stroke gets
  * the number of the step that drew it, at the middle of the stroke, or at the
- * first spot along it that is at least `gap` from every number written
- * before and `clear` from every point's centre. When the stroke has no such
- * spot — where several strokes cross — the number steps `side` off the
- * stroke, beside it. Failing even that, it takes the spot off the points
- * that stands furthest from the numbers already written.
+ * first spot along it that is at least `STEP_SPACE.gap` from every number
+ * written before and `STEP_SPACE.clear` from every point's centre. When the
+ * stroke has no such spot — where several strokes cross — the number steps
+ * `STEP_SPACE.side` off the stroke, beside it. Failing even that, it takes
+ * the spot off the points that stands furthest from the numbers already
+ * written.
  */
 export function stepMarks(
   { edges, at }: Pick<NodeGraphLayout, 'edges' | 'at'>,
   trace: { path: string[]; used: number[] },
-  { gap, clear, side }: { gap: number; clear: number; side: number },
 ): StepMark[] {
+  const { gap, clear, side } = STEP_SPACE;
   const marks: StepMark[] = [];
   const points = [...at.values()];
-  const nearest = (p: { x: number; y: number }, qs: { x: number; y: number }[]) =>
+  const nearest = (p: Point, qs: Point[]) =>
     Math.min(Infinity, ...qs.map((q) => Math.hypot(p.x - q.x, p.y - q.y)));
   trace.used.forEach((k, i) => {
     const edge = edges[k];
@@ -437,12 +448,25 @@ export function stepMarks(
       [...(clearOfPoints.length > 0 ? clearOfPoints : spots)].sort(
         (p, q) => nearest(q, marks) - nearest(p, marks),
       )[0];
-    marks.push({
-      stroke: k,
-      step: i + 1,
-      x: Math.round(free.x * 10) / 10,
-      y: Math.round(free.y * 10) / 10,
-    });
+    marks.push({ stroke: k, step: i + 1, x: r1(free.x), y: r1(free.y) });
   });
   return marks;
+}
+
+/**
+ * Two vertices drawn at the same spot, or two with the same value: an edge
+ * between them has no direction to take, and its drawing comes out broken.
+ * Returns the two values, or `null` when every vertex has its own place.
+ */
+export function crowdedVertices(nodes: NodeGraphNode[]): [string, string] | null {
+  const seen = new Map<string, string>();
+  for (const n of nodes) {
+    const value = String(n.v);
+    for (const key of [`v:${value}`, `p:${n.x},${n.y}`]) {
+      const other = seen.get(key);
+      if (other !== undefined) return [other, value];
+      seen.set(key, value);
+    }
+  }
+  return null;
 }

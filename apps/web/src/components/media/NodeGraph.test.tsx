@@ -261,6 +261,35 @@ describe('NodeGraph', () => {
     expect(container.querySelector('[data-authoring-error]')).not.toBeNull();
   });
 
+  it('tells the author when a walk repeats an edge', () => {
+    const { container } = render(
+      <NodeGraph {...BOWTIE} edges={[['A', 'B']]} walk={['A', 'B', 'A']} />,
+    );
+    expect(container.querySelector('[data-authoring-error]')?.textContent).toMatch(
+      /repite una arista/,
+    );
+  });
+
+  it('tells the author when two nodes share a place', () => {
+    const nodes = [...BOWTIE.nodes, { v: 'F', x: 0, y: 0 }];
+    const { container } = render(<NodeGraph {...BOWTIE} nodes={nodes} />);
+    expect(container.querySelector('[data-authoring-error]')).not.toBeNull();
+  });
+
+  it('draws no note or tone for a node named like an object member', () => {
+    const { container } = render(
+      <NodeGraph
+        cols={2}
+        rows={1}
+        nodes={[{ v: 'constructor', x: 0, y: 0 }]}
+        edges={[]}
+        label="Un nodo."
+      />,
+    );
+    expect(container.querySelector('[data-note]')).toBeNull();
+    expect(container.querySelector('[data-node]')?.getAttribute('data-tone')).toBe('idle');
+  });
+
   it('tells the author when an edge names a node that is not drawn', () => {
     const { container } = render(
       <NodeGraph {...THREE_CHILDREN} edges={[['+', 9]]} markEdges={[]} />,

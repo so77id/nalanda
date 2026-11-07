@@ -51,7 +51,8 @@ src/
 │                         # governance pages, live-example blocks
 ├── components/           # catalog content components by family (structure: Slide,
 │                         # SectionBreak, SideBySide; interactive: CodeEditor, Exercise,
-│                         # StepShow/Step/CodeStepper + MemoryVisual (+ memoryLayout.ts
+│                         # StepShow/Step/CodeStepper, PenTrace (+ penTraceLogic.ts,
+│                         # #356) + MemoryVisual (+ memoryLayout.ts
 │                         # + memoryModel.ts as their pure algorithm and types)
 │                         # + their lazy wrappers, shared Panel/useRunShortcut/
 │                         # useLoadedRuntime/useGrammar/draft/placeholder)
@@ -68,7 +69,10 @@ src/
 │                         # + AuthoringError, treeGeometry.ts (the sizes the tree
 │                         #   figure and the tree stepper share) and hashGeometry.ts
 │                         #   (the heights the chain table and the hash stepper
-│                         #   share): shared across families, not content components
+│                         #   share), nodeGraphLayout.ts (the graph geometry
+│                         #   NodeGraph and PenTrace share) and StepBadge.tsx (a
+│                         #   walk's step number, drawn by both): shared across
+│                         #   families, not content components
 │                         # + MdxPre: the pre→component seam (registered in the SHELL's
 │                         #   map, not a catalog component), embedded.ts: the context by
 │                         #   which a framing container tells its children so

@@ -14,7 +14,7 @@ own home in [`write-control-questions.md`](write-control-questions.md),
 because a question is a measurement and its wording rules follow from that.
 
 The **shape** of a class in the Estructuras de Datos and Estructuras de Datos
-Avanzadas units, and in the graphs unit after them (#354) — the acts and the
+Avanzadas units, and in the structure class of the graphs unit (#363) — the acts and the
 four questions they answer, the TDA card, the invariant list, the cost table,
 the closing trade — is a third
 layer, in [`teach-a-data-structure.md`](teach-a-data-structure.md). It decides

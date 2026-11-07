@@ -105,11 +105,11 @@ export function solve(edges: NodeGraphEdge[], order: string[]): string[] | null 
 }
 
 /**
- * Up to `count` ways of trying to draw a figure that has no solution, as the
- * points to press in order: from each of the first points of `order` that
- * have a stroke, the pen keeps taking the first free stroke at the point it is
- * on, and stops where none is left. Every attempt ends stuck with strokes
- * still to draw, because the figure has no tracing (#356).
+ * Up to `count` ways of trying to draw a figure, as the points to press in
+ * order: from each of the first points of `order` that have a stroke, the pen
+ * keeps taking the first free stroke at the point it is on, and stops where
+ * none is left. On a figure with no tracing every attempt ends stuck with
+ * strokes still to draw; on one that has a tracing an attempt may finish it.
  */
 export function attempts(edges: NodeGraphEdge[], order: string[], count: number): string[][] {
   const ends = new Set(edges.flatMap(([a, b]) => [String(a), String(b)]));
