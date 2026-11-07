@@ -2386,35 +2386,48 @@ check(Solution.nearest(new String[] {}), new String[] {});
 
 </Slide>
 
-{/* Exercise 4, «Laberinto» (S12): a character grid; implicit by position; */}
-{/* 4-vecindad / 8-vecindad (von Neumann / Moore), code and answer both */}
-{/* change; the knight as a third rule; how many dead ends. The three */}
-{/* slides below are the seed's implicit-graph material. */}
+{/* Exercise 4: a maze as a grid of characters. The graph is never stored. */}
 
-<Slide title="Un grafo implícito">
-A veces no hace falta guardar el grafo, ni en una matriz ni en listas: sus
-aristas siguen una regla, y los vecinos de un vértice se calculan cuando se
-necesitan. Es un **grafo implícito**.
+{/* MazeGrid — a maze as a grid of cells: `grid` is its rows, '#' a wall drawn solid and '.' a free cell drawn on the surface. `notes` writes a text in a free cell, keyed 'row,col' (its degree, in the maze's slides), and `tones` paints a free cell mark, keep or flag, keyed the same way. File-local: only the maze exercise draws one. */}
 
-- **El candado de cuatro ruedas**: son $$10^4$$ combinaciones, y los 8
-  vecinos de cada una salen de girar una rueda una posición hacia arriba o
-  hacia abajo.
-- **Una grilla**, como un laberinto o un mapa por celdas: cada celda es un
-  vértice, y sus vecinas son las celdas a las que se pasa en un paso.
+export function MazeGrid({ grid, notes = {}, tones = {}, caption, label }) {
+  const cell = 36;
+  const pad = 12;
+  const rows = grid.length;
+  const cols = grid[0].length;
+  const gridW = cols * cell;
+  const width = Math.max(gridW + 2 * pad, caption ? caption.length * 6.6 + 24 : 0);
+  const left = (width - gridW) / 2;
+  const height = pad + rows * cell + (caption ? 34 : pad);
+  const fill = { mark: 'var(--color-mark-soft)', keep: 'var(--color-keep-soft)', flag: 'var(--color-flag-soft)' };
+  const stroke = { mark: 'var(--color-mark)', keep: 'var(--color-keep)', flag: 'var(--color-flag)' };
+  const cells = [];
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      const wall = grid[r][c] === '#';
+      const tone = tones[`${r},${c}`];
+      const note = notes[`${r},${c}`];
+      cells.push(
+        <g key={`${r},${c}`}>
+          <rect x={left + c * cell} y={pad + r * cell} width={cell} height={cell} style={{ fill: wall ? 'var(--color-ink-faint)' : tone ? fill[tone] : 'var(--color-surface)', stroke: tone ? stroke[tone] : 'var(--color-rule-strong)' }} strokeWidth={tone ? 2.2 : 1} />
+          {note !== undefined ? (
+            <text x={left + c * cell + cell / 2} y={pad + r * cell + cell / 2 + 5} textAnchor="middle" fontSize="14" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{note}</text>
+          ) : null}
+        </g>,
+      );
+    }
+  }
+  return (
+    <svg viewBox={`0 0 ${width} ${height}`} style={{ width: '100%', maxWidth: `${Math.round(width * 1.3)}px`, height: 'auto', display: 'block', margin: '0.4rem auto' }} role="img" aria-label={label}>
+      {cells}
+      {caption ? (
+        <text x={width / 2} y={height - 12} textAnchor="middle" fontSize="12" style={{ fill: 'var(--color-ink-soft)' }}>{caption}</text>
+      ) : null}
+    </svg>
+  );
+}
 
-<NodeGraph
-  cols={5}
-  rows={3}
-  nodes={[{ v: '1000', x: 0, y: 0 }, { v: '0100', x: 1.33, y: 0 }, { v: '0010', x: 2.67, y: 0 }, { v: '0001', x: 4, y: 0 }, { v: '0000', x: 2, y: 1 }, { v: '9000', x: 0, y: 2 }, { v: '0900', x: 1.33, y: 2 }, { v: '0090', x: 2.67, y: 2 }, { v: '0009', x: 4, y: 2 }]}
-  edges={[['0000', '1000'], ['0000', '0100'], ['0000', '0010'], ['0000', '0001'], ['0000', '9000'], ['0000', '0900'], ['0000', '0090'], ['0000', '0009']]}
-  tones={{ '0000': 'mark' }}
-  caption="0000 y sus 8 vecinos: cada rueda, una posición hacia arriba o hacia abajo"
-  label="La combinación 0000, destacada, unida con sus ocho vecinas: 1000, 0100, 0010 y 0001 arriba, y 9000, 0900, 0090 y 0009 abajo. Cada una gira una sola rueda una posición."
-/>
-
-</Slide>
-
-{/* GridCells — a grid of `rows` × `cols` cells, the cell `at` ([row, col]) painted mark and its neighbours in `ways` directions (4: the ones that share a side; 8: also the ones that share a corner) painted mark-soft, each numbered by the order the code visits them, so the drawing shows what the arrays of displacements reach and that a cell on the border has fewer. File-local (add-a-course-document.md §6e-quater): a grid is a graph no other document draws. */}
+{/* GridCells — a grid of `rows` × `cols` cells, the cell `at` ([row, col]) painted mark and its neighbours in `ways` directions (4: the ones that share a side; 8: also the ones that share a corner; 'knight': the eight a chess knight reaches in one L-shaped jump) painted mark-soft, each numbered by the order the code visits them, so the drawing shows what the arrays of displacements reach and that a cell on the border has fewer. File-local (add-a-course-document.md §6e-quater): a grid is a graph no other document draws. */}
 
 export function GridCells({ rows, cols, at, ways = 4, caption, label }) {
   const cell = 34;
@@ -2423,9 +2436,11 @@ export function GridCells({ rows, cols, at, ways = 4, caption, label }) {
   const width = Math.max(gridW + 2 * pad, caption ? caption.length * 6.6 + 24 : 0);
   const left = (width - gridW) / 2;
   const height = pad + rows * cell + (caption ? 34 : pad);
-  const steps = ways === 8
-    ? [[-1, -1], [-1, 0], [-1, 1], [0, -1], [0, 1], [1, -1], [1, 0], [1, 1]]
-    : [[-1, 0], [1, 0], [0, -1], [0, 1]];
+  const steps = ways === 'knight'
+    ? [[-2, -1], [-2, 1], [-1, -2], [-1, 2], [1, -2], [1, 2], [2, -1], [2, 1]]
+    : ways === 8
+      ? [[-1, -1], [-1, 0], [-1, 1], [0, -1], [0, 1], [1, -1], [1, 0], [1, 1]]
+      : [[-1, 0], [1, 0], [0, -1], [0, 1]];
   const order = new Map();
   steps.forEach(([dr, dc]) => {
     const r = at[0] + dr;
@@ -2467,56 +2482,350 @@ export function GridCells({ rows, cols, at, ways = 4, caption, label }) {
   );
 }
 
-<Slide title="Las vecinas de una celda">
-En una grilla, cada celda es un vértice: la celda $$(r, c)$$ de la fila $$r$$ y
-la columna $$c$$. Sus vecinas son las celdas a las que se pasa en un paso. Hay
-dos formas clásicas de dar ese paso:
+<Slide title="Los callejones sin salida de un laberinto">
+Un laberinto es una grilla de celdas: cada una es un muro, `#`, o está libre,
+`.`. Se avanza de una celda libre a otra que comparte un lado con ella. Un
+**callejón sin salida** es una celda libre desde la que se puede avanzar a
+una sola celda libre.
 
-- **En 4 direcciones**: arriba, abajo, a la izquierda y a la derecha,
-  $$(r \pm 1, c)$$ y $$(r, c \pm 1)$$. Son vecinas las celdas que comparten un
-  lado.
-- **En 8 direcciones**: además, las cuatro diagonales, $$(r \pm 1, c \pm 1)$$.
-  Son vecinas las celdas que comparten un lado o una esquina.
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.5rem 2rem', alignItems: 'end' }}>
+<div>
 
-Una celda del borde tiene menos vecinas, porque algunos pasos salen de la
-grilla.
+```text
+...#.
+#.##.
+#....
+#.###
+```
+
+</div>
+<MazeGrid
+  grid={['...#.', '#.##.', '#....', '#.###']}
+  notes={{}}
+  tones={{ '0,0': 'keep', '0,2': 'keep', '0,4': 'keep', '3,1': 'keep' }}
+  caption="cuatro callejones sin salida"
+  label="El laberinto de cuatro filas y cinco columnas, con el grado de cada celda libre escrito en ella. Destacadas, las cuatro celdas de grado 1: las de la fila 0 en las columnas 0, 2 y 4, y la de la fila 3 en la columna 1."
+/>
+</div>
+
+Algunos laberintos permiten avanzar también en diagonal, y el programa recibe
+cuál es el caso. Responde cuántos callejones sin salida tiene:
+
+```java
+static int deadEnds(String[] grid, boolean diagonals)
+```
+
+**Entrada.** Una grilla de a lo más $$1000 \times 1000$$ celdas, todas las
+filas del mismo largo, y si se avanza también en diagonal.
+
+**Salida.** La cantidad de callejones sin salida. Una celda libre aislada,
+sin celdas libres alrededor, no es un callejón: no tiene salida a ninguna.
+
+</Slide>
+
+<Slide title="Laberinto · el modelo">
+- **Los vértices** son las celdas libres. La celda de la fila $$r$$ y la
+  columna $$c$$ se numera $$r \cdot C + c$$, con $$C$$ columnas.
+- **Las aristas** unen dos celdas libres a un paso. Son sin dirección y sin
+  peso.
+- **La pregunta**: cuántos vértices tienen grado $$1$$.
+- **El tamaño**: hasta $$10^6$$ vértices y, con 4 vecinas, hasta
+  $$2 \cdot 10^6$$ aristas.
+
+<MazeGrid
+  grid={['...#.', '#.##.', '#....', '#.###']}
+  notes={{ '0,0': '1', '0,1': '3', '0,2': '1', '0,4': '1', '1,1': '2', '1,4': '2', '2,1': '3', '2,2': '2', '2,3': '2', '2,4': '2', '3,1': '1' }}
+  tones={{ '0,0': 'keep', '0,2': 'keep', '0,4': 'keep', '3,1': 'keep' }}
+  caption="las celdas libres y sus aristas: cada celda, con su grado"
+  label="El laberinto con el grado de cada celda libre escrito en ella: el número de celdas libres a un paso. Destacadas, las de grado 1."
+/>
+
+</Slide>
+
+<Slide title="Laberinto · un grafo implícito">
+El grafo del laberinto ya está en la grilla. Los vecinos de una celda no se
+guardan en ninguna lista: se **calculan** desde su posición, sumando un paso a
+su fila y a su columna, y mirando si la celda a la que se llega está libre. Un
+grafo cuyos vecinos se calculan con una regla cuando se piden, en vez de
+leerse de una matriz o de unas listas, es un **grafo implícito**.
+
+<GridCells rows={5} cols={5} at={[2, 2]} ways={4} caption="las vecinas de (2, 2): un paso en cada dirección" label="Una grilla de 5 por 5 con la celda (2, 2) destacada y sus cuatro vecinas marcadas y numeradas: arriba, abajo, a la izquierda y a la derecha." />
+
+Un grafo implícito ocupa solo lo que ocupa su regla, y su `adj(v)` cuesta lo
+que cuesta aplicarla.
+
+</Slide>
+
+<Slide title="Laberinto · cuatro u ocho vecinas">
+La regla que dice qué celdas son vecinas tiene nombre:
+
+- **4-vecindad**, o vecindad de **von Neumann**: las celdas que comparten un
+  lado, $$(r \pm 1, c)$$ y $$(r, c \pm 1)$$.
+- **8-vecindad**, o vecindad de **Moore**: además, las que comparten una
+  esquina, $$(r \pm 1, c \pm 1)$$.
+
+Los nombres vienen del procesamiento de imágenes y de los autómatas
+celulares. Una celda del borde tiene menos vecinas, porque algunos pasos
+salen de la grilla.
 
 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '0.5rem 1.5rem', alignItems: 'end' }}>
-<GridCells rows={5} cols={5} at={[2, 2]} ways={4} caption="en 4 direcciones: 4 vecinas" label="Una grilla de 5 por 5 con la celda del centro destacada y sus 4 vecinas marcadas y numeradas: arriba, abajo, izquierda y derecha." />
-<GridCells rows={5} cols={5} at={[2, 2]} ways={8} caption="en 8 direcciones: 8 vecinas" label="La misma grilla con la celda del centro destacada y sus 8 vecinas marcadas y numeradas: las cuatro de los lados y las cuatro diagonales." />
-<GridCells rows={5} cols={5} at={[0, 0]} ways={8} caption="en una esquina, en 8: 3 vecinas" label="La misma grilla con la celda de la esquina de arriba a la izquierda destacada y solo 3 vecinas marcadas: la de la derecha, la de abajo y la diagonal." />
+<GridCells rows={5} cols={5} at={[2, 2]} ways={4} caption="4-vecindad: 4 vecinas" label="Una grilla de 5 por 5 con la celda del centro destacada y sus 4 vecinas marcadas y numeradas: arriba, abajo, izquierda y derecha." />
+<GridCells rows={5} cols={5} at={[2, 2]} ways={8} caption="8-vecindad: 8 vecinas" label="La misma grilla con la celda del centro destacada y sus 8 vecinas marcadas y numeradas: las cuatro de los lados y las cuatro diagonales." />
+<GridCells rows={5} cols={5} at={[0, 0]} ways={8} caption="en una esquina, 8-vecindad: 3 vecinas" label="La misma grilla con la celda de la esquina de arriba a la izquierda destacada y solo 3 vecinas marcadas: la de la derecha, la de abajo y la diagonal." />
 </div>
 
 </Slide>
 
-<Slide title="El código de las vecinas">
-Las vecinas no se guardan: se calculan con dos arreglos de desplazamientos,
-uno para la fila y otro para la columna. Cada posición `k` es un paso, y una
-vecina cuenta solo si cae dentro de la grilla.
+<Slide title="Laberinto · la vecindad del caballo">
+La regla no tiene que unir celdas pegadas. En un tablero de ajedrez, un
+caballo salta en L: dos casillas en una dirección y una en la otra. Las
+casillas a un salto son las vecinas de otro grafo implícito sobre la misma
+grilla, con otros ocho pasos.
+
+<GridCells rows={5} cols={5} at={[2, 2]} ways="knight" caption="el caballo en (2, 2): 8 vecinas, ninguna pegada" label="Una grilla de 5 por 5 con la casilla del centro destacada y las ocho casillas a un salto de caballo marcadas y numeradas, todas a dos filas y una columna, o a una fila y dos columnas." />
+
+</Slide>
+
+<Slide title="Laberinto · guardar el grafo">
+Lo primero que se piensa es construir el grafo, con una lista por celda libre,
+y contar después los vértices de grado 1. Es correcto, y copia en listas lo
+que la grilla ya dice: con $$10^6$$ celdas, son unos $$4 \cdot 10^6$$ enteros
+en listas antes de contar el primer callejón. La grilla responde si una celda
+está libre en $$\Theta(1)$$, y eso basta para calcular cada grado.
+
+</Slide>
+
+<Slide title="Laberinto · la idea">
+Para cada celda libre, se cuentan sus vecinas libres aplicando la regla, y es
+un callejón si cuenta una. Con 8-vecindad la regla cambia, y la respuesta
+puede cambiar: una celda con una sola vecina por los lados puede tener otra
+en diagonal.
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.5rem 2rem', alignItems: 'end' }}>
+<MazeGrid
+  grid={['...#.', '#.##.', '#....', '#.###']}
+  notes={{ '0,0': '1', '0,1': '3', '0,2': '1', '0,4': '1', '1,1': '2', '1,4': '2', '2,1': '3', '2,2': '2', '2,3': '2', '2,4': '2', '3,1': '1' }}
+  tones={{ '0,0': 'keep', '0,2': 'keep', '0,4': 'keep', '3,1': 'keep' }}
+  caption="4-vecindad: 4 callejones"
+  label="El laberinto con los grados en 4-vecindad: fila 0, 1, 3 y 1, muro, 1; fila 1, muro, 2, muro, muro, 2; fila 2, muro, 3, 2, 2, 2; fila 3, muro, 1, muro, muro, muro. Destacados los cuatro de grado 1."
+/>
+<MazeGrid
+  grid={['...#.', '#.##.', '#....', '#.###']}
+  notes={{ '0,0': '2', '0,1': '3', '0,2': '2', '0,4': '1', '1,1': '5', '1,4': '3', '2,1': '3', '2,2': '4', '2,3': '3', '2,4': '2', '3,1': '2' }}
+  tones={{ '0,4': 'keep' }}
+  caption="8-vecindad: 1 callejón"
+  label="El mismo laberinto con los grados en 8-vecindad: fila 0, 2, 3, 2, muro, 1; fila 1, muro, 5, muro, muro, 3; fila 2, muro, 3, 4, 3, 2; fila 3, muro, 2, muro, muro, muro. Destacada la única de grado 1, en la fila 0, columna 4."
+/>
+</div>
+
+</Slide>
+
+<Slide title="Laberinto · las vecinas en código">
+Las dos reglas son dos pares de arreglos de desplazamientos: la posición `k`
+de `DR` y de `DC` es un paso. `free` dice si una celda está dentro de la
+grilla y libre; es el enunciado escrito en Java. `degree` cuenta las vecinas
+libres de una celda con los arreglos que recibe:
 
 ```java
-static final int[] DR = {-1, 1, 0, 0};
-static final int[] DC = {0, 0, -1, 1};
+static final int[] DR4 = {-1, 1, 0, 0};
+static final int[] DC4 = {0, 0, -1, 1};
+static final int[] DR8 = {-1, -1, -1, 0, 0, 1, 1, 1};
+static final int[] DC8 = {-1, 0, 1, -1, 1, -1, 0, 1};
+```
 
-static List<int[]> neighbors(int r, int c, int rows, int cols) {
-    List<int[]> result = new ArrayList<>();
-    for (int k = 0; k < DR.length; k++) {
-        int nr = r + DR[k];
-        int nc = c + DC[k];
-        if (nr >= 0 && nr < rows && nc >= 0 && nc < cols) {
-            result.add(new int[] {nr, nc});
-        }
-    }
-    return result;
+<PresentationWide fraction={0.95}>
+<Split ratio="50/50">
+
+```java
+static boolean free(String[] grid, int r, int c) {
+    return r >= 0 && r < grid.length
+            && c >= 0 && c < grid[0].length()
+            && grid[r].charAt(c) == '.';
 }
 ```
 
-En 8 direcciones cambian solo los arreglos; el método queda igual:
-
 ```java
-static final int[] DR = {-1, -1, -1, 0, 0, 1, 1, 1};
-static final int[] DC = {-1, 0, 1, -1, 1, -1, 0, 1};
+static int degree(String[] grid, int r, int c,
+        int[] dr, int[] dc) {
+    int count = 0;
+    for (int k = 0; k < dr.length; k++) {
+        if (free(grid, r + dr[k], c + dc[k])) {
+            count++;
+        }
+    }
+    return count;
+}
 ```
+
+</Split>
+</PresentationWide>
+
+</Slide>
+
+<Slide title="Laberinto · la solución">
+El método elige los arreglos según `diagonals` y recorre la grilla: cada
+celda libre de grado 1 suma un callejón. La caminata es sin diagonales.
+
+<StepShow
+  language="java"
+  title="deadEnds(maze, false)"
+  code={`static int deadEnds(String[] grid, boolean diagonals) {
+      int[] dr = diagonals ? DR8 : DR4;
+      int[] dc = diagonals ? DC8 : DC4;
+      int count = 0;
+      for (int r = 0; r < grid.length; r++) {
+          for (int c = 0; c < grid[0].length(); c++) {
+              if (free(grid, r, c)
+                      && degree(grid, r, c, dr, dc) == 1) {
+                  count++;
+              }
+          }
+      }
+      return count;
+  }`}
+>
+  <Step lines={[2, 3, 4]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Sin diagonales: dr y dc son los de 4 vecinas, y count empieza en 0.</div>
+    <MazeGrid
+      grid={['...#.', '#.##.', '#....', '#.###']}
+      notes={{}}
+      tones={{}}
+      caption="sin diagonales: 4 vecinas, count = 0"
+      label="El laberinto de cuatro filas y cinco columnas. Todavía sin grados."
+    />
+  </Step>
+  <Step lines={[5, 6, 7, 8, 9]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Fila 0: tres celdas libres de grado 1.</div>
+    <MazeGrid
+      grid={['...#.', '#.##.', '#....', '#.###']}
+      notes={{ '0,0': '1', '0,1': '3', '0,2': '1', '0,4': '1' }}
+      tones={{ '0,0': 'keep', '0,2': 'keep', '0,4': 'keep' }}
+      caption="fila 0: count = 3"
+      label="El laberinto de cuatro filas y cinco columnas. Escritos los grados de las filas 0 a 0, con 4 vecinas; las celdas de grado 1 destacadas. fila 0: count = 3."
+    />
+  </Step>
+  <Step lines={[5, 6, 7, 8]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Fila 1: ninguna de grado 1.</div>
+    <MazeGrid
+      grid={['...#.', '#.##.', '#....', '#.###']}
+      notes={{ '0,0': '1', '0,1': '3', '0,2': '1', '0,4': '1', '1,1': '2', '1,4': '2' }}
+      tones={{ '0,0': 'keep', '0,2': 'keep', '0,4': 'keep' }}
+      caption="fila 1: count = 3"
+      label="El laberinto de cuatro filas y cinco columnas. Escritos los grados de las filas 0 a 1, con 4 vecinas; las celdas de grado 1 destacadas. fila 1: count = 3."
+    />
+  </Step>
+  <Step lines={[5, 6, 7, 8]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Fila 2: ninguna de grado 1.</div>
+    <MazeGrid
+      grid={['...#.', '#.##.', '#....', '#.###']}
+      notes={{ '0,0': '1', '0,1': '3', '0,2': '1', '0,4': '1', '1,1': '2', '1,4': '2', '2,1': '3', '2,2': '2', '2,3': '2', '2,4': '2' }}
+      tones={{ '0,0': 'keep', '0,2': 'keep', '0,4': 'keep' }}
+      caption="fila 2: count = 3"
+      label="El laberinto de cuatro filas y cinco columnas. Escritos los grados de las filas 0 a 2, con 4 vecinas; las celdas de grado 1 destacadas. fila 2: count = 3."
+    />
+  </Step>
+  <Step lines={[5, 6, 7, 8, 9]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Fila 3: una más.</div>
+    <MazeGrid
+      grid={['...#.', '#.##.', '#....', '#.###']}
+      notes={{ '0,0': '1', '0,1': '3', '0,2': '1', '0,4': '1', '1,1': '2', '1,4': '2', '2,1': '3', '2,2': '2', '2,3': '2', '2,4': '2', '3,1': '1' }}
+      tones={{ '0,0': 'keep', '0,2': 'keep', '0,4': 'keep', '3,1': 'keep' }}
+      caption="fila 3: count = 4"
+      label="El laberinto de cuatro filas y cinco columnas. Escritos los grados de las filas 0 a 3, con 4 vecinas; las celdas de grado 1 destacadas. fila 3: count = 4."
+    />
+  </Step>
+  <Step lines={[13]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Retorna 4.</div>
+    <MazeGrid
+      grid={['...#.', '#.##.', '#....', '#.###']}
+      notes={{ '0,0': '1', '0,1': '3', '0,2': '1', '0,4': '1', '1,1': '2', '1,4': '2', '2,1': '3', '2,2': '2', '2,3': '2', '2,4': '2', '3,1': '1' }}
+      tones={{ '0,0': 'keep', '0,2': 'keep', '0,4': 'keep', '3,1': 'keep' }}
+      caption="retorna 4"
+      label="El laberinto de cuatro filas y cinco columnas. Escritos los grados de las filas 0 a 3, con 4 vecinas; las celdas de grado 1 destacadas. retorna 4."
+    />
+  </Step>
+</StepShow>
+
+</Slide>
+
+<Slide title="Laberinto · casos y costo">
+`free` revisa los cuatro bordes antes de mirar la celda: sin esa revisión, una
+celda de la fila 0 pediría la fila $$-1$$ y el programa fallaría. Una celda
+aislada tiene grado 0 y no cuenta, y una grilla sin celdas libres responde 0.
+En 8-vecindad, dos celdas que solo se tocan en diagonal se ven por primera
+vez:
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '0.5rem 2rem', alignItems: 'end' }}>
+<MazeGrid grid={['.#', '#.']} notes={{ '0,0': '0', '1,1': '0' }} caption="4-vecindad: 0 callejones" label="Una grilla de 2 por 2 con dos celdas libres en diagonal. En 4-vecindad cada una tiene grado 0, y no hay callejones." />
+<MazeGrid grid={['.#', '#.']} notes={{ '0,0': '1', '1,1': '1' }} tones={{ '0,0': 'keep', '1,1': 'keep' }} caption="8-vecindad: 2 callejones" label="La misma grilla. En 8-vecindad las dos celdas se ven en diagonal, cada una con grado 1: son dos callejones." />
+</div>
+
+**Tiempo.** Cada una de las $$R \cdot C$$ celdas aplica la regla, 4 u 8
+pasos de $$\Theta(1)$$: $$\Theta(R \cdot C)$$.
+
+**Memoria.** Ninguna además de la grilla: $$\Theta(1)$$. El grafo nunca se
+guarda.
+
+</Slide>
+
+<Slide title="Laberinto · el programa completo">
+<PresentationWide fraction={0.75}>
+<Exercise title="Los callejones sin salida de un laberinto">
+
+```java starter
+class Solution {
+    static final int[] DR4 = {-1, 1, 0, 0};
+    static final int[] DC4 = {0, 0, -1, 1};
+    static final int[] DR8 = {-1, -1, -1, 0, 0, 1, 1, 1};
+    static final int[] DC8 = {-1, 0, 1, -1, 1, -1, 0, 1};
+
+    static boolean free(String[] grid, int r, int c) {
+        return r >= 0 && r < grid.length
+                && c >= 0 && c < grid[0].length()
+                && grid[r].charAt(c) == '.';
+    }
+
+    static int degree(String[] grid, int r, int c,
+            int[] dr, int[] dc) {
+        int count = 0;
+        for (int k = 0; k < dr.length; k++) {
+            if (free(grid, r + dr[k], c + dc[k])) {
+                count++;
+            }
+        }
+        return count;
+    }
+
+    static int deadEnds(String[] grid, boolean diagonals) {
+        int[] dr = diagonals ? DR8 : DR4;
+        int[] dc = diagonals ? DC8 : DC4;
+        int count = 0;
+        for (int r = 0; r < grid.length; r++) {
+            for (int c = 0; c < grid[0].length(); c++) {
+                if (free(grid, r, c)
+                        && degree(grid, r, c, dr, dc) == 1) {
+                    count++;
+                }
+            }
+        }
+        return count;
+    }
+}
+```
+
+```java test
+String[] maze = {"...#.", "#.##.", "#....", "#.###"};
+check(Solution.deadEnds(maze, false), 4);
+check(Solution.deadEnds(maze, true), 1);
+check(Solution.deadEnds(new String[] {"...."}, false), 2);
+check(Solution.deadEnds(new String[] {"."}, false), 0);
+check(Solution.deadEnds(new String[] {"#"}, false), 0);
+check(Solution.deadEnds(new String[] {".#", "#."}, false), 0);
+check(Solution.deadEnds(new String[] {".#", "#."}, true), 2);
+```
+
+</Exercise>
+</PresentationWide>
 
 </Slide>
 
