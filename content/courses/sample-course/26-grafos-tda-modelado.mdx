@@ -2829,9 +2829,274 @@ check(Solution.deadEnds(new String[] {".#", "#."}, true), 2);
 
 </Slide>
 
-{/* Exercise 5, «Candado» (S13): no input, only a rule (turn one wheel, */}
-{/* 9 to 0); a vertex is a state; the combinations one turn away that are */}
-{/* not forbidden, adj(v) computed; 10^4 vertices, 10^8 matrix cells. */}
+{/* Exercise 5: a lock with four wheels. The graph exists only as a rule. */}
+
+<Slide title="Los giros de un candado">
+Un candado tiene cuatro ruedas, cada una con los dígitos del 0 al 9. Un
+**giro** mueve una sola rueda una posición, hacia arriba o hacia abajo, y la
+rueda da la vuelta: después del 9 viene el 0, y antes del 0, el 9. Algunas
+combinaciones están **prohibidas**: el candado se traba en ellas.
+
+<NodeGraph
+  cols={5}
+  rows={3}
+  nodes={[{ v: '1000', x: 0, y: 0 }, { v: '9000', x: 1.33, y: 0 }, { v: '0100', x: 2.67, y: 0 }, { v: '0900', x: 4, y: 0 }, { v: '0000', x: 2, y: 1 }, { v: '0010', x: 0, y: 2 }, { v: '0090', x: 1.33, y: 2 }, { v: '0001', x: 2.67, y: 2 }, { v: '0009', x: 4, y: 2 }]}
+  edges={[['0000', '1000'], ['0000', '9000'], ['0000', '0100'], ['0000', '0900'], ['0000', '0010'], ['0000', '0090'], ['0000', '0001'], ['0000', '0009']]}
+  tones={{ '0000': 'mark', '1000': 'flag', '0009': 'flag', '9000': 'keep', '0100': 'keep', '0900': 'keep', '0010': 'keep', '0090': 'keep', '0001': 'keep' }}
+  caption="0000: seis giros posibles; 1000 y 0009 están prohibidas"
+  label="0000, destacada, unida a las ocho combinaciones a un giro: 1000, 9000, 0100, 0900, 0010, 0090, 0001 y 0009. 1000 y 0009, prohibidas, marcadas en rojo; las otras seis, en verde, son los giros posibles."
+/>
+
+El programa recibe la combinación actual y las prohibidas, y responde las
+combinaciones a un giro que no están prohibidas, rueda por rueda, primero
+hacia arriba y después hacia abajo:
+
+```java
+static List<String> moves(String combo, String[] forbidden)
+```
+
+**Entrada.** Combinaciones de cuatro dígitos; a lo más $$10^4$$ prohibidas.
+
+**Salida.** Las combinaciones a un giro, en ese orden. Si la actual está
+prohibida, ninguna.
+
+</Slide>
+
+<Slide title="Candado · el modelo">
+- **Los vértices** son las combinaciones: los **estados** del candado, de
+  `0000` a `9999`. Son $$10^4$$.
+- **Las aristas** unen dos combinaciones a un giro. Son sin dirección, porque
+  el giro contrario deshace el giro, y sin peso. Cada vértice tiene 8
+  vecinos: $$E = 4 \cdot 10^4$$.
+- **Las prohibidas** son vértices que se sacan del grafo, con sus aristas.
+- **La pregunta**: los vecinos de un vértice, `adj(combo)`, sin los sacados.
+
+El grafo no está en ninguna entrada, ni siquiera en una grilla: existe solo
+como regla. Es un grafo implícito, y cada vecino se calcula desde el valor
+del vértice, no desde su posición.
+
+</Slide>
+
+<Slide title="Candado · restar uno a un dígito">
+Lo primero que se piensa es girar hacia abajo restándole uno al dígito. Pero
+el carácter anterior a `'0'` no es `'9'`: es `'/'`. Al girar hacia abajo una
+rueda en 0, la combinación sale de los dígitos.
+
+<NodeGraph
+  cols={3}
+  rows={1}
+  nodes={[{ v: '0000', x: 0, y: 0 }, { v: '/000', x: 2, y: 0 }]}
+  edges={[['0000', '/000']]}
+  tones={{ '/000': 'flag' }}
+  caption="0000 hacia abajo, restando uno: /000, que no es una combinación"
+  label="0000 unida a /000, marcada en rojo: restar uno al carácter 0 da una barra, no un 9."
+/>
+
+Guardar el grafo para evitarlo tampoco conviene: una matriz de $$10^4$$
+combinaciones tendría $$10^8$$ casillas, para responder lo que la regla
+calcula en ocho pasos.
+
+</Slide>
+
+<Slide title="Candado · la idea">
+Cada rueda da dos vecinos: su dígito más uno y su dígito menos uno, los dos
+**módulo 10**. Restar uno módulo 10 es lo mismo que sumar 9, y sumar 9 nunca
+sale de los dígitos. Las prohibidas se guardan en un **conjunto**, que
+responde si una combinación lo es en tiempo constante esperado.
+
+| rueda | arriba, $$(d + 1) \bmod 10$$ | abajo, $$(d + 9) \bmod 10$$ |
+| ----- | ---------------------------- | --------------------------- |
+| 0     | 1000, prohibida              | 9000                        |
+| 1     | 0100                         | 0900                        |
+| 2     | 0010                         | 0090                        |
+| 3     | 0001                         | 0009, prohibida             |
+
+</Slide>
+
+<Slide title="Candado · la solución">
+El método recorre las cuatro ruedas. Cambia el dígito de una, arma la
+combinación, la agrega si no está prohibida y devuelve el dígito original
+antes de pasar a la siguiente rueda.
+
+<StepShow
+  language="java"
+  beside
+  title="moves(0000, {1000, 0009})"
+  code={`static List<String> moves(String combo,
+          String[] forbidden) {
+      Set<String> blocked =
+              new HashSet<>(Arrays.asList(forbidden));
+      List<String> result = new ArrayList<>();
+      if (blocked.contains(combo)) {
+          return result;
+      }
+      char[] digits = combo.toCharArray();
+      for (int k = 0; k < 4; k++) {
+          char original = digits[k];
+          for (int step : new int[] {1, 9}) {
+              int d = (original - '0' + step) % 10;
+              digits[k] = (char) ('0' + d);
+              String next = new String(digits);
+              if (!blocked.contains(next)) {
+                  result.add(next);
+              }
+          }
+          digits[k] = original;
+      }
+      return result;
+  }`}
+>
+  <Step lines={[3, 4, 5, 6]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>blocked guarda las prohibidas, 1000 y 0009; 0000 no lo está.</div>
+    <NodeGraph
+      cols={5}
+      rows={3}
+      nodes={[{ v: '1000', x: 0, y: 0 }, { v: '9000', x: 1.33, y: 0 }, { v: '0100', x: 2.67, y: 0 }, { v: '0900', x: 4, y: 0 }, { v: '0000', x: 2, y: 1 }, { v: '0010', x: 0, y: 2 }, { v: '0090', x: 1.33, y: 2 }, { v: '0001', x: 2.67, y: 2 }, { v: '0009', x: 4, y: 2 }]}
+      edges={[['0000', '1000'], ['0000', '9000'], ['0000', '0100'], ['0000', '0900'], ['0000', '0010'], ['0000', '0090'], ['0000', '0001'], ['0000', '0009']]}
+      tones={{ '0000': 'mark', '1000': 'flag', '0009': 'flag' }}
+      caption="blocked = {1000, 0009}; result vacío"
+      label="0000, destacada, y sus ocho vecinas; 1000 y 0009, prohibidas, marcadas en rojo; las que ya entraron al resultado, en verde. blocked = {1000, 0009}; result vacío."
+    />
+  </Step>
+  <Step lines={[10, 11, 12, 13, 14, 15, 16, 17]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Rueda 0: 1000 está prohibida; 9000 entra.</div>
+    <NodeGraph
+      cols={5}
+      rows={3}
+      nodes={[{ v: '1000', x: 0, y: 0 }, { v: '9000', x: 1.33, y: 0 }, { v: '0100', x: 2.67, y: 0 }, { v: '0900', x: 4, y: 0 }, { v: '0000', x: 2, y: 1 }, { v: '0010', x: 0, y: 2 }, { v: '0090', x: 1.33, y: 2 }, { v: '0001', x: 2.67, y: 2 }, { v: '0009', x: 4, y: 2 }]}
+      edges={[['0000', '1000'], ['0000', '9000'], ['0000', '0100'], ['0000', '0900'], ['0000', '0010'], ['0000', '0090'], ['0000', '0001'], ['0000', '0009']]}
+      tones={{ '0000': 'mark', '1000': 'flag', '0009': 'flag', '9000': 'keep' }}
+      caption="rueda 0: result = [9000]"
+      label="0000, destacada, y sus ocho vecinas; 1000 y 0009, prohibidas, marcadas en rojo; las que ya entraron al resultado, en verde. rueda 0: result = [9000]."
+    />
+  </Step>
+  <Step lines={[10, 11, 12, 13, 14, 15, 16, 17]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Rueda 1: entran 0100 y 0900.</div>
+    <NodeGraph
+      cols={5}
+      rows={3}
+      nodes={[{ v: '1000', x: 0, y: 0 }, { v: '9000', x: 1.33, y: 0 }, { v: '0100', x: 2.67, y: 0 }, { v: '0900', x: 4, y: 0 }, { v: '0000', x: 2, y: 1 }, { v: '0010', x: 0, y: 2 }, { v: '0090', x: 1.33, y: 2 }, { v: '0001', x: 2.67, y: 2 }, { v: '0009', x: 4, y: 2 }]}
+      edges={[['0000', '1000'], ['0000', '9000'], ['0000', '0100'], ['0000', '0900'], ['0000', '0010'], ['0000', '0090'], ['0000', '0001'], ['0000', '0009']]}
+      tones={{ '0000': 'mark', '1000': 'flag', '0009': 'flag', '9000': 'keep', '0100': 'keep', '0900': 'keep' }}
+      caption="rueda 1: result = [9000, 0100, 0900]"
+      label="0000, destacada, y sus ocho vecinas; 1000 y 0009, prohibidas, marcadas en rojo; las que ya entraron al resultado, en verde. rueda 1: result = [9000, 0100, 0900]."
+    />
+  </Step>
+  <Step lines={[10, 11, 12, 13, 14, 15, 16, 17]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Rueda 2: entran 0010 y 0090.</div>
+    <NodeGraph
+      cols={5}
+      rows={3}
+      nodes={[{ v: '1000', x: 0, y: 0 }, { v: '9000', x: 1.33, y: 0 }, { v: '0100', x: 2.67, y: 0 }, { v: '0900', x: 4, y: 0 }, { v: '0000', x: 2, y: 1 }, { v: '0010', x: 0, y: 2 }, { v: '0090', x: 1.33, y: 2 }, { v: '0001', x: 2.67, y: 2 }, { v: '0009', x: 4, y: 2 }]}
+      edges={[['0000', '1000'], ['0000', '9000'], ['0000', '0100'], ['0000', '0900'], ['0000', '0010'], ['0000', '0090'], ['0000', '0001'], ['0000', '0009']]}
+      tones={{ '0000': 'mark', '1000': 'flag', '0009': 'flag', '9000': 'keep', '0100': 'keep', '0900': 'keep', '0010': 'keep', '0090': 'keep' }}
+      caption="rueda 2: result con 5 combinaciones"
+      label="0000, destacada, y sus ocho vecinas; 1000 y 0009, prohibidas, marcadas en rojo; las que ya entraron al resultado, en verde. rueda 2: result con 5 combinaciones."
+    />
+  </Step>
+  <Step lines={[10, 11, 12, 13, 14, 15, 16, 17, 20]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Rueda 3: 0001 entra; 0009 está prohibida.</div>
+    <NodeGraph
+      cols={5}
+      rows={3}
+      nodes={[{ v: '1000', x: 0, y: 0 }, { v: '9000', x: 1.33, y: 0 }, { v: '0100', x: 2.67, y: 0 }, { v: '0900', x: 4, y: 0 }, { v: '0000', x: 2, y: 1 }, { v: '0010', x: 0, y: 2 }, { v: '0090', x: 1.33, y: 2 }, { v: '0001', x: 2.67, y: 2 }, { v: '0009', x: 4, y: 2 }]}
+      edges={[['0000', '1000'], ['0000', '9000'], ['0000', '0100'], ['0000', '0900'], ['0000', '0010'], ['0000', '0090'], ['0000', '0001'], ['0000', '0009']]}
+      tones={{ '0000': 'mark', '1000': 'flag', '0009': 'flag', '9000': 'keep', '0100': 'keep', '0900': 'keep', '0010': 'keep', '0090': 'keep', '0001': 'keep' }}
+      caption="rueda 3: result con 6 combinaciones"
+      label="0000, destacada, y sus ocho vecinas; 1000 y 0009, prohibidas, marcadas en rojo; las que ya entraron al resultado, en verde. rueda 3: result con 6 combinaciones."
+    />
+  </Step>
+  <Step lines={[22]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Retorna las 6 combinaciones a un giro que no están prohibidas.</div>
+    <NodeGraph
+      cols={5}
+      rows={3}
+      nodes={[{ v: '1000', x: 0, y: 0 }, { v: '9000', x: 1.33, y: 0 }, { v: '0100', x: 2.67, y: 0 }, { v: '0900', x: 4, y: 0 }, { v: '0000', x: 2, y: 1 }, { v: '0010', x: 0, y: 2 }, { v: '0090', x: 1.33, y: 2 }, { v: '0001', x: 2.67, y: 2 }, { v: '0009', x: 4, y: 2 }]}
+      edges={[['0000', '1000'], ['0000', '9000'], ['0000', '0100'], ['0000', '0900'], ['0000', '0010'], ['0000', '0090'], ['0000', '0001'], ['0000', '0009']]}
+      tones={{ '0000': 'mark', '1000': 'flag', '0009': 'flag', '9000': 'keep', '0100': 'keep', '0900': 'keep', '0010': 'keep', '0090': 'keep', '0001': 'keep' }}
+      caption="[9000, 0100, 0900, 0010, 0090, 0001]"
+      label="0000, destacada, y sus ocho vecinas; 1000 y 0009, prohibidas, marcadas en rojo; las que ya entraron al resultado, en verde. [9000, 0100, 0900, 0010, 0090, 0001]."
+    />
+  </Step>
+</StepShow>
+
+</Slide>
+
+<Slide title="Candado · casos y costo">
+En la rueda que está en 9, sumar uno módulo 10 da 0: la vuelta sale de la
+cuenta, sin un `if`. Si la combinación actual está prohibida, el método
+retorna la lista vacía antes de girar nada; y si sus ocho vecinas lo están,
+también.
+
+<NodeGraph
+  cols={3}
+  rows={1}
+  nodes={[{ v: '9999', x: 0, y: 0 }, { v: '0999', x: 2, y: 0 }]}
+  edges={[['9999', '0999']]}
+  tones={{ '0999': 'keep' }}
+  caption="9999, rueda 0 hacia arriba: (9 + 1) mod 10 = 0"
+  label="9999 unida a 0999, en verde: la rueda 0 pasa de 9 a 0 al girar hacia arriba."
+/>
+
+**Tiempo.** Armar el conjunto de las $$F$$ prohibidas cuesta $$\Theta(F)$$
+esperado, y los ocho giros, $$\Theta(1)$$ cada uno: $$\Theta(F)$$ en
+total.
+
+**Memoria.** El conjunto, $$\Theta(F)$$. El grafo de $$10^4$$ vértices nunca
+se guarda.
+
+</Slide>
+
+<Slide title="Candado · el programa completo">
+<PresentationWide fraction={0.75}>
+<Exercise title="Los giros de un candado">
+
+```java starter
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+
+class Solution {
+    static List<String> moves(String combo,
+            String[] forbidden) {
+        Set<String> blocked =
+                new HashSet<>(Arrays.asList(forbidden));
+        List<String> result = new ArrayList<>();
+        if (blocked.contains(combo)) {
+            return result;
+        }
+        char[] digits = combo.toCharArray();
+        for (int k = 0; k < 4; k++) {
+            char original = digits[k];
+            for (int step : new int[] {1, 9}) {
+                int d = (original - '0' + step) % 10;
+                digits[k] = (char) ('0' + d);
+                String next = new String(digits);
+                if (!blocked.contains(next)) {
+                    result.add(next);
+                }
+            }
+            digits[k] = original;
+        }
+        return result;
+    }
+}
+```
+
+```java test
+check(Solution.moves("0000", new String[] {}), java.util.List.of("1000", "9000", "0100", "0900", "0010", "0090", "0001", "0009"));
+check(Solution.moves("0000", new String[] {"1000", "0009"}), java.util.List.of("9000", "0100", "0900", "0010", "0090", "0001"));
+check(Solution.moves("9999", new String[] {}), java.util.List.of("0999", "8999", "9099", "9899", "9909", "9989", "9990", "9998"));
+check(Solution.moves("1234", new String[] {"1234"}), java.util.List.of());
+check(Solution.moves("0000", new String[] {"1000", "9000", "0100", "0900", "0010", "0090", "0001", "0009"}), java.util.List.of());
+```
+
+</Exercise>
+</PresentationWide>
+
+</Slide>
 
 {/* S14: the closing slide «el mismo tipo de grafo» (water jugs, 8-puzzle, */}
 {/* Rubik and its God's number), then Lo que sigue. */}
