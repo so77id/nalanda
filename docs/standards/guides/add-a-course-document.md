@@ -1175,6 +1175,35 @@ AVL, and by ADR-0084 for the two hash tables; ADR-0074's `Amended by: #322`
 for `binary-search`.
 Live: `/catalog/c/SequenceStepper`.
 
+5i. **Quote code that lives in a file (optional, ADR-0091).** When a class
+   quotes the same code on several slides — an interface, a class, a method a
+   walk steps through — keep it once, in a folder beside the document named
+   after it (`26-grafos-tda-modelado.code/AdjMatrixGraph.java`), and quote it
+   by reference instead of pasting it:
+
+   ```mdx
+   <SourceFile src="./26-grafos-tda-modelado.code/AdjMatrixGraph.java" range="15-19" />
+
+   <StepShow
+     codeSrc="./26-grafos-tda-modelado.code/AdjMatrixGraph.java"
+     codeRange="15-19"
+     programSrc="./26-grafos-tda-modelado.code/Main.java"
+     programRange="5-8"
+   >
+     <Step lines={[16]} programLines={[7]}>…</Step>
+   </StepShow>
+   ```
+
+   - **Lines are the file's.** The listing numbers its lines as the file does,
+     and a `<Step>` names FILE lines. Move a range when you add lines above it.
+   - **The listing says what it leaves out.** A fold row counts the lines
+     above and below the range, and «Ver archivo» opens every file of the
+     listing whole. The quoted text drops the indentation its lines share.
+   - **A path relative to the document**, like a figure's `src`; a file not
+     under `content/` shows an authoring error on the page.
+   - **Code that exists only on its slide** stays a fence (optionally
+     ```` ```java file=Graph.java ```` for its header) or an inline `code`.
+
 6. **Show a picture, or embed a live document (optional)** — pictures in 6a–6f,
    a spreadsheet in **6g**, a Drive PDF (an evaluation's pauta) in **6h**. A
    picture lives **beside the `.mdx` that uses it**, addressed relatively, and a
