@@ -271,6 +271,10 @@ la arista $$uv$$ está en $$E$$». Es su primera invariante. La segunda: en un
 grafo no dirigido cada arista llena dos casillas, una a cada lado de la
 diagonal, y la matriz es simétrica, $$M[u][v] = M[v][u]$$.
 
+La matriz tiene una casilla por cada par de vértices, haya arista o no. Esa
+invariante es la que hace inmediato preguntar por una arista, y la que obliga
+a recorrer una fila entera para dar los vecinos de un vértice.
+
 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.5rem 2rem', alignItems: 'center' }}>
 <NodeGraph
   cols={3}
@@ -364,7 +368,7 @@ una casilla no guarda dos aristas: la matriz no admite aristas paralelas.
 
 </Slide>
 
-<Slide title="¿Hay una arista? En la matriz">
+<Slide title="Buscar una arista en la matriz">
 `hasEdge(v, w)` responde mirando una sola casilla, $$M[v][w]$$:
 
 ```java
@@ -392,8 +396,8 @@ Cuesta $$\Theta(1)$$, tenga el grafo las aristas que tenga.
 
 <Slide title="Los vecinos en la matriz">
 `adj(v)` recorre la fila de `v` casilla por casilla y guarda cada `w` cuya
-casilla es verdadera. El vértice 3 tiene un solo vecino, y aun así se miran las
-cuatro casillas de su fila:
+casilla es verdadera. Aunque `v` tenga un solo vecino, se miran las $$V$$
+casillas de su fila:
 
 <StepShow
   language="java"
@@ -458,12 +462,13 @@ Recorre la fila completa: $$\Theta(V)$$, aunque `v` tenga pocos vecinos.
 {/* below introduces Edge and WeightedGraph for both structures; decision 4 */}
 {/* of #363 turns Edge into Edge(from, to, weight) with an int weight. */}
 
-<Slide title="Un grafo dirigido">
-En un grafo dirigido, `addEdge(v, w)` agrega solo el arco de `v` a `w`. Cada
-implementación es otra clase que cumple el mismo contrato, y cambia una línea:
-la que dejaba la arista también del otro lado. En símbolos, $$M[u][v]$$ es
-verdadera si y solo si $$(u, v) \in E$$, y
-$$|\mathrm{adj}(v)| = \operatorname{grado}^+(v)$$.
+<Slide title="Un grafo dirigido en la matriz">
+En un grafo dirigido, `addEdge(v, w)` agrega solo el arco de `v` a `w`. La
+matriz dirigida es otra clase que cumple el mismo contrato, y le falta una
+línea: la que llenaba también la casilla simétrica. Ahora $$M[u][v]$$ es
+verdadera si y solo si el arco $$(u, v)$$ está en $$E$$, y la matriz deja de ser
+simétrica. La fila de $$v$$ guarda los arcos que salen de $$v$$, y su columna,
+los que llegan.
 
 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '0.5rem 1.5rem', alignItems: 'center' }}>
 <NodeGraph
@@ -486,30 +491,44 @@ $$|\mathrm{adj}(v)| = \operatorname{grado}^+(v)$$.
 </Slide>
 
 <Slide title="Un grafo con pesos en Java">
-Con pesos, el contrato cambia: `addEdge` recibe el peso de la arista, y
-`adj(v)` entrega cada vecino junto con el peso de la arista que lleva a él.
-Una clase chica, `Edge`, junta los dos, y el contrato es otra interfaz:
+Con pesos, el contrato cambia en dos operaciones: `addEdge` recibe el peso de
+la arista, y `adj(v)` entrega cada arista que sale de `v`, con su vecino y su
+peso. Una clase chica, `Edge`, guarda los tres datos de una arista, y el
+contrato es otra interfaz:
+
+<PresentationWide fraction={0.9}>
+<Split ratio="50/50">
 
 ```java
 public class Edge {
+    public final int from;
     public final int to;
     public final int weight;
 
-    public Edge(int to, int weight) {
+    public Edge(int from, int to, int weight) {
+        this.from = from;
         this.to = to;
         this.weight = weight;
     }
 }
+```
 
+```java
 public interface WeightedGraph {
     int V();
     int E();
     Iterable<Edge> adj(int v);
+    boolean hasEdge(int v, int w);
     void addEdge(int v, int w, int weight);
 }
 ```
 
-Las dos implementaciones con pesos cumplen este contrato.
+</Split>
+</PresentationWide>
+
+Un `Edge` siempre sale de `from`, el vértice cuya lista o fila lo entrega, y
+llega a `to`, el vecino. Los pesos son enteros, como los minutos o los
+kilómetros.
 
 </Slide>
 
@@ -547,33 +566,32 @@ tomar, $$\infty$$, que en Java es el entero más grande, `Integer.MAX_VALUE`.
 <Slide title="Construir la matriz con pesos">
 `WeightedMatrixGraph` implementa `WeightedGraph`. El constructor llena todas
 las casillas con $$\infty$$, y cada `addEdge` escribe el peso en las dos
-casillas de su arista. Las aristas son las mismas, ahora con pesos:
+casillas de su arista:
 
 <StepShow
   language="java"
   title="La matriz con pesos, arista por arista"
   code={`public class WeightedMatrixGraph implements WeightedGraph {
-    static final int INFINITY = Integer.MAX_VALUE;
-    private final int[][] weight;
+    private final int[][] weights;
     private int E;
 
     public WeightedMatrixGraph(int V) {
-        weight = new int[V][V];
-        for (int[] row : weight) {
-            Arrays.fill(row, INFINITY);
+        weights = new int[V][V];
+        for (int[] row : weights) {
+            Arrays.fill(row, Integer.MAX_VALUE);
         }
     }
 
     public void addEdge(int v, int w, int weight) {
-        if (this.weight[v][w] == INFINITY) {
+        if (weights[v][w] == Integer.MAX_VALUE) {
             E++;
         }
-        this.weight[v][w] = weight;
-        this.weight[w][v] = weight;
+        weights[v][w] = weight;
+        weights[w][v] = weight;
     }
 }`}
 >
-  <Step lines={[7, 8, 9]}>
+  <Step lines={[6, 7, 8]}>
     <AdjMatrix
       rows={[['∞', '∞', '∞', '∞'], ['∞', '∞', '∞', '∞'], ['∞', '∞', '∞', '∞'], ['∞', '∞', '∞', '∞']]}
       mark={[]}
@@ -581,7 +599,7 @@ casillas de su arista. Las aristas son las mismas, ahora con pesos:
       label="Una matriz de 4 por 4 con todas las casillas en infinito."
     />
   </Step>
-  <Step lines={[14, 15, 17, 18]}>
+  <Step lines={[13, 14, 16, 17]}>
     <AdjMatrix
       rows={[['∞', '7', '∞', '∞'], ['7', '∞', '∞', '∞'], ['∞', '∞', '∞', '∞'], ['∞', '∞', '∞', '∞']]}
       mark={[[0, 1], [1, 0]]}
@@ -589,7 +607,7 @@ casillas de su arista. Las aristas son las mismas, ahora con pesos:
       label="Después de addEdge(0, 1, 7): el peso 7 en las casillas [0][1] y [1][0], marcadas; las casillas sin arista siguen en infinito."
     />
   </Step>
-  <Step lines={[14, 15, 17, 18]}>
+  <Step lines={[13, 14, 16, 17]}>
     <AdjMatrix
       rows={[['∞', '7', '3', '∞'], ['7', '∞', '∞', '∞'], ['3', '∞', '∞', '∞'], ['∞', '∞', '∞', '∞']]}
       mark={[[0, 2], [2, 0]]}
@@ -597,7 +615,7 @@ casillas de su arista. Las aristas son las mismas, ahora con pesos:
       label="Después de addEdge(0, 2, 3): el peso 3 en las casillas [0][2] y [2][0], marcadas; las casillas sin arista siguen en infinito."
     />
   </Step>
-  <Step lines={[14, 15, 17, 18]}>
+  <Step lines={[13, 14, 16, 17]}>
     <AdjMatrix
       rows={[['∞', '7', '3', '∞'], ['7', '∞', '2', '∞'], ['3', '2', '∞', '∞'], ['∞', '∞', '∞', '∞']]}
       mark={[[1, 2], [2, 1]]}
@@ -605,7 +623,7 @@ casillas de su arista. Las aristas son las mismas, ahora con pesos:
       label="Después de addEdge(1, 2, 2): el peso 2 en las casillas [1][2] y [2][1], marcadas; las casillas sin arista siguen en infinito."
     />
   </Step>
-  <Step lines={[14, 15, 17, 18]}>
+  <Step lines={[13, 14, 16, 17]}>
     <AdjMatrix
       rows={[['∞', '7', '3', '∞'], ['7', '∞', '2', '∞'], ['3', '2', '∞', '4'], ['∞', '∞', '4', '∞']]}
       mark={[[2, 3], [3, 2]]}
@@ -615,12 +633,25 @@ casillas de su arista. Las aristas son las mismas, ahora con pesos:
   </Step>
 </StepShow>
 
-`adj(v)` recorre la fila de `v` y arma un `Edge` por cada casilla que no vale
-$$\infty$$: sigue costando $$\Theta(V)$$.
-
 </Slide>
 
-{/* S6: the matrix's own memory and price, Θ(V²), close this act. */}
+<Slide title="La memoria y el precio de la matriz">
+La matriz guarda $$V^2$$ casillas, haya las aristas que haya: ocupa
+$$\Theta(V^2)$$ de memoria, con pesos o sin ellos.
+
+- **Lo que hace barato.** `hasEdge(v, w)` mira una casilla: $$\Theta(1)$$. Y
+  `addEdge` escribe dos: $$\Theta(1)$$.
+- **Lo que hace caro.** Crearla cuesta $$\Theta(V^2)$$, y `adj(v)` recorre la
+  fila completa de `v`: $$\Theta(V)$$, tenga `v` muchos vecinos o ninguno. Con
+  pesos, `adj(v)` arma un `Edge` por cada casilla que no vale $$\infty$$, y
+  sigue costando $$\Theta(V)$$.
+- **Lo que no puede guardar.** Una casilla guarda una sola arista, así que la
+  matriz no admite aristas paralelas. Un lazo, en cambio, cabe: es la casilla
+  $$M[v][v]$$ de la diagonal.
+
+Las tres salen de la misma invariante, una casilla por cada par de vértices.
+
+</Slide>
 
 <SectionBreak />
 
