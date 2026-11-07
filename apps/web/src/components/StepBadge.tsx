@@ -1,6 +1,6 @@
 import { STEP_R } from './nodeGraphLayout';
 
-/** The badge's ring: `mark` for the step just drawn, `keep` for the earlier ones. */
+/** The badge's ring: `mark` to look here, `keep` for a step already behind. */
 export type StepBadgeTone = 'mark' | 'keep';
 
 const RING: Record<StepBadgeTone, string> = {
@@ -20,9 +20,9 @@ export interface StepBadgeProps {
 
 /**
  * A walk's step number on its stroke: a ring of `STEP_R` with the number
- * inside, at a place `stepMarks` chose. Shared by `<NodeGraph>`'s walks and
- * `<PenTrace>`'s tracings. Hidden from assistive technology: the drawing's
- * accessible name and `<PenTrace>`'s order line say the order in words.
+ * inside, at a place `stepMarks` chose. Hidden from assistive technology:
+ * the drawing's accessible name, or a line of text beside it, says the order
+ * in words.
  */
 export function StepBadge({ stroke, step, x, y, tone }: StepBadgeProps) {
   return (

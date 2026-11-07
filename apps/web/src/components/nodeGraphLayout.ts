@@ -29,7 +29,7 @@ export interface LaidEdge {
   /** The arrowhead's three corners, the tip first, when the graph is directed. */
   arrow?: string;
   weight?: string;
-  /** Where the weight's chip goes: the middle of the drawn edge. */
+  /** Where the weight is written: the middle of the drawn edge, or just past a self-loop's apex. */
   weightAt?: Point;
   /**
    * The edge as a quadratic curve between the two node centres, untrimmed: a

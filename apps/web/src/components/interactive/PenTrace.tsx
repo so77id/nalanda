@@ -38,8 +38,9 @@ export interface PenTraceProps {
   solvable?: boolean;
   /**
    * Offer a «Buscar solución» button instead: it tries one walk after another,
-   * in a loop that never ends, without saying whether a tracing exists. For a
-   * question the document has not answered yet (Königsberg, before Euler).
+   * in a loop, without saying whether a tracing exists; an attempt that happens
+   * to finish the figure stops it there. For a question the document has not
+   * answered yet (Königsberg, before Euler).
    * The opposite of `solvable`; a document asks for one or the other.
    */
   keepTrying?: boolean;

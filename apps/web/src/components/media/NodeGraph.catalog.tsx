@@ -11,8 +11,8 @@ export const nodeGraphCatalogEntry: CatalogEntry = {
   whenToUse:
     'When a slide shows a graph as a drawing: the model of a problem, a definition (directed, weighted, a path, a component), the degrees behind a rule. Also the counterexample to a tree that <BinaryPicture> cannot draw because its layout assumes a tree — a node with three children, a node with two parents. ' +
     'Promoted from a figure local to edd-arboles-i when edd-arboles-ii became the second document to want it (#322, add-a-course-document.md §6e-quater); #356 added arrows, weights, parallel edges, self-loops, walks, notes, pills and the flag and keep tones for the Grafos unit. ' +
-    'Tones keep the design system’s meanings: mark is “look here” (an odd-degree vertex is not wrong), flag is wrong, keep is done. In a drawing with weights, name the vertices with letters so their names do not read as weights. ' +
-    'Two runtime contracts, because MDX is not typechecked: a missing `label` renders an authoring error, and so does an edge that names a node the drawing does not have.',
+    'Tones keep the design system’s meanings: mark is “look here” (an odd-degree vertex is not wrong), flag is wrong, keep is done. In a drawing with weights, name the vertices with letters or words, never numbers, so their names do not read as weights. ' +
+    'Four runtime contracts, because MDX is not typechecked: a missing `label`, an edge that names a node the drawing does not have, two nodes in one place or with one value, and a `walk` step with no edge left each render an authoring error.',
   props: [
     {
       name: 'nodes',
@@ -78,7 +78,7 @@ export const nodeGraphCatalogEntry: CatalogEntry = {
   tones={{ A: 'mark', B: 'mark', C: 'mark', D: 'mark' }}
   notes={{ A: 5, B: 3, C: 3, D: 3 }}
   caption="cuatro vértices de grado impar"
-  label="Königsberg: cuatro orillas y siete puentes; A tiene grado 5 y B, C y D, grado 3."
+  label="Königsberg: cuatro zonas de tierra y siete puentes; A tiene grado 5 y B, C y D, grado 3."
 />`,
       render: () => (
         <NodeGraph
@@ -102,7 +102,7 @@ export const nodeGraphCatalogEntry: CatalogEntry = {
           tones={{ A: 'mark', B: 'mark', C: 'mark', D: 'mark' }}
           notes={{ A: 5, B: 3, C: 3, D: 3 }}
           caption="cuatro vértices de grado impar"
-          label="Königsberg: cuatro orillas y siete puentes; A tiene grado 5 y B, C y D, grado 3."
+          label="Königsberg: cuatro zonas de tierra y siete puentes; A tiene grado 5 y B, C y D, grado 3."
         />
       ),
     },
@@ -177,6 +177,80 @@ export const nodeGraphCatalogEntry: CatalogEntry = {
             ['C', 'B'],
           ]}
           label="Un mapa de calles con los minutos de cada tramo; el camino de A a B por C, marcado, suma 5."
+        />
+      ),
+    },
+    {
+      title: 'A walk: each edge numbered by its step, parallel edges in turn',
+      code: `<NodeGraph
+  cols={3}
+  rows={3}
+  nodes={[{ v: 'A', x: 0, y: 0 }, { v: 'B', x: 0, y: 2 }, { v: 'C', x: 1, y: 1 }, { v: 'D', x: 2, y: 0 }, { v: 'E', x: 2, y: 2 }]}
+  edges={[['A', 'B'], ['A', 'C'], ['B', 'C'], ['C', 'D'], ['C', 'E'], ['D', 'E']]}
+  walk={['A', 'B', 'C', 'D', 'E', 'C']}
+  caption="A → B → C → D → E → C: largo 5"
+  label="Dos triángulos que comparten C. Marcado y numerado, el camino de A a B, a C, a D, a E y otra vez a C."
+/>`,
+      render: () => (
+        <NodeGraph
+          cols={3}
+          rows={3}
+          nodes={[
+            { v: 'A', x: 0, y: 0 },
+            { v: 'B', x: 0, y: 2 },
+            { v: 'C', x: 1, y: 1 },
+            { v: 'D', x: 2, y: 0 },
+            { v: 'E', x: 2, y: 2 },
+          ]}
+          edges={[
+            ['A', 'B'],
+            ['A', 'C'],
+            ['B', 'C'],
+            ['C', 'D'],
+            ['C', 'E'],
+            ['D', 'E'],
+          ]}
+          walk={['A', 'B', 'C', 'D', 'E', 'C']}
+          caption="A → B → C → D → E → C: largo 5"
+          label="Dos triángulos que comparten C. Marcado y numerado, el camino de A a B, a C, a D, a E y otra vez a C."
+        />
+      ),
+    },
+    {
+      title: 'Self-loops: the dominoes from 0 to 2',
+      code: `<NodeGraph
+  cols={3}
+  rows={3}
+  nodes={[{ v: '0', x: 1, y: 0.6 }, { v: '1', x: 0.1, y: 1.8 }, { v: '2', x: 1.9, y: 1.8 }]}
+  edges={[['0', '1'], ['0', '2'], ['1', '2'], ['0', '0'], ['1', '1'], ['2', '2']]}
+  markEdges={[['0', '0'], ['1', '1'], ['2', '2']]}
+  caption="pseudografo: el dominó del 0 al 2"
+  label="Las seis fichas de un dominó del 0 al 2: una arista por ficha, y los dobles, marcados, son lazos."
+/>`,
+      render: () => (
+        <NodeGraph
+          cols={3}
+          rows={3}
+          nodes={[
+            { v: '0', x: 1, y: 0.6 },
+            { v: '1', x: 0.1, y: 1.8 },
+            { v: '2', x: 1.9, y: 1.8 },
+          ]}
+          edges={[
+            ['0', '1'],
+            ['0', '2'],
+            ['1', '2'],
+            ['0', '0'],
+            ['1', '1'],
+            ['2', '2'],
+          ]}
+          markEdges={[
+            ['0', '0'],
+            ['1', '1'],
+            ['2', '2'],
+          ]}
+          caption="pseudografo: el dominó del 0 al 2"
+          label="Las seis fichas de un dominó del 0 al 2: una arista por ficha, y los dobles, marcados, son lazos."
         />
       ),
     },
