@@ -304,21 +304,21 @@ casillas de su arista. Las aristas son las de la lista, una por una:
   language="java"
   title="La matriz, arista por arista"
   code={`public class AdjMatrixGraph implements Graph {
-    private final boolean[][] matrix;
-    private int E;
+      private final boolean[][] matrix;
+      private int E;
 
-    public AdjMatrixGraph(int V) {
-        matrix = new boolean[V][V];
-    }
+      public AdjMatrixGraph(int V) {
+          matrix = new boolean[V][V];
+      }
 
-    public void addEdge(int v, int w) {
-        if (!matrix[v][w]) {
-            E++;
-        }
-        matrix[v][w] = true;
-        matrix[w][v] = true;
-    }
-}`}
+      public void addEdge(int v, int w) {
+          if (!matrix[v][w]) {
+              E++;
+          }
+          matrix[v][w] = true;
+          matrix[w][v] = true;
+      }
+  }`}
 >
   <Step lines={[6]}>
     <AdjMatrix
@@ -403,14 +403,14 @@ casillas de su fila:
   language="java"
   title="adj(3) en la matriz"
   code={`public Iterable<Integer> adj(int v) {
-    List<Integer> neighbors = new ArrayList<>();
-    for (int w = 0; w < matrix.length; w++) {
-        if (matrix[v][w]) {
-            neighbors.add(w);
-        }
-    }
-    return neighbors;
-}`}
+      List<Integer> neighbors = new ArrayList<>();
+      for (int w = 0; w < matrix.length; w++) {
+          if (matrix[v][w]) {
+              neighbors.add(w);
+          }
+      }
+      return neighbors;
+  }`}
 >
   <Step lines={[3, 4]}>
     <AdjMatrix
@@ -572,24 +572,24 @@ casillas de su arista:
   language="java"
   title="La matriz con pesos, arista por arista"
   code={`public class WeightedMatrixGraph implements WeightedGraph {
-    private final int[][] weights;
-    private int E;
+      private final int[][] weights;
+      private int E;
 
-    public WeightedMatrixGraph(int V) {
-        weights = new int[V][V];
-        for (int[] row : weights) {
-            Arrays.fill(row, Integer.MAX_VALUE);
-        }
-    }
+      public WeightedMatrixGraph(int V) {
+          weights = new int[V][V];
+          for (int[] row : weights) {
+              Arrays.fill(row, Integer.MAX_VALUE);
+          }
+      }
 
-    public void addEdge(int v, int w, int weight) {
-        if (weights[v][w] == Integer.MAX_VALUE) {
-            E++;
-        }
-        weights[v][w] = weight;
-        weights[w][v] = weight;
-    }
-}`}
+      public void addEdge(int v, int w, int weight) {
+          if (weights[v][w] == Integer.MAX_VALUE) {
+              E++;
+          }
+          weights[v][w] = weight;
+          weights[w][v] = weight;
+      }
+  }`}
 >
   <Step lines={[6, 7, 8]}>
     <AdjMatrix
@@ -702,22 +702,22 @@ la lista del otro. Las aristas son las mismas:
   language="java"
   title="Las listas, arista por arista"
   code={`public class AdjListGraph implements Graph {
-    private final List<List<Integer>> lists;
-    private int E;
+      private final List<List<Integer>> lists;
+      private int E;
 
-    public AdjListGraph(int V) {
-        lists = new ArrayList<>();
-        for (int v = 0; v < V; v++) {
-            lists.add(new ArrayList<>());
-        }
-    }
+      public AdjListGraph(int V) {
+          lists = new ArrayList<>();
+          for (int v = 0; v < V; v++) {
+              lists.add(new ArrayList<>());
+          }
+      }
 
-    public void addEdge(int v, int w) {
-        lists.get(v).add(w);
-        lists.get(w).add(v);
-        E++;
-    }
-}`}
+      public void addEdge(int v, int w) {
+          lists.get(v).add(w);
+          lists.get(w).add(v);
+          E++;
+      }
+  }`}
 >
   <Step lines={[7, 8]}>
     <AdjLists
@@ -775,13 +775,13 @@ hasta terminar la lista:
   language="java"
   title="hasEdge(2, 3) en las listas"
   code={`public boolean hasEdge(int v, int w) {
-    for (int x : lists.get(v)) {
-        if (x == w) {
-            return true;
-        }
-    }
-    return false;
-}`}
+      for (int x : lists.get(v)) {
+          if (x == w) {
+              return true;
+          }
+      }
+      return false;
+  }`}
 >
   <Step lines={[2, 3]}>
     <AdjLists
@@ -842,21 +842,21 @@ extremo. Las mismas aristas, ahora arcos, entran una por una:
   language="java"
   title="Las listas dirigidas, arco por arco"
   code={`public class AdjListDigraph implements Graph {
-    private final List<List<Integer>> lists;
-    private int E;
+      private final List<List<Integer>> lists;
+      private int E;
 
-    public AdjListDigraph(int V) {
-        lists = new ArrayList<>();
-        for (int v = 0; v < V; v++) {
-            lists.add(new ArrayList<>());
-        }
-    }
+      public AdjListDigraph(int V) {
+          lists = new ArrayList<>();
+          for (int v = 0; v < V; v++) {
+              lists.add(new ArrayList<>());
+          }
+      }
 
-    public void addEdge(int v, int w) {
-        lists.get(v).add(w);
-        E++;
-    }
-}`}
+      public void addEdge(int v, int w) {
+          lists.get(v).add(w);
+          E++;
+      }
+  }`}
 >
   <Step lines={[7, 8]}>
     <AdjLists
@@ -939,22 +939,22 @@ peso. Una arista con pesos queda dos veces, una en cada sentido:
   language="java"
   title="Las listas con pesos, arista por arista"
   code={`public class WeightedListGraph implements WeightedGraph {
-    private final List<List<Edge>> lists;
-    private int E;
+      private final List<List<Edge>> lists;
+      private int E;
 
-    public WeightedListGraph(int V) {
-        lists = new ArrayList<>();
-        for (int v = 0; v < V; v++) {
-            lists.add(new ArrayList<>());
-        }
-    }
+      public WeightedListGraph(int V) {
+          lists = new ArrayList<>();
+          for (int v = 0; v < V; v++) {
+              lists.add(new ArrayList<>());
+          }
+      }
 
-    public void addEdge(int v, int w, int weight) {
-        lists.get(v).add(new Edge(v, w, weight));
-        lists.get(w).add(new Edge(w, v, weight));
-        E++;
-    }
-}`}
+      public void addEdge(int v, int w, int weight) {
+          lists.get(v).add(new Edge(v, w, weight));
+          lists.get(w).add(new Edge(w, v, weight));
+          E++;
+      }
+  }`}
 >
   <Step lines={[7, 8]}>
     <AdjLists
@@ -1342,162 +1342,403 @@ $$\Theta(V^2)$$ no termina a tiempo.
 
 ## Ejercicios
 
-{/* Exercise 1, «Sugerir amigos» (S9): friendships as lines of usernames; */}
-{/* the input beat uses the three slides that read a graph and turn names */}
-{/* into numbers. Opens with «el modelo». No exercise traverses the graph. */}
-
-<Slide title="Leer un grafo">
-La lista de aristas se lee línea a línea. Cada arista entra con `addEdge`, que
-en un grafo sin dirección la deja en las dos listas:
-
-```java
-static Graph read(Scanner in) {
-    int V = in.nextInt();
-    int E = in.nextInt();
-    Graph g = new AdjListGraph(V);
-    for (int i = 0; i < E; i++) {
-        int v = in.nextInt();
-        int w = in.nextInt();
-        g.addEdge(v, w);
-    }
-    return g;
-}
-```
-
-</Slide>
-
-<Slide title="De nombres a números">
-La lista de aristas trae números, pero un problema casi siempre trae nombres:
-ciudades, personas, ramos. El grafo numera sus vértices de $$0$$ a $$V - 1$$
-para usarlos como índices, así que los nombres se traducen a esos números al
-leerlos, con dos estructuras:
-
-- un **Map** del nombre a su número, para traducir al leer;
-- una **lista** del número a su nombre, para traducir de vuelta al escribir
-  la respuesta.
-
-Cada nombre nuevo recibe el siguiente número libre.
-
-| Nombre   | Número |
-| -------- | ------ |
-| Santiago | 0      |
-| Lima     | 1      |
-| Bogotá   | 2      |
-| Quito    | 3      |
-
-</Slide>
-
-<Slide title="De nombres a números en Java">
-En Java, las dos estructuras son un `HashMap` del nombre a su número y un
-`ArrayList` con los nombres, en el orden en que aparecieron:
-
-```java
-Map<String, Integer> ids = new HashMap<>();
-List<String> names = new ArrayList<>();
-
-int idOf(String name) {
-    if (!ids.containsKey(name)) {
-        ids.put(name, names.size());
-        names.add(name);
-    }
-    return ids.get(name);
-}
-```
-
-Un nombre que llega por primera vez recibe el número `names.size()`, el
-siguiente libre. `names.get(v)` devuelve el nombre del vértice `v` al escribir
-la respuesta.
-
-</Slide>
+{/* Exercise 1: the friendships of a social network as lines of usernames. */}
 
 <Slide title="Sugerir amigos">
-Una red social sugiere a cada persona a alguien que todavía no es su amigo:
-la persona con más **amigos en común** con ella.
+Una red social le sugiere a cada persona alguien que todavía no es su amigo:
+la persona con más **amigos en común** con ella. Un amigo en común de dos
+personas es alguien que es amigo de las dos.
 
-**Entrada.** Las amistades de $$V$$ personas, numeradas de $$0$$ a $$V - 1$$,
-y la persona `u` que recibe la sugerencia.
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '0.5rem 2rem', alignItems: 'end' }}>
+<NodeGraph
+  cols={6}
+  rows={3}
+  nodes={[{ v: 'ana', x: 0, y: 1 }, { v: 'beto', x: 1.5, y: 0 }, { v: 'carla', x: 1.5, y: 2 }, { v: 'diego', x: 3, y: 1 }, { v: 'elena', x: 4.5, y: 2 }]}
+  edges={[['ana', 'beto'], ['ana', 'carla'], ['beto', 'carla'], ['beto', 'diego'], ['carla', 'diego'], ['diego', 'elena']]}
+  tones={{ ana: 'mark', diego: 'keep' }}
+  caption="para ana: diego, con 2 amigos en común"
+  label="Cinco personas: ana, destacada, es amiga de beto y de carla; beto y carla son amigos entre sí y de diego; diego es amigo de elena. diego, sugerido, comparte dos amigos con ana, beto y carla; elena no comparte ninguno."
+/>
+<NodeGraph
+  cols={4}
+  rows={3}
+  nodes={[{ v: 'ana', x: 0, y: 1 }, { v: 'beto', x: 1.5, y: 0 }, { v: 'carla', x: 1.5, y: 2 }]}
+  edges={[['ana', 'beto'], ['ana', 'carla'], ['beto', 'carla']]}
+  tones={{ ana: 'mark' }}
+  caption="para ana: nadie, todos son sus amigos"
+  label="Tres personas, todas amigas entre sí: ana, destacada, no tiene a quién sugerir."
+/>
+</div>
 
-**Salida.** La persona que no es `u` ni amiga de `u` con más amigos en común
-con `u` —si hay empate, la de número menor—, o $$-1$$ si nadie tiene un amigo
-en común con `u`.
+El programa recibe las amistades, una por línea con los nombres de usuario de
+las dos personas, y el usuario que recibe la sugerencia. Responde el nombre
+de la persona sugerida, o `null` si nadie tiene un amigo en común con él:
+
+```java
+static String suggest(String[] friendships, String user)
+```
+
+**Entrada.** A lo más $$10^5$$ amistades, sin repetir. Los nombres no tienen
+espacios, y `user` aparece en alguna amistad.
+
+**Salida.** La persona que no es `user` ni su amiga con más amigos en común
+con `user` —si hay empate, la que aparece primero en las amistades—, o
+`null`.
+
+</Slide>
+
+<Slide title="Sugerir amigos · el modelo">
+- **Los vértices** son las personas, numeradas en el orden en que aparecen.
+- **Las aristas** son las amistades, sin dirección: si una persona es amiga de
+  otra, la otra es amiga de ella. No tienen peso.
+- **La pregunta**: el vértice que no es `user` ni su vecino y que comparte
+  más vecinos con `user`.
+- **El tamaño**: $$E \le 10^5$$ y $$V \le 2 \cdot 10^5$$. Se guarda en
+  listas.
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '0.5rem 2rem', alignItems: 'center' }}>
+<div>
+
+```text
+ana beto
+ana carla
+beto carla
+beto diego
+carla diego
+diego elena
+```
+
+</div>
+<NodeGraph
+  cols={6}
+  rows={3}
+  nodes={[{ v: '0 ana', x: 0, y: 1 }, { v: '1 beto', x: 1.5, y: 0 }, { v: '2 carla', x: 1.5, y: 2 }, { v: '3 diego', x: 3, y: 1 }, { v: '4 elena', x: 4.5, y: 2 }]}
+  edges={[['0 ana', '1 beto'], ['0 ana', '2 carla'], ['1 beto', '2 carla'], ['1 beto', '3 diego'], ['2 carla', '3 diego'], ['3 diego', '4 elena']]}
+  caption="cada línea, una arista; cada nombre, un número"
+  label="Las seis líneas de amistades y su grafo: ana es el 0, beto el 1, carla el 2, diego el 3 y elena el 4, numerados en el orden en que aparecen, con una arista por línea."
+/>
+</div>
+
+</Slide>
+
+<Slide title="Sugerir amigos · comparar con todas las personas">
+Lo primero que se piensa es contar los amigos en común de `user` con cada
+persona de la red, una por una, comparando sus dos listas de amigos. Es
+correcto, y mira a todas las personas, aunque solo pueden tener un amigo en
+común con `user` las que están a dos aristas de él.
 
 <NodeGraph
-  cols={5}
+  cols={6}
   rows={3}
-  nodes={[{ v: 'Ana', x: 0, y: 1 }, { v: 'Beto', x: 2, y: 0 }, { v: 'Caro', x: 2, y: 2 }, { v: 'Dani', x: 4, y: 1 }, { v: 'Eva', x: 4, y: 0 }]}
-  edges={[['Ana', 'Beto'], ['Ana', 'Caro'], ['Beto', 'Dani'], ['Caro', 'Dani'], ['Beto', 'Eva']]}
-  tones={{ Ana: 'mark', Dani: 'keep' }}
-  caption="para Ana: Dani, con 2 amigos en común; Eva tiene 1"
-  label="Ana, destacada, es amiga de Beto y de Caro. Beto es amigo de Dani y de Eva, y Caro de Dani. Dani, sugerido, comparte dos amigos con Ana; Eva comparte uno."
+  nodes={[{ v: 'ana', x: 0, y: 1 }, { v: 'beto', x: 1.5, y: 0 }, { v: 'carla', x: 1.5, y: 2 }, { v: 'diego', x: 3, y: 1 }, { v: 'elena', x: 4.5, y: 2 }]}
+  edges={[['ana', 'beto'], ['ana', 'carla'], ['beto', 'carla'], ['beto', 'diego'], ['carla', 'diego'], ['diego', 'elena']]}
+  tones={{ ana: 'mark', elena: 'flag' }}
+  caption="elena se compara con ana, y no puede compartir ningún amigo"
+  label="La red de cinco personas. ana, destacada, se compara también con elena, marcada en rojo: elena está a tres aristas de ana, y no comparte ningún amigo con ella."
 />
+
+En una red real, con $$V = 2 \cdot 10^5$$ personas, son $$2 \cdot 10^5$$
+comparaciones de listas para una sola sugerencia, y casi todas responden
+cero.
 
 </Slide>
 
 <Slide title="Sugerir amigos · la idea">
-Contar los amigos en común de `u` con cada otra persona, uno por uno, compara
-listas de amigos para cada persona de la red, aunque casi todas estén lejos
-de `u`.
-
-Un amigo en común con `w` es un amigo `x` de `u` que también es amigo de `w`.
-Al revés: cada amigo `x` de `u` le suma un amigo en común a **cada uno de sus
-propios amigos**. El problema se reduce a recorrer los vecinos de los vecinos
-de `u`, con un contador por persona, saltándose a `u` y a quienes ya son sus
-amigos.
+Un amigo en común de `user` y otra persona es un amigo de `user` que también
+es amigo de la otra. Al revés: cada amigo de `user` le suma un amigo en común
+a **cada uno de sus propios amigos**. Basta con recorrer los vecinos de los
+vecinos de `user`, con un contador por persona, saltándose a `user` y a
+quienes ya son sus amigos.
 
 <NodeGraph
-  cols={5}
+  cols={6}
   rows={3}
-  nodes={[{ v: 'Ana', x: 0, y: 1 }, { v: 'Beto', x: 2, y: 0 }, { v: 'Caro', x: 2, y: 2 }, { v: 'Dani', x: 4, y: 1 }, { v: 'Eva', x: 4, y: 0 }]}
-  edges={[['Ana', 'Beto'], ['Ana', 'Caro'], ['Beto', 'Dani'], ['Caro', 'Dani'], ['Beto', 'Eva']]}
-  markEdges={[['Beto', 'Dani'], ['Caro', 'Dani'], ['Beto', 'Eva']]}
-  notes={{ Dani: 2, Eva: 1 }}
-  tones={{ Ana: 'mark' }}
-  caption="los amigos de los amigos de Ana, con su cuenta"
-  label="Desde Beto y Caro, los amigos de Ana, se marcan sus amistades: Beto suma uno a Dani y a Eva, y Caro suma uno a Dani. Dani queda con 2 y Eva con 1."
+  nodes={[{ v: 'ana', x: 0, y: 1 }, { v: 'beto', x: 1.5, y: 0 }, { v: 'carla', x: 1.5, y: 2 }, { v: 'diego', x: 3, y: 1 }, { v: 'elena', x: 4.5, y: 2 }]}
+  edges={[['ana', 'beto'], ['ana', 'carla'], ['beto', 'carla'], ['beto', 'diego'], ['carla', 'diego'], ['diego', 'elena']]}
+  markEdges={[['beto', 'diego'], ['carla', 'diego']]}
+  notes={{ diego: 2 }}
+  tones={{ ana: 'mark', beto: 'keep', carla: 'keep' }}
+  caption="desde beto y carla, diego suma 2; los demás son ana o sus amigos"
+  label="Desde beto y carla, los amigos de ana, se recorren sus amistades: las dos llegan a diego, que queda con 2. Las otras llevan a ana o a un amigo de ana, y se saltan."
+/>
+
+Los contadores son un arreglo indexado por el vértice, y los amigos de `user`
+se marcan en otro: saltarse a un amigo cuesta $$\Theta(1)$$, sin preguntar
+`hasEdge`.
+
+</Slide>
+
+<Slide title="Sugerir amigos · de nombres a números">
+El método empieza leyendo las amistades dos veces. La primera vuelta numera
+los nombres: un `Map` del nombre a su número, para traducir al leer, y una
+lista del número al nombre, para traducir de vuelta la respuesta. Cada nombre
+nuevo recibe el siguiente número libre, `names.size()`.
+
+```java
+Map<String, Integer> ids = new HashMap<>();
+List<String> names = new ArrayList<>();
+for (String line : friendships) {
+    for (String name : line.split(" ")) {
+        if (!ids.containsKey(name)) {
+            ids.put(name, names.size());
+            names.add(name);
+        }
+    }
+}
+```
+
+| `v`            | 0     | 1      | 2       | 3       | 4       |
+| -------------- | ----- | ------ | ------- | ------- | ------- |
+| `names.get(v)` | `ana` | `beto` | `carla` | `diego` | `elena` |
+
+Al terminar la vuelta se conoce $$V$$, la cantidad de nombres, que el grafo
+necesita al crearse.
+
+</Slide>
+
+<Slide title="Sugerir amigos · el grafo">
+La segunda vuelta crea el grafo con $$V$$ vértices y agrega una arista por
+línea, con los números de sus dos nombres. Es la clase de listas de
+adyacencia, sin cambios:
+
+```java
+Graph g = new AdjListGraph(names.size());
+for (String line : friendships) {
+    String[] pair = line.split(" ");
+    g.addEdge(ids.get(pair[0]), ids.get(pair[1]));
+}
+```
+
+<AdjLists
+  lists={[[1, 2], [0, 2, 3], [0, 1, 3], [1, 2, 4], [3]]}
+  caption="ana 0, beto 1, carla 2, diego 3, elena 4"
+  label="Las listas de adyacencia de la red: 0 tiene a 1 y 2; 1 tiene a 0, 2 y 3; 2 tiene a 0, 1 y 3; 3 tiene a 1, 2 y 4; 4 tiene a 3."
 />
 
 </Slide>
 
 <Slide title="Sugerir amigos · la solución">
-```java
-static int suggest(Graph g, int u) {
-    boolean[] friend = new boolean[g.V()];
-    for (int x : g.adj(u)) {
-        friend[x] = true;
-    }
-    int[] common = new int[g.V()];
-    for (int x : g.adj(u)) {
-        for (int w : g.adj(x)) {
-            if (w != u && !friend[w]) {
-                common[w]++;
-            }
-        }
-    }
-    int best = -1;
-    for (int w = 0; w < g.V(); w++) {
-        if (common[w] > 0 && (best == -1 || common[w] > common[best])) {
-            best = w;
-        }
-    }
-    return best;
-}
-```
+Con el grafo construido, el método marca a los amigos de `user`, cuenta los
+amigos en común recorriendo los vecinos de cada amigo y elige la cuenta
+mayor. Como el `>` es estricto, en un empate queda el número menor: el nombre
+que apareció primero.
 
-`friend` marca a los amigos de `u` para saltarlos en tiempo constante, sin
-preguntar `hasEdge`, que en listas recorrería la lista de `u` cada vez.
+<StepShow
+  language="java"
+  beside
+  title="suggest(red, ana): la cuenta"
+  code={`int u = ids.get(user);
+  boolean[] friend = new boolean[g.V()];
+  for (int f : g.adj(u)) {
+      friend[f] = true;
+  }
+  int[] common = new int[g.V()];
+  for (int f : g.adj(u)) {
+      for (int x : g.adj(f)) {
+          if (x != u && !friend[x]) {
+              common[x]++;
+          }
+      }
+  }
+  int best = -1;
+  int most = 0;
+  for (int x = 0; x < g.V(); x++) {
+      if (common[x] > most) {
+          most = common[x];
+          best = x;
+      }
+  }
+  return best == -1 ? null : names.get(best);`}
+>
+  <Step lines={[1, 2, 3, 4, 5]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>u es ana, el 0; friend marca a sus amigos, beto y carla.</div>
+    <NodeGraph
+      cols={6}
+      rows={3}
+      nodes={[{ v: 'ana', x: 0, y: 1 }, { v: 'beto', x: 1.5, y: 0 }, { v: 'carla', x: 1.5, y: 2 }, { v: 'diego', x: 3, y: 1 }, { v: 'elena', x: 4.5, y: 2 }]}
+      edges={[['ana', 'beto'], ['ana', 'carla'], ['beto', 'carla'], ['beto', 'diego'], ['carla', 'diego'], ['diego', 'elena']]}
+      tones={{ ana: 'mark', beto: 'keep', carla: 'keep' }}
+      label="La red de cinco personas. ana, destacada, es u; beto y carla, sus amigos, quedan marcados en friend."
+    />
+  </Step>
+  <Step lines={[7, 8, 9, 10]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>f = beto: ana es u y carla es amiga; diego suma 1.</div>
+    <NodeGraph
+      cols={6}
+      rows={3}
+      nodes={[{ v: 'ana', x: 0, y: 1 }, { v: 'beto', x: 1.5, y: 0 }, { v: 'carla', x: 1.5, y: 2 }, { v: 'diego', x: 3, y: 1 }, { v: 'elena', x: 4.5, y: 2 }]}
+      edges={[['ana', 'beto'], ['ana', 'carla'], ['beto', 'carla'], ['beto', 'diego'], ['carla', 'diego'], ['diego', 'elena']]}
+      tones={{ ana: 'mark', beto: 'keep', carla: 'keep' }}
+      markEdges={[['beto', 'diego']]}
+      notes={{ diego: 1 }}
+      label="Desde beto se miran sus amigos: ana, que es u, carla, que ya es amiga, y diego, que suma uno a su cuenta: diego tiene 1."
+    />
+  </Step>
+  <Step lines={[7, 8, 9, 10]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>f = carla: ana es u y beto es amigo; diego suma 1 y llega a 2.</div>
+    <NodeGraph
+      cols={6}
+      rows={3}
+      nodes={[{ v: 'ana', x: 0, y: 1 }, { v: 'beto', x: 1.5, y: 0 }, { v: 'carla', x: 1.5, y: 2 }, { v: 'diego', x: 3, y: 1 }, { v: 'elena', x: 4.5, y: 2 }]}
+      edges={[['ana', 'beto'], ['ana', 'carla'], ['beto', 'carla'], ['beto', 'diego'], ['carla', 'diego'], ['diego', 'elena']]}
+      tones={{ ana: 'mark', beto: 'keep', carla: 'keep' }}
+      markEdges={[['beto', 'diego'], ['carla', 'diego']]}
+      notes={{ diego: 2 }}
+      label="Desde carla se miran sus amigos: ana, beto y diego, que suma uno más: diego tiene 2. elena no suma nada: ningún amigo de ana es su amigo."
+    />
+  </Step>
+  <Step lines={[16, 17, 18, 19]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Solo diego tiene una cuenta mayor que 0: best = diego.</div>
+    <NodeGraph
+      cols={6}
+      rows={3}
+      nodes={[{ v: 'ana', x: 0, y: 1 }, { v: 'beto', x: 1.5, y: 0 }, { v: 'carla', x: 1.5, y: 2 }, { v: 'diego', x: 3, y: 1 }, { v: 'elena', x: 4.5, y: 2 }]}
+      edges={[['ana', 'beto'], ['ana', 'carla'], ['beto', 'carla'], ['beto', 'diego'], ['carla', 'diego'], ['diego', 'elena']]}
+      tones={{ ana: 'mark', diego: 'keep' }}
+      notes={{ diego: 2 }}
+      label="Se recorren las cuentas: solo diego, destacado, tiene una mayor que cero, y queda como el mejor."
+    />
+  </Step>
+  <Step lines={[22]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Retorna el nombre del vértice 3: diego.</div>
+    <NodeGraph
+      cols={6}
+      rows={3}
+      nodes={[{ v: 'ana', x: 0, y: 1 }, { v: 'beto', x: 1.5, y: 0 }, { v: 'carla', x: 1.5, y: 2 }, { v: 'diego', x: 3, y: 1 }, { v: 'elena', x: 4.5, y: 2 }]}
+      edges={[['ana', 'beto'], ['ana', 'carla'], ['beto', 'carla'], ['beto', 'diego'], ['carla', 'diego'], ['diego', 'elena']]}
+      tones={{ ana: 'mark', diego: 'keep' }}
+      notes={{ diego: 2 }}
+      label="La función retorna diego, el nombre del vértice 3, con dos amigos en común con ana."
+    />
+  </Step>
+</StepShow>
 
 </Slide>
 
-<Slide title="Sugerir amigos · el costo">
-- **Tiempo.** Recorrer los amigos de los amigos de `u` cuesta la suma de los
-  grados de los amigos de `u`, a lo más $$2E$$. Crear los dos arreglos y
-  buscar el mayor cuesta $$\Theta(V)$$. En total, $$O(V + E)$$, y casi siempre
-  mucho menos que $$E$$ en el recorrido: solo se miran las personas a dos
-  pasos de `u`.
-- **Memoria.** Los dos arreglos: $$\Theta(V)$$.
+<Slide title="Sugerir amigos · casos y costo">
+Si todos los amigos de los amigos de `user` son `user` o sus amigos, ningún
+contador sube, `best` sigue en $$-1$$ y el método retorna `null`. Pasa en un
+triángulo, y con una sola amistad.
 
-Si `u` no tiene amigos, o sus amigos no tienen otros amigos, ningún contador
-sube y el método retorna $$-1$$.
+<NodeGraph
+  cols={4}
+  rows={3}
+  nodes={[{ v: 'ana', x: 0, y: 1 }, { v: 'beto', x: 1.5, y: 0 }, { v: 'carla', x: 1.5, y: 2 }]}
+  edges={[['ana', 'beto'], ['ana', 'carla'], ['beto', 'carla']]}
+  tones={{ ana: 'mark' }}
+  caption="suggest(triángulo, ana): todo vecino de un vecino es ana o su amigo, null"
+  label="Un triángulo: ana, destacada, beto y carla, todos amigos entre sí. Los amigos de beto y de carla son ana o amigos de ana, y ningún contador sube."
+/>
+
+**Tiempo.** Leer las amistades cuesta $$\Theta(E)$$ esperado, por el
+`HashMap`, y crear el grafo, $$\Theta(V + E)$$. La cuenta recorre las listas
+de los amigos de `user`: la suma de sus grados, a lo más $$2E$$. Los arreglos
+y la búsqueda del mayor cuestan $$\Theta(V)$$. En total, $$O(V + E)$$
+esperado.
+
+**Memoria.** El grafo, $$\Theta(V + E)$$, más los nombres y los dos arreglos.
+
+</Slide>
+
+<Slide title="Sugerir amigos · el programa completo">
+<PresentationWide fraction={0.75}>
+<Exercise title="Sugerir amigos">
+
+```java starter
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+interface Graph {
+    int V();
+    int E();
+    Iterable<Integer> adj(int v);
+    boolean hasEdge(int v, int w);
+    void addEdge(int v, int w);
+}
+
+class AdjListGraph implements Graph {
+    private final List<List<Integer>> lists;
+    private int E;
+
+    AdjListGraph(int V) {
+        lists = new ArrayList<>();
+        for (int v = 0; v < V; v++) {
+            lists.add(new ArrayList<>());
+        }
+    }
+
+    public int V() { return lists.size(); }
+    public int E() { return E; }
+    public Iterable<Integer> adj(int v) { return lists.get(v); }
+
+    public boolean hasEdge(int v, int w) {
+        return lists.get(v).contains(w);
+    }
+
+    public void addEdge(int v, int w) {
+        lists.get(v).add(w);
+        lists.get(w).add(v);
+        E++;
+    }
+}
+
+class Solution {
+    static String suggest(String[] friendships, String user) {
+        Map<String, Integer> ids = new HashMap<>();
+        List<String> names = new ArrayList<>();
+        for (String line : friendships) {
+            for (String name : line.split(" ")) {
+                if (!ids.containsKey(name)) {
+                    ids.put(name, names.size());
+                    names.add(name);
+                }
+            }
+        }
+        Graph g = new AdjListGraph(names.size());
+        for (String line : friendships) {
+            String[] pair = line.split(" ");
+            g.addEdge(ids.get(pair[0]), ids.get(pair[1]));
+        }
+        int u = ids.get(user);
+        boolean[] friend = new boolean[g.V()];
+        for (int f : g.adj(u)) {
+            friend[f] = true;
+        }
+        int[] common = new int[g.V()];
+        for (int f : g.adj(u)) {
+            for (int x : g.adj(f)) {
+                if (x != u && !friend[x]) {
+                    common[x]++;
+                }
+            }
+        }
+        int best = -1;
+        int most = 0;
+        for (int x = 0; x < g.V(); x++) {
+            if (common[x] > most) {
+                most = common[x];
+                best = x;
+            }
+        }
+        return best == -1 ? null : names.get(best);
+    }
+}
+```
+
+```java test
+String[] red = {"ana beto", "ana carla", "beto carla", "beto diego", "carla diego", "diego elena"};
+check(Solution.suggest(red, "ana"), "diego");
+check(Solution.suggest(red, "beto"), "elena");
+check(Solution.suggest(red, "elena"), "beto");
+check(Solution.suggest(new String[] {"ana beto", "beto carla", "ana carla"}, "ana"), null);
+check(Solution.suggest(new String[] {"ana beto"}, "ana"), null);
+check(Solution.suggest(new String[] {"ana beto", "beto carla", "ana diego", "diego carla", "beto elena"}, "ana"), "carla");
+```
+
+</Exercise>
+</PresentationWide>
 
 </Slide>
 
