@@ -334,6 +334,22 @@ author who met it, so the guide grows instead of being worked around.
 What never moves is the **order**, because the order is the thing being
 taught.
 
+**A graph exercise adds a beat between 1 and 2: the model** (#363, Miguel's
+refinement of 2026-11-06). In the graphs unit the skill being practised is
+turning a problem into a graph, so every worked exercise there answers, on a
+slide titled «… · el modelo» right after the statement, the questions the
+class names in its act «Modelar un problema como grafo»: what a vertex is,
+what an edge is, whether it has direction and weight, what question is asked
+of the graph, and how big the graph is — with the input drawn beside the
+graph it becomes. Beats 2 to 5 then reason over the graph. The beat may take
+several slides when the model is the lesson: the maze of
+`26-grafos-tda-modelado.mdx` names the implicit graph and the two
+neighbourhoods in four. Two consequences for the other beats: the graph is
+named in the model, so beat 3 names the structure that stores or answers it
+(the weighted lists, a per-vertex array, a set), not the graph; and the
+statement's own input format is part of what the model converts, so the
+exercises of one class differ in the input they read.
+
 ## Not a constraint
 
 How many slides an exercise takes. It is never a goal, and never quoted as
@@ -455,6 +471,16 @@ Miguel's review of the first draft (2026-11-01) rewrote four of the eight,
 and two rules above come from it: the counterexample that has to break the
 idea on the input it shows (beat 2), and the statement checked against
 every tool already taught (beat 2).
+
+`content/courses/sample-course/26-grafos-tda-modelado.mdx` — five worked
+exercises (sugerir amigos, una celebridad en la red, la ciudad vecina más
+cercana, los callejones sin salida de un laberinto, los giros de un candado)
+and three posed (los seguidores de cada persona, un solo trazo y desde
+dónde, los estados vecinos de dos jarras). They added the model beat above,
+and they climb by input rather than by algorithm: names to numbers, an
+adjacency matrix given as such, weighted edges, a grid whose graph is never
+stored, and no input at all — a graph that is only a rule. None of them
+traverses the graph; that is the next class's.
 
 **Its sibling for the question bank already exists**:
 [`write-control-questions.md`](write-control-questions.md) governs the
