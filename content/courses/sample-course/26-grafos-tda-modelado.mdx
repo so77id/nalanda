@@ -3098,13 +3098,31 @@ check(Solution.moves("0000", new String[] {"1000", "9000", "0100", "0900", "0010
 
 </Slide>
 
-{/* S14: the closing slide «el mismo tipo de grafo» (water jugs, 8-puzzle, */}
-{/* Rubik and its God's number), then Lo que sigue. */}
+<Slide title="Grafos de estados en otros problemas">
+El candado no es el único problema cuyo grafo es una regla sobre estados.
+Muchos juegos y acertijos son el mismo grafo implícito con otra regla:
+
+- **Las jarras de agua.** Con una jarra de 3 litros y una de 5, ¿cómo se
+  miden 4? Cada estado es cuánta agua tiene cada jarra, y llenar, vaciar o
+  trasvasijar una en la otra es una arista.
+- **El 8-puzzle.** Ocho fichas en un tablero de $$3 \times 3$$, con un hueco.
+  Cada tablero es un estado, y deslizar una ficha al hueco es una arista.
+  Desde un tablero se alcanzan $$181{.}440$$ tableros.
+- **Las Torres de Hanói.** Con $$n$$ discos, cada estado dice en qué torre
+  está cada disco: son $$3^n$$ estados.
+- **El cubo de Rubik.** Tiene unos $$4{,}3 \cdot 10^{19}$$ estados. En 2010 se
+  demostró, con computadores, que cualquiera se resuelve en a lo más 20
+  giros: el **número de Dios**.
+
+Todos piden lo mismo: el camino con menos aristas desde un estado hasta otro.
+
+</Slide>
 
 ## Lo que sigue
 
-Con el grafo guardado, la pregunta siguiente es a dónde se llega desde un
-vértice: si hay un camino entre dos esquinas, cuántas islas tiene un mapa, por
-dónde se sale de un laberinto con menos pasos. Ninguna se responde mirando un
-vértice y sus vecinos: hay que **recorrer** el grafo, de vecino en vecino, sin
-perderse en sus ciclos.
+Con el grafo guardado o calculado, la pregunta siguiente es a dónde se llega
+desde un vértice: si hay un camino entre dos esquinas, por dónde se sale de un
+laberinto con menos pasos, cuántos giros abren el candado, en qué orden se
+toman los ramos de una malla. Ninguna se responde mirando un vértice y sus
+vecinos: hay que **recorrer** el grafo, de vecino en vecino, sin perderse en
+sus ciclos. Es lo que sigue, en la clase de recorridos.
