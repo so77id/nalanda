@@ -39,6 +39,7 @@ import { mergeStepperCatalogEntry } from './interactive/MergeStepper.catalog';
 import { partitionStepperCatalogEntry } from './interactive/PartitionStepper.catalog';
 import { decisionTreeSortCatalogEntry } from './interactive/DecisionTreeSort.catalog';
 import { memoryVisualCatalogEntry } from './interactive/MemoryVisual.catalog';
+import { sourceFileCatalogEntry } from './interactive/SourceFile.catalog';
 import { stepCatalogEntry, stepShowCatalogEntry } from './interactive/StepShow.catalog';
 import { binaryPictureCatalogEntry } from './media/BinaryPicture.catalog';
 import { nodeGraphCatalogEntry } from './media/NodeGraph.catalog';
@@ -101,6 +102,7 @@ export const catalogEntries: CatalogEntry[] = [
   callStackCatalogEntry,
   hanoiPlaygroundCatalogEntry,
   penTraceCatalogEntry,
+  sourceFileCatalogEntry,
   stepShowCatalogEntry,
   stepCatalogEntry,
   fibMemoStepsCatalogEntry,

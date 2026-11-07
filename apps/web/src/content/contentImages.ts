@@ -55,6 +55,16 @@ const moduleUrl = import.meta.url;
 const CONTENT_ROOT = new URL('../../../../content/', moduleUrl);
 
 /**
+ * The attributes that name a file of the author's: `src`, and since #363 any
+ * `<thing>Src` — `codeSrc`, `programSrc`, `helperSrc` on a `<StepShow>` that
+ * walks a `.java` file kept beside the document (ADR-0091). One rule for all,
+ * so a listing's file resolves exactly the way a figure's does.
+ */
+function isFileAttribute(name: string | undefined): boolean {
+  return name === 'src' || (name !== undefined && /^[a-z]+Src$/.test(name));
+}
+
+/**
  * Remark plugin: rewrites relative image references — markdown `![](./x.svg)`
  * and the `src` of any JSX element — into `asset:` urls keyed on the path from
  * `content/`. Purely syntactic, like `remarkWikiLinks`: resolution against the
@@ -85,7 +95,7 @@ export function remarkContentImages(options?: { contentRoot?: URL }) {
       if (node.type !== 'mdxJsxFlowElement' && node.type !== 'mdxJsxTextElement') return;
 
       for (const attribute of (node as unknown as JsxElement).attributes) {
-        if (attribute.type !== 'mdxJsxAttribute' || attribute.name !== 'src') continue;
+        if (attribute.type !== 'mdxJsxAttribute' || !isFileAttribute(attribute.name)) continue;
         if (typeof attribute.value !== 'string') continue;
         const key = assetKey(attribute.value, documentPath, contentRoot);
         if (key !== null) attribute.value = ASSET_PREFIX + key;

@@ -70,6 +70,28 @@ export const stepShowCatalogEntry: CatalogEntry = {
         'The program that calls the listing, shown over it as a listing of its own headed «programa», with `code` under it headed `codeName`; each <Step> lights `programLines` in it and `lines` in `code`. For a walk whose lesson is a call and what it does inside — the calls addEdge(0, 1)… over addEdge itself (#363), as <SequenceStepper program> does for its methods. Optional; without it, `code` alone and unheaded.',
     },
     {
+      name: 'codeSrc / programSrc / helperSrc',
+      type: 'string',
+      description:
+        'Instead of the listing text, the file it quotes: a path relative to the document (./26-grafos-tda-modelado.code/AdjMatrixGraph.java, ADR-0091), resolved like a figure src. The listing then takes the header <SourceFile> gives — the file name, the range, an open button, fold rows for what it leaves out — numbers its lines as the file does, and its <Step> lines name FILE lines. Ver archivo opens every file of the walk, one tab each, with the quoted lines banded and the step lit; the arrows walk the step from there.',
+    },
+    {
+      name: 'codeRange / programRange / helperRange',
+      type: 'string',
+      description: 'The lines of the file quoted, "12-16"; the whole file without it.',
+    },
+    {
+      name: 'helper',
+      type: 'string',
+      description:
+        'With `program`, a method between the program and `code`: the one the program calls and that calls `code` in turn — readEdges between the program that reads a graph and addEdge (#363). Shown under the program, headed `helperName`; each <Step> lights `helperLines` in it. Optional.',
+    },
+    {
+      name: 'helperName',
+      type: 'string',
+      description: 'The heading of `helper`.',
+    },
+    {
       name: 'ratio',
       type: 'string',
       description:
@@ -79,7 +101,13 @@ export const stepShowCatalogEntry: CatalogEntry = {
       name: 'codeName',
       type: 'string',
       description:
-        'The heading of `code` when `program` is given. Defaults to the Spanish word for method.',
+        'The file `code` stands for (AdjMatrixGraph.java), shown as a badge over it (#363). With `program` it heads the method listing (defaults to the Spanish word for method); alone, it heads the one listing, which otherwise has none.',
+    },
+    {
+      name: 'programName',
+      type: 'string',
+      description:
+        'The file the `program` listing stands for (Main.java), as its badge. Defaults to the Spanish word for program.',
     },
     {
       name: 'children',
@@ -193,6 +221,12 @@ export const stepCatalogEntry: CatalogEntry = {
       type: 'number[]',
       description:
         'The 1-based lines lit in the StepShow’s `program` listing at this step — the call the step is inside. Ignored when the StepShow has no `program`.',
+    },
+    {
+      name: 'helperLines',
+      type: 'number[]',
+      description:
+        'The 1-based lines lit in the StepShow’s `helper` listing at this step. Ignored when the StepShow has no `helper`.',
     },
     {
       name: 'children',

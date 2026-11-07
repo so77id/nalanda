@@ -12,6 +12,11 @@ export interface StepProps {
    * it has one: the call this step is inside. Ignored without `program`.
    */
   programLines?: number[];
+  /**
+   * 1-based lines to highlight in the `<StepShow>`'s `helper` listing, the
+   * method between the program and the code. Ignored without `helper`.
+   */
+  helperLines?: number[];
   /** Any JSX. Rendered in the visual panel when this step is showing. */
   children?: ReactNode;
 }

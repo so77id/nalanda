@@ -491,6 +491,14 @@ describe('CodeEditor', () => {
     expect(screen.queryByText('main.cpp')).not.toBeInTheDocument();
   });
 
+  it('shows the file name an author gives instead of the runtime’s', async () => {
+    renderEditor({ variant: 'snippet', fileName: 'Graph.cpp' }, 'book');
+    await waitFor(() => expect(screen.getByTestId('code')).toBeInTheDocument());
+
+    expect(screen.getByText('Graph.cpp')).toBeInTheDocument();
+    expect(screen.queryByText('main.cpp')).not.toBeInTheDocument();
+  });
+
   it('keeps its own frame when nothing contains it', async () => {
     const { container } = renderEditor({ variant: 'snippet' }, 'book');
     await waitFor(() => expect(screen.getAllByTestId('code').length).toBeGreaterThan(0));

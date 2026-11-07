@@ -248,6 +248,26 @@ describe('architecture: the step-through widget stays out of the entry chunk', (
   });
 });
 
+describe('architecture: the quoted source file stays out of the entry chunk', () => {
+  // <SourceFile> mounts a <CodeStepper> (CodeMirror + useGrammar) and carries
+  // the course's source files through lib/contentCode (ADR-0091) — the same
+  // hazard as <StepShow>, reached from a static listing.
+  const ALLOWED = ['components/interactive/lazySourceFile.tsx'];
+
+  it('is imported only by its lazy wrapper', () => {
+    expect(
+      violations(
+        (_fileTop, _importTop, importRel, file) =>
+          importRel.toLowerCase().replace(/\.(ts|tsx|js|jsx|mjs|cjs)$/, '') ===
+            'components/interactive/sourcefile' &&
+          !file.includes('.test.') &&
+          !file.includes('.catalog.') &&
+          !ALLOWED.includes(file),
+      ),
+    ).toEqual([]);
+  });
+});
+
 describe('architecture: the benchmark widget stays out of the entry chunk', () => {
   // Benchmark reaches both hazards, exactly like PredictOutput: it wraps
   // LazyCodeEditor AND it imports the runtime seam through `useLoadedRuntime`.

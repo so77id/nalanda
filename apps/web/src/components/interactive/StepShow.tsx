@@ -4,7 +4,13 @@ import type { ReactElement, ReactNode } from 'react';
 
 import { useMode } from '../../presentation';
 import { AuthoringError } from '../AuthoringError';
+import { resolveCode } from '../../lib/contentCode';
+import { CodeFileViewer } from './CodeFileViewer';
+import type { ViewerFile } from './CodeFileViewer';
+import { CodeListing } from './CodeListing';
 import { CodeStepper } from './CodeStepper';
+import { excerptOf, fileNameOf, toExcerptLines } from './codeExcerpt';
+import type { Excerpt } from './codeExcerpt';
 import { Step } from './Step';
 import { ControlButton } from './stepperShell';
 import { besideColumns } from './stepShowLayout';
@@ -12,8 +18,26 @@ import type { StepProps } from './Step';
 import { useViewportBreakout } from '../useViewportBreakout';
 
 export interface StepShowProps {
-  /** The listing shown on the code side, constant across steps. */
-  code: string;
+  /**
+   * The listing shown on the code side, constant across steps, written in the
+   * document. Or, instead, `codeSrc`: a file kept beside the document.
+   */
+  code?: string;
+  /**
+   * The file the listing quotes, a path relative to the document
+   * (`./26-grafos-tda-modelado.code/AdjMatrixGraph.java`, ADR-0091), cut to
+   * `codeRange` ("12-16"; the whole file without it). The listing then
+   * numbers its lines as the file does, its header names the range and opens
+   * the whole file, and every `<Step>` names its `lines` in the FILE's
+   * numbering. `programSrc`/`programRange` and `helperSrc`/`helperRange` do
+   * the same for the other two listings.
+   */
+  codeSrc?: string;
+  codeRange?: string;
+  programSrc?: string;
+  programRange?: string;
+  helperSrc?: string;
+  helperRange?: string;
   /**
    * The language the listing is coloured as: a runtime id loads that grammar
    * (`loadGrammar`), anything else falls back to Java (`CodeStepper.tsx`).
@@ -52,14 +76,29 @@ export interface StepShowProps {
    */
   program?: string;
   /**
+   * With `program`, a method between the program and `code`: the one the
+   * program calls and that calls `code` in turn — `readEdges` between the
+   * program that reads a graph and `addEdge` (#363). Shown under the program,
+   * headed `helperName`; each `<Step>` lights `helperLines` in it.
+   */
+  helper?: string;
+  /** The heading of `helper`. */
+  helperName?: string;
+  /**
    * With `beside`, how the slide's width splits between the code and the
    * drawing, as "code/drawing" percentages. Default "55/45". A walk whose
    * drawing carries two pictures over each other — a graph over its matrix —
    * and whose listings are short asks for "40/60" (#363).
    */
   ratio?: string;
-  /** The heading of `code` when `program` is given. Default «método». */
+  /**
+   * The file `code` stands for — `AdjMatrixGraph.java` — shown as a badge over
+   * it (#363). With `program`, it heads the method's listing (default
+   * «método»); alone, it heads the one listing, which otherwise has none.
+   */
   codeName?: string;
+  /** The file the `program` listing stands for, as its badge. Default «programa». */
+  programName?: string;
   /** `<Step>` elements. Order is step order; anything else is ignored. */
   children?: ReactNode;
 }
@@ -107,10 +146,20 @@ export function StepShow({
   speed = 'normal',
   beside = false,
   program,
+  helper,
+  helperName,
   ratio,
-  codeName = 'método',
+  codeName,
+  programName,
+  codeSrc,
+  codeRange,
+  programSrc,
+  programRange,
+  helperSrc,
+  helperRange,
   children,
 }: StepShowProps) {
+  const [viewerAt, setViewerAt] = useState<number | null>(null);
   const steps = Children.toArray(children).filter(
     (child): child is ReactElement<StepProps> => isValidElement(child) && child.type === Step,
   );
@@ -208,10 +257,26 @@ export function StepShow({
     }
   }, [clamped, count]);
 
-  if (code === undefined) {
+  const codeSpec = specOf(code, codeSrc, codeRange, codeName);
+  const programSpec = specOf(program, programSrc, programRange, programName);
+  const helperSpec = specOf(helper, helperSrc, helperRange, helperName);
+
+  if (codeSpec === undefined) {
     return (
       <AuthoringError component="StepShow">
-        falta la prop <code>code</code>: pásale el listado como una cadena.
+        falta la prop <code>code</code>: pásale el listado como una cadena, o el archivo que cita
+        con <code>codeSrc</code>.
+      </AuthoringError>
+    );
+  }
+  const missing = [codeSpec, programSpec, helperSpec].find(
+    (spec) => spec !== undefined && 'missing' in spec,
+  );
+  if (missing !== undefined && 'missing' in missing) {
+    return (
+      <AuthoringError component="StepShow">
+        no encontró el archivo <code>{missing.missing}</code>: la ruta va relativa al documento, y
+        el archivo tiene que estar bajo <code>content/</code>.
       </AuthoringError>
     );
   }
@@ -227,9 +292,35 @@ export function StepShow({
     );
   }
 
+  // Past the guards: every spec that exists resolved.
+  const codeL = codeSpec as Spec;
+  const programL = programSpec as Spec | undefined;
+  const helperL = helperSpec as Spec | undefined;
   const current = steps[clamped]!;
   const currentLines = current.props.lines ?? [];
   const currentProgramLines = current.props.programLines ?? [];
+  const currentHelperLines = current.props.helperLines ?? [];
+  // The files behind the listings, whole, for the viewer: each with the lines
+  // its listing quotes and the lines this step lights, in the file's numbering.
+  const files: ViewerFile[] = (
+    [
+      [programL, currentProgramLines],
+      [helperL, currentHelperLines],
+      [codeL, currentLines],
+    ] as const
+  ).flatMap(([spec, lit]) =>
+    spec === undefined || spec.source === undefined || spec.excerpt === undefined
+      ? []
+      : [
+          {
+            name: spec.name ?? '',
+            source: spec.source,
+            first: spec.excerpt.first,
+            last: spec.excerpt.last,
+            lines: [...lit],
+          },
+        ],
+  );
   const currentVisual = current.props.children;
   const first = clamped === 0;
   const last = clamped === count - 1;
@@ -290,17 +381,34 @@ export function StepShow({
             : 'flex flex-col gap-px bg-rule'
         }
       >
-        {program === undefined ? (
-          <CodeStepper code={code} highlightLines={currentLines} language={language} />
+        {programL === undefined && codeL.name === undefined ? (
+          <CodeStepper code={codeL.text} highlightLines={currentLines} language={language} />
         ) : (
           <div className="flex flex-col gap-px bg-rule">
-            <Listing
-              name="programa"
-              code={program}
-              lines={currentProgramLines}
-              language={language}
-            />
-            <Listing name={codeName} code={code} lines={currentLines} language={language} />
+            {[
+              programL === undefined
+                ? null
+                : ([programL, currentProgramLines, 'programa'] as const),
+              helperL === undefined ? null : ([helperL, currentHelperLines, 'auxiliar'] as const),
+              [codeL, currentLines, 'método'] as const,
+            ].map((entry, i, all) => {
+              if (entry === null) return null;
+              const [spec, lit, fallback] = entry;
+              const name = spec.name ?? fallback;
+              const fileIndex = files.findIndex((f) => f.name === name);
+              return (
+                <CodeListing
+                  key={name}
+                  name={name}
+                  code={spec.text}
+                  excerpt={spec.excerpt}
+                  lines={spec.excerpt === undefined ? lit : toExcerptLines(lit, spec.excerpt)}
+                  language={language}
+                  grow={i === all.length - 1}
+                  onOpen={spec.source === undefined ? undefined : () => setViewerAt(fileIndex)}
+                />
+              );
+            })}
           </div>
         )}
         <div
@@ -382,40 +490,56 @@ export function StepShow({
           served `lang="es"` (root CLAUDE.md §Language).
         */}
         <span role="status" aria-live="polite" className="sr-only">
-          {program === undefined
+          {programL === undefined
             ? `Paso ${clamped + 1} de ${count}, ${describeLines(currentLines)}.`
-            : `Paso ${clamped + 1} de ${count}, programa: ${describeLines(currentProgramLines)}; ${codeName}: ${describeLines(currentLines)}.`}
+            : `Paso ${clamped + 1} de ${count}, ${programL?.name ?? 'programa'}: ${describeLines(currentProgramLines)}; ${
+                helperL === undefined
+                  ? ''
+                  : `${helperL.name ?? 'auxiliar'}: ${describeLines(currentHelperLines)}; `
+              }${codeL.name ?? 'método'}: ${describeLines(currentLines)}.`}
         </span>
       </footer>
+      {viewerAt === null || files.length === 0 ? null : (
+        <CodeFileViewer
+          title={title}
+          files={files}
+          start={viewerAt}
+          onClose={() => setViewerAt(null)}
+          onPrev={retreat}
+          onNext={advance}
+          status={`paso ${clamped + 1} de ${count}`}
+        />
+      )}
     </div>
   );
 }
 
+/** A listing of the walk: its text, its file's name, and where it sits in the file. */
+interface Spec {
+  name: string | undefined;
+  text: string;
+  excerpt?: Excerpt;
+  source?: string;
+}
+
 /**
- * One named listing of a two-listing walk: the heading the reader uses to tell
- * the program from the method, over the listing with its own lit lines. The
- * heading reads like `<SequenceStepper>`'s, so the two widgets name their
- * listings the same way.
+ * The listing an author named — written in the document, or quoted from a
+ * file beside it — or undefined when they named none, or `{ missing }` when
+ * the file they named is not under `content/`.
  */
-function Listing({
-  name,
-  code,
-  lines,
-  language,
-}: {
-  name: string;
-  code: string;
-  lines: number[];
-  language: string | undefined;
-}) {
-  return (
-    <div data-testid="stepshow-listing" data-listing={name} className="flex flex-col bg-surface">
-      <div className="px-3 pt-1 font-mono text-3xs uppercase tracking-wide text-ink-faint">
-        {name}
-      </div>
-      <CodeStepper code={code} highlightLines={lines} language={language} />
-    </div>
-  );
+function specOf(
+  inline: string | undefined,
+  src: string | undefined,
+  range: string | undefined,
+  name: string | undefined,
+): Spec | { missing: string } | undefined {
+  if (src !== undefined) {
+    const source = resolveCode(src);
+    if (source === null) return { missing: src };
+    const excerpt = excerptOf(source, range);
+    return { name: name ?? fileNameOf(src), text: excerpt.text, excerpt, source };
+  }
+  return inline === undefined ? undefined : { name, text: inline };
 }
 
 /**

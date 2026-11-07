@@ -23,6 +23,16 @@ vi.mock('../useViewportBreakout', () => ({ useViewportBreakout: vi.fn() }));
 // imports it, so the mock lives one level up here. The wrapper still carries
 // `data-highlight-lines` as a comma-separated 1-based list — the actual
 // per-line paint is confirmed in the browser check (ADR-0049 §Consequences).
+// The files a document keeps beside it (ADR-0091) arrive through a Vite glob
+// the suite does not need to exercise: two made-up files stand in for them.
+vi.mock('../../lib/contentCode', () => ({
+  resolveCode: (src: string) =>
+    ({
+      'asset:x.code/Graph.java': 'a\nb\nc\nd\ne\nf\n',
+      'asset:x.code/Main.java': 'm1\nm2\n',
+    })[src] ?? null,
+}));
+
 vi.mock('@uiw/react-codemirror', () => ({
   default: ({ value }: { value: string }) => (
     <textarea readOnly value={value} data-testid="code-listing" />
@@ -242,8 +252,6 @@ describe('StepShow', () => {
 
   it('refuses missing code with an AuthoringError', () => {
     render(
-      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-      // @ts-expect-error — the widget owes the author this error, so drive it.
       <StepShow language="java">
         <Step lines={[1]}>
           <span>a</span>
@@ -336,6 +344,132 @@ describe('StepShow', () => {
     expect(besideColumns(undefined)).toBeUndefined();
     expect(besideColumns('40')).toBeUndefined();
     expect(besideColumns('0/100')).toBeUndefined();
+  });
+
+  it('sets a helper between the program and the listing, lit on its own', () => {
+    render(
+      <StepShow
+        code={CODE}
+        program={'run();'}
+        helper={'void run() {\n    f();\n}'}
+        helperName="run"
+        codeName="f"
+        language="java"
+      >
+        <Step lines={[7]} programLines={[1]} helperLines={[2]}>
+          <span>a</span>
+        </Step>
+      </StepShow>,
+    );
+
+    const listings = screen.getAllByTestId('stepshow-listing');
+    expect(listings.map((l) => l.getAttribute('data-listing'))).toEqual(['programa', 'run', 'f']);
+    expect(listings.map((l) => highlightedLines(l))).toEqual([[1], [2], [7]]);
+    const live = document.querySelector('[aria-live="polite"]');
+    expect(live?.textContent).toMatch(/programa: línea 1; run: línea 2; f: línea 7/);
+  });
+
+  it('heads a lone listing with its file when codeName is given', () => {
+    render(
+      <StepShow code={CODE} codeName="Demo.java" language="java">
+        <Step lines={[7]}>
+          <span>a</span>
+        </Step>
+      </StepShow>,
+    );
+
+    const listings = screen.getAllByTestId('stepshow-listing');
+    expect(listings.map((l) => l.getAttribute('data-listing'))).toEqual(['Demo.java']);
+    expect(highlightedLines(listings[0]!)).toEqual([7]);
+  });
+
+  it('heads the program with its file when programName is given', () => {
+    render(
+      <StepShow
+        code={CODE}
+        program={'f();'}
+        programName="Main.java"
+        codeName="F.java"
+        language="java"
+      >
+        <Step lines={[7]} programLines={[1]}>
+          <span>a</span>
+        </Step>
+      </StepShow>,
+    );
+
+    expect(
+      screen.getAllByTestId('stepshow-listing').map((l) => l.getAttribute('data-listing')),
+    ).toEqual(['Main.java', 'F.java']);
+    expect(document.querySelector('[aria-live="polite"]')?.textContent).toMatch(
+      /Main\.java: línea 1; F\.java: línea 7/,
+    );
+  });
+
+  it('quotes a range of a file: real numbers, the range, and folds for what it leaves out', () => {
+    const { container } = render(
+      <StepShow codeSrc="asset:x.code/Graph.java" codeRange="3-4" language="java">
+        <Step lines={[4]}>
+          <span>a</span>
+        </Step>
+      </StepShow>,
+    );
+
+    const listing = screen.getByTestId('stepshow-listing');
+    expect(listing.dataset['listing']).toBe('Graph.java');
+    expect(screen.getByTestId('listing-range').textContent).toBe('líneas 3–4 de 6');
+    expect(screen.getAllByTestId('listing-fold').map((f) => f.textContent)).toEqual([
+      '⋯ 2 líneas arriba',
+      '⋯ 2 líneas abajo',
+    ]);
+    // The step names file line 4; the editor lights its own second line, and
+    // its gutter counts from 3.
+    expect(highlightedLines(container)).toEqual([2]);
+    expect(container.querySelector('[data-first-line]')?.getAttribute('data-first-line')).toBe('3');
+    expect((screen.getByTestId('code-listing') as HTMLTextAreaElement).value).toBe('c\nd');
+  });
+
+  it('opens the whole files of the walk, one tab each, and closes on Escape', () => {
+    render(
+      <StepShow
+        programSrc="asset:x.code/Main.java"
+        codeSrc="asset:x.code/Graph.java"
+        codeRange="3-4"
+        language="java"
+      >
+        <Step lines={[4]} programLines={[2]}>
+          <span>a</span>
+        </Step>
+      </StepShow>,
+    );
+
+    fireEvent.click(screen.getAllByRole('button', { name: /ver archivo/i })[1]!);
+    const dialog = screen.getByRole('dialog');
+    expect(
+      within(dialog)
+        .getAllByRole('tab')
+        .map((t) => t.textContent),
+    ).toEqual(['Main.java', 'Graph.java']);
+    const file = within(dialog).getByTestId('viewer-file');
+    expect(file.dataset['file']).toBe('Graph.java');
+    // The whole file, the quoted range banded, the step's file line lit.
+    expect(file.querySelector('[data-band-lines]')?.getAttribute('data-band-lines')).toBe('3,4');
+    expect(highlightedLines(file)).toEqual([4]);
+
+    fireEvent.keyDown(dialog, { key: 'Escape' });
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
+
+  it('refuses a file that is not under content/ with an AuthoringError', () => {
+    render(
+      <StepShow codeSrc="asset:x.code/Nope.java" language="java">
+        <Step lines={[1]}>
+          <span>a</span>
+        </Step>
+      </StepShow>,
+    );
+
+    expect(document.querySelector('[data-authoring-error]')?.textContent).toMatch(/Nope\.java/);
   });
 
   it('shows one unnamed listing when no program is given', () => {

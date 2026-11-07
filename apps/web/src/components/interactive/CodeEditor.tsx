@@ -25,6 +25,13 @@ export interface CodeEditorProps extends Partial<EditorFlags> {
   defaultValue?: string;
   /** Text fed to the program's standard input. */
   defaultStdin?: string;
+  /**
+   * The file this listing stands for, shown in the header instead of the
+   * runtime's own (`Main.java`): a quoted listing that names its file —
+   * `Graph.java`, `AdjMatrixGraph.java` — so the reader knows where it lives
+   * (#363). Shown only where the chrome shows a file name.
+   */
+  fileName?: string;
 }
 
 const CHIP = 'rounded px-1.5 py-0.5 font-mono text-3xs';
@@ -39,6 +46,7 @@ export function CodeEditor({
   variant = 'exercise',
   defaultValue,
   defaultStdin = '',
+  fileName,
   ...overrides
 }: CodeEditorProps) {
   const mode = useMode();
@@ -253,7 +261,7 @@ export function CodeEditor({
       <header className="flex items-center gap-2 bg-sunk px-3 py-1.5">
         {flags.showFileName && !embedded ? (
           <span className="font-mono text-xs text-ink-faint">
-            {descriptor?.fileName ?? `${languageId}…`}
+            {fileName ?? descriptor?.fileName ?? `${languageId}…`}
           </span>
         ) : null}
 
