@@ -51,7 +51,8 @@ src/
 │                         # governance pages, live-example blocks
 ├── components/           # catalog content components by family (structure: Slide,
 │                         # SectionBreak, SideBySide; interactive: CodeEditor, Exercise,
-│                         # StepShow/Step/CodeStepper + MemoryVisual (+ memoryLayout.ts
+│                         # StepShow/Step/CodeStepper, PenTrace (+ penTraceLogic.ts,
+│                         # #356) + MemoryVisual (+ memoryLayout.ts
 │                         # + memoryModel.ts as their pure algorithm and types)
 │                         # + their lazy wrappers, shared Panel/useRunShortcut/
 │                         # useLoadedRuntime/useGrammar/draft/placeholder)
@@ -61,8 +62,7 @@ src/
 │                         # media: Figure, Math, the embeds (SheetEmbed, PdfEmbed,
 │                         #   VideoEmbed, EmbedFrame), and the tree figures
 │                         #   BinaryPicture (+ binaryPictureLayout.ts), NodeGraph,
-│                         #   OrderRule (#322), the graph tracer PenTrace
-│                         #   (+ penTraceLogic.ts, #356), and the hash figures StepBoxes
+│                         #   OrderRule (#322), and the hash figures StepBoxes
 │                         #   (+ stepBoxesLayout.ts) and ChainTable
 │                         #   (+ chainTableLayout.ts) (#353), with figureText.tsx,
 │                         #   the code face and caption measure both draw with

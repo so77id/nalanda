@@ -349,9 +349,8 @@ extraction of seven copies.
 professor, and written in its issue.** The class that defines the next TDA —
 the graphs unit's structure class, #363 — settles it then: #305 first, as a
 WP of its own before the class, or an eighth copy, stated here as a
-deviation like the fifth, sixth and seventh. If the issue is silent — #363's
-is, before its refinement (S2) — the developer asks the professor before the
-card's slice. Neither is the default, and the author does not pick one
+deviation like the fifth, sixth and seventh. If the issue is silent, the
+developer asks the professor before the card's slice. Neither is the default, and the author does not pick one
 silently. Until #305 lands, the copy's source stays _El TDA Sequence_ in
 `17-edd-introduccion.mdx`.
 

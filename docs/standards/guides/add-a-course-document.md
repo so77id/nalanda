@@ -1611,7 +1611,8 @@ the two, and a walk's step numbers are the same `StepBadge`.
   those attempts, its status line holding one sentence, and never says whether a
   tracing exists; an attempt that happens to finish the figure stops the search
   there. A press on a point stops either loop and goes on by hand. A mount
-  asking for both is an authoring error, and so are two points in one place.
+  asking for both is an authoring error, and so are two points in one place or
+  with one name.
   It loads on demand, like `<HanoiPlayground>`.
 
 The props, with live examples, are on the catalog pages `/catalog/c/NodeGraph`

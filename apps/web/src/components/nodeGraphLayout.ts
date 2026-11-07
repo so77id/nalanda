@@ -32,16 +32,19 @@ export interface LaidEdge {
   /** Where the weight is written: the middle of the drawn edge, or just past a self-loop's apex. */
   weightAt?: Point;
   /**
-   * The edge as a quadratic curve between the two node centres, untrimmed: a
-   * straight edge has its control point in the middle. `pointOnEdge` reads it.
+   * The edge as a quadratic curve. A straight edge runs between the two node
+   * centres, with its control point in the middle; a bent one is the curve as
+   * drawn, trimmed at the borders and at an arrowhead's base. Either way its
+   * middle is on the drawn line. `pointOnEdge` reads it.
    */
   curve: { from: Point; control: Point; to: Point };
 }
 
 /**
- * The point a fraction `t` of the way along an edge, from its `from` node
- * (t = 0) to its `to` node (t = 1). At t = 1/2 it is the middle of the drawn
- * line, on its bulge when it is one of several parallel edges.
+ * The point a fraction `t` of the way along an edge's `curve`, from the end
+ * at its `from` node (t = 0) to the end at its `to` node (t = 1). At t = 1/2
+ * it is the middle of the drawn line, on its bulge when it is one of several
+ * parallel edges.
  */
 export function pointOnEdge(edge: LaidEdge, t: number): Point {
   const { from, control, to } = edge.curve;

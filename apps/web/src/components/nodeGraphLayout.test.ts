@@ -169,29 +169,50 @@ describe('layoutNodeGraph', () => {
     }
   });
 
-  it('keeps each arrowhead along the curve it ends, on a pair of opposite arcs', () => {
-    const { edges: laid } = layoutNodeGraph({
-      nodes: [
+  it.each([
+    [
+      'a diagonal pair',
+      [
         { v: 'A', x: 0, y: 1 },
         { v: 'B', x: 1, y: 0 },
       ],
-      edges: [
-        ['A', 'B'],
-        ['B', 'A'],
+    ],
+    [
+      'a horizontal pair',
+      [
+        { v: 'A', x: 0, y: 0 },
+        { v: 'B', x: 2, y: 0 },
       ],
-      cols: 2,
-      rows: 2,
-      directed: true,
-    });
-    for (const e of laid) {
-      const [, , cx, cy, ex, ey] = e.d.match(/-?[\d.]+/g)!.map(Number);
-      const [tip, b1, b2] = e.arrow!.split(' ').map((pt) => pt.split(',').map(Number));
-      const base = [(b1[0] + b2[0]) / 2, (b1[1] + b2[1]) / 2];
-      const curveAngle = Math.atan2(ey - cy, ex - cx);
-      const arrowAngle = Math.atan2(tip[1] - base[1], tip[0] - base[0]);
-      expect(Math.abs(curveAngle - arrowAngle)).toBeLessThan((2 * Math.PI) / 180);
-    }
-  });
+    ],
+  ] as const)(
+    'keeps each arrowhead along the curve it ends: %s of opposite arcs',
+    (_name, nodes) => {
+      const { edges: laid } = layoutNodeGraph({
+        nodes: [...nodes],
+        edges: [
+          ['A', 'B'],
+          ['B', 'A'],
+          ['A', 'B'],
+        ],
+        cols: 3,
+        rows: 2,
+        directed: true,
+      });
+      for (const e of laid) {
+        // A straight arc is `M start L end`; a bent one `M start Q control end`.
+        const nums = e.d.match(/-?[\d.]+/g)!.map(Number);
+        const [cx, cy, ex, ey] = nums.length === 4 ? nums : nums.slice(2);
+        const [tip, b1, b2] = e.arrow!.split(' ').map((pt) => pt.split(',').map(Number));
+        const base = [(b1[0] + b2[0]) / 2, (b1[1] + b2[1]) / 2];
+        const curveAngle = Math.atan2(ey - cy, ex - cx);
+        const arrowAngle = Math.atan2(tip[1] - base[1], tip[0] - base[0]);
+        const apart = Math.abs(
+          Math.atan2(Math.sin(curveAngle - arrowAngle), Math.cos(curveAngle - arrowAngle)),
+        );
+        expect(apart).toBeLessThan((2 * Math.PI) / 180);
+      }
+    },
+  );
 
   it('walks a self-loop, directed or not', () => {
     const edges: NodeGraphEdge[] = [
