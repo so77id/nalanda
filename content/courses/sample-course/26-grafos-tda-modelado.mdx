@@ -3098,6 +3098,189 @@ check(Solution.moves("0000", new String[] {"1000", "9000", "0100", "0900", "0010
 
 </Slide>
 
+Tres ejercicios más, propuestos, para resolver sin ver la respuesta. En
+cada uno, lo primero es el modelo: qué son los vértices, qué son las
+aristas, y si el grafo se guarda o se calcula.
+
+<Exercise title="Los seguidores de cada persona">
+
+Una red guarda a quién sigue cada persona, como una lista de arcos: el arco
+`{u, v}` dice que `u` sigue a `v`. Las personas son los números de $$0$$ a
+$$V - 1$$. Para mostrar el perfil de cada una, la red necesita lo contrario:
+quiénes la siguen. Escribamos `followers`, que devuelve, para cada persona
+`v`, la lista de quienes la siguen, en el orden en que aparecen sus arcos.
+
+Con los arcos `{0, 1}`, `{0, 3}`, `{1, 3}` y `{2, 3}`, la lista de la
+persona 3 es `[0, 1, 2]`, la de la 1 es `[0]`, y las de la 0 y la 2 están
+vacías.
+
+Es el grafo con cada arco dado vuelta, el **grafo transpuesto**. Se arma con
+una lista por persona y una sola pasada por los arcos: cada arco agrega su
+origen a la lista de su destino.
+
+```java starter
+import java.util.ArrayList;
+import java.util.List;
+
+class Solution {
+    static List<List<Integer>> followers(int V, int[][] follows) {
+        List<List<Integer>> result = new ArrayList<>();
+        return result;
+    }
+}
+```
+
+```java test
+check(Solution.followers(4, new int[][] {{0, 1}, {0, 3}, {1, 3}, {2, 3}}),
+    java.util.List.of(java.util.List.of(), java.util.List.of(0), java.util.List.of(), java.util.List.of(0, 1, 2)));
+check(Solution.followers(3, new int[][] {{2, 0}, {1, 0}}),
+    java.util.List.of(java.util.List.of(2, 1), java.util.List.of(), java.util.List.of()));
+check(Solution.followers(2, new int[][] {{0, 1}, {1, 0}}),
+    java.util.List.of(java.util.List.of(1), java.util.List.of(0)));
+check(Solution.followers(1, new int[][] {}), java.util.List.of(java.util.List.of()));
+```
+
+```java solution
+import java.util.ArrayList;
+import java.util.List;
+
+class Solution {
+    static List<List<Integer>> followers(int V, int[][] follows) {
+        List<List<Integer>> result = new ArrayList<>();
+        for (int v = 0; v < V; v++) {
+            result.add(new ArrayList<>());
+        }
+        for (int[] arc : follows) {
+            result.get(arc[1]).add(arc[0]);
+        }
+        return result;
+    }
+}
+```
+
+</Exercise>
+
+<Exercise title="Un solo trazo, y desde dónde">
+
+Una figura conexa de $$V$$ puntos, numerados de $$0$$ a $$V - 1$$, llega como
+la lista de sus trazos: el par `{u, v}` es una línea entre los puntos `u` y
+`v`. Escribamos `startOf`, que devuelve un punto desde donde la figura se
+dibuja de un solo trazo, sin levantar el lápiz ni repetir una línea, o $$-1$$
+si no se puede. Si se puede empezar desde cualquier punto, devuelve el $$0$$;
+si solo desde dos, el menor de ellos.
+
+Un cuadrado con una diagonal se dibuja empezando en un extremo de la
+diagonal; un triángulo, desde cualquier punto; las seis líneas entre cuatro
+puntos, de ninguna forma.
+
+El dibujo es un camino que usa cada arista una vez: un camino euleriano. La
+regla de Euler responde sin buscarlo. Con los grados de todos los puntos en
+un arreglo, basta contar cuántos son impares: ninguno, o exactamente dos.
+
+```java starter
+class Solution {
+    static int startOf(int V, int[][] strokes) {
+        return -1;
+    }
+}
+```
+
+```java test
+check(Solution.startOf(4, new int[][] {{0, 1}, {1, 2}, {2, 3}, {3, 0}, {0, 2}}), 0);
+check(Solution.startOf(3, new int[][] {{0, 1}, {1, 2}, {2, 0}}), 0);
+check(Solution.startOf(4, new int[][] {{0, 1}, {0, 2}, {0, 3}, {1, 2}, {1, 3}, {2, 3}}), -1);
+check(Solution.startOf(3, new int[][] {{1, 0}, {0, 2}}), 1);
+check(Solution.startOf(5, new int[][] {{0, 1}, {1, 2}, {2, 0}, {2, 3}, {3, 4}, {4, 2}, {1, 3}}), 1);
+check(Solution.startOf(1, new int[][] {}), 0);
+```
+
+```java solution
+class Solution {
+    static int startOf(int V, int[][] strokes) {
+        int[] degree = new int[V];
+        for (int[] s : strokes) {
+            degree[s[0]]++;
+            degree[s[1]]++;
+        }
+        int odd = 0;
+        int first = -1;
+        for (int v = 0; v < V; v++) {
+            if (degree[v] % 2 == 1) {
+                odd++;
+                if (first == -1) {
+                    first = v;
+                }
+            }
+        }
+        if (odd == 0) {
+            return 0;
+        }
+        return odd == 2 ? first : -1;
+    }
+}
+```
+
+</Exercise>
+
+<Exercise title="Los estados vecinos de dos jarras">
+
+Una jarra de `A` litros y otra de `B` no tienen marcas. Con ellas se puede
+llenar una jarra hasta el borde, vaciarla, o trasvasijar una en la otra hasta
+que la primera quede vacía o la segunda llena. Un **estado** es cuánta agua
+tiene cada jarra, `(a, b)`. Escribamos `moves`, que devuelve los estados a
+un movimiento de `(a, b)`, en este orden: llenar la primera, llenar la
+segunda, vaciar la primera, vaciar la segunda, pasar de la primera a la
+segunda y pasar de la segunda a la primera. Un movimiento que deja el estado
+igual no se cuenta.
+
+Con jarras de 3 y 5 litros, desde `(0, 0)` se llega a `(3, 0)` y a `(0, 5)`.
+Desde `(3, 0)`, a `(3, 5)`, a `(0, 0)` y, pasando la primera a la segunda, a
+`(0, 3)`.
+
+El grafo de estados no se guarda: es implícito, y `moves` es su `adj`. Al
+trasvasijar, lo que pasa es lo que tiene la primera o lo que le falta a la
+segunda, lo que sea menor.
+
+```java starter
+class Solution {
+    static int[][] moves(int A, int B, int a, int b) {
+        return new int[0][];
+    }
+}
+```
+
+```java test
+check(Solution.moves(3, 5, 0, 0), new int[][] {{3, 0}, {0, 5}});
+check(Solution.moves(3, 5, 3, 0), new int[][] {{3, 5}, {0, 0}, {0, 3}});
+check(Solution.moves(3, 5, 2, 5), new int[][] {{3, 5}, {0, 5}, {2, 0}, {3, 4}});
+check(Solution.moves(3, 5, 1, 1), new int[][] {{3, 1}, {1, 5}, {0, 1}, {1, 0}, {0, 2}, {2, 0}});
+```
+
+```java solution
+import java.util.ArrayList;
+import java.util.List;
+
+class Solution {
+    static int[][] moves(int A, int B, int a, int b) {
+        int toB = Math.min(a, B - b);
+        int toA = Math.min(b, A - a);
+        int[][] all = {
+            {A, b}, {a, B}, {0, b}, {a, 0},
+            {a - toB, b + toB}, {a + toA, b - toA}
+        };
+        List<int[]> result = new ArrayList<>();
+        for (int[] s : all) {
+            if (s[0] != a || s[1] != b) {
+                result.add(s);
+            }
+        }
+        return result.toArray(new int[0][]);
+    }
+}
+```
+
+</Exercise>
+
 <Slide title="Grafos de estados en otros problemas">
 El candado no es el único problema cuyo grafo es una regla sobre estados.
 Muchos juegos y acertijos son el mismo grafo implícito con otra regla:
