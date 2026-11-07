@@ -1742,9 +1742,284 @@ check(Solution.suggest(new String[] {"ana beto", "beto carla", "ana diego", "die
 
 </Slide>
 
-{/* Exercise 2, «¿Hay una celebridad?» (S10): a 0/1 matrix «i follows j»; */}
-{/* someone everyone follows who follows nobody, O(V) by elimination */}
-{/* (CLRS 22.1-6). Here the matrix wins. */}
+{/* Exercise 2: who follows whom, as a 0/1 matrix. */}
+
+<Slide title="Una celebridad en la red">
+En una red donde las personas se siguen, una **celebridad** es alguien a
+quien todas las demás siguen, y que no sigue a nadie. Puede no haber
+ninguna, y nunca hay dos: la segunda tendría que seguir a la primera.
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.5rem 2rem', alignItems: 'end' }}>
+<NodeGraph
+  cols={3}
+  rows={3}
+  directed
+  nodes={[{ v: 'ana', x: 0, y: 0 }, { v: 'beto', x: 2, y: 0 }, { v: 'carla', x: 0, y: 2 }, { v: 'elena', x: 2, y: 2 }]}
+  edges={[['ana', 'beto'], ['ana', 'elena'], ['beto', 'elena'], ['carla', 'elena']]}
+  tones={{ elena: 'keep' }}
+  caption="elena es la celebridad"
+  label="Cuatro personas: ana sigue a beto y a elena, beto sigue a elena, y carla sigue a elena. elena, destacada, no sigue a nadie: es la celebridad."
+/>
+<NodeGraph
+  cols={3}
+  rows={3}
+  directed
+  nodes={[{ v: 'ana', x: 0, y: 0 }, { v: 'beto', x: 2, y: 0 }, { v: 'carla', x: 0, y: 2 }, { v: 'elena', x: 2, y: 2 }]}
+  edges={[['ana', 'beto'], ['ana', 'elena'], ['beto', 'elena'], ['carla', 'elena'], ['elena', 'carla']]}
+  tones={{ elena: 'flag' }}
+  caption="elena sigue a carla: no hay celebridad"
+  label="Las mismas cuatro personas, y además elena sigue a carla. elena, marcada en rojo, ya no es celebridad, y nadie más lo es."
+/>
+</div>
+
+El programa recibe quién sigue a quién como una tabla de $$V \times V$$:
+`follows[i][j]` es verdadero si la persona `i` sigue a la `j`. Responde el
+número de la celebridad, o $$-1$$ si no hay:
+
+```java
+static int celebrity(boolean[][] follows)
+```
+
+**Entrada.** $$1 \le V \le 5000$$ personas, numeradas de $$0$$ a $$V - 1$$.
+Nadie se sigue a sí mismo.
+
+**Salida.** El número de la celebridad, o $$-1$$. Con una sola persona, esa
+persona es la celebridad.
+
+</Slide>
+
+<Slide title="Una celebridad · el modelo">
+- **Los vértices** son las personas, ya numeradas de $$0$$ a $$V - 1$$.
+- **Las aristas** son arcos: seguir a alguien no obliga a que te siga. El
+  grafo es dirigido, y sin pesos.
+- **La pregunta**: un vértice con grado de entrada $$V - 1$$ y grado de salida
+  $$0$$, un sumidero al que llegan arcos desde todos los demás.
+- **El tamaño**: la entrada ya es la **matriz de adyacencia** del grafo, con
+  $$V^2$$ casillas. No hay nada que construir.
+
+<AdjMatrix
+  rows={[['false', 'true', 'false', 'true'], ['false', 'false', 'false', 'true'], ['false', 'false', 'false', 'true'], ['false', 'false', 'true', 'false']]}
+  mark={[[3, 2]]}
+  caption="follows con elena siguiendo a carla: [3][2] es true"
+  label="La matriz de seguidores de las cuatro personas, con elena siguiendo a carla. Marcada, la casilla [3][2], true."
+/>
+
+</Slide>
+
+<Slide title="Una celebridad · la que tiene más seguidores">
+Lo primero que se piensa es buscar a la persona con más seguidores. Pero
+tener más seguidores que nadie no basta: la persona con más seguidores puede
+seguir, ella misma, a alguien.
+
+<NodeGraph
+  cols={3}
+  rows={3}
+  directed
+  nodes={[{ v: 'ana', x: 0, y: 0 }, { v: 'beto', x: 2, y: 0 }, { v: 'carla', x: 0, y: 2 }, { v: 'elena', x: 2, y: 2 }]}
+  edges={[['ana', 'beto'], ['ana', 'elena'], ['beto', 'elena'], ['carla', 'elena'], ['elena', 'carla']]}
+  notes={{ ana: 0, beto: 1, carla: 1, elena: 3 }}
+  tones={{ elena: 'flag' }}
+  caption="elena, con 3 seguidores, sigue a carla: no es celebridad"
+  label="Cada persona con su cantidad de seguidores: ana 0, beto 1, carla 1, elena 3. elena, marcada en rojo, es la de más seguidores y aun así sigue a carla."
+/>
+
+Y aunque se revise también a quién sigue cada una, contar los seguidores de
+todas recorre las $$V^2$$ casillas: $$\Theta(V^2)$$, unos $$2{,}5 \cdot 10^7$$
+pasos con $$V = 5000$$.
+
+</Slide>
+
+<Slide title="Una celebridad · la idea">
+Cada casilla consultada descarta a una persona. Si `a` sigue a `b`, `a` no es
+celebridad, porque sigue a alguien. Si `a` no sigue a `b`, `b` no lo es,
+porque alguien no la sigue. Así, comparando a la candidata con cada persona
+siguiente, $$V - 1$$ preguntas dejan una sola candidata, que puede serlo o
+no: se comprueba con sus $$2(V - 1)$$ casillas.
+
+| pregunta              | respuesta | descartada | candidata |
+| --------------------- | --------- | ---------- | --------- |
+| ¿ana sigue a beto?    | sí        | ana        | beto      |
+| ¿beto sigue a carla?  | no        | carla      | beto      |
+| ¿beto sigue a elena?  | sí        | beto       | elena     |
+
+Cada pregunta es una sola casilla de la matriz de adyacencia, que la responde
+en $$\Theta(1)$$.
+
+</Slide>
+
+<Slide title="Una celebridad · la solución">
+La primera vuelta deja a la candidata; la segunda revisa, con cada otra
+persona, que la candidata no la siga y que la persona sí siga a la
+candidata.
+
+<StepShow
+  language="java"
+  beside
+  title="celebrity(follows): ana, beto, carla y elena"
+  code={`static int celebrity(boolean[][] follows) {
+      int V = follows.length;
+      int candidate = 0;
+      for (int i = 1; i < V; i++) {
+          if (follows[candidate][i]) {
+              candidate = i;
+          }
+      }
+      for (int i = 0; i < V; i++) {
+          if (i == candidate) {
+              continue;
+          }
+          if (follows[candidate][i]) {
+              return -1;
+          }
+          if (!follows[i][candidate]) {
+              return -1;
+          }
+      }
+      return candidate;
+  }`}
+>
+  <Step lines={[3]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>candidate = 0: ana, mientras nadie la descarte.</div>
+    <AdjMatrix
+      rows={[['false', 'true', 'false', 'true'], ['false', 'false', 'false', 'true'], ['false', 'false', 'false', 'true'], ['false', 'false', 'false', 'false']]}
+      mark={[]}
+      caption="candidate = 0, ana"
+      label="La matriz de seguidores. Nada marcado: ana, la 0, es la candidata."
+    />
+  </Step>
+  <Step lines={[4, 5, 6]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>follows[0][1]: ana sigue a beto, así que ana no es celebridad; candidate = 1.</div>
+    <AdjMatrix
+      rows={[['false', 'true', 'false', 'true'], ['false', 'false', 'false', 'true'], ['false', 'false', 'false', 'true'], ['false', 'false', 'false', 'false']]}
+      mark={[[0, 1]]}
+      caption="[0][1] es true: candidate = 1, beto"
+      label="Marcada la casilla [0][1], true: ana sigue a beto y queda descartada. beto es el candidato."
+    />
+  </Step>
+  <Step lines={[4, 5]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>follows[1][2]: beto no sigue a carla, así que carla no es celebridad.</div>
+    <AdjMatrix
+      rows={[['false', 'true', 'false', 'true'], ['false', 'false', 'false', 'true'], ['false', 'false', 'false', 'true'], ['false', 'false', 'false', 'false']]}
+      mark={[[1, 2]]}
+      caption="[1][2] es false: carla queda descartada"
+      label="Marcada la casilla [1][2], false: beto no sigue a carla, así que carla no es celebridad. beto sigue de candidato."
+    />
+  </Step>
+  <Step lines={[4, 5, 6]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>follows[1][3]: beto sigue a elena; candidate = 3.</div>
+    <AdjMatrix
+      rows={[['false', 'true', 'false', 'true'], ['false', 'false', 'false', 'true'], ['false', 'false', 'false', 'true'], ['false', 'false', 'false', 'false']]}
+      mark={[[1, 3]]}
+      caption="[1][3] es true: candidate = 3, elena"
+      label="Marcada la casilla [1][3], true: beto sigue a elena y queda descartado. elena, la 3, es la candidata."
+    />
+  </Step>
+  <Step lines={[9, 13, 16]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Con ana: elena no la sigue, y ana sigue a elena.</div>
+    <AdjMatrix
+      rows={[['false', 'true', 'false', 'true'], ['false', 'false', 'false', 'true'], ['false', 'false', 'false', 'true'], ['false', 'false', 'false', 'false']]}
+      mark={[[3, 0], [0, 3]]}
+      caption="[3][0] false y [0][3] true"
+      label="Marcadas [3][0], false, y [0][3], true: elena no sigue a ana, y ana sigue a elena."
+    />
+  </Step>
+  <Step lines={[9, 13, 16]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Con beto: elena no lo sigue, y beto sigue a elena.</div>
+    <AdjMatrix
+      rows={[['false', 'true', 'false', 'true'], ['false', 'false', 'false', 'true'], ['false', 'false', 'false', 'true'], ['false', 'false', 'false', 'false']]}
+      mark={[[3, 1], [1, 3]]}
+      caption="[3][1] false y [1][3] true"
+      label="Marcadas [3][1], false, y [1][3], true: elena no sigue a beto, y beto sigue a elena."
+    />
+  </Step>
+  <Step lines={[9, 13, 16]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Con carla: elena no la sigue, y carla sigue a elena.</div>
+    <AdjMatrix
+      rows={[['false', 'true', 'false', 'true'], ['false', 'false', 'false', 'true'], ['false', 'false', 'false', 'true'], ['false', 'false', 'false', 'false']]}
+      mark={[[3, 2], [2, 3]]}
+      caption="[3][2] false y [2][3] true"
+      label="Marcadas [3][2], false, y [2][3], true: elena no sigue a carla, y carla sigue a elena."
+    />
+  </Step>
+  <Step lines={[20]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Nadie la descartó: retorna 3, elena.</div>
+    <AdjMatrix
+      rows={[['false', 'true', 'false', 'true'], ['false', 'false', 'false', 'true'], ['false', 'false', 'false', 'true'], ['false', 'false', 'false', 'false']]}
+      mark={[[0, 3], [1, 3], [2, 3]]}
+      caption="retorna 3: la columna de elena, toda true salvo [3][3]"
+      label="Marcada la columna 3: ana, beto y carla siguen a elena, y la fila de elena es toda false. La función retorna 3."
+    />
+  </Step>
+</StepShow>
+
+</Slide>
+
+<Slide title="Una celebridad · casos y costo">
+Cuando la candidata sigue a alguien, o alguien no la sigue, la segunda vuelta
+retorna $$-1$$ al llegar a esa persona.
+
+<AdjMatrix
+  rows={[['false', 'true', 'false', 'true'], ['false', 'false', 'false', 'true'], ['false', 'false', 'false', 'true'], ['false', 'false', 'true', 'false']]}
+  mark={[[3, 2]]}
+  caption="con carla: [3][2] es true, elena sigue a carla; retorna -1"
+  label="La matriz con elena siguiendo a carla. Marcada la casilla [3][2], true: la segunda vuelta retorna menos uno."
+/>
+
+Con una sola persona, las dos vueltas no corren y la función retorna $$0$$.
+
+**Tiempo.** La primera vuelta hace $$V - 1$$ consultas y la segunda, a lo más
+$$2(V - 1)$$, cada una de $$\Theta(1)$$ en la matriz: $$\Theta(V)$$. Con
+listas, cada consulta sería un `hasEdge` de $$\Theta(\operatorname{grado})$$,
+y pasarle la matriz a listas ya costaría $$\Theta(V^2)$$.
+
+**Memoria.** Dos enteros: $$\Theta(1)$$ además de la matriz recibida.
+
+</Slide>
+
+<Slide title="Una celebridad · el programa completo">
+<PresentationWide fraction={0.75}>
+<Exercise title="Una celebridad en la red">
+
+```java starter
+class Solution {
+    static int celebrity(boolean[][] follows) {
+        int V = follows.length;
+        int candidate = 0;
+        for (int i = 1; i < V; i++) {
+            if (follows[candidate][i]) {
+                candidate = i;
+            }
+        }
+        for (int i = 0; i < V; i++) {
+            if (i == candidate) {
+                continue;
+            }
+            if (follows[candidate][i]) {
+                return -1;
+            }
+            if (!follows[i][candidate]) {
+                return -1;
+            }
+        }
+        return candidate;
+    }
+}
+```
+
+```java test
+boolean t = true, f = false;
+check(Solution.celebrity(new boolean[][] {{f, t, f, t}, {f, f, f, t}, {f, f, f, t}, {f, f, f, f}}), 3);
+check(Solution.celebrity(new boolean[][] {{f, t, f, t}, {f, f, f, t}, {f, f, f, t}, {f, f, t, f}}), -1);
+check(Solution.celebrity(new boolean[][] {{f, t, f}, {f, f, f}, {f, f, f}}), -1);
+check(Solution.celebrity(new boolean[][] {{f, t}, {f, f}}), 1);
+check(Solution.celebrity(new boolean[][] {{f, t}, {t, f}}), -1);
+check(Solution.celebrity(new boolean[][] {{f}}), 0);
+```
+
+</Exercise>
+</PresentationWide>
+
+</Slide>
 
 {/* Exercise 3, «Ciudades con distancias» (S11): weighted edges */}
 {/* («Santiago Valparaíso 116»); each city's nearest neighbouring city. */}
