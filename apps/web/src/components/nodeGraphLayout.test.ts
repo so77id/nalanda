@@ -169,6 +169,30 @@ describe('layoutNodeGraph', () => {
     }
   });
 
+  it('keeps each arrowhead along the curve it ends, on a pair of opposite arcs', () => {
+    const { edges: laid } = layoutNodeGraph({
+      nodes: [
+        { v: 'A', x: 0, y: 1 },
+        { v: 'B', x: 1, y: 0 },
+      ],
+      edges: [
+        ['A', 'B'],
+        ['B', 'A'],
+      ],
+      cols: 2,
+      rows: 2,
+      directed: true,
+    });
+    for (const e of laid) {
+      const [, , cx, cy, ex, ey] = e.d.match(/-?[\d.]+/g)!.map(Number);
+      const [tip, b1, b2] = e.arrow!.split(' ').map((pt) => pt.split(',').map(Number));
+      const base = [(b1[0] + b2[0]) / 2, (b1[1] + b2[1]) / 2];
+      const curveAngle = Math.atan2(ey - cy, ex - cx);
+      const arrowAngle = Math.atan2(tip[1] - base[1], tip[0] - base[0]);
+      expect(Math.abs(curveAngle - arrowAngle)).toBeLessThan((2 * Math.PI) / 180);
+    }
+  });
+
   it('walks a self-loop, directed or not', () => {
     const edges: NodeGraphEdge[] = [
       ['A', 'B'],

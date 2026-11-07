@@ -209,18 +209,20 @@ export function layoutNodeGraph({
     const end = directed
       ? { x: tip.x - inn.x * ARROW_L * 0.8, y: tip.y - inn.y * ARROW_L * 0.8 }
       : tip;
-    // The trimmed curve keeps the untrimmed one's middle, mid + normal·bulge,
-    // where the weight and a step number sit: its control is placed so that
-    // ¼·start + ½·control + ¼·end lands there.
-    const middle = { x: mid.x + normal.x * bulge, y: mid.y + normal.y * bulge };
-    const drawnControl = {
-      x: 2 * middle.x - (start.x + end.x) / 2,
-      y: 2 * middle.y - (start.y + end.y) / 2,
-    };
     const d =
       bulge === 0
         ? `M${r1(start.x)},${r1(start.y)} L${r1(end.x)},${r1(end.y)}`
-        : `M${r1(start.x)},${r1(start.y)} Q${r1(drawnControl.x)},${r1(drawnControl.y)} ${r1(end.x)},${r1(end.y)}`;
+        : `M${r1(start.x)},${r1(start.y)} Q${r1(c.x)},${r1(c.y)} ${r1(end.x)},${r1(end.y)}`;
+    // A bent edge is drawn trimmed, so its weight and step numbers follow the
+    // drawn curve: its middle is ¼·start + ½·control + ¼·end. Keeping the
+    // control `c` keeps the curve leaving along `out` and arriving along `inn`,
+    // the direction its arrowhead is built on.
+    const drawn =
+      bulge === 0 ? { from: p, control: c, to: q } : { from: start, control: c, to: end };
+    const middle = {
+      x: drawn.from.x / 4 + drawn.control.x / 2 + drawn.to.x / 4,
+      y: drawn.from.y / 4 + drawn.control.y / 2 + drawn.to.y / 4,
+    };
     let arrow: string | undefined;
     if (directed) {
       const base = { x: tip.x - inn.x * ARROW_L, y: tip.y - inn.y * ARROW_L };
@@ -235,7 +237,7 @@ export function layoutNodeGraph({
     }
     const weight = edge.length === 3 ? String(edge[2]) : undefined;
     const weightAt = weight === undefined ? undefined : { x: r1(middle.x), y: r1(middle.y) };
-    const curve = { from: p, control: c, to: q };
+    const curve = drawn;
     return { key: `${from}>${to}`, from, to, d, arrow, weight, weightAt, curve };
   });
 
