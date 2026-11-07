@@ -4,13 +4,13 @@ import { Fragment, useEffect, useState } from 'react';
 import { AuthoringError } from '../AuthoringError';
 import {
   NODE_R,
-  STEP_R,
-  STEP_SPACE,
+  crowdedVertices,
   layoutNodeGraph,
   stepMarks,
   type NodeGraphEdge,
   type NodeGraphNode,
 } from '../nodeGraphLayout';
+import { StepBadge } from '../StepBadge';
 import {
   EMPTY_TRACE,
   attempts,
@@ -51,7 +51,7 @@ export interface PenTraceProps {
 export const STEP_MS = 450;
 
 /** How many steps a failed attempt stays stuck on screen before the next one. */
-export const STUCK_STEPS = 3;
+const STUCK_STEPS = 3;
 
 /** How many attempts a loop shows, one from each of the first points. */
 export const ATTEMPTS = 5;
@@ -84,6 +84,14 @@ export function PenTrace(props: PenTraceProps) {
     return (
       <AuthoringError component="PenTrace">
         tiene un trazo que llega a {String(stray)}, que no está entre los puntos.
+      </AuthoringError>
+    );
+  }
+  const crowded = crowdedVertices(nodes);
+  if (crowded !== null) {
+    return (
+      <AuthoringError component="PenTrace">
+        tiene dos puntos en el mismo lugar o con el mismo nombre: {crowded[0]} y {crowded[1]}.
       </AuthoringError>
     );
   }
@@ -151,11 +159,17 @@ function Tracer({
   useEffect(() => {
     if (loop === null) return;
     const id = window.setTimeout(() => {
-      setTrace(loop.frames[loop.at]);
-      setLoop({ frames: loop.frames, at: (loop.at + 1) % loop.frames.length });
+      const shown = loop.frames[loop.at];
+      setTrace(shown);
+      // A search that happens to finish the figure has found a tracing: it stops there.
+      setLoop(
+        status(edges, shown) === 'done'
+          ? null
+          : { frames: loop.frames, at: (loop.at + 1) % loop.frames.length },
+      );
     }, STEP_MS);
     return () => window.clearTimeout(id);
-  }, [loop]);
+  }, [loop, edges]);
   const layout = layoutNodeGraph({ nodes, edges, cols, rows, directed: false, trim: !figure });
   const { width, drawingH, at } = layout;
   const state = status(edges, trace);
@@ -216,15 +230,22 @@ function Tracer({
     setFrames(steps);
   };
 
+  // While a loop of attempts runs, the live region holds one sentence: its
+  // frames change every STEP_MS, and a screen reader would read each one.
   const message = impossible
     ? 'Esta figura no se puede dibujar de un solo trazo, empiece donde empiece.'
-    : say(state, refused, remaining(edges, trace), trace);
-  const messageClass =
-    state === 'done'
-      ? 'text-keep'
-      : state === 'stuck' || refused || impossible
-        ? 'text-flag'
-        : 'text-ink';
+    : loop !== null
+      ? 'Probando trazados desde distintos puntos…'
+      : say(state, refused, remaining(edges, trace), trace);
+  const messageClass = impossible
+    ? 'text-flag'
+    : loop !== null
+      ? 'text-ink'
+      : state === 'done'
+        ? 'text-keep'
+        : state === 'stuck' || refused
+          ? 'text-flag'
+          : 'text-ink';
 
   return (
     <div
@@ -273,30 +294,16 @@ function Tracer({
         })}
         {figure
           ? null
-          : stepMarks(layout, trace, STEP_SPACE).map(({ stroke, step, x, y }) => {
-              const tone = stroke === lastStroke ? 'mark' : 'keep';
-              return (
-                <g key={`step${stroke}`} data-step={step} data-of={stroke} aria-hidden="true">
-                  <circle
-                    cx={x}
-                    cy={y}
-                    r={STEP_R}
-                    style={{ fill: 'var(--color-surface)', stroke: `var(--color-${tone})` }}
-                    strokeWidth={1.6}
-                  />
-                  <text
-                    x={x}
-                    y={y + 3.5}
-                    textAnchor="middle"
-                    fontSize="10"
-                    fontWeight="700"
-                    style={{ fill: 'var(--color-ink)' }}
-                  >
-                    {step}
-                  </text>
-                </g>
-              );
-            })}
+          : stepMarks(layout, trace).map(({ stroke, step, x, y }) => (
+              <StepBadge
+                key={`step${stroke}`}
+                stroke={stroke}
+                step={step}
+                x={x}
+                y={y}
+                tone={stroke === lastStroke ? 'mark' : 'keep'}
+              />
+            ))}
         {nodes.map((n) => {
           const v = String(n.v);
           const { x, y } = at.get(v)!;

@@ -274,6 +274,38 @@ describe('PenTrace', () => {
     expect(starts.size).toBe(Math.min(ATTEMPTS, 4));
   });
 
+  it('holds one sentence in the live region while a search runs', () => {
+    vi.useFakeTimers();
+    render(<PenTrace {...SQUARE_WITH_DIAGONALS} keepTrying />);
+    fireEvent.click(screen.getByRole('button', { name: /Buscar solución/ }));
+    const heard = new Set<string | null>();
+    for (let i = 0; i < 40; i++) {
+      tick(1);
+      heard.add(said());
+    }
+    expect([...heard]).toEqual(['Probando trazados desde distintos puntos…']);
+  });
+
+  it('stops a search that finishes the figure, and says so', () => {
+    vi.useFakeTimers();
+    const { container } = render(<PenTrace {...TRIANGLE} keepTrying />);
+    fireEvent.click(screen.getByRole('button', { name: /Buscar solución/ }));
+    tick(10);
+    expect(statusOf(container)).toBe('done');
+    expect(said()).toMatch(/Figura completa/);
+    tick(10);
+    expect(statusOf(container)).toBe('done');
+  });
+
+  it('leaves no timer behind when it is removed mid-search', () => {
+    vi.useFakeTimers();
+    const { unmount } = render(<PenTrace {...SQUARE_WITH_DIAGONALS} keepTrying />);
+    fireEvent.click(screen.getByRole('button', { name: /Buscar solución/ }));
+    tick(2);
+    unmount();
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
   it('stops searching at a press, and goes on by hand from that point', () => {
     vi.useFakeTimers();
     const { container } = render(<PenTrace {...SQUARE_WITH_DIAGONALS} keepTrying />);
@@ -304,6 +336,12 @@ describe('PenTrace', () => {
 
   it('tells the author when the label is missing', () => {
     const { container } = render(<PenTrace {...KITE} label="" />);
+    expect(container.querySelector('[data-authoring-error]')).not.toBeNull();
+  });
+
+  it('tells the author when two points share a place', () => {
+    const nodes = [...KITE.nodes, { v: 'E', x: 0, y: 0 }];
+    const { container } = render(<PenTrace {...KITE} nodes={nodes} />);
     expect(container.querySelector('[data-authoring-error]')).not.toBeNull();
   });
 
