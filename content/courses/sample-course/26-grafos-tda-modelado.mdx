@@ -5591,153 +5591,269 @@ pregunta, sea `v` quien sea.
 ## Modelar un problema como grafo
 
 <Slide title="Modelar un problema">
-**Modelar** un problema es describirlo con un objeto que ya sabemos manejar,
-para responderlo con lo que ya se sabe de ese objeto. Modelarlo como grafo
-es el primer paso para reducirlo a un problema de grafos: con el grafo
-construido, la pregunta del problema pasa a ser una pregunta sobre el grafo,
-y la responden sus operaciones o un algoritmo de grafos.
+En una red social, cada persona le cuenta a sus amigos lo que escucha.
+Alguien cuenta un rumor: **¿a quiénes les llega?**
 
-Lo difícil suele ser el modelo, no el algoritmo. Steven Skiena lo resume en
-una frase: «diseña grafos, no algoritmos». Un modelo responde cinco
-preguntas:
+**Entrada.** Las amistades, una por línea con los nombres de las dos personas,
+y quién cuenta el rumor. La red tiene a lo más $$10^5$$ amistades.
 
-1. ¿Qué es un vértice?
-2. ¿Qué es una arista?
-3. ¿La arista tiene dirección? ¿Tiene peso?
-4. ¿Qué pregunta se le hace al grafo?
-5. ¿Qué tamaño tiene el grafo?
+Por ejemplo, con cinco personas, y Ana contando el rumor:
 
-<NodeGraph
-  cols={6}
-  rows={3}
-  nodes={[{ v: 'Ana', x: 0, y: 1 }, { v: 'Beto', x: 1.5, y: 0 }, { v: 'Carla', x: 1.5, y: 2 }, { v: 'Diego', x: 3, y: 1 }, { v: 'Elena', x: 4.5, y: 2 }]}
-  edges={[['Ana', 'Beto'], ['Ana', 'Carla'], ['Beto', 'Carla'], ['Beto', 'Diego'], ['Carla', 'Diego'], ['Diego', 'Elena']]}
-  caption="una red de amistades modelada como grafo"
-  label="Una red de cinco personas modelada como grafo: Ana, Beto, Carla, Diego y Elena son vértices, y cada amistad es una arista: Ana con Beto y con Carla, Beto con Carla y con Diego, Carla con Diego, y Diego con Elena."
-/>
+<Pair>
+  <InputLines
+    head="amistades"
+    lines={['Ana    Beto', 'Ana    Carla', 'Beto   Carla', 'Beto   Diego', 'Carla  Diego', 'Diego  Elena']}
+    read={6}
+    label="Las amistades de la red, una por línea: Ana con Beto y con Carla, Beto con Carla y con Diego, Carla con Diego, y Diego con Elena."
+  />
+  <NodeGraph
+    cols={5}
+    rows={3}
+    nodes={[{ v: 'Ana', x: 0, y: 1 }, { v: 'Beto', x: 1.5, y: 0 }, { v: 'Carla', x: 1.5, y: 2 }, { v: 'Diego', x: 3, y: 1 }, { v: 'Elena', x: 4.5, y: 2 }]}
+    edges={[['Ana', 'Beto'], ['Ana', 'Carla'], ['Beto', 'Carla'], ['Beto', 'Diego'], ['Carla', 'Diego'], ['Diego', 'Elena']]}
+    tones={{ Ana: 'mark' }}
+    caption="las mismas amistades, dibujadas"
+    label="Las amistades como un grafo: cada persona es un vértice y cada amistad una arista, Ana con Beto y con Carla, Beto con Carla y con Diego, Carla con Diego, y Diego con Elena. Destacada Ana."
+  />
+</Pair>
+
+Mirando la lista cuesta responder; en el dibujo se ve: el rumor sale de Ana,
+pasa por Beto y Carla, de ellos a Diego y de Diego a Elena. Le llega a todos.
+El dibujo es un grafo, y la pregunta pasó a ser una pregunta sobre el grafo:
+**a qué vértices se llega desde Ana**.
+
+**Modelar** un problema es eso: describirlo con un objeto que ya sabemos
+manejar, para responderlo con lo que se sabe de ese objeto. Para modelarlo
+como grafo hay que decidir qué es un vértice, qué es una arista y de qué tipo,
+y cuán grande queda el grafo. La pregunta del problema guía cada decisión.
 
 </Slide>
 
 <Slide title="Los vértices de un modelo">
-Los vértices son las cosas del problema entre las que hay una relación. En
-una red social, son las personas. No siempre son objetos: un vértice puede
-ser un lugar, como una esquina o una celda de un mapa, o un **estado**, como
-la posición de las piezas de un juego en un momento dado.
+Los vértices son las cosas entre las que la pregunta busca una relación. El
+rumor pasa de **persona** a persona, así que cada persona es un vértice.
 
-<NodeGraph
-  cols={6}
-  rows={3}
-  nodes={[{ v: 'Ana', x: 0, y: 1 }, { v: 'Beto', x: 1.5, y: 0 }, { v: 'Carla', x: 1.5, y: 2 }, { v: 'Diego', x: 3, y: 1 }, { v: 'Elena', x: 4.5, y: 2 }]}
-  edges={[]}
-  caption="las personas de la red: cinco vértices, todavía sin aristas"
-  label="Cinco vértices sueltos, sin aristas: Ana, Beto, Carla, Diego y Elena."
-/>
+No siempre son objetos. En un mapa, un vértice puede ser una esquina o una
+celda; en un juego, un **estado**: la posición de todas las piezas en un
+momento dado.
 
-Un vértice tiene que poder numerarse: el modelo dice cuántos hay, $$V$$, y a
-cada uno le corresponde un número de $$0$$ a $$V - 1$$.
+<Pair>
+  <NodeGraph
+    cols={5}
+    rows={3}
+    nodes={[{ v: 'Ana', x: 0, y: 1 }, { v: 'Beto', x: 1.5, y: 0 }, { v: 'Carla', x: 1.5, y: 2 }, { v: 'Diego', x: 3, y: 1 }, { v: 'Elena', x: 4.5, y: 2 }]}
+    edges={[]}
+    caption="cinco personas: cinco vértices, todavía sin aristas"
+    label="Cinco vértices sueltos, sin aristas: Ana, Beto, Carla, Diego y Elena."
+  />
+  <ArrayRows
+    rows={[{ name: 'número', head: ['Ana', 'Beto', 'Carla', 'Diego', 'Elena'], cells: [0, 1, 2, 3, 4] }]}
+    caption="el número de cada nombre"
+    label="El número de cada persona: Ana 0, Beto 1, Carla 2, Diego 3 y Elena 4."
+  />
+</Pair>
+
+`Graph` conoce vértices de $$0$$ a $$V - 1$$, así que a cada persona le toca
+un número. El modelo dice cuántos vértices hay, $$V$$, y cuál es el número de
+cada uno.
 
 </Slide>
 
 <Slide title="Las aristas de un modelo">
-Una arista une dos vértices que cumplen la relación del modelo, y la relación
-la elige quien modela. Con las mismas personas, otra relación da otro grafo,
-y responde otras preguntas.
+Una arista une dos vértices que cumplen una relación, y la relación la pide la
+pregunta. El rumor pasa entre dos personas cuando son amigas: la arista es
+**«son amigos»**.
+
+Con las mismas personas, otra pregunta pide otra relación y da otro grafo.
+Para saber quiénes pueden juntarse sin viajar, la arista es **«viven en la
+misma ciudad»**:
 
 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '0.5rem 2rem', alignItems: 'end' }}>
 <NodeGraph
-  cols={6}
+  cols={5}
   rows={3}
   nodes={[{ v: 'Ana', x: 0, y: 1 }, { v: 'Beto', x: 1.5, y: 0 }, { v: 'Carla', x: 1.5, y: 2 }, { v: 'Diego', x: 3, y: 1 }, { v: 'Elena', x: 4.5, y: 2 }]}
   edges={[['Ana', 'Beto'], ['Ana', 'Carla'], ['Beto', 'Carla'], ['Beto', 'Diego'], ['Carla', 'Diego'], ['Diego', 'Elena']]}
-  caption="«son amigos»"
+  caption="«son amigos»: ¿a quiénes llega el rumor?"
   label="La relación son amigos: Ana con Beto y con Carla, Beto con Carla y con Diego, Carla con Diego, y Diego con Elena."
 />
 <NodeGraph
-  cols={6}
+  cols={5}
   rows={3}
   nodes={[{ v: 'Ana', x: 0, y: 1 }, { v: 'Beto', x: 1.5, y: 0 }, { v: 'Carla', x: 1.5, y: 2 }, { v: 'Diego', x: 3, y: 1 }, { v: 'Elena', x: 4.5, y: 2 }]}
-  edges={[['Ana', 'Carla'], ['Beto', 'Diego'], ['Carla', 'Elena'], ['Ana', 'Elena']]}
-  caption="«viven en la misma ciudad»"
+  edges={[['Ana', 'Carla'], ['Carla', 'Elena'], ['Ana', 'Elena'], ['Beto', 'Diego']]}
+  caption="«viven en la misma ciudad»: ¿quiénes pueden juntarse?"
   label="La relación viven en la misma ciudad, con las mismas cinco personas: Ana, Carla y Elena unidas entre sí, y Beto con Diego. Son dos grupos que no se tocan."
 />
 </div>
 
-El primer grafo dice a quién sugerirle amistades; el segundo, quiénes podrían
-juntarse sin viajar.
+En el segundo grafo, Ana, Carla y Elena pueden juntarse, y Beto con Diego;
+los dos grupos no se tocan.
 
 </Slide>
 
 <Slide title="Dirección y peso en un modelo">
-Dos preguntas deciden el tipo de arista:
+Dos preguntas más deciden el tipo de arista, y cada respuesta le da un nombre
+al grafo:
 
-- **¿La relación va en los dos sentidos?** Si Ana es amiga de Beto, Beto es
-  amigo de Ana: la arista no tiene dirección. Seguir a alguien, en cambio, no
-  obliga a que la otra persona siga de vuelta: la arista es un arco, y el
-  grafo es dirigido.
-- **¿La relación trae un número?** La cantidad de mensajes entre dos personas
-  dice qué tan cercanas son: es el peso de la arista, y el grafo es
-  ponderado.
+- **¿La relación va en los dos sentidos?** Si va, el grafo es **no dirigido**:
+  si Ana es amiga de Beto, Beto es amigo de Ana. Si no, el grafo es
+  **dirigido**, y cada arista es un **arco** con una flecha: que Ana siga a
+  Beto no obliga a Beto a seguir a Ana.
+- **¿La relación trae un número?** Si lo trae, el grafo es **ponderado**, o con
+  pesos, y el número es el **peso** de la arista: los kilómetros de una
+  carretera, el precio de un vuelo. Si no, es **no ponderado**.
 
-<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))', gap: '0.5rem 1.5rem', alignItems: 'end' }}>
+<div style={{ display: 'grid', gridTemplateColumns: '1.5rem 1fr 1fr', gap: '0.2rem 1.5rem', alignItems: 'center' }}>
+<div />
+<div style={{ fontSize: '0.8rem', fontWeight: 700, textAlign: 'center', color: 'var(--color-ink-soft)' }}>no dirigido</div>
+<div style={{ fontSize: '0.8rem', fontWeight: 700, textAlign: 'center', color: 'var(--color-ink-soft)' }}>dirigido</div>
+<div style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--color-ink-soft)', writingMode: 'vertical-rl', transform: 'rotate(180deg)', textAlign: 'center' }}>no ponderado</div>
 <NodeGraph
-  cols={6}
-  rows={3}
-  nodes={[{ v: 'Ana', x: 0, y: 1 }, { v: 'Beto', x: 1.5, y: 0 }, { v: 'Carla', x: 1.5, y: 2 }, { v: 'Diego', x: 3, y: 1 }, { v: 'Elena', x: 4.5, y: 2 }]}
-  edges={[['Ana', 'Beto'], ['Ana', 'Carla'], ['Beto', 'Carla'], ['Beto', 'Diego'], ['Carla', 'Diego'], ['Diego', 'Elena']]}
-  caption="son amigos: no dirigido"
-  label="Son amigos, sin dirección: Ana con Beto y con Carla, Beto con Carla y con Diego, Carla con Diego, y Diego con Elena."
+  cols={3}
+  rows={2}
+  nodes={[{ v: 'Ana', x: 0, y: 0 }, { v: 'Beto', x: 2, y: 0 }, { v: 'Carla', x: 0, y: 1 }, { v: 'Diego', x: 2, y: 1 }]}
+  edges={[['Ana', 'Beto'], ['Ana', 'Carla'], ['Beto', 'Carla'], ['Beto', 'Diego']]}
+  caption="«son amigos»"
+  label="No dirigido y no ponderado, son amigos: Ana con Beto y con Carla, Beto con Carla y con Diego."
 />
 <NodeGraph
-  cols={6}
+  cols={3}
+  rows={2}
+  directed
+  nodes={[{ v: 'Ana', x: 0, y: 0 }, { v: 'Beto', x: 2, y: 0 }, { v: 'Carla', x: 0, y: 1 }, { v: 'Diego', x: 2, y: 1 }]}
+  edges={[['Ana', 'Beto'], ['Carla', 'Beto'], ['Beto', 'Diego'], ['Diego', 'Beto'], ['Carla', 'Ana']]}
+  caption="«sigue a»"
+  label="Dirigido y no ponderado, sigue a: Ana sigue a Beto, Carla sigue a Beto y a Ana, Beto sigue a Diego y Diego sigue a Beto."
+/>
+<div style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--color-ink-soft)', writingMode: 'vertical-rl', transform: 'rotate(180deg)', textAlign: 'center' }}>ponderado</div>
+<NodeGraph
+  cols={5}
+  rows={3}
+  nodes={[{ v: 'Valparaíso', x: 0.5, y: 0 }, { v: 'Santiago', x: 3.5, y: 0 }, { v: 'San Antonio', x: 0.5, y: 2 }, { v: 'Rancagua', x: 3.5, y: 2 }]}
+  edges={[['Valparaíso', 'Santiago', 116], ['Valparaíso', 'San Antonio', 95], ['Santiago', 'San Antonio', 113], ['Santiago', 'Rancagua', 87]]}
+  caption="kilómetros por carretera"
+  label="No dirigido y ponderado, kilómetros por carretera: Valparaíso-Santiago 116, Valparaíso-San Antonio 95, Santiago-San Antonio 113 y Santiago-Rancagua 87."
+/>
+<NodeGraph
+  cols={5}
   rows={3}
   directed
-  nodes={[{ v: 'Ana', x: 0, y: 1 }, { v: 'Beto', x: 1.5, y: 0 }, { v: 'Carla', x: 1.5, y: 2 }, { v: 'Diego', x: 3, y: 1 }, { v: 'Elena', x: 4.5, y: 2 }]}
-  edges={[['Ana', 'Beto'], ['Carla', 'Ana'], ['Beto', 'Diego'], ['Carla', 'Diego'], ['Diego', 'Elena'], ['Elena', 'Diego']]}
-  caption="sigue a: dirigido"
-  label="Sigue a, con flechas: Ana sigue a Beto, Carla sigue a Ana, Beto y Carla siguen a Diego, Diego sigue a Elena y Elena sigue a Diego."
+  nodes={[{ v: 'Lima', x: 0.5, y: 0 }, { v: 'Buenos Aires', x: 3.5, y: 0 }, { v: 'Santiago', x: 2, y: 2 }]}
+  edges={[['Santiago', 'Lima', 180], ['Lima', 'Santiago', 200], ['Santiago', 'Buenos Aires', 120], ['Buenos Aires', 'Lima', 250]]}
+  caption="el precio de cada vuelo, en dólares"
+  label="Dirigido y ponderado, el precio de cada vuelo en dólares: de Santiago a Lima 180, de Lima a Santiago 200, de Santiago a Buenos Aires 120 y de Buenos Aires a Lima 250."
+/>
+</div>
+
+Un modelo se nombra con las dos respuestas: las carreteras son un grafo **no
+dirigido y ponderado**, y los vuelos, uno **dirigido y ponderado**.
+
+</Slide>
+
+<Slide title="La pregunta de un modelo">
+Con el grafo decidido, la pregunta del problema se escribe con las palabras
+del grafo. Escrita así, se sabe qué operación o qué algoritmo la responde:
+
+| En la red                                     | En el grafo                                                  |
+| --------------------------------------------- | ------------------------------------------------------------ |
+| ¿Quiénes son los amigos de Ana?               | los vecinos de un vértice: `adj`                             |
+| ¿Son amigos Ana y Beto?                       | si hay una arista entre dos vértices: `hasEdge`              |
+| ¿Quién tiene más amigos?                      | el vértice de mayor grado: contar `adj` de cada uno          |
+| ¿A quiénes les llega el rumor de Ana?         | los vértices a los que se llega desde uno por un camino      |
+| ¿Por qué cadena de amigos llega a Elena?      | un camino entre dos vértices                                 |
+
+Las tres primeras las responde el contrato. Las dos últimas piden un
+algoritmo que use el contrato: recorrer el grafo desde un vértice.
+
+</Slide>
+
+<Slide title="Cuántos vértices y aristas tiene un modelo">
+Para elegir la estructura hay que saber cuán grande puede ser el grafo. El
+enunciado casi nunca da $$V$$ y $$E$$ con esas palabras: da cotas sobre los
+datos, y $$V$$ y $$E$$ se deducen con cuatro reglas.
+
+1. **Lo que el enunciado acota se usa tal cual.** Si dice «a lo más $$10^5$$
+   amistades» y cada amistad es una arista, $$E \le 10^5$$.
+2. **Si la entrada es una lista de aristas, $$V \le 2E$$.** Cada arista nombra
+   dos vértices, así que $$E$$ aristas nombran a lo más $$2E$$ vértices
+   distintos. Se llega a $$2E$$ cuando ninguna arista repite un vértice.
+3. **Un grafo simple tiene a lo más $$\frac{V(V - 1)}{2}$$ aristas**, una por
+   cada par de vértices. Si es dirigido, $$V(V - 1)$$: un arco en cada sentido.
+4. **Si $$E$$ está cerca de ese máximo, el grafo es denso; si está muy por
+   debajo, es disperso.**
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '0.5rem 1.5rem', alignItems: 'end' }}>
+<NodeGraph
+  cols={3}
+  rows={3}
+  nodes={[{ v: 'Ana', x: 0, y: 0 }, { v: 'Beto', x: 2, y: 0 }, { v: 'Carla', x: 0, y: 1 }, { v: 'Diego', x: 2, y: 1 }, { v: 'Elena', x: 0, y: 2 }, { v: 'Felipe', x: 2, y: 2 }]}
+  edges={[['Ana', 'Beto'], ['Carla', 'Diego'], ['Elena', 'Felipe']]}
+  caption="regla 2: 3 aristas, 6 vértices = 2 · 3"
+  label="Tres amistades que no comparten a nadie: Ana con Beto, Carla con Diego, Elena con Felipe. Son seis personas, dos por amistad: el máximo, 2E."
 />
 <NodeGraph
-  cols={6}
+  cols={3}
   rows={3}
-  nodes={[{ v: 'Ana', x: 0, y: 1 }, { v: 'Beto', x: 1.5, y: 0 }, { v: 'Carla', x: 1.5, y: 2 }, { v: 'Diego', x: 3, y: 1 }, { v: 'Elena', x: 4.5, y: 2 }]}
-  edges={[['Ana', 'Beto', 40], ['Ana', 'Carla', 2], ['Beto', 'Carla', 15], ['Beto', 'Diego', 7], ['Carla', 'Diego', 21], ['Diego', 'Elena', 3]]}
-  caption="mensajes entre dos personas: ponderado"
-  label="Los mensajes entre cada par de amigos, como pesos: Ana y Beto 40, Ana y Carla 2, Beto y Carla 15, Beto y Diego 7, Carla y Diego 21, Diego y Elena 3."
+  nodes={[{ v: 'Ana', x: 1, y: 0 }, { v: 'Beto', x: 0, y: 2 }, { v: 'Carla', x: 2, y: 2 }]}
+  edges={[['Ana', 'Beto'], ['Ana', 'Carla'], ['Beto', 'Carla']]}
+  caption="regla 2: 3 aristas que se tocan, 3 vértices"
+  label="Tres amistades entre Ana, Beto y Carla: cada persona aparece en dos, y son solo tres personas, menos que 2E."
+/>
+<NodeGraph
+  cols={3}
+  rows={3}
+  nodes={[{ v: 0, x: 0, y: 0 }, { v: 1, x: 2, y: 0 }, { v: 2, x: 0, y: 2 }, { v: 3, x: 2, y: 2 }]}
+  edges={[[0, 1], [0, 2], [0, 3], [1, 2], [1, 3], [2, 3]]}
+  caption="regla 3: 4 vértices, a lo más 4 · 3 / 2 = 6 aristas"
+  label="Cuatro vértices, cada uno unido con los otros tres: seis aristas, el máximo de un grafo simple de cuatro vértices."
 />
 </div>
 
 </Slide>
 
-<Slide title="La pregunta de un modelo">
-La pregunta del problema se traduce a una pregunta sobre el grafo, con sus
-palabras. Una vez traducida, se sabe qué operación o qué algoritmo la
-responde.
+<Slide title="El tamaño de un modelo">
+El problema del rumor dice que la red tiene a lo más $$10^5$$ amistades. Con
+las cuatro reglas:
 
-| En la red                                  | En el grafo                                                        |
-| ------------------------------------------ | ------------------------------------------------------------------ |
-| ¿Quiénes son los amigos de una persona?    | los vecinos de un vértice: `adj`                                   |
-| ¿Son amigas dos personas?                  | si hay una arista entre dos vértices: `hasEdge`                    |
-| ¿Quién tiene más seguidores?               | el vértice de mayor grado de entrada                               |
-| ¿A quién sugerirle a una persona?          | entre los vecinos de sus vecinos, el que llega por más caminos      |
-| ¿Por qué cadena de amigos se llega a otra? | un camino entre dos vértices                                       |
+| Regla                 | Resultado                                                  | Por qué                                                         |
+| --------------------- | ---------------------------------------------------------- | --------------------------------------------------------------- |
+| 1. el enunciado       | $$E \le 10^5$$                                             | cada amistad es una arista                                      |
+| 2. $$V \le 2E$$       | $$V \le 2 \cdot 10^5$$                                      | la entrada es la lista de amistades                             |
+| 3. el máximo          | $$\frac{V(V - 1)}{2} \approx 2 \cdot 10^{10}$$ aristas posibles | una por cada par de personas                                    |
+| 4. denso o disperso   | **disperso**                                               | $$10^5$$ de $$2 \cdot 10^{10}$$ posibles: una de cada $$200\,000$$ |
 
-Las dos primeras las responde el contrato; las otras piden un algoritmo que
-use el contrato.
+La matriz reserva una casilla
+por cada par de vértices, haya arista o no; las listas guardan solo las
+aristas que hay:
+
+|                            | Matriz                                          | Listas                                          |
+| -------------------------- | ----------------------------------------------- | ----------------------------------------------- |
+| memoria                    | $$V^2 = 4 \cdot 10^{10}$$ casillas: unos 40 GB  | <span style={{ color: 'var(--color-keep)', fontWeight: 700 }}>$$V + 2E = 4 \cdot 10^5$$ entradas: unos MB</span> |
+| recorrer todos los vecinos | $$4 \cdot 10^{10}$$ pasos: unos 7 minutos       | <span style={{ color: 'var(--color-keep)', fontWeight: 700 }}>$$4 \cdot 10^5$$ pasos: unas milésimas</span>       |
+
+La matriz pagaría por los pares vacíos, que son casi todos: no cabe en la
+memoria de un computador común, y recorrerla toma minutos. Las listas pagan
+solo por las amistades. Con estas cotas, el grafo se guarda en listas. Las
+cuentas suponen unos $$10^8$$ pasos por segundo y un byte por casilla.
 
 </Slide>
 
-<Slide title="El tamaño de un modelo">
-El tamaño del grafo sale de las cotas del enunciado, y decide qué estructura
-se usa y cuánto cuesta responder. Si una red trae a lo más $$10^5$$
-amistades, entonces $$E \le 10^5$$, y como cada amistad trae a lo más dos
-personas nuevas, $$V \le 2 \cdot 10^5$$.
+<Slide title="Las decisiones de un modelo">
+Un modelo se arma con cinco decisiones, y todas parten de la pregunta del
+problema:
 
-- Un algoritmo de $$\Theta(V + E)$$ hace unas $$3 \cdot 10^5$$ operaciones.
-- Uno de $$\Theta(V^2)$$ hace unas $$4 \cdot 10^{10}$$, y una matriz de
-  $$V \times V$$ tendría $$4 \cdot 10^{10}$$ casillas.
+1. **¿Qué pregunta se responde?** Escrita primero con las palabras del problema.
+2. **¿Qué es un vértice?** Las cosas que la pregunta relaciona, numeradas de
+   $$0$$ a $$V - 1$$.
+3. **¿Qué es una arista?** La relación que la pregunta necesita.
+4. **¿Tiene dirección? ¿Tiene peso?** Si la relación va en un solo sentido,
+   el grafo es dirigido; si trae un número, ponderado.
+5. **¿Qué tamaño tiene?** $$V$$ y $$E$$ salen de las cotas con las cuatro
+   reglas, y deciden la estructura y el costo que cabe.
 
-Con esas cotas, el grafo se guarda en listas, y una respuesta de
-$$\Theta(V^2)$$ no termina a tiempo.
+Con el modelo armado, la pregunta suele ser una que ya tiene algoritmo. Por
+eso Steven Skiena aconseja: «diseña grafos, no algoritmos».
 
 </Slide>
 
@@ -5791,11 +5907,12 @@ con `user` —si hay empate, la que aparece primero en las amistades—, o
 <Slide title="Sugerir amigos · el modelo">
 - **Los vértices** son las personas, numeradas en el orden en que aparecen.
 - **Las aristas** son las amistades, sin dirección: si una persona es amiga de
-  otra, la otra es amiga de ella. No tienen peso.
+  otra, la otra es amiga de ella. No tienen peso: el grafo es **no dirigido y
+  no ponderado**.
 - **La pregunta**: el vértice que no es `user` ni su vecino y que comparte
   más vecinos con `user`.
-- **El tamaño**: $$E \le 10^5$$ y $$V \le 2 \cdot 10^5$$. Se guarda en
-  listas.
+- **El tamaño**: $$E \le 10^5$$, y $$V \le 2E = 2 \cdot 10^5$$ porque la
+  entrada es la lista de amistades. Es disperso: se guarda en listas.
 
 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '0.5rem 2rem', alignItems: 'center' }}>
 <div>
@@ -6900,7 +7017,7 @@ persona es la celebridad.
 <Slide title="Una celebridad · el modelo">
 - **Los vértices** son las personas, ya numeradas de $$0$$ a $$V - 1$$.
 - **Las aristas** son arcos: seguir a alguien no obliga a que te siga. El
-  grafo es dirigido, y sin pesos.
+  grafo es **dirigido y no ponderado**.
 - **La pregunta**: un vértice con grado de entrada $$V - 1$$ y grado de salida
   $$0$$, un sumidero al que llegan arcos desde todos los demás.
 - **El tamaño**: la entrada ya es la **matriz de adyacencia** del grafo, con
@@ -7344,11 +7461,13 @@ gana la que aparece primero. Sin carreteras, un arreglo vacío.
 <Slide title="Ciudad vecina · el modelo">
 - **Los vértices** son las ciudades, numeradas en el orden en que aparecen.
 - **Las aristas** son las carreteras, sin dirección: se recorren en los dos
-  sentidos. Su **peso** es el largo en kilómetros, un entero.
+  sentidos. Su **peso** es el largo en kilómetros, un entero: el grafo es **no
+  dirigido y ponderado**.
 - **La pregunta**: para cada vértice, la arista de menor peso entre las suyas,
   y el vértice al otro extremo.
-- **El tamaño**: $$E \le 10^5$$ y $$V \le 2 \cdot 10^5$$. Se guarda en listas
-  con pesos.
+- **El tamaño**: $$E \le 10^5$$, y $$V \le 2E = 2 \cdot 10^5$$ porque la
+  entrada es la lista de carreteras. Es disperso: se guarda en listas con
+  pesos.
 
 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '0.5rem 2rem', alignItems: 'center' }}>
 <div>
@@ -8510,7 +8629,7 @@ sin celdas libres alrededor, no es un callejón: no tiene salida a ninguna.
 - **Los vértices** son las celdas libres. La celda de la fila $$r$$ y la
   columna $$c$$ se numera $$r \cdot C + c$$, con $$C$$ columnas.
 - **Las aristas** unen dos celdas libres a un paso. Son sin dirección y sin
-  peso.
+  peso: el grafo es **no dirigido y no ponderado**.
 - **La pregunta**: cuántos vértices tienen grado $$1$$.
 - **El tamaño**: hasta $$10^6$$ vértices y, con 4 vecinas, hasta
   $$2 \cdot 10^6$$ aristas.
@@ -8921,7 +9040,8 @@ prohibida, ninguna.
 - **Los vértices** son las combinaciones: los **estados** del candado, de
   `0000` a `9999`. Son $$10^4$$.
 - **Las aristas** unen dos combinaciones a un giro. Son sin dirección, porque
-  el giro contrario deshace el giro, y sin peso. Cada vértice tiene 8
+  el giro contrario deshace el giro, y sin peso: el grafo es **no dirigido y no
+  ponderado**. Cada vértice tiene 8
   vecinos: $$E = 4 \cdot 10^4$$.
 - **Las prohibidas** son vértices que se sacan del grafo, con sus aristas.
 - **La pregunta**: los vecinos de un vértice, `adj(combo)`, sin los sacados.
