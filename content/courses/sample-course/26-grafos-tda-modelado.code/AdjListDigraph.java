@@ -20,7 +20,7 @@ public class AdjListDigraph implements Graph {
     public int V() { return lists.size(); }
     public int E() { return E; }
     public Iterable<Integer> adj(int v) {
-        return lists.get(v);
+        return new ArrayList<>(lists.get(v));
     }
 
     public boolean hasEdge(int v, int w) {

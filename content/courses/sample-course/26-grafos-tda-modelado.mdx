@@ -548,16 +548,22 @@ export function AdjMatrix({ rows, mark = [], caption, label }) {
   );
 }
 
-{/* AdjLists — adjacency lists as Java holds them: one row per vertex, its number in a box, then the chips of its list in the order they were added. A chip's text is what the list stores: a neighbour, or a neighbour and a weight. `keys` writes a name in each box instead of the number, for a map from names to their neighbours. `side` adds a column at the right with one value per vertex — an array the program fills by vertex, headed `sideHead` — and `sideMark` lists the vertices whose value it outlines. `minWidth` holds the lists' width from the first frame of a walk that fills them, so the drawing does not grow. `mark` lists the [vertex, position] chips the slide talks about. */}
+{/* AdjLists — adjacency lists as Java holds them: one row per vertex, its number in a box, then the chips of its list in the order they were added. A chip's text is what the list stores: a neighbour, or a neighbour and a weight written `w · weight`, which draws the chip as the `Edge` Java keeps — three fields, `from` (the row's vertex), `to` and `weight`, each named small above its value. `keys` writes a name in each box instead of the number, for a map from names to their neighbours. `side` adds a column at the right with one value per vertex — an array the program fills by vertex, headed `sideHead` — and `sideMark` lists the vertices whose value it outlines. `minWidth` holds the lists' width from the first frame of a walk that fills them, so the drawing does not grow. `mark` lists the [vertex, position] chips the slide talks about. */}
 
 export function AdjLists({ lists, keys, side, sideHead, sideMark = [], minWidth = 0, mark = [], caption, label }) {
-  const rowH = 36;
+  const weighted = lists.some((l) => l.some((t) => String(t).includes(' · ')));
+  const rowH = weighted ? 46 : 36;
   const box = keys ? Math.max(30, ...keys.map((k) => String(k).length * 8 + 14)) : 30;
-  const chipH = 26;
+  const chipH = weighted ? 38 : 26;
   const gap = 8;
   const pad = 12;
-  const chipW = (t) => Math.max(32, String(t).length * 8 + 16);
-  const rowW = (l) => box + 24 + l.reduce((acc, t) => acc + chipW(t) + gap, 0);
+  const fieldsOf = (v, t) => {
+    const [to, weight] = String(t).split(' · ');
+    return [['from', String(v)], ['to', to], ['weight', weight]];
+  };
+  const fieldW = ([name, value]) => Math.max(name.length * 6 + 12, value.length * 8 + 14);
+  const chipW = (t, v) => (weighted ? fieldsOf(v, t).reduce((acc, f) => acc + fieldW(f), 0) : Math.max(32, String(t).length * 8 + 16));
+  const rowW = (l, v) => box + 24 + l.reduce((acc, t) => acc + chipW(t, v) + gap, 0);
   const listsW = Math.max(...lists.map(rowW), box + 24 + 40, minWidth);
   const sideW = side ? Math.max(60, ...side.map((t) => String(t).length * 7.6 + 16), sideHead ? sideHead.length * 7.6 : 0) : 0;
   const innerW = listsW + (side ? 18 + sideW : 0);
@@ -574,28 +580,54 @@ export function AdjLists({ lists, keys, side, sideHead, sideMark = [], minWidth 
       ) : null}
       {lists.map((l, v) => {
         const y = top + v * rowH;
+        const mid = y + (weighted ? chipH : box) / 2;
+        const boxY = mid - box / 2;
+        const chipY = mid - chipH / 2;
         let x = left + box + 24;
         return (
           <g key={v}>
-            <rect x={left} y={y} width={box} height={box} style={{ fill: 'var(--color-sunk)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1" />
-            <text x={left + box / 2} y={y + box / 2 + 5} textAnchor="middle" fontSize="13" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{keys ? keys[v] : v}</text>
-            <line x1={left + box} y1={y + box / 2} x2={left + box + 18} y2={y + box / 2} style={{ stroke: 'var(--color-rule-strong)' }} strokeWidth="1.3" />
+            <rect x={left} y={boxY} width={box} height={box} style={{ fill: 'var(--color-sunk)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1" />
+            <text x={left + box / 2} y={mid + 5} textAnchor="middle" fontSize="13" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{keys ? keys[v] : v}</text>
+            <line x1={left + box} y1={mid} x2={left + box + 18} y2={mid} style={{ stroke: 'var(--color-rule-strong)' }} strokeWidth="1.3" />
             {l.map((t, i) => {
-              const w = chipW(t);
+              const w = chipW(t, v);
               const hot = marked.has(`${v},${i}`);
               const cx = x;
               x += w + gap;
+              const frame = (
+                <rect x={cx} y={chipY} width={w} height={chipH} rx="6" style={{ fill: hot ? 'var(--color-mark-soft)' : 'var(--color-surface)', stroke: hot ? 'var(--color-mark)' : 'var(--color-rule-strong)' }} strokeWidth={hot ? 2.2 : 1} />
+              );
+              if (!weighted) {
+                return (
+                  <g key={i}>
+                    {frame}
+                    <text x={cx + w / 2} y={mid + 4} textAnchor="middle" fontSize="12" fontFamily="var(--font-mono, monospace)" style={{ fill: 'var(--color-ink)' }}>{t}</text>
+                  </g>
+                );
+              }
+              let fx = cx;
               return (
                 <g key={i}>
-                  <rect x={cx} y={y + (box - chipH) / 2} width={w} height={chipH} rx="6" style={{ fill: hot ? 'var(--color-mark-soft)' : 'var(--color-surface)', stroke: hot ? 'var(--color-mark)' : 'var(--color-rule-strong)' }} strokeWidth={hot ? 2.2 : 1} />
-                  <text x={cx + w / 2} y={y + box / 2 + 4} textAnchor="middle" fontSize="12" fontFamily="var(--font-mono, monospace)" style={{ fill: 'var(--color-ink)' }}>{t}</text>
+                  {frame}
+                  {fieldsOf(v, t).map((f, k) => {
+                    const fw = fieldW(f);
+                    const at = fx;
+                    fx += fw;
+                    return (
+                      <g key={k}>
+                        {k > 0 ? <line x1={at} y1={chipY + 4} x2={at} y2={chipY + chipH - 4} style={{ stroke: 'var(--color-rule)' }} strokeWidth="1" /> : null}
+                        <text x={at + fw / 2} y={chipY + 12} textAnchor="middle" fontSize="9" fontFamily="var(--font-mono, monospace)" style={{ fill: 'var(--color-ink-soft)' }}>{f[0]}</text>
+                        <text x={at + fw / 2} y={chipY + 29} textAnchor="middle" fontSize="13" fontWeight="700" fontFamily="var(--font-mono, monospace)" style={{ fill: 'var(--color-ink)' }}>{f[1]}</text>
+                      </g>
+                    );
+                  })}
                 </g>
               );
             })}
             {side ? (
               <g>
-                <rect x={left + listsW + 18} y={y + (box - chipH) / 2} width={sideW} height={chipH} style={{ fill: sideOn.has(v) ? 'var(--color-mark-soft)' : 'var(--color-sunk)', stroke: sideOn.has(v) ? 'var(--color-mark)' : 'var(--color-rule-strong)' }} strokeWidth={sideOn.has(v) ? 2.2 : 1} />
-                <text x={left + listsW + 18 + sideW / 2} y={y + box / 2 + 4} textAnchor="middle" fontSize="12" fontWeight="700" fontFamily="var(--font-mono, monospace)" style={{ fill: valueTone(side[v]) }}>{side[v]}</text>
+                <rect x={left + listsW + 18} y={mid - 13} width={sideW} height={26} style={{ fill: sideOn.has(v) ? 'var(--color-mark-soft)' : 'var(--color-sunk)', stroke: sideOn.has(v) ? 'var(--color-mark)' : 'var(--color-rule-strong)' }} strokeWidth={sideOn.has(v) ? 2.2 : 1} />
+                <text x={left + listsW + 18 + sideW / 2} y={mid + 4} textAnchor="middle" fontSize="12" fontWeight="700" fontFamily="var(--font-mono, monospace)" style={{ fill: valueTone(side[v]) }}>{side[v]}</text>
               </g>
             ) : null}
           </g>
@@ -679,11 +711,11 @@ unidos a 2. Sus invariantes:
 2. **Sin dirección, la matriz es simétrica: $$M[u][v] = M[v][u]$$.** Cada
    arista llena dos casillas, una a cada lado de la diagonal.
 
-Ocupa $$V^2$$ casillas, haya las aristas que haya: $$\Theta(V^2)$$ de memoria.
-Su ventaja es que saber si hay arista entre $$u$$ y $$v$$ es leer una sola
-casilla: $$\Theta(1)$$. Su precio es que, para dar los vecinos de un vértice,
-hay que recorrer su fila completa, tenga los vecinos que tenga:
-$$\Theta(V)$$.
+- **Memoria.** $$V^2$$ casillas, haya las aristas que haya: $$\Theta(V^2)$$.
+- **Ventaja.** Saber si hay una arista entre $$u$$ y $$v$$ es leer una sola
+  casilla: $$\Theta(1)$$.
+- **Precio.** Para dar los vecinos de un vértice hay que recorrer su fila
+  completa, tenga los vecinos que tenga: $$\Theta(V)$$.
 
 <Pair>
   <NodeGraph
@@ -1734,10 +1766,11 @@ columna 3: el único arco que sale de 2 es 2 → 3. Sus invariantes:
 2. **Cada arco llena una sola casilla, y la matriz no es simétrica.** La fila
    de $$u$$ tiene los arcos que salen de $$u$$, y su columna, los que llegan.
 
-Ocupa $$V^2$$ casillas: $$\Theta(V^2)$$ de memoria. Su ventaja es que saber si
-hay un arco de $$u$$ a $$v$$ es leer una sola casilla: $$\Theta(1)$$. Su precio
-es que, para dar los arcos que salen de un vértice, hay que recorrer su fila
-completa: $$\Theta(V)$$.
+- **Memoria.** $$V^2$$ casillas, haya los arcos que haya: $$\Theta(V^2)$$.
+- **Ventaja.** Saber si hay un arco de $$u$$ a $$v$$ es leer una sola casilla:
+  $$\Theta(1)$$.
+- **Precio.** Para dar los arcos que salen de un vértice hay que recorrer su
+  fila completa: $$\Theta(V)$$.
 
 <Pair>
   <NodeGraph
@@ -2173,10 +2206,11 @@ columnas 0, 1 y 3, y $$\infty$$ en la suya. Sus invariantes:
    arista escribe su peso en dos casillas, una a cada lado de la diagonal.
    Con dirección no lo es: cada arco escribe su peso solo en $$M[u][v]$$.
 
-Ocupa $$V^2$$ casillas, haya las aristas que haya: $$\Theta(V^2)$$ de memoria.
-Su ventaja es que el peso de la arista entre $$u$$ y $$v$$ está en una sola
-casilla: $$\Theta(1)$$. Su precio es que, para dar las aristas de un vértice,
-hay que recorrer su fila completa: $$\Theta(V)$$.
+- **Memoria.** $$V^2$$ casillas, haya las aristas que haya: $$\Theta(V^2)$$.
+- **Ventaja.** El peso de la arista entre $$u$$ y $$v$$ está en una sola
+  casilla: $$\Theta(1)$$.
+- **Precio.** Para dar las aristas de un vértice hay que recorrer su fila
+  completa: $$\Theta(V)$$.
 
 <Pair>
   <NodeGraph
@@ -2199,9 +2233,17 @@ hay que recorrer su fila completa: $$\Theta(V)$$.
 
 <Slide title="La clase de la matriz con pesos">
 La clase `WeightedMatrixGraph` guarda dos datos: la tabla de pesos, `weights`,
-y el contador de aristas, `E`.
+y el contador de aristas, `E`. `adj` entrega cada arista como un `Edge`.
+
+<PresentationWide fraction={0.9}>
+<Split ratio="60/40">
 
 <SourceFile src="./26-grafos-tda-modelado.code/WeightedMatrixGraph.java" range="5-21" />
+
+<SourceFile src="./26-grafos-tda-modelado.code/Edge.java" />
+
+</Split>
+</PresentationWide>
 
 - **`WeightedMatrixGraph(V)`** crea `weights` y llena sus $$V^2$$ casillas con
   $$\infty$$: $$\Theta(V^2)$$. Un `new int[V][V]` las deja en 0, y un 0 sería
@@ -2230,7 +2272,7 @@ la guarda con `addEdge`: cada llamada escribe el peso en las dos casillas de la 
   WeightedGraph g = new WeightedMatrixGraph(in.nextInt());
   Graphs.readWeightedEdges(in, g);`}
   helperSrc="./26-grafos-tda-modelado.code/Graphs.java"
-  helperRange="43-51"
+  helperRange="13-21"
   codeSrc="./26-grafos-tda-modelado.code/WeightedMatrixGraph.java"
   codeRange="16-21"
 >
@@ -2252,7 +2294,7 @@ la guarda con `addEdge`: cada llamada escribe el peso en las dos casillas de la 
       label="La matriz de pesos recién creada: todas las casillas en 0."
     />
   </Step>
-  <Step lines={[]} programLines={[3]} helperLines={[44]}>
+  <Step lines={[]} programLines={[3]} helperLines={[14]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>readWeightedEdges lee E = 4: vienen cuatro líneas, una por arista.</div>
     <Pair>
       <InputLines lines={['4 4', '0 1 7', '0 2 3', '1 2 2', '2 3 4']} at={[0, 1]} read={1} label="La entrada, línea por línea: 4 4, 0 1 7, 0 2 3, 1 2 2, 2 3 4. Se lee el 4 de la línea 1." />
@@ -2270,7 +2312,7 @@ la guarda con `addEdge`: cada llamada escribe el peso en las dos casillas de la 
       label="La matriz de pesos: todas las casillas valen infinito."
     />
   </Step>
-  <Step lines={[]} programLines={[3]} helperLines={[45, 46, 47, 48]}>
+  <Step lines={[]} programLines={[3]} helperLines={[15, 16, 17, 18]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>i = 0: lee la línea «0 1 7», así que v = 0, w = 1 y weight = 7.</div>
     <Pair>
       <InputLines lines={['4 4', '0 1 7', '0 2 3', '1 2 2', '2 3 4']} at={[1]} read={1} label="La entrada, línea por línea: 4 4, 0 1 7, 0 2 3, 1 2 2, 2 3 4. Se lee la línea 2, 0 1 7." />
@@ -2289,7 +2331,7 @@ la guarda con `addEdge`: cada llamada escribe el peso en las dos casillas de la 
       label="La matriz de pesos: todas las casillas valen infinito."
     />
   </Step>
-  <Step lines={[16, 17]} programLines={[3]} helperLines={[49]}>
+  <Step lines={[16, 17]} programLines={[3]} helperLines={[19]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>g.addEdge(0, 1, 7): [0][1] vale ∞, la arista no estaba, y sigue.</div>
     <Pair>
       <InputLines lines={['4 4', '0 1 7', '0 2 3', '1 2 2', '2 3 4']} at={[1]} read={1} label="La entrada, línea por línea: 4 4, 0 1 7, 0 2 3, 1 2 2, 2 3 4. Se lee la línea 2, 0 1 7." />
@@ -2308,7 +2350,7 @@ la guarda con `addEdge`: cada llamada escribe el peso en las dos casillas de la 
       label="La matriz de pesos: todas las casillas valen infinito. Marcada [0][1]."
     />
   </Step>
-  <Step lines={[18]} programLines={[3]} helperLines={[49]}>
+  <Step lines={[18]} programLines={[3]} helperLines={[19]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>weights[0][1] = 7.</div>
     <Pair>
       <InputLines lines={['4 4', '0 1 7', '0 2 3', '1 2 2', '2 3 4']} at={[1]} read={1} label="La entrada, línea por línea: 4 4, 0 1 7, 0 2 3, 1 2 2, 2 3 4. Se lee la línea 2, 0 1 7." />
@@ -2327,7 +2369,7 @@ la guarda con `addEdge`: cada llamada escribe el peso en las dos casillas de la 
       label="La matriz de pesos: [0][1] = 7; las demás valen infinito. Marcada [0][1]."
     />
   </Step>
-  <Step lines={[19]} programLines={[3]} helperLines={[49]}>
+  <Step lines={[19]} programLines={[3]} helperLines={[19]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>weights[1][0] = 7: la casilla simétrica.</div>
     <Pair>
       <InputLines lines={['4 4', '0 1 7', '0 2 3', '1 2 2', '2 3 4']} at={[1]} read={1} label="La entrada, línea por línea: 4 4, 0 1 7, 0 2 3, 1 2 2, 2 3 4. Se lee la línea 2, 0 1 7." />
@@ -2346,7 +2388,7 @@ la guarda con `addEdge`: cada llamada escribe el peso en las dos casillas de la 
       label="La matriz de pesos: [0][1] = 7, [1][0] = 7; las demás valen infinito. Marcada [1][0]."
     />
   </Step>
-  <Step lines={[20]} programLines={[3]} helperLines={[49]}>
+  <Step lines={[20]} programLines={[3]} helperLines={[19]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>E++: E pasa a 1.</div>
     <Pair>
       <InputLines lines={['4 4', '0 1 7', '0 2 3', '1 2 2', '2 3 4']} at={[1]} read={2} label="La entrada, línea por línea: 4 4, 0 1 7, 0 2 3, 1 2 2, 2 3 4. Se lee la línea 2, 0 1 7." />
@@ -2365,7 +2407,7 @@ la guarda con `addEdge`: cada llamada escribe el peso en las dos casillas de la 
       label="La matriz de pesos: [0][1] = 7, [1][0] = 7; las demás valen infinito."
     />
   </Step>
-  <Step lines={[]} programLines={[3]} helperLines={[45, 46, 47, 48]}>
+  <Step lines={[]} programLines={[3]} helperLines={[15, 16, 17, 18]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>i = 1: lee la línea «0 2 3», así que v = 0, w = 2 y weight = 3.</div>
     <Pair>
       <InputLines lines={['4 4', '0 1 7', '0 2 3', '1 2 2', '2 3 4']} at={[2]} read={2} label="La entrada, línea por línea: 4 4, 0 1 7, 0 2 3, 1 2 2, 2 3 4. Se lee la línea 3, 0 2 3." />
@@ -2384,7 +2426,7 @@ la guarda con `addEdge`: cada llamada escribe el peso en las dos casillas de la 
       label="La matriz de pesos: [0][1] = 7, [1][0] = 7; las demás valen infinito."
     />
   </Step>
-  <Step lines={[16, 17]} programLines={[3]} helperLines={[49]}>
+  <Step lines={[16, 17]} programLines={[3]} helperLines={[19]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>g.addEdge(0, 2, 3): [0][2] vale ∞, la arista no estaba, y sigue.</div>
     <Pair>
       <InputLines lines={['4 4', '0 1 7', '0 2 3', '1 2 2', '2 3 4']} at={[2]} read={2} label="La entrada, línea por línea: 4 4, 0 1 7, 0 2 3, 1 2 2, 2 3 4. Se lee la línea 3, 0 2 3." />
@@ -2403,7 +2445,7 @@ la guarda con `addEdge`: cada llamada escribe el peso en las dos casillas de la 
       label="La matriz de pesos: [0][1] = 7, [1][0] = 7; las demás valen infinito. Marcada [0][2]."
     />
   </Step>
-  <Step lines={[18]} programLines={[3]} helperLines={[49]}>
+  <Step lines={[18]} programLines={[3]} helperLines={[19]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>weights[0][2] = 3.</div>
     <Pair>
       <InputLines lines={['4 4', '0 1 7', '0 2 3', '1 2 2', '2 3 4']} at={[2]} read={2} label="La entrada, línea por línea: 4 4, 0 1 7, 0 2 3, 1 2 2, 2 3 4. Se lee la línea 3, 0 2 3." />
@@ -2422,7 +2464,7 @@ la guarda con `addEdge`: cada llamada escribe el peso en las dos casillas de la 
       label="La matriz de pesos: [0][1] = 7, [0][2] = 3, [1][0] = 7; las demás valen infinito. Marcada [0][2]."
     />
   </Step>
-  <Step lines={[19]} programLines={[3]} helperLines={[49]}>
+  <Step lines={[19]} programLines={[3]} helperLines={[19]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>weights[2][0] = 3: la casilla simétrica.</div>
     <Pair>
       <InputLines lines={['4 4', '0 1 7', '0 2 3', '1 2 2', '2 3 4']} at={[2]} read={2} label="La entrada, línea por línea: 4 4, 0 1 7, 0 2 3, 1 2 2, 2 3 4. Se lee la línea 3, 0 2 3." />
@@ -2441,7 +2483,7 @@ la guarda con `addEdge`: cada llamada escribe el peso en las dos casillas de la 
       label="La matriz de pesos: [0][1] = 7, [0][2] = 3, [1][0] = 7, [2][0] = 3; las demás valen infinito. Marcada [2][0]."
     />
   </Step>
-  <Step lines={[20]} programLines={[3]} helperLines={[49]}>
+  <Step lines={[20]} programLines={[3]} helperLines={[19]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>E++: E pasa a 2.</div>
     <Pair>
       <InputLines lines={['4 4', '0 1 7', '0 2 3', '1 2 2', '2 3 4']} at={[2]} read={3} label="La entrada, línea por línea: 4 4, 0 1 7, 0 2 3, 1 2 2, 2 3 4. Se lee la línea 3, 0 2 3." />
@@ -2460,7 +2502,7 @@ la guarda con `addEdge`: cada llamada escribe el peso en las dos casillas de la 
       label="La matriz de pesos: [0][1] = 7, [0][2] = 3, [1][0] = 7, [2][0] = 3; las demás valen infinito."
     />
   </Step>
-  <Step lines={[]} programLines={[3]} helperLines={[45, 46, 47, 48]}>
+  <Step lines={[]} programLines={[3]} helperLines={[15, 16, 17, 18]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>i = 2: lee la línea «1 2 2», así que v = 1, w = 2 y weight = 2.</div>
     <Pair>
       <InputLines lines={['4 4', '0 1 7', '0 2 3', '1 2 2', '2 3 4']} at={[3]} read={3} label="La entrada, línea por línea: 4 4, 0 1 7, 0 2 3, 1 2 2, 2 3 4. Se lee la línea 4, 1 2 2." />
@@ -2479,7 +2521,7 @@ la guarda con `addEdge`: cada llamada escribe el peso en las dos casillas de la 
       label="La matriz de pesos: [0][1] = 7, [0][2] = 3, [1][0] = 7, [2][0] = 3; las demás valen infinito."
     />
   </Step>
-  <Step lines={[16, 17]} programLines={[3]} helperLines={[49]}>
+  <Step lines={[16, 17]} programLines={[3]} helperLines={[19]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>g.addEdge(1, 2, 2): [1][2] vale ∞, la arista no estaba, y sigue.</div>
     <Pair>
       <InputLines lines={['4 4', '0 1 7', '0 2 3', '1 2 2', '2 3 4']} at={[3]} read={3} label="La entrada, línea por línea: 4 4, 0 1 7, 0 2 3, 1 2 2, 2 3 4. Se lee la línea 4, 1 2 2." />
@@ -2498,7 +2540,7 @@ la guarda con `addEdge`: cada llamada escribe el peso en las dos casillas de la 
       label="La matriz de pesos: [0][1] = 7, [0][2] = 3, [1][0] = 7, [2][0] = 3; las demás valen infinito. Marcada [1][2]."
     />
   </Step>
-  <Step lines={[18]} programLines={[3]} helperLines={[49]}>
+  <Step lines={[18]} programLines={[3]} helperLines={[19]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>weights[1][2] = 2.</div>
     <Pair>
       <InputLines lines={['4 4', '0 1 7', '0 2 3', '1 2 2', '2 3 4']} at={[3]} read={3} label="La entrada, línea por línea: 4 4, 0 1 7, 0 2 3, 1 2 2, 2 3 4. Se lee la línea 4, 1 2 2." />
@@ -2517,7 +2559,7 @@ la guarda con `addEdge`: cada llamada escribe el peso en las dos casillas de la 
       label="La matriz de pesos: [0][1] = 7, [0][2] = 3, [1][0] = 7, [1][2] = 2, [2][0] = 3; las demás valen infinito. Marcada [1][2]."
     />
   </Step>
-  <Step lines={[19]} programLines={[3]} helperLines={[49]}>
+  <Step lines={[19]} programLines={[3]} helperLines={[19]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>weights[2][1] = 2: la casilla simétrica.</div>
     <Pair>
       <InputLines lines={['4 4', '0 1 7', '0 2 3', '1 2 2', '2 3 4']} at={[3]} read={3} label="La entrada, línea por línea: 4 4, 0 1 7, 0 2 3, 1 2 2, 2 3 4. Se lee la línea 4, 1 2 2." />
@@ -2536,7 +2578,7 @@ la guarda con `addEdge`: cada llamada escribe el peso en las dos casillas de la 
       label="La matriz de pesos: [0][1] = 7, [0][2] = 3, [1][0] = 7, [1][2] = 2, [2][0] = 3, [2][1] = 2; las demás valen infinito. Marcada [2][1]."
     />
   </Step>
-  <Step lines={[20]} programLines={[3]} helperLines={[49]}>
+  <Step lines={[20]} programLines={[3]} helperLines={[19]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>E++: E pasa a 3.</div>
     <Pair>
       <InputLines lines={['4 4', '0 1 7', '0 2 3', '1 2 2', '2 3 4']} at={[3]} read={4} label="La entrada, línea por línea: 4 4, 0 1 7, 0 2 3, 1 2 2, 2 3 4. Se lee la línea 4, 1 2 2." />
@@ -2555,7 +2597,7 @@ la guarda con `addEdge`: cada llamada escribe el peso en las dos casillas de la 
       label="La matriz de pesos: [0][1] = 7, [0][2] = 3, [1][0] = 7, [1][2] = 2, [2][0] = 3, [2][1] = 2; las demás valen infinito."
     />
   </Step>
-  <Step lines={[]} programLines={[3]} helperLines={[45, 46, 47, 48]}>
+  <Step lines={[]} programLines={[3]} helperLines={[15, 16, 17, 18]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>i = 3: lee la línea «2 3 4», así que v = 2, w = 3 y weight = 4.</div>
     <Pair>
       <InputLines lines={['4 4', '0 1 7', '0 2 3', '1 2 2', '2 3 4']} at={[4]} read={4} label="La entrada, línea por línea: 4 4, 0 1 7, 0 2 3, 1 2 2, 2 3 4. Se lee la línea 5, 2 3 4." />
@@ -2574,7 +2616,7 @@ la guarda con `addEdge`: cada llamada escribe el peso en las dos casillas de la 
       label="La matriz de pesos: [0][1] = 7, [0][2] = 3, [1][0] = 7, [1][2] = 2, [2][0] = 3, [2][1] = 2; las demás valen infinito."
     />
   </Step>
-  <Step lines={[16, 17]} programLines={[3]} helperLines={[49]}>
+  <Step lines={[16, 17]} programLines={[3]} helperLines={[19]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>g.addEdge(2, 3, 4): [2][3] vale ∞, la arista no estaba, y sigue.</div>
     <Pair>
       <InputLines lines={['4 4', '0 1 7', '0 2 3', '1 2 2', '2 3 4']} at={[4]} read={4} label="La entrada, línea por línea: 4 4, 0 1 7, 0 2 3, 1 2 2, 2 3 4. Se lee la línea 5, 2 3 4." />
@@ -2593,7 +2635,7 @@ la guarda con `addEdge`: cada llamada escribe el peso en las dos casillas de la 
       label="La matriz de pesos: [0][1] = 7, [0][2] = 3, [1][0] = 7, [1][2] = 2, [2][0] = 3, [2][1] = 2; las demás valen infinito. Marcada [2][3]."
     />
   </Step>
-  <Step lines={[18]} programLines={[3]} helperLines={[49]}>
+  <Step lines={[18]} programLines={[3]} helperLines={[19]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>weights[2][3] = 4.</div>
     <Pair>
       <InputLines lines={['4 4', '0 1 7', '0 2 3', '1 2 2', '2 3 4']} at={[4]} read={4} label="La entrada, línea por línea: 4 4, 0 1 7, 0 2 3, 1 2 2, 2 3 4. Se lee la línea 5, 2 3 4." />
@@ -2612,7 +2654,7 @@ la guarda con `addEdge`: cada llamada escribe el peso en las dos casillas de la 
       label="La matriz de pesos: [0][1] = 7, [0][2] = 3, [1][0] = 7, [1][2] = 2, [2][0] = 3, [2][1] = 2, [2][3] = 4; las demás valen infinito. Marcada [2][3]."
     />
   </Step>
-  <Step lines={[19]} programLines={[3]} helperLines={[49]}>
+  <Step lines={[19]} programLines={[3]} helperLines={[19]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>weights[3][2] = 4: la casilla simétrica.</div>
     <Pair>
       <InputLines lines={['4 4', '0 1 7', '0 2 3', '1 2 2', '2 3 4']} at={[4]} read={4} label="La entrada, línea por línea: 4 4, 0 1 7, 0 2 3, 1 2 2, 2 3 4. Se lee la línea 5, 2 3 4." />
@@ -2631,7 +2673,7 @@ la guarda con `addEdge`: cada llamada escribe el peso en las dos casillas de la 
       label="La matriz de pesos: [0][1] = 7, [0][2] = 3, [1][0] = 7, [1][2] = 2, [2][0] = 3, [2][1] = 2, [2][3] = 4, [3][2] = 4; las demás valen infinito. Marcada [3][2]."
     />
   </Step>
-  <Step lines={[20]} programLines={[3]} helperLines={[49]}>
+  <Step lines={[20]} programLines={[3]} helperLines={[19]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>E++: E pasa a 4. Era la última línea.</div>
     <Pair>
       <InputLines lines={['4 4', '0 1 7', '0 2 3', '1 2 2', '2 3 4']} at={[4]} read={5} label="La entrada, línea por línea: 4 4, 0 1 7, 0 2 3, 1 2 2, 2 3 4. Se lee la línea 5, 2 3 4." />
@@ -2864,10 +2906,11 @@ de $$u$$ a $$v$$. En la figura, la fila de 2 tiene un 4 en la columna 3, el arco
    simétrica.** La fila de $$u$$ tiene los arcos que salen de $$u$$, y su
    columna, los que llegan.
 
-Ocupa $$V^2$$ casillas: $$\Theta(V^2)$$ de memoria. Su ventaja es que el peso
-del arco de $$u$$ a $$v$$ está en una sola casilla: $$\Theta(1)$$. Su precio es
-que, para dar los arcos que salen de un vértice, hay que recorrer su fila
-completa: $$\Theta(V)$$.
+- **Memoria.** $$V^2$$ casillas, haya los arcos que haya: $$\Theta(V^2)$$.
+- **Ventaja.** El peso del arco de $$u$$ a $$v$$ está en una sola casilla:
+  $$\Theta(1)$$.
+- **Precio.** Para dar los arcos que salen de un vértice hay que recorrer su
+  fila completa: $$\Theta(V)$$.
 
 <Pair>
   <NodeGraph
@@ -2889,9 +2932,17 @@ completa: $$\Theta(V)$$.
 
 <Slide title="La clase de la matriz dirigida con pesos">
 La clase `WeightedMatrixDigraph` guarda dos datos: la tabla de pesos,
-`weights`, y el contador de arcos, `E`.
+`weights`, y el contador de arcos, `E`. `adj` entrega cada arco como un `Edge`.
+
+<PresentationWide fraction={0.9}>
+<Split ratio="60/40">
 
 <SourceFile src="./26-grafos-tda-modelado.code/WeightedMatrixDigraph.java" range="5-20" />
+
+<SourceFile src="./26-grafos-tda-modelado.code/Edge.java" />
+
+</Split>
+</PresentationWide>
 
 - **`WeightedMatrixDigraph(V)`** crea `weights` y llena sus $$V^2$$ casillas
   con $$\infty$$: $$\Theta(V^2)$$.
@@ -2919,7 +2970,7 @@ lo guarda con `addEdge`: cada llamada escribe el peso en la casilla del arco y s
   WeightedGraph g = new WeightedMatrixDigraph(in.nextInt());
   Graphs.readWeightedEdges(in, g);`}
   helperSrc="./26-grafos-tda-modelado.code/Graphs.java"
-  helperRange="43-51"
+  helperRange="13-21"
   codeSrc="./26-grafos-tda-modelado.code/WeightedMatrixDigraph.java"
   codeRange="16-20"
 >
@@ -2942,7 +2993,7 @@ lo guarda con `addEdge`: cada llamada escribe el peso en la casilla del arco y s
       label="La matriz de pesos dirigida: todas las casillas valen infinito."
     />
   </Step>
-  <Step lines={[]} programLines={[3]} helperLines={[44]}>
+  <Step lines={[]} programLines={[3]} helperLines={[14]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>readWeightedEdges lee E = 4: vienen cuatro líneas, una por arco.</div>
     <Pair>
       <InputLines lines={['4 4', '0 1 7', '0 2 3', '1 2 2', '2 3 4']} at={[0, 1]} read={1} label="La entrada, línea por línea: 4 4, 0 1 7, 0 2 3, 1 2 2, 2 3 4. Se lee el 4 de la línea 1." />
@@ -2961,7 +3012,7 @@ lo guarda con `addEdge`: cada llamada escribe el peso en la casilla del arco y s
       label="La matriz de pesos dirigida: todas las casillas valen infinito."
     />
   </Step>
-  <Step lines={[]} programLines={[3]} helperLines={[45, 46, 47, 48]}>
+  <Step lines={[]} programLines={[3]} helperLines={[15, 16, 17, 18]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>i = 0: lee la línea «0 1 7», así que v = 0, w = 1 y weight = 7.</div>
     <Pair>
       <InputLines lines={['4 4', '0 1 7', '0 2 3', '1 2 2', '2 3 4']} at={[1]} read={1} label="La entrada, línea por línea: 4 4, 0 1 7, 0 2 3, 1 2 2, 2 3 4. Se lee la línea 2, 0 1 7." />
@@ -2981,7 +3032,7 @@ lo guarda con `addEdge`: cada llamada escribe el peso en la casilla del arco y s
       label="La matriz de pesos dirigida: todas las casillas valen infinito."
     />
   </Step>
-  <Step lines={[16, 17]} programLines={[3]} helperLines={[49]}>
+  <Step lines={[16, 17]} programLines={[3]} helperLines={[19]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>g.addEdge(0, 1, 7): [0][1] vale ∞, el arco no estaba, y sigue.</div>
     <Pair>
       <InputLines lines={['4 4', '0 1 7', '0 2 3', '1 2 2', '2 3 4']} at={[1]} read={1} label="La entrada, línea por línea: 4 4, 0 1 7, 0 2 3, 1 2 2, 2 3 4. Se lee la línea 2, 0 1 7." />
@@ -3001,7 +3052,7 @@ lo guarda con `addEdge`: cada llamada escribe el peso en la casilla del arco y s
       label="La matriz de pesos dirigida: todas las casillas valen infinito. Marcada [0][1]."
     />
   </Step>
-  <Step lines={[18]} programLines={[3]} helperLines={[49]}>
+  <Step lines={[18]} programLines={[3]} helperLines={[19]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>weights[0][1] = 7: el arco 0→1. La casilla [1][0] no se toca.</div>
     <Pair>
       <InputLines lines={['4 4', '0 1 7', '0 2 3', '1 2 2', '2 3 4']} at={[1]} read={1} label="La entrada, línea por línea: 4 4, 0 1 7, 0 2 3, 1 2 2, 2 3 4. Se lee la línea 2, 0 1 7." />
@@ -3021,7 +3072,7 @@ lo guarda con `addEdge`: cada llamada escribe el peso en la casilla del arco y s
       label="La matriz de pesos dirigida: [0][1] = 7; las demás valen infinito. Marcada [0][1]."
     />
   </Step>
-  <Step lines={[19]} programLines={[3]} helperLines={[49]}>
+  <Step lines={[19]} programLines={[3]} helperLines={[19]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>E++: E pasa a 1.</div>
     <Pair>
       <InputLines lines={['4 4', '0 1 7', '0 2 3', '1 2 2', '2 3 4']} at={[1]} read={2} label="La entrada, línea por línea: 4 4, 0 1 7, 0 2 3, 1 2 2, 2 3 4. Se lee la línea 2, 0 1 7." />
@@ -3041,7 +3092,7 @@ lo guarda con `addEdge`: cada llamada escribe el peso en la casilla del arco y s
       label="La matriz de pesos dirigida: [0][1] = 7; las demás valen infinito."
     />
   </Step>
-  <Step lines={[]} programLines={[3]} helperLines={[45, 46, 47, 48]}>
+  <Step lines={[]} programLines={[3]} helperLines={[15, 16, 17, 18]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>i = 1: lee la línea «0 2 3», así que v = 0, w = 2 y weight = 3.</div>
     <Pair>
       <InputLines lines={['4 4', '0 1 7', '0 2 3', '1 2 2', '2 3 4']} at={[2]} read={2} label="La entrada, línea por línea: 4 4, 0 1 7, 0 2 3, 1 2 2, 2 3 4. Se lee la línea 3, 0 2 3." />
@@ -3061,7 +3112,7 @@ lo guarda con `addEdge`: cada llamada escribe el peso en la casilla del arco y s
       label="La matriz de pesos dirigida: [0][1] = 7; las demás valen infinito."
     />
   </Step>
-  <Step lines={[16, 17]} programLines={[3]} helperLines={[49]}>
+  <Step lines={[16, 17]} programLines={[3]} helperLines={[19]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>g.addEdge(0, 2, 3): [0][2] vale ∞, el arco no estaba, y sigue.</div>
     <Pair>
       <InputLines lines={['4 4', '0 1 7', '0 2 3', '1 2 2', '2 3 4']} at={[2]} read={2} label="La entrada, línea por línea: 4 4, 0 1 7, 0 2 3, 1 2 2, 2 3 4. Se lee la línea 3, 0 2 3." />
@@ -3081,7 +3132,7 @@ lo guarda con `addEdge`: cada llamada escribe el peso en la casilla del arco y s
       label="La matriz de pesos dirigida: [0][1] = 7; las demás valen infinito. Marcada [0][2]."
     />
   </Step>
-  <Step lines={[18]} programLines={[3]} helperLines={[49]}>
+  <Step lines={[18]} programLines={[3]} helperLines={[19]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>weights[0][2] = 3: el arco 0→2. La casilla [2][0] no se toca.</div>
     <Pair>
       <InputLines lines={['4 4', '0 1 7', '0 2 3', '1 2 2', '2 3 4']} at={[2]} read={2} label="La entrada, línea por línea: 4 4, 0 1 7, 0 2 3, 1 2 2, 2 3 4. Se lee la línea 3, 0 2 3." />
@@ -3101,7 +3152,7 @@ lo guarda con `addEdge`: cada llamada escribe el peso en la casilla del arco y s
       label="La matriz de pesos dirigida: [0][1] = 7, [0][2] = 3; las demás valen infinito. Marcada [0][2]."
     />
   </Step>
-  <Step lines={[19]} programLines={[3]} helperLines={[49]}>
+  <Step lines={[19]} programLines={[3]} helperLines={[19]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>E++: E pasa a 2.</div>
     <Pair>
       <InputLines lines={['4 4', '0 1 7', '0 2 3', '1 2 2', '2 3 4']} at={[2]} read={3} label="La entrada, línea por línea: 4 4, 0 1 7, 0 2 3, 1 2 2, 2 3 4. Se lee la línea 3, 0 2 3." />
@@ -3121,7 +3172,7 @@ lo guarda con `addEdge`: cada llamada escribe el peso en la casilla del arco y s
       label="La matriz de pesos dirigida: [0][1] = 7, [0][2] = 3; las demás valen infinito."
     />
   </Step>
-  <Step lines={[]} programLines={[3]} helperLines={[45, 46, 47, 48]}>
+  <Step lines={[]} programLines={[3]} helperLines={[15, 16, 17, 18]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>i = 2: lee la línea «1 2 2», así que v = 1, w = 2 y weight = 2.</div>
     <Pair>
       <InputLines lines={['4 4', '0 1 7', '0 2 3', '1 2 2', '2 3 4']} at={[3]} read={3} label="La entrada, línea por línea: 4 4, 0 1 7, 0 2 3, 1 2 2, 2 3 4. Se lee la línea 4, 1 2 2." />
@@ -3141,7 +3192,7 @@ lo guarda con `addEdge`: cada llamada escribe el peso en la casilla del arco y s
       label="La matriz de pesos dirigida: [0][1] = 7, [0][2] = 3; las demás valen infinito."
     />
   </Step>
-  <Step lines={[16, 17]} programLines={[3]} helperLines={[49]}>
+  <Step lines={[16, 17]} programLines={[3]} helperLines={[19]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>g.addEdge(1, 2, 2): [1][2] vale ∞, el arco no estaba, y sigue.</div>
     <Pair>
       <InputLines lines={['4 4', '0 1 7', '0 2 3', '1 2 2', '2 3 4']} at={[3]} read={3} label="La entrada, línea por línea: 4 4, 0 1 7, 0 2 3, 1 2 2, 2 3 4. Se lee la línea 4, 1 2 2." />
@@ -3161,7 +3212,7 @@ lo guarda con `addEdge`: cada llamada escribe el peso en la casilla del arco y s
       label="La matriz de pesos dirigida: [0][1] = 7, [0][2] = 3; las demás valen infinito. Marcada [1][2]."
     />
   </Step>
-  <Step lines={[18]} programLines={[3]} helperLines={[49]}>
+  <Step lines={[18]} programLines={[3]} helperLines={[19]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>weights[1][2] = 2: el arco 1→2. La casilla [2][1] no se toca.</div>
     <Pair>
       <InputLines lines={['4 4', '0 1 7', '0 2 3', '1 2 2', '2 3 4']} at={[3]} read={3} label="La entrada, línea por línea: 4 4, 0 1 7, 0 2 3, 1 2 2, 2 3 4. Se lee la línea 4, 1 2 2." />
@@ -3181,7 +3232,7 @@ lo guarda con `addEdge`: cada llamada escribe el peso en la casilla del arco y s
       label="La matriz de pesos dirigida: [0][1] = 7, [0][2] = 3, [1][2] = 2; las demás valen infinito. Marcada [1][2]."
     />
   </Step>
-  <Step lines={[19]} programLines={[3]} helperLines={[49]}>
+  <Step lines={[19]} programLines={[3]} helperLines={[19]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>E++: E pasa a 3.</div>
     <Pair>
       <InputLines lines={['4 4', '0 1 7', '0 2 3', '1 2 2', '2 3 4']} at={[3]} read={4} label="La entrada, línea por línea: 4 4, 0 1 7, 0 2 3, 1 2 2, 2 3 4. Se lee la línea 4, 1 2 2." />
@@ -3201,7 +3252,7 @@ lo guarda con `addEdge`: cada llamada escribe el peso en la casilla del arco y s
       label="La matriz de pesos dirigida: [0][1] = 7, [0][2] = 3, [1][2] = 2; las demás valen infinito."
     />
   </Step>
-  <Step lines={[]} programLines={[3]} helperLines={[45, 46, 47, 48]}>
+  <Step lines={[]} programLines={[3]} helperLines={[15, 16, 17, 18]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>i = 3: lee la línea «2 3 4», así que v = 2, w = 3 y weight = 4.</div>
     <Pair>
       <InputLines lines={['4 4', '0 1 7', '0 2 3', '1 2 2', '2 3 4']} at={[4]} read={4} label="La entrada, línea por línea: 4 4, 0 1 7, 0 2 3, 1 2 2, 2 3 4. Se lee la línea 5, 2 3 4." />
@@ -3221,7 +3272,7 @@ lo guarda con `addEdge`: cada llamada escribe el peso en la casilla del arco y s
       label="La matriz de pesos dirigida: [0][1] = 7, [0][2] = 3, [1][2] = 2; las demás valen infinito."
     />
   </Step>
-  <Step lines={[16, 17]} programLines={[3]} helperLines={[49]}>
+  <Step lines={[16, 17]} programLines={[3]} helperLines={[19]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>g.addEdge(2, 3, 4): [2][3] vale ∞, el arco no estaba, y sigue.</div>
     <Pair>
       <InputLines lines={['4 4', '0 1 7', '0 2 3', '1 2 2', '2 3 4']} at={[4]} read={4} label="La entrada, línea por línea: 4 4, 0 1 7, 0 2 3, 1 2 2, 2 3 4. Se lee la línea 5, 2 3 4." />
@@ -3241,7 +3292,7 @@ lo guarda con `addEdge`: cada llamada escribe el peso en la casilla del arco y s
       label="La matriz de pesos dirigida: [0][1] = 7, [0][2] = 3, [1][2] = 2; las demás valen infinito. Marcada [2][3]."
     />
   </Step>
-  <Step lines={[18]} programLines={[3]} helperLines={[49]}>
+  <Step lines={[18]} programLines={[3]} helperLines={[19]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>weights[2][3] = 4: el arco 2→3. La casilla [3][2] no se toca.</div>
     <Pair>
       <InputLines lines={['4 4', '0 1 7', '0 2 3', '1 2 2', '2 3 4']} at={[4]} read={4} label="La entrada, línea por línea: 4 4, 0 1 7, 0 2 3, 1 2 2, 2 3 4. Se lee la línea 5, 2 3 4." />
@@ -3261,7 +3312,7 @@ lo guarda con `addEdge`: cada llamada escribe el peso en la casilla del arco y s
       label="La matriz de pesos dirigida: [0][1] = 7, [0][2] = 3, [1][2] = 2, [2][3] = 4; las demás valen infinito. Marcada [2][3]."
     />
   </Step>
-  <Step lines={[19]} programLines={[3]} helperLines={[49]}>
+  <Step lines={[19]} programLines={[3]} helperLines={[19]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>E++: E pasa a 4. Era la última línea.</div>
     <Pair>
       <InputLines lines={['4 4', '0 1 7', '0 2 3', '1 2 2', '2 3 4']} at={[4]} read={5} label="La entrada, línea por línea: 4 4, 0 1 7, 0 2 3, 1 2 2, 2 3 4. Se lee la línea 5, 2 3 4." />
@@ -3337,19 +3388,22 @@ conviene que cada vértice guarde solo sus vecinos, y para eso se usan las
 
 <Slide title="Unas listas de adyacencia">
 Unas **listas de adyacencia** guardan el grafo en una lista por vértice, y la
-lista de `v` tiene los vecinos de `v`. En la figura, la lista de 2 tiene a 0, 1
+lista de cada vértice tiene sus vecinos. En la figura, la lista de 2 tiene a 0, 1
 y 3, los vértices unidos a 2. Sus invariantes:
 
 1. **`w` está en la lista de `v` si y solo si hay una arista entre `v` y
-   `w`.** La lista no tiene nada más: tiene tantas entradas como vecinos.
+   `w`.** La lista guarda solo las conexiones que existen: un vértice que no
+   está unido a `v` no aparece en ella.
 2. **Sin dirección, cada arista aparece en dos listas**, la de cada uno de sus
    extremos: la arista 2-3 pone un 3 en la lista de 2 y un 2 en la de 3.
 
-Ocupa una lista por vértice y dos entradas por arista: $$\Theta(V + E)$$ de
-memoria. Su ventaja es que los vecinos de `v` ya están juntos en su lista:
-`adj(v)` la entrega sin mirar ningún otro vértice, $$\Theta(1)$$. Su precio es
-que, para saber si `w` es vecino de `v`, hay que buscar `w` en esa lista
-entrada por entrada: $$\Theta(\operatorname{grado}(v))$$.
+- **Memoria.** Una lista por vértice y dos entradas por arista:
+  $$\Theta(V + E)$$.
+- **Ventaja.** Los vecinos de `v` ya están juntos en su lista, y `adj(v)` la
+  copia sin mirar ningún otro vértice: tantos pasos como vecinos,
+  $$\Theta(\operatorname{grado}(v))$$, sin recorrer casillas vacías.
+- **Precio.** Para saber si `w` es vecino de `v` hay que buscar `w` en la lista
+  de `v`, entrada por entrada: $$\Theta(\operatorname{grado}(v))$$.
 
 <Pair>
   <NodeGraph
@@ -3385,7 +3439,8 @@ contador de aristas, `E`.
   Königsberg.
 - **`hasEdge(v, w)`** busca `w` en la lista de `v`:
   $$\Theta(\operatorname{grado}(v))$$.
-- **`adj(v)`** entrega la lista de `v` tal como está: $$\Theta(1)$$.
+- **`adj(v)`** entrega una copia de la lista de `v`: $$\Theta(\operatorname{grado}(v))$$, una entrada por
+  vecino.
 
 </Slide>
 
@@ -3977,8 +4032,8 @@ de `v`: `hasEdge(v, w)` la recorre hasta encontrarlo o hasta que se termina.
 </Slide>
 
 <Slide title="Los vecinos en las listas">
-`adj(v)` retorna la lista de `v` tal como está: la lista ya es la respuesta, y
-no hay que mirar a nadie más.
+`adj(v)` retorna una copia de la lista de `v`: la lista ya tiene la respuesta,
+y copiarla no mira a ningún otro vértice.
 
 <StepShow
   language="java"
@@ -3993,7 +4048,7 @@ no hay que mirar a nadie más.
   codeRange="23-25"
 >
   <Step lines={[24]} programLines={[1]} under={<OutputBox head="variables" lines={['n0 = [1, 2]']} rows={4} fresh label="Las variables del programa: n0 = [1, 2]." />}>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>adj(0) retorna la lista de 0 tal como está: [1, 2]. No mira a nadie más.</div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>adj(0) retorna una copia de la lista de 0: [1, 2]. No mira a ningún otro vértice.</div>
     <Pair stack>
       <NodeGraph
         cols={3}
@@ -4012,7 +4067,7 @@ no hay que mirar a nadie más.
     </Pair>
   </Step>
   <Step lines={[24]} programLines={[2]} under={<OutputBox head="variables" lines={['n0 = [1, 2]', 'n1 = [0, 2]']} rows={4} fresh label="Las variables del programa: n0 = [1, 2]; n1 = [0, 2]." />}>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>adj(1) retorna la lista de 1 tal como está: [0, 2]. No mira a nadie más.</div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>adj(1) retorna una copia de la lista de 1: [0, 2]. No mira a ningún otro vértice.</div>
     <Pair stack>
       <NodeGraph
         cols={3}
@@ -4031,7 +4086,7 @@ no hay que mirar a nadie más.
     </Pair>
   </Step>
   <Step lines={[24]} programLines={[3]} under={<OutputBox head="variables" lines={['n0 = [1, 2]', 'n1 = [0, 2]', 'n2 = [0, 1, 3]']} rows={4} fresh label="Las variables del programa: n0 = [1, 2]; n1 = [0, 2]; n2 = [0, 1, 3]." />}>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>adj(2) retorna la lista de 2 tal como está: [0, 1, 3]. No mira a nadie más.</div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>adj(2) retorna una copia de la lista de 2: [0, 1, 3]. No mira a ningún otro vértice.</div>
     <Pair stack>
       <NodeGraph
         cols={3}
@@ -4050,7 +4105,7 @@ no hay que mirar a nadie más.
     </Pair>
   </Step>
   <Step lines={[24]} programLines={[4]} under={<OutputBox head="variables" lines={['n0 = [1, 2]', 'n1 = [0, 2]', 'n2 = [0, 1, 3]', 'n3 = [2]']} rows={4} fresh label="Las variables del programa: n0 = [1, 2]; n1 = [0, 2]; n2 = [0, 1, 3]; n3 = [2]." />}>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>adj(3) retorna la lista de 3 tal como está: [2]. No mira a nadie más.</div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>adj(3) retorna una copia de la lista de 3: [2]. No mira a ningún otro vértice.</div>
     <Pair stack>
       <NodeGraph
         cols={3}
@@ -4070,8 +4125,8 @@ no hay que mirar a nadie más.
   </Step>
 </StepShow>
 
-- **`adj(v)`**: $$\Theta(1)$$ para entregar la lista, sin memoria extra;
-  recorrerla cuesta lo que mide, $$\Theta(\operatorname{grado}(v))$$.
+- **`adj(v)`**: $$\Theta(\operatorname{grado}(v))$$ de tiempo, porque copia una entrada por vecino, y
+  $$\Theta(\operatorname{grado}(v))$$ de memoria para la copia.
 
 </Slide>
 
@@ -4082,15 +4137,17 @@ vértice, y la lista de `u` tiene los vértices a los que llega un arco desde
 es 2 → 3. Sus invariantes:
 
 1. **`v` está en la lista de `u` si y solo si hay un arco de `u` a `v`.** La
-   lista no tiene nada más: su largo es el grado de salida de `u`.
+   lista guarda solo los arcos que existen: un vértice al que no llega un arco
+   desde `u` no aparece en ella.
 2. **Cada arco aparece en una sola lista**, la de su origen: los arcos que
    llegan a `u` quedan repartidos en las listas de los otros vértices.
 
-Ocupa una lista por vértice y una entrada por arco: $$\Theta(V + E)$$ de
-memoria. Su ventaja es que los arcos que salen de `u` ya están juntos en su
-lista: `adj(u)` la entrega sin mirar ningún otro vértice, $$\Theta(1)$$. Su
-precio es que, para saber si hay un arco de `u` a `v`, hay que buscar `v` en
-esa lista: tantos pasos como arcos salen de `u`.
+- **Memoria.** Una lista por vértice y una entrada por arco: $$\Theta(V + E)$$.
+- **Ventaja.** Los arcos que salen de `u` ya están juntos en su lista, y
+  `adj(u)` la copia sin mirar ningún otro vértice: tantos pasos como arcos
+  salen de `u`.
+- **Precio.** Para saber si hay un arco de `u` a `v` hay que buscar `v` en la
+  lista de `u`, entrada por entrada: tantos pasos como arcos salen de `u`.
 
 <Pair>
   <NodeGraph
@@ -4124,7 +4181,8 @@ el contador de arcos, `E`.
   si el arco ya estaba.
 - **`hasEdge(v, w)`** busca `w` en la lista de `v`: tantos pasos como arcos
   salen de `v`.
-- **`adj(v)`** entrega la lista de `v` tal como está: $$\Theta(1)$$.
+- **`adj(v)`** entrega una copia de la lista de `v`: $$\Theta(\operatorname{grado}(v))$$, una entrada por
+  vecino.
 
 </Slide>
 
@@ -4451,17 +4509,19 @@ que llega y su peso. En la figura, la lista de 2 tiene a 0 con peso 3, a 1 con
 peso 2 y a 3 con peso 4. Sus invariantes:
 
 1. **La lista de `v` tiene un `Edge` hacia `w`, con su peso, si y solo si hay
-   una arista entre `v` y `w`.** La lista no tiene nada más: tiene tantas
-   entradas como vecinos.
+   una arista entre `v` y `w`.** La lista guarda solo las aristas que existen:
+   un vértice que no está unido a `v` no aparece en ella.
 2. **Sin dirección, cada arista aparece en dos listas**, con el mismo peso, la
    de cada uno de sus extremos. Con dirección, cada arco aparece una sola vez,
    en la lista de su origen.
 
-Ocupa una lista por vértice y dos entradas por arista: $$\Theta(V + E)$$ de
-memoria. Su ventaja es que las aristas de `v` ya están juntas en su lista:
-`adj(v)` la entrega sin mirar ningún otro vértice, $$\Theta(1)$$. Su precio es
-que, para saber si hay una arista entre `v` y `w`, hay que buscar `w` en esa
-lista entrada por entrada: $$\Theta(\operatorname{grado}(v))$$.
+- **Memoria.** Una lista por vértice y dos entradas por arista:
+  $$\Theta(V + E)$$.
+- **Ventaja.** Las aristas de `v` ya están juntas en su lista, y `adj(v)` la
+  copia sin mirar ningún otro vértice: tantos pasos como vecinos,
+  $$\Theta(\operatorname{grado}(v))$$, sin recorrer casillas vacías.
+- **Precio.** Para saber si hay una arista entre `v` y `w` hay que buscar `w` en
+  la lista de `v`, entrada por entrada: $$\Theta(\operatorname{grado}(v))$$.
 
 <Pair>
   <NodeGraph
@@ -4485,7 +4545,15 @@ lista entrada por entrada: $$\Theta(\operatorname{grado}(v))$$.
 La clase `WeightedListGraph` guarda dos datos: una lista de `Edge` por vértice,
 `lists`, y el contador de aristas, `E`.
 
+<PresentationWide fraction={0.9}>
+<Split ratio="60/40">
+
 <SourceFile src="./26-grafos-tda-modelado.code/WeightedListGraph.java" range="4-20" />
+
+<SourceFile src="./26-grafos-tda-modelado.code/Edge.java" />
+
+</Split>
+</PresentationWide>
 
 - **`WeightedListGraph(V)`** crea `lists` con $$V$$ listas vacías:
   $$\Theta(V)$$.
@@ -4496,7 +4564,8 @@ La clase `WeightedListGraph` guarda dos datos: una lista de `Edge` por vértice,
   y suma uno a `E`: $$\Theta(1)$$. No revisa si la arista ya estaba.
 - **`hasEdge(v, w)`** busca un `Edge` hacia `w` en la lista de `v`:
   $$\Theta(\operatorname{grado}(v))$$.
-- **`adj(v)`** entrega la lista de `v` tal como está: $$\Theta(1)$$.
+- **`adj(v)`** entrega una copia de la lista de `v`: $$\Theta(\operatorname{grado}(v))$$, una entrada por
+  vecino.
 
 </Slide>
 
@@ -4513,7 +4582,7 @@ la guarda con `addEdge`: cada llamada agrega un `Edge` al final de la lista de c
   WeightedGraph g = new WeightedListGraph(in.nextInt());
   Graphs.readWeightedEdges(in, g);`}
   helperSrc="./26-grafos-tda-modelado.code/Graphs.java"
-  helperRange="43-51"
+  helperRange="13-21"
   codeSrc="./26-grafos-tda-modelado.code/WeightedListGraph.java"
   codeRange="16-20"
 >
@@ -4536,7 +4605,7 @@ la guarda con `addEdge`: cada llamada agrega un `Edge` al final de la lista de c
       label="Las listas con pesos: la lista de 0 está vacía; la lista de 1 está vacía; la lista de 2 está vacía; la lista de 3 está vacía."
     />
   </Step>
-  <Step lines={[]} programLines={[3]} helperLines={[44]}>
+  <Step lines={[]} programLines={[3]} helperLines={[14]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>readWeightedEdges lee E = 4: vienen cuatro líneas, una por arista.</div>
     <Pair>
       <InputLines lines={['4 4', '0 1 7', '0 2 3', '1 2 2', '2 3 4']} at={[0, 1]} read={1} label="La entrada, línea por línea: 4 4, 0 1 7, 0 2 3, 1 2 2, 2 3 4. Se lee el 4 de la línea 1." />
@@ -4555,7 +4624,7 @@ la guarda con `addEdge`: cada llamada agrega un `Edge` al final de la lista de c
       label="Las listas con pesos: la lista de 0 está vacía; la lista de 1 está vacía; la lista de 2 está vacía; la lista de 3 está vacía."
     />
   </Step>
-  <Step lines={[]} programLines={[3]} helperLines={[45, 46, 47, 48]}>
+  <Step lines={[]} programLines={[3]} helperLines={[15, 16, 17, 18]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>i = 0: lee la línea «0 1 7», así que v = 0, w = 1 y weight = 7.</div>
     <Pair>
       <InputLines lines={['4 4', '0 1 7', '0 2 3', '1 2 2', '2 3 4']} at={[1]} read={1} label="La entrada, línea por línea: 4 4, 0 1 7, 0 2 3, 1 2 2, 2 3 4. Se lee la línea 2, 0 1 7." />
@@ -4575,7 +4644,7 @@ la guarda con `addEdge`: cada llamada agrega un `Edge` al final de la lista de c
       label="Las listas con pesos: la lista de 0 está vacía; la lista de 1 está vacía; la lista de 2 está vacía; la lista de 3 está vacía."
     />
   </Step>
-  <Step lines={[16, 17]} programLines={[3]} helperLines={[49]}>
+  <Step lines={[16, 17]} programLines={[3]} helperLines={[19]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>g.addEdge(0, 1, 7): new Edge(0, 1, 7) al final de la lista de 0.</div>
     <Pair>
       <InputLines lines={['4 4', '0 1 7', '0 2 3', '1 2 2', '2 3 4']} at={[1]} read={1} label="La entrada, línea por línea: 4 4, 0 1 7, 0 2 3, 1 2 2, 2 3 4. Se lee la línea 2, 0 1 7." />
@@ -4595,7 +4664,7 @@ la guarda con `addEdge`: cada llamada agrega un `Edge` al final de la lista de c
       label="Las listas con pesos: la lista de 0 tiene 1 con peso 7; la lista de 1 está vacía; la lista de 2 está vacía; la lista de 3 está vacía."
     />
   </Step>
-  <Step lines={[18]} programLines={[3]} helperLines={[49]}>
+  <Step lines={[18]} programLines={[3]} helperLines={[19]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>new Edge(1, 0, 7) al final de la lista de 1: la misma arista, vista desde 1.</div>
     <Pair>
       <InputLines lines={['4 4', '0 1 7', '0 2 3', '1 2 2', '2 3 4']} at={[1]} read={1} label="La entrada, línea por línea: 4 4, 0 1 7, 0 2 3, 1 2 2, 2 3 4. Se lee la línea 2, 0 1 7." />
@@ -4615,7 +4684,7 @@ la guarda con `addEdge`: cada llamada agrega un `Edge` al final de la lista de c
       label="Las listas con pesos: la lista de 0 tiene 1 con peso 7; la lista de 1 tiene 0 con peso 7; la lista de 2 está vacía; la lista de 3 está vacía."
     />
   </Step>
-  <Step lines={[19]} programLines={[3]} helperLines={[49]}>
+  <Step lines={[19]} programLines={[3]} helperLines={[19]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>E++: E pasa a 1.</div>
     <Pair>
       <InputLines lines={['4 4', '0 1 7', '0 2 3', '1 2 2', '2 3 4']} at={[1]} read={2} label="La entrada, línea por línea: 4 4, 0 1 7, 0 2 3, 1 2 2, 2 3 4. Se lee la línea 2, 0 1 7." />
@@ -4635,7 +4704,7 @@ la guarda con `addEdge`: cada llamada agrega un `Edge` al final de la lista de c
       label="Las listas con pesos: la lista de 0 tiene 1 con peso 7; la lista de 1 tiene 0 con peso 7; la lista de 2 está vacía; la lista de 3 está vacía."
     />
   </Step>
-  <Step lines={[]} programLines={[3]} helperLines={[45, 46, 47, 48]}>
+  <Step lines={[]} programLines={[3]} helperLines={[15, 16, 17, 18]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>i = 1: lee la línea «0 2 3», así que v = 0, w = 2 y weight = 3.</div>
     <Pair>
       <InputLines lines={['4 4', '0 1 7', '0 2 3', '1 2 2', '2 3 4']} at={[2]} read={2} label="La entrada, línea por línea: 4 4, 0 1 7, 0 2 3, 1 2 2, 2 3 4. Se lee la línea 3, 0 2 3." />
@@ -4655,7 +4724,7 @@ la guarda con `addEdge`: cada llamada agrega un `Edge` al final de la lista de c
       label="Las listas con pesos: la lista de 0 tiene 1 con peso 7; la lista de 1 tiene 0 con peso 7; la lista de 2 está vacía; la lista de 3 está vacía."
     />
   </Step>
-  <Step lines={[16, 17]} programLines={[3]} helperLines={[49]}>
+  <Step lines={[16, 17]} programLines={[3]} helperLines={[19]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>g.addEdge(0, 2, 3): new Edge(0, 2, 3) al final de la lista de 0.</div>
     <Pair>
       <InputLines lines={['4 4', '0 1 7', '0 2 3', '1 2 2', '2 3 4']} at={[2]} read={2} label="La entrada, línea por línea: 4 4, 0 1 7, 0 2 3, 1 2 2, 2 3 4. Se lee la línea 3, 0 2 3." />
@@ -4675,7 +4744,7 @@ la guarda con `addEdge`: cada llamada agrega un `Edge` al final de la lista de c
       label="Las listas con pesos: la lista de 0 tiene 1 con peso 7, 2 con peso 3; la lista de 1 tiene 0 con peso 7; la lista de 2 está vacía; la lista de 3 está vacía."
     />
   </Step>
-  <Step lines={[18]} programLines={[3]} helperLines={[49]}>
+  <Step lines={[18]} programLines={[3]} helperLines={[19]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>new Edge(2, 0, 3) al final de la lista de 2: la misma arista, vista desde 2.</div>
     <Pair>
       <InputLines lines={['4 4', '0 1 7', '0 2 3', '1 2 2', '2 3 4']} at={[2]} read={2} label="La entrada, línea por línea: 4 4, 0 1 7, 0 2 3, 1 2 2, 2 3 4. Se lee la línea 3, 0 2 3." />
@@ -4695,7 +4764,7 @@ la guarda con `addEdge`: cada llamada agrega un `Edge` al final de la lista de c
       label="Las listas con pesos: la lista de 0 tiene 1 con peso 7, 2 con peso 3; la lista de 1 tiene 0 con peso 7; la lista de 2 tiene 0 con peso 3; la lista de 3 está vacía."
     />
   </Step>
-  <Step lines={[19]} programLines={[3]} helperLines={[49]}>
+  <Step lines={[19]} programLines={[3]} helperLines={[19]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>E++: E pasa a 2.</div>
     <Pair>
       <InputLines lines={['4 4', '0 1 7', '0 2 3', '1 2 2', '2 3 4']} at={[2]} read={3} label="La entrada, línea por línea: 4 4, 0 1 7, 0 2 3, 1 2 2, 2 3 4. Se lee la línea 3, 0 2 3." />
@@ -4715,7 +4784,7 @@ la guarda con `addEdge`: cada llamada agrega un `Edge` al final de la lista de c
       label="Las listas con pesos: la lista de 0 tiene 1 con peso 7, 2 con peso 3; la lista de 1 tiene 0 con peso 7; la lista de 2 tiene 0 con peso 3; la lista de 3 está vacía."
     />
   </Step>
-  <Step lines={[]} programLines={[3]} helperLines={[45, 46, 47, 48]}>
+  <Step lines={[]} programLines={[3]} helperLines={[15, 16, 17, 18]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>i = 2: lee la línea «1 2 2», así que v = 1, w = 2 y weight = 2.</div>
     <Pair>
       <InputLines lines={['4 4', '0 1 7', '0 2 3', '1 2 2', '2 3 4']} at={[3]} read={3} label="La entrada, línea por línea: 4 4, 0 1 7, 0 2 3, 1 2 2, 2 3 4. Se lee la línea 4, 1 2 2." />
@@ -4735,7 +4804,7 @@ la guarda con `addEdge`: cada llamada agrega un `Edge` al final de la lista de c
       label="Las listas con pesos: la lista de 0 tiene 1 con peso 7, 2 con peso 3; la lista de 1 tiene 0 con peso 7; la lista de 2 tiene 0 con peso 3; la lista de 3 está vacía."
     />
   </Step>
-  <Step lines={[16, 17]} programLines={[3]} helperLines={[49]}>
+  <Step lines={[16, 17]} programLines={[3]} helperLines={[19]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>g.addEdge(1, 2, 2): new Edge(1, 2, 2) al final de la lista de 1.</div>
     <Pair>
       <InputLines lines={['4 4', '0 1 7', '0 2 3', '1 2 2', '2 3 4']} at={[3]} read={3} label="La entrada, línea por línea: 4 4, 0 1 7, 0 2 3, 1 2 2, 2 3 4. Se lee la línea 4, 1 2 2." />
@@ -4755,7 +4824,7 @@ la guarda con `addEdge`: cada llamada agrega un `Edge` al final de la lista de c
       label="Las listas con pesos: la lista de 0 tiene 1 con peso 7, 2 con peso 3; la lista de 1 tiene 0 con peso 7, 2 con peso 2; la lista de 2 tiene 0 con peso 3; la lista de 3 está vacía."
     />
   </Step>
-  <Step lines={[18]} programLines={[3]} helperLines={[49]}>
+  <Step lines={[18]} programLines={[3]} helperLines={[19]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>new Edge(2, 1, 2) al final de la lista de 2: la misma arista, vista desde 2.</div>
     <Pair>
       <InputLines lines={['4 4', '0 1 7', '0 2 3', '1 2 2', '2 3 4']} at={[3]} read={3} label="La entrada, línea por línea: 4 4, 0 1 7, 0 2 3, 1 2 2, 2 3 4. Se lee la línea 4, 1 2 2." />
@@ -4775,7 +4844,7 @@ la guarda con `addEdge`: cada llamada agrega un `Edge` al final de la lista de c
       label="Las listas con pesos: la lista de 0 tiene 1 con peso 7, 2 con peso 3; la lista de 1 tiene 0 con peso 7, 2 con peso 2; la lista de 2 tiene 0 con peso 3, 1 con peso 2; la lista de 3 está vacía."
     />
   </Step>
-  <Step lines={[19]} programLines={[3]} helperLines={[49]}>
+  <Step lines={[19]} programLines={[3]} helperLines={[19]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>E++: E pasa a 3.</div>
     <Pair>
       <InputLines lines={['4 4', '0 1 7', '0 2 3', '1 2 2', '2 3 4']} at={[3]} read={4} label="La entrada, línea por línea: 4 4, 0 1 7, 0 2 3, 1 2 2, 2 3 4. Se lee la línea 4, 1 2 2." />
@@ -4795,7 +4864,7 @@ la guarda con `addEdge`: cada llamada agrega un `Edge` al final de la lista de c
       label="Las listas con pesos: la lista de 0 tiene 1 con peso 7, 2 con peso 3; la lista de 1 tiene 0 con peso 7, 2 con peso 2; la lista de 2 tiene 0 con peso 3, 1 con peso 2; la lista de 3 está vacía."
     />
   </Step>
-  <Step lines={[]} programLines={[3]} helperLines={[45, 46, 47, 48]}>
+  <Step lines={[]} programLines={[3]} helperLines={[15, 16, 17, 18]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>i = 3: lee la línea «2 3 4», así que v = 2, w = 3 y weight = 4.</div>
     <Pair>
       <InputLines lines={['4 4', '0 1 7', '0 2 3', '1 2 2', '2 3 4']} at={[4]} read={4} label="La entrada, línea por línea: 4 4, 0 1 7, 0 2 3, 1 2 2, 2 3 4. Se lee la línea 5, 2 3 4." />
@@ -4815,7 +4884,7 @@ la guarda con `addEdge`: cada llamada agrega un `Edge` al final de la lista de c
       label="Las listas con pesos: la lista de 0 tiene 1 con peso 7, 2 con peso 3; la lista de 1 tiene 0 con peso 7, 2 con peso 2; la lista de 2 tiene 0 con peso 3, 1 con peso 2; la lista de 3 está vacía."
     />
   </Step>
-  <Step lines={[16, 17]} programLines={[3]} helperLines={[49]}>
+  <Step lines={[16, 17]} programLines={[3]} helperLines={[19]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>g.addEdge(2, 3, 4): new Edge(2, 3, 4) al final de la lista de 2.</div>
     <Pair>
       <InputLines lines={['4 4', '0 1 7', '0 2 3', '1 2 2', '2 3 4']} at={[4]} read={4} label="La entrada, línea por línea: 4 4, 0 1 7, 0 2 3, 1 2 2, 2 3 4. Se lee la línea 5, 2 3 4." />
@@ -4835,7 +4904,7 @@ la guarda con `addEdge`: cada llamada agrega un `Edge` al final de la lista de c
       label="Las listas con pesos: la lista de 0 tiene 1 con peso 7, 2 con peso 3; la lista de 1 tiene 0 con peso 7, 2 con peso 2; la lista de 2 tiene 0 con peso 3, 1 con peso 2, 3 con peso 4; la lista de 3 está vacía."
     />
   </Step>
-  <Step lines={[18]} programLines={[3]} helperLines={[49]}>
+  <Step lines={[18]} programLines={[3]} helperLines={[19]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>new Edge(3, 2, 4) al final de la lista de 3: la misma arista, vista desde 3.</div>
     <Pair>
       <InputLines lines={['4 4', '0 1 7', '0 2 3', '1 2 2', '2 3 4']} at={[4]} read={4} label="La entrada, línea por línea: 4 4, 0 1 7, 0 2 3, 1 2 2, 2 3 4. Se lee la línea 5, 2 3 4." />
@@ -4855,7 +4924,7 @@ la guarda con `addEdge`: cada llamada agrega un `Edge` al final de la lista de c
       label="Las listas con pesos: la lista de 0 tiene 1 con peso 7, 2 con peso 3; la lista de 1 tiene 0 con peso 7, 2 con peso 2; la lista de 2 tiene 0 con peso 3, 1 con peso 2, 3 con peso 4; la lista de 3 tiene 2 con peso 4."
     />
   </Step>
-  <Step lines={[19]} programLines={[3]} helperLines={[49]}>
+  <Step lines={[19]} programLines={[3]} helperLines={[19]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>E++: E pasa a 4. Era la última línea.</div>
     <Pair>
       <InputLines lines={['4 4', '0 1 7', '0 2 3', '1 2 2', '2 3 4']} at={[4]} read={5} label="La entrada, línea por línea: 4 4, 0 1 7, 0 2 3, 1 2 2, 2 3 4. Se lee la línea 5, 2 3 4." />
@@ -4883,8 +4952,8 @@ vacías; después vienen $$E$$ llamadas a `addEdge`, de $$\Theta(1)$$ cada una.
 </Slide>
 
 <Slide title="Los vecinos con pesos en las listas">
-`adj(v)` retorna la lista de `v` tal como está: la lista ya es la respuesta,
-con un `Edge` por vecino. `hasEdge(v, w)` recorre esa lista buscando un `Edge`
+`adj(v)` retorna una copia de la lista de `v`, con un `Edge` por vecino: la
+lista ya tiene la respuesta. `hasEdge(v, w)` recorre esa lista buscando un `Edge`
 que llegue a `w`.
 
 <StepShow
@@ -4898,7 +4967,7 @@ que llegue a `w`.
   codeRange="24-26"
 >
   <Step lines={[25]} programLines={[1]} under={<div style={{ display: 'flex', gap: '1.25rem', justifyContent: 'center' }}><OutputBox head="edges" lines={['Edge(2, 0, 3)', 'Edge(2, 1, 2)', 'Edge(2, 3, 4)']} rows={3} fresh label="La lista que retorna adj(2): la arista de 2 a 0 con peso 3, la arista de 2 a 1 con peso 2, la arista de 2 a 3 con peso 4." /><OutputBox head="salida" lines={[]} rows={3} label="Lo impreso: nada todavía." /></div>}>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>El for llama a g.adj(2), que retorna la lista de 2 tal como está: sus tres Edge.</div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>El for llama a g.adj(2), que retorna una copia de la lista de 2: sus tres Edge.</div>
     <Pair stack>
       <NodeGraph
         cols={3}
@@ -4974,8 +5043,7 @@ que llegue a `w`.
   </Step>
 </StepShow>
 
-- **`adj(v)`**: $$\Theta(1)$$ para entregar la lista; recorrerla cuesta
-  $$\Theta(\operatorname{grado}(v))$$.
+- **`adj(v)`**: $$\Theta(\operatorname{grado}(v))$$, porque copia una entrada por vecino.
 - **`hasEdge(v, w)`**: $$\Theta(\operatorname{grado}(v))$$ en el peor caso.
 
 </Slide>
@@ -4987,16 +5055,17 @@ vértice al que llega y su peso. En la figura, la lista de 2 tiene solo a 3 con
 peso 4: el arco 2 → 3. Sus invariantes:
 
 1. **La lista de `u` tiene un `Edge` hacia `v`, con su peso, si y solo si hay
-   un arco de `u` a `v`.** La lista no tiene nada más: su largo es el grado de
-   salida de `u`.
+   un arco de `u` a `v`.** La lista guarda solo los arcos que existen: un
+   vértice al que no llega un arco desde `u` no aparece en ella.
 2. **Cada arco aparece en una sola lista**, la de su origen: los arcos que
    llegan a `u` quedan repartidos en las listas de los otros vértices.
 
-Ocupa una lista por vértice y una entrada por arco: $$\Theta(V + E)$$ de
-memoria. Su ventaja es que los arcos que salen de `u` ya están juntos en su
-lista: `adj(u)` la entrega sin mirar ningún otro vértice, $$\Theta(1)$$. Su
-precio es que, para saber si hay un arco de `u` a `v`, hay que buscar `v` en
-esa lista: tantos pasos como arcos salen de `u`.
+- **Memoria.** Una lista por vértice y una entrada por arco: $$\Theta(V + E)$$.
+- **Ventaja.** Los arcos que salen de `u` ya están juntos en su lista, y
+  `adj(u)` la copia sin mirar ningún otro vértice: tantos pasos como arcos
+  salen de `u`.
+- **Precio.** Para saber si hay un arco de `u` a `v` hay que buscar `v` en la
+  lista de `u`, entrada por entrada: tantos pasos como arcos salen de `u`.
 
 <Pair>
   <NodeGraph
@@ -5020,7 +5089,15 @@ esa lista: tantos pasos como arcos salen de `u`.
 La clase `WeightedListDigraph` guarda dos datos: una lista de `Edge` por
 vértice, `lists`, y el contador de arcos, `E`.
 
+<PresentationWide fraction={0.9}>
+<Split ratio="60/40">
+
 <SourceFile src="./26-grafos-tda-modelado.code/WeightedListDigraph.java" range="4-19" />
+
+<SourceFile src="./26-grafos-tda-modelado.code/Edge.java" />
+
+</Split>
+</PresentationWide>
 
 - **`WeightedListDigraph(V)`** crea `lists` con $$V$$ listas vacías:
   $$\Theta(V)$$.
@@ -5031,7 +5108,8 @@ vértice, `lists`, y el contador de arcos, `E`.
   suma uno a `E`: $$\Theta(1)$$. No revisa si el arco ya estaba.
 - **`hasEdge(v, w)`** busca un `Edge` hacia `w` en la lista de `v`: tantos
   pasos como arcos salen de `v`.
-- **`adj(v)`** entrega la lista de `v` tal como está: $$\Theta(1)$$.
+- **`adj(v)`** entrega una copia de la lista de `v`: $$\Theta(\operatorname{grado}(v))$$, una entrada por
+  vecino.
 
 </Slide>
 
@@ -5048,7 +5126,7 @@ lo guarda con `addEdge`: cada llamada agrega un `Edge` al final de la lista del 
   WeightedGraph g = new WeightedListDigraph(in.nextInt());
   Graphs.readWeightedEdges(in, g);`}
   helperSrc="./26-grafos-tda-modelado.code/Graphs.java"
-  helperRange="43-51"
+  helperRange="13-21"
   codeSrc="./26-grafos-tda-modelado.code/WeightedListDigraph.java"
   codeRange="16-19"
 >
@@ -5072,7 +5150,7 @@ lo guarda con `addEdge`: cada llamada agrega un `Edge` al final de la lista del 
       label="Las listas con pesos: la lista de 0 está vacía; la lista de 1 está vacía; la lista de 2 está vacía; la lista de 3 está vacía."
     />
   </Step>
-  <Step lines={[]} programLines={[3]} helperLines={[44]}>
+  <Step lines={[]} programLines={[3]} helperLines={[14]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>readWeightedEdges lee E = 4: vienen cuatro líneas, una por arco.</div>
     <Pair>
       <InputLines lines={['4 4', '0 1 7', '0 2 3', '1 2 2', '2 3 4']} at={[0, 1]} read={1} label="La entrada, línea por línea: 4 4, 0 1 7, 0 2 3, 1 2 2, 2 3 4. Se lee el 4 de la línea 1." />
@@ -5092,7 +5170,7 @@ lo guarda con `addEdge`: cada llamada agrega un `Edge` al final de la lista del 
       label="Las listas con pesos: la lista de 0 está vacía; la lista de 1 está vacía; la lista de 2 está vacía; la lista de 3 está vacía."
     />
   </Step>
-  <Step lines={[]} programLines={[3]} helperLines={[45, 46, 47, 48]}>
+  <Step lines={[]} programLines={[3]} helperLines={[15, 16, 17, 18]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>i = 0: lee la línea «0 1 7», así que v = 0, w = 1 y weight = 7.</div>
     <Pair>
       <InputLines lines={['4 4', '0 1 7', '0 2 3', '1 2 2', '2 3 4']} at={[1]} read={1} label="La entrada, línea por línea: 4 4, 0 1 7, 0 2 3, 1 2 2, 2 3 4. Se lee la línea 2, 0 1 7." />
@@ -5113,7 +5191,7 @@ lo guarda con `addEdge`: cada llamada agrega un `Edge` al final de la lista del 
       label="Las listas con pesos: la lista de 0 está vacía; la lista de 1 está vacía; la lista de 2 está vacía; la lista de 3 está vacía."
     />
   </Step>
-  <Step lines={[16, 17]} programLines={[3]} helperLines={[49]}>
+  <Step lines={[16, 17]} programLines={[3]} helperLines={[19]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>g.addEdge(0, 1, 7): new Edge(0, 1, 7) al final de la lista de 0, y nada en la de 1.</div>
     <Pair>
       <InputLines lines={['4 4', '0 1 7', '0 2 3', '1 2 2', '2 3 4']} at={[1]} read={1} label="La entrada, línea por línea: 4 4, 0 1 7, 0 2 3, 1 2 2, 2 3 4. Se lee la línea 2, 0 1 7." />
@@ -5134,7 +5212,7 @@ lo guarda con `addEdge`: cada llamada agrega un `Edge` al final de la lista del 
       label="Las listas con pesos: la lista de 0 tiene 1 con peso 7; la lista de 1 está vacía; la lista de 2 está vacía; la lista de 3 está vacía."
     />
   </Step>
-  <Step lines={[18]} programLines={[3]} helperLines={[49]}>
+  <Step lines={[18]} programLines={[3]} helperLines={[19]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>E++: E pasa a 1.</div>
     <Pair>
       <InputLines lines={['4 4', '0 1 7', '0 2 3', '1 2 2', '2 3 4']} at={[1]} read={2} label="La entrada, línea por línea: 4 4, 0 1 7, 0 2 3, 1 2 2, 2 3 4. Se lee la línea 2, 0 1 7." />
@@ -5155,7 +5233,7 @@ lo guarda con `addEdge`: cada llamada agrega un `Edge` al final de la lista del 
       label="Las listas con pesos: la lista de 0 tiene 1 con peso 7; la lista de 1 está vacía; la lista de 2 está vacía; la lista de 3 está vacía."
     />
   </Step>
-  <Step lines={[]} programLines={[3]} helperLines={[45, 46, 47, 48]}>
+  <Step lines={[]} programLines={[3]} helperLines={[15, 16, 17, 18]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>i = 1: lee la línea «0 2 3», así que v = 0, w = 2 y weight = 3.</div>
     <Pair>
       <InputLines lines={['4 4', '0 1 7', '0 2 3', '1 2 2', '2 3 4']} at={[2]} read={2} label="La entrada, línea por línea: 4 4, 0 1 7, 0 2 3, 1 2 2, 2 3 4. Se lee la línea 3, 0 2 3." />
@@ -5176,7 +5254,7 @@ lo guarda con `addEdge`: cada llamada agrega un `Edge` al final de la lista del 
       label="Las listas con pesos: la lista de 0 tiene 1 con peso 7; la lista de 1 está vacía; la lista de 2 está vacía; la lista de 3 está vacía."
     />
   </Step>
-  <Step lines={[16, 17]} programLines={[3]} helperLines={[49]}>
+  <Step lines={[16, 17]} programLines={[3]} helperLines={[19]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>g.addEdge(0, 2, 3): new Edge(0, 2, 3) al final de la lista de 0, y nada en la de 2.</div>
     <Pair>
       <InputLines lines={['4 4', '0 1 7', '0 2 3', '1 2 2', '2 3 4']} at={[2]} read={2} label="La entrada, línea por línea: 4 4, 0 1 7, 0 2 3, 1 2 2, 2 3 4. Se lee la línea 3, 0 2 3." />
@@ -5197,7 +5275,7 @@ lo guarda con `addEdge`: cada llamada agrega un `Edge` al final de la lista del 
       label="Las listas con pesos: la lista de 0 tiene 1 con peso 7, 2 con peso 3; la lista de 1 está vacía; la lista de 2 está vacía; la lista de 3 está vacía."
     />
   </Step>
-  <Step lines={[18]} programLines={[3]} helperLines={[49]}>
+  <Step lines={[18]} programLines={[3]} helperLines={[19]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>E++: E pasa a 2.</div>
     <Pair>
       <InputLines lines={['4 4', '0 1 7', '0 2 3', '1 2 2', '2 3 4']} at={[2]} read={3} label="La entrada, línea por línea: 4 4, 0 1 7, 0 2 3, 1 2 2, 2 3 4. Se lee la línea 3, 0 2 3." />
@@ -5218,7 +5296,7 @@ lo guarda con `addEdge`: cada llamada agrega un `Edge` al final de la lista del 
       label="Las listas con pesos: la lista de 0 tiene 1 con peso 7, 2 con peso 3; la lista de 1 está vacía; la lista de 2 está vacía; la lista de 3 está vacía."
     />
   </Step>
-  <Step lines={[]} programLines={[3]} helperLines={[45, 46, 47, 48]}>
+  <Step lines={[]} programLines={[3]} helperLines={[15, 16, 17, 18]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>i = 2: lee la línea «1 2 2», así que v = 1, w = 2 y weight = 2.</div>
     <Pair>
       <InputLines lines={['4 4', '0 1 7', '0 2 3', '1 2 2', '2 3 4']} at={[3]} read={3} label="La entrada, línea por línea: 4 4, 0 1 7, 0 2 3, 1 2 2, 2 3 4. Se lee la línea 4, 1 2 2." />
@@ -5239,7 +5317,7 @@ lo guarda con `addEdge`: cada llamada agrega un `Edge` al final de la lista del 
       label="Las listas con pesos: la lista de 0 tiene 1 con peso 7, 2 con peso 3; la lista de 1 está vacía; la lista de 2 está vacía; la lista de 3 está vacía."
     />
   </Step>
-  <Step lines={[16, 17]} programLines={[3]} helperLines={[49]}>
+  <Step lines={[16, 17]} programLines={[3]} helperLines={[19]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>g.addEdge(1, 2, 2): new Edge(1, 2, 2) al final de la lista de 1, y nada en la de 2.</div>
     <Pair>
       <InputLines lines={['4 4', '0 1 7', '0 2 3', '1 2 2', '2 3 4']} at={[3]} read={3} label="La entrada, línea por línea: 4 4, 0 1 7, 0 2 3, 1 2 2, 2 3 4. Se lee la línea 4, 1 2 2." />
@@ -5260,7 +5338,7 @@ lo guarda con `addEdge`: cada llamada agrega un `Edge` al final de la lista del 
       label="Las listas con pesos: la lista de 0 tiene 1 con peso 7, 2 con peso 3; la lista de 1 tiene 2 con peso 2; la lista de 2 está vacía; la lista de 3 está vacía."
     />
   </Step>
-  <Step lines={[18]} programLines={[3]} helperLines={[49]}>
+  <Step lines={[18]} programLines={[3]} helperLines={[19]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>E++: E pasa a 3.</div>
     <Pair>
       <InputLines lines={['4 4', '0 1 7', '0 2 3', '1 2 2', '2 3 4']} at={[3]} read={4} label="La entrada, línea por línea: 4 4, 0 1 7, 0 2 3, 1 2 2, 2 3 4. Se lee la línea 4, 1 2 2." />
@@ -5281,7 +5359,7 @@ lo guarda con `addEdge`: cada llamada agrega un `Edge` al final de la lista del 
       label="Las listas con pesos: la lista de 0 tiene 1 con peso 7, 2 con peso 3; la lista de 1 tiene 2 con peso 2; la lista de 2 está vacía; la lista de 3 está vacía."
     />
   </Step>
-  <Step lines={[]} programLines={[3]} helperLines={[45, 46, 47, 48]}>
+  <Step lines={[]} programLines={[3]} helperLines={[15, 16, 17, 18]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>i = 3: lee la línea «2 3 4», así que v = 2, w = 3 y weight = 4.</div>
     <Pair>
       <InputLines lines={['4 4', '0 1 7', '0 2 3', '1 2 2', '2 3 4']} at={[4]} read={4} label="La entrada, línea por línea: 4 4, 0 1 7, 0 2 3, 1 2 2, 2 3 4. Se lee la línea 5, 2 3 4." />
@@ -5302,7 +5380,7 @@ lo guarda con `addEdge`: cada llamada agrega un `Edge` al final de la lista del 
       label="Las listas con pesos: la lista de 0 tiene 1 con peso 7, 2 con peso 3; la lista de 1 tiene 2 con peso 2; la lista de 2 está vacía; la lista de 3 está vacía."
     />
   </Step>
-  <Step lines={[16, 17]} programLines={[3]} helperLines={[49]}>
+  <Step lines={[16, 17]} programLines={[3]} helperLines={[19]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>g.addEdge(2, 3, 4): new Edge(2, 3, 4) al final de la lista de 2, y nada en la de 3.</div>
     <Pair>
       <InputLines lines={['4 4', '0 1 7', '0 2 3', '1 2 2', '2 3 4']} at={[4]} read={4} label="La entrada, línea por línea: 4 4, 0 1 7, 0 2 3, 1 2 2, 2 3 4. Se lee la línea 5, 2 3 4." />
@@ -5323,7 +5401,7 @@ lo guarda con `addEdge`: cada llamada agrega un `Edge` al final de la lista del 
       label="Las listas con pesos: la lista de 0 tiene 1 con peso 7, 2 con peso 3; la lista de 1 tiene 2 con peso 2; la lista de 2 tiene 3 con peso 4; la lista de 3 está vacía."
     />
   </Step>
-  <Step lines={[18]} programLines={[3]} helperLines={[49]}>
+  <Step lines={[18]} programLines={[3]} helperLines={[19]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>E++: E pasa a 4. Era la última línea.</div>
     <Pair>
       <InputLines lines={['4 4', '0 1 7', '0 2 3', '1 2 2', '2 3 4']} at={[4]} read={5} label="La entrada, línea por línea: 4 4, 0 1 7, 0 2 3, 1 2 2, 2 3 4. Se lee la línea 5, 2 3 4." />
@@ -5359,10 +5437,10 @@ cada entrada, un vecino o un `Edge` con su peso, y en cuántas listas agrega
 
 | Implementación        | Grafo                 | Crear         | `addEdge`     | `hasEdge`                            | `adj(v)`      | Memoria           |
 | --------------------- | --------------------- | ------------- | ------------- | ------------------------------------ | ------------- | ----------------- |
-| `AdjListGraph`        | sin dirección         | $$\Theta(V)$$ | $$\Theta(1)$$ | $$\Theta(\operatorname{grado}(v))$$  | $$\Theta(1)$$ | $$\Theta(V + E)$$ |
-| `AdjListDigraph`      | con dirección         | $$\Theta(V)$$ | $$\Theta(1)$$ | $$\Theta(\operatorname{grado}(v))$$  | $$\Theta(1)$$ | $$\Theta(V + E)$$ |
-| `WeightedListGraph`   | con pesos             | $$\Theta(V)$$ | $$\Theta(1)$$ | $$\Theta(\operatorname{grado}(v))$$  | $$\Theta(1)$$ | $$\Theta(V + E)$$ |
-| `WeightedListDigraph` | con dirección y pesos | $$\Theta(V)$$ | $$\Theta(1)$$ | $$\Theta(\operatorname{grado}(v))$$  | $$\Theta(1)$$ | $$\Theta(V + E)$$ |
+| `AdjListGraph`        | sin dirección         | $$\Theta(V)$$ | $$\Theta(1)$$ | $$\Theta(\operatorname{grado}(v))$$  | $$\Theta(\operatorname{grado}(v))$$ | $$\Theta(V + E)$$ |
+| `AdjListDigraph`      | con dirección         | $$\Theta(V)$$ | $$\Theta(1)$$ | $$\Theta(\operatorname{grado}(v))$$  | $$\Theta(\operatorname{grado}(v))$$ | $$\Theta(V + E)$$ |
+| `WeightedListGraph`   | con pesos             | $$\Theta(V)$$ | $$\Theta(1)$$ | $$\Theta(\operatorname{grado}(v))$$  | $$\Theta(\operatorname{grado}(v))$$ | $$\Theta(V + E)$$ |
+| `WeightedListDigraph` | con dirección y pesos | $$\Theta(V)$$ | $$\Theta(1)$$ | $$\Theta(\operatorname{grado}(v))$$  | $$\Theta(\operatorname{grado}(v))$$ | $$\Theta(V + E)$$ |
 
 Las cuatro cuestan lo mismo, porque salen de la misma invariante: la lista de
 cada vértice guarda solo sus vecinos. Con dirección, el grado de `v` es la
@@ -5391,506 +5469,101 @@ qué preguntas hace el programa y de cuántas aristas tiene el grafo.
 
 </Slide>
 
-<Slide title="Un mismo cliente, dos costos">
-El grado de un vértice se calcula solo con el contrato: recorrer sus vecinos y
-contarlos. El método no sabe cómo está guardado el grafo, así que funciona con
-la matriz y con las listas:
-
-<SourceFile src="./26-grafos-tda-modelado.code/Graphs.java" range="13-19" />
-
-Lo que cambia es su costo, porque lo pone `adj(v)`:
-
-- con la **matriz**, $$\Theta(V)$$: recorre la fila completa;
-- con las **listas**, $$\Theta(\operatorname{grado}(v))$$: recorre solo los
-  vecinos.
-
-<Pair>
-  <AdjMatrix
-    rows={[['false', 'true', 'true', 'false'], ['true', 'false', 'true', 'false'], ['true', 'true', 'false', 'true'], ['false', 'false', 'true', 'false']]}
-    mark={[[3, 0], [3, 1], [3, 2], [3, 3]]}
-    caption="matriz: degree(g, 3) mira 4 casillas"
-    label="La matriz del grafo, con la fila 3 entera marcada: para contar el único vecino de 3, adj(3) mira sus cuatro casillas."
-  />
-  <AdjLists
-    lists={[[1, 2], [0, 2], [0, 1, 3], [2]]}
-    mark={[[3, 0]]}
-    caption="listas: degree(g, 3) mira 1 entrada"
-    label="Las listas del grafo, con la lista de 3 marcada: tiene una sola entrada, el 2, y adj(3) mira solo esa."
-  />
-</Pair>
-
-Un algoritmo escrito con el contrato sirve para cualquier implementación, y la
-implementación decide cuánto cuesta.
-
-</Slide>
-
-<Slide title="El grado de entrada en un grafo dirigido">
-En un grafo dirigido, `adj(v)` entrega los arcos que salen de `v`, así que el
-grado de salida sale de recorrer `adj(v)`. Los arcos que **llegan** a `v` no están en su
-lista: están repartidos en las listas de los otros vértices. Para contarlos
-hay que recorrer todas las listas, arco por arco.
-
-<StepShow
-  language="java"
-  beside
-  title="inDegree(g, 2) en las listas"
-  program={`int d = Graphs.inDegree(g, 2);`}
-  codeSrc="./26-grafos-tda-modelado.code/Graphs.java"
-  codeRange="21-31"
->
-  <Step lines={[22]} programLines={[1]} under={<OutputBox head="count" lines={['0']} rows={2} fresh label="count: 0." />}>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>inDegree(g, 2): count empieza en 0. Los arcos que llegan a 2 están en las listas de los otros.</div>
-    <Pair>
-      <NodeGraph
-        cols={3}
-        rows={3}
-        directed
-        nodes={[{ v: 0, x: 0, y: 0 }, { v: 1, x: 2, y: 0 }, { v: 2, x: 1, y: 1 }, { v: 3, x: 1, y: 2 }]}
-        edges={[[0, 1], [0, 2], [1, 2], [2, 3]]}
-        tones={{ 2: 'mark' }}
-        label="El grafo dirigido con los arcos 0→1, 0→2, 1→2 y 2→3; destacado el 2."
-      />
-      <AdjLists
-        lists={[[1, 2], [2], [3], []]}
-        mark={[]}
-        label="Las listas dirigidas: la lista de 0 tiene 1, 2; la lista de 1 tiene 2; la lista de 2 tiene 3; la lista de 3 está vacía."
-      />
-    </Pair>
-  </Step>
-  <Step lines={[23, 24, 25]} programLines={[1]} under={<OutputBox head="count" lines={['0']} rows={2} label="count: 0." />}>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>u = 0, w = 1: el arco 0→1 no llega a 2.</div>
-    <Pair>
-      <NodeGraph
-        cols={3}
-        rows={3}
-        directed
-        nodes={[{ v: 0, x: 0, y: 0 }, { v: 1, x: 2, y: 0 }, { v: 2, x: 1, y: 1 }, { v: 3, x: 1, y: 2 }]}
-        edges={[[0, 1], [0, 2], [1, 2], [2, 3]]}
-        markEdges={[[0, 1]]}
-        tones={{ 2: 'mark' }}
-        label="El grafo dirigido con los arcos 0→1, 0→2, 1→2 y 2→3; destacado el 2, y marcado el arco 0→1, el que se mira."
-      />
-      <AdjLists
-        lists={[[1, 2], [2], [3], []]}
-        mark={[[0, 0]]}
-        label="Las listas dirigidas: la lista de 0 tiene 1, 2; la lista de 1 tiene 2; la lista de 2 tiene 3; la lista de 3 está vacía. Marcado, el 1 de la lista de 0."
-      />
-    </Pair>
-  </Step>
-  <Step lines={[23, 24, 25, 26]} programLines={[1]} under={<OutputBox head="count" lines={['1']} rows={2} fresh label="count: 1." />}>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>u = 0, w = 2: el arco 0→2 llega a 2, count = 1.</div>
-    <Pair>
-      <NodeGraph
-        cols={3}
-        rows={3}
-        directed
-        nodes={[{ v: 0, x: 0, y: 0 }, { v: 1, x: 2, y: 0 }, { v: 2, x: 1, y: 1 }, { v: 3, x: 1, y: 2 }]}
-        edges={[[0, 1], [0, 2], [1, 2], [2, 3]]}
-        markEdges={[[0, 2]]}
-        tones={{ 2: 'mark' }}
-        label="El grafo dirigido con los arcos 0→1, 0→2, 1→2 y 2→3; destacado el 2, y marcado el arco 0→2, el que se mira."
-      />
-      <AdjLists
-        lists={[[1, 2], [2], [3], []]}
-        mark={[[0, 1]]}
-        label="Las listas dirigidas: la lista de 0 tiene 1, 2; la lista de 1 tiene 2; la lista de 2 tiene 3; la lista de 3 está vacía. Marcado, el 2 de la lista de 0."
-      />
-    </Pair>
-  </Step>
-  <Step lines={[23, 24, 25, 26]} programLines={[1]} under={<OutputBox head="count" lines={['2']} rows={2} fresh label="count: 2." />}>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>u = 1, w = 2: el arco 1→2 llega a 2, count = 2.</div>
-    <Pair>
-      <NodeGraph
-        cols={3}
-        rows={3}
-        directed
-        nodes={[{ v: 0, x: 0, y: 0 }, { v: 1, x: 2, y: 0 }, { v: 2, x: 1, y: 1 }, { v: 3, x: 1, y: 2 }]}
-        edges={[[0, 1], [0, 2], [1, 2], [2, 3]]}
-        markEdges={[[1, 2]]}
-        tones={{ 2: 'mark' }}
-        label="El grafo dirigido con los arcos 0→1, 0→2, 1→2 y 2→3; destacado el 2, y marcado el arco 1→2, el que se mira."
-      />
-      <AdjLists
-        lists={[[1, 2], [2], [3], []]}
-        mark={[[1, 0]]}
-        label="Las listas dirigidas: la lista de 0 tiene 1, 2; la lista de 1 tiene 2; la lista de 2 tiene 3; la lista de 3 está vacía. Marcado, el 2 de la lista de 1."
-      />
-    </Pair>
-  </Step>
-  <Step lines={[23, 24, 25]} programLines={[1]} under={<OutputBox head="count" lines={['2']} rows={2} label="count: 2." />}>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>u = 2, w = 3: el arco 2→3 no llega a 2.</div>
-    <Pair>
-      <NodeGraph
-        cols={3}
-        rows={3}
-        directed
-        nodes={[{ v: 0, x: 0, y: 0 }, { v: 1, x: 2, y: 0 }, { v: 2, x: 1, y: 1 }, { v: 3, x: 1, y: 2 }]}
-        edges={[[0, 1], [0, 2], [1, 2], [2, 3]]}
-        markEdges={[[2, 3]]}
-        tones={{ 2: 'mark' }}
-        label="El grafo dirigido con los arcos 0→1, 0→2, 1→2 y 2→3; destacado el 2, y marcado el arco 2→3, el que se mira."
-      />
-      <AdjLists
-        lists={[[1, 2], [2], [3], []]}
-        mark={[[2, 0]]}
-        label="Las listas dirigidas: la lista de 0 tiene 1, 2; la lista de 1 tiene 2; la lista de 2 tiene 3; la lista de 3 está vacía. Marcado, el 3 de la lista de 2."
-      />
-    </Pair>
-  </Step>
-  <Step lines={[23, 24]} programLines={[1]} under={<OutputBox head="count" lines={['2']} rows={2} label="count: 2." />}>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>u = 3: su lista está vacía, no hay nada que mirar.</div>
-    <Pair>
-      <NodeGraph
-        cols={3}
-        rows={3}
-        directed
-        nodes={[{ v: 0, x: 0, y: 0 }, { v: 1, x: 2, y: 0 }, { v: 2, x: 1, y: 1 }, { v: 3, x: 1, y: 2 }]}
-        edges={[[0, 1], [0, 2], [1, 2], [2, 3]]}
-        tones={{ 2: 'mark', 3: 'flag' }}
-        label="El grafo dirigido con los arcos 0→1, 0→2, 1→2 y 2→3; destacado el 2; el 3 no tiene arcos que salgan."
-      />
-      <AdjLists
-        lists={[[1, 2], [2], [3], []]}
-        mark={[]}
-        label="Las listas dirigidas: la lista de 0 tiene 1, 2; la lista de 1 tiene 2; la lista de 2 tiene 3; la lista de 3 está vacía."
-      />
-    </Pair>
-  </Step>
-  <Step lines={[30]} programLines={[1]} under={<OutputBox head="count" lines={['2', 'retorna 2']} rows={2} fresh label="count: 2, retorna 2." />}>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Retorna 2: pasó por las 4 listas y por los 4 arcos.</div>
-    <Pair>
-      <NodeGraph
-        cols={3}
-        rows={3}
-        directed
-        nodes={[{ v: 0, x: 0, y: 0 }, { v: 1, x: 2, y: 0 }, { v: 2, x: 1, y: 1 }, { v: 3, x: 1, y: 2 }]}
-        edges={[[0, 1], [0, 2], [1, 2], [2, 3]]}
-        markEdges={[[0, 2], [1, 2]]}
-        tones={{ 2: 'mark' }}
-        label="El grafo dirigido con los arcos 0→1, 0→2, 1→2 y 2→3; destacado el 2, y marcados los dos arcos que llegan a él: 0→2 y 1→2."
-      />
-      <AdjLists
-        lists={[[1, 2], [2], [3], []]}
-        mark={[[0, 1], [1, 0]]}
-        label="Las listas dirigidas: la lista de 0 tiene 1, 2; la lista de 1 tiene 2; la lista de 2 tiene 3; la lista de 3 está vacía. Marcados, el 2 de la lista de 0 y el 2 de la lista de 1."
-      />
-    </Pair>
-  </Step>
-</StepShow>
-
-`inDegree` solo usa el contrato, así que funciona con las dos estructuras, y
-cada una pone su costo: con listas, $$\Theta(V + E)$$, porque pasa por cada
-lista y por cada arco; con la matriz, $$\Theta(V^2)$$, porque cada `adj(u)`
-recorre una fila entera.
-
-</Slide>
-
 <Slide title="Costos de las dos implementaciones">
-| Molde     | Operación          | Matriz                  | Listas                            | Invariante que restaura                          |
-| --------- | ------------------ | ----------------------- | --------------------------------- | ------------------------------------------------ |
-| crear     | `Graph(V)`         | $$\Theta(V^2)$$         | $$\Theta(V)$$                     | —                                                |
-| consultar | `V()`, `E()`       | $$\Theta(1)$$           | $$\Theta(1)$$                     | Ninguna: no cambian nada                         |
-| consultar | recorrer `adj(v)`  | $$\Theta(V)$$           | $$\Theta(\operatorname{grado}(v))$$ | Ninguna                                          |
-| consultar | `hasEdge(v, w)`    | <span style={{ color: 'var(--color-keep)', fontWeight: 700 }}>$$\Theta(1)$$</span> | $$\Theta(\operatorname{grado}(v))$$ | Ninguna                                          |
-| modificar | `addEdge(v, w)`    | $$\Theta(1)$$           | $$\Theta(1)$$                     | Matriz simétrica; la arista en las dos listas        |
+Las dos implementaciones cumplen el mismo contrato, pero cada una gana en algo
+distinto. En verde, la que cuesta menos:
 
-La matriz responde si hay una arista mirando una casilla, pero para dar los
-vecinos de `v` recorre su fila completa, tenga `v` muchos o pocos. Las listas
-entregan los vecinos sin mirar a nadie más, y pagan esa misma cuenta cuando se
-les pregunta por una arista.
+| Operación          | Matriz                         | Listas                                     |
+| ------------------ | ------------------------------ | ------------------------------------------ |
+| `hasEdge(v, w)`    | <span style={{ color: 'var(--color-keep)', fontWeight: 700 }}>$$\Theta(1)$$</span>         | $$\Theta(\operatorname{grado}(v))$$        |
+| recorrer `adj(v)`  | $$\Theta(V)$$                   | <span style={{ color: 'var(--color-keep)', fontWeight: 700 }}>$$\Theta(\operatorname{grado}(v))$$</span> |
+| leer el grafo      | $$\Theta(V^2)$$                 | <span style={{ color: 'var(--color-keep)', fontWeight: 700 }}>$$\Theta(V + E)$$</span>                 |
+| `addEdge(v, w)`    | $$\Theta(1)$$                   | $$\Theta(1)$$                               |
+| memoria            | $$\Theta(V^2)$$                 | <span style={{ color: 'var(--color-keep)', fontWeight: 700 }}>$$\Theta(V + E)$$</span>                 |
 
-Leer un grafo es crearlo y llamar $$E$$ veces a `addEdge`: $$\Theta(V^2 + E)$$
-con la matriz y $$\Theta(V + E)$$ con las listas. La dirección y el peso no
-cambian ningún costo de la tabla.
+- **La matriz gana en `hasEdge`:** saber si dos vértices están unidos es leer
+  una casilla.
+- **Las listas ganan en memoria y en recorrer los vecinos:** guardan solo las
+  aristas que existen, y `adj(v)` no mira casillas vacías.
+
+Cuánto pesa cada ventaja depende de cuántas aristas tiene el grafo comparado
+con todas las que podría tener: si es **denso** o **disperso**.
 
 </Slide>
 
 <Slide title="Densos y dispersos en los costos">
-Un grafo **denso** tiene cerca del máximo de aristas, $$\frac{V(V - 1)}{2}$$, y
-uno **disperso**, muchas menos. En las cuentas de costo se escriben así:
+Un grafo **denso** tiene cerca del máximo de aristas, $$\frac{V(V - 1)}{2}$$:
+cada vértice está unido a casi todos los demás. Uno **disperso** tiene muchas
+menos: cada vértice tiene unos pocos vecinos.
 
-$$
-\text{denso: } E = \Theta(V^2) \qquad \text{disperso: } E = O(V)
-$$
+Con esas cuentas, cada estructura cuesta, en verde la que cuesta menos:
 
-Se lee «en un grafo denso, $$E$$ crece como $$V$$ al cuadrado; en uno disperso,
-como mucho como $$V$$».
+<div className="measure-full overflow-x-auto">
+<table>
+  <thead>
+    <tr>
+      <th rowSpan={2}>Operación</th>
+      <th colSpan={2} style={{ textAlign: 'center', borderLeft: '2px solid var(--color-rule-strong)' }}>Disperso: $$E = O(V)$$</th>
+      <th colSpan={2} style={{ textAlign: 'center', borderLeft: '2px solid var(--color-rule-strong)' }}>Denso: $$E = \Theta(V^2)$$</th>
+    </tr>
+    <tr>
+      <th style={{ textAlign: 'center', borderLeft: '2px solid var(--color-rule-strong)' }}>Matriz</th>
+      <th style={{ textAlign: 'center' }}>Listas</th>
+      <th style={{ textAlign: 'center', borderLeft: '2px solid var(--color-rule-strong)' }}>Matriz</th>
+      <th style={{ textAlign: 'center' }}>Listas</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>memoria</td>
+      <td style={{ textAlign: 'center', borderLeft: '2px solid var(--color-rule-strong)' }}>$$\Theta(V^2)$$</td>
+      <td style={{ textAlign: 'center' }}><span style={{ color: 'var(--color-keep)', fontWeight: 700 }}>$$\Theta(V)$$</span></td>
+      <td style={{ textAlign: 'center', borderLeft: '2px solid var(--color-rule-strong)' }}>$$\Theta(V^2)$$</td>
+      <td style={{ textAlign: 'center' }}>$$\Theta(V^2)$$</td>
+    </tr>
+    <tr>
+      <td>leer el grafo</td>
+      <td style={{ textAlign: 'center', borderLeft: '2px solid var(--color-rule-strong)' }}>$$\Theta(V^2)$$</td>
+      <td style={{ textAlign: 'center' }}><span style={{ color: 'var(--color-keep)', fontWeight: 700 }}>$$\Theta(V)$$</span></td>
+      <td style={{ textAlign: 'center', borderLeft: '2px solid var(--color-rule-strong)' }}>$$\Theta(V^2)$$</td>
+      <td style={{ textAlign: 'center' }}>$$\Theta(V^2)$$</td>
+    </tr>
+    <tr>
+      <td>`addEdge(v, w)`</td>
+      <td style={{ textAlign: 'center', borderLeft: '2px solid var(--color-rule-strong)' }}>$$\Theta(1)$$</td>
+      <td style={{ textAlign: 'center' }}>$$\Theta(1)$$</td>
+      <td style={{ textAlign: 'center', borderLeft: '2px solid var(--color-rule-strong)' }}>$$\Theta(1)$$</td>
+      <td style={{ textAlign: 'center' }}>$$\Theta(1)$$</td>
+    </tr>
+    <tr>
+      <td>`hasEdge(v, w)`</td>
+      <td style={{ textAlign: 'center', borderLeft: '2px solid var(--color-rule-strong)' }}><span style={{ color: 'var(--color-keep)', fontWeight: 700 }}>$$\Theta(1)$$</span></td>
+      <td style={{ textAlign: 'center' }}>$$\Theta(\operatorname{grado}(v))$$</td>
+      <td style={{ textAlign: 'center', borderLeft: '2px solid var(--color-rule-strong)' }}><span style={{ color: 'var(--color-keep)', fontWeight: 700 }}>$$\Theta(1)$$</span></td>
+      <td style={{ textAlign: 'center' }}>$$\Theta(V)$$</td>
+    </tr>
+    <tr>
+      <td>recorrer `adj(v)`</td>
+      <td style={{ textAlign: 'center', borderLeft: '2px solid var(--color-rule-strong)' }}>$$\Theta(V)$$</td>
+      <td style={{ textAlign: 'center' }}><span style={{ color: 'var(--color-keep)', fontWeight: 700 }}>$$\Theta(\operatorname{grado}(v))$$</span></td>
+      <td style={{ textAlign: 'center', borderLeft: '2px solid var(--color-rule-strong)' }}>$$\Theta(V)$$</td>
+      <td style={{ textAlign: 'center' }}>$$\Theta(V)$$</td>
+    </tr>
+    <tr>
+      <td>recorrer todos los vecinos</td>
+      <td style={{ textAlign: 'center', borderLeft: '2px solid var(--color-rule-strong)' }}>$$\Theta(V^2)$$</td>
+      <td style={{ textAlign: 'center' }}><span style={{ color: 'var(--color-keep)', fontWeight: 700 }}>$$\Theta(V)$$</span></td>
+      <td style={{ textAlign: 'center', borderLeft: '2px solid var(--color-rule-strong)' }}>$$\Theta(V^2)$$</td>
+      <td style={{ textAlign: 'center' }}>$$\Theta(V^2)$$</td>
+    </tr>
+  </tbody>
+</table>
+</div>
 
-</Slide>
-
-<Slide title="Recorrer todos los vecinos de todos los vértices">
-Muchos problemas recorren los vecinos de cada vértice del grafo.
-
-- **Con la matriz**, cada vértice recorre su fila: $$V$$ filas de $$V$$
-  casillas, $$\Theta(V^2)$$.
-- **Con listas**, cada vértice recorre su lista, y la suma de los largos de
-  las listas es la suma de los grados, que es $$2E$$. Sumando la visita a cada
-  vértice, $$\Theta(V + E)$$.
-
-$$\Theta(V + E)$$ es lo que cuesta leer el grafo una vez: es **tiempo lineal**
-en el tamaño del grafo, y ningún programa que mire cada arista puede hacerlo
-en menos.
-
-</Slide>
-
-<Slide title="Un dato por vértice en un arreglo">
-Como los vértices son los números de $$0$$ a $$V - 1$$, lo que un algoritmo
-sabe de cada vértice se guarda en un arreglo de largo $$V$$, indexado por el
-vértice: si ya pasó por él, cuántos vecinos tiene, desde dónde llegó. Leer o
-escribir el dato de un vértice cuesta $$\Theta(1)$$.
-
-El grado de todos los vértices, por ejemplo, queda en un `int[]` después de
-recorrer los vecinos de cada uno:
-
-<StepShow
-  language="java"
-  beside
-  title="degrees(g): un dato por vértice"
-  program={`int[] degree = Graphs.degrees(g);`}
-  codeSrc="./26-grafos-tda-modelado.code/Graphs.java"
-  codeRange="33-41"
->
-  <Step lines={[34]} programLines={[1]}>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>new int[4]: un contador por vértice, todos en 0.</div>
-    <Pair>
-      <NodeGraph
-        cols={3}
-        rows={3}
-        nodes={[{ v: 0, x: 0, y: 0 }, { v: 1, x: 2, y: 0 }, { v: 2, x: 1, y: 1 }, { v: 3, x: 1, y: 2 }]}
-        edges={[[0, 1], [0, 2], [1, 2], [2, 3]]}
-        label="El grafo de cuatro vértices con las aristas 0-1, 0-2, 1-2 y 2-3."
-      />
-      <AdjLists
-        lists={[[1, 2], [0, 2], [0, 1, 3], [2]]}
-        mark={[]}
-        label="Las listas: la lista de 0 tiene 1, 2; la lista de 1 tiene 0, 2; la lista de 2 tiene 0, 1, 3; la lista de 3 tiene 2."
-      />
-    </Pair>
-    <ArrayRows
-      rows={[{ name: 'degree', cells: [0, 0, 0, 0] }]}
-      mark={[]}
-      label="El arreglo degree: degree[0] = 0, degree[1] = 0, degree[2] = 0, degree[3] = 0."
-    />
-  </Step>
-  <Step lines={[35, 36, 37]} programLines={[1]}>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>v = 0, w = 1: degree[0] pasa a 1.</div>
-    <Pair>
-      <NodeGraph
-        cols={3}
-        rows={3}
-        nodes={[{ v: 0, x: 0, y: 0 }, { v: 1, x: 2, y: 0 }, { v: 2, x: 1, y: 1 }, { v: 3, x: 1, y: 2 }]}
-        edges={[[0, 1], [0, 2], [1, 2], [2, 3]]}
-        markEdges={[[0, 1]]}
-        tones={{ 0: 'mark' }}
-        label="El grafo de cuatro vértices con las aristas 0-1, 0-2, 1-2 y 2-3; destacado el 0, y marcada la arista 0-1."
-      />
-      <AdjLists
-        lists={[[1, 2], [0, 2], [0, 1, 3], [2]]}
-        mark={[[0, 0]]}
-        label="Las listas: la lista de 0 tiene 1, 2; la lista de 1 tiene 0, 2; la lista de 2 tiene 0, 1, 3; la lista de 3 tiene 2. Marcado, el 1 de la lista de 0."
-      />
-    </Pair>
-    <ArrayRows
-      rows={[{ name: 'degree', cells: [1, 0, 0, 0] }]}
-      mark={[[0, 0]]}
-      label="El arreglo degree: degree[0] = 1, degree[1] = 0, degree[2] = 0, degree[3] = 0. Marcado, degree[0]."
-    />
-  </Step>
-  <Step lines={[35, 36, 37]} programLines={[1]}>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>v = 0, w = 2: degree[0] pasa a 2.</div>
-    <Pair>
-      <NodeGraph
-        cols={3}
-        rows={3}
-        nodes={[{ v: 0, x: 0, y: 0 }, { v: 1, x: 2, y: 0 }, { v: 2, x: 1, y: 1 }, { v: 3, x: 1, y: 2 }]}
-        edges={[[0, 1], [0, 2], [1, 2], [2, 3]]}
-        markEdges={[[0, 2]]}
-        tones={{ 0: 'mark' }}
-        label="El grafo de cuatro vértices con las aristas 0-1, 0-2, 1-2 y 2-3; destacado el 0, y marcada la arista 0-2."
-      />
-      <AdjLists
-        lists={[[1, 2], [0, 2], [0, 1, 3], [2]]}
-        mark={[[0, 1]]}
-        label="Las listas: la lista de 0 tiene 1, 2; la lista de 1 tiene 0, 2; la lista de 2 tiene 0, 1, 3; la lista de 3 tiene 2. Marcado, el 2 de la lista de 0."
-      />
-    </Pair>
-    <ArrayRows
-      rows={[{ name: 'degree', cells: [2, 0, 0, 0] }]}
-      mark={[[0, 0]]}
-      label="El arreglo degree: degree[0] = 2, degree[1] = 0, degree[2] = 0, degree[3] = 0. Marcado, degree[0]."
-    />
-  </Step>
-  <Step lines={[35, 36, 37]} programLines={[1]}>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>v = 1, w = 0: degree[1] pasa a 1.</div>
-    <Pair>
-      <NodeGraph
-        cols={3}
-        rows={3}
-        nodes={[{ v: 0, x: 0, y: 0 }, { v: 1, x: 2, y: 0 }, { v: 2, x: 1, y: 1 }, { v: 3, x: 1, y: 2 }]}
-        edges={[[0, 1], [0, 2], [1, 2], [2, 3]]}
-        markEdges={[[1, 0]]}
-        tones={{ 1: 'mark' }}
-        label="El grafo de cuatro vértices con las aristas 0-1, 0-2, 1-2 y 2-3; destacado el 1, y marcada la arista 1-0."
-      />
-      <AdjLists
-        lists={[[1, 2], [0, 2], [0, 1, 3], [2]]}
-        mark={[[1, 0]]}
-        label="Las listas: la lista de 0 tiene 1, 2; la lista de 1 tiene 0, 2; la lista de 2 tiene 0, 1, 3; la lista de 3 tiene 2. Marcado, el 0 de la lista de 1."
-      />
-    </Pair>
-    <ArrayRows
-      rows={[{ name: 'degree', cells: [2, 1, 0, 0] }]}
-      mark={[[0, 1]]}
-      label="El arreglo degree: degree[0] = 2, degree[1] = 1, degree[2] = 0, degree[3] = 0. Marcado, degree[1]."
-    />
-  </Step>
-  <Step lines={[35, 36, 37]} programLines={[1]}>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>v = 1, w = 2: degree[1] pasa a 2.</div>
-    <Pair>
-      <NodeGraph
-        cols={3}
-        rows={3}
-        nodes={[{ v: 0, x: 0, y: 0 }, { v: 1, x: 2, y: 0 }, { v: 2, x: 1, y: 1 }, { v: 3, x: 1, y: 2 }]}
-        edges={[[0, 1], [0, 2], [1, 2], [2, 3]]}
-        markEdges={[[1, 2]]}
-        tones={{ 1: 'mark' }}
-        label="El grafo de cuatro vértices con las aristas 0-1, 0-2, 1-2 y 2-3; destacado el 1, y marcada la arista 1-2."
-      />
-      <AdjLists
-        lists={[[1, 2], [0, 2], [0, 1, 3], [2]]}
-        mark={[[1, 1]]}
-        label="Las listas: la lista de 0 tiene 1, 2; la lista de 1 tiene 0, 2; la lista de 2 tiene 0, 1, 3; la lista de 3 tiene 2. Marcado, el 2 de la lista de 1."
-      />
-    </Pair>
-    <ArrayRows
-      rows={[{ name: 'degree', cells: [2, 2, 0, 0] }]}
-      mark={[[0, 1]]}
-      label="El arreglo degree: degree[0] = 2, degree[1] = 2, degree[2] = 0, degree[3] = 0. Marcado, degree[1]."
-    />
-  </Step>
-  <Step lines={[35, 36, 37]} programLines={[1]}>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>v = 2, w = 0: degree[2] pasa a 1.</div>
-    <Pair>
-      <NodeGraph
-        cols={3}
-        rows={3}
-        nodes={[{ v: 0, x: 0, y: 0 }, { v: 1, x: 2, y: 0 }, { v: 2, x: 1, y: 1 }, { v: 3, x: 1, y: 2 }]}
-        edges={[[0, 1], [0, 2], [1, 2], [2, 3]]}
-        markEdges={[[2, 0]]}
-        tones={{ 2: 'mark' }}
-        label="El grafo de cuatro vértices con las aristas 0-1, 0-2, 1-2 y 2-3; destacado el 2, y marcada la arista 2-0."
-      />
-      <AdjLists
-        lists={[[1, 2], [0, 2], [0, 1, 3], [2]]}
-        mark={[[2, 0]]}
-        label="Las listas: la lista de 0 tiene 1, 2; la lista de 1 tiene 0, 2; la lista de 2 tiene 0, 1, 3; la lista de 3 tiene 2. Marcado, el 0 de la lista de 2."
-      />
-    </Pair>
-    <ArrayRows
-      rows={[{ name: 'degree', cells: [2, 2, 1, 0] }]}
-      mark={[[0, 2]]}
-      label="El arreglo degree: degree[0] = 2, degree[1] = 2, degree[2] = 1, degree[3] = 0. Marcado, degree[2]."
-    />
-  </Step>
-  <Step lines={[35, 36, 37]} programLines={[1]}>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>v = 2, w = 1: degree[2] pasa a 2.</div>
-    <Pair>
-      <NodeGraph
-        cols={3}
-        rows={3}
-        nodes={[{ v: 0, x: 0, y: 0 }, { v: 1, x: 2, y: 0 }, { v: 2, x: 1, y: 1 }, { v: 3, x: 1, y: 2 }]}
-        edges={[[0, 1], [0, 2], [1, 2], [2, 3]]}
-        markEdges={[[2, 1]]}
-        tones={{ 2: 'mark' }}
-        label="El grafo de cuatro vértices con las aristas 0-1, 0-2, 1-2 y 2-3; destacado el 2, y marcada la arista 2-1."
-      />
-      <AdjLists
-        lists={[[1, 2], [0, 2], [0, 1, 3], [2]]}
-        mark={[[2, 1]]}
-        label="Las listas: la lista de 0 tiene 1, 2; la lista de 1 tiene 0, 2; la lista de 2 tiene 0, 1, 3; la lista de 3 tiene 2. Marcado, el 1 de la lista de 2."
-      />
-    </Pair>
-    <ArrayRows
-      rows={[{ name: 'degree', cells: [2, 2, 2, 0] }]}
-      mark={[[0, 2]]}
-      label="El arreglo degree: degree[0] = 2, degree[1] = 2, degree[2] = 2, degree[3] = 0. Marcado, degree[2]."
-    />
-  </Step>
-  <Step lines={[35, 36, 37]} programLines={[1]}>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>v = 2, w = 3: degree[2] pasa a 3.</div>
-    <Pair>
-      <NodeGraph
-        cols={3}
-        rows={3}
-        nodes={[{ v: 0, x: 0, y: 0 }, { v: 1, x: 2, y: 0 }, { v: 2, x: 1, y: 1 }, { v: 3, x: 1, y: 2 }]}
-        edges={[[0, 1], [0, 2], [1, 2], [2, 3]]}
-        markEdges={[[2, 3]]}
-        tones={{ 2: 'mark' }}
-        label="El grafo de cuatro vértices con las aristas 0-1, 0-2, 1-2 y 2-3; destacado el 2, y marcada la arista 2-3."
-      />
-      <AdjLists
-        lists={[[1, 2], [0, 2], [0, 1, 3], [2]]}
-        mark={[[2, 2]]}
-        label="Las listas: la lista de 0 tiene 1, 2; la lista de 1 tiene 0, 2; la lista de 2 tiene 0, 1, 3; la lista de 3 tiene 2. Marcado, el 3 de la lista de 2."
-      />
-    </Pair>
-    <ArrayRows
-      rows={[{ name: 'degree', cells: [2, 2, 3, 0] }]}
-      mark={[[0, 2]]}
-      label="El arreglo degree: degree[0] = 2, degree[1] = 2, degree[2] = 3, degree[3] = 0. Marcado, degree[2]."
-    />
-  </Step>
-  <Step lines={[35, 36, 37]} programLines={[1]}>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>v = 3, w = 2: degree[3] pasa a 1.</div>
-    <Pair>
-      <NodeGraph
-        cols={3}
-        rows={3}
-        nodes={[{ v: 0, x: 0, y: 0 }, { v: 1, x: 2, y: 0 }, { v: 2, x: 1, y: 1 }, { v: 3, x: 1, y: 2 }]}
-        edges={[[0, 1], [0, 2], [1, 2], [2, 3]]}
-        markEdges={[[3, 2]]}
-        tones={{ 3: 'mark' }}
-        label="El grafo de cuatro vértices con las aristas 0-1, 0-2, 1-2 y 2-3; destacado el 3, y marcada la arista 3-2."
-      />
-      <AdjLists
-        lists={[[1, 2], [0, 2], [0, 1, 3], [2]]}
-        mark={[[3, 0]]}
-        label="Las listas: la lista de 0 tiene 1, 2; la lista de 1 tiene 0, 2; la lista de 2 tiene 0, 1, 3; la lista de 3 tiene 2. Marcado, el 2 de la lista de 3."
-      />
-    </Pair>
-    <ArrayRows
-      rows={[{ name: 'degree', cells: [2, 2, 3, 1] }]}
-      mark={[[0, 3]]}
-      label="El arreglo degree: degree[0] = 2, degree[1] = 2, degree[2] = 3, degree[3] = 1. Marcado, degree[3]."
-    />
-  </Step>
-  <Step lines={[40]} programLines={[1]}>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Retorna el arreglo: el grado de cada vértice, en su posición.</div>
-    <Pair>
-      <NodeGraph
-        cols={3}
-        rows={3}
-        nodes={[{ v: 0, x: 0, y: 0 }, { v: 1, x: 2, y: 0 }, { v: 2, x: 1, y: 1 }, { v: 3, x: 1, y: 2 }]}
-        edges={[[0, 1], [0, 2], [1, 2], [2, 3]]}
-        notes={{ 0: 2, 1: 2, 2: 3, 3: 1 }}
-        label="El grafo de cuatro vértices con las aristas 0-1, 0-2, 1-2 y 2-3."
-      />
-      <AdjLists
-        lists={[[1, 2], [0, 2], [0, 1, 3], [2]]}
-        mark={[]}
-        label="Las listas: la lista de 0 tiene 1, 2; la lista de 1 tiene 0, 2; la lista de 2 tiene 0, 1, 3; la lista de 3 tiene 2."
-      />
-    </Pair>
-    <ArrayRows
-      rows={[{ name: 'degree', cells: [2, 2, 3, 1] }]}
-      mark={[]}
-      label="El arreglo degree: degree[0] = 2, degree[1] = 2, degree[2] = 3, degree[3] = 1."
-    />
-  </Step>
-</StepShow>
-
-Con listas cuesta $$\Theta(V + E)$$: el recorrido de todos los vecinos de
-todos los vértices, más un $$\Theta(1)$$ por cada uno.
+- **Si el grafo es denso, conviene la matriz:** ocupa lo mismo que las listas
+  y responde `hasEdge` en $$\Theta(1)$$.
+- **Si el grafo es disperso, convienen las listas:** ocupan mucho menos y
+  entregan los vecinos sin recorrer casillas vacías.
 
 </Slide>
 
@@ -5910,298 +5583,6 @@ casillas, casi todas falsas.
 Guardar las aristas tal como llegan, en una lista, ocuparía solo
 $$\Theta(E)$$, pero cada `adj(v)` tendría que leerla entera: $$\Theta(E)$$ por
 pregunta, sea `v` quien sea.
-
-</Slide>
-
-<Slide title="Los vecinos de cada vértice en un conjunto">
-Las listas pagan $$\Theta(\operatorname{grado}(v))$$ por `hasEdge` porque hay
-que recorrerlas. Un `Map` de cada vértice al **conjunto** de sus vecinos evita
-ese recorrido, y además deja usar los nombres sin traducirlos:
-
-<StepShow
-  language="java"
-  beside
-  title="Un conjunto por vértice"
-  program={`NameGraph g = new NameGraph();
-  g.addEdge("ana", "beto");
-  g.addEdge("ana", "carla");
-  g.addEdge("beto", "carla");
-  g.addEdge("ana", "beto");`}
-  codeSrc="./26-grafos-tda-modelado.code/NameGraph.java"
-  codeRange="7-18"
->
-  <Step lines={[7]} programLines={[]}>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>El mapa empieza vacío: todavía no hay ningún nombre.</div>
-    <Pair>
-      <NodeGraph
-        cols={3}
-        rows={2}
-        nodes={[{ v: 'ana', x: 0, y: 0 }, { v: 'beto', x: 2, y: 0 }, { v: 'carla', x: 1, y: 1 }]}
-        edges={[]}
-        label="La red de ana, beto, carla, sin amistades."
-      />
-      <AdjLists
-        keys={[]}
-        lists={[]}
-        mark={[]}
-        label="El mapa adj: vacío."
-      />
-    </Pair>
-  </Step>
-  <Step lines={[9, 10, 11]} programLines={[2]}>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>addEdge(ana, beto): ana no está en el mapa, y entra con un conjunto vacío.</div>
-    <Pair>
-      <NodeGraph
-        cols={3}
-        rows={2}
-        nodes={[{ v: 'ana', x: 0, y: 0 }, { v: 'beto', x: 2, y: 0 }, { v: 'carla', x: 1, y: 1 }]}
-        edges={[['ana', 'beto']]}
-        markEdges={[['ana', 'beto']]}
-        label="La red de ana, beto, carla, con las amistades ana-beto; marcada ana-beto, la que entra."
-      />
-      <AdjLists
-        keys={['ana']}
-        lists={[[]]}
-        mark={[]}
-        label="El mapa adj: ana con el conjunto {}."
-      />
-    </Pair>
-  </Step>
-  <Step lines={[13, 14]} programLines={[2]}>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>beto tampoco está en el mapa, y entra con un conjunto vacío.</div>
-    <Pair>
-      <NodeGraph
-        cols={3}
-        rows={2}
-        nodes={[{ v: 'ana', x: 0, y: 0 }, { v: 'beto', x: 2, y: 0 }, { v: 'carla', x: 1, y: 1 }]}
-        edges={[['ana', 'beto']]}
-        markEdges={[['ana', 'beto']]}
-        label="La red de ana, beto, carla, con las amistades ana-beto; marcada ana-beto, la que entra."
-      />
-      <AdjLists
-        keys={['ana', 'beto']}
-        lists={[[], []]}
-        mark={[]}
-        label="El mapa adj: ana con el conjunto {}; beto con el conjunto {}."
-      />
-    </Pair>
-  </Step>
-  <Step lines={[16]} programLines={[2]}>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>beto entra al conjunto de ana.</div>
-    <Pair>
-      <NodeGraph
-        cols={3}
-        rows={2}
-        nodes={[{ v: 'ana', x: 0, y: 0 }, { v: 'beto', x: 2, y: 0 }, { v: 'carla', x: 1, y: 1 }]}
-        edges={[['ana', 'beto']]}
-        markEdges={[['ana', 'beto']]}
-        label="La red de ana, beto, carla, con las amistades ana-beto; marcada ana-beto, la que entra."
-      />
-      <AdjLists
-        keys={['ana', 'beto']}
-        lists={[['beto'], []]}
-        mark={[[0, 0]]}
-        label="El mapa adj: ana con el conjunto {beto}; beto con el conjunto {}."
-      />
-    </Pair>
-  </Step>
-  <Step lines={[17]} programLines={[2]}>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>ana entra al conjunto de beto.</div>
-    <Pair>
-      <NodeGraph
-        cols={3}
-        rows={2}
-        nodes={[{ v: 'ana', x: 0, y: 0 }, { v: 'beto', x: 2, y: 0 }, { v: 'carla', x: 1, y: 1 }]}
-        edges={[['ana', 'beto']]}
-        markEdges={[['ana', 'beto']]}
-        label="La red de ana, beto, carla, con las amistades ana-beto; marcada ana-beto, la que entra."
-      />
-      <AdjLists
-        keys={['ana', 'beto']}
-        lists={[['beto'], ['ana']]}
-        mark={[[1, 0]]}
-        label="El mapa adj: ana con el conjunto {beto}; beto con el conjunto {ana}."
-      />
-    </Pair>
-  </Step>
-  <Step lines={[9, 10, 13, 14]} programLines={[3]}>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>addEdge(ana, carla): ana ya está en el mapa; carla no, y entra con un conjunto vacío.</div>
-    <Pair>
-      <NodeGraph
-        cols={3}
-        rows={2}
-        nodes={[{ v: 'ana', x: 0, y: 0 }, { v: 'beto', x: 2, y: 0 }, { v: 'carla', x: 1, y: 1 }]}
-        edges={[['ana', 'beto'], ['ana', 'carla']]}
-        markEdges={[['ana', 'carla']]}
-        label="La red de ana, beto, carla, con las amistades ana-beto, ana-carla; marcada ana-carla, la que entra."
-      />
-      <AdjLists
-        keys={['ana', 'beto', 'carla']}
-        lists={[['beto'], ['ana'], []]}
-        mark={[]}
-        label="El mapa adj: ana con el conjunto {beto}; beto con el conjunto {ana}; carla con el conjunto {}."
-      />
-    </Pair>
-  </Step>
-  <Step lines={[16]} programLines={[3]}>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>carla entra al conjunto de ana.</div>
-    <Pair>
-      <NodeGraph
-        cols={3}
-        rows={2}
-        nodes={[{ v: 'ana', x: 0, y: 0 }, { v: 'beto', x: 2, y: 0 }, { v: 'carla', x: 1, y: 1 }]}
-        edges={[['ana', 'beto'], ['ana', 'carla']]}
-        markEdges={[['ana', 'carla']]}
-        label="La red de ana, beto, carla, con las amistades ana-beto, ana-carla; marcada ana-carla, la que entra."
-      />
-      <AdjLists
-        keys={['ana', 'beto', 'carla']}
-        lists={[['beto', 'carla'], ['ana'], []]}
-        mark={[[0, 1]]}
-        label="El mapa adj: ana con el conjunto {beto, carla}; beto con el conjunto {ana}; carla con el conjunto {}."
-      />
-    </Pair>
-  </Step>
-  <Step lines={[17]} programLines={[3]}>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>ana entra al conjunto de carla.</div>
-    <Pair>
-      <NodeGraph
-        cols={3}
-        rows={2}
-        nodes={[{ v: 'ana', x: 0, y: 0 }, { v: 'beto', x: 2, y: 0 }, { v: 'carla', x: 1, y: 1 }]}
-        edges={[['ana', 'beto'], ['ana', 'carla']]}
-        markEdges={[['ana', 'carla']]}
-        label="La red de ana, beto, carla, con las amistades ana-beto, ana-carla; marcada ana-carla, la que entra."
-      />
-      <AdjLists
-        keys={['ana', 'beto', 'carla']}
-        lists={[['beto', 'carla'], ['ana'], ['ana']]}
-        mark={[[2, 0]]}
-        label="El mapa adj: ana con el conjunto {beto, carla}; beto con el conjunto {ana}; carla con el conjunto {ana}."
-      />
-    </Pair>
-  </Step>
-  <Step lines={[9, 10, 13]} programLines={[4]}>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>addEdge(beto, carla): los dos nombres ya están en el mapa.</div>
-    <Pair>
-      <NodeGraph
-        cols={3}
-        rows={2}
-        nodes={[{ v: 'ana', x: 0, y: 0 }, { v: 'beto', x: 2, y: 0 }, { v: 'carla', x: 1, y: 1 }]}
-        edges={[['ana', 'beto'], ['ana', 'carla'], ['beto', 'carla']]}
-        markEdges={[['beto', 'carla']]}
-        label="La red de ana, beto, carla, con las amistades ana-beto, ana-carla, beto-carla; marcada beto-carla, la que entra."
-      />
-      <AdjLists
-        keys={['ana', 'beto', 'carla']}
-        lists={[['beto', 'carla'], ['ana'], ['ana']]}
-        mark={[]}
-        label="El mapa adj: ana con el conjunto {beto, carla}; beto con el conjunto {ana}; carla con el conjunto {ana}."
-      />
-    </Pair>
-  </Step>
-  <Step lines={[16]} programLines={[4]}>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>carla entra al conjunto de beto.</div>
-    <Pair>
-      <NodeGraph
-        cols={3}
-        rows={2}
-        nodes={[{ v: 'ana', x: 0, y: 0 }, { v: 'beto', x: 2, y: 0 }, { v: 'carla', x: 1, y: 1 }]}
-        edges={[['ana', 'beto'], ['ana', 'carla'], ['beto', 'carla']]}
-        markEdges={[['beto', 'carla']]}
-        label="La red de ana, beto, carla, con las amistades ana-beto, ana-carla, beto-carla; marcada beto-carla, la que entra."
-      />
-      <AdjLists
-        keys={['ana', 'beto', 'carla']}
-        lists={[['beto', 'carla'], ['ana', 'carla'], ['ana']]}
-        mark={[[1, 1]]}
-        label="El mapa adj: ana con el conjunto {beto, carla}; beto con el conjunto {ana, carla}; carla con el conjunto {ana}."
-      />
-    </Pair>
-  </Step>
-  <Step lines={[17]} programLines={[4]}>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>beto entra al conjunto de carla.</div>
-    <Pair>
-      <NodeGraph
-        cols={3}
-        rows={2}
-        nodes={[{ v: 'ana', x: 0, y: 0 }, { v: 'beto', x: 2, y: 0 }, { v: 'carla', x: 1, y: 1 }]}
-        edges={[['ana', 'beto'], ['ana', 'carla'], ['beto', 'carla']]}
-        markEdges={[['beto', 'carla']]}
-        label="La red de ana, beto, carla, con las amistades ana-beto, ana-carla, beto-carla; marcada beto-carla, la que entra."
-      />
-      <AdjLists
-        keys={['ana', 'beto', 'carla']}
-        lists={[['beto', 'carla'], ['ana', 'carla'], ['ana', 'beto']]}
-        mark={[[2, 1]]}
-        label="El mapa adj: ana con el conjunto {beto, carla}; beto con el conjunto {ana, carla}; carla con el conjunto {ana, beto}."
-      />
-    </Pair>
-  </Step>
-  <Step lines={[9, 10, 13]} programLines={[5]}>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>addEdge(ana, beto) otra vez: los dos nombres ya están en el mapa.</div>
-    <Pair>
-      <NodeGraph
-        cols={3}
-        rows={2}
-        nodes={[{ v: 'ana', x: 0, y: 0 }, { v: 'beto', x: 2, y: 0 }, { v: 'carla', x: 1, y: 1 }]}
-        edges={[['ana', 'beto'], ['ana', 'carla'], ['beto', 'carla']]}
-        markEdges={[['ana', 'beto']]}
-        label="La red de ana, beto, carla, con las amistades ana-beto, ana-carla, beto-carla; marcada ana-beto, la que entra."
-      />
-      <AdjLists
-        keys={['ana', 'beto', 'carla']}
-        lists={[['beto', 'carla'], ['ana', 'carla'], ['ana', 'beto']]}
-        mark={[]}
-        label="El mapa adj: ana con el conjunto {beto, carla}; beto con el conjunto {ana, carla}; carla con el conjunto {ana, beto}."
-      />
-    </Pair>
-  </Step>
-  <Step lines={[16]} programLines={[5]}>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>beto ya está en el conjunto de ana: add no lo agrega otra vez.</div>
-    <Pair>
-      <NodeGraph
-        cols={3}
-        rows={2}
-        nodes={[{ v: 'ana', x: 0, y: 0 }, { v: 'beto', x: 2, y: 0 }, { v: 'carla', x: 1, y: 1 }]}
-        edges={[['ana', 'beto'], ['ana', 'carla'], ['beto', 'carla']]}
-        markEdges={[['ana', 'beto']]}
-        label="La red de ana, beto, carla, con las amistades ana-beto, ana-carla, beto-carla; marcada ana-beto, la que entra."
-      />
-      <AdjLists
-        keys={['ana', 'beto', 'carla']}
-        lists={[['beto', 'carla'], ['ana', 'carla'], ['ana', 'beto']]}
-        mark={[[0, 0]]}
-        label="El mapa adj: ana con el conjunto {beto, carla}; beto con el conjunto {ana, carla}; carla con el conjunto {ana, beto}."
-      />
-    </Pair>
-  </Step>
-  <Step lines={[17]} programLines={[5]}>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>ana ya está en el conjunto de beto: add no lo agrega otra vez.</div>
-    <Pair>
-      <NodeGraph
-        cols={3}
-        rows={2}
-        nodes={[{ v: 'ana', x: 0, y: 0 }, { v: 'beto', x: 2, y: 0 }, { v: 'carla', x: 1, y: 1 }]}
-        edges={[['ana', 'beto'], ['ana', 'carla'], ['beto', 'carla']]}
-        markEdges={[['ana', 'beto']]}
-        label="La red de ana, beto, carla, con las amistades ana-beto, ana-carla, beto-carla; marcada ana-beto, la que entra."
-      />
-      <AdjLists
-        keys={['ana', 'beto', 'carla']}
-        lists={[['beto', 'carla'], ['ana', 'carla'], ['ana', 'beto']]}
-        mark={[[1, 0]]}
-        label="El mapa adj: ana con el conjunto {beto, carla}; beto con el conjunto {ana, carla}; carla con el conjunto {ana, beto}."
-      />
-    </Pair>
-  </Step>
-</StepShow>
-
-- **Lo que gana.** `hasEdge` cuesta $$\Theta(1)$$ esperado, como en la matriz,
-  con la memoria de las listas, $$\Theta(V + E)$$.
-- **Lo que pierde.** Un conjunto no guarda dos veces el mismo vecino, así que
-  no caben aristas paralelas. Un `HashSet` entrega los vecinos en un orden que
-  nadie elige, y cada entrada pesa más que un entero en una lista.
 
 </Slide>
 

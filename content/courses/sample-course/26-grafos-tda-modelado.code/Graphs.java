@@ -10,36 +10,6 @@ public class Graphs {
         }
     }
 
-    static int degree(Graph g, int v) {
-        int count = 0;
-        for (int w : g.adj(v)) {
-            count++;
-        }
-        return count;
-    }
-
-    static int inDegree(Graph g, int v) {
-        int count = 0;
-        for (int u = 0; u < g.V(); u++) {
-            for (int w : g.adj(u)) {
-                if (w == v) {
-                    count++;
-                }
-            }
-        }
-        return count;
-    }
-
-    static int[] degrees(Graph g) {
-        int[] degree = new int[g.V()];
-        for (int v = 0; v < g.V(); v++) {
-            for (int w : g.adj(v)) {
-                degree[v]++;
-            }
-        }
-        return degree;
-    }
-
     static void readWeightedEdges(Scanner in, WeightedGraph g) {
         int E = in.nextInt();
         for (int i = 0; i < E; i++) {

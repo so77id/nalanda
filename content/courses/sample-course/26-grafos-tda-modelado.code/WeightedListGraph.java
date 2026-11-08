@@ -22,7 +22,7 @@ public class WeightedListGraph
     public int V() { return lists.size(); }
     public int E() { return E; }
     public Iterable<Edge> adj(int v) {
-        return lists.get(v);
+        return new ArrayList<>(lists.get(v));
     }
 
     public boolean hasEdge(int v, int w) {
