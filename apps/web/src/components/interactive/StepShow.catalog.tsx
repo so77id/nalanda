@@ -223,6 +223,12 @@ export const stepCatalogEntry: CatalogEntry = {
         'The 1-based lines lit in the StepShow’s `program` listing at this step — the call the step is inside. Ignored when the StepShow has no `program`.',
     },
     {
+      name: 'under',
+      type: 'JSX',
+      description:
+        'Shown in the code column, under the listings: what the program holds after this step — the variables its calls assigned, a value returned — beside the lines that produced it (#363). If any step has one, every step keeps the room, so the column does not jump.',
+    },
+    {
       name: 'helperLines',
       type: 'number[]',
       description:

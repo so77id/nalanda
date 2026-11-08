@@ -300,6 +300,8 @@ export function StepShow({
   const currentLines = current.props.lines ?? [];
   const currentProgramLines = current.props.programLines ?? [];
   const currentHelperLines = current.props.helperLines ?? [];
+  const currentUnder = current.props.under;
+  const hasUnder = steps.some((step) => step.props.under !== undefined);
   // The files behind the listings, whole, for the viewer: each with the lines
   // its listing quotes and the lines this step lights, in the file's numbering.
   const files: ViewerFile[] = (
@@ -404,11 +406,19 @@ export function StepShow({
                   excerpt={spec.excerpt}
                   lines={spec.excerpt === undefined ? lit : toExcerptLines(lit, spec.excerpt)}
                   language={language}
-                  grow={i === all.length - 1}
+                  grow={!hasUnder && i === all.length - 1}
                   onOpen={spec.source === undefined ? undefined : () => setViewerAt(fileIndex)}
                 />
               );
             })}
+            {hasUnder ? (
+              <div
+                data-testid="stepshow-under"
+                className="flex flex-1 flex-col justify-center bg-surface p-3"
+              >
+                {currentUnder}
+              </div>
+            ) : null}
           </div>
         )}
         <div

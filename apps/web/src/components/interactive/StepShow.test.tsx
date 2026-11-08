@@ -472,6 +472,18 @@ describe('StepShow', () => {
     expect(document.querySelector('[data-authoring-error]')?.textContent).toMatch(/Nope\.java/);
   });
 
+  it('puts a step’s `under` in the code column, under the listings', () => {
+    render(
+      <StepShow code={CODE} program={'f();'} language="java">
+        <Step lines={[7]} programLines={[1]} under={<span>a = true</span>}>
+          <span>dibujo</span>
+        </Step>
+      </StepShow>,
+    );
+
+    expect(screen.getByTestId('stepshow-under').textContent).toBe('a = true');
+  });
+
   it('shows one unnamed listing when no program is given', () => {
     render(
       <StepShow code={CODE} language="java">
