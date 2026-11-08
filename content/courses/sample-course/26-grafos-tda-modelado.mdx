@@ -1088,12 +1088,12 @@ casilla: `hasEdge(v, w)` retorna $$M[v][w]$$.
   beside
   ratio="50/50"
   title="hasEdge en la matriz"
-  programSrc="./26-grafos-tda-modelado.code/Main.java"
-  programRange="12-13"
+  program={`boolean a = g.hasEdge(2, 3);
+  boolean b = g.hasEdge(1, 3);`}
   codeSrc="./26-grafos-tda-modelado.code/AdjMatrixGraph.java"
   codeRange="21-23"
 >
-  <Step lines={[21, 22]} programLines={[12]}>
+  <Step lines={[21, 22]} programLines={[1]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>hasEdge(2, 3) lee una sola casilla, [2][3]: es true, y retorna true.</div>
     <Pair>
       <NodeGraph
@@ -1113,7 +1113,7 @@ casilla: `hasEdge(v, w)` retorna $$M[v][w]$$.
     </Pair>
     <OutputBox head="retorna" lines={['true']} rows={2} fresh label="Lo retornado: true." />
   </Step>
-  <Step lines={[21, 22]} programLines={[13]}>
+  <Step lines={[21, 22]} programLines={[2]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>hasEdge(1, 3) lee [1][3]: es false, y retorna false. Es una casilla, haya arista o no.</div>
     <Pair>
       <NodeGraph
@@ -1147,12 +1147,11 @@ tenga:
   language="java"
   beside
   title="adj(3) en la matriz"
-  programSrc="./26-grafos-tda-modelado.code/Main.java"
-  programRange="17-17"
+  program={`Iterable<Integer> result = g.adj(3);`}
   codeSrc="./26-grafos-tda-modelado.code/AdjMatrixGraph.java"
   codeRange="25-33"
 >
-  <Step lines={[26]} programLines={[17]}>
+  <Step lines={[26]} programLines={[1]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>adj(3): neighbors empieza vacía, y se recorre la fila 3.</div>
     <Pair>
       <NodeGraph
@@ -1171,7 +1170,7 @@ tenga:
       <OutputBox head="neighbors" lines={[]} rows={2} label="La lista neighbors: vacía." />
     </Pair>
   </Step>
-  <Step lines={[27, 28]} programLines={[17]}>
+  <Step lines={[27, 28]} programLines={[1]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>w = 0: [3][0] es false, y 0 no es vecino.</div>
     <Pair>
       <NodeGraph
@@ -1190,7 +1189,7 @@ tenga:
       <OutputBox head="neighbors" lines={[]} rows={2} label="La lista neighbors: vacía." />
     </Pair>
   </Step>
-  <Step lines={[27, 28]} programLines={[17]}>
+  <Step lines={[27, 28]} programLines={[1]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>w = 1: [3][1] es false, y 1 no es vecino.</div>
     <Pair>
       <NodeGraph
@@ -1209,7 +1208,7 @@ tenga:
       <OutputBox head="neighbors" lines={[]} rows={2} label="La lista neighbors: vacía." />
     </Pair>
   </Step>
-  <Step lines={[27, 28, 29]} programLines={[17]}>
+  <Step lines={[27, 28, 29]} programLines={[1]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>w = 2: [3][2] es true, y 2 entra a neighbors.</div>
     <Pair>
       <NodeGraph
@@ -1229,7 +1228,7 @@ tenga:
       <OutputBox head="neighbors" lines={['2']} rows={2} fresh label="La lista neighbors: 2." />
     </Pair>
   </Step>
-  <Step lines={[27, 28]} programLines={[17]}>
+  <Step lines={[27, 28]} programLines={[1]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>w = 3: [3][3] es false, y 3 no es vecino.</div>
     <Pair>
       <NodeGraph
@@ -1248,7 +1247,7 @@ tenga:
       <OutputBox head="neighbors" lines={['2']} rows={2} label="La lista neighbors: 2." />
     </Pair>
   </Step>
-  <Step lines={[32]} programLines={[17]}>
+  <Step lines={[32]} programLines={[1]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>Retorna [2]: miró las 4 casillas de la fila para un solo vecino.</div>
     <Pair>
       <NodeGraph
@@ -1352,12 +1351,15 @@ el peso en las dos de su arista; con dirección, solo en la de su arco:
   language="java"
   beside
   title="La matriz con pesos, arista por arista"
-  programSrc="./26-grafos-tda-modelado.code/Main.java"
-  programRange="21-25"
+  program={`WeightedGraph g = new WeightedMatrixGraph(4);
+  g.addEdge(0, 1, 7);
+  g.addEdge(0, 2, 3);
+  g.addEdge(1, 2, 2);
+  g.addEdge(2, 3, 4);`}
   codeSrc="./26-grafos-tda-modelado.code/WeightedMatrixGraph.java"
   codeRange="5-20"
 >
-  <Step lines={[9, 10]} programLines={[21]}>
+  <Step lines={[9, 10]} programLines={[1]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>new int[4][4] deja las 16 casillas en 0, y un 0 sería una arista de peso 0.</div>
     <Pair stack>
       <NodeGraph
@@ -1374,7 +1376,7 @@ el peso en las dos de su arista; con dirección, solo en la de su arco:
       />
     </Pair>
   </Step>
-  <Step lines={[11, 12]} programLines={[21]}>
+  <Step lines={[11, 12]} programLines={[1]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>Arrays.fill pone cada fila en Integer.MAX_VALUE: ∞, ninguna arista.</div>
     <Pair stack>
       <NodeGraph
@@ -1391,7 +1393,7 @@ el peso en las dos de su arista; con dirección, solo en la de su arco:
       />
     </Pair>
   </Step>
-  <Step lines={[16, 17]} programLines={[22]}>
+  <Step lines={[16, 17]} programLines={[2]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>addEdge(0, 1, 7): [0][1] vale ∞, así que la arista es nueva y E pasa a 1.</div>
     <Pair stack>
       <NodeGraph
@@ -1409,7 +1411,7 @@ el peso en las dos de su arista; con dirección, solo en la de su arco:
       />
     </Pair>
   </Step>
-  <Step lines={[18]} programLines={[22]}>
+  <Step lines={[18]} programLines={[2]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>weights[0][1] = 7.</div>
     <Pair stack>
       <NodeGraph
@@ -1427,7 +1429,7 @@ el peso en las dos de su arista; con dirección, solo en la de su arco:
       />
     </Pair>
   </Step>
-  <Step lines={[19]} programLines={[22]}>
+  <Step lines={[19]} programLines={[2]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>weights[1][0] = 7: la casilla simétrica.</div>
     <Pair stack>
       <NodeGraph
@@ -1445,7 +1447,7 @@ el peso en las dos de su arista; con dirección, solo en la de su arco:
       />
     </Pair>
   </Step>
-  <Step lines={[16, 17]} programLines={[23]}>
+  <Step lines={[16, 17]} programLines={[3]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>addEdge(0, 2, 3): [0][2] vale ∞, así que la arista es nueva y E pasa a 2.</div>
     <Pair stack>
       <NodeGraph
@@ -1463,7 +1465,7 @@ el peso en las dos de su arista; con dirección, solo en la de su arco:
       />
     </Pair>
   </Step>
-  <Step lines={[18]} programLines={[23]}>
+  <Step lines={[18]} programLines={[3]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>weights[0][2] = 3.</div>
     <Pair stack>
       <NodeGraph
@@ -1481,7 +1483,7 @@ el peso en las dos de su arista; con dirección, solo en la de su arco:
       />
     </Pair>
   </Step>
-  <Step lines={[19]} programLines={[23]}>
+  <Step lines={[19]} programLines={[3]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>weights[2][0] = 3: la casilla simétrica.</div>
     <Pair stack>
       <NodeGraph
@@ -1499,7 +1501,7 @@ el peso en las dos de su arista; con dirección, solo en la de su arco:
       />
     </Pair>
   </Step>
-  <Step lines={[16, 17]} programLines={[24]}>
+  <Step lines={[16, 17]} programLines={[4]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>addEdge(1, 2, 2): [1][2] vale ∞, así que la arista es nueva y E pasa a 3.</div>
     <Pair stack>
       <NodeGraph
@@ -1517,7 +1519,7 @@ el peso en las dos de su arista; con dirección, solo en la de su arco:
       />
     </Pair>
   </Step>
-  <Step lines={[18]} programLines={[24]}>
+  <Step lines={[18]} programLines={[4]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>weights[1][2] = 2.</div>
     <Pair stack>
       <NodeGraph
@@ -1535,7 +1537,7 @@ el peso en las dos de su arista; con dirección, solo en la de su arco:
       />
     </Pair>
   </Step>
-  <Step lines={[19]} programLines={[24]}>
+  <Step lines={[19]} programLines={[4]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>weights[2][1] = 2: la casilla simétrica.</div>
     <Pair stack>
       <NodeGraph
@@ -1553,7 +1555,7 @@ el peso en las dos de su arista; con dirección, solo en la de su arco:
       />
     </Pair>
   </Step>
-  <Step lines={[16, 17]} programLines={[25]}>
+  <Step lines={[16, 17]} programLines={[5]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>addEdge(2, 3, 4): [2][3] vale ∞, así que la arista es nueva y E pasa a 4.</div>
     <Pair stack>
       <NodeGraph
@@ -1571,7 +1573,7 @@ el peso en las dos de su arista; con dirección, solo en la de su arco:
       />
     </Pair>
   </Step>
-  <Step lines={[18]} programLines={[25]}>
+  <Step lines={[18]} programLines={[5]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>weights[2][3] = 4.</div>
     <Pair stack>
       <NodeGraph
@@ -1589,7 +1591,7 @@ el peso en las dos de su arista; con dirección, solo en la de su arco:
       />
     </Pair>
   </Step>
-  <Step lines={[19]} programLines={[25]}>
+  <Step lines={[19]} programLines={[5]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>weights[3][2] = 4: la casilla simétrica.</div>
     <Pair stack>
       <NodeGraph
@@ -1624,12 +1626,11 @@ $$\infty$$: `return weights[v][w] != Integer.MAX_VALUE;`.
 <StepShow
   language="java"
   title="adj(2) en la matriz con pesos"
-  programSrc="./26-grafos-tda-modelado.code/Main.java"
-  programRange="29-29"
+  program={`Iterable<Edge> result = g.adj(2);`}
   codeSrc="./26-grafos-tda-modelado.code/WeightedMatrixGraph.java"
   codeRange="29-37"
 >
-  <Step lines={[30]} programLines={[29]}>
+  <Step lines={[30]} programLines={[1]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>adj(2): edges empieza vacía, y se recorre la fila 2.</div>
     <Pair>
       <NodeGraph
@@ -1648,7 +1649,7 @@ $$\infty$$: `return weights[v][w] != Integer.MAX_VALUE;`.
       <OutputBox head="edges" lines={[]} rows={3} label="La lista edges: vacía." />
     </Pair>
   </Step>
-  <Step lines={[31, 32, 33]} programLines={[29]}>
+  <Step lines={[31, 32, 33]} programLines={[1]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>w = 0: [2][0] vale 3, y entra el Edge de 2 a 0 con peso 3.</div>
     <Pair>
       <NodeGraph
@@ -1668,7 +1669,7 @@ $$\infty$$: `return weights[v][w] != Integer.MAX_VALUE;`.
       <OutputBox head="edges" lines={['Edge(2, 0, 3)']} rows={3} fresh label="La lista edges: la arista de 2 a 0 con peso 3." />
     </Pair>
   </Step>
-  <Step lines={[31, 32, 33]} programLines={[29]}>
+  <Step lines={[31, 32, 33]} programLines={[1]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>w = 1: [2][1] vale 2, y entra el Edge de 2 a 1 con peso 2.</div>
     <Pair>
       <NodeGraph
@@ -1688,7 +1689,7 @@ $$\infty$$: `return weights[v][w] != Integer.MAX_VALUE;`.
       <OutputBox head="edges" lines={['Edge(2, 0, 3)', 'Edge(2, 1, 2)']} rows={3} fresh label="La lista edges: la arista de 2 a 0 con peso 3, la arista de 2 a 1 con peso 2." />
     </Pair>
   </Step>
-  <Step lines={[31, 32]} programLines={[29]}>
+  <Step lines={[31, 32]} programLines={[1]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>w = 2: [2][2] vale ∞, y no hay arista.</div>
     <Pair>
       <NodeGraph
@@ -1707,7 +1708,7 @@ $$\infty$$: `return weights[v][w] != Integer.MAX_VALUE;`.
       <OutputBox head="edges" lines={['Edge(2, 0, 3)', 'Edge(2, 1, 2)']} rows={3} label="La lista edges: la arista de 2 a 0 con peso 3, la arista de 2 a 1 con peso 2." />
     </Pair>
   </Step>
-  <Step lines={[31, 32, 33]} programLines={[29]}>
+  <Step lines={[31, 32, 33]} programLines={[1]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>w = 3: [2][3] vale 4, y entra el Edge de 2 a 3 con peso 4.</div>
     <Pair>
       <NodeGraph
@@ -1727,7 +1728,7 @@ $$\infty$$: `return weights[v][w] != Integer.MAX_VALUE;`.
       <OutputBox head="edges" lines={['Edge(2, 0, 3)', 'Edge(2, 1, 2)', 'Edge(2, 3, 4)']} rows={3} fresh label="La lista edges: la arista de 2 a 0 con peso 3, la arista de 2 a 1 con peso 2, la arista de 2 a 3 con peso 4." />
     </Pair>
   </Step>
-  <Step lines={[36]} programLines={[29]}>
+  <Step lines={[36]} programLines={[1]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>Retorna las 3 aristas de 2, cada una con su peso.</div>
     <Pair>
       <NodeGraph
@@ -1827,12 +1828,15 @@ la lista del otro. Las aristas son las mismas:
   language="java"
   beside
   title="Las listas, arista por arista"
-  programSrc="./26-grafos-tda-modelado.code/Main.java"
-  programRange="33-37"
+  program={`Graph g = new AdjListGraph(4);
+  g.addEdge(0, 1);
+  g.addEdge(0, 2);
+  g.addEdge(1, 2);
+  g.addEdge(2, 3);`}
   codeSrc="./26-grafos-tda-modelado.code/AdjListGraph.java"
   codeRange="4-19"
 >
-  <Step lines={[9, 10, 11]} programLines={[33]}>
+  <Step lines={[9, 10, 11]} programLines={[1]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>El constructor crea una lista vacía por vértice. E empieza en 0.</div>
     <Pair>
       <NodeGraph
@@ -1849,7 +1853,7 @@ la lista del otro. Las aristas son las mismas:
       />
     </Pair>
   </Step>
-  <Step lines={[15, 16]} programLines={[34]}>
+  <Step lines={[15, 16]} programLines={[2]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>addEdge(0, 1) agrega la arista 0-1: un 1 al final de la lista de 0.</div>
     <Pair>
       <NodeGraph
@@ -1867,7 +1871,7 @@ la lista del otro. Las aristas son las mismas:
       />
     </Pair>
   </Step>
-  <Step lines={[17, 18]} programLines={[34]}>
+  <Step lines={[17, 18]} programLines={[2]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Al final de la lista de 1, un 0: la misma arista, vista desde 1. E pasa a 1.</div>
     <Pair>
       <NodeGraph
@@ -1885,7 +1889,7 @@ la lista del otro. Las aristas son las mismas:
       />
     </Pair>
   </Step>
-  <Step lines={[15, 16]} programLines={[35]}>
+  <Step lines={[15, 16]} programLines={[3]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>addEdge(0, 2) agrega la arista 0-2: un 2 al final de la lista de 0.</div>
     <Pair>
       <NodeGraph
@@ -1903,7 +1907,7 @@ la lista del otro. Las aristas son las mismas:
       />
     </Pair>
   </Step>
-  <Step lines={[17, 18]} programLines={[35]}>
+  <Step lines={[17, 18]} programLines={[3]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Al final de la lista de 2, un 0: la misma arista, vista desde 2. E pasa a 2.</div>
     <Pair>
       <NodeGraph
@@ -1921,7 +1925,7 @@ la lista del otro. Las aristas son las mismas:
       />
     </Pair>
   </Step>
-  <Step lines={[15, 16]} programLines={[36]}>
+  <Step lines={[15, 16]} programLines={[4]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>addEdge(1, 2) agrega la arista 1-2: un 2 al final de la lista de 1.</div>
     <Pair>
       <NodeGraph
@@ -1939,7 +1943,7 @@ la lista del otro. Las aristas son las mismas:
       />
     </Pair>
   </Step>
-  <Step lines={[17, 18]} programLines={[36]}>
+  <Step lines={[17, 18]} programLines={[4]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Al final de la lista de 2, un 1: la misma arista, vista desde 2. E pasa a 3.</div>
     <Pair>
       <NodeGraph
@@ -1957,7 +1961,7 @@ la lista del otro. Las aristas son las mismas:
       />
     </Pair>
   </Step>
-  <Step lines={[15, 16]} programLines={[37]}>
+  <Step lines={[15, 16]} programLines={[5]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>addEdge(2, 3) agrega la arista 2-3: un 3 al final de la lista de 2.</div>
     <Pair>
       <NodeGraph
@@ -1975,7 +1979,7 @@ la lista del otro. Las aristas son las mismas:
       />
     </Pair>
   </Step>
-  <Step lines={[17, 18]} programLines={[37]}>
+  <Step lines={[17, 18]} programLines={[5]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Al final de la lista de 3, un 2: la misma arista, vista desde 3. E pasa a 4.</div>
     <Pair>
       <NodeGraph
@@ -2011,12 +2015,12 @@ hasta terminar la lista:
   language="java"
   beside
   title="hasEdge en las listas"
-  programSrc="./26-grafos-tda-modelado.code/Main.java"
-  programRange="12-13"
+  program={`boolean a = g.hasEdge(2, 3);
+  boolean b = g.hasEdge(1, 3);`}
   codeSrc="./26-grafos-tda-modelado.code/AdjListGraph.java"
   codeRange="25-32"
 >
-  <Step lines={[26, 27]} programLines={[12]}>
+  <Step lines={[26, 27]} programLines={[1]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>hasEdge(2, 3): x = 0, no es 3: sigue.</div>
     <Pair>
       <NodeGraph
@@ -2036,7 +2040,7 @@ hasta terminar la lista:
       <OutputBox head="retorna" lines={[]} rows={2} label="retorna: nada todavía." />
     </Pair>
   </Step>
-  <Step lines={[26, 27]} programLines={[12]}>
+  <Step lines={[26, 27]} programLines={[1]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>hasEdge(2, 3): x = 1, no es 3: sigue.</div>
     <Pair>
       <NodeGraph
@@ -2056,7 +2060,7 @@ hasta terminar la lista:
       <OutputBox head="retorna" lines={[]} rows={2} label="retorna: nada todavía." />
     </Pair>
   </Step>
-  <Step lines={[26, 27, 28]} programLines={[12]}>
+  <Step lines={[26, 27, 28]} programLines={[1]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>hasEdge(2, 3): x = 3, es 3: retorna true.</div>
     <Pair>
       <NodeGraph
@@ -2076,7 +2080,7 @@ hasta terminar la lista:
       <OutputBox head="retorna" lines={['true']} rows={2} fresh label="retorna: true." />
     </Pair>
   </Step>
-  <Step lines={[26, 27]} programLines={[13]}>
+  <Step lines={[26, 27]} programLines={[2]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>hasEdge(1, 3): x = 0, no es 3: sigue.</div>
     <Pair>
       <NodeGraph
@@ -2096,7 +2100,7 @@ hasta terminar la lista:
       <OutputBox head="retorna" lines={['true']} rows={2} label="retorna: true." />
     </Pair>
   </Step>
-  <Step lines={[26, 27]} programLines={[13]}>
+  <Step lines={[26, 27]} programLines={[2]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>hasEdge(1, 3): x = 2, no es 3: sigue.</div>
     <Pair>
       <NodeGraph
@@ -2116,7 +2120,7 @@ hasta terminar la lista:
       <OutputBox head="retorna" lines={['true']} rows={2} label="retorna: true." />
     </Pair>
   </Step>
-  <Step lines={[31]} programLines={[13]}>
+  <Step lines={[31]} programLines={[2]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>La lista de 1 se terminó sin encontrar un 3: retorna false. Miró la lista entera.</div>
     <Pair>
       <NodeGraph
@@ -2180,12 +2184,15 @@ extremo. Las mismas aristas, ahora arcos, entran una por una:
   language="java"
   beside
   title="Las listas dirigidas, arco por arco"
-  programSrc="./26-grafos-tda-modelado.code/Main.java"
-  programRange="41-45"
+  program={`Graph g = new AdjListDigraph(4);
+  g.addEdge(0, 1);
+  g.addEdge(0, 2);
+  g.addEdge(1, 2);
+  g.addEdge(2, 3);`}
   codeSrc="./26-grafos-tda-modelado.code/AdjListDigraph.java"
   codeRange="4-18"
 >
-  <Step lines={[9, 10, 11]} programLines={[41]}>
+  <Step lines={[9, 10, 11]} programLines={[1]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>El constructor crea una lista vacía por vértice.</div>
     <Pair>
       <NodeGraph
@@ -2203,7 +2210,7 @@ extremo. Las mismas aristas, ahora arcos, entran una por una:
       />
     </Pair>
   </Step>
-  <Step lines={[15, 16, 17]} programLines={[42]}>
+  <Step lines={[15, 16, 17]} programLines={[2]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>addEdge(0, 1) agrega el arco 0→1: un 1 al final de la lista de 0, y nada en la de 1. E pasa a 1.</div>
     <Pair>
       <NodeGraph
@@ -2222,7 +2229,7 @@ extremo. Las mismas aristas, ahora arcos, entran una por una:
       />
     </Pair>
   </Step>
-  <Step lines={[15, 16, 17]} programLines={[43]}>
+  <Step lines={[15, 16, 17]} programLines={[3]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>addEdge(0, 2) agrega el arco 0→2: un 2 al final de la lista de 0, y nada en la de 2. E pasa a 2.</div>
     <Pair>
       <NodeGraph
@@ -2241,7 +2248,7 @@ extremo. Las mismas aristas, ahora arcos, entran una por una:
       />
     </Pair>
   </Step>
-  <Step lines={[15, 16, 17]} programLines={[44]}>
+  <Step lines={[15, 16, 17]} programLines={[4]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>addEdge(1, 2) agrega el arco 1→2: un 2 al final de la lista de 1, y nada en la de 2. E pasa a 3.</div>
     <Pair>
       <NodeGraph
@@ -2260,7 +2267,7 @@ extremo. Las mismas aristas, ahora arcos, entran una por una:
       />
     </Pair>
   </Step>
-  <Step lines={[15, 16, 17]} programLines={[45]}>
+  <Step lines={[15, 16, 17]} programLines={[5]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>addEdge(2, 3) agrega el arco 2→3: un 3 al final de la lista de 2, y nada en la de 3. E pasa a 4.</div>
     <Pair>
       <NodeGraph
@@ -2296,12 +2303,11 @@ hay que recorrer todas las listas, o la columna de `v` en la matriz.
   language="java"
   beside
   title="inDegree(g, 2) en las listas"
-  programSrc="./26-grafos-tda-modelado.code/Main.java"
-  programRange="49-49"
+  program={`int d = Graphs.inDegree(g, 2);`}
   codeSrc="./26-grafos-tda-modelado.code/Graphs.java"
   codeRange="21-31"
 >
-  <Step lines={[22]} programLines={[49]}>
+  <Step lines={[22]} programLines={[1]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>inDegree(g, 2): count empieza en 0. Los arcos que llegan a 2 están en las listas de los otros.</div>
     <Pair>
       <NodeGraph
@@ -2321,7 +2327,7 @@ hay que recorrer todas las listas, o la columna de `v` en la matriz.
       <OutputBox head="count" lines={['0']} rows={2} fresh label="count: 0." />
     </Pair>
   </Step>
-  <Step lines={[23, 24, 25]} programLines={[49]}>
+  <Step lines={[23, 24, 25]} programLines={[1]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>u = 0, w = 1: el arco 0→1 no llega a 2.</div>
     <Pair>
       <NodeGraph
@@ -2342,7 +2348,7 @@ hay que recorrer todas las listas, o la columna de `v` en la matriz.
       <OutputBox head="count" lines={['0']} rows={2} label="count: 0." />
     </Pair>
   </Step>
-  <Step lines={[23, 24, 25, 26]} programLines={[49]}>
+  <Step lines={[23, 24, 25, 26]} programLines={[1]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>u = 0, w = 2: el arco 0→2 llega a 2, count = 1.</div>
     <Pair>
       <NodeGraph
@@ -2363,7 +2369,7 @@ hay que recorrer todas las listas, o la columna de `v` en la matriz.
       <OutputBox head="count" lines={['1']} rows={2} fresh label="count: 1." />
     </Pair>
   </Step>
-  <Step lines={[23, 24, 25, 26]} programLines={[49]}>
+  <Step lines={[23, 24, 25, 26]} programLines={[1]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>u = 1, w = 2: el arco 1→2 llega a 2, count = 2.</div>
     <Pair>
       <NodeGraph
@@ -2384,7 +2390,7 @@ hay que recorrer todas las listas, o la columna de `v` en la matriz.
       <OutputBox head="count" lines={['2']} rows={2} fresh label="count: 2." />
     </Pair>
   </Step>
-  <Step lines={[23, 24, 25]} programLines={[49]}>
+  <Step lines={[23, 24, 25]} programLines={[1]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>u = 2, w = 3: el arco 2→3 no llega a 2.</div>
     <Pair>
       <NodeGraph
@@ -2405,7 +2411,7 @@ hay que recorrer todas las listas, o la columna de `v` en la matriz.
       <OutputBox head="count" lines={['2']} rows={2} label="count: 2." />
     </Pair>
   </Step>
-  <Step lines={[23, 24]} programLines={[49]}>
+  <Step lines={[23, 24]} programLines={[1]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>u = 3: su lista está vacía, no hay nada que mirar.</div>
     <Pair>
       <NodeGraph
@@ -2425,7 +2431,7 @@ hay que recorrer todas las listas, o la columna de `v` en la matriz.
       <OutputBox head="count" lines={['2']} rows={2} label="count: 2." />
     </Pair>
   </Step>
-  <Step lines={[30]} programLines={[49]}>
+  <Step lines={[30]} programLines={[1]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Retorna 2: pasó por las 4 listas y por los 4 arcos.</div>
     <Pair>
       <NodeGraph
@@ -2462,12 +2468,15 @@ la lista de `v`:
   language="java"
   beside
   title="Las listas con pesos, arista por arista"
-  programSrc="./26-grafos-tda-modelado.code/Main.java"
-  programRange="53-57"
+  program={`WeightedGraph g = new WeightedListGraph(4);
+  g.addEdge(0, 1, 7);
+  g.addEdge(0, 2, 3);
+  g.addEdge(1, 2, 2);
+  g.addEdge(2, 3, 4);`}
   codeSrc="./26-grafos-tda-modelado.code/WeightedListGraph.java"
   codeRange="4-20"
 >
-  <Step lines={[10, 11, 12]} programLines={[53]}>
+  <Step lines={[10, 11, 12]} programLines={[1]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>El constructor crea una lista vacía por vértice.</div>
     <Pair stack>
       <NodeGraph
@@ -2484,7 +2493,7 @@ la lista de `v`:
       />
     </Pair>
   </Step>
-  <Step lines={[16, 17]} programLines={[54]}>
+  <Step lines={[16, 17]} programLines={[2]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>addEdge(0, 1, 7) agrega la arista 0-1: new Edge(0, 1, 7) al final de la lista de 0.</div>
     <Pair stack>
       <NodeGraph
@@ -2502,7 +2511,7 @@ la lista de `v`:
       />
     </Pair>
   </Step>
-  <Step lines={[18, 19]} programLines={[54]}>
+  <Step lines={[18, 19]} programLines={[2]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Al final de la lista de 1, new Edge(1, 0, 7): la misma arista, vista desde 1. E pasa a 1.</div>
     <Pair stack>
       <NodeGraph
@@ -2520,7 +2529,7 @@ la lista de `v`:
       />
     </Pair>
   </Step>
-  <Step lines={[16, 17]} programLines={[55]}>
+  <Step lines={[16, 17]} programLines={[3]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>addEdge(0, 2, 3) agrega la arista 0-2: new Edge(0, 2, 3) al final de la lista de 0.</div>
     <Pair stack>
       <NodeGraph
@@ -2538,7 +2547,7 @@ la lista de `v`:
       />
     </Pair>
   </Step>
-  <Step lines={[18, 19]} programLines={[55]}>
+  <Step lines={[18, 19]} programLines={[3]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Al final de la lista de 2, new Edge(2, 0, 3): la misma arista, vista desde 2. E pasa a 2.</div>
     <Pair stack>
       <NodeGraph
@@ -2556,7 +2565,7 @@ la lista de `v`:
       />
     </Pair>
   </Step>
-  <Step lines={[16, 17]} programLines={[56]}>
+  <Step lines={[16, 17]} programLines={[4]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>addEdge(1, 2, 2) agrega la arista 1-2: new Edge(1, 2, 2) al final de la lista de 1.</div>
     <Pair stack>
       <NodeGraph
@@ -2574,7 +2583,7 @@ la lista de `v`:
       />
     </Pair>
   </Step>
-  <Step lines={[18, 19]} programLines={[56]}>
+  <Step lines={[18, 19]} programLines={[4]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Al final de la lista de 2, new Edge(2, 1, 2): la misma arista, vista desde 2. E pasa a 3.</div>
     <Pair stack>
       <NodeGraph
@@ -2592,7 +2601,7 @@ la lista de `v`:
       />
     </Pair>
   </Step>
-  <Step lines={[16, 17]} programLines={[57]}>
+  <Step lines={[16, 17]} programLines={[5]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>addEdge(2, 3, 4) agrega la arista 2-3: new Edge(2, 3, 4) al final de la lista de 2.</div>
     <Pair stack>
       <NodeGraph
@@ -2610,7 +2619,7 @@ la lista de `v`:
       />
     </Pair>
   </Step>
-  <Step lines={[18, 19]} programLines={[57]}>
+  <Step lines={[18, 19]} programLines={[5]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Al final de la lista de 3, new Edge(3, 2, 4): la misma arista, vista desde 3. E pasa a 4.</div>
     <Pair stack>
       <NodeGraph
@@ -2749,12 +2758,11 @@ recorrer los vecinos de cada uno:
   language="java"
   beside
   title="degrees(g): un dato por vértice"
-  programSrc="./26-grafos-tda-modelado.code/Main.java"
-  programRange="61-61"
+  program={`int[] degree = Graphs.degrees(g);`}
   codeSrc="./26-grafos-tda-modelado.code/Graphs.java"
   codeRange="33-41"
 >
-  <Step lines={[34]} programLines={[61]}>
+  <Step lines={[34]} programLines={[1]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>new int[4]: un contador por vértice, todos en 0.</div>
     <Pair>
       <NodeGraph
@@ -2776,7 +2784,7 @@ recorrer los vecinos de cada uno:
       label="El arreglo degree: degree[0] = 0, degree[1] = 0, degree[2] = 0, degree[3] = 0."
     />
   </Step>
-  <Step lines={[35, 36, 37]} programLines={[61]}>
+  <Step lines={[35, 36, 37]} programLines={[1]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>v = 0, w = 1: degree[0] pasa a 1.</div>
     <Pair>
       <NodeGraph
@@ -2800,7 +2808,7 @@ recorrer los vecinos de cada uno:
       label="El arreglo degree: degree[0] = 1, degree[1] = 0, degree[2] = 0, degree[3] = 0. Marcado, degree[0]."
     />
   </Step>
-  <Step lines={[35, 36, 37]} programLines={[61]}>
+  <Step lines={[35, 36, 37]} programLines={[1]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>v = 0, w = 2: degree[0] pasa a 2.</div>
     <Pair>
       <NodeGraph
@@ -2824,7 +2832,7 @@ recorrer los vecinos de cada uno:
       label="El arreglo degree: degree[0] = 2, degree[1] = 0, degree[2] = 0, degree[3] = 0. Marcado, degree[0]."
     />
   </Step>
-  <Step lines={[35, 36, 37]} programLines={[61]}>
+  <Step lines={[35, 36, 37]} programLines={[1]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>v = 1, w = 0: degree[1] pasa a 1.</div>
     <Pair>
       <NodeGraph
@@ -2848,7 +2856,7 @@ recorrer los vecinos de cada uno:
       label="El arreglo degree: degree[0] = 2, degree[1] = 1, degree[2] = 0, degree[3] = 0. Marcado, degree[1]."
     />
   </Step>
-  <Step lines={[35, 36, 37]} programLines={[61]}>
+  <Step lines={[35, 36, 37]} programLines={[1]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>v = 1, w = 2: degree[1] pasa a 2.</div>
     <Pair>
       <NodeGraph
@@ -2872,7 +2880,7 @@ recorrer los vecinos de cada uno:
       label="El arreglo degree: degree[0] = 2, degree[1] = 2, degree[2] = 0, degree[3] = 0. Marcado, degree[1]."
     />
   </Step>
-  <Step lines={[35, 36, 37]} programLines={[61]}>
+  <Step lines={[35, 36, 37]} programLines={[1]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>v = 2, w = 0: degree[2] pasa a 1.</div>
     <Pair>
       <NodeGraph
@@ -2896,7 +2904,7 @@ recorrer los vecinos de cada uno:
       label="El arreglo degree: degree[0] = 2, degree[1] = 2, degree[2] = 1, degree[3] = 0. Marcado, degree[2]."
     />
   </Step>
-  <Step lines={[35, 36, 37]} programLines={[61]}>
+  <Step lines={[35, 36, 37]} programLines={[1]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>v = 2, w = 1: degree[2] pasa a 2.</div>
     <Pair>
       <NodeGraph
@@ -2920,7 +2928,7 @@ recorrer los vecinos de cada uno:
       label="El arreglo degree: degree[0] = 2, degree[1] = 2, degree[2] = 2, degree[3] = 0. Marcado, degree[2]."
     />
   </Step>
-  <Step lines={[35, 36, 37]} programLines={[61]}>
+  <Step lines={[35, 36, 37]} programLines={[1]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>v = 2, w = 3: degree[2] pasa a 3.</div>
     <Pair>
       <NodeGraph
@@ -2944,7 +2952,7 @@ recorrer los vecinos de cada uno:
       label="El arreglo degree: degree[0] = 2, degree[1] = 2, degree[2] = 3, degree[3] = 0. Marcado, degree[2]."
     />
   </Step>
-  <Step lines={[35, 36, 37]} programLines={[61]}>
+  <Step lines={[35, 36, 37]} programLines={[1]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>v = 3, w = 2: degree[3] pasa a 1.</div>
     <Pair>
       <NodeGraph
@@ -2968,7 +2976,7 @@ recorrer los vecinos de cada uno:
       label="El arreglo degree: degree[0] = 2, degree[1] = 2, degree[2] = 3, degree[3] = 1. Marcado, degree[3]."
     />
   </Step>
-  <Step lines={[40]} programLines={[61]}>
+  <Step lines={[40]} programLines={[1]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Retorna el arreglo: el grado de cada vértice, en su posición.</div>
     <Pair>
       <NodeGraph
@@ -3026,8 +3034,11 @@ ese recorrido, y además deja usar los nombres sin traducirlos:
   language="java"
   beside
   title="Un conjunto por vértice"
-  programSrc="./26-grafos-tda-modelado.code/Main.java"
-  programRange="65-69"
+  program={`NameGraph g = new NameGraph();
+  g.addEdge("ana", "beto");
+  g.addEdge("ana", "carla");
+  g.addEdge("beto", "carla");
+  g.addEdge("ana", "beto");`}
   codeSrc="./26-grafos-tda-modelado.code/NameGraph.java"
   codeRange="7-18"
 >
@@ -3049,7 +3060,7 @@ ese recorrido, y además deja usar los nombres sin traducirlos:
       />
     </Pair>
   </Step>
-  <Step lines={[9, 10, 11]} programLines={[66]}>
+  <Step lines={[9, 10, 11]} programLines={[2]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>addEdge(ana, beto): ana no está en el mapa, y entra con un conjunto vacío.</div>
     <Pair>
       <NodeGraph
@@ -3068,7 +3079,7 @@ ese recorrido, y además deja usar los nombres sin traducirlos:
       />
     </Pair>
   </Step>
-  <Step lines={[13, 14]} programLines={[66]}>
+  <Step lines={[13, 14]} programLines={[2]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>beto tampoco está en el mapa, y entra con un conjunto vacío.</div>
     <Pair>
       <NodeGraph
@@ -3087,7 +3098,7 @@ ese recorrido, y además deja usar los nombres sin traducirlos:
       />
     </Pair>
   </Step>
-  <Step lines={[16]} programLines={[66]}>
+  <Step lines={[16]} programLines={[2]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>beto entra al conjunto de ana.</div>
     <Pair>
       <NodeGraph
@@ -3106,7 +3117,7 @@ ese recorrido, y además deja usar los nombres sin traducirlos:
       />
     </Pair>
   </Step>
-  <Step lines={[17]} programLines={[66]}>
+  <Step lines={[17]} programLines={[2]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>ana entra al conjunto de beto.</div>
     <Pair>
       <NodeGraph
@@ -3125,7 +3136,7 @@ ese recorrido, y además deja usar los nombres sin traducirlos:
       />
     </Pair>
   </Step>
-  <Step lines={[9, 10, 13, 14]} programLines={[67]}>
+  <Step lines={[9, 10, 13, 14]} programLines={[3]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>addEdge(ana, carla): ana ya está en el mapa; carla no, y entra con un conjunto vacío.</div>
     <Pair>
       <NodeGraph
@@ -3144,7 +3155,7 @@ ese recorrido, y además deja usar los nombres sin traducirlos:
       />
     </Pair>
   </Step>
-  <Step lines={[16]} programLines={[67]}>
+  <Step lines={[16]} programLines={[3]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>carla entra al conjunto de ana.</div>
     <Pair>
       <NodeGraph
@@ -3163,7 +3174,7 @@ ese recorrido, y además deja usar los nombres sin traducirlos:
       />
     </Pair>
   </Step>
-  <Step lines={[17]} programLines={[67]}>
+  <Step lines={[17]} programLines={[3]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>ana entra al conjunto de carla.</div>
     <Pair>
       <NodeGraph
@@ -3182,7 +3193,7 @@ ese recorrido, y además deja usar los nombres sin traducirlos:
       />
     </Pair>
   </Step>
-  <Step lines={[9, 10, 13]} programLines={[68]}>
+  <Step lines={[9, 10, 13]} programLines={[4]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>addEdge(beto, carla): los dos nombres ya están en el mapa.</div>
     <Pair>
       <NodeGraph
@@ -3201,7 +3212,7 @@ ese recorrido, y además deja usar los nombres sin traducirlos:
       />
     </Pair>
   </Step>
-  <Step lines={[16]} programLines={[68]}>
+  <Step lines={[16]} programLines={[4]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>carla entra al conjunto de beto.</div>
     <Pair>
       <NodeGraph
@@ -3220,7 +3231,7 @@ ese recorrido, y además deja usar los nombres sin traducirlos:
       />
     </Pair>
   </Step>
-  <Step lines={[17]} programLines={[68]}>
+  <Step lines={[17]} programLines={[4]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>beto entra al conjunto de carla.</div>
     <Pair>
       <NodeGraph
@@ -3239,7 +3250,7 @@ ese recorrido, y además deja usar los nombres sin traducirlos:
       />
     </Pair>
   </Step>
-  <Step lines={[9, 10, 13]} programLines={[69]}>
+  <Step lines={[9, 10, 13]} programLines={[5]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>addEdge(ana, beto) otra vez: los dos nombres ya están en el mapa.</div>
     <Pair>
       <NodeGraph
@@ -3258,7 +3269,7 @@ ese recorrido, y además deja usar los nombres sin traducirlos:
       />
     </Pair>
   </Step>
-  <Step lines={[16]} programLines={[69]}>
+  <Step lines={[16]} programLines={[5]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>beto ya está en el conjunto de ana: add no lo agrega otra vez.</div>
     <Pair>
       <NodeGraph
@@ -3277,7 +3288,7 @@ ese recorrido, y además deja usar los nombres sin traducirlos:
       />
     </Pair>
   </Step>
-  <Step lines={[17]} programLines={[69]}>
+  <Step lines={[17]} programLines={[5]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>ana ya está en el conjunto de beto: add no lo agrega otra vez.</div>
     <Pair>
       <NodeGraph
@@ -4696,12 +4707,11 @@ candidata.
   language="java"
   beside
   title="celebrity(follows): ana, beto, carla y elena"
-  programSrc="./26-grafos-tda-modelado.code/celebridad/Main.java"
-  programRange="10-10"
+  program={`int c = Solution.celebrity(follows);`}
   codeSrc="./26-grafos-tda-modelado.code/celebridad/Solution.java"
   codeRange="2-22"
 >
-  <Step lines={[3, 4]} programLines={[10]}>
+  <Step lines={[3, 4]} programLines={[1]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>V = 4, y candidate = 0: ana, mientras nadie la descarte.</div>
     <Pair>
       <NodeGraph
@@ -4721,7 +4731,7 @@ candidata.
       <OutputBox head="candidate" lines={['0 ana']} rows={2} fresh label="candidate: 0 ana." />
     </Pair>
   </Step>
-  <Step lines={[5, 6, 7]} programLines={[10]}>
+  <Step lines={[5, 6, 7]} programLines={[1]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>i = 1: [0][1] es true, ana sigue a beto. Ana no es celebridad; candidate = 1.</div>
     <Pair>
       <NodeGraph
@@ -4742,7 +4752,7 @@ candidata.
       <OutputBox head="candidate" lines={['1 beto']} rows={2} fresh label="candidate: 1 beto." />
     </Pair>
   </Step>
-  <Step lines={[5, 6]} programLines={[10]}>
+  <Step lines={[5, 6]} programLines={[1]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>i = 2: [1][2] es false, beto no sigue a carla. Carla no es celebridad.</div>
     <Pair>
       <NodeGraph
@@ -4762,7 +4772,7 @@ candidata.
       <OutputBox head="candidate" lines={['1 beto']} rows={2} label="candidate: 1 beto." />
     </Pair>
   </Step>
-  <Step lines={[5, 6, 7]} programLines={[10]}>
+  <Step lines={[5, 6, 7]} programLines={[1]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>i = 3: [1][3] es true, beto sigue a elena. Beto no es celebridad; candidate = 3.</div>
     <Pair>
       <NodeGraph
@@ -4783,7 +4793,7 @@ candidata.
       <OutputBox head="candidate" lines={['3 elena']} rows={2} fresh label="candidate: 3 elena." />
     </Pair>
   </Step>
-  <Step lines={[10, 11, 14]} programLines={[10]}>
+  <Step lines={[10, 11, 14]} programLines={[1]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>i = 0, ana: [3][0] es false, elena no sigue a ana.</div>
     <Pair>
       <NodeGraph
@@ -4803,7 +4813,7 @@ candidata.
       <OutputBox head="candidate" lines={['3 elena']} rows={2} label="candidate: 3 elena." />
     </Pair>
   </Step>
-  <Step lines={[17]} programLines={[10]}>
+  <Step lines={[17]} programLines={[1]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>[0][3] es true: ana sigue a elena.</div>
     <Pair>
       <NodeGraph
@@ -4824,7 +4834,7 @@ candidata.
       <OutputBox head="candidate" lines={['3 elena']} rows={2} label="candidate: 3 elena." />
     </Pair>
   </Step>
-  <Step lines={[10, 11, 14]} programLines={[10]}>
+  <Step lines={[10, 11, 14]} programLines={[1]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>i = 1, beto: [3][1] es false, elena no sigue a beto.</div>
     <Pair>
       <NodeGraph
@@ -4844,7 +4854,7 @@ candidata.
       <OutputBox head="candidate" lines={['3 elena']} rows={2} label="candidate: 3 elena." />
     </Pair>
   </Step>
-  <Step lines={[17]} programLines={[10]}>
+  <Step lines={[17]} programLines={[1]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>[1][3] es true: beto sigue a elena.</div>
     <Pair>
       <NodeGraph
@@ -4865,7 +4875,7 @@ candidata.
       <OutputBox head="candidate" lines={['3 elena']} rows={2} label="candidate: 3 elena." />
     </Pair>
   </Step>
-  <Step lines={[10, 11, 14]} programLines={[10]}>
+  <Step lines={[10, 11, 14]} programLines={[1]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>i = 2, carla: [3][2] es false, elena no sigue a carla.</div>
     <Pair>
       <NodeGraph
@@ -4885,7 +4895,7 @@ candidata.
       <OutputBox head="candidate" lines={['3 elena']} rows={2} label="candidate: 3 elena." />
     </Pair>
   </Step>
-  <Step lines={[17]} programLines={[10]}>
+  <Step lines={[17]} programLines={[1]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>[2][3] es true: carla sigue a elena.</div>
     <Pair>
       <NodeGraph
@@ -4906,7 +4916,7 @@ candidata.
       <OutputBox head="candidate" lines={['3 elena']} rows={2} label="candidate: 3 elena." />
     </Pair>
   </Step>
-  <Step lines={[10, 11, 12]} programLines={[10]}>
+  <Step lines={[10, 11, 12]} programLines={[1]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>i = 3 es la candidata: continue, sin mirar casillas.</div>
     <Pair>
       <NodeGraph
@@ -4926,7 +4936,7 @@ candidata.
       <OutputBox head="candidate" lines={['3 elena']} rows={2} label="candidate: 3 elena." />
     </Pair>
   </Step>
-  <Step lines={[21]} programLines={[10]}>
+  <Step lines={[21]} programLines={[1]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Nadie la descartó: retorna 3, elena.</div>
     <Pair>
       <NodeGraph
@@ -6355,12 +6365,11 @@ celda libre de grado 1 suma un callejón. La caminata es sin diagonales.
   language="java"
   beside
   title="deadEnds(maze, false)"
-  programSrc="./26-grafos-tda-modelado.code/laberinto/Main.java"
-  programRange="4-4"
+  program={`int count = Solution.deadEnds(maze, false);`}
   codeSrc="./26-grafos-tda-modelado.code/laberinto/Solution.java"
   codeRange="24-37"
 >
-  <Step lines={[25, 26, 27]} programLines={[4]}>
+  <Step lines={[25, 26, 27]} programLines={[1]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>Sin diagonales: dr y dc son los de 4 vecinas, y count empieza en 0.</div>
     <MazeGrid
       grid={['...#.', '#.##.', '#....', '#.###']}
@@ -6369,7 +6378,7 @@ celda libre de grado 1 suma un callejón. La caminata es sin diagonales.
     />
     <OutputBox head="count" lines={['0']} rows={2} fresh label="count: 0." />
   </Step>
-  <Step lines={[28, 29, 30, 31, 32]} programLines={[4]}>
+  <Step lines={[28, 29, 30, 31, 32]} programLines={[1]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>(0, 0): libre, con 1 vecina libre. Es un callejón: count = 1.</div>
     <MazeGrid
       grid={['...#.', '#.##.', '#....', '#.###']}
@@ -6381,7 +6390,7 @@ celda libre de grado 1 suma un callejón. La caminata es sin diagonales.
     />
     <OutputBox head="count" lines={['1']} rows={2} fresh label="count: 1." />
   </Step>
-  <Step lines={[28, 29, 30, 31]} programLines={[4]}>
+  <Step lines={[28, 29, 30, 31]} programLines={[1]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>(0, 1): libre, con 3 vecinas libres. No es un callejón.</div>
     <MazeGrid
       grid={['...#.', '#.##.', '#....', '#.###']}
@@ -6393,7 +6402,7 @@ celda libre de grado 1 suma un callejón. La caminata es sin diagonales.
     />
     <OutputBox head="count" lines={['1']} rows={2} label="count: 1." />
   </Step>
-  <Step lines={[28, 29, 30, 31, 32]} programLines={[4]}>
+  <Step lines={[28, 29, 30, 31, 32]} programLines={[1]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>(0, 2): libre, con 1 vecina libre. Es un callejón: count = 2.</div>
     <MazeGrid
       grid={['...#.', '#.##.', '#....', '#.###']}
@@ -6405,7 +6414,7 @@ celda libre de grado 1 suma un callejón. La caminata es sin diagonales.
     />
     <OutputBox head="count" lines={['2']} rows={2} fresh label="count: 2." />
   </Step>
-  <Step lines={[28, 29, 30]} programLines={[4]}>
+  <Step lines={[28, 29, 30]} programLines={[1]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>(0, 3) es muro: free es false, y el && no llama a degree.</div>
     <MazeGrid
       grid={['...#.', '#.##.', '#....', '#.###']}
@@ -6416,7 +6425,7 @@ celda libre de grado 1 suma un callejón. La caminata es sin diagonales.
     />
     <OutputBox head="count" lines={['2']} rows={2} label="count: 2." />
   </Step>
-  <Step lines={[28, 29, 30, 31, 32]} programLines={[4]}>
+  <Step lines={[28, 29, 30, 31, 32]} programLines={[1]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>(0, 4): libre, con 1 vecina libre. Es un callejón: count = 3.</div>
     <MazeGrid
       grid={['...#.', '#.##.', '#....', '#.###']}
@@ -6428,7 +6437,7 @@ celda libre de grado 1 suma un callejón. La caminata es sin diagonales.
     />
     <OutputBox head="count" lines={['3']} rows={2} fresh label="count: 3." />
   </Step>
-  <Step lines={[28, 29, 30, 31]} programLines={[4]}>
+  <Step lines={[28, 29, 30, 31]} programLines={[1]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>(1, 1): libre, con 2 vecinas libres. No es un callejón.</div>
     <MazeGrid
       grid={['...#.', '#.##.', '#....', '#.###']}
@@ -6440,7 +6449,7 @@ celda libre de grado 1 suma un callejón. La caminata es sin diagonales.
     />
     <OutputBox head="count" lines={['3']} rows={2} label="count: 3." />
   </Step>
-  <Step lines={[28, 29, 30, 31]} programLines={[4]}>
+  <Step lines={[28, 29, 30, 31]} programLines={[1]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>(1, 4): libre, con 2 vecinas libres. No es un callejón.</div>
     <MazeGrid
       grid={['...#.', '#.##.', '#....', '#.###']}
@@ -6452,7 +6461,7 @@ celda libre de grado 1 suma un callejón. La caminata es sin diagonales.
     />
     <OutputBox head="count" lines={['3']} rows={2} label="count: 3." />
   </Step>
-  <Step lines={[28, 29, 30, 31]} programLines={[4]}>
+  <Step lines={[28, 29, 30, 31]} programLines={[1]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>(2, 1): libre, con 3 vecinas libres. No es un callejón.</div>
     <MazeGrid
       grid={['...#.', '#.##.', '#....', '#.###']}
@@ -6464,7 +6473,7 @@ celda libre de grado 1 suma un callejón. La caminata es sin diagonales.
     />
     <OutputBox head="count" lines={['3']} rows={2} label="count: 3." />
   </Step>
-  <Step lines={[28, 29, 30, 31]} programLines={[4]}>
+  <Step lines={[28, 29, 30, 31]} programLines={[1]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>(2, 2): libre, con 2 vecinas libres. No es un callejón.</div>
     <MazeGrid
       grid={['...#.', '#.##.', '#....', '#.###']}
@@ -6476,7 +6485,7 @@ celda libre de grado 1 suma un callejón. La caminata es sin diagonales.
     />
     <OutputBox head="count" lines={['3']} rows={2} label="count: 3." />
   </Step>
-  <Step lines={[28, 29, 30, 31]} programLines={[4]}>
+  <Step lines={[28, 29, 30, 31]} programLines={[1]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>(2, 3): libre, con 2 vecinas libres. No es un callejón.</div>
     <MazeGrid
       grid={['...#.', '#.##.', '#....', '#.###']}
@@ -6488,7 +6497,7 @@ celda libre de grado 1 suma un callejón. La caminata es sin diagonales.
     />
     <OutputBox head="count" lines={['3']} rows={2} label="count: 3." />
   </Step>
-  <Step lines={[28, 29, 30, 31]} programLines={[4]}>
+  <Step lines={[28, 29, 30, 31]} programLines={[1]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>(2, 4): libre, con 2 vecinas libres. No es un callejón.</div>
     <MazeGrid
       grid={['...#.', '#.##.', '#....', '#.###']}
@@ -6500,7 +6509,7 @@ celda libre de grado 1 suma un callejón. La caminata es sin diagonales.
     />
     <OutputBox head="count" lines={['3']} rows={2} label="count: 3." />
   </Step>
-  <Step lines={[28, 29, 30, 31, 32]} programLines={[4]}>
+  <Step lines={[28, 29, 30, 31, 32]} programLines={[1]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>(3, 1): libre, con 1 vecina libre. Es un callejón: count = 4.</div>
     <MazeGrid
       grid={['...#.', '#.##.', '#....', '#.###']}
@@ -6512,7 +6521,7 @@ celda libre de grado 1 suma un callejón. La caminata es sin diagonales.
     />
     <OutputBox head="count" lines={['4']} rows={2} fresh label="count: 4." />
   </Step>
-  <Step lines={[36]} programLines={[4]}>
+  <Step lines={[36]} programLines={[1]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>Retorna 4: los cuatro vértices de grado 1.</div>
     <MazeGrid
       grid={['...#.', '#.##.', '#....', '#.###']}
@@ -6699,12 +6708,12 @@ antes de pasar a la siguiente rueda.
   language="java"
   beside
   title="moves(0000, {1000, 0009})"
-  programSrc="./26-grafos-tda-modelado.code/candado/Main.java"
-  programRange="5-6"
+  program={`List<String> next =
+          Solution.moves("0000", new String[] {"1000", "0009"});`}
   codeSrc="./26-grafos-tda-modelado.code/candado/Solution.java"
   codeRange="8-30"
 >
-  <Step lines={[10, 11]} programLines={[5, 6]}>
+  <Step lines={[10, 11]} programLines={[1, 2]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>blocked guarda las prohibidas, 1000 y 0009, en un HashSet.</div>
     <Pair stack>
       <NodeGraph
@@ -6724,7 +6733,7 @@ antes de pasar a la siguiente rueda.
       />
     </Pair>
   </Step>
-  <Step lines={[12, 13]} programLines={[5, 6]}>
+  <Step lines={[12, 13]} programLines={[1, 2]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>result empieza vacía, y 0000 no está prohibida: el método sigue.</div>
     <Pair stack>
       <NodeGraph
@@ -6744,7 +6753,7 @@ antes de pasar a la siguiente rueda.
       />
     </Pair>
   </Step>
-  <Step lines={[16]} programLines={[5, 6]}>
+  <Step lines={[16]} programLines={[1, 2]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>digits: los cuatro caracteres de 0000, para cambiarlos de a uno.</div>
     <Pair stack>
       <NodeGraph
@@ -6764,7 +6773,7 @@ antes de pasar a la siguiente rueda.
       />
     </Pair>
   </Step>
-  <Step lines={[17, 18, 19, 20, 21, 22, 23]} programLines={[5, 6]}>
+  <Step lines={[17, 18, 19, 20, 21, 22, 23]} programLines={[1, 2]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>Rueda 0, original = '0'. step = 1: d = (0 + 1) % 10 = 1, y next = 1000, que está prohibida: no entra.</div>
     <Pair stack>
       <NodeGraph
@@ -6785,7 +6794,7 @@ antes de pasar a la siguiente rueda.
       />
     </Pair>
   </Step>
-  <Step lines={[19, 20, 21, 22, 23, 24]} programLines={[5, 6]}>
+  <Step lines={[19, 20, 21, 22, 23, 24]} programLines={[1, 2]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>step = 9: d = (0 + 9) % 10 = 9, y next = 9000, que no está prohibida: entra a result.</div>
     <Pair stack>
       <NodeGraph
@@ -6806,7 +6815,7 @@ antes de pasar a la siguiente rueda.
       />
     </Pair>
   </Step>
-  <Step lines={[27]} programLines={[5, 6]}>
+  <Step lines={[27]} programLines={[1, 2]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>digits[0] = original: la rueda 0 vuelve a 0 antes de girar la siguiente.</div>
     <Pair stack>
       <NodeGraph
@@ -6826,7 +6835,7 @@ antes de pasar a la siguiente rueda.
       />
     </Pair>
   </Step>
-  <Step lines={[17, 18, 19, 20, 21, 22, 23, 24]} programLines={[5, 6]}>
+  <Step lines={[17, 18, 19, 20, 21, 22, 23, 24]} programLines={[1, 2]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>Rueda 1, original = '0'. step = 1: d = (0 + 1) % 10 = 1, y next = 0100, que no está prohibida: entra a result.</div>
     <Pair stack>
       <NodeGraph
@@ -6847,7 +6856,7 @@ antes de pasar a la siguiente rueda.
       />
     </Pair>
   </Step>
-  <Step lines={[19, 20, 21, 22, 23, 24]} programLines={[5, 6]}>
+  <Step lines={[19, 20, 21, 22, 23, 24]} programLines={[1, 2]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>step = 9: d = (0 + 9) % 10 = 9, y next = 0900, que no está prohibida: entra a result.</div>
     <Pair stack>
       <NodeGraph
@@ -6868,7 +6877,7 @@ antes de pasar a la siguiente rueda.
       />
     </Pair>
   </Step>
-  <Step lines={[27]} programLines={[5, 6]}>
+  <Step lines={[27]} programLines={[1, 2]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>digits[1] = original: la rueda 1 vuelve a 0 antes de girar la siguiente.</div>
     <Pair stack>
       <NodeGraph
@@ -6888,7 +6897,7 @@ antes de pasar a la siguiente rueda.
       />
     </Pair>
   </Step>
-  <Step lines={[17, 18, 19, 20, 21, 22, 23, 24]} programLines={[5, 6]}>
+  <Step lines={[17, 18, 19, 20, 21, 22, 23, 24]} programLines={[1, 2]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>Rueda 2, original = '0'. step = 1: d = (0 + 1) % 10 = 1, y next = 0010, que no está prohibida: entra a result.</div>
     <Pair stack>
       <NodeGraph
@@ -6909,7 +6918,7 @@ antes de pasar a la siguiente rueda.
       />
     </Pair>
   </Step>
-  <Step lines={[19, 20, 21, 22, 23, 24]} programLines={[5, 6]}>
+  <Step lines={[19, 20, 21, 22, 23, 24]} programLines={[1, 2]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>step = 9: d = (0 + 9) % 10 = 9, y next = 0090, que no está prohibida: entra a result.</div>
     <Pair stack>
       <NodeGraph
@@ -6930,7 +6939,7 @@ antes de pasar a la siguiente rueda.
       />
     </Pair>
   </Step>
-  <Step lines={[27]} programLines={[5, 6]}>
+  <Step lines={[27]} programLines={[1, 2]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>digits[2] = original: la rueda 2 vuelve a 0 antes de girar la siguiente.</div>
     <Pair stack>
       <NodeGraph
@@ -6950,7 +6959,7 @@ antes de pasar a la siguiente rueda.
       />
     </Pair>
   </Step>
-  <Step lines={[17, 18, 19, 20, 21, 22, 23, 24]} programLines={[5, 6]}>
+  <Step lines={[17, 18, 19, 20, 21, 22, 23, 24]} programLines={[1, 2]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>Rueda 3, original = '0'. step = 1: d = (0 + 1) % 10 = 1, y next = 0001, que no está prohibida: entra a result.</div>
     <Pair stack>
       <NodeGraph
@@ -6971,7 +6980,7 @@ antes de pasar a la siguiente rueda.
       />
     </Pair>
   </Step>
-  <Step lines={[19, 20, 21, 22, 23]} programLines={[5, 6]}>
+  <Step lines={[19, 20, 21, 22, 23]} programLines={[1, 2]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>step = 9: d = (0 + 9) % 10 = 9, y next = 0009, que está prohibida: no entra.</div>
     <Pair stack>
       <NodeGraph
@@ -6992,7 +7001,7 @@ antes de pasar a la siguiente rueda.
       />
     </Pair>
   </Step>
-  <Step lines={[27]} programLines={[5, 6]}>
+  <Step lines={[27]} programLines={[1, 2]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>digits[3] = original: la rueda 3 vuelve a 0 antes de girar la siguiente.</div>
     <Pair stack>
       <NodeGraph
@@ -7012,7 +7021,7 @@ antes de pasar a la siguiente rueda.
       />
     </Pair>
   </Step>
-  <Step lines={[29]} programLines={[5, 6]}>
+  <Step lines={[29]} programLines={[1, 2]}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>Retorna las 6 combinaciones a un giro que no están prohibidas.</div>
     <Pair stack>
       <NodeGraph

@@ -48,7 +48,9 @@ export function CodeListing({
       className={grow ? 'flex flex-1 flex-col bg-surface' : 'flex flex-col bg-surface'}
     >
       <div className="flex items-center gap-2 border-b border-rule bg-sunk px-3 py-0.5">
-        <FileCode2 className="h-3.5 w-3.5 shrink-0 text-ink-soft" aria-hidden />
+        {excerpt === undefined ? null : (
+          <FileCode2 className="h-3.5 w-3.5 shrink-0 text-ink-soft" aria-hidden />
+        )}
         <span className="font-mono text-xs font-semibold text-ink">{name}</span>
         {excerpt === undefined ? null : (
           <span className="font-mono text-3xs text-ink-faint" data-testid="listing-range">
