@@ -39,4 +39,14 @@ public class Graphs {
         }
         return degree;
     }
+
+    static void readWeightedEdges(Scanner in, WeightedGraph g) {
+        int E = in.nextInt();
+        for (int i = 0; i < E; i++) {
+            int v = in.nextInt();
+            int w = in.nextInt();
+            int weight = in.nextInt();
+            g.addEdge(v, w, weight);
+        }
+    }
 }

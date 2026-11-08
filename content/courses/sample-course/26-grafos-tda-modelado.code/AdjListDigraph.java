@@ -19,7 +19,9 @@ public class AdjListDigraph implements Graph {
 
     public int V() { return lists.size(); }
     public int E() { return E; }
-    public Iterable<Integer> adj(int v) { return lists.get(v); }
+    public Iterable<Integer> adj(int v) {
+        return lists.get(v);
+    }
 
     public boolean hasEdge(int v, int w) {
         for (int x : lists.get(v)) {

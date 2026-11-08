@@ -14,9 +14,10 @@ public class WeightedMatrixGraph implements WeightedGraph {
     }
 
     public void addEdge(int v, int w, int weight) {
-        if (weights[v][w] == Integer.MAX_VALUE) E++;
+        if (weights[v][w] != Integer.MAX_VALUE) return;
         weights[v][w] = weight;
         weights[w][v] = weight;
+        E++;
     }
 
     public int V() { return weights.length; }

@@ -13,9 +13,10 @@ public class AdjMatrixGraph implements Graph {
     public int E() { return E; }
 
     public void addEdge(int v, int w) {
-        if (!matrix[v][w]) E++;
+        if (matrix[v][w]) return;
         matrix[v][w] = true;
         matrix[w][v] = true;
+        E++;
     }
 
     public boolean hasEdge(int v, int w) {
