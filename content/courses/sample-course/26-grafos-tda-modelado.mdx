@@ -5864,78 +5864,87 @@ eso Steven Skiena aconseja: «diseña grafos, no algoritmos».
 {/* Exercise 1: the friendships of a social network as lines of usernames. */}
 
 <Slide title="Sugerir amigos">
-Una red social le sugiere a cada persona alguien que todavía no es su amigo:
-la persona con más **amigos en común** con ella. Un amigo en común de dos
-personas es alguien que es amigo de las dos.
+<div className="measure-full">
 
-<div style={{ display: 'grid', gridTemplateColumns: 'auto auto 1fr', gap: '0 1.5rem', alignItems: 'center' }}>
-  <InputLines head="friendships" lines={['ana beto', 'ana carla', 'beto carla', 'beto diego', 'carla diego', 'diego elena']} read={6} label="La entrada, una amistad por línea: ana beto, ana carla, beto carla, beto diego, carla diego, diego elena." />
-  <InputLines head="user" lines={['ana']} read={1} label="El usuario que recibe la sugerencia: ana." />
-  <ArrayRows
-    rows={[{ name: 'amigos de beto', cells: ['ana', 'carla', 'diego'], head: ['', '', ''] }, { name: 'amigos de carla', cells: ['ana', 'beto', 'diego'], head: ['', '', ''] }]}
-    mark={[[0, 0], [0, 2], [1, 0], [1, 2]]}
-    cols={3}
-    caption="ana y diego: los amigos en común de beto y carla"
-    label="Los amigos de beto son ana, carla y diego; los de carla, ana, beto y diego. Marcados, ana y diego, que son amigos de los dos."
-  />
+Una red social le sugiere a cada usuario alguien para agregar como amigo.
+
+**Dado un usuario, ¿a quién se le sugiere?** A la persona que no es su amiga,
+ni el usuario mismo, que tiene más **amigos en común** con él.
+
+Un amigo en común de dos personas es alguien que es amigo de las dos. Si dos personas
+empatan, se sugiere la que aparece primero en las amistades; si nadie tiene
+un amigo en común con el usuario, no se sugiere a nadie.
+
+**Implemente** el método:
+
+<SourceFile src="./26-grafos-tda-modelado.code/amigos/Solution.java" range="7-7" />
+
+**Entrada:**
+
+- `friendships`: las amistades de la red. Cada una es un `String` con los
+  nombres de las dos personas separados por un espacio; son a lo más
+  $$10^5$$, sin repetir, y los nombres no tienen espacios.
+- `user`: el nombre del usuario, que aparece en alguna amistad.
+
+**Salida:**
+
+El nombre de la persona sugerida, o `null` si no se sugiere a
+nadie.
+
 </div>
 
 </Slide>
 
-<Slide title="Sugerir amigos · entrada y salida">
-<SourceFile src="./26-grafos-tda-modelado.code/amigos/Solution.java" range="7-7" />
+<Slide title="Sugerir amigos · ejemplo">
+Con estas amistades y `user` = `"ana"`, el método retorna `"diego"`:
 
-| Recibe          | Qué es                                                                    | En el ejemplo            |
-| --------------- | ------------------------------------------------------------------------- | ------------------------ |
-| `friendships`   | las amistades de la red: cada `String` es una amistad, los nombres de las dos personas separados por un espacio. A lo más $$10^5$$, sin repetir | `"ana beto"`, `"ana carla"`, … |
-| `user`          | el nombre de quien recibe la sugerencia; aparece en alguna amistad        | `"ana"`                  |
-
-**Retorna** el nombre de la persona que se le sugiere a `user`, en tres pasos:
-
-1. **Las candidatas** son todas las personas menos `user` y sus amigos: a
-   ellos no hay nada que sugerirles.
-2. **De cada candidata se cuentan los amigos en común con `user`.**
-3. **Gana la que tiene más.** Si dos empatan, gana la que aparece primero en
-   `friendships`. Si ninguna tiene un amigo en común, retorna `null`.
+<div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '2.5rem' }}>
+  <InputLines head="friendships" lines={['ana beto', 'ana carla', 'beto carla', 'beto diego', 'carla diego', 'diego elena']} read={6} label="Las amistades, una por línea: ana beto, ana carla, beto carla, beto diego, carla diego, diego elena." />
+  <InputLines head="user" lines={['ana']} read={1} label="El usuario: ana." />
+  <OutputBox head="retorna" lines={['"diego"']} rows={1} label="Retorna diego." />
+</div>
 
 </Slide>
 
 <Slide title="Sugerir amigos · el modelo">
-| Decisión                 | En este problema                                                                  |
-| ------------------------ | --------------------------------------------------------------------------------- |
-| La pregunta              | ¿A quién le sugiero a `user`?                                                     |
-| Los vértices             | las personas: cada nombre recibe un número, en el orden en que aparece             |
-| Las aristas              | las amistades: cada línea de `friendships` une a dos personas                     |
-| El tipo                  | **no dirigido**, porque la amistad va en los dos sentidos; **no ponderado**, porque no trae un número |
+El problema habla de personas y de amistades. El modelo decide qué son en el
+grafo:
+
+| Pregunta              | Respuesta              | Por qué                                                                 |
+| --------------------- | ---------------------- | ----------------------------------------------------------------------- |
+| ¿Qué es un vértice?   | una persona            | la pregunta habla de personas; cada nombre recibe un número, en el orden en que aparece |
+| ¿Qué es una arista?   | una amistad            | cada `String` de `friendships` une a dos personas                      |
+| ¿Tiene dirección?     | no: **no dirigido**    | la amistad va en los dos sentidos                                       |
+| ¿Tiene peso?          | no: **no ponderado**   | una amistad no trae un número                                           |
 
 <Pair>
-  <InputLines head="friendships" lines={['ana beto', 'ana carla', 'beto carla', 'beto diego', 'carla diego', 'diego elena']} read={6} label="La entrada, una amistad por línea: ana beto, ana carla, beto carla, beto diego, carla diego, diego elena." />
+  <InputLines head="friendships" lines={['ana beto', 'ana carla', 'beto carla', 'beto diego', 'carla diego', 'diego elena']} read={6} label="Las amistades, una por línea: ana beto, ana carla, beto carla, beto diego, carla diego, diego elena." />
   <NodeGraph
     cols={6}
     rows={3}
     nodes={[{ v: '0 ana', x: 0, y: 1 }, { v: '1 beto', x: 1.5, y: 0 }, { v: '2 carla', x: 1.5, y: 2 }, { v: '3 diego', x: 3, y: 1 }, { v: '4 elena', x: 4.5, y: 2 }]}
     edges={[['0 ana', '1 beto'], ['0 ana', '2 carla'], ['1 beto', '2 carla'], ['1 beto', '3 diego'], ['2 carla', '3 diego'], ['3 diego', '4 elena']]}
-    caption="cada línea, una arista; cada nombre, un número"
-    label="El grafo de la entrada: ana es el 0, beto el 1, carla el 2, diego el 3 y elena el 4, numerados en el orden en que aparecen, con una arista por línea."
+    caption="cada amistad, una arista; cada nombre, un número"
+    label="El grafo del ejemplo: ana es el 0, beto el 1, carla el 2, diego el 3 y elena el 4, en el orden en que aparecen, con una arista por amistad."
   />
 </Pair>
 
 </Slide>
 
 <Slide title="Sugerir amigos · la pregunta en el grafo">
-En el grafo, un amigo en común de dos personas es un **vecino que comparten**.
-La pregunta se escribe así: entre los vértices que no son `user` ni sus
-vecinos, ¿cuál comparte más vecinos con `user`? Con el grafo dibujado, se
-responde mirándolo:
+En el grafo, un amigo en común de dos personas es un **vecino que
+comparten**. La pregunta queda así: **entre los vértices que no son `user`
+ni sus vecinos, ¿cuál comparte más vecinos con `user`?** Con el grafo
+dibujado, la salida del ejemplo se ve:
 
-<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.5rem 1.5rem', alignItems: 'end' }}>
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.5rem 1.5rem', alignItems: 'end' }}>
 <NodeGraph
   cols={6}
   rows={3}
   nodes={[{ v: 'ana', x: 0, y: 1 }, { v: 'beto', x: 1.5, y: 0 }, { v: 'carla', x: 1.5, y: 2 }, { v: 'diego', x: 3, y: 1 }, { v: 'elena', x: 4.5, y: 2 }]}
   edges={[['ana', 'beto'], ['ana', 'carla'], ['beto', 'carla'], ['beto', 'diego'], ['carla', 'diego'], ['diego', 'elena']]}
   tones={{ 'ana': 'mark', 'beto': 'keep', 'carla': 'keep' }}
-  caption="1. fuera ana y sus vecinos: las candidatas son diego y elena"
+  caption="1. fuera ana y sus vecinos: quedan diego y elena"
   label="ana, destacada, y sus vecinos beto y carla quedan fuera. Las candidatas son diego y elena."
 />
 <NodeGraph
@@ -5956,110 +5965,134 @@ responde mirándolo:
   edges={[['ana', 'beto'], ['ana', 'carla'], ['beto', 'carla'], ['beto', 'diego'], ['carla', 'diego'], ['diego', 'elena']]}
   markEdges={[['diego', 'elena']]}
   tones={{ 'ana': 'mark', 'elena': 'mark' }}
-  notes={{ 'elena': 0, 'diego': 2 }}
-  caption="3. el único vecino de elena, diego, no es vecino de ana: 0"
+  notes={{ 'elena': 0 }}
+  caption="3. el único vecino de elena no es vecino de ana: 0"
   label="elena tiene un solo vecino, diego, que no es vecino de ana: no comparten ninguno."
 />
 </div>
 
-La respuesta del ejemplo es **diego**, con dos vecinos compartidos. Sin
-candidatas, o si ninguna comparte un vecino, la respuesta es `null`.
-Responderla no es una operación del contrato: hay que recorrer los vecinos de
-los vecinos de `user`, con `adj`.
+Diego comparte dos vecinos con ana, y elena ninguno: la salida es `"diego"`.
+Esta pregunta no la responde una operación del contrato: hay que mirar los
+vecinos de los vecinos de `user`, con `adj`.
+
+</Slide>
+
+<Slide title="Sugerir amigos · cuántos vértices y aristas">
+Para elegir dónde guardar el grafo hay que saber cuán grande puede llegar a
+ser. El enunciado solo acota las amistades; lo demás se deduce, paso a paso:
+
+1. **Las aristas.** El enunciado dice «a lo más $$10^5$$ amistades», y cada
+   amistad es una arista. Lo que el enunciado acota se usa tal cual:
+   $$E \le 10^5$$.
+2. **Los vértices.** El enunciado no dice cuántas personas hay, pero una
+   persona existe para el programa solo si aparece en alguna amistad, y cada
+   amistad nombra a dos. El peor caso es que ninguna se repita: cada amistad
+   trae dos personas nuevas. Por eso $$V \le 2E = 2 \cdot 10^5$$.
+
+<NodeGraph
+  cols={5}
+  rows={3}
+  nodes={[{ v: 'ana', x: 0, y: 0 }, { v: 'beto', x: 2, y: 0 }, { v: 'carla', x: 0, y: 1 }, { v: 'diego', x: 2, y: 1 }, { v: 'elena', x: 0, y: 2 }, { v: 'felipe', x: 2, y: 2 }]}
+  edges={[['ana', 'beto'], ['carla', 'diego'], ['elena', 'felipe']]}
+  caption="el peor caso: 3 amistades sin nadie repetido son 6 personas, 2 · 3"
+  label="Tres amistades que no comparten a nadie: ana con beto, carla con diego, elena con felipe. Son seis personas, dos por amistad."
+/>
+
+</Slide>
+
+<Slide title="Sugerir amigos · denso o disperso">
+Saber si el grafo es denso o disperso es comparar las aristas que tiene con
+las que podría tener:
+
+3. **Las aristas que podría haber.** Cada persona podría ser amiga de las otras
+   $$V - 1$$. Contado así, persona por persona, salen $$V(V - 1)$$, pero cada
+   amistad se contó dos veces, una desde cada lado (ana con beto y beto con
+   ana). Por eso el máximo es la mitad:
+
+   $$
+   \frac{V(V - 1)}{2} \approx \frac{V^2}{2} = \frac{(2 \cdot 10^5)^2}{2} = \frac{4 \cdot 10^{10}}{2} = 2 \cdot 10^{10}
+   $$
+
+   Con $$V$$ tan grande, restarle 1 no cambia la cuenta, y se usa $$V^2$$.
+
+4. **Denso o disperso.** Se divide lo que hay por lo que podría haber:
+
+   $$
+   \frac{E}{\text{máximo}} = \frac{10^5}{2 \cdot 10^{10}} = \frac{1}{200\,000}
+   $$
+
+   De cada $$200\,000$$ amistades que podrían existir, existe una: casi
+   ningún par de personas es amigo. Un grafo con muchas menos aristas que el
+   máximo es **disperso**.
+
+</Slide>
+
+<Slide title="Sugerir amigos · matriz o listas">
+Con esos números se calcula lo que costaría cada estructura. La matriz
+reserva una casilla por cada par de personas, sean amigas o no; las listas
+guardan solo las amistades que hay:
+
+|                                   | Matriz                                                         | Listas                                                              |
+| --------------------------------- | -------------------------------------------------------------- | ------------------------------------------------------------------- |
+| memoria                           | $$V^2 = (2 \cdot 10^5)^2 = 4 \cdot 10^{10}$$ casillas: unos 40 GB | <span style={{ color: 'var(--color-keep)', fontWeight: 700 }}>$$V + 2E = 2 \cdot 10^5 + 2 \cdot 10^5 = 4 \cdot 10^5$$ entradas: unos MB</span> |
+| `adj(v)`, que la pregunta recorre | mira las $$V = 2 \cdot 10^5$$ casillas de la fila de `v`          | <span style={{ color: 'var(--color-keep)', fontWeight: 700 }}>mira solo los vecinos de `v`: $$\operatorname{grado}(v)$$</span> |
+
+La matriz pagaría por los pares vacíos, que son casi todos: no cabe en la
+memoria de un computador común, y cada `adj` miraría $$2 \cdot 10^5$$ casillas
+para encontrar unos pocos amigos. Las listas pagan solo por lo que hay.
 
 </Slide>
 
 <Slide title="Sugerir amigos · el tamaño">
-| Regla                 | Resultado                                                    | Por qué                                                       |
-| --------------------- | ------------------------------------------------------------ | ------------------------------------------------------------- |
-| 1. el enunciado       | $$E \le 10^5$$                                               | cada amistad es una arista                                    |
-| 2. $$V \le 2E$$       | $$V \le 2 \cdot 10^5$$                                        | la entrada es la lista de amistades                           |
-| 3. el máximo          | $$\frac{V(V - 1)}{2} \approx 2 \cdot 10^{10}$$ aristas posibles | una por cada par de personas                                  |
-| 4. denso o disperso   | **disperso**                                                 | $$10^5$$ de $$2 \cdot 10^{10}$$ posibles                       |
+En resumen, las cotas del enunciado dan el tamaño, y el tamaño decide la
+estructura:
 
-El grafo se guarda en **listas de adyacencia**, la clase `AdjListGraph`:
-ocupan unas $$V + 2E = 4 \cdot 10^5$$ entradas, y una matriz tendría
-$$4 \cdot 10^{10}$$ casillas. `adj(v)` entrega los amigos de `v` en
-$$\Theta(\operatorname{grado}(v))$$, que es lo que la pregunta recorre.
+| Paso                  | Resultado                                     | Por qué                                         |
+| --------------------- | --------------------------------------------- | ----------------------------------------------- |
+| 1. las aristas        | $$E \le 10^5$$                                 | cada amistad es una arista                      |
+| 2. los vértices       | $$V \le 2E = 2 \cdot 10^5$$                     | cada amistad trae a lo más dos personas nuevas  |
+| 3. las que podría haber | $$\frac{V(V - 1)}{2} \approx 2 \cdot 10^{10}$$    | una por cada par de personas                    |
+| 4. denso o disperso   | **disperso**                                  | una de cada $$200\,000$$                         |
 
-</Slide>
-
-<Slide title="Sugerir amigos · comparar con todas las personas">
-Lo primero que se piensa es comparar a `user` con cada persona de la red, una
-por una, contando los nombres que aparecen en las dos listas de amigos. Es
-correcto, pero compara también con quienes no pueden compartir ningún amigo:
-un amigo en común es un camino de dos aristas, y quien está más lejos
-siempre suma cero.
-
-<NodeGraph
-  cols={6}
-  rows={3}
-  nodes={[{ v: 'ana', x: 0, y: 1 }, { v: 'beto', x: 1.5, y: 0 }, { v: 'carla', x: 1.5, y: 2 }, { v: 'diego', x: 3, y: 1 }, { v: 'elena', x: 4.5, y: 2 }]}
-  edges={[['ana', 'beto'], ['ana', 'carla'], ['beto', 'carla'], ['beto', 'diego'], ['carla', 'diego'], ['diego', 'elena']]}
-  tones={{ 'ana': 'mark', 'elena': 'flag' }}
-  caption="elena está a tres aristas de ana: no comparten ningún amigo"
-  label="La red de cinco personas. ana, destacada; elena, en rojo, está a tres aristas de ana y no comparte ningún amigo con ella, pero la comparación la mira igual."
-/>
-
-Con $$V = 2 \cdot 10^5$$ personas son $$2 \cdot 10^5$$ comparaciones de dos
-listas para una sola sugerencia, y casi todas responden cero.
+**La decisión:** el grafo se guarda en **listas de adyacencia**, la clase
+`AdjListGraph`: ocupa unas $$4 \cdot 10^5$$ entradas, y `adj(v)` entrega los
+vecinos de `v` en $$\Theta(\operatorname{grado}(v))$$.
 
 </Slide>
 
-<Slide title="Sugerir amigos · la idea">
-Un amigo en común de `user` y otra persona es un amigo de `user` que también
-es amigo de la otra. Dicho al revés: **cada amigo de `user` le suma uno a
-cada uno de sus propios amigos**. Basta con recorrer los amigos de cada amigo
-de `user` y llevar un contador por persona, saltándose a `user` y a quienes ya
-son sus amigos. Al final, la sugerencia es el contador más alto.
+<Slide title="Sugerir amigos · de nombres a números">
+`Graph` trabaja con vértices numerados de $$0$$ a $$V - 1$$, pero
+`friendships` trae nombres, y el método tiene que retornar un nombre. Hacen
+falta dos traducciones:
 
-<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.5rem 1.5rem', alignItems: 'end' }}>
-<NodeGraph
-  cols={6}
-  rows={3}
-  nodes={[{ v: 'ana', x: 0, y: 1 }, { v: 'beto', x: 1.5, y: 0 }, { v: 'carla', x: 1.5, y: 2 }, { v: 'diego', x: 3, y: 1 }, { v: 'elena', x: 4.5, y: 2 }]}
-  edges={[['ana', 'beto'], ['ana', 'carla'], ['beto', 'carla'], ['beto', 'diego'], ['carla', 'diego'], ['diego', 'elena']]}
-  tones={{ 'ana': 'mark', 'beto': 'keep', 'carla': 'keep' }}
-  caption="1. los amigos de ana: beto y carla"
-  label="Los amigos de ana, beto y carla, marcados: se saltan al contar."
-/>
-<NodeGraph
-  cols={6}
-  rows={3}
-  nodes={[{ v: 'ana', x: 0, y: 1 }, { v: 'beto', x: 1.5, y: 0 }, { v: 'carla', x: 1.5, y: 2 }, { v: 'diego', x: 3, y: 1 }, { v: 'elena', x: 4.5, y: 2 }]}
-  edges={[['ana', 'beto'], ['ana', 'carla'], ['beto', 'carla'], ['beto', 'diego'], ['carla', 'diego'], ['diego', 'elena']]}
-  markEdges={[['beto', 'diego']]}
-  tones={{ 'ana': 'mark', 'beto': 'keep', 'carla': 'keep' }}
-  notes={{ 'diego': 1 }}
-  caption="2. desde beto: diego suma 1"
-  label="Desde beto se recorren sus amigos: ana y carla se saltan, y diego suma 1."
-/>
-<NodeGraph
-  cols={6}
-  rows={3}
-  nodes={[{ v: 'ana', x: 0, y: 1 }, { v: 'beto', x: 1.5, y: 0 }, { v: 'carla', x: 1.5, y: 2 }, { v: 'diego', x: 3, y: 1 }, { v: 'elena', x: 4.5, y: 2 }]}
-  edges={[['ana', 'beto'], ['ana', 'carla'], ['beto', 'carla'], ['beto', 'diego'], ['carla', 'diego'], ['diego', 'elena']]}
-  markEdges={[['carla', 'diego']]}
-  tones={{ 'ana': 'mark', 'beto': 'keep', 'carla': 'keep', 'diego': 'mark' }}
-  notes={{ 'diego': 2 }}
-  caption="3. desde carla: diego llega a 2"
-  label="Desde carla se recorren sus amigos: ana y beto se saltan, y diego llega a 2, el contador más alto."
-/>
-</div>
+- **`ids`**, un `Map` del nombre al número. Se usa para **construir el
+  grafo**: la amistad `"ana beto"` se agrega como la arista entre el `0` y el
+  `1`.
+- **`names`**, una lista del número al nombre. Se usa para **dar la
+  respuesta**: el algoritmo termina con un número, el `3`, y `names` lo
+  traduce a `"diego"`.
 
-Los contadores van en un **arreglo indexado por el vértice**, y los amigos de
-`user` se marcan en otro arreglo de booleanos: saltarse a un amigo es leer una
-casilla, $$\Theta(1)$$, sin preguntar `hasEdge`.
+<ArrayRows
+  rows={[{ name: 'ids', cells: [0, 1, 2, 3, 4], head: ['ana', 'beto', 'carla', 'diego', 'elena'] }, { name: 'names', cells: ['ana', 'beto', 'carla', 'diego', 'elena'] }]}
+  mark={[]}
+  cols={5}
+  caption="ids: de nombre a número · names: de número a nombre"
+  label="Las dos traducciones del ejemplo. ids lleva ana al 0, beto al 1, carla al 2, diego al 3 y elena al 4; names lleva de vuelta el 0 a ana, el 1 a beto, el 2 a carla, el 3 a diego y el 4 a elena."
+/>
+
+Para crear el grafo hay que saber cuántos vértices tiene, $$V$$, y eso es
+la cantidad de nombres distintos: no se sabe hasta haber leído todas las
+amistades. Por eso se recorren **dos veces**:
+
+1. **La primera vuelta numera.** Cada nombre que aparece por primera vez
+   recibe el número siguiente y entra a `ids` y a `names`. Al terminar, $$V$$
+   es la cantidad de nombres.
+2. **La segunda vuelta construye.** Con $$V$$ conocido se crea el grafo, y
+   cada amistad se agrega como arista, traduciendo sus dos nombres con `ids`.
 
 </Slide>
 
 <Slide title="Sugerir amigos · construir el grafo">
-`Graph` conoce vértices de $$0$$ a $$V - 1$$, y la red trae nombres. El método
-lee las amistades dos veces. La primera vuelta le da un número a cada nombre
-nuevo, `names.size()`: el `Map` `ids` traduce del nombre al número, y la lista
-`names`, de vuelta. Al terminarla se conoce $$V$$, y la segunda vuelta crea el
-grafo y agrega una arista por línea:
-
 <StepShow
   language="java"
   beside
@@ -6069,7 +6102,7 @@ grafo y agrega una arista por línea:
 >
   <Step lines={[8, 9]} under={<ArrayRows rows={[{'name': 'names', 'cells': []}, {'name': 'ids', 'cells': [], 'head': []}]} mark={[]} cols={5} label="names e ids: vacíos." />}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>ids y names empiezan vacíos.</div>
-    <Pair>
+    <Pair stack>
       <InputLines head="friendships" lines={['ana beto', 'ana carla', 'beto carla', 'beto diego', 'carla diego', 'diego elena']} at={null} read={0} label="La entrada, una amistad por línea: ana beto, ana carla, beto carla, beto diego, carla diego, diego elena." />
       <NodeGraph
         cols={6}
@@ -6079,10 +6112,18 @@ grafo y agrega una arista por línea:
         label="El grafo hasta ahora: ningún vértice; sin aristas."
       />
     </Pair>
+    <div style={{ visibility: 'hidden' }} aria-hidden="true">
+      <AdjLists
+        lists={[[], [], [], [], []]}
+        mark={[]}
+        minWidth={230}
+        label="Las listas: la lista de 0 tiene nada; la lista de 1 tiene nada; la lista de 2 tiene nada; la lista de 3 tiene nada; la lista de 4 tiene nada."
+      />
+    </div>
   </Step>
   <Step lines={[10, 11, 12, 13, 14]} under={<ArrayRows rows={[{'name': 'names', 'cells': ['ana', 'beto']}, {'name': 'ids', 'cells': [0, 1], 'head': ['ana', 'beto']}]} mark={[[0, 0], [0, 1], [1, 0], [1, 1]]} cols={5} label="names e ids: ana es el 0, beto es el 1." />}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>Línea «ana beto»: los dos son nuevos, y reciben 0 y 1.</div>
-    <Pair>
+    <Pair stack>
       <InputLines head="friendships" lines={['ana beto', 'ana carla', 'beto carla', 'beto diego', 'carla diego', 'diego elena']} at={[0]} read={0} label="La entrada, una amistad por línea: ana beto, ana carla, beto carla, beto diego, carla diego, diego elena." />
       <NodeGraph
         cols={6}
@@ -6092,10 +6133,18 @@ grafo y agrega una arista por línea:
         label="El grafo hasta ahora: 0 ana, 1 beto; sin aristas."
       />
     </Pair>
+    <div style={{ visibility: 'hidden' }} aria-hidden="true">
+      <AdjLists
+        lists={[[], [], [], [], []]}
+        mark={[]}
+        minWidth={230}
+        label="Las listas: la lista de 0 tiene nada; la lista de 1 tiene nada; la lista de 2 tiene nada; la lista de 3 tiene nada; la lista de 4 tiene nada."
+      />
+    </div>
   </Step>
   <Step lines={[10, 11, 12, 13, 14]} under={<ArrayRows rows={[{'name': 'names', 'cells': ['ana', 'beto', 'carla']}, {'name': 'ids', 'cells': [0, 1, 2], 'head': ['ana', 'beto', 'carla']}]} mark={[[0, 2], [1, 2]]} cols={5} label="names e ids: ana es el 0, beto es el 1, carla es el 2." />}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>Línea «ana carla»: ana ya tiene número; carla es nuevo y recibe 2.</div>
-    <Pair>
+    <Pair stack>
       <InputLines head="friendships" lines={['ana beto', 'ana carla', 'beto carla', 'beto diego', 'carla diego', 'diego elena']} at={[1]} read={1} label="La entrada, una amistad por línea: ana beto, ana carla, beto carla, beto diego, carla diego, diego elena." />
       <NodeGraph
         cols={6}
@@ -6105,10 +6154,18 @@ grafo y agrega una arista por línea:
         label="El grafo hasta ahora: 0 ana, 1 beto, 2 carla; sin aristas."
       />
     </Pair>
+    <div style={{ visibility: 'hidden' }} aria-hidden="true">
+      <AdjLists
+        lists={[[], [], [], [], []]}
+        mark={[]}
+        minWidth={230}
+        label="Las listas: la lista de 0 tiene nada; la lista de 1 tiene nada; la lista de 2 tiene nada; la lista de 3 tiene nada; la lista de 4 tiene nada."
+      />
+    </div>
   </Step>
   <Step lines={[10, 11, 12, 13, 14]} under={<ArrayRows rows={[{'name': 'names', 'cells': ['ana', 'beto', 'carla']}, {'name': 'ids', 'cells': [0, 1, 2], 'head': ['ana', 'beto', 'carla']}]} mark={[]} cols={5} label="names e ids: ana es el 0, beto es el 1, carla es el 2." />}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>Línea «beto carla»: los dos ya tienen número.</div>
-    <Pair>
+    <Pair stack>
       <InputLines head="friendships" lines={['ana beto', 'ana carla', 'beto carla', 'beto diego', 'carla diego', 'diego elena']} at={[2]} read={2} label="La entrada, una amistad por línea: ana beto, ana carla, beto carla, beto diego, carla diego, diego elena." />
       <NodeGraph
         cols={6}
@@ -6118,10 +6175,18 @@ grafo y agrega una arista por línea:
         label="El grafo hasta ahora: 0 ana, 1 beto, 2 carla; sin aristas."
       />
     </Pair>
+    <div style={{ visibility: 'hidden' }} aria-hidden="true">
+      <AdjLists
+        lists={[[], [], [], [], []]}
+        mark={[]}
+        minWidth={230}
+        label="Las listas: la lista de 0 tiene nada; la lista de 1 tiene nada; la lista de 2 tiene nada; la lista de 3 tiene nada; la lista de 4 tiene nada."
+      />
+    </div>
   </Step>
   <Step lines={[10, 11, 12, 13, 14]} under={<ArrayRows rows={[{'name': 'names', 'cells': ['ana', 'beto', 'carla', 'diego']}, {'name': 'ids', 'cells': [0, 1, 2, 3], 'head': ['ana', 'beto', 'carla', 'diego']}]} mark={[[0, 3], [1, 3]]} cols={5} label="names e ids: ana es el 0, beto es el 1, carla es el 2, diego es el 3." />}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>Línea «beto diego»: beto ya tiene número; diego es nuevo y recibe 3.</div>
-    <Pair>
+    <Pair stack>
       <InputLines head="friendships" lines={['ana beto', 'ana carla', 'beto carla', 'beto diego', 'carla diego', 'diego elena']} at={[3]} read={3} label="La entrada, una amistad por línea: ana beto, ana carla, beto carla, beto diego, carla diego, diego elena." />
       <NodeGraph
         cols={6}
@@ -6131,10 +6196,18 @@ grafo y agrega una arista por línea:
         label="El grafo hasta ahora: 0 ana, 1 beto, 2 carla, 3 diego; sin aristas."
       />
     </Pair>
+    <div style={{ visibility: 'hidden' }} aria-hidden="true">
+      <AdjLists
+        lists={[[], [], [], [], []]}
+        mark={[]}
+        minWidth={230}
+        label="Las listas: la lista de 0 tiene nada; la lista de 1 tiene nada; la lista de 2 tiene nada; la lista de 3 tiene nada; la lista de 4 tiene nada."
+      />
+    </div>
   </Step>
   <Step lines={[10, 11, 12, 13, 14]} under={<ArrayRows rows={[{'name': 'names', 'cells': ['ana', 'beto', 'carla', 'diego']}, {'name': 'ids', 'cells': [0, 1, 2, 3], 'head': ['ana', 'beto', 'carla', 'diego']}]} mark={[]} cols={5} label="names e ids: ana es el 0, beto es el 1, carla es el 2, diego es el 3." />}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>Línea «carla diego»: los dos ya tienen número.</div>
-    <Pair>
+    <Pair stack>
       <InputLines head="friendships" lines={['ana beto', 'ana carla', 'beto carla', 'beto diego', 'carla diego', 'diego elena']} at={[4]} read={4} label="La entrada, una amistad por línea: ana beto, ana carla, beto carla, beto diego, carla diego, diego elena." />
       <NodeGraph
         cols={6}
@@ -6144,10 +6217,18 @@ grafo y agrega una arista por línea:
         label="El grafo hasta ahora: 0 ana, 1 beto, 2 carla, 3 diego; sin aristas."
       />
     </Pair>
+    <div style={{ visibility: 'hidden' }} aria-hidden="true">
+      <AdjLists
+        lists={[[], [], [], [], []]}
+        mark={[]}
+        minWidth={230}
+        label="Las listas: la lista de 0 tiene nada; la lista de 1 tiene nada; la lista de 2 tiene nada; la lista de 3 tiene nada; la lista de 4 tiene nada."
+      />
+    </div>
   </Step>
   <Step lines={[10, 11, 12, 13, 14]} under={<ArrayRows rows={[{'name': 'names', 'cells': ['ana', 'beto', 'carla', 'diego', 'elena']}, {'name': 'ids', 'cells': [0, 1, 2, 3, 4], 'head': ['ana', 'beto', 'carla', 'diego', 'elena']}]} mark={[[0, 4], [1, 4]]} cols={5} label="names e ids: ana es el 0, beto es el 1, carla es el 2, diego es el 3, elena es el 4." />}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>Línea «diego elena»: diego ya tiene número; elena es nuevo y recibe 4.</div>
-    <Pair>
+    <Pair stack>
       <InputLines head="friendships" lines={['ana beto', 'ana carla', 'beto carla', 'beto diego', 'carla diego', 'diego elena']} at={[5]} read={5} label="La entrada, una amistad por línea: ana beto, ana carla, beto carla, beto diego, carla diego, diego elena." />
       <NodeGraph
         cols={6}
@@ -6157,10 +6238,18 @@ grafo y agrega una arista por línea:
         label="El grafo hasta ahora: 0 ana, 1 beto, 2 carla, 3 diego, 4 elena; sin aristas."
       />
     </Pair>
+    <div style={{ visibility: 'hidden' }} aria-hidden="true">
+      <AdjLists
+        lists={[[], [], [], [], []]}
+        mark={[]}
+        minWidth={230}
+        label="Las listas: la lista de 0 tiene nada; la lista de 1 tiene nada; la lista de 2 tiene nada; la lista de 3 tiene nada; la lista de 4 tiene nada."
+      />
+    </div>
   </Step>
   <Step lines={[18]} under={<ArrayRows rows={[{'name': 'names', 'cells': ['ana', 'beto', 'carla', 'diego', 'elena']}, {'name': 'ids', 'cells': [0, 1, 2, 3, 4], 'head': ['ana', 'beto', 'carla', 'diego', 'elena']}]} mark={[]} cols={5} label="names e ids: ana es el 0, beto es el 1, carla es el 2, diego es el 3, elena es el 4." />}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>names.size() = 5: el grafo se crea con 5 vértices y 5 listas vacías.</div>
-    <Pair>
+    <Pair stack>
       <InputLines head="friendships" lines={['ana beto', 'ana carla', 'beto carla', 'beto diego', 'carla diego', 'diego elena']} at={null} read={6} label="La entrada, una amistad por línea: ana beto, ana carla, beto carla, beto diego, carla diego, diego elena." />
       <NodeGraph
         cols={6}
@@ -6179,7 +6268,7 @@ grafo y agrega una arista por línea:
   </Step>
   <Step lines={[19, 20, 21]} under={<ArrayRows rows={[{'name': 'names', 'cells': ['ana', 'beto', 'carla', 'diego', 'elena']}, {'name': 'ids', 'cells': [0, 1, 2, 3, 4], 'head': ['ana', 'beto', 'carla', 'diego', 'elena']}]} mark={[]} cols={5} label="names e ids: ana es el 0, beto es el 1, carla es el 2, diego es el 3, elena es el 4." />}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>Línea «ana beto»: addEdge(0, 1), 1 al final de la lista de 0 y 0 al final de la de 1.</div>
-    <Pair>
+    <Pair stack>
       <InputLines head="friendships" lines={['ana beto', 'ana carla', 'beto carla', 'beto diego', 'carla diego', 'diego elena']} at={[0]} read={0} label="La entrada, una amistad por línea: ana beto, ana carla, beto carla, beto diego, carla diego, diego elena." />
       <NodeGraph
         cols={6}
@@ -6199,7 +6288,7 @@ grafo y agrega una arista por línea:
   </Step>
   <Step lines={[19, 20, 21]} under={<ArrayRows rows={[{'name': 'names', 'cells': ['ana', 'beto', 'carla', 'diego', 'elena']}, {'name': 'ids', 'cells': [0, 1, 2, 3, 4], 'head': ['ana', 'beto', 'carla', 'diego', 'elena']}]} mark={[]} cols={5} label="names e ids: ana es el 0, beto es el 1, carla es el 2, diego es el 3, elena es el 4." />}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>Línea «ana carla»: addEdge(0, 2), 2 al final de la lista de 0 y 0 al final de la de 2.</div>
-    <Pair>
+    <Pair stack>
       <InputLines head="friendships" lines={['ana beto', 'ana carla', 'beto carla', 'beto diego', 'carla diego', 'diego elena']} at={[1]} read={1} label="La entrada, una amistad por línea: ana beto, ana carla, beto carla, beto diego, carla diego, diego elena." />
       <NodeGraph
         cols={6}
@@ -6219,7 +6308,7 @@ grafo y agrega una arista por línea:
   </Step>
   <Step lines={[19, 20, 21]} under={<ArrayRows rows={[{'name': 'names', 'cells': ['ana', 'beto', 'carla', 'diego', 'elena']}, {'name': 'ids', 'cells': [0, 1, 2, 3, 4], 'head': ['ana', 'beto', 'carla', 'diego', 'elena']}]} mark={[]} cols={5} label="names e ids: ana es el 0, beto es el 1, carla es el 2, diego es el 3, elena es el 4." />}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>Línea «beto carla»: addEdge(1, 2), 2 al final de la lista de 1 y 1 al final de la de 2.</div>
-    <Pair>
+    <Pair stack>
       <InputLines head="friendships" lines={['ana beto', 'ana carla', 'beto carla', 'beto diego', 'carla diego', 'diego elena']} at={[2]} read={2} label="La entrada, una amistad por línea: ana beto, ana carla, beto carla, beto diego, carla diego, diego elena." />
       <NodeGraph
         cols={6}
@@ -6239,7 +6328,7 @@ grafo y agrega una arista por línea:
   </Step>
   <Step lines={[19, 20, 21]} under={<ArrayRows rows={[{'name': 'names', 'cells': ['ana', 'beto', 'carla', 'diego', 'elena']}, {'name': 'ids', 'cells': [0, 1, 2, 3, 4], 'head': ['ana', 'beto', 'carla', 'diego', 'elena']}]} mark={[]} cols={5} label="names e ids: ana es el 0, beto es el 1, carla es el 2, diego es el 3, elena es el 4." />}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>Línea «beto diego»: addEdge(1, 3), 3 al final de la lista de 1 y 1 al final de la de 3.</div>
-    <Pair>
+    <Pair stack>
       <InputLines head="friendships" lines={['ana beto', 'ana carla', 'beto carla', 'beto diego', 'carla diego', 'diego elena']} at={[3]} read={3} label="La entrada, una amistad por línea: ana beto, ana carla, beto carla, beto diego, carla diego, diego elena." />
       <NodeGraph
         cols={6}
@@ -6259,7 +6348,7 @@ grafo y agrega una arista por línea:
   </Step>
   <Step lines={[19, 20, 21]} under={<ArrayRows rows={[{'name': 'names', 'cells': ['ana', 'beto', 'carla', 'diego', 'elena']}, {'name': 'ids', 'cells': [0, 1, 2, 3, 4], 'head': ['ana', 'beto', 'carla', 'diego', 'elena']}]} mark={[]} cols={5} label="names e ids: ana es el 0, beto es el 1, carla es el 2, diego es el 3, elena es el 4." />}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>Línea «carla diego»: addEdge(2, 3), 3 al final de la lista de 2 y 2 al final de la de 3.</div>
-    <Pair>
+    <Pair stack>
       <InputLines head="friendships" lines={['ana beto', 'ana carla', 'beto carla', 'beto diego', 'carla diego', 'diego elena']} at={[4]} read={4} label="La entrada, una amistad por línea: ana beto, ana carla, beto carla, beto diego, carla diego, diego elena." />
       <NodeGraph
         cols={6}
@@ -6279,7 +6368,7 @@ grafo y agrega una arista por línea:
   </Step>
   <Step lines={[19, 20, 21]} under={<ArrayRows rows={[{'name': 'names', 'cells': ['ana', 'beto', 'carla', 'diego', 'elena']}, {'name': 'ids', 'cells': [0, 1, 2, 3, 4], 'head': ['ana', 'beto', 'carla', 'diego', 'elena']}]} mark={[]} cols={5} label="names e ids: ana es el 0, beto es el 1, carla es el 2, diego es el 3, elena es el 4." />}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>Línea «diego elena»: addEdge(3, 4), 4 al final de la lista de 3 y 3 al final de la de 4.</div>
-    <Pair>
+    <Pair stack>
       <InputLines head="friendships" lines={['ana beto', 'ana carla', 'beto carla', 'beto diego', 'carla diego', 'diego elena']} at={[5]} read={5} label="La entrada, una amistad por línea: ana beto, ana carla, beto carla, beto diego, carla diego, diego elena." />
       <NodeGraph
         cols={6}
@@ -6301,11 +6390,96 @@ grafo y agrega una arista por línea:
 
 </Slide>
 
+<Slide title="Sugerir amigos · comparar con todas las personas">
+La solución más directa sigue la pregunta al pie de la letra: para cada
+candidata, cada persona que no es `user` ni su vecina, se cuentan los vecinos
+que comparte con `user`, y se elige la que tiene más. Contar es comparar dos
+listas: cada vecino de la candidata se busca en la lista de `user`.
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.5rem 2rem', alignItems: 'end' }}>
+<ArrayRows rows={[{'name': 'vecinos de ana', 'cells': ['beto', 'carla'], 'head': ['', '']}, {'name': 'vecinos de diego', 'cells': ['beto', 'carla', 'elena'], 'head': ['', '', '']}]} mark={[[0, 0], [0, 1], [1, 0], [1, 1]]} cols={3} caption="ana y diego: 3 · 2 = 6 comparaciones, 2 en común" label="Los vecinos de ana, beto y carla, contra los de diego, beto, carla y elena: 6 comparaciones, y comparten beto y carla." />
+<ArrayRows rows={[{'name': 'vecinos de ana', 'cells': ['beto', 'carla'], 'head': ['', '']}, {'name': 'vecinos de elena', 'cells': ['diego'], 'head': ['']}]} mark={[]} cols={3} caption="ana y elena: 1 · 2 = 2 comparaciones, 0 en común" label="Los vecinos de ana, beto y carla, contra el de elena, diego: 2 comparaciones, y no comparten ninguno." />
+</div>
+
+**¿Cuánto cuesta?** Comparar la lista de una candidata $$x$$ con la de `user`
+son $$\operatorname{grado}(x) \cdot \operatorname{grado}(user)$$ pasos, y se
+hace con cada candidata. Sumando, las listas de todas las candidatas tienen a
+lo más $$2E$$ entradas, así que el total es a lo más
+$$2E \cdot \operatorname{grado}(user)$$. En el peor caso, `user` es amigo de
+casi todos, y con $$E = 10^5$$:
+
+$$
+2E \cdot \operatorname{grado}(user) \approx 2 \cdot 10^5 \cdot 10^5 = 2 \cdot 10^{10} \text{ pasos}
+$$
+
+**El tiempo es $$O(E \cdot \operatorname{grado}(user))$$.** Con esos
+$$2 \cdot 10^{10}$$ pasos, a unos $$10^8$$ pasos por segundo, una sola
+sugerencia tarda $$200$$ segundos: más de tres minutos.
+
+**¿Se puede hacer mejor?**
+
+</Slide>
+
+<Slide title="Sugerir amigos · la idea">
+Para hacerlo mejor, los vecinos compartidos se cuentan desde `user`, y no
+desde cada candidata:
+
+1. **Un vecino compartido es un camino de dos aristas.** Si beto es vecino de
+   ana y de diego, hay un camino de ana a diego que pasa por beto. Solo las
+   personas a dos aristas de `user` pueden sumar; las demás suman cero sin
+   mirarlas.
+2. **Cada vecino de `user` reparte un punto.** Se recorre la lista de cada
+   vecino de `user`, y cada persona que aparece en ella suma uno: llegó por un
+   camino de dos aristas más. Al terminar, el contador de cada persona es
+   cuántos vecinos comparte con `user`.
+3. **`user` y sus vecinos se saltan**, porque no se les sugiere a nadie que ya
+   es amigo. Se marcan antes, y saber si alguien está marcado es leer una
+   casilla.
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.5rem 1.5rem', alignItems: 'end' }}>
+<NodeGraph
+  cols={6}
+  rows={3}
+  nodes={[{ v: 'ana', x: 0, y: 1 }, { v: 'beto', x: 1.5, y: 0 }, { v: 'carla', x: 1.5, y: 2 }, { v: 'diego', x: 3, y: 1 }, { v: 'elena', x: 4.5, y: 2 }]}
+  edges={[['ana', 'beto'], ['ana', 'carla'], ['beto', 'carla'], ['beto', 'diego'], ['carla', 'diego'], ['diego', 'elena']]}
+  tones={{ 'ana': 'mark', 'beto': 'keep', 'carla': 'keep' }}
+  caption="1. se marcan ana y sus vecinos"
+  label="ana y sus vecinos, beto y carla, marcados: se saltan al contar."
+/>
+<NodeGraph
+  cols={6}
+  rows={3}
+  nodes={[{ v: 'ana', x: 0, y: 1 }, { v: 'beto', x: 1.5, y: 0 }, { v: 'carla', x: 1.5, y: 2 }, { v: 'diego', x: 3, y: 1 }, { v: 'elena', x: 4.5, y: 2 }]}
+  edges={[['ana', 'beto'], ['ana', 'carla'], ['beto', 'carla'], ['beto', 'diego'], ['carla', 'diego'], ['diego', 'elena']]}
+  markEdges={[['ana', 'beto'], ['beto', 'diego']]}
+  tones={{ 'ana': 'mark', 'beto': 'keep', 'carla': 'keep' }}
+  notes={{ 'diego': 1 }}
+  caption="2. la lista de beto: diego suma 1"
+  label="Desde beto se recorre su lista: ana y carla están marcadas y se saltan; diego llega por ana, beto, diego, y suma 1."
+/>
+<NodeGraph
+  cols={6}
+  rows={3}
+  nodes={[{ v: 'ana', x: 0, y: 1 }, { v: 'beto', x: 1.5, y: 0 }, { v: 'carla', x: 1.5, y: 2 }, { v: 'diego', x: 3, y: 1 }, { v: 'elena', x: 4.5, y: 2 }]}
+  edges={[['ana', 'beto'], ['ana', 'carla'], ['beto', 'carla'], ['beto', 'diego'], ['carla', 'diego'], ['diego', 'elena']]}
+  markEdges={[['ana', 'carla'], ['carla', 'diego']]}
+  tones={{ 'ana': 'mark', 'beto': 'keep', 'carla': 'keep', 'diego': 'mark' }}
+  notes={{ 'diego': 2 }}
+  caption="3. la lista de carla: diego llega a 2"
+  label="Desde carla se recorre su lista: ana y beto se saltan; diego llega por ana, carla, diego, y queda en 2, el contador más alto."
+/>
+</div>
+
+Los contadores y las marcas son dos **arreglos indexados por el vértice**.
+Cada lista de un vecino de `user` se recorre una sola vez, y nunca se
+comparan dos listas.
+
+</Slide>
+
 <Slide title="Sugerir amigos · la solución">
-Con el grafo construido, el método marca a los amigos de `user`, cuenta los
-amigos en común recorriendo los amigos de cada amigo y elige la cuenta mayor.
-Como el `>` es estricto, en un empate queda el número menor: el nombre que
-apareció primero.
+El método marca a los vecinos de `user`, suma desde cada vecino a sus propios
+vecinos y elige la cuenta mayor. Con `>`, en un empate gana el que apareció
+primero.
 
 <StepShow
   language="java"
@@ -6638,19 +6812,18 @@ apareció primero.
 </Slide>
 
 <Slide title="Sugerir amigos · casos y costo">
-Si todo amigo de un amigo de `user` es `user` o un amigo suyo, ningún contador
-sube, `best` sigue en $$-1$$ y el método retorna `null`:
+Si todo vecino de un vecino de `user` es `user` o un vecino suyo, ningún
+contador sube, `best` se queda en $$-1$$ y el método retorna `null`:
 
-<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.5rem 1.5rem', alignItems: 'end' }}>
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.5rem 2rem', alignItems: 'end' }}>
 <NodeGraph
   cols={4}
   rows={3}
   nodes={[{ v: 'ana', x: 0, y: 1 }, { v: 'beto', x: 1.5, y: 0 }, { v: 'carla', x: 1.5, y: 2 }]}
   edges={[['ana', 'beto'], ['ana', 'carla'], ['beto', 'carla']]}
   tones={{ 'ana': 'mark', 'beto': 'keep', 'carla': 'keep' }}
-  notes={{ 'beto': 0, 'carla': 0 }}
-  caption="un triángulo: los amigos de beto y carla son ana o sus amigos → null"
-  label="Un triángulo: ana, destacada, beto y carla, amigos entre sí. Los amigos de beto y de carla son ana o amigos de ana, y ningún contador sube: null."
+  caption="todos son amigos de ana: no queda nadie → null"
+  label="Un triángulo: ana, destacada, beto y carla, amigos entre sí. Los vecinos de beto y de carla son ana o vecinos de ana, y ningún contador sube: null."
 />
 <NodeGraph
   cols={4}
@@ -6658,17 +6831,25 @@ sube, `best` sigue en $$-1$$ y el método retorna `null`:
   nodes={[{ v: 'ana', x: 0, y: 1 }, { v: 'beto', x: 1.5, y: 0 }]}
   edges={[['ana', 'beto']]}
   tones={{ 'ana': 'mark', 'beto': 'keep' }}
-  caption="una sola amistad: el único amigo de beto es ana → null"
-  label="Una sola amistad, ana con beto. El único amigo de beto es ana, que se salta: null."
+  caption="una sola amistad: no hay nadie más → null"
+  label="Una sola amistad, ana con beto. El único vecino de beto es ana, que se salta: null."
 />
 </div>
 
-**Tiempo.** Numerar las amistades cuesta $$\Theta(E)$$ esperado: cada nombre
-es una búsqueda en el `HashMap`. Crear el grafo y agregar las aristas,
-$$\Theta(V + E)$$. La cuenta recorre la lista de cada amigo de `user`: la
-suma de sus grados, a lo más $$2E$$. Los dos arreglos y la búsqueda del mayor,
-$$\Theta(V)$$. En total, $$\Theta(V + E)$$ esperado: leer la entrada ya
-cuesta eso.
+**Tiempo**, parte por parte:
+
+- **Numerar los nombres:** $$\Theta(E)$$ esperado. Cada amistad trae dos
+  nombres, y cada nombre es una búsqueda en el `HashMap`.
+- **Crear el grafo y agregar las aristas:** $$\Theta(V + E)$$. $$V$$ listas
+  vacías, y una arista por amistad en $$\Theta(1)$$.
+- **Marcar a los vecinos de `user`:** $$\Theta(\operatorname{grado}(user))$$.
+- **Contar:** se recorre la lista de cada vecino de `user`, la suma de sus
+  grados: a lo más $$2E$$.
+- **Los dos arreglos y la búsqueda del mayor:** $$\Theta(V)$$.
+
+**En total, $$\Theta(V + E)$$ esperado**: lo mismo que cuesta leer la
+entrada. Con $$V + E \approx 3 \cdot 10^5$$, unas milésimas de segundo, contra
+los más de tres minutos de comparar con todas las personas.
 
 **Memoria.** El grafo, $$\Theta(V + E)$$, más `ids`, `names` y los dos
 arreglos, $$\Theta(V)$$.
