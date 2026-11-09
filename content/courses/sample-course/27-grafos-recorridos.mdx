@@ -28,14 +28,168 @@ orden en que se recorre decide qué pregunta responde.
 
 ## Búsqueda en profundidad
 
-{/* Arc I · DFS (#357 §The arc map; slides planned in S4, written in S6-S7). */}
-{/* The maze of class 2: from the entrance, can you reach the exit? The tree */}
-{/* preorder walks back over the edge it came in by; Trémaux's chalk marks */}
-{/* the visited cells and Teseo's thread is prev[]; DFS recursive, then */}
-{/* iterative (the 1000 x 1000 maze overflows Java's stack; marking on push */}
-{/* is not depth-first order); its cost, with the sweep over every neighbour */}
-{/* archived by #363. Applications: alcanzabilidad, componentes conexas. */}
-{/* Leaves open: DFS finds a path, not the shortest one. */}
+{/* Arc I · DFS. Sixteen slides planned with Miguel in #357 S4 (2026-11-09), */}
+{/* in the arc's six beats; each empty slide holds its one idea, written in */}
+{/* S6 (slides 1-13) and S7 (14-16). The code is a class, DepthFirstPaths */}
+{/* (algs4 §4.1, CS61B): the constructor runs the private recursive dfs, the */}
+{/* fields are marked, prev and s, the public methods hasPathTo and pathTo. */}
+
+{/* Beat 1 · the question, on something already seen. */}
+
+<Slide title="¿Se llega a la salida?">
+
+{/* Class 2's maze, small (about 5 x 6 cells), the entrance and the exit */}
+{/* marked, its implicit graph drawn over it (the free cells, the steps). */}
+{/* Asks, without answering, whether the exit is reached from the entrance, */}
+{/* and by which way. [MazeGrid with `ways`] */}
+
+</Slide>
+
+{/* Beat 2 · what the student knows does not reach. */}
+
+<Slide title="El preorden no termina en un grafo">
+
+{/* The rule of Árboles I, «visit, then each neighbour with the same rule», */}
+{/* on a graph of two or three vertices: 0 to 1 and back from 1 to 0, */}
+{/* forever. A node's children never include its parent; a vertex's */}
+{/* neighbours do. [NodeGraph, the walk numbered in red (`flag`)] */}
+
+</Slide>
+
+<Slide title="No volver por donde se llegó tampoco basta">
+
+{/* The tempting fix, skip the vertex the walk came from, works on a tree */}
+{/* and fails on a triangle: 0 → 1 → 2 → 0 → 1… The trouble is the cycles, */}
+{/* not the edge back. [NodeGraph, the triangle, in red] */}
+
+</Slide>
+
+{/* Beat 3 · the idea. */}
+
+<Slide title="El hilo de Teseo">
+
+{/* Teseo walks into the labyrinth of Crete with Ariadne's ball of thread: */}
+{/* he goes forward, and at a dead end he walks back winding the thread. */}
+{/* The thread is the way back from where he stands to the entrance. */}
+{/* [the maze with the thread drawn] */}
+
+</Slide>
+
+<Slide title="La tiza de Trémaux">
+
+{/* Winding the thread, Teseo forgets the corridors he already tried, and */}
+{/* in a maze with cycles he may walk them forever. Trémaux, in the 19th */}
+{/* century (told by Édouard Lucas in 1882), marks every corridor he walks */}
+{/* with chalk and never enters a marked one. The chalk is the visited. */}
+{/* [the maze with the marks] */}
+
+</Slide>
+
+<Slide title="La regla de la búsqueda en profundidad">
+
+{/* The rule: mark the vertex, and walk each unmarked neighbour with the */}
+{/* same rule; when none is left, go back. Named for going as deep as it */}
+{/* can before going back: DFS, depth-first search. [pills «marcar → cada */}
+{/* vecino sin marcar», the graph with the visit order numbered, arrows */}
+{/* from visit to visit and the strip with the sequence] */}
+
+</Slide>
+
+{/* Beat 4 · the code (operation → cases → code → cost). */}
+
+<Slide title="El código de la búsqueda en profundidad">
+
+{/* DepthFirstPaths, quoted from 27-grafos-recorridos.code/: the */}
+{/* constructor and the private recursive dfs, with marked and prev. */}
+{/* prev[w] = v is the thread: where each vertex was reached from. */}
+{/* [GraphWalk over a graph of 4 or 5 vertices] */}
+
+</Slide>
+
+<Slide title="El camino de vuelta">
+
+{/* pathTo(t): from t, follow prev back to s, and turn the sequence around */}
+{/* with a stack. Is it reached? hasPathTo(t), which is marked[t]. By */}
+{/* which way? pathTo(t). [prev drawn as arrows back, and the stack that */}
+{/* turns it around] */}
+
+</Slide>
+
+<Slide title="La búsqueda en profundidad en el laberinto">
+
+{/* The same code over the grid: the vertex is r · C + c, the neighbours */}
+{/* computed with DR/DC and free, as in class 2. Answers slide 1: the exit */}
+{/* is reached, by this way. [GraphWalk over the grid, built in S5] */}
+
+</Slide>
+
+<Slide title="Un laberinto de 1000 × 1000 revienta la pila">
+
+{/* A long corridor takes the recursion to hundreds of thousands of calls, */}
+{/* and Java throws StackOverflowError. The depth where it breaks is */}
+{/* MEASURED on a real JVM, never inherited from another source. [the call */}
+{/* stack growing beside the corridor] */}
+
+</Slide>
+
+<Slide title="Marcar al apilar no recorre en profundidad">
+
+{/* The tempting idea: replace the recursion with a stack and mark on */}
+{/* push, as the level order enqueues the children. It reaches the same */}
+{/* vertices in another order: side by side with the recursive one, the */}
+{/* orders part (algs4 §4.1, web exercise 29). That order jumps, and Teseo */}
+{/* could not walk it. [two runs side by side, the divergence in red] */}
+
+</Slide>
+
+<Slide title="El código de la búsqueda en profundidad iterativa">
+
+{/* Mark on pop: pop a vertex; if it is marked, drop it; if not, mark it */}
+{/* and push its neighbours. The recursive and the iterative in parallel */}
+{/* where their steps match one to one. [GraphWalk iterative, built in S5] */}
+
+</Slide>
+
+<Slide title="El costo de la búsqueda en profundidad">
+
+{/* Each vertex is marked once, and its neighbours are read once when it */}
+{/* is: all the lists in total, whose sum is 2E (the handshake lemma). */}
+{/* Θ(V + E) with lists; with the matrix each adj(v) reads a whole row: */}
+{/* Θ(V²). [class 2's archived sweeps, matrix against lists, with their */}
+{/* counter] */}
+
+</Slide>
+
+{/* Beat 5 · the applications (named problems of epic #354 §Hilos 1). */}
+
+<Slide title="Alcanzabilidad">
+
+{/* «¿Puedo llegar de aquí a allá?», the named problem, and a new */}
+{/* application with the same code: does the light reach this house?, on a */}
+{/* power network read as an edge list with Graphs.readEdges. [the network: */}
+{/* the plant, the poles, the houses; the dark houses in red] */}
+
+</Slide>
+
+<Slide title="Componentes conexas">
+
+{/* «¿En cuántos pedazos se parte?»: one search from each unmarked vertex, */}
+{/* each one a piece. With an array id[], each vertex knows its piece. */}
+{/* Application: the roads missing to join the towns are the components */}
+{/* minus one. [a graph with three components, one colour each; the code */}
+{/* of the outer loop] */}
+
+</Slide>
+
+{/* Beat 6 · the question it leaves open, which opens arc II. */}
+
+<Slide title="La búsqueda en profundidad no da el camino más corto">
+
+{/* On slide 1's maze, the DFS path winds, and a shorter one is drawn */}
+{/* beside it. At least how many steps to get out? That question opens */}
+{/* the BFS arc. [the grid with both paths: DFS's and a shorter one] */}
+
+</Slide>
 
 <SectionBreak />
 
