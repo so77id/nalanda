@@ -6405,8 +6405,8 @@ listas: cada vecino de la candidata se busca en la lista de `user`.
 son $$\operatorname{grado}(x) \cdot \operatorname{grado}(user)$$ pasos, y se
 hace con cada candidata. Sumando, las listas de todas las candidatas tienen a
 lo más $$2E$$ entradas, así que el total es a lo más
-$$2E \cdot \operatorname{grado}(user)$$. En el peor caso, `user` es amigo de
-casi todos, y con $$E = 10^5$$:
+$$2E \cdot \operatorname{grado}(user)$$. Como `user` tiene a lo más $$E$$
+amigos, con $$E = 10^5$$ queda la cota:
 
 $$
 2E \cdot \operatorname{grado}(user) \approx 2 \cdot 10^5 \cdot 10^5 = 2 \cdot 10^{10} \text{ pasos}
@@ -6414,7 +6414,7 @@ $$
 
 **El tiempo es $$O(E \cdot \operatorname{grado}(user))$$.** Con esos
 $$2 \cdot 10^{10}$$ pasos, a unos $$10^8$$ pasos por segundo, una sola
-sugerencia tarda $$200$$ segundos: más de tres minutos.
+sugerencia puede tardar hasta $$200$$ segundos: más de tres minutos.
 
 **¿Se puede hacer mejor?**
 
@@ -6993,7 +6993,7 @@ persona es la celebridad.
 </Slide>
 
 <Slide title="Una celebridad · ejemplo">
-Cuatro personas, numeradas 0 ana, 1 beto, 2 carla y 3 elena. Con esta tabla,
+Cuatro personas, numeradas 0 ana, 1 beto, 2 carla y 3 diego. Con esta tabla,
 el método retorna `3`:
 
 <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '3rem' }}>
@@ -7027,10 +7027,10 @@ el método retorna `3`:
   cols={3}
   rows={3}
   directed
-  nodes={[{ v: '0 ana', x: 0, y: 0 }, { v: '1 beto', x: 2, y: 0 }, { v: '2 carla', x: 0, y: 2 }, { v: '3 elena', x: 2, y: 2 }]}
-  edges={[['0 ana', '1 beto'], ['0 ana', '3 elena'], ['1 beto', '3 elena'], ['2 carla', '3 elena']]}
+  nodes={[{ v: '0 ana', x: 0, y: 0 }, { v: '1 beto', x: 2, y: 0 }, { v: '2 carla', x: 0, y: 2 }, { v: '3 diego', x: 2, y: 2 }]}
+  edges={[['0 ana', '1 beto'], ['0 ana', '3 diego'], ['1 beto', '3 diego'], ['2 carla', '3 diego']]}
   caption="cada true, un arco: de quien sigue a quien es seguido"
-  label="El grafo del ejemplo: ana sigue a beto y a elena, beto sigue a elena, carla sigue a elena. Un arco por cada casilla true."
+  label="El grafo del ejemplo: ana sigue a beto y a diego, beto sigue a diego, carla sigue a diego. Un arco por cada casilla true."
 />
 </Pair>
 
@@ -7048,24 +7048,24 @@ En el ejemplo se ve:
   cols={3}
   rows={3}
   directed
-  nodes={[{ v: '0 ana', x: 0, y: 0 }, { v: '1 beto', x: 2, y: 0 }, { v: '2 carla', x: 0, y: 2 }, { v: '3 elena', x: 2, y: 2 }]}
-  edges={[['0 ana', '1 beto'], ['0 ana', '3 elena'], ['1 beto', '3 elena'], ['2 carla', '3 elena']]}
-  markEdges={[['0 ana', '3 elena'], ['1 beto', '3 elena'], ['2 carla', '3 elena']]}
-  tones={{ '3 elena': 'mark' }}
-  caption="a elena le llegan 3 arcos, V − 1, y no sale ninguno"
-  label="Los tres arcos que llegan a elena, desde ana, beto y carla, marcados. De elena no sale ningún arco."
+  nodes={[{ v: '0 ana', x: 0, y: 0 }, { v: '1 beto', x: 2, y: 0 }, { v: '2 carla', x: 0, y: 2 }, { v: '3 diego', x: 2, y: 2 }]}
+  edges={[['0 ana', '1 beto'], ['0 ana', '3 diego'], ['1 beto', '3 diego'], ['2 carla', '3 diego']]}
+  markEdges={[['0 ana', '3 diego'], ['1 beto', '3 diego'], ['2 carla', '3 diego']]}
+  tones={{ '3 diego': 'mark' }}
+  caption="a diego le llegan 3 arcos, V − 1, y no sale ninguno"
+  label="Los tres arcos que llegan a diego, desde ana, beto y carla, marcados. De diego no sale ningún arco."
 />
 <AdjMatrix
   rows={[['false', 'true', 'false', 'true'], ['false', 'false', 'false', 'true'], ['false', 'false', 'false', 'true'], ['false', 'false', 'false', 'false']]}
   mark={[[0, 3], [1, 3], [2, 3], [3, 0], [3, 1], [3, 2]]}
-  caption="la columna de elena: true; su fila: false"
-  label="En la tabla, la columna 3 tiene true en las filas 0, 1 y 2, y la fila 3 tiene false en las columnas 0, 1 y 2: todos siguen a elena y elena no sigue a nadie."
+  caption="la columna de diego: true; su fila: false"
+  label="En la tabla, la columna 3 tiene true en las filas 0, 1 y 2, y la fila 3 tiene false en las columnas 0, 1 y 2: todos siguen a diego y diego no sigue a nadie."
 />
 </div>
 
-Elena cumple las dos, y la salida es `3`. En la tabla, cada pregunta sobre un
-arco es una casilla: `follows[i][j]` es `hasEdge(i, j)` de la matriz, en
-$$\Theta(1)$$. Lo que queda por decidir es cuántas casillas hay que mirar.
+Diego cumple las dos, y la salida es `3`. Esta pregunta no la responde una
+operación del contrato: hay que mirar los arcos que entran a cada vértice y
+los que salen de él.
 
 </Slide>
 
@@ -7083,10 +7083,6 @@ ser. Aquí el enunciado acota a las personas, y lo demás se deduce:
    V(V - 1) \approx V^2 = 5000^2 = 2{,}5 \cdot 10^7
    $$
 
-3. **Denso o disperso.** El enunciado no acota los arcos: puede haber desde
-   ninguno hasta todos. El grafo **puede ser denso**, y hay que prepararse
-   para ese caso.
-
 <NodeGraph
   cols={3}
   rows={1}
@@ -7096,6 +7092,10 @@ ser. Aquí el enunciado acota a las personas, y lo demás se deduce:
   caption="ana sigue a beto y beto sigue a ana: dos arcos"
   label="Dos personas que se siguen mutuamente: un arco de ana a beto y otro de beto a ana."
 />
+
+3. **Denso o disperso.** El enunciado no acota los arcos: puede haber desde
+   ninguno hasta todos. El grafo **puede ser denso**, y hay que prepararse
+   para ese caso.
 
 </Slide>
 
@@ -7147,8 +7147,8 @@ mirar su columna y su fila de la tabla: $$2(V - 1)$$ casillas por persona.
 <AdjMatrix
   rows={[['false', 'true', 'false', 'true'], ['false', 'false', 'false', 'true'], ['false', 'false', 'false', 'true'], ['false', 'false', 'false', 'false']]}
   mark={[[3, 0], [3, 1], [3, 2], [0, 3], [1, 3], [2, 3]]}
-  caption="elena: su fila y su columna, 6 casillas; es la celebridad"
-  label="Revisar a elena: la fila 3, toda false, y la columna 3, toda true en las demás filas: elena es la celebridad."
+  caption="diego: su fila y su columna, 6 casillas; es la celebridad"
+  label="Revisar a diego: la fila 3, toda false, y la columna 3, toda true en las demás filas: diego es la celebridad."
 />
 </div>
 
@@ -7159,8 +7159,9 @@ V \cdot 2(V - 1) \approx 2V^2 = 2 \cdot 5000^2 = 5 \cdot 10^7 \text{ casillas}
 $$
 
 **El tiempo es $$O(V^2)$$.** Con $$5 \cdot 10^7$$ casillas, a unos $$10^8$$
-pasos por segundo, tarda medio segundo, y mira casi toda la tabla para
-encontrar una sola persona.
+pasos por segundo, tarda medio segundo por consulta, y lee cada casilla de
+la tabla dos veces, una por su fila y otra por su columna, para encontrar a
+una sola persona.
 
 **¿Se puede hacer mejor?**
 
@@ -7185,8 +7186,8 @@ Para hacerlo mejor, se usa que **cada casilla descarta a alguien**:
   cols={3}
   rows={3}
   directed
-  nodes={[{ v: '0 ana', x: 0, y: 0 }, { v: '1 beto', x: 2, y: 0 }, { v: '2 carla', x: 0, y: 2 }, { v: '3 elena', x: 2, y: 2 }]}
-  edges={[['0 ana', '1 beto'], ['0 ana', '3 elena'], ['1 beto', '3 elena'], ['2 carla', '3 elena']]}
+  nodes={[{ v: '0 ana', x: 0, y: 0 }, { v: '1 beto', x: 2, y: 0 }, { v: '2 carla', x: 0, y: 2 }, { v: '3 diego', x: 2, y: 2 }]}
+  edges={[['0 ana', '1 beto'], ['0 ana', '3 diego'], ['1 beto', '3 diego'], ['2 carla', '3 diego']]}
   markEdges={[['0 ana', '1 beto']]}
   tones={{ '0 ana': 'flag', '1 beto': 'mark' }}
   caption="¿ana sigue a beto? sí: fuera ana"
@@ -7196,8 +7197,8 @@ Para hacerlo mejor, se usa que **cada casilla descarta a alguien**:
   cols={3}
   rows={3}
   directed
-  nodes={[{ v: '0 ana', x: 0, y: 0 }, { v: '1 beto', x: 2, y: 0 }, { v: '2 carla', x: 0, y: 2 }, { v: '3 elena', x: 2, y: 2 }]}
-  edges={[['0 ana', '1 beto'], ['0 ana', '3 elena'], ['1 beto', '3 elena'], ['2 carla', '3 elena']]}
+  nodes={[{ v: '0 ana', x: 0, y: 0 }, { v: '1 beto', x: 2, y: 0 }, { v: '2 carla', x: 0, y: 2 }, { v: '3 diego', x: 2, y: 2 }]}
+  edges={[['0 ana', '1 beto'], ['0 ana', '3 diego'], ['1 beto', '3 diego'], ['2 carla', '3 diego']]}
   tones={{ '0 ana': 'flag', '1 beto': 'mark', '2 carla': 'flag' }}
   caption="¿beto sigue a carla? no: fuera carla"
   label="Segunda pregunta: beto no sigue a carla, así que carla queda fuera y beto sigue de candidata."
@@ -7206,12 +7207,12 @@ Para hacerlo mejor, se usa que **cada casilla descarta a alguien**:
   cols={3}
   rows={3}
   directed
-  nodes={[{ v: '0 ana', x: 0, y: 0 }, { v: '1 beto', x: 2, y: 0 }, { v: '2 carla', x: 0, y: 2 }, { v: '3 elena', x: 2, y: 2 }]}
-  edges={[['0 ana', '1 beto'], ['0 ana', '3 elena'], ['1 beto', '3 elena'], ['2 carla', '3 elena']]}
-  markEdges={[['1 beto', '3 elena']]}
-  tones={{ '0 ana': 'flag', '1 beto': 'flag', '2 carla': 'flag', '3 elena': 'mark' }}
-  caption="¿beto sigue a elena? sí: fuera beto"
-  label="Tercera pregunta: beto sigue a elena, así que beto queda fuera y elena es la única candidata."
+  nodes={[{ v: '0 ana', x: 0, y: 0 }, { v: '1 beto', x: 2, y: 0 }, { v: '2 carla', x: 0, y: 2 }, { v: '3 diego', x: 2, y: 2 }]}
+  edges={[['0 ana', '1 beto'], ['0 ana', '3 diego'], ['1 beto', '3 diego'], ['2 carla', '3 diego']]}
+  markEdges={[['1 beto', '3 diego']]}
+  tones={{ '0 ana': 'flag', '1 beto': 'flag', '2 carla': 'flag', '3 diego': 'mark' }}
+  caption="¿beto sigue a diego? sí: fuera beto"
+  label="Tercera pregunta: beto sigue a diego, así que beto queda fuera y diego es la única candidata."
 />
 </div>
 
@@ -7227,7 +7228,7 @@ columna.
 <StepShow
   language="java"
   beside
-  title="celebrity(follows): ana, beto, carla y elena"
+  title="celebrity(follows): ana, beto, carla y diego"
   program={`int c = Solution.celebrity(follows);`}
   codeSrc="./26-grafos-tda-modelado.code/celebridad/Solution.java"
   codeRange="2-22"
@@ -7239,10 +7240,10 @@ columna.
         cols={3}
         rows={3}
         directed
-        nodes={[{ v: '0 ana', x: 0, y: 0 }, { v: '1 beto', x: 2, y: 0 }, { v: '2 carla', x: 0, y: 2 }, { v: '3 elena', x: 2, y: 2 }]}
-        edges={[['0 ana', '1 beto'], ['0 ana', '3 elena'], ['1 beto', '3 elena'], ['2 carla', '3 elena']]}
+        nodes={[{ v: '0 ana', x: 0, y: 0 }, { v: '1 beto', x: 2, y: 0 }, { v: '2 carla', x: 0, y: 2 }, { v: '3 diego', x: 2, y: 2 }]}
+        edges={[['0 ana', '1 beto'], ['0 ana', '3 diego'], ['1 beto', '3 diego'], ['2 carla', '3 diego']]}
         tones={{ '0 ana': 'mark' }}
-        label="El grafo dirigido de los seguidores: ana sigue a beto, ana sigue a elena, beto sigue a elena, carla sigue a elena. ana es la candidata."
+        label="El grafo dirigido de los seguidores: ana sigue a beto, ana sigue a diego, beto sigue a diego, carla sigue a diego. ana es la candidata."
       />
       <AdjMatrix
         rows={[['false', 'true', 'false', 'true'], ['false', 'false', 'false', 'true'], ['false', 'false', 'false', 'true'], ['false', 'false', 'false', 'false']]}
@@ -7258,11 +7259,11 @@ columna.
         cols={3}
         rows={3}
         directed
-        nodes={[{ v: '0 ana', x: 0, y: 0 }, { v: '1 beto', x: 2, y: 0 }, { v: '2 carla', x: 0, y: 2 }, { v: '3 elena', x: 2, y: 2 }]}
-        edges={[['0 ana', '1 beto'], ['0 ana', '3 elena'], ['1 beto', '3 elena'], ['2 carla', '3 elena']]}
+        nodes={[{ v: '0 ana', x: 0, y: 0 }, { v: '1 beto', x: 2, y: 0 }, { v: '2 carla', x: 0, y: 2 }, { v: '3 diego', x: 2, y: 2 }]}
+        edges={[['0 ana', '1 beto'], ['0 ana', '3 diego'], ['1 beto', '3 diego'], ['2 carla', '3 diego']]}
         markEdges={[['0 ana', '1 beto']]}
         tones={{ '0 ana': 'flag', '1 beto': 'mark' }}
-        label="El grafo dirigido de los seguidores: ana sigue a beto, ana sigue a elena, beto sigue a elena, carla sigue a elena. ana está descartada; beto es la candidata. Marcado, el arco de ana a beto."
+        label="El grafo dirigido de los seguidores: ana sigue a beto, ana sigue a diego, beto sigue a diego, carla sigue a diego. ana está descartada; beto es la candidata. Marcado, el arco de ana a beto."
       />
       <AdjMatrix
         rows={[['false', 'true', 'false', 'true'], ['false', 'false', 'false', 'true'], ['false', 'false', 'false', 'true'], ['false', 'false', 'false', 'false']]}
@@ -7278,10 +7279,10 @@ columna.
         cols={3}
         rows={3}
         directed
-        nodes={[{ v: '0 ana', x: 0, y: 0 }, { v: '1 beto', x: 2, y: 0 }, { v: '2 carla', x: 0, y: 2 }, { v: '3 elena', x: 2, y: 2 }]}
-        edges={[['0 ana', '1 beto'], ['0 ana', '3 elena'], ['1 beto', '3 elena'], ['2 carla', '3 elena']]}
+        nodes={[{ v: '0 ana', x: 0, y: 0 }, { v: '1 beto', x: 2, y: 0 }, { v: '2 carla', x: 0, y: 2 }, { v: '3 diego', x: 2, y: 2 }]}
+        edges={[['0 ana', '1 beto'], ['0 ana', '3 diego'], ['1 beto', '3 diego'], ['2 carla', '3 diego']]}
         tones={{ '0 ana': 'flag', '1 beto': 'mark', '2 carla': 'flag' }}
-        label="El grafo dirigido de los seguidores: ana sigue a beto, ana sigue a elena, beto sigue a elena, carla sigue a elena. ana está descartada; beto es la candidata; carla está descartada."
+        label="El grafo dirigido de los seguidores: ana sigue a beto, ana sigue a diego, beto sigue a diego, carla sigue a diego. ana está descartada; beto es la candidata; carla está descartada."
       />
       <AdjMatrix
         rows={[['false', 'true', 'false', 'true'], ['false', 'false', 'false', 'true'], ['false', 'false', 'false', 'true'], ['false', 'false', 'false', 'false']]}
@@ -7290,18 +7291,18 @@ columna.
       />
     </Pair>
   </Step>
-  <Step lines={[5, 6, 7]} programLines={[1]} under={<OutputBox head="candidate" lines={['3 elena']} rows={2} fresh label="candidate: 3 elena." />}>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>i = 3: [1][3] es true, beto sigue a elena. Beto no es celebridad; candidate = 3.</div>
+  <Step lines={[5, 6, 7]} programLines={[1]} under={<OutputBox head="candidate" lines={['3 diego']} rows={2} fresh label="candidate: 3 diego." />}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>i = 3: [1][3] es true, beto sigue a diego. Beto no es celebridad; candidate = 3.</div>
     <Pair>
       <NodeGraph
         cols={3}
         rows={3}
         directed
-        nodes={[{ v: '0 ana', x: 0, y: 0 }, { v: '1 beto', x: 2, y: 0 }, { v: '2 carla', x: 0, y: 2 }, { v: '3 elena', x: 2, y: 2 }]}
-        edges={[['0 ana', '1 beto'], ['0 ana', '3 elena'], ['1 beto', '3 elena'], ['2 carla', '3 elena']]}
-        markEdges={[['1 beto', '3 elena']]}
-        tones={{ '0 ana': 'flag', '1 beto': 'flag', '2 carla': 'flag', '3 elena': 'mark' }}
-        label="El grafo dirigido de los seguidores: ana sigue a beto, ana sigue a elena, beto sigue a elena, carla sigue a elena. ana está descartada; beto está descartada; carla está descartada; elena es la candidata. Marcado, el arco de beto a elena."
+        nodes={[{ v: '0 ana', x: 0, y: 0 }, { v: '1 beto', x: 2, y: 0 }, { v: '2 carla', x: 0, y: 2 }, { v: '3 diego', x: 2, y: 2 }]}
+        edges={[['0 ana', '1 beto'], ['0 ana', '3 diego'], ['1 beto', '3 diego'], ['2 carla', '3 diego']]}
+        markEdges={[['1 beto', '3 diego']]}
+        tones={{ '0 ana': 'flag', '1 beto': 'flag', '2 carla': 'flag', '3 diego': 'mark' }}
+        label="El grafo dirigido de los seguidores: ana sigue a beto, ana sigue a diego, beto sigue a diego, carla sigue a diego. ana está descartada; beto está descartada; carla está descartada; diego es la candidata. Marcado, el arco de beto a diego."
       />
       <AdjMatrix
         rows={[['false', 'true', 'false', 'true'], ['false', 'false', 'false', 'true'], ['false', 'false', 'false', 'true'], ['false', 'false', 'false', 'false']]}
@@ -7310,17 +7311,17 @@ columna.
       />
     </Pair>
   </Step>
-  <Step lines={[10, 11, 14]} programLines={[1]} under={<OutputBox head="candidate" lines={['3 elena']} rows={2} label="candidate: 3 elena." />}>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>i = 0, ana: [3][0] es false, elena no sigue a ana.</div>
+  <Step lines={[10, 11, 14]} programLines={[1]} under={<OutputBox head="candidate" lines={['3 diego']} rows={2} label="candidate: 3 diego." />}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>i = 0, ana: [3][0] es false, diego no sigue a ana.</div>
     <Pair>
       <NodeGraph
         cols={3}
         rows={3}
         directed
-        nodes={[{ v: '0 ana', x: 0, y: 0 }, { v: '1 beto', x: 2, y: 0 }, { v: '2 carla', x: 0, y: 2 }, { v: '3 elena', x: 2, y: 2 }]}
-        edges={[['0 ana', '1 beto'], ['0 ana', '3 elena'], ['1 beto', '3 elena'], ['2 carla', '3 elena']]}
-        tones={{ '3 elena': 'mark' }}
-        label="El grafo dirigido de los seguidores: ana sigue a beto, ana sigue a elena, beto sigue a elena, carla sigue a elena. elena es la candidata."
+        nodes={[{ v: '0 ana', x: 0, y: 0 }, { v: '1 beto', x: 2, y: 0 }, { v: '2 carla', x: 0, y: 2 }, { v: '3 diego', x: 2, y: 2 }]}
+        edges={[['0 ana', '1 beto'], ['0 ana', '3 diego'], ['1 beto', '3 diego'], ['2 carla', '3 diego']]}
+        tones={{ '3 diego': 'mark' }}
+        label="El grafo dirigido de los seguidores: ana sigue a beto, ana sigue a diego, beto sigue a diego, carla sigue a diego. diego es la candidata."
       />
       <AdjMatrix
         rows={[['false', 'true', 'false', 'true'], ['false', 'false', 'false', 'true'], ['false', 'false', 'false', 'true'], ['false', 'false', 'false', 'false']]}
@@ -7329,18 +7330,18 @@ columna.
       />
     </Pair>
   </Step>
-  <Step lines={[17]} programLines={[1]} under={<OutputBox head="candidate" lines={['3 elena']} rows={2} label="candidate: 3 elena." />}>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>[0][3] es true: ana sigue a elena.</div>
+  <Step lines={[17]} programLines={[1]} under={<OutputBox head="candidate" lines={['3 diego']} rows={2} label="candidate: 3 diego." />}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>[0][3] es true: ana sigue a diego.</div>
     <Pair>
       <NodeGraph
         cols={3}
         rows={3}
         directed
-        nodes={[{ v: '0 ana', x: 0, y: 0 }, { v: '1 beto', x: 2, y: 0 }, { v: '2 carla', x: 0, y: 2 }, { v: '3 elena', x: 2, y: 2 }]}
-        edges={[['0 ana', '1 beto'], ['0 ana', '3 elena'], ['1 beto', '3 elena'], ['2 carla', '3 elena']]}
-        markEdges={[['0 ana', '3 elena']]}
-        tones={{ '3 elena': 'mark', '0 ana': 'keep' }}
-        label="El grafo dirigido de los seguidores: ana sigue a beto, ana sigue a elena, beto sigue a elena, carla sigue a elena. elena es la candidata; ana ya se comprobó. Marcado, el arco de ana a elena."
+        nodes={[{ v: '0 ana', x: 0, y: 0 }, { v: '1 beto', x: 2, y: 0 }, { v: '2 carla', x: 0, y: 2 }, { v: '3 diego', x: 2, y: 2 }]}
+        edges={[['0 ana', '1 beto'], ['0 ana', '3 diego'], ['1 beto', '3 diego'], ['2 carla', '3 diego']]}
+        markEdges={[['0 ana', '3 diego']]}
+        tones={{ '3 diego': 'mark', '0 ana': 'keep' }}
+        label="El grafo dirigido de los seguidores: ana sigue a beto, ana sigue a diego, beto sigue a diego, carla sigue a diego. diego es la candidata; ana ya se comprobó. Marcado, el arco de ana a diego."
       />
       <AdjMatrix
         rows={[['false', 'true', 'false', 'true'], ['false', 'false', 'false', 'true'], ['false', 'false', 'false', 'true'], ['false', 'false', 'false', 'false']]}
@@ -7349,17 +7350,17 @@ columna.
       />
     </Pair>
   </Step>
-  <Step lines={[10, 11, 14]} programLines={[1]} under={<OutputBox head="candidate" lines={['3 elena']} rows={2} label="candidate: 3 elena." />}>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>i = 1, beto: [3][1] es false, elena no sigue a beto.</div>
+  <Step lines={[10, 11, 14]} programLines={[1]} under={<OutputBox head="candidate" lines={['3 diego']} rows={2} label="candidate: 3 diego." />}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>i = 1, beto: [3][1] es false, diego no sigue a beto.</div>
     <Pair>
       <NodeGraph
         cols={3}
         rows={3}
         directed
-        nodes={[{ v: '0 ana', x: 0, y: 0 }, { v: '1 beto', x: 2, y: 0 }, { v: '2 carla', x: 0, y: 2 }, { v: '3 elena', x: 2, y: 2 }]}
-        edges={[['0 ana', '1 beto'], ['0 ana', '3 elena'], ['1 beto', '3 elena'], ['2 carla', '3 elena']]}
-        tones={{ '3 elena': 'mark', '0 ana': 'keep' }}
-        label="El grafo dirigido de los seguidores: ana sigue a beto, ana sigue a elena, beto sigue a elena, carla sigue a elena. elena es la candidata; ana ya se comprobó."
+        nodes={[{ v: '0 ana', x: 0, y: 0 }, { v: '1 beto', x: 2, y: 0 }, { v: '2 carla', x: 0, y: 2 }, { v: '3 diego', x: 2, y: 2 }]}
+        edges={[['0 ana', '1 beto'], ['0 ana', '3 diego'], ['1 beto', '3 diego'], ['2 carla', '3 diego']]}
+        tones={{ '3 diego': 'mark', '0 ana': 'keep' }}
+        label="El grafo dirigido de los seguidores: ana sigue a beto, ana sigue a diego, beto sigue a diego, carla sigue a diego. diego es la candidata; ana ya se comprobó."
       />
       <AdjMatrix
         rows={[['false', 'true', 'false', 'true'], ['false', 'false', 'false', 'true'], ['false', 'false', 'false', 'true'], ['false', 'false', 'false', 'false']]}
@@ -7368,18 +7369,18 @@ columna.
       />
     </Pair>
   </Step>
-  <Step lines={[17]} programLines={[1]} under={<OutputBox head="candidate" lines={['3 elena']} rows={2} label="candidate: 3 elena." />}>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>[1][3] es true: beto sigue a elena.</div>
+  <Step lines={[17]} programLines={[1]} under={<OutputBox head="candidate" lines={['3 diego']} rows={2} label="candidate: 3 diego." />}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>[1][3] es true: beto sigue a diego.</div>
     <Pair>
       <NodeGraph
         cols={3}
         rows={3}
         directed
-        nodes={[{ v: '0 ana', x: 0, y: 0 }, { v: '1 beto', x: 2, y: 0 }, { v: '2 carla', x: 0, y: 2 }, { v: '3 elena', x: 2, y: 2 }]}
-        edges={[['0 ana', '1 beto'], ['0 ana', '3 elena'], ['1 beto', '3 elena'], ['2 carla', '3 elena']]}
-        markEdges={[['1 beto', '3 elena']]}
-        tones={{ '3 elena': 'mark', '0 ana': 'keep', '1 beto': 'keep' }}
-        label="El grafo dirigido de los seguidores: ana sigue a beto, ana sigue a elena, beto sigue a elena, carla sigue a elena. elena es la candidata; ana ya se comprobó; beto ya se comprobó. Marcado, el arco de beto a elena."
+        nodes={[{ v: '0 ana', x: 0, y: 0 }, { v: '1 beto', x: 2, y: 0 }, { v: '2 carla', x: 0, y: 2 }, { v: '3 diego', x: 2, y: 2 }]}
+        edges={[['0 ana', '1 beto'], ['0 ana', '3 diego'], ['1 beto', '3 diego'], ['2 carla', '3 diego']]}
+        markEdges={[['1 beto', '3 diego']]}
+        tones={{ '3 diego': 'mark', '0 ana': 'keep', '1 beto': 'keep' }}
+        label="El grafo dirigido de los seguidores: ana sigue a beto, ana sigue a diego, beto sigue a diego, carla sigue a diego. diego es la candidata; ana ya se comprobó; beto ya se comprobó. Marcado, el arco de beto a diego."
       />
       <AdjMatrix
         rows={[['false', 'true', 'false', 'true'], ['false', 'false', 'false', 'true'], ['false', 'false', 'false', 'true'], ['false', 'false', 'false', 'false']]}
@@ -7388,17 +7389,17 @@ columna.
       />
     </Pair>
   </Step>
-  <Step lines={[10, 11, 14]} programLines={[1]} under={<OutputBox head="candidate" lines={['3 elena']} rows={2} label="candidate: 3 elena." />}>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>i = 2, carla: [3][2] es false, elena no sigue a carla.</div>
+  <Step lines={[10, 11, 14]} programLines={[1]} under={<OutputBox head="candidate" lines={['3 diego']} rows={2} label="candidate: 3 diego." />}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>i = 2, carla: [3][2] es false, diego no sigue a carla.</div>
     <Pair>
       <NodeGraph
         cols={3}
         rows={3}
         directed
-        nodes={[{ v: '0 ana', x: 0, y: 0 }, { v: '1 beto', x: 2, y: 0 }, { v: '2 carla', x: 0, y: 2 }, { v: '3 elena', x: 2, y: 2 }]}
-        edges={[['0 ana', '1 beto'], ['0 ana', '3 elena'], ['1 beto', '3 elena'], ['2 carla', '3 elena']]}
-        tones={{ '3 elena': 'mark', '0 ana': 'keep', '1 beto': 'keep' }}
-        label="El grafo dirigido de los seguidores: ana sigue a beto, ana sigue a elena, beto sigue a elena, carla sigue a elena. elena es la candidata; ana ya se comprobó; beto ya se comprobó."
+        nodes={[{ v: '0 ana', x: 0, y: 0 }, { v: '1 beto', x: 2, y: 0 }, { v: '2 carla', x: 0, y: 2 }, { v: '3 diego', x: 2, y: 2 }]}
+        edges={[['0 ana', '1 beto'], ['0 ana', '3 diego'], ['1 beto', '3 diego'], ['2 carla', '3 diego']]}
+        tones={{ '3 diego': 'mark', '0 ana': 'keep', '1 beto': 'keep' }}
+        label="El grafo dirigido de los seguidores: ana sigue a beto, ana sigue a diego, beto sigue a diego, carla sigue a diego. diego es la candidata; ana ya se comprobó; beto ya se comprobó."
       />
       <AdjMatrix
         rows={[['false', 'true', 'false', 'true'], ['false', 'false', 'false', 'true'], ['false', 'false', 'false', 'true'], ['false', 'false', 'false', 'false']]}
@@ -7407,18 +7408,18 @@ columna.
       />
     </Pair>
   </Step>
-  <Step lines={[17]} programLines={[1]} under={<OutputBox head="candidate" lines={['3 elena']} rows={2} label="candidate: 3 elena." />}>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>[2][3] es true: carla sigue a elena.</div>
+  <Step lines={[17]} programLines={[1]} under={<OutputBox head="candidate" lines={['3 diego']} rows={2} label="candidate: 3 diego." />}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>[2][3] es true: carla sigue a diego.</div>
     <Pair>
       <NodeGraph
         cols={3}
         rows={3}
         directed
-        nodes={[{ v: '0 ana', x: 0, y: 0 }, { v: '1 beto', x: 2, y: 0 }, { v: '2 carla', x: 0, y: 2 }, { v: '3 elena', x: 2, y: 2 }]}
-        edges={[['0 ana', '1 beto'], ['0 ana', '3 elena'], ['1 beto', '3 elena'], ['2 carla', '3 elena']]}
-        markEdges={[['2 carla', '3 elena']]}
-        tones={{ '3 elena': 'mark', '0 ana': 'keep', '1 beto': 'keep', '2 carla': 'keep' }}
-        label="El grafo dirigido de los seguidores: ana sigue a beto, ana sigue a elena, beto sigue a elena, carla sigue a elena. elena es la candidata; ana ya se comprobó; beto ya se comprobó; carla ya se comprobó. Marcado, el arco de carla a elena."
+        nodes={[{ v: '0 ana', x: 0, y: 0 }, { v: '1 beto', x: 2, y: 0 }, { v: '2 carla', x: 0, y: 2 }, { v: '3 diego', x: 2, y: 2 }]}
+        edges={[['0 ana', '1 beto'], ['0 ana', '3 diego'], ['1 beto', '3 diego'], ['2 carla', '3 diego']]}
+        markEdges={[['2 carla', '3 diego']]}
+        tones={{ '3 diego': 'mark', '0 ana': 'keep', '1 beto': 'keep', '2 carla': 'keep' }}
+        label="El grafo dirigido de los seguidores: ana sigue a beto, ana sigue a diego, beto sigue a diego, carla sigue a diego. diego es la candidata; ana ya se comprobó; beto ya se comprobó; carla ya se comprobó. Marcado, el arco de carla a diego."
       />
       <AdjMatrix
         rows={[['false', 'true', 'false', 'true'], ['false', 'false', 'false', 'true'], ['false', 'false', 'false', 'true'], ['false', 'false', 'false', 'false']]}
@@ -7427,17 +7428,17 @@ columna.
       />
     </Pair>
   </Step>
-  <Step lines={[10, 11, 12]} programLines={[1]} under={<OutputBox head="candidate" lines={['3 elena']} rows={2} label="candidate: 3 elena." />}>
+  <Step lines={[10, 11, 12]} programLines={[1]} under={<OutputBox head="candidate" lines={['3 diego']} rows={2} label="candidate: 3 diego." />}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>i = 3 es la candidata: continue, sin mirar casillas.</div>
     <Pair>
       <NodeGraph
         cols={3}
         rows={3}
         directed
-        nodes={[{ v: '0 ana', x: 0, y: 0 }, { v: '1 beto', x: 2, y: 0 }, { v: '2 carla', x: 0, y: 2 }, { v: '3 elena', x: 2, y: 2 }]}
-        edges={[['0 ana', '1 beto'], ['0 ana', '3 elena'], ['1 beto', '3 elena'], ['2 carla', '3 elena']]}
-        tones={{ '3 elena': 'mark', '0 ana': 'keep', '1 beto': 'keep', '2 carla': 'keep' }}
-        label="El grafo dirigido de los seguidores: ana sigue a beto, ana sigue a elena, beto sigue a elena, carla sigue a elena. elena es la candidata; ana ya se comprobó; beto ya se comprobó; carla ya se comprobó."
+        nodes={[{ v: '0 ana', x: 0, y: 0 }, { v: '1 beto', x: 2, y: 0 }, { v: '2 carla', x: 0, y: 2 }, { v: '3 diego', x: 2, y: 2 }]}
+        edges={[['0 ana', '1 beto'], ['0 ana', '3 diego'], ['1 beto', '3 diego'], ['2 carla', '3 diego']]}
+        tones={{ '3 diego': 'mark', '0 ana': 'keep', '1 beto': 'keep', '2 carla': 'keep' }}
+        label="El grafo dirigido de los seguidores: ana sigue a beto, ana sigue a diego, beto sigue a diego, carla sigue a diego. diego es la candidata; ana ya se comprobó; beto ya se comprobó; carla ya se comprobó."
       />
       <AdjMatrix
         rows={[['false', 'true', 'false', 'true'], ['false', 'false', 'false', 'true'], ['false', 'false', 'false', 'true'], ['false', 'false', 'false', 'false']]}
@@ -7446,18 +7447,18 @@ columna.
       />
     </Pair>
   </Step>
-  <Step lines={[21]} programLines={[1]} under={<OutputBox head="candidate" lines={['3 elena', 'retorna 3']} rows={2} fresh label="candidate: 3 elena, retorna 3." />}>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Nadie la descartó: retorna 3, elena.</div>
+  <Step lines={[21]} programLines={[1]} under={<OutputBox head="candidate" lines={['3 diego', 'retorna 3']} rows={2} fresh label="candidate: 3 diego, retorna 3." />}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Nadie la descartó: retorna 3, diego.</div>
     <Pair>
       <NodeGraph
         cols={3}
         rows={3}
         directed
-        nodes={[{ v: '0 ana', x: 0, y: 0 }, { v: '1 beto', x: 2, y: 0 }, { v: '2 carla', x: 0, y: 2 }, { v: '3 elena', x: 2, y: 2 }]}
-        edges={[['0 ana', '1 beto'], ['0 ana', '3 elena'], ['1 beto', '3 elena'], ['2 carla', '3 elena']]}
-        markEdges={[['0 ana', '3 elena'], ['1 beto', '3 elena'], ['2 carla', '3 elena']]}
-        tones={{ '3 elena': 'mark', '0 ana': 'keep', '1 beto': 'keep', '2 carla': 'keep' }}
-        label="El grafo dirigido de los seguidores: ana sigue a beto, ana sigue a elena, beto sigue a elena, carla sigue a elena. elena es la candidata; ana ya se comprobó; beto ya se comprobó; carla ya se comprobó. Marcado, el arco de ana a elena, el arco de beto a elena, el arco de carla a elena."
+        nodes={[{ v: '0 ana', x: 0, y: 0 }, { v: '1 beto', x: 2, y: 0 }, { v: '2 carla', x: 0, y: 2 }, { v: '3 diego', x: 2, y: 2 }]}
+        edges={[['0 ana', '1 beto'], ['0 ana', '3 diego'], ['1 beto', '3 diego'], ['2 carla', '3 diego']]}
+        markEdges={[['0 ana', '3 diego'], ['1 beto', '3 diego'], ['2 carla', '3 diego']]}
+        tones={{ '3 diego': 'mark', '0 ana': 'keep', '1 beto': 'keep', '2 carla': 'keep' }}
+        label="El grafo dirigido de los seguidores: ana sigue a beto, ana sigue a diego, beto sigue a diego, carla sigue a diego. diego es la candidata; ana ya se comprobó; beto ya se comprobó; carla ya se comprobó. Marcado, el arco de ana a diego, el arco de beto a diego, el arco de carla a diego."
       />
       <AdjMatrix
         rows={[['false', 'true', 'false', 'true'], ['false', 'false', 'false', 'true'], ['false', 'false', 'false', 'true'], ['false', 'false', 'false', 'false']]}
@@ -7480,12 +7481,12 @@ $$-1$$ al llegar a esa persona.
   cols={3}
   rows={3}
   directed
-  nodes={[{ v: '0 ana', x: 0, y: 0 }, { v: '1 beto', x: 2, y: 0 }, { v: '2 carla', x: 0, y: 2 }, { v: '3 elena', x: 2, y: 2 }]}
-  edges={[['0 ana', '1 beto'], ['0 ana', '3 elena'], ['1 beto', '3 elena'], ['2 carla', '3 elena'], ['3 elena', '2 carla']]}
-  markEdges={[['3 elena', '2 carla']]}
-  tones={{ '3 elena': 'flag' }}
-  caption="elena sigue a carla: queda de candidata y no pasa → −1"
-  label="Las mismas cuatro personas y además elena sigue a carla. elena queda de candidata, pero sigue a alguien: menos uno."
+  nodes={[{ v: '0 ana', x: 0, y: 0 }, { v: '1 beto', x: 2, y: 0 }, { v: '2 carla', x: 0, y: 2 }, { v: '3 diego', x: 2, y: 2 }]}
+  edges={[['0 ana', '1 beto'], ['0 ana', '3 diego'], ['1 beto', '3 diego'], ['2 carla', '3 diego'], ['3 diego', '2 carla']]}
+  markEdges={[['3 diego', '2 carla']]}
+  tones={{ '3 diego': 'flag' }}
+  caption="diego sigue a carla: queda de candidata y no pasa → −1"
+  label="Las mismas cuatro personas y además diego sigue a carla. diego queda de candidata, pero sigue a alguien: menos uno."
 />
 <NodeGraph
   cols={3}
@@ -7508,8 +7509,9 @@ Con una sola persona no hay nada que preguntar, y el método retorna $$0$$.
   primera: $$\Theta(V)$$.
 - **Comprobarla:** su fila y su columna, $$2(V - 1)$$ casillas: $$\Theta(V)$$.
 
-**En total, $$\Theta(V)$$**: menos de $$3V = 1{,}5 \cdot 10^4$$ casillas, contra
-las $$5 \cdot 10^7$$ de revisar a cada persona.
+**En total, $$\Theta(V)$$**: menos de $$3V = 1{,}5 \cdot 10^4$$ casillas, unas
+$$0{,}15$$ milésimas de segundo, contra las $$5 \cdot 10^7$$ casillas y el medio
+segundo de revisar a cada persona.
 
 **Memoria.** Dos enteros, $$\Theta(1)$$, además de la tabla que llega.
 
@@ -7582,7 +7584,8 @@ carreteras de una ciudad empatan, gana la que aparece primero en la entrada.
 
 - `roads`: las carreteras. Cada una es un `String` con las dos ciudades y el
   largo separados por espacios, como `"Santiago Rancagua 87"`; son a lo más
-  $$10^5$$, sin repetir, con largos enteros y nombres sin espacios.
+  $$10^5$$, sin repetir, con largos enteros de $$1$$ a $$10^4$$ y nombres sin
+  espacios.
 
 **Salida:**
 
@@ -7772,6 +7775,7 @@ carreteras. Por eso se recorren **dos veces**:
 <Slide title="Ciudad vecina · numerar las ciudades">
 <StepShow
   language="java"
+  beside
   title="La primera vuelta: numerar las ciudades"
   codeSrc="./26-grafos-tda-modelado.code/ciudad/Solution.java"
   codeRange="8-18"
@@ -7781,13 +7785,6 @@ carreteras. Por eso se recorren **dos veces**:
     <Pair stack>
       <InputLines head="roads" lines={['Santiago Valparaíso 116', 'Santiago Rancagua 87', 'Rancagua Talca 172', 'Valparaíso Quillota 52', 'Quillota Santiago 125']} at={null} read={0} label="La entrada, línea por línea: Santiago Valparaíso 116, Santiago Rancagua 87, Rancagua Talca 172, Valparaíso Quillota 52, Quillota Santiago 125." />
       <div style={{ width: '100%', maxWidth: '560px', margin: '0 auto' }}>
-      <NodeGraph
-        cols={10}
-        rows={2}
-        nodes={[]}
-        edges={[]}
-        label="Las ciudades numeradas hasta ahora: ninguna todavía."
-      />
       </div>
       <ArrayRows
         rows={[{ name: 'names', cells: [] }, { name: 'ids', cells: [], head: [] }]}
@@ -7802,13 +7799,6 @@ carreteras. Por eso se recorren **dos veces**:
     <Pair stack>
       <InputLines head="roads" lines={['Santiago Valparaíso 116', 'Santiago Rancagua 87', 'Rancagua Talca 172', 'Valparaíso Quillota 52', 'Quillota Santiago 125']} at={[0, 0]} read={0} label="La entrada, línea por línea: Santiago Valparaíso 116, Santiago Rancagua 87, Rancagua Talca 172, Valparaíso Quillota 52, Quillota Santiago 125. Se lee Santiago, de la línea 1." />
       <div style={{ width: '100%', maxWidth: '560px', margin: '0 auto' }}>
-      <NodeGraph
-        cols={10}
-        rows={2}
-        nodes={[{ v: '0 Santiago', x: 4, y: 1 }]}
-        edges={[]}
-        label="Las ciudades numeradas hasta ahora: 0 Santiago."
-      />
       </div>
       <ArrayRows
         rows={[{ name: 'names', cells: ['Santiago'] }, { name: 'ids', cells: [0], head: ['Santiago'] }]}
@@ -7823,13 +7813,6 @@ carreteras. Por eso se recorren **dos veces**:
     <Pair stack>
       <InputLines head="roads" lines={['Santiago Valparaíso 116', 'Santiago Rancagua 87', 'Rancagua Talca 172', 'Valparaíso Quillota 52', 'Quillota Santiago 125']} at={[0, 1]} read={0} label="La entrada, línea por línea: Santiago Valparaíso 116, Santiago Rancagua 87, Rancagua Talca 172, Valparaíso Quillota 52, Quillota Santiago 125. Se lee Valparaíso, de la línea 1." />
       <div style={{ width: '100%', maxWidth: '560px', margin: '0 auto' }}>
-      <NodeGraph
-        cols={10}
-        rows={2}
-        nodes={[{ v: '0 Santiago', x: 4, y: 1 }, { v: '1 Valparaíso', x: 0.6, y: 1 }]}
-        edges={[]}
-        label="Las ciudades numeradas hasta ahora: 0 Santiago, 1 Valparaíso."
-      />
       </div>
       <ArrayRows
         rows={[{ name: 'names', cells: ['Santiago', 'Valparaíso'] }, { name: 'ids', cells: [0, 1], head: ['Santiago', 'Valparaíso'] }]}
@@ -7844,13 +7827,6 @@ carreteras. Por eso se recorren **dos veces**:
     <Pair stack>
       <InputLines head="roads" lines={['Santiago Valparaíso 116', 'Santiago Rancagua 87', 'Rancagua Talca 172', 'Valparaíso Quillota 52', 'Quillota Santiago 125']} at={[1, 0]} read={1} label="La entrada, línea por línea: Santiago Valparaíso 116, Santiago Rancagua 87, Rancagua Talca 172, Valparaíso Quillota 52, Quillota Santiago 125. Se lee Santiago, de la línea 2." />
       <div style={{ width: '100%', maxWidth: '560px', margin: '0 auto' }}>
-      <NodeGraph
-        cols={10}
-        rows={2}
-        nodes={[{ v: '0 Santiago', x: 4, y: 1 }, { v: '1 Valparaíso', x: 0.6, y: 1 }]}
-        edges={[]}
-        label="Las ciudades numeradas hasta ahora: 0 Santiago, 1 Valparaíso."
-      />
       </div>
       <ArrayRows
         rows={[{ name: 'names', cells: ['Santiago', 'Valparaíso'] }, { name: 'ids', cells: [0, 1], head: ['Santiago', 'Valparaíso'] }]}
@@ -7865,13 +7841,6 @@ carreteras. Por eso se recorren **dos veces**:
     <Pair stack>
       <InputLines head="roads" lines={['Santiago Valparaíso 116', 'Santiago Rancagua 87', 'Rancagua Talca 172', 'Valparaíso Quillota 52', 'Quillota Santiago 125']} at={[1, 1]} read={1} label="La entrada, línea por línea: Santiago Valparaíso 116, Santiago Rancagua 87, Rancagua Talca 172, Valparaíso Quillota 52, Quillota Santiago 125. Se lee Rancagua, de la línea 2." />
       <div style={{ width: '100%', maxWidth: '560px', margin: '0 auto' }}>
-      <NodeGraph
-        cols={10}
-        rows={2}
-        nodes={[{ v: '0 Santiago', x: 4, y: 1 }, { v: '1 Valparaíso', x: 0.6, y: 1 }, { v: '2 Rancagua', x: 6.6, y: 1 }]}
-        edges={[]}
-        label="Las ciudades numeradas hasta ahora: 0 Santiago, 1 Valparaíso, 2 Rancagua."
-      />
       </div>
       <ArrayRows
         rows={[{ name: 'names', cells: ['Santiago', 'Valparaíso', 'Rancagua'] }, { name: 'ids', cells: [0, 1, 2], head: ['Santiago', 'Valparaíso', 'Rancagua'] }]}
@@ -7886,13 +7855,6 @@ carreteras. Por eso se recorren **dos veces**:
     <Pair stack>
       <InputLines head="roads" lines={['Santiago Valparaíso 116', 'Santiago Rancagua 87', 'Rancagua Talca 172', 'Valparaíso Quillota 52', 'Quillota Santiago 125']} at={[2, 0]} read={2} label="La entrada, línea por línea: Santiago Valparaíso 116, Santiago Rancagua 87, Rancagua Talca 172, Valparaíso Quillota 52, Quillota Santiago 125. Se lee Rancagua, de la línea 3." />
       <div style={{ width: '100%', maxWidth: '560px', margin: '0 auto' }}>
-      <NodeGraph
-        cols={10}
-        rows={2}
-        nodes={[{ v: '0 Santiago', x: 4, y: 1 }, { v: '1 Valparaíso', x: 0.6, y: 1 }, { v: '2 Rancagua', x: 6.6, y: 1 }]}
-        edges={[]}
-        label="Las ciudades numeradas hasta ahora: 0 Santiago, 1 Valparaíso, 2 Rancagua."
-      />
       </div>
       <ArrayRows
         rows={[{ name: 'names', cells: ['Santiago', 'Valparaíso', 'Rancagua'] }, { name: 'ids', cells: [0, 1, 2], head: ['Santiago', 'Valparaíso', 'Rancagua'] }]}
@@ -7907,13 +7869,6 @@ carreteras. Por eso se recorren **dos veces**:
     <Pair stack>
       <InputLines head="roads" lines={['Santiago Valparaíso 116', 'Santiago Rancagua 87', 'Rancagua Talca 172', 'Valparaíso Quillota 52', 'Quillota Santiago 125']} at={[2, 1]} read={2} label="La entrada, línea por línea: Santiago Valparaíso 116, Santiago Rancagua 87, Rancagua Talca 172, Valparaíso Quillota 52, Quillota Santiago 125. Se lee Talca, de la línea 3." />
       <div style={{ width: '100%', maxWidth: '560px', margin: '0 auto' }}>
-      <NodeGraph
-        cols={10}
-        rows={2}
-        nodes={[{ v: '0 Santiago', x: 4, y: 1 }, { v: '1 Valparaíso', x: 0.6, y: 1 }, { v: '2 Rancagua', x: 6.6, y: 1 }, { v: '3 Talca', x: 9, y: 1 }]}
-        edges={[]}
-        label="Las ciudades numeradas hasta ahora: 0 Santiago, 1 Valparaíso, 2 Rancagua, 3 Talca."
-      />
       </div>
       <ArrayRows
         rows={[{ name: 'names', cells: ['Santiago', 'Valparaíso', 'Rancagua', 'Talca'] }, { name: 'ids', cells: [0, 1, 2, 3], head: ['Santiago', 'Valparaíso', 'Rancagua', 'Talca'] }]}
@@ -7928,13 +7883,6 @@ carreteras. Por eso se recorren **dos veces**:
     <Pair stack>
       <InputLines head="roads" lines={['Santiago Valparaíso 116', 'Santiago Rancagua 87', 'Rancagua Talca 172', 'Valparaíso Quillota 52', 'Quillota Santiago 125']} at={[3, 0]} read={3} label="La entrada, línea por línea: Santiago Valparaíso 116, Santiago Rancagua 87, Rancagua Talca 172, Valparaíso Quillota 52, Quillota Santiago 125. Se lee Valparaíso, de la línea 4." />
       <div style={{ width: '100%', maxWidth: '560px', margin: '0 auto' }}>
-      <NodeGraph
-        cols={10}
-        rows={2}
-        nodes={[{ v: '0 Santiago', x: 4, y: 1 }, { v: '1 Valparaíso', x: 0.6, y: 1 }, { v: '2 Rancagua', x: 6.6, y: 1 }, { v: '3 Talca', x: 9, y: 1 }]}
-        edges={[]}
-        label="Las ciudades numeradas hasta ahora: 0 Santiago, 1 Valparaíso, 2 Rancagua, 3 Talca."
-      />
       </div>
       <ArrayRows
         rows={[{ name: 'names', cells: ['Santiago', 'Valparaíso', 'Rancagua', 'Talca'] }, { name: 'ids', cells: [0, 1, 2, 3], head: ['Santiago', 'Valparaíso', 'Rancagua', 'Talca'] }]}
@@ -7949,13 +7897,6 @@ carreteras. Por eso se recorren **dos veces**:
     <Pair stack>
       <InputLines head="roads" lines={['Santiago Valparaíso 116', 'Santiago Rancagua 87', 'Rancagua Talca 172', 'Valparaíso Quillota 52', 'Quillota Santiago 125']} at={[3, 1]} read={3} label="La entrada, línea por línea: Santiago Valparaíso 116, Santiago Rancagua 87, Rancagua Talca 172, Valparaíso Quillota 52, Quillota Santiago 125. Se lee Quillota, de la línea 4." />
       <div style={{ width: '100%', maxWidth: '560px', margin: '0 auto' }}>
-      <NodeGraph
-        cols={10}
-        rows={2}
-        nodes={[{ v: '0 Santiago', x: 4, y: 1 }, { v: '1 Valparaíso', x: 0.6, y: 1 }, { v: '2 Rancagua', x: 6.6, y: 1 }, { v: '3 Talca', x: 9, y: 1 }, { v: '4 Quillota', x: 2.3, y: 0 }]}
-        edges={[]}
-        label="Las ciudades numeradas hasta ahora: 0 Santiago, 1 Valparaíso, 2 Rancagua, 3 Talca, 4 Quillota."
-      />
       </div>
       <ArrayRows
         rows={[{ name: 'names', cells: ['Santiago', 'Valparaíso', 'Rancagua', 'Talca', 'Quillota'] }, { name: 'ids', cells: [0, 1, 2, 3, 4], head: ['Santiago', 'Valparaíso', 'Rancagua', 'Talca', 'Quillota'] }]}
@@ -7970,13 +7911,6 @@ carreteras. Por eso se recorren **dos veces**:
     <Pair stack>
       <InputLines head="roads" lines={['Santiago Valparaíso 116', 'Santiago Rancagua 87', 'Rancagua Talca 172', 'Valparaíso Quillota 52', 'Quillota Santiago 125']} at={[4, 0]} read={4} label="La entrada, línea por línea: Santiago Valparaíso 116, Santiago Rancagua 87, Rancagua Talca 172, Valparaíso Quillota 52, Quillota Santiago 125. Se lee Quillota, de la línea 5." />
       <div style={{ width: '100%', maxWidth: '560px', margin: '0 auto' }}>
-      <NodeGraph
-        cols={10}
-        rows={2}
-        nodes={[{ v: '0 Santiago', x: 4, y: 1 }, { v: '1 Valparaíso', x: 0.6, y: 1 }, { v: '2 Rancagua', x: 6.6, y: 1 }, { v: '3 Talca', x: 9, y: 1 }, { v: '4 Quillota', x: 2.3, y: 0 }]}
-        edges={[]}
-        label="Las ciudades numeradas hasta ahora: 0 Santiago, 1 Valparaíso, 2 Rancagua, 3 Talca, 4 Quillota."
-      />
       </div>
       <ArrayRows
         rows={[{ name: 'names', cells: ['Santiago', 'Valparaíso', 'Rancagua', 'Talca', 'Quillota'] }, { name: 'ids', cells: [0, 1, 2, 3, 4], head: ['Santiago', 'Valparaíso', 'Rancagua', 'Talca', 'Quillota'] }]}
@@ -7991,13 +7925,6 @@ carreteras. Por eso se recorren **dos veces**:
     <Pair stack>
       <InputLines head="roads" lines={['Santiago Valparaíso 116', 'Santiago Rancagua 87', 'Rancagua Talca 172', 'Valparaíso Quillota 52', 'Quillota Santiago 125']} at={[4, 1]} read={4} label="La entrada, línea por línea: Santiago Valparaíso 116, Santiago Rancagua 87, Rancagua Talca 172, Valparaíso Quillota 52, Quillota Santiago 125. Se lee Santiago, de la línea 5." />
       <div style={{ width: '100%', maxWidth: '560px', margin: '0 auto' }}>
-      <NodeGraph
-        cols={10}
-        rows={2}
-        nodes={[{ v: '0 Santiago', x: 4, y: 1 }, { v: '1 Valparaíso', x: 0.6, y: 1 }, { v: '2 Rancagua', x: 6.6, y: 1 }, { v: '3 Talca', x: 9, y: 1 }, { v: '4 Quillota', x: 2.3, y: 0 }]}
-        edges={[]}
-        label="Las ciudades numeradas hasta ahora: 0 Santiago, 1 Valparaíso, 2 Rancagua, 3 Talca, 4 Quillota."
-      />
       </div>
       <ArrayRows
         rows={[{ name: 'names', cells: ['Santiago', 'Valparaíso', 'Rancagua', 'Talca', 'Quillota'] }, { name: 'ids', cells: [0, 1, 2, 3, 4], head: ['Santiago', 'Valparaíso', 'Rancagua', 'Talca', 'Quillota'] }]}
@@ -8143,9 +8070,9 @@ carreteras. Por eso se recorren **dos veces**:
 </Slide>
 
 <Slide title="Ciudad vecina · todas las carreteras por ciudad">
-La solución más directa sigue la pregunta al pie de la letra: para cada
-ciudad, leer todas las carreteras y quedarse con la más corta de las que la
-tocan.
+Sin usar el grafo, la solución más directa sigue la pregunta al pie de la
+letra sobre la entrada: para cada ciudad, leer todas las carreteras de
+`roads` y quedarse con la más corta de las que la tocan.
 
 <Pair>
   <InputLines head="roads" lines={['Santiago Valparaíso 116', 'Santiago Rancagua 87', 'Rancagua Talca 172', 'Valparaíso Quillota 52', 'Quillota Santiago 125']} at={[2]} read={5} label="Las carreteras, una por línea: Santiago Valparaíso 116, Santiago Rancagua 87, Rancagua Talca 172, Valparaíso Quillota 52, Quillota Santiago 125. Para Talca se leen las cinco; solo la tercera, Rancagua Talca 172, es suya." />
@@ -8168,8 +8095,9 @@ $$10^8$$ por segundo, tarda $$200$$ segundos: más de tres minutos.
 <Slide title="Ciudad vecina · la idea">
 Para hacerlo mejor, cada ciudad mira **solo sus carreteras**:
 
-1. **Las listas ya las tienen juntas.** La lista de cada ciudad guarda un
-   `Edge` por cada carretera suya, con la ciudad a la que llega y su largo.
+1. **El modelo ya las juntó.** En las listas con pesos, la lista de cada
+   ciudad guarda un `Edge` por cada carretera suya, con la ciudad a la que
+   llega y su largo: no hace falta buscarlas entre todas.
 2. **La vecina más cercana es el menor peso de su lista.** Se recorre la
    lista una vez, recordando el `Edge` más corto visto hasta ahora; en un
    empate se queda el que llegó primero.
@@ -8599,7 +8527,7 @@ vacía:
     edges={[['Talca', 'Linares', 50], ['Talca', 'Curicó', 50]]}
     markEdges={[['Talca', 'Linares']]}
     tones={{ Talca: 'mark', Linares: 'keep' }}
-    caption="Talca empata en 50: gana Linares, que aparece primero"
+    caption="Talca Linares 50 y Talca Curicó 50: empatan; gana Linares, la primera"
     label="Talca con Linares a 50 y con Curicó a 50. Empatan, y gana Linares, la primera de la lista de Talca, porque la comparación es estricta."
   />
   <div style={{ fontSize: '0.9rem', lineHeight: 1.5, textAlign: 'center' }}>Sin carreteras no hay ciudades: el método retorna un arreglo vacío.</div>
@@ -8735,7 +8663,7 @@ check(Solution.nearest(new String[] {}), new String[] {});
 {/* MazeGrid — a maze as a grid of cells: `grid` is its rows, '#' a wall drawn solid and '.' a free cell drawn on the surface. `notes` writes a text in a free cell, keyed 'row,col' (its degree, in the maze's slides), and `tones` paints a free cell mark, keep or flag, keyed the same way. `ways` (4 or 8) draws the maze's graph over it: a vertex in each free cell and an edge to each free neighbour, with the note inside the vertex; `markEdges` thickens the edges given as ['r,c', 'r,c'] pairs. File-local: only the maze exercise draws one. */}
 
 export function MazeGrid({ grid, notes = {}, tones = {}, ways, markEdges = [], caption, label }) {
-  const cell = 36;
+  const cell = 46;
   const pad = 12;
   const rows = grid.length;
   const cols = grid[0].length;
@@ -8880,7 +8808,7 @@ comparte una esquina, en diagonal.
 
 Un **callejón sin salida** es una celda libre que tiene exactamente una celda
 libre vecina: se entra y solo se puede volver. Una celda libre sin vecinas
-libres no es un callejón, porque no tiene salida a ninguna.
+libres no es un callejón, porque no lleva a ninguna.
 
 **Implemente** el método:
 
@@ -8888,8 +8816,8 @@ libres no es un callejón, porque no tiene salida a ninguna.
 
 **Entrada:**
 
-- `grid`: el laberinto, una fila por `String`, todas del mismo largo, con a lo
-  más $$1000 \times 1000$$ celdas.
+- `grid`: el laberinto, una fila por `String`, todas del mismo largo: $$R$$
+  filas y $$C$$ columnas, con $$R, C \le 1000$$.
 - `diagonals`: `true` si también se avanza en diagonal.
 
 **Salida:**
@@ -9047,18 +8975,20 @@ lista por celda libre, recorre la grilla agregando una arista por cada par de
 celdas libres vecinas, y al final cuenta los vértices cuya lista tiene un
 solo vecino.
 
-**¿Cuánto cuesta?** En tiempo, recorrer la grilla para construirlo y otra vez
-para contar: unos $$2 \cdot 10^6$$ pasos, poco. El costo está en la memoria:
+**¿Cuánto cuesta?** En tiempo, construirlo mira hasta 8 vecinas por celda,
+unos $$8 \cdot 10^6$$ pasos: menos de una décima de segundo. El costo está en
+la memoria:
 
 $$
-V + 2E \approx 10^6 + 8 \cdot 10^6 = 9 \cdot 10^6 \text{ entradas}
+V + 2E \approx 10^6 \text{ listas} + 8 \cdot 10^6 \text{ entradas}
 $$
 
-En Java, cada entrada de una lista es un objeto, y un millón de listas con sus
-nueve millones de entradas ocupan cientos de megabytes.
+En Java cada entrada de una lista es un objeto, y un millón de listas con
+ocho millones de entradas ocupan cientos de megabytes. La grilla, en cambio,
+son $$10^6$$ caracteres: unos 2 MB.
 
-**La memoria es $$\Theta(R \cdot C)$$**, además de la grilla, para guardar algo
-que la grilla ya dice: quién es vecino de quién.
+**La memoria es cien veces la de la grilla**, para guardar algo que la grilla
+ya dice: quién es vecino de quién.
 
 **¿Se puede hacer mejor?**
 
@@ -9120,21 +9050,21 @@ celda libre de grado 1 suma un callejón. La caminata es sin diagonales.
 <StepShow
   language="java"
   beside
+  ratio="60/40"
   title="deadEnds(maze, false)"
   program={`int count = Solution.deadEnds(maze, false);`}
   codeSrc="./26-grafos-tda-modelado.code/laberinto/Solution.java"
   codeRange="24-37"
 >
-  <Step lines={[25, 26, 27]} programLines={[1]}>
+  <Step lines={[25, 26, 27]} programLines={[1]} under={<OutputBox head="count" lines={['0']} rows={2} fresh label="count: 0." />}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>Sin diagonales: dr y dc son los de 4 vecinas, y count empieza en 0.</div>
     <MazeGrid
       grid={['...#.', '#.##.', '#....', '#.###']}
       ways={4}
       label="El laberinto con su grafo en 4-vecindad. Grados escritos hasta ahora: fila 0, libre, libre, libre, muro, libre; fila 1, muro, libre, muro, muro, libre; fila 2, muro, libre, libre, libre, libre; fila 3, muro, libre, muro, muro, muro. count = 0."
     />
-    <OutputBox head="count" lines={['0']} rows={2} fresh label="count: 0." />
   </Step>
-  <Step lines={[28, 29, 30, 31, 32]} programLines={[1]}>
+  <Step lines={[28, 29, 30, 31, 32]} programLines={[1]} under={<OutputBox head="count" lines={['1']} rows={2} fresh label="count: 1." />}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>(0, 0): libre, con 1 vecina libre. Es un callejón: count = 1.</div>
     <MazeGrid
       grid={['...#.', '#.##.', '#....', '#.###']}
@@ -9144,9 +9074,8 @@ celda libre de grado 1 suma un callejón. La caminata es sin diagonales.
       markEdges={[['0,0', '0,1']]}
       label="El laberinto con su grafo en 4-vecindad. Grados escritos hasta ahora: fila 0, 1, libre, libre, muro, libre; fila 1, muro, libre, muro, muro, libre; fila 2, muro, libre, libre, libre, libre; fila 3, muro, libre, muro, muro, muro. Destacada la celda (0, 0), y marcadas sus aristas. count = 1."
     />
-    <OutputBox head="count" lines={['1']} rows={2} fresh label="count: 1." />
   </Step>
-  <Step lines={[28, 29, 30, 31]} programLines={[1]}>
+  <Step lines={[28, 29, 30, 31]} programLines={[1]} under={<OutputBox head="count" lines={['1']} rows={2} label="count: 1." />}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>(0, 1): libre, con 3 vecinas libres. No es un callejón.</div>
     <MazeGrid
       grid={['...#.', '#.##.', '#....', '#.###']}
@@ -9156,9 +9085,8 @@ celda libre de grado 1 suma un callejón. La caminata es sin diagonales.
       markEdges={[['0,1', '1,1'], ['0,1', '0,0'], ['0,1', '0,2']]}
       label="El laberinto con su grafo en 4-vecindad. Grados escritos hasta ahora: fila 0, 1, 3, libre, muro, libre; fila 1, muro, libre, muro, muro, libre; fila 2, muro, libre, libre, libre, libre; fila 3, muro, libre, muro, muro, muro. Destacada la celda (0, 1), y marcadas sus aristas. count = 1."
     />
-    <OutputBox head="count" lines={['1']} rows={2} label="count: 1." />
   </Step>
-  <Step lines={[28, 29, 30, 31, 32]} programLines={[1]}>
+  <Step lines={[28, 29, 30, 31, 32]} programLines={[1]} under={<OutputBox head="count" lines={['2']} rows={2} fresh label="count: 2." />}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>(0, 2): libre, con 1 vecina libre. Es un callejón: count = 2.</div>
     <MazeGrid
       grid={['...#.', '#.##.', '#....', '#.###']}
@@ -9168,9 +9096,8 @@ celda libre de grado 1 suma un callejón. La caminata es sin diagonales.
       markEdges={[['0,2', '0,1']]}
       label="El laberinto con su grafo en 4-vecindad. Grados escritos hasta ahora: fila 0, 1, 3, 1, muro, libre; fila 1, muro, libre, muro, muro, libre; fila 2, muro, libre, libre, libre, libre; fila 3, muro, libre, muro, muro, muro. Destacada la celda (0, 2), y marcadas sus aristas. count = 2."
     />
-    <OutputBox head="count" lines={['2']} rows={2} fresh label="count: 2." />
   </Step>
-  <Step lines={[28, 29, 30]} programLines={[1]}>
+  <Step lines={[28, 29, 30]} programLines={[1]} under={<OutputBox head="count" lines={['2']} rows={2} label="count: 2." />}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>(0, 3) es muro: free es false, y el && no llama a degree.</div>
     <MazeGrid
       grid={['...#.', '#.##.', '#....', '#.###']}
@@ -9179,9 +9106,8 @@ celda libre de grado 1 suma un callejón. La caminata es sin diagonales.
       ways={4}
       label="El laberinto con su grafo en 4-vecindad. Grados escritos hasta ahora: fila 0, 1, 3, 1, muro, libre; fila 1, muro, libre, muro, muro, libre; fila 2, muro, libre, libre, libre, libre; fila 3, muro, libre, muro, muro, muro. Destacada la celda (0, 3), y marcadas sus aristas. count = 2."
     />
-    <OutputBox head="count" lines={['2']} rows={2} label="count: 2." />
   </Step>
-  <Step lines={[28, 29, 30, 31, 32]} programLines={[1]}>
+  <Step lines={[28, 29, 30, 31, 32]} programLines={[1]} under={<OutputBox head="count" lines={['3']} rows={2} fresh label="count: 3." />}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>(0, 4): libre, con 1 vecina libre. Es un callejón: count = 3.</div>
     <MazeGrid
       grid={['...#.', '#.##.', '#....', '#.###']}
@@ -9191,9 +9117,8 @@ celda libre de grado 1 suma un callejón. La caminata es sin diagonales.
       markEdges={[['0,4', '1,4']]}
       label="El laberinto con su grafo en 4-vecindad. Grados escritos hasta ahora: fila 0, 1, 3, 1, muro, 1; fila 1, muro, libre, muro, muro, libre; fila 2, muro, libre, libre, libre, libre; fila 3, muro, libre, muro, muro, muro. Destacada la celda (0, 4), y marcadas sus aristas. count = 3."
     />
-    <OutputBox head="count" lines={['3']} rows={2} fresh label="count: 3." />
   </Step>
-  <Step lines={[28, 29, 30, 31]} programLines={[1]}>
+  <Step lines={[28, 29, 30, 31]} programLines={[1]} under={<OutputBox head="count" lines={['3']} rows={2} label="count: 3." />}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>(1, 1): libre, con 2 vecinas libres. No es un callejón.</div>
     <MazeGrid
       grid={['...#.', '#.##.', '#....', '#.###']}
@@ -9203,9 +9128,8 @@ celda libre de grado 1 suma un callejón. La caminata es sin diagonales.
       markEdges={[['1,1', '0,1'], ['1,1', '2,1']]}
       label="El laberinto con su grafo en 4-vecindad. Grados escritos hasta ahora: fila 0, 1, 3, 1, muro, 1; fila 1, muro, 2, muro, muro, libre; fila 2, muro, libre, libre, libre, libre; fila 3, muro, libre, muro, muro, muro. Destacada la celda (1, 1), y marcadas sus aristas. count = 3."
     />
-    <OutputBox head="count" lines={['3']} rows={2} label="count: 3." />
   </Step>
-  <Step lines={[28, 29, 30, 31]} programLines={[1]}>
+  <Step lines={[28, 29, 30, 31]} programLines={[1]} under={<OutputBox head="count" lines={['3']} rows={2} label="count: 3." />}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>(1, 4): libre, con 2 vecinas libres. No es un callejón.</div>
     <MazeGrid
       grid={['...#.', '#.##.', '#....', '#.###']}
@@ -9215,9 +9139,8 @@ celda libre de grado 1 suma un callejón. La caminata es sin diagonales.
       markEdges={[['1,4', '0,4'], ['1,4', '2,4']]}
       label="El laberinto con su grafo en 4-vecindad. Grados escritos hasta ahora: fila 0, 1, 3, 1, muro, 1; fila 1, muro, 2, muro, muro, 2; fila 2, muro, libre, libre, libre, libre; fila 3, muro, libre, muro, muro, muro. Destacada la celda (1, 4), y marcadas sus aristas. count = 3."
     />
-    <OutputBox head="count" lines={['3']} rows={2} label="count: 3." />
   </Step>
-  <Step lines={[28, 29, 30, 31]} programLines={[1]}>
+  <Step lines={[28, 29, 30, 31]} programLines={[1]} under={<OutputBox head="count" lines={['3']} rows={2} label="count: 3." />}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>(2, 1): libre, con 3 vecinas libres. No es un callejón.</div>
     <MazeGrid
       grid={['...#.', '#.##.', '#....', '#.###']}
@@ -9227,9 +9150,8 @@ celda libre de grado 1 suma un callejón. La caminata es sin diagonales.
       markEdges={[['2,1', '1,1'], ['2,1', '3,1'], ['2,1', '2,2']]}
       label="El laberinto con su grafo en 4-vecindad. Grados escritos hasta ahora: fila 0, 1, 3, 1, muro, 1; fila 1, muro, 2, muro, muro, 2; fila 2, muro, 3, libre, libre, libre; fila 3, muro, libre, muro, muro, muro. Destacada la celda (2, 1), y marcadas sus aristas. count = 3."
     />
-    <OutputBox head="count" lines={['3']} rows={2} label="count: 3." />
   </Step>
-  <Step lines={[28, 29, 30, 31]} programLines={[1]}>
+  <Step lines={[28, 29, 30, 31]} programLines={[1]} under={<OutputBox head="count" lines={['3']} rows={2} label="count: 3." />}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>(2, 2): libre, con 2 vecinas libres. No es un callejón.</div>
     <MazeGrid
       grid={['...#.', '#.##.', '#....', '#.###']}
@@ -9239,9 +9161,8 @@ celda libre de grado 1 suma un callejón. La caminata es sin diagonales.
       markEdges={[['2,2', '2,1'], ['2,2', '2,3']]}
       label="El laberinto con su grafo en 4-vecindad. Grados escritos hasta ahora: fila 0, 1, 3, 1, muro, 1; fila 1, muro, 2, muro, muro, 2; fila 2, muro, 3, 2, libre, libre; fila 3, muro, libre, muro, muro, muro. Destacada la celda (2, 2), y marcadas sus aristas. count = 3."
     />
-    <OutputBox head="count" lines={['3']} rows={2} label="count: 3." />
   </Step>
-  <Step lines={[28, 29, 30, 31]} programLines={[1]}>
+  <Step lines={[28, 29, 30, 31]} programLines={[1]} under={<OutputBox head="count" lines={['3']} rows={2} label="count: 3." />}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>(2, 3): libre, con 2 vecinas libres. No es un callejón.</div>
     <MazeGrid
       grid={['...#.', '#.##.', '#....', '#.###']}
@@ -9251,9 +9172,8 @@ celda libre de grado 1 suma un callejón. La caminata es sin diagonales.
       markEdges={[['2,3', '2,2'], ['2,3', '2,4']]}
       label="El laberinto con su grafo en 4-vecindad. Grados escritos hasta ahora: fila 0, 1, 3, 1, muro, 1; fila 1, muro, 2, muro, muro, 2; fila 2, muro, 3, 2, 2, libre; fila 3, muro, libre, muro, muro, muro. Destacada la celda (2, 3), y marcadas sus aristas. count = 3."
     />
-    <OutputBox head="count" lines={['3']} rows={2} label="count: 3." />
   </Step>
-  <Step lines={[28, 29, 30, 31]} programLines={[1]}>
+  <Step lines={[28, 29, 30, 31]} programLines={[1]} under={<OutputBox head="count" lines={['3']} rows={2} label="count: 3." />}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>(2, 4): libre, con 2 vecinas libres. No es un callejón.</div>
     <MazeGrid
       grid={['...#.', '#.##.', '#....', '#.###']}
@@ -9263,9 +9183,8 @@ celda libre de grado 1 suma un callejón. La caminata es sin diagonales.
       markEdges={[['2,4', '1,4'], ['2,4', '2,3']]}
       label="El laberinto con su grafo en 4-vecindad. Grados escritos hasta ahora: fila 0, 1, 3, 1, muro, 1; fila 1, muro, 2, muro, muro, 2; fila 2, muro, 3, 2, 2, 2; fila 3, muro, libre, muro, muro, muro. Destacada la celda (2, 4), y marcadas sus aristas. count = 3."
     />
-    <OutputBox head="count" lines={['3']} rows={2} label="count: 3." />
   </Step>
-  <Step lines={[28, 29, 30, 31, 32]} programLines={[1]}>
+  <Step lines={[28, 29, 30, 31, 32]} programLines={[1]} under={<OutputBox head="count" lines={['4']} rows={2} fresh label="count: 4." />}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>(3, 1): libre, con 1 vecina libre. Es un callejón: count = 4.</div>
     <MazeGrid
       grid={['...#.', '#.##.', '#....', '#.###']}
@@ -9275,9 +9194,8 @@ celda libre de grado 1 suma un callejón. La caminata es sin diagonales.
       markEdges={[['3,1', '2,1']]}
       label="El laberinto con su grafo en 4-vecindad. Grados escritos hasta ahora: fila 0, 1, 3, 1, muro, 1; fila 1, muro, 2, muro, muro, 2; fila 2, muro, 3, 2, 2, 2; fila 3, muro, 1, muro, muro, muro. Destacada la celda (3, 1), y marcadas sus aristas. count = 4."
     />
-    <OutputBox head="count" lines={['4']} rows={2} fresh label="count: 4." />
   </Step>
-  <Step lines={[36]} programLines={[1]}>
+  <Step lines={[36]} programLines={[1]} under={<OutputBox head="count" lines={['4', 'retorna 4']} rows={2} fresh label="count: 4, retorna 4." />}>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>Retorna 4: los cuatro vértices de grado 1.</div>
     <MazeGrid
       grid={['...#.', '#.##.', '#....', '#.###']}
@@ -9286,7 +9204,6 @@ celda libre de grado 1 suma un callejón. La caminata es sin diagonales.
       ways={4}
       label="El laberinto con su grafo en 4-vecindad. Grados escritos hasta ahora: fila 0, 1, 3, 1, muro, 1; fila 1, muro, 2, muro, muro, 2; fila 2, muro, 3, 2, 2, 2; fila 3, muro, 1, muro, muro, muro. count = 4."
     />
-    <OutputBox head="count" lines={['4', 'retorna 4']} rows={2} fresh label="count: 4, retorna 4." />
   </Step>
 </StepShow>
 
@@ -9389,7 +9306,7 @@ combinaciones están **prohibidas**: el candado se traba en ellas.
 
 **¿A qué combinaciones se llega con un solo giro?**
 
-Se responden rueda por rueda, de la primera a la última, y en cada rueda
+Se listan rueda por rueda, de la primera a la última, y en cada rueda
 primero el giro hacia arriba y después hacia abajo, saltándose las
 prohibidas. Si la combinación actual está prohibida, el candado está trabado
 y no se llega a ninguna.
@@ -9437,11 +9354,11 @@ seis combinaciones:
 <NodeGraph
   cols={5}
   rows={3}
-  nodes={[{ v: '2234', x: 0, y: 0 }, { v: '0234', x: 1.33, y: 0 }, { v: '1334', x: 2.67, y: 0 }, { v: '1134', x: 4, y: 0 }, { v: '1234', x: 2, y: 1 }, { v: '1244', x: 0, y: 2 }, { v: '1224', x: 1.33, y: 2 }, { v: '1235', x: 2.67, y: 2 }, { v: '1233', x: 4, y: 2 }]}
-  edges={[['1234', '2234'], ['1234', '0234'], ['1234', '1334'], ['1234', '1134'], ['1234', '1244'], ['1234', '1224'], ['1234', '1235'], ['1234', '1233']]}
-  tones={{ '1234': 'mark' }}
-  caption="cada combinación tiene 8 vecinas: cada rueda, una hacia arriba y una hacia abajo"
-  label="1234, destacada, unida a sus ocho vecinas a un giro: 2234 y 0234 por la primera rueda, 1334 y 1134 por la segunda, 1244 y 1224 por la tercera, 1235 y 1233 por la cuarta."
+  nodes={[{ v: '1000', x: 0, y: 0 }, { v: '9000', x: 1.33, y: 0 }, { v: '0100', x: 2.67, y: 0 }, { v: '0900', x: 4, y: 0 }, { v: '0000', x: 2, y: 1 }, { v: '0010', x: 0, y: 2 }, { v: '0090', x: 1.33, y: 2 }, { v: '0001', x: 2.67, y: 2 }, { v: '0009', x: 4, y: 2 }]}
+  edges={[['0000', '1000'], ['0000', '9000'], ['0000', '0100'], ['0000', '0900'], ['0000', '0010'], ['0000', '0090'], ['0000', '0001'], ['0000', '0009']]}
+  tones={{ '0000': 'mark' }}
+  caption="0000 y sus 8 vecinas: cada rueda, una hacia arriba y una hacia abajo"
+  label="0000, destacada, unida a sus ocho vecinas a un giro: 1000 y 9000 por la primera rueda, 0100 y 0900 por la segunda, 0010 y 0090 por la tercera, 0001 y 0009 por la cuarta."
 />
 
 </Slide>
@@ -9481,8 +9398,9 @@ enunciado lo fija:
 
 3. **Las aristas que podría haber.**
    $$\frac{V(V - 1)}{2} \approx \frac{10^8}{2} = 5 \cdot 10^7$$.
-4. **Denso o disperso.** Cada vértice tiene 8 vecinos de $$9999$$ posibles. El
-   grafo es **disperso**.
+4. **Denso o disperso.**
+   $$\frac{4 \cdot 10^4}{5 \cdot 10^7} = \frac{1}{1250}$$: cada vértice tiene 8
+   vecinos de $$9999$$ posibles. El grafo es **disperso**.
 
 </Slide>
 
@@ -9491,13 +9409,13 @@ El grafo no viene en la entrada: para guardarlo habría que generarlo entero,
 las $$10^4$$ combinaciones con sus 8 vecinas, aplicando la regla del giro a
 cada una. Con esos números:
 
-|                         | Matriz                                       | Listas                                                     | La regla, sin guardar                              |
-| ----------------------- | -------------------------------------------- | ---------------------------------------------------------- | -------------------------------------------------- |
-| memoria                 | $$V^2 = 10^8$$ casillas                        | $$V + 2E = 10^4 + 8 \cdot 10^4 = 9 \cdot 10^4$$ entradas     | <span style={{ color: 'var(--color-keep)', fontWeight: 700 }}>nada</span>                                      |
-| armarlo                 | generar las $$4 \cdot 10^4$$ aristas            | generar las $$4 \cdot 10^4$$ aristas                          | <span style={{ color: 'var(--color-keep)', fontWeight: 700 }}>nada</span>                                      |
-| `adj(combo)`            | mirar $$10^4$$ casillas                         | leer 8 entradas                                             | <span style={{ color: 'var(--color-keep)', fontWeight: 700 }}>calcular 8 combinaciones</span>                  |
+|                         | Matriz                                       | Listas                                                     |
+| ----------------------- | -------------------------------------------- | ---------------------------------------------------------- |
+| memoria                 | $$V^2 = 10^8$$ casillas                        | <span style={{ color: 'var(--color-keep)', fontWeight: 700 }}>$$V + 2E = 10^4 + 8 \cdot 10^4 = 9 \cdot 10^4$$ entradas</span> |
+| `adj(combo)`            | mirar $$10^4$$ casillas                         | <span style={{ color: 'var(--color-keep)', fontWeight: 700 }}>leer 8 entradas</span> |
 
-Guardarlo cuesta generar el grafo entero para usar 8 de sus vértices.
+Si se guarda, conviene en listas. Pero en las dos hay que generar las
+$$4 \cdot 10^4$$ aristas antes de responder.
 
 </Slide>
 
@@ -9511,10 +9429,8 @@ En resumen:
 | 3. las que podría haber | $$\frac{V(V - 1)}{2} \approx 5 \cdot 10^7$$     | una por cada par de combinaciones           |
 | 4. denso o disperso     | **disperso**                                 | 8 vecinos de $$9999$$                         |
 
-**La decisión:** el grafo **no se guarda**. Es un **grafo implícito**: los
-vecinos de una combinación se calculan con la regla del giro cuando se
-piden, desde el valor del vértice. Lo único que se guarda son las
-prohibidas, en un conjunto.
+**La decisión, si se guarda:** listas de adyacencia, unas $$9 \cdot 10^4$$
+entradas. La pregunta es si hace falta guardarlo.
 
 </Slide>
 
@@ -9531,10 +9447,12 @@ $$
 
 y la respuesta usa 8 de ellos.
 
-**El tiempo es $$\Theta(10^4)$$ por consulta**, y la memoria
-$$9 \cdot 10^4$$ entradas. Con cuatro ruedas tarda una milésima de segundo,
-pero es diez mil veces lo que la respuesta necesita; con ocho ruedas serían
-$$10^8$$ combinaciones generadas para responder 16.
+**El tiempo es $$\Theta(V)$$ por consulta**, con $$V = 10^4$$ combinaciones, y
+la memoria $$9 \cdot 10^4$$ entradas. Leer las prohibidas cuesta lo mismo de
+cualquier forma; lo que sobra son los giros: $$8 \cdot 10^4$$ para usar 8. Con
+cuatro ruedas tarda una milésima de segundo, pero el grafo crece diez veces
+con cada rueda: con ocho ruedas serían $$10^8$$ combinaciones generadas para
+responder 16.
 
 **¿Se puede hacer mejor?**
 
@@ -9545,29 +9463,20 @@ Para hacerlo mejor, se calculan **solo las 8 vecinas de `combo`**:
 
 1. **Cada rueda da dos vecinas.** Se cambia su dígito por el siguiente y por
    el anterior, y las otras tres ruedas quedan iguales.
-2. **El anterior se calcula sumando 9.** Restarle uno al carácter `'0'` no da
-   `'9'`, da `'/'`: la combinación sale de los dígitos. Pero restar uno
-   **módulo 10** es lo mismo que sumar 9, y sumar 9 nunca sale de los dígitos:
-   $$(0 + 9) \bmod 10 = 9$$.
+2. **La rueda da la vuelta.** El siguiente de 9 es 0, y el anterior de 0 es
+   9: los dígitos se cuentan **módulo 10**. El siguiente de $$d$$ es
+   $$(d + 1) \bmod 10$$, y el anterior, $$(d + 9) \bmod 10$$, que es lo mismo que
+   restar uno sin salir de los dígitos: $$(0 + 9) \bmod 10 = 9$$.
 3. **Las prohibidas van en un conjunto**, que responde si una combinación lo
    es en tiempo constante esperado.
 
-<div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.5rem 2rem', alignItems: 'end' }}>
+<div>
 <ArrayRows
   rows={[{ name: 'arriba', cells: ['1000', '0100', '0010', '0001'], head: ['rueda 0', 'rueda 1', 'rueda 2', 'rueda 3'] }, { name: 'abajo', cells: ['9000', '0900', '0090', '0009'], head: ['rueda 0', 'rueda 1', 'rueda 2', 'rueda 3'] }]}
   mark={[[0, 0], [1, 3]]}
   cell={70}
   caption="las 8 vecinas de 0000; marcadas, las prohibidas"
   label="Las ocho vecinas de 0000, rueda por rueda. Arriba: 1000, 0100, 0010, 0001. Abajo: 9000, 0900, 0090, 0009. Marcadas las prohibidas, 1000 y 0009."
-/>
-<NodeGraph
-  cols={3}
-  rows={1}
-  nodes={[{ v: '0000', x: 0, y: 0 }, { v: '/000', x: 2, y: 0 }]}
-  edges={[['0000', '/000']]}
-  tones={{ '/000': 'flag' }}
-  caption="restando uno al carácter: /000, que no es una combinación"
-  label="0000 unida a /000, en rojo: restar uno al carácter 0 da una barra, no un 9."
 />
 </div>
 
@@ -10023,6 +9932,8 @@ una, necesita lo contrario: quiénes la siguen.
 **¿Quiénes siguen a cada persona?** Para cada persona, la lista de quienes
 la siguen, en el orden en que aparecen en la entrada.
 
+**Implemente** `static List<List<Integer>> followers(int V, int[][] follows)`.
+
 **Entrada:**
 
 - `V`: la cantidad de personas, numeradas de $$0$$ a $$V - 1$$, con
@@ -10091,6 +10002,8 @@ línea.
 **¿Se puede dibujar de un solo trazo, y desde dónde?** Si se puede empezar
 desde cualquier punto, se responde el $$0$$; si solo desde dos, el menor de
 ellos; si no se puede, $$-1$$.
+
+**Implemente** `static int startOf(int V, int[][] strokes)`.
 
 **Entrada:**
 
@@ -10168,6 +10081,8 @@ agua tiene cada jarra, `(a, b)`. Se responden en este orden: llenar la
 primera, llenar la segunda, vaciar la primera, vaciar la segunda, pasar de la
 primera a la segunda y pasar de la segunda a la primera. Un movimiento que
 deja el estado igual no se cuenta.
+
+**Implemente** `static int[][] moves(int A, int B, int a, int b)`.
 
 **Entrada:**
 

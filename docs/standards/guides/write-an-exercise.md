@@ -409,8 +409,10 @@ Three parts: **the statement**, **modelling** and **solving**.
   in green; then the summary table of B3 and **the decision** in bold: which
   class, how much it takes, what that operation costs. If the input already
   **is** an adjacency matrix, it is used as given and B4 says why converting
-  it would cost more; if the graph is **implicit**, it is not stored and B4
-  says which rule gives the neighbours and what applying it costs.
+  it would cost more. If the graph could be **implicit** — the input or a rule
+  already says who neighbours whom — B4 still decides how it would be stored
+  («la decisión, si se guarda») and closes on whether storing it is needed at
+  all: C1 then measures storing it, and C2 is the implicit graph that does not.
 - **B5. How does the input become the graph?** Only when it has to be built:
   each translation the program needs, with **its use in the algorithm**, and
   why the input is read as many times as it is, explained before any code;
@@ -608,8 +610,11 @@ traverses the graph; that is the next class's. All five were rebuilt on the
 graph-exercise protocol above (2026-11-09), «Sugerir amigos» first and with
 Miguel, slide by slide; the other four show its adaptations — an input that
 already is the adjacency matrix (the celebrity), weights (the nearest city),
-and two implicit graphs whose B4 decides not to store anything (the maze,
-the lock), where C1 measures memory or wasted work instead of seconds.
+and two implicit graphs (the maze, the lock), where C1 measures storing
+the graph — memory, or work wasted generating it — and C2 does not store it.
+An adversarial review of the four (2026-11-09) settled that shape: a B4 that
+already decides «no se guarda» leaves C1 measuring a choice the exercise has
+just ruled out.
 
 **Its sibling for the question bank already exists**:
 [`write-control-questions.md`](write-control-questions.md) governs the
