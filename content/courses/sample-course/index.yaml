@@ -42,6 +42,7 @@ entries:
     children:
       - docId: grafos-introduccion
       - docId: grafos-tda-modelado
+      - docId: grafos-recorridos
   - label: Evaluaciones
     children:
       - docId: control-1

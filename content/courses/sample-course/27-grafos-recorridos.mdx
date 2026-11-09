@@ -1,0 +1,90 @@
+---
+id: grafos-recorridos
+title: Grafos · Recorridos
+presentation: explicit
+questions: none
+---
+
+{/* `none` is a not-yet: the question bank is its own WP after the merge, */}
+{/* as for every class of the Grafos unit (epic #354). */}
+
+{/* Skeleton laid in #357 S2 from the arc map approved with Miguel on */}
+{/* 2026-11-09: three arcs, one per tool (DFS, BFS, Kahn), each in six beats */}
+{/* — the question on a situation already seen, what the student knows tried */}
+{/* and failing with a drawn counterexample, the idea, the code, the */}
+{/* applications, the question it leaves open. Each arc's slides are planned */}
+{/* with Miguel before they are written (S4, S9, S14); the comment that opens */}
+{/* each section says what goes there. Section titles are settled then. */}
+
+# Grafos · Recorridos
+
+Desde la entrada de un laberinto, ¿se llega a la salida? Y si se llega, ¿con
+cuántos pasos, como mínimo? En una malla, ¿en qué orden se toman los ramos?
+Ninguna de estas preguntas se responde mirando un vértice y sus vecinos: hay
+que **recorrer** el grafo, de vecino en vecino, sin perderse en sus ciclos. El
+orden en que se recorre decide qué pregunta responde.
+
+<SectionBreak />
+
+## Búsqueda en profundidad
+
+{/* Arc I · DFS (#357 §The arc map; slides planned in S4, written in S6-S7). */}
+{/* The maze of class 2: from the entrance, can you reach the exit? The tree */}
+{/* preorder walks back over the edge it came in by; Trémaux's chalk marks */}
+{/* the visited cells and Teseo's thread is prev[]; DFS recursive, then */}
+{/* iterative (the 1000 x 1000 maze overflows Java's stack; marking on push */}
+{/* is not depth-first order); its cost, with the sweep over every neighbour */}
+{/* archived by #363. Applications: alcanzabilidad, componentes conexas. */}
+{/* Leaves open: DFS finds a path, not the shortest one. */}
+
+<SectionBreak />
+
+## Búsqueda en anchura
+
+{/* Arc II · BFS (slides planned in S9, written in S11-S12). The same maze: */}
+{/* how many steps at least? DFS's path beside the shortest; layers are the */}
+{/* tree level order marking on enqueue; the two-layer invariant; dist[] and */}
+{/* prev[]. Applications: camino más corto sin pesos, grafo bipartito. Closes */}
+{/* with la bolsa. Leaves open: no traversal gives an order that respects */}
+{/* every arrow. */}
+
+<SectionBreak />
+
+## Orden topológico
+
+{/* Arc III · Kahn (slides planned in S14, written in S16). The malla of */}
+{/* class 1: in what order are the courses taken? Both traversal orders break */}
+{/* a prerequisite; «en una línea, todas las flechas a la derecha»; every DAG */}
+{/* has a source; Kahn with the in-degrees (the archived inDegrees walk); the */}
+{/* cycle from the vertices left over; several valid orders. Applications: */}
+{/* the semesters, circular references, a recipe. Leaves open: the questions */}
+{/* with a number on each edge. */}
+
+<SectionBreak />
+
+## Las preguntas de un recorrido
+
+{/* S18: one markdown table with only the questions this document raised — */}
+{/* named problem · question · situations seen · tool (epic #354, «Dónde */}
+{/* aparecen las tablas»). */}
+
+<SectionBreak />
+
+## Ejercicios
+
+{/* S19-S22, worked, on slides: las islas de un mapa satelital, el barquero, */}
+{/* la escalera de palabras, ¿es posible la malla?. Each modelled from */}
+{/* scratch with #363's graph-exercise pattern and a runnable <Exercise>. */}
+{/* S23: the posed exercises, in the book only, with `solution`. */}
+
+<SectionBreak />
+
+## Más allá de los recorridos
+
+{/* S24: the topological order by reverse DFS postorder, said plainly as the */}
+{/* method most texts use; strongly connected components. */}
+
+## Lo que sigue
+
+{/* S24: conectar todas las comunas gastando lo mínimo, with the wiki-link */}
+{/* to #358's document once it exists. */}
